@@ -1,0 +1,37 @@
+.alle-ting {
+    position: fixed;
+    padding: 0;
+    margin: 0;
+
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-wrap: wrap;
+}
+
+h1 {
+    margin: 0;
+}
+
+.thing {
+    text-align: center;
+    padding: 3em;
+    border-radius: 3px;
+    box-shadow: 3px 3px 4px #bcbcbc;
+    margin: 1em;
+    background-color: #FF8C00;
+    flex: 1 0 auto;
+}
+
+.thing:hover {
+    box-shadow: 4px 4px 8px #bcbcbc;
+    background-color: #eb7b00;
+}
+
+.thing:active {
+    box-shadow: 1px 1px 1px #bcbcbc;
+    background-color: #eb7b00;
+}
