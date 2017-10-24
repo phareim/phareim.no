@@ -15,4 +15,7 @@ export class ThingComponent implements OnInit {
     ngOnInit() {
     }
 
+    clickEvent() {
+        console.log(this.thing.title);
+    }
 }
