@@ -1,5 +1,3 @@
 <div class="alle-ting">
-    <div class="thing" *ngFor="let thing of things">
-        <h1>{{thing.title}}</h1>
-    </div>
+    <app-thing [thing]="thing" *ngFor="let thing of things"></app-thing>
 </div>
