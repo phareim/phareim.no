@@ -15,6 +15,9 @@ export class AppComponent implements OnInit {
 
     ngOnInit(): void {
         const number = Math.floor(Math.random() * 70) + 30;
+        this.things.push(<Thing>{title: 'Ærlig talt.'});
+        this.things.push(<Thing>{title: '', icon: 'fa-twitter', url: 'https://twitter.com/phareim'});
+        this.things.push(<Thing>{title: 'Work'});
         for (let i = 1; i < number; i++) {
             this.things.push(<Thing>{title: i.toString()});
         }
