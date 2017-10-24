@@ -1,0 +1,25 @@
+.p {
+    position: fixed;
+    padding: 1em;
+    margin: 0;
+
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.back {
+    position: fixed;
+    right: 1em;
+    bottom: 1em;
+}
+.back:hover {
+    text-shadow: #bcbcbc;
+}
+.back:active {
+    border: 0;
+}
