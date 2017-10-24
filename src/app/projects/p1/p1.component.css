@@ -11,15 +11,3 @@
     display: flex;
     flex-wrap: wrap;
 }
-
-.back {
-    position: fixed;
-    right: 1em;
-    bottom: 1em;
-}
-.back:hover {
-    text-shadow: #bcbcbc;
-}
-.back:active {
-    border: 0;
-}

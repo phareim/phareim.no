@@ -1,5 +1,6 @@
 import {Component, OnInit} from '@angular/core';
 import {Thing} from '../c/thing';
+import {Color} from '../s/color';
 
 @Component({
     selector: 'app-things',
@@ -15,14 +16,21 @@ export class ThingsComponent implements OnInit {
     ngOnInit() {
         console.log('all the things!!');
         const number = Math.floor(Math.random() * 70) + 30;
-        this.things.push(<Thing>{title: 'Ærlig talt.'});
-        this.things.push(<Thing>{title: '', icon: 'fa-twitter'});
-        this.things.push(<Thing>{title: 'Work'});
+        this.things.push(<Thing>{title: 'Ærlig talt.', color: Color.getRandomColor()});
+        this.things.push(<Thing>{title: '', icon: 'fa-twitter', color: Color.getRandomColor()});
+        this.things.push(<Thing>{title: 'Work', color: Color.getRandomColor(), clickEvent: this.changeColor});
         for (let i = 1; i < number; i++) {
-            this.things.push(<Thing>{title: i.toString()});
+            this.things.push(<Thing>{title: i.toString(), color: Color.getRandomColor()});
+            if (i % 7 === 0) {
+                this.things[this.things.length - 1].clickEvent = this.changeColor;
+            }
         }
         this.shuffle(this.things);
 
+    }
+
+    changeColor(t: Thing) {
+        t.color = Color.getRandomColor();
     }
 
     shuffle(array: any[]): any[] {

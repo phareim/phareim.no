@@ -1,4 +1,4 @@
-import {Component, Input, OnInit} from '@angular/core';
+import {Component, ElementRef, Input, OnInit, Renderer} from '@angular/core';
 import {Thing} from '../c/thing';
 
 @Component({
@@ -8,6 +8,7 @@ import {Thing} from '../c/thing';
 })
 export class ThingComponent implements OnInit {
     @Input() thing: Thing;
+    display = 'block';
 
     constructor() {
     }
@@ -15,7 +16,12 @@ export class ThingComponent implements OnInit {
     ngOnInit() {
     }
 
-    clickEvent() {
-        console.log(this.thing.title);
+    clickEvent(t: Thing) {
+        if (this.thing.clickEvent) {
+            t.clickEvent(t);
+        } else {
+            console.log(this.thing.title);
+            this.display = 'none';
+        }
     }
 }

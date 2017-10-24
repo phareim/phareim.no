@@ -1,4 +1,7 @@
-<div class="thing" (click)="clickEvent()" routerLink="/p/{{thing.title}}">
+<div class="thing" (click)="clickEvent(thing)"
+     routerLink="/{{thing.title}}"
+     [style.background-color]="thing.color"
+[style.display]="display">
     <h1 *ngIf="!thing.icon">{{thing.title}}</h1>
     <h1 *ngIf="thing.icon"><i class="fa {{thing.icon}}" style="font-size: 110%"></i></h1>
 </div>
