@@ -1,3 +1,8 @@
-<p>
-  p2 works!
-</p>
+<div class="conversation">
+    <ul>
+        <li *ngFor="let m of conversation" class="convo">{{m.text}}</li>
+    </ul>
+</div>
+<div class="input">
+    <input type="text" class="message" (keyup.enter)="addMessage($event)" [(ngModel)]="message" name="message" autofocus>
+</div>

@@ -1,6 +1,6 @@
 :host {
     margin: 0;
-        flex: 1 0 auto;
+    flex: 1 0 auto;
 }
 
 h1 {
@@ -17,10 +17,8 @@ h1 {
 
 .thing:hover {
     box-shadow: 4px 4px 8px #bcbcbc;
-    color: white;
 }
 
 .thing:active {
-    box-shadow: 0px 0px 1px #bcbcbc;
-    color: white;
+    box-shadow: 0 0 4px #bcbcbc;
 }

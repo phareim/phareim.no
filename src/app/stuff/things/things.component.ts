@@ -1,6 +1,7 @@
 import {Component, OnInit} from '@angular/core';
 import {Thing} from '../c/thing';
 import {Color} from '../s/color';
+import {Utils} from '../s/utils';
 
 @Component({
     selector: 'app-things',
@@ -18,34 +19,20 @@ export class ThingsComponent implements OnInit {
         const number = Math.floor(Math.random() * 70) + 30;
         this.things.push(<Thing>{title: 'Ærlig talt.', color: Color.getRandomColor()});
         this.things.push(<Thing>{title: '', icon: 'fa-twitter', color: Color.getRandomColor()});
-        this.things.push(<Thing>{title: 'Work', color: Color.getRandomColor(), clickEvent: this.changeColor});
+        this.things.push(<Thing>{title: 'Work', color: Color.getRandomColor()});
         for (let i = 1; i < number; i++) {
-            this.things.push(<Thing>{title: i.toString(), color: Color.getRandomColor()});
+            this.things.push(<Thing>{title: i.toString(), color: Color.getRandomGreyColor()});
             if (i % 7 === 0) {
-                this.things[this.things.length - 1].clickEvent = this.changeColor;
+                this.things[this.things.length - 1].clickEvent = Color.randomize(this.things[this.things.length - 1]);
             }
         }
-        this.shuffle(this.things);
-
+        Utils.shuffle(this.things);
     }
 
-    changeColor(t: Thing) {
-        t.color = Color.getRandomColor();
-    }
-
-    shuffle(array: any[]): any[] {
-        let currentIndex = array.length, temporaryValue, randomIndex;
-
-        // While there remain elements to shuffle...
-        while (0 !== currentIndex) {
-            // Pick a remaining element...
-            randomIndex = Math.floor(Math.random() * currentIndex);
-            currentIndex -= 1;
-            // And swap it with the current element.
-            temporaryValue = array[currentIndex];
-            array[currentIndex] = array[randomIndex];
-            array[randomIndex] = temporaryValue;
+    delete(thing: Thing, really?: boolean) {
+        if (really) {
+            const number = this.things.indexOf(thing);
+            this.things.splice(number, 1);
         }
-        return array;
     }
 }

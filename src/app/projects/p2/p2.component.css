@@ -1,0 +1,49 @@
+:host {
+    min-width: 300px;
+    max-width: 750px;
+    margin: auto;
+}
+
+li {
+    list-style: none;
+    margin: 0.5em 0;
+    padding: 0;
+}
+
+ul {
+    margin: 0;
+    padding: 0;
+}
+
+.conversation, .input {
+    min-width: 300px;
+    max-width: 750px;
+    margin: auto;
+}
+
+.convo {
+    font-size: 1.2em;
+    width: 100%;
+    padding: 0.3em;
+    outline: none;
+    border-radius: 3px;
+    border: solid 1px grey;
+    box-shadow: 1px 1px 4px #898989;
+}
+
+input {
+    margin: 2em 0 0.1em;
+    width: 100%;
+    padding: 0.3em;
+    font-size: 1.2em;
+    outline: none;
+    border-radius: 3px;
+    border: solid 2px grey;
+    box-shadow: 1px 1px 8px #898989;
+}
+
+input:active {
+    border: solid 1px green;
+    box-shadow: 1px 1px 12px #596969;
+}
+
