@@ -6,11 +6,12 @@ import {BackComponent} from './c/back/back.component';
 import {P2Component} from './p2/p2.component';
 import {P3Component} from './p3/p3.component';
 import {FormsModule} from '@angular/forms';
+import { P4Component } from './p4/p4.component';
 
 const appRoutes: Routes = [
     {path: '1', component: P1Component},
     {path: '2', component: P2Component},
-    {path: '3', component: P3Component}];
+    {path: '3', component: P3Component},   {path: '4', component: P4Component}];
 
 
 @NgModule({
@@ -22,7 +23,7 @@ const appRoutes: Routes = [
             {enableTracing: false, useHash: false}
         )
     ],
-    declarations: [P1Component, BackComponent, P2Component, P3Component],
+    declarations: [P1Component, BackComponent, P2Component, P3Component, P4Component],
     exports: [BackComponent]
 })
 export class ProjectsModule {

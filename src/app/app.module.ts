@@ -30,7 +30,7 @@ const appRoutes: Routes = [
         ProjectsModule,
         RouterModule.forRoot(
             appRoutes,
-            {enableTracing: true, useHash: false} // <-- debugging purposes only
+            {enableTracing: false, useHash: false}
         )
     ],
     providers: [],

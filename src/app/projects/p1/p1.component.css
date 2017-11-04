@@ -10,4 +10,6 @@
     height: 100%;
     display: flex;
     flex-wrap: wrap;
+
+    transition-duration: 3s;
 }
