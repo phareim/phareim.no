@@ -18,7 +18,9 @@ export class ThingsComponent implements OnInit {
         console.log('all the things!!');
         const number = Math.floor(Math.random() * 70) + 30;
         this.things.push(<Thing>{title: 'Ærlig talt.', color: Color.getRandomColor()});
-        this.things.push(<Thing>{title: '', icon: 'fa-twitter', color: Color.getRandomColor()});
+        this.things.push(<Thing>{title: 'The tools for learning are abundant. It’s the desire to learn that’s scarce.', color: Color.getRandomColor()});
+        this.things.push(<Thing>{title: '', icon: 'fa-twitter', color: Color.getRandomColor(), url: 'https://twitter.com/phareim'});
+        this.things.push(<Thing>{title: '', icon: 'fa-facebook', color: Color.getRandomColor(), url: 'https://facebook.com/phareim'});
         this.things.push(<Thing>{title: 'Work', color: Color.getRandomColor()});
         for (let i = 1; i < number; i++) {
             this.things.push(<Thing>{title: i.toString(), color: Color.getRandomGreyColor()});

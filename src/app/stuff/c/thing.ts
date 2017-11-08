@@ -3,5 +3,6 @@ export class Thing {
     color?: string;
     imgUrl?: string;
     icon?: string;
+    url?: string;
     clickEvent: any;
 }
