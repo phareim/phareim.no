@@ -2,9 +2,9 @@
   "name": "phareim.no",
   "version": "1.0.0",
   "description": "Fordi noen spor må man legge igjen på internett",
-  "main": "index.js",
+  "main": "index.html",
   "scripts": {
-    "test": "npm test"
+    "test": ""
   },
   "repository": {
     "type": "git",
