@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "alias": "petter.no",
+  "builds": [
+    {
+      "src": "*.html",
+      "use": "@now/static"
+    },
+    {
+      "src": "main.css",
+      "use": "@now/static"
+    },
+    {
+      "src": "js/main.js",
+      "use": "@now/static"
+    }
+  ]
+}
