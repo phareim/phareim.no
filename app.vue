@@ -12,7 +12,9 @@ div {
   display: grid;
   justify-content: center;
   align-content: center;
-  height: 100vh;
+  height: 95vh;
+  margin: 0;
+  padding: 0;
 }
 header {
   color: #333;
