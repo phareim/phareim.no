@@ -1,7 +1,7 @@
 <template>
   <div>
     <header>
-      <h1>build bad art</h1>
+      <h1>build dab art</h1>
     </header>
   </div>
 </template>
