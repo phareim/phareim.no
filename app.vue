@@ -1,7 +1,7 @@
 <template>
   <div>
     <header>
-      <h1>build dab art</h1>
+      <h1 contenteditable>build dab art</h1>
     </header>
   </div>
 </template>
