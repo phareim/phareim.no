@@ -3,6 +3,7 @@
     <header>
       <h1 contenteditable>build dab art</h1>
     </header>
+		<footer></footer>
   </div>
 </template>
 
@@ -22,7 +23,7 @@ header {
   font-family: "Comfortaa", cursive;
 }
 h1 {
-  font-size: 4em;
+  font-size: 5em;
   font-weight: 300;
   margin: 0;
   padding: 0;
