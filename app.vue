@@ -1,11 +1,26 @@
 <template>
-  <div>
+  <div @touchstart="animateText">
     <header>
-      <h1 contenteditable class="animate-text">build dab art</h1>
+      <h1 :class="{ animate: isTextAnimated }" contenteditable>build dab art</h1>
     </header>
     <footer></footer>
   </div>
 </template>
+
+<script>
+export default {
+  data() {
+    return {
+      isTextAnimated: false,
+    }
+  },
+  methods: {
+    animateText() {
+      this.isTextAnimated = !this.isTextAnimated;
+    }
+  }
+}
+</script>
 
 <style>
 @import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300&display=swap");
@@ -22,16 +37,15 @@ header {
   text-align: center;
   font-family: "Comfortaa", cursive;
 }
-h1.animate-text {
+h1 {
   font-size: 5em;
   font-weight: 300;
   margin: 0;
   padding: 0;
-  transition: transform 0.3s ease-in-out, color 0.3s ease-in-out; /* legger til transition */
+  transition: color 0.3s ease-in-out, transform 0.3s ease-in-out; /* beholder transition */
 }
-
-h1.animate-text:hover {
-  transform: scale(1.1); /* skalere tekst når hover */
-  color: #ff4500; /* endre tekstfarge når hover */
+h1.animate {
+  color: #ff4500; /* endre tekstfarge */
+  transform: scale(1.1); /* skalere tekst */
 }
 </style>
