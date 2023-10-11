@@ -56,4 +56,8 @@ h1 {
 h1.animate {
   transform: scale(1.1); /* skalere tekst */
 }
+
+body, html {
+  overflow: hidden;  /* Forhindrer scrolling */
+}
 </style>
