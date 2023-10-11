@@ -1,7 +1,7 @@
 <template>
   <div @touchstart="animateText">
     <header>
-      <h1 :class="{ animate: isTextAnimated }" contenteditable>build dab art</h1>
+      <h1 :class="{ animate: isTextAnimated }">build bad art</h1>
     </header>
     <footer></footer>
   </div>
