@@ -59,5 +59,6 @@ h1.animate {
 
 body, html {
   overflow: hidden;  /* Forhindrer scrolling */
+  user-select: none;
 }
 </style>
