@@ -1,9 +1,9 @@
 <template>
   <div>
     <header>
-      <h1 contenteditable>build dab art</h1>
+      <h1 contenteditable class="animate-text">build dab art</h1>
     </header>
-		<footer></footer>
+    <footer></footer>
   </div>
 </template>
 
@@ -22,10 +22,16 @@ header {
   text-align: center;
   font-family: "Comfortaa", cursive;
 }
-h1 {
+h1.animate-text {
   font-size: 5em;
   font-weight: 300;
   margin: 0;
   padding: 0;
+  transition: transform 0.3s ease-in-out, color 0.3s ease-in-out; /* legger til transition */
+}
+
+h1.animate-text:hover {
+  transform: scale(1.1); /* skalere tekst når hover */
+  color: #ff4500; /* endre tekstfarge når hover */
 }
 </style>
