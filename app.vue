@@ -1,5 +1,5 @@
 <template>
-  <div @touchstart="animateText" :style="{ backgroundColor: bgColor }">
+  <div @touchstart="animateText">
     <header>
       <h1 :style="{ color: textColor }" :class="{ animate: isTextAnimated }">build bad art</h1>
     </header>
@@ -13,14 +13,13 @@ export default {
     return {
       isTextAnimated: false,
       textColor: '#333',  // Initial color
-      bgColor: '#fff',  // Initial background color
     }
   },
   methods: {
     animateText() {
       this.isTextAnimated = !this.isTextAnimated;
       this.textColor = this.randomColor();
-      this.bgColor = this.randomColor();  // Set a random background color
+      this.setRandomBgColor();  // Set a random background color
     },
     randomColor() {
       const letters = '0123456789ABCDEF';
@@ -29,6 +28,10 @@ export default {
         color += letters[Math.floor(Math.random() * 16)];
       }
       return color;
+    },
+    setRandomBgColor() {
+      document.body.style.backgroundColor = this.randomColor();
+      document.body.style.transition = 'background-color 0.3s ease-in-out';  // Optional: Add transition
     }
   }
 }
@@ -49,7 +52,6 @@ div {
   height: 95vh;
   margin: 0;
   padding: 0;
-  transition: background-color 0.3s ease-in-out;  /* legger til transition for bakgrunnsfarge */
 }
 
 header {
