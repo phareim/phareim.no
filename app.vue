@@ -30,8 +30,19 @@ export default {
       return color;
     },
     setRandomBgColor() {
-      document.body.style.backgroundColor = this.randomColor();
+      const newColor = this.randomColor();
+      document.body.style.backgroundColor = newColor;
       document.body.style.transition = 'background-color 0.3s ease-in-out';  // Optional: Add transition
+
+      const metaThemeColor = document.querySelector('meta[name=theme-color]');
+      if (metaThemeColor) {
+        metaThemeColor.setAttribute('content', newColor);
+      } else {
+        const newMetaThemeColor = document.createElement('meta');
+        newMetaThemeColor.name = 'theme-color';
+        newMetaThemeColor.content = newColor;
+        document.head.appendChild(newMetaThemeColor);
+      }
     }
   }
 }
