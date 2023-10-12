@@ -1,5 +1,5 @@
 <template>
-  <div @touchstart="animateText">
+  <div @touchstart="animateText" :style="{ backgroundColor: bgColor }">
     <header>
       <h1 :style="{ color: textColor }" :class="{ animate: isTextAnimated }">build bad art</h1>
     </header>
@@ -13,12 +13,14 @@ export default {
     return {
       isTextAnimated: false,
       textColor: '#333',  // Initial color
+      bgColor: '#fff',  // Initial background color
     }
   },
   methods: {
     animateText() {
       this.isTextAnimated = !this.isTextAnimated;
       this.textColor = this.randomColor();
+      this.bgColor = this.randomColor();  // Set a random background color
     },
     randomColor() {
       const letters = '0123456789ABCDEF';
@@ -34,6 +36,11 @@ export default {
 
 <style>
 @import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300&display=swap");
+
+body, html {
+  overflow: hidden;  /* Forhindrer scrolling */
+}
+
 div {
   display: grid;
   justify-content: center;
@@ -41,24 +48,8 @@ div {
   height: 95vh;
   margin: 0;
   padding: 0;
-}
-header {
-  text-align: center;
-  font-family: "Comfortaa", cursive;
-}
-h1 {
-  font-size: 5em;
-  font-weight: 300;
-  margin: 0;
-  padding: 0;
-  transition: color 0.3s ease-in-out, transform 0.3s ease-in-out; /* beholder transition */
-}
-h1.animate {
-  transform: scale(1.1); /* skalere tekst */
+  transition: background-color 0.3s ease-in-out;  /* legger til transition for bakgrunnsfarge */
 }
 
-body, html {
-  overflow: hidden;  /* Forhindrer scrolling */
-  user-select: none;
-}
+/* ... resten av din eksisterende CSS-kode ... */
 </style>
