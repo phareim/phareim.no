@@ -39,6 +39,7 @@ export default {
 
 body, html {
   overflow: hidden;  /* Forhindrer scrolling */
+  user-select: none;  /* Forhindrer tekstvalg */
 }
 
 div {
@@ -51,5 +52,20 @@ div {
   transition: background-color 0.3s ease-in-out;  /* legger til transition for bakgrunnsfarge */
 }
 
-/* ... resten av din eksisterende CSS-kode ... */
+header {
+  text-align: center;
+  font-family: "Comfortaa", cursive;
+}
+
+h1 {
+  font-size: 5em;
+  font-weight: 300;
+  margin: 0;
+  padding: 0;
+  transition: color 0.3s ease-in-out, transform 0.3s ease-in-out; /* beholder transition */
+}
+
+h1.animate {
+  transform: scale(1.1); /* skalere tekst */
+}
 </style>
