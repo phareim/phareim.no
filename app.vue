@@ -1,5 +1,5 @@
 <template>
-  <div @touchstart="animateText">
+  <div @touchstart="animateText"   :style="{ fontFamily: currentFont }">
     <header>
       <h1 :style="{ color: textColor }" :class="{ animate: isTextAnimated }">build bad art</h1>
     </header>
