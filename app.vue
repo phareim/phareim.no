@@ -40,7 +40,8 @@ export default {
       this.isTextAnimated = !this.isTextAnimated;
       this.textColor = this.randomColor();
       this.setRandomBgColor();  // Set a random background color
-    },
+		  this.setRandomFont(); 
+		},
     randomColor() {
       const letters = '0123456789ABCDEF';
       let color = '#';
