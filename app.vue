@@ -13,6 +13,26 @@ export default {
     return {
       isTextAnimated: false,
       textColor: '#333',  // Initial color
+			currentFont: '"Comfortaa", cursive',  // Initial font
+			fonts: [
+        '"DM Sans", sans-serif',
+        '"Inter", sans-serif',
+        '"Space Mono", monospace',
+        '"Space Grotesk", sans-serif',
+        '"Work Sans", sans-serif',
+        '"Syne", sans-serif',
+        '"Libre Franklin", sans-serif',
+        '"Cormorant", serif',
+        '"Fira Sans", sans-serif',
+        '"Eczar", serif',
+        '"Alegreya Sans", sans-serif',
+        '"Alegreya", serif',
+        '"Source Sans Pro", sans-serif',
+        '"Source Serif Pro", serif',
+        '"Roboto", sans-serif',
+        '"Roboto Slab", serif',
+        '"Inknut Antiqua", serif'
+      ],
     }
   },
   methods: {
@@ -43,6 +63,9 @@ export default {
         newMetaThemeColor.content = newColor;
         document.head.appendChild(newMetaThemeColor);
       }
+    },
+    setRandomFont() {
+      this.currentFont = this.fonts[Math.floor(Math.random() * this.fonts.length)];
     }
   }
 }
