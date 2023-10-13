@@ -103,6 +103,6 @@ h1 {
 }
 
 h1.animate {
-  transform: scale(1.1); /* skalere tekst */
+  transform: scale(1.06); /* skalere tekst */
 }
 </style>
