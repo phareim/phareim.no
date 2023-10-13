@@ -1,7 +1,7 @@
 <template>
   <div @touchstart="animateText"   :style="{ fontFamily: currentFont }">
     <header>
-      <h1 :style="{ color: textColor }" :class="{ animate: isTextAnimated }">build bad art</h1>
+      <h1 :style="{ color: textColor ,transform: `scale(${textScale})`  }" :class="{ animate: isTextAnimated }">build bad art</h1>
     </header>
     <footer></footer>
   </div>
@@ -33,6 +33,7 @@ export default {
         '"Roboto Slab", serif',
         '"Inknut Antiqua", serif'
       ],
+			textScale: 1,
     }
   },
   methods: {
@@ -41,7 +42,12 @@ export default {
       this.textColor = this.randomColor();
       this.setRandomBgColor();  // Set a random background color
 		  this.setRandomFont(); 
+			this.setRandomScale();
 		},
+		setRandomScale() {
+      // Generate a random scale value between 0.6 and 1.2
+      this.textScale = (Math.random() * (1.2 - 0.6) + 0.6).toFixed(2);
+    },
     randomColor() {
       const letters = '0123456789ABCDEF';
       let color = '#';
