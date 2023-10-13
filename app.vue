@@ -73,8 +73,7 @@ export default {
 </script>
 
 <style>
-/*@import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300&display=swap");*/
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans&family=Inter&family=Space+Mono&family=Space+Grotesk&family=Work+Sans&family=Syne&family=Libre+Franklin&family=Cormorant&family=Fira+Sans&family=Eczar&family=Alegreya+Sans&family=Alegreya&family=Source+Sans+Pro&family=Source+Serif+Pro&family=Roboto&family=Roboto+Slab&family=Inknut+Antiqua&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300&display=swap");
 
 body, html {
   overflow: hidden;  /* Forhindrer scrolling */
