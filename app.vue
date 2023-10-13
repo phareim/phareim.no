@@ -46,7 +46,7 @@ export default {
 		},
 		setRandomScale() {
       // Generate a random scale value between 0.6 and 1.2
-      this.textScale = (Math.random() * (1.3 - 0.2) + 0.2).toFixed(2);
+      this.textScale = (Math.random() * (1.4 - 0.1) + 0.1).toFixed(2);
     },
     randomColor() {
       const letters = '0123456789ABCDEF';
