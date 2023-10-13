@@ -107,8 +107,8 @@ h1 {
   padding: 0;
   transition: color 0.3s ease-in-out, transform 0.3s ease-in-out; /* beholder transition */
 }
-
+/*
 h1.animate {
-  transform: scale(1.06); /* skalere tekst */
-}
+  transform: scale(1.06);
+}*/
 </style>
