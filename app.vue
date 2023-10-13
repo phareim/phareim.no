@@ -105,7 +105,7 @@ h1 {
   font-weight: 300;
   margin: 0;
   padding: 0;
-  transition: color 3.3s ease-in-out, transform 0.3s ease-in-out; /* beholder transition */
+  transition: color 1.3s ease-in-out, transform 4.3s ease-in-out; /* beholder transition */
 }
 /*
 h1.animate {
