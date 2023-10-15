@@ -1,7 +1,7 @@
 <template>
   <div @touchstart="animateText"   :style="{ fontFamily: currentFont }">
     <header>
-      <h1 :style="{ color: textColor transform: `scale(${textScale}), translateY(${textYOffset}px) rotate(${textRotation}deg)`" :class="{ animate: isTextAnimated }">
+      <h1 :style="{ color: textColor transform: `scale(${textScale}) translateY(${textYOffset}px) rotate(${textRotation}deg)`" :class="{ animate: isTextAnimated }">
 build bad art</h1>
     </header>
     <footer></footer>
