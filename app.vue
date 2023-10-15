@@ -44,7 +44,7 @@ export default {
     'Produce Polished Products',
     'Structure Stunning Systems',
 		'Articulate Bad Consepts'
-]
+],
 			currentQuote: '', 
 			isTransitionActive: false,  // Ny flagg for å styre overgangsstaten
 			textYOffset: 0,  // Initial vertical offset
