@@ -4,7 +4,8 @@
       <h1 :style="{
         color: textColor,
         transform: `scale(${textScale}) translateY(${textYOffset}vh) rotate(${textRotation}deg)`
-      }" :class="{ animate: isTextAnimated }">
+      }" :class="{ transition: isTransitionActive }"
+>
 {{currentQuote}}
 </h1>
     </header>
@@ -24,6 +25,7 @@ export default {
         'Test Terrific Themes'
       ],
 			currentQuote: '', 
+			isTransitionActive: false,  // Ny flagg for å styre overgangsstaten
 			textYOffset: 0,  // Initial vertical offset
       textRotation: 0,  // Initial rotation
       isTextAnimated: false,
@@ -62,9 +64,22 @@ export default {
 		  this.setRandomFont(); 
 			this.setRandomScale();
 			this.setRandomTransform(30);
+			this.pickRandomQuote();  // Velg et nytt tilfeldig sitat
+      this.toggleTransition();  // Aktiver overgangseffekten
 		},
 		pickRandomQuote() {
-      this.currentQuote = this.quotes[Math.floor(Math.random() * this.quotes.length)];
+      // Sørger for at det nye sitatet er forskjellig fra det nåværende
+      let newQuote;
+      do {
+        newQuote = this.quotes[Math.floor(Math.random() * this.quotes.length)];
+      } while (newQuote === this.currentQuote);
+      this.currentQuote = newQuote;
+    },
+		toggleTransition() {
+      this.isTransitionActive = true;  // Aktiver overgangseffekten
+      setTimeout(() => {
+        this.isTransitionActive = false;  // Deaktiver overgangseffekten etter 300 ms
+      }, 300);
     },
 		setRandomTransform(maxTransformValue) {
       // Generate a random vertical offset and rotation based on the maxTransformValue parameter
@@ -134,8 +149,9 @@ h1 {
   padding: 0;
   transition: color 0.8s ease-in-out, transform 0.4s ease-in-out; /* beholder transition */
 }
-/*
-h1.animate {
-  transform: scale(1.06);
-}*/
+
+h1.transition {
+  transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+  opacity: 0.5;
+}
 </style>
