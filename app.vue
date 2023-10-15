@@ -22,7 +22,7 @@ export default {
         'Code Creative Chaos',
         'Debug Dreamy Designs',
         'Script Stylish Stories',
-        'Test Terrific Themes'
+        'Test Terrific Themes',
     'Mold Magical Methods',
     'Brew Brilliant Blueprints',
     'Fabricate Fabulous Frameworks',
