@@ -101,7 +101,7 @@ export default {
     setRandomBgColor() {
       const newColor = this.randomColor();
       document.body.style.backgroundColor = newColor;
-      //document.body.style.transition = 'background-color 0.3s ease-in-out';  // Optional: Add transition
+      document.body.style.transition = 'background-color 0.06s ease-in-out';  // Optional: Add transition
 
       const metaThemeColor = document.querySelector('meta[name=theme-color]');
       if (metaThemeColor) {
