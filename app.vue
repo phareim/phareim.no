@@ -80,9 +80,10 @@ export default {
   methods: {
     animateText() {
       this.isTextAnimated = !this.isTextAnimated;
-      this.textColor = this.randomColor();
+      //this.textColor = this.randomColor();
       this.setRandomBgColor();  // Set a random background color
-		  this.setRandomFont(); 
+		  this.setTextColor();
+			this.setRandomFont(); 
 			this.setRandomScale();
 			this.setRandomTransform(30);
 			this.pickRandomQuote();  // Velg et nytt tilfeldig sitat
@@ -118,6 +119,14 @@ export default {
         color += letters[Math.floor(Math.random() * 16)];
       }
       return color;
+    },
+    setTextColor() {
+      const bgColor = document.body.style.backgroundColor.slice(4, -1).split(', ');  // Extract RGB values from bgColor
+      const [r, g, b] = bgColor.map(Number);
+      const invertedR = 255 - r;
+      const invertedG = 255 - g;
+      const invertedB = 255 - b;
+      this.textColor = `rgb(${invertedR}, ${invertedG}, ${invertedB})`;  // Set text color to inverted background color
     },
     setRandomBgColor() {
       const newColor = this.randomColor();
