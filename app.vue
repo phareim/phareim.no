@@ -79,7 +79,7 @@ export default {
       this.isTransitionActive = true;  // Aktiver overgangseffekten
       setTimeout(() => {
         this.isTransitionActive = false;  // Deaktiver overgangseffekten etter 300 ms
-      }, 300);
+      }, 600);
     },
 		setRandomTransform(maxTransformValue) {
       // Generate a random vertical offset and rotation based on the maxTransformValue parameter
