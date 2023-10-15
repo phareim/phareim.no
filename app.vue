@@ -5,7 +5,8 @@
         color: textColor,
         transform: `scale(${textScale}) translateY(${textYOffset}vh) rotate(${textRotation}deg)`
       }" :class="{ animate: isTextAnimated }">
-build bad art</h1>
+{{currentQuote}}
+</h1>
     </header>
     <footer></footer>
   </div>
@@ -15,11 +16,19 @@ build bad art</h1>
 export default {
   data() {
     return {
+      quotes: [
+        'Build Bad Art',
+        'Code Creative Chaos',
+        'Debug Dreamy Designs',
+        'Script Stylish Stories',
+        'Test Terrific Themes'
+      ],
+			currentQuote: '', 
 			textYOffset: 0,  // Initial vertical offset
       textRotation: 0,  // Initial rotation
       isTextAnimated: false,
       textColor: '#333',  // Initial color
-			currentFont: '"Comfortaa", cursive',  // Initial font
+			currentFont: '"Comfortaa", arial ,cursive',  // Initial font
 			fonts: [
         '"DM Sans", sans-serif',
         '"Inter", sans-serif',
@@ -42,6 +51,9 @@ export default {
 			textScale: 1,
     }
   },
+	created() {
+    this.pickRandomQuote();  // Velger et tilfeldig sitat når komponenten er opprettet
+  },
   methods: {
     animateText() {
       this.isTextAnimated = !this.isTextAnimated;
@@ -51,6 +63,9 @@ export default {
 			this.setRandomScale();
 			this.setRandomTransform(30);
 		},
+		pickRandomQuote() {
+      this.currentQuote = this.quotes[Math.floor(Math.random() * this.quotes.length)];
+    },
 		setRandomTransform(maxTransformValue) {
       // Generate a random vertical offset and rotation based on the maxTransformValue parameter
       this.textYOffset = Math.floor(Math.random() * (maxTransformValue - (-maxTransformValue) + 1) + (-maxTransformValue));
