@@ -46,7 +46,14 @@ export default {
       this.setRandomBgColor();  // Set a random background color
 		  this.setRandomFont(); 
 			this.setRandomScale();
+			this.setRandomTransform();
 		},
+		setRandomTransform() {
+      // Generate a random vertical offset between -10 and 10 pixels
+      this.textYOffset = Math.floor(Math.random() * (10 - (-10) + 1) + (-10));
+      // Generate a random rotation between -10 and 10 degrees
+      this.textRotation = Math.floor(Math.random() * (10 - (-10) + 1) + (-10));
+    },
 		setRandomScale() {
       // Generate a random scale value between 0.6 and 1.2
       this.textScale = (Math.random() * (1.4 - 0.1) + 0.1).toFixed(2);
