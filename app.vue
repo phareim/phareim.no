@@ -173,7 +173,7 @@ header {
 }
 
 h1 {
-  font-size: 5em;
+  font-size: 4em;
   font-weight: 300;
   margin: 0;
   padding: 0;
