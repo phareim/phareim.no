@@ -3,7 +3,7 @@
     <header>
       <h1 :style="{
         color: textColor,
-        transform: `scale(${textScale}) translateY(${textYOffset}px) rotate(${textRotation}deg)`
+        transform: `scale(${textScale}) translateY(${textYOffset}vh) rotate(${textRotation}deg)`
       }" :class="{ animate: isTextAnimated }">
 build bad art</h1>
     </header>
