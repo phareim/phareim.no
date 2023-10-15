@@ -1,7 +1,8 @@
 <template>
   <div @touchstart="animateText"   :style="{ fontFamily: currentFont }">
     <header>
-      <h1 :style="{ color: textColor ,transform: `scale(${textScale})`  }" :class="{ animate: isTextAnimated }">build bad art</h1>
+      <h1 :style="{ color: textColor transform: `scale(${textScale}), translateY(${textYOffset}px) rotate(${textRotation}deg)`" :class="{ animate: isTextAnimated }">
+build bad art</h1>
     </header>
     <footer></footer>
   </div>
@@ -11,6 +12,8 @@
 export default {
   data() {
     return {
+			textYOffset: 0,  // Initial vertical offset
+      textRotation: 0,  // Initial rotation
       isTextAnimated: false,
       textColor: '#333',  // Initial color
 			currentFont: '"Comfortaa", cursive',  // Initial font
