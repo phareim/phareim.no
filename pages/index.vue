@@ -78,16 +78,21 @@ export default {
       setTimeout(() => {
         this.isTransitionActive = false;  // Deaktiver overgangseffekten etter 300 ms
       }, 600);
-    },
+		},
+		/**
+		 * Sets the text vertical offset and rotation to a random value, based on the maxTransformValue parameter
+		 * @param {*} maxTransformValue 
+		 */
 		setRandomTransform(maxTransformValue) {
-      // Generate a random vertical offset and rotation based on the maxTransformValue parameter
       this.textYOffset = Math.floor(Math.random() * (maxTransformValue - (-maxTransformValue) + 1) + (-maxTransformValue));
       this.textRotation = Math.floor(Math.random() * (maxTransformValue - (-maxTransformValue) + 1) + (-maxTransformValue));
     }, 
 		setRandomScale() {
-      // Generate a random scale value between 0.6 and 1.2
       this.textScale = (Math.random() * (1.15 - 0.1) + 0.1).toFixed(2);
-    },
+		},
+		/**
+		 * Generates a random color
+		 */
     randomColor() {
       const letters = '0123456789ABCDEF';
       let color = '#';
@@ -95,19 +100,24 @@ export default {
         color += letters[Math.floor(Math.random() * 16)];
       }
       return color;
-    },
+		},
+		/**
+		 * Sets the text color to the inverse of the background color
+		 */
     setTextColor() {
       const bgColor = document.body.style.backgroundColor.slice(4, -1).split(', ');  // Extract RGB values from bgColor
       const [r, g, b] = bgColor.map(Number);
       const invertedR = 255 - r;
       const invertedG = 255 - g;
       const invertedB = 255 - b;
-      this.textColor = `rgb(${invertedR}, ${invertedG}, ${invertedB})`;  // Set text color to inverted background color
-    },
+      this.textColor = `rgb(${invertedR}, ${invertedG}, ${invertedB})`;
+		},
+		/**
+		 * Sets the background color to a random color and updates the theme-color meta tag
+		 */
     setRandomBgColor() {
       const newColor = this.randomColor();
       document.body.style.backgroundColor = newColor;
-      document.body.style.transition = 'background-color 0.06s ease-in-out';  // Optional: Add transition
 
       const metaThemeColor = document.querySelector('meta[name=theme-color]');
       if (metaThemeColor) {
@@ -126,5 +136,10 @@ export default {
 <style>
 div{
 	  text-align: center;
+}
+
+h1.transition {
+  transition: transform 0.6s ease-in-out, opacity 0.6s ease-in-out;
+  opacity: 0.5;
 }
 </style>
