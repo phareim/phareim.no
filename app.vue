@@ -38,11 +38,11 @@ export default {
   methods: {
     dummyMethod() {
     },
-     handleTouchStart(event) {
+    handleTouchStart(event) {
       this.startX = event.touches[0].clientX;
       this.startY = event.touches[0].clientY;
     },
- handleTouchEnd(event) {
+    handleTouchEnd(event) {
       const endX = event.changedTouches[0].clientX;
       const threshold = window.innerWidth / 4;  // Sveipeterskel, juster etter behov
       if (endX > this.startX + threshold && this.currentRouteIndex > 0) {

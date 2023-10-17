@@ -1,5 +1,5 @@
 <template>
-  <div @touchstart="animateText"   :style="{ fontFamily: currentFont }">
+  <div @touchstart="animateText" @click="animateText">
       <h1 :style="{
         color: textColor,
         transform: `scale(${textScale}) translateY(${textYOffset}vh) rotate(${textRotation}deg)`
@@ -48,7 +48,6 @@ export default {
       textRotation: 0,  // Initial rotation
       isTextAnimated: false,
       textColor: '#333',  // Initial color
-			currentFont: '"Comfortaa", arial ,cursive',  // Initial font
 			textScale: 1,
     }
   },
