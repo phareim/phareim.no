@@ -10,14 +10,14 @@
 export default {
   data() {
     return {
-      rotation: 0,
+      rotation: 50,
     };
   },
   computed: {
     spinnerStyle() {
       return {
         display: 'inline-block',
-        fontSize: '5em',
+        fontSize: '8em',
         transition: 'transform 0.3s',
         transform: `rotate(${this.rotation}deg)`,
       };
