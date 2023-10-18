@@ -54,7 +54,8 @@ export default {
       }
       console.log(this.currentRouteIndex,this.routes[this.currentRouteIndex].path);
       this.$router.push(this.routes[this.currentRouteIndex].path);  // Naviger til den nye ruten
-    },
+	    this.$emit('swipe-event', event);  // Send eventet videre til den gjeldende komponenten
+},
   }
 }
 </script>
