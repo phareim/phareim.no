@@ -1,4 +1,10 @@
-// https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-
-})
+  head: {
+    meta: [
+      { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' },
+      // ... andre meta-tagger ...
+    ],
+    // ... andre head-elementer ...
+  },
+  // ... resten av Nuxt-konfigurasjonen ...
+});
