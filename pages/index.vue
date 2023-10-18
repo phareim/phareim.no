@@ -54,8 +54,17 @@ export default {
 	created() {
     this.pickRandomQuote();  // Velger et tilfeldig sitat når komponenten er opprettet
   },
+  mounted() {
+    this.$parent.$on('swipe-event', this.handleSwipeEvent);  // Lytt på sveipe-eventet
+  },
+  beforeDestroy() {
+    this.$parent.$off('swipe-event', this.handleSwipeEvent);  // Fjern lytteren når komponenten ødelegges
+  },
   methods: {
-    animateText() {
+		handleSwipeEvent(event) {
+      // Håndter sveipe-eventet her
+    },
+		animateText() {
       this.isTextAnimated = !this.isTextAnimated;
       this.setRandomBgColor();  // Set a random background color
 		  this.setTextColor();
