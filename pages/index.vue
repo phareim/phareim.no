@@ -1,5 +1,5 @@
 <template>
-  <div @touchstart="animateText" @click="animateText">
+  <div @click="animateText">
       <h1 :style="{
         color: textColor,
         transform: `scale(${textScale}) translateY(${textYOffset}vh) rotate(${textRotation}deg)`
@@ -63,13 +63,14 @@ export default {
   methods: {
 		handleSwipeEvent(event) {
       // Håndter sveipe-eventet her
+			this.animateText();
     },
 		animateText() {
       this.isTextAnimated = !this.isTextAnimated;
       this.setRandomBgColor();  // Set a random background color
 		  this.setTextColor();
-			this.setRandomScale();
-			this.setRandomTransform(30);
+			//this.setRandomScale();
+			//this.setRandomTransform(30);
 			this.pickRandomQuote();  // Velg et nytt tilfeldig sitat
       this.toggleTransition();  // Aktiver overgangseffekten
 		},
