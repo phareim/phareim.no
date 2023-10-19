@@ -48,7 +48,7 @@ export default {
       textRotation: 0,  // Initial rotation
       isTextAnimated: false,
       textColor: '#333',  // Initial color
-			textScale: 1,
+			textScale: 0.8,
     }
   },
 	created() {
