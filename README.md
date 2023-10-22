@@ -2,6 +2,8 @@
 
 ... fordi noen spor må man legge igjen på Internett.
 
+Det meste er skrevet på mobil, med innspill fra en hjelpsom AI. Kvaliteten er deretter. 
+
 Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
 
 ## Setup
