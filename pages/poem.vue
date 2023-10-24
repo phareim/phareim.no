@@ -10,6 +10,7 @@ export default {
     return {
       poems: [
         'this is<br>a terrible<br>poem',
+				'yet another bad<br>poem',
         'roses are red<br>violets are blue<br>sugar is sweet<br>and so are you',
         'twinkle twinkle<br>little star<br>how I wonder<br>what you are',
         // ... flere dikt ...
