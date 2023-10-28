@@ -73,7 +73,7 @@ body, html {
   display: grid;
   justify-content: center;
   align-content: center;
-  height: 95vh;
+  height: 100vh;
   margin: 0;
   padding: 0;
 }
