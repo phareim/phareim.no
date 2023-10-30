@@ -69,8 +69,8 @@ export default {
       this.isTextAnimated = !this.isTextAnimated;
       this.setRandomBgColor();  // Set a random background color
 		  this.setTextColor();
-			//this.setRandomScale();
-			//this.setRandomTransform(30);
+			this.setRandomScale();
+			this.setRandomTransform(30);
 			this.pickRandomQuote();  // Velg et nytt tilfeldig sitat
       this.toggleTransition();  // Aktiver overgangseffekten
 		},
