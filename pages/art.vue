@@ -41,6 +41,6 @@ export default {
 <style>
 .art {
   font-size: 7em;
-  transition: transform 0.2s ease-in-out;  // Legg til en overgang for å glatte ut bevegelsene
+  /* transition: transform 0.1s ease-in-out;   */
 }
 </style>
