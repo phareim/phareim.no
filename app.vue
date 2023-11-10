@@ -67,13 +67,14 @@ body, html {
   overflow: hidden;  /* Forhindrer scrolling */
   user-select: none;  /* Forhindrer tekstvalg */
   font-family: "Comfortaa", sans-serif;
+	padding: 0;
 }
 
 #app {
   display: grid;
   justify-content: center;
   align-content: center;
-  height: 100vh;
+  height: 95vh;
   margin: 0;
   padding: 0;
 }
