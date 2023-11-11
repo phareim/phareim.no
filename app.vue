@@ -68,6 +68,7 @@ body, html {
   user-select: none;  /* Forhindrer tekstvalg */
   font-family: "Comfortaa", sans-serif;
 	padding: 0;
+	margin: 0;
 }
 
 #app {
