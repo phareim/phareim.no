@@ -70,9 +70,9 @@ export default {
       this.setRandomBgColor();  // Set a random background color
 		  this.setTextColor();
 			this.setRandomScale();
-			this.setRandomTransform(30);
+			//this.setRandomTransform(30);
 			this.pickRandomQuote();  // Velg et nytt tilfeldig sitat
-      this.toggleTransition();  // Aktiver overgangseffekten
+      //this.toggleTransition();  // Aktiver overgangseffekten
 		},
 		pickRandomQuote() {
       // Sørger for at det nye sitatet er forskjellig fra det nåværende
