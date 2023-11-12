@@ -149,6 +149,5 @@ div{
 
 h1.transition {
   transition: transform 0.6s ease-in-out, opacity 0.6s ease-in-out;
-  opacity: 0.5;
 }
 </style>
