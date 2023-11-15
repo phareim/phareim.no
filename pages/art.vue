@@ -8,8 +8,8 @@
 export default {
   data() {
     return {
-      beta: 0,  // Pitch: vipping frem og tilbake
-      gamma: 0,  // Roll: vipping fra side til side
+      beta: 20,  // Pitch: vipping frem og tilbake
+      gamma: 60,  // Roll: vipping fra side til side
     };
   },
   computed: {
