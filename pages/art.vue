@@ -9,7 +9,7 @@ export default {
   data() {
     return {
       beta: 20,  // Pitch: vipping frem og tilbake
-      gamma: 60,  // Roll: vipping fra side til side
+      gamma: 30,  // Roll: vipping fra side til side
     };
   },
   computed: {
