@@ -1,7 +1,7 @@
 <template>
     <div class="about">
         <p class="scrolling-text">this is a pet project, written with love, spare time and a bit of AI. </p>
-        <p class="scrolling-text">peace.</p>
+        <p>peace.</p>
     </div>
 </template>
 
