@@ -13,9 +13,11 @@
 .scrolling-text {
   display: inline-block;
   position: relative;
-  animation: scroll 5s linear infinite;
+  animation: scroll 9s linear infinite;
 }
-
+.centered {
+	text-align: center;
+}
 @keyframes scroll {
   0% {
     transform: translateX(100%);
