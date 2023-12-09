@@ -1,7 +1,7 @@
 <template>
     <div class="about">
         <p class="scrolling-text">this is a pet project, written with love, spare time and a bit of AI. </p>
-        <p>peace.</p>
+        <p class="centered">peace.</p>
     </div>
 </template>
 
@@ -15,9 +15,11 @@
   position: relative;
   animation: scroll 9s linear infinite;
 }
+
 .centered {
-	text-align: center;
+  text-align: center;
 }
+
 @keyframes scroll {
   0% {
     transform: translateX(100%);
