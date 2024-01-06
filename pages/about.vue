@@ -11,6 +11,7 @@
 }
 
 .scrolling-text {
+width: 200%;
   display: inline-block;
   position: relative;
   animation: scroll 9s linear infinite;
