@@ -4,8 +4,9 @@
     <h1>Petter Hareim</h1>
     <p class="blurb">father, husband, geek, all round good guy. Writer of code and builder of good things. Lead Developer at Haugaland Kraft.</p>
     <div class="social-links">
-      <a href="https://www.linkedin.com/in/phareim/" target="_blank">LinkedIn</a>
+      <a href="https://www.linkedin.com/in/phareim" target="_blank">LinkedIn</a>
       <a href="https://twitter.com/phareim" target="_blank">Twitter</a>
+      <a href="https://github.com/phareim" target="_blank">GitHub</a>
     </div>
   </div>
 </template>
