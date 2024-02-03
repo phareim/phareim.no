@@ -11,7 +11,7 @@ export default {
       y: 100,
       vx: 2,
       vy: 2,
-      boxSize: 20,
+      boxSize: 5,
     };
   },
   mounted() {
