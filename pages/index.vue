@@ -60,7 +60,7 @@ export default {
     this.boxes.forEach(box => {
       this.drawBox(box);
       this.updatePosition(box);
-      this.checkCollisions(box);
+      // this.checkCollisions(box);
     });
   },
   updatePosition(box) {
@@ -106,8 +106,9 @@ export default {
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
       const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-			const velocity = Math.random() * 4;
-      this.boxes.push({ x, y, vx: velocity , vy: velocity , size: (Math.random() * 20)+5, color });
+			const xvelocity = Math.random() * 8 - 4;
+			const yvelocity = Math.random() * 8 - 4;
+      this.boxes.push({ x, y, vx: xvelocity , vy: yvelocity , size: (Math.random() * 20)+5, color });
     },
   },
 };
