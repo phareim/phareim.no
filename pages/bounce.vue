@@ -1,5 +1,5 @@
 <template>
-  <canvas ref="canvas" width="600" height="400"></canvas>
+  <canvas ref="canvas" style="width: 100vw; height: 100vh;"></canvas>
 </template>
 
 <script>
@@ -48,3 +48,14 @@ export default {
   },
 };
 </script>
+<style>
+body, html {
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Forhindrer scrollbars */
+}
+
+canvas {
+  display: block; /* Fjerner eventuell ekstra plass under canvas */
+}
+</style>
