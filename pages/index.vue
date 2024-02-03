@@ -54,45 +54,40 @@ export default {
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
     },
-    animate() {
-      requestAnimationFrame(this.animate);
-      this.ctx.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height);
-      this.boxes.forEach(box => {
-        this.drawBox(box);
-        this.updatePosition(box);
-      });
-    },
+      animate() {
+    requestAnimationFrame(this.animate);
+    this.ctx.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height);
+    this.boxes.forEach(box => {
+      this.drawBox(box);
+      this.updatePosition(box);
+      this.checkCollisions(box);
+    });
+  },
+  updatePosition(box) {
+    // Sjekk for kollisjon med canvas-kanter
+    if (box.x + box.vx > this.$refs.canvas.width - box.size || box.x + box.vx < 0) {
+      box.vx = -box.vx;
+    }
+    if (box.y + box.vy > this.$refs.canvas.height - box.size || box.y + box.vy < 0) {
+      box.vy = -box.vy;
+    }
+
+    box.x += box.vx;
+    box.y += box.vy;
+  },
+  checkCollisions(currentBox) {
+    this.boxes.forEach(box => {
+      if (currentBox !== box && this.isColliding(currentBox, box)) {
+        currentBox.vx = -currentBox.vx;
+        currentBox.vy = -currentBox.vy;
+      }
+    });
+  },
     drawBox(box) {
       this.ctx.fillStyle = box.color;
       this.ctx.fillRect(box.x, box.y, box.size, box.size);
     },
-      updatePosition() {
-    for (let i = 0; i < this.boxes.length; i++) {
-      const box = this.boxes[i];
-
-      // Sjekk for kollisjon med canvas-kanter
-      if (box.x + box.vx > this.$refs.canvas.width - box.size || box.x + box.vx < 0) {
-        box.vx = -box.vx;
-      }
-      if (box.y + box.vy > this.$refs.canvas.height - box.size || box.y + box.vy < 0) {
-        box.vy = -box.vy;
-      }
-
-      // Sjekk for kollisjon med andre bokser
-      for (let j = i + 1; j < this.boxes.length; j++) {
-        const otherBox = this.boxes[j];
-        if (this.isColliding(box, otherBox)) {
-          box.vx = -box.vx;
-          box.vy = -box.vy;
-          // Bare en av boksene endrer retning for å unngå økende hastighet
-          break; // Bryt ut av løkken for å unngå flere kollisjonsdeteksjoner
-        }
-      }
-
-      box.x += box.vx;
-      box.y += box.vy;
-    }
-  },
+      
   isColliding(box1, box2) {
     return (
       box1.x < box2.x + box2.size &&
