@@ -75,11 +75,14 @@ export default {
     box.x += box.vx;
     box.y += box.vy;
   },
-  checkCollisions(currentBox) {
+    checkCollisions(currentBox) {
     this.boxes.forEach(box => {
       if (currentBox !== box && this.isColliding(currentBox, box)) {
-        currentBox.vx = -currentBox.vx;
-        currentBox.vy = -currentBox.vy;
+        const tempVx = currentBox.vx;
+        currentBox.vx = currentBox.vy;
+        currentBox.vy = tempVx;
+        // Du kan også velge å gjøre samme endring på den andre boksen
+        // som er involvert i kollisjonen, avhengig av oppførselen du ønsker.
       }
     });
   },
