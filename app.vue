@@ -47,10 +47,10 @@ export default {
       const threshold = window.innerWidth / 4;  // Sveipeterskel, juster etter behov
       if (endX > this.startX + threshold && this.currentRouteIndex > 0) {
         // Sveipet til høyre
-        this.currentRouteIndex--;
+        // this.currentRouteIndex--;
       } else if (endX < this.startX - threshold && this.currentRouteIndex < this.routes.length - 1) {
         // Sveipet til venstre
-        this.currentRouteIndex++;
+        // this.currentRouteIndex++;
       }
       console.log(this.currentRouteIndex,this.routes[this.currentRouteIndex].path);
       this.$router.push(this.routes[this.currentRouteIndex].path);  // Naviger til den nye ruten
