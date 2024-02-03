@@ -66,7 +66,11 @@ export default {
       this.ctx.fillStyle = box.color;
       this.ctx.fillRect(box.x, box.y, box.size, box.size);
     },
-    updatePosition(box) {
+    updatePosition() {
+    for (let i = 0; i < this.boxes.length; i++) {
+      const box = this.boxes[i];
+
+      // Sjekk for kollisjon med canvas-kanter
       if (box.x + box.vx > this.$refs.canvas.width - box.size || box.x + box.vx < 0) {
         box.vx = -box.vx;
       }
@@ -74,9 +78,31 @@ export default {
         box.vy = -box.vy;
       }
 
+      // Sjekk for kollisjon med andre bokser
+      for (let j = 0; j < this.boxes.length; j++) {
+        if (i !== j) {
+          const otherBox = this.boxes[j];
+          if (this.isColliding(box, otherBox)) {
+            box.vx = -box.vx;
+            box.vy = -box.vy;
+            otherBox.vx = -otherBox.vx;
+            otherBox.vy = -otherBox.vy;
+          }
+        }
+      }
+
       box.x += box.vx;
       box.y += box.vy;
-    },
+    }
+  },
+  isColliding(box1, box2) {
+    return (
+      box1.x < box2.x + box2.size &&
+      box1.x + box1.size > box2.x &&
+      box1.y < box2.y + box2.size &&
+      box1.size + box1.y > box2.y
+    );
+  },
     addBox(event) {
       const rect = this.$refs.canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
