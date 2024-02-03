@@ -82,7 +82,7 @@ export default {
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
       const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-      this.boxes.push({ x, y, vx: 2, vy: 2, size: 5, color });
+      this.boxes.push({ x, y, vx: 2, vy: 2, size: (Math.random() * 7)+2, color });
     },
   },
 };
