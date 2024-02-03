@@ -86,10 +86,12 @@ export default {
       }
     });
   },
-    drawBox(box) {
-      this.ctx.fillStyle = box.color;
-      this.ctx.fillRect(box.x, box.y, box.size, box.size);
-    },
+  drawBox(box) {
+    this.ctx.beginPath();  // Starter en ny sti
+    this.ctx.arc(box.x, box.y, box.size / 2, 0, 2 * Math.PI); // Tegner en sirkel
+    this.ctx.fillStyle = box.color;
+    this.ctx.fill();  // Fyller sirkelen med farge
+  },
       
   isColliding(box1, box2) {
     return (
