@@ -100,7 +100,7 @@ html {
 .container {
   position: relative;
   width: 100vw;
-  height: 96vh;
+  height: 92vh;
 }
 
 canvas {
@@ -127,7 +127,7 @@ canvas {
 
 .home {
   text-align: center;
-  margin-top: 50px;
+  margin-top: 30px;
   max-width: 600px;
   /* comfortable reading width */
   margin-left: auto;
