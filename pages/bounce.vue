@@ -1,5 +1,5 @@
 <template>
-  <canvas ref="canvas" style="width: 100vw; height: 100vh;"></canvas>
+  <canvas ref="canvas" style="width: 100vw; height: 100vh;" @click="addBox"></canvas>
 </template>
 
 <script>
@@ -7,11 +7,7 @@ export default {
   data() {
     return {
       ctx: null,
-      x: 100,
-      y: 100,
-      vx: 2,
-      vy: 2,
-      boxSize: 5,
+      boxes: [],  // Liste for å holde på alle boksene
     };
   },
   mounted() {
@@ -22,28 +18,38 @@ export default {
     setupCanvas() {
       const canvas = this.$refs.canvas;
       this.ctx = canvas.getContext('2d');
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
     },
     animate() {
       requestAnimationFrame(this.animate);
       this.ctx.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height);
-      this.drawBox();
-      this.updatePosition();
+      this.boxes.forEach(box => {
+        this.drawBox(box);
+        this.updatePosition(box);
+      });
     },
-    drawBox() {
-      this.ctx.fillStyle = 'gray';
-      this.ctx.fillRect(this.x, this.y, this.boxSize, this.boxSize);
+    drawBox(box) {
+      this.ctx.fillStyle = box.color;
+      this.ctx.fillRect(box.x, box.y, box.size, box.size);
     },
-    updatePosition() {
-      // Sjekk for kollisjon med canvas-kanter
-      if (this.x + this.vx > this.$refs.canvas.width - this.boxSize || this.x + this.vx < 0) {
-        this.vx = -this.vx;
+    updatePosition(box) {
+      if (box.x + box.vx > this.$refs.canvas.width - box.size || box.x + box.vx < 0) {
+        box.vx = -box.vx;
       }
-      if (this.y + this.vy > this.$refs.canvas.height - this.boxSize || this.y + this.vy < 0) {
-        this.vy = -this.vy;
+      if (box.y + box.vy > this.$refs.canvas.height - box.size || box.y + box.vy < 0) {
+        box.vy = -box.vy;
       }
 
-      this.x += this.vx;
-      this.y += this.vy;
+      box.x += box.vx;
+      box.y += box.vy;
+    },
+    addBox(event) {
+      const rect = this.$refs.canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+      this.boxes.push({ x, y, vx: 2, vy: 2, size: 5, color });
     },
   },
 };
