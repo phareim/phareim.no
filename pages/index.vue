@@ -66,7 +66,7 @@ export default {
       this.ctx.fillStyle = box.color;
       this.ctx.fillRect(box.x, box.y, box.size, box.size);
     },
-    updatePosition() {
+      updatePosition() {
     for (let i = 0; i < this.boxes.length; i++) {
       const box = this.boxes[i];
 
@@ -79,15 +79,13 @@ export default {
       }
 
       // Sjekk for kollisjon med andre bokser
-      for (let j = 0; j < this.boxes.length; j++) {
-        if (i !== j) {
-          const otherBox = this.boxes[j];
-          if (this.isColliding(box, otherBox)) {
-            box.vx = -box.vx;
-            box.vy = -box.vy;
-            otherBox.vx = -otherBox.vx;
-            otherBox.vy = -otherBox.vy;
-          }
+      for (let j = i + 1; j < this.boxes.length; j++) {
+        const otherBox = this.boxes[j];
+        if (this.isColliding(box, otherBox)) {
+          box.vx = -box.vx;
+          box.vy = -box.vy;
+          // Bare en av boksene endrer retning for å unngå økende hastighet
+          break; // Bryt ut av løkken for å unngå flere kollisjonsdeteksjoner
         }
       }
 
