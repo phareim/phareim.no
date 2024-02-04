@@ -146,18 +146,16 @@ canvas {
   position: absolute;
   top: 0;
   left: 0;
-  /* Sørger for at innholdet legges bak canvas */
   width: 100%;
   height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-  /* Legg til mer stil etter behov */
 }
 
 .home {
   text-align: center;
-  margin-top: 30px;
+  margin-top: 10vh;
   max-width: 600px;
   /* comfortable reading width */
   margin-left: auto;
@@ -173,7 +171,6 @@ canvas {
 .profile-pic:hover {
   transform: scale(1.1);
   transition: transform 0.5s;
-  z-index: 4;
 }
 
 .social-links {
@@ -189,7 +186,6 @@ canvas {
 .social-links a {
   z-index: 3;
   margin: 0 10px;
-  text-shadow: 0px 0px 3px #999;
 }
 
 .social-links svg {
@@ -200,8 +196,8 @@ canvas {
 
 .social-links svg:hover {
   transform: scale(1.05);
-  transition: transform 0.5s;
+  transition: transform 0.7s;
   transition-timing-function: ease-in-out;
-  fill: #555;
+  fill: #444;
 }
 </style>
