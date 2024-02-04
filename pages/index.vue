@@ -5,10 +5,10 @@
       <div class="home">
         <img class="profile-pic"
           src="https://media.licdn.com/dms/image/C5603AQFvIgKksv9i4g/profile-displayphoto-shrink_400_400/0/1662048611811?e=1711584000&v=beta&t=K37o_1J8QEB5oJyn93odTEAm9ZLhQr5rTD4Gkz7Fbq0"
-          alt="Petter's Profile Picture">
+          alt="petter's profile picture">
         <h1>petter hareim</h1>
         <p class="blurb">father, husband, geek, aspiring good guy.<br />
-          head of Development at Haugaland Kraft.
+          head of development at haugaland kraft.
         </p>
         <p>
           help folks, write code, build good things.
