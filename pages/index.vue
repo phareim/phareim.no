@@ -69,10 +69,10 @@ export default {
     },
     updatePosition(box) {
       // Sjekk for kollisjon med canvas-kanter
-      if (box.x + box.vx > this.$refs.canvas.width - box.size || box.x + box.vx < 0) {
+      if (box.x + box.vx > this.$refs.canvas.width - (box.size / 2) || box.x + box.vx - (box.size / 2) < 0) {
         box.vx = -box.vx;
       }
-      if (box.y + box.vy > this.$refs.canvas.height - box.size || box.y + box.vy < 0) {
+      if (box.y + box.vy > this.$refs.canvas.height - (box.size / 2) || box.y + box.vy - (box.size / 2) < 0) {
         box.vy = -box.vy;
       }
 
@@ -81,7 +81,7 @@ export default {
     },
     checkCollisions(currentBox) {
       this.boxes.forEach(box => {
-        if (currentBox !== box && this.isColliding(currentBox, box)) {          
+        if (currentBox !== box && this.isColliding(currentBox, box)) {
           // Endrer retning på boksene
           const tempVx = currentBox.vx;
           currentBox.vx = currentBox.vy;
@@ -170,7 +170,8 @@ canvas {
   transition-timing-function: ease-out;
 }
 
-.profile-pic:hover, .profile-pic:active {
+.profile-pic:hover,
+.profile-pic:active {
   transform: rotate(360deg);
   transition: transform 10s;
   transition-timing-function: ease-in-out;
