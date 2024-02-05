@@ -110,9 +110,9 @@ export default {
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
       const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-      const xvelocity = Math.random() * 8 - 4;
-      const yvelocity = Math.random() * 8 - 4;
-      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size: (Math.random() * 20) + 5, color });
+      const xvelocity = (Math.random() * 4 - 2)+1;
+      const yvelocity = (Math.random() * 4 - 2)+1;
+      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size: (Math.random() * 60) + 10, color });
     },
   },
 };
@@ -130,7 +130,7 @@ html {
 .container {
   position: relative;
   width: 100vw;
-  height: 92vh;
+  height: 100vh;
 }
 
 canvas {
@@ -140,7 +140,7 @@ canvas {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 2;
+  z-index: 4;
   /* Sørger for at canvas er i forgrunn */
 }
 
@@ -153,11 +153,12 @@ canvas {
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 3;
 }
 
 .home {
   text-align: center;
-  margin-top: 10vh;
+  margin-top: 5vh;
   max-width: 600px;
   /* comfortable reading width */
   margin-left: auto;
@@ -177,16 +178,15 @@ canvas {
 
 .social-links {
   position: absolute;
-  bottom: 0em;
+  bottom: 1rem;
   width: 100%;
   text-align: center;
   margin-left: auto;
   margin-right: auto;
-  z-index: 3;
+  z-index: 10;
 }
 
 .social-links a {
-  z-index: 3;
   margin: 0 10px;
 }
 
@@ -194,12 +194,12 @@ canvas {
   width: 50px;
   height: 50px;
   fill: #333;
+  transition: transform 0.7s;
+  transition-timing-function: ease-in-out;
 }
 
 .social-links svg:hover {
-  transform: scale(1.05);
-  transition: transform 0.7s;
-  transition-timing-function: ease-in-out;
-  fill: #444;
+  transform: scale(1.25);
+  fill: #159;
 }
 </style>
