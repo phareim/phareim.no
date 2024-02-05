@@ -132,10 +132,11 @@ export default {
       const rect = this.$refs.canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
+      const size = (Math.random() * 200) + 10;
       const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-      const xvelocity = (Math.random() * 4 - 2) + 1;
-      const yvelocity = (Math.random() * 4 - 2) + 1;
-      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size: (Math.random() * 200) + 10, color, turned: false});
+      const xvelocity = (Math.random() * (4-(size/50)) - (2-(size / 100))) + 1;
+      const yvelocity = (Math.random() * (4-(size / 50)) - (2-(size / 100))) + 1;
+      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size, color, turned: false});
     },
   },
 };
