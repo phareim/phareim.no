@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <canvas ref="canvas" style="width: 100vw; height: 92vh;" @click="addBox"></canvas>
+    <canvas ref="canvas" @click="addBox"></canvas>
     <div class="overlay">
       <div class="home">
         <img class="profile-pic"
@@ -134,6 +134,8 @@ html {
 }
 
 canvas {
+  width: 100vw; 
+  height: 100vh;
   display: block;
   position: absolute;
   top: 0;
@@ -175,7 +177,7 @@ canvas {
 
 .social-links {
   position: absolute;
-  bottom: 2em;
+  bottom: 0em;
   width: 100%;
   text-align: center;
   margin-left: auto;

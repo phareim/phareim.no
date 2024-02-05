@@ -1,9 +1,5 @@
 <template>
-  <div id="app">
-    <header></header>
     <NuxtPage />
-    <footer>By <a href="https://x.com/phareim">@phareim</a></footer>
-  </div>
 </template>
 
 <script>
@@ -64,8 +60,8 @@ export default {
 @import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300&display=swap");
 
 body, html {
-  overflow: hidden;  /* Forhindrer scrolling */
-  user-select: none;  /* Forhindrer tekstvalg */
+  overflow: hidden;
+  user-select: none; 
   font-family: "Comfortaa", sans-serif;
 	padding: 0;
 	margin: 0;
@@ -75,14 +71,14 @@ body, html {
   display: grid;
   justify-content: center;
   align-content: center;
-  height: 95vh;
+  height: 100vh;
   margin: 0;
   padding: 0;
 }
 
 h1 {
-  font-size: 4em;
-  font-weight: 300;
+  font-size: 4rem;
+  font-weight: 500;
   margin: 0;
   padding: 0;
   transition: color 0.8s ease-in-out, transform 0.4s ease-in-out; /* beholder transition */
