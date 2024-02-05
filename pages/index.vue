@@ -10,7 +10,7 @@
         <p class="blurb">father, husband, geek, aspiring good guy.<br />
           head of development at haugaland kraft.
         </p>
-        <p>
+        <p class="blurb">
           help folks, write code, build good things.
         </p>
       </div>
