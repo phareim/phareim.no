@@ -69,11 +69,35 @@ export default {
     },
     updatePosition(box) {
       // Sjekk for kollisjon med canvas-kanter
-      if (box.x + box.vx > this.$refs.canvas.width - (box.size / 2) || box.x + box.vx - (box.size / 2) < 0) {
+      if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) || box.x + box.vx - (box.size / 2) < 0) {
+        if (box.turned) {
+          box.size = box.size * 0.9;
+        }
         box.vx = -box.vx;
+        box.turned = true;
       }
-      if (box.y + box.vy > this.$refs.canvas.height - (box.size / 2) || box.y + box.vy - (box.size / 2) < 0) {
+      else if (box.y + box.vy > this.$refs?.canvas?.height - (box.size / 2) || box.y + box.vy - (box.size / 2) < 0) {
+        if (box.turned) {
+          box.size = box.size * 0.9;
+        }
         box.vy = -box.vy;
+        box.turned = true;
+      }
+      else {
+        box.turned = false;
+      }
+
+      if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) && box.y + box.vy - (box.size / 2) < 0) {
+        box.size = box.size * 0.9;
+      }
+      else if (box.x + box.vx - (box.size / 2) < 0 && box.y + box.vy - (box.size / 2) < 0) {
+        box.size = box.size * 0.9;
+      }
+      else if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) && box.y + box.vy > this.$refs.canvas.height - (box.size / 2)) {
+        box.size = box.size * 0.9;
+      }
+      else if (box.x + box.vx - (box.size / 2) < 0 && box.y + box.vy > this.$refs?.canvas?.height - (box.size / 2)) {
+        box.size = box.size * 0.9;
       }
 
       box.x += box.vx;
@@ -111,7 +135,7 @@ export default {
       const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
       const xvelocity = (Math.random() * 4 - 2) + 1;
       const yvelocity = (Math.random() * 4 - 2) + 1;
-      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size: (Math.random() * 200) + 10, color });
+      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size: (Math.random() * 200) + 10, color, turned: false});
     },
   },
 };
