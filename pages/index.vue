@@ -64,7 +64,7 @@ export default {
       this.boxes.forEach(box => {
         this.drawBox(box);
         this.updatePosition(box);
-        this.checkCollisions(box);
+        // this.checkCollisions(box);
       });
     },
     updatePosition(box) {
@@ -111,7 +111,7 @@ export default {
       const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
       const xvelocity = (Math.random() * 4 - 2) + 1;
       const yvelocity = (Math.random() * 4 - 2) + 1;
-      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size: (Math.random() * 60) + 10, color });
+      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size: (Math.random() * 200) + 10, color });
     },
   },
 };
@@ -166,11 +166,14 @@ canvas {
   border-radius: 50%;
   width: 200px;
   height: 200px;
+  transition: transform 10s;
+  transition-timing-function: ease-out;
 }
 
-.profile-pic:hover {
-  transform: scale(1.1);
-  transition: transform 0.5s;
+.profile-pic:hover, .profile-pic:active {
+  transform: rotate(360deg);
+  transition: transform 10s;
+  transition-timing-function: ease-in-out;
 }
 
 .social-links {
