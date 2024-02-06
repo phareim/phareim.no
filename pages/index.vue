@@ -11,7 +11,7 @@
           head of development at haugaland kraft.
         </p>
         <p class="blurb">
-          help folks, write code, build good things.
+          help folks, write code, build useful things.
         </p>
         <div class="social-links">
           <a href="https://www.linkedin.com/in/phareim" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="5em"
