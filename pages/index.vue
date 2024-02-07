@@ -3,9 +3,20 @@
     <canvas ref="canvas"></canvas>
     <div class="overlay" @click="addBox">
       <div class="home">
-        <img class="profile-pic"
-          src="https://media.licdn.com/dms/image/C5603AQFvIgKksv9i4g/profile-displayphoto-shrink_400_400/0/1662048611811?e=1711584000&v=beta&t=K37o_1J8QEB5oJyn93odTEAm9ZLhQr5rTD4Gkz7Fbq0"
-          alt="petter's profile picture">
+        <div class="flip-container">
+          <div class="flipper">
+            <div class="front">
+              <!-- Bilde på forsiden -->
+              <img class="profile-pic"
+                src="https://media.licdn.com/dms/image/C5603AQFvIgKksv9i4g/profile-displayphoto-shrink_400_400/0/1662048611811?e=1711584000&v=beta&t=K37o_1J8QEB5oJyn93odTEAm9ZLhQr5rTD4Gkz7Fbq0"
+                alt="petter's profile picture">
+            </div>
+            <div class="back">
+              <!-- Bilde på baksiden -->
+              <img class="profile-pic" src="/public/petter1.png" alt="Bakside">
+            </div>
+          </div>
+        </div>
         <h1>petter hareim</h1>
         <p class="blurb">father, husband, geek, aspiring good guy.<br />
           head of development at haugaland kraft.
@@ -134,9 +145,9 @@ export default {
       const y = event.clientY - rect.top;
       const size = (Math.random() * 200) + 10;
       const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-      const xvelocity = (Math.random() * (4-(size/50)) - (2-(size / 100))) + 1;
-      const yvelocity = (Math.random() * (4-(size / 50)) - (2-(size / 100))) + 1;
-      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size, color, turned: false});
+      const yvelocity = (Math.random() * (4 - (size / 50)) - (2 - (size / 50)));
+      const xvelocity = (Math.random() * (4 - (size / 50)) - (2 - (size / 50)));
+      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size, color, turned: false });
     },
   },
 };
@@ -150,6 +161,50 @@ html {
   overflow: hidden;
   /* Forhindrer scrollbars */
 }
+
+/* Container som holder flipperen */
+.flip-container {
+  perspective: 1000px;
+  height: 200px;
+  /* Legger til dybdeperspektiv */
+}
+
+/* Flipperen selv */
+.flipper {
+  transition: 1s;
+  transform-style: preserve-3d;
+  /* Bevarer 3D-transformasjonene */
+  position: relative;
+}
+
+/* Forside og bakside */
+.front,
+.back {
+  backface-visibility: hidden;
+  /* Gjemmer baksiden av flipen */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Initialt viser forsiden */
+.front {
+  z-index: 2;
+  transform: rotateY(0deg);
+}
+
+/* Baksiden er skjult og rotert 180 grader */
+.back {
+  transform: rotateY(180deg);
+}
+
+/* Når containeren er hoveret, roter flipperen */
+.flip-container:active .flipper{
+  transform: rotateY(180deg);
+}
+
 
 .container {
   position: relative;
@@ -195,13 +250,16 @@ canvas {
   transition-timing-function: ease-out;
 }
 
-.profile-pic:hover,
-.profile-pic:active {
+.front .profile-pic:active {
   transform: rotate(360deg);
   transition: transform 10s;
   transition-timing-function: ease-in-out;
 }
-
+.back .profile-pic:active {
+  transform: rotate(-360deg);
+  transition: transform 10s;
+  transition-timing-function: ease-in-out;
+}
 .social-links {
   text-align: center;
   margin-left: auto;
@@ -223,5 +281,4 @@ canvas {
 .social-links svg:hover {
   transform: scale(1.25);
   fill: #159;
-}
-</style>
+}</style>
