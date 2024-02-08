@@ -280,5 +280,7 @@ canvas {
 
 .social-links svg:hover {
   transform: scale(1.25);
-  fill: #159;
+  fill: #333;
+  /*adds a diffuse shadow */
+  filter: drop-shadow(0 0 8px rgba(50, 50, 50, 0.15));
 }</style>
