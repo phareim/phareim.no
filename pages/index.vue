@@ -3,7 +3,7 @@
     <canvas ref="canvas"></canvas>
     <div class="overlay" @click="addBox">
       <div class="home">
-        <div class="flip-container" @click="flip">
+        <div class="flip-container" @click="flip" @pointerdown="flipStart" @pointerup="flipStop">
           <div class="flipper">
             <div class="front">
               <!-- Bilde på forsiden -->
@@ -56,6 +56,7 @@ export default {
     return {
       ctx: null,
       boxes: [],  // Liste for å holde på alle boksene
+      boxCopy: [],
     };
   },
   mounted() {
@@ -145,6 +146,15 @@ export default {
       });
       event.stopPropagation();
     },
+    flipStart(event) {
+      this.boxes.forEach(box => {
+        box.color = `#333`;
+      });
+      event.stopPropagation();
+    },
+    flipStop(event) {
+      event.stopPropagation();
+    },
     addBox(event) {
       const rect = this.$refs.canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
@@ -173,6 +183,10 @@ html {
   perspective: 1000px;
   height: 200px;
   /* Legger til dybdeperspektiv */
+  width: 200px;
+  /*center*/
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Flipperen selv */
