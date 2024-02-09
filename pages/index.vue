@@ -8,12 +8,12 @@
             <div class="front">
               <!-- Bilde på forsiden -->
               <img class="profile-pic"
-                src="/public/petter2.jpeg"
+                src="/public/petter1.png"
                 alt="petter's profile picture" oncontextmenu="return false;" ontouchstart="return false;">
             </div>
             <div class="back">
               <!-- Bilde på baksiden -->
-              <img class="profile-pic" src="/public/petter1.png" alt="Bakside" oncontextmenu="return false;" ontouchstart="return false;">
+              <img class="profile-pic" src="/public/petter2.jpeg" alt="Bakside" oncontextmenu="return false;" ontouchstart="return false;">
             </div>
           </div>
         </div>
@@ -130,8 +130,8 @@ export default {
   this.ctx.arc(box.x, box.y, box.size / 2, 0, 2 * Math.PI); // Tegner en sirkel
 
   // Konfigurerer skygge
-  this.ctx.shadowOffsetX = 5; // Skyggens forskyvning horisontalt
-  this.ctx.shadowOffsetY = 5; // Skyggens forskyvning vertikalt
+  this.ctx.shadowOffsetX = this.boxes.length; // Skyggens forskyvning horisontalt
+  this.ctx.shadowOffsetY = this.boxes.length; // Skyggens forskyvning vertikalt
   this.ctx.shadowBlur = 10; // Skyggens uskarphet
   this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'; // Skyggens farge og gjennomsiktighet
 
