@@ -126,11 +126,24 @@ export default {
       });
     },
     drawBox(box) {
-      this.ctx.beginPath();  // Starter en ny sti
-      this.ctx.arc(box.x, box.y, box.size / 2, 0, 2 * Math.PI); // Tegner en sirkel
-      this.ctx.fillStyle = box.color;
-      this.ctx.fill();  // Fyller sirkelen med farge
-    },
+  this.ctx.beginPath(); // Starter en ny sti
+  this.ctx.arc(box.x, box.y, box.size / 2, 0, 2 * Math.PI); // Tegner en sirkel
+
+  // Konfigurerer skygge
+  this.ctx.shadowOffsetX = 5; // Skyggens forskyvning horisontalt
+  this.ctx.shadowOffsetY = 5; // Skyggens forskyvning vertikalt
+  this.ctx.shadowBlur = 10; // Skyggens uskarphet
+  this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'; // Skyggens farge og gjennomsiktighet
+
+  this.ctx.fillStyle = box.color;
+  this.ctx.fill(); // Fyller sirkelen med farge
+
+  // Nullstill skyggeinnstillinger for å unngå at hele canvaset påvirkes
+  this.ctx.shadowOffsetX = 0;
+  this.ctx.shadowOffsetY = 0;
+  this.ctx.shadowBlur = 0;
+  this.ctx.shadowColor = 'transparent';
+},
 
     isColliding(box1, box2) {
       return (
