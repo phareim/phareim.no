@@ -281,6 +281,7 @@ canvas {
   height: 200px;
   transition: transform 10s;
   transition-timing-function: ease-out;
+	filter: drop-shadow(0 0 28px rgba(50, 50, 50, 0.35));
 
   user-select: none; /* Forhindrer tekstvalg */
   -webkit-user-select: none; /* Safari/Chrome-versjon */
