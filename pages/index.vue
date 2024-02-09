@@ -3,17 +3,17 @@
     <canvas ref="canvas"></canvas>
     <div class="overlay" @click="addBox">
       <div class="home">
-        <div class="flip-container">
+        <div class="flip-container" @click="flip">
           <div class="flipper">
             <div class="front">
               <!-- Bilde på forsiden -->
               <img class="profile-pic"
-                src="https://media.licdn.com/dms/image/C5603AQFvIgKksv9i4g/profile-displayphoto-shrink_400_400/0/1662048611811?e=1711584000&v=beta&t=K37o_1J8QEB5oJyn93odTEAm9ZLhQr5rTD4Gkz7Fbq0"
-                alt="petter's profile picture">
+                src="/public/petter2.jpeg"
+                alt="petter's profile picture" oncontextmenu="return false;" ontouchstart="return false;">
             </div>
             <div class="back">
               <!-- Bilde på baksiden -->
-              <img class="profile-pic" src="/public/petter1.png" alt="Bakside">
+              <img class="profile-pic" src="/public/petter1.png" alt="Bakside" oncontextmenu="return false;" ontouchstart="return false;">
             </div>
           </div>
         </div>
@@ -139,6 +139,12 @@ export default {
         box1.size + box1.y > box2.y
       );
     },
+    flip(event) {
+      this.boxes.forEach(box => {
+        box.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+      });
+      event.stopPropagation();
+    },
     addBox(event) {
       const rect = this.$refs.canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
@@ -248,6 +254,10 @@ canvas {
   height: 200px;
   transition: transform 10s;
   transition-timing-function: ease-out;
+
+  user-select: none; /* Forhindrer tekstvalg */
+  -webkit-user-select: none; /* Safari/Chrome-versjon */
+  pointer-events: none; /* Forhindrer museinteraksjoner som klikk */
 }
 
 .front .profile-pic:active {
