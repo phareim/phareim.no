@@ -281,7 +281,7 @@ canvas {
   height: 200px;
   transition: transform 10s;
   transition-timing-function: ease-out;
-	filter: drop-shadow(0 0 28px rgba(50, 50, 50, 0.35));
+	filter: drop-shadow(5px 5px 25px rgba(50, 50, 50, 0.35));
 
   user-select: none; /* Forhindrer tekstvalg */
   -webkit-user-select: none; /* Safari/Chrome-versjon */
@@ -314,11 +314,12 @@ canvas {
   fill: #333;
   transition: transform 0.7s;
   transition-timing-function: ease-in-out;
+  filter: drop-shadow(5px 5px 25px rgba(50, 50, 50, 0.35));
 }
 
 .social-links svg:hover {
   transform: scale(1.25);
   fill: #333;
   /*adds a diffuse shadow */
-  filter: drop-shadow(0 0 8px rgba(50, 50, 50, 0.15));
+  filter: drop-shadow(10px 10px 20px rgba(50, 50, 50, 0.45));
 }</style>
