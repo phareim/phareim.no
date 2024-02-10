@@ -75,7 +75,7 @@ export default {
       this.boxes.forEach(box => {
         this.drawBox(box);
         this.updatePosition(box);
-        // this.checkCollisions(box);
+        this.checkCollisions(box);
       });
     },
     getNewShadow(strength) {
@@ -172,10 +172,10 @@ export default {
 
     isColliding(box1, box2) {
       return (
-        box1.x < box2.x + box2.size &&
-        box1.x + box1.size > box2.x &&
-        box1.y < box2.y + box2.size &&
-        box1.size + box1.y > box2.y
+        box1.x < box2.x + (box2.size/2) &&
+        box1.x + (box1.size/2) > box2.x &&
+        box1.y < box2.y + (box2.size/2) &&
+       ( box1.size/2) + box1.y > box2.y
       );
     },
     flip(event) {
