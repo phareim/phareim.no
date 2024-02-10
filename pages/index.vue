@@ -7,9 +7,8 @@
           <div class="flipper">
             <div class="front">
               <!-- Bilde på forsiden -->
-              <img class="profile-pic"
-                src="/public/petter1.png"
-                alt="petter's profile picture" oncontextmenu="return false;" ontouchstart="return false;">
+              <img class="profile-pic" src="/public/petter1.png" alt="petter's profile picture" oncontextmenu="return false;"
+                ontouchstart="return false;">
             </div>
             <div class="back">
               <!-- Bilde på baksiden -->
@@ -79,6 +78,22 @@ export default {
         // this.checkCollisions(box);
       });
     },
+    getNewShadow(strength) {
+      const shadow = {
+        shadowOffsetX: strength * 1,
+        shadowOffsetY: Math.floor(strength * 0.5),
+        shadowColor: 'rgba(0, 0, 0, 0.5)',
+        shadowBlur: Math.floor(strength * 0.5)+2
+      }
+      shadow.css = `${shadow.shadowOffsetX}px ${shadow.shadowOffsetY}px ${shadow.shadowBlur}px ${shadow.shadowColor}`;
+      return shadow;
+    },
+    updateProfilePictureShadow() {
+      const profilePictures = document.querySelectorAll('.profile-pic');
+      profilePictures.forEach(profilePicture => {
+        profilePicture.style.boxShadow = this.getNewShadow(this.boxes.length).css;
+      });
+    },
     updatePosition(box) {
       // Sjekk for kollisjon med canvas-kanter
       if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) || box.x + box.vx - (box.size / 2) < 0) {
@@ -126,24 +141,24 @@ export default {
       });
     },
     drawBox(box) {
-  this.ctx.beginPath(); // Starter en ny sti
-  this.ctx.arc(box.x, box.y, box.size / 2, 0, 2 * Math.PI); // Tegner en sirkel
+      this.ctx.beginPath(); // Starter en ny sti
+      this.ctx.arc(box.x, box.y, box.size / 2, 0, 2 * Math.PI); // Tegner en sirkel
 
-  // Konfigurerer skygge
-  this.ctx.shadowOffsetX = this.boxes.length; // Skyggens forskyvning horisontalt
-  this.ctx.shadowOffsetY = this.boxes.length; // Skyggens forskyvning vertikalt
-  this.ctx.shadowBlur = 10; // Skyggens uskarphet
-  this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'; // Skyggens farge og gjennomsiktighet
+      // Konfigurerer skygge
+      this.ctx.shadowOffsetX = box.shadow.shadowOffsetX; // Skyggens forskyvning horisontalt
+      this.ctx.shadowOffsetY = box.shadow.shadowOffsetY; // Skyggens forskyvning vertikalt
+      this.ctx.shadowBlur = box.shadow.shadowBlur; // Skyggens uskarphet
+      this.ctx.shadowColor = box.shadow.shadowColor; // Skyggens farge og gjennomsiktighet
 
-  this.ctx.fillStyle = box.color;
-  this.ctx.fill(); // Fyller sirkelen med farge
+      this.ctx.fillStyle = box.color;
+      this.ctx.fill(); // Fyller sirkelen med farge
 
-  // Nullstill skyggeinnstillinger for å unngå at hele canvaset påvirkes
-  this.ctx.shadowOffsetX = 0;
-  this.ctx.shadowOffsetY = 0;
-  this.ctx.shadowBlur = 0;
-  this.ctx.shadowColor = 'transparent';
-},
+      // Nullstill skyggeinnstillinger for å unngå at hele canvaset påvirkes
+      this.ctx.shadowOffsetX = 0;
+      this.ctx.shadowOffsetY = 0;
+      this.ctx.shadowBlur = 0;
+      this.ctx.shadowColor = 'transparent';
+    },
 
     isColliding(box1, box2) {
       return (
@@ -174,9 +189,11 @@ export default {
       const y = event.clientY - rect.top;
       const size = (Math.random() * 200) + 10;
       const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+      const shadow = this.getNewShadow(this.boxes.length);
       const yvelocity = (Math.random() * (4 - (size / 50)) - (2 - (size / 50)));
       const xvelocity = (Math.random() * (4 - (size / 50)) - (2 - (size / 50)));
-      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size, color, turned: false });
+      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size, color, turned: false, shadow });
+      this.updateProfilePictureShadow();
     },
   },
 };
@@ -234,7 +251,7 @@ html {
 }
 
 /* Når containeren er hoveret, roter flipperen */
-.flip-container:active .flipper{
+.flip-container:active .flipper {
   transform: rotateY(180deg);
 }
 
@@ -281,11 +298,14 @@ canvas {
   height: 200px;
   transition: transform 10s;
   transition-timing-function: ease-out;
-	filter: drop-shadow(5px 5px 25px rgba(50, 50, 50, 0.35));
+  filter: drop-shadow(0px 0px 0px rgba(50, 50, 50, 0.35));
 
-  user-select: none; /* Forhindrer tekstvalg */
-  -webkit-user-select: none; /* Safari/Chrome-versjon */
-  pointer-events: none; /* Forhindrer museinteraksjoner som klikk */
+  user-select: none;
+  /* Forhindrer tekstvalg */
+  -webkit-user-select: none;
+  /* Safari/Chrome-versjon */
+  pointer-events: none;
+  /* Forhindrer museinteraksjoner som klikk */
 }
 
 .front .profile-pic:active {
@@ -293,11 +313,13 @@ canvas {
   transition: transform 10s;
   transition-timing-function: ease-in-out;
 }
+
 .back .profile-pic:active {
   transform: rotate(-360deg);
   transition: transform 10s;
   transition-timing-function: ease-in-out;
 }
+
 .social-links {
   text-align: center;
   margin-left: auto;
@@ -311,7 +333,7 @@ canvas {
 .social-links svg {
   width: 50px;
   height: 50px;
-  fill: #333;
+  fill: #000;
   transition: transform 0.7s;
   transition-timing-function: ease-in-out;
   filter: drop-shadow(5px 5px 25px rgba(50, 50, 50, 0.35));
@@ -319,7 +341,8 @@ canvas {
 
 .social-links svg:hover {
   transform: scale(1.25);
-  fill: #333;
+  fill: #000;
   /*adds a diffuse shadow */
   filter: drop-shadow(10px 10px 20px rgba(50, 50, 50, 0.45));
-}</style>
+}
+</style>
