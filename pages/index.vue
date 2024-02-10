@@ -75,7 +75,7 @@ export default {
       this.boxes.forEach(box => {
         this.drawBox(box);
         this.updatePosition(box);
-        this.checkCollisions(box);
+        // this.checkCollisions(box); // does not work
       });
     },
     getNewShadow(strength) {
