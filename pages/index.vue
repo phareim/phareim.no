@@ -17,8 +17,8 @@
           </div>
         </div>
         <h1>petter hareim</h1>
-        <p class="blurb">father, husband, geek, aspiring good guy.
-          head of development at <a href="https://hkraft.no" class="hidden-href" target="_blank">haugaland kraft</a>.
+        <p class="blurb">father, husband, geek, aspiring good guy.<br>
+          head of software development at <a href="https://hkraft.no" class="hidden-href" target="_blank">haugaland kraft</a>.
         </p>
         <p class="blurb">
           help folks, write code, build useful things.
@@ -90,7 +90,7 @@ export default {
         shadowOffsetX: strength * 1,
         shadowOffsetY: Math.floor(strength * 0.5),
         shadowColor: color,
-        shadowBlur: Math.floor(strength * 0.5)+2
+        shadowBlur: Math.floor(strength * 0.5) + 2
       }
       shadow.css = `${shadow.shadowOffsetX}px ${shadow.shadowOffsetY}px ${shadow.shadowBlur}px ${shadow.shadowColor}`;
       return shadow;
@@ -179,15 +179,15 @@ export default {
 
     isColliding(box1, box2) {
       return (
-        box1.x < box2.x + (box2.size/2) &&
-        box1.x + (box1.size/2) > box2.x &&
-        box1.y < box2.y + (box2.size/2) &&
-       ( box1.size/2) + box1.y > box2.y
+        box1.x < box2.x + (box2.size / 2) &&
+        box1.x + (box1.size / 2) > box2.x &&
+        box1.y < box2.y + (box2.size / 2) &&
+        (box1.size / 2) + box1.y > box2.y
       );
     },
     flip(event) {
-      
-      
+
+
       this.boxes.forEach(box => {
         box.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
       });
@@ -208,10 +208,10 @@ export default {
       const y = event.clientY - rect.top;
       const size = (Math.random() * 200) + 10;
       const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-      const shadowColor = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches? 'rgba(0, 0, 0, 0.9)' : 'rgba(0, 0, 0, 0.5)';
+      const shadowColor = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'rgba(0, 0, 0, 0.9)' : 'rgba(0, 0, 0, 0.5)';
       const shadow = this.getNewShadow(this.boxes.length, shadowColor);
-      const yvelocity = (Math.random() * (4 - (size / 50)) - (2 - (size / 50)));
-      const xvelocity = (Math.random() * (4 - (size / 50)) - (2 - (size / 50)));
+      const yvelocity = ((Math.random()*1.2) * (Math.random() < 0.5 ? -1 : 1)) ;
+      const xvelocity = ((Math.random()*1.2) * (Math.random() < 0.5 ? -1 : 1)) ;
       this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size, color, turned: false, shadow });
       this.updateShadows();
     },
@@ -342,6 +342,7 @@ canvas {
   color: inherit;
   text-decoration: none;
 }
+
 .hidden-href:hover {
   font-weight: bold;
   text-decoration: underline;
@@ -372,12 +373,12 @@ canvas {
 }
 
 .social-links svg:hover {
-  transform: scale(1.4) rotate(-9deg);
+  transform: scale(1.4) rotate(-6deg);
 }
 
 .diffuse-border {
   color: black;
-  text-shadow: 
+  text-shadow:
     1px 1px 0 rgba(255, 255, 255, 0.25),
     -1px 1px 0 rgba(255, 255, 255, 0.25),
     1px -1px 0 rgba(255, 255, 255, 0.25),
