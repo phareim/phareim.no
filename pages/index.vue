@@ -61,6 +61,13 @@ export default {
   mounted() {
     this.setupCanvas();
     this.animate();
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      // Brukeren foretrekker mørk modus
+      console.log('Mørk modus er foretrukket');
+    } else {
+      // Brukeren foretrekker lys modus eller ingen preferanse er angitt
+      console.log('Lys modus er foretrukket eller ingen preferanse');
+    }
   },
   methods: {
     setupCanvas() {
@@ -73,16 +80,16 @@ export default {
       requestAnimationFrame(this.animate);
       this.ctx.clearRect(0, 0, this.$refs?.canvas?.width, this.$refs?.canvas?.height);
       this.boxes.forEach(box => {
-        this.drawBox(box);
         this.updatePosition(box);
+        this.drawBox(box);
         // this.checkCollisions(box); // does not work
       });
     },
-    getNewShadow(strength) {
+    getNewShadow(strength, color = 'rgba(0, 0, 0, 0.5') {
       const shadow = {
         shadowOffsetX: strength * 1,
         shadowOffsetY: Math.floor(strength * 0.5),
-        shadowColor: 'rgba(0, 0, 0, 0.5)',
+        shadowColor: color,
         shadowBlur: Math.floor(strength * 0.5)+2
       }
       shadow.css = `${shadow.shadowOffsetX}px ${shadow.shadowOffsetY}px ${shadow.shadowBlur}px ${shadow.shadowColor}`;
@@ -179,6 +186,8 @@ export default {
       );
     },
     flip(event) {
+      
+      
       this.boxes.forEach(box => {
         box.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
       });
@@ -199,7 +208,8 @@ export default {
       const y = event.clientY - rect.top;
       const size = (Math.random() * 200) + 10;
       const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-      const shadow = this.getNewShadow(this.boxes.length);
+      const shadowColor = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches? 'rgba(0, 0, 0, 0.9)' : 'rgba(0, 0, 0, 0.5)';
+      const shadow = this.getNewShadow(this.boxes.length, shadowColor);
       const yvelocity = (Math.random() * (4 - (size / 50)) - (2 - (size / 50)));
       const xvelocity = (Math.random() * (4 - (size / 50)) - (2 - (size / 50)));
       this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size, color, turned: false, shadow });
@@ -215,8 +225,22 @@ html {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  /* Forhindrer scrollbars */
 }
+
+/* Standard stiler for lys modus */
+body {
+  background-color: white;
+  color: black;
+}
+
+/* Stiler for mørk modus */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #222;
+    color: white;
+  }
+}
+
 
 /* Container som holder flipperen */
 .flip-container {
@@ -227,6 +251,7 @@ html {
   /*center*/
   margin-left: auto;
   margin-right: auto;
+  cursor: pointer;
 }
 
 /* Flipperen selv */
@@ -260,11 +285,10 @@ html {
   transform: rotateY(180deg);
 }
 
-/* Når containeren er hoveret, roter flipperen */
+/* Når containeren er aktiv, roter flipperen */
 .flip-container:active .flipper {
   transform: rotateY(180deg);
 }
-
 
 .container {
   position: relative;
@@ -309,14 +333,11 @@ canvas {
   transition: transform 10s;
   transition-timing-function: ease-out;
   filter: drop-shadow(0px 0px 0px rgba(50, 50, 50, 0.35));
-
   user-select: none;
-  /* Forhindrer tekstvalg */
   -webkit-user-select: none;
-  /* Safari/Chrome-versjon */
   pointer-events: none;
-  /* Forhindrer museinteraksjoner som klikk */
 }
+
 .hidden-href {
   color: inherit;
   text-decoration: none;
@@ -324,17 +345,6 @@ canvas {
 .hidden-href:hover {
   font-weight: bold;
   text-decoration: underline;
-}
-.front .profile-pic:active {
-  transform: rotate(360deg);
-  transition: transform 10s;
-  transition-timing-function: ease-in-out;
-}
-
-.back .profile-pic:active {
-  transform: rotate(-360deg);
-  transition: transform 10s;
-  transition-timing-function: ease-in-out;
 }
 
 .social-links {
@@ -353,14 +363,16 @@ canvas {
   fill: #000;
   transition: transform 0.7s;
   transition-timing-function: ease-in-out;
-  filter: drop-shadow(5px 5px 25px rgba(50, 50, 50, 0.35));
+}
+
+@media (prefers-color-scheme: dark) {
+  .social-links svg {
+    fill: white;
+  }
 }
 
 .social-links svg:hover {
-  transform: scale(1.25);
-  fill: #000;
-  /*adds a diffuse shadow */
-  filter: drop-shadow(10px 10px 20px rgba(50, 50, 50, 0.45));
+  transform: scale(1.4) rotate(-9deg);
 }
 
 .diffuse-border {
