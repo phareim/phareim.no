@@ -56,17 +56,14 @@ export default {
       ctx: null,
       boxes: [],  // Liste for å holde på alle boksene
       boxCopy: [],
+      darkMode: false,
     };
   },
   mounted() {
     this.setupCanvas();
     this.animate();
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      // Brukeren foretrekker mørk modus
-      console.log('Mørk modus er foretrukket');
-    } else {
-      // Brukeren foretrekker lys modus eller ingen preferanse er angitt
-      console.log('Lys modus er foretrukket eller ingen preferanse');
+      this.darkMode = true;
     }
   },
   methods: {
@@ -186,16 +183,18 @@ export default {
       );
     },
     flip(event) {
-
-
       this.boxes.forEach(box => {
         box.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+        box.vx = box.vx * 4;
+        box.vy = box.vy * 4;
       });
       event.stopPropagation();
     },
     flipStart(event) {
       this.boxes.forEach(box => {
         box.color = `#333`;
+        box.vx = box.vx * 0.25;
+        box.vy = box.vy * 0.25;
       });
       event.stopPropagation();
     },
@@ -208,10 +207,10 @@ export default {
       const y = event.clientY - rect.top;
       const size = (Math.random() * 200) + 10;
       const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-      const shadowColor = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'rgba(0, 0, 0, 0.9)' : 'rgba(0, 0, 0, 0.5)';
+      const shadowColor = this.darkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(10, 10, 10, 0.5)';
       const shadow = this.getNewShadow(this.boxes.length, shadowColor);
-      const yvelocity = ((Math.random()*1.2) * (Math.random() < 0.5 ? -1 : 1)) ;
-      const xvelocity = ((Math.random()*1.2) * (Math.random() < 0.5 ? -1 : 1)) ;
+      const yvelocity = ((Math.random() * 1.2) * (Math.random() < 0.5 ? -1 : 1));
+      const xvelocity = ((Math.random() * 1.2) * (Math.random() < 0.5 ? -1 : 1));
       this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size, color, turned: false, shadow });
       this.updateShadows();
     },
