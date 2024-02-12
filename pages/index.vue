@@ -23,6 +23,9 @@
         <p class="blurb">
           help folks, write code, build useful things.
         </p>
+<p class="location">
+54°26'51 S 3°19'15 E
+</p>
         <div class="social-links">
           <a href="https://www.linkedin.com/in/phareim" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="5em"
               height="50" viewBox="0 0 50 50" class="">
