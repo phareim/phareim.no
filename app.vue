@@ -81,6 +81,5 @@ h1 {
   font-weight: 500;
   margin: 0;
   padding: 0;
-  transition: color 0.8s ease-in-out, transform 0.4s ease-in-out; 
 }
 </style>

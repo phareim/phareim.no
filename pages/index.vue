@@ -186,6 +186,7 @@ export default {
       );
     },
     flip(event) {
+      document.body.classList.remove('dark-mode');
       this.boxes.forEach(box => {
         box.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
         box.vx = box.vx * 4;
@@ -194,6 +195,7 @@ export default {
       event.stopPropagation();
     },
     flipStart(event) {
+      document.body.classList.add('dark-mode');
       this.boxes.forEach(box => {
         box.color = `#333`;
         box.vx = box.vx * 0.25;
@@ -202,6 +204,7 @@ export default {
       event.stopPropagation();
     },
     flipStop(event) {
+      document.body.classList.remove('dark-mode');
       event.stopPropagation();
     },
     addBox(event) {
@@ -228,6 +231,15 @@ html {
   padding: 0;
   overflow: hidden;
 }
+
+body.dark-mode {
+  background-color: #222;
+  color: white;
+}
+
+body.dark-mode .social-links svg {
+    fill: white;
+  }
 
 /* Standard stiler for lys modus */
 body {
@@ -258,8 +270,9 @@ body {
 
 /* Flipperen selv */
 .flipper {
-  transition: 1s;
+  transition: 1.2s;
   transform-style: preserve-3d;
+  transition-timing-function: ease-in-out;
   /* Bevarer 3D-transformasjonene */
   position: relative;
 }
@@ -326,6 +339,10 @@ canvas {
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
+}
+
+h1 p {
+  transition: transform 0.4s;
 }
 
 .profile-pic {
