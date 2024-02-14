@@ -231,7 +231,13 @@ html {
   padding: 0;
   overflow: hidden;
 }
+p {
+	font-size: 1em;
+}
 
+.location {
+	font-size: 0.7em;
+}
 body.dark-mode {
   background-color: #222;
   color: white;
