@@ -23,9 +23,9 @@
         <p class="blurb">
           help folks, write code, build useful things.
         </p>
-<p class="location">
-54°26'51 S 3°19'15 E
-</p>
+        <p class="location">
+          54°26'51 S 3°19'15 E
+        </p>
         <div class="social-links">
           <a href="https://www.linkedin.com/in/phareim" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="5em"
               height="50" viewBox="0 0 50 50" class="">
@@ -52,6 +52,7 @@
 </template>
 
 <script>
+
 export default {
   name: 'Home',
   data() {
@@ -60,6 +61,7 @@ export default {
       boxes: [],  // Liste for å holde på alle boksene
       boxCopy: [],
       darkMode: false,
+      mousePosition: { x: 0, y: 0 }
     };
   },
   mounted() {
@@ -68,6 +70,7 @@ export default {
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       this.darkMode = true;
     }
+    window.addEventListener('mousemove', this.updateMousePosition);
   },
   methods: {
     setupCanvas() {
@@ -75,6 +78,9 @@ export default {
       this.ctx = canvas.getContext('2d');
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
+    },
+    updateMousePosition(event) {
+      this.mousePosition = { x: event.clientX, y: event.clientY };
     },
     animate() {
       requestAnimationFrame(this.animate);
@@ -115,14 +121,14 @@ export default {
       // Sjekk for kollisjon med canvas-kanter
       if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) || box.x + box.vx - (box.size / 2) < 0) {
         if (box.turned) {
-          box.size = box.size * 0.9;
+          box.size = box.size * 0.95;
         }
         box.vx = -box.vx;
         box.turned = true;
       }
       else if (box.y + box.vy > this.$refs?.canvas?.height - (box.size / 2) || box.y + box.vy - (box.size / 2) < 0) {
         if (box.turned) {
-          box.size = box.size * 0.9;
+          box.size = box.size * 0.95;
         }
         box.vy = -box.vy;
         box.turned = true;
@@ -132,20 +138,24 @@ export default {
       }
 
       if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) && box.y + box.vy - (box.size / 2) < 0) {
-        box.size = box.size * 0.9;
+        box.size = box.size * 0.95;
       }
       else if (box.x + box.vx - (box.size / 2) < 0 && box.y + box.vy - (box.size / 2) < 0) {
-        box.size = box.size * 0.9;
+        box.size = box.size * 0.95;
       }
       else if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) && box.y + box.vy > this.$refs.canvas.height - (box.size / 2)) {
-        box.size = box.size * 0.9;
+        box.size = box.size * 0.95;
       }
       else if (box.x + box.vx - (box.size / 2) < 0 && box.y + box.vy > this.$refs?.canvas?.height - (box.size / 2)) {
-        box.size = box.size * 0.9;
+        box.size = box.size * 0.95;
       }
+
+      box.y = box.y + (this.mousePosition.y - box.y) * 0.002;
+      box.x = box.x + (this.mousePosition.x - box.x) * 0.002;
 
       box.x += box.vx;
       box.y += box.vy;
+
     },
     checkCollisions(currentBox) {
       this.boxes.forEach(box => {
@@ -231,21 +241,23 @@ html {
   padding: 0;
   overflow: hidden;
 }
+
 p {
-	font-size: 1em;
+  font-size: 1em;
 }
 
 .location {
-	font-size: 0.7em;
+  font-size: 0.7em;
 }
+
 body.dark-mode {
   background-color: #222;
   color: white;
 }
 
 body.dark-mode .social-links svg {
-    fill: white;
-  }
+  fill: white;
+}
 
 /* Standard stiler for lys modus */
 body {
