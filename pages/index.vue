@@ -80,7 +80,8 @@ export default {
       canvas.height = canvas.offsetHeight;
     },
     updateMousePosition(event) {
-      this.mousePosition = { x: event.clientX, y: event.clientY };
+      const old = this.mousePosition;
+      this.mousePosition = { x: event.clientX, y: event.clientY, v: { x: event.clientX - old.x, y: event.clientY - old.y } };
     },
     animate() {
       requestAnimationFrame(this.animate);
@@ -149,13 +150,19 @@ export default {
       else if (box.x + box.vx - (box.size / 2) < 0 && box.y + box.vy > this.$refs?.canvas?.height - (box.size / 2)) {
         box.size = box.size * 0.95;
       }
-
-      box.y = box.y + (this.mousePosition.y - box.y) * 0.002;
-      box.x = box.x + (this.mousePosition.x - box.x) * 0.002;
+      // Sjekk for kollisjon med canvas-kanter, ferdig 😮‍💨
+      box.vx = box.vx + (this.mousePosition.v.x * 0.05);
+      box.vy = box.vy + (this.mousePosition.v.y * 0.05);
 
       box.x += box.vx;
       box.y += box.vy;
 
+      this.mousePosition.v.x = this.mousePosition.v.x * 0.9;
+      this.mousePosition.v.y = this.mousePosition.v.y * 0.9;
+
+      // changes vx and vy to simulate friction and slow down the boxes in a logarithmic way
+      box.vx = box.vx * 0.994; 
+      box.vy = box.vy * 0.994;      
     },
     checkCollisions(currentBox) {
       this.boxes.forEach(box => {
