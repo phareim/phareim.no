@@ -61,7 +61,7 @@ export default {
       boxes: [],  // Liste for å holde på alle boksene
       boxCopy: [],
       darkMode: false,
-      mousePosition: { x: 0, y: 0 }
+      mousePosition: { x: 0, y: 0, v: { x: 0, y: 0 } }
     };
   },
   mounted() {
@@ -151,18 +151,18 @@ export default {
         box.size = box.size * 0.95;
       }
       // Sjekk for kollisjon med canvas-kanter, ferdig 😮‍💨
-      box.vx = box.vx + (this.mousePosition.v.x * 0.05);
-      box.vy = box.vy + (this.mousePosition.v.y * 0.05);
+
+      box.vx = box.vx + (this.mousePosition.v.x * 0.1);
+      box.vy = box.vy + (this.mousePosition.v.y * 0.2);
 
       box.x += box.vx;
       box.y += box.vy;
 
-      this.mousePosition.v.x = this.mousePosition.v.x * 0.9;
-      this.mousePosition.v.y = this.mousePosition.v.y * 0.9;
+      this.mousePosition.v.x = this.mousePosition.v.x * 0.7;
+      this.mousePosition.v.y = this.mousePosition.v.y * 0.7;
 
-      // changes vx and vy to simulate friction and slow down the boxes in a logarithmic way
-      box.vx = box.vx * 0.994; 
-      box.vy = box.vy * 0.994;      
+      Math.abs(box.vx) > 0.2 && (box.vx = (box.vx * 0.994));
+      Math.abs(box.vy) > 0.2 && (box.vy = (box.vy * 0.994));
     },
     checkCollisions(currentBox) {
       this.boxes.forEach(box => {
