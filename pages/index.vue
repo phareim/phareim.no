@@ -7,12 +7,12 @@
           <div class="flipper">
             <div class="front">
               <!-- Bilde på forsiden -->
-              <img class="profile-pic" src="/public/petter1.png" alt="petter's profile picture" oncontextmenu="return false;"
+              <img class="profile-pic" src="/petter1.png" alt="petter's profile picture" oncontextmenu="return false;"
                 ontouchstart="return false;">
             </div>
             <div class="back">
               <!-- Bilde på baksiden -->
-              <img class="profile-pic" src="/public/petter2.jpeg" alt="Bakside" oncontextmenu="return false;" ontouchstart="return false;">
+              <img class="profile-pic" src="/petter2.jpeg" alt="Bakside" oncontextmenu="return false;" ontouchstart="return false;">
             </div>
           </div>
         </div>
