@@ -152,8 +152,8 @@ export default {
       }
       // Sjekk for kollisjon med canvas-kanter, ferdig 😮‍💨
 
-      box.vx = box.vx + (this.mousePosition.v.x * 0.1);
-      box.vy = box.vy + (this.mousePosition.v.y * 0.2);
+      box.vx = box.vx + (this.mousePosition.v.x * 0.05);
+      box.vy = box.vy + (this.mousePosition.v.y * 0.05);
 
       box.x += box.vx;
       box.y += box.vy;
