@@ -22,12 +22,12 @@ export default {
   },
   mounted() {
     // Sett gjeldende ruteindeks basert på gjeldende rute
-    this.currentRouteIndex = this.routes.findIndex(route => route.path === this.$route.path);
+    // this.currentRouteIndex = this.routes.findIndex(route => route.path === this.$route.path);
     // Legg til touch-begivenhetslyttere
-    this.$el.addEventListener('touchstart', this.handleTouchStart);
-    this.$el.addEventListener('touchend', this.handleTouchEnd);
+    // this.$el.addEventListener('touchstart', this.handleTouchStart);
+    // this.$el.addEventListener('touchend', this.handleTouchEnd);
 
-    document.addEventListener('keydown', this.handleKeyDown);
+    // document.addEventListener('keydown', this.handleKeyDown);
   },
   beforeDestroy() {
     // Fjern touch-begivenhetslyttere
