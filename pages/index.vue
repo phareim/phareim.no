@@ -152,8 +152,8 @@ export default {
       }
       // Sjekk for kollisjon med canvas-kanter, ferdig 😮‍💨
 
-      box.vx = box.vx + (this.mousePosition.v.x * 0.05);
-      box.vy = box.vy + (this.mousePosition.v.y * 0.05);
+      box.vx = box.vx + (this.mousePosition.v.x * 0.08);
+      box.vy = box.vy + (this.mousePosition.v.y * 0.08);
 
       box.x += box.vx;
       box.y += box.vy;
@@ -376,7 +376,7 @@ h1 p {
   border-radius: 50%;
   width: 200px;
   height: 200px;
-  transition: transform 10s;
+  transition: transform 8s;
   transition-timing-function: ease-out;
   filter: drop-shadow(0px 0px 0px rgba(50, 50, 50, 0.35));
   user-select: none;
