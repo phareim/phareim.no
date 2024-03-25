@@ -18,7 +18,7 @@
         </div>
         <h1>petter hareim</h1>
         <p class="blurb">father, husband, geek, aspiring good guy.<br>
-          head of software development at <a href="https://hkraft.no" class="hidden-href" target="_blank">haugaland kraft</a>.
+          head of software development at haugaland kraft.
         </p>
         <p class="blurb">
           help folks, write code, build useful things.
