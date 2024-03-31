@@ -152,14 +152,14 @@ export default {
       }
       // Sjekk for kollisjon med canvas-kanter, ferdig 😮‍💨
 
-      box.vx = box.vx + (this.mousePosition.v.x * 0.08);
-      box.vy = box.vy + (this.mousePosition.v.y * 0.08);
+      box.vx = box.vx + (this.mousePosition.v.x * 0.1);
+      box.vy = box.vy + (this.mousePosition.v.y * 0.1);
 
       box.x += box.vx;
       box.y += box.vy;
 
-      this.mousePosition.v.x = this.mousePosition.v.x * 0.7;
-      this.mousePosition.v.y = this.mousePosition.v.y * 0.7;
+      this.mousePosition.v.x = this.mousePosition.v.x * 0.66;
+      this.mousePosition.v.y = this.mousePosition.v.y * 0.66;
 
       Math.abs(box.vx) > 0.2 && (box.vx = (box.vx * 0.994));
       Math.abs(box.vy) > 0.2 && (box.vy = (box.vy * 0.994));
