@@ -17,8 +17,7 @@
           </div>
         </div>
         <h1>petter hareim</h1>
-        <p class="blurb">father, husband, geek, aspiring good guy.<br>
-          head of software development at haugaland kraft.
+        <p class="blurb">father, husband, geek, aspiring good guy.
         </p>
         <p class="blurb">
           help folks, write code, build useful things.
