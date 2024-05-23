@@ -8,21 +8,37 @@
 export default {
   data() {
     return {
-      beta: 30,  // Pitch: vipping frem og tilbake
-      gamma: 40,  // Roll: vipping fra side til side
+      alpha: 10,
+      beta: 20, 
+      gamma: 30,
+      zeta: 40,
+      omega: 5,
+      zebra: 6,
     };
   },
   computed: {
     transformStyle() {
-      return {
-        transform: `rotate(${this.gamma}deg) translateX(${this.gamma * 2}px) translateY(${this.beta * 2}px)`,
-      };
-    },
+    return {
+      transform: `
+        rotate(${this.alpha}deg) 
+        scale(${Math.abs(this.zeta) / 100})
+        skew(${this.omega}deg, ${this.zebra}deg)
+      `,
+    };
+  },
   },
   mounted() {
     if (window.DeviceOrientationEvent) {
       window.addEventListener('deviceorientation', this.handleOrientation);
     }
+    this.interval = setInterval(() => {
+      this.alpha += 1;
+      this.beta += 1;
+      this.gamma += 1;
+      this.zeta += 1;
+      this.omega += 1;
+      this.zebra += 1;
+    }, 50); // Change values every 1 second
   },
   beforeDestroy() {
     if (window.DeviceOrientationEvent) {
@@ -40,7 +56,17 @@ export default {
 
 <style>
 .art {
+  /** covers the entire screen */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
   font-size: 7em;
-  /* transition: transform 0.1s ease-in-out;   */
+  transition: transform 0.1s ease-in-out; 
 }
 </style>
