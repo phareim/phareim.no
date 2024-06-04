@@ -14,6 +14,7 @@ export default {
       zeta: 40,
       omega: 5,
       zebra: 6,
+      grow: true
     };
   },
   computed: {
@@ -32,13 +33,18 @@ export default {
       window.addEventListener('deviceorientation', this.handleOrientation);
     }
     this.interval = setInterval(() => {
-      this.alpha += 1;
-      this.beta += 1;
-      this.gamma += 1;
-      this.zeta += 1;
-      this.omega += 1;
-      this.zebra += 1;
-    }, 50); // Change values every 1 second
+      this.alpha = (this.grow? this.alpha +1 : this.alpha -1);
+      this.beta += (this.grow? this.beta +1 : this.beta -1);
+      this.gamma += (this.grow? this.gamma +1 : this.gamma -1);
+      this.zeta += (this.grow? this.zeta +1 : this.zeta -1);
+      this.omega += (this.grow? this.omega +1 : this.omega -1);
+      this.zebra += (this.grow? this.zebra +1 : this.zebra -1);
+      if(this.alpha > 100){
+        this.grow = false;
+      } else if(this.alpha < 10){
+        this.grow = true;
+      }
+    }, 50); //
   },
   beforeDestroy() {
     if (window.DeviceOrientationEvent) {
