@@ -34,11 +34,11 @@ export default {
     }
     this.interval = setInterval(() => {
       this.alpha = (this.grow? this.alpha +1 : this.alpha -1);
-      this.beta += (this.grow? this.beta +1 : this.beta -1);
+      /*this.beta += (this.grow? this.beta +1 : this.beta -1);
       this.gamma += (this.grow? this.gamma +1 : this.gamma -1);
       this.zeta += (this.grow? this.zeta +1 : this.zeta -1);
       this.omega += (this.grow? this.omega +1 : this.omega -1);
-      this.zebra += (this.grow? this.zebra +1 : this.zebra -1);
+      this.zebra += (this.grow? this.zebra +1 : this.zebra -1);*/
       if(this.alpha > 100){
         this.grow = false;
       } else if(this.alpha < 10){
