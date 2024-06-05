@@ -22,8 +22,8 @@ export default {
     return {
       transform: `
         rotate(${this.alpha}deg) 
-        scale(${Math.abs(this.zeta) / 100})
-        skew(${this.omega}deg, ${this.zebra}deg)
+        scale(${Math.abs(this.alpha) / 100})
+        skew(${this.alpha}deg, ${this.alpha}deg)
       `,
     };
   },
