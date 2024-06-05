@@ -39,9 +39,9 @@ export default {
       this.zeta += (this.grow? this.zeta +1 : this.zeta -1);
       this.omega += (this.grow? this.omega +1 : this.omega -1);
       this.zebra += (this.grow? this.zebra +1 : this.zebra -1);*/
-      if(this.alpha > 100){
+      if(this.alpha > 90){
         this.grow = false;
-      } else if(this.alpha < 10){
+      } else if(this.alpha < 1){
         this.grow = true;
       }
     }, 50); //
