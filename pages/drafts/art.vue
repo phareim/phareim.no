@@ -8,12 +8,12 @@
 export default {
   data() {
     return {
-      alpha: 10,
-      beta: 20, 
-      gamma: 30,
-      zeta: 40,
-      omega: 5,
-      zebra: 6,
+      alpha: {value: 10, grow: true},
+      beta:  {value: 20, grow: true},
+      gamma: {value: 30, grow: true},
+      zeta:  {value: 40, grow: true},
+      omega: {value: 5, grow: true},
+      zebra: {value: 6, grow: true},
       grow: true
     };
   },
@@ -21,9 +21,10 @@ export default {
     transformStyle() {
     return {
       transform: `
-        rotate(${this.alpha}deg) 
-        scale(${Math.abs(this.alpha) / 100})
-        skew(${this.beta}deg, ${this.alpha}deg)
+        rotate(${this.alpha.value}deg) 
+        scale(${Math.abs(this.beta.value) / 100})
+        skew(${this.gamma.value}deg, ${this.zeta.value}deg)
+        translate(${this.omega.value}px, ${this.zebra.value}px)
       `,
     };
   },
@@ -33,18 +34,20 @@ export default {
       window.addEventListener('deviceorientation', this.handleOrientation);
     }
     this.interval = setInterval(() => {
-      this.alpha = (this.grow? this.alpha +1 : this.alpha -1);
-      this.beta += (this.grow? this.beta +0.75 : this.beta -0.75);
-      /*this.gamma += (this.grow? this.gamma +1 : this.gamma -1);
-      this.zeta += (this.grow? this.zeta +1 : this.zeta -1);
-      this.omega += (this.grow? this.omega +1 : this.omega -1);
-      this.zebra += (this.grow? this.zebra +1 : this.zebra -1);*/
-      if(this.alpha > 90){
-        this.grow = false;
-      } else if(this.alpha < 1){
-        this.grow = true;
-      }
-    }, 50); //
+      this.alpha.value += (this.alpha.grow? 1 : -1);
+      this.beta.value += (this.beta.grow? 1 : -1);
+      this.gamma.value += (this.gamma.grow? 1 : -1);
+      this.zeta.value += (this.zeta.grow? 1 : -1);
+      this.omega.value += (this.omega.grow? 1 : -1);
+      this.zebra.value += (this.zebra.grow? 1 : -1);
+
+      this.alpha.grow = this.alpha.value > 90 || this.alpha.value < 1? !this.alpha.grow : this.alpha.grow;
+      this.beta.grow = this.beta.value > 90 || this.beta.value < 1? !this.beta.grow : this.beta.grow;
+      this.gamma.grow = this.gamma.value > 90 || this.gamma.value < 1? !this.gamma.grow : this.gamma.grow;
+      this.zeta.grow = this.zeta.value > 90 || this.zeta.value < 1? !this.zeta.grow : this.zeta.grow;
+      this.omega.grow = this.omega.value > 90 || this.omega.value < 1? !this.omega.grow : this.omega.grow;
+      this.zebra.grow = this.zebra.value > 90 || this.zebra.value < 1? !this.zebra.grow : this.zebra.grow;
+    }, 50); 
   },
   beforeDestroy() {
     if (window.DeviceOrientationEvent) {
