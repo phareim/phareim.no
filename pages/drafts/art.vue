@@ -1,5 +1,5 @@
 <template>
-  <div class="art" :style="transformStyle">
+  <div class="art" :style="combinedStyle">
     got art?
   </div>
 </template>
@@ -14,47 +14,58 @@ export default {
       zeta:  {value: 40, grow: true},
       omega: {value: 5, grow: true},
       zebra: {value: 6, grow: true},
-      grow: true
+      red: {value: 100, grow: true},
+      green: {value: 150, grow: true},
+      blue: {value: 200, grow: true},
     };
   },
   computed: {
     transformStyle() {
-    return {
-      transform: `
-        rotate(${this.alpha.value}deg) 
-        scale(${Math.abs(this.beta.value) / 100})
-        skew(${this.gamma.value}deg, ${this.zeta.value}deg)
-        translate(${this.omega.value}px, ${this.zebra.value}px)
-      `,
-    };
-  },
+      return {
+        transform: `
+          rotate(${this.alpha.value}deg) 
+          scale(${Math.abs(this.beta.value) / 100})
+          skew(${this.gamma.value}deg, ${this.zeta.value}deg)
+          translate(${this.omega.value}px, ${this.zebra.value}px)
+        `,
+      };
+    },
+    colorStyle() {
+      return {
+        color: `rgb(${this.red.value}, ${this.green.value}, ${this.blue.value})`,
+      };
+    },
+    combinedStyle() {
+      return { ...this.transformStyle, ...this.colorStyle };
+    },
   },
   mounted() {
     if (window.DeviceOrientationEvent) {
       window.addEventListener('deviceorientation', this.handleOrientation);
     }
     this.interval = setInterval(() => {
-      this.alpha.value += (this.alpha.grow? 1 : -1);
-      this.beta.value += (this.beta.grow? 1 : -1);
-      this.gamma.value += (this.gamma.grow? 1 : -1);
-      this.zeta.value += (this.zeta.grow? 1 : -1);
-      this.omega.value += (this.omega.grow? 1 : -1);
-      this.zebra.value += (this.zebra.grow? 1 : -1);
-
-      this.alpha.grow = this.alpha.value > 90 || this.alpha.value < 1? !this.alpha.grow : this.alpha.grow;
-      this.beta.grow = this.beta.value > 90 || this.beta.value < 1? !this.beta.grow : this.beta.grow;
-      this.gamma.grow = this.gamma.value > 90 || this.gamma.value < 1? !this.gamma.grow : this.gamma.grow;
-      this.zeta.grow = this.zeta.value > 90 || this.zeta.value < 1? !this.zeta.grow : this.zeta.grow;
-      this.omega.grow = this.omega.value > 90 || this.omega.value < 1? !this.omega.grow : this.omega.grow;
-      this.zebra.grow = this.zebra.value > 90 || this.zebra.value < 1? !this.zebra.grow : this.zebra.grow;
+      this.updateValues(this.alpha);
+      this.updateValues(this.beta);
+      this.updateValues(this.gamma);
+      this.updateValues(this.zeta);
+      this.updateValues(this.omega);
+      this.updateValues(this.zebra);
+      this.updateValues(this.red);
+      this.updateValues(this.green);
+      this.updateValues(this.blue);
     }, 50); 
   },
   beforeDestroy() {
     if (window.DeviceOrientationEvent) {
       window.removeEventListener('deviceorientation', this.handleOrientation);
     }
+    clearInterval(this.interval);
   },
   methods: {
+    updateValues(prop) {
+      prop.value += (prop.grow ? 1 : -1);
+      prop.grow = prop.value > 255 || prop.value < 1 ? !prop.grow : prop.grow;
+    },
     handleOrientation(event) {
       this.beta = event.beta;
       this.gamma = event.gamma;
@@ -76,6 +87,6 @@ export default {
   align-items: center;
 
   font-size: 7em;
-  transition: transform 0.1s ease-in-out; 
+  transition: transform 0.1s ease-in-out, color 0.1s ease-in-out; 
 }
 </style>
