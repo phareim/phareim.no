@@ -213,7 +213,7 @@ export default {
     flipStart(event) {
       document.body.classList.add('dark-mode');
       this.boxes.forEach(box => {
-        box.color = `#333`;
+        box.color = `#444`;
         box.vx = box.vx * 0.25;
         box.vy = box.vy * 0.25;
       });
@@ -259,7 +259,7 @@ p {
 }
 
 body.dark-mode {
-  background-color: #222;
+  background-color: #333;
   color: white;
 }
 
@@ -270,13 +270,13 @@ body.dark-mode .social-links svg {
 /* Standard stiler for lys modus */
 body {
   background-color: white;
-  color: black;
+  color: #111;
 }
 
 /* Stiler for mørk modus */
 @media (prefers-color-scheme: dark) {
   body {
-    background-color: #222;
+    background-color: #333;
     color: white;
   }
 }
