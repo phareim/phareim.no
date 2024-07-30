@@ -20,7 +20,7 @@
         <p class="blurb">father, husband, geek, aspiring good guy.
         </p>
         <p class="blurb">
-          help folks, write code, build useful things.
+          help folks. write code. build things.
         </p>
         <p class="location">
           54°26'51 S 3°19'15 E
