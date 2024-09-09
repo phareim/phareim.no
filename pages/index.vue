@@ -59,6 +59,7 @@ export default {
       boxes: [],  // Liste for å holde på alle boksene
       boxCopy: [],
       darkMode: false,
+      thUpsideDown: false,
       mousePosition: { x: 0, y: 0, v: { x: 0, y: 0 } },
       statistics: {
         boxes: 0,
@@ -98,7 +99,9 @@ export default {
       this.boxes.forEach(box => {
         this.updatePosition(box);
         this.drawBox(box);
-        this.checkCollisions(box);
+        if(!this.theUpsideDown){
+          this.checkCollisions(box);
+        }
       });
       //slow down mouse velocity
       this.mousePosition.v.x = (this.mousePosition.v.x * 0.8);
@@ -193,12 +196,12 @@ export default {
       this.boxes.forEach(box => {
         if (currentBox !== box && this.isColliding(currentBox, box)) {
           this.statistics.collisions++;
-          /*          if(currentBox.size > box.size) {
-          box.vx = (box.vx < 1.5?box.vx*1.01:box.vx*0.99);
-          box.vy = (box.vy < 1.5?box.vy*1.01:box.vy*0.99);
-          Math.abs(currentBox.vx) > 0.2 && (currentBox.vx = currentBox.vx*0.99);
-          Math.abs(currentBox.vy) > 0.2 && (currentBox.vy = currentBox.vy*0.99);
-          }*/ 
+          if(currentBox.size > box.size) {
+            box.vx = (box.vx < 1.5?box.vx*1.01:box.vx*0.99);
+            box.vy = (box.vy < 1.5?box.vy*1.01:box.vy*0.99);
+            Math.abs(currentBox.vx) > 0.2 && (currentBox.vx = currentBox.vx*0.99);
+            Math.abs(currentBox.vy) > 0.2 && (currentBox.vy = currentBox.vy*0.99);
+          }
           this.resolveCollision(currentBox, box);
         }
       });
@@ -266,6 +269,7 @@ export default {
     },
     flip(event) {
       document.body.classList.remove('dark-mode');
+      this.theUpsideDown = false;
       this.boxes.forEach(box => {
         box.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
         box.vx = box.vx * 4;
@@ -275,6 +279,7 @@ export default {
     },
     flipStart(event) {
       document.body.classList.add('dark-mode');
+      this.theUpsideDown = true;
       this.boxes.forEach(box => {
         box.color = `#444`;
         box.vx = box.vx * 0.25;
@@ -284,6 +289,7 @@ export default {
     },
     flipStop(event) {
       document.body.classList.remove('dark-mode');
+      this.theUpsideDown = false;
       event.stopPropagation();
     },
     addBox(event) {
