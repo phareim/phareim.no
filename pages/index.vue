@@ -64,6 +64,7 @@ export default {
         boxes: 0,
         collisions: 0,
         drawCount: 0,
+        animateCount: 0
       }
     };
   },
@@ -74,6 +75,7 @@ export default {
     }
     
     window.addEventListener('mousemove', this.updateMousePosition);
+    window.statistics = this.statistics;
     requestAnimationFrame(this.animate);
   },
   methods: {
@@ -88,14 +90,18 @@ export default {
       this.mousePosition = { x: event.clientX, y: event.clientY, v: { x: event.clientX - old.x, y: event.clientY - old.y } };
     },
     animate() {
+      this.statistics.animateCount++;
+      this.statistics.boxes = this.boxes.length;
       requestAnimationFrame(this.animate);
       this.ctx.clearRect(0, 0, this.$refs?.canvas?.width, this.$refs?.canvas?.height);
       // Her tegner alle boksene på nytt og oppdaterer posisjonen for hver gang animate kalles
       this.boxes.forEach(box => {
         this.updatePosition(box);
         this.drawBox(box);
-        this.checkCollisions(box); // does not work
+        //this.checkCollisions(box); // does not work
       });
+      this.mousePosition.v.x = (this.mousePosition.v.x * 0.8);
+      this.mousePosition.v.y = (this.mousePosition.v.y * 0.8);
     },
     getNewShadow(strength, color = 'rgba(0, 0, 0, 0.5') {
       const shadow = {
@@ -157,14 +163,23 @@ export default {
       }
       // Sjekk for kollisjon med canvas-kanter, ferdig 😮‍💨
 
-      box.vx = box.vx + (this.mousePosition.v.x * 0.1);
-      box.vy = box.vy + (this.mousePosition.v.y * 0.1);
+      // fjern boks hvis den er for liten
+      if(box.size < 5) {
+        this.boxes = this.boxes.filter(b => b !== box);
+        this.updateShadows();
+      }
+
+      // oppdater posisjonen til boksen, hvis muspeker er i bevegelse, legg til litt fart
+      // stopp hvis muspekeren er i ro, eller utenfor canvas
+      console.log(this.mousePosition.x, this.mousePosition.y, this.mousePosition.v.x, this.mousePosition.v.y);
+      
+      
+
+      box.vx = box.vx + (this.mousePosition.v.x * (Math.random()-0.3) * 0.08);
+      box.vy = box.vy + (this.mousePosition.v.y * (Math.random()-0.3) * 0.08);
 
       box.x += box.vx;
       box.y += box.vy;
-
-      this.mousePosition.v.x = this.mousePosition.v.x * 0.66;
-      this.mousePosition.v.y = this.mousePosition.v.y * 0.66;
 
       Math.abs(box.vx) > 0.2 && (box.vx = (box.vx * 0.994));
       Math.abs(box.vy) > 0.2 && (box.vy = (box.vy * 0.994));
@@ -172,6 +187,7 @@ export default {
     checkCollisions(currentBox) {
       this.boxes.forEach(box => {
         if (currentBox !== box && this.isColliding(currentBox, box)) {
+          this.statistics.collisions++;
           // Endrer retning på boksene
           const tempVx = currentBox.vx;
           currentBox.vx = currentBox.vy;
