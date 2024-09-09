@@ -98,8 +98,9 @@ export default {
       this.boxes.forEach(box => {
         this.updatePosition(box);
         this.drawBox(box);
-        //this.checkCollisions(box); // does not work
+        this.checkCollisions(box);
       });
+      //slow down mouse velocity
       this.mousePosition.v.x = (this.mousePosition.v.x * 0.8);
       this.mousePosition.v.y = (this.mousePosition.v.y * 0.8);
     },
@@ -169,14 +170,8 @@ export default {
         this.updateShadows();
       }
 
-      // oppdater posisjonen til boksen, hvis muspeker er i bevegelse, legg til litt fart
-      // stopp hvis muspekeren er i ro, eller utenfor canvas
-      console.log(this.mousePosition.x, this.mousePosition.y, this.mousePosition.v.x, this.mousePosition.v.y);
-      
-      
-
-      box.vx = box.vx + (this.mousePosition.v.x * (Math.random()-0.3) * 0.08);
-      box.vy = box.vy + (this.mousePosition.v.y * (Math.random()-0.3) * 0.08);
+      box.vx = box.vx + (this.mousePosition.v.x * Math.random() * 0.1) * (Math.random()-0.3);
+      box.vy = box.vy + (this.mousePosition.v.y * Math.random() * 0.1) * (Math.random()-0.3);
 
       box.x += box.vx;
       box.y += box.vy;
@@ -188,10 +183,12 @@ export default {
       this.boxes.forEach(box => {
         if (currentBox !== box && this.isColliding(currentBox, box)) {
           this.statistics.collisions++;
-          // Endrer retning på boksene
-          const tempVx = currentBox.vx;
-          currentBox.vx = currentBox.vy;
-          currentBox.vy = tempVx;
+          if(currentBox.size > box.size) {
+            box.vx = (box.vx < 2?box.vx*1.01:box.vx*0.99);
+            box.vy = (box.vy < 2?box.vy*1.01:box.vy*0.99);
+            currentBox.vx = currentBox.vx*0.99;
+            currentBox.vy = currentBox.vy*0.99;
+          } 
         }
       });
     },
@@ -215,13 +212,12 @@ export default {
       this.ctx.shadowColor = 'transparent';
     },
 
-    isColliding(box1, box2) {
-      return (
-        box1.x < box2.x + (box2.size / 2) &&
-        box1.x + (box1.size / 2) > box2.x &&
-        box1.y < box2.y + (box2.size / 2) &&
-        (box1.size / 2) + box1.y > box2.y
-      );
+    isColliding(circle1, circle2) {
+      const dx = circle1.x - circle2.x; // Differanse i x-koordinater
+      const dy = circle1.y - circle2.y; // Differanse i y-koordinater
+      const distance = Math.sqrt(dx * dx + dy * dy); // Avstand mellom sirkelens sentre
+      
+      return distance < (circle1.size/2 + circle2.size/2); // Sjekk om de kolliderer
     },
     flip(event) {
       document.body.classList.remove('dark-mode');
