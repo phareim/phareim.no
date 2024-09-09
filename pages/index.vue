@@ -109,6 +109,7 @@ export default {
     },
     getNewShadow(strength, color = 'rgba(0, 0, 0, 0.5') {
       const shadow = {
+        strength,
         shadowOffsetX: strength * 1,
         shadowOffsetY: Math.floor(strength * 0.5),
         shadowColor: color,
@@ -118,7 +119,7 @@ export default {
       return shadow;
     },
     updateShadows() {
-      const shadow = this.getNewShadow(this.boxes.length);
+      const shadow = this.getNewShadow(80);
       // Oppdaterer tekstskygge
       document.querySelectorAll('.text-shadow').forEach(element => {
         element.style.textShadow = shadow.css;
@@ -177,8 +178,8 @@ export default {
       if(box.size < 5) {
         this.removeBox(box);
       }
-      box.vx = box.vx + (this.mousePosition.v.x * Math.random() * 0.1) * (Math.random()-0.3);
-      box.vy = box.vy + (this.mousePosition.v.y * Math.random() * 0.1) * (Math.random()-0.3);
+      box.vx = box.vx + (this.mousePosition.v.x * Math.random() * 0.3) * (Math.random()-0.3);
+      box.vy = box.vy + (this.mousePosition.v.y * Math.random() * 0.3) * (Math.random()-0.3);
       
       Math.abs(box.vx) > 0.2 && (box.vx = (box.vx * 0.994));
       Math.abs(box.vy) > 0.2 && (box.vy = (box.vy * 0.994));
@@ -197,16 +198,19 @@ export default {
         if (currentBox !== box && this.isColliding(currentBox, box)) {
           this.statistics.collisions++;
           if(currentBox.size > box.size) {
-            box.vx = (box.vx < 1.5?box.vx*1.01:box.vx*0.99);
-            box.vy = (box.vy < 1.5?box.vy*1.01:box.vy*0.99);
-            Math.abs(currentBox.vx) > 0.2 && (currentBox.vx = currentBox.vx*0.99);
-            Math.abs(currentBox.vy) > 0.2 && (currentBox.vy = currentBox.vy*0.99);
+            box.vx = (box.vx < 2?box.vx*1.01:box.vx*0.99);
+            box.vy = (box.vy < 2?box.vy*1.01:box.vy*0.99);
+            Math.abs(currentBox.vx) > 0.3 && (currentBox.vx = currentBox.vx*0.99);
+            Math.abs(currentBox.vy) > 0.3 && (currentBox.vy = currentBox.vy*0.99);
           }
           this.resolveCollision(currentBox, box);
         }
       });
     },
     resolveCollision(circle1, circle2) {
+      if (circle1.shadow.strength  != circle2.shadow.strength) {
+        return;
+      }
       // Differanse i posisjon (for normal vektor)
       const dx = circle1.x - circle2.x;
       const dy = circle1.y - circle2.y;
@@ -296,13 +300,21 @@ export default {
       const rect = this.$refs.canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
-      const size = (Math.random() * 200) + 10;
-      const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+      const size = (Math.random() * 200) + 20;
+      const r = Math.random() * 255;
+      const g = Math.random() * 255;
+      const b = Math.random() * 255;
+      
+      const shadowLength = r > g && r > b ? 5 : g > r && g > b ? 50 : 100;
+      // const shadowLength = r > b ? 5 : 60;
+
+      const color = `rgb(${r}, ${g}, ${b})`;
       const shadowColor = this.darkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(10, 10, 10, 0.5)';
-      const shadow = this.getNewShadow(this.boxes.length, shadowColor);
+      const shadow = this.getNewShadow(shadowLength, shadowColor);
       const yvelocity = ((Math.random() * 1.2) * (Math.random() < 0.5 ? -1 : 1));
       const xvelocity = ((Math.random() * 1.2) * (Math.random() < 0.5 ? -1 : 1));
-      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, size, color, turned: false, shadow });
+      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity,mass: size, size, color, turned: false, shadow });
+      this.boxes = this.boxes.sort((a, b) => a.shadow.strength - b.shadow.strength);
       this.updateShadows();
     },
   },
