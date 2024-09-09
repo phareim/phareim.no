@@ -134,7 +134,7 @@ export default {
       this.boxes = this.boxes.filter(b => b !== box);
       this.updateShadows();    
     },
-    updatePosition(box) {
+    checkCanvasEdges(box){
       // Sjekk for kollisjon med canvas-kanter
       if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) || box.x + box.vx - (box.size / 2) < 0) {
         if (box.turned) {
@@ -167,41 +167,75 @@ export default {
         box.size = box.size * 0.95;
       }
       // Sjekk for kollisjon med canvas-kanter, ferdig 😮‍💨
-      
+    },
+    updatePosition(box) {
+      this.checkCanvasEdges(box);
       // fjern boks hvis den er for liten
       if(box.size < 5) {
         this.removeBox(box);
       }
-      
       box.vx = box.vx + (this.mousePosition.v.x * Math.random() * 0.1) * (Math.random()-0.3);
       box.vy = box.vy + (this.mousePosition.v.y * Math.random() * 0.1) * (Math.random()-0.3);
       
-      box.x += box.vx;
-      box.y += box.vy;
-      
-      
+      Math.abs(box.vx) > 0.2 && (box.vx = (box.vx * 0.994));
+      Math.abs(box.vy) > 0.2 && (box.vy = (box.vy * 0.994));
       
       if (Math.abs(box.vx) > 5 || Math.abs(box.vy) > 5) {
         box.size = box.size * 0.995;
         box.vx = box.vx * 0.9;
         box.vy = box.vy * 0.9;
       }
+      box.x += box.vx;
+      box.y += box.vy;
       
-      Math.abs(box.vx) > 0.2 && (box.vx = (box.vx * 0.994));
-      Math.abs(box.vy) > 0.2 && (box.vy = (box.vy * 0.994));
     },
     checkCollisions(currentBox) {
       this.boxes.forEach(box => {
         if (currentBox !== box && this.isColliding(currentBox, box)) {
           this.statistics.collisions++;
-          if(currentBox.size > box.size) {
-            box.vx = (box.vx < 1.5?box.vx*1.01:box.vx*0.99);
-            box.vy = (box.vy < 1.5?box.vy*1.01:box.vy*0.99);
-            Math.abs(currentBox.vx) > 0.2 && (currentBox.vx = currentBox.vx*0.99);
-            Math.abs(currentBox.vy) > 0.2 && (currentBox.vy = currentBox.vy*0.99);
-          } 
+          /*          if(currentBox.size > box.size) {
+          box.vx = (box.vx < 1.5?box.vx*1.01:box.vx*0.99);
+          box.vy = (box.vy < 1.5?box.vy*1.01:box.vy*0.99);
+          Math.abs(currentBox.vx) > 0.2 && (currentBox.vx = currentBox.vx*0.99);
+          Math.abs(currentBox.vy) > 0.2 && (currentBox.vy = currentBox.vy*0.99);
+          }*/ 
+          this.resolveCollision(currentBox, box);
         }
       });
+    },
+    resolveCollision(circle1, circle2) {
+      // Differanse i posisjon (for normal vektor)
+      const dx = circle1.x - circle2.x;
+      const dy = circle1.y - circle2.y;
+      
+      // Avstand mellom sirkelens sentre
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Normaliser normalvektoren
+      const nx = dx / distance;
+      const ny = dy / distance;
+      
+      // Finn relative hastigheter
+      const vxDiff = circle1.vx - circle2.vx;
+      const vyDiff = circle1.vy - circle2.vy;
+      
+      // Finn relativ hastighet langs normalvektoren
+      const velocityAlongNormal = vxDiff * nx + vyDiff * ny;
+      
+      // Hvis hastigheten langs normalvektoren er positiv, betyr det at de går fra hverandre, så returner
+      if (velocityAlongNormal > 0) return;
+      
+      // Massene til sirklene (kan tilpasses hvis de har forskjellige masser)
+      const mass1 = circle1.mass || 1;
+      const mass2 = circle2.mass || 1;
+      
+      // Elastisk kollisjonsformel for å oppdatere hastighetene
+      const impulse = (2 * velocityAlongNormal) / (mass1 + mass2);
+      
+      circle1.vx -= impulse * mass2 * nx;
+      circle1.vy -= impulse * mass2 * ny;
+      circle2.vx += impulse * mass1 * nx;
+      circle2.vy += impulse * mass1 * ny;
     },
     drawBox(box) {
       this.ctx.beginPath(); // Starter en ny sti
