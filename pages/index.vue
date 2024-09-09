@@ -51,7 +51,6 @@
 </template>
 
 <script>
-
 export default {
   name: 'Home',
   data() {
@@ -60,16 +59,22 @@ export default {
       boxes: [],  // Liste for å holde på alle boksene
       boxCopy: [],
       darkMode: false,
-      mousePosition: { x: 0, y: 0, v: { x: 0, y: 0 } }
+      mousePosition: { x: 0, y: 0, v: { x: 0, y: 0 } },
+      statistics: {
+        boxes: 0,
+        collisions: 0,
+        drawCount: 0,
+      }
     };
   },
   mounted() {
     this.setupCanvas();
-    this.animate();
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       this.darkMode = true;
     }
+    
     window.addEventListener('mousemove', this.updateMousePosition);
+    requestAnimationFrame(this.animate);
   },
   methods: {
     setupCanvas() {
@@ -85,10 +90,11 @@ export default {
     animate() {
       requestAnimationFrame(this.animate);
       this.ctx.clearRect(0, 0, this.$refs?.canvas?.width, this.$refs?.canvas?.height);
+      // Her tegner alle boksene på nytt og oppdaterer posisjonen for hver gang animate kalles
       this.boxes.forEach(box => {
         this.updatePosition(box);
         this.drawBox(box);
-        // this.checkCollisions(box); // does not work
+        this.checkCollisions(box); // does not work
       });
     },
     getNewShadow(strength, color = 'rgba(0, 0, 0, 0.5') {
