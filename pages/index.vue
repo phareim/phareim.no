@@ -119,7 +119,7 @@ export default {
       return shadow;
     },
     updateShadows() {
-      const shadow = this.getNewShadow(80);
+      const shadow = this.getNewShadow(0);
       // Oppdaterer tekstskygge
       document.querySelectorAll('.text-shadow').forEach(element => {
         element.style.textShadow = shadow.css;
@@ -301,11 +301,11 @@ export default {
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
       const size = (Math.random() * 200) + 20;
-      const r = Math.random() * 255;
-      const g = Math.random() * 255;
-      const b = Math.random() * 255;
+      const r = (Math.random()> 0.5? 50 + Math.random()*20 : 200 + Math.random()*20);
+      const g = (Math.random()> 0.5? 50 + Math.random()*20 : 200 + Math.random()*20);
+      const b = (Math.random()> 0.5? 50 + Math.random()*20 : 200 + Math.random()*20);
       
-      const shadowLength = r > g && r > b ? 5 : g > r && g > b ? 50 : 100;
+      const shadowLength = r > g && r > b ? 0 : g > r && g > b ? 5 : 30;
       // const shadowLength = r > b ? 5 : 60;
 
       const color = `rgb(${r}, ${g}, ${b})`;
