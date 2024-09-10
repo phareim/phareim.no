@@ -89,6 +89,9 @@ export default {
       this.darkMode = true;
     }
     window.addEventListener('mousemove', this.updateMousePosition);
+    
+    window.addEventListener('touchmove', this.updateTouchPosition);
+        
     window.statistics = this.statistics;
     requestAnimationFrame(this.animate);
   },
@@ -102,6 +105,10 @@ export default {
     updateMousePosition(event) {
       const old = this.mousePosition;
       this.mousePosition = { x: event.clientX, y: event.clientY, v: { x: event.clientX - old.x, y: event.clientY - old.y } };
+    },
+    updateTouchPosition(event) {
+      const touch = event.touches[0];
+      this.mousePosition = { x: touch.clientX, y: touch.clientY, v: { x: touch.clientX - this.mousePosition.x, y: touch.clientY - this.mousePosition.y } };
     },
     animate() {
       this.statistics.animateCount++;
@@ -312,6 +319,10 @@ export default {
       event.stopPropagation();
     },
     addBox(event) {
+      if (this.boxes.length > 12 && window.innerWidth < 600) {
+        return; // Slutt å legge til flere bokser på mobil
+      }
+      
       if (this.boxes.length > 10) {
         let scale = 20;
         for (let i = 0; i < this.boxes.length; i++) {
@@ -568,5 +579,8 @@ h1 p {
   0px 1px 0 rgba(255, 255, 255, 0.25),
   -1px 0px 0 rgba(255, 255, 255, 0.25),
   0px -1px 0 rgba(255, 255, 255, 0.25);
+}
+.box {
+  z-index: 1;
 }
 </style>
