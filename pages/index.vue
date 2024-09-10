@@ -239,8 +239,8 @@ export default {
       if (velocityAlongNormal > 0) return;
       
       // Massene til sirklene (kan tilpasses hvis de har forskjellige masser)
-      const mass1 = circle1.mass || 1;
-      const mass2 = circle2.mass || 1;
+      const mass1 = circle1.size || 1;
+      const mass2 = circle2.size || 1;
       
       // Elastisk kollisjonsformel for å oppdatere hastighetene
       const impulse = (2 * velocityAlongNormal) / (mass1 + mass2);
