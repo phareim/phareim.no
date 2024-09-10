@@ -307,7 +307,7 @@ export default {
       document.body.classList.add('dark-mode');
       this.theUpsideDown = true;
       this.boxes.forEach(box => {
-        box.color = `#444`;
+        box.color = `#333`;
         box.vx = box.vx * 0.25;
         box.vy = box.vy * 0.25;
       });
@@ -378,7 +378,7 @@ p {
 }
 
 body.dark-mode {
-  background-color: #444;
+  background-color: #333;
   color: white;
 }
 
