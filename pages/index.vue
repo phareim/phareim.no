@@ -255,19 +255,28 @@ export default {
       this.ctx.arc(box.x, box.y, box.size / 2, 0, 2 * Math.PI); // Tegner en sirkel
       
       // Konfigurerer skygge
-      this.ctx.shadowOffsetX = box.shadow.shadowOffsetX; // Skyggens forskyvning horisontalt
-      this.ctx.shadowOffsetY = box.shadow.shadowOffsetY; // Skyggens forskyvning vertikalt
-      this.ctx.shadowBlur = box.shadow.shadowBlur; // Skyggens uskarphet
-      this.ctx.shadowColor = box.shadow.shadowColor; // Skyggens farge og gjennomsiktighet
-      
+      if(!this.theUpsideDown){
+        this.ctx.shadowOffsetX = box.shadow.shadowOffsetX; // Skyggens forskyvning horisontalt
+        this.ctx.shadowOffsetY = box.shadow.shadowOffsetY; // Skyggens forskyvning vertikalt
+        this.ctx.shadowBlur = box.shadow.shadowBlur; // Skyggens uskarphet
+        this.ctx.shadowColor = box.shadow.shadowColor; // Skyggens farge og gjennomsiktighet
+      }
       this.ctx.fillStyle = box.color;
       this.ctx.fill(); // Fyller sirkelen med farge
+      this.ctx.closePath(); // Avslutter stien
       
       // Nullstill skyggeinnstillinger for å unngå at hele canvaset påvirkes
       this.ctx.shadowOffsetX = 0;
       this.ctx.shadowOffsetY = 0;
       this.ctx.shadowBlur = 0;
       this.ctx.shadowColor = 'transparent';
+      
+      this.ctx.stroke(); // Tegner sirkelens omriss
+      this.ctx.lineWidth = (this.theUpsideDown?5:5); // Tykkelsen på sirkelens omriss
+      this.ctx.strokeStyle = (this.theUpsideDown? 'rgba(100,90,80,0.2)':'rgba(0, 0, 0, 0.9)'); // Fargen på sirkelens omriss
+      this.ctx.class = 'box';
+      
+      
     },
     
     isColliding(box1, box2) {
@@ -357,7 +366,7 @@ p {
 }
 
 body.dark-mode {
-  background-color: #333;
+  background-color: #444;
   color: white;
 }
 
@@ -374,7 +383,7 @@ body {
 /* Stiler for mørk modus */
 @media (prefers-color-scheme: dark) {
   body {
-    background-color: #333;
+    background-color: #222;
     color: white;
   }
 }
@@ -459,10 +468,15 @@ canvas {
 
 .home {
   text-align: center;
-  margin-top: 5vh;
+  margin-top: 6vh;
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
+}
+
+h1 {
+  margin-top: 0.1em;
+  transition: transform 4s;
 }
 
 h1 p {
@@ -479,6 +493,7 @@ h1 p {
   user-select: none;
   -webkit-user-select: none;
   pointer-events: none;
+  border: #222 5px solid;
 }
 
 .hidden-href {
@@ -517,6 +532,7 @@ h1 p {
 
 .social-links svg:hover {
   transform: scale(1.4) rotate(-3deg);
+  text-shadow:   3px 30px 3px rgba(255, 255, 255, 0.25),
 }
 .social-links svg.miles:hover {
   fill: #b8261c;
@@ -530,8 +546,10 @@ h1 p {
   fill: #008AD8;
 }
 
-.social-links svg.github:hover {
-  fill: #1f2328;
+@media (prefers-color-scheme: dark) {
+  .social-links svg.github:hover {
+    fill: #ffffff;
+  }
 }
 
 .social-links svg:hover path.google-stroke-1 {fill: #EA4335;}
