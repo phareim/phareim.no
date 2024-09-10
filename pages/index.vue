@@ -348,8 +348,9 @@ export default {
       const color = `rgb(${r}, ${g}, ${b})`;
       const shadowColor = this.darkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(10, 10, 10, 0.5)';
       const shadow = this.getNewShadow(shadowLength, shadowColor);
-      const yvelocity = ((Math.random() * 1.2) * (Math.random() < 0.5 ? -1 : 1));
-      const xvelocity = ((Math.random() * 1.2) * (Math.random() < 0.5 ? -1 : 1));
+      const yvelocity = ((Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1));
+      const xvelocity = ((Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1));
+      
       this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity,mass: size, size, color, turned: false, shadow });
       this.boxes = this.boxes.sort((a, b) => a.shadow.strength - b.shadow.strength);
       this.updateShadows();
