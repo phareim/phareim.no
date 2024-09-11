@@ -94,6 +94,8 @@ export default {
     
     window.statistics = this.statistics;
     requestAnimationFrame(this.animate);
+    this.addBox({clientX: window.innerWidth / 4, clientY: window.innerHeight / 3, layer: 1});
+    this.addBox({clientX: (window.innerWidth / 4)*3, clientY: (window.innerHeight / 3)*2, layer: 1});
   },
   methods: {
     setupCanvas() {
@@ -323,7 +325,7 @@ export default {
         return; // Slutt å legge til flere bokser på mobil
       }
       
-      if (this.boxes.length > 10) {
+      if (this.boxes.length > 24) {
         let scale = 20;
         for (let i = 0; i < this.boxes.length; i++) {
           const box = this.boxes[i];
@@ -337,13 +339,18 @@ export default {
       const rect = this.$refs.canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
+      console.log(event.clientX, event.clientY);
       const size = (Math.random() * 500) + 20;
       const r = (Math.random()> 0.5? 80 + Math.random()*20 : 200 + Math.random()*20);
       const g = (Math.random()> 0.5? 100 + Math.random()*20 : 190 + Math.random()*20);
       const b = (Math.random()> 0.5? 90 + Math.random()*20 : 280 + Math.random()*20);
       const sum = r + g + b;
-      
-      const shadowLength = sum < 420 ? 50 : sum >= 420 && sum < 550 ? 25 : 5;
+      let shadowLength = 0;
+      if(event.layer){
+        shadowLength = event.layer === 3 ? 50 : event.layer === 2 ? 25 : 5;
+      } else {
+        shadowLength = sum < 420 ? 50 : sum >= 420 && sum < 550 ? 25 : 5;
+      }
       
       const color = `rgb(${r}, ${g}, ${b})`;
       const shadowColor = this.darkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(10, 10, 10, 0.5)';
@@ -367,14 +374,6 @@ html, body {
   overflow: hidden;
   width: 100%;
   height: 100%;
-}
-
-p {
-  font-size: 1em;
-}
-
-.location {
-  font-size: 0.7em;
 }
 
 body.dark-mode {
@@ -487,8 +486,30 @@ canvas {
 }
 
 h1 {
-  margin-top: 0.1em;
   transition: transform 4s;
+  font-size: 3.5em;
+  margin-top: 2px;
+}
+
+p {
+  font-size: 1em;
+}
+
+.blurb {
+  font-size: 1em;
+}
+@media(min-width: 800px) {
+  .blurb {
+    font-size: 1.2em;
+  }
+  h1 {
+    margin-top: 0.1em;
+    font-size: 4em;
+  }
+}
+
+.location {
+  font-size: 0.7em;
 }
 
 h1 p {
@@ -531,7 +552,7 @@ h1 p {
 .social-links svg {
   width: 50px;
   height: 50px;
-  fill: #333; /*#b8261c;*/
+  fill: #333;
   transition: transform 0.7s;
   transition-timing-function: ease-in-out;
 }
@@ -543,7 +564,7 @@ h1 p {
 }
 
 .social-links svg:hover {
-  transform: scale(1.4) rotate(-3deg);
+  transform: scale(1.4) rotate(-2deg);
   text-shadow:   3px 30px 3px rgba(255, 255, 255, 0.25),
 }
 .social-links svg.miles:hover {
