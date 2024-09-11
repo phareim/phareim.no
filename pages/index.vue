@@ -91,7 +91,7 @@ export default {
     window.addEventListener('mousemove', this.updateMousePosition);
     
     window.addEventListener('touchmove', this.updateTouchPosition);
-        
+    
     window.statistics = this.statistics;
     requestAnimationFrame(this.animate);
   },
@@ -341,9 +341,9 @@ export default {
       const r = (Math.random()> 0.5? 80 + Math.random()*20 : 200 + Math.random()*20);
       const g = (Math.random()> 0.5? 100 + Math.random()*20 : 190 + Math.random()*20);
       const b = (Math.random()> 0.5? 90 + Math.random()*20 : 280 + Math.random()*20);
+      const sum = r + g + b;
       
-      const shadowLength = r > g && r > b ? 0 : g > r && g > b ? 15 : 40;
-      // const shadowLength = r > b ? 5 : 60;
+      const shadowLength = sum < 420 ? 50 : sum >= 420 && sum < 550 ? 25 : 5;
       
       const color = `rgb(${r}, ${g}, ${b})`;
       const shadowColor = this.darkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(10, 10, 10, 0.5)';
