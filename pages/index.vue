@@ -89,7 +89,7 @@ export default {
       this.darkMode = true;
     }
     window.addEventListener('mousemove', this.updateMousePosition);
-    
+    window.addEventListener('resize', this.setupCanvas);
     window.addEventListener('touchmove', this.updateTouchPosition);
     
     window.statistics = this.statistics;
