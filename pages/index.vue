@@ -339,17 +339,17 @@ export default {
       const rect = this.$refs.canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
-      console.log(event.clientX, event.clientY);
-      const size = (Math.random() * 500) + 20;
-      const r = (Math.random()> 0.5? 80 + Math.random()*20 : 200 + Math.random()*20);
-      const g = (Math.random()> 0.5? 100 + Math.random()*20 : 190 + Math.random()*20);
-      const b = (Math.random()> 0.5? 90 + Math.random()*20 : 280 + Math.random()*20);
-      const sum = r + g + b;
+
+      const size = (Math.random() * 300) + 50;
+      const r = (Math.random()> 0.5? 75 + Math.random()*20 : 150 + Math.random()*20);
+      const g = (Math.random()> 0.5? 50 + Math.random()*100 : 125 + Math.random()*20);
+      const b = (Math.random()> 0.5? 100 + Math.random()*20 : 255);
+      
       let shadowLength = 0;
       if(event.layer){
-        shadowLength = event.layer === 3 ? 50 : event.layer === 2 ? 25 : 5;
+        shadowLength = event.layer === 1 ? 0 : 30;
       } else {
-        shadowLength = sum < 420 ? 50 : sum >= 420 && sum < 550 ? 25 : 5;
+        shadowLength = (r + g + b) > 420 ? 0 : 30;
       }
       
       const color = `rgb(${r}, ${g}, ${b})`;
