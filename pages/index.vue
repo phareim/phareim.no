@@ -140,25 +140,8 @@ export default {
       shadow.css = `${shadow.shadowOffsetX}px ${shadow.shadowOffsetY}px ${shadow.shadowBlur}px ${shadow.shadowColor}`;
       return shadow;
     },
-    updateShadows() {
-      const shadow = this.getNewShadow(0);
-      // Oppdaterer tekstskygge
-      document.querySelectorAll('.text-shadow').forEach(element => {
-        element.style.textShadow = shadow.css;
-      });
-      
-      // Oppdaterer SVG-skygge
-      document.querySelectorAll('.svg-shadow').forEach(element => {
-        element.style.filter = `drop-shadow(${shadow.css})`;
-      });
-      
-      document.querySelectorAll('.profile-pic').forEach(profilePicture => {
-        profilePicture.style.boxShadow = shadow.css;
-      });
-    },
     removeBox(box) {
       this.boxes = this.boxes.filter(b => b !== box);
-      this.updateShadows();    
     },
     checkCanvasEdges(box){
       // Sjekk for kollisjon med canvas-kanter
@@ -261,39 +244,35 @@ export default {
     },
     drawBox(box) {
       this.ctx.beginPath(); // Starter en ny sti
-      this.ctx.arc(box.x, box.y, box.size / 2, 0, 2 * Math.PI); // Tegner en sirkel
+      this.ctx.arc(box.x, box.y, box.size / 2, 0, 2 * Math.PI);
       
       // Konfigurerer skygge
       if(!this.theUpsideDown){
-        this.ctx.shadowOffsetX = box.shadow.shadowOffsetX; // Skyggens forskyvning horisontalt
-        this.ctx.shadowOffsetY = box.shadow.shadowOffsetY; // Skyggens forskyvning vertikalt
-        this.ctx.shadowBlur = box.shadow.shadowBlur; // Skyggens uskarphet
-        this.ctx.shadowColor = box.shadow.shadowColor; // Skyggens farge og gjennomsiktighet
+        this.ctx.shadowOffsetX = box.shadow.shadowOffsetX;
+        this.ctx.shadowOffsetY = box.shadow.shadowOffsetY;
+        this.ctx.shadowBlur = box.shadow.shadowBlur;
+        this.ctx.shadowColor = box.shadow.shadowColor;
       }
       this.ctx.fillStyle = box.color;
-      this.ctx.fill(); // Fyller sirkelen med farge
-      this.ctx.closePath(); // Avslutter stien
+      this.ctx.fill();
+      this.ctx.closePath();
       
       // Nullstill skyggeinnstillinger for å unngå at hele canvaset påvirkes
       this.ctx.shadowOffsetX = 0;
       this.ctx.shadowOffsetY = 0;
       this.ctx.shadowBlur = 0;
-      this.ctx.shadowColor = 'transparent';
-      
-      this.ctx.stroke(); // Tegner sirkelens omriss
-      this.ctx.lineWidth = (this.theUpsideDown?5:5); // Tykkelsen på sirkelens omriss
-      this.ctx.strokeStyle = (this.theUpsideDown? 'rgba(100,90,80,0.2)':'rgba(0, 0, 0, 0.9)'); // Fargen på sirkelens omriss
+      this.ctx.shadowColor = 'transparent';     
+      this.ctx.stroke(); 
+      this.ctx.lineWidth = (this.theUpsideDown?5:5);
+      this.ctx.strokeStyle = (this.theUpsideDown? 'rgba(100,90,80,0.2)':'rgba(0, 0, 0, 0.9)');
       this.ctx.class = 'box';
-      
-      
     },
     
     isColliding(box1, box2) {
-      const dx = box1.x - box2.x; // Differanse i x-koordinater
-      const dy = box1.y - box2.y; // Differanse i y-koordinater
-      const distance = Math.sqrt(dx * dx + dy * dy); // Avstand mellom sirkelens sentre
-      
-      return distance < (box1.size/2 + box2.size/2); // Sjekk om de kolliderer
+      const dx = box1.x - box2.x;
+      const dy = box1.y - box2.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      return distance < (box1.size/2 + box2.size/2);
     },
     flip(event) {
       document.body.classList.remove('dark-mode');
@@ -360,7 +339,6 @@ export default {
       
       this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity,mass: size, size, color, turned: false, shadow });
       this.boxes = this.boxes.sort((a, b) => a.shadow.strength - b.shadow.strength);
-      this.updateShadows();
     },
   },
 };
@@ -522,7 +500,7 @@ h1 p {
   height: 200px;
   transition: transform 8s;
   transition-timing-function: ease-out;
-  filter: drop-shadow(0px 0px 0px rgba(50, 50, 50, 0.35));
+  /*box-shadow: 0px 0px 10px rgba(50, 50, 50, 0.35);*/
   user-select: none;
   -webkit-user-select: none;
   pointer-events: none;
@@ -555,6 +533,7 @@ h1 p {
   fill: #333;
   transition: transform 0.7s;
   transition-timing-function: ease-in-out;
+  /*filter: drop-shadow(0px 0px 10px rgba(50, 50, 50, 0.35));*/
 }
 
 @media (prefers-color-scheme: dark) {
