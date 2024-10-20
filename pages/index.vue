@@ -279,8 +279,8 @@ export default {
       this.theUpsideDown = false;
       this.boxes.forEach(box => {
         box.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-        box.vx = box.vx * 4 + 2;
-        box.vy = box.vy * 4 + 2;
+        box.vx = box.vx * 6;
+        box.vy = box.vy * 6;
       });
       event.stopPropagation();
     },
