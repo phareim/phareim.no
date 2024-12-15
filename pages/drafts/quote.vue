@@ -1,5 +1,5 @@
 <template>
-  <div @click="animateText">
+  <div @click="animateText" @touchstart="handleTouchStart" @touchend="handleTouchEnd">
       <h1 :style="{
         color: textColor,
         transform: `scale(${textScale}) translateY(${textYOffset}vh) rotate(${textRotation}deg)`
@@ -43,39 +43,44 @@ export default {
 				'Articulate Bad Consepts'
 			],
 			currentQuote: '', 
-			isTransitionActive: false,  // Ny flagg for å styre overgangsstaten
-			textYOffset: 0,  // Initial vertical offset
-      textRotation: 0,  // Initial rotation
-      isTextAnimated: false,
-      textColor: '#333',  // Initial color
+			isTransitionActive: false,
+			textYOffset: 0,
+			textRotation: 0,
+			isTextAnimated: false,
+			textColor: '#333',
 			textScale: 0.8,
+      touchStartX: 0,
+      touchStartY: 0
     }
   },
 	created() {
-    this.pickRandomQuote();  // Velger et tilfeldig sitat når komponenten er opprettet
-  },
-  mounted() {
-    this.$parent.$on('swipe-event', this.handleSwipeEvent);  // Lytt på sveipe-eventet
-  },
-  beforeDestroy() {
-    this.$parent.$off('swipe-event', this.handleSwipeEvent);  // Fjern lytteren når komponenten ødelegges
+    this.pickRandomQuote();
   },
   methods: {
-		handleSwipeEvent(event) {
-      // Håndter sveipe-eventet her
-			this.animateText();
+    handleTouchStart(event) {
+      this.touchStartX = event.touches[0].clientX;
+      this.touchStartY = event.touches[0].clientY;
+    },
+    handleTouchEnd(event) {
+      const touchEndX = event.changedTouches[0].clientX;
+      const touchEndY = event.changedTouches[0].clientY;
+      
+      const deltaX = touchEndX - this.touchStartX;
+      const deltaY = touchEndY - this.touchStartY;
+      
+      // Hvis sveipet er hovedsakelig horisontalt og langt nok
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+        this.animateText();
+      }
     },
 		animateText() {
       this.isTextAnimated = !this.isTextAnimated;
-      this.setRandomBgColor();  // Set a random background color
+      this.setRandomBgColor();
 		  this.setTextColor();
 			this.setRandomScale();
-			//this.setRandomTransform(30);
-			this.pickRandomQuote();  // Velg et nytt tilfeldig sitat
-      //this.toggleTransition();  // Aktiver overgangseffekten
+			this.pickRandomQuote();
 		},
 		pickRandomQuote() {
-      // Sørger for at det nye sitatet er forskjellig fra det nåværende
       let newQuote;
       do {
         newQuote = this.quotes[Math.floor(Math.random() * this.quotes.length)];
@@ -83,15 +88,11 @@ export default {
       this.currentQuote = newQuote;
     },
 		toggleTransition() {
-      this.isTransitionActive = true;  // Aktiver overgangseffekten
+      this.isTransitionActive = true;
       setTimeout(() => {
-        this.isTransitionActive = false;  // Deaktiver overgangseffekten etter 300 ms
+        this.isTransitionActive = false;
       }, 600);
 		},
-		/**
-		 * Sets the text vertical offset and rotation to a random value, based on the maxTransformValue parameter
-		 * @param {*} maxTransformValue 
-		 */
 		setRandomTransform(maxTransformValue) {
       this.textYOffset = Math.floor(Math.random() * (maxTransformValue - (-maxTransformValue) + 1) + (-maxTransformValue));
       this.textRotation = Math.floor(Math.random() * (maxTransformValue - (-maxTransformValue) + 1) + (-maxTransformValue));
@@ -99,9 +100,6 @@ export default {
 		setRandomScale() {
       this.textScale = (Math.random() * (1.15 - 0.1) + 0.1).toFixed(2);
 		},
-		/**
-		 * Generates a random color
-		 */
     randomColor() {
       const letters = '0123456789ABCDEF';
       let color = '#';
@@ -110,20 +108,14 @@ export default {
       }
       return color;
 		},
-		/**
-		 * Sets the text color to the inverse of the background color
-		 */
     setTextColor() {
-      const bgColor = document.body.style.backgroundColor.slice(4, -1).split(', ');  // Extract RGB values from bgColor
+      const bgColor = document.body.style.backgroundColor.slice(4, -1).split(', ');
       const [r, g, b] = bgColor.map(Number);
       const invertedR = 255 - r;
       const invertedG = 255 - g;
       const invertedB = 255 - b;
       this.textColor = `rgb(${invertedR}, ${invertedG}, ${invertedB})`;
 		},
-		/**
-		 * Sets the background color to a random color and updates the theme-color meta tag
-		 */
     setRandomBgColor() {
       const newColor = this.randomColor();
       document.body.style.backgroundColor = newColor;
@@ -143,8 +135,8 @@ export default {
 </script>
 
 <style>
-div{
-	  text-align: center;
+div {
+	text-align: center;
 }
 
 h1.transition {
