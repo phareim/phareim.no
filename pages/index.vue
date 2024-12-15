@@ -72,6 +72,7 @@ export default {
         drawCount: 0,
         animateCount: 0
       },
+      animationFrameId: null
     };
   },
   mounted() {
@@ -84,13 +85,23 @@ export default {
     window.addEventListener('touchmove', this.updateTouchPosition);
     
     window.statistics = this.statistics;
-    requestAnimationFrame(this.animate);
+    this.animationFrameId = requestAnimationFrame(this.animate);
     this.addBox({clientX: window.innerWidth / 4, clientY: window.innerHeight / 3, layer: 1});
     this.addBox({clientX: (window.innerWidth / 4)*3, clientY: (window.innerHeight / 3)*2, layer: 1});
+  },
+  beforeDestroy() {
+    window.removeEventListener('mousemove', this.updateMousePosition);
+    window.removeEventListener('resize', this.setupCanvas);
+    window.removeEventListener('touchmove', this.updateTouchPosition);
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+    }
   },
   methods: {
     setupCanvas() {
       const canvas = this.$refs.canvas;
+      if (!canvas) return;
+      
       this.ctx = canvas.getContext('2d');
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
@@ -104,11 +115,11 @@ export default {
       this.mousePosition = { x: touch.clientX, y: touch.clientY, v: { x: touch.clientX - this.mousePosition.x, y: touch.clientY - this.mousePosition.y } };
     },
     animate() {
+      if (!this.$refs.canvas) return;
+      
       this.statistics.animateCount++;
-      this.statistics.boxes = this.boxes.length;
-      requestAnimationFrame(this.animate);
+      this.animationFrameId = requestAnimationFrame(this.animate);
       this.ctx.clearRect(0, 0, this.$refs?.canvas?.width, this.$refs?.canvas?.height);
-      // Her tegner alle boksene på nytt og oppdaterer posisjonen for hver gang animate kalles
       this.boxes.forEach(box => {
         this.updatePosition(box);
         this.drawBox(box);
@@ -116,7 +127,6 @@ export default {
           this.checkCollisions(box);
         }
       });
-      //slow down mouse velocity
       this.mousePosition.v.x = (this.mousePosition.v.x * 0.9);
       this.mousePosition.v.y = (this.mousePosition.v.y * 0.9);
     },

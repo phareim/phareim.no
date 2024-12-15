@@ -7,22 +7,34 @@ export default {
   data() {
     return {
       ctx: null,
-      boxes: [],  // Liste for å holde på alle boksene
+      boxes: [],
+      animationFrameId: null
     };
   },
   mounted() {
     this.setupCanvas();
     this.animate();
+    window.addEventListener('resize', this.setupCanvas);
+  },
+  beforeDestroy() {
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+    }
+    window.removeEventListener('resize', this.setupCanvas);
   },
   methods: {
     setupCanvas() {
       const canvas = this.$refs.canvas;
+      if (!canvas) return;
+      
       this.ctx = canvas.getContext('2d');
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
     },
     animate() {
-      requestAnimationFrame(this.animate);
+      if (!this.$refs.canvas) return;
+      
+      this.animationFrameId = requestAnimationFrame(this.animate);
       this.ctx.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height);
       this.boxes.forEach(box => {
         this.drawBox(box);
@@ -34,6 +46,8 @@ export default {
       this.ctx.fillRect(box.x, box.y, box.size, box.size);
     },
     updatePosition(box) {
+      if (!this.$refs.canvas) return;
+      
       if (box.x + box.vx > this.$refs.canvas.width - box.size || box.x + box.vx < 0) {
         box.vx = -box.vx;
       }
@@ -45,6 +59,8 @@ export default {
       box.y += box.vy;
     },
     addBox(event) {
+      if (!this.$refs.canvas) return;
+      
       const rect = this.$refs.canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
@@ -54,14 +70,15 @@ export default {
   },
 };
 </script>
+
 <style>
 body, html {
   margin: 0;
   padding: 0;
-  overflow: hidden; /* Forhindrer scrollbars */
+  overflow: hidden;
 }
 
 canvas {
-  display: block; /* Fjerner eventuell ekstra plass under canvas */
+  display: block;
 }
 </style>
