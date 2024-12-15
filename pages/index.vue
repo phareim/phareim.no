@@ -3,19 +3,11 @@
     <canvas ref="canvas"></canvas>
     <div class="overlay" @click="addBox">
       <div class="home">
-        <div class="flip-container" @click="flip" @pointerdown="flipStart" @pointerup="flipStop">
-          <div class="flipper">
-            <div class="front">
-              <!-- Bilde på forsiden -->
-              <img class="profile-pic" src="/petter1.png" alt="petter's profile picture" oncontextmenu="return false;"
-              ontouchstart="return false;">
-            </div>
-            <div class="back">
-              <!-- Bilde på baksiden -->
-              <img class="profile-pic" src="/petter2.jpeg" alt="Bakside" oncontextmenu="return false;" ontouchstart="return false;">
-            </div>
-          </div>
-        </div>
+        <ProfileCard 
+          @flip="flip"
+          @flipStart="flipStart"
+          @flipStop="flipStop"
+        />
         <h1>petter hareim</h1>
         <p class="blurb">father, husband, geek, aspiring good guy.
         </p>
@@ -63,9 +55,13 @@
 </template>
 
 <script>
+import ProfileCard from '~/components/ProfileCard.vue'
 
 export default {
   name: 'Home',
+  components: {
+    ProfileCard
+  },
   data() {
     return {
       ctx: null,
@@ -187,6 +183,7 @@ export default {
       
       Math.abs(box.vx) > 0.2 && (box.vx = (box.vx * 0.994));
       Math.abs(box.vy) > 0.2 && (box.vy = (box.vy * 0.994));
+      
       
       if (Math.abs(box.vx) > 10 || Math.abs(box.vy) > 10) {
         box.size = box.size * 0.998;
@@ -384,56 +381,6 @@ body {
   }
 }
 
-
-/* Container som holder flipperen */
-.flip-container {
-  perspective: 1000px;
-  height: 200px;
-  /* Legger til dybdeperspektiv */
-  width: 200px;
-  /*center*/
-  margin-left: auto;
-  margin-right: auto;
-  cursor: pointer;
-}
-
-/* Flipperen selv */
-.flipper {
-  transition: 1.2s;
-  transform-style: preserve-3d;
-  transition-timing-function: ease-in-out;
-  /* Bevarer 3D-transformasjonene */
-  position: relative;
-}
-
-/* Forside og bakside */
-.front,
-.back {
-  backface-visibility: hidden;
-  /* Gjemmer baksiden av flipen */
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-
-/* Initialt viser forsiden */
-.front {
-  z-index: 2;
-  transform: rotateY(0deg);
-}
-
-/* Baksiden er skjult og rotert 180 grader */
-.back {
-  transform: rotateY(180deg);
-}
-
-/* Når containeren er aktiv, roter flipperen */
-.flip-container:active .flipper {
-  transform: rotateY(180deg);
-}
-
 .container {
   position: relative;
   width: 100vw;
@@ -499,19 +446,6 @@ p {
 
 h1 p {
   transition: transform 0.4s;
-}
-
-.profile-pic {
-  border-radius: 50%;
-  width: 200px;
-  height: 200px;
-  transition: transform 8s;
-  transition-timing-function: ease-out;
-  /*box-shadow: 0px 0px 10px rgba(50, 50, 50, 0.35);*/
-  user-select: none;
-  -webkit-user-select: none;
-  pointer-events: none;
-  border: #222 5px solid;
 }
 
 .hidden-href {
