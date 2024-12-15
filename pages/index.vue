@@ -209,14 +209,6 @@ export default {
       box.y += box.vy;
     },
     checkCollisions(currentBox) {
-      // find collision with the profile-pic at the center of the canvas
-      /*const center = { x: this.$refs?.canvas?.width / 2, y: (this.$refs?.canvas?.height / 2) + 20, size: 200, shadow: { strength: 0 }, vx: 20, vy: 20 , profile: true };
-      if (this.isColliding(currentBox, center)) {
-        this.resolveCollision(currentBox, center);
-        console.log('collided with profile-pic');
-        return;
-      }*/
-
       this.boxes.forEach(box => {
         if (currentBox !== box && this.isColliding(currentBox, box)) {
           this.resolveCollision(currentBox, box);
@@ -381,13 +373,11 @@ body.dark-mode .social-links svg {
   fill: white;
 }
 
-/* Standard stiler for lys modus */
 body {
   background-color: white;
   color: #111;
 }
 
-/* Stiler for mørk modus */
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #222;
@@ -478,5 +468,4 @@ h1 p {
   margin-right: auto;
 }
 
-/* Fjern resten av social-links stilene siden de nå er i SocialLink.vue */
 </style>
