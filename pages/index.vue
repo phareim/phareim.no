@@ -72,7 +72,12 @@ export default {
         drawCount: 0,
         animateCount: 0
       },
-      animationFrameId: null
+      animationFrameId: null,
+      orientation: {
+        beta: 0,  // X-akse (tilting fremover/bakover)
+        gamma: 0, // Y-akse (tilting venstre/høyre)
+        alpha: 0  // Z-akse (rotasjon)
+      }
     };
   },
   mounted() {
@@ -84,6 +89,19 @@ export default {
     window.addEventListener('resize', this.setupCanvas);
     window.addEventListener('touchmove', this.updateTouchPosition);
     
+    // Be om tillatelse og sett opp DeviceOrientation
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(response => {
+          if (response === 'granted') {
+            window.addEventListener('deviceorientation', this.handleDeviceOrientation);
+          }
+        })
+        .catch(console.error);
+    } else {
+      window.addEventListener('deviceorientation', this.handleDeviceOrientation);
+    }
+    
     window.statistics = this.statistics;
     this.animationFrameId = requestAnimationFrame(this.animate);
     this.addBox({clientX: window.innerWidth / 4, clientY: window.innerHeight / 3, layer: 1});
@@ -93,6 +111,7 @@ export default {
     window.removeEventListener('mousemove', this.updateMousePosition);
     window.removeEventListener('resize', this.setupCanvas);
     window.removeEventListener('touchmove', this.updateTouchPosition);
+    window.removeEventListener('deviceorientation', this.handleDeviceOrientation);
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
     }
@@ -179,26 +198,45 @@ export default {
       // Sjekk for kollisjon med canvas-kanter, ferdig 😮‍💨
     },
     updatePosition(box) {
+      if (!box) return;
+      
       this.checkCanvasEdges(box);
+      
       // fjern boks hvis den er for liten
       if(box.size < 10) {
         this.removeBox(box);
+        return;
       }
-      box.vx = box.vx + (this.mousePosition.v.x * Math.random() * 0.3) * (Math.random()-0.3);
-      box.vy = box.vy + (this.mousePosition.v.y * Math.random() * 0.3) * (Math.random()-0.3);
-      
-      Math.abs(box.vx) > 0.2 && (box.vx = (box.vx * 0.994));
-      Math.abs(box.vy) > 0.2 && (box.vy = (box.vy * 0.994));
-      
-      
+
+      // På desktop: bruk musebevegelse
+      if (!this.orientation.beta && !this.orientation.gamma) {
+        box.vx += (this.mousePosition.v.x * Math.random() * 0.3) * (Math.random()-0.3);
+        box.vy += (this.mousePosition.v.y * Math.random() * 0.3) * (Math.random()-0.3);
+      } 
+      // På mobil: bruk orientering
+      else {
+        // Konverter grader til akselerasjon
+        const tiltX = this.orientation.gamma / 45; // -1 til 1 ved 45 graders tilt
+        const tiltY = this.orientation.beta / 45;
+        
+        box.vx += tiltX * 0.5;
+        box.vy += tiltY * 0.5;
+      }
+
+      // Reduser størrelsen ved høy hastighet
       if (Math.abs(box.vx) > 10 || Math.abs(box.vy) > 10) {
         box.size = box.size * 0.998;
         box.vx = box.vx * 0.9;
         box.vy = box.vy * 0.9;
       }
+
+      // Legg til demping
+      box.vx *= 0.98;
+      box.vy *= 0.98;
+      
+      // Oppdater posisjon
       box.x += box.vx;
       box.y += box.vy;
-      
     },
     checkCollisions(currentBox) {
       // find collision with the profile-pic at the center of the canvas
@@ -349,6 +387,15 @@ export default {
       
       this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity,mass: size, size, color, turned: false, shadow });
       this.boxes = this.boxes.sort((a, b) => a.shadow.strength - b.shadow.strength);
+    },
+    handleDeviceOrientation(event) {
+      console.log('Orientation:', event.alpha, event.beta, event.gamma);
+      
+      this.orientation = {
+        alpha: event.alpha || 0,  // Z-akse rotasjon
+        beta: event.beta || 0,    // X-akse tilting
+        gamma: event.gamma || 0    // Y-akse tilting
+      };
     },
   },
 };
