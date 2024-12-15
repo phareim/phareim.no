@@ -1,22 +1,29 @@
 <template>
-	<div :class="['menu-container', { 'dark-mode': darkMode, 'show-menu': showMenu }]" @touchstart="handleTouchStart"
-		@touchend="handleTouchEnd">
-		<nav>
-			<ul>
-				<li>
-					<NuxtLink to="/" @click="toggleMenu">Hjem</NuxtLink>
-				</li>
-				<li>
-					<NuxtLink to="/drafts/about" @click="toggleMenu">Om</NuxtLink>
-				</li>
-				<li>
-					<NuxtLink to="/drafts/art" @click="toggleMenu">Kunst</NuxtLink>
-				</li>
-				<li>
-					<NuxtLink to="/drafts/poem" @click="toggleMenu">Dikt</NuxtLink>
-				</li>
-			</ul>
-		</nav>
+	<div>
+		<button :class="['hamburger', { 'dark-mode': darkMode, 'active': showMenu }]" @click="toggleMenu">
+			<span></span>
+			<span></span>
+			<span></span>
+		</button>
+		<div :class="['menu-container', { 'dark-mode': darkMode, 'show-menu': showMenu }]" @touchstart="handleTouchStart"
+			@touchend="handleTouchEnd">
+			<nav>
+				<ul>
+					<li>
+						<NuxtLink to="/" @click="toggleMenu">Hjem</NuxtLink>
+					</li>
+					<li>
+						<NuxtLink to="/drafts/about" @click="toggleMenu">Om</NuxtLink>
+					</li>
+					<li>
+						<NuxtLink to="/drafts/art" @click="toggleMenu">Kunst</NuxtLink>
+					</li>
+					<li>
+						<NuxtLink to="/drafts/poem" @click="toggleMenu">Dikt</NuxtLink>
+					</li>
+				</ul>
+			</nav>
+		</div>
 	</div>
 </template>
 
@@ -58,6 +65,51 @@ export default {
 </script>
 
 <style scoped>
+.hamburger {
+	position: fixed;
+	top: 1.5rem;
+	right: 1.5rem;
+	width: 30px;
+	height: 24px;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	padding: 0;
+	z-index: 1001;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.hamburger span {
+	width: 100%;
+	height: 2px;
+	background-color: #333;
+	transition: all 0.3s ease;
+	border-radius: 1px;
+}
+
+.hamburger.dark-mode span {
+	background-color: #fff;
+}
+
+.hamburger:hover span {
+	opacity: 0.7;
+}
+
+/* Animasjon for hamburger-menyen når den er aktiv */
+.hamburger.active span:nth-child(1) {
+	transform: translateY(11px) rotate(45deg);
+}
+
+.hamburger.active span:nth-child(2) {
+	opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+	transform: translateY(-11px) rotate(-45deg);
+}
+
 .menu-container {
 	position: fixed;
 	top: 0;
