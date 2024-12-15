@@ -12,14 +12,8 @@
 					<li>
 						<NuxtLink to="/" @click="toggleMenu">Hjem</NuxtLink>
 					</li>
-					<li>
-						<NuxtLink to="/drafts/about" @click="toggleMenu">Om</NuxtLink>
-					</li>
-					<li>
-						<NuxtLink to="/drafts/art" @click="toggleMenu">Kunst</NuxtLink>
-					</li>
-					<li>
-						<NuxtLink to="/drafts/poem" @click="toggleMenu">Dikt</NuxtLink>
+					<li v-for="item in menuItems" :key="item.path">
+						<NuxtLink :to="item.path" @click="toggleMenu">{{ item.title }}</NuxtLink>
 					</li>
 				</ul>
 			</nav>
@@ -34,11 +28,19 @@ export default {
 			darkMode: false,
 			showMenu: false,
 			touchStartX: 0,
+			menuItems: []
 		};
 	},
-	mounted() {
+	async mounted() {
 		if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
 			this.darkMode = true;
+		}
+		
+		try {
+			const response = await fetch('/api/menu')
+			this.menuItems = await response.json()
+		} catch (error) {
+			console.error('Error fetching menu items:', error)
 		}
 	},
 	methods: {
