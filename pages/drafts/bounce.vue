@@ -1,5 +1,12 @@
 <template>
-  <canvas ref="canvas" style="width: 100vw; height: 100vh;" @click="addBox"></canvas>
+  <canvas 
+    ref="canvas" 
+    style="width: 100vw; height: 100vh;" 
+    @mousedown="startAddingBoxes" 
+    @mouseup="stopAddingBoxes" 
+    @mouseleave="stopAddingBoxes"
+    @click="addBox"
+  ></canvas>
 </template>
 
 <script>
@@ -8,7 +15,9 @@ export default {
     return {
       ctx: null,
       boxes: [],
-      animationFrameId: null
+      animationFrameId: null,
+      isAddingBoxes: false,
+      boxAddInterval: null
     };
   },
   mounted() {
@@ -17,10 +26,7 @@ export default {
     window.addEventListener('resize', this.setupCanvas);
   },
   beforeDestroy() {
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-    }
-    window.removeEventListener('resize', this.setupCanvas);
+    this.cleanup();
   },
   methods: {
     setupCanvas() {
@@ -43,17 +49,22 @@ export default {
     },
     drawBox(box) {
       this.ctx.fillStyle = box.color;
-      this.ctx.fillRect(box.x, box.y, box.size, box.size);
+      this.ctx.beginPath();
+      this.ctx.arc(box.x + box.size / 2, box.y + box.size / 2, box.size / 2, 0, Math.PI * 2);
+      this.ctx.fill();
     },
     updatePosition(box) {
       if (!this.$refs.canvas) return;
       
       if (box.x + box.vx > this.$refs.canvas.width - box.size || box.x + box.vx < 0) {
-        box.vx = -box.vx;
+        box.vx = -box.vx * 0.9; // Legger til litt demping
       }
       if (box.y + box.vy > this.$refs.canvas.height - box.size || box.y + box.vy < 0) {
-        box.vy = -box.vy;
+        box.vy = -box.vy * 0.9; // Legger til litt demping
       }
+
+      // Legg til gravitasjon
+      // box.vy += 0.2;
 
       box.x += box.vx;
       box.y += box.vy;
@@ -64,9 +75,44 @@ export default {
       const rect = this.$refs.canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
-      const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-      this.boxes.push({ x, y, vx: 2, vy: 2, size: 5, color });
+      this.createBox(x, y);
     },
+    createBox(x, y) {
+      const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+      const size = 10 + Math.random() * 20; // Varierende størrelser
+      const vx = (Math.random() - 0.5) * 4; // Tilfeldig horisontal hastighet
+      const vy = -Math.random() * 5; // Oppover initial hastighet
+      
+      this.boxes.push({ x, y, vx, vy, size, color });
+      
+      // Begrens antall bokser
+      if (this.boxes.length > 100) {
+        this.boxes.shift();
+      }
+    },
+    startAddingBoxes(event) {
+      this.isAddingBoxes = true;
+      this.boxAddInterval = setInterval(() => {
+        const rect = this.$refs.canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        this.createBox(x, y);
+      }, 100); // Legg til en boks hvert 100ms
+    },
+    stopAddingBoxes() {
+      this.isAddingBoxes = false;
+      if (this.boxAddInterval) {
+        clearInterval(this.boxAddInterval);
+        this.boxAddInterval = null;
+      }
+    },
+    cleanup() {
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+      }
+      window.removeEventListener('resize', this.setupCanvas);
+      this.stopAddingBoxes();
+    }
   },
 };
 </script>
