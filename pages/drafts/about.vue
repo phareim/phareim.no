@@ -9,6 +9,9 @@
 .about {
   overflow: hidden;
 }
+p {
+	font-size: 18em;
+}
 
 .scrolling-text {
 width: 200%;
