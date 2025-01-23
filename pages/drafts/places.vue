@@ -21,9 +21,18 @@
                         <input type="number" v-model.number="form.coordinates.west" required placeholder="West">
                     </div>
                 </div>
+                <div class="form-group">
+                    <label>Theme (for AI generation):</label>
+                    <input v-model="theme" placeholder="e.g., ancient mystical forest with ruins">
+                </div>
                 <div class="form-actions">
-                    <button type="submit" :disabled="isLoading">{{ editingId ? 'Update' : 'Create' }}</button>
-                    <button type="button" @click="resetForm" :disabled="isLoading">Cancel</button>
+                    <button type="button" @click="generatePlace" :disabled="isLoading || !form.coordinates.north || !form.coordinates.west" class="generate">
+                        {{ isGenerating ? 'Generating...' : 'Generate with AI' }}
+                    </button>
+                    <div class="right-actions">
+                        <button type="submit" :disabled="isLoading">{{ editingId ? 'Update' : 'Create' }}</button>
+                        <button type="button" @click="resetForm" :disabled="isLoading">Cancel</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -57,7 +66,9 @@ import { getCoordinatesString } from '~/server/types/place'
 
 const places = ref<Place[]>([])
 const isLoading = ref(false)
+const isGenerating = ref(false)
 const editingId = ref<string | null>(null)
+const theme = ref('')
 
 const form = ref({
     name: '',
@@ -80,6 +91,41 @@ async function loadPlaces() {
         alert('Failed to load places')
     } finally {
         isLoading.value = false
+    }
+}
+
+// Generate place using AI
+async function generatePlace() {
+    if (!form.value.coordinates.north || !form.value.coordinates.west) return
+    
+    isGenerating.value = true
+    try {
+        const response = await fetch('/api/places/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                coordinates: form.value.coordinates,
+                theme: theme.value
+            })
+        })
+        
+        const data = await response.json()
+        
+        if (data.error) {
+            throw new Error(data.error)
+        }
+        
+        // Update form with generated content for review
+        form.value.name = data.name
+        form.value.description = data.description
+        
+    } catch (error: any) {
+        console.error('Error generating place:', error)
+        alert(error.message || 'Failed to generate place')
+    } finally {
+        isGenerating.value = false
     }
 }
 
@@ -163,6 +209,7 @@ function resetForm() {
             west: 0
         }
     }
+    theme.value = ''
 }
 
 onMounted(loadPlaces)
@@ -233,7 +280,13 @@ textarea {
 .form-actions {
     display: flex;
     gap: 10px;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.right-actions {
+    display: flex;
+    gap: 10px;
 }
 
 button {
@@ -264,6 +317,16 @@ button {
             background: #ff3333;
             color: #000;
         }
+    }
+}
+
+button.generate {
+    border-color: #9933ff;
+    color: #9933ff;
+    
+    &:hover:not(:disabled) {
+        background: #9933ff;
+        color: #000;
     }
 }
 
