@@ -1,7 +1,7 @@
 <template>
   <div>
     <NuxtPage />
-    <!--MenuComponent ref="menuComponent" /-->
+    <MenuComponent ref="menuComponent" />
   </div>
 </template>
 
