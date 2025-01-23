@@ -6,6 +6,32 @@
 			</div>
 			<div v-if="isLoading" class="message loading">...</div>
 		</div>
+		<div class="command-buttons">
+			<button 
+				v-for="cmd in ['↑', '↓', '→', '←']" 
+				:key="cmd"
+				@click="setCommand(cmd)"
+				class="command-button"
+				:disabled="isLoading"
+			>
+				{{ cmd }}
+			</button>
+			<button 
+				v-for="cmd in ['look', 'inventory', 'help']" 
+				:key="cmd"
+				@click="executeCommand(cmd)"
+				class="command-button"
+				:disabled="isLoading"
+			>
+				{{ cmd }}
+			</button>
+			<div class="dropdown">
+				<button class="command-button dropdown-toggle" :disabled="isLoading">...</button>
+				<div class="dropdown-content">
+					<button @click="resetGame" class="dropdown-item" :disabled="isLoading">Reset Game</button>
+				</div>
+			</div>
+		</div>
 		<div class="input-container">
 			<input 
 				type="text" 
@@ -16,7 +42,6 @@
 				autocomplete="off"
 				:disabled="isLoading"
 			>
-			<button @click="resetGame" class="reset-button" :disabled="isLoading">Reset Game</button>
 		</div>
 	</div>
 </template>
@@ -178,6 +203,21 @@ export default {
 					this.userInput = '';
 				}
 			}
+		},
+		setCommand(cmd) {
+			const commandMap = {
+				'↑': 'go north',
+				'↓': 'go south',
+				'→': 'go east',
+				'←': 'go west'
+			};
+			this.userInput = commandMap[cmd] || cmd;
+			// set focus to input field
+			this.$refs.inputField.focus();
+		},
+		executeCommand(cmd) {
+			this.userInput = cmd;
+			this.handleCommand();
 		}
 	}
 }
@@ -289,6 +329,91 @@ input {
 
 @media (max-width: 600px) {
 	.game-output, .input-container {
+		width: 95%;
+	}
+}
+
+.command-buttons {
+	width: 80%;
+	max-width: 800px;
+	display: flex;
+	gap: 10px;
+	margin-bottom: 10px;
+	flex-wrap: wrap;
+}
+
+.command-button {
+	padding: 8px 16px;
+	background-color: #000;
+	border: 2px solid #33ff33;
+	border-radius: 5px;
+	color: #33ff33;
+	font-family: 'Courier New', monospace;
+	font-size: 0.9em;
+	cursor: pointer;
+	transition: all 0.3s ease;
+}
+
+.command-button:hover:not(:disabled) {
+	background-color: #33ff33;
+	color: #000;
+}
+
+.command-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.dropdown {
+	position: relative;
+	display: inline-block;
+}
+
+.dropdown-toggle {
+	border-color: #666;
+	color: #666;
+}
+
+.dropdown-content {
+	display: none;
+	position: absolute;
+	right: 0;
+	background-color: #000;
+	min-width: 160px;
+	box-shadow: 0 0 10px rgba(51, 255, 51, 0.3);
+	z-index: 1;
+	border: 2px solid #666;
+	border-radius: 5px;
+}
+
+.dropdown:hover .dropdown-content {
+	display: block;
+}
+
+.dropdown-item {
+	width: 100%;
+	padding: 8px 16px;
+	background: none;
+	border: none;
+	color: #ff3333;
+	font-family: 'Courier New', monospace;
+	font-size: 0.9em;
+	cursor: pointer;
+	text-align: left;
+}
+
+.dropdown-item:hover:not(:disabled) {
+	background-color: #ff3333;
+	color: #000;
+}
+
+.dropdown-item:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+	.command-buttons {
 		width: 95%;
 	}
 }
