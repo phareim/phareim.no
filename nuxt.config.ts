@@ -1,3 +1,4 @@
+// https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   head: {
     meta: [
@@ -5,5 +6,11 @@ export default defineNuxtConfig({
       ],
   },
 
-  compatibilityDate: '2024-09-08'
+  compatibilityDate: '2024-09-08',
+
+  devtools: { enabled: true },
+
+  runtimeConfig: {
+    veniceKey: process.env.VENICE_KEY
+  }
 });

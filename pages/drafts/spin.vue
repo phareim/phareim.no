@@ -23,16 +23,5 @@ export default {
       };
     },
   },
-  mounted() {
-    this.$parent.$on('swipe-event', this.handleSwipeEvent);
-  },
-  beforeDestroy() {
-    this.$parent.$off('swipe-event', this.handleSwipeEvent);
-  },
-  methods: {
-    handleSwipeEvent(event) {
-      this.rotation += 18;  // Endre dette tallet for å justere spinnvinkelen
-    },
-  },
 };
 </script>

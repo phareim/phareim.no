@@ -20,6 +20,10 @@ export default {
   },
   methods: {
     handleKeyDown(event) {
+      // Ignorer 'M'-tastetrykk på RPG-siden
+      if (window.location.pathname.includes('/drafts/rpg')) {
+        return;
+      }
       if (event.key === 'm') {
         this.$refs.menuComponent.toggleMenu();
       }
