@@ -25,7 +25,7 @@ export default {
 	data() {
 		return {
 			userInput: '',
-			gameMessages: ['Velkommen til tekstspillet!', 'Skriv "hjelp" for å se tilgjengelige kommandoer.'],
+			gameMessages: ['Welcome to the text adventure!', 'Type "help" to see available commands.'],
 			commandHistory: [],
 			historyIndex: -1,
 			isLoading: false
@@ -47,14 +47,14 @@ export default {
 			
 			this.isLoading = true;
 			
-			// Lagre kommandoen i historikken
+			// Save command to history
 			this.commandHistory.push(this.userInput);
 			this.historyIndex = this.commandHistory.length;
 			
-			// Vis kommandoen i output
+			// Show command in output
 			this.addMessage(`> ${this.userInput}`);
 			
-			// Send kommandoen til API-et
+			// Send command to API
 			fetch('/api/rpg', {
 				method: 'POST',
 				headers: {
@@ -65,20 +65,20 @@ export default {
 			.then(response => response.json())
 			.then(data => {
 				if (data.error) {
-					this.addMessage(`Feil: ${data.error}`);
+					this.addMessage(`Error: ${data.error}`);
 					if (data.details) {
-						this.addMessage(`Detaljer: ${data.details}`);
+						this.addMessage(`Details: ${data.details}`);
 					}
 				} else {
 					this.addMessage(data.response);
 				}
 			})
 			.catch(error => {
-				console.error('Feil ved sending av kommando:', error);
-				this.addMessage('Beklager, noe gikk galt ved sending av kommandoen.');
+				console.error('Error sending command:', error);
+				this.addMessage('Sorry, something went wrong while sending the command.');
 			})
 			.finally(() => {
-				// Nullstill input og scroll til bunnen
+				// Reset input and scroll to bottom
 				this.userInput = '';
 				this.isLoading = false;
 				this.$nextTick(() => {

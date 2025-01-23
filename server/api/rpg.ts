@@ -15,26 +15,26 @@ const rpg = {
     messages: [
         {
             role: "system" as const,
-            content: `Du er en tekstbasert RPG-spillmotor som kjører et enkelt eventyrspill. 
+            content: `You are a text-based RPG game engine running a simple adventure game.
 
-Spillregler:
-- Du skal svare kort og konsist (maks 2-3 setninger)
-- Du skal holde styr på spillerens tilstand og inventar
-- Du skal gi meningsfulle responser på spillerens handlinger
-- Du skal skape en engasjerende spillopplevelse
-- Du skal være kreativ men konsistent
-- Du skal svare på norsk
+Game Rules:
+- Keep responses short and concise (max 2-3 sentences)
+- Track player state and inventory
+- Give meaningful responses to player actions
+- Create an engaging game experience
+- Be creative but consistent
+- Respond in English
 
-Standardkommandoer:
-- se: beskriv omgivelsene
-- gå [retning]: beveg spilleren
-- ta [objekt]: plukk opp ting
-- bruk [objekt]: bruk et objekt fra inventaret
-- snakk [person]: start en samtale
-- inventar: vis hva spilleren bærer
-- hjelp: vis tilgjengelige kommandoer
+Standard Commands:
+- look: describe surroundings
+- go [direction]: move the player
+- take [object]: pick up items
+- use [object]: use an item from inventory
+- talk [person]: start a conversation
+- inventory: show what the player is carrying
+- help: show available commands
 
-Start spillet i en mystisk skog.`
+Start the game in a mysterious forest.`
         }
     ] as ChatCompletionMessageParam[],
     currentRoom: "start",
@@ -43,9 +43,9 @@ Start spillet i en mystisk skog.`
 }
 
 export default defineEventHandler(async (event) => {
-    // Håndter bare POST-forespørsler
+    // Handle only POST requests
     if (event.method !== 'POST') {
-        return { error: 'Bare POST-forespørsler er støttet' }
+        return { error: 'Only POST requests are supported' }
     }
 
     try {
@@ -55,17 +55,17 @@ export default defineEventHandler(async (event) => {
 
         if (!userInput) {
             console.log("No command received")
-            return { error: 'Ingen kommando mottatt' }
+            return { error: 'No command received' }
         }
 
-        // Legg til brukerens kommando i meldingshistorikken
+        // Add user command to message history
         rpg.messages.push({
             role: "user" as const,
             content: userInput
         })
 
         console.log("Sending to Venice/OpenAI")
-        // Send til Venice/OpenAI
+        // Send to Venice/OpenAI
         const completion = await openai.chat.completions.create({
             model: "dolphin-2.9.2-qwen2-72b",
             messages: rpg.messages,
@@ -73,18 +73,18 @@ export default defineEventHandler(async (event) => {
             max_tokens: 150
         })
 
-        // Hent responsen
-        const response = completion.choices[0]?.message?.content || 'Beklager, jeg forstod ikke det.'
+        // Get response
+        const response = completion.choices[0]?.message?.content || 'Sorry, I did not understand that.'
 
-        // Lagre assistentens svar i historikken
+        // Save assistant response to history
         rpg.messages.push({
             role: "assistant" as const,
             content: response
         })
 
-        // Hold meldingshistorikken på en rimelig størrelse
+        // Keep message history at a reasonable size
         if (rpg.messages.length > 10) {
-            // Behold system-meldingen og de siste 9 meldingene
+            // Keep system message and last 9 messages
             rpg.messages = [
                 rpg.messages[0],
                 ...rpg.messages.slice(-9)
@@ -93,10 +93,10 @@ export default defineEventHandler(async (event) => {
 
         return { response }
     } catch (error: any) {
-        console.error('Feil i RPG-handler:', error)
+        console.error('Error in RPG handler:', error)
         return { 
-            error: 'Noe gikk galt',
-            details: error?.message || 'Ukjent feil'
+            error: 'Something went wrong',
+            details: error?.message || 'Unknown error'
         }
     }
 })
