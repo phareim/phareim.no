@@ -4,7 +4,8 @@ import { useRuntimeConfig } from '#imports'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 import { db, placesCollection } from '../utils/firebase-admin'
 import type { Place } from '../types/place'
-import { getCoordinatesString } from '../types/place'
+import { getCoordinatesString, validateCoordinates, getAdjacentCoordinates } from '../types/place'
+import generatePlaceHandler from './places/generate'
 
 // Initialize OpenAI with Venice configuration
 const config = useRuntimeConfig()
@@ -21,6 +22,10 @@ interface GameState {
     };
     inventory: string[];
     visited: string[];
+}
+
+interface AdjacentPlace extends Place {
+    direction: 'north' | 'south' | 'east' | 'west';
 }
 
 // Helper function to get place ID from coordinates
@@ -59,6 +64,9 @@ Game Rules:
 - Respond in English
 - Try to keep this fairly NSFW (people can go elsewhere for more explicit content)
 
+The game world is procedurally generated as players explore. Each time a player moves to an unexplored area, 
+a new location is automatically created, making the world expand dynamically.
+
 Standard Commands:
 - look: describe the current location in detail
 - go [direction]: move the player (north, south, east, west)
@@ -68,9 +76,8 @@ Standard Commands:
 - inventory: show what the player is carrying
 - help: show available commands
 
-The game world is built from predefined locations. You can only move to locations that exist.
 When describing a location, use its stored description but feel free to add atmospheric details.
-If a player tries to move to a non-existent location, inform them they cannot go that way.`
+The world expands infinitely in all directions, with each new area being uniquely generated based on its surroundings.`
         }
     ] as ChatCompletionMessageParam[],
     gameState: {
@@ -128,7 +135,101 @@ export default defineEventHandler(async (event) => {
             // Check if the new location exists
             const newPlace = await getCurrentPlace(newCoordinates)
             if (!newPlace) {
-                return { response: `You cannot go ${direction} from here. There is no path in that direction.` }
+                // Auto-generate the new place
+                try {
+                    // Get adjacent places for context
+                    const adjacentCoords = getAdjacentCoordinates(newCoordinates)
+                    const adjacentPlaces = await Promise.all(
+                        adjacentCoords.map(async coords => {
+                            const doc = await db.collection(placesCollection).doc(getPlaceId(coords)).get()
+                            if (doc.exists) {
+                                return {
+                                    direction: coords.north > newCoordinates.north ? 'north' as const :
+                                             coords.north < newCoordinates.north ? 'south' as const :
+                                             coords.west > newCoordinates.west ? 'west' as const : 'east' as const,
+                                    id: doc.id,
+                                    ...doc.data()
+                                } as AdjacentPlace
+                            }
+                            return null
+                        })
+                    )
+
+                    const existingContext = adjacentPlaces
+                        .filter(place => place !== null)
+                        .map(place => `To the ${place?.direction} is ${place?.name}: ${place?.description}`)
+                        .join('\n')
+
+                    // Generate place using OpenAI
+                    const completion = await openai.chat.completions.create({
+                        model: "llama-3.1-405b",
+                        messages: [
+                            {
+                                role: "system",
+                                content: `You are a creative writer generating a new location for a text adventure game.
+The location should be described in 2-3 sentences maximum.
+The description should be atmospheric and evocative but concise.
+The name should be short but descriptive.
+The theme is: a mysterious fantasy forest world
+
+Adjacent locations for context:
+${existingContext || 'This is one of the first locations in the game.'}`
+                            },
+                            {
+                                role: "user",
+                                content: "Generate a name and description for this location. Format the response exactly like this example:\nName: Forest Clearing\nDescription: A peaceful clearing in the mysterious forest. Ancient trees surround you on all sides, their branches swaying gently in the breeze."
+                            }
+                        ],
+                        temperature: 0.7,
+                        max_tokens: 150
+                    })
+
+                    const response = completion.choices[0]?.message?.content
+                    if (!response) {
+                        throw new Error('Failed to generate place description')
+                    }
+
+                    // Parse the response
+                    const nameMatch = response.match(/Name: (.+)/)
+                    const descriptionMatch = response.match(/Description: (.+)/)
+
+                    if (!nameMatch || !descriptionMatch) {
+                        throw new Error('Invalid response format from AI')
+                    }
+
+                    const placeData: Omit<Place, 'id'> = {
+                        name: nameMatch[1].trim(),
+                        description: descriptionMatch[1].trim(),
+                        coordinates: newCoordinates,
+                        createdAt: new Date(),
+                        updatedAt: new Date()
+                    }
+
+                    // Save the generated place
+                    const placeId = getPlaceId(newCoordinates)
+                    await db.collection(placesCollection).doc(placeId).set(placeData)
+                    
+                    // Update player location and continue with the generated place
+                    rpg.gameState.coordinates = newCoordinates
+                    if (!rpg.gameState.visited.includes(placeId)) {
+                        rpg.gameState.visited.push(placeId)
+                    }
+
+                    // Add movement and new location description to message history
+                    rpg.messages.push({
+                        role: "user" as const,
+                        content: userInput
+                    })
+                    rpg.messages.push({
+                        role: "assistant" as const,
+                        content: `You move ${direction} into uncharted territory. ${placeData.description}`
+                    })
+
+                    return { response: `You move ${direction} into uncharted territory. ${placeData.description}` }
+                } catch (error) {
+                    console.error('Error generating new place:', error)
+                    return { response: `You cannot go ${direction} from here. The path seems unstable.` }
+                }
             }
 
             // Update player location
