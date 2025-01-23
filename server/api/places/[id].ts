@@ -3,6 +3,11 @@ import { db, placesCollection } from '../../utils/firebase-admin'
 import type { Place } from '../../types/place'
 import { validateCoordinates, getCoordinatesString } from '../../types/place'
 
+// Helper function to create document ID from coordinates
+function getPlaceId(coordinates: Place['coordinates']): string {
+    return `${coordinates.north},${coordinates.west}`
+}
+
 export default defineEventHandler(async (event) => {
     try {
         const id = getRouterParam(event, 'id')
@@ -50,27 +55,46 @@ export default defineEventHandler(async (event) => {
                 }
             }
 
-            // Check if another place exists at these coordinates
-            const existingPlaces = await db.collection(placesCollection)
-                .where('coordinates.north', '==', body.coordinates.north)
-                .where('coordinates.west', '==', body.coordinates.west)
-                .get()
+            // Generate new ID from coordinates
+            const newPlaceId = getPlaceId(body.coordinates)
+            
+            // If coordinates changed, we need to create a new document and delete the old one
+            if (newPlaceId !== id) {
+                const newPlaceRef = db.collection(placesCollection).doc(newPlaceId)
+                const newPlaceDoc = await newPlaceRef.get()
+                
+                if (newPlaceDoc.exists) {
+                    return {
+                        error: `Another place already exists at coordinates ${getCoordinatesString(body.coordinates)}`,
+                        status: 409
+                    }
+                }
 
-            const conflictingPlace = existingPlaces.docs.find(doc => doc.id !== id)
-            if (conflictingPlace) {
+                const updateData: Omit<Place, 'id'> = {
+                    name: body.name,
+                    description: body.description,
+                    coordinates: {
+                        north: body.coordinates.north,
+                        west: body.coordinates.west
+                    },
+                    createdAt: (await placeRef.get()).data()?.createdAt || new Date(),
+                    updatedAt: new Date()
+                }
+
+                // Create new document and delete old one
+                await newPlaceRef.set(updateData)
+                await placeRef.delete()
+                
                 return {
-                    error: `Another place already exists at coordinates ${getCoordinatesString(body.coordinates)}`,
-                    status: 409
+                    id: newPlaceId,
+                    ...updateData
                 }
             }
             
+            // If coordinates haven't changed, just update the existing document
             const updateData: Partial<Place> = {
                 name: body.name,
                 description: body.description,
-                coordinates: {
-                    north: body.coordinates.north,
-                    west: body.coordinates.west
-                },
                 updatedAt: new Date()
             }
             
@@ -78,7 +102,8 @@ export default defineEventHandler(async (event) => {
             
             return {
                 id,
-                ...updateData
+                ...updateData,
+                coordinates: body.coordinates
             }
         }
         

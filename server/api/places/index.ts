@@ -3,6 +3,11 @@ import { db, placesCollection } from '../../utils/firebase-admin'
 import type { Place } from '../../types/place'
 import { validateCoordinates, getCoordinatesString } from '../../types/place'
 
+// Helper function to create document ID from coordinates
+function getPlaceId(coordinates: Place['coordinates']): string {
+    return `${coordinates.north},${coordinates.west}`
+}
+
 export default defineEventHandler(async (event) => {
     try {
         // GET request - Retrieve all places
@@ -35,13 +40,13 @@ export default defineEventHandler(async (event) => {
                 }
             }
 
-            // Check if a place already exists at these coordinates
-            const existingPlaces = await db.collection(placesCollection)
-                .where('coordinates.north', '==', body.coordinates.north)
-                .where('coordinates.west', '==', body.coordinates.west)
-                .get()
+            // Generate document ID from coordinates
+            const placeId = getPlaceId(body.coordinates)
+            const placeRef = db.collection(placesCollection).doc(placeId)
 
-            if (!existingPlaces.empty) {
+            // Check if a place already exists at these coordinates
+            const doc = await placeRef.get()
+            if (doc.exists) {
                 return {
                     error: `A place already exists at coordinates ${getCoordinatesString(body.coordinates)}`,
                     status: 409
@@ -60,9 +65,9 @@ export default defineEventHandler(async (event) => {
                 updatedAt: new Date()
             }
             
-            const docRef = await db.collection(placesCollection).add(placeData)
+            await placeRef.set(placeData)
             return {
-                id: docRef.id,
+                id: placeId,
                 ...placeData
             }
         }
