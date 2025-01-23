@@ -24,6 +24,7 @@ Game Rules:
 - Create an engaging game experience
 - Be creative but consistent
 - Respond in English
+- try to keep this fairly NSFW (people can go elsewhere for more explicit content)
 
 Standard Commands:
 - look: describe surroundings
@@ -67,7 +68,7 @@ export default defineEventHandler(async (event) => {
         console.log("Sending to Venice/OpenAI")
         // Send to Venice/OpenAI
         const completion = await openai.chat.completions.create({
-            model: "dolphin-2.9.2-qwen2-72b",
+            model: "llama-3.1-405b",
             messages: rpg.messages,
             temperature: 0.7,
             max_tokens: 150

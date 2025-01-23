@@ -10,14 +10,14 @@
 			<button 
 				v-for="cmd in ['↑', '↓', '→', '←']" 
 				:key="cmd"
-				@click="setCommand(cmd)"
+				@click="executeCommand(cmd)"
 				class="command-button"
 				:disabled="isLoading"
 			>
 				{{ cmd }}
 			</button>
 			<button 
-				v-for="cmd in ['look', 'inventory', 'help']" 
+				v-for="cmd in ['👀', '🎒', '?']" 
 				:key="cmd"
 				@click="executeCommand(cmd)"
 				class="command-button"
@@ -28,6 +28,7 @@
 			<div class="dropdown">
 				<button class="command-button dropdown-toggle" :disabled="isLoading">...</button>
 				<div class="dropdown-content">
+					<button @click="executeCommand('help')" class="dropdown-item" :disabled="isLoading">?</button>
 					<button @click="resetGame" class="dropdown-item" :disabled="isLoading">Reset Game</button>
 				</div>
 			</div>
@@ -205,6 +206,7 @@ export default {
 			}
 		},
 		setCommand(cmd) {
+			this.userInput = cmd;
 			const commandMap = {
 				'↑': 'go north',
 				'↓': 'go south',
@@ -212,11 +214,20 @@ export default {
 				'←': 'go west'
 			};
 			this.userInput = commandMap[cmd] || cmd;
-			// set focus to input field
 			this.$refs.inputField.focus();
 		},
 		executeCommand(cmd) {
 			this.userInput = cmd;
+			const commandMap = {
+				'↑': 'go north',
+				'↓': 'go south',
+				'→': 'go east',
+				'←': 'go west',
+				'👀': 'look',
+				'🎒': 'inventory',
+				'?': 'help'
+			};
+			this.userInput = commandMap[cmd] || cmd;
 			this.handleCommand();
 		}
 	}
