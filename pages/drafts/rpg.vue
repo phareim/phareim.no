@@ -22,7 +22,7 @@
 </template>
 
 <script>
-const STORAGE_KEY = 'rpg_game_state';
+import { collection, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
 
 export default {
 	data() {
@@ -31,12 +31,18 @@ export default {
 			gameMessages: ['Welcome to the text adventure!', 'Type "help" to see available commands.'],
 			commandHistory: [],
 			historyIndex: -1,
-			isLoading: false
+			isLoading: false,
+			userId: null
 		}
 	},
-	mounted() {
+	async mounted() {
+		// Generate a random user ID if not exists
+		this.userId = localStorage.getItem('rpg_user_id') || 
+			Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+		localStorage.setItem('rpg_user_id', this.userId);
+
 		// Load saved game state
-		this.loadGameState();
+		await this.loadGameState();
 		
 		// Hold focus on input field
 		this.$refs.inputField.focus();
@@ -48,13 +54,16 @@ export default {
 		document.removeEventListener('keydown', this.handleKeyDown);
 	},
 	methods: {
-		loadGameState() {
+		async loadGameState() {
 			try {
-				const savedState = localStorage.getItem(STORAGE_KEY);
-				if (savedState) {
-					const state = JSON.parse(savedState);
-					this.gameMessages = state.messages || this.gameMessages;
-					this.commandHistory = state.commands || this.commandHistory;
+				const { $firebase } = useNuxtApp();
+				const gameDoc = doc($firebase.firestore, 'games', this.userId);
+				const gameSnapshot = await getDoc(gameDoc);
+
+				if (gameSnapshot.exists()) {
+					const data = gameSnapshot.data();
+					this.gameMessages = data.messages || this.gameMessages;
+					this.commandHistory = data.commands || this.commandHistory;
 					this.historyIndex = this.commandHistory.length;
 					
 					// Scroll to bottom after loading
@@ -66,25 +75,35 @@ export default {
 				console.error('Error loading game state:', error);
 			}
 		},
-		saveGameState() {
+		async saveGameState() {
 			try {
-				const state = {
+				const { $firebase } = useNuxtApp();
+				const gameDoc = doc($firebase.firestore, 'games', this.userId);
+				await setDoc(gameDoc, {
 					messages: this.gameMessages,
-					commands: this.commandHistory
-				};
-				localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+					commands: this.commandHistory,
+					lastUpdated: new Date()
+				});
 			} catch (error) {
 				console.error('Error saving game state:', error);
 			}
 		},
-		resetGame() {
+		async resetGame() {
 			if (confirm('Are you sure you want to reset the game? This will clear all progress.')) {
-				localStorage.removeItem(STORAGE_KEY);
-				this.gameMessages = ['Welcome to the text adventure!', 'Type "help" to see available commands.'];
-				this.commandHistory = [];
-				this.historyIndex = -1;
-				this.userInput = '';
-				this.$refs.inputField.focus();
+				try {
+					const { $firebase } = useNuxtApp();
+					const gameDoc = doc($firebase.firestore, 'games', this.userId);
+					await deleteDoc(gameDoc);
+
+					this.gameMessages = ['Welcome to the text adventure!', 'Type "help" to see available commands.'];
+					this.commandHistory = [];
+					this.historyIndex = -1;
+					this.userInput = '';
+					this.$refs.inputField.focus();
+				} catch (error) {
+					console.error('Error resetting game:', error);
+					this.addMessage('Error resetting game. Please try again.');
+				}
 			}
 		},
 		handleCommand() {
