@@ -11,16 +11,19 @@
 				type="text" 
 				v-model="userInput" 
 				@keyup.enter="handleCommand"
-				placeholder="Skriv din kommando..."
+				placeholder="Enter your command..."
 				ref="inputField"
 				autocomplete="off"
 				:disabled="isLoading"
 			>
+			<button @click="resetGame" class="reset-button" :disabled="isLoading">Reset Game</button>
 		</div>
 	</div>
 </template>
 
 <script>
+const STORAGE_KEY = 'rpg_game_state';
+
 export default {
 	data() {
 		return {
@@ -32,16 +35,58 @@ export default {
 		}
 	},
 	mounted() {
-		// Hold fokus på input-feltet
+		// Load saved game state
+		this.loadGameState();
+		
+		// Hold focus on input field
 		this.$refs.inputField.focus();
 		
-		// Legg til lyttere for piltaster
+		// Add keyboard listeners
 		document.addEventListener('keydown', this.handleKeyDown);
 	},
 	beforeDestroy() {
 		document.removeEventListener('keydown', this.handleKeyDown);
 	},
 	methods: {
+		loadGameState() {
+			try {
+				const savedState = localStorage.getItem(STORAGE_KEY);
+				if (savedState) {
+					const state = JSON.parse(savedState);
+					this.gameMessages = state.messages || this.gameMessages;
+					this.commandHistory = state.commands || this.commandHistory;
+					this.historyIndex = this.commandHistory.length;
+					
+					// Scroll to bottom after loading
+					this.$nextTick(() => {
+						this.scrollToBottom();
+					});
+				}
+			} catch (error) {
+				console.error('Error loading game state:', error);
+			}
+		},
+		saveGameState() {
+			try {
+				const state = {
+					messages: this.gameMessages,
+					commands: this.commandHistory
+				};
+				localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+			} catch (error) {
+				console.error('Error saving game state:', error);
+			}
+		},
+		resetGame() {
+			if (confirm('Are you sure you want to reset the game? This will clear all progress.')) {
+				localStorage.removeItem(STORAGE_KEY);
+				this.gameMessages = ['Welcome to the text adventure!', 'Type "help" to see available commands.'];
+				this.commandHistory = [];
+				this.historyIndex = -1;
+				this.userInput = '';
+				this.$refs.inputField.focus();
+			}
+		},
 		handleCommand() {
 			if (!this.userInput.trim() || this.isLoading) return;
 			
@@ -72,6 +117,8 @@ export default {
 				} else {
 					this.addMessage(data.response);
 				}
+				// Save game state after each command
+				this.saveGameState();
 			})
 			.catch(error => {
 				console.error('Error sending command:', error);
@@ -95,7 +142,7 @@ export default {
 			outputBox.scrollTop = outputBox.scrollHeight;
 		},
 		handleKeyDown(event) {
-			// Håndter piltaster for kommandohistorikk
+			// Handle arrow keys for command history
 			if (event.key === 'ArrowUp') {
 				event.preventDefault();
 				if (this.historyIndex > 0) {
@@ -164,10 +211,12 @@ export default {
 .input-container {
 	width: 80%;
 	max-width: 800px;
+	display: flex;
+	gap: 10px;
 }
 
 input {
-	width: 100%;
+	flex: 1;
 	padding: 10px;
 	background-color: #000;
 	border: 2px solid #33ff33;
@@ -179,14 +228,26 @@ input {
 	box-shadow: 0 0 10px rgba(51, 255, 51, 0.3);
 }
 
-input:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
+.reset-button {
+	padding: 10px 20px;
+	background-color: #000;
+	border: 2px solid #ff3333;
+	border-radius: 5px;
+	color: #ff3333;
+	font-family: 'Courier New', monospace;
+	font-size: 1em;
+	cursor: pointer;
+	transition: all 0.3s ease;
 }
 
-input:focus {
-	border-color: #66ff66;
-	box-shadow: 0 0 15px rgba(51, 255, 51, 0.5);
+.reset-button:hover {
+	background-color: #ff3333;
+	color: #000;
+}
+
+.reset-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 
 /* Scrollbar styling */
