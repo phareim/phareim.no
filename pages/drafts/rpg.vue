@@ -2,7 +2,8 @@
 	<div class="game-container">
 		<div class="game-output" ref="outputBox">
 			<div v-for="(message, index) in gameMessages" :key="index" class="message">
-				{{ message }}
+				<span v-if="message.startsWith('>')" class="command">{{ message }}</span>
+				<span v-else v-html="parseMessage(message)"></span>
 			</div>
 			<div v-if="isLoading" class="message loading">...</div>
 		</div>
@@ -229,6 +230,35 @@ export default {
 			};
 			this.userInput = commandMap[cmd] || cmd;
 			this.handleCommand();
+		},
+		parseMessage(message) {
+			// Escape any HTML that might be in the message
+			let escapedMessage = message
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#039;');
+
+			// Replace triple asterisks (places) - do this first as it's most specific
+			escapedMessage = escapedMessage.replace(
+				/\*\*\*(.*?)\*\*\*/g,
+				'<span class="place">$1</span>'
+			);
+
+			// Replace double asterisks (people)
+			escapedMessage = escapedMessage.replace(
+				/\*\*(.*?)\*\*/g,
+				'<span class="person">$1</span>'
+			);
+
+			// Replace single asterisks (items)
+			escapedMessage = escapedMessage.replace(
+				/\*(.*?)\*/g,
+				'<span class="item">$1</span>'
+			);
+
+			return escapedMessage;
 		}
 	}
 }
@@ -427,5 +457,26 @@ input {
 	.command-buttons {
 		width: 95%;
 	}
+}
+
+/* Add new styles for marked elements */
+:deep(.item) {
+	color: #ffcc00; /* Gold for items */
+	font-weight: bold;
+}
+
+:deep(.person) {
+	color: #ff6b6b; /* Coral for people */
+	font-weight: bold;
+}
+
+:deep(.place) {
+	color: #4dffb8; /* Mint green for places */
+	font-weight: bold;
+}
+
+:deep(.command) {
+	color: #888; /* Grey for user commands */
+	font-style: italic;
 }
 </style>

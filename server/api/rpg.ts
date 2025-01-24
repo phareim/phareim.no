@@ -206,6 +206,9 @@ The location should be described in 2-3 sentences maximum.
 The description should be atmospheric and evocative but concise.
 The name should be short but descriptive.
 The theme is: a mysterious fantasy forest world
+Rule regarding items: All items in the description that the player can interact with or pick up should be written with *asterisks* around them.
+Rule regarding people: All people in the description that the player can interact with should be written with double **asterisks** around them.
+Rule regarding places: All notable places in the description should be written with triple ***asterisks*** around them.
 
 Adjacent locations for context:
 ${existingContext || 'This is one of the first locations in the game.'}`
