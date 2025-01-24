@@ -54,7 +54,7 @@ export default {
 	data() {
 		return {
 			userInput: '',
-			gameMessages: ['Welcome to the text adventure!', 'Type "help" to see available commands.'],
+			gameMessages: ['You find yourself at the edge of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do? (type "help" for guidance)'],
 			commandHistory: [],
 			historyIndex: -1,
 			isLoading: false,
@@ -121,7 +121,7 @@ export default {
 					const gameDoc = doc($firebase.firestore, 'games', this.userId);
 					await deleteDoc(gameDoc);
 
-					this.gameMessages = ['Welcome to the text adventure!', 'Type "help" to see available commands.'];
+					this.gameMessages = ['You find yourself at the edge of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do? (type "help" for guidance)'];
 					this.commandHistory = [];
 					this.historyIndex = -1;
 					this.userInput = '';
@@ -150,15 +150,15 @@ export default {
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ command: this.userInput })
+				body: JSON.stringify({ 
+					command: this.userInput,
+					userId: this.userId
+				})
 			})
 			.then(response => response.json())
 			.then(data => {
 				if (data.error) {
-					this.addMessage(`Error: ${data.error}`);
-					if (data.details) {
-						this.addMessage(`Details: ${data.details}`);
-					}
+					this.addMessage(data.error);
 				} else {
 					this.addMessage(data.response);
 				}
@@ -167,7 +167,7 @@ export default {
 			})
 			.catch(error => {
 				console.error('Error sending command:', error);
-				this.addMessage('Sorry, something went wrong while sending the command.');
+				this.addMessage('The magical connection seems to be disturbed...');
 			})
 			.finally(() => {
 				// Reset input and scroll to bottom

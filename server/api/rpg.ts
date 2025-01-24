@@ -22,6 +22,7 @@ interface GameState {
     };
     inventory: string[];
     visited: string[];
+    lastUpdated: Date;
 }
 
 interface AdjacentPlace extends Place {
@@ -48,7 +49,31 @@ async function getCurrentPlace(coordinates: GameState['coordinates']): Promise<P
     } as Place
 }
 
+// Helper function to get game state from Firebase
+async function loadGameState(userId: string): Promise<GameState | null> {
+    const gameDoc = await db.collection('gameStates').doc(userId).get()
+    if (!gameDoc.exists) {
+        return null
+    }
+    return gameDoc.data() as GameState
+}
+
+// Helper function to save game state to Firebase
+async function saveGameState(userId: string, state: GameState): Promise<void> {
+    await db.collection('gameStates').doc(userId).set({
+        ...state,
+        lastUpdated: new Date()
+    })
+}
+
 // Game's initial state
+const DEFAULT_GAME_STATE: GameState = {
+    coordinates: { north: 0, west: 0 },
+    inventory: [],
+    visited: ['0,0'],
+    lastUpdated: new Date()
+}
+
 const rpg = {
     messages: [
         {
@@ -80,33 +105,43 @@ When describing a location, use its stored description but feel free to add atmo
 The world expands infinitely in all directions, with each new area being uniquely generated based on its surroundings.`
         }
     ] as ChatCompletionMessageParam[],
-    gameState: {
-        coordinates: { north: 0, west: 0 },
-        inventory: [],
-        visited: ['0,0']
-    } as GameState
+    gameState: DEFAULT_GAME_STATE
 }
 
 export default defineEventHandler(async (event) => {
     // Handle only POST requests
     if (event.method !== 'POST') {
-        return { error: 'Only POST requests are supported' }
+        return { error: 'The ancient scrolls cannot be read this way.' }
     }
 
     try {
         const body = await readBody(event)
         const userInput = body.command
+        const userId = body.userId // Client needs to send this
 
         if (!userInput) {
-            return { error: 'No command received' }
+            return { error: 'Your words are lost in the wind.' }
         }
+
+        if (!userId) {
+            return { error: 'Your identity is shrouded in mystery.' }
+        }
+
+        // Load or initialize game state
+        let gameState = await loadGameState(userId)
+        if (!gameState) {
+            gameState = DEFAULT_GAME_STATE
+            await saveGameState(userId, gameState)
+        }
+
+        // Initialize RPG state with loaded game state
+        rpg.gameState = gameState
 
         // Get current location before processing command
         const currentPlace = await getCurrentPlace(rpg.gameState.coordinates)
         if (!currentPlace && rpg.messages.length === 1) {
-            // If this is the first command and we're at (0,0), require the starting location to exist
             return { 
-                error: 'Starting location (0,0) not found. Please create it in the places admin.',
+                error: 'The mists are too thick here. You must begin your journey from the ancient starting point.',
                 status: 404
             }
         }
@@ -225,6 +260,9 @@ ${existingContext || 'This is one of the first locations in the game.'}`
                         content: `You move ${direction} into uncharted territory. ${placeData.description}`
                     })
 
+                    // After each successful command that changes state:
+                    await saveGameState(userId, rpg.gameState)
+
                     return { response: `You move ${direction} into uncharted territory. ${placeData.description}` }
                 } catch (error) {
                     console.error('Error generating new place:', error)
@@ -248,6 +286,9 @@ ${existingContext || 'This is one of the first locations in the game.'}`
                 role: "assistant" as const,
                 content: `You move ${direction}. ${newPlace.description}`
             })
+
+            // After each successful command that changes state:
+            await saveGameState(userId, rpg.gameState)
 
             return { response: `You move ${direction}. ${newPlace.description}` }
         }
@@ -308,12 +349,15 @@ ${existingContext || 'This is one of the first locations in the game.'}`
             ]
         }
 
+        // After each successful command that changes state:
+        await saveGameState(userId, rpg.gameState)
+
         return { response }
     } catch (error: any) {
         console.error('Error in RPG handler:', error)
         return { 
-            error: 'Something went wrong',
-            details: error?.message || 'Unknown error'
+            error: 'A mysterious force prevents you from taking that action.',
+            details: error?.message || 'The ancient magic is unstable.'
         }
     }
 })
