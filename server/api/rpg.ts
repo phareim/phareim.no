@@ -1,14 +1,10 @@
-import { defineEventHandler, getQuery, readBody } from 'h3'
+import { defineEventHandler, readBody } from 'h3'
 import OpenAI from 'openai'
 import { useRuntimeConfig } from '#imports'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
-import { db, placesCollection } from '../utils/firebase-admin'
-import type { Place } from '../types/place'
-import { getCoordinatesString, validateCoordinates, getAdjacentCoordinates } from '../types/place'
-import generatePlaceHandler from './places/generate'
-import type { Item } from '../types/item'
-import { itemsCollection } from '../types/item'
-import generateItemHandler from './items/generate'
+import { loadGameState, saveGameState, DEFAULT_GAME_STATE } from '../rpg/state/game-state'
+import { handleMovement, getCurrentPlace } from '../rpg/handlers/movement'
+import { SYSTEM_PROMPT, handleAIResponse, pruneMessageHistory } from '../rpg/handlers/ai'
 
 // Initialize OpenAI with Venice configuration
 const config = useRuntimeConfig()
@@ -17,231 +13,10 @@ const openai = new OpenAI({
     baseURL: "https://api.venice.ai/api/v1"
 })
 
-// Game state interface
-interface GameState {
-    coordinates: {
-        north: number;
-        west: number;
-    };
-    inventory: string[];
-    visited: string[];
-    lastUpdated: Date;
-}
-
-interface AdjacentPlace extends Place {
-    direction: 'north' | 'south' | 'east' | 'west';
-}
-
-// Helper function to get place ID from coordinates
-function getPlaceId(coordinates: GameState['coordinates']): string {
-    return `${coordinates.north},${coordinates.west}`
-}
-
-// Helper function to get current place
-async function getCurrentPlace(coordinates: GameState['coordinates']): Promise<Place | null> {
-    const placeId = getPlaceId(coordinates)
-    const placeDoc = await db.collection(placesCollection).doc(placeId).get()
-    
-    if (!placeDoc.exists) {
-        return null
-    }
-    
-    return {
-        id: placeDoc.id,
-        ...placeDoc.data()
-    } as Place
-}
-
-// Helper function to get game state from Firebase
-async function loadGameState(userId: string): Promise<GameState | null> {
-    const gameDoc = await db.collection('gameStates').doc(userId).get()
-    if (!gameDoc.exists) {
-        return null
-    }
-    return gameDoc.data() as GameState
-}
-
-// Helper function to save game state to Firebase
-async function saveGameState(userId: string, state: GameState): Promise<void> {
-    await db.collection('gameStates').doc(userId).set({
-        ...state,
-        lastUpdated: new Date()
-    })
-}
-
-// Game's initial state
-const DEFAULT_GAME_STATE: GameState = {
-    coordinates: { north: 0, west: 0 },
-    inventory: [],
-    visited: ['0,0'],
-    lastUpdated: new Date()
-}
-
+// RPG game state
 const rpg = {
-    messages: [
-        {
-            role: "system" as const,
-            content: `You are a text-based RPG game engine running a simple adventure game.
-
-Game Rules:
-- Keep responses short and concise (max 2-3 sentences)
-- Track player state and inventory
-- Give meaningful responses to player actions
-- Create an engaging game experience
-- Be creative but consistent
-- Respond in English
-- Try to keep this fairly NSFW (people can go elsewhere for more explicit content)
-
-The game world is procedurally generated as players explore. Each time a player moves to an unexplored area, 
-a new location is automatically created, making the world expand dynamically.
-
-Standard Commands:
-- look: describe the current location in detail
-- go [direction]: move the player (north, south, east, west)
-- take [object]: pick up items
-- use [object]: use an item from inventory
-- talk [person]: start a conversation
-- inventory: show what the player is carrying
-- help: show available commands
-
-When describing a location, use its stored description but feel free to add atmospheric details.
-The world expands infinitely in all directions, with each new area being uniquely generated based on its surroundings.`
-        }
-    ] as ChatCompletionMessageParam[],
+    messages: [SYSTEM_PROMPT] as ChatCompletionMessageParam[],
     gameState: DEFAULT_GAME_STATE
-}
-
-// Helper function to generate an item
-async function generateItem(name: string, context: string, coordinates: GameState['coordinates']): Promise<Item | null> {
-    try {
-        // Generate item details using OpenAI
-        const completion = await openai.chat.completions.create({
-            model: "llama-3.1-405b",
-            messages: [
-                {
-                    role: "system",
-                    content: `You are a creative writer generating details for items in a text adventure game.
-Generate a description and properties for the item based on its name and how it's used in the game.
-The response should be formatted exactly as shown in the example, including all fields.
-
-Example format:
-Description: A finely crafted sword with ancient runes etched along its blade.
-Type: weapon
-Properties:
-- damage: 8
-- value: 100
-- uses: null
-
-Rules:
-- Description should be one atmospheric sentence
-- Type must be one of: weapon, armor, potion, key, treasure, misc
-- Properties should include relevant numeric values based on the item type
-- Properties values should be reasonable for a game (e.g., damage 1-20, defense 1-15)
-- Uses should be included only for consumable items like potions
-- Value should always be included (1-1000)`
-                },
-                {
-                    role: "user",
-                    content: `Generate details for an item named "${name}" used in this context: "${context}"`
-                }
-            ],
-            temperature: 0.7,
-            max_tokens: 150
-        })
-
-        const response = completion.choices[0]?.message?.content
-        if (!response) {
-            throw new Error('Failed to generate item description')
-        }
-
-        // Parse the response
-        const descriptionMatch = response.match(/Description: (.+)/)
-        const typeMatch = response.match(/Type: (.+)/)
-        const propertiesMatch = response.match(/Properties:\n([\s\S]+)/)
-
-        if (!descriptionMatch || !typeMatch || !propertiesMatch) {
-            throw new Error('Invalid response format from AI')
-        }
-
-        // Parse properties
-        const properties: Item['properties'] = {}
-        const propertyLines = propertiesMatch[1].split('\n')
-        propertyLines.forEach(line => {
-            const match = line.match(/- (\w+): (.+)/)
-            if (match) {
-                const [_, key, value] = match
-                if (value !== 'null' && value !== 'undefined') {
-                    properties[key as keyof Item['properties']] = Number(value)
-                }
-            }
-        })
-
-        const itemData: Omit<Item, 'id'> = {
-            name,
-            description: descriptionMatch[1].trim(),
-            type: typeMatch[1].trim() as Item['type'],
-            properties,
-            location: {
-                coordinates,
-                isPickedUp: false
-            },
-            createdAt: new Date(),
-            updatedAt: new Date()
-        }
-
-        // Remove any undefined values before saving to Firestore
-        const firebaseData = JSON.parse(JSON.stringify(itemData))
-
-        // Save the generated item
-        const docRef = await db.collection(itemsCollection).add(firebaseData)
-
-        return {
-            id: docRef.id,
-            ...itemData
-        }
-
-    } catch (error) {
-        console.error('Error generating item:', error)
-        return null
-    }
-}
-
-// Helper function to extract items from text (items are marked with *asterisks*)
-async function processItemsInText(text: string, coordinates: GameState['coordinates']): Promise<string> {
-    // Find all items marked with single asterisks
-    const itemMatches = text.match(/\*(.*?)\*/g)
-    if (!itemMatches) return text
-
-    // Process each item
-    for (const itemMatch of itemMatches) {
-        const itemName = itemMatch.replace(/\*/g, '').trim()
-        
-        // Check if item exists in database
-        const itemsSnapshot = await db.collection(itemsCollection)
-            .where('name', '==', itemName)
-            .limit(1)
-            .get()
-
-        let item: Item | null = null
-        
-        if (!itemsSnapshot.empty) {
-            // Item exists, get its data
-            item = {
-                id: itemsSnapshot.docs[0].id,
-                ...itemsSnapshot.docs[0].data()
-            } as Item
-        } else {
-            // Item doesn't exist, generate it
-            item = await generateItem(itemName, text, coordinates)
-        }
-
-        if (item) {
-            // Just keep the item name with asterisks for immersion
-            text = text.replace(itemMatch, `*${item.name}*`)
-        }
-    }
-
-    return text
 }
 
 export default defineEventHandler(async (event) => {
@@ -253,7 +28,7 @@ export default defineEventHandler(async (event) => {
     try {
         const body = await readBody(event)
         const userInput = body.command
-        const userId = body.userId // Client needs to send this
+        const userId = body.userId
 
         if (!userInput) {
             return { error: 'Your words are lost in the wind.' }
@@ -285,151 +60,19 @@ export default defineEventHandler(async (event) => {
         // Handle movement commands
         const moveMatch = userInput.match(/^go\s+(north|south|east|west)$/i)
         if (moveMatch) {
-            const direction = moveMatch[1].toLowerCase()
-            const newCoordinates = { ...rpg.gameState.coordinates }
-            
-            switch (direction) {
-                case 'north':
-                    newCoordinates.north++
-                    break
-                case 'south':
-                    newCoordinates.north--
-                    break
-                case 'east':
-                    newCoordinates.west--
-                    break
-                case 'west':
-                    newCoordinates.west++
-                    break
+            try {
+                const { response, newState } = await handleMovement(
+                    moveMatch[1].toLowerCase(),
+                    rpg.gameState,
+                    userId,
+                    openai,
+                    rpg.messages
+                )
+                rpg.gameState = newState
+                return { response }
+            } catch (error: any) {
+                return { response: error.message }
             }
-
-            // Check if the new location exists
-            const newPlace = await getCurrentPlace(newCoordinates)
-            if (!newPlace) {
-                // Auto-generate the new place
-                try {
-                    // Get adjacent places for context
-                    const adjacentCoords = getAdjacentCoordinates(newCoordinates)
-                    const adjacentPlaces = await Promise.all(
-                        adjacentCoords.map(async coords => {
-                            const doc = await db.collection(placesCollection).doc(getPlaceId(coords)).get()
-                            if (doc.exists) {
-                                return {
-                                    direction: coords.north > newCoordinates.north ? 'north' as const :
-                                             coords.north < newCoordinates.north ? 'south' as const :
-                                             coords.west > newCoordinates.west ? 'west' as const : 'east' as const,
-                                    id: doc.id,
-                                    ...doc.data()
-                                } as AdjacentPlace
-                            }
-                            return null
-                        })
-                    )
-
-                    const existingContext = adjacentPlaces
-                        .filter(place => place !== null)
-                        .map(place => `To the ${place?.direction} is ${place?.name}: ${place?.description}`)
-                        .join('\n')
-
-                    // Generate place using OpenAI
-                    const completion = await openai.chat.completions.create({
-                        model: "llama-3.1-405b",
-                        messages: [
-                            {
-                                role: "system",
-                                content: `You are a creative writer generating a new location for a text adventure game.
-The location should be described in 2-3 sentences maximum.
-The description should be atmospheric and evocative but concise.
-The name should be short but descriptive.
-The theme is: a mysterious fantasy forest world
-Rule regarding items: All items in the description that the player can interact with or pick up should be written with *asterisks* around them.
-Rule regarding people: All people in the description that the player can interact with should be written with double **asterisks** around them.
-Rule regarding places: All notable places in the description should be written with triple ***asterisks*** around them.
-
-Adjacent locations for context:
-${existingContext || 'This is one of the first locations in the game.'}`
-                            },
-                            {
-                                role: "user",
-                                content: "Generate a name and description for this location. Format the response exactly like this example:\nName: Forest Clearing\nDescription: A peaceful clearing in the mysterious forest. Ancient trees surround you on all sides, their branches swaying gently in the breeze."
-                            }
-                        ],
-                        temperature: 0.7,
-                        max_tokens: 150
-                    })
-
-                    const response = completion.choices[0]?.message?.content
-                    if (!response) {
-                        throw new Error('Failed to generate place description')
-                    }
-
-                    // Parse the response
-                    const nameMatch = response.match(/Name: (.+)/)
-                    const descriptionMatch = response.match(/Description: (.+)/)
-
-                    if (!nameMatch || !descriptionMatch) {
-                        throw new Error('Invalid response format from AI')
-                    }
-
-                    const placeData: Omit<Place, 'id'> = {
-                        name: nameMatch[1].trim(),
-                        description: descriptionMatch[1].trim(),
-                        coordinates: newCoordinates,
-                        createdAt: new Date(),
-                        updatedAt: new Date()
-                    }
-
-                    // Save the generated place
-                    const placeId = getPlaceId(newCoordinates)
-                    await db.collection(placesCollection).doc(placeId).set(placeData)
-                    
-                    // Update player location and continue with the generated place
-                    rpg.gameState.coordinates = newCoordinates
-                    if (!rpg.gameState.visited.includes(placeId)) {
-                        rpg.gameState.visited.push(placeId)
-                    }
-
-                    // Add movement and new location description to message history
-                    rpg.messages.push({
-                        role: "user" as const,
-                        content: userInput
-                    })
-                    rpg.messages.push({
-                        role: "assistant" as const,
-                        content: `You move ${direction} into uncharted territory. ${placeData.description}`
-                    })
-
-                    // After each successful command that changes state:
-                    await saveGameState(userId, rpg.gameState)
-
-                    return { response: `You move ${direction} into uncharted territory. ${placeData.description}` }
-                } catch (error) {
-                    console.error('Error generating new place:', error)
-                    return { response: `You cannot go ${direction} from here. The path seems unstable.` }
-                }
-            }
-
-            // Update player location
-            rpg.gameState.coordinates = newCoordinates
-            const placeId = getPlaceId(newCoordinates)
-            if (!rpg.gameState.visited.includes(placeId)) {
-                rpg.gameState.visited.push(placeId)
-            }
-
-            // Add movement and new location description to message history
-            rpg.messages.push({
-                role: "user" as const,
-                content: userInput
-            })
-            rpg.messages.push({
-                role: "assistant" as const,
-                content: `You move ${direction}. ${newPlace.description}`
-            })
-
-            // After each successful command that changes state:
-            await saveGameState(userId, rpg.gameState)
-
-            return { response: `You move ${direction}. ${newPlace.description}` }
         }
 
         // Handle 'look' command specially
@@ -437,11 +80,11 @@ ${existingContext || 'This is one of the first locations in the game.'}`
             const place = await getCurrentPlace(rpg.gameState.coordinates)
             if (place) {
                 rpg.messages.push({
-                    role: "user" as const,
+                    role: "user",
                     content: userInput
                 })
                 rpg.messages.push({
-                    role: "assistant" as const,
+                    role: "assistant",
                     content: place.description
                 })
                 return { response: place.description }
@@ -450,51 +93,34 @@ ${existingContext || 'This is one of the first locations in the game.'}`
 
         // Add user command to message history
         rpg.messages.push({
-            role: "user" as const,
+            role: "user",
             content: userInput
         })
 
         // Add current location context for the AI
         if (currentPlace) {
             rpg.messages.push({
-                role: "system" as const,
-                content: `Current location: ${currentPlace.name} at ${getCoordinatesString(rpg.gameState.coordinates)}. ${currentPlace.description}`
+                role: "system",
+                content: `Current location: ${currentPlace.name}. ${currentPlace.description}`
             })
         }
 
-        // Send to Venice/OpenAI
-        const completion = await openai.chat.completions.create({
-            model: "llama-3.1-405b",
-            messages: rpg.messages,
-            temperature: 0.7,
-            max_tokens: 150
-        })
+        // Get AI response
+            const response = await handleAIResponse(rpg.messages, rpg.gameState, openai)
 
-        // Get response
-        const response = completion.choices[0]?.message?.content || 'Sorry, I did not understand that.'
+            // Save assistant response to history
+            rpg.messages.push({
+                role: "assistant",
+                content: response
+            })
 
-        // Process any items mentioned in the response
-        const processedResponse = await processItemsInText(response, rpg.gameState.coordinates)
+        // Prune message history
+        rpg.messages = pruneMessageHistory(rpg.messages)
 
-        // Save assistant response to history
-        rpg.messages.push({
-            role: "assistant" as const,
-            content: processedResponse
-        })
-
-        // Keep message history at a reasonable size
-        if (rpg.messages.length > 10) {
-            // Keep system message and last 9 messages
-            rpg.messages = [
-                rpg.messages[0],
-                ...rpg.messages.slice(-9)
-            ]
-        }
-
-        // After each successful command that changes state:
+        // Save game state
         await saveGameState(userId, rpg.gameState)
 
-        return { response: processedResponse }
+        return { response }
     } catch (error: any) {
         console.error('Error in RPG handler:', error)
         return { 

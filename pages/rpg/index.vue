@@ -1,10 +1,19 @@
 <template>
 	<div class="game-container">
 		<div class="game-output" ref="outputBox">
-			<div v-for="(message, index) in gameMessages" :key="index" class="message">
-				<span v-if="message.startsWith('>')" class="command">{{ message }}</span>
-				<span v-else v-html="parseMessage(message)"></span>
-			</div>
+			<template v-for="(message, index) in gameMessages" :key="index">
+				<div v-if="message.startsWith('>')" class="message command">
+					{{ message }}
+				</div>
+				<TextWindow 
+					v-else 
+					:text="message"
+					@itemClick="handleItemClick"
+					@characterClick="handleCharacterClick"
+					@placeClick="handlePlaceClick"
+					class="message"
+				/>
+			</template>
 			<div v-if="isLoading" class="message loading">...</div>
 		</div>
 		<div class="command-buttons">
@@ -48,220 +57,215 @@
 	</div>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useNuxtApp } from '#app'
+import type { Firestore } from 'firebase/firestore'
+import TextWindow from '~/components/rpg/TextWindow.vue'
 import { collection, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
 
-export default {
-	data() {
-		return {
-			userInput: '',
-			gameMessages: ['You find yourself at the edge of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do? (type "help" for guidance)'],
-			commandHistory: [],
-			historyIndex: -1,
-			isLoading: false,
-			userId: null
-		}
-	},
-	async mounted() {
-		// Generate a random user ID if not exists
-		this.userId = localStorage.getItem('rpg_user_id') || 
-			Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-		localStorage.setItem('rpg_user_id', this.userId);
-
-		// Load saved game state
-		await this.loadGameState();
-		
-		// Hold focus on input field
-		this.$refs.inputField.focus();
-		
-		// Add keyboard listeners
-		document.addEventListener('keydown', this.handleKeyDown);
-	},
-	beforeDestroy() {
-		document.removeEventListener('keydown', this.handleKeyDown);
-	},
-	methods: {
-		async loadGameState() {
-			try {
-				const { $firebase } = useNuxtApp();
-				const gameDoc = doc($firebase.firestore, 'games', this.userId);
-				const gameSnapshot = await getDoc(gameDoc);
-
-				if (gameSnapshot.exists()) {
-					const data = gameSnapshot.data();
-					this.gameMessages = data.messages || this.gameMessages;
-					this.commandHistory = data.commands || this.commandHistory;
-					this.historyIndex = this.commandHistory.length;
-					
-					// Scroll to bottom after loading
-					this.$nextTick(() => {
-						this.scrollToBottom();
-					});
-				}
-			} catch (error) {
-				console.error('Error loading game state:', error);
-			}
-		},
-		async saveGameState() {
-			try {
-				const { $firebase } = useNuxtApp();
-				const gameDoc = doc($firebase.firestore, 'games', this.userId);
-				await setDoc(gameDoc, {
-					messages: this.gameMessages,
-					commands: this.commandHistory,
-					lastUpdated: new Date()
-				});
-			} catch (error) {
-				console.error('Error saving game state:', error);
-			}
-		},
-		async resetGame() {
-			if (confirm('Are you sure you want to reset the game? This will clear all progress.')) {
-				try {
-					const { $firebase } = useNuxtApp();
-					const gameDoc = doc($firebase.firestore, 'games', this.userId);
-					await deleteDoc(gameDoc);
-
-					this.gameMessages = ['You find yourself at the edge of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do? (type "help" for guidance)'];
-					this.commandHistory = [];
-					this.historyIndex = -1;
-					this.userInput = '';
-					this.$refs.inputField.focus();
-				} catch (error) {
-					console.error('Error resetting game:', error);
-					this.addMessage('Error resetting game. Please try again.');
-				}
-			}
-		},
-		handleCommand() {
-			if (!this.userInput.trim() || this.isLoading) return;
-			
-			this.isLoading = true;
-			
-			// Save command to history
-			this.commandHistory.push(this.userInput);
-			this.historyIndex = this.commandHistory.length;
-			
-			// Show command in output
-			this.addMessage(`> ${this.userInput}`);
-			
-			// Send command to API
-			fetch('/api/rpg', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({ 
-					command: this.userInput,
-					userId: this.userId
-				})
-			})
-			.then(response => response.json())
-			.then(data => {
-				if (data.error) {
-					this.addMessage(data.error);
-				} else {
-					this.addMessage(data.response);
-				}
-				// Save game state after each command
-				this.saveGameState();
-			})
-			.catch(error => {
-				console.error('Error sending command:', error);
-				this.addMessage('The magical connection seems to be disturbed...');
-			})
-			.finally(() => {
-				// Reset input and scroll to bottom
-				this.userInput = '';
-				this.isLoading = false;
-				this.$nextTick(() => {
-					this.scrollToBottom();
-					this.$refs.inputField.focus();
-				});
-			});
-		},
-		addMessage(message) {
-			this.gameMessages.push(message);
-		},
-		scrollToBottom() {
-			const outputBox = this.$refs.outputBox;
-			outputBox.scrollTop = outputBox.scrollHeight;
-		},
-		handleKeyDown(event) {
-			// Handle arrow keys for command history
-			if (event.key === 'ArrowUp') {
-				event.preventDefault();
-				if (this.historyIndex > 0) {
-					this.historyIndex--;
-					this.userInput = this.commandHistory[this.historyIndex];
-				}
-			} else if (event.key === 'ArrowDown') {
-				event.preventDefault();
-				if (this.historyIndex < this.commandHistory.length - 1) {
-					this.historyIndex++;
-					this.userInput = this.commandHistory[this.historyIndex];
-				} else {
-					this.historyIndex = this.commandHistory.length;
-					this.userInput = '';
-				}
-			}
-		},
-		setCommand(cmd) {
-			this.userInput = cmd;
-			const commandMap = {
-				'↑': 'go north',
-				'↓': 'go south',
-				'→': 'go east',
-				'←': 'go west'
-			};
-			this.userInput = commandMap[cmd] || cmd;
-			this.$refs.inputField.focus();
-		},
-		executeCommand(cmd) {
-			this.userInput = cmd;
-			const commandMap = {
-				'↑': 'go north',
-				'↓': 'go south',
-				'→': 'go east',
-				'←': 'go west',
-				'👀': 'look',
-				'🎒': 'inventory',
-				'?': 'help'
-			};
-			this.userInput = commandMap[cmd] || cmd;
-			this.handleCommand();
-		},
-		parseMessage(message) {
-			// Escape any HTML that might be in the message
-			let escapedMessage = message
-				.replace(/&/g, '&amp;')
-				.replace(/</g, '&lt;')
-				.replace(/>/g, '&gt;')
-				.replace(/"/g, '&quot;')
-				.replace(/'/g, '&#039;');
-
-			// Replace triple asterisks (places) - do this first as it's most specific
-			escapedMessage = escapedMessage.replace(
-				/\*\*\*(.*?)\*\*\*/g,
-				'<span class="place">$1</span>'
-			);
-
-			// Replace double asterisks (people)
-			escapedMessage = escapedMessage.replace(
-				/\*\*(.*?)\*\*/g,
-				'<span class="person">$1</span>'
-			);
-
-			// Replace single asterisks (items)
-			escapedMessage = escapedMessage.replace(
-				/\*(.*?)\*/g,
-				'<span class="item">$1</span>'
-			);
-
-			return escapedMessage;
+declare module '#app' {
+	interface NuxtApp {
+		$firebase: {
+			firestore: Firestore
 		}
 	}
 }
+
+const userInput = ref('')
+const gameMessages = ref<string[]>(['You find yourself at the edge of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do? (type "help" for guidance)'])
+const commandHistory = ref<string[]>([])
+const historyIndex = ref(-1)
+const isLoading = ref(false)
+const userId = ref('')
+const inputField = ref<HTMLInputElement>()
+const outputBox = ref<HTMLElement>()
+
+// Game state management
+async function loadGameState() {
+	try {
+		const { $firebase } = useNuxtApp()
+		const gameDoc = doc($firebase.firestore, 'games', userId.value)
+		const gameSnapshot = await getDoc(gameDoc)
+
+		if (gameSnapshot.exists()) {
+			const data = gameSnapshot.data()
+			gameMessages.value = data.messages || gameMessages.value
+			commandHistory.value = data.commands || commandHistory.value
+			historyIndex.value = commandHistory.value.length
+			
+			// Scroll to bottom after loading
+			nextTick(() => {
+				scrollToBottom()
+			})
+		}
+	} catch (error) {
+		console.error('Error loading game state:', error)
+	}
+}
+
+async function saveGameState() {
+	try {
+		const { $firebase } = useNuxtApp()
+		const gameDoc = doc($firebase.firestore, 'games', userId.value)
+		await setDoc(gameDoc, {
+			messages: gameMessages.value,
+			commands: commandHistory.value,
+			lastUpdated: new Date()
+		})
+	} catch (error) {
+		console.error('Error saving game state:', error)
+	}
+}
+
+async function resetGame() {
+	if (confirm('Are you sure you want to reset the game? This will clear all progress.')) {
+		try {
+			const { $firebase } = useNuxtApp()
+			const gameDoc = doc($firebase.firestore, 'games', userId.value)
+			await deleteDoc(gameDoc)
+
+			gameMessages.value = ['You find yourself at the edge of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do? (type "help" for guidance)']
+			commandHistory.value = []
+			historyIndex.value = -1
+			userInput.value = ''
+			inputField.value?.focus()
+		} catch (error) {
+			console.error('Error resetting game:', error)
+			addMessage('Error resetting game. Please try again.')
+		}
+	}
+}
+
+// Command handling
+async function handleCommand() {
+	if (!userInput.value.trim() || isLoading.value) return
+	
+	isLoading.value = true
+	
+	// Save command to history
+	commandHistory.value.push(userInput.value)
+	historyIndex.value = commandHistory.value.length
+	
+	// Show command in output
+	addMessage(`> ${userInput.value}`)
+	
+	// Send command to API
+	try {
+		const response = await fetch('/api/rpg', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ 
+				command: userInput.value,
+				userId: userId.value
+			})
+		})
+		const data = await response.json()
+		
+		if (data.error) {
+			addMessage(data.error)
+		} else {
+			addMessage(data.response)
+		}
+		// Save game state after each command
+		await saveGameState()
+	} catch (error) {
+		console.error('Error sending command:', error)
+		addMessage('The magical connection seems to be disturbed...')
+	} finally {
+		// Reset input and scroll to bottom
+		userInput.value = ''
+		isLoading.value = false
+		nextTick(() => {
+			scrollToBottom()
+			inputField.value?.focus()
+		})
+	}
+}
+
+function addMessage(message: string) {
+	gameMessages.value.push(message)
+}
+
+function scrollToBottom() {
+	if (outputBox.value) {
+		outputBox.value.scrollTop = outputBox.value.scrollHeight
+	}
+}
+
+// Keyboard navigation
+function handleKeyDown(event: KeyboardEvent) {
+	if (event.key === 'ArrowUp') {
+		event.preventDefault()
+		if (historyIndex.value > 0) {
+			historyIndex.value--
+			userInput.value = commandHistory.value[historyIndex.value]
+		}
+	} else if (event.key === 'ArrowDown') {
+		event.preventDefault()
+		if (historyIndex.value < commandHistory.value.length - 1) {
+			historyIndex.value++
+			userInput.value = commandHistory.value[historyIndex.value]
+		} else {
+			historyIndex.value = commandHistory.value.length
+			userInput.value = ''
+		}
+	}
+}
+
+// Command shortcuts
+function executeCommand(cmd: string) {
+	const commandMap: Record<string, string> = {
+		'↑': 'go north',
+		'↓': 'go south',
+		'→': 'go east',
+		'←': 'go west',
+		'👀': 'look',
+		'🎒': 'inventory',
+		'?': 'help'
+	}
+	userInput.value = commandMap[cmd] || cmd
+	handleCommand()
+}
+
+// Item interaction handlers
+function handleItemClick(name: string) {
+	userInput.value = `examine ${name}`
+	handleCommand()
+}
+
+function handleCharacterClick(name: string) {
+	userInput.value = `talk to ${name}`
+	handleCommand()
+}
+
+function handlePlaceClick(name: string) {
+	userInput.value = `examine ${name}`
+	handleCommand()
+}
+
+// Initialize game
+onMounted(async () => {
+	// Generate a random user ID if not exists
+	userId.value = localStorage.getItem('rpg_user_id') || 
+		Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+	localStorage.setItem('rpg_user_id', userId.value)
+
+	// Load saved game state
+	await loadGameState()
+	
+	// Hold focus on input field
+	inputField.value?.focus()
+	
+	// Add keyboard listeners
+	document.addEventListener('keydown', handleKeyDown)
+})
+
+onBeforeUnmount(() => {
+	document.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <style scoped>
