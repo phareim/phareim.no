@@ -1,33 +1,14 @@
 import type { GameState } from '../state/game-state'
 import { saveGameState } from '../state/game-state'
-import { getCurrentPlace, generatePlace, getPlaceId, AdjacentPlace } from './place'
-import { getAdjacentCoordinates, validateCoordinates } from '../../types/place'
+import { getCurrentPlace, generatePlace, getPlaceId } from './place'
+import { getAdjacentCoordinates, validateCoordinates, type Place } from '../../types/place'
 import OpenAI from 'openai'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 import { SYSTEM_PROMPT } from './ai'
 
+// Extend Place type for adjacent places
 interface AdjacentPlace extends Place {
     direction: 'north' | 'south' | 'east' | 'west';
-}
-
-// Helper function to get place ID from coordinates
-function getPlaceId(coordinates: GameState['coordinates']): string {
-    return `${coordinates.north},${coordinates.west}`
-}
-
-// Helper function to get current place
-export async function getCurrentPlace(coordinates: GameState['coordinates']): Promise<Place | null> {
-    const placeId = getPlaceId(coordinates)
-    const placeDoc = await db.collection(placesCollection).doc(placeId).get()
-    
-    if (!placeDoc.exists) {
-        return null
-    }
-    
-    return {
-        id: placeDoc.id,
-        ...placeDoc.data()
-    } as Place
 }
 
 // Handle movement command
@@ -82,10 +63,11 @@ export async function handleMovement(
                 openai
             )
 
-            // Update game state
+            // Update game state with non-null id
             gameState.coordinates = newCoordinates
-            if (!gameState.visited.includes(generatedPlace.id)) {
-                gameState.visited.push(generatedPlace.id)
+            const placeId = generatedPlace.id
+            if (placeId && !gameState.visited.includes(placeId)) {
+                gameState.visited.push(placeId)
             }
 
             // Save the updated game state  
