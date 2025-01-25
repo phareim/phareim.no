@@ -3,7 +3,8 @@ import OpenAI from 'openai'
 import { useRuntimeConfig } from '#imports'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 import { loadGameState, saveGameState, DEFAULT_GAME_STATE } from '../rpg/state/game-state'
-import { handleMovement, getCurrentPlace } from '../rpg/handlers/movement'
+import { handleMovement } from '../rpg/handlers/movement'
+import { getCurrentPlace } from '../rpg/handlers/place'
 import { SYSTEM_PROMPT, handleAIResponse, pruneMessageHistory } from '../rpg/handlers/ai'
 
 // Initialize OpenAI with Venice configuration
