@@ -5,6 +5,7 @@ import type { Place } from '../../types/place'
 import { getCoordinatesString, validateCoordinates, getAdjacentCoordinates } from '../../types/place'
 import OpenAI from 'openai'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
+import { SYSTEM_PROMPT } from './ai'
 
 interface AdjacentPlace extends Place {
     direction: 'north' | 'south' | 'east' | 'west';
@@ -89,14 +90,7 @@ export async function handleMovement(
                 messages: [
                     {
                         role: "system",
-                        content: `You are a creative writer generating a new location for a text adventure game.
-The location should be described in 2-3 sentences maximum.
-The description should be atmospheric and evocative but concise.
-The name should be short but descriptive.
-The theme is: a mysterious fantasy forest world
-Rule regarding items: All items in the description that the player can interact with or pick up should be written with *asterisks* around them.
-Rule regarding people: All people in the description that the player can interact with should be written with double **asterisks** around them.
-Rule regarding places: All notable places in the description should be written with triple ***asterisks*** around them.
+                        content: `${SYSTEM_PROMPT.content}
 
 Adjacent locations for context:
 ${existingContext || 'This is one of the first locations in the game.'}`

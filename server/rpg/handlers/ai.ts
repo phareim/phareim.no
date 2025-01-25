@@ -29,8 +29,19 @@ Standard Commands:
 - inventory: show what the player is carrying
 - help: show available commands
 
-When describing a location, use its stored description but feel free to add atmospheric details.
-The world expands infinitely in all directions, with each new area being uniquely generated based on its surroundings.`
+Formatting Rules:
+- All items that players can interact with or pick up should be written with *asterisks* around them (e.g., *rusty sword*)
+- All people that players can interact with should be written with double **asterisks** around them (e.g., **old merchant**)
+- All notable places should be written with triple ***asterisks*** around them (e.g., ***ancient ruins***)
+
+Theme: A mysterious fantasy forest world that expands infinitely in all directions, with each new area being uniquely generated based on its surroundings.
+
+When describing a location:
+- Use 2-3 sentences maximum
+- Make descriptions atmospheric and evocative but concise
+- Use short but descriptive names for places
+- Include the stored description but feel free to add atmospheric details
+- Consider the surrounding areas for context when generating new locations`
 }
 
 // Handle AI response
