@@ -18,16 +18,7 @@
 		</div>
 		<div class="command-buttons">
 			<button 
-				v-for="cmd in ['↑', '↓', '→', '←']" 
-				:key="cmd"
-				@click="executeCommand(cmd)"
-				class="command-button"
-				:disabled="isLoading"
-			>
-				{{ cmd }}
-			</button>
-			<button 
-				v-for="cmd in ['👀', '🎒', '?']" 
+				v-for="cmd in ['↑', '↓', '→', '←', '👀', '🎒']" 
 				:key="cmd"
 				@click="executeCommand(cmd)"
 				class="command-button"
