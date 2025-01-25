@@ -118,7 +118,7 @@ export async function processItemsInText(
     // Process each item
     for (const itemMatch of itemMatches) {
         const itemName = itemMatch.replace(/\*/g, '').trim()
-        
+
         // Check if item exists in database
         const itemsSnapshot = await db.collection(itemsCollection)
             .where('name', '==', itemName)
@@ -126,7 +126,7 @@ export async function processItemsInText(
             .get()
 
         let item: Item | null = null
-        
+
         if (!itemsSnapshot.empty) {
             // Item exists, get its data
             item = {

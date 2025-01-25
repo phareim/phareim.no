@@ -19,11 +19,11 @@ export default defineEventHandler(async (event) => {
             })) as Place[]
             return { places }
         }
-        
+
         // POST request - Create a new place
         if (event.method === 'POST') {
             const body = await readBody(event)
-            
+
             // Validate required fields
             if (!body.name || !body.description || !body.coordinates) {
                 return {
@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
                     status: 409
                 }
             }
-            
+
             // Create new place document
             const placeData: Omit<Place, 'id'> = {
                 name: body.name,
@@ -64,14 +64,14 @@ export default defineEventHandler(async (event) => {
                 createdAt: new Date(),
                 updatedAt: new Date()
             }
-            
+
             await placeRef.set(placeData)
             return {
                 id: placeId,
                 ...placeData
             }
         }
-        
+
         // Method not allowed
         return {
             error: 'Method not allowed',

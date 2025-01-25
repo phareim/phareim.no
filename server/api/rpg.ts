@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
         // Get current location before processing command
         const currentPlace = await getCurrentPlace(rpg.gameState.coordinates)
         if (!currentPlace && rpg.messages.length === 1) {
-            return { 
+            return {
                 error: 'The mists are too thick here. You must begin your journey from the ancient starting point.',
                 status: 404
             }
@@ -106,13 +106,13 @@ export default defineEventHandler(async (event) => {
         }
 
         // Get AI response
-            const response = await handleAIResponse(rpg.messages, rpg.gameState, openai)
+        const response = await handleAIResponse(rpg.messages, rpg.gameState, openai)
 
-            // Save assistant response to history
-            rpg.messages.push({
-                role: "assistant",
-                content: response
-            })
+        // Save assistant response to history
+        rpg.messages.push({
+            role: "assistant",
+            content: response
+        })
 
         // Prune message history
         rpg.messages = pruneMessageHistory(rpg.messages)
@@ -123,7 +123,7 @@ export default defineEventHandler(async (event) => {
         return { response }
     } catch (error: any) {
         console.error('Error in RPG handler:', error)
-        return { 
+        return {
             error: 'A mysterious force prevents you from taking that action.',
             details: error?.message || 'The ancient magic is unstable.'
         }

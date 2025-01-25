@@ -39,28 +39,28 @@ export async function handleAIResponse(
     gameState: GameState,
     openai: OpenAI
 ): Promise<string> {
-        // Send to Venice/OpenAI
-        const completion = await openai.chat.completions.create({
+    // Send to Venice/OpenAI
+    const completion = await openai.chat.completions.create({
         model: "llama-3.1-405b",
-            messages,
-            temperature: 0.7,
-            max_tokens: 150
-        })
+        messages,
+        temperature: 0.7,
+        max_tokens: 150
+    })
 
-        // Get response
+    // Get response
     const response = completion.choices[0]?.message?.content || 'Sorry, I did not understand that.'
 
-        // Process any items mentioned in the response
-        return await processItemsInText(response, gameState.coordinates, openai)
+    // Process any items mentioned in the response
+    return await processItemsInText(response, gameState.coordinates, openai)
 }
 
 // Keep message history at a reasonable size
 export function pruneMessageHistory(messages: ChatCompletionMessageParam[]): ChatCompletionMessageParam[] {
-    if (messages.length > 10) {
-        // Keep system message and last 9 messages
+    if (messages.length > 1000) {
+        // Keep system message and last 999 messages
         return [
             messages[0],
-            ...messages.slice(-9)
+            ...messages.slice(-999)
         ]
     }
     return messages
