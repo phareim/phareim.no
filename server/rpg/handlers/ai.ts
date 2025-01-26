@@ -31,9 +31,9 @@ Standard Commands:
 - help: show available commands
 
 Formatting Rules:
-- All items that players can interact with or pick up should be written with *asterisks* around them (e.g., *rusty sword*)
+- All items that players can pick up should be written with *asterisks* around them (e.g., *rusty sword*)
 - All people that players can interact with should be written with double **asterisks** around them (e.g., **old merchant**)
-- All notable places should be written with triple ***asterisks*** around them (e.g., ***ancient ruins***)
+- All notable locations should be written with triple ***asterisks*** around them (e.g., ***ancient ruins***)
 
 Theme: A mysterious fantasy forest world that expands infinitely in all directions, with each new area being uniquely generated based on its surroundings.
 

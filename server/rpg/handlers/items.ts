@@ -141,9 +141,6 @@ export async function processItemsInText(
         if (item) {
             // Store the full item data
             items[itemName] = item
-
-            // Replace the item name with a unique identifier
-            text = text.replace(itemMatch, `<item>${itemName}</item>`)
         }
     }
 

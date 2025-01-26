@@ -56,7 +56,6 @@ import { useNuxtApp } from '#app'
 import type { Firestore } from 'firebase/firestore'
 import TextWindow from '~/components/rpg/TextWindow.vue'
 import { collection, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
-import type { Item } from '~/types/item'
 
 declare module '#app' {
 	interface NuxtApp {
@@ -167,10 +166,6 @@ async function handleCommand() {
 			addMessage(data.error)
 		} else {
 			addMessage(data.response)
-			// Store items for display
-			if (data.items) {
-				currentItems.value = { ...currentItems.value, ...data.items }
-			}
 		}
 		// Save game state after each command
 		await saveGameState()

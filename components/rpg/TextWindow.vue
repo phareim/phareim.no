@@ -1,12 +1,10 @@
 <!-- TextWindow.vue -->
 <script setup lang="ts">
 import InlineItem from './InlineItem.vue'
-import type { Item } from '~/types/item'
 
 interface Props {
   text: string,
-  active: boolean,
-  items?: Record<string, Item>
+  active: boolean
 }
 
 const props = defineProps<Props>()
@@ -21,15 +19,8 @@ const parsedContent = computed(() => {
   if (!props.text) return []
   
   // Split text into segments, preserving special markers
-  return props.text.split(/(<item>.*?<\/item>|\*\*\*.*?\*\*\*|\*\*.*?\*\*)/g).map((segment, index) => {
-    if (segment.startsWith('<item>') && segment.endsWith('</item>')) {
-      // Item (<item>itemName</item>)
-      return {
-        type: 'item',
-        content: segment.slice(6, -7), // Remove <item> and </item>
-        key: `item-${index}`
-      }
-    } else if (segment.startsWith('***') && segment.endsWith('***')) {
+  return props.text.split(/(\*\*\*.*?\*\*\*|\*\*.*?\*\*|\*.*?\*)/g).map((segment, index) => {
+    if (segment.startsWith('***') && segment.endsWith('***')) {
       // Place (***place***)
       return {
         type: 'place',
@@ -42,6 +33,13 @@ const parsedContent = computed(() => {
         type: 'character',
         content: segment.slice(2, -2),
         key: `character-${index}`
+      }
+    } else if (segment.startsWith('*') && segment.endsWith('*')) {
+      // Item (*item*)
+      return {
+        type: 'item',
+        content: segment.slice(1, -1),
+        key: `item-${index}`
       }
     } else {
       // Regular text
@@ -80,7 +78,6 @@ const handlePlaceClick = (name: string) => {
         <InlineItem
           v-else-if="segment.type === 'item'"
           :itemId="segment.content"
-          :items="items || {}"
           @click="handleItemClick"
           :active="props.active"
         />
