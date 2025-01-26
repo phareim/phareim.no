@@ -1,5 +1,10 @@
 <template>
 	<div class="game-container">
+		<!-- Add player location display -->
+		<div class="player-location">
+			<div class="location-label">Player Location:</div>
+			<div class="coordinates">{{ playerCoordinates }}</div>
+		</div>
 		<div class="game-output" ref="outputBox">
 			<template v-for="(message, index) in gameMessages" :key="index">
 				<div v-if="message.startsWith('>')" class="message command">
@@ -73,6 +78,7 @@ const isLoading = ref(false)
 const userId = ref('')
 const inputField = ref<HTMLInputElement>()
 const outputBox = ref<HTMLElement>()
+const playerCoordinates = ref('Loading...')
 let gameStateDoc: any | null = null
 	
 // Game state management
@@ -252,6 +258,36 @@ function handlePlaceClick(name: string) {
 	handleCommand()
 }
 
+// Add loadPlayerLocation function
+async function loadPlayerLocation() {
+	try {
+		const { $firebase } = useNuxtApp()
+		const userId = localStorage.getItem('rpg_user_id')
+		if (!userId) {
+			playerCoordinates.value = 'No player found'
+			return
+		}
+
+		const gameStateRef = doc($firebase.firestore, 'gameStates', userId)
+		const gameStateDoc = await getDoc(gameStateRef)
+		if (!gameStateDoc.exists()) {
+			playerCoordinates.value = 'No game in progress'
+			return
+		}
+
+		const gameState = gameStateDoc.data()
+		const coords = gameState?.coordinates
+		if (coords) {
+			playerCoordinates.value = `N: ${coords.north}, W: ${coords.west}`
+		} else {
+			playerCoordinates.value = 'Unknown location'
+		}
+	} catch (error) {
+		console.error('Error loading player location:', error)
+		playerCoordinates.value = 'Error loading location'
+	}
+}
+
 // Initialize game
 onMounted(async () => {
 	// Generate a random user ID if not exists
@@ -261,6 +297,7 @@ onMounted(async () => {
 
 	// Load saved game state
 	await loadGameState()
+	await loadPlayerLocation()
 	
 	// Hold focus on input field
 	inputField.value?.focus()
@@ -488,5 +525,30 @@ input {
 :deep(.command) {
 	color: #888; /* Grey for user commands */
 	font-style: italic;
+}
+
+.player-location {
+	position: fixed;
+	top: 20px;
+	left: 20px;
+	background: #000;
+	border: 2px solid #33ff33;
+	border-radius: 5px;
+	padding: 10px;
+	font-family: 'Courier New', monospace;
+	z-index: 1000;
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+}
+
+.location-label {
+	color: #666;
+	font-size: 0.9em;
+}
+
+.coordinates {
+	color: #33ff33;
+	font-weight: bold;
 }
 </style>

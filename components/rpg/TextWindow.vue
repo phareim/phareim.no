@@ -1,6 +1,8 @@
 <!-- TextWindow.vue -->
 <script setup lang="ts">
 import InlineItem from './InlineItem.vue'
+import InlineCharacter from './InlineCharacter.vue'
+import InlinePlace from './InlinePlace.vue'
 
 interface Props {
   text: string,
@@ -83,32 +85,28 @@ const handleAction = (command: string) => {
         <InlineItem
           v-else-if="segment.type === 'item'"
           :itemId="segment.content"
-          @click="handleItemClick"
           :active="props.active"
+          @click="handleItemClick"
           @action="handleAction"
         />
         
         <!-- Characters -->
-        <span 
-          v-else-if="segment.type === 'character'" 
-          class="character-segment"
-          @click="props.active ? handleCharacterClick(segment.content) : null"
-          role="button"
-          tabindex="0"
-        >
-          {{ segment.content }}
-        </span>
+        <InlineCharacter
+          v-else-if="segment.type === 'character'"
+          :characterId="segment.content"
+          :active="props.active"
+          @click="handleCharacterClick"
+          @action="handleAction"
+        />
         
         <!-- Places -->
-        <span 
-          v-else-if="segment.type === 'place'" 
-          class="place-segment"
-          @click="props.active ? handlePlaceClick(segment.content) : null"
-          role="button"
-          tabindex="0"
-        >
-          {{ segment.content }}
-        </span>
+        <InlinePlace
+          v-else-if="segment.type === 'place'"
+          :placeId="segment.content"
+          :active="props.active"
+          @click="handlePlaceClick"
+          @action="handleAction"
+        />
       </template>
     </div>
   </div>

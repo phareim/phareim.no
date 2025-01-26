@@ -1,5 +1,11 @@
 <template>
     <div class="admin-container">
+        <!-- Player Location Display -->
+        <div class="player-location">
+            <div class="location-label">Player Location:</div>
+            <div class="coordinates">{{ playerCoordinates }}</div>
+        </div>
+
         <h1>Places Admin</h1>
         <!-- Create/Edit Form -->
         <div class="form-container">
@@ -62,12 +68,15 @@
 import { ref, onMounted } from 'vue'
 import type { Place } from '~/types/place'
 import { getCoordinatesString } from '~/types/place'
+import { useNuxtApp } from '#app'
+import { collection, doc, getDoc } from 'firebase/firestore'
 
 const places = ref<Place[]>([])
 const isLoading = ref(false)
 const isGenerating = ref(false)
 const editingId = ref<string | null>(null)
 const theme = ref('')
+const playerCoordinates = ref('Loading...')
 
 const search = ref({
     north: null as number | null,
@@ -236,7 +245,41 @@ function resetForm() {
     theme.value = ''
 }
 
-onMounted(loadPlaces)
+// Update the loadPlayerLocation function
+async function loadPlayerLocation() {
+    try {
+        const { $firebase } = useNuxtApp()
+        const userId = localStorage.getItem('rpg_user_id')
+        if (!userId) {
+            playerCoordinates.value = 'No player found'
+            return
+        }
+
+        const gameStateRef = doc($firebase.firestore, 'gameStates', userId)
+        const gameStateDoc = await getDoc(gameStateRef)
+        if (!gameStateDoc.exists()) {
+            playerCoordinates.value = 'No game in progress'
+            return
+        }
+
+        const gameState = gameStateDoc.data()
+        const coords = gameState?.coordinates
+        if (coords) {
+            playerCoordinates.value = getCoordinatesString(coords)
+        } else {
+            playerCoordinates.value = 'Unknown location'
+        }
+    } catch (error) {
+        console.error('Error loading player location:', error)
+        playerCoordinates.value = 'Error loading location'
+    }
+}
+
+// Update onMounted to also load player location
+onMounted(() => {
+    loadPlaces()
+    loadPlayerLocation()
+})
 </script>
 
 <style scoped>
@@ -454,5 +497,30 @@ button.generate {
     border-radius: 4px;
     color: #33ff33;
     font-family: 'Courier New', monospace;
+}
+
+.player-location {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: #1a1a1a;
+    border: 2px solid #33ff33;
+    border-radius: 5px;
+    padding: 10px;
+    font-family: 'Courier New', monospace;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.location-label {
+    color: #666;
+    font-size: 0.9em;
+}
+
+.coordinates {
+    color: #33ff33;
+    font-weight: bold;
 }
 </style> 
