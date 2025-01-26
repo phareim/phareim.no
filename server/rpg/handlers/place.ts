@@ -1,10 +1,7 @@
 import type { GameState } from '../state/game-state'
 import { db, placesCollection } from '../../utils/firebase-admin'
 import type { Place } from '../../../types/place'
-import { getCoordinatesString, validateCoordinates, getAdjacentCoordinates } from '../../../types/place'
 import OpenAI from 'openai'
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
-import { SYSTEM_PROMPT } from './ai'
 import { generatePlace, getPlaceId } from '../../utils/place-generator'
 import type { AdjacentPlace } from '../../utils/place-generator'
 

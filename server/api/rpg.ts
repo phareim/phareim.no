@@ -32,11 +32,20 @@ export default defineEventHandler(async (event) => {
             status: 405
         }
     }
-
     try {
         const body = await readBody(event)
+        console.log('--------------------------------')
+        console.log('Received message:', body);
+        console.log('--------------------------------')
         const { command, userId } = body
-
+        console.log('Received command:', command)
+        if(!command) {
+            console.log('No command provided', null, event);
+            return {
+                error: 'No command provided',
+                status: 400
+            }
+        }
         // Load game state
         let gameState = await loadGameState(userId) as ExtendedGameState | null
         if (!gameState) {
@@ -80,7 +89,12 @@ export default defineEventHandler(async (event) => {
             case 'look':
             case 'inspect':
                 // Look around
-                const { processedText: lookText, items: lookItems } = await handleAIResponse(gameState.messages, gameState, openai)
+                const { processedText: lookText, items: lookItems } = await handleAIResponse(
+                    gameState.messages,
+                    gameState,
+                    openai,
+                    args.length > 0 ? `${action} ${args.join(' ')}` : 'look'  // Pass full command if examining specific item
+                )
                 response = lookText
                 newState = {
                     ...gameState,
@@ -96,7 +110,12 @@ export default defineEventHandler(async (event) => {
 
             default:
                 // Send to AI for processing
-                const { processedText, items } = await handleAIResponse(gameState.messages, gameState, openai)
+                const { processedText, items } = await handleAIResponse(
+                    gameState.messages,
+                    gameState,
+                    openai,
+                    command  // Pass the full original command
+                )
                 response = processedText
                 newState = {
                     ...gameState,

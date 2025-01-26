@@ -47,16 +47,34 @@ When describing a location:
 
 // Handle AI response
 export async function handleAIResponse(
-    messages: ChatCompletionMessageParam[],
+    messages: ChatCompletionMessageParam[] | undefined,
     gameState: GameState,
-    openai: OpenAI
+    openai: OpenAI,
+    command: string = 'look'  // Default to 'look' if no command is provided
 ): Promise<{ processedText: string; items: string[] }> {
+    // Ensure we have at least the system prompt
+    const messageHistory = messages || [SYSTEM_PROMPT]
+    if (!messageHistory.length || messageHistory[0].role !== 'system') {
+        messageHistory.unshift(SYSTEM_PROMPT)
+    }
+
+    // Add the user's command if not already present
+    if (messageHistory[messageHistory.length - 1]?.role !== 'user') {
+        messageHistory.push({
+            role: 'user',
+            content: command
+        })
+    }
+
+    // Log the messages array
+    console.log('Messages passed to OpenAI:', messageHistory)
+
     // Send to Venice/OpenAI
     const completion = await openai.chat.completions.create({
         model: "llama-3.1-405b",
-        messages,
+        messages: messageHistory,
         temperature: 0.7,
-        max_tokens: 150
+        max_tokens: 500
     })
 
     // Get response
