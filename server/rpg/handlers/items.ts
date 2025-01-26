@@ -1,7 +1,7 @@
 import type { GameState } from '../state/game-state'
 import { db } from '../../utils/firebase-admin'
-import type { Item } from '../../types/item'
-import { itemsCollection } from '../../types/item'
+import type { Item } from '~/types/item'
+import { itemsCollection } from '~/types/item'
 import OpenAI from 'openai'
 
 // Helper function to generate an item
@@ -90,11 +90,12 @@ Rules:
         // Remove any undefined values before saving to Firestore
         const firebaseData = JSON.parse(JSON.stringify(itemData))
 
-        // Save the generated item
-        const docRef = await db.collection(itemsCollection).add(firebaseData)
+        // Save the generated item using the name as the document ID
+        const docRef = db.collection(itemsCollection).doc(name)
+        await docRef.set(firebaseData)
 
         return {
-            id: docRef.id,
+            id: name,
             ...itemData
         }
 
@@ -109,29 +110,28 @@ export async function processItemsInText(
     text: string,
     coordinates: GameState['coordinates'],
     openai: OpenAI
-): Promise<string> {
+): Promise<{ processedText: string; items: Record<string, Item> }> {
     console.log('Processing items in text:', text)
     // Find all items marked with single asterisks
     const itemMatches = text.match(/\*(.*?)\*/g)
-    if (!itemMatches) return text
+    if (!itemMatches) return { processedText: text, items: {} }
+
+    const items: Record<string, Item> = {}
 
     // Process each item
     for (const itemMatch of itemMatches) {
         const itemName = itemMatch.replace(/\*/g, '').trim()
 
-        // Check if item exists in database
-        const itemsSnapshot = await db.collection(itemsCollection)
-            .where('name', '==', itemName)
-            .limit(1)
-            .get()
+        // Check if item exists in database using the name as document ID
+        const itemDoc = await db.collection(itemsCollection).doc(itemName).get()
 
         let item: Item | null = null
 
-        if (!itemsSnapshot.empty) {
+        if (itemDoc.exists) {
             // Item exists, get its data
             item = {
-                id: itemsSnapshot.docs[0].id,
-                ...itemsSnapshot.docs[0].data()
+                id: itemName,
+                ...itemDoc.data()
             } as Item
         } else {
             // Item doesn't exist, generate it
@@ -139,10 +139,13 @@ export async function processItemsInText(
         }
 
         if (item) {
-            // Just keep the item name with asterisks for immersion
-            text = text.replace(itemMatch, `*${item.name}*`)
+            // Store the full item data
+            items[itemName] = item
+
+            // Replace the item name with a unique identifier
+            text = text.replace(itemMatch, `<item>${itemName}</item>`)
         }
     }
 
-    return text
+    return { processedText: text, items }
 } 

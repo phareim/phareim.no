@@ -1,7 +1,7 @@
 import type { GameState } from '../state/game-state'
 import { saveGameState } from '../state/game-state'
 import { getCurrentPlace, generatePlace, getPlaceId } from './place'
-import { getAdjacentCoordinates, validateCoordinates, type Place } from '../../types/place'
+import { getAdjacentCoordinates, validateCoordinates, type Place } from '../../../types/place'
 import OpenAI from 'openai'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 import { SYSTEM_PROMPT } from './ai'

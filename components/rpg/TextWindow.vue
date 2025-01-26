@@ -1,9 +1,12 @@
 <!-- TextWindow.vue -->
 <script setup lang="ts">
 import InlineItem from './InlineItem.vue'
+import type { Item } from '~/types/item'
 
 interface Props {
-  text: string
+  text: string,
+  active: boolean,
+  items?: Record<string, Item>
 }
 
 const props = defineProps<Props>()
@@ -18,8 +21,15 @@ const parsedContent = computed(() => {
   if (!props.text) return []
   
   // Split text into segments, preserving special markers
-  return props.text.split(/(\*\*\*.*?\*\*\*|\*\*.*?\*\*|\*.*?\*)/g).map((segment, index) => {
-    if (segment.startsWith('***') && segment.endsWith('***')) {
+  return props.text.split(/(<item>.*?<\/item>|\*\*\*.*?\*\*\*|\*\*.*?\*\*)/g).map((segment, index) => {
+    if (segment.startsWith('<item>') && segment.endsWith('</item>')) {
+      // Item (<item>itemName</item>)
+      return {
+        type: 'item',
+        content: segment.slice(6, -7), // Remove <item> and </item>
+        key: `item-${index}`
+      }
+    } else if (segment.startsWith('***') && segment.endsWith('***')) {
       // Place (***place***)
       return {
         type: 'place',
@@ -32,13 +42,6 @@ const parsedContent = computed(() => {
         type: 'character',
         content: segment.slice(2, -2),
         key: `character-${index}`
-      }
-    } else if (segment.startsWith('*') && segment.endsWith('*')) {
-      // Item (*item*)
-      return {
-        type: 'item',
-        content: segment.slice(1, -1),
-        key: `item-${index}`
       }
     } else {
       // Regular text
@@ -76,15 +79,17 @@ const handlePlaceClick = (name: string) => {
         <!-- Items -->
         <InlineItem
           v-else-if="segment.type === 'item'"
-          :name="segment.content"
+          :itemId="segment.content"
+          :items="items || {}"
           @click="handleItemClick"
+          :active="props.active"
         />
         
         <!-- Characters -->
         <span 
           v-else-if="segment.type === 'character'" 
           class="character-segment"
-          @click="handleCharacterClick(segment.content)"
+          @click="props.active ? handleCharacterClick(segment.content) : null"
           role="button"
           tabindex="0"
         >
@@ -95,7 +100,7 @@ const handlePlaceClick = (name: string) => {
         <span 
           v-else-if="segment.type === 'place'" 
           class="place-segment"
-          @click="handlePlaceClick(segment.content)"
+          @click="props.active ? handlePlaceClick(segment.content) : null"
           role="button"
           tabindex="0"
         >
@@ -136,6 +141,7 @@ const handlePlaceClick = (name: string) => {
 
 .character-segment:hover {
   color: #ff9dc9;
+  font-weight: bold;
 }
 
 .place-segment {
@@ -147,5 +153,6 @@ const handlePlaceClick = (name: string) => {
 
 .place-segment:hover {
   color: #b3fdb3;
+  font-weight: bold;
 }
 </style> 

@@ -107,12 +107,12 @@ export default defineEventHandler(async (event) => {
         }
 
         // Get AI response
-        const response = await handleAIResponse(rpg.messages, rpg.gameState, openai)
+        const { processedText, items } = await handleAIResponse(rpg.messages, rpg.gameState, openai)
 
         // Save assistant response to history
         rpg.messages.push({
             role: "assistant",
-            content: response
+            content: processedText
         })
 
         // Prune message history
@@ -121,7 +121,7 @@ export default defineEventHandler(async (event) => {
         // Save game state
         await saveGameState(userId, rpg.gameState)
 
-        return { response }
+        return { response: processedText, items }
     } catch (error: any) {
         console.error('Error in RPG handler:', error)
         return {

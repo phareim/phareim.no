@@ -2,8 +2,8 @@ import { defineEventHandler, readBody } from 'h3'
 import OpenAI from 'openai'
 import { useRuntimeConfig } from '#imports'
 import { db, placesCollection } from '../../utils/firebase-admin'
-import type { Place } from '../../types/place'
-import { validateCoordinates, getCoordinatesString } from '../../types/place'
+import type { Place } from '../../../types/place'
+import { validateCoordinates, getCoordinatesString } from '../../../types/place'
 
 // Initialize OpenAI with Venice configuration
 const config = useRuntimeConfig()

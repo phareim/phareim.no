@@ -2,6 +2,7 @@ import type { ChatCompletionMessageParam } from 'openai/resources/chat/completio
 import OpenAI from 'openai'
 import type { GameState } from '../state/game-state'
 import { processItemsInText } from './items'
+import type { Item } from '~/types/item'
 
 // System prompt for the RPG game
 export const SYSTEM_PROMPT: ChatCompletionMessageParam = {
@@ -37,7 +38,7 @@ Formatting Rules:
 Theme: A mysterious fantasy forest world that expands infinitely in all directions, with each new area being uniquely generated based on its surroundings.
 
 When describing a location:
-- Use 2-3 sentences maximum
+- Use about 3-6 sentences
 - Make descriptions atmospheric and evocative but concise
 - Use short but descriptive names for places
 - Include the stored description but feel free to add atmospheric details
@@ -49,7 +50,7 @@ export async function handleAIResponse(
     messages: ChatCompletionMessageParam[],
     gameState: GameState,
     openai: OpenAI
-): Promise<string> {
+): Promise<{ processedText: string; items: Record<string, Item> }> {
     // Send to Venice/OpenAI
     const completion = await openai.chat.completions.create({
         model: "llama-3.1-405b",

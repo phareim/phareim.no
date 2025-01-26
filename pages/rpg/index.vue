@@ -8,10 +8,12 @@
 				<TextWindow 
 					v-else 
 					:text="message"
+					:items="currentItems"
 					@itemClick="handleItemClick"
 					@characterClick="handleCharacterClick"
 					@placeClick="handlePlaceClick"
 					class="message"
+					:active="false"
 				/>
 			</template>
 			<div v-if="isLoading" class="message loading">...</div>
@@ -54,6 +56,7 @@ import { useNuxtApp } from '#app'
 import type { Firestore } from 'firebase/firestore'
 import TextWindow from '~/components/rpg/TextWindow.vue'
 import { collection, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
+import type { Item } from '~/types/item'
 
 declare module '#app' {
 	interface NuxtApp {
@@ -64,22 +67,27 @@ declare module '#app' {
 }
 
 const userInput = ref('')
-const gameMessages = ref<string[]>(['You find yourself at the edge of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do? (type "help" for guidance)'])
+const gameMessages = ref<string[]>(['You find yourself at the edge of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do?'])
 const commandHistory = ref<string[]>([])
 const historyIndex = ref(-1)
 const isLoading = ref(false)
 const userId = ref('')
 const inputField = ref<HTMLInputElement>()
 const outputBox = ref<HTMLElement>()
+const currentItems = ref<Record<string, Item>>({})
 
 // Game state management
 async function loadGameState() {
 	try {
 		const { $firebase } = useNuxtApp()
 		const gameDoc = doc($firebase.firestore, 'games', userId.value)
+		const itemsCollection = collection($firebase.firestore, 'items')
+		const placesCollection = collection($firebase.firestore, 'places')
+		
 		const gameSnapshot = await getDoc(gameDoc)
 
 		if (gameSnapshot.exists()) {
+			console.log('gameSnapshot', gameSnapshot.data())
 			const data = gameSnapshot.data()
 			gameMessages.value = data.messages || gameMessages.value
 			commandHistory.value = data.commands || commandHistory.value
@@ -159,6 +167,10 @@ async function handleCommand() {
 			addMessage(data.error)
 		} else {
 			addMessage(data.response)
+			// Store items for display
+			if (data.items) {
+				currentItems.value = { ...currentItems.value, ...data.items }
+			}
 		}
 		// Save game state after each command
 		await saveGameState()

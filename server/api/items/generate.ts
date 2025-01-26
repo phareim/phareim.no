@@ -2,8 +2,8 @@ import { defineEventHandler, readBody } from 'h3'
 import OpenAI from 'openai'
 import { useRuntimeConfig } from '#imports'
 import { db } from '../../utils/firebase-admin'
-import type { Item } from '../../types/item'
-import { itemsCollection } from '../../types/item'
+import type { Item } from '~/types/item'
+import { itemsCollection } from '~/types/item'
 
 // Initialize OpenAI with Venice configuration
 const config = useRuntimeConfig()

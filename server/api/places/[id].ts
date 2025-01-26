@@ -1,7 +1,7 @@
 import { defineEventHandler, getRouterParam, readBody } from 'h3'
 import { db, placesCollection } from '../../utils/firebase-admin'
-import type { Place } from '../../types/place'
-import { validateCoordinates, getCoordinatesString } from '../../types/place'
+import type { Place } from '../../../types/place'
+import { validateCoordinates, getCoordinatesString } from '../../../types/place'
 
 // Helper function to create document ID from coordinates
 function getPlaceId(coordinates: Place['coordinates']): string {

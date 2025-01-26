@@ -1,7 +1,7 @@
 import { defineEventHandler, getQuery, readBody } from 'h3'
 import { db } from '../../utils/firebase-admin'
-import type { Item } from '../../types/item'
-import { validateItem, itemsCollection } from '../../types/item'
+import type { Item } from '~/types/item'
+import { validateItem, itemsCollection } from '~/types/item'
 import type { Query, CollectionReference } from 'firebase-admin/firestore'
 
 export default defineEventHandler(async (event) => {

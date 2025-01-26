@@ -16,7 +16,8 @@
     "@nuxtjs/tailwindcss": "^6.12.1",
     "firebase": "^11.2.0",
     "firebase-admin": "^13.0.2",
-    "openai": "^4.80.0"
+    "openai": "^4.80.0",
+    "pinia": "^2.3.1"
   },
   "overrides": {
     "tr46": "4.0.0"

@@ -61,8 +61,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import type { Place } from '~/server/types/place'
-import { getCoordinatesString } from '~/server/types/place'
+import type { Place } from '~/types/place'
+import { getCoordinatesString } from '~/types/place'
 
 const places = ref<Place[]>([])
 const isLoading = ref(false)
