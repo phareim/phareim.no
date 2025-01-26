@@ -1,11 +1,22 @@
-import { defineEventHandler, readBody } from 'h3'
 import OpenAI from 'openai'
-import { useRuntimeConfig } from '#imports'
+import { defineEventHandler, readBody } from 'h3'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
-import { loadGameState, saveGameState, DEFAULT_GAME_STATE } from '../rpg/state/game-state'
+import { useRuntimeConfig } from '#imports'
 import { handleMovement } from '../rpg/handlers/movement'
-import { getCurrentPlace } from '../rpg/handlers/place'
-import { SYSTEM_PROMPT, handleAIResponse, pruneMessageHistory } from '../rpg/handlers/ai'
+import { handleAIResponse } from '../rpg/handlers/ai'
+import { loadGameState, saveGameState } from '../rpg/state/game-state'
+
+// Extend GameState type to include messages
+interface ExtendedGameState {
+    coordinates: {
+        north: number
+        west: number
+    }
+    inventory: string[]
+    visited: string[]
+    lastUpdated: Date
+    messages: ChatCompletionMessageParam[]
+}
 
 // Initialize OpenAI with Venice configuration
 const config = useRuntimeConfig()
@@ -14,119 +25,99 @@ const openai = new OpenAI({
     baseURL: "https://api.venice.ai/api/v1"
 })
 
-// RPG game state
-const rpg = {
-    messages: [SYSTEM_PROMPT] as ChatCompletionMessageParam[],
-    gameState: DEFAULT_GAME_STATE
-}
-
 export default defineEventHandler(async (event) => {
-    // Handle only POST requests
     if (event.method !== 'POST') {
-        return { error: 'The ancient scrolls cannot be read this way.' }
+        return {
+            error: 'Only POST requests are supported',
+            status: 405
+        }
     }
 
     try {
         const body = await readBody(event)
-        const userInput = body.command
-        const userId = body.userId
+        const { command, userId } = body
 
-        if (!userInput) {
-            return { error: 'Your words are lost in the wind.' }
-        }
-
-        if (!userId) {
-            return { error: 'Your identity is shrouded in mystery.' }
-        }
-
-        // Load or initialize game state
-        let gameState = await loadGameState(userId)
+        // Load game state
+        let gameState = await loadGameState(userId) as ExtendedGameState | null
         if (!gameState) {
-            gameState = DEFAULT_GAME_STATE
-            await saveGameState(userId, gameState)
-        }
-
-        // Initialize RPG state with loaded game state
-        rpg.gameState = gameState
-
-        // Get current location before processing command
-        const currentPlace = await getCurrentPlace(rpg.gameState.coordinates)
-        if (!currentPlace && rpg.messages.length === 1) {
+            // Handle case where no game state exists yet
             return {
-                error: 'The mists are too thick here. You must begin your journey from the ancient starting point.',
+                error: 'No game state found. Please start a new game.',
                 status: 404
             }
         }
 
-        // Handle movement commands
-        const moveMatch = userInput.match(/^go\s+(north|south|east|west)$/i)
-        if (moveMatch) {
-            try {
-                const { response, newState } = await handleMovement(
-                    moveMatch[1].toLowerCase(),
-                    rpg.gameState,
-                    userId,
-                    openai,
-                    rpg.messages
-                )
-                rpg.gameState = newState
-                return { response }
-            } catch (error: any) {
-                return { response: error.message }
-            }
+        // Parse command
+        const [action, ...args] = command.trim().toLowerCase().split(' ')
+
+        let response = ''
+        let newState: ExtendedGameState = { ...gameState }
+
+        switch (action) {
+            case 'go':
+            case 'move':
+            case 'walk':
+            case 'run':
+            case 'travel':
+                if (args.length === 0) {
+                    response = 'Please specify a direction to move (e.g., "go north").'
+                } else {
+                    const direction = args[0]
+                    const { message, newPlace } = await handleMovement(
+                        direction,
+                        gameState,
+                        openai
+                    )
+                    response = message
+                    newState = {
+                        ...gameState,
+                        coordinates: newPlace?.coordinates || gameState.coordinates
+                    }
+                }
+                break
+
+            case 'examine':
+            case 'look':
+            case 'inspect':
+                // Look around
+                const { processedText: lookText, items: lookItems } = await handleAIResponse(gameState.messages, gameState, openai)
+                response = lookText
+                newState = {
+                    ...gameState,
+                    inventory: [...gameState.inventory, ...lookItems]
+                }
+                break
+
+            case 'inventory':
+            case 'inv':
+            case 'i':
+                response = `Your inventory contains: ${gameState.inventory.join(', ')}`
+                break
+
+            default:
+                // Send to AI for processing
+                const { processedText, items } = await handleAIResponse(gameState.messages, gameState, openai)
+                response = processedText
+                newState = {
+                    ...gameState,
+                    inventory: [...gameState.inventory, ...items]
+                }
+                break
         }
 
-        // Handle 'look' command specially
-        if (userInput.toLowerCase() === 'look') {
-            const place = await getCurrentPlace(rpg.gameState.coordinates)
-            if (place) {
-                rpg.messages.push({
-                    role: "user",
-                    content: userInput
-                })
-                rpg.messages.push({
-                    role: "assistant",
-                    content: place.description
-                })
-                return { response: place.description }
-            }
-        }
+        // Save updated game state
+        await saveGameState(userId, newState)
 
-        // Add user command to message history
-        rpg.messages.push({
-            role: "user",
-            content: userInput
-        })
-
-        // Add current location context for the AI
-        if (currentPlace) {
-            rpg.messages.push({
-                role: "system",
-                content: `Current location: ${currentPlace.name}. ${currentPlace.description}`
-            })
-        }
-
-        // Get AI response
-        const { processedText, items } = await handleAIResponse(rpg.messages, rpg.gameState, openai)
-
-        // Save assistant response to history
-        rpg.messages.push({
-            role: "assistant",
-            content: processedText
-        })
-
-        // Prune message history
-        rpg.messages = pruneMessageHistory(rpg.messages)
-
-        // Save game state
-        await saveGameState(userId, rpg.gameState)
-
-        return { response: processedText, items }
-    } catch (error: any) {
-        console.error('Error in RPG handler:', error)
         return {
-            error: 'A mysterious force prevents you from taking that action.',
-            details: error?.message || 'The ancient magic is unstable.'
+            response,
+            gameState: newState
+        }
+    } catch (error: any) {
+        console.error('Error processing RPG command:', error)
+        return {
+            error: 'An error occurred while processing your command',
+            details: error?.message || 'Unknown error',
+            status: 500
         }
     }
 })

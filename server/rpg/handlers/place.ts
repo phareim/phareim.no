@@ -5,15 +5,8 @@ import { getCoordinatesString, validateCoordinates, getAdjacentCoordinates } fro
 import OpenAI from 'openai'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 import { SYSTEM_PROMPT } from './ai'
-
-interface AdjacentPlace extends Place {
-    direction: 'north' | 'south' | 'east' | 'west';
-}
-
-// Helper function to get place ID from coordinates
-export function getPlaceId(coordinates: GameState['coordinates']): string {
-    return `${coordinates.north},${coordinates.west}`
-}
+import { generatePlace, getPlaceId } from '../../utils/place-generator'
+import type { AdjacentPlace } from '../../utils/place-generator'
 
 // Helper function to get current place
 export async function getCurrentPlace(coordinates: GameState['coordinates']): Promise<Place | null> {
@@ -31,63 +24,38 @@ export async function getCurrentPlace(coordinates: GameState['coordinates']): Pr
 }
 
 // Generate a new place using OpenAI
-export async function generatePlace(
+export async function generateNewPlace(
     coordinates: GameState['coordinates'],
-    adjacentPlaces: AdjacentPlace[],
     openai: OpenAI
 ): Promise<Place> {
-    // Generate context from adjacent places
-    const existingContext = adjacentPlaces
-        .map(place => `${place.direction}: ${place.name} - ${place.description}`)
-        .join('\n')
+    // Get adjacent places for context
+    const adjacentCoords = [
+        { north: coordinates.north + 1, west: coordinates.west }, // north
+        { north: coordinates.north - 1, west: coordinates.west }, // south
+        { north: coordinates.north, west: coordinates.west + 1 }, // west
+        { north: coordinates.north, west: coordinates.west - 1 }  // east
+    ]
 
-    // Generate place using OpenAI
-    const completion = await openai.chat.completions.create({
-        model: "llama-3.1-405b",
-        messages: [
-            {
-                role: "system",
-                content: `${SYSTEM_PROMPT.content}
-
-Adjacent locations for context:
-${existingContext || 'This is one of the first locations in the game.'}`
-            },
-            {
-                role: "user",
-                content: "Generate a name and description for this location. Format the response exactly like this example:\nName: Forest Clearing\nDescription: A peaceful clearing in the mysterious forest. Ancient trees surround you on all sides, their branches swaying gently in the breeze."
+    const adjacentPlaces = await Promise.all(
+        adjacentCoords.map(async (coords, index) => {
+            const doc = await db.collection(placesCollection).doc(getPlaceId(coords)).get()
+            if (doc.exists) {
+                return {
+                    direction: index === 0 ? 'north' as const :
+                             index === 1 ? 'south' as const :
+                             index === 2 ? 'west' as const : 'east' as const,
+                    id: doc.id,
+                    ...doc.data()
+                } as AdjacentPlace
             }
-        ],
-        temperature: 0.7,
-        max_tokens: 150
-    })
+            return null
+        })
+    )
 
-    const response = completion.choices[0]?.message?.content
-    if (!response) {
-        throw new Error('Failed to generate place description')
-    }
-
-    // Parse the response
-    const nameMatch = response.match(/Name: (.+)/)
-    const descriptionMatch = response.match(/Description: (.+)/)
-
-    if (!nameMatch || !descriptionMatch) {
-        throw new Error('Invalid response format from AI')
-    }
-
-    const placeData: Omit<Place, 'id'> = {
-        name: nameMatch[1].trim(),
-        description: descriptionMatch[1].trim(),
+    return generatePlace(
         coordinates,
-        createdAt: new Date(),
-        updatedAt: new Date()
-    }
-
-    // Save the generated place
-    const placeId = getPlaceId(coordinates)
-    await db.collection(placesCollection).doc(placeId).set(placeData)
-
-    return {
-        id: placeId,
-        ...placeData
-    }
+        openai,
+        undefined,
+        adjacentPlaces.filter((p): p is AdjacentPlace => p !== null)
+    )
 } 

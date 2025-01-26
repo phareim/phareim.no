@@ -2,8 +2,10 @@ import { defineEventHandler, readBody } from 'h3'
 import OpenAI from 'openai'
 import { useRuntimeConfig } from '#imports'
 import { db, placesCollection } from '../../utils/firebase-admin'
-import type { Place } from '../../../types/place'
 import { validateCoordinates, getCoordinatesString } from '../../../types/place'
+import type { Place } from '../../../types/place'
+import { generatePlace } from '../../utils/place-generator'
+import type { AdjacentPlace } from '../../utils/place-generator'
 
 // Initialize OpenAI with Venice configuration
 const config = useRuntimeConfig()
@@ -91,10 +93,6 @@ function getPlaceId(coordinates: Place['coordinates']): string {
     return `${coordinates.north},${coordinates.west}`
 }
 
-interface AdjacentPlace extends Place {
-    direction: 'north' | 'south' | 'east' | 'west';
-}
-
 export default defineEventHandler(async (event) => {
     if (event.method !== 'POST') {
         return {
@@ -134,13 +132,13 @@ export default defineEventHandler(async (event) => {
         ]
 
         const adjacentPlaces = await Promise.all(
-            adjacentCoords.map(async coords => {
+            adjacentCoords.map(async (coords, index) => {
                 const doc = await db.collection(placesCollection).doc(getPlaceId(coords)).get()
                 if (doc.exists) {
                     return {
-                        direction: coords.north > coordinates.north ? 'north' as const :
-                                 coords.north < coordinates.north ? 'south' as const :
-                                 coords.west > coordinates.west ? 'west' as const : 'east' as const,
+                        direction: index === 0 ? 'north' as const :
+                                 index === 1 ? 'south' as const :
+                                 index === 2 ? 'west' as const : 'east' as const,
                         id: doc.id,
                         ...doc.data()
                     } as AdjacentPlace
@@ -149,63 +147,16 @@ export default defineEventHandler(async (event) => {
             })
         )
 
-        const existingContext = adjacentPlaces
-            .filter(place => place !== null)
-            .map(place => `To the ${place?.direction} is ${place?.name}: ${place?.description}`)
-            .join('\n')
-
-        // Generate place using OpenAI
-        const completion = await openai.chat.completions.create({
-            model: "llama-3.1-405b",
-            messages: [
-                {
-                    role: "system",
-                    content: `You are a creative writer generating a new location for a text adventure game.
-The location should be described in 3-5 sentences maximum.
-The description should be atmospheric and evocative but concise.
-The name should be short but descriptive.
-${getRandomFeature()}
-The theme is: ${theme || 'a mysterious fantasy forest world'}
-
-Adjacent locations for context:
-${existingContext || 'This is one of the first locations in the game.'}`
-                },
-                {
-                    role: "user",
-                    content: "Generate a name and description for this location. Format the response exactly like this example:\nName: Forest Clearing\nDescription: A peaceful clearing in the mysterious forest. Ancient trees surround you on all sides, their branches swaying gently in the breeze."
-                }
-            ],
-            temperature: 0.8,
-            max_tokens: 200
-        })
-
-        const response = completion.choices[0]?.message?.content
-        if (!response) {
-            throw new Error('Failed to generate place description')
-        }
-
-        // Parse the response
-        const nameMatch = response.match(/Name: (.+)/)
-        const descriptionMatch = response.match(/Description: (.+)/)
-
-        if (!nameMatch || !descriptionMatch) {
-            throw new Error('Invalid response format from AI')
-        }
-
-        const placeData: Omit<Place, 'id'> = {
-            name: nameMatch[1].trim(),
-            description: descriptionMatch[1].trim(),
+        // Generate the new place
+        const newPlace = await generatePlace(
             coordinates,
-            createdAt: new Date(),
-            updatedAt: new Date()
-        }
-
-        // Save the generated place
-        await db.collection(placesCollection).doc(placeId).set(placeData)
+            openai,
+            theme,
+            adjacentPlaces.filter((p): p is AdjacentPlace => p !== null)
+        )
 
         return {
-            id: placeId,
-            ...placeData,
+            ...newPlace,
             adjacentPlaces: adjacentPlaces.filter(p => p !== null)
         }
 

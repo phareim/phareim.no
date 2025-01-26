@@ -50,7 +50,7 @@ export async function handleAIResponse(
     messages: ChatCompletionMessageParam[],
     gameState: GameState,
     openai: OpenAI
-): Promise<{ processedText: string; items: Record<string, Item> }> {
+): Promise<{ processedText: string; items: string[] }> {
     // Send to Venice/OpenAI
     const completion = await openai.chat.completions.create({
         model: "llama-3.1-405b",
@@ -63,7 +63,11 @@ export async function handleAIResponse(
     const response = completion.choices[0]?.message?.content || 'Sorry, I did not understand that.'
 
     // Process any items mentioned in the response
-    return await processItemsInText(response, gameState.coordinates, openai)
+    const { processedText, items } = await processItemsInText(response, gameState.coordinates, openai)
+    return {
+        processedText,
+        items: Object.values(items).map(item => item.name)
+    }
 }
 
 // Keep message history at a reasonable size
