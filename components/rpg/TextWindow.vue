@@ -12,6 +12,7 @@ const emit = defineEmits<{
   (e: 'itemClick', name: string): void
   (e: 'characterClick', name: string): void
   (e: 'placeClick', name: string): void
+  (e: 'action', command: string): void
 }>()
 
 // Function to parse special items in text
@@ -63,6 +64,10 @@ const handleCharacterClick = (name: string) => {
 const handlePlaceClick = (name: string) => {
   emit('placeClick', name)
 }
+
+const handleAction = (command: string) => {
+  emit('action', command)
+}
 </script>
 
 <template>
@@ -80,6 +85,7 @@ const handlePlaceClick = (name: string) => {
           :itemId="segment.content"
           @click="handleItemClick"
           :active="props.active"
+          @action="handleAction"
         />
         
         <!-- Characters -->
