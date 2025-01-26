@@ -31,6 +31,15 @@ export default defineEventHandler(async (event) => {
             }
         }
 
+        // Check if item already exists
+        const existingDoc = await db.collection(itemsCollection).doc(name).get()
+        if (existingDoc.exists) {
+            return {
+                error: 'An item with this name already exists',
+                status: 409
+            }
+        }
+
         // Generate item details using OpenAI
         const completion = await openai.chat.completions.create({
             model: "llama-3.1-405b",
@@ -48,6 +57,7 @@ Properties:
 - damage: 8
 - value: 100
 - uses: null
+Legacy: true
 
 Rules:
 - Description should be one atmospheric sentence
@@ -55,7 +65,8 @@ Rules:
 - Properties should include relevant numeric values based on the item type
 - Properties values should be reasonable for a game (e.g., damage 1-20, defense 1-15)
 - Uses should be included only for consumable items like potions
-- Value should always be included (1-1000)`
+- Value should always be included (1-1000)
+- Legacy should be true only for epic/unique/very cool items (about 20% of items)`
                 },
                 {
                     role: "user",
@@ -74,7 +85,8 @@ Rules:
         // Parse the response
         const descriptionMatch = response.match(/Description: (.+)/)
         const typeMatch = response.match(/Type: (.+)/)
-        const propertiesMatch = response.match(/Properties:\n([\s\S]+)/)
+        const propertiesMatch = response.match(/Properties:\n([\s\S]+?)(?=Legacy:|$)/)
+        const legacyMatch = response.match(/Legacy: (true|false)/)
 
         if (!descriptionMatch || !typeMatch || !propertiesMatch) {
             throw new Error('Invalid response format from AI')
@@ -105,6 +117,7 @@ Rules:
                 },
                 isPickedUp: false
             } : undefined,
+            legacy: legacyMatch ? legacyMatch[1] === 'true' : false,
             createdAt: new Date(),
             updatedAt: new Date()
         }
@@ -112,11 +125,11 @@ Rules:
         // Remove any undefined values before saving to Firestore
         const firebaseData = JSON.parse(JSON.stringify(itemData))
 
-        // Save the generated item
-        const docRef = await db.collection(itemsCollection).add(firebaseData)
+        // Save the generated item using name as ID
+        await db.collection(itemsCollection).doc(name).set(firebaseData)
 
         return {
-            id: docRef.id,
+            id: name,
             ...itemData
         }
 

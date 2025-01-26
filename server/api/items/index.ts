@@ -45,6 +45,15 @@ export default defineEventHandler(async (event) => {
                 }
             }
 
+            // Check if item already exists
+            const existingDoc = await db.collection(itemsCollection).doc(body.name).get()
+            if (existingDoc.exists) {
+                return {
+                    error: 'An item with this name already exists',
+                    status: 409
+                }
+            }
+
             const itemData: Omit<Item, 'id'> = {
                 name: body.name,
                 description: body.description,
@@ -55,11 +64,11 @@ export default defineEventHandler(async (event) => {
                 updatedAt: new Date()
             }
             
-            // Create new item document
-            const docRef = await db.collection(itemsCollection).add(itemData)
+            // Create new item document using name as ID
+            await db.collection(itemsCollection).doc(body.name).set(itemData)
             
             return {
-                id: docRef.id,
+                id: body.name,
                 ...itemData
             }
         }

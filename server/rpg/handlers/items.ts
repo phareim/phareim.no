@@ -29,6 +29,7 @@ Properties:
 - damage: 8
 - value: 100
 - uses: null
+Legacy: true
 
 Rules:
 - Description should be one atmospheric sentence
@@ -36,7 +37,8 @@ Rules:
 - Properties should include relevant numeric values based on the item type
 - Properties values should be reasonable for a game (e.g., damage 1-20, defense 1-15)
 - Uses should be included only for consumable items like potions
-- Value should always be included (1-1000)`
+- Value should always be included (1-1000)
+- Legacy should be true only for epic/unique/very cool items (about 20% of items)`
                 },
                 {
                     role: "user",
@@ -55,7 +57,8 @@ Rules:
         // Parse the response
         const descriptionMatch = response.match(/Description: (.+)/)
         const typeMatch = response.match(/Type: (.+)/)
-        const propertiesMatch = response.match(/Properties:\n([\s\S]+)/)
+        const propertiesMatch = response.match(/Properties:\n([\s\S]+?)(?=Legacy:|$)/)
+        const legacyMatch = response.match(/Legacy: (true|false)/)
 
         if (!descriptionMatch || !typeMatch || !propertiesMatch) {
             throw new Error('Invalid response format from AI')
@@ -83,6 +86,7 @@ Rules:
                 coordinates,
                 isPickedUp: false
             },
+            legacy: legacyMatch ? legacyMatch[1] === 'true' : false,
             createdAt: new Date(),
             updatedAt: new Date()
         }
