@@ -2,7 +2,7 @@ export interface Item {
     id?: string;
     name: string;
     description: string;
-    type: 'weapon' | 'armor' | 'potion' | 'key' | 'treasure' | 'misc';
+    type: 'tool' | 'weapon' | 'armor' | 'potion' | 'key' | 'treasure' | 'misc';
     properties: {
         damage?: number;
         defense?: number;
@@ -30,6 +30,6 @@ export function validateItem(item: Partial<Item>): boolean {
         item.name &&
         item.description &&
         item.type &&
-        ['weapon', 'armor', 'potion', 'key', 'treasure', 'misc'].includes(item.type)
+        ['tool','weapon', 'armor', 'potion', 'key', 'treasure', 'misc'].includes(item.type)
     )
 } 
