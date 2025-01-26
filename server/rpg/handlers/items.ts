@@ -116,15 +116,17 @@ export async function processItemsInText(
     openai: OpenAI
 ): Promise<{ processedText: string; items: Record<string, Item> }> {
     console.log('Processing items in text:', text)
-    // Find all items marked with single asterisks
-    const itemMatches = text.match(/\*(.*?)\*/g)
+    // Find all items marked with single asterisks, but not double or triple
+    const itemMatches = text.match(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g)
     if (!itemMatches) return { processedText: text, items: {} }
 
     const items: Record<string, Item> = {}
 
     // Process each item
     for (const itemMatch of itemMatches) {
-        const itemName = itemMatch.replace(/\*/g, '').trim()
+        // Extract content between single asterisks
+        const itemName = itemMatch.replace(/^\*|\*$/g, '').trim()
+        console.log('Processing item:', itemName)
 
         // Check if item exists in database using the name as document ID
         const itemDoc = await db.collection(itemsCollection).doc(itemName).get()

@@ -8,12 +8,11 @@
 				<TextWindow 
 					v-else 
 					:text="message"
-					:items="currentItems"
-					@itemClick="handleItemClick"
+					:active="!isLoading"
+					@action="handleAction"
 					@characterClick="handleCharacterClick"
 					@placeClick="handlePlaceClick"
 					class="message"
-					:active="false"
 				/>
 			</template>
 			<div v-if="isLoading" class="message loading">...</div>
@@ -56,6 +55,7 @@ import { useNuxtApp } from '#app'
 import type { Firestore } from 'firebase/firestore'
 import TextWindow from '~/components/rpg/TextWindow.vue'
 import { collection, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
+import type { Item } from '../../types/item'
 
 declare module '#app' {
 	interface NuxtApp {
@@ -123,7 +123,7 @@ async function resetGame() {
 			const gameDoc = doc($firebase.firestore, 'games', userId.value)
 			await deleteDoc(gameDoc)
 
-			gameMessages.value = ['You find yourself at the edge of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do? (type "help" for guidance)']
+			gameMessages.value = ['You find yourself in the middle of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do?']
 			commandHistory.value = []
 			historyIndex.value = -1
 			userInput.value = ''
@@ -229,18 +229,21 @@ function executeCommand(cmd: string) {
 }
 
 // Item interaction handlers
-function handleItemClick(name: string) {
-	userInput.value = `examine ${name}`
+function handleAction(command: string) {
+	if (isLoading.value) return
+	userInput.value = command
 	handleCommand()
 }
 
 function handleCharacterClick(name: string) {
+	if (isLoading.value) return
 	userInput.value = `talk to ${name}`
 	handleCommand()
 }
 
 function handlePlaceClick(name: string) {
-	userInput.value = `examine ${name}`
+	if (isLoading.value) return
+	userInput.value = `go to ${name}`
 	handleCommand()
 }
 
