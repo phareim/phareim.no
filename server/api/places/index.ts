@@ -10,8 +10,30 @@ function getPlaceId(coordinates: Place['coordinates']): string {
 
 export default defineEventHandler(async (event) => {
     try {
-        // GET request - Retrieve all places
+        // GET request - Retrieve places with optional coordinate filtering
         if (event.method === 'GET') {
+            const query = getQuery(event)
+            const north = query.north ? Number(query.north) : undefined
+            const west = query.west ? Number(query.west) : undefined
+
+            // If coordinates are provided, fetch specific place
+            if (north !== undefined && west !== undefined) {
+                const placeId = getPlaceId({ north, west })
+                const placeDoc = await db.collection(placesCollection).doc(placeId).get()
+                
+                if (!placeDoc.exists) {
+                    return { places: [] }
+                }
+                
+                return { 
+                    places: [{
+                        id: placeDoc.id,
+                        ...placeDoc.data()
+                    }] 
+                }
+            }
+
+            // Otherwise, fetch all places
             const placesSnapshot = await db.collection(placesCollection).get()
             const places = placesSnapshot.docs.map(doc => ({
                 id: doc.id,

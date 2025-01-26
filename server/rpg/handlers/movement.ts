@@ -97,7 +97,7 @@ export async function handleMovement(
     }
 
     return {
-        response: `You move ${direction} to ${newPlace.name}. ${newPlace.description}`,
+        response: `You move ${direction} to ${newPlace.name}. ${newPlace.description}`,      
         newState: gameState
     }
 } 

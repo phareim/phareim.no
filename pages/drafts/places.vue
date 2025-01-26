@@ -1,7 +1,6 @@
 <template>
     <div class="admin-container">
         <h1>Places Admin</h1>
-        
         <!-- Create/Edit Form -->
         <div class="form-container">
             <h2>{{ editingId ? 'Edit Place' : 'Create New Place' }}</h2>
@@ -70,6 +69,11 @@ const isGenerating = ref(false)
 const editingId = ref<string | null>(null)
 const theme = ref('')
 
+const search = ref({
+    north: null as number | null,
+    west: null as number | null
+})
+
 const form = ref({
     name: '',
     description: '',
@@ -79,11 +83,15 @@ const form = ref({
     }
 })
 
-// Load all places
+// Load places with optional coordinates
 async function loadPlaces() {
     isLoading.value = true
     try {
-        const response = await fetch('/api/places')
+        let url = '/api/places'
+        if (search.value.north !== null && search.value.west !== null) {
+            url += `?north=${search.value.north}&west=${search.value.west}`
+        }
+        const response = await fetch(url)
         const data = await response.json()
         places.value = data.places
     } catch (error) {
@@ -92,6 +100,22 @@ async function loadPlaces() {
     } finally {
         isLoading.value = false
     }
+}
+
+// Search by coordinates
+async function searchByCoordinates() {
+    if (search.value.north === null || search.value.west === null) {
+        alert('Please enter both coordinates')
+        return
+    }
+    await loadPlaces()
+}
+
+// Clear search
+function clearSearch() {
+    search.value.north = null
+    search.value.west = null
+    loadPlaces()
 }
 
 // Generate place using AI
@@ -221,6 +245,17 @@ onMounted(loadPlaces)
     margin: 0 auto;
     padding: 20px;
     font-family: 'Courier New', monospace;
+}
+
+:global(body) {
+    margin: 0;
+    padding: 0;
+    background-color: #1a1a1a;
+    min-height: 100vh;
+}
+
+:global(html) {
+    background-color: #1a1a1a;
 }
 
 h1, h2 {
@@ -395,5 +430,29 @@ button.generate {
     .places-grid {
         grid-template-columns: 1fr;
     }
+}
+
+.search-container {
+    background: #1a1a1a;
+    padding: 20px;
+    border-radius: 5px;
+    margin-bottom: 30px;
+    border: 2px solid #33ff33;
+}
+
+.search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.coordinate-input {
+    width: 100px;
+    padding: 8px;
+    background: #000;
+    border: 1px solid #33ff33;
+    border-radius: 4px;
+    color: #33ff33;
+    font-family: 'Courier New', monospace;
 }
 </style> 

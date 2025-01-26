@@ -73,8 +73,8 @@ const isLoading = ref(false)
 const userId = ref('')
 const inputField = ref<HTMLInputElement>()
 const outputBox = ref<HTMLElement>()
-const currentItems = ref<Record<string, Item>>({})
-
+let gameStateDoc: any | null = null
+	
 // Game state management
 async function loadGameState() {
 	try {
@@ -82,7 +82,9 @@ async function loadGameState() {
 		const gameDoc = doc($firebase.firestore, 'games', userId.value)
 		const itemsCollection = collection($firebase.firestore, 'items')
 		const placesCollection = collection($firebase.firestore, 'places')
-		
+		gameStateDoc = doc($firebase.firestore, 'gameStates', userId.value)
+		console.log('gameStateDoc', gameStateDoc)
+	
 		const gameSnapshot = await getDoc(gameDoc)
 
 		if (gameSnapshot.exists()) {
@@ -137,6 +139,9 @@ async function resetGame() {
 
 // Command handling
 async function handleCommand() {
+	console.log('handleCommand', userInput.value)
+	console.log('gameStateDoc', (await getDoc(gameStateDoc)).data())
+
 	if (!userInput.value.trim() || isLoading.value) return
 	
 	isLoading.value = true
