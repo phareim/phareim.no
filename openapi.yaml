@@ -1,0 +1,244 @@
+openapi: 3.0.0
+info:
+  title: RPG Game API
+  description: API for the text-based RPG game
+  version: 1.0.0
+
+servers:
+  - url: /api
+    description: Game server API
+
+components:
+  schemas:
+    Coordinates:
+      type: object
+      properties:
+        north:
+          type: number
+          description: North-south coordinate (positive = north)
+        west:
+          type: number
+          description: East-west coordinate (positive = west)
+      required:
+        - north
+        - west
+
+    Place:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the place
+        name:
+          type: string
+          description: Name of the place
+        description:
+          type: string
+          description: Detailed description of the place
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - name
+        - description
+        - coordinates
+
+    Item:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the item
+        name:
+          type: string
+          description: Name of the item
+        description:
+          type: string
+          description: Detailed description of the item
+        type:
+          type: string
+          enum: [weapon, armor, potion, key, treasure, misc]
+        properties:
+          type: object
+          properties:
+            damage:
+              type: number
+            defense:
+              type: number
+            value:
+              type: number
+            uses:
+              type: number
+        location:
+          type: object
+          properties:
+            coordinates:
+              $ref: '#/components/schemas/Coordinates'
+            isPickedUp:
+              type: boolean
+        legacy:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - name
+        - description
+        - type
+
+    GameState:
+      type: object
+      properties:
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+        inventory:
+          type: array
+          items:
+            type: string
+        visited:
+          type: array
+          items:
+            type: string
+        lastUpdated:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                enum: [system, user, assistant]
+              content:
+                type: string
+      required:
+        - coordinates
+        - inventory
+        - visited
+        - lastUpdated
+        - messages
+
+paths:
+  /rpg:
+    post:
+      summary: Process a game command
+      description: Handle various game commands like movement, looking around, and inventory management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                command:
+                  type: string
+                  description: The game command to process
+                userId:
+                  type: string
+                  description: Unique identifier for the player
+              required:
+                - command
+                - userId
+      responses:
+        '200':
+          description: Command processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: string
+                    description: Text response to the command
+                  gameState:
+                    $ref: '#/components/schemas/GameState'
+        '400':
+          description: Invalid request parameters
+        '404':
+          description: Game state not found
+        '500':
+          description: Server error
+
+  /places/generate:
+    post:
+      summary: Generate a new place
+      description: Create a new location in the game world
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                coordinates:
+                  $ref: '#/components/schemas/Coordinates'
+                theme:
+                  type: string
+                  description: Optional theme for the location
+              required:
+                - coordinates
+      responses:
+        '200':
+          description: Place generated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Place'
+                  - type: object
+                    properties:
+                      adjacentPlaces:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Place'
+        '400':
+          description: Invalid coordinates format
+        '409':
+          description: Place already exists at coordinates
+        '500':
+          description: Server error
+
+  /items/generate:
+    post:
+      summary: Generate a new item
+      description: Create a new item in the game world
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the item to generate
+                context:
+                  type: string
+                  description: Context in which the item appears
+                location:
+                  $ref: '#/components/schemas/Coordinates'
+              required:
+                - name
+                - context
+      responses:
+        '200':
+          description: Item generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        '400':
+          description: Missing required parameters
+        '409':
+          description: Item already exists
+        '500':
+          description: Server error 
