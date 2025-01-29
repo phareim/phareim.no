@@ -61,6 +61,7 @@ import type { Firestore } from 'firebase/firestore'
 import TextWindow from '~/components/rpg/TextWindow.vue'
 import { collection, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
 import type { Item } from '../../types/item'
+import { APIClient } from '~/utils/api-client'
 
 declare module '#app' {
 	interface NuxtApp {
@@ -159,21 +160,11 @@ async function handleCommand() {
 	// Show command in output
 	addMessage(`> ${userInput.value}`)
 	
-	// Send command to API
+	// Send command to API using our type-safe client
 	try {
-		const response = await fetch('/api/rpg', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ 
-				command: userInput.value,
-				userId: userId.value
-			})
-		})
-		const data = await response.json()
+		const data = await APIClient.processCommand(userInput.value, userId.value)
 		
-		if (data.error) {
+		if ('error' in data) {
 			addMessage(data.error)
 		} else {
 			addMessage(data.response)

@@ -70,6 +70,7 @@ import type { Place } from '~/types/place'
 import { getCoordinatesString } from '~/types/place'
 import { useNuxtApp } from '#app'
 import { collection, doc, getDoc } from 'firebase/firestore'
+import { APIClient } from '~/utils/api-client'
 
 const places = ref<Place[]>([])
 const isLoading = ref(false)
@@ -133,20 +134,9 @@ async function generatePlace() {
     
     isGenerating.value = true
     try {
-        const response = await fetch('/api/places/generate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                coordinates: form.value.coordinates,
-                theme: theme.value
-            })
-        })
+        const data = await APIClient.generatePlace(form.value.coordinates, theme.value)
         
-        const data = await response.json()
-        
-        if (data.error) {
+        if ('error' in data) {
             throw new Error(data.error)
         }
         
