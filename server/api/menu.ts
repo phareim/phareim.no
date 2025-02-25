@@ -3,6 +3,7 @@ import { defineEventHandler, getQuery } from 'h3'
 // Statisk liste over tilgjengelige sider
 const menuItems = [
   { path: '/drafts/about', title: 'About' },
+  { path: '/drafts/weather', title: 'Weather' },
   { path: '/rpg', title: 'RPG' },
 ]
 
