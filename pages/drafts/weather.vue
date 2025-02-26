@@ -1,92 +1,65 @@
 <template>
   <div class="weather-container">
-    <h1>Animated Weather</h1>
-    
     <div class="controls">
       <button 
         v-for="type in weatherTypes" 
-        :key="type"
-        @click="setActiveWeather(type)"
+        :key="type" 
+        @click="setWeather(type)"
         :class="{ active: activeWeather === type }"
-        aria-label="Show weather animation for type"
       >
-        {{ type }}
+        {{ type.charAt(0).toUpperCase() + type.slice(1) }}
       </button>
     </div>
     
-    <div class="card-wrapper">
-      <transition name="fade" mode="out-in">
-        <!-- Wind Card -->
-        <div v-if="activeWeather === 'wind'" key="wind" class="weather-card wind">
-          <h2>Wind</h2>
-          <div class="animation-container">
-            <div class="cloud cloud-1"></div>
-            <div class="cloud cloud-2"></div>
-            <div class="tree">
-              <div class="trunk"></div>
-              <div class="leaves"></div>
-            </div>
-            <div class="wind-lines">
-              <div class="wind-line"></div>
-              <div class="wind-line"></div>
-              <div class="wind-line"></div>
-            </div>
-          </div>
-        </div>
+    <div class="weather-card-container">
+      <div 
+        class="weather-card"
+        :class="activeWeather"
+      >
+        <h3>{{ activeWeather.charAt(0).toUpperCase() + activeWeather.slice(1) }}</h3>
         
-        <!-- Rain Card -->
-        <div v-else-if="activeWeather === 'rain'" key="rain" class="weather-card rain">
-          <h2>Rain</h2>
-          <div class="animation-container">
-            <div class="cloud rain-cloud"></div>
-            <div class="raindrops">
-              <div v-for="n in 20" :key="`raindrop-${n}`" class="raindrop"></div>
-            </div>
-            <div class="puddle"></div>
-          </div>
-        </div>
+        <!-- Wind Elements -->
+        <template v-if="activeWeather === 'wind'">
+          <div class="cloud cloud-1"></div>
+          <div class="cloud cloud-2"></div>
+          <div class="cloud cloud-3"></div>
+          <div class="wind-line wind-line-1"></div>
+          <div class="wind-line wind-line-2"></div>
+          <div class="wind-line wind-line-3"></div>
+          <div class="tree"></div>
+        </template>
         
-        <!-- Sun Card -->
-        <div v-else-if="activeWeather === 'sun'" key="sun" class="weather-card sun">
-          <h2>Sun</h2>
-          <div class="animation-container">
-            <div class="sun-circle">
-              <div class="sun-rays"></div>
-              <div class="sun-face"></div>
-              <div class="sun-smile"></div>
-            </div>
-            <div class="heat-wave"></div>
+        <!-- Rain Elements -->
+        <template v-else-if="activeWeather === 'rain'">
+          <div class="cloud cloud-1"></div>
+          <div class="cloud cloud-2"></div>
+          <div class="cloud cloud-3"></div>
+          <div class="cloud cloud-4"></div>
+          <div class="raindrops">
+            <div class="drop" v-for="i in 40" :key="i"></div>
           </div>
-        </div>
+          <div class="puddle"></div>
+        </template>
         
-        <!-- Snow Card -->
-        <div v-else-if="activeWeather === 'snow'" key="snow" class="weather-card snow">
-          <h2>Snow</h2>
-          <div class="animation-container">
-            <div class="cloud snow-cloud"></div>
-            <div class="snowflakes">
-              <div v-for="n in 30" :key="`snowflake-${n}`" class="snowflake"></div>
-            </div>
-            <div class="snow-ground"></div>
+        <!-- Sun Elements -->
+        <template v-else-if="activeWeather === 'sun'">
+          <div class="sun-element">
+            <div class="sun-rays"></div>
           </div>
-        </div>
-
-        <!-- Default Card - Welcome -->
-        <div v-else key="welcome" class="weather-card welcome">
-          <h2>Welcome</h2>
-          <div class="animation-container welcome-container">
-            <div class="welcome-text">
-              <p>Select a weather type above to see the animation</p>
-              <div class="weather-icons">
-                <span>🌧️</span>
-                <span>☀️</span>
-                <span>❄️</span>
-                <span>💨</span>
-              </div>
-            </div>
+          <div class="cloud cloud-small"></div>
+        </template>
+        
+        <!-- Snow Elements -->
+        <template v-else-if="activeWeather === 'snow'">
+          <div class="cloud cloud-1"></div>
+          <div class="cloud cloud-2"></div>
+          <div class="cloud cloud-3"></div>
+          <div class="snowflakes">
+            <div class="snowflake" v-for="i in 50" :key="i"></div>
           </div>
-        </div>
-      </transition>
+          <div class="snow-ground"></div>
+        </template>
+      </div>
     </div>
   </div>
 </template>
@@ -96,46 +69,84 @@ export default {
   data() {
     return {
       weatherTypes: ['wind', 'rain', 'sun', 'snow'],
-      activeWeather: null
+      activeWeather: 'sun'
     }
   },
   methods: {
-    setActiveWeather(type) {
-      this.activeWeather = type === this.activeWeather ? null : type;
+    setWeather(type) {
+      this.activeWeather = type;
+      // When weather changes, apply random properties to elements
+      this.$nextTick(() => {
+        if (type === 'rain') {
+          this.setupRaindrops();
+        } else if (type === 'snow') {
+          this.setupSnowflakes();
+        }
+      });
+    },
+    getRandomDelay() {
+      return Math.random() * 2 + 's';
+    },
+    getRandomDuration() {
+      return (Math.random() * 3 + 2) + 's';
+    },
+    setupRaindrops() {
+      const raindrops = document.querySelectorAll('.drop');
+      raindrops.forEach(drop => {
+        // Random horizontal position
+        drop.style.left = Math.random() * 100 + '%';
+        // Also randomize vertical starting position for a staggered effect
+        drop.style.top = (Math.random() * 40 + 80) + 'px';
+        // Random delay so they don't all start at once
+        drop.style.animationDelay = this.getRandomDelay();
+        // Random speed for more natural effect
+        drop.style.animationDuration = (Math.random() * 0.5 + 1) + 's';
+      });
+    },
+    setupSnowflakes() {
+      const snowflakes = document.querySelectorAll('.snowflake');
+      snowflakes.forEach(flake => {
+        // Random horizontal position
+        flake.style.left = Math.random() * 100 + '%';
+        // Also randomize vertical starting position for a staggered effect
+        flake.style.top = (Math.random() * 40 + 80) + 'px';
+        // Random delay for natural effect
+        flake.style.animationDelay = this.getRandomDelay();
+        flake.style.animationDuration = this.getRandomDuration();
+        flake.style.opacity = Math.random() * 0.7 + 0.3;
+        // Random size variation
+        const size = Math.random() * 6 + 3;
+        flake.style.width = size + 'px';
+        flake.style.height = size + 'px';
+      });
     }
   },
   mounted() {
-    // Set random positions for elements when they become visible
-    this.$watch('activeWeather', (newType) => {
+    // Initialize with sun weather
+    this.activeWeather = 'sun';
+    
+    // Ensure elements are positioned immediately
+    this.$nextTick(() => {
+      this.setupRaindrops();
+      this.setupSnowflakes();
+      
+      // Also set them up after a delay to be sure all elements are rendered
+      setTimeout(() => {
+        this.setupRaindrops();
+        this.setupSnowflakes();
+      }, 100);
+    });
+  },
+  watch: {
+    // Re-apply styles whenever weather changes
+    activeWeather(newWeather) {
       this.$nextTick(() => {
-        if (newType === 'rain') {
-          const raindrops = document.querySelectorAll('.raindrop');
-          raindrops.forEach((drop) => {
-            drop.style.setProperty('--i', Math.floor(Math.random() * 20));
-            drop.style.setProperty('--j', Math.floor(Math.random() * 10));
-            drop.style.animationDelay = `${Math.random() * 1.5}s`;
-            drop.style.left = `${Math.random() * 100}%`;
-          });
-        } else if (newType === 'snow') {
-          const snowflakes = document.querySelectorAll('.snowflake');
-          snowflakes.forEach((flake) => {
-            flake.style.setProperty('--i', Math.floor(Math.random() * 20));
-            flake.style.setProperty('--j', Math.floor(Math.random() * 10));
-            flake.style.animationDelay = `${Math.random() * 6}s`;
-            flake.style.left = `${Math.random() * 100}%`;
-          });
+        if (newWeather === 'rain') {
+          this.setupRaindrops();
+        } else if (newWeather === 'snow') {
+          this.setupSnowflakes();
         }
       });
-    });
-    
-    // Check for system dark/light mode preference
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-      document.querySelector('.weather-container').classList.add('light-theme');
-    }
-    
-    // Check for reduced motion preference
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      document.querySelector('.weather-container').classList.add('reduced-motion');
     }
   }
 }
@@ -143,572 +154,480 @@ export default {
 
 <style scoped>
 .weather-container {
-  font-family: 'Arial', sans-serif;
-  max-width: 100%;
-  margin: 0 auto;
-  padding: 20px;
-  background-color: #1a1a2e;
-  color: white;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  transition: all 0.5s ease;
-}
-
-/* Light theme support */
-.weather-container.light-theme {
-  background-color: #e6f2ff;
-  color: #333;
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 30px;
-  color: #e2e2e2;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-  font-size: clamp(1.5rem, 5vw, 2.5rem);
-}
-
-.light-theme h1 {
-  color: #333;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  gap: 20px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .controls {
   display: flex;
   justify-content: center;
-  margin-bottom: 30px;
-  gap: 15px;
-  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
 button {
-  padding: 12px 20px;
-  background-color: #0f3460;
+  padding: 10px 16px;
+  background-color: #444;
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.3s ease;
-  text-transform: capitalize;
-  font-size: 1rem;
-  min-width: 80px;
-}
-
-.light-theme button {
-  background-color: #3498db;
 }
 
 button:hover {
-  background-color: #16213e;
   transform: translateY(-2px);
-}
-
-.light-theme button:hover {
-  background-color: #2980b9;
+  background-color: #555;
 }
 
 button.active {
-  background-color: #e94560;
-  box-shadow: 0 0 15px rgba(233, 69, 96, 0.5);
+  background-color: #2c3e50;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
 }
 
-.light-theme button.active {
-  background-color: #e74c3c;
-  box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
-}
-
-.card-wrapper {
-  flex: 1;
+.weather-card-container {
   display: flex;
   justify-content: center;
-  align-items: center;
-  padding: 20px 0;
 }
 
 .weather-card {
-  width: 100%;
-  max-width: 350px;
-  height: 400px;
-  background: linear-gradient(145deg, #222244, #16213e);
-  border-radius: 20px;
-  overflow: hidden;
   position: relative;
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+  width: 280px;
+  height: 380px;
+  border-radius: 12px;
+  padding: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(to bottom, #2c3e50, #1c2630);
+  color: white;
   transition: all 0.5s ease;
 }
 
-.light-theme .weather-card {
-  background: linear-gradient(145deg, #e0f7fa, #bbdefb);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-}
-
-.weather-card h2 {
-  text-align: center;
-  padding: 15px 0;
-  margin: 0;
-  background-color: rgba(0, 0, 0, 0.3);
-  color: white;
+.weather-card h3 {
+  position: relative;
   z-index: 10;
-  position: relative;
-  font-size: clamp(1.2rem, 4vw, 1.5rem);
-}
-
-.light-theme .weather-card h2 {
-  background-color: rgba(0, 0, 0, 0.1);
-  color: #333;
-}
-
-.animation-container {
-  position: relative;
-  height: calc(100% - 50px);
-  overflow: hidden;
-}
-
-/* Welcome Card Styles */
-.welcome-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  margin-top: 0;
   text-align: center;
-  padding: 20px;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-.welcome-text {
-  font-size: 1.2rem;
-}
-
-.weather-icons {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  margin-top: 20px;
-  font-size: 2.5rem;
-}
-
-.weather-icons span {
-  animation: bounce 2s infinite alternate;
-  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
-  transform-origin: bottom center;
-}
-
-.light-theme .weather-icons span {
-  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.2));
-}
-
-.weather-icons span:nth-child(1) {
-  animation-delay: 0.2s;
-  transform: rotate(-5deg);
-}
-
-.weather-icons span:nth-child(2) {
-  animation-delay: 0.5s;
-  transform: rotate(5deg);
-}
-
-.weather-icons span:nth-child(3) {
-  animation-delay: 0.8s;
-  transform: rotate(-5deg);
-}
-
-.weather-icons span:nth-child(4) {
-  animation-delay: 1.1s;
-  transform: rotate(5deg);
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0) scale(1) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-15px) scale(1.1) rotate(5deg);
-  }
-}
-
-/* Wind Card Styles - Cartoony Version */
-.cloud {
+/* Wind Styles */
+.wind .cloud {
   position: absolute;
-  background-color: #f5f5f5;
-  border-radius: 50px;
-  width: 100px;
-  height: 40px;
-  filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.2));
+  background-color: #f0f0f0;
+  border-radius: 50%;
+  opacity: 0.8;
 }
 
-.cloud:before, .cloud:after {
+.wind .cloud::before,
+.wind .cloud::after {
   content: '';
   position: absolute;
-  background-color: #f5f5f5;
+  background-color: #f0f0f0;
   border-radius: 50%;
 }
 
-.cloud:before {
-  width: 50px;
-  height: 50px;
-  top: -25px;
-  left: 15px;
-}
-
-.cloud:after {
-  width: 40px;
-  height: 40px;
-  top: -20px;
-  right: 20px;
-}
-
 .cloud-1 {
+  width: 80px;
+  height: 40px;
+  top: 60px;
   left: 30px;
-  top: 40px;
-  animation: cloud-move 15s linear infinite, cloud-puff 4s ease-in-out infinite;
+  animation: windCloud 8s infinite linear;
 }
 
 .cloud-2 {
-  left: 150px;
-  top: 80px;
-  transform: scale(0.6);
-  animation: cloud-move 12s linear infinite, cloud-puff 3s ease-in-out infinite;
-  animation-delay: -5s, -2s;
+  width: 60px;
+  height: 30px;
+  top: 90px;
+  left: 20px;
+  animation: windCloud 6s infinite linear;
+  animation-delay: 0.5s;
 }
 
-.reduced-motion .cloud-1,
-.reduced-motion .cloud-2 {
-  animation-duration: 30s, 8s;
+.cloud-3 {
+  width: 40px;
+  height: 20px;
+  top: 40px;
+  left: 120px;
+  animation: windCloud 7s infinite linear;
+  animation-delay: 1s;
 }
 
-@keyframes cloud-move {
-  0% {
-    transform: translateX(-150px);
-  }
-  100% {
-    transform: translateX(350px);
-  }
+.wind-line {
+  position: absolute;
+  height: 2px;
+  background-color: rgba(255, 255, 255, 0.6);
+  transform: translateX(-100%);
+  z-index: 2;
 }
 
-@keyframes cloud-puff {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
+.wind-line-1 {
+  width: 60px;
+  top: 70px;
+  left: 200px;
+  animation: windLine 3s infinite;
+}
+
+.wind-line-2 {
+  width: 45px;
+  top: 85px;
+  left: 190px;
+  animation: windLine 3s infinite;
+  animation-delay: 0.5s;
+}
+
+.wind-line-3 {
+  width: 35px;
+  top: 100px;
+  left: 180px;
+  animation: windLine 3s infinite;
+  animation-delay: 1s;
 }
 
 .tree {
   position: absolute;
-  bottom: 20px;
+  bottom: 40px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 5;
+  z-index: 2;
 }
 
-.trunk {
-  width: 15px;
-  height: 70px;
-  background-color: #8B4513;
-  margin: 0 auto;
-  border-radius: 5px;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
-}
-
-.leaves {
-  width: 80px;
-  height: 100px;
-  background-color: #4CAF50;
-  border-radius: 50% 50% 50% 50%;
-  position: relative;
-  top: -30px;
-  left: -32.5px;
-  animation: tree-sway 3s ease-in-out infinite;
-  transform-origin: bottom center;
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.1);
-}
-
-.reduced-motion .leaves {
-  animation-duration: 6s;
-}
-
-@keyframes tree-sway {
-  0%, 100% {
-    transform: rotate(-8deg);
-  }
-  50% {
-    transform: rotate(8deg);
-  }
-}
-
-.wind-lines {
+.tree::before {
+  content: '';
   position: absolute;
-  top: 50%;
+  width: 5px;
+  height: 50px;
+  background-color: #5d4037;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tree::after {
+  content: '';
+  position: absolute;
+  width: 40px;
+  height: 60px;
+  background-color: #4caf50;
+  border-radius: 50% 50% 10% 10%;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: sway 4s ease-in-out infinite;
+}
+
+/* Rain Styles */
+.rain {
+  background: linear-gradient(to bottom, #2c3e50, #2c3e50);
+}
+
+.rain .cloud {
+  position: absolute;
+  background-color: #b3b3b3;
+  border-radius: 50%;
+  top: 60px;
+}
+
+.rain .cloud-1 {
+  width: 100px;
+  height: 40px;
+  left: 40px;
+  animation: none;
+}
+
+.rain .cloud-1::before,
+.rain .cloud-1::after {
+  content: '';
+  position: absolute;
+  background-color: #b3b3b3;
+  border-radius: 50%;
+}
+
+.rain .cloud-1::before {
+  width: 50px;
+  height: 50px;
+  top: -20px;
+  left: 15px;
+}
+
+.rain .cloud-1::after {
+  width: 50px;
+  height: 50px;
+  top: -10px;
+  right: 15px;
+}
+
+.rain .cloud-2 {
+  width: 60px;
+  height: 30px;
+  top: 50px;
+  right: 40px;
+  animation: none;
+}
+
+.rain .cloud-3 {
+  width: 80px;
+  height: 35px;
+  top: 80px;
+  right: 80px;
+  animation: none;
+}
+
+.rain .cloud-4 {
+  width: 70px;
+  height: 30px;
+  top: 40px;
+  left: 120px;
+  animation: none;
+}
+
+.raindrops {
+  position: absolute;
+  top: 0;
   left: 0;
   width: 100%;
+  height: 100%;
+  z-index: 3;
+}
+
+.raindrops .drop {
+  position: absolute;
+  background-color: rgba(120, 200, 255, 0.6);
+  width: 2px;
+  height: 15px;
+  /* Remove fixed top position to allow JS positioning */
+  /* top: 110px; */
+  border-radius: 0 0 5px 5px;
+  /* Add a variable animation-duration and delay by default */
+  animation: rain 1.5s linear infinite;
+  animation-delay: 0s; /* Will be overridden by JS */
+}
+
+.puddle {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 140px;
+  height: 10px;
+  background-color: rgba(120, 200, 255, 0.3);
+  border-radius: 50%;
+  animation: puddle 3s ease-in-out infinite;
+}
+
+/* Sun Styles */
+.sun {
+  background: linear-gradient(to bottom, #2c3e50, #34495e);
+}
+
+.sun .sun-element {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  background-color: #ffeb3b;
+  border-radius: 50%;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 40px #ff9800;
+  animation: glow 3s ease-in-out infinite;
   z-index: 1;
 }
 
-.wind-line {
-  height: 3px;
-  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.6), transparent);
-  margin: 20px 0;
-  position: relative;
-  animation: wind-blow 3s linear infinite;
-  border-radius: 3px;
-}
-
-.light-theme .wind-line {
-  background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.3), transparent);
-}
-
-.wind-line:nth-child(1) {
-  animation-delay: 0s;
-  top: -20px;
-}
-
-.wind-line:nth-child(2) {
-  animation-delay: -1s;
+.sun .sun-rays {
+  position: absolute;
   top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
+  border-radius: 50%;
 }
 
-.wind-line:nth-child(3) {
-  animation-delay: -2s;
-  top: 20px;
+.sun .sun-rays::after {
+  content: '';
+  position: absolute;
+  top: -20px;
+  left: -20px;
+  right: -20px;
+  bottom: -20px;
+  border-radius: 50%;
+  border: 15px solid transparent;
+  border-top-color: rgba(255, 235, 59, 0.6);
+  border-bottom-color: rgba(255, 235, 59, 0.6);
+  border-left-color: rgba(255, 235, 59, 0.6);
+  border-right-color: rgba(255, 235, 59, 0.6);
+  animation: spin 20s linear infinite;
 }
 
-.reduced-motion .wind-line {
-  animation-duration: 6s;
+.sun .cloud-small {
+  position: absolute;
+  width: 40px;
+  height: 20px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  top: 40px;
+  right: 40px;
+  animation: float 8s ease-in-out infinite;
 }
 
-@keyframes wind-blow {
+/* Snow Styles */
+.snow {
+  background: linear-gradient(to bottom, #2c3e50, #303e4e);
+}
+
+.snow .cloud {
+  position: absolute;
+  background-color: #e0e0e0;
+  border-radius: 50%;
+  top: 60px;
+}
+
+.snow .cloud-1 {
+  width: 100px;
+  height: 40px;
+  left: 40px;
+  animation: none;
+}
+
+.snow .cloud-1::before,
+.snow .cloud-1::after {
+  content: '';
+  position: absolute;
+  background-color: #e0e0e0;
+  border-radius: 50%;
+}
+
+.snow .cloud-1::before {
+  width: 50px;
+  height: 50px;
+  top: -20px;
+  left: 15px;
+}
+
+.snow .cloud-1::after {
+  width: 50px;
+  height: 50px;
+  top: -10px;
+  right: 15px;
+}
+
+.snow .cloud-2 {
+  width: 75px;
+  height: 35px;
+  top: 50px;
+  right: 50px;
+  animation: none;
+}
+
+.snow .cloud-3 {
+  width: 60px;
+  height: 30px;
+  top: 70px;
+  left: 140px;
+  animation: none;
+}
+
+.snowflakes {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+}
+
+.snowflakes .snowflake {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: white;
+  /* Remove fixed top position to allow JS positioning */
+  /* top: 110px; */
+  animation: snow 10s linear infinite;
+  animation-delay: 0s; /* Will be overridden by JS */
+}
+
+.snow-ground {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 180px;
+  height: 20px;
+  background-color: white;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+}
+
+/* Animations */
+@keyframes windCloud {
   0% {
-    left: -100%;
-    width: 30%;
+    transform: translateX(-20px);
+  }
+  100% {
+    transform: translateX(280px);
+  }
+}
+
+@keyframes windLine {
+  0% {
+    transform: translateX(-100%);
     opacity: 0;
   }
   50% {
     opacity: 1;
   }
   100% {
-    left: 100%;
-    width: 80%;
+    transform: translateX(0);
     opacity: 0;
   }
 }
 
-/* Rain Card Styles - Cartoony Version */
-.rain-cloud {
-  left: 50%;
-  transform: translateX(-50%);
-  top: 40px;
-  background-color: #78909c;
-  width: 120px;
-  height: 45px;
-  animation: rain-cloud-bounce 4s ease-in-out infinite;
-}
-
-.rain-cloud:before, .rain-cloud:after {
-  background-color: #78909c;
-}
-
-.rain-cloud:before {
-  width: 60px;
-  height: 60px;
-  top: -30px;
-  left: 15px;
-}
-
-.rain-cloud:after {
-  width: 50px;
-  height: 50px;
-  top: -25px;
-  right: 15px;
-}
-
-@keyframes rain-cloud-bounce {
+@keyframes sway {
   0%, 100% {
-    transform: translateX(-50%) translateY(0);
+    transform: translateX(-50%) rotate(-5deg);
   }
   50% {
-    transform: translateX(-50%) translateY(-5px);
+    transform: translateX(-50%) rotate(5deg);
   }
 }
 
-.raindrops {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 70px;
-}
-
-.raindrop {
-  position: absolute;
-  width: 4px;
-  height: 20px;
-  background-color: #64b5f6;
-  border-radius: 0 0 5px 5px;
-  opacity: 0.8;
-  animation: rain-fall 1.5s linear infinite;
-  filter: drop-shadow(0 0 2px rgba(100, 181, 246, 0.5));
-}
-
-.reduced-motion .raindrop {
-  animation-duration: 3s;
-}
-
-@keyframes rain-fall {
+@keyframes rain {
   0% {
-    transform: translateY(0) translateX(0) scale(1);
-    opacity: 0.8;
-  }
-  50% {
-    transform: translateY(100px) translateX(5px) scale(0.9);
-    opacity: 0.8;
-  }
-  80% {
-    opacity: 0.8;
+    transform: translateY(0) scale(1);
+    opacity: 1;
   }
   100% {
-    transform: translateY(200px) translateX(10px) scale(0.5);
-    opacity: 0;
+    transform: translateY(200px) scale(0.5);
+    opacity: 0.3;
   }
 }
 
-.puddle {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 140px;
-  height: 15px;
-  background-color: #64b5f6;
-  border-radius: 50%;
-  opacity: 0.7;
-  animation: puddle-grow 5s ease-in-out infinite;
-  filter: blur(2px);
-}
-
-.reduced-motion .puddle {
-  animation-duration: 10s;
-}
-
-@keyframes puddle-grow {
+@keyframes puddle {
   0%, 100% {
     transform: translateX(-50%) scale(1);
-    opacity: 0.7;
-  }
-  50% {
-    transform: translateX(-50%) scale(1.3);
-    opacity: 0.9;
-  }
-}
-
-/* Sun Card Styles - Cartoony Version */
-.sun-circle {
-  position: absolute;
-  width: 100px;
-  height: 100px;
-  background: radial-gradient(circle, #ffeb3b 60%, #ffc107);
-  border-radius: 50%;
-  top: 60px;
-  left: 50%;
-  transform: translateX(-50%);
-  box-shadow: 0 0 50px #ff9800;
-  animation: sun-pulse 3s ease-in-out infinite;
-  z-index: 2;
-}
-
-.reduced-motion .sun-circle {
-  animation-duration: 6s;
-}
-
-.sun-rays {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  animation: sun-rotate 20s linear infinite;
-}
-
-.reduced-motion .sun-rays {
-  animation-duration: 40s;
-}
-
-.sun-rays:before, .sun-rays:after {
-  content: '';
-  position: absolute;
-  background-color: rgba(255, 235, 59, 0.7);
-  border-radius: 5px;
-}
-
-.sun-rays:before {
-  top: -40px;
-  left: 45px;
-  width: 10px;
-  height: 180px;
-}
-
-.sun-rays:after {
-  top: 45px;
-  left: -40px;
-  width: 180px;
-  height: 10px;
-}
-
-.sun-face {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  z-index: 3;
-}
-
-.sun-face:before, .sun-face:after {
-  content: '';
-  position: absolute;
-  background-color: #FF6D00;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  top: 35px;
-  animation: sun-blink 4s ease-in-out infinite;
-}
-
-.sun-face:before {
-  left: 30px;
-}
-
-.sun-face:after {
-  right: 30px;
-}
-
-.sun-smile {
-  position: absolute;
-  width: 40px;
-  height: 20px;
-  border-radius: 0 0 20px 20px;
-  border: 4px solid #FF6D00;
-  border-top: none;
-  bottom: 25px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-@keyframes sun-blink {
-  0%, 45%, 55%, 100% {
-    transform: scaleY(1);
-  }
-  50% {
-    transform: scaleY(0.1);
-  }
-}
-
-@keyframes sun-pulse {
-  0%, 100% {
-    transform: translateX(-50%) scale(1);
-    box-shadow: 0 0 50px #ff9800;
   }
   50% {
     transform: translateX(-50%) scale(1.1);
-    box-shadow: 0 0 70px #ff9800;
   }
 }
 
-@keyframes sun-rotate {
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 30px #ff9800;
+  }
+  50% {
+    box-shadow: 0 0 50px #ff9800;
+  }
+}
+
+@keyframes spin {
   0% {
     transform: rotate(0deg);
   }
@@ -717,243 +636,23 @@ button.active {
   }
 }
 
-.heat-wave {
-  position: absolute;
-  bottom: 30px;
-  left: 0;
-  width: 100%;
-  height: 70px;
-  background: linear-gradient(0deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 152, 0, 0.4) 100%);
-  animation: heat-ripple 3s ease-in-out infinite;
-  border-radius: 50% 50% 0 0;
-  filter: blur(5px);
-}
-
-.reduced-motion .heat-wave {
-  animation-duration: 6s;
-}
-
-@keyframes heat-ripple {
+@keyframes float {
   0%, 100% {
-    transform: scaleY(1) translateY(0);
-    opacity: 0.3;
+    transform: translateX(0);
   }
   50% {
-    transform: scaleY(1.3) translateY(-10px);
-    opacity: 0.5;
+    transform: translateX(-20px);
   }
 }
 
-/* Snow Card Styles - Cartoony Version */
-.snow-cloud {
-  left: 50%;
-  transform: translateX(-50%);
-  top: 40px;
-  background-color: #b0bec5;
-  width: 120px;
-  height: 45px;
-  animation: snow-cloud-float 5s ease-in-out infinite;
-}
-
-.snow-cloud:before, .snow-cloud:after {
-  background-color: #b0bec5;
-}
-
-.snow-cloud:before {
-  width: 60px;
-  height: 60px;
-  top: -30px;
-  left: 15px;
-}
-
-.snow-cloud:after {
-  width: 50px;
-  height: 50px;
-  top: -25px;
-  right: 15px;
-}
-
-@keyframes snow-cloud-float {
-  0%, 100% {
-    transform: translateX(-50%) translateY(0);
-  }
-  50% {
-    transform: translateX(-50%) translateY(-8px);
-  }
-}
-
-.snowflakes {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 70px;
-}
-
-.snowflake {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  background-color: white;
-  border-radius: 50%;
-  opacity: 0.9;
-  animation: snow-fall 6s linear infinite;
-  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5));
-}
-
-.snowflake:before, .snowflake:after {
-  content: '';
-  position: absolute;
-  background-color: white;
-  width: 10px;
-  height: 2px;
-  top: 4px;
-  left: 0;
-}
-
-.snowflake:before {
-  transform: rotate(45deg);
-}
-
-.snowflake:after {
-  transform: rotate(-45deg);
-}
-
-.reduced-motion .snowflake {
-  animation-duration: 12s;
-}
-
-.snowflake:nth-child(even) {
-  width: 8px;
-  height: 8px;
-  animation-duration: 5s;
-}
-
-.snowflake:nth-child(3n) {
-  width: 6px;
-  height: 6px;
-  animation-duration: 7s;
-}
-
-@keyframes snow-fall {
+@keyframes snow {
   0% {
-    transform: translateY(-50px) translateX(0) rotate(0deg);
-    opacity: 0;
-  }
-  10% {
-    opacity: 0.9;
-  }
-  90% {
-    opacity: 0.9;
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
   }
   100% {
-    transform: translateY(250px) translateX(20px) rotate(360deg);
-    opacity: 0;
-  }
-}
-
-.snow-ground {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 40px;
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: 50% 50% 0 0;
-  animation: snow-accumulate 8s ease-in-out infinite;
-  box-shadow: 0 -5px 15px rgba(255, 255, 255, 0.3);
-}
-
-.reduced-motion .snow-ground {
-  animation-duration: 16s;
-}
-
-@keyframes snow-accumulate {
-  0%, 100% {
-    height: 40px;
-  }
-  50% {
-    height: 55px;
-  }
-}
-
-/* Initialize positions for raindrops and snowflakes */
-.weather-card.rain .raindrop {
-  left: calc(var(--i, 0) * 10px + 20px);
-  top: calc(var(--j, 0) * -15px + 80px);
-  animation-delay: calc(var(--i, 0) * 0.1s + var(--j, 0) * 0.2s);
-}
-
-.weather-card.snow .snowflake {
-  left: calc(var(--i, 0) * 15px + 10px);
-  top: calc(var(--j, 0) * -20px + 60px);
-  animation-delay: calc(var(--i, 0) * 0.2s + var(--j, 0) * 0.3s);
-}
-
-/* Transition animations */
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.5s, transform 0.5s;
-}
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  transform: scale(0.95);
-}
-
-/* Responsive styles */
-@media (max-width: 768px) {
-  .controls {
-    flex-wrap: wrap;
-  }
-  
-  button {
-    flex: 1;
-    min-width: 70px;
-    padding: 10px;
-    font-size: 0.9rem;
-  }
-  
-  .weather-card {
-    height: 350px;
-  }
-}
-
-@media (max-width: 480px) {
-  .weather-container {
-    padding: 10px;
-  }
-  
-  h1 {
-    margin-bottom: 20px;
-  }
-  
-  .controls {
-    margin-bottom: 20px;
-    gap: 10px;
-  }
-  
-  button {
-    padding: 8px;
-    font-size: 0.85rem;
-  }
-  
-  .weather-card {
-    height: 300px;
-  }
-}
-
-/* Print styles */
-@media print {
-  .weather-container {
-    background-color: white;
-    color: black;
-  }
-  
-  .controls {
-    display: none;
-  }
-  
-  .weather-card {
-    box-shadow: none;
-    border: 1px solid #ccc;
+    transform: translateY(200px) rotate(360deg);
+    opacity: 0.3;
   }
 }
 </style>
