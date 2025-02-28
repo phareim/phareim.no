@@ -64,7 +64,7 @@ export default {
       boxes: [],
       boxCopy: [],
       darkMode: false,
-      thUpsideDown: false,
+      theUpsideDown: false,
       mousePosition: { x: 0, y: 0, v: { x: 0, y: 0 } },
       statistics: {
         boxes: 0,
@@ -170,7 +170,7 @@ export default {
       else if (box.x + box.vx - (box.size / 2) < 0 && box.y + box.vy - (box.size / 2) < 0) {
         box.size = box.size * 0.95;
       }
-      else if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) && box.y + box.vy > this.$refs.canvas.height - (box.size / 2)) {
+      else if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) && box.y + box.vy > this.$refs?.canvas?.height - (box.size / 2)) {
         box.size = box.size * 0.95;
       }
       else if (box.x + box.vx - (box.size / 2) < 0 && box.y + box.vy > this.$refs?.canvas?.height - (box.size / 2)) {
@@ -273,7 +273,7 @@ export default {
       this.ctx.shadowBlur = 0;
       this.ctx.shadowColor = 'transparent';     
       this.ctx.stroke(); 
-      this.ctx.lineWidth = (this.theUpsideDown?5:5);
+      this.ctx.lineWidth = 5;
       this.ctx.strokeStyle = (this.theUpsideDown? 'rgba(100,90,80,0.2)':'rgba(0, 0, 0, 0.9)');
       this.ctx.class = 'box';
     },
@@ -356,7 +356,7 @@ export default {
 
 <style>
 body,
-html, body {
+html {
   margin: 0;
   padding: 0;
   overflow: hidden;
