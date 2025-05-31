@@ -5,6 +5,7 @@ const menuItems = [
   { path: 'https://dot.phareim.no', title: 'Red dot game' },
   { path: 'https://rpg.phareim.no', title: 'Old Skool RPG' },
   { path: 'https://phareim.no/drafts/about', title: 'About' },
+  { path: 'https://librarian.phareim.no', title: 'The Librarian' },
   { path: '/', title: 'Home' },
 ]
 
