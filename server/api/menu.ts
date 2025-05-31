@@ -5,6 +5,7 @@ const menuItems = [
   { path: 'https://dot.phareim.no', title: 'Red dot game' },
   { path: 'https://rpg.phareim.no', title: 'Old Skool RPG' },
   { path: 'https://phareim.no/drafts/about', title: 'About' },
+  { path: '/', title: 'Home' },
 ]
 
 export default defineEventHandler(async (event) => {
