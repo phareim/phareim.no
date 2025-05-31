@@ -2,9 +2,9 @@ import { defineEventHandler, getQuery } from 'h3'
 
 // Statisk liste over tilgjengelige sider
 const menuItems = [
-  { path: '/drafts/about', title: 'About' },
-  { path: '/drafts/weather', title: 'Weather' },
-  { path: '/rpg', title: 'RPG' },
+  { path: 'https://dot.phareim.no', title: 'Red dot game' },
+  { path: 'https://rpg.phareim.no', title: 'Old Skool RPG' },
+  { path: 'https://phareim.no/drafts/about', title: 'About' },
 ]
 
 export default defineEventHandler(async (event) => {
