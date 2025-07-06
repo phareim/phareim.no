@@ -1,7 +1,7 @@
 import { defineEventHandler, getRouterParam, readBody } from 'h3'
 import { db } from '../../utils/firebase-admin'
-import type { BlogPost } from '~/types/blogpost'
-import { validateBlogPost, blogpostsCollection } from '~/types/blogpost'
+import type { BlogPost } from '../../../types/blogpost'
+import { validateBlogPost, blogpostsCollection } from '../../../types/blogpost'
 
 export default defineEventHandler(async (event) => {
     try {

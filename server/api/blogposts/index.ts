@@ -1,7 +1,7 @@
 import { defineEventHandler, getQuery, readBody } from 'h3'
 import { db } from '../../utils/firebase-admin'
-import type { BlogPost } from '~/types/blogpost'
-import { validateBlogPost, blogpostsCollection } from '~/types/blogpost'
+import type { BlogPost } from '../../../types/blogpost'
+import { validateBlogPost, blogpostsCollection } from '../../../types/blogpost'
 import type { Query, CollectionReference } from 'firebase-admin/firestore'
 
 // Helper function to generate slug from title if not provided
