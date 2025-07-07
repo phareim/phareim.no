@@ -8,6 +8,7 @@ const menuItems = [
   { path: 'https://librarian.phareim.no', title: 'The Librarian' },
   { path: '/blog', title: 'Blog' },
   { path: '/', title: 'Home' },
+  { path: '/drafts-catalogue/image-to-image', title: 'Image-to-Image' },
 ]
 
 export default defineEventHandler(async (event) => {
