@@ -127,6 +127,47 @@ components:
         - lastUpdated
         - messages
 
+    BlogPost:
+      type: object
+      description: Represents a single blog entry published on the site.
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the blog post (slug or auto-generated).
+        slug:
+          type: string
+          description: URL-friendly slug used in routes.
+        title:
+          type: string
+          description: Title of the blog post.
+        content:
+          type: string
+          description: Markdown or HTML content body of the post.
+        excerpt:
+          type: string
+          description: Short summary shown in listings or previews.
+        author:
+          type: string
+          description: Author of the post.
+        date:
+          type: string
+          format: date
+          description: Original publication date (YYYY-MM-DD).
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the post document was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of the last update to the post.
+      required:
+        - slug
+        - title
+        - content
+        - createdAt
+        - updatedAt
+
 paths:
   /rpg:
     post:
