@@ -28,8 +28,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-const imageUrl = ref('https://v3.fal.media/files/rabbit/rmgBxhwGYb2d3pl3x9sKf_output.png')
-const prompt = ref('Put a donut next to the flour.')
+const imageUrl = ref('')
+const prompt = ref('make this into a photography, cinematic in style. 8K HD. keep the comic-book proportions. ')
 const loading = ref(false)
 const resultUrl = ref<string | null>(null)
 const requestId = ref<string | null>(null)
