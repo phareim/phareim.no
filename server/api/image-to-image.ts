@@ -40,6 +40,7 @@ export default defineEventHandler(async (event) => {
     const result = await fal.subscribe('fal-ai/flux-pro/kontext', {
       input: {
         safety_tolerance: String(safety_tolerance ?? '5'),
+        guidance_scale: 2.25,
         prompt,
         image_url
       },
