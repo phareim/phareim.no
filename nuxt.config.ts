@@ -1,3 +1,4 @@
+import { defineNuxtConfig } from 'nuxt/config'
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   app: {
@@ -18,6 +19,7 @@ export default defineNuxtConfig({
     firebasePrivateKey: process.env.FIREBASE_PRIVATE_KEY,
     firebaseClientEmail: process.env.FIREBASE_CLIENT_EMAIL,
     firebaseProjectId: process.env.FIREBASE_PROJECT_ID,
+    falKey: process.env.FAL_KEY,
     
     // Public keys that are exposed to the client
     public: {
