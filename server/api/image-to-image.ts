@@ -14,10 +14,11 @@ export default defineEventHandler(async (event) => {
   try {
     // Parse the request body
     const body = await readBody(event)
-    const { image_url, prompt, safety_tolerance } = body as {
+    const { image_url, prompt, safety_tolerance, tier } = body as {
       image_url?: string
       prompt?: string
       safety_tolerance?: string | number
+      tier?: 'pro' | 'max'
     }
 
     // Basic validation
@@ -36,8 +37,14 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    // Determine which FLUX Kontext tier to use (default to "pro")
+    const modelTier = tier === 'max' ? 'max' : 'pro'
+    const endpoint = modelTier === 'max'
+      ? 'fal-ai/flux-pro/kontext/max'
+      : 'fal-ai/flux-pro/kontext'
+
     // Dispatch the request to the FLUX Kontext model
-    const result = await fal.subscribe('fal-ai/flux-pro/kontext', {
+    const result = await fal.subscribe(endpoint, {
       input: {
         safety_tolerance: String(safety_tolerance ?? '5'),
         guidance_scale: 2.25,
