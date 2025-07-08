@@ -24,6 +24,19 @@
           <option value="new">New</option>
         </select>
       </label>
+
+      <!-- Image size selection, only relevant for the "new" tier -->
+      <label v-if="tier === 'new'">
+        Image Size:
+        <select v-model="imageSize">
+          <option value="square_hd">Square HD</option>
+          <option value="square">Square</option>
+          <option value="portrait_4_3">Portrait 4:3</option>
+          <option value="portrait_16_9">Portrait 16:9</option>
+          <option value="landscape_4_3">Landscape 4:3</option>
+          <option value="landscape_16_9">Landscape 16:9</option>
+        </select>
+      </label>
       <button type="submit" :disabled="loading">
         {{ loading ? 'Generating…' : 'Generate' }}
       </button>
@@ -45,6 +58,15 @@ import { ref } from 'vue'
 const imageUrl = ref('')
 const prompt = ref('make this into a photography, cinematic in style. 8K HD. keep the comic-book proportions. ')
 const tier = ref<'pro' | 'max' | 'new'>('pro')
+// Image size parameter for the "new" tier. Default to landscape_4_3 as per spec
+const imageSize = ref<
+  | 'square_hd'
+  | 'square'
+  | 'portrait_4_3'
+  | 'portrait_16_9'
+  | 'landscape_4_3'
+  | 'landscape_16_9'
+>('landscape_4_3')
 
 const loading = ref(false)
 const resultUrl = ref<string | null>(null)
@@ -66,6 +88,8 @@ async function handleSubmit() {
 
     if (tier.value !== 'new') {
       payload.image_url = imageUrl.value
+    } else {
+      payload.image_size = imageSize.value
     }
 
     const res = await fetch('/api/image-to-image', {
