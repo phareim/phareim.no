@@ -10,6 +10,13 @@
         Description / Prompt:
         <textarea v-model="prompt" placeholder="Describe the transformation" required></textarea>
       </label>
+      <label>
+        Model Tier:
+        <select v-model="tier">
+          <option value="pro">Pro</option>
+          <option value="max">Max</option>
+        </select>
+      </label>
       <button type="submit" :disabled="loading">
         {{ loading ? 'Generating...' : 'Generate' }}
       </button>
@@ -34,6 +41,7 @@ const loading = ref(false)
 const resultUrl = ref<string | null>(null)
 const requestId = ref<string | null>(null)
 const error = ref<string | null>(null)
+const tier = ref<'pro' | 'max'>('pro')
 
 async function handleSubmit() {
   loading.value = true
@@ -48,7 +56,8 @@ async function handleSubmit() {
       body: JSON.stringify({
         image_url: imageUrl.value,
         prompt: prompt.value,
-        safety_tolerance: '5'
+        safety_tolerance: '5',
+        tier: tier.value
       })
     })
     const data = await res.json()
