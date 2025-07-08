@@ -162,6 +162,7 @@ select {
   border-radius: 3px;
   color: #333;
   transition: border-color 0.2s;
+  margin: 0.4rem 1rem;
 }
 
 input:focus,
