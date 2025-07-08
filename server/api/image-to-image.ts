@@ -18,13 +18,20 @@ export default defineEventHandler(async (event) => {
       image_url?: string
       prompt?: string
       safety_tolerance?: string | number
-      tier?: 'pro' | 'max'
+      tier?: 'pro' | 'max' | 'new'
     }
 
-    // Basic validation
-    if (!image_url || !prompt) {
+    // Validate required fields depending on selected tier
+    if (!prompt) {
       return {
-        error: 'Both image_url and prompt are required',
+        error: 'Prompt is required',
+        status: 400
+      }
+    }
+
+    if (tier !== 'new' && !image_url) {
+      return {
+        error: 'image_url is required for tiers other than "new"',
         status: 400
       }
     }
@@ -37,20 +44,33 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Determine which FLUX Kontext tier to use (default to "pro")
-    const modelTier = tier === 'max' ? 'max' : 'pro'
-    const endpoint = modelTier === 'max'
-      ? 'fal-ai/flux-pro/kontext/max'
-      : 'fal-ai/flux-pro/kontext'
+    // Determine which FLUX tier/endpoint to use
+    let endpoint: string
+    if (tier === 'max') {
+      endpoint = 'fal-ai/flux-pro/kontext/max'
+    } else if (tier === 'new') {
+      endpoint = 'fal-ai/flux-pro/new'
+    } else {
+      endpoint = 'fal-ai/flux-pro/kontext'
+    }
 
-    // Dispatch the request to the FLUX Kontext model
+    // Build the input payload dynamically based on the tier
+    const input: Record<string, unknown> = {
+      safety_tolerance: String(safety_tolerance ?? '5'),
+      prompt
+    }
+
+    if (tier === 'new') {
+      // "new" is a pure text-to-image endpoint
+      input.guidance_scale = 3.5
+    } else {
+      // Kontext variants (pro / max) require reference image
+      input.guidance_scale = 2.25
+      input.image_url = image_url
+    }
+
     const result = await fal.subscribe(endpoint, {
-      input: {
-        safety_tolerance: String(safety_tolerance ?? '5'),
-        guidance_scale: 2.25,
-        prompt,
-        image_url
-      },
+      input,
       logs: true,
       onQueueUpdate: (update) => {
         if (update.status === 'IN_PROGRESS') {

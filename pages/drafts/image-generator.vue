@@ -2,9 +2,15 @@
   <div class="container">
     <h1>Image-to-Image Generator</h1>
     <form @submit.prevent="handleSubmit" class="form">
-      <label>
+      <!-- Image URL field is only needed for tiers other than "new" -->
+      <label v-if="tier !== 'new'">
         Image URL:
-        <input v-model="imageUrl" type="text" placeholder="https://example.com/image.png" required />
+        <input
+          v-model="imageUrl"
+          type="text"
+          placeholder="https://example.com/image.png"
+          :required="tier !== 'new'"
+        />
       </label>
       <label>
         Description / Prompt:
@@ -15,6 +21,7 @@
         <select v-model="tier">
           <option value="pro">Pro</option>
           <option value="max">Max</option>
+          <option value="new">New</option>
         </select>
       </label>
       <button type="submit" :disabled="loading">
@@ -37,7 +44,7 @@ import { ref } from 'vue'
 
 const imageUrl = ref('')
 const prompt = ref('make this into a photography, cinematic in style. 8K HD. keep the comic-book proportions. ')
-const tier = ref<'pro' | 'max'>('pro')
+const tier = ref<'pro' | 'max' | 'new'>('pro')
 
 const loading = ref(false)
 const resultUrl = ref<string | null>(null)
@@ -51,15 +58,20 @@ async function handleSubmit() {
   requestId.value = null
 
   try {
+    const payload: Record<string, unknown> = {
+      prompt: prompt.value,
+      safety_tolerance: '5',
+      tier: tier.value
+    }
+
+    if (tier.value !== 'new') {
+      payload.image_url = imageUrl.value
+    }
+
     const res = await fetch('/api/image-to-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        image_url: imageUrl.value,
-        prompt: prompt.value,
-        safety_tolerance: '5',
-        tier: tier.value
-      })
+      body: JSON.stringify(payload)
     })
     const data = await res.json()
     if (data.error) {
