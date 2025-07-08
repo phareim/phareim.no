@@ -14,11 +14,18 @@ export default defineEventHandler(async (event) => {
   try {
     // Parse the request body
     const body = await readBody(event)
-    const { image_url, prompt, safety_tolerance, tier } = body as {
+    const { image_url, prompt, safety_tolerance, tier, image_size } = body as {
       image_url?: string
       prompt?: string
       safety_tolerance?: string | number
       tier?: 'pro' | 'max' | 'new'
+      image_size?:
+        | 'square_hd'
+        | 'square'
+        | 'portrait_4_3'
+        | 'portrait_16_9'
+        | 'landscape_4_3'
+        | 'landscape_16_9'
     }
 
     // Validate required fields depending on selected tier
@@ -63,6 +70,23 @@ export default defineEventHandler(async (event) => {
     if (tier === 'new') {
       // "new" is a pure text-to-image endpoint
       input.guidance_scale = 2.3
+
+      // Validate / normalise image_size. Default to landscape_4_3 if invalid or missing
+      const allowedSizes: string[] = [
+        'square_hd',
+        'square',
+        'portrait_4_3',
+        'portrait_16_9',
+        'landscape_4_3',
+        'landscape_16_9'
+      ]
+
+      const selectedSize =
+        typeof image_size === 'string' && allowedSizes.indexOf(image_size) !== -1
+          ? image_size
+          : 'landscape_4_3'
+
+      input.image_size = selectedSize
     } else {
       // Kontext variants (pro / max) require reference image
       input.guidance_scale = 2
