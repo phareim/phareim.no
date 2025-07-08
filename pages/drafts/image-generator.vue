@@ -13,7 +13,7 @@
         />
       </label>
       <label>
-        Description / Prompt:
+        Prompt:
         <textarea v-model="prompt" placeholder="Describe the transformation" required></textarea>
       </label>
       <label>
@@ -56,7 +56,7 @@
 import { ref } from 'vue'
 
 const imageUrl = ref('')
-const prompt = ref('make this into a photography, cinematic in style. 8K HD. keep the comic-book proportions. ')
+const prompt = ref('make this into a realistic photograph. ')
 const tier = ref<'pro' | 'max' | 'new'>('pro')
 // Image size parameter for the "new" tier. Default to landscape_4_3 as per spec
 const imageSize = ref<
@@ -157,10 +157,10 @@ select {
   width: 100%;
   padding: 0.5rem 0.75rem;
   font-size: 1rem;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  color: #111;
+  background: #def;
+  border: 1px solid #aaa;
+  border-radius: 3px;
+  color: #333;
   transition: border-color 0.2s;
 }
 
@@ -168,7 +168,7 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: #888;
+  border: 2px solid #888;
 }
 
 button {
