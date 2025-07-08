@@ -8,7 +8,7 @@ const menuItems = [
   { path: 'https://librarian.phareim.no', title: 'The Librarian📚' },
   { path: '/blog', title: 'Blog 📬' },
   { path: '/', title: 'Home 🏚️' },
-  { path: '/drafts/image-to-image', title: 'Image 👩🏻‍🎨' },
+  { path: '/drafts/image-generator', title: 'Image 👩🏻‍🎨' },
 ]
 
 export default defineEventHandler(async (event) => {
