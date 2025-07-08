@@ -62,10 +62,10 @@ export default defineEventHandler(async (event) => {
 
     if (tier === 'new') {
       // "new" is a pure text-to-image endpoint
-      input.guidance_scale = 3.5
+      input.guidance_scale = 2.3
     } else {
       // Kontext variants (pro / max) require reference image
-      input.guidance_scale = 2.25
+      input.guidance_scale = 2
       input.image_url = image_url
     }
 
