@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <h1>Image to Image</h1>
+    <h1>Image-to-Image Generator</h1>
     <form @submit.prevent="handleSubmit" class="form">
       <label>
         Image URL:
@@ -18,16 +18,16 @@
         </select>
       </label>
       <button type="submit" :disabled="loading">
-        {{ loading ? 'Generating...' : 'Generate' }}
+        {{ loading ? 'Generating…' : 'Generate' }}
       </button>
     </form>
 
-    <div v-if="error" class="error">{{ error }}</div>
+    <p v-if="error" class="error">{{ error }}</p>
 
     <div v-if="resultUrl" class="result">
       <h2>Result</h2>
       <img :src="resultUrl" alt="Generated image" />
-      <p class="small">(request id: {{ requestId }})</p>
+      <p class="small">request id: {{ requestId }}</p>
     </div>
   </div>
 </template>
@@ -37,11 +37,12 @@ import { ref } from 'vue'
 
 const imageUrl = ref('')
 const prompt = ref('make this into a photography, cinematic in style. 8K HD. keep the comic-book proportions. ')
+const tier = ref<'pro' | 'max'>('pro')
+
 const loading = ref(false)
 const resultUrl = ref<string | null>(null)
 const requestId = ref<string | null>(null)
 const error = ref<string | null>(null)
-const tier = ref<'pro' | 'max'>('pro')
 
 async function handleSubmit() {
   loading.value = true
@@ -81,72 +82,100 @@ async function handleSubmit() {
 
 <style scoped>
 .container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
-  font-family: 'Courier New', monospace;
-  color: #33ff33;
+  max-width: 640px;
+  margin: 4rem auto;
+  padding: 0 1rem;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  color: #111;
 }
 
 h1 {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+  font-weight: 600;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  background: #1a1a1a;
-  padding: 20px;
-  border: 2px solid #33ff33;
-  border-radius: 5px;
+  gap: 1rem;
+  background: #f9f9f9;
+  padding: 1.5rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9rem;
+  gap: 0.25rem;
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
-  padding: 8px;
-  background: #000;
-  border: 1px solid #33ff33;
-  border-radius: 4px;
-  color: #33ff33;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  color: #111;
+  transition: border-color 0.2s;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #888;
 }
 
 button {
-  padding: 10px 16px;
-  background: #000;
-  border: 2px solid #33ff33;
-  color: #33ff33;
-  border-radius: 4px;
+  align-self: flex-start;
+  padding: 0.55rem 1.25rem;
+  background: #111;
+  border: none;
+  color: #fff;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background 0.2s, opacity 0.2s;
 }
+
 button:hover:not(:disabled) {
-  background: #33ff33;
-  color: #000;
+  background: #333;
 }
+
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
 .result {
-  margin-top: 30px;
+  margin-top: 3rem;
   text-align: center;
 }
+
 .result img {
   max-width: 100%;
-  border: 2px solid #33ff33;
-  border-radius: 5px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
+
 .small {
-  font-size: 0.8em;
-  color: #999;
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.5rem;
 }
+
 .error {
-  margin-top: 20px;
-  color: #ff3333;
+  margin-top: 1rem;
+  color: #c33;
   text-align: center;
 }
 </style>
