@@ -9,9 +9,6 @@
 			@touchend="handleTouchEnd">
 			<nav>
 				<ul>
-					<li>
-						<NuxtLink to="/" @click="toggleMenu">Hjem</NuxtLink>
-					</li>
 					<li v-for="item in menuItems" :key="item.path">
 						<NuxtLink :to="item.path" @click="toggleMenu">{{ item.icon }} {{ item.title }}</NuxtLink>
 					</li>
