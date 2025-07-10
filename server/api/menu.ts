@@ -7,9 +7,9 @@ const menuItems = [
   { path: '/drafts/bounce', title: 'Bounce', icon: '⚽️' },
   { path: '/drafts/image-generator', title: 'Image', icon: '👩🏻‍🎨' },
   { path: '/blog', title: 'Blog', icon: '📬' },
-  { path: 'https://rpg.phareim.no', title: 'Old Skool RPG', icon: '🤓', external: true },
-  { path: 'https://dot.phareim.no', title: 'Red dot game', icon: '🔴', external: true },
-  { path: 'https://librarian.phareim.no', title: 'The Librarian', icon: '📚', external: true },
+  { path: '/rpg', title: 'Old Skool RPG', icon: '🤓', external: false },
+  { path: '/drafts/dot', title: 'Red dot game', icon: '🔴', external: true },
+  { path: '/drafts/librarian', title: 'The Librarian', icon: '📚', external: true },
 ]
 
 export default defineEventHandler(async (event) => {

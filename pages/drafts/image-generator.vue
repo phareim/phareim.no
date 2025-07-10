@@ -3,32 +3,20 @@
     <h1>Image-to-Image Generator</h1>
     <form @submit.prevent="handleSubmit" class="form">
       <!-- Image URL field is only needed for tiers other than "new" -->
-      <label v-if="tier !== 'new'">
-        Image URL:
+      <div v-if="tier !== 'new'" class="field">
+        <label class="field-label">Image URL</label>
         <input
           v-model="imageUrl"
           type="text"
           placeholder="https://example.com/image.png"
-          :required="tier !== 'new'"
+          class="field-input"
         />
-      </label>
-      <label>
-        Prompt:
-        <textarea v-model="prompt" placeholder="Describe the transformation" required></textarea>
-      </label>
-      <label>
-        Model Tier:
-        <select v-model="tier">
-          <option value="pro">Pro</option>
-          <option value="max">Max</option>
-          <option value="new">New</option>
-        </select>
-      </label>
+      </div>
 
       <!-- Image size selection, only relevant for the "new" tier -->
-      <label v-if="tier === 'new'">
-        Image Size:
-        <select v-model="imageSize">
+      <div v-if="tier === 'new'" class="field">
+        <label class="field-label">Image Size</label>
+        <select v-model="imageSize" class="field-select">
           <option value="square_hd">Square HD</option>
           <option value="square">Square</option>
           <option value="portrait_4_3">Portrait 4:3</option>
@@ -36,18 +24,38 @@
           <option value="landscape_4_3">Landscape 4:3</option>
           <option value="landscape_16_9">Landscape 16:9</option>
         </select>
-      </label>
-      <button type="submit" :disabled="loading">
+      </div>
+      
+      <div class="field">
+        <label class="field-label">Prompt</label>
+        <textarea 
+          v-model="prompt" 
+          placeholder="Describe the transformation" 
+          required 
+          class="field-textarea"
+        ></textarea>
+      </div>
+      
+      <div class="field">
+        <label class="field-label">Model Tier</label>
+        <select v-model="tier" class="field-select">
+          <option value="pro">Pro</option>
+          <option value="max">Max</option>
+          <option value="new">New</option>
+        </select>
+      </div>
+      
+      <button type="submit" :disabled="loading" class="submit-button">
         {{ loading ? 'Generating…' : 'Generate' }}
       </button>
     </form>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <div v-if="error" class="error">{{ error }}</div>
 
     <div v-if="resultUrl" class="result">
       <h2>Result</h2>
-      <img :src="resultUrl" alt="Generated image" />
-      <p class="small">request id: {{ requestId }}</p>
+      <img :src="resultUrl" alt="Generated image" class="result-image" />
+      <p class="request-id">request id: {{ requestId }}</p>
     </div>
   </div>
 </template>
@@ -123,7 +131,13 @@ async function handleSubmit() {
   padding: 0 1rem;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
     Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  color: #111;
+  color: var(--text-primary, #1a1a1a);
+}
+
+@media (prefers-color-scheme: dark) {
+  .container {
+    color: var(--text-primary, #e5e5e5);
+  }
 }
 
 h1 {
@@ -131,65 +145,113 @@ h1 {
   margin-bottom: 2rem;
   font-size: 2rem;
   font-weight: 600;
+  color: var(--text-primary, #1a1a1a);
+}
+
+@media (prefers-color-scheme: dark) {
+  h1 {
+    color: var(--text-primary, #e5e5e5);
+  }
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  background: #f9f9f9;
-  padding: 1.5rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  gap: 1.5rem;
+  background: var(--bg-secondary, #f8f9fa);
+  padding: 2rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-label {
+@media (prefers-color-scheme: dark) {
+  .form {
+    background: var(--bg-secondary, #1e293b);
+    border-color: var(--border-color, #334155);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  }
+}
+
+.field {
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
+}
+
+.field-label {
   font-size: 0.9rem;
-  gap: 0.25rem;
+  font-weight: 500;
+  color: var(--text-secondary, #374151);
 }
 
-input,
-textarea,
-select {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
+@media (prefers-color-scheme: dark) {
+  .field-label {
+    color: var(--text-secondary, #9ca3af);
+  }
+}
+
+.field-input,
+.field-textarea,
+.field-select {
+  padding: 0.75rem 1rem;
   font-size: 1rem;
-  background: #def;
-  border: 1px solid #aaa;
-  border-radius: 3px;
-  color: #333;
-  transition: border-color 0.2s;
-  margin: 0.4rem 1rem;
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 8px;
+  color: var(--text-primary, #1a1a1a);
+  transition: all 0.2s ease;
+  font-family: inherit;
 }
 
-input:focus,
-textarea:focus,
-select:focus {
+@media (prefers-color-scheme: dark) {
+  .field-input,
+  .field-textarea,
+  .field-select {
+    background: var(--bg-primary, #0f172a);
+    border-color: var(--border-color, #475569);
+    color: var(--text-primary, #e5e5e5);
+  }
+}
+
+.field-input:focus,
+.field-textarea:focus,
+.field-select:focus {
   outline: none;
-  border: 2px solid #888;
+  border-color: var(--accent-color, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-button {
+.field-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.submit-button {
   align-self: flex-start;
-  padding: 0.55rem 1.25rem;
-  background: #111;
+  padding: 0.75rem 1.5rem;
+  background: var(--accent-color, #3b82f6);
   border: none;
-  color: #fff;
-  border-radius: 6px;
+  color: white;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s, opacity 0.2s;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  font-family: inherit;
 }
 
-button:hover:not(:disabled) {
-  background: #333;
+.submit-button:hover:not(:disabled) {
+  background: var(--accent-color-hover, #2563eb);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
 }
 
-button:disabled {
+.submit-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .result {
@@ -197,22 +259,59 @@ button:disabled {
   text-align: center;
 }
 
-.result img {
-  max-width: 100%;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+.result h2 {
+  margin-bottom: 1rem;
+  color: var(--text-primary, #1a1a1a);
 }
 
-.small {
+@media (prefers-color-scheme: dark) {
+  .result h2 {
+    color: var(--text-primary, #e5e5e5);
+  }
+}
+
+.result-image {
+  max-width: 100%;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .result-image {
+    border-color: var(--border-color, #334155);
+    box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  }
+}
+
+.request-id {
   font-size: 0.8rem;
-  color: #666;
+  color: var(--text-tertiary, #6b7280);
   margin-top: 0.5rem;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  .request-id {
+    color: var(--text-tertiary, #9ca3af);
+  }
 }
 
 .error {
   margin-top: 1rem;
-  color: #c33;
+  padding: 1rem;
+  background: var(--error-bg, #fef2f2);
+  border: 1px solid var(--error-border, #fecaca);
+  border-radius: 8px;
+  color: var(--error-text, #dc2626);
   text-align: center;
+}
+
+@media (prefers-color-scheme: dark) {
+  .error {
+    background: var(--error-bg, #1f1517);
+    border-color: var(--error-border, #7f1d1d);
+    color: var(--error-text, #f87171);
+  }
 }
 </style>

@@ -127,8 +127,9 @@ export default {
 }
 
 .menu-container.dark-mode {
-	background-color: rgba(51, 51, 51, 0.95);
-	color: #ffffff;
+	background-color: rgba(15, 23, 42, 0.95);
+	color: #e2e8f0;
+	box-shadow: -2px 0 5px rgba(0, 0, 0, 0.3);
 }
 
 nav ul {
@@ -149,7 +150,7 @@ nav ul li:hover {
 }
 
 .dark-mode nav ul li:hover {
-	background-color: rgba(255, 255, 255, 0.1);
+	background-color: rgba(255, 255, 255, 0.15);
 }
 
 nav ul li a {
@@ -160,7 +161,7 @@ nav ul li a {
 }
 
 .dark-mode nav ul li a {
-	color: #ffffff;
+	color: #e2e8f0;
 }
 
 /* Aktiv lenke styling */
@@ -170,11 +171,18 @@ nav ul li a.router-link-active {
 
 .menu-item.external {
 	color: #164e8a;
-
 }
 
 .menu-item.external:hover {
 	color: #0056b3;
+}
+
+.dark-mode .menu-item.external {
+	color: #60a5fa;
+}
+
+.dark-mode .menu-item.external:hover {
+	color: #93c5fd;
 }
 
 .external-arrow {
