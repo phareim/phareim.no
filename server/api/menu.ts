@@ -6,6 +6,7 @@ const menuItems = [
   { path: 'https://rpg.phareim.no', title: 'Old Skool RPG', icon: '🤓' },
   { path: 'https://librarian.phareim.no', title: 'The Librarian', icon: '📚' },
   { path: '/drafts/about', title: 'About', icon: '📄' },
+  { path: '/drafts/bounce', title: 'Bounce', icon: '⚽️' },
   { path: '/drafts/image-generator', title: 'Image', icon: '👩🏻‍🎨' },
   { path: '/blog', title: 'Blog', icon: '📬' },
   { path: '/', title: 'Home', icon: '🏚️' }

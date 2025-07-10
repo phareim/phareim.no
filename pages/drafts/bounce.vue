@@ -1,12 +1,27 @@
 <template>
-  <canvas 
-    ref="canvas" 
-    style="width: 100vw; height: 100vh;" 
-    @mousedown="startAddingBoxes" 
-    @mouseup="stopAddingBoxes" 
-    @mouseleave="stopAddingBoxes"
-    @click="addBox"
-  ></canvas>
+  <div class="bounce-container">
+    <canvas 
+      ref="canvas" 
+      style="width: 100vw; height: 100vh;" 
+      @mousedown="startAddingBoxes" 
+      @mouseup="stopAddingBoxes" 
+      @mouseleave="stopAddingBoxes"
+      @click="addBox"
+      @touchstart="handleTouch"
+      @touchend="stopAddingBoxes"
+    ></canvas>
+    
+    <div 
+      v-if="showMessage" 
+      class="instruction-message"
+      :class="{ 'fade-out': isMessageFading }"
+    >
+      <div class="message-content">
+        <span class="message-text">{{ isMobile ? 'please touch the screen' : 'please click' }}</span>
+        <div class="message-icon">{{ isMobile ? '👆' : '⚽️' }}</div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -17,18 +32,49 @@ export default {
       boxes: [],
       animationFrameId: null,
       isAddingBoxes: false,
-      boxAddInterval: null
+      boxAddInterval: null,
+      showMessage: true,
+      isMessageFading: false,
+      isMobile: false,
+      messageTimeout: null
     };
   },
   mounted() {
+    this.detectMobile();
     this.setupCanvas();
     this.animate();
+    this.setupMessageTimeout();
     window.addEventListener('resize', this.setupCanvas);
   },
   beforeDestroy() {
     this.cleanup();
   },
   methods: {
+    detectMobile() {
+      this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                      ('ontouchstart' in window) || 
+                      (navigator.maxTouchPoints > 0);
+    },
+    setupMessageTimeout() {
+      // Auto-hide message after 5 seconds if no interaction
+      this.messageTimeout = setTimeout(() => {
+        this.hideMessage();
+      }, 5000);
+    },
+    hideMessage() {
+      if (!this.showMessage) return;
+      
+      this.isMessageFading = true;
+      setTimeout(() => {
+        this.showMessage = false;
+        this.isMessageFading = false;
+      }, 500);
+      
+      if (this.messageTimeout) {
+        clearTimeout(this.messageTimeout);
+        this.messageTimeout = null;
+      }
+    },
     setupCanvas() {
       const canvas = this.$refs.canvas;
       if (!canvas) return;
@@ -72,10 +118,41 @@ export default {
     addBox(event) {
       if (!this.$refs.canvas) return;
       
+      // Hide message on first interaction
+      if (this.showMessage) {
+        this.hideMessage();
+      }
+      
       const rect = this.$refs.canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
       this.createBox(x, y);
+    },
+    handleTouch(event) {
+      // Hide message on first touch
+      if (this.showMessage) {
+        this.hideMessage();
+      }
+      
+      // Handle touch events similar to mouse events
+      if (event.touches.length > 0) {
+        const touch = event.touches[0];
+        const rect = this.$refs.canvas.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        this.createBox(x, y);
+        
+        // Start continuous adding for touch
+        this.isAddingBoxes = true;
+        this.boxAddInterval = setInterval(() => {
+          if (event.touches.length > 0) {
+            const touch = event.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            this.createBox(x, y);
+          }
+        }, 100);
+      }
     },
     createBox(x, y) {
       const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
@@ -91,6 +168,11 @@ export default {
       }
     },
     startAddingBoxes(event) {
+      // Hide message on first interaction
+      if (this.showMessage) {
+        this.hideMessage();
+      }
+      
       this.isAddingBoxes = true;
       this.boxAddInterval = setInterval(() => {
         const rect = this.$refs.canvas.getBoundingClientRect();
@@ -110,6 +192,9 @@ export default {
       if (this.animationFrameId) {
         cancelAnimationFrame(this.animationFrameId);
       }
+      if (this.messageTimeout) {
+        clearTimeout(this.messageTimeout);
+      }
       window.removeEventListener('resize', this.setupCanvas);
       this.stopAddingBoxes();
     }
@@ -124,7 +209,94 @@ body, html {
   overflow: hidden;
 }
 
+.bounce-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
 canvas {
   display: block;
+}
+
+.instruction-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.5s ease-out;
+}
+
+.instruction-message.fade-out {
+  opacity: 0;
+}
+
+.message-content {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 2rem 3rem;
+  text-align: center;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  animation: gentle-float 2s ease-in-out infinite;
+}
+
+.message-text {
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 300;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  display: block;
+  margin-bottom: 1rem;
+  letter-spacing: 0.5px;
+}
+
+.message-icon {
+  font-size: 2rem;
+  animation: bounce-icon 1s ease-in-out infinite;
+}
+
+@keyframes gentle-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes bounce-icon {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .message-content {
+    padding: 1.5rem 2rem;
+  }
+  
+  .message-text {
+    font-size: 1.2rem;
+  }
+  
+  .message-icon {
+    font-size: 1.5rem;
+  }
+}
+
+/* Ensure touch events work properly on mobile */
+@media (hover: none) and (pointer: coarse) {
+  canvas {
+    touch-action: none;
+  }
 }
 </style>
