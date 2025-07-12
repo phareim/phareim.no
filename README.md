@@ -1,3 +1,3 @@
 # A Homepage
 
-Easter eggs in a trenchcoat, pretending to be a professional homepage.
+Easter eggs in a trenchcoat, trying to look professional.
