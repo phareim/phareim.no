@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import type { Place } from '~/types/place'
 import { getCoordinatesString } from '~/types/place'
 import { useNuxtApp } from '#app'
@@ -269,7 +269,12 @@ async function loadPlayerLocation() {
 onMounted(() => {
     loadPlaces()
     loadPlayerLocation()
-})
+    document.body.classList.add('scrollable');
+});
+
+onUnmounted(() => {
+  document.body.classList.remove('scrollable');
+});
 </script>
 
 <style scoped>

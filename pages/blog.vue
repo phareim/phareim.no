@@ -36,7 +36,11 @@ export default {
     }
   },
   async mounted() {
+    document.body.classList.add('scrollable');
     await this.loadPosts()
+  },
+  beforeDestroy() {
+    document.body.classList.remove('scrollable');
   },
   methods: {
     async loadPosts() {
