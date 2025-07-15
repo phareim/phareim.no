@@ -285,14 +285,14 @@ onUnmounted(() => {
     font-family: 'Courier New', monospace;
 }
 
-:global(body) {
+body {
     margin: 0;
     padding: 0;
     background-color: #1a1a1a;
     min-height: 100vh;
 }
 
-:global(html) {
+html {
     background-color: #1a1a1a;
 }
 

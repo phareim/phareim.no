@@ -5,12 +5,14 @@
 			<span></span>
 			<span></span>
 		</button>
-		<div :class="['menu-container', { 'dark-mode': darkMode, 'show-menu': showMenu }]" @touchstart="handleTouchStart"
-			@touchend="handleTouchEnd">
+		<div :class="['menu-container', { 'dark-mode': darkMode, 'show-menu': showMenu }]"
+			@touchstart="handleTouchStart" @touchend="handleTouchEnd">
 			<nav>
 				<ul>
 					<li v-for="item in menuItems" :key="item.path">
-						<NuxtLink :to="item.path" @click="toggleMenu" :target="item.external ? '_blank' : '_self'" class="menu-item" :class="{ 'external': item.external }">{{ item.icon }} {{ item.title }}<span class="external-arrow" v-if="item.external">→</span></NuxtLink>
+						<NuxtLink :to="item.path" @click="toggleMenu" :target="item.external ? '_blank' : '_self'"
+							class="menu-item" :class="{ 'external': item.external }">{{ item.icon }} {{ item.title
+							}}<span class="external-arrow" v-if="item.external">→</span></NuxtLink>
 					</li>
 				</ul>
 			</nav>
@@ -29,16 +31,20 @@ export default {
 		};
 	},
 	async mounted() {
+		document.body.classList.add('scrollable');
 		if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
 			this.darkMode = true;
 		}
-		
+
 		try {
 			const response = await fetch('/api/menu')
 			this.menuItems = await response.json()
 		} catch (error) {
 			console.error('Error fetching menu items:', error)
 		}
+	},
+	beforeDestroy() {
+		document.body.classList.remove('scrollable');
 	},
 	methods: {
 		toggleMenu() {
@@ -50,7 +56,7 @@ export default {
 		handleTouchEnd(event) {
 			const touchEndX = event.changedTouches[0].clientX;
 			const swipeDistance = this.touchStartX - touchEndX;
-			
+
 			if (Math.abs(swipeDistance) > 50) {
 				if (swipeDistance > 0 && !this.showMenu) { // Swipe venstre når menyen er lukket
 					this.toggleMenu();
