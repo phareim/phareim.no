@@ -26,13 +26,16 @@
 </template>
 
 <script>
+import MarkdownIt from 'markdown-it'
+
 export default {
   data() {
     return {
       posts: [],
       selectedPost: null,
       loading: true,
-      error: null
+      error: null,
+      md: new MarkdownIt()
     }
   },
   async mounted() {
@@ -46,11 +49,14 @@ export default {
     async loadPosts() {
       try {
         this.loading = true
-        const response = await fetch('/api/blog')
+        const response = await fetch('/api/blogposts')
         if (!response.ok) {
           throw new Error('Failed to fetch blog posts')
         }
-        this.posts = await response.json()
+
+        const data = await response.json()
+        // The API returns { posts: [...] }
+        this.posts = Array.isArray(data.posts) ? data.posts : data
       } catch (error) {
         this.error = error.message
         console.error('Error loading blog posts:', error)
@@ -59,7 +65,11 @@ export default {
       }
     },
     selectPost(post) {
-      this.selectedPost = post
+      // Render markdown to HTML when reading a single post
+      this.selectedPost = {
+        ...post,
+        content: this.md.render(post.content || '')
+      }
     },
     goBack() {
       this.selectedPost = null
