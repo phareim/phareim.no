@@ -65,4 +65,5 @@ function parseMarkdownFile(filePath: string, slug: string): BlogPost | null {
 
 This approach works great for personal blogs, documentation sites, or any project where you want to keep things simple and maintainable.
 
+
 What do you think? Have you built similar systems before?
