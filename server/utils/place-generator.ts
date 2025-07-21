@@ -82,6 +82,69 @@ export function getPlaceId(coordinates: Place['coordinates']): string {
     return `${coordinates.north},${coordinates.west}`
 }
 
+// Helper function to enhance description markup
+export function enhanceDescriptionMarkup(description: string): string {
+    // List of common item keywords to automatically mark up if not already marked
+    const itemKeywords = [
+        'sword', 'dagger', 'blade', 'weapon', 'shield', 'armor', 'helmet',
+        'potion', 'elixir', 'brew', 'bottle', 'vial',
+        'key', 'coin', 'gold', 'silver', 'gem', 'crystal', 'jewel',
+        'scroll', 'book', 'map', 'letter', 'note',
+        'ring', 'amulet', 'pendant', 'necklace', 'bracelet',
+        'staff', 'wand', 'orb', 'rod',
+        'chest', 'bag', 'pouch', 'sack',
+        'torch', 'lantern', 'candle'
+    ]
+    
+    // List of common character keywords
+    const characterKeywords = [
+        'merchant', 'trader', 'vendor', 'seller',
+        'hermit', 'sage', 'wizard', 'witch', 'mage',
+        'traveler', 'adventurer', 'explorer', 'wanderer',
+        'guard', 'soldier', 'knight', 'warrior',
+        'bard', 'musician', 'storyteller',
+        'priest', 'monk', 'cleric',
+        'thief', 'rogue', 'bandit',
+        'farmer', 'hunter', 'woodsman',
+        'child', 'elder', 'woman', 'man', 'person'
+    ]
+    
+    // List of common location keywords
+    const locationKeywords = [
+        'ruins', 'temple', 'shrine', 'altar',
+        'cave', 'cavern', 'grotto', 'hollow',
+        'tower', 'spire', 'castle', 'fortress',
+        'bridge', 'path', 'trail', 'road',
+        'well', 'spring', 'fountain', 'pool', 'pond', 'lake', 'stream',
+        'grove', 'clearing', 'meadow', 'glade',
+        'door', 'gate', 'entrance', 'passage', 'tunnel',
+        'circle', 'formation', 'monument', 'statue',
+        'cottage', 'hut', 'cabin', 'house', 'dwelling'
+    ]
+    
+    let enhanced = description
+    
+    // Auto-mark items (only if not already marked with any asterisks)
+    itemKeywords.forEach(keyword => {
+        const regex = new RegExp(`\\b(${keyword}s?)\\b(?![^*]*\\*)`, 'gi')
+        enhanced = enhanced.replace(regex, '*$1*')
+    })
+    
+    // Auto-mark characters (only if not already marked)
+    characterKeywords.forEach(keyword => {
+        const regex = new RegExp(`\\b((?:old |young |mysterious |wise |ancient |lost |wandering |traveling )?${keyword}s?)\\b(?![^*]*\\*\\*)`, 'gi')
+        enhanced = enhanced.replace(regex, '**$1**')
+    })
+    
+    // Auto-mark locations (only if not already marked)
+    locationKeywords.forEach(keyword => {
+        const regex = new RegExp(`\\b((?:ancient |old |mysterious |hidden |sacred |abandoned |crumbling |forgotten )?${keyword}s?)\\b(?![^*]*\\*\\*\\*)`, 'gi')
+        enhanced = enhanced.replace(regex, '***$1***')
+    })
+    
+    return enhanced
+}
+
 export interface AdjacentPlace extends Place {
     direction: 'north' | 'south' | 'east' | 'west';
 }
@@ -114,10 +177,16 @@ ${randomFeature}
 
 The theme is: ${theme || 'a mysterious fantasy forest world'}
 
-Formatting Rules:
-- All items that players can pick up should be written with *asterisks* around them (e.g., *rusty sword*)
-- All people that players can interact with should be written with double **asterisks** around them (e.g., **old merchant**)
-- All notable locations should be written with triple ***asterisks*** around them (e.g., ***ancient ruins***)
+CRITICAL FORMATTING RULES - Follow these exactly:
+- All items that players can pick up should be written with *single asterisks* around them (e.g., *rusty sword*, *healing potion*, *golden key*)
+- All people that players can interact with should be written with **double asterisks** around them (e.g., **old merchant**, **mysterious hermit**, **lost traveler**)
+- All notable sub-locations or landmarks should be written with ***triple asterisks*** around them (e.g., ***ancient ruins***, ***hidden cave entrance***, ***mystical stone circle***)
+
+Examples of good formatting:
+- "An **old hermit** sits by the fire, warming his hands near a *glowing crystal*. Behind him, the entrance to ***forbidden caves*** yawns like a dark mouth."
+- "A *silver dagger* lies abandoned near the ***crumbling tower***, while a **wandering bard** plays a haunting melody."
+
+Make sure to include at least 1-2 interactive elements (people, items, or sub-locations) in most descriptions to make exploration rewarding.
 
 Adjacent locations for context:
 ${existingContext || 'This is one of the first locations in the game.'}`
@@ -146,7 +215,7 @@ ${existingContext || 'This is one of the first locations in the game.'}`
 
     const placeData: Omit<Place, 'id'> = {
         name: nameMatch[1].trim(),
-        description: descriptionMatch[1].trim(),
+        description: enhanceDescriptionMarkup(descriptionMatch[1].trim()),
         coordinates,
         createdAt: new Date(),
         updatedAt: new Date()
