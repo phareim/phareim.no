@@ -55,7 +55,7 @@ export async function handleMovement(
     gameState.coordinates = newCoordinates
 
     return {
-        message: `You move ${getDirectionName(direction)}.\n\n${place.description}`,
+        message: `You move ${getDirectionName(direction)} to ${place.name}.\n\n${place.description}`,
         newPlace: place
     }
 } 

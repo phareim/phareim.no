@@ -4,6 +4,7 @@ import type { ChatCompletionMessageParam } from 'openai/resources/chat/completio
 import { useRuntimeConfig } from '#imports'
 import { handleMovement } from '../rpg/handlers/movement'
 import { handleAIResponse } from '../rpg/handlers/ai'
+import { getCurrentPlace, generateNewPlace } from '../rpg/handlers/place'
 import { loadGameState, saveGameState } from '../rpg/state/game-state'
 
 // Extend GameState type to include messages
@@ -87,20 +88,31 @@ export default defineEventHandler(async (event) => {
 
             case 'examine':
             case 'look':
-            case 'inspect':
-                // Look around
-                const { processedText: lookText, items: lookItems } = await handleAIResponse(
-                    gameState.messages,
-                    gameState,
-                    openai,
-                    args.length > 0 ? `${action} ${args.join(' ')}` : 'look'  // Pass full command if examining specific item
-                )
-                response = lookText
-                newState = {
-                    ...gameState,
-                    inventory: [...gameState.inventory, ...lookItems]
+            case 'inspect': {
+                if (args.length === 0) {
+                    // Describe the current place from the stored world state
+                    let place = await getCurrentPlace(gameState.coordinates)
+                    if (!place) {
+                        place = await generateNewPlace(gameState.coordinates, openai)
+                    }
+                    response = `You take a moment to look around ${place.name}.\n\n${place.description}`
+                    newState = { ...gameState }
+                } else {
+                    // Examine a specific thing using AI, keeping current coordinates context
+                    const { processedText, items } = await handleAIResponse(
+                        gameState.messages,
+                        gameState,
+                        openai,
+                        `${action} ${args.join(' ')}`
+                    )
+                    response = processedText
+                    newState = {
+                        ...gameState,
+                        inventory: [...gameState.inventory, ...items]
+                    }
                 }
                 break
+            }
 
             case 'inventory':
             case 'inv':
