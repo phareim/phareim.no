@@ -3,6 +3,7 @@
 		<!-- Add player location display -->
 		<div class="player-location">
 			<div class="location-label">Player Location:</div>
+			<div class="place-name">{{ playerPlaceName }}</div>
 			<div class="coordinates">{{ playerCoordinates }}</div>
 		</div>
 		<div class="game-output" ref="outputBox">
@@ -80,6 +81,7 @@ const userId = ref('')
 const inputField = ref<HTMLInputElement>()
 const outputBox = ref<HTMLElement>()
 const playerCoordinates = ref('Loading...')
+const playerPlaceName = ref('Loading...')
 let gameStateDoc: any | null = null
 	
 // Game state management
@@ -166,11 +168,13 @@ async function handleCommand() {
 		
 		if ('error' in data) {
 			addMessage(data.error)
-		} else {
-			addMessage(data.response)
-		}
-		// Save game state after each command
-		await saveGameState()
+        } else {
+            addMessage(data.response)
+        }
+        // Save game state after each command
+        await saveGameState()
+        // Refresh location and place name after state change
+        await loadPlayerLocation()
 	} catch (error) {
 		console.error('Error sending command:', error)
 		addMessage('The magical connection seems to be disturbed...')
@@ -263,6 +267,7 @@ async function loadPlayerLocation() {
 		const gameStateDoc = await getDoc(gameStateRef)
 		if (!gameStateDoc.exists()) {
 			playerCoordinates.value = 'No game in progress'
+			playerPlaceName.value = '—'
 			return
 		}
 
@@ -270,13 +275,30 @@ async function loadPlayerLocation() {
 		const coords = gameState?.coordinates
 		if (coords) {
 			playerCoordinates.value = `N: ${coords.north}, W: ${coords.west}`
+			// Also fetch the place name for these coordinates
+			const placeId = `${coords.north},${coords.west}`
+			try {
+				const placeRef = doc($firebase.firestore, 'places', placeId)
+				const placeDoc = await getDoc(placeRef)
+				if (placeDoc.exists()) {
+					const placeData: any = placeDoc.data()
+					playerPlaceName.value = placeData?.name || 'Unknown place'
+				} else {
+					playerPlaceName.value = 'Unknown place'
+				}
+			} catch (e) {
+				console.error('Failed loading place name', e)
+				playerPlaceName.value = 'Unknown place'
+			}
 		} else {
 			playerCoordinates.value = 'Unknown location'
+			playerPlaceName.value = '—'
 		}
-	} catch (error) {
-		console.error('Error loading player location:', error)
-		playerCoordinates.value = 'Error loading location'
-	}
+    } catch (error) {
+        console.error('Error loading player location:', error)
+        playerCoordinates.value = 'Error loading location'
+        playerPlaceName.value = '—'
+    }
 }
 
 // Initialize game
@@ -541,5 +563,10 @@ input {
 .coordinates {
 	color: #33ff33;
 	font-weight: bold;
+}
+
+.place-name {
+    color: #66ff66;
+    font-weight: bold;
 }
 </style>
