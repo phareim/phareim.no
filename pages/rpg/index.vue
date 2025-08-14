@@ -61,7 +61,6 @@ import { useNuxtApp } from '#app'
 import type { Firestore } from 'firebase/firestore'
 import TextWindow from '~/components/rpg/TextWindow.vue'
 import { collection, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
-import type { Item } from '../../types/item'
 import { APIClient } from '~/utils/api-client'
 
 declare module '#app' {
@@ -132,12 +131,21 @@ async function resetGame() {
 		try {
 			const { $firebase } = useNuxtApp()
 			const gameDoc = doc($firebase.firestore, 'games', userId.value)
+			const gameStateDoc = doc($firebase.firestore, 'gameStates', userId.value)
+			
+			// Delete both game messages and game state
 			await deleteDoc(gameDoc)
+			await deleteDoc(gameStateDoc)
 
 			gameMessages.value = ['You find yourself in the middle of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do?']
 			commandHistory.value = []
 			historyIndex.value = -1
 			userInput.value = ''
+			
+			// Reset player location display
+			playerCoordinates.value = 'N: 0, W: 0'
+			playerPlaceName.value = 'Starting area'
+			
 			inputField.value?.focus()
 		} catch (error) {
 			console.error('Error resetting game:', error)
