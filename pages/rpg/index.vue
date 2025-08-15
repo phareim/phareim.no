@@ -181,8 +181,14 @@ async function handleCommand() {
         }
         // Save game state after each command
         await saveGameState()
-        // Refresh location and place name after state change
-        await loadPlayerLocation()
+        // Add a small delay to ensure Firebase state is updated, then refresh location
+        setTimeout(async () => {
+        	try {
+        		await loadPlayerLocation()
+        	} catch (error) {
+        		console.error('Error updating player location:', error)
+        	}
+        }, 500)
 	} catch (error) {
 		console.error('Error sending command:', error)
 		addMessage('The magical connection seems to be disturbed...')
@@ -265,13 +271,23 @@ function handlePlaceClick(name: string) {
 async function loadPlayerLocation() {
 	try {
 		const { $firebase } = useNuxtApp()
-		const userId = localStorage.getItem('rpg_user_id')
-		if (!userId) {
+		
+		// Check if Firebase is properly initialized
+		if (!$firebase?.firestore) {
+			console.error('Firebase not initialized')
+			playerCoordinates.value = 'Connection error'
+			playerPlaceName.value = '—'
+			return
+		}
+		
+		// Use the reactive userId instead of localStorage directly
+		if (!userId.value) {
 			playerCoordinates.value = 'No player found'
+			playerPlaceName.value = '—'
 			return
 		}
 
-		const gameStateRef = doc($firebase.firestore, 'gameStates', userId)
+		const gameStateRef = doc($firebase.firestore, 'gameStates', userId.value)
 		const gameStateDoc = await getDoc(gameStateRef)
 		if (!gameStateDoc.exists()) {
 			playerCoordinates.value = 'No game in progress'
@@ -295,8 +311,9 @@ async function loadPlayerLocation() {
 					playerPlaceName.value = 'Unknown place'
 				}
 			} catch (e) {
-				console.error('Failed loading place name', e)
+				console.error('Failed loading place name:', e)
 				playerPlaceName.value = 'Unknown place'
+				// Don't show error to user for place name failures, just log it
 			}
 		} else {
 			playerCoordinates.value = 'Unknown location'
@@ -309,25 +326,42 @@ async function loadPlayerLocation() {
     }
 }
 
+// Track if component is mounted to prevent memory leaks
+let isMounted = false
+
 // Initialize game
 onMounted(async () => {
+	isMounted = true
+	
 	// Generate a random user ID if not exists
 	userId.value = localStorage.getItem('rpg_user_id') || 
 		Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
 	localStorage.setItem('rpg_user_id', userId.value)
 
-	// Load saved game state
-	await loadGameState()
-	await loadPlayerLocation()
+	try {
+		// Load saved game state
+		await loadGameState()
+		await loadPlayerLocation()
+	} catch (error) {
+		console.error('Error initializing game:', error)
+		addMessage('Error loading game. Please refresh the page.')
+	}
 	
-	// Hold focus on input field
-	inputField.value?.focus()
+	// Hold focus on input field - use nextTick to ensure DOM is ready
+	nextTick(() => {
+		if (isMounted) {
+			inputField.value?.focus()
+		}
+	})
 	
-	// Add keyboard listeners
-	document.addEventListener('keydown', handleKeyDown)
+	// Add keyboard listeners only if still mounted
+	if (isMounted) {
+		document.addEventListener('keydown', handleKeyDown)
+	}
 })
 
 onBeforeUnmount(() => {
+	isMounted = false
 	document.removeEventListener('keydown', handleKeyDown)
 })
 </script>
