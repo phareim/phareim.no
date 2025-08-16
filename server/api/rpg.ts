@@ -26,7 +26,7 @@ const openai = new OpenAI({
     baseURL: "https://api.venice.ai/api/v1"
 })
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event: any) => {
     if (event.method !== 'POST') {
         return {
             error: 'Only POST requests are supported',
@@ -47,14 +47,20 @@ export default defineEventHandler(async (event) => {
                 status: 400
             }
         }
-        // Load game state
+        // Load game state or create new one for new players
         let gameState = await loadGameState(userId) as ExtendedGameState | null
         if (!gameState) {
-            // Handle case where no game state exists yet
-            return {
-                error: 'No game state found. Please start a new game.',
-                status: 404
+            // Initialize new game state for new players
+            gameState = {
+                coordinates: { north: 0, west: 0 },
+                inventory: [],
+                visited: ['0,0'],
+                lastUpdated: new Date(),
+                messages: []
             }
+            // Save the initial state
+            await saveGameState(userId, gameState)
+            console.log('Created new game state for user:', userId)
         }
 
         // Parse command
@@ -72,16 +78,22 @@ export default defineEventHandler(async (event) => {
                 if (args.length === 0) {
                     response = 'Please specify a direction to move (e.g., "go north").'
                 } else {
-                    const direction = args[0]
-                    const { message, newPlace } = await handleMovement(
-                        direction,
-                        gameState,
-                        openai
-                    )
-                    response = message
-                    newState = {
-                        ...gameState,
-                        coordinates: newPlace?.coordinates || gameState.coordinates
+                    try {
+                        const direction = args[0]
+                        const { message, newPlace } = await handleMovement(
+                            direction,
+                            gameState,
+                            openai
+                        )
+                        response = message
+                        newState = {
+                            ...gameState,
+                            coordinates: newPlace?.coordinates || gameState.coordinates
+                        }
+                    } catch (error) {
+                        console.error('Movement error:', error)
+                        response = 'Something went wrong while trying to move. The path seems blocked by mysterious forces.'
+                        newState = { ...gameState }
                     }
                 }
                 break
@@ -98,17 +110,30 @@ export default defineEventHandler(async (event) => {
                     response = `You take a moment to look around ${place.name}.\n\n${place.description}`
                     newState = { ...gameState }
                 } else {
-                    // Examine a specific thing using AI, keeping current coordinates context
-                    const { processedText, items } = await handleAIResponse(
-                        gameState.messages,
-                        gameState,
-                        openai,
-                        `${action} ${args.join(' ')}`
-                    )
-                    response = processedText
-                    newState = {
-                        ...gameState,
-                        inventory: [...gameState.inventory, ...items]
+                    try {
+                        // Examine a specific thing using AI, keeping current coordinates context
+                        const { processedText, items } = await handleAIResponse(
+                            gameState.messages,
+                            gameState,
+                            openai,
+                            `${action} ${args.join(' ')}`
+                        )
+                        response = processedText
+                        // Deduplicate items before adding to inventory
+                        const uniqueNewItems = items.filter(item => !gameState.inventory.includes(item))
+                        newState = {
+                            ...gameState,
+                            inventory: [...gameState.inventory, ...uniqueNewItems],
+                            messages: [
+                                ...gameState.messages,
+                                { role: 'user', content: `${action} ${args.join(' ')}` },
+                                { role: 'assistant', content: processedText }
+                            ]
+                        }
+                    } catch (error) {
+                        console.error('AI examine error:', error)
+                        response = 'Your vision blurs for a moment, making it hard to focus on what you were trying to examine.'
+                        newState = { ...gameState }
                     }
                 }
                 break
@@ -117,21 +142,36 @@ export default defineEventHandler(async (event) => {
             case 'inventory':
             case 'inv':
             case 'i':
-                response = `Your inventory contains: ${gameState.inventory.join(', ')}`
+                response = gameState.inventory.length > 0 
+                    ? `Your inventory contains: ${gameState.inventory.join(', ')}`
+                    : 'Your inventory is empty.'
                 break
 
             default:
-                // Send to AI for processing
-                const { processedText, items } = await handleAIResponse(
-                    gameState.messages,
-                    gameState,
-                    openai,
-                    command  // Pass the full original command
-                )
-                response = processedText
-                newState = {
-                    ...gameState,
-                    inventory: [...gameState.inventory, ...items]
+                try {
+                    // Send to AI for processing
+                    const { processedText, items } = await handleAIResponse(
+                        gameState.messages,
+                        gameState,
+                        openai,
+                        command  // Pass the full original command
+                    )
+                    response = processedText
+                    // Deduplicate items before adding to inventory
+                    const uniqueNewItems = items.filter(item => !gameState.inventory.includes(item))
+                    newState = {
+                        ...gameState,
+                        inventory: [...gameState.inventory, ...uniqueNewItems],
+                        messages: [
+                            ...gameState.messages,
+                            { role: 'user', content: command },
+                            { role: 'assistant', content: processedText }
+                        ]
+                    }
+                } catch (error) {
+                    console.error('AI processing error:', error)
+                    response = 'The magical energies seem unstable. Your action had no effect.'
+                    newState = { ...gameState }
                 }
                 break
         }
