@@ -1,33 +1,23 @@
 <template>
-  <div class="random-fact-container">
+  <div class="random-fact-container" @click="getRandomFact">
     <h1>Random Fact</h1>
-    <p class="random-fact">{{ randomFact }}</p>
-    <button class="random-fact-button" @click="getRandomFact">Get Random Fact</button>
+    <p class="random-fact" v-html="randomFact"></p>
+    <p class="click-hint" v-show="showHint">Click anywhere for a new fact! ✨</p>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
+import { useFetch } from '#app'
 
-const facts = ref([
-    'The first computer program was written in 1843 by Ada Lovelace. 👩🏻‍💻',
-    'The first computer was built in 1880 by Charles Babbage. 🤓',
-    'Bananas are berries, but strawberries aren\'t! 🍌',
-    'A group of flamingos is called a "flamboyance" - how fabulous! 💃',
-    'Octopuses have three hearts and blue blood! 🐙💙',
-    'Honey never spoils - archaeologists found edible honey in Egyptian tombs!',
-    'A shrimp\'s heart is in its head! 🦐',
-    'Wombat poop is cube-shaped! Perfect for stacking! 📦',
-    'Penguins propose to their mates with pebbles! 🐧💍',
-    'Sea otters hold hands while sleeping so they don\'t drift apart! 🦦',
-    'Cats can\'t taste sweetness - they\'re missing that taste receptor! 🐱',
-    'There are more possible chess games than atoms in the observable universe!'
-  ])
+const { data: facts } = await useFetch('/api/random-facts')
 
-const randomFact = ref(facts.value[Math.floor(Math.random() * facts.value.length)])
+const randomFact = ref(facts.value[0].fact)
+const showHint = ref(true)
 
 const getRandomFact = () => {
-  randomFact.value = facts.value[Math.floor(Math.random() * facts.value.length)]
+  randomFact.value = facts.value[Math.floor(Math.random() * facts.value.length)].fact
+  showHint.value = false
 }
 
 </script>
@@ -44,23 +34,28 @@ display: none;
   height: 100vh;
   max-width: 800px;
   margin: 0 auto;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  padding: 2rem;
+}
+.random-fact-container:hover {
+  transform: scale(1.02);
 }
 .random-fact {
   font-size: 2.3rem;
   font-weight: bold;
   text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
   margin: 0;
+  text-align: center;
 }
-.random-fact-button {
-  background-color: #fff;
-  color: #000;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
+.click-hint {
   margin-top: 2rem;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  animation: pulse 2s infinite;
 }
-.random-fact-button:hover {
-  box-shadow: 0 0 10px rgba(200,200,200,0.8);
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 </style>
