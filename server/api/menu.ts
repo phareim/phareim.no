@@ -6,6 +6,7 @@ const menuItems = [
   { path: '/drafts/about', title: 'About', icon: '📄' },
   { path: '/drafts/bounce', title: 'Bounce', icon: '⚽️' },
   { path: '/drafts/image-generator', title: 'Image', icon: '👩🏻‍🎨' },
+  { path: '/drafts/random-fact', title: 'Random Fact', icon: '🎲', external: false },
   /*{ path: '/blog', title: 'Blog', icon: '📬' },
   { path: '/blog/new', title: 'New Blog Post', icon: '📬' },*/
   { path: '/rpg', title: 'Old Skool RPG', icon: '🤓', external: false },
