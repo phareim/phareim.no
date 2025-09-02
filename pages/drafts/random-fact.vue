@@ -10,13 +10,16 @@
 import { ref } from 'vue'
 import { useFetch } from '#app'
 
-const { data: facts } = await useFetch('/api/random-facts')
+const { data: fact } = await useFetch('/api/random-fact')
 
-const randomFact = ref(facts.value[0].fact)
+const randomFact = ref(fact.value.fact)
 const showHint = ref(true)
 
-const getRandomFact = () => {
-  randomFact.value = facts.value[Math.floor(Math.random() * facts.value.length)].fact
+const getRandomFact = async () => {
+  const { data: newFact } = await useFetch('/api/random-fact', {
+    key: Date.now().toString() // Force fresh request each time
+  })
+  randomFact.value = newFact.value.fact
   showHint.value = false
 }
 
