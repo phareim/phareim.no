@@ -1,85 +1,52 @@
-import { defineEventHandler, getRouterParam, readBody } from 'h3'
-import { db } from '../../utils/firebase-admin'
-import type { BlogPost } from '../../../types/blogpost'
-import { validateBlogPost, blogpostsCollection } from '../../../types/blogpost'
+import { defineEventHandler, getRouterParam, createError } from 'h3'
+import { readFileSync, existsSync } from 'fs'
+import { join } from 'path'
+import MarkdownIt from 'markdown-it'
+
+const md = new MarkdownIt()
 
 export default defineEventHandler(async (event) => {
-    try {
-        const slug = getRouterParam(event, 'slug')
-        if (!slug) {
-            return {
-                error: 'Blog post slug is required',
-                status: 400
-            }
-        }
-
-        const postRef = db.collection(blogpostsCollection).doc(slug)
-
-        // GET request – retrieve blog post
-        if (event.method === 'GET') {
-            const doc = await postRef.get()
-            if (!doc.exists) {
-                return {
-                    error: 'Blog post not found',
-                    status: 404
-                }
-            }
-            return { id: doc.id, ...doc.data() } as BlogPost
-        }
-
-        // PUT request – update blog post
-        if (event.method === 'PUT') {
-            const body = await readBody(event)
-
-            if (!validateBlogPost({ ...body, slug })) {
-                return {
-                    error: 'Invalid blog post data. Title and content are required.',
-                    status: 400
-                }
-            }
-
-            const updateData: Partial<BlogPost> = {
-                title: body.title,
-                content: body.content,
-                excerpt: body.excerpt,
-                author: body.author,
-                date: body.date,
-                updatedAt: new Date()
-            }
-
-            await postRef.update(updateData)
-
-            return {
-                id: slug,
-                ...updateData
-            }
-        }
-
-        // DELETE request – delete blog post
-        if (event.method === 'DELETE') {
-            const doc = await postRef.get()
-            if (!doc.exists) {
-                return {
-                    error: 'Blog post not found',
-                    status: 404
-                }
-            }
-
-            await postRef.delete()
-            return { message: 'Blog post deleted successfully', id: slug }
-        }
-
-        // Method not allowed
-        return {
-            error: 'Method not allowed',
-            status: 405
-        }
-    } catch (error: any) {
-        console.error('Error in blogpost handler:', error)
-        return {
-            error: 'Internal server error',
-            details: error?.message || 'Unknown error',
-            status: 500
-        }
+    const slug = getRouterParam(event, 'slug')
+    if (!slug) {
+        throw createError({ statusCode: 400, statusMessage: 'Blog post slug is required' })
     }
+
+    if (event.method === 'GET') {
+        const blogDir = join(process.cwd(), 'blog')
+        const filePath = join(blogDir, `${slug}.md`)
+        if (!existsSync(filePath)) {
+            throw createError({ statusCode: 404, statusMessage: 'Blog post not found' })
+        }
+        const content = readFileSync(filePath, 'utf-8')
+        const lines = content.split('\n')
+        let title = slug.replace(/-/g, ' ').replace(/^\d{4}-\d{2}-\d{2}-/, '')
+        let date = new Date().toISOString().split('T')[0]
+        let contentStart = 0
+        if (lines[0]?.trim() === '---') {
+            const frontMatterEnd = lines.findIndex((line, index) => index > 0 && line.trim() === '---')
+            if (frontMatterEnd !== -1) {
+                for (let i = 1; i < frontMatterEnd; i++) {
+                    const line = lines[i]
+                    if (line.startsWith('title:')) {
+                        title = line.replace('title:', '').trim().replace(/['"]/g, '')
+                    } else if (line.startsWith('date:')) {
+                        date = line.replace('date:', '').trim()
+                    }
+                }
+                contentStart = frontMatterEnd + 1
+            }
+        } else {
+            const dateMatch = slug.match(/^(\d{4}-\d{2}-\d{2})/)
+            if (dateMatch) {
+                date = dateMatch[1]
+                title = slug.replace(/^\d{4}-\d{2}-\d{2}-/, '').replace(/-/g, ' ')
+            }
+        }
+        const markdownContent = lines.slice(contentStart).join('\n').trim()
+        const htmlContent = md.render(markdownContent)
+        return { slug, title: title.charAt(0).toUpperCase() + title.slice(1), date, content: htmlContent }
+    }
+
+    // All write operations disabled in filesystem-backed mode
+    throw createError({ statusCode: 410, statusMessage: 'Blog posts are now filesystem-backed. Writing via API is disabled.' })
 })
