@@ -50,7 +50,7 @@ export default {
       } finally {
         this.loading = false
       }
-    }
+    },
     formatDate(dateString) {
       return new Date(dateString).toLocaleDateString('nb-NO', {
         year: 'numeric',
