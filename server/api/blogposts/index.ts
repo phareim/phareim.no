@@ -1,8 +1,9 @@
-import { defineEventHandler, getQuery, readBody } from 'h3'
-import { db } from '../../utils/firebase-admin'
-import type { BlogPost } from '../../../types/blogpost'
-import { validateBlogPost, blogpostsCollection } from '../../../types/blogpost'
-import type { Query, CollectionReference } from 'firebase-admin/firestore'
+import { defineEventHandler, getQuery, createError } from 'h3'
+import { readFileSync, readdirSync, existsSync } from 'fs'
+import { join } from 'path'
+import MarkdownIt from 'markdown-it'
+
+const md = new MarkdownIt()
 
 // Helper function to generate slug from title if not provided
 function slugify(text: string): string {
@@ -15,84 +16,57 @@ function slugify(text: string): string {
         .replace(/^\-+|\-+$/g, '')
 }
 
-export default defineEventHandler(async (event) => {
+// Minimal parser similar to /api/blog to keep backward compatibility for GET
+function parseMarkdownFile(filePath: string, slug: string) {
     try {
-        // GET request – retrieve list of blog posts
-        if (event.method === 'GET') {
-            const query = getQuery(event)
-            const { author } = query as { author?: string }
-
-            let postsRef: Query | CollectionReference = db.collection(blogpostsCollection)
-
-            if (author) {
-                postsRef = postsRef.where('author', '==', author)
-            }
-
-            // Order by creation date (newest first) if the field exists
-            postsRef = (postsRef as CollectionReference).orderBy?.('createdAt', 'desc') || postsRef
-
-            const snapshot = await postsRef.get()
-            const posts = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as BlogPost[]
-
-            return { posts }
-        }
-
-        // POST request – create a new blog post
-        if (event.method === 'POST') {
-            const body = await readBody(event)
-
-            if (!validateBlogPost(body)) {
-                return {
-                    error: 'Invalid blog post data. Title and content are required.',
-                    status: 400
+        const content = readFileSync(filePath, 'utf-8')
+        const lines = content.split('\n')
+        let title = slug.replace(/-/g, ' ').replace(/^\d{4}-\d{2}-\d{2}-/, '')
+        let date = new Date().toISOString().split('T')[0]
+        let contentStart = 0
+        if (lines[0]?.trim() === '---') {
+            const frontMatterEnd = lines.findIndex((line, index) => index > 0 && line.trim() === '---')
+            if (frontMatterEnd !== -1) {
+                for (let i = 1; i < frontMatterEnd; i++) {
+                    const line = lines[i]
+                    if (line.startsWith('title:')) {
+                        title = line.replace('title:', '').trim().replace(/['"]/g, '')
+                    } else if (line.startsWith('date:')) {
+                        date = line.replace('date:', '').trim()
+                    }
                 }
+                contentStart = frontMatterEnd + 1
             }
-
-            const slug = body.slug ? String(body.slug) : slugify(body.title)
-            const postRef = db.collection(blogpostsCollection).doc(slug)
-            const existing = await postRef.get()
-
-            if (existing.exists) {
-                return {
-                    error: 'A blog post with this slug already exists',
-                    status: 409
-                }
-            }
-
-            const now = new Date()
-            const postData: Omit<BlogPost, 'id'> = {
-                slug,
-                title: body.title,
-                content: body.content,
-                excerpt: body.excerpt || (body.content.length > 150 ? body.content.substring(0, 147) + '...' : body.content),
-                author: body.author,
-                date: body.date || now.toISOString().split('T')[0],
-                createdAt: now,
-                updatedAt: now
-            }
-
-            await postRef.set(postData)
-
-            return {
-                id: slug,
-                ...postData
+        } else {
+            const dateMatch = slug.match(/^(\d{4}-\d{2}-\d{2})/)
+            if (dateMatch) {
+                date = dateMatch[1]
+                title = slug.replace(/^\d{4}-\d{2}-\d{2}-/, '').replace(/-/g, ' ')
             }
         }
-
-        // Method not allowed
-        return {
-            error: 'Method not allowed',
-            status: 405
-        }
-    } catch (error: any) {
-        console.error('Error in blogposts handler:', error)
-        return {
-            error: 'Internal server error',
-            details: error?.message || 'Unknown error',
-            status: 500
-        }
+        const markdownContent = lines.slice(contentStart).join('\n').trim()
+        const htmlContent = md.render(markdownContent)
+        const textContent = markdownContent.replace(/[#*`]/g, '').trim()
+        const firstParagraph = textContent.split('\n\n')[0]
+        const excerpt = firstParagraph.length > 150 ? firstParagraph.substring(0, 150) + '...' : firstParagraph
+        return { slug, title: title.charAt(0).toUpperCase() + title.slice(1), date, excerpt, content: htmlContent }
+    } catch {
+        return null
     }
+}
+
+export default defineEventHandler(async (event) => {
+    if (event.method === 'GET') {
+        const blogDir = join(process.cwd(), 'blog')
+        if (!existsSync(blogDir)) {
+            return { posts: [] }
+        }
+        const files = readdirSync(blogDir).filter(f => f.endsWith('.md'))
+        const posts = files.map(file => parseMarkdownFile(join(blogDir, file), file.replace('.md', ''))).filter(Boolean)
+        posts.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        return { posts }
+    }
+
+    // All write operations disabled in filesystem-backed mode
+    throw createError({ statusCode: 410, statusMessage: 'Blog posts are now filesystem-backed. Writing via API is disabled.' })
 })

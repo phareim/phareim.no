@@ -1,41 +1,29 @@
 <template>
   <div class="blog-container">
-    <div v-if="!selectedPost" class="blog-list">
+    <div class="blog-list">
       <h1>Blog</h1>
       <div v-if="loading" class="loading">Loading blog posts...</div>
       <div v-else-if="error" class="error">{{ error }}</div>
       <div v-else-if="posts.length === 0" class="no-posts">No blog posts found.</div>
       <div v-else class="posts-grid">
-        <article v-for="post in posts" :key="post.slug" class="post-card" @click="selectPost(post)">
+        <NuxtLink v-for="post in posts" :key="post.slug" class="post-card" :to="`/blog/${post.slug}`">
           <h2>{{ post.title }}</h2>
           <p class="post-meta">{{ formatDate(post.date) }}</p>
           <p class="post-excerpt">{{ post.excerpt }}</p>
-        </article>
+        </NuxtLink>
       </div>
     </div>
-    
-    <div v-else class="blog-post">
-      <button @click="goBack" class="back-button">← Back to Blog</button>
-      <article>
-        <h1>{{ selectedPost.title }}</h1>
-        <p class="post-meta">{{ formatDate(selectedPost.date) }}</p>
-        <div v-html="selectedPost.content" class="post-content"></div>
-      </article>
-    </div>
   </div>
+  
 </template>
 
 <script>
-import MarkdownIt from 'markdown-it'
-
 export default {
   data() {
     return {
       posts: [],
-      selectedPost: null,
       loading: true,
-      error: null,
-      md: new MarkdownIt()
+      error: null
     }
   },
   async mounted() {
@@ -49,30 +37,19 @@ export default {
     async loadPosts() {
       try {
         this.loading = true
-        const response = await fetch('/api/blogposts')
+        const response = await fetch('/api/blog')
         if (!response.ok) {
           throw new Error('Failed to fetch blog posts')
         }
 
         const data = await response.json()
-        // The API returns { posts: [...] }
-        this.posts = Array.isArray(data.posts) ? data.posts : data
+        this.posts = Array.isArray(data) ? data : []
       } catch (error) {
         this.error = error.message
         console.error('Error loading blog posts:', error)
       } finally {
         this.loading = false
       }
-    },
-    selectPost(post) {
-      // Render markdown to HTML when reading a single post
-      this.selectedPost = {
-        ...post,
-        content: this.md.render(post.content || '')
-      }
-    },
-    goBack() {
-      this.selectedPost = null
     },
     formatDate(dateString) {
       return new Date(dateString).toLocaleDateString('nb-NO', {
