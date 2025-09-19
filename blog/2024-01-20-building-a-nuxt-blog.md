@@ -1,43 +1,41 @@
 ---
-title: "Building a Nuxt.js Blog with Markdown"
+title: "Bygge en Nuxt.js-blogg med Markdown"
 date: "2024-01-20"
+summary: "I dag vil jeg dele hvordan jeg bygget dette bloggsystemet ved hjelp av Nuxt.js og markdown-filer. Det er en enkel, men effektiv tilnærming som gir deg full kontroll over innholdet ditt."
 ---
+I dag vil jeg dele hvordan jeg bygget dette bloggsystemet ved hjelp av Nuxt.js og markdown-filer. Det er en enkel, men effektiv tilnærming som gir deg full kontroll over innholdet ditt.
 
-# Building a Nuxt.js Blog with Markdown
+## Arkitekturen
 
-Today I want to share how I built this blog system using Nuxt.js and markdown files. It's a simple but effective approach that gives you full control over your content.
+Bloggsystemet består av flere nøkkelkomponenter:
 
-## The Architecture
+### 1. Filbasert innhold
+Alle blogginnlegg er lagret som markdown-filer i `/blog/`-katalogen. Denne tilnærmingen har flere fordeler:
 
-The blog system consists of several key components:
+- **Versjonskontroll** - Innholdet ditt er versjonert sammen med koden din
+- **Enkelhet** - Ingen databaseoppsett kreves
+- **Portabilitet** - Lett å migrere eller sikkerhetskopiere
+- **Ytelse** - Statisk innhold laster raskt
 
-### 1. File-based Content
-All blog posts are stored as markdown files in the `/blog/` directory. This approach has several advantages:
+### 2. API-endepunkt
+`/api/blog`-endepunktet leser markdown-filene og parser dem til JSON. Det håndterer:
 
-- **Version control** - Your content is versioned along with your code
-- **Simplicity** - No database setup required
-- **Portability** - Easy to migrate or backup
-- **Performance** - Static content loads fast
+- Parsing av front matter (tittel, dato, osv.)
+- Konvertering fra Markdown til HTML ved hjelp av `markdown-it`
+- Automatisk generering av sammendrag
+- Datobasert sortering
 
-### 2. API Endpoint
-The `/api/blog` endpoint reads the markdown files and parses them into JSON. It handles:
+### 3. Vue.js-frontend
+Bloggsiden (`/blog`) gir et rent grensesnitt som:
 
-- Front matter parsing (title, date, etc.)
-- Markdown to HTML conversion using `markdown-it`
-- Automatic excerpt generation
-- Date-based sorting
+- Lister opp alle blogginnlegg
+- Viser individuelle innlegg når de klikkes
+- Inkluderer en tilbake-knapp for navigasjon
+- Støtter både lys og mørk tema
 
-### 3. Vue.js Frontend
-The blog page (`/blog`) provides a clean interface that:
+## Kodeeksempel
 
-- Lists all blog posts
-- Shows individual posts when clicked
-- Includes a back button for navigation
-- Supports both light and dark themes
-
-## Code Example
-
-Here's how the API endpoint parses markdown files:
+Slik parser API-endepunktet markdown-filer:
 
 ```typescript
 function parseMarkdownFile(filePath: string, slug: string): BlogPost | null {
@@ -46,24 +44,24 @@ function parseMarkdownFile(filePath: string, slug: string): BlogPost | null {
   
   // Parse front matter
   if (lines[0]?.trim() === '---') {
-    // Extract metadata...
+    // Hent ut metadata...
   }
   
-  // Convert markdown to HTML
+  // Konverter markdown til HTML
   const htmlContent = md.render(markdownContent)
   
   return { slug, title, date, excerpt, content: htmlContent }
 }
 ```
 
-## Benefits of This Approach
+## Fordeler med denne tilnærmingen
 
-1. **Fast Development** - No complex CMS setup
-2. **Great SEO** - Server-side rendering with Nuxt.js
-3. **Developer Friendly** - Write posts in your favorite editor
-4. **Customizable** - Full control over styling and functionality
+1. **Rask utvikling** - Ingen komplekst CMS-oppsett
+2. **Flott SEO** - Server-side rendering med Nuxt.js
+3. **Utviklervennlig** - Skriv innlegg i din favorittredigerer
+4. **Tilpassbart** - Full kontroll over styling og funksjonalitet
 
-This approach works great for personal blogs, documentation sites, or any project where you want to keep things simple and maintainable.
+Denne tilnærmingen fungerer utmerket for personlige blogger, dokumentasjonssider, eller ethvert prosjekt hvor du ønsker å holde ting enkelt og vedlikeholdbart.
 
 
-What do you think? Have you built similar systems before?
+Hva synes du? Har du bygget lignende systemer før?
