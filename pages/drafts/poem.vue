@@ -1,6 +1,42 @@
 <template>
-  <div class="poem">
-    <h1 v-html="randomPoem"></h1>
+  <div class="poem-container">
+    <div class="poem-header">
+      <h1>🎭 The Terrible Poem Generator 🎭</h1>
+      <p>Enter a theme and witness poetry so bad it's brilliant!</p>
+    </div>
+    
+    <form @submit.prevent="generatePoem" class="poem-form">
+      <div class="input-group">
+        <label for="theme" class="theme-label">What should this masterpiece be about? 🤔</label>
+        <input
+          id="theme"
+          v-model="themeForPoem"
+          type="text"
+          placeholder="e.g., pizza, unicorns, Monday mornings..."
+          class="theme-input"
+          required
+        />
+      </div>
+      <button 
+        type="submit" 
+        class="generate-btn"
+        :disabled="isLoading"
+      >
+        {{ isLoading ? '🎨 Crafting Terrible Art...' : '🚀 Generate Bad Poetry!' }}
+      </button>
+    </form>
+
+    <div v-if="randomPoem" class="poem-display">
+      <h2>Your Magnificently Awful Poem:</h2>
+      <div class="poem-content" v-html="randomPoem"></div>
+      <button @click="generatePoem" class="regenerate-btn">
+        🔄 Make it Even Worse!
+      </button>
+    </div>
+
+    <div v-if="error" class="error-message">
+      <p>😅 Oops! Even our bad poetry generator had a bad day: {{ error }}</p>
+    </div>
   </div>
 </template>
 
@@ -8,52 +44,199 @@
 export default {
   data() {
     return {
-      poems: [
-        'this is<br>a terrible<br>poem',
-        'yet another bad<br>poem',
-        'roses are red<br>violets are blue<br>sugar is sweet<br>and so are you',
-        'twinkle twinkle<br>little star<br>how I wonder<br>what you are',
-        'a short verse<br>of nonsense<br>that makes<br>no sense',
-        'why did I<br>write this<br>poem<br>no one knows',
-        'in the dark<br>of the night<br>this poem<br>has no light',
-        'falling leaves<br>crunchy steps<br>poetry so bad<br>everyone weeps',
-        'cats and dogs<br>rain and fog<br>random words<br>in a blog',
-        'sunset glow<br>winds that blow<br>words that don’t<br>really flow',
-        'bumpy roads<br>heavy loads<br>this poem<br>quickly erodes',
-        'moon so bright<br>starry night<br>rhymes that lack<br>any bite',
-        'coffee cup<br>fill it up<br>writing poems<br>what’s the pup',
-        'silly goose<br>on the loose<br>writing poems<br>is a ruse',
-        'big blue sky<br>wonder why<br>this poem<br>makes me sigh',
-        'hungry bear<br>empty lair<br>poetry<br>isn’t fair',
-        'broken rhyme<br>out of time<br>this poem<br>is a crime',
-        'chilly breeze<br>autumn leaves<br>bad poems<br>no one needs',
-        'reading this<br>is quite a miss<br>poetry<br>gone amiss',
-        'mountain tall<br>waterfall<br>bad poems<br>beat them all',
-        'toaster burns<br>life’s turns<br>writing bad<br>poems learns',
-        'raindrops fall<br>standing tall<br>poems that<br>make no call',
-        'lazy days<br>hazy ways<br>bad poems<br>never pays',
-        'city lights<br>endless nights<br>poetry<br>lacks the heights',
-        'this is yet<br>another<br>bad poem<br>for you',
-        'writing words<br>flying birds<br>poetry<br>that hurts',
-        'lost my way<br>in the fray<br>this poem<br>won’t stay',
-        'sugar sweet<br>under feet<br>writing bad<br>poems neat',
-        'empty page<br>thoughts engage<br>bad poetry<br>on stage'
-      ],
       randomPoem: '',
+      themeForPoem: '',
+      isLoading: false,
+      error: null,
     };
   },
-  mounted() {
-    this.randomPoem = this.getRandomPoem();
-  },
   methods: {
-    getRandomPoem() {
-      const randomIndex = Math.floor(Math.random() * this.poems.length);
-      return this.poems[randomIndex];
+    async generatePoem() {
+      if (!this.themeForPoem.trim()) return;
+      
+      this.isLoading = true;
+      this.error = null;
+      
+      try {
+        console.log('Generating poem for theme:', this.themeForPoem.trim());
+        const { data: poem } = await $fetch('/api/write-a-bad-poem', {
+          query: {
+            theme_for_poem: this.themeForPoem.trim()
+          }
+        });
+        this.randomPoem = poem.poem;
+      } catch (err) {
+        this.error = 'Failed to generate your terrible poem. Try again!';
+        console.error('Poem generation error:', err);
+      } finally {
+        this.isLoading = false;
+      }
     },
   },
 };
 </script>
 
-<style>
-  /* ... dine stiler ... */
+<style scoped>
+.poem-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+}
+
+.poem-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.poem-header h1 {
+  font-size: 2.5rem;
+  color: #ff6b6b;
+  margin-bottom: 1rem;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+.poem-header p {
+  font-size: 1.2rem;
+  color: #666;
+  font-style: italic;
+}
+
+.poem-form {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2.5rem;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  margin-bottom: 3rem;
+}
+
+.input-group {
+  margin-bottom: 2rem;
+}
+
+.theme-label {
+  display: block;
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.theme-input {
+  width: 100%;
+  padding: 1.5rem 0;
+  font-size: 1.2rem;
+  border: none;
+  border-radius: 8px;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);
+  text-align: center;
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+.theme-input:focus {
+  outline: none;
+  transform: scale(1.02);
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.2), 0 0 20px rgba(255,255,255,0.3);
+}
+
+.generate-btn {
+  width: 100%;
+  padding: 1.5rem;
+  font-size: 1.3rem;
+  font-weight: bold;
+  background: linear-gradient(45deg, #ff6b6b, #ffa500);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.generate-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(255,107,107,0.4);
+}
+
+.generate-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.poem-display {
+  background: #f8f9fa;
+  padding: 2.5rem;
+  border-radius: 20px;
+  border-left: 5px solid #ff6b6b;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.poem-display h2 {
+  color: #333;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-size: 1.5rem;
+}
+
+.poem-content {
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: #444;
+  white-space: pre-line;
+  text-align: center;
+  font-style: italic;
+  margin-bottom: 2rem;
+}
+
+.regenerate-btn {
+  display: block;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.regenerate-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.error-message {
+  background: #ffe6e6;
+  border: 2px solid #ff6b6b;
+  border-radius: 10px;
+  padding: 1.5rem;
+  text-align: center;
+  color: #d63384;
+  font-weight: bold;
+}
+
+@media (max-width: 768px) {
+  .poem-container {
+    padding: 1rem;
+  }
+  
+  .poem-header h1 {
+    font-size: 2rem;
+  }
+  
+  .poem-form {
+    padding: 1.5rem;
+  }
+  
+  .theme-input, .generate-btn {
+    padding: 1rem;
+    font-size: 1rem;
+  }
+}
 </style>
