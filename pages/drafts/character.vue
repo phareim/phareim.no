@@ -82,7 +82,7 @@
 
 <script setup>
 const white_background = "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/white.jpeg?alt=media&token=fb404268-e1e8-4a3a-a2d1-8d5995047dd3"
-const character = ref({
+const characterData = {
   name: "Aria Kling",
   title: "Gundam Fighter Pilot",
   imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/iE2tXbWU13A-Zyy2hZaHh.jpeg?alt=media&token=a8418aa2-7bd4-44aa-a407-5eb7fdac901c",
@@ -110,7 +110,8 @@ const character = ref({
       description: "Enhanced accuracy and critical hit chance"
     },
   ]
-})
+}
+const character = ref(characterData)
 
 // State management for the sequence: loading -> walk_in -> image -> idle_video -> image (loop)
 const currentState = ref('loading')
@@ -210,6 +211,7 @@ const startIdleCycle = () => {
   idleTimer = setTimeout(() => {
     currentState.value = 'idle_video'
   }, idleCycle)
+  idleCycle = Math.floor(Math.random() * 27000) + 3000
 }
 
 // Handle idle video events
@@ -256,6 +258,7 @@ onUnmounted(() => {
 
 .character-image {
   flex: 0 0 300px;
+  
 }
 
 .portrait {
