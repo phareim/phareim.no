@@ -3,20 +3,44 @@
     <div class="character-container">
       <!-- Left side - Character Image -->
       <div class="character-image">
+        <!-- White background during loading -->
         <img 
-          v-if="!showVideo"
+          v-if="currentState === 'loading'"
+          :src="white_background" 
+          alt="Loading..."
+          class="portrait"
+        />
+        
+        <!-- Walk-in video -->
+        <video 
+          v-if="currentState === 'walk_in'"
+          ref="walkInVideo"
+          :src="character.videoUrls.walk_in"
+          class="portrait"
+          muted
+          :poster="character.imageUrl"
+          @ended="onWalkInEnded"
+          @loadeddata="onWalkInLoaded"
+        />
+        
+        <!-- Static character image -->
+        <img 
+          v-if="currentState === 'image'"
           :src="character.imageUrl" 
           alt="Character Portrait"
           class="portrait"
         />
+        
+        <!-- Idle animation video -->
         <video 
-          v-if="showVideo"
+          v-if="currentState === 'idle_video'"
           ref="idleVideo"
           :src="character.videoUrls.idle"
           class="portrait"
           muted
-          @ended="onVideoEnded"
-          @loadeddata="onVideoLoaded"
+          :poster="character.imageUrl"
+          @ended="onIdleVideoEnded"
+          @loadeddata="onIdleVideoLoaded"
         />
       </div>
 
@@ -63,7 +87,6 @@ const character = ref({
   imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/iE2tXbWU13A-Zyy2hZaHh.jpeg?alt=media&token=a8418aa2-7bd4-44aa-a407-5eb7fdac901c",
   background: "Born in the outskirts of Neo Tokyo, Aria discovered her unique ability to pilot Gundam at a young age. After her village was destroyed by dark forces, she dedicated her life to hunting down those who threaten the innocent. Her keen eyes and steady hands make her a formidable opponent from any distance.",
   stats: [
-    { label: "Level", value: "12" },
     { label: "Strength", value: "14" },
     { label: "Dexterity", value: "18" },
     { label: "Intelligence", value: "16" },
@@ -88,36 +111,111 @@ const character = ref({
   ]
 })
 
-// Reactive state for video/image display
-const showVideo = ref(false)
+// State management for the sequence: loading -> walk_in -> image -> idle_video -> image (loop)
+const currentState = ref('loading')
+const walkInVideo = ref(null)
 const idleVideo = ref(null)
 let idleTimer = null
 let idleCycle = 3000
 
+// Track loading status of all media
+const mediaLoaded = ref({
+  white_background: false,
+  character_image: false,
+  walk_in_video: false,
+  idle_video: false
+})
+
+// Preload all media
+const preloadMedia = async () => {
+  const promises = []
+  
+  // Preload white background
+  promises.push(new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      mediaLoaded.value.white_background = true
+      resolve()
+    }
+    img.src = white_background
+  }))
+  
+  // Preload character image
+  promises.push(new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      mediaLoaded.value.character_image = true
+      resolve()
+    }
+    img.src = character.value.imageUrl
+  }))
+  
+  // Preload walk-in video
+  promises.push(new Promise((resolve) => {
+    const video = document.createElement('video')
+    video.oncanplaythrough = () => {
+      mediaLoaded.value.walk_in_video = true
+      resolve()
+    }
+    video.src = character.value.videoUrls.walk_in
+    video.load()
+  }))
+  
+  // Preload idle video
+  promises.push(new Promise((resolve) => {
+    const video = document.createElement('video')
+    video.oncanplaythrough = () => {
+      mediaLoaded.value.idle_video = true
+      resolve()
+    }
+    video.src = character.value.videoUrls.idle
+    video.load()
+  }))
+  
+  // Wait for all media to load, then start the sequence
+  await Promise.all(promises)
+  startSequence()
+}
+
+// Start the complete sequence
+const startSequence = () => {
+  currentState.value = 'walk_in'
+}
+
+// Handle walk-in video events
+const onWalkInLoaded = () => {
+  if (walkInVideo.value) {
+    walkInVideo.value.play()
+  }
+}
+
+const onWalkInEnded = () => {
+  currentState.value = 'image'
+  startIdleCycle()
+}
+
 // Start the idle animation cycle
 const startIdleCycle = () => {
   idleTimer = setTimeout(() => {
-    showVideo.value = true
-  }, idleCycle) // 3 seconds delay
-  idleCycle = idleCycle + 9000
+    currentState.value = 'idle_video'
+  }, idleCycle)
 }
 
-// Handle when video finishes playing
-const onVideoEnded = () => {
-  showVideo.value = false
-  // Restart the cycle startIdleCycle()
-}
-
-// Handle when video is loaded and ready
-const onVideoLoaded = () => {
+// Handle idle video events
+const onIdleVideoLoaded = () => {
   if (idleVideo.value) {
     idleVideo.value.play()
   }
 }
 
-// Start the cycle when component mounts
+const onIdleVideoEnded = () => {
+  currentState.value = 'image'
+  startIdleCycle() // Restart the cycle
+}
+
+// Start preloading when component mounts
 onMounted(() => {
-  startIdleCycle()
+  preloadMedia()
 })
 
 // Clean up timer when component unmounts
