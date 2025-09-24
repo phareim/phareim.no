@@ -47,10 +47,14 @@
 
       <!-- Right side - Character Details -->
       <div class="character-details">
-        <div class="character-header">
-          <h1 class="character-name">{{ character.name }}</h1>
-          <p class="character-title">{{ character.title }}</p>
+        <div v-if="characterLoading" class="loading-state">
+          <h1>Loading character data...</h1>
         </div>
+        <div v-else-if="character" class="character-content">
+          <div class="character-header">
+            <h1 class="character-name">{{ character.name }}</h1>
+            <p class="character-title">{{ character.title }}</p>
+          </div>
 
         <div class="character-background">
           <h2>Background</h2>
@@ -75,6 +79,7 @@
             </li>
           </ul>
         </div>
+        </div>
       </div>
     </div>
   </div>
@@ -82,36 +87,54 @@
 
 <script setup>
 const white_background = "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/white.jpeg?alt=media&token=fb404268-e1e8-4a3a-a2d1-8d5995047dd3"
-const characterData = {
-  name: "Aria Kling",
-  title: "Gundam Fighter Pilot",
-  imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/iE2tXbWU13A-Zyy2hZaHh.jpeg?alt=media&token=a8418aa2-7bd4-44aa-a407-5eb7fdac901c",
-  background: "Born in the outskirts of Neo Tokyo, Aria discovered her unique ability to pilot Gundam at a young age. After her village was destroyed by dark forces, she dedicated her life to hunting down those who threaten the innocent. Her keen eyes and steady hands make her a formidable opponent from any distance.",
-  stats: [
-    { label: "Strength", value: "14" },
-    { label: "Dexterity", value: "18" },
-    { label: "Intelligence", value: "16" },
-    { label: "Wisdom", value: "15" },
-    { label: "Constitution", value: "13" },
-    { label: "Charisma", value: "12" }
-  ],
-  videoUrls: {
-    walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/blue-walk-in.mp4?alt=media&token=65556ebd-c13f-4d91-b920-2d0b2960bfcc",
-    walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/blue-walk-out.mp4?alt=media&token=9b8a1b52-05b0-47e9-9546-434c83240e56",
-    idle: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/kling_20250924_Image_to_Video_The_female_1510_0.mp4?alt=media&token=6f802422-ce5c-4896-a049-d8c68f86bbd7"
-  },
-  abilities: [
-    {
-      name: "Gundam Pilot",
-      description: "Pilot of the Gundam"
-    },
-    {
-      name: "Eagle Eye",
-      description: "Enhanced accuracy and critical hit chance"
-    },
-  ]
+// Fetch character data from API
+const character = ref(null)
+const characterLoading = ref(true)
+
+// Fetch character data on component mount
+const fetchCharacterData = async () => {
+  try {
+    const data = await $fetch('/api/characters')
+    // Get the first character (Aria Kling)
+    if (data && data.length > 0) {
+      character.value = data[0]
+    }
+  } catch (error) {
+    console.error('Failed to fetch character data:', error)
+    // Fallback to default character data if API fails
+    character.value = {
+      name: "Default Character",
+      title: "Default Title",
+      imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/iE2tXbWU13A-Zyy2hZaHh.jpeg?alt=media&token=a8418aa2-7bd4-44aa-a407-5eb7fdac901c",
+      background: "A very boring character. I'm just filling this out to make it look like a real character.",
+      stats: [
+        { label: "Strength", value: "1" },
+        { label: "Dexterity", value: "2" },
+        { label: "Intelligence", value: "3" },
+        { label: "Wisdom", value: "4" },
+        { label: "Constitution", value: "5" },
+        { label: "Charisma", value: "6" }
+      ],
+      videoUrls: {
+        walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/blue-walk-in.mp4?alt=media&token=65556ebd-c13f-4d91-b920-2d0b2960bfcc",
+        walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/blue-walk-out.mp4?alt=media&token=9b8a1b52-05b0-47e9-9546-434c83240e56",
+        idle: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/kling_20250924_Image_to_Video_The_female_1510_0.mp4?alt=media&token=6f802422-ce5c-4896-a049-d8c68f86bbd7"
+      },
+      abilities: [
+        {
+          name: "build paper airplanes",
+          description: "Not super useful, but it's a fun hobby."
+        },
+        {
+          name: "play with cats",
+          description: "Cats are great."
+        }
+      ]
+    }
+  } finally {
+    characterLoading.value = false
+  }
 }
-const character = ref(characterData)
 
 // State management for the sequence: loading -> walk_in -> image -> idle_video -> image (loop)
 const currentState = ref('loading')
@@ -132,6 +155,9 @@ const mediaLoaded = ref({
 
 // Preload all media
 const preloadMedia = async () => {
+  // Wait for character data to be loaded first
+  if (!character.value) return
+  
   const promises = []
   
   // Preload white background
@@ -226,8 +252,9 @@ const onIdleVideoEnded = () => {
   startIdleCycle() // Restart the cycle
 }
 
-// Start preloading when component mounts
-onMounted(() => {
+// Start fetching data and preloading when component mounts
+onMounted(async () => {
+  await fetchCharacterData()
   preloadMedia()
 })
 
