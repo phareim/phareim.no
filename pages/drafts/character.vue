@@ -18,9 +18,10 @@
           :src="character.videoUrls.walk_in"
           class="portrait"
           muted
-          :poster="character.imageUrl"
+          :poster="walkInPoster"
           @ended="onWalkInEnded"
           @loadeddata="onWalkInLoaded"
+          @play="onWalkInPlay"
         />
         
         <!-- Static character image -->
@@ -38,7 +39,7 @@
           :src="character.videoUrls.idle"
           class="portrait"
           muted
-          :poster="character.imageUrl"
+          :poster="idlePoster"
           @ended="onIdleVideoEnded"
           @loadeddata="onIdleVideoLoaded"
         />
@@ -115,6 +116,8 @@ const character = ref({
 const currentState = ref('loading')
 const walkInVideo = ref(null)
 const idleVideo = ref(null)
+const walkInPoster = ref('')
+const idlePoster = ref('')
 let idleTimer = null
 let idleCycle = 3000
 
@@ -179,6 +182,9 @@ const preloadMedia = async () => {
 
 // Start the complete sequence
 const startSequence = () => {
+  // Set initial posters - white background before playback
+  walkInPoster.value = white_background
+  idlePoster.value = character.value.imageUrl
   currentState.value = 'walk_in'
 }
 
@@ -187,6 +193,11 @@ const onWalkInLoaded = () => {
   if (walkInVideo.value) {
     walkInVideo.value.play()
   }
+}
+
+const onWalkInPlay = () => {
+  // Switch poster to character image once playback starts to prevent flickering at the end
+  walkInPoster.value = character.value.imageUrl
 }
 
 const onWalkInEnded = () => {
