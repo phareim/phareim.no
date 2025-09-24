@@ -4,9 +4,19 @@
       <!-- Left side - Character Image -->
       <div class="character-image">
         <img 
+          v-if="!showVideo"
           :src="character.imageUrl" 
           alt="Character Portrait"
           class="portrait"
+        />
+        <video 
+          v-if="showVideo"
+          ref="idleVideo"
+          :src="character.videoUrls.idle"
+          class="portrait"
+          muted
+          @ended="onVideoEnded"
+          @loadeddata="onVideoLoaded"
         />
       </div>
 
@@ -46,15 +56,14 @@
 </template>
 
 <script setup>
+const white_background = "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/white.jpeg?alt=media&token=fb404268-e1e8-4a3a-a2d1-8d5995047dd3"
 const character = ref({
-  name: "Aria Shadowbane",
-  title: "Elven Arcane Archer",
-  imageUrl: "https://v3.fal.media/files/elephant/m3eBfNIauls4PL3p3f-Bm.jpeg",
-  background: "Born in the mystical forests of Elderwood, Aria discovered her unique ability to infuse arrows with arcane energy at a young age. After her village was destroyed by dark forces, she dedicated her life to hunting down those who threaten the innocent. Her keen eyes and steady hands make her a formidable opponent from any distance.",
+  name: "Aria Kling",
+  title: "Gundam Fighter Pilot",
+  imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/iE2tXbWU13A-Zyy2hZaHh.jpeg?alt=media&token=a8418aa2-7bd4-44aa-a407-5eb7fdac901c",
+  background: "Born in the outskirts of Neo Tokyo, Aria discovered her unique ability to pilot Gundam at a young age. After her village was destroyed by dark forces, she dedicated her life to hunting down those who threaten the innocent. Her keen eyes and steady hands make her a formidable opponent from any distance.",
   stats: [
     { label: "Level", value: "12" },
-    { label: "Health Points", value: "85/85" },
-    { label: "Mana Points", value: "120/120" },
     { label: "Strength", value: "14" },
     { label: "Dexterity", value: "18" },
     { label: "Intelligence", value: "16" },
@@ -62,24 +71,60 @@ const character = ref({
     { label: "Constitution", value: "13" },
     { label: "Charisma", value: "12" }
   ],
+  videoUrls: {
+    walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/blue-walk-in.mp4?alt=media&token=65556ebd-c13f-4d91-b920-2d0b2960bfcc",
+    walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/blue-walk-out.mp4?alt=media&token=9b8a1b52-05b0-47e9-9546-434c83240e56",
+    idle: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/kling_20250924_Image_to_Video_The_female_1510_0.mp4?alt=media&token=6f802422-ce5c-4896-a049-d8c68f86bbd7"
+  },
   abilities: [
     {
-      name: "Arcane Shot",
-      description: "Infuses arrows with magical energy for extra damage"
+      name: "Gundam Pilot",
+      description: "Pilot of the Gundam"
     },
     {
       name: "Eagle Eye",
       description: "Enhanced accuracy and critical hit chance"
     },
-    {
-      name: "Shadow Step",
-      description: "Brief teleportation to avoid attacks"
-    },
-    {
-      name: "Nature's Blessing",
-      description: "Regenerates health slowly in natural environments"
-    }
   ]
+})
+
+// Reactive state for video/image display
+const showVideo = ref(false)
+const idleVideo = ref(null)
+let idleTimer = null
+let idleCycle = 3000
+
+// Start the idle animation cycle
+const startIdleCycle = () => {
+  idleTimer = setTimeout(() => {
+    showVideo.value = true
+  }, idleCycle) // 3 seconds delay
+  idleCycle = idleCycle + 9000
+}
+
+// Handle when video finishes playing
+const onVideoEnded = () => {
+  showVideo.value = false
+  // Restart the cycle startIdleCycle()
+}
+
+// Handle when video is loaded and ready
+const onVideoLoaded = () => {
+  if (idleVideo.value) {
+    idleVideo.value.play()
+  }
+}
+
+// Start the cycle when component mounts
+onMounted(() => {
+  startIdleCycle()
+})
+
+// Clean up timer when component unmounts
+onUnmounted(() => {
+  if (idleTimer) {
+    clearTimeout(idleTimer)
+  }
 })
 </script>
 
@@ -110,6 +155,7 @@ const character = ref({
   object-fit: cover;
   border: 0px;
   background-color: white;
+  border: 0px solid black;
 }
 
 .character-details {
