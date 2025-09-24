@@ -4,7 +4,7 @@
       <!-- Left side - Character Image -->
       <div class="character-image">
         <img 
-          src="https://v3.fal.media/files/elephant/m3eBfNIauls4PL3p3f-Bm.jpeg" 
+          :src="character.imageUrl" 
           alt="Character Portrait"
           class="portrait"
         />
@@ -13,57 +13,21 @@
       <!-- Right side - Character Details -->
       <div class="character-details">
         <div class="character-header">
-          <h1 class="character-name">Aria Shadowbane</h1>
-          <p class="character-title">Elven Arcane Archer</p>
+          <h1 class="character-name">{{ character.name }}</h1>
+          <p class="character-title">{{ character.title }}</p>
         </div>
 
         <div class="character-background">
           <h2>Background</h2>
-          <p>
-            Born in the mystical forests of Elderwood, Aria discovered her unique ability to infuse arrows with arcane energy at a young age. 
-            After her village was destroyed by dark forces, she dedicated her life to hunting down those who threaten the innocent. 
-            Her keen eyes and steady hands make her a formidable opponent from any distance.
-          </p>
+          <p>{{ character.background }}</p>
         </div>
 
         <div class="character-stats">
           <h2>Stats</h2>
           <div class="stats-grid">
-            <div class="stat-item">
-              <span class="stat-label">Level</span>
-              <span class="stat-value">12</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Health Points</span>
-              <span class="stat-value">85/85</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Mana Points</span>
-              <span class="stat-value">120/120</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Strength</span>
-              <span class="stat-value">14</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Dexterity</span>
-              <span class="stat-value">18</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Intelligence</span>
-              <span class="stat-value">16</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Wisdom</span>
-              <span class="stat-value">15</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Constitution</span>
-              <span class="stat-value">13</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Charisma</span>
-              <span class="stat-value">12</span>
+            <div class="stat-item" v-for="stat in character.stats" :key="stat.label">
+              <span class="stat-label">{{ stat.label }}</span>
+              <span class="stat-value">{{ stat.value }}</span>
             </div>
           </div>
         </div>
@@ -71,16 +35,53 @@
         <div class="character-abilities">
           <h2>Special Abilities</h2>
           <ul>
-            <li><strong>Arcane Shot:</strong> Infuses arrows with magical energy for extra damage</li>
-            <li><strong>Eagle Eye:</strong> Enhanced accuracy and critical hit chance</li>
-            <li><strong>Shadow Step:</strong> Brief teleportation to avoid attacks</li>
-            <li><strong>Nature's Blessing:</strong> Regenerates health slowly in natural environments</li>
+            <li v-for="ability in character.abilities" :key="ability.name">
+              <strong>{{ ability.name }}:</strong> {{ ability.description }}
+            </li>
           </ul>
         </div>
       </div>
     </div>
   </div>
 </template>
+
+<script setup>
+const character = ref({
+  name: "Aria Shadowbane",
+  title: "Elven Arcane Archer",
+  imageUrl: "https://v3.fal.media/files/elephant/m3eBfNIauls4PL3p3f-Bm.jpeg",
+  background: "Born in the mystical forests of Elderwood, Aria discovered her unique ability to infuse arrows with arcane energy at a young age. After her village was destroyed by dark forces, she dedicated her life to hunting down those who threaten the innocent. Her keen eyes and steady hands make her a formidable opponent from any distance.",
+  stats: [
+    { label: "Level", value: "12" },
+    { label: "Health Points", value: "85/85" },
+    { label: "Mana Points", value: "120/120" },
+    { label: "Strength", value: "14" },
+    { label: "Dexterity", value: "18" },
+    { label: "Intelligence", value: "16" },
+    { label: "Wisdom", value: "15" },
+    { label: "Constitution", value: "13" },
+    { label: "Charisma", value: "12" }
+  ],
+  abilities: [
+    {
+      name: "Arcane Shot",
+      description: "Infuses arrows with magical energy for extra damage"
+    },
+    {
+      name: "Eagle Eye",
+      description: "Enhanced accuracy and critical hit chance"
+    },
+    {
+      name: "Shadow Step",
+      description: "Brief teleportation to avoid attacks"
+    },
+    {
+      name: "Nature's Blessing",
+      description: "Regenerates health slowly in natural environments"
+    }
+  ]
+})
+</script>
 
 <style scoped>
 .character-page {

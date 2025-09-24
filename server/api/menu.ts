@@ -10,6 +10,7 @@ const menuItems = [
   { path: '/blog', title: 'Blog', icon: '📬' },
   { path: '/rpg', title: 'Old Skool RPG', icon: '🤓', external: false },
   { path: '/drafts/places', title: 'RPG Place Generator', icon: '🏞️', external: false },
+  { path: '/drafts/character', title: 'Character Sheet', icon: '🧙‍♀️', external: false },
   { path: '/drafts/dot', title: 'Red dot game', icon: '🔴', external: true },
   { path: '/drafts/librarian', title: 'The Librarian', icon: '📚', external: true },
 ]
