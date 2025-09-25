@@ -13,7 +13,7 @@
         
         <!-- Walk-in video -->
         <video 
-          v-if="currentState === 'walk_in'"
+          v-if="currentState === 'walk_in' && character?.videoUrls?.walk_in"
           ref="walkInVideo"
           :src="character.videoUrls.walk_in"
           class="portrait"
@@ -26,7 +26,7 @@
         
         <!-- Static character image -->
         <img 
-          v-if="currentState === 'image'"
+          v-if="currentState === 'image' || (currentState === 'walk_in' && !character?.videoUrls?.walk_in) || (currentState === 'idle_video' && !character?.videoUrls?.idle)"
           :src="character.imageUrl" 
           alt="Character Portrait"
           class="portrait"
@@ -34,7 +34,7 @@
         
         <!-- Idle animation video -->
         <video 
-          v-if="currentState === 'idle_video'"
+          v-if="currentState === 'idle_video' && character?.videoUrls?.idle"
           ref="idleVideo"
           :src="character.videoUrls.idle"
           class="portrait"
@@ -95,9 +95,9 @@ const characterLoading = ref(true)
 const fetchCharacterData = async () => {
   try {
     const data = await $fetch('/api/characters')
-    // Get the first character (Aria Kling)
+    // Get the second character (Joan Rover)
     if (data && data.length > 0) {
-      character.value = data[0]
+      character.value = data[1]
     }
   } catch (error) {
     console.error('Failed to fetch character data:', error)
@@ -143,7 +143,7 @@ const idleVideo = ref(null)
 const walkInPoster = ref('')
 const idlePoster = ref('')
 let idleTimer = null
-let idleCycle = 3000
+let idleCycle = 10000
 
 // Track loading status of all media
 const mediaLoaded = ref({
@@ -180,27 +180,35 @@ const preloadMedia = async () => {
     img.src = character.value.imageUrl
   }))
   
-  // Preload walk-in video
-  promises.push(new Promise((resolve) => {
-    const video = document.createElement('video')
-    video.oncanplaythrough = () => {
-      mediaLoaded.value.walk_in_video = true
-      resolve()
-    }
-    video.src = character.value.videoUrls.walk_in
-    video.load()
-  }))
+  // Preload walk-in video (only if available)
+  if (character.value.videoUrls?.walk_in) {
+    promises.push(new Promise((resolve) => {
+      const video = document.createElement('video')
+      video.oncanplaythrough = () => {
+        mediaLoaded.value.walk_in_video = true
+        resolve()
+      }
+      video.src = character.value.videoUrls.walk_in
+      video.load()
+    }))
+  } else {
+    mediaLoaded.value.walk_in_video = true // Mark as "loaded" since it doesn't exist
+  }
   
-  // Preload idle video
-  promises.push(new Promise((resolve) => {
-    const video = document.createElement('video')
-    video.oncanplaythrough = () => {
-      mediaLoaded.value.idle_video = true
-      resolve()
-    }
-    video.src = character.value.videoUrls.idle
-    video.load()
-  }))
+  // Preload idle video (only if available)
+  if (character.value.videoUrls?.idle) {
+    promises.push(new Promise((resolve) => {
+      const video = document.createElement('video')
+      video.oncanplaythrough = () => {
+        mediaLoaded.value.idle_video = true
+        resolve()
+      }
+      video.src = character.value.videoUrls.idle
+      video.load()
+    }))
+  } else {
+    mediaLoaded.value.idle_video = true // Mark as "loaded" since it doesn't exist
+  }
   
   // Wait for all media to load, then start the sequence
   await Promise.all(promises)
@@ -212,7 +220,14 @@ const startSequence = () => {
   // Set initial posters - white background before playback
   walkInPoster.value = white_background
   idlePoster.value = character.value.imageUrl
-  currentState.value = 'walk_in'
+  
+  // If walk_in video exists, start with that, otherwise go straight to image
+  if (character.value.videoUrls?.walk_in) {
+    currentState.value = 'walk_in'
+  } else {
+    currentState.value = 'image'
+    startIdleCycle()
+  }
 }
 
 // Handle walk-in video events
@@ -235,7 +250,13 @@ const onWalkInEnded = () => {
 // Start the idle animation cycle
 const startIdleCycle = () => {
   idleTimer = setTimeout(() => {
-    currentState.value = 'idle_video'
+    // Only switch to idle_video if the video exists, otherwise stay on image
+    if (character.value.videoUrls?.idle) {
+      currentState.value = 'idle_video'
+    } else {
+      // If no idle video, just restart the cycle (stay on image)
+      startIdleCycle()
+    }
   }, idleCycle)
   idleCycle = Math.floor(Math.random() * 27000) + 3000
 }

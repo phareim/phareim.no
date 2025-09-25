@@ -1,20 +1,20 @@
 export interface Character {
     id?: string;
     name: string;
-    description: string;
-    stats: {
+    description?: string;
+    stats?: {
         // Standard D&D ability scores 🤓
-        strength: number;     // Physical power (1-20)
-        dexterity: number;    // Agility and reflexes (1-20)
-        constitution: number; // Health and endurance (1-20)
-        intelligence: number; // Reasoning ability (1-20)
-        wisdom: number;       // Perception and insight (1-20)
-        charisma: number;     // Force of personality (1-20)
+        strength?: number;     // Physical power (1-20)
+        dexterity?: number;    // Agility and reflexes (1-20)
+        constitution?: number; // Health and endurance (1-20)
+        intelligence?: number; // Reasoning ability (1-20)
+        wisdom?: number;       // Perception and insight (1-20)
+        charisma?: number;     // Force of personality (1-20)
     };
     image_url?: string;
     video_urls?:{
-        standing?: string;
-        walking: string;
+        walk_in?: string;
+        walk_out?: string;
         idle?: string;
         talking?: string;
         fighting?: string;
@@ -33,8 +33,8 @@ export interface Character {
         };
         isActive: boolean;   // Whether the character is currently in the world
     };
-    createdAt: Date;
-    updatedAt: Date;
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 
 export const charactersCollection = 'characters'

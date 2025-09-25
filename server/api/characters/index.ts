@@ -59,7 +59,37 @@ async function getCharacters() {
                     description: "Enhanced accuracy and critical hit chance"
                 }
             ]
+        },
+        {
+            id: "Joan-Rover",
+            name: "Joan Rover",
+            title: "Librarian of the Resistence",
+            imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/LNLXkHr5mXJAkzmbkxZLs.jpeg?alt=media&token=a4b1dd79-c1bd-45d8-b947-0520f17dcb4e",
+            background: "Joan is a librarian of the Resistance. She is a smart and resourceful woman who is always looking for a way to help the Resistance.",
+            stats: [
+                { label: "Level", value: "12" },
+                { label: "Strength", value: "10" },
+                { label: "Dexterity", value: "12" },
+                { label: "Intelligence", value: "19" },
+                { label: "Wisdom", value: "17" },
+                { label: "Constitution", value: "13" },
+                { label: "Charisma", value: "15" }
+            ],
+            videoUrls: {
+                walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/librarian_walk_in.mp4?alt=media&token=d74ae5f6-8fc9-4196-8d56-1437f2d5b0ce",
+            },
+            abilities: [
+                {
+                    name: "Library Knowledge",
+                    description: "Knows a lot"
+                },
+                {
+                    name: "Tactical Planning",
+                    description: "Can plan a strategy to defeat the enemy"
+                }
+            ]
         }
+        
     ]
     
     return hardcodedCharacters
