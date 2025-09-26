@@ -77,6 +77,8 @@ async function getCharacters() {
             ],
             videoUrls: {
                 walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/librarian_walk_in.mp4?alt=media&token=d74ae5f6-8fc9-4196-8d56-1437f2d5b0ce",
+                walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/librarian_walks_out.mp4?alt=media&token=ee321c30-d9a5-4bfe-b315-f8ffaecc0ad0",
+                idle: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/librarian_idles.mp4?alt=media&token=67f531e5-be21-4867-9372-899deaf55d18"
             },
             abilities: [
                 {
