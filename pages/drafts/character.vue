@@ -456,7 +456,7 @@ onUnmounted(() => {
 }
 
 .character-image {
-  flex: 0 0 300px;
+  flex: 0 0 400px;
   
 }
 
