@@ -97,7 +97,7 @@ const fetchCharacterData = async () => {
     const data = await $fetch('/api/characters')
     // Get the second character (Joan Rover)
     if (data && data.length > 0) {
-      character.value = data[1]
+      character.value = data[2]
     }
   } catch (error) {
     console.error('Failed to fetch character data:', error)

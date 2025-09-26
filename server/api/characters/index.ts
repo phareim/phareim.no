@@ -90,6 +90,35 @@ async function getCharacters() {
                     description: "Can plan a strategy to defeat the enemy"
                 }
             ]
+        },
+        {
+            id: "Yukiko-Kudou",
+            name: "Yukiko Kudou",
+            title: "Mech Pilot",
+            imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/zfS3QmN26_za-aGDC8lyt.jpg?alt=media&token=b4a548fa-402f-4f62-8837-3b76f968f026",
+            background: "Yukiko is a mech pilot of the Resistance. She is a strong and resourceful woman who is always looking for a way to help the Resistance.",
+            stats: [
+                { label: "Level", value: "9" },
+                { label: "Strength", value: "12" },
+                { label: "Dexterity", value: "19" },
+                { label: "Intelligence", value: "16" },
+                { label: "Wisdom", value: "12" },
+                { label: "Constitution", value: "14" },
+                { label: "Charisma", value: "18" }
+            ],
+            videoUrls: {
+                walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/pilot_walks_in.mp4?alt=media&token=4279a64c-4dba-4d1e-bd52-177e9ddf40c5",
+            },
+            abilities: [
+                {
+                    name: "Library Knowledge",
+                    description: "Knows a lot"
+                },
+                {
+                    name: "Tactical Planning",
+                    description: "Can plan a strategy to defeat the enemy"
+                }
+            ]
         }
         
     ]
