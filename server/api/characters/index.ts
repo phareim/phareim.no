@@ -30,37 +30,6 @@ async function getCharacters() {
     // Return hardcoded Aria Kling character for now
     const hardcodedCharacters = [
         {
-            id: "aria-kling",
-            name: "Aria Kling",
-            title: "Gundam Fighter Pilot",
-            imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/iE2tXbWU13A-Zyy2hZaHh.jpeg?alt=media&token=a8418aa2-7bd4-44aa-a407-5eb7fdac901c",
-            background: "Born in the outskirts of Neo Tokyo, Aria discovered her unique ability to pilot Gundam at a young age. After her village was destroyed by dark forces, she dedicated her life to hunting down those who threaten the innocent. Her keen eyes and steady hands make her a formidable opponent from any distance.",
-            stats: [
-                { label: "Level", value: "12" },
-                { label: "Strength", value: "14" },
-                { label: "Dexterity", value: "18" },
-                { label: "Intelligence", value: "16" },
-                { label: "Wisdom", value: "15" },
-                { label: "Constitution", value: "13" },
-                { label: "Charisma", value: "12" }
-            ],
-            videoUrls: {
-                walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/blue-walk-in.mp4?alt=media&token=65556ebd-c13f-4d91-b920-2d0b2960bfcc",
-                walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/blue-walk-out.mp4?alt=media&token=9b8a1b52-05b0-47e9-9546-434c83240e56",
-                idle: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/kling_20250924_Image_to_Video_The_female_1510_0.mp4?alt=media&token=6f802422-ce5c-4896-a049-d8c68f86bbd7"
-            },
-            abilities: [
-                {
-                    name: "Gundam Pilot",
-                    description: "Pilot of the Gundam"
-                },
-                {
-                    name: "Eagle Eye",
-                    description: "Enhanced accuracy and critical hit chance"
-                }
-            ]
-        },
-        {
             id: "Joan-Rover",
             name: "Joan Rover",
             title: "Librarian of the Resistence",
@@ -119,8 +88,38 @@ async function getCharacters() {
                     description: "Can plan a strategy to defeat the enemy"
                 }
             ]
-        }
-        
+        },
+        {
+            id: "aria-kling",
+            name: "Aria Kling",
+            title: "Gundam Fighter Pilot",
+            imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/iE2tXbWU13A-Zyy2hZaHh.jpeg?alt=media&token=a8418aa2-7bd4-44aa-a407-5eb7fdac901c",
+            background: "Born in the outskirts of Neo Tokyo, Aria discovered her unique ability to pilot Gundam at a young age. After her village was destroyed by dark forces, she dedicated her life to hunting down those who threaten the innocent. Her keen eyes and steady hands make her a formidable opponent from any distance.",
+            stats: [
+                { label: "Level", value: "12" },
+                { label: "Strength", value: "14" },
+                { label: "Dexterity", value: "18" },
+                { label: "Intelligence", value: "16" },
+                { label: "Wisdom", value: "15" },
+                { label: "Constitution", value: "13" },
+                { label: "Charisma", value: "12" }
+            ],
+            videoUrls: {
+                walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/blue-walk-in.mp4?alt=media&token=65556ebd-c13f-4d91-b920-2d0b2960bfcc",
+                walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/blue-walk-out.mp4?alt=media&token=9b8a1b52-05b0-47e9-9546-434c83240e56",
+                idle: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/kling_20250924_Image_to_Video_The_female_1510_0.mp4?alt=media&token=6f802422-ce5c-4896-a049-d8c68f86bbd7"
+            },
+            abilities: [
+                {
+                    name: "Gundam Pilot",
+                    description: "Pilot of the Gundam"
+                },
+                {
+                    name: "Eagle Eye",
+                    description: "Enhanced accuracy and critical hit chance"
+                }
+            ]
+        }        
     ]
     
     return hardcodedCharacters

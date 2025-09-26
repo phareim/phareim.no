@@ -52,7 +52,23 @@
         </div>
         <div v-else-if="character" class="character-content">
           <div class="character-header">
-            <h1 class="character-name">{{ character.name }}</h1>
+            <div class="character-name-container">
+              <button 
+                class="nav-chevron left-chevron" 
+                @click="previousCharacter"
+                :disabled="characterLoading"
+              >
+                ‹
+              </button>
+              <h1 class="character-name">{{ character.name }}</h1>
+              <button 
+                class="nav-chevron right-chevron" 
+                @click="nextCharacter"
+                :disabled="characterLoading"
+              >
+                ›
+              </button>
+            </div>
             <p class="character-title">{{ character.title }}</p>
           </div>
 
@@ -90,14 +106,17 @@ const white_background = "https://firebasestorage.googleapis.com/v0/b/phareim-no
 // Fetch character data from API
 const character = ref(null)
 const characterLoading = ref(true)
+const allCharacters = ref([])
+const currentCharacterIndex = ref(0)
 
 // Fetch character data on component mount
 const fetchCharacterData = async () => {
   try {
     const data = await $fetch('/api/characters')
-    // Get the second character (Joan Rover)
     if (data && data.length > 0) {
-      character.value = data[2]
+      allCharacters.value = data
+      currentCharacterIndex.value = 0
+      character.value = data[0]
     }
   } catch (error) {
     console.error('Failed to fetch character data:', error)
@@ -134,6 +153,53 @@ const fetchCharacterData = async () => {
   } finally {
     characterLoading.value = false
   }
+}
+
+// Character navigation functions
+const nextCharacter = async () => {
+  if (allCharacters.value.length === 0) return
+  
+  characterLoading.value = true
+  currentState.value = 'loading'
+  
+  // Clear any existing timers
+  if (idleTimer) {
+    clearTimeout(idleTimer)
+    idleTimer = null
+  }
+  
+  // Move to next character (loop back to start if at end)
+  currentCharacterIndex.value = (currentCharacterIndex.value + 1) % allCharacters.value.length
+  character.value = allCharacters.value[currentCharacterIndex.value]
+  
+  characterLoading.value = false
+  
+  // Restart the media loading sequence
+  preloadMedia()
+}
+
+const previousCharacter = async () => {
+  if (allCharacters.value.length === 0) return
+  
+  characterLoading.value = true
+  currentState.value = 'loading'
+  
+  // Clear any existing timers
+  if (idleTimer) {
+    clearTimeout(idleTimer)
+    idleTimer = null
+  }
+  
+  // Move to previous character (loop back to end if at start)
+  currentCharacterIndex.value = currentCharacterIndex.value === 0 
+    ? allCharacters.value.length - 1 
+    : currentCharacterIndex.value - 1
+  character.value = allCharacters.value[currentCharacterIndex.value]
+  
+  characterLoading.value = false
+  
+  // Restart the media loading sequence
+  preloadMedia()
 }
 
 // State management for the sequence: loading -> walk_in -> image -> idle_video -> image (loop)
@@ -239,7 +305,10 @@ const onWalkInLoaded = () => {
 
 const onWalkInPlay = () => {
   // Switch poster to character image once playback starts to prevent flickering at the end
-  walkInPoster.value = character.value.imageUrl
+  // wait for 1 second
+  setTimeout(() => {
+    walkInPoster.value = character.value.imageUrl
+  }, 1000)
 }
 
 const onWalkInEnded = () => {
@@ -327,11 +396,47 @@ onUnmounted(() => {
   margin-bottom: 2rem;
 }
 
+.character-name-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
 .character-name {
   font-size: 2.5rem;
   font-weight: bold;
-  margin: 0 0 0.5rem 0;
+  margin: 0;
   color: black;
+  flex: 1;
+  text-align: center;
+}
+
+.nav-chevron {
+  background: none;
+  border: 2px solid black;
+  color: black;
+  font-size: 2rem;
+  font-weight: bold;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  font-family: 'Sublime Text', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.nav-chevron:hover:not(:disabled) {
+  background-color: black;
+  color: white;
+}
+
+.nav-chevron:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .character-title {
@@ -429,6 +534,12 @@ onUnmounted(() => {
   
   .character-name {
     font-size: 2rem;
+  }
+  
+  .nav-chevron {
+    width: 35px;
+    height: 35px;
+    font-size: 1.5rem;
   }
   
   .stats-grid {
