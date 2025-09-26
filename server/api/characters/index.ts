@@ -121,6 +121,36 @@ async function getCharacters() {
                     description: "Enhanced accuracy and critical hit chance"
                 }
             ]
+        },
+        {
+            id: "eddie",
+            name: "Eddie The Hamster",
+            title: "Hamster",
+            imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/f7Qt6IFAP2JnhfJWIUrwn.jpg?alt=media&token=8dbdbf83-b758-4b6e-a404-5392ed235769",
+            background: "Eddie is a hamster who is a great friend of the Resistance. He is a very smart and resourceful hamster who is always looking for a way to help the Resistance.",
+            stats: [
+                { label: "Level", value: "1" },
+                { label: "Strength", value: "1" },
+                { label: "Dexterity", value: "18" },
+                { label: "Intelligence", value: "1" },
+                { label: "Wisdom", value: "1" },
+                { label: "Constitution", value: "1" },
+                { label: "Charisma", value: "22" }
+            ],
+            videoUrls: {
+                walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/hamster_walks_in.mp4?alt=media&token=2da80043-a482-47c3-a437-c5426564ae51",
+                walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/hamster_walks_of.mp4?alt=media&token=d5ac2065-2593-4d76-bbe8-8b26d42d87ef",
+            },
+            abilities: [
+                {
+                    name: "Hamster",
+                    description: "Hamster"
+                },
+                {
+                    name: "Hamster",
+                    description: "Hamster"
+                }
+            ]
         }        
     ]
     
