@@ -47,7 +47,8 @@ async function getCharacters() {
             videoUrls: {
                 walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/librarian_walk_in.mp4?alt=media&token=d74ae5f6-8fc9-4196-8d56-1437f2d5b0ce",
                 walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/librarian_walks_out.mp4?alt=media&token=ee321c30-d9a5-4bfe-b315-f8ffaecc0ad0",
-                idle: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/librarian_idles.mp4?alt=media&token=67f531e5-be21-4867-9372-899deaf55d18"
+                idle: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/librarian_idles.mp4?alt=media&token=67f531e5-be21-4867-9372-899deaf55d18",
+                idle_laugh: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/librarian_laughs.mp4?alt=media&token=632ee987-05fa-4862-968f-ef3927d913b9"
             },
             abilities: [
                 {
@@ -77,6 +78,7 @@ async function getCharacters() {
             ],
             videoUrls: {
                 walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/pilot_walks_in.mp4?alt=media&token=4279a64c-4dba-4d1e-bd52-177e9ddf40c5",
+                walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/pilot_walks_out.mp4?alt=media&token=fdbddd80-9bca-40bd-a200-79f306d9c266"
             },
             abilities: [
                 {

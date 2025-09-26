@@ -43,6 +43,18 @@
           @ended="onIdleVideoEnded"
           @loadeddata="onIdleVideoLoaded"
         />
+        
+        <!-- Walk-out video -->
+        <video 
+          v-if="currentState === 'walk_out' && character?.videoUrls?.walk_out"
+          ref="walkOutVideo"
+          :src="character.videoUrls.walk_out"
+          class="portrait"
+          muted
+          :poster="character.imageUrl"
+          @ended="onWalkOutEnded"
+          @loadeddata="onWalkOutLoaded"
+        />
       </div>
 
       <!-- Right side - Character Details -->
@@ -56,7 +68,7 @@
               <button 
                 class="nav-chevron left-chevron" 
                 @click="previousCharacter"
-                :disabled="characterLoading"
+                :disabled="characterLoading || isVideoPlaying"
               >
                 ‹
               </button>
@@ -64,7 +76,7 @@
               <button 
                 class="nav-chevron right-chevron" 
                 @click="nextCharacter"
-                :disabled="characterLoading"
+                :disabled="characterLoading || isVideoPlaying"
               >
                 ›
               </button>
@@ -157,10 +169,7 @@ const fetchCharacterData = async () => {
 
 // Character navigation functions
 const nextCharacter = async () => {
-  if (allCharacters.value.length === 0) return
-  
-  characterLoading.value = true
-  currentState.value = 'loading'
+  if (allCharacters.value.length === 0 || isVideoPlaying.value) return
   
   // Clear any existing timers
   if (idleTimer) {
@@ -168,21 +177,31 @@ const nextCharacter = async () => {
     idleTimer = null
   }
   
-  // Move to next character (loop back to start if at end)
-  currentCharacterIndex.value = (currentCharacterIndex.value + 1) % allCharacters.value.length
-  character.value = allCharacters.value[currentCharacterIndex.value]
-  
-  characterLoading.value = false
-  
-  // Restart the media loading sequence
-  preloadMedia()
+  // If walk_out video exists, play it first
+  if (character.value?.videoUrls?.walk_out) {
+    pendingNavigationAction = () => {
+      // Move to next character (loop back to start if at end)
+      currentCharacterIndex.value = (currentCharacterIndex.value + 1) % allCharacters.value.length
+      character.value = allCharacters.value[currentCharacterIndex.value]
+      executeCharacterChange()
+    }
+    currentState.value = 'walk_out'
+  } else {
+    // No walk_out video, change immediately
+    characterLoading.value = true
+    currentState.value = 'loading'
+    
+    // Move to next character (loop back to start if at end)
+    currentCharacterIndex.value = (currentCharacterIndex.value + 1) % allCharacters.value.length
+    character.value = allCharacters.value[currentCharacterIndex.value]
+    
+    characterLoading.value = false
+    preloadMedia()
+  }
 }
 
 const previousCharacter = async () => {
-  if (allCharacters.value.length === 0) return
-  
-  characterLoading.value = true
-  currentState.value = 'loading'
+  if (allCharacters.value.length === 0 || isVideoPlaying.value) return
   
   // Clear any existing timers
   if (idleTimer) {
@@ -190,32 +209,65 @@ const previousCharacter = async () => {
     idleTimer = null
   }
   
-  // Move to previous character (loop back to end if at start)
-  currentCharacterIndex.value = currentCharacterIndex.value === 0 
-    ? allCharacters.value.length - 1 
-    : currentCharacterIndex.value - 1
-  character.value = allCharacters.value[currentCharacterIndex.value]
-  
+  // If walk_out video exists, play it first
+  if (character.value?.videoUrls?.walk_out) {
+    pendingNavigationAction = () => {
+      // Move to previous character (loop back to end if at start)
+      currentCharacterIndex.value = currentCharacterIndex.value === 0 
+        ? allCharacters.value.length - 1 
+        : currentCharacterIndex.value - 1
+      character.value = allCharacters.value[currentCharacterIndex.value]
+      executeCharacterChange()
+    }
+    currentState.value = 'walk_out'
+  } else {
+    // No walk_out video, change immediately
+    characterLoading.value = true
+    currentState.value = 'loading'
+    
+    // Move to previous character (loop back to end if at start)
+    currentCharacterIndex.value = currentCharacterIndex.value === 0 
+      ? allCharacters.value.length - 1 
+      : currentCharacterIndex.value - 1
+    character.value = allCharacters.value[currentCharacterIndex.value]
+    
+    characterLoading.value = false
+    preloadMedia()
+  }
+}
+
+// Execute the actual character change after walk_out finishes
+const executeCharacterChange = () => {
+  characterLoading.value = true
+  currentState.value = 'loading'
   characterLoading.value = false
-  
-  // Restart the media loading sequence
   preloadMedia()
 }
 
-// State management for the sequence: loading -> walk_in -> image -> idle_video -> image (loop)
+// State management for the sequence: loading -> walk_in -> image -> idle_video -> walk_out -> image (loop)
 const currentState = ref('loading')
 const walkInVideo = ref(null)
 const idleVideo = ref(null)
+const walkOutVideo = ref(null)
 const walkInPoster = ref('')
 const idlePoster = ref('')
 let idleTimer = null
 let idleCycle = 10000
+
+// Track if any video is currently playing (for button states)
+const isVideoPlaying = computed(() => {
+  return currentState.value === 'walk_in' || currentState.value === 'walk_out'
+})
+
+// Store the next character navigation action while walk_out plays
+let pendingNavigationAction = null
 
 // Track loading status of all media
 const mediaLoaded = ref({
   white_background: false,
   character_image: false,
   walk_in_video: false,
+  walk_out_video: false,
   idle_video: false
 })
 
@@ -259,6 +311,21 @@ const preloadMedia = async () => {
     }))
   } else {
     mediaLoaded.value.walk_in_video = true // Mark as "loaded" since it doesn't exist
+  }
+  
+  // Preload walk-out video (only if available)
+  if (character.value.videoUrls?.walk_out) {
+    promises.push(new Promise((resolve) => {
+      const video = document.createElement('video')
+      video.oncanplaythrough = () => {
+        mediaLoaded.value.walk_out_video = true
+        resolve()
+      }
+      video.src = character.value.videoUrls.walk_out
+      video.load()
+    }))
+  } else {
+    mediaLoaded.value.walk_out_video = true // Mark as "loaded" since it doesn't exist
   }
   
   // Preload idle video (only if available)
@@ -340,6 +407,21 @@ const onIdleVideoLoaded = () => {
 const onIdleVideoEnded = () => {
   currentState.value = 'image'
   startIdleCycle() // Restart the cycle
+}
+
+// Handle walk-out video events
+const onWalkOutLoaded = () => {
+  if (walkOutVideo.value) {
+    walkOutVideo.value.play()
+  }
+}
+
+const onWalkOutEnded = () => {
+  // Execute the pending navigation action
+  if (pendingNavigationAction) {
+    pendingNavigationAction()
+    pendingNavigationAction = null
+  }
 }
 
 // Start fetching data and preloading when component mounts
