@@ -27,8 +27,36 @@ export default defineEventHandler(async (event) => {
 })
 
 async function getCharacters() {
-    // Return hardcoded Aria Kling character for now
     const hardcodedCharacters = [
+        {
+            id: "eddie",
+            name: "Eddie The Hamster",
+            title: "Hamster",
+            imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/f7Qt6IFAP2JnhfJWIUrwn.jpg?alt=media&token=8dbdbf83-b758-4b6e-a404-5392ed235769",
+            background: "Eddie is a hamster who is a great friend of the Resistance. He is a very smart and resourceful hamster who is always looking for a way to help the Resistance.",
+            stats: [
+                { label: "Strength", value: "1" },
+                { label: "Dexterity", value: "18" },
+                { label: "Intelligence", value: "1" },
+                { label: "Wisdom", value: "1" },
+                { label: "Constitution", value: "1" },
+                { label: "Charisma", value: "22" }
+            ],
+            videoUrls: {
+                walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/hamster_walks_in.mp4?alt=media&token=2da80043-a482-47c3-a437-c5426564ae51",
+                walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/hamster_walks_of.mp4?alt=media&token=d5ac2065-2593-4d76-bbe8-8b26d42d87ef",
+            },
+            abilities: [
+                {
+                    name: "Being cute",
+                    description: "Being extremely cute, and making people smile."
+                },
+                {
+                    name: "Finding food",
+                    description: "Finding food in the oddest places."
+                }
+            ]
+        },
         {
             id: "Joan-Rover",
             name: "Joan Rover",
@@ -36,7 +64,6 @@ async function getCharacters() {
             imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/LNLXkHr5mXJAkzmbkxZLs.jpeg?alt=media&token=a4b1dd79-c1bd-45d8-b947-0520f17dcb4e",
             background: "Joan is a librarian of the Resistance. She is a smart and resourceful woman who is always looking for a way to help the Resistance.",
             stats: [
-                { label: "Level", value: "12" },
                 { label: "Strength", value: "10" },
                 { label: "Dexterity", value: "12" },
                 { label: "Intelligence", value: "19" },
@@ -68,7 +95,6 @@ async function getCharacters() {
             imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/zfS3QmN26_za-aGDC8lyt.jpg?alt=media&token=b4a548fa-402f-4f62-8837-3b76f968f026",
             background: "Yukiko is a mech pilot of the Resistance. She is a strong and resourceful woman who is always looking for a way to help the Resistance.",
             stats: [
-                { label: "Level", value: "9" },
                 { label: "Strength", value: "12" },
                 { label: "Dexterity", value: "19" },
                 { label: "Intelligence", value: "16" },
@@ -98,7 +124,6 @@ async function getCharacters() {
             imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/iE2tXbWU13A-Zyy2hZaHh.jpeg?alt=media&token=a8418aa2-7bd4-44aa-a407-5eb7fdac901c",
             background: "Born in the outskirts of Neo Tokyo, Aria discovered her unique ability to pilot Gundam at a young age. After her village was destroyed by dark forces, she dedicated her life to hunting down those who threaten the innocent. Her keen eyes and steady hands make her a formidable opponent from any distance.",
             stats: [
-                { label: "Level", value: "12" },
                 { label: "Strength", value: "14" },
                 { label: "Dexterity", value: "18" },
                 { label: "Intelligence", value: "16" },
@@ -121,63 +146,22 @@ async function getCharacters() {
                     description: "Enhanced accuracy and critical hit chance"
                 }
             ]
-        },
-        {
-            id: "eddie",
-            name: "Eddie The Hamster",
-            title: "Hamster",
-            imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/f7Qt6IFAP2JnhfJWIUrwn.jpg?alt=media&token=8dbdbf83-b758-4b6e-a404-5392ed235769",
-            background: "Eddie is a hamster who is a great friend of the Resistance. He is a very smart and resourceful hamster who is always looking for a way to help the Resistance.",
-            stats: [
-                { label: "Level", value: "1" },
-                { label: "Strength", value: "1" },
-                { label: "Dexterity", value: "18" },
-                { label: "Intelligence", value: "1" },
-                { label: "Wisdom", value: "1" },
-                { label: "Constitution", value: "1" },
-                { label: "Charisma", value: "22" }
-            ],
-            videoUrls: {
-                walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/hamster_walks_in.mp4?alt=media&token=2da80043-a482-47c3-a437-c5426564ae51",
-                walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/hamster_walks_of.mp4?alt=media&token=d5ac2065-2593-4d76-bbe8-8b26d42d87ef",
-            },
-            abilities: [
-                {
-                    name: "Hamster",
-                    description: "Hamster"
-                },
-                {
-                    name: "Hamster",
-                    description: "Hamster"
-                }
-            ]
-        }        
+        }  
     ]
     
     return hardcodedCharacters
 }
 
 async function createCharacter(event: any) {
+    console.log('createCharacter', event)
     const body = await readBody(event)
-    
-    // If no stats provided, generate random ones 🎲
-    if (!body.stats) {
-        body.stats = generateRandomStats()
-    }
     
     // Set default values
     const character: Omit<Character, 'id'> = {
         name: body.name || 'Unnamed Adventurer',
-        description: body.description || 'A mysterious figure with an unknown past.',
-        stats: body.stats,
-        image_url: body.image_url,
+        background: body.background || 'A mysterious figure with an unknown past.',
+        stats: body.stats || generateRandomStats(),
         level: body.level || 1,
-        hitPoints: body.hitPoints || {
-            current: 10 + Math.floor((body.stats?.constitution - 10) / 2) || 10,
-            maximum: 10 + Math.floor((body.stats?.constitution - 10) / 2) || 10
-        },
-        armorClass: body.armorClass || 10 + Math.floor((body.stats?.dexterity - 10) / 2) || 10,
-        location: body.location,
         createdAt: new Date(),
         updatedAt: new Date()
     }

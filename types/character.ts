@@ -1,7 +1,7 @@
 export interface Character {
     id?: string;
-    name: string;
-    description?: string;
+    name?: string;
+    background?: string;    
     stats?: {
         // Standard D&D ability scores 🤓
         strength?: number;     // Physical power (1-20)
@@ -11,14 +11,15 @@ export interface Character {
         wisdom?: number;       // Perception and insight (1-20)
         charisma?: number;     // Force of personality (1-20)
     };
+    abilities?: {
+        name?: string;
+        description?: string;
+    }[];
     image_url?: string;
     video_urls?:{
         walk_in?: string;
         walk_out?: string;
         idle?: string;
-        talking?: string;
-        fighting?: string;
-        confused?: string;
     },
     level?: number;          // Character level (1-20)
     hitPoints?: {
@@ -45,15 +46,8 @@ export function validateCharacter(character: Partial<Character>): boolean {
     
     return !!(
         character.name &&
-        character.description &&
-        stats &&
-        // Validate all D&D stats are present and within range
-        typeof stats.strength === 'number' && stats.strength >= 1 && stats.strength <= 20 &&
-        typeof stats.dexterity === 'number' && stats.dexterity >= 1 && stats.dexterity <= 20 &&
-        typeof stats.constitution === 'number' && stats.constitution >= 1 && stats.constitution <= 20 &&
-        typeof stats.intelligence === 'number' && stats.intelligence >= 1 && stats.intelligence <= 20 &&
-        typeof stats.wisdom === 'number' && stats.wisdom >= 1 && stats.wisdom <= 20 &&
-        typeof stats.charisma === 'number' && stats.charisma >= 1 && stats.charisma <= 20
+        character.background &&
+        stats
     );
 }
 
