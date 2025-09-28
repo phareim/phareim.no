@@ -177,6 +177,30 @@ async function createCharacter(event: any) {
     // Create the character in Firebase
     const docRef = await db.collection(charactersCollection).add(character)
     
+    // If generateImage is requested and a prompt is provided, generate an image
+    if (body.generateImage && body.imagePrompt) {
+        try {
+            console.log('🎨 Generating image for new character...')
+            const imageResponse = await $fetch('/api/characters/generate-image', {
+                method: 'POST',
+                body: {
+                    prompt: body.imagePrompt,
+                    characterId: docRef.id
+                }
+            })
+            
+            if (imageResponse.success && imageResponse.imageUrl) {
+                // Update the character with the generated image URL
+                await docRef.update({ image_url: imageResponse.imageUrl })
+                character.image_url = imageResponse.imageUrl
+                console.log('✨ Character image generated and saved!')
+            }
+        } catch (imageError) {
+            console.error('Failed to generate character image:', imageError)
+            // Don't fail the character creation if image generation fails
+        }
+    }
+    
     return {
         id: docRef.id,
         ...character

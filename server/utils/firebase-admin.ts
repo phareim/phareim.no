@@ -1,5 +1,6 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
+import { getStorage } from 'firebase-admin/storage'
 import { useRuntimeConfig } from '#imports'
 
 // Initialize Firebase Admin if not already initialized
@@ -37,4 +38,5 @@ if (!getApps().length) {
 }
 
 export const db = getFirestore()
+export const storage = getStorage()
 export const placesCollection = 'places' 
