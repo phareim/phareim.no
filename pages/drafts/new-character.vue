@@ -34,6 +34,20 @@
             ></textarea>
           </div>
 
+          <div class="character-physical-description">
+            <h2>Physical Description</h2>
+            <textarea 
+              v-model="newCharacter.physicalDescription"
+              placeholder="Describe your character's appearance (hair, eyes, clothing, etc.). A portrait will be automatically generated if you provide a description."
+              class="physical-description-textarea"
+              rows="3"
+              maxlength="300"
+            ></textarea>
+            <div v-if="imageGenerationStatus" class="image-status">
+              {{ imageGenerationStatus }}
+            </div>
+          </div>
+
           <div class="character-stats">
             <h2>Stats</h2>
             <div class="stats-grid">
@@ -85,7 +99,11 @@
               :disabled="!canCreate || isCreating"
               class="create-btn"
             >
-              {{ isCreating ? 'Creating...' : 'Create Character' }}
+              {{ 
+                isCreating 
+                  ? (newCharacter.physicalDescription?.trim() ? 'Creating & Generating Image...' : 'Creating...') 
+                  : 'Create Character' 
+              }}
             </button>
             <button @click="previewCharacter" class="preview-btn">
               👁️ Preview
@@ -111,6 +129,7 @@ const newCharacter = ref({
   title: '',
   imageUrl: '',
   background: '',
+  physicalDescription: '',
   stats: [
     { label: 'Strength', value: '10' },
     { label: 'Dexterity', value: '10' },
@@ -128,6 +147,7 @@ const newCharacter = ref({
 const isCreating = ref(false)
 const message = ref('')
 const messageType = ref('success')
+const imageGenerationStatus = ref('')
 
 // Computed property to check if character can be created
 const canCreate = computed(() => {
@@ -166,6 +186,7 @@ const createCharacter = async () => {
 
   isCreating.value = true
   message.value = ''
+  imageGenerationStatus.value = ''
 
   try {
     // Clean up empty abilities
@@ -178,26 +199,45 @@ const createCharacter = async () => {
       abilities: cleanAbilities
     }
 
+    // Add image generation parameters if physical description is provided
+    const hasPhysicalDescription = newCharacter.value.physicalDescription?.trim()
+    if (hasPhysicalDescription) {
+      characterData.generateImage = true
+      characterData.imagePrompt = newCharacter.value.physicalDescription
+      imageGenerationStatus.value = '🎨 Generating character portrait...'
+    }
+
     const response = await $fetch('/api/characters', {
       method: 'POST',
       body: characterData
     })
+    
     console.log('response', response)
     if (response.error) {
       throw new Error(response.error)
     }
-    message.value = `Character "${newCharacter.value.name}" created successfully!`
+
+    let successMessage = `Character "${newCharacter.value.name}" created successfully!`
+    if (hasPhysicalDescription && response.image_url) {
+      successMessage += ' Portrait generated! 🎨'
+      imageGenerationStatus.value = '✨ Portrait generated successfully!'
+    } else if (hasPhysicalDescription) {
+      imageGenerationStatus.value = '⚠️ Character created, but portrait generation failed'
+    }
+
+    message.value = successMessage
     messageType.value = 'success'
     
     // Reset form after successful creation
     setTimeout(() => {
       resetForm()
-    }, 2000)
+    }, 3000)
 
   } catch (error) {
     console.error('Failed to create character:', error)
     message.value = 'Failed to create character. Please try again.'
     messageType.value = 'error'
+    imageGenerationStatus.value = ''
   } finally {
     isCreating.value = false
   }
@@ -216,6 +256,7 @@ const resetForm = () => {
     name: '',
     title: '',
     background: '',
+    physicalDescription: '',
     imageUrl: '',
     stats: [
       { label: 'Strength', value: '10' },
@@ -231,6 +272,7 @@ const resetForm = () => {
     ]
   }
   message.value = ''
+  imageGenerationStatus.value = ''
 }
 
 // Clear message after 5 seconds
@@ -349,12 +391,14 @@ watch(message, (newMessage) => {
 }
 
 .character-background,
+.character-physical-description,
 .character-stats,
 .character-abilities {
   margin-bottom: 2rem;
 }
 
 .character-background h2,
+.character-physical-description h2,
 .character-stats h2,
 .character-abilities h2 {
   font-size: 1.5rem;
@@ -365,7 +409,8 @@ watch(message, (newMessage) => {
   padding-bottom: 0.5rem;
 }
 
-.background-textarea {
+.background-textarea,
+.physical-description-textarea {
   width: 100%;
   min-height: 100px;
   background: none;
@@ -376,9 +421,25 @@ watch(message, (newMessage) => {
   resize: vertical;
 }
 
-.background-textarea:focus {
+.physical-description-textarea {
+  min-height: 80px;
+}
+
+.background-textarea:focus,
+.physical-description-textarea:focus {
   outline: none;
   border-color: black;
+}
+
+.image-status {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border-left: 3px solid #2196f3;
 }
 
 .stats-grid {

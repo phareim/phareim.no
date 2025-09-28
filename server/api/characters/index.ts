@@ -27,6 +27,48 @@ export default defineEventHandler(async (event) => {
 })
 
 async function getCharacters() {
+    let backendCharacters: Character[] = []
+    
+    try {
+        // Fetch characters from Firebase
+        const snapshot = await db.collection(charactersCollection).get()
+        
+        snapshot.forEach(doc => {
+            const data = doc.data()
+            const character: Character = {
+                id: doc.id,
+                name: data.name,
+                background: data.background,
+                stats: data.stats,
+                abilities: data.abilities || [],
+                imageUrl: data.imageUrl,
+                videoUrls: data.videoUrls,
+                level: data.level,
+                hitPoints: data.hitPoints,
+                armorClass: data.armorClass,
+                location: data.location,
+                createdAt: data.createdAt?.toDate(),
+                updatedAt: data.updatedAt?.toDate()
+            }
+            backendCharacters.push(character)
+        })
+
+        // Sort backend characters by creation date (newest first)
+        backendCharacters.sort((a, b) => {
+            const dateA = a.createdAt || new Date(0)
+            const dateB = b.createdAt || new Date(0)
+            return dateB.getTime() - dateA.getTime()
+        })
+
+        console.log(`📚 Retrieved ${backendCharacters.length} characters from Firebase`)
+
+    } catch (error) {
+        console.error('Error fetching characters from Firebase:', error)
+        // Continue with empty array if Firebase fails
+        backendCharacters = []
+    }
+
+    /** Keep the hardcoded characters for inspiration */
     const hardcodedCharacters = [
         {
             id: "eddie",
@@ -149,7 +191,8 @@ async function getCharacters() {
         }  
     ]
     
-    return hardcodedCharacters
+    // Return backend characters first, then hardcoded characters for inspiration
+    return [...backendCharacters, ...hardcodedCharacters]
 }
 
 async function createCharacter(event: any) {
@@ -191,8 +234,8 @@ async function createCharacter(event: any) {
             
             if (imageResponse.success && imageResponse.imageUrl) {
                 // Update the character with the generated image URL
-                await docRef.update({ image_url: imageResponse.imageUrl })
-                character.image_url = imageResponse.imageUrl
+                await docRef.update({ imageUrl: imageResponse.imageUrl })
+                character.imageUrl = imageResponse.imageUrl
                 console.log('✨ Character image generated and saved!')
             }
         } catch (imageError) {

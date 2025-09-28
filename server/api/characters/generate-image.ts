@@ -45,13 +45,21 @@ export default defineEventHandler(async (event) => {
 })
 
 async function generateCharacterImage(userPrompt: string): Promise<string> {
-    const STD_PROMPT = "flat white background, AAA hollywood blockbuster, realistic photography, masterwork portrait quality, standing with eye contact, bold expressive photo artwork, highest quality, standing in basic position, full body portrait, highest quality, epic fantasy, gritty fantasy, steampunk aesthetics, "
+    const STD_PROMPT = "flat white background, #FFFFFF white background, "+
+    "AAA hollywood blockbuster, realistic photography, masterwork portrait quality,"+
+    " standing with eye contact, bold expressive photo artwork, highest quality,"+
+    " standing in basic position, full body portrait, highest quality, epic fantasy,"+
+    " gritty fantasy, steampunk aesthetics, worn clothing, ragged looks, "
     
     console.log('🎨 Generating character image with fal.ai...')
     
     const result = await fal.subscribe("fal-ai/flux/krea", {
         input: {
-            prompt: STD_PROMPT + userPrompt
+            prompt: STD_PROMPT + userPrompt,
+            image_size: 'portrait_16_9',
+            enable_safety_checker: false,
+            guidance_scale: 3,
+            negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts, signature, watermark, username, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts, signature, watermark, username'
         },
         logs: true,
         onQueueUpdate: (update) => {

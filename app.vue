@@ -21,7 +21,9 @@ export default {
   methods: {
     handleKeyDown(event) {
       // Ignorer 'M'-tastetrykk på RPG-siden
-      if (event.key === 'm' && !window.location.pathname.includes('rpg') && !window.location.pathname.includes('image-generator')) {
+      if (event.key === 'm' && !window.location.pathname.includes('rpg') 
+      && !window.location.pathname.includes('image-generator') 
+      && !window.location.pathname.includes('new-character')) {
         this.$refs.menuComponent.toggleMenu();
       }
     }
