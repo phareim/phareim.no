@@ -15,8 +15,8 @@ export interface Character {
         name?: string;
         description?: string;
     }[];
-    image_url?: string;
-    video_urls?:{
+    imageUrl?: string;
+    videoUrls?:{
         walk_in?: string;
         walk_out?: string;
         idle?: string;
