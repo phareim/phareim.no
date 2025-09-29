@@ -189,15 +189,7 @@ const createCharacter = async () => {
   imageGenerationStatus.value = ''
 
   try {
-    // Clean up empty abilities
-    const cleanAbilities = newCharacter.value.abilities.filter(
-      ability => ability.name.trim() && ability.description.trim()
-    )
-
-    const characterData = {
-      ...newCharacter.value,
-      abilities: cleanAbilities
-    }
+    const characterData = newCharacter.value;
 
     // Add image generation parameters if physical description is provided
     const hasPhysicalDescription = newCharacter.value.physicalDescription?.trim()
