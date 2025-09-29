@@ -51,8 +51,6 @@ async function generateCharacterImage(userPrompt: string): Promise<string> {
     " standing in basic position, full body portrait, highest quality, epic fantasy,"+
     " gritty fantasy, steampunk aesthetics, worn clothing, ragged looks, "
     
-    console.log('🎨 Generating character image with fal.ai...')
-    
     const result = await fal.subscribe("fal-ai/flux/krea", {
         input: {
             prompt: STD_PROMPT + userPrompt,
@@ -62,12 +60,9 @@ async function generateCharacterImage(userPrompt: string): Promise<string> {
             negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts, signature, watermark, username, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts, signature, watermark, username'
         },
         logs: true,
-        onQueueUpdate: (update) => {
-            console.log('Queue update:', update)
+        onQueueUpdate: () => {
         },
     })
-    
-    console.log('✨ Image generated successfully!')
     
     // Extract the image URL from the result
     if (result.data && result.data.images && result.data.images.length > 0) {
@@ -78,7 +73,6 @@ async function generateCharacterImage(userPrompt: string): Promise<string> {
 }
 
 async function uploadImageToFirebase(imageUrl: string, characterId?: string): Promise<string> {
-    console.log('📤 Uploading image to Firebase Storage...')
     
     try {
         // Fetch the image from the URL
@@ -115,7 +109,6 @@ async function uploadImageToFirebase(imageUrl: string, characterId?: string): Pr
         // Get the public URL
         const publicUrl = `https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/${encodeURIComponent(filename)}?alt=media`
         
-        console.log('🎉 Image uploaded successfully to Firebase!')
         return publicUrl
         
     } catch (error) {

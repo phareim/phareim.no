@@ -60,8 +60,6 @@ async function getCharacters() {
             return dateB.getTime() - dateA.getTime()
         })
 
-        console.log(`📚 Retrieved ${backendCharacters.length} characters from Firebase`)
-
     } catch (error) {
         console.error('Error fetching characters from Firebase:', error)
         // Continue with empty array if Firebase fails
@@ -196,7 +194,6 @@ async function getCharacters() {
 }
 
 async function createCharacter(event: any) {
-    console.log('createCharacter', event)
     const body = await readBody(event)
     
     // Set default values
@@ -227,7 +224,6 @@ async function createCharacter(event: any) {
     // If generateImage is requested and a prompt is provided, generate an image
     if (body.generateImage && body.imagePrompt) {
         try {
-            console.log('🎨 Generating image for new character...')
             const imageResponse = await $fetch('/api/characters/generate-image', {
                 method: 'POST',
                 body: {
@@ -237,17 +233,11 @@ async function createCharacter(event: any) {
             })
             
             if (imageResponse.success && imageResponse.imageUrl) {
-                // Update the character with the generated image URL
                 await docRef.update({ imageUrl: imageResponse.imageUrl })
                 character.imageUrl = imageResponse.imageUrl
-                console.log('✨ Character image generated and saved!', imageResponse.imageUrl)
-                console.log('🎭 Character object after setting imageUrl:', character)
-            } else {
-                console.log('⚠️ Image generation response:', imageResponse)
             }
         } catch (imageError) {
             console.error('Failed to generate character image:', imageError)
-            // Don't fail the character creation if image generation fails
         }
     }
     
@@ -255,7 +245,5 @@ async function createCharacter(event: any) {
         id: docRef.id,
         ...character
     }
-    
-    console.log('🎭 Returning character with imageUrl:', result.imageUrl)
     return result
 }

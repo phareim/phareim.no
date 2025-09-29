@@ -58,7 +58,6 @@ export default {
       this.error = null;
       
       try {
-        console.log('Generating poem for theme:', this.themeForPoem.trim());
         const { data: poem } = await $fetch('/api/write-a-bad-poem', {
           query: {
             theme_for_poem: this.themeForPoem.trim()

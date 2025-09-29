@@ -96,10 +96,8 @@ export default defineEventHandler(async (event) => {
     const result = await fal.subscribe(endpoint, {
       input,
       logs: true,
-      onQueueUpdate: (update) => {
-        if (update.status === 'IN_PROGRESS') {
-          update.logs?.map((log) => log.message).forEach((m) => console.log(m))
-        }
+      onQueueUpdate: () => {
+        
       }
     })
 
