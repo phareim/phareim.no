@@ -1,7 +1,9 @@
 export interface Character {
     id?: string;
     name?: string;
-    background?: string;    
+    title?: string;
+    background?: string;
+    physicalDescription?: string;    
     stats?: {
         // Standard D&D ability scores 🤓
         strength?: number;     // Physical power (1-20)

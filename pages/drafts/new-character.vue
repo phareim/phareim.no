@@ -1,6 +1,33 @@
 <template>
   <div class="character-page">
     <div class="character-container">
+      <!-- Left side - Character Image -->
+      <div class="character-image">
+        <div class="image-container">
+          <img 
+            v-if="newCharacter.imageUrl" 
+            :src="newCharacter.imageUrl" 
+            alt="Character Portrait" 
+            class="portrait"
+          />
+          <div v-else class="placeholder-portrait">
+            <div class="upload-icon">🎭</div>
+            <p>Character portrait will appear here</p>
+          </div>
+        </div>
+        <button 
+          v-if="newCharacter.physicalDescription && !isGeneratingImage" 
+          @click="generateImage" 
+          class="regenerate-image-btn"
+        >
+          {{ newCharacter.imageUrl ? '🔄 Regenerate Image' : '🎨 Generate Image' }}
+        </button>
+        <div v-if="isGeneratingImage" class="image-loading">
+          <div class="spinner"></div>
+          <p>Generating image...</p>
+        </div>
+      </div>
+
       <!-- Right side - Character Creation Form -->
       <div class="character-details">
         <div class="character-content">
@@ -95,14 +122,21 @@
 
           <div class="character-actions">
             <button 
+              @click="generateCharacter" 
+              :disabled="isGenerating"
+              class="generate-btn"
+            >
+              {{ isGenerating ? '🎭 Generating...' : '🎭 Generate Character' }}
+            </button>
+            <button 
               @click="createCharacter" 
               :disabled="!canCreate || isCreating"
               class="create-btn"
             >
               {{ 
                 isCreating 
-                  ? (newCharacter.physicalDescription?.trim() ? 'Creating & Generating Image...' : 'Creating...') 
-                  : 'Create Character' 
+                  ? (newCharacter.physicalDescription?.trim() && !newCharacter.imageUrl ? 'Saving & Generating Image...' : 'Saving...') 
+                  : 'Save Character' 
               }}
             </button>
             <button @click="previewCharacter" class="preview-btn">
@@ -145,6 +179,8 @@ const newCharacter = ref({
 })
 
 const isCreating = ref(false)
+const isGenerating = ref(false)
+const isGeneratingImage = ref(false)
 const message = ref('')
 const messageType = ref('success')
 const imageGenerationStatus = ref('')
@@ -191,9 +227,10 @@ const createCharacter = async () => {
   try {
     const characterData = newCharacter.value;
 
-    // Add image generation parameters if physical description is provided
+    // Add image generation parameters if physical description is provided and no image exists yet
     const hasPhysicalDescription = newCharacter.value.physicalDescription?.trim()
-    if (hasPhysicalDescription) {
+    const needsImageGeneration = hasPhysicalDescription && !newCharacter.value.imageUrl
+    if (needsImageGeneration) {
       characterData.generateImage = true
       characterData.imagePrompt = newCharacter.value.physicalDescription
       imageGenerationStatus.value = '🎨 Generating character portrait...'
@@ -209,12 +246,12 @@ const createCharacter = async () => {
       throw new Error(response.error)
     }
 
-    let successMessage = `Character "${newCharacter.value.name}" created successfully!`
-    if (hasPhysicalDescription && response.image_url) {
+    let successMessage = `Character "${newCharacter.value.name}" saved successfully!`
+    if (needsImageGeneration && response.imageUrl) {
       successMessage += ' Portrait generated! 🎨'
       imageGenerationStatus.value = '✨ Portrait generated successfully!'
-    } else if (hasPhysicalDescription) {
-      imageGenerationStatus.value = '⚠️ Character created, but portrait generation failed'
+    } else if (needsImageGeneration) {
+      imageGenerationStatus.value = '⚠️ Character saved, but portrait generation failed'
     }
 
     message.value = successMessage
@@ -226,8 +263,8 @@ const createCharacter = async () => {
     }, 3000)
 
   } catch (error) {
-    console.error('Failed to create character:', error)
-    message.value = 'Failed to create character. Please try again.'
+    console.error('Failed to save character:', error)
+    message.value = 'Failed to save character. Please try again.'
     messageType.value = 'error'
     imageGenerationStatus.value = ''
   } finally {
@@ -265,6 +302,86 @@ const resetForm = () => {
   }
   message.value = ''
   imageGenerationStatus.value = ''
+  isGenerating.value = false
+  isGeneratingImage.value = false
+}
+
+// Generate character using GPT-5
+const generateCharacter = async () => {
+  isGenerating.value = true
+  message.value = ''
+  
+  try {
+    console.log('🎭 Generating character with GPT-5...')
+    const response = await $fetch('/api/characters/generate', {
+      method: 'POST',
+      body: {
+        theme: '', // You can add theme selection later
+        style: ''  // You can add style selection later
+      }
+    })
+    
+    if (response.success && response.character) {
+      const generated = response.character
+      newCharacter.value.name = generated.name
+      newCharacter.value.title = generated.title
+      newCharacter.value.background = generated.background
+      newCharacter.value.physicalDescription = generated.physicalDescription
+      
+      message.value = 'Character generated successfully! 🎭'
+      messageType.value = 'success'
+      
+      // Auto-generate image if physical description is provided
+      if (generated.physicalDescription) {
+        await generateImage()
+      }
+    }
+  } catch (error) {
+    console.error('Failed to generate character:', error)
+    message.value = 'Failed to generate character. Please try again.'
+    messageType.value = 'error'
+  } finally {
+    isGenerating.value = false
+  }
+}
+
+// Generate character image
+const generateImage = async () => {
+  if (!newCharacter.value.physicalDescription?.trim()) {
+    message.value = 'Please provide a physical description first.'
+    messageType.value = 'error'
+    return
+  }
+  
+  isGeneratingImage.value = true
+  imageGenerationStatus.value = '🎨 Generating character portrait...'
+  
+  try {
+    const response = await $fetch('/api/characters/generate-image', {
+      method: 'POST',
+      body: {
+        prompt: newCharacter.value.physicalDescription,
+        characterId: 'preview' // Temporary ID for preview
+      }
+    })
+    
+    if (response.success && response.imageUrl) {
+      newCharacter.value.imageUrl = response.imageUrl
+      imageGenerationStatus.value = '✨ Portrait generated successfully!'
+      message.value = 'Character image generated! 🎨'
+      messageType.value = 'success'
+    }
+  } catch (error) {
+    console.error('Failed to generate image:', error)
+    imageGenerationStatus.value = '⚠️ Image generation failed'
+    message.value = 'Failed to generate image. Please try again.'
+    messageType.value = 'error'
+  } finally {
+    isGeneratingImage.value = false
+    setTimeout(() => {
+      imageGenerationStatus.value = ''
+    }, 3000)
+  }
 }
 
 // Clear message after 5 seconds
@@ -296,6 +413,15 @@ watch(message, (newMessage) => {
 
 .character-image {
   flex: 0 0 400px;
+}
+
+.image-container {
+  width: 100%;
+  aspect-ratio: 9/16;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #ddd;
+  margin-bottom: 1rem;
 }
 
 .image-upload-area {
@@ -558,6 +684,7 @@ watch(message, (newMessage) => {
   margin-top: 2rem;
 }
 
+.generate-btn,
 .create-btn,
 .preview-btn,
 .reset-btn {
@@ -567,6 +694,63 @@ watch(message, (newMessage) => {
   font-family: inherit;
   font-weight: bold;
   transition: all 0.2s ease;
+}
+
+.generate-btn {
+  background: #9c27b0;
+  color: white;
+  border: 2px solid #9c27b0;
+}
+
+.generate-btn:disabled {
+  background: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
+}
+
+.generate-btn:hover:not(:disabled) {
+  background: white;
+  color: #9c27b0;
+}
+
+.regenerate-image-btn {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  background: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.regenerate-image-btn:hover {
+  background: #1976d2;
+}
+
+.image-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  color: #666;
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #2196f3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 0.5rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .create-btn {

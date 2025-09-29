@@ -202,8 +202,11 @@ async function createCharacter(event: any) {
     // Set default values
     const character: Omit<Character, 'id'> = {
         name: body.name || 'Unnamed Adventurer',
+        title: body.title,
         background: body.background || 'A mysterious figure with an unknown past.',
+        physicalDescription: body.physicalDescription,
         stats: body.stats || generateRandomStats(),
+        abilities: body.abilities || [],
         level: body.level || 1,
         createdAt: new Date(),
         updatedAt: new Date()
