@@ -1,11 +1,9 @@
-import { fal } from "@fal-ai/client"
+import { fal } from '@fal-ai/client'
 import { storage } from '~/server/utils/firebase-admin'
 import { v4 as uuidv4 } from 'uuid'
 
 export default defineEventHandler(async (event) => {
-    const method = getMethod(event)
-    
-    if (method !== 'POST') {
+    if (event.method !== 'POST') {
         throw createError({
             status: 405,
             statusText: 'Method not allowed'
@@ -23,10 +21,8 @@ export default defineEventHandler(async (event) => {
             })
         }
         
-        // Generate the image using fal.ai
         const imageUrl = await generateCharacterImage(userPrompt)
         
-        // Upload to Firebase Storage
         const firebaseUrl = await uploadImageToFirebase(imageUrl, characterId)
         
         return {
@@ -46,8 +42,8 @@ export default defineEventHandler(async (event) => {
 
 async function generateCharacterImage(userPrompt: string): Promise<string> {
     const STD_PROMPT = "flat white background, #FFFFFF white background, "+
-    "AAA hollywood blockbuster, realistic photography, masterwork portrait quality,"+
-    " standing with eye contact, bold expressive photo artwork, highest quality,"+
+    "indie movie poster photo style, realistic photography, masterwork portrait quality,"+
+    " standing with eye contact, expressive photo artwork, highest quality,"+
     " standing in basic position, full body portrait, highest quality, epic fantasy,"+
     " gritty fantasy, steampunk aesthetics, worn clothing, ragged looks, "
     
@@ -57,7 +53,7 @@ async function generateCharacterImage(userPrompt: string): Promise<string> {
             image_size: 'portrait_16_9',
             enable_safety_checker: false,
             guidance_scale: 3,
-            negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts, signature, watermark, username, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts, signature, watermark, username'
+            negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts'
         },
         logs: true,
         onQueueUpdate: () => {
@@ -67,9 +63,9 @@ async function generateCharacterImage(userPrompt: string): Promise<string> {
     // Extract the image URL from the result
     if (result.data && result.data.images && result.data.images.length > 0) {
         return result.data.images[0].url
+    }else{
+        throw new Error('No image generated from fal.ai')
     }
-    
-    throw new Error('No image generated from fal.ai')
 }
 
 async function uploadImageToFirebase(imageUrl: string, characterId?: string): Promise<string> {
