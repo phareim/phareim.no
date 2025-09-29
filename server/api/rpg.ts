@@ -35,13 +35,8 @@ export default defineEventHandler(async (event: any) => {
     }
     try {
         const body = await readBody(event)
-        console.log('--------------------------------')
-        console.log('Received message:', body);
-        console.log('--------------------------------')
         const { command, userId } = body
-        console.log('Received command:', command)
         if(!command) {
-            console.log('No command provided', null, event);
             return {
                 error: 'No command provided',
                 status: 400
@@ -60,7 +55,6 @@ export default defineEventHandler(async (event: any) => {
             }
             // Save the initial state
             await saveGameState(userId, gameState)
-            console.log('Created new game state for user:', userId)
         }
 
         // Parse command

@@ -91,12 +91,10 @@ async function loadGameState() {
 		const itemsCollection = collection($firebase.firestore, 'items')
 		const placesCollection = collection($firebase.firestore, 'places')
 		gameStateDoc = doc($firebase.firestore, 'gameStates', userId.value)
-		console.log('gameStateDoc', gameStateDoc)
 	
 		const gameSnapshot = await getDoc(gameDoc)
 
 		if (gameSnapshot.exists()) {
-			console.log('gameSnapshot', gameSnapshot.data())
 			const data = gameSnapshot.data()
 			gameMessages.value = data.messages || gameMessages.value
 			commandHistory.value = data.commands || commandHistory.value
@@ -156,8 +154,6 @@ async function resetGame() {
 
 // Command handling
 async function handleCommand() {
-	console.log('handleCommand', userInput.value)
-	console.log('gameStateDoc', (await getDoc(gameStateDoc)).data())
 
 	if (!userInput.value.trim() || isLoading.value) return
 	

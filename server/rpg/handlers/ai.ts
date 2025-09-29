@@ -66,9 +66,6 @@ export async function handleAIResponse(
         })
     }
 
-    // Log the messages array
-    console.log('Messages passed to OpenAI:', messageHistory)
-
     // Send to Venice/OpenAI
     const completion = await openai.chat.completions.create({
         model: "llama-3.1-405b",

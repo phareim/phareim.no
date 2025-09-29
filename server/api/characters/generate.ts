@@ -41,7 +41,6 @@ export default defineEventHandler(async (event) => {
 })
 
 async function generateCharacterDetails(gender?: string, setting?: string, emojis?: string) {
-    console.log('🎭 Generating character with GPT-5...')
     
     const genderPrompt = gender ? `The character should be ${gender}` : 'The character can be any gender'
     const settingPrompt = setting ? `The character should fit the ${setting} setting/genre` : 'The character should fit a fantasy setting'
@@ -95,12 +94,7 @@ ABILITY_2_DESC: [second ability description]`
         throw new Error('Failed to generate character details')
     }
 
-    console.log('📝 Generated character response:', response)
-
-    // Parse the response
     const character = parseCharacterResponse(response)
-    
-    console.log('✨ Character generated successfully!')
     return character
 }
 

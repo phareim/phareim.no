@@ -6,7 +6,6 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 export default defineEventHandler(async (event: any) => {
   const query = getQuery(event)
   const theme = query.theme_for_poem || 'cats'
-  console.log('bad poem: theme', theme)
   const res = await client.responses.create({
     model: 'gpt-5-mini',
     input: [

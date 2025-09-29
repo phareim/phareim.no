@@ -292,7 +292,6 @@ const createCharacter = async () => {
       body: characterData
     })
     
-    console.log('🎭 Character creation response:', response)
     if (response.error) {
       throw new Error(response.error)
     }
@@ -368,7 +367,6 @@ const generateCharacter = async () => {
   message.value = ''
   
   try {
-    console.log('🎭 Generating character with GPT-5...')
     const response = await $fetch('/api/characters/generate', {
       method: 'POST',
       body: {
@@ -447,10 +445,8 @@ const generateImage = async () => {
         characterId: 'preview' // Temporary ID for preview
       }
     })
-    console.log('🎭 Character image generation response:', response)
     if (response.success && response.imageUrl) {
       newCharacter.value.imageUrl = response.imageUrl
-      console.log('🎭 Character image generated:', response.imageUrl)
       imageGenerationStatus.value = '✨ Portrait generated successfully!'
       message.value = 'Character image generated! 🎨'
       messageType.value = 'success'

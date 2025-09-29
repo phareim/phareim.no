@@ -162,7 +162,6 @@ export async function generatePlace(
 
     // Generate place using OpenAI
     const randomFeature = getRandomFeature()
-    console.log('Generating new place with feature:', randomFeature)
     
     const completion = await openai.chat.completions.create({
         model: "llama-3.1-405b",
