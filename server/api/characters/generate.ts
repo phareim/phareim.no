@@ -21,10 +21,10 @@ export default defineEventHandler(async (event) => {
     
     try {
         const body = await readBody(event)
-        const { gender, theme, style } = body
+        const { gender, setting, emojis } = body
         
         // Generate character details using GPT-5
-        const character = await generateCharacterDetails(gender, theme, style)
+        const character = await generateCharacterDetails(gender, setting, emojis)
         
         return {
             success: true,
@@ -40,12 +40,12 @@ export default defineEventHandler(async (event) => {
     }
 })
 
-async function generateCharacterDetails(gender?: string, theme?: string, style?: string) {
+async function generateCharacterDetails(gender?: string, setting?: string, emojis?: string) {
     console.log('🎭 Generating character with GPT-5...')
     
     const genderPrompt = gender ? `The character should be ${gender}` : 'The character can be any gender'
-    const themePrompt = theme ? `The character should fit the theme: ${theme}` : ''
-    const stylePrompt = style ? `The character should have a ${style} style/aesthetic` : ''
+    const settingPrompt = setting ? `The character should fit the ${setting} setting/genre` : 'The character should fit a fantasy setting'
+    const emojiPrompt = emojis ? `Use these emojis as inspiration for the character's traits and physical description: ${emojis}` : ''
     
     const systemPrompt = `You are a creative character designer for a fantasy RPG game. Generate a complete character with the following fields:
 
@@ -58,11 +58,11 @@ ABILITY_1_DESC: A brief description of what this ability does (1-2 sentences)
 ABILITY_2_NAME: A second unique special ability name
 ABILITY_2_DESC: A brief description of what this second ability does (1-2 sentences)
 
-The character should be interesting, unique, and fit well in a fantasy RPG setting. Make them memorable with distinctive traits and a compelling backstory. The abilities should complement the character's background and profession.
+The character should be interesting, unique, and memorable with distinctive traits and a compelling backstory. The abilities should complement the character's background and profession. Names, titles, and descriptions should match the specified setting/genre.
 
 ${genderPrompt}
-${themePrompt}
-${stylePrompt}
+${settingPrompt}
+${emojiPrompt}
 
 Format your response exactly like this:
 NAME: [character name]

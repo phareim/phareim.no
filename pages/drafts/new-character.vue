@@ -35,22 +35,54 @@
           <div class="character-generation-section">
             <h2>Generate Character</h2>
             <div class="generation-options">
-              <div class="gender-selection">
-                <label class="gender-label">Gender:</label>
-                <select v-model="selectedGender" class="gender-select">
-                  <option value="">Any Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="non-binary">Non-binary</option>
-                </select>
+              <div class="option-row">
+                <div class="gender-selection">
+                  <label class="option-label">Gender:</label>
+                  <select v-model="selectedGender" class="option-select">
+                    <option value="">Any Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="non-binary">Non-binary</option>
+                  </select>
+                </div>
+                <div class="setting-selection">
+                  <label class="option-label">Setting:</label>
+                  <select v-model="selectedSetting" class="option-select">
+                    <option value="">Fantasy (Default)</option>
+                    <option value="cyberpunk">Cyberpunk</option>
+                    <option value="steampunk">Steampunk</option>
+                    <option value="post-apocalyptic">Post-Apocalyptic</option>
+                    <option value="space-opera">Space Opera</option>
+                    <option value="medieval">Medieval</option>
+                    <option value="modern-urban">Modern Urban</option>
+                    <option value="victorian">Victorian</option>
+                    <option value="wild-west">Wild West</option>
+                    <option value="pirate">Pirate</option>
+                    <option value="superhero">Superhero</option>
+                  </select>
+                </div>
               </div>
-              <button 
-                @click="generateCharacter" 
-                :disabled="isGenerating"
-                class="generate-btn-top"
-              >
-                {{ isGenerating ? '🎭 Generating...' : '🎭 Generate Character' }}
-              </button>
+              <div class="option-row">
+                <div class="emoji-selection">
+                  <label class="option-label">Flavor Emojis:</label>
+                  <input 
+                    v-model="selectedEmojis" 
+                    placeholder="🗡️⚡🔮"
+                    class="emoji-input"
+                    maxlength="30"
+                  />
+                  <small class="emoji-hint">Add some emojis for character inspiration</small>
+                </div>
+              </div>
+              <div class="generate-button-row">
+                <button 
+                  @click="generateCharacter" 
+                  :disabled="isGenerating"
+                  class="generate-btn-top"
+                >
+                  {{ isGenerating ? '🎭 Generating...' : '🎭 Generate Character' }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -201,6 +233,8 @@ const message = ref('')
 const messageType = ref('success')
 const imageGenerationStatus = ref('')
 const selectedGender = ref('')
+const selectedSetting = ref('')
+const selectedEmojis = ref('')
 
 // Computed property to check if character can be created
 const canCreate = computed(() => {
@@ -322,6 +356,8 @@ const resetForm = () => {
   isGenerating.value = false
   isGeneratingImage.value = false
   selectedGender.value = ''
+  selectedSetting.value = ''
+  selectedEmojis.value = ''
 }
 
 // Generate character using GPT-5
@@ -335,8 +371,8 @@ const generateCharacter = async () => {
       method: 'POST',
       body: {
         gender: selectedGender.value,
-        theme: '', // You can add theme selection later
-        style: ''  // You can add style selection later
+        setting: selectedSetting.value,
+        emojis: selectedEmojis.value
       }
     })
     
@@ -530,23 +566,41 @@ watch(message, (newMessage) => {
 
 .generation-options {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.option-row {
+  display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+  align-items: flex-start;
 }
 
-.gender-selection {
+.gender-selection,
+.setting-selection {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 200px;
 }
 
-.gender-label {
+.emoji-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 250px;
+}
+
+.option-label {
   font-weight: bold;
   color: #333;
+  font-size: 0.9rem;
 }
 
-.gender-select {
+.option-select {
   padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -555,9 +609,36 @@ watch(message, (newMessage) => {
   cursor: pointer;
 }
 
-.gender-select:focus {
+.option-select:focus {
   outline: none;
   border-color: #9c27b0;
+}
+
+.emoji-input {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  font-family: inherit;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.emoji-input:focus {
+  outline: none;
+  border-color: #9c27b0;
+}
+
+.emoji-hint {
+  color: #666;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.generate-button-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
 }
 
 .generate-btn-top {
@@ -923,6 +1004,17 @@ watch(message, (newMessage) => {
     flex: none;
     max-width: 300px;
     margin: 0 auto;
+  }
+  
+  .option-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .gender-selection,
+  .setting-selection,
+  .emoji-selection {
+    min-width: unset;
   }
   
   .stats-grid {
