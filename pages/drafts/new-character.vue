@@ -292,7 +292,7 @@ const createCharacter = async () => {
       body: characterData
     })
     
-    console.log('response', response)
+    console.log('🎭 Character creation response:', response)
     if (response.error) {
       throw new Error(response.error)
     }
@@ -301,6 +301,8 @@ const createCharacter = async () => {
     if (needsImageGeneration && response.imageUrl) {
       successMessage += ' Portrait generated! 🎨'
       imageGenerationStatus.value = '✨ Portrait generated successfully!'
+      // Update the local character image URL for preview
+      newCharacter.value.imageUrl = response.imageUrl
     } else if (needsImageGeneration) {
       imageGenerationStatus.value = '⚠️ Character saved, but portrait generation failed'
     }
@@ -445,9 +447,10 @@ const generateImage = async () => {
         characterId: 'preview' // Temporary ID for preview
       }
     })
-    
+    console.log('🎭 Character image generation response:', response)
     if (response.success && response.imageUrl) {
       newCharacter.value.imageUrl = response.imageUrl
+      console.log('🎭 Character image generated:', response.imageUrl)
       imageGenerationStatus.value = '✨ Portrait generated successfully!'
       message.value = 'Character image generated! 🎨'
       messageType.value = 'success'

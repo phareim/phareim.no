@@ -207,6 +207,7 @@ async function createCharacter(event: any) {
         physicalDescription: body.physicalDescription,
         stats: body.stats || generateRandomStats(),
         abilities: body.abilities || [],
+        imageUrl: body.imageUrl, // Include imageUrl from the start
         level: body.level || 1,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -239,7 +240,10 @@ async function createCharacter(event: any) {
                 // Update the character with the generated image URL
                 await docRef.update({ imageUrl: imageResponse.imageUrl })
                 character.imageUrl = imageResponse.imageUrl
-                console.log('✨ Character image generated and saved!')
+                console.log('✨ Character image generated and saved!', imageResponse.imageUrl)
+                console.log('🎭 Character object after setting imageUrl:', character)
+            } else {
+                console.log('⚠️ Image generation response:', imageResponse)
             }
         } catch (imageError) {
             console.error('Failed to generate character image:', imageError)
@@ -247,8 +251,11 @@ async function createCharacter(event: any) {
         }
     }
     
-    return {
+    const result = {
         id: docRef.id,
         ...character
     }
+    
+    console.log('🎭 Returning character with imageUrl:', result.imageUrl)
+    return result
 }
