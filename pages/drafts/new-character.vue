@@ -347,7 +347,33 @@ const generateCharacter = async () => {
       newCharacter.value.background = generated.background
       newCharacter.value.physicalDescription = generated.physicalDescription
       
-      message.value = 'Character generated successfully! 🎭'
+      // Update stats if generated (convert from D&D format to our label/value format)
+      if (generated.stats) {
+        newCharacter.value.stats = [
+          { label: 'Strength', value: generated.stats.strength?.toString() || '10' },
+          { label: 'Dexterity', value: generated.stats.dexterity?.toString() || '10' },
+          { label: 'Intelligence', value: generated.stats.intelligence?.toString() || '10' },
+          { label: 'Wisdom', value: generated.stats.wisdom?.toString() || '10' },
+          { label: 'Constitution', value: generated.stats.constitution?.toString() || '10' },
+          { label: 'Charisma', value: generated.stats.charisma?.toString() || '10' }
+        ]
+      }
+      
+      // Update abilities if generated
+      if (generated.abilities && generated.abilities.length >= 2) {
+        newCharacter.value.abilities = [
+          { 
+            name: generated.abilities[0].name || '', 
+            description: generated.abilities[0].description || '' 
+          },
+          { 
+            name: generated.abilities[1].name || '', 
+            description: generated.abilities[1].description || '' 
+          }
+        ]
+      }
+      
+      message.value = 'Complete character generated with stats and abilities! 🎭✨'
       messageType.value = 'success'
       
       // Auto-generate image if physical description is provided

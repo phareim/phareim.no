@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody } from 'h3'
 import OpenAI from 'openai'
 import { useRuntimeConfig } from '#imports'
+import { generateRandomStats } from '~/types/character'
 
 // Initialize OpenAI with GPT-5
 const config = useRuntimeConfig()
@@ -52,8 +53,12 @@ NAME: A memorable character name (first and last name preferred)
 TITLE: A descriptive title or profession (e.g., "The Wandering Mage", "Master Blacksmith", "Shadow Dancer")
 BACKGROUND: A rich 2-3 sentence background story that explains their origin, motivation, and current situation
 PHYSICAL_DESCRIPTION: A detailed 2-3 sentence physical description including appearance, clothing, notable features, and overall aesthetic. This will be used to generate a portrait image.
+ABILITY_1_NAME: A unique special ability name (e.g., "Shadow Step", "Arcane Mastery", "Beast Whisperer")
+ABILITY_1_DESC: A brief description of what this ability does (1-2 sentences)
+ABILITY_2_NAME: A second unique special ability name
+ABILITY_2_DESC: A brief description of what this second ability does (1-2 sentences)
 
-The character should be interesting, unique, and fit well in a fantasy RPG setting. Make them memorable with distinctive traits and a compelling backstory.
+The character should be interesting, unique, and fit well in a fantasy RPG setting. Make them memorable with distinctive traits and a compelling backstory. The abilities should complement the character's background and profession.
 
 ${genderPrompt}
 ${themePrompt}
@@ -63,7 +68,11 @@ Format your response exactly like this:
 NAME: [character name]
 TITLE: [character title]
 BACKGROUND: [background story]
-PHYSICAL_DESCRIPTION: [physical description]`
+PHYSICAL_DESCRIPTION: [physical description]
+ABILITY_1_NAME: [first ability name]
+ABILITY_1_DESC: [first ability description]
+ABILITY_2_NAME: [second ability name]
+ABILITY_2_DESC: [second ability description]`
 
     const completion = await openai.chat.completions.create({
         model: "gpt-4o",  // Using GPT-4o as GPT-5 may not be available yet
@@ -101,7 +110,12 @@ function parseCharacterResponse(response: string) {
         name: '',
         title: '',
         background: '',
-        physicalDescription: ''
+        physicalDescription: '',
+        stats: generateRandomStats(),
+        abilities: [
+            { name: '', description: '' },
+            { name: '', description: '' }
+        ]
     }
     
     for (const line of lines) {
@@ -114,6 +128,14 @@ function parseCharacterResponse(response: string) {
             character.background = trimmed.replace('BACKGROUND:', '').trim()
         } else if (trimmed.startsWith('PHYSICAL_DESCRIPTION:')) {
             character.physicalDescription = trimmed.replace('PHYSICAL_DESCRIPTION:', '').trim()
+        } else if (trimmed.startsWith('ABILITY_1_NAME:')) {
+            character.abilities[0].name = trimmed.replace('ABILITY_1_NAME:', '').trim()
+        } else if (trimmed.startsWith('ABILITY_1_DESC:')) {
+            character.abilities[0].description = trimmed.replace('ABILITY_1_DESC:', '').trim()
+        } else if (trimmed.startsWith('ABILITY_2_NAME:')) {
+            character.abilities[1].name = trimmed.replace('ABILITY_2_NAME:', '').trim()
+        } else if (trimmed.startsWith('ABILITY_2_DESC:')) {
+            character.abilities[1].description = trimmed.replace('ABILITY_2_DESC:', '').trim()
         }
     }
     
@@ -122,6 +144,16 @@ function parseCharacterResponse(response: string) {
     if (!character.title) character.title = 'Wanderer'
     if (!character.background) character.background = 'A figure shrouded in mystery with an unknown past.'
     if (!character.physicalDescription) character.physicalDescription = 'A person of average height with weathered clothing and keen eyes.'
+    
+    // Fallback abilities if parsing fails
+    if (!character.abilities[0].name) {
+        character.abilities[0].name = 'Keen Senses'
+        character.abilities[0].description = 'Enhanced awareness of surroundings and danger.'
+    }
+    if (!character.abilities[1].name) {
+        character.abilities[1].name = 'Quick Reflexes'
+        character.abilities[1].description = 'Ability to react swiftly in dangerous situations.'
+    }
     
     return character
 }
