@@ -31,6 +31,29 @@
       <!-- Right side - Character Creation Form -->
       <div class="character-details">
         <div class="character-content">
+          <!-- Character Generation Section -->
+          <div class="character-generation-section">
+            <h2>Generate Character</h2>
+            <div class="generation-options">
+              <div class="gender-selection">
+                <label class="gender-label">Gender:</label>
+                <select v-model="selectedGender" class="gender-select">
+                  <option value="">Any Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="non-binary">Non-binary</option>
+                </select>
+              </div>
+              <button 
+                @click="generateCharacter" 
+                :disabled="isGenerating"
+                class="generate-btn-top"
+              >
+                {{ isGenerating ? '🎭 Generating...' : '🎭 Generate Character' }}
+              </button>
+            </div>
+          </div>
+
           <div class="character-header">
             <div class="character-name-container">
               <h1 class="character-name">
@@ -122,13 +145,6 @@
 
           <div class="character-actions">
             <button 
-              @click="generateCharacter" 
-              :disabled="isGenerating"
-              class="generate-btn"
-            >
-              {{ isGenerating ? '🎭 Generating...' : '🎭 Generate Character' }}
-            </button>
-            <button 
               @click="createCharacter" 
               :disabled="!canCreate || isCreating"
               class="create-btn"
@@ -184,6 +200,7 @@ const isGeneratingImage = ref(false)
 const message = ref('')
 const messageType = ref('success')
 const imageGenerationStatus = ref('')
+const selectedGender = ref('')
 
 // Computed property to check if character can be created
 const canCreate = computed(() => {
@@ -304,6 +321,7 @@ const resetForm = () => {
   imageGenerationStatus.value = ''
   isGenerating.value = false
   isGeneratingImage.value = false
+  selectedGender.value = ''
 }
 
 // Generate character using GPT-5
@@ -316,6 +334,7 @@ const generateCharacter = async () => {
     const response = await $fetch('/api/characters/generate', {
       method: 'POST',
       body: {
+        gender: selectedGender.value,
         theme: '', // You can add theme selection later
         style: ''  // You can add style selection later
       }
@@ -464,6 +483,78 @@ watch(message, (newMessage) => {
 .character-details {
   flex: 1;
   max-width: 600px;
+}
+
+.character-generation-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  border: 2px solid #9c27b0;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.character-generation-section h2 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0 0 1rem 0;
+  color: #9c27b0;
+  border-bottom: 1px solid #9c27b0;
+  padding-bottom: 0.5rem;
+}
+
+.generation-options {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.gender-selection {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.gender-label {
+  font-weight: bold;
+  color: #333;
+}
+
+.gender-select {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.gender-select:focus {
+  outline: none;
+  border-color: #9c27b0;
+}
+
+.generate-btn-top {
+  background: #9c27b0;
+  color: white;
+  border: 2px solid #9c27b0;
+  padding: 0.8rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.generate-btn-top:disabled {
+  background: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
+}
+
+.generate-btn-top:hover:not(:disabled) {
+  background: white;
+  color: #9c27b0;
 }
 
 .character-header {
@@ -684,7 +775,6 @@ watch(message, (newMessage) => {
   margin-top: 2rem;
 }
 
-.generate-btn,
 .create-btn,
 .preview-btn,
 .reset-btn {
@@ -694,23 +784,6 @@ watch(message, (newMessage) => {
   font-family: inherit;
   font-weight: bold;
   transition: all 0.2s ease;
-}
-
-.generate-btn {
-  background: #9c27b0;
-  color: white;
-  border: 2px solid #9c27b0;
-}
-
-.generate-btn:disabled {
-  background: #ccc;
-  border-color: #ccc;
-  cursor: not-allowed;
-}
-
-.generate-btn:hover:not(:disabled) {
-  background: white;
-  color: #9c27b0;
 }
 
 .regenerate-image-btn {

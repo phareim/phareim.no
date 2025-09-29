@@ -20,10 +20,10 @@ export default defineEventHandler(async (event) => {
     
     try {
         const body = await readBody(event)
-        const { theme, style } = body
+        const { gender, theme, style } = body
         
         // Generate character details using GPT-5
-        const character = await generateCharacterDetails(theme, style)
+        const character = await generateCharacterDetails(gender, theme, style)
         
         return {
             success: true,
@@ -39,9 +39,10 @@ export default defineEventHandler(async (event) => {
     }
 })
 
-async function generateCharacterDetails(theme?: string, style?: string) {
+async function generateCharacterDetails(gender?: string, theme?: string, style?: string) {
     console.log('🎭 Generating character with GPT-5...')
     
+    const genderPrompt = gender ? `The character should be ${gender}` : 'The character can be any gender'
     const themePrompt = theme ? `The character should fit the theme: ${theme}` : ''
     const stylePrompt = style ? `The character should have a ${style} style/aesthetic` : ''
     
@@ -54,6 +55,7 @@ PHYSICAL_DESCRIPTION: A detailed 2-3 sentence physical description including app
 
 The character should be interesting, unique, and fit well in a fantasy RPG setting. Make them memorable with distinctive traits and a compelling backstory.
 
+${genderPrompt}
 ${themePrompt}
 ${stylePrompt}
 
