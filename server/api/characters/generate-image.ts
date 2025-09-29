@@ -1,8 +1,9 @@
 import { fal } from '@fal-ai/client'
-import { storage } from '~/server/utils/firebase-admin'
+import { storage, db } from '~/server/utils/firebase-admin'
 import { v4 as uuidv4 } from 'uuid'
+import type { CharacterImageGenerationRequest, CharacterImageGenerationResponse, EmojiPrompt, emojiPromptsCollection } from '~/types/character'
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event): Promise<CharacterImageGenerationResponse> => {
     if (event.method !== 'POST') {
         throw createError({
             status: 405,
@@ -11,8 +12,8 @@ export default defineEventHandler(async (event) => {
     }
     
     try {
-        const body = await readBody(event)
-        const { prompt: userPrompt, characterId } = body
+        const body = await readBody(event) as CharacterImageGenerationRequest
+        const { prompt: userPrompt, characterId, characterName, characterTitle, gender, setting, emojis } = body
         
         if (!userPrompt) {
             throw createError({
@@ -21,7 +22,14 @@ export default defineEventHandler(async (event) => {
             })
         }
         
-        const imageUrl = await generateCharacterImage(userPrompt)
+        // Generate the image using fal.ai with full context
+        const imageUrl = await generateCharacterImage(userPrompt, {
+            characterName,
+            characterTitle,
+            gender,
+            setting,
+            emojis
+        })
         
         const firebaseUrl = await uploadImageToFirebase(imageUrl, characterId)
         
@@ -40,19 +48,42 @@ export default defineEventHandler(async (event) => {
     }
 })
 
-async function generateCharacterImage(userPrompt: string): Promise<string> {
+interface ImageGenerationContext {
+    characterName?: string;
+    characterTitle?: string;
+    gender?: string;
+    setting?: string;
+    emojis?: string;
+}
+
+async function generateCharacterImage(userPrompt: string, context: ImageGenerationContext = {}): Promise<string> {
+    const { characterName, characterTitle, gender, setting, emojis } = context;
+    
+    // Retrieve emoji prompts from Firebase
+    const emojiPrompts = await getEmojiPrompts(emojis)
+    const emoji_string = emojiPrompts.join(', ')
+
+    // Build contextual prompt additions
+    
+    const titleContext = characterTitle ? `Character title: ${characterTitle}. ` : '';
+    const genderContext = gender ? `Gender: ${gender}. ` : '';
+    const settingContext = setting ? `Setting: ${setting} style. ` : '';
+    
     const STD_PROMPT = "flat white background, #FFFFFF white background, "+
     "indie movie poster photo style, realistic photography, masterwork portrait quality,"+
+    emoji_string + ", " +
     " standing with eye contact, expressive photo artwork, highest quality,"+
     " standing in basic position, full body portrait, highest quality, epic fantasy,"+
     " gritty fantasy, steampunk aesthetics, worn clothing, ragged looks, "
     
+    const contextualPrompt = titleContext + genderContext + settingContext;
+    
     const result = await fal.subscribe("fal-ai/flux/krea", {
         input: {
-            prompt: STD_PROMPT + userPrompt,
+            prompt: STD_PROMPT + userPrompt + contextualPrompt,
             image_size: 'portrait_16_9',
             enable_safety_checker: false,
-            guidance_scale: 3,
+            guidance_scale: 2.2,
             negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts'
         },
         logs: true,
@@ -110,5 +141,50 @@ async function uploadImageToFirebase(imageUrl: string, characterId?: string): Pr
     } catch (error) {
         console.error('Firebase upload error:', error)
         throw new Error('Failed to upload image to Firebase Storage')
+    }
+}
+
+// Function to retrieve emoji prompts from Firebase
+async function getEmojiPrompts(emojis?: string): Promise<string[]> {
+    if (!emojis || !emojis.trim()) {
+        return []
+    }
+    
+    try {
+        console.log('🔍 Looking up emoji prompts for:', emojis)
+        
+        // Split the emoji string into individual emojis
+        // This handles both single emojis and multi-character emojis
+        const emojiArray = Array.from(emojis.trim())
+        const prompts: string[] = []
+        
+        // Fetch prompts for each emoji from Firebase
+        for (const emoji of emojiArray) {
+            if (emoji.trim()) {
+                try {
+                    const doc = await db.collection('emoji-prompts').doc(emoji).get()
+                    
+                    if (doc.exists) {
+                        const data = doc.data() as EmojiPrompt
+                        const prompt = data?.prompt || data?.description || ''
+                        if (prompt) {
+                            prompts.push(prompt)
+                            console.log(`✨ Found prompt for ${emoji}: ${prompt}`)
+                        }
+                    } else {
+                        console.log(`⚠️ No prompt found for emoji: ${emoji}`)
+                    }
+                } catch (emojiError) {
+                    console.error(`Error fetching prompt for emoji ${emoji}:`, emojiError)
+                }
+            }
+        }
+        
+        console.log(`🎨 Retrieved ${prompts.length} emoji prompts:`, prompts)
+        return prompts
+        
+    } catch (error) {
+        console.error('Error fetching emoji prompts:', error)
+        return []
     }
 }

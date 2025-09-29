@@ -42,6 +42,38 @@ export interface Character {
 
 export const charactersCollection = 'characters'
 
+// Interface for character image generation requests
+export interface CharacterImageGenerationRequest {
+    prompt: string;                    // Physical description for image generation
+    characterName?: string;            // Character name for context
+    characterTitle?: string;           // Character title for context
+    characterBackground?: string;      // Character background for context
+    gender?: string;                   // Gender preference (male, female, non-binary)
+    setting?: string;                  // Setting/genre (fantasy, cyberpunk, etc.)
+    emojis?: string;                   // Emoji inspiration for character traits
+    characterId?: string;              // Character ID (for Firebase storage path)
+}
+
+// Interface for character image generation response
+export interface CharacterImageGenerationResponse {
+    success: boolean;
+    imageUrl?: string;
+    originalUrl?: string;
+    error?: string;
+}
+
+// Interface for emoji prompt documents in Firebase
+export interface EmojiPrompt {
+    emoji: string;              // The emoji character (used as document ID)
+    prompt: string;             // The image generation prompt for this emoji
+    description?: string;       // Optional description of what the emoji represents
+    category?: string;          // Optional category (e.g., 'weapon', 'magic', 'nature')
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
+export const emojiPromptsCollection = 'emoji-prompts'
+
 // Helper function to validate character properties
 export function validateCharacter(character: Partial<Character>): boolean {
     const stats = character.stats;

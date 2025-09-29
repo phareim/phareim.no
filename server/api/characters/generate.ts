@@ -9,10 +9,10 @@ const openai = new OpenAI({
     apiKey: config.openaiApiKey
 })
 
-export default defineEventHandler(async (event) => {
-    const method = getMethod(event)
+export default defineEventHandler(async (event: any) => {
     
-    if (method !== 'POST') {
+    
+    if (event.method !== 'POST') {
         throw createError({
             status: 405,
             statusText: 'Method not allowed'
@@ -46,12 +46,12 @@ async function generateCharacterDetails(gender?: string, setting?: string, emoji
     const settingPrompt = setting ? `The character should fit the ${setting} setting/genre` : 'The character should fit a fantasy setting'
     const emojiPrompt = emojis ? `Use these emojis as inspiration for the character's traits and physical description: ${emojis}` : ''
     
-    const systemPrompt = `You are a creative character designer for a fantasy RPG game. Generate a complete character with the following fields:
+    const systemPrompt = `You are a creative character-designer for a ${setting}-setting. Generate a complete character with the following fields:
 
 NAME: A memorable character name (first and last name preferred)
-TITLE: A descriptive title or profession (e.g., "The Wandering Mage", "Master Blacksmith", "Shadow Dancer")
+TITLE: A descriptive title or profession (e.g., "The Wandering Mage", "Master Blacksmith", "Mining Ship Captain")
 BACKGROUND: A rich 2-3 sentence background story that explains their origin, motivation, and current situation
-PHYSICAL_DESCRIPTION: A detailed 2-3 sentence physical description including appearance, clothing, notable features, and overall aesthetic. This will be used to generate a portrait image.
+PHYSICAL_DESCRIPTION: A to-the-point 1-2 sentence physical description including appearance, clothing, notable features, and overall aesthetic. This will be used to generate a portrait image.
 ABILITY_1_NAME: A unique special ability name (e.g., "Shadow Step", "Arcane Mastery", "Beast Whisperer")
 ABILITY_1_DESC: A brief description of what this ability does (1-2 sentences)
 ABILITY_2_NAME: A second unique special ability name

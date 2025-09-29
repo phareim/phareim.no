@@ -4,22 +4,14 @@
       <!-- Left side - Character Image -->
       <div class="character-image">
         <div class="image-container">
-          <img 
-            v-if="newCharacter.imageUrl" 
-            :src="newCharacter.imageUrl" 
-            alt="Character Portrait" 
-            class="portrait"
-          />
+          <img v-if="newCharacter.imageUrl" :src="newCharacter.imageUrl" alt="Character Portrait" class="portrait" />
           <div v-else class="placeholder-portrait">
             <div class="upload-icon">🎭</div>
             <p>Character portrait will appear here</p>
           </div>
         </div>
-        <button 
-          v-if="newCharacter.physicalDescription && !isGeneratingImage" 
-          @click="generateImage" 
-          class="regenerate-image-btn"
-        >
+        <button v-if="newCharacter.physicalDescription && !isGeneratingImage" @click="generateImage"
+          class="regenerate-image-btn">
           {{ newCharacter.imageUrl ? '🔄 Regenerate Image' : '🎨 Generate Image' }}
         </button>
         <div v-if="isGeneratingImage" class="image-loading">
@@ -65,134 +57,85 @@
               <div class="option-row">
                 <div class="emoji-selection">
                   <label class="option-label">Flavor Emojis:</label>
-                  <input 
-                    v-model="selectedEmojis" 
-                    placeholder="🗡️⚡🔮"
-                    class="emoji-input"
-                    maxlength="30"
-                  />
+                  <input v-model="selectedEmojis" placeholder="🗡️⚡🔮" class="emoji-input" maxlength="30" />
                   <small class="emoji-hint">Add some emojis for character inspiration</small>
                 </div>
               </div>
               <div class="generate-button-row">
-                <button 
-                  @click="generateCharacter" 
-                  :disabled="isGenerating"
-                  class="generate-btn-top"
-                >
+                <button @click="generateCharacter" :disabled="isGenerating" class="generate-btn-top">
                   {{ isGenerating ? '🎭 Generating...' : '🎭 Generate Character' }}
                 </button>
               </div>
             </div>
           </div>
-
-          <div class="character-header">
-            <div class="character-name-container">
-              <h1 class="character-name">
-                <input 
-                  v-model="newCharacter.name"
-                  placeholder="Character Name"
-                  class="name-input"
-                  maxlength="50"
-                />
-              </h1>
+          <div class="character-details-section" v-if="newCharacter.name">
+            <div class="character-header">
+              <div class="character-name-container">
+                <h1 class="character-name">
+                  <input v-model="newCharacter.name" placeholder="Character Name" class="name-input" maxlength="50" />
+                </h1>
+              </div>
+              <input v-model="newCharacter.title" placeholder="Character Title" class="title-input" maxlength="100" />
             </div>
-            <input 
-              v-model="newCharacter.title"
-              placeholder="Character Title"
-              class="title-input"
-              maxlength="100"
-            />
-          </div>
 
-          <div class="character-background">
-            <h2>Background</h2>
-            <textarea 
-              v-model="newCharacter.background"
-              placeholder="Write your character's background story..."
-              class="background-textarea"
-              rows="4"
-              maxlength="500"
-            ></textarea>
-          </div>
-
-          <div class="character-physical-description">
-            <h2>Physical Description</h2>
-            <textarea 
-              v-model="newCharacter.physicalDescription"
-              placeholder="Describe your character's appearance (hair, eyes, clothing, etc.). A portrait will be automatically generated if you provide a description."
-              class="physical-description-textarea"
-              rows="3"
-              maxlength="300"
-            ></textarea>
-            <div v-if="imageGenerationStatus" class="image-status">
-              {{ imageGenerationStatus }}
+            <div class="character-background">
+              <h2>Background</h2>
+              <textarea v-model="newCharacter.background" placeholder="Write your character's background story..."
+                class="background-textarea" rows="4" maxlength="500"></textarea>
             </div>
-          </div>
 
-          <div class="character-stats">
-            <h2>Stats</h2>
-            <div class="stats-grid">
-              <div class="stat-item" v-for="stat in newCharacter.stats" :key="stat.label">
-                <span class="stat-label">{{ stat.label }}</span>
-                <input 
-                  v-model="stat.value"
-                  type="number"
-                  min="1"
-                  max="20"
-                  class="stat-input"
-                />
+            <div class="character-physical-description">
+              <h2>Physical Description</h2>
+              <textarea v-model="newCharacter.physicalDescription"
+                placeholder="Describe your character's appearance (hair, eyes, clothing, etc.). A portrait will be automatically generated if you provide a description."
+                class="physical-description-textarea" rows="3" maxlength="300"></textarea>
+              <div v-if="imageGenerationStatus" class="image-status">
+                {{ imageGenerationStatus }}
               </div>
             </div>
-            <button @click="generateRandomStats" class="random-stats-btn">
-              🎲 Generate Random Stats
-            </button>
-          </div>
 
-          <div class="character-abilities">
-            <h2>Special Abilities</h2>
-            <div class="abilities-list">
-              <div 
-                v-for="(ability, index) in newCharacter.abilities" 
-                :key="index"
-                class="ability-item"
-              >
-                <input 
-                  v-model="ability.name"
-                  placeholder="Ability Name"
-                  class="ability-name-input"
-                  maxlength="50"
-                />
-                <input 
-                  v-model="ability.description"
-                  placeholder="Ability Description"
-                  class="ability-desc-input"
-                  maxlength="150"
-                />
-                <button @click="removeAbility(index)" class="remove-ability-btn">×</button>
+            <div class="character-stats">
+              <h2>Stats</h2>
+              <div class="stats-grid">
+                <div class="stat-item" v-for="stat in newCharacter.stats" :key="stat.label">
+                  <span class="stat-label">{{ stat.label }}</span>
+                  <input v-model="stat.value" type="number" min="1" max="20" class="stat-input" />
+                </div>
               </div>
+              <button @click="generateRandomStats" class="random-stats-btn">
+                🎲 Generate Random Stats
+              </button>
             </div>
-            <button @click="addAbility" class="add-ability-btn">+ Add Ability</button>
-          </div>
 
-          <div class="character-actions">
-            <button 
-              @click="createCharacter" 
-              :disabled="!canCreate || isCreating"
-              class="create-btn"
-            >
-              {{ 
-                isCreating 
-                  ? (newCharacter.physicalDescription?.trim() && !newCharacter.imageUrl ? 'Saving & Generating Image...' : 'Saving...') 
-                  : 'Save Character' 
-              }}
-            </button>
-            <button @click="previewCharacter" class="preview-btn">
-              👁️ Preview
-            </button>
-            <button @click="resetForm" class="reset-btn">
-              🔄 Reset Form
-            </button>
+            <div class="character-abilities">
+              <h2>Special Abilities</h2>
+              <div class="abilities-list">
+                <div v-for="(ability, index) in newCharacter.abilities" :key="index" class="ability-item">
+                  <input v-model="ability.name" placeholder="Ability Name" class="ability-name-input" maxlength="50" />
+                  <input v-model="ability.description" placeholder="Ability Description" class="ability-desc-input"
+                    maxlength="150" />
+                  <button @click="removeAbility(index)" class="remove-ability-btn">×</button>
+                </div>
+              </div>
+              <button @click="addAbility" class="add-ability-btn">+ Add Ability</button>
+            </div>
+
+            <div class="character-actions">
+              <button @click="createCharacter" :disabled="!canCreate || isCreating" class="create-btn">
+                {{
+                  isCreating
+                    ? (newCharacter.physicalDescription?.trim() && !newCharacter.imageUrl ? 'Saving & Generating Image...' :
+                      'Saving...')
+                    : 'Save Character'
+                }}
+              </button>
+              <button @click="previewCharacter" class="preview-btn">
+                👁️ Preview
+              </button>
+              <button @click="resetForm" class="reset-btn">
+                🔄 Reset Form
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -238,8 +181,8 @@ const selectedEmojis = ref('')
 
 // Computed property to check if character can be created
 const canCreate = computed(() => {
-  return newCharacter.value.name.trim().length > 0 && 
-         newCharacter.value.title.trim().length > 0
+  return newCharacter.value.name.trim().length > 0 &&
+    newCharacter.value.title.trim().length > 0
 })
 
 
@@ -291,7 +234,7 @@ const createCharacter = async () => {
       method: 'POST',
       body: characterData
     })
-    
+
     if (response.error) {
       throw new Error(response.error)
     }
@@ -308,7 +251,7 @@ const createCharacter = async () => {
 
     message.value = successMessage
     messageType.value = 'success'
-    
+
     // Reset form after successful creation
     setTimeout(() => {
       resetForm()
@@ -365,7 +308,7 @@ const resetForm = () => {
 const generateCharacter = async () => {
   isGenerating.value = true
   message.value = ''
-  
+
   try {
     const response = await $fetch('/api/characters/generate', {
       method: 'POST',
@@ -375,14 +318,14 @@ const generateCharacter = async () => {
         emojis: selectedEmojis.value
       }
     })
-    
+
     if (response.success && response.character) {
       const generated = response.character
       newCharacter.value.name = generated.name
       newCharacter.value.title = generated.title
       newCharacter.value.background = generated.background
       newCharacter.value.physicalDescription = generated.physicalDescription
-      
+
       // Update stats if generated (convert from D&D format to our label/value format)
       if (generated.stats) {
         newCharacter.value.stats = [
@@ -394,24 +337,24 @@ const generateCharacter = async () => {
           { label: 'Charisma', value: generated.stats.charisma?.toString() || '10' }
         ]
       }
-      
+
       // Update abilities if generated
       if (generated.abilities && generated.abilities.length >= 2) {
         newCharacter.value.abilities = [
-          { 
-            name: generated.abilities[0].name || '', 
-            description: generated.abilities[0].description || '' 
+          {
+            name: generated.abilities[0].name || '',
+            description: generated.abilities[0].description || ''
           },
-          { 
-            name: generated.abilities[1].name || '', 
-            description: generated.abilities[1].description || '' 
+          {
+            name: generated.abilities[1].name || '',
+            description: generated.abilities[1].description || ''
           }
         ]
       }
-      
+
       message.value = 'Complete character generated with stats and abilities! 🎭✨'
       messageType.value = 'success'
-      
+
       // Auto-generate image if physical description is provided
       if (generated.physicalDescription) {
         await generateImage()
@@ -438,12 +381,20 @@ const generateImage = async () => {
   imageGenerationStatus.value = '🎨 Generating character portrait...'
   
   try {
+    const requestBody = {
+      prompt: newCharacter.value.physicalDescription,
+      characterName: newCharacter.value.name,
+      characterTitle: newCharacter.value.title,
+      characterBackground: newCharacter.value.background,
+      gender: selectedGender.value,
+      setting: selectedSetting.value,
+      emojis: selectedEmojis.value,
+      characterId: 'preview'
+    }
+    
     const response = await $fetch('/api/characters/generate-image', {
       method: 'POST',
-      body: {
-        prompt: newCharacter.value.physicalDescription,
-        characterId: 'preview' // Temporary ID for preview
-      }
+      body: requestBody
     })
     if (response.success && response.imageUrl) {
       newCharacter.value.imageUrl = response.imageUrl
@@ -928,8 +879,13 @@ watch(message, (newMessage) => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .create-btn {
@@ -998,28 +954,28 @@ watch(message, (newMessage) => {
     flex-direction: column;
     gap: 2rem;
   }
-  
+
   .character-image {
     flex: none;
     max-width: 300px;
     margin: 0 auto;
   }
-  
+
   .option-row {
     flex-direction: column;
     gap: 0.5rem;
   }
-  
+
   .gender-selection,
   .setting-selection,
   .emoji-selection {
     min-width: unset;
   }
-  
+
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .character-actions {
     justify-content: center;
   }
@@ -1029,20 +985,20 @@ watch(message, (newMessage) => {
   .character-page {
     padding: 1rem;
   }
-  
+
   .name-input {
     font-size: 2rem;
   }
-  
+
   .stats-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .ability-item {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .ability-name-input {
     flex: none;
   }
