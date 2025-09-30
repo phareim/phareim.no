@@ -2,6 +2,7 @@ export interface Character {
     id?: string;
     name?: string;
     title?: string;
+    class?: string;           // Character class (warrior, mage, rogue, etc.)
     background?: string;
     physicalDescription?: string;    
     stats?: {
@@ -47,6 +48,7 @@ export interface CharacterImageGenerationRequest {
     prompt: string;                    // Physical description for image generation
     characterName?: string;            // Character name for context
     characterTitle?: string;           // Character title for context
+    characterClass?: string;           // Character class for context
     characterBackground?: string;      // Character background for context
     gender?: string;                   // Gender preference (male, female, non-binary)
     setting?: string;                  // Setting/genre (fantasy, cyberpunk, etc.)

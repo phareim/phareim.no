@@ -13,7 +13,7 @@ export default defineEventHandler(async (event): Promise<CharacterImageGeneratio
     
     try {
         const body = await readBody(event) as CharacterImageGenerationRequest
-        const { prompt: userPrompt, characterId, characterName, characterTitle, gender, setting, emojis } = body
+        const { prompt: userPrompt, characterId, characterName, characterTitle, characterClass, gender, setting, emojis } = body
         
         if (!userPrompt) {
             throw createError({
@@ -26,6 +26,7 @@ export default defineEventHandler(async (event): Promise<CharacterImageGeneratio
         const imageUrl = await generateCharacterImage(userPrompt, {
             characterName,
             characterTitle,
+            characterClass,
             gender,
             setting,
             emojis
@@ -51,21 +52,24 @@ export default defineEventHandler(async (event): Promise<CharacterImageGeneratio
 interface ImageGenerationContext {
     characterName?: string;
     characterTitle?: string;
+    characterClass?: string;
     gender?: string;
     setting?: string;
     emojis?: string;
 }
 
 async function generateCharacterImage(userPrompt: string, context: ImageGenerationContext = {}): Promise<string> {
-    const { characterName, characterTitle, gender, setting, emojis } = context;
+    const { characterName, characterTitle, characterClass, gender, setting, emojis } = context;
     
     // Retrieve emoji prompts from Firebase
     const emojiPrompts = await getEmojiPrompts(emojis)
     const emoji_string = "" + emojiPrompts.join(', ') 
 
     // Build contextual prompt additions
+    const classPrompts = getClassPrompts(characterClass);
     
     const titleContext = characterTitle ? `Character title: ${characterTitle}. ` : '';
+    const classContext = classPrompts ? `${classPrompts} ` : '';
     const genderContext = gender ? `Gender: ${gender}. ` : '';
     const settingContext = setting ? `Setting: ${setting} style. ` : '';
     
@@ -80,7 +84,7 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
             hipster vibe,
             `
     
-    const contextualPrompt = genderContext + settingContext;
+    const contextualPrompt = classContext + genderContext + settingContext;
     
     const endpoint = "fal-ai/wan-25-preview/text-to-image";//"fal-ai/flux-1/srpo";//"fal-ai/wan-25-preview/text-to-image";
     const result = await fal.subscribe(endpoint, {
@@ -193,4 +197,34 @@ async function getEmojiPrompts(emojis?: string): Promise<string[]> {
         console.error('Error fetching emoji prompts:', error)
         return []
     }
+}
+
+// Helper function to get class-specific prompts for image generation
+function getClassPrompts(characterClass?: string): string {
+    if (!characterClass) return '';
+    
+    const classPrompts: Record<string, string> = {
+        warrior: 'armored warrior, sword and shield, battle-ready stance, metal armor, determined expression',
+        mage: 'robed spellcaster, magical staff, arcane symbols, flowing robes, mystical aura',
+        rogue: 'stealthy assassin, dark leather armor, daggers, hooded cloak, cunning expression',
+        cleric: 'holy priest, religious symbols, divine light, ceremonial robes, blessed aura',
+        ranger: 'forest guardian, bow and arrows, leather armor, nature elements, alert stance',
+        paladin: 'holy knight, shining armor, blessed sword, divine radiance, righteous pose',
+        barbarian: 'fierce warrior, tribal clothing, massive weapons, wild hair, primal strength',
+        bard: 'charismatic performer, musical instrument, colorful clothing, expressive pose',
+        druid: 'nature mystic, natural clothing, animal companion, earth magic, wild appearance',
+        sorcerer: 'innate magic user, elemental effects, mystical clothing, raw magical power',
+        warlock: 'pact-bound caster, dark magic, otherworldly patron symbols, mysterious aura',
+        wizard: 'scholarly mage, spellbook, arcane focus, academic robes, intellectual appearance',
+        monk: 'martial artist, simple robes, inner peace, disciplined stance, spiritual aura',
+        artificer: 'magical inventor, mechanical gadgets, workshop tools, innovative equipment',
+        gunslinger: 'firearm expert, pistols and rifles, western styling, quick-draw pose',
+        pilot: 'vehicle operator, flight suit, technical equipment, cockpit elements',
+        hacker: 'digital infiltrator, cyberpunk aesthetic, high-tech gear, neon lighting',
+        medic: 'battlefield healer, medical equipment, first aid gear, caring expression',
+        engineer: 'technical expert, construction tools, blueprints, practical clothing',
+        scout: 'reconnaissance specialist, camouflage gear, binoculars, alert posture'
+    };
+    
+    return classPrompts[characterClass.toLowerCase()] || '';
 }

@@ -21,10 +21,10 @@ export default defineEventHandler(async (event: any) => {
     
     try {
         const body = await readBody(event)
-        const { gender, setting, emojis } = body
+        const { gender, setting, emojis, characterClass } = body
         
         // Generate character details using GPT-5
-        const character = await generateCharacterDetails(gender, setting, emojis)
+        const character = await generateCharacterDetails(gender, setting, emojis, characterClass)
         
         return {
             success: true,
@@ -40,11 +40,12 @@ export default defineEventHandler(async (event: any) => {
     }
 })
 
-async function generateCharacterDetails(gender?: string, setting?: string, emojis?: string) {
+async function generateCharacterDetails(gender?: string, setting?: string, emojis?: string, characterClass?: string) {
     
     const genderPrompt = gender ? `The character should be ${gender}` : 'The character can be any gender'
     const settingPrompt = setting ? `The character should fit the ${setting} setting/genre` : 'The character should fit a fantasy setting'
     const emojiPrompt = emojis ? `Use these emojis as inspiration for the character's traits and physical description: ${emojis}` : ''
+    const classPrompt = characterClass ? `The character should be a ${characterClass} class with appropriate abilities, equipment, and background that fits this role` : ''
     
     const systemPrompt = `You are a creative character-designer for a ${setting}-setting. Generate a complete character with the following fields:
 
@@ -61,6 +62,7 @@ The character should be interesting, unique, and memorable with distinctive trai
 
 ${genderPrompt}
 ${settingPrompt}
+${classPrompt}
 ${emojiPrompt}
 
 Format your response exactly like this:

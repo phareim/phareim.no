@@ -38,7 +38,10 @@ async function getCharacters() {
             const character: Character = {
                 id: doc.id,
                 name: data.name,
+                title: data.title,
+                class: data.class,
                 background: data.background,
+                physicalDescription: data.physicalDescription,
                 stats: data.stats,
                 abilities: data.abilities || [],
                 imageUrl: data.imageUrl,
@@ -200,6 +203,7 @@ async function createCharacter(event: any) {
     const character: Omit<Character, 'id'> = {
         name: body.name || 'Unnamed Adventurer',
         title: body.title,
+        class: body.class,
         background: body.background || 'A mysterious figure with an unknown past.',
         physicalDescription: body.physicalDescription,
         stats: body.stats || generateRandomStats(),
@@ -228,7 +232,13 @@ async function createCharacter(event: any) {
                 method: 'POST',
                 body: {
                     prompt: body.imagePrompt,
-                    characterId: docRef.id
+                    characterId: docRef.id,
+                    characterName: body.name,
+                    characterTitle: body.title,
+                    characterClass: body.class,
+                    gender: body.gender,
+                    setting: body.setting,
+                    emojis: body.emojis
                 }
             })
             

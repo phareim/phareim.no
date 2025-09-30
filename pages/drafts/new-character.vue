@@ -55,10 +55,35 @@
                 </div>
               </div>
               <div class="option-row">
+                <div class="class-selection">
+                  <label class="option-label">Character Class:</label>
+                  <select v-model="newCharacter.class" class="option-select">
+                    <option value="">Any Class</option>
+                    <option value="warrior">🗡️ Warrior</option>
+                    <option value="mage">🔮 Mage</option>
+                    <option value="rogue">🗡️ Rogue</option>
+                    <option value="cleric">⚡ Cleric</option>
+                    <option value="ranger">🏹 Ranger</option>
+                    <option value="paladin">⚔️ Paladin</option>
+                    <option value="barbarian">🪓 Barbarian</option>
+                    <option value="bard">🎵 Bard</option>
+                    <option value="druid">🌿 Druid</option>
+                    <option value="sorcerer">✨ Sorcerer</option>
+                    <option value="warlock">🔥 Warlock</option>
+                    <option value="wizard">📚 Wizard</option>
+                    <option value="monk">👊 Monk</option>
+                    <option value="artificer">⚙️ Artificer</option>
+                    <option value="gunslinger">🔫 Gunslinger</option>
+                    <option value="pilot">🚀 Pilot</option>
+                    <option value="hacker">💻 Hacker</option>
+                    <option value="medic">🏥 Medic</option>
+                    <option value="engineer">🔧 Engineer</option>
+                    <option value="scout">🔍 Scout</option>
+                  </select>
+                </div>
                 <div class="emoji-selection">
-                  <label class="option-label">Flavor Emojis:</label>
-                  <input v-model="selectedEmojis" placeholder="🗡️⚡🔮" class="emoji-input" maxlength="30" />
-                  <small class="emoji-hint">Add some emojis for character inspiration</small>
+                  <label class="option-label">Inspiration Emojis:</label>
+                  <input v-model="selectedEmojis" placeholder="💚 🔮 🤖" class="emoji-input" maxlength="8" />
                 </div>
               </div>
               <div class="generate-button-row">
@@ -152,6 +177,7 @@
 const newCharacter = ref({
   name: '',
   title: '',
+  class: '',
   imageUrl: '',
   background: '',
   physicalDescription: '',
@@ -279,6 +305,7 @@ const resetForm = () => {
   newCharacter.value = {
     name: '',
     title: '',
+    class: '',
     background: '',
     physicalDescription: '',
     imageUrl: '',
@@ -315,7 +342,8 @@ const generateCharacter = async () => {
       body: {
         gender: selectedGender.value,
         setting: selectedSetting.value,
-        emojis: selectedEmojis.value
+        emojis: selectedEmojis.value,
+        characterClass: newCharacter.value.class
       }
     })
 
@@ -323,6 +351,8 @@ const generateCharacter = async () => {
       const generated = response.character
       newCharacter.value.name = generated.name
       newCharacter.value.title = generated.title
+      // Keep the selected class from the dropdown
+      // newCharacter.value.class is already set from the dropdown selection
       newCharacter.value.background = generated.background
       newCharacter.value.physicalDescription = generated.physicalDescription
 
@@ -528,20 +558,19 @@ watch(message, (newMessage) => {
 }
 
 .gender-selection,
-.setting-selection {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  flex: 1;
-  min-width: 200px;
-}
-
+.setting-selection,
+.class-selection,
 .emoji-selection {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
   flex: 1;
-  min-width: 250px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 200px;
 }
 
 .option-label {
@@ -581,7 +610,7 @@ watch(message, (newMessage) => {
 
 .emoji-hint {
   color: #666;
-  font-size: 0.8rem;
+  font-size: 0.6rem;
   font-style: italic;
 }
 
@@ -696,6 +725,7 @@ watch(message, (newMessage) => {
   outline: none;
   border-color: black;
 }
+
 
 .image-status {
   margin-top: 0.5rem;
