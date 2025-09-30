@@ -70,13 +70,10 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     const settingContext = setting ? `Setting: ${setting} style. ` : '';
     
     const STD_PROMPT = `
-    flat white background, rotoscope animation style adult animated series, animation character shot,
-masterwork portrait quality, standing with eye contact,
-bold expressive digital 8K , highest quality ,
-standing in action pose,
-1woman,
-half body portrait, 
-highest quality,  
+    flat white background, expressive hand drawn, super intricate, rough style, art house, 
+hand drawn adult roboscopic Heavy Metal Comics  style, lots of attitude , main character shot,
+masterwork portrait quality, standing with eye contact, expressive digital 8K , highest quality ,
+standing in action pose,  
 hipster vibe,
     `
     
@@ -89,6 +86,7 @@ hipster vibe,
             image_size: 'portrait_16_9',
             /*enable_safety_checker: false,
             guidance_scale: 2.2,*/
+            "enable_prompt_expansion": false
             negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts'
         },
         logs: true,
