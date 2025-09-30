@@ -238,6 +238,7 @@ async function createCharacter(event: any) {
                     characterClass: body.class,
                     gender: body.gender,
                     setting: body.setting,
+                    style: body.style,
                     emojis: body.emojis
                 }
             })

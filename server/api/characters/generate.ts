@@ -21,10 +21,10 @@ export default defineEventHandler(async (event: any) => {
     
     try {
         const body = await readBody(event)
-        const { gender, setting, emojis, characterClass } = body
+        const { gender, setting, emojis, characterClass, style } = body
         
         // Generate character details using GPT-5
-        const character = await generateCharacterDetails(gender, setting, emojis, characterClass)
+        const character = await generateCharacterDetails(gender, setting, emojis, characterClass, style)
         
         return {
             success: true,
@@ -40,12 +40,13 @@ export default defineEventHandler(async (event: any) => {
     }
 })
 
-async function generateCharacterDetails(gender?: string, setting?: string, emojis?: string, characterClass?: string) {
+async function generateCharacterDetails(gender?: string, setting?: string, emojis?: string, characterClass?: string, style?: string) {
     
     const genderPrompt = gender ? `The character should be ${gender}` : 'The character can be any gender'
     const settingPrompt = setting ? `The character should fit the ${setting} setting/genre` : 'The character should fit a fantasy setting'
     const emojiPrompt = emojis ? `Use these emojis as inspiration for the character's traits and physical description: ${emojis}` : ''
     const classPrompt = characterClass ? `The character should be a ${characterClass} class with appropriate abilities, equipment, and background that fits this role` : ''
+    const stylePrompt = getStylePrompt(style)
     
     const systemPrompt = `You are a creative character-designer for a ${setting}-setting. Generate a complete character with the following fields:
 
@@ -63,6 +64,7 @@ The character should be interesting, unique, and memorable with distinctive trai
 ${genderPrompt}
 ${settingPrompt}
 ${classPrompt}
+${stylePrompt}
 ${emojiPrompt}
 
 Format your response exactly like this:
@@ -152,4 +154,18 @@ function parseCharacterResponse(response: string) {
     }
     
     return character
+}
+
+// Helper function to get style-specific prompts for character generation
+function getStylePrompt(style?: string): string {
+    
+    if (!style) return '';
+    
+    const stylePrompts: Record<string, string> = {
+        disney: 'The character should have a Disney-inspired aesthetic: colorful, whimsical, family-friendly, with bright and optimistic traits. Think magical kingdoms, talking animals, and heartwarming adventures. The character should be approachable and have a sense of wonder.',
+        digital: 'The character should have a digital drawing aesthetic: hyper-realistic, detailed, and hyper-detailed. The character should be hyper-realistic and have a sense of detail.',
+        'heavy-metal': 'The character should have a more adult campy aesthetic:  The character should be edgy.'
+    };
+    
+    return stylePrompts[style.toLowerCase()] || '';
 }

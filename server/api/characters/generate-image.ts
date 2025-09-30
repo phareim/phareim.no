@@ -13,7 +13,7 @@ export default defineEventHandler(async (event): Promise<CharacterImageGeneratio
     
     try {
         const body = await readBody(event) as CharacterImageGenerationRequest
-        const { prompt: userPrompt, characterId, characterName, characterTitle, characterClass, gender, setting, emojis } = body
+        const { prompt: userPrompt, characterId, characterName, characterTitle, characterClass, gender, setting, style, emojis } = body
         
         if (!userPrompt) {
             throw createError({
@@ -29,6 +29,7 @@ export default defineEventHandler(async (event): Promise<CharacterImageGeneratio
             characterClass,
             gender,
             setting,
+            style,
             emojis
         })
         
@@ -55,11 +56,12 @@ interface ImageGenerationContext {
     characterClass?: string;
     gender?: string;
     setting?: string;
+    style?: string;
     emojis?: string;
 }
 
 async function generateCharacterImage(userPrompt: string, context: ImageGenerationContext = {}): Promise<string> {
-    const { characterName, characterTitle, characterClass, gender, setting, emojis } = context;
+    const { characterName, characterTitle, characterClass, gender, setting, style, emojis } = context;
     
     // Retrieve emoji prompts from Firebase
     const emojiPrompts = await getEmojiPrompts(emojis)
@@ -67,15 +69,35 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
 
     // Build contextual prompt additions
     const classPrompts = getClassPrompts(characterClass);
+    const stylePrompts = getImageStylePrompts(style);
     
     const titleContext = characterTitle ? `Character title: ${characterTitle}. ` : '';
     const classContext = classPrompts ? `${classPrompts} ` : '';
+    const styleContext = stylePrompts ? `${stylePrompts} ` : '';
     const genderContext = gender ? `Gender: ${gender}. ` : '';
     const settingContext = setting ? `Setting: ${setting} style. ` : '';
-    
-    const STD_PROMPT = `
-            flat white background, expressive digital cell shaded super intricate-drawn cartoon style, 
-            early Ghost in The Shell-vibe, lots of attitude , animation character shot,
+
+    const DIGITAL_PROMPT = `
+            flat white background, expressive digital art, expertly shaded super intricate-drawn ultra realistic cartoon style, 
+            , lots of attitude , animation character shot,
+            masterwork portrait quality, standing with eye contact,
+            bold expressive digital 8K , highest quality ,
+            standing in action pose,
+            half body portrait, 
+            highest quality,  
+            `   
+    const DISNEY_PROMPT = `
+            flat white background, expressive hand drawn, super intricate, rough styled, 2.5D, Disney, Classic Disney Movie still, 
+            art house, hand drawn adult roboscopic Heavy Metal Comics  style, lots of attitude , main character shot,
+            masterwork portrait quality, standing with eye contact,
+            bold expressive digital 8K , highest quality ,
+            standing in action pose,
+            half body portrait, 
+            highest quality,  
+            `
+    const HEAVY_METAL_DRAWN_COMIC_PROMPT = `
+            flat white background, expressive super intricate-drawn HEAVY METAL Comics style, 
+            lots of attitude , animation character shot, Main character shot, campy vibes,
             masterwork portrait quality, standing with eye contact,
             bold expressive digital 8K , highest quality ,
             standing in action pose,
@@ -84,12 +106,12 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
             hipster vibe,
             `
     
-    const contextualPrompt = classContext + genderContext + settingContext;
+    const contextualPrompt = classContext + styleContext + genderContext + settingContext;
     
     const endpoint = "fal-ai/wan-25-preview/text-to-image";//"fal-ai/flux-1/srpo";//"fal-ai/wan-25-preview/text-to-image";
     const result = await fal.subscribe(endpoint, {
         input: {
-            prompt: STD_PROMPT + emoji_string + userPrompt + contextualPrompt,
+            prompt: HEAVY_METAL_DRAWN_COMIC_PROMPT + emoji_string + userPrompt + contextualPrompt,
             image_size: 'portrait_16_9',
             enable_safety_checker: false,
             guidance_scale: 4.5,
@@ -227,4 +249,17 @@ function getClassPrompts(characterClass?: string): string {
     };
     
     return classPrompts[characterClass.toLowerCase()] || '';
+}
+
+// Helper function to get style-specific prompts for image generation
+function getImageStylePrompts(style?: string): string {
+    if (!style) return '';
+    
+    const stylePrompts: Record<string, string> = {
+        disney: 'Disney animation style, bright vibrant colors, whimsical and magical, family-friendly aesthetic, soft lighting, enchanting atmosphere, cartoon-like features, expressive eyes, colorful clothing',
+        digital: 'cyberpunk digital art style, neon lighting, futuristic elements, high-tech aesthetic, glowing accents, metallic textures, holographic effects, sci-fi atmosphere, electric blue and purple tones',
+        'heavy-metal': 'heavy metal album cover style, dark and intense, dramatic lighting, gothic elements, leather and metal accessories, bold contrasts, edgy aesthetic, powerful stance, rebellious attitude'
+    };
+    
+    return stylePrompts[style.toLowerCase()] || '';
 }

@@ -52,6 +52,7 @@ export interface CharacterImageGenerationRequest {
     characterBackground?: string;      // Character background for context
     gender?: string;                   // Gender preference (male, female, non-binary)
     setting?: string;                  // Setting/genre (fantasy, cyberpunk, etc.)
+    style?: string;                    // Art style (disney, digital, heavy-metal)
     emojis?: string;                   // Emoji inspiration for character traits
     characterId?: string;              // Character ID (for Firebase storage path)
 }

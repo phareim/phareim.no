@@ -81,6 +81,15 @@
                     <option value="scout">🔍 Scout</option>
                   </select>
                 </div>
+                <div class="style-selection">
+                  <label class="option-label">Art Style:</label>
+                  <select v-model="selectedStyle" class="option-select">
+                    <option value="">Default Style</option>
+                    <option value="disney">🏰 Disney - Colorful and whimsical</option>
+                    <option value="digital">💻 Digital - Cyberpunk and futuristic</option>
+                    <option value="heavy-metal">🤘 Heavy Metal - Dark and intense</option>
+                  </select>
+                </div>
                 <div class="emoji-selection">
                   <label class="option-label">Inspiration Emojis:</label>
                   <input v-model="selectedEmojis" placeholder="💚 🔮 🤖" class="emoji-input" maxlength="8" />
@@ -203,6 +212,7 @@ const messageType = ref('success')
 const imageGenerationStatus = ref('')
 const selectedGender = ref('')
 const selectedSetting = ref('')
+const selectedStyle = ref('')
 const selectedEmojis = ref('')
 
 // Computed property to check if character can be created
@@ -328,6 +338,7 @@ const resetForm = () => {
   isGeneratingImage.value = false
   selectedGender.value = ''
   selectedSetting.value = ''
+  selectedStyle.value = ''
   selectedEmojis.value = ''
 }
 
@@ -342,6 +353,7 @@ const generateCharacter = async () => {
       body: {
         gender: selectedGender.value,
         setting: selectedSetting.value,
+        style: selectedStyle.value,
         emojis: selectedEmojis.value,
         characterClass: newCharacter.value.class
       }
@@ -560,12 +572,8 @@ watch(message, (newMessage) => {
 .gender-selection,
 .setting-selection,
 .class-selection,
+.style-selection,
 .emoji-selection {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  flex: 1;
-  min-width: 200px;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
