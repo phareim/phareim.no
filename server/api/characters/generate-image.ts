@@ -70,24 +70,22 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     const settingContext = setting ? `Setting: ${setting} style. ` : '';
     
     const STD_PROMPT = `
-    flat white background, expressive hand drawn, super intricate, rough styled, 
-sketched, art house, hand drawn adult roboscopic Heavy Metal art-style, lots of attitude , 
-main character shot, masterwork portrait quality, action pose with eye contact, 
-bold expressive digital 8K , highest quality , 
-standing in action pose,
-hipster vibe,
+    flat white background, rotoscope animation style adult animated series, 
+    animation character shot, masterwork portrait quality, standing with eye contact, 
+    bold expressive digital 8K , highest quality , standing in action pose, 
+    half body portrait, highest quality, hipster vibe, 
     `
     
     const contextualPrompt = titleContext + genderContext + settingContext;
     
-    const endpoint = "fal-ai/wan-25-preview/text-to-image";//"fal-ai/flux/kreative"
+    const endpoint = "fal-ai/flux-1/srpo";//"fal-ai/wan-25-preview/text-to-image";
     const result = await fal.subscribe(endpoint, {
         input: {
             prompt: STD_PROMPT +emoji_string + userPrompt + contextualPrompt,
             image_size: 'portrait_16_9',
-            /*enable_safety_checker: false,
-            guidance_scale: 2.2,*/
-            "enable_prompt_expansion": false,
+            enable_safety_checker: false,
+            guidance_scale: 4.5,
+            enable_prompt_expansion: false,
             negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts'
         },
         logs: true,
