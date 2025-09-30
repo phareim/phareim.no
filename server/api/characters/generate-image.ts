@@ -87,7 +87,7 @@ hipster vibe,
             image_size: 'portrait_16_9',
             /*enable_safety_checker: false,
             guidance_scale: 2.2,*/
-            "enable_prompt_expansion": false
+            "enable_prompt_expansion": false,
             negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts'
         },
         logs: true,
