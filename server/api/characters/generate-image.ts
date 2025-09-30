@@ -61,7 +61,7 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     
     // Retrieve emoji prompts from Firebase
     const emojiPrompts = await getEmojiPrompts(emojis)
-    const emoji_string = emojiPrompts.join(', ')
+    const emoji_string = "" + emojiPrompts.join(', ') 
 
     // Build contextual prompt additions
     
