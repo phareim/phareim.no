@@ -70,18 +70,22 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     const settingContext = setting ? `Setting: ${setting} style. ` : '';
     
     const STD_PROMPT = `
-    flat white background, rotoscope animation style adult animated series, 
-    animation character shot, masterwork portrait quality, standing with eye contact, 
-    bold expressive digital 8K , highest quality , standing in action pose, 
-    half body portrait, highest quality, hipster vibe, 
-    `
+            flat white background, expressive digital cell shaded super intricate-drawn cartoon style, 
+            early Ghost in The Shell-vibe, lots of attitude , animation character shot,
+            masterwork portrait quality, standing with eye contact,
+            bold expressive digital 8K , highest quality ,
+            standing in action pose,
+            half body portrait, 
+            highest quality,  
+            hipster vibe,
+            `
     
-    const contextualPrompt = titleContext + genderContext + settingContext;
+    const contextualPrompt = genderContext + settingContext;
     
-    const endpoint = "fal-ai/flux-1/srpo";//"fal-ai/wan-25-preview/text-to-image";
+    const endpoint = "fal-ai/wan-25-preview/text-to-image";//"fal-ai/flux-1/srpo";//"fal-ai/wan-25-preview/text-to-image";
     const result = await fal.subscribe(endpoint, {
         input: {
-            prompt: STD_PROMPT +emoji_string + userPrompt + contextualPrompt,
+            prompt: STD_PROMPT + emoji_string + userPrompt + contextualPrompt,
             image_size: 'portrait_16_9',
             enable_safety_checker: false,
             guidance_scale: 4.5,
