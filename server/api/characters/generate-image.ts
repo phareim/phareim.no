@@ -69,21 +69,26 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     const genderContext = gender ? `Gender: ${gender}. ` : '';
     const settingContext = setting ? `Setting: ${setting} style. ` : '';
     
-    const STD_PROMPT = "flat white background, #FFFFFF white background, "+
-    "indie movie poster photo style, realistic photography, masterwork portrait quality,"+
-    emoji_string + ", " +
-    " standing with eye contact, expressive photo artwork, highest quality,"+
-    " standing in basic position, full body portrait, highest quality, epic fantasy,"+
-    " gritty fantasy, steampunk aesthetics, worn clothing, ragged looks, "
+    const STD_PROMPT = `
+    flat white background, rotoscope animation style adult animated series, animation character shot,
+masterwork portrait quality, standing with eye contact,
+bold expressive digital 8K , highest quality ,
+standing in action pose,
+1woman,
+half body portrait, 
+highest quality,  
+hipster vibe,
+    `
     
     const contextualPrompt = titleContext + genderContext + settingContext;
     
-    const result = await fal.subscribe("fal-ai/flux/krea", {
+    const endpoint = "fal-ai/wan-25-preview/text-to-image";//"fal-ai/flux/kreative"
+    const result = await fal.subscribe(endpoint, {
         input: {
-            prompt: STD_PROMPT + userPrompt + contextualPrompt,
+            prompt: STD_PROMPT +emoji_string + userPrompt + contextualPrompt,
             image_size: 'portrait_16_9',
-            enable_safety_checker: false,
-            guidance_scale: 2.2,
+            /*enable_safety_checker: false,
+            guidance_scale: 2.2,*/
             negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts'
         },
         logs: true,
@@ -169,7 +174,7 @@ async function getEmojiPrompts(emojis?: string): Promise<string[]> {
                         const prompt = data?.prompt || data?.description || ''
                         if (prompt) {
                             prompts.push(prompt)
-                            console.log(`✨ Found prompt for ${emoji}: ${prompt}`)
+                            console.log(`✨ Found prompt for ${emoji}!`)
                         }
                     } else {
                         console.log(`⚠️ No prompt found for emoji: ${emoji}`)
