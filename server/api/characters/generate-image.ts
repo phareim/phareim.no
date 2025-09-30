@@ -70,10 +70,11 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     const settingContext = setting ? `Setting: ${setting} style. ` : '';
     
     const STD_PROMPT = `
-    flat white background, expressive hand drawn, super intricate, rough style, art house, 
-hand drawn adult roboscopic Heavy Metal Comics  style, lots of attitude , main character shot,
-masterwork portrait quality, standing with eye contact, expressive digital 8K , highest quality ,
-standing in action pose,  
+    flat white background, expressive hand drawn, super intricate, rough styled, 
+sketched, art house, hand drawn adult roboscopic Heavy Metal art-style, lots of attitude , 
+main character shot, masterwork portrait quality, action pose with eye contact, 
+bold expressive digital 8K , highest quality , 
+standing in action pose,
 hipster vibe,
     `
     
