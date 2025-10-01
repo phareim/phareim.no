@@ -259,8 +259,8 @@ function getImageStylePrompts(style?: string): string {
             hipster vibe,
             `
     const stylePrompts: Record<string, string> = {
-        digital: DIGITAL_PROMPT,
-        disney: DISNEY_PROMPT,
+        'digital': DIGITAL_PROMPT,
+        'disney': DISNEY_PROMPT,
         'heavy-metal': HEAVY_METAL_DRAWN_COMIC_PROMPT
     };
     
