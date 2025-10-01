@@ -226,7 +226,7 @@ function getClassPrompts(characterClass?: string): string {
 
 // Helper function to get style-specific prompts for image generation
 function getImageStylePrompts(style?: string): string {
-    if (!style) return '';
+    
     
     const DIGITAL_PROMPT = `
             flat white background, expressive digital art, AAA Game Art style,
@@ -264,5 +264,5 @@ function getImageStylePrompts(style?: string): string {
         'heavy-metal': HEAVY_METAL_DRAWN_COMIC_PROMPT
     };
     
-    return stylePrompts[style.toLowerCase()] || '';
+    return stylePrompts[style.toLowerCase()] || DISNEY_PROMPT;
 }
