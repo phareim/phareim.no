@@ -67,7 +67,7 @@ interface ImageGenerationContext {
 async function generateCharacterImage(userPrompt: string, context: ImageGenerationContext = {}): Promise<string> {
     const { characterName, characterTitle, characterClass, gender, setting, style, emojis, model } = context;
     
-    const emojiPrompts = await getEmojiPrompts(emojis)
+    const emojiPrompts = await getKeywordPrompts(emojis)
     const emoji_string = "" + emojiPrompts.join(', ') 
 
     const classPrompts = getClassPrompts(characterClass);
@@ -134,17 +134,14 @@ async function uploadImageToFirebase(imageUrl: string, characterId?: string): Pr
                 contentType: 'image/jpeg',
                 metadata: {
                     generatedAt: new Date().toISOString(),
-                    characterId: characterId || 'unknown'
+                    characterId: characterId || 'unknown'                    
                 }
             }
         })
         
-        // Make the file publicly accessible
         await file.makePublic()
         
-        // Get the public URL
-        const publicUrl = `https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/${encodeURIComponent(filename)}?alt=media`
-        
+        const publicUrl = `https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/${encodeURIComponent(filename)}?alt=media`        
         return publicUrl
         
     } catch (error) {
@@ -153,47 +150,41 @@ async function uploadImageToFirebase(imageUrl: string, characterId?: string): Pr
     }
 }
 
-// Function to retrieve emoji prompts from Firebase
-async function getEmojiPrompts(emojis?: string): Promise<string[]> {
-    if (!emojis || !emojis.trim()) {
+// Function to retrieve keyword prompts from Firebase
+async function getKeywordPrompts(spice?: string): Promise<string[]> {
+    if (!spice || !spice.trim()) {
         return []
     }
     
     try {
-        console.log('🔍 Looking up emoji prompts for:', emojis)
+        console.log('🔍 Looking up keyword prompts for:', spice)
         
-        // Split the emoji string into individual emojis
-        // This handles both single emojis and multi-character emojis
-        const emojiArray = Array.from(emojis.trim())
+        const keywords = Array.from(spice.trim().split(' '))
         const prompts: string[] = []
         
-        // Fetch prompts for each emoji from Firebase
-        for (const emoji of emojiArray) {
-            if (emoji.trim()) {
+        for (const keyword of keywords) {
+            if (keyword.trim()) {
                 try {
-                    const doc = await db.collection('emoji-prompts').doc(emoji).get()
+                    const doc = await db.collection('keyword-prompts').doc(keyword).get()
                     
                     if (doc.exists) {
                         const data = doc.data() as EmojiPrompt
                         const prompt = data?.prompt || data?.description || ''
                         if (prompt) {
                             prompts.push(prompt)
-                            console.log(`✨ Found prompt for ${emoji}!`)
                         }
-                    } else {
-                        console.log(`⚠️ No prompt found for emoji: ${emoji}`)
                     }
-                } catch (emojiError) {
-                    console.error(`Error fetching prompt for emoji ${emoji}:`, emojiError)
+                } catch (keywordError) {
+                    console.error(`Error fetching prompt for keyword ${keyword}:`, keywordError)
                 }
             }
         }
         
-        console.log(`🎨 Retrieved ${prompts.length} emoji prompts:`, prompts)
+        console.log(`🎨 Retrieved ${prompts.length} keyword prompts:`, prompts)
         return prompts
         
     } catch (error) {
-        console.error('Error fetching emoji prompts:', error)
+        console.error('Error fetching keyword prompts:', error)
         return []
     }
 }

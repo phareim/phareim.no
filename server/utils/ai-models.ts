@@ -7,8 +7,8 @@ export interface AIModel {
 }
 
 export const aiModels: AIModel[] = [
-    { value: 'srpo', title: 'SRPO (Flux-1)', icon: '🎨', endpoint: 'fal-ai/flux-1/srpo', description: 'Realistic' },
-    { value: 'wan', title: 'WAN-25', icon: '🚀', endpoint: 'fal-ai/wan-25-preview/text-to-image', description: 'Artistic (but slow)' },
+    { value: 'srpo', title: 'SRPO (Flux-1)', icon: '👩🏻‍🎤', endpoint: 'fal-ai/flux-1/srpo', description: 'Realistic' },
+    { value: 'wan', title: 'WAN-25', icon: '🧑🏻‍🎨', endpoint: 'fal-ai/wan-25-preview/text-to-image', description: 'Artistic (but slow)' },
     { value: 'ideogram', title: 'Ideogram', icon: '🖼️', endpoint: 'fal-ai/ideogram/v2', description: 'Text-aware' },
     { value: 'hidream', title: 'HiDream', icon: '✨', endpoint: 'fal-ai/hidream-i1-full', description: 'Smooth' }
 ];
