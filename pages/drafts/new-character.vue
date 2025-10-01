@@ -431,7 +431,8 @@ const generateImage = async () => {
       gender: selectedGender.value,
       setting: selectedSetting.value,
       emojis: selectedEmojis.value,
-      characterId: 'preview'
+      characterId: 'preview',
+			style: selectedStyle.value
     }
     
     const response = await $fetch('/api/characters/generate-image', {
