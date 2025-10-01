@@ -97,10 +97,9 @@
                 <div class="model-selection">
                   <label class="option-label">Image Model:</label>
                   <select v-model="selectedModel" class="option-select">
-                    <option value="srpo">🎨 SRPO (Flux-1) - Realistic</option>
-                    <option value="wan">🚀 WAN-25 - Artistic</option>
-                    <option value="ideogram">🖼️ Ideogram - Text-aware</option>
-                    <option value="hidream">✨ HiDream - Smooth</option>
+                    <option v-for="model in availableModels" :key="model.value" :value="model.value">
+                      {{ model.icon }} {{ model.title }} - {{ model.description }}
+                    </option>
                   </select>
                 </div>
               </div>
@@ -224,12 +223,30 @@ const selectedSetting = ref('')
 const selectedStyle = ref('')
 const selectedEmojis = ref('')
 const selectedModel = ref('srpo')
+const availableModels = ref([])
 
 // Computed property to check if character can be created
 const canCreate = computed(() => {
   return newCharacter.value.name.trim().length > 0 &&
     newCharacter.value.title.trim().length > 0
 })
+
+// Fetch available AI models
+const fetchAIModels = async () => {
+  try {
+    const models = await $fetch('/api/ai-models')
+    availableModels.value = models
+  } catch (error) {
+    console.error('Failed to fetch AI models:', error)
+    // Fallback to default models
+    availableModels.value = [
+      { value: 'srpo', title: 'SRPO (Flux-1)', icon: '🎨', description: 'Realistic' },
+      { value: 'wan', title: 'WAN-25', icon: '🚀', description: 'Artistic' },
+      { value: 'ideogram', title: 'Ideogram', icon: '🖼️', description: 'Text-aware' },
+      { value: 'hidream', title: 'HiDream', icon: '✨', description: 'Smooth' }
+    ]
+  }
+}
 
 
 // Generate random stats (4d6 drop lowest method)
@@ -478,6 +495,11 @@ watch(message, (newMessage) => {
       message.value = ''
     }, 5000)
   }
+})
+
+// Fetch AI models when component mounts
+onMounted(() => {
+  fetchAIModels()
 })
 </script>
 

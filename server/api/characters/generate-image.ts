@@ -1,6 +1,7 @@
 import { fal } from '@fal-ai/client'
 import { storage, db } from '~/server/utils/firebase-admin'
 import { v4 as uuidv4 } from 'uuid'
+import { getModelEndpoint } from '~/server/utils/ai-models'
 import type { CharacterImageGenerationRequest, CharacterImageGenerationResponse, EmojiPrompt, emojiPromptsCollection } from '~/types/character'
 
 export default defineEventHandler(async (event): Promise<CharacterImageGenerationResponse> => {
@@ -79,14 +80,10 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     const settingContext = setting ? `Setting: ${setting} style. ` : '';
     
     const contextualPrompt = classContext + genderContext + settingContext;
-    const endpoints: Record<string, string> = {
-        'srpo': 'fal-ai/flux-1/srpo',
-        'wan': 'fal-ai/wan-25-preview/text-to-image',
-        'ideogram': 'fal-ai/ideogram/v2',
-        'hidream': 'fal-ai/hidream-i1-full'
-    };
-    const selectedModel = model || 'srpo';
-    const endpoint = endpoints[selectedModel];
+    
+    // Get the endpoint for the selected model
+    const selectedModel = model || 'srpo'
+    const endpoint = getModelEndpoint(selectedModel)
     
     const result = await fal.subscribe(endpoint, {
         input: {
