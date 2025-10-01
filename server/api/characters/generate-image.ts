@@ -84,7 +84,7 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     const endpoint = "fal-ai/wan-25-preview/text-to-image";//"fal-ai/flux-1/srpo";//"fal-ai/wan-25-preview/text-to-image";
     const result = await fal.subscribe(endpoint, {
         input: {
-            prompt: styleContext + emoji_string + userPrompt + contextualPrompt + titleContext,
+            prompt: stylePrompt + emoji_string + userPrompt + contextualPrompt + titleContext,
             image_size: 'portrait_16_9',
             enable_safety_checker: false,
             guidance_scale: 4.5,
