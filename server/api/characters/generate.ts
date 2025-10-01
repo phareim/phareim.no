@@ -21,10 +21,10 @@ export default defineEventHandler(async (event: any) => {
     
     try {
         const body = await readBody(event)
-        const { gender, setting, emojis, characterClass, style } = body
+        const { gender, setting, emojis, characterClass, style, model } = body
         
         // Generate character details using GPT-5
-        const character = await generateCharacterDetails(gender, setting, emojis, characterClass, style)
+        const character = await generateCharacterDetails(gender, setting, emojis, characterClass, style, model)
         
         return {
             success: true,
@@ -40,13 +40,14 @@ export default defineEventHandler(async (event: any) => {
     }
 })
 
-async function generateCharacterDetails(gender?: string, setting?: string, emojis?: string, characterClass?: string, style?: string) {
+async function generateCharacterDetails(gender?: string, setting?: string, emojis?: string, characterClass?: string, style?: string, model?: string) {
     
     const genderPrompt = gender ? `The character should be ${gender}` : 'The character can be any gender'
     const settingPrompt = setting ? `The character should fit the ${setting} setting/genre` : 'The character should fit a fantasy setting'
     const emojiPrompt = emojis ? `Use these emojis as inspiration for the character's traits and physical description: ${emojis}` : ''
     const classPrompt = characterClass ? `The character should be a ${characterClass} class with appropriate abilities, equipment, and background that fits this role` : ''
     const stylePrompt = getStylePrompt(style)
+    const modelPrompt = model ? `The character will be used for image generation with the ${model} AI model, so consider this when describing their appearance.` : ''
     
     const systemPrompt = `You are a creative character-designer for a ${setting}-setting. Generate a complete character with the following fields:
 
@@ -65,6 +66,7 @@ ${genderPrompt}
 ${settingPrompt}
 ${classPrompt}
 ${stylePrompt}
+${modelPrompt}
 ${emojiPrompt}
 
 Format your response exactly like this:

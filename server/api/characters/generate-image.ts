@@ -14,6 +14,7 @@ export default defineEventHandler(async (event): Promise<CharacterImageGeneratio
     try {
         const body = await readBody(event) as CharacterImageGenerationRequest
         const { prompt: userPrompt, characterId, characterName, characterTitle, characterClass, gender, setting, style, emojis } = body
+        const model = (body as any).model
         
         if (!userPrompt) {
             throw createError({
@@ -30,7 +31,8 @@ export default defineEventHandler(async (event): Promise<CharacterImageGeneratio
             gender,
             setting,
             style,
-            emojis
+            emojis,
+            model
         })
         
         const firebaseUrl = await uploadImageToFirebase(imageUrl, characterId)
@@ -58,21 +60,18 @@ interface ImageGenerationContext {
     setting?: string;
     style?: string;
     emojis?: string;
+    model?: string;
 }
 
 async function generateCharacterImage(userPrompt: string, context: ImageGenerationContext = {}): Promise<string> {
-    const { characterName, characterTitle, characterClass, gender, setting, style, emojis } = context;
+    const { characterName, characterTitle, characterClass, gender, setting, style, emojis, model } = context;
     
-    // Retrieve emoji prompts from Firebase
     const emojiPrompts = await getEmojiPrompts(emojis)
     const emoji_string = "" + emojiPrompts.join(', ') 
 
-    // Build contextual prompt additions
     const classPrompts = getClassPrompts(characterClass);
     
-    const stylePrompt = getImageStylePrompts(style);
-    
-    const styleContext = stylePrompt ? `${stylePrompt} ` : '';
+    const stylePrompt = getImageStylePrompts(style || 'disney');
 
     const titleContext = characterTitle ? `Character title: ${characterTitle}. ` : '';
     const classContext = classPrompts ? `${classPrompts} ` : '';
@@ -80,8 +79,15 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     const settingContext = setting ? `Setting: ${setting} style. ` : '';
     
     const contextualPrompt = classContext + genderContext + settingContext;
+    const endpoints: Record<string, string> = {
+        'srpo': 'fal-ai/flux-1/srpo',
+        'wan': 'fal-ai/wan-25-preview/text-to-image',
+        'ideogram': 'fal-ai/ideogram/v2',
+        'hidream': 'fal-ai/hidream-i1-full'
+    };
+    const selectedModel = model || 'srpo';
+    const endpoint = endpoints[selectedModel];
     
-    const endpoint = "fal-ai/wan-25-preview/text-to-image";//"fal-ai/flux-1/srpo";//"fal-ai/wan-25-preview/text-to-image";
     const result = await fal.subscribe(endpoint, {
         input: {
             prompt: stylePrompt + emoji_string + userPrompt + contextualPrompt + titleContext,
@@ -92,7 +98,8 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
             negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts'
         },
         logs: true,
-        onQueueUpdate: () => {
+        onQueueUpdate: (update: any) => {
+            process.stdout.write('\rimage generation: ' + update.status);
         },
     })
     
@@ -229,10 +236,10 @@ function getImageStylePrompts(style?: string): string {
     
     
     const DIGITAL_PROMPT = `
-            flat white background, expressive digital art, AAA Game Art style,
+            flat white background, ray traced intricate digital art, AAA Game Art style,
             expertly shaded super intricate-drawn ultra realistic style, 
-            Modern Western Anime Style, Netflix artwork,
-            , lots of attitude , animation character shot,
+            ultra realistic rendering, Unreal Engine 5,
+            lots of attitude , animation character shot,
             masterwork portrait quality, standing with eye contact,
             bold expressive digital 8K , highest quality ,
             standing in action pose,
@@ -249,8 +256,7 @@ function getImageStylePrompts(style?: string): string {
             highest quality,  
             `
     const HEAVY_METAL_DRAWN_COMIC_PROMPT = `
-            flat white background, expressive super intricate-drawn HEAVY METAL Comics style, 
-            lots of attitude , animation character shot, Main character shot, campy vibes,
+            flat white background, expressive hand drawn, super intricate, rough styled, 2.5D, Disney, Atlantis Movie still, art house, hand drawn adult roboscopic Heavy Metal Comics  style, lots of attitude , main character shot,
             masterwork portrait quality, standing with eye contact,
             bold expressive digital 8K , highest quality ,
             standing in action pose,
@@ -263,6 +269,6 @@ function getImageStylePrompts(style?: string): string {
         'disney': DISNEY_PROMPT,
         'heavy-metal': HEAVY_METAL_DRAWN_COMIC_PROMPT
     };
-    
-    return stylePrompts[style.toLowerCase()] || DISNEY_PROMPT;
+    if (!style) return HEAVY_METAL_DRAWN_COMIC_PROMPT;
+    return stylePrompts[style.toLowerCase()] || HEAVY_METAL_DRAWN_COMIC_PROMPT
 }

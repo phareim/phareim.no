@@ -54,6 +54,7 @@ export interface CharacterImageGenerationRequest {
     setting?: string;                  // Setting/genre (fantasy, cyberpunk, etc.)
     style?: string;                    // Art style (disney, digital, heavy-metal)
     emojis?: string;                   // Emoji inspiration for character traits
+    model?: string;                    // AI model for image generation (srpo, wan, ideogram, hidream) 
     characterId?: string;              // Character ID (for Firebase storage path)
 }
 

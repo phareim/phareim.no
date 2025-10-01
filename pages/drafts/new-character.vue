@@ -94,6 +94,15 @@
                   <label class="option-label">Inspiration Emojis:</label>
                   <input v-model="selectedEmojis" placeholder="💚 🔮 🤖" class="emoji-input" maxlength="8" />
                 </div>
+                <div class="model-selection">
+                  <label class="option-label">Image Model:</label>
+                  <select v-model="selectedModel" class="option-select">
+                    <option value="srpo">🎨 SRPO (Flux-1) - Realistic</option>
+                    <option value="wan">🚀 WAN-25 - Artistic</option>
+                    <option value="ideogram">🖼️ Ideogram - Text-aware</option>
+                    <option value="hidream">✨ HiDream - Smooth</option>
+                  </select>
+                </div>
               </div>
               <div class="generate-button-row">
                 <button @click="generateCharacter" :disabled="isGenerating" class="generate-btn-top">
@@ -214,6 +223,7 @@ const selectedGender = ref('')
 const selectedSetting = ref('')
 const selectedStyle = ref('')
 const selectedEmojis = ref('')
+const selectedModel = ref('srpo')
 
 // Computed property to check if character can be created
 const canCreate = computed(() => {
@@ -340,6 +350,7 @@ const resetForm = () => {
   selectedSetting.value = ''
   selectedStyle.value = ''
   selectedEmojis.value = ''
+  selectedModel.value = 'srpo'
 }
 
 // Generate character using GPT-5
@@ -355,7 +366,8 @@ const generateCharacter = async () => {
         setting: selectedSetting.value,
         style: selectedStyle.value,
         emojis: selectedEmojis.value,
-        characterClass: newCharacter.value.class
+        characterClass: newCharacter.value.class,
+        model: selectedModel.value
       }
     })
 
@@ -432,7 +444,8 @@ const generateImage = async () => {
       setting: selectedSetting.value,
       emojis: selectedEmojis.value,
       characterId: 'preview',
-			style: selectedStyle.value
+      style: selectedStyle.value,
+      model: selectedModel.value
     }
     
     const response = await $fetch('/api/characters/generate-image', {
@@ -574,7 +587,8 @@ watch(message, (newMessage) => {
 .setting-selection,
 .class-selection,
 .style-selection,
-.emoji-selection {
+.emoji-selection,
+.model-selection {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
