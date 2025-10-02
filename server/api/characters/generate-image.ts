@@ -2,6 +2,7 @@ import { fal } from '@fal-ai/client'
 import { storage, db } from '~/server/utils/firebase-admin'
 import { v4 as uuidv4 } from 'uuid'
 import { getModelEndpoint } from '~/server/utils/ai-models'
+import { getImageStylePrompt } from '~/server/utils/character-styles'
 import type { CharacterImageGenerationRequest, CharacterImageGenerationResponse, EmojiPrompt, emojiPromptsCollection } from '~/types/character'
 
 export default defineEventHandler(async (event): Promise<CharacterImageGenerationResponse> => {
@@ -72,7 +73,7 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
 
     const classPrompts = getClassPrompts(characterClass);
     
-    const stylePrompt = getImageStylePrompts(style || 'disney');
+    const stylePrompt = getImageStylePrompt(style || 'disney');
 
     const titleContext = characterTitle ? `Character title: ${characterTitle}. ` : '';
     const classContext = classPrompts ? `${classPrompts} ` : '';
@@ -219,44 +220,3 @@ function getClassPrompts(characterClass?: string): string {
     return classPrompts[characterClass.toLowerCase()] || '';
 }
 
-// Helper function to get style-specific prompts for image generation
-function getImageStylePrompts(style?: string): string {
-    
-    
-    const DIGITAL_PROMPT = `
-            flat white background, ray traced intricate digital art, AAA Game Art style,
-            expertly shaded super intricate-drawn ultra realistic style, 
-            ultra realistic rendering, Unreal Engine 5,
-            lots of attitude , animation character shot,
-            masterwork portrait quality, standing with eye contact,
-            bold expressive digital 8K , highest quality ,
-            standing in action pose,
-            half body portrait, 
-            highest quality,  
-            `   
-    const DISNEY_PROMPT = `
-            flat white background, expressive hand drawn, super intricate, rough styled, 2.5D, Disney, Classic Disney Movie still, 
-            art house, hand drawn, lots of attitude , main character shot, Disney artwork,
-            masterwork portrait quality, standing with eye contact,
-            bold expressive digital 8K , highest quality ,
-            standing in action pose,
-            half body portrait, 
-            highest quality,  
-            `
-    const HEAVY_METAL_DRAWN_COMIC_PROMPT = `
-            flat white background, expressive hand drawn, super intricate, rough styled, 2.5D, Disney, Atlantis Movie still, art house, hand drawn adult roboscopic Heavy Metal Comics  style, lots of attitude , main character shot,
-            masterwork portrait quality, standing with eye contact,
-            bold expressive digital 8K , highest quality ,
-            standing in action pose,
-            half body portrait, 
-            highest quality,  
-            hipster vibe,
-            `
-    const stylePrompts: Record<string, string> = {
-        'digital': DIGITAL_PROMPT,
-        'disney': DISNEY_PROMPT,
-        'heavy-metal': HEAVY_METAL_DRAWN_COMIC_PROMPT
-    };
-    if (!style) return HEAVY_METAL_DRAWN_COMIC_PROMPT;
-    return stylePrompts[style.toLowerCase()] || HEAVY_METAL_DRAWN_COMIC_PROMPT
-}

@@ -84,10 +84,9 @@
                 <div class="style-selection">
                   <label class="option-label">Art Style:</label>
                   <select v-model="selectedStyle" class="option-select">
-                    <option value="">Default Style</option>
-                    <option value="disney">🏰 Disney - Colorful and whimsical</option>
-                    <option value="digital">💻 Digital - Cyberpunk and futuristic</option>
-                    <option value="heavy-metal">🤘 Heavy Metal - Dark and intense</option>
+                    <option v-for="style in availableStyles" :key="style.value" :value="style.value">
+                      {{ style.icon }} {{ style.title }}{{ style.description ? ' - ' + style.description : '' }}
+                    </option>
                   </select>
                 </div>
                 <div class="emoji-selection">
@@ -224,6 +223,7 @@ const selectedStyle = ref('')
 const selectedEmojis = ref('')
 const selectedModel = ref('srpo')
 const availableModels = ref([])
+const availableStyles = ref([])
 
 // Computed property to check if character can be created
 const canCreate = computed(() => {
@@ -231,7 +231,7 @@ const canCreate = computed(() => {
     newCharacter.value.title.trim().length > 0
 })
 
-// Fetch available AI models
+// Fetch available AI models and character styles
 const fetchAIModels = async () => {
   try {
     const models = await $fetch('/api/ai-models')
@@ -244,6 +244,22 @@ const fetchAIModels = async () => {
       { value: 'wan', title: 'WAN-25', icon: '🚀', description: 'Artistic' },
       { value: 'ideogram', title: 'Ideogram', icon: '🖼️', description: 'Text-aware' },
       { value: 'hidream', title: 'HiDream', icon: '✨', description: 'Smooth' }
+    ]
+  }
+}
+
+const fetchCharacterStyles = async () => {
+  try {
+    const styles = await $fetch('/api/character-styles')
+    availableStyles.value = styles
+  } catch (error) {
+    console.error('Failed to fetch character styles:', error)
+    // Fallback to default styles
+    availableStyles.value = [
+      { value: '', title: 'Default Style', icon: '', description: '' },
+      { value: 'disney', title: 'Disney', icon: '🏰', description: 'Colorful and whimsical' },
+      { value: 'digital', title: 'Digital', icon: '💻', description: 'Cyberpunk and futuristic' },
+      { value: 'heavy-metal', title: 'Heavy Metal', icon: '🤘', description: 'Dark and intense' }
     ]
   }
 }
@@ -497,10 +513,11 @@ watch(message, (newMessage) => {
   }
 })
 
-// Fetch AI models when component mounts
+// Fetch AI models and styles when component mounts
 onMounted(() => {
   document.body.classList.add('scrollable');
   fetchAIModels()
+  fetchCharacterStyles()
 })
 
 onUnmounted(() => {
