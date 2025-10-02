@@ -499,7 +499,12 @@ watch(message, (newMessage) => {
 
 // Fetch AI models when component mounts
 onMounted(() => {
+  document.body.classList.add('scrollable');
   fetchAIModels()
+})
+
+onUnmounted(() => {
+  document.body.classList.remove('scrollable');
 })
 </script>
 

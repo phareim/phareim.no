@@ -428,6 +428,7 @@ const onWalkOutEnded = () => {
 onMounted(async () => {
   await fetchCharacterData()
   preloadMedia()
+  document.body.classList.add('scrollable');
 })
 
 // Clean up timer when component unmounts
@@ -435,6 +436,7 @@ onUnmounted(() => {
   if (idleTimer) {
     clearTimeout(idleTimer)
   }
+  document.body.classList.remove('scrollable');
 })
 </script>
 
