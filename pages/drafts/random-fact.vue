@@ -2,26 +2,33 @@
   <div class="random-fact-container" @click="getRandomFact">
     <h1>Random Fact</h1>
     <p class="random-fact" v-html="randomFact"></p>
-    <p class="click-hint" v-show="showHint">Click anywhere for a new fact! ✨</p>
+    <div v-if="isLoading" class="loading-spinner">🌀</div>
+    <p class="click-hint" v-show="showHint && !isLoading">Click anywhere for a new fact! ✨</p>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useFetch } from '#app'
 
-const { data: fact } = await useFetch('/api/random-fact')
-
-const randomFact = ref(fact.value.fact)
+const randomFact = ref('Loading your first random fact... 🎲')
 const showHint = ref(true)
+const isLoading = ref(true)
 
 const getRandomFact = async () => {
+  isLoading.value = true
   const { data: newFact } = await useFetch('/api/random-fact', {
     key: Date.now().toString() // Force fresh request each time
   })
   randomFact.value = newFact.value.fact
   showHint.value = false
+  isLoading.value = false
 }
+
+// Load the first fact after the page mounts
+onMounted(() => {
+  getRandomFact()
+})
 
 </script>
 
@@ -60,5 +67,14 @@ display: none;
 @keyframes pulse {
   0%, 100% { opacity: 0.7; }
   50% { opacity: 1; }
+}
+.loading-spinner {
+  margin-top: 2rem;
+  font-size: 2rem;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>
