@@ -33,6 +33,7 @@ export default {
 
 <style>
 @import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bitcount+Prop+Single+Ink:wght@100..900&display=swap");
 
 body,
 html {

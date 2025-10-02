@@ -506,9 +506,23 @@ onMounted(() => {
 <style scoped>
 .character-page {
   min-height: 100vh;
-  background-color: white;
-  color: black;
-  font-family: 'Sublime Text', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  background: #ffffff;
+  color: #1a1a1a;
+  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  font-variation-settings:
+    "slnt" 0,
+    "CRSV" 0.5,
+    "ELSH" 0,
+    "ELXP" 0,
+    "SZP1" 0,
+    "SZP2" 0,
+    "XPN1" 0,
+    "XPN2" 0,
+    "YPN1" 0,
+    "YPN2" 0;
   padding: 2rem;
 }
 
@@ -516,8 +530,12 @@ onMounted(() => {
   max-width: 1200px;
   margin: 0 auto;
   display: flex;
-  gap: 3rem;
+  gap: 2rem;
   align-items: flex-start;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .character-image {
@@ -527,10 +545,11 @@ onMounted(() => {
 .image-container {
   width: 100%;
   aspect-ratio: 9/16;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  border: 2px solid #ddd;
+  border: 1px solid #e5e5e5;
   margin-bottom: 1rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
 .image-upload-area {
@@ -561,8 +580,9 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: #f9f9f9;
-  color: #666;
+  background: #f8f9fa;
+  color: #6c757d;
+  font-family: "Bitcount Prop Single Ink", system-ui;
 }
 
 .upload-icon {
@@ -577,19 +597,21 @@ onMounted(() => {
 
 .character-generation-section {
   margin-bottom: 2rem;
-  padding: 1.5rem;
-  border: 2px solid #9c27b0;
-  border-radius: 8px;
-  background-color: #fafafa;
+  padding: 2rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .character-generation-section h2 {
   font-size: 1.5rem;
   font-weight: bold;
-  margin: 0 0 1rem 0;
-  color: #9c27b0;
-  border-bottom: 1px solid #9c27b0;
-  padding-bottom: 0.5rem;
+  margin: 0 0 1.5rem 0;
+  color: #1a1a1a;
+  border-bottom: 2px solid #e5e5e5;
+  padding-bottom: 0.75rem;
+  font-family: "Bitcount Prop Single Ink", system-ui;
 }
 
 .generation-options {
@@ -620,37 +642,45 @@ onMounted(() => {
 
 .option-label {
   font-weight: bold;
-  color: #333;
+  color: #495057;
   font-size: 0.9rem;
+  font-family: "Bitcount Prop Single Ink", system-ui;
+  margin-bottom: 0.5rem;
 }
 
 .option-select {
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: white;
-  font-family: inherit;
+  padding: 0.75rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #ffffff;
+  font-family: "Bitcount Prop Single Ink", system-ui;
+  color: #1a1a1a;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .option-select:focus {
   outline: none;
-  border-color: #9c27b0;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .emoji-input {
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: white;
-  font-family: inherit;
+  padding: 0.75rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #ffffff;
+  font-family: "Bitcount Prop Single Ink", system-ui;
   font-size: 1.2rem;
   text-align: center;
+  color: #1a1a1a;
+  transition: all 0.2s ease;
 }
 
 .emoji-input:focus {
   outline: none;
-  border-color: #9c27b0;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .emoji-hint {
@@ -666,30 +696,39 @@ onMounted(() => {
 }
 
 .generate-btn-top {
-  background: #9c27b0;
+  background: #f8d38d;
   color: white;
-  border: 2px solid #9c27b0;
-  padding: 0.8rem 1.5rem;
-  border-radius: 4px;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
   cursor: pointer;
-  font-family: inherit;
+  font-family: "Bitcount Prop Single Ink", system-ui;
   font-weight: bold;
+  font-size: 1.1rem;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
 }
 
 .generate-btn-top:disabled {
-  background: #ccc;
-  border-color: #ccc;
+  background: #6c757d;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .generate-btn-top:hover:not(:disabled) {
-  background: white;
-  color: #9c27b0;
+  background: #0056b3;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+  transform: translateY(-1px);
+  scale: 1.1;
 }
 
 .character-header {
   margin-bottom: 2rem;
+  padding: 2rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .character-name-container {
@@ -702,15 +741,17 @@ onMounted(() => {
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: black;
+  color: #1a1a1a;
   width: 100%;
-  font-family: inherit;
+  font-family: "Bitcount Prop Single Ink", system-ui;
   padding: 0.2rem 0;
+  text-align: center;
+  transition: all 0.2s ease;
 }
 
 .name-input:focus {
   outline: none;
-  border-bottom-color: black;
+  border-bottom-color: #007bff;
 }
 
 .title-input {
@@ -719,15 +760,17 @@ onMounted(() => {
   background: none;
   border: none;
   border-bottom: 1px solid transparent;
-  color: #333;
+  color: #6c757d;
   width: 100%;
-  font-family: inherit;
+  font-family: "Bitcount Prop Single Ink", system-ui;
   padding: 0.2rem 0;
+  text-align: center;
+  transition: all 0.2s ease;
 }
 
 .title-input:focus {
   outline: none;
-  border-bottom-color: #333;
+  border-bottom-color: #007bff;
 }
 
 .character-background,
@@ -735,6 +778,11 @@ onMounted(() => {
 .character-stats,
 .character-abilities {
   margin-bottom: 2rem;
+  padding: 2rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .character-background h2,
@@ -743,22 +791,25 @@ onMounted(() => {
 .character-abilities h2 {
   font-size: 1.5rem;
   font-weight: bold;
-  margin: 0 0 1rem 0;
-  color: black;
-  border-bottom: 1px solid #ccc;
-  padding-bottom: 0.5rem;
+  margin: 0 0 1.5rem 0;
+  color: #1a1a1a;
+  border-bottom: 2px solid #e5e5e5;
+  padding-bottom: 0.75rem;
+  font-family: "Bitcount Prop Single Ink", system-ui;
 }
 
 .background-textarea,
 .physical-description-textarea {
   width: 100%;
   min-height: 100px;
-  background: none;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 0.5rem;
-  font-family: inherit;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 1rem;
+  font-family: "Bitcount Prop Single Ink", system-ui;
+  color: #1a1a1a;
   resize: vertical;
+  transition: all 0.2s ease;
 }
 
 .physical-description-textarea {
@@ -768,7 +819,8 @@ onMounted(() => {
 .background-textarea:focus,
 .physical-description-textarea:focus {
   outline: none;
-  border-color: black;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 
@@ -788,50 +840,70 @@ onMounted(() => {
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
   margin-bottom: 1rem;
+  padding: 1.5rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #f8f9fa;
 }
 
 .stat-item {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  background-color: #f9f9f9;
-  border-radius: 4px;
+  padding: 1rem;
+  border: 1px solid #e5e5e5;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-height: 80px;
 }
 
 .stat-label {
   font-weight: bold;
+  font-size: 0.9rem;
+  color: #495057;
+  margin-bottom: 0.5rem;
+  font-family: "Bitcount Prop Single Ink", system-ui;
 }
 
 .stat-input {
-  width: 60px;
+  width: 50px;
+  height: 50px;
   text-align: center;
-  background: none;
-  border: 1px solid #ccc;
-  border-radius: 2px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
   padding: 0.2rem;
-  font-family: inherit;
+  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #1a1a1a;
+  transition: all 0.2s ease;
 }
 
 .stat-input:focus {
   outline: none;
-  border-color: black;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .random-stats-btn {
-  background: #f0f0f0;
-  border: 1px solid #ccc;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  background: #f8f9fa;
+  border: 1px solid #e5e5e5;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
   cursor: pointer;
-  font-family: inherit;
+  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-weight: bold;
+  color: #495057;
   transition: all 0.2s ease;
 }
 
 .random-stats-btn:hover {
-  background: black;
-  color: white;
+  background: #e9ecef;
+  border-color: #007bff;
+  color: #007bff;
+  transform: translateY(-1px);
 }
 
 .abilities-list {
@@ -839,21 +911,32 @@ onMounted(() => {
   flex-direction: column;
   gap: 1rem;
   margin-bottom: 1rem;
+  padding: 1.5rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #f8f9fa;
 }
 
 .ability-item {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  padding: 1rem;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .ability-name-input,
 .ability-desc-input {
-  background: none;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 0.5rem;
-  font-family: inherit;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-family: "Bitcount Prop Single Ink", system-ui;
+  color: #1a1a1a;
+  transition: all 0.2s ease;
 }
 
 .ability-name-input {
@@ -868,36 +951,47 @@ onMounted(() => {
 .ability-name-input:focus,
 .ability-desc-input:focus {
   outline: none;
-  border-color: black;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .remove-ability-btn {
-  background: #ff4444;
+  background: #dc3545;
   color: white;
   border: none;
   border-radius: 50%;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   cursor: pointer;
   font-size: 1.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.remove-ability-btn:hover {
+  background: #c82333;
+  transform: scale(1.1);
 }
 
 .add-ability-btn {
-  background: #f0f0f0;
-  border: 1px solid #ccc;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  background: #f8f9fa;
+  border: 1px solid #e5e5e5;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
   cursor: pointer;
-  font-family: inherit;
+  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-weight: bold;
+  color: #495057;
   transition: all 0.2s ease;
 }
 
 .add-ability-btn:hover {
-  background: black;
-  color: white;
+  background: #e9ecef;
+  border-color: #007bff;
+  color: #007bff;
+  transform: translateY(-1px);
 }
 
 .character-actions {
@@ -910,29 +1004,33 @@ onMounted(() => {
 .create-btn,
 .preview-btn,
 .reset-btn {
-  padding: 0.8rem 1.5rem;
-  border-radius: 4px;
+  padding: 1rem 2rem;
+  border-radius: 8px;
   cursor: pointer;
-  font-family: inherit;
+  font-family: "Bitcount Prop Single Ink", system-ui;
   font-weight: bold;
+  font-size: 1rem;
   transition: all 0.2s ease;
 }
 
 .regenerate-image-btn {
   width: 100%;
-  padding: 0.5rem 1rem;
-  background: #2196f3;
+  padding: 0.75rem 1rem;
+  background: #007bff;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
-  font-family: inherit;
+  font-family: "Bitcount Prop Single Ink", system-ui;
   font-weight: bold;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
 }
 
 .regenerate-image-btn:hover {
-  background: #1976d2;
+  background: #0056b3;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+  transform: translateY(-1px);
 }
 
 .image-loading {
@@ -964,43 +1062,48 @@ onMounted(() => {
 }
 
 .create-btn {
-  background: black;
+  background: #28a745;
   color: white;
-  border: 2px solid black;
+  border: none;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
 }
 
 .create-btn:disabled {
-  background: #ccc;
-  border-color: #ccc;
+  background: #6c757d;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .create-btn:hover:not(:disabled) {
-  background: white;
-  color: black;
+  background: #218838;
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+  transform: translateY(-1px);
 }
 
 .preview-btn {
-  background: #f0f0f0;
-  border: 2px solid #ccc;
-  color: black;
+  background: #f8f9fa;
+  border: 1px solid #e5e5e5;
+  color: #495057;
 }
 
 .preview-btn:hover {
-  background: #333;
-  color: white;
-  border-color: #333;
+  background: #e9ecef;
+  border-color: #007bff;
+  color: #007bff;
+  transform: translateY(-1px);
 }
 
 .reset-btn {
-  background: white;
-  border: 2px solid #ff4444;
-  color: #ff4444;
+  background: #f8f9fa;
+  border: 1px solid #e5e5e5;
+  color: #dc3545;
 }
 
 .reset-btn:hover {
-  background: #ff4444;
-  color: white;
+  background: #f8d7da;
+  border-color: #dc3545;
+  color: #dc3545;
+  transform: translateY(-1px);
 }
 
 .message {

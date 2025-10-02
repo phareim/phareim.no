@@ -441,9 +441,23 @@ onUnmounted(() => {
 <style scoped>
 .character-page {
   min-height: 100vh;
-  background-color: white;
-  color: black;
-  font-family: 'Sublime Text', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  background: #ffffff;
+  color: #1a1a1a;
+  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  font-variation-settings:
+    "slnt" 0,
+    "CRSV" 0.5,
+    "ELSH" 0,
+    "ELXP" 0,
+    "SZP1" 0,
+    "SZP2" 0,
+    "XPN1" 0,
+    "XPN2" 0,
+    "YPN1" 0,
+    "YPN2" 0;
   padding: 2rem;
 }
 
@@ -451,8 +465,12 @@ onUnmounted(() => {
   max-width: 1200px;
   margin: 0 auto;
   display: flex;
-  gap: 3rem;
+  gap: 2rem;
   align-items: flex-start;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .character-image {
@@ -464,9 +482,10 @@ onUnmounted(() => {
   width: 100%;
   aspect-ratio: 9/16;
   object-fit: cover;
-  border: 0px;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
   background-color: white;
-  border: 0px solid black;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
 .character-details {
@@ -476,6 +495,11 @@ onUnmounted(() => {
 
 .character-header {
   margin-bottom: 2rem;
+  padding: 2rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .character-name-container {
@@ -489,15 +513,15 @@ onUnmounted(() => {
   font-size: 2.5rem;
   font-weight: bold;
   margin: 0;
-  color: black;
+  color: #1a1a1a;
   flex: 1;
   text-align: center;
 }
 
 .nav-chevron {
-  background: none;
-  border: 2px solid black;
-  color: black;
+  background: #f8f9fa;
+  border: 1px solid #e5e5e5;
+  color: #495057;
   font-size: 2rem;
   font-weight: bold;
   width: 40px;
@@ -506,14 +530,16 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 8px;
   transition: all 0.2s ease;
-  font-family: 'Sublime Text', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: "Bitcount Prop Single Ink", system-ui;
 }
 
 .nav-chevron:hover:not(:disabled) {
-  background-color: black;
+  background-color: #007bff;
   color: white;
+  border-color: #007bff;
+  transform: translateY(-1px);
 }
 
 .nav-chevron:disabled {
@@ -525,13 +551,19 @@ onUnmounted(() => {
   font-size: 1.2rem;
   margin: 0;
   font-style: italic;
-  color: #333;
+  color: #6c757d;
+  text-align: center;
 }
 
 .character-background,
 .character-stats,
 .character-abilities {
   margin-bottom: 2rem;
+  padding: 2rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .character-background h2,
@@ -539,10 +571,10 @@ onUnmounted(() => {
 .character-abilities h2 {
   font-size: 1.5rem;
   font-weight: bold;
-  margin: 0 0 1rem 0;
-  color: black;
-  border-bottom: 1px solid #ccc;
-  padding-bottom: 0.5rem;
+  margin: 0 0 1.5rem 0;
+  color: #1a1a1a;
+  border-bottom: 2px solid #e5e5e5;
+  padding-bottom: 0.75rem;
 }
 
 .character-background p {
@@ -554,24 +586,32 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #f8f9fa;
 }
 
 .stat-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  background-color: #f9f9f9;
+  padding: 1rem;
+  border: 1px solid #e5e5e5;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .stat-label {
   font-weight: bold;
+  color: #495057;
 }
 
 .stat-value {
-  font-family: monospace;
+  font-family: "Bitcount Prop Single Ink", system-ui;
   font-weight: bold;
+  color: #1a1a1a;
 }
 
 .character-abilities ul {
@@ -581,14 +621,16 @@ onUnmounted(() => {
 }
 
 .character-abilities li {
-  margin-bottom: 0.8rem;
-  padding: 0.5rem;
-  background-color: #f5f5f5;
-  border-left: 3px solid black;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .character-abilities strong {
-  color: black;
+  color: #1a1a1a;
 }
 
 /* Responsive design */
