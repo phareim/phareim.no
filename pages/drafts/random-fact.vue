@@ -72,9 +72,10 @@ display: none;
   margin-top: 2rem;
   font-size: 2rem;
   animation: spin 1s linear infinite;
+  transform-origin: center;
 }
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
 }
 </style>
