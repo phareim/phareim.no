@@ -50,27 +50,9 @@
                 <div class="class-selection">
                   <label class="option-label">Character Class:</label>
                   <select v-model="newCharacter.class" class="option-select">
-                    <option value="">Any Class</option>
-                    <option value="warrior">🗡️ Warrior</option>
-                    <option value="mage">🔮 Mage</option>
-                    <option value="rogue">🗡️ Rogue</option>
-                    <option value="cleric">⚡ Cleric</option>
-                    <option value="ranger">🏹 Ranger</option>
-                    <option value="paladin">⚔️ Paladin</option>
-                    <option value="barbarian">🪓 Barbarian</option>
-                    <option value="bard">🎵 Bard</option>
-                    <option value="druid">🌿 Druid</option>
-                    <option value="sorcerer">✨ Sorcerer</option>
-                    <option value="warlock">🔥 Warlock</option>
-                    <option value="wizard">📚 Wizard</option>
-                    <option value="monk">👊 Monk</option>
-                    <option value="artificer">⚙️ Artificer</option>
-                    <option value="gunslinger">🔫 Gunslinger</option>
-                    <option value="pilot">🚀 Pilot</option>
-                    <option value="hacker">💻 Hacker</option>
-                    <option value="medic">🏥 Medic</option>
-                    <option value="engineer">🔧 Engineer</option>
-                    <option value="scout">🔍 Scout</option>
+                    <option v-for="characterClass in availableClasses" :key="characterClass.value" :value="characterClass.value">
+                      {{ characterClass.icon }} {{ characterClass.title }}{{ characterClass.description ? ' - ' + characterClass.description : '' }}
+                    </option>
                   </select>
                 </div>
                 <div class="style-selection">
@@ -217,6 +199,7 @@ const selectedModel = ref('srpo')
 const availableModels = ref([])
 const availableStyles = ref([])
 const availableSettings = ref([])
+const availableClasses = ref([])
 
 // Computed property to check if character can be created
 const canCreate = computed(() => {
@@ -276,6 +259,39 @@ const fetchCharacterSettings = async () => {
       { value: 'wild-west', title: 'Wild West', icon: '🤠', description: 'American frontier period' },
       { value: 'pirate', title: 'Pirate', icon: '🏴‍☠️', description: 'Golden age of piracy' },
       { value: 'superhero', title: 'Superhero', icon: '🦸', description: 'Superhero universe' }
+    ]
+  }
+}
+
+const fetchCharacterClasses = async () => {
+  try {
+    const classes = await $fetch('/api/character-classes')
+    availableClasses.value = classes
+  } catch (error) {
+    console.error('Failed to fetch character classes:', error)
+    // Fallback to default classes
+    availableClasses.value = [
+      { value: '', title: 'Any Class', icon: '🎭', description: 'No specific class' },
+      { value: 'warrior', title: 'Warrior', icon: '🗡️', description: 'Melee combat specialist' },
+      { value: 'mage', title: 'Mage', icon: '🔮', description: 'Arcane magic user' },
+      { value: 'rogue', title: 'Rogue', icon: '🗡️', description: 'Stealth and precision fighter' },
+      { value: 'cleric', title: 'Cleric', icon: '⚡', description: 'Divine magic and healing' },
+      { value: 'ranger', title: 'Ranger', icon: '🏹', description: 'Wilderness guardian and archer' },
+      { value: 'paladin', title: 'Paladin', icon: '⚔️', description: 'Holy warrior and protector' },
+      { value: 'barbarian', title: 'Barbarian', icon: '🪓', description: 'Fierce berserker warrior' },
+      { value: 'bard', title: 'Bard', icon: '🎵', description: 'Charismatic performer and support' },
+      { value: 'druid', title: 'Druid', icon: '🌿', description: 'Nature mystic and shapeshifter' },
+      { value: 'sorcerer', title: 'Sorcerer', icon: '✨', description: 'Innate magic wielder' },
+      { value: 'warlock', title: 'Warlock', icon: '🔥', description: 'Pact-bound magic user' },
+      { value: 'wizard', title: 'Wizard', icon: '📚', description: 'Scholarly magic practitioner' },
+      { value: 'monk', title: 'Monk', icon: '👊', description: 'Martial arts and spiritual discipline' },
+      { value: 'artificer', title: 'Artificer', icon: '⚙️', description: 'Magical inventor and engineer' },
+      { value: 'gunslinger', title: 'Gunslinger', icon: '🔫', description: 'Firearm expert and marksman' },
+      { value: 'pilot', title: 'Pilot', icon: '🚀', description: 'Vehicle operator and navigator' },
+      { value: 'hacker', title: 'Hacker', icon: '💻', description: 'Digital infiltrator and tech expert' },
+      { value: 'medic', title: 'Medic', icon: '🏥', description: 'Battlefield healer and medical expert' },
+      { value: 'engineer', title: 'Engineer', icon: '🔧', description: 'Technical expert and builder' },
+      { value: 'scout', title: 'Scout', icon: '🔍', description: 'Reconnaissance and stealth specialist' }
     ]
   }
 }
@@ -529,12 +545,13 @@ watch(message, (newMessage) => {
   }
 })
 
-// Fetch AI models, styles, and settings when component mounts
+// Fetch AI models, styles, settings, and classes when component mounts
 onMounted(() => {
   document.body.classList.add('scrollable');
   fetchAIModels()
   fetchCharacterStyles()
   fetchCharacterSettings()
+  fetchCharacterClasses()
 })
 
 onUnmounted(() => {

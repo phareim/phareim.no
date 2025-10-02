@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { getModelEndpoint } from '~/server/utils/ai-models'
 import { getImageStylePrompt } from '~/server/utils/character-styles'
 import { getImageSettingPrompt } from '~/server/utils/character-settings'
+import { getImageClassPrompt } from '~/server/utils/character-classes'
 import type { CharacterImageGenerationRequest, CharacterImageGenerationResponse, EmojiPrompt, emojiPromptsCollection } from '~/types/character'
 
 export default defineEventHandler(async (event): Promise<CharacterImageGenerationResponse> => {
@@ -72,7 +73,7 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     const emojiPrompts = await getKeywordPrompts(emojis)
     const emoji_string = "" + emojiPrompts.join(', ') 
 
-    const classPrompts = getClassPrompts(characterClass);
+    const classPrompts = getImageClassPrompt(characterClass);
     
     const stylePrompt = getImageStylePrompt(style || 'disney');
 
@@ -191,33 +192,4 @@ async function getKeywordPrompts(spice?: string): Promise<string[]> {
     }
 }
 
-// Helper function to get class-specific prompts for image generation
-function getClassPrompts(characterClass?: string): string {
-    if (!characterClass) return '';
-    
-    const classPrompts: Record<string, string> = {
-        warrior: 'armored warrior, sword and shield, battle-ready stance, metal armor, determined expression',
-        mage: 'robed spellcaster, magical staff, arcane symbols, flowing robes, mystical aura',
-        rogue: 'stealthy assassin, dark leather armor, daggers, hooded cloak, cunning expression',
-        cleric: 'holy priest, religious symbols, divine light, ceremonial robes, blessed aura',
-        ranger: 'forest guardian, bow and arrows, leather armor, nature elements, alert stance',
-        paladin: 'holy knight, shining armor, blessed sword, divine radiance, righteous pose',
-        barbarian: 'fierce warrior, tribal clothing, massive weapons, wild hair, primal strength',
-        bard: 'charismatic performer, musical instrument, colorful clothing, expressive pose',
-        druid: 'nature mystic, natural clothing, animal companion, earth magic, wild appearance',
-        sorcerer: 'innate magic user, elemental effects, mystical clothing, raw magical power',
-        warlock: 'pact-bound caster, dark magic, otherworldly patron symbols, mysterious aura',
-        wizard: 'scholarly mage, spellbook, arcane focus, academic robes, intellectual appearance',
-        monk: 'martial artist, simple robes, inner peace, disciplined stance, spiritual aura',
-        artificer: 'magical inventor, mechanical gadgets, workshop tools, innovative equipment',
-        gunslinger: 'firearm expert, pistols and rifles, western styling, quick-draw pose',
-        pilot: 'vehicle operator, flight suit, technical equipment, cockpit elements',
-        hacker: 'digital infiltrator, cyberpunk aesthetic, high-tech gear, neon lighting',
-        medic: 'battlefield healer, medical equipment, first aid gear, caring expression',
-        engineer: 'technical expert, construction tools, blueprints, practical clothing',
-        scout: 'reconnaissance specialist, camouflage gear, binoculars, alert posture'
-    };
-    
-    return classPrompts[characterClass.toLowerCase()] || '';
-}
 

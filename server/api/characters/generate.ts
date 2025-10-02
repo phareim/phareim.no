@@ -4,6 +4,7 @@ import { useRuntimeConfig } from '#imports'
 import { generateRandomStats } from '~/types/character'
 import { getCharacterStylePrompt } from '~/server/utils/character-styles'
 import { getCharacterSettingPrompt } from '~/server/utils/character-settings'
+import { getCharacterClassPrompt } from '~/server/utils/character-classes'
 
 // Initialize OpenAI with GPT-5
 const config = useRuntimeConfig()
@@ -47,7 +48,7 @@ async function generateCharacterDetails(gender?: string, setting?: string, emoji
     const genderPrompt = gender ? `The character should be ${gender}` : 'The character can be any gender'
     const settingPrompt = getCharacterSettingPrompt(setting)
     const emojiPrompt = emojis ? `Use these emojis as inspiration for the character's traits and physical description: ${emojis}` : ''
-    const classPrompt = characterClass ? `The character should be a ${characterClass} class with appropriate abilities, equipment, and background that fits this role` : ''
+    const classPrompt = getCharacterClassPrompt(characterClass)
     const stylePrompt = getCharacterStylePrompt(style)
     const modelPrompt = model ? `The character will be used for image generation with the ${model} AI model, so consider this when describing their appearance.` : ''
     
