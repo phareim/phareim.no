@@ -3,6 +3,7 @@ import { storage, db } from '~/server/utils/firebase-admin'
 import { v4 as uuidv4 } from 'uuid'
 import { getModelEndpoint } from '~/server/utils/ai-models'
 import { getImageStylePrompt } from '~/server/utils/character-styles'
+import { getImageSettingPrompt } from '~/server/utils/character-settings'
 import type { CharacterImageGenerationRequest, CharacterImageGenerationResponse, EmojiPrompt, emojiPromptsCollection } from '~/types/character'
 
 export default defineEventHandler(async (event): Promise<CharacterImageGenerationResponse> => {
@@ -78,7 +79,7 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     const titleContext = characterTitle ? `Character title: ${characterTitle}. ` : '';
     const classContext = classPrompts ? `${classPrompts} ` : '';
     const genderContext = gender ? `Gender: ${gender}. ` : '';
-    const settingContext = setting ? `Setting: ${setting} style. ` : '';
+    const settingContext = getImageSettingPrompt(setting) ? `${getImageSettingPrompt(setting)}, ` : '';
     
     const contextualPrompt = classContext + genderContext + settingContext;
     

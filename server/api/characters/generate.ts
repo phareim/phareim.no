@@ -3,6 +3,7 @@ import OpenAI from 'openai'
 import { useRuntimeConfig } from '#imports'
 import { generateRandomStats } from '~/types/character'
 import { getCharacterStylePrompt } from '~/server/utils/character-styles'
+import { getCharacterSettingPrompt } from '~/server/utils/character-settings'
 
 // Initialize OpenAI with GPT-5
 const config = useRuntimeConfig()
@@ -44,13 +45,13 @@ export default defineEventHandler(async (event: any) => {
 async function generateCharacterDetails(gender?: string, setting?: string, emojis?: string, characterClass?: string, style?: string, model?: string) {
     
     const genderPrompt = gender ? `The character should be ${gender}` : 'The character can be any gender'
-    const settingPrompt = setting ? `The character should fit the ${setting} setting/genre` : 'The character should fit a fantasy setting'
+    const settingPrompt = getCharacterSettingPrompt(setting)
     const emojiPrompt = emojis ? `Use these emojis as inspiration for the character's traits and physical description: ${emojis}` : ''
     const classPrompt = characterClass ? `The character should be a ${characterClass} class with appropriate abilities, equipment, and background that fits this role` : ''
     const stylePrompt = getCharacterStylePrompt(style)
     const modelPrompt = model ? `The character will be used for image generation with the ${model} AI model, so consider this when describing their appearance.` : ''
     
-    const systemPrompt = `You are a creative character-designer for a ${setting}-setting. Generate a complete character with the following fields:
+    const systemPrompt = `You are a creative character-designer for a ${setting || 'fantasy'}-setting. Generate a complete character with the following fields:
 
 NAME: A memorable character name (first and last name preferred)
 TITLE: A descriptive title or profession (e.g., "The Wandering Mage", "Master Blacksmith", "Mining Ship Captain")

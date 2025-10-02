@@ -40,17 +40,9 @@
                 <div class="setting-selection">
                   <label class="option-label">Setting:</label>
                   <select v-model="selectedSetting" class="option-select">
-                    <option value="">Fantasy (Default)</option>
-                    <option value="cyberpunk">Cyberpunk</option>
-                    <option value="steampunk">Steampunk</option>
-                    <option value="post-apocalyptic">Post-Apocalyptic</option>
-                    <option value="space-opera">Space Opera</option>
-                    <option value="medieval">Medieval</option>
-                    <option value="modern-urban">Modern Urban</option>
-                    <option value="victorian">Victorian</option>
-                    <option value="wild-west">Wild West</option>
-                    <option value="pirate">Pirate</option>
-                    <option value="superhero">Superhero</option>
+                    <option v-for="setting in availableSettings" :key="setting.value" :value="setting.value">
+                      {{ setting.icon }} {{ setting.title }}{{ setting.description ? ' - ' + setting.description : '' }}
+                    </option>
                   </select>
                 </div>
               </div>
@@ -224,6 +216,7 @@ const selectedEmojis = ref('')
 const selectedModel = ref('srpo')
 const availableModels = ref([])
 const availableStyles = ref([])
+const availableSettings = ref([])
 
 // Computed property to check if character can be created
 const canCreate = computed(() => {
@@ -260,6 +253,29 @@ const fetchCharacterStyles = async () => {
       { value: 'disney', title: 'Disney', icon: '🏰', description: 'Colorful and whimsical' },
       { value: 'digital', title: 'Digital', icon: '💻', description: 'Cyberpunk and futuristic' },
       { value: 'heavy-metal', title: 'Heavy Metal', icon: '🤘', description: 'Dark and intense' }
+    ]
+  }
+}
+
+const fetchCharacterSettings = async () => {
+  try {
+    const settings = await $fetch('/api/character-settings')
+    availableSettings.value = settings
+  } catch (error) {
+    console.error('Failed to fetch character settings:', error)
+    // Fallback to default settings
+    availableSettings.value = [
+      { value: '', title: 'Fantasy', icon: '🏰', description: 'Classic fantasy setting' },
+      { value: 'cyberpunk', title: 'Cyberpunk', icon: '🤖', description: 'High-tech dystopian future' },
+      { value: 'steampunk', title: 'Steampunk', icon: '⚙️', description: 'Victorian era with steam technology' },
+      { value: 'post-apocalyptic', title: 'Post-Apocalyptic', icon: '☢️', description: 'World after civilization collapse' },
+      { value: 'space-opera', title: 'Space Opera', icon: '🚀', description: 'Epic space adventures' },
+      { value: 'medieval', title: 'Medieval', icon: '⚔️', description: 'Classic medieval period' },
+      { value: 'modern-urban', title: 'Modern Urban', icon: '🏙️', description: 'Contemporary city setting' },
+      { value: 'victorian', title: 'Victorian', icon: '🎩', description: '19th century Victorian era' },
+      { value: 'wild-west', title: 'Wild West', icon: '🤠', description: 'American frontier period' },
+      { value: 'pirate', title: 'Pirate', icon: '🏴‍☠️', description: 'Golden age of piracy' },
+      { value: 'superhero', title: 'Superhero', icon: '🦸', description: 'Superhero universe' }
     ]
   }
 }
@@ -513,11 +529,12 @@ watch(message, (newMessage) => {
   }
 })
 
-// Fetch AI models and styles when component mounts
+// Fetch AI models, styles, and settings when component mounts
 onMounted(() => {
   document.body.classList.add('scrollable');
   fetchAIModels()
   fetchCharacterStyles()
+  fetchCharacterSettings()
 })
 
 onUnmounted(() => {
