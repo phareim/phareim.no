@@ -1,7 +1,7 @@
 import { fal } from '@fal-ai/client'
 import { storage, db } from '~/server/utils/firebase-admin'
 import { v4 as uuidv4 } from 'uuid'
-import { getModelEndpoint } from '~/server/utils/ai-models'
+import { getModelEndpoint, getModelConfig } from '~/server/utils/ai-models'
 import { getImageStylePrompt } from '~/server/utils/character-styles'
 import { getImageSettingPrompt } from '~/server/utils/character-settings'
 import { getImageClassPrompt } from '~/server/utils/character-classes'
@@ -83,14 +83,28 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     const settingContext = getImageSettingPrompt(setting) ? `${getImageSettingPrompt(setting)}, ` : '';
     
     const contextualPrompt = classContext + genderContext + settingContext;
+    const fullPrompt = stylePrompt + emoji_string + userPrompt + contextualPrompt + titleContext;
     
-    // Get the endpoint for the selected model
+    // Get the model configuration
     const selectedModel = model || 'srpo'
-    const endpoint = getModelEndpoint(selectedModel)
+    const modelConfig = getModelConfig(selectedModel)
     
+    if (!modelConfig) {
+        throw new Error(`Unknown model: ${selectedModel}`)
+    }
+    
+    // Route to appropriate API based on server
+    if (modelConfig.server === 'venice-ai') {
+        return await generateWithVeniceAI(fullPrompt, modelConfig.endpoint)
+    } else {
+        return await generateWithFalAI(fullPrompt, modelConfig.endpoint)
+    }
+}
+
+async function generateWithFalAI(prompt: string, endpoint: string): Promise<string> {
     const result = await fal.subscribe(endpoint, {
         input: {
-            prompt: stylePrompt + emoji_string + userPrompt + contextualPrompt + titleContext,
+            prompt: prompt,
             image_size: 'portrait_16_9',
             enable_safety_checker: false,
             guidance_scale: 4.5,
@@ -106,21 +120,79 @@ async function generateCharacterImage(userPrompt: string, context: ImageGenerati
     // Extract the image URL from the result
     if (result.data && result.data.images && result.data.images.length > 0) {
         return result.data.images[0].url
-    }else{
+    } else {
         throw new Error('No image generated from fal.ai')
+    }
+}
+
+async function generateWithVeniceAI(prompt: string, model: string): Promise<string> {
+    const apiKey = process.env.VENICE_AI_API_KEY
+    if (!apiKey) {
+        throw new Error('VENICE_AI_API_KEY environment variable is required')
+    }
+
+    const response = await fetch('https://api.venice.ai/api/v1/image/generate', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: model,
+            prompt: prompt,
+            width: 720,
+            height: 1280,
+            cfg_scale: 5,
+            lora_strength: 100,
+            steps: 30,
+            style_preset: 'Analog Film',
+            negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts',
+            hide_watermark: true, 
+            variants: 1,
+            safe_mode: false,
+            return_binary: false,
+            format: 'webp',
+            embed_exif_metadata: false,
+            seed:1
+        })
+    })
+    
+    if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Venice AI API error: ${response.status} ${errorText}`)
+    }
+    
+    const data = await response.json()
+    
+    if (data.images && data.images.length > 0) {
+        const base64Image = data.images[0]
+        
+        // Convert base64 to data URL for immediate use
+        const dataUrl = `data:image/webp;base64,${base64Image}`
+        return dataUrl
+    } else {
+        throw new Error('No image generated from Venice AI')
     }
 }
 
 async function uploadImageToFirebase(imageUrl: string, characterId?: string): Promise<string> {
     
     try {
-        // Fetch the image from the URL
-        const response = await fetch(imageUrl)
-        if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.statusText}`)
-        }
+        let imageBuffer: Buffer
         
-        const imageBuffer = Buffer.from(await response.arrayBuffer())
+        // Check if it's a base64 data URL or regular URL
+        if (imageUrl.startsWith('data:')) {
+            // Extract base64 data from data URL
+            const base64Data = imageUrl.split(',')[1]
+            imageBuffer = Buffer.from(base64Data, 'base64')
+        } else {
+            // Fetch the image from the URL
+            const response = await fetch(imageUrl)
+            if (!response.ok) {
+                throw new Error(`Failed to fetch image: ${response.statusText}`)
+            }
+            imageBuffer = Buffer.from(await response.arrayBuffer())
+        }
         
         // Generate a unique filename
         const filename = characterId 
@@ -168,7 +240,7 @@ async function getKeywordPrompts(spice?: string): Promise<string[]> {
         for (const keyword of keywords) {
             if (keyword.trim()) {
                 try {
-                    const doc = await db.collection('keyword-prompts').doc(keyword).get()
+                    const doc = await db.collection('emoji-prompts').doc(keyword).get()
                     
                     if (doc.exists) {
                         const data = doc.data() as EmojiPrompt
