@@ -3,9 +3,14 @@ import { defineEventHandler, readBody } from 'h3'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 import { useRuntimeConfig } from '#imports'
 import { handleMovement } from '../rpg/handlers/movement'
-import { handleAIResponse } from '../rpg/handlers/ai'
+import { handleAIResponse, pruneMessageHistory } from '../rpg/handlers/ai'
 import { getCurrentPlace, generateNewPlace } from '../rpg/handlers/place'
 import { loadGameState, saveGameState } from '../rpg/state/game-state'
+
+// Helper function to normalize item names for deduplication
+function normalizeItemName(name: string): string {
+    return name.trim().toLowerCase()
+}
 
 // Extend GameState type to include messages
 interface ExtendedGameState {
@@ -80,9 +85,17 @@ export default defineEventHandler(async (event: any) => {
                             openai
                         )
                         response = message
+
+                        // Get the place ID for the new location
+                        const placeId = `${newPlace?.coordinates.north},${newPlace?.coordinates.west}`
+
                         newState = {
                             ...gameState,
-                            coordinates: newPlace?.coordinates || gameState.coordinates
+                            coordinates: newPlace?.coordinates || gameState.coordinates,
+                            // Track visited places
+                            visited: gameState.visited.includes(placeId)
+                                ? gameState.visited
+                                : [...gameState.visited, placeId]
                         }
                     } catch (error) {
                         console.error('Movement error:', error)
@@ -99,6 +112,8 @@ export default defineEventHandler(async (event: any) => {
                     // Describe the current place from the stored world state
                     let place = await getCurrentPlace(gameState.coordinates)
                     if (!place) {
+                        // This shouldn't happen in normal gameplay - player should always be at a valid place
+                        console.warn('Player at coordinates with no place - generating:', gameState.coordinates)
                         place = await generateNewPlace(gameState.coordinates, openai)
                     }
                     response = `You take a moment to look around ${place.name}.\n\n${place.description}`
@@ -113,16 +128,19 @@ export default defineEventHandler(async (event: any) => {
                             `${action} ${args.join(' ')}`
                         )
                         response = processedText
-                        // Deduplicate items before adding to inventory
-                        const uniqueNewItems = items.filter(item => !gameState.inventory.includes(item))
+                        // Normalize and deduplicate items before adding to inventory
+                        const normalizedInventory = gameState.inventory.map(normalizeItemName)
+                        const uniqueNewItems = items.filter(
+                            item => !normalizedInventory.includes(normalizeItemName(item))
+                        )
                         newState = {
                             ...gameState,
                             inventory: [...gameState.inventory, ...uniqueNewItems],
-                            messages: [
+                            messages: pruneMessageHistory([
                                 ...gameState.messages,
                                 { role: 'user', content: `${action} ${args.join(' ')}` },
                                 { role: 'assistant', content: processedText }
-                            ]
+                            ])
                         }
                     } catch (error) {
                         console.error('AI examine error:', error)
@@ -151,16 +169,19 @@ export default defineEventHandler(async (event: any) => {
                         command  // Pass the full original command
                     )
                     response = processedText
-                    // Deduplicate items before adding to inventory
-                    const uniqueNewItems = items.filter(item => !gameState.inventory.includes(item))
+                    // Normalize and deduplicate items before adding to inventory
+                    const normalizedInventory = gameState.inventory.map(normalizeItemName)
+                    const uniqueNewItems = items.filter(
+                        item => !normalizedInventory.includes(normalizeItemName(item))
+                    )
                     newState = {
                         ...gameState,
                         inventory: [...gameState.inventory, ...uniqueNewItems],
-                        messages: [
+                        messages: pruneMessageHistory([
                             ...gameState.messages,
                             { role: 'user', content: command },
                             { role: 'assistant', content: processedText }
-                        ]
+                        ])
                     }
                 } catch (error) {
                     console.error('AI processing error:', error)

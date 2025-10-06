@@ -38,9 +38,11 @@ export async function generateNewPlace(
             const doc = await db.collection(placesCollection).doc(getPlaceId(coords)).get()
             if (doc.exists) {
                 return {
+                    // Direction mapping matches array order
                     direction: index === 0 ? 'north' as const :
                              index === 1 ? 'south' as const :
-                             index === 2 ? 'west' as const : 'east' as const,
+                             index === 2 ? 'west' as const :
+                             'east' as const,
                     id: doc.id,
                     ...doc.data()
                 } as AdjacentPlace

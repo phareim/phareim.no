@@ -51,9 +51,6 @@ export async function handleMovement(
         place = await generateNewPlace(newCoordinates, openai)
     }
 
-    // Update game state with new coordinates
-    gameState.coordinates = newCoordinates
-
     return {
         message: `You move ${getDirectionName(direction)} to ${place.name}.\n\n${place.description}`,
         newPlace: place

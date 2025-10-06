@@ -58,18 +58,17 @@ export async function handleAIResponse(
         messageHistory.unshift(SYSTEM_PROMPT)
     }
 
-    // Add the user's command if not already present
-    if (messageHistory[messageHistory.length - 1]?.role !== 'user') {
-        messageHistory.push({
-            role: 'user',
-            content: command
-        })
-    }
+    // Create request messages without mutating the history
+    // The caller will be responsible for adding messages to history
+    const requestMessages = [
+        ...messageHistory,
+        { role: 'user' as const, content: command }
+    ]
 
     // Send to Venice/OpenAI
     const completion = await openai.chat.completions.create({
         model: "llama-3.1-405b",
-        messages: messageHistory,
+        messages: requestMessages,
         temperature: 0.7,
         max_tokens: 500
     })
