@@ -1,20 +1,33 @@
 <template>
   <div class="container">
-    <h1>Image-to-Image Generator</h1>
+    <h1>Image Generator</h1>
     <form @submit.prevent="handleSubmit" class="form">
-      <!-- Image URL field is only needed for tiers other than "new" -->
-      <div v-if="tier !== 'new'" class="field">
-        <label class="field-label">Image URL</label>
-        <input
-          v-model="imageUrl"
-          type="text"
-          placeholder="https://example.com/image.png"
-          class="field-input"
-        />
+      <div class="field">
+        <label class="field-label">Prompt</label>
+        <textarea
+          v-model="prompt"
+          placeholder="Describe what you want to create"
+          required
+          class="field-textarea"
+        ></textarea>
       </div>
 
-      <!-- Image size selection, only relevant for the "new" tier -->
-      <div v-if="tier === 'new'" class="field">
+      <div class="field">
+        <label class="field-label">AI Model</label>
+        <select v-model="selectedModel" class="field-select">
+          <optgroup v-for="group in modelGroups" :key="group.server" :label="group.label">
+            <option
+              v-for="model in group.models"
+              :key="model.value"
+              :value="model.value"
+            >
+              {{ model.icon }} {{ model.title }} - {{ model.description }}
+            </option>
+          </optgroup>
+        </select>
+      </div>
+
+      <div class="field">
         <label class="field-label">Image Size</label>
         <select v-model="imageSize" class="field-select">
           <option value="square_hd">Square HD</option>
@@ -25,26 +38,7 @@
           <option value="landscape_16_9">Landscape 16:9</option>
         </select>
       </div>
-      
-      <div class="field">
-        <label class="field-label">Prompt</label>
-        <textarea 
-          v-model="prompt" 
-          placeholder="Describe the transformation" 
-          required 
-          class="field-textarea"
-        ></textarea>
-      </div>
-      
-      <div class="field">
-        <label class="field-label">Model Tier</label>
-        <select v-model="tier" class="field-select">
-          <option value="pro">Pro</option>
-          <option value="max">Max</option>
-          <option value="new">New</option>
-        </select>
-      </div>
-      
+
       <button type="submit" :disabled="loading" class="submit-button">
         {{ loading ? 'Generating…' : 'Generate' }}
       </button>
@@ -55,18 +49,25 @@
     <div v-if="resultUrl" class="result">
       <h2>Result</h2>
       <img :src="resultUrl" alt="Generated image" class="result-image" />
-      <p class="request-id">request id: {{ requestId }}</p>
+      <a :href="resultUrl" target="_blank" class="download-link">Open in new tab</a>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
-const imageUrl = ref('')
-const prompt = ref('make this into a realistic photograph. ')
-const tier = ref<'pro' | 'max' | 'new'>('pro')
-// Image size parameter for the "new" tier. Default to landscape_4_3 as per spec
+interface AIModel {
+  value: string
+  title: string
+  icon: string
+  endpoint: string
+  description: string
+  server: string
+}
+
+const prompt = ref('')
+const selectedModel = ref('srpo')
 const imageSize = ref<
   | 'square_hd'
   | 'square'
@@ -74,48 +75,69 @@ const imageSize = ref<
   | 'portrait_16_9'
   | 'landscape_4_3'
   | 'landscape_16_9'
->('landscape_4_3')
+>('portrait_16_9')
 
 const loading = ref(false)
 const resultUrl = ref<string | null>(null)
-const requestId = ref<string | null>(null)
 const error = ref<string | null>(null)
+const aiModels = ref<AIModel[]>([])
+
+// Group models by server for better organization
+const modelGroups = computed(() => {
+  const groups: { server: string; label: string; models: AIModel[] }[] = []
+
+  const falModels = aiModels.value.filter(m => m.server === 'fal-ai')
+  const veniceModels = aiModels.value.filter(m => m.server === 'venice-ai')
+
+  if (falModels.length > 0) {
+    groups.push({ server: 'fal-ai', label: 'FAL.AI Models', models: falModels })
+  }
+
+  if (veniceModels.length > 0) {
+    groups.push({ server: 'venice-ai', label: 'Venice AI Models', models: veniceModels })
+  }
+
+  return groups
+})
+
+onMounted(async () => {
+  // Load available AI models
+  try {
+    const res = await fetch('/api/ai-models')
+    const data = await res.json()
+    aiModels.value = data
+  } catch (e) {
+    console.error('Failed to load AI models:', e)
+  }
+})
 
 async function handleSubmit() {
   loading.value = true
   error.value = null
   resultUrl.value = null
-  requestId.value = null
 
   try {
-    const payload: Record<string, unknown> = {
-      prompt: prompt.value,
-      safety_tolerance: '5',
-      tier: tier.value
-    }
-
-    if (tier.value !== 'new') {
-      payload.image_url = imageUrl.value
-    } else {
-      payload.image_size = imageSize.value
-    }
-
-    const res = await fetch('/api/image-to-image', {
+    const res = await fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        prompt: prompt.value,
+        model: selectedModel.value,
+        imageSize: imageSize.value
+      })
     })
+
     const data = await res.json()
+
     if (data.error) {
       throw new Error(data.error || 'Unknown error')
     }
 
-    const images = data.data?.images || []
-    if (images.length === 0) {
-      throw new Error('No image returned')
+    if (!data.imageUrl) {
+      throw new Error('No image URL returned')
     }
-    resultUrl.value = images[0].url
-    requestId.value = data.requestId
+
+    resultUrl.value = data.imageUrl
   } catch (e: any) {
     error.value = e.message || 'Failed to generate image'
   } finally {
@@ -284,17 +306,21 @@ h1 {
   }
 }
 
-.request-id {
-  font-size: 0.8rem;
-  color: var(--text-tertiary, #6b7280);
-  margin-top: 0.5rem;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+.download-link {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: var(--accent-color, #3b82f6);
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
 }
 
-@media (prefers-color-scheme: dark) {
-  .request-id {
-    color: var(--text-tertiary, #9ca3af);
-  }
+.download-link:hover {
+  background: var(--accent-color-hover, #2563eb);
+  transform: translateY(-1px);
 }
 
 .error {
