@@ -72,7 +72,7 @@ declare module '#app' {
 }
 
 const userInput = ref('')
-const gameMessages = ref<string[]>(['You find yourself at the edge of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do?'])
+const gameMessages = ref<string[]>(['You find yourself in the middle of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do?'])
 const commandHistory = ref<string[]>([])
 const historyIndex = ref(-1)
 const isLoading = ref(false)
@@ -111,6 +111,8 @@ async function loadGameState() {
 }
 
 async function saveGameState() {
+	// Note: Game state is saved server-side in gameStates collection
+	// This function saves UI-specific data (messages, command history) to games collection
 	try {
 		const { $firebase } = useNuxtApp()
 		const gameDoc = doc($firebase.firestore, 'games', userId.value)
@@ -130,7 +132,7 @@ async function resetGame() {
 			const { $firebase } = useNuxtApp()
 			const gameDoc = doc($firebase.firestore, 'games', userId.value)
 			const gameStateDoc = doc($firebase.firestore, 'gameStates', userId.value)
-			
+
 			// Delete both game messages and game state
 			await deleteDoc(gameDoc)
 			await deleteDoc(gameStateDoc)
@@ -139,11 +141,11 @@ async function resetGame() {
 			commandHistory.value = []
 			historyIndex.value = -1
 			userInput.value = ''
-			
-			// Reset player location display
-			playerCoordinates.value = 'N: 0, W: 0'
-			playerPlaceName.value = 'Starting area'
-			
+
+			// Reset player location display - wait for state to refresh
+			await nextTick()
+			await loadPlayerLocation()
+
 			inputField.value?.focus()
 		} catch (error) {
 			console.error('Error resetting game:', error)
@@ -328,28 +330,30 @@ let isMounted = false
 // Initialize game
 onMounted(async () => {
 	isMounted = true
-	
+
 	// Generate a random user ID if not exists
-	userId.value = localStorage.getItem('rpg_user_id') || 
+	userId.value = localStorage.getItem('rpg_user_id') ||
 		Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
 	localStorage.setItem('rpg_user_id', userId.value)
 
 	try {
-		// Load saved game state
+		// Load saved game state first
 		await loadGameState()
+		// Wait a bit to ensure Firebase state is initialized, then load location
+		await nextTick()
 		await loadPlayerLocation()
 	} catch (error) {
 		console.error('Error initializing game:', error)
 		addMessage('Error loading game. Please refresh the page.')
 	}
-	
+
 	// Hold focus on input field - use nextTick to ensure DOM is ready
 	nextTick(() => {
 		if (isMounted) {
 			inputField.value?.focus()
 		}
 	})
-	
+
 	// Add keyboard listeners only if still mounted
 	if (isMounted) {
 		document.addEventListener('keydown', handleKeyDown)

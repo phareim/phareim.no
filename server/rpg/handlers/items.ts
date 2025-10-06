@@ -33,7 +33,7 @@ Legacy: true
 
 Rules:
 - Description should be one atmospheric sentence
-- Type must be one of: weapon, armor, potion, key, treasure, misc
+- Type must be one of: tool, weapon, armor, potion, key, treasure, misc
 - Properties should include relevant numeric values based on the item type
 - Properties values should be reasonable for a game (e.g., damage 1-20, defense 1-15)
 - Uses should be included only for consumable items like potions

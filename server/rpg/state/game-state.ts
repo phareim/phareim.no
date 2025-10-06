@@ -12,6 +12,10 @@ export interface GameState {
     visited: string[];
     lastUpdated: Date;
     messages: ChatCompletionMessageParam[];
+    currentPlace?: {
+        name: string;
+        description: string;
+    };
 }
 
 // Game's initial state

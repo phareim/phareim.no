@@ -22,6 +22,10 @@ interface ExtendedGameState {
     visited: string[]
     lastUpdated: Date
     messages: ChatCompletionMessageParam[]
+    currentPlace?: {
+        name: string
+        description: string
+    }
 }
 
 // Initialize OpenAI with Venice configuration
@@ -95,7 +99,12 @@ export default defineEventHandler(async (event: any) => {
                             // Track visited places
                             visited: gameState.visited.includes(placeId)
                                 ? gameState.visited
-                                : [...gameState.visited, placeId]
+                                : [...gameState.visited, placeId],
+                            // Cache current place for faster lookups
+                            currentPlace: newPlace ? {
+                                name: newPlace.name,
+                                description: newPlace.description
+                            } : gameState.currentPlace
                         }
                     } catch (error) {
                         console.error('Movement error:', error)
@@ -109,15 +118,28 @@ export default defineEventHandler(async (event: any) => {
             case 'look':
             case 'inspect': {
                 if (args.length === 0) {
-                    // Describe the current place from the stored world state
-                    let place = await getCurrentPlace(gameState.coordinates)
-                    if (!place) {
-                        // This shouldn't happen in normal gameplay - player should always be at a valid place
-                        console.warn('Player at coordinates with no place - generating:', gameState.coordinates)
-                        place = await generateNewPlace(gameState.coordinates, openai)
+                    // Use cached place if available, otherwise fetch from Firebase
+                    if (gameState.currentPlace) {
+                        response = `You take a moment to look around ${gameState.currentPlace.name}.\n\n${gameState.currentPlace.description}`
+                        newState = { ...gameState }
+                    } else {
+                        // Fallback to fetching from Firebase (for backward compatibility)
+                        let place = await getCurrentPlace(gameState.coordinates)
+                        if (!place) {
+                            // This shouldn't happen in normal gameplay - player should always be at a valid place
+                            console.warn('Player at coordinates with no place - generating:', gameState.coordinates)
+                            place = await generateNewPlace(gameState.coordinates, openai)
+                        }
+                        response = `You take a moment to look around ${place.name}.\n\n${place.description}`
+                        // Cache the place for future lookups
+                        newState = {
+                            ...gameState,
+                            currentPlace: {
+                                name: place.name,
+                                description: place.description
+                            }
+                        }
                     }
-                    response = `You take a moment to look around ${place.name}.\n\n${place.description}`
-                    newState = { ...gameState }
                 } else {
                     try {
                         // Examine a specific thing using AI, keeping current coordinates context

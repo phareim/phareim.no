@@ -61,12 +61,12 @@ export const LOCATION_FEATURES = [
         'a group of bandits',
         'a group of adventurers',
         'a monster',
-        'a lone travelers',
-        'A young maiden',
-        'A young man',
-        'A group of merchants',
-        'A couple ofhunters',
-        'A tired explorer'
+        'a lone traveler',
+        'a young maiden',
+        'a young man',
+        'a group of merchants',
+        'a couple of hunters',
+        'a tired explorer'
     ]}
 ]
 

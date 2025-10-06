@@ -16,7 +16,7 @@ Game Rules:
 - Create an engaging game experience
 - Be creative but consistent
 - Respond in English
-- Try to keep this fairly NSFW (people can go elsewhere for more explicit content)
+- Keep content family-friendly and SFW (Safe For Work)
 
 The game world is procedurally generated as players explore. Each time a player moves to an unexplored area, 
 a new location is automatically created, making the world expand dynamically.
