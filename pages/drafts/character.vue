@@ -460,17 +460,20 @@ onUnmounted(() => {
   --transition-default: all 0.3s ease;
 
   /* Text shadows for readability */
-  --shadow-text-strong: 0 0 20px rgba(0, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.9), -1px -1px 2px rgba(0, 0, 0, 0.7), 1px 1px 2px rgba(0, 0, 0, 0.7);
-  --shadow-text-medium: 0 0 10px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8), -1px -1px 1px rgba(255, 255, 255, 0.6), 1px 1px 1px rgba(255, 255, 255, 0.6);
-  --shadow-text-light: 0 0 8px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8), -1px -1px 1px rgba(255, 255, 255, 0.6), 1px 1px 1px rgba(255, 255, 255, 0.6);
-  --shadow-text-subtle: 0 0 6px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8), -0.5px -0.5px 1px rgba(255, 255, 255, 0.6), 0.5px 0.5px 1px rgba(255, 255, 255, 0.6);
-  --shadow-text-minimal: 0 0 5px rgba(255, 255, 255, 0.8), 0 1px 2px rgba(255, 255, 255, 0.6);
+  --shadow-text-strong: 0 0 16px rgba(0, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.9), -1px -1px 2px rgba(0, 0, 0, 0.7), 1px 1px 2px rgba(0, 0, 0, 0.7);
+  --shadow-text-medium: 0 0 8px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8), -1px -1px 1px rgba(255, 255, 255, 0.6), 1px 1px 1px rgba(255, 255, 255, 0.6);
+  --shadow-text-light: 0 0 6px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8), -1px -1px 1px rgba(255, 255, 255, 0.6), 1px 1px 1px rgba(255, 255, 255, 0.6);
+  --shadow-text-subtle: 0 0 4px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8), -0.5px -0.5px 1px rgba(255, 255, 255, 0.6), 0.5px 0.5px 1px rgba(255, 255, 255, 0.6);
+  --shadow-text-minimal: 0 0 2px rgba(255, 255, 255, 0.8), 0 1px 2px rgba(255, 255, 255, 0.6);
 
   /* Box shadows */
   --shadow-box: 0 8px 32px rgba(200, 200, 200, 0.5);
   --shadow-box-dark: 0 8px 32px rgba(0, 0, 0, 0.5);
   --shadow-box-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
   --shadow-box-nav: 0 4px 20px rgba(255, 255, 255, 0.2);
+
+  /* Glass base color (for overlays) */
+  --glass-base: 255, 255, 255;
 
   position: fixed;
   top: 0;
@@ -485,6 +488,22 @@ onUnmounted(() => {
   font-optical-sizing: auto;
   font-weight: 400;
   font-style: normal;
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  .character-page {
+    --bg-color: #fff;
+    --text-primary: #fff;
+    --text-secondary: rgba(255, 255, 255, 0.9);
+    --text-tertiary: rgba(255, 255, 255, 0.8);
+    --glass-base: 0, 0, 0;
+    --shadow-box: 0 8px 32px rgba(0, 0, 0, 0.8);
+    --shadow-box-dark: 0 8px 32px rgba(0, 0, 0, 0.9);
+    --shadow-box-hover: 0 4px 16px rgba(255, 255, 255, 0.1);
+    --shadow-box-nav: 0 4px 20px rgba(0, 0, 0, 0.3);
+    --opacity-border: 0.2;
+  }
 }
 
 /* Parallax background */
@@ -534,16 +553,16 @@ onUnmounted(() => {
 .character-header {
   margin-bottom: var(--spacing-lg);
   padding: var(--spacing-xl);
-  background: rgba(255, 255, 255, var(--opacity-header));
+  background: rgba(var(--glass-base), var(--opacity-header));
   backdrop-filter: blur(var(--blur-md));
-  border: 1px solid rgba(0, 0, 0, var(--opacity-border));
+  border: 1px solid rgba(var(--text-primary), var(--opacity-border));
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-box);
   transition: var(--transition-default);
 }
 
 .character-header:hover {
-  background: rgba(255, 255, 255, var(--opacity-header-hover));
+  background: rgba(var(--glass-base), var(--opacity-header-hover));
   backdrop-filter: blur(var(--blur-xl));
 }
 
@@ -566,10 +585,10 @@ onUnmounted(() => {
 }
 
 .nav-chevron {
-  background: rgba(255, 255, 255, var(--opacity-nav));
+  background: rgba(var(--glass-base), var(--opacity-nav));
   backdrop-filter: blur(var(--blur-nav));
-  border: 1px solid rgba(255, 255, 255, var(--opacity-border-nav));
-  color: #fff;
+  border: 1px solid rgba(var(--glass-base), var(--opacity-border-nav));
+  color: var(--text-primary);
   font-size: 2rem;
   font-weight: bold;
   width: 48px;
@@ -584,8 +603,8 @@ onUnmounted(() => {
 }
 
 .nav-chevron:hover:not(:disabled) {
-  background: rgba(255, 255, 255, var(--opacity-nav-hover));
-  border-color: rgba(255, 255, 255, var(--opacity-border-nav-hover));
+  background: rgba(var(--glass-base), var(--opacity-nav-hover));
+  border-color: rgba(var(--glass-base), var(--opacity-border-nav-hover));
   transform: translateY(-2px) scale(1.05);
   box-shadow: var(--shadow-box-nav);
 }
@@ -609,9 +628,9 @@ onUnmounted(() => {
 .character-abilities {
   margin-bottom: var(--spacing-lg);
   padding: var(--spacing-xl);
-  background: rgba(255, 255, 255, var(--opacity-section));
+  background: rgba(var(--glass-base), var(--opacity-section));
   backdrop-filter: blur(var(--blur-md));
-  border: 1px solid rgba(0, 0, 0, var(--opacity-border));
+  border: 1px solid rgba(var(--text-primary), var(--opacity-border));
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-box-dark);
   transition: var(--transition-default);
@@ -620,7 +639,7 @@ onUnmounted(() => {
 .character-background:hover,
 .character-stats:hover,
 .character-abilities:hover {
-  background: rgba(255, 255, 255, var(--opacity-section-hover));
+  background: rgba(var(--glass-base), var(--opacity-section-hover));
   backdrop-filter: blur(var(--blur-hover));
 }
 
@@ -655,15 +674,15 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem;
-  background: rgba(255, 255, 255, var(--opacity-card));
+  background: rgba(var(--glass-base), var(--opacity-card));
   backdrop-filter: blur(var(--blur-sm));
-  border: 1px solid rgba(0, 0, 0, var(--opacity-border));
+  border: 1px solid rgba(var(--text-primary), var(--opacity-border));
   border-radius: var(--radius-sm);
   transition: var(--transition-default);
 }
 
 .stat-item:hover {
-  background: rgba(255, 255, 255, var(--opacity-card-hover));
+  background: rgba(var(--glass-base), var(--opacity-card-hover));
   backdrop-filter: blur(var(--blur-lg));
   transform: translateY(-2px);
   box-shadow: var(--shadow-box-hover);
@@ -693,9 +712,9 @@ onUnmounted(() => {
 .character-abilities li {
   margin-bottom: var(--spacing-sm);
   padding: 1.25rem;
-  background: rgba(255, 255, 255, var(--opacity-card));
+  background: rgba(var(--glass-base), var(--opacity-card));
   backdrop-filter: blur(var(--blur-sm));
-  border: 1px solid rgba(0, 0, 0, var(--opacity-border));
+  border: 1px solid rgba(var(--text-primary), var(--opacity-border));
   border-radius: var(--radius-sm);
   transition: var(--transition-default);
   color: var(--text-secondary);
@@ -703,7 +722,7 @@ onUnmounted(() => {
 }
 
 .character-abilities li:hover {
-  background: rgba(255, 255, 255, var(--opacity-card-hover));
+  background: rgba(var(--glass-base), var(--opacity-card-hover));
   backdrop-filter: blur(var(--blur-lg));
   transform: translateX(4px);
 }
