@@ -6,5 +6,5 @@ export interface GameState {
     inventory: string[]
     visited: string[]
     lastUpdated: Date
-    messages?: ChatCompletionMessageParam[]
+    messages: ChatCompletionMessageParam[]
 } 

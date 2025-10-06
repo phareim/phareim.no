@@ -1,5 +1,6 @@
 <!-- TextWindow.vue -->
 <script setup lang="ts">
+import { computed } from 'vue'
 import InlineItem from './InlineItem.vue'
 import InlineCharacter from './InlineCharacter.vue'
 import InlinePlace from './InlinePlace.vue'
