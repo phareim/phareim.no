@@ -161,7 +161,7 @@ nav ul li:hover {
 
 nav ul li a {
 	text-decoration: none;
-	color: inherit;
+	color: #333;
 	display: block;
 	font-size: 1.2rem;
 }
