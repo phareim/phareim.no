@@ -1,27 +1,18 @@
 <template>
-  <div class="character-page">
-    <div class="character-container">
-      <!-- Left side - Character Image -->
-      <div class="character-image">
-        <div class="image-container">
-          <img v-if="newCharacter.imageUrl" :src="newCharacter.imageUrl" alt="Character Portrait" class="portrait" />
-          <div v-else class="placeholder-portrait">
-            <div class="upload-icon">🎭</div>
-            <p>Character portrait will appear here</p>
-          </div>
-        </div>
-        <button v-if="newCharacter.physicalDescription && !isGeneratingImage" @click="generateImage"
-          class="regenerate-image-btn">
-          {{ newCharacter.imageUrl ? '🔄 Regenerate Image' : '🎨 Generate Image' }}
-        </button>
-        <div v-if="isGeneratingImage" class="image-loading">
-          <div class="spinner"></div>
-          <p>Generating image...</p>
-        </div>
+  <div class="character-page" @scroll="handleScroll" ref="pageContainer">
+    <!-- Parallax Background Image -->
+    <div class="parallax-background" :style="{ transform: `translateY(${parallaxOffset}px)` }">
+      <img v-if="newCharacter.imageUrl" :src="newCharacter.imageUrl" alt="Character Portrait" class="bg-portrait" />
+      <div v-else class="placeholder-background">
+        <div class="upload-icon">🎭</div>
+        <p>Generate a character to see the portrait</p>
       </div>
+      <!-- Gradient overlay -->
+      <div class="gradient-overlay"></div>
+    </div>
 
-      <!-- Right side - Character Creation Form -->
-      <div class="character-details">
+    <!-- Character Creation Form Overlay -->
+    <div class="character-details">
         <div class="character-content">
           <!-- Character Generation Section -->
           <div class="character-generation-section">
@@ -144,6 +135,9 @@
                     : 'Save Character'
                 }}
               </button>
+              <button v-if="newCharacter.physicalDescription && !isGeneratingImage" @click="generateImage" class="regenerate-image-btn">
+                {{ newCharacter.imageUrl ? '🔄 Regenerate Image' : '🎨 Generate Image' }}
+              </button>
               <button @click="previewCharacter" class="preview-btn">
                 👁️ Preview
               </button>
@@ -151,10 +145,13 @@
                 🔄 Reset Form
               </button>
             </div>
+            <div v-if="isGeneratingImage" class="image-loading">
+              <div class="spinner"></div>
+              <p>Generating image...</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
     <!-- Success/Error Messages -->
     <div v-if="message" :class="['message', messageType]">
@@ -164,6 +161,16 @@
 </template>
 
 <script setup>
+// Parallax scrolling
+const parallaxOffset = ref(0)
+const pageContainer = ref(null)
+
+const handleScroll = (event) => {
+  const scrollTop = event.target.scrollTop
+  // Parallax effect: background moves upward slower
+  parallaxOffset.value = -scrollTop * 0.3
+}
+
 const newCharacter = ref({
   name: '',
   title: '',
@@ -561,9 +568,83 @@ onUnmounted(() => {
 
 <style scoped>
 .character-page {
-  min-height: 100vh;
-  background: #ffffff;
-  color: #1a1a1a;
+  /* CSS Variables for maintainability */
+  --bg-color: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --text-primary: #000;
+  --text-secondary: rgba(0, 0, 0, 0.9);
+  --text-tertiary: rgba(0, 0, 0, 0.8);
+
+  /* Glass morphism opacity values */
+  --opacity-header: 0.4;
+  --opacity-header-hover: 0.65;
+  --opacity-section: 0.3;
+  --opacity-section-hover: 0.55;
+  --opacity-card: 0.2;
+  --opacity-card-hover: 0.5;
+
+  /* Border colors */
+  --border-color: rgba(0, 0, 0, 0.1);
+  --border-focus: #007bff;
+
+  /* Button colors */
+  --btn-primary: #007bff;
+  --btn-primary-hover: #0056b3;
+  --btn-success: #28a745;
+  --btn-success-hover: #218838;
+  --btn-danger: #dc3545;
+  --btn-danger-hover: #c82333;
+  --btn-warning: #f8d38d;
+
+  /* Blur amounts */
+  --blur-sm: 3px;
+  --blur-md: 4px;
+  --blur-lg: 5px;
+  --blur-xl: 6px;
+  --blur-hover: 20px;
+
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-circle: 50%;
+
+  /* Spacing */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 2.5rem;
+
+  /* Transitions */
+  --transition-default: all 0.3s ease;
+
+  /* Text shadows for readability */
+  --shadow-text-strong: 0 0 20px rgba(0, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.9), -1px -1px 2px rgba(0, 0, 0, 0.7), 1px 1px 2px rgba(0, 0, 0, 0.7);
+  --shadow-text-medium: 0 0 10px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8), -1px -1px 1px rgba(255, 255, 255, 0.6), 1px 1px 1px rgba(255, 255, 255, 0.6);
+  --shadow-text-light: 0 0 8px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8), -1px -1px 1px rgba(255, 255, 255, 0.6), 1px 1px 1px rgba(255, 255, 255, 0.6);
+  --shadow-text-subtle: 0 0 6px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8), -0.5px -0.5px 1px rgba(255, 255, 255, 0.6), 0.5px 0.5px 1px rgba(255, 255, 255, 0.6);
+
+  /* Box shadows */
+  --shadow-box: 0 8px 32px rgba(200, 200, 200, 0.5);
+  --shadow-box-dark: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-btn-primary: 0 2px 8px rgba(0, 123, 255, 0.3);
+  --shadow-btn-primary-hover: 0 4px 12px rgba(0, 123, 255, 0.4);
+  --shadow-btn-success: 0 2px 8px rgba(40, 167, 69, 0.3);
+  --shadow-btn-success-hover: 0 4px 12px rgba(40, 167, 69, 0.4);
+
+  /* Focus states */
+  --focus-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg-color);
+  color: #fff;
   font-family: "Bitcount Prop Single Ink", system-ui;
   font-optical-sizing: auto;
   font-weight: 400;
@@ -579,106 +660,105 @@ onUnmounted(() => {
     "XPN2" 0,
     "YPN1" 0,
     "YPN2" 0;
-  padding: 2rem;
 }
 
-.character-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  gap: 2rem;
-  align-items: flex-start;
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-
-.character-image {
-  flex: 0 0 400px;
-}
-
-.image-container {
+/* Parallax background */
+.parallax-background {
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
-  aspect-ratio: 9/16;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid #e5e5e5;
-  margin-bottom: 1rem;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  height: 150vh;
+  z-index: 1;
+  will-change: transform;
+  background: var(--bg-color);
 }
 
-.image-upload-area {
-  width: 100%;
-  aspect-ratio: 9/16;
-  cursor: pointer;
-  border: 2px dashed #ccc;
-  border-radius: 8px;
-  overflow: hidden;
-  transition: border-color 0.2s ease;
-}
-
-.image-upload-area:hover {
-  border-color: black;
-}
-
-.portrait {
+.bg-portrait {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background-color: white;
+  object-position: center 35%;
+  background: var(--bg-color);
 }
 
-.placeholder-portrait {
+.placeholder-background {
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #f8f9fa;
-  color: #6c757d;
+  background: var(--bg-secondary);
+  color: var(--text-tertiary);
   font-family: "Bitcount Prop Single Ink", system-ui;
 }
 
 .upload-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+  font-size: 4rem;
+  margin-bottom: var(--spacing-sm);
+}
+
+.gradient-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 60%;
+  background: linear-gradient(to top,
+      rgba(0, 0, 0, 0.95) 0%,
+      rgba(0, 0, 0, 0.7) 30%,
+      rgba(0, 0, 0, 0.3) 60%,
+      transparent 100%);
+  pointer-events: none;
 }
 
 .character-details {
-  flex: 1;
-  max-width: 600px;
+  position: relative;
+  z-index: 2;
+  padding-top: 60vh;
+  min-height: 150vh;
+  padding-left: var(--spacing-lg);
+  padding-right: var(--spacing-lg);
+  padding-bottom: 4rem;
 }
 
 .character-generation-section {
-  margin-bottom: 2rem;
-  padding: 2rem;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-xl);
+  background: rgba(255, 255, 255, var(--opacity-header));
+  backdrop-filter: blur(var(--blur-md));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-box);
+  transition: var(--transition-default);
+}
+
+.character-generation-section:hover {
+  background: rgba(255, 255, 255, var(--opacity-header-hover));
+  backdrop-filter: blur(var(--blur-xl));
 }
 
 .character-generation-section h2 {
-  font-size: 1.5rem;
+  font-size: 1.8rem;
   font-weight: bold;
-  margin: 0 0 1.5rem 0;
-  color: #1a1a1a;
-  border-bottom: 2px solid #e5e5e5;
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-primary);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.2);
   padding-bottom: 0.75rem;
   font-family: "Bitcount Prop Single Ink", system-ui;
+  text-shadow: var(--shadow-text-light);
 }
 
 .generation-options {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--spacing-sm);
 }
 
 .option-row {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-sm);
   flex-wrap: wrap;
   align-items: flex-start;
 }
@@ -698,45 +778,48 @@ onUnmounted(() => {
 
 .option-label {
   font-weight: bold;
-  color: #495057;
+  color: var(--text-primary);
   font-size: 0.9rem;
   font-family: "Bitcount Prop Single Ink", system-ui;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--spacing-xs);
+  text-shadow: var(--shadow-text-subtle);
 }
 
 .option-select {
   padding: 0.75rem;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.9);
   font-family: "Bitcount Prop Single Ink", system-ui;
-  color: #1a1a1a;
+  color: var(--text-primary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-default);
 }
 
 .option-select:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-shadow);
+  background: rgba(255, 255, 255, 1);
 }
 
 .emoji-input {
   padding: 0.75rem;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.9);
   font-family: "Bitcount Prop Single Ink", system-ui;
   font-size: 1.2rem;
   text-align: center;
-  color: #1a1a1a;
-  transition: all 0.2s ease;
+  color: var(--text-primary);
+  transition: var(--transition-default);
 }
 
 .emoji-input:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-shadow);
+  background: rgba(255, 255, 255, 1);
 }
 
 .emoji-hint {
@@ -752,39 +835,46 @@ onUnmounted(() => {
 }
 
 .generate-btn-top {
-  background: #f8d38d;
+  background: var(--btn-warning);
   color: white;
   border: none;
-  padding: 1rem 2rem;
-  border-radius: 8px;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: "Bitcount Prop Single Ink", system-ui;
   font-weight: bold;
   font-size: 1.1rem;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+  transition: var(--transition-default);
+  box-shadow: var(--shadow-btn-primary);
 }
 
 .generate-btn-top:disabled {
-  background: #6c757d;
+  background: var(--text-tertiary);
   cursor: not-allowed;
   box-shadow: none;
 }
 
 .generate-btn-top:hover:not(:disabled) {
-  background: #0056b3;
-  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+  background: var(--btn-primary-hover);
+  box-shadow: var(--shadow-btn-primary-hover);
   transform: translateY(-1px);
   scale: 1.1;
 }
 
 .character-header {
-  margin-bottom: 2rem;
-  padding: 2rem;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-xl);
+  background: rgba(255, 255, 255, var(--opacity-header));
+  backdrop-filter: blur(var(--blur-md));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-box);
+  transition: var(--transition-default);
+}
+
+.character-header:hover {
+  background: rgba(255, 255, 255, var(--opacity-header-hover));
+  backdrop-filter: blur(var(--blur-xl));
 }
 
 .character-name-container {
@@ -797,17 +887,18 @@ onUnmounted(() => {
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #1a1a1a;
+  color: var(--text-primary);
   width: 100%;
   font-family: "Bitcount Prop Single Ink", system-ui;
   padding: 0.2rem 0;
   text-align: center;
-  transition: all 0.2s ease;
+  transition: var(--transition-default);
+  text-shadow: var(--shadow-text-light);
 }
 
 .name-input:focus {
   outline: none;
-  border-bottom-color: #007bff;
+  border-bottom-color: var(--border-focus);
 }
 
 .title-input {
@@ -816,56 +907,68 @@ onUnmounted(() => {
   background: none;
   border: none;
   border-bottom: 1px solid transparent;
-  color: #6c757d;
+  color: var(--text-secondary);
   width: 100%;
   font-family: "Bitcount Prop Single Ink", system-ui;
   padding: 0.2rem 0;
   text-align: center;
-  transition: all 0.2s ease;
+  transition: var(--transition-default);
+  text-shadow: var(--shadow-text-medium);
 }
 
 .title-input:focus {
   outline: none;
-  border-bottom-color: #007bff;
+  border-bottom-color: var(--border-focus);
 }
 
 .character-background,
 .character-physical-description,
 .character-stats,
 .character-abilities {
-  margin-bottom: 2rem;
-  padding: 2rem;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-xl);
+  background: rgba(255, 255, 255, var(--opacity-section));
+  backdrop-filter: blur(var(--blur-md));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-box-dark);
+  transition: var(--transition-default);
+}
+
+.character-background:hover,
+.character-physical-description:hover,
+.character-stats:hover,
+.character-abilities:hover {
+  background: rgba(255, 255, 255, var(--opacity-section-hover));
+  backdrop-filter: blur(var(--blur-hover));
 }
 
 .character-background h2,
 .character-physical-description h2,
 .character-stats h2,
 .character-abilities h2 {
-  font-size: 1.5rem;
+  font-size: 1.8rem;
   font-weight: bold;
-  margin: 0 0 1.5rem 0;
-  color: #1a1a1a;
-  border-bottom: 2px solid #e5e5e5;
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-primary);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.2);
   padding-bottom: 0.75rem;
   font-family: "Bitcount Prop Single Ink", system-ui;
+  text-shadow: var(--shadow-text-light);
 }
 
 .background-textarea,
 .physical-description-textarea {
   width: 100%;
   min-height: 100px;
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  padding: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-sm);
   font-family: "Bitcount Prop Single Ink", system-ui;
-  color: #1a1a1a;
+  color: var(--text-primary);
   resize: vertical;
-  transition: all 0.2s ease;
+  transition: var(--transition-default);
 }
 
 .physical-description-textarea {
@@ -875,8 +978,9 @@ onUnmounted(() => {
 .background-textarea:focus,
 .physical-description-textarea:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-shadow);
+  background: rgba(255, 255, 255, 1);
 }
 
 
@@ -894,105 +998,114 @@ onUnmounted(() => {
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 1rem;
-  padding: 1.5rem;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  background: #f8f9fa;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
 }
 
 .stat-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1rem;
-  border: 1px solid #e5e5e5;
-  background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, var(--opacity-card));
+  backdrop-filter: blur(var(--blur-sm));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  transition: var(--transition-default);
   min-height: 80px;
+}
+
+.stat-item:hover {
+  background: rgba(255, 255, 255, var(--opacity-card-hover));
+  backdrop-filter: blur(var(--blur-lg));
+  transform: translateY(-2px);
 }
 
 .stat-label {
   font-weight: bold;
-  font-size: 0.9rem;
-  color: #495057;
-  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+  color: var(--text-tertiary);
+  margin-bottom: var(--spacing-xs);
   font-family: "Bitcount Prop Single Ink", system-ui;
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.8), 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .stat-input {
   width: 50px;
   height: 50px;
   text-align: center;
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   padding: 0.2rem;
   font-family: "Bitcount Prop Single Ink", system-ui;
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   font-weight: bold;
-  color: #1a1a1a;
-  transition: all 0.2s ease;
+  color: var(--text-primary);
+  transition: var(--transition-default);
+  text-shadow: var(--shadow-text-subtle);
 }
 
 .stat-input:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-shadow);
+  background: rgba(255, 255, 255, 1);
 }
 
 .random-stats-btn {
-  background: #f8f9fa;
-  border: 1px solid #e5e5e5;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  padding: 0.75rem var(--spacing-md);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: "Bitcount Prop Single Ink", system-ui;
   font-weight: bold;
-  color: #495057;
-  transition: all 0.2s ease;
+  color: var(--text-secondary);
+  transition: var(--transition-default);
 }
 
 .random-stats-btn:hover {
   background: #e9ecef;
-  border-color: #007bff;
-  color: #007bff;
+  border-color: var(--border-focus);
+  color: var(--border-focus);
   transform: translateY(-1px);
 }
 
 .abilities-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  padding: 1.5rem;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  background: #f8f9fa;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
 }
 
 .ability-item {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-xs);
   align-items: center;
-  padding: 1rem;
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, var(--opacity-card));
+  backdrop-filter: blur(var(--blur-sm));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  transition: var(--transition-default);
+}
+
+.ability-item:hover {
+  background: rgba(255, 255, 255, var(--opacity-card-hover));
+  backdrop-filter: blur(var(--blur-lg));
+  transform: translateX(4px);
 }
 
 .ability-name-input,
 .ability-desc-input {
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   padding: 0.75rem;
   font-family: "Bitcount Prop Single Ink", system-ui;
-  color: #1a1a1a;
-  transition: all 0.2s ease;
+  color: var(--text-primary);
+  transition: var(--transition-default);
 }
 
 .ability-name-input {
@@ -1007,15 +1120,16 @@ onUnmounted(() => {
 .ability-name-input:focus,
 .ability-desc-input:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-shadow);
+  background: rgba(255, 255, 255, 1);
 }
 
 .remove-ability-btn {
-  background: #dc3545;
+  background: var(--btn-danger);
   color: white;
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   width: 32px;
   height: 32px;
   cursor: pointer;
@@ -1023,69 +1137,69 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: var(--transition-default);
 }
 
 .remove-ability-btn:hover {
-  background: #c82333;
+  background: var(--btn-danger-hover);
   transform: scale(1.1);
 }
 
 .add-ability-btn {
-  background: #f8f9fa;
-  border: 1px solid #e5e5e5;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  padding: 0.75rem var(--spacing-md);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: "Bitcount Prop Single Ink", system-ui;
   font-weight: bold;
-  color: #495057;
-  transition: all 0.2s ease;
+  color: var(--text-secondary);
+  transition: var(--transition-default);
 }
 
 .add-ability-btn:hover {
   background: #e9ecef;
-  border-color: #007bff;
-  color: #007bff;
+  border-color: var(--border-focus);
+  color: var(--border-focus);
   transform: translateY(-1px);
 }
 
 .character-actions {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-sm);
   flex-wrap: wrap;
-  margin-top: 2rem;
+  margin-top: var(--spacing-lg);
 }
 
 .create-btn,
 .preview-btn,
 .reset-btn {
-  padding: 1rem 2rem;
-  border-radius: 8px;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: "Bitcount Prop Single Ink", system-ui;
   font-weight: bold;
   font-size: 1rem;
-  transition: all 0.2s ease;
+  transition: var(--transition-default);
 }
 
 .regenerate-image-btn {
   width: 100%;
-  padding: 0.75rem 1rem;
-  background: #007bff;
+  padding: 0.75rem var(--spacing-sm);
+  background: var(--btn-primary);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: "Bitcount Prop Single Ink", system-ui;
   font-weight: bold;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+  transition: var(--transition-default);
+  box-shadow: var(--shadow-btn-primary);
 }
 
 .regenerate-image-btn:hover {
-  background: #0056b3;
-  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+  background: var(--btn-primary-hover);
+  box-shadow: var(--shadow-btn-primary-hover);
   transform: translateY(-1px);
 }
 
@@ -1118,62 +1232,62 @@ onUnmounted(() => {
 }
 
 .create-btn {
-  background: #28a745;
+  background: var(--btn-success);
   color: white;
   border: none;
-  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+  box-shadow: var(--shadow-btn-success);
 }
 
 .create-btn:disabled {
-  background: #6c757d;
+  background: var(--text-tertiary);
   cursor: not-allowed;
   box-shadow: none;
 }
 
 .create-btn:hover:not(:disabled) {
-  background: #218838;
-  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+  background: var(--btn-success-hover);
+  box-shadow: var(--shadow-btn-success-hover);
   transform: translateY(-1px);
 }
 
 .preview-btn {
-  background: #f8f9fa;
-  border: 1px solid #e5e5e5;
-  color: #495057;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
 }
 
 .preview-btn:hover {
   background: #e9ecef;
-  border-color: #007bff;
-  color: #007bff;
+  border-color: var(--border-focus);
+  color: var(--border-focus);
   transform: translateY(-1px);
 }
 
 .reset-btn {
-  background: #f8f9fa;
-  border: 1px solid #e5e5e5;
-  color: #dc3545;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--btn-danger);
 }
 
 .reset-btn:hover {
   background: #f8d7da;
-  border-color: #dc3545;
-  color: #dc3545;
+  border-color: var(--btn-danger);
+  color: var(--btn-danger);
   transform: translateY(-1px);
 }
 
 .message {
   position: fixed;
-  top: 2rem;
-  right: 2rem;
-  padding: 1rem 1.5rem;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
   border-radius: 4px;
   font-weight: bold;
   z-index: 1000;
 }
 
 .message.success {
-  background: #4CAF50;
+  background: var(--btn-success);
   color: white;
 }
 
@@ -1186,7 +1300,7 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .character-container {
     flex-direction: column;
-    gap: 2rem;
+    gap: var(--spacing-lg);
   }
 
   .character-image {
@@ -1197,7 +1311,7 @@ onUnmounted(() => {
 
   .option-row {
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--spacing-xs);
   }
 
   .gender-selection,
@@ -1217,7 +1331,7 @@ onUnmounted(() => {
 
 @media (max-width: 480px) {
   .character-page {
-    padding: 1rem;
+    padding: var(--spacing-sm);
   }
 
   .name-input {
