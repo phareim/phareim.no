@@ -481,21 +481,10 @@ onUnmounted(() => {
   overflow-x: hidden;
   background: var(--bg-color);
   color: #fff;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   font-optical-sizing: auto;
   font-weight: 400;
   font-style: normal;
-  font-variation-settings:
-    "slnt" 0,
-    "CRSV" 0.5,
-    "ELSH" 0,
-    "ELXP" 0,
-    "SZP1" 0,
-    "SZP2" 0,
-    "XPN1" 0,
-    "XPN2" 0,
-    "YPN1" 0,
-    "YPN2" 0;
 }
 
 /* Parallax background */
@@ -591,7 +580,7 @@ onUnmounted(() => {
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: var(--transition-default);
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
 }
 
 .nav-chevron:hover:not(:disabled) {
@@ -688,7 +677,7 @@ onUnmounted(() => {
 }
 
 .stat-value {
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   font-weight: bold;
   color: var(--text-primary);
   font-size: 1.3rem;

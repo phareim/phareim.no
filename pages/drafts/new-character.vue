@@ -645,21 +645,10 @@ onUnmounted(() => {
   overflow-x: hidden;
   background: var(--bg-color);
   color: #fff;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   font-optical-sizing: auto;
   font-weight: 400;
   font-style: normal;
-  font-variation-settings:
-    "slnt" 0,
-    "CRSV" 0.5,
-    "ELSH" 0,
-    "ELXP" 0,
-    "SZP1" 0,
-    "SZP2" 0,
-    "XPN1" 0,
-    "XPN2" 0,
-    "YPN1" 0,
-    "YPN2" 0;
 }
 
 /* Parallax background */
@@ -691,7 +680,7 @@ onUnmounted(() => {
   justify-content: center;
   background: var(--bg-secondary);
   color: var(--text-tertiary);
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
 }
 
 .upload-icon {
@@ -746,7 +735,7 @@ onUnmounted(() => {
   color: var(--text-primary);
   border-bottom: 2px solid rgba(0, 0, 0, 0.2);
   padding-bottom: 0.75rem;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   text-shadow: var(--shadow-text-light);
 }
 
@@ -780,7 +769,7 @@ onUnmounted(() => {
   font-weight: bold;
   color: var(--text-primary);
   font-size: 0.9rem;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   margin-bottom: var(--spacing-xs);
   text-shadow: var(--shadow-text-subtle);
 }
@@ -790,7 +779,7 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.9);
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   color: var(--text-primary);
   cursor: pointer;
   transition: var(--transition-default);
@@ -808,7 +797,7 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.9);
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   font-size: 1.2rem;
   text-align: center;
   color: var(--text-primary);
@@ -841,7 +830,7 @@ onUnmounted(() => {
   padding: var(--spacing-sm) var(--spacing-lg);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   font-weight: bold;
   font-size: 1.1rem;
   transition: var(--transition-default);
@@ -889,7 +878,7 @@ onUnmounted(() => {
   border-bottom: 2px solid transparent;
   color: var(--text-primary);
   width: 100%;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   padding: 0.2rem 0;
   text-align: center;
   transition: var(--transition-default);
@@ -909,7 +898,7 @@ onUnmounted(() => {
   border-bottom: 1px solid transparent;
   color: var(--text-secondary);
   width: 100%;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   padding: 0.2rem 0;
   text-align: center;
   transition: var(--transition-default);
@@ -953,7 +942,7 @@ onUnmounted(() => {
   color: var(--text-primary);
   border-bottom: 2px solid rgba(0, 0, 0, 0.2);
   padding-bottom: 0.75rem;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   text-shadow: var(--shadow-text-light);
 }
 
@@ -965,7 +954,7 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: var(--spacing-sm);
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   color: var(--text-primary);
   resize: vertical;
   transition: var(--transition-default);
@@ -1026,7 +1015,7 @@ onUnmounted(() => {
   font-size: 0.95rem;
   color: var(--text-tertiary);
   margin-bottom: var(--spacing-xs);
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   text-shadow: 0 0 5px rgba(255, 255, 255, 0.8), 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
@@ -1038,7 +1027,7 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: 0.2rem;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   font-size: 1.3rem;
   font-weight: bold;
   color: var(--text-primary);
@@ -1059,7 +1048,7 @@ onUnmounted(() => {
   padding: 0.75rem var(--spacing-md);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   font-weight: bold;
   color: var(--text-secondary);
   transition: var(--transition-default);
@@ -1103,7 +1092,7 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: 0.75rem;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   color: var(--text-primary);
   transition: var(--transition-default);
 }
@@ -1151,7 +1140,7 @@ onUnmounted(() => {
   padding: 0.75rem var(--spacing-md);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   font-weight: bold;
   color: var(--text-secondary);
   transition: var(--transition-default);
@@ -1177,7 +1166,7 @@ onUnmounted(() => {
   padding: var(--spacing-sm) var(--spacing-lg);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   font-weight: bold;
   font-size: 1rem;
   transition: var(--transition-default);
@@ -1191,7 +1180,7 @@ onUnmounted(() => {
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: "Bitcount Prop Single Ink", system-ui;
+  font-family: "Alan Sans", sans-serif;
   font-weight: bold;
   transition: var(--transition-default);
   box-shadow: var(--shadow-btn-primary);
