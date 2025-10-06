@@ -152,8 +152,7 @@ async function generateWithVeniceAI(prompt: string, model: string): Promise<stri
             safe_mode: false,
             return_binary: false,
             format: 'webp',
-            embed_exif_metadata: false,
-            seed:1
+            embed_exif_metadata: false
         })
     })
     

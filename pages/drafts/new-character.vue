@@ -71,6 +71,27 @@
                 <button @click="generateCharacter" :disabled="isGenerating" class="generate-btn-top">
                   {{ isGenerating ? '🎭 Generating...' : '🎭 Generate Character' }}
                 </button>
+                <button v-if="newCharacter.physicalDescription && !isGeneratingImage" @click="generateImage" class="regenerate-image-btn-top">
+                  {{ newCharacter.imageUrl ? '🔄 Regenerate Image' : '🎨 Generate Image' }}
+                </button>
+                <button @click="createCharacter" :disabled="!canCreate || isCreating" class="create-btn-top">
+                  {{
+                    isCreating
+                      ? (newCharacter.physicalDescription?.trim() && !newCharacter.imageUrl ? 'Saving & Generating Image...' :
+                        'Saving...')
+                      : 'Save Character'
+                  }}
+                </button>
+                <button @click="previewCharacter" class="preview-btn-top">
+                  👁️ Preview
+                </button>
+                <button @click="resetForm" class="reset-btn-top">
+                  🔄 Reset Form
+                </button>
+              </div>
+              <div v-if="isGeneratingImage" class="image-loading">
+                <div class="spinner"></div>
+                <p>Generating image...</p>
               </div>
             </div>
           </div>
@@ -124,30 +145,6 @@
                 </div>
               </div>
               <button @click="addAbility" class="add-ability-btn">+ Add Ability</button>
-            </div>
-
-            <div class="character-actions">
-              <button @click="createCharacter" :disabled="!canCreate || isCreating" class="create-btn">
-                {{
-                  isCreating
-                    ? (newCharacter.physicalDescription?.trim() && !newCharacter.imageUrl ? 'Saving & Generating Image...' :
-                      'Saving...')
-                    : 'Save Character'
-                }}
-              </button>
-              <button v-if="newCharacter.physicalDescription && !isGeneratingImage" @click="generateImage" class="regenerate-image-btn">
-                {{ newCharacter.imageUrl ? '🔄 Regenerate Image' : '🎨 Generate Image' }}
-              </button>
-              <button @click="previewCharacter" class="preview-btn">
-                👁️ Preview
-              </button>
-              <button @click="resetForm" class="reset-btn">
-                🔄 Reset Form
-              </button>
-            </div>
-            <div v-if="isGeneratingImage" class="image-loading">
-              <div class="spinner"></div>
-              <p>Generating image...</p>
             </div>
           </div>
         </div>
@@ -819,21 +816,30 @@ onUnmounted(() => {
 
 .generate-button-row {
   display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
   justify-content: center;
-  margin-top: 0.5rem;
+  margin-top: var(--spacing-sm);
+}
+
+.generate-btn-top,
+.regenerate-image-btn-top,
+.create-btn-top,
+.preview-btn-top,
+.reset-btn-top {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: "Alan Sans", sans-serif;
+  font-weight: bold;
+  font-size: 1rem;
+  transition: var(--transition-default);
 }
 
 .generate-btn-top {
   background: var(--btn-warning);
   color: white;
   border: none;
-  padding: var(--spacing-sm) var(--spacing-lg);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-family: "Alan Sans", sans-serif;
-  font-weight: bold;
-  font-size: 1.1rem;
-  transition: var(--transition-default);
   box-shadow: var(--shadow-btn-primary);
 }
 
@@ -847,7 +853,64 @@ onUnmounted(() => {
   background: var(--btn-primary-hover);
   box-shadow: var(--shadow-btn-primary-hover);
   transform: translateY(-1px);
-  scale: 1.1;
+}
+
+.regenerate-image-btn-top {
+  background: var(--btn-primary);
+  color: white;
+  border: none;
+  box-shadow: var(--shadow-btn-primary);
+}
+
+.regenerate-image-btn-top:hover {
+  background: var(--btn-primary-hover);
+  box-shadow: var(--shadow-btn-primary-hover);
+  transform: translateY(-1px);
+}
+
+.create-btn-top {
+  background: var(--btn-success);
+  color: white;
+  border: none;
+  box-shadow: var(--shadow-btn-success);
+}
+
+.create-btn-top:disabled {
+  background: var(--text-tertiary);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.create-btn-top:hover:not(:disabled) {
+  background: var(--btn-success-hover);
+  box-shadow: var(--shadow-btn-success-hover);
+  transform: translateY(-1px);
+}
+
+.preview-btn-top {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.preview-btn-top:hover {
+  background: #e9ecef;
+  border-color: var(--border-focus);
+  color: var(--border-focus);
+  transform: translateY(-1px);
+}
+
+.reset-btn-top {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--btn-danger);
+}
+
+.reset-btn-top:hover {
+  background: #f8d7da;
+  border-color: var(--btn-danger);
+  color: var(--btn-danger);
+  transform: translateY(-1px);
 }
 
 .character-header {
@@ -1153,61 +1216,25 @@ onUnmounted(() => {
   transform: translateY(-1px);
 }
 
-.character-actions {
-  display: flex;
-  gap: var(--spacing-sm);
-  flex-wrap: wrap;
-  margin-top: var(--spacing-lg);
-}
-
-.create-btn,
-.preview-btn,
-.reset-btn {
-  padding: var(--spacing-sm) var(--spacing-lg);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-family: "Alan Sans", sans-serif;
-  font-weight: bold;
-  font-size: 1rem;
-  transition: var(--transition-default);
-}
-
-.regenerate-image-btn {
-  width: 100%;
-  padding: 0.75rem var(--spacing-sm);
-  background: var(--btn-primary);
-  color: white;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-family: "Alan Sans", sans-serif;
-  font-weight: bold;
-  transition: var(--transition-default);
-  box-shadow: var(--shadow-btn-primary);
-}
-
-.regenerate-image-btn:hover {
-  background: var(--btn-primary-hover);
-  box-shadow: var(--shadow-btn-primary-hover);
-  transform: translateY(-1px);
-}
-
 .image-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1rem;
-  color: #666;
+  justify-content: center;
+  padding: var(--spacing-sm);
+  color: var(--text-primary);
+  text-shadow: var(--shadow-text-subtle);
+  margin-top: var(--spacing-sm);
 }
 
 .spinner {
   width: 30px;
   height: 30px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #2196f3;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid #fff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--spacing-xs);
 }
 
 @keyframes spin {
@@ -1218,51 +1245,6 @@ onUnmounted(() => {
   100% {
     transform: rotate(360deg);
   }
-}
-
-.create-btn {
-  background: var(--btn-success);
-  color: white;
-  border: none;
-  box-shadow: var(--shadow-btn-success);
-}
-
-.create-btn:disabled {
-  background: var(--text-tertiary);
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.create-btn:hover:not(:disabled) {
-  background: var(--btn-success-hover);
-  box-shadow: var(--shadow-btn-success-hover);
-  transform: translateY(-1px);
-}
-
-.preview-btn {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-}
-
-.preview-btn:hover {
-  background: #e9ecef;
-  border-color: var(--border-focus);
-  color: var(--border-focus);
-  transform: translateY(-1px);
-}
-
-.reset-btn {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--btn-danger);
-}
-
-.reset-btn:hover {
-  background: #f8d7da;
-  border-color: var(--btn-danger);
-  color: var(--btn-danger);
-  transform: translateY(-1px);
 }
 
 .message {
