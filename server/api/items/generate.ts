@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
 
         // Generate item details using OpenAI
         const completion = await openai.chat.completions.create({
-            model: "llama-3.1-405b",
+            model: "llama-3.3-70b",
             messages: [
                 {
                     role: "system",

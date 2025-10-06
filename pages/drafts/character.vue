@@ -1,88 +1,54 @@
 <template>
-  <div class="character-page">
-    <div class="character-container">
-      <!-- Left side - Character Image -->
-      <div class="character-image">
-        <!-- White background during loading -->
-        <img 
-          v-if="currentState === 'loading'"
-          :src="white_background" 
-          alt="Loading..."
-          class="portrait"
-        />
-        
-        <!-- Walk-in video -->
-        <video 
-          v-if="currentState === 'walk_in' && character?.videoUrls?.walk_in"
-          ref="walkInVideo"
-          :src="character.videoUrls.walk_in"
-          class="portrait"
-          muted
-          :poster="walkInPoster"
-          @ended="onWalkInEnded"
-          @loadeddata="onWalkInLoaded"
-          @play="onWalkInPlay"
-        />
-        
-        <!-- Static character image -->
-        <img 
-          v-if="currentState === 'image' || (currentState === 'walk_in' && !character?.videoUrls?.walk_in) || (currentState === 'idle_video' && !character?.videoUrls?.idle)"
-          :src="character.imageUrl" 
-          alt="Character Portrait"
-          class="portrait"
-        />
-        
-        <!-- Idle animation video -->
-        <video 
-          v-if="currentState === 'idle_video' && character?.videoUrls?.idle"
-          ref="idleVideo"
-          :src="character.videoUrls.idle"
-          class="portrait"
-          muted
-          :poster="idlePoster"
-          @ended="onIdleVideoEnded"
-          @loadeddata="onIdleVideoLoaded"
-        />
-        
-        <!-- Walk-out video -->
-        <video 
-          v-if="currentState === 'walk_out' && character?.videoUrls?.walk_out"
-          ref="walkOutVideo"
-          :src="character.videoUrls.walk_out"
-          class="portrait"
-          muted
-          :poster="character.imageUrl"
-          @ended="onWalkOutEnded"
-          @loadeddata="onWalkOutLoaded"
-        />
-      </div>
+  <div class="character-page" @scroll="handleScroll" ref="pageContainer">
+    <!-- Parallax Background Image -->
+    <div class="parallax-background" :style="{ transform: `translateY(${parallaxOffset}px)` }">
+      <!-- White background during loading -->
+      <img v-if="currentState === 'loading'" :src="white_background" alt="Loading..." class="bg-portrait" />
 
-      <!-- Right side - Character Details -->
-      <div class="character-details">
-        <div v-if="characterLoading" class="loading-state">
-          <h1>Loading character data...</h1>
-        </div>
-        <div v-else-if="character" class="character-content">
-          <div class="character-header">
-            <div class="character-name-container">
-              <button 
-                class="nav-chevron left-chevron" 
-                @click="previousCharacter"
-                :disabled="characterLoading || isVideoPlaying"
-              >
-                ‹
-              </button>
-              <h1 class="character-name">{{ character.name }}</h1>
-              <button 
-                class="nav-chevron right-chevron" 
-                @click="nextCharacter"
-                :disabled="characterLoading || isVideoPlaying"
-              >
-                ›
-              </button>
-            </div>
-            <p class="character-title">{{ character.title }}</p>
+      <!-- Walk-in video -->
+      <video v-if="currentState === 'walk_in' && character?.videoUrls?.walk_in" ref="walkInVideo"
+        :src="character.videoUrls.walk_in" class="bg-portrait" muted :poster="walkInPoster" @ended="onWalkInEnded"
+        @loadeddata="onWalkInLoaded" @play="onWalkInPlay" />
+
+      <!-- Static character image -->
+      <img
+        v-if="currentState === 'image' || (currentState === 'walk_in' && !character?.videoUrls?.walk_in) || (currentState === 'idle_video' && !character?.videoUrls?.idle)"
+        :src="character.imageUrl" alt="Character Portrait" class="bg-portrait" />
+
+      <!-- Idle animation video -->
+      <video v-if="currentState === 'idle_video' && character?.videoUrls?.idle" ref="idleVideo"
+        :src="character.videoUrls.idle" class="bg-portrait" muted :poster="idlePoster" @ended="onIdleVideoEnded"
+        @loadeddata="onIdleVideoLoaded" />
+
+      <!-- Walk-out video -->
+      <video v-if="currentState === 'walk_out' && character?.videoUrls?.walk_out" ref="walkOutVideo"
+        :src="character.videoUrls.walk_out" class="bg-portrait" muted :poster="character.imageUrl"
+        @ended="onWalkOutEnded" @loadeddata="onWalkOutLoaded" />
+
+      <!-- Gradient overlay -->
+      <div class="gradient-overlay"></div>
+    </div>
+
+    <!-- Character Details Overlay -->
+    <div class="character-details">
+      <div v-if="characterLoading" class="loading-state">
+        <h1>Loading character data...</h1>
+      </div>
+      <div v-else-if="character" class="character-content">
+        <div class="character-header">
+          <div class="character-name-container">
+            <button class="nav-chevron left-chevron" @click="previousCharacter"
+              :disabled="characterLoading || isVideoPlaying">
+              ‹
+            </button>
+            <h1 class="character-name">{{ character.name }}</h1>
+            <button class="nav-chevron right-chevron" @click="nextCharacter"
+              :disabled="characterLoading || isVideoPlaying">
+              ›
+            </button>
           </div>
+          <p class="character-title">{{ character.title }}</p>
+        </div>
 
         <div class="character-background">
           <h2>Background</h2>
@@ -107,7 +73,6 @@
             </li>
           </ul>
         </div>
-        </div>
       </div>
     </div>
   </div>
@@ -115,6 +80,17 @@
 
 <script setup>
 const white_background = "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/white.jpeg?alt=media&token=fb404268-e1e8-4a3a-a2d1-8d5995047dd3"
+
+// Parallax scrolling
+const parallaxOffset = ref(0)
+const pageContainer = ref(null)
+
+const handleScroll = (event) => {
+  const scrollTop = event.target.scrollTop
+  // Parallax effect: background moves upward slower (negative value makes it go up)
+  parallaxOffset.value = -scrollTop * 0.3
+}
+
 // Fetch character data from API
 const character = ref(null)
 const characterLoading = ref(true)
@@ -170,13 +146,13 @@ const fetchCharacterData = async () => {
 // Character navigation functions
 const nextCharacter = async () => {
   if (allCharacters.value.length === 0 || isVideoPlaying.value) return
-  
+
   // Clear any existing timers
   if (idleTimer) {
     clearTimeout(idleTimer)
     idleTimer = null
   }
-  
+
   // If walk_out video exists, play it first
   if (character.value?.videoUrls?.walk_out) {
     pendingNavigationAction = () => {
@@ -190,11 +166,11 @@ const nextCharacter = async () => {
     // No walk_out video, change immediately
     characterLoading.value = true
     currentState.value = 'loading'
-    
+
     // Move to next character (loop back to start if at end)
     currentCharacterIndex.value = (currentCharacterIndex.value + 1) % allCharacters.value.length
     character.value = allCharacters.value[currentCharacterIndex.value]
-    
+
     characterLoading.value = false
     preloadMedia()
   }
@@ -202,19 +178,19 @@ const nextCharacter = async () => {
 
 const previousCharacter = async () => {
   if (allCharacters.value.length === 0 || isVideoPlaying.value) return
-  
+
   // Clear any existing timers
   if (idleTimer) {
     clearTimeout(idleTimer)
     idleTimer = null
   }
-  
+
   // If walk_out video exists, play it first
   if (character.value?.videoUrls?.walk_out) {
     pendingNavigationAction = () => {
       // Move to previous character (loop back to end if at start)
-      currentCharacterIndex.value = currentCharacterIndex.value === 0 
-        ? allCharacters.value.length - 1 
+      currentCharacterIndex.value = currentCharacterIndex.value === 0
+        ? allCharacters.value.length - 1
         : currentCharacterIndex.value - 1
       character.value = allCharacters.value[currentCharacterIndex.value]
       executeCharacterChange()
@@ -224,13 +200,13 @@ const previousCharacter = async () => {
     // No walk_out video, change immediately
     characterLoading.value = true
     currentState.value = 'loading'
-    
+
     // Move to previous character (loop back to end if at start)
-    currentCharacterIndex.value = currentCharacterIndex.value === 0 
-      ? allCharacters.value.length - 1 
+    currentCharacterIndex.value = currentCharacterIndex.value === 0
+      ? allCharacters.value.length - 1
       : currentCharacterIndex.value - 1
     character.value = allCharacters.value[currentCharacterIndex.value]
-    
+
     characterLoading.value = false
     preloadMedia()
   }
@@ -275,9 +251,9 @@ const mediaLoaded = ref({
 const preloadMedia = async () => {
   // Wait for character data to be loaded first
   if (!character.value) return
-  
+
   const promises = []
-  
+
   // Preload white background
   promises.push(new Promise((resolve) => {
     const img = new Image()
@@ -287,7 +263,7 @@ const preloadMedia = async () => {
     }
     img.src = white_background
   }))
-  
+
   // Preload character image
   promises.push(new Promise((resolve) => {
     const img = new Image()
@@ -297,7 +273,7 @@ const preloadMedia = async () => {
     }
     img.src = character.value.imageUrl
   }))
-  
+
   // Preload walk-in video (only if available)
   if (character.value.videoUrls?.walk_in) {
     promises.push(new Promise((resolve) => {
@@ -312,7 +288,7 @@ const preloadMedia = async () => {
   } else {
     mediaLoaded.value.walk_in_video = true // Mark as "loaded" since it doesn't exist
   }
-  
+
   // Preload walk-out video (only if available)
   if (character.value.videoUrls?.walk_out) {
     promises.push(new Promise((resolve) => {
@@ -327,7 +303,7 @@ const preloadMedia = async () => {
   } else {
     mediaLoaded.value.walk_out_video = true // Mark as "loaded" since it doesn't exist
   }
-  
+
   // Preload idle video (only if available)
   if (character.value.videoUrls?.idle) {
     promises.push(new Promise((resolve) => {
@@ -342,7 +318,7 @@ const preloadMedia = async () => {
   } else {
     mediaLoaded.value.idle_video = true // Mark as "loaded" since it doesn't exist
   }
-  
+
   // Wait for all media to load, then start the sequence
   await Promise.all(promises)
   startSequence()
@@ -353,7 +329,7 @@ const startSequence = () => {
   // Set initial posters - white background before playback
   walkInPoster.value = white_background
   idlePoster.value = character.value.imageUrl
-  
+
   // If walk_in video exists, start with that, otherwise go straight to image
   if (character.value.videoUrls?.walk_in) {
     currentState.value = 'walk_in'
@@ -442,9 +418,69 @@ onUnmounted(() => {
 
 <style scoped>
 .character-page {
-  min-height: 100vh;
-  background: #ffffff;
-  color: #1a1a1a;
+  /* CSS Variables for maintainability */
+  --bg-color: #fff;
+  --text-primary: #000;
+  --text-secondary: rgba(0, 0, 0, 0.9);
+  --text-tertiary: rgba(0, 0, 0, 0.8);
+
+  /* Glass morphism opacity values */
+  --opacity-header: 0.4;
+  --opacity-header-hover: 0.65;
+  --opacity-section: 0.3;
+  --opacity-section-hover: 0.55;
+  --opacity-card: 0.2;
+  --opacity-card-hover: 0.5;
+  --opacity-nav: 0.1;
+  --opacity-nav-hover: 0.25;
+  --opacity-border: 0.1;
+  --opacity-border-nav: 0.2;
+  --opacity-border-nav-hover: 0.4;
+
+  /* Blur amounts */
+  --blur-sm: 3px;
+  --blur-md: 4px;
+  --blur-lg: 5px;
+  --blur-xl: 6px;
+  --blur-nav: 10px;
+  --blur-hover: 20px;
+
+  /* Border radius */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+
+  /* Spacing */
+  --spacing-xs: 0.75rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 2.5rem;
+
+  /* Transitions */
+  --transition-default: all 0.3s ease;
+
+  /* Text shadows for readability */
+  --shadow-text-strong: 0 0 20px rgba(0, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.9), -1px -1px 2px rgba(0, 0, 0, 0.7), 1px 1px 2px rgba(0, 0, 0, 0.7);
+  --shadow-text-medium: 0 0 10px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8), -1px -1px 1px rgba(255, 255, 255, 0.6), 1px 1px 1px rgba(255, 255, 255, 0.6);
+  --shadow-text-light: 0 0 8px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8), -1px -1px 1px rgba(255, 255, 255, 0.6), 1px 1px 1px rgba(255, 255, 255, 0.6);
+  --shadow-text-subtle: 0 0 6px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(255, 255, 255, 0.8), -0.5px -0.5px 1px rgba(255, 255, 255, 0.6), 0.5px 0.5px 1px rgba(255, 255, 255, 0.6);
+  --shadow-text-minimal: 0 0 5px rgba(255, 255, 255, 0.8), 0 1px 2px rgba(255, 255, 255, 0.6);
+
+  /* Box shadows */
+  --shadow-box: 0 8px 32px rgba(200, 200, 200, 0.5);
+  --shadow-box-dark: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-box-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --shadow-box-nav: 0 4px 20px rgba(255, 255, 255, 0.2);
+
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg-color);
+  color: #fff;
   font-family: "Bitcount Prop Single Ink", system-ui;
   font-optical-sizing: auto;
   font-weight: 400;
@@ -460,88 +496,109 @@ onUnmounted(() => {
     "XPN2" 0,
     "YPN1" 0,
     "YPN2" 0;
-  padding: 2rem;
 }
 
-.character-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  gap: 2rem;
-  align-items: flex-start;
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-
-.character-image {
-  flex: 0 0 400px;
-  
-}
-
-.portrait {
+/* Parallax background */
+.parallax-background {
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
-  aspect-ratio: 9/16;
+  height: 150vh;
+  z-index: 1;
+  will-change: transform;
+  background: var(--bg-color);
+}
+
+.bg-portrait {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  background-color: white;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  object-position: center 35%;
+  background: var(--bg-color);
+}
+
+.gradient-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 60%;
+  background: linear-gradient(to top,
+      rgba(0, 0, 0, 0.95) 0%,
+      rgba(0, 0, 0, 0.7) 30%,
+      rgba(0, 0, 0, 0.3) 60%,
+      transparent 100%);
+  pointer-events: none;
 }
 
 .character-details {
-  flex: 1;
-  max-width: 600px;
+  position: relative;
+  z-index: 2;
+  padding-top: 60vh;
+  min-height: 150vh;
+  padding-left: var(--spacing-lg);
+  padding-right: var(--spacing-lg);
+  padding-bottom: 4rem;
 }
 
 .character-header {
-  margin-bottom: 2rem;
-  padding: 2rem;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-xl);
+  background: rgba(255, 255, 255, var(--opacity-header));
+  backdrop-filter: blur(var(--blur-md));
+  border: 1px solid rgba(0, 0, 0, var(--opacity-border));
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-box);
+  transition: var(--transition-default);
+}
+
+.character-header:hover {
+  background: rgba(255, 255, 255, var(--opacity-header-hover));
+  backdrop-filter: blur(var(--blur-xl));
 }
 
 .character-name-container {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
 }
 
 .character-name {
-  font-size: 2.5rem;
+  font-size: 3.5rem;
   font-weight: bold;
   margin: 0;
-  color: #1a1a1a;
+  color: #fff;
   flex: 1;
   text-align: center;
+  text-shadow: var(--shadow-text-strong);
+  letter-spacing: -0.02em;
 }
 
 .nav-chevron {
-  background: #f8f9fa;
-  border: 1px solid #e5e5e5;
-  color: #495057;
+  background: rgba(255, 255, 255, var(--opacity-nav));
+  backdrop-filter: blur(var(--blur-nav));
+  border: 1px solid rgba(255, 255, 255, var(--opacity-border-nav));
+  color: #fff;
   font-size: 2rem;
   font-weight: bold;
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s ease;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-default);
   font-family: "Bitcount Prop Single Ink", system-ui;
 }
 
 .nav-chevron:hover:not(:disabled) {
-  background-color: #007bff;
-  color: white;
-  border-color: #007bff;
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, var(--opacity-nav-hover));
+  border-color: rgba(255, 255, 255, var(--opacity-border-nav-hover));
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: var(--shadow-box-nav);
 }
 
 .nav-chevron:disabled {
@@ -550,70 +607,92 @@ onUnmounted(() => {
 }
 
 .character-title {
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   margin: 0;
   font-style: italic;
-  color: #6c757d;
+  color: var(--text-secondary);
   text-align: center;
+  text-shadow: var(--shadow-text-medium);
 }
 
 .character-background,
 .character-stats,
 .character-abilities {
-  margin-bottom: 2rem;
-  padding: 2rem;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-xl);
+  background: rgba(255, 255, 255, var(--opacity-section));
+  backdrop-filter: blur(var(--blur-md));
+  border: 1px solid rgba(0, 0, 0, var(--opacity-border));
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-box-dark);
+  transition: var(--transition-default);
+}
+
+.character-background:hover,
+.character-stats:hover,
+.character-abilities:hover {
+  background: rgba(255, 255, 255, var(--opacity-section-hover));
+  backdrop-filter: blur(var(--blur-hover));
 }
 
 .character-background h2,
 .character-stats h2,
 .character-abilities h2 {
-  font-size: 1.5rem;
+  font-size: 1.8rem;
   font-weight: bold;
-  margin: 0 0 1.5rem 0;
-  color: #1a1a1a;
-  border-bottom: 2px solid #e5e5e5;
-  padding-bottom: 0.75rem;
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-primary);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+  padding-bottom: var(--spacing-xs);
+  text-shadow: var(--shadow-text-light);
 }
 
 .character-background p {
-  line-height: 1.6;
+  line-height: 1.8;
   margin: 0;
+  color: rgba(0, 0, 0, 0.95);
+  font-size: 1.1rem;
+  text-shadow: var(--shadow-text-subtle);
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  padding: 1.5rem;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  background: #f8f9fa;
+  gap: var(--spacing-sm);
 }
 
 .stat-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  border: 1px solid #e5e5e5;
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, var(--opacity-card));
+  backdrop-filter: blur(var(--blur-sm));
+  border: 1px solid rgba(0, 0, 0, var(--opacity-border));
+  border-radius: var(--radius-sm);
+  transition: var(--transition-default);
+}
+
+.stat-item:hover {
+  background: rgba(255, 255, 255, var(--opacity-card-hover));
+  backdrop-filter: blur(var(--blur-lg));
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-box-hover);
 }
 
 .stat-label {
   font-weight: bold;
-  color: #495057;
+  color: var(--text-tertiary);
+  font-size: 0.95rem;
+  text-shadow: var(--shadow-text-minimal);
 }
 
 .stat-value {
   font-family: "Bitcount Prop Single Ink", system-ui;
   font-weight: bold;
-  color: #1a1a1a;
+  color: var(--text-primary);
+  font-size: 1.3rem;
+  text-shadow: var(--shadow-text-subtle);
 }
 
 .character-abilities ul {
@@ -623,53 +702,109 @@ onUnmounted(() => {
 }
 
 .character-abilities li {
-  margin-bottom: 1rem;
-  padding: 1rem;
-  background-color: #f8f9fa;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: var(--spacing-sm);
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, var(--opacity-card));
+  backdrop-filter: blur(var(--blur-sm));
+  border: 1px solid rgba(0, 0, 0, var(--opacity-border));
+  border-radius: var(--radius-sm);
+  transition: var(--transition-default);
+  color: var(--text-secondary);
+  text-shadow: var(--shadow-text-minimal);
+}
+
+.character-abilities li:hover {
+  background: rgba(255, 255, 255, var(--opacity-card-hover));
+  backdrop-filter: blur(var(--blur-lg));
+  transform: translateX(4px);
 }
 
 .character-abilities strong {
-  color: #1a1a1a;
+  color: var(--text-primary);
+  text-shadow: var(--shadow-text-subtle);
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+}
+
+.loading-state h1 {
+  color: #fff;
+  font-size: 2rem;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
 }
 
 /* Responsive design */
 @media (max-width: 768px) {
-  .character-container {
-    flex-direction: column;
-    gap: 2rem;
+  .character-details {
+    padding-left: var(--spacing-sm);
+    padding-right: var(--spacing-sm);
   }
-  
-  .character-image {
-    flex: none;
-    max-width: 300px;
-    margin: 0 auto;
+
+  .character-name {
+    font-size: 2.5rem;
   }
-  
+
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .character-header,
+  .character-background,
+  .character-stats,
+  .character-abilities {
+    padding: var(--spacing-md);
   }
 }
 
 @media (max-width: 480px) {
-  .character-page {
-    padding: 1rem;
-  }
-  
   .character-name {
     font-size: 2rem;
   }
-  
+
+  .character-title {
+    font-size: 1.1rem;
+  }
+
   .nav-chevron {
-    width: 35px;
-    height: 35px;
+    width: 40px;
+    height: 40px;
     font-size: 1.5rem;
   }
-  
+
   .stats-grid {
     grid-template-columns: 1fr;
   }
+
+  .character-header,
+  .character-background,
+  .character-stats,
+  .character-abilities {
+    padding: 1.25rem;
+  }
+}
+
+/* Note: padding values in responsive sections kept as hardcoded values
+   since they don't match standard spacing scale */
+
+/* Smooth scrollbar */
+.character-page::-webkit-scrollbar {
+  width: 10px;
+}
+
+.character-page::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.character-page::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 5px;
+}
+
+.character-page::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
 }
 </style>
