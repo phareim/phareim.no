@@ -580,6 +580,9 @@ onUnmounted(() => {
   --opacity-card: 0.2;
   --opacity-card-hover: 0.5;
 
+  /* Glass base color (for overlays) */
+  --glass-base: 255, 255, 255;
+
   /* Border colors */
   --border-color: rgba(0, 0, 0, 0.1);
   --border-focus: #007bff;
@@ -648,6 +651,25 @@ onUnmounted(() => {
   font-style: normal;
 }
 
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  .character-page {
+    --bg-color: #000;
+    --bg-secondary: #1a1a1a;
+    --text-primary: #fff;
+    --text-secondary: rgba(255, 255, 255, 0.9);
+    --text-tertiary: rgba(255, 255, 255, 0.8);
+    --glass-base: 0, 0, 0;
+    --border-color: rgba(255, 255, 255, 0.2);
+    --shadow-box: 0 8px 32px rgba(0, 0, 0, 0.8);
+    --shadow-box-dark: 0 8px 32px rgba(0, 0, 0, 0.9);
+    --shadow-btn-primary: 0 2px 8px rgba(0, 123, 255, 0.5);
+    --shadow-btn-primary-hover: 0 4px 12px rgba(0, 123, 255, 0.6);
+    --shadow-btn-success: 0 2px 8px rgba(40, 167, 69, 0.5);
+    --shadow-btn-success-hover: 0 4px 12px rgba(40, 167, 69, 0.6);
+  }
+}
+
 /* Parallax background */
 .parallax-background {
   position: fixed;
@@ -712,7 +734,7 @@ onUnmounted(() => {
 .character-generation-section {
   margin-bottom: var(--spacing-lg);
   padding: var(--spacing-xl);
-  background: rgba(255, 255, 255, var(--opacity-header));
+  background: rgba(var(--glass-base), var(--opacity-header));
   backdrop-filter: blur(var(--blur-md));
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -721,7 +743,7 @@ onUnmounted(() => {
 }
 
 .character-generation-section:hover {
-  background: rgba(255, 255, 255, var(--opacity-header-hover));
+  background: rgba(var(--glass-base), var(--opacity-header-hover));
   backdrop-filter: blur(var(--blur-xl));
 }
 
@@ -775,9 +797,9 @@ onUnmounted(() => {
   padding: 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(240, 240, 240, 0.95);
   font-family: "Alan Sans", sans-serif;
-  color: var(--text-primary);
+  color: #000;
   cursor: pointer;
   transition: var(--transition-default);
 }
@@ -786,18 +808,29 @@ onUnmounted(() => {
   outline: none;
   border-color: var(--border-focus);
   box-shadow: var(--focus-shadow);
-  background: rgba(255, 255, 255, 1);
+  background: rgba(240, 240, 240, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .option-select {
+    background: rgba(40, 40, 40, 0.95);
+    color: #fff;
+  }
+
+  .option-select:focus {
+    background: rgba(40, 40, 40, 1);
+  }
 }
 
 .emoji-input {
   padding: 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(240, 240, 240, 0.95);
   font-family: "Alan Sans", sans-serif;
   font-size: 1.2rem;
   text-align: center;
-  color: var(--text-primary);
+  color: #000;
   transition: var(--transition-default);
 }
 
@@ -805,7 +838,18 @@ onUnmounted(() => {
   outline: none;
   border-color: var(--border-focus);
   box-shadow: var(--focus-shadow);
-  background: rgba(255, 255, 255, 1);
+  background: rgba(240, 240, 240, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .emoji-input {
+    background: rgba(40, 40, 40, 0.95);
+    color: #fff;
+  }
+
+  .emoji-input:focus {
+    background: rgba(40, 40, 40, 1);
+  }
 }
 
 .emoji-hint {
@@ -916,7 +960,7 @@ onUnmounted(() => {
 .character-header {
   margin-bottom: var(--spacing-lg);
   padding: var(--spacing-xl);
-  background: rgba(255, 255, 255, var(--opacity-header));
+  background: rgba(var(--glass-base), var(--opacity-header));
   backdrop-filter: blur(var(--blur-md));
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -925,7 +969,7 @@ onUnmounted(() => {
 }
 
 .character-header:hover {
-  background: rgba(255, 255, 255, var(--opacity-header-hover));
+  background: rgba(var(--glass-base), var(--opacity-header-hover));
   backdrop-filter: blur(var(--blur-xl));
 }
 
@@ -979,7 +1023,7 @@ onUnmounted(() => {
 .character-abilities {
   margin-bottom: var(--spacing-lg);
   padding: var(--spacing-xl);
-  background: rgba(255, 255, 255, var(--opacity-section));
+  background: rgba(var(--glass-base), var(--opacity-section));
   backdrop-filter: blur(var(--blur-md));
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -991,7 +1035,7 @@ onUnmounted(() => {
 .character-physical-description:hover,
 .character-stats:hover,
 .character-abilities:hover {
-  background: rgba(255, 255, 255, var(--opacity-section-hover));
+  background: rgba(var(--glass-base), var(--opacity-section-hover));
   backdrop-filter: blur(var(--blur-hover));
 }
 
@@ -1013,12 +1057,12 @@ onUnmounted(() => {
 .physical-description-textarea {
   width: 100%;
   min-height: 100px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(240, 240, 240, 0.95);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: var(--spacing-sm);
   font-family: "Alan Sans", sans-serif;
-  color: var(--text-primary);
+  color: #000;
   resize: vertical;
   transition: var(--transition-default);
 }
@@ -1032,7 +1076,20 @@ onUnmounted(() => {
   outline: none;
   border-color: var(--border-focus);
   box-shadow: var(--focus-shadow);
-  background: rgba(255, 255, 255, 1);
+  background: rgba(240, 240, 240, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .background-textarea,
+  .physical-description-textarea {
+    background: rgba(40, 40, 40, 0.95);
+    color: #fff;
+  }
+
+  .background-textarea:focus,
+  .physical-description-textarea:focus {
+    background: rgba(40, 40, 40, 1);
+  }
 }
 
 
@@ -1059,7 +1116,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   padding: 1.25rem;
-  background: rgba(255, 255, 255, var(--opacity-card));
+  background: rgba(var(--glass-base), var(--opacity-card));
   backdrop-filter: blur(var(--blur-sm));
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -1068,7 +1125,7 @@ onUnmounted(() => {
 }
 
 .stat-item:hover {
-  background: rgba(255, 255, 255, var(--opacity-card-hover));
+  background: rgba(var(--glass-base), var(--opacity-card-hover));
   backdrop-filter: blur(var(--blur-lg));
   transform: translateY(-2px);
 }
@@ -1086,14 +1143,14 @@ onUnmounted(() => {
   width: 50px;
   height: 50px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(240, 240, 240, 0.95);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: 0.2rem;
   font-family: "Alan Sans", sans-serif;
   font-size: 1.3rem;
   font-weight: bold;
-  color: var(--text-primary);
+  color: #000;
   transition: var(--transition-default);
   text-shadow: var(--shadow-text-subtle);
 }
@@ -1102,7 +1159,18 @@ onUnmounted(() => {
   outline: none;
   border-color: var(--border-focus);
   box-shadow: var(--focus-shadow);
-  background: rgba(255, 255, 255, 1);
+  background: rgba(240, 240, 240, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .stat-input {
+    background: rgba(40, 40, 40, 0.95);
+    color: #fff;
+  }
+
+  .stat-input:focus {
+    background: rgba(40, 40, 40, 1);
+  }
 }
 
 .random-stats-btn {
@@ -1136,7 +1204,7 @@ onUnmounted(() => {
   gap: var(--spacing-xs);
   align-items: center;
   padding: 1.25rem;
-  background: rgba(255, 255, 255, var(--opacity-card));
+  background: rgba(var(--glass-base), var(--opacity-card));
   backdrop-filter: blur(var(--blur-sm));
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -1144,19 +1212,19 @@ onUnmounted(() => {
 }
 
 .ability-item:hover {
-  background: rgba(255, 255, 255, var(--opacity-card-hover));
+  background: rgba(var(--glass-base), var(--opacity-card-hover));
   backdrop-filter: blur(var(--blur-lg));
   transform: translateX(4px);
 }
 
 .ability-name-input,
 .ability-desc-input {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(240, 240, 240, 0.95);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: 0.75rem;
   font-family: "Alan Sans", sans-serif;
-  color: var(--text-primary);
+  color: #000;
   transition: var(--transition-default);
 }
 
@@ -1174,7 +1242,20 @@ onUnmounted(() => {
   outline: none;
   border-color: var(--border-focus);
   box-shadow: var(--focus-shadow);
-  background: rgba(255, 255, 255, 1);
+  background: rgba(240, 240, 240, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .ability-name-input,
+  .ability-desc-input {
+    background: rgba(40, 40, 40, 0.95);
+    color: #fff;
+  }
+
+  .ability-name-input:focus,
+  .ability-desc-input:focus {
+    background: rgba(40, 40, 40, 1);
+  }
 }
 
 .remove-ability-btn {
