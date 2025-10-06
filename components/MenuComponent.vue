@@ -92,6 +92,7 @@ export default {
 	background-color: #333;
 	transition: all 0.3s ease;
 	border-radius: 1px;
+	filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
 .hamburger.dark-mode span {
