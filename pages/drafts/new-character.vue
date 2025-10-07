@@ -206,6 +206,7 @@ const selectedStyle = ref('')
 const selectedEmojis = ref('')
 const selectedModel = ref('srpo')
 const availableModels = ref([])
+const modelDefinitions = ref([]) // Store full model definitions
 const availableStyles = ref([])
 const availableSettings = ref([])
 const availableClasses = ref([])
@@ -216,13 +217,31 @@ const canCreate = computed(() => {
     newCharacter.value.title.trim().length > 0
 })
 
-// Fetch available AI models and character styles
+// Computed property to get current model definition
+const currentModelDefinition = computed(() => {
+  return modelDefinitions.value.find(m => m.id === selectedModel.value)
+})
+
+// Fetch available AI models from model definitions
 const fetchAIModels = async () => {
   try {
-    const models = await $fetch('/api/ai-models')
-    availableModels.value = models
+    const models = await $fetch('/api/model-definitions')
+    modelDefinitions.value = models
+
+    // Convert to simple format for dropdown
+    availableModels.value = models.map(m => ({
+      value: m.id,
+      title: m.name,
+      icon: m.icon,
+      description: m.description
+    }))
+
+    // Update available styles based on first model
+    if (models.length > 0) {
+      updateAvailableStyles()
+    }
   } catch (error) {
-    console.error('Failed to fetch AI models:', error)
+    console.error('Failed to fetch model definitions:', error)
     // Fallback to default models
     availableModels.value = [
       { value: 'srpo', title: 'SRPO (Flux-1)', icon: '🎨', description: 'Realistic' },
@@ -233,20 +252,28 @@ const fetchAIModels = async () => {
   }
 }
 
-const fetchCharacterStyles = async () => {
-  try {
-    const styles = await $fetch('/api/character-styles')
-    availableStyles.value = styles
-  } catch (error) {
-    console.error('Failed to fetch character styles:', error)
-    // Fallback to default styles
-    availableStyles.value = [
-      { value: '', title: 'Default Style', icon: '', description: '' },
-      { value: 'disney', title: 'Disney', icon: '🏰', description: 'Colorful and whimsical' },
-      { value: 'digital', title: 'Digital', icon: '💻', description: 'Cyberpunk and futuristic' },
-      { value: 'heavy-metal', title: 'Heavy Metal', icon: '🤘', description: 'Dark and intense' }
-    ]
+// Update available styles based on selected model
+const updateAvailableStyles = () => {
+  const modelDef = currentModelDefinition.value
+  if (modelDef && modelDef.supportedStyles) {
+    availableStyles.value = modelDef.supportedStyles
+
+    // Reset style if current selection is not supported by new model
+    const currentStyleSupported = modelDef.supportedStyles.some(s => s.value === selectedStyle.value)
+    if (!currentStyleSupported) {
+      selectedStyle.value = modelDef.supportedStyles[0]?.value || ''
+    }
   }
+}
+
+// Watch for model changes to update available styles
+watch(selectedModel, () => {
+  updateAvailableStyles()
+})
+
+const fetchCharacterStyles = async () => {
+  // Styles are now loaded from model definitions
+  // This function is kept for compatibility but does nothing
 }
 
 const fetchCharacterSettings = async () => {

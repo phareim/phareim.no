@@ -1,11 +1,11 @@
 import { fal } from '@fal-ai/client'
 import { storage, db } from '~/server/utils/firebase-admin'
 import { v4 as uuidv4 } from 'uuid'
-import { getModelEndpoint, getModelConfig } from '~/server/utils/ai-models'
-import { getImageStylePrompt } from '~/server/utils/character-styles'
 import { getImageSettingPrompt } from '~/server/utils/character-settings'
 import { getImageClassPrompt } from '~/server/utils/character-classes'
 import type { CharacterImageGenerationRequest, CharacterImageGenerationResponse, EmojiPrompt, emojiPromptsCollection } from '~/types/character'
+import type { ModelDefinition } from '~/types/model-definition'
+import { modelDefinitionsCollection, buildPrompt } from '~/types/model-definition'
 
 export default defineEventHandler(async (event): Promise<CharacterImageGenerationResponse> => {
     if (event.method !== 'POST') {
@@ -69,54 +69,66 @@ interface ImageGenerationContext {
 
 async function generateCharacterImage(userPrompt: string, context: ImageGenerationContext = {}): Promise<string> {
     const { characterName, characterTitle, characterClass, gender, setting, style, emojis, model } = context;
-    
-    const emojiPrompts = await getKeywordPrompts(emojis)
-    const emoji_string = "" + emojiPrompts.join(', ') 
 
-    const classPrompts = getImageClassPrompt(characterClass);
-    
-    const stylePrompt = getImageStylePrompt(style || 'disney');
-
-    const titleContext = characterTitle ? `Character title: ${characterTitle}. ` : '';
-    const classContext = classPrompts ? `${classPrompts} ` : '';
-    const genderContext = gender ? `Gender: ${gender}. ` : '';
-    const settingContext = getImageSettingPrompt(setting) ? `${getImageSettingPrompt(setting)}, ` : '';
-    
-    const contextualPrompt = classContext + genderContext + settingContext;
-    const fullPrompt = stylePrompt + emoji_string + userPrompt + contextualPrompt + titleContext;
-    
-    // Get the model configuration
+    // Fetch model definition from Firebase
     const selectedModel = model || 'srpo'
-    const modelConfig = getModelConfig(selectedModel)
-    
-    if (!modelConfig) {
-        throw new Error(`Unknown model: ${selectedModel}`)
+    const modelDoc = await db.collection(modelDefinitionsCollection).doc(selectedModel).get()
+
+    if (!modelDoc.exists) {
+        throw new Error(`Model definition not found: ${selectedModel}`)
     }
-    
-    // Route to appropriate API based on server
-    if (modelConfig.server === 'venice-ai') {
-        return await generateWithVeniceAI(fullPrompt, modelConfig.endpoint)
+
+    const modelDef = modelDoc.data() as ModelDefinition
+
+    // Build emoji prompts
+    const emojiPrompts = await getKeywordPrompts(emojis)
+    const emoji_string = emojiPrompts.length > 0 ? emojiPrompts.join(', ') + ', ' : ''
+
+    // Build class and setting context
+    const classPrompts = getImageClassPrompt(characterClass);
+    const classContext = classPrompts ? `${classPrompts}, ` : '';
+    const genderContext = gender ? `Gender: ${gender}, ` : '';
+    const settingContext = getImageSettingPrompt(setting) ? `${getImageSettingPrompt(setting)}, ` : '';
+    const titleContext = characterTitle ? `Character title: ${characterTitle}, ` : '';
+
+    // Build user prompt with context
+    const contextualUserPrompt = emoji_string + userPrompt + ', ' + classContext + genderContext + settingContext + titleContext;
+
+    // Use model definition's buildPrompt helper to construct final prompt
+    const fullPrompt = buildPrompt(modelDef, contextualUserPrompt, style)
+
+    console.log('Full prompt for generation:', fullPrompt)
+    console.log('Using model:', modelDef.name, 'endpoint:', modelDef.endpoint)
+
+    // Route to appropriate API based on model type
+    if (modelDef.type === 'venice') {
+        return await generateWithVeniceAI(fullPrompt, modelDef.endpoint)
     } else {
-        return await generateWithFalAI(fullPrompt, modelConfig.endpoint)
+        // Use FAL or other providers
+        return await generateWithFalAI(fullPrompt, modelDef.endpoint, modelDef.parameters)
     }
 }
 
-async function generateWithFalAI(prompt: string, endpoint: string): Promise<string> {
+async function generateWithFalAI(prompt: string, endpoint: string, parameters: Record<string, any> = {}): Promise<string> {
+    // Build input object with prompt and model-specific parameters
+    const input: Record<string, any> = {
+        prompt: prompt,
+        enable_safety_checker: false,
+        enable_prompt_expansion: false,
+        negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts',
+        ...parameters // Merge model-specific parameters
+    }
+
+    console.log('FAL AI input parameters:', input)
+
     const result = await fal.subscribe(endpoint, {
-        input: {
-            prompt: prompt,
-            image_size: 'portrait_16_9',
-            enable_safety_checker: false,
-            guidance_scale: 4.5,
-            enable_prompt_expansion: false,
-            negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts'
-        },
+        input,
         logs: true,
         onQueueUpdate: (update: any) => {
             process.stdout.write('\rimage generation: ' + update.status);
         },
     })
-    
+
     // Extract the image URL from the result
     if (result.data && result.data.images && result.data.images.length > 0) {
         return result.data.images[0].url
