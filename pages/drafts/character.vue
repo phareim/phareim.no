@@ -48,6 +48,9 @@
             </button>
           </div>
           <p class="character-title">{{ character.title }}</p>
+          <button v-if="canEdit" @click="editCharacter" class="edit-btn">
+            ✏️ Edit Character
+          </button>
         </div>
 
         <div class="character-background">
@@ -96,6 +99,20 @@ const character = ref(null)
 const characterLoading = ref(true)
 const allCharacters = ref([])
 const currentCharacterIndex = ref(0)
+
+// Computed property to check if character can be edited (not hardcoded)
+const canEdit = computed(() => {
+  if (!character.value) return false
+  // Hardcoded characters have these specific IDs
+  const hardcodedIds = ['eddie', 'Joan-Rover', 'Yukiko-Kudou', 'aria-kling']
+  return !hardcodedIds.includes(character.value.id)
+})
+
+// Edit character function
+const editCharacter = () => {
+  if (!character.value || !character.value.id) return
+  navigateTo(`/drafts/new-character?edit=${character.value.id}`)
+}
 
 // Fetch character data on component mount
 const fetchCharacterData = async () => {
@@ -616,11 +633,35 @@ onUnmounted(() => {
 
 .character-title {
   font-size: 1.5rem;
-  margin: 0;
+  margin: 0 0 var(--spacing-md) 0;
   font-style: italic;
   color: var(--text-secondary);
   text-align: center;
   text-shadow: var(--shadow-text-medium);
+}
+
+.edit-btn {
+  background: rgba(var(--glass-base), var(--opacity-nav));
+  backdrop-filter: blur(var(--blur-nav));
+  border: 1px solid rgba(var(--text-primary), 0.3);
+  color: var(--text-primary);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition-default);
+  font-family: "Alan Sans", sans-serif;
+  display: block;
+  margin: 0 auto;
+  text-shadow: var(--shadow-text-subtle);
+}
+
+.edit-btn:hover {
+  background: rgba(var(--glass-base), var(--opacity-nav-hover));
+  border-color: rgba(var(--text-primary), 0.5);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-box-nav);
 }
 
 .character-background,

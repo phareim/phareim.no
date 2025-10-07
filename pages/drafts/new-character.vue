@@ -16,9 +16,9 @@
         <div class="character-content">
           <!-- Character Generation Section -->
           <div class="character-generation-section">
-            <h2>Generate Character</h2>
+            <h2>{{ isEditMode ? 'Edit Character' : 'Generate Character' }}</h2>
             <div class="generation-options">
-              <div class="option-row">
+              <div class="option-row" v-if="!isEditMode">
                 <div class="gender-selection">
                   <label class="option-label">Gender:</label>
                   <select v-model="selectedGender" class="option-select">
@@ -68,7 +68,7 @@
                 </div>
               </div>
               <div class="generate-button-row">
-                <button @click="generateCharacter" :disabled="isGenerating" class="generate-btn-top">
+                <button v-if="!isEditMode" @click="generateCharacter" :disabled="isGenerating" class="generate-btn-top">
                   {{ isGenerating ? '🎭 Generating...' : '🎭 Generate Character' }}
                 </button>
                 <button v-if="newCharacter.physicalDescription && !isGeneratingImage" @click="generateImage" class="regenerate-image-btn-top">
@@ -79,13 +79,13 @@
                     isCreating
                       ? (newCharacter.physicalDescription?.trim() && !newCharacter.imageUrl ? 'Saving & Generating Image...' :
                         'Saving...')
-                      : 'Save Character'
+                      : (isEditMode ? '💾 Update Character' : '💾 Save Character')
                   }}
                 </button>
-                <button @click="previewCharacter" class="preview-btn-top">
+                <button @click="previewCharacter" class="preview-btn-top" v-if="!isEditMode">
                   👁️ Preview
                 </button>
-                <button @click="resetForm" class="reset-btn-top">
+                <button @click="resetForm" class="reset-btn-top" v-if="!isEditMode">
                   🔄 Reset Form
                 </button>
               </div>
@@ -167,6 +167,11 @@ const handleScroll = (event) => {
   // Parallax effect: background moves upward slower
   parallaxOffset.value = -scrollTop * 0.3
 }
+
+// Get route query to check if we're in edit mode
+const route = useRoute()
+const isEditMode = ref(false)
+const editCharacterId = ref(null)
 
 const newCharacter = ref({
   name: '',
@@ -325,7 +330,7 @@ const removeAbility = (index) => {
   }
 }
 
-// Create character
+// Create or update character
 const createCharacter = async () => {
   if (!canCreate.value) return
 
@@ -345,8 +350,13 @@ const createCharacter = async () => {
       imageGenerationStatus.value = '🎨 Generating character portrait...'
     }
 
-    const response = await $fetch('/api/characters', {
-      method: 'POST',
+    // Determine if we're updating or creating
+    const isUpdate = isEditMode.value && editCharacterId.value
+    const url = isUpdate ? `/api/characters/${editCharacterId.value}` : '/api/characters'
+    const method = isUpdate ? 'PUT' : 'POST'
+
+    const response = await $fetch(url, {
+      method: method,
       body: characterData
     })
 
@@ -354,7 +364,10 @@ const createCharacter = async () => {
       throw new Error(response.error)
     }
 
-    let successMessage = `Character "${newCharacter.value.name}" saved successfully!`
+    let successMessage = isUpdate
+      ? `Character "${newCharacter.value.name}" updated successfully!`
+      : `Character "${newCharacter.value.name}" saved successfully!`
+
     if (needsImageGeneration && response.imageUrl) {
       successMessage += ' Portrait generated! 🎨'
       imageGenerationStatus.value = '✨ Portrait generated successfully!'
@@ -367,10 +380,14 @@ const createCharacter = async () => {
     message.value = successMessage
     messageType.value = 'success'
 
-    // Reset form after successful creation
+    // After successful save, redirect to character view
     setTimeout(() => {
-      resetForm()
-    }, 3000)
+      if (isUpdate) {
+        navigateTo('/drafts/character')
+      } else {
+        resetForm()
+      }
+    }, 2000)
 
   } catch (error) {
     console.error('Failed to save character:', error)
@@ -549,13 +566,55 @@ watch(message, (newMessage) => {
   }
 })
 
+// Load character data if in edit mode
+const loadCharacterForEdit = async (characterId) => {
+  try {
+    const character = await $fetch(`/api/characters/${characterId}`)
+
+    // Populate form with character data
+    newCharacter.value = {
+      name: character.name,
+      title: character.title,
+      class: character.class,
+      imageUrl: character.imageUrl,
+      background: character.background,
+      physicalDescription: character.physicalDescription || '',
+      stats: character.stats || [
+        { label: 'Strength', value: '10' },
+        { label: 'Dexterity', value: '10' },
+        { label: 'Intelligence', value: '10' },
+        { label: 'Wisdom', value: '10' },
+        { label: 'Constitution', value: '10' },
+        { label: 'Charisma', value: '10' }
+      ],
+      abilities: character.abilities && character.abilities.length > 0
+        ? character.abilities
+        : [{ name: '', description: '' }, { name: '', description: '' }]
+    }
+
+    message.value = `Editing character: ${character.name}`
+    messageType.value = 'success'
+  } catch (error) {
+    console.error('Failed to load character for edit:', error)
+    message.value = 'Failed to load character data'
+    messageType.value = 'error'
+  }
+}
+
 // Fetch AI models, styles, settings, and classes when component mounts
-onMounted(() => {
+onMounted(async () => {
   document.body.classList.add('scrollable');
   fetchAIModels()
   fetchCharacterStyles()
   fetchCharacterSettings()
   fetchCharacterClasses()
+
+  // Check if we're in edit mode
+  if (route.query.edit) {
+    isEditMode.value = true
+    editCharacterId.value = route.query.edit
+    await loadCharacterForEdit(route.query.edit)
+  }
 })
 
 onUnmounted(() => {
