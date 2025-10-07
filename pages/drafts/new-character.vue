@@ -339,7 +339,22 @@ const createCharacter = async () => {
   imageGenerationStatus.value = ''
 
   try {
-    const characterData = newCharacter.value;
+    // Convert stats from frontend format [{ label, value }] to backend format { strength: 10, ... }
+    const statsObject = newCharacter.value.stats.reduce((acc, stat) => {
+      const key = stat.label.toLowerCase()
+      acc[key] = parseInt(stat.value) || 10
+      return acc
+    }, {})
+
+    const characterData = {
+      ...newCharacter.value,
+      stats: statsObject, // Use converted stats format
+      gender: selectedGender.value,
+      setting: selectedSetting.value,
+      style: selectedStyle.value,
+      emojis: selectedEmojis.value,
+      model: selectedModel.value
+    };
 
     // Add image generation parameters if physical description is provided and no image exists yet
     const hasPhysicalDescription = newCharacter.value.physicalDescription?.trim()
@@ -590,6 +605,15 @@ const loadCharacterForEdit = async (characterId) => {
       abilities: character.abilities && character.abilities.length > 0
         ? character.abilities
         : [{ name: '', description: '' }, { name: '', description: '' }]
+    }
+
+    // Load generation data if available
+    if (character.generationData) {
+      selectedGender.value = character.generationData.gender || ''
+      selectedSetting.value = character.generationData.setting || ''
+      selectedStyle.value = character.generationData.style || ''
+      selectedEmojis.value = character.generationData.emojis || ''
+      selectedModel.value = character.generationData.model || 'srpo'
     }
 
     message.value = `Editing character: ${character.name}`

@@ -64,6 +64,8 @@ async function getCharacter(id: string) {
         hitPoints: data!.hitPoints,
         armorClass: data!.armorClass,
         location: data!.location,
+        enabled: data!.enabled,
+        generationData: data!.generationData,
         createdAt: data!.createdAt?.toDate(),
         updatedAt: data!.updatedAt?.toDate()
     }
@@ -104,6 +106,19 @@ async function updateCharacter(event: any, id: string) {
     if (body.hitPoints !== undefined) updateData.hitPoints = body.hitPoints
     if (body.armorClass !== undefined) updateData.armorClass = body.armorClass
     if (body.location !== undefined) updateData.location = body.location
+    if (body.enabled !== undefined) updateData.enabled = body.enabled
+
+    // Update generation data if any generation fields are provided
+    if (body.gender !== undefined || body.setting !== undefined || body.style !== undefined ||
+        body.emojis !== undefined || body.model !== undefined) {
+        updateData.generationData = {
+            gender: body.gender,
+            setting: body.setting,
+            style: body.style,
+            emojis: body.emojis,
+            model: body.model
+        }
+    }
 
     // Validate the updated character data
     const existingData = doc.data()

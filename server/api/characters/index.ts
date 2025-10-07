@@ -50,6 +50,8 @@ async function getCharacters() {
                 hitPoints: data.hitPoints,
                 armorClass: data.armorClass,
                 location: data.location,
+                enabled: data.enabled,
+                generationData: data.generationData,
                 createdAt: data.createdAt?.toDate(),
                 updatedAt: data.updatedAt?.toDate()
             }
@@ -198,7 +200,7 @@ async function getCharacters() {
 
 async function createCharacter(event: any) {
     const body = await readBody(event)
-    
+
     // Set default values
     const character: Omit<Character, 'id'> = {
         name: body.name || 'Unnamed Adventurer',
@@ -210,10 +212,18 @@ async function createCharacter(event: any) {
         abilities: body.abilities || [],
         imageUrl: body.imageUrl, // Include imageUrl from the start
         level: body.level || 1,
+        enabled: body.enabled !== undefined ? body.enabled : true, // Default to enabled
+        generationData: {
+            gender: body.gender,
+            setting: body.setting,
+            style: body.style,
+            emojis: body.emojis,
+            model: body.model
+        },
         createdAt: new Date(),
         updatedAt: new Date()
     }
-    
+
     // Validate the character
     if (!validateCharacter(character)) {
         throw createError({

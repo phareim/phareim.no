@@ -4,7 +4,7 @@ export interface Character {
     title?: string;
     class?: string;           // Character class (warrior, mage, rogue, etc.)
     background?: string;
-    physicalDescription?: string;    
+    physicalDescription?: string;
     stats?: {
         // Standard D&D ability scores 🤓
         strength?: number;     // Physical power (1-20)
@@ -36,6 +36,14 @@ export interface Character {
             west: number;
         };
         isActive: boolean;   // Whether the character is currently in the world
+    };
+    enabled?: boolean;       // Whether the character is enabled/active
+    generationData?: {
+        gender?: string;     // Gender used during generation
+        setting?: string;    // Setting used during generation
+        style?: string;      // Art style used during generation
+        emojis?: string;     // Emojis used during generation
+        model?: string;      // AI model used for image generation
     };
     createdAt?: Date;
     updatedAt?: Date;
