@@ -1,0 +1,102 @@
+<template>
+  <div class="admin-sidebar">
+    <div class="sidebar-header">
+      <h2>🎨 Admin</h2>
+    </div>
+
+    <nav class="sidebar-nav">
+      <NuxtLink to="/admin" class="nav-item" exact-active-class="active">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Dashboard</span>
+      </NuxtLink>
+
+      <NuxtLink to="/admin/models" class="nav-item" active-class="active">
+        <span class="nav-icon">🖼️</span>
+        <span class="nav-label">Models</span>
+      </NuxtLink>
+
+      <div class="nav-divider"></div>
+
+      <NuxtLink to="/" class="nav-item">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Back to Site</span>
+      </NuxtLink>
+    </nav>
+  </div>
+</template>
+
+<style scoped>
+.admin-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 250px;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 2rem 0;
+  z-index: 100;
+}
+
+.sidebar-header {
+  padding: 0 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.sidebar-header h2 {
+  color: white;
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  margin: 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  transition: all 0.3s ease;
+  border-left: 3px solid transparent;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.nav-item.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border-left-color: white;
+}
+
+.nav-icon {
+  font-size: 1.25rem;
+}
+
+.nav-label {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.nav-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 1rem 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .admin-sidebar {
+    display: none;
+  }
+}
+</style>

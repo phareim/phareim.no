@@ -26,6 +26,7 @@ export default defineNuxtConfig({
     firebaseClientEmail: process.env.FIREBASE_CLIENT_EMAIL,
     firebaseProjectId: process.env.FIREBASE_PROJECT_ID,
     falKey: process.env.FAL_KEY,
+    adminPassword: process.env.ADMIN_PASSWORD,
     
     // Public keys that are exposed to the client
     public: {
