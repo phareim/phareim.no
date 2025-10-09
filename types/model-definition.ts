@@ -3,7 +3,8 @@ export interface ModelStyle {
     title: string          // Display name: 'Disney'
     icon: string           // Emoji icon: '🏰'
     description: string    // Short description: 'Colorful and whimsical'
-    styleModifier: string  // Additional prompt text for this style
+    styleModifier: string  // Additional prompt text for this style (legacy/short form)
+    imagePrompt?: string   // Full detailed image prompt (replaces styleModifier if present)
 }
 
 export interface ModelDefinition {
@@ -46,11 +47,15 @@ export function buildPrompt(
 ): string {
     let prompt = modelDef.basePrompt
 
-    // Add style modifier if style is selected
+    // Add style-specific prompt if style is selected
     if (selectedStyle) {
         const style = modelDef.supportedStyles.find(s => s.value === selectedStyle)
-        if (style && style.styleModifier) {
-            prompt += ', ' + style.styleModifier
+        if (style) {
+            // Prefer imagePrompt if available, otherwise use styleModifier
+            const styleText = style.imagePrompt || style.styleModifier
+            if (styleText) {
+                prompt += ', ' + styleText
+            }
         }
     }
 

@@ -160,18 +160,71 @@
                     placeholder="Description"
                     class="style-desc-input"
                   />
-                  <textarea
-                    v-model="style.styleModifier"
-                    placeholder="Style Modifier (additional prompt text)"
-                    rows="2"
-                    class="style-modifier-input"
-                  ></textarea>
+                  <div class="style-prompts-container">
+                    <div class="prompt-field">
+                      <label>Style Modifier (legacy/short)</label>
+                      <textarea
+                        v-model="style.styleModifier"
+                        placeholder="Short style modifier text"
+                        rows="2"
+                        class="style-modifier-input"
+                      ></textarea>
+                    </div>
+                    <div class="prompt-field">
+                      <label>Image Prompt (full/detailed) <span class="recommended">✨ Recommended</span></label>
+                      <textarea
+                        v-model="style.imagePrompt"
+                        placeholder="Full detailed image prompt (replaces styleModifier if provided)"
+                        rows="6"
+                        class="style-image-prompt-input"
+                      ></textarea>
+                      <small>This full prompt will be used if provided, otherwise styleModifier</small>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <button type="button" @click="addStyle" class="btn-add-style">
                 ➕ Add Style
               </button>
+            </div>
+
+            <!-- Prompt Preview -->
+            <div class="form-section prompt-preview-section">
+              <h2>👁️ Prompt Preview</h2>
+              <p class="preview-description">See how the final prompt will be constructed:</p>
+
+              <div class="prompt-breakdown">
+                <div class="prompt-part">
+                  <strong>1. Base Prompt:</strong>
+                  <div class="prompt-content">{{ model.basePrompt || '(not set)' }}</div>
+                </div>
+
+                <div class="prompt-part" v-if="model.supportedStyles.length > 0">
+                  <strong>2. Style Modifier (example with first style):</strong>
+                  <div class="prompt-content">
+                    {{ model.supportedStyles[0]?.imagePrompt || model.supportedStyles[0]?.styleModifier || '(not set)' }}
+                  </div>
+                  <small>Style: {{ model.supportedStyles[0]?.icon }} {{ model.supportedStyles[0]?.title }}</small>
+                </div>
+
+                <div class="prompt-part">
+                  <strong>3. User Prompt:</strong>
+                  <div class="prompt-content prompt-placeholder">[User's description goes here]</div>
+                </div>
+
+                <div class="prompt-part" v-if="model.promptSuffix">
+                  <strong>4. Prompt Suffix:</strong>
+                  <div class="prompt-content">{{ model.promptSuffix }}</div>
+                </div>
+              </div>
+
+              <div class="prompt-full">
+                <strong>Complete Example Prompt:</strong>
+                <div class="prompt-content">
+                  {{ buildExamplePrompt() }}
+                </div>
+              </div>
             </div>
 
             <!-- Test Image Generation -->
@@ -316,7 +369,8 @@ const addStyle = () => {
     title: '',
     icon: '',
     description: '',
-    styleModifier: ''
+    styleModifier: '',
+    imagePrompt: ''
   })
 }
 
@@ -354,6 +408,34 @@ const saveModel = async () => {
   } finally {
     saving.value = false
   }
+}
+
+const buildExamplePrompt = () => {
+  let parts = []
+
+  // Base prompt
+  if (model.value.basePrompt) {
+    parts.push(model.value.basePrompt)
+  }
+
+  // First style's imagePrompt or styleModifier
+  if (model.value.supportedStyles.length > 0) {
+    const firstStyle = model.value.supportedStyles[0]
+    const styleText = firstStyle.imagePrompt || firstStyle.styleModifier
+    if (styleText) {
+      parts.push(styleText)
+    }
+  }
+
+  // Example user prompt
+  parts.push('a brave warrior with a sword')
+
+  // Suffix
+  if (model.value.promptSuffix) {
+    parts.push(model.value.promptSuffix)
+  }
+
+  return parts.join(', ')
 }
 
 const generateTestImage = async () => {
@@ -577,12 +659,47 @@ h2 {
 .style-value-input,
 .style-title-input,
 .style-desc-input,
-.style-modifier-input {
+.style-modifier-input,
+.style-image-prompt-input {
   padding: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.9);
   font-family: "Alan Sans", sans-serif;
+}
+
+.style-prompts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  border-radius: 6px;
+  margin-top: 0.5rem;
+}
+
+.prompt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.prompt-field label {
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.prompt-field .recommended {
+  color: #ffd700;
+  font-size: 0.85rem;
+  font-weight: normal;
+}
+
+.prompt-field small {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
 }
 
 .btn-remove {
@@ -614,6 +731,74 @@ h2 {
 
 .btn-add-style:hover {
   background: rgba(40, 167, 69, 1);
+}
+
+/* Prompt Preview Section */
+.prompt-preview-section {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.preview-description {
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 1rem;
+}
+
+.prompt-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.prompt-part {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid rgba(59, 130, 246, 0.8);
+}
+
+.prompt-part strong {
+  color: white;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.prompt-part small {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  display: block;
+  margin-top: 0.5rem;
+}
+
+.prompt-content {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.75rem;
+  border-radius: 6px;
+  color: white;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.prompt-placeholder {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.prompt-full {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1rem;
+  border-radius: 8px;
+  border: 2px solid rgba(59, 130, 246, 0.5);
+}
+
+.prompt-full strong {
+  color: white;
+  display: block;
+  margin-bottom: 0.75rem;
 }
 
 /* Test Section */
