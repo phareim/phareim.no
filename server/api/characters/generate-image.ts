@@ -138,6 +138,7 @@ async function generateWithFalAI(prompt: string, endpoint: string, parameters: R
 }
 
 async function generateWithVeniceAI(prompt: string, model: string): Promise<string> {
+    console.log('Generating with Venice AI:', prompt, model)
     const apiKey = process.env.VENICE_AI_API_KEY
     if (!apiKey) {
         throw new Error('VENICE_AI_API_KEY environment variable is required')
