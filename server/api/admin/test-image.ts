@@ -149,7 +149,7 @@ async function uploadTestImage(imageUrl: string, modelId: string): Promise<strin
     const filename = `test/${modelId}/${timestamp}-${uuidv4()}.jpg`
 
     // Upload to Firebase Storage
-    const bucket = storage.bucket()
+    const bucket = storage.bucket('phareim-no.firebasestorage.app')
     const file = bucket.file(filename)
 
     await file.save(imageBuffer, {
