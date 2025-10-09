@@ -1,9 +1,9 @@
-import { fal } from '@fal-ai/client'
 import { storage, db } from '~/server/utils/firebase-admin'
 import { v4 as uuidv4 } from 'uuid'
-import type { ModelDefinition } from '~/types/model-definition'
-import { modelDefinitionsCollection, buildPrompt } from '~/types/model-definition'
 import { requireAdminAuth } from '~/server/utils/admin-auth'
+import { generateCharacterImage } from '~/server/utils/image-generation'
+import { buildPrompt, modelDefinitionsCollection } from '~/types/model-definition'
+import type { ModelDefinition } from '~/types/model-definition'
 
 export default defineEventHandler(async (event) => {
     // Require admin authentication
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
             })
         }
 
-        // Fetch model definition
+        // Fetch model definition to get the model name for response
         const modelDoc = await db.collection(modelDefinitionsCollection).doc(modelId).get()
 
         if (!modelDoc.exists) {
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
 
         const modelDef = modelDoc.data() as ModelDefinition
 
-        // Build the full prompt using model definition
+        // Build the full prompt for display
         const fullPrompt = buildPrompt(modelDef, userPrompt, selectedStyle)
 
         console.log('Test image generation:', {
@@ -50,14 +50,11 @@ export default defineEventHandler(async (event) => {
             fullPrompt
         })
 
-        // Generate image based on model type
-        let imageUrl: string
-
-        if (modelDef.type === 'venice') {
-            imageUrl = await generateWithVeniceAI(fullPrompt, modelDef.endpoint, modelDef.parameters)
-        } else {
-            imageUrl = await generateWithFalAI(fullPrompt, modelDef.endpoint, modelDef.parameters)
-        }
+        // Use the same generation function as character creation
+        const imageUrl = await generateCharacterImage(userPrompt, {
+            style: selectedStyle,
+            model: modelId
+        })
 
         // Upload to Firebase Storage in test folder
         const testImageUrl = await uploadTestImage(imageUrl, modelId)
@@ -79,85 +76,22 @@ export default defineEventHandler(async (event) => {
     }
 })
 
-async function generateWithFalAI(prompt: string, endpoint: string, parameters: Record<string, any> = {}): Promise<string> {
-    const input: Record<string, any> = {
-        enable_safety_checker: false,
-        enable_prompt_expansion: false,
-        negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts',
-        ...parameters,
-        prompt: prompt, // Prompt goes last to ensure it's never overridden
-    }
-
-    console.log('FAL AI Test Generation:', {
-        endpoint,
-        parameters,
-        finalInput: input
-    })
-
-    const result = await fal.subscribe(endpoint, {
-        input,
-        logs: true,
-        onQueueUpdate: (update: any) => {
-            process.stdout.write('\rtest image generation: ' + update.status);
-        },
-    })
-
-    if (result.data && result.data.images && result.data.images.length > 0) {
-        return result.data.images[0].url
-    } else {
-        throw new Error('No image generated from fal.ai')
-    }
-}
-
-async function generateWithVeniceAI(prompt: string, model: string, parameters: Record<string, any> = {}): Promise<string> {
-    const config = useRuntimeConfig()
-    const apiKey = config.veniceKey
-
-    if (!apiKey) {
-        throw new Error('VENICE_AI_API_KEY environment variable is required')
-    }
-
-    const requestBody = {
-        width: 1024,
-        height: 1024,
-        num_outputs: 1,
-        ...parameters,
-        model: model,
-        prompt: prompt, // Prompt goes last to ensure it's never overridden
-    }
-
-    console.log('Venice AI Test Generation:', {
-        model,
-        parameters,
-        finalBody: requestBody
-    })
-
-    const response = await fetch('https://api.venice.ai/api/v1/image/generate', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-    })
-
-    if (!response.ok) {
-        throw new Error(`Venice AI error: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-
-    if (data.images && data.images.length > 0) {
-        return data.images[0].url
-    } else {
-        throw new Error('No image generated from Venice AI')
-    }
-}
-
 async function uploadTestImage(imageUrl: string, modelId: string): Promise<string> {
-    // Download the image
-    const imageResponse = await fetch(imageUrl)
-    const imageBuffer = Buffer.from(await imageResponse.arrayBuffer())
+    let imageBuffer: Buffer
+
+    // Check if it's a base64 data URL (from Venice) or regular URL (from FAL)
+    if (imageUrl.startsWith('data:')) {
+        // Extract base64 data from data URL
+        const base64Data = imageUrl.split(',')[1]
+        imageBuffer = Buffer.from(base64Data, 'base64')
+    } else {
+        // Download the image from URL
+        const imageResponse = await fetch(imageUrl)
+        if (!imageResponse.ok) {
+            throw new Error(`Failed to fetch image: ${imageResponse.statusText}`)
+        }
+        imageBuffer = Buffer.from(await imageResponse.arrayBuffer())
+    }
 
     // Generate unique filename
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
