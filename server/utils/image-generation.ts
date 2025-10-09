@@ -55,7 +55,7 @@ export async function generateCharacterImage(userPrompt: string, context: ImageG
 
     // Route to appropriate API based on model type
     if (modelDef.type === 'venice') {
-        return await generateWithVeniceAI(fullPrompt, modelDef.endpoint)
+        return await generateWithVeniceAI(fullPrompt, modelDef.endpoint, modelDef.parameters)
     } else {
         // Use FAL or other providers
         return await generateWithFalAI(fullPrompt, modelDef.endpoint, modelDef.parameters)
@@ -90,12 +90,34 @@ async function generateWithFalAI(prompt: string, endpoint: string, parameters: R
     }
 }
 
-async function generateWithVeniceAI(prompt: string, model: string): Promise<string> {
+async function generateWithVeniceAI(prompt: string, model: string, parameters: Record<string, any> = {}): Promise<string> {
     console.log('Generating with Venice AI:', prompt, model)
     const apiKey = process.env.VENICE_AI_API_KEY
     if (!apiKey) {
         throw new Error('VENICE_AI_API_KEY environment variable is required')
     }
+
+    // Default Venice parameters
+    const requestBody = {
+        width: 720,
+        height: 1280,
+        cfg_scale: 5,
+        lora_strength: 100,
+        steps: 30,
+        style_preset: 'Analog Film',
+        negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts',
+        hide_watermark: true,
+        variants: 1,
+        safe_mode: false,
+        return_binary: false,
+        format: 'webp',
+        embed_exif_metadata: false,
+        ...parameters, // Merge model-specific parameters
+        model: model,
+        prompt: prompt, // Ensure these always come last
+    }
+
+    console.log('Venice AI request parameters:', requestBody)
 
     const response = await fetch('https://api.venice.ai/api/v1/image/generate', {
         method: 'POST',
@@ -103,23 +125,7 @@ async function generateWithVeniceAI(prompt: string, model: string): Promise<stri
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            model: model,
-            prompt: prompt,
-            width: 720,
-            height: 1280,
-            cfg_scale: 5,
-            lora_strength: 100,
-            steps: 30,
-            style_preset: 'Analog Film',
-            negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts',
-            hide_watermark: true,
-            variants: 1,
-            safe_mode: false,
-            return_binary: false,
-            format: 'webp',
-            embed_exif_metadata: false
-        })
+        body: JSON.stringify(requestBody)
     })
 
     if (!response.ok) {
@@ -150,7 +156,7 @@ async function getKeywordPrompts(keywords?: string): Promise<string[]> {
 
     for (const keyword of keywordArray) {
         try {
-            const snapshot = await db.collection(emojiPromptsCollection)
+            const snapshot = await db.collection("emoji-prompts")
                 .where('emoji', '==', keyword)
                 .limit(1)
                 .get()
