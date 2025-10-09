@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
         let imageUrl: string
 
         if (modelDef.type === 'venice') {
-            imageUrl = await generateWithVeniceAI(fullPrompt, modelDef.endpoint)
+            imageUrl = await generateWithVeniceAI(fullPrompt, modelDef.endpoint, modelDef.parameters)
         } else {
             imageUrl = await generateWithFalAI(fullPrompt, modelDef.endpoint, modelDef.parameters)
         }
@@ -81,12 +81,18 @@ export default defineEventHandler(async (event) => {
 
 async function generateWithFalAI(prompt: string, endpoint: string, parameters: Record<string, any> = {}): Promise<string> {
     const input: Record<string, any> = {
-        prompt: prompt,
         enable_safety_checker: false,
         enable_prompt_expansion: false,
         negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts',
-        ...parameters
+        ...parameters,
+        prompt: prompt, // Prompt goes last to ensure it's never overridden
     }
+
+    console.log('FAL AI Test Generation:', {
+        endpoint,
+        parameters,
+        finalInput: input
+    })
 
     const result = await fal.subscribe(endpoint, {
         input,
@@ -103,7 +109,7 @@ async function generateWithFalAI(prompt: string, endpoint: string, parameters: R
     }
 }
 
-async function generateWithVeniceAI(prompt: string, model: string): Promise<string> {
+async function generateWithVeniceAI(prompt: string, model: string, parameters: Record<string, any> = {}): Promise<string> {
     const config = useRuntimeConfig()
     const apiKey = config.veniceKey
 
@@ -111,19 +117,28 @@ async function generateWithVeniceAI(prompt: string, model: string): Promise<stri
         throw new Error('VENICE_AI_API_KEY environment variable is required')
     }
 
+    const requestBody = {
+        width: 1024,
+        height: 1024,
+        num_outputs: 1,
+        ...parameters,
+        model: model,
+        prompt: prompt, // Prompt goes last to ensure it's never overridden
+    }
+
+    console.log('Venice AI Test Generation:', {
+        model,
+        parameters,
+        finalBody: requestBody
+    })
+
     const response = await fetch('https://api.venice.ai/api/v1/image/generate', {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            model: model,
-            prompt: prompt,
-            width: 1024,
-            height: 1024,
-            num_outputs: 1
-        }),
+        body: JSON.stringify(requestBody),
     })
 
     if (!response.ok) {
