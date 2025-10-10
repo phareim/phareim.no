@@ -1,6 +1,7 @@
 <template>
-  <a :href="href" target="_blank">
-    <svg v-html="computedSvgContent" :class="cssClass" :width="width" :height="height" :viewBox="computedViewBox"></svg>
+  <a :href="href" target="_blank" class="social-link" :class="cssClass">
+    <img v-if="isImageType" :src="computedImageSrc" :class="cssClass" :width="computedWidth" :height="computedHeight" alt="Social link" />
+    <svg v-else v-html="computedSvgContent" :class="cssClass" :width="computedWidth" :height="computedHeight" :viewBox="computedViewBox"></svg>
   </a>
 </template>
 
@@ -25,6 +26,11 @@ const SVG_DEFINITIONS = {
   miles: {
     content: `<path d="M14.7,10.8C14.7,10.8,14.7,10.8,14.7,10.8c-5,0-9.1-4.1-9-9.1c0,0,0,0,0,0H0V31h5.7V12.7 c0.1,0.2,0.3,0.4,0.5,0.5c2.4,1.9,5.5,2.9,8.5,2.9c3.1,0,6.1-1,8.5-2.9c0.2-0.1,0.3-0.3,0.5-0.5V31h5.7V1.7h-5.7 C23.7,6.7,19.7,10.8,14.7,10.8z">`,
     viewBox: '00 0 44 32'
+  },
+  kreftforeningen: {
+    image: '/kreftforeningen.png',
+    width: '46',
+    height: '46',
   }
 }
 
@@ -38,7 +44,7 @@ export default {
     type: {
       type: String,
       required: true,
-      validator: (value) => ['linkedin', 'bluesky', 'github', 'google', 'miles'].includes(value)
+      validator: (value) => ['linkedin', 'bluesky', 'github', 'google', 'miles', 'kreftforeningen'].includes(value)
     },
     svgContent: {
       type: String,
@@ -62,6 +68,18 @@ export default {
     }
   },
   computed: {
+    isImageType() {
+      return !!SVG_DEFINITIONS[this.type]?.image;
+    },
+    computedImageSrc() {
+      return SVG_DEFINITIONS[this.type]?.image || '';
+    },
+    computedWidth() {
+      return SVG_DEFINITIONS[this.type]?.width || this.width;
+    },
+    computedHeight() {
+      return SVG_DEFINITIONS[this.type]?.height || this.height;
+    },
     computedSvgContent() {
       if (this.svgContent) return this.svgContent;
       return SVG_DEFINITIONS[this.type]?.content || '';
@@ -79,9 +97,12 @@ a {
   margin: 0 10px;
 }
 
-svg {
+a.kreftforeningen {
+  margin: 0 !important;
+}
+svg, img {
   fill: #333;
-  transition: transform 0.7s;
+  transition: transform 1.2s;
   transition-timing-function: ease-in-out;
 }
 
@@ -91,10 +112,12 @@ svg {
   }
 }
 
-svg:hover {
-  transform: scale(1.4) rotate(-2deg);
+svg:hover, img:hover {
+  transform: scale(1) rotate(-22deg);
 }
-
+img.kreftforeningen:hover {
+  transform: scale(1) rotate(-180deg);
+}
 .miles:hover {
   fill: #b8261c;
 }

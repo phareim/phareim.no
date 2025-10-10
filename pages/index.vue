@@ -42,6 +42,11 @@
             type="miles"
             css-class="miles"
           />
+          <SocialLink 
+            href="https://innsamling.stafettforlivet.no/fundraisers/teamulrikke"
+            type="kreftforeningen"
+            css-class="kreftforeningen"
+          />
         </div>
       </div>
     </div>
