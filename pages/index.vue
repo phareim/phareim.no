@@ -38,7 +38,7 @@
             type="google"
           />
           <SocialLink 
-            href="https://www.miles.no/ansatte/petter-hareim/"
+            href="https://www.miles.no/kontakt-oss"
             type="miles"
             css-class="miles"
           />

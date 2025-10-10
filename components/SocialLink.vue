@@ -113,10 +113,10 @@ svg, img {
 }
 
 svg:hover, img:hover {
-  transform: scale(1) rotate(-22deg);
+  transform: scale(2) rotate(-22deg);
 }
 img.kreftforeningen:hover {
-  transform: scale(1) rotate(-180deg);
+  transform: scale(2) rotate(-180deg);
 }
 .miles:hover {
   fill: #b8261c;
