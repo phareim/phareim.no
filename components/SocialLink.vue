@@ -113,7 +113,7 @@ svg, img {
 }
 
 svg:hover, img:hover {
-  transform: scale(2) rotate(-22deg);
+  transform: scale(2);
 }
 img.kreftforeningen:hover {
   transform: scale(2) rotate(-180deg);
