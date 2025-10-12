@@ -2,6 +2,7 @@ import { fal } from '@fal-ai/client'
 import { storage } from '~/server/utils/firebase-admin'
 import { v4 as uuidv4 } from 'uuid'
 import { getModelConfig } from '~/server/utils/ai-models'
+import { generateWithVeniceAI } from '~/server/utils/image-generation'
 
 interface ImageGenerationRequest {
     prompt: string
@@ -47,7 +48,14 @@ export default defineEventHandler(async (event): Promise<ImageGenerationResponse
         // Generate image based on server type
         let imageUrl: string
         if (modelConfig.server === 'venice-ai') {
-            imageUrl = await generateWithVeniceAI(prompt, modelConfig.endpoint, imageSize)
+            // Convert imageSize to dimensions for Venice AI
+            const dimensions = getImageDimensions(imageSize)
+            imageUrl = await generateWithVeniceAI(prompt, modelConfig.endpoint, {
+                width: dimensions.width,
+                height: dimensions.height,
+                cfg_scale: 5,
+                style_preset: 'Photographic'
+            })
         } else {
             imageUrl = await generateWithFalAI(prompt, modelConfig.endpoint, imageSize)
         }
@@ -91,55 +99,6 @@ async function generateWithFalAI(prompt: string, endpoint: string, imageSize: st
         return result.data.images[0].url
     } else {
         throw new Error('No image generated from FAL.AI')
-    }
-}
-
-async function generateWithVeniceAI(prompt: string, model: string, imageSize: string): Promise<string> {
-    const apiKey = process.env.VENICE_AI_API_KEY
-    if (!apiKey) {
-        throw new Error('VENICE_AI_API_KEY environment variable is required')
-    }
-
-    // Convert imageSize to dimensions
-    const dimensions = getImageDimensions(imageSize)
-
-    const response = await fetch('https://api.venice.ai/api/v1/image/generate', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            model: model,
-            prompt: prompt,
-            width: dimensions.width,
-            height: dimensions.height,
-            cfg_scale: 5,
-            lora_strength: 100,
-            steps: 30,
-            style_preset: 'Photographic',
-            negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts',
-            hide_watermark: true,
-            variants: 1,
-            safe_mode: false,
-            return_binary: false,
-            format: 'webp',
-            embed_exif_metadata: false
-        })
-    })
-
-    if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Venice AI API error: ${response.status} ${errorText}`)
-    }
-
-    const data = await response.json()
-
-    if (data.images && data.images.length > 0) {
-        const base64Image = data.images[0]
-        return `data:image/webp;base64,${base64Image}`
-    } else {
-        throw new Error('No image generated from Venice AI')
     }
 }
 

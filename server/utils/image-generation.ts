@@ -90,7 +90,7 @@ async function generateWithFalAI(prompt: string, endpoint: string, parameters: R
     }
 }
 
-async function generateWithVeniceAI(prompt: string, model: string, parameters: Record<string, any> = {}): Promise<string> {
+export async function generateWithVeniceAI(prompt: string, model: string, parameters: Record<string, any> = {}): Promise<string> {
     console.log('Generating with Venice AI:', prompt, model)
     const apiKey = process.env.VENICE_AI_API_KEY
     if (!apiKey) {
@@ -101,7 +101,7 @@ async function generateWithVeniceAI(prompt: string, model: string, parameters: R
     const requestBody = {
         width: 720,
         height: 1280,
-        cfg_scale: 5,
+        cfg_scale: 4,
         lora_strength: 100,
         steps: 30,
         style_preset: 'Analog Film',
