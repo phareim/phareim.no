@@ -12,11 +12,12 @@ const menuItems = [
   { path: '/drafts/places', title: 'RPG Place Generator', icon: '🏞️', external: false },
   { path: '/drafts/character', title: 'Character Sheet', icon: '🧙‍♀️', external: false },
   { path: '/drafts/new-character', title: 'Create Character', icon: '✨', external: false },
-  { path: '/drafts/dot', title: 'Red dot game', icon: '🔴', external: true },
-  { path: '/drafts/librarian', title: 'The Librarian', icon: '📚', external: true },
+  { path: 'https://dot.phareim.no', title: 'Red dot game', icon: '🔴', external: true },
+  { path: 'https://librarian.phareim.no', title: 'The Librarian', icon: '📚', external: true },
+  { path: 'https://reader.phareim.no', title: 'RSS Reader', icon: '📰', external: true }
 ]
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event: any) => {
   const query = getQuery(event)
   const titleQuery = query.title;
 
