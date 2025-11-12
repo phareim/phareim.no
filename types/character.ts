@@ -23,6 +23,7 @@ export interface Character {
         walk_in?: string;
         walk_out?: string;
         idle?: string;
+        idle_laugh?: string;
     },
     level?: number;          // Character level (1-20)
     hitPoints?: {

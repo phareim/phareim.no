@@ -61,7 +61,7 @@
         <div class="character-stats">
           <h2>Stats</h2>
           <div class="stats-grid">
-            <div class="stat-item" v-for="stat in character.stats" :key="stat.label">
+            <div class="stat-item" v-for="stat in statsArray" :key="stat.label">
               <span class="stat-label">{{ stat.label }}</span>
               <span class="stat-value">{{ stat.value }}</span>
             </div>
@@ -106,6 +106,21 @@ const canEdit = computed(() => {
   // Hardcoded characters have these specific IDs
   const hardcodedIds = ['eddie', 'Joan-Rover', 'Yukiko-Kudou', 'aria-kling']
   return !hardcodedIds.includes(character.value.id)
+})
+
+// Computed property to convert stats object to array for display
+const statsArray = computed(() => {
+  if (!character.value?.stats) return []
+
+  const stats = character.value.stats
+  const order = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma']
+
+  return order
+    .filter(key => stats[key] !== undefined)
+    .map(key => ({
+      label: key.charAt(0).toUpperCase() + key.slice(1),
+      value: stats[key]
+    }))
 })
 
 // Edit character function

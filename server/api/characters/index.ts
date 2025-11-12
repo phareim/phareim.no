@@ -79,14 +79,14 @@ async function getCharacters() {
             title: "Hamster",
             imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/f7Qt6IFAP2JnhfJWIUrwn.jpg?alt=media&token=8dbdbf83-b758-4b6e-a404-5392ed235769",
             background: "Eddie is a hamster who is a great friend of the Resistance. He is a very smart and resourceful hamster who is always looking for a way to help the Resistance.",
-            stats: [
-                { label: "Strength", value: "1" },
-                { label: "Dexterity", value: "18" },
-                { label: "Intelligence", value: "1" },
-                { label: "Wisdom", value: "1" },
-                { label: "Constitution", value: "1" },
-                { label: "Charisma", value: "22" }
-            ],
+            stats: {
+                strength: 1,
+                dexterity: 18,
+                intelligence: 1,
+                wisdom: 1,
+                constitution: 1,
+                charisma: 22
+            },
             videoUrls: {
                 walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/hamster_walks_in.mp4?alt=media&token=2da80043-a482-47c3-a437-c5426564ae51",
                 walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/hamster_walks_of.mp4?alt=media&token=d5ac2065-2593-4d76-bbe8-8b26d42d87ef",
@@ -108,14 +108,14 @@ async function getCharacters() {
             title: "Librarian of the Resistence",
             imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/LNLXkHr5mXJAkzmbkxZLs.jpeg?alt=media&token=a4b1dd79-c1bd-45d8-b947-0520f17dcb4e",
             background: "Joan is a librarian of the Resistance. She is a smart and resourceful woman who is always looking for a way to help the Resistance.",
-            stats: [
-                { label: "Strength", value: "10" },
-                { label: "Dexterity", value: "12" },
-                { label: "Intelligence", value: "19" },
-                { label: "Wisdom", value: "17" },
-                { label: "Constitution", value: "13" },
-                { label: "Charisma", value: "15" }
-            ],
+            stats: {
+                strength: 10,
+                dexterity: 12,
+                intelligence: 19,
+                wisdom: 17,
+                constitution: 13,
+                charisma: 15
+            },
             videoUrls: {
                 walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/librarian_walk_in.mp4?alt=media&token=d74ae5f6-8fc9-4196-8d56-1437f2d5b0ce",
                 walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/librarian_walks_out.mp4?alt=media&token=ee321c30-d9a5-4bfe-b315-f8ffaecc0ad0",
@@ -139,14 +139,14 @@ async function getCharacters() {
             title: "Mech Pilot",
             imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/zfS3QmN26_za-aGDC8lyt.jpg?alt=media&token=b4a548fa-402f-4f62-8837-3b76f968f026",
             background: "Yukiko is a mech pilot of the Resistance. She is a strong and resourceful woman who is always looking for a way to help the Resistance.",
-            stats: [
-                { label: "Strength", value: "12" },
-                { label: "Dexterity", value: "19" },
-                { label: "Intelligence", value: "16" },
-                { label: "Wisdom", value: "12" },
-                { label: "Constitution", value: "14" },
-                { label: "Charisma", value: "18" }
-            ],
+            stats: {
+                strength: 12,
+                dexterity: 19,
+                intelligence: 16,
+                wisdom: 12,
+                constitution: 14,
+                charisma: 18
+            },
             videoUrls: {
                 walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/pilot_walks_in.mp4?alt=media&token=4279a64c-4dba-4d1e-bd52-177e9ddf40c5",
                 walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/pilot_walks_out.mp4?alt=media&token=fdbddd80-9bca-40bd-a200-79f306d9c266"
@@ -168,14 +168,14 @@ async function getCharacters() {
             title: "Gundam Fighter Pilot",
             imageUrl: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/iE2tXbWU13A-Zyy2hZaHh.jpeg?alt=media&token=a8418aa2-7bd4-44aa-a407-5eb7fdac901c",
             background: "Born in the outskirts of Neo Tokyo, Aria discovered her unique ability to pilot Gundam at a young age. After her village was destroyed by dark forces, she dedicated her life to hunting down those who threaten the innocent. Her keen eyes and steady hands make her a formidable opponent from any distance.",
-            stats: [
-                { label: "Strength", value: "14" },
-                { label: "Dexterity", value: "18" },
-                { label: "Intelligence", value: "16" },
-                { label: "Wisdom", value: "15" },
-                { label: "Constitution", value: "13" },
-                { label: "Charisma", value: "12" }
-            ],
+            stats: {
+                strength: 14,
+                dexterity: 18,
+                intelligence: 16,
+                wisdom: 15,
+                constitution: 13,
+                charisma: 12
+            },
             videoUrls: {
                 walk_in: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/blue-walk-in.mp4?alt=media&token=65556ebd-c13f-4d91-b920-2d0b2960bfcc",
                 walk_out: "https://firebasestorage.googleapis.com/v0/b/phareim-no.firebasestorage.app/o/blue-walk-out.mp4?alt=media&token=9b8a1b52-05b0-47e9-9546-434c83240e56",
