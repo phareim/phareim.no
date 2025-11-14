@@ -50,17 +50,29 @@ export default defineEventHandler(async (event) => {
 
     const variedPrompt = completion.choices[0].message.content || basePrompt
 
-    const input: Record<string, any> = {
-      prompt: variedPrompt
-    }
-
-    // Add dimensions if provided
+    // Determine the best image_size based on dimensions
+    let imageSize = 'landscape_16_9' // default
     if (width && height) {
-      input.image_size = {
-        width,
-        height
+      const aspectRatio = width / height
+      const isPortrait = aspectRatio < 1
+      const isSquare = Math.abs(aspectRatio - 1) < 0.1 // within 10% of square
+
+      if (isSquare) {
+        imageSize = 'square_hd'
+      } else if (isPortrait) {
+        // Portrait: 4:3 = 0.75, 16:9 = 0.5625
+        imageSize = aspectRatio > 0.7 ? 'portrait_4_3' : 'portrait_16_9'
+      } else {
+        // Landscape: 4:3 = 1.33, 16:9 = 1.77
+        imageSize = aspectRatio < 1.5 ? 'landscape_4_3' : 'landscape_16_9'
       }
     }
+
+    const input: Record<string, any> = {
+      prompt: variedPrompt,
+      image_size: imageSize
+    }
+
     const result = await invokeFalEndpoint('fal-ai/flux-krea-lora', input, {
       logs: true
     })
