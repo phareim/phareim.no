@@ -25,11 +25,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 
 const isLoading = ref(false)
 const currentImageUrl = ref<string | null>(null)
 const error = ref<string | null>(null)
+
+const { getRandomPrompt } = useImagePrompts()
 
 const backgroundStyle = computed(() => {
   if (currentImageUrl.value) {
@@ -48,31 +50,8 @@ async function generateImage() {
   error.value = null
 
   try {
-    // Get auth token if user is logged in
-    const { $firebase } = useNuxtApp()
-    const auth = $firebase?.auth
-    let authToken = null
-
-    if (auth?.currentUser) {
-      try {
-        authToken = await auth.currentUser.getIdToken()
-      } catch (e) {
-        console.warn('Failed to get auth token:', e)
-      }
-    }
-
-    // Step 1: Fetch a random prompt
-    const headers: HeadersInit = {}
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`
-    }
-
-    const promptResponse = await fetch('/api/image-prompts/random', { headers })
-    const promptData = await promptResponse.json()
-
-    if (promptData.error) {
-      throw new Error(promptData.error)
-    }
+    // Step 1: Fetch a random prompt (automatically handles auth)
+    const promptData = await getRandomPrompt()
 
     // Step 2: Get screen dimensions
     const width = window.innerWidth
@@ -103,11 +82,6 @@ async function generateImage() {
     isLoading.value = false
   }
 }
-
-// Generate an image on mount if desired, or leave it for user action
-// onMounted(() => {
-//   generateImage()
-// })
 </script>
 
 <style scoped>
