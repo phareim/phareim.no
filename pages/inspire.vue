@@ -61,8 +61,8 @@ async function generateImage() {
     const width = window.innerWidth
     const height = window.innerHeight
 
-    // Step 3: Generate image with varied prompt
-    const imageResponse = await fetch('/api/generate-krea-image', {
+    // Step 3: Start image generation job
+    const startResponse = await fetch('/api/generate-krea-image/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -72,19 +72,51 @@ async function generateImage() {
       })
     })
 
-    const imageData = await imageResponse.json()
+    const startData = await startResponse.json()
 
-    if (imageData.error) {
-      throw new Error(imageData.error)
+    if (startData.error) {
+      throw new Error(startData.error)
     }
 
-    currentImageUrl.value = imageData.imageUrl
+    const jobId = startData.jobId
+
+    // Step 4: Poll for job completion
+    await pollJobStatus(jobId)
   } catch (e: any) {
     error.value = e.message || 'Failed to generate image'
     console.error('Error generating image:', e)
   } finally {
     isLoading.value = false
   }
+}
+
+async function pollJobStatus(jobId: string) {
+  const maxAttempts = 120 // 2 minutes max (polling every 1 second)
+  let attempts = 0
+
+  while (attempts < maxAttempts) {
+    const statusResponse = await fetch(`/api/generate-krea-image/status/${jobId}`)
+    const statusData = await statusResponse.json()
+
+    if (statusData.error && statusData.status === 404) {
+      throw new Error('Job not found')
+    }
+
+    if (statusData.status === 'completed') {
+      currentImageUrl.value = statusData.imageUrl
+      return
+    }
+
+    if (statusData.status === 'failed') {
+      throw new Error(statusData.error || 'Image generation failed')
+    }
+
+    // Wait 1 second before polling again
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    attempts++
+  }
+
+  throw new Error('Image generation timed out')
 }
 </script>
 
