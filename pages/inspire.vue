@@ -34,8 +34,9 @@ const error = ref<string | null>(null)
 
 const { getRandomPrompt } = useImagePrompts()
 
-// Get category from URL query params
+// Get category and model from URL query params
 const category = computed(() => route.query.category as string | undefined)
+const model = computed(() => route.query.model as string | undefined)
 
 const backgroundStyle = computed(() => {
   if (currentImageUrl.value) {
@@ -68,7 +69,8 @@ async function generateImage() {
       body: JSON.stringify({
         basePrompt: promptData.prompt,
         width,
-        height
+        height,
+        model: model.value
       })
     })
 
