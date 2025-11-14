@@ -5,6 +5,7 @@ const menuItems = [
   { path: '/', title: 'Home', icon: '🏚️' },
   { path: '/drafts/about', title: 'About', icon: '📄' },
   { path: '/drafts/bounce', title: 'Bounce', icon: '⚽️' },
+  { path: '/inspire', title: 'Inspire', icon: '✨' },
   { path: '/drafts/image-generator', title: 'Image', icon: '👩🏻‍🎨' },
   { path: '/drafts/random-fact', title: 'Random Fact', icon: '🎲', external: false },
   { path: '/blog', title: 'Blog', icon: '📬' },

@@ -9,7 +9,8 @@
     "postinstall": "nuxt prepare",
     "populate-models": "npx tsx scripts/populate-model-definitions.ts",
     "populate-venice-models": "npx tsx scripts/populate-venice-models.ts",
-    "migrate-image-prompts": "npx tsx scripts/migrate-image-prompts.ts"
+    "migrate-image-prompts": "npx tsx scripts/migrate-image-prompts.ts",
+    "migrate-initial-prompts": "npx tsx scripts/migrate-initial-prompts.ts"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
