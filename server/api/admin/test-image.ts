@@ -42,14 +42,6 @@ export default defineEventHandler(async (event) => {
         // Build the full prompt for display
         const fullPrompt = buildPrompt(modelDef, userPrompt, selectedStyle)
 
-        console.log('Test image generation:', {
-            modelId,
-            modelName: modelDef.name,
-            userPrompt,
-            selectedStyle,
-            fullPrompt
-        })
-
         // Use the same generation function as character creation
         const imageUrl = await generateCharacterImage(userPrompt, {
             style: selectedStyle,
