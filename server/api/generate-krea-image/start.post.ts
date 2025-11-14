@@ -7,10 +7,11 @@ import { createJob, updateJob } from '~/server/utils/job-storage'
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event)
-    const { basePrompt, width, height } = body as {
+    const { basePrompt, width, height, model } = body as {
       basePrompt: string
       width?: number
       height?: number
+      model?: string
     }
 
     if (!basePrompt) {
@@ -21,7 +22,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Create a job immediately
-    const job = createJob(basePrompt, width, height)
+    const job = createJob(basePrompt, width, height, model)
 
     // Start processing in the background (don't await)
     processImageGeneration(job.id).catch(error => {
@@ -91,7 +92,10 @@ async function processImageGeneration(jobId: string) {
     input.height = job.height
   }
 
-  const result = await invokeFalEndpoint('fal-ai/flux-krea-lora', input, {
+  // Use the model from the job, or default to flux-krea-lora
+  const endpoint = job.model || 'fal-ai/flux-krea-lora'
+
+  const result = await invokeFalEndpoint(endpoint, input, {
     logs: true
   })
 

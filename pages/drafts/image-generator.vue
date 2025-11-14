@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import type { ModelDefinition } from '~/types/model-definition'
 
 const route = useRoute()
@@ -91,6 +91,24 @@ const modelGroups = computed(() => {
     .filter(group => group.models.length > 0)
 })
 
+// Detect viewport orientation and set appropriate image size
+function setImageSizeFromViewport() {
+  if (typeof window === 'undefined') return
+
+  const width = window.innerWidth
+  const height = window.innerHeight
+  const aspectRatio = width / height
+
+  // Determine if viewport is portrait or landscape
+  if (aspectRatio < 1) {
+    // Portrait viewport - use portrait image
+    imageSize.value = 'portrait_16_9'
+  } else {
+    // Landscape viewport - use landscape image
+    imageSize.value = 'landscape_16_9'
+  }
+}
+
 onMounted(async () => {
   try {
     const res = await fetch('/api/model-definitions')
@@ -107,6 +125,19 @@ onMounted(async () => {
     }
   } catch (e) {
     console.error('Failed to load model definitions:', e)
+  }
+
+  // Set initial image size based on viewport
+  setImageSizeFromViewport()
+
+  // Update image size when viewport changes
+  window.addEventListener('resize', setImageSizeFromViewport)
+})
+
+// Clean up event listener
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', setImageSizeFromViewport)
   }
 })
 

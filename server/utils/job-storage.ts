@@ -7,6 +7,7 @@ export interface ImageGenerationJob {
   basePrompt: string
   width?: number
   height?: number
+  model?: string
   imageUrl?: string
   variedPrompt?: string
   error?: string
@@ -27,7 +28,7 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000) // Run cleanup every 5 minutes
 
-export function createJob(basePrompt: string, width?: number, height?: number): ImageGenerationJob {
+export function createJob(basePrompt: string, width?: number, height?: number, model?: string): ImageGenerationJob {
   const id = generateJobId()
   const job: ImageGenerationJob = {
     id,
@@ -35,6 +36,7 @@ export function createJob(basePrompt: string, width?: number, height?: number): 
     basePrompt,
     width,
     height,
+    model,
     createdAt: new Date()
   }
   jobs.set(id, job)
