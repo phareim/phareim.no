@@ -50,6 +50,7 @@ export default defineEventHandler(async (event) => {
 
     const variedPrompt = completion.choices[0].message.content || basePrompt
 
+    
     const input: Record<string, any> = {
       prompt: variedPrompt
     }
@@ -59,7 +60,9 @@ export default defineEventHandler(async (event) => {
       input.width = width
       input.height = height
     }
-
+    const input: Record<string, any> = {
+      prompt: variedPrompt,
+      
     const result = await invokeFalEndpoint('fal-ai/flux-krea-lora', input, {
       logs: true
     })
