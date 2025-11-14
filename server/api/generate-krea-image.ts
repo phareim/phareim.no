@@ -54,13 +54,12 @@ export default defineEventHandler(async (event) => {
       prompt: variedPrompt
     }
 
-    // Add dimensions if provided
+    // flux-krea-lora uses width/height directly, not image_size
     if (width && height) {
-      input.image_size = {
-        width,
-        height
-      }
+      input.width = width
+      input.height = height
     }
+
     const result = await invokeFalEndpoint('fal-ai/flux-krea-lora', input, {
       logs: true
     })
