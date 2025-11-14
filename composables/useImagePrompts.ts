@@ -34,10 +34,14 @@ export const useImagePrompts = () => {
 
   /**
    * Get a random prompt (uses user-specific prompts if authenticated)
+   * @param category - Optional category filter
    */
-  const getRandomPrompt = async (): Promise<RandomPromptResponse> => {
+  const getRandomPrompt = async (category?: string): Promise<RandomPromptResponse> => {
     const headers = await getAuthHeaders()
-    const response = await fetch('/api/image-prompts/random', { headers })
+    const url = category
+      ? `/api/image-prompts/random?category=${encodeURIComponent(category)}`
+      : '/api/image-prompts/random'
+    const response = await fetch(url, { headers })
 
     if (!response.ok) {
       const error = await response.json()

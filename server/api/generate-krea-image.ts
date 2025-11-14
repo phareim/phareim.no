@@ -49,8 +49,6 @@ export default defineEventHandler(async (event) => {
     })
 
     const variedPrompt = completion.choices[0].message.content || basePrompt
-    console.log('Original prompt:', basePrompt)
-    console.log('Varied prompt:', variedPrompt)
 
     // Step 2: Configure FAL client and generate image with Krea
     if (config.falKey) {
@@ -70,18 +68,13 @@ export default defineEventHandler(async (event) => {
         height
       }
     }
-
+    let progress = 0;
     const result = await fal.subscribe('fal-ai/flux-krea-lora', {
       input,
       logs: true,
       onQueueUpdate: (update: any) => {
-        if (update.status === 'IN_PROGRESS') {
-          update.logs?.map((log: any) => log.message).forEach(console.log)
-        }
       }
     })
-
-    console.log('Image generated:', result.requestId)
 
     // Extract image URL from result
     if (result.data && result.data.images && result.data.images.length > 0) {

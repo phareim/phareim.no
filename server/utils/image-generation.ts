@@ -50,9 +50,6 @@ export async function generateCharacterImage(userPrompt: string, context: ImageG
     // Use model definition's buildPrompt helper to construct final prompt
     const fullPrompt = buildPrompt(modelDef, contextualUserPrompt, style)
 
-    console.log('Full prompt for generation:', fullPrompt)
-    console.log('Using model:', modelDef.name, 'endpoint:', modelDef.endpoint)
-
     // Route to appropriate API based on model type
     if (modelDef.type === 'venice') {
         return await generateWithVeniceAI(fullPrompt, modelDef.endpoint, modelDef.parameters)
@@ -72,8 +69,6 @@ async function generateWithFalAI(prompt: string, endpoint: string, parameters: R
         ...parameters // Merge model-specific parameters
     }
 
-    console.log('FAL AI input parameters:', input)
-
     const result = await fal.subscribe(endpoint, {
         input,
         logs: true,
@@ -91,7 +86,6 @@ async function generateWithFalAI(prompt: string, endpoint: string, parameters: R
 }
 
 export async function generateWithVeniceAI(prompt: string, model: string, parameters: Record<string, any> = {}): Promise<string> {
-    console.log('Generating with Venice AI:', prompt, model)
     const apiKey = process.env.VENICE_AI_API_KEY
     if (!apiKey) {
         throw new Error('VENICE_AI_API_KEY environment variable is required')

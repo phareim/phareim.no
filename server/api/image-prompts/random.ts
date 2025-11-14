@@ -1,4 +1,4 @@
-import { defineEventHandler } from 'h3'
+import { defineEventHandler, getQuery } from 'h3'
 import { db } from '~/server/utils/firebase-admin'
 import { getAuthenticatedUserId } from '~/server/utils/user-auth'
 
@@ -36,6 +36,10 @@ export default defineEventHandler(async (event) => {
     // Check if user is authenticated
     const userId = await getAuthenticatedUserId(event)
 
+    // Get category from query params
+    const query = getQuery(event)
+    const category = query.category as string | undefined
+
     let snapshot
 
     if (userId) {
@@ -62,18 +66,33 @@ export default defineEventHandler(async (event) => {
     }
 
     // Convert to array
-    const prompts = snapshot.docs.map(doc => ({
+    let prompts = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }))
 
-    // Select a random prompt
-    const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)]
+    // Filter by category if provided
+    if (category) {
+      prompts = prompts.filter(p => p.category === category)
+      console.log(`Filtered to ${prompts.length} prompts for category: ${category}`)
 
+      if (prompts.length === 0) {
+        return {
+          error: `No prompts found for category: ${category}`,
+          status: 404
+        }
+      }
+    }
+
+    // Select a random prompt
+    console.log('Number of Prompts:', prompts.length)
+    const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)]
+    console.log('Random Prompt:', randomPrompt)
     return {
       prompt: randomPrompt.prompt || randomPrompt.text,
       id: randomPrompt.id,
-      isUserSpecific: !!userId
+      isUserSpecific: !!userId,
+      category: randomPrompt.category
     }
   } catch (error: any) {
     console.error('Error fetching random prompt:', error)

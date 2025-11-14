@@ -27,11 +27,15 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 
+const route = useRoute()
 const isLoading = ref(false)
 const currentImageUrl = ref<string | null>(null)
 const error = ref<string | null>(null)
 
 const { getRandomPrompt } = useImagePrompts()
+
+// Get category from URL query params
+const category = computed(() => route.query.category as string | undefined)
 
 const backgroundStyle = computed(() => {
   if (currentImageUrl.value) {
@@ -51,7 +55,7 @@ async function generateImage() {
 
   try {
     // Step 1: Fetch a random prompt (automatically handles auth)
-    const promptData = await getRandomPrompt()
+    const promptData = await getRandomPrompt(category.value)
 
     // Step 2: Get screen dimensions
     const width = window.innerWidth
