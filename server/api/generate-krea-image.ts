@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody } from 'h3'
-import { fal } from '@fal-ai/client'
 import OpenAI from 'openai'
 import { useRuntimeConfig } from '#imports'
+import { invokeFalEndpoint } from '~/server/utils/image-providers'
 
 export default defineEventHandler(async (event) => {
   if (event.method !== 'POST') {
@@ -50,13 +50,6 @@ export default defineEventHandler(async (event) => {
 
     const variedPrompt = completion.choices[0].message.content || basePrompt
 
-    // Step 2: Configure FAL client and generate image with Krea
-    if (config.falKey) {
-      fal.config({
-        credentials: config.falKey as string
-      })
-    }
-
     const input: Record<string, any> = {
       prompt: variedPrompt
     }
@@ -68,12 +61,8 @@ export default defineEventHandler(async (event) => {
         height
       }
     }
-    let progress = 0;
-    const result = await fal.subscribe('fal-ai/flux-krea-lora', {
-      input,
-      logs: true,
-      onQueueUpdate: (update: any) => {
-      }
+    const result = await invokeFalEndpoint('fal-ai/flux-krea-lora', input, {
+      logs: true
     })
 
     // Extract image URL from result

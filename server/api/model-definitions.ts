@@ -1,6 +1,5 @@
-import { db } from '~/server/utils/firebase-admin'
 import type { ModelDefinition } from '~/types/model-definition'
-import { modelDefinitionsCollection } from '~/types/model-definition'
+import { getEnabledModelDefinitions } from '~/server/utils/model-definitions'
 
 export default defineEventHandler(async (event) => {
     const method = getMethod(event)
@@ -25,42 +24,8 @@ export default defineEventHandler(async (event) => {
 })
 
 async function getModelDefinitions(): Promise<ModelDefinition[]> {
-    const modelDefinitions: ModelDefinition[] = []
-
     try {
-        // Fetch model definitions from Firebase
-        const snapshot = await db.collection(modelDefinitionsCollection).get()
-
-        snapshot.forEach(doc => {
-            const data = doc.data()
-            const modelDef: ModelDefinition = {
-                id: doc.id,
-                name: data.name,
-                icon: data.icon,
-                description: data.description,
-                enabled: data.enabled !== undefined ? data.enabled : true,
-                endpoint: data.endpoint,
-                type: data.type,
-                basePrompt: data.basePrompt,
-                promptSuffix: data.promptSuffix,
-                parameters: data.parameters || {},
-                supportedStyles: data.supportedStyles || [],
-                priority: data.priority || 999,
-                createdAt: data.createdAt?.toDate(),
-                updatedAt: data.updatedAt?.toDate()
-            }
-
-            // Only include enabled models
-            if (modelDef.enabled) {
-                modelDefinitions.push(modelDef)
-            }
-        })
-
-        // Sort by priority (lower = first)
-        modelDefinitions.sort((a, b) => a.priority - b.priority)
-
-        return modelDefinitions
-
+        return await getEnabledModelDefinitions()
     } catch (error) {
         console.error('Error fetching model definitions from Firebase:', error)
         throw error

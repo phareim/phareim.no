@@ -15,13 +15,13 @@
       <div class="field">
         <label class="field-label">AI Model</label>
         <select v-model="selectedModel" class="field-select">
-          <optgroup v-for="group in modelGroups" :key="group.server" :label="group.label">
+          <optgroup v-for="group in modelGroups" :key="group.type" :label="group.label">
             <option
               v-for="model in group.models"
-              :key="model.value"
-              :value="model.value"
+              :key="model.id"
+              :value="model.id"
             >
-              {{ model.icon }} {{ model.title }} - {{ model.description }}
+              {{ model.icon }} {{ model.name }} - {{ model.description }}
             </option>
           </optgroup>
         </select>
@@ -56,15 +56,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-
-interface AIModel {
-  value: string
-  title: string
-  icon: string
-  endpoint: string
-  description: string
-  server: string
-}
+import type { ModelDefinition } from '~/types/model-definition'
 
 const prompt = ref('')
 const selectedModel = ref('srpo')
@@ -80,34 +72,31 @@ const imageSize = ref<
 const loading = ref(false)
 const resultUrl = ref<string | null>(null)
 const error = ref<string | null>(null)
-const aiModels = ref<AIModel[]>([])
+const modelDefinitions = ref<ModelDefinition[]>([])
 
-// Group models by server for better organization
+const modelTypeLabels: Record<ModelDefinition['type'], string> = {
+  fal: 'FAL.AI Models',
+  venice: 'Venice AI Models',
+  openai: 'OpenAI Models',
+  external: 'External Models'
+}
+
 const modelGroups = computed(() => {
-  const groups: { server: string; label: string; models: AIModel[] }[] = []
-
-  const falModels = aiModels.value.filter(m => m.server === 'fal-ai')
-  const veniceModels = aiModels.value.filter(m => m.server === 'venice-ai')
-
-  if (falModels.length > 0) {
-    groups.push({ server: 'fal-ai', label: 'FAL.AI Models', models: falModels })
-  }
-
-  if (veniceModels.length > 0) {
-    groups.push({ server: 'venice-ai', label: 'Venice AI Models', models: veniceModels })
-  }
-
-  return groups
+  return (Object.keys(modelTypeLabels) as ModelDefinition['type'][]).map(type => ({
+    type,
+    label: modelTypeLabels[type],
+    models: modelDefinitions.value.filter(model => model.type === type)
+  }))
+    .filter(group => group.models.length > 0)
 })
 
 onMounted(async () => {
-  // Load available AI models
   try {
-    const res = await fetch('/api/ai-models')
+    const res = await fetch('/api/model-definitions')
     const data = await res.json()
-    aiModels.value = data
+    modelDefinitions.value = data
   } catch (e) {
-    console.error('Failed to load AI models:', e)
+    console.error('Failed to load model definitions:', e)
   }
 })
 

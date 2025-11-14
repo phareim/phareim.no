@@ -1,6 +1,5 @@
 import { defineEventHandler, readBody } from 'h3'
-import { fal } from '@fal-ai/client'
-import { useRuntimeConfig } from '#imports'
+import { invokeFalEndpoint } from '~/server/utils/image-providers'
 
 export default defineEventHandler(async (event) => {
   // Only POST requests are allowed
@@ -41,14 +40,6 @@ export default defineEventHandler(async (event) => {
         error: 'image_url is required for tiers other than "new"',
         status: 400
       }
-    }
-
-    // Configure the fal client if we have credentials set on the server
-    const config = useRuntimeConfig()
-    if (config.falKey) {
-      fal.config({
-        credentials: config.falKey as string
-      })
     }
 
     // Determine which FLUX tier/endpoint to use
@@ -93,12 +84,8 @@ export default defineEventHandler(async (event) => {
       input.image_url = image_url
     }
 
-    const result = await fal.subscribe(endpoint, {
-      input,
-      logs: true,
-      onQueueUpdate: () => {
-        
-      }
+    const result = await invokeFalEndpoint(endpoint, input, {
+      logs: true
     })
 
     return {

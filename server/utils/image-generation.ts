@@ -1,10 +1,10 @@
-import { fal } from '@fal-ai/client'
 import { db } from '~/server/utils/firebase-admin'
 import { getImageSettingPrompt } from '~/server/utils/character-settings'
 import { getImageClassPrompt } from '~/server/utils/character-classes'
-import type { EmojiPrompt, emojiPromptsCollection } from '~/types/character'
-import type { ModelDefinition } from '~/types/model-definition'
-import { modelDefinitionsCollection, buildPrompt } from '~/types/model-definition'
+import type { EmojiPrompt } from '~/types/character'
+import { buildPrompt } from '~/types/model-definition'
+import { getModelDefinition } from '~/server/utils/model-definitions'
+import { generateWithFalAI, generateWithVeniceAI } from '~/server/utils/image-providers'
 
 export interface ImageGenerationContext {
     characterName?: string
@@ -25,13 +25,11 @@ export async function generateCharacterImage(userPrompt: string, context: ImageG
 
     // Fetch model definition from Firebase
     const selectedModel = model || 'srpo'
-    const modelDoc = await db.collection(modelDefinitionsCollection).doc(selectedModel).get()
+    const modelDef = await getModelDefinition(selectedModel)
 
-    if (!modelDoc.exists) {
+    if (!modelDef) {
         throw new Error(`Model definition not found: ${selectedModel}`)
     }
-
-    const modelDef = modelDoc.data() as ModelDefinition
 
     // Build emoji prompts
     const emojiPrompts = await getKeywordPrompts(emojis)
@@ -56,87 +54,6 @@ export async function generateCharacterImage(userPrompt: string, context: ImageG
     } else {
         // Use FAL or other providers
         return await generateWithFalAI(fullPrompt, modelDef.endpoint, modelDef.parameters)
-    }
-}
-
-async function generateWithFalAI(prompt: string, endpoint: string, parameters: Record<string, any> = {}): Promise<string> {
-    // Build input object with prompt and model-specific parameters
-    const input: Record<string, any> = {
-        prompt: prompt,
-        enable_safety_checker: false,
-        enable_prompt_expansion: false,
-        negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts',
-        ...parameters // Merge model-specific parameters
-    }
-
-    const result = await fal.subscribe(endpoint, {
-        input,
-        logs: true,
-        onQueueUpdate: (update: any) => {
-            process.stdout.write('\rimage generation: ' + update.status);
-        },
-    })
-
-    // Extract the image URL from the result
-    if (result.data && result.data.images && result.data.images.length > 0) {
-        return result.data.images[0].url
-    } else {
-        throw new Error('No image generated from fal.ai')
-    }
-}
-
-export async function generateWithVeniceAI(prompt: string, model: string, parameters: Record<string, any> = {}): Promise<string> {
-    const apiKey = process.env.VENICE_AI_API_KEY
-    if (!apiKey) {
-        throw new Error('VENICE_AI_API_KEY environment variable is required')
-    }
-
-    // Default Venice parameters
-    const requestBody = {
-        width: 720,
-        height: 1280,
-        cfg_scale: 4,
-        lora_strength: 100,
-        steps: 30,
-        style_preset: 'Analog Film',
-        negative_prompt: 'ugly, deformed, distorted, blurry, low quality, pixelated, low resolution, bad anatomy, bad hands, text, error, cropped, jpeg artifacts',
-        hide_watermark: true,
-        variants: 1,
-        safe_mode: false,
-        return_binary: false,
-        format: 'webp',
-        embed_exif_metadata: false,
-        ...parameters, // Merge model-specific parameters
-        model: model,
-        prompt: prompt, // Ensure these always come last
-    }
-
-    console.log('Venice AI request parameters:', requestBody)
-
-    const response = await fetch('https://api.venice.ai/api/v1/image/generate', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-    })
-
-    if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Venice AI API error: ${response.status} ${errorText}`)
-    }
-
-    const data = await response.json()
-
-    if (data.images && data.images.length > 0) {
-        const base64Image = data.images[0]
-
-        // Convert base64 to data URL for immediate use
-        const dataUrl = `data:image/webp;base64,${base64Image}`
-        return dataUrl
-    } else {
-        throw new Error('No image generated from Venice AI')
     }
 }
 
