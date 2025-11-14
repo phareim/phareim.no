@@ -3,6 +3,7 @@ import { defineEventHandler, getQuery } from 'h3'
 // Statisk liste over tilgjengelige sider
 const menuItems = [
   { path: '/', title: 'Home', icon: '🏚️' },
+  { path: '/account', title: 'Account', icon: '👤' },
   { path: '/drafts/about', title: 'About', icon: '📄' },
   { path: '/drafts/bounce', title: 'Bounce', icon: '⚽️' },
   { path: '/inspire', title: 'Inspire', icon: '✨' },
