@@ -58,6 +58,7 @@
 import { ref, computed, onMounted } from 'vue'
 import type { ModelDefinition } from '~/types/model-definition'
 
+const route = useRoute()
 const prompt = ref('')
 const selectedModel = ref('srpo')
 const imageSize = ref<
@@ -95,6 +96,15 @@ onMounted(async () => {
     const res = await fetch('/api/model-definitions')
     const data = await res.json()
     modelDefinitions.value = data
+
+    // Check for URL parameter and set model if valid
+    const modelParam = route.query.model as string | undefined
+    if (modelParam) {
+      const modelExists = data.some((model: ModelDefinition) => model.id === modelParam)
+      if (modelExists) {
+        selectedModel.value = modelParam
+      }
+    }
   } catch (e) {
     console.error('Failed to load model definitions:', e)
   }
