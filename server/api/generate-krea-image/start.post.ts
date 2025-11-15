@@ -75,7 +75,7 @@ async function processImageGeneration(jobId: string) {
       },
       {
         role: 'user',
-        content: `Create a slight variation of this image prompt: "${job.basePrompt}"`
+        content: `Create a variation of this image prompt: "${job.basePrompt}"`
       }
     ]
   })
