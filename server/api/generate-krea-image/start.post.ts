@@ -87,13 +87,18 @@ async function processImageGeneration(jobId: string) {
     prompt: variedPrompt
   }
 
-  if (job.width && job.height) {
+  // Determine endpoint based on model parameter
+  let endpoint = job.model || 'fal-ai/flux-krea-lora'
+
+  // Use Imagen4 endpoint if model is 'imagen'
+  if (job.model === 'imagen') {
+    endpoint = 'fal-ai/imagen4/preview/fast'
+    // Imagen4 doesn't use width/height parameters
+  } else if (job.width && job.height) {
+    // Only add width/height for non-Imagen models
     input.width = job.width
     input.height = job.height
   }
-
-  // Use the model from the job, or default to flux-krea-lora
-  const endpoint = job.model || 'fal-ai/flux-krea-lora'
 
   const result = await invokeFalEndpoint(endpoint, input, {
     logs: true
