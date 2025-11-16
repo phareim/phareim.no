@@ -106,3 +106,91 @@ export async function generateWithVeniceAI(
 
     throw new Error('No image generated from Venice AI')
 }
+
+export async function generateWithWavespeedAI(
+    prompt: string,
+    width: number = 2155,
+    height: number = 4096
+): Promise<string> {
+    const config = useRuntimeConfig()
+    const apiKey = config.wavespeedKey as string | undefined
+
+    if (!apiKey) {
+        throw new Error('WAVESPEED_KEY runtime config value is required')
+    }
+
+    // Determine size format based on dimensions
+    const size = `${width}*${height}`
+
+    const requestBody = {
+        enable_base64_output: false,
+        enable_sync_mode: false,
+        max_images: 1,
+        prompt,
+        size,
+        model_id: "bytedance/seedream-v4/sequential"
+    }
+
+    // Step 1: Submit the job
+    const submitResponse = await fetch('https://api.wavespeed.ai/api/v3/bytedance/seedream-v4/sequential', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(requestBody)
+    })
+
+    if (!submitResponse.ok) {
+        const errorText = await submitResponse.text()
+        throw new Error(`Wavespeed AI API error: ${submitResponse.status} ${errorText}`)
+    }
+
+    const submitData = await submitResponse.json()
+    const requestId = submitData.data.id
+
+    if (!requestId) {
+        throw new Error('No request ID received from Wavespeed AI')
+    }
+
+    // Step 2: Poll for completion
+    const maxAttempts = 120 // 2 minutes max
+    let attempts = 0
+
+    while (attempts < maxAttempts) {
+        const statusResponse = await fetch(
+            `https://api.wavespeed.ai/api/v3/predictions/${requestId}/result`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`
+                }
+            }
+        )
+
+        if (statusResponse.ok) {
+            const result = await statusResponse.json()
+            const data = result.data
+            const status = data.status
+
+            if (status === "completed") {
+                const resultUrl = data.outputs[0]
+                if (!resultUrl) {
+                    throw new Error('No image URL in completed result')
+                }
+                return resultUrl
+            } else if (status === "failed") {
+                throw new Error(`Wavespeed AI task failed: ${data.error || 'Unknown error'}`)
+            }
+            // Status is still processing, continue polling
+        } else {
+            const errorText = await statusResponse.text()
+            throw new Error(`Wavespeed AI polling error: ${statusResponse.status} ${errorText}`)
+        }
+
+        // Wait 1 second before polling again
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        attempts++
+    }
+
+    throw new Error('Wavespeed AI image generation timed out')
+}

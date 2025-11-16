@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody } from 'h3'
 import OpenAI from 'openai'
 import { useRuntimeConfig } from '#imports'
-import { invokeFalEndpoint } from '~/server/utils/image-providers'
+import { invokeFalEndpoint, generateWithWavespeedAI } from '~/server/utils/image-providers'
 import { createJob, updateJob } from '~/server/utils/job-storage'
 
 export default defineEventHandler(async (event) => {
@@ -82,32 +82,46 @@ async function processImageGeneration(jobId: string) {
 
   const variedPrompt = completion.choices[0].message.content || job.basePrompt
 
-  // Step 2: Generate the image
-  const input: Record<string, any> = {
-    prompt: variedPrompt
-  }
+  // Step 2: Generate the image based on the model
+  let imageUrl: string
 
-  if (job.width && job.height) {
-    input.width = job.width
-    input.height = job.height
-  }
-
-  // Use the model from the job, or default to flux-krea-lora
-  const endpoint = job.model || 'fal-ai/flux-krea-lora'
-
-  const result = await invokeFalEndpoint(endpoint, input, {
-    logs: true
-  })
-
-  // Extract image URL from result
-  if (result.data && result.data.images && result.data.images.length > 0) {
-    updateJob(jobId, {
-      status: 'completed',
-      imageUrl: result.data.images[0].url,
+  if (job.model === 'seedream') {
+    // Use Wavespeed AI for seedream model
+    imageUrl = await generateWithWavespeedAI(
       variedPrompt,
-      completedAt: new Date()
-    })
+      job.width || 2155,
+      job.height || 4096
+    )
   } else {
-    throw new Error('No image generated')
+    // Use FAL AI for other models
+    const input: Record<string, any> = {
+      prompt: variedPrompt
+    }
+
+    if (job.width && job.height) {
+      input.width = job.width
+      input.height = job.height
+    }
+
+    // Use the model from the job, or default to flux-krea-lora
+    const endpoint = job.model || 'fal-ai/flux-krea-lora'
+
+    const result = await invokeFalEndpoint(endpoint, input, {
+      logs: true
+    })
+
+    // Extract image URL from result
+    if (result.data && result.data.images && result.data.images.length > 0) {
+      imageUrl = result.data.images[0].url
+    } else {
+      throw new Error('No image generated')
+    }
   }
+
+  updateJob(jobId, {
+    status: 'completed',
+    imageUrl,
+    variedPrompt,
+    completedAt: new Date()
+  })
 }
