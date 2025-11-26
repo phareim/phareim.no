@@ -1,0 +1,186 @@
+/**
+ * Hacker / Cyberpunk Aesthetic
+ * ---------------------------
+ * High contrast, terminal-inspired, digital grit.
+ * 
+ * Usage: Add class "hacker-page" to your page container
+ */
+
+:root {
+  /* Base colors */
+  --hacker-bg: #0a0a0a;
+  --hacker-bg-alt: #111111;
+  
+  /* Text colors */
+  --hacker-text: #00ff41;
+  --hacker-text-dim: #008F11;
+  --hacker-text-bright: #e0ffe0;
+  
+  /* Accents */
+  --hacker-border: #003b00;
+  --hacker-glow: rgba(0, 255, 65, 0.2);
+  --hacker-accent: #ff0055; /* Error/Alert color */
+  
+  /* Typography */
+  --font-mono: 'Courier New', Courier, monospace;
+  
+  /* Spacing */
+  --space-xs: 0.5rem;
+  --space-sm: 1rem;
+  --space-md: 2rem;
+  --space-lg: 4rem;
+  --space-xl: 8rem;
+  
+  /* Transitions */
+  --transition-sharp: 0.1s steps(5);
+}
+
+.hacker-page {
+  min-height: 100vh;
+  background-color: var(--hacker-bg);
+  color: var(--hacker-text);
+  font-family: var(--font-mono);
+  overflow-x: hidden;
+  background-image: 
+    linear-gradient(rgba(0, 255, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 0, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Components */
+
+.hacker-card {
+  background: rgba(0, 20, 0, 0.8);
+  border: 1px solid var(--hacker-text-dim);
+  box-shadow: 0 0 10px var(--hacker-glow);
+  padding: var(--space-md);
+  position: relative;
+}
+
+.hacker-card:hover {
+  box-shadow: 0 0 20px var(--hacker-glow), inset 0 0 10px var(--hacker-glow);
+  border-color: var(--hacker-text);
+}
+
+.hacker-card--flat {
+  background: transparent;
+  border: 1px dashed var(--hacker-text-dim);
+  box-shadow: none;
+}
+
+/* Typography */
+
+.hacker-heading {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 5px var(--hacker-glow);
+  margin-bottom: var(--space-sm);
+}
+
+.hacker-heading--xl { font-size: clamp(2rem, 5vw, 4rem); }
+.hacker-heading--lg { font-size: clamp(1.5rem, 4vw, 2.5rem); }
+.hacker-heading--md { font-size: clamp(1.2rem, 3vw, 1.8rem); }
+
+.hacker-body {
+  line-height: 1.6;
+  color: var(--hacker-text-dim);
+}
+
+.hacker-body strong, .hacker-body em {
+  color: var(--hacker-text-bright);
+  font-style: normal;
+  text-decoration: underline;
+}
+
+/* Political Bar - Glitch style */
+.hacker-bar {
+  display: flex;
+  height: 4px;
+  width: 100%;
+  max-width: 120px;
+  gap: 4px;
+  margin: var(--space-md) 0;
+}
+
+.hacker-bar span {
+  flex: 1;
+  background: var(--hacker-text-dim);
+  animation: glitch-bar 2s infinite;
+}
+.hacker-bar span:nth-child(2) { animation-delay: 0.2s; background: var(--hacker-text); }
+.hacker-bar span:nth-child(3) { animation-delay: 0.4s; background: #fff; }
+.hacker-bar span:nth-child(4) { animation-delay: 0.6s; background: var(--hacker-accent); }
+
+/* Interactive */
+
+.hacker-interactive {
+  cursor: pointer;
+  border: 1px solid var(--hacker-text);
+  background: transparent;
+  transition: all 0.2s;
+}
+
+.hacker-interactive:hover {
+  background: var(--hacker-text);
+  color: var(--hacker-bg);
+  box-shadow: 0 0 15px var(--hacker-text);
+}
+
+.hacker-link {
+  color: var(--hacker-text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--hacker-text-dim);
+}
+
+.hacker-link:hover {
+  background: var(--hacker-text);
+  color: var(--hacker-bg);
+}
+
+/* Animations */
+
+@keyframes glitch-bar {
+  0% { opacity: 1; transform: scaleY(1); }
+  50% { opacity: 0.5; transform: scaleY(0.5); }
+  52% { opacity: 1; transform: scaleY(1.5); }
+  100% { opacity: 1; transform: scaleY(1); }
+}
+
+.hacker-animate-in {
+  animation: type-in 0.5s steps(20) forwards;
+  opacity: 0;
+}
+
+@keyframes type-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.hacker-stagger > *:nth-child(1) { animation-delay: 0.1s; }
+.hacker-stagger > *:nth-child(2) { animation-delay: 0.2s; }
+.hacker-stagger > *:nth-child(3) { animation-delay: 0.3s; }
+.hacker-stagger > *:nth-child(4) { animation-delay: 0.4s; }
+
+/* Layout Utils */
+.hacker-container {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--space-md);
+}
+
+.hacker-divider {
+  height: 1px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--hacker-text-dim),
+    var(--hacker-text-dim) 5px,
+    transparent 5px,
+    transparent 10px
+  );
+  margin: var(--space-lg) auto;
+  width: 100%;
+  max-width: 200px;
+}
+

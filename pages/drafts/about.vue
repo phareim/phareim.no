@@ -1,309 +1,261 @@
 <template>
-  <div class="about-container">
-    <div class="quirky-header">
-      <h1 class="bouncy-title">
-        <span class="letter" v-for="(letter, index) in titleLetters" :key="index" :style="{ animationDelay: index * 0.1 + 's' }">
-          {{ letter }}
-        </span>
-      </h1>
-    </div>
-    
-    <div class="content-wrapper">
-      <div class="floating-bubble bubble-1">✨</div>
-      <div class="floating-bubble bubble-2">🎨</div>
-      <div class="floating-bubble bubble-3">🤖</div>
-      <div class="floating-bubble bubble-4">💖</div>
-      <div class="floating-bubble bubble-5">⚡</div>
+  <div :class="cx('page') + (activeTheme === 'scandi' ? ' scandi-gradient-warm' : '')">
+    <div :class="cx('container') + ' about-layout'">
       
-      <div class="main-message">
-        <p class="scrolling-text">
-          this is a pet project, written with 
-          <span class="highlight">love</span>, 
-          <span class="highlight">spare time</span> 
-          and a bit of 
-          <span class="highlight glitch">AI</span>
-        </p>
-      </div>
-      
-      <div class="separator">
-        <div class="wavy-line"></div>
-      </div>
-      
-      <div class="peace-section">
-        <p class="peace-message">
-          <span class="peace-emoji">🕊️</span>
-          peace to the world
-          <span class="peace-emoji">🌍</span>
-        </p>
-        <p class="palestine-message">
-          <span class="flag">🇵🇸</span>
-          Free Palestine
-          <span class="flag">🇵🇸</span>
-        </p>
-      </div>
-      
-      <div class="fun-facts">
-        <div class="fact-item" @click="showRandomFact">
-          <span class="fact-icon">🎲</span>
-          <span class="fact-text">{{ currentFact }}</span>
+      <!-- Hero section -->
+      <header :class="cx('stagger') + ' hero'">
+        <h1 :class="cx('heading') + ' ' + cx('heading--xl') + ' ' + cx('animate-in')">
+          About
+        </h1>
+        <!-- Dynamic political bar class based on theme -->
+        <div :class="activeTheme === 'scandi' ? 'political-bar' : activeTheme === 'hacker' ? 'hacker-bar' : 'tolkien-bar' + ' ' + cx('animate-in')">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
-      </div>
+      </header>
+
+      <!-- Main content -->
+      <main :class="cx('stagger') + ' content'">
+        
+        <!-- Bio card -->
+        <article :class="cx('card') + ' bio-card ' + cx('animate-in')">
+          <p :class="cx('body') + ' ' + cx('body--lg')">
+            This is a pet project, written with <em>love</em>, <em>spare time</em>, 
+            and a bit of <em>artificial intelligence</em>.
+          </p>
+          <p :class="cx('body') + ' bio-secondary'">
+            Built during quiet evenings, powered by curiosity and coffee.
+          </p>
+        </article>
+
+        <div :class="cx('divider') + ' ' + cx('animate-in')"></div>
+
+        <!-- Values section -->
+        <section :class="cx('animate-in') + ' values-section'">
+          <h2 :class="cx('heading') + ' ' + cx('heading--md') + ' values-heading'">
+            What matters
+          </h2>
+          
+          <div class="values-grid">
+            <div :class="cx('card') + ' ' + cx('card--flat') + ' value-item'">
+              <span class="value-symbol">🕊️</span>
+              <span class="value-text">Peace to the world</span>
+            </div>
+            
+            <div :class="cx('card') + ' ' + cx('card--flat') + ' value-item value-item--highlight'">
+              <span class="value-flag">🇵🇸</span>
+              <span class="value-text">Free Palestine</span>
+            </div>
+            
+            <div :class="cx('card') + ' ' + cx('card--flat') + ' value-item'">
+              <span class="value-symbol">🌍</span>
+              <span class="value-text">Climate justice</span>
+            </div>
+          </div>
+        </section>
+
+        <div :class="cx('divider') + ' ' + cx('animate-in')"></div>
+
+        <!-- Fun fact section -->
+        <section :class="cx('animate-in') + ' fact-section'">
+          <button 
+            :class="cx('interactive') + ' fact-button ' + cx('card')" 
+            @click="showRandomFact"
+          >
+            <span class="fact-label">Random thought</span>
+            <span class="fact-content">{{ currentFact }}</span>
+            <span class="fact-hint">tap to shuffle</span>
+          </button>
+        </section>
+
+      </main>
+
+      <!-- Footer accent -->
+      <footer :class="cx('animate-in') + ' footer'">
+        <div class="footer-line"></div>
+      </footer>
+
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
+import { useTheme } from '~/composables/useTheme'
 
-const titleLetters = ref('About Me'.split(''))
-const currentFact = ref('Click for a random fact!')
+const { activeTheme } = useTheme()
 
-const funFacts = [
-  'This site was coded with way too much coffee ☕',
-  'Every pixel was placed with intention... mostly 🎯',
-  'Built during late-night coding sessions 🌙',
-  'Powered by curiosity and stubbornness 💪',
-  'Made with Vue.js and a sprinkle of magic ✨',
-  'Debugging is just problem-solving in disguise 🔍',
-  'Code is poetry, but sometimes it rhymes weird 📝'
-]
-
-const showRandomFact = () => {
-  const randomIndex = Math.floor(Math.random() * funFacts.length)
-  currentFact.value = funFacts[randomIndex]
+const cx = (suffix) => {
+  return `${activeTheme.value}-${suffix}`
 }
 
-onMounted(() => {
-  // Add some dynamic behavior on mount if needed
-})
+const facts = [
+  'Every line of code tells a story',
+  'Built during late-night sessions with good music',
+  'Debugging is meditation in disguise',
+  'Simplicity is the ultimate sophistication',
+  'Powered by curiosity and stubbornness',
+  'Made with Vue and a lot of iteration',
+  'Design is never finished, only abandoned'
+]
+
+const currentFact = ref(facts[0])
+
+const showRandomFact = () => {
+  const currentIndex = facts.indexOf(currentFact.value)
+  let newIndex = Math.floor(Math.random() * facts.length)
+  while (newIndex === currentIndex && facts.length > 1) {
+    newIndex = Math.floor(Math.random() * facts.length)
+  }
+  currentFact.value = facts[newIndex]
+}
 </script>
 
 <style scoped>
-.about-container {
+.about-layout {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  position: relative;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: var(--space-lg);
+  padding-bottom: var(--space-lg);
+}
+
+/* Hero */
+.hero {
+  text-align: center;
+  margin-bottom: var(--space-lg);
+}
+
+/* Centering for all theme bars */
+.political-bar,
+.hacker-bar,
+.tolkien-bar {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Bio card */
+.bio-card {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.bio-secondary {
+  margin-top: var(--space-sm);
+  font-size: 0.95rem;
+  opacity: 0.8;
+}
+
+/* Values */
+.values-section {
+  text-align: center;
+}
+
+.values-heading {
+  margin-bottom: var(--space-md);
+  opacity: 0.7;
+}
+
+.values-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.value-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 1rem;
+}
+
+.value-item--highlight {
+  background: rgba(0, 150, 57, 0.06);
+  border-color: rgba(0, 150, 57, 0.15);
+}
+
+.value-symbol,
+.value-flag {
+  font-size: 1.2rem;
+}
+
+.value-text {
+  opacity: 0.8;
+}
+
+/* Fact section */
+.fact-section {
+  display: flex;
+  justify-content: center;
+}
+
+.fact-button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2rem;
-}
-
-.quirky-header {
-  margin-bottom: 2rem;
-}
-
-.bouncy-title {
-  font-size: 4rem;
-  font-weight: bold;
-  color: #fff;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-  margin: 0;
-  display: flex;
-  gap: 0.1em;
-}
-
-.letter {
-  display: inline-block;
-  animation: bounce 1.5s ease-in-out infinite;
-}
-
-@keyframes bounce {
-  0%, 20%, 50%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-10px);
-  }
-  60% {
-    transform: translateY(-5px);
-  }
-}
-
-.content-wrapper {
-  position: relative;
-  z-index: 1;
-  max-width: 1200px;
+  gap: 0.5rem;
   width: 100%;
+  max-width: 400px;
 }
 
-.floating-bubble {
-  position: absolute;
-  font-size: 2rem;
-  animation: float 3s ease-in-out infinite;
-  pointer-events: none;
+.fact-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
 }
 
-.bubble-1 { top: 10%; left: 10%; animation-delay: 0s; }
-.bubble-2 { top: 20%; right: 15%; animation-delay: 0.5s; }
-.bubble-3 { bottom: 30%; left: 20%; animation-delay: 1s; }
-.bubble-4 { top: 60%; right: 25%; animation-delay: 1.5s; }
-.bubble-5 { bottom: 20%; right: 10%; animation-delay: 2s; }
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(180deg); }
+.fact-content {
+  font-size: 1.1rem;
+  line-height: 1.5;
 }
 
-.main-message {
-  margin: 3rem 0;
-  text-align: center;
+.fact-hint {
+  font-size: 0.7rem;
+  opacity: 0.5;
+  margin-top: 0.25rem;
 }
 
-.scrolling-text {
-  font-size: 2.5rem;
-  color: #fff;
-  font-weight: 300;
-  line-height: 1.4;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-  animation: gentle-pulse 2s ease-in-out infinite;
-}
-
-.highlight {
-  color: #ffd700;
-  font-weight: bold;
-  position: relative;
-  z-index: 1;
-}
-
-.highlight::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background: linear-gradient(90deg, #ffd700, #ffed4e);
-  border-radius: 2px;
-}
-
-.glitch {
-  animation: glitch 1s linear infinite;
-}
-
-@keyframes glitch {
-  0%, 100% { transform: translate(0); }
-  10% { transform: translate(-2px, 2px); }
-  20% { transform: translate(2px, -2px); }
-  30% { transform: translate(-2px, -2px); }
-  40% { transform: translate(2px, 2px); }
-  50% { transform: translate(-2px, 2px); }
-  60% { transform: translate(2px, -2px); }
-  70% { transform: translate(-2px, -2px); }
-  80% { transform: translate(2px, 2px); }
-  90% { transform: translate(-2px, 2px); }
-}
-
-@keyframes gentle-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
-}
-
-.separator {
-  display: flex;
-  justify-content: center;
-  margin: 3rem 0;
-}
-
-.wavy-line {
-  width: 200px;
-  height: 4px;
-  background: linear-gradient(90deg, #ffd700, #ffed4e, #ffd700);
-  border-radius: 2px;
-  animation: wave 2s ease-in-out infinite;
-}
-
-@keyframes wave {
-  0%, 100% { transform: scaleX(1); }
-  50% { transform: scaleX(1.2); }
-}
-
-.peace-section {
-  text-align: center;
-  margin: 2rem 0;
-}
-
-.peace-message, .palestine-message {
-  font-size: 2rem;
-  color: #fff;
-  margin: 1rem 0;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-}
-
-.peace-emoji, .flag {
-  font-size: 1.2em;
-  margin: 0 0.5rem;
-  animation: rotate 3s linear infinite;
-}
-
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.fun-facts {
-  margin-top: 4rem;
+/* Footer */
+.footer {
+  margin-top: var(--space-xl);
   display: flex;
   justify-content: center;
 }
 
-.fact-item {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
-  padding: 1.5rem 2rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  max-width: 500px;
+.footer-line {
+  width: 40px;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.3;
+  border-radius: 1px;
 }
 
-.fact-item:hover {
-  transform: translateY(-5px);
-  background: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-
-.fact-icon {
-  font-size: 1.5rem;
-  animation: spin 2s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.fact-text {
-  color: #fff;
-  font-size: 1.2rem;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-}
-
-/* Mobile responsive */
-@media (max-width: 768px) {
-  .bouncy-title {
-    font-size: 2.5rem;
+/* Mobile adjustments */
+@media (max-width: 640px) {
+  .bio-card {
+    padding: var(--space-md);
   }
   
-  .scrolling-text {
-    font-size: 1.5rem;
+  .values-grid {
+    flex-direction: column;
+    align-items: center;
   }
   
-  .peace-message, .palestine-message {
-    font-size: 1.5rem;
+  .value-item {
+    width: 100%;
+    max-width: 280px;
+    justify-content: center;
   }
   
-  .about-container {
-    padding: 1rem;
-  }
-  
-  .floating-bubble {
-    font-size: 1.5rem;
+  .fact-button {
+    padding: var(--space-md);
   }
 }
 </style>

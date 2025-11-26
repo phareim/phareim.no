@@ -5,32 +5,31 @@
   </div>
 </template>
 
-<script>
-import MenuComponent from '~/components/MenuComponent.vue'
+<script setup lang="ts">
+import MenuComponent from '~/components/MenuComponent.vue';
 
-export default {
-  components: {
-    MenuComponent
-  },
-  mounted() {
-    document.addEventListener('keydown', this.handleKeyDown);
-  },
-  beforeDestroy() {
-    document.removeEventListener('keydown', this.handleKeyDown);
-  },
-  methods: {
-    handleKeyDown(event) {
-      // Ignorer 'M'-tastetrykk på RPG-siden
-      if (event.key === 'm' && !window.location.pathname.includes('rpg') 
-      && !window.location.pathname.includes('character')
-      && !window.location.pathname.includes('admin')
-      && !window.location.pathname.includes('image-generator') 
-      && !window.location.pathname.includes('new-character')) {
-        this.$refs.menuComponent.toggleMenu();
-      }
-    }
+const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);
+
+const handleKeyDown = (event: KeyboardEvent) => {
+  console.log(window.location.pathname);
+  if (event.key === 'm' && !window.location.pathname.includes('rpg') 
+  && !window.location.pathname.includes('character')
+  && !window.location.pathname.includes('admin')
+  && !window.location.pathname.includes('image-generator') 
+  && !window.location.pathname.includes('new-character')) {
+    menuComponent.value?.toggleMenu();
   }
-}
+};
+
+onMounted(() => {
+  document.body.classList.add('scrollable');
+  document.addEventListener('keydown', handleKeyDown);
+});
+
+onBeforeUnmount(() => {
+  document.body.classList.remove('scrollable');
+  document.removeEventListener('keydown', handleKeyDown);
+});
 </script>
 
 <style>

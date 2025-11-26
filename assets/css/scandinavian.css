@@ -1,0 +1,256 @@
+/**
+ * Scandinavian Glass Aesthetic
+ * ---------------------------
+ * Clean, minimal, frosted glass design system
+ * with nature-inspired tones and subtle depth.
+ * 
+ * Usage: Add class "scandi-page" to your page container
+ */
+
+/* CSS Custom Properties */
+:root {
+  /* Base colors - muted, nature-inspired */
+  --scandi-bg: #f5f5f3;
+  --scandi-bg-warm: #faf9f7;
+  --scandi-bg-cool: #f0f2f5;
+  
+  /* Text colors */
+  --scandi-text: #1a1a1a;
+  --scandi-text-muted: #5c5c5c;
+  --scandi-text-subtle: #8a8a8a;
+  
+  /* Glass effects */
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-shadow: rgba(0, 0, 0, 0.04);
+  --glass-blur: 20px;
+  
+  /* Accent colors - Palestinian flag inspired */
+  --accent-red: #c1272d;
+  --accent-green: #009639;
+  --accent-black: #1a1a1a;
+  
+  /* Soft accents */
+  --accent-soft-blue: #6b8cae;
+  --accent-soft-sage: #9bab8b;
+  
+  /* Spacing scale */
+  --space-xs: 0.5rem;
+  --space-sm: 1rem;
+  --space-md: 2rem;
+  --space-lg: 4rem;
+  --space-xl: 8rem;
+  
+  /* Typography */
+  --font-display: 'Alan Sans', 'Comfortaa', system-ui, sans-serif;
+  --font-body: 'Comfortaa', system-ui, sans-serif;
+  
+  /* Transitions */
+  --transition-smooth: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-bounce: 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Base page container */
+.scandi-page {
+  min-height: 100vh;
+  background: var(--scandi-bg);
+  color: var(--scandi-text);
+  font-family: var(--font-body);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Subtle gradient backgrounds */
+.scandi-gradient {
+  background: 
+    radial-gradient(ellipse at 20% 0%, rgba(155, 171, 139, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(107, 140, 174, 0.08) 0%, transparent 50%),
+    var(--scandi-bg);
+}
+
+.scandi-gradient-warm {
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(193, 39, 45, 0.03) 0%, transparent 40%),
+    radial-gradient(ellipse at 70% 80%, rgba(0, 150, 57, 0.03) 0%, transparent 40%),
+    var(--scandi-bg-warm);
+}
+
+/* Glass card component */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  box-shadow: 
+    0 4px 24px var(--glass-shadow),
+    0 1px 2px var(--glass-shadow);
+  transition: 
+    transform var(--transition-smooth),
+    box-shadow var(--transition-smooth);
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 32px var(--glass-shadow),
+    0 2px 4px var(--glass-shadow);
+}
+
+.glass-card--flat {
+  transform: none !important;
+}
+
+/* Typography utilities */
+.scandi-heading {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.scandi-heading--xl {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+}
+
+.scandi-heading--lg {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+}
+
+.scandi-heading--md {
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+}
+
+.scandi-body {
+  font-family: var(--font-body);
+  font-weight: 300;
+  line-height: 1.7;
+  color: var(--scandi-text-muted);
+}
+
+.scandi-body--lg {
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+}
+
+/* Political accent bar */
+.political-bar {
+  display: flex;
+  height: 3px;
+  width: 100%;
+  max-width: 120px;
+  gap: 2px;
+  margin: var(--space-md) 0;
+}
+
+.political-bar span {
+  flex: 1;
+  border-radius: 2px;
+}
+
+.political-bar span:nth-child(1) { background: var(--accent-black); }
+.political-bar span:nth-child(2) { background: var(--accent-green); }
+.political-bar span:nth-child(3) { background: #fff; }
+.political-bar span:nth-child(4) { background: var(--accent-red); }
+
+/* Subtle animations */
+@keyframes scandi-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scandi-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.scandi-animate-in {
+  animation: scandi-fade-in 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  opacity: 0;
+}
+
+.scandi-animate-float {
+  animation: scandi-float 6s ease-in-out infinite;
+}
+
+/* Stagger children animations */
+.scandi-stagger > *:nth-child(1) { animation-delay: 0.1s; }
+.scandi-stagger > *:nth-child(2) { animation-delay: 0.2s; }
+.scandi-stagger > *:nth-child(3) { animation-delay: 0.3s; }
+.scandi-stagger > *:nth-child(4) { animation-delay: 0.4s; }
+.scandi-stagger > *:nth-child(5) { animation-delay: 0.5s; }
+.scandi-stagger > *:nth-child(6) { animation-delay: 0.6s; }
+
+/* Container */
+.scandi-container {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--space-md);
+}
+
+/* Divider */
+.scandi-divider {
+  width: 60px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--scandi-text-subtle), transparent);
+  margin: var(--space-lg) auto;
+}
+
+/* Link styling */
+.scandi-link {
+  color: var(--scandi-text);
+  text-decoration: none;
+  position: relative;
+  transition: color var(--transition-smooth);
+}
+
+.scandi-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform var(--transition-smooth);
+}
+
+.scandi-link:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* Interactive elements */
+.scandi-interactive {
+  cursor: pointer;
+  transition: all var(--transition-smooth);
+}
+
+.scandi-interactive:hover {
+  color: var(--accent-soft-blue);
+}
+
+/* Responsive spacing */
+@media (max-width: 768px) {
+  :root {
+    --space-lg: 2.5rem;
+    --space-xl: 4rem;
+  }
+  
+  .scandi-container {
+    padding: var(--space-sm);
+  }
+}
+

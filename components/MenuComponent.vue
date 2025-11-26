@@ -16,57 +16,71 @@
 					</li>
 				</ul>
 			</nav>
+
+			<!-- Theme Switcher -->
+			<div class="menu-theme-switcher" v-if="route.path.includes('about')">
+				<div class="theme-label">Theme</div>
+				<div class="theme-options">
+					<button 
+						v-for="theme in themes" 
+						:key="theme.id"
+						@click="setTheme(theme.id)"
+						:class="['theme-btn', { active: activeTheme === theme.id }]"
+						:title="theme.name"
+					>
+						{{ theme.icon }}
+					</button>
+				</div>
+			</div>
 		</div>
 	</div>
 </template>
 
-<script>
-export default {
-	data() {
-		return {
-			darkMode: false,
-			showMenu: false,
-			touchStartX: 0,
-			menuItems: []
-		};
-	},
-	async mounted() {
-		document.body.classList.add('scrollable');
-		if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-			this.darkMode = true;
-		}
+<script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { useTheme } from '~/composables/useTheme'
+import { useRoute } from 'vue-router'
+const { activeTheme, themes, setTheme } = useTheme()
+const route = useRoute()
+const darkMode = ref(false)
+const showMenu = ref(false)
+const touchStartX = ref(0)
+const menuItems = ref([])
 
-		try {
-			const response = await fetch('/api/menu')
-			this.menuItems = await response.json()
-		} catch (error) {
-			console.error('Error fetching menu items:', error)
-		}
-	},
-	beforeDestroy() {
-		document.body.classList.remove('scrollable');
-	},
-	methods: {
-		toggleMenu() {
-			this.showMenu = !this.showMenu;
-		},
-		handleTouchStart(event) {
-			this.touchStartX = event.touches[0].clientX;
-		},
-		handleTouchEnd(event) {
-			const touchEndX = event.changedTouches[0].clientX;
-			const swipeDistance = this.touchStartX - touchEndX;
+const toggleMenu = () => {
+	showMenu.value = !showMenu.value
+}
 
-			if (Math.abs(swipeDistance) > 50) {
-				if (swipeDistance > 0 && !this.showMenu) { // Swipe venstre når menyen er lukket
-					this.toggleMenu();
-				} else if (swipeDistance < 0 && this.showMenu) { // Swipe høyre når menyen er åpen
-					this.toggleMenu();
-				}
-			}
-		},
+const handleTouchStart = (event) => {
+	touchStartX.value = event.touches[0].clientX
+}
+
+const handleTouchEnd = (event) => {
+	const touchEndX = event.changedTouches[0].clientX
+	const swipeDistance = touchStartX.value - touchEndX
+
+	if (Math.abs(swipeDistance) > 50) {
+		if (swipeDistance > 0 && !showMenu.value) { // Swipe venstre når menyen er lukket
+			toggleMenu()
+		} else if (swipeDistance < 0 && showMenu.value) { // Swipe høyre når menyen er åpen
+			toggleMenu()
+		}
 	}
 }
+
+onMounted(async () => {
+	try {
+		const response = await fetch('/api/menu')
+		menuItems.value = await response.json()
+	} catch (error) {
+		console.error('Error fetching menu items:', error)
+	}
+})
+
+defineExpose({
+	toggleMenu
+})
+
 </script>
 
 <style scoped>
@@ -122,11 +136,15 @@ export default {
 	right: -250px;
 	width: 250px;
 	height: 100vh;
+	height: 100dvh; /* Dynamic viewport height for mobile */
 	background-color: rgba(240, 240, 240, 0.95);
 	transition: right 0.3s ease;
 	z-index: 1000;
-	padding: 4.4rem 0;
+	padding-top: 4.4rem;
 	box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
 }
 
 .menu-container.show-menu {
@@ -137,6 +155,11 @@ export default {
 	background-color: rgba(15, 23, 42, 0.95);
 	color: #e2e8f0;
 	box-shadow: -2px 0 5px rgba(0, 0, 0, 0.3);
+}
+
+nav {
+	flex: 1;
+	overflow-y: auto;
 }
 
 nav ul {
@@ -197,5 +220,69 @@ nav ul li a.router-link-active {
 	font-weight: bold;
 	vertical-align: middle;
 	margin-left: 0.2rem;
+}
+
+/* Theme Switcher Styles */
+.menu-theme-switcher {
+	padding: 1rem 1.5rem;
+	padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+	border-top: 1px solid rgba(0,0,0,0.1);
+	flex-shrink: 0;
+	margin-top: auto;
+}
+
+.dark-mode .menu-theme-switcher {
+	border-top-color: rgba(255,255,255,0.1);
+}
+
+.theme-label {
+	font-size: 0.8rem;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	margin-bottom: 0.8rem;
+	opacity: 0.7;
+}
+
+.theme-options {
+	display: flex;
+	gap: 0.8rem;
+	justify-content: space-between;
+}
+
+.theme-btn {
+	background: rgba(0,0,0,0.05);
+	border: 1px solid transparent;
+	font-size: 1.5rem;
+	cursor: pointer;
+	padding: 0.5rem;
+	border-radius: 12px;
+	transition: all 0.2s;
+	flex: 1;
+	display: flex;
+	justify-content: center;
+}
+
+.dark-mode .theme-btn {
+	background: rgba(255,255,255,0.1);
+}
+
+.theme-btn:hover {
+	transform: scale(1.05);
+	background: rgba(0,0,0,0.1);
+}
+
+.dark-mode .theme-btn:hover {
+	background: rgba(255,255,255,0.2);
+}
+
+.theme-btn.active {
+	background: #fff;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+	border-color: rgba(0,0,0,0.1);
+}
+
+.dark-mode .theme-btn.active {
+	background: #334155;
+	border-color: rgba(255,255,255,0.2);
 }
 </style>
