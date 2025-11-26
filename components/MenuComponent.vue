@@ -40,12 +40,13 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useTheme } from '~/composables/useTheme'
 import { useRoute } from 'vue-router'
-const { activeTheme, themes, setTheme } = useTheme()
+const { activeTheme, setTheme } = useTheme()
 const route = useRoute()
 const darkMode = ref(false)
 const showMenu = ref(false)
 const touchStartX = ref(0)
 const menuItems = ref([])
+const themes = ref([])
 
 const toggleMenu = () => {
 	showMenu.value = !showMenu.value
@@ -70,10 +71,14 @@ const handleTouchEnd = (event) => {
 
 onMounted(async () => {
 	try {
-		const response = await fetch('/api/menu')
-		menuItems.value = await response.json()
+		const [menuResponse, themesResponse] = await Promise.all([
+			fetch('/api/menu'),
+			fetch('/api/themes')
+		])
+		menuItems.value = await menuResponse.json()
+		themes.value = await themesResponse.json()
 	} catch (error) {
-		console.error('Error fetching menu items:', error)
+		console.error('Error fetching menu items or themes:', error)
 	}
 })
 

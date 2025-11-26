@@ -2,9 +2,9 @@ import { defineNuxtConfig } from 'nuxt/config'
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   css: [
-    '~/assets/css/scandinavian.css',
-    '~/assets/css/hacker.css',
-    '~/assets/css/tolkien.css'
+    '~/assets/themes/scandinavian.css',
+    '~/assets/themes/hacker.css',
+    '~/assets/themes/tolkien.css'
   ],
 
   app: {
