@@ -1,14 +1,15 @@
 <template>
   <div :class="cx('page') + (activeTheme === 'scandi' ? ' scandi-gradient-warm' : '')">
     <div :class="cx('container') + ' about-layout'">
-      
+
       <!-- Hero section -->
       <header :class="cx('stagger') + ' hero'">
         <h1 :class="cx('heading') + ' ' + cx('heading--xl') + ' ' + cx('animate-in')">
           About
         </h1>
         <!-- Dynamic political bar class based on theme -->
-        <div :class="activeTheme === 'scandi' ? 'political-bar' : activeTheme === 'hacker' ? 'hacker-bar' : 'tolkien-bar' + ' ' + cx('animate-in')">
+        <div
+          :class="activeTheme === 'scandi' ? 'political-bar' : activeTheme === 'hacker' ? 'hacker-bar' : 'tolkien-bar' + ' ' + cx('animate-in')">
           <span></span>
           <span></span>
           <span></span>
@@ -18,15 +19,14 @@
 
       <!-- Main content -->
       <main :class="cx('stagger') + ' content'">
-        
+
         <!-- Bio card -->
         <article :class="cx('card') + ' bio-card ' + cx('animate-in')">
           <p :class="cx('body') + ' ' + cx('body--lg')">
-            This is a pet project, written with <em>love</em>, <em>spare time</em>, 
-            and a bit of <em>artificial intelligence</em>.
+            Some easter eggs in a trenchcoat, trying to look like a homepage.
           </p>
           <p :class="cx('body') + ' bio-secondary'">
-            Built during quiet evenings, powered by curiosity and coffee.
+            Composed mainly of claude and coffee.
           </p>
         </article>
 
@@ -34,42 +34,33 @@
 
         <!-- Values section -->
         <section :class="cx('animate-in') + ' values-section'">
-          <h2 :class="cx('heading') + ' ' + cx('heading--md') + ' values-heading'">
-            What matters
-          </h2>
-          
+
           <div class="values-grid">
             <div :class="cx('card') + ' ' + cx('card--flat') + ' value-item'">
-              <span class="value-symbol">🕊️</span>
-              <span class="value-text">Peace to the world</span>
+              <span class="value-symbol">🌍</span>
+              <span class="value-text">Peace</span>
             </div>
-            
+
+            <div :class="cx('card') + ' ' + cx('card--flat') + ' value-item'">
+              <span class="value-symbol">🌍</span>
+              <span class="value-text">Justice</span>
+            </div>
+
             <div :class="cx('card') + ' ' + cx('card--flat') + ' value-item value-item--highlight'">
               <span class="value-flag">🇵🇸</span>
               <span class="value-text">Free Palestine</span>
-            </div>
-            
-            <div :class="cx('card') + ' ' + cx('card--flat') + ' value-item'">
-              <span class="value-symbol">🌍</span>
-              <span class="value-text">Climate justice</span>
             </div>
           </div>
         </section>
 
         <div :class="cx('divider') + ' ' + cx('animate-in')"></div>
 
-        <!-- Fun fact section -->
         <section :class="cx('animate-in') + ' fact-section'">
-          <button 
-            :class="cx('interactive') + ' fact-button ' + cx('card')" 
-            @click="showRandomFact"
-          >
-            <span class="fact-label">Random thought</span>
+          <button :class="cx('interactive') + ' fact-button ' + cx('card')" @click="showRandomFact">
             <span class="fact-content">{{ currentFact }}</span>
-            <span class="fact-hint">tap to shuffle</span>
+            <span class="fact-hint" v-if="firstFact">tap to update</span>
           </button>
         </section>
-
       </main>
 
       <!-- Footer accent -->
@@ -90,14 +81,8 @@ const { activeTheme } = useTheme()
 const cx = (suffix) => {
   return `${activeTheme.value}-${suffix}`
 }
-
+const firstFact = ref(true)
 const facts = [
-  'Every line of code tells a story',
-  'Built during late-night sessions with good music',
-  'Debugging is meditation in disguise',
-  'Simplicity is the ultimate sophistication',
-  'Powered by curiosity and stubbornness',
-  'Made with Vue and a lot of iteration',
   'Design is never finished, only abandoned'
 ]
 
@@ -110,6 +95,7 @@ const showRandomFact = () => {
     newIndex = Math.floor(Math.random() * facts.length)
   }
   currentFact.value = facts[newIndex]
+  firstFact.value = false
 }
 </script>
 
@@ -202,6 +188,7 @@ const showRandomFact = () => {
   gap: 0.5rem;
   width: 100%;
   max-width: 400px;
+  padding: var(--space-sm);
 }
 
 .fact-label {
@@ -242,18 +229,18 @@ const showRandomFact = () => {
   .bio-card {
     padding: var(--space-md);
   }
-  
+
   .values-grid {
     flex-direction: column;
     align-items: center;
   }
-  
+
   .value-item {
     width: 100%;
     max-width: 280px;
     justify-content: center;
   }
-  
+
   .fact-button {
     padding: var(--space-md);
   }
