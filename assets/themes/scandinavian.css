@@ -145,12 +145,23 @@
 .political-bar span {
   flex: 1;
   border-radius: 2px;
+  animation: scandi-bar 2s ease-in-out infinite;
 }
 
 .political-bar span:nth-child(1) { background: var(--accent-black); }
-.political-bar span:nth-child(2) { background: var(--accent-green); }
-.political-bar span:nth-child(3) { background: #fff; }
-.political-bar span:nth-child(4) { background: var(--accent-red); }
+.political-bar span:nth-child(2) { animation-delay: 0.2s; background: var(--accent-green); }
+.political-bar span:nth-child(3) { animation-delay: 0.4s; background: #fff; }
+.political-bar span:nth-child(4) { animation-delay: 0.6s; background: var(--accent-red); }
+.political-bar span:nth-child(5) { animation-delay: 0.8s; background: var(--accent-soft-blue); }
+.political-bar span:nth-child(6) { animation-delay: 1s; background: var(--accent-soft-sage); }
+.political-bar span:nth-child(7) { animation-delay: 1.2s; background: var(--accent-black); }
+.political-bar span:nth-child(8) { animation-delay: 1.4s; background: var(--accent-red); }
+.political-bar span:nth-child(9) { animation-delay: 1.6s; background: var(--accent-green); }
+
+@keyframes scandi-bar {
+  0% { opacity: 1; transform: scaleY(1); }
+  100% { opacity: 0.1; transform: scaleY(1); }
+}
 
 /* Subtle animations */
 @keyframes scandi-fade-in {

@@ -14,6 +14,11 @@
           <span></span>
           <span></span>
           <span></span>
+          <span v-if="activeTheme === 'scandi'"></span>
+          <span v-if="activeTheme === 'scandi'"></span>
+          <span v-if="activeTheme === 'scandi'"></span>
+          <span v-if="activeTheme === 'scandi'"></span>
+          <span v-if="activeTheme === 'scandi'"></span>
         </div>
       </header>
 
