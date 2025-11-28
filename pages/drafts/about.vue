@@ -8,8 +8,7 @@
           About
         </h1>
         <!-- Dynamic political bar class based on theme -->
-        <div
-          :class="activeTheme === 'scandi' ? 'political-bar' : activeTheme === 'hacker' ? 'hacker-bar' : 'tolkien-bar' + ' ' + cx('animate-in')">
+        <div :class="cx('bar') + ' ' + cx('animate-in')">
           <span></span>
           <span></span>
           <span></span>
@@ -35,31 +34,6 @@
           </p>
         </article>
 
-        <div :class="cx('divider') + ' ' + cx('animate-in')"></div>
-
-        <!-- Values section -->
-        <section :class="cx('animate-in') + ' values-section'">
-
-          <div class="values-grid">
-            <div :class="cx('card') + ' ' + cx('card--flat') + ' value-item'">
-              <span class="value-symbol">🌍</span>
-              <span class="value-text">Peace</span>
-            </div>
-
-            <div :class="cx('card') + ' ' + cx('card--flat') + ' value-item'">
-              <span class="value-symbol">🌍</span>
-              <span class="value-text">Justice</span>
-            </div>
-
-            <div :class="cx('card') + ' ' + cx('card--flat') + ' value-item value-item--highlight'">
-              <span class="value-flag">🇵🇸</span>
-              <span class="value-text">Free Palestine</span>
-            </div>
-          </div>
-        </section>
-
-        <div :class="cx('divider') + ' ' + cx('animate-in')"></div>
-
         <section :class="cx('animate-in') + ' fact-section'">
           <button :class="cx('interactive') + ' fact-button ' + cx('card')" @click="showRandomFact">
             <span class="fact-content">{{ currentFact }}</span>
@@ -67,12 +41,6 @@
           </button>
         </section>
       </main>
-
-      <!-- Footer accent -->
-      <footer :class="cx('animate-in') + ' footer'">
-        <div class="footer-line"></div>
-      </footer>
-
     </div>
   </div>
 </template>
@@ -102,6 +70,10 @@ const showRandomFact = () => {
   currentFact.value = facts[newIndex]
   firstFact.value = false
 }
+
+onMounted(() => {
+  document.body.classList.remove('scrollable');
+})
 </script>
 
 <style scoped>
@@ -121,7 +93,7 @@ const showRandomFact = () => {
 }
 
 /* Centering for all theme bars */
-.political-bar,
+.scandi-bar,
 .hacker-bar,
 .tolkien-bar {
   margin-left: auto !important;
@@ -147,7 +119,7 @@ const showRandomFact = () => {
 }
 
 .values-heading {
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
   opacity: 0.7;
 }
 
@@ -182,6 +154,7 @@ const showRandomFact = () => {
 
 /* Fact section */
 .fact-section {
+  margin-top: var(--space-md);
   display: flex;
   justify-content: center;
 }
@@ -232,7 +205,7 @@ const showRandomFact = () => {
 /* Mobile adjustments */
 @media (max-width: 640px) {
   .bio-card {
-    padding: var(--space-md);
+    padding: var(--space-xs);
   }
 
   .values-grid {
