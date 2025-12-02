@@ -149,6 +149,55 @@ export interface AdjacentPlace extends Place {
     direction: 'north' | 'south' | 'east' | 'west';
 }
 
+// Biome definitions for variety
+const BIOMES = [
+    {
+        name: 'Deep Forest',
+        adjectives: ['ancient', 'twisted', 'dense', 'shadowy', 'primeval', 'enchanted'],
+        features: ['towering trees', 'thick undergrowth', 'mysterious sounds', 'dappled sunlight', 'moss-covered stones']
+    },
+    {
+        name: 'Mystical Glade',
+        adjectives: ['serene', 'moonlit', 'ethereal', 'peaceful', 'luminous', 'tranquil'],
+        features: ['soft grass', 'glowing flowers', 'gentle streams', 'magical aura', 'fairy lights']
+    },
+    {
+        name: 'Dark Thicket',
+        adjectives: ['foreboding', 'ominous', 'treacherous', 'thorny', 'cursed', 'sinister'],
+        features: ['tangled vines', 'poisonous plants', 'lurking shadows', 'eerie silence', 'sharp brambles']
+    },
+    {
+        name: 'Sacred Grove',
+        adjectives: ['holy', 'blessed', 'pristine', 'revered', 'hallowed', 'divine'],
+        features: ['ancient shrines', 'healing springs', 'sacred trees', 'prayer stones', 'blessed ground']
+    },
+    {
+        name: 'Wildwood',
+        adjectives: ['untamed', 'rugged', 'primal', 'savage', 'feral', 'chaotic'],
+        features: ['wild animals', 'rough terrain', 'fallen logs', 'natural caves', 'rocky outcrops']
+    }
+]
+
+// Determine biome based on coordinates
+function getBiomeForCoordinates(coordinates: Place['coordinates']): typeof BIOMES[0] {
+    const distance = Math.abs(coordinates.north) + Math.abs(coordinates.west)
+    const hash = (coordinates.north * 31 + coordinates.west * 17) % BIOMES.length
+    const absHash = Math.abs(hash)
+
+    // Near origin: mostly Mystical Glade and Sacred Grove
+    if (distance <= 2) {
+        return BIOMES[hash % 2 === 0 ? 1 : 3]
+    }
+    // Medium distance: more variety
+    else if (distance <= 5) {
+        return BIOMES[absHash % 4]
+    }
+    // Far from origin: darker, more dangerous biomes
+    else {
+        return BIOMES[hash % 2 === 0 ? 2 : 4]
+    }
+}
+
 export async function generatePlace(
     coordinates: Place['coordinates'],
     openai: OpenAI,
@@ -160,9 +209,35 @@ export async function generatePlace(
         .map(place => `To the ${place.direction} is ${place.name}: ${place.description}`)
         .join('\n')
 
-    // Generate place using OpenAI
+    // Determine biome and danger level
+    const biome = getBiomeForCoordinates(coordinates)
+    const distance = Math.abs(coordinates.north) + Math.abs(coordinates.west)
+    const dangerLevel = distance <= 2 ? 'safe' : distance <= 5 ? 'moderate' : 'dangerous'
+
+    // Determine what interactive elements to include (probability-based)
+    const rand = Math.random()
+    let interactiveRequirement = ''
+
+    // 70% chance of having something interactive
+    if (rand < 0.70) {
+        const elementRoll = Math.random()
+        if (elementRoll < 0.4) {
+            // 40% - Include an item
+            interactiveRequirement = 'REQUIRED: Include at least ONE item that players can pick up (marked with *single asterisks*). Examples: *healing potion*, *rusty key*, *ancient scroll*, *silver coin*'
+        } else if (elementRoll < 0.7) {
+            // 30% - Include a character
+            interactiveRequirement = 'REQUIRED: Include at least ONE character that players can interact with (marked with **double asterisks**). Examples: **traveling merchant**, **lost child**, **mysterious hermit**, **wounded soldier**'
+        } else {
+            // 30% - Include both
+            interactiveRequirement = 'REQUIRED: Include BOTH an item (marked with *single asterisks*) AND a character (marked with **double asterisks**) to make this location extra interesting.'
+        }
+    } else {
+        // 30% - Empty location (but still has landmarks/atmosphere)
+        interactiveRequirement = 'This location should be empty of items and characters - just atmosphere and environment. Use ***triple asterisks*** for landmarks if appropriate.'
+    }
+
     const randomFeature = getRandomFeature()
-    
+
     const completion = await openai.chat.completions.create({
         model: "llama-3.3-70b",
         messages: [
@@ -170,9 +245,19 @@ export async function generatePlace(
                 role: "system",
                 content: `You are a creative writer generating a new location for a text adventure game.
 The location should be described in 5-10 sentences.
-The description should be atmospheric and evocative but concise. some areas are without real merit. Some have people or magical items, or perhaps both.
+The description should be atmospheric and evocative but concise.
 The name should be short but descriptive.
 ${randomFeature}
+
+BIOME: ${biome.name}
+- Use these adjectives: ${biome.adjectives.join(', ')}
+- Include these features: ${biome.features.join(', ')}
+- Danger level: ${dangerLevel}
+
+${dangerLevel === 'dangerous' ? 'This area should feel threatening with hints of danger, monsters, or hostile forces.' : ''}
+${dangerLevel === 'safe' ? 'This area should feel welcoming and peaceful.' : ''}
+
+${interactiveRequirement}
 
 The theme is: ${theme || 'a mysterious fantasy forest world'}
 
@@ -184,8 +269,6 @@ CRITICAL FORMATTING RULES - Follow these exactly:
 Examples of good formatting:
 - "An **old hermit** sits by the fire, warming his hands near a *glowing crystal*. Behind him, the entrance to ***forbidden caves*** yawns like a dark mouth."
 - "A *silver dagger* lies abandoned near the ***crumbling tower***, while a **wandering bard** plays a haunting melody."
-
-Make sure to include at least 1-2 interactive elements (people, items, or sub-locations) in most descriptions to make exploration rewarding.
 
 Adjacent locations for context:
 ${existingContext || 'This is one of the first locations in the game.'}`

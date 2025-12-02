@@ -163,12 +163,163 @@ export default defineEventHandler(async (event: any) => {
                 break
             }
 
+            case 'take':
+            case 'get':
+            case 'pick':
+            case 'pickup':
+            case 'grab': {
+                if (args.length === 0) {
+                    response = 'What would you like to take?'
+                } else {
+                    const itemName = args.join(' ')
+                    const normalizedItemName = normalizeItemName(itemName)
+                    const normalizedInventory = gameState.inventory.map(normalizeItemName)
+
+                    // Check if already in inventory
+                    if (normalizedInventory.includes(normalizedItemName)) {
+                        response = `You already have ${itemName} in your inventory.`
+                    } else {
+                        // Check if item exists at current location
+                        const { db } = await import('../utils/firebase-admin')
+                        const itemDoc = await db.collection('items').doc(itemName).get()
+
+                        if (itemDoc.exists) {
+                            const itemData = itemDoc.data()
+                            // Check if item is at current location
+                            if (itemData?.location?.coordinates?.north === gameState.coordinates.north &&
+                                itemData?.location?.coordinates?.west === gameState.coordinates.west &&
+                                !itemData?.location?.isPickedUp) {
+
+                                // Add to inventory
+                                newState = {
+                                    ...gameState,
+                                    inventory: [...gameState.inventory, itemName]
+                                }
+
+                                // Mark item as picked up in database
+                                await itemDoc.ref.update({
+                                    'location.isPickedUp': true
+                                })
+
+                                response = `You pick up ${itemName} and add it to your inventory.`
+                            } else if (itemData?.location?.isPickedUp) {
+                                response = `That ${itemName} has already been taken.`
+                            } else {
+                                response = `You don't see ${itemName} here.`
+                            }
+                        } else {
+                            response = `There is no ${itemName} here.`
+                        }
+                    }
+                }
+                break
+            }
+
+            case 'use':
+            case 'consume':
+            case 'drink':
+            case 'eat': {
+                if (args.length === 0) {
+                    response = 'What would you like to use?'
+                } else {
+                    const itemName = args.join(' ')
+                    const normalizedItemName = normalizeItemName(itemName)
+                    const normalizedInventory = gameState.inventory.map(normalizeItemName)
+
+                    // Check if item is in inventory
+                    const inventoryIndex = normalizedInventory.indexOf(normalizedItemName)
+                    if (inventoryIndex === -1) {
+                        response = `You don't have ${itemName} in your inventory.`
+                    } else {
+                        // Get item details
+                        const { db } = await import('../utils/firebase-admin')
+                        const itemDoc = await db.collection('items').doc(itemName).get()
+
+                        if (itemDoc.exists) {
+                            const itemData = itemDoc.data()
+                            const properties = itemData?.properties || {}
+
+                            // Apply item effects based on properties
+                            let effectMessage = ''
+                            let shouldRemoveItem = false
+
+                            if (properties.healing) {
+                                effectMessage = `You use ${itemName} and feel ${properties.healing} health restored!`
+                                shouldRemoveItem = true
+                            } else if (properties.damage) {
+                                effectMessage = `You wield ${itemName}. It has ${properties.damage} attack power.`
+                            } else if (properties.defense) {
+                                effectMessage = `You equip ${itemName}. It provides ${properties.defense} defense.`
+                            } else if (itemData?.type === 'key') {
+                                effectMessage = `You use ${itemName}. It might unlock something nearby...`
+                            } else if (itemData?.type === 'tool') {
+                                effectMessage = `You use ${itemName}. It seems useful for the task at hand.`
+                            } else {
+                                effectMessage = `You examine ${itemName} closely but aren't sure how to use it effectively.`
+                            }
+
+                            // If item has uses and gets consumed
+                            if (shouldRemoveItem || (properties.uses && properties.uses <= 1)) {
+                                const newInventory = [...gameState.inventory]
+                                newInventory.splice(inventoryIndex, 1)
+                                newState = {
+                                    ...gameState,
+                                    inventory: newInventory
+                                }
+                                effectMessage += ` The ${itemName} is consumed.`
+                            } else if (properties.uses && properties.uses > 1) {
+                                // Decrement uses
+                                await itemDoc.ref.update({
+                                    'properties.uses': properties.uses - 1
+                                })
+                                effectMessage += ` It has ${properties.uses - 1} uses remaining.`
+                            }
+
+                            response = effectMessage
+                        } else {
+                            response = `You can't seem to use ${itemName} right now.`
+                        }
+                    }
+                }
+                break
+            }
+
             case 'inventory':
             case 'inv':
             case 'i':
-                response = gameState.inventory.length > 0 
+                response = gameState.inventory.length > 0
                     ? `Your inventory contains: ${gameState.inventory.join(', ')}`
                     : 'Your inventory is empty.'
+                break
+
+            case 'help':
+            case 'commands':
+            case '?':
+                response = `Available Commands:
+
+Movement:
+  go [direction] - Move in a direction (north, south, east, west)
+
+Observation:
+  look - Examine your current surroundings
+  examine [thing] - Look closely at something specific
+
+Items:
+  take [item] - Pick up an item
+  use [item] - Use an item from your inventory
+  inventory (or inv, i) - View your inventory
+
+Interaction:
+  talk to [character] - Speak with a character
+
+Other:
+  help - Show this help message
+
+Tips:
+- Items are highlighted in gold and marked with *single asterisks*
+- Characters are highlighted in pink and marked with **double asterisks**
+- Places are highlighted in green and marked with ***triple asterisks***
+- Try clicking on highlighted items, characters, or places for quick actions!`
                 break
 
             default:
@@ -181,19 +332,36 @@ export default defineEventHandler(async (event: any) => {
                         command  // Pass the full original command
                     )
                     response = processedText
-                    // Normalize and deduplicate items before adding to inventory
-                    const normalizedInventory = gameState.inventory.map(normalizeItemName)
-                    const uniqueNewItems = items.filter(
-                        item => !normalizedInventory.includes(normalizeItemName(item))
-                    )
-                    newState = {
-                        ...gameState,
-                        inventory: [...gameState.inventory, ...uniqueNewItems],
-                        messages: pruneMessageHistory([
-                            ...gameState.messages,
-                            { role: 'user', content: command },
-                            { role: 'assistant', content: processedText }
-                        ])
+
+                    // Only add items to inventory if the command seems like an explicit take action
+                    // Otherwise, just describe them (they can use 'take' command explicitly)
+                    const isTakeCommand = /^(take|get|pick|grab|collect)/i.test(command)
+
+                    if (isTakeCommand && items.length > 0) {
+                        // Normalize and deduplicate items before adding to inventory
+                        const normalizedInventory = gameState.inventory.map(normalizeItemName)
+                        const uniqueNewItems = items.filter(
+                            item => !normalizedInventory.includes(normalizeItemName(item))
+                        )
+                        newState = {
+                            ...gameState,
+                            inventory: [...gameState.inventory, ...uniqueNewItems],
+                            messages: pruneMessageHistory([
+                                ...gameState.messages,
+                                { role: 'user', content: command },
+                                { role: 'assistant', content: processedText }
+                            ])
+                        }
+                    } else {
+                        // Just update message history without modifying inventory
+                        newState = {
+                            ...gameState,
+                            messages: pruneMessageHistory([
+                                ...gameState.messages,
+                                { role: 'user', content: command },
+                                { role: 'assistant', content: processedText }
+                            ])
+                        }
                     }
                 } catch (error) {
                     console.error('AI processing error:', error)
