@@ -87,19 +87,17 @@ let gameStateDoc: any | null = null
 async function loadGameState() {
 	try {
 		const { $firebase } = useNuxtApp()
-		const gameDoc = doc($firebase.firestore, 'games', userId.value)
-		const itemsCollection = collection($firebase.firestore, 'items')
-		const placesCollection = collection($firebase.firestore, 'places')
 		gameStateDoc = doc($firebase.firestore, 'gameStates', userId.value)
-	
-		const gameSnapshot = await getDoc(gameDoc)
+
+		const gameSnapshot = await getDoc(gameStateDoc)
 
 		if (gameSnapshot.exists()) {
 			const data = gameSnapshot.data()
-			gameMessages.value = data.messages || gameMessages.value
-			commandHistory.value = data.commands || commandHistory.value
+			// Load UI state from gameStates collection
+			gameMessages.value = data.uiMessages || gameMessages.value
+			commandHistory.value = data.commandHistory || commandHistory.value
 			historyIndex.value = commandHistory.value.length
-			
+
 			// Scroll to bottom after loading
 			nextTick(() => {
 				scrollToBottom()
@@ -111,16 +109,16 @@ async function loadGameState() {
 }
 
 async function saveGameState() {
-	// Note: Game state is saved server-side in gameStates collection
-	// This function saves UI-specific data (messages, command history) to games collection
+	// Save both game logic and UI state to gameStates collection
 	try {
 		const { $firebase } = useNuxtApp()
-		const gameDoc = doc($firebase.firestore, 'games', userId.value)
-		await setDoc(gameDoc, {
-			messages: gameMessages.value,
-			commands: commandHistory.value,
+		if (!gameStateDoc) return
+
+		await setDoc(gameStateDoc, {
+			uiMessages: gameMessages.value,
+			commandHistory: commandHistory.value,
 			lastUpdated: new Date()
-		})
+		}, { merge: true })  // Use merge to not overwrite server-side game state
 	} catch (error) {
 		console.error('Error saving game state:', error)
 	}
@@ -130,11 +128,9 @@ async function resetGame() {
 	if (confirm('Are you sure you want to reset the game? This will clear all progress.')) {
 		try {
 			const { $firebase } = useNuxtApp()
-			const gameDoc = doc($firebase.firestore, 'games', userId.value)
 			const gameStateDoc = doc($firebase.firestore, 'gameStates', userId.value)
 
-			// Delete both game messages and game state
-			await deleteDoc(gameDoc)
+			// Delete game state (both server and UI state)
 			await deleteDoc(gameStateDoc)
 
 			gameMessages.value = ['You find yourself in the middle of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do?']
@@ -179,14 +175,12 @@ async function handleCommand() {
         }
         // Save game state after each command
         await saveGameState()
-        // Add a small delay to ensure Firebase state is updated, then refresh location
-        setTimeout(async () => {
-        	try {
-        		await loadPlayerLocation()
-        	} catch (error) {
-        		console.error('Error updating player location:', error)
-        	}
-        }, 500)
+        // Refresh location immediately - server has already updated gameStates
+        try {
+            await loadPlayerLocation()
+        } catch (error) {
+            console.error('Error updating player location:', error)
+        }
 	} catch (error) {
 		console.error('Error sending command:', error)
 		addMessage('The magical connection seems to be disturbed...')

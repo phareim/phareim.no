@@ -29,9 +29,18 @@ export default defineEventHandler(async (event: any) => {
     try {
         const body = await readBody(event)
         const { command, userId } = body
-        if(!command) {
+
+        // Validate required fields
+        if (!command) {
             return {
                 error: 'No command provided',
+                status: 400
+            }
+        }
+
+        if (!userId) {
+            return {
+                error: 'No userId provided',
                 status: 400
             }
         }

@@ -2,6 +2,7 @@ import type { ChatCompletionMessageParam } from 'openai/resources/chat/completio
 import OpenAI from 'openai'
 import type { GameState } from '../state/game-state'
 import { processItemsInText } from './items'
+import { processCharactersInText } from './characters'
 import type { Item } from '~/types/item'
 
 // System prompt for the RPG game
@@ -77,9 +78,13 @@ export async function handleAIResponse(
     const response = completion.choices[0]?.message?.content || 'Sorry, I did not understand that.'
 
     // Process any items mentioned in the response
-    const { processedText, items } = await processItemsInText(response, gameState.coordinates, openai)
+    const { processedText: textAfterItems, items } = await processItemsInText(response, gameState.coordinates, openai)
+
+    // Process any characters mentioned in the response
+    const { processedText: finalText, characters } = await processCharactersInText(textAfterItems, gameState.coordinates, openai)
+
     return {
-        processedText,
+        processedText: finalText,
         items: Object.values(items).map(item => item.name)
     }
 }

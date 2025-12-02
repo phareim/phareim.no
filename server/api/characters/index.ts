@@ -2,6 +2,15 @@ import { db } from '~/server/utils/firebase-admin'
 import type { Character } from '~/types/character'
 import { charactersCollection, validateCharacter, generateRandomStats } from '~/types/character'
 
+/**
+ * Characters API - For the character gallery feature
+ *
+ * NOTE: This is separate from the RPG game system.
+ * Characters in this collection are for display in the character gallery page,
+ * not for spawning NPCs in the RPG world.
+ *
+ * The RPG system should generate its own NPCs dynamically when needed.
+ */
 export default defineEventHandler(async (event) => {
     const method = getMethod(event)
     

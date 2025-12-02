@@ -1,4 +1,13 @@
 <!-- InlineCharacter.vue -->
+<!--
+  RPG Inline Character Component
+
+  This component displays NPCs (non-player characters) mentioned in the RPG game text.
+  When the AI generates text with **character names**, this component fetches and displays them.
+
+  NOTE: This is separate from the character gallery. These are dynamically generated NPCs
+  created during gameplay, not pre-made gallery characters.
+-->
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useNuxtApp } from '#app'
@@ -23,7 +32,8 @@ const showActions = ref(false)
 async function fetchCharacter() {
   try {
     const { $firebase } = useNuxtApp()
-    const characterDoc = doc($firebase.firestore, 'characters', props.characterId)
+    // Use rpgCharacters collection (separate from gallery characters)
+    const characterDoc = doc($firebase.firestore, 'rpgCharacters', props.characterId)
     const characterSnapshot = await getDoc(characterDoc)
     
     if (characterSnapshot.exists()) {
