@@ -5,27 +5,11 @@ import { useRuntimeConfig } from '#imports'
 import { handleMovement } from '../rpg/handlers/movement'
 import { handleAIResponse, pruneMessageHistory } from '../rpg/handlers/ai'
 import { getCurrentPlace, generateNewPlace } from '../rpg/handlers/place'
-import { loadGameState, saveGameState } from '../rpg/state/game-state'
+import { loadGameState, saveGameState, DEFAULT_GAME_STATE, type GameState } from '../rpg/state/game-state'
 
 // Helper function to normalize item names for deduplication
 function normalizeItemName(name: string): string {
     return name.trim().toLowerCase()
-}
-
-// Extend GameState type to include messages
-interface ExtendedGameState {
-    coordinates: {
-        north: number
-        west: number
-    }
-    inventory: string[]
-    visited: string[]
-    lastUpdated: Date
-    messages: ChatCompletionMessageParam[]
-    currentPlace?: {
-        name: string
-        description: string
-    }
 }
 
 // Initialize OpenAI with Venice configuration
@@ -52,15 +36,12 @@ export default defineEventHandler(async (event: any) => {
             }
         }
         // Load game state or create new one for new players
-        let gameState = await loadGameState(userId) as ExtendedGameState | null
+        let gameState = await loadGameState(userId)
         if (!gameState) {
-            // Initialize new game state for new players
+            // Initialize new game state for new players using the default state
             gameState = {
-                coordinates: { north: 0, west: 0 },
-                inventory: [],
-                visited: ['0,0'],
-                lastUpdated: new Date(),
-                messages: []
+                ...DEFAULT_GAME_STATE,
+                visited: ['0,0']
             }
             // Save the initial state
             await saveGameState(userId, gameState)
@@ -70,7 +51,7 @@ export default defineEventHandler(async (event: any) => {
         const [action, ...args] = command.trim().toLowerCase().split(' ')
 
         let response = ''
-        let newState: ExtendedGameState = { ...gameState }
+        let newState: GameState = { ...gameState }
 
         switch (action) {
             case 'go':

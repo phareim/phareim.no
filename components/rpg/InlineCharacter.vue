@@ -1,6 +1,6 @@
 <!-- InlineCharacter.vue -->
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useNuxtApp } from '#app'
 import { doc, getDoc } from 'firebase/firestore'
 
