@@ -2,6 +2,7 @@ import type { GameState } from '../state/game-state'
 import { db } from '../../utils/firebase-admin'
 import { charactersCollection } from '~/types/character'
 import OpenAI from 'openai'
+import { initializeCharacter } from './character-state'
 
 // Simple NPC type for the RPG (separate from the gallery Character type)
 export interface RPGCharacter {
@@ -84,6 +85,14 @@ Rules:
         // Store in 'rpgCharacters' collection (separate from gallery 'characters')
         const docRef = db.collection('rpgCharacters').doc(name)
         await docRef.set(characterData)
+
+        // Also initialize character state for conversation tracking
+        await initializeCharacter(
+            name,
+            characterData.description,
+            characterData.personality,
+            coordinates
+        )
 
         return {
             id: name,

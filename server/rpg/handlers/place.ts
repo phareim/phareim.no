@@ -4,20 +4,12 @@ import type { Place } from '../../../types/place'
 import OpenAI from 'openai'
 import { generatePlace, getPlaceId } from '../../utils/place-generator'
 import type { AdjacentPlace } from '../../utils/place-generator'
+import { getPlaceWithModifications } from './place-modifications'
 
-// Helper function to get current place
+// Helper function to get current place (with filtered description based on picked-up items)
 export async function getCurrentPlace(coordinates: GameState['coordinates']): Promise<Place | null> {
-    const placeId = getPlaceId(coordinates)
-    const placeDoc = await db.collection(placesCollection).doc(placeId).get()
-    
-    if (!placeDoc.exists) {
-        return null
-    }
-    
-    return {
-        id: placeDoc.id,
-        ...placeDoc.data()
-    } as Place
+    // Use the new function that filters out picked-up items
+    return await getPlaceWithModifications(coordinates)
 }
 
 // Generate a new place using OpenAI

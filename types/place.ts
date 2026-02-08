@@ -1,13 +1,17 @@
 export interface Place {
     id?: string;
     name: string;
-    description: string;
+    description: string;  // This is permanently modified when players interact with the world
     coordinates: {
         north: number;  // positive = north, negative = south
         west: number;   // positive = west, negative = east
     };
     createdAt: Date;
-    updatedAt: Date;
+    updatedAt: Date;  // Updates whenever description changes
+    modifications?: Array<{  // Optional: for tracking change history
+        text: string;
+        timestamp: Date;
+    }>;
 }
 
 export const START_COORDINATES = { north: 0, west: 0 };

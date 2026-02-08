@@ -53,5 +53,6 @@ export async function saveGameState(userId: string, state: GameState): Promise<v
         })
     } catch (error) {
         console.error('Error saving game state:', error)
+        throw new Error('Failed to save game state to database')
     }
 } 

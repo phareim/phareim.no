@@ -6,6 +6,8 @@ import { handleMovement } from '../rpg/handlers/movement'
 import { handleAIResponse, pruneMessageHistory } from '../rpg/handlers/ai'
 import { getCurrentPlace, generateNewPlace } from '../rpg/handlers/place'
 import { loadGameState, saveGameState, DEFAULT_GAME_STATE, type GameState } from '../rpg/state/game-state'
+import { removeItemFromPlaceDescription } from '../rpg/handlers/place-modifications'
+import { handleCharacterConversation } from '../rpg/handlers/character-conversation'
 
 // Helper function to normalize item names for deduplication
 function normalizeItemName(name: string): string {
@@ -108,26 +110,27 @@ export default defineEventHandler(async (event: any) => {
             case 'look':
             case 'inspect': {
                 if (args.length === 0) {
-                    // Use cached place if available, otherwise fetch from Firebase
-                    if (gameState.currentPlace) {
-                        response = `You take a moment to look around ${gameState.currentPlace.name}.\n\n${gameState.currentPlace.description}`
-                        newState = { ...gameState }
-                    } else {
-                        // Fallback to fetching from Firebase (for backward compatibility)
-                        let place = await getCurrentPlace(gameState.coordinates)
-                        if (!place) {
-                            // This shouldn't happen in normal gameplay - player should always be at a valid place
-                            console.warn('Player at coordinates with no place - generating:', gameState.coordinates)
+                    // Always fetch fresh place data to reflect picked-up items and modifications
+                    let place = await getCurrentPlace(gameState.coordinates)
+                    if (!place) {
+                        // This shouldn't happen in normal gameplay - player should always be at a valid place
+                        console.warn('Player at coordinates with no place - generating:', gameState.coordinates)
+                        try {
                             place = await generateNewPlace(gameState.coordinates, openai)
+                        } catch (error) {
+                            console.error('Failed to generate place:', error)
+                            response = 'The area around you seems unclear, as if the magical energies are unstable.'
+                            newState = { ...gameState }
+                            break
                         }
-                        response = `You take a moment to look around ${place.name}.\n\n${place.description}`
-                        // Cache the place for future lookups
-                        newState = {
-                            ...gameState,
-                            currentPlace: {
-                                name: place.name,
-                                description: place.description
-                            }
+                    }
+                    response = `You take a moment to look around ${place.name}.\n\n${place.description}`
+                    // Update cached place with current filtered description
+                    newState = {
+                        ...gameState,
+                        currentPlace: {
+                            name: place.name,
+                            description: place.description
                         }
                     }
                 } else {
@@ -179,36 +182,69 @@ export default defineEventHandler(async (event: any) => {
                     if (normalizedInventory.includes(normalizedItemName)) {
                         response = `You already have ${itemName} in your inventory.`
                     } else {
-                        // Check if item exists at current location
-                        const { db } = await import('../utils/firebase-admin')
-                        const itemDoc = await db.collection('items').doc(itemName).get()
+                        try {
+                            // Use transaction for atomic item pickup
+                            const { db } = await import('../utils/firebase-admin')
+                            const itemRef = db.collection('items').doc(itemName)
+                            const gameStateRef = db.collection('gameStates').doc(userId)
 
-                        if (itemDoc.exists) {
-                            const itemData = itemDoc.data()
-                            // Check if item is at current location
-                            if (itemData?.location?.coordinates?.north === gameState.coordinates.north &&
-                                itemData?.location?.coordinates?.west === gameState.coordinates.west &&
-                                !itemData?.location?.isPickedUp) {
+                            const result = await db.runTransaction(async (transaction) => {
+                                const itemDoc = await transaction.get(itemRef)
 
-                                // Add to inventory
-                                newState = {
-                                    ...gameState,
-                                    inventory: [...gameState.inventory, itemName]
+                                if (!itemDoc.exists) {
+                                    return { success: false, message: `There is no ${itemName} here.` }
                                 }
 
-                                // Mark item as picked up in database
-                                await itemDoc.ref.update({
+                                const itemData = itemDoc.data()
+
+                                // Check if item is at current location and not picked up
+                                if (itemData?.location?.coordinates?.north !== gameState.coordinates.north ||
+                                    itemData?.location?.coordinates?.west !== gameState.coordinates.west) {
+                                    return { success: false, message: `You don't see ${itemName} here.` }
+                                }
+
+                                if (itemData?.location?.isPickedUp) {
+                                    return { success: false, message: `That ${itemName} has already been taken.` }
+                                }
+
+                                // Atomically update both the item and game state
+                                transaction.update(itemRef, {
                                     'location.isPickedUp': true
                                 })
 
-                                response = `You pick up ${itemName} and add it to your inventory.`
-                            } else if (itemData?.location?.isPickedUp) {
-                                response = `That ${itemName} has already been taken.`
+                                const updatedInventory = [...gameState.inventory, itemName]
+                                transaction.update(gameStateRef, {
+                                    inventory: updatedInventory
+                                })
+
+                                return {
+                                    success: true,
+                                    message: `You pick up ${itemName} and add it to your inventory.`,
+                                    inventory: updatedInventory
+                                }
+                            })
+
+                            if (result.success && result.inventory) {
+                                newState = {
+                                    ...gameState,
+                                    inventory: result.inventory
+                                }
+                                response = result.message
+
+                                // CRITICAL: Permanently remove item from place description for ALL players
+                                try {
+                                    await removeItemFromPlaceDescription(gameState.coordinates, itemName)
+                                } catch (modError) {
+                                    console.error('Failed to update place description:', modError)
+                                    // Continue anyway - item is picked up, just description wasn't updated
+                                }
                             } else {
-                                response = `You don't see ${itemName} here.`
+                                response = result.message
                             }
-                        } else {
-                            response = `There is no ${itemName} here.`
+                        } catch (error) {
+                            console.error('Error picking up item:', error)
+                            response = 'Something went wrong while trying to pick up that item.'
+                            newState = { ...gameState }
                         }
                     }
                 }
@@ -284,6 +320,42 @@ export default defineEventHandler(async (event: any) => {
                 break
             }
 
+            case 'talk':
+            case 'speak':
+            case 'chat':
+            case 'ask':
+            case 'tell':
+            case 'greet': {
+                if (args.length === 0) {
+                    response = 'Who would you like to talk to?'
+                } else {
+                    // Extract character name (handle "talk to X" or "talk X")
+                    let characterName = args.join(' ')
+                    if (characterName.startsWith('to ')) {
+                        characterName = characterName.substring(3)
+                    }
+                    if (characterName.startsWith('with ')) {
+                        characterName = characterName.substring(5)
+                    }
+
+                    try {
+                        // Use character-specific conversation handler with memory
+                        response = await handleCharacterConversation(
+                            characterName,
+                            command, // Pass the full original command for context
+                            gameState,
+                            openai
+                        )
+                        newState = { ...gameState }
+                    } catch (error) {
+                        console.error('Error in character conversation:', error)
+                        response = `You try to speak with ${characterName}, but they don't seem to hear you.`
+                        newState = { ...gameState }
+                    }
+                }
+                break
+            }
+
             case 'inventory':
             case 'inv':
             case 'i':
@@ -310,7 +382,7 @@ Items:
   inventory (or inv, i) - View your inventory
 
 Interaction:
-  talk to [character] - Speak with a character
+  talk to [character] - Speak with a character (they remember your conversations!)
 
 Other:
   help - Show this help message
@@ -319,7 +391,9 @@ Tips:
 - Items are highlighted in gold and marked with *single asterisks*
 - Characters are highlighted in pink and marked with **double asterisks**
 - Places are highlighted in green and marked with ***triple asterisks***
-- Try clicking on highlighted items, characters, or places for quick actions!`
+- Try clicking on highlighted items, characters, or places for quick actions!
+- NPCs remember past conversations and their mood changes based on interactions
+- When you pick up items, they disappear from the world for all players!`
                 break
 
             default:

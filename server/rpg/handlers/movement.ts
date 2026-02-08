@@ -43,12 +43,24 @@ export async function handleMovement(
     // Get the new coordinates based on direction
     const newCoordinates = getNewCoordinates(gameState.coordinates, direction)
 
-    // Try to get the place at the new coordinates
+    // Try to get the place at the new coordinates (automatically filtered for picked-up items)
     let place = await getCurrentPlace(newCoordinates)
 
     // If no place exists, generate one
     if (!place) {
-        place = await generateNewPlace(newCoordinates, openai)
+        try {
+            place = await generateNewPlace(newCoordinates, openai)
+        } catch (error) {
+            console.error('Failed to generate new place:', error)
+            // Return a fallback place if generation fails
+            place = {
+                name: 'Uncharted Territory',
+                description: 'You arrive at an undefined area. The magical energies here are too unstable to form a coherent description. Perhaps try moving in a different direction, or wait for the energies to stabilize.',
+                coordinates: newCoordinates,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+        }
     }
 
     return {

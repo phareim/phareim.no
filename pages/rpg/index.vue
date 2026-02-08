@@ -121,6 +121,9 @@ async function saveGameState() {
 		}, { merge: true })  // Use merge to not overwrite server-side game state
 	} catch (error) {
 		console.error('Error saving game state:', error)
+		// Show error to user
+		addMessage('⚠️ Failed to save your progress. Your game state may not persist if you refresh.')
+		throw error  // Re-throw so caller knows it failed
 	}
 }
 
@@ -174,16 +177,22 @@ async function handleCommand() {
             addMessage(data.response)
         }
         // Save game state after each command
-        await saveGameState()
+        try {
+            await saveGameState()
+        } catch (saveError) {
+            console.error('Failed to save UI state:', saveError)
+            // Error message already shown by saveGameState()
+        }
         // Refresh location immediately - server has already updated gameStates
         try {
             await loadPlayerLocation()
         } catch (error) {
             console.error('Error updating player location:', error)
+            addMessage('⚠️ Failed to update location display. Try using the "look" command.')
         }
 	} catch (error) {
-		console.error('Error sending command:', error)
-		addMessage('The magical connection seems to be disturbed...')
+		console.error('Error processing command:', error)
+		addMessage('⚠️ The magical connection seems to be disturbed. Your command may not have been processed.')
 	} finally {
 		// Reset input and scroll to bottom
 		userInput.value = ''
