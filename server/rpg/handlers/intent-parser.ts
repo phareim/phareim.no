@@ -30,9 +30,15 @@ VALID ACTIONS:
 - examine: Player wants to look at something (look, check, examine, inspect, observe)
 - take: Player wants to pick up an item (take, get, grab, pick up, collect)
 - use: Player wants to use an item (use, consume, drink, eat, equip, wield)
-- inventory: Player wants to see inventory (inventory, bag, items, what do i have)
+- inventory: Player SPECIFICALLY asks about their inventory/bag/items they're carrying
 - help: Player wants help (help, commands, what can i do)
-- unknown: Unclear intent or general conversation
+- unknown: Anything else - general questions, conversation, unclear intent, or questions about surroundings
+
+CRITICAL RULES:
+- "inventory" is ONLY for explicit questions about player's own inventory (e.g., "what's in my bag?", "check inventory", "what am I carrying?")
+- Questions about surroundings/environment are "examine" (e.g., "what's around me?", "describe this place")
+- General conversation or questions are "unknown" (e.g., "what is this?", "tell me more", "hello")
+- If uncertain, use "unknown" - it's better to let the AI handle it
 
 DIRECTIONS (for move action):
 - north, south, east, west (or variations like northward, to the north, etc.)
@@ -53,6 +59,12 @@ Output: {"action":"talk","target":"Lysiander the wandering mage","confidence":"h
 Input: "I check out the trees"
 Output: {"action":"examine","target":"trees","confidence":"high"}
 
+Input: "what's around me?"
+Output: {"action":"examine","confidence":"high"}
+
+Input: "describe this place"
+Output: {"action":"examine","confidence":"high"}
+
 Input: "I stroll northwards"
 Output: {"action":"move","direction":"north","confidence":"high"}
 
@@ -65,6 +77,12 @@ Output: {"action":"take","target":"rusty sword","confidence":"high"}
 Input: "what's in my bag?"
 Output: {"action":"inventory","confidence":"high"}
 
+Input: "check my inventory"
+Output: {"action":"inventory","confidence":"high"}
+
+Input: "what am I carrying?"
+Output: {"action":"inventory","confidence":"high"}
+
 Input: "speak with the merchant"
 Output: {"action":"talk","target":"merchant","confidence":"high"}
 
@@ -72,6 +90,12 @@ Input: "look around"
 Output: {"action":"examine","confidence":"high"}
 
 Input: "Hello, how are you?"
+Output: {"action":"unknown","confidence":"high"}
+
+Input: "what is this place?"
+Output: {"action":"unknown","confidence":"medium"}
+
+Input: "tell me more"
 Output: {"action":"unknown","confidence":"high"}
 
 Parse the following user input:`
