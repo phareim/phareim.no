@@ -8,6 +8,7 @@ import { getCurrentPlace, generateNewPlace } from '../rpg/handlers/place'
 import { loadGameState, saveGameState, DEFAULT_GAME_STATE, type GameState } from '../rpg/state/game-state'
 import { removeItemFromPlaceDescription } from '../rpg/handlers/place-modifications'
 import { handleCharacterConversation } from '../rpg/handlers/character-conversation'
+import { parseNaturalLanguage, isExactCommand, intentToCommand } from '../rpg/handlers/intent-parser'
 
 // Helper function to normalize item names for deduplication
 function normalizeItemName(name: string): string {
@@ -58,8 +59,23 @@ export default defineEventHandler(async (event: any) => {
             await saveGameState(userId, gameState)
         }
 
+        // Process natural language if not an exact command
+        let processedCommand = command.trim()
+        if (!isExactCommand(processedCommand)) {
+            console.log('Parsing natural language:', processedCommand)
+            const intent = await parseNaturalLanguage(processedCommand, openai)
+            console.log('Parsed intent:', intent)
+
+            // Convert intent to standard command format
+            if (intent.confidence !== 'low' && intent.action !== 'unknown') {
+                processedCommand = intentToCommand(intent)
+                console.log('Converted to command:', processedCommand)
+            }
+            // If confidence is low or action is unknown, keep original command for AI processing
+        }
+
         // Parse command
-        const [action, ...args] = command.trim().toLowerCase().split(' ')
+        const [action, ...args] = processedCommand.toLowerCase().split(' ')
 
         let response = ''
         let newState: GameState = { ...gameState }
@@ -371,21 +387,32 @@ export default defineEventHandler(async (event: any) => {
 
 Movement:
   go [direction] - Move in a direction (north, south, east, west)
+  OR use natural language: "I stroll northwards", "head west", "walk to the east"
 
 Observation:
   look - Examine your current surroundings
   examine [thing] - Look closely at something specific
+  OR use natural language: "I check out the trees", "look around", "examine the statue"
 
 Items:
   take [item] - Pick up an item
   use [item] - Use an item from your inventory
   inventory (or inv, i) - View your inventory
+  OR: "pick up the sword", "what's in my bag?", "drink the potion"
 
 Interaction:
   talk to [character] - Speak with a character (they remember your conversations!)
+  OR: "I chat with the merchant", "greet the wandering mage", "speak with Lysiander"
 
 Other:
   help - Show this help message
+
+💡 Natural Language Support:
+The game understands natural language! Try writing naturally:
+- "I chat with Lysiander the wandering mage"
+- "I check out the ancient ruins"
+- "I stroll northwards through the forest"
+- "pick up the glowing crystal"
 
 Tips:
 - Items are highlighted in gold and marked with *single asterisks*
