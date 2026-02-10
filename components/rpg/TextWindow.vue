@@ -120,8 +120,6 @@ const handleAction = (command: string) => {
   color: var(--theme-rpg-terminal-text, #e0e0e0);
   padding: 1rem;
   border-radius: var(--theme-card-radius, 4px);
-  max-height: 400px;
-  overflow-y: auto;
 }
 
 .text-content {
