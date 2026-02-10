@@ -94,6 +94,55 @@
   --theme-rpg-command: var(--scandi-text-subtle);
 }
 
+/* Dark mode auto-toggle */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --scandi-bg: #1a1c1e;
+    --scandi-bg-warm: #1e2024;
+    --scandi-bg-cool: #16181c;
+
+    --scandi-text: #e4e4e2;
+    --scandi-text-muted: #a0a0a0;
+    --scandi-text-subtle: #6a6a6a;
+
+    --glass-bg: rgba(30, 32, 36, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shadow: rgba(0, 0, 0, 0.2);
+
+    --accent-black: #e4e4e2;
+    --accent-soft-blue: #89abd0;
+    --accent-soft-sage: #b0c4a0;
+  }
+
+  .scandi-page {
+    --theme-bg: var(--scandi-bg);
+    --theme-bg-alt: var(--scandi-bg-warm);
+    --theme-text: var(--scandi-text);
+    --theme-text-muted: var(--scandi-text-muted);
+    --theme-text-subtle: var(--scandi-text-subtle);
+
+    --theme-card-bg: var(--glass-bg);
+    --theme-card-border: var(--glass-border);
+    --theme-card-shadow: var(--glass-shadow);
+
+    --theme-accent: var(--accent-soft-blue);
+    --theme-accent-secondary: var(--accent-soft-sage);
+
+    --theme-link-color: var(--scandi-text);
+
+    --theme-input-bg: rgba(30, 32, 36, 0.8);
+    --theme-input-border: var(--glass-border);
+    --theme-input-text: var(--scandi-text);
+
+    --theme-rpg-item: #dbb870;
+    --theme-rpg-character: #d08aa5;
+    --theme-rpg-terminal-bg: var(--glass-bg);
+    --theme-rpg-terminal-border: var(--glass-border);
+    --theme-rpg-terminal-text: var(--scandi-text);
+    --theme-rpg-command: var(--scandi-text-subtle);
+  }
+}
+
 /* Subtle gradient backgrounds */
 .scandi-gradient {
   background: 
@@ -285,6 +334,23 @@
 
 .scandi-interactive:hover {
   color: var(--accent-soft-blue);
+}
+
+/* Dark mode gradient overrides */
+@media (prefers-color-scheme: dark) {
+  .scandi-gradient {
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(155, 171, 139, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(107, 140, 174, 0.05) 0%, transparent 50%),
+      var(--scandi-bg);
+  }
+
+  .scandi-gradient-warm {
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(193, 39, 45, 0.04) 0%, transparent 40%),
+      radial-gradient(ellipse at 70% 80%, rgba(0, 150, 57, 0.04) 0%, transparent 40%),
+      var(--scandi-bg-warm);
+  }
 }
 
 /* Responsive spacing */
