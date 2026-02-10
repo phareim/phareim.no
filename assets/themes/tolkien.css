@@ -1,44 +1,53 @@
 /**
  * Tolkien / Fantasy Aesthetic
  * ---------------------------
- * Warm, parchment-like, storybook feel.
- * 
+ * Warm, parchment-like, storybook feel with hand-drawn typography.
+ * Body: Caveat (handwritten), Headings: Cinzel Decorative (engraved classical)
+ *
  * Usage: Add class "tolkien-page" to your page container
  */
 
 :root {
   /* Base colors */
   --tolkien-bg: #fdf6e3;
-  --tolkien-paper: #f4e4bc;
+  --tolkien-paper: #f0deb4;
+  --tolkien-paper-light: #f7edda;
   --tolkien-ink: #2b1d0e;
   --tolkien-ink-light: #5c4d3c;
-  
+
   /* Accents */
-  --tolkien-gold: #c5a059;
+  --tolkien-gold: #b8922e;
   --tolkien-red: #8a2c2c;
   --tolkien-green: #2f4f2f;
-  
+
   /* Typography */
-  --font-serif: 'Georgia', 'Times New Roman', serif;
-  --font-script: 'Brush Script MT', cursive; /* Fallback for decorative */
-  
+  --font-tolkien-body: 'Caveat', 'Georgia', cursive;
+  --font-tolkien-display: 'Cinzel Decorative', 'Georgia', serif;
+  --font-tolkien-serif: 'Georgia', 'Times New Roman', serif;
+
   /* Spacing */
   --space-xs: 0.5rem;
   --space-sm: 1rem;
   --space-md: 2rem;
   --space-lg: 4rem;
   --space-xl: 8rem;
-  
+
   /* Effects */
-  --tolkien-shadow: 0 4px 8px rgba(43, 29, 14, 0.1);
+  --tolkien-shadow: 0 2px 6px rgba(43, 29, 14, 0.12);
 }
 
 .tolkien-page {
   min-height: 100vh;
   background-color: var(--tolkien-bg);
-  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%232b1d0e' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
+  /* Layered parchment texture: dot pattern + subtle noise via gradient */
+  background-image:
+    radial-gradient(ellipse at 15% 10%, rgba(139, 69, 19, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 90%, rgba(139, 69, 19, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(180, 140, 80, 0.02) 0%, transparent 70%),
+    url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%232b1d0e' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
   color: var(--tolkien-ink);
-  font-family: var(--font-serif);
+  font-family: var(--font-tolkien-body);
+  font-size: 1.25rem;
 
   /* Semantic theme variables */
   --theme-bg: var(--tolkien-bg);
@@ -48,7 +57,7 @@
   --theme-text-subtle: #8a7a6a;
 
   --theme-card-bg: var(--tolkien-paper);
-  --theme-card-border: rgba(0, 0, 0, 0.1);
+  --theme-card-border: rgba(43, 29, 14, 0.15);
   --theme-card-shadow: var(--tolkien-shadow);
   --theme-card-radius: 2px;
 
@@ -57,11 +66,11 @@
   --theme-accent-danger: var(--tolkien-red);
 
   --theme-link-color: var(--tolkien-red);
-  --theme-font-body: var(--font-serif);
-  --theme-font-display: var(--font-serif);
+  --theme-font-body: var(--font-tolkien-body);
+  --theme-font-display: var(--font-tolkien-display);
   --theme-transition: 0.4s ease;
 
-  --theme-input-bg: var(--tolkien-paper);
+  --theme-input-bg: var(--tolkien-paper-light);
   --theme-input-border: rgba(43, 29, 14, 0.2);
   --theme-input-text: var(--tolkien-ink);
 
@@ -79,22 +88,36 @@
 
 .tolkien-card {
   background: var(--tolkien-paper);
-  border: 1px solid rgba(0,0,0,0.1);
-  box-shadow: 
-    0 2px 4px rgba(0,0,0,0.1),
-    0 0 40px rgba(139, 69, 19, 0.05) inset;
+  border: 1px solid rgba(43, 29, 14, 0.12);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.08),
+    0 0 40px rgba(139, 69, 19, 0.06) inset;
   padding: var(--space-md);
   border-radius: 2px;
   position: relative;
 }
 
 .tolkien-card::before {
-  /* Decorative corners or texture could go here */
   content: '';
   position: absolute;
   top: 4px; left: 4px; right: 4px; bottom: 4px;
-  border: 1px solid rgba(43, 29, 14, 0.1);
+  border: 1px solid rgba(43, 29, 14, 0.08);
   pointer-events: none;
+}
+
+/* Torn/rough edge effect on cards */
+.tolkien-card::after {
+  content: '';
+  position: absolute;
+  bottom: -2px; left: 8px; right: 8px;
+  height: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--tolkien-paper) 0px,
+    var(--tolkien-paper) 3px,
+    transparent 3px,
+    transparent 5px
+  );
 }
 
 .tolkien-card--flat {
@@ -104,30 +127,64 @@
   border-bottom: 1px solid rgba(43, 29, 14, 0.1);
 }
 
+.tolkien-card--flat::before,
+.tolkien-card--flat::after {
+  display: none;
+}
+
 /* Typography */
 
 .tolkien-heading {
-  font-family: var(--font-serif);
-  font-weight: normal;
+  font-family: var(--font-tolkien-display);
+  font-weight: 400;
   letter-spacing: 0.05em;
   color: var(--tolkien-ink);
-  text-transform: capitalize;
-  font-variant: small-caps;
 }
 
-.tolkien-heading--xl { font-size: 3.5rem; border-bottom: 2px solid var(--tolkien-gold); display: inline-block; padding-bottom: 1rem; }
-.tolkien-heading--lg { font-size: 2.5rem; }
-.tolkien-heading--md { font-size: 1.8rem; font-style: italic; }
+.tolkien-heading--xl {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  border-bottom: 2px solid var(--tolkien-gold);
+  display: inline-block;
+  padding-bottom: 1rem;
+}
+
+.tolkien-heading--lg {
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.tolkien-heading--md {
+  font-size: clamp(1.3rem, 3vw, 1.8rem);
+  font-style: italic;
+}
 
 .tolkien-body {
-  font-size: 1.1rem;
-  line-height: 1.8;
+  font-family: var(--font-tolkien-body);
+  font-size: 1.3rem;
+  line-height: 1.7;
   color: var(--tolkien-ink-light);
+}
+
+.tolkien-body--lg {
+  font-size: 1.5rem;
 }
 
 .tolkien-body em {
   color: var(--tolkien-red);
-  font-family: var(--font-serif);
+  font-style: normal;
+  text-decoration: underline;
+  text-decoration-color: rgba(138, 44, 44, 0.3);
+  text-underline-offset: 3px;
+}
+
+/* Drop cap for first paragraph in cards */
+.tolkien-card > .tolkien-body:first-of-type::first-letter {
+  font-family: var(--font-tolkien-display);
+  font-size: 3.2em;
+  float: left;
+  line-height: 0.8;
+  margin-right: 0.1em;
+  margin-top: 0.05em;
+  color: var(--tolkien-gold);
 }
 
 /* Political Bar - Heraldry style */
@@ -142,7 +199,7 @@
   width: 12px;
   height: 12px;
   transform: rotate(45deg);
-  border: 1px solid rgba(0,0,0,0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .tolkien-bar span:nth-child(1) { background: var(--tolkien-ink); }
@@ -154,29 +211,32 @@
 
 .tolkien-interactive {
   cursor: pointer;
-  background: transparent;
+  background: var(--tolkien-paper-light);
   border: 1px solid var(--tolkien-gold);
   padding: 1rem 2rem;
-  font-family: var(--font-serif);
-  font-style: italic;
+  font-family: var(--font-tolkien-body);
+  font-size: 1.2rem;
   transition: all 0.4s ease;
   position: relative;
   overflow: hidden;
+  color: var(--tolkien-ink);
 }
 
 .tolkien-interactive:hover {
-  background: rgba(197, 160, 89, 0.1);
+  background: rgba(197, 160, 89, 0.15);
   border-color: var(--tolkien-ink);
+  box-shadow: 0 0 12px rgba(184, 146, 46, 0.1) inset;
 }
 
 .tolkien-link {
   color: var(--tolkien-red);
   text-decoration: none;
-  border-bottom: 1px solid transparent;
+  border-bottom: 1px dashed rgba(138, 44, 44, 0.4);
   transition: border-color 0.3s;
 }
 
 .tolkien-link:hover {
+  border-bottom-style: solid;
   border-bottom-color: var(--tolkien-red);
 }
 
@@ -196,7 +256,7 @@
 }
 
 .tolkien-divider::after {
-  content: '❧';
+  content: '\2766';
   display: block;
   text-align: center;
   color: var(--tolkien-gold);
@@ -206,6 +266,18 @@
   width: 40px;
   margin-left: auto;
   margin-right: auto;
+}
+
+/* Parchment edge shadow on the whole page */
+.tolkien-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 80px rgba(139, 69, 19, 0.08),
+    inset 0 0 20px rgba(139, 69, 19, 0.04);
+  z-index: 0;
 }
 
 /* Animations */
@@ -222,4 +294,3 @@
 .tolkien-stagger > *:nth-child(1) { animation-delay: 0.2s; }
 .tolkien-stagger > *:nth-child(2) { animation-delay: 0.4s; }
 .tolkien-stagger > *:nth-child(3) { animation-delay: 0.6s; }
-
