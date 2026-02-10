@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@fal-ai/client": "^1.5.0",
-    "@nuxtjs/tailwindcss": "^6.12.1",
     "@types/uuid": "^10.0.0",
     "firebase": "^11.2.0",
     "firebase-admin": "^13.0.2",

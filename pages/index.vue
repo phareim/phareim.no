@@ -379,15 +379,8 @@ body.dark-mode .social-links svg {
 }
 
 body {
-  background-color: white;
-  color: #111;
-}
-
-@media (prefers-color-scheme: dark) {
-  body {
-    background-color: #222;
-    color: white;
-  }
+  background-color: var(--theme-bg, white);
+  color: var(--theme-text, #111);
 }
 
 .container {

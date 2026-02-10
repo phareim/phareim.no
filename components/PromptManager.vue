@@ -228,27 +228,27 @@ async function handleDelete(id: string) {
 
 h2 {
   margin-bottom: 2rem;
-  color: #333;
+  color: var(--theme-text, #333);
 }
 
 h3 {
   margin-bottom: 1rem;
-  color: #555;
+  color: var(--theme-text-muted, #555);
 }
 
 .error-message {
-  background: #fee;
-  border: 1px solid #fcc;
-  color: #c33;
+  background: rgba(220, 53, 69, 0.1);
+  border: 1px solid var(--theme-accent-danger, #c33);
+  color: var(--theme-accent-danger, #c33);
   padding: 1rem;
-  border-radius: 4px;
+  border-radius: var(--theme-card-radius, 4px);
   margin-bottom: 1rem;
 }
 
 .create-form {
-  background: #f9f9f9;
+  background: var(--theme-bg-alt, #f9f9f9);
   padding: 1.5rem;
-  border-radius: 8px;
+  border-radius: var(--theme-card-radius, 8px);
   margin-bottom: 2rem;
 }
 
@@ -256,44 +256,48 @@ h3 {
   width: 100%;
   padding: 0.75rem;
   margin-bottom: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid var(--theme-input-border, #ddd);
+  border-radius: var(--theme-card-radius, 4px);
   font-size: 1rem;
+  background: var(--theme-input-bg, white);
+  color: var(--theme-input-text, #333);
 }
 
 .category-input {
   width: 100%;
   padding: 0.75rem;
   margin-bottom: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid var(--theme-input-border, #ddd);
+  border-radius: var(--theme-card-radius, 4px);
   font-size: 0.9rem;
+  background: var(--theme-input-bg, white);
+  color: var(--theme-input-text, #333);
 }
 
 button {
   padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--theme-card-radius, 4px);
   font-size: 1rem;
   cursor: pointer;
-  background: #4CAF50;
-  color: white;
-  transition: background 0.2s;
+  background: var(--theme-accent-secondary, #4CAF50);
+  color: var(--theme-bg, white);
+  transition: opacity 0.2s;
 }
 
 button:hover:not(:disabled) {
-  background: #45a049;
+  opacity: 0.85;
 }
 
 button:disabled {
-  background: #ccc;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .loading {
   text-align: center;
   padding: 2rem;
-  color: #666;
+  color: var(--theme-text-muted, #666);
 }
 
 .prompts-list {
@@ -303,14 +307,14 @@ button:disabled {
 .empty-state {
   text-align: center;
   padding: 2rem;
-  color: #999;
+  color: var(--theme-text-subtle, #999);
   font-style: italic;
 }
 
 .prompt-item {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  background: var(--theme-card-bg, white);
+  border: 1px solid var(--theme-card-border, #ddd);
+  border-radius: var(--theme-card-radius, 8px);
   padding: 1rem;
   margin-bottom: 1rem;
 }
@@ -327,26 +331,26 @@ button:disabled {
 
 .prompt-text {
   margin: 0 0 0.5rem 0;
-  color: #333;
+  color: var(--theme-text, #333);
 }
 
 .category-badge,
 .copied-badge {
   display: inline-block;
   padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--theme-card-radius, 4px);
   font-size: 0.75rem;
   margin-right: 0.5rem;
 }
 
 .category-badge {
-  background: #e3f2fd;
-  color: #1976d2;
+  background: rgba(107, 140, 174, 0.15);
+  color: var(--theme-accent, #1976d2);
 }
 
 .copied-badge {
-  background: #fff3e0;
-  color: #f57c00;
+  background: rgba(197, 160, 89, 0.15);
+  color: var(--theme-accent-secondary, #f57c00);
 }
 
 .prompt-actions {
@@ -356,34 +360,21 @@ button:disabled {
 
 .btn-edit,
 .btn-save {
-  background: #2196F3;
+  background: var(--theme-accent, #2196F3);
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
-}
-
-.btn-edit:hover,
-.btn-save:hover {
-  background: #1976D2;
 }
 
 .btn-delete {
-  background: #f44336;
+  background: var(--theme-accent-danger, #f44336);
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
-}
-
-.btn-delete:hover {
-  background: #d32f2f;
 }
 
 .btn-cancel {
-  background: #757575;
+  background: var(--theme-text-subtle, #757575);
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
-}
-
-.btn-cancel:hover {
-  background: #616161;
 }
 
 .prompt-edit {

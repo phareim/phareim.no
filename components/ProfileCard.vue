@@ -78,6 +78,6 @@ export default {
   user-select: none;
   -webkit-user-select: none;
   pointer-events: none;
-  border: #222 5px solid;
+  border: var(--theme-text, #222) 5px solid;
 }
 </style>

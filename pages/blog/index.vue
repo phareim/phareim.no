@@ -14,7 +14,7 @@
       </div>
     </div>
   </div>
-  
+
 </template>
 
 <script>
@@ -67,14 +67,15 @@ export default {
   max-width: 800px;
   margin: 0 auto;
   padding: 2rem;
-  font-family: 'Comfortaa', sans-serif;
+  font-family: var(--theme-font-body, 'Comfortaa', sans-serif);
+  color: var(--theme-text, #333);
 }
 
 .blog-list h1 {
   font-size: 3rem;
   margin-bottom: 2rem;
   text-align: center;
-  color: #333;
+  color: var(--theme-text, #333);
 }
 
 .loading, .error, .no-posts {
@@ -84,7 +85,7 @@ export default {
 }
 
 .error {
-  color: #e74c3c;
+  color: var(--theme-accent-danger, #e74c3c);
 }
 
 .posts-grid {
@@ -94,61 +95,39 @@ export default {
 
 .post-card {
   padding: 1.5rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  border: 1px solid var(--theme-card-border, #ddd);
+  border-radius: var(--theme-card-radius, 8px);
   cursor: pointer;
   transition: all 0.3s ease;
-  background: white;
+  background: var(--theme-card-bg, white);
 }
 
 .post-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px var(--theme-card-shadow, rgba(0, 0, 0, 0.1));
   transform: translateY(-2px);
 }
 
 .post-card h2 {
   margin: 0 0 0.5rem 0;
-  color: #333;
+  color: var(--theme-text, #333);
   font-size: 1.5rem;
 }
 
 .post-meta {
-  color: #666;
+  color: var(--theme-text-muted, #666);
   font-size: 0.9rem;
   margin: 0 0 1rem 0;
 }
 
 .post-excerpt {
-  color: #666;
+  color: var(--theme-text-muted, #666);
   line-height: 1.6;
   margin: 0;
 }
 
-.back-button {
-  background: #3498db;
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-bottom: 2rem;
-  font-family: 'Comfortaa', sans-serif;
-  transition: background-color 0.3s ease;
-}
-
-.back-button:hover {
-  background: #2980b9;
-}
-
-.blog-post h1 {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-  color: #333;
-}
-
 .post-content {
   line-height: 1.8;
-  color: #333;
+  color: var(--theme-text, #333);
 }
 
 .post-content h1,
@@ -166,43 +145,16 @@ export default {
 }
 
 .post-content code {
-  background: #f4f4f4;
+  background: var(--theme-bg-alt, #f4f4f4);
   padding: 0.2rem 0.4rem;
   border-radius: 3px;
   font-family: monospace;
 }
 
 .post-content pre {
-  background: #f4f4f4;
+  background: var(--theme-bg-alt, #f4f4f4);
   padding: 1rem;
   border-radius: 4px;
   overflow-x: auto;
-}
-
-@media (prefers-color-scheme: dark) {
-  .blog-container {
-    color: #fff;
-  }
-  
-  .blog-list h1,
-  .post-card h2,
-  .blog-post h1 {
-    color: #fff;
-  }
-  
-  .post-card {
-    background: #333;
-    border-color: #555;
-  }
-  
-  .post-content {
-    color: #fff;
-  }
-  
-  .post-content code,
-  .post-content pre {
-    background: #222;
-    color: #fff;
-  }
 }
 </style>

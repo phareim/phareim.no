@@ -115,11 +115,11 @@ const handleAction = (command: string) => {
 
 <style scoped>
 .text-window {
-  font-family: monospace;
-  background-color: #000000;
-  color: #e0e0e0;
+  font-family: var(--theme-font-body, monospace);
+  background-color: var(--theme-rpg-terminal-bg, #000000);
+  color: var(--theme-rpg-terminal-text, #e0e0e0);
   padding: 1rem;
-  border-radius: 4px;
+  border-radius: var(--theme-card-radius, 4px);
   max-height: 400px;
   overflow-y: auto;
 }
@@ -130,31 +130,31 @@ const handleAction = (command: string) => {
 }
 
 .item-segment {
-  color: #ffd700; /* Gold for items */
+  color: var(--theme-rpg-item, #ffd700);
   cursor: pointer;
 }
 
 .character-segment {
-  color: #ff69b4; /* Pink for characters */
+  color: var(--theme-rpg-character, #ff69b4);
   cursor: pointer;
   text-decoration: underline dotted;
   text-underline-offset: 2px;
 }
 
 .character-segment:hover {
-  color: #ff9dc9;
+  opacity: 0.8;
   font-weight: bold;
 }
 
 .place-segment {
-  color: #98fb98; /* Pale green for places */
+  color: var(--theme-rpg-place, #98fb98);
   cursor: pointer;
   text-decoration: underline dotted;
   text-underline-offset: 2px;
 }
 
 .place-segment:hover {
-  color: #b3fdb3;
+  opacity: 0.8;
   font-weight: bold;
 }
 </style> 

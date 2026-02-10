@@ -58,6 +58,40 @@
   font-family: var(--font-body);
   position: relative;
   overflow-x: hidden;
+
+  /* Semantic theme variables */
+  --theme-bg: var(--scandi-bg);
+  --theme-bg-alt: var(--scandi-bg-warm);
+  --theme-text: var(--scandi-text);
+  --theme-text-muted: var(--scandi-text-muted);
+  --theme-text-subtle: var(--scandi-text-subtle);
+
+  --theme-card-bg: var(--glass-bg);
+  --theme-card-border: var(--glass-border);
+  --theme-card-shadow: var(--glass-shadow);
+  --theme-card-radius: 24px;
+
+  --theme-accent: var(--accent-soft-blue);
+  --theme-accent-secondary: var(--accent-soft-sage);
+  --theme-accent-danger: var(--accent-red);
+
+  --theme-link-color: var(--scandi-text);
+  --theme-font-body: var(--font-body);
+  --theme-font-display: var(--font-display);
+  --theme-transition: var(--transition-smooth);
+
+  --theme-input-bg: rgba(255, 255, 255, 0.8);
+  --theme-input-border: var(--glass-border);
+  --theme-input-text: var(--scandi-text);
+
+  /* RPG-specific */
+  --theme-rpg-item: #c5a059;
+  --theme-rpg-character: #b06080;
+  --theme-rpg-place: var(--accent-green);
+  --theme-rpg-terminal-bg: var(--glass-bg);
+  --theme-rpg-terminal-border: var(--glass-border);
+  --theme-rpg-terminal-text: var(--scandi-text);
+  --theme-rpg-command: var(--scandi-text-subtle);
 }
 
 /* Subtle gradient backgrounds */

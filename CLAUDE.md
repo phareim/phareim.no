@@ -25,7 +25,7 @@ This is a **Nuxt 3** personal website with multiple interactive features:
 - **Frontend**: Vue.js with Nuxt 3 framework using Composition API and Options API patterns
 - **Backend**: Nuxt server API routes in `server/api/` 
 - **Database**: Firebase Firestore for persistent data storage
-- **Styling**: TailwindCSS + custom CSS with Comfortaa font
+- **Styling**: CSS custom properties design system with 3 themes (Scandinavian Glass, Cyberpunk, Fantasy) + Comfortaa font
 - **State Management**: Pinia for client-side state
 
 ### Key Features & Architecture
@@ -53,8 +53,17 @@ This is a **Nuxt 3** personal website with multiple interactive features:
 - Firebase configuration split between admin (server) and client SDK
 - Multiple API keys: VENICE_KEY, FAL_KEY, Firebase credentials
 
+### Theme System
+- **3 themes**: Scandinavian Glass (default), Cyberpunk/Hacker, Tolkien/Fantasy
+- **Theme files**: `assets/themes/scandinavian.css`, `hacker.css`, `tolkien.css`
+- **Semantic variables**: All themes expose a shared `--theme-*` CSS custom property API (e.g. `--theme-bg`, `--theme-text`, `--theme-card-bg`, `--theme-rpg-item`)
+- **Composable**: `composables/useTheme.ts` provides `activeTheme`, `themePageClass`, `cx()` helper, `setTheme()` with localStorage persistence
+- **Root wiring**: `app.vue` applies `themePageClass` to root div, cascading `--theme-*` vars to all pages/components
+- **Theme switcher**: Available in the global menu on every page
+- **Convention**: Use `var(--theme-*, fallback)` in scoped CSS instead of hardcoded colors
+
 ### Component Architecture
-- **Global Components**: MenuComponent with keyboard shortcut (M key) for navigation
+- **Global Components**: MenuComponent with keyboard shortcut (M key) for navigation and theme switcher
 - **RPG Components**: Specialized UI components in `components/rpg/` for game interface
 - **Reusable Components**: ProfileCard, SocialLink for common UI patterns
 

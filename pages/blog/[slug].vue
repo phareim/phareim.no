@@ -48,41 +48,36 @@ onMounted(async () => {
   max-width: 800px;
   margin: 0 auto;
   padding: 2rem;
-  font-family: 'Comfortaa', sans-serif;
+  font-family: var(--theme-font-body, 'Comfortaa', sans-serif);
+  color: var(--theme-text, #333);
 }
 
 .back-button {
   display: inline-block;
-  background: #3498db;
-  color: white;
+  background: var(--theme-accent, #3498db);
+  color: var(--theme-bg, white);
   text-decoration: none;
   border: none;
   padding: 0.5rem 1rem;
-  border-radius: 4px;
+  border-radius: var(--theme-card-radius, 4px);
   cursor: pointer;
   margin-bottom: 2rem;
-  font-family: 'Comfortaa', sans-serif;
-  transition: background-color 0.3s ease;
+  font-family: var(--theme-font-body, 'Comfortaa', sans-serif);
+  transition: opacity 0.3s ease;
 }
 
 .back-button:hover {
-  background: #2980b9;
+  opacity: 0.85;
 }
 
 .post-meta {
-  color: #666;
+  color: var(--theme-text-muted, #666);
   font-size: 0.9rem;
   margin: 0 0 1rem 0;
 }
 
 .post-content {
   line-height: 1.8;
-  color: #333;
-}
-
-@media (prefers-color-scheme: dark) {
-  .blog-container { color: #fff; }
-  .post-content { color: #fff; }
+  color: var(--theme-text, #333);
 }
 </style>
-

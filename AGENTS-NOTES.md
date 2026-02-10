@@ -5,13 +5,17 @@ This file captures observations, learnings, and notable details discovered while
 ## What Went Well
 
 ### Successful Patterns
-- [Add successful patterns and approaches here]
+- Theme system uses semantic `--theme-*` CSS custom properties as an abstraction layer. Each theme file maps these to its own aesthetic. Components only reference `--theme-*` vars, never theme-specific vars directly.
+- Always include fallback values in `var()` calls (e.g. `var(--theme-text, #333)`) so pages still render if the theme class is missing.
+- `useTheme().cx(suffix)` returns `${activeTheme}-${suffix}` for applying theme-prefixed class names (e.g. `cx('card')` returns `scandi-card`).
 
 ### Effective Commands
-- [Note commands that worked particularly well]
+- `npm run build` catches most issues quickly (type errors, missing imports, CSS problems)
 
 ### Good Architectural Decisions
-- [Document architectural choices that proved beneficial]
+- Keeping theme CSS variables on `.{theme}-page` class (not `:root`) means themes can coexist and the active theme is controlled by a single class on the root div
+- localStorage persistence for theme choice with SSR-safe `import.meta.client` guard
+- RPG-specific theme variables (`--theme-rpg-*`) allow the terminal to adapt per theme while keeping the RPG code clean
 
 ## Issues and Gotchas
 
@@ -22,7 +26,10 @@ This file captures observations, learnings, and notable details discovered while
 - [Document workarounds for known issues]
 
 ### Common Mistakes to Avoid
-- [List common mistakes and how to avoid them]
+- Don't use `@media (prefers-color-scheme: dark)` blocks - the theme system handles light/dark natively
+- Don't hardcode colors in scoped CSS; use `var(--theme-*, fallback)` instead
+- Don't put theme variables in `:root` - they belong inside `.{theme}-page` selectors so they cascade correctly
+- TailwindCSS was removed - don't add it back or use Tailwind utility classes
 
 ## Repository-Specific Details
 
@@ -60,5 +67,5 @@ This file captures observations, learnings, and notable details discovered while
 
 ---
 
-**Last Updated**: 2026-02-09
+**Last Updated**: 2026-02-10
 **Note**: Update this file whenever you discover something noteworthy while working in the repository.

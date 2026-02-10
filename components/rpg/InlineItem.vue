@@ -129,7 +129,7 @@ const availableActions = computed(() => {
 
 <style scoped>
 .inline-item {
-  color: #ffd700;
+  color: var(--theme-rpg-item, #ffd700);
   position: relative;
   white-space: nowrap;
   display: inline-flex;
@@ -144,7 +144,7 @@ const availableActions = computed(() => {
 }
 
 .item-name:hover {
-  color: #ffed4a;
+  opacity: 0.8;
 }
 
 .actions {

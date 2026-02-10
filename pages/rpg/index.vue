@@ -379,22 +379,22 @@ onBeforeUnmount(() => {
 	justify-content: center;
 	padding: 20px;
 	box-sizing: border-box;
-	background-color: #1a1a1a;
-	color: #33ff33;
-	font-family: 'Courier New', monospace;
+	background-color: var(--theme-bg, #1a1a1a);
+	color: var(--theme-rpg-terminal-text, #33ff33);
+	font-family: var(--theme-font-body, 'Courier New', monospace);
 }
 
 .game-output {
 	width: 80%;
 	max-width: 800px;
 	height: 70vh;
-	background-color: #000;
-	border: 2px solid #33ff33;
-	border-radius: 5px;
+	background-color: var(--theme-rpg-terminal-bg, #000);
+	border: 2px solid var(--theme-rpg-terminal-border, #33ff33);
+	border-radius: var(--theme-card-radius, 5px);
 	padding: 20px;
 	margin-bottom: 20px;
 	overflow-y: auto;
-	box-shadow: 0 0 10px rgba(51, 255, 51, 0.3);
+	box-shadow: 0 0 10px var(--theme-card-shadow, rgba(51, 255, 51, 0.3));
 }
 
 .message {
@@ -423,31 +423,31 @@ onBeforeUnmount(() => {
 input {
 	flex: 1;
 	padding: 10px;
-	background-color: #000;
-	border: 2px solid #33ff33;
-	border-radius: 5px;
-	color: #33ff33;
-	font-family: 'Courier New', monospace;
+	background-color: var(--theme-input-bg, #000);
+	border: 2px solid var(--theme-rpg-terminal-border, #33ff33);
+	border-radius: var(--theme-card-radius, 5px);
+	color: var(--theme-input-text, #33ff33);
+	font-family: var(--theme-font-body, 'Courier New', monospace);
 	font-size: 1em;
 	outline: none;
-	box-shadow: 0 0 10px rgba(51, 255, 51, 0.3);
+	box-shadow: 0 0 10px var(--theme-card-shadow, rgba(51, 255, 51, 0.3));
 }
 
 .reset-button {
 	padding: 10px 20px;
-	background-color: #000;
-	border: 2px solid #ff3333;
-	border-radius: 5px;
-	color: #ff3333;
-	font-family: 'Courier New', monospace;
+	background-color: var(--theme-rpg-terminal-bg, #000);
+	border: 2px solid var(--theme-accent-danger, #ff3333);
+	border-radius: var(--theme-card-radius, 5px);
+	color: var(--theme-accent-danger, #ff3333);
+	font-family: var(--theme-font-body, 'Courier New', monospace);
 	font-size: 1em;
 	cursor: pointer;
-	transition: all 0.3s ease;
+	transition: all var(--theme-transition, 0.3s ease);
 }
 
 .reset-button:hover {
-	background-color: #ff3333;
-	color: #000;
+	background-color: var(--theme-accent-danger, #ff3333);
+	color: var(--theme-rpg-terminal-bg, #000);
 }
 
 .reset-button:disabled {
@@ -461,16 +461,16 @@ input {
 }
 
 .game-output::-webkit-scrollbar-track {
-	background: #000;
+	background: var(--theme-rpg-terminal-bg, #000);
 }
 
 .game-output::-webkit-scrollbar-thumb {
-	background: #33ff33;
+	background: var(--theme-rpg-terminal-border, #33ff33);
 	border-radius: 4px;
 }
 
 .game-output::-webkit-scrollbar-thumb:hover {
-	background: #66ff66;
+	opacity: 0.8;
 }
 
 @media (max-width: 600px) {
@@ -490,19 +490,19 @@ input {
 
 .command-button {
 	padding: 8px 16px;
-	background-color: #000;
-	border: 2px solid #33ff33;
-	border-radius: 5px;
-	color: #33ff33;
-	font-family: 'Courier New', monospace;
+	background-color: var(--theme-rpg-terminal-bg, #000);
+	border: 2px solid var(--theme-rpg-terminal-border, #33ff33);
+	border-radius: var(--theme-card-radius, 5px);
+	color: var(--theme-rpg-terminal-text, #33ff33);
+	font-family: var(--theme-font-body, 'Courier New', monospace);
 	font-size: 0.9em;
 	cursor: pointer;
-	transition: all 0.3s ease;
+	transition: all var(--theme-transition, 0.3s ease);
 }
 
 .command-button:hover:not(:disabled) {
-	background-color: #33ff33;
-	color: #000;
+	background-color: var(--theme-rpg-terminal-text, #33ff33);
+	color: var(--theme-rpg-terminal-bg, #000);
 }
 
 .command-button:disabled {
@@ -516,20 +516,20 @@ input {
 }
 
 .dropdown-toggle {
-	border-color: #666;
-	color: #666;
+	border-color: var(--theme-text-subtle, #666);
+	color: var(--theme-text-subtle, #666);
 }
 
 .dropdown-content {
 	display: none;
 	position: absolute;
 	right: 0;
-	background-color: #000;
+	background-color: var(--theme-rpg-terminal-bg, #000);
 	min-width: 160px;
-	box-shadow: 0 0 10px rgba(51, 255, 51, 0.3);
+	box-shadow: 0 0 10px var(--theme-card-shadow, rgba(51, 255, 51, 0.3));
 	z-index: 1;
-	border: 2px solid #666;
-	border-radius: 5px;
+	border: 2px solid var(--theme-text-subtle, #666);
+	border-radius: var(--theme-card-radius, 5px);
 }
 
 .dropdown:hover .dropdown-content {
@@ -541,16 +541,16 @@ input {
 	padding: 8px 16px;
 	background: none;
 	border: none;
-	color: #ff3333;
-	font-family: 'Courier New', monospace;
+	color: var(--theme-accent-danger, #ff3333);
+	font-family: var(--theme-font-body, 'Courier New', monospace);
 	font-size: 0.9em;
 	cursor: pointer;
 	text-align: left;
 }
 
 .dropdown-item:hover:not(:disabled) {
-	background-color: #ff3333;
-	color: #000;
+	background-color: var(--theme-accent-danger, #ff3333);
+	color: var(--theme-rpg-terminal-bg, #000);
 }
 
 .dropdown-item:disabled {
@@ -566,22 +566,22 @@ input {
 
 /* Add new styles for marked elements */
 :deep(.item) {
-	color: #ffcc00; /* Gold for items */
+	color: var(--theme-rpg-item, #ffcc00);
 	font-weight: bold;
 }
 
 :deep(.person) {
-	color: #ff6b6b; /* Coral for people */
+	color: var(--theme-rpg-character, #ff6b6b);
 	font-weight: bold;
 }
 
 :deep(.place) {
-	color: #4dffb8; /* Mint green for places */
+	color: var(--theme-rpg-place, #4dffb8);
 	font-weight: bold;
 }
 
 :deep(.command) {
-	color: #888; /* Grey for user commands */
+	color: var(--theme-rpg-command, #888);
 	font-style: italic;
 }
 
@@ -589,11 +589,11 @@ input {
 	position: fixed;
 	top: 20px;
 	left: 20px;
-	background: #000;
-	border: 2px solid #33ff33;
-	border-radius: 5px;
+	background: var(--theme-rpg-terminal-bg, #000);
+	border: 2px solid var(--theme-rpg-terminal-border, #33ff33);
+	border-radius: var(--theme-card-radius, 5px);
 	padding: 10px;
-	font-family: 'Courier New', monospace;
+	font-family: var(--theme-font-body, 'Courier New', monospace);
 	z-index: 1000;
 	display: flex;
 	flex-direction: column;
@@ -601,17 +601,17 @@ input {
 }
 
 .location-label {
-	color: #666;
+	color: var(--theme-text-subtle, #666);
 	font-size: 0.9em;
 }
 
 .coordinates {
-	color: #33ff33;
+	color: var(--theme-rpg-terminal-text, #33ff33);
 	font-weight: bold;
 }
 
 .place-name {
-    color: #66ff66;
-    font-weight: bold;
+	color: var(--theme-rpg-place, #66ff66);
+	font-weight: bold;
 }
 </style>

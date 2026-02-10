@@ -112,9 +112,10 @@ const handleLogout = async () => {
 <style scoped>
 .account-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--theme-bg, #f5f5f3);
   padding: 2rem;
-  font-family: "Comfortaa", "Alan Sans", sans-serif;
+  font-family: var(--theme-font-body, "Comfortaa", sans-serif);
+  color: var(--theme-text, #333);
 }
 
 .account-container {
@@ -123,17 +124,18 @@ const handleLogout = async () => {
 }
 
 .loading-state {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
+  background: var(--theme-card-bg, rgba(255, 255, 255, 0.95));
+  border-radius: var(--theme-card-radius, 20px);
   padding: 4rem 2rem;
   text-align: center;
+  border: 1px solid var(--theme-card-border, transparent);
 }
 
 .spinner {
   width: 48px;
   height: 48px;
-  border: 4px solid rgba(102, 126, 234, 0.1);
-  border-top-color: #667eea;
+  border: 4px solid var(--theme-card-border, rgba(102, 126, 234, 0.1));
+  border-top-color: var(--theme-accent, #667eea);
   border-radius: 50%;
   margin: 0 auto 1rem;
   animation: spin 0.8s linear infinite;
@@ -144,53 +146,53 @@ const handleLogout = async () => {
 }
 
 .loading-state p {
-  color: #666;
+  color: var(--theme-text-muted, #666);
   font-size: 0.9rem;
 }
 
 .not-authenticated {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
+  background: var(--theme-card-bg, rgba(255, 255, 255, 0.95));
+  border-radius: var(--theme-card-radius, 20px);
   padding: 4rem 2rem;
   text-align: center;
+  border: 1px solid var(--theme-card-border, transparent);
 }
 
 .not-authenticated h1 {
   font-size: 2rem;
   margin-bottom: 1rem;
-  color: #333;
+  color: var(--theme-text, #333);
 }
 
 .not-authenticated p {
-  color: #666;
+  color: var(--theme-text-muted, #666);
   margin-bottom: 2rem;
 }
 
 .btn-primary {
   padding: 1rem 2.5rem;
   border: none;
-  border-radius: 12px;
-  background: #667eea;
-  color: white;
+  border-radius: var(--theme-card-radius, 12px);
+  background: var(--theme-accent, #667eea);
+  color: var(--theme-bg, white);
   font-size: 1.1rem;
   font-weight: 600;
-  font-family: "Comfortaa", "Alan Sans", sans-serif;
+  font-family: var(--theme-font-body, "Comfortaa", sans-serif);
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  transition: all var(--theme-transition, 0.3s ease);
 }
 
 .btn-primary:hover {
-  background: #5568d3;
+  opacity: 0.9;
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
 }
 
 .profile-card {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
+  background: var(--theme-card-bg, rgba(255, 255, 255, 0.95));
+  border-radius: var(--theme-card-radius, 20px);
   padding: 2.5rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px var(--theme-card-shadow, rgba(0, 0, 0, 0.1));
+  border: 1px solid var(--theme-card-border, transparent);
 }
 
 .profile-header {
@@ -210,12 +212,12 @@ const handleLogout = async () => {
 
 .profile-photo {
   object-fit: cover;
-  border: 3px solid #667eea;
+  border: 3px solid var(--theme-accent, #667eea);
 }
 
 .profile-photo-placeholder {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--theme-accent, #667eea);
+  color: var(--theme-bg, white);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -225,18 +227,18 @@ const handleLogout = async () => {
 
 .profile-info h1 {
   margin: 0 0 0.5rem 0;
-  color: #333;
+  color: var(--theme-text, #333);
   font-size: 1.75rem;
 }
 
 .email {
-  color: #666;
+  color: var(--theme-text-muted, #666);
   margin: 0 0 0.25rem 0;
   font-size: 0.95rem;
 }
 
 .user-id {
-  color: #999;
+  color: var(--theme-text-subtle, #999);
   margin: 0;
   font-size: 0.75rem;
   font-family: monospace;
@@ -244,13 +246,13 @@ const handleLogout = async () => {
 
 .divider {
   height: 1px;
-  background: linear-gradient(to right, transparent, #ddd, transparent);
+  background: linear-gradient(to right, transparent, var(--theme-card-border, #ddd), transparent);
   margin: 2rem 0;
 }
 
 .account-actions h2 {
   font-size: 1.25rem;
-  color: #333;
+  color: var(--theme-text, #333);
   margin-bottom: 1rem;
 }
 
@@ -261,17 +263,17 @@ const handleLogout = async () => {
   width: 100%;
   padding: 1.25rem;
   margin-bottom: 0.75rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 12px;
-  background: white;
+  border: 2px solid var(--theme-card-border, #e0e0e0);
+  border-radius: var(--theme-card-radius, 12px);
+  background: var(--theme-bg, white);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--theme-transition, 0.3s ease);
   text-align: left;
+  color: var(--theme-text, #333);
 }
 
 .action-btn:hover {
-  border-color: #667eea;
-  background: #f8f9ff;
+  border-color: var(--theme-accent, #667eea);
   transform: translateX(4px);
 }
 
@@ -283,13 +285,13 @@ const handleLogout = async () => {
 .action-title {
   font-size: 1.05rem;
   font-weight: 600;
-  color: #333;
+  color: var(--theme-text, #333);
   margin-bottom: 0.25rem;
 }
 
 .action-desc {
   font-size: 0.85rem;
-  color: #666;
+  color: var(--theme-text-muted, #666);
 }
 
 .logout-section {
@@ -298,20 +300,20 @@ const handleLogout = async () => {
 
 .btn-logout {
   padding: 0.875rem 2rem;
-  border: 2px solid #dc3545;
-  border-radius: 12px;
-  background: white;
-  color: #dc3545;
+  border: 2px solid var(--theme-accent-danger, #dc3545);
+  border-radius: var(--theme-card-radius, 12px);
+  background: var(--theme-bg, white);
+  color: var(--theme-accent-danger, #dc3545);
   font-size: 1rem;
   font-weight: 600;
-  font-family: "Comfortaa", "Alan Sans", sans-serif;
+  font-family: var(--theme-font-body, "Comfortaa", sans-serif);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--theme-transition, 0.3s ease);
 }
 
 .btn-logout:hover:not(:disabled) {
-  background: #dc3545;
-  color: white;
+  background: var(--theme-accent-danger, #dc3545);
+  color: var(--theme-bg, white);
   transform: scale(1.05);
 }
 
@@ -322,10 +324,11 @@ const handleLogout = async () => {
 
 .prompt-manager-section {
   margin-top: 2rem;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
+  background: var(--theme-card-bg, rgba(255, 255, 255, 0.95));
+  border-radius: var(--theme-card-radius, 20px);
   padding: 2rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px var(--theme-card-shadow, rgba(0, 0, 0, 0.1));
+  border: 1px solid var(--theme-card-border, transparent);
 }
 
 @media (max-width: 640px) {

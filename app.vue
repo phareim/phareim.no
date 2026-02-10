@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div :class="themePageClass">
     <NuxtPage />
     <MenuComponent ref="menuComponent" />
   </div>
@@ -8,14 +8,14 @@
 <script setup lang="ts">
 import MenuComponent from '~/components/MenuComponent.vue';
 
+const { themePageClass } = useTheme()
 const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);
 
 const handleKeyDown = (event: KeyboardEvent) => {
-  console.log(window.location.pathname);
-  if (event.key === 'm' && !window.location.pathname.includes('rpg') 
+  if (event.key === 'm' && !window.location.pathname.includes('rpg')
   && !window.location.pathname.includes('character')
   && !window.location.pathname.includes('admin')
-  && !window.location.pathname.includes('image-generator') 
+  && !window.location.pathname.includes('image-generator')
   && !window.location.pathname.includes('new-character')) {
     menuComponent.value?.toggleMenu();
   }

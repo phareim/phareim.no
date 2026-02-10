@@ -101,15 +101,9 @@ a.kreftforeningen {
   margin: 0 !important;
 }
 svg, img {
-  fill: #333;
+  fill: var(--theme-text, #333);
   transition: transform 1.2s;
   transition-timing-function: ease-in-out;
-}
-
-@media (prefers-color-scheme: dark) {
-  svg {
-    fill: white;
-  }
 }
 
 svg:hover, img:hover {
@@ -128,12 +122,6 @@ img.kreftforeningen:hover {
 
 .bluesky:hover {
   fill: #0385ff;
-}
-
-@media (prefers-color-scheme: dark) {
-  .github:hover {
-    fill: #ffffff;
-  }
 }
 
 :deep(svg:hover path.google-stroke-1) {fill: #EA4335;}

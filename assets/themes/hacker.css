@@ -41,10 +41,44 @@
   color: var(--hacker-text);
   font-family: var(--font-mono);
   overflow-x: hidden;
-  background-image: 
+  background-image:
     linear-gradient(rgba(0, 255, 0, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 255, 0, 0.03) 1px, transparent 1px);
   background-size: 20px 20px;
+
+  /* Semantic theme variables */
+  --theme-bg: var(--hacker-bg);
+  --theme-bg-alt: var(--hacker-bg-alt);
+  --theme-text: var(--hacker-text);
+  --theme-text-muted: var(--hacker-text-dim);
+  --theme-text-subtle: #555;
+
+  --theme-card-bg: rgba(0, 20, 0, 0.8);
+  --theme-card-border: var(--hacker-text-dim);
+  --theme-card-shadow: var(--hacker-glow);
+  --theme-card-radius: 0px;
+
+  --theme-accent: var(--hacker-text);
+  --theme-accent-secondary: var(--hacker-text-dim);
+  --theme-accent-danger: var(--hacker-accent);
+
+  --theme-link-color: var(--hacker-text);
+  --theme-font-body: var(--font-mono);
+  --theme-font-display: var(--font-mono);
+  --theme-transition: var(--transition-sharp);
+
+  --theme-input-bg: var(--hacker-bg);
+  --theme-input-border: var(--hacker-text-dim);
+  --theme-input-text: var(--hacker-text);
+
+  /* RPG-specific */
+  --theme-rpg-item: #ffcc00;
+  --theme-rpg-character: #ff6b6b;
+  --theme-rpg-place: #4dffb8;
+  --theme-rpg-terminal-bg: #000;
+  --theme-rpg-terminal-border: var(--hacker-text);
+  --theme-rpg-terminal-text: var(--hacker-text);
+  --theme-rpg-command: #888;
 }
 
 /* Components */

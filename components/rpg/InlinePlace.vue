@@ -113,7 +113,7 @@ const availableActions = computed(() => {
 
 <style scoped>
 .inline-place {
-  color: #98fb98;
+  color: var(--theme-rpg-place, #98fb98);
   position: relative;
   white-space: nowrap;
   display: inline-flex;
@@ -128,7 +128,7 @@ const availableActions = computed(() => {
 }
 
 .place-name:hover {
-  color: #b3fdb3;
+  opacity: 0.8;
   font-weight: bold;
 }
 

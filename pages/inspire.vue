@@ -132,7 +132,7 @@ async function pollJobStatus(jobId: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #1a1a1a;
+  background-color: var(--theme-bg, #1a1a1a);
   transition: background-image 0.5s ease-in-out;
 }
 
@@ -192,7 +192,7 @@ async function pollJobStatus(jobId: string) {
   bottom: 2rem;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(239, 68, 68, 0.9);
+  background: var(--theme-accent-danger, rgba(239, 68, 68, 0.9));
   color: white;
   padding: 1rem 2rem;
   border-radius: 8px;

@@ -49,11 +49,7 @@
 import { ref } from 'vue'
 import { useTheme } from '~/composables/useTheme'
 
-const { activeTheme } = useTheme()
-
-const cx = (suffix) => {
-  return `${activeTheme.value}-${suffix}`
-}
+const { activeTheme, cx } = useTheme()
 const firstFact = ref(true)
 const facts = [
   'Design is never finished, only abandoned'

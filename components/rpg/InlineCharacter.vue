@@ -121,7 +121,7 @@ const availableActions = computed(() => {
 
 <style scoped>
 .inline-character {
-  color: #ff69b4;
+  color: var(--theme-rpg-character, #ff69b4);
   position: relative;
   white-space: nowrap;
   display: inline-flex;
@@ -136,7 +136,7 @@ const availableActions = computed(() => {
 }
 
 .character-name:hover {
-  color: #ff9dc9;
+  opacity: 0.8;
   font-weight: bold;
 }
 
