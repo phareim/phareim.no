@@ -1,5 +1,8 @@
 # Repository Guidelines
 
+## Agent Notes
+Refer to `AGENTS-NOTES.md` for a living document of observations, learnings, and repository-specific insights discovered while working in this codebase. Update it when you discover patterns that work well or issues to avoid.
+
 ## Project Structure & Module Organization
 Nuxt 3 drives the stack. `app.vue` sets the global shell while route-specific views stay in `pages/` (blog, RPG, admin). Shared UI sits in `components/`, and cross-cutting logic in `composables/` and `utils/`. Server routes live under `server/api/**`, aided by Firestore helpers in `server/rpg` and `server/utils`. Domain contracts live in `types/`, markdown posts in `blog/`, static assets in `public/`, and supporting docs in `docs/` plus `PROJECT_OVERVIEW.md`. Maintenance and migration scripts stay in `scripts/`.
 

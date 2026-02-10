@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Agent Notes
+See `AGENTS-NOTES.md` for observations, learnings, and repository-specific insights. Update it with notable findings to help future work in this codebase.
+
 ## Common Commands
 
 ### Development
