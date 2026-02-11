@@ -420,21 +420,6 @@ function draw() {
   })
   ctx.shadowBlur = 0
 
-  // Game over text
-  if (gameOver) {
-    ctx.fillStyle = '#00ff41'
-    ctx.shadowColor = '#00ff41'
-    ctx.shadowBlur = 20
-    ctx.font = 'bold 48px monospace'
-    ctx.textAlign = 'center'
-    ctx.fillText('GAME OVER', w / 2, h / 2 - 20)
-    ctx.font = '18px monospace'
-    ctx.fillText(`SCORE: ${score}`, w / 2, h / 2 + 20)
-    ctx.font = '14px monospace'
-    ctx.shadowBlur = 10
-    ctx.fillText('PRESS ANY KEY TO RESTART', w / 2, h / 2 + 55)
-    ctx.shadowBlur = 0
-  }
 }
 
 function gameLoop(now) {

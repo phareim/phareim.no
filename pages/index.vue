@@ -9,17 +9,18 @@
     <canvas v-else ref="canvas"></canvas>
     <div class="overlay" @click="onOverlayClick">
       <div class="home">
+        <ProfileCard
+          :flipped="hackerGameOver"
+          @flip="flip"
+          @flipStart="flipStart"
+          @flipStop="flipStop"
+        />
         <template v-if="isHacker && hackerGameOver">
           <h1 class="game-over-title">GAME OVER</h1>
           <p class="hacker-score">SCORE: {{ hackerScore }}</p>
           <p class="game-over-restart">PRESS ANY KEY TO RESTART</p>
         </template>
         <template v-else>
-          <ProfileCard
-            @flip="flip"
-            @flipStart="flipStart"
-            @flipStop="flipStop"
-          />
           <h1>petter hareim</h1>
           <p class="blurb">father, husband, geek, aspiring good guy.
           </p>

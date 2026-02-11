@@ -1,5 +1,5 @@
 <template>
-  <div class="flip-container" @click="flip" @pointerdown="flipStart" @pointerup="flipStop">
+  <div class="flip-container" :class="{ 'is-flipped': flipped }" @click="flip" @pointerdown="flipStart" @pointerup="flipStop">
     <div class="flipper">
       <div class="front">
         <img class="profile-pic" src="/petter1.png" alt="petter's profile picture" 
@@ -16,6 +16,9 @@
 <script>
 export default {
   name: 'ProfileCard',
+  props: {
+    flipped: { type: Boolean, default: false }
+  },
   methods: {
     flip(event) {
       this.$emit('flip', event)
@@ -65,7 +68,8 @@ export default {
   transform: rotateY(180deg);
 }
 
-.flip-container:active .flipper {
+.flip-container:active .flipper,
+.flip-container.is-flipped .flipper {
   transform: rotateY(180deg);
 }
 
