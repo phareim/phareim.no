@@ -4,27 +4,35 @@
       v-if="isHacker"
       @score="s => hackerScore = s"
       @death="onGameOver"
+      @restart="onGameRestart"
     />
     <canvas v-else ref="canvas"></canvas>
     <div class="overlay" @click="onOverlayClick">
       <div class="home">
-        <ProfileCard
-          @flip="flip"
-          @flipStart="flipStart"
-          @flipStop="flipStop"
-        />
-        <h1>petter hareim</h1>
-        <p class="blurb">father, husband, geek, aspiring good guy.
-        </p>
-        <p class="blurb">
-          help folks. write code. build things.
-        </p>
-        <p v-if="!isHacker" class="location">
-          54°26'51 S 3°19'15 E
-        </p>
-        <p v-else class="location hacker-score">
-          SCORE: {{ hackerScore }}
-        </p>
+        <template v-if="isHacker && hackerGameOver">
+          <h1 class="game-over-title">GAME OVER</h1>
+          <p class="hacker-score">SCORE: {{ hackerScore }}</p>
+          <p class="game-over-restart">PRESS ANY KEY TO RESTART</p>
+        </template>
+        <template v-else>
+          <ProfileCard
+            @flip="flip"
+            @flipStart="flipStart"
+            @flipStop="flipStop"
+          />
+          <h1>petter hareim</h1>
+          <p class="blurb">father, husband, geek, aspiring good guy.
+          </p>
+          <p class="blurb">
+            help folks. write code. build things.
+          </p>
+          <p v-if="!isHacker" class="location">
+            54°26'51 S 3°19'15 E
+          </p>
+          <p v-else class="location hacker-score">
+            SCORE: {{ hackerScore }}
+          </p>
+        </template>
         <div class="social-links">
           <SocialLink 
             href="https://www.linkedin.com/in/phareim"
@@ -88,7 +96,8 @@ export default {
         animateCount: 0
       },
       animationFrameId: null,
-      hackerScore: 0
+      hackerScore: 0,
+      hackerGameOver: false
     };
   },
   computed: {
@@ -363,7 +372,10 @@ export default {
       }
     },
     onGameOver() {
-      // Could add visual effects to the overlay in the future
+      this.hackerGameOver = true;
+    },
+    onGameRestart() {
+      this.hackerGameOver = false;
     },
     addBox(event) {
       if (this.boxes.length > 12 && window.innerWidth < 600) {
@@ -503,6 +515,24 @@ p {
   text-shadow: 0 0 10px #00ff41;
   letter-spacing: 0.15em;
   font-size: 1em;
+}
+
+.game-over-title {
+  font-family: monospace;
+  color: #00ff41;
+  text-shadow: 0 0 20px #00ff41, 0 0 40px #00ff41;
+  font-size: 3.5em;
+  letter-spacing: 0.1em;
+}
+
+.game-over-restart {
+  font-family: monospace;
+  color: #00ff41;
+  text-shadow: 0 0 8px #00ff41;
+  font-size: 0.9em;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+  margin-top: 1em;
 }
 
 h1 p {

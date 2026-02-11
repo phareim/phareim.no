@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-const emit = defineEmits(['score', 'death'])
+const emit = defineEmits(['score', 'death', 'restart'])
 
 const canvas = ref(null)
 let ctx = null
@@ -149,6 +149,7 @@ function resetGame() {
   score = 0
   gameOver = false
   waveTimer = 0
+  emit('restart')
   emit('score', 0)
 }
 

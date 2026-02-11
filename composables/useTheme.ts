@@ -1,5 +1,5 @@
 export const useTheme = () => {
-  const activeTheme = useState('activeTheme', () => 'scandi')
+  const activeTheme = useState('activeTheme', () => 'hacker')
 
   const themes = [
     { id: 'scandi', name: 'Scandinavian Glass', icon: '❄️' },
