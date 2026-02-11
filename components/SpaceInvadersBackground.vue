@@ -17,12 +17,16 @@ let enemyBullets = []
 let enemies = []
 let stars = []
 let particles = []
+let powerups = []
 let score = 0
 let gameOver = false
 let keys = {}
 let lastShotTime = 0
 let waveTimer = 0
 let waveInterval = 2500
+let bulletLevel = 1
+let powerupTimer = 0
+let powerupInterval = 12000
 
 // Enemy shapes as pixel-art style draw functions
 const enemyShapes = [
@@ -145,10 +149,14 @@ function resetGame() {
   bullets = []
   enemyBullets = []
   enemies = []
+  powerups = []
   particles = []
   score = 0
   gameOver = false
   waveTimer = 0
+  bulletLevel = 1
+  powerupTimer = 0
+  waveInterval = 2500
   emit('restart')
   emit('score', 0)
 }
@@ -156,7 +164,7 @@ function resetGame() {
 function spawnWave() {
   if (!canvas.value) return
   const w = canvas.value.width
-  const count = 4 + Math.floor(Math.random() * 5)
+  const count = 4 + Math.floor(Math.random() * 5) + Math.floor((bulletLevel - 1) * 1.5)
   const pattern = Math.floor(Math.random() * 4)
   const shapeIdx = Math.floor(Math.random() * enemyShapes.length)
   const color = enemyColors[Math.floor(Math.random() * enemyColors.length)]
@@ -241,16 +249,33 @@ function update(now) {
   player.x = Math.max(player.width / 2, Math.min(w - player.width / 2, player.x))
   player.y = Math.max(player.height, Math.min(h - player.height / 2, player.y))
 
-  // Shooting
+  // Shooting — fan of bullets based on bulletLevel
   if (keys['Space'] && now - lastShotTime > 180) {
-    bullets.push({ x: player.x, y: player.y - player.height / 2, vy: -7 })
+    const n = bulletLevel
+    const bulletSpeed = 7
+    if (n === 1) {
+      bullets.push({ x: player.x, y: player.y - player.height / 2, vx: 0, vy: -bulletSpeed })
+    } else {
+      // Spread angle grows with level: 10° per extra bullet, max 70°
+      const totalSpread = Math.min(n * 10, 70) * (Math.PI / 180)
+      for (let i = 0; i < n; i++) {
+        const angle = -Math.PI / 2 + (i / (n - 1) - 0.5) * totalSpread
+        bullets.push({
+          x: player.x,
+          y: player.y - player.height / 2,
+          vx: Math.cos(angle) * bulletSpeed,
+          vy: Math.sin(angle) * bulletSpeed
+        })
+      }
+    }
     lastShotTime = now
   }
 
   // Update bullets
   bullets = bullets.filter(b => {
+    b.x += (b.vx || 0)
     b.y += b.vy
-    return b.y > -10
+    return b.y > -10 && b.x > -10 && b.x < w + 10
   })
 
   // Update enemy bullets
@@ -336,6 +361,32 @@ function update(now) {
     }
   }
 
+  // Powerup spawning
+  if (now - powerupTimer > powerupInterval) {
+    powerups.push({
+      x: 40 + Math.random() * (w - 80),
+      y: -15,
+      vy: 1.2,
+      size: 18,
+      pulse: 0
+    })
+    powerupTimer = now
+  }
+
+  // Update powerups and check collection
+  powerups = powerups.filter(p => {
+    p.y += p.vy
+    p.pulse += 0.08
+    const dx = p.x - player.x
+    const dy = p.y - player.y
+    if (dx * dx + dy * dy < (p.size / 2 + player.width / 2) * (p.size / 2 + player.width / 2)) {
+      bulletLevel++
+      spawnParticles(p.x, p.y, '#00ffff', 12)
+      return false
+    }
+    return p.y < h + 20
+  })
+
   // Update particles
   particles = particles.filter(p => {
     p.x += p.vx
@@ -408,6 +459,35 @@ function draw() {
     ctx.shadowColor = e.color
     ctx.shadowBlur = 8
     enemyShapes[e.shapeIdx](ctx, e.x, e.y, e.size, e.color)
+    ctx.shadowBlur = 0
+  })
+
+  // Powerups
+  powerups.forEach(p => {
+    const glow = 0.6 + 0.4 * Math.sin(p.pulse)
+    ctx.shadowColor = '#00ffff'
+    ctx.shadowBlur = 12 * glow
+    // Draw a rotating "P" badge
+    ctx.save()
+    ctx.translate(p.x, p.y)
+    ctx.rotate(p.pulse * 0.5)
+    // Diamond shape
+    ctx.fillStyle = `rgba(0, 255, 255, ${0.7 + 0.3 * glow})`
+    ctx.beginPath()
+    const s = p.size / 2
+    ctx.moveTo(0, -s)
+    ctx.lineTo(s, 0)
+    ctx.lineTo(0, s)
+    ctx.lineTo(-s, 0)
+    ctx.closePath()
+    ctx.fill()
+    // "P" letter
+    ctx.fillStyle = '#0a0a0a'
+    ctx.font = `bold ${p.size * 0.7}px monospace`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('P', 0, 1)
+    ctx.restore()
     ctx.shadowBlur = 0
   })
 
