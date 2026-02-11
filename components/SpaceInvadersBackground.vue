@@ -238,7 +238,7 @@ function update(now) {
   if (keys['ArrowUp'] || keys['KeyW']) player.y -= player.speed
   if (keys['ArrowDown'] || keys['KeyS']) player.y += player.speed
   player.x = Math.max(player.width / 2, Math.min(w - player.width / 2, player.x))
-  player.y = Math.max(h * 0.5, Math.min(h - player.height / 2, player.y))
+  player.y = Math.max(player.height, Math.min(h - player.height / 2, player.y))
 
   // Shooting
   if (keys['Space'] && now - lastShotTime > 180) {
@@ -468,28 +468,37 @@ function handleResize() {
 }
 
 // Touch controls
-let touchStartX = null
 let touchActive = false
+const TOUCH_Y_OFFSET = 80 // ship appears above finger so it's visible
+
+function isInteractiveElement(el) {
+  if (!el) return false
+  const tag = el.tagName
+  if (tag === 'A' || tag === 'BUTTON' || tag === 'INPUT') return true
+  if (el.closest('a, button, .social-links, .profile-card')) return true
+  return false
+}
 
 function handleTouchStart(e) {
+  if (isInteractiveElement(e.target)) return // let links/buttons work
   if (gameOver) {
     resetGame()
     return
   }
-  const touch = e.touches[0]
-  touchStartX = touch.clientX
   touchActive = true
-  // Auto-fire on touch
   keys['Space'] = true
+  const touch = e.touches[0]
+  player.x = touch.clientX
+  player.y = touch.clientY - TOUCH_Y_OFFSET
 }
 
 function handleTouchMove(e) {
-  if (!touchActive || !canvas.value) return
+  if (!touchActive) return
+  if (isInteractiveElement(e.target)) return
   e.preventDefault()
   const touch = e.touches[0]
-  const rect = canvas.value.getBoundingClientRect()
-  player.x = touch.clientX - rect.left
-  player.y = touch.clientY - rect.top
+  player.x = touch.clientX
+  player.y = touch.clientY - TOUCH_Y_OFFSET
 }
 
 function handleTouchEnd() {
@@ -507,9 +516,9 @@ onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', handleKeyUp)
   window.addEventListener('resize', handleResize)
-  canvas.value?.addEventListener('touchstart', handleTouchStart, { passive: false })
-  canvas.value?.addEventListener('touchmove', handleTouchMove, { passive: false })
-  canvas.value?.addEventListener('touchend', handleTouchEnd)
+  window.addEventListener('touchstart', handleTouchStart, { passive: false })
+  window.addEventListener('touchmove', handleTouchMove, { passive: false })
+  window.addEventListener('touchend', handleTouchEnd)
 })
 
 onBeforeUnmount(() => {
@@ -518,8 +527,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)
   window.removeEventListener('resize', handleResize)
-  canvas.value?.removeEventListener('touchstart', handleTouchStart)
-  canvas.value?.removeEventListener('touchmove', handleTouchMove)
-  canvas.value?.removeEventListener('touchend', handleTouchEnd)
+  window.removeEventListener('touchstart', handleTouchStart)
+  window.removeEventListener('touchmove', handleTouchMove)
+  window.removeEventListener('touchend', handleTouchEnd)
 })
 </script>
