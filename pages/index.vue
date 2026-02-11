@@ -1,9 +1,14 @@
 <template>
   <div class="container">
-    <canvas ref="canvas"></canvas>
-    <div class="overlay" @click="addBox">
+    <SpaceInvadersBackground
+      v-if="isHacker"
+      @score="s => hackerScore = s"
+      @death="onGameOver"
+    />
+    <canvas v-else ref="canvas"></canvas>
+    <div class="overlay" @click="onOverlayClick">
       <div class="home">
-        <ProfileCard 
+        <ProfileCard
           @flip="flip"
           @flipStart="flipStart"
           @flipStop="flipStop"
@@ -14,8 +19,11 @@
         <p class="blurb">
           help folks. write code. build things.
         </p>
-        <p class="location">
+        <p v-if="!isHacker" class="location">
           54°26'51 S 3°19'15 E
+        </p>
+        <p v-else class="location hacker-score">
+          SCORE: {{ hackerScore }}
         </p>
         <div class="social-links">
           <SocialLink 
@@ -56,12 +64,14 @@
 <script>
 import ProfileCard from '~/components/ProfileCard.vue'
 import SocialLink from '~/components/SocialLink.vue'
+import SpaceInvadersBackground from '~/components/SpaceInvadersBackground.vue'
 
 export default {
   name: 'Home',
   components: {
     ProfileCard,
-    SocialLink
+    SocialLink,
+    SpaceInvadersBackground
   },
   data() {
     return {
@@ -77,22 +87,55 @@ export default {
         drawCount: 0,
         animateCount: 0
       },
-      animationFrameId: null
+      animationFrameId: null,
+      hackerScore: 0
     };
   },
+  computed: {
+    isHacker() {
+      return useTheme().activeTheme.value === 'hacker'
+    }
+  },
+  watch: {
+    isHacker(isNowHacker, wasHacker) {
+      if (isNowHacker) {
+        // Switching to hacker: stop bubble animation
+        if (this.animationFrameId) {
+          cancelAnimationFrame(this.animationFrameId);
+          this.animationFrameId = null;
+        }
+        window.removeEventListener('mousemove', this.updateMousePosition);
+        window.removeEventListener('resize', this.setupCanvas);
+        window.removeEventListener('touchmove', this.updateTouchPosition);
+        this.boxes = [];
+      } else {
+        // Switching away from hacker: start bubble animation
+        this.$nextTick(() => {
+          this.setupCanvas();
+          window.addEventListener('mousemove', this.updateMousePosition);
+          window.addEventListener('resize', this.setupCanvas);
+          window.addEventListener('touchmove', this.updateTouchPosition);
+          this.animationFrameId = requestAnimationFrame(this.animate);
+          this.addBox({clientX: window.innerWidth / 4, clientY: window.innerHeight / 3, layer: 1});
+          this.addBox({clientX: (window.innerWidth / 4)*3, clientY: (window.innerHeight / 3)*2, layer: 1});
+        });
+      }
+    }
+  },
   mounted() {
-    this.setupCanvas();
+    if (!this.isHacker) {
+      this.setupCanvas();
+      window.addEventListener('mousemove', this.updateMousePosition);
+      window.addEventListener('resize', this.setupCanvas);
+      window.addEventListener('touchmove', this.updateTouchPosition);
+      window.statistics = this.statistics;
+      this.animationFrameId = requestAnimationFrame(this.animate);
+      this.addBox({clientX: window.innerWidth / 4, clientY: window.innerHeight / 3, layer: 1});
+      this.addBox({clientX: (window.innerWidth / 4)*3, clientY: (window.innerHeight / 3)*2, layer: 1});
+    }
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       this.darkMode = true;
     }
-    window.addEventListener('mousemove', this.updateMousePosition);
-    window.addEventListener('resize', this.setupCanvas);
-    window.addEventListener('touchmove', this.updateTouchPosition);
-    
-    window.statistics = this.statistics;
-    this.animationFrameId = requestAnimationFrame(this.animate);
-    this.addBox({clientX: window.innerWidth / 4, clientY: window.innerHeight / 3, layer: 1});
-    this.addBox({clientX: (window.innerWidth / 4)*3, clientY: (window.innerHeight / 3)*2, layer: 1});
   },
   beforeDestroy() {
     window.removeEventListener('mousemove', this.updateMousePosition);
@@ -314,6 +357,14 @@ export default {
       this.theUpsideDown = false;
       event.stopPropagation();
     },
+    onOverlayClick(event) {
+      if (!this.isHacker) {
+        this.addBox(event);
+      }
+    },
+    onGameOver() {
+      // Could add visual effects to the overlay in the future
+    },
     addBox(event) {
       if (this.boxes.length > 12 && window.innerWidth < 600) {
         return; // Slutt å legge til flere bokser på mobil
@@ -444,6 +495,14 @@ p {
 
 .location {
   font-size: 0.7em;
+}
+
+.hacker-score {
+  font-family: monospace;
+  color: #00ff41;
+  text-shadow: 0 0 10px #00ff41;
+  letter-spacing: 0.15em;
+  font-size: 1em;
 }
 
 h1 p {
