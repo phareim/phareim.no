@@ -7,16 +7,30 @@
       @restart="onGameRestart"
       @started="onGameStarted"
     />
+    <PlatformerBackground
+      v-else-if="isCartoon"
+      @score="s => cartoonScore = s"
+      @death="onCartoonGameOver"
+      @restart="onCartoonGameRestart"
+      @started="onCartoonGameStarted"
+    />
     <canvas v-else ref="canvas"></canvas>
     <div class="overlay" @click="onOverlayClick">
       <div class="home">
         <ProfileCard
-          :flipped="hackerGameOver"
+          :flipped="hackerGameOver || cartoonGameOver"
           @flip="flip"
           @flipStart="flipStart"
           @flipStop="flipStop"
         />
-        <template v-if="isHacker && hackerGameOver">
+        <template v-if="isCartoon && cartoonGameOver">
+          <h1 class="cartoon-game-over-title">GAME OVER</h1>
+          <p class="cartoon-score game-over-score">SCORE: {{ cartoonScore }}</p>
+          <p v-if="cartoonScore >= cartoonHighScore" class="cartoon-score new-cartoon-highscore">NEW HIGH SCORE!</p>
+          <p v-else class="cartoon-score">HIGH SCORE: {{ cartoonHighScore }}</p>
+          <p class="cartoon-restart">PRESS ENTER TO PLAY AGAIN</p>
+        </template>
+        <template v-else-if="isHacker && hackerGameOver">
           <h1 class="game-over-title">GAME OVER</h1>
           <p class="hacker-score game-over-score">SCORE: {{ hackerScore }}</p>
           <p v-if="hackerScore >= hackerHighScore" class="hacker-score new-highscore">NEW HIGH SCORE!</p>
@@ -24,7 +38,7 @@
           <p class="game-over-restart">PRESS ENTER TO START A NEW GAME</p>
         </template>
         <template v-else>
-          <div :class="{ 'hacker-fade': isHacker && hackerGameStarted }">
+          <div :class="{ 'hacker-fade': isHacker && hackerGameStarted, 'cartoon-fade': isCartoon && cartoonGameStarted }">
             <h1>petter hareim</h1>
             <p class="blurb">father, husband, geek, aspiring good guy.
             </p>
@@ -32,10 +46,16 @@
               help folks. write code. build things.
             </p>
           </div>
-          <p v-if="!isHacker" class="location">
-            54°26'51 S 3°19'15 E
-          </p>
-          <template v-else>
+          <template v-if="isCartoon">
+            <p class="location cartoon-score">
+              SCORE: {{ cartoonScore }}
+            </p>
+            <p v-if="cartoonHighScore > 0" class="location cartoon-highscore-inline">
+              HIGH SCORE: {{ cartoonHighScore }}
+            </p>
+            <p v-if="!cartoonGameStarted" class="cartoon-restart">PRESS ENTER TO START</p>
+          </template>
+          <template v-else-if="isHacker">
             <p class="location hacker-score">
               SCORE: {{ hackerScore }}
             </p>
@@ -44,8 +64,11 @@
             </p>
             <p v-if="!hackerGameStarted" class="game-over-restart">PRESS ENTER TO START</p>
           </template>
+          <p v-else class="location">
+            54°26'51 S 3°19'15 E
+          </p>
         </template>
-        <div :class="['social-links', { 'hacker-fade': isHacker && hackerGameStarted }]">
+        <div :class="['social-links', { 'hacker-fade': isHacker && hackerGameStarted, 'cartoon-fade': isCartoon && cartoonGameStarted }]">
           <SocialLink 
             href="https://www.linkedin.com/in/phareim"
             type="linkedin"
@@ -85,13 +108,15 @@
 import ProfileCard from '~/components/ProfileCard.vue'
 import SocialLink from '~/components/SocialLink.vue'
 import SpaceInvadersBackground from '~/components/SpaceInvadersBackground.vue'
+import PlatformerBackground from '~/components/PlatformerBackground.vue'
 
 export default {
   name: 'Home',
   components: {
     ProfileCard,
     SocialLink,
-    SpaceInvadersBackground
+    SpaceInvadersBackground,
+    PlatformerBackground
   },
   data() {
     return {
@@ -111,55 +136,46 @@ export default {
       hackerScore: 0,
       hackerHighScore: 0,
       hackerGameOver: false,
-      hackerGameStarted: false
+      hackerGameStarted: false,
+      cartoonScore: 0,
+      cartoonHighScore: 0,
+      cartoonGameOver: false,
+      cartoonGameStarted: false
     };
   },
   computed: {
     isHacker() {
       return useTheme().activeTheme.value === 'hacker'
+    },
+    isCartoon() {
+      return useTheme().activeTheme.value === 'cartoon'
     }
   },
   watch: {
-    isHacker(isNowHacker, wasHacker) {
+    isHacker(isNowHacker) {
       if (isNowHacker) {
-        // Switching to hacker: stop bubble animation
-        if (this.animationFrameId) {
-          cancelAnimationFrame(this.animationFrameId);
-          this.animationFrameId = null;
-        }
-        window.removeEventListener('mousemove', this.updateMousePosition);
-        window.removeEventListener('resize', this.setupCanvas);
-        window.removeEventListener('touchmove', this.updateTouchPosition);
-        this.boxes = [];
-      } else {
-        // Switching away from hacker: start bubble animation
-        this.$nextTick(() => {
-          this.setupCanvas();
-          window.addEventListener('mousemove', this.updateMousePosition);
-          window.addEventListener('resize', this.setupCanvas);
-          window.addEventListener('touchmove', this.updateTouchPosition);
-          this.animationFrameId = requestAnimationFrame(this.animate);
-          this.addBox({clientX: window.innerWidth / 4, clientY: window.innerHeight / 3, layer: 1});
-          this.addBox({clientX: (window.innerWidth / 4)*3, clientY: (window.innerHeight / 3)*2, layer: 1});
-        });
+        this.stopBubbles();
+      } else if (!this.isCartoon) {
+        this.startBubbles();
+      }
+    },
+    isCartoon(isNowCartoon) {
+      if (isNowCartoon) {
+        this.stopBubbles();
+      } else if (!this.isHacker) {
+        this.startBubbles();
       }
     }
   },
   mounted() {
-    if (!this.isHacker) {
-      this.setupCanvas();
-      window.addEventListener('mousemove', this.updateMousePosition);
-      window.addEventListener('resize', this.setupCanvas);
-      window.addEventListener('touchmove', this.updateTouchPosition);
-      window.statistics = this.statistics;
-      this.animationFrameId = requestAnimationFrame(this.animate);
-      this.addBox({clientX: window.innerWidth / 4, clientY: window.innerHeight / 3, layer: 1});
-      this.addBox({clientX: (window.innerWidth / 4)*3, clientY: (window.innerHeight / 3)*2, layer: 1});
+    if (!this.isHacker && !this.isCartoon) {
+      this.startBubbles();
     }
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       this.darkMode = true;
     }
     this.hackerHighScore = parseInt(localStorage.getItem('hackerHighScore') || '0', 10);
+    this.cartoonHighScore = parseInt(localStorage.getItem('cartoonHighScore') || '0', 10);
   },
   beforeDestroy() {
     window.removeEventListener('mousemove', this.updateMousePosition);
@@ -381,8 +397,43 @@ export default {
       this.theUpsideDown = false;
       event.stopPropagation();
     },
+    stopBubbles() {
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+      }
+      window.removeEventListener('mousemove', this.updateMousePosition);
+      window.removeEventListener('resize', this.setupCanvas);
+      window.removeEventListener('touchmove', this.updateTouchPosition);
+      this.boxes = [];
+    },
+    startBubbles() {
+      this.$nextTick(() => {
+        this.setupCanvas();
+        window.addEventListener('mousemove', this.updateMousePosition);
+        window.addEventListener('resize', this.setupCanvas);
+        window.addEventListener('touchmove', this.updateTouchPosition);
+        window.statistics = this.statistics;
+        this.animationFrameId = requestAnimationFrame(this.animate);
+        this.addBox({clientX: window.innerWidth / 4, clientY: window.innerHeight / 3, layer: 1});
+        this.addBox({clientX: (window.innerWidth / 4)*3, clientY: (window.innerHeight / 3)*2, layer: 1});
+      });
+    },
+    onCartoonGameOver() {
+      this.cartoonGameOver = true;
+      if (this.cartoonScore > this.cartoonHighScore) {
+        this.cartoonHighScore = this.cartoonScore;
+        localStorage.setItem('cartoonHighScore', String(this.cartoonHighScore));
+      }
+    },
+    onCartoonGameRestart() {
+      this.cartoonGameOver = false;
+    },
+    onCartoonGameStarted() {
+      this.cartoonGameStarted = true;
+    },
     onOverlayClick(event) {
-      if (!this.isHacker) {
+      if (!this.isHacker && !this.isCartoon) {
         this.addBox(event);
       }
     },
@@ -612,6 +663,68 @@ h1 p {
   text-align: center;
   margin-left: auto;
   margin-right: auto;
+}
+
+/* Cartoon theme styles */
+.cartoon-score {
+  font-family: 'Press Start 2P', monospace;
+  color: #fff;
+  text-shadow: 3px 3px 0px rgba(0, 0, 0, 0.4);
+  letter-spacing: 0.1em;
+  font-size: 1em;
+}
+
+.cartoon-game-over-title {
+  font-family: 'Press Start 2P', monospace;
+  color: #fff;
+  text-shadow:
+    3px 3px 0px #e52521,
+    -1px -1px 0px rgba(0, 0, 0, 0.3);
+  font-size: 2em;
+  letter-spacing: 0.1em;
+  margin-top: 0.5em;
+  margin-bottom: 0.1em;
+}
+@media(min-width: 800px) {
+  .cartoon-game-over-title {
+    font-size: 2.8em;
+  }
+}
+
+.new-cartoon-highscore {
+  animation: cartoon-pulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes cartoon-pulse {
+  from { text-shadow: 3px 3px 0px rgba(0, 0, 0, 0.4); transform: scale(1); }
+  to { text-shadow: 3px 3px 0px #e52521, 0 0 20px #fbd000; transform: scale(1.05); }
+}
+
+.cartoon-restart {
+  font-family: 'Press Start 2P', monospace;
+  color: #fff;
+  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4);
+  font-size: 0.8em;
+  letter-spacing: 0.1em;
+  opacity: 0.9;
+  margin-top: 1em;
+  animation: cartoon-blink 1.2s ease-in-out infinite;
+}
+@keyframes cartoon-blink {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.4; }
+}
+
+.cartoon-highscore-inline {
+  font-family: 'Press Start 2P', monospace;
+  color: #fff;
+  opacity: 0.6;
+  font-size: 0.6em;
+  letter-spacing: 0.1em;
+  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+}
+
+.cartoon-fade {
+  animation: fade-out-overlay 10s forwards;
 }
 
 </style>

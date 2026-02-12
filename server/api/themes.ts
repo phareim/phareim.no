@@ -21,6 +21,12 @@ const themeMetadata = {
     name: 'Fantasy',
     icon: '📜',
     description: 'Middle-earth inspired theme'
+  },
+  'cartoon': {
+    id: 'cartoon',
+    name: 'Cartoon',
+    icon: '🍄',
+    description: 'Super Mario-inspired vibrant cartoon theme'
   }
 }
 
@@ -63,7 +69,8 @@ export default defineEventHandler(async (event) => {
     return [
       { id: 'scandi', name: 'Scandinavian Glass', icon: '❄️', file: 'scandinavian.css' },
       { id: 'hacker', name: 'Cyberpunk', icon: '📟', file: 'hacker.css' },
-      { id: 'tolkien', name: 'Fantasy', icon: '📜', file: 'tolkien.css' }
+      { id: 'tolkien', name: 'Fantasy', icon: '📜', file: 'tolkien.css' },
+      { id: 'cartoon', name: 'Cartoon', icon: '🍄', file: 'cartoon.css' }
     ]
   }
 })
