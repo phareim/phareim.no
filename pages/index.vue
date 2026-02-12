@@ -18,6 +18,8 @@
         <template v-if="isHacker && hackerGameOver">
           <h1 class="game-over-title">GAME OVER</h1>
           <p class="hacker-score">SCORE: {{ hackerScore }}</p>
+          <p v-if="hackerScore >= hackerHighScore" class="hacker-score new-highscore">NEW HIGH SCORE!</p>
+          <p v-else class="hacker-score">HIGH SCORE: {{ hackerHighScore }}</p>
           <p class="game-over-restart">PRESS ANY KEY TO RESTART</p>
         </template>
         <template v-else>
@@ -98,6 +100,7 @@ export default {
       },
       animationFrameId: null,
       hackerScore: 0,
+      hackerHighScore: 0,
       hackerGameOver: false
     };
   },
@@ -146,6 +149,7 @@ export default {
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       this.darkMode = true;
     }
+    this.hackerHighScore = parseInt(localStorage.getItem('hackerHighScore') || '0', 10);
   },
   beforeDestroy() {
     window.removeEventListener('mousemove', this.updateMousePosition);
@@ -374,6 +378,10 @@ export default {
     },
     onGameOver() {
       this.hackerGameOver = true;
+      if (this.hackerScore > this.hackerHighScore) {
+        this.hackerHighScore = this.hackerScore;
+        localStorage.setItem('hackerHighScore', String(this.hackerHighScore));
+      }
     },
     onGameRestart() {
       this.hackerGameOver = false;
@@ -524,6 +532,20 @@ p {
   text-shadow: 0 0 20px #00ff41, 0 0 40px #00ff41;
   font-size: 3.5em;
   letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+@media(min-width: 800px) {
+  .game-over-title {
+    margin-top: 0.1em;
+  }
+}
+
+.new-highscore {
+  animation: pulse-glow 0.8s ease-in-out infinite alternate;
+}
+@keyframes pulse-glow {
+  from { text-shadow: 0 0 10px #00ff41; }
+  to { text-shadow: 0 0 20px #00ff41, 0 0 40px #ffcc00; }
 }
 
 .game-over-restart {
