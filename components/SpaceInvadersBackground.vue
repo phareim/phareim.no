@@ -358,16 +358,13 @@ function update(now) {
       boss.y = Math.max(boss.size, Math.min(h * 0.45, boss.y))
     }
 
-    // Boss shooting — fires toward player
+    // Boss shooting — fires downward with slight random spread
     if (boss.arrived && now - boss.lastShot > boss.shootCooldown) {
-      const dx = player.x - boss.x
-      const dy = player.y - boss.y
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1
-      const bspeed = 3
-      enemyBullets.push({ x: boss.x - 15, y: boss.y + boss.size / 2, vy: bspeed * (dy / dist), vx: bspeed * (dx / dist) })
-      enemyBullets.push({ x: boss.x + 15, y: boss.y + boss.size / 2, vy: bspeed * (dy / dist), vx: bspeed * (dx / dist) })
+      const spread = (Math.random() - 0.5) * 1.5
+      enemyBullets.push({ x: boss.x - 15, y: boss.y + boss.size / 2, vy: 3 + Math.random() * 1.5, vx: spread })
+      enemyBullets.push({ x: boss.x + 15, y: boss.y + boss.size / 2, vy: 3 + Math.random() * 1.5, vx: -spread })
       boss.lastShot = now
-      boss.shootCooldown = 500 + Math.random() * 600
+      boss.shootCooldown = 400 + Math.random() * 1200
     }
 
     return boss.hp > 0
@@ -503,19 +500,45 @@ function update(now) {
     if (dx * dx + dy * dy < (p.size / 2 + player.width / 2) * (p.size / 2 + player.width / 2)) {
       bulletLevel++
       playerGlow = 1
-      spawnParticles(p.x, p.y, '#00ffff', 16)
-      // Flash ring around player
-      for (let i = 0; i < 20; i++) {
-        const angle = (Math.PI * 2 / 20) * i
-        const r = player.width * 0.8
+      // Bright cyan burst
+      spawnParticles(player.x, player.y, '#00ffff', 24)
+      // Expanding ring of sparks
+      for (let i = 0; i < 30; i++) {
+        const angle = (Math.PI * 2 / 30) * i
+        const speed = 3 + Math.random() * 4
+        const r = player.width * 0.6
         particles.push({
           x: player.x + Math.cos(angle) * r,
           y: player.y + Math.sin(angle) * r,
-          vx: Math.cos(angle) * 2,
-          vy: Math.sin(angle) * 2,
-          life: 1, decay: 0.04, color: '#00ffff', size: 3
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 1, decay: 0.02 + Math.random() * 0.02,
+          color: Math.random() < 0.5 ? '#00ffff' : '#ffffff',
+          size: 3 + Math.random() * 3
         })
       }
+      // Smoke cloud — larger, slower, fading particles
+      for (let i = 0; i < 18; i++) {
+        const angle = Math.random() * Math.PI * 2
+        const speed = 0.5 + Math.random() * 2
+        particles.push({
+          x: player.x + (Math.random() - 0.5) * 20,
+          y: player.y + (Math.random() - 0.5) * 20,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 0.5,
+          life: 1, decay: 0.01 + Math.random() * 0.015,
+          color: `rgba(0, ${150 + Math.floor(Math.random() * 105)}, ${200 + Math.floor(Math.random() * 55)}, 0.6)`,
+          size: 6 + Math.random() * 8
+        })
+      }
+      // Bright flash — one big particle at center
+      particles.push({
+        x: player.x, y: player.y,
+        vx: 0, vy: 0,
+        life: 1, decay: 0.05,
+        color: '#ffffff',
+        size: 40
+      })
       return false
     }
     return p.y < h + 20
@@ -696,16 +719,6 @@ function draw() {
   })
   ctx.shadowBlur = 0
 
-  // Pre-start prompt
-  if (!gameStarted && !gameOver) {
-    ctx.fillStyle = '#00ff41'
-    ctx.shadowColor = '#00ff41'
-    ctx.shadowBlur = 15
-    ctx.font = '16px monospace'
-    ctx.textAlign = 'center'
-    ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.75)
-    ctx.shadowBlur = 0
-  }
 }
 
 function gameLoop(now) {
