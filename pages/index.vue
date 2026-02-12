@@ -5,6 +5,7 @@
       @score="s => hackerScore = s"
       @death="onGameOver"
       @restart="onGameRestart"
+      @started="onGameStarted"
     />
     <canvas v-else ref="canvas"></canvas>
     <div class="overlay" @click="onOverlayClick">
@@ -17,26 +18,34 @@
         />
         <template v-if="isHacker && hackerGameOver">
           <h1 class="game-over-title">GAME OVER</h1>
-          <p class="hacker-score">SCORE: {{ hackerScore }}</p>
+          <p class="hacker-score game-over-score">SCORE: {{ hackerScore }}</p>
           <p v-if="hackerScore >= hackerHighScore" class="hacker-score new-highscore">NEW HIGH SCORE!</p>
           <p v-else class="hacker-score">HIGH SCORE: {{ hackerHighScore }}</p>
-          <p class="game-over-restart">PRESS ANY KEY TO RESTART</p>
+          <p class="game-over-restart">PRESS ENTER TO START A NEW GAME</p>
         </template>
         <template v-else>
-          <h1>petter hareim</h1>
-          <p class="blurb">father, husband, geek, aspiring good guy.
-          </p>
-          <p class="blurb">
-            help folks. write code. build things.
-          </p>
+          <div :class="{ 'hacker-fade': isHacker && hackerGameStarted }">
+            <h1>petter hareim</h1>
+            <p class="blurb">father, husband, geek, aspiring good guy.
+            </p>
+            <p class="blurb">
+              help folks. write code. build things.
+            </p>
+          </div>
           <p v-if="!isHacker" class="location">
             54°26'51 S 3°19'15 E
           </p>
-          <p v-else class="location hacker-score">
-            SCORE: {{ hackerScore }}
-          </p>
+          <template v-else>
+            <p class="location hacker-score">
+              SCORE: {{ hackerScore }}
+            </p>
+            <p v-if="hackerHighScore > 0" class="location hacker-highscore-inline">
+              HIGH SCORE: {{ hackerHighScore }}
+            </p>
+            <p v-if="!hackerGameStarted" class="game-over-restart">PRESS ENTER TO START</p>
+          </template>
         </template>
-        <div class="social-links">
+        <div :class="['social-links', { 'hacker-fade': isHacker && hackerGameStarted }]">
           <SocialLink 
             href="https://www.linkedin.com/in/phareim"
             type="linkedin"
@@ -101,7 +110,8 @@ export default {
       animationFrameId: null,
       hackerScore: 0,
       hackerHighScore: 0,
-      hackerGameOver: false
+      hackerGameOver: false,
+      hackerGameStarted: false
     };
   },
   computed: {
@@ -386,6 +396,9 @@ export default {
     onGameRestart() {
       this.hackerGameOver = false;
     },
+    onGameStarted() {
+      this.hackerGameStarted = true;
+    },
     addBox(event) {
       if (this.boxes.length > 12 && window.innerWidth < 600) {
         return; // Slutt å legge til flere bokser på mobil
@@ -530,14 +543,20 @@ p {
   font-family: monospace;
   color: #00ff41;
   text-shadow: 0 0 20px #00ff41, 0 0 40px #00ff41;
-  font-size: 3.5em;
+  font-size: 2.8em;
   letter-spacing: 0.1em;
-  margin-top: 2px;
+  margin-top: 0.5em;
+  margin-bottom: 0.1em;
 }
 @media(min-width: 800px) {
   .game-over-title {
-    margin-top: 0.1em;
+    font-size: 3.2em;
+    margin-top: 0.5em;
   }
+}
+
+.game-over-score {
+  margin-top: 0.3em;
 }
 
 .new-highscore {
@@ -556,6 +575,23 @@ p {
   letter-spacing: 0.1em;
   opacity: 0.8;
   margin-top: 1em;
+}
+
+.hacker-highscore-inline {
+  font-family: monospace;
+  color: #00ff41;
+  opacity: 0.5;
+  font-size: 0.65em;
+  letter-spacing: 0.1em;
+}
+
+.hacker-fade {
+  animation: fade-out-overlay 10s forwards;
+}
+@keyframes fade-out-overlay {
+  0% { opacity: 1; }
+  40% { opacity: 1; }
+  100% { opacity: 0; pointer-events: none; }
 }
 
 h1 p {

@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-const emit = defineEmits(['score', 'death', 'restart'])
+const emit = defineEmits(['score', 'death', 'restart', 'started'])
 
 const canvas = ref(null)
 let ctx = null
@@ -11,15 +11,18 @@ let animationFrameId = null
 let gameRunning = false
 
 // Game state
-let player = { x: 0, y: 0, width: 30, height: 24, speed: 5 }
+let player = { x: 0, y: 0, width: 44, height: 36, speed: 5 }
 let bullets = []
 let enemyBullets = []
 let enemies = []
+let bosses = []
 let stars = []
 let particles = []
 let powerups = []
+let shockwaves = []
 let score = 0
 let gameOver = false
+let gameStarted = false
 let keys = {}
 let lastShotTime = 0
 let waveTimer = 0
@@ -27,6 +30,9 @@ let waveInterval = 2500
 let bulletLevel = 1
 let powerupTimer = 0
 let powerupInterval = 12000
+let bossTimer = 0
+let bossInterval = 25000
+let playerGlow = 0 // powerup pickup glow effect
 
 // Enemy shapes as pixel-art style draw functions
 const enemyShapes = [
@@ -34,14 +40,11 @@ const enemyShapes = [
   (ctx, x, y, size, color) => {
     ctx.fillStyle = color
     const s = size / 8
-    // Body
     ctx.fillRect(x - 3 * s, y - s, 6 * s, 2 * s)
     ctx.fillRect(x - 4 * s, y - 2 * s, 8 * s, s)
     ctx.fillRect(x - 2 * s, y - 3 * s, 4 * s, s)
-    // Legs
     ctx.fillRect(x - 4 * s, y + s, 2 * s, s)
     ctx.fillRect(x + 2 * s, y + s, 2 * s, s)
-    // Eyes
     ctx.fillStyle = '#000'
     ctx.fillRect(x - 2 * s, y - s, s, s)
     ctx.fillRect(x + s, y - s, s, s)
@@ -83,13 +86,10 @@ const enemyShapes = [
     const s = size / 8
     ctx.fillRect(x - 3 * s, y - 2 * s, 6 * s, 3 * s)
     ctx.fillRect(x - s, y - 3 * s, 2 * s, s)
-    // Claws
     ctx.fillRect(x - 5 * s, y - s, 2 * s, 2 * s)
     ctx.fillRect(x + 3 * s, y - s, 2 * s, 2 * s)
-    // Feet
     ctx.fillRect(x - 3 * s, y + s, s, s)
     ctx.fillRect(x + 2 * s, y + s, s, s)
-    // Eyes
     ctx.fillStyle = '#000'
     ctx.fillRect(x - 2 * s, y - s, s, s)
     ctx.fillRect(x + s, y - s, s, s)
@@ -116,7 +116,6 @@ const enemyShapes = [
     ctx.arc(x, y - r * 0.2, r * 0.8, 0, Math.PI * 2)
     ctx.fill()
     ctx.fillRect(x - r * 0.5, y + r * 0.3, r, r * 0.4)
-    // Eyes
     ctx.fillStyle = '#000'
     ctx.beginPath()
     ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.18, 0, Math.PI * 2)
@@ -130,8 +129,7 @@ const enemyColors = ['#ff0055', '#ffcc00', '#4dffb8', '#ff6600', '#ff0055', '#00
 function initStars() {
   stars = []
   if (!canvas.value) return
-  const count = 80
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < 80; i++) {
     stars.push({
       x: Math.random() * canvas.value.width,
       y: Math.random() * canvas.value.height,
@@ -149,15 +147,21 @@ function resetGame() {
   bullets = []
   enemyBullets = []
   enemies = []
+  bosses = []
   powerups = []
   particles = []
+  shockwaves = []
   score = 0
   gameOver = false
+  gameStarted = true
   waveTimer = 0
   bulletLevel = 1
   powerupTimer = 0
+  bossTimer = 0
   waveInterval = 2500
+  playerGlow = 0
   emit('restart')
+  emit('started')
   emit('score', 0)
 }
 
@@ -175,40 +179,27 @@ function spawnWave() {
     const baseSpeed = 0.8 + Math.random() * 0.8
 
     switch (pattern) {
-      case 0: // Straight down
+      case 0:
         x = 40 + (i / (count - 1 || 1)) * (w - 80)
         y = -20 - i * 30
-        vx = 0
-        vy = baseSpeed
-        movementType = 'straight'
-        break
-      case 1: // Sine wave
+        vx = 0; vy = baseSpeed; movementType = 'straight'; break
+      case 1:
         x = 40 + (i / (count - 1 || 1)) * (w - 80)
         y = -20 - i * 35
-        vx = 0
-        vy = baseSpeed
-        movementType = 'sine'
-        break
-      case 2: // V-formation
+        vx = 0; vy = baseSpeed; movementType = 'sine'; break
+      case 2:
         x = w / 2 + (i - count / 2) * 45
         y = -20 - Math.abs(i - count / 2) * 30
-        vx = 0
-        vy = baseSpeed
-        movementType = 'straight'
-        break
-      case 3: // Zigzag
+        vx = 0; vy = baseSpeed; movementType = 'straight'; break
+      case 3:
         x = 40 + (i / (count - 1 || 1)) * (w - 80)
         y = -20 - i * 25
         vx = (Math.random() < 0.5 ? 1 : -1) * 1.5
-        vy = baseSpeed * 0.7
-        movementType = 'zigzag'
-        break
+        vy = baseSpeed * 0.7; movementType = 'zigzag'; break
     }
 
     enemies.push({
-      x, y, vx, vy, size, color,
-      shapeIdx,
-      movementType,
+      x, y, vx, vy, size, color, shapeIdx, movementType,
       sineOffset: Math.random() * Math.PI * 2,
       sineAmplitude: 40 + Math.random() * 60,
       zigzagTimer: Math.random() * 100,
@@ -218,6 +209,28 @@ function spawnWave() {
       spawnX: x
     })
   }
+}
+
+function spawnBoss() {
+  if (!canvas.value) return
+  const w = canvas.value.width
+  const h = canvas.value.height
+  const bossHp = Math.max(4, Math.floor(4 * Math.pow(1.5, bulletLevel - 1)))
+  bosses.push({
+    x: Math.random() * (w - 120) + 60,
+    y: -60,
+    targetY: 60 + Math.random() * (h * 0.3),
+    vx: (Math.random() < 0.5 ? 1 : -1) * (0.5 + Math.random() * 1),
+    vy: 1.5,
+    size: 60,
+    hp: bossHp,
+    maxHp: bossHp,
+    color: '#ff00ff',
+    shootCooldown: 600 + Math.random() * 800,
+    lastShot: Date.now(),
+    arrived: false,
+    dirChangeTimer: 0
+  })
 }
 
 function spawnParticles(x, y, color, count = 8) {
@@ -236,10 +249,17 @@ function spawnParticles(x, y, color, count = 8) {
   }
 }
 
+function triggerShockwave(x, y) {
+  shockwaves.push({ x, y, radius: 0, maxRadius: Math.max(canvas.value.width, canvas.value.height), speed: 12, life: 1 })
+}
+
 function update(now) {
-  if (!canvas.value || gameOver) return
+  if (!canvas.value || gameOver || !gameStarted) return
   const w = canvas.value.width
   const h = canvas.value.height
+
+  // Decay player glow
+  if (playerGlow > 0) playerGlow = Math.max(0, playerGlow - 0.02)
 
   // Player movement
   if (keys['ArrowLeft'] || keys['KeyA']) player.x -= player.speed
@@ -249,20 +269,18 @@ function update(now) {
   player.x = Math.max(player.width / 2, Math.min(w - player.width / 2, player.x))
   player.y = Math.max(player.height, Math.min(h - player.height / 2, player.y))
 
-  // Shooting — fan of bullets based on bulletLevel
+  // Shooting
   if (keys['Space'] && now - lastShotTime > 180) {
     const n = bulletLevel
     const bulletSpeed = 7
     if (n === 1) {
       bullets.push({ x: player.x, y: player.y - player.height / 2, vx: 0, vy: -bulletSpeed })
     } else {
-      // Spread angle grows with level: 10° per extra bullet, max 70°
       const totalSpread = Math.min(n * 10, 70) * (Math.PI / 180)
       for (let i = 0; i < n; i++) {
         const angle = -Math.PI / 2 + (i / (n - 1) - 0.5) * totalSpread
         bullets.push({
-          x: player.x,
-          y: player.y - player.height / 2,
+          x: player.x, y: player.y - player.height / 2,
           vx: Math.cos(angle) * bulletSpeed,
           vy: Math.sin(angle) * bulletSpeed
         })
@@ -288,40 +306,108 @@ function update(now) {
   if (now - waveTimer > waveInterval) {
     spawnWave()
     waveTimer = now
-    // Gradually speed up waves
     waveInterval = Math.max(1200, waveInterval - 30)
+  }
+
+  // Boss spawning
+  if (now - bossTimer > bossInterval) {
+    spawnBoss()
+    bossTimer = now
   }
 
   // Update enemies
   enemies = enemies.filter(enemy => {
     enemy.y += enemy.vy
-
     if (enemy.movementType === 'sine') {
       enemy.x = enemy.spawnX + Math.sin(enemy.y * 0.02 + enemy.sineOffset) * enemy.sineAmplitude
     } else if (enemy.movementType === 'zigzag') {
       enemy.zigzagTimer += 0.05
-      if (Math.sin(enemy.zigzagTimer) > 0.95) {
-        enemy.vx = -enemy.vx
-      }
+      if (Math.sin(enemy.zigzagTimer) > 0.95) enemy.vx = -enemy.vx
       enemy.x += enemy.vx
     }
-
-    // Clamp to screen
     enemy.x = Math.max(enemy.size, Math.min(w - enemy.size, enemy.x))
-
-    // Enemy shooting
     if (now - enemy.lastShot > enemy.shootCooldown) {
       enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.size / 2, vy: 2.5 + Math.random() * 1.5 })
       enemy.lastShot = now
       enemy.shootCooldown = 800 + Math.random() * 2500
     }
-
     return enemy.y < h + 40
+  })
+
+  // Update bosses
+  bosses = bosses.filter(boss => {
+    // Move to target Y, then roam
+    if (!boss.arrived) {
+      boss.y += boss.vy
+      if (boss.y >= boss.targetY) {
+        boss.arrived = true
+        boss.vy = 0
+      }
+    } else {
+      // Semi-random roaming in top half
+      boss.dirChangeTimer += 1
+      if (boss.dirChangeTimer > 60 + Math.random() * 80) {
+        boss.vx = (Math.random() - 0.5) * 3
+        boss.vy = (Math.random() - 0.5) * 1.5
+        boss.dirChangeTimer = 0
+      }
+      boss.x += boss.vx
+      boss.y += boss.vy
+      // Keep in top half
+      boss.x = Math.max(boss.size, Math.min(w - boss.size, boss.x))
+      boss.y = Math.max(boss.size, Math.min(h * 0.45, boss.y))
+    }
+
+    // Boss shooting — fires toward player
+    if (boss.arrived && now - boss.lastShot > boss.shootCooldown) {
+      const dx = player.x - boss.x
+      const dy = player.y - boss.y
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1
+      const bspeed = 3
+      enemyBullets.push({ x: boss.x - 15, y: boss.y + boss.size / 2, vy: bspeed * (dy / dist), vx: bspeed * (dx / dist) })
+      enemyBullets.push({ x: boss.x + 15, y: boss.y + boss.size / 2, vy: bspeed * (dy / dist), vx: bspeed * (dx / dist) })
+      boss.lastShot = now
+      boss.shootCooldown = 500 + Math.random() * 600
+    }
+
+    return boss.hp > 0
+  })
+
+  // Update enemy bullets (with vx for boss aimed bullets)
+  enemyBullets = enemyBullets.filter(b => {
+    if (b.vx) b.x += b.vx
+    return b.y < h + 10 && b.x > -20 && b.x < w + 20
   })
 
   // Bullet-enemy collisions
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i]
+    let bulletConsumed = false
+
+    // Check bosses
+    for (let j = bosses.length - 1; j >= 0; j--) {
+      const boss = bosses[j]
+      const dx = b.x - boss.x
+      const dy = b.y - boss.y
+      if (dx * dx + dy * dy < (boss.size / 2 + 4) * (boss.size / 2 + 4)) {
+        boss.hp--
+        spawnParticles(b.x, b.y, boss.color, 5)
+        bullets.splice(i, 1)
+        bulletConsumed = true
+        if (boss.hp <= 0) {
+          // Boss killed — shockwave!
+          spawnParticles(boss.x, boss.y, boss.color, 25)
+          triggerShockwave(boss.x, boss.y)
+          score += 500
+          emit('score', score)
+          bosses.splice(j, 1)
+        }
+        break
+      }
+    }
+    if (bulletConsumed) continue
+
+    // Check normal enemies
     for (let j = enemies.length - 1; j >= 0; j--) {
       const e = enemies[j]
       const dx = b.x - e.x
@@ -336,6 +422,29 @@ function update(now) {
       }
     }
   }
+
+  // Shockwave kills all enemies
+  shockwaves.forEach(sw => {
+    enemies = enemies.filter(e => {
+      const dx = e.x - sw.x
+      const dy = e.y - sw.y
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      if (dist < sw.radius + 20 && dist > sw.radius - 30) {
+        spawnParticles(e.x, e.y, e.color, 6)
+        score += 100
+        emit('score', score)
+        return false
+      }
+      return true
+    })
+  })
+
+  // Update shockwaves
+  shockwaves = shockwaves.filter(sw => {
+    sw.radius += sw.speed
+    sw.life = Math.max(0, 1 - sw.radius / sw.maxRadius)
+    return sw.life > 0
+  })
 
   // Enemy bullet-player collision
   for (const b of enemyBullets) {
@@ -361,19 +470,31 @@ function update(now) {
     }
   }
 
+  // Boss-player collision
+  for (const boss of bosses) {
+    const dx = boss.x - player.x
+    const dy = boss.y - player.y
+    if (dx * dx + dy * dy < (boss.size / 2 + player.width / 2) * (boss.size / 2 + player.width / 2)) {
+      gameOver = true
+      spawnParticles(player.x, player.y, '#00ff41', 20)
+      emit('death')
+      return
+    }
+  }
+
   // Powerup spawning
   if (now - powerupTimer > powerupInterval) {
     powerups.push({
       x: 40 + Math.random() * (w - 80),
-      y: -15,
+      y: -20,
       vy: 1.2,
-      size: 18,
+      size: 28,
       pulse: 0
     })
     powerupTimer = now
   }
 
-  // Update powerups and check collection
+  // Update powerups
   powerups = powerups.filter(p => {
     p.y += p.vy
     p.pulse += 0.08
@@ -381,7 +502,20 @@ function update(now) {
     const dy = p.y - player.y
     if (dx * dx + dy * dy < (p.size / 2 + player.width / 2) * (p.size / 2 + player.width / 2)) {
       bulletLevel++
-      spawnParticles(p.x, p.y, '#00ffff', 12)
+      playerGlow = 1
+      spawnParticles(p.x, p.y, '#00ffff', 16)
+      // Flash ring around player
+      for (let i = 0; i < 20; i++) {
+        const angle = (Math.PI * 2 / 20) * i
+        const r = player.width * 0.8
+        particles.push({
+          x: player.x + Math.cos(angle) * r,
+          y: player.y + Math.sin(angle) * r,
+          vx: Math.cos(angle) * 2,
+          vy: Math.sin(angle) * 2,
+          life: 1, decay: 0.04, color: '#00ffff', size: 3
+        })
+      }
       return false
     }
     return p.y < h + 20
@@ -411,7 +545,6 @@ function draw() {
   const w = canvas.value.width
   const h = canvas.value.height
 
-  // Clear
   ctx.fillStyle = '#0a0a0a'
   ctx.fillRect(0, 0, w, h)
 
@@ -419,6 +552,18 @@ function draw() {
   stars.forEach(star => {
     ctx.fillStyle = `rgba(100, 255, 180, ${star.brightness * 0.5})`
     ctx.fillRect(star.x, star.y, star.size, star.size)
+  })
+
+  // Shockwaves
+  shockwaves.forEach(sw => {
+    ctx.strokeStyle = `rgba(255, 0, 255, ${sw.life * 0.8})`
+    ctx.lineWidth = 4 + sw.life * 8
+    ctx.shadowColor = '#ff00ff'
+    ctx.shadowBlur = 20 * sw.life
+    ctx.beginPath()
+    ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.shadowBlur = 0
   })
 
   // Particles
@@ -430,10 +575,16 @@ function draw() {
   ctx.globalAlpha = 1
 
   if (!gameOver) {
-    // Player ship
-    ctx.fillStyle = '#00ff41'
-    ctx.shadowColor = '#00ff41'
-    ctx.shadowBlur = 10
+    // Player ship with powerup glow
+    const glowColor = playerGlow > 0 ? `rgba(0, 255, 255, ${playerGlow * 0.6})` : null
+    if (glowColor) {
+      ctx.shadowColor = '#00ffff'
+      ctx.shadowBlur = 25 + playerGlow * 20
+    } else {
+      ctx.shadowColor = '#00ff41'
+      ctx.shadowBlur = 10
+    }
+    ctx.fillStyle = playerGlow > 0.5 ? '#00ffff' : '#00ff41'
     ctx.beginPath()
     ctx.moveTo(player.x, player.y - player.height / 2)
     ctx.lineTo(player.x + player.width / 2, player.y + player.height / 2)
@@ -442,6 +593,10 @@ function draw() {
     ctx.lineTo(player.x - player.width / 2, player.y + player.height / 2)
     ctx.closePath()
     ctx.fill()
+
+    // Extra wing details for the bigger ship
+    ctx.fillStyle = playerGlow > 0.5 ? '#00cccc' : '#00cc33'
+    ctx.fillRect(player.x - 3, player.y - player.height * 0.1, 6, player.height * 0.4)
     ctx.shadowBlur = 0
 
     // Player bullets
@@ -462,17 +617,58 @@ function draw() {
     ctx.shadowBlur = 0
   })
 
-  // Powerups
+  // Bosses
+  bosses.forEach(boss => {
+    // Outer hull
+    ctx.shadowColor = boss.color
+    ctx.shadowBlur = 15
+    ctx.fillStyle = boss.color
+    ctx.beginPath()
+    ctx.moveTo(boss.x, boss.y - boss.size / 2)
+    ctx.lineTo(boss.x + boss.size / 2, boss.y)
+    ctx.lineTo(boss.x + boss.size * 0.4, boss.y + boss.size / 3)
+    ctx.lineTo(boss.x - boss.size * 0.4, boss.y + boss.size / 3)
+    ctx.lineTo(boss.x - boss.size / 2, boss.y)
+    ctx.closePath()
+    ctx.fill()
+    // Inner detail
+    ctx.fillStyle = '#220033'
+    ctx.beginPath()
+    ctx.arc(boss.x, boss.y - boss.size * 0.1, boss.size * 0.2, 0, Math.PI * 2)
+    ctx.fill()
+    // Wings
+    ctx.fillStyle = boss.color
+    ctx.fillRect(boss.x - boss.size * 0.6, boss.y - 5, boss.size * 0.2, 10)
+    ctx.fillRect(boss.x + boss.size * 0.4, boss.y - 5, boss.size * 0.2, 10)
+    ctx.shadowBlur = 0
+
+    // HP bar
+    const barW = boss.size * 0.8
+    const barH = 4
+    const barX = boss.x - barW / 2
+    const barY = boss.y - boss.size / 2 - 10
+    ctx.fillStyle = '#333'
+    ctx.fillRect(barX, barY, barW, barH)
+    ctx.fillStyle = '#ff00ff'
+    ctx.fillRect(barX, barY, barW * (boss.hp / boss.maxHp), barH)
+  })
+
+  // Powerups — larger and glowier
   powerups.forEach(p => {
     const glow = 0.6 + 0.4 * Math.sin(p.pulse)
     ctx.shadowColor = '#00ffff'
-    ctx.shadowBlur = 12 * glow
-    // Draw a rotating "P" badge
+    ctx.shadowBlur = 20 + 15 * glow
     ctx.save()
     ctx.translate(p.x, p.y)
     ctx.rotate(p.pulse * 0.5)
+    // Outer glow ring
+    ctx.strokeStyle = `rgba(0, 255, 255, ${0.3 * glow})`
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(0, 0, p.size * 0.75, 0, Math.PI * 2)
+    ctx.stroke()
     // Diamond shape
-    ctx.fillStyle = `rgba(0, 255, 255, ${0.7 + 0.3 * glow})`
+    ctx.fillStyle = `rgba(0, 255, 255, ${0.8 + 0.2 * glow})`
     ctx.beginPath()
     const s = p.size / 2
     ctx.moveTo(0, -s)
@@ -483,7 +679,7 @@ function draw() {
     ctx.fill()
     // "P" letter
     ctx.fillStyle = '#0a0a0a'
-    ctx.font = `bold ${p.size * 0.7}px monospace`
+    ctx.font = `bold ${p.size * 0.55}px monospace`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('P', 0, 1)
@@ -500,6 +696,16 @@ function draw() {
   })
   ctx.shadowBlur = 0
 
+  // Pre-start prompt
+  if (!gameStarted && !gameOver) {
+    ctx.fillStyle = '#00ff41'
+    ctx.shadowColor = '#00ff41'
+    ctx.shadowBlur = 15
+    ctx.font = '16px monospace'
+    ctx.textAlign = 'center'
+    ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.75)
+    ctx.shadowBlur = 0
+  }
 }
 
 function gameLoop(now) {
@@ -519,7 +725,12 @@ function setupCanvas() {
 function handleKeyDown(e) {
   keys[e.code] = true
   if (e.code === 'Space') e.preventDefault()
-  if (gameOver) {
+
+  if (!gameStarted && e.code === 'Enter') {
+    resetGame()
+    return
+  }
+  if (gameOver && e.code === 'Enter') {
     resetGame()
   }
 }
@@ -535,7 +746,7 @@ function handleResize() {
 
 // Touch controls
 let touchActive = false
-const TOUCH_Y_OFFSET = 80 // ship appears above finger so it's visible
+const TOUCH_Y_OFFSET = 80
 
 function isInteractiveElement(el) {
   if (!el) return false
@@ -546,7 +757,11 @@ function isInteractiveElement(el) {
 }
 
 function handleTouchStart(e) {
-  if (isInteractiveElement(e.target)) return // let links/buttons work
+  if (isInteractiveElement(e.target)) return
+  if (!gameStarted) {
+    resetGame()
+    return
+  }
   if (gameOver) {
     resetGame()
     return
@@ -575,8 +790,11 @@ function handleTouchEnd() {
 onMounted(() => {
   setupCanvas()
   initStars()
-  resetGame()
+  // Don't auto-start — wait for Enter
+  player.x = canvas.value ? canvas.value.width / 2 : 0
+  player.y = canvas.value ? canvas.value.height - 60 : 0
   gameRunning = true
+  gameStarted = false
   animationFrameId = requestAnimationFrame(gameLoop)
 
   window.addEventListener('keydown', handleKeyDown)
