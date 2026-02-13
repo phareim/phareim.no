@@ -329,15 +329,32 @@ function spawnBoss() {
 function spawnParticles(x, y, color, count = 8) {
   for (let i = 0; i < count; i++) {
     const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5
-    const speed = 1 + Math.random() * 3
+    const speed = 1.5 + Math.random() * 4
     particles.push({
       x, y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       life: 1,
-      decay: 0.02 + Math.random() * 0.03,
+      decay: 0.015 + Math.random() * 0.025,
       color,
-      size: 2 + Math.random() * 3
+      size: 3 + Math.random() * 5
+    })
+  }
+}
+
+function spawnSmoke(x, y, count = 6) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2
+    const speed = 0.3 + Math.random() * 1
+    particles.push({
+      x: x + (Math.random() - 0.5) * 12,
+      y: y + (Math.random() - 0.5) * 12,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 0.4,
+      life: 1,
+      decay: 0.006 + Math.random() * 0.01,
+      color: `rgba(${80 + Math.floor(Math.random() * 80)}, ${80 + Math.floor(Math.random() * 60)}, ${80 + Math.floor(Math.random() * 60)}, 0.5)`,
+      size: 6 + Math.random() * 10
     })
   }
 }
@@ -348,72 +365,60 @@ function triggerShockwave(x, y) {
 
 function triggerDeathExplosion(x, y) {
   deathExplosion = { x, y, phase: 0, timer: 0, flash: 1 }
-  // Phase 1: bright white flash at center
+  // Bright white flash at center
   particles.push({
     x, y, vx: 0, vy: 0,
-    life: 1, decay: 0.03, color: '#ffffff', size: 60
+    life: 1, decay: 0.02, color: '#ffffff', size: 90
   })
-  // Phase 2: fiery core — orange/yellow expanding fireball particles
-  for (let i = 0; i < 40; i++) {
+  // Fiery core — orange/yellow expanding fireball
+  for (let i = 0; i < 60; i++) {
     const angle = Math.random() * Math.PI * 2
-    const speed = 0.5 + Math.random() * 2.5
+    const speed = 0.5 + Math.random() * 3.5
     const colors = ['#ff6600', '#ff9900', '#ffcc00', '#ff3300', '#ffffff']
     particles.push({
-      x: x + (Math.random() - 0.5) * 10,
-      y: y + (Math.random() - 0.5) * 10,
+      x: x + (Math.random() - 0.5) * 16,
+      y: y + (Math.random() - 0.5) * 16,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1, decay: 0.006 + Math.random() * 0.01,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 5 + Math.random() * 12
+    })
+  }
+  // Green debris flying outward (ship fragments)
+  for (let i = 0; i < 28; i++) {
+    const angle = (Math.PI * 2 / 28) * i + Math.random() * 0.3
+    const speed = 2.5 + Math.random() * 6
+    particles.push({
+      x, y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       life: 1, decay: 0.008 + Math.random() * 0.012,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      size: 4 + Math.random() * 8
-    })
-  }
-  // Phase 3: green debris flying outward (ship fragments)
-  for (let i = 0; i < 20; i++) {
-    const angle = (Math.PI * 2 / 20) * i + Math.random() * 0.3
-    const speed = 2 + Math.random() * 5
-    particles.push({
-      x, y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      life: 1, decay: 0.01 + Math.random() * 0.015,
       color: Math.random() < 0.5 ? '#00ff41' : '#00cc33',
-      size: 3 + Math.random() * 5
+      size: 3 + Math.random() * 6
     })
   }
-  // Phase 4: expanding sparks ring
-  for (let i = 0; i < 24; i++) {
-    const angle = (Math.PI * 2 / 24) * i
-    const speed = 4 + Math.random() * 3
+  // Expanding sparks ring
+  for (let i = 0; i < 32; i++) {
+    const angle = (Math.PI * 2 / 32) * i
+    const speed = 5 + Math.random() * 4
     particles.push({
       x, y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      life: 1, decay: 0.015 + Math.random() * 0.01,
+      life: 1, decay: 0.012 + Math.random() * 0.01,
       color: '#00ff41',
-      size: 2 + Math.random() * 2
+      size: 2 + Math.random() * 3
     })
   }
-  // Smoke cloud
-  for (let i = 0; i < 15; i++) {
-    const angle = Math.random() * Math.PI * 2
-    const speed = 0.3 + Math.random() * 1.2
-    particles.push({
-      x: x + (Math.random() - 0.5) * 20,
-      y: y + (Math.random() - 0.5) * 20,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 0.3,
-      life: 1, decay: 0.005 + Math.random() * 0.008,
-      color: `rgba(100, 100, 100, 0.6)`,
-      size: 8 + Math.random() * 12
-    })
-  }
+  // Heavy smoke cloud
+  spawnSmoke(x, y, 25)
   // Shockwave ring from player death
   shockwaves.push({
     x, y,
     radius: 0,
-    maxRadius: 300,
-    speed: 6,
+    maxRadius: 400,
+    speed: 7,
     life: 1
   })
 }
@@ -585,12 +590,14 @@ function update(now) {
       const dy = b.y - boss.y
       if (dx * dx + dy * dy < (boss.size / 2 + 4) * (boss.size / 2 + 4)) {
         boss.hp--
-        spawnParticles(b.x, b.y, boss.color, 5)
+        spawnParticles(b.x, b.y, boss.color, 7)
+        spawnSmoke(b.x, b.y, 3)
         bullets.splice(i, 1)
         bulletConsumed = true
         if (boss.hp <= 0) {
           // Boss killed — shockwave!
-          spawnParticles(boss.x, boss.y, boss.color, 25)
+          spawnParticles(boss.x, boss.y, boss.color, 35)
+          spawnSmoke(boss.x, boss.y, 12)
           triggerShockwave(boss.x, boss.y)
           score += 500
           emit('score', score)
@@ -607,7 +614,8 @@ function update(now) {
       const dx = b.x - e.x
       const dy = b.y - e.y
       if (dx * dx + dy * dy < (e.size / 2 + 4) * (e.size / 2 + 4)) {
-        spawnParticles(e.x, e.y, e.color, 10)
+        spawnParticles(e.x, e.y, e.color, 14)
+        spawnSmoke(e.x, e.y, 5)
         enemies.splice(j, 1)
         bullets.splice(i, 1)
         score += 100
@@ -624,7 +632,8 @@ function update(now) {
       const dy = e.y - sw.y
       const dist = Math.sqrt(dx * dx + dy * dy)
       if (dist < sw.radius + 20 && dist > sw.radius - 30) {
-        spawnParticles(e.x, e.y, e.color, 6)
+        spawnParticles(e.x, e.y, e.color, 10)
+        spawnSmoke(e.x, e.y, 4)
         score += 100
         emit('score', score)
         return false
