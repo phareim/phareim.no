@@ -145,7 +145,6 @@ function initStars() {
   }
 }
 
-const bgShapeTypes = ['triangle', 'hexagon', 'diamond', 'circle', 'cross', 'ring']
 const bgShapeColors = [
   [255, 0, 100],   // pink
   [0, 200, 255],   // cyan
@@ -154,6 +153,26 @@ const bgShapeColors = [
   [180, 0, 255],   // purple
   [255, 200, 0],   // yellow
 ]
+
+function generateIrregularVertices() {
+  // Random number of vertices (4–9) at irregular angles and radii
+  const count = 4 + Math.floor(Math.random() * 6)
+  const vertices = []
+  // Generate random angles, then sort to form a non-self-intersecting polygon
+  const angles = []
+  for (let i = 0; i < count; i++) {
+    angles.push(Math.random() * Math.PI * 2)
+  }
+  angles.sort((a, b) => a - b)
+  for (let i = 0; i < count; i++) {
+    const radius = 0.5 + Math.random() * 0.5 // 0.5–1.0 of half-size
+    vertices.push({
+      angle: angles[i],
+      r: radius
+    })
+  }
+  return vertices
+}
 
 function createBgShape(startY) {
   if (!canvas.value) return null
@@ -164,12 +183,12 @@ function createBgShape(startY) {
     y: startY !== undefined ? startY : -(80 + Math.random() * 200),
     depth,
     speed: 0.2 + depth * 1.2,
-    size: 200 + (1 - depth) * 350 + Math.random() * 150, // further = bigger
+    size: 200 + (1 - depth) * 350 + Math.random() * 150,
     rotation: Math.random() * Math.PI * 2,
     rotSpeed: (Math.random() - 0.5) * 0.003,
-    type: bgShapeTypes[Math.floor(Math.random() * bgShapeTypes.length)],
+    vertices: generateIrregularVertices(),
     color: bgShapeColors[Math.floor(Math.random() * bgShapeColors.length)],
-    alpha: 0.03 + depth * 0.07 // further = more faded, closer = slightly more visible
+    alpha: 0.03 + depth * 0.07
   }
 }
 
@@ -187,6 +206,7 @@ function drawBgShape(shape, offsetX) {
   const sx = shape.x + offsetX * shape.depth * 15
   const sy = shape.y
   const [r, g, b] = shape.color
+  const s = shape.size / 2
   ctx.save()
   ctx.translate(sx, sy)
   ctx.rotate(shape.rotation)
@@ -194,64 +214,17 @@ function drawBgShape(shape, offsetX) {
   ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`
   ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${shape.alpha * 0.3})`
   ctx.lineWidth = 1.5
-
-  const s = shape.size / 2
-  switch (shape.type) {
-    case 'triangle':
-      ctx.beginPath()
-      ctx.moveTo(0, -s)
-      ctx.lineTo(s * 0.87, s * 0.5)
-      ctx.lineTo(-s * 0.87, s * 0.5)
-      ctx.closePath()
-      ctx.fill()
-      ctx.stroke()
-      break
-    case 'hexagon':
-      ctx.beginPath()
-      for (let i = 0; i < 6; i++) {
-        const a = (Math.PI / 3) * i - Math.PI / 6
-        const px = s * Math.cos(a)
-        const py = s * Math.sin(a)
-        if (i === 0) ctx.moveTo(px, py)
-        else ctx.lineTo(px, py)
-      }
-      ctx.closePath()
-      ctx.fill()
-      ctx.stroke()
-      break
-    case 'diamond':
-      ctx.beginPath()
-      ctx.moveTo(0, -s)
-      ctx.lineTo(s * 0.6, 0)
-      ctx.lineTo(0, s)
-      ctx.lineTo(-s * 0.6, 0)
-      ctx.closePath()
-      ctx.fill()
-      ctx.stroke()
-      break
-    case 'circle':
-      ctx.beginPath()
-      ctx.arc(0, 0, s, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.stroke()
-      break
-    case 'cross':
-      ctx.lineWidth = s * 0.2
-      ctx.beginPath()
-      ctx.moveTo(-s, 0); ctx.lineTo(s, 0)
-      ctx.moveTo(0, -s); ctx.lineTo(0, s)
-      ctx.stroke()
-      break
-    case 'ring':
-      ctx.lineWidth = s * 0.12
-      ctx.beginPath()
-      ctx.arc(0, 0, s, 0, Math.PI * 2)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.arc(0, 0, s * 0.5, 0, Math.PI * 2)
-      ctx.stroke()
-      break
+  ctx.beginPath()
+  for (let i = 0; i < shape.vertices.length; i++) {
+    const v = shape.vertices[i]
+    const px = Math.cos(v.angle) * v.r * s
+    const py = Math.sin(v.angle) * v.r * s
+    if (i === 0) ctx.moveTo(px, py)
+    else ctx.lineTo(px, py)
   }
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
   ctx.restore()
   ctx.globalAlpha = 1
 }
