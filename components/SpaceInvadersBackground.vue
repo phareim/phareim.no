@@ -36,6 +36,8 @@ let playerGlow = 0 // powerup pickup glow effect
 let shield = false // player shield active
 let shieldFlash = 0 // flash effect when shield absorbs a hit
 let deathExplosion = null // multi-phase death explosion
+let bgShapes = [] // parallax background geometric shapes
+let smoothParallaxX = 0 // smoothed parallax offset (lerps toward target)
 
 // Enemy shapes as pixel-art style draw functions
 const enemyShapes = [
@@ -143,6 +145,117 @@ function initStars() {
   }
 }
 
+const bgShapeTypes = ['triangle', 'hexagon', 'diamond', 'circle', 'cross', 'ring']
+const bgShapeColors = [
+  [255, 0, 100],   // pink
+  [0, 200, 255],   // cyan
+  [255, 100, 0],   // orange
+  [100, 255, 100], // green
+  [180, 0, 255],   // purple
+  [255, 200, 0],   // yellow
+]
+
+function createBgShape(startY) {
+  if (!canvas.value) return null
+  const w = canvas.value.width
+  const depth = 0.15 + Math.random() * 0.45 // 0.15 = far, 0.6 = closer
+  return {
+    x: Math.random() * (w + 200) - 100,
+    y: startY !== undefined ? startY : -(80 + Math.random() * 200),
+    depth,
+    speed: 0.2 + depth * 1.2,
+    size: 200 + (1 - depth) * 350 + Math.random() * 150, // further = bigger
+    rotation: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.003,
+    type: bgShapeTypes[Math.floor(Math.random() * bgShapeTypes.length)],
+    color: bgShapeColors[Math.floor(Math.random() * bgShapeColors.length)],
+    alpha: 0.03 + depth * 0.07 // further = more faded, closer = slightly more visible
+  }
+}
+
+function initBgShapes() {
+  bgShapes = []
+  if (!canvas.value) return
+  const h = canvas.value.height
+  for (let i = 0; i < 6; i++) {
+    const shape = createBgShape(Math.random() * (h + 400) - 200)
+    if (shape) bgShapes.push(shape)
+  }
+}
+
+function drawBgShape(shape, offsetX) {
+  const sx = shape.x + offsetX * shape.depth * 15
+  const sy = shape.y
+  const [r, g, b] = shape.color
+  ctx.save()
+  ctx.translate(sx, sy)
+  ctx.rotate(shape.rotation)
+  ctx.globalAlpha = shape.alpha
+  ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`
+  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${shape.alpha * 0.3})`
+  ctx.lineWidth = 1.5
+
+  const s = shape.size / 2
+  switch (shape.type) {
+    case 'triangle':
+      ctx.beginPath()
+      ctx.moveTo(0, -s)
+      ctx.lineTo(s * 0.87, s * 0.5)
+      ctx.lineTo(-s * 0.87, s * 0.5)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      break
+    case 'hexagon':
+      ctx.beginPath()
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI / 3) * i - Math.PI / 6
+        const px = s * Math.cos(a)
+        const py = s * Math.sin(a)
+        if (i === 0) ctx.moveTo(px, py)
+        else ctx.lineTo(px, py)
+      }
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      break
+    case 'diamond':
+      ctx.beginPath()
+      ctx.moveTo(0, -s)
+      ctx.lineTo(s * 0.6, 0)
+      ctx.lineTo(0, s)
+      ctx.lineTo(-s * 0.6, 0)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      break
+    case 'circle':
+      ctx.beginPath()
+      ctx.arc(0, 0, s, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+      break
+    case 'cross':
+      ctx.lineWidth = s * 0.2
+      ctx.beginPath()
+      ctx.moveTo(-s, 0); ctx.lineTo(s, 0)
+      ctx.moveTo(0, -s); ctx.lineTo(0, s)
+      ctx.stroke()
+      break
+    case 'ring':
+      ctx.lineWidth = s * 0.12
+      ctx.beginPath()
+      ctx.arc(0, 0, s, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.arc(0, 0, s * 0.5, 0, Math.PI * 2)
+      ctx.stroke()
+      break
+  }
+  ctx.restore()
+  ctx.globalAlpha = 1
+}
+
 function resetGame() {
   if (!canvas.value) return
   player.x = canvas.value.width / 2
@@ -166,6 +279,7 @@ function resetGame() {
   shield = false
   shieldFlash = 0
   deathExplosion = null
+  smoothParallaxX = 0
   emit('restart')
   emit('started')
   emit('score', 0)
@@ -358,6 +472,10 @@ function update(now) {
         star.y = 0
         star.x = Math.random() * canvas.value.width
       }
+    })
+    bgShapes.forEach(s => {
+      s.y += s.speed
+      s.rotation += s.rotSpeed
     })
     return
   }
@@ -698,6 +816,18 @@ function update(now) {
       star.x = Math.random() * w
     }
   })
+
+  // Update background shapes
+  bgShapes = bgShapes.filter(s => {
+    s.y += s.speed
+    s.rotation += s.rotSpeed
+    return s.y < h + s.size
+  })
+  // Replenish shapes
+  while (bgShapes.length < 6) {
+    const shape = createBgShape()
+    if (shape) bgShapes.push(shape)
+  }
 }
 
 function draw() {
@@ -708,11 +838,21 @@ function draw() {
   ctx.fillStyle = '#0a0a0a'
   ctx.fillRect(0, 0, w, h)
 
-  // Stars
+  // Compute parallax: player moves left → background shifts right (inverted)
+  // Smooth interpolation for acceleration/deceleration feel
+  const centerX = w / 2
+  const targetParallaxX = gameStarted ? -(player.x - centerX) * 0.015 : 0
+  smoothParallaxX += (targetParallaxX - smoothParallaxX) * 0.04
+
+  // Stars (with subtle parallax based on star speed as depth proxy)
   stars.forEach(star => {
+    const sx = star.x + smoothParallaxX * star.speed * 0.5
     ctx.fillStyle = `rgba(100, 255, 180, ${star.brightness * 0.5})`
-    ctx.fillRect(star.x, star.y, star.size, star.size)
+    ctx.fillRect(sx, star.y, star.size, star.size)
   })
+
+  // Background geometric shapes (parallax per-shape depth)
+  bgShapes.forEach(s => drawBgShape(s, smoothParallaxX))
 
   // Shockwaves
   shockwaves.forEach(sw => {
@@ -924,6 +1064,7 @@ function handleKeyUp(e) {
 function handleResize() {
   setupCanvas()
   initStars()
+  initBgShapes()
 }
 
 // Touch controls
@@ -972,6 +1113,7 @@ function handleTouchEnd() {
 onMounted(() => {
   setupCanvas()
   initStars()
+  initBgShapes()
   // Don't auto-start — wait for Enter
   player.x = canvas.value ? canvas.value.width / 2 : 0
   player.y = canvas.value ? canvas.value.height - 60 : 0
