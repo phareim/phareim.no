@@ -897,11 +897,18 @@ function draw() {
     }
 
     // Player bullets
-    ctx.fillStyle = '#00ff41'
-    ctx.shadowColor = '#00ff41'
-    ctx.shadowBlur = 6
     bullets.forEach(b => {
-      ctx.fillRect(b.x - 2, b.y - 6, 4, 12)
+      // Outer glow
+      ctx.shadowColor = '#00ff41'
+      ctx.shadowBlur = 14
+      ctx.fillStyle = '#00ff41'
+      ctx.fillRect(b.x - 3, b.y - 8, 6, 16)
+      // Hot white core
+      ctx.shadowBlur = 0
+      ctx.fillStyle = '#aaffaa'
+      ctx.fillRect(b.x - 1.5, b.y - 7, 3, 14)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(b.x - 0.75, b.y - 6, 1.5, 12)
     })
     ctx.shadowBlur = 0
   }
