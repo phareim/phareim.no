@@ -205,7 +205,7 @@ function spawnWave() {
       zigzagTimer: Math.random() * 100,
       hp: 1,
       shootCooldown: 1000 + Math.random() * 3000,
-      lastShot: Date.now() + Math.random() * 2000,
+      lastShot: performance.now() + Math.random() * 2000,
       spawnX: x
     })
   }
@@ -227,7 +227,7 @@ function spawnBoss() {
     maxHp: bossHp,
     color: '#ff00ff',
     shootCooldown: 600 + Math.random() * 800,
-    lastShot: Date.now(),
+    lastShot: performance.now(),
     arrived: false,
     dirChangeTimer: 0
   })
