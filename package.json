@@ -23,7 +23,7 @@
     "firebase": "^11.2.0",
     "firebase-admin": "^13.0.2",
     "h3": "^1.15.5",
-    "markdown-it": "^14.1.0",
+    "markdown-it": "^14.1.1",
     "openai": "^5.12.2",
     "pinia": "^2.3.1",
     "uuid": "^13.0.0"
