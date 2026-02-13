@@ -33,6 +33,9 @@ let powerupInterval = 12000
 let bossTimer = 0
 let bossInterval = 25000
 let playerGlow = 0 // powerup pickup glow effect
+let shield = false // player shield active
+let shieldFlash = 0 // flash effect when shield absorbs a hit
+let deathExplosion = null // multi-phase death explosion
 
 // Enemy shapes as pixel-art style draw functions
 const enemyShapes = [
@@ -160,6 +163,9 @@ function resetGame() {
   bossTimer = 0
   waveInterval = 2500
   playerGlow = 0
+  shield = false
+  shieldFlash = 0
+  deathExplosion = null
   emit('restart')
   emit('started')
   emit('score', 0)
@@ -253,8 +259,108 @@ function triggerShockwave(x, y) {
   shockwaves.push({ x, y, radius: 0, maxRadius: Math.max(canvas.value.width, canvas.value.height), speed: 12, life: 1 })
 }
 
+function triggerDeathExplosion(x, y) {
+  deathExplosion = { x, y, phase: 0, timer: 0, flash: 1 }
+  // Phase 1: bright white flash at center
+  particles.push({
+    x, y, vx: 0, vy: 0,
+    life: 1, decay: 0.03, color: '#ffffff', size: 60
+  })
+  // Phase 2: fiery core — orange/yellow expanding fireball particles
+  for (let i = 0; i < 40; i++) {
+    const angle = Math.random() * Math.PI * 2
+    const speed = 0.5 + Math.random() * 2.5
+    const colors = ['#ff6600', '#ff9900', '#ffcc00', '#ff3300', '#ffffff']
+    particles.push({
+      x: x + (Math.random() - 0.5) * 10,
+      y: y + (Math.random() - 0.5) * 10,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1, decay: 0.008 + Math.random() * 0.012,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 4 + Math.random() * 8
+    })
+  }
+  // Phase 3: green debris flying outward (ship fragments)
+  for (let i = 0; i < 20; i++) {
+    const angle = (Math.PI * 2 / 20) * i + Math.random() * 0.3
+    const speed = 2 + Math.random() * 5
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1, decay: 0.01 + Math.random() * 0.015,
+      color: Math.random() < 0.5 ? '#00ff41' : '#00cc33',
+      size: 3 + Math.random() * 5
+    })
+  }
+  // Phase 4: expanding sparks ring
+  for (let i = 0; i < 24; i++) {
+    const angle = (Math.PI * 2 / 24) * i
+    const speed = 4 + Math.random() * 3
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1, decay: 0.015 + Math.random() * 0.01,
+      color: '#00ff41',
+      size: 2 + Math.random() * 2
+    })
+  }
+  // Smoke cloud
+  for (let i = 0; i < 15; i++) {
+    const angle = Math.random() * Math.PI * 2
+    const speed = 0.3 + Math.random() * 1.2
+    particles.push({
+      x: x + (Math.random() - 0.5) * 20,
+      y: y + (Math.random() - 0.5) * 20,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 0.3,
+      life: 1, decay: 0.005 + Math.random() * 0.008,
+      color: `rgba(100, 100, 100, 0.6)`,
+      size: 8 + Math.random() * 12
+    })
+  }
+  // Shockwave ring from player death
+  shockwaves.push({
+    x, y,
+    radius: 0,
+    maxRadius: 300,
+    speed: 6,
+    life: 1
+  })
+}
+
 function update(now) {
-  if (!canvas.value || gameOver || !gameStarted) return
+  if (!canvas.value || !gameStarted) return
+
+  // Keep updating particles/shockwaves after death for explosion animation
+  if (gameOver) {
+    particles = particles.filter(p => {
+      p.x += p.vx
+      p.y += p.vy
+      p.life -= p.decay
+      p.vy += 0.02
+      return p.life > 0
+    })
+    shockwaves = shockwaves.filter(sw => {
+      sw.radius += sw.speed
+      sw.life = Math.max(0, 1 - sw.radius / sw.maxRadius)
+      return sw.life > 0
+    })
+    if (deathExplosion) {
+      deathExplosion.timer++
+      deathExplosion.flash = Math.max(0, deathExplosion.flash - 0.04)
+    }
+    stars.forEach(star => {
+      star.y += star.speed
+      if (star.y > canvas.value.height) {
+        star.y = 0
+        star.x = Math.random() * canvas.value.width
+      }
+    })
+    return
+  }
   const w = canvas.value.width
   const h = canvas.value.height
 
@@ -443,37 +549,56 @@ function update(now) {
     return sw.life > 0
   })
 
-  // Enemy bullet-player collision
-  for (const b of enemyBullets) {
+  // Shield flash decay
+  if (shieldFlash > 0) shieldFlash = Math.max(0, shieldFlash - 0.05)
+
+  // Enemy bullet-player collision (shield blocks bullets from above)
+  for (let i = enemyBullets.length - 1; i >= 0; i--) {
+    const b = enemyBullets[i]
+    // Check shield first — shield sits in front of the ship
+    if (shield) {
+      const shieldY = player.y - player.height / 2 - 12
+      const shieldW = player.width * 1.2
+      if (b.x > player.x - shieldW / 2 && b.x < player.x + shieldW / 2 &&
+          b.y > shieldY - 8 && b.y < shieldY + 8) {
+        // Shield absorbs the bullet
+        shield = false
+        shieldFlash = 1
+        spawnParticles(b.x, shieldY, '#00ccff', 12)
+        spawnParticles(b.x, shieldY, '#ffffff', 6)
+        enemyBullets.splice(i, 1)
+        continue
+      }
+    }
     const dx = b.x - player.x
     const dy = b.y - player.y
     if (dx * dx + dy * dy < (player.width / 2 + 3) * (player.width / 2 + 3)) {
       gameOver = true
-      spawnParticles(player.x, player.y, '#00ff41', 20)
+      triggerDeathExplosion(player.x, player.y)
       emit('death')
       return
     }
   }
 
-  // Enemy-player collision
+  // Enemy-player collision (shield does NOT help here)
   for (const e of enemies) {
     const dx = e.x - player.x
     const dy = e.y - player.y
     if (dx * dx + dy * dy < (e.size / 2 + player.width / 2) * (e.size / 2 + player.width / 2)) {
       gameOver = true
-      spawnParticles(player.x, player.y, '#00ff41', 20)
+      triggerDeathExplosion(player.x, player.y)
       emit('death')
       return
     }
   }
 
-  // Boss-player collision
+  // Boss-player collision (shield does NOT help here)
   for (const boss of bosses) {
     const dx = boss.x - player.x
     const dy = boss.y - player.y
     if (dx * dx + dy * dy < (boss.size / 2 + player.width / 2) * (boss.size / 2 + player.width / 2)) {
       gameOver = true
-      spawnParticles(player.x, player.y, '#00ff41', 20)
+      triggerDeathExplosion(player.x, player.y)
       emit('death')
       return
     }
@@ -481,12 +606,16 @@ function update(now) {
 
   // Powerup spawning
   if (now - powerupTimer > powerupInterval) {
+    // Decide type: shield only if player doesn't have one active
+    const canSpawnShield = !shield
+    const type = canSpawnShield && Math.random() < 0.4 ? 'shield' : 'weapon'
     powerups.push({
       x: 40 + Math.random() * (w - 80),
       y: -20,
       vy: 1.2,
       size: 28,
-      pulse: 0
+      pulse: 0,
+      type
     })
     powerupTimer = now
   }
@@ -498,47 +627,55 @@ function update(now) {
     const dx = p.x - player.x
     const dy = p.y - player.y
     if (dx * dx + dy * dy < (p.size / 2 + player.width / 2) * (p.size / 2 + player.width / 2)) {
-      bulletLevel++
-      playerGlow = 1
-      // Bright cyan burst
-      spawnParticles(player.x, player.y, '#00ffff', 24)
-      // Expanding ring of sparks
-      for (let i = 0; i < 30; i++) {
-        const angle = (Math.PI * 2 / 30) * i
-        const speed = 3 + Math.random() * 4
-        const r = player.width * 0.6
+      if (p.type === 'shield') {
+        shield = true
+        // Blue shield activation burst
+        spawnParticles(player.x, player.y - player.height / 2, '#00ccff', 16)
+        spawnParticles(player.x, player.y - player.height / 2, '#ffffff', 8)
+        playerGlow = 0.5
+      } else {
+        bulletLevel++
+        playerGlow = 1
+        // Bright cyan burst
+        spawnParticles(player.x, player.y, '#00ffff', 24)
+        // Expanding ring of sparks
+        for (let i = 0; i < 30; i++) {
+          const angle = (Math.PI * 2 / 30) * i
+          const speed = 3 + Math.random() * 4
+          const r = player.width * 0.6
+          particles.push({
+            x: player.x + Math.cos(angle) * r,
+            y: player.y + Math.sin(angle) * r,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 1, decay: 0.02 + Math.random() * 0.02,
+            color: Math.random() < 0.5 ? '#00ffff' : '#ffffff',
+            size: 3 + Math.random() * 3
+          })
+        }
+        // Smoke cloud — larger, slower, fading particles
+        for (let i = 0; i < 18; i++) {
+          const angle = Math.random() * Math.PI * 2
+          const speed = 0.5 + Math.random() * 2
+          particles.push({
+            x: player.x + (Math.random() - 0.5) * 20,
+            y: player.y + (Math.random() - 0.5) * 20,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 0.5,
+            life: 1, decay: 0.01 + Math.random() * 0.015,
+            color: `rgba(0, ${150 + Math.floor(Math.random() * 105)}, ${200 + Math.floor(Math.random() * 55)}, 0.6)`,
+            size: 6 + Math.random() * 8
+          })
+        }
+        // Bright flash — one big particle at center
         particles.push({
-          x: player.x + Math.cos(angle) * r,
-          y: player.y + Math.sin(angle) * r,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          life: 1, decay: 0.02 + Math.random() * 0.02,
-          color: Math.random() < 0.5 ? '#00ffff' : '#ffffff',
-          size: 3 + Math.random() * 3
+          x: player.x, y: player.y,
+          vx: 0, vy: 0,
+          life: 1, decay: 0.05,
+          color: '#ffffff',
+          size: 40
         })
       }
-      // Smoke cloud — larger, slower, fading particles
-      for (let i = 0; i < 18; i++) {
-        const angle = Math.random() * Math.PI * 2
-        const speed = 0.5 + Math.random() * 2
-        particles.push({
-          x: player.x + (Math.random() - 0.5) * 20,
-          y: player.y + (Math.random() - 0.5) * 20,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed - 0.5,
-          life: 1, decay: 0.01 + Math.random() * 0.015,
-          color: `rgba(0, ${150 + Math.floor(Math.random() * 105)}, ${200 + Math.floor(Math.random() * 55)}, 0.6)`,
-          size: 6 + Math.random() * 8
-        })
-      }
-      // Bright flash — one big particle at center
-      particles.push({
-        x: player.x, y: player.y,
-        vx: 0, vy: 0,
-        life: 1, decay: 0.05,
-        color: '#ffffff',
-        size: 40
-      })
       return false
     }
     return p.y < h + 20
@@ -622,6 +759,30 @@ function draw() {
     ctx.fillRect(player.x - 3, player.y - player.height * 0.1, 6, player.height * 0.4)
     ctx.shadowBlur = 0
 
+    // Shield in front of ship
+    if (shield || shieldFlash > 0) {
+      const shieldY = player.y - player.height / 2 - 12
+      const shieldW = player.width * 1.2
+      const shieldAlpha = shield ? 0.7 : shieldFlash * 0.8
+      const shieldColor = shield ? '#00ccff' : '#ffffff'
+      ctx.shadowColor = shieldColor
+      ctx.shadowBlur = shield ? 12 : 25 * shieldFlash
+      ctx.strokeStyle = shieldColor
+      ctx.globalAlpha = shieldAlpha
+      ctx.lineWidth = shield ? 3 : 2
+      ctx.beginPath()
+      // Curved shield arc
+      ctx.ellipse(player.x, shieldY, shieldW / 2, 6, 0, Math.PI, 0)
+      ctx.stroke()
+      // Inner glow fill
+      ctx.fillStyle = `rgba(0, 200, 255, ${shieldAlpha * 0.2})`
+      ctx.beginPath()
+      ctx.ellipse(player.x, shieldY, shieldW / 2, 6, 0, Math.PI, 0)
+      ctx.fill()
+      ctx.globalAlpha = 1
+      ctx.shadowBlur = 0
+    }
+
     // Player bullets
     ctx.fillStyle = '#00ff41'
     ctx.shadowColor = '#00ff41'
@@ -679,19 +840,22 @@ function draw() {
   // Powerups — larger and glowier
   powerups.forEach(p => {
     const glow = 0.6 + 0.4 * Math.sin(p.pulse)
-    ctx.shadowColor = '#00ffff'
+    const isShield = p.type === 'shield'
+    const pColor = isShield ? '#00ccff' : '#00ffff'
+    const pColorRgb = isShield ? '0, 200, 255' : '0, 255, 255'
+    ctx.shadowColor = pColor
     ctx.shadowBlur = 20 + 15 * glow
     ctx.save()
     ctx.translate(p.x, p.y)
     ctx.rotate(p.pulse * 0.5)
     // Outer glow ring
-    ctx.strokeStyle = `rgba(0, 255, 255, ${0.3 * glow})`
+    ctx.strokeStyle = `rgba(${pColorRgb}, ${0.3 * glow})`
     ctx.lineWidth = 3
     ctx.beginPath()
     ctx.arc(0, 0, p.size * 0.75, 0, Math.PI * 2)
     ctx.stroke()
     // Diamond shape
-    ctx.fillStyle = `rgba(0, 255, 255, ${0.8 + 0.2 * glow})`
+    ctx.fillStyle = `rgba(${pColorRgb}, ${0.8 + 0.2 * glow})`
     ctx.beginPath()
     const s = p.size / 2
     ctx.moveTo(0, -s)
@@ -700,12 +864,12 @@ function draw() {
     ctx.lineTo(-s, 0)
     ctx.closePath()
     ctx.fill()
-    // "P" letter
+    // Letter
     ctx.fillStyle = '#0a0a0a'
     ctx.font = `bold ${p.size * 0.55}px monospace`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText('P', 0, 1)
+    ctx.fillText(isShield ? 'S' : 'P', 0, 1)
     ctx.restore()
     ctx.shadowBlur = 0
   })
@@ -719,6 +883,11 @@ function draw() {
   })
   ctx.shadowBlur = 0
 
+  // Death explosion screen flash
+  if (deathExplosion && deathExplosion.flash > 0) {
+    ctx.fillStyle = `rgba(255, 150, 50, ${deathExplosion.flash * 0.4})`
+    ctx.fillRect(0, 0, w, h)
+  }
 }
 
 function gameLoop(now) {
