@@ -19,6 +19,7 @@
       <div class="home">
         <ProfileCard
           :flipped="hackerGameOver || cartoonGameOver"
+          :class="{ 'hacker-fade': isHacker && hackerGameStarted, 'cartoon-fade': isCartoon && cartoonGameStarted }"
           @flip="flip"
           @flipStart="flipStart"
           @flipStop="flipStop"
