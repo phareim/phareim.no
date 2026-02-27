@@ -1,7 +1,8 @@
 import { buildPrompt } from '~/types/model-definition'
 import { generateWithFalAI, generateWithVeniceAI } from '~/server/utils/image-providers'
-import { uploadImageToFirebase } from '~/server/utils/storage'
+import { uploadImageToR2 } from '~/server/utils/storage'
 import { getModelDefinition } from '~/server/utils/model-definitions'
+import { getDB } from '~/server/utils/db'
 
 interface ImageGenerationRequest {
     prompt: string
@@ -25,6 +26,7 @@ export default defineEventHandler(async (event): Promise<ImageGenerationResponse
     }
 
     try {
+        const db = getDB(event)
         const body = await readBody(event) as ImageGenerationRequest
         const { prompt, model = 'srpo', imageSize = 'portrait_16_9' } = body
 
@@ -35,7 +37,7 @@ export default defineEventHandler(async (event): Promise<ImageGenerationResponse
             })
         }
 
-        const modelDef = await getModelDefinition(model)
+        const modelDef = await getModelDefinition(model, db)
         if (!modelDef) {
             throw createError({
                 status: 400,
@@ -65,14 +67,13 @@ export default defineEventHandler(async (event): Promise<ImageGenerationResponse
             })
         }
 
-        // Upload to Firebase Storage
-        const firebaseUrl = await uploadImageToFirebase(imageUrl, {
-            metadata: { source: 'image-generator' }
+        const r2Url = await uploadImageToR2(event, imageUrl, {
+            folder: 'generated'
         })
 
         return {
             success: true,
-            imageUrl: firebaseUrl,
+            imageUrl: r2Url,
             originalUrl: imageUrl
         }
 

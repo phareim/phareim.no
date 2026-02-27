@@ -1,20 +1,19 @@
-import { db } from '~/server/utils/firebase-admin'
 import type { ModelDefinition } from '~/types/model-definition'
-import { modelDefinitionsCollection } from '~/types/model-definition'
 import { requireAdminAuth } from '~/server/utils/admin-auth'
+import { getDB } from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
     const method = getMethod(event)
 
-    // All admin endpoints require authentication
     requireAdminAuth(event)
 
     try {
+        const db = getDB(event)
         switch (method) {
             case 'GET':
-                return await getAllModels()
+                return await getAllModels(db)
             case 'POST':
-                return await createModel(event)
+                return await createModel(event, db)
             default:
                 throw createError({
                     status: 405,
@@ -27,38 +26,31 @@ export default defineEventHandler(async (event) => {
     }
 })
 
-async function getAllModels(): Promise<ModelDefinition[]> {
-    const models: ModelDefinition[] = []
-
-    const snapshot = await db.collection(modelDefinitionsCollection).get()
-
-    snapshot.forEach(doc => {
-        const data = doc.data()
-        models.push({
-            id: doc.id,
-            name: data.name,
-            icon: data.icon,
-            description: data.description,
-            enabled: data.enabled !== undefined ? data.enabled : true,
-            endpoint: data.endpoint,
-            type: data.type,
-            basePrompt: data.basePrompt,
-            promptSuffix: data.promptSuffix,
-            parameters: data.parameters || {},
-            supportedStyles: data.supportedStyles || [],
-            priority: data.priority || 999,
-            createdAt: data.createdAt?.toDate(),
-            updatedAt: data.updatedAt?.toDate()
-        })
-    })
-
-    // Sort by priority
-    models.sort((a, b) => a.priority - b.priority)
-
-    return models
+function mapModelRow(row: any): ModelDefinition {
+    return {
+        id: row.id,
+        name: row.name,
+        icon: row.icon,
+        description: row.description,
+        enabled: row.enabled === 1 || row.enabled === true,
+        endpoint: row.endpoint,
+        type: row.type,
+        basePrompt: row.base_prompt,
+        promptSuffix: row.prompt_suffix,
+        parameters: JSON.parse(row.parameters || '{}'),
+        supportedStyles: JSON.parse(row.supported_styles || '[]'),
+        priority: row.priority ?? 999,
+        createdAt: row.created_at ? new Date(row.created_at) : undefined,
+        updatedAt: row.updated_at ? new Date(row.updated_at) : undefined
+    }
 }
 
-async function createModel(event: any) {
+async function getAllModels(db: D1Database): Promise<ModelDefinition[]> {
+    const result = await db.prepare('SELECT * FROM model_definitions ORDER BY priority ASC').all<any>()
+    return (result.results || []).map(mapModelRow)
+}
+
+async function createModel(event: any, db: D1Database) {
     const body = await readBody(event)
 
     if (!body.id || !body.name || !body.endpoint || !body.type) {
@@ -69,15 +61,35 @@ async function createModel(event: any) {
     }
 
     // Check if model with this ID already exists
-    const existingDoc = await db.collection(modelDefinitionsCollection).doc(body.id).get()
-    if (existingDoc.exists) {
+    const existing = await db.prepare('SELECT id FROM model_definitions WHERE id = ?').bind(body.id).first<any>()
+    if (existing) {
         throw createError({
             status: 409,
             statusText: 'Model with this ID already exists'
         })
     }
 
-    const modelData: Omit<ModelDefinition, 'id'> = {
+    await db.prepare(
+        `INSERT INTO model_definitions (id, name, icon, description, enabled, endpoint, type, base_prompt, prompt_suffix, parameters, supported_styles, priority)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+        body.id,
+        body.name,
+        body.icon || '🎨',
+        body.description || '',
+        body.enabled !== undefined ? (body.enabled ? 1 : 0) : 1,
+        body.endpoint,
+        body.type,
+        body.basePrompt || '',
+        body.promptSuffix ?? null,
+        JSON.stringify(body.parameters || {}),
+        JSON.stringify(body.supportedStyles || []),
+        body.priority || 999
+    ).run()
+
+    return {
+        success: true,
+        id: body.id,
         name: body.name,
         icon: body.icon || '🎨',
         description: body.description || '',
@@ -88,16 +100,6 @@ async function createModel(event: any) {
         promptSuffix: body.promptSuffix,
         parameters: body.parameters || {},
         supportedStyles: body.supportedStyles || [],
-        priority: body.priority || 999,
-        createdAt: new Date(),
-        updatedAt: new Date()
-    }
-
-    await db.collection(modelDefinitionsCollection).doc(body.id).set(modelData)
-
-    return {
-        success: true,
-        id: body.id,
-        ...modelData
+        priority: body.priority || 999
     }
 }

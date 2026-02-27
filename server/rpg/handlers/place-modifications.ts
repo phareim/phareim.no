@@ -1,24 +1,5 @@
 import type { Place } from '../../../types/place'
-import { db, placesCollection } from '../../utils/firebase-admin'
 import { getPlaceId } from '../../utils/place-generator'
-
-/**
- * Gets all items that have been picked up at a specific location
- */
-export async function getPickedUpItemsAtLocation(coordinates: Place['coordinates']): Promise<string[]> {
-    try {
-        const itemsSnapshot = await db.collection('items')
-            .where('location.coordinates.north', '==', coordinates.north)
-            .where('location.coordinates.west', '==', coordinates.west)
-            .where('location.isPickedUp', '==', true)
-            .get()
-
-        return itemsSnapshot.docs.map(doc => doc.id)
-    } catch (error) {
-        console.error('Error fetching picked-up items:', error)
-        return []
-    }
-}
 
 /**
  * Filters a place description to remove references to picked-up items
@@ -28,13 +9,9 @@ export function filterPickedUpItems(description: string, pickedUpItems: string[]
 
     let filtered = description
 
-    // For each picked-up item, remove references to it
     pickedUpItems.forEach(itemName => {
-        // Create regex patterns to match the item in various forms
-        // Match item with asterisks: *item name*
         const exactPattern = new RegExp(`\\*${itemName}\\*`, 'gi')
 
-        // Also try matching variations (singular/plural, with articles)
         const variations = [
             itemName,
             itemName + 's',
@@ -49,14 +26,9 @@ export function filterPickedUpItems(description: string, pickedUpItems: string[]
         })
     })
 
-    // Clean up any resulting issues:
-    // - Double spaces
     filtered = filtered.replace(/\s{2,}/g, ' ')
-    // - Space before punctuation
     filtered = filtered.replace(/\s+([.,!?;:])/g, '$1')
-    // - Sentences starting with lowercase after removal
     filtered = filtered.replace(/\.\s+([a-z])/g, (match, letter) => '. ' + letter.toUpperCase())
-    // - Empty parentheses or brackets
     filtered = filtered.replace(/\(\s*\)/g, '')
     filtered = filtered.replace(/\[\s*\]/g, '')
 
@@ -64,24 +36,30 @@ export function filterPickedUpItems(description: string, pickedUpItems: string[]
 }
 
 /**
- * Gets a place (returns stored description which is already modified by player actions)
+ * Gets a place from D1 (stored description already reflects player actions)
  */
 export async function getPlaceWithModifications(
-    coordinates: Place['coordinates']
+    coordinates: Place['coordinates'],
+    db: D1Database
 ): Promise<Place | null> {
     try {
         const placeId = getPlaceId(coordinates)
-        const placeDoc = await db.collection(placesCollection).doc(placeId).get()
+        const row = await db.prepare(
+            'SELECT * FROM places WHERE id = ?'
+        ).bind(placeId).first<any>()
 
-        if (!placeDoc.exists) {
-            return null
-        }
-
-        const placeData = placeDoc.data() as Omit<Place, 'id'>
+        if (!row) return null
 
         return {
-            id: placeDoc.id,
-            ...placeData
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            coordinates: {
+                north: row.coordinates_north,
+                west: row.coordinates_west
+            },
+            createdAt: new Date(row.created_at),
+            updatedAt: new Date(row.updated_at)
         }
     } catch (error) {
         console.error('Error getting place:', error)
@@ -90,35 +68,31 @@ export async function getPlaceWithModifications(
 }
 
 /**
- * Permanently removes an item reference from a place's description in the database
- * This modifies the stored description for ALL players
+ * Permanently removes an item reference from a place's description
  */
 export async function removeItemFromPlaceDescription(
     coordinates: Place['coordinates'],
-    itemName: string
+    itemName: string,
+    db: D1Database
 ): Promise<void> {
     try {
         const placeId = getPlaceId(coordinates)
-        const placeRef = db.collection(placesCollection).doc(placeId)
+        const row = await db.prepare(
+            'SELECT description FROM places WHERE id = ?'
+        ).bind(placeId).first<any>()
 
-        const doc = await placeRef.get()
-        if (!doc.exists) {
+        if (!row) {
             console.warn('Tried to modify non-existent place:', placeId)
             return
         }
 
-        const currentData = doc.data() as Omit<Place, 'id'>
-        const originalDescription = currentData.description
-
-        // Filter out the picked-up item
+        const originalDescription = row.description
         const newDescription = filterPickedUpItems(originalDescription, [itemName])
 
-        // Only update if description actually changed
         if (newDescription !== originalDescription) {
-            await placeRef.update({
-                description: newDescription,
-                updatedAt: new Date()
-            })
+            await db.prepare(
+                'UPDATE places SET description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+            ).bind(newDescription, placeId).run()
             console.log(`Updated place ${placeId}: removed item "${itemName}"`)
         }
     } catch (error) {
@@ -129,32 +103,27 @@ export async function removeItemFromPlaceDescription(
 
 /**
  * Adds a permanent modification note to a place
- * This appends new text to the description for ALL players
  */
 export async function addPlaceModification(
     coordinates: Place['coordinates'],
-    modification: string
+    modification: string,
+    db: D1Database
 ): Promise<void> {
     try {
         const placeId = getPlaceId(coordinates)
-        const placeRef = db.collection(placesCollection).doc(placeId)
+        const row = await db.prepare(
+            'SELECT description FROM places WHERE id = ?'
+        ).bind(placeId).first<any>()
 
-        const doc = await placeRef.get()
-        if (!doc.exists) {
+        if (!row) {
             console.warn('Tried to modify non-existent place:', placeId)
             return
         }
 
-        const currentData = doc.data() as Omit<Place, 'id'>
-        const currentDescription = currentData.description
-
-        // Append the modification to the description
-        const newDescription = `${currentDescription}\n\n${modification}`
-
-        await placeRef.update({
-            description: newDescription,
-            updatedAt: new Date()
-        })
+        const newDescription = `${row.description}\n\n${modification}`
+        await db.prepare(
+            'UPDATE places SET description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+        ).bind(newDescription, placeId).run()
 
         console.log(`Updated place ${placeId}: added modification`)
     } catch (error) {
@@ -165,27 +134,17 @@ export async function addPlaceModification(
 
 /**
  * Permanently replaces a place's entire description
- * Use this for major transformations (e.g., "The tower collapses into rubble")
  */
 export async function replaceEntirePlaceDescription(
     coordinates: Place['coordinates'],
-    newDescription: string
+    newDescription: string,
+    db: D1Database
 ): Promise<void> {
     try {
         const placeId = getPlaceId(coordinates)
-        const placeRef = db.collection(placesCollection).doc(placeId)
-
-        const doc = await placeRef.get()
-        if (!doc.exists) {
-            console.warn('Tried to modify non-existent place:', placeId)
-            return
-        }
-
-        await placeRef.update({
-            description: newDescription,
-            updatedAt: new Date()
-        })
-
+        await db.prepare(
+            'UPDATE places SET description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+        ).bind(newDescription, placeId).run()
         console.log(`Completely replaced description for place ${placeId}`)
     } catch (error) {
         console.error('Error replacing place description:', error)

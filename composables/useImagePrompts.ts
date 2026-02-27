@@ -7,41 +7,20 @@ import type {
 } from '~/types/image-prompt'
 
 /**
- * Composable for managing image prompts
- * Handles authentication and API calls for CRUD operations on user prompts
+ * Composable for managing image prompts.
+ * Auth is handled by the admin session cookie (sent automatically by the browser).
  */
 export const useImagePrompts = () => {
-  const { $firebase } = useNuxtApp()
 
   /**
-   * Get authentication headers with Firebase ID token
-   */
-  const getAuthHeaders = async (): Promise<HeadersInit> => {
-    const auth = $firebase?.auth
-    const headers: HeadersInit = {}
-
-    if (auth?.currentUser) {
-      try {
-        const token = await auth.currentUser.getIdToken()
-        headers['Authorization'] = `Bearer ${token}`
-      } catch (error) {
-        console.warn('Failed to get auth token:', error)
-      }
-    }
-
-    return headers
-  }
-
-  /**
-   * Get a random prompt (uses user-specific prompts if authenticated)
+   * Get a random prompt (uses user-specific prompts if authenticated via cookie)
    * @param category - Optional category filter
    */
   const getRandomPrompt = async (category?: string): Promise<RandomPromptResponse> => {
-    const headers = await getAuthHeaders()
     const url = category
       ? `/api/image-prompts/random?category=${encodeURIComponent(category)}`
       : '/api/image-prompts/random'
-    const response = await fetch(url, { headers })
+    const response = await fetch(url)
 
     if (!response.ok) {
       const error = await response.json()
@@ -53,11 +32,9 @@ export const useImagePrompts = () => {
 
   /**
    * List all prompts for the authenticated user
-   * Requires authentication
    */
   const listUserPrompts = async (): Promise<ListPromptsResponse> => {
-    const headers = await getAuthHeaders()
-    const response = await fetch('/api/image-prompts/user', { headers })
+    const response = await fetch('/api/image-prompts/user')
 
     if (!response.ok) {
       const error = await response.json()
@@ -69,11 +46,9 @@ export const useImagePrompts = () => {
 
   /**
    * Get a specific prompt by ID
-   * Requires authentication
    */
   const getPrompt = async (id: string): Promise<ImagePrompt> => {
-    const headers = await getAuthHeaders()
-    const response = await fetch(`/api/image-prompts/user/${id}`, { headers })
+    const response = await fetch(`/api/image-prompts/user/${id}`)
 
     if (!response.ok) {
       const error = await response.json()
@@ -85,15 +60,11 @@ export const useImagePrompts = () => {
 
   /**
    * Create a new prompt
-   * Requires authentication
    */
   const createPrompt = async (data: CreatePromptRequest): Promise<ImagePrompt> => {
-    const headers = await getAuthHeaders()
-    headers['Content-Type'] = 'application/json'
-
     const response = await fetch('/api/image-prompts/user', {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     })
 
@@ -107,18 +78,11 @@ export const useImagePrompts = () => {
 
   /**
    * Update an existing prompt
-   * Requires authentication
    */
-  const updatePrompt = async (
-    id: string,
-    data: UpdatePromptRequest
-  ): Promise<ImagePrompt> => {
-    const headers = await getAuthHeaders()
-    headers['Content-Type'] = 'application/json'
-
+  const updatePrompt = async (id: string, data: UpdatePromptRequest): Promise<ImagePrompt> => {
     const response = await fetch(`/api/image-prompts/user/${id}`, {
       method: 'PATCH',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     })
 
@@ -132,15 +96,9 @@ export const useImagePrompts = () => {
 
   /**
    * Delete a prompt
-   * Requires authentication
    */
   const deletePrompt = async (id: string): Promise<{ id: string; message: string }> => {
-    const headers = await getAuthHeaders()
-
-    const response = await fetch(`/api/image-prompts/user/${id}`, {
-      method: 'DELETE',
-      headers
-    })
+    const response = await fetch(`/api/image-prompts/user/${id}`, { method: 'DELETE' })
 
     if (!response.ok) {
       const error = await response.json()
@@ -151,10 +109,15 @@ export const useImagePrompts = () => {
   }
 
   /**
-   * Check if user is authenticated
+   * Check if user is authenticated (via admin cookie)
    */
-  const isAuthenticated = (): boolean => {
-    return !!$firebase?.auth?.currentUser
+  const isAuthenticated = async (): Promise<boolean> => {
+    try {
+      const data = await $fetch<{ authenticated: boolean }>('/api/admin/auth/check')
+      return data.authenticated
+    } catch {
+      return false
+    }
   }
 
   return {

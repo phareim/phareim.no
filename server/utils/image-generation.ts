@@ -1,7 +1,5 @@
-import { db } from '~/server/utils/firebase-admin'
 import { getImageSettingPrompt } from '~/server/utils/character-settings'
 import { getImageClassPrompt } from '~/server/utils/character-classes'
-import type { EmojiPrompt } from '~/types/character'
 import { buildPrompt } from '~/types/model-definition'
 import { getModelDefinition } from '~/server/utils/model-definitions'
 import { generateWithFalAI, generateWithVeniceAI } from '~/server/utils/image-providers'
@@ -20,19 +18,18 @@ export interface ImageGenerationContext {
 /**
  * Generate a character image using the specified model and context
  */
-export async function generateCharacterImage(userPrompt: string, context: ImageGenerationContext = {}): Promise<string> {
+export async function generateCharacterImage(userPrompt: string, context: ImageGenerationContext = {}, db: D1Database): Promise<string> {
     const { characterName, characterTitle, characterClass, gender, setting, style, emojis, model } = context
 
-    // Fetch model definition from Firebase
     const selectedModel = model || 'srpo'
-    const modelDef = await getModelDefinition(selectedModel)
+    const modelDef = await getModelDefinition(selectedModel, db)
 
     if (!modelDef) {
         throw new Error(`Model definition not found: ${selectedModel}`)
     }
 
     // Build emoji prompts
-    const emojiPrompts = await getKeywordPrompts(emojis)
+    const emojiPrompts = await getKeywordPrompts(emojis, db)
     const emoji_string = emojiPrompts.length > 0 ? emojiPrompts.join(', ') + ', ' : ''
 
     // Build class and setting context
@@ -57,7 +54,7 @@ export async function generateCharacterImage(userPrompt: string, context: ImageG
     }
 }
 
-async function getKeywordPrompts(keywords?: string): Promise<string[]> {
+async function getKeywordPrompts(keywords: string | undefined, db: D1Database): Promise<string[]> {
     if (!keywords) return []
 
     const keywordArray = keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
@@ -67,15 +64,9 @@ async function getKeywordPrompts(keywords?: string): Promise<string[]> {
 
     for (const keyword of keywordArray) {
         try {
-            const snapshot = await db.collection("emoji-prompts")
-                .where('emoji', '==', keyword)
-                .limit(1)
-                .get()
-
-            if (!snapshot.empty) {
-                const doc = snapshot.docs[0]
-                const data = doc.data() as EmojiPrompt
-                prompts.push(data.prompt)
+            const row = await db.prepare('SELECT * FROM emoji_prompts WHERE emoji = ? LIMIT 1').bind(keyword).first<any>()
+            if (row) {
+                prompts.push(row.prompt)
             }
         } catch (error) {
             console.error(`Error fetching prompt for emoji ${keyword}:`, error)

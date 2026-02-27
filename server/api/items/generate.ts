@@ -1,11 +1,9 @@
 import { defineEventHandler, readBody } from 'h3'
 import OpenAI from 'openai'
 import { useRuntimeConfig } from '#imports'
-import { db } from '../../utils/firebase-admin'
+import { getDB } from '../../utils/db'
 import type { Item } from '~/types/item'
-import { itemsCollection } from '~/types/item'
 
-// Initialize OpenAI with Venice configuration
 const config = useRuntimeConfig()
 const openai = new OpenAI({
     apiKey: config.veniceKey,
@@ -14,33 +12,23 @@ const openai = new OpenAI({
 
 export default defineEventHandler(async (event) => {
     if (event.method !== 'POST') {
-        return {
-            error: 'Only POST requests are supported',
-            status: 405
-        }
+        return { error: 'Only POST requests are supported', status: 405 }
     }
 
     try {
+        const db = getDB(event)
         const body = await readBody(event)
         const { name, context, location } = body
 
         if (!name || !context) {
-            return {
-                error: 'Name and context are required',
-                status: 400
-            }
+            return { error: 'Name and context are required', status: 400 }
         }
 
-        // Check if item already exists
-        const existingDoc = await db.collection(itemsCollection).doc(name).get()
-        if (existingDoc.exists) {
-            return {
-                error: 'An item with this name already exists',
-                status: 409
-            }
+        const existing = await db.prepare('SELECT name FROM items WHERE name = ?').bind(name).first<any>()
+        if (existing) {
+            return { error: 'An item with this name already exists', status: 409 }
         }
 
-        // Generate item details using OpenAI
         const completion = await openai.chat.completions.create({
             model: "llama-3.3-70b",
             messages: [
@@ -78,11 +66,8 @@ Rules:
         })
 
         const response = completion.choices[0]?.message?.content
-        if (!response) {
-            throw new Error('Failed to generate item description')
-        }
+        if (!response) throw new Error('Failed to generate item description')
 
-        // Parse the response
         const descriptionMatch = response.match(/Description: (.+)/)
         const typeMatch = response.match(/Type: (.+)/)
         const propertiesMatch = response.match(/Properties:\n([\s\S]+?)(?=Legacy:|$)/)
@@ -92,7 +77,6 @@ Rules:
             throw new Error('Invalid response format from AI')
         }
 
-        // Parse properties
         const properties: Item['properties'] = {}
         const propertyLines = propertiesMatch[1].split('\n')
         propertyLines.forEach(line => {
@@ -105,40 +89,37 @@ Rules:
             }
         })
 
-        const itemData: Omit<Item, 'id'> = {
+        const isLegacy = legacyMatch ? legacyMatch[1] === 'true' : false
+
+        await db.prepare(`
+            INSERT INTO items (name, description, type, properties, location_north, location_west, is_picked_up, is_legacy)
+            VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+        `).bind(
+            name,
+            descriptionMatch[1].trim(),
+            typeMatch[1].trim(),
+            JSON.stringify(properties),
+            location?.north ?? null,
+            location?.west ?? null,
+            isLegacy ? 1 : 0
+        ).run()
+
+        return {
+            id: name,
             name,
             description: descriptionMatch[1].trim(),
             type: typeMatch[1].trim() as Item['type'],
             properties,
             location: location ? {
-                coordinates: {
-                    north: location.north,
-                    west: location.west
-                },
+                coordinates: { north: location.north, west: location.west },
                 isPickedUp: false
             } : undefined,
-            legacy: legacyMatch ? legacyMatch[1] === 'true' : false,
+            legacy: isLegacy,
             createdAt: new Date(),
             updatedAt: new Date()
         }
-
-        // Remove any undefined values before saving to Firestore
-        const firebaseData = JSON.parse(JSON.stringify(itemData))
-
-        // Save the generated item using name as ID
-        await db.collection(itemsCollection).doc(name).set(firebaseData)
-
-        return {
-            id: name,
-            ...itemData
-        }
-
     } catch (error: any) {
         console.error('Error generating item:', error)
-        return {
-            error: 'Failed to generate item',
-            details: error?.message || 'Unknown error',
-            status: 500
-        }
+        return { error: 'Failed to generate item', details: error?.message || 'Unknown error', status: 500 }
     }
-}) 
+})

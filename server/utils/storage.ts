@@ -1,78 +1,42 @@
-import { storage } from '~/server/utils/firebase-admin'
-import { v4 as uuidv4 } from 'uuid'
+import type { H3Event } from 'h3'
+import { getR2, uploadToR2 } from '~/server/utils/r2'
 
-interface UploadOptions {
-    folder?: string
-    filename?: string
-    metadata?: Record<string, string>
-    contentType?: string
-    bucketName?: string
-    publicUrlFormat?: 'firebasestorage' | 'googleapis'
-}
-
-async function resolveImageBuffer(imageSource: string): Promise<Buffer> {
+async function resolveImageBuffer(imageSource: string): Promise<ArrayBuffer> {
     if (imageSource.startsWith('data:')) {
         const base64Data = imageSource.split(',')[1]
-        return Buffer.from(base64Data, 'base64')
+        const binaryStr = atob(base64Data)
+        const bytes = new Uint8Array(binaryStr.length)
+        for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i)
+        }
+        return bytes.buffer
     }
 
     const response = await fetch(imageSource)
     if (!response.ok) {
         throw new Error(`Failed to fetch image: ${response.statusText}`)
     }
-
-    return Buffer.from(await response.arrayBuffer())
+    return response.arrayBuffer()
 }
 
-function buildFilename(folder: string | undefined, extension: string, explicitName?: string): string {
-    if (explicitName) {
-        return explicitName
-    }
-
-    const safeFolder = folder ? folder.replace(/\/+$/, '') : ''
-    const randomName = `${uuidv4()}.${extension}`
-    return safeFolder ? `${safeFolder}/${randomName}` : randomName
-}
-
-function buildPublicUrl(bucketName: string, filename: string, format: 'firebasestorage' | 'googleapis'): string {
-    if (format === 'googleapis') {
-        return `https://storage.googleapis.com/${bucketName}/${filename}`
-    }
-
-    const encoded = encodeURIComponent(filename)
-    return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encoded}?alt=media`
-}
-
-export async function uploadImageToFirebase(
+export async function uploadImageToR2(
+    event: H3Event,
     imageSource: string,
-    options: UploadOptions = {}
+    options: { folder?: string; filename?: string; contentType?: string } = {}
 ): Promise<string> {
     const {
         folder = 'characters',
-        filename,
-        metadata = {},
-        contentType = 'image/jpeg',
-        bucketName = process.env.FIREBASE_STORAGE_BUCKET || 'phareim-no.firebasestorage.app',
-        publicUrlFormat = 'firebasestorage'
+        contentType = 'image/jpeg'
     } = options
 
     const imageBuffer = await resolveImageBuffer(imageSource)
-    const finalFilename = buildFilename(folder, contentType === 'image/webp' ? 'webp' : 'jpg', filename)
+    const ext = contentType === 'image/webp' ? 'webp' : 'jpg'
+    const key = options.filename || (
+        folder
+            ? `${folder.replace(/\/+$/, '')}/${crypto.randomUUID()}.${ext}`
+            : `${crypto.randomUUID()}.${ext}`
+    )
 
-    const bucket = storage.bucket(bucketName)
-    const file = bucket.file(finalFilename)
-
-    await file.save(imageBuffer, {
-        metadata: {
-            contentType,
-            metadata: {
-                generatedAt: new Date().toISOString(),
-                ...metadata
-            }
-        }
-    })
-
-    await file.makePublic()
-
-    return buildPublicUrl(bucket.name, finalFilename, publicUrlFormat)
+    const bucket = getR2(event)
+    return uploadToR2(bucket, key, imageBuffer, contentType)
 }

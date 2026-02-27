@@ -1,6 +1,6 @@
-import { db } from '~/server/utils/firebase-admin'
 import type { Character } from '~/types/character'
-import { charactersCollection, validateCharacter } from '~/types/character'
+import { validateCharacter } from '~/types/character'
+import { getDB } from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
     const method = getMethod(event)
@@ -14,14 +14,15 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
+        const db = getDB(event)
         switch (method) {
             case 'GET':
-                return await getCharacter(id)
+                return await getCharacter(id, db)
             case 'PUT':
             case 'PATCH':
-                return await updateCharacter(event, id)
+                return await updateCharacter(event, id, db)
             case 'DELETE':
-                return await deleteCharacter(id)
+                return await deleteCharacter(id, db)
             default:
                 throw createError({
                     status: 405,
@@ -37,102 +38,104 @@ export default defineEventHandler(async (event) => {
     }
 })
 
-async function getCharacter(id: string) {
-    const docRef = db.collection(charactersCollection).doc(id)
-    const doc = await docRef.get()
-
-    if (!doc.exists) {
-        throw createError({
-            status: 404,
-            statusText: 'Character not found'
-        })
+function mapCharacterRow(row: any): Character {
+    return {
+        id: row.id,
+        name: row.name,
+        title: row.title,
+        class: row.class,
+        background: row.background,
+        physicalDescription: row.physical_description,
+        stats: JSON.parse(row.stats || '{}'),
+        abilities: JSON.parse(row.abilities || '[]'),
+        imageUrl: row.image_url,
+        videoUrls: JSON.parse(row.video_urls || 'null') || undefined,
+        level: row.level,
+        hitPoints: JSON.parse(row.hit_points || 'null') || undefined,
+        armorClass: row.armor_class,
+        location: JSON.parse(row.location || 'null') || undefined,
+        enabled: row.enabled === 1,
+        generationData: JSON.parse(row.generation_data || 'null') || undefined,
+        createdAt: row.created_at ? new Date(row.created_at) : undefined,
+        updatedAt: row.updated_at ? new Date(row.updated_at) : undefined
     }
-
-    const data = doc.data()
-    const character: Character = {
-        id: doc.id,
-        name: data!.name,
-        title: data!.title,
-        class: data!.class,
-        background: data!.background,
-        physicalDescription: data!.physicalDescription,
-        stats: data!.stats,
-        abilities: data!.abilities || [],
-        imageUrl: data!.imageUrl,
-        videoUrls: data!.videoUrls,
-        level: data!.level,
-        hitPoints: data!.hitPoints,
-        armorClass: data!.armorClass,
-        location: data!.location,
-        enabled: data!.enabled,
-        generationData: data!.generationData,
-        createdAt: data!.createdAt?.toDate(),
-        updatedAt: data!.updatedAt?.toDate()
-    }
-
-    return character
 }
 
-async function updateCharacter(event: any, id: string) {
-    const body = await readBody(event)
+async function getCharacter(id: string, db: D1Database) {
+    const row = await db.prepare('SELECT * FROM gallery_characters WHERE id = ?').bind(id).first<any>()
 
-    // Check if character exists
-    const docRef = db.collection(charactersCollection).doc(id)
-    const doc = await docRef.get()
-
-    if (!doc.exists) {
+    if (!row) {
         throw createError({
             status: 404,
             statusText: 'Character not found'
         })
     }
 
-    // Prepare update data
-    const updateData: Partial<Character> = {
-        updatedAt: new Date()
+    return mapCharacterRow(row)
+}
+
+async function updateCharacter(event: any, id: string, db: D1Database) {
+    const body = await readBody(event)
+
+    const existing = await db.prepare('SELECT * FROM gallery_characters WHERE id = ?').bind(id).first<any>()
+    if (!existing) {
+        throw createError({
+            status: 404,
+            statusText: 'Character not found'
+        })
     }
 
-    // Only update fields that are provided
-    if (body.name !== undefined) updateData.name = body.name
-    if (body.title !== undefined) updateData.title = body.title
-    if (body.class !== undefined) updateData.class = body.class
-    if (body.background !== undefined) updateData.background = body.background
-    if (body.physicalDescription !== undefined) updateData.physicalDescription = body.physicalDescription
-    if (body.stats !== undefined) updateData.stats = body.stats
-    if (body.abilities !== undefined) updateData.abilities = body.abilities
-    if (body.imageUrl !== undefined) updateData.imageUrl = body.imageUrl
-    if (body.videoUrls !== undefined) updateData.videoUrls = body.videoUrls
-    if (body.level !== undefined) updateData.level = body.level
-    if (body.hitPoints !== undefined) updateData.hitPoints = body.hitPoints
-    if (body.armorClass !== undefined) updateData.armorClass = body.armorClass
-    if (body.location !== undefined) updateData.location = body.location
-    if (body.enabled !== undefined) updateData.enabled = body.enabled
+    // Build update fields
+    const fields: string[] = ['updated_at = CURRENT_TIMESTAMP']
+    const values: any[] = []
 
-    // Update generation data if any generation fields are provided
+    if (body.name !== undefined) { fields.push('name = ?'); values.push(body.name) }
+    if (body.title !== undefined) { fields.push('title = ?'); values.push(body.title) }
+    if (body.class !== undefined) { fields.push('class = ?'); values.push(body.class) }
+    if (body.background !== undefined) { fields.push('background = ?'); values.push(body.background) }
+    if (body.physicalDescription !== undefined) { fields.push('physical_description = ?'); values.push(body.physicalDescription) }
+    if (body.stats !== undefined) { fields.push('stats = ?'); values.push(JSON.stringify(body.stats)) }
+    if (body.abilities !== undefined) { fields.push('abilities = ?'); values.push(JSON.stringify(body.abilities)) }
+    if (body.imageUrl !== undefined) { fields.push('image_url = ?'); values.push(body.imageUrl) }
+    if (body.videoUrls !== undefined) { fields.push('video_urls = ?'); values.push(JSON.stringify(body.videoUrls)) }
+    if (body.level !== undefined) { fields.push('level = ?'); values.push(body.level) }
+    if (body.hitPoints !== undefined) { fields.push('hit_points = ?'); values.push(JSON.stringify(body.hitPoints)) }
+    if (body.armorClass !== undefined) { fields.push('armor_class = ?'); values.push(body.armorClass) }
+    if (body.location !== undefined) { fields.push('location = ?'); values.push(JSON.stringify(body.location)) }
+    if (body.enabled !== undefined) { fields.push('enabled = ?'); values.push(body.enabled ? 1 : 0) }
+
     if (body.gender !== undefined || body.setting !== undefined || body.style !== undefined ||
         body.emojis !== undefined || body.model !== undefined) {
-        updateData.generationData = {
+        const genData = {
             gender: body.gender,
             setting: body.setting,
             style: body.style,
             emojis: body.emojis,
             model: body.model
         }
+        fields.push('generation_data = ?')
+        values.push(JSON.stringify(genData))
     }
 
-    // Validate the updated character data
-    const existingData = doc.data()
-    const mergedData = { ...existingData, ...updateData }
+    // Validate merged data
+    const mergedCharacter = mapCharacterRow({
+        ...existing,
+        ...Object.fromEntries(
+            fields
+                .filter(f => f !== 'updated_at = CURRENT_TIMESTAMP')
+                .map((f, i) => [f.split(' = ')[0].replace('?', '').trim(), values[i]])
+        )
+    })
 
-    if (!validateCharacter(mergedData as Character)) {
+    if (!validateCharacter(mergedCharacter)) {
         throw createError({
             status: 400,
             statusText: 'Invalid character data'
         })
     }
 
-    // Update the character in Firebase
-    await docRef.update(updateData)
+    values.push(id)
+    await db.prepare(`UPDATE gallery_characters SET ${fields.join(', ')} WHERE id = ?`).bind(...values).run()
 
     // Handle image regeneration if requested
     if (body.regenerateImage && body.physicalDescription) {
@@ -142,9 +145,9 @@ async function updateCharacter(event: any, id: string) {
                 body: {
                     prompt: body.physicalDescription,
                     characterId: id,
-                    characterName: body.name || existingData!.name,
-                    characterTitle: body.title || existingData!.title,
-                    characterClass: body.class || existingData!.class,
+                    characterName: body.name || existing.name,
+                    characterTitle: body.title || existing.title,
+                    characterClass: body.class || existing.class,
                     gender: body.gender,
                     setting: body.setting,
                     style: body.style,
@@ -153,39 +156,29 @@ async function updateCharacter(event: any, id: string) {
                 }
             })
 
-            if (imageResponse.success && imageResponse.imageUrl) {
-                await docRef.update({ imageUrl: imageResponse.imageUrl })
-                updateData.imageUrl = imageResponse.imageUrl
+            if ((imageResponse as any).success && (imageResponse as any).imageUrl) {
+                await db.prepare('UPDATE gallery_characters SET image_url = ? WHERE id = ?')
+                    .bind((imageResponse as any).imageUrl, id).run()
             }
         } catch (imageError) {
             console.error('Failed to generate character image:', imageError)
         }
     }
 
-    // Return the updated character
-    const updatedDoc = await docRef.get()
-    const updatedData = updatedDoc.data()
-
-    return {
-        id: updatedDoc.id,
-        ...updatedData,
-        createdAt: updatedData!.createdAt?.toDate(),
-        updatedAt: updatedData!.updatedAt?.toDate()
-    }
+    const updated = await db.prepare('SELECT * FROM gallery_characters WHERE id = ?').bind(id).first<any>()
+    return mapCharacterRow(updated!)
 }
 
-async function deleteCharacter(id: string) {
-    const docRef = db.collection(charactersCollection).doc(id)
-    const doc = await docRef.get()
-
-    if (!doc.exists) {
+async function deleteCharacter(id: string, db: D1Database) {
+    const existing = await db.prepare('SELECT id FROM gallery_characters WHERE id = ?').bind(id).first<any>()
+    if (!existing) {
         throw createError({
             status: 404,
             statusText: 'Character not found'
         })
     }
 
-    await docRef.delete()
+    await db.prepare('DELETE FROM gallery_characters WHERE id = ?').bind(id).run()
 
     return {
         success: true,

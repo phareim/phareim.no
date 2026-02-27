@@ -1,110 +1,87 @@
 import { defineEventHandler, getQuery, readBody } from 'h3'
-import { db, placesCollection } from '../../utils/firebase-admin'
+import { getDB } from '../../utils/db'
 import type { Place } from '../../../types/place'
 import { validateCoordinates, getCoordinatesString } from '../../../types/place'
-
-// Helper function to create document ID from coordinates
-function getPlaceId(coordinates: Place['coordinates']): string {
-    return `${coordinates.north},${coordinates.west}`
-}
+import { getPlaceId } from '../../utils/place-generator'
 
 export default defineEventHandler(async (event) => {
     try {
-        // GET request - Retrieve places with optional coordinate filtering
+        const db = getDB(event)
+
         if (event.method === 'GET') {
             const query = getQuery(event)
             const north = query.north ? Number(query.north) : undefined
             const west = query.west ? Number(query.west) : undefined
 
-            // If coordinates are provided, fetch specific place
             if (north !== undefined && west !== undefined) {
                 const placeId = getPlaceId({ north, west })
-                const placeDoc = await db.collection(placesCollection).doc(placeId).get()
-                
-                if (!placeDoc.exists) {
-                    return { places: [] }
-                }
-                
-                return { 
+                const row = await db.prepare('SELECT * FROM places WHERE id = ?').bind(placeId).first<any>()
+                if (!row) return { places: [] }
+                return {
                     places: [{
-                        id: placeDoc.id,
-                        ...placeDoc.data()
-                    }] 
+                        id: row.id,
+                        name: row.name,
+                        description: row.description,
+                        coordinates: { north: row.coordinates_north, west: row.coordinates_west },
+                        createdAt: row.created_at,
+                        updatedAt: row.updated_at
+                    }]
                 }
             }
 
-            // Otherwise, fetch all places
-            const placesSnapshot = await db.collection(placesCollection).get()
-            const places = placesSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
+            const result = await db.prepare('SELECT * FROM places ORDER BY created_at DESC').all<any>()
+            const places = result.results.map((row: any) => ({
+                id: row.id,
+                name: row.name,
+                description: row.description,
+                coordinates: { north: row.coordinates_north, west: row.coordinates_west },
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
             })) as Place[]
             return { places }
         }
 
-        // POST request - Create a new place
         if (event.method === 'POST') {
             const body = await readBody(event)
 
-            // Validate required fields
             if (!body.name || !body.description || !body.coordinates) {
-                return {
-                    error: 'Name, description, and coordinates are required',
-                    status: 400
-                }
+                return { error: 'Name, description, and coordinates are required', status: 400 }
             }
 
-            // Validate coordinates
             if (!validateCoordinates(body.coordinates)) {
-                return {
-                    error: 'Invalid coordinates format. Must include north and west as numbers.',
-                    status: 400
-                }
+                return { error: 'Invalid coordinates format. Must include north and west as numbers.', status: 400 }
             }
 
-            // Generate document ID from coordinates
             const placeId = getPlaceId(body.coordinates)
-            const placeRef = db.collection(placesCollection).doc(placeId)
-
-            // Check if a place already exists at these coordinates
-            const doc = await placeRef.get()
-            if (doc.exists) {
-                return {
-                    error: `A place already exists at coordinates ${getCoordinatesString(body.coordinates)}`,
-                    status: 409
-                }
+            const existing = await db.prepare('SELECT id FROM places WHERE id = ?').bind(placeId).first<any>()
+            if (existing) {
+                return { error: `A place already exists at coordinates ${getCoordinatesString(body.coordinates)}`, status: 409 }
             }
 
-            // Create new place document
-            const placeData: Omit<Place, 'id'> = {
+            await db.prepare(`
+                INSERT INTO places (id, name, description, coordinates_north, coordinates_west)
+                VALUES (?, ?, ?, ?, ?)
+            `).bind(
+                placeId,
+                body.name,
+                body.description,
+                body.coordinates.north,
+                body.coordinates.west
+            ).run()
+
+            return {
+                id: placeId,
                 name: body.name,
                 description: body.description,
-                coordinates: {
-                    north: body.coordinates.north,
-                    west: body.coordinates.west
-                },
+                coordinates: body.coordinates,
                 createdAt: new Date(),
                 updatedAt: new Date()
             }
-
-            await placeRef.set(placeData)
-            return {
-                id: placeId,
-                ...placeData
-            }
         }
 
-        // Method not allowed
-        return {
-            error: 'Method not allowed',
-            status: 405
-        }
+        return { error: 'Method not allowed', status: 405 }
     } catch (error: any) {
         console.error('Error in places handler:', error)
-        return {
-            error: 'Internal server error',
-            details: error?.message || 'Unknown error',
-            status: 500
-        }
+        return { error: 'Internal server error', details: error?.message || 'Unknown error', status: 500 }
     }
-}) 
+})

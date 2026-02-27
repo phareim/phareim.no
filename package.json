@@ -20,8 +20,6 @@
   "dependencies": {
     "@fal-ai/client": "^1.5.0",
     "@types/uuid": "^10.0.0",
-    "firebase": "^11.2.0",
-    "firebase-admin": "^13.0.2",
     "h3": "^1.15.5",
     "markdown-it": "^14.1.1",
     "openai": "^5.12.2",

@@ -1,4 +1,3 @@
-import { db } from '../../utils/firebase-admin'
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 import { SYSTEM_PROMPT } from '../handlers/ai'
 
@@ -27,32 +26,59 @@ export const DEFAULT_GAME_STATE: GameState = {
     messages: [SYSTEM_PROMPT]
 }
 
-// Helper function to get game state from Firebase
-export async function loadGameState(userId: string): Promise<GameState | null> {
+export async function loadGameState(userId: string, db: D1Database): Promise<GameState | null> {
     try {
-        const doc = await db.collection('gameStates').doc(userId).get()
-        if (!doc.exists) {
-            // Initialize new game state
-            const newState = DEFAULT_GAME_STATE
-            await saveGameState(userId, newState)
+        const row = await db.prepare(
+            'SELECT * FROM game_states WHERE user_id = ?'
+        ).bind(userId).first<any>()
+
+        if (!row) {
+            const newState: GameState = { ...DEFAULT_GAME_STATE, visited: ['0,0'] }
+            await saveGameState(userId, newState, db)
             return newState
         }
-        return doc.data() as GameState
+
+        return {
+            coordinates: {
+                north: row.coordinates_north,
+                west: row.coordinates_west
+            },
+            inventory: JSON.parse(row.inventory || '[]'),
+            visited: JSON.parse(row.visited || '[]'),
+            lastUpdated: new Date(row.last_updated),
+            messages: JSON.parse(row.messages || '[]'),
+            currentPlace: row.current_place_name ? {
+                name: row.current_place_name,
+                description: row.current_place_description || ''
+            } : undefined
+        }
     } catch (error) {
         console.error('Error loading game state:', error)
         return null
     }
 }
 
-// Helper function to save game state to Firebase
-export async function saveGameState(userId: string, state: GameState): Promise<void> {
+export async function saveGameState(userId: string, state: GameState, db: D1Database): Promise<void> {
     try {
-        await db.collection('gameStates').doc(userId).set({
-            ...state,
-            lastUpdated: new Date()
-        })
+        await db.prepare(`
+            INSERT OR REPLACE INTO game_states (
+                user_id, coordinates_north, coordinates_west,
+                inventory, visited, messages,
+                current_place_name, current_place_description,
+                last_updated
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `).bind(
+            userId,
+            state.coordinates.north,
+            state.coordinates.west,
+            JSON.stringify(state.inventory),
+            JSON.stringify(state.visited),
+            JSON.stringify(state.messages),
+            state.currentPlace?.name ?? null,
+            state.currentPlace?.description ?? null
+        ).run()
     } catch (error) {
         console.error('Error saving game state:', error)
         throw new Error('Failed to save game state to database')
     }
-} 
+}

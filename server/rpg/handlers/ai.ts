@@ -61,22 +61,19 @@ export async function handleAIResponse(
     messages: ChatCompletionMessageParam[] | undefined,
     gameState: GameState,
     openai: OpenAI,
-    command: string = 'look'  // Default to 'look' if no command is provided
+    db: D1Database,
+    command: string = 'look'
 ): Promise<{ processedText: string; items: string[] }> {
-    // Ensure we have at least the system prompt
     const messageHistory = messages || [SYSTEM_PROMPT]
     if (!messageHistory.length || messageHistory[0].role !== 'system') {
         messageHistory.unshift(SYSTEM_PROMPT)
     }
 
-    // Create request messages without mutating the history
-    // The caller will be responsible for adding messages to history
     const requestMessages = [
         ...messageHistory,
         { role: 'user' as const, content: command }
     ]
 
-    // Send to Venice/OpenAI
     const completion = await openai.chat.completions.create({
         model: "llama-3.3-70b",
         messages: requestMessages,
@@ -84,29 +81,24 @@ export async function handleAIResponse(
         max_tokens: 500
     })
 
-    // Get response
     const response = completion.choices[0]?.message?.content || 'Sorry, I did not understand that.'
 
-    // Process any items mentioned in the response
-    const { processedText: textAfterItems, items } = await processItemsInText(response, gameState.coordinates, openai)
-
-    // Process any characters mentioned in the response
-    const { processedText: finalText, characters } = await processCharactersInText(textAfterItems, gameState.coordinates, openai)
+    const { processedText: textAfterItems, items } = await processItemsInText(response, gameState.coordinates, openai, db)
+    const { processedText: finalText } = await processCharactersInText(textAfterItems, gameState.coordinates, openai, db)
 
     return {
         processedText: finalText,
-        items: Object.values(items).map(item => item.name)
+        items: Object.values(items).map((item: Item) => item.name)
     }
 }
 
 // Keep message history at a reasonable size
 export function pruneMessageHistory(messages: ChatCompletionMessageParam[]): ChatCompletionMessageParam[] {
     if (messages.length > 1000) {
-        // Keep system message and last 999 messages
         return [
             messages[0],
             ...messages.slice(-999)
         ]
     }
     return messages
-} 
+}

@@ -1,0 +1,12 @@
+name = "phareim-no"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = ".output/public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "phareim-rpg"
+database_id = "8c97b00e-7b93-457d-98e9-eb3844bd1689"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "phareim-assets"

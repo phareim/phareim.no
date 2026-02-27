@@ -9,13 +9,12 @@ import { loadGameState, saveGameState, DEFAULT_GAME_STATE, type GameState } from
 import { removeItemFromPlaceDescription } from '../rpg/handlers/place-modifications'
 import { handleCharacterConversation } from '../rpg/handlers/character-conversation'
 import { parseNaturalLanguage, isExactCommand, intentToCommand } from '../rpg/handlers/intent-parser'
+import { getDB } from '../utils/db'
 
-// Helper function to normalize item names for deduplication
 function normalizeItemName(name: string): string {
     return name.trim().toLowerCase()
 }
 
-// Initialize OpenAI with Venice configuration
 const config = useRuntimeConfig()
 const openai = new OpenAI({
     apiKey: config.veniceKey,
@@ -23,58 +22,48 @@ const openai = new OpenAI({
 })
 
 export default defineEventHandler(async (event: any) => {
-    if (event.method !== 'POST') {
-        return {
-            error: 'Only POST requests are supported',
-            status: 405
+    if (event.method === 'DELETE') {
+        try {
+            const db = getDB(event)
+            const body = await readBody(event)
+            const { userId } = body
+            if (!userId) return { error: 'No userId provided', status: 400 }
+            await db.prepare('DELETE FROM game_states WHERE user_id = ?').bind(userId).run()
+            return { success: true }
+        } catch (error: any) {
+            return { error: 'Failed to reset game', details: error?.message, status: 500 }
         }
     }
+
+    if (event.method !== 'POST') {
+        return { error: 'Only POST requests are supported', status: 405 }
+    }
+
     try {
+        const db = getDB(event)
         const body = await readBody(event)
         const { command, userId } = body
 
-        // Validate required fields
-        if (!command) {
-            return {
-                error: 'No command provided',
-                status: 400
-            }
-        }
+        if (!command) return { error: 'No command provided', status: 400 }
+        if (!userId) return { error: 'No userId provided', status: 400 }
 
-        if (!userId) {
-            return {
-                error: 'No userId provided',
-                status: 400
-            }
-        }
-        // Load game state or create new one for new players
-        let gameState = await loadGameState(userId)
+        let gameState = await loadGameState(userId, db)
         if (!gameState) {
-            // Initialize new game state for new players using the default state
-            gameState = {
-                ...DEFAULT_GAME_STATE,
-                visited: ['0,0']
-            }
-            // Save the initial state
-            await saveGameState(userId, gameState)
+            gameState = { ...DEFAULT_GAME_STATE, visited: ['0,0'] }
+            await saveGameState(userId, gameState, db)
         }
 
-        // Process natural language if not an exact command
         let processedCommand = command.trim()
         if (!isExactCommand(processedCommand)) {
             console.log('Parsing natural language:', processedCommand)
             const intent = await parseNaturalLanguage(processedCommand, openai)
             console.log('Parsed intent:', intent)
-
-            // Convert intent to standard command format
             if (intent.confidence !== 'low' && intent.action !== 'unknown') {
                 processedCommand = intentToCommand(intent)
                 console.log('Converted to command:', processedCommand)
             }
-            // If confidence is low or action is unknown, keep original command for AI processing
         }
 
-        // Parse command
         const [action, ...args] = processedCommand.toLowerCase().split(' ')
 
         let response = ''
@@ -91,24 +80,16 @@ export default defineEventHandler(async (event: any) => {
                 } else {
                     try {
                         const direction = args[0]
-                        const { message, newPlace } = await handleMovement(
-                            direction,
-                            gameState,
-                            openai
-                        )
+                        const { message, newPlace } = await handleMovement(direction, gameState, openai, db)
                         response = message
 
-                        // Get the place ID for the new location
                         const placeId = `${newPlace?.coordinates.north},${newPlace?.coordinates.west}`
-
                         newState = {
                             ...gameState,
                             coordinates: newPlace?.coordinates || gameState.coordinates,
-                            // Track visited places
                             visited: gameState.visited.includes(placeId)
                                 ? gameState.visited
                                 : [...gameState.visited, placeId],
-                            // Cache current place for faster lookups
                             currentPlace: newPlace ? {
                                 name: newPlace.name,
                                 description: newPlace.description
@@ -126,13 +107,11 @@ export default defineEventHandler(async (event: any) => {
             case 'look':
             case 'inspect': {
                 if (args.length === 0) {
-                    // Always fetch fresh place data to reflect picked-up items and modifications
-                    let place = await getCurrentPlace(gameState.coordinates)
+                    let place = await getCurrentPlace(gameState.coordinates, db)
                     if (!place) {
-                        // This shouldn't happen in normal gameplay - player should always be at a valid place
                         console.warn('Player at coordinates with no place - generating:', gameState.coordinates)
                         try {
-                            place = await generateNewPlace(gameState.coordinates, openai)
+                            place = await generateNewPlace(gameState.coordinates, openai, db)
                         } catch (error) {
                             console.error('Failed to generate place:', error)
                             response = 'The area around you seems unclear, as if the magical energies are unstable.'
@@ -141,25 +120,20 @@ export default defineEventHandler(async (event: any) => {
                         }
                     }
                     response = `You take a moment to look around ${place.name}.\n\n${place.description}`
-                    // Update cached place with current filtered description
                     newState = {
                         ...gameState,
-                        currentPlace: {
-                            name: place.name,
-                            description: place.description
-                        }
+                        currentPlace: { name: place.name, description: place.description }
                     }
                 } else {
                     try {
-                        // Examine a specific thing using AI, keeping current coordinates context
                         const { processedText, items } = await handleAIResponse(
                             gameState.messages,
                             gameState,
                             openai,
+                            db,
                             `${action} ${args.join(' ')}`
                         )
                         response = processedText
-                        // Normalize and deduplicate items before adding to inventory
                         const normalizedInventory = gameState.inventory.map(normalizeItemName)
                         const uniqueNewItems = items.filter(
                             item => !normalizedInventory.includes(normalizeItemName(item))
@@ -194,68 +168,54 @@ export default defineEventHandler(async (event: any) => {
                     const normalizedItemName = normalizeItemName(itemName)
                     const normalizedInventory = gameState.inventory.map(normalizeItemName)
 
-                    // Check if already in inventory
                     if (normalizedInventory.includes(normalizedItemName)) {
                         response = `You already have ${itemName} in your inventory.`
                     } else {
                         try {
-                            // Use transaction for atomic item pickup
-                            const { db } = await import('../utils/firebase-admin')
-                            const itemRef = db.collection('items').doc(itemName)
-                            const gameStateRef = db.collection('gameStates').doc(userId)
+                            // Check item exists at location and is not yet picked up
+                            const itemRow = await db.prepare(
+                                'SELECT * FROM items WHERE name = ? AND location_north = ? AND location_west = ? AND is_picked_up = 0'
+                            ).bind(
+                                itemName,
+                                gameState.coordinates.north,
+                                gameState.coordinates.west
+                            ).first<any>()
 
-                            const result = await db.runTransaction(async (transaction) => {
-                                const itemDoc = await transaction.get(itemRef)
+                            if (!itemRow) {
+                                // Check if item exists elsewhere
+                                const anyItem = await db.prepare(
+                                    'SELECT is_picked_up, location_north, location_west FROM items WHERE name = ?'
+                                ).bind(itemName).first<any>()
 
-                                if (!itemDoc.exists) {
-                                    return { success: false, message: `There is no ${itemName} here.` }
-                                }
-
-                                const itemData = itemDoc.data()
-
-                                // Check if item is at current location and not picked up
-                                if (itemData?.location?.coordinates?.north !== gameState.coordinates.north ||
-                                    itemData?.location?.coordinates?.west !== gameState.coordinates.west) {
-                                    return { success: false, message: `You don't see ${itemName} here.` }
-                                }
-
-                                if (itemData?.location?.isPickedUp) {
-                                    return { success: false, message: `That ${itemName} has already been taken.` }
-                                }
-
-                                // Atomically update both the item and game state
-                                transaction.update(itemRef, {
-                                    'location.isPickedUp': true
-                                })
-
-                                const updatedInventory = [...gameState.inventory, itemName]
-                                transaction.update(gameStateRef, {
-                                    inventory: updatedInventory
-                                })
-
-                                return {
-                                    success: true,
-                                    message: `You pick up ${itemName} and add it to your inventory.`,
-                                    inventory: updatedInventory
-                                }
-                            })
-
-                            if (result.success && result.inventory) {
-                                newState = {
-                                    ...gameState,
-                                    inventory: result.inventory
-                                }
-                                response = result.message
-
-                                // CRITICAL: Permanently remove item from place description for ALL players
-                                try {
-                                    await removeItemFromPlaceDescription(gameState.coordinates, itemName)
-                                } catch (modError) {
-                                    console.error('Failed to update place description:', modError)
-                                    // Continue anyway - item is picked up, just description wasn't updated
+                                if (!anyItem) {
+                                    response = `There is no ${itemName} here.`
+                                } else if (anyItem.is_picked_up) {
+                                    response = `That ${itemName} has already been taken.`
+                                } else {
+                                    response = `You don't see ${itemName} here.`
                                 }
                             } else {
-                                response = result.message
+                                const updatedInventory = [...gameState.inventory, itemName]
+
+                                // Atomic update: mark item as picked up and update inventory
+                                await db.batch([
+                                    db.prepare(
+                                        'UPDATE items SET is_picked_up = 1, updated_at = CURRENT_TIMESTAMP WHERE name = ? AND is_picked_up = 0'
+                                    ).bind(itemName),
+                                    db.prepare(
+                                        'UPDATE game_states SET inventory = ?, last_updated = CURRENT_TIMESTAMP WHERE user_id = ?'
+                                    ).bind(JSON.stringify(updatedInventory), userId)
+                                ])
+
+                                newState = { ...gameState, inventory: updatedInventory }
+                                response = `You pick up ${itemName} and add it to your inventory.`
+
+                                // Remove item reference from place description
+                                try {
+                                    await removeItemFromPlaceDescription(gameState.coordinates, itemName, db)
+                                } catch (modError) {
+                                    console.error('Failed to update place description:', modError)
+                                }
                             }
                         } catch (error) {
                             console.error('Error picking up item:', error)
@@ -278,20 +238,16 @@ export default defineEventHandler(async (event: any) => {
                     const normalizedItemName = normalizeItemName(itemName)
                     const normalizedInventory = gameState.inventory.map(normalizeItemName)
 
-                    // Check if item is in inventory
                     const inventoryIndex = normalizedInventory.indexOf(normalizedItemName)
                     if (inventoryIndex === -1) {
                         response = `You don't have ${itemName} in your inventory.`
                     } else {
-                        // Get item details
-                        const { db } = await import('../utils/firebase-admin')
-                        const itemDoc = await db.collection('items').doc(itemName).get()
+                        const itemRow = await db.prepare(
+                            'SELECT * FROM items WHERE name = ?'
+                        ).bind(itemName).first<any>()
 
-                        if (itemDoc.exists) {
-                            const itemData = itemDoc.data()
-                            const properties = itemData?.properties || {}
-
-                            // Apply item effects based on properties
+                        if (itemRow) {
+                            const properties = JSON.parse(itemRow.properties || '{}')
                             let effectMessage = ''
                             let shouldRemoveItem = false
 
@@ -302,29 +258,26 @@ export default defineEventHandler(async (event: any) => {
                                 effectMessage = `You wield ${itemName}. It has ${properties.damage} attack power.`
                             } else if (properties.defense) {
                                 effectMessage = `You equip ${itemName}. It provides ${properties.defense} defense.`
-                            } else if (itemData?.type === 'key') {
+                            } else if (itemRow.type === 'key') {
                                 effectMessage = `You use ${itemName}. It might unlock something nearby...`
-                            } else if (itemData?.type === 'tool') {
+                            } else if (itemRow.type === 'tool') {
                                 effectMessage = `You use ${itemName}. It seems useful for the task at hand.`
                             } else {
                                 effectMessage = `You examine ${itemName} closely but aren't sure how to use it effectively.`
                             }
 
-                            // If item has uses and gets consumed
                             if (shouldRemoveItem || (properties.uses && properties.uses <= 1)) {
                                 const newInventory = [...gameState.inventory]
                                 newInventory.splice(inventoryIndex, 1)
-                                newState = {
-                                    ...gameState,
-                                    inventory: newInventory
-                                }
+                                newState = { ...gameState, inventory: newInventory }
                                 effectMessage += ` The ${itemName} is consumed.`
                             } else if (properties.uses && properties.uses > 1) {
-                                // Decrement uses
-                                await itemDoc.ref.update({
-                                    'properties.uses': properties.uses - 1
-                                })
-                                effectMessage += ` It has ${properties.uses - 1} uses remaining.`
+                                const newUses = properties.uses - 1
+                                properties.uses = newUses
+                                await db.prepare(
+                                    'UPDATE items SET properties = ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?'
+                                ).bind(JSON.stringify(properties), itemName).run()
+                                effectMessage += ` It has ${newUses} uses remaining.`
                             }
 
                             response = effectMessage
@@ -345,22 +298,17 @@ export default defineEventHandler(async (event: any) => {
                 if (args.length === 0) {
                     response = 'Who would you like to talk to?'
                 } else {
-                    // Extract character name (handle "talk to X" or "talk X")
                     let characterName = args.join(' ')
-                    if (characterName.startsWith('to ')) {
-                        characterName = characterName.substring(3)
-                    }
-                    if (characterName.startsWith('with ')) {
-                        characterName = characterName.substring(5)
-                    }
+                    if (characterName.startsWith('to ')) characterName = characterName.substring(3)
+                    if (characterName.startsWith('with ')) characterName = characterName.substring(5)
 
                     try {
-                        // Use character-specific conversation handler with memory
                         response = await handleCharacterConversation(
                             characterName,
-                            command, // Pass the full original command for context
+                            command,
                             gameState,
-                            openai
+                            openai,
+                            db
                         )
                         newState = { ...gameState }
                     } catch (error) {
@@ -425,21 +373,18 @@ Tips:
 
             default:
                 try {
-                    // Send to AI for processing
                     const { processedText, items } = await handleAIResponse(
                         gameState.messages,
                         gameState,
                         openai,
-                        command  // Pass the full original command
+                        db,
+                        command
                     )
                     response = processedText
 
-                    // Only add items to inventory if the command seems like an explicit take action
-                    // Otherwise, just describe them (they can use 'take' command explicitly)
                     const isTakeCommand = /^(take|get|pick|grab|collect)/i.test(command)
 
                     if (isTakeCommand && items.length > 0) {
-                        // Normalize and deduplicate items before adding to inventory
                         const normalizedInventory = gameState.inventory.map(normalizeItemName)
                         const uniqueNewItems = items.filter(
                             item => !normalizedInventory.includes(normalizeItemName(item))
@@ -454,7 +399,6 @@ Tips:
                             ])
                         }
                     } else {
-                        // Just update message history without modifying inventory
                         newState = {
                             ...gameState,
                             messages: pruneMessageHistory([
@@ -472,13 +416,9 @@ Tips:
                 break
         }
 
-        // Save updated game state
-        await saveGameState(userId, newState)
+        await saveGameState(userId, newState, db)
 
-        return {
-            response,
-            gameState: newState
-        }
+        return { response, gameState: newState }
     } catch (error: any) {
         console.error('Error processing RPG command:', error)
         return {

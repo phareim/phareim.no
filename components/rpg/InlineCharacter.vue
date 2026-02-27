@@ -10,8 +10,6 @@
 -->
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useNuxtApp } from '#app'
-import { doc, getDoc } from 'firebase/firestore'
 
 interface Props {
   characterId: string,
@@ -28,27 +26,19 @@ const character = ref<any | null>(null)
 const isLoading = ref(true)
 const showActions = ref(false)
 
-// Fetch character data from Firebase
+// Fetch character data from D1 via server API
 async function fetchCharacter() {
   try {
-    const { $firebase } = useNuxtApp()
-    // Use rpgCharacters collection (separate from gallery characters)
-    const characterDoc = doc($firebase.firestore, 'rpgCharacters', props.characterId)
-    const characterSnapshot = await getDoc(characterDoc)
-    
-    if (characterSnapshot.exists()) {
-      character.value = {
-        id: characterSnapshot.id,
-        ...characterSnapshot.data()
-      }
+    const response = await fetch(`/api/rpg-characters/${encodeURIComponent(props.characterId)}`)
+    if (response.ok) {
+      const data = await response.json()
+      character.value = data
     } else {
       character.value = {
         id: props.characterId,
         name: props.characterId,
         description: 'A mysterious character...',
-        type: 'npc',
-        createdAt: new Date(),
-        updatedAt: new Date()
+        type: 'npc'
       }
     }
   } catch (error) {
@@ -57,9 +47,7 @@ async function fetchCharacter() {
       id: props.characterId,
       name: props.characterId,
       description: 'A mysterious character...',
-      type: 'npc',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      type: 'npc'
     }
   } finally {
     isLoading.value = false

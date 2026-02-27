@@ -1,28 +1,13 @@
-export default defineNuxtRouteMiddleware(async (to, from) => {
-  const { currentUser, isLoading } = useAuth()
+export default defineNuxtRouteMiddleware(async () => {
+    // Only run on client side
+    if (import.meta.server) return
 
-  // Wait for auth to initialize on client
-  if (import.meta.client && isLoading.value) {
-    await new Promise<void>((resolve) => {
-      const unwatch = watch(isLoading, (val) => {
-        if (!val) {
-          unwatch()
-          resolve()
+    try {
+        const data = await $fetch<{ authenticated: boolean }>('/api/admin/auth/check')
+        if (!data.authenticated) {
+            return navigateTo('/admin/login')
         }
-      })
-    })
-  }
-
-  if (!currentUser.value) {
-    return navigateTo(`/login?redirect=${to.path}`)
-  }
-
-  try {
-    const token = await currentUser.value.getIdToken()
-    await $fetch('/api/auth/check-email', {
-      headers: { authorization: `Bearer ${token}` }
-    })
-  } catch {
-    return navigateTo('/')
-  }
+    } catch {
+        return navigateTo('/admin/login')
+    }
 })

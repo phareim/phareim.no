@@ -1,8 +1,6 @@
 <!-- InlinePlace.vue -->
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useNuxtApp } from '#app'
-import { doc, getDoc } from 'firebase/firestore'
 
 interface Props {
   placeId: string,
@@ -19,26 +17,19 @@ const place = ref<any | null>(null)
 const isLoading = ref(true)
 const showActions = ref(false)
 
-// Fetch place data from Firebase
+// Fetch place data from D1 via server API
 async function fetchPlace() {
   try {
-    const { $firebase } = useNuxtApp()
-    const placeDoc = doc($firebase.firestore, 'places', props.placeId)
-    const placeSnapshot = await getDoc(placeDoc)
-    
-    if (placeSnapshot.exists()) {
-      place.value = {
-        id: placeSnapshot.id,
-        ...placeSnapshot.data()
-      }
+    const response = await fetch(`/api/places/${encodeURIComponent(props.placeId)}`)
+    if (response.ok) {
+      const data = await response.json()
+      place.value = data
     } else {
       place.value = {
         id: props.placeId,
         name: props.placeId,
         description: 'A mysterious place...',
-        type: 'location',
-        createdAt: new Date(),
-        updatedAt: new Date()
+        type: 'location'
       }
     }
   } catch (error) {
@@ -47,9 +38,7 @@ async function fetchPlace() {
       id: props.placeId,
       name: props.placeId,
       description: 'A mysterious place...',
-      type: 'location',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      type: 'location'
     }
   } finally {
     isLoading.value = false

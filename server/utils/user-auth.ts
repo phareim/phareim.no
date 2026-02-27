@@ -1,29 +1,11 @@
+import { getCookie } from 'h3'
 import type { H3Event } from 'h3'
-import { getAuth } from 'firebase-admin/auth'
 
 /**
- * Get the authenticated user ID from the request
- * Returns null if the user is not authenticated or token is invalid
+ * Get the authenticated user ID from the admin session cookie.
+ * Returns 'owner' if the admin session cookie is valid, null otherwise.
  */
-export async function getAuthenticatedUserId(event: H3Event): Promise<string | null> {
-  try {
-    const authHeader = getHeader(event, 'authorization')
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return null
-    }
-
-    const token = authHeader.split('Bearer ')[1]
-
-    if (!token) {
-      return null
-    }
-
-    // Verify the ID token
-    const decodedToken = await getAuth().verifyIdToken(token)
-    return decodedToken.uid
-  } catch (error) {
-    console.error('Error verifying auth token:', error)
-    return null
-  }
+export function getAuthenticatedUserId(event: H3Event): string | null {
+    const session = getCookie(event, 'admin-session')
+    return session === 'authenticated' ? 'owner' : null
 }

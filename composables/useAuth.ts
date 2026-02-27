@@ -1,129 +1,58 @@
-import { ref, computed } from 'vue'
-import {
-  signInWithPopup,
-  signOut,
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  type User
-} from 'firebase/auth'
+import { ref, computed, onMounted } from 'vue'
 
 /**
- * Composable for Firebase Authentication
- * Handles Google sign-in, sign-out, and auth state
+ * Auth composable backed by the admin session cookie.
+ * Single-user personal site — authenticated = admin cookie present.
  */
 export const useAuth = () => {
-  const { $firebase } = useNuxtApp()
-  const auth = $firebase?.auth
+    const isAuthenticated = ref(false)
+    const isLoading = ref(true)
+    const error = ref<string | null>(null)
 
-  const currentUser = ref<User | null>(null)
-  const isLoading = ref(true)
-  const error = ref<string | null>(null)
-
-  // Listen to auth state changes
-  if (auth && typeof window !== 'undefined') {
-    onAuthStateChanged(auth, (user) => {
-      currentUser.value = user
-      isLoading.value = false
+    onMounted(async () => {
+        try {
+            const data = await $fetch<{ authenticated: boolean }>('/api/admin/auth/check')
+            isAuthenticated.value = data.authenticated
+        } catch {
+            isAuthenticated.value = false
+        }
+        isLoading.value = false
     })
-  }
 
-  /**
-   * Sign in with Google popup
-   */
-  const signInWithGoogle = async () => {
-    if (!auth) {
-      error.value = 'Firebase auth is not initialized'
-      return false
+    const userId = computed(() => isAuthenticated.value ? 'owner' : null)
+    const displayName = computed(() => isAuthenticated.value ? 'Admin' : null)
+    const email = computed<string | null>(() => null)
+    const photoURL = computed<string | null>(() => null)
+
+    // Kept for middleware compatibility — resolves once loading is done
+    const currentUser = computed(() => isAuthenticated.value ? { uid: 'owner' } : null)
+
+    const signInWithGoogle = async () => {
+        await navigateTo('/admin/login')
+        return false
     }
 
-    error.value = null
-
-    try {
-      const provider = new GoogleAuthProvider()
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      })
-
-      const result = await signInWithPopup(auth, provider)
-      currentUser.value = result.user
-
-      console.log('Signed in:', result.user.displayName)
-      return true
-    } catch (err: any) {
-      console.error('Sign in error:', err)
-
-      // Handle specific error codes
-      if (err.code === 'auth/popup-closed-by-user') {
-        error.value = 'Sign in cancelled'
-      } else if (err.code === 'auth/popup-blocked') {
-        error.value = 'Popup was blocked. Please allow popups for this site.'
-      } else {
-        error.value = err.message || 'Failed to sign in with Google'
-      }
-
-      return false
-    }
-  }
-
-  /**
-   * Sign out current user
-   */
-  const logout = async () => {
-    if (!auth) {
-      error.value = 'Firebase auth is not initialized'
-      return false
+    const logout = async () => {
+        try {
+            await navigateTo('/api/admin/auth/logout')
+            isAuthenticated.value = false
+            return true
+        } catch {
+            error.value = 'Failed to sign out'
+            return false
+        }
     }
 
-    error.value = null
-
-    try {
-      await signOut(auth)
-      currentUser.value = null
-
-      console.log('Signed out')
-      return true
-    } catch (err: any) {
-      console.error('Sign out error:', err)
-      error.value = err.message || 'Failed to sign out'
-      return false
+    return {
+        isAuthenticated,
+        isLoading,
+        error,
+        userId,
+        displayName,
+        email,
+        photoURL,
+        currentUser,
+        signInWithGoogle,
+        logout
     }
-  }
-
-  /**
-   * Check if user is authenticated
-   */
-  const isAuthenticated = computed(() => !!currentUser.value)
-
-  /**
-   * Get user display name
-   */
-  const displayName = computed(() => currentUser.value?.displayName || null)
-
-  /**
-   * Get user email
-   */
-  const email = computed(() => currentUser.value?.email || null)
-
-  /**
-   * Get user photo URL
-   */
-  const photoURL = computed(() => currentUser.value?.photoURL || null)
-
-  /**
-   * Get user ID
-   */
-  const userId = computed(() => currentUser.value?.uid || null)
-
-  return {
-    currentUser,
-    isLoading,
-    error,
-    isAuthenticated,
-    displayName,
-    email,
-    photoURL,
-    userId,
-    signInWithGoogle,
-    logout
-  }
 }

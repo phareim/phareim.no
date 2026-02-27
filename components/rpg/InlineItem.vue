@@ -1,8 +1,6 @@
 <!-- InlineItem.vue -->
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useNuxtApp } from '#app'
-import { doc, getDoc } from 'firebase/firestore'
 import type { Item } from '~/types/item'
 
 interface Props {
@@ -20,27 +18,20 @@ const item = ref<Item | null>(null)
 const isLoading = ref(true)
 const showActions = ref(false)
 
-// Fetch item data from Firebase
+// Fetch item data from D1 via server API
 async function fetchItem() {
   try {
-    const { $firebase } = useNuxtApp()
-    const itemDoc = doc($firebase.firestore, 'items', props.itemId)
-    const itemSnapshot = await getDoc(itemDoc)
-    
-    if (itemSnapshot.exists()) {
-      item.value = {
-        id: itemSnapshot.id,
-        ...itemSnapshot.data()
-      } as Item
+    const response = await fetch(`/api/items/${encodeURIComponent(props.itemId)}`)
+    if (response.ok) {
+      const data = await response.json()
+      item.value = data as Item
     } else {
       item.value = {
         id: props.itemId,
         name: props.itemId,
         description: 'A mysterious item...',
         type: 'misc',
-        properties: {},
-        createdAt: new Date(),
-        updatedAt: new Date()
+        properties: {}
       } as Item
     }
   } catch (error) {
@@ -50,9 +41,7 @@ async function fetchItem() {
       name: props.itemId,
       description: 'A mysterious item...',
       type: 'misc',
-      properties: {},
-      createdAt: new Date(),
-      updatedAt: new Date()
+      properties: {}
     } as Item
   } finally {
     isLoading.value = false

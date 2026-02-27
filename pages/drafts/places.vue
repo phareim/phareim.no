@@ -68,8 +68,6 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import type { Place } from '~/types/place'
 import { getCoordinatesString } from '~/types/place'
-import { useNuxtApp } from '#app'
-import { collection, doc, getDoc } from 'firebase/firestore'
 import { APIClient } from '~/utils/api-client'
 
 const places = ref<Place[]>([])
@@ -235,33 +233,21 @@ function resetForm() {
     theme.value = ''
 }
 
-// Update the loadPlayerLocation function
-async function loadPlayerLocation() {
+// Load player location from localStorage (saved by the RPG page after each command)
+function loadPlayerLocation() {
     try {
-        const { $firebase } = useNuxtApp()
-        const userId = localStorage.getItem('rpg_user_id')
-        if (!userId) {
-            playerCoordinates.value = 'No player found'
-            return
+        const stored = localStorage.getItem('rpg_ui_state')
+        if (stored) {
+            const state = JSON.parse(stored)
+            if (state.lastNorth !== undefined && state.lastWest !== undefined) {
+                playerCoordinates.value = getCoordinatesString({ north: state.lastNorth, west: state.lastWest })
+                return
+            }
         }
-
-        const gameStateRef = doc($firebase.firestore, 'gameStates', userId)
-        const gameStateDoc = await getDoc(gameStateRef)
-        if (!gameStateDoc.exists()) {
-            playerCoordinates.value = 'No game in progress'
-            return
-        }
-
-        const gameState = gameStateDoc.data()
-        const coords = gameState?.coordinates
-        if (coords) {
-            playerCoordinates.value = getCoordinatesString(coords)
-        } else {
-            playerCoordinates.value = 'Unknown location'
-        }
+        playerCoordinates.value = 'No game in progress'
     } catch (error) {
         console.error('Error loading player location:', error)
-        playerCoordinates.value = 'Error loading location'
+        playerCoordinates.value = 'Unknown location'
     }
 }
 

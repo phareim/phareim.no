@@ -1,7 +1,5 @@
 import OpenAI from 'openai'
 import type { Place } from '../../types/place'
-import { db, placesCollection } from './firebase-admin'
-import { getCoordinatesString } from '../../types/place'
 
 // Location features that might be present
 export const LOCATION_FEATURES = [
@@ -70,21 +68,17 @@ export const LOCATION_FEATURES = [
     ]}
 ]
 
-// Helper function to get a random feature suggestion
 export function getRandomFeature(): string {
     const category = LOCATION_FEATURES[Math.floor(Math.random() * LOCATION_FEATURES.length)]
     const feature = category.examples[Math.floor(Math.random() * category.examples.length)]
     return `Consider including ${feature} in this location.`
 }
 
-// Helper function to get place ID from coordinates
 export function getPlaceId(coordinates: Place['coordinates']): string {
     return `${coordinates.north},${coordinates.west}`
 }
 
-// Helper function to enhance description markup
 export function enhanceDescriptionMarkup(description: string): string {
-    // List of common item keywords to automatically mark up if not already marked
     const itemKeywords = [
         'sword', 'dagger', 'blade', 'weapon', 'shield', 'armor', 'helmet',
         'potion', 'elixir', 'brew', 'bottle', 'vial',
@@ -95,8 +89,7 @@ export function enhanceDescriptionMarkup(description: string): string {
         'chest', 'bag', 'pouch', 'sack',
         'torch', 'lantern', 'candle'
     ]
-    
-    // List of common character keywords
+
     const characterKeywords = [
         'merchant', 'trader', 'vendor', 'seller',
         'hermit', 'sage', 'wizard', 'witch', 'mage',
@@ -108,8 +101,7 @@ export function enhanceDescriptionMarkup(description: string): string {
         'farmer', 'hunter', 'woodsman',
         'child', 'elder', 'woman', 'man', 'person'
     ]
-    
-    // List of common location keywords
+
     const locationKeywords = [
         'ruins', 'temple', 'shrine', 'altar',
         'cave', 'cavern', 'grotto', 'hollow',
@@ -121,27 +113,24 @@ export function enhanceDescriptionMarkup(description: string): string {
         'circle', 'formation', 'monument', 'statue',
         'cottage', 'hut', 'cabin', 'house', 'dwelling'
     ]
-    
+
     let enhanced = description
-    
-    // Auto-mark items (only if not already marked with any asterisks)
+
     itemKeywords.forEach(keyword => {
         const regex = new RegExp(`\\b(${keyword}s?)\\b(?![^*]*\\*)`, 'gi')
         enhanced = enhanced.replace(regex, '*$1*')
     })
-    
-    // Auto-mark characters (only if not already marked)
+
     characterKeywords.forEach(keyword => {
         const regex = new RegExp(`\\b((?:old |young |mysterious |wise |ancient |lost |wandering |traveling )?${keyword}s?)\\b(?![^*]*\\*\\*)`, 'gi')
         enhanced = enhanced.replace(regex, '**$1**')
     })
-    
-    // Auto-mark locations (only if not already marked)
+
     locationKeywords.forEach(keyword => {
         const regex = new RegExp(`\\b((?:ancient |old |mysterious |hidden |sacred |abandoned |crumbling |forgotten )?${keyword}s?)\\b(?![^*]*\\*\\*\\*)`, 'gi')
         enhanced = enhanced.replace(regex, '***$1***')
     })
-    
+
     return enhanced
 }
 
@@ -149,7 +138,6 @@ export interface AdjacentPlace extends Place {
     direction: 'north' | 'south' | 'east' | 'west';
 }
 
-// Biome definitions for variety
 const BIOMES = [
     {
         name: 'Deep Forest',
@@ -178,61 +166,44 @@ const BIOMES = [
     }
 ]
 
-// Determine biome based on coordinates
 function getBiomeForCoordinates(coordinates: Place['coordinates']): typeof BIOMES[0] {
     const distance = Math.abs(coordinates.north) + Math.abs(coordinates.west)
     const hash = (coordinates.north * 31 + coordinates.west * 17) % BIOMES.length
     const absHash = Math.abs(hash)
 
-    // Near origin: mostly Mystical Glade and Sacred Grove
-    if (distance <= 2) {
-        return BIOMES[hash % 2 === 0 ? 1 : 3]
-    }
-    // Medium distance: more variety
-    else if (distance <= 5) {
-        return BIOMES[absHash % 4]
-    }
-    // Far from origin: darker, more dangerous biomes
-    else {
-        return BIOMES[hash % 2 === 0 ? 2 : 4]
-    }
+    if (distance <= 2) return BIOMES[hash % 2 === 0 ? 1 : 3]
+    else if (distance <= 5) return BIOMES[absHash % 4]
+    else return BIOMES[hash % 2 === 0 ? 2 : 4]
 }
 
 export async function generatePlace(
     coordinates: Place['coordinates'],
     openai: OpenAI,
+    db: D1Database,
     theme?: string,
     adjacentPlaces: AdjacentPlace[] = []
 ): Promise<Place> {
-    // Generate context from adjacent places
     const existingContext = adjacentPlaces
         .map(place => `To the ${place.direction} is ${place.name}: ${place.description}`)
         .join('\n')
 
-    // Determine biome and danger level
     const biome = getBiomeForCoordinates(coordinates)
     const distance = Math.abs(coordinates.north) + Math.abs(coordinates.west)
     const dangerLevel = distance <= 2 ? 'safe' : distance <= 5 ? 'moderate' : 'dangerous'
 
-    // Determine what interactive elements to include (probability-based)
     const rand = Math.random()
     let interactiveRequirement = ''
 
-    // 70% chance of having something interactive
     if (rand < 0.70) {
         const elementRoll = Math.random()
         if (elementRoll < 0.4) {
-            // 40% - Include an item
             interactiveRequirement = 'REQUIRED: Include at least ONE item that players can pick up (marked with *single asterisks*). Examples: *healing potion*, *rusty key*, *ancient scroll*, *silver coin*'
         } else if (elementRoll < 0.7) {
-            // 30% - Include a character
             interactiveRequirement = 'REQUIRED: Include at least ONE character that players can interact with (marked with **double asterisks**). Examples: **traveling merchant**, **lost child**, **mysterious hermit**, **wounded soldier**'
         } else {
-            // 30% - Include both
             interactiveRequirement = 'REQUIRED: Include BOTH an item (marked with *single asterisks*) AND a character (marked with **double asterisks**) to make this location extra interesting.'
         }
     } else {
-        // 30% - Empty location (but still has landmarks/atmosphere)
         interactiveRequirement = 'This location should be empty of items and characters - just atmosphere and environment. Use ***triple asterisks*** for landmarks if appropriate.'
     }
 
@@ -283,32 +254,36 @@ ${existingContext || 'This is one of the first locations in the game.'}`
     })
 
     const response = completion.choices[0]?.message?.content
-    if (!response) {
-        throw new Error('Failed to generate place description')
-    }
+    if (!response) throw new Error('Failed to generate place description')
 
-    // Parse the response
     const nameMatch = response.match(/Name: (.+)/)
     const descriptionMatch = response.match(/Description: (.+)/)
 
-    if (!nameMatch || !descriptionMatch) {
-        throw new Error('Invalid response format from AI')
-    }
+    if (!nameMatch || !descriptionMatch) throw new Error('Invalid response format from AI')
 
-    const placeData: Omit<Place, 'id'> = {
-        name: nameMatch[1].trim(),
-        description: enhanceDescriptionMarkup(descriptionMatch[1].trim()),
+    const placeId = getPlaceId(coordinates)
+    const name = nameMatch[1].trim()
+    const description = enhanceDescriptionMarkup(descriptionMatch[1].trim())
+
+    await db.prepare(`
+        INSERT OR IGNORE INTO places (
+            id, name, description,
+            coordinates_north, coordinates_west
+        ) VALUES (?, ?, ?, ?, ?)
+    `).bind(
+        placeId,
+        name,
+        description,
+        coordinates.north,
+        coordinates.west
+    ).run()
+
+    return {
+        id: placeId,
+        name,
+        description,
         coordinates,
         createdAt: new Date(),
         updatedAt: new Date()
     }
-
-    // Save the generated place
-    const placeId = getPlaceId(coordinates)
-    await db.collection(placesCollection).doc(placeId).set(placeData)
-
-    return {
-        id: placeId,
-        ...placeData
-    }
-} 
+}

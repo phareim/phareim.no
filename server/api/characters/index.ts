@@ -1,6 +1,6 @@
-import { db } from '~/server/utils/firebase-admin'
 import type { Character } from '~/types/character'
-import { charactersCollection, validateCharacter, generateRandomStats } from '~/types/character'
+import { validateCharacter, generateRandomStats } from '~/types/character'
+import { getDB } from '~/server/utils/db'
 
 /**
  * Characters API - For the character gallery feature
@@ -13,13 +13,14 @@ import { charactersCollection, validateCharacter, generateRandomStats } from '~/
  */
 export default defineEventHandler(async (event) => {
     const method = getMethod(event)
-    
+
     try {
+        const db = getDB(event)
         switch (method) {
             case 'GET':
-                return await getCharacters()
+                return await getCharacters(db)
             case 'POST':
-                return await createCharacter(event)
+                return await createCharacter(event, db)
             default:
                 throw createError({
                     status: 405,
@@ -35,48 +36,37 @@ export default defineEventHandler(async (event) => {
     }
 })
 
-async function getCharacters() {
+function mapCharacterRow(row: any): Character {
+    return {
+        id: row.id,
+        name: row.name,
+        title: row.title,
+        class: row.class,
+        background: row.background,
+        physicalDescription: row.physical_description,
+        stats: JSON.parse(row.stats || '{}'),
+        abilities: JSON.parse(row.abilities || '[]'),
+        imageUrl: row.image_url,
+        videoUrls: JSON.parse(row.video_urls || 'null') || undefined,
+        level: row.level,
+        hitPoints: JSON.parse(row.hit_points || 'null') || undefined,
+        armorClass: row.armor_class,
+        location: JSON.parse(row.location || 'null') || undefined,
+        enabled: row.enabled === 1,
+        generationData: JSON.parse(row.generation_data || 'null') || undefined,
+        createdAt: row.created_at ? new Date(row.created_at) : undefined,
+        updatedAt: row.updated_at ? new Date(row.updated_at) : undefined
+    }
+}
+
+async function getCharacters(db: D1Database) {
     let backendCharacters: Character[] = []
-    
+
     try {
-        // Fetch characters from Firebase
-        const snapshot = await db.collection(charactersCollection).get()
-        
-        snapshot.forEach(doc => {
-            const data = doc.data()
-            const character: Character = {
-                id: doc.id,
-                name: data.name,
-                title: data.title,
-                class: data.class,
-                background: data.background,
-                physicalDescription: data.physicalDescription,
-                stats: data.stats,
-                abilities: data.abilities || [],
-                imageUrl: data.imageUrl,
-                videoUrls: data.videoUrls,
-                level: data.level,
-                hitPoints: data.hitPoints,
-                armorClass: data.armorClass,
-                location: data.location,
-                enabled: data.enabled,
-                generationData: data.generationData,
-                createdAt: data.createdAt?.toDate(),
-                updatedAt: data.updatedAt?.toDate()
-            }
-            backendCharacters.push(character)
-        })
-
-        // Sort backend characters by creation date (newest first)
-        backendCharacters.sort((a, b) => {
-            const dateA = a.createdAt || new Date(0)
-            const dateB = b.createdAt || new Date(0)
-            return dateB.getTime() - dateA.getTime()
-        })
-
+        const result = await db.prepare('SELECT * FROM gallery_characters ORDER BY created_at DESC').all<any>()
+        backendCharacters = (result.results || []).map(mapCharacterRow)
     } catch (error) {
-        console.error('Error fetching characters from Firebase:', error)
-        // Continue with empty array if Firebase fails
+        console.error('Error fetching characters from D1:', error)
         backendCharacters = []
     }
 
@@ -200,17 +190,16 @@ async function getCharacters() {
                     description: "Enhanced accuracy and critical hit chance"
                 }
             ]
-        }  
+        }
     ]
-    
+
     // Return backend characters first, then hardcoded characters for inspiration
     return [...backendCharacters, ...hardcodedCharacters]
 }
 
-async function createCharacter(event: any) {
+async function createCharacter(event: any, db: D1Database) {
     const body = await readBody(event)
 
-    // Set default values
     const character: Omit<Character, 'id'> = {
         name: body.name || 'Unnamed Adventurer',
         title: body.title,
@@ -219,9 +208,9 @@ async function createCharacter(event: any) {
         physicalDescription: body.physicalDescription,
         stats: body.stats || generateRandomStats(),
         abilities: body.abilities || [],
-        imageUrl: body.imageUrl, // Include imageUrl from the start
+        imageUrl: body.imageUrl,
         level: body.level || 1,
-        enabled: body.enabled !== undefined ? body.enabled : true, // Default to enabled
+        enabled: body.enabled !== undefined ? body.enabled : true,
         generationData: {
             gender: body.gender,
             setting: body.setting,
@@ -233,25 +222,44 @@ async function createCharacter(event: any) {
         updatedAt: new Date()
     }
 
-    // Validate the character
     if (!validateCharacter(character)) {
         throw createError({
             status: 400,
             statusText: 'Invalid character data'
         })
     }
-    
-    // Create the character in Firebase
-    const docRef = await db.collection(charactersCollection).add(character)
-    
-    // If generateImage is requested and a prompt is provided, generate an image
+
+    const id = crypto.randomUUID()
+
+    await db.prepare(
+        `INSERT INTO gallery_characters (id, name, title, class, background, physical_description, stats, abilities, image_url, video_urls, level, hit_points, armor_class, location, enabled, generation_data)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+        id,
+        character.name ?? null,
+        character.title ?? null,
+        character.class ?? null,
+        character.background ?? null,
+        character.physicalDescription ?? null,
+        JSON.stringify(character.stats ?? {}),
+        JSON.stringify(character.abilities ?? []),
+        character.imageUrl ?? null,
+        JSON.stringify(character.videoUrls ?? {}),
+        character.level ?? 1,
+        JSON.stringify(character.hitPoints ?? {}),
+        character.armorClass ?? null,
+        JSON.stringify(character.location ?? {}),
+        character.enabled ? 1 : 0,
+        JSON.stringify(character.generationData ?? {})
+    ).run()
+
     if (body.generateImage && body.imagePrompt) {
         try {
             const imageResponse = await $fetch('/api/characters/generate-image', {
                 method: 'POST',
                 body: {
                     prompt: body.imagePrompt,
-                    characterId: docRef.id,
+                    characterId: id,
                     characterName: body.name,
                     characterTitle: body.title,
                     characterClass: body.class,
@@ -261,19 +269,16 @@ async function createCharacter(event: any) {
                     emojis: body.emojis
                 }
             })
-            
-            if (imageResponse.success && imageResponse.imageUrl) {
-                await docRef.update({ imageUrl: imageResponse.imageUrl })
-                character.imageUrl = imageResponse.imageUrl
+
+            if ((imageResponse as any).success && (imageResponse as any).imageUrl) {
+                await db.prepare('UPDATE gallery_characters SET image_url = ? WHERE id = ?')
+                    .bind((imageResponse as any).imageUrl, id).run()
+                character.imageUrl = (imageResponse as any).imageUrl
             }
         } catch (imageError) {
             console.error('Failed to generate character image:', imageError)
         }
     }
-    
-    const result = {
-        id: docRef.id,
-        ...character
-    }
-    return result
+
+    return { id, ...character }
 }

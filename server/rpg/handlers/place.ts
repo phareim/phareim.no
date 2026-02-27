@@ -1,23 +1,24 @@
 import type { GameState } from '../state/game-state'
-import { db, placesCollection } from '../../utils/firebase-admin'
 import type { Place } from '../../../types/place'
 import OpenAI from 'openai'
 import { generatePlace, getPlaceId } from '../../utils/place-generator'
 import type { AdjacentPlace } from '../../utils/place-generator'
 import { getPlaceWithModifications } from './place-modifications'
 
-// Helper function to get current place (with filtered description based on picked-up items)
-export async function getCurrentPlace(coordinates: GameState['coordinates']): Promise<Place | null> {
-    // Use the new function that filters out picked-up items
-    return await getPlaceWithModifications(coordinates)
+// Helper function to get current place
+export async function getCurrentPlace(
+    coordinates: GameState['coordinates'],
+    db: D1Database
+): Promise<Place | null> {
+    return await getPlaceWithModifications(coordinates, db)
 }
 
-// Generate a new place using OpenAI
+// Generate a new place using AI, with adjacent place context
 export async function generateNewPlace(
     coordinates: GameState['coordinates'],
-    openai: OpenAI
+    openai: OpenAI,
+    db: D1Database
 ): Promise<Place> {
-    // Get adjacent places for context
     const adjacentCoords = [
         { north: coordinates.north + 1, west: coordinates.west }, // north
         { north: coordinates.north - 1, west: coordinates.west }, // south
@@ -27,16 +28,23 @@ export async function generateNewPlace(
 
     const adjacentPlaces = await Promise.all(
         adjacentCoords.map(async (coords, index) => {
-            const doc = await db.collection(placesCollection).doc(getPlaceId(coords)).get()
-            if (doc.exists) {
+            const placeId = getPlaceId(coords)
+            const row = await db.prepare(
+                'SELECT * FROM places WHERE id = ?'
+            ).bind(placeId).first<any>()
+
+            if (row) {
                 return {
-                    // Direction mapping matches array order
                     direction: index === 0 ? 'north' as const :
                              index === 1 ? 'south' as const :
                              index === 2 ? 'west' as const :
                              'east' as const,
-                    id: doc.id,
-                    ...doc.data()
+                    id: row.id,
+                    name: row.name,
+                    description: row.description,
+                    coordinates: { north: row.coordinates_north, west: row.coordinates_west },
+                    createdAt: new Date(row.created_at),
+                    updatedAt: new Date(row.updated_at)
                 } as AdjacentPlace
             }
             return null
@@ -46,7 +54,8 @@ export async function generateNewPlace(
     return generatePlace(
         coordinates,
         openai,
+        db,
         undefined,
         adjacentPlaces.filter((p): p is AdjacentPlace => p !== null)
     )
-} 
+}

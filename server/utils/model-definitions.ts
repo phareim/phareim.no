@@ -1,50 +1,33 @@
-import type { DocumentData, DocumentSnapshot } from 'firebase-admin/firestore'
-import { db } from '~/server/utils/firebase-admin'
 import type { ModelDefinition } from '~/types/model-definition'
-import { modelDefinitionsCollection } from '~/types/model-definition'
 
-function mapModelDefinition(doc: DocumentSnapshot<DocumentData>): ModelDefinition {
-    const data = doc.data() || {}
-
+function mapModelRow(row: any): ModelDefinition {
     return {
-        id: doc.id,
-        name: data.name,
-        icon: data.icon,
-        description: data.description,
-        enabled: data.enabled !== undefined ? data.enabled : true,
-        endpoint: data.endpoint,
-        type: data.type,
-        basePrompt: data.basePrompt,
-        promptSuffix: data.promptSuffix,
-        parameters: data.parameters || {},
-        supportedStyles: data.supportedStyles || [],
-        priority: data.priority || 999,
-        createdAt: data.createdAt?.toDate(),
-        updatedAt: data.updatedAt?.toDate()
+        id: row.id,
+        name: row.name,
+        icon: row.icon,
+        description: row.description,
+        enabled: row.enabled === 1 || row.enabled === true,
+        endpoint: row.endpoint,
+        type: row.type,
+        basePrompt: row.base_prompt,
+        promptSuffix: row.prompt_suffix,
+        parameters: JSON.parse(row.parameters || '{}'),
+        supportedStyles: JSON.parse(row.supported_styles || '[]'),
+        priority: row.priority ?? 999,
+        createdAt: row.created_at ? new Date(row.created_at) : undefined,
+        updatedAt: row.updated_at ? new Date(row.updated_at) : undefined
     }
 }
 
-export async function getModelDefinition(modelId: string): Promise<ModelDefinition | null> {
-    const doc = await db.collection(modelDefinitionsCollection).doc(modelId).get()
-
-    if (!doc.exists) {
-        return null
-    }
-
-    return mapModelDefinition(doc)
+export async function getModelDefinition(modelId: string, db: D1Database): Promise<ModelDefinition | null> {
+    const row = await db.prepare('SELECT * FROM model_definitions WHERE id = ?').bind(modelId).first<any>()
+    if (!row) return null
+    return mapModelRow(row)
 }
 
-export async function getEnabledModelDefinitions(): Promise<ModelDefinition[]> {
-    const snapshot = await db.collection(modelDefinitionsCollection).get()
-    const models: ModelDefinition[] = []
-
-    snapshot.forEach(doc => {
-        const model = mapModelDefinition(doc)
-        if (model.enabled) {
-            models.push(model)
-        }
-    })
-
-    models.sort((a, b) => a.priority - b.priority)
-    return models
+export async function getEnabledModelDefinitions(db: D1Database): Promise<ModelDefinition[]> {
+    const result = await db.prepare(
+        'SELECT * FROM model_definitions WHERE enabled = 1 ORDER BY priority ASC'
+    ).all<any>()
+    return (result.results || []).map(mapModelRow)
 }

@@ -11,8 +11,8 @@
 				<div v-if="message.startsWith('>')" class="message command">
 					{{ message }}
 				</div>
-				<TextWindow 
-					v-else 
+				<TextWindow
+					v-else
 					:text="message"
 					:active="!isLoading"
 					@action="handleAction"
@@ -24,8 +24,8 @@
 			<div v-if="isLoading" class="message loading">...</div>
 		</div>
 		<div class="command-buttons">
-			<button 
-				v-for="cmd in ['↑', '↓', '→', '←', '👀', '🎒']" 
+			<button
+				v-for="cmd in ['↑', '↓', '→', '←', '👀', '🎒']"
 				:key="cmd"
 				@click="executeCommand(cmd)"
 				class="command-button"
@@ -42,9 +42,9 @@
 			</div>
 		</div>
 		<div class="input-container">
-			<input 
-				type="text" 
-				v-model="userInput" 
+			<input
+				type="text"
+				v-model="userInput"
 				@keyup.enter="handleCommand"
 				placeholder="Enter your command..."
 				ref="inputField"
@@ -57,93 +57,80 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { useNuxtApp } from '#app'
-import type { Firestore } from 'firebase/firestore'
 import TextWindow from '~/components/rpg/TextWindow.vue'
-import { collection, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
 import { APIClient } from '~/utils/api-client'
 
-declare module '#app' {
-	interface NuxtApp {
-		$firebase: {
-			firestore: Firestore
-		}
-	}
-}
+const UI_STATE_KEY = 'rpg_ui_state'
+const INITIAL_MESSAGES = [
+	'You find yourself in the middle of a mysterious forest. The air is thick with ancient magic.',
+	'What would you like to do?'
+]
 
 const userInput = ref('')
-const gameMessages = ref<string[]>(['You find yourself in the middle of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do?'])
+const gameMessages = ref<string[]>([...INITIAL_MESSAGES])
 const commandHistory = ref<string[]>([])
 const historyIndex = ref(-1)
 const isLoading = ref(false)
 const userId = ref('')
 const inputField = ref<HTMLInputElement>()
 const outputBox = ref<HTMLElement>()
-const playerCoordinates = ref('Loading...')
-const playerPlaceName = ref('Loading...')
-let gameStateDoc: any | null = null
-	
-// Game state management
-async function loadGameState() {
+const playerCoordinates = ref('N: 0, W: 0')
+const playerPlaceName = ref('Unknown location')
+
+// Load UI state from localStorage
+function loadUIState() {
 	try {
-		const { $firebase } = useNuxtApp()
-		gameStateDoc = doc($firebase.firestore, 'gameStates', userId.value)
-
-		const gameSnapshot = await getDoc(gameStateDoc)
-
-		if (gameSnapshot.exists()) {
-			const data = gameSnapshot.data()
-			// Load UI state from gameStates collection
-			gameMessages.value = data.uiMessages || gameMessages.value
-			commandHistory.value = data.commandHistory || commandHistory.value
-			historyIndex.value = commandHistory.value.length
-
-			// Scroll to bottom after loading
-			nextTick(() => {
-				scrollToBottom()
-			})
+		const stored = localStorage.getItem(UI_STATE_KEY)
+		if (stored) {
+			const state = JSON.parse(stored)
+			if (state.uiMessages?.length) gameMessages.value = state.uiMessages
+			if (state.commandHistory) {
+				commandHistory.value = state.commandHistory
+				historyIndex.value = commandHistory.value.length
+			}
+			if (state.lastNorth !== undefined && state.lastWest !== undefined) {
+				playerCoordinates.value = `N: ${state.lastNorth}, W: ${state.lastWest}`
+			}
+			if (state.lastPlaceName) playerPlaceName.value = state.lastPlaceName
 		}
 	} catch (error) {
-		console.error('Error loading game state:', error)
+		console.error('Error loading UI state:', error)
 	}
 }
 
-async function saveGameState() {
-	// Save both game logic and UI state to gameStates collection
+// Save UI state to localStorage
+function saveUIState() {
 	try {
-		const { $firebase } = useNuxtApp()
-		if (!gameStateDoc) return
-
-		await setDoc(gameStateDoc, {
+		const coordMatch = playerCoordinates.value.match(/N:\s*(-?\d+),\s*W:\s*(-?\d+)/)
+		const state = {
 			uiMessages: gameMessages.value,
 			commandHistory: commandHistory.value,
-			lastUpdated: new Date()
-		}, { merge: true })  // Use merge to not overwrite server-side game state
+			lastNorth: coordMatch ? parseInt(coordMatch[1]) : 0,
+			lastWest: coordMatch ? parseInt(coordMatch[2]) : 0,
+			lastPlaceName: playerPlaceName.value
+		}
+		localStorage.setItem(UI_STATE_KEY, JSON.stringify(state))
 	} catch (error) {
-		console.error('Error saving game state:', error)
-		// Show error to user
-		addMessage('⚠️ Failed to save your progress. Your game state may not persist if you refresh.')
-		throw error  // Re-throw so caller knows it failed
+		console.error('Error saving UI state:', error)
 	}
 }
 
 async function resetGame() {
 	if (confirm('Are you sure you want to reset the game? This will clear all progress.')) {
 		try {
-			const { $firebase } = useNuxtApp()
-			const gameStateDoc = doc($firebase.firestore, 'gameStates', userId.value)
+			await fetch('/api/rpg', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ userId: userId.value })
+			})
 
-			// Delete game state (both server and UI state)
-			await deleteDoc(gameStateDoc)
-
-			gameMessages.value = ['You find yourself in the middle of a mysterious forest. The air is thick with ancient magic.', 'What would you like to do?']
+			localStorage.removeItem(UI_STATE_KEY)
+			gameMessages.value = [...INITIAL_MESSAGES]
 			commandHistory.value = []
 			historyIndex.value = -1
 			userInput.value = ''
-
-			// Reset player location display - wait for state to refresh
-			await nextTick()
-			await loadPlayerLocation()
+			playerCoordinates.value = 'N: 0, W: 0'
+			playerPlaceName.value = 'Unknown location'
 
 			inputField.value?.focus()
 		} catch (error) {
@@ -155,46 +142,40 @@ async function resetGame() {
 
 // Command handling
 async function handleCommand() {
-
 	if (!userInput.value.trim() || isLoading.value) return
-	
+
 	isLoading.value = true
-	
+
 	// Save command to history
 	commandHistory.value.push(userInput.value)
 	historyIndex.value = commandHistory.value.length
-	
+
 	// Show command in output
 	addMessage(`> ${userInput.value}`)
-	
-	// Send command to API using our type-safe client
+
+	// Send command to API
 	try {
 		const data = await APIClient.processCommand(userInput.value, userId.value)
-		
+
 		if ('error' in data) {
 			addMessage(data.error)
-        } else {
-            addMessage(data.response)
-        }
-        // Save game state after each command
-        try {
-            await saveGameState()
-        } catch (saveError) {
-            console.error('Failed to save UI state:', saveError)
-            // Error message already shown by saveGameState()
-        }
-        // Refresh location immediately - server has already updated gameStates
-        try {
-            await loadPlayerLocation()
-        } catch (error) {
-            console.error('Error updating player location:', error)
-            addMessage('⚠️ Failed to update location display. Try using the "look" command.')
-        }
+		} else {
+			addMessage(data.response)
+			// Update location from API response
+			const gs = data.gameState
+			if (gs?.coordinates) {
+				playerCoordinates.value = `N: ${gs.coordinates.north}, W: ${gs.coordinates.west}`
+			}
+			if (gs?.currentPlace?.name) {
+				playerPlaceName.value = gs.currentPlace.name
+			}
+		}
+
+		saveUIState()
 	} catch (error) {
 		console.error('Error processing command:', error)
 		addMessage('⚠️ The magical connection seems to be disturbed. Your command may not have been processed.')
 	} finally {
-		// Reset input and scroll to bottom
 		userInput.value = ''
 		isLoading.value = false
 		nextTick(() => {
@@ -268,70 +249,11 @@ function handlePlaceClick(name: string) {
 	handleCommand()
 }
 
-// Add loadPlayerLocation function
-async function loadPlayerLocation() {
-	try {
-		const { $firebase } = useNuxtApp()
-		
-		// Check if Firebase is properly initialized
-		if (!$firebase?.firestore) {
-			console.error('Firebase not initialized')
-			playerCoordinates.value = 'Connection error'
-			playerPlaceName.value = '—'
-			return
-		}
-		
-		// Use the reactive userId instead of localStorage directly
-		if (!userId.value) {
-			playerCoordinates.value = 'No player found'
-			playerPlaceName.value = '—'
-			return
-		}
-
-		const gameStateRef = doc($firebase.firestore, 'gameStates', userId.value)
-		const gameStateDoc = await getDoc(gameStateRef)
-		if (!gameStateDoc.exists()) {
-			playerCoordinates.value = 'No game in progress'
-			playerPlaceName.value = '—'
-			return
-		}
-
-		const gameState = gameStateDoc.data()
-		const coords = gameState?.coordinates
-		if (coords) {
-			playerCoordinates.value = `N: ${coords.north}, W: ${coords.west}`
-			// Also fetch the place name for these coordinates
-			const placeId = `${coords.north},${coords.west}`
-			try {
-				const placeRef = doc($firebase.firestore, 'places', placeId)
-				const placeDoc = await getDoc(placeRef)
-				if (placeDoc.exists()) {
-					const placeData: any = placeDoc.data()
-					playerPlaceName.value = placeData?.name || 'Unknown place'
-				} else {
-					playerPlaceName.value = 'Unknown place'
-				}
-			} catch (e) {
-				console.error('Failed loading place name:', e)
-				playerPlaceName.value = 'Unknown place'
-				// Don't show error to user for place name failures, just log it
-			}
-		} else {
-			playerCoordinates.value = 'Unknown location'
-			playerPlaceName.value = '—'
-		}
-    } catch (error) {
-        console.error('Error loading player location:', error)
-        playerCoordinates.value = 'Error loading location'
-        playerPlaceName.value = '—'
-    }
-}
-
 // Track if component is mounted to prevent memory leaks
 let isMounted = false
 
 // Initialize game
-onMounted(async () => {
+onMounted(() => {
 	isMounted = true
 
 	// Generate a random user ID if not exists
@@ -339,25 +261,16 @@ onMounted(async () => {
 		Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
 	localStorage.setItem('rpg_user_id', userId.value)
 
-	try {
-		// Load saved game state first
-		await loadGameState()
-		// Wait a bit to ensure Firebase state is initialized, then load location
-		await nextTick()
-		await loadPlayerLocation()
-	} catch (error) {
-		console.error('Error initializing game:', error)
-		addMessage('Error loading game. Please refresh the page.')
-	}
+	// Load saved UI state (messages, command history, last known location)
+	loadUIState()
 
-	// Hold focus on input field - use nextTick to ensure DOM is ready
 	nextTick(() => {
 		if (isMounted) {
+			scrollToBottom()
 			inputField.value?.focus()
 		}
 	})
 
-	// Add keyboard listeners only if still mounted
 	if (isMounted) {
 		document.addEventListener('keydown', handleKeyDown)
 	}

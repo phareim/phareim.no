@@ -1,140 +1,84 @@
 import { defineEventHandler, getRouterParam, readBody } from 'h3'
-import { db, placesCollection } from '../../utils/firebase-admin'
+import { getDB } from '../../utils/db'
 import type { Place } from '../../../types/place'
 import { validateCoordinates, getCoordinatesString } from '../../../types/place'
-
-// Helper function to create document ID from coordinates
-function getPlaceId(coordinates: Place['coordinates']): string {
-    return `${coordinates.north},${coordinates.west}`
-}
+import { getPlaceId } from '../../utils/place-generator'
 
 export default defineEventHandler(async (event) => {
     try {
+        const db = getDB(event)
         const id = getRouterParam(event, 'id')
-        if (!id) {
-            return {
-                error: 'Place ID is required',
-                status: 400
-            }
-        }
+        if (!id) return { error: 'Place ID is required', status: 400 }
 
-        const placeRef = db.collection(placesCollection).doc(id)
-        
-        // GET request - Retrieve a specific place
         if (event.method === 'GET') {
-            const doc = await placeRef.get()
-            if (!doc.exists) {
-                return {
-                    error: 'Place not found',
-                    status: 404
-                }
-            }
+            const row = await db.prepare('SELECT * FROM places WHERE id = ?').bind(id).first<any>()
+            if (!row) return { error: 'Place not found', status: 404 }
             return {
-                id: doc.id,
-                ...doc.data()
+                id: row.id,
+                name: row.name,
+                description: row.description,
+                coordinates: { north: row.coordinates_north, west: row.coordinates_west },
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
             } as Place
         }
-        
-        // PUT request - Update a place
+
         if (event.method === 'PUT') {
             const body = await readBody(event)
-            
-            // Validate required fields
+
             if (!body.name || !body.description || !body.coordinates) {
-                return {
-                    error: 'Name, description, and coordinates are required',
-                    status: 400
-                }
+                return { error: 'Name, description, and coordinates are required', status: 400 }
             }
 
-            // Validate coordinates
             if (!validateCoordinates(body.coordinates)) {
-                return {
-                    error: 'Invalid coordinates format. Must include north and west as numbers.',
-                    status: 400
-                }
+                return { error: 'Invalid coordinates format. Must include north and west as numbers.', status: 400 }
             }
 
-            // Generate new ID from coordinates
             const newPlaceId = getPlaceId(body.coordinates)
-            
-            // If coordinates changed, we need to create a new document and delete the old one
+
             if (newPlaceId !== id) {
-                const newPlaceRef = db.collection(placesCollection).doc(newPlaceId)
-                const newPlaceDoc = await newPlaceRef.get()
-                
-                if (newPlaceDoc.exists) {
-                    return {
-                        error: `Another place already exists at coordinates ${getCoordinatesString(body.coordinates)}`,
-                        status: 409
-                    }
+                // Coordinates changed — create new row, delete old
+                const existing = await db.prepare('SELECT id FROM places WHERE id = ?').bind(newPlaceId).first<any>()
+                if (existing) {
+                    return { error: `Another place already exists at coordinates ${getCoordinatesString(body.coordinates)}`, status: 409 }
                 }
 
-                const updateData: Omit<Place, 'id'> = {
-                    name: body.name,
-                    description: body.description,
-                    coordinates: {
-                        north: body.coordinates.north,
-                        west: body.coordinates.west
-                    },
-                    createdAt: (await placeRef.get()).data()?.createdAt || new Date(),
-                    updatedAt: new Date()
-                }
+                const oldRow = await db.prepare('SELECT created_at FROM places WHERE id = ?').bind(id).first<any>()
 
-                // Create new document and delete old one
-                await newPlaceRef.set(updateData)
-                await placeRef.delete()
-                
+                await db.batch([
+                    db.prepare(`
+                        INSERT INTO places (id, name, description, coordinates_north, coordinates_west, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    `).bind(newPlaceId, body.name, body.description, body.coordinates.north, body.coordinates.west, oldRow?.created_at || new Date().toISOString()),
+                    db.prepare('DELETE FROM places WHERE id = ?').bind(id)
+                ])
+
                 return {
                     id: newPlaceId,
-                    ...updateData
+                    name: body.name,
+                    description: body.description,
+                    coordinates: body.coordinates,
+                    updatedAt: new Date()
                 }
             }
-            
-            // If coordinates haven't changed, just update the existing document
-            const updateData: Partial<Place> = {
-                name: body.name,
-                description: body.description,
-                updatedAt: new Date()
-            }
-            
-            await placeRef.update(updateData)
-            
-            return {
-                id,
-                ...updateData,
-                coordinates: body.coordinates
-            }
+
+            await db.prepare(
+                'UPDATE places SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+            ).bind(body.name, body.description, id).run()
+
+            return { id, name: body.name, description: body.description, coordinates: body.coordinates, updatedAt: new Date() }
         }
-        
-        // DELETE request - Delete a place
+
         if (event.method === 'DELETE') {
-            const doc = await placeRef.get()
-            if (!doc.exists) {
-                return {
-                    error: 'Place not found',
-                    status: 404
-                }
-            }
-            
-            await placeRef.delete()
-            return {
-                message: 'Place deleted successfully',
-                id
-            }
+            const row = await db.prepare('SELECT id FROM places WHERE id = ?').bind(id).first<any>()
+            if (!row) return { error: 'Place not found', status: 404 }
+            await db.prepare('DELETE FROM places WHERE id = ?').bind(id).run()
+            return { message: 'Place deleted successfully', id }
         }
-        
-        // Method not allowed
-        return {
-            error: 'Method not allowed',
-            status: 405
-        }
+
+        return { error: 'Method not allowed', status: 405 }
     } catch (error: any) {
         console.error('Error in place handler:', error)
-        return {
-            error: 'Internal server error',
-            details: error?.message || 'Unknown error',
-            status: 500
-        }
+        return { error: 'Internal server error', details: error?.message || 'Unknown error', status: 500 }
     }
-}) 
+})
