@@ -25,11 +25,13 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     // Private keys that are exposed to the server
-    veniceKey: process.env.VENICE_KEY,
-    openaiApiKey: process.env.OPENAI_API_KEY,
-    falKey: process.env.FAL_KEY,
-    wavespeedKey: process.env.WAVESPEED_KEY,
-    adminPassword: process.env.ADMIN_PASSWORD,
+    // On Cloudflare Pages, these are overridden at runtime by NUXT_-prefixed env vars
+    // (e.g. NUXT_VENICE_KEY -> veniceKey)
+    veniceKey: '',
+    openaiApiKey: '',
+    falKey: '',
+    wavespeedKey: '',
+    adminPassword: '',
 
     // Public keys that are exposed to the client
     public: {}
