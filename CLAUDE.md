@@ -25,7 +25,7 @@ This is a **Nuxt 3** personal website with multiple interactive features:
 - **Frontend**: Vue.js with Nuxt 3 framework using Composition API and Options API patterns
 - **Backend**: Nuxt server API routes in `server/api/` 
 - **Database**: Firebase Firestore for persistent data storage
-- **Styling**: CSS custom properties design system with 3 themes (Scandinavian Glass, Cyberpunk, Fantasy) + Comfortaa font
+- **Styling**: CSS custom properties design system with 2 themes (Scandinavian Glass, Cyberpunk) + Comfortaa font
 - **State Management**: Pinia for client-side state
 
 ### Key Features & Architecture
@@ -54,8 +54,8 @@ This is a **Nuxt 3** personal website with multiple interactive features:
 - Multiple API keys: VENICE_KEY, FAL_KEY, Firebase credentials
 
 ### Theme System
-- **3 themes**: Scandinavian Glass (default), Cyberpunk/Hacker, Tolkien/Fantasy
-- **Theme files**: `assets/themes/scandinavian.css`, `hacker.css`, `tolkien.css`
+- **2 themes**: Scandinavian Glass (default), Cyberpunk/Hacker
+- **Theme files**: `assets/themes/scandinavian.css`, `hacker.css`
 - **Semantic variables**: All themes expose a shared `--theme-*` CSS custom property API (e.g. `--theme-bg`, `--theme-text`, `--theme-card-bg`, `--theme-rpg-item`)
 - **Composable**: `composables/useTheme.ts` provides `activeTheme`, `themePageClass`, `cx()` helper, `setTheme()` with localStorage persistence
 - **Root wiring**: `app.vue` applies `themePageClass` to root div, cascading `--theme-*` vars to all pages/components

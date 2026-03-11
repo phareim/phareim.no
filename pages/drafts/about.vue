@@ -90,8 +90,7 @@ onMounted(() => {
 
 /* Centering for all theme bars */
 .scandi-bar,
-.hacker-bar,
-.tolkien-bar {
+.hacker-bar {
   margin-left: auto !important;
   margin-right: auto !important;
 }
