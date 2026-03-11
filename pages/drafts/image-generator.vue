@@ -60,7 +60,7 @@ import type { ModelDefinition } from '~/types/model-definition'
 
 const route = useRoute()
 const prompt = ref('')
-const selectedModel = ref('srpo')
+const selectedModel = ref('z-image-turbo')
 const imageSize = ref<
   | 'square_hd'
   | 'square'

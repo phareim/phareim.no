@@ -1,3 +1,4 @@
+import type { ModelDefinition } from '~/types/model-definition'
 import { buildPrompt } from '~/types/model-definition'
 import { generateWithFalAI, generateWithVeniceAI } from '~/server/utils/image-providers'
 import { uploadImageToR2 } from '~/server/utils/storage'
@@ -17,6 +18,23 @@ interface ImageGenerationResponse {
     error?: string
 }
 
+const fallbackModels: Record<string, ModelDefinition> = {
+    'z-image-turbo': { id: 'z-image-turbo', name: 'Z-Image Turbo', icon: '⚡', description: 'Fastest', enabled: true, endpoint: 'z-image-turbo', type: 'venice', basePrompt: '', parameters: { steps: 8 }, supportedStyles: [], priority: 1 },
+    'chroma': { id: 'chroma', name: 'Chroma', icon: '🎨', description: 'Creative', enabled: true, endpoint: 'chroma', type: 'venice', basePrompt: '', parameters: { steps: 10 }, supportedStyles: [], priority: 2 },
+    'venice-sd35': { id: 'venice-sd35', name: 'Venice SD35', icon: '🖼️', description: 'Stable Diffusion 3.5', enabled: true, endpoint: 'venice-sd35', type: 'venice', basePrompt: '', parameters: { steps: 25 }, supportedStyles: [], priority: 3 },
+    'hidream': { id: 'hidream', name: 'HiDream', icon: '💭', description: 'High quality', enabled: true, endpoint: 'hidream', type: 'venice', basePrompt: '', parameters: { steps: 20 }, supportedStyles: [], priority: 4 },
+    'qwen-image': { id: 'qwen-image', name: 'Qwen Image', icon: '🔮', description: 'Highest quality', enabled: true, endpoint: 'qwen-image', type: 'venice', basePrompt: '', parameters: { steps: 8 }, supportedStyles: [], priority: 5 },
+}
+
+async function resolveModel(modelId: string, event: any): Promise<ModelDefinition | null> {
+    try {
+        const db = getDB(event)
+        return await getModelDefinition(modelId, db)
+    } catch {
+        return fallbackModels[modelId] || null
+    }
+}
+
 export default defineEventHandler(async (event): Promise<ImageGenerationResponse> => {
     if (event.method !== 'POST') {
         throw createError({
@@ -26,9 +44,8 @@ export default defineEventHandler(async (event): Promise<ImageGenerationResponse
     }
 
     try {
-        const db = getDB(event)
         const body = await readBody(event) as ImageGenerationRequest
-        const { prompt, model = 'srpo', imageSize = 'portrait_16_9' } = body
+        const { prompt, model = 'z-image-turbo', imageSize = 'portrait_16_9' } = body
 
         if (!prompt) {
             throw createError({
@@ -37,7 +54,7 @@ export default defineEventHandler(async (event): Promise<ImageGenerationResponse
             })
         }
 
-        const modelDef = await getModelDefinition(model, db)
+        const modelDef = await resolveModel(model, event)
         if (!modelDef) {
             throw createError({
                 status: 400,
@@ -67,14 +84,21 @@ export default defineEventHandler(async (event): Promise<ImageGenerationResponse
             })
         }
 
-        const r2Url = await uploadImageToR2(event, imageUrl, {
-            folder: 'generated'
-        })
-
-        return {
-            success: true,
-            imageUrl: r2Url,
-            originalUrl: imageUrl
+        // Try R2 upload, fall back to returning the image directly
+        try {
+            const r2Url = await uploadImageToR2(event, imageUrl, {
+                folder: 'generated'
+            })
+            return {
+                success: true,
+                imageUrl: r2Url,
+                originalUrl: imageUrl
+            }
+        } catch {
+            return {
+                success: true,
+                imageUrl
+            }
         }
 
     } catch (error: any) {

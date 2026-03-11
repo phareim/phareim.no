@@ -8,7 +8,6 @@ const menuItems = [
   { path: '/drafts/bounce', title: 'Bounce', icon: '⚽️' },
 //  { path: '/inspire', title: 'Inspire', icon: '✨' },
   { path: '/drafts/image-generator', title: 'Image', icon: '👩🏻‍🎨' },
-  { path: '/drafts/random-fact', title: 'Random Fact', icon: '🎲', external: false },
 //  { path: '/blog', title: 'Blog', icon: '📬' },
   { path: '/rpg', title: 'Old Skool RPG', icon: '🤓', external: false },
   { path: '/drafts/places', title: 'RPG Place Generator', icon: '🏞️', external: false },

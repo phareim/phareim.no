@@ -93,6 +93,10 @@ export default {
     SocialLink,
     SpaceInvadersBackground
   },
+  setup() {
+    const { activeTheme } = useTheme()
+    return { activeTheme }
+  },
   data() {
     return {
       ctx: null,
@@ -116,7 +120,7 @@ export default {
   },
   computed: {
     isHacker() {
-      return useTheme().activeTheme.value === 'hacker'
+      return this.activeTheme === 'hacker'
     },
   },
   watch: {
