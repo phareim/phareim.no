@@ -133,6 +133,7 @@ export default {
     }
   },
   mounted() {
+    document.body.classList.remove('scrollable');
     if (!this.isHacker) {
       this.startBubbles();
     }
@@ -142,6 +143,7 @@ export default {
     this.hackerHighScore = parseInt(localStorage.getItem('hackerHighScore') || '0', 10);
   },
   beforeDestroy() {
+    document.body.classList.add('scrollable');
     window.removeEventListener('mousemove', this.updateMousePosition);
     window.removeEventListener('resize', this.setupCanvas);
     window.removeEventListener('touchmove', this.updateTouchPosition);

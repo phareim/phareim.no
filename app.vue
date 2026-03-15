@@ -8,8 +8,14 @@
 <script setup lang="ts">
 import MenuComponent from '~/components/MenuComponent.vue';
 
-const { themePageClass } = useTheme()
+const { themePageClass, themeColor } = useTheme()
 const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);
+
+useHead({
+  meta: [
+    { name: 'theme-color', content: themeColor }
+  ]
+})
 
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'm' && !window.location.pathname.includes('rpg')
