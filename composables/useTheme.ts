@@ -3,7 +3,8 @@ export const useTheme = () => {
 
   const themes = [
     { id: 'scandi', name: 'Scandinavian Glass', icon: '❄️' },
-    { id: 'hacker', name: 'Cyberpunk', icon: '📟' }
+    { id: 'hacker', name: 'Cyberpunk', icon: '📟' },
+    { id: 'space', name: 'Space', icon: '🚀' }
   ]
 
   const themePageClass = computed(() => `${activeTheme.value}-page`)

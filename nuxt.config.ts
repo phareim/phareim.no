@@ -3,7 +3,8 @@ import { defineNuxtConfig } from 'nuxt/config'
 export default defineNuxtConfig({
   css: [
     '~/assets/themes/scandinavian.css',
-    '~/assets/themes/hacker.css'
+    '~/assets/themes/hacker.css',
+    '~/assets/themes/space.css'
   ],
 
   app: {

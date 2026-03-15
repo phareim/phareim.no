@@ -1,0 +1,290 @@
+/**
+ * Space Aesthetic
+ * ---------------------------
+ * Deep space with drifting stars, inspired by
+ * the Sleeper Service splash page.
+ *
+ * Usage: Add class "space-page" to your page container
+ */
+
+:root {
+  /* Base colors */
+  --space-bg: #0a0a0f;
+  --space-bg-alt: #0e0e18;
+
+  /* Text colors */
+  --space-text: #ffffff;
+  --space-text-muted: #a0a8c0;
+  --space-text-subtle: #5a6080;
+
+  /* Accents - cool stellar palette */
+  --space-accent-blue: #89abd0;
+  --space-accent-amber: #e8c87a;
+  --space-accent-lavender: #c0b0e8;
+  --space-accent-red: #e06060;
+
+  /* Glow */
+  --space-glow: rgba(140, 170, 220, 0.15);
+  --space-border: rgba(140, 170, 220, 0.15);
+
+  /* Typography — bold, uppercase, impact-style like the www splash */
+  --font-space-display: 'Arial Black', 'Impact', system-ui, sans-serif;
+  --font-space-body: 'Comfortaa', system-ui, sans-serif;
+
+  /* Transitions */
+  --transition-drift: 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ---- Starfield canvas (injected via JS at runtime) ---- */
+
+.space-page {
+  min-height: 100vh;
+  background: var(--space-bg);
+  color: var(--space-text);
+  font-family: var(--font-space-body);
+  overflow-x: hidden;
+  position: relative;
+
+  /* Semantic theme variables */
+  --theme-bg: var(--space-bg);
+  --theme-bg-alt: var(--space-bg-alt);
+  --theme-text: var(--space-text);
+  --theme-text-muted: var(--space-text-muted);
+  --theme-text-subtle: var(--space-text-subtle);
+
+  --theme-card-bg: rgba(15, 15, 30, 0.75);
+  --theme-card-border: var(--space-border);
+  --theme-card-shadow: var(--space-glow);
+  --theme-card-radius: 16px;
+
+  --theme-accent: var(--space-accent-blue);
+  --theme-accent-secondary: var(--space-accent-amber);
+  --theme-accent-danger: var(--space-accent-red);
+
+  --theme-link-color: var(--space-accent-blue);
+  --theme-font-body: var(--font-space-body);
+  --theme-font-display: var(--font-space-display);
+  --theme-transition: var(--transition-drift);
+
+  --theme-input-bg: rgba(15, 15, 30, 0.8);
+  --theme-input-border: var(--space-border);
+  --theme-input-text: var(--space-text);
+
+  /* RPG-specific */
+  --theme-rpg-item: var(--space-accent-amber);
+  --theme-rpg-character: var(--space-accent-lavender);
+  --theme-rpg-place: var(--space-accent-blue);
+  --theme-rpg-terminal-bg: rgba(10, 10, 20, 0.9);
+  --theme-rpg-terminal-border: var(--space-border);
+  --theme-rpg-terminal-text: var(--space-text);
+  --theme-rpg-command: var(--space-text-subtle);
+}
+
+/* ---- Starfield background ---- */
+
+.space-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(1.5px 1.5px at 10% 20%, rgba(255,255,255,0.8) 50%, transparent 50%),
+    radial-gradient(1px 1px at 25% 55%, rgba(200,220,255,0.7) 50%, transparent 50%),
+    radial-gradient(1.2px 1.2px at 40% 15%, rgba(255,255,255,0.6) 50%, transparent 50%),
+    radial-gradient(1px 1px at 55% 75%, rgba(255,230,180,0.7) 50%, transparent 50%),
+    radial-gradient(1.8px 1.8px at 70% 35%, rgba(255,255,255,0.9) 50%, transparent 50%),
+    radial-gradient(1px 1px at 85% 60%, rgba(220,200,255,0.6) 50%, transparent 50%),
+    radial-gradient(1.3px 1.3px at 15% 80%, rgba(255,255,255,0.7) 50%, transparent 50%),
+    radial-gradient(1px 1px at 30% 40%, rgba(180,200,255,0.6) 50%, transparent 50%),
+    radial-gradient(1.5px 1.5px at 50% 50%, rgba(255,255,255,0.5) 50%, transparent 50%),
+    radial-gradient(1px 1px at 65% 10%, rgba(255,200,150,0.6) 50%, transparent 50%),
+    radial-gradient(1.2px 1.2px at 80% 85%, rgba(255,255,255,0.7) 50%, transparent 50%),
+    radial-gradient(1px 1px at 95% 25%, rgba(200,220,255,0.5) 50%, transparent 50%),
+    radial-gradient(1.4px 1.4px at 5% 45%, rgba(255,255,255,0.8) 50%, transparent 50%),
+    radial-gradient(1px 1px at 20% 90%, rgba(255,180,180,0.5) 50%, transparent 50%),
+    radial-gradient(1.6px 1.6px at 45% 30%, rgba(255,255,255,0.6) 50%, transparent 50%),
+    radial-gradient(1px 1px at 60% 95%, rgba(200,220,255,0.7) 50%, transparent 50%),
+    radial-gradient(1.1px 1.1px at 75% 50%, rgba(255,230,180,0.5) 50%, transparent 50%),
+    radial-gradient(1px 1px at 90% 70%, rgba(255,255,255,0.6) 50%, transparent 50%),
+    radial-gradient(1.3px 1.3px at 35% 65%, rgba(220,200,255,0.7) 50%, transparent 50%),
+    radial-gradient(1px 1px at 50% 5%, rgba(255,255,255,0.5) 50%, transparent 50%);
+  animation: space-drift 120s linear infinite;
+}
+
+@keyframes space-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100px); }
+}
+
+/* Ensure content sits above the starfield */
+.space-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- Components ---- */
+
+.space-card {
+  background: rgba(15, 15, 30, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--space-border);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px var(--space-glow);
+  padding: var(--space-md, 2rem);
+  transition:
+    transform var(--transition-drift),
+    box-shadow var(--transition-drift);
+}
+
+.space-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 32px var(--space-glow),
+    0 0 0 1px rgba(140, 170, 220, 0.25);
+}
+
+.space-card--flat {
+  transform: none !important;
+}
+
+/* ---- Typography ---- */
+
+.space-heading {
+  font-family: var(--font-space-display);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+}
+
+.space-heading--xl { font-size: clamp(2.5rem, 6vw, 5rem); }
+.space-heading--lg { font-size: clamp(1.75rem, 4vw, 2.5rem); }
+.space-heading--md { font-size: clamp(1.25rem, 2.5vw, 1.5rem); }
+
+.space-body {
+  font-family: var(--font-space-body);
+  font-weight: 300;
+  line-height: 1.7;
+  color: var(--space-text-muted);
+}
+
+.space-body--lg {
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+}
+
+/* ---- Political bar — stellar twinkle ---- */
+
+.space-bar {
+  display: flex;
+  height: 3px;
+  width: 100%;
+  max-width: 120px;
+  gap: 2px;
+  margin: 2rem 0;
+}
+
+.space-bar span {
+  flex: 1;
+  border-radius: 2px;
+  animation: space-twinkle 3s ease-in-out infinite;
+}
+
+.space-bar span:nth-child(1) { background: var(--space-text); }
+.space-bar span:nth-child(2) { animation-delay: 0.3s; background: var(--space-accent-blue); }
+.space-bar span:nth-child(3) { animation-delay: 0.6s; background: var(--space-accent-amber); }
+.space-bar span:nth-child(4) { animation-delay: 0.9s; background: var(--space-accent-lavender); }
+.space-bar span:nth-child(5) { animation-delay: 1.2s; background: var(--space-accent-blue); }
+.space-bar span:nth-child(6) { animation-delay: 1.5s; background: var(--space-text); }
+
+@keyframes space-twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+/* ---- Interactive ---- */
+
+.space-interactive {
+  cursor: pointer;
+  transition: all var(--transition-drift);
+}
+
+.space-interactive:hover {
+  color: var(--space-accent-blue);
+  text-shadow: 0 0 8px var(--space-glow);
+}
+
+.space-link {
+  color: var(--space-accent-blue);
+  text-decoration: none;
+  position: relative;
+  transition: color var(--transition-drift);
+}
+
+.space-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: var(--space-accent-blue);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform var(--transition-drift);
+}
+
+.space-link:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* ---- Animations ---- */
+
+@keyframes space-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.space-animate-in {
+  animation: space-fade-in 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  opacity: 0;
+}
+
+.space-stagger > *:nth-child(1) { animation-delay: 0.1s; }
+.space-stagger > *:nth-child(2) { animation-delay: 0.2s; }
+.space-stagger > *:nth-child(3) { animation-delay: 0.3s; }
+.space-stagger > *:nth-child(4) { animation-delay: 0.4s; }
+.space-stagger > *:nth-child(5) { animation-delay: 0.5s; }
+.space-stagger > *:nth-child(6) { animation-delay: 0.6s; }
+
+/* ---- Layout ---- */
+
+.space-container {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.space-divider {
+  width: 80px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--space-accent-blue), transparent);
+  margin: 4rem auto;
+}
+
+/* ---- Responsive ---- */
+
+@media (max-width: 768px) {
+  .space-container {
+    padding: 1rem;
+  }
+}
