@@ -39,3 +39,11 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=phareim-no
+
+      - name: Notify Sleeper
+        if: success()
+        run: |
+          curl -s -X POST https://sleeper.phareim.no/tasks/notify \
+            -H "Authorization: Bearer ${{ secrets.SLEEPER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"title":"phareim.no deployed","body":"${{ github.event.head_commit.message }}"}'
