@@ -29,7 +29,7 @@
 
   /* Typography — bold, uppercase, impact-style like the www splash */
   --font-space-display: 'Arial Black', 'Impact', system-ui, sans-serif;
-  --font-space-body: 'Comfortaa', system-ui, sans-serif;
+  --font-space-body: 'Arial Black', 'Impact', system-ui, sans-serif;
 
   /* Transitions */
   --transition-drift: 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
