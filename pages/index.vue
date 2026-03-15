@@ -471,11 +471,15 @@ body {
   position: relative;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  touch-action: none;
 }
 
 canvas {
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   display: block;
   position: absolute;
   top: 0;
@@ -493,11 +497,11 @@ canvas {
   justify-content: center;
   align-items: center;
   z-index: 2;
+  overflow: hidden;
 }
 
 .home {
   text-align: center;
-  margin-top: 6vh;
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
