@@ -497,7 +497,6 @@ canvas {
   justify-content: center;
   align-items: center;
   z-index: 2;
-  overflow: hidden;
 }
 
 .home {
