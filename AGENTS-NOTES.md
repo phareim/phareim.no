@@ -34,21 +34,24 @@ This file captures observations, learnings, and notable details discovered while
 ## Repository-Specific Details
 
 ### Environment Setup
-- Nuxt 3 project with Firebase Firestore backend
-- Multiple AI integrations (Venice AI, FAL AI, OpenAI)
-- Runtime config managed through `nuxt.config.ts` with environment variables
+- Nuxt 3 project deployed on Cloudflare Pages
+- Database: Cloudflare D1 (SQLite), accessed via `server/utils/db.ts`
+- Object storage: Cloudflare R2 (some legacy media still on Firebase Storage)
+- Multiple AI integrations (Venice AI, FAL AI, OpenAI, WaveSpeed)
+- Runtime config managed through `nuxt.config.ts`, overridden by `NUXT_`-prefixed env vars on Cloudflare
 
 ### Key Dependencies
 - Node.js and npm for package management
-- Firebase Admin SDK for server-side operations
+- Cloudflare D1 for server-side database operations
 - markdown-it for blog post rendering
 - Pinia for client-side state management
 
 ### Special Considerations
-- RPG game state persists in Firebase
+- RPG game state persists in Cloudflare D1
 - Server-side API routes in `server/api/` directory
 - TypeScript interfaces defined in `types/` directory
 - Blog posts stored as markdown files in `blog/` directory
+- D1 database schema lives in `database/schema.sql`
 
 ## Useful Insights
 
@@ -60,12 +63,14 @@ This file captures observations, learnings, and notable details discovered while
 - Manual QA needed for changes (admin auth, blog rendering, RPG interactions)
 
 ### Deployment Notes
-- [Add deployment-specific observations]
+- Deployed to Cloudflare Pages via GitHub Actions on push to `master`
+- D1 schema applied during CI before deploy (`wrangler d1 execute`)
+- Post-deploy notification sent to Sleeper Chat
 
 ## Future Recommendations
 - [Suggest improvements or areas to watch]
 
 ---
 
-**Last Updated**: 2026-02-10
+**Last Updated**: 2026-03-17
 **Note**: Update this file whenever you discover something noteworthy while working in the repository.

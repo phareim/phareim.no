@@ -23,9 +23,11 @@ This is a **Nuxt 3** personal website with multiple interactive features:
 
 ### Core Structure
 - **Frontend**: Vue.js with Nuxt 3 framework using Composition API and Options API patterns
-- **Backend**: Nuxt server API routes in `server/api/` 
-- **Database**: Firebase Firestore for persistent data storage
-- **Styling**: CSS custom properties design system with 2 themes (Scandinavian Glass, Cyberpunk) + Comfortaa font
+- **Backend**: Nuxt server API routes in `server/api/`, deployed as Cloudflare Pages Functions
+- **Database**: Cloudflare D1 (SQLite) for persistent data storage (`phareim-rpg`)
+- **Object Storage**: Cloudflare R2 (`phareim-assets`) + legacy Firebase Storage URLs for some media
+- **Hosting**: Cloudflare Pages (built with `NITRO_PRESET=cloudflare-pages`)
+- **Styling**: CSS custom properties design system with 3 themes (Scandinavian Glass, Cyberpunk, Space)
 - **State Management**: Pinia for client-side state
 
 ### Key Features & Architecture
@@ -37,7 +39,7 @@ This is a **Nuxt 3** personal website with multiple interactive features:
 - Server-side rendering of markdown to HTML using markdown-it
 
 #### 2. Text-Based RPG Game
-- **State Management**: Firebase-persisted game state in `server/rpg/state/game-state.ts`
+- **State Management**: D1-persisted game state in `server/rpg/state/game-state.ts`
 - **AI Integration**: Venice AI API (OpenAI-compatible) for dynamic responses
 - **Command System**: Text-based commands processed in `server/api/rpg.ts`
 - **Game Logic**: Modular handlers in `server/rpg/handlers/` for movement, AI responses, items, and places
@@ -49,13 +51,14 @@ This is a **Nuxt 3** personal website with multiple interactive features:
 - **Place/Item Generation**: Procedural generation using AI for RPG content
 
 ### Environment Configuration
-- Runtime config in `nuxt.config.ts` handles both server-side secrets and client-side public keys
-- Firebase configuration split between admin (server) and client SDK
-- Multiple API keys: VENICE_KEY, FAL_KEY, Firebase credentials
+- Runtime config in `nuxt.config.ts` handles server-side secrets (overridden at runtime by `NUXT_`-prefixed env vars on Cloudflare)
+- Cloudflare bindings (D1, R2) configured in `wrangler.toml`, accessed via `event.context.cloudflare.env`
+- D1 helper in `server/utils/db.ts` (`getDB(event)`)
+- Multiple API keys: VENICE_KEY, FAL_KEY, WAVESPEED_KEY, OPENAI_API_KEY
 
 ### Theme System
-- **2 themes**: Scandinavian Glass (default), Cyberpunk/Hacker
-- **Theme files**: `assets/themes/scandinavian.css`, `hacker.css`
+- **3 themes**: Scandinavian Glass (default), Cyberpunk/Hacker, Space
+- **Theme files**: `assets/themes/scandinavian.css`, `hacker.css`, `space.css`
 - **Semantic variables**: All themes expose a shared `--theme-*` CSS custom property API (e.g. `--theme-bg`, `--theme-text`, `--theme-card-bg`, `--theme-rpg-item`)
 - **Composable**: `composables/useTheme.ts` provides `activeTheme`, `themePageClass`, `cx()` helper, `setTheme()` with localStorage persistence
 - **Root wiring**: `app.vue` applies `themePageClass` to root div, cascading `--theme-*` vars to all pages/components
@@ -69,8 +72,9 @@ This is a **Nuxt 3** personal website with multiple interactive features:
 
 ### API Structure
 - RESTful endpoints in `server/api/` following Nuxt conventions
-- Nested routing for resource collections (blogposts, items, places)
-- Firebase Admin SDK for server-side database operations
+- Nested routing for resource collections (blogposts, items, places, characters)
+- Cloudflare D1 for server-side database operations (via `getDB(event)`)
+- Database schema in `database/schema.sql`, applied during CI deploy
 - Error handling with H3 utilities (createError, defineEventHandler)
 
 ### File-Based Routing
@@ -79,10 +83,17 @@ This is a **Nuxt 3** personal website with multiple interactive features:
 - Draft pages in `pages/drafts/` for experimental features
 
 ### Key Technical Patterns
-- **Server Utilities**: Firebase Admin in `server/utils/firebase-admin.ts`
+- **Server Utilities**: D1 helper in `server/utils/db.ts`, AI/image utils in `server/utils/`
 - **Type Safety**: Comprehensive TypeScript interfaces for all major features
 - **Error Handling**: Consistent error responses across API endpoints
 - **Client-Server Communication**: H3 event handlers with proper request/response typing
+
+### Deployment
+- **CI/CD**: GitHub Actions (`.github/workflows/deploy.yml`) on push to `master`
+- **Build**: `nuxt build` with `NITRO_PRESET=cloudflare-pages`
+- **Deploy**: `wrangler pages deploy` to Cloudflare Pages
+- **D1 schema**: Applied via `wrangler d1 execute` during deploy
+- **Post-deploy**: Push notification sent to Sleeper Chat
 
 ### Mobile Responsiveness
 - Viewport meta configuration prevents zooming on mobile
