@@ -1,5 +1,6 @@
 <template>
   <div :class="themePageClass">
+    <SpaceStarfield v-if="activeTheme === 'space'" />
     <NuxtPage />
     <MenuComponent ref="menuComponent" />
   </div>
@@ -7,8 +8,9 @@
 
 <script setup lang="ts">
 import MenuComponent from '~/components/MenuComponent.vue';
+import SpaceStarfield from '~/components/SpaceStarfield.vue';
 
-const { themePageClass, themeColor } = useTheme()
+const { themePageClass, themeColor, activeTheme } = useTheme()
 const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);
 
 useHead({

@@ -80,42 +80,7 @@
   --theme-rpg-command: var(--space-text-subtle);
 }
 
-/* ---- Starfield background ---- */
-
-.space-page::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(1.5px 1.5px at 10% 20%, rgba(255,255,255,0.8) 50%, transparent 50%),
-    radial-gradient(1px 1px at 25% 55%, rgba(200,220,255,0.7) 50%, transparent 50%),
-    radial-gradient(1.2px 1.2px at 40% 15%, rgba(255,255,255,0.6) 50%, transparent 50%),
-    radial-gradient(1px 1px at 55% 75%, rgba(255,230,180,0.7) 50%, transparent 50%),
-    radial-gradient(1.8px 1.8px at 70% 35%, rgba(255,255,255,0.9) 50%, transparent 50%),
-    radial-gradient(1px 1px at 85% 60%, rgba(220,200,255,0.6) 50%, transparent 50%),
-    radial-gradient(1.3px 1.3px at 15% 80%, rgba(255,255,255,0.7) 50%, transparent 50%),
-    radial-gradient(1px 1px at 30% 40%, rgba(180,200,255,0.6) 50%, transparent 50%),
-    radial-gradient(1.5px 1.5px at 50% 50%, rgba(255,255,255,0.5) 50%, transparent 50%),
-    radial-gradient(1px 1px at 65% 10%, rgba(255,200,150,0.6) 50%, transparent 50%),
-    radial-gradient(1.2px 1.2px at 80% 85%, rgba(255,255,255,0.7) 50%, transparent 50%),
-    radial-gradient(1px 1px at 95% 25%, rgba(200,220,255,0.5) 50%, transparent 50%),
-    radial-gradient(1.4px 1.4px at 5% 45%, rgba(255,255,255,0.8) 50%, transparent 50%),
-    radial-gradient(1px 1px at 20% 90%, rgba(255,180,180,0.5) 50%, transparent 50%),
-    radial-gradient(1.6px 1.6px at 45% 30%, rgba(255,255,255,0.6) 50%, transparent 50%),
-    radial-gradient(1px 1px at 60% 95%, rgba(200,220,255,0.7) 50%, transparent 50%),
-    radial-gradient(1.1px 1.1px at 75% 50%, rgba(255,230,180,0.5) 50%, transparent 50%),
-    radial-gradient(1px 1px at 90% 70%, rgba(255,255,255,0.6) 50%, transparent 50%),
-    radial-gradient(1.3px 1.3px at 35% 65%, rgba(220,200,255,0.7) 50%, transparent 50%),
-    radial-gradient(1px 1px at 50% 5%, rgba(255,255,255,0.5) 50%, transparent 50%);
-  animation: space-drift 120s linear infinite;
-}
-
-@keyframes space-drift {
-  from { transform: translateX(0); }
-  to { transform: translateX(-100px); }
-}
+/* Starfield background is rendered by SpaceStarfield.vue canvas component */
 
 /* Ensure content sits above the starfield */
 .space-page > * {
