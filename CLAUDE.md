@@ -21,19 +21,16 @@
 app.vue              — root shell: theme class, starfield, menu
 pages/               — file-based routing
   index.vue          — landing page
-  blog/              — markdown blog (index, [slug], new)
   rpg/index.vue      — text-based RPG terminal
-  inspire.vue        — AI image generation
-  drafts/            — experimental pages
+  drafts/            — experimental pages (places, rpg)
 components/          — Vue components (global + rpg/)
-composables/         — useTheme, useImagePrompts
+composables/         — useTheme
 server/api/          — H3 API routes
 server/rpg/          — RPG engine (handlers/, state/)
 server/utils/        — db.ts, r2.ts, storage.ts, image-providers.ts, etc.
 types/               — shared TypeScript interfaces
 assets/themes/       — scandinavian.css, hacker.css, space.css
 database/schema.sql  — D1 schema (applied during CI deploy)
-blog/                — markdown posts with YAML front matter
 ```
 
 ## Theme System
@@ -52,7 +49,6 @@ Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
 - D1 access: `getDB(event)` from `server/utils/db.ts`
 - R2 access: `server/utils/r2.ts` and `server/utils/storage.ts`
 - Runtime secrets via `nuxt.config.ts` `runtimeConfig`, overridden by `NUXT_`-prefixed env vars on Cloudflare
-- Blog posts are markdown files in `blog/`, rendered server-side with markdown-it
 - RPG state persists in D1; UI state in localStorage under `rpg_ui_state`
 - No auth system currently — removed, will be reimplemented from scratch
 

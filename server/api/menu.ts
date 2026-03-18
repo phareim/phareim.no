@@ -3,8 +3,6 @@ import { defineEventHandler, getQuery } from 'h3'
 // Statisk liste over tilgjengelige sider
 const menuItems = [
   { path: '/', title: 'Home', icon: '🏚️' },
-//  { path: '/inspire', title: 'Inspire', icon: '✨' },
-//  { path: '/blog', title: 'Blog', icon: '📬' },
   { path: '/rpg', title: 'Old Skool RPG', icon: '🤓', external: false },
   { path: '/drafts/places', title: 'RPG Place Generator', icon: '🏞️', external: false },
   { path: 'https://dot.phareim.no', title: 'Red dot game', icon: '🔴', external: true },

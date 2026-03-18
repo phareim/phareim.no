@@ -3,7 +3,6 @@
 ## Architecture
 - Nuxt 3 personal website deployed on Cloudflare Pages
 - Database: Cloudflare D1 (`phareim-rpg`), storage: Cloudflare R2 (`phareim-assets`)
-- Blog: markdown files in `/blog` directory, server-side rendering
 - No auth system — removed, will be reimplemented from scratch
 
 ## D1 Tables
@@ -11,7 +10,6 @@
 - `places` — RPG world locations
 - `items` — RPG items
 - `characters` — RPG NPCs
-- `image_prompts` — default image prompt templates (used by inspire page)
 - `model_definitions` — AI model configs for image generation
 
 ## RPG
