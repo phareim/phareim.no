@@ -22,7 +22,6 @@
 - `server/utils/storage.ts` — `uploadImageToR2(event, src, opts)` replaces Firebase Storage
 - `server/utils/user-auth.ts` — `getAuthenticatedUserId(event)` → cookie-based, returns `'owner'` or `null` (synchronous)
 - `server/utils/model-definitions.ts` — `getModelDefinition(id, db)`, `getEnabledModelDefinitions(db)`
-- `server/utils/image-generation.ts` — `generateCharacterImage(prompt, context, db)` (db required)
 - `server/utils/place-generator.ts` — AI place generation, saves to D1
 - `server/rpg/state/game-state.ts` — load/save game state from D1
 - `server/rpg/handlers/characters.ts` — RPG NPC generation + conversation state

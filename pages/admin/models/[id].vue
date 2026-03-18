@@ -227,57 +227,6 @@
               </div>
             </div>
 
-            <!-- Test Image Generation -->
-            <div class="form-section test-section">
-              <h2>🖼️ Test Image Generation</h2>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Test Prompt</label>
-                  <input
-                    v-model="testPrompt"
-                    type="text"
-                    placeholder="Enter a test prompt..."
-                  />
-                </div>
-
-                <div class="form-group">
-                  <label>Style</label>
-                  <select v-model="testStyle">
-                    <option value="">Default</option>
-                    <option
-                      v-for="style in model.supportedStyles"
-                      :key="style.value"
-                      :value="style.value"
-                    >
-                      {{ style.icon }} {{ style.title }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                @click="generateTestImage"
-                :disabled="testGenerating || !testPrompt"
-                class="btn-test"
-              >
-                {{ testGenerating ? '⏳ Generating...' : '🎨 Generate Test Image' }}
-              </button>
-
-              <div v-if="testImageUrl" class="test-result">
-                <img :src="testImageUrl" alt="Test generation" />
-                <div class="test-info">
-                  <strong>Full Prompt:</strong>
-                  <p>{{ testFullPrompt }}</p>
-                </div>
-              </div>
-
-              <div v-if="testError" class="test-error">
-                ❌ {{ testError }}
-              </div>
-            </div>
-
             <!-- Save Button -->
             <div class="form-actions">
               <button type="submit" :disabled="saving" class="btn-save">
@@ -322,13 +271,6 @@ const parametersJson = ref('{}')
 const jsonErrors = ref({
   parameters: ''
 })
-
-const testPrompt = ref('')
-const testStyle = ref('')
-const testGenerating = ref(false)
-const testImageUrl = ref('')
-const testFullPrompt = ref('')
-const testError = ref('')
 
 const loadModel = async () => {
   if (isNewModel.value) {
@@ -436,34 +378,6 @@ const buildExamplePrompt = () => {
   }
 
   return parts.join(', ')
-}
-
-const generateTestImage = async () => {
-  if (!testPrompt.value) return
-
-  try {
-    testGenerating.value = true
-    testError.value = ''
-    testImageUrl.value = ''
-    testFullPrompt.value = ''
-
-    const result = await $fetch('/api/admin/test-image', {
-      method: 'POST',
-      body: {
-        modelId: model.value.id,
-        userPrompt: testPrompt.value,
-        selectedStyle: testStyle.value
-      }
-    })
-
-    testImageUrl.value = result.imageUrl
-    testFullPrompt.value = result.fullPrompt
-  } catch (error) {
-    console.error('Test generation error:', error)
-    testError.value = error.message || 'Failed to generate test image'
-  } finally {
-    testGenerating.value = false
-  }
 }
 
 onMounted(() => {
@@ -799,71 +713,6 @@ h2 {
   color: white;
   display: block;
   margin-bottom: 0.75rem;
-}
-
-/* Test Section */
-.test-section {
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-}
-
-.btn-test {
-  background: rgba(139, 92, 246, 0.9);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 0.875rem 1.5rem;
-  font-size: 1rem;
-  font-weight: bold;
-  font-family: "Alan Sans", sans-serif;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  width: 100%;
-}
-
-.btn-test:hover:not(:disabled) {
-  background: rgba(139, 92, 246, 1);
-  transform: translateY(-2px);
-}
-
-.btn-test:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.test-result {
-  margin-top: 1rem;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 1rem;
-}
-
-.test-result img {
-  width: 100%;
-  max-width: 512px;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-}
-
-.test-info {
-  color: white;
-}
-
-.test-info p {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 0.75rem;
-  border-radius: 6px;
-  margin-top: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.test-error {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: rgba(220, 53, 69, 0.9);
-  color: white;
-  border-radius: 8px;
-  font-weight: 600;
 }
 
 /* Form Actions */
