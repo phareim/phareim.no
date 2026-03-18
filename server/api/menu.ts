@@ -3,11 +3,7 @@ import { defineEventHandler, getQuery } from 'h3'
 // Statisk liste over tilgjengelige sider
 const menuItems = [
   { path: '/', title: 'Home', icon: '🏚️' },
-  { path: '/account', title: 'Account', icon: '👤' },
-  { path: '/drafts/about', title: 'About', icon: '📄' },
-  { path: '/drafts/bounce', title: 'Bounce', icon: '⚽️' },
 //  { path: '/inspire', title: 'Inspire', icon: '✨' },
-  { path: '/drafts/image-generator', title: 'Image', icon: '👩🏻‍🎨' },
 //  { path: '/blog', title: 'Blog', icon: '📬' },
   { path: '/rpg', title: 'Old Skool RPG', icon: '🤓', external: false },
   { path: '/drafts/places', title: 'RPG Place Generator', icon: '🏞️', external: false },

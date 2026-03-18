@@ -23,7 +23,6 @@ const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'm' && !window.location.pathname.includes('rpg')
   && !window.location.pathname.includes('character')
   && !window.location.pathname.includes('admin')
-  && !window.location.pathname.includes('image-generator')
   && !window.location.pathname.includes('new-character')) {
     menuComponent.value?.toggleMenu();
   }
