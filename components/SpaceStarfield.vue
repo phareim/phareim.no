@@ -5,7 +5,7 @@
 <script setup lang="ts">
 const canvas = ref<HTMLCanvasElement | null>(null)
 let ctx: CanvasRenderingContext2D | null = null
-let stars: Array<{ x: number; y: number; size: number; speed: number; opacity: number; color: number[] }> = []
+let stars: Array<{ x: number; y: number; size: number; speed: number; opacity: number; color: number[]; rgbStr: string }> = []
 let animationId: number | null = null
 
 const NUM_STARS = 300
@@ -41,6 +41,7 @@ function initStars() {
       speed: Math.random() * 1.5 + 0.3,
       opacity: Math.random() * 0.7 + 0.3,
       color,
+      rgbStr: `${color[0]}, ${color[1]}, ${color[2]}`,
     })
   }
 }
@@ -52,7 +53,7 @@ function draw() {
   for (const star of stars) {
     ctx.beginPath()
     ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(${star.color[0]}, ${star.color[1]}, ${star.color[2]}, ${star.opacity})`
+    ctx.fillStyle = `rgba(${star.rgbStr}, ${star.opacity})`
     ctx.fill()
 
     star.x -= star.speed
@@ -68,8 +69,16 @@ function draw() {
 }
 
 function onResize() {
+  const oldW = canvas.value?.width ?? 0
+  const oldH = canvas.value?.height ?? 0
   resize()
-  initStars()
+  if (!canvas.value) return
+  const newW = canvas.value.width
+  const newH = canvas.value.height
+  for (const star of stars) {
+    star.x = star.x * newW / (oldW || newW)
+    star.y = star.y * newH / (oldH || newH)
+  }
 }
 
 onMounted(() => {

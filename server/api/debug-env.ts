@@ -8,7 +8,6 @@ export default defineEventHandler((event) => {
     return {
         runtimeConfig: {
             hasVeniceKey: !!config.veniceKey,
-            hasAdminPassword: !!config.adminPassword,
         },
         cloudflareEnvKeys: cfKeys,
         processEnv: {
