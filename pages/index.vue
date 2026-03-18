@@ -7,7 +7,7 @@
       @restart="onGameRestart"
       @started="onGameStarted"
     />
-    <canvas v-else ref="canvas"></canvas>
+    <canvas v-else-if="!isSpace" ref="canvas"></canvas>
     <div class="overlay" @click="onOverlayClick">
       <div class="home">
         <ProfileCard
@@ -117,10 +117,13 @@ export default {
     isHacker() {
       return this.activeTheme === 'hacker'
     },
+    isSpace() {
+      return this.activeTheme === 'space'
+    },
   },
   watch: {
-    isHacker(isNowHacker) {
-      if (isNowHacker) {
+    activeTheme() {
+      if (this.isHacker || this.isSpace) {
         this.stopBubbles();
       } else {
         this.startBubbles();
@@ -129,7 +132,7 @@ export default {
   },
   mounted() {
     document.body.classList.remove('scrollable');
-    if (!this.isHacker) {
+    if (!this.isHacker && !this.isSpace) {
       this.startBubbles();
     }
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -381,7 +384,7 @@ export default {
       });
     },
     onOverlayClick(event) {
-      if (!this.isHacker) {
+      if (!this.isHacker && !this.isSpace) {
         this.addBox(event);
       }
     },
