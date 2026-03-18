@@ -21,12 +21,10 @@
 app.vue              — root shell: theme class, starfield, menu
 pages/               — file-based routing
   index.vue          — landing page
-  rpg/index.vue      — text-based RPG terminal
-  drafts/            — experimental pages (places, rpg)
-components/          — Vue components (global + rpg/)
+  drafts/            — experimental pages
+components/          — Vue components
 composables/         — useTheme
 server/api/          — H3 API routes
-server/rpg/          — RPG engine (handlers/, state/)
 server/utils/        — db.ts, r2.ts, storage.ts, image-providers.ts, etc.
 types/               — shared TypeScript interfaces
 assets/themes/       — scandinavian.css, hacker.css, space.css
@@ -49,7 +47,6 @@ Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
 - D1 access: `getDB(event)` from `server/utils/db.ts`
 - R2 access: `server/utils/r2.ts` and `server/utils/storage.ts`
 - Runtime secrets via `nuxt.config.ts` `runtimeConfig`, overridden by `NUXT_`-prefixed env vars on Cloudflare
-- RPG state persists in D1; UI state in localStorage under `rpg_ui_state`
 - No auth system currently — removed, will be reimplemented from scratch
 
 ## Deployment
@@ -60,4 +57,4 @@ Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
 
 ## Keyboard Shortcuts
 
-- `M` key toggles the global menu (disabled on RPG and admin pages)
+- `M` key toggles the global menu (disabled on admin pages)
