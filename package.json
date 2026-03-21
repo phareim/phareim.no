@@ -20,7 +20,7 @@
   "dependencies": {
     "@fal-ai/client": "^1.5.0",
     "@types/uuid": "^10.0.0",
-    "h3": "^1.15.5",
+    "h3": "^1.15.9",
     "markdown-it": "^14.1.1",
     "openai": "^5.12.2",
     "pinia": "^2.3.1",
