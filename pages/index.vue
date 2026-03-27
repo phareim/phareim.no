@@ -107,6 +107,11 @@ export default {
         animateCount: 0
       },
       animationFrameId: null,
+      gyroOffsetX: 0,
+      gyroOffsetY: 0,
+      targetGyroX: 0,
+      targetGyroY: 0,
+      _gyroTapHandler: null,
       hackerScore: 0,
       hackerHighScore: 0,
       hackerGameOver: false,
@@ -145,6 +150,8 @@ export default {
     window.removeEventListener('mousemove', this.updateMousePosition);
     window.removeEventListener('resize', this.setupCanvas);
     window.removeEventListener('touchmove', this.updateTouchPosition);
+    window.removeEventListener('deviceorientation', this.handleOrientation);
+    if (this._gyroTapHandler) document.removeEventListener('click', this._gyroTapHandler);
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
     }
@@ -171,6 +178,15 @@ export default {
       
       this.statistics.animateCount++;
       this.animationFrameId = requestAnimationFrame(this.animate);
+
+      // Gyroscope: smooth toward target and inject delta as velocity nudge
+      const prevGX = this.gyroOffsetX;
+      const prevGY = this.gyroOffsetY;
+      this.gyroOffsetX += (this.targetGyroX - this.gyroOffsetX) * 0.08;
+      this.gyroOffsetY += (this.targetGyroY - this.gyroOffsetY) * 0.08;
+      this.mousePosition.v.x += (this.gyroOffsetX - prevGX) * 5;
+      this.mousePosition.v.y += (this.gyroOffsetY - prevGY) * 5;
+
       this.ctx.clearRect(0, 0, this.$refs?.canvas?.width, this.$refs?.canvas?.height);
       this.boxes.forEach(box => {
         this.updatePosition(box);
@@ -361,6 +377,24 @@ export default {
       this.theUpsideDown = false;
       event.stopPropagation();
     },
+    handleOrientation(event) {
+      if (event.gamma !== null && event.beta !== null) {
+        this.targetGyroX = event.gamma * 1.5;
+        this.targetGyroY = (event.beta - 45) * 1.5;
+      }
+    },
+    enableGyro() {
+      const DOE = window.DeviceOrientationEvent;
+      if (typeof DOE !== 'undefined' && typeof DOE.requestPermission === 'function') {
+        DOE.requestPermission().then(state => {
+          if (state === 'granted') {
+            window.addEventListener('deviceorientation', this.handleOrientation);
+          }
+        }).catch(console.warn);
+      } else if ('DeviceOrientationEvent' in window) {
+        window.addEventListener('deviceorientation', this.handleOrientation);
+      }
+    },
     stopBubbles() {
       if (this.animationFrameId) {
         cancelAnimationFrame(this.animationFrameId);
@@ -369,6 +403,11 @@ export default {
       window.removeEventListener('mousemove', this.updateMousePosition);
       window.removeEventListener('resize', this.setupCanvas);
       window.removeEventListener('touchmove', this.updateTouchPosition);
+      window.removeEventListener('deviceorientation', this.handleOrientation);
+      if (this._gyroTapHandler) {
+        document.removeEventListener('click', this._gyroTapHandler);
+        this._gyroTapHandler = null;
+      }
       this.boxes = [];
     },
     startBubbles() {
@@ -381,6 +420,14 @@ export default {
         this.animationFrameId = requestAnimationFrame(this.animate);
         this.addBox({clientX: window.innerWidth / 4, clientY: window.innerHeight / 3, layer: 1});
         this.addBox({clientX: (window.innerWidth / 4)*3, clientY: (window.innerHeight / 3)*2, layer: 1});
+
+        // Gyroscope: Android works without gesture, iOS needs a tap
+        const DOE = window.DeviceOrientationEvent;
+        if (typeof DOE !== 'undefined' && typeof DOE.requestPermission !== 'function') {
+          window.addEventListener('deviceorientation', this.handleOrientation);
+        }
+        this._gyroTapHandler = () => { this.enableGyro(); };
+        document.addEventListener('click', this._gyroTapHandler, { once: true });
       });
     },
     onOverlayClick(event) {
