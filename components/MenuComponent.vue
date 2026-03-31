@@ -1,13 +1,23 @@
 <template>
 	<div>
-		<button :class="['hamburger', { 'active': showMenu }]" @click="toggleMenu">
+		<button
+			:class="['hamburger', { 'active': showMenu }]"
+			@click="toggleMenu"
+			:aria-label="showMenu ? 'Close menu' : 'Open menu'"
+			:aria-expanded="showMenu"
+			aria-controls="site-menu"
+		>
 			<span></span>
 			<span></span>
 			<span></span>
 		</button>
-		<div :class="['menu-container', { 'show-menu': showMenu }]"
-			@touchstart="handleTouchStart" @touchend="handleTouchEnd">
-			<nav>
+		<div
+			id="site-menu"
+			:class="['menu-container', { 'show-menu': showMenu }]"
+			@touchstart="handleTouchStart"
+			@touchend="handleTouchEnd"
+		>
+			<nav aria-label="Site navigation">
 				<ul>
 					<li v-for="item in menuItems" :key="item.path">
 						<NuxtLink :to="item.path" @click="toggleMenu" :target="item.external ? '_blank' : '_self'"
@@ -27,6 +37,8 @@
 						@click="setTheme(theme.id)"
 						:class="['theme-btn', { active: activeTheme === theme.id }]"
 						:title="theme.name"
+						:aria-label="`Switch to ${theme.name} theme`"
+						:aria-pressed="activeTheme === theme.id"
 					>
 						{{ theme.icon }}
 					</button>
