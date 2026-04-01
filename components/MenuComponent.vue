@@ -1,5 +1,6 @@
 <template>
 	<div>
+		<div v-if="showMenu" class="menu-backdrop" @click="toggleMenu" @touchstart.prevent="toggleMenu"></div>
 		<button
 			:class="['hamburger', { 'active': showMenu }]"
 			@click="toggleMenu"
@@ -49,12 +50,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useTheme } from '~/composables/useTheme'
 import { useRoute } from 'vue-router'
 const { activeTheme, themes, setTheme } = useTheme()
 const route = useRoute()
 const showMenu = ref(false)
+
+watch(() => route.path, () => {
+	showMenu.value = false
+})
 const touchStartX = ref(0)
 const menuItems = ref([])
 
@@ -95,6 +100,12 @@ defineExpose({
 </script>
 
 <style scoped>
+.menu-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 999;
+}
+
 .hamburger {
 	position: fixed;
 	top: 1.5rem;
