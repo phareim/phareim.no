@@ -135,6 +135,12 @@ defineExpose({
 	opacity: 0.7;
 }
 
+.hamburger:focus-visible {
+	outline: 2px solid var(--theme-text, #333);
+	outline-offset: 6px;
+	border-radius: 2px;
+}
+
 .hamburger.active span:nth-child(1) {
 	transform: translateY(11px) rotate(45deg);
 }
@@ -204,6 +210,12 @@ nav ul li a.router-link-active {
 	font-weight: bold;
 }
 
+nav ul li a:focus-visible {
+	outline: 2px solid var(--theme-accent, #6b8cae);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
 .menu-item.external {
 	color: var(--theme-accent, #164e8a);
 }
@@ -259,6 +271,11 @@ nav ul li a.router-link-active {
 .theme-btn:hover {
 	transform: scale(1.05);
 	background: rgba(128, 128, 128, 0.2);
+}
+
+.theme-btn:focus-visible {
+	outline: 2px solid var(--theme-accent, #6b8cae);
+	outline-offset: 2px;
 }
 
 .theme-btn.active {
