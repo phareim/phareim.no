@@ -21,6 +21,7 @@
 app.vue              — root shell: theme class, starfield, menu
 pages/               — file-based routing
   index.vue          — landing page (full-screen canvas, removes scrollable)
+  about.vue          — /about — brief bio, photo, social links
   projects.vue       — /projects — GitHub repos fetched live from GitHub API
   drafts/            — experimental pages
 components/          — Vue components
