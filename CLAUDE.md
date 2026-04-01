@@ -20,11 +20,14 @@
 ```
 app.vue              — root shell: theme class, starfield, menu
 pages/               — file-based routing
-  index.vue          — landing page
+  index.vue          — landing page (full-screen canvas, removes scrollable)
+  projects.vue       — /projects — GitHub repos fetched live from GitHub API
   drafts/            — experimental pages
 components/          — Vue components
 composables/         — useTheme
 server/api/          — H3 API routes
+  menu.ts            — static menu items list
+  projects.ts        — fetches phareim's public GitHub repos
 server/utils/        — db.ts, r2.ts, storage.ts, image-providers.ts, etc.
 types/               — shared TypeScript interfaces
 assets/themes/       — scandinavian.css, hacker.css, space.css
