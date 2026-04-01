@@ -99,6 +99,13 @@ function formatDate(iso: string): string {
   color: var(--theme-text, #111);
 }
 
+.back-link:focus-visible {
+  outline: 2px solid var(--theme-accent, #89abd0);
+  outline-offset: 3px;
+  border-radius: 3px;
+  color: var(--theme-text, #111);
+}
+
 h1 {
   font-size: clamp(2rem, 6vw, 3.5rem);
   margin: 0 0 0.5rem;
@@ -141,6 +148,13 @@ h1 {
   transform: translateY(-3px);
   box-shadow: 0 6px 24px var(--theme-card-shadow, rgba(0,0,0,0.08));
   border-color: var(--theme-accent, #89abd0);
+}
+
+.project-card:focus-visible {
+  outline: 2px solid var(--theme-accent, #89abd0);
+  outline-offset: 2px;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 24px var(--theme-card-shadow, rgba(0,0,0,0.08));
 }
 
 .project-top {
@@ -230,8 +244,10 @@ h1 {
   text-transform: lowercase;
 }
 
-:global(.hacker-page) .project-card:hover {
+:global(.hacker-page) .project-card:hover,
+:global(.hacker-page) .project-card:focus-visible {
   box-shadow: 0 0 20px var(--theme-card-shadow, rgba(0,255,65,0.2));
+  outline-color: var(--theme-accent, #00ff41);
 }
 
 :global(.hacker-page) .back-link,
