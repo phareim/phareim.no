@@ -1,7 +1,6 @@
 <template>
   <div class="projects-page">
     <header class="projects-header">
-      <NuxtLink to="/" class="back-link">← home</NuxtLink>
       <h1>projects</h1>
       <p class="subtitle">things i've built and tinkered with</p>
     </header>
@@ -84,26 +83,6 @@ function formatDate(iso: string): string {
 
 .projects-header {
   margin-bottom: 3rem;
-}
-
-.back-link {
-  display: inline-block;
-  color: var(--theme-text-muted, #666);
-  text-decoration: none;
-  font-size: 0.9rem;
-  margin-bottom: 1.5rem;
-  transition: color 0.2s;
-}
-
-.back-link:hover {
-  color: var(--theme-text, #111);
-}
-
-.back-link:focus-visible {
-  outline: 2px solid var(--theme-accent, #89abd0);
-  outline-offset: 3px;
-  border-radius: 3px;
-  color: var(--theme-text, #111);
 }
 
 h1 {
@@ -250,7 +229,6 @@ h1 {
   outline-color: var(--theme-accent, #00ff41);
 }
 
-:global(.hacker-page) .back-link,
 :global(.hacker-page) .subtitle {
   font-family: monospace;
 }

@@ -27,11 +27,13 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
 onMounted(() => {
   document.body.classList.add('scrollable');
+  document.documentElement.classList.add('scrollable');
   document.addEventListener('keydown', handleKeyDown);
 });
 
 onBeforeUnmount(() => {
   document.body.classList.remove('scrollable');
+  document.documentElement.classList.remove('scrollable');
   document.removeEventListener('keydown', handleKeyDown);
 });
 </script>
