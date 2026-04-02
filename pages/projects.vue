@@ -21,7 +21,7 @@
         <button
           :class="['lang-btn', { active: activeLang === null }]"
           @click="activeLang = null"
-          aria-pressed="activeLang === null"
+          :aria-pressed="activeLang === null"
         >all</button>
         <button
           v-for="lang in availableLangs"
