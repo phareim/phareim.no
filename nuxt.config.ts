@@ -34,6 +34,7 @@ export default defineNuxtConfig({
     openaiApiKey: '',
     falKey: '',
     wavespeedKey: '',
+    githubToken: '',
 
     // Public keys that are exposed to the client
     public: {}

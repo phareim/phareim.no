@@ -63,11 +63,17 @@ function extractReadmeDescription(readme: string): string | null {
   return text.trim() || null
 }
 
-async function fetchReadmeDescription(owner: string, repo: string): Promise<string | null> {
+function githubHeaders(token: string): Record<string, string> {
+  const headers: Record<string, string> = { 'User-Agent': 'phareim.no' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  return headers
+}
+
+async function fetchReadmeDescription(owner: string, repo: string, token: string): Promise<string | null> {
   try {
     const res = await fetch(
       `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/README.md`,
-      { headers: { 'User-Agent': 'phareim.no' } }
+      { headers: githubHeaders(token) }
     )
     if (!res.ok) return null
     const text = await res.text()
@@ -77,11 +83,12 @@ async function fetchReadmeDescription(owner: string, repo: string): Promise<stri
   }
 }
 
-export default defineEventHandler(async (): Promise<Project[]> => {
+export default defineEventHandler(async (event): Promise<Project[]> => {
+  const { githubToken } = useRuntimeConfig(event)
   try {
     const response = await fetch(
       'https://api.github.com/users/phareim/repos?sort=updated&per_page=30&type=public',
-      { headers: { 'User-Agent': 'phareim.no' } }
+      { headers: githubHeaders(githubToken) }
     )
 
     if (!response.ok) {
@@ -92,7 +99,7 @@ export default defineEventHandler(async (): Promise<Project[]> => {
     const filtered = repos.filter(r => !r.fork && r.language)
 
     const readmeDescriptions = await Promise.all(
-      filtered.map(r => fetchReadmeDescription('phareim', r.name))
+      filtered.map(r => fetchReadmeDescription('phareim', r.name, githubToken))
     )
 
     return filtered.map((r, i) => ({
