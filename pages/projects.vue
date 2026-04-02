@@ -5,9 +5,40 @@
       <p class="subtitle">things i've built and tinkered with</p>
     </header>
 
-    <main class="projects-grid" v-if="!pending && projects?.length">
+    <div v-if="!pending && projects?.length" class="projects-filters">
+      <div class="search-wrapper">
+        <input
+          v-model="search"
+          type="search"
+          class="search-input"
+          placeholder="search projects…"
+          aria-label="Search projects"
+          spellcheck="false"
+          autocomplete="off"
+        />
+      </div>
+      <div class="lang-filters" role="group" aria-label="Filter by language">
+        <button
+          :class="['lang-btn', { active: activeLang === null }]"
+          @click="activeLang = null"
+          aria-pressed="activeLang === null"
+        >all</button>
+        <button
+          v-for="lang in availableLangs"
+          :key="lang"
+          :class="['lang-btn', { active: activeLang === lang }]"
+          :style="{ '--lang-color': langColor(lang) }"
+          @click="activeLang = activeLang === lang ? null : lang"
+          :aria-pressed="activeLang === lang"
+        >
+          <span class="lang-dot"></span>{{ lang }}
+        </button>
+      </div>
+    </div>
+
+    <main v-if="!pending && filteredProjects.length" class="projects-grid">
       <a
-        v-for="project in projects"
+        v-for="project in filteredProjects"
         :key="project.name"
         :href="project.html_url"
         target="_blank"
@@ -34,6 +65,10 @@
       </a>
     </main>
 
+    <div v-else-if="!pending && !filteredProjects.length && projects?.length" class="loading">
+      <span class="loading-text">no matches found</span>
+    </div>
+
     <div v-else-if="pending" class="loading">
       <span class="loading-text">fetching projects…</span>
     </div>
@@ -48,6 +83,9 @@
 import type { Project } from '~/server/api/projects'
 
 const { data: projects, pending } = await useFetch<Project[]>('/api/projects')
+
+const search = ref('')
+const activeLang = ref<string | null>(null)
 
 const LANG_COLORS: Record<string, string> = {
   TypeScript: '#3178c6',
@@ -69,6 +107,24 @@ function formatDate(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleDateString('en', { month: 'short', year: 'numeric' })
 }
+
+const availableLangs = computed(() => {
+  if (!projects.value) return []
+  const langs = new Set(projects.value.map(p => p.language).filter(Boolean) as string[])
+  return [...langs].sort()
+})
+
+const filteredProjects = computed(() => {
+  if (!projects.value) return []
+  const q = search.value.trim().toLowerCase()
+  return projects.value.filter(p => {
+    const matchesSearch = !q
+      || p.name.toLowerCase().includes(q)
+      || (p.description ?? '').toLowerCase().includes(q)
+    const matchesLang = activeLang.value === null || p.language === activeLang.value
+    return matchesSearch && matchesLang
+  })
+})
 </script>
 
 <style scoped>
@@ -82,7 +138,7 @@ function formatDate(iso: string): string {
 }
 
 .projects-header {
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
 }
 
 h1 {
@@ -97,6 +153,106 @@ h1 {
   font-size: 1rem;
   margin: 0;
 }
+
+/* ── Filters ───────────────────────────────────────────────── */
+
+.projects-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.search-wrapper {
+  width: 100%;
+}
+
+.search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 1rem;
+  background: var(--theme-card-bg, rgba(255,255,255,0.6));
+  border: 1px solid var(--theme-card-border, rgba(0,0,0,0.1));
+  border-radius: var(--theme-card-radius, 16px);
+  color: var(--theme-text, #111);
+  font-family: inherit;
+  font-size: 0.9rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.search-input::placeholder {
+  color: var(--theme-text-subtle, #aaa);
+}
+
+.search-input:focus {
+  border-color: var(--theme-accent, #89abd0);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-accent, #89abd0) 20%, transparent);
+}
+
+/* Remove webkit search cancel button styling */
+.search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--theme-text-subtle, #aaa);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M18 6L6 18M6 6l12 12' stroke='currentColor' stroke-width='2'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M18 6L6 18M6 6l12 12' stroke='currentColor' stroke-width='2'/%3E%3C/svg%3E");
+  cursor: pointer;
+}
+
+.lang-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.lang-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--theme-text-muted, #666);
+  background: var(--theme-card-bg, rgba(255,255,255,0.5));
+  border: 1px solid var(--theme-card-border, rgba(0,0,0,0.08));
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.lang-btn:hover {
+  border-color: var(--theme-accent, #89abd0);
+  color: var(--theme-text, #111);
+}
+
+.lang-btn.active {
+  border-color: var(--theme-accent, #89abd0);
+  color: var(--theme-text, #111);
+  background: color-mix(in srgb, var(--theme-accent, #89abd0) 12%, var(--theme-card-bg, rgba(255,255,255,0.6)));
+}
+
+.lang-btn:focus-visible {
+  outline: 2px solid var(--theme-accent, #89abd0);
+  outline-offset: 2px;
+}
+
+.lang-btn .lang-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lang-color, var(--theme-accent, #888));
+  flex-shrink: 0;
+}
+
+/* ── Grid ──────────────────────────────────────────────────── */
 
 .projects-grid {
   display: grid;
@@ -213,7 +369,8 @@ h1 {
   font-size: 1rem;
 }
 
-/* Hacker theme overrides */
+/* ── Hacker theme overrides ────────────────────────────────── */
+
 :global(.hacker-page) .project-card {
   border-radius: 0;
 }
@@ -237,5 +394,15 @@ h1 {
   font-family: monospace;
   text-transform: lowercase;
   text-shadow: 0 0 10px currentColor;
+}
+
+:global(.hacker-page) .search-input,
+:global(.hacker-page) .lang-btn {
+  border-radius: 0;
+  font-family: monospace;
+}
+
+:global(.hacker-page) .lang-btn.active {
+  background: color-mix(in srgb, var(--theme-accent, #00ff41) 15%, transparent);
 }
 </style>
