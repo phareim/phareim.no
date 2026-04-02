@@ -110,6 +110,16 @@ export default {
 <style scoped>
 a {
   margin: 0 10px;
+  border-radius: 6px;
+  outline: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+a:focus-visible {
+  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline-offset: 4px;
 }
 
 a.kreftforeningen {
@@ -137,6 +147,11 @@ img.kreftforeningen:hover {
 
 .bluesky:hover {
   fill: #0385ff;
+}
+
+.github:hover {
+  fill: var(--theme-text, #333);
+  opacity: 0.7;
 }
 
 :deep(svg:hover path.google-stroke-1) {fill: #EA4335;}
