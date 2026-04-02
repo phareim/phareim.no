@@ -17,7 +17,6 @@ export interface Project {
   html_url: string
   stars: number
   pushed_at: string
-  commits: number
 }
 
 function extractReadmeDescription(readme: string): string | null {
@@ -64,21 +63,6 @@ function extractReadmeDescription(readme: string): string | null {
   return text.trim() || null
 }
 
-async function fetchCommitCount(owner: string, repo: string): Promise<number> {
-  try {
-    const res = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/commits?per_page=1`,
-      { headers: { 'User-Agent': 'phareim.no' } }
-    )
-    if (!res.ok) return 0
-    const link = res.headers.get('link') ?? ''
-    const match = link.match(/page=(\d+)>; rel="last"/)
-    return match ? parseInt(match[1], 10) : 1
-  } catch {
-    return 0
-  }
-}
-
 async function fetchReadmeDescription(owner: string, repo: string): Promise<string | null> {
   try {
     const res = await fetch(
@@ -107,22 +91,18 @@ export default defineEventHandler(async (): Promise<Project[]> => {
     const repos: GitHubRepo[] = await response.json()
     const filtered = repos.filter(r => !r.fork && r.language)
 
-    const [readmeDescriptions, commitCounts] = await Promise.all([
-      Promise.all(filtered.map(r => fetchReadmeDescription('phareim', r.name))),
-      Promise.all(filtered.map(r => fetchCommitCount('phareim', r.name)))
-    ])
+    const readmeDescriptions = await Promise.all(
+      filtered.map(r => fetchReadmeDescription('phareim', r.name))
+    )
 
-    return filtered
-      .map((r, i) => ({
-        name: r.name,
-        description: readmeDescriptions[i] ?? r.description,
-        language: r.language,
-        html_url: r.html_url,
-        stars: r.stargazers_count,
-        pushed_at: r.pushed_at,
-        commits: commitCounts[i]
-      }))
-      .sort((a, b) => b.commits - a.commits)
+    return filtered.map((r, i) => ({
+      name: r.name,
+      description: readmeDescriptions[i] ?? r.description,
+      language: r.language,
+      html_url: r.html_url,
+      stars: r.stargazers_count,
+      pushed_at: r.pushed_at
+    }))
   } catch {
     return []
   }
