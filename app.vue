@@ -1,7 +1,7 @@
 <template>
   <div :class="themePageClass">
     <SpaceStarfield v-if="activeTheme === 'space'" />
-    <NuxtPage />
+    <NuxtPage :transition="{ name: 'page', mode: 'out-in' }" />
     <MenuComponent ref="menuComponent" />
   </div>
 </template>
@@ -76,5 +76,55 @@ h1 {
   font-weight: 500;
   margin: 0;
   padding: 0;
+}
+
+/* ── Page transitions ─────────────────────────────────────── */
+
+/* Scandinavian (default): gentle fade + lift */
+.page-enter-active {
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.page-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* Hacker theme: sharp horizontal glitch */
+.hacker-page .page-enter-active {
+  transition: opacity 0.12s steps(4), transform 0.12s steps(4);
+}
+.hacker-page .page-leave-active {
+  transition: opacity 0.08s steps(3), transform 0.08s steps(3);
+}
+.hacker-page .page-enter-from {
+  opacity: 0;
+  transform: translateX(-16px);
+}
+.hacker-page .page-leave-to {
+  opacity: 0;
+  transform: translateX(16px);
+}
+
+/* Space theme: zoom-drift through deep space */
+.space-page .page-enter-active {
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.space-page .page-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.space-page .page-enter-from {
+  opacity: 0;
+  transform: scale(0.96);
+}
+.space-page .page-leave-to {
+  opacity: 0;
+  transform: scale(1.03);
 }
 </style>
