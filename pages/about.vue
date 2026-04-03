@@ -174,4 +174,41 @@ const socialLinks = [
   outline-offset: 3px;
   border-radius: 2px;
 }
+
+/* ── Hacker theme overrides ─────────────────────────────────── */
+
+:global(.hacker-page) .about-name {
+  font-family: monospace;
+  text-transform: lowercase;
+  text-shadow: 0 0 10px currentColor;
+}
+
+:global(.hacker-page) .about-tagline {
+  font-family: monospace;
+}
+
+:global(.hacker-page) .about-bio p {
+  font-family: monospace;
+}
+
+:global(.hacker-page) .about-link {
+  font-family: monospace;
+}
+
+:global(.hacker-page) .about-social-link {
+  font-family: monospace;
+}
+
+:global(.hacker-page) .about-photo {
+  border-radius: 0;
+  box-shadow: 0 0 18px var(--theme-card-shadow, rgba(0, 255, 65, 0.2));
+}
+
+:global(.hacker-page) .about-photo:hover {
+  box-shadow: 0 0 28px var(--theme-card-shadow, rgba(0, 255, 65, 0.35));
+}
+
+:global(.hacker-page) .about-divider {
+  box-shadow: 0 0 6px currentColor;
+}
 </style>
