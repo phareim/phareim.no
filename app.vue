@@ -3,12 +3,14 @@
     <SpaceStarfield v-if="activeTheme === 'space'" />
     <NuxtPage :transition="{ name: 'page', mode: 'out-in' }" />
     <MenuComponent ref="menuComponent" />
+    <ThemeTransition />
   </div>
 </template>
 
 <script setup lang="ts">
 import MenuComponent from '~/components/MenuComponent.vue';
 import SpaceStarfield from '~/components/SpaceStarfield.vue';
+import ThemeTransition from '~/components/ThemeTransition.vue';
 
 const { themePageClass, themeColor, activeTheme } = useTheme()
 const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);
