@@ -23,11 +23,13 @@ pages/               — file-based routing
   index.vue          — landing page (full-screen canvas, removes scrollable)
   about.vue          — /about — brief bio, photo, social links
   projects.vue       — /projects — GitHub repos fetched live from GitHub API
+  feed.vue           — /feed — Bluesky posts fetched from public AT Protocol API
   drafts/            — experimental pages
 components/          — Vue components
 composables/         — useTheme
 server/api/          — H3 API routes
   menu.ts            — static menu items list
+  feed.ts            — fetches phareim's public Bluesky posts (AT Protocol API)
   projects.ts        — fetches phareim's public GitHub repos
 server/utils/        — db.ts, r2.ts, storage.ts, image-providers.ts, etc.
 types/               — shared TypeScript interfaces
