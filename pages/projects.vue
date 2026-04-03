@@ -82,6 +82,8 @@
 <script setup lang="ts">
 import type { Project } from '~/server/api/projects'
 
+useHead({ title: 'projects — phareim.no' })
+
 const { data: projects, pending } = await useFetch<Project[]>('/api/projects')
 
 const search = ref('')
@@ -371,6 +373,12 @@ h1 {
 .loading-text {
   color: var(--theme-text-muted, #888);
   font-size: 1rem;
+  animation: loading-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes loading-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 /* ── Hacker theme overrides ────────────────────────────────── */
