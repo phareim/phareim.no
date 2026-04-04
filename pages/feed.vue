@@ -289,4 +289,19 @@ h1 {
   border-radius: 0;
   font-family: monospace;
 }
+
+/* ── Space theme overrides ──────────────────────────────────── */
+
+:global(.space-page) h1 {
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 40px rgba(140, 170, 220, 0.3);
+}
+
+:global(.space-page) .post-card:hover {
+  box-shadow: 0 8px 32px var(--theme-card-shadow, rgba(140, 170, 220, 0.15)),
+              0 0 0 1px rgba(140, 170, 220, 0.25);
+}
 </style>
