@@ -1,6 +1,7 @@
 <template>
   <div :class="themePageClass">
     <SpaceStarfield v-if="activeTheme === 'space'" />
+    <ScandiAurora v-if="activeTheme === 'scandi'" />
     <NuxtPage :transition="{ name: 'page', mode: 'out-in' }" />
     <MenuComponent ref="menuComponent" />
     <ThemeTransition />
@@ -10,6 +11,7 @@
 <script setup lang="ts">
 import MenuComponent from '~/components/MenuComponent.vue';
 import SpaceStarfield from '~/components/SpaceStarfield.vue';
+import ScandiAurora from '~/components/ScandiAurora.vue';
 import ThemeTransition from '~/components/ThemeTransition.vue';
 
 const { themePageClass, themeColor, activeTheme } = useTheme()
