@@ -211,4 +211,47 @@ const socialLinks = [
 :global(.hacker-page) .about-divider {
   box-shadow: 0 0 6px currentColor;
 }
+
+/* ── Space theme overrides ─────────────────────────────────── */
+
+:global(.space-page) .about-name {
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 40px rgba(140, 170, 220, 0.3);
+}
+
+:global(.space-page) .about-tagline {
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  letter-spacing: 0.02em;
+}
+
+:global(.space-page) .about-bio p {
+  font-family: var(--font-space-body, 'Arial Black', Impact, sans-serif);
+}
+
+:global(.space-page) .about-photo {
+  box-shadow:
+    0 4px 20px rgba(140, 170, 220, 0.15),
+    0 0 0 1px rgba(140, 170, 220, 0.2);
+  border-color: rgba(140, 170, 220, 0.3);
+}
+
+:global(.space-page) .about-photo:hover {
+  box-shadow:
+    0 8px 32px rgba(140, 170, 220, 0.25),
+    0 0 0 1px rgba(140, 170, 220, 0.4);
+}
+
+:global(.space-page) .about-divider {
+  background: linear-gradient(90deg, transparent, rgba(140, 170, 220, 0.5), transparent);
+}
+
+:global(.space-page) .about-social-link {
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
 </style>
