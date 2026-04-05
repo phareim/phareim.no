@@ -25,6 +25,7 @@ pages/               — file-based routing
   projects.vue       — /projects — GitHub repos fetched live from GitHub API
   feed.vue           — /feed — Bluesky posts fetched from public AT Protocol API
   now.vue            — /now — "what I'm doing now" page (live Bluesky + GitHub data)
+  uses.vue           — /uses — tech stack and tools overview (static content)
   drafts/            — experimental pages
 components/          — Vue components
 composables/         — useTheme
