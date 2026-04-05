@@ -222,6 +222,12 @@ h1 {
   color: var(--theme-accent, #6b8cae);
 }
 
+.now-link:focus-visible {
+  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* ── Bluesky card ───────────────────────────────────────────── */
 
 .now-card {
@@ -268,6 +274,12 @@ h1 {
   color: var(--theme-accent, #6b8cae);
 }
 
+.now-card-source:focus-visible {
+  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* ── Project list ───────────────────────────────────────────── */
 
 .now-project-list {
@@ -306,6 +318,12 @@ h1 {
 
 .now-project-link:hover .now-project-name {
   color: var(--theme-accent, #6b8cae);
+}
+
+.now-project-link:focus-visible {
+  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline-offset: 3px;
+  border-radius: 3px;
 }
 
 .now-project-desc {
