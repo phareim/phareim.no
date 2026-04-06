@@ -1,12 +1,23 @@
 <template>
-  <div class="flip-container" :class="{ 'is-flipped': flipped }" @click="flip" @pointerdown="flipStart" @pointerup="flipStop">
+  <div
+    class="flip-container"
+    :class="{ 'is-flipped': flipped }"
+    role="button"
+    tabindex="0"
+    :aria-label="flipped ? 'Profile photo (flipped) — click to flip back' : 'Profile photo — click to flip'"
+    @click="flip"
+    @pointerdown="flipStart"
+    @pointerup="flipStop"
+    @keydown.enter.prevent="flip"
+    @keydown.space.prevent="flip"
+  >
     <div class="flipper">
-      <div class="front">
-        <img class="profile-pic" src="/petter1.png" alt="petter's profile picture" 
+      <div class="front" aria-hidden="true">
+        <img class="profile-pic" src="/petter1.png" alt="Petter Hareim"
              oncontextmenu="return false;" ontouchstart="return false;">
       </div>
-      <div class="back">
-        <img class="profile-pic" src="/petter2.jpeg" alt="Bakside" 
+      <div class="back" aria-hidden="true">
+        <img class="profile-pic" src="/petter2.jpeg" alt="Petter Hareim, alternate photo"
              oncontextmenu="return false;" ontouchstart="return false;">
       </div>
     </div>
@@ -71,6 +82,12 @@ export default {
 .flip-container:active .flipper,
 .flip-container.is-flipped .flipper {
   transform: rotateY(180deg);
+}
+
+.flip-container:focus-visible {
+  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline-offset: 6px;
+  border-radius: 50%;
 }
 
 .profile-pic {
