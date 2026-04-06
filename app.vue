@@ -6,6 +6,7 @@
     <NuxtPage :transition="{ name: 'page', mode: 'out-in' }" />
     <MenuComponent ref="menuComponent" />
     <ThemeTransition />
+    <KeyboardShortcutsOverlay :open="showShortcuts" @close="showShortcuts = false" />
   </div>
 </template>
 
@@ -15,9 +16,11 @@ import SpaceStarfield from '~/components/SpaceStarfield.vue';
 import ScandiAurora from '~/components/ScandiAurora.vue';
 import HackerRain from '~/components/HackerRain.vue';
 import ThemeTransition from '~/components/ThemeTransition.vue';
+import KeyboardShortcutsOverlay from '~/components/KeyboardShortcutsOverlay.vue';
 
-const { themePageClass, themeColor, activeTheme } = useTheme()
+const { themePageClass, themeColor, activeTheme, setTheme } = useTheme()
 const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);
+const showShortcuts = ref(false);
 
 useHead({
   meta: [
@@ -25,9 +28,37 @@ useHead({
   ]
 })
 
+const THEME_KEYS: Record<string, 'scandi' | 'hacker' | 'space'> = {
+  '1': 'scandi',
+  '2': 'hacker',
+  '3': 'space',
+}
+
 const handleKeyDown = (event: KeyboardEvent) => {
-  if (event.key === 'm' && !window.location.pathname.includes('admin')) {
+  // Ignore when typing in inputs
+  const tag = (event.target as HTMLElement)?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || (event.target as HTMLElement)?.isContentEditable) return
+
+  const isAdmin = window.location.pathname.includes('admin')
+
+  if (event.key === '?' || event.key === '/') {
+    event.preventDefault()
+    showShortcuts.value = !showShortcuts.value
+    return
+  }
+
+  if (event.key === 'Escape' && showShortcuts.value) {
+    showShortcuts.value = false
+    return
+  }
+
+  if (!isAdmin && event.key === 'm') {
     menuComponent.value?.toggleMenu();
+    return
+  }
+
+  if (THEME_KEYS[event.key]) {
+    setTheme(THEME_KEYS[event.key])
   }
 };
 
