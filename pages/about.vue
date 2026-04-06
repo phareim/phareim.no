@@ -53,6 +53,8 @@ const socialLinks = [
   { label: 'GitHub', href: 'https://github.com/phareim' },
   { label: 'LinkedIn', href: 'https://www.linkedin.com/in/phareim' },
   { label: 'Bluesky', href: 'https://bsky.app/profile/phareim.no' },
+  { label: 'X', href: 'https://x.com/phareim' },
+  { label: 'Threads', href: 'https://www.threads.com/@phareim' },
 ]
 </script>
 
