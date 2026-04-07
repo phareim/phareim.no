@@ -48,6 +48,8 @@
 <script setup lang="ts">
 import type { Commit } from '~/server/api/meta'
 
+useHead({ title: 'meta — phareim.no' })
+
 const page = ref(1)
 const hasMore = ref(true)
 const loadingMore = ref(false)

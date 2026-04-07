@@ -7,6 +7,8 @@
           class="about-photo"
           src="/petter1.png"
           alt="Petter Hareim"
+          width="130"
+          height="130"
           draggable="false"
         />
       </div>
@@ -92,10 +94,23 @@ const socialLinks = [
   -webkit-user-select: none;
   display: block;
   box-shadow: 0 4px 20px var(--theme-card-shadow, rgba(0,0,0,0.08));
-  transition: box-shadow 0.3s ease;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  animation: photo-enter 0.5s ease both;
+}
+
+@keyframes photo-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .about-photo:hover {
+  transform: scale(1.04);
   box-shadow: 0 6px 28px var(--theme-card-shadow, rgba(0,0,0,0.14));
 }
 
