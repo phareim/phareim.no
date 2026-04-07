@@ -17,22 +17,46 @@
           autocomplete="off"
         />
       </div>
-      <div class="lang-filters" role="group" aria-label="Filter by language">
-        <button
-          :class="['lang-btn', { active: activeLang === null }]"
-          @click="activeLang = null"
-          :aria-pressed="activeLang === null"
-        >all</button>
-        <button
-          v-for="lang in availableLangs"
-          :key="lang"
-          :class="['lang-btn', { active: activeLang === lang }]"
-          :style="{ '--lang-color': langColor(lang) }"
-          @click="activeLang = activeLang === lang ? null : lang"
-          :aria-pressed="activeLang === lang"
+
+      <!-- Language distribution bar -->
+      <div v-if="langStats.length > 1" class="lang-distribution">
+        <div
+          class="dist-bar"
+          role="group"
+          aria-label="Filter projects by language"
         >
-          <span class="lang-dot"></span>{{ lang }}
-        </button>
+          <button
+            v-for="{ lang, count, pct } in langStats"
+            :key="lang"
+            class="dist-segment"
+            :class="{ active: activeLang === lang, dimmed: activeLang !== null && activeLang !== lang }"
+            :style="{ '--pct': pct + '%', '--color': langColor(lang) }"
+            :title="`${lang}: ${count} project${count !== 1 ? 's' : ''}`"
+            :aria-label="`${lang}: ${count} project${count !== 1 ? 's' : ''}`"
+            :aria-pressed="activeLang === lang"
+            @click="activeLang = activeLang === lang ? null : lang"
+          ></button>
+        </div>
+        <div class="dist-legend">
+          <button
+            v-for="{ lang, count } in langStats"
+            :key="lang"
+            class="dist-legend-item"
+            :class="{ active: activeLang === lang, dimmed: activeLang !== null && activeLang !== lang }"
+            :aria-pressed="activeLang === lang"
+            @click="activeLang = activeLang === lang ? null : lang"
+          >
+            <span class="dist-dot" :style="{ '--color': langColor(lang) }"></span>
+            <span class="dist-lang">{{ lang }}</span>
+            <span class="dist-count">{{ count }}</span>
+          </button>
+          <button
+            v-if="activeLang !== null"
+            class="dist-clear"
+            @click="activeLang = null"
+            aria-label="Show all languages"
+          >clear ×</button>
+        </div>
       </div>
     </div>
 
@@ -110,10 +134,17 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString('en', { month: 'short', year: 'numeric' })
 }
 
-const availableLangs = computed(() => {
+const langStats = computed(() => {
   if (!projects.value) return []
-  const langs = new Set(projects.value.map(p => p.language).filter(Boolean) as string[])
-  return [...langs].sort()
+  const counts: Record<string, number> = {}
+  for (const p of projects.value) {
+    if (p.language) counts[p.language] = (counts[p.language] ?? 0) + 1
+  }
+  const total = Object.values(counts).reduce((a, b) => a + b, 0)
+  if (!total) return []
+  return Object.entries(counts)
+    .map(([lang, count]) => ({ lang, count, pct: (count / total) * 100 }))
+    .sort((a, b) => b.count - a.count)
 })
 
 const filteredProjects = computed(() => {
@@ -207,51 +238,134 @@ h1 {
   cursor: pointer;
 }
 
-.lang-filters {
+/* ── Language distribution bar ─────────────────────────────── */
+
+.lang-distribution {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
-.lang-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.3rem 0.7rem;
-  font-family: inherit;
-  font-size: 0.78rem;
-  color: var(--theme-text-muted, #666);
-  background: var(--theme-card-bg, rgba(255,255,255,0.5));
-  border: 1px solid var(--theme-card-border, rgba(0,0,0,0.08));
+.dist-bar {
+  display: flex;
+  height: 8px;
   border-radius: 999px;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.dist-segment {
+  flex: 0 0 var(--pct);
+  height: 100%;
+  background: var(--color, #888);
+  border: none;
+  padding: 0;
   cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  opacity: 0.85;
+  transition: opacity 0.2s ease, flex-basis 0.3s ease;
+  border-radius: 0;
 }
 
-.lang-btn:hover {
-  border-color: var(--theme-accent, #89abd0);
-  color: var(--theme-text, #111);
+.dist-segment:first-child {
+  border-radius: 999px 0 0 999px;
 }
 
-.lang-btn.active {
-  border-color: var(--theme-accent, #89abd0);
-  color: var(--theme-text, #111);
-  background: color-mix(in srgb, var(--theme-accent, #89abd0) 12%, var(--theme-card-bg, rgba(255,255,255,0.6)));
+.dist-segment:last-child {
+  border-radius: 0 999px 999px 0;
 }
 
-.lang-btn:focus-visible {
-  outline: 2px solid var(--theme-accent, #89abd0);
+.dist-segment:only-child {
+  border-radius: 999px;
+}
+
+.dist-segment:hover,
+.dist-segment.active {
+  opacity: 1;
+}
+
+.dist-segment.dimmed {
+  opacity: 0.25;
+}
+
+.dist-segment:focus-visible {
+  outline: 2px solid var(--color, #888);
   outline-offset: 2px;
 }
 
-.lang-btn .lang-dot {
+.dist-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.75rem;
+  align-items: center;
+}
+
+.dist-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  padding: 0.15rem 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--theme-text-muted, #666);
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.dist-legend-item:hover,
+.dist-legend-item.active {
+  color: var(--theme-text, #111);
+}
+
+.dist-legend-item.dimmed {
+  opacity: 0.4;
+}
+
+.dist-legend-item:focus-visible {
+  outline: 2px solid var(--theme-accent, #89abd0);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.dist-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--lang-color, var(--theme-accent, #888));
+  background: var(--color, #888);
   flex-shrink: 0;
+  transition: opacity 0.15s ease;
+}
+
+.dist-lang {
+  font-weight: 500;
+}
+
+.dist-count {
+  color: var(--theme-text-subtle, #aaa);
+  font-size: 0.68rem;
+}
+
+.dist-clear {
+  background: none;
+  border: none;
+  padding: 0.15rem 0;
+  margin-left: 0.25rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+  color: var(--theme-text-subtle, #aaa);
+  transition: color 0.15s ease;
+}
+
+.dist-clear:hover {
+  color: var(--theme-accent, #89abd0);
+}
+
+.dist-clear:focus-visible {
+  outline: 2px solid var(--theme-accent, #89abd0);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* ── Grid ──────────────────────────────────────────────────── */
@@ -408,13 +522,28 @@ h1 {
   text-shadow: 0 0 10px currentColor;
 }
 
-:global(.hacker-page) .search-input,
-:global(.hacker-page) .lang-btn {
+:global(.hacker-page) .search-input {
   border-radius: 0;
   font-family: monospace;
 }
 
-:global(.hacker-page) .lang-btn.active {
-  background: color-mix(in srgb, var(--theme-accent, #00ff41) 15%, transparent);
+:global(.hacker-page) .dist-bar {
+  border-radius: 0;
+}
+
+:global(.hacker-page) .dist-segment {
+  border-radius: 0 !important;
+}
+
+:global(.hacker-page) .dist-legend-item {
+  font-family: monospace;
+}
+
+:global(.hacker-page) .dist-clear {
+  font-family: monospace;
+}
+
+:global(.space-page) .dist-legend-item.active {
+  color: var(--space-text, #fff);
 }
 </style>
