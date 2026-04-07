@@ -66,3 +66,6 @@ Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
 ## Keyboard Shortcuts
 
 - `M` key toggles the global menu (disabled on admin pages)
+- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/meta`
+- `1` / `2` / `3` switch themes (scandinavian / hacker / space)
+- `?` or `/` toggles the keyboard shortcuts overlay

@@ -21,6 +21,10 @@ import KeyboardShortcutsOverlay from '~/components/KeyboardShortcutsOverlay.vue'
 const { themePageClass, themeColor, activeTheme, setTheme } = useTheme()
 const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);
 const showShortcuts = ref(false);
+const router = useRouter();
+const route = useRoute();
+
+const NAV_PAGES = ['/', '/about', '/projects', '/feed', '/now', '/uses', '/meta'];
 
 useHead({
   meta: [
@@ -59,6 +63,16 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
   if (THEME_KEYS[event.key]) {
     setTheme(THEME_KEYS[event.key])
+    return
+  }
+
+  if (event.key === '[' || event.key === ']') {
+    const currentPath = route.path === '/' ? '/' : route.path.replace(/\/$/, '')
+    const idx = NAV_PAGES.indexOf(currentPath)
+    if (idx === -1) return
+    const nextIdx = event.key === '[' ? idx - 1 : idx + 1
+    if (nextIdx < 0 || nextIdx >= NAV_PAGES.length) return
+    router.push(NAV_PAGES[nextIdx])
   }
 };
 

@@ -23,6 +23,11 @@
               <span>toggle menu</span>
             </div>
             <div class="kbd-row">
+              <kbd>[</kbd>
+              <kbd>]</kbd>
+              <span>prev / next page</span>
+            </div>
+            <div class="kbd-row">
               <kbd>?</kbd>
               <span>show shortcuts</span>
             </div>
