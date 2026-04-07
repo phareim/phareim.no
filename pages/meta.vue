@@ -203,6 +203,12 @@ h1 {
   cursor: default;
 }
 
+.load-more:focus-visible {
+  outline: 2px solid var(--theme-accent, #89abd0);
+  outline-offset: 2px;
+  border-color: var(--theme-accent, #89abd0);
+}
+
 .loading {
   display: flex;
   justify-content: center;
@@ -213,6 +219,12 @@ h1 {
 .loading-text {
   color: var(--theme-text-muted, #888);
   font-size: 1rem;
+  animation: loading-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes loading-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 @media (max-width: 520px) {

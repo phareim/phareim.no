@@ -138,6 +138,12 @@ h1 {
   border-color: var(--theme-accent, #6b8cae);
 }
 
+.feed-source-link:focus-visible {
+  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* ── Post list ──────────────────────────────────────────────── */
 
 .post-list {
@@ -265,6 +271,12 @@ h1 {
 .load-more:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.load-more:focus-visible {
+  outline: 2px solid var(--theme-accent, #89abd0);
+  outline-offset: 2px;
+  border-color: var(--theme-accent, #89abd0);
 }
 
 /* ── Hacker theme overrides ─────────────────────────────────── */
