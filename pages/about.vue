@@ -120,6 +120,7 @@ const socialLinks = [
   margin: 0 0 0.6rem;
   color: var(--theme-text, #111);
   line-height: 1;
+  animation: content-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.15s both;
 }
 
 .about-tagline {
@@ -127,6 +128,7 @@ const socialLinks = [
   color: var(--theme-text-muted, #666);
   margin: 0 0 0.5rem;
   line-height: 1.5;
+  animation: content-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.25s both;
 }
 
 .about-divider {
@@ -134,10 +136,12 @@ const socialLinks = [
   height: 1px;
   background: var(--theme-card-border, rgba(0,0,0,0.15));
   margin: 1.5rem auto;
+  animation: content-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.35s both;
 }
 
 .about-bio {
   max-width: 340px;
+  animation: content-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s both;
 }
 
 .about-bio p {
@@ -149,6 +153,17 @@ const socialLinks = [
 
 .about-bio p:last-child {
   margin-bottom: 0;
+}
+
+@keyframes content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .about-link {
@@ -168,6 +183,7 @@ const socialLinks = [
   margin-top: 2.5rem;
   flex-wrap: wrap;
   justify-content: center;
+  animation: content-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.5s both;
 }
 
 .about-social-link {
