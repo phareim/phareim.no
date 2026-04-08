@@ -1,4 +1,4 @@
-import { defineEventHandler, getQuery, useRuntimeConfig } from 'h3'
+import { defineEventHandler, getQuery } from 'h3'
 import type { Post, FeedPage } from './feed'
 
 const X_USERNAME = 'phareim'
