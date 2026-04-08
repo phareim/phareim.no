@@ -1,7 +1,15 @@
 <template>
   <div class="feed-page">
     <header class="feed-header">
-      <h1>thoughts</h1>
+      <div class="feed-header-top">
+        <h1>thoughts</h1>
+        <a
+          href="/api/rss.xml"
+          class="rss-badge"
+          title="Subscribe via RSS"
+          aria-label="Subscribe via RSS"
+        >RSS</a>
+      </div>
       <p class="subtitle">
         posts from
         <a
@@ -62,7 +70,12 @@
 <script setup lang="ts">
 import type { FeedPage } from '~/server/api/feed'
 
-useHead({ title: 'thoughts — phareim.no' })
+useHead({
+  title: 'thoughts — phareim.no',
+  link: [
+    { rel: 'alternate', type: 'application/rss+xml', title: 'phareim.no — thoughts', href: '/api/rss.xml' }
+  ]
+})
 
 const nextCursor = ref<string | undefined>(undefined)
 const loadingMore = ref(false)
@@ -112,6 +125,40 @@ function formatDate(iso: string): string {
 
 .feed-header {
   margin-bottom: 2.5rem;
+}
+
+.feed-header-top {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.rss-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--theme-accent, #6b8cae);
+  border: 1px solid var(--theme-accent, #6b8cae);
+  border-radius: 4px;
+  padding: 0.18em 0.5em;
+  text-decoration: none;
+  opacity: 0.65;
+  transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+  align-self: center;
+  margin-bottom: 0.35rem;
+}
+
+.rss-badge:hover {
+  opacity: 1;
+  background: var(--theme-accent, #6b8cae);
+  color: var(--theme-bg, #fff);
+}
+
+.rss-badge:focus-visible {
+  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline-offset: 2px;
+  opacity: 1;
 }
 
 h1 {
@@ -301,6 +348,17 @@ h1 {
 
 :global(.hacker-page) .subtitle {
   font-family: monospace;
+}
+
+:global(.hacker-page) .rss-badge {
+  border-radius: 0;
+  font-family: monospace;
+}
+
+:global(.space-page) .rss-badge {
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
 }
 
 :global(.hacker-page) .load-more {

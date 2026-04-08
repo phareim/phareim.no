@@ -32,6 +32,7 @@ composables/         — useTheme
 server/api/          — H3 API routes
   menu.ts            — static menu items list
   feed.ts            — fetches phareim's public Bluesky posts (AT Protocol API)
+  rss.xml.ts         — RSS 2.0 feed of Bluesky posts, served at /api/rss.xml
   projects.ts        — fetches phareim's public GitHub repos
 server/utils/        — db.ts, r2.ts, storage.ts, image-providers.ts, etc.
 types/               — shared TypeScript interfaces
