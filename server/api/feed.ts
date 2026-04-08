@@ -9,6 +9,7 @@ export interface Post {
   replyCount: number
   url: string
   hasMedia: boolean
+  source: 'bluesky' | 'x'
 }
 
 export interface FeedPage {
@@ -54,6 +55,7 @@ export default defineEventHandler(async (event): Promise<FeedPage> => {
           replyCount: post.replyCount ?? 0,
           url: `https://bsky.app/profile/${handle}/post/${rkey}`,
           hasMedia,
+          source: 'bluesky' as const,
         }
       })
       .filter((p: Post) => p.text.length > 0 || p.hasMedia) // skip empty posts

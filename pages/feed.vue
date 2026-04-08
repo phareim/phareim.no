@@ -18,6 +18,13 @@
           rel="noopener noreferrer"
           class="feed-source-link"
         >bluesky</a>
+        &amp;
+        <a
+          href="https://x.com/phareim"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="feed-source-link"
+        >x</a>
       </p>
     </header>
 
@@ -33,6 +40,7 @@
         <p class="post-text">{{ post.text }}<span v-if="!post.text && post.hasMedia" class="post-media-hint">[media]</span></p>
         <div class="post-footer">
           <span class="post-date">{{ formatDate(post.createdAt) }}</span>
+          <span class="post-source" :class="`source-${post.source}`">{{ post.source === 'x' ? 'x' : 'bsky' }}</span>
           <div class="post-stats" aria-label="engagement">
             <span v-if="post.likeCount > 0" class="stat" :title="`${post.likeCount} likes`">
               ♥ {{ post.likeCount }}
@@ -68,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import type { FeedPage } from '~/server/api/feed'
+import type { FeedPage, Post } from '~/server/api/feed'
 
 useHead({
   title: 'thoughts — phareim.no',
@@ -77,30 +85,47 @@ useHead({
   ]
 })
 
-const nextCursor = ref<string | undefined>(undefined)
+const bskyCursor = ref<string | undefined>(undefined)
+const xCursor = ref<string | undefined>(undefined)
 const loadingMore = ref(false)
-const allPosts = ref<FeedPage['posts']>([])
+const allPosts = ref<Post[]>([])
 
-const { data, pending } = await useFetch<FeedPage>('/api/feed')
+function mergeSorted(a: Post[], b: Post[]): Post[] {
+  return [...a, ...b].sort((x, y) =>
+    new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime()
+  )
+}
 
-watch(data, val => {
-  if (val) {
-    allPosts.value = val.posts
-    nextCursor.value = val.cursor
-  }
+const [{ data: bskyData, pending: bskyPending }, { data: xData, pending: xPending }] =
+  await Promise.all([
+    useFetch<FeedPage>('/api/feed'),
+    useFetch<FeedPage>('/api/x-feed'),
+  ])
+
+const pending = computed(() => bskyPending.value || xPending.value)
+
+watch([bskyData, xData], ([bsky, x]) => {
+  const bskyPosts = bsky?.posts ?? []
+  const xPosts = x?.posts ?? []
+  allPosts.value = mergeSorted(bskyPosts, xPosts)
+  bskyCursor.value = bsky?.cursor
+  xCursor.value = x?.cursor
 }, { immediate: true })
 
 const posts = computed(() => allPosts.value)
+const nextCursor = computed(() => bskyCursor.value || xCursor.value)
 
 async function loadMore() {
-  if (!nextCursor.value) return
+  if (!bskyCursor.value && !xCursor.value) return
   loadingMore.value = true
   try {
-    const result = await $fetch<FeedPage>('/api/feed', {
-      query: { cursor: nextCursor.value }
-    })
-    allPosts.value = [...allPosts.value, ...result.posts]
-    nextCursor.value = result.cursor
+    const [bskyResult, xResult] = await Promise.all([
+      bskyCursor.value ? $fetch<FeedPage>('/api/feed', { query: { cursor: bskyCursor.value } }) : Promise.resolve({ posts: [] as Post[] }),
+      xCursor.value ? $fetch<FeedPage>('/api/x-feed', { query: { cursor: xCursor.value } }) : Promise.resolve({ posts: [] as Post[] }),
+    ])
+    allPosts.value = mergeSorted(allPosts.value, mergeSorted(bskyResult.posts, xResult.posts))
+    bskyCursor.value = (bskyResult as FeedPage).cursor
+    xCursor.value = (xResult as FeedPage).cursor
   } finally {
     loadingMore.value = false
   }
@@ -255,6 +280,17 @@ h1 {
 .post-date {
   font-size: 0.72rem;
   color: var(--theme-text-subtle, #aaa);
+  white-space: nowrap;
+}
+
+.post-source {
+  font-size: 0.65rem;
+  color: var(--theme-text-subtle, #aaa);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--theme-card-border, rgba(0,0,0,0.1));
+  border-radius: 4px;
+  padding: 1px 5px;
   white-space: nowrap;
 }
 

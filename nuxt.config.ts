@@ -36,6 +36,7 @@ export default defineNuxtConfig({
     falKey: '',
     wavespeedKey: '',
     githubToken: '',
+    twitterBearerToken: '',
 
     // Public keys that are exposed to the client
     public: {}
