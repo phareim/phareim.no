@@ -19,6 +19,11 @@
           <div class="kbd-section">
             <div class="kbd-section-label">navigation</div>
             <div class="kbd-row">
+              <kbd>⌘</kbd>
+              <kbd>K</kbd>
+              <span>command palette</span>
+            </div>
+            <div class="kbd-row">
               <kbd>M</kbd>
               <span>toggle menu</span>
             </div>

@@ -7,6 +7,7 @@
     <MenuComponent ref="menuComponent" />
     <ThemeTransition />
     <KeyboardShortcutsOverlay :open="showShortcuts" @close="showShortcuts = false" />
+    <CommandPalette :open="showPalette" @close="showPalette = false" />
   </div>
 </template>
 
@@ -17,10 +18,12 @@ import ScandiAurora from '~/components/ScandiAurora.vue';
 import HackerRain from '~/components/HackerRain.vue';
 import ThemeTransition from '~/components/ThemeTransition.vue';
 import KeyboardShortcutsOverlay from '~/components/KeyboardShortcutsOverlay.vue';
+import CommandPalette from '~/components/CommandPalette.vue';
 
 const { themePageClass, themeColor, activeTheme, setTheme } = useTheme()
 const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);
 const showShortcuts = ref(false);
+const showPalette = ref(false);
 const router = useRouter();
 const route = useRoute();
 
@@ -39,20 +42,29 @@ const THEME_KEYS: Record<string, 'scandi' | 'hacker' | 'space'> = {
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {
-  // Ignore when typing in inputs
+  // Cmd+K / Ctrl+K works everywhere (even in inputs)
+  if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+    event.preventDefault()
+    showPalette.value = !showPalette.value
+    showShortcuts.value = false
+    return
+  }
+
+  // All other shortcuts: ignore when typing in inputs
   const tag = (event.target as HTMLElement)?.tagName
   if (tag === 'INPUT' || tag === 'TEXTAREA' || (event.target as HTMLElement)?.isContentEditable) return
 
   const isAdmin = window.location.pathname.includes('admin')
 
-  if (event.key === '?' || event.key === '/') {
-    event.preventDefault()
-    showShortcuts.value = !showShortcuts.value
+  if (event.key === 'Escape') {
+    if (showPalette.value) { showPalette.value = false; return }
+    if (showShortcuts.value) { showShortcuts.value = false; return }
     return
   }
 
-  if (event.key === 'Escape' && showShortcuts.value) {
-    showShortcuts.value = false
+  if (event.key === '?' || event.key === '/') {
+    event.preventDefault()
+    showShortcuts.value = !showShortcuts.value
     return
   }
 
