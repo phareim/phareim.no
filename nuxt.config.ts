@@ -9,10 +9,15 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      htmlAttrs: {
+        lang: 'en'
+      },
+      title: 'phareim.no',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
-        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+        { name: 'description', content: 'Petter Hareim — developer, consultant, builder of things. Personal site with projects, thoughts, and more.' }
       ],
       link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
