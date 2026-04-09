@@ -85,47 +85,27 @@ useHead({
   ]
 })
 
-const bskyCursor = ref<string | undefined>(undefined)
-const xCursor = ref<string | undefined>(undefined)
+const cursor = ref<string | undefined>(undefined)
 const loadingMore = ref(false)
 const allPosts = ref<Post[]>([])
 
-function mergeSorted(a: Post[], b: Post[]): Post[] {
-  return [...a, ...b].sort((x, y) =>
-    new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime()
-  )
-}
+const { data, pending } = await useFetch<FeedPage>('/api/feed')
 
-const [{ data: bskyData, pending: bskyPending }, { data: xData, pending: xPending }] =
-  await Promise.all([
-    useFetch<FeedPage>('/api/feed'),
-    useFetch<FeedPage>('/api/x-feed'),
-  ])
-
-const pending = computed(() => bskyPending.value || xPending.value)
-
-watch([bskyData, xData], ([bsky, x]) => {
-  const bskyPosts = bsky?.posts ?? []
-  const xPosts = x?.posts ?? []
-  allPosts.value = mergeSorted(bskyPosts, xPosts)
-  bskyCursor.value = bsky?.cursor
-  xCursor.value = x?.cursor
+watch(data, (page) => {
+  allPosts.value = page?.posts ?? []
+  cursor.value = page?.cursor
 }, { immediate: true })
 
 const posts = computed(() => allPosts.value)
-const nextCursor = computed(() => bskyCursor.value || xCursor.value)
+const nextCursor = computed(() => cursor.value)
 
 async function loadMore() {
-  if (!bskyCursor.value && !xCursor.value) return
+  if (!cursor.value) return
   loadingMore.value = true
   try {
-    const [bskyResult, xResult] = await Promise.all([
-      bskyCursor.value ? $fetch<FeedPage>('/api/feed', { query: { cursor: bskyCursor.value } }) : Promise.resolve({ posts: [] as Post[] }),
-      xCursor.value ? $fetch<FeedPage>('/api/x-feed', { query: { cursor: xCursor.value } }) : Promise.resolve({ posts: [] as Post[] }),
-    ])
-    allPosts.value = mergeSorted(allPosts.value, mergeSorted(bskyResult.posts, xResult.posts))
-    bskyCursor.value = (bskyResult as FeedPage).cursor
-    xCursor.value = (xResult as FeedPage).cursor
+    const result = await $fetch<FeedPage>('/api/feed', { query: { cursor: cursor.value } })
+    allPosts.value = [...allPosts.value, ...result.posts]
+    cursor.value = result.cursor
   } finally {
     loadingMore.value = false
   }
