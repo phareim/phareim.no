@@ -47,6 +47,16 @@ CREATE TABLE IF NOT EXISTS user_prompts (
 );
 CREATE INDEX IF NOT EXISTS idx_user_prompts_user_id ON user_prompts(user_id, created_at DESC);
 
+-- Guestbook entries
+CREATE TABLE IF NOT EXISTS guestbook_entries (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  message TEXT NOT NULL,
+  ip_hash TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_guestbook_created_at ON guestbook_entries(created_at DESC);
+
 -- AI model definitions for image generation
 CREATE TABLE IF NOT EXISTS model_definitions (
   id TEXT PRIMARY KEY,

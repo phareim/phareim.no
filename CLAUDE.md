@@ -26,6 +26,7 @@ pages/               — file-based routing
   feed.vue           — /feed — Bluesky posts fetched from public AT Protocol API
   now.vue            — /now — "what I'm doing now" page (live Bluesky + GitHub data)
   uses.vue           — /uses — tech stack and tools overview (static content)
+  guestbook.vue      — /guestbook — visitor guestbook (D1-backed, rate-limited per IP per 24h)
   drafts/            — experimental pages
 components/          — Vue components
 composables/         — useTheme
@@ -34,6 +35,7 @@ server/api/          — H3 API routes
   feed.ts            — fetches phareim's public Bluesky posts (AT Protocol API)
   rss.xml.ts         — RSS 2.0 feed of Bluesky posts, served at /api/rss.xml
   projects.ts        — fetches phareim's public GitHub repos
+  guestbook.ts       — GET/POST guestbook entries (D1)
 server/utils/        — db.ts, r2.ts, storage.ts, image-providers.ts, etc.
 types/               — shared TypeScript interfaces
 assets/themes/       — scandinavian.css, hacker.css, space.css
@@ -67,6 +69,6 @@ Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
 ## Keyboard Shortcuts
 
 - `M` key toggles the global menu (disabled on admin pages)
-- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/meta`
+- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/guestbook`, `/meta`
 - `1` / `2` / `3` switch themes (scandinavian / hacker / space)
 - `?` or `/` toggles the keyboard shortcuts overlay
