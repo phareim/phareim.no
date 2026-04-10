@@ -245,8 +245,12 @@ h1 {
   border: 1px solid;
   background: none;
   cursor: pointer;
-  transition: opacity 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  transition: opacity 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
   opacity: 0.35;
+}
+
+.filter-btn:active {
+  transform: scale(0.93);
 }
 
 .filter-btn.is-active {
@@ -260,6 +264,9 @@ h1 {
 .filter-btn--commit.is-active {
   background: color-mix(in srgb, var(--theme-accent, #6b8cae) 12%, transparent);
 }
+.filter-btn--commit.is-active:hover {
+  background: color-mix(in srgb, var(--theme-accent, #6b8cae) 22%, transparent);
+}
 
 .filter-btn--post {
   color: var(--theme-accent-secondary, #9bab8b);
@@ -268,6 +275,9 @@ h1 {
 .filter-btn--post.is-active {
   background: color-mix(in srgb, var(--theme-accent-secondary, #9bab8b) 12%, transparent);
 }
+.filter-btn--post.is-active:hover {
+  background: color-mix(in srgb, var(--theme-accent-secondary, #9bab8b) 22%, transparent);
+}
 
 .filter-btn--guestbook {
   color: var(--theme-accent-danger, #c1272d);
@@ -275,6 +285,9 @@ h1 {
 }
 .filter-btn--guestbook.is-active {
   background: color-mix(in srgb, var(--theme-accent-danger, #c1272d) 12%, transparent);
+}
+.filter-btn--guestbook.is-active:hover {
+  background: color-mix(in srgb, var(--theme-accent-danger, #c1272d) 22%, transparent);
 }
 
 .filter-btn--reset {
