@@ -27,6 +27,7 @@ pages/               — file-based routing
   now.vue            — /now — "what I'm doing now" page (live Bluesky + GitHub data)
   uses.vue           — /uses — tech stack and tools overview (static content)
   guestbook.vue      — /guestbook — visitor guestbook (D1-backed, rate-limited per IP per 24h)
+  activity.vue       — /activity — unified timeline: commits + Bluesky posts + guestbook entries
   drafts/            — experimental pages
 components/          — Vue components
 composables/         — useTheme
@@ -69,6 +70,6 @@ Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
 ## Keyboard Shortcuts
 
 - `M` key toggles the global menu (disabled on admin pages)
-- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/guestbook`, `/meta`
+- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/guestbook`, `/activity`, `/meta`
 - `1` / `2` / `3` switch themes (scandinavian / hacker / space)
 - `?` or `/` toggles the keyboard shortcuts overlay

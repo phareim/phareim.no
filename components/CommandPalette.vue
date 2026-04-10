@@ -91,6 +91,7 @@ const allCommands: Command[] = [
   { id: 'nav-now',     label: 'now',                 icon: '📍', hint: '/now',      type: 'page',     action: () => router.push('/now') },
   { id: 'nav-uses',    label: 'uses',                icon: '🔩', hint: '/uses',     type: 'page',     action: () => router.push('/uses') },
   { id: 'nav-guestbook', label: 'guestbook',           icon: '✍️', hint: '/guestbook', type: 'page',    action: () => router.push('/guestbook') },
+  { id: 'nav-activity', label: 'activity',            icon: '📡', hint: '/activity', type: 'page',     action: () => router.push('/activity') },
   { id: 'nav-meta',    label: 'meta',                icon: '📋', hint: '/meta',     type: 'page',     action: () => router.push('/meta') },
   { id: 'theme-scandi',label: 'scandinavian glass',  icon: '❄️', hint: '1',         type: 'theme',    action: () => setTheme('scandi') },
   { id: 'theme-hacker',label: 'cyberpunk',           icon: '📟', hint: '2',         type: 'theme',    action: () => setTheme('hacker') },

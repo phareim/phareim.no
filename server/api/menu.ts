@@ -9,6 +9,7 @@ const menuItems = [
   { path: '/now', title: 'Now', icon: '📍' },
   { path: '/uses', title: 'Uses', icon: '🔩' },
   { path: '/guestbook', title: 'Guestbook', icon: '✍️' },
+  { path: '/activity', title: 'Activity', icon: '📡' },
   { path: '/meta', title: 'Meta', icon: '📋' },
   { path: 'https://dot.phareim.no', title: 'Red dot game', icon: '🔴', external: true },
  // { path: 'https://librarian.phareim.no', title: 'The Librarian', icon: '📚', external: true },
