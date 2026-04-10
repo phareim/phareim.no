@@ -3,12 +3,20 @@
     <header class="activity-header">
       <h1>activity</h1>
       <p class="activity-subtitle">everything, in order</p>
-      <div class="activity-legend" aria-label="Item types">
-        <span class="legend-item legend-commit">commits</span>
-        <span class="legend-sep" aria-hidden="true">·</span>
-        <span class="legend-item legend-post">posts</span>
-        <span class="legend-sep" aria-hidden="true">·</span>
-        <span class="legend-item legend-guest">guestbook</span>
+      <div class="activity-filters" role="group" aria-label="Filter by type">
+        <button
+          v-for="f in filterDefs"
+          :key="f.type"
+          :class="['filter-btn', `filter-btn--${f.type}`, { 'is-active': activeFilters.has(f.type) }]"
+          :aria-pressed="activeFilters.has(f.type)"
+          @click="toggleFilter(f.type)"
+        >{{ f.label }}</button>
+        <button
+          v-if="activeFilters.size < 3"
+          class="filter-btn filter-btn--reset"
+          aria-label="Show all types"
+          @click="resetFilters"
+        >all</button>
       </div>
     </header>
 
@@ -68,7 +76,9 @@
           </div>
         </div>
 
-        <p v-if="!items.length" class="activity-empty">no activity yet</p>
+        <p v-if="!items.length" class="activity-empty">
+          {{ activeFilters.size < 3 ? 'nothing matches the current filter' : 'no activity yet' }}
+        </p>
       </template>
     </main>
   </div>
@@ -80,6 +90,31 @@ import type { Commit } from '~/server/api/meta'
 import type { GuestbookEntry } from '~/server/api/guestbook'
 
 useHead({ title: 'activity — phareim.no' })
+
+type FilterType = 'commit' | 'post' | 'guestbook'
+
+const filterDefs: { type: FilterType; label: string }[] = [
+  { type: 'commit',    label: 'commits' },
+  { type: 'post',      label: 'posts' },
+  { type: 'guestbook', label: 'guestbook' },
+]
+
+const activeFilters = ref<Set<FilterType>>(new Set(['commit', 'post', 'guestbook']))
+
+function toggleFilter(type: FilterType) {
+  const next = new Set(activeFilters.value)
+  if (next.has(type)) {
+    // Keep at least one filter active
+    if (next.size > 1) next.delete(type)
+  } else {
+    next.add(type)
+  }
+  activeFilters.value = next
+}
+
+function resetFilters() {
+  activeFilters.value = new Set(['commit', 'post', 'guestbook'])
+}
 
 interface ActivityItem {
   key: string
@@ -134,7 +169,9 @@ const items = computed((): ActivityItem[] => {
     })
   }
 
-  return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  return result
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .filter(item => activeFilters.value.has(item.type))
 })
 
 function typeLabel(type: ActivityItem['type']): string {
@@ -189,42 +226,71 @@ h1 {
   margin: 0 0 1.2rem;
 }
 
-/* ── Legend ──────────────────────────────────────────────────── */
-.activity-legend {
+/* ── Filters ─────────────────────────────────────────────────── */
+.activity-filters {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
 }
 
-.legend-item {
+.filter-btn {
+  font-family: inherit;
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  padding: 0.2rem 0.5rem;
+  padding: 0.25rem 0.6rem;
   border-radius: 999px;
   border: 1px solid;
+  background: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  opacity: 0.35;
 }
 
-.legend-commit {
+.filter-btn.is-active {
+  opacity: 1;
+}
+
+.filter-btn--commit {
   color: var(--theme-accent, #6b8cae);
   border-color: var(--theme-accent, #6b8cae);
 }
+.filter-btn--commit.is-active {
+  background: color-mix(in srgb, var(--theme-accent, #6b8cae) 12%, transparent);
+}
 
-.legend-post {
+.filter-btn--post {
   color: var(--theme-accent-secondary, #9bab8b);
   border-color: var(--theme-accent-secondary, #9bab8b);
 }
+.filter-btn--post.is-active {
+  background: color-mix(in srgb, var(--theme-accent-secondary, #9bab8b) 12%, transparent);
+}
 
-.legend-guest {
+.filter-btn--guestbook {
   color: var(--theme-accent-danger, #c1272d);
   border-color: var(--theme-accent-danger, #c1272d);
 }
+.filter-btn--guestbook.is-active {
+  background: color-mix(in srgb, var(--theme-accent-danger, #c1272d) 12%, transparent);
+}
 
-.legend-sep {
+.filter-btn--reset {
   color: var(--theme-text-subtle, #aaa);
-  font-size: 0.75rem;
+  border-color: var(--theme-text-subtle, #aaa);
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.filter-btn:hover {
+  opacity: 1;
+}
+
+.filter-btn:focus-visible {
+  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline-offset: 2px;
 }
 
 /* ── Loading ─────────────────────────────────────────────────── */
@@ -414,7 +480,7 @@ h1 {
   font-family: monospace;
 }
 
-:global(.hacker-page) .legend-item {
+:global(.hacker-page) .filter-btn {
   font-family: monospace;
   border-radius: 0;
 }
@@ -471,7 +537,7 @@ h1 {
   font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
 }
 
-:global(.space-page) .legend-item {
+:global(.space-page) .filter-btn {
   font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
 }
 
