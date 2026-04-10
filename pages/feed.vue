@@ -281,6 +281,17 @@ h1 {
   border-radius: 4px;
   padding: 1px 5px;
   white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.source-bluesky {
+  color: var(--theme-accent, #6b8cae);
+  border-color: color-mix(in srgb, var(--theme-accent, #6b8cae) 35%, transparent);
+}
+
+.source-x {
+  color: var(--theme-text-muted, #888);
+  border-color: color-mix(in srgb, var(--theme-text-muted, #888) 35%, transparent);
 }
 
 .post-stats {
