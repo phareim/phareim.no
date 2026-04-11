@@ -196,7 +196,7 @@ nav ul li {
 }
 
 nav ul li:hover {
-	background-color: rgba(128, 128, 128, 0.1);
+	background-color: var(--theme-card-border, rgba(128, 128, 128, 0.1));
 }
 
 nav ul li a {
@@ -206,8 +206,12 @@ nav ul li a {
 	font-size: 1.2rem;
 }
 
-nav ul li a.router-link-active {
-	font-weight: bold;
+nav ul li a.router-link-exact-active {
+	font-weight: 600;
+	color: var(--theme-accent, #6b8cae);
+	border-left: 2px solid var(--theme-accent, #6b8cae);
+	margin-left: -2rem;
+	padding-left: calc(2rem - 2px);
 }
 
 nav ul li a:focus-visible {
