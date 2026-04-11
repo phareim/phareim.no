@@ -27,7 +27,7 @@ const showPalette = ref(false);
 const router = useRouter();
 const route = useRoute();
 
-const NAV_PAGES = ['/', '/about', '/projects', '/feed', '/now', '/uses', '/guestbook', '/activity', '/meta'];
+const NAV_PAGES = ['/', '/about', '/projects', '/feed', '/now', '/uses', '/guestbook', '/activity', '/stats', '/meta'];
 
 useHead({
   meta: [
