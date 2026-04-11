@@ -289,6 +289,16 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  padding: 0.5rem 0.75rem 0.5rem 0.6rem;
+  margin: 0 -0.75rem;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  transition: background 0.2s ease, border-left-color 0.2s ease;
+}
+
+.uses-item:hover {
+  background: var(--theme-card-bg, rgba(255, 255, 255, 0.5));
+  border-left-color: var(--theme-accent, #6b8cae);
 }
 
 .uses-item-main {
@@ -363,6 +373,10 @@ h1 {
 
 :global(.hacker-page) .uses-desc {
   font-family: monospace;
+}
+
+:global(.hacker-page) .uses-item:hover {
+  border-radius: 0;
 }
 
 :global(.hacker-page) .uses-tag {
