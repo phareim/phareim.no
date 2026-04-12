@@ -34,7 +34,7 @@
             >bluesky ↗</a>
           </div>
         </div>
-        <div v-else-if="feedPending" class="now-placeholder">
+        <div v-else-if="feedPending" class="now-placeholder now-placeholder--loading">
           <span>fetching…</span>
         </div>
         <div v-else class="now-placeholder">
@@ -65,7 +65,7 @@
             <span class="now-project-date">{{ formatDate(project.pushed_at) }}</span>
           </li>
         </ul>
-        <div v-else-if="projectsPending" class="now-placeholder">
+        <div v-else-if="projectsPending" class="now-placeholder now-placeholder--loading">
           <span>fetching…</span>
         </div>
         <div v-else class="now-placeholder">
@@ -238,6 +238,12 @@ h1 {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 2px 10px var(--theme-card-shadow, rgba(0, 0, 0, 0.04));
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.now-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--theme-card-shadow, rgba(0, 0, 0, 0.08));
 }
 
 .now-card-text {
@@ -348,6 +354,16 @@ h1 {
   font-size: 0.9rem;
   color: var(--theme-text-subtle, #aaa);
   font-style: italic;
+}
+
+.now-placeholder--loading span {
+  animation: placeholder-pulse 1.6s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes placeholder-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
 }
 
 /* ── Footer ─────────────────────────────────────────────────── */
