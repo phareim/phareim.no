@@ -13,6 +13,7 @@ const menuItems = [
   { path: '/stats', title: 'Stats', icon: '📊' },
   { path: '/meta', title: 'Meta', icon: '📋' },
   { path: '/playground', title: 'Playground', icon: '✦' },
+  { path: '/gallery', title: 'Gallery', icon: '🖼️' },
   { path: 'https://dot.phareim.no', title: 'Red dot game', icon: '🔴', external: true },
  // { path: 'https://librarian.phareim.no', title: 'The Librarian', icon: '📚', external: true },
   { path: 'https://reader.phareim.no', title: 'RSS Reader', icon: '📰', external: true }
@@ -27,4 +28,4 @@ export default defineEventHandler(async (event: any) => {
   }
 
   return menuItems;
-}) 
+})

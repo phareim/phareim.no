@@ -30,6 +30,7 @@ pages/               — file-based routing
   activity.vue       — /activity — unified timeline: commits + Bluesky posts + guestbook entries
   stats.vue          — /stats — coding stats: language breakdown, top repos, commit heatmap
   playground.vue     — /playground — AI image generation interface (uses /api/generate-image)
+  gallery.vue        — /gallery — grid of AI-generated images fetched from R2 (uses /api/gallery)
   drafts/            — experimental pages
 components/          — Vue components
 composables/         — useTheme
@@ -39,6 +40,7 @@ server/api/          — H3 API routes
   rss.xml.ts         — RSS 2.0 feed of Bluesky posts, served at /api/rss.xml
   projects.ts        — fetches phareim's public GitHub repos
   guestbook.ts       — GET/POST guestbook entries (D1)
+  gallery.ts         — lists images from R2 `generated/` prefix, returns URLs + metadata
 server/utils/        — db.ts, r2.ts, storage.ts, image-providers.ts, etc.
 types/               — shared TypeScript interfaces
 assets/themes/       — scandinavian.css, hacker.css, space.css
@@ -72,6 +74,6 @@ Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
 ## Keyboard Shortcuts
 
 - `M` key toggles the global menu (disabled on admin pages)
-- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/guestbook`, `/activity`, `/stats`, `/meta`, `/playground`
+- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/guestbook`, `/activity`, `/stats`, `/meta`, `/playground`, `/gallery`
 - `1` / `2` / `3` switch themes (scandinavian / hacker / space)
 - `?` or `/` toggles the keyboard shortcuts overlay
