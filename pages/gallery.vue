@@ -29,15 +29,13 @@
         role="list"
         :aria-label="`${images.length} generated images`"
       >
-        <a
-          v-for="img in images"
+        <button
+          v-for="(img, idx) in images"
           :key="img.key"
-          :href="img.url"
-          target="_blank"
-          rel="noopener noreferrer"
           class="gallery-item"
-          :aria-label="`AI-generated image from ${formatDate(img.uploaded)}`"
+          :aria-label="`AI-generated image from ${formatDate(img.uploaded)}, open in viewer`"
           role="listitem"
+          @click="openLightbox(idx)"
         >
           <img
             :src="img.url"
@@ -48,9 +46,9 @@
           />
           <div class="gallery-overlay" aria-hidden="true">
             <span class="gallery-date">{{ formatDate(img.uploaded) }}</span>
-            <span class="gallery-open">open ↗</span>
+            <span class="gallery-open">view ↗</span>
           </div>
-        </a>
+        </button>
       </div>
 
       <p v-if="!pending && images.length" class="gallery-count" aria-live="polite">
@@ -58,6 +56,69 @@
       </p>
 
     </main>
+
+    <!-- Lightbox -->
+    <Teleport to="body">
+      <Transition name="lightbox">
+        <div
+          v-if="lightboxOpen && lightboxImage"
+          class="lightbox"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="`Image viewer: ${formatDate(lightboxImage.uploaded)}, ${lightboxIndex! + 1} of ${images.length}`"
+          @click.self="closeLightbox"
+        >
+          <!-- Close button -->
+          <button
+            class="lightbox-close"
+            aria-label="Close image viewer"
+            @click="closeLightbox"
+          >✕</button>
+
+          <!-- Navigation: previous -->
+          <button
+            v-if="images.length > 1"
+            class="lightbox-nav lightbox-nav--prev"
+            aria-label="Previous image"
+            @click="lightboxPrev"
+          >‹</button>
+
+          <!-- Main image -->
+          <div class="lightbox-stage" @click.self="closeLightbox">
+            <Transition :name="slideDir" mode="out-in">
+              <img
+                :key="lightboxImage.key"
+                :src="lightboxImage.url"
+                :alt="`AI-generated image, ${formatDate(lightboxImage.uploaded)}`"
+                class="lightbox-img"
+                decoding="async"
+              />
+            </Transition>
+          </div>
+
+          <!-- Navigation: next -->
+          <button
+            v-if="images.length > 1"
+            class="lightbox-nav lightbox-nav--next"
+            aria-label="Next image"
+            @click="lightboxNext"
+          >›</button>
+
+          <!-- Footer: date + position -->
+          <div class="lightbox-footer" aria-hidden="true">
+            <span class="lightbox-meta">{{ formatDate(lightboxImage.uploaded) }}</span>
+            <span class="lightbox-position">{{ lightboxIndex! + 1 }} / {{ images.length }}</span>
+            <a
+              :href="lightboxImage.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="lightbox-external"
+              aria-label="Open image in new tab"
+            >open ↗</a>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -69,6 +130,53 @@ useHead({ title: 'gallery — phareim.no' })
 const { data, pending } = await useFetch<GalleryImage[]>('/api/gallery')
 
 const images = computed(() => data.value ?? [])
+
+// ── Lightbox state ────────────────────────────────────────────────────
+
+const lightboxIndex = ref<number | null>(null)
+const slideDir = ref<'slide-left' | 'slide-right'>('slide-left')
+
+const lightboxOpen = computed(() => lightboxIndex.value !== null)
+const lightboxImage = computed(() =>
+  lightboxIndex.value !== null ? images.value[lightboxIndex.value] ?? null : null
+)
+
+function openLightbox(index: number) {
+  lightboxIndex.value = index
+  document.body.style.overflow = 'hidden'
+}
+
+function closeLightbox() {
+  lightboxIndex.value = null
+  document.body.style.overflow = ''
+}
+
+function lightboxPrev() {
+  if (lightboxIndex.value === null || !images.value.length) return
+  slideDir.value = 'slide-right'
+  lightboxIndex.value = (lightboxIndex.value - 1 + images.value.length) % images.value.length
+}
+
+function lightboxNext() {
+  if (lightboxIndex.value === null || !images.value.length) return
+  slideDir.value = 'slide-left'
+  lightboxIndex.value = (lightboxIndex.value + 1) % images.value.length
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (!lightboxOpen.value) return
+  if (e.key === 'Escape') closeLightbox()
+  if (e.key === 'ArrowLeft') lightboxPrev()
+  if (e.key === 'ArrowRight') lightboxNext()
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  document.body.style.overflow = ''
+})
+
+// ── Helpers ───────────────────────────────────────────────────────────
 
 function formatDate(iso: string): string {
   if (!iso) return ''
@@ -178,6 +286,7 @@ h1 {
   position: relative;
   cursor: pointer;
   background: var(--theme-card-bg, rgba(0, 0, 0, 0.04));
+  padding: 0;
   text-decoration: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -296,12 +405,197 @@ h1 {
   border-radius: 2px;
 }
 
+/* ── Lightbox ────────────────────────────────────────────────── */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  display: grid;
+  grid-template-rows: 1fr auto;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "prev stage next"
+    "prev footer next";
+  align-items: center;
+  justify-items: center;
+}
+
+/* ── Lightbox transitions ────────────────────────────────────── */
+
+.lightbox-enter-active,
+.lightbox-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.lightbox-enter-from,
+.lightbox-leave-to {
+  opacity: 0;
+}
+
+/* Image slide transitions */
+.slide-left-enter-active,
+.slide-left-leave-active,
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.slide-left-enter-from  { opacity: 0; transform: translateX(32px); }
+.slide-left-leave-to    { opacity: 0; transform: translateX(-32px); }
+.slide-right-enter-from { opacity: 0; transform: translateX(-32px); }
+.slide-right-leave-to   { opacity: 0; transform: translateX(32px); }
+
+/* ── Close button ────────────────────────────────────────────── */
+
+.lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
+.lightbox-close:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+}
+
+/* ── Nav buttons ─────────────────────────────────────────────── */
+
+.lightbox-nav {
+  grid-area: prev;
+  width: 3rem;
+  height: 100%;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 2.5rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+  padding: 0 0.5rem;
+}
+
+.lightbox-nav--next {
+  grid-area: next;
+}
+
+.lightbox-nav:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.lightbox-nav:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: -4px;
+  color: #fff;
+}
+
+/* ── Stage ───────────────────────────────────────────────────── */
+
+.lightbox-stage {
+  grid-area: stage;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 1rem 0;
+  box-sizing: border-box;
+}
+
+.lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6);
+  display: block;
+}
+
+/* ── Footer ──────────────────────────────────────────────────── */
+
+.lightbox-footer {
+  grid-area: footer;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: center;
+}
+
+.lightbox-meta {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.04em;
+}
+
+.lightbox-position {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+.lightbox-external {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-decoration: none;
+  transition: color 0.15s ease;
+  letter-spacing: 0.04em;
+}
+
+.lightbox-external:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.lightbox-external:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* ── Responsive ─────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
   .gallery-grid {
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     gap: 0.35rem;
+  }
+
+  .lightbox-nav {
+    width: 2.25rem;
+    font-size: 1.8rem;
+    padding: 0 0.25rem;
   }
 }
 
@@ -353,6 +647,48 @@ h1 {
   font-family: monospace;
 }
 
+:global(.hacker-page) .lightbox {
+  background: rgba(0, 10, 0, 0.94);
+}
+
+:global(.hacker-page) .lightbox-img {
+  border-radius: 0;
+  box-shadow: 0 0 40px rgba(0, 255, 65, 0.12);
+}
+
+:global(.hacker-page) .lightbox-close {
+  border-radius: 0;
+  font-family: monospace;
+  border-color: rgba(0, 255, 65, 0.3);
+  color: rgba(0, 255, 65, 0.7);
+}
+
+:global(.hacker-page) .lightbox-close:hover {
+  border-color: rgba(0, 255, 65, 0.8);
+  color: #00ff41;
+  background: rgba(0, 255, 65, 0.08);
+}
+
+:global(.hacker-page) .lightbox-meta,
+:global(.hacker-page) .lightbox-position,
+:global(.hacker-page) .lightbox-external {
+  font-family: monospace;
+  color: rgba(0, 255, 65, 0.45);
+}
+
+:global(.hacker-page) .lightbox-external:hover {
+  color: rgba(0, 255, 65, 0.9);
+}
+
+:global(.hacker-page) .lightbox-nav {
+  color: rgba(0, 255, 65, 0.3);
+}
+
+:global(.hacker-page) .lightbox-nav:hover {
+  color: rgba(0, 255, 65, 0.9);
+  background: rgba(0, 255, 65, 0.05);
+}
+
 /* ── Space theme overrides ──────────────────────────────────── */
 
 :global(.space-page) h1 {
@@ -378,5 +714,48 @@ h1 {
   box-shadow:
     0 8px 32px rgba(140, 170, 220, 0.2),
     0 0 0 1px rgba(140, 170, 220, 0.25);
+}
+
+:global(.space-page) .lightbox {
+  background: rgba(5, 5, 18, 0.92);
+}
+
+:global(.space-page) .lightbox-img {
+  box-shadow:
+    0 8px 48px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(140, 170, 220, 0.1);
+}
+
+:global(.space-page) .lightbox-meta,
+:global(.space-page) .lightbox-position {
+  color: rgba(140, 170, 220, 0.45);
+}
+
+:global(.space-page) .lightbox-external {
+  color: rgba(140, 170, 220, 0.45);
+}
+
+:global(.space-page) .lightbox-external:hover {
+  color: rgba(140, 170, 220, 0.9);
+}
+
+:global(.space-page) .lightbox-nav {
+  color: rgba(140, 170, 220, 0.3);
+}
+
+:global(.space-page) .lightbox-nav:hover {
+  color: rgba(140, 170, 220, 0.9);
+  background: rgba(140, 170, 220, 0.05);
+}
+
+:global(.space-page) .lightbox-close {
+  border-color: rgba(140, 170, 220, 0.25);
+  color: rgba(140, 170, 220, 0.7);
+}
+
+:global(.space-page) .lightbox-close:hover {
+  border-color: rgba(140, 170, 220, 0.6);
+  color: rgba(140, 170, 220, 1);
+  background: rgba(140, 170, 220, 0.08);
 }
 </style>
