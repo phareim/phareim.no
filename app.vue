@@ -59,6 +59,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') {
     if (showPalette.value) { showPalette.value = false; return }
     if (showShortcuts.value) { showShortcuts.value = false; return }
+    menuComponent.value?.closeMenu()
     return
   }
 

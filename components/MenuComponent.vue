@@ -2,6 +2,7 @@
 	<div>
 		<div v-if="showMenu" class="menu-backdrop" @click="toggleMenu" @touchstart.prevent="toggleMenu"></div>
 		<button
+			ref="hamburgerRef"
 			:class="['hamburger', { 'active': showMenu }]"
 			@click="toggleMenu"
 			:aria-label="showMenu ? 'Close menu' : 'Open menu'"
@@ -50,21 +51,46 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useTheme } from '~/composables/useTheme'
 import { useRoute } from 'vue-router'
 const { activeTheme, themes, setTheme } = useTheme()
 const route = useRoute()
 const showMenu = ref(false)
+const hamburgerRef = ref(null)
 
 watch(() => route.path, () => {
 	showMenu.value = false
 })
+
+// Move focus into menu when it opens; return focus to hamburger on close
+watch(showMenu, async (open) => {
+	if (open) {
+		await nextTick()
+		const firstLink = document.querySelector('#site-menu a, #site-menu button')
+		firstLink?.focus()
+	} else {
+		hamburgerRef.value?.focus()
+	}
+})
+
 const touchStartX = ref(0)
 const menuItems = ref([])
 
 const toggleMenu = () => {
 	showMenu.value = !showMenu.value
+}
+
+const closeMenu = () => {
+	showMenu.value = false
+}
+
+// Close menu on Escape key
+const handleKeyDown = (event) => {
+	if (showMenu.value && event.key === 'Escape') {
+		event.stopPropagation()
+		closeMenu()
+	}
 }
 
 const handleTouchStart = (event) => {
@@ -85,6 +111,7 @@ const handleTouchEnd = (event) => {
 }
 
 onMounted(async () => {
+	document.addEventListener('keydown', handleKeyDown)
 	try {
 		const menuResponse = await fetch('/api/menu')
 		menuItems.value = await menuResponse.json()
@@ -93,8 +120,13 @@ onMounted(async () => {
 	}
 })
 
+onBeforeUnmount(() => {
+	document.removeEventListener('keydown', handleKeyDown)
+})
+
 defineExpose({
-	toggleMenu
+	toggleMenu,
+	closeMenu,
 })
 
 </script>
