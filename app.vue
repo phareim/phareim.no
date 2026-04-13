@@ -5,6 +5,7 @@
     <HackerRain v-if="activeTheme === 'hacker'" />
     <NuxtPage :transition="{ name: 'page', mode: 'out-in' }" />
     <MenuComponent ref="menuComponent" />
+    <PageProgress />
     <ThemeTransition />
     <KeyboardShortcutsOverlay :open="showShortcuts" @close="showShortcuts = false" />
     <CommandPalette :open="showPalette" @close="showPalette = false" />
@@ -17,6 +18,7 @@ import SpaceStarfield from '~/components/SpaceStarfield.vue';
 import ScandiAurora from '~/components/ScandiAurora.vue';
 import HackerRain from '~/components/HackerRain.vue';
 import ThemeTransition from '~/components/ThemeTransition.vue';
+import PageProgress from '~/components/PageProgress.vue';
 import KeyboardShortcutsOverlay from '~/components/KeyboardShortcutsOverlay.vue';
 import CommandPalette from '~/components/CommandPalette.vue';
 
