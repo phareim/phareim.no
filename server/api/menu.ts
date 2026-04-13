@@ -12,6 +12,7 @@ const menuItems = [
   { path: '/activity', title: 'Activity', icon: '📡' },
   { path: '/stats', title: 'Stats', icon: '📊' },
   { path: '/meta', title: 'Meta', icon: '📋' },
+  { path: '/colophon', title: 'Colophon', icon: '📖' },
   { path: '/playground', title: 'Playground', icon: '✦' },
   { path: '/gallery', title: 'Gallery', icon: '🖼️' },
   { path: 'https://dot.phareim.no', title: 'Red dot game', icon: '🔴', external: true },

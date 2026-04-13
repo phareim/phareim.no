@@ -29,6 +29,8 @@ pages/               — file-based routing
   guestbook.vue      — /guestbook — visitor guestbook (D1-backed, rate-limited per IP per 24h)
   activity.vue       — /activity — unified timeline: commits + Bluesky posts + guestbook entries
   stats.vue          — /stats — coding stats: language breakdown, top repos, commit heatmap
+  meta.vue           — /meta — commit history log (paginated, links to GitHub)
+  colophon.vue       — /colophon — design philosophy, the AI agent, three themes, tech decisions
   playground.vue     — /playground — AI image generation interface (uses /api/generate-image)
   gallery.vue        — /gallery — grid of AI-generated images fetched from R2 (uses /api/gallery)
   drafts/            — experimental pages
@@ -74,6 +76,6 @@ Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
 ## Keyboard Shortcuts
 
 - `M` key toggles the global menu (disabled on admin pages)
-- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/guestbook`, `/activity`, `/stats`, `/meta`, `/playground`, `/gallery`
+- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/guestbook`, `/activity`, `/stats`, `/meta`, `/colophon`, `/playground`, `/gallery`
 - `1` / `2` / `3` switch themes (scandinavian / hacker / space)
 - `?` or `/` toggles the keyboard shortcuts overlay
