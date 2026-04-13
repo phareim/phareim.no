@@ -127,15 +127,14 @@ a.kreftforeningen {
 }
 svg, img {
   fill: var(--theme-text, #333);
-  transition: transform 1.2s;
-  transition-timing-function: ease-in-out;
+  transition: transform 0.25s ease-in-out, fill 0.25s ease-in-out, opacity 0.25s ease-in-out;
 }
 
 svg:hover, img:hover {
-  transform: scale(2);
+  transform: scale(1.15);
 }
 img.kreftforeningen:hover {
-  transform: scale(2) rotate(-180deg);
+  transform: scale(1.15) rotate(-180deg);
 }
 .miles:hover {
   fill: #b8261c;
