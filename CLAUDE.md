@@ -34,6 +34,7 @@ pages/               — file-based routing
   playground.vue     — /playground — AI image generation interface (uses /api/generate-image)
   gallery.vue        — /gallery — grid of AI-generated images fetched from R2 (uses /api/gallery)
   clock.vue          — /clock — real-time clock: SVG analog (scandi/space), terminal display (hacker)
+  lab.vue            — /lab — live experiments and tools showcase
   drafts/            — experimental pages
 components/          — Vue components
 composables/         — useTheme
@@ -77,6 +78,6 @@ Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
 ## Keyboard Shortcuts
 
 - `M` key toggles the global menu (disabled on admin pages)
-- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/guestbook`, `/activity`, `/stats`, `/meta`, `/colophon`, `/playground`, `/gallery`
+- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/guestbook`, `/activity`, `/stats`, `/meta`, `/colophon`, `/playground`, `/gallery`, `/clock`, `/lab`
 - `1` / `2` / `3` switch themes (scandinavian / hacker / space)
 - `?` or `/` toggles the keyboard shortcuts overlay
