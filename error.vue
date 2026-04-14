@@ -1,5 +1,7 @@
 <template>
   <div :class="[themePageClass, 'error-root']">
+    <ScandiAurora v-if="activeTheme === 'scandi'" />
+    <HackerRain v-if="activeTheme === 'hacker'" />
     <SpaceStarfield v-if="activeTheme === 'space'" />
 
     <!-- Hacker theme -->
@@ -38,6 +40,8 @@
 
 <script setup lang="ts">
 import MenuComponent from '~/components/MenuComponent.vue'
+import ScandiAurora from '~/components/ScandiAurora.vue'
+import HackerRain from '~/components/HackerRain.vue'
 import SpaceStarfield from '~/components/SpaceStarfield.vue'
 
 const props = defineProps({
