@@ -33,6 +33,7 @@ pages/               — file-based routing
   colophon.vue       — /colophon — design philosophy, the AI agent, three themes, tech decisions
   playground.vue     — /playground — AI image generation interface (uses /api/generate-image)
   gallery.vue        — /gallery — grid of AI-generated images fetched from R2 (uses /api/gallery)
+  clock.vue          — /clock — real-time clock: SVG analog (scandi/space), terminal display (hacker)
   drafts/            — experimental pages
 components/          — Vue components
 composables/         — useTheme

@@ -95,6 +95,7 @@ const allCommands: Command[] = [
   { id: 'nav-stats',   label: 'stats',               icon: '📊', hint: '/stats',    type: 'page',     action: () => router.push('/stats') },
   { id: 'nav-meta',     label: 'meta',                icon: '📋', hint: '/meta',      type: 'page',     action: () => router.push('/meta') },
   { id: 'nav-colophon', label: 'colophon',            icon: '📖', hint: '/colophon',  type: 'page',     action: () => router.push('/colophon') },
+  { id: 'nav-clock',    label: 'clock',               icon: '🕐', hint: '/clock',     type: 'page',     action: () => router.push('/clock') },
   { id: 'theme-scandi', label: 'scandinavian glass',  icon: '❄️', hint: '1',          type: 'theme',    action: () => setTheme('scandi') },
   { id: 'theme-hacker',label: 'cyberpunk',           icon: '📟', hint: '2',         type: 'theme',    action: () => setTheme('hacker') },
   { id: 'theme-space', label: 'space',               icon: '🚀', hint: '3',         type: 'theme',    action: () => setTheme('space') },
