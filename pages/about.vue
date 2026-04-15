@@ -177,6 +177,12 @@ const socialLinks = [
   border-color: var(--theme-accent, #6b8cae);
 }
 
+.about-link:focus-visible {
+  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .about-social {
   display: flex;
   gap: 1.5rem;
@@ -279,6 +285,13 @@ const socialLinks = [
 
 :global(.space-page) .about-divider {
   background: linear-gradient(90deg, transparent, rgba(140, 170, 220, 0.5), transparent);
+}
+
+:global(.space-page) .about-link {
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  font-size: 0.85em;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 :global(.space-page) .about-social-link {
