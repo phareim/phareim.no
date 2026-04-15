@@ -18,6 +18,7 @@ const menuItems = [
   { path: '/clock', title: 'Clock', icon: '🕐' },
   { path: '/lab', title: 'Lab', icon: '🧪' },
   { path: '/focus', title: 'Focus', icon: '⏱' },
+  { path: '/terminal', title: 'Terminal', icon: '>' },
   { path: 'https://dot.phareim.no', title: 'Red dot game', icon: '🔴', external: true },
  // { path: 'https://librarian.phareim.no', title: 'The Librarian', icon: '📚', external: true },
   { path: 'https://reader.phareim.no', title: 'RSS Reader', icon: '📰', external: true }
