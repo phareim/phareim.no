@@ -21,19 +21,20 @@
       <!-- Latest thought from Bluesky -->
       <section class="now-section">
         <h2 class="section-label">latest thought</h2>
-        <div v-if="latestPost" class="now-card">
+        <a
+          v-if="latestPost"
+          :href="latestPost.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="now-card"
+          :aria-label="`View on ${latestPost.source === 'x' ? 'X' : 'Bluesky'}: ${latestPost.text}`"
+        >
           <p class="now-card-text">{{ latestPost.text }}</p>
           <div class="now-card-footer">
             <span class="now-card-date">{{ formatDate(latestPost.createdAt) }}</span>
-            <a
-              :href="latestPost.url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="now-card-source"
-              aria-label="View on Bluesky"
-            >bluesky ↗</a>
+            <span class="now-card-source">{{ latestPost.source === 'x' ? 'x' : 'bluesky' }} ↗</span>
           </div>
-        </div>
+        </a>
         <div v-else-if="feedPending" class="now-placeholder now-placeholder--loading">
           <span>fetching…</span>
         </div>
@@ -231,6 +232,9 @@ h1 {
 /* ── Bluesky card ───────────────────────────────────────────── */
 
 .now-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
   background: var(--theme-card-bg, rgba(255, 255, 255, 0.6));
   border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
   border-radius: var(--theme-card-radius, 16px);
@@ -238,10 +242,18 @@ h1 {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 2px 10px var(--theme-card-shadow, rgba(0, 0, 0, 0.04));
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
 .now-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--theme-card-shadow, rgba(0, 0, 0, 0.08));
+  border-color: var(--theme-accent, #89abd0);
+}
+
+.now-card:focus-visible {
+  outline: 2px solid var(--theme-accent, #89abd0);
+  outline-offset: 2px;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px var(--theme-card-shadow, rgba(0, 0, 0, 0.08));
 }
@@ -272,18 +284,11 @@ h1 {
 .now-card-source {
   font-size: 0.7rem;
   color: var(--theme-text-subtle, #aaa);
-  text-decoration: none;
   transition: color 0.2s ease;
 }
 
-.now-card-source:hover {
+.now-card:hover .now-card-source {
   color: var(--theme-accent, #6b8cae);
-}
-
-.now-card-source:focus-visible {
-  outline: 2px solid var(--theme-accent, #6b8cae);
-  outline-offset: 2px;
-  border-radius: 2px;
 }
 
 /* ── Project list ───────────────────────────────────────────── */
@@ -414,7 +419,8 @@ h1 {
   font-family: monospace;
 }
 
-:global(.hacker-page) .now-card:hover {
+:global(.hacker-page) .now-card:hover,
+:global(.hacker-page) .now-card:focus-visible {
   box-shadow: 0 0 18px var(--theme-card-shadow, rgba(0, 255, 65, 0.2));
 }
 
@@ -432,7 +438,8 @@ h1 {
   box-shadow: 0 4px 24px var(--theme-card-shadow, rgba(140, 170, 220, 0.1));
 }
 
-:global(.space-page) .now-card:hover {
+:global(.space-page) .now-card:hover,
+:global(.space-page) .now-card:focus-visible {
   box-shadow:
     0 8px 32px var(--theme-card-shadow, rgba(140, 170, 220, 0.15)),
     0 0 0 1px rgba(140, 170, 220, 0.2);
