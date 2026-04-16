@@ -99,6 +99,7 @@ const allCommands: Command[] = [
   { id: 'nav-gallery', label: 'gallery',             icon: '🖼️', hint: '/gallery',    type: 'page',     action: () => router.push('/gallery') },
   { id: 'nav-clock',   label: 'clock',               icon: '🕐', hint: '/clock',      type: 'page',     action: () => router.push('/clock') },
   { id: 'nav-lab',     label: 'lab',                 icon: '🧪', hint: '/lab',      type: 'page',     action: () => router.push('/lab') },
+  { id: 'nav-morse',   label: 'morse',               icon: '·−', hint: '/morse',    type: 'page',     action: () => router.push('/morse') },
   { id: 'theme-scandi', label: 'scandinavian glass', icon: '❄️', hint: '1',         type: 'theme',    action: () => setTheme('scandi') },
   { id: 'theme-hacker',label: 'cyberpunk',           icon: '📟', hint: '2',         type: 'theme',    action: () => setTheme('hacker') },
   { id: 'theme-space', label: 'space',               icon: '🚀', hint: '3',         type: 'theme',    action: () => setTheme('space') },

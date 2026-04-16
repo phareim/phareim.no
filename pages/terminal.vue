@@ -130,6 +130,7 @@ const PAGES = [
   { path: '/lab',        desc: 'experiments' },
   { path: '/focus',      desc: 'pomodoro timer' },
   { path: '/terminal',   desc: '← you are here' },
+  { path: '/morse',      desc: 'morse code translator' },
 ]
 
 // ── Command implementations ─────────────────────────────────────────────
@@ -223,6 +224,13 @@ function catCmd(arg: string): OutputLine[] {
       blank(),
       out('  you are here. an interactive terminal for exploring this site.'),
       out('  type help for commands. use ↑/↓ for history. tab to complete.'),
+    ],
+    '/morse': [
+      h('<span class="t-hl">/morse</span>'),
+      blank(),
+      out('  interactive morse code translator.'),
+      out('  type text → see morse code → hear it via web audio api.'),
+      out('  supports a–z, 0–9, and common punctuation.'),
     ],
   }
 
