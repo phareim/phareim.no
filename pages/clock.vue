@@ -127,31 +127,44 @@ const DEG = Math.PI / 180
 
 // ── Reactive time state ───────────────────────────────────────────────
 
-const now = ref(new Date())
+const now = ref(new Date())      // 1-second precision for text displays
+const nowMs = ref(Date.now())    // sub-millisecond precision for analog hands
 
 let timer: ReturnType<typeof setInterval> | null = null
+let rafId: number | null = null
 
 onMounted(() => {
   timer = setInterval(() => { now.value = new Date() }, 1000)
+  const tick = () => {
+    nowMs.value = Date.now()
+    rafId = requestAnimationFrame(tick)
+  }
+  rafId = requestAnimationFrame(tick)
 })
 
 onBeforeUnmount(() => {
   if (timer !== null) clearInterval(timer)
+  if (rafId !== null) cancelAnimationFrame(rafId)
 })
 
-// ── Clock hands (smooth, accounting for sub-unit progress) ───────────
+// ── Clock hands (smooth-sweep using sub-millisecond rAF time) ────────
 
-const secondAngle = computed(() => now.value.getSeconds() * 6)
+const secondAngle = computed(() => {
+  const d = new Date(nowMs.value)
+  return (d.getSeconds() + d.getMilliseconds() / 1000) * 6
+})
 
-const minuteAngle = computed(() =>
-  now.value.getMinutes() * 6 + now.value.getSeconds() * 0.1
-)
+const minuteAngle = computed(() => {
+  const d = new Date(nowMs.value)
+  return d.getMinutes() * 6 + (d.getSeconds() + d.getMilliseconds() / 1000) * 0.1
+})
 
-const hourAngle = computed(() =>
-  (now.value.getHours() % 12) * 30
-  + now.value.getMinutes() * 0.5
-  + now.value.getSeconds() * (0.5 / 60)
-)
+const hourAngle = computed(() => {
+  const d = new Date(nowMs.value)
+  return (d.getHours() % 12) * 30
+    + d.getMinutes() * 0.5
+    + (d.getSeconds() + d.getMilliseconds() / 1000) * (0.5 / 60)
+})
 
 // ── Formatted strings ────────────────────────────────────────────────
 
@@ -294,7 +307,6 @@ h1 {
 
 .hand-hour {
   stroke: var(--theme-text, #111);
-  transition: transform 0.1s ease;
 }
 
 .hand-minute {
