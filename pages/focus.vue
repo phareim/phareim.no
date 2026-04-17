@@ -104,6 +104,16 @@
         >⏭</button>
       </div>
 
+      <!-- ── Sound toggle ──────────────────────────────────────── -->
+      <button
+        class="sound-toggle"
+        @click="soundEnabled = !soundEnabled"
+        :aria-label="soundEnabled ? 'Mute completion sound' : 'Enable completion sound'"
+        :title="soundEnabled ? 'Sound on' : 'Sound off'"
+      >
+        <span aria-hidden="true">{{ soundEnabled ? '🔔' : '🔕' }}</span>
+      </button>
+
       <!-- ── Session dots ───────────────────────────────────── -->
       <div class="session-dots" role="status">
         <span
@@ -156,6 +166,45 @@ const justCompleted = ref(false)
 
 let ticker: ReturnType<typeof setInterval> | null = null
 let flashTimer: ReturnType<typeof setTimeout> | null = null
+
+// ── Audio ──────────────────────────────────────────────────────────────
+
+const soundEnabled = ref(true)
+
+function playCompletionSound(isFocusComplete: boolean) {
+  if (!soundEnabled.value) return
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioCtx) return
+    const ctx = new AudioCtx() as AudioContext
+
+    // Focus done → break: ascending C-E-G triad
+    // Break done → focus: descending E-C
+    const notes = isFocusComplete ? [523, 659, 784] : [659, 523]
+    const duration = 0.18
+    const gap = 0.22
+    const startTime = ctx.currentTime + 0.05
+
+    notes.forEach((freq, i) => {
+      const t = startTime + i * gap
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      gain.gain.setValueAtTime(0, t)
+      gain.gain.linearRampToValueAtTime(0.28, t + 0.01)
+      gain.gain.linearRampToValueAtTime(0, t + duration)
+      osc.start(t)
+      osc.stop(t + duration)
+    })
+
+    setTimeout(() => ctx.close(), (notes.length * gap + duration + 0.2) * 1000)
+  } catch {
+    // Web Audio API unavailable
+  }
+}
 
 // ── Derived ────────────────────────────────────────────────────────────
 
@@ -288,6 +337,8 @@ function advanceMode() {
 }
 
 function onTimerComplete() {
+  const wasFocus = currentMode.value === 'focus'
+  playCompletionSound(wasFocus)
   justCompleted.value = true
   if (flashTimer !== null) clearTimeout(flashTimer)
   flashTimer = setTimeout(() => { justCompleted.value = false }, 1200)
@@ -793,6 +844,33 @@ h1 {
 :global(.space-page) .sdot--done {
   background: var(--space-accent-amber, #e8c87a);
   box-shadow: 0 0 8px rgba(232, 200, 122, 0.6);
+}
+
+/* ── Sound toggle ───────────────────────────────────────────── */
+
+.sound-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+  padding: 0;
+}
+
+.sound-toggle:hover {
+  opacity: 0.8;
+}
+
+.sound-toggle:focus-visible {
+  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* ── Responsive ─────────────────────────────────────────────── */
