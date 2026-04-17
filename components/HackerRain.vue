@@ -15,6 +15,7 @@ const FONT_SIZE = 14
 const TRAIL_ALPHA = 0.055   // how fast trails fade (lower = longer trails)
 const UPDATE_EVERY = 2      // update columns every N frames (throttle speed)
 const BG = '#0a0a0a'
+const BODY_CELLS = 4        // explicitly rendered body cells behind the head
 
 interface RainColumn {
   x: number
@@ -22,6 +23,10 @@ interface RainColumn {
   speed: number      // cells per update
   length: number     // stream length in cells (visual weight)
   brightness: number // 0..1 — some columns are dimmer
+  glitchCell: number // body cell index currently glitching (-1 = none)
+  glitchTimer: number
+  paused: boolean    // column temporarily stalled
+  pauseTimer: number
 }
 
 function randomChar(): string {
@@ -54,6 +59,10 @@ function initColumns() {
       speed: Math.random() * 0.8 + 0.4,
       length: Math.floor(Math.random() * 18 + 6),
       brightness: Math.random() * 0.5 + 0.3,
+      glitchCell: -1,
+      glitchTimer: 0,
+      paused: false,
+      pauseTimer: 0,
     })
   }
 }
@@ -71,25 +80,49 @@ function draw() {
     ctx.font = `${FONT_SIZE}px monospace`
 
     for (const col of columns) {
+      // Handle temporary pause (column stalled mid-stream for variety)
+      if (col.paused) {
+        col.pauseTimer--
+        if (col.pauseTimer <= 0) col.paused = false
+        continue
+      }
+
       if (col.y < 0) {
         // Column hasn't entered the screen yet — still advance it
         col.y += FONT_SIZE * col.speed
         continue
       }
 
-      // Draw head character (bright)
-      const headAlpha = 0.85 * col.brightness
-      ctx.fillStyle = `rgba(0, 255, 65, ${headAlpha})`
+      // ── Head: near-white for the classic Matrix look ──────────────
+      ctx.fillStyle = `rgba(210, 255, 210, ${0.95 * col.brightness})`
       ctx.fillText(randomChar(), col.x, col.y)
 
-      // Draw one dim character behind the head for the body colour
-      if (col.y > FONT_SIZE * 1.5) {
-        const bodyAlpha = 0.35 * col.brightness
-        ctx.fillStyle = `rgba(0, 180, 40, ${bodyAlpha})`
-        ctx.fillText(randomChar(), col.x, col.y - FONT_SIZE)
+      // ── Body cells: bright green fading to dim ────────────────────
+      for (let i = 1; i <= BODY_CELLS; i++) {
+        const bodyY = col.y - FONT_SIZE * i
+        if (bodyY < 0) break
+
+        const isGlitching = col.glitchCell === i && col.glitchTimer > 0
+        if (isGlitching) {
+          // Glitch flash: briefly near-white in the body
+          ctx.fillStyle = `rgba(180, 255, 180, ${0.80 * col.brightness})`
+          col.glitchTimer--
+          if (col.glitchTimer <= 0) col.glitchCell = -1
+        } else {
+          // Linear fade: first body cell bright green, rest taper off
+          const fade = (1 - i / (BODY_CELLS + 2)) * 0.65
+          ctx.fillStyle = `rgba(0, 210, 55, ${fade * col.brightness})`
+        }
+        ctx.fillText(randomChar(), col.x, bodyY)
       }
 
       col.y += FONT_SIZE * col.speed
+
+      // Occasionally trigger a glitch flash in a body cell
+      if (col.glitchCell === -1 && Math.random() < 0.006) {
+        col.glitchCell = Math.floor(Math.random() * BODY_CELLS) + 1
+        col.glitchTimer = Math.floor(Math.random() * 3) + 2
+      }
 
       // Reset stream once it travels far enough off the bottom
       if (col.y > h + col.length * FONT_SIZE) {
@@ -97,6 +130,12 @@ function draw() {
         col.speed = Math.random() * 0.8 + 0.4
         col.length = Math.floor(Math.random() * 18 + 6)
         col.brightness = Math.random() * 0.5 + 0.3
+
+        // Occasionally stall a freshly-reset column before it enters the screen
+        if (Math.random() < 0.12) {
+          col.paused = true
+          col.pauseTimer = Math.floor(Math.random() * 90) + 40
+        }
       }
     }
   }
