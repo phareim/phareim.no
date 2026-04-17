@@ -102,7 +102,7 @@
         <div class="info-date">{{ longDate }}</div>
         <div class="info-row">
           <span class="info-label">oslo</span>
-          <span class="info-value">UTC+{{ utcOffset }}</span>
+          <span class="info-value">UTC{{ utcOffset }}</span>
         </div>
         <div class="info-row">
           <span class="info-label">utc</span>
@@ -182,7 +182,7 @@ const utcStr = computed(() => {
 
 const utcOffset = computed(() => {
   const off = -now.value.getTimezoneOffset() / 60
-  return off >= 0 ? String(off) : String(off)
+  return (off >= 0 ? '+' : '') + off
 })
 
 const longDate = computed(() =>
