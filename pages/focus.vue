@@ -326,11 +326,13 @@ function skipMode() {
 function advanceMode() {
   if (currentMode.value === 'focus') {
     const next = sessionCount.value + 1
-    sessionCount.value = next >= SESSIONS_BEFORE_LONG ? 0 : next
+    // Keep dots filled during the long break; reset after it completes
+    sessionCount.value = next >= SESSIONS_BEFORE_LONG ? SESSIONS_BEFORE_LONG : next
     const nextMode: ModeKey = next >= SESSIONS_BEFORE_LONG ? 'long' : 'short'
     currentMode.value = nextMode
     timeLeft.value = MODES[nextMode].seconds
   } else {
+    if (currentMode.value === 'long') sessionCount.value = 0
     currentMode.value = 'focus'
     timeLeft.value = MODES.focus.seconds
   }
