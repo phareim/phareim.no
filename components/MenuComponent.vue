@@ -21,7 +21,7 @@
 		>
 			<nav aria-label="Site navigation">
 				<ul>
-					<li v-for="item in menuItems" :key="item.path">
+					<li v-for="(item, i) in menuItems" :key="item.path" :style="{ '--i': i }">
 						<NuxtLink :to="item.path" @click="toggleMenu" :target="item.external ? '_blank' : '_self'"
 							class="menu-item" :class="{ 'external': item.external }">{{ item.icon }} {{ item.title
 							}}<span class="external-arrow" v-if="item.external">→</span></NuxtLink>
@@ -45,19 +45,26 @@
 						{{ theme.icon }}
 					</button>
 				</div>
+				<div class="menu-kbd-hint" aria-hidden="true">
+					<kbd>M</kbd><span class="hint-sep">toggle</span><span class="hint-dot">·</span><kbd>[</kbd><kbd>]</kbd><span class="hint-sep">navigate</span>
+				</div>
 			</div>
 		</div>
 	</div>
 </template>
 
-<script setup>
-import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { useTheme } from '~/composables/useTheme'
-import { useRoute } from 'vue-router'
+<script setup lang="ts">
+interface MenuItem {
+	path: string
+	title: string
+	icon: string
+	external?: boolean
+}
+
 const { activeTheme, themes, setTheme } = useTheme()
 const route = useRoute()
 const showMenu = ref(false)
-const hamburgerRef = ref(null)
+const hamburgerRef = ref<HTMLButtonElement | null>(null)
 
 watch(() => route.path, () => {
 	showMenu.value = false
@@ -67,7 +74,7 @@ watch(() => route.path, () => {
 watch(showMenu, async (open) => {
 	if (open) {
 		await nextTick()
-		const firstLink = document.querySelector('#site-menu a, #site-menu button')
+		const firstLink = document.querySelector<HTMLElement>('#site-menu a, #site-menu button')
 		firstLink?.focus()
 	} else {
 		hamburgerRef.value?.focus()
@@ -75,7 +82,7 @@ watch(showMenu, async (open) => {
 })
 
 const touchStartX = ref(0)
-const menuItems = ref([])
+const menuItems = ref<MenuItem[]>([])
 
 const toggleMenu = () => {
 	showMenu.value = !showMenu.value
@@ -86,19 +93,19 @@ const closeMenu = () => {
 }
 
 // Close menu on Escape key
-const handleKeyDown = (event) => {
+const handleKeyDown = (event: KeyboardEvent) => {
 	if (showMenu.value && event.key === 'Escape') {
 		event.stopPropagation()
 		closeMenu()
 	}
 }
 
-const handleTouchStart = (event) => {
-	touchStartX.value = event.touches[0].clientX
+const handleTouchStart = (event: TouchEvent) => {
+	touchStartX.value = event.touches[0]!.clientX
 }
 
-const handleTouchEnd = (event) => {
-	const touchEndX = event.changedTouches[0].clientX
+const handleTouchEnd = (event: TouchEvent) => {
+	const touchEndX = event.changedTouches[0]!.clientX
 	const swipeDistance = touchStartX.value - touchEndX
 
 	if (Math.abs(swipeDistance) > 50) {
@@ -128,7 +135,6 @@ defineExpose({
 	toggleMenu,
 	closeMenu,
 })
-
 </script>
 
 <style scoped>
@@ -267,6 +273,24 @@ nav ul li a:focus-visible {
 	margin-left: 0.2rem;
 }
 
+/* ── Staggered entrance animation ──────────────────────────────── */
+
+@keyframes menu-item-in {
+	from {
+		opacity: 0;
+		transform: translateX(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+.menu-container.show-menu nav ul li {
+	animation: menu-item-in 0.25s ease-out both;
+	animation-delay: calc(var(--i, 0) * 0.035s + 0.06s);
+}
+
 /* Theme Switcher Styles */
 .menu-theme-switcher {
 	padding: 1rem 1.5rem;
@@ -318,5 +342,45 @@ nav ul li a:focus-visible {
 	background: var(--theme-bg, #fff);
 	box-shadow: 0 2px 8px var(--theme-card-shadow, rgba(0, 0, 0, 0.1));
 	border-color: var(--theme-card-border, rgba(0, 0, 0, 0.1));
+}
+
+/* ── Keyboard hint footer ───────────────────────────────────────── */
+
+.menu-kbd-hint {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	flex-wrap: wrap;
+	margin-top: 0.75rem;
+	padding-top: 0.6rem;
+	border-top: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.06));
+	font-size: 0.68rem;
+	color: var(--theme-text-subtle, #aaa);
+}
+
+.menu-kbd-hint kbd {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.3rem;
+	height: 1.3rem;
+	padding: 0 0.25rem;
+	font-size: 0.6rem;
+	font-weight: 600;
+	color: var(--theme-text-muted, #666);
+	background: var(--theme-bg, #f5f5f3);
+	border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.15));
+	border-radius: 3px;
+	box-shadow: 0 1px 0 var(--theme-card-border, rgba(0, 0, 0, 0.15));
+	line-height: 1;
+	font-family: inherit;
+}
+
+.hint-sep {
+	opacity: 0.7;
+}
+
+.hint-dot {
+	opacity: 0.4;
 }
 </style>
