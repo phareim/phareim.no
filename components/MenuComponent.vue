@@ -50,14 +50,22 @@
 	</div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useTheme } from '~/composables/useTheme'
 import { useRoute } from 'vue-router'
+
+interface MenuItem {
+  path: string
+  title: string
+  icon: string
+  external?: boolean
+}
+
 const { activeTheme, themes, setTheme } = useTheme()
 const route = useRoute()
 const showMenu = ref(false)
-const hamburgerRef = ref(null)
+const hamburgerRef = ref<HTMLButtonElement | null>(null)
 
 watch(() => route.path, () => {
 	showMenu.value = false
@@ -67,7 +75,7 @@ watch(() => route.path, () => {
 watch(showMenu, async (open) => {
 	if (open) {
 		await nextTick()
-		const firstLink = document.querySelector('#site-menu a, #site-menu button')
+		const firstLink = document.querySelector<HTMLElement>('#site-menu a, #site-menu button')
 		firstLink?.focus()
 	} else {
 		hamburgerRef.value?.focus()
@@ -75,7 +83,7 @@ watch(showMenu, async (open) => {
 })
 
 const touchStartX = ref(0)
-const menuItems = ref([])
+const menuItems = ref<MenuItem[]>([])
 
 const toggleMenu = () => {
 	showMenu.value = !showMenu.value
@@ -86,19 +94,19 @@ const closeMenu = () => {
 }
 
 // Close menu on Escape key
-const handleKeyDown = (event) => {
+const handleKeyDown = (event: KeyboardEvent) => {
 	if (showMenu.value && event.key === 'Escape') {
 		event.stopPropagation()
 		closeMenu()
 	}
 }
 
-const handleTouchStart = (event) => {
-	touchStartX.value = event.touches[0].clientX
+const handleTouchStart = (event: TouchEvent) => {
+	touchStartX.value = event.touches[0]!.clientX
 }
 
-const handleTouchEnd = (event) => {
-	const touchEndX = event.changedTouches[0].clientX
+const handleTouchEnd = (event: TouchEvent) => {
+	const touchEndX = event.changedTouches[0]!.clientX
 	const swipeDistance = touchStartX.value - touchEndX
 
 	if (Math.abs(swipeDistance) > 50) {
@@ -114,7 +122,7 @@ onMounted(async () => {
 	document.addEventListener('keydown', handleKeyDown)
 	try {
 		const menuResponse = await fetch('/api/menu')
-		menuItems.value = await menuResponse.json()
+		menuItems.value = await menuResponse.json() as MenuItem[]
 	} catch (error) {
 		console.error('Error fetching menu items:', error)
 	}
@@ -128,7 +136,6 @@ defineExpose({
 	toggleMenu,
 	closeMenu,
 })
-
 </script>
 
 <style scoped>
