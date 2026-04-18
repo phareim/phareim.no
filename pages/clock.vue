@@ -294,7 +294,6 @@ h1 {
 
 .hand-hour {
   stroke: var(--theme-text, #111);
-  transition: transform 0.1s ease;
 }
 
 .hand-minute {
