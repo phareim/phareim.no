@@ -109,13 +109,15 @@ onMounted(() => {
   if (!canvas.value) return
   ctx = canvas.value.getContext('2d')
   if (!ctx) return
-  // Fill with dark background immediately so there is no flash of white
   canvas.value.width = window.innerWidth
   canvas.value.height = window.innerHeight
   ctx.fillStyle = BG
   ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
 
   window.addEventListener('resize', resize)
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
   initColumns()
   draw()
 })

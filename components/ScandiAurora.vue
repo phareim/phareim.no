@@ -81,6 +81,8 @@ function drawLayer(layer: AuroraLayer, w: number, h: number) {
   ctx.fill()
 }
 
+let reducedMotion = false
+
 function draw() {
   if (!ctx || !canvas.value) return
   const w = canvas.value.width
@@ -88,18 +90,18 @@ function draw() {
 
   ctx.clearRect(0, 0, w, h)
 
-  // Draw layers back to front
   for (const layer of LAYERS) {
     drawLayer(layer, w, h)
   }
 
   time++
-  animationId = requestAnimationFrame(draw)
+  if (!reducedMotion) animationId = requestAnimationFrame(draw)
 }
 
 onMounted(() => {
   if (!canvas.value) return
   ctx = canvas.value.getContext('2d')
+  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   window.addEventListener('resize', resize)
   resize()
   draw()
