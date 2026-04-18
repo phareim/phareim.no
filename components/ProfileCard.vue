@@ -5,43 +5,42 @@
     role="button"
     tabindex="0"
     :aria-label="flipped ? 'Profile photo (flipped) — click to flip back' : 'Profile photo — click to flip'"
-    @click="flip"
-    @pointerdown="flipStart"
-    @pointerup="flipStop"
-    @keydown.enter.prevent="flip"
-    @keydown.space.prevent="flip"
+    @click="emit('flip', $event)"
+    @pointerdown="emit('flipStart', $event)"
+    @pointerup="emit('flipStop', $event)"
+    @keydown.enter.prevent="emit('flip', $event)"
+    @keydown.space.prevent="emit('flip', $event)"
   >
     <div class="flipper">
       <div class="front" aria-hidden="true">
-        <img class="profile-pic" src="/petter1.png" alt="Petter Hareim"
-             oncontextmenu="return false;" ontouchstart="return false;">
+        <img
+          class="profile-pic"
+          src="/petter1.png"
+          alt="Petter Hareim"
+          @contextmenu.prevent
+          @touchstart.prevent
+        >
       </div>
       <div class="back" aria-hidden="true">
-        <img class="profile-pic" src="/petter2.jpeg" alt="Petter Hareim, alternate photo"
-             oncontextmenu="return false;" ontouchstart="return false;">
+        <img
+          class="profile-pic"
+          src="/petter2.jpeg"
+          alt="Petter Hareim, alternate photo"
+          @contextmenu.prevent
+          @touchstart.prevent
+        >
       </div>
     </div>
   </div>
 </template>
 
-<script>
-export default {
-  name: 'ProfileCard',
-  props: {
-    flipped: { type: Boolean, default: false }
-  },
-  methods: {
-    flip(event) {
-      this.$emit('flip', event)
-    },
-    flipStart(event) {
-      this.$emit('flipStart', event)
-    },
-    flipStop(event) {
-      this.$emit('flipStop', event)
-    }
-  }
-}
+<script setup lang="ts">
+defineProps<{ flipped?: boolean }>()
+const emit = defineEmits<{
+  flip: [event: Event]
+  flipStart: [event: Event]
+  flipStop: [event: Event]
+}>()
 </script>
 
 <style scoped>
