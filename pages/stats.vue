@@ -107,20 +107,43 @@
 
       <div class="stats-divider" aria-hidden="true"></div>
 
-      <!-- Recent commit activity heatmap (last 30 days) -->
+      <!-- Recent commit activity heatmap (last 12 weeks) -->
       <section class="stats-section" aria-label="Recent commit activity">
-        <h2 class="section-label">recent commits</h2>
+        <h2 class="section-label">commit activity</h2>
         <div v-if="commitsPending" class="stats-placeholder"><span>loading…</span></div>
         <div v-else-if="commitActivity.length" class="commit-activity">
-          <div class="commit-grid" role="img" :aria-label="`${commitCount} commits in last ${commitActivity.length} days`">
-            <div
-              v-for="day in commitActivity"
-              :key="day.date"
-              class="commit-cell"
-              :class="`commit-cell--level${day.level}`"
-              :title="`${day.date}: ${day.count} commit${day.count !== 1 ? 's' : ''}`"
-            ></div>
+
+          <div class="heatmap">
+            <!-- Month labels -->
+            <div class="heatmap-months" aria-hidden="true">
+              <div class="heatmap-day-spacer"></div>
+              <div class="heatmap-month-track">
+                <span
+                  v-for="label in monthLabels"
+                  :key="label.text + label.weekIdx"
+                  class="heatmap-month"
+                  :style="{ left: label.leftPct }"
+                >{{ label.text }}</span>
+              </div>
+            </div>
+
+            <!-- Day labels + cells -->
+            <div class="heatmap-body">
+              <div class="heatmap-days" aria-hidden="true">
+                <span v-for="slot in daySlots" :key="slot.row" class="heatmap-day-slot">{{ slot.label }}</span>
+              </div>
+              <div class="commit-grid" role="img" :aria-label="`${commitCount} commits in last ${WEEKS} weeks`">
+                <div
+                  v-for="day in commitActivity"
+                  :key="day.date"
+                  class="commit-cell"
+                  :class="`commit-cell--level${day.level}`"
+                  :title="`${day.date}: ${day.count} commit${day.count !== 1 ? 's' : ''}`"
+                ></div>
+              </div>
+            </div>
           </div>
+
           <div class="commit-legend" aria-hidden="true">
             <span class="legend-label">less</span>
             <span class="commit-cell commit-cell--level0"></span>
@@ -190,9 +213,12 @@ const topRepos = computed(() =>
     .slice(0, 5)
 )
 
-// ── Commit heatmap (last 42 days) ─────────────────────────────────────
+// ── Commit heatmap (last 12 weeks) ────────────────────────────────────
 
-const DAYS = 42
+const WEEKS = 12
+const DAYS = WEEKS * 7
+
+const DAY_ABBR = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 
 const commitActivity = computed(() => {
   const commits = commitsData.value ?? []
@@ -216,6 +242,33 @@ const commitActivity = computed(() => {
   }
 
   return days
+})
+
+const firstDow = computed(() => {
+  if (!commitActivity.value.length) return 0
+  return new Date(commitActivity.value[0].date + 'T00:00:00').getDay()
+})
+
+const daySlots = computed(() =>
+  Array.from({ length: 7 }, (_, row) => {
+    const dow = (firstDow.value + row) % 7
+    return { row, label: (dow === 1 || dow === 3 || dow === 5) ? DAY_ABBR[dow] : '' }
+  })
+)
+
+const monthLabels = computed(() => {
+  const labels: { text: string; weekIdx: number; leftPct: string }[] = []
+  let lastMonth = ''
+  commitActivity.value.forEach((day, i) => {
+    const weekIdx = Math.floor(i / 7)
+    const d = new Date(day.date + 'T00:00:00')
+    const monthStr = d.toLocaleDateString('en-US', { month: 'short' })
+    if (monthStr !== lastMonth) {
+      labels.push({ text: monthStr, weekIdx, leftPct: `${(weekIdx / WEEKS * 100).toFixed(1)}%` })
+      lastMonth = monthStr
+    }
+  })
+  return labels
 })
 
 // ── Language → color mapping ──────────────────────────────────────────
@@ -562,17 +615,72 @@ h1 {
 .commit-activity {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.75rem;
 }
 
-.commit-grid {
-  display: grid;
-  grid-template-columns: repeat(42, 1fr);
+.heatmap {
+  display: flex;
+  flex-direction: column;
   gap: 3px;
 }
 
+.heatmap-months {
+  display: flex;
+  gap: 6px;
+}
+
+.heatmap-day-spacer {
+  flex-shrink: 0;
+  width: 24px;
+}
+
+.heatmap-month-track {
+  flex: 1;
+  position: relative;
+  height: 14px;
+  overflow: visible;
+}
+
+.heatmap-month {
+  position: absolute;
+  font-size: 0.55rem;
+  color: var(--theme-text-subtle, #aaa);
+  white-space: nowrap;
+  line-height: 14px;
+}
+
+.heatmap-body {
+  display: flex;
+  gap: 6px;
+}
+
+.heatmap-days {
+  flex-shrink: 0;
+  width: 24px;
+  display: grid;
+  grid-template-rows: repeat(7, 10px);
+  gap: 2px;
+}
+
+.heatmap-day-slot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 0.5rem;
+  color: var(--theme-text-subtle, #aaa);
+  line-height: 1;
+}
+
+.commit-grid {
+  flex: 1;
+  display: grid;
+  grid-template-rows: repeat(7, 10px);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+}
+
 .commit-cell {
-  aspect-ratio: 1;
   border-radius: 2px;
   background: var(--theme-card-border, rgba(0, 0, 0, 0.08));
   transition: opacity 0.2s ease;
@@ -627,8 +735,9 @@ h1 {
     grid-template-columns: 10px 5.5rem 1fr auto;
   }
 
-  .commit-grid {
-    grid-template-columns: repeat(21, 1fr);
+  .heatmap-day-spacer,
+  .heatmap-days {
+    width: 16px;
   }
 }
 
@@ -695,6 +804,11 @@ h1 {
 
 :global(.hacker-page) .commit-cell {
   border-radius: 0;
+}
+
+:global(.hacker-page) .heatmap-month,
+:global(.hacker-page) .heatmap-day-slot {
+  font-family: monospace;
 }
 
 /* ── Space theme overrides ────────────────────────────────────────── */
