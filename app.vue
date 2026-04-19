@@ -65,6 +65,8 @@ const handleKeyDown = (event: KeyboardEvent) => {
     return
   }
 
+  if (showPalette.value || showShortcuts.value) return
+
   if (event.key === '?' || event.key === '/') {
     event.preventDefault()
     showShortcuts.value = !showShortcuts.value
