@@ -15,6 +15,7 @@
   --hacker-text: #00ff41;
   --hacker-text-dim: #008F11;
   --hacker-text-bright: #e0ffe0;
+  --hacker-text-subtle: #555;
   
   /* Accents */
   --hacker-border: #003b00;
@@ -51,7 +52,7 @@
   --theme-bg-alt: var(--hacker-bg-alt);
   --theme-text: var(--hacker-text);
   --theme-text-muted: var(--hacker-text-dim);
-  --theme-text-subtle: #555;
+  --theme-text-subtle: var(--hacker-text-subtle);
 
   --theme-card-bg: rgba(0, 20, 0, 0.8);
   --theme-card-border: var(--hacker-text-dim);
