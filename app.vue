@@ -73,7 +73,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
     return
   }
 
-  if (!isAdmin && event.key === 'm') {
+  if (!isAdmin && event.key.toLowerCase() === 'm') {
     menuComponent.value?.toggleMenu();
     return
   }
