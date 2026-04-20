@@ -18,10 +18,11 @@
 			:class="['menu-container', { 'show-menu': showMenu }]"
 			@touchstart="handleTouchStart"
 			@touchend="handleTouchEnd"
+			@keydown="handleMenuKeyDown"
 		>
 			<nav aria-label="Site navigation">
 				<ul>
-					<li v-for="item in menuItems" :key="item.path">
+					<li v-for="(item, index) in menuItems" :key="item.path" :style="{ '--item-index': index }">
 						<NuxtLink :to="item.path" @click="toggleMenu" :target="item.external ? '_blank' : '_self'"
 							class="menu-item" :class="{ 'external': item.external }">{{ item.icon }} {{ item.title
 							}}<span class="external-arrow" v-if="item.external">→</span></NuxtLink>
@@ -93,11 +94,24 @@ const closeMenu = () => {
 	showMenu.value = false
 }
 
-// Close menu on Escape key
+// Close menu on Escape key (global listener)
 const handleKeyDown = (event: KeyboardEvent) => {
 	if (showMenu.value && event.key === 'Escape') {
 		event.stopPropagation()
 		closeMenu()
+	}
+}
+
+// Arrow key navigation within the menu
+const handleMenuKeyDown = (event: KeyboardEvent) => {
+	if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+	event.preventDefault()
+	const focusable = [...document.querySelectorAll<HTMLElement>('#site-menu a, #site-menu button')]
+	const idx = focusable.indexOf(document.activeElement as HTMLElement)
+	if (event.key === 'ArrowDown') {
+		;(focusable[idx + 1] ?? focusable[0])?.focus()
+	} else {
+		;(focusable[idx - 1] ?? focusable[focusable.length - 1])?.focus()
 	}
 }
 
@@ -221,6 +235,17 @@ nav {
 	overflow-y: auto;
 }
 
+@keyframes menu-item-in {
+	from {
+		opacity: 0;
+		transform: translateX(16px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
 nav ul {
 	list-style-type: none;
 	padding: 0;
@@ -232,6 +257,12 @@ nav ul li {
 	margin: 0;
 	padding: 0.5rem 2rem;
 	transition: background-color 0.2s ease;
+	opacity: 0;
+}
+
+.show-menu nav ul li {
+	animation: menu-item-in 0.25s ease both;
+	animation-delay: calc(var(--item-index, 0) * 45ms + 60ms);
 }
 
 nav ul li:hover {
@@ -281,6 +312,12 @@ nav ul li a:focus-visible {
 	border-top: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.1));
 	flex-shrink: 0;
 	margin-top: auto;
+	opacity: 0;
+}
+
+.show-menu .menu-theme-switcher {
+	animation: menu-item-in 0.25s ease both;
+	animation-delay: 350ms;
 }
 
 .theme-label {
@@ -325,5 +362,13 @@ nav ul li a:focus-visible {
 	background: var(--theme-bg, #fff);
 	box-shadow: 0 2px 8px var(--theme-card-shadow, rgba(0, 0, 0, 0.1));
 	border-color: var(--theme-card-border, rgba(0, 0, 0, 0.1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.show-menu nav ul li,
+	.show-menu .menu-theme-switcher {
+		animation: none;
+		opacity: 1;
+	}
 }
 </style>
