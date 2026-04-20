@@ -149,6 +149,7 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
   if (animationId !== null) cancelAnimationFrame(animationId)
 
   isPlaying.value = true

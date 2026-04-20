@@ -180,6 +180,9 @@ onMounted(() => {
   ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
 
   window.addEventListener('resize', resize)
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
   initColumns()
   draw()
 })

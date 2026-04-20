@@ -313,6 +313,18 @@ function enableGyro() {
 }
 
 let gyroTapHandler: (() => void) | null = null
+let reducedMotion = false
+
+function drawStatic() {
+  if (!ctx || !canvas.value) return
+  ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
+  for (const star of stars) {
+    ctx.beginPath()
+    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2)
+    ctx.fillStyle = `rgba(${star.rgbStr}, ${star.opacity})`
+    ctx.fill()
+  }
+}
 
 function handleVisibilityChange() {
   if (document.hidden) {
@@ -328,12 +340,20 @@ function handleVisibilityChange() {
 onMounted(() => {
   if (!canvas.value) return
   ctx = canvas.value.getContext('2d')
-  window.addEventListener('resize', onResize)
-  window.addEventListener('mousemove', handleMouseMove)
-  document.addEventListener('visibilitychange', handleVisibilityChange)
+  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   resize()
   initStars()
   initNebulas()
+
+  if (reducedMotion) {
+    drawStatic()
+    window.addEventListener('resize', () => { onResize(); drawStatic() })
+    return
+  }
+
+  window.addEventListener('resize', onResize)
+  window.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
   draw()
 
   // Gyro: try without gesture first (Android), fall back to tap (iOS)
