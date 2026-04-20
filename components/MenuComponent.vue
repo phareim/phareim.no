@@ -209,14 +209,15 @@ defineExpose({
 .menu-container {
 	position: fixed;
 	top: 0;
-	right: -250px;
+	right: 0;
 	width: 250px;
 	height: 100vh;
 	height: 100dvh;
 	background-color: var(--theme-card-bg, rgba(240, 240, 240, 0.95));
 	backdrop-filter: blur(20px);
 	-webkit-backdrop-filter: blur(20px);
-	transition: right 0.3s ease;
+	transform: translateX(100%);
+	transition: transform 0.3s ease;
 	z-index: 1000;
 	padding-top: 4.4rem;
 	box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
@@ -227,7 +228,7 @@ defineExpose({
 }
 
 .menu-container.show-menu {
-	right: 0;
+	transform: translateX(0);
 }
 
 nav {
