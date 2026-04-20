@@ -157,6 +157,15 @@ defineExpose({
 	position: fixed;
 	inset: 0;
 	z-index: 999;
+	background: rgba(0, 0, 0, 0.2);
+	backdrop-filter: blur(2px);
+	-webkit-backdrop-filter: blur(2px);
+	animation: backdrop-in 0.25s ease forwards;
+}
+
+@keyframes backdrop-in {
+	from { opacity: 0; }
+	to   { opacity: 1; }
 }
 
 .hamburger {
@@ -370,6 +379,10 @@ nav ul li a:focus-visible {
 	.show-menu .menu-theme-switcher {
 		animation: none;
 		opacity: 1;
+	}
+
+	.menu-backdrop {
+		animation: none;
 	}
 }
 </style>
