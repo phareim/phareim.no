@@ -37,7 +37,7 @@
           <div class="palette-results" ref="resultsRef" role="listbox">
             <template v-if="groups.length">
               <template v-for="group in groups" :key="group.type">
-                <div class="palette-group-label" role="presentation">{{ group.label }}</div>
+                <div class="palette-group-label" :class="{ 'is-recent': group.type === 'recent' }" role="presentation">{{ group.type === 'recent' ? '↺ ' + group.label : group.label }}</div>
                 <button
                   v-for="cmd in group.commands"
                   :key="cmd.id"
@@ -68,11 +68,15 @@ const props = defineProps<{ open: boolean }>()
 
 const { setTheme } = useTheme()
 const router = useRouter()
+const route = useRoute()
 
 const query = ref('')
 const selectedId = ref<string | null>(null)
 const inputRef = ref<HTMLInputElement | null>(null)
 const resultsRef = ref<HTMLElement | null>(null)
+
+const RECENT_KEY = 'phareim_recent_pages'
+const MAX_RECENT = 5
 
 interface Command {
   id: string
@@ -109,22 +113,78 @@ const allCommands: Command[] = [
   { id: 'ext-reader',  label: 'rss reader',          icon: '📰',                    type: 'external', action: () => window.open('https://reader.phareim.no', '_blank', 'noopener,noreferrer') },
 ]
 
+// Map route paths → command IDs for recent-page tracking
+const PATH_TO_CMD_ID: Record<string, string> = Object.fromEntries(
+  allCommands
+    .filter(c => c.type === 'page' && c.hint)
+    .map(c => [c.hint!, c.id])
+)
+
+const recentIds = ref<string[]>([])
+
+function loadRecentIds() {
+  if (!import.meta.client) return
+  try {
+    recentIds.value = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]')
+  } catch {
+    recentIds.value = []
+  }
+}
+
+watch(() => route.path, (path) => {
+  if (!import.meta.client) return
+  const cmdId = PATH_TO_CMD_ID[path]
+  if (!cmdId) return
+  try {
+    const stored: string[] = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]')
+    const updated = [cmdId, ...stored.filter(id => id !== cmdId)].slice(0, MAX_RECENT)
+    localStorage.setItem(RECENT_KEY, JSON.stringify(updated))
+    recentIds.value = updated
+  } catch { /* ignore */ }
+}, { immediate: true })
+
 const groups = computed(() => {
   const q = query.value.trim().toLowerCase()
-  const filtered = q
-    ? allCommands.filter(c => c.label.toLowerCase().includes(q) || c.type.includes(q))
-    : allCommands
 
-  return (['page', 'theme', 'external'] as const)
-    .map(type => ({
-      type,
-      label: { page: 'pages', theme: 'themes', external: 'links' }[type],
-      commands: filtered.filter(c => c.type === type),
-    }))
-    .filter(g => g.commands.length > 0)
+  if (q) {
+    const filtered = allCommands.filter(c => c.label.toLowerCase().includes(q))
+    return (['page', 'theme', 'external'] as const)
+      .map(type => ({
+        type,
+        label: { page: 'pages', theme: 'themes', external: 'links' }[type],
+        commands: filtered.filter(c => c.type === type),
+      }))
+      .filter(g => g.commands.length > 0)
+  }
+
+  // No query: show recent pages at top (excluding current page)
+  const currentCmdId = PATH_TO_CMD_ID[route.path]
+  const recentCmds = recentIds.value
+    .filter(id => id !== currentCmdId)
+    .map(id => allCommands.find(c => c.id === id))
+    .filter((c): c is Command => !!c)
+    .slice(0, 3)
+
+  const result: Array<{ type: string; label: string; commands: Command[] }> = []
+  if (recentCmds.length) {
+    result.push({ type: 'recent', label: 'recent', commands: recentCmds })
+  }
+  result.push(
+    { type: 'page',     label: 'pages',  commands: allCommands.filter(c => c.type === 'page') },
+    { type: 'theme',    label: 'themes', commands: allCommands.filter(c => c.type === 'theme') },
+    { type: 'external', label: 'links',  commands: allCommands.filter(c => c.type === 'external') },
+  )
+  return result
 })
 
-const flatCommands = computed(() => groups.value.flatMap(g => g.commands))
+const flatCommands = computed(() => {
+  const seen = new Set<string>()
+  return groups.value.flatMap(g => g.commands).filter(c => {
+    if (seen.has(c.id)) return false
+    seen.add(c.id)
+    return true
+  })
+})
 
 watch(groups, () => {
   selectedId.value = flatCommands.value[0]?.id ?? null
@@ -154,6 +214,7 @@ function runSelected() {
 watch(() => props.open, (val) => {
   if (val) {
     query.value = ''
+    loadRecentIds()
     nextTick(() => {
       inputRef.value?.focus()
       selectedId.value = flatCommands.value[0]?.id ?? null
