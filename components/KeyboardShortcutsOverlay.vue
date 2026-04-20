@@ -45,6 +45,24 @@
           <div class="kbd-divider" aria-hidden="true"></div>
 
           <div class="kbd-section">
+            <div class="kbd-section-label">focus timer</div>
+            <div class="kbd-row">
+              <kbd>Space</kbd>
+              <span>play / pause</span>
+            </div>
+            <div class="kbd-row">
+              <kbd>R</kbd>
+              <span>reset timer</span>
+            </div>
+            <div class="kbd-row">
+              <kbd>S</kbd>
+              <span>skip phase</span>
+            </div>
+          </div>
+
+          <div class="kbd-divider" aria-hidden="true"></div>
+
+          <div class="kbd-section">
             <div class="kbd-section-label">themes</div>
             <div class="kbd-row">
               <kbd>1</kbd>

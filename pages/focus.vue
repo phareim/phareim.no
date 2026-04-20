@@ -114,6 +114,13 @@
         <span aria-hidden="true">{{ soundEnabled ? '🔔' : '🔕' }}</span>
       </button>
 
+      <!-- ── Keyboard hints ───────────────────────────────────── -->
+      <div class="kbd-hints" aria-hidden="true">
+        <span class="kbd-hint"><kbd>Space</kbd> play / pause</span>
+        <span class="kbd-hint"><kbd>R</kbd> reset</span>
+        <span class="kbd-hint"><kbd>S</kbd> skip</span>
+      </div>
+
       <!-- ── Session dots ───────────────────────────────────── -->
       <div class="session-dots" role="status">
         <span
@@ -347,9 +354,39 @@ function onTimerComplete() {
   advanceMode()
 }
 
+// ── Keyboard shortcuts ─────────────────────────────────────────
+
+const handleGlobalKey = (event: KeyboardEvent) => {
+  const tag = (event.target as HTMLElement).tagName
+  if (['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'A'].includes(tag)) return
+  if (event.metaKey || event.ctrlKey || event.altKey) return
+
+  switch (event.key) {
+    case ' ':
+      event.preventDefault()
+      toggleTimer()
+      break
+    case 'r':
+    case 'R':
+      event.preventDefault()
+      resetTimer()
+      break
+    case 's':
+    case 'S':
+      event.preventDefault()
+      skipMode()
+      break
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleGlobalKey)
+})
+
 onBeforeUnmount(() => {
   if (ticker !== null) clearInterval(ticker)
   if (flashTimer !== null) clearTimeout(flashTimer)
+  document.removeEventListener('keydown', handleGlobalKey)
 })
 </script>
 
@@ -873,6 +910,66 @@ h1 {
   outline: 2px solid var(--theme-accent, #6b8cae);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* ── Keyboard hints ─────────────────────────────────────────── */
+
+.kbd-hints {
+  display: flex;
+  gap: 1.25rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.kbd-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--theme-text-subtle, #aaa);
+}
+
+.kbd-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.3rem;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--theme-text-muted, #666);
+  background: var(--theme-card-bg, rgba(255, 255, 255, 0.6));
+  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.12));
+  border-radius: 4px;
+  box-shadow: 0 1px 0 var(--theme-card-border, rgba(0, 0, 0, 0.15));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  line-height: 1;
+}
+
+:global(.hacker-page) .kbd-hints {
+  font-family: monospace;
+}
+
+:global(.hacker-page) .kbd-hint kbd {
+  border-radius: 0;
+  color: var(--theme-text-muted, #008F11);
+  background: rgba(0, 20, 0, 0.8);
+  border-color: var(--theme-text-muted, #008F11);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:global(.space-page) .kbd-hint kbd {
+  border-radius: 0;
+  background: rgba(15, 15, 30, 0.7);
+  border-color: rgba(140, 170, 220, 0.2);
+  box-shadow: 0 1px 0 rgba(140, 170, 220, 0.15);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* ── Responsive ─────────────────────────────────────────────── */
