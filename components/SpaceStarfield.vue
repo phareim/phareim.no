@@ -7,6 +7,7 @@ const canvas = ref<HTMLCanvasElement | null>(null)
 let ctx: CanvasRenderingContext2D | null = null
 let stars: Star[] = []
 let shootingStars: ShootingStar[] = []
+let nebulas: Nebula[] = []
 let animationId: number | null = null
 let frame = 0
 
@@ -27,6 +28,16 @@ const GYRO_SENSITIVITY = 1.5
 const GYRO_SMOOTHING = 0.08
 
 const NUM_STARS = 300
+const NUM_NEBULAS = 5
+
+// Nebula colors: cool space palette (r, g, b)
+const NEBULA_COLORS: number[][] = [
+  [89, 107, 176],   // blue
+  [100, 70, 150],   // violet
+  [60, 110, 160],   // teal-blue
+  [140, 80, 110],   // rose
+  [60, 140, 130],   // cyan-teal
+]
 
 // Shooting stars spawn roughly every N frames, with some randomness
 const SHOOTING_INTERVAL_MIN = 240
@@ -69,6 +80,16 @@ interface ShootingStar {
   decay: number          // life reduction per frame
 }
 
+interface Nebula {
+  x: number
+  y: number
+  radius: number
+  color: number[]        // r, g, b
+  opacity: number
+  speed: number          // horizontal drift (very slow)
+  parallaxDepth: number  // fraction of mouse/gyro offset applied
+}
+
 function resize() {
   if (!canvas.value) return
   canvas.value.width = window.innerWidth
@@ -91,6 +112,48 @@ function initStars() {
       twinklePhase: Math.random() * Math.PI * 2,
       twinkleSpeed: Math.random() * 0.02 + 0.005,
     })
+  }
+}
+
+function initNebulas() {
+  if (!canvas.value) return
+  nebulas = []
+  for (let i = 0; i < NUM_NEBULAS; i++) {
+    const color = NEBULA_COLORS[i % NEBULA_COLORS.length]
+    nebulas.push({
+      x: Math.random() * canvas.value.width,
+      y: Math.random() * canvas.value.height,
+      radius: Math.random() * 220 + 120,
+      color,
+      opacity: Math.random() * 0.07 + 0.03,
+      speed: Math.random() * 0.08 + 0.03,
+      parallaxDepth: Math.random() * 0.3 + 0.1,
+    })
+  }
+}
+
+function drawNebulas() {
+  if (!ctx || !canvas.value) return
+  for (const nebula of nebulas) {
+    const px = nebula.x + (gyroOffsetX + mouseParallaxX) * nebula.parallaxDepth
+    const py = nebula.y + (gyroOffsetY + mouseParallaxY) * nebula.parallaxDepth
+
+    const [r, g, b] = nebula.color
+    const grad = ctx.createRadialGradient(px, py, 0, px, py, nebula.radius)
+    grad.addColorStop(0,   `rgba(${r},${g},${b},${nebula.opacity})`)
+    grad.addColorStop(0.4, `rgba(${r},${g},${b},${nebula.opacity * 0.5})`)
+    grad.addColorStop(1,   `rgba(${r},${g},${b},0)`)
+
+    ctx.beginPath()
+    ctx.arc(px, py, nebula.radius, 0, Math.PI * 2)
+    ctx.fillStyle = grad
+    ctx.fill()
+
+    nebula.x -= nebula.speed
+    if (nebula.x + nebula.radius < 0) {
+      nebula.x = canvas.value.width + nebula.radius
+      nebula.y = Math.random() * canvas.value.height
+    }
   }
 }
 
@@ -157,6 +220,9 @@ function draw() {
   gyroOffsetY += (targetGyroY - gyroOffsetY) * GYRO_SMOOTHING
   mouseParallaxX += (targetMouseX - mouseParallaxX) * MOUSE_SMOOTHING
   mouseParallaxY += (targetMouseY - mouseParallaxY) * MOUSE_SMOOTHING
+
+  // Draw nebula clouds (behind stars)
+  drawNebulas()
 
   // Draw stars
   for (const star of stars) {
@@ -248,13 +314,26 @@ function enableGyro() {
 
 let gyroTapHandler: (() => void) | null = null
 
+function handleVisibilityChange() {
+  if (document.hidden) {
+    if (animationId !== null) {
+      cancelAnimationFrame(animationId)
+      animationId = null
+    }
+  } else {
+    if (animationId === null) draw()
+  }
+}
+
 onMounted(() => {
   if (!canvas.value) return
   ctx = canvas.value.getContext('2d')
   window.addEventListener('resize', onResize)
   window.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
   resize()
   initStars()
+  initNebulas()
   draw()
 
   // Gyro: try without gesture first (Android), fall back to tap (iOS)
@@ -270,6 +349,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   window.removeEventListener('mousemove', handleMouseMove)
   window.removeEventListener('deviceorientation', handleOrientation)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
   if (gyroTapHandler) document.removeEventListener('click', gyroTapHandler)
   if (animationId !== null) {
     cancelAnimationFrame(animationId)
