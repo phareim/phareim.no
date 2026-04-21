@@ -170,25 +170,57 @@ function draw() {
   animationId = requestAnimationFrame(draw)
 }
 
+function drawStatic() {
+  if (!ctx || !canvas.value) return
+  const w = canvas.value.width
+  const h = canvas.value.height
+  ctx.fillStyle = BG
+  ctx.fillRect(0, 0, w, h)
+  // Render a frozen column snapshot so reduced-motion users see something besides a black canvas
+  initColumns()
+  ctx.font = '14px monospace'
+  for (const col of columns) {
+    if (col.y < 0) continue
+    ctx.fillStyle = `rgba(0, 255, 65, ${0.4 * col.brightness})`
+    ctx.fillText(col.glitchChar, col.x, Math.max(col.fontSize, Math.min(h, col.y + h * 0.5)))
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    if (animationId !== null) {
+      cancelAnimationFrame(animationId)
+      animationId = null
+    }
+  } else if (animationId === null) {
+    draw()
+  }
+}
+
 onMounted(() => {
   if (!canvas.value) return
   ctx = canvas.value.getContext('2d')
   if (!ctx) return
   canvas.value.width = window.innerWidth
   canvas.value.height = window.innerHeight
-  ctx.fillStyle = BG
-  ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
 
   window.addEventListener('resize', resize)
 
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    drawStatic()
+    return
+  }
 
+  ctx.fillStyle = BG
+  ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
   initColumns()
   draw()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
   if (animationId !== null) cancelAnimationFrame(animationId)
 })
 </script>
