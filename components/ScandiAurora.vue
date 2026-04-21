@@ -8,6 +8,14 @@ let ctx: CanvasRenderingContext2D | null = null
 let animationId: number | null = null
 let time = 0
 
+// Mouse parallax state
+let mouseParallaxX = 0
+let mouseParallaxY = 0
+let targetMouseX = 0
+let targetMouseY = 0
+const MOUSE_SENSITIVITY = 10
+const MOUSE_SMOOTHING = 0.04
+
 interface AuroraLayer {
   baseY: number
   amplitude: number
@@ -18,6 +26,7 @@ interface AuroraLayer {
   hueBase: number
   hueRange: number
   alpha: number
+  parallaxDepth: number  // fraction of mouse offset applied (0 = none, 1 = full)
 }
 
 interface Star {
@@ -26,6 +35,7 @@ interface Star {
   r: number
   phase: number
   speed: number
+  parallaxDepth: number
 }
 
 interface CurtainRay {
@@ -41,12 +51,13 @@ interface CurtainRay {
   driftSpeed: number
 }
 
+// parallaxDepth: lower altitude (larger baseY) = closer = more parallax
 const LAYERS: AuroraLayer[] = [
-  { baseY: 0.28, amplitude: 0.08, speed: 0.00018, waveLen: 0.55, phase: 0.0, thickness: 0.18, hueBase: 145, hueRange: 25, alpha: 0.24 },
-  { baseY: 0.20, amplitude: 0.06, speed: 0.00024, waveLen: 0.70, phase: 1.2, thickness: 0.14, hueBase: 165, hueRange: 20, alpha: 0.18 },
-  { baseY: 0.35, amplitude: 0.07, speed: 0.00014, waveLen: 0.45, phase: 2.5, thickness: 0.12, hueBase: 195, hueRange: 35, alpha: 0.14 },
-  { baseY: 0.14, amplitude: 0.05, speed: 0.00028, waveLen: 0.80, phase: 3.8, thickness: 0.09, hueBase: 318, hueRange: 35, alpha: 0.11 }, // high-altitude pink
-  { baseY: 0.40, amplitude: 0.06, speed: 0.00020, waveLen: 0.60, phase: 5.1, thickness: 0.09, hueBase: 155, hueRange: 18, alpha: 0.10 },
+  { baseY: 0.28, amplitude: 0.08, speed: 0.00018, waveLen: 0.55, phase: 0.0, thickness: 0.18, hueBase: 145, hueRange: 25, alpha: 0.24, parallaxDepth: 0.5 },
+  { baseY: 0.20, amplitude: 0.06, speed: 0.00024, waveLen: 0.70, phase: 1.2, thickness: 0.14, hueBase: 165, hueRange: 20, alpha: 0.18, parallaxDepth: 0.35 },
+  { baseY: 0.35, amplitude: 0.07, speed: 0.00014, waveLen: 0.45, phase: 2.5, thickness: 0.12, hueBase: 195, hueRange: 35, alpha: 0.14, parallaxDepth: 0.65 },
+  { baseY: 0.14, amplitude: 0.05, speed: 0.00028, waveLen: 0.80, phase: 3.8, thickness: 0.09, hueBase: 318, hueRange: 35, alpha: 0.11, parallaxDepth: 0.2 },
+  { baseY: 0.40, amplitude: 0.06, speed: 0.00020, waveLen: 0.60, phase: 5.1, thickness: 0.09, hueBase: 155, hueRange: 18, alpha: 0.10, parallaxDepth: 0.75 },
 ]
 
 let stars: Star[] = []
@@ -59,6 +70,7 @@ function initStars(w: number, h: number) {
     r: 0.3 + Math.random() * 1.1,
     phase: Math.random() * Math.PI * 2,
     speed: 0.0015 + Math.random() * 0.0025,
+    parallaxDepth: Math.random() * 0.25 + 0.05,
   }))
 }
 
@@ -92,8 +104,10 @@ function drawStars(w: number, h: number) {
   if (!ctx) return
   for (const star of stars) {
     const twinkle = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(time * star.speed + star.phase))
+    const px = star.x + mouseParallaxX * star.parallaxDepth
+    const py = star.y + mouseParallaxY * star.parallaxDepth
     ctx.beginPath()
-    ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2)
+    ctx.arc(px, py, star.r, 0, Math.PI * 2)
     ctx.fillStyle = `rgba(255, 255, 255, ${(twinkle * 0.55).toFixed(3)})`
     ctx.fill()
   }
@@ -103,7 +117,7 @@ function drawRays(w: number, h: number) {
   if (!ctx) return
   for (const ray of rays) {
     const breathe = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(time * ray.speed + ray.phase))
-    const x = ray.xFrac * w + Math.sin(time * ray.driftSpeed + ray.phase) * ray.driftAmp
+    const x = ray.xFrac * w + Math.sin(time * ray.driftSpeed + ray.phase) * ray.driftAmp + mouseParallaxX * 0.4
     const topY = ray.baseY * h
     const botY = topY + ray.length * h
 
@@ -127,12 +141,14 @@ function drawLayer(layer: AuroraLayer, w: number, h: number) {
   const stepW = w / STEPS
   const hue = layer.hueBase + Math.sin(time * 0.00008 + layer.phase) * layer.hueRange
   const thickness = layer.thickness * h
+  const offsetX = mouseParallaxX * layer.parallaxDepth
+  const offsetY = mouseParallaxY * layer.parallaxDepth * 0.3
 
   ctx.beginPath()
   for (let i = 0; i <= STEPS; i++) {
-    const x = i * stepW
+    const x = i * stepW + offsetX
     const sineVal = Math.sin(i / STEPS * Math.PI * 2 / layer.waveLen + time * layer.speed + layer.phase)
-    const centerY = layer.baseY * h + sineVal * layer.amplitude * h
+    const centerY = layer.baseY * h + sineVal * layer.amplitude * h + offsetY
     const topY = centerY - thickness * 0.5
     if (i === 0) {
       ctx.moveTo(x, topY)
@@ -141,9 +157,9 @@ function drawLayer(layer: AuroraLayer, w: number, h: number) {
     }
   }
   for (let i = STEPS; i >= 0; i--) {
-    const x = i * stepW
+    const x = i * stepW + offsetX
     const sineVal = Math.sin(i / STEPS * Math.PI * 2 / layer.waveLen + time * layer.speed + layer.phase)
-    const centerY = layer.baseY * h + sineVal * layer.amplitude * h
+    const centerY = layer.baseY * h + sineVal * layer.amplitude * h + offsetY
     const bottomY = centerY + thickness * 0.5
     ctx.lineTo(x, bottomY)
   }
@@ -171,6 +187,10 @@ function draw() {
   const w = canvas.value.width
   const h = canvas.value.height
 
+  // Smooth parallax toward targets
+  mouseParallaxX += (targetMouseX - mouseParallaxX) * MOUSE_SMOOTHING
+  mouseParallaxY += (targetMouseY - mouseParallaxY) * MOUSE_SMOOTHING
+
   ctx.clearRect(0, 0, w, h)
 
   drawStars(w, h)
@@ -184,17 +204,44 @@ function draw() {
   if (!reducedMotion) animationId = requestAnimationFrame(draw)
 }
 
+function handleMouseMove(e: MouseEvent) {
+  if (!canvas.value) return
+  const cx = canvas.value.width / 2
+  const cy = canvas.value.height / 2
+  targetMouseX = ((e.clientX - cx) / cx) * -MOUSE_SENSITIVITY
+  targetMouseY = ((e.clientY - cy) / cy) * -MOUSE_SENSITIVITY
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    if (animationId !== null) {
+      cancelAnimationFrame(animationId)
+      animationId = null
+    }
+  } else if (!reducedMotion && animationId === null) {
+    draw()
+  }
+}
+
 onMounted(() => {
   if (!canvas.value) return
   ctx = canvas.value.getContext('2d')
   reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   window.addEventListener('resize', resize)
   resize()
+
+  if (!reducedMotion) {
+    window.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+  }
+
   draw()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
+  window.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
   if (animationId !== null) {
     cancelAnimationFrame(animationId)
   }
