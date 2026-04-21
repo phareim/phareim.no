@@ -92,6 +92,7 @@
           class="ctrl ctrl--main"
           @click="toggleTimer"
           :aria-label="isRunning ? 'Pause timer' : 'Start timer'"
+          title="Space"
         >
           <span aria-hidden="true">{{ isRunning ? '⏸' : '▶' }}</span>
           <span class="ctrl-label">{{ isRunning ? pauseLabel : startLabel }}</span>
@@ -140,7 +141,11 @@
 <script setup lang="ts">
 const { activeTheme } = useTheme()
 
-useHead({ title: 'focus — phareim.no' })
+const docTitle = computed(() => {
+  if (isRunning.value) return `${formattedTime.value} · focus — phareim.no`
+  return 'focus — phareim.no'
+})
+useHead({ title: docTitle })
 
 // ── Constants ──────────────────────────────────────────────────────────
 
