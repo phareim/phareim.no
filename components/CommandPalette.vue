@@ -147,7 +147,10 @@ const groups = computed(() => {
   const q = query.value.trim().toLowerCase()
 
   if (q) {
-    const filtered = allCommands.filter(c => c.label.toLowerCase().includes(q))
+    const filtered = allCommands.filter(c =>
+      c.label.toLowerCase().includes(q) ||
+      (c.hint && c.hint.toLowerCase().includes(q))
+    )
     return (['page', 'theme', 'external'] as const)
       .map(type => ({
         type,
