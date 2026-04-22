@@ -105,15 +105,27 @@
         >⏭</button>
       </div>
 
-      <!-- ── Sound toggle ──────────────────────────────────────── -->
-      <button
-        class="sound-toggle"
-        @click="soundEnabled = !soundEnabled"
-        :aria-label="soundEnabled ? 'Mute completion sound' : 'Enable completion sound'"
-        :title="soundEnabled ? 'Sound on' : 'Sound off'"
-      >
-        <span aria-hidden="true">{{ soundEnabled ? '🔔' : '🔕' }}</span>
-      </button>
+      <!-- ── Options row (sound + notifications) ───────────────── -->
+      <div class="option-row" role="group" aria-label="Timer options">
+        <button
+          class="option-btn"
+          @click="soundEnabled = !soundEnabled"
+          :aria-label="soundEnabled ? 'Mute completion sound' : 'Enable completion sound'"
+          :title="soundEnabled ? 'Sound on' : 'Sound off'"
+        >
+          <span aria-hidden="true">{{ soundEnabled ? '🔊' : '🔇' }}</span>
+        </button>
+
+        <button
+          v-if="notifSupported && notifPermission !== 'denied'"
+          class="option-btn"
+          @click="toggleNotif"
+          :aria-label="notifEnabled ? 'Disable desktop notifications' : 'Enable desktop notifications when timer ends'"
+          :title="notifEnabled ? 'Notifications on' : 'Notifications off (click to enable)'"
+        >
+          <span aria-hidden="true">{{ notifEnabled ? '🔔' : '🔕' }}</span>
+        </button>
+      </div>
 
       <!-- ── Keyboard hints ───────────────────────────────────── -->
       <div class="kbd-hints" aria-hidden="true">
@@ -182,6 +194,47 @@ let flashTimer: ReturnType<typeof setTimeout> | null = null
 // ── Audio ──────────────────────────────────────────────────────────────
 
 const soundEnabled = ref(true)
+
+// ── Notifications ──────────────────────────────────────────────────────
+
+const notifSupported = ref(false)
+const notifEnabled = ref(false)
+const notifPermission = ref<NotificationPermission>('default')
+
+async function toggleNotif() {
+  if (!notifSupported.value) return
+  if (notifEnabled.value) {
+    notifEnabled.value = false
+    localStorage.setItem('focus-notif', '0')
+    return
+  }
+  if (Notification.permission === 'default') {
+    const result = await Notification.requestPermission()
+    notifPermission.value = result
+    if (result !== 'granted') return
+  }
+  notifEnabled.value = true
+  localStorage.setItem('focus-notif', '1')
+}
+
+function sendNotification(wasFocus: boolean) {
+  if (!notifEnabled.value || !notifSupported.value || Notification.permission !== 'granted') return
+  if (!document.hidden) return
+
+  const title = wasFocus
+    ? (activeTheme.value === 'hacker' ? 'BREAK INITIATED' : activeTheme.value === 'space' ? 'PHASE COMPLETE' : 'focus session done')
+    : (activeTheme.value === 'hacker' ? 'RESUME WORK.EXE' : activeTheme.value === 'space' ? 'FOCUS PROTOCOL ENGAGED' : 'break over — back to work')
+
+  const body = wasFocus
+    ? (activeTheme.value === 'hacker' ? '> rest.exe running...' : activeTheme.value === 'space' ? 'Standby mode engaged.' : 'Take a short break ☕')
+    : (activeTheme.value === 'hacker' ? '> focus.exe ready' : activeTheme.value === 'space' ? 'Begin next mission.' : 'Ready to focus? 🎯')
+
+  try {
+    new Notification(title, { body, icon: '/favicon.ico', tag: 'focus-timer' })
+  } catch {
+    // Blocked in sandboxed contexts
+  }
+}
 
 function playCompletionSound(isFocusComplete: boolean) {
   if (!soundEnabled.value) return
@@ -353,6 +406,7 @@ function advanceMode() {
 function onTimerComplete() {
   const wasFocus = currentMode.value === 'focus'
   playCompletionSound(wasFocus)
+  sendNotification(wasFocus)
   justCompleted.value = true
   if (flashTimer !== null) clearTimeout(flashTimer)
   flashTimer = setTimeout(() => { justCompleted.value = false }, 1200)
@@ -386,6 +440,13 @@ const handleGlobalKey = (event: KeyboardEvent) => {
 
 onMounted(() => {
   document.addEventListener('keydown', handleGlobalKey)
+  if (typeof Notification !== 'undefined') {
+    notifSupported.value = true
+    notifPermission.value = Notification.permission
+    if (Notification.permission === 'granted' && localStorage.getItem('focus-notif') === '1') {
+      notifEnabled.value = true
+    }
+  }
 })
 
 onBeforeUnmount(() => {
@@ -890,9 +951,16 @@ h1 {
   box-shadow: 0 0 8px rgba(232, 200, 122, 0.6);
 }
 
-/* ── Sound toggle ───────────────────────────────────────────── */
+/* ── Options row (sound + notifications) ────────────────────── */
 
-.sound-toggle {
+.option-row {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.option-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -907,11 +975,11 @@ h1 {
   padding: 0;
 }
 
-.sound-toggle:hover {
+.option-btn:hover {
   opacity: 0.8;
 }
 
-.sound-toggle:focus-visible {
+.option-btn:focus-visible {
   outline: 2px solid var(--theme-accent, #6b8cae);
   outline-offset: 2px;
   border-radius: 4px;
