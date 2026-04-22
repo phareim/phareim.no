@@ -43,8 +43,12 @@ jobs:
 
       - name: Notify Sleeper
         if: success()
+        env:
+          SLEEPER_API_KEY: ${{ secrets.SLEEPER_API_KEY }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
-          curl -s -X POST https://sleeper.phareim.no/tasks/notify \
-            -H "Authorization: Bearer ${{ secrets.SLEEPER_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"title":"phareim.no deployed","body":"${{ github.event.head_commit.message }}"}'
+          jq -n --arg body "$COMMIT_MESSAGE" '{title: "phareim.no deployed", body: $body}' \
+            | curl -s -X POST https://sleeper.phareim.no/tasks/notify \
+              -H "Authorization: Bearer $SLEEPER_API_KEY" \
+              -H "Content-Type: application/json" \
+              --data-binary @-
