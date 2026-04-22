@@ -29,7 +29,20 @@ interface RainColumn {
   state: ColState    // current visual state
   stateTimer: number // frames remaining in this state
   glitchChar: string // cached char for glitch flash
+  shockBoosted: boolean // true while shockwave has boosted this column
 }
+
+interface Shockwave {
+  x: number
+  y: number
+  radius: number
+  maxRadius: number
+  startFrame: number
+}
+
+const SHOCK_SPEED = 7       // px per frame expansion
+const SHOCK_WIDTH = 22      // px — wave band that triggers columns
+const shockwaves: Shockwave[] = []
 
 function randomChar(): string {
   return CHARS[Math.floor(Math.random() * CHARS.length)]
@@ -58,7 +71,6 @@ function resize() {
 
 function initColumns() {
   if (!canvas.value) return
-  // Use base font size for column spacing; individual columns have their own size
   const BASE_SIZE = 14
   const numCols = Math.floor(canvas.value.width / BASE_SIZE)
   columns = []
@@ -76,7 +88,53 @@ function initColumns() {
       state,
       stateTimer: Math.floor(Math.random() * 120 + 40),
       glitchChar: randomChar(),
+      shockBoosted: false,
     })
+  }
+}
+
+function triggerShockwave(clientX: number, clientY: number) {
+  if (!canvas.value) return
+  const rect = canvas.value.getBoundingClientRect()
+  const x = clientX - rect.left
+  const y = clientY - rect.top
+  const maxR = Math.sqrt(canvas.value.width ** 2 + canvas.value.height ** 2)
+  shockwaves.push({ x, y, radius: 0, maxRadius: maxR, startFrame: frame })
+}
+
+function advanceShockwaves() {
+  if (!ctx || !canvas.value) return
+  const h = canvas.value.height
+
+  for (let i = shockwaves.length - 1; i >= 0; i--) {
+    const sw = shockwaves[i]!
+    sw.radius += SHOCK_SPEED
+
+    // Trigger columns whose nearest point on the column falls within the wave band
+    for (const col of columns) {
+      if (col.shockBoosted) continue
+      const colY = Math.max(0, Math.min(h, col.y))
+      const dist = Math.sqrt((col.x - sw.x) ** 2 + (colY - sw.y) ** 2)
+      if (dist >= sw.radius - SHOCK_WIDTH && dist < sw.radius) {
+        col.state = Math.random() < 0.55 ? 'glitch' : 'burst'
+        col.stateTimer = Math.floor(Math.random() * 30 + 20)
+        col.brightness = 0.9 + Math.random() * 0.1
+        col.glitchChar = randomChar()
+        col.shockBoosted = true
+      }
+    }
+
+    // Draw thin ring
+    const alpha = Math.max(0, 1 - sw.radius / sw.maxRadius) * 0.55
+    ctx.beginPath()
+    ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2)
+    ctx.strokeStyle = `rgba(0, 255, 65, ${alpha.toFixed(3)})`
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+
+    if (sw.radius >= sw.maxRadius) {
+      shockwaves.splice(i, 1)
+    }
   }
 }
 
@@ -89,11 +147,14 @@ function draw() {
   ctx.fillStyle = `rgba(10, 10, 10, ${TRAIL_ALPHA})`
   ctx.fillRect(0, 0, w, h)
 
+  advanceShockwaves()
+
   if (frame % UPDATE_EVERY === 0) {
     for (const col of columns) {
       // Tick state timer; transition to new state on expiry
       col.stateTimer--
       if (col.stateTimer <= 0) {
+        col.shockBoosted = false
         col.state = pickState()
         col.stateTimer = Math.floor(Math.random() * 180 + 60)
         col.brightness = col.state === 'dim'
@@ -176,7 +237,6 @@ function drawStatic() {
   const h = canvas.value.height
   ctx.fillStyle = BG
   ctx.fillRect(0, 0, w, h)
-  // Render a frozen column snapshot so reduced-motion users see something besides a black canvas
   initColumns()
   ctx.font = '14px monospace'
   for (const col of columns) {
@@ -184,6 +244,15 @@ function drawStatic() {
     ctx.fillStyle = `rgba(0, 255, 65, ${0.4 * col.brightness})`
     ctx.fillText(col.glitchChar, col.x, Math.max(col.fontSize, Math.min(h, col.y + h * 0.5)))
   }
+}
+
+function handleClick(e: MouseEvent) {
+  triggerShockwave(e.clientX, e.clientY)
+}
+
+function handleTouch(e: TouchEvent) {
+  const touch = e.touches[0]
+  if (touch) triggerShockwave(touch.clientX, touch.clientY)
 }
 
 function handleVisibilityChange() {
@@ -214,12 +283,16 @@ onMounted(() => {
   ctx.fillStyle = BG
   ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
   document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('click', handleClick)
+  window.addEventListener('touchstart', handleTouch, { passive: true })
   initColumns()
   draw()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
+  window.removeEventListener('click', handleClick)
+  window.removeEventListener('touchstart', handleTouch)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   if (animationId !== null) cancelAnimationFrame(animationId)
 })
