@@ -33,7 +33,7 @@ const SVG_DEFINITIONS: Record<string, SvgDef> = {
   },
   miles: {
     content: `<path d="M14.7,10.8C14.7,10.8,14.7,10.8,14.7,10.8c-5,0-9.1-4.1-9-9.1c0,0,0,0,0,0H0V31h5.7V12.7 c0.1,0.2,0.3,0.4,0.5,0.5c2.4,1.9,5.5,2.9,8.5,2.9c3.1,0,6.1-1,8.5-2.9c0.2-0.1,0.3-0.3,0.5-0.5V31h5.7V1.7h-5.7 C23.7,6.7,19.7,10.8,14.7,10.8z">`,
-    viewBox: '00 0 44 32',
+    viewBox: '0 0 44 32',
   },
   kreftforeningen: {
     image: '/kreftforeningen.png',
