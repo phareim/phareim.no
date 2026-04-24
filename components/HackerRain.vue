@@ -13,6 +13,8 @@ let frame = 0
 const CHARS = '01アウエオカキクケコサシスセソタチツテトナニヌネノ01ハヒフヘホマミムメモ01ヤユヨラリルレロワヲン'
 const TRAIL_ALPHA = 0.055   // how fast trails fade (lower = longer trails)
 const UPDATE_EVERY = 2      // update columns every N frames (throttle speed)
+const TRAIL_DEPTH = 4       // bright-trail characters drawn behind head
+const MUTATION_CHANCE = 0.08 // probability a mid-trail char mutates per update
 const BG = '#0a0a0a'
 const ACCENT = '#ff0055'    // hacker theme accent (neon pink)
 
@@ -188,26 +190,42 @@ function draw() {
         ctx.shadowBlur = 0
         ctx.shadowColor = 'transparent'
       } else {
-        // Normal / burst / dim — draw bright head
-        const headAlpha = (col.state === 'burst' ? 1.0 : 0.85) * col.brightness
-        if (col.state === 'burst') {
+        // Normal / burst / dim — near-white head + multi-char bright trail
+        const isBurst = col.state === 'burst'
+        const headAlpha = (isBurst ? 1.0 : 0.95) * col.brightness
+        if (isBurst) {
           ctx.shadowColor = 'rgba(0, 255, 65, 0.6)'
           ctx.shadowBlur = 6
         }
-        ctx.fillStyle = `rgba(0, 255, 65, ${headAlpha})`
+        ctx.fillStyle = `rgba(220, 255, 220, ${headAlpha})`
         ctx.fillText(randomChar(), col.x, col.y)
 
-        // Body character just behind the head
-        if (col.y > col.fontSize * 1.5) {
+        if (isBurst) {
           ctx.shadowBlur = 0
           ctx.shadowColor = 'transparent'
-          const bodyAlpha = 0.35 * col.brightness
-          ctx.fillStyle = `rgba(0, 180, 40, ${bodyAlpha})`
-          ctx.fillText(randomChar(), col.x, col.y - col.fontSize)
         }
-        if (col.state === 'burst') {
-          ctx.shadowBlur = 0
-          ctx.shadowColor = 'transparent'
+
+        // Fresh-trail segment fading from bright to dim green behind the head —
+        // creates a crisp bright zone before the canvas-persistence fade takes over.
+        const depth = Math.min(TRAIL_DEPTH, Math.floor(col.length / 2))
+        for (let t = 1; t <= depth; t++) {
+          const trailY = col.y - col.fontSize * t
+          if (trailY < 0) break
+          const fade = 1 - t / (depth + 1)
+          const green = Math.floor(80 + 160 * fade)
+          const alpha = 0.65 * col.brightness * fade
+          ctx.fillStyle = `rgba(0, ${green}, 40, ${alpha})`
+          ctx.fillText(randomChar(), col.x, trailY)
+        }
+
+        // Occasional mid-trail mutation — the signature "flickering glyph" look.
+        if (Math.random() < MUTATION_CHANCE) {
+          const mutOffset = depth + 1 + Math.floor(Math.random() * Math.max(1, col.length - depth - 1))
+          const mutY = col.y - col.fontSize * mutOffset
+          if (mutY > 0) {
+            ctx.fillStyle = `rgba(0, 130, 30, ${0.28 * col.brightness})`
+            ctx.fillText(randomChar(), col.x, mutY)
+          }
         }
       }
 
