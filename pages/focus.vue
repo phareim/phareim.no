@@ -220,7 +220,8 @@ let flashTimer: ReturnType<typeof setTimeout> | null = null
 
 // ── Audio ──────────────────────────────────────────────────────────────
 
-const soundEnabled = ref(true)
+const soundEnabled = ref(import.meta.client ? localStorage.getItem('focus-sound') !== '0' : true)
+watch(soundEnabled, (val) => { localStorage.setItem('focus-sound', val ? '1' : '0') })
 
 // ── Notifications ──────────────────────────────────────────────────────
 
