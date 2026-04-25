@@ -16,6 +16,14 @@ let targetMouseY = 0
 const MOUSE_SENSITIVITY = 10
 const MOUSE_SMOOTHING = 0.04
 
+// Gyroscope parallax state (mobile)
+let gyroOffsetX = 0
+let gyroOffsetY = 0
+let targetGyroX = 0
+let targetGyroY = 0
+const GYRO_SENSITIVITY = 8
+const GYRO_SMOOTHING = 0.06
+
 interface AuroraLayer {
   baseY: number
   amplitude: number
@@ -62,6 +70,7 @@ const LAYERS: AuroraLayer[] = [
 
 let stars: Star[] = []
 let rays: CurtainRay[] = []
+let gyroTapHandler: (() => void) | null = null
 
 function initStars(w: number, h: number) {
   stars = Array.from({ length: 70 }, () => ({
@@ -104,8 +113,8 @@ function drawStars(w: number, h: number) {
   if (!ctx) return
   for (const star of stars) {
     const twinkle = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(time * star.speed + star.phase))
-    const px = star.x + mouseParallaxX * star.parallaxDepth
-    const py = star.y + mouseParallaxY * star.parallaxDepth
+    const px = star.x + (mouseParallaxX + gyroOffsetX) * star.parallaxDepth
+    const py = star.y + (mouseParallaxY + gyroOffsetY) * star.parallaxDepth
     ctx.beginPath()
     ctx.arc(px, py, star.r, 0, Math.PI * 2)
     ctx.fillStyle = `rgba(255, 255, 255, ${(twinkle * 0.55).toFixed(3)})`
@@ -117,7 +126,7 @@ function drawRays(w: number, h: number) {
   if (!ctx) return
   for (const ray of rays) {
     const breathe = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(time * ray.speed + ray.phase))
-    const x = ray.xFrac * w + Math.sin(time * ray.driftSpeed + ray.phase) * ray.driftAmp + mouseParallaxX * 0.4
+    const x = ray.xFrac * w + Math.sin(time * ray.driftSpeed + ray.phase) * ray.driftAmp + (mouseParallaxX + gyroOffsetX) * 0.4
     const topY = ray.baseY * h
     const botY = topY + ray.length * h
 
@@ -141,8 +150,8 @@ function drawLayer(layer: AuroraLayer, w: number, h: number) {
   const stepW = w / STEPS
   const hue = layer.hueBase + Math.sin(time * 0.00008 + layer.phase) * layer.hueRange
   const thickness = layer.thickness * h
-  const offsetX = mouseParallaxX * layer.parallaxDepth
-  const offsetY = mouseParallaxY * layer.parallaxDepth * 0.3
+  const offsetX = (mouseParallaxX + gyroOffsetX) * layer.parallaxDepth
+  const offsetY = (mouseParallaxY + gyroOffsetY) * layer.parallaxDepth * 0.3
 
   ctx.beginPath()
   for (let i = 0; i <= STEPS; i++) {
@@ -190,6 +199,8 @@ function draw() {
   // Smooth parallax toward targets
   mouseParallaxX += (targetMouseX - mouseParallaxX) * MOUSE_SMOOTHING
   mouseParallaxY += (targetMouseY - mouseParallaxY) * MOUSE_SMOOTHING
+  gyroOffsetX += (targetGyroX - gyroOffsetX) * GYRO_SMOOTHING
+  gyroOffsetY += (targetGyroY - gyroOffsetY) * GYRO_SMOOTHING
 
   ctx.clearRect(0, 0, w, h)
 
@@ -202,6 +213,26 @@ function draw() {
 
   time++
   if (!reducedMotion) animationId = requestAnimationFrame(draw)
+}
+
+function handleOrientation(e: DeviceOrientationEvent) {
+  if (e.gamma !== null && e.beta !== null) {
+    targetGyroX = e.gamma * GYRO_SENSITIVITY
+    targetGyroY = (e.beta - 45) * GYRO_SENSITIVITY
+  }
+}
+
+function enableGyro() {
+  const DOE = DeviceOrientationEvent as any
+  if (typeof DOE !== 'undefined' && typeof DOE.requestPermission === 'function') {
+    DOE.requestPermission().then((state: string) => {
+      if (state === 'granted') {
+        window.addEventListener('deviceorientation', handleOrientation)
+      }
+    }).catch(console.warn)
+  } else if ('DeviceOrientationEvent' in window) {
+    window.addEventListener('deviceorientation', handleOrientation)
+  }
 }
 
 function handleMouseMove(e: MouseEvent) {
@@ -233,6 +264,14 @@ onMounted(() => {
   if (!reducedMotion) {
     window.addEventListener('mousemove', handleMouseMove)
     document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // Register gyroscope for non-iOS devices immediately; iOS needs a user gesture
+    const DOE = DeviceOrientationEvent as any
+    if (typeof DOE !== 'undefined' && typeof DOE.requestPermission !== 'function') {
+      window.addEventListener('deviceorientation', handleOrientation)
+    }
+    gyroTapHandler = () => { enableGyro(); document.removeEventListener('click', gyroTapHandler!) }
+    document.addEventListener('click', gyroTapHandler, { once: true })
   }
 
   draw()
@@ -241,7 +280,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
   window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('deviceorientation', handleOrientation)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
+  if (gyroTapHandler) document.removeEventListener('click', gyroTapHandler)
   if (animationId !== null) {
     cancelAnimationFrame(animationId)
   }
