@@ -54,6 +54,16 @@
         :aria-label="`${formattedTime} remaining`"
       >
         <svg viewBox="0 0 220 220" class="timer-svg" aria-hidden="true">
+          <!-- Tick marks -->
+          <g class="ring-ticks">
+            <line
+              v-for="tick in RING_TICKS"
+              :key="tick.i"
+              :x1="tick.x1" :y1="tick.y1"
+              :x2="tick.x2" :y2="tick.y2"
+              :class="tick.major ? 'tick-major' : 'tick-minor'"
+            />
+          </g>
           <!-- Background track -->
           <circle cx="110" cy="110" r="96" fill="none" class="ring-track" stroke-width="8" />
           <!-- Completion flash ring -->
@@ -75,7 +85,7 @@
         </svg>
         <div class="ring-inner">
           <span class="ring-mode-label">{{ activeModeConfig.label }}</span>
-          <span class="ring-time">{{ formattedTime }}</span>
+          <span class="ring-time" :class="{ 'ring-time--tick': secondPulse }">{{ formattedTime }}</span>
           <span class="ring-status">{{ isRunning ? runningLabel : pausedLabel }}</span>
         </div>
       </div>
@@ -163,6 +173,22 @@ useHead({ title: docTitle })
 
 const CIRCUMFERENCE = 2 * Math.PI * 96 // ≈ 603.19
 
+// Static tick positions: 60 marks around the ring, 4 major marks at quarters
+const RING_TICKS = Array.from({ length: 60 }, (_, i) => {
+  const angle = (i / 60) * Math.PI * 2 - Math.PI / 2
+  const major = i % 15 === 0
+  const r1 = major ? 101 : 102
+  const r2 = major ? 110 : 107
+  return {
+    i,
+    major,
+    x1: +(110 + Math.cos(angle) * r1).toFixed(2),
+    y1: +(110 + Math.sin(angle) * r1).toFixed(2),
+    x2: +(110 + Math.cos(angle) * r2).toFixed(2),
+    y2: +(110 + Math.sin(angle) * r2).toFixed(2),
+  }
+})
+
 const SESSIONS_BEFORE_LONG = 4
 
 type ModeKey = 'focus' | 'short' | 'long'
@@ -187,6 +213,7 @@ const timeLeft = ref(MODES.focus.seconds)
 const isRunning = ref(false)
 const sessionCount = ref(0)
 const justCompleted = ref(false)
+const secondPulse = ref(false)
 
 let ticker: ReturnType<typeof setInterval> | null = null
 let flashTimer: ReturnType<typeof setTimeout> | null = null
@@ -352,6 +379,8 @@ function tick() {
     return
   }
   timeLeft.value--
+  secondPulse.value = false
+  nextTick(() => { secondPulse.value = true })
 }
 
 function startTimer() {
@@ -574,6 +603,22 @@ h1 {
   transition: stroke-dashoffset 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
+.ring-ticks {
+  opacity: 0.22;
+}
+
+.tick-minor {
+  stroke: var(--theme-text-subtle, #aaa);
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+
+.tick-major {
+  stroke: var(--theme-text-muted, #888);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
 .ring-inner {
   position: absolute;
   inset: 0;
@@ -600,6 +645,22 @@ h1 {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
   line-height: 1;
+}
+
+@keyframes second-tick {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.032); }
+  100% { transform: scale(1); }
+}
+
+.ring-time--tick {
+  animation: second-tick 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-time--tick {
+    animation: none;
+  }
 }
 
 .ring-status {
@@ -949,6 +1010,15 @@ h1 {
 :global(.space-page) .sdot--done {
   background: var(--space-accent-amber, #e8c87a);
   box-shadow: 0 0 8px rgba(232, 200, 122, 0.6);
+}
+
+:global(.space-page) .ring-ticks {
+  opacity: 0.2;
+}
+
+:global(.space-page) .tick-minor,
+:global(.space-page) .tick-major {
+  stroke: var(--space-accent-blue, #89abd0);
 }
 
 /* ── Options row (sound + notifications) ────────────────────── */
