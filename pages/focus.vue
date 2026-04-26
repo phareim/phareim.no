@@ -23,6 +23,7 @@
       <div
         v-if="activeTheme === 'hacker'"
         class="hacker-timer"
+        :class="{ 'is-running': isRunning }"
         aria-live="polite"
         :aria-label="`${formattedTime} remaining`"
       >
@@ -714,6 +715,36 @@ h1 {
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0; }
+}
+
+/* ── Running state: marching bar + time glow flicker ────────── */
+
+.hacker-timer.is-running .ht-bar-fill {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--theme-text, #00ff41) 0,
+    var(--theme-text, #00ff41) 6px,
+    rgba(0, 255, 65, 0.2) 6px,
+    rgba(0, 255, 65, 0.2) 10px
+  );
+  background-size: 10px 100%;
+  animation: ht-march 0.5s linear infinite;
+}
+
+@keyframes ht-march {
+  to { background-position: 10px 0; }
+}
+
+.hacker-timer.is-running .ht-time {
+  animation: ht-flicker 4s ease-in-out infinite;
+}
+
+@keyframes ht-flicker {
+  0%, 80%, 100% { text-shadow: 0 0 20px currentColor; }
+  82%           { text-shadow: 0 0 50px currentColor, 0 0 100px currentColor; opacity: 0.8; }
+  84%           { text-shadow: 0 0 20px currentColor; opacity: 1; }
+  87%           { text-shadow: 0 0 8px currentColor; opacity: 0.93; }
+  90%           { text-shadow: 0 0 20px currentColor; opacity: 1; }
 }
 
 /* ── Controls ───────────────────────────────────────────────── */
