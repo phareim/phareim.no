@@ -1,8 +1,8 @@
 <template>
   <div class="morse-page">
     <header class="morse-header">
-      <h1>morse</h1>
-      <p class="subtitle">text → morse code + audio</p>
+      <h1>{{ pageTitle }}</h1>
+      <p class="subtitle">{{ pageSubtitle }}</p>
     </header>
 
     <main class="morse-content">
@@ -115,6 +115,20 @@
 </template>
 
 <script setup lang="ts">
+const { activeTheme } = useTheme()
+
+const pageTitle = computed(() => {
+  if (activeTheme.value === 'hacker') return 'morse.exe'
+  if (activeTheme.value === 'space')  return 'SIGNAL ENCODER'
+  return 'morse'
+})
+
+const pageSubtitle = computed(() => {
+  if (activeTheme.value === 'hacker') return '// encode · transmit · decode'
+  if (activeTheme.value === 'space')  return 'DASH DOT TRANSMISSION PROTOCOL'
+  return 'text → morse code + audio'
+})
+
 useHead({ title: 'morse — phareim.no' })
 
 // ── Morse table ──────────────────────────────────────────────────────────
