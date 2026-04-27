@@ -213,7 +213,6 @@ export default {
       this.boxes = this.boxes.filter(b => b !== box);
     },
     checkCanvasEdges(box){
-      // Sjekk for kollisjon med canvas-kanter
       if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) || box.x + box.vx - (box.size / 2) < 0) {
         if (box.turned) {
           box.size = box.size * 0.95;
@@ -244,35 +243,29 @@ export default {
       else if (box.x + box.vx - (box.size / 2) < 0 && box.y + box.vy > this.$refs?.canvas?.height - (box.size / 2)) {
         box.size = box.size * 0.95;
       }
-      // Sjekk for kollisjon med canvas-kanter, ferdig 😮‍💨
     },
     updatePosition(box) {
       if (!box) return;
       
       this.checkCanvasEdges(box);
       
-      // fjern boks hvis den er for liten
       if(box.size < 10) {
         this.removeBox(box);
         return;
       }
 
-      // Legg til bevegelse basert på mus/touch
       box.vx += (this.mousePosition.v.x * Math.random() * 0.3) * (Math.random()-0.3);
       box.vy += (this.mousePosition.v.y * Math.random() * 0.3) * (Math.random()-0.3);
 
-      // Reduser størrelsen ved høy hastighet
       if (Math.abs(box.vx) > 10 || Math.abs(box.vy) > 10) {
         box.size = box.size * 0.998;
         box.vx = box.vx * 0.9;
         box.vy = box.vy * 0.9;
       }
 
-      // Legg til demping
       box.vx *= 0.98;
       box.vy *= 0.98;
-      
-      // Oppdater posisjon
+
       box.x += box.vx;
       box.y += box.vy;
     },
@@ -287,32 +280,17 @@ export default {
       if (circle1.shadow.strength  != circle2.shadow.strength) {
         return;
       }
-      // Differanse i posisjon (for normal vektor)
       const dx = circle1.x - circle2.x;
       const dy = circle1.y - circle2.y;
-      
-      // Avstand mellom sirkelens sentre
       const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      // Normaliser normalvektoren
       const nx = dx / distance;
       const ny = dy / distance;
-      
-      // Finn relative hastigheter
       const vxDiff = circle1.vx - circle2.vx;
       const vyDiff = circle1.vy - circle2.vy;
-      
-      // Finn relativ hastighet langs normalvektoren
       const velocityAlongNormal = vxDiff * nx + vyDiff * ny;
-      
-      // Hvis hastigheten langs normalvektoren er positiv, betyr det at de går fra hverandre, så returner
       if (velocityAlongNormal > 0) return;
-      
-      // Massene til sirklene (kan tilpasses hvis de har forskjellige masser)
       const mass1 = circle1.size || 1;
       const mass2 = circle2.size || 1;
-      
-      // Elastisk kollisjonsformel for å oppdatere hastighetene
       const impulse = (2 * velocityAlongNormal) / (mass1 + mass2);
       
       circle1.vx -= impulse * mass2 * nx;
@@ -321,10 +299,8 @@ export default {
       circle2.vy += impulse * mass1 * ny;
     },
     drawBox(box) {
-      this.ctx.beginPath(); // Starter en ny sti
+      this.ctx.beginPath();
       this.ctx.arc(box.x, box.y, box.size / 2, 0, 2 * Math.PI);
-      
-      // Konfigurerer skygge
       if(!this.theUpsideDown){
         this.ctx.shadowOffsetX = box.shadow.shadowOffsetX;
         this.ctx.shadowOffsetY = box.shadow.shadowOffsetY;
@@ -334,8 +310,6 @@ export default {
       this.ctx.fillStyle = box.color;
       this.ctx.fill();
       this.ctx.closePath();
-      
-      // Nullstill skyggeinnstillinger for å unngå at hele canvaset påvirkes
       this.ctx.shadowOffsetX = 0;
       this.ctx.shadowOffsetY = 0;
       this.ctx.shadowBlur = 0;
@@ -450,7 +424,7 @@ export default {
     },
     addBox(event) {
       if (this.boxes.length > 12 && window.innerWidth < 600) {
-        return; // Slutt å legge til flere bokser på mobil
+        return;
       }
       
       if (this.boxes.length > 24) {
