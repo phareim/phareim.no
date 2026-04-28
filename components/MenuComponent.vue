@@ -16,6 +16,7 @@
 		<div
 			id="site-menu"
 			:class="['menu-container', { 'show-menu': showMenu }]"
+			:inert="!showMenu"
 			@touchstart="handleTouchStart"
 			@touchend="handleTouchEnd"
 			@keydown="handleMenuKeyDown"
