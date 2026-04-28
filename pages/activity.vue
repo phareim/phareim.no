@@ -28,53 +28,65 @@
       </div>
 
       <template v-else>
-        <div
-          v-for="(item, idx) in items"
-          :key="item.key"
-          :class="['activity-item', `activity-item--${item.type}`]"
-        >
-          <div class="activity-track" aria-hidden="true">
-            <span :class="['activity-dot', `dot--${item.type}`]"></span>
-            <span v-if="idx < items.length - 1" class="activity-line"></span>
+        <template v-for="(item, idx) in displayItems" :key="item.key">
+
+          <!-- Date group separator -->
+          <div v-if="item.type === 'separator'" class="activity-separator" aria-hidden="true">
+            <span class="separator-label">{{ (item as SeparatorItem).label }}</span>
           </div>
 
-          <div class="activity-content">
-            <div class="activity-meta-row">
-              <span :class="['activity-badge', `badge--${item.type}`]">{{ typeLabel(item.type) }}</span>
-              <time :datetime="item.date" class="activity-date">{{ formatDate(item.date) }}</time>
+          <!-- Activity item -->
+          <div
+            v-else
+            :class="['activity-item', `activity-item--${item.type}`]"
+          >
+            <div class="activity-track" aria-hidden="true">
+              <span :class="['activity-dot', `dot--${item.type}`]"></span>
+              <span
+                v-if="idx < displayItems.length - 1 && displayItems[idx + 1].type !== 'separator'"
+                class="activity-line"
+              ></span>
             </div>
 
-            <!-- Commit -->
-            <template v-if="item.type === 'commit'">
-              <a
-                :href="item.url"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="commit-message"
-              >{{ item.content }}</a>
-              <span class="commit-sha">{{ item.sha }}</span>
-            </template>
+            <div class="activity-content">
+              <div class="activity-meta-row">
+                <span :class="['activity-badge', `badge--${item.type}`]">{{ typeLabel(item.type as ActivityItem['type']) }}</span>
+                <time :datetime="(item as ActivityItem).date" class="activity-date">{{ formatDate((item as ActivityItem).date) }}</time>
+              </div>
 
-            <!-- Post -->
-            <template v-else-if="item.type === 'post'">
-              <p class="activity-text">{{ item.content }}</p>
-              <a
-                v-if="item.url"
-                :href="item.url"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="activity-source-link"
-                :aria-label="`View post on ${item.source ?? 'Bluesky'}`"
-              >{{ item.source ?? 'bluesky' }} ↗</a>
-            </template>
+              <!-- Commit -->
+              <template v-if="item.type === 'commit'">
+                <a
+                  :href="(item as ActivityItem).url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="commit-message"
+                >{{ (item as ActivityItem).content }}</a>
+                <span class="commit-sha">{{ (item as ActivityItem).sha }}</span>
+              </template>
 
-            <!-- Guestbook -->
-            <template v-else>
-              <p class="activity-text">{{ item.content }}</p>
-              <span class="guestbook-author">— {{ item.name }}</span>
-            </template>
+              <!-- Post -->
+              <template v-else-if="item.type === 'post'">
+                <p class="activity-text">{{ (item as ActivityItem).content }}</p>
+                <a
+                  v-if="(item as ActivityItem).url"
+                  :href="(item as ActivityItem).url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="activity-source-link"
+                  :aria-label="`View post on ${(item as ActivityItem).source ?? 'Bluesky'}`"
+                >{{ (item as ActivityItem).source ?? 'bluesky' }} ↗</a>
+              </template>
+
+              <!-- Guestbook -->
+              <template v-else>
+                <p class="activity-text">{{ (item as ActivityItem).content }}</p>
+                <span class="guestbook-author">— {{ (item as ActivityItem).name }}</span>
+              </template>
+            </div>
           </div>
-        </div>
+
+        </template>
 
         <p v-if="!items.length" class="activity-empty">
           {{ activeFilters.size < 3 ? 'nothing matches the current filter' : 'no activity yet' }}
@@ -127,6 +139,27 @@ interface ActivityItem {
   source?: string
 }
 
+interface SeparatorItem {
+  key: string
+  type: 'separator'
+  label: string
+}
+
+type DisplayItem = ActivityItem | SeparatorItem
+
+function getGroupKey(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const itemDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const diffDays = Math.round((today.getTime() - itemDay.getTime()) / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return 'today'
+  if (diffDays === 1) return 'yesterday'
+  if (diffDays < 7) return d.toLocaleDateString('en', { weekday: 'long' }).toLowerCase()
+  if (diffDays < 14) return 'last week'
+  return d.toLocaleDateString('en', { month: 'long', year: 'numeric' }).toLowerCase()
+}
+
 const { data: commitData, pending: commitPending } = useFetch<Commit[]>('/api/meta')
 const { data: feedData, pending: feedPending } = useFetch<FeedPage>('/api/feed')
 const { data: guestbookData, pending: guestbookPending } = useFetch<GuestbookEntry[]>('/api/guestbook')
@@ -172,6 +205,20 @@ const items = computed((): ActivityItem[] => {
   return result
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .filter(item => activeFilters.value.has(item.type))
+})
+
+const displayItems = computed((): DisplayItem[] => {
+  const result: DisplayItem[] = []
+  let lastGroup = ''
+  for (const item of items.value) {
+    const group = getGroupKey(item.date)
+    if (group !== lastGroup) {
+      result.push({ key: `sep-${group}`, type: 'separator', label: group })
+      lastGroup = group
+    }
+    result.push(item)
+  }
+  return result
 })
 
 function typeLabel(type: ActivityItem['type']): string {
@@ -335,6 +382,35 @@ h1 {
   flex-direction: column;
 }
 
+/* ── Date group separator ────────────────────────────────────── */
+.activity-separator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0.6rem;
+}
+
+.activity-separator:first-child {
+  margin-top: 0;
+}
+
+.activity-separator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--theme-card-border, rgba(0, 0, 0, 0.08));
+}
+
+.separator-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--theme-text-subtle, #aaa);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .activity-item {
   display: grid;
   grid-template-columns: 20px 1fr;
@@ -483,6 +559,33 @@ h1 {
 }
 
 /* ── Hacker theme overrides ──────────────────────────────────── */
+
+:global(.hacker-page) .activity-separator::before {
+  content: '// ';
+  color: var(--hacker-text-dim, #008f11);
+  font-family: monospace;
+  font-size: 0.65rem;
+  flex-shrink: 0;
+}
+
+:global(.hacker-page) .separator-label {
+  font-family: monospace;
+  color: var(--hacker-text-dim, #008f11);
+  text-transform: lowercase;
+  letter-spacing: 0.1em;
+}
+
+:global(.hacker-page) .activity-separator::after {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--hacker-text-dim, #008f11),
+    var(--hacker-text-dim, #008f11) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+  opacity: 0.4;
+}
+
 :global(.hacker-page) h1 {
   font-family: monospace;
   text-transform: lowercase;
@@ -531,6 +634,23 @@ h1 {
 }
 
 /* ── Space theme overrides ───────────────────────────────────── */
+
+:global(.space-page) .separator-label {
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  font-weight: 900;
+  font-size: 0.55rem;
+  color: var(--space-accent-blue, #89abd0);
+  text-shadow: 0 0 6px rgba(137, 171, 208, 0.5);
+}
+
+:global(.space-page) .activity-separator::after {
+  background: linear-gradient(
+    90deg,
+    rgba(137, 171, 208, 0.3),
+    transparent
+  );
+}
+
 :global(.space-page) h1 {
   font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
   font-weight: 900;
