@@ -34,10 +34,12 @@
 
       <div class="about-social">
         <a
-          v-for="link in socialLinks"
+          v-for="(link, i) in socialLinks"
           :key="link.label"
           :href="link.href"
-          :aria-label="link.label"
+          :aria-label="`${link.label} profile (opens in new tab)`"
+          :data-platform="link.platform"
+          :style="{ '--i': i }"
           target="_blank"
           rel="noopener noreferrer"
           class="about-social-link"
@@ -52,11 +54,11 @@
 useHead({ title: 'about — phareim.no' })
 
 const socialLinks = [
-  { label: 'GitHub', href: 'https://github.com/phareim' },
-  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/phareim' },
-  { label: 'Bluesky', href: 'https://bsky.app/profile/phareim.no' },
-  { label: 'X', href: 'https://x.com/phareim' },
-  { label: 'Threads', href: 'https://www.threads.com/@phareim' },
+  { label: 'GitHub',   href: 'https://github.com/phareim',                  platform: 'github'   },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/phareim',          platform: 'linkedin' },
+  { label: 'Bluesky',  href: 'https://bsky.app/profile/phareim.no',          platform: 'bluesky'  },
+  { label: 'X',        href: 'https://x.com/phareim',                        platform: 'x'        },
+  { label: 'Threads',  href: 'https://www.threads.com/@phareim',             platform: 'threads'  },
 ]
 </script>
 
@@ -189,7 +191,6 @@ const socialLinks = [
   margin-top: 2.5rem;
   flex-wrap: wrap;
   justify-content: center;
-  animation: content-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.5s both;
 }
 
 .about-social-link {
@@ -199,8 +200,17 @@ const socialLinks = [
   text-transform: lowercase;
   letter-spacing: 0.03em;
   border-bottom: 1px solid transparent;
-  padding-bottom: 1px;
-  transition: color 0.2s ease, border-color 0.2s ease;
+  padding: 0 4px 1px;
+  margin-inline: -4px;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+  opacity: 0;
+  animation: link-enter 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  animation-delay: calc(0.5s + var(--i, 0) * 65ms);
+}
+
+@keyframes link-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .about-social-link:hover {
@@ -236,6 +246,15 @@ const socialLinks = [
 
 :global(.hacker-page) .about-social-link {
   font-family: monospace;
+  border-bottom-color: var(--hacker-border, #003b00);
+  transition: color 0.1s steps(3), border-color 0.1s steps(3), background-color 0.1s steps(3);
+}
+
+:global(.hacker-page) .about-social-link:hover {
+  color: var(--hacker-bg, #0a0a0a);
+  background-color: var(--hacker-text, #00ff41);
+  border-color: transparent;
+  text-shadow: none;
 }
 
 :global(.hacker-page) .about-photo {
@@ -299,5 +318,18 @@ const socialLinks = [
   font-size: 0.75rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+:global(.space-page) .about-social-link:hover {
+  color: var(--space-accent-blue, #89abd0);
+  border-color: var(--space-accent-blue, #89abd0);
+  text-shadow: 0 0 10px rgba(137, 171, 208, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about-social-link {
+    animation: none;
+    opacity: 1;
+  }
 }
 </style>

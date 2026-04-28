@@ -559,16 +559,16 @@ p {
 
 .hacker-score {
   font-family: monospace;
-  color: #00ff41;
-  text-shadow: 0 0 10px #00ff41;
+  color: var(--hacker-text, #00ff41);
+  text-shadow: 0 0 10px var(--hacker-text, #00ff41);
   letter-spacing: 0.15em;
   font-size: 1em;
 }
 
 .game-over-title {
   font-family: monospace;
-  color: #00ff41;
-  text-shadow: 0 0 20px #00ff41, 0 0 40px #00ff41;
+  color: var(--hacker-text, #00ff41);
+  text-shadow: 0 0 20px var(--hacker-text, #00ff41), 0 0 40px var(--hacker-text, #00ff41);
   font-size: 2.8em;
   letter-spacing: 0.1em;
   margin-top: 0.5em;
@@ -589,14 +589,14 @@ p {
   animation: pulse-glow 0.8s ease-in-out infinite alternate;
 }
 @keyframes pulse-glow {
-  from { text-shadow: 0 0 10px #00ff41; }
-  to { text-shadow: 0 0 20px #00ff41, 0 0 40px #ffcc00; }
+  from { text-shadow: 0 0 10px var(--hacker-text, #00ff41); }
+  to { text-shadow: 0 0 20px var(--hacker-text, #00ff41), 0 0 40px var(--theme-rpg-item, #ffcc00); }
 }
 
 .game-over-restart {
   font-family: monospace;
-  color: #00ff41;
-  text-shadow: 0 0 8px #00ff41;
+  color: var(--hacker-text, #00ff41);
+  text-shadow: 0 0 8px var(--hacker-text, #00ff41);
   font-size: 0.9em;
   letter-spacing: 0.1em;
   opacity: 0.8;
@@ -605,7 +605,7 @@ p {
 
 .hacker-highscore-inline {
   font-family: monospace;
-  color: #00ff41;
+  color: var(--hacker-text, #00ff41);
   opacity: 0.5;
   font-size: 0.65em;
   letter-spacing: 0.1em;
