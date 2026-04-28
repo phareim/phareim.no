@@ -195,4 +195,24 @@ h1 {
   opacity: 0;
   transform: scale(1.03);
 }
+
+/* Accessibility: collapse all page transitions for reduced-motion users */
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active,
+  .page-leave-active,
+  .hacker-page .page-enter-active,
+  .hacker-page .page-leave-active,
+  .space-page .page-enter-active,
+  .space-page .page-leave-active {
+    transition: opacity 0.1s linear;
+  }
+  .page-enter-from,
+  .page-leave-to,
+  .hacker-page .page-enter-from,
+  .hacker-page .page-leave-to,
+  .space-page .page-enter-from,
+  .space-page .page-leave-to {
+    transform: none;
+  }
+}
 </style>

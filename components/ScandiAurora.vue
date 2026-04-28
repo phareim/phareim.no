@@ -61,6 +61,17 @@ interface CurtainRay {
   driftSpeed: number
 }
 
+interface AuroraFlare {
+  x: number
+  width: number
+  hue: number
+  alpha: number
+  decay: number
+  heightFrac: number
+}
+
+let flares: AuroraFlare[] = []
+
 // parallaxDepth: lower altitude (larger baseY) = closer = more parallax
 const LAYERS: AuroraLayer[] = [
   { baseY: 0.28, amplitude: 0.08, speed: 0.00018, waveLen: 0.55, phase: 0.0, thickness: 0.18, hueBase: 145, hueRange: 25, alpha: 0.24, parallaxDepth: 0.5 },
@@ -144,6 +155,42 @@ function drawRays(w: number, h: number) {
   }
 }
 
+function triggerFlare(clientX: number) {
+  flares.push({
+    x: clientX,
+    width: 25 + Math.random() * 55,
+    hue: 135 + Math.random() * 85,
+    alpha: 0.42 + Math.random() * 0.22,
+    decay: 0.007 + Math.random() * 0.005,
+    heightFrac: 0.25 + Math.random() * 0.18,
+  })
+  flares.push({
+    x: clientX + (Math.random() - 0.5) * 90,
+    width: 8 + Math.random() * 22,
+    hue: 145 + Math.random() * 65,
+    alpha: 0.22 + Math.random() * 0.15,
+    decay: 0.01 + Math.random() * 0.007,
+    heightFrac: 0.15 + Math.random() * 0.12,
+  })
+}
+
+function drawFlares(h: number) {
+  if (!ctx || flares.length === 0) return
+  for (const flare of flares) {
+    const topY = h * 0.04
+    const botY = topY + flare.heightFrac * h
+    const grad = ctx.createLinearGradient(0, topY, 0, botY)
+    grad.addColorStop(0.0, `hsla(${flare.hue}, 82%, 65%, 0)`)
+    grad.addColorStop(0.1, `hsla(${flare.hue}, 82%, 65%, ${flare.alpha.toFixed(3)})`)
+    grad.addColorStop(0.55, `hsla(${flare.hue}, 78%, 60%, ${(flare.alpha * 0.55).toFixed(3)})`)
+    grad.addColorStop(1.0, `hsla(${flare.hue}, 75%, 55%, 0)`)
+    ctx.fillStyle = grad
+    ctx.fillRect(flare.x - flare.width / 2, topY, flare.width, botY - topY)
+    flare.alpha -= flare.decay
+  }
+  flares = flares.filter(f => f.alpha > 0)
+}
+
 function drawLayer(layer: AuroraLayer, w: number, h: number) {
   if (!ctx) return
 
@@ -207,6 +254,7 @@ function draw() {
 
   drawStars(w, h)
   drawRays(w, h)
+  drawFlares(h)
 
   for (const layer of LAYERS) {
     drawLayer(layer, w, h)
@@ -214,6 +262,15 @@ function draw() {
 
   time++
   if (!reducedMotion) animationId = requestAnimationFrame(draw)
+}
+
+function handleClick(e: MouseEvent) {
+  triggerFlare(e.clientX)
+}
+
+function handleTouch(e: TouchEvent) {
+  const touch = e.touches[0]
+  if (touch) triggerFlare(touch.clientX)
 }
 
 function handleMouseMove(e: MouseEvent) {
@@ -269,6 +326,8 @@ onMounted(() => {
 
   if (!reducedMotion) {
     window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('click', handleClick)
+    window.addEventListener('touchstart', handleTouch, { passive: true })
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     const DOE = DeviceOrientationEvent as any
@@ -285,6 +344,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('click', handleClick)
+  window.removeEventListener('touchstart', handleTouch)
   window.removeEventListener('deviceorientation', handleOrientation)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   if (gyroTapHandler) document.removeEventListener('click', gyroTapHandler)
