@@ -93,11 +93,55 @@ const emit = defineEmits<{
   border-radius: 50%;
   width: 200px;
   height: 200px;
-  transition: transform 8s;
-  transition-timing-function: ease-out;
+  transition: transform 8s ease-out, box-shadow 0.4s ease;
   user-select: none;
   -webkit-user-select: none;
   pointer-events: none;
-  border: var(--theme-text, #222) 5px solid;
+  /* base ring — overridden per-theme below */
+  border: 4px solid var(--theme-card-border, rgba(0, 0, 0, 0.15));
+}
+
+/* ── Scandi: frosted glass ring ─────────────────────────────── */
+:global(.scandi-page) .profile-pic {
+  border: 4px solid var(--theme-card-border, rgba(255, 255, 255, 0.4));
+  box-shadow:
+    0 4px 24px var(--theme-card-shadow, rgba(0, 0, 0, 0.06)),
+    0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+/* ── Hacker: neon pulse ring ────────────────────────────────── */
+:global(.hacker-page) .profile-pic {
+  border: 2px solid var(--theme-accent, #00ff41);
+  box-shadow:
+    0 0 10px var(--theme-card-shadow, rgba(0, 255, 65, 0.2)),
+    0 0 28px rgba(0, 255, 65, 0.08);
+  animation: hacker-ring-pulse 3s ease-in-out infinite;
+}
+
+@keyframes hacker-ring-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 8px var(--theme-card-shadow, rgba(0, 255, 65, 0.2)),
+      0 0 20px rgba(0, 255, 65, 0.05);
+  }
+  50% {
+    box-shadow:
+      0 0 20px var(--theme-card-shadow, rgba(0, 255, 65, 0.35)),
+      0 0 44px rgba(0, 255, 65, 0.15);
+  }
+}
+
+/* ── Space: stellar ambient glow ────────────────────────────── */
+:global(.space-page) .profile-pic {
+  border: 2px solid var(--theme-accent, #89abd0);
+  box-shadow:
+    0 0 16px var(--theme-card-shadow, rgba(140, 170, 220, 0.15)),
+    0 4px 32px rgba(140, 170, 220, 0.07);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(.hacker-page) .profile-pic {
+    animation: none;
+  }
 }
 </style>
