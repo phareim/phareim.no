@@ -131,6 +131,7 @@ function formatDate(iso: string): string {
   if (diffDays === 1) return 'yesterday'
   if (diffDays < 7) return `${diffDays}d ago`
   if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`
   return d.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 </script>
