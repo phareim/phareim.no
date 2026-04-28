@@ -10,19 +10,19 @@
       <!-- Big numbers -->
       <section class="stats-numbers" aria-label="Overview">
         <div class="stat-card">
-          <span class="stat-value">{{ repoCount }}</span>
+          <span class="stat-value">{{ displayRepos }}</span>
           <span class="stat-label">repos</span>
         </div>
         <div class="stat-card">
-          <span class="stat-value">{{ totalStars }}</span>
+          <span class="stat-value">{{ displayStars }}</span>
           <span class="stat-label">stars</span>
         </div>
         <div class="stat-card">
-          <span class="stat-value">{{ langCount }}</span>
+          <span class="stat-value">{{ displayLangs }}</span>
           <span class="stat-label">languages</span>
         </div>
         <div class="stat-card">
-          <span class="stat-value">{{ commitCount }}</span>
+          <span class="stat-value">{{ displayCommits }}</span>
           <span class="stat-label">commits</span>
         </div>
       </section>
@@ -299,6 +299,43 @@ const LANG_COLORS: Record<string, string> = {
 function langColor(lang: string): string {
   return LANG_COLORS[lang] ?? '#6b8cae'
 }
+
+// ── Animated display values ───────────────────────────────────────────
+
+const displayRepos = ref(0)
+const displayStars = ref(0)
+const displayLangs = ref(0)
+const displayCommits = ref(0)
+
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3)
+}
+
+function animateCount(target: number, setter: (v: number) => void, duration = 900) {
+  if (!target) { setter(0); return }
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    setter(target)
+    return
+  }
+  const start = performance.now()
+  function step(now: number) {
+    const elapsed = now - start
+    const t = Math.min(elapsed / duration, 1)
+    setter(Math.round(easeOutCubic(t) * target))
+    if (t < 1) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
+onMounted(() => {
+  // Short delay lets the card enter-animations finish before counting starts
+  setTimeout(() => {
+    animateCount(repoCount.value, n => { displayRepos.value = n })
+    animateCount(totalStars.value, n => { displayStars.value = n })
+    animateCount(langCount.value, n => { displayLangs.value = n })
+    animateCount(commitCount.value, n => { displayCommits.value = n })
+  }, 300)
+})
 </script>
 
 <style scoped>
