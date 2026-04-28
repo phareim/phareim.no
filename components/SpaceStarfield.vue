@@ -9,6 +9,7 @@ let stars: Star[] = []
 let shootingStars: ShootingStar[] = []
 let nebulas: Nebula[] = []
 let constellations: Constellation[] = []
+let burstParticles: BurstParticle[] = []
 let animationId: number | null = null
 let frame = 0
 
@@ -165,6 +166,18 @@ interface Constellation {
   stars: ConstellationStar[]
   edges: [number, number][]
   parallaxDepth: number
+}
+
+interface BurstParticle {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  life: number
+  decay: number
+  color: number[]
+  size: number
+  tailLength: number
 }
 
 function resize() {
@@ -376,6 +389,80 @@ function drawShootingStar(s: ShootingStar) {
   ctx.fill()
 }
 
+// Warm/bright color pool for burst particles (stellar explosion feel)
+const BURST_EXTRA_COLORS: number[][] = [
+  [255, 220, 120],
+  [255, 200, 80],
+  [255, 240, 180],
+]
+
+function spawnClickBurst(clientX: number, clientY: number) {
+  const count = 14 + Math.floor(Math.random() * 8)
+  const colorPool = [...STAR_COLORS, ...BURST_EXTRA_COLORS]
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6
+    const speed = Math.random() * 5 + 1.5
+    const color = colorPool[Math.floor(Math.random() * colorPool.length)]!
+    burstParticles.push({
+      x: clientX, y: clientY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: Math.random() * 0.02 + 0.012,
+      color,
+      size: Math.random() * 1.8 + 0.4,
+      tailLength: Math.random() * 22 + 8,
+    })
+  }
+}
+
+function drawBurstParticles() {
+  if (!ctx || burstParticles.length === 0) return
+  ctx.save()
+  ctx.lineCap = 'round'
+  for (const p of burstParticles) {
+    const alpha = p.life * p.life
+    const [r, g, b] = p.color
+    const spd = Math.hypot(p.vx, p.vy)
+    if (spd === 0) continue
+    const tailX = p.x - (p.vx / spd) * p.tailLength * p.life
+    const tailY = p.y - (p.vy / spd) * p.tailLength * p.life
+
+    const grad = ctx.createLinearGradient(tailX, tailY, p.x, p.y)
+    grad.addColorStop(0, `rgba(${r},${g},${b},0)`)
+    grad.addColorStop(1, `rgba(${r},${g},${b},${alpha.toFixed(3)})`)
+
+    ctx.beginPath()
+    ctx.moveTo(tailX, tailY)
+    ctx.lineTo(p.x, p.y)
+    ctx.strokeStyle = grad
+    ctx.lineWidth = p.size * p.life
+    ctx.stroke()
+
+    ctx.beginPath()
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2)
+    ctx.fillStyle = `rgba(255,255,255,${alpha.toFixed(3)})`
+    ctx.fill()
+
+    p.x += p.vx
+    p.y += p.vy
+    p.vx *= 0.96
+    p.vy *= 0.96
+    p.life -= p.decay
+  }
+  ctx.restore()
+  burstParticles = burstParticles.filter(p => p.life > 0)
+}
+
+function handleClick(e: MouseEvent) {
+  spawnClickBurst(e.clientX, e.clientY)
+}
+
+function handleTouch(e: TouchEvent) {
+  const touch = e.touches[0]
+  if (touch) spawnClickBurst(touch.clientX, touch.clientY)
+}
+
 function draw() {
   if (!ctx || !canvas.value) return
   ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
@@ -426,6 +513,8 @@ function draw() {
     s.y += s.vy
     s.life -= s.decay
   }
+
+  drawBurstParticles()
 
   animationId = requestAnimationFrame(draw)
 }
@@ -544,6 +633,8 @@ onMounted(() => {
 
   window.addEventListener('resize', onResize)
   window.addEventListener('mousemove', handleMouseMove)
+  window.addEventListener('click', handleClick)
+  window.addEventListener('touchstart', handleTouch, { passive: true })
   document.addEventListener('visibilitychange', handleVisibilityChange)
   draw()
 
@@ -559,6 +650,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   window.removeEventListener('resize', onResizeStatic)
   window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('click', handleClick)
+  window.removeEventListener('touchstart', handleTouch)
   window.removeEventListener('deviceorientation', handleOrientation)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   if (gyroTapHandler) document.removeEventListener('click', gyroTapHandler)
