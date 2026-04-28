@@ -447,6 +447,11 @@ function onResize() {
   }
 }
 
+function onResizeStatic() {
+  onResize()
+  drawStatic()
+}
+
 function handleMouseMove(e: MouseEvent) {
   if (!canvas.value) return
   const cx = canvas.value.width / 2
@@ -533,7 +538,7 @@ onMounted(() => {
 
   if (reducedMotion) {
     drawStatic()
-    window.addEventListener('resize', () => { onResize(); drawStatic() })
+    window.addEventListener('resize', onResizeStatic)
     return
   }
 
@@ -552,6 +557,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
+  window.removeEventListener('resize', onResizeStatic)
   window.removeEventListener('mousemove', handleMouseMove)
   window.removeEventListener('deviceorientation', handleOrientation)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
