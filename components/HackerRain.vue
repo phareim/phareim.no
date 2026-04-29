@@ -45,6 +45,7 @@ interface Shockwave {
 const SHOCK_SPEED = 7       // px per frame expansion
 const SHOCK_WIDTH = 22      // px — wave band that triggers columns
 const shockwaves: Shockwave[] = []
+let reducedMotion = false
 
 function randomChar(): string {
   return CHARS[Math.floor(Math.random() * CHARS.length)]
@@ -69,6 +70,7 @@ function resize() {
     ctx.fillRect(0, 0, w, h)
   }
   initColumns()
+  if (reducedMotion) drawStatic()
 }
 
 function initColumns() {
@@ -290,10 +292,11 @@ onMounted(() => {
   if (!ctx) return
   canvas.value.width = window.innerWidth
   canvas.value.height = window.innerHeight
+  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   window.addEventListener('resize', resize)
 
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (reducedMotion) {
     drawStatic()
     return
   }
