@@ -67,11 +67,12 @@
       <div v-else-if="!entries.length" class="gb-empty">
         <p>no entries yet — be the first!</p>
       </div>
-      <ol v-else class="gb-list">
+      <ol v-else class="gb-list" ref="listRef">
         <li
-          v-for="entry in entries"
+          v-for="(entry, idx) in entries"
           :key="entry.id"
           class="gb-entry"
+          :style="{ '--stagger-i': idx }"
         >
           <div class="gb-entry-header">
             <span class="gb-entry-name">{{ entry.name }}</span>
@@ -91,6 +92,45 @@ useHead({ title: 'guestbook — phareim.no' })
 
 const { data: entriesData, pending, refresh } = await useFetch<GuestbookEntry[]>('/api/guestbook')
 const entries = computed(() => entriesData.value ?? [])
+
+const listRef = ref<HTMLOListElement | null>(null)
+let observer: IntersectionObserver | null = null
+
+function setupObserver() {
+  if (!import.meta.client) return
+  const items = listRef.value?.querySelectorAll<HTMLElement>('.gb-entry:not(.is-visible)')
+  if (!items?.length) return
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    items.forEach(el => el.classList.add('is-visible'))
+    return
+  }
+
+  if (!observer) {
+    observer = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            e.target.classList.add('is-visible')
+            observer?.unobserve(e.target)
+          }
+        }
+      },
+      { threshold: 0.05 }
+    )
+  }
+
+  items.forEach(el => observer!.observe(el))
+}
+
+watch(entries, async () => {
+  await nextTick()
+  setupObserver()
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  observer?.disconnect()
+})
 
 const form = reactive({ name: '', message: '' })
 const submitting = ref(false)
@@ -345,11 +385,31 @@ h1 {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 2px 8px var(--theme-card-shadow, rgba(0, 0, 0, 0.04));
-  transition: box-shadow 0.2s ease;
+
+  /* entrance animation start state */
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 0.4s ease calc(var(--stagger-i, 0) * 45ms),
+    transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) calc(var(--stagger-i, 0) * 45ms),
+    box-shadow 0.2s ease;
+}
+
+.gb-entry.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .gb-entry:hover {
   box-shadow: 0 4px 16px var(--theme-card-shadow, rgba(0, 0, 0, 0.08));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gb-entry {
+    opacity: 1;
+    transform: none;
+    transition: box-shadow 0.2s ease;
+  }
 }
 
 .gb-entry-header {
@@ -416,6 +476,12 @@ h1 {
 :global(.hacker-page) .gb-entry {
   border-radius: 0;
   font-family: monospace;
+  transform: translateX(-10px);
+  transition-timing-function: steps(6), steps(6), ease;
+}
+
+:global(.hacker-page) .gb-entry.is-visible {
+  transform: translateX(0);
 }
 
 :global(.hacker-page) .gb-entry-name {
@@ -440,6 +506,14 @@ h1 {
 :global(.space-page) .section-label {
   font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
   font-weight: 900;
+}
+
+:global(.space-page) .gb-entry {
+  transform: scale(0.97) translateY(8px);
+}
+
+:global(.space-page) .gb-entry.is-visible {
+  transform: scale(1) translateY(0);
 }
 
 :global(.space-page) .gb-entry:hover {
