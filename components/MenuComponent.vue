@@ -69,6 +69,10 @@ const route = useRoute()
 const showMenu = ref(false)
 const hamburgerRef = ref<HTMLButtonElement | null>(null)
 
+const { data: menuItems } = useFetch<MenuItem[]>('/api/menu', {
+  default: (): MenuItem[] => []
+})
+
 watch(() => route.path, () => {
 	showMenu.value = false
 })
@@ -85,7 +89,6 @@ watch(showMenu, async (open) => {
 })
 
 const touchStartX = ref(0)
-const menuItems = ref<MenuItem[]>([])
 
 const toggleMenu = () => {
 	showMenu.value = !showMenu.value
@@ -133,14 +136,8 @@ const handleTouchEnd = (event: TouchEvent) => {
 	}
 }
 
-onMounted(async () => {
+onMounted(() => {
 	document.addEventListener('keydown', handleKeyDown)
-	try {
-		const menuResponse = await fetch('/api/menu')
-		menuItems.value = await menuResponse.json() as MenuItem[]
-	} catch (error) {
-		console.error('Error fetching menu items:', error)
-	}
 })
 
 onBeforeUnmount(() => {
