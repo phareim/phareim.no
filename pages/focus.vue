@@ -120,6 +120,7 @@
       <div class="option-row" role="group" aria-label="Timer options">
         <button
           class="option-btn"
+          :class="{ 'option-btn--active': soundEnabled }"
           @click="soundEnabled = !soundEnabled"
           :aria-label="soundEnabled ? 'Mute completion sound' : 'Enable completion sound'"
           :title="soundEnabled ? 'Sound on' : 'Sound off'"
@@ -130,6 +131,7 @@
         <button
           v-if="notifSupported && notifPermission !== 'denied'"
           class="option-btn"
+          :class="{ 'option-btn--active': notifEnabled }"
           @click="toggleNotif"
           :aria-label="notifEnabled ? 'Disable desktop notifications' : 'Enable desktop notifications when timer ends'"
           :title="notifEnabled ? 'Notifications on' : 'Notifications off (click to enable)'"
@@ -1077,8 +1079,12 @@ h1 {
   padding: 0;
 }
 
+.option-btn--active {
+  opacity: 0.9;
+}
+
 .option-btn:hover {
-  opacity: 0.8;
+  opacity: 1;
 }
 
 .option-btn:focus-visible {
