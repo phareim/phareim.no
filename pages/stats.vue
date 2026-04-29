@@ -18,8 +18,8 @@
           <span class="stat-label">stars</span>
         </div>
         <div class="stat-card">
-          <span class="stat-value">{{ displayLangs }}</span>
-          <span class="stat-label">languages</span>
+          <span class="stat-value">{{ displayStreak }}</span>
+          <span class="stat-label">day streak</span>
         </div>
         <div class="stat-card">
           <span class="stat-value">{{ displayCommits }}</span>
@@ -189,8 +189,6 @@ const langMap = computed(() => {
   return map
 })
 
-const langCount = computed(() => langMap.value.size)
-
 const langStats = computed(() => {
   const total = repoCount.value || 1
   return [...langMap.value.entries()]
@@ -242,6 +240,20 @@ const commitActivity = computed(() => {
   }
 
   return days
+})
+
+const currentStreak = computed(() => {
+  const days = commitActivity.value
+  if (!days.length) return 0
+  let i = days.length - 1
+  // If today has no commits yet, start from yesterday
+  if (days[i]?.count === 0) i--
+  let streak = 0
+  while (i >= 0 && days[i]?.count > 0) {
+    streak++
+    i--
+  }
+  return streak
 })
 
 const firstDow = computed(() => {
@@ -304,7 +316,7 @@ function langColor(lang: string): string {
 
 const displayRepos = ref(0)
 const displayStars = ref(0)
-const displayLangs = ref(0)
+const displayStreak = ref(0)
 const displayCommits = ref(0)
 
 function easeOutCubic(t: number): number {
@@ -332,7 +344,7 @@ onMounted(() => {
   setTimeout(() => {
     animateCount(repoCount.value, n => { displayRepos.value = n })
     animateCount(totalStars.value, n => { displayStars.value = n })
-    animateCount(langCount.value, n => { displayLangs.value = n })
+    animateCount(currentStreak.value, n => { displayStreak.value = n }, 700)
     animateCount(commitCount.value, n => { displayCommits.value = n })
   }, 300)
 })
