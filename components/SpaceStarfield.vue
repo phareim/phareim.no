@@ -9,6 +9,7 @@ let stars: Star[] = []
 let shootingStars: ShootingStar[] = []
 let nebulas: Nebula[] = []
 let constellations: Constellation[] = []
+let warpBursts: WarpBurst[] = []
 let animationId: number | null = null
 let frame = 0
 
@@ -165,6 +166,16 @@ interface Constellation {
   stars: ConstellationStar[]
   edges: [number, number][]
   parallaxDepth: number
+}
+
+interface WarpBurst {
+  x: number
+  y: number
+  radius: number
+  maxRadius: number
+  speed: number
+  opacity: number
+  decay: number
 }
 
 function resize() {
@@ -326,6 +337,59 @@ function drawConstellations() {
   }
 }
 
+function triggerWarpBurst(clientX: number, clientY: number) {
+  if (!canvas.value) return
+  const rect = canvas.value.getBoundingClientRect()
+  const x = clientX - rect.left
+  const y = clientY - rect.top
+  const maxR = Math.min(canvas.value.width, canvas.value.height) * 0.42
+  warpBursts.push({ x, y, radius: 0, maxRadius: maxR, speed: 14 + Math.random() * 8, opacity: 0.9 + Math.random() * 0.1, decay: 0.009 + Math.random() * 0.005 })
+}
+
+function drawWarpBursts() {
+  if (!ctx || warpBursts.length === 0) return
+  for (let i = warpBursts.length - 1; i >= 0; i--) {
+    const burst = warpBursts[i]!
+    burst.radius += burst.speed
+    burst.speed = Math.max(2, burst.speed * 0.97)
+    burst.opacity -= burst.decay
+    if (burst.opacity <= 0 || burst.radius > burst.maxRadius) {
+      warpBursts.splice(i, 1)
+      continue
+    }
+    const progress = burst.radius / burst.maxRadius
+
+    // Outer expanding ring
+    ctx.beginPath()
+    ctx.arc(burst.x, burst.y, burst.radius, 0, Math.PI * 2)
+    ctx.strokeStyle = `rgba(140, 200, 255, ${(burst.opacity * (1 - progress * 0.7)).toFixed(3)})`
+    ctx.lineWidth = Math.max(0.5, 2 - progress * 1.5)
+    ctx.stroke()
+
+    // Secondary inner ring at half radius
+    if (burst.radius > 24) {
+      ctx.beginPath()
+      ctx.arc(burst.x, burst.y, burst.radius * 0.5, 0, Math.PI * 2)
+      ctx.strokeStyle = `rgba(200, 230, 255, ${(burst.opacity * (1 - progress) * 0.4).toFixed(3)})`
+      ctx.lineWidth = 1
+      ctx.stroke()
+    }
+
+    // Central flash during early expansion
+    if (progress < 0.18) {
+      const flashAlpha = burst.opacity * (1 - progress / 0.18) * 0.65
+      const flashR = burst.radius * 0.18
+      const grad = ctx.createRadialGradient(burst.x, burst.y, 0, burst.x, burst.y, flashR)
+      grad.addColorStop(0, `rgba(255, 255, 255, ${flashAlpha.toFixed(3)})`)
+      grad.addColorStop(1, `rgba(140, 200, 255, 0)`)
+      ctx.beginPath()
+      ctx.arc(burst.x, burst.y, flashR, 0, Math.PI * 2)
+      ctx.fillStyle = grad
+      ctx.fill()
+    }
+  }
+}
+
 function spawnShootingStar() {
   if (!canvas.value) return
   const w = canvas.value.width
@@ -427,6 +491,8 @@ function draw() {
     s.life -= s.decay
   }
 
+  drawWarpBursts()
+
   animationId = requestAnimationFrame(draw)
 }
 
@@ -450,6 +516,15 @@ function onResize() {
 function onResizeStatic() {
   onResize()
   drawStatic()
+}
+
+function handleClick(e: MouseEvent) {
+  triggerWarpBurst(e.clientX, e.clientY)
+}
+
+function handleTouchStart(e: TouchEvent) {
+  const touch = e.touches[0]
+  if (touch) triggerWarpBurst(touch.clientX, touch.clientY)
 }
 
 function handleMouseMove(e: MouseEvent) {
@@ -544,6 +619,8 @@ onMounted(() => {
 
   window.addEventListener('resize', onResize)
   window.addEventListener('mousemove', handleMouseMove)
+  window.addEventListener('click', handleClick)
+  window.addEventListener('touchstart', handleTouchStart, { passive: true })
   document.addEventListener('visibilitychange', handleVisibilityChange)
   draw()
 
@@ -559,6 +636,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   window.removeEventListener('resize', onResizeStatic)
   window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('click', handleClick)
+  window.removeEventListener('touchstart', handleTouchStart)
   window.removeEventListener('deviceorientation', handleOrientation)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   if (gyroTapHandler) document.removeEventListener('click', gyroTapHandler)
