@@ -1,8 +1,8 @@
 <template>
   <div class="guestbook-page">
     <header class="gb-header">
-      <h1>guestbook</h1>
-      <p class="subtitle">leave a note, sign the wall</p>
+      <h1>{{ pageTitle }}</h1>
+      <p class="subtitle">{{ pageSubtitle }}</p>
     </header>
 
     <!-- Form -->
@@ -42,7 +42,7 @@
         <div v-if="error" class="gb-error" role="alert">{{ error }}</div>
 
         <div v-if="submitted" class="gb-success" role="status">
-          thanks for signing!
+          {{ successMsg }}
         </div>
         <button
           v-else
@@ -50,7 +50,7 @@
           class="gb-submit"
           :disabled="submitting || !form.name.trim() || !form.message.trim()"
         >
-          {{ submitting ? 'sending…' : 'sign' }}
+          {{ submitLabel }}
         </button>
       </form>
     </section>
@@ -65,13 +65,14 @@
         <span class="loading-text">fetching notes…</span>
       </div>
       <div v-else-if="!entries.length" class="gb-empty">
-        <p>no entries yet — be the first!</p>
+        <p>{{ emptyMsg }}</p>
       </div>
       <ol v-else class="gb-list">
         <li
-          v-for="entry in entries"
+          v-for="(entry, index) in entries"
           :key="entry.id"
           class="gb-entry"
+          :style="{ '--entry-index': index }"
         >
           <div class="gb-entry-header">
             <span class="gb-entry-name">{{ entry.name }}</span>
@@ -89,6 +90,7 @@ import type { GuestbookEntry } from '~/server/api/guestbook'
 
 useHead({ title: 'guestbook — phareim.no' })
 
+const { activeTheme } = useTheme()
 const { data: entriesData, pending, refresh } = await useFetch<GuestbookEntry[]>('/api/guestbook')
 const entries = computed(() => entriesData.value ?? [])
 
@@ -96,6 +98,41 @@ const form = reactive({ name: '', message: '' })
 const submitting = ref(false)
 const submitted = ref(false)
 const error = ref('')
+
+const pageTitle = computed(() => {
+  if (activeTheme.value === 'hacker') return 'guestbook.log'
+  if (activeTheme.value === 'space') return 'VISITOR LOG'
+  return 'guestbook'
+})
+
+const pageSubtitle = computed(() => {
+  if (activeTheme.value === 'hacker') return '// append your entry to the ledger'
+  if (activeTheme.value === 'space') return 'LOG YOUR PRESENCE — LEAVE A TRANSMISSION'
+  return 'leave a note, sign the wall'
+})
+
+const submitLabel = computed(() => {
+  if (submitting.value) {
+    if (activeTheme.value === 'hacker') return 'writing...'
+    if (activeTheme.value === 'space') return 'TRANSMITTING...'
+    return 'sending…'
+  }
+  if (activeTheme.value === 'hacker') return 'append.exe'
+  if (activeTheme.value === 'space') return 'TRANSMIT'
+  return 'sign'
+})
+
+const successMsg = computed(() => {
+  if (activeTheme.value === 'hacker') return '> entry appended successfully'
+  if (activeTheme.value === 'space') return 'TRANSMISSION RECEIVED'
+  return 'thanks for signing!'
+})
+
+const emptyMsg = computed(() => {
+  if (activeTheme.value === 'hacker') return '// no entries yet — be the first to append'
+  if (activeTheme.value === 'space') return 'NO TRANSMISSIONS YET — MAKE FIRST CONTACT'
+  return 'no entries yet — be the first!'
+})
 
 async function submit() {
   if (submitting.value) return
@@ -337,6 +374,17 @@ h1 {
   gap: 0.9rem;
 }
 
+@keyframes entry-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .gb-entry {
   background: var(--theme-card-bg, rgba(255, 255, 255, 0.6));
   border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
@@ -346,10 +394,18 @@ h1 {
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 2px 8px var(--theme-card-shadow, rgba(0, 0, 0, 0.04));
   transition: box-shadow 0.2s ease;
+  animation: entry-in 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  animation-delay: calc(var(--entry-index, 0) * 45ms);
 }
 
 .gb-entry:hover {
   box-shadow: 0 4px 16px var(--theme-card-shadow, rgba(0, 0, 0, 0.08));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gb-entry {
+    animation: none;
+  }
 }
 
 .gb-entry-header {
