@@ -84,8 +84,14 @@ watch(showMenu, async (open) => {
 	}
 })
 
-const touchStartX = ref(0)
+let touchStartX = 0
 const menuItems = ref<MenuItem[]>([])
+
+// Edge-swipe state — plain vars, no Vue reactivity needed
+let edgeSwipeStartX: number | null = null
+let edgeSwipeStartY: number | null = null
+const EDGE_ZONE = 44   // px from right viewport edge that activates the gesture
+const MIN_SWIPE = 60   // minimum horizontal distance to trigger open
 
 const toggleMenu = () => {
 	showMenu.value = !showMenu.value
@@ -116,25 +122,48 @@ const handleMenuKeyDown = (event: KeyboardEvent) => {
 	}
 }
 
+// Panel-level touch: swipe the open menu rightward to close it
 const handleTouchStart = (event: TouchEvent) => {
-	touchStartX.value = event.touches[0]!.clientX
+	touchStartX = event.touches[0]!.clientX
 }
 
 const handleTouchEnd = (event: TouchEvent) => {
 	const touchEndX = event.changedTouches[0]!.clientX
-	const swipeDistance = touchStartX.value - touchEndX
-
-	if (Math.abs(swipeDistance) > 50) {
-		if (swipeDistance > 0 && !showMenu.value) {
-			toggleMenu()
-		} else if (swipeDistance < 0 && showMenu.value) {
-			toggleMenu()
-		}
+	const swipeDistance = touchStartX - touchEndX
+	// Negative distance = finger moved rightward = push menu closed
+	if (swipeDistance < -50 && showMenu.value) {
+		toggleMenu()
 	}
+}
+
+// Global edge-swipe: touch in rightmost EDGE_ZONE px then swipe left = open menu
+function handleGlobalTouchStart(e: TouchEvent) {
+	if (showMenu.value) return
+	const touch = e.touches[0]
+	if (!touch) return
+	if (touch.clientX >= window.innerWidth - EDGE_ZONE) {
+		edgeSwipeStartX = touch.clientX
+		edgeSwipeStartY = touch.clientY
+	}
+}
+
+function handleGlobalTouchEnd(e: TouchEvent) {
+	if (edgeSwipeStartX === null || edgeSwipeStartY === null) return
+	const touch = e.changedTouches[0]
+	if (!touch) return
+	const dx = edgeSwipeStartX - touch.clientX       // positive = swiped left
+	const dy = Math.abs(touch.clientY - edgeSwipeStartY)
+	if (dx >= MIN_SWIPE && dy < 100) {
+		toggleMenu()
+	}
+	edgeSwipeStartX = null
+	edgeSwipeStartY = null
 }
 
 onMounted(async () => {
 	document.addEventListener('keydown', handleKeyDown)
+	document.addEventListener('touchstart', handleGlobalTouchStart, { passive: true })
+	document.addEventListener('touchend', handleGlobalTouchEnd, { passive: true })
 	try {
 		const menuResponse = await fetch('/api/menu')
 		menuItems.value = await menuResponse.json() as MenuItem[]
@@ -145,6 +174,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
 	document.removeEventListener('keydown', handleKeyDown)
+	document.removeEventListener('touchstart', handleGlobalTouchStart)
+	document.removeEventListener('touchend', handleGlobalTouchEnd)
 })
 
 defineExpose({
