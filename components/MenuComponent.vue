@@ -277,7 +277,7 @@ nav ul li {
 }
 
 nav ul li:hover {
-	background-color: var(--theme-card-border, rgba(128, 128, 128, 0.1));
+	background-color: color-mix(in srgb, var(--theme-text, #333) 7%, transparent);
 }
 
 nav ul li a {
