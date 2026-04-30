@@ -12,6 +12,12 @@ let constellations: Constellation[] = []
 let animationId: number | null = null
 let frame = 0
 
+// Warp-speed effect (fires on page navigation)
+let warpIntensity = 0
+const WARP_DECAY = 0.04   // per frame; full warp fades out in ~25 frames ≈ 0.4 s
+let unsubscribeWarp: (() => void) | null = null
+const router = useRouter()
+
 // Mouse parallax state (desktop)
 let mouseParallaxX = 0
 let mouseParallaxY = 0
@@ -388,6 +394,8 @@ function draw() {
   drawNebulas()
   drawConstellations()
 
+  const warpMult = 1 + warpIntensity * 16
+
   for (const star of stars) {
     star.twinklePhase += star.twinkleSpeed
     const twinkle = 1 + Math.sin(star.twinklePhase) * 0.15
@@ -397,12 +405,24 @@ function draw() {
     const px = star.x + (gyroOffsetX + mouseParallaxX) * depth
     const py = star.y + (gyroOffsetY + mouseParallaxY) * depth
 
-    ctx.beginPath()
-    ctx.arc(px, py, star.size, 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(${star.rgbStr}, ${finalOpacity})`
-    ctx.fill()
+    if (warpIntensity > 0.02) {
+      // Warp: draw horizontal streak extending from current position rightward (where star came from)
+      const tailLen = star.speed * warpMult * 5
+      ctx.beginPath()
+      ctx.moveTo(px + tailLen, py)
+      ctx.lineTo(px, py)
+      ctx.strokeStyle = `rgba(${star.rgbStr}, ${finalOpacity})`
+      ctx.lineWidth = star.size * Math.min(2, 0.5 + warpIntensity * 2)
+      ctx.lineCap = 'round'
+      ctx.stroke()
+    } else {
+      ctx.beginPath()
+      ctx.arc(px, py, star.size, 0, Math.PI * 2)
+      ctx.fillStyle = `rgba(${star.rgbStr}, ${finalOpacity})`
+      ctx.fill()
+    }
 
-    star.x -= star.speed
+    star.x -= star.speed * warpMult
     if (star.x < -2) {
       star.x = canvas.value!.width + 2
       star.y = Math.random() * canvas.value!.height
@@ -426,6 +446,8 @@ function draw() {
     s.y += s.vy
     s.life -= s.decay
   }
+
+  warpIntensity = Math.max(0, warpIntensity - WARP_DECAY)
 
   animationId = requestAnimationFrame(draw)
 }
@@ -542,6 +564,9 @@ onMounted(() => {
     return
   }
 
+  // Trigger warp-speed streak effect on every page navigation
+  unsubscribeWarp = router.beforeEach(() => { warpIntensity = 1.0 })
+
   window.addEventListener('resize', onResize)
   window.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -556,6 +581,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  unsubscribeWarp?.()
   window.removeEventListener('resize', onResize)
   window.removeEventListener('resize', onResizeStatic)
   window.removeEventListener('mousemove', handleMouseMove)
