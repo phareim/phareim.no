@@ -21,6 +21,7 @@ export const useTheme = () => {
   const cx = (suffix: string) => `${activeTheme.value}-${suffix}`
 
   const setTheme = (themeId: string) => {
+    if (activeTheme.value === themeId) return
     activeTheme.value = themeId
     if (import.meta.client) {
       localStorage.setItem('theme', themeId)
