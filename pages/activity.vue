@@ -9,8 +9,9 @@
           :key="f.type"
           :class="['filter-btn', `filter-btn--${f.type}`, { 'is-active': activeFilters.has(f.type) }]"
           :aria-pressed="activeFilters.has(f.type)"
+          :aria-label="`${f.label} (${allTypeCounts[f.type]})`"
           @click="toggleFilter(f.type)"
-        >{{ f.label }}</button>
+        >{{ f.label }}<span v-if="!pending" class="filter-count">{{ allTypeCounts[f.type] }}</span></button>
         <button
           v-if="activeFilters.size < 3"
           class="filter-btn filter-btn--reset"
@@ -39,6 +40,7 @@
           <div
             v-else
             :class="['activity-item', `activity-item--${item.type}`]"
+            :style="{ '--item-idx': itemAnimIndex.get(item.key) ?? 0 }"
           >
             <div class="activity-track" aria-hidden="true">
               <span :class="['activity-dot', `dot--${item.type}`]"></span>
@@ -166,6 +168,12 @@ const { data: guestbookData, pending: guestbookPending } = useFetch<GuestbookEnt
 
 const pending = computed(() => commitPending.value || feedPending.value || guestbookPending.value)
 
+const allTypeCounts = computed((): Record<FilterType, number> => ({
+  commit:    commitData.value?.length ?? 0,
+  post:      feedData.value?.posts.filter(p => p.text?.trim()).length ?? 0,
+  guestbook: guestbookData.value?.length ?? 0,
+}))
+
 const items = computed((): ActivityItem[] => {
   const result: ActivityItem[] = []
 
@@ -219,6 +227,15 @@ const displayItems = computed((): DisplayItem[] => {
     result.push(item)
   }
   return result
+})
+
+const itemAnimIndex = computed(() => {
+  const map = new Map<string, number>()
+  let idx = 0
+  for (const item of displayItems.value) {
+    if (item.type !== 'separator') map.set(item.key, Math.min(idx++, 14))
+  }
+  return map
 })
 
 function typeLabel(type: ActivityItem['type']): string {
@@ -351,6 +368,53 @@ h1 {
 .filter-btn:focus-visible {
   outline: 2px solid var(--theme-accent, #6b8cae);
   outline-offset: 2px;
+}
+
+/* ── Filter count badge ──────────────────────────────────────── */
+.filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4em;
+  height: 1.4em;
+  padding: 0 0.3em;
+  margin-left: 0.35em;
+  font-size: 0.8em;
+  font-weight: 700;
+  border-radius: 999px;
+  background: currentColor;
+  color: var(--theme-bg, #f5f5f3);
+  opacity: 0.5;
+  line-height: 1;
+  vertical-align: middle;
+  transition: opacity 0.15s ease;
+}
+
+.filter-btn.is-active .filter-count {
+  opacity: 0.9;
+}
+
+/* ── Timeline entrance animation ─────────────────────────────── */
+@keyframes activity-item-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.activity-item {
+  animation: activity-item-enter 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  animation-delay: calc(var(--item-idx, 0) * 35ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-item {
+    animation: none;
+  }
 }
 
 /* ── Loading ─────────────────────────────────────────────────── */
@@ -559,6 +623,20 @@ h1 {
 }
 
 /* ── Hacker theme overrides ──────────────────────────────────── */
+
+:global(.hacker-page) .filter-count {
+  border-radius: 0;
+  font-family: monospace;
+}
+
+:global(.hacker-page) .activity-item {
+  animation-timing-function: steps(4);
+}
+
+:global(.space-page) .filter-count {
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  font-size: 0.7em;
+}
 
 :global(.hacker-page) .activity-separator::before {
   content: '// ';
