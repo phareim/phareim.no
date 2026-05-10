@@ -27,7 +27,7 @@
 					<li v-for="(item, index) in menuItems" :key="item.path" :style="{ '--item-index': index }">
 						<NuxtLink :to="item.path" @click="toggleMenu" :target="item.external ? '_blank' : '_self'"
 							class="menu-item" :class="{ 'external': item.external }">{{ item.icon }} {{ item.title
-							}}<span class="external-arrow" v-if="item.external">→</span></NuxtLink>
+							}}<span class="external-arrow" v-if="item.external" aria-hidden="true">→</span></NuxtLink>
 					</li>
 				</ul>
 			</nav>
@@ -379,7 +379,7 @@ nav ul li a:focus-visible {
 }
 
 .menu-item.external {
-	color: var(--theme-accent, #164e8a);
+	color: var(--theme-accent, #6b8cae);
 }
 
 .menu-item.external:hover {
