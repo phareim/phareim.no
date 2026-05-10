@@ -74,12 +74,13 @@
 
     <main v-if="!pending && filteredProjects.length" class="projects-grid">
       <a
-        v-for="project in filteredProjects"
+        v-for="(project, index) in filteredProjects"
         :key="project.name"
         :href="project.html_url"
         target="_blank"
         rel="noopener noreferrer"
         class="project-card"
+        :style="{ '--card-index': Math.min(index, 14) }"
       >
         <div class="project-top">
           <h2 class="project-name">{{ project.name.replace(/-/g, '\u2011') }}</h2>
@@ -460,6 +461,17 @@ h1 {
   gap: 1.25rem;
 }
 
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .project-card {
   display: flex;
   flex-direction: column;
@@ -477,6 +489,8 @@ h1 {
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 2px 12px var(--theme-card-shadow, rgba(0,0,0,0.04));
   min-height: 130px;
+  animation: card-in 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) backwards;
+  animation-delay: calc(var(--card-index, 0) * 35ms);
 }
 
 .project-card:hover {
@@ -577,6 +591,12 @@ h1 {
 @keyframes loading-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-card {
+    animation: none;
+  }
 }
 
 /* ── Hacker theme overrides ────────────────────────────────── */

@@ -20,6 +20,7 @@
             autocomplete="name"
             :disabled="submitting || submitted"
             required
+            @input="error = ''"
           />
         </div>
         <div class="gb-field">
@@ -33,6 +34,7 @@
             rows="3"
             :disabled="submitting || submitted"
             required
+            @input="error = ''"
           ></textarea>
           <span class="gb-char-count" :class="{ warn: form.message.length > 240 }">
             {{ form.message.length }}/280
