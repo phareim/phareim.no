@@ -105,7 +105,7 @@ img.kreftforeningen:hover {
   fill: #b8261c;
 }
 
-.linkedIn:hover {
+.linkedin:hover {
   fill: #0a66c2;
 }
 

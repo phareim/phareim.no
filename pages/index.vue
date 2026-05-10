@@ -47,10 +47,10 @@
           </p>
         </template>
         <div :class="['social-links', { 'hacker-fade': isHacker && hackerGameStarted }]">
-          <SocialLink 
+          <SocialLink
             href="https://www.linkedin.com/in/phareim"
             type="linkedin"
-            css-class="linkedIn"
+            css-class="linkedin"
           />
           <SocialLink 
             href="https://bsky.app/profile/phareim.no"
