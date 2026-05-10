@@ -247,14 +247,15 @@ defineExpose({
 
 .hamburger {
 	position: fixed;
-	top: 1.5rem;
-	right: 1.5rem;
+	top: calc(1.5rem - 10px);
+	right: calc(1.5rem - 8px);
 	width: 30px;
 	height: 24px;
+	box-sizing: content-box;
+	padding: 10px 8px;
 	background: transparent;
 	border: none;
 	cursor: pointer;
-	padding: 0;
 	z-index: 1001;
 	display: flex;
 	flex-direction: column;

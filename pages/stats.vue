@@ -113,6 +113,17 @@
         <div v-if="commitsPending" class="stats-placeholder"><span>loading…</span></div>
         <div v-else-if="commitActivity.length" class="commit-activity">
 
+          <!-- Hover tooltip -->
+          <div
+            v-if="heatmapTooltip.visible"
+            class="heatmap-tooltip"
+            :style="{ left: heatmapTooltip.x + 'px', top: heatmapTooltip.y + 'px' }"
+            aria-hidden="true"
+          >
+            <span class="tooltip-date">{{ heatmapTooltip.date }}</span>
+            <span class="tooltip-count">{{ heatmapTooltip.count === 0 ? 'no commits' : `${heatmapTooltip.count} commit${heatmapTooltip.count !== 1 ? 's' : ''}` }}</span>
+          </div>
+
           <div class="heatmap">
             <!-- Month labels -->
             <div class="heatmap-months" aria-hidden="true">
@@ -132,13 +143,22 @@
               <div class="heatmap-days" aria-hidden="true">
                 <span v-for="slot in daySlots" :key="slot.row" class="heatmap-day-slot">{{ slot.label }}</span>
               </div>
-              <div class="commit-grid" role="img" :aria-label="`${commitCount} commits in last ${WEEKS} weeks`">
+              <div
+                ref="heatmapGridRef"
+                class="commit-grid"
+                :class="{ 'is-visible': heatmapVisible }"
+                role="img"
+                :aria-label="`${commitCount} commits in last ${WEEKS} weeks`"
+                @mouseleave="hideHeatmapTooltip"
+              >
                 <div
-                  v-for="day in commitActivity"
+                  v-for="(day, idx) in commitActivity"
                   :key="day.date"
                   class="commit-cell"
                   :class="`commit-cell--level${day.level}`"
-                  :title="`${day.date}: ${day.count} commit${day.count !== 1 ? 's' : ''}`"
+                  :style="{ '--week-col': Math.floor(idx / 7) }"
+                  :aria-label="`${day.date}: ${day.count} commit${day.count !== 1 ? 's' : ''}`"
+                  @mouseenter="showHeatmapTooltip(day, $event)"
                 ></div>
               </div>
             </div>
@@ -283,6 +303,38 @@ const monthLabels = computed(() => {
   return labels
 })
 
+// ── Heatmap entrance animation + tooltip ─────────────────────────────
+
+const heatmapGridRef = ref<HTMLElement | null>(null)
+const heatmapVisible = ref(false)
+
+const heatmapTooltip = reactive({
+  visible: false,
+  date: '',
+  count: 0,
+  x: 0,
+  y: 0,
+})
+
+function formatTooltipDate(iso: string): string {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+  })
+}
+
+function showHeatmapTooltip(day: { date: string; count: number; level: number }, event: MouseEvent) {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  heatmapTooltip.visible = true
+  heatmapTooltip.date = formatTooltipDate(day.date)
+  heatmapTooltip.count = day.count
+  heatmapTooltip.x = rect.left + rect.width / 2
+  heatmapTooltip.y = rect.top
+}
+
+function hideHeatmapTooltip() {
+  heatmapTooltip.visible = false
+}
+
 // ── Language → color mapping ──────────────────────────────────────────
 
 const LANG_COLORS: Record<string, string> = {
@@ -347,6 +399,20 @@ onMounted(() => {
     animateCount(currentStreak.value, n => { displayStreak.value = n }, 700)
     animateCount(commitCount.value, n => { displayCommits.value = n })
   }, 300)
+
+  // Heatmap entrance animation — observe when the grid scrolls into view
+  if (heatmapGridRef.value) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      heatmapVisible.value = true
+    } else {
+      const obs = new IntersectionObserver((entries) => {
+        if (entries[0]?.isIntersecting) { heatmapVisible.value = true; obs.disconnect() }
+      }, { threshold: 0.05 })
+      obs.observe(heatmapGridRef.value)
+    }
+  } else {
+    heatmapVisible.value = true
+  }
 })
 </script>
 
@@ -732,11 +798,33 @@ h1 {
 .commit-cell {
   border-radius: 2px;
   background: var(--theme-card-border, rgba(0, 0, 0, 0.08));
-  transition: opacity 0.2s ease;
+  cursor: default;
+  transition: opacity 0.15s ease;
+}
+
+/* Hidden until the grid enters viewport */
+.commit-grid:not(.is-visible) .commit-cell {
+  opacity: 0;
+}
+
+/* Staggered pop-in, one column at a time */
+.commit-grid.is-visible .commit-cell {
+  animation: cell-pop-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(var(--week-col, 0) * 22ms);
+}
+
+@keyframes cell-pop-in {
+  from { opacity: 0; transform: scale(0.3); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 .commit-cell:hover {
-  opacity: 0.75;
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .commit-grid:not(.is-visible) .commit-cell { opacity: 1; }
+  .commit-grid.is-visible .commit-cell { animation: none; }
 }
 
 .commit-cell--level0 { background: var(--theme-card-border, rgba(0, 0, 0, 0.08)); }
@@ -744,6 +832,42 @@ h1 {
 .commit-cell--level2 { background: color-mix(in srgb, var(--theme-accent, #6b8cae) 55%, transparent); }
 .commit-cell--level3 { background: color-mix(in srgb, var(--theme-accent, #6b8cae) 80%, transparent); }
 .commit-cell--level4 { background: var(--theme-accent, #6b8cae); }
+
+/* ── Heatmap tooltip ──────────────────────────────────────────── */
+
+.heatmap-tooltip {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 6px));
+  background: var(--theme-card-bg, rgba(255, 255, 255, 0.95));
+  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.12));
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.65rem;
+  pointer-events: none;
+  z-index: 100;
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px var(--theme-card-shadow, rgba(0, 0, 0, 0.1));
+  animation: tooltip-enter 0.12s ease both;
+}
+
+@keyframes tooltip-enter {
+  from { opacity: 0; transform: translate(-50%, calc(-100% - 2px)); }
+  to   { opacity: 1; transform: translate(-50%, calc(-100% - 6px)); }
+}
+
+.tooltip-date {
+  color: var(--theme-text-muted, #666);
+}
+
+.tooltip-count {
+  color: var(--theme-text, #111);
+  font-weight: 600;
+}
 
 .commit-legend {
   display: flex;
@@ -909,4 +1033,18 @@ h1 {
 :global(.space-page) .commit-cell--level2 { background: rgba(137, 171, 208, 0.5); }
 :global(.space-page) .commit-cell--level3 { background: rgba(137, 171, 208, 0.75); }
 :global(.space-page) .commit-cell--level4 { background: #89abd0; }
+
+:global(.hacker-page) .heatmap-tooltip {
+  border-radius: 0;
+  font-family: monospace;
+  border-color: var(--hacker-text-dim, #008f11);
+  box-shadow: 0 0 10px var(--hacker-glow, rgba(0, 255, 65, 0.15));
+}
+
+:global(.hacker-page) .tooltip-date { color: var(--hacker-text-dim, #008f11); }
+:global(.hacker-page) .tooltip-count { color: var(--hacker-text, #00ff41); }
+
+:global(.space-page) .heatmap-tooltip {
+  box-shadow: 0 4px 16px var(--space-glow, rgba(140, 170, 220, 0.2));
+}
 </style>
