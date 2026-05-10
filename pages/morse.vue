@@ -9,12 +9,17 @@
 
       <!-- Input -->
       <div class="morse-section">
-        <label class="morse-label" for="morse-text">text</label>
+        <div class="morse-label-row">
+          <label class="morse-label" for="morse-text">input</label>
+          <span v-if="inputText" class="morse-direction" aria-live="polite">
+            {{ isMorseInput ? 'morse → text' : 'text → morse' }}
+          </span>
+        </div>
         <textarea
           id="morse-text"
           v-model="inputText"
           class="morse-textarea"
-          placeholder="type something…"
+          :placeholder="inputPlaceholder"
           rows="2"
           autocomplete="off"
           autocorrect="off"
@@ -24,10 +29,14 @@
         ></textarea>
       </div>
 
-      <!-- Morse visual output -->
+      <!-- Token visual output (shared by both directions) -->
       <div v-if="tokens.length" class="morse-section">
-        <label class="morse-label">output</label>
-        <div class="morse-tokens" role="region" aria-label="Morse code output">
+        <label class="morse-label">{{ outputLabel }}</label>
+        <div
+          class="morse-tokens"
+          role="region"
+          :aria-label="isMorseInput ? 'Decoded text output' : 'Morse code output'"
+        >
           <template v-for="(token, ti) in tokens" :key="ti">
             <span v-if="token.type === 'word-gap'" class="morse-word-gap" aria-hidden="true"></span>
             <span
@@ -54,8 +63,15 @@
 
         <!-- Plain text copy row -->
         <div class="morse-plain-row">
-          <span class="morse-plain-text" aria-label="Morse code as text">{{ plainMorse }}</span>
-          <button class="morse-copy-btn" @click="copyMorse" :aria-label="copied ? 'Copied' : 'Copy morse code'">
+          <span
+            class="morse-plain-text"
+            :aria-label="isMorseInput ? 'Decoded text' : 'Morse code as text'"
+          >{{ plainOutput }}</span>
+          <button
+            class="morse-copy-btn"
+            @click="copyOutput"
+            :aria-label="copied ? 'Copied' : 'Copy output'"
+          >
             {{ copied ? 'copied' : 'copy' }}
           </button>
         </div>
@@ -124,9 +140,15 @@ const pageTitle = computed(() => {
 })
 
 const pageSubtitle = computed(() => {
-  if (activeTheme.value === 'hacker') return '// encode · transmit · decode'
-  if (activeTheme.value === 'space')  return 'DASH DOT TRANSMISSION PROTOCOL'
-  return 'text → morse code + audio'
+  if (activeTheme.value === 'hacker') return '// encode · decode · transmit'
+  if (activeTheme.value === 'space')  return 'BIDIRECTIONAL TRANSMISSION PROTOCOL'
+  return 'text ↔ morse code + audio'
+})
+
+const inputPlaceholder = computed(() => {
+  if (activeTheme.value === 'hacker') return 'type text or . - / morse…'
+  if (activeTheme.value === 'space')  return 'TEXT OR . - / MORSE CODE…'
+  return 'type text or paste morse (. - /)…'
 })
 
 useHead({ title: 'morse — phareim.no' })
@@ -143,6 +165,11 @@ const MORSE: Record<string, string> = {
   '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.',
   '.': '.-.-.-', ',': '--..--', '?': '..--..', '!': '-.-.--', '/': '-..-.',
 }
+
+// Reverse lookup: morse code → character
+const MORSE_REVERSE: Record<string, string> = Object.fromEntries(
+  Object.entries(MORSE).map(([k, v]) => [v, k])
+)
 
 const referenceChars = Object.entries(MORSE).slice(0, 26)
 
@@ -165,14 +192,43 @@ let audioCtx: AudioContext | null = null
 let pendingTimeouts: ReturnType<typeof setTimeout>[] = []
 let playId = 0
 
-// ── Computed ─────────────────────────────────────────────────────────────
+// ── Direction detection ───────────────────────────────────────────────────
+
+// True when the entire input looks like morse code (only . - / and whitespace)
+const isMorseInput = computed(() => {
+  const trimmed = inputText.value.trim()
+  if (!trimmed) return false
+  return /^[.\-/ \t\n]+$/.test(trimmed) && /[.\-]/.test(trimmed)
+})
+
+// ── Computed labels ───────────────────────────────────────────────────────
+
+const outputLabel = computed(() => isMorseInput.value ? 'decoded' : 'output')
+
+// ── Computed tokens (direction-aware) ────────────────────────────────────
 
 const tokens = computed<Token[]>(() => {
+  if (isMorseInput.value) {
+    // morse→text: parse each code group, decode to char
+    const result: Token[] = []
+    const wordGroups = inputText.value.trim().split(/\s*\/\s*/)
+    for (let wi = 0; wi < wordGroups.length; wi++) {
+      if (wi > 0) result.push({ type: 'word-gap' })
+      const codes = wordGroups[wi]!.trim().split(/\s+/).filter(Boolean)
+      for (const code of codes) {
+        const ch = MORSE_REVERSE[code] ?? '?'
+        result.push({ type: 'char', char: ch, morse: code, symbols: code.split('') })
+      }
+    }
+    return result
+  }
+
+  // text→morse: encode each char
   const result: Token[] = []
   const words = inputText.value.toUpperCase().split(/\s+/).filter(Boolean)
   for (let wi = 0; wi < words.length; wi++) {
     if (wi > 0) result.push({ type: 'word-gap' })
-    for (const ch of words[wi]) {
+    for (const ch of words[wi]!) {
       const morse = MORSE[ch]
       if (morse) result.push({ type: 'char', char: ch, morse, symbols: morse.split('') })
     }
@@ -180,11 +236,18 @@ const tokens = computed<Token[]>(() => {
   return result
 })
 
-const plainMorse = computed(() =>
-  tokens.value
-    .map(t => t.type === 'word-gap' ? '/' : t.morse)
+// Plain output: morse string (text→morse) or decoded text (morse→text)
+const plainOutput = computed(() => {
+  if (isMorseInput.value) {
+    return tokens.value
+      .map(t => t.type === 'word-gap' ? ' ' : t.char)
+      .join('')
+      .trim()
+  }
+  return tokens.value
+    .map(t => t.type === 'word-gap' ? '/' : (t as CharToken).morse)
     .join(' ')
-)
+})
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -192,9 +255,9 @@ function appendChar(ch: string) {
   inputText.value += ch.toLowerCase()
 }
 
-async function copyMorse() {
+async function copyOutput() {
   try {
-    await navigator.clipboard.writeText(plainMorse.value)
+    await navigator.clipboard.writeText(plainOutput.value)
     copied.value = true
     setTimeout(() => { copied.value = false }, 1800)
   } catch {}
@@ -251,15 +314,13 @@ async function startPlay() {
   let   t         = startTime
 
   for (let ti = 0; ti < tokens.value.length; ti++) {
-    const token = tokens.value[ti]
+    const token = tokens.value[ti]!
 
     if (token.type === 'word-gap') {
-      // 7 unit word gap (3 units already included at end of prev letter, so add 4 more)
       t += unit * 4
       continue
     }
 
-    // Visual: highlight token when we start playing it
     const tokenDelay = Math.max(0, (t - startTime) * 1000)
     const curTi = ti
     const to1 = setTimeout(() => {
@@ -270,12 +331,11 @@ async function startPlay() {
     pendingTimeouts.push(to1)
 
     for (let si = 0; si < token.symbols.length; si++) {
-      const sym = token.symbols[si]
+      const sym = token.symbols[si]!
       const dur = sym === '.' ? unit : unit * 3
 
       scheduleBeep(ctx, t, dur)
 
-      // Visual: highlight current symbol
       const symDelay = Math.max(0, (t - startTime) * 1000)
       const curSi = si
       const to2 = setTimeout(() => {
@@ -284,15 +344,12 @@ async function startPlay() {
       }, symDelay)
       pendingTimeouts.push(to2)
 
-      t += dur + unit // symbol duration + inter-element gap (1 unit)
+      t += dur + unit
     }
 
-    // After last symbol of letter: inter-letter gap = 3 units total.
-    // We already added 1 unit inter-element gap after the last symbol, add 2 more.
     t += unit * 2
   }
 
-  // End of playback
   const endDelay = Math.max(0, (t - startTime) * 1000 + 200)
   const toEnd = setTimeout(() => {
     if (playId !== id) return
@@ -308,7 +365,6 @@ function togglePlay() {
   else startPlay()
 }
 
-// Stop if text changes mid-play
 watch(inputText, () => { if (playing.value) stopPlay() })
 
 onUnmounted(() => { stopPlay() })
@@ -357,12 +413,28 @@ h1 {
   gap: 0.6rem;
 }
 
+.morse-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .morse-label {
   font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--theme-text-subtle, #aaa);
+}
+
+.morse-direction {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--theme-accent, #6b8cae);
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+  font-family: 'Courier New', Courier, monospace;
 }
 
 /* ── Textarea ────────────────────────────────────────────────────────── */
@@ -653,6 +725,11 @@ h1 {
 :global(.hacker-page) .morse-label,
 :global(.hacker-page) .speed-label {
   font-family: monospace;
+}
+
+:global(.hacker-page) .morse-direction {
+  font-family: monospace;
+  color: var(--hacker-text-dim, #008F11);
 }
 
 :global(.hacker-page) .morse-textarea {

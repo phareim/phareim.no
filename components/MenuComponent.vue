@@ -6,6 +6,7 @@
 			:class="['hamburger', { 'active': showMenu }]"
 			@click="toggleMenu"
 			:aria-label="showMenu ? 'Close menu' : 'Open menu'"
+			:title="showMenu ? 'Close menu' : 'Menu (M)'"
 			:aria-expanded="showMenu"
 			aria-controls="site-menu"
 		>
