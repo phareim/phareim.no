@@ -74,7 +74,6 @@ const ariaLabel = computed(() => ARIA_LABELS[props.type] ?? props.type)
 
 <style scoped>
 a {
-  margin: 0 10px;
   border-radius: 6px;
   outline: none;
   display: inline-flex;
@@ -82,13 +81,13 @@ a {
   justify-content: center;
 }
 
+a:not(.kreftforeningen) {
+  margin: 0 10px;
+}
+
 a:focus-visible {
   outline: 2px solid var(--theme-accent, #6b8cae);
   outline-offset: 4px;
-}
-
-a.kreftforeningen {
-  margin: 0 !important;
 }
 svg, img {
   fill: var(--theme-text, #333);
