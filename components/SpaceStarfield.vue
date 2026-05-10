@@ -551,6 +551,18 @@ let reducedMotion = false
 function drawStatic() {
   if (!ctx || !canvas.value) return
   ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
+  // Nebulas first so stars render on top
+  for (const nebula of nebulas) {
+    const [r, g, b] = nebula.color
+    const grad = ctx.createRadialGradient(nebula.x, nebula.y, 0, nebula.x, nebula.y, nebula.radius)
+    grad.addColorStop(0,   `rgba(${r},${g},${b},${nebula.opacity})`)
+    grad.addColorStop(0.4, `rgba(${r},${g},${b},${nebula.opacity * 0.5})`)
+    grad.addColorStop(1,   `rgba(${r},${g},${b},0)`)
+    ctx.beginPath()
+    ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2)
+    ctx.fillStyle = grad
+    ctx.fill()
+  }
   for (const star of stars) {
     ctx.beginPath()
     ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2)
