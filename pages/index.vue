@@ -96,16 +96,10 @@ export default {
     return {
       ctx: null,
       boxes: [],
-      boxCopy: [],
       darkMode: false,
       theUpsideDown: false,
       mousePosition: { x: 0, y: 0, v: { x: 0, y: 0 } },
-      statistics: {
-        boxes: 0,
-        collisions: 0,
-        drawCount: 0,
-        animateCount: 0
-      },
+      animateCount: 0,
       animationFrameId: null,
       gyroOffsetX: 0,
       gyroOffsetY: 0,
@@ -176,7 +170,7 @@ export default {
     animate() {
       if (!this.$refs.canvas) return;
       
-      this.statistics.animateCount++;
+      this.animateCount++;
       this.animationFrameId = requestAnimationFrame(this.animate);
 
       // Gyroscope: smooth toward target and inject delta as velocity nudge
@@ -390,7 +384,6 @@ export default {
         window.addEventListener('mousemove', this.updateMousePosition);
         window.addEventListener('resize', this.setupCanvas);
         window.addEventListener('touchmove', this.updateTouchPosition);
-        window.statistics = this.statistics;
         this.animationFrameId = requestAnimationFrame(this.animate);
         this.addBox({clientX: window.innerWidth / 4, clientY: window.innerHeight / 3, layer: 1});
         this.addBox({clientX: (window.innerWidth / 4)*3, clientY: (window.innerHeight / 3)*2, layer: 1});

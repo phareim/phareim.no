@@ -122,4 +122,40 @@ img.kreftforeningen:hover {
 :deep(svg:hover path.google-stroke-2) {fill: #4285F4;}
 :deep(svg:hover path.google-stroke-3) {fill: #34A853;}
 :deep(svg:hover path.google-stroke-4) {fill: #FBBC05;}
+
+/* ── Scandi theme: lift + soft drop-shadow ───────────────────── */
+:global(.scandi-page) .social-link svg {
+  transition: transform 0.25s ease-in-out, fill 0.25s ease-in-out, opacity 0.25s ease-in-out, filter 0.25s ease-in-out;
+}
+:global(.scandi-page) .social-link svg:hover {
+  transform: scale(1.15) translateY(-2px);
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.1));
+}
+
+/* ── Hacker theme: neon glow pulse ──────────────────────────── */
+:global(.hacker-page) .social-link svg:hover {
+  transform: scale(1.15);
+  animation: hacker-icon-neon-pulse 0.9s ease-in-out infinite;
+}
+@keyframes hacker-icon-neon-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(0, 255, 65, 0.5)); }
+  50%       { filter: drop-shadow(0 0 10px rgba(0, 255, 65, 0.95)) drop-shadow(0 0 18px rgba(0, 255, 65, 0.4)); }
+}
+
+/* ── Space theme: stellar float ─────────────────────────────── */
+:global(.space-page) .social-link svg {
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), fill 0.25s ease-in-out, opacity 0.25s ease-in-out, filter 0.4s ease;
+}
+:global(.space-page) .social-link svg:hover {
+  transform: translateY(-5px) scale(1.08);
+  filter: drop-shadow(0 0 8px rgba(137, 171, 208, 0.55)) drop-shadow(0 6px 14px rgba(137, 171, 208, 0.22));
+}
+
+/* ── Reduced motion: disable animations ─────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :global(.hacker-page) .social-link svg:hover {
+    animation: none;
+    filter: drop-shadow(0 0 5px rgba(0, 255, 65, 0.55));
+  }
+}
 </style>
