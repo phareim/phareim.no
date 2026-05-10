@@ -67,6 +67,8 @@
           </g>
           <!-- Background track -->
           <circle cx="110" cy="110" r="96" fill="none" class="ring-track" stroke-width="8" />
+          <!-- Breathing guide: pulses while paused to cue slow breathing -->
+          <circle v-if="!isRunning" cx="110" cy="110" r="96" fill="none" class="ring-breath" />
           <!-- Completion flash ring -->
           <circle
             v-if="justCompleted"
@@ -607,6 +609,29 @@ h1 {
 .ring-progress {
   stroke: var(--theme-accent, #6b8cae);
   transition: stroke-dashoffset 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ── Breathing guide ring ───────────────────────────────────── */
+
+.ring-breath {
+  stroke: var(--theme-accent, #6b8cae);
+  stroke-width: 8;
+  animation: ring-breath 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes ring-breath {
+  0%, 100% { stroke-width: 6;  opacity: 0.05; }
+  38%       { stroke-width: 24; opacity: 0.17; }
+  62%       { stroke-width: 24; opacity: 0.17; }
+}
+
+:global(.space-page) .ring-breath {
+  stroke: var(--space-accent-amber, #e8c87a);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-breath { animation: none; opacity: 0; }
 }
 
 .ring-ticks {
