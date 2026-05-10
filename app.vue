@@ -14,15 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import MenuComponent from '~/components/MenuComponent.vue';
-import SpaceStarfield from '~/components/SpaceStarfield.vue';
-import ScandiAurora from '~/components/ScandiAurora.vue';
-import HackerRain from '~/components/HackerRain.vue';
-import AlmanacPaper from '~/components/AlmanacPaper.vue';
-import ThemeTransition from '~/components/ThemeTransition.vue';
-import PageProgress from '~/components/PageProgress.vue';
-import KeyboardShortcutsOverlay from '~/components/KeyboardShortcutsOverlay.vue';
-import CommandPalette from '~/components/CommandPalette.vue';
+import type MenuComponent from '~/components/MenuComponent.vue';
 
 const { themePageClass, themeColor, activeTheme, setTheme } = useTheme()
 const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);

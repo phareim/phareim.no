@@ -70,7 +70,19 @@ interface AuroraFlare {
   heightFrac: number
 }
 
+interface ShimmerPulse {
+  x: number        // current x center (px)
+  layerIdx: number // which LAYER to ride along
+  speed: number    // px per frame
+  alpha: number    // current opacity
+  width: number    // horizontal spread (px)
+  life: number     // 0–1, decays over time
+  decay: number    // life lost per frame
+}
+
 let flares: AuroraFlare[] = []
+let shimmerPulses: ShimmerPulse[] = []
+let nextShimmerTime = 280  // first pulse ~4.5 s in
 
 // parallaxDepth: lower altitude (larger baseY) = closer = more parallax
 const LAYERS: AuroraLayer[] = [
@@ -191,6 +203,60 @@ function drawFlares(h: number) {
   flares = flares.filter(f => f.alpha > 0)
 }
 
+function spawnShimmerPulse() {
+  if (!canvas.value) return
+  const layerIdx = Math.floor(Math.random() * LAYERS.length)
+  shimmerPulses.push({
+    x: -100,
+    layerIdx,
+    speed: 2.2 + Math.random() * 2.8,
+    alpha: 0.09 + Math.random() * 0.12,
+    width: 100 + Math.random() * 120,
+    life: 1,
+    decay: 0.0028 + Math.random() * 0.003,
+  })
+  // Occasionally add a softer companion on an adjacent layer
+  if (Math.random() < 0.4) {
+    const otherIdx = (layerIdx + 1 + Math.floor(Math.random() * (LAYERS.length - 1))) % LAYERS.length
+    shimmerPulses.push({
+      x: -100 - Math.random() * 60,
+      layerIdx: otherIdx,
+      speed: 1.6 + Math.random() * 2.0,
+      alpha: 0.05 + Math.random() * 0.08,
+      width: 60 + Math.random() * 80,
+      life: 1,
+      decay: 0.003 + Math.random() * 0.004,
+    })
+  }
+}
+
+function drawShimmerPulse(pulse: ShimmerPulse, w: number, h: number) {
+  if (!ctx) return
+  const layer = LAYERS[pulse.layerIdx]
+  if (!layer) return
+  const ox = (mouseParallaxX + gyroOffsetX) * layer.parallaxDepth
+  const oy = (mouseParallaxY + gyroOffsetY) * layer.parallaxDepth * 0.3
+  const sineVal = Math.sin(pulse.x / w * Math.PI * 2 / layer.waveLen + time * layer.speed + layer.phase)
+  const cx = pulse.x + ox
+  const cy = layer.baseY * h + sineVal * layer.amplitude * h + oy
+  const rx = pulse.width / 2
+  const ry = layer.thickness * h * 0.7
+  const hue = layer.hueBase + Math.sin(time * 0.00008 + layer.phase) * layer.hueRange
+  const alpha = pulse.alpha * pulse.life
+
+  const grad = ctx.createLinearGradient(cx - rx, cy, cx + rx, cy)
+  grad.addColorStop(0,    `hsla(${hue}, 88%, 84%, 0)`)
+  grad.addColorStop(0.25, `hsla(${hue}, 85%, 82%, ${(alpha * 0.5).toFixed(3)})`)
+  grad.addColorStop(0.5,  `hsla(${hue}, 90%, 88%, ${alpha.toFixed(3)})`)
+  grad.addColorStop(0.75, `hsla(${hue}, 85%, 82%, ${(alpha * 0.5).toFixed(3)})`)
+  grad.addColorStop(1,    `hsla(${hue}, 88%, 84%, 0)`)
+
+  ctx.beginPath()
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
+  ctx.fillStyle = grad
+  ctx.fill()
+}
+
 function drawLayer(layer: AuroraLayer, w: number, h: number) {
   if (!ctx) return
 
@@ -258,6 +324,19 @@ function draw() {
 
   for (const layer of LAYERS) {
     drawLayer(layer, w, h)
+  }
+
+  // Shimmer pulses — drawn on top of aurora bands
+  shimmerPulses = shimmerPulses.filter(p => p.life > 0)
+  for (const pulse of shimmerPulses) {
+    drawShimmerPulse(pulse, w, h)
+    pulse.x += pulse.speed
+    pulse.life -= pulse.decay
+    if (pulse.x > w + pulse.width / 2) pulse.life = 0
+  }
+  if (time >= nextShimmerTime) {
+    spawnShimmerPulse()
+    nextShimmerTime = time + Math.floor(Math.random() * 300 + 180)
   }
 
   time++
@@ -352,6 +431,7 @@ onBeforeUnmount(() => {
   if (animationId !== null) {
     cancelAnimationFrame(animationId)
   }
+  shimmerPulses = []
 })
 </script>
 
