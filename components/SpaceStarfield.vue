@@ -11,6 +11,7 @@ let nebulas: Nebula[] = []
 let constellations: Constellation[] = []
 let animationId: number | null = null
 let frame = 0
+let novaRings: NovaRing[] = []
 
 // Mouse parallax state (desktop)
 let mouseParallaxX = 0
@@ -136,6 +137,14 @@ interface ShootingStar {
   opacity: number
   life: number
   decay: number
+}
+
+interface NovaRing {
+  x: number
+  y: number
+  radius: number
+  maxRadius: number
+  opacity: number
 }
 
 interface Nebula {
@@ -376,6 +385,51 @@ function drawShootingStar(s: ShootingStar) {
   ctx.fill()
 }
 
+function triggerNova(clientX: number, clientY: number) {
+  if (!canvas.value) return
+  const rect = canvas.value.getBoundingClientRect()
+  const x = clientX - rect.left
+  const y = clientY - rect.top
+  const count = 5 + Math.floor(Math.random() * 4)
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5
+    const speed = Math.random() * 5 + 6
+    shootingStars.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      tailLength: Math.random() * 50 + 35,
+      opacity: Math.random() * 0.35 + 0.65,
+      life: 1,
+      decay: Math.random() * 0.01 + 0.009,
+    })
+  }
+  novaRings.push({
+    x,
+    y,
+    radius: 0,
+    maxRadius: 100 + Math.random() * 80,
+    opacity: 0.65,
+  })
+}
+
+function drawNovaRings() {
+  if (!ctx || novaRings.length === 0) return
+  for (const ring of novaRings) {
+    const progress = ring.radius / ring.maxRadius
+    const alpha = ring.opacity * (1 - progress)
+    ctx.beginPath()
+    ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2)
+    ctx.strokeStyle = `rgba(200, 220, 255, ${alpha.toFixed(3)})`
+    ctx.lineWidth = 1.5 * (1 - progress * 0.5)
+    ctx.stroke()
+    ring.radius += 3.5
+    ring.opacity -= 0.014
+  }
+  novaRings = novaRings.filter(r => r.opacity > 0 && r.radius < r.maxRadius)
+}
+
 function draw() {
   if (!ctx || !canvas.value) return
   ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
@@ -427,6 +481,8 @@ function draw() {
     s.life -= s.decay
   }
 
+  drawNovaRings()
+
   animationId = requestAnimationFrame(draw)
 }
 
@@ -458,6 +514,15 @@ function handleMouseMove(e: MouseEvent) {
   const cy = canvas.value.height / 2
   targetMouseX = ((e.clientX - cx) / cx) * -MOUSE_SENSITIVITY
   targetMouseY = ((e.clientY - cy) / cy) * -MOUSE_SENSITIVITY
+}
+
+function handleClick(e: MouseEvent) {
+  triggerNova(e.clientX, e.clientY)
+}
+
+function handleTouch(e: TouchEvent) {
+  const touch = e.touches[0]
+  if (touch) triggerNova(touch.clientX, touch.clientY)
 }
 
 function handleOrientation(e: DeviceOrientationEvent) {
@@ -544,6 +609,8 @@ onMounted(() => {
 
   window.addEventListener('resize', onResize)
   window.addEventListener('mousemove', handleMouseMove)
+  window.addEventListener('click', handleClick)
+  window.addEventListener('touchstart', handleTouch, { passive: true })
   document.addEventListener('visibilitychange', handleVisibilityChange)
   draw()
 
@@ -559,6 +626,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   window.removeEventListener('resize', onResizeStatic)
   window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('click', handleClick)
+  window.removeEventListener('touchstart', handleTouch)
   window.removeEventListener('deviceorientation', handleOrientation)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   if (gyroTapHandler) document.removeEventListener('click', gyroTapHandler)

@@ -307,7 +307,7 @@ defineExpose({
 	transition: transform 0.3s ease;
 	z-index: 1000;
 	padding-top: 4.4rem;
-	box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+	box-shadow: -2px 0 8px rgba(0, 0, 0, 0.06), -1px 0 24px var(--theme-card-shadow, transparent);
 	display: flex;
 	flex-direction: column;
 	box-sizing: border-box;
