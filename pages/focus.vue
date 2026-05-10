@@ -120,7 +120,11 @@
       <div class="option-row" role="group" aria-label="Timer options">
         <button
           class="option-btn"
+<<<<<<< HEAD
           :class="{ 'option-btn--active': soundEnabled }"
+=======
+          :class="{ 'option-btn--on': soundEnabled }"
+>>>>>>> 8f3a3c3 (fix: show active state on focus timer sound/notification buttons)
           @click="soundEnabled = !soundEnabled"
           :aria-label="soundEnabled ? 'Mute completion sound' : 'Enable completion sound'"
           :title="soundEnabled ? 'Sound on' : 'Sound off'"
@@ -131,7 +135,11 @@
         <button
           v-if="notifSupported && notifPermission !== 'denied'"
           class="option-btn"
+<<<<<<< HEAD
           :class="{ 'option-btn--active': notifEnabled }"
+=======
+          :class="{ 'option-btn--on': notifEnabled }"
+>>>>>>> 8f3a3c3 (fix: show active state on focus timer sound/notification buttons)
           @click="toggleNotif"
           :aria-label="notifEnabled ? 'Disable desktop notifications' : 'Enable desktop notifications when timer ends'"
           :title="notifEnabled ? 'Notifications on' : 'Notifications off (click to enable)'"
@@ -1074,7 +1082,7 @@ h1 {
   background: transparent;
   cursor: pointer;
   font-size: 1rem;
-  opacity: 0.45;
+  opacity: 0.38;
   transition: opacity 0.2s ease;
   padding: 0;
 }
@@ -1084,6 +1092,17 @@ h1 {
 }
 
 .option-btn:hover {
+<<<<<<< HEAD
+=======
+  opacity: 0.7;
+}
+
+.option-btn--on {
+  opacity: 0.85;
+}
+
+.option-btn--on:hover {
+>>>>>>> 8f3a3c3 (fix: show active state on focus timer sound/notification buttons)
   opacity: 1;
 }
 
