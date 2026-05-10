@@ -81,6 +81,21 @@
 import ProfileCard from '~/components/ProfileCard.vue'
 import SocialLink from '~/components/SocialLink.vue'
 import SpaceInvadersBackground from '~/components/SpaceInvadersBackground.vue'
+
+// Scandinavian palette: soft blues, sages, occasional bold accents
+const SCANDI_BUBBLE_COLORS = [
+  [107, 140, 174],  // soft blue  (#6b8cae)
+  [107, 140, 174],  // weighted
+  [155, 171, 139],  // soft sage  (#9bab8b)
+  [155, 171, 139],  // weighted
+  [ 89, 118, 148],  // deep blue
+  [130, 150, 120],  // deep sage
+  [170, 190, 210],  // pale blue
+  [185, 196, 180],  // pale sage
+  [193,  39,  45],  // red accent  (#c1272d)
+  [  0, 150,  57],  // green accent (#009639)
+]
+
 export default {
   name: 'Home',
   components: {
@@ -96,6 +111,7 @@ export default {
     return {
       ctx: null,
       boxes: [],
+      spawnRings: [],
       darkMode: false,
       theUpsideDown: false,
       mousePosition: { x: 0, y: 0, v: { x: 0, y: 0 } },
@@ -189,6 +205,7 @@ export default {
           this.checkCollisions(box);
         }
       });
+      this.drawSpawnRings();
       this.mousePosition.v.x = (this.mousePosition.v.x * 0.9);
       this.mousePosition.v.y = (this.mousePosition.v.y * 0.9);
     },
@@ -307,11 +324,10 @@ export default {
       this.ctx.shadowOffsetX = 0;
       this.ctx.shadowOffsetY = 0;
       this.ctx.shadowBlur = 0;
-      this.ctx.shadowColor = 'transparent';     
-      this.ctx.stroke(); 
-      this.ctx.lineWidth = 5;
-      this.ctx.strokeStyle = (this.theUpsideDown? 'rgba(100,90,80,0.2)':'rgba(0, 0, 0, 0.9)');
-      this.ctx.class = 'box';
+      this.ctx.shadowColor = 'transparent';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.strokeStyle = this.theUpsideDown ? 'rgba(100,90,80,0.15)' : 'rgba(255,255,255,0.3)';
+      this.ctx.stroke();
     },
     
     isColliding(box1, box2) {
@@ -319,6 +335,21 @@ export default {
       const dy = box1.y - box2.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       return distance < (box1.size/2 + box2.size/2);
+    },
+    drawSpawnRings() {
+      const ctx = this.ctx;
+      this.spawnRings = this.spawnRings.filter(r => r.opacity > 0 && r.radius < r.maxRadius);
+      for (const ring of this.spawnRings) {
+        const progress = ring.radius / ring.maxRadius;
+        const alpha = ring.opacity * (1 - progress);
+        ctx.beginPath();
+        ctx.arc(ring.x, ring.y, ring.radius, 0, 2 * Math.PI);
+        ctx.strokeStyle = `rgba(107, 140, 174, ${alpha.toFixed(3)})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ring.radius += 5;
+        ring.opacity -= 0.02;
+      }
     },
     flip(event) {
       document.body.classList.remove('dark-mode');
@@ -377,6 +408,7 @@ export default {
         this._gyroTapHandler = null;
       }
       this.boxes = [];
+      this.spawnRings = [];
     },
     startBubbles() {
       this.$nextTick(() => {
@@ -436,25 +468,25 @@ export default {
       const y = event.clientY - rect.top;
 
       const size = (Math.random() * 300) + 50;
-      const r = (Math.random()> 0.5? 75 + Math.random()*20 : 150 + Math.random()*20);
-      const g = (Math.random()> 0.5? 50 + Math.random()*100 : 125 + Math.random()*20);
-      const b = (Math.random()> 0.5? 100 + Math.random()*20 : 255);
-      
+      const [r, g, b] = SCANDI_BUBBLE_COLORS[Math.floor(Math.random() * SCANDI_BUBBLE_COLORS.length)];
+      const alpha = 0.55 + Math.random() * 0.3;
+
       let shadowLength = 0;
       if(event.layer){
         shadowLength = event.layer === 1 ? 0 : 30;
       } else {
         shadowLength = (r + g + b) > 420 ? 0 : 30;
       }
-      
-      const color = `rgb(${r}, ${g}, ${b})`;
+
+      const color = `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)})`;
       const shadowColor = this.darkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(10, 10, 10, 0.5)';
       const shadow = this.getNewShadow(shadowLength, shadowColor);
       const yvelocity = ((Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1));
       const xvelocity = ((Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1));
-      
-      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity,mass: size, size, color, turned: false, shadow });
+
+      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity, mass: size, size, color, turned: false, shadow });
       this.boxes = this.boxes.sort((a, b) => a.shadow.strength - b.shadow.strength);
+      this.spawnRings.push({ x, y, radius: 0, maxRadius: 70, opacity: 0.5 });
     },
   },
 };
