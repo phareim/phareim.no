@@ -327,9 +327,15 @@ const socialLinks = [
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .about-photo,
+  .about-name,
+  .about-tagline,
+  .about-divider,
+  .about-bio,
   .about-social-link {
     animation: none;
     opacity: 1;
+    transform: none;
   }
 }
 </style>
