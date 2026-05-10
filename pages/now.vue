@@ -76,7 +76,28 @@
 
       <div class="now-divider" aria-hidden="true"></div>
 
-      <footer class="now-footer now-section--4">
+      <!-- Latest guestbook entry -->
+      <section class="now-section now-section--4">
+        <h2 class="section-label">latest visitor</h2>
+        <div v-if="guestbookPending" class="now-placeholder now-placeholder--loading">
+          <span>fetching…</span>
+        </div>
+        <div v-else-if="latestEntry" class="now-guest-card">
+          <p class="now-guest-message">{{ latestEntry.message }}</p>
+          <div class="now-guest-footer">
+            <span class="now-guest-name">— {{ latestEntry.name }}</span>
+            <a href="/guestbook" class="now-guest-link">{{ formatDate(latestEntry.created_at) }}</a>
+          </div>
+        </div>
+        <div v-else class="now-placeholder">
+          <span>no entries yet — <a href="/guestbook" class="now-link">be the first</a></span>
+        </div>
+      </section>
+
+      <div class="now-divider" aria-hidden="true"></div>
+
+      <footer class="now-footer now-section--5">
+
         <p class="now-updated">
           this page updates itself — last commit:
           <a
@@ -96,6 +117,7 @@
 <script setup lang="ts">
 import type { FeedPage } from '~/server/api/feed'
 import type { Project } from '~/server/api/projects'
+import type { GuestbookEntry } from '~/server/api/guestbook'
 
 useHead({ title: 'now — phareim.no' })
 
@@ -133,12 +155,15 @@ const labelPushed = computed(() => {
 
 const { data: feedData, pending: feedPending } = await useFetch<FeedPage>('/api/feed')
 const { data: projectsData, pending: projectsPending } = await useFetch<Project[]>('/api/projects')
+const { data: guestbookData, pending: guestbookPending } = useFetch<GuestbookEntry[]>('/api/guestbook')
 
 const latestPost = computed(() => {
   const posts = feedData.value?.posts
   if (!posts?.length) return null
   return posts.find(p => p.text && p.text.trim().length > 0) ?? null
 })
+
+const latestEntry = computed(() => guestbookData.value?.[0] ?? null)
 
 const recentProjects = computed(() => {
   if (!projectsData.value) return []
@@ -214,6 +239,7 @@ h1 {
 .now-section--2 { animation-delay: 0.15s; }
 .now-section--3 { animation-delay: 0.25s; }
 .now-section--4 { animation-delay: 0.35s; }
+.now-section--5 { animation-delay: 0.45s; }
 
 @media (prefers-reduced-motion: reduce) {
   .now-section,
@@ -425,6 +451,60 @@ h1 {
   50%       { opacity: 0.35; }
 }
 
+/* ── Guestbook card ─────────────────────────────────────────── */
+
+.now-guest-card {
+  background: var(--theme-card-bg, rgba(255, 255, 255, 0.6));
+  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
+  border-radius: var(--theme-card-radius, 16px);
+  padding: 1.1rem 1.3rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 2px 10px var(--theme-card-shadow, rgba(0, 0, 0, 0.04));
+}
+
+.now-guest-message {
+  font-size: 0.95rem;
+  color: var(--theme-text, #111);
+  line-height: 1.65;
+  margin: 0 0 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-style: italic;
+}
+
+.now-guest-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.06));
+}
+
+.now-guest-name {
+  font-size: 0.75rem;
+  color: var(--theme-text-muted, #666);
+  font-weight: 500;
+}
+
+.now-guest-link {
+  font-size: 0.7rem;
+  color: var(--theme-text-subtle, #aaa);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.now-guest-link:hover {
+  color: var(--theme-accent-danger, #c1272d);
+}
+
+.now-guest-link:focus-visible {
+  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* ── Footer ─────────────────────────────────────────────────── */
 
 .now-footer {
@@ -479,6 +559,20 @@ h1 {
   box-shadow: 0 0 18px var(--theme-card-shadow, rgba(0, 255, 65, 0.2));
 }
 
+:global(.hacker-page) .now-guest-card {
+  border-radius: 0;
+  font-family: monospace;
+}
+
+:global(.hacker-page) .now-guest-message {
+  font-family: monospace;
+}
+
+:global(.hacker-page) .now-guest-name {
+  font-family: monospace;
+  text-shadow: 0 0 6px currentColor;
+}
+
 /* ── Space theme overrides ──────────────────────────────────── */
 
 :global(.space-page) h1 {
@@ -503,5 +597,13 @@ h1 {
 :global(.space-page) .section-label {
   font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
   font-weight: 900;
+}
+
+:global(.space-page) .now-guest-card {
+  box-shadow: 0 4px 24px var(--theme-card-shadow, rgba(140, 170, 220, 0.1));
+}
+
+:global(.space-page) .now-guest-link:hover {
+  color: var(--space-accent-amber, #e8c87a);
 }
 </style>
