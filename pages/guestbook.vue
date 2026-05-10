@@ -45,6 +45,7 @@
 
         <div v-if="submitted" class="gb-success" role="status">
           thanks for signing!
+          <button class="gb-again" @click="submitted = false">sign again</button>
         </div>
         <button
           v-else
@@ -71,9 +72,11 @@
       </div>
       <ol v-else class="gb-list">
         <li
-          v-for="entry in entries"
+          v-for="(entry, index) in entries"
           :key="entry.id"
           class="gb-entry"
+          :class="{ 'gb-entry--new': entry.id === newEntryId }"
+          :style="{ '--entry-index': index }"
         >
           <div class="gb-entry-header">
             <span class="gb-entry-name">{{ entry.name }}</span>
@@ -98,6 +101,8 @@ const form = reactive({ name: '', message: '' })
 const submitting = ref(false)
 const submitted = ref(false)
 const error = ref('')
+const newEntryId = ref<string | null>(null)
+let newEntryTimer: ReturnType<typeof setTimeout> | null = null
 
 async function submit() {
   if (submitting.value) return
@@ -112,6 +117,12 @@ async function submit() {
     form.name = ''
     form.message = ''
     await refresh()
+    // Highlight the newest entry (first in list) briefly
+    if (entriesData.value?.[0]?.id) {
+      newEntryId.value = entriesData.value[0].id
+      if (newEntryTimer !== null) clearTimeout(newEntryTimer)
+      newEntryTimer = setTimeout(() => { newEntryId.value = null }, 2800)
+    }
   } catch (err: any) {
     const msg = err?.data?.statusMessage ?? err?.message ?? 'something went wrong'
     error.value = msg
@@ -119,6 +130,10 @@ async function submit() {
     submitting.value = false
   }
 }
+
+onBeforeUnmount(() => {
+  if (newEntryTimer !== null) clearTimeout(newEntryTimer)
+})
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
@@ -256,6 +271,34 @@ h1 {
   border: 1px solid color-mix(in srgb, var(--theme-accent, #6b8cae) 20%, transparent);
   border-radius: calc(var(--theme-card-radius, 16px) * 0.6);
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.gb-again {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--theme-accent, #6b8cae) 40%, transparent);
+  border-radius: calc(var(--theme-card-radius, 16px) * 0.5);
+  color: var(--theme-accent, #6b8cae);
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.65rem;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.gb-again:hover {
+  opacity: 1;
+  border-color: var(--theme-accent, #6b8cae);
+}
+
+.gb-again:focus-visible {
+  outline: 2px solid var(--theme-accent, #89abd0);
+  outline-offset: 2px;
 }
 
 .gb-submit {
@@ -339,6 +382,23 @@ h1 {
   gap: 0.9rem;
 }
 
+@keyframes gb-entry-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gb-entry-highlight {
+  0%   { box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-accent, #89abd0) 60%, transparent), 0 2px 8px var(--theme-card-shadow, rgba(0,0,0,0.04)); border-color: color-mix(in srgb, var(--theme-accent, #89abd0) 60%, transparent); }
+  60%  { box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent, #89abd0) 40%, transparent), 0 4px 20px color-mix(in srgb, var(--theme-accent, #89abd0) 20%, transparent); }
+  100% { box-shadow: 0 2px 8px var(--theme-card-shadow, rgba(0,0,0,0.04)); border-color: var(--theme-card-border, rgba(0,0,0,0.08)); }
+}
+
 .gb-entry {
   background: var(--theme-card-bg, rgba(255, 255, 255, 0.6));
   border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
@@ -347,11 +407,27 @@ h1 {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 2px 8px var(--theme-card-shadow, rgba(0, 0, 0, 0.04));
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  animation: gb-entry-in 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  animation-delay: calc(var(--entry-index, 0) * 55ms);
+}
+
+.gb-entry--new {
+  animation: gb-entry-highlight 2.8s ease-out forwards;
 }
 
 .gb-entry:hover {
   box-shadow: 0 4px 16px var(--theme-card-shadow, rgba(0, 0, 0, 0.08));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gb-entry {
+    animation: none;
+  }
+  .gb-entry--new {
+    animation: none;
+    border-color: color-mix(in srgb, var(--theme-accent, #89abd0) 50%, transparent);
+  }
 }
 
 .gb-entry-header {
@@ -429,6 +505,17 @@ h1 {
   box-shadow: 0 0 18px var(--theme-card-shadow, rgba(0, 255, 65, 0.2));
 }
 
+:global(.hacker-page) .gb-entry--new {
+  animation: none;
+  border-color: var(--theme-text, #00ff41);
+  box-shadow: 0 0 14px var(--theme-card-shadow, rgba(0, 255, 65, 0.3));
+}
+
+:global(.hacker-page) .gb-again {
+  border-radius: 0;
+  font-family: monospace;
+}
+
 /* ── Space theme overrides ──────────────────────────────────── */
 
 :global(.space-page) h1 {
@@ -448,5 +535,11 @@ h1 {
   box-shadow:
     0 8px 32px var(--theme-card-shadow, rgba(140, 170, 220, 0.15)),
     0 0 0 1px rgba(140, 170, 220, 0.2);
+}
+
+:global(.space-page) .gb-entry--new {
+  animation: none;
+  border-color: rgba(140, 170, 220, 0.55);
+  box-shadow: 0 0 20px rgba(140, 170, 220, 0.2), 0 0 0 1px rgba(140, 170, 220, 0.3);
 }
 </style>

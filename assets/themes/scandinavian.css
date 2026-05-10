@@ -241,8 +241,8 @@
 .scandi-bar span:nth-child(9) { animation-delay: 1.6s; background: var(--accent-green); }
 
 @keyframes scandi-bar {
-  0% { opacity: 1; transform: scaleY(1); }
-  100% { opacity: 0.1; transform: scaleY(1); }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
 }
 
 /* Subtle animations */
