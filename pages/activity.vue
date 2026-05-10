@@ -654,6 +654,16 @@ h1 {
   padding: 2rem 0;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .loading-dot {
+    animation: none;
+    opacity: 0.5;
+  }
+  .activity-dot {
+    transition: none;
+  }
+}
+
 /* ── Hacker theme overrides ──────────────────────────────────── */
 
 :global(.hacker-page) .filter-count {
