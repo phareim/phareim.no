@@ -4,7 +4,8 @@ export default defineNuxtConfig({
   css: [
     '~/assets/themes/scandinavian.css',
     '~/assets/themes/hacker.css',
-    '~/assets/themes/space.css'
+    '~/assets/themes/space.css',
+    '~/assets/themes/almanac.css'
   ],
 
   app: {

@@ -79,6 +79,11 @@
               <span>space</span>
               <span class="kbd-swatch" style="background: #89abd0"></span>
             </div>
+            <div class="kbd-row">
+              <kbd>4</kbd>
+              <span>almanac</span>
+              <span class="kbd-swatch" style="background: #c14a2a"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -297,5 +302,44 @@ kbd {
   background: rgba(15, 15, 30, 0.8);
   border-color: rgba(140, 170, 220, 0.25);
   box-shadow: 0 1px 0 rgba(140, 170, 220, 0.15), inset 0 1px 0 rgba(140, 170, 220, 0.05);
+}
+
+/* ── Almanac theme overrides ────────────────────────────────── */
+
+:global(.almanac-page) .kbd-panel {
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-card-border);
+  border-radius: 0;
+  box-shadow: none;
+  font-family: var(--theme-font-body);
+}
+
+:global(.almanac-page) kbd {
+  background: transparent;
+  border: 1px solid var(--theme-card-border);
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--theme-text);
+  font-family: var(--theme-font-body);
+}
+
+:global(.almanac-page) .kbd-title,
+:global(.almanac-page) .kbd-section-label,
+:global(.almanac-page) .kbd-row {
+  font-family: var(--theme-font-body);
+  color: var(--theme-text);
+}
+
+:global(.almanac-page) .kbd-section-label {
+  color: var(--theme-text-muted);
+}
+
+:global(.almanac-page) .kbd-close {
+  background: transparent;
+  border: 1px solid var(--theme-card-border);
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--theme-text);
+  font-family: var(--theme-font-body);
 }
 </style>

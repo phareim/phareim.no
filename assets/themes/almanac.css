@@ -1,0 +1,167 @@
+/**
+ * Almanac Aesthetic
+ * ---------------------------
+ * Warm paper in daylight, midnight paper after dark.
+ * Scholarly serif, hairline rules, no chrome. The
+ * anti-theme: where the others are weather, this
+ * is paper.
+ *
+ * Ported from the cross-medium Almanac design
+ * system at ~/github/almanac-design/. Five rules
+ * govern every choice: hairline-not-box,
+ * accent-only-at-attention, serif-body-always,
+ * stars-dark-only, no-chrome.
+ *
+ * Usage: Add class "almanac-page" to your page container.
+ * Light/dark follows OS prefers-color-scheme — Almanac
+ * is the only theme on this site that does so by design.
+ */
+
+:root {
+  /* Base colors — paper in light, midnight in dark */
+  --almanac-paper: #f4f0e8;
+  --almanac-paper-warm: #ece6d8;
+
+  /* Ink — high contrast, never pure black */
+  --almanac-ink: #1a1a1a;
+  --almanac-ink-mute: #6a6a6a;
+  --almanac-ink-subtle: #a39e8f;
+
+  /* Accent — single rust moment of attention */
+  --almanac-rust: #c14a2a;
+  --almanac-amber: #d4a574;
+
+  /* Hairline rule colors */
+  --almanac-rule-light: #d8d2c4;
+  --almanac-rule-dark: rgba(255, 255, 255, 0.10);
+
+  /* Midnight gradient stops */
+  --almanac-night-top: #161b24;
+  --almanac-night-bottom: #0e1219;
+  --almanac-night-ink: #ebe4d4;
+  --almanac-night-ink-mute: #7a8a9a;
+  --almanac-night-ink-subtle: #5a6a7a;
+
+  /* Typography — Georgia stack, no webfont. Source Serif 4
+     is the design-system primary; Georgia is its first fallback
+     and ships with every OS — used here intentionally. */
+  --font-almanac-body: Georgia, 'Iowan Old Style', Charter, serif;
+  --font-almanac-display: Georgia, 'Iowan Old Style', Charter, serif;
+
+  /* Transitions — quiet, opacity-only, no easing flourishes */
+  --transition-almanac: opacity 0.25s ease;
+}
+
+/* Base page container — light (paper) mode is the default */
+.almanac-page {
+  min-height: 100vh;
+  background: var(--almanac-paper);
+  color: var(--almanac-ink);
+  font-family: var(--font-almanac-body);
+  position: relative;
+  overflow-x: hidden;
+
+  /* Semantic theme variables — the contract every page reads */
+  --theme-bg: var(--almanac-paper);
+  --theme-bg-alt: var(--almanac-paper-warm);
+  --theme-text: var(--almanac-ink);
+  --theme-text-muted: var(--almanac-ink-mute);
+  --theme-text-subtle: var(--almanac-ink-subtle);
+
+  /* Hairline-not-box: cards are transparent with a 1px rule */
+  --theme-card-bg: transparent;
+  --theme-card-border: var(--almanac-rule-light);
+  --theme-card-shadow: none;
+  --theme-card-radius: 0;
+
+  /* Accent only at attention — rust in light, amber in dark */
+  --theme-accent: var(--almanac-rust);
+  --theme-accent-secondary: var(--almanac-ink-subtle);
+  --theme-accent-danger: var(--almanac-rust);
+
+  /* Links read as ink, accent on hover */
+  --theme-link-color: var(--almanac-ink);
+  --theme-font-body: var(--font-almanac-body);
+  --theme-font-display: var(--font-almanac-display);
+  --theme-transition: var(--transition-almanac);
+
+  --theme-input-bg: transparent;
+  --theme-input-border: var(--almanac-rule-light);
+  --theme-input-text: var(--almanac-ink);
+
+  /* RPG vars — accent for items, ink for characters, mute for places */
+  --theme-rpg-item: var(--almanac-rust);
+  --theme-rpg-character: var(--almanac-ink);
+  --theme-rpg-place: var(--almanac-ink-mute);
+  --theme-rpg-terminal-bg: transparent;
+  --theme-rpg-terminal-border: var(--almanac-rule-light);
+  --theme-rpg-terminal-text: var(--almanac-ink);
+  --theme-rpg-command: var(--almanac-ink-mute);
+}
+
+/* Light-mode signature — every page-level h1 carries a hairline rule
+   so the paper doesn't read as "missing CSS". This is the visible
+   aesthetic anchor in light mode, where the background component
+   renders nothing. */
+.almanac-page h1 {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--theme-card-border);
+  margin-bottom: 1.25rem;
+  font-family: var(--theme-font-display);
+}
+
+.almanac-page h2,
+.almanac-page h3 {
+  font-family: var(--theme-font-display);
+}
+
+/* Links — ink-by-default, accent on hover */
+.almanac-page a {
+  color: var(--theme-link-color);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  transition: color 0.2s ease;
+}
+.almanac-page a:hover,
+.almanac-page a:focus-visible {
+  color: var(--theme-accent);
+}
+
+/* Dark mode — midnight paper. The other themes already use
+   prefers-color-scheme; Almanac follows the same precedent
+   and pairs with the OS by design. */
+@media (prefers-color-scheme: dark) {
+  .almanac-page {
+    background: linear-gradient(
+      to bottom,
+      var(--almanac-night-top),
+      var(--almanac-night-bottom)
+    );
+    background-attachment: fixed;
+    color: var(--almanac-night-ink);
+
+    --theme-bg: var(--almanac-night-bottom);
+    --theme-bg-alt: var(--almanac-night-top);
+    --theme-text: var(--almanac-night-ink);
+    --theme-text-muted: var(--almanac-night-ink-mute);
+    --theme-text-subtle: var(--almanac-night-ink-subtle);
+
+    --theme-card-border: var(--almanac-rule-dark);
+    --theme-input-border: var(--almanac-rule-dark);
+
+    --theme-accent: var(--almanac-amber);
+    --theme-accent-secondary: var(--almanac-night-ink-subtle);
+    --theme-accent-danger: var(--almanac-amber);
+
+    --theme-link-color: var(--almanac-night-ink);
+    --theme-input-text: var(--almanac-night-ink);
+
+    --theme-rpg-item: var(--almanac-amber);
+    --theme-rpg-character: var(--almanac-night-ink);
+    --theme-rpg-place: var(--almanac-night-ink-mute);
+    --theme-rpg-terminal-border: var(--almanac-rule-dark);
+    --theme-rpg-terminal-text: var(--almanac-night-ink);
+    --theme-rpg-command: var(--almanac-night-ink-mute);
+  }
+}

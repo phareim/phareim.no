@@ -479,4 +479,44 @@ watch(() => props.open, (val) => {
   background: rgba(15, 15, 30, 0.8);
   border-color: rgba(140, 170, 220, 0.2);
 }
+
+/* ── Almanac theme ────────────────────────────────────────── */
+
+:global(.almanac-page) .palette-panel {
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-card-border);
+  border-radius: 0;
+  box-shadow: none;
+  font-family: var(--theme-font-body);
+}
+
+:global(.almanac-page) .palette-input {
+  background: transparent;
+  color: var(--theme-text);
+  font-family: var(--theme-font-body);
+}
+
+:global(.almanac-page) .palette-item {
+  border-radius: 0;
+  font-family: var(--theme-font-body);
+}
+
+:global(.almanac-page) .palette-item.is-active {
+  background: var(--theme-bg-alt);
+  color: var(--theme-text);
+}
+
+:global(.almanac-page) .palette-item-hint,
+:global(.almanac-page) .palette-esc-hint {
+  background: transparent;
+  border: 1px solid var(--theme-card-border);
+  border-radius: 0;
+  color: var(--theme-text-muted);
+  font-family: var(--theme-font-body);
+}
+
+:global(.almanac-page) .palette-group-label {
+  color: var(--theme-text-muted);
+  font-family: var(--theme-font-body);
+}
 </style>

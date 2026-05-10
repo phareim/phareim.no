@@ -33,9 +33,9 @@
 
       <div class="colophon-divider" aria-hidden="true"></div>
 
-      <!-- The three themes -->
+      <!-- The four themes -->
       <section class="colophon-section">
-        <h2 class="section-label">three themes</h2>
+        <h2 class="section-label">four themes</h2>
         <div class="theme-cards">
 
           <div class="theme-card theme-card--scandi">
@@ -93,6 +93,26 @@
               <span class="swatch" style="background: #89abd0;"></span>
               <span class="swatch" style="background: #e8c87a;"></span>
               <span class="swatch" style="background: #e06060;"></span>
+            </div>
+          </div>
+
+          <div class="theme-card theme-card--almanac">
+            <div class="theme-card-header">
+              <span class="theme-card-key" aria-label="Press 4">4</span>
+              <span class="theme-card-name">almanac</span>
+            </div>
+            <p class="theme-card-desc">
+              warm paper by day, midnight paper by night. georgia serif,
+              hairline rules instead of cards, no animation, no chrome.
+              the quiet one — where the others are weather, this one is
+              paper. follows your system's light/dark setting by design.
+            </p>
+            <div class="theme-card-swatches" aria-hidden="true">
+              <span class="swatch" style="background: #f4f0e8; border: 1px solid #d8d2c4;"></span>
+              <span class="swatch" style="background: #1a1a1a;"></span>
+              <span class="swatch" style="background: #c14a2a;"></span>
+              <span class="swatch" style="background: #0e1219;"></span>
+              <span class="swatch" style="background: #d4a574;"></span>
             </div>
           </div>
 
@@ -291,9 +311,10 @@ h1 {
   box-shadow: 0 4px 16px var(--theme-card-shadow, rgba(0, 0, 0, 0.06));
 }
 
-.theme-card--scandi:hover { border-color: #6b8cae; }
-.theme-card--hacker:hover { border-color: #00ff41; }
-.theme-card--space:hover  { border-color: #89abd0; }
+.theme-card--scandi:hover  { border-color: #6b8cae; }
+.theme-card--hacker:hover  { border-color: #00ff41; }
+.theme-card--space:hover   { border-color: #89abd0; }
+.theme-card--almanac:hover { border-color: #c14a2a; }
 
 .theme-card-header {
   display: flex;

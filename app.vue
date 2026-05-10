@@ -3,6 +3,7 @@
     <SpaceStarfield v-if="activeTheme === 'space'" />
     <ScandiAurora v-if="activeTheme === 'scandi'" />
     <HackerRain v-if="activeTheme === 'hacker'" />
+    <AlmanacPaper v-if="activeTheme === 'almanac'" />
     <NuxtPage :transition="{ name: 'page', mode: 'out-in' }" />
     <MenuComponent ref="menuComponent" />
     <PageProgress />
@@ -17,6 +18,7 @@ import MenuComponent from '~/components/MenuComponent.vue';
 import SpaceStarfield from '~/components/SpaceStarfield.vue';
 import ScandiAurora from '~/components/ScandiAurora.vue';
 import HackerRain from '~/components/HackerRain.vue';
+import AlmanacPaper from '~/components/AlmanacPaper.vue';
 import ThemeTransition from '~/components/ThemeTransition.vue';
 import PageProgress from '~/components/PageProgress.vue';
 import KeyboardShortcutsOverlay from '~/components/KeyboardShortcutsOverlay.vue';
@@ -31,16 +33,19 @@ const route = useRoute();
 
 const NAV_PAGES = ['/', '/about', '/projects', '/feed', '/now', '/uses', '/guestbook', '/activity', '/stats', '/meta', '/colophon', '/playground', '/gallery', '/clock', '/lab', '/focus', '/terminal', '/morse'];
 
+type ThemeId = 'scandi' | 'hacker' | 'space' | 'almanac'
+
 useHead({
   meta: [
     { name: 'theme-color', content: themeColor }
   ]
 })
 
-const THEME_KEYS: Record<string, 'scandi' | 'hacker' | 'space'> = {
+const THEME_KEYS: Record<string, ThemeId> = {
   '1': 'scandi',
   '2': 'hacker',
   '3': 'space',
+  '4': 'almanac',
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -196,6 +201,19 @@ h1 {
   transform: scale(1.03);
 }
 
+/* Almanac theme: opacity-only, the page exhales */
+.almanac-page .page-enter-active {
+  transition: opacity 0.5s ease;
+}
+.almanac-page .page-leave-active {
+  transition: opacity 0.25s ease;
+}
+.almanac-page .page-enter-from,
+.almanac-page .page-leave-to {
+  opacity: 0;
+  transform: none;
+}
+
 /* Accessibility: collapse all page transitions for reduced-motion users */
 @media (prefers-reduced-motion: reduce) {
   .page-enter-active,
@@ -203,7 +221,9 @@ h1 {
   .hacker-page .page-enter-active,
   .hacker-page .page-leave-active,
   .space-page .page-enter-active,
-  .space-page .page-leave-active {
+  .space-page .page-leave-active,
+  .almanac-page .page-enter-active,
+  .almanac-page .page-leave-active {
     transition: opacity 0.1s linear;
   }
   .page-enter-from,
@@ -211,7 +231,9 @@ h1 {
   .hacker-page .page-enter-from,
   .hacker-page .page-leave-to,
   .space-page .page-enter-from,
-  .space-page .page-leave-to {
+  .space-page .page-leave-to,
+  .almanac-page .page-enter-from,
+  .almanac-page .page-leave-to {
     transform: none;
   }
 }
