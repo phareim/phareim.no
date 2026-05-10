@@ -37,7 +37,7 @@
         </template>
 
         <!-- Active input line -->
-        <div class="t-line t-line--active" ref="activeLine">
+        <div class="t-line t-line--active">
           <span class="t-prompt" aria-hidden="true">{{ PROMPT }}&nbsp;</span>
           <input
             ref="inputEl"
@@ -87,6 +87,9 @@ const navHistoryIdx = ref(0)
 
 const inputEl = ref<HTMLInputElement | null>(null)
 const bodyEl = ref<HTMLElement | null>(null)
+
+interface TabState { base: string; matches: string[]; idx: number }
+const tabState = ref<TabState | null>(null)
 
 // ── Output helpers ─────────────────────────────────────────────────────
 
@@ -150,6 +153,7 @@ function helpCmd(): OutputLine[] {
     h('  <span class="t-hl">echo</span> &lt;text&gt;      print text'),
     h('  <span class="t-hl">theme</span>             show current theme'),
     h('  <span class="t-hl">history</span>           command history'),
+    h('  <span class="t-hl">neofetch</span>          system info'),
     h('  <span class="t-hl">clear</span>             clear the terminal'),
     h('  <span class="t-hl">exit</span>              go to home page'),
   ]
@@ -294,6 +298,24 @@ function historyCmd(): OutputLine[] {
   )
 }
 
+function neofetchCmd(): OutputLine[] {
+  const themeLabels: Record<string, string> = {
+    scandi: 'scandinavian glass',
+    hacker: 'cyberpunk / hacker',
+    space:  'deep space',
+  }
+  return [
+    h('<span class="t-hl">phareim</span><span class="t-subtle">@</span><span class="t-hl">phareim.no</span>'),
+    h('<span class="t-subtle">──────────────────────────</span>'),
+    h(`  <span class="t-subtle">os:</span>      nuxt 3 / cloudflare pages`),
+    h(`  <span class="t-subtle">host:</span>    phareim.no (edge compute)`),
+    h(`  <span class="t-subtle">theme:</span>   <span class="t-hl">${esc(themeLabels[activeTheme.value] ?? activeTheme.value)}</span>`),
+    h(`  <span class="t-subtle">pages:</span>   ${PAGES.length} routes`),
+    h(`  <span class="t-subtle">stack:</span>   vue 3 · typescript · d1 · r2`),
+    h(`  <span class="t-subtle">agent:</span>   claude sonnet (scheduled, every 6h)`),
+  ]
+}
+
 // ── Command processor ──────────────────────────────────────────────────
 
 function processCmd(raw: string): CmdEntry | null {
@@ -346,6 +368,10 @@ function processCmd(raw: string): CmdEntry | null {
     case 'history':
       output = historyCmd()
       break
+    case 'neofetch':
+    case 'fetch':
+      output = neofetchCmd()
+      break
     case 'clear':
       cmdHistory.value = []
       return null
@@ -363,6 +389,7 @@ function processCmd(raw: string): CmdEntry | null {
 // ── Keyboard handler ───────────────────────────────────────────────────
 
 function handleKey(e: KeyboardEvent) {
+  if (e.key !== 'Tab') tabState.value = null
   if (e.key === 'Enter') {
     e.preventDefault()
     const entry = processCmd(currentCmd.value)
@@ -390,11 +417,38 @@ function handleKey(e: KeyboardEvent) {
     cmdHistory.value = []
   } else if (e.key === 'Tab') {
     e.preventDefault()
-    const cmds = ['help', 'whoami', 'ls', 'pages', 'cat', 'open', 'goto', 'cd', 'pwd', 'date', 'uname', 'echo', 'theme', 'history', 'clear', 'exit']
-    const partial = currentCmd.value.toLowerCase()
-    if (!partial) return
-    const match = cmds.find(c => c.startsWith(partial))
-    if (match) currentCmd.value = match
+    const raw = currentCmd.value
+    const parts = raw.split(/\s+/)
+    const pathCmds = ['cat', 'open', 'cd', 'goto']
+
+    if (parts.length >= 2 && pathCmds.includes(parts[0]!.toLowerCase())) {
+      const verb = parts[0]!
+      const partial = parts.slice(1).join(' ')
+      const norm = partial && !partial.startsWith('/') ? `/${partial}` : partial
+      if (!tabState.value || tabState.value.base !== raw) {
+        const matches = PAGES.map(p => p.path).filter(p =>
+          norm ? p.toLowerCase().startsWith(norm.toLowerCase()) : true
+        )
+        if (!matches.length) return
+        tabState.value = { base: raw, matches, idx: 0 }
+      } else {
+        tabState.value.idx = (tabState.value.idx + 1) % tabState.value.matches.length
+      }
+      currentCmd.value = `${verb} ${tabState.value.matches[tabState.value.idx]!}`
+      tabState.value.base = currentCmd.value
+    } else {
+      const allCmds = ['cat', 'cd', 'clear', 'date', 'echo', 'exit', 'fetch', 'goto', 'help', 'history', 'ls', 'neofetch', 'open', 'pages', 'pwd', 'theme', 'uname', 'whoami']
+      if (!raw.trim()) return
+      if (!tabState.value || tabState.value.base !== raw) {
+        const matches = allCmds.filter(c => c.startsWith(raw.toLowerCase()))
+        if (!matches.length) return
+        tabState.value = { base: raw, matches, idx: 0 }
+      } else {
+        tabState.value.idx = (tabState.value.idx + 1) % tabState.value.matches.length
+      }
+      currentCmd.value = tabState.value.matches[tabState.value.idx]!
+      tabState.value.base = currentCmd.value
+    }
   }
 }
 
