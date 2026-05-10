@@ -35,9 +35,12 @@
             :disabled="submitting || submitted"
             required
             @input="error = ''"
+            @keydown.ctrl.enter.prevent="submit"
+            @keydown.meta.enter.prevent="submit"
           ></textarea>
           <span class="gb-char-count" :class="{ warn: form.message.length > 240 }">
             {{ form.message.length }}/280
+            <span class="gb-hint">ctrl+enter to send</span>
           </span>
         </div>
 
@@ -253,6 +256,11 @@ h1 {
 
 .gb-char-count.warn {
   color: var(--theme-accent-danger, #c1272d);
+}
+
+.gb-hint {
+  margin-left: 0.5rem;
+  opacity: 0.45;
 }
 
 .gb-error {
