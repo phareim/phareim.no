@@ -139,15 +139,17 @@ function renderPostText(text: string, hasMedia?: boolean): string {
 function formatDate(iso: string): string {
   if (!iso) return ''
   const d = new Date(iso)
-  const now = Date.now()
-  const diff = now - d.getTime()
-  const minutes = Math.floor(diff / 60_000)
-  const hours = Math.floor(diff / 3_600_000)
-  const days = Math.floor(diff / 86_400_000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days < 7) return `${days}d ago`
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffMins = Math.floor(diffMs / 60_000)
+  const diffHours = Math.floor(diffMs / 3_600_000)
+  const diffDays = Math.floor(diffMs / 86_400_000)
+  if (diffMins < 1) return 'just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays === 1) return 'yesterday'
+  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
   return d.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 </script>
