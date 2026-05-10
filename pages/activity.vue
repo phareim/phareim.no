@@ -21,7 +21,7 @@
       </div>
     </header>
 
-    <main class="activity-feed" aria-live="polite">
+    <main class="activity-feed" aria-live="polite" ref="feedEl">
       <div v-if="pending" class="activity-loading" aria-label="Loading activity">
         <span class="loading-dot"></span>
         <span class="loading-dot"></span>
@@ -105,8 +105,6 @@ import type { GuestbookEntry } from '~/server/api/guestbook'
 
 useHead({ title: 'activity — phareim.no' })
 
-type FilterType = 'commit' | 'post' | 'guestbook'
-
 const filterDefs: { type: FilterType; label: string }[] = [
   { type: 'commit',    label: 'commits' },
   { type: 'post',      label: 'posts' },
@@ -141,6 +139,8 @@ interface ActivityItem {
   source?: string
 }
 
+type FilterType = ActivityItem['type']
+
 interface SeparatorItem {
   key: string
   type: 'separator'
@@ -173,6 +173,38 @@ const allTypeCounts = computed((): Record<FilterType, number> => ({
   post:      feedData.value?.posts.filter(p => p.text?.trim()).length ?? 0,
   guestbook: guestbookData.value?.length ?? 0,
 }))
+
+// ── Scroll-triggered entrance animations ────────────────────────────────
+
+const feedEl = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
+
+function observeItems() {
+  feedEl.value?.querySelectorAll<HTMLElement>('.activity-item, .activity-separator').forEach(el => {
+    observer?.observe(el)
+  })
+}
+
+onMounted(() => {
+  observer = new IntersectionObserver((entries) => {
+    const intersecting = entries.filter(e => e.isIntersecting)
+    intersecting.forEach((entry, i) => {
+      ;(entry.target as HTMLElement).style.transitionDelay = `${i * 35}ms`
+      entry.target.classList.add('is-visible')
+      observer?.unobserve(entry.target)
+    })
+  }, { threshold: 0.08 })
+
+  // Handle data already loaded before mount (e.g. from cache)
+  if (!pending.value) nextTick(observeItems)
+})
+
+// Handle data loading after mount
+watch(pending, (isPending) => {
+  if (!isPending) nextTick(observeItems)
+})
+
+onBeforeUnmount(() => observer?.disconnect())
 
 const items = computed((): ActivityItem[] => {
   const result: ActivityItem[] = []
@@ -775,5 +807,22 @@ h1 {
 :global(.space-page) .commit-message:hover {
   color: var(--space-accent-blue, #89abd0);
   text-shadow: 0 0 10px var(--space-accent-blue, #89abd0);
+}
+
+/* ── Scroll-triggered entrance animations ───────────────────────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+  .activity-item,
+  .activity-separator {
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .activity-item.is-visible,
+  .activity-separator.is-visible {
+    opacity: 1;
+    transform: none;
+  }
 }
 </style>
