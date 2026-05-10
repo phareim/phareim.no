@@ -127,6 +127,7 @@
 >>>>>>> 8f3a3c3 (fix: show active state on focus timer sound/notification buttons)
           @click="soundEnabled = !soundEnabled"
           :aria-label="soundEnabled ? 'Mute completion sound' : 'Enable completion sound'"
+          :aria-pressed="soundEnabled"
           :title="soundEnabled ? 'Sound on' : 'Sound off'"
         >
           <span aria-hidden="true">{{ soundEnabled ? '🔊' : '🔇' }}</span>
@@ -142,6 +143,7 @@
 >>>>>>> 8f3a3c3 (fix: show active state on focus timer sound/notification buttons)
           @click="toggleNotif"
           :aria-label="notifEnabled ? 'Disable desktop notifications' : 'Enable desktop notifications when timer ends'"
+          :aria-pressed="notifEnabled"
           :title="notifEnabled ? 'Notifications on' : 'Notifications off (click to enable)'"
         >
           <span aria-hidden="true">{{ notifEnabled ? '🔔' : '🔕' }}</span>

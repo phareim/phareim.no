@@ -1,15 +1,15 @@
 <template>
   <div class="now-page">
     <header class="now-header">
-      <h1>now</h1>
-      <p class="subtitle">what i'm up to these days</p>
+      <h1>{{ pageTitle }}</h1>
+      <p class="subtitle">{{ pageSubtitle }}</p>
     </header>
 
     <main class="now-content">
 
       <!-- Current focus -->
-      <section class="now-section">
-        <h2 class="section-label">working on</h2>
+      <section class="now-section now-section--1">
+        <h2 class="section-label">{{ labelWorking }}</h2>
         <ul class="now-list">
           <li>consulting at <a href="https://www.miles.no" target="_blank" rel="noopener noreferrer" class="now-link">miles</a> — helping teams build better software</li>
           <li>maintaining and iterating on <a href="/" class="now-link">phareim.no</a> — this site, which updates itself</li>
@@ -19,8 +19,8 @@
       <div class="now-divider" aria-hidden="true"></div>
 
       <!-- Latest thought from Bluesky -->
-      <section class="now-section">
-        <h2 class="section-label">latest thought</h2>
+      <section class="now-section now-section--2">
+        <h2 class="section-label">{{ labelLatest }}</h2>
         <a
           v-if="latestPost"
           :href="latestPost.url"
@@ -46,8 +46,8 @@
       <div class="now-divider" aria-hidden="true"></div>
 
       <!-- Latest GitHub activity -->
-      <section class="now-section">
-        <h2 class="section-label">recently pushed</h2>
+      <section class="now-section now-section--3">
+        <h2 class="section-label">{{ labelPushed }}</h2>
         <ul v-if="recentProjects.length" class="now-project-list">
           <li
             v-for="project in recentProjects"
@@ -76,7 +76,7 @@
 
       <div class="now-divider" aria-hidden="true"></div>
 
-      <footer class="now-footer">
+      <footer class="now-footer now-section--4">
         <p class="now-updated">
           this page updates itself — last commit:
           <a
@@ -98,6 +98,38 @@ import type { FeedPage } from '~/server/api/feed'
 import type { Project } from '~/server/api/projects'
 
 useHead({ title: 'now — phareim.no' })
+
+const { activeTheme } = useTheme()
+
+const pageTitle = computed(() => {
+  if (activeTheme.value === 'hacker') return '> now.sh'
+  if (activeTheme.value === 'space')  return 'STATUS REPORT'
+  return 'now'
+})
+
+const pageSubtitle = computed(() => {
+  if (activeTheme.value === 'hacker') return '// what\'s running on this machine'
+  if (activeTheme.value === 'space')  return 'CURRENT MISSION LOG — OSLO BASE'
+  return 'what i\'m up to these days'
+})
+
+const labelWorking = computed(() => {
+  if (activeTheme.value === 'hacker') return '// active processes'
+  if (activeTheme.value === 'space')  return 'ACTIVE MISSIONS'
+  return 'working on'
+})
+
+const labelLatest = computed(() => {
+  if (activeTheme.value === 'hacker') return '// last stdout'
+  if (activeTheme.value === 'space')  return 'LAST TRANSMISSION'
+  return 'latest thought'
+})
+
+const labelPushed = computed(() => {
+  if (activeTheme.value === 'hacker') return '// recent commits'
+  if (activeTheme.value === 'space')  return 'RECENT DEPLOYMENTS'
+  return 'recently pushed'
+})
 
 const { data: feedData, pending: feedPending } = await useFetch<FeedPage>('/api/feed')
 const { data: projectsData, pending: projectsPending } = await useFetch<Project[]>('/api/projects')
@@ -164,8 +196,30 @@ h1 {
   gap: 0;
 }
 
+@keyframes now-fade-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.now-section,
+.now-footer {
+  animation: now-fade-in 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
 .now-section {
   padding: 0.25rem 0;
+}
+
+.now-section--1 { animation-delay: 0.05s; }
+.now-section--2 { animation-delay: 0.15s; }
+.now-section--3 { animation-delay: 0.25s; }
+.now-section--4 { animation-delay: 0.35s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .now-section,
+  .now-footer {
+    animation: none;
+  }
 }
 
 .section-label {
@@ -389,7 +443,6 @@ h1 {
 
 :global(.hacker-page) h1 {
   font-family: monospace;
-  text-transform: lowercase;
   text-shadow: 0 0 10px currentColor;
 }
 
@@ -399,6 +452,8 @@ h1 {
 
 :global(.hacker-page) .section-label {
   font-family: monospace;
+  text-transform: none;
+  letter-spacing: 0.04em;
 }
 
 :global(.hacker-page) .now-list li {
