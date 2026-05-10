@@ -58,6 +58,18 @@
           >clear ×</button>
         </div>
       </div>
+
+      <!-- Sort controls -->
+      <div class="sort-controls" role="group" aria-label="Sort projects by">
+        <span class="sort-label">sort</span>
+        <button
+          v-for="opt in sortOptions"
+          :key="opt.value"
+          :class="['sort-btn', { active: sortBy === opt.value }]"
+          :aria-pressed="sortBy === opt.value"
+          @click="sortBy = opt.value"
+        >{{ opt.label }}</button>
+      </div>
     </div>
 
     <main v-if="!pending && filteredProjects.length" class="projects-grid">
@@ -112,17 +124,35 @@ const { data: projects, pending } = await useFetch<Project[]>('/api/projects')
 
 const search = ref('')
 const activeLang = ref<string | null>(null)
+const sortBy = ref<'recent' | 'stars' | 'name'>('recent')
+
+const sortOptions: { value: 'recent' | 'stars' | 'name'; label: string }[] = [
+  { value: 'recent', label: 'recent' },
+  { value: 'stars',  label: 'stars' },
+  { value: 'name',   label: 'a→z' },
+]
 
 const LANG_COLORS: Record<string, string> = {
-  TypeScript: '#3178c6',
-  JavaScript: '#f1e05a',
-  Vue: '#41b883',
-  Swift: '#f05138',
-  Python: '#3572a5',
-  HTML: '#e34c26',
-  CSS: '#563d7c',
-  Go: '#00add8',
-  Rust: '#dea584',
+  TypeScript:  '#3178c6',
+  JavaScript:  '#f7df1e',
+  Vue:         '#42b883',
+  Python:      '#3572a5',
+  Go:          '#00add8',
+  Rust:        '#dea584',
+  CSS:         '#563d7c',
+  HTML:        '#e34c26',
+  Swift:       '#f05138',
+  Kotlin:      '#a97bff',
+  Java:        '#b07219',
+  'C#':        '#178600',
+  'C++':       '#f34b7d',
+  C:           '#555555',
+  Ruby:        '#701516',
+  PHP:         '#4f5d95',
+  Shell:       '#89e051',
+  Dockerfile:  '#384d54',
+  Nix:         '#7e7eff',
+  Svelte:      '#ff3e00',
 }
 
 function langColor(lang: string): string {
@@ -150,12 +180,17 @@ const langStats = computed(() => {
 const filteredProjects = computed(() => {
   if (!projects.value) return []
   const q = search.value.trim().toLowerCase()
-  return projects.value.filter(p => {
+  const filtered = projects.value.filter(p => {
     const matchesSearch = !q
       || p.name.toLowerCase().includes(q)
       || (p.description ?? '').toLowerCase().includes(q)
     const matchesLang = activeLang.value === null || p.language === activeLang.value
     return matchesSearch && matchesLang
+  })
+  return [...filtered].sort((a, b) => {
+    if (sortBy.value === 'stars') return b.stars - a.stars
+    if (sortBy.value === 'name') return a.name.localeCompare(b.name)
+    return new Date(b.pushed_at).getTime() - new Date(a.pushed_at).getTime()
   })
 })
 </script>
@@ -368,6 +403,55 @@ h1 {
   border-radius: 2px;
 }
 
+/* ── Sort controls ─────────────────────────────────────────── */
+
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.sort-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--theme-text-subtle, #aaa);
+  margin-right: 0.15rem;
+}
+
+.sort-btn {
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.15));
+  background: none;
+  color: var(--theme-text-subtle, #aaa);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.sort-btn:hover {
+  color: var(--theme-text-muted, #666);
+  border-color: var(--theme-text-muted, #666);
+}
+
+.sort-btn.active {
+  color: var(--theme-accent, #6b8cae);
+  border-color: var(--theme-accent, #6b8cae);
+  background: color-mix(in srgb, var(--theme-accent, #6b8cae) 10%, transparent);
+}
+
+.sort-btn:focus-visible {
+  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline-offset: 2px;
+}
+
 /* ── Grid ──────────────────────────────────────────────────── */
 
 .projects-grid {
@@ -543,6 +627,15 @@ h1 {
   font-family: monospace;
 }
 
+:global(.hacker-page) .sort-btn {
+  font-family: monospace;
+  border-radius: 0;
+}
+
+:global(.hacker-page) .sort-label {
+  font-family: monospace;
+}
+
 /* ── Space theme overrides ─────────────────────────────────── */
 
 :global(.space-page) h1 {
@@ -569,5 +662,11 @@ h1 {
 
 :global(.space-page) .dist-legend-item.active {
   color: var(--space-text, #fff);
+}
+
+:global(.space-page) .sort-btn {
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
 }
 </style>
