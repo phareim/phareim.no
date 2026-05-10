@@ -43,12 +43,12 @@ const SVG_DEFINITIONS: Record<string, SvgDef> = {
 }
 
 const ARIA_LABELS: Record<string, string> = {
-  linkedin: 'LinkedIn profile',
-  bluesky: 'Bluesky profile',
-  github: 'GitHub profile',
-  google: 'Google',
-  miles: 'Miles',
-  kreftforeningen: 'Kreftforeningen',
+  linkedin: 'LinkedIn profile (opens in new tab)',
+  bluesky: 'Bluesky profile (opens in new tab)',
+  github: 'GitHub profile (opens in new tab)',
+  google: 'Google (opens in new tab)',
+  miles: 'Miles (opens in new tab)',
+  kreftforeningen: 'Kreftforeningen (opens in new tab)',
 }
 
 type SocialLinkType = 'linkedin' | 'bluesky' | 'github' | 'google' | 'miles' | 'kreftforeningen'
