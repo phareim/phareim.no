@@ -154,16 +154,20 @@ const handleKeyDown = (event: KeyboardEvent) => {
 	}
 }
 
-// Arrow key navigation within the menu
+// Arrow/Home/End key navigation within the menu
 const handleMenuKeyDown = (event: KeyboardEvent) => {
-	if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+	if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
 	event.preventDefault()
 	const focusable = [...document.querySelectorAll<HTMLElement>('#site-menu a, #site-menu button')]
 	const idx = focusable.indexOf(document.activeElement as HTMLElement)
 	if (event.key === 'ArrowDown') {
 		;(focusable[idx + 1] ?? focusable[0])?.focus()
-	} else {
+	} else if (event.key === 'ArrowUp') {
 		;(focusable[idx - 1] ?? focusable[focusable.length - 1])?.focus()
+	} else if (event.key === 'Home') {
+		focusable[0]?.focus()
+	} else {
+		focusable[focusable.length - 1]?.focus()
 	}
 }
 
