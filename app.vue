@@ -15,6 +15,7 @@
 
 <script setup lang="ts">
 import type MenuComponent from '~/components/MenuComponent.vue';
+import { NAV_PAGES } from '~/composables/useNavPages';
 
 const { themePageClass, themeColor, activeTheme, setTheme } = useTheme()
 const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);
@@ -23,7 +24,6 @@ const showPalette = ref(false);
 const router = useRouter();
 const route = useRoute();
 
-const NAV_PAGES = ['/', '/about', '/projects', '/feed', '/now', '/uses', '/guestbook', '/activity', '/stats', '/meta', '/colophon', '/playground', '/gallery', '/clock', '/lab', '/focus', '/terminal', '/morse'];
 
 type ThemeId = 'scandi' | 'hacker' | 'space' | 'almanac'
 

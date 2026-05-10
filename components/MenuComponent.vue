@@ -32,6 +32,27 @@
 				</ul>
 			</nav>
 
+			<!-- Page position indicator -->
+			<div v-if="navPos.index !== -1" class="menu-nav-hint" aria-label="Current page position in navigation">
+				<button
+					v-if="navPos.prev"
+					class="nav-hint-btn nav-hint-btn--prev"
+					:aria-label="`Go to ${navPos.prevLabel}`"
+					@click="navigate(navPos.prev)"
+				>← {{ navPos.prevLabel }}</button>
+				<span v-else class="nav-hint-empty"></span>
+				<span class="nav-hint-pos">
+					{{ navPos.index + 1 }}<span class="nav-hint-sep" aria-hidden="true">/</span>{{ navPos.total }}
+				</span>
+				<button
+					v-if="navPos.next"
+					class="nav-hint-btn nav-hint-btn--next"
+					:aria-label="`Go to ${navPos.nextLabel}`"
+					@click="navigate(navPos.next)"
+				>{{ navPos.nextLabel }} →</button>
+				<span v-else class="nav-hint-empty"></span>
+			</div>
+
 			<!-- Theme Switcher -->
 			<div class="menu-theme-switcher">
 				<div class="theme-label">Theme</div>
@@ -54,9 +75,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useTheme } from '~/composables/useTheme'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { NAV_PAGES } from '~/composables/useNavPages'
 
 interface MenuItem {
   path: string
@@ -67,8 +89,30 @@ interface MenuItem {
 
 const { activeTheme, themes, setTheme } = useTheme()
 const route = useRoute()
+const router = useRouter()
 const showMenu = ref(false)
 const hamburgerRef = ref<HTMLButtonElement | null>(null)
+
+const navPos = computed(() => {
+  const currentPath = route.path === '/' ? '/' : route.path.replace(/\/$/, '')
+  const index = NAV_PAGES.indexOf(currentPath)
+  const total = NAV_PAGES.length
+  if (index === -1) return { index: -1, total, prev: null, next: null, prevLabel: '', nextLabel: '' }
+  const labelOf = (p: string) => (p === '/' ? 'home' : p.slice(1))
+  return {
+    index,
+    total,
+    prev: index > 0 ? NAV_PAGES[index - 1]! : null,
+    next: index < total - 1 ? NAV_PAGES[index + 1]! : null,
+    prevLabel: index > 0 ? labelOf(NAV_PAGES[index - 1]!) : '',
+    nextLabel: index < total - 1 ? labelOf(NAV_PAGES[index + 1]!) : '',
+  }
+})
+
+function navigate(path: string) {
+  router.push(path)
+  closeMenu()
+}
 
 watch(() => route.path, () => {
 	showMenu.value = false
@@ -317,6 +361,73 @@ nav ul li a:focus-visible {
 	margin-left: 0.2rem;
 }
 
+/* Page nav hint */
+.menu-nav-hint {
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.5rem 1.25rem;
+	border-top: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.1));
+	flex-shrink: 0;
+	opacity: 0;
+}
+
+.show-menu .menu-nav-hint {
+	animation: menu-item-in 0.25s ease both;
+	animation-delay: 310ms;
+}
+
+.nav-hint-btn {
+	background: none;
+	border: none;
+	color: var(--theme-text-subtle, #aaa);
+	cursor: pointer;
+	padding: 0.2rem 0.3rem;
+	font-size: 0.68rem;
+	font-family: inherit;
+	transition: color 0.2s ease;
+	border-radius: 3px;
+	line-height: 1.3;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.nav-hint-btn--prev {
+	text-align: left;
+}
+
+.nav-hint-btn--next {
+	text-align: right;
+}
+
+.nav-hint-btn:hover {
+	color: var(--theme-accent, #6b8cae);
+}
+
+.nav-hint-btn:focus-visible {
+	outline: 2px solid var(--theme-accent, #6b8cae);
+	outline-offset: 2px;
+}
+
+.nav-hint-pos {
+	font-size: 0.65rem;
+	color: var(--theme-text-subtle, #aaa);
+	letter-spacing: 0.06em;
+	text-align: center;
+	white-space: nowrap;
+}
+
+.nav-hint-sep {
+	margin: 0 0.12rem;
+	opacity: 0.4;
+}
+
+.nav-hint-empty {
+	display: block;
+}
+
 /* Theme Switcher Styles */
 .menu-theme-switcher {
 	padding: 1rem 1.5rem;
@@ -378,6 +489,7 @@ nav ul li a:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
 	.show-menu nav ul li,
+	.show-menu .menu-nav-hint,
 	.show-menu .menu-theme-switcher {
 		animation: none;
 		opacity: 1;
