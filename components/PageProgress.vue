@@ -160,6 +160,26 @@ watch(() => route.path, () => {
   transform: translateY(6px) scale(0.9);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .scroll-top-btn {
+    transition: opacity 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .scroll-top-btn:hover {
+    transform: none;
+  }
+
+  .scroll-top-enter-active,
+  .scroll-top-leave-active {
+    transition: opacity 0.15s ease;
+  }
+
+  .scroll-top-enter-from,
+  .scroll-top-leave-to {
+    transform: none;
+  }
+}
+
 /* ── Hacker theme overrides ─────────────────────────────────── */
 
 :global(.hacker-page) .page-progress-bar {
