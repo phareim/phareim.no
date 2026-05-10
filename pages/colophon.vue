@@ -139,7 +139,7 @@
           </li>
           <li class="decision-item">
             <span class="decision-title">keyboard first</span>
-            <span class="decision-desc"><kbd>m</kbd> opens the menu. <kbd>[</kbd> and <kbd>]</kbd> navigate between pages. <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> switch themes. <kbd>?</kbd> shows all shortcuts. <kbd>⌘k</kbd> opens the command palette.</span>
+            <span class="decision-desc"><kbd>m</kbd> opens the menu. <kbd>[</kbd> and <kbd>]</kbd> navigate between pages. <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> switch themes. <kbd>?</kbd> shows all shortcuts. <kbd>⌘k</kbd> opens the command palette.</span>
           </li>
           <li class="decision-item">
             <span class="decision-title">hand-rolled canvas</span>
