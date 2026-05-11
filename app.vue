@@ -119,6 +119,7 @@ html {
 body.scrollable,
 html.scrollable {
   overflow: auto !important;
+  user-select: auto;
 }
 
 body.scrollable #app,
