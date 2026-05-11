@@ -61,6 +61,18 @@ interface CurtainRay {
   driftSpeed: number
 }
 
+interface SnowParticle {
+  x: number
+  y: number
+  r: number
+  speedY: number
+  wobbleAmp: number
+  wobblePhase: number
+  wobbleSpeed: number
+  opacity: number
+  parallaxDepth: number
+}
+
 interface AuroraFlare {
   x: number
   width: number
@@ -83,6 +95,8 @@ interface ShimmerPulse {
 let flares: AuroraFlare[] = []
 let shimmerPulses: ShimmerPulse[] = []
 let nextShimmerTime = 280  // first pulse ~4.5 s in
+let snow: SnowParticle[] = []
+const NUM_SNOW = 70
 
 // parallaxDepth: lower altitude (larger baseY) = closer = more parallax
 const LAYERS: AuroraLayer[] = [
@@ -125,12 +139,27 @@ function initRays(w: number, h: number) {
   })
 }
 
+function initSnow(w: number, h: number) {
+  snow = Array.from({ length: NUM_SNOW }, () => ({
+    x: Math.random() * w,
+    y: Math.random() * h,
+    r: 0.4 + Math.random() * 1.8,
+    speedY: 0.15 + Math.random() * 0.45,
+    wobbleAmp: 2 + Math.random() * 8,
+    wobblePhase: Math.random() * Math.PI * 2,
+    wobbleSpeed: 0.008 + Math.random() * 0.012,
+    opacity: 0.1 + Math.random() * 0.32,
+    parallaxDepth: 0.02 + Math.random() * 0.06,
+  }))
+}
+
 function resize() {
   if (!canvas.value) return
   canvas.value.width = window.innerWidth
   canvas.value.height = window.innerHeight
   initStars(canvas.value.width, canvas.value.height)
   initRays(canvas.value.width, canvas.value.height)
+  initSnow(canvas.value.width, canvas.value.height)
 }
 
 function drawStars(w: number, h: number) {
@@ -143,6 +172,26 @@ function drawStars(w: number, h: number) {
     ctx.arc(px, py, star.r, 0, Math.PI * 2)
     ctx.fillStyle = `rgba(255, 255, 255, ${(twinkle * 0.55).toFixed(3)})`
     ctx.fill()
+  }
+}
+
+function drawSnow(w: number, h: number, animate: boolean) {
+  if (!ctx) return
+  for (const p of snow) {
+    const px = p.x + Math.sin(p.wobblePhase) * p.wobbleAmp + (mouseParallaxX + gyroOffsetX) * p.parallaxDepth
+    const py = p.y + (mouseParallaxY + gyroOffsetY) * p.parallaxDepth
+    ctx.beginPath()
+    ctx.arc(px, py, p.r, 0, Math.PI * 2)
+    ctx.fillStyle = `rgba(255, 255, 255, ${p.opacity.toFixed(3)})`
+    ctx.fill()
+    if (animate) {
+      p.wobblePhase += p.wobbleSpeed
+      p.y += p.speedY
+      if (p.y > h + p.r) {
+        p.y = -p.r
+        p.x = Math.random() * w
+      }
+    }
   }
 }
 
@@ -338,6 +387,8 @@ function draw() {
     spawnShimmerPulse()
     nextShimmerTime = time + Math.floor(Math.random() * 300 + 180)
   }
+
+  drawSnow(w, h, !reducedMotion)
 
   time++
   if (!reducedMotion) animationId = requestAnimationFrame(draw)
