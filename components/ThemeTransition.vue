@@ -13,11 +13,12 @@ const canvas = ref<HTMLCanvasElement | null>(null)
 const isPlaying = ref(false)
 let animationId: number | null = null
 
-// Per-theme animation durations (ms)
+// Per-theme animation durations (ms). 0 = no canvas effect (CSS-only transition).
 const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 0,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -152,8 +153,10 @@ watch(activeTheme, (newTheme) => {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
   if (animationId !== null) cancelAnimationFrame(animationId)
 
-  isPlaying.value = true
   const duration = DURATIONS[newTheme] ?? 700
+  if (duration === 0) return
+
+  isPlaying.value = true
   const startTime = performance.now()
 
   const tick = () => {
