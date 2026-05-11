@@ -12,6 +12,8 @@ let constellations: Constellation[] = []
 let animationId: number | null = null
 let frame = 0
 let novaRings: NovaRing[] = []
+let comets: Comet[] = []
+let nextCometFrame = 1800
 
 // Mouse parallax state (desktop)
 let mouseParallaxX = 0
@@ -146,6 +148,26 @@ interface NovaRing {
   maxRadius: number
   opacity: number
 }
+
+interface Comet {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  tailLength: number
+  headRadius: number
+  opacity: number
+  life: number
+  decay: number
+  color: number[]
+}
+
+const COMET_COLORS: number[][] = [
+  [200, 230, 255],  // cold blue-white
+  [220, 255, 235],  // pale cyan-green
+  [255, 245, 210],  // warm amber
+  [235, 215, 255],  // soft lavender
+]
 
 interface Nebula {
   x: number
@@ -430,6 +452,72 @@ function drawNovaRings() {
   novaRings = novaRings.filter(r => r.opacity > 0 && r.radius < r.maxRadius)
 }
 
+function spawnComet() {
+  if (!canvas.value) return
+  const w = canvas.value.width
+  const h = canvas.value.height
+  const fromTop = Math.random() > 0.35
+  const x = fromTop ? Math.random() * w * 0.75 : -30
+  const y = fromTop ? -30 : Math.random() * h * 0.45
+  const angle = (Math.random() * 0.35 + 0.1) * Math.PI
+  const speed = Math.random() * 1.8 + 1.4
+  const color = COMET_COLORS[Math.floor(Math.random() * COMET_COLORS.length)]!
+  comets.push({
+    x, y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    tailLength: Math.random() * 140 + 90,
+    headRadius: Math.random() * 1.8 + 2.2,
+    opacity: Math.random() * 0.3 + 0.55,
+    life: 1,
+    decay: Math.random() * 0.0025 + 0.0015,
+    color,
+  })
+}
+
+function drawComet(c: Comet) {
+  if (!ctx) return
+  const [r = 255, g = 255, b = 255] = c.color
+  const alpha = c.opacity * c.life
+  const speed = Math.hypot(c.vx, c.vy)
+  const nx = c.vx / speed
+  const ny = c.vy / speed
+  const tailX = c.x - nx * c.tailLength
+  const tailY = c.y - ny * c.tailLength
+
+  // Gradient tail
+  const tailGrad = ctx.createLinearGradient(tailX, tailY, c.x, c.y)
+  tailGrad.addColorStop(0,    `rgba(${r},${g},${b},0)`)
+  tailGrad.addColorStop(0.45, `rgba(${r},${g},${b},${(alpha * 0.15).toFixed(3)})`)
+  tailGrad.addColorStop(0.8,  `rgba(${r},${g},${b},${(alpha * 0.45).toFixed(3)})`)
+  tailGrad.addColorStop(1,    `rgba(${r},${g},${b},${alpha.toFixed(3)})`)
+
+  ctx.beginPath()
+  ctx.moveTo(tailX, tailY)
+  ctx.lineTo(c.x, c.y)
+  ctx.strokeStyle = tailGrad
+  ctx.lineWidth = c.life * 2.8
+  ctx.lineCap = 'round'
+  ctx.stroke()
+
+  // Coma glow around nucleus
+  const comaR = c.headRadius * 5
+  const comaGrad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, comaR)
+  comaGrad.addColorStop(0,   `rgba(${r},${g},${b},${(alpha * 0.45).toFixed(3)})`)
+  comaGrad.addColorStop(0.4, `rgba(${r},${g},${b},${(alpha * 0.18).toFixed(3)})`)
+  comaGrad.addColorStop(1,   `rgba(${r},${g},${b},0)`)
+  ctx.beginPath()
+  ctx.arc(c.x, c.y, comaR, 0, Math.PI * 2)
+  ctx.fillStyle = comaGrad
+  ctx.fill()
+
+  // Bright nucleus
+  ctx.beginPath()
+  ctx.arc(c.x, c.y, c.headRadius * c.life, 0, Math.PI * 2)
+  ctx.fillStyle = `rgba(255,255,255,${(alpha * 0.95).toFixed(3)})`
+  ctx.fill()
+}
+
 function draw() {
   if (!ctx || !canvas.value) return
   ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
@@ -482,6 +570,19 @@ function draw() {
   }
 
   drawNovaRings()
+
+  // Comets — rarer, slower, larger than shooting stars
+  comets = comets.filter(c => c.life > 0)
+  for (const c of comets) {
+    drawComet(c)
+    c.x += c.vx
+    c.y += c.vy
+    c.life -= c.decay
+  }
+  if (frame >= nextCometFrame) {
+    spawnComet()
+    nextCometFrame = frame + Math.floor(Math.random() * 2400 + 1800)
+  }
 
   animationId = requestAnimationFrame(draw)
 }
@@ -646,6 +747,7 @@ onBeforeUnmount(() => {
   if (animationId !== null) {
     cancelAnimationFrame(animationId)
   }
+  comets = []
 })
 </script>
 
