@@ -28,7 +28,7 @@
         :aria-label="`${formattedTime} remaining`"
       >
         <div class="ht-cmd">
-          <span class="ht-prompt">$</span> pomodoro --mode={{ currentMode }} --session={{ sessionCount + 1 }}
+          <span class="ht-prompt">$</span> pomodoro --mode={{ activeModeConfig.hackerLabel }} --session={{ sessionCount + 1 }}
         </div>
         <div class="ht-time" :class="{ 'ht-time--pulse': justCompleted }">{{ formattedTime }}</div>
         <div class="ht-bar-wrap">
