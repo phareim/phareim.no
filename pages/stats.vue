@@ -30,7 +30,7 @@
       <div class="stats-divider" aria-hidden="true"></div>
 
       <!-- Language breakdown -->
-      <section class="stats-section" aria-label="Language breakdown">
+      <section class="stats-section" ref="langSectionRef" aria-label="Language breakdown">
         <h2 class="section-label">languages</h2>
 
         <div v-if="projectsPending" class="stats-placeholder">
@@ -40,10 +40,14 @@
           <!-- Stacked bar -->
           <div class="lang-bar" role="img" :aria-label="langBarAriaLabel">
             <div
-              v-for="{ lang, pct } in langStats"
+              v-for="({ lang, pct }, i) in langStats"
               :key="lang"
               class="lang-bar-segment"
-              :style="{ width: pct + '%', '--lang-color': langColor(lang) }"
+              :style="{
+                width: langVisible ? pct + '%' : '0%',
+                '--lang-color': langColor(lang),
+                transitionDelay: langVisible ? `${i * 55}ms` : '0ms',
+              }"
               :title="`${lang} — ${pct}%`"
             ></div>
           </div>
@@ -51,14 +55,21 @@
           <!-- Legend rows -->
           <ul class="lang-list" role="list">
             <li
-              v-for="{ lang, count, pct } in langStats"
+              v-for="({ lang, count, pct }, i) in langStats"
               :key="lang"
               class="lang-row"
             >
               <span class="lang-dot" :style="{ '--lang-color': langColor(lang) }" aria-hidden="true"></span>
               <span class="lang-name">{{ lang }}</span>
               <span class="lang-bar-inline" aria-hidden="true">
-                <span class="lang-bar-fill" :style="{ width: pct + '%', '--lang-color': langColor(lang) }"></span>
+                <span
+                  class="lang-bar-fill"
+                  :style="{
+                    width: langVisible ? pct + '%' : '0%',
+                    '--lang-color': langColor(lang),
+                    transitionDelay: langVisible ? `${i * 45}ms` : '0ms',
+                  }"
+                ></span>
               </span>
               <span class="lang-meta">
                 <span class="lang-count">{{ count }} repo{{ count !== 1 ? 's' : '' }}</span>
@@ -308,6 +319,9 @@ const monthLabels = computed(() => {
 const heatmapGridRef = ref<HTMLElement | null>(null)
 const heatmapVisible = ref(false)
 
+const langSectionRef = ref<HTMLElement | null>(null)
+const langVisible = ref(false)
+
 const heatmapTooltip = reactive({
   visible: false,
   date: '',
@@ -400,16 +414,24 @@ onMounted(() => {
     animateCount(commitCount.value, n => { displayCommits.value = n })
   }, 300)
 
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  // Language bar entrance animation — observe when the section scrolls into view
+  if (langSectionRef.value && !prefersReducedMotion) {
+    const langObs = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) { langVisible.value = true; langObs.disconnect() }
+    }, { threshold: 0.1 })
+    langObs.observe(langSectionRef.value)
+  } else {
+    langVisible.value = true
+  }
+
   // Heatmap entrance animation — observe when the grid scrolls into view
-  if (heatmapGridRef.value) {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      heatmapVisible.value = true
-    } else {
-      const obs = new IntersectionObserver((entries) => {
-        if (entries[0]?.isIntersecting) { heatmapVisible.value = true; obs.disconnect() }
-      }, { threshold: 0.05 })
-      obs.observe(heatmapGridRef.value)
-    }
+  if (heatmapGridRef.value && !prefersReducedMotion) {
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) { heatmapVisible.value = true; obs.disconnect() }
+    }, { threshold: 0.05 })
+    obs.observe(heatmapGridRef.value)
   } else {
     heatmapVisible.value = true
   }
@@ -543,12 +565,19 @@ h1 {
   height: 100%;
   background: var(--lang-color, #6b8cae);
   border-radius: 999px;
-  transition: opacity 0.2s ease;
+  transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease;
   flex-shrink: 0;
 }
 
 .lang-bar-segment:hover {
   opacity: 0.75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lang-bar-segment,
+  .lang-bar-fill {
+    transition: none;
+  }
 }
 
 /* Legend list */
