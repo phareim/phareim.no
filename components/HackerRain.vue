@@ -1,5 +1,6 @@
 <template>
   <canvas ref="canvas" class="hacker-rain-canvas" aria-hidden="true" />
+  <div class="hacker-crt-overlay" aria-hidden="true" />
 </template>
 
 <script setup lang="ts">
@@ -325,5 +326,34 @@ onBeforeUnmount(() => {
   height: 100%;
   z-index: 0;
   pointer-events: none;
+}
+
+/* CRT scanline + vignette overlay — enhances the cyberpunk terminal feel */
+.hacker-crt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  pointer-events: none;
+  background-image:
+    /* Horizontal scanlines: 1px dark stripe every 4px */
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(0, 0, 0, 0.08) 3px,
+      rgba(0, 0, 0, 0.08) 4px
+    ),
+    /* Edge vignette: darkens corners to focus attention inward */
+    radial-gradient(
+      ellipse at 50% 50%,
+      transparent 45%,
+      rgba(0, 0, 0, 0.52) 100%
+    );
+}
+
+@media (prefers-contrast: more) {
+  .hacker-crt-overlay {
+    display: none;
+  }
 }
 </style>
