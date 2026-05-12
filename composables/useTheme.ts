@@ -1,3 +1,7 @@
+// Ensures localStorage restoration runs at most once per client session,
+// regardless of how many components call useTheme().
+let themeRestored = false
+
 export const useTheme = () => {
   const activeTheme = useState('activeTheme', () => 'scandi')
 
@@ -29,8 +33,10 @@ export const useTheme = () => {
     }
   }
 
-  // Restore theme from localStorage on client (after hydration to avoid mismatch)
-  if (import.meta.client) {
+  // Restore theme from localStorage on client (after hydration to avoid mismatch).
+  // Guarded by a module-level flag so only the first caller registers the hook.
+  if (import.meta.client && !themeRestored) {
+    themeRestored = true
     onMounted(() => {
       const saved = localStorage.getItem('theme')
       if (saved && themes.some(t => t.id === saved)) {
