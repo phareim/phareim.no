@@ -10,12 +10,14 @@
     "populate-models": "npx tsx scripts/populate-model-definitions.ts",
     "populate-venice-models": "npx tsx scripts/populate-venice-models.ts",
     "migrate-image-prompts": "npx tsx scripts/migrate-image-prompts.ts",
-    "migrate-initial-prompts": "npx tsx scripts/migrate-initial-prompts.ts"
+    "migrate-initial-prompts": "npx tsx scripts/migrate-initial-prompts.ts",
+    "qa:almanac": "node scripts/almanac-qa.mjs"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.15.0",
-    "nuxt": "^3.15.3"
+    "nuxt": "^3.15.3",
+    "playwright-core": "^1.60.0"
   },
   "dependencies": {
     "@fal-ai/client": "^1.5.0",
