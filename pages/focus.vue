@@ -161,6 +161,15 @@
         <span class="sr-only">{{ sessionCount }} of {{ SESSIONS_BEFORE_LONG }} focus sessions completed</span>
       </div>
 
+      <!-- ── Today's focus total ────────────────────────────────── -->
+      <div
+        v-if="focusedToday > 0"
+        class="today-stat"
+        :aria-label="`${focusedToday} minutes focused today`"
+      >
+        <span class="today-label">{{ todayStatLabel }}</span>
+      </div>
+
     </main>
   </div>
 </template>
@@ -222,6 +231,41 @@ const secondPulse = ref(false)
 
 let ticker: ReturnType<typeof setInterval> | null = null
 let flashTimer: ReturnType<typeof setTimeout> | null = null
+
+// ── Today's focus tracking ─────────────────────────────────────────────
+
+const focusedToday = ref(0)
+
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function loadTodayFocus() {
+  if (!import.meta.client) return
+  try {
+    const raw = localStorage.getItem('focus-today')
+    if (!raw) return
+    const { date, minutes } = JSON.parse(raw)
+    if (date === todayKey()) focusedToday.value = minutes
+  } catch { /* ignore */ }
+}
+
+function saveTodayFocus(minutes: number) {
+  if (!import.meta.client) return
+  localStorage.setItem('focus-today', JSON.stringify({ date: todayKey(), minutes }))
+}
+
+function addFocusMinutes(mins: number) {
+  focusedToday.value += mins
+  saveTodayFocus(focusedToday.value)
+}
+
+const todayStatLabel = computed(() => {
+  const m = focusedToday.value
+  if (activeTheme.value === 'hacker') return `logged: ${m}min`
+  if (activeTheme.value === 'space') return `${m} MIN FOCUSED TODAY`
+  return `${m} min today`
+})
 
 // ── Audio ──────────────────────────────────────────────────────────────
 
@@ -442,6 +486,7 @@ function onTimerComplete() {
   const wasFocus = currentMode.value === 'focus'
   playCompletionSound(wasFocus)
   sendNotification(wasFocus)
+  if (wasFocus) addFocusMinutes(MODES.focus.seconds / 60)
   justCompleted.value = true
   if (flashTimer !== null) clearTimeout(flashTimer)
   flashTimer = setTimeout(() => { justCompleted.value = false }, 1200)
@@ -474,6 +519,7 @@ const handleGlobalKey = (event: KeyboardEvent) => {
 }
 
 onMounted(() => {
+  loadTodayFocus()
   document.addEventListener('keydown', handleGlobalKey)
   if (typeof Notification !== 'undefined') {
     notifSupported.value = true
@@ -907,6 +953,53 @@ h1 {
 .sdot--done {
   background: var(--theme-accent, #6b8cae);
   transform: scale(1.25);
+}
+
+/* ── Today stat ─────────────────────────────────────────────── */
+
+.today-stat {
+  font-size: 0.7rem;
+  color: var(--theme-text-subtle, #aaa);
+  letter-spacing: 0.06em;
+  text-align: center;
+  animation: card-enter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.today-label {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.1));
+  border-radius: 999px;
+  background: var(--theme-card-bg, rgba(255, 255, 255, 0.5));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+:global(.hacker-page) .today-label {
+  border-radius: 0;
+  font-family: monospace;
+  background: rgba(0, 20, 0, 0.7);
+  border-color: var(--hacker-text-dim, #008F11);
+  color: var(--hacker-text-dim, #008F11);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:global(.space-page) .today-label {
+  border-radius: 0;
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  background: rgba(15, 15, 30, 0.6);
+  border-color: rgba(140, 170, 220, 0.25);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* ── Hacker theme overrides ─────────────────────────────────── */
