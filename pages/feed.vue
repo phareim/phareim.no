@@ -26,6 +26,15 @@
           class="feed-source-link"
         >x</a>
       </p>
+      <div class="feed-filters" role="group" aria-label="Filter by source">
+        <button
+          v-for="f in FILTERS"
+          :key="f.key"
+          :class="['filter-btn', { 'filter-btn--active': activeSource === f.key }]"
+          :aria-pressed="activeSource === f.key"
+          @click="setSource(f.key)"
+        >{{ f.label }}</button>
+      </div>
     </header>
 
     <main v-if="!pending && posts.length" class="post-list">
@@ -88,26 +97,47 @@ useHead({
   ]
 })
 
+type SourceFilter = 'all' | 'bluesky' | 'x'
+
+const FILTERS: { key: SourceFilter; label: string }[] = [
+  { key: 'all', label: 'all' },
+  { key: 'bluesky', label: 'bsky' },
+  { key: 'x', label: 'x' },
+]
+
+const activeSource = ref<SourceFilter>('all')
 const cursor = ref<string | undefined>(undefined)
 const loadingMore = ref(false)
 const allPosts = ref<Post[]>([])
 const prevCount = ref(0)
 
-const { data, pending } = await useFetch<FeedPage>('/api/feed')
+const feedUrl = computed(() =>
+  activeSource.value === 'all' ? '/api/feed' : `/api/feed?source=${activeSource.value}`
+)
+
+const { data, pending } = await useFetch<FeedPage>(feedUrl)
 
 watch(data, (page) => {
   allPosts.value = page?.posts ?? []
   cursor.value = page?.cursor
+  prevCount.value = 0
 }, { immediate: true })
 
 const posts = computed(() => allPosts.value)
 const nextCursor = computed(() => cursor.value)
 
+function setSource(src: SourceFilter) {
+  if (activeSource.value === src) return
+  activeSource.value = src
+}
+
 async function loadMore() {
   if (!cursor.value) return
   loadingMore.value = true
   try {
-    const result = await $fetch<FeedPage>('/api/feed', { query: { cursor: cursor.value } })
+    const query: Record<string, string> = { cursor: cursor.value }
+    if (activeSource.value !== 'all') query.source = activeSource.value
+    const result = await $fetch<FeedPage>('/api/feed', { query })
     prevCount.value = allPosts.value.length
     allPosts.value = [...allPosts.value, ...result.posts]
     cursor.value = result.cursor
@@ -230,6 +260,45 @@ h1 {
   outline: 2px solid var(--theme-accent, #6b8cae);
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+/* ── Source filter ──────────────────────────────────────────── */
+
+.feed-filters {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 1rem;
+}
+
+.filter-btn {
+  padding: 0.22rem 0.7rem;
+  font-size: 0.68rem;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  color: var(--theme-text-subtle, #aaa);
+  background: transparent;
+  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.1));
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.filter-btn:hover {
+  color: var(--theme-text, #111);
+  border-color: color-mix(in srgb, var(--theme-accent, #89abd0) 60%, transparent);
+}
+
+.filter-btn--active {
+  color: var(--theme-text, #111);
+  border-color: var(--theme-accent, #89abd0);
+  background: color-mix(in srgb, var(--theme-accent, #89abd0) 10%, transparent);
+}
+
+.filter-btn:focus-visible {
+  outline: 2px solid var(--theme-accent, #89abd0);
+  outline-offset: 2px;
 }
 
 /* ── Post list ──────────────────────────────────────────────── */
@@ -517,5 +586,26 @@ h1 {
 :global(.space-page) .post-url {
   color: var(--space-text-muted, #a0a8c0);
   text-decoration-color: rgba(137, 171, 208, 0.4);
+}
+
+/* ── Filter button theme overrides ─────────────────────────── */
+
+:global(.hacker-page) .filter-btn {
+  border-radius: 0;
+  font-family: monospace;
+}
+
+:global(.hacker-page) .filter-btn--active {
+  color: var(--hacker-text, #00ff41);
+  border-color: var(--hacker-text, #00ff41);
+  background: rgba(0, 255, 65, 0.08);
+  text-shadow: 0 0 6px currentColor;
+}
+
+:global(.space-page) .filter-btn {
+  font-family: var(--font-space-body, 'Arial Black', Impact, sans-serif);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 </style>
