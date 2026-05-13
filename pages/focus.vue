@@ -161,6 +161,11 @@
         <span class="sr-only">{{ sessionCount }} of {{ SESSIONS_BEFORE_LONG }} focus sessions completed</span>
       </div>
 
+      <!-- ── Today's stats ─────────────────────────────────── -->
+      <div v-if="todayStats.sessions > 0" class="today-stats" aria-live="polite" aria-atomic="true">
+        {{ todayLabel }}
+      </div>
+
     </main>
   </div>
 </template>
@@ -222,6 +227,36 @@ const secondPulse = ref(false)
 
 let ticker: ReturnType<typeof setInterval> | null = null
 let flashTimer: ReturnType<typeof setTimeout> | null = null
+
+// ── Today's stats (persisted per-day in localStorage) ──────────────────
+
+interface TodayStats { minutes: number; sessions: number }
+const todayStats = ref<TodayStats>({ minutes: 0, sessions: 0 })
+
+function todayKey(): string {
+  const d = new Date()
+  return `focus-today-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function loadTodayStats() {
+  if (!import.meta.client) return
+  const raw = localStorage.getItem(todayKey())
+  if (!raw) return
+  try {
+    const p = JSON.parse(raw) as Partial<TodayStats>
+    todayStats.value = { minutes: p.minutes ?? 0, sessions: p.sessions ?? 0 }
+  } catch { /* corrupted — leave at zero */ }
+}
+
+function incrementTodayStats() {
+  todayStats.value = {
+    minutes: todayStats.value.minutes + MODES.focus.seconds / 60,
+    sessions: todayStats.value.sessions + 1,
+  }
+  if (import.meta.client) {
+    localStorage.setItem(todayKey(), JSON.stringify(todayStats.value))
+  }
+}
 
 // ── Audio ──────────────────────────────────────────────────────────────
 
@@ -375,6 +410,21 @@ const pausedLabel = computed(() => {
   return 'ready'
 })
 
+const todayLabel = computed(() => {
+  const m = todayStats.value.minutes
+  const s = todayStats.value.sessions
+  const h = Math.floor(m / 60)
+  const rem = m % 60
+  const timeStr = h > 0 ? (rem > 0 ? `${h}h ${rem}m` : `${h}h`) : `${m}m`
+  if (activeTheme.value === 'hacker') {
+    return `TODAY: ${String(m).padStart(3, '0')}m / ${String(s).padStart(2, '0')} SESSIONS`
+  }
+  if (activeTheme.value === 'space') {
+    return `${timeStr.toUpperCase()} · ${s} SESSION${s !== 1 ? 'S' : ''} TODAY`
+  }
+  return `${timeStr} focused today`
+})
+
 // ── Timer logic ────────────────────────────────────────────────────────
 
 function tick() {
@@ -445,6 +495,7 @@ function onTimerComplete() {
   justCompleted.value = true
   if (flashTimer !== null) clearTimeout(flashTimer)
   flashTimer = setTimeout(() => { justCompleted.value = false }, 1200)
+  if (wasFocus) incrementTodayStats()
   advanceMode()
 }
 
@@ -474,6 +525,7 @@ const handleGlobalKey = (event: KeyboardEvent) => {
 }
 
 onMounted(() => {
+  loadTodayStats()
   document.addEventListener('keydown', handleGlobalKey)
   if (typeof Notification !== 'undefined') {
     notifSupported.value = true
@@ -1171,5 +1223,30 @@ h1 {
     padding: 0.4rem 0.75rem;
     font-size: 0.72rem;
   }
+}
+
+/* ── Today's stats ──────────────────────────────────────────── */
+
+.today-stats {
+  font-size: 0.7rem;
+  color: var(--theme-text-subtle, #aaa);
+  letter-spacing: 0.04em;
+  text-align: center;
+  margin-top: -0.5rem;
+}
+
+:global(.hacker-page) .today-stats {
+  font-family: monospace;
+  letter-spacing: 0.06em;
+  color: var(--theme-text-muted, #008F11);
+  text-shadow: 0 0 6px currentColor;
+}
+
+:global(.space-page) .today-stats {
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  font-weight: 900;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--space-text-muted, #a0a8c0);
 }
 </style>
