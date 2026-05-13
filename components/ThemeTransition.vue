@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 800,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,54 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: ink-wash across paper ───────────────────────────────────────────
+function playPaperEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  const paperBg   = dark ? '#0e1219'         : '#f4f0e8'
+  const inkRgb    = dark ? '244,240,232'     : '26,26,26'
+
+  // Fade arc: in fast, hold, out
+  const alpha = t < 0.18 ? t / 0.18 : t > 0.66 ? (1 - t) / 0.34 : 1
+
+  // Paper wash
+  ctx.globalAlpha = alpha * 0.9
+  ctx.fillStyle = paperBg
+  ctx.fillRect(0, 0, w, h)
+  ctx.globalAlpha = 1
+
+  const cx = w / 2
+  const cy = h / 2
+
+  // Ink blob expanding from center — like a blot on paper
+  const blobProgress = Math.min(1, t * 2.8)
+  const blobR = blobProgress * Math.hypot(cx, cy) * 0.6
+  if (blobR > 2) {
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, blobR)
+    grad.addColorStop(0,   `rgba(${inkRgb},${(alpha * 0.07).toFixed(3)})`)
+    grad.addColorStop(0.55,`rgba(${inkRgb},${(alpha * 0.04).toFixed(3)})`)
+    grad.addColorStop(1,   `rgba(${inkRgb},0)`)
+    ctx.beginPath()
+    ctx.arc(cx, cy, blobR, 0, Math.PI * 2)
+    ctx.fillStyle = grad
+    ctx.fill()
+  }
+
+  // Three hairline rules sweeping left-to-right at staggered delays
+  const RULE_Y = [0.35, 0.5, 0.65]
+  for (let i = 0; i < 3; i++) {
+    const ruleT = Math.max(0, Math.min(1, (t - i * 0.07) / 0.55))
+    if (ruleT <= 0) continue
+    const y = h * RULE_Y[i]
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(w * ruleT, y)
+    ctx.strokeStyle = `rgba(${inkRgb},${(alpha * 0.28).toFixed(3)})`
+    ctx.lineWidth = 0.5
+    ctx.stroke()
+  }
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +221,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playPaperEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
