@@ -117,6 +117,7 @@
           <div
             v-if="heatmapTooltip.visible"
             class="heatmap-tooltip"
+            :class="{ 'is-below': heatmapTooltip.below }"
             :style="{ left: heatmapTooltip.x + 'px', top: heatmapTooltip.y + 'px' }"
             aria-hidden="true"
           >
@@ -159,6 +160,7 @@
                   :style="{ '--week-col': Math.floor(idx / 7) }"
                   :aria-label="`${day.date}: ${day.count} commit${day.count !== 1 ? 's' : ''}`"
                   @mouseenter="showHeatmapTooltip(day, $event)"
+                  @touchstart.passive="showHeatmapTooltipFromTouch(day, $event)"
                 ></div>
               </div>
             </div>
@@ -314,6 +316,7 @@ const heatmapTooltip = reactive({
   count: 0,
   x: 0,
   y: 0,
+  below: false,
 })
 
 function formatTooltipDate(iso: string): string {
@@ -322,16 +325,34 @@ function formatTooltipDate(iso: string): string {
   })
 }
 
-function showHeatmapTooltip(day: { date: string; count: number; level: number }, event: MouseEvent) {
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+let tooltipDismissTimer: ReturnType<typeof setTimeout> | null = null
+
+function placeTooltip(day: { date: string; count: number }, cx: number, cy: number) {
+  // Keep tooltip horizontally within viewport (≈80px half-width)
+  const halfW = 80
   heatmapTooltip.visible = true
   heatmapTooltip.date = formatTooltipDate(day.date)
   heatmapTooltip.count = day.count
-  heatmapTooltip.x = rect.left + rect.width / 2
-  heatmapTooltip.y = rect.top
+  heatmapTooltip.x = Math.max(halfW, Math.min(window.innerWidth - halfW, cx))
+  heatmapTooltip.y = cy
+  // If cell is near the top, show tooltip below it instead of above
+  heatmapTooltip.below = cy < 70
+}
+
+function showHeatmapTooltip(day: { date: string; count: number; level: number }, event: MouseEvent) {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  placeTooltip(day, rect.left + rect.width / 2, rect.top)
+}
+
+function showHeatmapTooltipFromTouch(day: { date: string; count: number; level: number }, event: TouchEvent) {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  placeTooltip(day, rect.left + rect.width / 2, rect.top)
+  if (tooltipDismissTimer) clearTimeout(tooltipDismissTimer)
+  tooltipDismissTimer = setTimeout(() => { heatmapTooltip.visible = false }, 2500)
 }
 
 function hideHeatmapTooltip() {
+  if (tooltipDismissTimer) { clearTimeout(tooltipDismissTimer); tooltipDismissTimer = null }
   heatmapTooltip.visible = false
 }
 
@@ -413,6 +434,10 @@ onMounted(() => {
   } else {
     heatmapVisible.value = true
   }
+})
+
+onBeforeUnmount(() => {
+  if (tooltipDismissTimer) clearTimeout(tooltipDismissTimer)
 })
 </script>
 
@@ -855,9 +880,19 @@ h1 {
   animation: tooltip-enter 0.12s ease both;
 }
 
+.heatmap-tooltip.is-below {
+  transform: translate(-50%, 6px);
+  animation: tooltip-enter-below 0.12s ease both;
+}
+
 @keyframes tooltip-enter {
   from { opacity: 0; transform: translate(-50%, calc(-100% - 2px)); }
   to   { opacity: 1; transform: translate(-50%, calc(-100% - 6px)); }
+}
+
+@keyframes tooltip-enter-below {
+  from { opacity: 0; transform: translate(-50%, 2px); }
+  to   { opacity: 1; transform: translate(-50%, 6px); }
 }
 
 .tooltip-date {
