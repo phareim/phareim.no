@@ -1,3 +1,5 @@
+export type ThemeId = 'scandi' | 'hacker' | 'space' | 'almanac'
+
 export const useTheme = () => {
   const activeTheme = useState('activeTheme', () => 'scandi')
 
