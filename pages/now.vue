@@ -78,7 +78,7 @@
 
       <!-- Latest guestbook entry -->
       <section class="now-section now-section--4">
-        <h2 class="section-label">latest visitor</h2>
+        <h2 class="section-label">{{ labelVisitor }}</h2>
         <div v-if="guestbookPending" class="now-placeholder now-placeholder--loading">
           <span>fetching…</span>
         </div>
@@ -151,6 +151,12 @@ const labelPushed = computed(() => {
   if (activeTheme.value === 'hacker') return '// recent commits'
   if (activeTheme.value === 'space')  return 'RECENT DEPLOYMENTS'
   return 'recently pushed'
+})
+
+const labelVisitor = computed(() => {
+  if (activeTheme.value === 'hacker') return '// last ping'
+  if (activeTheme.value === 'space')  return 'LAST CONTACT'
+  return 'latest visitor'
 })
 
 const { data: feedData, pending: feedPending } = await useFetch<FeedPage>('/api/feed')
