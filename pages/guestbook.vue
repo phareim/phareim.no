@@ -437,6 +437,10 @@ h1 {
     animation: none;
     border-color: color-mix(in srgb, var(--theme-accent, #89abd0) 50%, transparent);
   }
+  .loading-text {
+    animation: none;
+    opacity: 0.7;
+  }
 }
 
 .gb-entry-header {
