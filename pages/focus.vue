@@ -85,7 +85,7 @@
           />
         </svg>
         <div class="ring-inner">
-          <span class="ring-mode-label">{{ activeModeConfig.label }}</span>
+          <span class="ring-mode-label">{{ modeLabel }}</span>
           <span class="ring-time" :class="{ 'ring-time--tick': secondPulse }">{{ formattedTime }}</span>
           <span class="ring-status">{{ isRunning ? runningLabel : pausedLabel }}</span>
         </div>
@@ -169,7 +169,7 @@
 const { activeTheme } = useTheme()
 
 const docTitle = computed(() => {
-  if (isRunning.value) return `${formattedTime.value} · focus — phareim.no`
+  if (isRunning.value) return `${formattedTime.value} · ${modeLabel.value} — phareim.no`
   return 'focus — phareim.no'
 })
 useHead({ title: docTitle })
@@ -308,6 +308,13 @@ function playCompletionSound(isFocusComplete: boolean) {
 
 const activeModeConfig = computed(() => MODES[currentMode.value])
 const totalSeconds = computed(() => activeModeConfig.value.seconds)
+
+const modeLabel = computed(() => {
+  const cfg = activeModeConfig.value
+  if (activeTheme.value === 'hacker') return cfg.hackerLabel
+  if (activeTheme.value === 'space')  return cfg.spaceLabel
+  return cfg.label
+})
 
 const progressPct = computed(
   () => ((totalSeconds.value - timeLeft.value) / totalSeconds.value) * 100
