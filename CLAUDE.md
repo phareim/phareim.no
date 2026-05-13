@@ -50,20 +50,21 @@ server/api/          — H3 API routes
   gallery.ts         — lists images from R2 `generated/` prefix, returns URLs + metadata
 server/utils/        — db.ts, r2.ts, storage.ts, image-providers.ts, etc.
 types/               — shared TypeScript interfaces
-assets/themes/       — scandinavian.css, hacker.css, space.css
+assets/themes/       — scandinavian.css, hacker.css, space.css, almanac.css
 database/schema.sql  — D1 schema (applied during CI deploy)
 ```
 
 ## Theme System
 
-Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
+Four themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**, **Almanac**.
 
 - Each theme file defines `--theme-*` CSS custom properties on `.{theme}-page`
-- `composables/useTheme.ts` provides `activeTheme`, `themePageClass`, `cx()`, `setTheme()`
+- `composables/useTheme.ts` provides `activeTheme`, `themePageClass`, `cx()`, `setTheme()`, and the exported `ThemeId` union type
 - Persisted to localStorage
 - **Convention**: always use `var(--theme-*, fallback)` — never hardcode colors
 - Don't use `@media (prefers-color-scheme: dark)` — the theme system handles this
 - Don't put theme variables on `:root` — they go in `.{theme}-page` selectors
+- **Exception**: Almanac is the only theme that deliberately follows OS dark mode via `@media (prefers-color-scheme: dark)` — this is intentional by design
 
 ## Key Patterns
 
@@ -82,5 +83,5 @@ Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
 
 - `M` key toggles the global menu (disabled on admin pages)
 - `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/guestbook`, `/activity`, `/stats`, `/meta`, `/colophon`, `/playground`, `/gallery`, `/clock`, `/lab`, `/focus`, `/terminal`, `/morse`
-- `1` / `2` / `3` switch themes (scandinavian / hacker / space)
+- `1` / `2` / `3` / `4` switch themes (scandinavian / hacker / space / almanac)
 - `?` or `/` toggles the keyboard shortcuts overlay
