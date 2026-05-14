@@ -140,6 +140,10 @@ const emit = defineEmits<{
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .flipper {
+    transition: none;
+  }
+
   :global(.hacker-page) .profile-pic {
     animation: none;
   }
