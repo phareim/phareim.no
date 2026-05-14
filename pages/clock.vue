@@ -26,7 +26,6 @@
           class="analog-face"
           viewBox="0 0 200 200"
           aria-hidden="true"
-          role="img"
         >
           <!-- Outer ring -->
           <circle cx="100" cy="100" r="96" fill="none" class="face-ring" stroke-width="1.5" />
