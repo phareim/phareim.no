@@ -88,6 +88,7 @@
           <span class="btn-icon" aria-hidden="true">{{ playing ? '■' : '▶' }}</span>
           {{ playing ? 'stop' : 'play' }}
         </button>
+        <div class="signal-light" :class="{ 'is-on': signalOn }" aria-hidden="true"></div>
 
         <div class="morse-speed">
           <label class="speed-label" for="wpm-slider">{{ wpm }} wpm</label>
@@ -187,6 +188,7 @@ const playing      = ref(false)
 const copied       = ref(false)
 const activeTokenIdx = ref<number | null>(null)
 const activeSymIdx   = ref<number | null>(null)
+const signalOn       = ref(false)
 
 let audioCtx: AudioContext | null = null
 let pendingTimeouts: ReturnType<typeof setTimeout>[] = []
@@ -282,6 +284,7 @@ function scheduleBeep(ctx: AudioContext, startTime: number, duration: number) {
 
 function stopPlay() {
   playing.value = false
+  signalOn.value = false
   activeTokenIdx.value = null
   activeSymIdx.value = null
   playId++
@@ -336,13 +339,20 @@ async function startPlay() {
 
       scheduleBeep(ctx, t, dur)
 
-      const symDelay = Math.max(0, (t - startTime) * 1000)
+      const symDelay    = Math.max(0, (t - startTime) * 1000)
+      const symOffDelay = Math.max(0, (t + dur - startTime) * 1000)
       const curSi = si
       const to2 = setTimeout(() => {
         if (playId !== id) return
         activeSymIdx.value = curSi
+        signalOn.value = true
       }, symDelay)
       pendingTimeouts.push(to2)
+      const toOff = setTimeout(() => {
+        if (playId !== id) return
+        signalOn.value = false
+      }, symOffDelay)
+      pendingTimeouts.push(toOff)
 
       t += dur + unit
     }
@@ -711,6 +721,45 @@ h1 {
   font-size: 0.62rem;
   color: var(--theme-text-subtle, #aaa);
   letter-spacing: 0.1em;
+}
+
+/* ── Signal light ────────────────────────────────────────────────────── */
+
+.signal-light {
+  flex-shrink: 0;
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--theme-card-border, rgba(0, 0, 0, 0.15));
+  transition: background 0.05s ease, box-shadow 0.05s ease;
+}
+
+.signal-light.is-on {
+  background: var(--theme-accent, #6b8cae);
+  box-shadow:
+    0 0 6px color-mix(in srgb, var(--theme-accent, #6b8cae) 60%, transparent),
+    0 0 14px color-mix(in srgb, var(--theme-accent, #6b8cae) 30%, transparent);
+}
+
+:global(.hacker-page) .signal-light {
+  border-radius: 2px;
+  border: 1px solid var(--hacker-text-dim, #008F11);
+  background: rgba(0, 10, 0, 0.8);
+}
+
+:global(.hacker-page) .signal-light.is-on {
+  background: var(--hacker-text, #00ff41);
+  box-shadow: 0 0 10px var(--hacker-text, #00ff41), 0 0 24px rgba(0, 255, 65, 0.35);
+}
+
+:global(.space-page) .signal-light.is-on {
+  background: var(--space-accent-amber, #e8c87a);
+  box-shadow: 0 0 8px rgba(232, 200, 122, 0.65), 0 0 20px rgba(232, 200, 122, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signal-light { transition: none; }
 }
 
 /* ── Hacker theme ────────────────────────────────────────────────────── */
