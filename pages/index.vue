@@ -139,7 +139,7 @@ export default {
     }
     this.hackerHighScore = parseInt(localStorage.getItem('hackerHighScore') || '0', 10);
   },
-  beforeDestroy() {
+  beforeUnmount() {
     document.body.classList.add('scrollable');
     window.removeEventListener('mousemove', this.updateMousePosition);
     window.removeEventListener('resize', this.setupCanvas);
