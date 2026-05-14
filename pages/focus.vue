@@ -51,6 +51,7 @@
       <div
         v-else
         class="ring-area"
+        :class="{ 'is-running': isRunning }"
         aria-live="polite"
         :aria-label="`${formattedTime} remaining`"
       >
@@ -82,6 +83,14 @@
             :stroke-dasharray="CIRCUMFERENCE"
             :stroke-dashoffset="progressOffset"
             transform="rotate(-90 110 110)"
+          />
+          <!-- Arc-tip dot: glowing indicator at the leading edge of the arc -->
+          <circle
+            v-if="arcTipPos"
+            :cx="arcTipPos.cx"
+            :cy="arcTipPos.cy"
+            r="5"
+            class="ring-tip"
           />
         </svg>
         <div class="ring-inner">
@@ -155,7 +164,10 @@
           v-for="i in SESSIONS_BEFORE_LONG"
           :key="i"
           class="sdot"
-          :class="{ 'sdot--done': i <= sessionCount }"
+          :class="{
+            'sdot--done': i <= sessionCount,
+            'sdot--active': isRunning && currentMode === 'focus' && i === sessionCount + 1
+          }"
           aria-hidden="true"
         ></span>
         <span class="sr-only">{{ sessionCount }} of {{ SESSIONS_BEFORE_LONG }} focus sessions completed</span>
@@ -316,6 +328,15 @@ const progressPct = computed(
 const progressOffset = computed(
   () => CIRCUMFERENCE * (timeLeft.value / totalSeconds.value)
 )
+
+const arcTipPos = computed(() => {
+  if (!isRunning.value || progressPct.value <= 1) return null
+  const angle = -Math.PI / 2 + (2 * Math.PI * progressPct.value / 100)
+  return {
+    cx: +(110 + 96 * Math.cos(angle)).toFixed(2),
+    cy: +(110 + 96 * Math.sin(angle)).toFixed(2),
+  }
+})
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -593,6 +614,23 @@ h1 {
   stroke: var(--theme-card-border, rgba(0, 0, 0, 0.1));
 }
 
+.ring-tip {
+  fill: var(--theme-accent, #6b8cae);
+  filter: drop-shadow(0 0 4px var(--theme-accent, #6b8cae));
+  animation: tip-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes tip-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 3px var(--theme-accent, #6b8cae));
+    opacity: 0.85;
+  }
+  50% {
+    filter: drop-shadow(0 0 9px var(--theme-accent, #6b8cae));
+    opacity: 1;
+  }
+}
+
 .ring-flash {
   stroke: var(--theme-accent, #6b8cae);
   opacity: 0;
@@ -664,8 +702,15 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ring-time--tick {
+  .ring-time--tick,
+  .ring-tip,
+  .sdot--active {
     animation: none;
+  }
+
+  .sdot--active {
+    opacity: 0.65;
+    transform: scale(1.15);
   }
 }
 
@@ -909,6 +954,16 @@ h1 {
   transform: scale(1.25);
 }
 
+.sdot--active {
+  background: var(--theme-accent, #6b8cae);
+  animation: sdot-active 1.3s ease-in-out infinite;
+}
+
+@keyframes sdot-active {
+  0%, 100% { opacity: 0.45; transform: scale(1.1); }
+  50%       { opacity: 0.9;  transform: scale(1.3); }
+}
+
 /* ── Hacker theme overrides ─────────────────────────────────── */
 
 :global(.hacker-page) h1 {
@@ -962,6 +1017,12 @@ h1 {
 :global(.hacker-page) .sdot--done {
   background: var(--theme-text, #00ff41);
   box-shadow: 0 0 6px var(--theme-text, #00ff41);
+}
+
+:global(.hacker-page) .sdot--active {
+  background: var(--theme-text, #00ff41);
+  border-radius: 0;
+  box-shadow: 0 0 4px var(--theme-text, #00ff41);
 }
 
 /* ── Space theme overrides ──────────────────────────────────── */
@@ -1046,6 +1107,15 @@ h1 {
 :global(.space-page) .sdot--done {
   background: var(--space-accent-amber, #e8c87a);
   box-shadow: 0 0 8px rgba(232, 200, 122, 0.6);
+}
+
+:global(.space-page) .sdot--active {
+  background: var(--space-accent-amber, #e8c87a);
+}
+
+:global(.space-page) .ring-tip {
+  fill: var(--space-accent-amber, #e8c87a);
+  filter: drop-shadow(0 0 6px rgba(232, 200, 122, 0.8));
 }
 
 :global(.space-page) .ring-ticks {
