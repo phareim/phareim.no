@@ -23,7 +23,7 @@
       <div
         v-if="activeTheme === 'hacker'"
         class="hacker-timer"
-        :class="{ 'is-running': isRunning }"
+        :class="{ 'is-running': isRunning, 'is-urgent': isUrgent }"
         aria-live="polite"
         :aria-label="`${formattedTime} remaining`"
       >
@@ -50,7 +50,7 @@
       <!-- ── Scandi + Space: SVG ring ───────────────────────── -->
       <div
         v-else
-        class="ring-area"
+        :class="['ring-area', { 'ring-area--urgent': isUrgent }]"
         aria-live="polite"
         :aria-label="`${formattedTime} remaining`"
       >
@@ -76,7 +76,7 @@
           <!-- Progress arc -->
           <circle
             cx="110" cy="110" r="96" fill="none"
-            class="ring-progress"
+            :class="['ring-progress', { 'ring-progress--urgent': isUrgent }]"
             stroke-width="8"
             stroke-linecap="round"
             :stroke-dasharray="CIRCUMFERENCE"
@@ -219,6 +219,10 @@ const isRunning = ref(false)
 const sessionCount = ref(0)
 const justCompleted = ref(false)
 const secondPulse = ref(false)
+
+const isUrgent = computed(() =>
+  isRunning.value && currentMode.value === 'focus' && timeLeft.value > 0 && timeLeft.value <= 60
+)
 
 let ticker: ReturnType<typeof setInterval> | null = null
 let flashTimer: ReturnType<typeof setTimeout> | null = null
@@ -606,7 +610,21 @@ h1 {
 
 .ring-progress {
   stroke: var(--theme-accent, #6b8cae);
-  transition: stroke-dashoffset 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              stroke 1.5s ease;
+}
+
+.ring-progress--urgent {
+  stroke: var(--theme-accent-danger, #c1272d);
+}
+
+@keyframes urgent-glow {
+  0%, 100% { filter: none; }
+  50%       { filter: drop-shadow(0 0 7px var(--theme-accent-danger, #c1272d)); }
+}
+
+.ring-area--urgent {
+  animation: urgent-glow 1.8s ease-in-out infinite;
 }
 
 .ring-ticks {
@@ -664,8 +682,13 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ring-time--tick {
+  .ring-time--tick,
+  .ring-area--urgent,
+  .hacker-timer.is-urgent .ht-time {
     animation: none;
+  }
+  .ring-progress--urgent {
+    stroke: var(--theme-accent-danger, #c1272d);
   }
 }
 
@@ -811,6 +834,25 @@ h1 {
   84%           { text-shadow: 0 0 20px currentColor; opacity: 1; }
   87%           { text-shadow: 0 0 8px currentColor; opacity: 0.93; }
   90%           { text-shadow: 0 0 20px currentColor; opacity: 1; }
+}
+
+/* ── Urgency: hacker terminal (final 60 s of focus) ─────────── */
+
+.hacker-timer.is-urgent .ht-time {
+  color: var(--theme-accent-danger, #ff0055);
+  text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+  animation: ht-urgent 0.6s steps(3) infinite;
+}
+
+@keyframes ht-urgent {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.78; }
+  100% { opacity: 1; }
+}
+
+.hacker-timer.is-urgent .ht-bar-fill {
+  background: var(--theme-accent-danger, #ff0055);
+  box-shadow: 0 0 8px var(--theme-accent-danger, #ff0055);
 }
 
 /* ── Controls ───────────────────────────────────────────────── */
@@ -1055,6 +1097,11 @@ h1 {
 :global(.space-page) .tick-minor,
 :global(.space-page) .tick-major {
   stroke: var(--space-accent-blue, #89abd0);
+}
+
+:global(.space-page) .ring-progress--urgent {
+  stroke: var(--theme-accent-danger, #e06060);
+  filter: drop-shadow(0 0 6px rgba(224, 96, 96, 0.6));
 }
 
 /* ── Options row (sound + notifications) ────────────────────── */
