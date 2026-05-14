@@ -310,7 +310,8 @@ export default {
       this.ctx.shadowColor = 'transparent';     
       this.ctx.stroke(); 
       this.ctx.lineWidth = 5;
-      this.ctx.strokeStyle = (this.theUpsideDown? 'rgba(100,90,80,0.2)':'rgba(0, 0, 0, 0.9)');
+      this.ctx.strokeStyle = this.theUpsideDown ? 'rgba(100,90,80,0.2)'
+        : this.activeTheme === 'scandi' ? 'rgba(80, 100, 130, 0.18)' : 'rgba(0, 0, 0, 0.9)';
       this.ctx.class = 'box';
     },
     
@@ -436,19 +437,46 @@ export default {
       const y = event.clientY - rect.top;
 
       const size = (Math.random() * 300) + 50;
-      const r = (Math.random()> 0.5? 75 + Math.random()*20 : 150 + Math.random()*20);
-      const g = (Math.random()> 0.5? 50 + Math.random()*100 : 125 + Math.random()*20);
-      const b = (Math.random()> 0.5? 100 + Math.random()*20 : 255);
-      
+
+      let r, g, b;
+      if (this.activeTheme === 'scandi') {
+        // Curated scandinavian glass palette: soft blues, sages, frost whites, rare accent pops
+        const SCANDI_PALETTE = [
+          [107, 140, 174],  // --accent-soft-blue
+          [137, 171, 208],  // lighter periwinkle blue
+          [155, 171, 139],  // --accent-soft-sage
+          [120, 150, 115],  // deeper sage
+          [175, 200, 220],  // ice periwinkle
+          [210, 225, 240],  // frost white-blue
+          [185, 210, 195],  // light sage-white
+          [193,  70,  60],  // muted red (rare)
+          [ 50, 140,  80],  // muted green (rare)
+        ];
+        const paletteIdx = Math.random() < 0.93
+          ? Math.floor(Math.random() * 7)
+          : 7 + Math.floor(Math.random() * 2);
+        const base = SCANDI_PALETTE[paletteIdx];
+        const jitter = () => Math.floor((Math.random() - 0.5) * 50);
+        r = Math.min(255, Math.max(0, base[0] + jitter()));
+        g = Math.min(255, Math.max(0, base[1] + jitter()));
+        b = Math.min(255, Math.max(0, base[2] + jitter()));
+      } else {
+        r = (Math.random()> 0.5? 75 + Math.random()*20 : 150 + Math.random()*20);
+        g = (Math.random()> 0.5? 50 + Math.random()*100 : 125 + Math.random()*20);
+        b = (Math.random()> 0.5? 100 + Math.random()*20 : 255);
+      }
+
       let shadowLength = 0;
       if(event.layer){
         shadowLength = event.layer === 1 ? 0 : 30;
       } else {
         shadowLength = (r + g + b) > 420 ? 0 : 30;
       }
-      
+
       const color = `rgb(${r}, ${g}, ${b})`;
-      const shadowColor = this.darkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(10, 10, 10, 0.5)';
+      const shadowColor = this.activeTheme === 'scandi'
+        ? 'rgba(80, 110, 150, 0.15)'
+        : this.darkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(10, 10, 10, 0.5)';
       const shadow = this.getNewShadow(shadowLength, shadowColor);
       const yvelocity = ((Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1));
       const xvelocity = ((Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1));
