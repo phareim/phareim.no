@@ -12,6 +12,7 @@ let constellations: Constellation[] = []
 let animationId: number | null = null
 let frame = 0
 let novaRings: NovaRing[] = []
+let vignetteGrad: CanvasGradient | null = null
 
 // Mouse parallax state (desktop)
 let mouseParallaxX = 0
@@ -483,6 +484,11 @@ function draw() {
 
   drawNovaRings()
 
+  if (vignetteGrad) {
+    ctx.fillStyle = vignetteGrad
+    ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+  }
+
   animationId = requestAnimationFrame(draw)
 }
 
@@ -491,6 +497,7 @@ function onResize() {
   const oldH = canvas.value?.height ?? 0
   resize()
   if (!canvas.value) return
+  createVignette()
   const newW = canvas.value.width
   const newH = canvas.value.height
   for (const star of stars) {
@@ -591,6 +598,21 @@ function drawStatic() {
       ctx.fill()
     }
   }
+
+  if (vignetteGrad) {
+    ctx.fillStyle = vignetteGrad
+    ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+  }
+}
+
+function createVignette() {
+  if (!ctx || !canvas.value) return
+  const cx = canvas.value.width / 2
+  const cy = canvas.value.height / 2
+  const r = Math.max(cx, cy)
+  vignetteGrad = ctx.createRadialGradient(cx, cy, r * 0.35, cx, cy, r)
+  vignetteGrad.addColorStop(0, 'rgba(0, 0, 0, 0)')
+  vignetteGrad.addColorStop(1, 'rgba(0, 0, 0, 0.45)')
 }
 
 function handleVisibilityChange() {
@@ -612,6 +634,7 @@ onMounted(() => {
   initStars()
   initNebulas()
   initConstellations()
+  createVignette()
 
   if (reducedMotion) {
     drawStatic()
