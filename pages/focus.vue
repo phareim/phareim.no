@@ -23,7 +23,7 @@
       <div
         v-if="activeTheme === 'hacker'"
         class="hacker-timer"
-        :class="{ 'is-running': isRunning }"
+        :class="{ 'is-running': isRunning, 'is-urgent': isUrgent }"
         aria-live="polite"
         :aria-label="`${formattedTime} remaining`"
       >
@@ -51,6 +51,7 @@
       <div
         v-else
         class="ring-area"
+        :class="{ 'is-urgent': isUrgent }"
         aria-live="polite"
         :aria-label="`${formattedTime} remaining`"
       >
@@ -219,6 +220,7 @@ const isRunning = ref(false)
 const sessionCount = ref(0)
 const justCompleted = ref(false)
 const secondPulse = ref(false)
+const isUrgent = computed(() => timeLeft.value > 0 && timeLeft.value <= 60)
 
 let ticker: ReturnType<typeof setInterval> | null = null
 let flashTimer: ReturnType<typeof setTimeout> | null = null
@@ -606,7 +608,22 @@ h1 {
 
 .ring-progress {
   stroke: var(--theme-accent, #6b8cae);
-  transition: stroke-dashoffset 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94), stroke 1.2s ease;
+}
+
+/* ── Urgency: ≤ 60 s remaining ──────────────────────────── */
+
+.ring-area.is-urgent .ring-progress {
+  stroke: var(--theme-accent-danger, #c1272d);
+}
+
+@keyframes urgency-breathe {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.ring-area.is-urgent .ring-inner {
+  animation: urgency-breathe 1.4s ease-in-out infinite;
 }
 
 .ring-ticks {
@@ -664,7 +681,8 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ring-time--tick {
+  .ring-time--tick,
+  .ring-area.is-urgent .ring-inner {
     animation: none;
   }
 }
@@ -964,6 +982,30 @@ h1 {
   box-shadow: 0 0 6px var(--theme-text, #00ff41);
 }
 
+/* ── Hacker urgency ─────────────────────────────────────── */
+
+:global(.hacker-page) .hacker-timer.is-urgent .ht-time {
+  color: var(--theme-accent-danger, #ff0055);
+  text-shadow: 0 0 20px currentColor;
+}
+
+:global(.hacker-page) .hacker-timer.is-urgent .ht-bar-fill {
+  background: var(--theme-accent-danger, #ff0055);
+  box-shadow: 0 0 6px var(--theme-accent-danger, #ff0055);
+}
+
+:global(.hacker-page) .hacker-timer.is-running.is-urgent .ht-bar-fill {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--theme-accent-danger, #ff0055) 0,
+    var(--theme-accent-danger, #ff0055) 6px,
+    rgba(255, 0, 85, 0.2) 6px,
+    rgba(255, 0, 85, 0.2) 10px
+  );
+  background-size: 10px 100%;
+  box-shadow: 0 0 6px var(--theme-accent-danger, #ff0055);
+}
+
 /* ── Space theme overrides ──────────────────────────────────── */
 
 :global(.space-page) h1 {
@@ -998,6 +1040,11 @@ h1 {
 :global(.space-page) .ring-progress {
   stroke: var(--space-accent-amber, #e8c87a);
   filter: drop-shadow(0 0 6px rgba(232, 200, 122, 0.7));
+}
+
+:global(.space-page) .ring-area.is-urgent .ring-progress {
+  stroke: var(--space-accent-red, #e06060);
+  filter: drop-shadow(0 0 8px rgba(224, 96, 96, 0.65));
 }
 
 :global(.space-page) .ring-flash {
