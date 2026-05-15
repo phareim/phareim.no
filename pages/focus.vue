@@ -30,7 +30,7 @@
         <div class="ht-cmd">
           <span class="ht-prompt">$</span> pomodoro --mode={{ currentMode }} --session={{ sessionCount + 1 }}
         </div>
-        <div class="ht-time" :class="{ 'ht-time--pulse': justCompleted }">{{ formattedTime }}</div>
+        <div class="ht-time" :class="{ 'ht-time--pulse': justCompleted, 'ht-time--warn': urgencyLevel === 'warn', 'ht-time--critical': urgencyLevel === 'critical' }">{{ formattedTime }}</div>
         <div class="ht-bar-wrap">
           <div class="ht-bar" aria-hidden="true">
             <div class="ht-bar-fill" :style="{ width: progressPct + '%' }"></div>
@@ -76,7 +76,7 @@
           <!-- Progress arc -->
           <circle
             cx="110" cy="110" r="96" fill="none"
-            class="ring-progress"
+            :class="['ring-progress', urgencyLevel !== 'normal' && `ring-progress--${urgencyLevel}`]"
             stroke-width="8"
             stroke-linecap="round"
             :stroke-dasharray="CIRCUMFERENCE"
@@ -316,6 +316,14 @@ const progressPct = computed(
 const progressOffset = computed(
   () => CIRCUMFERENCE * (timeLeft.value / totalSeconds.value)
 )
+
+// 'warn' at ≤5 min remaining, 'critical' at ≤1 min — focus sessions only
+const urgencyLevel = computed((): 'normal' | 'warn' | 'critical' => {
+  if (currentMode.value !== 'focus') return 'normal'
+  if (timeLeft.value <= 60) return 'critical'
+  if (timeLeft.value <= 5 * 60) return 'warn'
+  return 'normal'
+})
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -606,7 +614,21 @@ h1 {
 
 .ring-progress {
   stroke: var(--theme-accent, #6b8cae);
-  transition: stroke-dashoffset 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: stroke 1s ease, stroke-dashoffset 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.ring-progress--warn {
+  stroke: #c48830;
+}
+
+.ring-progress--critical {
+  stroke: var(--theme-accent-danger, #c1272d);
+  animation: ring-urgent-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ring-urgent-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px currentColor); }
+  50%       { filter: drop-shadow(0 0 12px currentColor); }
 }
 
 .ring-ticks {
@@ -664,7 +686,9 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ring-time--tick {
+  .ring-time--tick,
+  .ring-progress--critical,
+  :global(.hacker-page) .ht-time--critical {
     animation: none;
   }
 }
@@ -718,6 +742,23 @@ h1 {
 @keyframes ht-pulse {
   0%, 100% { text-shadow: 0 0 20px currentColor; }
   50%       { text-shadow: 0 0 60px currentColor, 0 0 120px currentColor; }
+}
+
+:global(.hacker-page) .ht-time--warn {
+  color: #ffcc00;
+  text-shadow: 0 0 20px #ffcc00, 0 0 40px rgba(255, 204, 0, 0.4);
+}
+
+:global(.hacker-page) .ht-time--critical {
+  color: var(--hacker-accent, #ff0055);
+  text-shadow: 0 0 20px var(--hacker-accent, #ff0055);
+  animation: ht-urgent-flicker 0.9s ease-in-out infinite;
+}
+
+@keyframes ht-urgent-flicker {
+  0%, 80%, 100% { text-shadow: 0 0 20px currentColor; opacity: 1; }
+  83%           { text-shadow: 0 0 60px currentColor, 0 0 100px currentColor; opacity: 0.92; }
+  87%           { text-shadow: 0 0 10px currentColor; opacity: 0.97; }
 }
 
 .ht-bar-wrap {
@@ -998,6 +1039,16 @@ h1 {
 :global(.space-page) .ring-progress {
   stroke: var(--space-accent-amber, #e8c87a);
   filter: drop-shadow(0 0 6px rgba(232, 200, 122, 0.7));
+}
+
+:global(.space-page) .ring-progress--warn {
+  stroke: var(--space-accent-amber, #e8c87a);
+  filter: drop-shadow(0 0 12px rgba(232, 200, 122, 1));
+}
+
+:global(.space-page) .ring-progress--critical {
+  stroke: var(--space-accent-red, #e06060);
+  filter: drop-shadow(0 0 12px rgba(224, 96, 96, 0.9));
 }
 
 :global(.space-page) .ring-flash {
