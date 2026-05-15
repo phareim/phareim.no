@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 700,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,74 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: ink-bleed on warm paper ─────────────────────────────────────────
+function playInkBleedEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+
+  // Envelope: fade in over first quarter, hold, fade out over last quarter
+  const alpha = t < 0.25 ? t / 0.25 : t > 0.75 ? (1 - t) / 0.25 : 1
+
+  // Warm parchment wash
+  ctx.fillStyle = `rgba(244, 240, 232, ${alpha * 0.86})`
+  ctx.fillRect(0, 0, w, h)
+
+  const cx = w / 2
+  const cy = h / 2
+  const maxR = Math.hypot(cx, cy)
+
+  // Central ink blot — dense sepia that bleeds outward
+  if (t < 0.72) {
+    const blotT = Math.min(1, t / 0.5)
+    const blotR = 8 + blotT * 55
+    const blotAlpha = (1 - blotT * 0.65) * alpha * 0.22
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, blotR)
+    grad.addColorStop(0,   `rgba(55, 32, 12, ${blotAlpha * 2.2})`)
+    grad.addColorStop(0.4, `rgba(55, 32, 12, ${blotAlpha})`)
+    grad.addColorStop(1,   `rgba(55, 32, 12, 0)`)
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.arc(cx, cy, blotR, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // Three concentric ink rings expanding from center
+  for (let ring = 0; ring < 3; ring++) {
+    const delay = ring * 0.11
+    const ringT = Math.max(0, Math.min(1, (t - delay) / 0.72))
+    if (ringT <= 0) continue
+
+    const r = ringT * maxR * 1.06
+    const ringAlpha = (1 - ringT) * 0.26 * alpha
+    if (ringAlpha <= 0.002) continue
+
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.strokeStyle = `rgba(55, 32, 12, ${ringAlpha})`
+    ctx.lineWidth = 2.2 - ring * 0.5
+    ctx.stroke()
+  }
+
+  // Fine ink capillaries radiating from center
+  const NUM_VEINS = 20
+  const veinT = Math.max(0, Math.min(1, (t - 0.04) / 0.62))
+  if (veinT > 0) {
+    for (let i = 0; i < NUM_VEINS; i++) {
+      const angle = (i / NUM_VEINS) * Math.PI * 2
+      const lenFraction = 0.45 + (i % 4) * 0.12
+      const len = veinT * maxR * lenFraction
+      const veinAlpha = (1 - veinT * 0.82) * 0.12 * alpha
+      if (veinAlpha <= 0.002) continue
+
+      ctx.beginPath()
+      ctx.moveTo(cx, cy)
+      ctx.lineTo(cx + Math.cos(angle) * len, cy + Math.sin(angle) * len)
+      ctx.strokeStyle = `rgba(55, 32, 12, ${veinAlpha})`
+      ctx.lineWidth = 0.6
+      ctx.stroke()
+    }
+  }
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +241,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playInkBleedEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
