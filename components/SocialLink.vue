@@ -98,6 +98,10 @@ svg, img {
 svg:hover, img:hover {
   transform: scale(1.15);
 }
+img.kreftforeningen {
+  transition: transform 0.65s ease-in-out;
+}
+
 img.kreftforeningen:hover {
   transform: scale(1.15) rotate(-180deg);
 }
