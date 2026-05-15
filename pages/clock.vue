@@ -121,7 +121,12 @@
 <script setup lang="ts">
 const { activeTheme } = useTheme()
 
-useHead({ title: 'clock — phareim.no' })
+const clockTitle = computed(() => {
+  if (activeTheme.value === 'hacker') return 'time.exe — phareim.no'
+  if (activeTheme.value === 'space') return 'chronometer — phareim.no'
+  return 'clock — phareim.no'
+})
+useHead({ title: clockTitle })
 
 const DEG = Math.PI / 180
 
