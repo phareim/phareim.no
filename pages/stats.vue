@@ -823,6 +823,12 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .stat-card,
+  .stats-section {
+    animation: none;
+    opacity: 1;
+  }
+
   .commit-grid:not(.is-visible) .commit-cell { opacity: 1; }
   .commit-grid.is-visible .commit-cell { animation: none; }
 }
