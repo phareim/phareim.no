@@ -7,7 +7,7 @@
       @restart="onGameRestart"
       @started="onGameStarted"
     />
-    <canvas v-else-if="!isSpace" ref="canvas"></canvas>
+    <canvas v-else-if="!isSpace" ref="canvas" aria-hidden="true"></canvas>
     <div class="overlay" @click="onOverlayClick">
       <div class="home">
         <ProfileCard
