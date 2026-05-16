@@ -223,6 +223,51 @@ const secondPulse = ref(false)
 let ticker: ReturnType<typeof setInterval> | null = null
 let flashTimer: ReturnType<typeof setTimeout> | null = null
 
+// ── Persistence ────────────────────────────────────────────────────────────
+
+const PERSIST_KEY = 'focus-state'
+const PERSIST_MAX_AGE_MS = 8 * 60 * 60 * 1000  // 8 hours
+
+interface PersistedFocusState {
+  sessionCount: number
+  currentMode: ModeKey
+  timeLeft: number
+  savedAt: number
+}
+
+let saveCounter = 0
+
+function saveState() {
+  if (!import.meta.client) return
+  try {
+    const state: PersistedFocusState = {
+      sessionCount: sessionCount.value,
+      currentMode: currentMode.value,
+      timeLeft: timeLeft.value,
+      savedAt: Date.now(),
+    }
+    localStorage.setItem(PERSIST_KEY, JSON.stringify(state))
+  } catch {
+    // Ignore write failures (private browsing, storage quota)
+  }
+}
+
+function loadState() {
+  if (!import.meta.client) return
+  try {
+    const raw = localStorage.getItem(PERSIST_KEY)
+    if (!raw) return
+    const state = JSON.parse(raw) as PersistedFocusState
+    if (Date.now() - state.savedAt > PERSIST_MAX_AGE_MS) return
+    if (!MODES[state.currentMode]) return
+    sessionCount.value = state.sessionCount
+    currentMode.value = state.currentMode
+    timeLeft.value = state.timeLeft
+  } catch {
+    // Ignore malformed state
+  }
+}
+
 // ── Audio ──────────────────────────────────────────────────────────────
 
 const soundEnabled = ref(import.meta.client ? localStorage.getItem('focus-sound') !== '0' : true)
@@ -387,6 +432,7 @@ function tick() {
   timeLeft.value--
   secondPulse.value = false
   nextTick(() => { secondPulse.value = true })
+  if (++saveCounter % 30 === 0) saveState()
 }
 
 function startTimer() {
@@ -401,6 +447,7 @@ function stopTimer() {
     ticker = null
   }
   isRunning.value = false
+  saveState()
 }
 
 function toggleTimer() {
@@ -410,17 +457,20 @@ function toggleTimer() {
 function resetTimer() {
   stopTimer()
   timeLeft.value = totalSeconds.value
+  saveState()
 }
 
 function selectMode(mode: ModeKey) {
   stopTimer()
   currentMode.value = mode
   timeLeft.value = MODES[mode].seconds
+  saveState()
 }
 
 function skipMode() {
   stopTimer()
   advanceMode()
+  saveState()
 }
 
 function advanceMode() {
@@ -446,6 +496,7 @@ function onTimerComplete() {
   if (flashTimer !== null) clearTimeout(flashTimer)
   flashTimer = setTimeout(() => { justCompleted.value = false }, 1200)
   advanceMode()
+  saveState()
 }
 
 // ── Keyboard shortcuts ─────────────────────────────────────────
@@ -474,6 +525,7 @@ const handleGlobalKey = (event: KeyboardEvent) => {
 }
 
 onMounted(() => {
+  loadState()
   document.addEventListener('keydown', handleGlobalKey)
   if (typeof Notification !== 'undefined') {
     notifSupported.value = true
