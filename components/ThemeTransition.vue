@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 500,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,18 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: warm paper wash ────────────────────────────────────────────────
+function playPaperEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+  const alpha = t < 0.3 ? t / 0.3 : t > 0.65 ? (1 - t) / 0.35 : 1
+  ctx.fillStyle = `rgba(244, 240, 232, ${alpha * 0.78})`
+  ctx.fillRect(0, 0, w, h)
+  for (let y = 0; y < h; y += 4) {
+    ctx.fillStyle = `rgba(160, 138, 108, ${alpha * 0.04})`
+    ctx.fillRect(0, y, w, 1)
+  }
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +185,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playPaperEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
