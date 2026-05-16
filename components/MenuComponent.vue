@@ -94,7 +94,7 @@ const showMenu = ref(false)
 const hamburgerRef = ref<HTMLButtonElement | null>(null)
 
 const navPos = computed(() => {
-  const currentPath = route.path === '/' ? '/' : route.path.replace(/\/$/, '')
+  const currentPath = route.path === '/' ? '/' : route.path.replace(/\/$/,'')
   const index = NAV_PAGES.indexOf(currentPath)
   const total = NAV_PAGES.length
   if (index === -1) return { index: -1, total, prev: null, next: null, prevLabel: '', nextLabel: '' }
@@ -308,7 +308,7 @@ defineExpose({
 	backdrop-filter: blur(20px);
 	-webkit-backdrop-filter: blur(20px);
 	transform: translateX(100%);
-	transition: transform 0.3s ease;
+	transition: transform var(--theme-transition, 0.3s ease);
 	z-index: 1000;
 	padding-top: 4.4rem;
 	box-shadow: -2px 0 8px rgba(0, 0, 0, 0.06), -1px 0 24px var(--theme-card-shadow, transparent);
