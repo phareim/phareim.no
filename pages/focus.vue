@@ -155,7 +155,10 @@
           v-for="i in SESSIONS_BEFORE_LONG"
           :key="i"
           class="sdot"
-          :class="{ 'sdot--done': i <= sessionCount }"
+          :class="{
+            'sdot--done': i <= sessionCount,
+            'sdot--active': i === activeDotIndex
+          }"
           aria-hidden="true"
         ></span>
         <span class="sr-only">{{ sessionCount }} of {{ SESSIONS_BEFORE_LONG }} focus sessions completed</span>
@@ -308,6 +311,12 @@ function playCompletionSound(isFocusComplete: boolean) {
 
 const activeModeConfig = computed(() => MODES[currentMode.value])
 const totalSeconds = computed(() => activeModeConfig.value.seconds)
+
+const activeDotIndex = computed(() => {
+  if (currentMode.value !== 'focus') return -1
+  if (sessionCount.value >= SESSIONS_BEFORE_LONG) return -1
+  return sessionCount.value + 1
+})
 
 const progressPct = computed(
   () => ((totalSeconds.value - timeLeft.value) / totalSeconds.value) * 100
@@ -667,6 +676,14 @@ h1 {
   .ring-time--tick {
     animation: none;
   }
+  .sdot--done {
+    animation: none;
+    transform: scale(1.25);
+  }
+  .sdot--active {
+    animation: none;
+    opacity: 0.5;
+  }
 }
 
 .ring-status {
@@ -901,12 +918,32 @@ h1 {
   height: 9px;
   border-radius: 50%;
   background: var(--theme-card-border, rgba(0, 0, 0, 0.12));
-  transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 
+/* Completed: pop into place, then hold at scale(1.25) */
 .sdot--done {
   background: var(--theme-accent, #6b8cae);
   transform: scale(1.25);
+  animation: sdot-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes sdot-pop {
+  0%   { transform: scale(1); }
+  55%  { transform: scale(1.55); }
+  100% { transform: scale(1.25); }
+}
+
+/* Active: the session currently in progress */
+.sdot--active {
+  background: var(--theme-accent, #6b8cae);
+  opacity: 0.45;
+  animation: sdot-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes sdot-breathe {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50%       { opacity: 0.8;  transform: scale(1.12); }
 }
 
 /* ── Hacker theme overrides ─────────────────────────────────── */
@@ -962,6 +999,17 @@ h1 {
 :global(.hacker-page) .sdot--done {
   background: var(--theme-text, #00ff41);
   box-shadow: 0 0 6px var(--theme-text, #00ff41);
+}
+
+:global(.hacker-page) .sdot--active {
+  background: var(--theme-text, #00ff41);
+  border-radius: 0;
+  animation: sdot-hacker-blink 1s step-end infinite;
+}
+
+@keyframes sdot-hacker-blink {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 0; }
 }
 
 /* ── Space theme overrides ──────────────────────────────────── */
@@ -1046,6 +1094,16 @@ h1 {
 :global(.space-page) .sdot--done {
   background: var(--space-accent-amber, #e8c87a);
   box-shadow: 0 0 8px rgba(232, 200, 122, 0.6);
+}
+
+:global(.space-page) .sdot--active {
+  background: var(--space-accent-amber, #e8c87a);
+  animation: sdot-space-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes sdot-space-pulse {
+  0%, 100% { opacity: 0.4; box-shadow: 0 0 0 0 rgba(232, 200, 122, 0); }
+  50%       { opacity: 0.85; box-shadow: 0 0 0 3px rgba(232, 200, 122, 0.3); }
 }
 
 :global(.space-page) .ring-ticks {
