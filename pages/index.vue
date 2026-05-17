@@ -81,6 +81,35 @@
 import ProfileCard from '~/components/ProfileCard.vue'
 import SocialLink from '~/components/SocialLink.vue'
 import SpaceInvadersBackground from '~/components/SpaceInvadersBackground.vue'
+
+// Theme-aware bubble palettes — curated RGB triplets per theme
+const SCANDI_BUBBLE_COLORS = [
+  [107, 140, 174], // soft blue (#6b8cae)
+  [130, 165, 190], // sky blue
+  [90,  125, 160], // denim blue
+  [155, 171, 139], // sage green (#9bab8b)
+  [130, 150, 118], // forest sage
+  [175, 192, 165], // pale sage
+  [165, 155, 195], // soft lavender
+  [145, 135, 175], // deeper lavender
+  [170, 185, 190], // glacier blue-grey
+  [195, 188, 178], // warm stone
+  [175, 195, 195], // pale aqua
+]
+
+const ALMANAC_BUBBLE_COLORS = [
+  [193,  74,  42], // rust (#c1492a)
+  [210, 100,  65], // lighter rust
+  [212, 165, 116], // amber (#d4a574)
+  [200, 155, 100], // warm amber
+  [185, 140,  85], // ochre
+  [170, 150, 120], // warm khaki
+  [190, 165, 140], // parchment warm
+  [160, 130,  95], // earth brown
+  [200, 175, 150], // sandy warm
+  [175, 160, 140], // warm grey
+]
+
 export default {
   name: 'Home',
   components: {
@@ -310,7 +339,15 @@ export default {
       this.ctx.shadowColor = 'transparent';     
       this.ctx.stroke(); 
       this.ctx.lineWidth = 5;
-      this.ctx.strokeStyle = (this.theUpsideDown? 'rgba(100,90,80,0.2)':'rgba(0, 0, 0, 0.9)');
+      if (this.theUpsideDown) {
+        this.ctx.strokeStyle = 'rgba(100,90,80,0.2)';
+      } else if (this.activeTheme === 'scandi') {
+        this.ctx.strokeStyle = 'rgba(100, 115, 140, 0.22)';
+      } else if (this.activeTheme === 'almanac') {
+        this.ctx.strokeStyle = 'rgba(140, 105, 70, 0.22)';
+      } else {
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+      }
       this.ctx.class = 'box';
     },
     
@@ -324,7 +361,15 @@ export default {
       document.body.classList.remove('dark-mode');
       this.theUpsideDown = false;
       this.boxes.forEach(box => {
-        box.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+        if (this.activeTheme === 'scandi') {
+          const c = SCANDI_BUBBLE_COLORS[Math.floor(Math.random() * SCANDI_BUBBLE_COLORS.length)];
+          box.color = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+        } else if (this.activeTheme === 'almanac') {
+          const c = ALMANAC_BUBBLE_COLORS[Math.floor(Math.random() * ALMANAC_BUBBLE_COLORS.length)];
+          box.color = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+        } else {
+          box.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+        }
         box.vx = box.vx * 6;
         box.vy = box.vy * 6;
       });
@@ -436,19 +481,37 @@ export default {
       const y = event.clientY - rect.top;
 
       const size = (Math.random() * 300) + 50;
-      const r = (Math.random()> 0.5? 75 + Math.random()*20 : 150 + Math.random()*20);
-      const g = (Math.random()> 0.5? 50 + Math.random()*100 : 125 + Math.random()*20);
-      const b = (Math.random()> 0.5? 100 + Math.random()*20 : 255);
-      
+      let r, g, b;
+      const jitter = () => Math.round((Math.random() - 0.5) * 30);
+      if (this.activeTheme === 'scandi') {
+        const c = SCANDI_BUBBLE_COLORS[Math.floor(Math.random() * SCANDI_BUBBLE_COLORS.length)];
+        r = Math.min(255, Math.max(0, c[0] + jitter()));
+        g = Math.min(255, Math.max(0, c[1] + jitter()));
+        b = Math.min(255, Math.max(0, c[2] + jitter()));
+      } else if (this.activeTheme === 'almanac') {
+        const c = ALMANAC_BUBBLE_COLORS[Math.floor(Math.random() * ALMANAC_BUBBLE_COLORS.length)];
+        r = Math.min(255, Math.max(0, c[0] + jitter()));
+        g = Math.min(255, Math.max(0, c[1] + jitter()));
+        b = Math.min(255, Math.max(0, c[2] + jitter()));
+      } else {
+        r = (Math.random() > 0.5 ? 75 + Math.random() * 20 : 150 + Math.random() * 20);
+        g = (Math.random() > 0.5 ? 50 + Math.random() * 100 : 125 + Math.random() * 20);
+        b = (Math.random() > 0.5 ? 100 + Math.random() * 20 : 255);
+      }
+
       let shadowLength = 0;
       if(event.layer){
         shadowLength = event.layer === 1 ? 0 : 30;
       } else {
         shadowLength = (r + g + b) > 420 ? 0 : 30;
       }
-      
+
       const color = `rgb(${r}, ${g}, ${b})`;
-      const shadowColor = this.darkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(10, 10, 10, 0.5)';
+      const shadowColor = this.activeTheme === 'scandi'
+        ? 'rgba(80, 100, 120, 0.25)'
+        : this.activeTheme === 'almanac'
+          ? 'rgba(120, 90, 60, 0.25)'
+          : (this.darkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(10, 10, 10, 0.5)');
       const shadow = this.getNewShadow(shadowLength, shadowColor);
       const yvelocity = ((Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1));
       const xvelocity = ((Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1));
