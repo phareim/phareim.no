@@ -172,13 +172,28 @@ const recentProjects = computed(() => {
     .slice(0, 3)
 })
 
+// Ticks every 30 s so relative timestamps stay accurate while the page is open
+const nowTick = ref(Date.now())
+let _nowInterval: ReturnType<typeof setInterval> | undefined
+
+onMounted(() => {
+  _nowInterval = setInterval(() => { nowTick.value = Date.now() }, 30_000)
+})
+
+onBeforeUnmount(() => {
+  clearInterval(_nowInterval)
+})
+
 function formatDate(iso: string): string {
   if (!iso) return ''
   const d = new Date(iso)
-  const now = new Date()
-  const diffMs = now.getTime() - d.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  if (diffDays === 0) return 'today'
+  const diffMs = nowTick.value - d.getTime()
+  const diffMins = Math.floor(diffMs / 60_000)
+  if (diffMins < 1) return 'just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  const diffHours = Math.floor(diffMins / 60)
+  if (diffHours < 24) return `${diffHours}h ago`
+  const diffDays = Math.floor(diffHours / 24)
   if (diffDays === 1) return 'yesterday'
   if (diffDays < 7) return `${diffDays} days ago`
   if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
