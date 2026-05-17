@@ -263,15 +263,22 @@ const commitActivity = computed(() => {
 })
 
 const currentStreak = computed(() => {
-  const days = commitActivity.value
-  if (!days.length) return 0
-  let i = days.length - 1
+  const commits = commitsData.value ?? []
+  if (!commits.length) return 0
+  const countByDay = new Map<string, number>()
+  for (const c of commits) {
+    const day = c.date.slice(0, 10)
+    countByDay.set(day, (countByDay.get(day) ?? 0) + 1)
+  }
+  const check = new Date()
   // If today has no commits yet, start from yesterday
-  if (days[i]?.count === 0) i--
+  if (!countByDay.get(check.toISOString().slice(0, 10))) {
+    check.setDate(check.getDate() - 1)
+  }
   let streak = 0
-  while (i >= 0 && days[i]?.count > 0) {
+  while (countByDay.get(check.toISOString().slice(0, 10))) {
     streak++
-    i--
+    check.setDate(check.getDate() - 1)
   }
   return streak
 })
