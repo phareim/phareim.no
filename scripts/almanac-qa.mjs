@@ -16,6 +16,7 @@ const ROUTES = [
   ['feed','/feed'], ['focus','/focus'], ['gallery','/gallery'],
   ['guestbook','/guestbook'], ['lab','/lab'], ['meta','/meta'],
   ['now','/now'], ['projects','/projects'], ['uses','/uses'],
+  ['launch','/launch'],
   ['error','/this-does-not-exist'],
 ];
 const MODES = ['light','dark'];

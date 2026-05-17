@@ -38,6 +38,7 @@ pages/               — file-based routing
   focus.vue          — /focus — Pomodoro/focus timer: SVG ring (scandi/space), terminal countdown (hacker); 4-session cycle with short/long breaks
   terminal.vue       — /terminal — interactive in-browser terminal; commands: help, whoami, ls, cat, open, clear, etc.
   morse.vue          — /morse — interactive Morse code translator; text → dots/dashes with Web Audio API playback, WPM speed slider, visual char/symbol highlighting
+  launch.vue         — /launch — rocket launch countdown: SVG rocket on pad (scandi/space/almanac), ASCII rocket (hacker); T-10 countdown, ignition shudder, liftoff animation, Web Audio rumble + orbit chord
   drafts/            — experimental pages
 components/          — Vue components
 composables/         — useTheme
@@ -81,6 +82,6 @@ Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
 ## Keyboard Shortcuts
 
 - `M` key toggles the global menu (disabled on admin pages)
-- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/guestbook`, `/activity`, `/stats`, `/meta`, `/colophon`, `/playground`, `/gallery`, `/clock`, `/lab`, `/focus`, `/terminal`, `/morse`
+- `[` / `]` navigate to previous / next page in order: `/`, `/about`, `/projects`, `/feed`, `/now`, `/uses`, `/guestbook`, `/activity`, `/stats`, `/meta`, `/colophon`, `/playground`, `/gallery`, `/clock`, `/lab`, `/focus`, `/terminal`, `/morse`, `/launch`
 - `1` / `2` / `3` switch themes (scandinavian / hacker / space)
 - `?` or `/` toggles the keyboard shortcuts overlay

@@ -17,4 +17,5 @@ export const NAV_PAGES = [
   '/focus',
   '/terminal',
   '/morse',
+  '/launch',
 ]

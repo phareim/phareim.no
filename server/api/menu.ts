@@ -19,6 +19,7 @@ const menuItems = [
   { path: '/focus', title: 'Focus', icon: '⏱' },
   { path: '/terminal', title: 'Terminal', icon: '>' },
   { path: '/morse', title: 'Morse', icon: '·−' },
+  { path: '/launch', title: 'Launch', icon: '🚀' },
   { path: 'https://dot.phareim.no', title: 'Red dot game', icon: '🔴', external: true },
   { path: 'https://reader.phareim.no', title: 'RSS Reader', icon: '📰', external: true },
   { path: 'https://blue.phareim.no', title: 'Blue', icon: '🔵', external: true }
