@@ -38,10 +38,22 @@
             @keydown.ctrl.enter.prevent="submit"
             @keydown.meta.enter.prevent="submit"
           ></textarea>
-          <span class="gb-char-count" :class="{ warn: form.message.length > 240 }">
-            {{ form.message.length }}/280
-            <span class="gb-hint">ctrl+enter to send</span>
-          </span>
+          <div class="gb-char-row">
+            <div class="gb-char-bar" aria-hidden="true">
+              <div
+                class="gb-char-bar-fill"
+                :class="{
+                  'gb-char-bar-fill--warn': form.message.length > 210,
+                  'gb-char-bar-fill--danger': form.message.length > 250
+                }"
+                :style="{ width: charPct + '%' }"
+              ></div>
+            </div>
+            <span class="gb-char-count" :class="{ warn: form.message.length > 240 }">
+              {{ form.message.length }}/280
+              <span class="gb-hint">ctrl+enter to send</span>
+            </span>
+          </div>
         </div>
 
         <div v-if="error" class="gb-error" role="alert">{{ error }}</div>
@@ -106,6 +118,8 @@ const submitted = ref(false)
 const error = ref('')
 const newEntryId = ref<string | null>(null)
 let newEntryTimer: ReturnType<typeof setTimeout> | null = null
+
+const charPct = computed(() => Math.min(100, (form.message.length / 280) * 100))
 
 async function submit() {
   if (submitting.value) return
@@ -245,6 +259,36 @@ h1 {
 .gb-textarea:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.gb-char-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.gb-char-bar {
+  width: 100%;
+  height: 2px;
+  background: var(--theme-card-border, rgba(0, 0, 0, 0.12));
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.gb-char-bar-fill {
+  height: 100%;
+  background: var(--theme-accent, #6b8cae);
+  border-radius: 999px;
+  transition: width 0.15s ease, background 0.4s ease;
+  will-change: width;
+}
+
+.gb-char-bar-fill--warn {
+  background: color-mix(in srgb, var(--theme-accent-danger, #c1272d) 55%, var(--theme-accent, #6b8cae));
+}
+
+.gb-char-bar-fill--danger {
+  background: var(--theme-accent-danger, #c1272d);
 }
 
 .gb-char-count {
@@ -489,6 +533,28 @@ h1 {
   font-family: monospace;
 }
 
+:global(.hacker-page) .gb-char-bar {
+  background: rgba(0, 40, 0, 0.8);
+  border-radius: 0;
+  height: 3px;
+}
+
+:global(.hacker-page) .gb-char-bar-fill {
+  border-radius: 0;
+  background: var(--hacker-text-dim, #008F11);
+  box-shadow: 0 0 4px currentColor;
+}
+
+:global(.hacker-page) .gb-char-bar-fill--warn {
+  background: #c88400;
+  box-shadow: 0 0 4px #c88400;
+}
+
+:global(.hacker-page) .gb-char-bar-fill--danger {
+  background: var(--hacker-accent, #ff0055);
+  box-shadow: 0 0 6px var(--hacker-accent, #ff0055);
+}
+
 :global(.hacker-page) .gb-input,
 :global(.hacker-page) .gb-textarea {
   border-radius: 0;
@@ -538,6 +604,25 @@ h1 {
 :global(.space-page) .section-label {
   font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
   font-weight: 900;
+}
+
+:global(.space-page) .gb-char-bar {
+  border-radius: 0;
+  height: 2px;
+  background: rgba(140, 170, 220, 0.12);
+}
+
+:global(.space-page) .gb-char-bar-fill {
+  border-radius: 0;
+  background: var(--space-accent-blue, #89abd0);
+}
+
+:global(.space-page) .gb-char-bar-fill--warn {
+  background: var(--space-accent-amber, #e8c87a);
+}
+
+:global(.space-page) .gb-char-bar-fill--danger {
+  background: var(--space-accent-red, #e06060);
 }
 
 :global(.space-page) .gb-entry:hover {
