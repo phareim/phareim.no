@@ -12,6 +12,7 @@ let constellations: Constellation[] = []
 let animationId: number | null = null
 let frame = 0
 let novaRings: NovaRing[] = []
+let warpEffects: WarpEffect[] = []
 
 // Mouse parallax state (desktop)
 let mouseParallaxX = 0
@@ -145,6 +146,15 @@ interface NovaRing {
   radius: number
   maxRadius: number
   opacity: number
+}
+
+interface WarpEffect {
+  x: number
+  y: number
+  radius: number
+  strength: number
+  life: number
+  decay: number
 }
 
 interface Nebula {
@@ -412,6 +422,14 @@ function triggerNova(clientX: number, clientY: number) {
     maxRadius: 100 + Math.random() * 80,
     opacity: 0.65,
   })
+  warpEffects.push({
+    x,
+    y,
+    radius: 200 + Math.random() * 80,
+    strength: 18,
+    life: 1,
+    decay: 0.025,
+  })
 }
 
 function drawNovaRings() {
@@ -451,10 +469,35 @@ function draw() {
     const px = star.x + (gyroOffsetX + mouseParallaxX) * depth
     const py = star.y + (gyroOffsetY + mouseParallaxY) * depth
 
-    ctx.beginPath()
-    ctx.arc(px, py, star.size, 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(${star.rgbStr}, ${finalOpacity})`
-    ctx.fill()
+    // Warp distortion: stars near a nova stretch radially outward
+    let wx = 0, wy = 0
+    for (const warp of warpEffects) {
+      const wdx = px - warp.x
+      const wdy = py - warp.y
+      const dist = Math.hypot(wdx, wdy)
+      if (dist < warp.radius && dist > 1) {
+        const proximity = (1 - dist / warp.radius) * warp.life
+        wx += (wdx / dist) * proximity * warp.strength
+        wy += (wdy / dist) * proximity * warp.strength
+      }
+    }
+    const warpMag = Math.hypot(wx, wy)
+    if (warpMag > 1) {
+      const ux = wx / warpMag
+      const uy = wy / warpMag
+      ctx.beginPath()
+      ctx.moveTo(px - ux * warpMag, py - uy * warpMag)
+      ctx.lineTo(px, py)
+      ctx.strokeStyle = `rgba(${star.rgbStr}, ${finalOpacity})`
+      ctx.lineWidth = star.size * 1.4
+      ctx.lineCap = 'round'
+      ctx.stroke()
+    } else {
+      ctx.beginPath()
+      ctx.arc(px, py, star.size, 0, Math.PI * 2)
+      ctx.fillStyle = `rgba(${star.rgbStr}, ${finalOpacity})`
+      ctx.fill()
+    }
 
     star.x -= star.speed
     if (star.x < -2) {
@@ -482,6 +525,9 @@ function draw() {
   }
 
   drawNovaRings()
+
+  for (const w of warpEffects) { w.life -= w.decay }
+  warpEffects = warpEffects.filter(w => w.life > 0)
 
   animationId = requestAnimationFrame(draw)
 }
