@@ -40,7 +40,7 @@
           ></textarea>
           <span class="gb-char-count" :class="{ warn: form.message.length > 240 }">
             {{ form.message.length }}/280
-            <span class="gb-hint">ctrl+enter to send</span>
+            <span class="gb-hint">{{ submitHint }} to send</span>
           </span>
         </div>
 
@@ -96,6 +96,9 @@
 import type { GuestbookEntry } from '~/server/api/guestbook'
 
 useHead({ title: 'guestbook — phareim.no' })
+
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.userAgent)
+const submitHint = isMac ? '⌘+return' : 'ctrl+enter'
 
 const { data: entriesData, pending, refresh } = await useFetch<GuestbookEntry[]>('/api/guestbook')
 const entries = computed(() => entriesData.value ?? [])
