@@ -168,7 +168,7 @@ export default {
     }
     this.hackerHighScore = parseInt(localStorage.getItem('hackerHighScore') || '0', 10);
   },
-  beforeDestroy() {
+  beforeUnmount() {
     document.body.classList.add('scrollable');
     window.removeEventListener('mousemove', this.updateMousePosition);
     window.removeEventListener('resize', this.setupCanvas);
@@ -221,7 +221,7 @@ export default {
       this.mousePosition.v.x = (this.mousePosition.v.x * 0.9);
       this.mousePosition.v.y = (this.mousePosition.v.y * 0.9);
     },
-    getNewShadow(strength, color = 'rgba(0, 0, 0, 0.5') {
+    getNewShadow(strength, color = 'rgba(0, 0, 0, 0.5)') {
       const shadow = {
         strength,
         shadowOffsetX: strength * 1,
