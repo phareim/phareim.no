@@ -60,6 +60,19 @@
             />
           </template>
 
+          <!-- Hour numerals -->
+          <g class="hour-nums" aria-hidden="true">
+            <text
+              v-for="h in 12"
+              :key="h"
+              :x="100 + 74 * Math.sin(h * 30 * DEG)"
+              :y="100 - 74 * Math.cos(h * 30 * DEG)"
+              text-anchor="middle"
+              dominant-baseline="central"
+              class="hour-num"
+            >{{ h }}</text>
+          </g>
+
           <!-- Hour hand -->
           <line
             class="hand-hour"
@@ -325,6 +338,13 @@ h1 {
   fill: var(--theme-bg, #f5f5f3);
 }
 
+.hour-num {
+  font-size: 9px;
+  fill: var(--theme-text-subtle, #bbb);
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Info panel ───────────────────────────────────────────────────── */
 
 .info-panel {
@@ -501,6 +521,12 @@ h1 {
   text-transform: uppercase;
   font-size: 0.8rem;
   letter-spacing: 0.1em;
+}
+
+:global(.space-page) .hour-num {
+  fill: rgba(140, 170, 220, 0.45);
+  font-family: monospace;
+  font-size: 8px;
 }
 
 :global(.space-page) .face-ring {
