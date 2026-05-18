@@ -177,6 +177,40 @@
         <div v-else class="stats-placeholder"><span>no recent commits</span></div>
       </section>
 
+      <div class="stats-divider" aria-hidden="true"></div>
+
+      <!-- Day of week distribution -->
+      <section class="stats-section" aria-label="Commits by day of week">
+        <h2 class="section-label">most active days</h2>
+        <div v-if="commitsPending" class="stats-placeholder"><span>loading…</span></div>
+        <div
+          v-else-if="commitCount > 0"
+          ref="dowChartRef"
+          class="dow-chart"
+          :class="{ 'is-visible': dowVisible }"
+          role="img"
+          :aria-label="dowAriaLabel"
+        >
+          <div
+            v-for="(day, i) in commitsByDow"
+            :key="day.label"
+            class="dow-row"
+            :style="{ '--dow-index': i }"
+          >
+            <span class="dow-label">{{ day.label }}</span>
+            <div class="dow-bar-track">
+              <div
+                class="dow-bar-fill"
+                :style="{ '--dow-pct': (day.count / maxDowCount * 100).toFixed(1) + '%' }"
+                :class="{ 'dow-bar--peak': day.count === maxDowCount && day.count > 0 }"
+              ></div>
+            </div>
+            <span class="dow-count">{{ day.count }}</span>
+          </div>
+        </div>
+        <div v-else class="stats-placeholder"><span>no data</span></div>
+      </section>
+
     </main>
   </div>
 </template>
@@ -391,6 +425,30 @@ function animateCount(target: number, setter: (v: number) => void, duration = 90
   requestAnimationFrame(step)
 }
 
+// ── Day-of-week distribution ──────────────────────────────────────────
+
+const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+const commitsByDow = computed(() => {
+  const counts = new Array(7).fill(0)
+  for (const c of commitsData.value ?? []) {
+    const dow = new Date(c.date + 'T12:00:00').getDay()  // noon avoids TZ-shift
+    counts[(dow + 6) % 7]++  // remap: Mon=0 … Sun=6
+  }
+  return DOW_LABELS.map((label, i) => ({ label, count: counts[i] }))
+})
+
+const maxDowCount = computed(() =>
+  Math.max(...commitsByDow.value.map(d => d.count), 1)
+)
+
+const dowAriaLabel = computed(() =>
+  'Commits by day: ' + commitsByDow.value.map(d => `${d.label} ${d.count}`).join(', ')
+)
+
+const dowChartRef = ref<HTMLElement | null>(null)
+const dowVisible = ref(false)
+
 onMounted(() => {
   // Short delay lets the card enter-animations finish before counting starts
   setTimeout(() => {
@@ -412,6 +470,20 @@ onMounted(() => {
     }
   } else {
     heatmapVisible.value = true
+  }
+
+  // Day-of-week chart entrance animation
+  if (dowChartRef.value) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      dowVisible.value = true
+    } else {
+      const obs2 = new IntersectionObserver((entries) => {
+        if (entries[0]?.isIntersecting) { dowVisible.value = true; obs2.disconnect() }
+      }, { threshold: 0.1 })
+      obs2.observe(dowChartRef.value)
+    }
+  } else {
+    dowVisible.value = true
   }
 })
 </script>
@@ -888,6 +960,64 @@ h1 {
   padding: 0 4px;
 }
 
+/* ── Day-of-week chart ────────────────────────────────────────────── */
+
+.dow-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.dow-row {
+  display: grid;
+  grid-template-columns: 2.6rem 1fr 2.5rem;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.dow-label {
+  font-size: 0.68rem;
+  color: var(--theme-text-subtle, #aaa);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.dow-bar-track {
+  height: 7px;
+  background: var(--theme-card-border, rgba(0, 0, 0, 0.08));
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.dow-chart:not(.is-visible) .dow-bar-fill {
+  width: 0 !important;
+  transition: none;
+}
+
+.dow-bar-fill {
+  height: 100%;
+  width: var(--dow-pct, 0%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--theme-accent, #6b8cae) 55%, transparent);
+  transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition-delay: calc(var(--dow-index, 0) * 60ms);
+}
+
+.dow-bar-fill.dow-bar--peak {
+  background: var(--theme-accent, #6b8cae);
+}
+
+.dow-count {
+  font-size: 0.65rem;
+  color: var(--theme-text-muted, #666);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dow-chart:not(.is-visible) .dow-bar-fill { width: var(--dow-pct, 0%) !important; }
+  .dow-bar-fill { transition: none !important; }
+}
+
 /* ── Placeholder ──────────────────────────────────────────────────── */
 
 .stats-placeholder {
@@ -1034,6 +1164,19 @@ h1 {
 :global(.space-page) .commit-cell--level3 { background: rgba(137, 171, 208, 0.75); }
 :global(.space-page) .commit-cell--level4 { background: #89abd0; }
 
+:global(.hacker-page) .dow-label {
+  font-family: monospace;
+  font-size: 0.65rem;
+}
+
+:global(.hacker-page) .dow-bar-track {
+  border-radius: 0;
+}
+
+:global(.hacker-page) .dow-bar-fill {
+  border-radius: 0;
+}
+
 :global(.hacker-page) .heatmap-tooltip {
   border-radius: 0;
   font-family: monospace;
@@ -1043,6 +1186,22 @@ h1 {
 
 :global(.hacker-page) .tooltip-date { color: var(--hacker-text-dim, #008f11); }
 :global(.hacker-page) .tooltip-count { color: var(--hacker-text, #00ff41); }
+
+:global(.space-page) .dow-bar-fill {
+  background: rgba(137, 171, 208, 0.5);
+}
+
+:global(.space-page) .dow-bar-fill.dow-bar--peak {
+  background: #89abd0;
+  box-shadow: 0 0 6px rgba(137, 171, 208, 0.5);
+}
+
+:global(.space-page) .dow-label {
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  text-transform: uppercase;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+}
 
 :global(.space-page) .heatmap-tooltip {
   box-shadow: 0 4px 16px var(--space-glow, rgba(140, 170, 220, 0.2));
