@@ -13,6 +13,13 @@ let animationId: number | null = null
 let frame = 0
 let novaRings: NovaRing[] = []
 
+// DPR-aware logical dimensions (CSS pixel space)
+let dpr = 1
+let logicalW = 0
+let logicalH = 0
+// Timestamp for frame-rate-independent animation
+let lastTs = 0
+
 // Mouse parallax state (desktop)
 let mouseParallaxX = 0
 let mouseParallaxY = 0
@@ -178,18 +185,26 @@ interface Constellation {
 
 function resize() {
   if (!canvas.value) return
-  canvas.value.width = window.innerWidth
-  canvas.value.height = window.innerHeight
+  dpr = window.devicePixelRatio || 1
+  logicalW = window.innerWidth
+  logicalH = window.innerHeight
+  canvas.value.width = logicalW * dpr
+  canvas.value.height = logicalH * dpr
+  canvas.value.style.width = `${logicalW}px`
+  canvas.value.style.height = `${logicalH}px`
+  if (ctx) {
+    ctx.resetTransform()
+    ctx.scale(dpr, dpr)
+  }
 }
 
 function initStars() {
-  if (!canvas.value) return
   stars = []
   for (let i = 0; i < NUM_STARS; i++) {
     const color = STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)]
     stars.push({
-      x: Math.random() * canvas.value.width,
-      y: Math.random() * canvas.value.height,
+      x: Math.random() * logicalW,
+      y: Math.random() * logicalH,
       size: Math.random() * 1.8 + 0.2,
       speed: Math.random() * 1.5 + 0.3,
       opacity: Math.random() * 0.7 + 0.3,
@@ -202,13 +217,12 @@ function initStars() {
 }
 
 function initNebulas() {
-  if (!canvas.value) return
   nebulas = []
   for (let i = 0; i < NUM_NEBULAS; i++) {
     const color = NEBULA_COLORS[i % NEBULA_COLORS.length]
     nebulas.push({
-      x: Math.random() * canvas.value.width,
-      y: Math.random() * canvas.value.height,
+      x: Math.random() * logicalW,
+      y: Math.random() * logicalH,
       radius: Math.random() * 220 + 120,
       color,
       opacity: Math.random() * 0.07 + 0.03,
@@ -219,10 +233,9 @@ function initNebulas() {
 }
 
 function initConstellations() {
-  if (!canvas.value) return
   constellations = []
-  const w = canvas.value.width
-  const h = canvas.value.height
+  const w = logicalW
+  const h = logicalH
   for (let i = 0; i < NUM_CONSTELLATIONS; i++) {
     const shape = CONSTELLATION_SHAPES[i % CONSTELLATION_SHAPES.length]
     constellations.push({
@@ -241,8 +254,8 @@ function initConstellations() {
   }
 }
 
-function drawNebulas() {
-  if (!ctx || !canvas.value) return
+function drawNebulas(dt: number) {
+  if (!ctx) return
   for (const nebula of nebulas) {
     const px = nebula.x + (gyroOffsetX + mouseParallaxX) * nebula.parallaxDepth
     const py = nebula.y + (gyroOffsetY + mouseParallaxY) * nebula.parallaxDepth
@@ -258,18 +271,18 @@ function drawNebulas() {
     ctx.fillStyle = grad
     ctx.fill()
 
-    nebula.x -= nebula.speed
+    nebula.x -= nebula.speed * dt
     if (nebula.x + nebula.radius < 0) {
-      nebula.x = canvas.value.width + nebula.radius
-      nebula.y = Math.random() * canvas.value.height
+      nebula.x = logicalW + nebula.radius
+      nebula.y = Math.random() * logicalH
     }
   }
 }
 
-function drawConstellations() {
-  if (!ctx || !canvas.value) return
-  const w = canvas.value.width
-  const h = canvas.value.height
+function drawConstellations(dt: number) {
+  if (!ctx) return
+  const w = logicalW
+  const h = logicalH
   const px0 = (gyroOffsetX + mouseParallaxX)
   const py0 = (gyroOffsetY + mouseParallaxY)
 
@@ -302,7 +315,7 @@ function drawConstellations() {
     for (let i = 0; i < con.stars.length; i++) {
       const s = con.stars[i]
       const pos = positions[i]
-      s.twinklePhase += s.twinkleSpeed
+      s.twinklePhase += s.twinkleSpeed * dt
       const twinkle = 1 + Math.sin(s.twinklePhase) * 0.2
       const alpha = Math.min(1, con.opacity * s.brightness * twinkle * 1.6)
 
@@ -324,7 +337,7 @@ function drawConstellations() {
     }
 
     // Drift leftward; wrap to right edge when fully off-screen
-    con.x -= con.speed
+    con.x -= con.speed * dt
     const rightmostX = Math.max(...con.stars.map(s => s.rx))
     if (con.x + rightmostX < -20) {
       const leftmostX = Math.min(...con.stars.map(s => s.rx))
@@ -336,9 +349,8 @@ function drawConstellations() {
 }
 
 function spawnShootingStar() {
-  if (!canvas.value) return
-  const w = canvas.value.width
-  const h = canvas.value.height
+  const w = logicalW
+  const h = logicalH
 
   const fromTop = Math.random() > 0.35
   const x = fromTop ? Math.random() * w * 0.8 : -20
@@ -414,7 +426,7 @@ function triggerNova(clientX: number, clientY: number) {
   })
 }
 
-function drawNovaRings() {
+function drawNovaRings(dt: number) {
   if (!ctx || novaRings.length === 0) return
   for (const ring of novaRings) {
     const progress = ring.radius / ring.maxRadius
@@ -424,26 +436,28 @@ function drawNovaRings() {
     ctx.strokeStyle = `rgba(200, 220, 255, ${alpha.toFixed(3)})`
     ctx.lineWidth = 1.5 * (1 - progress * 0.5)
     ctx.stroke()
-    ring.radius += 3.5
-    ring.opacity -= 0.014
+    ring.radius += 3.5 * dt
+    ring.opacity -= 0.014 * dt
   }
   novaRings = novaRings.filter(r => r.opacity > 0 && r.radius < r.maxRadius)
 }
 
-function draw() {
+function draw(ts: DOMHighResTimeStamp = 0) {
   if (!ctx || !canvas.value) return
-  ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
+  const dt = lastTs > 0 ? Math.min((ts - lastTs) / 16.667, 3) : 1
+  lastTs = ts
+  ctx.clearRect(0, 0, logicalW, logicalH)
 
   gyroOffsetX += (targetGyroX - gyroOffsetX) * GYRO_SMOOTHING
   gyroOffsetY += (targetGyroY - gyroOffsetY) * GYRO_SMOOTHING
   mouseParallaxX += (targetMouseX - mouseParallaxX) * MOUSE_SMOOTHING
   mouseParallaxY += (targetMouseY - mouseParallaxY) * MOUSE_SMOOTHING
 
-  drawNebulas()
-  drawConstellations()
+  drawNebulas(dt)
+  drawConstellations(dt)
 
   for (const star of stars) {
-    star.twinklePhase += star.twinkleSpeed
+    star.twinklePhase += star.twinkleSpeed * dt
     const twinkle = 1 + Math.sin(star.twinklePhase) * 0.15
     const finalOpacity = Math.min(1, star.opacity * twinkle)
 
@@ -456,16 +470,16 @@ function draw() {
     ctx.fillStyle = `rgba(${star.rgbStr}, ${finalOpacity})`
     ctx.fill()
 
-    star.x -= star.speed
+    star.x -= star.speed * dt
     if (star.x < -2) {
-      star.x = canvas.value!.width + 2
-      star.y = Math.random() * canvas.value!.height
+      star.x = logicalW + 2
+      star.y = Math.random() * logicalH
       star.opacity = Math.random() * 0.7 + 0.3
       star.speed = Math.random() * 1.5 + 0.3
     }
   }
 
-  frame++
+  frame += dt
   if (frame >= nextShootingFrame) {
     spawnShootingStar()
     nextShootingFrame = frame + Math.floor(
@@ -476,23 +490,23 @@ function draw() {
   shootingStars = shootingStars.filter(s => s.life > 0)
   for (const s of shootingStars) {
     drawShootingStar(s)
-    s.x += s.vx
-    s.y += s.vy
-    s.life -= s.decay
+    s.x += s.vx * dt
+    s.y += s.vy * dt
+    s.life -= s.decay * dt
   }
 
-  drawNovaRings()
+  drawNovaRings(dt)
 
   animationId = requestAnimationFrame(draw)
 }
 
 function onResize() {
-  const oldW = canvas.value?.width ?? 0
-  const oldH = canvas.value?.height ?? 0
+  const oldW = logicalW
+  const oldH = logicalH
   resize()
   if (!canvas.value) return
-  const newW = canvas.value.width
-  const newH = canvas.value.height
+  const newW = logicalW
+  const newH = logicalH
   for (const star of stars) {
     star.x = star.x * newW / (oldW || newW)
     star.y = star.y * newH / (oldH || newH)
@@ -509,9 +523,8 @@ function onResizeStatic() {
 }
 
 function handleMouseMove(e: MouseEvent) {
-  if (!canvas.value) return
-  const cx = canvas.value.width / 2
-  const cy = canvas.value.height / 2
+  const cx = logicalW / 2
+  const cy = logicalH / 2
   targetMouseX = ((e.clientX - cx) / cx) * -MOUSE_SENSITIVITY
   targetMouseY = ((e.clientY - cy) / cy) * -MOUSE_SENSITIVITY
 }
@@ -549,8 +562,8 @@ let gyroTapHandler: (() => void) | null = null
 let reducedMotion = false
 
 function drawStatic() {
-  if (!ctx || !canvas.value) return
-  ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
+  if (!ctx) return
+  ctx.clearRect(0, 0, logicalW, logicalH)
   // Nebulas first so stars render on top
   for (const nebula of nebulas) {
     const [r, g, b] = nebula.color
@@ -600,7 +613,10 @@ function handleVisibilityChange() {
       animationId = null
     }
   } else {
-    if (animationId === null) draw()
+    if (animationId === null) {
+      lastTs = 0  // reset so first resumed frame gets dt=1, not a huge gap
+      draw()
+    }
   }
 }
 
