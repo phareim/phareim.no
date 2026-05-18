@@ -29,8 +29,11 @@ export const useTheme = () => {
     }
   }
 
-  // Restore theme from localStorage on client (after hydration to avoid mismatch)
-  if (import.meta.client) {
+  // Restore theme from localStorage on client (after hydration to avoid mismatch).
+  // Guard with shared state so only one onMounted is registered across all components.
+  const themeRestored = useState('themeRestored', () => false)
+  if (import.meta.client && !themeRestored.value) {
+    themeRestored.value = true
     onMounted(() => {
       const saved = localStorage.getItem('theme')
       if (saved && themes.some(t => t.id === saved)) {
