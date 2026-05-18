@@ -911,12 +911,12 @@ h1 {
 }
 
 .ctrl--abort {
-  background: #b14a4a;
-  box-shadow: 0 4px 16px rgba(177, 74, 74, 0.3);
+  background: var(--theme-accent-danger, #b14a4a);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--theme-accent-danger, #b14a4a) 30%, transparent);
 }
 
 .ctrl--abort:hover:not(:disabled) {
-  box-shadow: 0 6px 24px rgba(177, 74, 74, 0.45);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--theme-accent-danger, #b14a4a) 45%, transparent);
 }
 
 .ctrl--sec {
@@ -1168,13 +1168,13 @@ h1 {
 }
 
 :global(.hacker-page) .ctrl--abort {
-  background: #ff4646;
+  background: var(--theme-accent-danger, #ff4646);
   color: #0a0a0a;
-  box-shadow: 0 0 16px #ff4646;
+  box-shadow: 0 0 16px var(--theme-accent-danger, #ff4646);
 }
 
 :global(.hacker-page) .ctrl--abort:hover:not(:disabled) {
-  box-shadow: 0 0 28px #ff4646;
+  box-shadow: 0 0 28px var(--theme-accent-danger, #ff4646);
 }
 
 :global(.hacker-page) .ctrl--sec {
@@ -1233,8 +1233,8 @@ h1 {
 }
 
 :global(.space-page) .ctrl--abort {
-  background: #d96a6a;
-  box-shadow: 0 4px 20px rgba(217, 106, 106, 0.4);
+  background: var(--theme-accent-danger, #d96a6a);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--theme-accent-danger, #d96a6a) 40%, transparent);
 }
 
 :global(.space-page) .ctrl--sec {
