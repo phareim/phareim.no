@@ -107,7 +107,7 @@
 
       <div class="stats-divider" aria-hidden="true"></div>
 
-      <!-- Recent commit activity heatmap (last 12 weeks) -->
+      <!-- Recent commit activity heatmap (last 26 weeks) -->
       <section class="stats-section" aria-label="Recent commit activity">
         <h2 class="section-label">commit activity</h2>
         <div v-if="commitsPending" class="stats-placeholder"><span>loading…</span></div>
@@ -188,7 +188,7 @@ import type { Commit } from '~/server/api/meta'
 useHead({ title: 'stats — phareim.no' })
 
 const { data: projectsData, pending: projectsPending } = await useFetch<Project[]>('/api/projects')
-const { data: commitsData, pending: commitsPending } = await useFetch<Commit[]>('/api/meta')
+const { data: commitsData, pending: commitsPending } = await useFetch<Commit[]>('/api/meta?perPage=100')
 
 // ── Derived stats ─────────────────────────────────────────────────────
 
@@ -231,9 +231,9 @@ const topRepos = computed(() =>
     .slice(0, 5)
 )
 
-// ── Commit heatmap (last 12 weeks) ────────────────────────────────────
+// ── Commit heatmap (last 26 weeks) ────────────────────────────────────
 
-const WEEKS = 12
+const WEEKS = 26
 const DAYS = WEEKS * 7
 
 const DAY_ABBR = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
@@ -263,16 +263,24 @@ const commitActivity = computed(() => {
 })
 
 const currentStreak = computed(() => {
-  const days = commitActivity.value
-  if (!days.length) return 0
-  let i = days.length - 1
-  // If today has no commits yet, start from yesterday
-  if (days[i]?.count === 0) i--
+  const commits = commitsData.value ?? []
+  if (!commits.length) return 0
+
+  const commitDays = new Set(commits.map(c => c.date.slice(0, 10)))
+  const now = new Date()
+  const todayKey = now.toISOString().slice(0, 10)
+
+  let offset = commitDays.has(todayKey) ? 0 : 1
   let streak = 0
-  while (i >= 0 && days[i]?.count > 0) {
+
+  while (offset <= 365) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - offset)
+    if (!commitDays.has(d.toISOString().slice(0, 10))) break
     streak++
-    i--
+    offset++
   }
+
   return streak
 })
 
