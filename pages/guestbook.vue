@@ -40,7 +40,7 @@
           ></textarea>
           <span class="gb-char-count" :class="{ warn: form.message.length > 240 }">
             {{ form.message.length }}/280
-            <span class="gb-hint">ctrl+enter to send</span>
+            <span class="gb-hint">{{ submitHint }}</span>
           </span>
         </div>
 
@@ -133,6 +133,10 @@ async function submit() {
     submitting.value = false
   }
 }
+
+const isMac = ref(false)
+onMounted(() => { isMac.value = /Mac|iPhone|iPad/i.test(navigator.userAgent) })
+const submitHint = computed(() => isMac.value ? '⌘↵ to send' : 'ctrl+↵ to send')
 
 onBeforeUnmount(() => {
   if (newEntryTimer !== null) clearTimeout(newEntryTimer)
