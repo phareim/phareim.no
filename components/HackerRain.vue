@@ -8,6 +8,7 @@ let ctx: CanvasRenderingContext2D | null = null
 let animationId: number | null = null
 let columns: RainColumn[] = []
 let frame = 0
+let reducedMotion = false
 
 // Mix of binary, katakana fragments and block chars for visual variety
 const CHARS = '01アウエオカキクケコサシスセソタチツテトナニヌネノ01ハヒフヘホマミムメモ01ヤユヨラリルレロワヲン'
@@ -273,6 +274,11 @@ function handleTouch(e: TouchEvent) {
   if (touch) triggerShockwave(touch.clientX, touch.clientY)
 }
 
+function onResize() {
+  resize()
+  if (reducedMotion) drawStatic()
+}
+
 function handleVisibilityChange() {
   if (document.hidden) {
     if (animationId !== null) {
@@ -291,9 +297,10 @@ onMounted(() => {
   canvas.value.width = window.innerWidth
   canvas.value.height = window.innerHeight
 
-  window.addEventListener('resize', resize)
+  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  window.addEventListener('resize', onResize)
 
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (reducedMotion) {
     drawStatic()
     return
   }
@@ -308,7 +315,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', resize)
+  window.removeEventListener('resize', onResize)
   window.removeEventListener('click', handleClick)
   window.removeEventListener('touchstart', handleTouch)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
