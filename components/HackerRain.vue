@@ -46,6 +46,11 @@ const SHOCK_SPEED = 7       // px per frame expansion
 const SHOCK_WIDTH = 22      // px — wave band that triggers columns
 const shockwaves: Shockwave[] = []
 
+let scanlineY = 0
+const SCANLINE_SPEED = 0.35
+const SCANLINE_HEIGHT = 90
+let reducedMotion = false
+
 function randomChar(): string {
   return CHARS[Math.floor(Math.random() * CHARS.length)]
 }
@@ -245,6 +250,9 @@ function draw() {
     }
   }
 
+  if (!reducedMotion) drawScanline(w, h)
+  drawVignette(w, h)
+
   frame++
   animationId = requestAnimationFrame(draw)
 }
@@ -262,6 +270,36 @@ function drawStatic() {
     ctx.fillStyle = `rgba(0, 255, 65, ${0.4 * col.brightness})`
     ctx.fillText(col.glitchChar, col.x, Math.max(col.fontSize, Math.min(h, col.y + h * 0.5)))
   }
+  drawVignette(w, h)
+}
+
+function drawScanline(w: number, h: number) {
+  if (!ctx) return
+  const y = scanlineY
+  const grad = ctx.createLinearGradient(0, y - SCANLINE_HEIGHT / 2, 0, y + SCANLINE_HEIGHT / 2)
+  grad.addColorStop(0,    'rgba(0, 255, 65, 0)')
+  grad.addColorStop(0.3,  'rgba(0, 255, 65, 0.018)')
+  grad.addColorStop(0.5,  'rgba(0, 255, 65, 0.038)')
+  grad.addColorStop(0.7,  'rgba(0, 255, 65, 0.018)')
+  grad.addColorStop(1,    'rgba(0, 255, 65, 0)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, y - SCANLINE_HEIGHT / 2, w, SCANLINE_HEIGHT)
+  scanlineY += SCANLINE_SPEED
+  if (scanlineY > h + SCANLINE_HEIGHT / 2) scanlineY = -SCANLINE_HEIGHT / 2
+}
+
+function drawVignette(w: number, h: number) {
+  if (!ctx) return
+  const cx = w / 2
+  const cy = h / 2
+  const innerR = Math.min(w, h) * 0.38
+  const outerR = Math.hypot(cx, cy)
+  const grad = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR)
+  grad.addColorStop(0,   'rgba(0, 0, 0, 0)')
+  grad.addColorStop(0.5, 'rgba(0, 0, 0, 0.1)')
+  grad.addColorStop(1,   'rgba(0, 0, 0, 0.5)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, w, h)
 }
 
 function handleClick(e: MouseEvent) {
@@ -292,8 +330,9 @@ onMounted(() => {
   canvas.value.height = window.innerHeight
 
   window.addEventListener('resize', resize)
+  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (reducedMotion) {
     drawStatic()
     return
   }
