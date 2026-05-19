@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 700,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,55 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: ruled-paper reveal ──────────────────────────────────────────────
+function playPaperEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+  // Fade envelope: in 0→0.3, hold 0.3→0.65, out 0.65→1
+  const alpha = t < 0.3 ? t / 0.3 : t > 0.65 ? (1 - t) / 0.35 : 1
+
+  // Warm paper wash (#f4f0e8 = almanac paper)
+  ctx.fillStyle = `rgba(244, 240, 232, ${alpha * 0.93})`
+  ctx.fillRect(0, 0, w, h)
+
+  const cy = h / 2
+  // Lines spread outward from the vertical center, eased
+  const spread = Math.pow(Math.min(1, t * 2.0), 0.7)
+  const LINE_GAP = 26
+  const visibleHalf = spread * (h / 2 + LINE_GAP * 2)
+
+  // Horizontal hairline rules (#d8d2c4 = almanac rule-light)
+  ctx.strokeStyle = `rgba(216, 210, 196, ${alpha * 0.7})`
+  ctx.lineWidth = 0.8
+  for (let y = LINE_GAP; y <= visibleHalf; y += LINE_GAP) {
+    // Above center
+    ctx.beginPath()
+    ctx.moveTo(0, cy - y)
+    ctx.lineTo(w, cy - y)
+    ctx.stroke()
+    // Below center
+    ctx.beginPath()
+    ctx.moveTo(0, cy + y)
+    ctx.lineTo(w, cy + y)
+    ctx.stroke()
+  }
+  // Baseline rule through center — slightly bolder
+  ctx.beginPath()
+  ctx.moveTo(0, cy)
+  ctx.lineTo(w, cy)
+  ctx.strokeStyle = `rgba(216, 210, 196, ${alpha * 0.85})`
+  ctx.lineWidth = 1.0
+  ctx.stroke()
+
+  // Vertical rust margin line (#c14a2a = almanac rust) — appears with the lines
+  const marginX = Math.min(w * 0.1, 72) * spread
+  ctx.beginPath()
+  ctx.moveTo(marginX, 0)
+  ctx.lineTo(marginX, h)
+  ctx.strokeStyle = `rgba(193, 74, 42, ${alpha * 0.32})`
+  ctx.lineWidth = 1.0
+  ctx.stroke()
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +222,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playPaperEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
