@@ -348,7 +348,7 @@ nav ul li {
 	display: block;
 	margin: 0;
 	padding: 0.5rem 2rem;
-	transition: background-color 0.2s ease;
+	transition: background-color 0.2s ease, opacity 0.18s ease;
 	opacity: 0;
 }
 
@@ -407,6 +407,7 @@ nav ul li a:focus-visible {
 	border-top: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.1));
 	flex-shrink: 0;
 	opacity: 0;
+	transition: opacity 0.18s ease;
 }
 
 .show-menu .menu-nav-hint {
@@ -472,6 +473,7 @@ nav ul li a:focus-visible {
 	flex-shrink: 0;
 	margin-top: auto;
 	opacity: 0;
+	transition: opacity 0.18s ease;
 }
 
 .show-menu .menu-theme-switcher {
