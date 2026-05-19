@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 700,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,70 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: ink-bloom on paper ──────────────────────────────────────────────
+function playInkEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+
+  // Respect OS dark/light for the paper tone
+  const darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+  const paperColor = darkMode ? '22, 27, 36' : '244, 240, 232'
+  const inkColor = darkMode ? '235, 228, 212' : '26, 26, 26'
+
+  // Envelope: fade in, hold, fade out
+  const alpha = t < 0.25 ? t / 0.25 : t > 0.7 ? (1 - t) / 0.3 : 1
+
+  // Paper fill
+  ctx.fillStyle = `rgba(${paperColor}, ${alpha * 0.88})`
+  ctx.fillRect(0, 0, w, h)
+
+  const cx = w / 2
+  const cy = h / 2
+  const maxR = Math.hypot(cx, cy)
+
+  // Bloom radius: grows fast then recedes
+  const bloomT = t < 0.55 ? t / 0.55 : 1 - (t - 0.55) / 0.45
+  const bloomR = bloomT * maxR * 1.05
+
+  // Main ink bloom — radial gradient from center
+  const inkAlpha = alpha * 0.28
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, bloomR)
+  grad.addColorStop(0,    `rgba(${inkColor}, ${inkAlpha})`)
+  grad.addColorStop(0.55, `rgba(${inkColor}, ${inkAlpha * 0.55})`)
+  grad.addColorStop(0.82, `rgba(${inkColor}, ${inkAlpha * 0.12})`)
+  grad.addColorStop(1,    `rgba(${inkColor}, 0)`)
+  ctx.beginPath()
+  ctx.arc(cx, cy, bloomR, 0, Math.PI * 2)
+  ctx.fillStyle = grad
+  ctx.fill()
+
+  // Ink-splash particles at the expanding boundary — tiny ink droplets
+  const numDrops = 18
+  for (let i = 0; i < numDrops; i++) {
+    const angle = (i / numDrops) * Math.PI * 2 + t * 0.8
+    const jitter = (((i * 137 + 31) % 17) / 17 - 0.5) * 0.18
+    const r = bloomR * (0.88 + jitter)
+    const dropR = (1.5 + (i % 5) * 0.7) * bloomT
+    const dropAlpha = alpha * (0.18 + (i % 3) * 0.06) * bloomT
+    ctx.beginPath()
+    ctx.arc(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r, dropR, 0, Math.PI * 2)
+    ctx.fillStyle = `rgba(${inkColor}, ${dropAlpha})`
+    ctx.fill()
+  }
+
+  // Central hairline rule — the Almanac's visible anchor
+  if (bloomT > 0.1) {
+    const ruleW = bloomT * Math.min(w * 0.5, 280)
+    const lineAlpha = alpha * bloomT * 0.55
+    const rustColor = darkMode ? '212, 165, 116' : '193, 74, 42'
+    ctx.beginPath()
+    ctx.moveTo(cx - ruleW / 2, cy)
+    ctx.lineTo(cx + ruleW / 2, cy)
+    ctx.strokeStyle = `rgba(${rustColor}, ${lineAlpha})`
+    ctx.lineWidth = 1
+    ctx.stroke()
+  }
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +237,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playInkEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
