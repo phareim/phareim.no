@@ -326,6 +326,29 @@ const socialLinks = [
   text-shadow: 0 0 10px rgba(137, 171, 208, 0.5);
 }
 
+/* ── Almanac theme overrides ─────────────────────────────────── */
+
+/* The global .almanac-page a:hover rule loses to scoped specificity,
+   so we re-apply the accent colour here explicitly. */
+:global(.almanac-page) .about-social-link:hover {
+  color: var(--theme-accent);
+  border-color: currentColor;
+}
+
+:global(.almanac-page) .about-photo {
+  border-color: var(--almanac-rule-light, #d8d2c4);
+  box-shadow: none;
+}
+
+:global(.almanac-page) .about-photo:hover {
+  box-shadow: none;
+  transform: scale(1.03);
+}
+
+:global(.almanac-page) .about-divider {
+  background: var(--almanac-rule-light, #d8d2c4);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .about-photo,
   .about-name,
