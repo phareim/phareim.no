@@ -23,7 +23,7 @@
         </div>
         <div class="stat-card">
           <span class="stat-value">{{ displayCommits }}</span>
-          <span class="stat-label">commits</span>
+          <span class="stat-label">recent commits</span>
         </div>
       </section>
 
@@ -107,7 +107,7 @@
 
       <div class="stats-divider" aria-hidden="true"></div>
 
-      <!-- Recent commit activity heatmap (last 12 weeks) -->
+      <!-- Recent commit activity heatmap (last 26 weeks) -->
       <section class="stats-section" aria-label="Recent commit activity">
         <h2 class="section-label">commit activity</h2>
         <div v-if="commitsPending" class="stats-placeholder"><span>loading…</span></div>
@@ -124,6 +124,7 @@
             <span class="tooltip-count">{{ heatmapTooltip.count === 0 ? 'no commits' : `${heatmapTooltip.count} commit${heatmapTooltip.count !== 1 ? 's' : ''}` }}</span>
           </div>
 
+          <div class="heatmap-scroll">
           <div class="heatmap">
             <!-- Month labels -->
             <div class="heatmap-months" aria-hidden="true">
@@ -163,6 +164,7 @@
               </div>
             </div>
           </div>
+          </div><!-- /heatmap-scroll -->
 
           <div class="commit-legend" aria-hidden="true">
             <span class="legend-label">less</span>
@@ -188,7 +190,17 @@ import type { Commit } from '~/server/api/meta'
 useHead({ title: 'stats — phareim.no' })
 
 const { data: projectsData, pending: projectsPending } = await useFetch<Project[]>('/api/projects')
-const { data: commitsData, pending: commitsPending } = await useFetch<Commit[]>('/api/meta')
+
+const HEATMAP_WEEKS = 26
+const _heatmapSince = (() => {
+  const d = new Date()
+  d.setDate(d.getDate() - HEATMAP_WEEKS * 7)
+  return d.toISOString().slice(0, 10) + 'T00:00:00Z'
+})()
+
+const { data: commitsData, pending: commitsPending } = await useFetch<Commit[]>('/api/meta', {
+  query: { since: _heatmapSince, per_page: 100 },
+})
 
 // ── Derived stats ─────────────────────────────────────────────────────
 
@@ -231,9 +243,9 @@ const topRepos = computed(() =>
     .slice(0, 5)
 )
 
-// ── Commit heatmap (last 12 weeks) ────────────────────────────────────
+// ── Commit heatmap (last 26 weeks) ────────────────────────────────────
 
-const WEEKS = 12
+const WEEKS = HEATMAP_WEEKS
 const DAYS = WEEKS * 7
 
 const DAY_ABBR = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
@@ -733,10 +745,32 @@ h1 {
   gap: 0.75rem;
 }
 
+.heatmap-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-card-border, rgba(0,0,0,0.12)) transparent;
+  padding-bottom: 4px;
+}
+
+.heatmap-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.heatmap-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.heatmap-scroll::-webkit-scrollbar-thumb {
+  background: var(--theme-card-border, rgba(0,0,0,0.12));
+  border-radius: 2px;
+}
+
 .heatmap {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  min-width: 360px;
 }
 
 .heatmap-months {

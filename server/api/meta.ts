@@ -21,13 +21,14 @@ export interface Commit {
 export default defineEventHandler(async (event): Promise<Commit[]> => {
   const query = getQuery(event)
   const page = parseInt((query.page as string) ?? '1', 10)
-  const perPage = 30
+  const perPage = Math.min(parseInt((query.per_page as string) ?? '30', 10), 100)
+  const since = (query.since as string) ?? ''
 
   try {
-    const response = await fetch(
-      `https://api.github.com/repos/phareim/phareim.no/commits?per_page=${perPage}&page=${page}`,
-      { headers: { 'User-Agent': 'phareim.no' } }
-    )
+    let apiUrl = `https://api.github.com/repos/phareim/phareim.no/commits?per_page=${perPage}&page=${page}`
+    if (since) apiUrl += `&since=${encodeURIComponent(since)}`
+
+    const response = await fetch(apiUrl, { headers: { 'User-Agent': 'phareim.no' } })
 
     if (!response.ok) return []
 
