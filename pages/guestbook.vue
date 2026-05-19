@@ -263,6 +263,12 @@ h1 {
   opacity: 0.45;
 }
 
+@media (pointer: coarse) {
+  .gb-hint {
+    display: none;
+  }
+}
+
 .gb-error {
   font-size: 0.85rem;
   color: var(--theme-accent-danger, #c1272d);
