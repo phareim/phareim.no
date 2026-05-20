@@ -24,6 +24,9 @@ let targetGyroY = 0
 const GYRO_SENSITIVITY = 1.2
 const GYRO_SMOOTHING = 0.08
 
+// Raw cursor position for proximity effects (-9999 = off-screen / unset)
+let rawCursorX = -9999
+
 let gyroTapHandler: (() => void) | null = null
 
 interface AuroraLayer {
@@ -148,22 +151,41 @@ function drawStars(w: number, h: number) {
 
 function drawRays(w: number, h: number) {
   if (!ctx) return
+  const PROX_RADIUS = w * 0.14
   for (const ray of rays) {
     const breathe = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(time * ray.speed + ray.phase))
     const x = ray.xFrac * w + Math.sin(time * ray.driftSpeed + ray.phase) * ray.driftAmp + (mouseParallaxX + gyroOffsetX) * 0.4
     const topY = ray.baseY * h
     const botY = topY + ray.length * h
 
+    // Cursor proximity: boost this ray's brightness and width as mouse draws near
+    const dist = Math.abs(rawCursorX - x)
+    const proximity = dist < PROX_RADIUS ? Math.cos((dist / PROX_RADIUS) * Math.PI * 0.5) : 0
+    const alphaFinal = Math.min(1, ray.alpha * breathe + proximity * 0.22)
+    const widthFinal = ray.width + proximity * ray.width * 0.7
+
     const grad = ctx.createLinearGradient(0, topY, 0, botY)
-    const a = (ray.alpha * breathe).toFixed(3)
-    const aMid = (ray.alpha * breathe * 0.55).toFixed(3)
+    const a = alphaFinal.toFixed(3)
+    const aMid = Math.min(1, alphaFinal * 0.55).toFixed(3)
     grad.addColorStop(0.0, `hsla(${ray.hue}, 78%, 62%, 0)`)
     grad.addColorStop(0.15, `hsla(${ray.hue}, 78%, 62%, ${a})`)
     grad.addColorStop(0.55, `hsla(${ray.hue}, 75%, 58%, ${aMid})`)
     grad.addColorStop(1.0, `hsla(${ray.hue}, 72%, 54%, 0)`)
 
     ctx.fillStyle = grad
-    ctx.fillRect(x - ray.width / 2, topY, ray.width, botY - topY)
+    ctx.fillRect(x - widthFinal / 2, topY, widthFinal, botY - topY)
+
+    // Luminous core stripe — only shows when cursor is very close to the ray
+    if (proximity > 0.5) {
+      const coreAlpha = ((proximity - 0.5) / 0.5 * 0.15).toFixed(3)
+      const coreGrad = ctx.createLinearGradient(0, topY, 0, botY)
+      coreGrad.addColorStop(0.0,  `hsla(${ray.hue}, 90%, 85%, 0)`)
+      coreGrad.addColorStop(0.15, `hsla(${ray.hue}, 90%, 85%, ${coreAlpha})`)
+      coreGrad.addColorStop(0.85, `hsla(${ray.hue}, 90%, 85%, ${coreAlpha})`)
+      coreGrad.addColorStop(1.0,  `hsla(${ray.hue}, 90%, 85%, 0)`)
+      ctx.fillStyle = coreGrad
+      ctx.fillRect(x - 4, topY, 8, botY - topY)
+    }
   }
 }
 
@@ -354,6 +376,7 @@ function handleTouch(e: TouchEvent) {
 
 function handleMouseMove(e: MouseEvent) {
   if (!canvas.value) return
+  rawCursorX = e.clientX
   const cx = canvas.value.width / 2
   const cy = canvas.value.height / 2
   targetMouseX = ((e.clientX - cx) / cx) * -MOUSE_SENSITIVITY
@@ -432,6 +455,7 @@ onBeforeUnmount(() => {
     cancelAnimationFrame(animationId)
   }
   shimmerPulses = []
+  rawCursorX = -9999
 })
 </script>
 
