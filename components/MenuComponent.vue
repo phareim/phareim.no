@@ -215,6 +215,7 @@ onMounted(async () => {
 	document.addEventListener('touchend', handleGlobalTouchEnd, { passive: true })
 	try {
 		const menuResponse = await fetch('/api/menu')
+		if (!menuResponse.ok) throw new Error(`Menu fetch failed: ${menuResponse.status}`)
 		menuItems.value = await menuResponse.json() as MenuItem[]
 	} catch (error) {
 		console.error('Error fetching menu items:', error)
