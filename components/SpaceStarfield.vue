@@ -572,6 +572,9 @@ function drawStatic() {
   // Draw constellations statically (no twinkle, no drift)
   for (const con of constellations) {
     const positions = con.stars.map(s => ({ x: con.x + s.rx, y: con.y + s.ry }))
+    // Use save/restore so globalAlpha, strokeStyle, and lineWidth are all
+    // reset automatically — same pattern as the animated drawConstellations().
+    ctx.save()
     ctx.globalAlpha = con.opacity * 0.35
     ctx.strokeStyle = 'rgba(180, 210, 255, 1)'
     ctx.lineWidth = 0.6
@@ -581,7 +584,7 @@ function drawStatic() {
       ctx.lineTo(positions[b].x, positions[b].y)
       ctx.stroke()
     }
-    ctx.globalAlpha = 1
+    ctx.restore()
     for (let i = 0; i < con.stars.length; i++) {
       const s = con.stars[i]
       const pos = positions[i]
