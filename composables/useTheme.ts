@@ -1,12 +1,13 @@
+const THEMES = [
+  { id: 'scandi', name: 'Scandinavian Glass', icon: '❄️', themeColor: '#f5f5f3', themeColorDark: '#1a1c1e' },
+  { id: 'hacker', name: 'Cyberpunk', icon: '📟', themeColor: '#0a0a0a', themeColorDark: '#0a0a0a' },
+  { id: 'space', name: 'Space', icon: '🚀', themeColor: '#0a0a0f', themeColorDark: '#0a0a0f' },
+  { id: 'almanac', name: 'Almanac', icon: '◐', themeColor: '#f4f0e8', themeColorDark: '#0e1219' }
+]
+
 export const useTheme = () => {
   const activeTheme = useState('activeTheme', () => 'scandi')
-
-  const themes = [
-    { id: 'scandi', name: 'Scandinavian Glass', icon: '❄️', themeColor: '#f5f5f3', themeColorDark: '#1a1c1e' },
-    { id: 'hacker', name: 'Cyberpunk', icon: '📟', themeColor: '#0a0a0a', themeColorDark: '#0a0a0a' },
-    { id: 'space', name: 'Space', icon: '🚀', themeColor: '#0a0a0f', themeColorDark: '#0a0a0f' },
-    { id: 'almanac', name: 'Almanac', icon: '◐', themeColor: '#f4f0e8', themeColorDark: '#0e1219' }
-  ]
+  const themes = THEMES
 
   const themePageClass = computed(() => `${activeTheme.value}-page`)
 
