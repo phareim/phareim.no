@@ -80,6 +80,18 @@ interface ShimmerPulse {
   decay: number    // life lost per frame
 }
 
+interface Snowflake {
+  x: number
+  y: number
+  r: number           // radius in px (0.4–2.4)
+  vy: number          // fall speed px/frame
+  driftAmp: number    // lateral oscillation amplitude
+  driftSpeed: number  // oscillation speed
+  driftPhase: number  // current oscillation phase
+  alpha: number       // opacity 0.2–0.65
+  parallaxDepth: number // larger flakes are "closer"
+}
+
 let flares: AuroraFlare[] = []
 let shimmerPulses: ShimmerPulse[] = []
 let nextShimmerTime = 280  // first pulse ~4.5 s in
@@ -95,6 +107,9 @@ const LAYERS: AuroraLayer[] = [
 
 let stars: Star[] = []
 let rays: CurtainRay[] = []
+
+const NUM_SNOW = 90
+let snowflakes: Snowflake[] = []
 
 function initStars(w: number, h: number) {
   stars = Array.from({ length: 70 }, () => ({
@@ -125,12 +140,60 @@ function initRays(w: number, h: number) {
   })
 }
 
+function initSnow() {
+  if (!canvas.value) return
+  snowflakes = []
+  for (let i = 0; i < NUM_SNOW; i++) {
+    const r = 0.4 + Math.random() * 2.0
+    snowflakes.push({
+      x: Math.random() * canvas.value.width,
+      y: Math.random() * canvas.value.height,
+      r,
+      vy: 0.12 + Math.random() * 0.28 * r,
+      driftAmp: 0.08 + Math.random() * 0.18,
+      driftSpeed: 0.0015 + Math.random() * 0.003,
+      driftPhase: Math.random() * Math.PI * 2,
+      alpha: 0.22 + Math.random() * 0.42,
+      parallaxDepth: 0.03 + r * 0.055,
+    })
+  }
+}
+
+function drawSnow() {
+  if (!ctx || !canvas.value) return
+  const w = canvas.value.width
+  const h = canvas.value.height
+  const ox = mouseParallaxX + gyroOffsetX
+  const oy = mouseParallaxY + gyroOffsetY
+
+  for (const flake of snowflakes) {
+    const px = flake.x + ox * flake.parallaxDepth
+    const py = flake.y + oy * flake.parallaxDepth
+    ctx.beginPath()
+    ctx.arc(px, py, flake.r, 0, Math.PI * 2)
+    ctx.fillStyle = `rgba(255, 255, 255, ${flake.alpha.toFixed(2)})`
+    ctx.fill()
+
+    flake.driftPhase += flake.driftSpeed
+    flake.x += Math.sin(flake.driftPhase) * flake.driftAmp
+    flake.y += flake.vy
+
+    if (flake.y > h + flake.r) {
+      flake.y = -flake.r * 2
+      flake.x = Math.random() * w
+    }
+    if (flake.x > w + flake.r) flake.x = -flake.r
+    else if (flake.x < -flake.r) flake.x = w + flake.r
+  }
+}
+
 function resize() {
   if (!canvas.value) return
   canvas.value.width = window.innerWidth
   canvas.value.height = window.innerHeight
   initStars(canvas.value.width, canvas.value.height)
   initRays(canvas.value.width, canvas.value.height)
+  initSnow()
 }
 
 function drawStars(w: number, h: number) {
@@ -339,6 +402,8 @@ function draw() {
     nextShimmerTime = time + Math.floor(Math.random() * 300 + 180)
   }
 
+  drawSnow()
+
   time++
   if (!reducedMotion) animationId = requestAnimationFrame(draw)
 }
@@ -432,6 +497,7 @@ onBeforeUnmount(() => {
     cancelAnimationFrame(animationId)
   }
   shimmerPulses = []
+  snowflakes = []
 })
 </script>
 
