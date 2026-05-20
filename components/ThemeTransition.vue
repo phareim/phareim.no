@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 700,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,43 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: warm parchment wash with sweeping hairline rules ────────────────
+function playAlmanacEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+
+  // Envelope: quick fade in, hold, fade out
+  const alpha = t < 0.28 ? t / 0.28 : t > 0.68 ? (1 - t) / 0.32 : 1
+
+  // Warm paper fill — #f4f0e8 is the almanac paper color
+  ctx.fillStyle = `rgba(244, 240, 232, ${alpha * 0.88})`
+  ctx.fillRect(0, 0, w, h)
+
+  // Hairline rules sweeping in from left — the almanac signature
+  const RULE_COUNT = 14
+  for (let i = 0; i < RULE_COUNT; i++) {
+    const y = (h / (RULE_COUNT + 1)) * (i + 1)
+    const ruleT = Math.min(1, Math.max(0, t * 3.5 - (i / RULE_COUNT) * 1.2))
+    if (ruleT <= 0) continue
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(w * ruleT, y)
+    ctx.strokeStyle = `rgba(168, 155, 132, ${alpha * 0.25})`
+    ctx.lineWidth = 0.8
+    ctx.stroke()
+  }
+
+  // Rust accent rule — a single moment of attention at 38% height
+  const accentAlpha = Math.sin(t * Math.PI) * alpha * 0.35
+  if (accentAlpha > 0.01) {
+    ctx.beginPath()
+    ctx.moveTo(w * 0.08, h * 0.38)
+    ctx.lineTo(w * 0.92, h * 0.38)
+    ctx.strokeStyle = `rgba(193, 74, 42, ${accentAlpha})`
+    ctx.lineWidth = 1
+    ctx.stroke()
+  }
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +210,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playAlmanacEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
