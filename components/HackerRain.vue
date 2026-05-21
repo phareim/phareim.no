@@ -9,6 +9,18 @@ let animationId: number | null = null
 let columns: RainColumn[] = []
 let frame = 0
 
+// Wind parallax — rain tilts based on mouse / gyro horizontal position
+let mouseWindX = 0
+let targetMouseWindX = 0
+let gyroWindX = 0
+let targetGyroWindX = 0
+let gyroTapHandler: (() => void) | null = null
+const WIND_SENSITIVITY   = 0.25   // max horizontal wind influence (−1 to 1 of screen half-width)
+const WIND_SMOOTHING     = 0.035  // easing per frame toward target
+const GYRO_WIND_SENSITIVITY = 0.012
+const GYRO_WIND_SMOOTHING   = 0.055
+const MAX_WIND_TILT      = 90     // px of horizontal displacement at screen bottom, depth=1
+
 // Mix of binary, katakana fragments and block chars for visual variety
 const CHARS = '01アウエオカキクケコサシスセソタチツテトナニヌネノ01ハヒフヘホマミムメモ01ヤユヨラリルレロワヲン'
 const TRAIL_ALPHA = 0.055   // how fast trails fade (lower = longer trails)
@@ -32,6 +44,7 @@ interface RainColumn {
   stateTimer: number // frames remaining in this state
   glitchChar: string // cached char for glitch flash
   shockBoosted: boolean // true while shockwave has boosted this column
+  windDepth: number     // per-column parallax multiplier for wind tilt (0.5–1.5)
 }
 
 interface Shockwave {
@@ -91,6 +104,7 @@ function initColumns() {
       stateTimer: Math.floor(Math.random() * 120 + 40),
       glitchChar: randomChar(),
       shockBoosted: false,
+      windDepth: 0.5 + Math.random() * 1.0,
     })
   }
 }
@@ -149,6 +163,10 @@ function draw() {
   ctx.fillStyle = `rgba(10, 10, 10, ${TRAIL_ALPHA})`
   ctx.fillRect(0, 0, w, h)
 
+  // Smooth wind toward mouse/gyro target every frame for fluid motion
+  mouseWindX += (targetMouseWindX - mouseWindX) * WIND_SMOOTHING
+  gyroWindX  += (targetGyroWindX  - gyroWindX)  * GYRO_WIND_SMOOTHING
+
   advanceShockwaves()
 
   if (frame % UPDATE_EVERY === 0) {
@@ -181,11 +199,11 @@ function draw() {
         ctx.shadowColor = ACCENT
         ctx.shadowBlur = 8
         ctx.fillStyle = `rgba(255, 0, 85, ${0.9 * col.brightness})`
-        ctx.fillText(col.glitchChar, col.x, col.y)
+        ctx.fillText(col.glitchChar, windXAt(col, col.y), col.y)
         // Occasionally flicker the char below too
         if (col.y > col.fontSize * 2 && Math.random() < 0.4) {
           ctx.fillStyle = `rgba(255, 0, 85, ${0.5 * col.brightness})`
-          ctx.fillText(randomChar(), col.x, col.y - col.fontSize)
+          ctx.fillText(randomChar(), windXAt(col, col.y - col.fontSize), col.y - col.fontSize)
         }
         ctx.shadowBlur = 0
         ctx.shadowColor = 'transparent'
@@ -198,7 +216,7 @@ function draw() {
           ctx.shadowBlur = 6
         }
         ctx.fillStyle = `rgba(220, 255, 220, ${headAlpha})`
-        ctx.fillText(randomChar(), col.x, col.y)
+        ctx.fillText(randomChar(), windXAt(col, col.y), col.y)
 
         if (isBurst) {
           ctx.shadowBlur = 0
@@ -215,7 +233,7 @@ function draw() {
           const green = Math.floor(80 + 160 * fade)
           const alpha = 0.65 * col.brightness * fade
           ctx.fillStyle = `rgba(0, ${green}, 40, ${alpha})`
-          ctx.fillText(randomChar(), col.x, trailY)
+          ctx.fillText(randomChar(), windXAt(col, trailY), trailY)
         }
 
         // Occasional mid-trail mutation — the signature "flickering glyph" look.
@@ -224,7 +242,7 @@ function draw() {
           const mutY = col.y - col.fontSize * mutOffset
           if (mutY > 0) {
             ctx.fillStyle = `rgba(0, 130, 30, ${0.28 * col.brightness})`
-            ctx.fillText(randomChar(), col.x, mutY)
+            ctx.fillText(randomChar(), windXAt(col, mutY), mutY)
           }
         }
       }
@@ -261,6 +279,39 @@ function drawStatic() {
     if (col.y < 0) continue
     ctx.fillStyle = `rgba(0, 255, 65, ${0.4 * col.brightness})`
     ctx.fillText(col.glitchChar, col.x, Math.max(col.fontSize, Math.min(h, col.y + h * 0.5)))
+  }
+}
+
+/** Returns the wind-tilted draw-x for a character at canvas y position. */
+function windXAt(col: RainColumn, y: number): number {
+  if (!canvas.value) return col.x
+  const totalWind = mouseWindX + gyroWindX
+  return col.x + (y / canvas.value.height) * totalWind * MAX_WIND_TILT * col.windDepth
+}
+
+function handleMouseMove(e: MouseEvent) {
+  if (!canvas.value) return
+  const cx = canvas.value.width / 2
+  // Normalize: −1 (far left) → +1 (far right), scaled by WIND_SENSITIVITY
+  targetMouseWindX = ((e.clientX - cx) / cx) * WIND_SENSITIVITY
+}
+
+function handleOrientation(e: DeviceOrientationEvent) {
+  if (e.gamma !== null) {
+    targetGyroWindX = e.gamma * GYRO_WIND_SENSITIVITY
+  }
+}
+
+function enableGyro() {
+  const DOE = DeviceOrientationEvent as any
+  if (typeof DOE !== 'undefined' && typeof DOE.requestPermission === 'function') {
+    DOE.requestPermission().then((state: string) => {
+      if (state === 'granted') {
+        window.addEventListener('deviceorientation', handleOrientation)
+      }
+    }).catch(console.warn)
+  } else if ('DeviceOrientationEvent' in window) {
+    window.addEventListener('deviceorientation', handleOrientation)
   }
 }
 
@@ -303,6 +354,16 @@ onMounted(() => {
   document.addEventListener('visibilitychange', handleVisibilityChange)
   window.addEventListener('click', handleClick)
   window.addEventListener('touchstart', handleTouch, { passive: true })
+  window.addEventListener('mousemove', handleMouseMove)
+
+  // Gyroscope: no permission needed on Android; iOS requires a user gesture
+  const DOE = DeviceOrientationEvent as any
+  if (typeof DOE !== 'undefined' && typeof DOE.requestPermission !== 'function') {
+    window.addEventListener('deviceorientation', handleOrientation)
+  }
+  gyroTapHandler = () => { enableGyro(); document.removeEventListener('click', gyroTapHandler!) }
+  document.addEventListener('click', gyroTapHandler, { once: true })
+
   initColumns()
   draw()
 })
@@ -311,7 +372,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
   window.removeEventListener('click', handleClick)
   window.removeEventListener('touchstart', handleTouch)
+  window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('deviceorientation', handleOrientation)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
+  if (gyroTapHandler) document.removeEventListener('click', gyroTapHandler)
   if (animationId !== null) cancelAnimationFrame(animationId)
 })
 </script>
