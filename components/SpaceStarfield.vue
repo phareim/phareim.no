@@ -13,6 +13,10 @@ let animationId: number | null = null
 let frame = 0
 let novaRings: NovaRing[] = []
 
+// Warp-speed state — triggered on route change
+let warpStrength = 0       // 0 = normal, 1 = full warp; decays to 0 over time
+const WARP_DECAY = 0.015   // strength lost per frame ≈ 1.1 s to settle
+
 // Mouse parallax state (desktop)
 let mouseParallaxX = 0
 let mouseParallaxY = 0
@@ -442,22 +446,40 @@ function draw() {
   drawNebulas()
   drawConstellations()
 
-  for (const star of stars) {
-    star.twinklePhase += star.twinkleSpeed
-    const twinkle = 1 + Math.sin(star.twinklePhase) * 0.15
-    const finalOpacity = Math.min(1, star.opacity * twinkle)
+  // Decay warp each frame
+  if (warpStrength > 0) warpStrength = Math.max(0, warpStrength - WARP_DECAY)
+  const isWarping = warpStrength > 0.02
 
+  for (const star of stars) {
     const depth = star.size / 2.0
     const px = star.x + (gyroOffsetX + mouseParallaxX) * depth
     const py = star.y + (gyroOffsetY + mouseParallaxY) * depth
 
-    ctx.beginPath()
-    ctx.arc(px, py, star.size, 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(${star.rgbStr}, ${finalOpacity})`
-    ctx.fill()
+    if (isWarping) {
+      // Warp mode: draw as rightward streak, suppress twinkle
+      const alpha = Math.min(1, star.opacity * (0.7 + warpStrength * 0.4))
+      const tailLen = warpStrength * star.speed * 55
+      ctx.beginPath()
+      ctx.moveTo(px + tailLen, py)
+      ctx.lineTo(px, py)
+      ctx.strokeStyle = `rgba(${star.rgbStr}, ${alpha})`
+      ctx.lineWidth = Math.max(0.4, star.size * (0.5 + warpStrength * 0.5))
+      ctx.lineCap = 'round'
+      ctx.stroke()
+    } else {
+      // Normal mode: draw as dot with gentle twinkle
+      star.twinklePhase += star.twinkleSpeed
+      const twinkle = 1 + Math.sin(star.twinklePhase) * 0.15
+      const finalOpacity = Math.min(1, star.opacity * twinkle)
+      ctx.beginPath()
+      ctx.arc(px, py, star.size, 0, Math.PI * 2)
+      ctx.fillStyle = `rgba(${star.rgbStr}, ${finalOpacity})`
+      ctx.fill()
+    }
 
-    star.x -= star.speed
-    if (star.x < -2) {
+    const speedMult = 1 + warpStrength * 7   // up to 8× faster during warp
+    star.x -= star.speed * speedMult
+    if (star.x < -(2 + warpStrength * 40)) {
       star.x = canvas.value!.width + 2
       star.y = Math.random() * canvas.value!.height
       star.opacity = Math.random() * 0.7 + 0.3
@@ -603,6 +625,12 @@ function handleVisibilityChange() {
     if (animationId === null) draw()
   }
 }
+
+// Trigger warp burst on every route change when the starfield is active
+const route = useRoute()
+watch(() => route.path, () => {
+  if (!reducedMotion) warpStrength = 1.0
+})
 
 onMounted(() => {
   if (!canvas.value) return
