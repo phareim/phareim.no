@@ -96,7 +96,6 @@ export default {
     return {
       ctx: null,
       boxes: [],
-      darkMode: false,
       theUpsideDown: false,
       mousePosition: { x: 0, y: 0, v: { x: 0, y: 0 } },
       animateCount: 0,
@@ -109,7 +108,7 @@ export default {
       hackerScore: 0,
       hackerHighScore: 0,
       hackerGameOver: false,
-      hackerGameStarted: false
+      hackerGameStarted: false,
     };
   },
   computed: {
@@ -133,9 +132,6 @@ export default {
     document.body.classList.remove('scrollable');
     if (!this.isHacker && !this.isSpace) {
       this.startBubbles();
-    }
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      this.darkMode = true;
     }
     this.hackerHighScore = parseInt(localStorage.getItem('hackerHighScore') || '0', 10);
   },
@@ -448,7 +444,7 @@ export default {
       }
       
       const color = `rgb(${r}, ${g}, ${b})`;
-      const shadowColor = this.darkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(10, 10, 10, 0.5)';
+      const shadowColor = 'rgba(0, 0, 0, 0.55)';
       const shadow = this.getNewShadow(shadowLength, shadowColor);
       const yvelocity = ((Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1));
       const xvelocity = ((Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1));
