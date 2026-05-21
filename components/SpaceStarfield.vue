@@ -430,9 +430,30 @@ function drawNovaRings() {
   novaRings = novaRings.filter(r => r.opacity > 0 && r.radius < r.maxRadius)
 }
 
+function handleScroll() {
+  const currentY = window.scrollY
+  const dy = Math.abs(currentY - lastScrollY)
+  lastScrollY = currentY
+  // Scale: ~100px scroll → ~0.5 warp boost; clamped to 1
+  warpFactor = Math.min(1, warpFactor + dy * 0.005)
+}
+
 function draw() {
   if (!ctx || !canvas.value) return
-  ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
+
+  // Decay warp factor each frame; ~40 frames (667ms at 60fps) to fully fade out
+  warpFactor = Math.max(0, warpFactor - WARP_DECAY)
+
+  // During warp: semi-transparent fill preserves star positions from prior frames,
+  // creating streaking trails. Higher warpFactor → lower alpha → longer trails.
+  // At rest: full clearRect for crisp, non-trailing stars.
+  if (warpFactor > 0.01) {
+    const trailAlpha = 0.2 + (1 - warpFactor) * 0.75   // 0.20 at full warp → 0.95 near-zero
+    ctx.fillStyle = `rgba(10, 10, 15, ${trailAlpha.toFixed(2)})`
+    ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+  } else {
+    ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
+  }
 
   gyroOffsetX += (targetGyroX - gyroOffsetX) * GYRO_SMOOTHING
   gyroOffsetY += (targetGyroY - gyroOffsetY) * GYRO_SMOOTHING
@@ -456,7 +477,7 @@ function draw() {
     ctx.fillStyle = `rgba(${star.rgbStr}, ${finalOpacity})`
     ctx.fill()
 
-    star.x -= star.speed
+    star.x -= star.speed * (1 + warpFactor * 5)
     if (star.x < -2) {
       star.x = canvas.value!.width + 2
       star.y = Math.random() * canvas.value!.height
@@ -548,6 +569,12 @@ function enableGyro() {
 let gyroTapHandler: (() => void) | null = null
 let reducedMotion = false
 
+// Warp-speed state — driven by page scroll
+// warpFactor: 0 = normal drift, 1 = full warp with long star trails
+let warpFactor = 0
+let lastScrollY = 0
+const WARP_DECAY = 0.025   // warpFactor reduction per animation frame (~40 frames to zero)
+
 function drawStatic() {
   if (!ctx || !canvas.value) return
   ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
@@ -623,6 +650,7 @@ onMounted(() => {
   window.addEventListener('mousemove', handleMouseMove)
   window.addEventListener('click', handleClick)
   window.addEventListener('touchstart', handleTouch, { passive: true })
+  window.addEventListener('scroll', handleScroll, { passive: true })
   document.addEventListener('visibilitychange', handleVisibilityChange)
   draw()
 
@@ -640,6 +668,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('mousemove', handleMouseMove)
   window.removeEventListener('click', handleClick)
   window.removeEventListener('touchstart', handleTouch)
+  window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('deviceorientation', handleOrientation)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   if (gyroTapHandler) document.removeEventListener('click', gyroTapHandler)
