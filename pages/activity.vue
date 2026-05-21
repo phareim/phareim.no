@@ -40,7 +40,6 @@
           <div
             v-else
             :class="['activity-item', `activity-item--${item.type}`]"
-            :style="{ '--item-idx': itemAnimIndex.get(item.key) ?? 0 }"
           >
             <div class="activity-track" aria-hidden="true">
               <span :class="['activity-dot', `dot--${item.type}`]"></span>
@@ -204,6 +203,12 @@ watch(pending, (isPending) => {
   if (!isPending) nextTick(observeItems)
 })
 
+// When filters change, new items appear in the DOM without being observed — re-observe so
+// newly visible items animate in via the IntersectionObserver transition system.
+watch(activeFilters, () => {
+  nextTick(observeItems)
+})
+
 onBeforeUnmount(() => observer?.disconnect())
 
 const items = computed((): ActivityItem[] => {
@@ -259,15 +264,6 @@ const displayItems = computed((): DisplayItem[] => {
     result.push(item)
   }
   return result
-})
-
-const itemAnimIndex = computed(() => {
-  const map = new Map<string, number>()
-  let idx = 0
-  for (const item of displayItems.value) {
-    if (item.type !== 'separator') map.set(item.key, Math.min(idx++, 14))
-  }
-  return map
 })
 
 function typeLabel(type: ActivityItem['type']): string {
@@ -424,29 +420,6 @@ h1 {
 
 .filter-btn.is-active .filter-count {
   opacity: 0.9;
-}
-
-/* ── Timeline entrance animation ─────────────────────────────── */
-@keyframes activity-item-enter {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.activity-item {
-  animation: activity-item-enter 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-  animation-delay: calc(var(--item-idx, 0) * 35ms);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .activity-item {
-    animation: none;
-  }
 }
 
 /* ── Loading ─────────────────────────────────────────────────── */
