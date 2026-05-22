@@ -1,3 +1,7 @@
+// Module-level flag — ensures localStorage is read exactly once,
+// regardless of how many components call useTheme() in the same app instance.
+let _themeBootstrapped = false
+
 export const useTheme = () => {
   const activeTheme = useState('activeTheme', () => 'scandi')
 
@@ -29,8 +33,11 @@ export const useTheme = () => {
     }
   }
 
-  // Restore theme from localStorage on client (after hydration to avoid mismatch)
-  if (import.meta.client) {
+  // Restore theme from localStorage once, on the first component that mounts.
+  // Using a module-level flag avoids redundant reads when multiple components
+  // each call useTheme() — they all share the same useState value anyway.
+  if (import.meta.client && !_themeBootstrapped) {
+    _themeBootstrapped = true
     onMounted(() => {
       const saved = localStorage.getItem('theme')
       if (saved && themes.some(t => t.id === saved)) {
