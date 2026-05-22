@@ -107,6 +107,39 @@
 
       <div class="stats-divider" aria-hidden="true"></div>
 
+      <!-- Weekday activity breakdown -->
+      <section class="stats-section" aria-label="Commits by day of week">
+        <h2 class="section-label">day of week</h2>
+        <div v-if="commitsPending" class="stats-placeholder"><span>loading…</span></div>
+        <div
+          v-else-if="commitCount > 0"
+          class="weekday-chart"
+          role="img"
+          :aria-label="weekdayAriaLabel"
+        >
+          <div
+            v-for="item in weekdayStats"
+            :key="item.day"
+            class="weekday-col"
+          >
+            <span class="weekday-count-label" aria-hidden="true">{{ item.count || '' }}</span>
+            <div
+              class="weekday-bar-track"
+              :title="`${item.fullName}: ${item.count} commit${item.count !== 1 ? 's' : ''}`"
+            >
+              <div
+                class="weekday-bar-fill"
+                :style="{ height: item.pct + '%' }"
+              ></div>
+            </div>
+            <span class="weekday-label" aria-hidden="true">{{ item.label }}</span>
+          </div>
+        </div>
+        <div v-else class="stats-placeholder"><span>no data</span></div>
+      </section>
+
+      <div class="stats-divider" aria-hidden="true"></div>
+
       <!-- Recent commit activity heatmap (last 12 weeks) -->
       <section class="stats-section" aria-label="Recent commit activity">
         <h2 class="section-label">commit activity</h2>
@@ -302,6 +335,30 @@ const monthLabels = computed(() => {
   })
   return labels
 })
+
+// ── Weekday activity breakdown ────────────────────────────────────────
+
+const DAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0] // Mon → Sun
+
+const weekdayStats = computed(() => {
+  const counts = new Array<number>(7).fill(0)
+  for (const c of commitsData.value ?? []) {
+    counts[new Date(c.date).getUTCDay()]++
+  }
+  const maxCount = Math.max(...counts, 1)
+  return WEEK_ORDER.map(dow => ({
+    day: dow,
+    count: counts[dow],
+    pct: Math.round((counts[dow] / maxCount) * 100),
+    label: DAY_ABBR[dow],
+    fullName: DAY_FULL[dow],
+  }))
+})
+
+const weekdayAriaLabel = computed(() =>
+  weekdayStats.value.map(d => `${d.fullName}: ${d.count} commit${d.count !== 1 ? 's' : ''}`).join(', ')
+)
 
 // ── Heatmap entrance animation + tooltip ─────────────────────────────
 
@@ -897,6 +954,59 @@ h1 {
   padding: 0.5rem 0;
 }
 
+/* ── Weekday breakdown ────────────────────────────────────────────── */
+
+.weekday-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 88px;
+}
+
+.weekday-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.weekday-count-label {
+  font-size: 0.55rem;
+  color: var(--theme-text-subtle, #aaa);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  min-height: 0.75rem;
+}
+
+.weekday-bar-track {
+  flex: 1;
+  width: 100%;
+  background: var(--theme-card-border, rgba(0, 0, 0, 0.08));
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  cursor: default;
+}
+
+.weekday-bar-fill {
+  width: 100%;
+  background: color-mix(in srgb, var(--theme-accent, #6b8cae) 65%, transparent);
+  border-radius: 3px 3px 0 0;
+  transition: height 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  min-height: 2px;
+}
+
+.weekday-label {
+  font-size: 0.58rem;
+  color: var(--theme-text-subtle, #aaa);
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  line-height: 1;
+}
+
 /* ── Responsive ───────────────────────────────────────────────────── */
 
 @media (max-width: 480px) {
@@ -1046,5 +1156,26 @@ h1 {
 
 :global(.space-page) .heatmap-tooltip {
   box-shadow: 0 4px 16px var(--space-glow, rgba(140, 170, 220, 0.2));
+}
+
+/* ── Weekday: hacker overrides ────────────────────────────────── */
+
+:global(.hacker-page) .weekday-bar-track {
+  border-radius: 0;
+}
+
+:global(.hacker-page) .weekday-bar-fill {
+  border-radius: 0;
+}
+
+:global(.hacker-page) .weekday-label,
+:global(.hacker-page) .weekday-count-label {
+  font-family: monospace;
+}
+
+/* ── Weekday: space overrides ─────────────────────────────────── */
+
+:global(.space-page) .weekday-bar-fill {
+  background: color-mix(in srgb, var(--space-accent-blue, #89abd0) 60%, transparent);
 }
 </style>
