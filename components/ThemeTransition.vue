@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 600,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,57 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: parchment page dissolve ──────────────────────────────────────────
+// A warm cream wash (light) or midnight wash (dark) bleeds in, carrying
+// horizontal hairline rules that sweep left-to-right like turning almanac pages.
+function playParchmentEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+
+  // Overlay alpha: fade in 0→0.22, hold 0.22→0.68, fade out 0.68→1
+  const alpha = t < 0.22 ? t / 0.22 : t > 0.68 ? (1 - t) / 0.32 : 1
+
+  // Background wash — warm paper or midnight paper
+  const [bgR, bgG, bgB] = isDark ? [14, 18, 25] : [244, 240, 232]
+  ctx.fillStyle = `rgba(${bgR},${bgG},${bgB},${alpha * 0.94})`
+  ctx.fillRect(0, 0, w, h)
+
+  // Hairline rules sweeping left → right
+  // Sweep starts at t=0.1, every rule fully drawn by t=0.62
+  const ruleSpacing = 26
+  const ruleCount = Math.ceil(h / ruleSpacing) + 1
+  const inkAlpha = isDark ? alpha * 0.20 : alpha * 0.12
+
+  ctx.strokeStyle = isDark
+    ? `rgba(235, 228, 212, ${inkAlpha})`
+    : `rgba(26, 26, 26, ${inkAlpha})`
+  ctx.lineWidth = 0.55
+
+  for (let i = 0; i < ruleCount; i++) {
+    const y = i * ruleSpacing + ruleSpacing * 0.5
+    // Rows stagger: first row leads, last row trails by 0.14 of the animation
+    const rowOffset = (i / ruleCount) * 0.14
+    const rowSweep = Math.max(0, Math.min(1, (t - 0.10 - rowOffset) / 0.38))
+    const ruleLen = w * rowSweep
+
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(ruleLen, y)
+    ctx.stroke()
+  }
+
+  // Faint marginal vignette — the page edges
+  if (alpha > 0.08) {
+    const vigAlpha = alpha * 0.22
+    const vig = ctx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.28, w * 0.5, h * 0.5, Math.max(w, h) * 0.72)
+    vig.addColorStop(0, 'rgba(0,0,0,0)')
+    vig.addColorStop(1, `rgba(0,0,0,${vigAlpha})`)
+    ctx.fillStyle = vig
+    ctx.fillRect(0, 0, w, h)
+  }
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +224,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playParchmentEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
