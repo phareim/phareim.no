@@ -58,15 +58,16 @@
 				<div class="theme-label">Theme</div>
 				<div class="theme-options">
 					<button
-						v-for="theme in themes"
+						v-for="(theme, idx) in themes"
 						:key="theme.id"
 						@click="setTheme(theme.id)"
 						:class="['theme-btn', { active: activeTheme === theme.id }]"
-						:title="theme.name"
-						:aria-label="`Switch to ${theme.name} theme`"
+						:title="`${theme.name} (${idx + 1})`"
+						:aria-label="`Switch to ${theme.name} theme (keyboard shortcut: ${idx + 1})`"
 						:aria-pressed="activeTheme === theme.id"
 					>
 						{{ theme.icon }}
+						<span class="theme-btn-key" aria-hidden="true">{{ idx + 1 }}</span>
 					</button>
 				</div>
 			</div>
@@ -499,12 +500,27 @@ nav ul li a:focus-visible {
 	border: 1px solid transparent;
 	font-size: 1.5rem;
 	cursor: pointer;
-	padding: 0.5rem;
+	padding: 0.5rem 0.5rem 0.85rem;
 	border-radius: 12px;
 	transition: all 0.2s;
 	flex: 1;
 	display: flex;
 	justify-content: center;
+	position: relative;
+}
+
+.theme-btn-key {
+	position: absolute;
+	bottom: 0.2rem;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 0.5rem;
+	font-family: inherit;
+	color: var(--theme-text-subtle, #aaa);
+	opacity: 0.55;
+	line-height: 1;
+	letter-spacing: 0.04em;
+	pointer-events: none;
 }
 
 .theme-btn:hover {
