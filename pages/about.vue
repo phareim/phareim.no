@@ -326,6 +326,44 @@ const socialLinks = [
   text-shadow: 0 0 10px rgba(137, 171, 208, 0.5);
 }
 
+/* ── Almanac theme overrides ────────────────────────────────── */
+
+:global(.almanac-page) .about-photo {
+  border-width: 1px;
+  box-shadow: none;
+}
+
+:global(.almanac-page) .about-photo:hover {
+  /* Almanac is understated: no lift, no shadow flash */
+  transform: none;
+  box-shadow: none;
+}
+
+:global(.almanac-page) .about-tagline {
+  font-family: var(--theme-font-body);
+  font-style: italic;
+}
+
+:global(.almanac-page) .about-bio p,
+:global(.almanac-page) .about-link {
+  font-family: var(--theme-font-body);
+}
+
+:global(.almanac-page) .about-divider {
+  /* Hairline rule: no gradient fade, just a clean 1px line */
+  background: var(--theme-card-border);
+}
+
+:global(.almanac-page) .about-social-link {
+  font-family: var(--theme-font-body);
+  letter-spacing: 0.04em;
+}
+
+:global(.almanac-page) .about-social-link:hover {
+  color: var(--theme-accent);
+  border-color: var(--theme-accent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .about-photo,
   .about-name,
