@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 820,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,67 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: ink-drop bleeding across warm paper ─────────────────────────────
+function playInkEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+
+  // Overall opacity envelope: fade in fast, hold, then exhale slowly
+  const alpha = t < 0.22 ? t / 0.22 : t > 0.68 ? (1 - t) / 0.32 : 1
+
+  // Warm paper wash — the new page bleeds through
+  ctx.fillStyle = `rgba(244, 240, 232, ${alpha * 0.86})`
+  ctx.fillRect(0, 0, w, h)
+
+  const cx = w / 2
+  const cy = h / 2
+  const maxR = Math.hypot(cx, cy) * 1.08
+
+  // Ink spreads non-linearly — square-root mimics capillary absorption
+  const spread = Math.min(1, t * 2.4)
+  const inkR = maxR * Math.sqrt(spread)
+
+  if (inkR > 2) {
+    // Core ink blot — deep brown-black center fading outward
+    const inkGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, inkR)
+    inkGrad.addColorStop(0,    `rgba(22, 14,  8, ${alpha * 0.92})`)
+    inkGrad.addColorStop(0.28, `rgba(26, 18, 10, ${alpha * 0.68})`)
+    inkGrad.addColorStop(0.58, `rgba(32, 22, 14, ${alpha * 0.28})`)
+    inkGrad.addColorStop(1,    `rgba(40, 28, 16, 0)`)
+    ctx.beginPath()
+    ctx.arc(cx, cy, inkR, 0, Math.PI * 2)
+    ctx.fillStyle = inkGrad
+    ctx.fill()
+
+    // Feathered tendrils — ink seeps unevenly along paper grain
+    const NUM_TENDRILS = 10
+    for (let i = 0; i < NUM_TENDRILS; i++) {
+      const angle = (i / NUM_TENDRILS) * Math.PI * 2 + (i % 3) * 0.38
+      // Each tendril has a distinct reach so the edge looks organic
+      const reach = 0.55 + 0.42 * Math.abs(Math.sin(i * 2.71))
+      const tendrilR = inkR * reach
+      const tx = cx + Math.cos(angle) * tendrilR
+      const ty = cy + Math.sin(angle) * tendrilR
+      const blobSize = inkR * (0.18 + 0.12 * Math.abs(Math.sin(i * 1.9)))
+
+      const tGrad = ctx.createRadialGradient(tx, ty, 0, tx, ty, blobSize)
+      tGrad.addColorStop(0, `rgba(22, 14, 8, ${alpha * 0.52})`)
+      tGrad.addColorStop(1, `rgba(22, 14, 8, 0)`)
+      ctx.beginPath()
+      ctx.arc(tx, ty, blobSize, 0, Math.PI * 2)
+      ctx.fillStyle = tGrad
+      ctx.fill()
+    }
+
+    // Rust accent moment — a brief warm tint at peak (echoes --almanac-rust)
+    if (t > 0.32 && t < 0.62) {
+      const rustT = (t - 0.32) / 0.30
+      const rustA = Math.sin(rustT * Math.PI) * 0.12 * alpha
+      ctx.fillStyle = `rgba(193, 74, 42, ${rustA})`
+      ctx.fillRect(0, 0, w, h)
+    }
+  }
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +234,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playInkEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
