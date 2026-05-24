@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 620,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,39 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: warm paper wash with diagonal amber sweep ───────────────────────
+// Fits the "warm paper / no-chrome" aesthetic: a gentle cream fill with an
+// amber vignette and a diagonal candlelight sweep from top-left to bottom-right.
+function playAlmanacEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+
+  // Fade arc: quick ramp-in (20%), hold, gentle ramp-out (from 70%)
+  const alpha = t < 0.20 ? t / 0.20 : t > 0.70 ? (1 - t) / 0.30 : 1
+
+  // Warm paper base fill — almanac paper colour (#f4f0e8)
+  ctx.fillStyle = `rgba(244, 240, 232, ${(alpha * 0.88).toFixed(3)})`
+  ctx.fillRect(0, 0, w, h)
+
+  // Corner vignette — old paper darkens at edges
+  const cx = w / 2
+  const cy = h / 2
+  const vg = ctx.createRadialGradient(cx, cy, Math.hypot(cx, cy) * 0.25, cx, cy, Math.hypot(cx, cy))
+  vg.addColorStop(0, 'rgba(244, 240, 232, 0)')
+  vg.addColorStop(1, `rgba(180, 148, 100, ${(alpha * 0.32).toFixed(3)})`)
+  ctx.fillStyle = vg
+  ctx.fillRect(0, 0, w, h)
+
+  // Diagonal amber sweep — candlelight catching the page
+  // The sweep runs ahead of the base fill to create a leading-edge shimmer.
+  const sweep = Math.min(1, t * 2.6)
+  const g = ctx.createLinearGradient(0, 0, w, h)
+  g.addColorStop(0,                              `rgba(255, 248, 228, ${(alpha * sweep * 0.30).toFixed(3)})`)
+  g.addColorStop(Math.min(0.98, sweep * 0.72),   `rgba(212, 175, 120, ${(alpha * 0.22).toFixed(3)})`)
+  g.addColorStop(1,                              'rgba(212, 175, 120, 0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, w, h)
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +206,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playAlmanacEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
