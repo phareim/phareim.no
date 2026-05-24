@@ -31,7 +31,7 @@ const GYRO_SMOOTHING = 0.08
 
 const NUM_STARS = 300
 const NUM_NEBULAS = 5
-const NUM_CONSTELLATIONS = 4
+const NUM_CONSTELLATIONS = 5
 
 // Nebula colors: cool space palette (r, g, b)
 const NEBULA_COLORS: number[][] = [
@@ -113,6 +113,42 @@ const CONSTELLATION_SHAPES: Array<{
       { rx: -14, ry: 10,  size: 1.4, brightness: 0.65 }, // small fifth star
     ],
     edges: [[0,1],[2,3],[0,2],[0,3],[1,2],[1,3]],
+  },
+  {
+    // Scorpius — curved scorpion body with arching tail
+    stars: [
+      { rx: 0,   ry: 0,   size: 2.2, brightness: 0.92 }, // Antares – heart
+      { rx: -20, ry: -22, size: 1.6, brightness: 0.72 }, // left claw
+      { rx: 18,  ry: -18, size: 1.5, brightness: 0.68 }, // right claw
+      { rx: 0,   ry: 22,  size: 1.5, brightness: 0.68 }, // upper abdomen
+      { rx: 12,  ry: 42,  size: 1.4, brightness: 0.64 }, // mid abdomen
+      { rx: 28,  ry: 58,  size: 1.4, brightness: 0.62 }, // lower abdomen
+      { rx: 38,  ry: 72,  size: 1.5, brightness: 0.68 }, // tail curve
+      { rx: 32,  ry: 86,  size: 1.3, brightness: 0.60 }, // stinger
+    ],
+    edges: [[0,1],[0,2],[0,3],[3,4],[4,5],[5,6],[6,7]],
+  },
+  {
+    // Lyra — small harp with brilliant Vega at apex
+    stars: [
+      { rx: 0,   ry: 0,   size: 2.4, brightness: 0.96 }, // Vega
+      { rx: -12, ry: 24,  size: 1.5, brightness: 0.68 }, // ε¹ Lyr
+      { rx: 12,  ry: 24,  size: 1.5, brightness: 0.68 }, // ε² Lyr
+      { rx: -8,  ry: 44,  size: 1.6, brightness: 0.74 }, // ζ Lyr
+      { rx: 8,   ry: 44,  size: 1.7, brightness: 0.76 }, // δ Lyr
+    ],
+    edges: [[0,1],[0,2],[1,2],[1,3],[2,4],[3,4]],
+  },
+  {
+    // Cygnus — Northern Cross / swan in flight
+    stars: [
+      { rx: 0,   ry: 0,   size: 2.1, brightness: 0.88 }, // Deneb
+      { rx: 0,   ry: 32,  size: 1.8, brightness: 0.82 }, // Sadr – centre
+      { rx: 0,   ry: 70,  size: 1.9, brightness: 0.85 }, // Albireo
+      { rx: -38, ry: 32,  size: 1.6, brightness: 0.72 }, // Gienah – left wing
+      { rx: 38,  ry: 32,  size: 1.6, brightness: 0.72 }, // δ Cyg – right wing
+    ],
+    edges: [[0,1],[1,2],[3,1],[1,4]],
   },
 ]
 
@@ -223,8 +259,14 @@ function initConstellations() {
   constellations = []
   const w = canvas.value.width
   const h = canvas.value.height
+  // Fisher-Yates shuffle so each page load shows a different set of constellations
+  const indices = CONSTELLATION_SHAPES.map((_, i) => i)
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[indices[i], indices[j]] = [indices[j]!, indices[i]!]
+  }
   for (let i = 0; i < NUM_CONSTELLATIONS; i++) {
-    const shape = CONSTELLATION_SHAPES[i % CONSTELLATION_SHAPES.length]
+    const shape = CONSTELLATION_SHAPES[indices[i % indices.length]!]!
     constellations.push({
       x: Math.random() * w,
       y: Math.random() * h * 0.85 + h * 0.05,
@@ -327,6 +369,16 @@ function drawConstellations() {
     con.x -= con.speed
     const rightmostX = Math.max(...con.stars.map(s => s.rx))
     if (con.x + rightmostX < -20) {
+      // 40% chance to swap to a different constellation shape on wrap-around
+      if (Math.random() < 0.4) {
+        const newShape = CONSTELLATION_SHAPES[Math.floor(Math.random() * CONSTELLATION_SHAPES.length)]!
+        con.stars = newShape.stars.map(s => ({
+          ...s,
+          twinklePhase: Math.random() * Math.PI * 2,
+          twinkleSpeed: Math.random() * 0.015 + 0.004,
+        }))
+        con.edges = newShape.edges
+      }
       const leftmostX = Math.min(...con.stars.map(s => s.rx))
       con.x = w - leftmostX + 20
       con.y = Math.random() * h * 0.85 + h * 0.05
