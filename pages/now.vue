@@ -99,6 +99,10 @@
       <footer class="now-footer now-section--5">
 
         <p class="now-updated">
+          <span class="now-live-dot" aria-hidden="true"></span>
+          live — times update automatically
+        </p>
+        <p class="now-updated">
           this page updates itself — last commit:
           <a
             href="/meta"
@@ -122,6 +126,18 @@ import type { GuestbookEntry } from '~/server/api/guestbook'
 useHead({ title: 'now — phareim.no' })
 
 const { activeTheme } = useTheme()
+
+// ── Live clock — re-renders relative timestamps every 60 s ───────────
+const clockTick = ref(0)
+let clockInterval: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  clockInterval = setInterval(() => { clockTick.value++ }, 60_000)
+})
+
+onBeforeUnmount(() => {
+  if (clockInterval !== null) clearInterval(clockInterval)
+})
 
 const pageTitle = computed(() => {
   if (activeTheme.value === 'hacker') return '> now.sh'
@@ -174,13 +190,19 @@ const recentProjects = computed(() => {
 
 function formatDate(iso: string): string {
   if (!iso) return ''
+  // Accessing clockTick makes this reactive — re-evaluates every 60 s
+  void clockTick.value
   const d = new Date(iso)
   const now = new Date()
   const diffMs = now.getTime() - d.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  if (diffDays === 0) return 'today'
+  const diffMins = Math.floor(diffMs / 60_000)
+  if (diffMins < 1)  return 'just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  const diffHours = Math.floor(diffMins / 60)
+  if (diffHours < 24) return `${diffHours}h ago`
+  const diffDays = Math.floor(diffHours / 24)
   if (diffDays === 1) return 'yesterday'
-  if (diffDays < 7) return `${diffDays} days ago`
+  if (diffDays < 7)  return `${diffDays} days ago`
   if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
   return d.toLocaleDateString('en', { month: 'short', year: 'numeric' })
 }
@@ -517,6 +539,32 @@ h1 {
   color: var(--theme-text-subtle, #aaa);
   margin: 0 0 0.35rem;
   line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* Live indicator dot */
+.now-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--theme-accent, #6b8cae);
+  flex-shrink: 0;
+  animation: live-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: 0.3; transform: scale(0.75); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .now-live-dot {
+    animation: none;
+  }
 }
 
 /* ── Hacker theme overrides ─────────────────────────────────── */
