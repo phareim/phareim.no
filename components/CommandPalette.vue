@@ -107,9 +107,10 @@ const allCommands: Command[] = [
   { id: 'nav-terminal',label: 'terminal',             icon: '>_', hint: '/terminal', type: 'page',     action: () => router.push('/terminal') },
   { id: 'nav-morse',   label: 'morse',               icon: '·−', hint: '/morse',    type: 'page',     action: () => router.push('/morse') },
   { id: 'nav-launch',  label: 'launch',              icon: '🚀', hint: '/launch',   type: 'page',     action: () => router.push('/launch') },
-  { id: 'theme-scandi', label: 'scandinavian glass', icon: '❄️', hint: '1',         type: 'theme',    action: () => setTheme('scandi') },
-  { id: 'theme-hacker',label: 'cyberpunk',           icon: '📟', hint: '2',         type: 'theme',    action: () => setTheme('hacker') },
-  { id: 'theme-space', label: 'space',               icon: '🚀', hint: '3',         type: 'theme',    action: () => setTheme('space') },
+  { id: 'theme-scandi',   label: 'scandinavian glass', icon: '❄️', hint: '1', type: 'theme', action: () => setTheme('scandi') },
+  { id: 'theme-hacker',   label: 'cyberpunk',          icon: '📟', hint: '2', type: 'theme', action: () => setTheme('hacker') },
+  { id: 'theme-space',    label: 'space',              icon: '🚀', hint: '3', type: 'theme', action: () => setTheme('space') },
+  { id: 'theme-almanac',  label: 'almanac',            icon: '◐',  hint: '4', type: 'theme', action: () => setTheme('almanac') },
   { id: 'ext-reddot',  label: 'red dot game',        icon: '🔴',                    type: 'external', action: () => window.open('https://dot.phareim.no', '_blank', 'noopener,noreferrer') },
   { id: 'ext-reader',  label: 'rss reader',          icon: '📰',                    type: 'external', action: () => window.open('https://reader.phareim.no', '_blank', 'noopener,noreferrer') },
 ]
