@@ -54,9 +54,8 @@ const emit = defineEmits<{
 }
 
 .flipper {
-  transition: 1.2s;
+  transition: transform 1.2s ease-in-out;
   transform-style: preserve-3d;
-  transition-timing-function: ease-in-out;
   position: relative;
 }
 
