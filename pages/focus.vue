@@ -226,6 +226,74 @@ const secondPulse = ref(false)
 let ticker: ReturnType<typeof setInterval> | null = null
 let flashTimer: ReturnType<typeof setTimeout> | null = null
 
+// ── Persistence ────────────────────────────────────────────────────────
+
+const TIMER_STORAGE_KEY = 'focus-timer-state'
+
+interface SavedTimerState {
+  mode: ModeKey
+  timeLeft: number
+  sessionCount: number
+  isRunning: boolean
+  savedAt: number
+}
+
+function saveTimerState() {
+  if (!import.meta.client) return
+  try {
+    const state: SavedTimerState = {
+      mode: currentMode.value,
+      timeLeft: timeLeft.value,
+      sessionCount: sessionCount.value,
+      isRunning: isRunning.value,
+      savedAt: Date.now(),
+    }
+    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state))
+  } catch { /* storage unavailable */ }
+}
+
+function loadTimerState() {
+  if (!import.meta.client) return
+  const raw = localStorage.getItem(TIMER_STORAGE_KEY)
+  if (!raw) return
+  try {
+    const s = JSON.parse(raw) as SavedTimerState
+    if (!s.mode || !(s.mode in MODES) || typeof s.timeLeft !== 'number') return
+
+    const elapsed = Math.floor((Date.now() - (s.savedAt ?? 0)) / 1000)
+
+    if (s.isRunning) {
+      const remaining = s.timeLeft - elapsed
+      if (remaining <= 0) {
+        // Timer expired while away — silently advance to next mode
+        if (s.mode === 'focus') {
+          const next = (s.sessionCount ?? 0) + 1
+          sessionCount.value = Math.min(next, SESSIONS_BEFORE_LONG)
+          const nextMode: ModeKey = next >= SESSIONS_BEFORE_LONG ? 'long' : 'short'
+          currentMode.value = nextMode
+          timeLeft.value = MODES[nextMode].seconds
+        } else {
+          sessionCount.value = s.mode === 'long' ? 0 : (s.sessionCount ?? 0)
+          currentMode.value = 'focus'
+          timeLeft.value = MODES.focus.seconds
+        }
+      } else {
+        // Timer was running — restore with elapsed deducted, leave paused
+        currentMode.value = s.mode
+        timeLeft.value = remaining
+        sessionCount.value = s.sessionCount ?? 0
+      }
+    } else {
+      // Timer was paused — restore exactly
+      currentMode.value = s.mode
+      timeLeft.value = s.timeLeft
+      sessionCount.value = s.sessionCount ?? 0
+    }
+  } catch {
+    localStorage.removeItem(TIMER_STORAGE_KEY)
+  }
+}
+
 // ── Audio ──────────────────────────────────────────────────────────────
 
 const soundEnabled = ref(import.meta.client ? localStorage.getItem('focus-sound') !== '0' : true)
@@ -483,6 +551,10 @@ const handleGlobalKey = (event: KeyboardEvent) => {
 }
 
 onMounted(() => {
+  loadTimerState()
+  // Persist state on every change so refreshes and navigations don't lose progress
+  watch([currentMode, timeLeft, sessionCount, isRunning], saveTimerState)
+
   document.addEventListener('keydown', handleGlobalKey)
   if (typeof Notification !== 'undefined') {
     notifSupported.value = true
@@ -494,6 +566,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  saveTimerState()  // final save before teardown
   if (ticker !== null) clearInterval(ticker)
   if (flashTimer !== null) clearTimeout(flashTimer)
   document.removeEventListener('keydown', handleGlobalKey)
