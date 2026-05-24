@@ -40,7 +40,7 @@
           ></textarea>
           <span class="gb-char-count" :class="{ warn: form.message.length > 240 }">
             {{ form.message.length }}/280
-            <span class="gb-hint">ctrl+enter to send</span>
+            <span class="gb-hint">{{ isMac ? '⌘↵' : 'ctrl+↵' }} to send</span>
           </span>
         </div>
 
@@ -106,6 +106,12 @@ const submitted = ref(false)
 const error = ref('')
 const newEntryId = ref<string | null>(null)
 let newEntryTimer: ReturnType<typeof setTimeout> | null = null
+
+const isMac = ref(false)
+onMounted(() => {
+  isMac.value = /Mac|iPhone|iPod|iPad/.test(navigator.platform ?? '') ||
+                /Macintosh/.test(navigator.userAgent ?? '')
+})
 
 async function submit() {
   if (submitting.value) return
