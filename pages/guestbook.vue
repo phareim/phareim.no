@@ -40,7 +40,7 @@
           ></textarea>
           <span class="gb-char-count" :class="{ warn: form.message.length > 240 }">
             {{ form.message.length }}/280
-            <span class="gb-hint">ctrl+enter to send</span>
+            <span class="gb-hint">⌘/ctrl+enter to send</span>
           </span>
         </div>
 
