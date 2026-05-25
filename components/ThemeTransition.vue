@@ -150,6 +150,9 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  // Skip themes that have no visual effect defined (e.g. 'almanac') to avoid
+  // spinning a transparent RAF loop for DURATIONS[unknown] ?? 700 ms.
+  if (!['scandi', 'hacker', 'space'].includes(newTheme)) return
   if (animationId !== null) cancelAnimationFrame(animationId)
 
   isPlaying.value = true
