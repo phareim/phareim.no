@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 680,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,49 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: ink-wash paper bloom ────────────────────────────────────────────
+function playInkWashEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+
+  // Envelope: bloom in (0→0.22), hold, exhale out (0.65→1)
+  const alpha = t < 0.22 ? t / 0.22 : t > 0.65 ? (1 - t) / 0.35 : 1
+
+  // Paper in light mode, midnight in dark mode — mirrors almanac.css
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  const [pr, pg, pb] = dark ? [14, 18, 25] : [244, 240, 232]     // --almanac-night-bottom / --almanac-paper
+  const [ar, ag, ab] = dark ? [212, 165, 116] : [193, 74, 42]     // --almanac-amber / --almanac-rust
+
+  // Radial ink bloom radiating from center
+  const bloom = Math.min(1, t * 1.85)
+  const maxR = Math.hypot(w / 2, h / 2)
+  const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, maxR * bloom + 10)
+  grad.addColorStop(0,    `rgba(${pr},${pg},${pb},${(alpha * 0.92).toFixed(3)})`)
+  grad.addColorStop(0.45, `rgba(${pr},${pg},${pb},${(alpha * 0.78).toFixed(3)})`)
+  grad.addColorStop(0.80, `rgba(${pr},${pg},${pb},${(alpha * 0.42).toFixed(3)})`)
+  grad.addColorStop(1,    `rgba(${pr},${pg},${pb},0)`)
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, w, h)
+
+  // Hairline rules — appear during the hold, draw outward from center
+  const ruleT = Math.max(0, (t - 0.20) / 0.48)   // 0→1 over t ≈ 0.20–0.68
+  const ruleAlpha = alpha * ruleT * 0.28
+  if (ruleAlpha > 0.004) {
+    ctx.strokeStyle = `rgba(${ar},${ag},${ab},${ruleAlpha.toFixed(3)})`
+    ctx.lineWidth = 0.5
+    const margin = w * 0.12
+    const RULE_COUNT = 9
+    for (let i = 0; i < RULE_COUNT; i++) {
+      const y = (h / (RULE_COUNT + 1)) * (i + 1) + (i % 3 - 1) * 6
+      const halfW = (w / 2 - margin) * Math.min(1, ruleT * 1.6 - i * 0.05)
+      if (halfW <= 0) continue
+      ctx.beginPath()
+      ctx.moveTo(w / 2 - halfW, y)
+      ctx.lineTo(w / 2 + halfW, y)
+      ctx.stroke()
+    }
+  }
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +216,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playInkWashEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
