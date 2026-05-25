@@ -134,6 +134,7 @@ const PAGES = [
   { path: '/focus',      desc: 'pomodoro timer' },
   { path: '/terminal',   desc: '← you are here' },
   { path: '/morse',      desc: 'morse code translator' },
+  { path: '/launch',     desc: 'rocket launch countdown' },
 ]
 
 // ── Command implementations ─────────────────────────────────────────────
@@ -237,6 +238,13 @@ function catCmd(arg: string): OutputLine[] {
       out('  interactive morse code translator.'),
       out('  type text → see morse code → hear it via web audio api.'),
       out('  supports a–z, 0–9, and common punctuation.'),
+    ],
+    '/launch': [
+      h('<span class="t-hl">/launch</span>'),
+      blank(),
+      out('  rocket launch countdown: T-10 to liftoff.'),
+      out('  svg rocket on pad (scandi/space/almanac), ascii rocket (hacker).'),
+      out('  web audio rumble + orbit chord on ignition.'),
     ],
   }
 
