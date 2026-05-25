@@ -81,6 +81,32 @@
 import ProfileCard from '~/components/ProfileCard.vue'
 import SocialLink from '~/components/SocialLink.vue'
 import SpaceInvadersBackground from '~/components/SpaceInvadersBackground.vue'
+
+// Scandi-palette bubble colors (light and dark mode variants).
+// Derived from CSS custom properties in assets/themes/scandinavian.css
+// so the bubbles feel native to the design system.
+const BUBBLE_PALETTE_LIGHT = [
+  [107, 140, 174],  // --accent-soft-blue
+  [107, 140, 174],  // doubled weight — dominant hue
+  [155, 171, 139],  // --accent-soft-sage
+  [193,  39,  45],  // --accent-red
+  [  0, 150,  57],  // --accent-green
+  [160, 195, 230],  // light blue wash
+  [205, 220, 200],  // light sage wash
+  [225, 232, 245],  // near-white blue tint
+]
+
+const BUBBLE_PALETTE_DARK = [
+  [137, 171, 208],  // dark mode --accent-soft-blue
+  [137, 171, 208],  // doubled weight
+  [176, 196, 160],  // dark mode --accent-soft-sage
+  [193,  39,  45],  // --accent-red (unchanged)
+  [  0, 150,  57],  // --accent-green (unchanged)
+  [ 90, 120, 165],  // muted dark blue
+  [125, 150, 120],  // muted dark sage
+  [ 45,  58,  80],  // deep blue-gray
+]
+
 export default {
   name: 'Home',
   components: {
@@ -436,9 +462,9 @@ export default {
       const y = event.clientY - rect.top;
 
       const size = (Math.random() * 300) + 50;
-      const r = (Math.random()> 0.5? 75 + Math.random()*20 : 150 + Math.random()*20);
-      const g = (Math.random()> 0.5? 50 + Math.random()*100 : 125 + Math.random()*20);
-      const b = (Math.random()> 0.5? 100 + Math.random()*20 : 255);
+      // Pick a bubble color from the scandi theme palette
+      const palette = this.darkMode ? BUBBLE_PALETTE_DARK : BUBBLE_PALETTE_LIGHT;
+      const [r, g, b] = palette[Math.floor(Math.random() * palette.length)];
       
       let shadowLength = 0;
       if(event.layer){
@@ -502,6 +528,18 @@ canvas {
   top: 0;
   left: 0;
   z-index: 1;
+  animation: canvas-fadein 0.7s ease both;
+}
+
+@keyframes canvas-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  canvas {
+    animation: none;
+  }
 }
 
 .overlay {
