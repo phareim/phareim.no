@@ -60,7 +60,7 @@
 
 <script setup lang="ts">
 const router = useRouter()
-const { activeTheme } = useTheme()
+const { activeTheme, setTheme } = useTheme()
 
 useHead({ title: 'terminal — phareim.no' })
 
@@ -142,20 +142,22 @@ function helpCmd(): OutputLine[] {
   return [
     out('available commands', 'heading'),
     blank(),
-    h('  <span class="t-hl">help</span>              show this help'),
-    h('  <span class="t-hl">whoami</span>            who runs this site'),
-    h('  <span class="t-hl">ls</span>                list all pages'),
-    h('  <span class="t-hl">cat</span> &lt;page&gt;       show page info  (e.g. cat /about)'),
-    h('  <span class="t-hl">open</span> &lt;path&gt;      navigate to a page'),
-    h('  <span class="t-hl">pwd</span>               print working directory'),
-    h('  <span class="t-hl">date</span>              current date and time'),
-    h('  <span class="t-hl">uname</span>             system information'),
-    h('  <span class="t-hl">echo</span> &lt;text&gt;      print text'),
-    h('  <span class="t-hl">theme</span>             show current theme'),
-    h('  <span class="t-hl">history</span>           command history'),
-    h('  <span class="t-hl">neofetch</span>          system info'),
-    h('  <span class="t-hl">clear</span>             clear the terminal'),
-    h('  <span class="t-hl">exit</span>              go to home page'),
+    h('  <span class="t-hl">help</span>                  show this help'),
+    h('  <span class="t-hl">whoami</span>                who runs this site'),
+    h('  <span class="t-hl">ls</span>                    list all pages'),
+    h('  <span class="t-hl">cat</span> &lt;page&gt;           show page info  (e.g. cat /about)'),
+    h('  <span class="t-hl">open</span> &lt;path&gt;          navigate to a page'),
+    h('  <span class="t-hl">settheme</span> &lt;theme&gt;     switch site theme  (e.g. settheme space)'),
+    h('  <span class="t-hl">fortune</span>               random quote'),
+    h('  <span class="t-hl">pwd</span>                   print working directory'),
+    h('  <span class="t-hl">date</span>                  current date and time'),
+    h('  <span class="t-hl">uname</span>                 system information'),
+    h('  <span class="t-hl">echo</span> &lt;text&gt;          print text'),
+    h('  <span class="t-hl">theme</span>                 show current theme'),
+    h('  <span class="t-hl">history</span>               command history'),
+    h('  <span class="t-hl">neofetch</span>              system info'),
+    h('  <span class="t-hl">clear</span>                 clear the terminal'),
+    h('  <span class="t-hl">exit</span>                  go to home page'),
   ]
 }
 
@@ -272,11 +274,12 @@ function unameCmd(): OutputLine[] {
 
 function themeCmd(): OutputLine[] {
   const labels: Record<string, string> = {
-    scandi: 'scandinavian glass',
-    hacker: 'cyberpunk / hacker',
-    space:  'deep space',
+    scandi:  'scandinavian glass',
+    hacker:  'cyberpunk / hacker',
+    space:   'deep space',
+    almanac: 'almanac',
   }
-  const keys: Record<string, string> = { scandi: '1', hacker: '2', space: '3' }
+  const keys: Record<string, string> = { scandi: '1', hacker: '2', space: '3', almanac: '4' }
   const current = activeTheme.value
   const lines: OutputLine[] = [
     h(`active: <span class="t-hl">${esc(labels[current] ?? current)}</span>`),
@@ -287,7 +290,7 @@ function themeCmd(): OutputLine[] {
     lines.push(h(`  ${marker} [<span class="t-hl">${keys[k]}</span>] ${esc(label)}`))
   }
   lines.push(blank())
-  lines.push(h('  press <span class="t-hl">1</span>, <span class="t-hl">2</span>, or <span class="t-hl">3</span> to switch themes'))
+  lines.push(h('  press <span class="t-hl">1</span>–<span class="t-hl">4</span> to switch, or use <span class="t-hl">settheme &lt;id&gt;</span>'))
   return lines
 }
 
@@ -300,9 +303,10 @@ function historyCmd(): OutputLine[] {
 
 function neofetchCmd(): OutputLine[] {
   const themeLabels: Record<string, string> = {
-    scandi: 'scandinavian glass',
-    hacker: 'cyberpunk / hacker',
-    space:  'deep space',
+    scandi:  'scandinavian glass',
+    hacker:  'cyberpunk / hacker',
+    space:   'deep space',
+    almanac: 'almanac',
   }
   return [
     h('<span class="t-hl">phareim</span><span class="t-subtle">@</span><span class="t-hl">phareim.no</span>'),
@@ -314,6 +318,79 @@ function neofetchCmd(): OutputLine[] {
     h(`  <span class="t-subtle">stack:</span>   vue 3 · typescript · d1 · r2`),
     h(`  <span class="t-subtle">agent:</span>   claude sonnet (scheduled, every 6h)`),
   ]
+}
+
+// ── Fortune quotes ────────────────────────────────────────────────────
+
+const FORTUNES = [
+  'Make it work, make it right, make it fast. — Kent Beck',
+  'Any fool can write code that a computer can understand. Good programmers write code that humans can understand. — Martin Fowler',
+  'Simplicity is the ultimate sophistication. — Leonardo da Vinci',
+  'The best code is no code at all. — Jeff Atwood',
+  'It works on my machine.',
+  'There are only two hard things in CS: cache invalidation, naming things, and off-by-one errors.',
+  'Debugging is twice as hard as writing the code in the first place. — Brian W. Kernighan',
+  "The most dangerous phrase in the language is: 'we've always done it this way.' — Grace Hopper",
+  "In theory, theory and practice are the same. In practice, they're not.",
+  "A ship in harbour is safe — but that's not what ships are for. — John A. Shedd",
+  'Code is read more often than it is written.',
+  "git commit -m 'fix: it works, don't ask why'",
+  'sudo make me a sandwich.',
+  'First, solve the problem. Then, write the code. — John Johnson',
+  'Talk is cheap. Show me the code. — Linus Torvalds',
+  'Give a man a program, frustrate him for a day. Teach a man to program, frustrate him for a lifetime.',
+  'The function of good software is to make the complex appear to be simple. — Grady Booch',
+  'Perfection is achieved not when there is nothing more to add, but when there is nothing left to take away. — Antoine de Saint-Exupéry',
+  'Walking on water and developing software from a specification are easy if both are frozen. — Edward V. Berard',
+  'The internet never forgets, but it also never remembers correctly.',
+]
+
+function fortuneCmd(): OutputLine[] {
+  const quote = FORTUNES[Math.floor(Math.random() * FORTUNES.length)]!
+  const sep = quote.lastIndexOf(' — ')
+  if (sep !== -1) {
+    const text = quote.slice(0, sep)
+    const author = quote.slice(sep + 3)
+    return [
+      h(`  <span class="t-subtle">❝</span> ${esc(text)} <span class="t-subtle">❞</span>`),
+      blank(),
+      h(`  <span class="t-subtle">— ${esc(author)}</span>`),
+    ]
+  }
+  return [h(`  <span class="t-subtle">❝</span> ${esc(quote)} <span class="t-subtle">❞</span>`)]
+}
+
+function setthemeCmd(arg: string): OutputLine[] {
+  const THEME_IDS = ['scandi', 'hacker', 'space', 'almanac']
+  const labels: Record<string, string> = {
+    scandi:  'scandinavian glass',
+    hacker:  'cyberpunk / hacker',
+    space:   'deep space',
+    almanac: 'almanac',
+  }
+  if (!arg) {
+    const lines: OutputLine[] = [
+      h('usage: <span class="t-hl">settheme</span> &lt;theme&gt;'),
+      blank(),
+    ]
+    for (const id of THEME_IDS) {
+      const marker = activeTheme.value === id ? '<span class="t-hl">→</span>' : ' '
+      lines.push(h(`  ${marker} <span class="t-hl">${id}</span>  ${esc(labels[id]!)}`))
+    }
+    return lines
+  }
+  const id = arg.toLowerCase()
+  if (!THEME_IDS.includes(id)) {
+    return [
+      h(`settheme: unknown theme '<span class="t-hl">${esc(id)}</span>'`, 'error'),
+      h(`  valid: ${THEME_IDS.map(v => `<span class="t-hl">${v}</span>`).join(', ')}`),
+    ]
+  }
+  if (activeTheme.value === id) {
+    return [h(`already using <span class="t-hl">${esc(labels[id]!)}</span>`)]
+  }
+  setTheme(id)
+  return [h(`theme → <span class="t-hl">${esc(labels[id]!)}</span>`)]
 }
 
 // ── Command processor ──────────────────────────────────────────────────
@@ -371,6 +448,12 @@ function processCmd(raw: string): CmdEntry | null {
     case 'neofetch':
     case 'fetch':
       output = neofetchCmd()
+      break
+    case 'fortune':
+      output = fortuneCmd()
+      break
+    case 'settheme':
+      output = setthemeCmd(arg)
       break
     case 'clear':
       cmdHistory.value = []
@@ -436,8 +519,20 @@ function handleKey(e: KeyboardEvent) {
       }
       currentCmd.value = `${verb} ${tabState.value.matches[tabState.value.idx]!}`
       tabState.value.base = currentCmd.value
+    } else if (parts.length >= 1 && parts[0]!.toLowerCase() === 'settheme') {
+      const partial = parts.slice(1).join(' ')
+      const themeIds = ['almanac', 'hacker', 'scandi', 'space']
+      if (!tabState.value || tabState.value.base !== raw) {
+        const matches = themeIds.filter(id => !partial || id.startsWith(partial.toLowerCase()))
+        if (!matches.length) return
+        tabState.value = { base: raw, matches, idx: 0 }
+      } else {
+        tabState.value.idx = (tabState.value.idx + 1) % tabState.value.matches.length
+      }
+      currentCmd.value = `settheme ${tabState.value.matches[tabState.value.idx]!}`
+      tabState.value.base = currentCmd.value
     } else {
-      const allCmds = ['cat', 'cd', 'clear', 'date', 'echo', 'exit', 'fetch', 'goto', 'help', 'history', 'ls', 'neofetch', 'open', 'pages', 'pwd', 'theme', 'uname', 'whoami']
+      const allCmds = ['cat', 'cd', 'clear', 'date', 'echo', 'exit', 'fetch', 'fortune', 'goto', 'help', 'history', 'ls', 'neofetch', 'open', 'pages', 'pwd', 'settheme', 'theme', 'uname', 'whoami']
       if (!raw.trim()) return
       if (!tabState.value || tabState.value.base !== raw) {
         const matches = allCmds.filter(c => c.startsWith(raw.toLowerCase()))
