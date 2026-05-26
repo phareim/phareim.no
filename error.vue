@@ -3,6 +3,7 @@
     <ScandiAurora v-if="activeTheme === 'scandi'" />
     <HackerRain v-if="activeTheme === 'hacker'" />
     <SpaceStarfield v-if="activeTheme === 'space'" />
+    <AlmanacPaper v-if="activeTheme === 'almanac'" />
 
     <!-- Hacker theme -->
     <div v-if="activeTheme === 'hacker'" class="error-container hacker-container-inner">
@@ -43,6 +44,7 @@ import MenuComponent from '~/components/MenuComponent.vue'
 import ScandiAurora from '~/components/ScandiAurora.vue'
 import HackerRain from '~/components/HackerRain.vue'
 import SpaceStarfield from '~/components/SpaceStarfield.vue'
+import AlmanacPaper from '~/components/AlmanacPaper.vue'
 
 const props = defineProps({
   error: Object
