@@ -36,14 +36,18 @@
         <div v-if="projectsPending" class="stats-placeholder">
           <span>loading…</span>
         </div>
-        <div v-else-if="langStats.length" class="lang-section">
+        <div v-else-if="langStats.length" ref="langSectionRef" class="lang-section">
           <!-- Stacked bar -->
           <div class="lang-bar" role="img" :aria-label="langBarAriaLabel">
             <div
-              v-for="{ lang, pct } in langStats"
+              v-for="({ lang, pct }, i) in langStats"
               :key="lang"
               class="lang-bar-segment"
-              :style="{ width: pct + '%', '--lang-color': langColor(lang) }"
+              :style="{
+                width: langBarsVisible ? pct + '%' : '0%',
+                '--lang-color': langColor(lang),
+                transitionDelay: langBarsVisible ? `${i * 55}ms` : '0ms',
+              }"
               :title="`${lang} — ${pct}%`"
             ></div>
           </div>
@@ -51,14 +55,21 @@
           <!-- Legend rows -->
           <ul class="lang-list" role="list">
             <li
-              v-for="{ lang, count, pct } in langStats"
+              v-for="({ lang, count, pct }, i) in langStats"
               :key="lang"
               class="lang-row"
             >
               <span class="lang-dot" :style="{ '--lang-color': langColor(lang) }" aria-hidden="true"></span>
               <span class="lang-name">{{ lang }}</span>
               <span class="lang-bar-inline" aria-hidden="true">
-                <span class="lang-bar-fill" :style="{ width: pct + '%', '--lang-color': langColor(lang) }"></span>
+                <span
+                  class="lang-bar-fill"
+                  :style="{
+                    width: langBarsVisible ? pct + '%' : '0%',
+                    '--lang-color': langColor(lang),
+                    transitionDelay: langBarsVisible ? `${i * 55 + 90}ms` : '0ms',
+                  }"
+                ></span>
               </span>
               <span class="lang-meta">
                 <span class="lang-count">{{ count }} repo{{ count !== 1 ? 's' : '' }}</span>
@@ -308,6 +319,11 @@ const monthLabels = computed(() => {
 const heatmapGridRef = ref<HTMLElement | null>(null)
 const heatmapVisible = ref(false)
 
+// ── Language bar entrance animation ──────────────────────────────────
+
+const langSectionRef = ref<HTMLElement | null>(null)
+const langBarsVisible = ref(false)
+
 const heatmapTooltip = reactive({
   visible: false,
   date: '',
@@ -412,6 +428,18 @@ onMounted(() => {
     }
   } else {
     heatmapVisible.value = true
+  }
+
+  // Language bar entrance animation — animate bars from 0→width when visible
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    langBarsVisible.value = true
+  } else if (langSectionRef.value) {
+    const langObs = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) { langBarsVisible.value = true; langObs.disconnect() }
+    }, { threshold: 0.15 })
+    langObs.observe(langSectionRef.value)
+  } else {
+    langBarsVisible.value = true
   }
 })
 </script>
@@ -543,7 +571,7 @@ h1 {
   height: 100%;
   background: var(--lang-color, #6b8cae);
   border-radius: 999px;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, width 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   flex-shrink: 0;
 }
 
@@ -825,6 +853,9 @@ h1 {
 @media (prefers-reduced-motion: reduce) {
   .commit-grid:not(.is-visible) .commit-cell { opacity: 1; }
   .commit-grid.is-visible .commit-cell { animation: none; }
+  /* Disable width animation on language bars for reduced-motion users */
+  .lang-bar-segment { transition-property: opacity; }
+  .lang-bar-fill { transition-duration: 0s; }
 }
 
 .commit-cell--level0 { background: var(--theme-card-border, rgba(0, 0, 0, 0.08)); }
