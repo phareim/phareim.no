@@ -1,5 +1,12 @@
 <template>
   <div class="activity-page">
+    <!-- Sticky date chip — shows current date group while scrolling -->
+    <div
+      class="sticky-date"
+      :class="{ 'sticky-date--visible': stickyVisible }"
+      aria-hidden="true"
+    >{{ stickyDate }}</div>
+
     <header class="activity-header">
       <h1>activity</h1>
       <p class="activity-subtitle">everything, in order</p>
@@ -197,6 +204,8 @@ onMounted(() => {
 
   // Handle data already loaded before mount (e.g. from cache)
   if (!pending.value) nextTick(observeItems)
+
+  window.addEventListener('scroll', updateStickyDate, { passive: true })
 })
 
 // Handle data loading after mount
@@ -204,7 +213,31 @@ watch(pending, (isPending) => {
   if (!isPending) nextTick(observeItems)
 })
 
-onBeforeUnmount(() => observer?.disconnect())
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  window.removeEventListener('scroll', updateStickyDate)
+})
+
+// ── Sticky date chip ───────────────────────────────────────────────────
+
+const stickyDate = ref('')
+const stickyVisible = ref(false)
+
+function updateStickyDate() {
+  if (!feedEl.value) return
+  const separators = feedEl.value.querySelectorAll<HTMLElement>('.activity-separator')
+  // STICKY_THRESHOLD: how far from the top of the viewport counts as "scrolled past"
+  const STICKY_THRESHOLD = 72
+  let current = ''
+  for (const sep of separators) {
+    const rect = sep.getBoundingClientRect()
+    if (rect.top < STICKY_THRESHOLD) {
+      current = sep.querySelector('.separator-label')?.textContent?.trim() ?? ''
+    }
+  }
+  stickyDate.value = current
+  stickyVisible.value = !!current
+}
 
 const items = computed((): ActivityItem[] => {
   const result: ActivityItem[] = []
@@ -833,6 +866,70 @@ h1 {
   .activity-separator.is-visible {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* ── Sticky date chip ────────────────────────────────────────── */
+
+.sticky-date {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  max-width: min(calc(100% - 5rem), 280px);
+  background: var(--theme-card-bg, rgba(255, 255, 255, 0.9));
+  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.1));
+  border-radius: 999px;
+  padding: 0.22rem 0.8rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--theme-text-subtle, #aaa);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  z-index: 90;
+  box-shadow: 0 2px 8px var(--theme-card-shadow, rgba(0, 0, 0, 0.05));
+}
+
+.sticky-date--visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+:global(.hacker-page) .sticky-date {
+  border-radius: 0;
+  font-family: monospace;
+  color: var(--hacker-text-dim, #008f11);
+  border-color: var(--hacker-text-dim, #008f11);
+  box-shadow: 0 0 10px var(--hacker-glow, rgba(0, 255, 65, 0.2));
+  background: var(--hacker-bg, #0a0a0a);
+}
+
+:global(.hacker-page) .sticky-date::before {
+  content: '// ';
+  color: var(--hacker-text-dim, #008f11);
+}
+
+:global(.space-page) .sticky-date {
+  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
+  font-size: 0.55rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: var(--space-accent-blue, #89abd0);
+  border-color: var(--space-border, rgba(140, 170, 220, 0.2));
+  text-shadow: 0 0 6px rgba(137, 171, 208, 0.5);
+  box-shadow: 0 0 12px var(--space-glow, rgba(140, 170, 220, 0.1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sticky-date {
+    transition: opacity 0.1s linear;
+    transform: translateX(-50%) !important;
   }
 }
 </style>
