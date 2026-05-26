@@ -18,6 +18,51 @@ const MUTATION_CHANCE = 0.08 // probability a mid-trail char mutates per update
 const BG = '#0a0a0a'
 const ACCENT = '#ff0055'    // hacker theme accent (neon pink)
 
+// ── CRT phosphor overlay (cached per resize) ─────────────────────────────────
+let scanlinePattern: CanvasPattern | null = null
+let vignetteGrad: CanvasGradient | null = null
+
+/** Build a 1×3 px tiled pattern that paints a dark line every third row. */
+function buildScanlines(): CanvasPattern | null {
+  if (!ctx) return null
+  const pat = document.createElement('canvas')
+  pat.width = 1
+  pat.height = 3
+  const pCtx = pat.getContext('2d')
+  if (!pCtx) return null
+  pCtx.clearRect(0, 0, 1, 3)
+  pCtx.fillStyle = 'rgba(0, 0, 0, 0.09)'
+  pCtx.fillRect(0, 0, 1, 1)   // top row of each 3-px cell is dimmed
+  return ctx.createPattern(pat, 'repeat')
+}
+
+/** Build a radial vignette darkening towards the screen edges. */
+function buildVignette(w: number, h: number): CanvasGradient | null {
+  if (!ctx) return null
+  // Elliptical approximation: scale the canvas to build a circular gradient
+  const cx = w / 2
+  const cy = h / 2
+  const r = Math.hypot(cx, cy)
+  const grad = ctx.createRadialGradient(cx, cy, r * 0.28, cx, cy, r)
+  grad.addColorStop(0,    'rgba(0, 0, 0, 0)')
+  grad.addColorStop(0.55, 'rgba(0, 0, 0, 0)')
+  grad.addColorStop(1,    'rgba(0, 0, 0, 0.42)')
+  return grad
+}
+
+/** Overlay scanlines + vignette onto the current canvas frame. */
+function drawCRT(w: number, h: number) {
+  if (!ctx) return
+  if (scanlinePattern) {
+    ctx.fillStyle = scanlinePattern
+    ctx.fillRect(0, 0, w, h)
+  }
+  if (vignetteGrad) {
+    ctx.fillStyle = vignetteGrad
+    ctx.fillRect(0, 0, w, h)
+  }
+}
+
 // Column state types
 type ColState = 'normal' | 'glitch' | 'burst' | 'dim'
 
@@ -67,6 +112,8 @@ function resize() {
   if (ctx) {
     ctx.fillStyle = BG
     ctx.fillRect(0, 0, w, h)
+    scanlinePattern = buildScanlines()
+    vignetteGrad = buildVignette(w, h)
   }
   initColumns()
 }
@@ -245,6 +292,8 @@ function draw() {
     }
   }
 
+  drawCRT(w, h)
+
   frame++
   animationId = requestAnimationFrame(draw)
 }
@@ -262,6 +311,7 @@ function drawStatic() {
     ctx.fillStyle = `rgba(0, 255, 65, ${0.4 * col.brightness})`
     ctx.fillText(col.glitchChar, col.x, Math.max(col.fontSize, Math.min(h, col.y + h * 0.5)))
   }
+  drawCRT(w, h)
 }
 
 function handleClick(e: MouseEvent) {
@@ -290,6 +340,10 @@ onMounted(() => {
   if (!ctx) return
   canvas.value.width = window.innerWidth
   canvas.value.height = window.innerHeight
+
+  // Build CRT overlays now that ctx is available
+  scanlinePattern = buildScanlines()
+  vignetteGrad = buildVignette(canvas.value.width, canvas.value.height)
 
   window.addEventListener('resize', resize)
 
