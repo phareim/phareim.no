@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 520,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,20 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: quiet warm-paper wash ───────────────────────────────────────────
+// Paper-warmth that briefly floods the screen — calm, no motion.
+// Adapts to OS color scheme: paper-white in light mode, midnight ink in dark.
+function playPaperEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+  // Fast rise, brief hold, gentle exhale — like a page catching the light
+  const alpha = t < 0.22 ? t / 0.22 : t > 0.62 ? (1 - t) / 0.38 : 1.0
+
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  const [r, g, b] = isDark ? [22, 27, 36] : [244, 240, 232]
+  ctx.fillStyle = `rgba(${r},${g},${b},${(alpha * 0.88).toFixed(3)})`
+  ctx.fillRect(0, 0, w, h)
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +187,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playPaperEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
