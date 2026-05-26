@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 550,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,35 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: quiet paper breath ──────────────────────────────────────────────
+// Warm paper wash with a gentle centre bloom — matching the almanac's
+// "no-chrome, opacity-only" philosophy. Dark OS mode uses midnight paper.
+function playAlmanacEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+  // Bell-curve alpha: 0 → 1 by t=0.3, hold, back to 0 by t=1
+  const alpha = t < 0.30 ? t / 0.30 : t > 0.62 ? (1 - t) / 0.38 : 1
+
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  // paper tone: warm ivory in light, midnight blue-black in dark
+  const [r, g, b] = isDark ? [14, 18, 25] : [244, 240, 232]
+  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${(alpha * 0.88).toFixed(3)})`
+  ctx.fillRect(0, 0, w, h)
+
+  // Soft centre bloom: lighter circle that fades to the paper colour at the edge
+  const cx = w / 2
+  const cy = h / 2
+  const bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.hypot(cx, cy) * 0.8)
+  if (isDark) {
+    bloom.addColorStop(0, `rgba(30, 40, 55, ${(alpha * 0.30).toFixed(3)})`)
+    bloom.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  } else {
+    bloom.addColorStop(0, `rgba(255, 254, 248, ${(alpha * 0.38).toFixed(3)})`)
+    bloom.addColorStop(1, 'rgba(210, 200, 180, 0)')
+  }
+  ctx.fillStyle = bloom
+  ctx.fillRect(0, 0, w, h)
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +202,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playAlmanacEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
