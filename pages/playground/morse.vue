@@ -1,10 +1,10 @@
 <template>
-  <div class="morse-page">
-    <header class="morse-header">
-      <h1>{{ pageTitle }}</h1>
-      <p class="subtitle">{{ pageSubtitle }}</p>
-    </header>
-
+  <AlmanacFrame
+    title="Morse"
+    kicker="Text ↔ morse code + audio."
+    back="/playground"
+    backLabel="back to playground"
+  >
     <main class="morse-content">
 
       <!-- Input -->
@@ -127,23 +127,11 @@
       </div>
 
     </main>
-  </div>
+  </AlmanacFrame>
 </template>
 
 <script setup lang="ts">
 const { activeTheme } = useTheme()
-
-const pageTitle = computed(() => {
-  if (activeTheme.value === 'hacker') return 'morse.exe'
-  if (activeTheme.value === 'space')  return 'SIGNAL ENCODER'
-  return 'morse'
-})
-
-const pageSubtitle = computed(() => {
-  if (activeTheme.value === 'hacker') return '// encode · decode · transmit'
-  if (activeTheme.value === 'space')  return 'BIDIRECTIONAL TRANSMISSION PROTOCOL'
-  return 'text ↔ morse code + audio'
-})
 
 const inputPlaceholder = computed(() => {
   if (activeTheme.value === 'hacker') return 'type text or . - / morse…'
@@ -371,34 +359,6 @@ onUnmounted(() => { stopPlay() })
 </script>
 
 <style scoped>
-/* ── Page shell ──────────────────────────────────────────────────────── */
-
-.morse-page {
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 3rem 1.5rem 5rem;
-  box-sizing: border-box;
-  max-width: 680px;
-  margin: 0 auto;
-}
-
-.morse-header {
-  margin-bottom: 2.5rem;
-}
-
-h1 {
-  font-size: clamp(2rem, 6vw, 3.5rem);
-  margin: 0 0 0.4rem;
-  color: var(--theme-text, #111);
-  font-weight: 500;
-}
-
-.subtitle {
-  color: var(--theme-text-muted, #666);
-  font-size: 0.95rem;
-  margin: 0;
-}
-
 /* ── Sections ────────────────────────────────────────────────────────── */
 
 .morse-content {
@@ -715,13 +675,6 @@ h1 {
 
 /* ── Hacker theme ────────────────────────────────────────────────────── */
 
-:global(.hacker-page) h1 {
-  font-family: monospace;
-  text-transform: lowercase;
-  text-shadow: 0 0 10px currentColor;
-}
-
-:global(.hacker-page) .subtitle,
 :global(.hacker-page) .morse-label,
 :global(.hacker-page) .speed-label {
   font-family: monospace;
@@ -780,14 +733,6 @@ h1 {
 }
 
 /* ── Space theme ─────────────────────────────────────────────────────── */
-
-:global(.space-page) h1 {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
-  text-shadow: 0 0 40px rgba(140, 170, 220, 0.3);
-}
 
 :global(.space-page) .morse-sym.is-active {
   box-shadow: 0 0 14px rgba(137, 171, 208, 0.7);

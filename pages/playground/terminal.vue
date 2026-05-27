@@ -1,6 +1,11 @@
 <template>
-  <div class="terminal-page" @click="focusInput">
-    <div class="terminal-window" @click.stop>
+  <AlmanacFrame
+    title="Terminal"
+    kicker="An in-browser terminal. Type help to get started."
+    back="/playground"
+    backLabel="back to playground"
+  >
+    <div class="terminal-window" @click="focusInput">
 
       <!-- macOS-style title bar -->
       <div class="terminal-titlebar" aria-hidden="true">
@@ -55,7 +60,7 @@
 
       </div>
     </div>
-  </div>
+  </AlmanacFrame>
 </template>
 
 <script setup lang="ts">
@@ -463,19 +468,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* ── Page ─────────────────────────────────────────────────────────── */
-
-.terminal-page {
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 2.5rem 1rem 4rem;
-  box-sizing: border-box;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  cursor: default;
-}
-
 /* ── Window card ──────────────────────────────────────────────────── */
 
 .terminal-window {
@@ -649,11 +641,6 @@ onMounted(() => {
 /* ── Responsive ───────────────────────────────────────────────────── */
 
 @media (max-width: 540px) {
-  .terminal-page {
-    padding: 0;
-    align-items: stretch;
-  }
-
   .terminal-window {
     border-radius: 0;
     min-height: 100dvh;
@@ -675,11 +662,6 @@ onMounted(() => {
 }
 
 /* ── Hacker theme ─────────────────────────────────────────────────── */
-
-:global(.hacker-page) .terminal-page {
-  padding: 0;
-  align-items: stretch;
-}
 
 :global(.hacker-page) .terminal-window {
   max-width: 100%;

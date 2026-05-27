@@ -1,10 +1,10 @@
 <template>
-  <div class="launch-page">
-    <header class="launch-header">
-      <h1>{{ pageTitle }}</h1>
-      <p class="subtitle">{{ pageSubtitle }}</p>
-    </header>
-
+  <AlmanacFrame
+    title="Launch"
+    kicker="A rocket countdown with a Web Audio rumble at zero."
+    back="/playground"
+    backLabel="back to playground"
+  >
     <main class="launch-main">
 
       <!-- ── Hacker: terminal launch console ───────────────────── -->
@@ -169,7 +169,7 @@
       </div>
 
     </main>
-  </div>
+  </AlmanacFrame>
 </template>
 
 <script setup lang="ts">
@@ -274,12 +274,6 @@ const pageTitle = computed(() => {
   if (activeTheme.value === 'hacker') return 'launch.exe'
   if (activeTheme.value === 'space') return 'LAUNCH CONTROL'
   return 'launch'
-})
-
-const pageSubtitle = computed(() => {
-  if (activeTheme.value === 'hacker') return '// orbital insertion in 10 seconds'
-  if (activeTheme.value === 'space') return 'OSLO LAUNCH COMPLEX — PAD 39A'
-  return 'ten seconds to orbit'
 })
 
 const stateLabel = computed(() => {
@@ -533,35 +527,6 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /* ── Page shell ─────────────────────────────────────────────── */
-
-.launch-page {
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 3rem 1.5rem 5rem;
-  box-sizing: border-box;
-  max-width: 520px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.launch-header {
-  margin-bottom: 1.5rem;
-}
-
-h1 {
-  font-size: clamp(2rem, 6vw, 3.5rem);
-  margin: 0 0 0.5rem;
-  color: var(--theme-text, #111);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
-
-.subtitle {
-  color: var(--theme-text-muted, #666);
-  font-size: 1rem;
-  margin: 0;
-}
 
 .launch-main {
   display: flex;
@@ -1143,17 +1108,6 @@ h1 {
 
 /* ── Hacker overrides ───────────────────────────────────────── */
 
-:global(.hacker-page) h1 {
-  font-family: monospace;
-  text-shadow: 0 0 10px currentColor;
-  letter-spacing: 0.04em;
-}
-
-:global(.hacker-page) .subtitle {
-  font-family: monospace;
-  color: var(--theme-text-muted, #008F11);
-}
-
 :global(.hacker-page) .ctrl--main {
   border-radius: 0;
   font-family: monospace;
@@ -1202,21 +1156,6 @@ h1 {
 }
 
 /* ── Space overrides ────────────────────────────────────────── */
-
-:global(.space-page) h1 {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
-  text-shadow: 0 0 40px rgba(140, 170, 220, 0.3);
-}
-
-:global(.space-page) .subtitle {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.12em;
-}
 
 :global(.space-page) .ctrl--main {
   border-radius: 0;
