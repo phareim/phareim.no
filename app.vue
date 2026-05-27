@@ -1,13 +1,9 @@
 <template>
   <div :class="themePageClass">
-    <SpaceStarfield v-if="activeTheme === 'space'" />
-    <ScandiAurora v-if="activeTheme === 'scandi'" />
-    <HackerRain v-if="activeTheme === 'hacker'" />
-    <AlmanacPaper v-if="activeTheme === 'almanac'" />
+    <AlmanacPaper />
     <NuxtPage :transition="{ name: 'page', mode: 'out-in' }" />
     <MenuComponent ref="menuComponent" />
     <PageProgress />
-    <ThemeTransition />
     <KeyboardShortcutsOverlay :open="showShortcuts" @close="showShortcuts = false" />
     <CommandPalette :open="showPalette" @close="showPalette = false" />
   </div>
@@ -17,28 +13,18 @@
 import type MenuComponent from '~/components/MenuComponent.vue';
 import { NAV_PAGES } from '~/composables/useNavPages';
 
-const { themePageClass, themeColor, activeTheme, setTheme } = useTheme()
+const { themePageClass, themeColor } = useTheme()
 const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);
 const showShortcuts = ref(false);
 const showPalette = ref(false);
 const router = useRouter();
 const route = useRoute();
 
-
-type ThemeId = 'scandi' | 'hacker' | 'space' | 'almanac'
-
 useHead({
   meta: [
     { name: 'theme-color', content: themeColor }
   ]
 })
-
-const THEME_KEYS: Record<string, ThemeId> = {
-  '1': 'scandi',
-  '2': 'hacker',
-  '3': 'space',
-  '4': 'almanac',
-}
 
 const handleKeyDown = (event: KeyboardEvent) => {
   // Cmd+K / Ctrl+K works everywhere (even in inputs)
@@ -72,11 +58,6 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
   if (!isAdmin && event.key.toLowerCase() === 'm') {
     menuComponent.value?.toggleMenu();
-    return
-  }
-
-  if (THEME_KEYS[event.key]) {
-    setTheme(THEME_KEYS[event.key])
     return
   }
 

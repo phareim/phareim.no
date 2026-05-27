@@ -2,9 +2,6 @@ import { defineNuxtConfig } from 'nuxt/config'
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   css: [
-    '~/assets/themes/scandinavian.css',
-    '~/assets/themes/hacker.css',
-    '~/assets/themes/space.css',
     '~/assets/themes/almanac.css'
   ],
 

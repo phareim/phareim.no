@@ -83,8 +83,8 @@ import SocialLink from '~/components/SocialLink.vue'
 import SpaceInvadersBackground from '~/components/SpaceInvadersBackground.vue'
 
 // Scandi-palette bubble colors (light and dark mode variants).
-// Derived from CSS custom properties in assets/themes/scandinavian.css
-// so the bubbles feel native to the design system.
+// Original palette from the legacy scandinavian theme so the bubbles feel
+// native to the design system.
 const BUBBLE_PALETTE_LIGHT = [
   [107, 140, 174],  // --accent-soft-blue
   [107, 140, 174],  // doubled weight — dominant hue

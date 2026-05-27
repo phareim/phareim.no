@@ -60,31 +60,6 @@
             </div>
           </div>
 
-          <div class="kbd-divider" aria-hidden="true"></div>
-
-          <div class="kbd-section">
-            <div class="kbd-section-label">themes</div>
-            <div class="kbd-row">
-              <kbd>1</kbd>
-              <span>scandinavian glass</span>
-              <span class="kbd-swatch" style="background: #6b8cae"></span>
-            </div>
-            <div class="kbd-row">
-              <kbd>2</kbd>
-              <span>cyberpunk</span>
-              <span class="kbd-swatch" style="background: #00ff41"></span>
-            </div>
-            <div class="kbd-row">
-              <kbd>3</kbd>
-              <span>space</span>
-              <span class="kbd-swatch" style="background: #89abd0"></span>
-            </div>
-            <div class="kbd-row">
-              <kbd>4</kbd>
-              <span>almanac</span>
-              <span class="kbd-swatch" style="background: #c14a2a"></span>
-            </div>
-          </div>
         </div>
       </div>
     </Transition>
@@ -259,49 +234,6 @@ kbd {
 .kbd-overlay-leave-to .kbd-panel {
   opacity: 0;
   transform: scale(0.97);
-}
-
-/* ── Hacker theme overrides ─────────────────────────────────── */
-
-:global(.hacker-page) .kbd-panel {
-  border-radius: 0;
-  box-shadow: 0 0 30px var(--theme-card-shadow, rgba(0, 255, 65, 0.15));
-}
-
-:global(.hacker-page) kbd {
-  border-radius: 0;
-  font-family: monospace;
-  color: var(--theme-text, #00ff41);
-  background: rgba(0, 20, 0, 0.9);
-  border-color: var(--theme-accent, #00ff41);
-  box-shadow: 0 0 6px rgba(0, 255, 65, 0.3);
-}
-
-:global(.hacker-page) .kbd-title,
-:global(.hacker-page) .kbd-section-label {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .kbd-row {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .kbd-close {
-  font-family: monospace;
-}
-
-/* ── Space theme overrides ──────────────────────────────────── */
-
-:global(.space-page) .kbd-panel {
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(140, 170, 220, 0.15);
-}
-
-:global(.space-page) kbd {
-  background: rgba(15, 15, 30, 0.8);
-  border-color: rgba(140, 170, 220, 0.25);
-  box-shadow: 0 1px 0 rgba(140, 170, 220, 0.15), inset 0 1px 0 rgba(140, 170, 220, 0.05);
 }
 
 /* ── Almanac theme overrides ────────────────────────────────── */
