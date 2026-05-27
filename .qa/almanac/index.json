@@ -1,40 +1,5 @@
 [
   {
-    "slug": "clock",
-    "mode": "light",
-    "path": "/clock",
-    "png": ".qa/almanac/clock-light.png",
-    "vars": ".qa/almanac/clock-light.vars.json"
-  },
-  {
-    "slug": "morse",
-    "mode": "light",
-    "path": "/morse",
-    "png": ".qa/almanac/morse-light.png",
-    "vars": ".qa/almanac/morse-light.vars.json"
-  },
-  {
-    "slug": "playground",
-    "mode": "light",
-    "path": "/playground",
-    "png": ".qa/almanac/playground-light.png",
-    "vars": ".qa/almanac/playground-light.vars.json"
-  },
-  {
-    "slug": "stats",
-    "mode": "light",
-    "path": "/stats",
-    "png": ".qa/almanac/stats-light.png",
-    "vars": ".qa/almanac/stats-light.vars.json"
-  },
-  {
-    "slug": "terminal",
-    "mode": "light",
-    "path": "/terminal",
-    "png": ".qa/almanac/terminal-light.png",
-    "vars": ".qa/almanac/terminal-light.vars.json"
-  },
-  {
     "slug": "index",
     "mode": "light",
     "path": "/",
@@ -49,11 +14,18 @@
     "vars": ".qa/almanac/about-light.vars.json"
   },
   {
-    "slug": "activity",
+    "slug": "now",
     "mode": "light",
-    "path": "/activity",
-    "png": ".qa/almanac/activity-light.png",
-    "vars": ".qa/almanac/activity-light.vars.json"
+    "path": "/now",
+    "png": ".qa/almanac/now-light.png",
+    "vars": ".qa/almanac/now-light.vars.json"
+  },
+  {
+    "slug": "uses",
+    "mode": "light",
+    "path": "/uses",
+    "png": ".qa/almanac/uses-light.png",
+    "vars": ".qa/almanac/uses-light.vars.json"
   },
   {
     "slug": "colophon",
@@ -63,18 +35,18 @@
     "vars": ".qa/almanac/colophon-light.vars.json"
   },
   {
+    "slug": "projects",
+    "mode": "light",
+    "path": "/projects",
+    "png": ".qa/almanac/projects-light.png",
+    "vars": ".qa/almanac/projects-light.vars.json"
+  },
+  {
     "slug": "feed",
     "mode": "light",
     "path": "/feed",
     "png": ".qa/almanac/feed-light.png",
     "vars": ".qa/almanac/feed-light.vars.json"
-  },
-  {
-    "slug": "focus",
-    "mode": "light",
-    "path": "/focus",
-    "png": ".qa/almanac/focus-light.png",
-    "vars": ".qa/almanac/focus-light.vars.json"
   },
   {
     "slug": "gallery",
@@ -98,32 +70,53 @@
     "vars": ".qa/almanac/lab-light.vars.json"
   },
   {
-    "slug": "meta",
+    "slug": "lab-imagine",
     "mode": "light",
-    "path": "/meta",
-    "png": ".qa/almanac/meta-light.png",
-    "vars": ".qa/almanac/meta-light.vars.json"
+    "path": "/lab/imagine",
+    "png": ".qa/almanac/lab-imagine-light.png",
+    "vars": ".qa/almanac/lab-imagine-light.vars.json"
   },
   {
-    "slug": "now",
+    "slug": "games",
     "mode": "light",
-    "path": "/now",
-    "png": ".qa/almanac/now-light.png",
-    "vars": ".qa/almanac/now-light.vars.json"
+    "path": "/games",
+    "png": ".qa/almanac/games-light.png",
+    "vars": ".qa/almanac/games-light.vars.json"
   },
   {
-    "slug": "projects",
+    "slug": "games-space-invaders",
     "mode": "light",
-    "path": "/projects",
-    "png": ".qa/almanac/projects-light.png",
-    "vars": ".qa/almanac/projects-light.vars.json"
+    "path": "/games/space-invaders",
+    "png": ".qa/almanac/games-space-invaders-light.png",
+    "vars": ".qa/almanac/games-space-invaders-light.vars.json"
   },
   {
-    "slug": "uses",
+    "slug": "playground",
     "mode": "light",
-    "path": "/uses",
-    "png": ".qa/almanac/uses-light.png",
-    "vars": ".qa/almanac/uses-light.vars.json"
+    "path": "/playground",
+    "png": ".qa/almanac/playground-light.png",
+    "vars": ".qa/almanac/playground-light.vars.json"
+  },
+  {
+    "slug": "playground-terminal",
+    "mode": "light",
+    "path": "/playground/terminal",
+    "png": ".qa/almanac/playground-terminal-light.png",
+    "vars": ".qa/almanac/playground-terminal-light.vars.json"
+  },
+  {
+    "slug": "playground-morse",
+    "mode": "light",
+    "path": "/playground/morse",
+    "png": ".qa/almanac/playground-morse-light.png",
+    "vars": ".qa/almanac/playground-morse-light.vars.json"
+  },
+  {
+    "slug": "playground-launch",
+    "mode": "light",
+    "path": "/playground/launch",
+    "png": ".qa/almanac/playground-launch-light.png",
+    "vars": ".qa/almanac/playground-launch-light.vars.json"
   },
   {
     "slug": "error",
@@ -131,41 +124,6 @@
     "path": "/this-does-not-exist",
     "png": ".qa/almanac/error-light.png",
     "vars": ".qa/almanac/error-light.vars.json"
-  },
-  {
-    "slug": "clock",
-    "mode": "dark",
-    "path": "/clock",
-    "png": ".qa/almanac/clock-dark.png",
-    "vars": ".qa/almanac/clock-dark.vars.json"
-  },
-  {
-    "slug": "morse",
-    "mode": "dark",
-    "path": "/morse",
-    "png": ".qa/almanac/morse-dark.png",
-    "vars": ".qa/almanac/morse-dark.vars.json"
-  },
-  {
-    "slug": "playground",
-    "mode": "dark",
-    "path": "/playground",
-    "png": ".qa/almanac/playground-dark.png",
-    "vars": ".qa/almanac/playground-dark.vars.json"
-  },
-  {
-    "slug": "stats",
-    "mode": "dark",
-    "path": "/stats",
-    "png": ".qa/almanac/stats-dark.png",
-    "vars": ".qa/almanac/stats-dark.vars.json"
-  },
-  {
-    "slug": "terminal",
-    "mode": "dark",
-    "path": "/terminal",
-    "png": ".qa/almanac/terminal-dark.png",
-    "vars": ".qa/almanac/terminal-dark.vars.json"
   },
   {
     "slug": "index",
@@ -182,11 +140,18 @@
     "vars": ".qa/almanac/about-dark.vars.json"
   },
   {
-    "slug": "activity",
+    "slug": "now",
     "mode": "dark",
-    "path": "/activity",
-    "png": ".qa/almanac/activity-dark.png",
-    "vars": ".qa/almanac/activity-dark.vars.json"
+    "path": "/now",
+    "png": ".qa/almanac/now-dark.png",
+    "vars": ".qa/almanac/now-dark.vars.json"
+  },
+  {
+    "slug": "uses",
+    "mode": "dark",
+    "path": "/uses",
+    "png": ".qa/almanac/uses-dark.png",
+    "vars": ".qa/almanac/uses-dark.vars.json"
   },
   {
     "slug": "colophon",
@@ -196,18 +161,18 @@
     "vars": ".qa/almanac/colophon-dark.vars.json"
   },
   {
+    "slug": "projects",
+    "mode": "dark",
+    "path": "/projects",
+    "png": ".qa/almanac/projects-dark.png",
+    "vars": ".qa/almanac/projects-dark.vars.json"
+  },
+  {
     "slug": "feed",
     "mode": "dark",
     "path": "/feed",
     "png": ".qa/almanac/feed-dark.png",
     "vars": ".qa/almanac/feed-dark.vars.json"
-  },
-  {
-    "slug": "focus",
-    "mode": "dark",
-    "path": "/focus",
-    "png": ".qa/almanac/focus-dark.png",
-    "vars": ".qa/almanac/focus-dark.vars.json"
   },
   {
     "slug": "gallery",
@@ -231,32 +196,53 @@
     "vars": ".qa/almanac/lab-dark.vars.json"
   },
   {
-    "slug": "meta",
+    "slug": "lab-imagine",
     "mode": "dark",
-    "path": "/meta",
-    "png": ".qa/almanac/meta-dark.png",
-    "vars": ".qa/almanac/meta-dark.vars.json"
+    "path": "/lab/imagine",
+    "png": ".qa/almanac/lab-imagine-dark.png",
+    "vars": ".qa/almanac/lab-imagine-dark.vars.json"
   },
   {
-    "slug": "now",
+    "slug": "games",
     "mode": "dark",
-    "path": "/now",
-    "png": ".qa/almanac/now-dark.png",
-    "vars": ".qa/almanac/now-dark.vars.json"
+    "path": "/games",
+    "png": ".qa/almanac/games-dark.png",
+    "vars": ".qa/almanac/games-dark.vars.json"
   },
   {
-    "slug": "projects",
+    "slug": "games-space-invaders",
     "mode": "dark",
-    "path": "/projects",
-    "png": ".qa/almanac/projects-dark.png",
-    "vars": ".qa/almanac/projects-dark.vars.json"
+    "path": "/games/space-invaders",
+    "png": ".qa/almanac/games-space-invaders-dark.png",
+    "vars": ".qa/almanac/games-space-invaders-dark.vars.json"
   },
   {
-    "slug": "uses",
+    "slug": "playground",
     "mode": "dark",
-    "path": "/uses",
-    "png": ".qa/almanac/uses-dark.png",
-    "vars": ".qa/almanac/uses-dark.vars.json"
+    "path": "/playground",
+    "png": ".qa/almanac/playground-dark.png",
+    "vars": ".qa/almanac/playground-dark.vars.json"
+  },
+  {
+    "slug": "playground-terminal",
+    "mode": "dark",
+    "path": "/playground/terminal",
+    "png": ".qa/almanac/playground-terminal-dark.png",
+    "vars": ".qa/almanac/playground-terminal-dark.vars.json"
+  },
+  {
+    "slug": "playground-morse",
+    "mode": "dark",
+    "path": "/playground/morse",
+    "png": ".qa/almanac/playground-morse-dark.png",
+    "vars": ".qa/almanac/playground-morse-dark.vars.json"
+  },
+  {
+    "slug": "playground-launch",
+    "mode": "dark",
+    "path": "/playground/launch",
+    "png": ".qa/almanac/playground-launch-dark.png",
+    "vars": ".qa/almanac/playground-launch-dark.vars.json"
   },
   {
     "slug": "error",

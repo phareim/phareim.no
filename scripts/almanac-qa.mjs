@@ -9,14 +9,23 @@ const CHROME = process.env.PLAYWRIGHT_EXECUTABLE
   ?? `${process.env.HOME}/.cache/ms-playwright/chromium-1217/chrome-linux64/chrome`;
 
 const ROUTES = [
-  ['clock','/clock'], ['morse','/morse'], ['playground','/playground'],
-  ['stats','/stats'], ['terminal','/terminal'],
   ['index','/'],
-  ['about','/about'], ['activity','/activity'], ['colophon','/colophon'],
-  ['feed','/feed'], ['focus','/focus'], ['gallery','/gallery'],
-  ['guestbook','/guestbook'], ['lab','/lab'], ['meta','/meta'],
-  ['now','/now'], ['projects','/projects'], ['uses','/uses'],
-  ['launch','/launch'],
+  ['about','/about'],
+  ['now','/now'],
+  ['uses','/uses'],
+  ['colophon','/colophon'],
+  ['projects','/projects'],
+  ['feed','/feed'],
+  ['gallery','/gallery'],
+  ['guestbook','/guestbook'],
+  ['lab','/lab'],
+  ['lab-imagine','/lab/imagine'],
+  ['games','/games'],
+  ['games-space-invaders','/games/space-invaders'],
+  ['playground','/playground'],
+  ['playground-terminal','/playground/terminal'],
+  ['playground-morse','/playground/morse'],
+  ['playground-launch','/playground/launch'],
   ['error','/this-does-not-exist'],
 ];
 const MODES = ['light','dark'];
