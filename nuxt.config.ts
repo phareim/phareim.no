@@ -30,6 +30,21 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  // Archived/moved routes from the May 2026 rebuild. The public/_redirects
+  // file doesn't fire on Cloudflare Pages because _routes.json sends every
+  // path to the Nuxt worker; route rules redirect at the worker level instead.
+  routeRules: {
+    '/clock':            { redirect: { to: '/playground',          statusCode: 301 } },
+    '/focus':            { redirect: { to: '/playground',          statusCode: 301 } },
+    '/stats':            { redirect: { to: '/projects',            statusCode: 301 } },
+    '/activity':         { redirect: { to: '/feed',                statusCode: 301 } },
+    '/meta':             { redirect: { to: '/projects',            statusCode: 301 } },
+    '/playground/image': { redirect: { to: '/lab/imagine',         statusCode: 301 } },
+    '/terminal':         { redirect: { to: '/playground/terminal', statusCode: 301 } },
+    '/morse':            { redirect: { to: '/playground/morse',    statusCode: 301 } },
+    '/launch':           { redirect: { to: '/playground/launch',   statusCode: 301 } },
+  },
+
   runtimeConfig: {
     // Private keys that are exposed to the server
     // On Cloudflare Pages, these are overridden at runtime by NUXT_-prefixed env vars
