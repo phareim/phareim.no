@@ -1,15 +1,10 @@
 <template>
-  <div class="now-page">
-    <header class="now-header">
-      <h1>{{ pageTitle }}</h1>
-      <p class="subtitle">{{ pageSubtitle }}</p>
-    </header>
-
-    <main class="now-content">
+  <AlmanacFrame title="Now" kicker="What I'm up to these days." back="/">
+    <div class="now-content">
 
       <!-- Current focus -->
       <section class="now-section now-section--1">
-        <h2 class="section-label">{{ labelWorking }}</h2>
+        <h2 class="section-label">working on</h2>
         <ul class="now-list">
           <li>consulting at <a href="https://www.miles.no" target="_blank" rel="noopener noreferrer" class="now-link">miles</a> — helping teams build better software</li>
           <li>maintaining and iterating on <a href="/" class="now-link">phareim.no</a> — this site, which updates itself</li>
@@ -20,7 +15,7 @@
 
       <!-- Latest thought from Bluesky -->
       <section class="now-section now-section--2">
-        <h2 class="section-label">{{ labelLatest }}</h2>
+        <h2 class="section-label">latest thought</h2>
         <a
           v-if="latestPost"
           :href="latestPost.url"
@@ -47,7 +42,7 @@
 
       <!-- Latest GitHub activity -->
       <section class="now-section now-section--3">
-        <h2 class="section-label">{{ labelPushed }}</h2>
+        <h2 class="section-label">recently pushed</h2>
         <ul v-if="recentProjects.length" class="now-project-list">
           <li
             v-for="project in recentProjects"
@@ -97,21 +92,17 @@
       <div class="now-divider" aria-hidden="true"></div>
 
       <footer class="now-footer now-section--5">
-
         <p class="now-updated">
           this page updates itself — last commit:
-          <a
-            href="/projects"
-            class="now-link"
-          >see the log</a>
+          <a href="/projects" class="now-link">see the log</a>
         </p>
         <p class="now-inspired">
           inspired by <a href="https://nownownow.com/about" target="_blank" rel="noopener noreferrer" class="now-link">nownownow.com</a>
         </p>
       </footer>
 
-    </main>
-  </div>
+    </div>
+  </AlmanacFrame>
 </template>
 
 <script setup lang="ts">
@@ -120,38 +111,6 @@ import type { Project } from '~/server/api/projects'
 import type { GuestbookEntry } from '~/server/api/guestbook'
 
 useHead({ title: 'now — phareim.no' })
-
-const { activeTheme } = useTheme()
-
-const pageTitle = computed(() => {
-  if (activeTheme.value === 'hacker') return '> now.sh'
-  if (activeTheme.value === 'space')  return 'STATUS REPORT'
-  return 'now'
-})
-
-const pageSubtitle = computed(() => {
-  if (activeTheme.value === 'hacker') return '// what\'s running on this machine'
-  if (activeTheme.value === 'space')  return 'CURRENT MISSION LOG — OSLO BASE'
-  return 'what i\'m up to these days'
-})
-
-const labelWorking = computed(() => {
-  if (activeTheme.value === 'hacker') return '// active processes'
-  if (activeTheme.value === 'space')  return 'ACTIVE MISSIONS'
-  return 'working on'
-})
-
-const labelLatest = computed(() => {
-  if (activeTheme.value === 'hacker') return '// last stdout'
-  if (activeTheme.value === 'space')  return 'LAST TRANSMISSION'
-  return 'latest thought'
-})
-
-const labelPushed = computed(() => {
-  if (activeTheme.value === 'hacker') return '// recent commits'
-  if (activeTheme.value === 'space')  return 'RECENT DEPLOYMENTS'
-  return 'recently pushed'
-})
 
 const { data: feedData, pending: feedPending } = await useFetch<FeedPage>('/api/feed')
 const { data: projectsData, pending: projectsPending } = await useFetch<Project[]>('/api/projects')
@@ -187,34 +146,6 @@ function formatDate(iso: string): string {
 </script>
 
 <style scoped>
-.now-page {
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 3rem 1.5rem 5rem;
-  box-sizing: border-box;
-  max-width: 580px;
-  margin: 0 auto;
-}
-
-.now-header {
-  margin-bottom: 3rem;
-}
-
-h1 {
-  font-size: clamp(2rem, 6vw, 3.5rem);
-  margin: 0 0 0.5rem;
-  color: var(--theme-text, #111);
-  font-weight: 500;
-}
-
-.subtitle {
-  color: var(--theme-text-muted, #666);
-  font-size: 1rem;
-  margin: 0;
-}
-
-/* ── Sections ───────────────────────────────────────────────── */
-
 .now-content {
   display: flex;
   flex-direction: column;
@@ -253,8 +184,10 @@ h1 {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--theme-text-subtle, #aaa);
+  color: var(--theme-text-subtle, #a39e8f);
   margin: 0 0 0.9rem;
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .now-divider {
@@ -277,7 +210,7 @@ h1 {
 
 .now-list li {
   font-size: 1rem;
-  color: var(--theme-text-muted, #555);
+  color: var(--theme-text, #1a1a1a);
   line-height: 1.6;
   padding-left: 1.1rem;
   position: relative;
@@ -287,60 +220,53 @@ h1 {
   content: '→';
   position: absolute;
   left: 0;
-  color: var(--theme-accent, #6b8cae);
+  color: var(--theme-accent, #c14a2a);
   font-size: 0.85em;
 }
 
 .now-link {
-  color: var(--theme-text, #111);
+  color: var(--theme-text, #1a1a1a);
   text-decoration: none;
   border-bottom: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.2));
   transition: border-color 0.2s ease, color 0.2s ease;
 }
 
 .now-link:hover {
-  border-color: var(--theme-accent, #6b8cae);
-  color: var(--theme-accent, #6b8cae);
+  border-color: var(--theme-accent, #c14a2a);
+  color: var(--theme-accent, #c14a2a);
 }
 
 .now-link:focus-visible {
-  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline: 2px solid var(--theme-accent, #c14a2a);
   outline-offset: 2px;
   border-radius: 2px;
 }
 
-/* ── Bluesky card ───────────────────────────────────────────── */
+/* ── Bluesky card — hairline rectangle, no shadow/blur ─────── */
 
 .now-card {
   display: block;
   text-decoration: none;
   color: inherit;
-  background: var(--theme-card-bg, rgba(255, 255, 255, 0.6));
-  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
-  border-radius: var(--theme-card-radius, 16px);
+  background: var(--theme-card-bg, transparent);
+  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.15));
+  border-radius: var(--theme-card-radius, 0);
   padding: 1.1rem 1.3rem;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 10px var(--theme-card-shadow, rgba(0, 0, 0, 0.04));
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  transition: border-color 0.25s ease;
 }
 
 .now-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px var(--theme-card-shadow, rgba(0, 0, 0, 0.08));
-  border-color: var(--theme-accent, #89abd0);
+  border-color: var(--theme-accent, #c14a2a);
 }
 
 .now-card:focus-visible {
-  outline: 2px solid var(--theme-accent, #89abd0);
+  outline: 2px solid var(--theme-accent, #c14a2a);
   outline-offset: 2px;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px var(--theme-card-shadow, rgba(0, 0, 0, 0.08));
 }
 
 .now-card-text {
   font-size: 0.95rem;
-  color: var(--theme-text, #111);
+  color: var(--theme-text, #1a1a1a);
   line-height: 1.65;
   margin: 0 0 0.85rem;
   white-space: pre-wrap;
@@ -353,22 +279,24 @@ h1 {
   justify-content: space-between;
   gap: 0.5rem;
   padding-top: 0.65rem;
-  border-top: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.06));
+  border-top: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
 }
 
 .now-card-date {
   font-size: 0.7rem;
-  color: var(--theme-text-subtle, #aaa);
+  color: var(--theme-text-subtle, #a39e8f);
+  font-style: italic;
 }
 
 .now-card-source {
   font-size: 0.7rem;
-  color: var(--theme-text-subtle, #aaa);
+  color: var(--theme-text-subtle, #a39e8f);
   transition: color 0.2s ease;
+  font-style: italic;
 }
 
 .now-card:hover .now-card-source {
-  color: var(--theme-accent, #6b8cae);
+  color: var(--theme-accent, #c14a2a);
 }
 
 /* ── Project list ───────────────────────────────────────────── */
@@ -400,7 +328,7 @@ h1 {
 
 .now-project-name {
   font-size: 0.9rem;
-  color: var(--theme-text, #111);
+  color: var(--theme-text, #1a1a1a);
   font-weight: 500;
   white-space: nowrap;
   flex-shrink: 0;
@@ -408,36 +336,38 @@ h1 {
 }
 
 .now-project-link:hover .now-project-name {
-  color: var(--theme-accent, #6b8cae);
+  color: var(--theme-accent, #c14a2a);
 }
 
 .now-project-link:focus-visible {
-  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline: 2px solid var(--theme-accent, #c14a2a);
   outline-offset: 3px;
   border-radius: 3px;
 }
 
 .now-project-desc {
   font-size: 0.8rem;
-  color: var(--theme-text-subtle, #aaa);
+  color: var(--theme-text-muted, #6a6a6a);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  font-style: italic;
 }
 
 .now-project-date {
   font-size: 0.7rem;
-  color: var(--theme-text-subtle, #aaa);
+  color: var(--theme-text-subtle, #a39e8f);
   white-space: nowrap;
   flex-shrink: 0;
+  font-style: italic;
 }
 
 /* ── Placeholder ────────────────────────────────────────────── */
 
 .now-placeholder {
   font-size: 0.9rem;
-  color: var(--theme-text-subtle, #aaa);
+  color: var(--theme-text-subtle, #a39e8f);
   font-style: italic;
 }
 
@@ -454,18 +384,15 @@ h1 {
 /* ── Guestbook card ─────────────────────────────────────────── */
 
 .now-guest-card {
-  background: var(--theme-card-bg, rgba(255, 255, 255, 0.6));
-  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
-  border-radius: var(--theme-card-radius, 16px);
+  background: var(--theme-card-bg, transparent);
+  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.15));
+  border-radius: var(--theme-card-radius, 0);
   padding: 1.1rem 1.3rem;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 10px var(--theme-card-shadow, rgba(0, 0, 0, 0.04));
 }
 
 .now-guest-message {
   font-size: 0.95rem;
-  color: var(--theme-text, #111);
+  color: var(--theme-text, #1a1a1a);
   line-height: 1.65;
   margin: 0 0 0.85rem;
   white-space: pre-wrap;
@@ -479,28 +406,29 @@ h1 {
   justify-content: space-between;
   gap: 0.5rem;
   padding-top: 0.65rem;
-  border-top: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.06));
+  border-top: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
 }
 
 .now-guest-name {
   font-size: 0.75rem;
-  color: var(--theme-text-muted, #666);
+  color: var(--theme-text-muted, #6a6a6a);
   font-weight: 500;
 }
 
 .now-guest-link {
   font-size: 0.7rem;
-  color: var(--theme-text-subtle, #aaa);
+  color: var(--theme-text-subtle, #a39e8f);
   text-decoration: none;
   transition: color 0.2s ease;
+  font-style: italic;
 }
 
 .now-guest-link:hover {
-  color: var(--theme-accent-danger, #c1272d);
+  color: var(--theme-accent, #c14a2a);
 }
 
 .now-guest-link:focus-visible {
-  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline: 2px solid var(--theme-accent, #c14a2a);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -514,96 +442,9 @@ h1 {
 .now-updated,
 .now-inspired {
   font-size: 0.75rem;
-  color: var(--theme-text-subtle, #aaa);
+  color: var(--theme-text-subtle, #a39e8f);
   margin: 0 0 0.35rem;
   line-height: 1.5;
-}
-
-/* ── Hacker theme overrides ─────────────────────────────────── */
-
-:global(.hacker-page) h1 {
-  font-family: monospace;
-  text-shadow: 0 0 10px currentColor;
-}
-
-:global(.hacker-page) .subtitle {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .section-label {
-  font-family: monospace;
-  text-transform: none;
-  letter-spacing: 0.04em;
-}
-
-:global(.hacker-page) .now-list li {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .now-card {
-  border-radius: 0;
-  font-family: monospace;
-}
-
-:global(.hacker-page) .now-card-text {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .now-project-name,
-:global(.hacker-page) .now-project-desc {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .now-card:hover,
-:global(.hacker-page) .now-card:focus-visible {
-  box-shadow: 0 0 18px var(--theme-card-shadow, rgba(0, 255, 65, 0.2));
-}
-
-:global(.hacker-page) .now-guest-card {
-  border-radius: 0;
-  font-family: monospace;
-}
-
-:global(.hacker-page) .now-guest-message {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .now-guest-name {
-  font-family: monospace;
-  text-shadow: 0 0 6px currentColor;
-}
-
-/* ── Space theme overrides ──────────────────────────────────── */
-
-:global(.space-page) h1 {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
-  text-shadow: 0 0 40px rgba(140, 170, 220, 0.3);
-}
-
-:global(.space-page) .now-card {
-  box-shadow: 0 4px 24px var(--theme-card-shadow, rgba(140, 170, 220, 0.1));
-}
-
-:global(.space-page) .now-card:hover,
-:global(.space-page) .now-card:focus-visible {
-  box-shadow:
-    0 8px 32px var(--theme-card-shadow, rgba(140, 170, 220, 0.15)),
-    0 0 0 1px rgba(140, 170, 220, 0.2);
-}
-
-:global(.space-page) .section-label {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  font-weight: 900;
-}
-
-:global(.space-page) .now-guest-card {
-  box-shadow: 0 4px 24px var(--theme-card-shadow, rgba(140, 170, 220, 0.1));
-}
-
-:global(.space-page) .now-guest-link:hover {
-  color: var(--space-accent-amber, #e8c87a);
+  font-style: italic;
 }
 </style>

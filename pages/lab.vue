@@ -1,32 +1,28 @@
 <template>
-  <div class="lab-page">
-    <header class="lab-header">
-      <h1>lab</h1>
-      <p class="subtitle">live experiments and side projects</p>
-    </header>
-
-    <main class="lab-content">
+  <AlmanacFrame title="Lab" kicker="Live experiments and half-thoughts." back="/">
+    <div class="lab-content">
 
       <section class="lab-section">
-        <h2 class="section-label">live tools</h2>
+        <h2 class="section-label">experiments</h2>
         <div class="lab-grid">
           <a
             v-for="tool in liveTools"
             :key="tool.id"
             :href="tool.href"
-            target="_blank"
-            rel="noopener noreferrer"
+            :target="tool.external ? '_blank' : undefined"
+            :rel="tool.external ? 'noopener noreferrer' : undefined"
             class="lab-card"
           >
             <div class="lab-card-top">
-              <span class="lab-card-icon" aria-hidden="true">{{ tool.icon }}</span>
-              <span class="lab-status" :class="`status-${tool.status}`">{{ tool.status }}</span>
+              <h3 class="lab-card-name">{{ tool.name }}</h3>
+              <span class="badge-live" v-if="tool.status === 'live'">live</span>
+              <span class="badge-experimental" v-else-if="tool.status === 'experimental'">experimental</span>
+              <span class="badge-archived" v-else>archived</span>
             </div>
-            <h3 class="lab-card-name">{{ tool.name }}</h3>
             <p class="lab-card-desc">{{ tool.desc }}</p>
             <div class="lab-card-footer">
               <span class="lab-card-tech">{{ tool.tech }}</span>
-              <span class="lab-card-arrow" aria-hidden="true">↗</span>
+              <span class="lab-card-arrow" aria-hidden="true">{{ tool.external ? '↗' : '→' }}</span>
             </div>
           </a>
         </div>
@@ -60,8 +56,8 @@
         </div>
       </section>
 
-    </main>
-  </div>
+    </div>
+  </AlmanacFrame>
 </template>
 
 <script setup lang="ts">
@@ -72,62 +68,42 @@ interface Tool {
   name: string
   desc: string
   href: string
-  icon: string
   tech: string
   status: 'live' | 'experimental' | 'archived'
+  external?: boolean
 }
 
 const liveTools: Tool[] = [
   {
+    id: 'imagine',
+    name: 'imagine',
+    desc: 'an in-house AI image generator — prompts in, pictures out, into the gallery.',
+    href: '/lab/imagine',
+    tech: 'nuxt + fal',
+    status: 'experimental',
+  },
+  {
     id: 'reddot',
-    name: 'red dot game',
+    name: 'red dot',
     desc: 'a small browser game. click the dot. try not to miss.',
     href: 'https://dot.phareim.no',
-    icon: '🔴',
     tech: 'vanilla js',
     status: 'live',
+    external: true,
   },
   {
     id: 'reader',
     name: 'rss reader',
     desc: 'a personal rss feed reader. built for reading, not for analytics.',
     href: 'https://reader.phareim.no',
-    icon: '📰',
     tech: 'nuxt + d1',
     status: 'live',
+    external: true,
   },
 ]
 </script>
 
 <style scoped>
-.lab-page {
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 3rem 1.5rem 5rem;
-  box-sizing: border-box;
-  max-width: 680px;
-  margin: 0 auto;
-}
-
-.lab-header {
-  margin-bottom: 3rem;
-}
-
-h1 {
-  font-size: clamp(2rem, 6vw, 3.5rem);
-  margin: 0 0 0.5rem;
-  color: var(--theme-text, #111);
-  font-weight: 500;
-}
-
-.subtitle {
-  color: var(--theme-text-muted, #666);
-  font-size: 1rem;
-  margin: 0;
-}
-
-/* ── Layout ─────────────────────────────────────────────────── */
-
 .lab-content {
   display: flex;
   flex-direction: column;
@@ -142,8 +118,10 @@ h1 {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--theme-text-subtle, #aaa);
+  color: var(--theme-text-subtle, #a39e8f);
   margin: 0 0 1.1rem;
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .lab-divider {
@@ -153,7 +131,7 @@ h1 {
   margin: 2.5rem 0;
 }
 
-/* ── Tool grid ──────────────────────────────────────────────── */
+/* ── Tool grid — hairline cards ───────────────────────────── */
 
 .lab-grid {
   display: grid;
@@ -165,84 +143,90 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  background: var(--theme-card-bg, rgba(255, 255, 255, 0.6));
-  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
-  border-radius: var(--theme-card-radius, 16px);
-  padding: 1.25rem 1.3rem;
+  background: var(--theme-card-bg, transparent);
+  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.15));
+  border-radius: var(--theme-card-radius, 0);
+  padding: 1.1rem 1.25rem;
   text-decoration: none;
   color: inherit;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 10px var(--theme-card-shadow, rgba(0, 0, 0, 0.04));
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    border-color 0.2s ease;
+  transition: border-color 0.2s ease;
 }
 
 .lab-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 22px var(--theme-card-shadow, rgba(0, 0, 0, 0.08));
-  border-color: var(--theme-accent, #89abd0);
+  border-color: var(--theme-accent, #c14a2a);
 }
 
 .lab-card:focus-visible {
-  outline: 2px solid var(--theme-accent, #89abd0);
+  outline: 2px solid var(--theme-accent, #c14a2a);
   outline-offset: 2px;
-  transform: translateY(-3px);
 }
 
 .lab-card-top {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
+  gap: 0.75rem;
   margin-bottom: 0.25rem;
 }
 
-.lab-card-icon {
-  font-size: 1.4rem;
-  line-height: 1;
+/* ── Hairline + italic status badges (Almanac style) ──────── */
+
+.badge-live {
+  display: inline-block;
+  padding: 0 0.4em;
+  border: 1px solid var(--theme-accent, #c14a2a);
+  color: var(--theme-accent, #c14a2a);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-style: italic;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  vertical-align: middle;
 }
 
-.lab-status {
-  font-size: 0.6rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: 0.2em 0.55em;
-  border-radius: 999px;
-  border: 1px solid transparent;
+.badge-experimental {
+  display: inline-block;
+  padding: 0 0.4em;
+  border: 1px solid var(--theme-card-border, rgba(0,0,0,0.25));
+  color: var(--theme-text-muted, #6a6a6a);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-style: italic;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  vertical-align: middle;
 }
 
-.lab-status.status-live {
-  color: #3a9e5c;
-  background: rgba(58, 158, 92, 0.1);
-  border-color: rgba(58, 158, 92, 0.25);
-}
-
-.lab-status.status-experimental {
-  color: var(--theme-accent, #6b8cae);
-  background: color-mix(in srgb, var(--theme-accent, #6b8cae) 10%, transparent);
-  border-color: color-mix(in srgb, var(--theme-accent, #6b8cae) 25%, transparent);
-}
-
-.lab-status.status-archived {
-  color: var(--theme-text-subtle, #aaa);
-  background: color-mix(in srgb, var(--theme-text-subtle, #aaa) 8%, transparent);
-  border-color: color-mix(in srgb, var(--theme-text-subtle, #aaa) 20%, transparent);
+.badge-archived {
+  display: inline-block;
+  padding: 0 0.4em;
+  border: 1px dashed var(--theme-card-border, rgba(0,0,0,0.2));
+  color: var(--theme-text-subtle, #a39e8f);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-style: italic;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  vertical-align: middle;
 }
 
 .lab-card-name {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--theme-text, #111);
+  color: var(--theme-text, #1a1a1a);
   margin: 0;
   line-height: 1.3;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.lab-card:hover .lab-card-name {
+  color: var(--theme-accent, #c14a2a);
 }
 
 .lab-card-desc {
-  font-size: 0.85rem;
-  color: var(--theme-text-muted, #666);
+  font-size: 0.88rem;
+  color: var(--theme-text-muted, #6a6a6a);
   line-height: 1.55;
   margin: 0;
   flex: 1;
@@ -253,37 +237,34 @@ h1 {
   align-items: center;
   justify-content: space-between;
   margin-top: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.06));
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
 }
 
 .lab-card-tech {
-  font-size: 0.7rem;
-  color: var(--theme-text-subtle, #aaa);
-  font-family: monospace;
+  font-size: 0.72rem;
+  color: var(--theme-text-subtle, #a39e8f);
+  font-style: italic;
 }
 
 .lab-card-arrow {
-  font-size: 0.85rem;
-  color: var(--theme-text-subtle, #aaa);
+  font-size: 0.95rem;
+  color: var(--theme-text-subtle, #a39e8f);
   transition: color 0.2s ease, transform 0.2s ease;
 }
 
 .lab-card:hover .lab-card-arrow {
-  color: var(--theme-accent, #89abd0);
+  color: var(--theme-accent, #c14a2a);
   transform: translate(2px, -2px);
 }
 
-/* ── Meta card ──────────────────────────────────────────────── */
+/* ── Meta card — hairline rows ─────────────────────────────── */
 
 .lab-meta-card {
-  background: var(--theme-card-bg, rgba(255, 255, 255, 0.6));
-  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
-  border-radius: var(--theme-card-radius, 16px);
-  padding: 1.1rem 1.3rem;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 10px var(--theme-card-shadow, rgba(0, 0, 0, 0.04));
+  background: transparent;
+  border-top: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.12));
+  border-bottom: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.12));
+  padding: 0 0.2rem;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -293,8 +274,8 @@ h1 {
   display: flex;
   align-items: baseline;
   gap: 1rem;
-  padding: 0.6rem 0;
-  border-bottom: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.05));
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.06));
 }
 
 .lab-meta-row:last-child {
@@ -303,124 +284,34 @@ h1 {
 
 .lab-meta-label {
   font-size: 0.72rem;
-  color: var(--theme-text-subtle, #aaa);
+  color: var(--theme-text-subtle, #a39e8f);
   white-space: nowrap;
   min-width: 7rem;
   flex-shrink: 0;
+  font-style: italic;
 }
 
 .lab-meta-value {
-  font-size: 0.88rem;
-  color: var(--theme-text-muted, #555);
+  font-size: 0.9rem;
+  color: var(--theme-text, #1a1a1a);
 }
 
 .lab-meta-link {
-  font-size: 0.88rem;
-  color: var(--theme-text, #111);
+  font-size: 0.9rem;
+  color: var(--theme-text, #1a1a1a);
   text-decoration: none;
   border-bottom: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.2));
   transition: border-color 0.2s ease, color 0.2s ease;
 }
 
 .lab-meta-link:hover {
-  border-color: var(--theme-accent, #6b8cae);
-  color: var(--theme-accent, #6b8cae);
+  border-color: var(--theme-accent, #c14a2a);
+  color: var(--theme-accent, #c14a2a);
 }
 
 .lab-meta-link:focus-visible {
-  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline: 2px solid var(--theme-accent, #c14a2a);
   outline-offset: 2px;
   border-radius: 2px;
-}
-
-/* ── Hacker theme overrides ─────────────────────────────────── */
-
-:global(.hacker-page) h1 {
-  font-family: monospace;
-  text-transform: lowercase;
-  text-shadow: 0 0 10px currentColor;
-}
-
-:global(.hacker-page) .subtitle {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .section-label {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .lab-card {
-  border-radius: 0;
-  font-family: monospace;
-}
-
-:global(.hacker-page) .lab-card:hover {
-  box-shadow: 0 0 20px var(--theme-card-shadow, rgba(0, 255, 65, 0.2));
-}
-
-:global(.hacker-page) .lab-card-name {
-  font-family: monospace;
-  text-transform: lowercase;
-}
-
-:global(.hacker-page) .lab-card-desc {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .lab-status.status-live {
-  color: var(--theme-text, #00ff41);
-  background: rgba(0, 255, 65, 0.08);
-  border-color: rgba(0, 255, 65, 0.3);
-  border-radius: 0;
-}
-
-:global(.hacker-page) .lab-status.status-experimental {
-  border-radius: 0;
-}
-
-:global(.hacker-page) .lab-meta-card {
-  border-radius: 0;
-  font-family: monospace;
-}
-
-:global(.hacker-page) .lab-meta-label {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .lab-meta-value {
-  font-family: monospace;
-}
-
-/* ── Space theme overrides ──────────────────────────────────── */
-
-:global(.space-page) h1 {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
-  text-shadow: 0 0 40px rgba(140, 170, 220, 0.3);
-}
-
-:global(.space-page) .section-label {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  font-weight: 900;
-}
-
-:global(.space-page) .lab-card:hover {
-  box-shadow:
-    0 8px 32px var(--theme-card-shadow, rgba(140, 170, 220, 0.15)),
-    0 0 0 1px rgba(140, 170, 220, 0.25);
-}
-
-:global(.space-page) .lab-card-name {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: -0.01em;
-}
-
-:global(.space-page) .lab-status.status-live {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  letter-spacing: 0.05em;
 }
 </style>

@@ -1,61 +1,54 @@
 <template>
-  <div class="gallery-page">
-    <header class="gallery-header">
-      <h1>gallery</h1>
-      <p class="subtitle">
-        ai-generated images —
-        <NuxtLink to="/lab/imagine" class="subtitle-link">try /lab/imagine</NuxtLink>
-      </p>
-    </header>
+  <AlmanacFrame title="Gallery" kicker="AI-generated images." back="/">
+    <p class="gallery-intro">
+      try
+      <NuxtLink to="/lab/imagine" class="subtitle-link">/lab/imagine</NuxtLink>
+    </p>
 
-    <main class="gallery-main">
+    <!-- Loading skeleton -->
+    <div v-if="pending" class="gallery-grid gallery-grid--skeleton" aria-label="Loading images" aria-busy="true">
+      <div v-for="i in 12" :key="i" class="gallery-skeleton"></div>
+    </div>
 
-      <!-- Loading skeleton -->
-      <div v-if="pending" class="gallery-grid gallery-grid--skeleton" aria-label="Loading images" aria-busy="true">
-        <div v-for="i in 12" :key="i" class="gallery-skeleton"></div>
-      </div>
+    <!-- Empty state -->
+    <div v-else-if="!images.length" class="gallery-empty">
+      <div class="gallery-empty-icon" aria-hidden="true">✦</div>
+      <p class="gallery-empty-text">no images generated yet</p>
+      <NuxtLink to="/lab/imagine" class="gallery-cta">open /lab/imagine →</NuxtLink>
+    </div>
 
-      <!-- Empty state -->
-      <div v-else-if="!images.length" class="gallery-empty">
-        <div class="gallery-empty-icon" aria-hidden="true">✦</div>
-        <p class="gallery-empty-text">no images generated yet</p>
-        <NuxtLink to="/lab/imagine" class="gallery-cta">open /lab/imagine →</NuxtLink>
-      </div>
-
-      <!-- Image grid -->
-      <div
-        v-else
-        class="gallery-grid"
-        role="list"
-        :aria-label="`${images.length} generated images`"
+    <!-- Image grid -->
+    <div
+      v-else
+      class="gallery-grid"
+      role="list"
+      :aria-label="`${images.length} generated images`"
+    >
+      <button
+        v-for="(img, idx) in images"
+        :key="img.key"
+        class="gallery-item"
+        :aria-label="`AI-generated image from ${formatDate(img.uploaded)}, open in viewer`"
+        role="listitem"
+        @click="openLightbox(idx)"
       >
-        <button
-          v-for="(img, idx) in images"
-          :key="img.key"
-          class="gallery-item"
-          :aria-label="`AI-generated image from ${formatDate(img.uploaded)}, open in viewer`"
-          role="listitem"
-          @click="openLightbox(idx)"
-        >
-          <img
-            :src="img.url"
-            :alt="`AI-generated image, ${formatDate(img.uploaded)}`"
-            class="gallery-img"
-            loading="lazy"
-            decoding="async"
-          />
-          <div class="gallery-overlay" aria-hidden="true">
-            <span class="gallery-date">{{ formatDate(img.uploaded) }}</span>
-            <span class="gallery-open">view ↗</span>
-          </div>
-        </button>
-      </div>
+        <img
+          :src="img.url"
+          :alt="`AI-generated image, ${formatDate(img.uploaded)}`"
+          class="gallery-img"
+          loading="lazy"
+          decoding="async"
+        />
+        <div class="gallery-overlay" aria-hidden="true">
+          <span class="gallery-date">{{ formatDate(img.uploaded) }}</span>
+          <span class="gallery-open">view ↗</span>
+        </div>
+      </button>
+    </div>
 
-      <p v-if="!pending && images.length" class="gallery-count" aria-live="polite">
-        {{ images.length }} image{{ images.length !== 1 ? 's' : '' }}
-      </p>
-
-    </main>
+    <p v-if="!pending && images.length" class="gallery-count" aria-live="polite">
+      {{ images.length }} image{{ images.length !== 1 ? 's' : '' }}
+    </p>
 
     <!-- Lightbox -->
     <Teleport to="body">
@@ -119,7 +112,7 @@
         </div>
       </Transition>
     </Teleport>
-  </div>
+  </AlmanacFrame>
 </template>
 
 <script setup lang="ts">
@@ -193,50 +186,28 @@ function formatDate(iso: string): string {
 </script>
 
 <style scoped>
-/* ── Page shell ─────────────────────────────────────────────── */
-
-.gallery-page {
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 3rem 1.5rem 5rem;
-  box-sizing: border-box;
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-/* ── Header ─────────────────────────────────────────────────── */
-
-.gallery-header {
-  margin-bottom: 2.5rem;
-}
-
-h1 {
-  font-size: clamp(2rem, 6vw, 3.5rem);
-  margin: 0 0 0.5rem;
-  color: var(--theme-text, #111);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
-
-.subtitle {
-  color: var(--theme-text-muted, #666);
-  font-size: 1rem;
-  margin: 0;
+.gallery-intro {
+  margin: -0.5rem 0 1.75rem;
+  font-style: italic;
+  font-size: 0.9rem;
+  color: var(--theme-text-muted, #6a6a6a);
 }
 
 .subtitle-link {
-  color: var(--theme-accent, #6b8cae);
+  color: var(--theme-text, #1a1a1a);
   text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.2s ease;
+  border-bottom: 1px solid var(--theme-card-border, rgba(0,0,0,0.2));
+  transition: border-color 0.2s ease, color 0.2s ease;
+  font-style: normal;
 }
 
 .subtitle-link:hover {
-  border-color: var(--theme-accent, #6b8cae);
+  border-color: var(--theme-accent, #c14a2a);
+  color: var(--theme-accent, #c14a2a);
 }
 
 .subtitle-link:focus-visible {
-  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline: 2px solid var(--theme-accent, #c14a2a);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -253,7 +224,7 @@ h1 {
 
 .gallery-skeleton {
   aspect-ratio: 1;
-  border-radius: var(--theme-card-radius, 12px);
+  border-radius: 0;
   background: var(--theme-card-border, rgba(0, 0, 0, 0.08));
   animation: skeleton-pulse 1.6s ease-in-out infinite;
 }
@@ -281,23 +252,22 @@ h1 {
   display: block;
   aspect-ratio: 1;
   overflow: hidden;
-  border-radius: var(--theme-card-radius, 12px);
-  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
+  border-radius: 0;
+  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.12));
   position: relative;
   cursor: pointer;
-  background: var(--theme-card-bg, rgba(0, 0, 0, 0.04));
+  background: var(--theme-bg-alt, transparent);
   padding: 0;
   text-decoration: none;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease;
 }
 
 .gallery-item:hover {
-  transform: scale(1.02);
-  box-shadow: 0 8px 24px var(--theme-card-shadow, rgba(0, 0, 0, 0.12));
+  border-color: var(--theme-accent, #c14a2a);
 }
 
 .gallery-item:focus-visible {
-  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline: 2px solid var(--theme-accent, #c14a2a);
   outline-offset: 2px;
 }
 
@@ -310,7 +280,7 @@ h1 {
 }
 
 .gallery-item:hover .gallery-img {
-  transform: scale(1.06);
+  transform: scale(1.04);
 }
 
 /* ── Hover overlay ──────────────────────────────────────────── */
@@ -336,27 +306,27 @@ h1 {
 }
 
 .gallery-date {
-  font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 500;
-  letter-spacing: 0.03em;
+  font-size: 0.7rem;
+  color: rgba(235, 228, 212, 0.9);
+  font-style: italic;
+  letter-spacing: 0.02em;
 }
 
 .gallery-open {
-  font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 600;
+  font-size: 0.7rem;
+  color: rgba(235, 228, 212, 0.9);
+  font-style: italic;
 }
 
 /* ── Count ──────────────────────────────────────────────────── */
 
 .gallery-count {
   margin: 1.5rem 0 0;
-  font-size: 0.72rem;
-  color: var(--theme-text-subtle, #aaa);
+  font-size: 0.8rem;
+  color: var(--theme-text-subtle, #a39e8f);
   text-align: center;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-style: italic;
 }
 
 /* ── Empty state ────────────────────────────────────────────── */
@@ -372,7 +342,7 @@ h1 {
 
 .gallery-empty-icon {
   font-size: 2.5rem;
-  color: var(--theme-text-subtle, #ccc);
+  color: var(--theme-text-subtle, #a39e8f);
   animation: icon-pulse 3s ease-in-out infinite;
 }
 
@@ -383,37 +353,37 @@ h1 {
 
 .gallery-empty-text {
   font-size: 0.95rem;
-  color: var(--theme-text-muted, #666);
+  color: var(--theme-text-muted, #6a6a6a);
   margin: 0;
+  font-style: italic;
 }
 
 .gallery-cta {
   font-size: 0.85rem;
-  color: var(--theme-accent, #6b8cae);
+  color: var(--theme-text, #1a1a1a);
   text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.2s ease;
+  border-bottom: 1px solid var(--theme-card-border, rgba(0,0,0,0.2));
+  transition: border-color 0.2s ease, color 0.2s ease;
 }
 
 .gallery-cta:hover {
-  border-color: var(--theme-accent, #6b8cae);
+  border-color: var(--theme-accent, #c14a2a);
+  color: var(--theme-accent, #c14a2a);
 }
 
 .gallery-cta:focus-visible {
-  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline: 2px solid var(--theme-accent, #c14a2a);
   outline-offset: 2px;
   border-radius: 2px;
 }
 
-/* ── Lightbox ────────────────────────────────────────────────── */
+/* ── Lightbox — kept dark (image-viewing chrome, native) ───── */
 
 .lightbox {
   position: fixed;
   inset: 0;
   z-index: 9000;
-  background: rgba(0, 0, 0, 0.88);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: rgba(14, 18, 25, 0.92);
   display: grid;
   grid-template-rows: 1fr auto;
   grid-template-columns: auto 1fr auto;
@@ -458,10 +428,10 @@ h1 {
   z-index: 1;
   width: 2.25rem;
   height: 2.25rem;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(0, 0, 0, 0.4);
-  color: rgba(255, 255, 255, 0.8);
+  border-radius: 0;
+  border: 1px solid rgba(235, 228, 212, 0.2);
+  background: transparent;
+  color: rgba(235, 228, 212, 0.8);
   font-size: 0.9rem;
   line-height: 1;
   cursor: pointer;
@@ -472,13 +442,13 @@ h1 {
 }
 
 .lightbox-close:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.5);
-  color: #fff;
+  background: rgba(235, 228, 212, 0.08);
+  border-color: rgba(235, 228, 212, 0.5);
+  color: var(--almanac-amber, #d4a574);
 }
 
 .lightbox-close:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline: 2px solid rgba(235, 228, 212, 0.6);
   outline-offset: 2px;
 }
 
@@ -490,7 +460,7 @@ h1 {
   height: 100%;
   border: none;
   background: none;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(235, 228, 212, 0.4);
   font-size: 2.5rem;
   line-height: 1;
   cursor: pointer;
@@ -507,14 +477,14 @@ h1 {
 }
 
 .lightbox-nav:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--almanac-amber, #d4a574);
+  background: rgba(235, 228, 212, 0.04);
 }
 
 .lightbox-nav:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline: 2px solid rgba(235, 228, 212, 0.6);
   outline-offset: -4px;
-  color: #fff;
+  color: var(--almanac-amber, #d4a574);
 }
 
 /* ── Stage ───────────────────────────────────────────────────── */
@@ -535,8 +505,7 @@ h1 {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  border-radius: 4px;
-  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6);
+  border-radius: 0;
   display: block;
 }
 
@@ -554,32 +523,34 @@ h1 {
 }
 
 .lightbox-meta {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.78rem;
+  color: rgba(235, 228, 212, 0.6);
   letter-spacing: 0.04em;
+  font-style: italic;
 }
 
 .lightbox-position {
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.75rem;
+  color: rgba(235, 228, 212, 0.45);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.06em;
 }
 
 .lightbox-external {
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.75rem;
+  color: rgba(235, 228, 212, 0.5);
   text-decoration: none;
   transition: color 0.15s ease;
   letter-spacing: 0.04em;
+  font-style: italic;
 }
 
 .lightbox-external:hover {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--almanac-amber, #d4a574);
 }
 
 .lightbox-external:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline: 2px solid rgba(235, 228, 212, 0.6);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -603,159 +574,5 @@ h1 {
   .gallery-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-}
-
-/* ── Hacker theme overrides ─────────────────────────────────── */
-
-:global(.hacker-page) h1 {
-  font-family: monospace;
-  text-transform: lowercase;
-  text-shadow: 0 0 10px currentColor;
-}
-
-:global(.hacker-page) .subtitle {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .subtitle-link {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .gallery-item {
-  border-radius: 0;
-}
-
-:global(.hacker-page) .gallery-item:hover {
-  box-shadow: 0 0 20px var(--theme-card-shadow, rgba(0, 255, 65, 0.2));
-}
-
-:global(.hacker-page) .gallery-skeleton {
-  border-radius: 0;
-}
-
-:global(.hacker-page) .gallery-count {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .gallery-date,
-:global(.hacker-page) .gallery-open {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .gallery-empty-text,
-:global(.hacker-page) .gallery-cta {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .lightbox {
-  background: rgba(0, 10, 0, 0.94);
-}
-
-:global(.hacker-page) .lightbox-img {
-  border-radius: 0;
-  box-shadow: 0 0 40px rgba(0, 255, 65, 0.12);
-}
-
-:global(.hacker-page) .lightbox-close {
-  border-radius: 0;
-  font-family: monospace;
-  border-color: rgba(0, 255, 65, 0.3);
-  color: rgba(0, 255, 65, 0.7);
-}
-
-:global(.hacker-page) .lightbox-close:hover {
-  border-color: rgba(0, 255, 65, 0.8);
-  color: #00ff41;
-  background: rgba(0, 255, 65, 0.08);
-}
-
-:global(.hacker-page) .lightbox-meta,
-:global(.hacker-page) .lightbox-position,
-:global(.hacker-page) .lightbox-external {
-  font-family: monospace;
-  color: rgba(0, 255, 65, 0.45);
-}
-
-:global(.hacker-page) .lightbox-external:hover {
-  color: rgba(0, 255, 65, 0.9);
-}
-
-:global(.hacker-page) .lightbox-nav {
-  color: rgba(0, 255, 65, 0.3);
-}
-
-:global(.hacker-page) .lightbox-nav:hover {
-  color: rgba(0, 255, 65, 0.9);
-  background: rgba(0, 255, 65, 0.05);
-}
-
-/* ── Space theme overrides ──────────────────────────────────── */
-
-:global(.space-page) h1 {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
-  text-shadow: 0 0 40px rgba(140, 170, 220, 0.3);
-}
-
-:global(.space-page) .subtitle {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  text-transform: uppercase;
-  font-size: 0.8rem;
-  letter-spacing: 0.1em;
-}
-
-:global(.space-page) .gallery-item {
-  box-shadow: 0 0 0 1px rgba(140, 170, 220, 0.1);
-}
-
-:global(.space-page) .gallery-item:hover {
-  box-shadow:
-    0 8px 32px rgba(140, 170, 220, 0.2),
-    0 0 0 1px rgba(140, 170, 220, 0.25);
-}
-
-:global(.space-page) .lightbox {
-  background: rgba(5, 5, 18, 0.92);
-}
-
-:global(.space-page) .lightbox-img {
-  box-shadow:
-    0 8px 48px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(140, 170, 220, 0.1);
-}
-
-:global(.space-page) .lightbox-meta,
-:global(.space-page) .lightbox-position {
-  color: rgba(140, 170, 220, 0.45);
-}
-
-:global(.space-page) .lightbox-external {
-  color: rgba(140, 170, 220, 0.45);
-}
-
-:global(.space-page) .lightbox-external:hover {
-  color: rgba(140, 170, 220, 0.9);
-}
-
-:global(.space-page) .lightbox-nav {
-  color: rgba(140, 170, 220, 0.3);
-}
-
-:global(.space-page) .lightbox-nav:hover {
-  color: rgba(140, 170, 220, 0.9);
-  background: rgba(140, 170, 220, 0.05);
-}
-
-:global(.space-page) .lightbox-close {
-  border-color: rgba(140, 170, 220, 0.25);
-  color: rgba(140, 170, 220, 0.7);
-}
-
-:global(.space-page) .lightbox-close:hover {
-  border-color: rgba(140, 170, 220, 0.6);
-  color: rgba(140, 170, 220, 1);
-  background: rgba(140, 170, 220, 0.08);
 }
 </style>

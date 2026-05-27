@@ -1,11 +1,6 @@
 <template>
-  <div class="uses-page">
-    <header class="uses-header">
-      <h1>uses</h1>
-      <p class="subtitle">things i build with</p>
-    </header>
-
-    <main class="uses-content">
+  <AlmanacFrame title="Uses" kicker="Things I build with." back="/">
+    <div class="uses-content">
 
       <section class="uses-section">
         <h2 class="section-label">this site</h2>
@@ -93,8 +88,8 @@
         </ul>
       </section>
 
-    </main>
-  </div>
+    </div>
+  </AlmanacFrame>
 </template>
 
 <script setup lang="ts">
@@ -137,12 +132,12 @@ const thisSite: UsesItem[] = [
 const frontend: UsesItem[] = [
   {
     name: 'CSS custom properties',
-    desc: 'the theme system is built entirely on css variables — scandinavian, hacker, and space themes swap at runtime without js',
+    desc: 'the theme system is built entirely on css variables — almanac runs on a single set of warm-paper tokens, light/dark via prefers-color-scheme',
     tag: 'styling',
   },
   {
     name: 'Canvas API',
-    desc: 'the landing page interactive bubbles are hand-rolled canvas with physics — no lib needed',
+    desc: 'the space-invaders game is hand-rolled canvas with full game state — no lib needed',
     tag: 'animation',
   },
   {
@@ -221,34 +216,6 @@ const aiTools: UsesItem[] = [
 </script>
 
 <style scoped>
-.uses-page {
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 3rem 1.5rem 5rem;
-  box-sizing: border-box;
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.uses-header {
-  margin-bottom: 3rem;
-}
-
-h1 {
-  font-size: clamp(2rem, 6vw, 3.5rem);
-  margin: 0 0 0.5rem;
-  color: var(--theme-text, #111);
-  font-weight: 500;
-}
-
-.subtitle {
-  color: var(--theme-text-muted, #666);
-  font-size: 1rem;
-  margin: 0;
-}
-
-/* ── Layout ─────────────────────────────────────────────────── */
-
 .uses-content {
   display: flex;
   flex-direction: column;
@@ -263,8 +230,10 @@ h1 {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--theme-text-subtle, #aaa);
+  color: var(--theme-text-subtle, #a39e8f);
   margin: 0 0 1rem;
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .uses-divider {
@@ -291,14 +260,13 @@ h1 {
   gap: 0.2rem;
   padding: 0.5rem 0.75rem 0.5rem 0.6rem;
   margin: 0 -0.75rem;
-  border-radius: 6px;
+  border-radius: 0;
   border-left: 2px solid transparent;
-  transition: background 0.2s ease, border-left-color 0.2s ease;
+  transition: border-left-color 0.2s ease;
 }
 
 .uses-item:hover {
-  background: var(--theme-card-bg, rgba(255, 255, 255, 0.5));
-  border-left-color: var(--theme-accent, #6b8cae);
+  border-left-color: var(--theme-accent, #c14a2a);
 }
 
 .uses-item-main {
@@ -311,7 +279,7 @@ h1 {
 .uses-name {
   font-size: 0.95rem;
   font-weight: 500;
-  color: var(--theme-text, #111);
+  color: var(--theme-text, #1a1a1a);
 }
 
 .uses-link {
@@ -321,86 +289,38 @@ h1 {
 }
 
 .uses-link:hover {
-  border-color: var(--theme-accent, #6b8cae);
-  color: var(--theme-accent, #6b8cae);
+  border-color: var(--theme-accent, #c14a2a);
+  color: var(--theme-accent, #c14a2a);
 }
 
 .uses-link:focus-visible {
-  outline: 2px solid var(--theme-accent, #6b8cae);
+  outline: 2px solid var(--theme-accent, #c14a2a);
   outline-offset: 2px;
   border-radius: 2px;
 }
 
 .uses-tag {
   font-size: 0.65rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--theme-text-subtle, #aaa);
-  background: var(--theme-card-bg, rgba(0, 0, 0, 0.04));
-  border: 1px solid var(--theme-card-border, rgba(0, 0, 0, 0.08));
-  border-radius: 999px;
-  padding: 0.15rem 0.5rem;
+  font-style: italic;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  color: var(--theme-text-subtle, #a39e8f);
+  background: transparent;
+  border: 0;
+  padding: 0;
   flex-shrink: 0;
+}
+
+.uses-tag::before {
+  content: '· ';
+  color: var(--theme-card-border, rgba(0,0,0,0.2));
+  font-style: normal;
 }
 
 .uses-desc {
   font-size: 0.85rem;
-  color: var(--theme-text-muted, #666);
+  color: var(--theme-text-muted, #6a6a6a);
   line-height: 1.6;
   margin: 0;
-}
-
-/* ── Hacker theme overrides ─────────────────────────────────── */
-
-:global(.hacker-page) h1 {
-  font-family: monospace;
-  text-transform: lowercase;
-  text-shadow: 0 0 10px currentColor;
-}
-
-:global(.hacker-page) .subtitle {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .section-label {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .uses-name {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .uses-desc {
-  font-family: monospace;
-}
-
-:global(.hacker-page) .uses-item:hover {
-  border-radius: 0;
-}
-
-:global(.hacker-page) .uses-tag {
-  border-radius: 0;
-  font-family: monospace;
-}
-
-/* ── Space theme overrides ──────────────────────────────────── */
-
-:global(.space-page) h1 {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
-  text-shadow: 0 0 40px rgba(140, 170, 220, 0.3);
-}
-
-:global(.space-page) .section-label {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  font-weight: 900;
-}
-
-:global(.space-page) .uses-tag {
-  font-family: var(--font-space-display, 'Arial Black', Impact, sans-serif);
-  letter-spacing: 0.05em;
 }
 </style>
