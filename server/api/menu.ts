@@ -1,4 +1,4 @@
-import { defineEventHandler, getQuery } from 'h3'
+import { defineEventHandler, getQuery, setResponseHeader } from 'h3'
 
 const menuItems = [
   { path: '/', title: 'Home', icon: '🏚️' },
@@ -22,16 +22,19 @@ const menuItems = [
   { path: '/launch', title: 'Launch', icon: '🚀' },
   { path: 'https://dot.phareim.no', title: 'Red dot game', icon: '🔴', external: true },
   { path: 'https://reader.phareim.no', title: 'RSS Reader', icon: '📰', external: true },
-  { path: 'https://blue.phareim.no', title: 'Blue', icon: '🔵', external: true }
+  { path: 'https://blue.phareim.no', title: 'Blue', icon: '🔵', external: true },
 ]
 
-export default defineEventHandler(async (event) => {
+// Menu items are static — cache at the CDN edge for 1 hour
+export default defineEventHandler((event) => {
+  setResponseHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=3600')
+
   const query = getQuery(event)
-  const titleQuery = query.title;
+  const titleQuery = query.title
 
   if (typeof titleQuery === 'string') {
-    return menuItems.filter(item => item.title.toLowerCase().includes(titleQuery.toLowerCase()));
+    return menuItems.filter(item => item.title.toLowerCase().includes(titleQuery.toLowerCase()))
   }
 
-  return menuItems;
+  return menuItems
 })
