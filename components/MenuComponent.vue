@@ -75,9 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useTheme } from '~/composables/useTheme'
-import { useRoute, useRouter } from 'vue-router'
 import { NAV_PAGES } from '~/composables/useNavPages'
 
 interface MenuItem {
