@@ -101,7 +101,7 @@
         <p class="now-updated">
           this page updates itself — last commit:
           <a
-            href="/meta"
+            href="/projects"
             class="now-link"
           >see the log</a>
         </p>

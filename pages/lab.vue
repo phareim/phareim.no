@@ -55,7 +55,7 @@
           </div>
           <div class="lab-meta-row">
             <span class="lab-meta-label">changelog</span>
-            <NuxtLink to="/meta" class="lab-meta-link">see /meta</NuxtLink>
+            <NuxtLink to="/projects" class="lab-meta-link">see /projects</NuxtLink>
           </div>
         </div>
       </section>

@@ -1,0 +1,11 @@
+# Archived during the 2026-05 rebuild (council run 2026-05-27-2208).
+# Cloudflare Pages reads this at deploy time.
+/clock      /playground   301
+/focus      /playground   301
+/stats      /projects     301
+/activity   /feed         301
+/meta       /projects     301
+
+# Renamed: the old /playground (AI image generator) is now /lab/imagine.
+# The slug /playground is reused as the toys index in Phase 4.
+/playground/image  /lab/imagine  301

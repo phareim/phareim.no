@@ -24,8 +24,8 @@
             12:00 utc: new pages, new features, architectural improvements.
           </p>
           <p>
-            you can watch the history on <NuxtLink to="/meta" class="colophon-link">the meta page</NuxtLink>
-            or the <NuxtLink to="/activity" class="colophon-link">activity feed</NuxtLink>.
+            you can watch the history on <NuxtLink to="/projects" class="colophon-link">the projects page</NuxtLink>
+            or in the <NuxtLink to="/feed" class="colophon-link">feed</NuxtLink>.
             the agent wrote this very page.
           </p>
         </div>

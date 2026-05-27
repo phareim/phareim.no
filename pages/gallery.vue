@@ -4,7 +4,7 @@
       <h1>gallery</h1>
       <p class="subtitle">
         ai-generated images —
-        <NuxtLink to="/playground" class="subtitle-link">try the playground</NuxtLink>
+        <NuxtLink to="/lab/imagine" class="subtitle-link">try /lab/imagine</NuxtLink>
       </p>
     </header>
 
@@ -19,7 +19,7 @@
       <div v-else-if="!images.length" class="gallery-empty">
         <div class="gallery-empty-icon" aria-hidden="true">✦</div>
         <p class="gallery-empty-text">no images generated yet</p>
-        <NuxtLink to="/playground" class="gallery-cta">open the playground →</NuxtLink>
+        <NuxtLink to="/lab/imagine" class="gallery-cta">open /lab/imagine →</NuxtLink>
       </div>
 
       <!-- Image grid -->
