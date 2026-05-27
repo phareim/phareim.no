@@ -38,14 +38,14 @@ withDefaults(
   margin: 0 auto;
   padding: 4rem 2rem 6rem;
   font-family: 'Source Serif 4', Georgia, serif;
-  color: var(--theme-ink, #1a1a1a);
+  color: var(--theme-text, #1a1a1a);
 }
 .almanac-frame__back {
   display: inline-block;
   margin-bottom: 2rem;
   font-size: 0.85rem;
   letter-spacing: 0.02em;
-  color: var(--theme-ink-muted, #555);
+  color: var(--theme-text-muted, #555);
   text-decoration: none;
   border-bottom: 1px solid currentColor;
 }
@@ -73,16 +73,16 @@ withDefaults(
 .almanac-frame__kicker {
   margin: 0.5rem 0 0;
   font-style: italic;
-  color: var(--theme-ink-muted, #555);
+  color: var(--theme-text-muted, #555);
 }
 .almanac-frame__rule {
   border: 0;
-  border-top: 1px solid var(--theme-rule, rgba(0,0,0,0.15));
+  border-top: 1px solid var(--theme-card-border, rgba(0,0,0,0.15));
   margin: 1.5rem 0 2rem;
 }
 .almanac-frame__footer {
   margin-top: 4rem;
   font-size: 0.85rem;
-  color: var(--theme-ink-muted, #555);
+  color: var(--theme-text-muted, #555);
 }
 </style>
