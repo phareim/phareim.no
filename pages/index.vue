@@ -333,11 +333,10 @@ export default {
       this.ctx.shadowOffsetX = 0;
       this.ctx.shadowOffsetY = 0;
       this.ctx.shadowBlur = 0;
-      this.ctx.shadowColor = 'transparent';     
-      this.ctx.stroke(); 
+      this.ctx.shadowColor = 'transparent';
       this.ctx.lineWidth = 5;
       this.ctx.strokeStyle = (this.theUpsideDown? 'rgba(100,90,80,0.2)':'rgba(0, 0, 0, 0.9)');
-      this.ctx.class = 'box';
+      this.ctx.stroke();
     },
     
     isColliding(box1, box2) {
