@@ -18,6 +18,7 @@ const DURATIONS: Record<string, number> = {
   scandi: 750,
   hacker: 480,
   space: 850,
+  almanac: 620,
 }
 
 // ── Scandinavian: frost / ice-crystal radiate ────────────────────────────────
@@ -146,6 +147,58 @@ function playWarpEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
   }
 }
 
+// ── Almanac: paper sweep + hairline rules ────────────────────────────────────
+// A warm paper-toned wash wipes in from the left edge (like turning a page
+// or unrolling a scroll), scored by thin rust-coloured hairline rules.
+// The palette is drawn from almanac.css: paper #f4f0e8, rust #c14a2a,
+// midnight-bottom #0e1219 in dark mode.
+function playAlmanacEffect(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  ctx.clearRect(0, 0, w, h)
+
+  // Fade envelope: in over first 20 %, hold, out over final 25 %
+  const alpha = t < 0.2 ? t / 0.2 : t > 0.75 ? (1 - t) / 0.25 : 1
+
+  // Detect dark-mode so the paper colour matches what the page will show
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  const [pr, pg, pb] = isDark ? [14, 18, 25] : [244, 240, 232]  // midnight or paper
+
+  // Wipe front: travels from left edge to just past right edge over t=0→0.55
+  const sweepX = Math.min(w + 1, (t / 0.55) * (w + 1))
+  const fadeW = w * 0.16   // soft leading gradient width
+
+  // Solid fill behind the wipe front
+  const solidW = Math.max(0, sweepX - fadeW)
+  if (solidW > 0) {
+    ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, ${alpha * 0.92})`
+    ctx.fillRect(0, 0, solidW, h)
+  }
+
+  // Soft gradient at the leading edge
+  if (sweepX > 0 && fadeW > 0) {
+    const grad = ctx.createLinearGradient(Math.max(0, sweepX - fadeW), 0, sweepX, 0)
+    grad.addColorStop(0, `rgba(${pr}, ${pg}, ${pb}, ${alpha * 0.92})`)
+    grad.addColorStop(1, `rgba(${pr}, ${pg}, ${pb}, 0)`)
+    ctx.fillStyle = grad
+    ctx.fillRect(Math.max(0, sweepX - fadeW), 0, fadeW, h)
+  }
+
+  // Hairline rules — rust in light, amber in dark — revealed behind the wipe front
+  const rustR = isDark ? 212 : 193
+  const rustG = isDark ? 165 : 74
+  const rustB = isDark ? 116 : 42
+  const RULE_FRACS = [0.18, 0.33, 0.50, 0.66, 0.82]
+  for (const yFrac of RULE_FRACS) {
+    const revealX = solidW   // rules are revealed only where solid fill has landed
+    if (revealX < 2) continue
+    ctx.beginPath()
+    ctx.moveTo(0, yFrac * h)
+    ctx.lineTo(revealX, yFrac * h)
+    ctx.strokeStyle = `rgba(${rustR}, ${rustG}, ${rustB}, ${alpha * 0.28})`
+    ctx.lineWidth = 0.7
+    ctx.stroke()
+  }
+}
+
 // ── Orchestration ─────────────────────────────────────────────────────────────
 watch(activeTheme, (newTheme) => {
   if (!import.meta.client) return
@@ -172,6 +225,7 @@ watch(activeTheme, (newTheme) => {
     if (newTheme === 'scandi') playFrostEffect(ctx, w, h, t)
     else if (newTheme === 'hacker') playMatrixEffect(ctx, w, h, t)
     else if (newTheme === 'space') playWarpEffect(ctx, w, h, t)
+    else if (newTheme === 'almanac') playAlmanacEffect(ctx, w, h, t)
 
     if (t < 1) {
       animationId = requestAnimationFrame(tick)
