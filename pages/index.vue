@@ -1,13 +1,6 @@
 <template>
   <div class="container">
-    <SpaceInvadersBackground
-      v-if="isHacker"
-      @score="s => hackerScore = s"
-      @death="onGameOver"
-      @restart="onGameRestart"
-      @started="onGameStarted"
-    />
-    <canvas v-else-if="!isSpace" ref="canvas"></canvas>
+    <canvas v-if="!isSpace" ref="canvas"></canvas>
     <div class="overlay" @click="onOverlayClick">
       <div class="home">
         <ProfileCard
@@ -80,7 +73,6 @@
 <script>
 import ProfileCard from '~/components/ProfileCard.vue'
 import SocialLink from '~/components/SocialLink.vue'
-import SpaceInvadersBackground from '~/components/SpaceInvadersBackground.vue'
 
 // Scandi-palette bubble colors (light and dark mode variants).
 // Original palette from the legacy scandinavian theme so the bubbles feel
@@ -111,8 +103,7 @@ export default {
   name: 'Home',
   components: {
     ProfileCard,
-    SocialLink,
-    SpaceInvadersBackground
+    SocialLink
   },
   setup() {
     const { activeTheme } = useTheme()

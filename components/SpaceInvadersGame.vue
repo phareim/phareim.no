@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-const emit = defineEmits(['score', 'death', 'restart', 'started'])
+const emit = defineEmits(['score', 'death', 'restart', 'started', 'wave'])
 
 const canvas = ref(null)
 let ctx = null
@@ -27,6 +27,7 @@ let keys = {}
 let lastShotTime = 0
 let waveTimer = 0
 let waveInterval = 2500
+let waveNumber = 1
 let bulletLevel = 1
 let powerupTimer = 0
 let powerupInterval = 12000
@@ -253,9 +254,11 @@ function resetGame() {
   shieldFlash = 0
   deathExplosion = null
   smoothParallaxX = 0
+  waveNumber = 1
   emit('restart')
   emit('started')
   emit('score', 0)
+  emit('wave', 1)
 }
 
 function spawnWave() {
@@ -509,6 +512,8 @@ function update(now) {
     spawnWave()
     waveTimer = now
     waveInterval = Math.max(1200, waveInterval - 30)
+    waveNumber += 1
+    emit('wave', waveNumber)
   }
 
   // Boss spawning
