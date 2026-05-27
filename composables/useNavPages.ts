@@ -1,16 +1,14 @@
 export const NAV_PAGES = [
   '/',
   '/about',
+  '/now',
   '/projects',
   '/feed',
-  '/now',
-  '/uses',
-  '/guestbook',
-  '/colophon',
-  '/playground',
   '/gallery',
+  '/guestbook',
   '/lab',
-  '/terminal',
-  '/morse',
-  '/launch',
-]
+  '/playground',
+  '/games',
+  '/uses',
+  '/colophon',
+] as const

@@ -9,3 +9,8 @@
 # Renamed: the old /playground (AI image generator) is now /lab/imagine.
 # The slug /playground is reused as the toys index in Phase 4.
 /playground/image  /lab/imagine  301
+
+# Phase 4: toys moved under /playground/*.
+/terminal   /playground/terminal   301
+/morse      /playground/morse      301
+/launch     /playground/launch     301
