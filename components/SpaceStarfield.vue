@@ -9,6 +9,7 @@ let stars: Star[] = []
 let shootingStars: ShootingStar[] = []
 let nebulas: Nebula[] = []
 let constellations: Constellation[] = []
+let satellites: Satellite[] = []
 let animationId: number | null = null
 let frame = 0
 let novaRings: NovaRing[] = []
@@ -46,6 +47,12 @@ const NEBULA_COLORS: number[][] = [
 const SHOOTING_INTERVAL_MIN = 240
 const SHOOTING_INTERVAL_MAX = 500
 let nextShootingFrame = 300
+
+// Satellites: slow-moving ISS-like dots that cross the sky
+const MAX_SATELLITES = 2
+const SAT_INTERVAL_MIN = 700
+const SAT_INTERVAL_MAX = 1600
+let nextSatelliteFrame = 900
 
 const STAR_COLORS: number[][] = [
   [255, 255, 255],
@@ -137,6 +144,18 @@ interface ShootingStar {
   opacity: number
   life: number
   decay: number
+}
+
+interface Satellite {
+  x: number
+  y: number
+  vx: number         // slow horizontal velocity
+  vy: number         // gentle vertical drift
+  size: number       // dot radius (1–1.8 px)
+  color: number[]    // RGB
+  blinkPhase: number
+  blinkSpeed: number
+  opacity: number
 }
 
 interface NovaRing {
@@ -385,6 +404,80 @@ function drawShootingStar(s: ShootingStar) {
   ctx.fill()
 }
 
+function spawnSatellite() {
+  if (!canvas.value || satellites.length >= MAX_SATELLITES) return
+  const w = canvas.value.width
+  const h = canvas.value.height
+
+  // Satellites cross left-to-right or right-to-left
+  const goRight = Math.random() > 0.5
+  const x = goRight ? -12 : w + 12
+  // Appear in the upper two-thirds of the screen
+  const y = Math.random() * h * 0.65 + h * 0.04
+  const speed = Math.random() * 0.45 + 0.25  // 0.25–0.7 px/frame (very slow)
+  // Tiny angle — nearly horizontal
+  const vy = (Math.random() - 0.5) * speed * 0.4
+
+  // Colours: near-white with subtle warmth or coolness
+  const SAT_COLORS: number[][] = [
+    [255, 255, 255],   // pure white
+    [255, 252, 225],   // warm white (solar panels)
+    [215, 232, 255],   // cool blue-white
+  ]
+  const color = SAT_COLORS[Math.floor(Math.random() * SAT_COLORS.length)]
+
+  satellites.push({
+    x,
+    y,
+    vx: goRight ? speed : -speed,
+    vy,
+    size: 1.0 + Math.random() * 0.8,
+    color,
+    blinkPhase: Math.random() * Math.PI * 2,
+    blinkSpeed: 0.03 + Math.random() * 0.07,  // slow, gentle blink
+    opacity: 0.78 + Math.random() * 0.22,
+  })
+}
+
+function drawSatellites() {
+  if (!ctx || !canvas.value || satellites.length === 0) return
+  const w = canvas.value.width
+  const h = canvas.value.height
+
+  for (const sat of satellites) {
+    sat.blinkPhase += sat.blinkSpeed
+    // Gentle oscillation — never fully disappears
+    const blink = 0.65 + 0.35 * Math.sin(sat.blinkPhase)
+    const alpha = sat.opacity * blink
+
+    const [r, g, b] = sat.color
+
+    // Soft glow halo
+    const glowR = sat.size * 4.5
+    const glow = ctx.createRadialGradient(sat.x, sat.y, 0, sat.x, sat.y, glowR)
+    glow.addColorStop(0, `rgba(${r},${g},${b},${(alpha * 0.28).toFixed(3)})`)
+    glow.addColorStop(1, `rgba(${r},${g},${b},0)`)
+    ctx.beginPath()
+    ctx.arc(sat.x, sat.y, glowR, 0, Math.PI * 2)
+    ctx.fillStyle = glow
+    ctx.fill()
+
+    // Satellite dot
+    ctx.beginPath()
+    ctx.arc(sat.x, sat.y, sat.size, 0, Math.PI * 2)
+    ctx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`
+    ctx.fill()
+
+    sat.x += sat.vx
+    sat.y += sat.vy
+  }
+
+  // Remove satellites that have drifted off-screen
+  satellites = satellites.filter(
+    s => s.x > -20 && s.x < w + 20 && s.y > -20 && s.y < h + 20
+  )
+}
+
 function triggerNova(clientX: number, clientY: number) {
   if (!canvas.value) return
   const rect = canvas.value.getBoundingClientRect()
@@ -473,6 +566,13 @@ function draw() {
     )
   }
 
+  if (frame >= nextSatelliteFrame) {
+    spawnSatellite()
+    nextSatelliteFrame = frame + Math.floor(
+      Math.random() * (SAT_INTERVAL_MAX - SAT_INTERVAL_MIN) + SAT_INTERVAL_MIN
+    )
+  }
+
   shootingStars = shootingStars.filter(s => s.life > 0)
   for (const s of shootingStars) {
     drawShootingStar(s)
@@ -481,6 +581,7 @@ function draw() {
     s.life -= s.decay
   }
 
+  drawSatellites()
   drawNovaRings()
 
   animationId = requestAnimationFrame(draw)
@@ -646,6 +747,7 @@ onBeforeUnmount(() => {
   if (animationId !== null) {
     cancelAnimationFrame(animationId)
   }
+  satellites = []
 })
 </script>
 
