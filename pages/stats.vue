@@ -36,14 +36,18 @@
         <div v-if="projectsPending" class="stats-placeholder">
           <span>loading…</span>
         </div>
-        <div v-else-if="langStats.length" class="lang-section">
+        <div
+          v-else-if="langStats.length"
+          ref="langSectionRef"
+          :class="['lang-section', { 'is-visible': langBarVisible }]"
+        >
           <!-- Stacked bar -->
           <div class="lang-bar" role="img" :aria-label="langBarAriaLabel">
             <div
-              v-for="{ lang, pct } in langStats"
+              v-for="({ lang, pct }, segIdx) in langStats"
               :key="lang"
               class="lang-bar-segment"
-              :style="{ width: pct + '%', '--lang-color': langColor(lang) }"
+              :style="{ width: pct + '%', '--lang-color': langColor(lang), '--seg-idx': segIdx }"
               :title="`${lang} — ${pct}%`"
             ></div>
           </div>
@@ -51,14 +55,14 @@
           <!-- Legend rows -->
           <ul class="lang-list" role="list">
             <li
-              v-for="{ lang, count, pct } in langStats"
+              v-for="({ lang, count, pct }, rowIdx) in langStats"
               :key="lang"
               class="lang-row"
             >
               <span class="lang-dot" :style="{ '--lang-color': langColor(lang) }" aria-hidden="true"></span>
               <span class="lang-name">{{ lang }}</span>
               <span class="lang-bar-inline" aria-hidden="true">
-                <span class="lang-bar-fill" :style="{ width: pct + '%', '--lang-color': langColor(lang) }"></span>
+                <span class="lang-bar-fill" :style="{ width: pct + '%', '--lang-color': langColor(lang), '--row-idx': rowIdx }"></span>
               </span>
               <span class="lang-meta">
                 <span class="lang-count">{{ count }} repo{{ count !== 1 ? 's' : '' }}</span>
@@ -308,6 +312,9 @@ const monthLabels = computed(() => {
 const heatmapGridRef = ref<HTMLElement | null>(null)
 const heatmapVisible = ref(false)
 
+const langSectionRef = ref<HTMLElement | null>(null)
+const langBarVisible = ref(false)
+
 const heatmapTooltip = reactive({
   visible: false,
   date: '',
@@ -400,9 +407,25 @@ onMounted(() => {
     animateCount(commitCount.value, n => { displayCommits.value = n })
   }, 300)
 
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  // Lang bar entrance animation — observe when the section scrolls into view
+  if (langSectionRef.value) {
+    if (reduced) {
+      langBarVisible.value = true
+    } else {
+      const langObs = new IntersectionObserver((entries) => {
+        if (entries[0]?.isIntersecting) { langBarVisible.value = true; langObs.disconnect() }
+      }, { threshold: 0.1 })
+      langObs.observe(langSectionRef.value)
+    }
+  } else {
+    langBarVisible.value = true
+  }
+
   // Heatmap entrance animation — observe when the grid scrolls into view
   if (heatmapGridRef.value) {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (reduced) {
       heatmapVisible.value = true
     } else {
       const obs = new IntersectionObserver((entries) => {
@@ -543,8 +566,22 @@ h1 {
   height: 100%;
   background: var(--lang-color, #6b8cae);
   border-radius: 999px;
-  transition: opacity 0.2s ease;
   flex-shrink: 0;
+  transform-origin: left center;
+  /* hover opacity only; entrance uses animation below */
+  transition: opacity 0.2s ease;
+}
+
+/* Hidden before section enters viewport */
+.lang-section:not(.is-visible) .lang-bar-segment {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+/* Animate in with stagger, one segment at a time */
+.lang-section.is-visible .lang-bar-segment {
+  animation: lang-bar-fill-in 0.5s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+  animation-delay: calc(var(--seg-idx, 0) * 55ms + 50ms);
 }
 
 .lang-bar-segment:hover {
@@ -595,7 +632,23 @@ h1 {
   height: 100%;
   background: var(--lang-color, #6b8cae);
   border-radius: 999px;
-  transition: width 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transform-origin: left center;
+}
+
+/* Hidden before section enters viewport */
+.lang-section:not(.is-visible) .lang-bar-fill {
+  transform: scaleX(0);
+}
+
+/* Animate in staggered after the stacked bar finishes */
+.lang-section.is-visible .lang-bar-fill {
+  animation: lang-bar-fill-in 0.5s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+  animation-delay: calc(var(--row-idx, 0) * 65ms + 250ms);
+}
+
+@keyframes lang-bar-fill-in {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
 }
 
 .lang-meta {
@@ -823,6 +876,15 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .lang-section:not(.is-visible) .lang-bar-segment,
+  .lang-section:not(.is-visible) .lang-bar-fill {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  .lang-section.is-visible .lang-bar-segment,
+  .lang-section.is-visible .lang-bar-fill {
+    animation: none;
+  }
   .commit-grid:not(.is-visible) .commit-cell { opacity: 1; }
   .commit-grid.is-visible .commit-cell { animation: none; }
 }
