@@ -1,3 +1,5 @@
+@import './_tokens-generated.css';
+
 /**
  * Almanac Aesthetic
  * ---------------------------
@@ -15,31 +17,16 @@
  * Usage: Add class "almanac-page" to your page container.
  * Light/dark follows OS prefers-color-scheme — Almanac
  * is the only theme on this site that does so by design.
+ *
+ * The canonical --almanac-* palette vars live in
+ * _tokens-generated.css (sourced from ~/github/almanac-design/).
+ * Only secondary tokens (subtle tints, fonts, transitions) live here.
  */
 
 :root {
-  /* Base colors — paper in light, midnight in dark */
-  --almanac-paper: #f4f0e8;
+  /* Secondary tints not covered by the generated tokens */
   --almanac-paper-warm: #ece6d8;
-
-  /* Ink — high contrast, never pure black */
-  --almanac-ink: #1a1a1a;
-  --almanac-ink-mute: #6a6a6a;
   --almanac-ink-subtle: #a39e8f;
-
-  /* Accent — single rust moment of attention */
-  --almanac-rust: #c14a2a;
-  --almanac-amber: #d4a574;
-
-  /* Hairline rule colors */
-  --almanac-rule-light: #d8d2c4;
-  --almanac-rule-dark: rgba(255, 255, 255, 0.10);
-
-  /* Midnight gradient stops */
-  --almanac-night-top: #161b24;
-  --almanac-night-bottom: #0e1219;
-  --almanac-night-ink: #ebe4d4;
-  --almanac-night-ink-mute: #7a8a9a;
   --almanac-night-ink-subtle: #5a6a7a;
 
   /* Typography — Georgia stack, no webfont. Source Serif 4

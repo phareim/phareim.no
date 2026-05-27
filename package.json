@@ -11,7 +11,10 @@
     "populate-venice-models": "npx tsx scripts/populate-venice-models.ts",
     "migrate-image-prompts": "npx tsx scripts/migrate-image-prompts.ts",
     "migrate-initial-prompts": "npx tsx scripts/migrate-initial-prompts.ts",
-    "qa:almanac": "node scripts/almanac-qa.mjs"
+    "qa:almanac": "node scripts/almanac-qa.mjs",
+    "sync:almanac": "node scripts/sync-almanac-tokens.mjs",
+    "prebuild": "node scripts/sync-almanac-tokens.mjs",
+    "predev": "node scripts/sync-almanac-tokens.mjs"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
