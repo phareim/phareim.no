@@ -1,5 +1,5 @@
 <template>
-  <AlmanacFrame title="Projects" kicker="Things I've built and tinkered with." back="/">
+  <AlmanacFrame title="Projects" kicker="Active and recent repos." back="/">
     <div v-if="!pending && projects?.length" class="projects-filters">
       <div class="search-wrapper">
         <input

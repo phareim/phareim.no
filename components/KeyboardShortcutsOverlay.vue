@@ -236,42 +236,4 @@ kbd {
   transform: scale(0.97);
 }
 
-/* ── Almanac theme overrides ────────────────────────────────── */
-
-:global(.almanac-page) .kbd-panel {
-  background: var(--theme-bg);
-  border: 1px solid var(--theme-card-border);
-  border-radius: 0;
-  box-shadow: none;
-  font-family: var(--theme-font-body);
-}
-
-:global(.almanac-page) kbd {
-  background: transparent;
-  border: 1px solid var(--theme-card-border);
-  border-radius: 0;
-  box-shadow: none;
-  color: var(--theme-text);
-  font-family: var(--theme-font-body);
-}
-
-:global(.almanac-page) .kbd-title,
-:global(.almanac-page) .kbd-section-label,
-:global(.almanac-page) .kbd-row {
-  font-family: var(--theme-font-body);
-  color: var(--theme-text);
-}
-
-:global(.almanac-page) .kbd-section-label {
-  color: var(--theme-text-muted);
-}
-
-:global(.almanac-page) .kbd-close {
-  background: transparent;
-  border: 1px solid var(--theme-card-border);
-  border-radius: 0;
-  box-shadow: none;
-  color: var(--theme-text);
-  font-family: var(--theme-font-body);
-}
 </style>

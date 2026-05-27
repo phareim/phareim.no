@@ -221,26 +221,4 @@ watch(() => route.path, () => {
     0 0 0 1px rgba(140, 170, 220, 0.25);
 }
 
-/* ── Almanac theme overrides ────────────────────────────────── */
-
-:global(.almanac-page) .page-progress-bar {
-  background: var(--theme-accent);
-  box-shadow: none;
-  height: 1px;
-}
-
-:global(.almanac-page) .scroll-top-btn {
-  background: transparent;
-  border: 1px solid var(--theme-card-border);
-  border-radius: 0;
-  box-shadow: none;
-  color: var(--theme-text);
-  font-family: var(--theme-font-body);
-}
-
-:global(.almanac-page) .scroll-top-btn:hover {
-  border-color: var(--theme-accent);
-  color: var(--theme-accent);
-  box-shadow: none;
-}
 </style>

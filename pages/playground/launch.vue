@@ -1227,28 +1227,6 @@ onBeforeUnmount(() => {
   -webkit-backdrop-filter: none;
 }
 
-/* ── Almanac: stay quiet, lean on theme vars ──────────────── */
-
-:global(.almanac-page) .rk-window {
-  fill: var(--theme-accent, #d4a574);
-}
-
-:global(.almanac-page) .ctrl--main {
-  border-radius: 0;
-}
-
-:global(.almanac-page) .ctrl--sec {
-  border-radius: 0;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-:global(.almanac-page) .kbd-hint kbd {
-  border-radius: 2px;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
 /* ── Responsive ─────────────────────────────────────────────── */
 
 @media (max-width: 400px) {

@@ -1,5 +1,5 @@
 <template>
-  <AlmanacFrame title="Gallery" kicker="AI-generated images." back="/">
+  <AlmanacFrame title="Gallery" kicker="Pictures, mostly conjured." back="/">
     <p class="gallery-intro">
       try
       <NuxtLink to="/lab/imagine" class="subtitle-link">/lab/imagine</NuxtLink>

@@ -1,5 +1,5 @@
 <template>
-  <AlmanacFrame title="Playground" kicker="Toys, oddities, mostly-finished experiments.">
+  <AlmanacFrame title="Playground" kicker="Toys, oddities, mostly-finished experiments." back="/">
     <ul class="toys-list">
       <li>
         <NuxtLink to="/playground/terminal" class="toys-list__link">

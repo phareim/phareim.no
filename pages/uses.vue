@@ -1,5 +1,5 @@
 <template>
-  <AlmanacFrame title="Uses" kicker="Things I build with." back="/">
+  <AlmanacFrame title="Uses" kicker="Tools, editors, hardware." back="/">
     <div class="uses-content">
 
       <section class="uses-section">

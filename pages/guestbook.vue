@@ -1,5 +1,5 @@
 <template>
-  <AlmanacFrame title="Guestbook" kicker="Leave a note, sign the wall." back="/">
+  <AlmanacFrame title="Guestbook" kicker="Leave a note." back="/">
     <!-- Form -->
     <section class="gb-form-section" aria-label="Leave a note">
       <form class="gb-form" @submit.prevent="submit">

@@ -1,10 +1,10 @@
 <template>
-  <AlmanacFrame title="Games" kicker="Things you can play.">
+  <AlmanacFrame title="Games" kicker="Things you can play." back="/">
     <ul class="games-list">
       <li>
         <NuxtLink to="/games/space-invaders" class="games-list__link">
           <span class="games-list__title">Space Invaders</span>
-          <span class="games-list__desc">Arrows to move, space to fire. A v1.</span>
+          <span class="games-list__desc">Arrows to move, space to fire. A first cut.</span>
         </NuxtLink>
       </li>
     </ul>
