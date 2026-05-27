@@ -66,7 +66,6 @@
 const emit = defineEmits<{ close: [] }>()
 const props = defineProps<{ open: boolean }>()
 
-const { setTheme } = useTheme()
 const router = useRouter()
 const route = useRoute()
 
@@ -83,30 +82,30 @@ interface Command {
   label: string
   icon: string
   hint?: string
-  type: 'page' | 'theme' | 'external'
+  type: 'page' | 'external'
   action: () => void
 }
 
 const allCommands: Command[] = [
-  { id: 'nav-home',     label: 'home',              icon: '🏚️', hint: '/',        type: 'page',     action: () => router.push('/') },
-  { id: 'nav-about',   label: 'about',              icon: '👤', hint: '/about',    type: 'page',     action: () => router.push('/about') },
-  { id: 'nav-projects',label: 'projects',            icon: '🔧', hint: '/projects', type: 'page',     action: () => router.push('/projects') },
-  { id: 'nav-feed',    label: 'thoughts',            icon: '💬', hint: '/feed',     type: 'page',     action: () => router.push('/feed') },
-  { id: 'nav-now',     label: 'now',                 icon: '📍', hint: '/now',      type: 'page',     action: () => router.push('/now') },
-  { id: 'nav-uses',    label: 'uses',                icon: '🔩', hint: '/uses',     type: 'page',     action: () => router.push('/uses') },
-  { id: 'nav-guestbook', label: 'guestbook',           icon: '✍️', hint: '/guestbook', type: 'page',    action: () => router.push('/guestbook') },
-  { id: 'nav-colophon', label: 'colophon',           icon: '📖', hint: '/colophon',    type: 'page',     action: () => router.push('/colophon') },
-  { id: 'nav-playground', label: 'playground',      icon: '✦',  hint: '/playground', type: 'page',     action: () => router.push('/playground') },
-  { id: 'nav-gallery', label: 'gallery',             icon: '🖼️', hint: '/gallery',    type: 'page',     action: () => router.push('/gallery') },
-  { id: 'nav-lab',      label: 'lab',                 icon: '🧪', hint: '/lab',       type: 'page',     action: () => router.push('/lab') },
-  { id: 'nav-terminal',label: 'terminal',             icon: '>_', hint: '/terminal', type: 'page',     action: () => router.push('/terminal') },
-  { id: 'nav-morse',   label: 'morse',               icon: '·−', hint: '/morse',    type: 'page',     action: () => router.push('/morse') },
-  { id: 'nav-launch',  label: 'launch',              icon: '🚀', hint: '/launch',   type: 'page',     action: () => router.push('/launch') },
-  { id: 'theme-scandi', label: 'scandinavian glass', icon: '❄️', hint: '1',         type: 'theme',    action: () => setTheme('scandi') },
-  { id: 'theme-hacker',label: 'cyberpunk',           icon: '📟', hint: '2',         type: 'theme',    action: () => setTheme('hacker') },
-  { id: 'theme-space', label: 'space',               icon: '🚀', hint: '3',         type: 'theme',    action: () => setTheme('space') },
-  { id: 'ext-reddot',  label: 'red dot game',        icon: '🔴',                    type: 'external', action: () => window.open('https://dot.phareim.no', '_blank', 'noopener,noreferrer') },
-  { id: 'ext-reader',  label: 'rss reader',          icon: '📰',                    type: 'external', action: () => window.open('https://reader.phareim.no', '_blank', 'noopener,noreferrer') },
+  { id: 'nav-home',                 label: 'home',                       icon: '◐', hint: '/',                          type: 'page',     action: () => router.push('/') },
+  { id: 'nav-about',                label: 'about',                      icon: '·', hint: '/about',                     type: 'page',     action: () => router.push('/about') },
+  { id: 'nav-now',                  label: 'now',                        icon: '·', hint: '/now',                       type: 'page',     action: () => router.push('/now') },
+  { id: 'nav-uses',                 label: 'uses',                       icon: '·', hint: '/uses',                      type: 'page',     action: () => router.push('/uses') },
+  { id: 'nav-projects',             label: 'projects',                   icon: '·', hint: '/projects',                  type: 'page',     action: () => router.push('/projects') },
+  { id: 'nav-feed',                 label: 'feed',                       icon: '·', hint: '/feed',                      type: 'page',     action: () => router.push('/feed') },
+  { id: 'nav-gallery',              label: 'gallery',                    icon: '·', hint: '/gallery',                   type: 'page',     action: () => router.push('/gallery') },
+  { id: 'nav-guestbook',            label: 'guestbook',                  icon: '·', hint: '/guestbook',                 type: 'page',     action: () => router.push('/guestbook') },
+  { id: 'nav-lab',                  label: 'lab',                        icon: '·', hint: '/lab',                       type: 'page',     action: () => router.push('/lab') },
+  { id: 'nav-lab-imagine',          label: 'imagine (AI image gen)',     icon: '·', hint: '/lab/imagine',               type: 'page',     action: () => router.push('/lab/imagine') },
+  { id: 'nav-playground',           label: 'playground',                 icon: '·', hint: '/playground',                type: 'page',     action: () => router.push('/playground') },
+  { id: 'nav-playground-terminal',  label: 'terminal',                   icon: '·', hint: '/playground/terminal',       type: 'page',     action: () => router.push('/playground/terminal') },
+  { id: 'nav-playground-morse',     label: 'morse',                      icon: '·', hint: '/playground/morse',          type: 'page',     action: () => router.push('/playground/morse') },
+  { id: 'nav-playground-launch',    label: 'launch',                     icon: '·', hint: '/playground/launch',         type: 'page',     action: () => router.push('/playground/launch') },
+  { id: 'nav-games',                label: 'games',                      icon: '·', hint: '/games',                     type: 'page',     action: () => router.push('/games') },
+  { id: 'nav-games-space-invaders', label: 'space invaders',             icon: '·', hint: '/games/space-invaders',      type: 'page',     action: () => router.push('/games/space-invaders') },
+  { id: 'nav-colophon',             label: 'colophon',                   icon: '·', hint: '/colophon',                  type: 'page',     action: () => router.push('/colophon') },
+  { id: 'ext-reddot',               label: 'red dot game',               icon: '·',                                     type: 'external', action: () => window.open('https://dot.phareim.no', '_blank', 'noopener,noreferrer') },
+  { id: 'ext-reader',               label: 'rss reader',                 icon: '·',                                     type: 'external', action: () => window.open('https://reader.phareim.no', '_blank', 'noopener,noreferrer') },
 ]
 
 // Map route paths → command IDs for recent-page tracking
@@ -147,7 +146,7 @@ const groups = computed(() => {
       c.label.toLowerCase().includes(q) ||
       (c.hint && c.hint.toLowerCase().includes(q))
     )
-    return (['page', 'theme', 'external'] as const)
+    return (['page', 'external'] as const)
       .map(type => ({
         type,
         label: { page: 'pages', theme: 'themes', external: 'links' }[type],
@@ -169,9 +168,8 @@ const groups = computed(() => {
     result.push({ type: 'recent', label: 'recent', commands: recentCmds })
   }
   result.push(
-    { type: 'page',     label: 'pages',  commands: allCommands.filter(c => c.type === 'page') },
-    { type: 'theme',    label: 'themes', commands: allCommands.filter(c => c.type === 'theme') },
-    { type: 'external', label: 'links',  commands: allCommands.filter(c => c.type === 'external') },
+    { type: 'page',     label: 'pages', commands: allCommands.filter(c => c.type === 'page') },
+    { type: 'external', label: 'links', commands: allCommands.filter(c => c.type === 'external') },
   )
   return result
 })
