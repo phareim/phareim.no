@@ -46,6 +46,16 @@ const SHOCK_SPEED = 7       // px per frame expansion
 const SHOCK_WIDTH = 22      // px — wave band that triggers columns
 const shockwaves: Shockwave[] = []
 
+// CRT scanline state — two bands drifting at slightly different speeds
+let scanline1Y = 0
+let scanline2Y = 0
+const SCANLINE_SPEED_1 = 0.55   // px per frame → ~33s to cross 1080p
+const SCANLINE_SPEED_2 = 0.38   // second, slower band — offset by half height
+// Vignette gradient — rebuilt only on resize
+let vignetteGrad: CanvasGradient | null = null
+let vignetteSizeW = 0
+let vignetteSizeH = 0
+
 function randomChar(): string {
   return CHARS[Math.floor(Math.random() * CHARS.length)]
 }
@@ -58,6 +68,48 @@ function pickState(): ColState {
   return 'normal'
 }
 
+function rebuildVignette(w: number, h: number) {
+  if (!ctx) return
+  // Cache and rebuild only if canvas size changed
+  if (w === vignetteSizeW && h === vignetteSizeH && vignetteGrad) return
+  const cx = w / 2
+  const cy = h / 2
+  vignetteGrad = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.28, cx, cy, Math.max(w, h) * 0.75)
+  vignetteGrad.addColorStop(0, 'rgba(0, 0, 0, 0)')
+  vignetteGrad.addColorStop(1, 'rgba(0, 0, 0, 0.42)')
+  vignetteSizeW = w
+  vignetteSizeH = h
+}
+
+function drawScanlines(w: number, h: number) {
+  if (!ctx) return
+  // Advance positions — wrap around with a small off-screen margin
+  scanline1Y = (scanline1Y + SCANLINE_SPEED_1) % (h + 60)
+  scanline2Y = (scanline2Y + SCANLINE_SPEED_2) % (h + 60)
+
+  const BAND = 32  // half-height of each soft gradient band
+
+  for (const sy of [scanline1Y, scanline2Y]) {
+    const top = sy - BAND
+    const bot = sy + BAND
+    if (bot < 0 || top > h) continue
+    const grad = ctx.createLinearGradient(0, top, 0, bot)
+    grad.addColorStop(0,    'rgba(0, 255, 65, 0)')
+    grad.addColorStop(0.45, 'rgba(0, 255, 65, 0.028)')
+    grad.addColorStop(0.5,  'rgba(0, 255, 65, 0.04)')
+    grad.addColorStop(0.55, 'rgba(0, 255, 65, 0.028)')
+    grad.addColorStop(1,    'rgba(0, 255, 65, 0)')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, top, w, BAND * 2)
+  }
+}
+
+function drawVignette(w: number, h: number) {
+  if (!ctx || !vignetteGrad) return
+  ctx.fillStyle = vignetteGrad
+  ctx.fillRect(0, 0, w, h)
+}
+
 function resize() {
   if (!canvas.value) return
   const w = window.innerWidth
@@ -67,7 +119,10 @@ function resize() {
   if (ctx) {
     ctx.fillStyle = BG
     ctx.fillRect(0, 0, w, h)
+    rebuildVignette(w, h)
   }
+  // Stagger the two scan lines so they're visually well-separated on first render
+  scanline2Y = Math.floor(h * 0.55)
   initColumns()
 }
 
@@ -245,6 +300,11 @@ function draw() {
     }
   }
 
+  // CRT post-processing: scanlines then vignette on top of everything
+  rebuildVignette(w, h)
+  drawScanlines(w, h)
+  drawVignette(w, h)
+
   frame++
   animationId = requestAnimationFrame(draw)
 }
@@ -262,6 +322,8 @@ function drawStatic() {
     ctx.fillStyle = `rgba(0, 255, 65, ${0.4 * col.brightness})`
     ctx.fillText(col.glitchChar, col.x, Math.max(col.fontSize, Math.min(h, col.y + h * 0.5)))
   }
+  rebuildVignette(w, h)
+  drawVignette(w, h)
 }
 
 function handleClick(e: MouseEvent) {
@@ -300,6 +362,9 @@ onMounted(() => {
 
   ctx.fillStyle = BG
   ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+  rebuildVignette(canvas.value.width, canvas.value.height)
+  // Stagger the second scan line so both bands aren't at y=0 on first render
+  scanline2Y = Math.floor(canvas.value.height * 0.55)
   document.addEventListener('visibilitychange', handleVisibilityChange)
   window.addEventListener('click', handleClick)
   window.addEventListener('touchstart', handleTouch, { passive: true })
