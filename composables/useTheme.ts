@@ -27,12 +27,14 @@ export const useTheme = () => {
     }
   }
 
-  // Restore theme from localStorage on client
+  // Restore theme from localStorage on client (after hydration to avoid mismatch)
   if (import.meta.client) {
-    const saved = localStorage.getItem('theme')
-    if (saved && themes.some(t => t.id === saved)) {
-      activeTheme.value = saved
-    }
+    onMounted(() => {
+      const saved = localStorage.getItem('theme')
+      if (saved && themes.some(t => t.id === saved)) {
+        activeTheme.value = saved
+      }
+    })
   }
 
   return {
