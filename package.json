@@ -10,24 +10,21 @@
     "populate-models": "npx tsx scripts/populate-model-definitions.ts",
     "populate-venice-models": "npx tsx scripts/populate-venice-models.ts",
     "migrate-image-prompts": "npx tsx scripts/migrate-image-prompts.ts",
-    "migrate-initial-prompts": "npx tsx scripts/migrate-initial-prompts.ts",
-    "qa:almanac": "node scripts/almanac-qa.mjs",
-    "sync:almanac": "node scripts/sync-almanac-tokens.mjs",
-    "prebuild": "node scripts/sync-almanac-tokens.mjs",
-    "predev": "node scripts/sync-almanac-tokens.mjs"
+    "migrate-initial-prompts": "npx tsx scripts/migrate-initial-prompts.ts"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.15.0",
-    "nuxt": "^3.15.3",
-    "playwright-core": "^1.60.0"
+    "nuxt": "^3.15.3"
   },
   "dependencies": {
     "@fal-ai/client": "^1.5.0",
+    "@types/uuid": "^10.0.0",
     "h3": "^1.15.9",
     "markdown-it": "^14.1.1",
     "openai": "^5.12.2",
-    "pinia": "^2.3.1"
+    "pinia": "^2.3.1",
+    "uuid": "^13.0.0"
   },
   "overrides": {
     "tr46": "4.0.0",

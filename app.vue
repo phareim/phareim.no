@@ -1,24 +1,17 @@
 <template>
   <div :class="themePageClass">
-    <AlmanacPaper />
-    <NuxtPage :transition="{ name: 'page', mode: 'out-in' }" />
+    <SpaceStarfield v-if="activeTheme === 'space'" />
+    <NuxtPage />
     <MenuComponent ref="menuComponent" />
-    <PageProgress />
-    <KeyboardShortcutsOverlay :open="showShortcuts" @close="showShortcuts = false" />
-    <CommandPalette :open="showPalette" @close="showPalette = false" />
   </div>
 </template>
 
 <script setup lang="ts">
-import type MenuComponent from '~/components/MenuComponent.vue';
-import { NAV_PAGES } from '~/composables/useNavPages';
+import MenuComponent from '~/components/MenuComponent.vue';
+import SpaceStarfield from '~/components/SpaceStarfield.vue';
 
-const { themePageClass, themeColor } = useTheme()
+const { themePageClass, themeColor, activeTheme } = useTheme()
 const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);
-const showShortcuts = ref(false);
-const showPalette = ref(false);
-const router = useRouter();
-const route = useRoute();
 
 useHead({
   meta: [
@@ -27,47 +20,8 @@ useHead({
 })
 
 const handleKeyDown = (event: KeyboardEvent) => {
-  // Cmd+K / Ctrl+K works everywhere (even in inputs)
-  if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
-    event.preventDefault()
-    showPalette.value = !showPalette.value
-    showShortcuts.value = false
-    return
-  }
-
-  // All other shortcuts: ignore when typing in inputs
-  const tag = (event.target as HTMLElement)?.tagName
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || (event.target as HTMLElement)?.isContentEditable) return
-
-  const isAdmin = window.location.pathname.includes('admin')
-
-  if (event.key === 'Escape') {
-    if (showPalette.value) { showPalette.value = false; return }
-    if (showShortcuts.value) { showShortcuts.value = false; return }
-    menuComponent.value?.closeMenu()
-    return
-  }
-
-  if (showPalette.value || showShortcuts.value) return
-
-  if (event.key === '?' || event.key === '/') {
-    event.preventDefault()
-    showShortcuts.value = !showShortcuts.value
-    return
-  }
-
-  if (!isAdmin && event.key.toLowerCase() === 'm') {
+  if (event.key === 'm' && !window.location.pathname.includes('admin')) {
     menuComponent.value?.toggleMenu();
-    return
-  }
-
-  if (event.key === '[' || event.key === ']') {
-    const currentPath = route.path === '/' ? '/' : route.path.replace(/\/$/, '')
-    const idx = NAV_PAGES.indexOf(currentPath)
-    if (idx === -1) return
-    const nextIdx = event.key === '[' ? idx - 1 : idx + 1
-    if (nextIdx < 0 || nextIdx >= NAV_PAGES.length) return
-    router.push(NAV_PAGES[nextIdx])
   }
 };
 
@@ -122,92 +76,5 @@ h1 {
   font-weight: 500;
   margin: 0;
   padding: 0;
-}
-
-/* ── Page transitions ─────────────────────────────────────── */
-
-/* Scandinavian (default): gentle fade + lift */
-.page-enter-active {
-  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-.page-leave-active {
-  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-.page-enter-from {
-  opacity: 0;
-  transform: translateY(14px);
-}
-.page-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
-/* Hacker theme: sharp horizontal glitch */
-.hacker-page .page-enter-active {
-  transition: opacity 0.12s steps(4), transform 0.12s steps(4);
-}
-.hacker-page .page-leave-active {
-  transition: opacity 0.08s steps(3), transform 0.08s steps(3);
-}
-.hacker-page .page-enter-from {
-  opacity: 0;
-  transform: translateX(-16px);
-}
-.hacker-page .page-leave-to {
-  opacity: 0;
-  transform: translateX(16px);
-}
-
-/* Space theme: zoom-drift through deep space */
-.space-page .page-enter-active {
-  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-.space-page .page-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-.space-page .page-enter-from {
-  opacity: 0;
-  transform: scale(0.96);
-}
-.space-page .page-leave-to {
-  opacity: 0;
-  transform: scale(1.03);
-}
-
-/* Almanac theme: opacity-only, the page exhales */
-.almanac-page .page-enter-active {
-  transition: opacity 0.5s ease;
-}
-.almanac-page .page-leave-active {
-  transition: opacity 0.25s ease;
-}
-.almanac-page .page-enter-from,
-.almanac-page .page-leave-to {
-  opacity: 0;
-  transform: none;
-}
-
-/* Accessibility: collapse all page transitions for reduced-motion users */
-@media (prefers-reduced-motion: reduce) {
-  .page-enter-active,
-  .page-leave-active,
-  .hacker-page .page-enter-active,
-  .hacker-page .page-leave-active,
-  .space-page .page-enter-active,
-  .space-page .page-leave-active,
-  .almanac-page .page-enter-active,
-  .almanac-page .page-leave-active {
-    transition: opacity 0.1s linear;
-  }
-  .page-enter-from,
-  .page-leave-to,
-  .hacker-page .page-enter-from,
-  .hacker-page .page-leave-to,
-  .space-page .page-enter-from,
-  .space-page .page-leave-to,
-  .almanac-page .page-enter-from,
-  .almanac-page .page-leave-to {
-    transform: none;
-  }
 }
 </style>

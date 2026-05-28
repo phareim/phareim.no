@@ -1,237 +1,669 @@
 <template>
-  <AlmanacFrame title="An Almanac of Petter Hareim" kicker="Notes, projects, toys. Mostly serious. Sometimes not.">
-    <p class="almanac-datestamp">
-      <span>{{ datestamp.weekday }}</span>
-      <span>·</span>
-      <span>{{ datestamp.dateline }}</span>
-      <span>·</span>
-      <span>day {{ datestamp.dayOfYear }} of {{ datestamp.year }}</span>
-      <span>·</span>
-      <span>week {{ datestamp.week }}</span>
-    </p>
-
-    <section class="almanac-index">
-      <div v-for="cat in categories" :key="cat.title" class="almanac-index__cat">
-        <h2 class="almanac-index__cat-title">{{ cat.title }}</h2>
-        <ul class="almanac-index__list">
-          <li v-for="p in cat.pages" :key="p.path">
-            <NuxtLink :to="p.path" class="almanac-index__link">
-              <span class="almanac-index__link-title">{{ p.title }}</span>
-              <span class="almanac-index__link-desc">{{ p.desc }}</span>
-            </NuxtLink>
-          </li>
-        </ul>
+  <div class="container">
+    <SpaceInvadersBackground
+      v-if="isHacker"
+      @score="s => hackerScore = s"
+      @death="onGameOver"
+      @restart="onGameRestart"
+      @started="onGameStarted"
+    />
+    <canvas v-else-if="!isSpace" ref="canvas"></canvas>
+    <div class="overlay" @click="onOverlayClick">
+      <div class="home">
+        <ProfileCard
+          :flipped="hackerGameOver"
+          :class="{ 'hacker-fade': isHacker && hackerGameStarted }"
+          @flip="flip"
+          @flipStart="flipStart"
+          @flipStop="flipStop"
+        />
+        <template v-if="isHacker && hackerGameOver">
+          <h1 class="game-over-title">GAME OVER</h1>
+          <p class="hacker-score game-over-score">SCORE: {{ hackerScore }}</p>
+          <p v-if="hackerScore >= hackerHighScore" class="hacker-score new-highscore">NEW HIGH SCORE!</p>
+          <p v-else class="hacker-score">HIGH SCORE: {{ hackerHighScore }}</p>
+          <p class="game-over-restart">PRESS ENTER TO START A NEW GAME</p>
+        </template>
+        <template v-else>
+          <div :class="{ 'hacker-fade': isHacker && hackerGameStarted }">
+            <h1>petter hareim</h1>
+            <p class="blurb">father, husband, geek, aspiring good guy.
+            </p>
+            <p class="blurb">
+              help folks. write code. build things.
+            </p>
+          </div>
+          <template v-if="isHacker">
+            <p class="location hacker-score">
+              SCORE: {{ hackerScore }}
+            </p>
+            <p v-if="hackerHighScore > 0" class="location hacker-highscore-inline">
+              HIGH SCORE: {{ hackerHighScore }}
+            </p>
+            <p v-if="!hackerGameStarted" class="game-over-restart">PRESS ENTER TO START</p>
+          </template>
+          <p v-else class="location">
+            54°26'51 S 3°19'15 E
+          </p>
+        </template>
+        <div :class="['social-links', { 'hacker-fade': isHacker && hackerGameStarted }]">
+          <SocialLink 
+            href="https://www.linkedin.com/in/phareim"
+            type="linkedin"
+            css-class="linkedIn"
+          />
+          <SocialLink 
+            href="https://bsky.app/profile/phareim.no"
+            type="bluesky"
+            css-class="bluesky"
+          />
+          <SocialLink 
+            href="https://github.com/phareim"
+            type="github"
+            css-class="github"
+          />
+          <SocialLink 
+            href="https://partner.cloudskillsboost.google/public_profiles/e7dcea7a-372a-4671-b56e-7daec9d97f47"
+            type="google"
+          />
+          <SocialLink 
+            href="https://www.miles.no/kontakt-oss"
+            type="miles"
+            css-class="miles"
+          />
+        </div>
       </div>
-    </section>
-
-    <section v-if="recent.length" class="almanac-recent">
-      <h2 class="almanac-recent__title">Recent</h2>
-      <ul class="almanac-recent__list">
-        <li v-for="item in recent" :key="item.id" class="almanac-recent__item">
-          <time :datetime="item.iso" class="almanac-recent__time">{{ item.relative }}</time>
-          <span class="almanac-recent__kind">{{ item.kind }}</span>
-          <a :href="item.url" target="_blank" rel="noopener" class="almanac-recent__text">{{ item.text }}</a>
-        </li>
-      </ul>
-    </section>
-
-    <template #footer>
-      <p>Built in Nuxt, deployed to Cloudflare Pages. Source on <a href="https://github.com/phareim/phareim.no">GitHub</a>. See <NuxtLink to="/colophon">colophon</NuxtLink> for design notes.</p>
-    </template>
-  </AlmanacFrame>
+    </div>
+  </div>
 </template>
 
-<script setup lang="ts">
-useHead({
-  title: 'phareim.no',
-  meta: [{ name: 'description', content: 'An almanac of Petter Hareim — notes, projects, toys.' }],
-})
-
-// Almanac datestamp — purely client-side so SSR doesn't lock yesterday's date.
-// Format: "Wednesday · 27 May 2026 · day 147 of 2026 · week 22".
-const datestamp = computed(() => {
-  const d = new Date()
-  const start = new Date(d.getFullYear(), 0, 0)
-  const diff = d.getTime() - start.getTime()
-  const dayOfYear = Math.floor(diff / 86400000)
-  // ISO week (Mon-start).
-  const target = new Date(d.valueOf())
-  const dayNr = (d.getDay() + 6) % 7
-  target.setDate(target.getDate() - dayNr + 3)
-  const firstThursday = target.valueOf()
-  target.setMonth(0, 1)
-  if (target.getDay() !== 4) target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7)
-  const week = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000)
-  return {
-    weekday: d.toLocaleDateString('en-GB', { weekday: 'long' }),
-    dateline: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
-    dayOfYear,
-    year: d.getFullYear(),
-    week,
-  }
-})
-
-const categories = [
-  {
-    title: 'Front matter',
-    pages: [
-      { path: '/about', title: 'About', desc: 'Who and what.' },
-      { path: '/now', title: 'Now', desc: 'What I am working on this season.' },
-      { path: '/uses', title: 'Uses', desc: 'Tools, editors, hardware.' },
-    ],
+<script>
+import ProfileCard from '~/components/ProfileCard.vue'
+import SocialLink from '~/components/SocialLink.vue'
+import SpaceInvadersBackground from '~/components/SpaceInvadersBackground.vue'
+export default {
+  name: 'Home',
+  components: {
+    ProfileCard,
+    SocialLink,
+    SpaceInvadersBackground
   },
-  {
-    title: 'The work',
-    pages: [
-      { path: '/projects', title: 'Projects', desc: 'Active and recent repos.' },
-      { path: '/feed', title: 'Feed', desc: 'Bluesky + X, merged.' },
-      { path: '/gallery', title: 'Gallery', desc: 'Generated images.' },
-      { path: '/guestbook', title: 'Guestbook', desc: 'Leave a note.' },
-      { path: '/lab', title: 'Lab', desc: 'Experiments and half-built things.' },
-    ],
+  setup() {
+    const { activeTheme } = useTheme()
+    return { activeTheme }
   },
-  {
-    title: 'Playful',
-    pages: [
-      { path: '/games', title: 'Games', desc: 'Things you can play.' },
-      { path: '/playground', title: 'Playground', desc: 'Toys, oddities, mostly-finished experiments.' },
-    ],
+  data() {
+    return {
+      ctx: null,
+      boxes: [],
+      boxCopy: [],
+      darkMode: false,
+      theUpsideDown: false,
+      mousePosition: { x: 0, y: 0, v: { x: 0, y: 0 } },
+      statistics: {
+        boxes: 0,
+        collisions: 0,
+        drawCount: 0,
+        animateCount: 0
+      },
+      animationFrameId: null,
+      gyroOffsetX: 0,
+      gyroOffsetY: 0,
+      targetGyroX: 0,
+      targetGyroY: 0,
+      _gyroTapHandler: null,
+      hackerScore: 0,
+      hackerHighScore: 0,
+      hackerGameOver: false,
+      hackerGameStarted: false
+    };
   },
-  {
-    title: 'Meta',
-    pages: [
-      { path: '/colophon', title: 'Colophon', desc: 'How this site is made.' },
-    ],
+  computed: {
+    isHacker() {
+      return this.activeTheme === 'hacker'
+    },
+    isSpace() {
+      return this.activeTheme === 'space'
+    },
   },
-]
-
-type RecentItem = { id: string; iso: string; relative: string; kind: string; text: string; url: string }
-const recent = ref<RecentItem[]>([])
-
-const relative = (iso: string) => {
-  const ms = Date.now() - new Date(iso).getTime()
-  const d = Math.floor(ms / 86400000)
-  if (d === 0) return 'today'
-  if (d === 1) return 'yesterday'
-  if (d < 7) return `${d}d ago`
-  if (d < 30) return `${Math.floor(d / 7)}w ago`
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-}
-
-onMounted(async () => {
-  try {
-    const [projects, feed] = await Promise.allSettled([
-      $fetch<any[]>('/api/projects').catch(() => []),
-      $fetch<any[]>('/api/feed').catch(() => []),
-    ])
-    const items: RecentItem[] = []
-    if (projects.status === 'fulfilled' && Array.isArray(projects.value)) {
-      for (const p of projects.value.slice(0, 3)) {
-        if (p?.pushed_at) items.push({
-          id: 'p-' + p.name,
-          iso: p.pushed_at,
-          relative: relative(p.pushed_at),
-          kind: 'project',
-          text: p.name + (p.description ? ' — ' + p.description : ''),
-          url: p.html_url,
-        })
+  watch: {
+    activeTheme() {
+      if (this.isHacker || this.isSpace) {
+        this.stopBubbles();
+      } else {
+        this.startBubbles();
       }
     }
-    if (feed.status === 'fulfilled' && Array.isArray(feed.value)) {
-      for (const post of feed.value.slice(0, 5)) {
-        const iso = post?.created_at || post?.indexedAt
-        if (iso) items.push({
-          id: 'f-' + (post.uri || post.id || iso),
-          iso,
-          relative: relative(iso),
-          kind: post.source || 'post',
-          text: (post.text || '').slice(0, 120),
-          url: post.url || post.uri || '#',
-        })
-      }
+  },
+  mounted() {
+    document.body.classList.remove('scrollable');
+    if (!this.isHacker && !this.isSpace) {
+      this.startBubbles();
     }
-    recent.value = items
-      .sort((a, b) => new Date(b.iso).getTime() - new Date(a.iso).getTime())
-      .slice(0, 8)
-  } catch { /* swallow — recent strip is optional */ }
-})
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      this.darkMode = true;
+    }
+    this.hackerHighScore = parseInt(localStorage.getItem('hackerHighScore') || '0', 10);
+  },
+  beforeDestroy() {
+    document.body.classList.add('scrollable');
+    window.removeEventListener('mousemove', this.updateMousePosition);
+    window.removeEventListener('resize', this.setupCanvas);
+    window.removeEventListener('touchmove', this.updateTouchPosition);
+    window.removeEventListener('deviceorientation', this.handleOrientation);
+    if (this._gyroTapHandler) document.removeEventListener('click', this._gyroTapHandler);
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+    }
+  },
+  methods: {
+    setupCanvas() {
+      const canvas = this.$refs.canvas;
+      if (!canvas) return;
+      
+      this.ctx = canvas.getContext('2d');
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    },
+    updateMousePosition(event) {
+      const old = this.mousePosition;
+      this.mousePosition = { x: event.clientX, y: event.clientY, v: { x: event.clientX - old.x, y: event.clientY - old.y } };
+    },
+    updateTouchPosition(event) {
+      const touch = event.touches[0];
+      this.mousePosition = { x: touch.clientX, y: touch.clientY, v: { x: touch.clientX - this.mousePosition.x, y: touch.clientY - this.mousePosition.y } };
+    },
+    animate() {
+      if (!this.$refs.canvas) return;
+      
+      this.statistics.animateCount++;
+      this.animationFrameId = requestAnimationFrame(this.animate);
+
+      // Gyroscope: smooth toward target and inject delta as velocity nudge
+      const prevGX = this.gyroOffsetX;
+      const prevGY = this.gyroOffsetY;
+      this.gyroOffsetX += (this.targetGyroX - this.gyroOffsetX) * 0.08;
+      this.gyroOffsetY += (this.targetGyroY - this.gyroOffsetY) * 0.08;
+      this.mousePosition.v.x += (this.gyroOffsetX - prevGX) * 5;
+      this.mousePosition.v.y += (this.gyroOffsetY - prevGY) * 5;
+
+      this.ctx.clearRect(0, 0, this.$refs?.canvas?.width, this.$refs?.canvas?.height);
+      this.boxes.forEach(box => {
+        this.updatePosition(box);
+        this.drawBox(box);
+        if(!this.theUpsideDown){
+          this.checkCollisions(box);
+        }
+      });
+      this.mousePosition.v.x = (this.mousePosition.v.x * 0.9);
+      this.mousePosition.v.y = (this.mousePosition.v.y * 0.9);
+    },
+    getNewShadow(strength, color = 'rgba(0, 0, 0, 0.5') {
+      const shadow = {
+        strength,
+        shadowOffsetX: strength * 1,
+        shadowOffsetY: Math.floor(strength * 0.5),
+        shadowColor: color,
+        shadowBlur: Math.floor(strength * 0.5) + 2
+      }
+      shadow.css = `${shadow.shadowOffsetX}px ${shadow.shadowOffsetY}px ${shadow.shadowBlur}px ${shadow.shadowColor}`;
+      return shadow;
+    },
+    removeBox(box) {
+      this.boxes = this.boxes.filter(b => b !== box);
+    },
+    checkCanvasEdges(box){
+      // Sjekk for kollisjon med canvas-kanter
+      if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) || box.x + box.vx - (box.size / 2) < 0) {
+        if (box.turned) {
+          box.size = box.size * 0.95;
+        }
+        box.vx = -box.vx;
+        box.turned = true;
+      }
+      else if (box.y + box.vy > this.$refs?.canvas?.height - (box.size / 2) || box.y + box.vy - (box.size / 2) < 0) {
+        if (box.turned) {
+          box.size = box.size * 0.95;
+        }
+        box.vy = -box.vy;
+        box.turned = true;
+      }
+      else {
+        box.turned = false;
+      }
+      
+      if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) && box.y + box.vy - (box.size / 2) < 0) {
+        box.size = box.size * 0.95;
+      }
+      else if (box.x + box.vx - (box.size / 2) < 0 && box.y + box.vy - (box.size / 2) < 0) {
+        box.size = box.size * 0.95;
+      }
+      else if (box.x + box.vx > this.$refs?.canvas?.width - (box.size / 2) && box.y + box.vy > this.$refs?.canvas?.height - (box.size / 2)) {
+        box.size = box.size * 0.95;
+      }
+      else if (box.x + box.vx - (box.size / 2) < 0 && box.y + box.vy > this.$refs?.canvas?.height - (box.size / 2)) {
+        box.size = box.size * 0.95;
+      }
+      // Sjekk for kollisjon med canvas-kanter, ferdig 😮‍💨
+    },
+    updatePosition(box) {
+      if (!box) return;
+      
+      this.checkCanvasEdges(box);
+      
+      // fjern boks hvis den er for liten
+      if(box.size < 10) {
+        this.removeBox(box);
+        return;
+      }
+
+      // Legg til bevegelse basert på mus/touch
+      box.vx += (this.mousePosition.v.x * Math.random() * 0.3) * (Math.random()-0.3);
+      box.vy += (this.mousePosition.v.y * Math.random() * 0.3) * (Math.random()-0.3);
+
+      // Reduser størrelsen ved høy hastighet
+      if (Math.abs(box.vx) > 10 || Math.abs(box.vy) > 10) {
+        box.size = box.size * 0.998;
+        box.vx = box.vx * 0.9;
+        box.vy = box.vy * 0.9;
+      }
+
+      // Legg til demping
+      box.vx *= 0.98;
+      box.vy *= 0.98;
+      
+      // Oppdater posisjon
+      box.x += box.vx;
+      box.y += box.vy;
+    },
+    checkCollisions(currentBox) {
+      this.boxes.forEach(box => {
+        if (currentBox !== box && this.isColliding(currentBox, box)) {
+          this.resolveCollision(currentBox, box);
+        }
+      });
+    },
+    resolveCollision(circle1, circle2) {
+      if (circle1.shadow.strength  != circle2.shadow.strength) {
+        return;
+      }
+      // Differanse i posisjon (for normal vektor)
+      const dx = circle1.x - circle2.x;
+      const dy = circle1.y - circle2.y;
+      
+      // Avstand mellom sirkelens sentre
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Normaliser normalvektoren
+      const nx = dx / distance;
+      const ny = dy / distance;
+      
+      // Finn relative hastigheter
+      const vxDiff = circle1.vx - circle2.vx;
+      const vyDiff = circle1.vy - circle2.vy;
+      
+      // Finn relativ hastighet langs normalvektoren
+      const velocityAlongNormal = vxDiff * nx + vyDiff * ny;
+      
+      // Hvis hastigheten langs normalvektoren er positiv, betyr det at de går fra hverandre, så returner
+      if (velocityAlongNormal > 0) return;
+      
+      // Massene til sirklene (kan tilpasses hvis de har forskjellige masser)
+      const mass1 = circle1.size || 1;
+      const mass2 = circle2.size || 1;
+      
+      // Elastisk kollisjonsformel for å oppdatere hastighetene
+      const impulse = (2 * velocityAlongNormal) / (mass1 + mass2);
+      
+      circle1.vx -= impulse * mass2 * nx;
+      circle1.vy -= impulse * mass2 * ny;
+      circle2.vx += impulse * mass1 * nx;
+      circle2.vy += impulse * mass1 * ny;
+    },
+    drawBox(box) {
+      this.ctx.beginPath(); // Starter en ny sti
+      this.ctx.arc(box.x, box.y, box.size / 2, 0, 2 * Math.PI);
+      
+      // Konfigurerer skygge
+      if(!this.theUpsideDown){
+        this.ctx.shadowOffsetX = box.shadow.shadowOffsetX;
+        this.ctx.shadowOffsetY = box.shadow.shadowOffsetY;
+        this.ctx.shadowBlur = box.shadow.shadowBlur;
+        this.ctx.shadowColor = box.shadow.shadowColor;
+      }
+      this.ctx.fillStyle = box.color;
+      this.ctx.fill();
+      this.ctx.closePath();
+      
+      // Nullstill skyggeinnstillinger for å unngå at hele canvaset påvirkes
+      this.ctx.shadowOffsetX = 0;
+      this.ctx.shadowOffsetY = 0;
+      this.ctx.shadowBlur = 0;
+      this.ctx.shadowColor = 'transparent';     
+      this.ctx.stroke(); 
+      this.ctx.lineWidth = 5;
+      this.ctx.strokeStyle = (this.theUpsideDown? 'rgba(100,90,80,0.2)':'rgba(0, 0, 0, 0.9)');
+      this.ctx.class = 'box';
+    },
+    
+    isColliding(box1, box2) {
+      const dx = box1.x - box2.x;
+      const dy = box1.y - box2.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      return distance < (box1.size/2 + box2.size/2);
+    },
+    flip(event) {
+      document.body.classList.remove('dark-mode');
+      this.theUpsideDown = false;
+      this.boxes.forEach(box => {
+        box.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+        box.vx = box.vx * 6;
+        box.vy = box.vy * 6;
+      });
+      event.stopPropagation();
+    },
+    flipStart(event) {
+      document.body.classList.add('dark-mode');
+      this.theUpsideDown = true;
+      this.boxes.forEach(box => {
+        box.color = `#333`;
+        box.vx = box.vx * 0.25;
+        box.vy = box.vy * 0.25;
+      });
+      event.stopPropagation();
+    },
+    flipStop(event) {
+      document.body.classList.remove('dark-mode');
+      this.theUpsideDown = false;
+      event.stopPropagation();
+    },
+    handleOrientation(event) {
+      if (event.gamma !== null && event.beta !== null) {
+        this.targetGyroX = event.gamma * 1.5;
+        this.targetGyroY = (event.beta - 45) * 1.5;
+      }
+    },
+    enableGyro() {
+      const DOE = window.DeviceOrientationEvent;
+      if (typeof DOE !== 'undefined' && typeof DOE.requestPermission === 'function') {
+        DOE.requestPermission().then(state => {
+          if (state === 'granted') {
+            window.addEventListener('deviceorientation', this.handleOrientation);
+          }
+        }).catch(console.warn);
+      } else if ('DeviceOrientationEvent' in window) {
+        window.addEventListener('deviceorientation', this.handleOrientation);
+      }
+    },
+    stopBubbles() {
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+      }
+      window.removeEventListener('mousemove', this.updateMousePosition);
+      window.removeEventListener('resize', this.setupCanvas);
+      window.removeEventListener('touchmove', this.updateTouchPosition);
+      window.removeEventListener('deviceorientation', this.handleOrientation);
+      if (this._gyroTapHandler) {
+        document.removeEventListener('click', this._gyroTapHandler);
+        this._gyroTapHandler = null;
+      }
+      this.boxes = [];
+    },
+    startBubbles() {
+      this.$nextTick(() => {
+        this.setupCanvas();
+        window.addEventListener('mousemove', this.updateMousePosition);
+        window.addEventListener('resize', this.setupCanvas);
+        window.addEventListener('touchmove', this.updateTouchPosition);
+        window.statistics = this.statistics;
+        this.animationFrameId = requestAnimationFrame(this.animate);
+        this.addBox({clientX: window.innerWidth / 4, clientY: window.innerHeight / 3, layer: 1});
+        this.addBox({clientX: (window.innerWidth / 4)*3, clientY: (window.innerHeight / 3)*2, layer: 1});
+
+        // Gyroscope: Android works without gesture, iOS needs a tap
+        const DOE = window.DeviceOrientationEvent;
+        if (typeof DOE !== 'undefined' && typeof DOE.requestPermission !== 'function') {
+          window.addEventListener('deviceorientation', this.handleOrientation);
+        }
+        this._gyroTapHandler = () => { this.enableGyro(); };
+        document.addEventListener('click', this._gyroTapHandler, { once: true });
+      });
+    },
+    onOverlayClick(event) {
+      if (!this.isHacker && !this.isSpace) {
+        this.addBox(event);
+      }
+    },
+    onGameOver() {
+      this.hackerGameOver = true;
+      if (this.hackerScore > this.hackerHighScore) {
+        this.hackerHighScore = this.hackerScore;
+        localStorage.setItem('hackerHighScore', String(this.hackerHighScore));
+      }
+    },
+    onGameRestart() {
+      this.hackerGameOver = false;
+    },
+    onGameStarted() {
+      this.hackerGameStarted = true;
+    },
+    addBox(event) {
+      if (this.boxes.length > 12 && window.innerWidth < 600) {
+        return; // Slutt å legge til flere bokser på mobil
+      }
+      
+      if (this.boxes.length > 24) {
+        let scale = 20;
+        for (let i = 0; i < this.boxes.length; i++) {
+          const box = this.boxes[i];
+          box.size = Math.abs (box.size - scale);
+          scale = scale * 0.8;
+          if (scale < 3) {
+            continue;
+          }
+        };
+      }
+      const rect = this.$refs.canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      const size = (Math.random() * 300) + 50;
+      const r = (Math.random()> 0.5? 75 + Math.random()*20 : 150 + Math.random()*20);
+      const g = (Math.random()> 0.5? 50 + Math.random()*100 : 125 + Math.random()*20);
+      const b = (Math.random()> 0.5? 100 + Math.random()*20 : 255);
+      
+      let shadowLength = 0;
+      if(event.layer){
+        shadowLength = event.layer === 1 ? 0 : 30;
+      } else {
+        shadowLength = (r + g + b) > 420 ? 0 : 30;
+      }
+      
+      const color = `rgb(${r}, ${g}, ${b})`;
+      const shadowColor = this.darkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(10, 10, 10, 0.5)';
+      const shadow = this.getNewShadow(shadowLength, shadowColor);
+      const yvelocity = ((Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1));
+      const xvelocity = ((Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1));
+      
+      this.boxes.push({ x, y, vx: xvelocity, vy: yvelocity,mass: size, size, color, turned: false, shadow });
+      this.boxes = this.boxes.sort((a, b) => a.shadow.strength - b.shadow.strength);
+    },
+  },
+};
 </script>
 
-<style scoped>
-.almanac-datestamp {
+<style>
+body,
+html {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+body.dark-mode {
+  background-color: #333;
+  color: white;
+}
+
+body.dark-mode .social-links svg {
+  fill: white;
+}
+
+body {
+  background-color: var(--theme-bg, white);
+  color: var(--theme-text, #111);
+}
+
+.container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  touch-action: none;
+}
+
+canvas {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5em;
-  margin: -1rem 0 3rem;
-  font-style: italic;
-  font-size: 0.9rem;
-  color: var(--theme-text-muted, #555);
-}
-.almanac-datestamp span:nth-child(2n) { /* the · separators */
-  color: var(--theme-card-border, rgba(0,0,0,0.3));
+  justify-content: center;
+  align-items: center;
+  z-index: 2;
 }
 
-.almanac-index { display: grid; grid-template-columns: 1fr; gap: 2.5rem; }
-@media (min-width: 720px) {
-  .almanac-index { grid-template-columns: 1fr 1fr; gap: 2.5rem 3rem; }
-}
-.almanac-index__cat-title {
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 500;
-  margin: 0 0 0.75rem;
-  color: var(--theme-text-muted, #555);
-}
-.almanac-index__list { list-style: none; padding: 0; margin: 0; }
-.almanac-index__list li {
-  padding: 0.6rem 0;
-  border-bottom: 1px solid var(--theme-card-border, rgba(0,0,0,0.08));
-}
-.almanac-index__list li:last-child { border-bottom: 0; }
-.almanac-index__link {
-  display: flex; flex-direction: column; gap: 0.1rem;
-  text-decoration: none; color: inherit;
-}
-.almanac-index__link-title { font-size: 1.05rem; }
-.almanac-index__link-title:hover { color: var(--theme-accent, #c14a2a); }
-.almanac-index__link-desc {
-  font-style: italic;
-  font-size: 0.85rem;
-  color: var(--theme-text-muted, #555);
+.home {
+  text-align: center;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.almanac-recent { margin-top: 4rem; }
-.almanac-recent__title {
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 500;
-  margin: 0 0 0.75rem;
-  color: var(--theme-text-muted, #555);
+h1 {
+  transition: transform 4s;
+  font-size: 3.5em;
+  margin-top: 2px;
 }
-.almanac-recent__list { list-style: none; padding: 0; margin: 0; }
-.almanac-recent__item {
-  display: grid;
-  grid-template-columns: 5rem 5rem 1fr;
-  gap: 1rem;
-  align-items: baseline;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--theme-card-border, rgba(0,0,0,0.06));
-  font-size: 0.9rem;
+
+p {
+  font-size: 1em;
 }
-.almanac-recent__time, .almanac-recent__kind {
-  color: var(--theme-text-muted, #555);
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
+
+.blurb {
+  font-size: 1em;
 }
-.almanac-recent__text {
+@media(min-width: 800px) {
+  .blurb {
+    font-size: 1.2em;
+  }
+  h1 {
+    margin-top: 0.1em;
+    font-size: 4em;
+  }
+}
+
+.location {
+  font-size: 0.7em;
+}
+
+.hacker-score {
+  font-family: monospace;
+  color: #00ff41;
+  text-shadow: 0 0 10px #00ff41;
+  letter-spacing: 0.15em;
+  font-size: 1em;
+}
+
+.game-over-title {
+  font-family: monospace;
+  color: #00ff41;
+  text-shadow: 0 0 20px #00ff41, 0 0 40px #00ff41;
+  font-size: 2.8em;
+  letter-spacing: 0.1em;
+  margin-top: 0.5em;
+  margin-bottom: 0.1em;
+}
+@media(min-width: 800px) {
+  .game-over-title {
+    font-size: 3.2em;
+    margin-top: 0.5em;
+  }
+}
+
+.game-over-score {
+  margin-top: 0.3em;
+}
+
+.new-highscore {
+  animation: pulse-glow 0.8s ease-in-out infinite alternate;
+}
+@keyframes pulse-glow {
+  from { text-shadow: 0 0 10px #00ff41; }
+  to { text-shadow: 0 0 20px #00ff41, 0 0 40px #ffcc00; }
+}
+
+.game-over-restart {
+  font-family: monospace;
+  color: #00ff41;
+  text-shadow: 0 0 8px #00ff41;
+  font-size: 0.9em;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+  margin-top: 1em;
+}
+
+.hacker-highscore-inline {
+  font-family: monospace;
+  color: #00ff41;
+  opacity: 0.5;
+  font-size: 0.65em;
+  letter-spacing: 0.1em;
+}
+
+.hacker-fade {
+  animation: fade-out-overlay 10s forwards;
+}
+@keyframes fade-out-overlay {
+  0% { opacity: 1; }
+  40% { opacity: 1; }
+  100% { opacity: 0; pointer-events: none; }
+}
+
+h1 p {
+  transition: transform 0.4s;
+}
+
+.hidden-href {
   color: inherit;
   text-decoration: none;
-  border-bottom: 1px solid transparent;
 }
-.almanac-recent__text:hover {
-  border-bottom-color: var(--theme-accent, #c14a2a);
-  color: var(--theme-accent, #c14a2a);
+
+.hidden-href:hover {
+  font-weight: bold;
+  text-decoration: underline;
 }
+
+.social-links {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 </style>

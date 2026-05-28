@@ -1,5 +1,5 @@
 <template>
-  <AlmanacFrame title="About" kicker="Who and what." back="/">
+  <div class="about-page">
     <div class="about-inner">
 
       <div class="about-photo-row">
@@ -7,13 +7,11 @@
           class="about-photo"
           src="/petter1.png"
           alt="Petter Hareim"
-          width="130"
-          height="130"
           draggable="false"
         />
       </div>
 
-      <p class="about-name">petter hareim</p>
+      <h1 class="about-name">petter hareim</h1>
 
       <p class="about-tagline">father. husband. geek. aspiring good guy.</p>
 
@@ -34,12 +32,10 @@
 
       <div class="about-social">
         <a
-          v-for="(link, i) in socialLinks"
+          v-for="link in socialLinks"
           :key="link.label"
           :href="link.href"
-          :aria-label="`${link.label} profile (opens in new tab)`"
-          :data-platform="link.platform"
-          :style="{ '--i': i }"
+          :aria-label="link.label"
           target="_blank"
           rel="noopener noreferrer"
           class="about-social-link"
@@ -47,23 +43,33 @@
       </div>
 
     </div>
-  </AlmanacFrame>
+  </div>
 </template>
 
 <script setup lang="ts">
 useHead({ title: 'about — phareim.no' })
 
 const socialLinks = [
-  { label: 'GitHub',   href: 'https://github.com/phareim',                  platform: 'github'   },
-  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/phareim',          platform: 'linkedin' },
-  { label: 'Bluesky',  href: 'https://bsky.app/profile/phareim.no',          platform: 'bluesky'  },
-  { label: 'X',        href: 'https://x.com/phareim',                        platform: 'x'        },
-  { label: 'Threads',  href: 'https://www.threads.com/@phareim',             platform: 'threads'  },
+  { label: 'GitHub', href: 'https://github.com/phareim' },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/phareim' },
+  { label: 'Bluesky', href: 'https://bsky.app/profile/phareim.no' },
 ]
 </script>
 
 <style scoped>
+.about-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 3.5rem 1.5rem 5rem;
+  box-sizing: border-box;
+}
+
 .about-inner {
+  width: 100%;
+  max-width: 480px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -78,45 +84,32 @@ const socialLinks = [
   width: 130px;
   height: 130px;
   border-radius: 50%;
-  border: 1px solid var(--theme-card-border, rgba(0,0,0,0.12));
+  border: 3px solid var(--theme-card-border, rgba(0,0,0,0.12));
   object-fit: cover;
   user-select: none;
   -webkit-user-select: none;
   display: block;
-  transition: transform 0.3s ease;
-  animation: photo-enter 0.5s ease both;
-}
-
-@keyframes photo-enter {
-  from {
-    opacity: 0;
-    transform: scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  box-shadow: 0 4px 20px var(--theme-card-shadow, rgba(0,0,0,0.08));
+  transition: box-shadow 0.3s ease;
 }
 
 .about-photo:hover {
-  transform: scale(1.04);
+  box-shadow: 0 6px 28px var(--theme-card-shadow, rgba(0,0,0,0.14));
 }
 
 .about-name {
-  font-size: clamp(1.25rem, 3vw, 1.5rem);
-  font-style: italic;
-  margin: 0 0 0.4rem;
-  color: var(--theme-text, #1a1a1a);
-  line-height: 1.2;
-  animation: content-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.15s both;
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  font-weight: 500;
+  margin: 0 0 0.6rem;
+  color: var(--theme-text, #111);
+  line-height: 1;
 }
 
 .about-tagline {
   font-size: 0.95rem;
-  color: var(--theme-text-muted, #6a6a6a);
+  color: var(--theme-text-muted, #666);
   margin: 0 0 0.5rem;
   line-height: 1.5;
-  animation: content-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.25s both;
 }
 
 .about-divider {
@@ -124,17 +117,15 @@ const socialLinks = [
   height: 1px;
   background: var(--theme-card-border, rgba(0,0,0,0.15));
   margin: 1.5rem auto;
-  animation: content-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.35s both;
 }
 
 .about-bio {
   max-width: 340px;
-  animation: content-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s both;
 }
 
 .about-bio p {
   font-size: 1rem;
-  color: var(--theme-text, #1a1a1a);
+  color: var(--theme-text-muted, #666);
   line-height: 1.7;
   margin: 0 0 0.75rem;
 }
@@ -143,32 +134,15 @@ const socialLinks = [
   margin-bottom: 0;
 }
 
-@keyframes content-enter {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .about-link {
-  color: var(--theme-accent, #c14a2a);
+  color: var(--theme-accent, #6b8cae);
   text-decoration: none;
   border-bottom: 1px solid transparent;
   transition: border-color 0.2s ease;
 }
 
 .about-link:hover {
-  border-color: var(--theme-accent, #c14a2a);
-}
-
-.about-link:focus-visible {
-  outline: 2px solid var(--theme-accent, #c14a2a);
-  outline-offset: 2px;
-  border-radius: 2px;
+  border-color: var(--theme-accent, #6b8cae);
 }
 
 .about-social {
@@ -181,45 +155,23 @@ const socialLinks = [
 
 .about-social-link {
   font-size: 0.85rem;
-  color: var(--theme-text-muted, #6a6a6a);
+  color: var(--theme-text-muted, #666);
   text-decoration: none;
   text-transform: lowercase;
   letter-spacing: 0.03em;
   border-bottom: 1px solid transparent;
-  padding: 0 4px 1px;
-  margin-inline: -4px;
+  padding-bottom: 1px;
   transition: color 0.2s ease, border-color 0.2s ease;
-  opacity: 0;
-  animation: link-enter 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-  animation-delay: calc(0.5s + var(--i, 0) * 65ms);
-}
-
-@keyframes link-enter {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
 }
 
 .about-social-link:hover {
-  color: var(--theme-accent, #c14a2a);
+  color: var(--theme-text, #111);
   border-color: currentColor;
 }
 
 .about-social-link:focus-visible {
-  outline: 2px solid var(--theme-accent, #c14a2a);
+  outline: 2px solid var(--theme-accent, #6b8cae);
   outline-offset: 3px;
   border-radius: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .about-photo,
-  .about-name,
-  .about-tagline,
-  .about-divider,
-  .about-bio,
-  .about-social-link {
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
 }
 </style>
