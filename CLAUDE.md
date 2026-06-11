@@ -41,13 +41,13 @@ server/api/          — H3 API routes
   projects.ts        — fetches phareim's public GitHub repos
 server/utils/        — db.ts, r2.ts, storage.ts, image-providers.ts, etc.
 types/               — shared TypeScript interfaces
-assets/themes/       — scandinavian.css, hacker.css, space.css
+assets/themes/       — scandinavian.css, hacker.css, space.css, tufte.css
 database/schema.sql  — D1 schema (applied during CI deploy)
 ```
 
 ## Theme System
 
-Three themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**.
+Four themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**, **Tufte** (warm paper / ET Book serif / one crimson accent, from the tufte-viz design system; fonts bundled at `public/fonts/et-book/`; no landing-page bubbles — calm paper).
 
 - Each theme file defines `--theme-*` CSS custom properties on `.{theme}-page`
 - `composables/useTheme.ts` provides `activeTheme`, `themePageClass`, `cx()`, `setTheme()`

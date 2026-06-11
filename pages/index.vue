@@ -7,7 +7,7 @@
       @restart="onGameRestart"
       @started="onGameStarted"
     />
-    <canvas v-else-if="!isSpace" ref="canvas"></canvas>
+    <canvas v-else-if="hasBubbles" ref="canvas"></canvas>
     <div class="overlay" @click="onOverlayClick">
       <div class="home">
         <ProfileCard
@@ -121,20 +121,24 @@ export default {
     isSpace() {
       return this.activeTheme === 'space'
     },
+    hasBubbles() {
+      // tufte is calm paper — no decoration ink
+      return !this.isHacker && !this.isSpace && this.activeTheme !== 'tufte'
+    },
   },
   watch: {
     activeTheme() {
-      if (this.isHacker || this.isSpace) {
-        this.stopBubbles();
-      } else {
+      if (this.hasBubbles) {
         this.startBubbles();
+      } else {
+        this.stopBubbles();
       }
     }
   },
   mounted() {
     document.body.classList.remove('scrollable');
     document.documentElement.classList.remove('scrollable');
-    if (!this.isHacker && !this.isSpace) {
+    if (this.hasBubbles) {
       this.startBubbles();
     }
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -428,7 +432,7 @@ export default {
       });
     },
     onOverlayClick(event) {
-      if (!this.isHacker && !this.isSpace) {
+      if (this.hasBubbles) {
         this.addBox(event);
       }
     },
