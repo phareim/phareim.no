@@ -1,6 +1,5 @@
 declare module '@fal-ai/client';
 declare module 'h3';
-declare module 'markdown-it';
 
 // Cloudflare D1 types
 interface D1Result<T = unknown> {

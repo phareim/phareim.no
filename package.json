@@ -6,25 +6,16 @@
     "dev": "nuxt dev --host 0.0.0.0 --port 3030",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare",
-    "populate-models": "npx tsx scripts/populate-model-definitions.ts",
-    "populate-venice-models": "npx tsx scripts/populate-venice-models.ts",
-    "migrate-image-prompts": "npx tsx scripts/migrate-image-prompts.ts",
-    "migrate-initial-prompts": "npx tsx scripts/migrate-initial-prompts.ts"
+    "postinstall": "nuxt prepare"
   },
   "devDependencies": {
-    "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.15.0",
     "nuxt": "^3.15.3"
   },
   "dependencies": {
     "@fal-ai/client": "^1.5.0",
-    "@types/uuid": "^10.0.0",
     "h3": "^1.15.9",
-    "markdown-it": "^14.1.1",
-    "openai": "^5.12.2",
-    "pinia": "^2.3.1",
-    "uuid": "^13.0.0"
+    "openai": "^5.12.2"
   },
   "overrides": {
     "tr46": "4.0.0",

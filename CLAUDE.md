@@ -23,7 +23,7 @@ When restoring things: cherry-pick onto this base, and **leave out the backgroun
 - **Database**: Cloudflare D1 (SQLite) — binding `DB`, database `phareim-rpg`
 - **Object Storage**: Cloudflare R2 — binding `BUCKET`, bucket `phareim-assets`
 - **AI APIs**: Venice AI, FAL AI, OpenAI, Wavespeed
-- **State**: Pinia (client-side)
+- **State**: Nuxt `useState` + localStorage (no state library)
 
 ## Project Structure
 
@@ -33,7 +33,7 @@ pages/               — file-based routing
   index.vue          — landing page (full-screen canvas, removes scrollable)
   about.vue          — /about — brief bio, photo, social links
   projects.vue       — /projects — GitHub repos fetched live from GitHub API
-  drafts/            — experimental pages
+  meta.vue           — /meta — commit log of this site from the GitHub API
 components/          — Vue components
 composables/         — useTheme
 server/api/          — H3 API routes

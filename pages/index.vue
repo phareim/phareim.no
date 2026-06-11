@@ -96,14 +96,10 @@ export default {
     return {
       ctx: null,
       boxes: [],
-      boxCopy: [],
       darkMode: false,
       theUpsideDown: false,
       mousePosition: { x: 0, y: 0, v: { x: 0, y: 0 } },
       statistics: {
-        boxes: 0,
-        collisions: 0,
-        drawCount: 0,
         animateCount: 0
       },
       animationFrameId: null,
@@ -511,11 +507,6 @@ body.dark-mode {
 
 body.dark-mode .social-links svg {
   fill: white;
-}
-
-body {
-  background-color: var(--theme-bg, white);
-  color: var(--theme-text, #111);
 }
 
 .container {

@@ -58,21 +58,6 @@ html.scrollable {
   overflow: auto !important;
 }
 
-body.scrollable #app,
-html.scrollable #app {
-  display: block !important;
-  height: auto !important;
-}
-
-#app {
-  display: grid;
-  justify-content: center;
-  align-content: center;
-  height: 100vh;
-  margin: 0;
-  padding: 0;
-}
-
 h1 {
   font-size: 4rem;
   font-weight: 500;

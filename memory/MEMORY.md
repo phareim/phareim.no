@@ -6,18 +6,8 @@
 - No auth system — removed, will be reimplemented from scratch
 
 ## D1 Tables
-- `game_states` — RPG player state
-- `places` — RPG world locations
-- `items` — RPG items
-- `characters` — RPG NPCs
-- `model_definitions` — AI model configs for image generation
-
-## RPG
-- Main handler: `server/api/rpg.ts` (GET/POST/DELETE)
-- Game state: `server/rpg/state/game-state.ts` (D1-persisted)
-- Handlers: `server/rpg/handlers/` (movement, AI, items, places, characters)
-- UI state in localStorage under key `rpg_ui_state`
-- Reset: `DELETE /api/rpg` + clear localStorage
+- `model_definitions` — AI model configs for image generation (only table used by current code)
+- The live database still holds tables from removed features (RPG, gallery, prompts) — their DDL lives in git history
 
 ## Dev
 - `npm run dev` — no Cloudflare bindings locally
