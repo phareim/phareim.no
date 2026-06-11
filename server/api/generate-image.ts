@@ -4,6 +4,7 @@ import { generateWithFalAI, generateWithVeniceAI } from '~/server/utils/image-pr
 import { uploadImageToR2 } from '~/server/utils/storage'
 import { getModelDefinition } from '~/server/utils/model-definitions'
 import { getDB } from '~/server/utils/db'
+import { requireImageApiKey } from '~/server/utils/api-auth'
 
 interface ImageGenerationRequest {
     prompt: string
@@ -42,6 +43,8 @@ export default defineEventHandler(async (event): Promise<ImageGenerationResponse
             statusText: 'Method not allowed'
         })
     }
+
+    requireImageApiKey(event)
 
     try {
         const body = await readBody(event) as ImageGenerationRequest

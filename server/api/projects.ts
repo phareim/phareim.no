@@ -1,4 +1,5 @@
 import { defineEventHandler } from 'h3'
+import { githubHeaders } from '~/server/utils/github'
 
 interface GitHubRepo {
   name: string
@@ -23,7 +24,7 @@ export default defineEventHandler(async (): Promise<Project[]> => {
   try {
     const response = await fetch(
       'https://api.github.com/users/phareim/repos?sort=updated&per_page=30&type=public',
-      { headers: { 'User-Agent': 'phareim.no' } }
+      { headers: githubHeaders() }
     )
 
     if (!response.ok) {

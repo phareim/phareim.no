@@ -20,6 +20,9 @@ useHead({
 })
 
 const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  const target = event.target as HTMLElement | null;
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
   if (event.key === 'm' && !window.location.pathname.includes('admin')) {
     menuComponent.value?.toggleMenu();
   }
@@ -40,7 +43,6 @@ onBeforeUnmount(() => {
 
 <style>
 @import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Bitcount+Prop+Single+Ink:wght@100..900&display=swap");
 
 body,
 html {

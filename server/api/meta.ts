@@ -1,4 +1,5 @@
 import { defineEventHandler, getQuery } from 'h3'
+import { githubHeaders } from '~/server/utils/github'
 
 interface GitHubCommit {
   sha: string
@@ -20,13 +21,13 @@ export interface Commit {
 
 export default defineEventHandler(async (event): Promise<Commit[]> => {
   const query = getQuery(event)
-  const page = parseInt((query.page as string) ?? '1', 10)
+  const page = Math.max(1, parseInt((query.page as string) ?? '1', 10) || 1)
   const perPage = 30
 
   try {
     const response = await fetch(
       `https://api.github.com/repos/phareim/phareim.no/commits?per_page=${perPage}&page=${page}`,
-      { headers: { 'User-Agent': 'phareim.no' } }
+      { headers: githubHeaders() }
     )
 
     if (!response.ok) return []

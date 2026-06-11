@@ -231,6 +231,7 @@ function drawBgShape(shape, offsetX) {
 
 function resetGame() {
   if (!canvas.value) return
+  const now = performance.now()
   player.x = canvas.value.width / 2
   player.y = canvas.value.height - 60
   bullets = []
@@ -243,11 +244,11 @@ function resetGame() {
   score = 0
   gameOver = false
   gameStarted = true
-  waveTimer = 0
-  bulletLevel = 1
-  powerupTimer = 0
-  bossTimer = 0
   waveInterval = 2500
+  waveTimer = now - waveInterval // first wave spawns right away
+  bulletLevel = 1
+  powerupTimer = now
+  bossTimer = now
   playerGlow = 0
   shield = false
   shieldFlash = 0

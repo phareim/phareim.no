@@ -2,6 +2,7 @@ import { defineEventHandler, readBody } from 'h3'
 import OpenAI from 'openai'
 import { useRuntimeConfig } from '#imports'
 import { invokeFalEndpoint } from '~/server/utils/image-providers'
+import { requireImageApiKey } from '~/server/utils/api-auth'
 
 export default defineEventHandler(async (event) => {
   if (event.method !== 'POST') {
@@ -10,6 +11,8 @@ export default defineEventHandler(async (event) => {
       status: 405
     }
   }
+
+  requireImageApiKey(event)
 
   try {
     const body = await readBody(event)

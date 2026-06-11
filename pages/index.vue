@@ -137,6 +137,7 @@ export default {
   },
   mounted() {
     document.body.classList.remove('scrollable');
+    document.documentElement.classList.remove('scrollable');
     if (!this.isHacker && !this.isSpace) {
       this.startBubbles();
     }
@@ -147,6 +148,7 @@ export default {
   },
   beforeUnmount() {
     document.body.classList.add('scrollable');
+    document.documentElement.classList.add('scrollable');
     window.removeEventListener('mousemove', this.updateMousePosition);
     window.removeEventListener('resize', this.setupCanvas);
     window.removeEventListener('touchmove', this.updateTouchPosition);
@@ -198,7 +200,7 @@ export default {
       this.mousePosition.v.x = (this.mousePosition.v.x * 0.9);
       this.mousePosition.v.y = (this.mousePosition.v.y * 0.9);
     },
-    getNewShadow(strength, color = 'rgba(0, 0, 0, 0.5') {
+    getNewShadow(strength, color = 'rgba(0, 0, 0, 0.5)') {
       const shadow = {
         strength,
         shadowOffsetX: strength * 1,
@@ -339,11 +341,10 @@ export default {
       this.ctx.shadowOffsetX = 0;
       this.ctx.shadowOffsetY = 0;
       this.ctx.shadowBlur = 0;
-      this.ctx.shadowColor = 'transparent';     
-      this.ctx.stroke(); 
+      this.ctx.shadowColor = 'transparent';
       this.ctx.lineWidth = 5;
       this.ctx.strokeStyle = (this.theUpsideDown? 'rgba(100,90,80,0.2)':'rgba(0, 0, 0, 0.9)');
-      this.ctx.class = 'box';
+      this.ctx.stroke();
     },
     
     isColliding(box1, box2) {

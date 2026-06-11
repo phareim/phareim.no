@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody } from 'h3'
 import { invokeFalEndpoint } from '~/server/utils/image-providers'
+import { requireImageApiKey } from '~/server/utils/api-auth'
 
 export default defineEventHandler(async (event) => {
   // Only POST requests are allowed
@@ -9,6 +10,8 @@ export default defineEventHandler(async (event) => {
       status: 405
     }
   }
+
+  requireImageApiKey(event)
 
   try {
     // Parse the request body

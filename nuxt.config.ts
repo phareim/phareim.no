@@ -11,13 +11,14 @@ export default defineNuxtConfig({
     head: {
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover' },
+        { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
       ],
       link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Alan+Sans:wght@300..900&family=Caveat:wght@400..700&display=swap' }
+        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Alan+Sans:wght@300..900&display=swap' }
       ]
     }
   },
@@ -34,6 +35,11 @@ export default defineNuxtConfig({
     openaiApiKey: '',
     falKey: '',
     wavespeedKey: '',
+    // Bearer token required to call the image-generation endpoints.
+    // When empty (default) those endpoints are disabled entirely.
+    imageApiKey: '',
+    // Optional: raises GitHub API rate limits for /api/projects and /api/meta
+    githubToken: '',
 
     // Public keys that are exposed to the client
     public: {}

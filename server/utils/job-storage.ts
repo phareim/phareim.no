@@ -17,18 +17,21 @@ export interface ImageGenerationJob {
 
 const jobs = new Map<string, ImageGenerationJob>()
 
-// Clean up old jobs after 1 hour
+// Clean up old jobs after 1 hour. Runs lazily on job creation — timers in
+// module scope are disallowed on Cloudflare Workers and crash the route.
 const JOB_CLEANUP_TIME = 60 * 60 * 1000 // 1 hour
-setInterval(() => {
+
+function cleanupOldJobs(): void {
   const now = Date.now()
   for (const [id, job] of jobs.entries()) {
     if (now - job.createdAt.getTime() > JOB_CLEANUP_TIME) {
       jobs.delete(id)
     }
   }
-}, 5 * 60 * 1000) // Run cleanup every 5 minutes
+}
 
 export function createJob(basePrompt: string, width?: number, height?: number, model?: string): ImageGenerationJob {
+  cleanupOldJobs()
   const id = generateJobId()
   const job: ImageGenerationJob = {
     id,

@@ -3,8 +3,11 @@ import OpenAI from 'openai'
 import { useRuntimeConfig } from '#imports'
 import { invokeFalEndpoint, generateWithWavespeedAI } from '~/server/utils/image-providers'
 import { createJob, updateJob } from '~/server/utils/job-storage'
+import { requireImageApiKey } from '~/server/utils/api-auth'
 
 export default defineEventHandler(async (event) => {
+  requireImageApiKey(event)
+
   try {
     const body = await readBody(event)
     const { basePrompt, width, height, model } = body as {
