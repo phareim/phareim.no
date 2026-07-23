@@ -20,7 +20,7 @@ When restoring things: cherry-pick onto this base, and **leave out the backgroun
 
 - **Framework**: Nuxt 3 + Vue 3 Composition API + TypeScript
 - **Hosting**: Cloudflare Pages
-- **Database**: Cloudflare D1 (SQLite) — binding `DB`, database `phareim-rpg`
+- **Database**: none — the `phareim-rpg` D1 database was deleted 2026-07-23 (it was empty; final export at `~/backups/d1/2026-07-23/phareim-rpg.sql` on Sleeper). If restoring D1-backed features from the reverted range, create a fresh database and re-add the binding.
 - **Object Storage**: Cloudflare R2 — binding `BUCKET`, bucket `phareim-assets`
 - **AI APIs**: Venice AI, FAL AI, OpenAI, Wavespeed
 - **State**: Nuxt `useState` + localStorage (no state library)
@@ -39,10 +39,9 @@ composables/         — useTheme
 server/api/          — H3 API routes
   menu.ts            — static menu items list
   projects.ts        — fetches phareim's public GitHub repos
-server/utils/        — db.ts, r2.ts, storage.ts, image-providers.ts, etc.
+server/utils/        — r2.ts, storage.ts, image-providers.ts, etc.
 types/               — shared TypeScript interfaces
 assets/themes/       — scandinavian.css, hacker.css, space.css, tufte.css
-database/schema.sql  — D1 schema (applied during CI deploy)
 ```
 
 ## Theme System
@@ -58,7 +57,6 @@ Four themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**, **Tufte
 
 ## Key Patterns
 
-- D1 access: `getDB(event)` from `server/utils/db.ts`
 - R2 access: `server/utils/r2.ts` and `server/utils/storage.ts`
 - Runtime secrets via `nuxt.config.ts` `runtimeConfig`, overridden by `NUXT_`-prefixed env vars on Cloudflare
 - No auth system currently — removed, will be reimplemented from scratch
@@ -66,7 +64,7 @@ Four themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**, **Tufte
 ## Deployment
 
 - **CI/CD**: GitHub Actions on push to `master` (`.github/workflows/deploy.yml`)
-- Build → apply D1 schema → deploy to Cloudflare Pages → notify Sleeper Chat
+- Build → deploy to Cloudflare Pages → notify Sleeper Chat
 - No automated test suite
 
 ## Keyboard Shortcuts
