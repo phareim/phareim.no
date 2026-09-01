@@ -23,6 +23,7 @@ jobs:
 
       - uses: cloudflare/wrangler-action@v3
         with:
+          wranglerVersion: "4.128.0"  # action defaults to wrangler 3.90.0, which now exits 1 before running
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=phareim-no
