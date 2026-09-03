@@ -1,5 +1,5 @@
 <template>
-  <canvas ref="canvas"></canvas>
+  <canvas ref="canvas" class="invaders-canvas"></canvas>
 </template>
 
 <script setup>
@@ -1136,3 +1136,17 @@ onBeforeUnmount(() => {
   window.removeEventListener('touchend', handleTouchEnd)
 })
 </script>
+
+<style scoped>
+/* Full-viewport playfield behind the landing overlay. */
+.invaders-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  display: block;
+  z-index: 1;
+}
+</style>
