@@ -1,14 +1,18 @@
 # CLAUDE.md
 
+Personal site, Nuxt 3 on Cloudflare Pages. The landing page is a set of
+swipeable **themes**; the theme system and how to add a theme live in the
+project skill `.claude/skills/phareim-theme/SKILL.md` (use it).
+
 ## ⚠️ History note — lots of reverted work worth mining
 
 On **2026-05-28** the top of `master` was intentionally reset back to the **April 2 snapshot** (commit `887aa6a`) via a single snapshot-revert commit (`66d257c`). This was a taste decision: the owner disliked the page-shift navigation animations and the cinematic theme-switch effect and prefers the calmer, simpler look. **No history was lost** — the reverted commits are all still in the graph.
 
-The reverted range `887aa6a..4b93c52` contains **~217 commits** (≈2 months of work) with a lot worth bringing back later: many content pages (`/now`, `/feed`, `/uses`, `/colophon`, `/guestbook`, `/gallery`, `/stats`, `/activity`, …), backend APIs (unified Bluesky/X feed, RSS, D1 guestbook, R2 gallery, richer projects API), a Cmd+K command palette, keyboard navigation, accessibility wins, **and a later single-theme "Almanac" paper redesign** (`dc02650`, `c70bba1`, `b24da6b`, `d706eff`) that itself removed the canvas animations + theme-switch cinematics — it may match the owner's calm taste better than this April-2 base while keeping the features.
+The reverted range `887aa6a..4b93c52` contains **~217 commits** (≈2 months of work) with a lot worth bringing back later: many content pages (`/now`, `/feed`, `/uses`, `/colophon`, `/guestbook`, `/gallery`, `/stats`, `/activity`, …), backend APIs (unified Bluesky/X feed, RSS, D1 guestbook, R2 gallery, richer projects API), a Cmd+K command palette, keyboard navigation, accessibility wins, **and a later single-theme "Almanac" paper redesign** (`dc02650`, `c70bba1`, `b24da6b`, `d706eff`) — a natural candidate for a fifth theme folder.
 
-When restoring things: cherry-pick onto this base, and **leave out the background-canvas animations, page slide/zoom transitions, theme-switch cinematics, menu stagger, and count-up effects** — that motion is exactly what was reverted. A full per-bucket triage of all 217 commits was done; ask the owner for it or re-run the analysis. Tier-1 hardening (security dep bumps to 0 vulns, Vue3 `beforeUnmount` fix, SSR hydration fix, CI injection fix) was already brought forward in commit `1a1b7d5`.
+When restoring things: cherry-pick onto this base, and **leave out the background-canvas animations, page slide/zoom transitions, theme-switch cinematics, menu stagger, and count-up effects** — that motion is exactly what was reverted. Tier-1 hardening (security dep bumps, Vue3 `beforeUnmount` fix, SSR hydration fix, CI injection fix) was already brought forward in commit `1a1b7d5`.
 
-> Tip: `git log --oneline 887aa6a..4b93c52` lists everything; `git show <sha>` to inspect; preview the Almanac end-state with `git checkout 4b93c52 && npm run dev`.
+> Tip: `git log --oneline 887aa6a..4b93c52` lists everything; `git show <sha>` to inspect.
 
 ## Commands
 
@@ -19,41 +23,48 @@ When restoring things: cherry-pick onto this base, and **leave out the backgroun
 
 ## Stack
 
-- **Framework**: Nuxt 3 + Vue 3 Composition API + TypeScript (`pages/index.vue` is still Options API)
-- **Hosting**: Cloudflare Pages, project `phareim-no`
-- **Database / storage**: none. D1 (`phareim-rpg`) was deleted 2026-07-23 (final export at `~/backups/d1/2026-07-23/phareim-rpg.sql` on Sleeper). The R2 binding and the image-generation API (Venice/FAL/OpenAI/Wavespeed) were removed 2026-09-03 — nothing in the frontend called them. Restore from git history if needed.
+- **Framework**: Nuxt 3 + Vue 3 Composition API + TypeScript (`themes/scandi/Bubbles.vue` is Options API, moved verbatim)
+- **Hosting**: Cloudflare Pages, project `phareim-no`. SSR runs in the Pages worker (`_routes.json` sends everything except static assets to it), which is what lets the random first-visit theme be picked server-side.
+- **Database / storage**: none. D1 (`phareim-rpg`) was deleted 2026-07-23 (final export at `~/backups/d1/2026-07-23/phareim-rpg.sql` on Sleeper). The R2 binding and the image-generation API were removed 2026-09-03. Restore from git history if needed.
 - **External APIs**: GitHub REST only (`/api/projects`, `/api/meta`)
-- **State**: Nuxt `useState` + localStorage (no state library)
+- **State**: Nuxt `useState` + a `theme` cookie (no state library, no localStorage)
 
 ## Project Structure
 
 ```
-app.vue              — root shell: theme class, starfield, menu
-pages/               — file-based routing
-  index.vue          — landing page (full-screen canvas, removes scrollable)
+app.vue              — root shell: theme class, theme backdrop, <NuxtPage>, ThemePager
+pages/
+  index.vue          — renders the active theme's Landing component (180 ms fade on switch)
   about.vue          — /about — brief bio, photo, social links
-  projects.vue       — /projects — GitHub repos fetched live from GitHub API
+  projects.vue       — /projects — GitHub repos fetched live from the GitHub API
   meta.vue           — /meta — commit log of this site from the GitHub API
-components/          — Vue components
-composables/         — useTheme
+error.vue            — per-theme 404 blocks
+components/
+  ThemePager.vue     — edge arrows (hover devices only) + dots; the only site chrome
+composables/
+  useTheme.ts        — active theme, cookie, setTheme/next/previous, navigationLocked
+  useThemeNavigation.ts — swipe + ArrowLeft/ArrowRight, called once from app.vue
+themes/              — see the phareim-theme skill
+  index.ts           — registry (order = swipe order) and every theme.css import
+  content.ts         — default landing copy
+  base/              — DefaultLanding shell, ProfileCard, SocialLink
+  _template/         — starting point for a new theme
+  scandi/ hacker/ space/ tufte/
 server/api/          — Nitro API routes (h3 helpers are auto-imported)
-  menu.ts            — static menu items list
   projects.ts        — phareim's public GitHub repos
   meta.ts            — this repo's commits, paginated
 server/utils/        — github.ts (headers + optional token)
-assets/themes/       — scandinavian.css, hacker.css, space.css, tufte.css
 ```
 
-## Theme System
+There is no menu (removed 2026-09-03). `/about`, `/projects` and `/meta` are
+reachable by URL only; a theme may link to them if it wants to.
 
-Four themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**, **Tufte** (warm paper / ET Book serif / one crimson accent, from the tufte-viz design system; fonts bundled at `public/fonts/et-book/`; no landing-page bubbles — calm paper).
+## Theme System (short version — the skill has the rest)
 
-- Each theme file defines `--theme-*` CSS custom properties on `.{theme}-page`
-- `composables/useTheme.ts` provides `activeTheme`, `themePageClass`, `cx()`, `setTheme()`
-- Persisted to localStorage
-- **Convention**: always use `var(--theme-*, fallback)` — never hardcode colors
-- Don't use `@media (prefers-color-scheme: dark)` — the theme system handles this
-- Don't put theme variables on `:root` — they go in `.{theme}-page` selectors
+- Four themes, in swipe order: **Scandinavian Glass**, **Cyberpunk**, **Space**, **Tufte**. First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
+- Each `themes/<id>/theme.css` defines the `--theme-*` contract on `.{id}-page` (ten tokens, listed in the skill). Pages read `var(--theme-*, fallback)` and never hardcode colours or branch on `prefers-color-scheme` — dark mode is each theme's own business.
+- Each `themes/<id>/Landing.vue` owns the landing page. Most wrap `themes/base/DefaultLanding.vue`; a theme may replace the whole page.
+- A theme that uses arrow keys or horizontal touch itself (the Cyberpunk game) sets `navigationLocked` while it does.
 
 ## Key Patterns
 
@@ -67,6 +78,6 @@ Four themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**, **Tufte
 - `wrangler.toml` carries `pages_build_output_dir = "dist"` and `nodejs_compat`; no bindings.
 - No automated test suite.
 
-## Keyboard Shortcuts
+## Keyboard
 
-- `M` key toggles the global menu (disabled on admin pages)
+- `←` / `→` switch theme (unless a theme has locked navigation).

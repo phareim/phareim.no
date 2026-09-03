@@ -1,0 +1,52 @@
+/**
+ * Hacker / Cyberpunk Aesthetic
+ * ---------------------------
+ * High contrast, terminal-inspired, digital grit.
+ *
+ */
+
+:root {
+  /* Base colors */
+  --hacker-bg: #0a0a0a;
+  --hacker-bg-alt: #111111;
+
+  /* Text colors */
+  --hacker-text: #00ff41;
+  --hacker-text-dim: #008F11;
+  --hacker-text-bright: #e0ffe0;
+
+  /* Accents */
+  --hacker-border: #003b00;
+  --hacker-glow: rgba(0, 255, 65, 0.2);
+  --hacker-accent: #ff0055; /* Error/Alert color */
+
+  /* Typography */
+  --font-mono: 'Courier New', Courier, monospace;
+}
+
+.hacker-page {
+  min-height: 100vh;
+  background-color: var(--hacker-bg);
+  color: var(--hacker-text);
+  font-family: var(--font-mono);
+  overflow-x: hidden;
+  background-image:
+    linear-gradient(rgba(0, 255, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 0, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+
+  /* Semantic theme variables */
+  --theme-bg: var(--hacker-bg);
+  --theme-text: var(--hacker-text);
+  --theme-text-muted: var(--hacker-text-dim);
+  --theme-text-subtle: #555;
+
+  --theme-card-bg: rgba(0, 20, 0, 0.8);
+  --theme-card-border: var(--hacker-text-dim);
+  --theme-card-shadow: var(--hacker-glow);
+  --theme-card-radius: 0px;
+
+  --theme-accent: var(--hacker-text);
+
+  --theme-font-body: var(--font-mono);
+}

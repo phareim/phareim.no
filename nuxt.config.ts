@@ -1,13 +1,6 @@
 import { defineNuxtConfig } from 'nuxt/config'
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  css: [
-    '~/assets/themes/scandinavian.css',
-    '~/assets/themes/hacker.css',
-    '~/assets/themes/space.css',
-    '~/assets/themes/tufte.css'
-  ],
-
   app: {
     head: {
       meta: [
@@ -18,8 +11,7 @@ export default defineNuxtConfig({
       ],
       link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Alan+Sans:wght@300..900&display=swap' }
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }
       ]
     }
   },

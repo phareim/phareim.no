@@ -6,7 +6,6 @@
  * Based on the Tufte Viz design system (ET Book, the canonical
  * Tufte-CSS face; license at /fonts/et-book/ET-Book-LICENSE.txt).
  *
- * Usage: Add class "tufte-page" to your page container
  */
 
 /* ET Book — four faces so the browser never synthesises a weight */
@@ -68,9 +67,6 @@
 
   /* Typography */
   --font-tufte: 'ET Book', Charter, 'Palatino Linotype', Palatino, Georgia, serif;
-
-  /* Transitions — understated */
-  --transition-tufte: 0.2s ease;
 }
 
 .tufte-page {
@@ -83,7 +79,6 @@
 
   /* Semantic theme variables */
   --theme-bg: var(--tufte-paper);
-  --theme-bg-alt: var(--tufte-paper-sunk);
   --theme-text: var(--tufte-ink);
   --theme-text-muted: var(--tufte-ink-quiet);
   --theme-text-subtle: var(--tufte-ink-muted);
@@ -95,26 +90,8 @@
   --theme-card-radius: 2px;
 
   --theme-accent: var(--tufte-accent);
-  --theme-accent-secondary: var(--tufte-signal-up);
-  --theme-accent-danger: var(--tufte-accent-ink);
 
-  --theme-link-color: var(--tufte-accent-ink);
   --theme-font-body: var(--font-tufte);
-  --theme-font-display: var(--font-tufte);
-  --theme-transition: var(--transition-tufte);
-
-  --theme-input-bg: var(--tufte-paper-raised);
-  --theme-input-border: var(--tufte-rule-strong);
-  --theme-input-text: var(--tufte-ink);
-
-  /* RPG-specific */
-  --theme-rpg-item: #8a6d1f;
-  --theme-rpg-character: var(--tufte-accent-ink);
-  --theme-rpg-place: var(--tufte-signal-up);
-  --theme-rpg-terminal-bg: var(--tufte-paper-sunk);
-  --theme-rpg-terminal-border: var(--tufte-rule-strong);
-  --theme-rpg-terminal-text: var(--tufte-ink);
-  --theme-rpg-command: var(--tufte-ink-muted);
 }
 
 /* Headings carry weight through the face, not heaviness */
@@ -124,11 +101,6 @@
   font-family: var(--font-tufte);
   font-weight: 600;
   letter-spacing: 0.01em;
-}
-
-/* Numbers line up in tables and metric rows */
-.tufte-page .tufte-value {
-  font-variant-numeric: tabular-nums;
 }
 
 /* Midnight paper — auto dark mode */
@@ -155,6 +127,5 @@
 
   .tufte-page {
     --theme-card-shadow: rgba(0, 0, 0, 0.3);
-    --theme-rpg-item: #d4b14a;
   }
 }

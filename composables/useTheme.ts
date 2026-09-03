@@ -1,49 +1,72 @@
-export const useTheme = () => {
-  const activeTheme = useState('activeTheme', () => 'scandi')
+import { themes, isThemeId, randomThemeId, type ThemeDefinition } from '~/themes'
 
-  const themes = [
-    { id: 'scandi', name: 'Scandinavian Glass', icon: '❄️', themeColor: '#f5f5f3', themeColorDark: '#1a1c1e' },
-    { id: 'hacker', name: 'Cyberpunk', icon: '📟', themeColor: '#0a0a0a', themeColorDark: '#0a0a0a' },
-    { id: 'space', name: 'Space', icon: '🚀', themeColor: '#0a0a0f', themeColorDark: '#0a0a0f' },
-    { id: 'tufte', name: 'Tufte', icon: '📈', themeColor: '#fbf9f4', themeColorDark: '#14130f' }
-  ]
+const COOKIE_NAME = 'theme'
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+
+/**
+ * Theme state. Resolved once per request, in this order:
+ *   1. `?theme=<id>` in the URL (deep link, also handy when building a theme)
+ *   2. the `theme` cookie (returning visitor)
+ *   3. a random pick (first visit)
+ * The pick happens during SSR, so the first paint is already the right theme
+ * and the cookie is set in the response — no flash, no client-side reshuffle.
+ */
+export const useTheme = () => {
+  const cookie = useCookie<string | undefined>(COOKIE_NAME, {
+    maxAge: COOKIE_MAX_AGE,
+    sameSite: 'lax',
+    path: '/',
+  })
+
+  const activeTheme = useState<string>('activeTheme', () => {
+    const fromQuery = useRoute().query.theme
+    if (isThemeId(fromQuery)) return fromQuery
+    if (isThemeId(cookie.value)) return cookie.value
+    return randomThemeId()
+  })
+
+  if (cookie.value !== activeTheme.value) {
+    cookie.value = activeTheme.value
+  }
+
+  /** While true, swipe and arrow keys do not switch theme (a game owns them). */
+  const navigationLocked = useState<boolean>('themeNavigationLocked', () => false)
+
+  const theme = computed<ThemeDefinition>(
+    () => themes.find(t => t.id === activeTheme.value) ?? themes[0]
+  )
 
   const themePageClass = computed(() => `${activeTheme.value}-page`)
 
   const themeColor = computed(() => {
-    const t = themes.find(t => t.id === activeTheme.value)
-    if (!t) return '#f5f5f3'
-    if (import.meta.client && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    const t = theme.value
+    if (import.meta.client && t.themeColorDark && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       return t.themeColorDark
     }
     return t.themeColor
   })
 
-  const cx = (suffix: string) => `${activeTheme.value}-${suffix}`
-
-  const setTheme = (themeId: string) => {
-    activeTheme.value = themeId
-    if (import.meta.client) {
-      localStorage.setItem('theme', themeId)
-    }
+  const setTheme = (id: string) => {
+    if (!isThemeId(id)) return
+    activeTheme.value = id
+    cookie.value = id
   }
 
-  // Restore theme from localStorage on client (after hydration to avoid mismatch)
-  if (import.meta.client) {
-    onMounted(() => {
-      const saved = localStorage.getItem('theme')
-      if (saved && themes.some(t => t.id === saved)) {
-        activeTheme.value = saved
-      }
-    })
+  const step = (delta: number) => {
+    const i = themes.findIndex(t => t.id === activeTheme.value)
+    const next = (i + delta + themes.length) % themes.length
+    setTheme(themes[next].id)
   }
 
   return {
-    activeTheme,
     themes,
+    theme,
+    activeTheme,
     themePageClass,
     themeColor,
-    cx,
-    setTheme
+    navigationLocked,
+    setTheme,
+    nextTheme: () => step(1),
+    previousTheme: () => step(-1),
   }
 }

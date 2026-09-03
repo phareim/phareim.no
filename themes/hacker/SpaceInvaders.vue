@@ -1069,14 +1069,16 @@ function isInteractiveElement(el) {
   return false
 }
 
+let tapStartX = 0
+let tapStartY = 0
+
 function handleTouchStart(e) {
   if (isInteractiveElement(e.target)) return
-  if (!gameStarted) {
-    resetGame()
-    return
-  }
-  if (gameOver) {
-    resetGame()
+  if (!gameStarted || gameOver) {
+    // Start on tap, not on touchstart, so a horizontal swipe can still
+    // switch theme without launching the game.
+    tapStartX = e.touches[0].clientX
+    tapStartY = e.touches[0].clientY
     return
   }
   touchActive = true
@@ -1095,7 +1097,11 @@ function handleTouchMove(e) {
   player.y = touch.clientY - TOUCH_Y_OFFSET
 }
 
-function handleTouchEnd() {
+function handleTouchEnd(e) {
+  if (!touchActive && (!gameStarted || gameOver) && !isInteractiveElement(e.target)) {
+    const t = e.changedTouches[0]
+    if (Math.hypot(t.clientX - tapStartX, t.clientY - tapStartY) < 15) resetGame()
+  }
   touchActive = false
   keys['Space'] = false
 }

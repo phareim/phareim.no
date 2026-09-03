@@ -1,0 +1,90 @@
+/**
+ * Scandinavian Glass Aesthetic
+ * ---------------------------
+ * Clean, minimal, frosted glass design system
+ * with nature-inspired tones and subtle depth.
+ *
+ */
+
+/* CSS Custom Properties */
+:root {
+  /* Base colors - muted, nature-inspired */
+  --scandi-bg: #f5f5f3;
+  --scandi-bg-warm: #faf9f7;
+  --scandi-bg-cool: #f0f2f5;
+
+  /* Text colors */
+  --scandi-text: #1a1a1a;
+  --scandi-text-muted: #5c5c5c;
+  --scandi-text-subtle: #8a8a8a;
+
+  /* Glass effects */
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-shadow: rgba(0, 0, 0, 0.04);
+
+  /* Soft accents */
+  --accent-soft-blue: #6b8cae;
+  --accent-soft-sage: #9bab8b;
+
+  /* Typography */
+  --font-body: 'Comfortaa', system-ui, sans-serif;
+}
+
+/* Base page container */
+.scandi-page {
+  min-height: 100vh;
+  background: var(--scandi-bg);
+  color: var(--scandi-text);
+  font-family: var(--font-body);
+  position: relative;
+  overflow-x: hidden;
+
+  /* Semantic theme variables */
+  --theme-bg: var(--scandi-bg);
+  --theme-text: var(--scandi-text);
+  --theme-text-muted: var(--scandi-text-muted);
+  --theme-text-subtle: var(--scandi-text-subtle);
+
+  --theme-card-bg: var(--glass-bg);
+  --theme-card-border: var(--glass-border);
+  --theme-card-shadow: var(--glass-shadow);
+  --theme-card-radius: 24px;
+
+  --theme-accent: var(--accent-soft-blue);
+
+  --theme-font-body: var(--font-body);
+}
+
+/* Dark mode auto-toggle */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --scandi-bg: #1a1c1e;
+    --scandi-bg-warm: #1e2024;
+    --scandi-bg-cool: #16181c;
+
+    --scandi-text: #e4e4e2;
+    --scandi-text-muted: #a0a0a0;
+    --scandi-text-subtle: #6a6a6a;
+
+    --glass-bg: rgba(30, 32, 36, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shadow: rgba(0, 0, 0, 0.2);
+
+    --accent-soft-blue: #89abd0;
+    --accent-soft-sage: #b0c4a0;
+  }
+
+  .scandi-page {
+    --theme-bg: var(--scandi-bg);
+    --theme-text: var(--scandi-text);
+    --theme-text-muted: var(--scandi-text-muted);
+    --theme-text-subtle: var(--scandi-text-subtle);
+
+    --theme-card-bg: var(--glass-bg);
+    --theme-card-border: var(--glass-border);
+    --theme-card-shadow: var(--glass-shadow);
+
+    --theme-accent: var(--accent-soft-blue);
+  }
+}

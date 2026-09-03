@@ -1,17 +1,14 @@
 <template>
   <div :class="themePageClass">
-    <SpaceStarfield v-if="activeTheme === 'space'" />
+    <component :is="theme.backdrop" v-if="theme.backdrop" />
     <NuxtPage />
-    <MenuComponent ref="menuComponent" />
+    <ThemePager />
   </div>
 </template>
 
 <script setup lang="ts">
-import MenuComponent from '~/components/MenuComponent.vue';
-import SpaceStarfield from '~/components/SpaceStarfield.vue';
-
-const { themePageClass, themeColor, activeTheme } = useTheme()
-const menuComponent = ref<InstanceType<typeof MenuComponent> | null>(null);
+const { theme, themePageClass, themeColor } = useTheme()
+useThemeNavigation()
 
 useHead({
   meta: [
@@ -19,25 +16,14 @@ useHead({
   ]
 })
 
-const handleKeyDown = (event: KeyboardEvent) => {
-  if (event.metaKey || event.ctrlKey || event.altKey) return;
-  const target = event.target as HTMLElement | null;
-  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-  if (event.key === 'm' && !window.location.pathname.includes('admin')) {
-    menuComponent.value?.toggleMenu();
-  }
-};
-
 onMounted(() => {
   document.body.classList.add('scrollable');
   document.documentElement.classList.add('scrollable');
-  document.addEventListener('keydown', handleKeyDown);
 });
 
 onBeforeUnmount(() => {
   document.body.classList.remove('scrollable');
   document.documentElement.classList.remove('scrollable');
-  document.removeEventListener('keydown', handleKeyDown);
 });
 </script>
 

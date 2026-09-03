@@ -1,0 +1,60 @@
+/**
+ * <Theme name>
+ * ---------------------------
+ * One line on the mood. Rename `mytheme` to the id you register in
+ * themes/index.ts — the root class must be `${id}-page`.
+ *
+ * Two layers:
+ *   :root          theme-private palette, namespaced (--mytheme-*), with a
+ *                  prefers-color-scheme block if the theme has a dark variant.
+ *   .mytheme-page  the --theme-* contract every page and component reads.
+ *                  Never put --theme-* on :root; never read --mytheme-* outside
+ *                  this folder.
+ */
+
+:root {
+  --mytheme-bg: #ffffff;
+  --mytheme-text: #111111;
+  --mytheme-text-muted: #666666;
+  --mytheme-text-subtle: #999999;
+  --mytheme-accent: #c1351d;
+  --mytheme-card-bg: rgba(255, 255, 255, 0.7);
+  --mytheme-card-border: rgba(0, 0, 0, 0.1);
+  --mytheme-card-shadow: rgba(0, 0, 0, 0.05);
+  --mytheme-font: system-ui, sans-serif;
+}
+
+.mytheme-page {
+  min-height: 100vh;
+  background: var(--mytheme-bg);
+  color: var(--mytheme-text);
+  font-family: var(--mytheme-font);
+  position: relative;
+  overflow-x: hidden;
+
+  /* The contract. All ten are read somewhere; add more only when a
+     second theme needs the same token. */
+  --theme-bg: var(--mytheme-bg);
+  --theme-text: var(--mytheme-text);
+  --theme-text-muted: var(--mytheme-text-muted);
+  --theme-text-subtle: var(--mytheme-text-subtle);
+  --theme-accent: var(--mytheme-accent);
+  --theme-card-bg: var(--mytheme-card-bg);
+  --theme-card-border: var(--mytheme-card-border);
+  --theme-card-shadow: var(--mytheme-card-shadow);
+  --theme-card-radius: 12px;
+  --theme-font-body: var(--mytheme-font);
+}
+
+/* Optional dark variant. Delete the block if the theme is one-scheme. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mytheme-bg: #141414;
+    --mytheme-text: #ececec;
+    --mytheme-text-muted: #a0a0a0;
+    --mytheme-text-subtle: #6a6a6a;
+    --mytheme-card-bg: rgba(30, 30, 30, 0.7);
+    --mytheme-card-border: rgba(255, 255, 255, 0.08);
+    --mytheme-card-shadow: rgba(0, 0, 0, 0.3);
+  }
+}

@@ -1,6 +1,6 @@
 <template>
   <div :class="[themePageClass, 'error-root']">
-    <SpaceStarfield v-if="activeTheme === 'space'" />
+    <component :is="theme.backdrop" v-if="theme.backdrop" />
 
     <!-- Hacker theme -->
     <div v-if="activeTheme === 'hacker'" class="error-container hacker-container-inner">
@@ -41,19 +41,15 @@
       <button class="scandi-home-btn" @click="goHome">← back home</button>
     </div>
 
-    <MenuComponent />
   </div>
 </template>
 
 <script setup lang="ts">
-import MenuComponent from '~/components/MenuComponent.vue'
-import SpaceStarfield from '~/components/SpaceStarfield.vue'
-
 const props = defineProps({
   error: Object
 })
 
-const { activeTheme, themePageClass } = useTheme()
+const { theme, activeTheme, themePageClass } = useTheme()
 
 const requestedPath = computed(() => {
   if (props.error?.url) {

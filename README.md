@@ -1,16 +1,22 @@
 # phareim.no
 
-Personal website. Nuxt 3, four pages, no database. Deployed to Cloudflare Pages
-by GitHub Actions on every push to `master`.
+Personal website. Nuxt 3, no database. Deployed to Cloudflare Pages by
+GitHub Actions on every push to `master`.
+
+The front page is a set of themes. Swipe or use the arrow keys to walk
+through them; a first visit lands on a random one. Each theme lives in
+`themes/<id>/` and owns its whole landing page — see
+`.claude/skills/phareim-theme/SKILL.md` for how to add one.
 
 ## Pages
 
-- `/` — landing page with a canvas animation (theme dependent)
+- `/` — landing page, rendered by the active theme
 - `/about` — bio, photo, social links
 - `/projects` — public GitHub repos, fetched live from the GitHub API
 - `/meta` — this site's commit log, from the GitHub API
 
-Four switchable themes: Scandinavian Glass (default), Cyberpunk, Space, Tufte.
+Themes: Scandinavian Glass, Cyberpunk, Space, Tufte. Preview one with
+`/?theme=<id>` (`scandi`, `hacker`, `space`, `tufte`).
 
 ## Development
 
