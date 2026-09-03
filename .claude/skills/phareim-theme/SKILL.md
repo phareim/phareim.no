@@ -35,7 +35,7 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
 1. `cp -r themes/_template themes/<id>` and rename `mytheme` → `<id>` in
    `theme.css` (the root class must be `<id>-page`).
 2. Register it in `themes/index.ts`: add `import './<id>/theme.css'` and an
-   entry `{ id, name, themeColor, themeColorDark?, landing, backdrop? }`.
+   entry `{ id, name, themeColor, themeColorDark?, landing, backdrop?, scrollable? }`.
    Position in the array is the swipe order.
 3. Preview with `npm run dev` and `http://localhost:3030/?theme=<id>`. The
    query wins over the cookie and sets it, so the theme sticks while you work.
@@ -55,8 +55,11 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
   landing) goes in the registry as `backdrop` instead — `space` does that
   with its starfield.
 - **Own the page.** Replace slots (`card`, `body`, `footer`) or skip
-  DefaultLanding entirely. `hacker` replaces `body` with the game score UI.
-  Only rule: the root fills the viewport and does not scroll.
+  DefaultLanding entirely. `hacker` replaces `body` with the game score UI;
+  `almanac` skips the shell and renders a serif index page. Default rule:
+  the root fills the viewport and does not scroll. A landing that is
+  legitimately taller than a phone screen sets `scrollable: true` in the
+  registry (almanac does) and the page scrolls normally.
 
 `themes/content.ts` is the default copy. A theme may pass its own `content`
 prop to DefaultLanding, reword it, or ignore it.

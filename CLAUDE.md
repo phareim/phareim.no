@@ -8,7 +8,7 @@ project skill `.claude/skills/phareim-theme/SKILL.md` (use it).
 
 On **2026-05-28** the top of `master` was intentionally reset back to the **April 2 snapshot** (commit `887aa6a`) via a single snapshot-revert commit (`66d257c`). This was a taste decision: the owner disliked the page-shift navigation animations and the cinematic theme-switch effect and prefers the calmer, simpler look. **No history was lost** — the reverted commits are all still in the graph.
 
-The reverted range `887aa6a..4b93c52` contains **~217 commits** (≈2 months of work) with a lot worth bringing back later: many content pages (`/now`, `/feed`, `/uses`, `/colophon`, `/guestbook`, `/gallery`, `/stats`, `/activity`, …), backend APIs (unified Bluesky/X feed, RSS, D1 guestbook, R2 gallery, richer projects API), a Cmd+K command palette, keyboard navigation, accessibility wins, **and a later single-theme "Almanac" paper redesign** (`dc02650`, `c70bba1`, `b24da6b`, `d706eff`) — a natural candidate for a fifth theme folder.
+The reverted range `887aa6a..4b93c52` contains **~217 commits** (≈2 months of work) with a lot worth bringing back later: many content pages (`/now`, `/feed`, `/uses`, `/colophon`, `/guestbook`, `/gallery`, `/stats`, `/activity`, …), backend APIs (unified Bluesky/X feed, RSS, D1 guestbook, R2 gallery, richer projects API), a Cmd+K command palette, keyboard navigation, accessibility wins, **and a later single-theme "Almanac" paper redesign** (`dc02650`, `c70bba1`, `b24da6b`, `d706eff`) — its look is back as `themes/almanac/` since 2026-09-03; the content pages it indexed are not.
 
 When restoring things: cherry-pick onto this base, and **leave out the background-canvas animations, page slide/zoom transitions, theme-switch cinematics, menu stagger, and count-up effects** — that motion is exactly what was reverted. Tier-1 hardening (security dep bumps, Vue3 `beforeUnmount` fix, SSR hydration fix, CI injection fix) was already brought forward in commit `1a1b7d5`.
 
@@ -49,7 +49,7 @@ themes/              — see the phareim-theme skill
   content.ts         — default landing copy
   base/              — DefaultLanding shell, ProfileCard, SocialLink
   _template/         — starting point for a new theme
-  scandi/ hacker/ space/ tufte/
+  scandi/ hacker/ space/ tufte/ almanac/
 server/api/          — Nitro API routes (h3 helpers are auto-imported)
   projects.ts        — phareim's public GitHub repos
   meta.ts            — this repo's commits, paginated
@@ -61,7 +61,7 @@ reachable by URL only; a theme may link to them if it wants to.
 
 ## Theme System (short version — the skill has the rest)
 
-- Four themes, in swipe order: **Scandinavian Glass**, **Cyberpunk**, **Space**, **Tufte**. First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
+- Five themes, in swipe order: **Scandinavian Glass**, **Cyberpunk**, **Space**, **Tufte**, **Almanac** (the reverted May 2026 paper redesign, back as a theme 2026-09-03; the only scrollable landing). First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
 - Each `themes/<id>/theme.css` defines the `--theme-*` contract on `.{id}-page` (ten tokens, listed in the skill). Pages read `var(--theme-*, fallback)` and never hardcode colours or branch on `prefers-color-scheme` — dark mode is each theme's own business.
 - Each `themes/<id>/Landing.vue` owns the landing page. Most wrap `themes/base/DefaultLanding.vue`; a theme may replace the whole page.
 - A theme that uses arrow keys or horizontal touch itself (the Cyberpunk game) sets `navigationLocked` while it does.

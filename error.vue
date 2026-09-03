@@ -33,6 +33,13 @@
       <button class="tufte-home-btn" @click="goHome">← back to the front page</button>
     </div>
 
+    <!-- Almanac theme -->
+    <div v-else-if="activeTheme === 'almanac'" class="error-container almanac-container-inner">
+      <h1 class="almanac-err-title"><span class="almanac-err-glyph" aria-hidden="true">◐</span> Not in this almanac</h1>
+      <p class="almanac-err-msg"><em>{{ requestedPath }}</em> has no entry here.</p>
+      <button class="almanac-home-btn" @click="goHome">← back to the front page</button>
+    </div>
+
     <!-- Scandinavian (default) theme -->
     <div v-else class="error-container scandi-container-inner">
       <p class="scandi-404-num">404</p>
@@ -316,6 +323,53 @@ useHead({ title: '404 — phareim.no' })
 .tufte-home-btn:focus-visible {
   outline: 2px solid var(--theme-accent, #c1351d);
   outline-offset: 4px;
+}
+
+/* ---- Almanac ---- */
+.almanac-container-inner {
+  text-align: left;
+  max-width: 64ch;
+  font-family: var(--theme-font-body, Georgia, serif);
+}
+
+.almanac-err-title {
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 400;
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--theme-card-border, #d8d2c4);
+  color: var(--theme-text, #1a1a1a);
+}
+
+.almanac-err-glyph {
+  color: var(--theme-accent, #c14a2a);
+  font-size: 0.7em;
+}
+
+.almanac-err-msg {
+  color: var(--theme-text-muted, #6a6a6a);
+  font-size: 1rem;
+  margin: 0 0 2rem;
+  line-height: 1.6;
+}
+
+.almanac-home-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--theme-text, #1a1a1a);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.almanac-home-btn:hover,
+.almanac-home-btn:focus-visible {
+  color: var(--theme-accent, #c14a2a);
+  outline: none;
 }
 
 /* ---- Space ---- */

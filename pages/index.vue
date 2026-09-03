@@ -7,16 +7,17 @@
 <script setup lang="ts">
 const { theme } = useTheme()
 
-// The landing page fills the viewport and never scrolls.
-onMounted(() => {
-  document.body.classList.remove('scrollable')
-  document.documentElement.classList.remove('scrollable')
-})
+// Most landings fill the viewport and never scroll; a theme marked
+// `scrollable` in the registry (Almanac) keeps the page scrollable.
+const applyScroll = (scrollable: boolean) => {
+  const method = scrollable ? 'add' : 'remove'
+  document.body.classList[method]('scrollable')
+  document.documentElement.classList[method]('scrollable')
+}
 
-onBeforeUnmount(() => {
-  document.body.classList.add('scrollable')
-  document.documentElement.classList.add('scrollable')
-})
+onMounted(() => applyScroll(!!theme.value.scrollable))
+watch(() => theme.value.scrollable, (s: boolean | undefined) => applyScroll(!!s))
+onBeforeUnmount(() => applyScroll(true))
 </script>
 
 <style>

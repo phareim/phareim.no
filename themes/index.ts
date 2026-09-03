@@ -6,6 +6,7 @@ import './scandi/theme.css'
 import './hacker/theme.css'
 import './space/theme.css'
 import './tufte/theme.css'
+import './almanac/theme.css'
 
 // Static imports on purpose: a swipe should not wait for a chunk, and the
 // whole set is small (the Cyberpunk game is the only big one).
@@ -14,6 +15,8 @@ import HackerLanding from './hacker/Landing.vue'
 import SpaceLanding from './space/Landing.vue'
 import SpaceStarfield from './space/Starfield.vue'
 import TufteLanding from './tufte/Landing.vue'
+import AlmanacLanding from './almanac/Landing.vue'
+import AlmanacPaper from './almanac/Paper.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the cookie value. */
@@ -27,6 +30,8 @@ export interface ThemeDefinition {
   landing: Component
   /** Optional: rendered behind every route (starfield, texture, …). */
   backdrop?: Component
+  /** Landing may be taller than the viewport and scroll (default: locked to the viewport). */
+  scrollable?: boolean
 }
 
 // Order matters: swiping left/right walks this list, wrapping at the ends.
@@ -57,6 +62,15 @@ export const themes: ThemeDefinition[] = [
     themeColor: '#fbf9f4',
     themeColorDark: '#14130f',
     landing: TufteLanding,
+  },
+  {
+    id: 'almanac',
+    name: 'Almanac',
+    themeColor: '#f4f0e8',
+    themeColorDark: '#161b24',
+    landing: AlmanacLanding,
+    backdrop: AlmanacPaper,
+    scrollable: true,
   },
 ]
 
