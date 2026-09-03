@@ -3,23 +3,40 @@ name: Deploy to Cloudflare Pages
 on:
   push:
     branches: [master]
+  pull_request:
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
 
-      - run: npm install
+      - run: npm ci
 
-      - run: npx nuxt build
-        env:
-          NITRO_PRESET: cloudflare-pages
+      - run: npm run typecheck
+
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 1
+
+  deploy:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: dist
+          path: dist
 
       - uses: cloudflare/wrangler-action@v3
         with:
@@ -35,7 +52,7 @@ jobs:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           jq -n --arg body "$COMMIT_MESSAGE" '{title: "phareim.no deployed", body: $body}' \
-            | curl -s -X POST https://sleeper.phareim.no/tasks/notify \
+            | curl -fsS -X POST https://sleeper.phareim.no/tasks/notify \
               -H "Authorization: Bearer $SLEEPER_API_KEY" \
               -H "Content-Type: application/json" \
               --data-binary @-

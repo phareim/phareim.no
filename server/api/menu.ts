@@ -1,4 +1,3 @@
-import { defineEventHandler, getQuery } from 'h3'
 
 // Statisk liste over tilgjengelige sider
 const menuItems = [
@@ -10,7 +9,7 @@ const menuItems = [
   { path: 'https://reader.phareim.no', title: 'RSS Reader', icon: '📰', external: true }
 ]
 
-export default defineEventHandler(async (event: any) => {
+export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const titleQuery = query.title;
 

@@ -28,17 +28,15 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  nitro: {
+    preset: 'cloudflare-pages'
+  },
+
   runtimeConfig: {
-    // Private keys that are exposed to the server
-    // On Cloudflare Pages, these are overridden at runtime by NUXT_-prefixed env vars
-    // (e.g. NUXT_VENICE_KEY -> veniceKey)
-    veniceKey: '',
-    openaiApiKey: '',
-    falKey: '',
-    wavespeedKey: '',
-    // Bearer token required to call the image-generation endpoints.
-    // When empty (default) those endpoints are disabled entirely.
-    imageApiKey: '',
+    // Private keys, server only. On Cloudflare Pages they are set at runtime
+    // by NUXT_-prefixed env vars (NUXT_GITHUB_TOKEN -> githubToken).
+    // Server code must call useRuntimeConfig(event) — without the event,
+    // Workers return a config frozen before env vars exist.
     // Optional: raises GitHub API rate limits for /api/projects and /api/meta
     githubToken: '',
 

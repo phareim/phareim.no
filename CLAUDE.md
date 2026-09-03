@@ -13,16 +13,16 @@ When restoring things: cherry-pick onto this base, and **leave out the backgroun
 ## Commands
 
 - `npm run dev` — dev server on port 3030 (host 0.0.0.0)
-- `npm run build` — production build (`NITRO_PRESET=cloudflare-pages`)
+- `npm run typecheck` — `nuxi typecheck` (vue-tsc); CI runs this before build
+- `npm run build` — production build; the `cloudflare-pages` preset is set in `nuxt.config.ts`, output goes to `dist/`
 - `npm run preview` — preview built site
 
 ## Stack
 
-- **Framework**: Nuxt 3 + Vue 3 Composition API + TypeScript
-- **Hosting**: Cloudflare Pages
-- **Database**: none — the `phareim-rpg` D1 database was deleted 2026-07-23 (it was empty; final export at `~/backups/d1/2026-07-23/phareim-rpg.sql` on Sleeper). If restoring D1-backed features from the reverted range, create a fresh database and re-add the binding.
-- **Object Storage**: Cloudflare R2 — binding `BUCKET`, bucket `phareim-assets`
-- **AI APIs**: Venice AI, FAL AI, OpenAI, Wavespeed
+- **Framework**: Nuxt 3 + Vue 3 Composition API + TypeScript (`pages/index.vue` is still Options API)
+- **Hosting**: Cloudflare Pages, project `phareim-no`
+- **Database / storage**: none. D1 (`phareim-rpg`) was deleted 2026-07-23 (final export at `~/backups/d1/2026-07-23/phareim-rpg.sql` on Sleeper). The R2 binding and the image-generation API (Venice/FAL/OpenAI/Wavespeed) were removed 2026-09-03 — nothing in the frontend called them. Restore from git history if needed.
+- **External APIs**: GitHub REST only (`/api/projects`, `/api/meta`)
 - **State**: Nuxt `useState` + localStorage (no state library)
 
 ## Project Structure
@@ -36,12 +36,13 @@ pages/               — file-based routing
   meta.vue           — /meta — commit log of this site from the GitHub API
 components/          — Vue components
 composables/         — useTheme
-server/api/          — H3 API routes
+server/api/          — Nitro API routes (h3 helpers are auto-imported)
   menu.ts            — static menu items list
-  projects.ts        — fetches phareim's public GitHub repos
-server/utils/        — r2.ts, storage.ts, image-providers.ts, etc.
-types/               — shared TypeScript interfaces
+  projects.ts        — phareim's public GitHub repos
+  meta.ts            — this repo's commits, paginated
+server/utils/        — github.ts (headers + optional token)
 assets/themes/       — scandinavian.css, hacker.css, space.css, tufte.css
+public/game/         — sprite sheets, currently unreferenced (2026-09-03)
 ```
 
 ## Theme System
@@ -57,15 +58,15 @@ Four themes: **Scandinavian Glass** (default), **Cyberpunk**, **Space**, **Tufte
 
 ## Key Patterns
 
-- R2 access: `server/utils/r2.ts` and `server/utils/storage.ts`
-- Runtime secrets via `nuxt.config.ts` `runtimeConfig`, overridden by `NUXT_`-prefixed env vars on Cloudflare
-- No auth system currently — removed, will be reimplemented from scratch
+- Runtime secrets via `nuxt.config.ts` `runtimeConfig`, set on Cloudflare by `NUXT_`-prefixed env vars (`NUXT_GITHUB_TOKEN` → `githubToken`).
+- **Always `useRuntimeConfig(event)` in server code.** Without the event, Workers return a config frozen at module init, before env vars exist — the token silently never applies. (Found 2026-09-03; the old image API had this bug and was always 503 in production.)
+- No auth system.
 
 ## Deployment
 
-- **CI/CD**: GitHub Actions on push to `master` (`.github/workflows/deploy.yml`)
-- Build → deploy to Cloudflare Pages → notify Sleeper Chat
-- No automated test suite
+- **CI/CD**: `.github/workflows/deploy.yml` — `build` job (npm ci → typecheck → build → artifact) on push and PR; `deploy` job (wrangler `pages deploy dist`) on push to `master` only, then notifies Sleeper.
+- `wrangler.toml` carries `pages_build_output_dir = "dist"` and `nodejs_compat`; no bindings.
+- No automated test suite.
 
 ## Keyboard Shortcuts
 

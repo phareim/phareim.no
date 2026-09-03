@@ -1,4 +1,3 @@
-import { defineEventHandler, getQuery } from 'h3'
 import { githubHeaders } from '~/server/utils/github'
 
 interface GitHubCommit {
@@ -27,7 +26,7 @@ export default defineEventHandler(async (event): Promise<Commit[]> => {
   try {
     const response = await fetch(
       `https://api.github.com/repos/phareim/phareim.no/commits?per_page=${perPage}&page=${page}`,
-      { headers: githubHeaders() }
+      { headers: githubHeaders(event) }
     )
 
     if (!response.ok) return []

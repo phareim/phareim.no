@@ -57,7 +57,7 @@ const { data, pending } = await useFetch<Commit[]>('/api/meta', {
   query: { page: 1 }
 })
 
-watch(data, val => {
+watch(data, (val: Commit[] | null | undefined) => {
   if (val) {
     allCommits.value = val
     hasMore.value = val.length === 30

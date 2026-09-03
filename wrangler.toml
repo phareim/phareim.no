@@ -1,7 +1,4 @@
 name = "phareim-no"
 compatibility_date = "2024-09-23"
-pages_build_output_dir = ".output/public"
-
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "phareim-assets"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"

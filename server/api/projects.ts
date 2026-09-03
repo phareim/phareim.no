@@ -1,4 +1,3 @@
-import { defineEventHandler } from 'h3'
 import { githubHeaders } from '~/server/utils/github'
 
 interface GitHubRepo {
@@ -20,11 +19,11 @@ export interface Project {
   pushed_at: string
 }
 
-export default defineEventHandler(async (): Promise<Project[]> => {
+export default defineEventHandler(async (event): Promise<Project[]> => {
   try {
     const response = await fetch(
       'https://api.github.com/users/phareim/repos?sort=updated&per_page=30&type=public',
-      { headers: githubHeaders() }
+      { headers: githubHeaders(event) }
     )
 
     if (!response.ok) {
