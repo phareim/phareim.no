@@ -25,3 +25,6 @@ logs
 tmp/
 tmp/*
 .playwright-mcp/
+
+# wrangler pages dev local state
+.wrangler/
