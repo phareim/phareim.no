@@ -16,6 +16,7 @@ jobs:
           node-version: 22
           cache: npm
 
+      - run: npm install -g npm@11  # lockfile is written by npm 11; Node 22 ships npm 10, whose `npm ci` rejects it
       - run: npm ci
 
       - run: npm run typecheck
