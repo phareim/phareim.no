@@ -42,7 +42,6 @@ server/api/          — Nitro API routes (h3 helpers are auto-imported)
   meta.ts            — this repo's commits, paginated
 server/utils/        — github.ts (headers + optional token)
 assets/themes/       — scandinavian.css, hacker.css, space.css, tufte.css
-public/game/         — sprite sheets, currently unreferenced (2026-09-03)
 ```
 
 ## Theme System
