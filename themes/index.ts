@@ -5,7 +5,6 @@ import type { Component } from 'vue'
 import './scandi/theme.css'
 import './hacker/theme.css'
 import './space/theme.css'
-import './tufte/theme.css'
 import './almanac/theme.css'
 import './desk/theme.css'
 
@@ -15,7 +14,6 @@ import ScandiLanding from './scandi/Landing.vue'
 import HackerLanding from './hacker/Landing.vue'
 import SpaceLanding from './space/Landing.vue'
 import SpaceStarfield from './space/Starfield.vue'
-import TufteLanding from './tufte/Landing.vue'
 import AlmanacLanding from './almanac/Landing.vue'
 import AlmanacPaper from './almanac/Paper.vue'
 import DeskLanding from './desk/Landing.vue'
@@ -57,13 +55,6 @@ export const themes: ThemeDefinition[] = [
     themeColor: '#0a0a0f',
     landing: SpaceLanding,
     backdrop: SpaceStarfield,
-  },
-  {
-    id: 'tufte',
-    name: 'Tufte',
-    themeColor: '#fbf9f4',
-    themeColorDark: '#14130f',
-    landing: TufteLanding,
   },
   {
     id: 'desk',

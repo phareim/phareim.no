@@ -24,15 +24,6 @@
       <button class="space-home-btn" @click="goHome">→ return to base</button>
     </div>
 
-    <!-- Tufte theme -->
-    <div v-else-if="activeTheme === 'tufte'" class="error-container tufte-container-inner">
-      <p class="tufte-404-num">404</p>
-      <div class="tufte-rule-line" aria-hidden="true"></div>
-      <h1 class="tufte-title">page not found</h1>
-      <p class="tufte-msg"><em>{{ requestedPath }}</em> answers to no document on this site.</p>
-      <button class="tufte-home-btn" @click="goHome">← back to the front page</button>
-    </div>
-
     <!-- Tufte Desk theme -->
     <div v-else-if="activeTheme === 'desk'" class="error-container desk-container-inner">
       <div class="desk-sheet-stack">
@@ -274,69 +265,6 @@ useHead({ title: '404 — phareim.no' })
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0; }
-}
-
-/* ---- Tufte ---- */
-.tufte-container-inner {
-  text-align: center;
-  font-family: var(--theme-font-body, 'ET Book', Charter, Georgia, serif);
-}
-
-.tufte-404-num {
-  font-size: clamp(5rem, 16vw, 9rem);
-  font-weight: 600;
-  line-height: 1;
-  margin: 0;
-  color: var(--theme-accent, #c1351d);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-}
-
-.tufte-rule-line {
-  width: 64px;
-  height: 1px;
-  background: var(--theme-card-border, #e7e2d8);
-  margin: 1.5rem auto;
-}
-
-.tufte-title {
-  font-size: clamp(1.3rem, 4vw, 1.9rem);
-  font-weight: 600;
-  margin: 0 0 0.75rem;
-  color: var(--theme-text, #111);
-  letter-spacing: 0.01em;
-}
-
-.tufte-msg {
-  color: var(--theme-text-muted, #6b675d);
-  font-size: 1rem;
-  margin: 0 0 2.5rem;
-  line-height: 1.6;
-  max-width: 34em;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.tufte-home-btn {
-  background: transparent;
-  border: none;
-  color: var(--theme-text, #111);
-  font-family: inherit;
-  font-size: 0.95rem;
-  cursor: pointer;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid var(--theme-card-border, #d6cfc0);
-  transition: border-color 0.2s ease, color 0.2s ease;
-}
-
-.tufte-home-btn:hover {
-  color: var(--theme-accent, #c1351d);
-  border-color: currentColor;
-}
-
-.tufte-home-btn:focus-visible {
-  outline: 2px solid var(--theme-accent, #c1351d);
-  outline-offset: 4px;
 }
 
 /* ---- Tufte Desk ---- */

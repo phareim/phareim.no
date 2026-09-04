@@ -47,7 +47,8 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
 ## Three levels of ambition
 
 - **Colours only.** Keep `Landing.vue` as the template ships it (a bare
-  `<DefaultLanding />`) and write `theme.css`. `tufte` is this.
+  `<DefaultLanding />`) and write `theme.css`. No current theme is this
+  plain, so `_template` is the reference.
 - **Background + default content.** Fill the `#background` slot. If the
   background reacts to the visitor, listen to DefaultLanding's events:
   `overlay-click`, `flip`, `flip-start`, `flip-stop`. `scandi` (bubbles)
