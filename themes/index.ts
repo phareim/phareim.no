@@ -4,6 +4,7 @@ import type { Component } from 'vue'
 // carries the --theme-* tokens for all routes, not just the landing page.
 import './scandi/theme.css'
 import './hacker/theme.css'
+import './breakout/theme.css'
 import './space/theme.css'
 import './almanac/theme.css'
 import './desk/theme.css'
@@ -12,6 +13,7 @@ import './desk/theme.css'
 // whole set is small (the Cyberpunk game is the only big one).
 import ScandiLanding from './scandi/Landing.vue'
 import HackerLanding from './hacker/Landing.vue'
+import BreakoutLanding from './breakout/Landing.vue'
 import SpaceLanding from './space/Landing.vue'
 import SpaceStarfield from './space/Starfield.vue'
 import AlmanacLanding from './almanac/Landing.vue'
@@ -48,6 +50,12 @@ export const themes: ThemeDefinition[] = [
     name: 'Cyberpunk',
     themeColor: '#0a0a0a',
     landing: HackerLanding,
+  },
+  {
+    id: 'breakout',
+    name: 'Breakout',
+    themeColor: '#07070f',
+    landing: BreakoutLanding,
   },
   {
     id: 'space',

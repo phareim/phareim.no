@@ -2,8 +2,8 @@
   <div :class="[themePageClass, 'error-root']">
     <component :is="theme.backdrop" v-if="theme.backdrop" />
 
-    <!-- Hacker theme -->
-    <div v-if="activeTheme === 'hacker'" class="error-container hacker-container-inner">
+    <!-- Hacker and Breakout themes (both neon-on-black, same block) -->
+    <div v-if="activeTheme === 'hacker' || activeTheme === 'breakout'" class="error-container hacker-container-inner">
       <p class="hacker-prompt">$ navigate --path {{ requestedPath }}</p>
       <p class="hacker-err">
         <span class="hacker-err-code">404</span>

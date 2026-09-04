@@ -1,0 +1,53 @@
+/**
+ * Breakout / Arcade Aesthetic
+ * ---------------------------
+ * Neon cyan on near-black, a faint grid, magenta for alerts.
+ * Sibling of the Cyberpunk theme (green); this one is the arcade cabinet
+ * next to it. The landing is a playable Breakout (Breakout.vue).
+ */
+
+:root {
+  /* Base colors */
+  --breakout-bg: #07070f;
+  --breakout-bg-alt: #0c0c18;
+
+  /* Text colors */
+  --breakout-text: #00e5ff;
+  --breakout-text-dim: #0a94a8;
+  --breakout-text-bright: #e0fbff;
+
+  /* Accents */
+  --breakout-border: #063a44;
+  --breakout-glow: rgba(0, 229, 255, 0.2);
+  --breakout-accent: #ff2bd6; /* Error/Alert color */
+
+  /* Typography */
+  --font-breakout-mono: 'Courier New', Courier, monospace;
+}
+
+.breakout-page {
+  min-height: 100vh;
+  background-color: var(--breakout-bg);
+  color: var(--breakout-text);
+  font-family: var(--font-breakout-mono);
+  overflow-x: hidden;
+  background-image:
+    linear-gradient(rgba(0, 229, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.035) 1px, transparent 1px);
+  background-size: 40px 40px;
+
+  /* Semantic theme variables */
+  --theme-bg: var(--breakout-bg);
+  --theme-text: var(--breakout-text);
+  --theme-text-muted: var(--breakout-text-dim);
+  --theme-text-subtle: #3a4a5a;
+
+  --theme-card-bg: rgba(0, 14, 20, 0.8);
+  --theme-card-border: var(--breakout-text-dim);
+  --theme-card-shadow: var(--breakout-glow);
+  --theme-card-radius: 0px;
+
+  --theme-accent: var(--breakout-text);
+
+  --theme-font-body: var(--font-breakout-mono);
+}
