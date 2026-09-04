@@ -120,5 +120,9 @@ const flipped = ref(false)
     flex-direction: column;
     gap: 0.2rem;
   }
+  /* Five icons on one line inside the sheet */
+  .desk-landing-socials :deep(a) {
+    margin: 0 4px;
+  }
 }
 </style>
