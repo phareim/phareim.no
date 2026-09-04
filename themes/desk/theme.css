@@ -1,0 +1,245 @@
+/**
+ * Tufte Desk
+ * ---------------------------
+ * The tactile layer of the Tufte Viz design system ("trykk på bordet",
+ * tokens/paper.css, September 2026): the page is a sheet of paper lying on
+ * a desk. Grain on desk and sheet, a warm three-layer shadow, a second
+ * sheet peeking out behind, type pressed into the paper, and the accent
+ * spent once as a red ink stamp. Skeuomorphism lives in the substrate;
+ * data-ink and figures never get grain or press.
+ *
+ * The desk is the page (`.desk-page`); anything that wants to read like
+ * paper wraps itself in `.desk-sheet` (optionally inside `.desk-sheet-stack`).
+ * ET Book comes from the tufte theme's @font-face — same files, same face.
+ */
+
+:root {
+  /* Desk */
+  --desk-bg: #7a7062;
+  --desk-edge: #5f574b;
+  --desk-ink: #f3efe6;
+  --desk-ink-body: #e4ded2;
+  --desk-ink-muted: #cfc7b8;
+  --desk-ink-faint: #a89f8f;
+  --desk-ink-accent: #ffc2b3;
+  --desk-rule: rgba(0, 0, 0, 0.18);
+
+  /* Paper (tactile values: a touch warmer than flat Tufte paper) */
+  --desk-paper: #f7f2e8;
+  --desk-paper-sunk: #efe9dc;
+  --desk-paper-raised: #fdfbf6;
+  --desk-paper-ink: #111111;
+  --desk-paper-ink-soft: #4a473f;
+  --desk-paper-ink-quiet: #6b675d;
+  --desk-paper-ink-muted: #8a8a8a;
+  --desk-paper-rule: #e7e2d8;
+  --desk-paper-rule-strong: #d6cfc0;
+  --desk-accent: #c1351d;
+  --desk-accent-ink: #9a2a17;
+
+  /* Grain — SVG turbulence multiplied over the surface */
+  --desk-grain-desk: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .12 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  --desk-grain-paper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  --desk-grain-stamp: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.8' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 5 -1.4'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  --desk-sheen: linear-gradient(115deg, rgba(255, 255, 255, 0.4), transparent 45%);
+
+  /* Shadows — warm brown, never grey */
+  --desk-shadow-sheet: 0 1px 0 rgba(0, 0, 0, 0.18),
+                       0 6px 14px -4px rgba(20, 15, 8, 0.40),
+                       0 24px 44px -14px rgba(20, 15, 8, 0.45);
+  --desk-shadow-under: 0 8px 20px -8px rgba(20, 15, 8, 0.40);
+  --desk-shadow-paper: 0 1px 0 rgba(40, 36, 28, 0.10),
+                       0 3px 6px -2px rgba(40, 36, 28, 0.18);
+
+  /* Letterpress */
+  --desk-rule-deboss: linear-gradient(#d6cdb9, #fffdf8);
+  --desk-rule-emboss: linear-gradient(rgba(0, 0, 0, 0.28), rgba(255, 255, 255, 0.18));
+  --desk-text-press-paper: 0 1px 0 rgba(255, 255, 255, 0.75);
+  --desk-text-press-desk: 0 -1px 0 rgba(0, 0, 0, 0.35);
+
+  --desk-font: 'ET Book', Charter, 'Palatino Linotype', Palatino, Georgia, serif;
+  --desk-mono: 'SFMono-Regular', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+/* The desk. Everything not on a sheet reads in desk ink. */
+.desk-page {
+  min-height: 100vh;
+  background: var(--desk-bg);
+  color: var(--desk-ink-body);
+  font-family: var(--desk-font);
+  position: relative;
+  isolation: isolate;
+  overflow-x: hidden;
+
+  --theme-bg: var(--desk-bg);
+  --theme-text: var(--desk-ink);
+  --theme-text-muted: var(--desk-ink-muted);
+  --theme-text-subtle: var(--desk-ink-faint);
+  --theme-accent: var(--desk-ink-accent);
+
+  /* Cards off the sheet are small sheets of their own */
+  --theme-card-bg: var(--desk-paper-raised);
+  --theme-card-border: var(--desk-paper-rule-strong);
+  --theme-card-shadow: rgba(20, 15, 8, 0.35);
+  --theme-card-radius: 0;
+
+  --theme-font-body: var(--desk-font);
+}
+
+.desk-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--desk-grain-desk);
+  mix-blend-mode: multiply;
+}
+
+.desk-page h1,
+.desk-page h2,
+.desk-page h3 {
+  font-family: var(--desk-font);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-shadow: var(--desk-text-press-desk);
+}
+
+/* A sheet of paper: grain multiplied in, a faint sheen from top-left,
+   paper ink restored so it reads like a page again. */
+.desk-sheet {
+  background: var(--desk-paper);
+  color: var(--desk-paper-ink-soft);
+  box-shadow: var(--desk-shadow-sheet);
+  position: relative;
+  isolation: isolate;
+
+  --theme-bg: var(--desk-paper);
+  --theme-text: var(--desk-paper-ink);
+  --theme-text-muted: var(--desk-paper-ink-quiet);
+  --theme-text-subtle: var(--desk-paper-ink-muted);
+  --theme-accent: var(--desk-accent);
+  --theme-card-bg: var(--desk-paper-raised);
+  --theme-card-border: var(--desk-paper-rule);
+  --theme-card-shadow: rgba(40, 36, 28, 0.18);
+}
+
+.desk-sheet::before,
+.desk-sheet::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.desk-sheet::before { background: var(--desk-grain-paper); mix-blend-mode: multiply; }
+.desk-sheet::after { background: var(--desk-sheen); }
+
+/* Type on paper is pressed in. Figures and code are exempt. */
+.desk-sheet :is(h1, h2, h3, h4, p, li, dt, dd, th, td, label, button) {
+  text-shadow: var(--desk-text-press-paper);
+}
+.desk-sheet :is(svg, svg *, code, pre, .desk-stamp) {
+  text-shadow: none;
+}
+
+/* Wrap a sheet in this to get a second sheet peeking out behind it. */
+.desk-sheet-stack {
+  position: relative;
+}
+.desk-sheet-stack::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--desk-paper-sunk);
+  box-shadow: var(--desk-shadow-under);
+  transform: rotate(-1.2deg) translate(7px, 5px);
+}
+
+/* Rules — pressed, not drawn. */
+.desk-rule {
+  height: 2px;
+  border: 0;
+  margin: 0;
+  background: var(--desk-rule-deboss);
+}
+.desk-rule--desk {
+  background: var(--desk-rule-emboss);
+}
+
+/* The stamp — the accent as red ink, once per page. */
+.desk-stamp {
+  display: inline-grid;
+  place-items: center;
+  width: 5.2em;
+  height: 5.2em;
+  padding: 0.4em;
+  box-sizing: border-box;
+  border: 2px solid var(--desk-accent);
+  border-radius: 50%;
+  color: var(--desk-accent);
+  font-family: var(--desk-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.25;
+  transform: rotate(-12deg);
+  opacity: 0.6;
+  -webkit-mask: var(--desk-grain-stamp);
+  mask: var(--desk-grain-stamp);
+}
+
+/* The uppercase over-line label, mono, the one sans-like voice. */
+.desk-label {
+  font-family: var(--desk-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--theme-text-subtle);
+}
+
+/* Midnight desk */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --desk-bg: #2a2622;
+    --desk-edge: #1a1714;
+    --desk-ink: #cfcabe;
+    --desk-ink-body: #b7b1a4;
+    --desk-ink-muted: #948d7f;
+    --desk-ink-faint: #6f695e;
+    --desk-ink-accent: #ff8a6e;
+    --desk-rule: rgba(0, 0, 0, 0.5);
+
+    --desk-paper: #1a1814;
+    --desk-paper-sunk: #14130f;
+    --desk-paper-raised: #211e19;
+    --desk-paper-ink: #ececec;
+    --desk-paper-ink-soft: #cfcabe;
+    --desk-paper-ink-quiet: #9b968a;
+    --desk-paper-ink-muted: #8f8f8f;
+    --desk-paper-rule: #322f29;
+    --desk-paper-rule-strong: #43403a;
+    --desk-accent: #ff6b4a;
+    --desk-accent-ink: #ff8a6e;
+
+    --desk-sheen: linear-gradient(115deg, rgba(255, 255, 255, 0.06), transparent 45%);
+    --desk-shadow-sheet: 0 1px 0 rgba(0, 0, 0, 0.6),
+                         0 6px 14px -4px rgba(0, 0, 0, 0.6),
+                         0 24px 44px -14px rgba(0, 0, 0, 0.7);
+    --desk-shadow-under: 0 8px 20px -8px rgba(0, 0, 0, 0.6);
+    --desk-rule-deboss: linear-gradient(#0d0c0a, #2c2924);
+    --desk-rule-emboss: linear-gradient(rgba(0, 0, 0, 0.6), rgba(255, 255, 255, 0.06));
+    --desk-text-press-paper: 0 1px 0 rgba(0, 0, 0, 0.6);
+    --desk-text-press-desk: 0 -1px 0 rgba(0, 0, 0, 0.8);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .desk-page::before,
+  .desk-sheet::before,
+  .desk-sheet::after {
+    display: none;
+  }
+}

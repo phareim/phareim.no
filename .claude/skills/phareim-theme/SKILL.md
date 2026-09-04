@@ -56,7 +56,9 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
   with its starfield.
 - **Own the page.** Replace slots (`card`, `body`, `footer`) or skip
   DefaultLanding entirely. `hacker` replaces `body` with the game score UI;
-  `almanac` skips the shell and renders a serif index page. Default rule:
+  `almanac` skips the shell and renders a serif index page; `desk` skips it
+  too and lays a grained paper sheet (`.desk-sheet`, `.desk-stamp`,
+  `.desk-rule` are global classes from its theme.css) on the desk. Default rule:
   the root fills the viewport and does not scroll. A landing that is
   legitimately taller than a phone screen sets `scrollable: true` in the
   registry (almanac does) and the page scrolls normally.

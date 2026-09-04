@@ -7,6 +7,7 @@ import './hacker/theme.css'
 import './space/theme.css'
 import './tufte/theme.css'
 import './almanac/theme.css'
+import './desk/theme.css'
 
 // Static imports on purpose: a swipe should not wait for a chunk, and the
 // whole set is small (the Cyberpunk game is the only big one).
@@ -17,6 +18,7 @@ import SpaceStarfield from './space/Starfield.vue'
 import TufteLanding from './tufte/Landing.vue'
 import AlmanacLanding from './almanac/Landing.vue'
 import AlmanacPaper from './almanac/Paper.vue'
+import DeskLanding from './desk/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the cookie value. */
@@ -62,6 +64,14 @@ export const themes: ThemeDefinition[] = [
     themeColor: '#fbf9f4',
     themeColorDark: '#14130f',
     landing: TufteLanding,
+  },
+  {
+    id: 'desk',
+    name: 'Tufte Desk',
+    themeColor: '#7a7062',
+    themeColorDark: '#2a2622',
+    landing: DeskLanding,
+    scrollable: true,
   },
   {
     id: 'almanac',

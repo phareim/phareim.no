@@ -33,6 +33,20 @@
       <button class="tufte-home-btn" @click="goHome">← back to the front page</button>
     </div>
 
+    <!-- Tufte Desk theme -->
+    <div v-else-if="activeTheme === 'desk'" class="error-container desk-container-inner">
+      <div class="desk-sheet-stack">
+        <div class="desk-sheet desk-err-sheet">
+          <p class="desk-label">{{ requestedPath }}</p>
+          <hr class="desk-rule" />
+          <h1 class="desk-err-title">Not on this desk</h1>
+          <p class="desk-err-msg">No sheet answers to that address.</p>
+          <button class="desk-err-btn" @click="goHome">← back to the front page</button>
+          <span class="desk-stamp desk-err-stamp" aria-hidden="true">404<br />not found</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Almanac theme -->
     <div v-else-if="activeTheme === 'almanac'" class="error-container almanac-container-inner">
       <h1 class="almanac-err-title"><span class="almanac-err-glyph" aria-hidden="true">◐</span> Not in this almanac</h1>
@@ -323,6 +337,53 @@ useHead({ title: '404 — phareim.no' })
 .tufte-home-btn:focus-visible {
   outline: 2px solid var(--theme-accent, #c1351d);
   outline-offset: 4px;
+}
+
+/* ---- Tufte Desk ---- */
+.desk-container-inner {
+  text-align: left;
+  max-width: 34rem;
+}
+
+.desk-err-sheet {
+  padding: 2rem 2.25rem 5rem;
+}
+
+.desk-err-title {
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem;
+  color: var(--theme-text, #111);
+}
+
+.desk-err-msg {
+  color: var(--theme-text-muted, #6b675d);
+  margin: 0 0 2rem;
+  line-height: 1.55;
+}
+
+.desk-err-btn {
+  background: transparent;
+  border: none;
+  padding: 0.25rem 0;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--theme-text, #111);
+  border-bottom: 1px solid var(--theme-card-border, #d6cfc0);
+  cursor: pointer;
+}
+
+.desk-err-btn:hover,
+.desk-err-btn:focus-visible {
+  color: var(--theme-accent, #c1351d);
+  border-color: currentColor;
+  outline: none;
+}
+
+.desk-err-stamp {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 1.25rem;
 }
 
 /* ---- Almanac ---- */
