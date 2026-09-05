@@ -49,6 +49,12 @@ const KILL_Z = 18
 let laneX = 8.5
 const LANE_Y_LO = -1.5
 const LANE_Y_HI = 6.0
+// Attract mode keeps the ship out of the centre band (profile card + text).
+// Landscape: lower fifth. Portrait: lower-right, below the hint text (2026-09-05).
+const ATTRACT_Y = -2.9
+const ATTRACT_Y_PORTRAIT = -3.8
+const ATTRACT_X_PORTRAIT = 3.0
+const ATTRACT_LOOK_UP_PORTRAIT = 1.6
 const FIRE_INTERVAL = 1 / 6
 const ROLL_DUR = 0.55
 const MULT_STEPS = [1, 2, 3, 4, 6, 8]
@@ -946,8 +952,9 @@ function startGame() {
 // ---- autopilot ---------------------------------------------------------------
 function autopilot(dt: number, now: number) {
   // steer toward the nearest ring, away from the nearest obstacle
-  let tx = Math.sin(now * 0.5) * 3.0
-  let ty = -2.5 + Math.sin(now * 0.7) * 0.2
+  let tx = (portrait ? ATTRACT_X_PORTRAIT : 0) + Math.sin(now * 0.5) * (portrait ? 1.2 : 3.0)
+  const attractY = portrait ? ATTRACT_Y_PORTRAIT : ATTRACT_Y
+  let ty = attractY + Math.sin(now * 0.7) * 0.2
   let bestZ = -Infinity
   for (const r of rings) {
     if (!r.active || r.z > -4) continue
@@ -966,7 +973,7 @@ function autopilot(dt: number, now: number) {
     }
   }
   tx = clamp(tx, -laneX, laneX)
-  ty = clamp(ty, -2.8, LANE_Y_HI)
+  ty = clamp(ty, attractY - 0.3, LANE_Y_HI)
   const k = 1 - Math.exp(-4 * dt)
   shipX += (tx - shipX) * k
   shipY += (ty - shipY) * k
@@ -1426,7 +1433,7 @@ function updateCamera(dt: number, now: number) {
     camera.position.x += rand(-s, s)
     camera.position.y += rand(-s, s)
   }
-  tmpV.set(shipX * 0.75, 1.0 + shipY * 0.3, -40)
+  tmpV.set(shipX * 0.75, 1.0 + shipY * 0.3 + (portrait && !gameStarted ? ATTRACT_LOOK_UP_PORTRAIT : 0), -40)
   camera.lookAt(tmpV)
 }
 
