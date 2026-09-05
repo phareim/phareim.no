@@ -56,7 +56,7 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
   landing) goes in the registry as `backdrop` instead — `space` does that
   with its starfield.
 - **Own the page.** Replace slots (`card`, `body`, `footer`) or skip
-  DefaultLanding entirely. `hacker`, `breakout` and `rtype` replace `body` with a game HUD;
+  DefaultLanding entirely. `hacker`, `breakout`, `rtype` and `invaders` replace `body` with a game HUD;
   `almanac` skips the shell and renders a serif index page; `desk` skips it
   too and lays a grained paper sheet (`.desk-sheet`, `.desk-stamp`,
   `.desk-rule` are global classes from its theme.css) on the desk. Default rule:
@@ -79,7 +79,7 @@ theme's private variables, never hardcoded colours. `.{id}-page` must set:
 --theme-font-body
 ```
 
-Rules that keep four themes from fighting:
+Rules that keep eight themes from fighting:
 - Private variables are namespaced (`--<id>-*`) and live on `:root`.
   `--theme-*` never goes on `:root`, only on `.{id}-page`.
 - Dark mode is the theme's business: a `@media (prefers-color-scheme: dark)`
@@ -96,9 +96,10 @@ The shell listens for ArrowLeft/ArrowRight and horizontal swipes on
 `document`. A theme that needs those (a game, a slider) sets
 `useTheme().navigationLocked.value = true` while it needs them and resets it
 on game over and in `onBeforeUnmount`. `hacker/Landing.vue`,
-`breakout/Landing.vue` and `rtype/Landing.vue` show the pattern; all three games
+`breakout/Landing.vue`, `rtype/Landing.vue` and `invaders/Landing.vue` show the pattern; all four games
 also start on *tap*, not on touchstart, so a swipe on the idle game still changes
-theme. `rtype/Shooter.vue` simulates in world space (ship flies +x) and
+theme. `invaders` also emits `over` the moment a run ends (before the delayed
+`death`) so the arrows unlock while the cannon is still exploding (2026-09-05). `rtype/Shooter.vue` simulates in world space (ship flies +x) and
 rotates the canvas 90° when the screen is taller than wide, so the ship flies
 up on phones and sideways on desktop; keys, touch and upright text go through
 the same mapping (2026-09-05).

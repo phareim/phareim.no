@@ -1,5 +1,5 @@
 <template>
-  <canvas ref="canvas" class="invaders-e-canvas"></canvas>
+  <canvas ref="canvas" class="invaders-canvas"></canvas>
 </template>
 
 <script setup>
@@ -24,7 +24,7 @@
  * heartbeat pulse. Twist: a KILL COMBO — kills within 1.5 s bump a
  * multiplier x1->x4 shown as a glowing tag near the cannon; a miss resets it.
  */
-const emit = defineEmits(['score', 'wave', 'lives', 'death', 'restart', 'started'])
+const emit = defineEmits(['score', 'wave', 'lives', 'death', 'restart', 'started', 'over'])
 
 const canvas = ref(null)
 let ctx = null
@@ -205,47 +205,54 @@ let pulse = 0 // heartbeat pulse, 1 on each formation step, decays
 let gridScroll = 0
 let sunNotch = 0
 let shake = 0
+let gridRailsPath = null
+let gridRailsKey = ''
+let skyGrad = null
+let skyGradSH = 0
+let sunGrad = null
+let sunGradKey = ''
+let comboFont = ''
+let comboFontPx = 0
 
-// Visual-effects package (draw-only; gameplay untouched). All motion uses
-// dt, all coordinates survive resize (ripples live in normalized grid
-// space), and every glow/gradient is pre-rendered on layout — no per-frame
-// shadowBlur on sprites, no per-frame gradients.
-let isMobile = false
-let breathT = 0
-let flashRow = -1
-let flashRowT = 0
-let ripples = [] // { su, sv, t, life, amp }, cap 12, recycled
-let bounceSrc = [] // { su, sv, t } floor bounce, ~300 ms
-let sunScroll = 0
-let flareT = -1 // wave-clear horizon streak timer (<0 idle)
-let sweepT = 0 // attract-mode scanline sweep cycle
-let fogAX = 0
-let fogBX = 0
-let staticPx = -1
-let glowInv = {} // key -> baked { c, ox, oy, w, h }
-let glowWhite = {}
-let glowCannon = null
-let glowUFO = null
-let glowShot = null
-let glowEngine = null // cannon engine flare
-let glowSkyGold = null // UFO sky glow
-let bunkerCache = [] // per-bunker baked canvases
-let skyC = null
-let dimC = null
-let haloC = null
-let sunC = null
-let fogAC = null
-let fogBC = null
-let streakC = null
-let sweepC = null
-let horizonC = null
-let bunkerGlowC = null
+// Visual-effects package state (draw-only; no gameplay impact).
+// All timers are seconds, decayed with dt for frame-rate independence.
+let whiteFlash = 0 // cannon-death white frame
+let redPulse = 0 // cannon-death red vignette
+let heartT = 0 // 120 ms grid-brightness pulse per formation step
+let bassJolt = 0 // 120 ms horizontal bass jolt on the play layer
+let bassDir = 1
+let sunFlareT = 0 // wave-clear sun flare (~0.6 s)
+let gridRushT = 0 // wave-clear grid acceleration (~1.2 s)
+let bunkerRevealT = 0 // bunker scanline re-materialize
+const BUNKER_REVEAL_DUR = 0.8
+let formRevealT = 0 // formation row-by-row fade-in
+const FORM_REVEAL_DUR = 0.9
+let shotTrail = [] // { x, y, t } cyan afterimages
+let bunkerJolts = [] // { bi, sx, sy, t } 200 ms electric jitter
+let ufoTrail = [] // { x, y, t } gold streak samples
+let shootStar = null // { x, y, vx, vy, life }
+let shootTimer = 18 // next shooting star in s (15-25)
+let mobileFx = false // cached per layout: fewer particles, smaller blurs
+
+// Pre-rendered glow cache (REQUIRED): every sprite is drawn once with
+// shadowBlur into an offscreen canvas per species+frame+colour at the
+// current px, then blitted with drawImage — zero per-frame shadowBlur
+// on invaders, cannon, bunkers, UFO. Rebuilt on layout/resize.
+let glowCache = new Map() // key -> { c, ox, oy }
+let glowPx = 0
+let glowMobile = false
+let bunkerCellSprite = null // { c, pad } single glowing cell
+let bunkerCellPx = 0
+let goldBlob = null // soft gold radial blob for the UFO sky glow
+let pinkBlob = null // soft pink radial blob for the sun halo
+let dimOverlay = null // fullscreen dim behind the card (idle only)
 
 // Combo twist.
 let streak = 0
 let mult = 1
 let lastKillT = -10
 let comboTimer = 0
+let demoCooldown = 0
 
 let wavePause = 0 // countdown between waves
 let lastTime = 0
@@ -263,6 +270,235 @@ function clamp(v, lo, hi) {
 }
 function rand(lo, hi) {
   return lo + Math.random() * (hi - lo)
+}
+
+// ------------------------------------------------- pre-rendered glow cache
+// One shadowBlur per sprite at build time; per-frame draws are drawImage.
+
+function glowBlur() {
+  return mobileFx ? 5 : 12
+}
+
+function makeGlowSprite(rows, color, blur) {
+  const colsN = rows[0].length
+  const w = colsN * px
+  const h = rows.length * px
+  const pad = Math.ceil(blur * 1.6) + 5 // room for blur + max 3 px aberration
+  const c = document.createElement('canvas')
+  c.width = Math.max(2, w + pad * 2)
+  c.height = Math.max(2, h + pad * 2)
+  const g2 = c.getContext('2d')
+  g2.shadowColor = color
+  g2.shadowBlur = blur
+  g2.fillStyle = color
+  for (let r = 0; r < rows.length; r++) {
+    const line = rows[r]
+    for (let cc = 0; cc < line.length; cc++) {
+      if (line[cc] === 'X') g2.fillRect(pad + cc * px, pad + r * px, px, px)
+    }
+  }
+  // Crisp core pass without shadow so the sprite stays readable.
+  g2.shadowBlur = 0
+  g2.fillStyle = color
+  for (let r = 0; r < rows.length; r++) {
+    const line = rows[r]
+    for (let cc = 0; cc < line.length; cc++) {
+      if (line[cc] === 'X') g2.fillRect(pad + cc * px, pad + r * px, px, px)
+    }
+  }
+  return { c, ox: pad, oy: pad }
+}
+
+function makeSolidSprite(rows, color) {
+  const colsN = rows[0].length
+  const w = colsN * px
+  const h = rows.length * px
+  const c = document.createElement('canvas')
+  c.width = Math.max(2, w)
+  c.height = Math.max(2, h)
+  const g2 = c.getContext('2d')
+  g2.fillStyle = color
+  for (let r = 0; r < rows.length; r++) {
+    const line = rows[r]
+    for (let cc = 0; cc < line.length; cc++) {
+      if (line[cc] === 'X') g2.fillRect(cc * px, r * px, px, px)
+    }
+  }
+  return { c, ox: 0, oy: 0 }
+}
+
+function glowKey(id) {
+  return `${id}|${px}`
+}
+
+function getGlow(id, rows, color) {
+  const k = glowKey(id + ':' + color)
+  let s = glowCache.get(k)
+  if (!s) {
+    s = makeGlowSprite(rows, color, id === 'ufo' ? glowBlur() + 4 : glowBlur() + 2)
+    glowCache.set(k, s)
+  }
+  return s
+}
+
+function getSolid(id, rows, color) {
+  const k = glowKey(id + ':solid:' + color)
+  let s = glowCache.get(k)
+  if (!s) {
+    s = makeSolidSprite(rows, color)
+    glowCache.set(k, s)
+  }
+  return s
+}
+
+function blitSprite(s, x, y, alpha) {
+  if (alpha !== undefined) ctx.globalAlpha *= alpha
+  ctx.drawImage(s.c, Math.round(x - s.ox), Math.round(y - s.oy))
+}
+
+function makeRadialBlob(color, size) {
+  const c = document.createElement('canvas')
+  c.width = size
+  c.height = size
+  const g2 = c.getContext('2d')
+  const g = g2.createRadialGradient(size / 2, size / 2, 1, size / 2, size / 2, size / 2)
+  g.addColorStop(0, color)
+  g.addColorStop(1, 'rgba(0,0,0,0)')
+  g2.fillStyle = g
+  g2.fillRect(0, 0, size, size)
+  return c
+}
+
+function buildFxCache() {
+  mobileFx = SW < 600
+  glowCache = new Map()
+  glowPx = px
+  glowMobile = mobileFx
+  // Warm the cache for every species frame + cannon + UFO, in main,
+  // aberration-tint and white-flash colours. No per-frame allocation.
+  const defs = [
+    ['squid0', SQUID_A], ['squid1', SQUID_B],
+    ['crab0', CRAB_A], ['crab1', CRAB_B],
+    ['octo0', OCTO_A], ['octo1', OCTO_B],
+    ['cannon', CANNON], ['ufo', UFO_SPRITE],
+  ]
+  for (const [id, rows] of defs) {
+    const main = id === 'ufo' ? GOLD : id === 'cannon' ? CYAN : PINK
+    getGlow(id, rows, main)
+    getSolid(id + '_r', rows, '#ff2244')
+    getSolid(id + '_c', rows, CYAN)
+    getGlow(id + '_w', rows, '#ffffff')
+  }
+  // Single glowing bunker cell at the current cell size.
+  const bp = clamp(Math.floor(Math.min(SW * 0.13, 80) / BUNKER_GW), 2, 3)
+  const blur = mobileFx ? 3 : 6
+  const pad = blur * 2 + 2
+  const cc = document.createElement('canvas')
+  cc.width = bp + pad * 2
+  cc.height = bp + pad * 2
+  const c2 = cc.getContext('2d')
+  c2.shadowColor = CYAN
+  c2.shadowBlur = blur
+  c2.fillStyle = CYAN
+  c2.fillRect(pad, pad, bp, bp)
+  c2.shadowBlur = 0
+  c2.fillStyle = CYAN
+  c2.fillRect(pad, pad, bp, bp)
+  bunkerCellSprite = { c: cc, pad }
+  bunkerCellPx = bp
+  for (let i = 0; i < bunkers.length; i++) bunkers[i].dirty = true
+  buildGradCache()
+  // Soft blobs (built once per resize, drawn per frame via drawImage).
+  goldBlob = makeRadialBlob('rgba(255, 210, 63, 0.55)', 128)
+  pinkBlob = makeRadialBlob('rgba(255, 47, 160, 0.5)', 128)
+  // Idle dim overlay behind the card: fullscreen, built once.
+  const dc = document.createElement('canvas')
+  dc.width = Math.max(2, Math.round(SW / 2))
+  dc.height = Math.max(2, Math.round(SH / 2))
+  const d2 = dc.getContext('2d')
+  const dg = d2.createRadialGradient(
+    dc.width / 2, dc.height * 0.42, 10,
+    dc.width / 2, dc.height * 0.42, Math.max(dc.width, dc.height) * 0.42
+  )
+  dg.addColorStop(0, 'rgba(6, 3, 16, 0.62)')
+  dg.addColorStop(1, 'rgba(6, 3, 16, 0)')
+  d2.fillStyle = dg
+  d2.fillRect(0, 0, dc.width, dc.height)
+  dimOverlay = dc
+}
+
+// Bunker offscreen cache: one canvas per bunker holding the current damage
+// state, re-rendered only when splat/eraseRect sets dirty. Per-frame draws
+// are a single drawImage; hit jitter applies as a whole-blit 1 px offset.
+function renderBunkerCache(b) {
+  const pad = bunkerCellSprite ? bunkerCellSprite.pad : 0
+  const cw = Math.max(2, Math.round(b.w + pad * 2))
+  const ch = Math.max(2, Math.round(b.h + pad * 2))
+  if (!b.cache) {
+    b.cache = document.createElement('canvas')
+    b.cachePad = pad
+  }
+  if (b.cache.width !== cw || b.cache.height !== ch) {
+    b.cache.width = cw
+    b.cache.height = ch
+    b.cachePad = pad
+  }
+  const g2 = b.cache.getContext('2d')
+  g2.clearRect(0, 0, cw, ch)
+  g2.shadowBlur = 0
+  if (bunkerCellSprite && b.cell === bunkerCellPx) {
+    const spr = bunkerCellSprite
+    for (let gy = 0; gy < b.gh; gy++) {
+      for (let gx = 0; gx < b.gw; gx++) {
+        if (!b.grid[gy * b.gw + gx]) continue
+        g2.drawImage(spr.c, Math.round(gx * b.cell), Math.round(gy * b.cell))
+      }
+    }
+  } else {
+    g2.fillStyle = CYAN
+    for (let gy = 0; gy < b.gh; gy++) {
+      for (let gx = 0; gx < b.gw; gx++) {
+        if (b.grid[gy * b.gw + gx]) g2.fillRect(gx * b.cell, gy * b.cell, b.cell, b.cell)
+      }
+    }
+  }
+  b.dirty = false
+}
+
+// Gradient caches (finding 9): rebuilt on layout/resize, not per frame.
+function buildGradCache() {
+  if (!ctx || SW <= 0 || SH <= 0) return
+  const g = ctx.createLinearGradient(0, 0, 0, SH)
+  g.addColorStop(0, BG_DEEP)
+  g.addColorStop(0.55, BG)
+  g.addColorStop(0.7, '#170a30')
+  g.addColorStop(1, BG_DEEP)
+  skyGrad = g
+  skyGradSH = SH
+  const hy = horizonY()
+  let r = Math.min(SW * 0.22, SH * 0.15)
+  if (r >= 20) {
+    const cy = hy + r * 0.55
+    const sg = ctx.createLinearGradient(0, cy - r, 0, cy + r)
+    sg.addColorStop(0, '#ffd23f')
+    sg.addColorStop(0.55, '#ff6a3d')
+    sg.addColorStop(1, '#ff2fa0')
+    sunGrad = sg
+    sunGradKey = `${Math.round(SW)}x${Math.round(SH)}`
+  }
+}
+
+// Static rail geometry (finding 6): rails converge on the vanishing point and
+// never move, so one Path2D built on layout replaces ~17 strokes/frame.
+function buildGridCache() {
+  const hy = horizonY()
+  const p = new Path2D()
+  for (let k = -4; k <= 4; k++) {
+    p.moveTo(SW / 2 + k * 9, hy)
+    p.lineTo(SW / 2 + (k * SW) / 7, SH)
+  }
+  gridRailsPath = p
+  gridRailsKey = `${Math.round(SW)}x${Math.round(SH)}`
 }
 
 function setScore(v) {
@@ -304,10 +540,11 @@ function layout() {
   margin = Math.max(12, SW * 0.04)
   cannonY = SH * 0.95
   layoutGeometry()
+  buildFxCache()
   buildStars()
   buildRidge()
+  buildGridCache()
   layoutBunkers()
-  buildStatic()
 }
 
 // Cell size from the current column count; formation fits with margins.
@@ -335,7 +572,6 @@ function buildStars() {
       b: 0.25 + Math.random() * 0.6,
       sp: 1 + Math.random() * 3,
       ph: Math.random() * Math.PI * 2,
-      ns: i % 9 === 0 ? Math.random() * 6 : -1, // sparkle subset cross timer
     })
   }
 }
@@ -372,6 +608,7 @@ function buildWave() {
   stepAcc = 0
   stepCount = 0
   layoutGeometry()
+  if (px !== glowPx || (SW < 600) !== glowMobile) buildFxCache()
   // The next formation starts one row lower, up to a floor above the bunkers.
   const maxExtra = Math.max(0, Math.floor((bunkerTop() - cellH * 1.5 - formH - SH * 0.085) / cellH))
   const extra = Math.min(wave - 1, maxExtra, 4)
@@ -389,7 +626,6 @@ function resetBunkers() {
   let x = (SW - totalW) / 2
   const y = bunkerTop()
   bunkers = []
-  bunkerCache = []
   for (let i = 0; i < n; i++) {
     const grid = new Uint8Array(BUNKER_GW * BUNKER_GH)
     for (let gy = 0; gy < BUNKER_GH; gy++) {
@@ -404,7 +640,7 @@ function resetBunkers() {
         grid[gy * BUNKER_GW + gx] = solid ? 1 : 0
       }
     }
-    bunkers.push({ x, y, w: bw, h: bh, cell: bp, gw: BUNKER_GW, gh: BUNKER_GH, grid })
+    bunkers.push({ x, y, w: bw, h: bh, cell: bp, gw: BUNKER_GW, gh: BUNKER_GH, grid, dirty: true, cache: null, cachePad: 0 })
     x += bw + gap
   }
 }
@@ -438,6 +674,12 @@ function startDemo() {
   stepCount = 0
   dying = 0
   deathEmitted = false
+  invulnUntil = 0
+  pulse = 0
+  sunNotch = 0
+  gridScroll = 0
+  shake = 0
+  demoCooldown = 0
   shot = null
   bombs = []
   bombAcc = 1
@@ -449,6 +691,19 @@ function startDemo() {
   flashes = []
   ufoPopups = []
   wavePause = 0
+  whiteFlash = 0
+  redPulse = 0
+  heartT = 0
+  bassJolt = 0
+  sunFlareT = 0
+  gridRushT = 0
+  bunkerRevealT = 0
+  formRevealT = 0
+  shotTrail = []
+  bunkerJolts = []
+  ufoTrail = []
+  shootStar = null
+  shootTimer = rand(15, 25)
   buildWave()
   resetBunkers()
   cannonX = SW / 2
@@ -471,6 +726,11 @@ function startGame() {
   dying = 0
   deathEmitted = false
   invulnUntil = 0
+  pulse = 0
+  sunNotch = 0
+  gridScroll = 0
+  shake = 0
+  demoCooldown = 0
   touchActive = false
   touchX = 0
   keys = {}
@@ -485,6 +745,19 @@ function startGame() {
   flashes = []
   ufoPopups = []
   wavePause = 0
+  whiteFlash = 0
+  redPulse = 0
+  heartT = 0
+  bassJolt = 0
+  sunFlareT = 0
+  gridRushT = 0
+  bunkerRevealT = 0
+  formRevealT = 0
+  shotTrail = []
+  bunkerJolts = []
+  ufoTrail = []
+  shootStar = null
+  shootTimer = rand(15, 25)
   buildWave()
   resetBunkers()
   cannonX = SW / 2
@@ -506,34 +779,14 @@ function stepIntervalMs() {
   return gameStarted ? base : base * 1.9
 }
 
-// The row holding the extreme live invader in the march direction.
-function leadingRow() {
-  let best = -1
-  let bestX = marchDir > 0 ? -Infinity : Infinity
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (!alive[r][c]) continue
-      const rc = invaderRect(r, c)
-      const edge = marchDir > 0 ? rc.x + rc.w : rc.x
-      if ((marchDir > 0 && edge > bestX) || (marchDir < 0 && edge < bestX)) {
-        bestX = edge
-        best = r
-      }
-    }
-  }
-  return best
-}
-
 function doStep(now) {
   marchFrame ^= 1
   stepCount++
   pulse = 1
-  sunNotch++
-  // FX only: a ripple runs across the floor on every step, and the row
-  // leading the march flashes brighter for a beat.
-  addRipple(fx + formW / 2, bunkerTop() + 24, 0.22)
-  flashRow = leadingRow()
-  flashRowT = 0.3
+  heartT = 0.12 // Effect 3a: grid brightness pulse window (~120 ms)
+  bassJolt = 1 // Effect 3c: horizontal bass jolt, decays in updateFx
+  bassDir = marchDir
+  sunNotch++ // Effect 3b: sun stripes scroll one notch per step
   const dx = Math.max(2, Math.round(cellW * 0.16))
   const dy = Math.max(4, Math.round(cellH * 0.7))
   // Live extents: outer dead columns must not trigger early edge turns.
@@ -578,6 +831,20 @@ function invaderRect(r, c) {
   return { x, y, w, h }
 }
 
+// Scratch rect: same math, no per-frame allocation for hot loops.
+const _rc = { x: 0, y: 0, w: 0, h: 0 }
+// Shared sprite opts (finding 12): drawSprite only reads o.ab/o.flash.
+const UFO_SPR_O = { ab: 1 }
+const CANNON_SPR_O = { ab: 0 }
+function invaderRectInto(r, c, out) {
+  const rows = speciesRows(r, 0)
+  out.w = rows[0].length * px
+  out.h = rows.length * px
+  out.x = fx + c * cellW + (cellW - out.w) / 2
+  out.y = fy + r * cellH + (cellH - out.h) / 2
+  return out
+}
+
 function invaderBottom() {
   let bottom = 0
   for (let r = 0; r < ROWS; r++) {
@@ -605,11 +872,15 @@ function checkInvasion(now) {
       buildWave()
       bombs = []
       shot = null
+      shotTrail = []
+      flashes = []
+      ufoTrail = []
     }
     return
   }
   if (invaderBottom() >= cannonY - 4 * px) {
     gameOver = true
+    emit('over')
     deathAt = now
     explode(cannonX, cannonY, true)
   }
@@ -631,34 +902,34 @@ function eatBunkers() {
 // ---------------------------------------------------------------- bunkers
 
 function eraseRect(b, x, y, w, h) {
+  if (x + w < b.x || x > b.x + b.w || y + h < b.y || y > b.y + b.h) return
   const gx0 = clamp(Math.floor((x - b.x) / b.cell), 0, b.gw - 1)
   const gx1 = clamp(Math.floor((x + w - b.x) / b.cell), 0, b.gw - 1)
   const gy0 = clamp(Math.floor((y - b.y) / b.cell), 0, b.gh - 1)
   const gy1 = clamp(Math.floor((y + h - b.y) / b.cell), 0, b.gh - 1)
+  let touched = false
   for (let gy = gy0; gy <= gy1; gy++) {
     for (let gx = gx0; gx <= gx1; gx++) {
       const k = gy * b.gw + gx
-      if (b.grid[k]) {
-        b.grid[k] = 0
-        b.dirty = true // baked bunker sprite needs one re-render
-      }
+      if (b.grid[k]) { b.grid[k] = 0; touched = true }
     }
   }
+  if (touched) b.dirty = true
 }
 
 function splat(b, sx, sy, radius) {
   const ccx = (sx - b.x) / b.cell
   const ccy = (sy - b.y) / b.cell
+  let touched = false
   for (let gy = 0; gy < b.gh; gy++) {
     for (let gx = 0; gx < b.gw; gx++) {
       const d = Math.hypot(gx - ccx, gy - ccy)
-      const k = gy * b.gw + gx
-      if (d < radius * (0.7 + Math.random() * 0.6) && b.grid[k]) {
-        b.grid[k] = 0
-        b.dirty = true // baked bunker sprite needs one re-render
+      if (d < radius * (0.7 + Math.random() * 0.6)) {
+        if (b.grid[gy * b.gw + gx]) { b.grid[gy * b.gw + gx] = 0; touched = true }
       }
     }
   }
+  if (touched) b.dirty = true
 }
 
 // Returns true when a solid pixel was hit (and erodes it).
@@ -670,291 +941,73 @@ function hitBunker(sx, sy, radius) {
     const gy = clamp(Math.floor((sy - b.y) / b.cell), 0, b.gh - 1)
     if (b.grid[gy * b.gw + gx]) {
       splat(b, sx, sy, radius)
+      // Effect 6: cells near the hit flicker ~200 ms before settling.
+      if (bunkerJolts.length < 12) bunkerJolts.push({ bi: i, sx, sy, t: 0.2 })
       return true
     }
   }
   return false
 }
 
-// ------------------------------------------------- visual-effects package
-// Draw-only. Gameplay, rules, layout, input and attract mode are untouched.
-
-function frantic() {
-  const frac = totalCount > 0 ? aliveCount / totalCount : 0
-  return 1 - clamp(frac, 0, 1)
-}
-
-function screenToGrid(x, y) {
-  const hy = horizonY()
-  return { su: clamp(x / Math.max(1, SW), 0, 1), sv: clamp((y - hy) / Math.max(1, SH - hy), 0, 1) }
-}
-
-function addRipple(x, y, amp) {
-  const g = screenToGrid(x, y)
-  if (ripples.length >= 12) ripples.shift()
-  ripples.push({ su: g.su, sv: Math.max(0.04, g.sv), t: 0, life: 1.6, amp })
-}
-
-function addBounce(x, y) {
-  const g = screenToGrid(x, y)
-  bounceSrc.push({ su: g.su, sv: Math.max(0.04, g.sv), t: 0 })
-  if (bounceSrc.length > 4) bounceSrc.shift()
-}
-
-function rippleBright(su, sv) {
-  let s = 0
-  for (let i = 0; i < ripples.length; i++) {
-    const rp = ripples[i]
-    const age = rp.t / rp.life
-    if (age >= 1) continue
-    const d = Math.hypot((su - rp.su) * 1.6, sv - rp.sv)
-    const dd = (d - rp.t * 0.9) / 0.09
-    s += rp.amp * Math.exp(-dd * dd * 0.5) * (1 - age)
-  }
-  return s
-}
-
-function bounceDy(su, sv) {
-  let dy = 0
-  for (let i = 0; i < bounceSrc.length; i++) {
-    const b = bounceSrc[i]
-    if (b.t > 0.3) continue
-    const k = 1 - b.t / 0.3
-    const d2 = Math.pow((su - b.su) * 1.6, 2) + Math.pow((sv - b.sv) * 2.2, 2)
-    dy += -6 * Math.exp(-d2 / 0.02) * Math.sin(b.t * 40) * k
-  }
-  return dy
-}
-
-// Bake one sprite with its glow into an offscreen canvas (glow via
-// shadowBlur happens here, once per layout — never per frame).
-function bakeSprite(rows, s, color, blur) {
-  const w = rows[0].length * s
-  const h = rows.length * s
-  const pad = isMobile || blur <= 0 ? 2 : Math.ceil(blur / 2) + 2
-  const c = document.createElement('canvas')
-  c.width = Math.max(2, w + pad * 2)
-  c.height = Math.max(2, h + pad * 2)
-  const g = c.getContext('2d')
-  g.fillStyle = color
-  if (pad > 2) {
-    g.shadowColor = color
-    g.shadowBlur = blur
-  }
-  for (let pass = 0; pass < 2; pass++) {
-    for (let r = 0; r < rows.length; r++) {
-      const line = rows[r]
-      for (let q = 0; q < line.length; q++) {
-        if (line[q] === 'X') g.fillRect(pad + q * s, pad + r * s, s, s)
-      }
-    }
-  }
-  return { c, ox: pad, oy: pad, w, h }
-}
-
-function bakeRadial(size, stops) {
-  const c = document.createElement('canvas')
-  c.width = size
-  c.height = size
-  const g = c.getContext('2d')
-  const grad = g.createRadialGradient(size / 2, size / 2, 1, size / 2, size / 2, size / 2)
-  for (let i = 0; i < stops.length; i++) grad.addColorStop(stops[i][0], stops[i][1])
-  g.fillStyle = grad
-  g.fillRect(0, 0, size, size)
-  return c
-}
-
-function bakeBunker(b) {
-  const pad = isMobile ? 2 : 8
-  const c = document.createElement('canvas')
-  c.width = Math.max(2, Math.ceil(b.w + pad * 2))
-  c.height = Math.max(2, Math.ceil(b.h + pad * 2))
-  const g = c.getContext('2d')
-  g.fillStyle = CYAN
-  if (pad > 2) {
-    g.shadowColor = CYAN
-    g.shadowBlur = 10
-  }
-  for (let pass = 0; pass < 2; pass++) {
-    for (let gy = 0; gy < b.gh; gy++) {
-      for (let gx = 0; gx < b.gw; gx++) {
-        if (b.grid[gy * b.gw + gx]) g.fillRect(pad + gx * b.cell, pad + gy * b.cell, b.cell, b.cell)
-      }
-    }
-  }
-  return { c, ox: pad, oy: pad, w: b.w, h: b.h }
-}
-
-function invKey(r, frame) {
-  return (r === 0 ? 's' : r <= 2 ? 'c' : 'o') + frame
-}
-
-// Rebuild every pre-rendered sprite/gradient. Called from layout() and
-// lazily via ensureStatic() when px changes (column-count flips).
-function buildStatic() {
-  staticPx = px
-  isMobile = SW < 600
-  const blur = isMobile ? 0 : 14
-  glowInv = {}
-  glowWhite = {}
-  const defs = [[0, 0], [0, 1], [1, 0], [1, 1], [3, 0], [3, 1]]
-  for (let i = 0; i < defs.length; i++) {
-    const rows = speciesRows(defs[i][0], defs[i][1])
-    const key = invKey(defs[i][0], defs[i][1])
-    glowInv[key] = bakeSprite(rows, px, PINK, blur)
-    glowWhite[key] = bakeSprite(rows, px, '#ffffff', blur)
-  }
-  glowCannon = bakeSprite(CANNON, px, CYAN, blur)
-  glowUFO = bakeSprite(UFO_SPRITE, px, GOLD, isMobile ? 0 : 16)
-  // Player bolt: 4x12 cyan block, white core drawn per frame.
-  const bolt = ['XX', 'XX', 'XX', 'XX', 'XX', 'XX']
-  glowShot = bakeSprite(bolt, 2, CYAN, isMobile ? 0 : 12)
-  glowEngine = bakeRadial(64, [[0, 'rgba(255, 210, 63, 0.9)'], [0.4, 'rgba(255, 106, 61, 0.45)'], [1, 'rgba(255, 106, 61, 0)']])
-  glowSkyGold = bakeRadial(128, [[0, 'rgba(255, 210, 63, 0.55)'], [1, 'rgba(255, 210, 63, 0)']])
-  // Sky gradient, full screen.
-  skyC = document.createElement('canvas')
-  skyC.width = Math.max(2, Math.round(SW))
-  skyC.height = Math.max(2, Math.round(SH))
-  const sg = skyC.getContext('2d')
-  const g = sg.createLinearGradient(0, 0, 0, SH)
-  g.addColorStop(0, BG_DEEP)
-  g.addColorStop(0.55, BG)
-  g.addColorStop(0.7, '#170a30')
-  g.addColorStop(1, BG_DEEP)
-  sg.fillStyle = g
-  sg.fillRect(0, 0, skyC.width, skyC.height)
-  // Idle dim behind the profile card.
-  dimC = document.createElement('canvas')
-  dimC.width = Math.max(2, Math.round(SW / 2))
-  dimC.height = Math.max(2, Math.round(SH / 2))
-  const dg = dimC.getContext('2d')
-  const dw = dimC.width
-  const dh = dimC.height
-  const rg = dg.createRadialGradient(dw / 2, dh * 0.42, 20, dw / 2, dh * 0.42, Math.max(dw, dh) * 0.42)
-  rg.addColorStop(0, 'rgba(6, 3, 16, 0.62)')
-  rg.addColorStop(1, 'rgba(6, 3, 16, 0)')
-  dg.fillStyle = rg
-  dg.fillRect(0, 0, dw, dh)
-  // Sun halo + sun body (stripes stay dynamic, drawn per frame as rects).
-  haloC = bakeRadial(256, [[0, 'rgba(255, 47, 160, 0.5)'], [1, 'rgba(255, 47, 160, 0)']])
-  sunC = document.createElement('canvas')
-  sunC.width = 64
-  sunC.height = 64
-  const sc = sunC.getContext('2d')
-  const sunGrad = sc.createLinearGradient(0, 0, 0, 64)
-  sunGrad.addColorStop(0, '#ffd23f')
-  sunGrad.addColorStop(0.55, '#ff6a3d')
-  sunGrad.addColorStop(1, '#ff2fa0')
-  sc.fillStyle = sunGrad
-  sc.fillRect(0, 0, 64, 64)
-  // Fog bands: wide, very dim.
-  fogAC = bakeFog(Math.max(256, Math.round(SW)), 64, '255, 47, 160', 0.055)
-  fogBC = bakeFog(Math.max(256, Math.round(SW)), 48, '120, 80, 255', 0.045)
-  // Wave-clear streak: horizontal white-pink bar.
-  streakC = document.createElement('canvas')
-  streakC.width = 256
-  streakC.height = 8
-  const st = streakC.getContext('2d')
-  const stg = st.createLinearGradient(0, 0, 256, 0)
-  stg.addColorStop(0, 'rgba(255, 255, 255, 0)')
-  stg.addColorStop(0.5, 'rgba(255, 255, 255, 0.9)')
-  stg.addColorStop(1, 'rgba(255, 47, 160, 0)')
-  st.fillStyle = stg
-  st.fillRect(0, 0, 256, 8)
-  // Attract sweep band: vertical cyan whisper.
-  sweepC = document.createElement('canvas')
-  sweepC.width = 8
-  sweepC.height = 64
-  const sw2 = sweepC.getContext('2d')
-  const swg = sw2.createLinearGradient(0, 0, 0, 64)
-  swg.addColorStop(0, 'rgba(47, 243, 255, 0)')
-  swg.addColorStop(0.5, 'rgba(47, 243, 255, 0.10)')
-  swg.addColorStop(1, 'rgba(47, 243, 255, 0)')
-  sw2.fillStyle = swg
-  sw2.fillRect(0, 0, 8, 64)
-  // Horizon glow bar + bunker reflection ellipse.
-  horizonC = document.createElement('canvas')
-  horizonC.width = 256
-  horizonC.height = 16
-  const hz = horizonC.getContext('2d')
-  const hzg = hz.createLinearGradient(0, 0, 0, 16)
-  hzg.addColorStop(0, 'rgba(255, 47, 160, 0)')
-  hzg.addColorStop(0.5, 'rgba(255, 47, 160, 0.55)')
-  hzg.addColorStop(1, 'rgba(255, 47, 160, 0)')
-  hz.fillStyle = hzg
-  hz.fillRect(0, 0, 256, 16)
-  bunkerGlowC = bakeRadial(64, [[0, 'rgba(47, 243, 255, 0.5)'], [1, 'rgba(47, 243, 255, 0)']])
-  bunkerCache = []
-}
-
-function bakeFog(w, h, rgb, peak) {
-  const c = document.createElement('canvas')
-  c.width = w
-  c.height = h
-  const g = c.getContext('2d')
-  const grad = g.createLinearGradient(0, 0, w, 0)
-  grad.addColorStop(0, `rgba(${rgb}, 0)`)
-  grad.addColorStop(0.25, `rgba(${rgb}, ${peak})`)
-  grad.addColorStop(0.55, `rgba(${rgb}, 0.012)`)
-  grad.addColorStop(0.8, `rgba(${rgb}, ${peak})`)
-  grad.addColorStop(1, `rgba(${rgb}, 0)`)
-  g.fillStyle = grad
-  g.fillRect(0, 0, w, h)
-  return c
-}
-
-function ensureStatic() {
-  if (staticPx !== px || !skyC) buildStatic()
-}
-
-function drawBaked(b, x, y) {
-  ctx.drawImage(b.c, Math.round(x - b.ox), Math.round(y - b.oy))
-}
-
 // ---------------------------------------------------------------- effects
 
 function spawnParticles(x, y, color, count, spread) {
-  if (isMobile) count = Math.max(2, Math.ceil(count / 2))
+  // Mobile degrades to ~60 % particle counts to stay cheap.
+  if (mobileFx) count = Math.max(2, Math.round(count * 0.6))
   for (let i = 0; i < count; i++) {
-    if (particles.length >= MAX_PARTICLES) particles.shift()
+    // Reuse the oldest pooled object when full: no per-kill allocs.
+    let p = null
+    if (particles.length >= MAX_PARTICLES) p = particles.shift()
     const a = Math.random() * Math.PI * 2
     const s = 40 + Math.random() * (spread || 220)
-    particles.push({
-      x, y,
-      vx: Math.cos(a) * s,
-      vy: Math.sin(a) * s,
-      life: 1,
-      decay: 1.4 + Math.random() * 1.6,
-      size: 2 + Math.random() * 3,
-      color,
-    })
+    if (!p) p = {}
+    p.x = x
+    p.y = y
+    p.vx = Math.cos(a) * s
+    p.vy = Math.sin(a) * s
+    p.life = 1
+    p.decay = 1.4 + Math.random() * 1.6
+    p.size = 2 + Math.random() * 3
+    p.color = color
+    particles.push(p)
   }
 }
 
-// Kill debris: the sprite's own pixels blowing outward in its colour.
-function spawnSpriteChunks(rows, ox, oy, s, color) {
-  const pts = []
+// Effect 1 — SPRITE SHATTER: every lit cell of the sprite becomes a debris
+// particle in the sprite's colour, outward velocity + gravity-free drift,
+// spin-less fade over ~0.5 s. Reuses the capped particle pool, no allocs
+// beyond pooled objects.
+function shatterSprite(rows, ox, oy, s, color) {
+  const colsN = rows[0].length
+  const w = colsN * s
+  const h = rows.length * s
+  const cx = ox + w / 2
+  const cy = oy + h / 2
   for (let r = 0; r < rows.length; r++) {
     const line = rows[r]
-    for (let q = 0; q < line.length; q++) {
-      if (line[q] === 'X') pts.push([ox + q * s, oy + r * s])
+    for (let c = 0; c < line.length; c++) {
+      if (line[c] !== 'X') continue
+      let q = null
+      if (particles.length >= MAX_PARTICLES) q = particles.shift()
+      const px0 = ox + c * s + s / 2
+      const py0 = oy + r * s + s / 2
+      let dx = px0 - cx
+      let dy = py0 - cy
+      const d = Math.hypot(dx, dy) || 1
+      dx /= d
+      dy /= d
+      const sp = 60 + Math.random() * 220
+      if (!q) q = {}
+      q.x = px0
+      q.y = py0
+      q.vx = dx * sp + rand(-40, 40)
+      q.vy = dy * sp + rand(-40, 40)
+      q.life = 1
+      q.decay = 1.9 + Math.random() * 0.5 // ~0.5 s
+      q.size = s
+      q.color = color
+      particles.push(q)
     }
-  }
-  const n = isMobile ? 8 : 16
-  for (let i = 0; i < n && pts.length; i++) {
-    const p = pts.splice(Math.floor(Math.random() * pts.length), 1)[0]
-    if (particles.length >= MAX_PARTICLES) particles.shift()
-    const a = Math.random() * Math.PI * 2
-    const sp = 90 + Math.random() * 260
-    particles.push({
-      x: p[0], y: p[1],
-      vx: Math.cos(a) * sp,
-      vy: Math.sin(a) * sp - 60,
-      life: 1,
-      decay: 1.8 + Math.random() * 1.4,
-      size: s,
-      color,
-    })
   }
 }
 
@@ -983,28 +1036,34 @@ function killInvader(r, c, now) {
   mult = Math.min(4, streak + 1)
   lastKillT = now
   comboTimer = 1.5
-  setScore(score + speciesScore(r))
-  flashes.push({ key: invKey(r, marchFrame), x: rc.x, y: rc.y, t: 0.12 })
-  explode(cx, cy, false)
-  // Chromatic kill ring: red / white / cyan at slightly different radii.
-  shockwaves.push({ x: cx, y: cy, radius: 3, life: 0.9, color: '#ffffff' })
-  shockwaves.push({ x: cx, y: cy, radius: 9, life: 1.1, color: '#ff2244' })
-  spawnSpriteChunks(speciesRows(r, marchFrame), rc.x, rc.y, px, PINK)
-  addRipple(cx, Math.max(cy, horizonY() + 12), 0.5)
-  addBounce(cx, Math.max(cy, horizonY() + 12))
+  setScore(score + speciesScore(r) * mult)
+  flashes.push({ rows: speciesRows(r, marchFrame), x: rc.x, y: rc.y, px, t: 0.12 })
+  // Effect 1: sprite shatter replaces the generic burst + one ring.
+  const rows = speciesRows(r, marchFrame)
+  shatterSprite(rows, rc.x, rc.y, px, PINK)
+  shockwaves.push({ x: cx, y: cy, radius: 6, life: 1, color: PINK })
   if (aliveCount <= 0 && !gameOver) {
     wavePause = 1.6
-    flareT = 0 // wave-clear streak across the horizon
+    shot = null
+    bombs = []
+    shotTrail = []
+    // Effect 4: wave-clear flare + grid rush start now, reveal on rebuild.
+    sunFlareT = 0.6
+    gridRushT = 1.2
   }
 }
 
 function onCannonHit(now) {
   if (now < invulnUntil || dying > 0) return
   explode(cannonX, cannonY, true)
-  shake = 1 // ~7 px decaying screen shake on death
-  addRipple(cannonX, cannonY, 0.6)
-  addBounce(cannonX, cannonY)
   spawnParticles(cannonX, cannonY, '#ffffff', 8, 200)
+  // Effect 2: cannon shatters into cyan pixels + white frame + red vignette.
+  const cw = CANNON[0].length * px
+  const ch = CANNON.length * px
+  shatterSprite(CANNON, cannonX - cw / 2, cannonY - ch / 2, px, CYAN)
+  whiteFlash = 1
+  redPulse = 1
+  shake = Math.min(1, Math.max(shake, 0.9)) // ~6 px decaying shake
   shot = null
   bombs = []
   streak = 0
@@ -1020,6 +1079,7 @@ function onCannonHit(now) {
   emit('lives', lives)
   if (lives <= 0) {
     gameOver = true
+    emit('over')
     deathAt = now
   } else {
     dying = 1.0 // ~1 s freeze where the formation stops, like the original
@@ -1058,6 +1118,7 @@ function spawnBomb() {
     v: bombSpeed() * (style === 'plunger' ? 1.25 : style === 'rolling' ? 0.9 : 1),
     t: Math.random() * 10,
     frame: 0,
+    trail: [], // Effect 5: faint magenta smear (last 3 positions)
   })
 }
 
@@ -1085,15 +1146,16 @@ function autopilot(dt) {
   for (let c = 0; c < cols; c++) {
     const r = lowestInColumn(c)
     if (r < 0) continue
-    const rc = invaderRect(r, c)
-    const cx = rc.x + rc.w / 2
+    invaderRectInto(r, c, _rc)
+    const cx = _rc.x + _rc.w / 2
     const d = Math.abs(cx - cannonX)
     if (d < bestD) {
       bestD = d
       targetX = cx
     }
   }
-  // Dodge falling bombs.
+  // Dodge falling bombs (targetX may swerve; aimX keeps the pre-dodge aim).
+  const aimX = targetX
   for (let i = 0; i < bombs.length; i++) {
     const b = bombs[i]
     if (b.y > cannonY - 260 && b.y < cannonY && Math.abs(b.x - cannonX) < 46) {
@@ -1102,10 +1164,11 @@ function autopilot(dt) {
     }
   }
   moveCannonToward(targetX, dt)
+  demoCooldown -= dt
   // Deliberately imperfect: a wide aim window plus a ~35 % chance of a
-  // large aim error and a coin-flip on the trigger, so the demo misses
-  // sometimes and the formation stays full for ~20 s.
-  if (!shot && Math.abs(targetX - cannonX) < 40 && Math.random() < 0.5) {
+  // large aim error and a real cadence control (demoCooldown), so the demo
+  // misses sometimes and the formation stays full for ~20 s.
+  if (!shot && demoCooldown <= 0 && Math.abs(aimX - cannonX) < 40) {
     if (Math.random() < 0.35) {
       cannonX = clamp(cannonX + (Math.random() < 0.5 ? -1 : 1) * rand(50, 110), 24, SW - 24)
     }
@@ -1125,6 +1188,7 @@ function cannonSpeed() {
 
 function fireDemoShot() {
   if (gameOver || dying > 0 || shot) return
+  demoCooldown = rand(1.4, 2.2)
   shot = { x: cannonX, y: cannonY - 4 * px - 6 }
 }
 
@@ -1138,27 +1202,16 @@ function update(nowMs) {
   lastTime = nowMs
 
   pulse = Math.max(0, pulse - dt * 2.2)
-  gridScroll = (gridScroll + dt * 0.35) % 1
+  heartT = Math.max(0, heartT - dt)
+  bassJolt = Math.max(0, bassJolt - dt * 8.3) // ~120 ms jolt
+  whiteFlash = Math.max(0, whiteFlash - dt * 6)
+  redPulse = Math.max(0, redPulse - dt * 2.2)
+  sunFlareT = Math.max(0, sunFlareT - dt)
+  gridRushT = Math.max(0, gridRushT - dt)
+  // Effect 4: grid lines accelerate toward the viewer for 1.2 s.
+  const gridSpeed = gridRushT > 0 ? 1.6 : 0.35
+  gridScroll = (gridScroll + dt * gridSpeed) % 1
   shake = Math.max(0, shake - 2.6 * dt)
-  // FX timers only — all frame-rate independent.
-  breathT += dt
-  flashRowT = Math.max(0, flashRowT - dt)
-  sunScroll += dt * (1.5 + frantic() * 9)
-  if (flareT >= 0) {
-    flareT += dt
-    if (flareT > 1.2) flareT = -1
-  }
-  sweepT = (sweepT + dt) % 6
-  fogAX = (fogAX + dt * 10) % (2 * Math.max(1, SW))
-  fogBX = (fogBX + dt * 23) % (2 * Math.max(1, SW))
-  for (let i = ripples.length - 1; i >= 0; i--) {
-    ripples[i].t += dt
-    if (ripples[i].t >= ripples[i].life) ripples.splice(i, 1)
-  }
-  for (let i = bounceSrc.length - 1; i >= 0; i--) {
-    bounceSrc[i].t += dt
-    if (bounceSrc[i].t > 0.35) bounceSrc.splice(i, 1)
-  }
 
   cannonVX = dt > 0 ? (cannonX - prevCannonX) / dt : 0
   prevCannonX = cannonX
@@ -1205,6 +1258,45 @@ function updateFx(dt, now) {
     ufoPopups[i].t += dt
     if (ufoPopups[i].t > 1.4) ufoPopups.splice(i, 1)
   }
+  if (bunkerRevealT > 0) bunkerRevealT = Math.max(0, bunkerRevealT - dt)
+  if (formRevealT > 0) formRevealT = Math.max(0, formRevealT - dt)
+  // Effect 5: player-shot trail samples decay.
+  for (let i = shotTrail.length - 1; i >= 0; i--) {
+    shotTrail[i].t -= dt
+    if (shotTrail[i].t <= 0) shotTrail.splice(i, 1)
+  }
+  // Effect 6: bunker electric jitter decays (~200 ms).
+  for (let i = bunkerJolts.length - 1; i >= 0; i--) {
+    bunkerJolts[i].t -= dt
+    if (bunkerJolts[i].t <= 0) bunkerJolts.splice(i, 1)
+  }
+  // Effect 7: UFO streak samples decay.
+  for (let i = ufoTrail.length - 1; i >= 0; i--) {
+    ufoTrail[i].t -= dt
+    if (ufoTrail[i].t <= 0) ufoTrail.splice(i, 1)
+  }
+  // Effect 8: shooting star timer + flight (frame-rate independent).
+  shootTimer -= dt
+  if (shootTimer <= 0 && !shootStar) {
+    const hy = horizonY()
+    const y0 = rand(SH * 0.04, Math.max(SH * 0.06, hy * 0.45))
+    const fromLeft = Math.random() < 0.5
+    const speed = rand(SW * 0.5, SW * 0.8)
+    shootStar = {
+      x: fromLeft ? -20 : SW + 20,
+      y: y0,
+      vx: (fromLeft ? 1 : -1) * speed,
+      vy: speed * 0.28,
+      life: 1.1,
+    }
+    shootTimer = rand(15, 25)
+  }
+  if (shootStar) {
+    shootStar.x += shootStar.vx * dt
+    shootStar.y += shootStar.vy * dt
+    shootStar.life -= dt
+    if (shootStar.life <= 0 || shootStar.y > horizonY()) shootStar = null
+  }
   if (comboTimer > 0) {
     comboTimer -= dt
     if (comboTimer <= 0) {
@@ -1237,6 +1329,11 @@ function updateGame(dt, now) {
       buildWave()
       bombs = []
       shot = null
+      shotTrail = []
+      // Effect 4: bunkers re-materialize with a bottom-to-top scanline
+      // reveal; the new formation fades in row by row from the top.
+      bunkerRevealT = BUNKER_REVEAL_DUR
+      formRevealT = FORM_REVEAL_DUR
     }
     return
   }
@@ -1266,6 +1363,16 @@ function updateGame(dt, now) {
   }
   if (ufo) {
     ufo.x += ufo.dir * ufo.v * dt
+    // Effect 7: light-streak samples behind the UFO (ring-buffer reuse).
+    if (ufoTrail.length < 24) {
+      ufoTrail.push({ x: ufo.x, y: ufo.y, t: 0.4 })
+    } else {
+      const o = ufoTrail.shift()
+      o.x = ufo.x
+      o.y = ufo.y
+      o.t = 0.4
+      ufoTrail.push(o)
+    }
     if ((ufo.dir > 0 && ufo.x > SW + 70) || (ufo.dir < 0 && ufo.x < -70)) ufo = null
   }
 
@@ -1294,10 +1401,23 @@ function shotSpeed() {
 
 function updateShot(dt, now) {
   if (!shot) return
+  // Effect 5: short cyan trail (ring-buffer reuse: no per-frame alloc).
+  const maxTrail = mobileFx ? 3 : 4
+  if (shotTrail.length < maxTrail) {
+    shotTrail.push({ x: shot.x, y: shot.y, t: 0.18 })
+  } else {
+    const o = shotTrail.shift()
+    o.x = shot.x
+    o.y = shot.y
+    o.t = 0.18
+    shotTrail.push(o)
+  }
+  const prevY = shot.y
   shot.y -= shotSpeed() * dt
   if (shot.y < -20) {
     // A miss resets the combo.
     shot = null
+    shotTrail = []
     streak = 0
     mult = 1
     comboTimer = 0
@@ -1307,30 +1427,47 @@ function updateShot(dt, now) {
   if (ufo) {
     const uw = UFO_SPRITE[0].length * px
     const uh = UFO_SPRITE.length * px
-    if (shot.x > ufo.x - uw / 2 && shot.x < ufo.x + uw / 2 && shot.y > ufo.y && shot.y < ufo.y + uh) {
+    if (shot.x > ufo.x - uw / 2 && shot.x < ufo.x + uw / 2 && shot.y <= ufo.y + uh && prevY >= ufo.y) {
       const pts = ufoPoints()
       if (gameStarted) setScore(score + pts)
       ufoPopups.push({ x: ufo.x, y: ufo.y + uh, text: String(pts), t: 0, color: GOLD })
-      explode(ufo.x, ufo.y + uh / 2, false)
+      // Effect 1/7: UFO shatters into gold pixels + light streak + ring.
+      shatterSprite(UFO_SPRITE, ufo.x - uw / 2, ufo.y, px, GOLD)
+      for (let k = 0; k < 8; k++) {
+        const nx = ufo.x - ufo.dir * k * 9
+        const ny = ufo.y + uh / 2
+        if (ufoTrail.length < 24) {
+          ufoTrail.push({ x: nx, y: ny, t: 0.5 })
+        } else {
+          const o = ufoTrail.shift()
+          o.x = nx
+          o.y = ny
+          o.t = 0.5
+          ufoTrail.push(o)
+        }
+      }
+      shockwaves.push({ x: ufo.x, y: ufo.y + uh / 2, radius: 6, life: 1, color: GOLD })
       ufo = null
       shot = null
+      shotTrail = []
       return
     }
   }
   // Bunkers erode pixel by pixel — before invaders, so a bolt cannot
   // kill through a bunker without chewing it.
   if (hitBunker(shot.x, shot.y, 2)) {
-    spawnParticles(shot.x, shot.y, CYAN, 5, 140)
-    addRipple(shot.x, Math.max(shot.y, horizonY() + 8), 0.2)
+    // Effect 5: bunker impact throws 4-6 cyan sparks.
+    spawnParticles(shot.x, shot.y, CYAN, 4 + Math.floor(Math.random() * 3), 160)
     shot = null
+    shotTrail = []
     return
   }
   // Invaders.
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < cols; c++) {
       if (!alive[r][c]) continue
-      const rc = invaderRect(r, c)
-      if (shot.x > rc.x && shot.x < rc.x + rc.w && shot.y > rc.y && shot.y < rc.y + rc.h) {
+      invaderRectInto(r, c, _rc)
+      if (shot.x > _rc.x && shot.x < _rc.x + _rc.w && shot.y > _rc.y && shot.y < _rc.y + _rc.h) {
         shot = null
         killInvader(r, c, now)
         return
@@ -1361,6 +1498,10 @@ function updateBombs(dt, now) {
     const b = bombs[i]
     b.t += dt
     b.y += b.v * dt
+    // Effect 5: faint magenta smear — keep last 3 positions per bomb.
+    if (!b.trail) b.trail = []
+    b.trail.push({ x: b.x, y: b.y })
+    if (b.trail.length > 3) b.trail.shift()
     if (b.style === 'zigzag') b.x = b.baseX + Math.sin(b.t * 9) * cellW * 0.22
     else if (b.style === 'rolling') {
       b.x = b.baseX + Math.sin(b.t * 5) * cellW * 0.1
@@ -1373,7 +1514,6 @@ function updateBombs(dt, now) {
     // Bunkers erode.
     if (hitBunker(b.x, b.y + 6, 2.5)) {
       spawnParticles(b.x, b.y, PINK, 5, 140)
-      addRipple(b.x, Math.max(b.y + 6, horizonY() + 8), 0.25)
       bombs.splice(i, 1)
       continue
     }
@@ -1398,46 +1538,138 @@ function plotRows(rows, ox, oy, s) {
   }
 }
 
-function drawBackground(now) {
-  // Sky: pre-rendered gradient, drawn as one image (no per-frame gradient).
-  ctx.drawImage(skyC, 0, 0, SW, SH)
+function spriteIdFor(rows) {
+  if (rows === SQUID_A) return 'squid0'
+  if (rows === SQUID_B) return 'squid1'
+  if (rows === CRAB_A) return 'crab0'
+  if (rows === CRAB_B) return 'crab1'
+  if (rows === OCTO_A) return 'octo0'
+  if (rows === OCTO_B) return 'octo1'
+  if (rows === CANNON) return 'cannon'
+  if (rows === UFO_SPRITE) return 'ufo'
+  return null
+}
 
-  // Stars: sparse, twinkling, above the horizon, with occasional brief
-  // cross-shaped sparkles on a small subset.
+function getGlowByRows(rows, color) {
+  const id = spriteIdFor(rows)
+  if (id) {
+    const main = color === '#ffffff' ? id + '_w' : id
+    // White flashes use the pre-warmed white variant.
+    if (color === '#ffffff') return getGlow(id + '_w', rows, '#ffffff')
+    if (id === 'ufo') return getGlow('ufo', rows, GOLD)
+    if (id === 'cannon') return getGlow('cannon', rows, CYAN)
+    return getGlow(id, rows, color)
+  }
+  const k = glowKey('rows:' + rows.join('|') + ':' + color)
+  let s = glowCache.get(k)
+  if (!s) {
+    s = makeGlowSprite(rows, color, glowBlur() + 2)
+    glowCache.set(k, s)
+  }
+  return s
+}
+
+// Cache-based sprite draw: zero per-frame shadowBlur. Aberration tints
+// are pre-rendered solid sprites drawn with low alpha at ±ab.
+function drawSprite(rows, ox, oy, s, color, o) {
+  o = o || {}
+  const ab = o.ab || 0
+  const id = spriteIdFor(rows)
+  // Aberration tints (no glow, no shadowBlur).
+  if (ab > 0.05 && id && s === px) {
+    const keepA = ctx.globalAlpha
+    ctx.globalAlpha = keepA * 0.32
+    const rs = getSolid(id + '_r', rows, '#ff2244')
+    const cs = getSolid(id + '_c', rows, CYAN)
+    ctx.drawImage(rs.c, Math.round(ox - ab), Math.round(oy))
+    ctx.drawImage(cs.c, Math.round(ox + ab), Math.round(oy))
+    ctx.globalAlpha = keepA
+  } else if (ab > 0.05) {
+    const keepA = ctx.globalAlpha
+    ctx.globalAlpha = keepA * 0.32
+    ctx.fillStyle = '#ff2244'
+    plotRows(rows, ox - ab, oy, s)
+    ctx.fillStyle = CYAN
+    plotRows(rows, ox + ab, oy, s)
+    ctx.globalAlpha = keepA
+  }
+  const flash = o.flash
+  const mainColor = flash ? '#ffffff' : color
+  if (s === px) {
+    const g = getGlowByRows(rows, mainColor)
+    blitSprite(g, ox, oy)
+  } else {
+    // Kill flashes carrying a stale px after resize: build directly every
+    // time instead of caching — stale entries would pin glowCache forever.
+    const colsN = rows[0].length
+    const w = colsN * s
+    const h = rows.length * s
+    const blur = (mobileFx ? 5 : 12) + 2
+    const pad = Math.ceil(blur * 1.6) + 5
+    const c = document.createElement('canvas')
+    c.width = Math.max(2, w + pad * 2)
+    c.height = Math.max(2, h + pad * 2)
+    const g2 = c.getContext('2d')
+    g2.shadowColor = mainColor
+    g2.shadowBlur = blur
+    g2.fillStyle = mainColor
+    for (let r = 0; r < rows.length; r++) {
+      const line = rows[r]
+      for (let cc = 0; cc < line.length; cc++) {
+        if (line[cc] === 'X') g2.fillRect(pad + cc * s, pad + r * s, s, s)
+      }
+    }
+    g2.shadowBlur = 0
+    blitSprite({ c, ox: pad, oy: pad }, ox, oy)
+  }
+}
+
+function drawBackground(now) {
+  // Sky: deep violet-black with a magenta haze at the horizon (cached).
+  if (!skyGrad || skyGradSH !== SH) buildGradCache()
+  ctx.fillStyle = skyGrad
+  ctx.fillRect(0, 0, SW, SH)
+
+  // Stars: sparse, twinkling, above the horizon (batched, quantized alpha).
+  ctx.fillStyle = '#cfe9ff'
   for (let i = 0; i < stars.length; i++) {
     const s = stars[i]
     const tw = 0.5 + 0.5 * Math.sin(now * s.sp + s.ph)
-    ctx.globalAlpha = s.b * (0.35 + 0.65 * tw)
-    ctx.fillStyle = '#cfe9ff'
+    ctx.globalAlpha = Math.round(s.b * (0.35 + 0.65 * tw) * 4) / 4
     ctx.fillRect(s.x, s.y, 1.5, 1.5)
-    if (s.ns >= 0 && now > s.ns) {
-      s.ns = now + 2 + Math.random() * 5
-      ctx.globalAlpha = 0.85
-      ctx.strokeStyle = '#eaf6ff'
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.moveTo(s.x - 4, s.y)
-      ctx.lineTo(s.x + 5, s.y)
-      ctx.moveTo(s.x, s.y - 4)
-      ctx.lineTo(s.x, s.y + 5)
-      ctx.stroke()
-    }
   }
   ctx.globalAlpha = 1
+
+  // Effect 8: rare shooting star above the horizon (thin, dim, brief).
+  if (shootStar) {
+    const a = Math.max(0, Math.min(1, shootStar.life)) * (gameStarted ? 0.9 : 0.45)
+    ctx.globalAlpha = a
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.moveTo(shootStar.x, shootStar.y)
+    ctx.lineTo(shootStar.x - shootStar.vx * 0.09, shootStar.y - shootStar.vy * 0.09)
+    ctx.stroke()
+    ctx.globalAlpha = a * 0.4
+    ctx.beginPath()
+    ctx.moveTo(shootStar.x, shootStar.y)
+    ctx.lineTo(shootStar.x - shootStar.vx * 0.2, shootStar.y - shootStar.vy * 0.2)
+    ctx.stroke()
+    ctx.globalAlpha = 1
+  }
 
   drawSun()
   drawMountains()
   drawGrid()
-  drawFog()
-  drawFlare()
 
   // Keep the backdrop dim behind the profile card while idle (pre-rendered).
-  if (!gameStarted) {
-    ctx.drawImage(dimC, 0, 0, SW, SH)
+  if (!gameStarted && dimOverlay) {
+    ctx.drawImage(dimOverlay, 0, 0, SW, SH)
   }
 
   // Heartbeat: the whole background pulses subtly on each formation step.
-  if (pulse > 0.01) {
+  // Skipped while dimmed (attract mode) to save a fullscreen pass.
+  if (pulse > 0.01 && gameStarted) {
     ctx.fillStyle = `rgba(255, 47, 160, ${0.05 * pulse})`
     ctx.fillRect(0, 0, SW, SH)
   }
@@ -1447,32 +1679,47 @@ function drawSun() {
   const hy = horizonY()
   // Low and compact: the disc stays mostly below the horizon line, partly
   // behind the bunker band, so it never competes with the profile text.
-  const r = Math.min(SW * 0.22, SH * 0.15)
+  let r = Math.min(SW * 0.22, SH * 0.15)
   if (r < 20) return
+  // Effect 4: sun flare — brightens and grows ~10 % for 0.6 s.
+  const flare = sunFlareT > 0 ? sunFlareT / 0.6 : 0
+  r *= 1 + 0.1 * flare
   const cx = SW / 2
   const cy = hy + r * 0.55
   const demo = !gameStarted
   const portrait = SW < 600
-  // Pre-rendered halo, pulsing with each step.
-  const hr = r * 2.1
-  ctx.save()
-  ctx.globalAlpha = Math.min(1, (demo ? 0.55 : 0.85) + pulse * 0.35)
-  ctx.drawImage(haloC, cx - hr, cy - hr, hr * 2, hr * 2)
-  ctx.restore()
-  // Disc from the baked gradient, clipped.
+  // Halo: pre-rendered pink blob, no per-frame radial gradient.
+  if (pinkBlob) {
+    const hr = r * 2.1
+    const ha = (demo ? 0.28 : 0.44) + flare * 0.5
+    ctx.globalAlpha = Math.min(1, ha)
+    ctx.drawImage(pinkBlob, cx - hr, cy - hr, hr * 2, hr * 2)
+    ctx.globalAlpha = 1
+  }
+  // Disc, clipped, with horizontal dark cut-lines that scroll a notch per step.
+  // On portrait the horizon sits at ~92 % so the sun top lands at ~88 %;
+  // dim it there so it sits behind the hint text and icons.
   ctx.save()
   ctx.beginPath()
   ctx.arc(cx, cy, r, 0, Math.PI * 2)
   ctx.clip()
-  ctx.globalAlpha = portrait ? 0.32 : demo ? 0.5 : 0.8
-  ctx.drawImage(sunC, cx - r, cy - r, r * 2, r * 2)
+  if (!sunGrad) buildGradCache()
+  const grad = sunGrad || (() => {
+    const f = ctx.createLinearGradient(0, cy - r, 0, cy + r)
+    f.addColorStop(0, '#ffd23f')
+    f.addColorStop(0.55, '#ff6a3d')
+    f.addColorStop(1, '#ff2fa0')
+    return f
+  })()
+  const flareA = sunFlareT > 0 ? (sunFlareT / 0.6) * 0.2 : 0
+  ctx.globalAlpha = Math.min(1, (portrait ? 0.32 : demo ? 0.5 : 0.8) + flareA)
+  ctx.fillStyle = grad
+  ctx.fillRect(cx - r, cy - r, r * 2, r * 2)
   ctx.globalAlpha = 1
-  // Stripes scroll continuously (slowly), faster at the frantic end.
-  const phase = (sunNotch % 4) * 2 + (sunScroll % 11) - 22
+  const phase = (sunNotch % 4) * 2
   let yy = cy - r * 0.25 + phase
   while (yy < cy + r) {
-    const t = clamp((yy - (cy - r * 0.25)) / (2 * r), 0, 1)
-    const barH = 1 + t * 9
+    const barH = 1 + ((yy - (cy - r * 0.25)) / (2 * r)) * 9
     ctx.fillStyle = BG
     ctx.fillRect(cx - r, yy, r * 2, barH)
     yy += barH + 9
@@ -1497,61 +1744,45 @@ function drawMountains() {
   ctx.fill()
   ctx.strokeStyle = 'rgba(255, 47, 160, 0.65)'
   ctx.lineWidth = 1.5
-  ctx.shadowColor = PINK
-  ctx.shadowBlur = isMobile ? 0 : 8
+  // shadowBlur is expensive on mobile — skip it there (ridge still reads).
+  if (!mobileFx) {
+    ctx.shadowColor = PINK
+    ctx.shadowBlur = 8
+  }
   ctx.stroke()
   ctx.shadowBlur = 0
 }
 
 function drawGrid() {
   const hy = horizonY()
-  const brightness = 0.5 + pulse * 0.5
+  // Effect 3a: brightness pulses for ~120 ms per formation step (heartT),
+  // layered over the soft ambient pulse.
+  const heart = heartT > 0 ? heartT / 0.12 : 0
+  const brightness = 0.5 + heart * 0.6 + pulse * 0.15
   ctx.save()
-  // Horizon glow bar (pre-rendered).
-  ctx.globalAlpha = 0.55 + pulse * 0.3
-  ctx.drawImage(horizonC, 0, hy - 8, SW, 16)
-  // Grid lines as short segments; per-segment brightness from the ripple
-  // sum, no shadowBlur (alpha does the glow work). ~36x10 desktop.
   ctx.strokeStyle = PINK
   ctx.lineWidth = 1
-  const HROWS = isMobile ? 8 : 10
-  const HSEGS = isMobile ? 20 : 36
-  for (let i = 0; i < HROWS; i++) {
-    const p = ((i / HROWS) + gridScroll) % 1
-    const yBase = hy + (SH - hy) * p * p
-    for (let sgi = 0; sgi < HSEGS; sgi++) {
-      const um = (sgi + 0.5) / HSEGS
-      const a = (0.10 + 0.45 * p) * brightness + rippleBright(um, p)
-      if (a < 0.025) continue
-      ctx.globalAlpha = a > 1 ? 1 : a
-      const dy = bounceDy(um, p)
-      ctx.beginPath()
-      ctx.moveTo((sgi / HSEGS) * SW, yBase + dy)
-      ctx.lineTo(((sgi + 1) / HSEGS) * SW, yBase + dy)
-      ctx.stroke()
-    }
+  // shadowBlur is expensive on mobile — desktop only.
+  if (!mobileFx) {
+    ctx.shadowColor = PINK
+    ctx.shadowBlur = 6 + heart * 10
   }
-  // Rails converge on the vanishing point, segmented the same way.
-  const RAILS = isMobile ? 11 : 17
-  const RSEGS = isMobile ? 6 : 10
-  const half = (RAILS - 1) / 2
-  for (let k = -half; k <= half; k++) {
-    for (let sgi = 0; sgi < RSEGS; sgi++) {
-      const pm = (sgi + 0.5) / RSEGS
-      const t0 = sgi / RSEGS
-      const t1 = (sgi + 1) / RSEGS
-      const xAt = t => SW / 2 + k * (9 + (SW / 7 - 9) * t)
-      const yAt = t => hy + (SH - hy) * t * t
-      const a = 0.32 * brightness + rippleBright(xAt(pm) / SW, pm)
-      if (a < 0.025) continue
-      ctx.globalAlpha = a > 1 ? 1 : a
-      const dy = bounceDy(xAt(pm) / SW, pm)
-      ctx.beginPath()
-      ctx.moveTo(xAt(t0), yAt(t0) + dy)
-      ctx.lineTo(xAt(t1), yAt(t1) + dy)
-      ctx.stroke()
-    }
+  // Horizontal lines scroll toward the viewer (halved count for perf).
+  const rows = mobileFx ? 4 : 5
+  for (let i = 0; i < rows; i++) {
+    const p = ((i / rows) + gridScroll) % 1
+    const y = hy + (SH - hy) * p * p
+    ctx.globalAlpha = (0.12 + 0.5 * p) * brightness
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(SW, y)
+    ctx.stroke()
   }
+  // Rails converge on the vanishing point: one cached path, one stroke.
+  if (!gridRailsPath) buildGridCache()
+  ctx.globalAlpha = 0.35 * brightness
+  ctx.beginPath()
+  ctx.stroke(gridRailsPath)
   // Horizon line, brightest.
   ctx.globalAlpha = 0.8
   ctx.lineWidth = 2
@@ -1561,150 +1792,151 @@ function drawGrid() {
   ctx.stroke()
   ctx.restore()
   ctx.globalAlpha = 1
-}
-
-function drawFog() {
-  const hy = horizonY()
-  const w = Math.max(256, Math.round(SW))
-  // Two very dim bands above the horizon, drifting at different speeds.
-  ctx.save()
-  ctx.globalAlpha = isMobile ? 0.5 : 0.8
-  const x = -(fogAX % w)
-  ctx.drawImage(fogAC, Math.round(x), Math.round(hy - 78), w, 64)
-  ctx.drawImage(fogAC, Math.round(x + w), Math.round(hy - 78), w, 64)
-  if (!isMobile) {
-    ctx.globalAlpha = 0.6
-    const x2 = -(fogBX % w)
-    ctx.drawImage(fogBC, Math.round(x2), Math.round(hy - 52), w, 48)
-    ctx.drawImage(fogBC, Math.round(x2 + w), Math.round(hy - 52), w, 48)
-  }
-  ctx.restore()
-  ctx.globalAlpha = 1
-}
-
-function drawFlare() {
-  // Wave-clear lens-flare-ish streak sweeping across the horizon.
-  if (flareT < 0) return
-  const hy = horizonY()
-  const k = flareT / 1.2
-  const w = SW * 0.6
-  ctx.save()
-  ctx.globalAlpha = 0.5 * (1 - k)
-  ctx.drawImage(streakC, Math.round(-w + k * (SW + w)), Math.round(hy - 5), Math.round(w), 8)
-  ctx.restore()
-  ctx.globalAlpha = 1
-}
-
-function drawReflections() {
-  // The floor is a dark glossy plane: flipped, squashed, low-alpha copies
-  // of the baked glow sprites.
-  const hy = horizonY()
-  const base = !gameStarted ? 0.6 : 1
-  ctx.save()
-  if (glowCannon && dying <= 0 && !gameOver) {
-    const iw = glowCannon.c.width
-    const ih = glowCannon.c.height
-    const DH = Math.max(2, ih * 0.32)
-    ctx.globalAlpha = base * 0.16
-    ctx.drawImage(glowCannon.c, Math.round(cannonX - iw / 2), Math.round(cannonY + 10 + DH), iw, -DH)
-  }
-  for (let i = 0; i < bunkers.length; i++) {
-    const b = bunkers[i]
-    ctx.globalAlpha = base * 0.20
-    ctx.drawImage(bunkerGlowC, Math.round(b.x - 10), Math.round(b.y + b.h + 4), Math.round(b.w + 20), 16)
-  }
-  if (shot) {
-    ctx.globalAlpha = base * 0.12
-    ctx.drawImage(glowShot.c, Math.round(shot.x - 4), Math.round(hy + 6 + 34), 8, -34)
-  }
-  ctx.restore()
-  ctx.globalAlpha = 1
+  ctx.shadowBlur = 0
 }
 
 function drawBunkers() {
-  // Baked per-bunker glow sprites; re-rendered once on erosion, then blitted.
-  const demo = !gameStarted
-  ctx.save()
+  // Effect 4: scanline re-materialize, bottom to top, after a wave clear.
+  const revealP = bunkerRevealT > 0 ? 1 - bunkerRevealT / BUNKER_REVEAL_DUR : 1
+  const revealing = bunkerRevealT > 0
   for (let i = 0; i < bunkers.length; i++) {
     const b = bunkers[i]
-    let bc = bunkerCache[i]
-    if (!bc || bc.w !== b.w || bc.h !== b.h || b.dirty) {
-      bc = bakeBunker(b)
-      bunkerCache[i] = bc
-      b.dirty = false
+    // Whole-bunker 1 px electric jitter (Effect 6): one pass over the jolts,
+    // applied as a blit offset — no per-cell scan.
+    let jx = 0
+    let jy = 0
+    let jflick = 1
+    for (let j = 0; j < bunkerJolts.length; j++) {
+      const jl = bunkerJolts[j]
+      if (jl.bi !== i) continue
+      const jr = (jl.t / 0.2)
+      jx = Math.round(rand(-1, 1))
+      jy = Math.round(rand(-1, 1))
+      jflick = 0.6 + 0.4 * jr
     }
-    ctx.globalAlpha = demo ? 0.6 : 1
-    ctx.drawImage(bc.c, Math.round(b.x - bc.ox), Math.round(b.y - bc.oy))
+    if (revealing) {
+      // Rare 0.8 s reveal: per-cell path with the frontier scanline.
+      const revealRow = Math.floor(b.gh * (1 - revealP))
+      for (let gy = revealRow; gy < b.gh; gy++) {
+        const isfrontier = gy === revealRow
+        for (let gx = 0; gx < b.gw; gx++) {
+          if (!b.grid[gy * b.gw + gx]) continue
+          ctx.fillStyle = CYAN
+          if (jflick !== 1) ctx.globalAlpha *= jflick
+          ctx.fillRect(b.x + gx * b.cell + jx, b.y + gy * b.cell + jy, b.cell, b.cell)
+          if (jflick !== 1) ctx.globalAlpha /= jflick
+          if (isfrontier) {
+            ctx.fillStyle = 'rgba(255,255,255,0.5)'
+            ctx.fillRect(b.x + gx * b.cell, b.y + gy * b.cell, b.cell, 1)
+          }
+        }
+      }
+      continue
+    }
+    if (!b.cache || b.dirty || (bunkerCellSprite && b.cachePad !== bunkerCellSprite.pad)) {
+      renderBunkerCache(b)
+    }
+    const pad = b.cachePad || 0
+    if (jflick !== 1) ctx.globalAlpha *= jflick
+    ctx.drawImage(b.cache, Math.round(b.x - pad + jx), Math.round(b.y - pad + jy))
+    if (jflick !== 1) ctx.globalAlpha /= jflick
   }
-  ctx.restore()
+  ctx.shadowBlur = 0
   ctx.globalAlpha = 1
 }
 
-function drawFormation() {
-  const demo = !gameStarted
-  const base = demo ? 0.6 : 1
-  const fr = frantic()
-  // Chromatic aberration follows the heartbeat, max ~3 px.
-  const ab = Math.min(3, (1 + fr * 2) * (0.6 + pulse * 0.9))
-  ctx.save()
+function drawFormation(now) {
+  // Effect 3d: chromatic aberration widens as the step interval shortens
+  // (max ~3 px) so the last invaders visibly vibrate.
+  const frac = totalCount > 0 ? aliveCount / totalCount : 0
+  const baseAb = 0.5 + (1 - frac) * 2.0
+  const vib = (1 - frac) * Math.sin((now || 0) * 40) * 0.5
+  const ab = Math.min(3, Math.max(0, baseAb + pulse * 0.8 + vib))
+  // Shared sprite opts: one object per frame, no dead glow/blur fields.
+  const SPR_O = { ab }
+  // Effect 4: new formation fades in row by row from the top.
+  const revealP = formRevealT > 0 ? 1 - formRevealT / FORM_REVEAL_DUR : 1
   for (let r = 0; r < ROWS; r++) {
+    let rowA = 1
+    if (formRevealT > 0) {
+      rowA = clamp(revealP * ROWS - r, 0, 1)
+      if (rowA <= 0) continue
+    }
     const rows = speciesRows(r, marchFrame)
-    const baked = glowInv[invKey(r, marchFrame)]
-    // Slow row-wise breathing wave; the leading row flashes 20 % brighter.
-    let a = base * (0.72 + 0.28 * Math.sin(breathT * 1.4 - r * 0.7))
-    if (r === flashRow && flashRowT > 0) a *= 1.2
     for (let c = 0; c < cols; c++) {
       if (!alive[r][c]) continue
-      const rc = invaderRect(r, c)
-      if (ab >= 0.75) {
-        ctx.globalAlpha = a * 0.30
-        ctx.fillStyle = '#ff2244'
-        plotRows(rows, rc.x - ab, rc.y, px)
-        ctx.fillStyle = CYAN
-        plotRows(rows, rc.x + ab, rc.y, px)
+      invaderRectInto(r, c, _rc)
+      if (rowA < 1) {
+        const keepA = ctx.globalAlpha
+        ctx.globalAlpha = keepA * rowA
+        drawSprite(rows, _rc.x, _rc.y, px, PINK, SPR_O)
+        ctx.globalAlpha = keepA
+      } else {
+        drawSprite(rows, _rc.x, _rc.y, px, PINK, SPR_O)
       }
-      ctx.globalAlpha = a > 1 ? 1 : a
-      drawBaked(baked, rc.x, rc.y)
       // White-hot core eye.
       ctx.fillStyle = '#ffffff'
-      const ex = rc.x + rc.w / 2
-      const ey = rc.y + rc.h * 0.38
+      const ex = _rc.x + _rc.w / 2
+      const ey = _rc.y + _rc.h * 0.38
       ctx.fillRect(ex - px / 2, ey - px / 2, px, px)
     }
   }
-  // 2-frame white kill flashes from the white sprite cache.
+  // 2-frame white kill flashes (cached white glow, no shadowBlur).
+  const baseFl = gameStarted ? 1 : 0.6
   for (let i = 0; i < flashes.length; i++) {
     const f = flashes[i]
-    ctx.globalAlpha = base * Math.min(1, f.t / 0.06)
-    const wb = glowWhite[f.key]
-    if (wb) drawBaked(wb, f.x, f.y)
+    ctx.globalAlpha = baseFl * Math.min(1, f.t / 0.06)
+    drawSprite(f.rows, f.x, f.y, f.px, '#ffffff', {})
+    ctx.globalAlpha = 1
   }
-  ctx.restore()
-  ctx.globalAlpha = 1
 }
 
 function drawUFO() {
   if (!ufo) return
-  const base = !gameStarted ? 0.6 : 1
-  ctx.save()
-  // Moving gold glow on the sky band + a faint pool on the horizon.
-  const gs = Math.max(48, px * 22)
-  ctx.globalAlpha = base * 0.5
-  ctx.drawImage(glowSkyGold, Math.round(ufo.x - gs / 2), Math.round(ufo.y - gs * 0.28), Math.round(gs), Math.round(gs * 0.6))
-  ctx.globalAlpha = base * 0.16
-  const hw = SW * 0.2
-  ctx.drawImage(glowSkyGold, Math.round(ufo.x - hw / 2), Math.round(horizonY() - 26), Math.round(hw), 30)
+  const uh = UFO_SPRITE.length * px
+  // Effect 7: soft gold glow on the sky under its path (pre-rendered blob).
+  if (goldBlob) {
+    const gw = px * 30
+    const demoA = gameStarted ? 0.35 : 0.18
+    ctx.globalAlpha = demoA
+    ctx.drawImage(goldBlob, ufo.x - gw / 2, ufo.y - uh * 0.4, gw, uh * 2.2)
+    ctx.globalAlpha = 1
+  }
+  // Effect 7: light streak behind it (fading horizontal band, no gradient).
+  {
+    const keepA = ctx.globalAlpha
+    for (let i = 0; i < ufoTrail.length; i++) {
+      const t = ufoTrail[i]
+      const a = (t.t / 0.4) * 0.28
+      if (a <= 0.004) continue
+      ctx.globalAlpha = keepA * a
+      ctx.fillStyle = GOLD
+      const len = 10 + (1 - t.t / 0.4) * 26
+      ctx.fillRect(t.x - len / 2, t.y + uh * 0.35, len, 2)
+    }
+    ctx.globalAlpha = keepA
+  }
   const w = UFO_SPRITE[0].length * px
-  ctx.globalAlpha = base
-  drawBaked(glowUFO, ufo.x - w / 2, ufo.y)
-  ctx.restore()
-  ctx.globalAlpha = 1
+  drawSprite(UFO_SPRITE, ufo.x - w / 2, ufo.y, px, GOLD, UFO_SPR_O)
 }
 
 function drawBomb(b) {
+  // Effect 5: faint magenta smear under each bomb (2-3 fading rects).
+  if (b.trail) {
+    for (let i = 0; i < b.trail.length; i++) {
+      const t = b.trail[i]
+      const a = ((i + 1) / b.trail.length) * 0.22
+      ctx.globalAlpha = a
+      ctx.fillStyle = PINK
+      ctx.fillRect(t.x - 2, t.y - 4, 4, 8)
+    }
+    ctx.globalAlpha = 1
+  }
   ctx.save()
-  ctx.shadowColor = '#ffffff'
-  ctx.shadowBlur = isMobile ? 0 : 10
+  if (!mobileFx) {
+    ctx.shadowColor = '#ffffff'
+    ctx.shadowBlur = 10
+  }
   ctx.fillStyle = '#ffffff'
   const s = Math.max(2, Math.round(px * 0.8))
   if (b.style === 'zigzag') {
@@ -1729,28 +1961,14 @@ function drawBomb(b) {
 function drawCannon(now) {
   const w = CANNON[0].length * px
   const h = CANNON.length * px
-  const demo = !gameStarted
-  ctx.save()
-  // Afterimage trail with a cyan->white gradient feel: baked cyan ghost
-  // plus a hot white core on the middle rows.
+  // Afterimage trail when moving fast.
+  const baseAft = gameStarted ? 1 : 0.6
   for (let i = 0; i < cannonTrail.length; i++) {
     const t = cannonTrail[i]
-    const k = t.t / 0.25
-    ctx.globalAlpha = (demo ? 0.6 : 1) * 0.14 * k
-    drawBaked(glowCannon, t.x - w / 2, cannonY - h / 2)
-    ctx.globalAlpha = (demo ? 0.6 : 1) * 0.10 * k
-    ctx.fillStyle = '#ffffff'
-    const my0 = Math.floor(CANNON.length * 0.3)
-    const my1 = Math.ceil(CANNON.length * 0.7)
-    for (let r = my0; r < my1; r++) {
-      const line = CANNON[r]
-      for (let q = 0; q < line.length; q++) {
-        if (line[q] === 'X') ctx.fillRect(t.x - w / 2 + q * px, cannonY - h / 2 + r * px, px, px)
-      }
-    }
+    ctx.globalAlpha = baseAft * 0.14 * (t.t / 0.25)
+    plotSpriteRaw(CANNON, t.x - w / 2, cannonY - h / 2, px)
   }
-  ctx.restore()
-  ctx.globalAlpha = 1
+  ctx.globalAlpha = baseAft
   if (dying > 0) {
     // Cannon explosion: scattering cyan/white blocks.
     const keepAlpha = ctx.globalAlpha
@@ -1767,34 +1985,33 @@ function drawCannon(now) {
   }
   const blink = now < invulnUntil && Math.floor(now * 12) % 2 === 0
   if (blink || gameOver) return
-  // Engine glow under the cannon, flaring with speed.
-  const spd = Math.min(1, Math.abs(cannonVX) / 600)
-  const es = px * (5 + spd * 7)
-  ctx.save()
-  ctx.globalAlpha = (demo ? 0.6 : 1) * (0.16 + spd * 0.45)
-  ctx.drawImage(glowEngine, Math.round(cannonX - es / 2), Math.round(cannonY + h / 2 - es * 0.45), Math.round(es), Math.round(es * 0.6))
-  ctx.restore()
-  ctx.save()
-  ctx.globalAlpha = demo ? 0.6 : 1
-  drawBaked(glowCannon, cannonX - w / 2, cannonY - h / 2)
-  ctx.restore()
-  ctx.globalAlpha = 1
+  drawSprite(CANNON, cannonX - w / 2, cannonY - h / 2, px, CYAN, CANNON_SPR_O)
   // Combo tag near the cannon.
   if (mult > 1 && gameStarted) {
     ctx.save()
-    ctx.font = `bold ${Math.max(11, px * 3)}px "Courier New", monospace`
+    if (comboFontPx !== px) {
+      comboFont = `bold ${Math.max(11, px * 3)}px "Courier New", monospace`
+      comboFontPx = px
+    }
+    ctx.font = comboFont
     ctx.textAlign = 'center'
     ctx.fillStyle = mult >= 4 ? GOLD : CYAN
-    ctx.shadowColor = mult >= 4 ? GOLD : CYAN
-    ctx.shadowBlur = isMobile ? 0 : 12
+    if (!mobileFx) {
+      ctx.shadowColor = mult >= 4 ? GOLD : CYAN
+      ctx.shadowBlur = 12
+    }
     ctx.fillText(`x${mult} COMBO`, cannonX, cannonY - h / 2 - 12)
     ctx.restore()
   }
 }
 
+function plotSpriteRaw(rows, ox, oy, s) {
+  ctx.fillStyle = CYAN
+  plotRows(rows, ox, oy, s)
+}
+
 function draw() {
   if (!ctx) return
-  ensureStatic()
   const now = performance.now() / 1000
   const demo = !gameStarted
 
@@ -1807,6 +2024,10 @@ function draw() {
     const m = shake * 7
     ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m)
   }
+  // Effect 3c: subtle horizontal bass jolt (1-2 px) on the play layer.
+  if (bassJolt > 0.01) {
+    ctx.translate(bassDir * bassJolt * 2, 0)
+  }
 
   drawBackground(now)
 
@@ -1814,14 +2035,29 @@ function draw() {
   ctx.globalAlpha = demo ? 0.6 : 1
 
   drawBunkers()
-  drawFormation()
+  drawFormation(now)
   drawUFO()
 
-  // Player shot: baked cyan bolt with a white-hot core.
+  // Effect 5: player-shot cyan trail (afterimages, decreasing alpha).
+  for (let i = 0; i < shotTrail.length; i++) {
+    const t = shotTrail[i]
+    const a = Math.max(0, t.t / 0.18) * 0.4
+    ctx.globalAlpha = (demo ? 0.6 : 1) * a
+    ctx.fillStyle = CYAN
+    const w = 4 - (shotTrail.length - 1 - i) * 0.5
+    ctx.fillRect(t.x - w / 2, t.y - 12, w, 12)
+  }
+  ctx.globalAlpha = demo ? 0.6 : 1
+  // Player shot: white-hot core with a cyan glow.
   if (shot) {
     ctx.save()
-    ctx.globalAlpha = demo ? 0.6 : 1
-    drawBaked(glowShot, shot.x - 2, shot.y - 12)
+    if (!mobileFx) {
+      ctx.shadowColor = CYAN
+      ctx.shadowBlur = 12
+    }
+    ctx.fillStyle = CYAN
+    ctx.fillRect(shot.x - 2, shot.y - 12, 4, 12)
+    ctx.shadowBlur = 0
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(shot.x - 1, shot.y - 10, 2, 8)
     ctx.restore()
@@ -1829,15 +2065,6 @@ function draw() {
   for (let i = 0; i < bombs.length; i++) drawBomb(bombs[i])
 
   drawCannon(now)
-  drawReflections()
-
-  // Attract mode only: a faint scanline sweep travelling top->bottom.
-  if (!gameStarted && sweepT > 4.8) {
-    const k = (sweepT - 4.8) / 1.2
-    ctx.save()
-    ctx.drawImage(sweepC, 0, Math.round(k * (SH + 140) - 70 - 45), Math.round(SW), 90)
-    ctx.restore()
-  }
 
   // Shockwaves (rtype style rings).
   for (let i = 0; i < shockwaves.length; i++) {
@@ -1845,8 +2072,10 @@ function draw() {
     ctx.globalAlpha = (demo ? 0.6 : 1) * sw.life * 0.8
     ctx.strokeStyle = sw.color
     ctx.lineWidth = 2 + sw.life * 5
-    ctx.shadowColor = sw.color
-    ctx.shadowBlur = isMobile ? 0 : 16 * sw.life
+    if (!mobileFx) {
+      ctx.shadowColor = sw.color
+      ctx.shadowBlur = 16 * sw.life
+    }
     ctx.beginPath()
     ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2)
     ctx.stroke()
@@ -1863,21 +2092,47 @@ function draw() {
   }
   ctx.globalAlpha = 1
 
-  // Score popups (UFO value, extra life).
+  // Score popups (UFO value, extra life) rise with a small scale pop.
   ctx.save()
-  ctx.font = `bold ${Math.max(12, px * 3)}px "Courier New", monospace`
   ctx.textAlign = 'center'
+  // Score popups: 3 discrete pop sizes (no per-popup font rebuild).
+  const popBase = Math.max(12, px * 3)
+  const popFonts = [
+    `bold ${Math.round(popBase)}px "Courier New", monospace`,
+    `bold ${Math.round(popBase * 1.17)}px "Courier New", monospace`,
+    `bold ${Math.round(popBase * 1.35)}px "Courier New", monospace`,
+  ]
   for (let i = 0; i < ufoPopups.length; i++) {
     const p = ufoPopups[i]
     ctx.globalAlpha = Math.max(0, 1 - p.t / 1.4)
     ctx.fillStyle = p.color
-    ctx.shadowColor = p.color
-    ctx.shadowBlur = isMobile ? 0 : 12
+    if (!mobileFx) {
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 12
+    }
+    // Scale pop: ~1.35x at birth, easing to 1x over ~0.25 s (quantized).
+    const pop = 1 + 0.35 * Math.max(0, 1 - p.t / 0.25)
+    ctx.font = pop > 1.26 ? popFonts[2] : pop > 1.09 ? popFonts[1] : popFonts[0]
     ctx.fillText(p.text, p.x, p.y - p.t * 34)
   }
   ctx.restore()
   ctx.globalAlpha = 1
   ctx.shadowBlur = 0
+
+  // Effect 2: white flash frame + brief red vignette pulse (no gradients).
+  if (whiteFlash > 0.01) {
+    ctx.fillStyle = `rgba(255, 255, 255, ${(whiteFlash * 0.55).toFixed(3)})`
+    ctx.fillRect(0, 0, SW, SH)
+  }
+  if (redPulse > 0.01) {
+    const a = redPulse * 0.22
+    ctx.fillStyle = `rgba(255, 32, 64, ${a.toFixed(3)})`
+    const edge = Math.max(18, Math.round(SW * 0.03))
+    ctx.fillRect(0, 0, SW, edge)
+    ctx.fillRect(0, SH - edge, SW, edge)
+    ctx.fillRect(0, 0, edge, SH)
+    ctx.fillRect(SW - edge, 0, edge, SH)
+  }
 
   ctx.restore()
 }
@@ -1908,8 +2163,9 @@ function handleKeyDown(e) {
   if (isInteractiveElement(e.target)) return
   keys[e.code] = true
   if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+    if (!gameStarted || gameOver) return
     e.preventDefault()
-    if (!e.repeat && gameStarted && !gameOver) fire()
+    if (!e.repeat) fire()
   }
   if (!gameStarted || gameOver) {
     if (e.code === 'Enter' && !e.repeat) startGame()
@@ -1935,6 +2191,12 @@ function handleResize() {
   fy = Math.max(0, Math.min(fy, bunkerTop() - formH - cellH))
   cannonX = clamp(cannonX, 24, SW - 24)
   if (ufo) ufo.y = Math.max(26, SH * 0.055)
+}
+
+let resizeT = null
+function debouncedResize() {
+  if (resizeT) clearTimeout(resizeT)
+  resizeT = setTimeout(() => { resizeT = null; handleResize() }, 150)
 }
 
 function handleTouchStart(e) {
@@ -1985,7 +2247,7 @@ onMounted(() => {
 
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', handleKeyUp)
-  window.addEventListener('resize', handleResize)
+  window.addEventListener('resize', debouncedResize)
   window.addEventListener('touchstart', handleTouchStart, { passive: true })
   window.addEventListener('touchmove', handleTouchMove, { passive: false })
   window.addEventListener('touchend', handleTouchEnd)
@@ -1996,7 +2258,7 @@ onBeforeUnmount(() => {
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)
-  window.removeEventListener('resize', handleResize)
+  window.removeEventListener('resize', debouncedResize)
   window.removeEventListener('touchstart', handleTouchStart)
   window.removeEventListener('touchmove', handleTouchMove)
   window.removeEventListener('touchend', handleTouchEnd)
@@ -2005,7 +2267,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /* Full-viewport playfield behind the landing overlay. */
-.invaders-e-canvas {
+.invaders-canvas {
   position: absolute;
   top: 0;
   left: 0;
