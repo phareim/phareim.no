@@ -46,7 +46,7 @@ const COL_GOLD = 0xffd23f
 // ---- world tuning ----------------------------------------------------
 const SPAWN_Z = -230
 const KILL_Z = 18
-const LANE_X = 8.5
+let laneX = 8.5
 const LANE_Y_LO = -1.5
 const LANE_Y_HI = 6.0
 const FIRE_INTERVAL = 1 / 6
@@ -55,7 +55,7 @@ const MULT_STEPS = [1, 2, 3, 4, 6, 8]
 const MAX_PARTICLES = 420
 const MAX_LASERS = 30
 const MAX_BOLTS = 24
-const MAX_ENEMIES = 9
+const MAX_ENEMIES = 20
 const MAX_PILLARS = 16
 const MAX_ROCKS = 10
 const MAX_RINGS = 6
@@ -94,6 +94,12 @@ let enemySpawnT = 1.5
 let obstacleSpawnT = 1.0
 let ringSpawnT = 3.0
 
+// per-frame difficulty cache (computed once in update(), read in updateSpawns)
+let diffSpeed = 42
+let diffEnemy = 2.1
+let diffObstacle = 1.5
+const LASER_OFFS = [-3.1, 3.1]
+
 const keys = new Set<string>()
 
 // ---- ship state -------------------------------------------------------
@@ -115,6 +121,8 @@ let lastRightTap = 0
 let gridMat: THREE.ShaderMaterial
 let skyMat: THREE.ShaderMaterial
 let sunMat: THREE.ShaderMaterial
+let sunMesh: THREE.Mesh
+let sunHalo: THREE.Sprite
 let glowTex: THREE.CanvasTexture
 let stars: THREE.Points
 let mountainMesh: THREE.InstancedMesh
@@ -180,6 +188,7 @@ function rand(lo: number, hi: number): number {
 }
 
 function addScore(n: number) {
+  if (!gameStarted || gameOver) return
   score += n
   if (score !== lastScoreSent) {
     lastScoreSent = score
@@ -302,6 +311,7 @@ function buildSun() {
   sun.position.set(0, 14, -460)
   sun.renderOrder = -2
   scene.add(sun)
+  sunMesh = sun
 
   // soft halo behind the sun (additive sprite, procedural texture)
   glowTex = makeGlowTexture()
@@ -319,6 +329,22 @@ function buildSun() {
   halo.scale.set(260, 260, 1)
   halo.renderOrder = -3
   scene.add(halo)
+  sunHalo = halo
+}
+
+function placeSun() {
+  if (portrait) {
+    sunMesh.position.set(0, 260, -460)
+    sunMesh.scale.setScalar(0.5)
+    sunHalo.position.set(0, 260, -465)
+    sunHalo.scale.set(130, 130, 1)
+  } else {
+    sunMesh.position.set(300, 30, -460)
+    sunMesh.scale.setScalar(1)
+    sunHalo.position.set(300, 30, -465)
+    sunHalo.scale.set(260, 260, 1)
+  }
+  sunMesh.lookAt(0, camera.position.y, camera.position.z)
 }
 
 function buildGrid() {
@@ -345,7 +371,7 @@ function buildGrid() {
       uniform float uOffset; uniform float uPulse;
       uniform vec3 magenta; uniform vec3 cyan;
       void main() {
-        vec2 gp = vec2(vWorld.x, vWorld.z + uOffset);
+        vec2 gp = vec2(vWorld.x, vWorld.z - uOffset);
         vec2 q = abs(fract(gp / 4.0) - 0.5) * 4.0;
         float line = 1.0 - smoothstep(0.0, 0.14, min(q.x, q.y));
         float centre = 1.0 - smoothstep(0.0, 0.6, abs(vWorld.x));
@@ -399,7 +425,7 @@ function buildMountains() {
       x: side * rand(26, 110),
       w: rand(14, 34),
       h: rand(10, 42),
-      z: rand(-380, 20),
+      z: rand(-410, -90),
     })
   }
   scene.add(mountainMesh)
@@ -445,10 +471,11 @@ function buildShip() {
   shipBank.add(shipMeshes[shipMeshes.length - 1])
 
   // cockpit hump
-  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), glowCyan)
+  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), chrome)
   cockpit.position.set(0, 0.42, 0.4)
   cockpit.scale.set(1, 0.7, 1.6)
   shipBank.add(cockpit)
+  shipBank.add(edgeLines(cockpit, COL_CYAN, 0.9))
 
   // main wings, swept
   const wingGeo = new THREE.BoxGeometry(3.4, 0.12, 1.1)
@@ -456,7 +483,7 @@ function buildShip() {
     const wing = new THREE.Mesh(wingGeo, dark)
     wing.position.set(s * 1.7, -0.05, 0.7)
     wing.rotation.y = s * -0.35
-    wing.rotation.z = s * 0.12
+    wing.rotation.z = s * -0.12
     shipBank.add(wing)
     const el = edgeLines(wing, COL_CYAN, 0.75)
     shipBank.add(el)
@@ -485,13 +512,13 @@ function buildShip() {
     map: glowTex,
     color: COL_CYAN,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.6,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   })
   engineGlow = new THREE.Sprite(engMat)
-  engineGlow.position.set(0, 0.05, 2.0)
-  engineGlow.scale.set(1.6, 1.6, 1)
+  engineGlow.position.set(0, -0.05, 1.7)
+  engineGlow.scale.set(0.7, 0.7, 1)
   shipBank.add(engineGlow)
 
   shipRoot.position.set(0, 0.5, 0)
@@ -515,21 +542,21 @@ function buildLasers() {
 }
 
 function fireLaser() {
-  for (const s of [-0.95, 0.95]) {
+  for (const s of LASER_OFFS) {
     const st = laserState[laserCursor]
     laserCursor = (laserCursor + 1) % MAX_LASERS
     st.active = true
     st.x = shipX + s
     st.y = shipY + 0.05
-    st.z = -1.5
+    st.z = -1.2
   }
 }
 
 function buildBolts() {
   const geo = new THREE.SphereGeometry(0.24, 8, 6)
+  const boltMat = new THREE.MeshBasicMaterial({ color: COL_PINK })
   for (let i = 0; i < MAX_BOLTS; i++) {
-    const mat = new THREE.MeshBasicMaterial({ color: COL_PINK })
-    const mesh = new THREE.Mesh(geo, mat)
+    const mesh = new THREE.Mesh(geo, boltMat)
     mesh.visible = false
     scene.add(mesh)
     bolts.push({ mesh, active: false, vx: 0, vy: 0, vz: 0 })
@@ -537,7 +564,8 @@ function buildBolts() {
 }
 
 function fireBolt(fromX: number, fromY: number, fromZ: number) {
-  const b = bolts.find(x => !x.active)
+  let b: Bolt | null = null
+  for (const x of bolts) { if (!x.active) { b = x; break } }
   if (!b) return
   tmpV.set(shipX - fromX, shipY - fromY, 0 - fromZ).normalize()
   const speed = worldSpeed + 26
@@ -552,24 +580,31 @@ function fireBolt(fromX: number, fromY: number, fromZ: number) {
 function buildEnemies() {
   const bodyGeo = new THREE.OctahedronGeometry(0.95)
   const wingGeo = new THREE.BoxGeometry(2.6, 0.14, 0.7)
+  const goldBodyMat = new THREE.MeshStandardMaterial({
+    color: 0x8a6a1a,
+    emissive: COL_GOLD,
+    emissiveIntensity: 0.35,
+    metalness: 0.5,
+    roughness: 0.4,
+    flatShading: true,
+  })
+  const pinkBodyMat = new THREE.MeshStandardMaterial({
+    color: 0x8a1a5a,
+    emissive: COL_PINK,
+    emissiveIntensity: 0.35,
+    metalness: 0.5,
+    roughness: 0.4,
+    flatShading: true,
+  })
+  const goldWingMat = new THREE.MeshBasicMaterial({ color: COL_GOLD })
+  const pinkWingMat = new THREE.MeshBasicMaterial({ color: COL_PINK })
   for (let i = 0; i < MAX_ENEMIES; i++) {
     const root = new THREE.Group()
     const gold = i % 3 !== 2
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: gold ? 0x8a6a1a : 0x8a1a5a,
-      emissive: gold ? COL_GOLD : COL_PINK,
-      emissiveIntensity: 0.35,
-      metalness: 0.5,
-      roughness: 0.4,
-      flatShading: true,
-    })
-    const body = new THREE.Mesh(bodyGeo, bodyMat)
+    const body = new THREE.Mesh(bodyGeo, gold ? goldBodyMat : pinkBodyMat)
     body.rotation.y = Math.PI / 4
     root.add(body)
-    const wing = new THREE.Mesh(
-      wingGeo,
-      new THREE.MeshBasicMaterial({ color: gold ? COL_GOLD : COL_PINK }),
-    )
+    const wing = new THREE.Mesh(wingGeo, gold ? goldWingMat : pinkWingMat)
     root.add(wing)
     root.visible = false
     scene.add(root)
@@ -578,10 +613,11 @@ function buildEnemies() {
 }
 
 function spawnEnemy(x: number, y: number, z: number, shoots: boolean) {
-  const e = enemies.find(v => !v.active)
+  let e: Enemy | null = null
+  for (const v of enemies) { if (!v.active) { e = v; break } }
   if (!e) return
   e.active = true
-  e.x = clamp(x, -LANE_X, LANE_X)
+  e.x = clamp(x, -laneX, laneX)
   e.y = clamp(y, LANE_Y_LO, LANE_Y_HI)
   e.z = z
   e.vx = rand(-3, 3)
@@ -592,7 +628,7 @@ function spawnEnemy(x: number, y: number, z: number, shoots: boolean) {
 }
 
 function spawnFormation() {
-  const cx = rand(-6, 6)
+  const cx = rand(-(laneX - 2.5), laneX - 2.5)
   const cy = rand(-0.5, 5)
   const n = 2 + Math.floor(Math.random() * 2)
   for (let i = 0; i < n; i++) {
@@ -639,10 +675,11 @@ function buildPillars() {
 }
 
 function spawnPillar() {
-  const p = pillars.find(v => !v.active)
+  let p: Pillar | null = null
+  for (const v of pillars) { if (!v.active) { p = v; break } }
   if (!p) return
   p.active = true
-  p.x = rand(-LANE_X, LANE_X)
+  p.x = rand(-laneX, laneX)
   p.w = rand(2.2, 4.2)
   const h = rand(5, 15)
   p.top = -5 + h
@@ -674,10 +711,11 @@ function buildRocks() {
 }
 
 function spawnRock() {
-  const r = rocks.find(v => !v.active)
+  let r: Rock | null = null
+  for (const v of rocks) { if (!v.active) { r = v; break } }
   if (!r) return
   r.active = true
-  r.x = rand(-LANE_X, LANE_X)
+  r.x = rand(-laneX, laneX)
   r.y = rand(LANE_Y_LO, LANE_Y_HI)
   r.r = rand(1.0, 2.2)
   r.z = SPAWN_Z - rand(0, 40)
@@ -707,12 +745,13 @@ function buildRings() {
   }
 }
 
-function spawnRing() {
-  const r = rings.find(v => !v.active)
+function spawnRing(demo = false) {
+  let r: Ring | null = null
+  for (const v of rings) { if (!v.active) { r = v; break } }
   if (!r) return
   r.active = true
-  r.x = rand(-6.5, 6.5)
-  r.y = rand(-0.5, 5)
+  r.x = rand(-(laneX - 2), laneX - 2)
+  r.y = demo ? rand(-2.6, -2.0) : rand(-0.5, 5)
   r.z = SPAWN_Z - rand(0, 30)
   r.flash = 0
   r.root.visible = true
@@ -770,6 +809,7 @@ function burst(x: number, y: number, z: number, color: number, count: number, sp
     pCol[i * 3 + 1] = tmpC.g
     pCol[i * 3 + 2] = tmpC.b
   }
+  pGeo.attributes.color.needsUpdate = true
 }
 
 function buildWaves() {
@@ -791,7 +831,8 @@ function buildWaves() {
 }
 
 function spawnWave(x: number, y: number, z: number) {
-  const w = waves.find(v => !v.active)
+  let w: Wave | null = null
+  for (const v of waves) { if (!v.active) { w = v; break } }
   if (!w) return
   w.active = true
   w.t = 0
@@ -830,11 +871,35 @@ function onShipHit(now: number) {
 }
 
 function resetWorld() {
-  for (const st of laserState) { st.active = false; st.y = -999 }
+  for (let i = 0; i < MAX_LASERS; i++) {
+    const st = laserState[i]!
+    st.active = false
+    st.y = -999
+    laserDummy.position.set(0, -999, 0)
+    laserDummy.updateMatrix()
+    laserMesh.setMatrixAt(i, laserDummy.matrix)
+  }
+  laserMesh.instanceMatrix.needsUpdate = true
   for (const b of bolts) { b.active = false; b.mesh.visible = false }
   for (const e of enemies) { e.active = false; e.root.visible = false }
-  for (const p of pillars) p.active = false
-  for (const r of rocks) r.active = false
+  for (const p of pillars) {
+    p.active = false
+    dummy.position.set(0, -999, 0)
+    dummy.scale.set(1, 1, 1)
+    dummy.rotation.set(0, 0, 0)
+    dummy.updateMatrix()
+    pillarMesh.setMatrixAt(p.i, dummy.matrix)
+  }
+  pillarMesh.instanceMatrix.needsUpdate = true
+  for (const r of rocks) {
+    r.active = false
+    dummy.position.set(0, -999, 0)
+    dummy.scale.set(1, 1, 1)
+    dummy.rotation.set(0, 0, 0)
+    dummy.updateMatrix()
+    rockMesh.setMatrixAt(r.i, dummy.matrix)
+  }
+  rockMesh.instanceMatrix.needsUpdate = true
   for (const r of rings) { r.active = false; r.root.visible = false; r.flash = 0 }
   for (const w of waves) { w.active = false; w.mesh.visible = false }
   for (let i = 0; i < MAX_PARTICLES; i++) { pLife[i] = 0; pPos[i * 3 + 1] = -9999 }
@@ -846,6 +911,9 @@ function resetWorld() {
 function startGame() {
   if (gameOver) emit('restart')
   resetWorld()
+  touchSteer.active = false
+  touchSteer.id = -1
+  keys.clear()
   gameStarted = true
   gameOver = false
   score = 0
@@ -878,18 +946,17 @@ function startGame() {
 // ---- autopilot ---------------------------------------------------------------
 function autopilot(dt: number, now: number) {
   // steer toward the nearest ring, away from the nearest obstacle
-  let tx = Math.sin(now * 0.5) * 4.5
-  let ty = -0.5 + Math.sin(now * 0.7) * 1.6
+  let tx = Math.sin(now * 0.5) * 3.0
+  let ty = -2.5 + Math.sin(now * 0.7) * 0.2
   let bestZ = -Infinity
   for (const r of rings) {
     if (!r.active || r.z > -4) continue
-    if (r.z > bestZ) { bestZ = r.z; tx = r.x; ty = r.y }
+    if (r.z > bestZ) { bestZ = r.z; tx = r.x }
   }
   for (const p of pillars) {
     if (!p.active || p.z < -70 || p.z > -4) continue
     if (Math.abs(p.x - shipX) < 4.5 && shipY < p.top + 1.2) {
       tx = shipX < p.x ? p.x - 6 : p.x + 6
-      ty = Math.max(ty, p.top + 1.5)
     }
   }
   for (const r of rocks) {
@@ -898,8 +965,8 @@ function autopilot(dt: number, now: number) {
       tx = shipX < r.x ? r.x - 5.5 : r.x + 5.5
     }
   }
-  tx = clamp(tx, -LANE_X, LANE_X)
-  ty = clamp(ty, LANE_Y_LO, LANE_Y_HI)
+  tx = clamp(tx, -laneX, laneX)
+  ty = clamp(ty, -2.8, LANE_Y_HI)
   const k = 1 - Math.exp(-4 * dt)
   shipX += (tx - shipX) * k
   shipY += (ty - shipY) * k
@@ -922,10 +989,14 @@ function difficulty(): { speed: number; enemy: number; obstacle: number } {
 
 function update(dt: number, now: number) {
   const demo = !gameStarted
+  const dd = difficulty()
+  diffSpeed = dd.speed
+  diffEnemy = dd.enemy
+  diffObstacle = dd.obstacle
   pulseT += dt
   const beat = Math.pow(Math.max(0, Math.sin(pulseT * 2.4)), 6)
   gridMat.uniforms.uPulse.value = 0.25 + beat
-  gridMat.uniforms.uOffset.value += worldSpeed * dt
+  gridMat.uniforms.uOffset.value = (gridMat.uniforms.uOffset.value + worldSpeed * dt) % 4.0
 
   // scroll speed
   if (gameOver) {
@@ -933,7 +1004,7 @@ function update(dt: number, now: number) {
   } else if (demo) {
     worldSpeed += (26 - worldSpeed) * Math.min(1, dt * 2)
   } else {
-    worldSpeed = difficulty().speed
+    worldSpeed = diffSpeed
   }
 
   if (!demo && !gameOver) {
@@ -965,13 +1036,13 @@ function update(dt: number, now: number) {
       const d = keys.has('ArrowDown') || keys.has('KeyS') ? 1 : 0
       const dx = r - l
       const dy = u - d
-      shipX = clamp(shipX + dx * 13 * dt, -LANE_X, LANE_X)
+      shipX = clamp(shipX + dx * 13 * dt, -laneX, laneX)
       shipY = clamp(shipY + dy * 11 * dt, LANE_Y_LO, LANE_Y_HI)
       shipTX = shipX
       shipTY = shipY
     } else {
       const k = 1 - Math.exp(-12 * dt)
-      shipX += (clamp(shipTX, -LANE_X, LANE_X) - shipX) * k
+      shipX += (clamp(shipTX, -laneX, laneX) - shipX) * k
       shipY += (clamp(shipTY, LANE_Y_LO, LANE_Y_HI) - shipY) * k
     }
     // bank + pitch from lateral/vertical input (keyboard) or follow error (touch)
@@ -996,7 +1067,7 @@ function update(dt: number, now: number) {
     // invulnerability blink
     shipRoot.visible = shipVisible && (now >= invulnUntil || Math.floor(now * 12) % 2 === 0)
     // engine flicker
-    const es = 1.5 + Math.sin(now * 31) * 0.18 + worldSpeed * 0.004
+    const es = 0.7 + Math.sin(now * 31) * 0.08 + worldSpeed * 0.002
     engineGlow.scale.set(es, es, 1)
 
     // firing
@@ -1040,22 +1111,21 @@ function update(dt: number, now: number) {
 
 function updateSpawns(dt: number, demo: boolean) {
   if (gameOver) return
-  const d = difficulty()
   enemySpawnT -= dt * (demo ? 0.5 : 1)
   if (enemySpawnT <= 0) {
-    enemySpawnT = (demo ? 3.2 : d.enemy) * rand(0.7, 1.3)
+    enemySpawnT = (demo ? 3.2 : diffEnemy) * rand(0.7, 1.3)
     spawnFormation()
   }
   obstacleSpawnT -= dt * (demo ? 0.5 : 1)
   if (obstacleSpawnT <= 0) {
-    obstacleSpawnT = (demo ? 2.6 : d.obstacle) * rand(0.7, 1.3)
+    obstacleSpawnT = (demo ? 2.6 : diffObstacle) * rand(0.7, 1.3)
     if (Math.random() < 0.55) spawnPillar()
     else spawnRock()
   }
   ringSpawnT -= dt
   if (ringSpawnT <= 0) {
     ringSpawnT = rand(5, 8.5)
-    spawnRing()
+    spawnRing(demo)
   }
 }
 
@@ -1146,11 +1216,11 @@ function updateLasers(dt: number) {
 function updateEnemies(dt: number, now: number, demo: boolean) {
   for (const e of enemies) {
     if (!e.active) continue
-    e.z += worldSpeed * 0.45 * dt
+    e.z += worldSpeed * 0.6 * dt
     e.wob += e.wobSpeed * dt
     e.x += (e.vx + Math.sin(e.wob) * 2.2) * dt
-    if (e.x < -LANE_X - 1 || e.x > LANE_X + 1) e.vx *= -1
-    e.x = clamp(e.x, -LANE_X - 1.5, LANE_X + 1.5)
+    if (e.x < -laneX - 1 || e.x > laneX + 1) e.vx *= -1
+    e.x = clamp(e.x, -laneX - 1.5, laneX + 1.5)
     e.root.position.set(e.x, e.y + Math.sin(e.wob * 1.3) * 0.3, e.z)
     e.body.rotation.z += dt * 1.5
     if (e.z > KILL_Z) {
@@ -1304,7 +1374,6 @@ function updateParticles(dt: number) {
     pPos[i * 3 + 2] += (pVel[i * 3 + 2] + worldSpeed * 0.5) * dt
   }
   pGeo.attributes.position.needsUpdate = true
-  pGeo.attributes.color.needsUpdate = true
 }
 
 function updateWaves(dt: number) {
@@ -1326,8 +1395,8 @@ function updateMountains(dt: number) {
   for (let i = 0; i < mountains.length; i++) {
     const m = mountains[i]!
     m.z += worldSpeed * 0.85 * dt
-    if (m.z > 24) {
-      m.z -= 410
+    if (m.z > -90) {
+      m.z -= 320
       m.x = m.side * rand(26, 110)
       m.w = rand(14, 34)
       m.h = rand(10, 42)
@@ -1347,7 +1416,7 @@ function updateCamera(dt: number, now: number) {
   const k = 1 - Math.exp(-4.5 * dt)
   tmpV2.set(
     shipX * fx + Math.sin(now * 1.3) * 0.15,
-    (portrait ? 4.8 : 3.8) + shipY * 0.28 * fy + Math.sin(now * 1.7) * 0.12,
+    (portrait ? 6.5 : 3.8) + shipY * 0.28 * fy + Math.sin(now * 1.7) * 0.12,
     portrait ? 13.5 : 10.5,
   )
   camera.position.lerp(tmpV2, k)
@@ -1375,11 +1444,13 @@ function resize() {
   W = window.innerWidth
   H = window.innerHeight
   portrait = H > W
+  laneX = portrait ? 5.5 : 8.5
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
   renderer.setSize(W, H, false)
   camera.aspect = W / H
   camera.fov = portrait ? 80 : 62
   camera.updateProjectionMatrix()
+  if (sunMesh && sunHalo) placeSun()
 }
 
 // ---- input --------------------------------------------------------------------
@@ -1390,7 +1461,7 @@ function doRoll(dir: number) {
 }
 
 function onKeyDown(e: KeyboardEvent) {
-  if (e.code === 'Enter' && (!gameStarted || gameOver)) {
+  if (e.code === 'Enter' && (!gameStarted || (gameOver && deathEmitted))) {
     startGame()
     return
   }
@@ -1453,7 +1524,7 @@ function onTouchMove(e: TouchEvent) {
     const dx = t.clientX - touchSteer.startX
     const dy = t.clientY - touchSteer.startY
     // displacement relative to touchdown, scaled to the screen
-    shipTX = touchSteer.baseX + (dx / Math.max(1, W)) * 26
+    shipTX = touchSteer.baseX + (dx / Math.max(1, W)) * laneX * 3
     shipTY = touchSteer.baseY - (dy / Math.max(1, H)) * 20
   }
 }
@@ -1466,10 +1537,6 @@ function onTouchEnd(e: TouchEvent) {
     isTap = moved < 14 && performance.now() - tapStart.t < 400
   }
   tapStart = null
-  if (!gameStarted || gameOver) {
-    if (isTap && !isTypingTarget(e.target)) startGame()
-    return
-  }
   let stillDown = false
   for (let i = 0; i < e.touches.length; i++) {
     if (e.touches[i]!.identifier === touchSteer.id) stillDown = true
@@ -1477,6 +1544,10 @@ function onTouchEnd(e: TouchEvent) {
   if (!stillDown) {
     touchSteer.active = false
     touchSteer.id = -1
+  }
+  if (!gameStarted || gameOver) {
+    if (isTap && !isTypingTarget(e.target) && (!gameStarted || deathEmitted)) startGame()
+    return
   }
   if (isTap) {
     const now = performance.now()
@@ -1489,9 +1560,18 @@ function onTouchCancel(e: TouchEvent) {
   onTouchEnd(e)
 }
 
+function onBlur() {
+  keys.clear()
+  touchSteer.active = false
+  touchSteer.id = -1
+}
+
 // ---- lifecycle -----------------------------------------------------------------
 onMounted(() => {
-  renderer = new THREE.WebGLRenderer({ canvas: canvas.value!, antialias: false, powerPreference: 'low-power' })
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: canvas.value!, antialias: false, powerPreference: 'low-power' })
+  } catch { return }
+  if (!renderer) return
   buildScene()
   resize()
   window.addEventListener('resize', resize)
@@ -1501,6 +1581,7 @@ onMounted(() => {
   window.addEventListener('touchmove', onTouchMove, { passive: false })
   window.addEventListener('touchend', onTouchEnd)
   window.addEventListener('touchcancel', onTouchCancel)
+  window.addEventListener('blur', onBlur)
   last = performance.now()
   raf = requestAnimationFrame(frame)
 })
@@ -1514,8 +1595,12 @@ onBeforeUnmount(() => {
   window.removeEventListener('touchmove', onTouchMove)
   window.removeEventListener('touchend', onTouchEnd)
   window.removeEventListener('touchcancel', onTouchCancel)
-  scene?.traverse((o) => {
-    const m = o as THREE.Mesh
+  window.removeEventListener('blur', onBlur)
+  laserMesh?.dispose()
+  pillarMesh?.dispose()
+  rockMesh?.dispose()
+  mountainMesh?.dispose()
+  scene?.traverse((o) => {    const m = o as THREE.Mesh
     m.geometry?.dispose?.()
     const mat = m.material as THREE.Material | THREE.Material[] | undefined
     if (Array.isArray(mat)) mat.forEach(x => x.dispose())
@@ -1523,6 +1608,7 @@ onBeforeUnmount(() => {
   })
   glowTex?.dispose()
   renderer?.dispose()
+  renderer?.forceContextLoss()
   renderer = null
 })
 </script>

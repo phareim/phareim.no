@@ -1,5 +1,5 @@
 <template>
-  <canvas ref="canvas" class="sfx-canvas"></canvas>
+  <canvas ref="canvas" class="sfxa-canvas"></canvas>
   <div ref="flashEl" class="sfxa-flash"></div>
 </template>
 
@@ -43,7 +43,7 @@ const flashEl = ref<HTMLDivElement | null>(null)
 
 const SPAWN_Z = 235
 const SHIP_Z = 0
-const BOUND_X = 7.5
+let boundX = 7.5
 const BOUND_Y_MIN = -2.8
 const BOUND_Y_MAX = 4.2
 const SHIP_SPEED = 15
@@ -68,7 +68,7 @@ const C_STONE = 0xb8b0a0
 const C_CLOUD = 0xe8eef7
 const C_SUN = 0xfff3c4
 const C_WHITE = 0xe8ecf2
-const C_BLUE = 0x2a5db0
+const C_BLUE = 0x3b6fd6
 const C_RED = 0xd23b2e
 const C_CANOPY = 0x16294d
 const C_LASER = 0xffb52e
@@ -201,7 +201,7 @@ function rand(a: number, b: number): number {
 }
 
 function worldSpeed(): number {
-  if (!gameStarted) return 20
+  if (!gameStarted) return 30
   return 36 + Math.min(24, distance * 0.006)
 }
 
@@ -283,7 +283,7 @@ function fireLasers(): void {
     const b = bolts[i]
     if (b.active) continue
     b.active = true
-    b.x = shipX + (spawned === 0 ? -1.5 : 1.5)
+    b.x = shipX + (spawned === 0 ? -0.95 : 0.95)
     b.y = shipY - 0.1
     b.z = SHIP_Z - 1.5
     spawned++
@@ -297,6 +297,7 @@ function lambert(color: number): THREE.MeshLambertMaterial {
 }
 
 function buildScene(): void {
+  rings.length = 0 // drop disposed meshes from a previous mount
   scene = new THREE.Scene()
   scene.background = new THREE.Color(C_SKY)
   scene.fog = new THREE.Fog(C_HORIZON, 40, 225)
@@ -345,28 +346,47 @@ function buildScene(): void {
   const mDark = lambert(C_CANOPY)
   shipGroup = new THREE.Group()
 
-  const fus = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.55, 2.6), mWhite)
+  // tapered diamond fuselage with a pointed nose
+  const fus = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.48, 3.2, 4), mWhite)
+  fus.rotation.x = -Math.PI / 2
+  fus.rotation.y = Math.PI / 4
+  fus.position.set(0, 0, -0.2)
   shipGroup.add(fus)
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.1, 4), mBlue)
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.9, 4), mBlue)
   nose.rotation.x = -Math.PI / 2
   nose.rotation.y = Math.PI / 4
-  nose.position.set(0, 0, -1.8)
+  nose.position.set(0, 0, -2.25)
   shipGroup.add(nose)
-  const wingGeo = new THREE.BoxGeometry(2.2, 0.12, 1.1)
+  // swept anhedral wings: one quad (two triangles) per side
+  const wingMat = new THREE.MeshLambertMaterial({ color: C_WHITE, flatShading: true, side: THREE.DoubleSide })
   for (const s of [-1, 1]) {
-    const wing = new THREE.Mesh(wingGeo, mBlue)
-    wing.position.set(s * 1.35, 0, 0.5)
-    shipGroup.add(wing)
-    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.75, 0.95), mRed)
-    tip.position.set(s * 2.45, 0.25, 0.5)
-    shipGroup.add(tip)
+    const wingGeo = new THREE.BufferGeometry()
+    wingGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+      s * 0.45, 0, -0.5,
+      s * 0.45, 0, 0.9,
+      s * 2.6, -0.55, 1.1,
+      s * 0.45, 0, -0.5,
+      s * 2.6, -0.55, 1.1,
+      s * 2.6, -0.55, 0.45,
+    ], 3))
+    wingGeo.computeVertexNormals()
+    shipGroup.add(new THREE.Mesh(wingGeo, wingMat))
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.75, 0.8), mRed)
+    fin.position.set(s * 2.62, -0.2, 0.8)
+    shipGroup.add(fin)
+    const pod = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 1.5), mBlue)
+    pod.position.set(s * 1.25, -0.28, 0.35)
+    shipGroup.add(pod)
     const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.7, 5), mDark)
     gun.rotation.x = Math.PI / 2
     gun.position.set(s * 0.85, -0.1, -1.1)
     shipGroup.add(gun)
   }
-  const canopy = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.35, 0.8), mDark)
-  canopy.position.set(0, 0.42, -0.2)
+  const canopy = new THREE.Mesh(new THREE.ConeGeometry(0.26, 1.0, 4), mDark)
+  canopy.rotation.x = -Math.PI / 2
+  canopy.rotation.y = Math.PI / 4
+  canopy.scale.set(1, 0.55, 1)
+  canopy.position.set(0, 0.42, -0.55)
   shipGroup.add(canopy)
   engineGlow = new THREE.Mesh(
     new THREE.BoxGeometry(0.55, 0.3, 0.15),
@@ -374,6 +394,7 @@ function buildScene(): void {
   )
   engineGlow.position.set(0, 0, 1.35)
   shipGroup.add(engineGlow)
+  shipGroup.scale.setScalar(0.62) // attract-sized: ~3 units wide, sits low
   shipGroup.position.set(shipX, shipY, SHIP_Z)
   scene.add(shipGroup)
 
@@ -477,13 +498,27 @@ function buildScene(): void {
     magFilter: THREE.NearestFilter,
     generateMipmaps: false,
     depthBuffer: true,
+    stencilBuffer: false,
   })
-  const quadMat = new THREE.MeshBasicMaterial({ map: rt.texture })
+  // SNES palette: quantize to 6 levels/channel. The target holds LINEAR
+  // values but the palette was picked in sRGB, so decode first, then
+  // posterize. ShaderMaterial gets no automatic output conversion, which is
+  // what we want here — c is already display-ready. (Posterizing the raw
+  // linear values crushes everything below mid-grey to black, including the
+  // deep-blue sky.)
+  const quadMat = new THREE.ShaderMaterial({
+    uniforms: { tex: { value: rt.texture } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position, 1.0); }',
+    fragmentShader: 'uniform sampler2D tex; varying vec2 vUv; void main(){ vec3 c = texture2D(tex, vUv).rgb; c = pow(c, vec3(0.4545)); c = floor(c * 6.0 + 0.5) / 6.0; gl_FragColor = vec4(c, 1.0); }',
+    depthTest: false,
+    depthWrite: false,
+  })
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), quadMat)
   quad.frustumCulled = false
   quadScene.add(quad)
 
   resetPools()
+  seedAttract()
 }
 
 function resetPools(): void {
@@ -510,12 +545,13 @@ function resetPools(): void {
 function attractBiasX(): number {
   // keep the centre calm in attract mode: action around the edges
   const s = Math.random() < 0.5 ? -1 : 1
-  return s * rand(2.5, 7)
+  return s * rand(5.5, 8)
 }
 
 function spawnFormation(): void {
   let placed = 0
-  const baseX = gameStarted ? rand(-5, 5) : attractBiasX()
+  const sz = gameStarted ? SPAWN_Z : 170
+  const baseX = gameStarted ? rand(-(boundX - 2), boundX - 2) : attractBiasX()
   const baseY = rand(-0.5, 3.2)
   for (let i = 0; i < enemies.length && placed < 3; i++) {
     const e = enemies[i]
@@ -524,7 +560,7 @@ function spawnFormation(): void {
     e.hp = difficulty() > 0.5 && placed === 0 ? 2 : 1
     e.x = baseX + (placed === 0 ? 0 : placed === 1 ? -2.6 : 2.6)
     e.y = baseY + (placed === 0 ? 0 : 1.2)
-    e.z = -SPAWN_Z - (placed === 0 ? 0 : 6)
+    e.z = -sz - (placed === 0 ? 0 : 6)
     e.fireT = rand(1.0, 2.4)
     e.weaveP = rand(0, Math.PI * 2)
     e.weaveA = rand(0.8, 2.0)
@@ -533,6 +569,7 @@ function spawnFormation(): void {
 }
 
 function spawnObstacle(): void {
+  const sz = gameStarted ? SPAWN_Z : 170
   for (let i = 0; i < obstacles.length; i++) {
     const o = obstacles[i]
     if (o.active) continue
@@ -540,7 +577,7 @@ function spawnObstacle(): void {
     const r = Math.random()
     if (r < 0.4) {
       o.kind = KIND_ARCH
-      o.x = gameStarted ? rand(-6, 6) : attractBiasX() * 0.8
+      o.x = gameStarted ? rand(-(boundX - 1), boundX - 1) : attractBiasX()
       o.y = rand(-1.5, 3.0)
       o.s = rand(0.8, 1.2)
     } else if (r < 0.7) {
@@ -556,24 +593,43 @@ function spawnObstacle(): void {
       o.y = -4 + 3.5
       o.s = rand(0.8, 1.6)
     }
-    o.z = -SPAWN_Z
+    o.z = -sz
     o.passed = false
     return
   }
 }
 
 function spawnRing(): void {
+  const sz = gameStarted ? SPAWN_Z : 170
   for (let i = 0; i < rings.length; i++) {
     const g = rings[i]
     if (g.active) continue
     g.active = true
-    g.x = gameStarted ? rand(-6, 6) : attractBiasX()
+    g.x = gameStarted ? rand(-(boundX - 1), boundX - 1) : attractBiasX()
     g.y = rand(-1.8, 3.4)
-    g.z = -SPAWN_Z
+    g.z = -sz
     g.flash = 0
     if (g.mesh) g.mesh.visible = true
     return
   }
+}
+
+function seedAttract(): void {
+  // pre-populate the corridor so attract mode has action on frame one
+  spawnObstacle()
+  obstacles[0].z = -40
+  spawnObstacle()
+  obstacles[1].z = -85
+  spawnObstacle()
+  obstacles[2].z = -130
+  spawnObstacle()
+  obstacles[3].z = -175
+  spawnRing()
+  rings[0].z = -60
+  spawnRing()
+  rings[1].z = -150
+  spawnFormation()
+  for (const e of enemies) if (e.active) e.z += 60
 }
 
 function enemyFire(e: Enemy): void {
@@ -583,7 +639,7 @@ function enemyFire(e: Enemy): void {
     if (s.active) continue
     s.active = true
     s.x = e.x; s.y = e.y; s.z = e.z + 1
-    const t = Math.max(0.4, (SHIP_Z - e.z) / 34) // time to reach the ship plane
+    const t = Math.max(0.3, (SHIP_Z - s.z) / (S + 30)) // time to reach the ship plane
     s.vx = (shipX - e.x) / t
     s.vy = (shipY - e.y) / t
     s.vz = S + 30
@@ -608,7 +664,7 @@ function steerShip(dt: number, t: number): void {
     dx += THREE.MathUtils.clamp(touchDX / 90, -1, 1)
     dy -= THREE.MathUtils.clamp(touchDY / 90, -1, 1)
   }
-  shipX = THREE.MathUtils.clamp(shipX + dx * SHIP_SPEED * dt, -BOUND_X, BOUND_X)
+  shipX = THREE.MathUtils.clamp(shipX + dx * SHIP_SPEED * dt, -boundX, boundX)
   shipY = THREE.MathUtils.clamp(shipY + dy * SHIP_SPEED * 0.85 * dt, BOUND_Y_MIN, BOUND_Y_MAX)
 }
 
@@ -625,21 +681,21 @@ function autopilot(dt: number, t: number): void {
   let threatX: number | null = null
   let threatY: number | null = null
   let threatZ = -Infinity
-  const consider = (x: number, y: number, z: number): void => {
-    if (z < -140 || z > -8) return
-    if (z > threatZ) { threatZ = z; threatX = x; threatY = y }
-  }
   for (let i = 0; i < obstacles.length; i++) {
     const o = obstacles[i]
-    if (o.active) consider(o.x, o.y, o.z)
+    if (!o.active) continue
+    if (o.z < -140 || o.z > -8) continue
+    if (o.z > threatZ) { threatZ = o.z; threatX = o.x; threatY = o.y }
   }
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i]
-    if (e.active) consider(e.x, e.y, e.z)
+    if (!e.active) continue
+    if (e.z < -140 || e.z > -8) continue
+    if (e.z > threatZ) { threatZ = e.z; threatX = e.x; threatY = e.y }
   }
   let mx = Math.sin(t * 0.5) * 3 // gentle wander keeps it alive with no targets
-  let my = -1 + Math.cos(t * 0.35) * 1.2 // ship sits LOW, centre stays calm
-  if (tx !== null && ty !== null) { mx = tx; my = Math.min(ty, 1.5) }
+  let my = -2.4 + Math.cos(t * 0.35) * 0.3 // ship sits LOW, centre stays calm
+  if (tx !== null && ty !== null) { mx = tx; my = Math.min(ty, -2.0) }
   if (threatX !== null && threatY !== null) {
     const ax = shipX - threatX
     const ay = shipY - threatY
@@ -647,8 +703,8 @@ function autopilot(dt: number, t: number): void {
     if (d < 5) { mx = shipX + (ax / d) * 6; my = shipY + (ay / d) * 4 }
   }
   const k = Math.min(1, 3.2 * dt)
-  shipX = THREE.MathUtils.clamp(shipX + (mx - shipX) * k, -BOUND_X, BOUND_X)
-  shipY = THREE.MathUtils.clamp(shipY + (my - shipY) * k, BOUND_Y_MIN, 2.0)
+  shipX = THREE.MathUtils.clamp(shipX + (mx - shipX) * k, -boundX, boundX)
+  shipY = THREE.MathUtils.clamp(shipY + (my - shipY) * k, BOUND_Y_MIN, -2.0)
   // fire occasionally, never takes damage (hurtShip gates on !gameStarted)
   fireT += dt
   if (fireT > 0.7 && shipAlive) {
@@ -772,7 +828,7 @@ function update(dt: number, t: number): void {
         enemyWingIM.setMatrixAt(i, ZERO_M)
         continue
       }
-      e.z += (S - 8) * dt
+      e.z += (S + (gameStarted ? -8 : 6)) * dt
       e.weaveP += dt * 1.7
       const wx = e.x + Math.sin(e.weaveP) * e.weaveA * dt * 3
       e.x = THREE.MathUtils.clamp(wx, -14, 14)
@@ -800,7 +856,8 @@ function update(dt: number, t: number): void {
         for (let j = 0; j < bolts.length; j++) {
           const b = bolts[j]
           if (!b.active) continue
-          if (Math.abs(b.z - e.z) < 2.5 && Math.abs(b.x - e.x) < 1.4 && Math.abs(b.y - e.y) < 1.4) {
+          const pz = b.z + (S + 170) * dt // swept: bolt vz is -(S+170), pz is last frame's z
+          if (e.z >= b.z - 1.2 && e.z <= pz + 1.2 && Math.abs(b.x - e.x) < 1.4 && Math.abs(b.y - e.y) < 1.4) {
             b.active = false
             e.hp--
             spawnDebris(b.x, b.y, b.z, 3, 7)
@@ -820,7 +877,7 @@ function update(dt: number, t: number): void {
       }
       // ram the player?
       if (gameStarted && !gameOver && shipAlive && rollT < 0 && invulnT <= 0) {
-        if (Math.abs(e.z - SHIP_Z) < 1.6 && Math.hypot(e.x - shipX, e.y - shipY) < 1.6) {
+        if (Math.abs(e.z - SHIP_Z) < 1.6 && Math.hypot(e.x - shipX, e.y - shipY) < 1.1) {
           e.active = false
           enemyBodyIM.setMatrixAt(i, ZERO_M)
           enemyWingIM.setMatrixAt(i, ZERO_M)
@@ -852,7 +909,7 @@ function update(dt: number, t: number): void {
       dummy.updateMatrix()
       eshotIM.setMatrixAt(i, dummy.matrix)
       if (gameStarted && !gameOver && shipAlive && rollT < 0 && invulnT <= 0) {
-        if (Math.abs(s.z - SHIP_Z) < 1.2 && Math.hypot(s.x - shipX, s.y - shipY) < 1.0) {
+        if (s.z >= SHIP_Z - 1.2 && s.z - s.vz * dt <= SHIP_Z + 1.2 && Math.hypot(s.x - shipX, s.y - shipY) < 0.7) {
           s.active = false
           eshotIM.setMatrixAt(i, ZERO_M)
           hurtShip()
@@ -894,7 +951,7 @@ function update(dt: number, t: number): void {
       dummy.updateMatrix()
       blockIM.setMatrixAt(bi++, dummy.matrix)
       if (gameStarted && !gameOver && shipAlive && rollT < 0 && invulnT <= 0) {
-        if (Math.abs(o.z - SHIP_Z) < 2.5 && Math.abs(shipX - o.x) < 2.6 && shipY < o.y + o.s / 2 + 0.6) hurtShip()
+        if (Math.abs(o.z - SHIP_Z) < 2.5 && Math.abs(shipX - o.x) < 2.2 && shipY < o.y + o.s / 2 + 0.4) hurtShip()
       }
     } else if (o.kind === KIND_PYR && pyrIM) {
       dummy.position.set(o.x, o.y, o.z)
@@ -1025,7 +1082,7 @@ function update(dt: number, t: number): void {
   // --- camera: heavy smooth follow + shake ---------------------------------------
   const ck = Math.min(1, 5 * dt)
   const camTX = shipX * 0.55
-  const camTY = 2.3 + shipY * 0.45
+  const camTY = gameStarted ? 2.3 + shipY * 0.45 : 2.0
   camera.position.x += (camTX - camera.position.x) * ck
   camera.position.y += (camTY - camera.position.y) * ck
   shake = Math.max(0, shake - dt * 2.4)
@@ -1033,7 +1090,7 @@ function update(dt: number, t: number): void {
   const shy = shake > 0 ? (Math.random() - 0.5) * shake * 1.4 : 0
   camera.position.x += shx
   camera.position.y += shy
-  camera.lookAt(shipX * 0.8, shipY * 0.6 + 0.3, -30)
+  camera.lookAt(shipX * 0.8, gameStarted ? shipY * 0.6 + 0.3 : 3.2, -30)
   if (shake > 0) {
     camera.position.x -= shx
     camera.position.y -= shy
@@ -1068,26 +1125,26 @@ function resize(): void {
   if (!renderer || !rt) return
   const W = window.innerWidth
   const H = window.innerHeight
-  const pr = Math.min(window.devicePixelRatio || 1, 2)
-  renderer.setPixelRatio(pr)
+  renderer.setPixelRatio(1)
   renderer.setSize(W, H, false)
   const aspect = W / Math.max(1, H)
   camera.aspect = aspect
+  boundX = aspect < 0.8 ? 4.4 : aspect < 1.2 ? 6 : 7.5
   // portrait: pull back + widen so the corridor reads on a phone
   if (aspect < 0.8) {
     camera.fov = 80
     camera.position.z = 10.5
   } else if (aspect < 1.2) {
     camera.fov = 72
-    camera.position.z = 9.2
+    camera.position.z = 10
   } else {
     camera.fov = 62
-    camera.position.z = 8
+    camera.position.z = 11
   }
   camera.updateProjectionMatrix()
   rt.setSize(
-    Math.max(2, Math.round((W * pr) * RT_SCALE)),
-    Math.max(2, Math.round((H * pr) * RT_SCALE)),
+    Math.max(2, Math.round(W * RT_SCALE)),
+    Math.max(2, Math.round(H * RT_SCALE)),
   )
 }
 
@@ -1183,7 +1240,13 @@ function onKeyUp(e: KeyboardEvent): void {
 
 // Start on TAP, not touchstart, so a horizontal swipe on the idle game still
 // changes theme (the shell listens on document).
+function isInteractiveElement(el: EventTarget | null): boolean {
+  const e = el as HTMLElement | null
+  return !!e && !!e.closest && !!e.closest('a, button, input, .social-links, .flip-container, .theme-pager')
+}
+
 function onTouchStart(e: TouchEvent): void {
+  if (isInteractiveElement(e.target)) return
   const t = e.touches[0]
   if (!t) return
   touchStartX = t.clientX
@@ -1208,6 +1271,13 @@ function onTouchMove(e: TouchEvent): void {
 }
 
 function onTouchEnd(e: TouchEvent): void {
+  if (isInteractiveElement(e.target)) {
+    touching = false
+    touchFire = false
+    touchDX = 0
+    touchDY = 0
+    return
+  }
   const t = e.changedTouches[0]
   const moved = t ? Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY) : 999
   const quick = performance.now() - touchStartT < 350
@@ -1232,8 +1302,22 @@ function onTouchEnd(e: TouchEvent): void {
 // ---------------------------------------------------------------- lifecycle
 
 onMounted(() => {
+  // module-level state survives unmount: reset to attract mode before rebuild
+  gameStarted = false
+  gameOver = false
+  elapsed = 0
+  keys.clear()
+  touching = false
+  touchFire = false
+  firing = false
   renderer = new THREE.WebGLRenderer({ canvas: canvas.value!, antialias: false, powerPreference: 'low-power' })
   buildScene()
+  resetRun() // needs shipGroup/flashEl
+  // attract timers: action starts fast
+  enemyT = 1.2
+  obstacleT = 0.6
+  ringT = 2.0
+  seedAttract()
   resize()
   window.addEventListener('resize', resize)
   window.addEventListener('keydown', onKeyDown)
@@ -1256,6 +1340,7 @@ onBeforeUnmount(() => {
   for (const s of [scene, quadScene]) {
     s.traverse((o) => {
       const m = o as THREE.Mesh
+      if ((m as THREE.InstancedMesh).isInstancedMesh) (m as THREE.InstancedMesh).dispose()
       const geo = (m as THREE.Mesh).geometry as THREE.BufferGeometry | undefined
       geo?.dispose?.()
       const mat = m.material as THREE.Material | THREE.Material[] | undefined
@@ -1265,15 +1350,17 @@ onBeforeUnmount(() => {
   }
   rt?.dispose()
   rt = null
+  renderer?.forceContextLoss()
   renderer?.dispose()
   renderer = null
+  rings.length = 0
   scene = new THREE.Scene()
   quadScene = new THREE.Scene()
 })
 </script>
 
 <style>
-.sfx-canvas {
+.sfxa-canvas {
   position: absolute;
   inset: 0;
   width: 100%;

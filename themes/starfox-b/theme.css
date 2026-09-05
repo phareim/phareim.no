@@ -1,8 +1,4 @@
-/**
- * Star Fox — variant b (scaffold palette, replace)
- * ---------------------------
- * On-rails 3D flight shooter (three.js) behind the profile card.
- */
+/** Star Fox — variant b: neon vector (cyan outlines, orange enemies, Tron floor). On-rails 3D flight shooter (three.js) behind the profile card. */
 :root {
   /* Base colors */
   --sfxb-bg: #05060c;

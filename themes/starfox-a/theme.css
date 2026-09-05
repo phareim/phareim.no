@@ -28,11 +28,11 @@
 }
 
 .starfox-a-page {
-  min-height: 100vh;
+  height: 100dvh;
   background-color: var(--sfxa-bg);
   color: var(--sfxa-text);
   font-family: var(--font-sfxa);
-  overflow-x: hidden;
+  overflow: hidden;
 
   /* Semantic theme variables */
   --theme-bg: var(--sfxa-bg);

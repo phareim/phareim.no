@@ -1,7 +1,7 @@
 <template>
   <DefaultLanding
     :flipped="gameOver"
-    :content-class="{ 'sfx-fade': gameStarted }"
+    :content-class="{ 'sfxa-fade': gameStarted }"
   >
     <template #background>
       <ClientOnly>
@@ -19,24 +19,24 @@
 
     <template #body>
       <template v-if="gameOver">
-        <h1 class="sfx-over-title">MISSION FAILED</h1>
-        <p class="sfx-hud sfx-over-score">SCORE: {{ score }} · {{ distance }} KM</p>
-        <p v-if="isNewHigh && score > 0" class="sfx-hud sfx-new-high">NEW HIGH SCORE!</p>
-        <p v-else class="sfx-hud">HIGH SCORE: {{ highScore }}</p>
-        <p class="sfx-hint">PRESS ENTER OR TAP TO FLY AGAIN</p>
+        <h1 class="sfxa-over-title">MISSION FAILED</h1>
+        <p class="sfxa-hud sfxa-over-score">SCORE: {{ score }} · {{ distance }} KM</p>
+        <p v-if="isNewHigh && score > 0" class="sfxa-hud sfxa-new-high">NEW HIGH SCORE!</p>
+        <p v-else class="sfxa-hud">HIGH SCORE: {{ highScore }}</p>
+        <p class="sfxa-hint">PRESS ENTER OR TAP TO FLY AGAIN</p>
       </template>
       <template v-else>
-        <div :class="{ 'sfx-fade': gameStarted }">
+        <div :class="{ 'sfxa-fade': gameStarted }">
           <h1>{{ profile.name }}</h1>
           <p v-for="line in profile.blurbs" :key="line" class="blurb">{{ line }}</p>
         </div>
-        <p class="location sfx-hud">
+        <p class="location sfxa-hud">
           SCORE: {{ score }} · {{ distance }} KM<template v-if="gameStarted"> · {{ '◆'.repeat(Math.max(0, lives)) }}</template>
         </p>
-        <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
+        <p v-if="highScore > 0 && !gameStarted" class="location sfxa-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
-          <p class="sfx-hint">PRESS ENTER OR TAP TO FLY</p>
-          <p class="sfx-hint sfx-hint-dim">ARROWS/WASD STEER · SPACE FIRE · SHIFT OR DOUBLE-TAP TO BARREL ROLL</p>
+          <p class="sfxa-hint">PRESS ENTER OR TAP TO FLY</p>
+          <p class="sfxa-hint sfxa-hint-dim">ARROWS STEER · SPACE FIRE · SHIFT ROLLS</p>
         </template>
       </template>
     </template>
@@ -96,14 +96,14 @@ function onGameRestart() {
 </script>
 
 <style>
-.sfx-hud {
+.sfxa-hud {
   font-family: var(--theme-font-body, monospace);
   color: var(--theme-accent, #fff);
   letter-spacing: 0.15em;
   font-size: 1em;
 }
 
-.sfx-over-title {
+.sfxa-over-title {
   font-family: var(--theme-font-body, monospace);
   color: var(--theme-accent, #fff);
   font-size: 2.8em;
@@ -112,24 +112,24 @@ function onGameRestart() {
   margin-bottom: 0.1em;
 }
 @media (min-width: 800px) {
-  .sfx-over-title {
+  .sfxa-over-title {
     font-size: 3.2em;
   }
 }
 
-.sfx-over-score {
+.sfxa-over-score {
   margin-top: 0.3em;
 }
 
-.sfx-new-high {
-  animation: sfx-pulse 0.8s ease-in-out infinite alternate;
+.sfxa-new-high {
+  animation: sfxa-pulse 0.8s ease-in-out infinite alternate;
 }
-@keyframes sfx-pulse {
+@keyframes sfxa-pulse {
   from { opacity: 0.6; }
   to { opacity: 1; }
 }
 
-.sfx-hint {
+.sfxa-hint {
   font-family: var(--theme-font-body, monospace);
   color: var(--theme-accent, #fff);
   font-size: 0.9em;
@@ -138,13 +138,13 @@ function onGameRestart() {
   margin-top: 1em;
 }
 
-.sfx-hint-dim {
+.sfxa-hint-dim {
   opacity: 0.45;
   font-size: 0.7em;
   margin-top: 0.2em;
 }
 
-.sfx-hud-dim {
+.sfxa-hud-dim {
   font-family: var(--theme-font-body, monospace);
   color: var(--theme-accent, #fff);
   opacity: 0.5;
@@ -152,10 +152,10 @@ function onGameRestart() {
   letter-spacing: 0.1em;
 }
 
-.sfx-fade {
-  animation: sfx-fade-out 4s forwards;
+.sfxa-fade {
+  animation: sfxa-fade-out 4s forwards;
 }
-@keyframes sfx-fade-out {
+@keyframes sfxa-fade-out {
   0% { opacity: 1; }
   50% { opacity: 1; }
   100% { opacity: 0; pointer-events: none; }

@@ -36,7 +36,7 @@
         <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
           <p class="sfx-hint">▶ PRESS ENTER OR TAP TO FLY ◀</p>
-          <p class="sfx-hint sfx-hint-dim">ARROWS/WASD STEER · SPACE FIRE · SHIFT BARREL ROLL</p>
+          <p class="sfx-hint sfx-hint-dim">ARROWS · SPACE FIRE · SHIFT ROLL</p>
         </template>
       </template>
     </template>

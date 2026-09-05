@@ -1,5 +1,5 @@
 <template>
-  <canvas ref="canvas" class="sfx-canvas"></canvas>
+  <canvas ref="canvas" class="sfxb-canvas"></canvas>
   <div ref="flashEl" class="sfxb-flash"></div>
 </template>
 
@@ -22,6 +22,9 @@
  * shapes. All pools are fixed-size; nothing allocates per frame.
  */
 import * as THREE from 'three'
+import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js'
+import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js'
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 
 const emit = defineEmits<{
   score: [n: number]
@@ -71,6 +74,8 @@ let raf = 0
 let last = 0
 let lastKm = 0
 let portrait = false
+let viewW = 1
+let viewH = 1
 
 let gameStarted = false
 let gameOver = false
@@ -81,9 +86,9 @@ let worldSpeed = 22
 let elapsed = 0
 
 let shipX = 0
-let shipY = -1
+let shipY = -2.4
 let targetX = 0
-let targetY = -1
+let targetY = -2.4
 let bank = 0
 let pitch = 0
 
@@ -97,7 +102,7 @@ let flashA = 0
 
 let killCount = 0
 let streakT = 0
-let spawnT = 1.2
+let spawnT = 0.3
 let ringT = 2.5
 let demoFireT = 0.5
 
@@ -107,8 +112,8 @@ const lastArrowTap: Record<string, number> = {}
 // ---------------------------------------------------------------- three.js objects
 
 let shipGroup: THREE.Group
-let shipLines: THREE.LineSegments
-let shipGlow: THREE.LineSegments
+let shipLines: LineSegments2
+let shipGlow: LineSegments2
 let grid: THREE.GridHelper
 let stars: THREE.Points
 let starPos: Float32Array
@@ -126,22 +131,23 @@ let geoEnemy: THREE.EdgesGeometry
 let geoGate: THREE.EdgesGeometry
 let geoPyramid: THREE.EdgesGeometry
 let geoPillar: THREE.EdgesGeometry
-let geoRing: THREE.EdgesGeometry
+let geoRing: LineSegmentsGeometry
 let matLaser: THREE.MeshBasicMaterial
 let matEShot: THREE.MeshBasicMaterial
 let matEnemy: THREE.LineBasicMaterial
 let matGate: THREE.LineBasicMaterial
 let matPyramid: THREE.LineBasicMaterial
 let matPillar: THREE.LineBasicMaterial
-let matRing: THREE.LineBasicMaterial
-let matShip: THREE.LineBasicMaterial
-let matShipGlow: THREE.LineBasicMaterial
+let matRing: LineMaterial
+let matRingGlow: LineMaterial
+let matShip: LineMaterial
+let matShipGlow: LineMaterial
 
 interface Shot { m: THREE.Mesh; active: boolean; vx: number; vy: number; vz: number; life: number }
 interface EShot { m: THREE.Mesh; active: boolean; vx: number; vy: number; vz: number; life: number }
 interface Enemy { l: THREE.LineSegments; active: boolean; fireT: number; canShoot: boolean; wob: number; wobSpeed: number; hx: number; hy: number }
 interface Obstacle { l: THREE.LineSegments; active: boolean; kind: number; r: number }
-interface Ring { l: THREE.LineSegments; active: boolean; flash: number }
+interface Ring { l: LineSegments2; active: boolean; flash: number }
 
 const shots: Shot[] = []
 const eshots: EShot[] = []
@@ -155,6 +161,12 @@ const tmpB = new THREE.Vector3()
 
 // ---------------------------------------------------------------- helpers
 
+// Half-width of the flight box, orientation-aware: the portrait camera
+// (z=13, fov 72) only spans ~5.3 world units each way at the ship plane.
+function shipXMax(): number {
+  return portrait ? 3.6 : SHIP_X
+}
+
 function lineMat(color: number, opacity: number, additive: boolean): THREE.LineBasicMaterial {
   return new THREE.LineBasicMaterial({
     color,
@@ -167,8 +179,9 @@ function lineMat(color: number, opacity: number, additive: boolean): THREE.LineB
 }
 
 /** Build the Arwing as an explicit stroked outline: fuselage, twin wings
- *  with tip guns, tail fin, cockpit. Nose points down -Z. */
-function buildArwingGeometry(): THREE.BufferGeometry {
+ *  with tip guns, tail fin, cockpit. Nose points down -Z.
+ *  Returns flat segment positions for LineSegmentsGeometry (fat lines). */
+function buildArwingSegments(): number[] {
   const s: number[] = []
   const seg = (x1: number, y1: number, z1: number, x2: number, y2: number, z2: number) => {
     s.push(x1, y1, z1, x2, y2, z2)
@@ -207,15 +220,13 @@ function buildArwingGeometry(): THREE.BufferGeometry {
   seg(0, 0.12, 0.9, 0, 0.85, 1.25)
   seg(0, 0.85, 1.25, 0, 0.3, 1.3)
   seg(-0.7, 0.12, 1.05, 0.7, 0.12, 1.05)
-  const g = new THREE.BufferGeometry()
-  g.setAttribute('position', new THREE.Float32BufferAttribute(s, 3))
-  return g
+  return s
 }
 
 function buildScene() {
   scene = new THREE.Scene()
   scene.background = new THREE.Color(BG)
-  scene.fog = new THREE.Fog(BG, 45, 165)
+  scene.fog = new THREE.Fog(BG, 70, 175)
 
   camera = new THREE.PerspectiveCamera(62, 1, 0.1, 400)
   camera.position.set(0, 2.4, 9.5)
@@ -227,35 +238,45 @@ function buildScene() {
   geoEnemy = new THREE.EdgesGeometry(new THREE.OctahedronGeometry(1.15))
   geoGate = new THREE.EdgesGeometry(new THREE.TorusGeometry(2.4, 0.14, 4, 4))
   geoPyramid = new THREE.EdgesGeometry(new THREE.ConeGeometry(1.7, 3.4, 4))
-  geoPillar = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.6, 14, 1.6))
-  geoRing = new THREE.EdgesGeometry(new THREE.TorusGeometry(2.0, 0.1, 6, 36))
+  geoPillar = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.6, 7, 1.6))
+  {
+    const ringEdges = new THREE.EdgesGeometry(new THREE.TorusGeometry(2.0, 0.1, 6, 36))
+    geoRing = new LineSegmentsGeometry()
+    geoRing.setPositions(ringEdges.getAttribute('position').array as Float32Array)
+    ringEdges.dispose()
+  }
 
   matLaser = new THREE.MeshBasicMaterial({ color: CYAN, fog: true })
   matEShot = new THREE.MeshBasicMaterial({ color: ORANGE, fog: true })
   matEnemy = lineMat(ORANGE, 0.95, true)
-  matGate = lineMat(CYAN, 0.5, true)
-  matPyramid = lineMat(CYAN, 0.55, true)
-  matPillar = lineMat(CYAN_DIM, 0.8, false)
-  matRing = lineMat(CYAN, 0.95, true)
-  matShip = lineMat(CYAN, 1, false)
-  matShipGlow = lineMat(ICE, 0.35, true)
+  matGate = lineMat(CYAN, 0.9, true)
+  matPyramid = lineMat(CYAN, 0.9, true)
+  matPillar = lineMat(0x0f8fa6, 0.9, true)
+  matRing = new LineMaterial({ color: CYAN, linewidth: 2, transparent: true, fog: true, depthWrite: false })
+  matRingGlow = new LineMaterial({ color: CYAN, linewidth: 5, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, fog: true })
+  matShip = new LineMaterial({ color: CYAN, linewidth: 2, transparent: true, fog: true, depthWrite: false })
+  matShipGlow = new LineMaterial({ color: CYAN, linewidth: 7, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, fog: true })
 
-  // ---- the Arwing
+  // ---- the Arwing (fat lines: 2px core + 7px additive glow)
   shipGroup = new THREE.Group()
-  const arwing = buildArwingGeometry()
-  shipLines = new THREE.LineSegments(arwing, matShip)
-  shipGlow = new THREE.LineSegments(arwing, matShipGlow)
-  shipGlow.scale.setScalar(1.03)
+  const arwing = new LineSegmentsGeometry()
+  arwing.setPositions(buildArwingSegments())
+  shipLines = new LineSegments2(arwing, matShip)
+  shipGlow = new LineSegments2(arwing, matShipGlow)
+  shipLines.frustumCulled = false
+  shipGlow.frustumCulled = false
   shipGroup.add(shipLines)
   shipGroup.add(shipGlow)
-  shipGroup.position.set(0, -1, 0)
+  shipGroup.position.set(0, -2.4, 0)
   scene.add(shipGroup)
 
   // ---- Tron grid floor
-  grid = new THREE.GridHelper(400, 80, CYAN, CYAN_DIM)
+  grid = new THREE.GridHelper(400, 80, 0x19f0ff, 0x0f8fa6)
   const gridMat = grid.material as THREE.LineBasicMaterial
   gridMat.transparent = true
-  gridMat.opacity = 0.5
+  gridMat.opacity = 0.85
+  gridMat.blending = THREE.AdditiveBlending
+  gridMat.depthWrite = false
   grid.position.y = -5.2
   scene.add(grid)
 
@@ -325,8 +346,12 @@ function buildScene() {
     obstacles.push({ l, active: false, kind: 0, r: 1.7 })
   }
   for (let i = 0; i < MAX_RINGS; i++) {
-    const l = new THREE.LineSegments(geoRing, matRing)
+    const l = new LineSegments2(geoRing, matRing)
+    const g = new LineSegments2(geoRing, matRingGlow)
+    g.frustumCulled = false
+    l.frustumCulled = false
     l.visible = false
+    l.add(g) // glow rides the core's transform
     scene.add(l)
     rings.push({ l, active: false, flash: 0 })
   }
@@ -366,7 +391,7 @@ function spawnEnemy(x: number, y: number, z: number, canShoot: boolean) {
 }
 
 function spawnFormation() {
-  const cx = (Math.random() - 0.5) * 16
+  const cx = (Math.random() - 0.5) * 16 * (portrait ? 0.6 : 1)
   const cy = Math.random() * 5 - 2
   const n = 2 + Math.floor(Math.random() * 3)
   const sharp = gameStarted && Math.random() < 0.6
@@ -386,14 +411,22 @@ function spawnObstacle() {
       // gate: fly through the diamond hole
       o.l.geometry = geoGate
       o.l.material = matGate
-      o.l.position.set((Math.random() - 0.5) * 14, Math.random() * 5 - 2, SPAWN_Z)
-      o.l.rotation.set(0, 0, Math.PI / 4)
+      o.l.position.set(
+        (Math.random() - 0.5) * 14 * (portrait ? 0.6 : 1),
+        gameStarted ? Math.random() * 5 - 2 : -2.6 + Math.random() * 1.0,
+        SPAWN_Z,
+      )
+      o.l.rotation.set(0, 0, 0)
       o.r = 2.4
     } else if (kind === 1) {
       // pyramid: solid, dodge it
       o.l.geometry = geoPyramid
       o.l.material = matPyramid
-      o.l.position.set((Math.random() - 0.5) * 15, Math.random() * 4 - 2.4, SPAWN_Z)
+      o.l.position.set(
+        (Math.random() - 0.5) * 15 * (portrait ? 0.6 : 1),
+        gameStarted ? Math.random() * 4 - 2.4 : -2.6 + Math.random() * 1.0,
+        SPAWN_Z,
+      )
       o.l.rotation.set(Math.PI, Math.random() * 3, 0)
       o.r = 1.7
     } else {
@@ -401,7 +434,7 @@ function spawnObstacle() {
       o.l.geometry = geoPillar
       o.l.material = matPillar
       const top = Math.random() < 0.5
-      o.l.position.set((Math.random() - 0.5) * 15, top ? 3.4 : -3.4, SPAWN_Z)
+      o.l.position.set((Math.random() - 0.5) * 15 * (portrait ? 0.6 : 1), top ? 5.6 : -5.6, SPAWN_Z)
       o.l.rotation.set(0, 0, 0)
       o.r = 1.5
     }
@@ -417,8 +450,8 @@ function spawnRing() {
     r.l.visible = true
     r.l.scale.setScalar(1)
     // attract mode keeps rings low/central so the card stays readable
-    const y = gameStarted ? Math.random() * 6 - 2.6 : Math.random() * 3 - 2.4
-    r.l.position.set((Math.random() - 0.5) * 13, y, SPAWN_Z)
+    const y = gameStarted ? Math.random() * 6 - 2.6 : Math.random() * 1.4 - 3.4
+    r.l.position.set((Math.random() - 0.5) * 13 * (portrait ? 0.6 : 1), y, SPAWN_Z)
     return
   }
 }
@@ -439,6 +472,7 @@ function spawnEShot(x: number, y: number, z: number) {
 }
 
 function burst(x: number, y: number, z: number, count: number, orange: boolean) {
+  const col = debris.geometry.getAttribute('color') as THREE.BufferAttribute
   for (let k = 0; k < count; k++) {
     const i = debrisMax
     debrisMax = (debrisMax + 1) % MAX_DEBRIS
@@ -452,11 +486,10 @@ function burst(x: number, y: number, z: number, count: number, orange: boolean) 
     debrisVel[i * 3 + 1] = Math.sin(ph) * Math.sin(th) * sp
     debrisVel[i * 3 + 2] = Math.cos(ph) * sp + worldSpeed * 0.4
     debrisLife[i] = 0.5 + Math.random() * 0.7
-    const col = debris.geometry.getAttribute('color') as THREE.BufferAttribute
     if (orange) col.setXYZ(i, 1, 0.48, 0.1)
     else col.setXYZ(i, 0.1, 0.94, 1)
-    col.needsUpdate = true
   }
+  col.needsUpdate = true
 }
 
 // ---------------------------------------------------------------- scoring / damage
@@ -535,9 +568,9 @@ function startGame() {
   lives = 3
   elapsed = 0
   shipX = 0
-  shipY = -1
+  shipY = -2.4
   targetX = 0
-  targetY = -1
+  targetY = -2.4
   bank = 0
   pitch = 0
   rollT = -1
@@ -562,7 +595,7 @@ function startGame() {
 function autopilot(dt: number) {
   // steer toward the nearest ring, away from the nearest threat, else wander low
   let tx = Math.sin(elapsed * 0.6) * 3
-  let ty = -1.2 + Math.cos(elapsed * 0.45) * 0.9
+  let ty = -2.4 + Math.cos(elapsed * 0.45) * 0.5
   let bestRing: Ring | null = null
   for (const r of rings) {
     if (!r.active) continue
@@ -571,7 +604,7 @@ function autopilot(dt: number) {
   }
   if (bestRing) {
     tx = bestRing.l.position.x
-    ty = THREE.MathUtils.clamp(bestRing.l.position.y, -2.4, 0.6)
+    ty = THREE.MathUtils.clamp(bestRing.l.position.y, -3.0, -1.6)
   } else {
     for (const o of obstacles) {
       if (!o.active) continue
@@ -586,8 +619,8 @@ function autopilot(dt: number) {
       }
     }
   }
-  targetX = THREE.MathUtils.clamp(tx, -SHIP_X, SHIP_X)
-  targetY = THREE.MathUtils.clamp(ty, SHIP_Y_MIN, 1.6)
+  targetX = THREE.MathUtils.clamp(tx, -shipXMax(), shipXMax())
+  targetY = THREE.MathUtils.clamp(ty, SHIP_Y_MIN, -1.4)
   demoFireT -= dt
   if (demoFireT <= 0) {
     demoFireT = 0.7 + Math.random() * 0.6
@@ -608,10 +641,10 @@ function update(dt: number) {
       if (deathT <= 0) emit('death')
     }
   } else {
-    worldSpeed = gameStarted ? 42 + Math.min(38, distance * 0.004) : 22
+    worldSpeed = gameStarted ? 42 + Math.min(38, distance * 0.004) : 28
   }
 
-  distance += worldSpeed * dt
+  if (!gameOver) distance += worldSpeed * dt
 
   // ---- steering targets
   if (!gameStarted && !gameOver) {
@@ -623,10 +656,10 @@ function update(dt: number) {
     const kd = keys.has('ArrowDown') || keys.has('s')
     const dx = (kr ? 1 : 0) - (kl ? 1 : 0)
     const dy = (ku ? 1 : 0) - (kd ? 1 : 0)
-    targetX = THREE.MathUtils.clamp(targetX + dx * 16 * dt, -SHIP_X, SHIP_X)
+    targetX = THREE.MathUtils.clamp(targetX + dx * 16 * dt, -shipXMax(), shipXMax())
     targetY = THREE.MathUtils.clamp(targetY + dy * 13 * dt, SHIP_Y_MIN, SHIP_Y_MAX)
     if (touchSteer.active) {
-      targetX = THREE.MathUtils.clamp(touchSteer.x, -SHIP_X, SHIP_X)
+      targetX = THREE.MathUtils.clamp(touchSteer.x, -shipXMax(), shipXMax())
       targetY = THREE.MathUtils.clamp(touchSteer.y, SHIP_Y_MIN, SHIP_Y_MAX)
     }
     fireCd -= dt
@@ -661,15 +694,15 @@ function update(dt: number) {
   const shx = sh > 0 ? (Math.random() - 0.5) * sh : 0
   const shy = sh > 0 ? (Math.random() - 0.5) * sh : 0
   const cf = Math.min(1, 4.5 * dt)
-  tmpA.set(shipX * 0.55, (portrait ? 3.2 : 2.4) + shipY * 0.42, portrait ? 13 : 9.5)
+  tmpA.set(shipX * 0.55, (portrait ? 5.2 : 3.0) + shipY * 0.42, portrait ? 13 : 9.5)
   camera.position.lerp(tmpA, cf)
   camera.position.x += shx
   camera.position.y += shy
-  tmpB.set(shipX * 0.72, shipY * 0.55 - 0.4, -30)
+  tmpB.set(shipX * 0.72, shipY * 0.55 + (portrait ? 2.2 : 1.5), -30)
   camera.lookAt(tmpB)
 
-  // ---- grid scroll (cell = 5 world units)
-  grid.position.z = (elapsed * worldSpeed) % 5
+  // ---- grid scroll (cell = 5 world units; distance is the integral of speed)
+  grid.position.z = distance % 5
 
   // ---- stars stream past
   const sp = starPos
@@ -726,6 +759,7 @@ function update(dt: number) {
   for (const s of shots) {
     if (!s.active) continue
     s.life -= dt
+    const sz0 = s.m.position.z
     s.m.position.x += s.vx * dt
     s.m.position.y += s.vy * dt
     s.m.position.z += s.vz * dt
@@ -738,8 +772,7 @@ function update(dt: number) {
     for (const e of enemies) {
       if (!e.active) continue
       const ep = e.l.position
-      const dz = Math.abs(s.m.position.z - ep.z)
-      if (dz > 2.4) continue
+      if (ep.z < s.m.position.z - 2.4 || ep.z > sz0 + 2.4) continue
       const dx = s.m.position.x - ep.x
       const dy = s.m.position.y - ep.y
       if (dx * dx + dy * dy < 2.9) {
@@ -760,12 +793,13 @@ function update(dt: number) {
   for (const e of enemies) {
     if (!e.active) continue
     const p = e.l.position
+    const pz = p.z
     p.z += (worldSpeed * 0.92 + 9) * dt
     e.wob += e.wobSpeed * dt
     p.x += (Math.sin(e.wob) * 2.4 + e.hx - p.x) * Math.min(1, 0.6 * dt)
     if (gameStarted && !gameOver) {
       // slight homing toward the ship's lane
-      e.hx = THREE.MathUtils.clamp(e.hx + Math.sign(shipX - p.x) * 1.4 * dt, -SHIP_X, SHIP_X)
+      e.hx = THREE.MathUtils.clamp(e.hx + Math.sign(shipX - p.x) * 1.4 * dt, -shipXMax(), shipXMax())
       p.y += Math.sign(shipY - p.y) * 0.5 * dt
     }
     e.l.rotation.z += 1.6 * dt
@@ -786,8 +820,7 @@ function update(dt: number) {
     if (gameStarted && !gameOver && rollT < 0) {
       const dx = p.x - shipX
       const dy = p.y - shipY
-      const dz = p.z
-      if (dz > -1.6 && dz < 1.6 && dx * dx + dy * dy < 3.2) {
+      if (p.z > -1.6 && pz < 1.6 && dx * dx + dy * dy < 3.2) {
         e.active = false
         e.l.visible = false
         burst(p.x, p.y, p.z, 24, true)
@@ -800,6 +833,7 @@ function update(dt: number) {
   for (const s of eshots) {
     if (!s.active) continue
     s.life -= dt
+    const pz = s.m.position.z
     s.m.position.x += s.vx * dt
     s.m.position.y += s.vy * dt
     s.m.position.z += s.vz * dt
@@ -811,8 +845,7 @@ function update(dt: number) {
     if (gameStarted && !gameOver && rollT < 0) {
       const dx = s.m.position.x - shipX
       const dy = s.m.position.y - shipY
-      const dz = s.m.position.z
-      if (dz > -1.2 && dz < 1.2 && dx * dx + dy * dy < 1.7) {
+      if (s.m.position.z > -1.2 && pz < 1.2 && dx * dx + dy * dy < 1.7) {
         s.active = false
         s.m.visible = false
         burst(shipX, shipY, 0, 16, true)
@@ -825,6 +858,7 @@ function update(dt: number) {
   for (const o of obstacles) {
     if (!o.active) continue
     const p = o.l.position
+    const pz = p.z
     p.z += worldSpeed * dt
     if (o.kind === 1) o.l.rotation.y += 0.5 * dt
     if (p.z > KILL_Z) {
@@ -832,14 +866,22 @@ function update(dt: number) {
       o.l.visible = false
       continue
     }
-    if (p.z < -1.2 || p.z > 1.2) continue
+    if (p.z < -1.2 || pz > 1.2 || rollT >= 0 || invulnT > 0) continue
     const dx = p.x - shipX
     const dy = p.y - shipY
     const d2 = dx * dx + dy * dy
     if (o.kind === 0) {
       // gate: safe inside the hole, clip = hit
-      if (d2 < 3.2) continue // clean pass through the diamond
+      if (d2 < 2.9) continue // clean pass through the diamond
       if (d2 < 10.2) {
+        o.active = false
+        o.l.visible = false
+        burst(shipX, shipY, 0, 18, false)
+        hitShip()
+      }
+    } else if (o.kind === 2) {
+      // pillar: short slab above/below the lane — hit only on its side
+      if (Math.abs(dx) < 2.0 && (p.y > 0 ? shipY > 1.2 : shipY < -1.2)) {
         o.active = false
         o.l.visible = false
         burst(shipX, shipY, 0, 18, false)
@@ -857,6 +899,7 @@ function update(dt: number) {
   for (const r of rings) {
     if (!r.active) continue
     const p = r.l.position
+    const pz = p.z
     p.z += worldSpeed * dt
     p.y += Math.sin(elapsed * 2 + p.x) * 0.35 * dt
     r.l.rotation.z += 0.8 * dt
@@ -869,7 +912,7 @@ function update(dt: number) {
       r.l.visible = false
       continue
     }
-    if (p.z < -1.4 || p.z > 1.4) continue
+    if (p.z < -1.4 || pz > 1.4) continue
     const dx = p.x - shipX
     const dy = p.y - shipY
     if (dx * dx + dy * dy < 4.4) {
@@ -919,11 +962,18 @@ function resize() {
   const W = window.innerWidth
   const H = window.innerHeight
   portrait = H > W
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
+  viewW = W
+  viewH = H
+  const pr = Math.min(window.devicePixelRatio || 1, 1.5)
+  renderer.setPixelRatio(pr)
   renderer.setSize(W, H, false)
   camera.aspect = W / H
-  camera.fov = portrait ? 80 : 62
+  camera.fov = portrait ? 72 : 62
   camera.updateProjectionMatrix()
+  matShip?.resolution.set(W * pr, H * pr)
+  matShipGlow?.resolution.set(W * pr, H * pr)
+  matRing?.resolution.set(W * pr, H * pr)
+  matRingGlow?.resolution.set(W * pr, H * pr)
 }
 
 // ---------------------------------------------------------------- input
@@ -982,15 +1032,13 @@ function onTouchMove(e: TouchEvent) {
   if (isInteractive(e.target)) return
   e.preventDefault()
   const t = e.touches[0]
-  const rect = canvas.value?.getBoundingClientRect()
-  const scaleX = rect ? SHIP_X * 2 / rect.width : 0.02
-  const scaleY = rect ? (SHIP_Y_MAX - SHIP_Y_MIN) / rect.height : 0.02
+  const scaleX = shipXMax() * 2 / viewW
+  const scaleY = (SHIP_Y_MAX - SHIP_Y_MIN) / viewH
   touchSteer.x = touchDown.sx + (t.clientX - touchDown.x) * scaleX * 1.6
   touchSteer.y = touchDown.sy - (t.clientY - touchDown.y) * scaleY * 1.6
 }
 
-function onTouchEnd(e: TouchEvent) {
-  if (!touchDown) {
+function onTouchEnd(e: TouchEvent) {  if (!touchDown) {
     touchSteer.active = false
     return
   }
@@ -1013,9 +1061,18 @@ function onTouchEnd(e: TouchEvent) {
 // ---------------------------------------------------------------- lifecycle
 
 onMounted(() => {
-  renderer = new THREE.WebGLRenderer({ canvas: canvas.value!, antialias: false, powerPreference: 'low-power' })
+  renderer = new THREE.WebGLRenderer({ canvas: canvas.value!, antialias: true, powerPreference: 'low-power' })
   buildScene()
   resize()
+  // pre-warm: simulate 6 s of attract mode so gates/rings/enemies are
+  // already on screen in the first frame (spawns start at z=-150 in fog)
+  for (let i = 0; i < 360; i++) update(1 / 60)
+  // demo kills during warm-up must not leak onto the HUD
+  score = 0
+  killCount = 0
+  streakT = 0
+  lastKm = 0
+  emit('score', 0)
   window.addEventListener('resize', resize)
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
@@ -1047,7 +1104,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
-.sfx-canvas {
+.sfxb-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
