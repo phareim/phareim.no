@@ -98,7 +98,10 @@ The shell listens for ArrowLeft/ArrowRight and horizontal swipes on
 on game over and in `onBeforeUnmount`. `hacker/Landing.vue`,
 `breakout/Landing.vue` and `rtype/Landing.vue` show the pattern; all three games
 also start on *tap*, not on touchstart, so a swipe on the idle game still changes
-theme.
+theme. `rtype/Shooter.vue` simulates in world space (ship flies +x) and
+rotates the canvas 90° when the screen is taller than wide, so the ship flies
+up on phones and sideways on desktop; keys, touch and upright text go through
+the same mapping (2026-09-05).
 
 ## Taste
 
