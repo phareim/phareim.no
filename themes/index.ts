@@ -12,6 +12,8 @@ import './rtype/theme.css'
 import './invaders-a/theme.css'
 import './invaders-b/theme.css'
 import './invaders-c/theme.css'
+import './invaders-d/theme.css'
+import './invaders-e/theme.css'
 
 // Static imports on purpose: a swipe should not wait for a chunk, and the
 // whole set is small (the Cyberpunk game is the only big one).
@@ -27,6 +29,8 @@ import RtypeLanding from './rtype/Landing.vue'
 import InvadersALanding from './invaders-a/Landing.vue'
 import InvadersBLanding from './invaders-b/Landing.vue'
 import InvadersCLanding from './invaders-c/Landing.vue'
+import InvadersDLanding from './invaders-d/Landing.vue'
+import InvadersELanding from './invaders-e/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the cookie value. */
@@ -88,6 +92,18 @@ export const themes: ThemeDefinition[] = [
     name: 'Invaders C',
     themeColor: '#000000',
     landing: InvadersCLanding,
+  },
+  {
+    id: 'invaders-d',
+    name: 'Invaders D',
+    themeColor: '#0b0616',
+    landing: InvadersDLanding,
+  },
+  {
+    id: 'invaders-e',
+    name: 'Invaders E',
+    themeColor: '#0b0616',
+    landing: InvadersELanding,
   },
   {
     id: 'space',

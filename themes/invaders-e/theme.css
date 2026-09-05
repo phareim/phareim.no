@@ -1,0 +1,46 @@
+/**
+ * Invaders C — SYNTHWAVE HORIZON.
+ * Outrun/synthwave 1984: the playfield floats above a perspective grid
+ * floor (magenta #ff2fa0 on deep violet-black #0b0616) with a huge striped
+ * sun (#ff6a3d -> #ffd23f) on the horizon and thin neon mountains.
+ * Invaders glow magenta, the cannon/shot/bunkers/HUD glow cyan (#2ff3ff),
+ * the UFO is gold. One scheme — no dark variant.
+ */
+
+:root {
+  --invaders-e-bg: #0b0616;
+  --invaders-e-bg-deep: #060310;
+  --invaders-e-text: #f2e9ff;
+  --invaders-e-text-muted: #b9a8d9;
+  --invaders-e-text-subtle: #7a6a9a;
+  --invaders-e-accent: #2ff3ff;
+  --invaders-e-pink: #ff2fa0;
+  --invaders-e-gold: #ffd23f;
+  --invaders-e-card-bg: rgba(11, 6, 22, 0.74);
+  --invaders-e-card-border: rgba(47, 243, 255, 0.28);
+  --invaders-e-card-shadow: rgba(255, 47, 160, 0.18);
+  --invaders-e-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --invaders-e-mono: "Courier New", ui-monospace, monospace;
+}
+
+.invaders-e-page {
+  min-height: 100vh;
+  background: var(--invaders-e-bg);
+  color: var(--invaders-e-text);
+  font-family: var(--invaders-e-font);
+  position: relative;
+  overflow-x: hidden;
+
+  /* The contract. All ten are read somewhere; add more only when a
+     second theme needs the same token. */
+  --theme-bg: var(--invaders-e-bg);
+  --theme-text: var(--invaders-e-text);
+  --theme-text-muted: var(--invaders-e-text-muted);
+  --theme-text-subtle: var(--invaders-e-text-subtle);
+  --theme-accent: var(--invaders-e-accent);
+  --theme-card-bg: var(--invaders-e-card-bg);
+  --theme-card-border: var(--invaders-e-card-border);
+  --theme-card-shadow: var(--invaders-e-card-shadow);
+  --theme-card-radius: 12px;
+  --theme-font-body: var(--invaders-e-font);
+}
