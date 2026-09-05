@@ -36,7 +36,7 @@
         <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
           <p class="sfx-hint">PRESS ENTER OR TAP TO FLY</p>
-          <p class="sfx-hint sfx-hint-dim">ARROWS/WASD STEER · SPACE FIRE · SHIFT BARREL ROLL</p>
+          <p class="sfx-hint sfx-hint-dim">ARROWS/WASD STEER · SPACE FIRE · SHIFT OR DOUBLE-TAP TO BARREL ROLL</p>
         </template>
       </template>
     </template>
@@ -61,7 +61,7 @@ const gameOver = ref(false)
 const gameStarted = ref(false)
 
 onMounted(() => {
-  const v = parseInt(localStorage.getItem('starfoxHighScore') || '0', 10)
+  const v = parseInt(localStorage.getItem('starfox-a-high') || '0', 10)
   highScore.value = Number.isNaN(v) ? 0 : v
 })
 
@@ -84,7 +84,7 @@ function onGameOver() {
   isNewHigh.value = score.value > highScore.value
   if (isNewHigh.value) {
     highScore.value = score.value
-    localStorage.setItem('starfoxHighScore', String(highScore.value))
+    localStorage.setItem('starfox-a-high', String(highScore.value))
   }
 }
 

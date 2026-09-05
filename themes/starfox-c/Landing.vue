@@ -35,7 +35,7 @@
         </p>
         <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
-          <p class="sfx-hint">PRESS ENTER OR TAP TO FLY</p>
+          <p class="sfx-hint">▶ PRESS ENTER OR TAP TO FLY ◀</p>
           <p class="sfx-hint sfx-hint-dim">ARROWS/WASD STEER · SPACE FIRE · SHIFT BARREL ROLL</p>
         </template>
       </template>
@@ -98,18 +98,20 @@ function onGameRestart() {
 <style>
 .sfx-hud {
   font-family: var(--theme-font-body, monospace);
-  color: var(--theme-accent, #fff);
+  color: var(--sfxc-cyan, #2ff3ff);
   letter-spacing: 0.15em;
   font-size: 1em;
+  text-shadow: 0 0 8px rgba(47, 243, 255, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
 }
 
 .sfx-over-title {
   font-family: var(--theme-font-body, monospace);
-  color: var(--theme-accent, #fff);
+  color: var(--sfxc-pink, #ff2fa0);
   font-size: 2.8em;
   letter-spacing: 0.1em;
   margin-top: 0.5em;
   margin-bottom: 0.1em;
+  text-shadow: 0 0 12px rgba(255, 47, 160, 0.8), 0 0 40px rgba(255, 47, 160, 0.4);
 }
 @media (min-width: 800px) {
   .sfx-over-title {
@@ -131,11 +133,17 @@ function onGameRestart() {
 
 .sfx-hint {
   font-family: var(--theme-font-body, monospace);
-  color: var(--theme-accent, #fff);
+  color: var(--sfxc-pink, #ff2fa0);
   font-size: 0.9em;
-  letter-spacing: 0.1em;
-  opacity: 0.8;
+  letter-spacing: 0.12em;
+  opacity: 0.9;
   margin-top: 1em;
+  text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
+  animation: sfx-blink 1.6s ease-in-out infinite alternate;
+}
+@keyframes sfx-blink {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
 }
 
 .sfx-hint-dim {

@@ -37,6 +37,7 @@
         <template v-if="!gameStarted">
           <p class="sfx-hint">PRESS ENTER OR TAP TO FLY</p>
           <p class="sfx-hint sfx-hint-dim">ARROWS/WASD STEER · SPACE FIRE · SHIFT BARREL ROLL</p>
+          <p class="sfx-hint sfx-hint-dim">THREAD THE ◆ GATES · FLY THROUGH RINGS +50</p>
         </template>
       </template>
     </template>
@@ -101,6 +102,7 @@ function onGameRestart() {
   color: var(--theme-accent, #fff);
   letter-spacing: 0.15em;
   font-size: 1em;
+  text-shadow: 0 0 8px rgba(25, 240, 255, 0.65);
 }
 
 .sfx-over-title {
