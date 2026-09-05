@@ -1,0 +1,44 @@
+/**
+ * PHOSPHOR CABINET (invaders-a)
+ * ------------------------------
+ * The 1978 Taito cabinet as it looked: a black-and-white game seen through
+ * a CRT with coloured cellophane strips glued on the glass.
+ *
+ * One scheme only (a cabinet has no light mode), so no prefers-color-scheme
+ * block. Private variables are namespaced --invaders-a-* on :root; the page
+ * carries the ten --theme-* tokens.
+ */
+
+:root {
+  --invaders-a-bg: #050605;
+  --invaders-a-text: #dfe8df;
+  --invaders-a-text-muted: #8fa08f;
+  --invaders-a-text-subtle: #556055;
+  --invaders-a-accent: #39ff6a;
+  --invaders-a-red: #ff3b30;
+  --invaders-a-card-bg: rgba(5, 6, 5, 0.72);
+  --invaders-a-card-border: rgba(223, 232, 223, 0.16);
+  --invaders-a-card-shadow: rgba(0, 0, 0, 0.6);
+  --invaders-a-font: "Courier New", ui-monospace, monospace;
+}
+
+.invaders-a-page {
+  min-height: 100vh;
+  background: var(--invaders-a-bg);
+  color: var(--invaders-a-text);
+  font-family: var(--invaders-a-font);
+  position: relative;
+  overflow-x: hidden;
+
+  /* The contract. All ten are read somewhere. */
+  --theme-bg: var(--invaders-a-bg);
+  --theme-text: var(--invaders-a-text);
+  --theme-text-muted: var(--invaders-a-text-muted);
+  --theme-text-subtle: var(--invaders-a-text-subtle);
+  --theme-accent: var(--invaders-a-accent);
+  --theme-card-bg: var(--invaders-a-card-bg);
+  --theme-card-border: var(--invaders-a-card-border);
+  --theme-card-shadow: var(--invaders-a-card-shadow);
+  --theme-card-radius: 12px;
+  --theme-font-body: var(--invaders-a-font);
+}

@@ -9,6 +9,9 @@ import './space/theme.css'
 import './almanac/theme.css'
 import './desk/theme.css'
 import './rtype/theme.css'
+import './invaders-a/theme.css'
+import './invaders-b/theme.css'
+import './invaders-c/theme.css'
 
 // Static imports on purpose: a swipe should not wait for a chunk, and the
 // whole set is small (the Cyberpunk game is the only big one).
@@ -21,6 +24,9 @@ import AlmanacLanding from './almanac/Landing.vue'
 import AlmanacPaper from './almanac/Paper.vue'
 import DeskLanding from './desk/Landing.vue'
 import RtypeLanding from './rtype/Landing.vue'
+import InvadersALanding from './invaders-a/Landing.vue'
+import InvadersBLanding from './invaders-b/Landing.vue'
+import InvadersCLanding from './invaders-c/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the cookie value. */
@@ -64,6 +70,24 @@ export const themes: ThemeDefinition[] = [
     name: 'R-Type',
     themeColor: '#05060c',
     landing: RtypeLanding,
+  },
+  {
+    id: 'invaders-a',
+    name: 'Invaders A',
+    themeColor: '#000000',
+    landing: InvadersALanding,
+  },
+  {
+    id: 'invaders-b',
+    name: 'Invaders B',
+    themeColor: '#000000',
+    landing: InvadersBLanding,
+  },
+  {
+    id: 'invaders-c',
+    name: 'Invaders C',
+    themeColor: '#000000',
+    landing: InvadersCLanding,
   },
   {
     id: 'space',
