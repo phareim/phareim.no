@@ -18,7 +18,7 @@
       <template v-if="gameOver">
         <h1 class="invaders-c-over-title">GAME OVER</h1>
         <p class="invaders-c-hud invaders-c-over-score">SCORE: {{ score }} · WAVE {{ wave }}</p>
-        <p v-if="score >= highScore && score > 0" class="invaders-c-hud invaders-c-new-high">NEW HIGH SCORE!</p>
+        <p v-if="isNewHigh && score > 0" class="invaders-c-hud invaders-c-new-high">NEW HIGH SCORE!</p>
         <p v-else class="invaders-c-hud">HIGH SCORE: {{ highScore }}</p>
         <p class="invaders-c-hint">PRESS ENTER OR TAP TO PLAY AGAIN</p>
       </template>
@@ -51,11 +51,13 @@ const score = ref(0)
 const wave = ref(1)
 const lives = ref(3)
 const highScore = ref(0)
+const isNewHigh = ref(false)
 const gameOver = ref(false)
 const gameStarted = ref(false)
 
 onMounted(() => {
-  highScore.value = parseInt(localStorage.getItem('invaders-cHighScore') || '0', 10)
+  const v = parseInt(localStorage.getItem('invaders-cHighScore') || '0', 10)
+  highScore.value = Number.isNaN(v) ? 0 : v
 })
 
 // The game owns the arrow keys and horizontal touch while it runs.
@@ -69,7 +71,8 @@ function onGameStarted() {
 function onGameOver() {
   gameOver.value = true
   navigationLocked.value = false
-  if (score.value > highScore.value) {
+  isNewHigh.value = score.value > highScore.value
+  if (isNewHigh.value) {
     highScore.value = score.value
     localStorage.setItem('invaders-cHighScore', String(highScore.value))
   }
@@ -77,6 +80,7 @@ function onGameOver() {
 
 function onGameRestart() {
   gameOver.value = false
+  isNewHigh.value = false
   navigationLocked.value = true
 }
 </script>

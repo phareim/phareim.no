@@ -231,6 +231,7 @@ function rand(lo, hi) {
 }
 
 function setScore(v) {
+  if (!gameStarted) return
   score = v
   if (score >= EXTRA_AT && !extraAwarded && gameStarted) {
     extraAwarded = true
@@ -256,10 +257,17 @@ function setupCanvas() {
   c.height = Math.round(SH * dpr)
   ctx = c.getContext('2d')
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  margin = Math.max(12, SW * 0.04)
-  cannonY = SH * 0.895
   cannonX = clamp(cannonX || SW / 2, 30, SW - 30)
   prevCannonX = cannonX
+  layout()
+}
+
+// Single layout entry: everything derives from SW/SH here, called on
+// mount and resize. Portrait phones (< 600 px) get 7 columns / 3 bunkers
+// via buildWave()/resetBunkers().
+function layout() {
+  margin = Math.max(12, SW * 0.04)
+  cannonY = SH * 0.95
   layoutGeometry()
   buildStars()
   buildRidge()
@@ -274,11 +282,11 @@ function layoutGeometry() {
   formW = cols * cellW
   formH = ROWS * cellH
   fx = clamp(fx || (SW - formW) / 2, margin, Math.max(margin, SW - margin - formW))
-  fy = Math.min(fy || SH * 0.085, bunkerTop() - formH - cellH)
+  fy = Math.max(0, Math.min(fy || SH * 0.085, bunkerTop() - formH - cellH))
 }
 
 function bunkerTop() {
-  return SH * 0.755
+  return SH * 0.865
 }
 
 function buildStars() {
@@ -296,7 +304,7 @@ function buildStars() {
 }
 
 function horizonY() {
-  return SH * 0.7
+  return SW < 600 ? SH * 0.92 : SH * 0.7
 }
 
 function buildRidge() {
@@ -313,7 +321,7 @@ function buildRidge() {
 // ---------------------------------------------------------------- waves
 
 function buildWave() {
-  cols = SW >= 900 ? 11 : SW >= 620 ? 8 : 7
+  cols = SW >= 900 ? 11 : SW >= 600 ? 8 : 7
   alive = []
   for (let r = 0; r < ROWS; r++) {
     const row = []
@@ -325,6 +333,7 @@ function buildWave() {
   marchDir = 1
   marchFrame = 0
   stepAcc = 0
+  stepCount = 0
   layoutGeometry()
   // The next formation starts one row lower, up to a floor above the bunkers.
   const maxExtra = Math.max(0, Math.floor((bunkerTop() - cellH * 1.5 - formH - SH * 0.085) / cellH))
@@ -334,8 +343,8 @@ function buildWave() {
 }
 
 function resetBunkers() {
-  const n = SW < 620 ? 3 : 4
-  const bp = clamp(Math.floor(Math.min(SW * 0.13, 120) / BUNKER_GW), 2, 5)
+  const n = SW < 600 ? 3 : 4
+  const bp = clamp(Math.floor(Math.min(SW * 0.13, 80) / BUNKER_GW), 2, 3)
   const bw = BUNKER_GW * bp
   const bh = BUNKER_GH * bp
   const gap = bw * 0.9
@@ -387,10 +396,14 @@ function startDemo() {
   streak = 0
   mult = 1
   comboTimer = 0
+  lastKillT = -10
+  stepCount = 0
   dying = 0
   deathEmitted = false
   shot = null
   bombs = []
+  bombAcc = 1
+  cannonTrail = []
   ufo = null
   ufoTimer = 4
   particles = []
@@ -413,13 +426,20 @@ function startGame() {
   streak = 0
   mult = 1
   comboTimer = 0
+  lastKillT = -10
+  stepCount = 0
   gameOver = false
   gameStarted = true
   dying = 0
   deathEmitted = false
   invulnUntil = 0
+  touchActive = false
+  touchX = 0
+  keys = {}
   shot = null
   bombs = []
+  bombAcc = 1
+  cannonTrail = []
   ufo = null
   ufoTimer = rand(20, 30)
   particles = []
@@ -442,7 +462,10 @@ function startGame() {
 
 function stepIntervalMs() {
   const frac = aliveCount / totalCount
-  return 45 + 520 * Math.pow(Math.max(0, frac), 1.2)
+  const base = 45 + 520 * Math.pow(Math.max(0, frac), 1.2)
+  // Attract mode drifts down slowly so the bottom row stays above ~45 %
+  // for the first ~20 s and the name stays readable.
+  return gameStarted ? base : base * 1.9
 }
 
 function doStep(now) {
@@ -452,15 +475,34 @@ function doStep(now) {
   sunNotch++
   const dx = Math.max(2, Math.round(cellW * 0.16))
   const dy = Math.max(4, Math.round(cellH * 0.7))
+  // Live extents: outer dead columns must not trigger early edge turns.
+  let liveMin = Infinity
+  let liveMax = -Infinity
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (!alive[r][c]) continue
+      const rc = invaderRect(r, c)
+      if (rc.x < liveMin) liveMin = rc.x
+      if (rc.x + rc.w > liveMax) liveMax = rc.x + rc.w
+    }
+  }
   const nx = fx + marchDir * dx
-  if (marchDir > 0 && nx + formW > SW - margin) {
-    fy += dy
-    marchDir = -1
-  } else if (marchDir < 0 && nx < margin) {
-    fy += dy
-    marchDir = 1
-  } else {
+  if (!Number.isFinite(liveMin)) {
     fx = nx
+  } else {
+    const minOff = liveMin - fx
+    const maxOff = liveMax - fx
+    if (marchDir > 0 && nx + maxOff > SW - margin) {
+      fy += dy
+      marchDir = -1
+      fx = SW - margin - maxOff
+    } else if (marchDir < 0 && nx + minOff < margin) {
+      fy += dy
+      marchDir = 1
+      fx = margin - minOff
+    } else {
+      fx = nx
+    }
   }
   eatBunkers()
   checkInvasion(now)
@@ -496,6 +538,15 @@ function lowestInColumn(c) {
 
 function checkInvasion(now) {
   if (gameOver || dying > 0) return
+  if (!gameStarted) {
+    // Attract mode never ends in GAME OVER: loop the demo high instead.
+    if (invaderBottom() >= cannonY - 4 * px) {
+      buildWave()
+      bombs = []
+      shot = null
+    }
+    return
+  }
   if (invaderBottom() >= cannonY - 4 * px) {
     gameOver = true
     deathAt = now
@@ -598,7 +649,7 @@ function killInvader(r, c, now) {
   mult = Math.min(4, streak + 1)
   lastKillT = now
   comboTimer = 1.5
-  setScore(score + speciesScore(r) * mult)
+  setScore(score + speciesScore(r))
   flashes.push({ rows: speciesRows(r, marchFrame), x: rc.x, y: rc.y, px, t: 0.12 })
   explode(cx, cy, false)
   if (aliveCount <= 0 && !gameOver) wavePause = 1.6
@@ -705,7 +756,15 @@ function autopilot(dt) {
     }
   }
   moveCannonToward(targetX, dt)
-  if (!shot && Math.abs(targetX - cannonX) < 90) fireDemoShot()
+  // Deliberately imperfect: a wide aim window plus a ~35 % chance of a
+  // large aim error and a coin-flip on the trigger, so the demo misses
+  // sometimes and the formation stays full for ~20 s.
+  if (!shot && Math.abs(targetX - cannonX) < 40 && Math.random() < 0.5) {
+    if (Math.random() < 0.35) {
+      cannonX = clamp(cannonX + (Math.random() < 0.5 ? -1 : 1) * rand(50, 110), 24, SW - 24)
+    }
+    fireDemoShot()
+  }
 }
 
 function moveCannonToward(tx, dt) {
@@ -838,7 +897,7 @@ function updateGame(dt, now) {
   ufoTimer -= dt
   if (ufoTimer <= 0 && !ufo) {
     spawnUFO(now)
-    ufoTimer = gameStarted ? rand(20, 30) : rand(14, 22)
+    ufoTimer = rand(20, 30)
   }
   if (ufo) {
     ufo.x += ufo.dir * ufo.v * dt
@@ -884,7 +943,7 @@ function updateShot(dt, now) {
     const uw = UFO_SPRITE[0].length * px
     const uh = UFO_SPRITE.length * px
     if (shot.x > ufo.x - uw / 2 && shot.x < ufo.x + uw / 2 && shot.y > ufo.y && shot.y < ufo.y + uh) {
-      const pts = ufoPoints() * (gameStarted ? mult : 1)
+      const pts = ufoPoints()
       if (gameStarted) setScore(score + pts)
       ufoPopups.push({ x: ufo.x, y: ufo.y + uh, text: String(pts), t: 0, color: GOLD })
       explode(ufo.x, ufo.y + uh / 2, false)
@@ -892,6 +951,13 @@ function updateShot(dt, now) {
       shot = null
       return
     }
+  }
+  // Bunkers erode pixel by pixel — before invaders, so a bolt cannot
+  // kill through a bunker without chewing it.
+  if (hitBunker(shot.x, shot.y, 2)) {
+    spawnParticles(shot.x, shot.y, CYAN, 5, 140)
+    shot = null
+    return
   }
   // Invaders.
   for (let r = 0; r < ROWS; r++) {
@@ -904,12 +970,6 @@ function updateShot(dt, now) {
         return
       }
     }
-  }
-  // Bunkers erode pixel by pixel.
-  if (hitBunker(shot.x, shot.y, 2)) {
-    spawnParticles(shot.x, shot.y, CYAN, 5, 140)
-    shot = null
-    return
   }
   // Shooting a bomb out of the sky.
   for (let i = bombs.length - 1; i >= 0; i--) {
@@ -1041,6 +1101,7 @@ function drawSun() {
   const cx = SW / 2
   const cy = hy + r * 0.55
   const demo = !gameStarted
+  const portrait = SW < 600
   // Halo.
   const halo = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * 2.1)
   halo.addColorStop(0, `rgba(255, 47, 160, ${demo ? 0.14 : 0.22})`)
@@ -1048,6 +1109,8 @@ function drawSun() {
   ctx.fillStyle = halo
   ctx.fillRect(cx - r * 2.1, cy - r * 2.1, r * 4.2, r * 4.2)
   // Disc, clipped, with horizontal dark cut-lines that scroll a notch per step.
+  // On portrait the horizon sits at ~92 % so the sun top lands at ~88 %;
+  // dim it there so it sits behind the hint text and icons.
   ctx.save()
   ctx.beginPath()
   ctx.arc(cx, cy, r, 0, Math.PI * 2)
@@ -1056,7 +1119,7 @@ function drawSun() {
   grad.addColorStop(0, '#ffd23f')
   grad.addColorStop(0.55, '#ff6a3d')
   grad.addColorStop(1, '#ff2fa0')
-  ctx.globalAlpha = demo ? 0.5 : 0.8
+  ctx.globalAlpha = portrait ? 0.32 : demo ? 0.5 : 0.8
   ctx.fillStyle = grad
   ctx.fillRect(cx - r, cy - r, r * 2, r * 2)
   ctx.globalAlpha = 1
@@ -1358,16 +1421,14 @@ function isInteractiveElement(el) {
 }
 
 function handleKeyDown(e) {
+  if (isInteractiveElement(e.target)) return
   keys[e.code] = true
   if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
     e.preventDefault()
-    if (!e.repeat) {
-      if (!gameStarted || gameOver) startGame()
-      else fire()
-    }
+    if (!e.repeat && gameStarted && !gameOver) fire()
   }
   if (!gameStarted || gameOver) {
-    if (e.code === 'Enter') startGame()
+    if (e.code === 'Enter' && !e.repeat) startGame()
   }
 }
 
@@ -1376,13 +1437,18 @@ function handleKeyUp(e) {
 }
 
 function handleResize() {
-  const oldCols = cols
+  // setupCanvas() refreshes SW/SH via layout(), then we rebuild the wave if
+  // the width class changed so the 11/8/7 column count adapts while bunkers
+  // flip 3<->4.
   setupCanvas()
-  cols = oldCols
-  layoutGeometry()
+  const nowCols = SW >= 900 ? 11 : SW >= 600 ? 8 : 7
+  if (nowCols !== cols) {
+    buildWave()
+    resetBunkers()
+  }
   // Keep everything on screen after a resize.
   fx = clamp(fx, margin, Math.max(margin, SW - margin - formW))
-  fy = Math.min(fy, bunkerTop() - formH - cellH)
+  fy = Math.max(0, Math.min(fy, bunkerTop() - formH - cellH))
   cannonX = clamp(cannonX, 24, SW - 24)
   if (ufo) ufo.y = Math.max(26, SH * 0.055)
 }

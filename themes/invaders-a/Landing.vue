@@ -11,6 +11,7 @@
         @death="onGameOver"
         @restart="onGameRestart"
         @started="onGameStarted"
+        @over="onGameOverUnlock"
       />
     </template>
 
@@ -55,7 +56,10 @@ const gameOver = ref(false)
 const gameStarted = ref(false)
 
 onMounted(() => {
-  highScore.value = parseInt(localStorage.getItem('invaders-aHighScore') || '0', 10)
+  try {
+    const n = parseInt(localStorage.getItem('invaders-aHighScore') || '0', 10)
+    highScore.value = Number.isNaN(n) ? 0 : n
+  } catch { highScore.value = 0 }
 })
 
 // The game owns the arrow keys and horizontal touch while it runs.
@@ -71,8 +75,14 @@ function onGameOver() {
   navigationLocked.value = false
   if (score.value > highScore.value) {
     highScore.value = score.value
-    localStorage.setItem('invaders-aHighScore', String(highScore.value))
+    try { localStorage.setItem('invaders-aHighScore', String(highScore.value)) } catch { /* private mode */ }
   }
+}
+
+// Fired the moment the run ends (up to ~0.9 s before the GAME OVER card, while
+// the explosion plays out) so the arrow keys are never dead.
+function onGameOverUnlock() {
+  navigationLocked.value = false
 }
 
 function onGameRestart() {

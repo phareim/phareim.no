@@ -36,6 +36,7 @@ const PINK = '#ff4f8b'
 const INK = '#1b2560'
 
 const MAX_SPLATS = 60
+const MAX_POPS = 60
 const ROWS = 5
 const PTS = [30, 20, 20, 10, 10]
 const SPECIES = ['squid', 'crab', 'crab', 'octo', 'octo']
@@ -153,6 +154,7 @@ for (let i = 0; i < 46; i++) {
 // ---------------------------------------------------------------- state
 
 let cols = 11
+let builtCols = 11 // column count the live grid was built for (finding 1)
 let margin = 40
 let u = 3 // sprite pixel unit (css px)
 let cellW = 40
@@ -243,24 +245,46 @@ function stepInterval() {
 // ---------------------------------------------------------------- layout
 
 function layout() {
-  cols = W < 560 ? 7 : (W < 900 ? 8 : 11)
+  cols = W < 600 ? 7 : (W < 900 ? 8 : 11)
   margin = Math.max(14, W * 0.05)
   u = clamp((W - margin * 2) / (cols * 14), 1.4, 4.2)
   cellW = 14 * u
   cellH = 10 * u
   stepDX = cellW * 0.3
-  dropDY = cellH * 0.85
+  dropDY = cellH
   misX = Math.max(1, u * 0.4)
   misY = Math.max(0.8, u * 0.28)
   baseOx = (W - cols * cellW) / 2
+  // The grid was built for the old column count: remap it instead of
+  // letting the formation overflow/underflow the margins.
+  if (grid.length > 0 && cols !== builtCols) migrateGrid(builtCols, cols)
   dropRows = Math.min(wave - 1, 3)
   baseOy = Math.max(56, H * 0.09) + dropRows * cellH
   cannonW = 13 * u
   cannonH = 8 * u
-  cannonY = H - Math.max(56, H * 0.085)
+  // Cannon band ~93–96 % of the height, clear of the social-icon row.
+  cannonY = H - Math.max(28, H * 0.055)
   cannonX = clamp(cannonX || W / 2, margin + cannonW / 2, W - margin - cannonW / 2)
   ufoY = Math.max(44, H * 0.065)
-  buildBunkers()
+  layoutBunkers()
+}
+
+// Remap a live formation onto a new column count, preserving per-row
+// kills by proportional column mapping; then re-clamp the march offset.
+function migrateGrid(oldCols, newCols) {
+  const alive = new Set()
+  for (const inv of grid) if (inv.alive) alive.add(inv.r * oldCols + inv.c)
+  grid = []
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < newCols; c++) {
+      const oc = Math.round(c * (oldCols - 1) / Math.max(1, newCols - 1))
+      grid.push({ c, r, alive: alive.has(r * oldCols + oc) })
+    }
+  }
+  totalCount = grid.length
+  builtCols = newCols
+  const slack = Math.max(0, W - margin * 2 - newCols * cellW)
+  marchX = clamp(marchX, -slack / 2, slack / 2)
 }
 
 // ---------------------------------------------------------------- bunkers
@@ -268,17 +292,43 @@ function layout() {
 const BGW = 26
 const BGH = 18
 
-function buildBunkers() {
-  bunkers = []
-  const n = W < 640 ? 3 : 4
-  const bp = u * 0.85
+// Bunker band ~86–91 % of the height: bottom just above the cannon,
+// pixel size capped so the band never climbs into the social-icon row.
+function bunkerGeometry() {
+  const n = W < 600 ? 3 : 4
+  const bp = Math.min(u * 0.85, (H * 0.045) / BGH)
   const bw = BGW * bp
   const bh = BGH * bp
   const gap = (W - margin * 2 - n * bw) / (n + 1)
-  const bottom = cannonY - cannonH / 2 - 26
-  const y = bottom - bh
-  for (let i = 0; i < n; i++) {
-    const x = margin + gap * (i + 1) + bw * i
+  const y = H * 0.908 - bh
+  return { n, bp, bw, bh, gap, y }
+}
+
+// Resize/reposition only: bunker damage survives a window resize.
+// Full cell rebuild happens only when the bunker count changes.
+function layoutBunkers() {
+  const g = bunkerGeometry()
+  if (bunkers.length !== g.n) {
+    buildBunkers()
+    return
+  }
+  for (let i = 0; i < g.n; i++) {
+    const b = bunkers[i]
+    b.x = margin + g.gap * (i + 1) + g.bw * i
+    b.y = g.y
+    b.w = g.bw
+    b.h = g.bh
+    b.bp = g.bp
+    b.dirty = true
+  }
+  renderBunkers()
+}
+
+function buildBunkers() {
+  const g = bunkerGeometry()
+  bunkers = []
+  for (let i = 0; i < g.n; i++) {
+    const x = margin + g.gap * (i + 1) + g.bw * i
     const cells = new Uint8Array(BGW * BGH)
     for (let gy = 0; gy < BGH; gy++) {
       for (let gx = 0; gx < BGW; gx++) {
@@ -293,7 +343,7 @@ function buildBunkers() {
         cells[gy * BGW + gx] = 1
       }
     }
-    const b = { x, y, w: bw, h: bh, bp, cells, imgB: null, imgP: null, dirty: true }
+    const b = { x, y: g.y, w: g.bw, h: g.bh, bp: g.bp, cells, imgB: null, imgP: null, dirty: true }
     bunkers.push(b)
   }
   renderBunkers()
@@ -378,6 +428,7 @@ function buildWave() {
     for (let c = 0; c < cols; c++) grid.push({ c, r, alive: true })
   }
   totalCount = grid.length
+  builtCols = cols
   marchX = 0
   marchY = 0
   dir = 1
@@ -402,6 +453,10 @@ function resetGame() {
   deathDelayT = 0
   deathEmitted = false
   invulnUntil = 0
+  eatT = 0
+  keys = {}
+  touchActive = false
+  touchFire = false
   shot = null
   bombs = []
   bombT = 1.2
@@ -436,11 +491,15 @@ function startDemo() {
   deathDelayT = 0
   deathEmitted = false
   invulnUntil = 0
+  eatT = 0
+  keys = {}
+  touchActive = false
+  touchFire = false
   shot = null
   bombs = []
   bombT = 1.4
   ufo = null
-  ufoT = 12 + Math.random() * 8
+  ufoT = 20 + Math.random() * 10
   splats = []
   pops = []
   layers = []
@@ -461,22 +520,23 @@ function addScore(n, px, py, color) {
       nextLife += 1500
       lives++
       emit('lives', lives)
-      if (px !== undefined) pops.push({ x: px, y: py, text: 'EXTRA ▲', t: 1.6, color: color || PINK })
+      if (px !== undefined) pushPop({ x: px, y: py, text: 'EXTRA ▲', t: 1.6, color: color || PINK })
     }
   }
 }
 
-// Paper coords of an invader's sprite box.
+// Paper coords of an invader's sprite box. Returns one reused scratch
+// object — copy out what you keep, it is overwritten on the next call.
+const _box = { x: 0, y: 0, w: 0, h: 0 }
 function invXY(inv) {
   const sp = SPECIES[inv.r]
   const w = SPC_W[sp] * u
   const h = 8 * u
-  return {
-    x: baseOx + marchX + inv.c * cellW + (cellW - w) / 2,
-    y: baseOy + marchY + inv.r * cellH + (cellH - h) / 2,
-    w,
-    h,
-  }
+  _box.x = baseOx + marchX + inv.c * cellW + (cellW - w) / 2
+  _box.y = baseOy + marchY + inv.r * cellH + (cellH - h) / 2
+  _box.w = w
+  _box.h = h
+  return _box
 }
 
 function fire() {
@@ -545,26 +605,33 @@ function spawnSplat(x, y, r, color) {
   splats.push({ x, y, r, color, t: 0.6, blobs })
 }
 
+function pushPop(p) {
+  if (pops.length >= MAX_POPS) pops.shift()
+  pops.push(p)
+}
+
 // ---------------------------------------------------------------- update
 
-function formationStep() {
+function formationStep(demo) {
   frame = 1 - frame
   regenJitter()
   pulse = 1 // the heartbeat shows in the paper tone
-  let minC = 1e9
-  let maxC = -1e9
+  // Extremes of the centered sprite boxes (not the wider cell boxes),
+  // computed inline so nothing is allocated per step.
+  let left = 1e9
+  let right = -1e9
   for (const inv of grid) {
     if (!inv.alive) continue
-    if (inv.c < minC) minC = inv.c
-    if (inv.c > maxC) maxC = inv.c
+    const w = SPC_W[SPECIES[inv.r]] * u
+    const sx = baseOx + marchX + inv.c * cellW + (cellW - w) / 2
+    if (sx < left) left = sx
+    if (sx + w > right) right = sx + w
   }
-  if (maxC < 0) return
-  const left = baseOx + marchX + minC * cellW
-  const right = baseOx + marchX + (maxC + 1) * cellW
+  if (right < 0) return
   const dx = dir * stepDX
   if ((dir > 0 && right + dx > W - margin) || (dir < 0 && left + dx < margin)) {
     dir *= -1
-    marchY += dropDY
+    marchY += demo ? dropDY * 0.5 : dropDY // attract mode descends slowly
   } else {
     marchX += dx
   }
@@ -612,7 +679,7 @@ function autopilot(dt) {
     const d = Math.abs(p.x + p.w / 2 - cannonX) + dy * 0.15
     if (d < bd) {
       bd = d
-      best = p
+      best = { x: p.x, w: p.w } // copy: invXY reuses its scratch object
     }
   }
   let target = best ? best.x + best.w / 2 : W / 2
@@ -679,6 +746,10 @@ function update(nowMs) {
         color: Math.random() < 0.5 ? BLUE : PINK,
       })
       if (layers.length > 6) layers.shift()
+      // Leftover bombs/shot must not fall through into the fresh formation.
+      bombs = []
+      shot = null
+      bombT = 1.2
       buildWave()
       buildBunkers()
     }
@@ -690,7 +761,7 @@ function update(nowMs) {
   if (clearT <= 0) {
     stepT -= dt
     if (stepT <= 0) {
-      formationStep()
+      formationStep(demo)
       stepT = stepInterval() / 1000
     }
   }
@@ -721,7 +792,7 @@ function update(nowMs) {
         shot.x > ufo.x - 4 && shot.x < ufo.x + 16 * u + 4) {
       const pts = UFO_PTS[Math.floor(Math.random() * UFO_PTS.length)]
       spawnSplat(shot.x, ufoY + 3 * u, Math.max(12, u * 3.6), PINK)
-      pops.push({ x: shot.x, y: ufoY + 14, text: String(pts), t: 1.2, color: PINK })
+      pushPop({ x: shot.x, y: ufoY + 14, text: String(pts), t: 1.2, color: PINK })
       addScore(pts)
       ufo = null
       ufoT = 20 + Math.random() * 10
@@ -758,8 +829,10 @@ function update(nowMs) {
     if (b) {
       if (eraseDisc(b, shot.x, shot.y, 4.5 * b.bp * 0.5 + 3)) {
         spawnSplat(shot.x, shot.y, Math.max(7, u * 2), BLUE)
+        shot = null
       }
-      shot = null
+      // else: inside the bunker box but only already-erased pixels —
+      // the shot flies on through instead of dying on empty paper.
     } else if (shot.y < 8) {
       shot = null
     }
@@ -793,8 +866,8 @@ function update(nowMs) {
     if (bk) {
       if (eraseDisc(bk, b.x, b.y + 3, 5 * bk.bp * 0.5 + 3)) {
         spawnSplat(b.x, b.y + 3, Math.max(7, u * 2), BLUE)
+        bombs.splice(i, 1)
       }
-      bombs.splice(i, 1)
       continue
     }
     if (b.y > H + 12) bombs.splice(i, 1)
@@ -822,11 +895,14 @@ function update(nowMs) {
     }
   }
 
-  // Mystery UFO crosses the top every ~20–30 s.
-  ufoT -= dt
-  if (!ufo && ufoT <= 0) {
-    const d = Math.random() < 0.5 ? 1 : -1
-    ufo = { x: d > 0 ? -16 * u - 10 : W + 10, dir: d }
+  // Mystery UFO crosses the top every ~20–30 s. Gated on the
+  // wave-clear pause like the march and the bomb drops.
+  if (clearT <= 0) {
+    ufoT -= dt
+    if (!ufo && ufoT <= 0) {
+      const d = Math.random() < 0.5 ? 1 : -1
+      ufo = { x: d > 0 ? -16 * u - 10 : W + 10, dir: d }
+    }
   }
   if (ufo) {
     ufo.x += ufo.dir * 150 * dt
@@ -884,9 +960,14 @@ function makeNoise() {
 }
 
 function drawMoon() {
-  const mx = W * 0.84
-  const my = H * 0.19
-  const r = Math.min(W, H) * 0.105
+  // Narrow screens: the moon sits centred behind the formation band as a
+  // halo that follows its descent — the formation never marches sideways
+  // there (zero slack), so the moon stays behind it instead of crowding
+  // the right edge under the outer columns.
+  const narrow = W < 600
+  const mx = narrow ? W / 2 : W * 0.88
+  const my = narrow ? baseOy + marchY + (ROWS * cellH) / 2 : H * 0.17
+  const r = narrow ? ROWS * cellH * 0.62 : Math.min(W, H) * 0.095
   ctx.fillStyle = PAPER_DEEP
   ctx.beginPath()
   ctx.arc(mx, my, r, 0, Math.PI * 2)
@@ -920,13 +1001,19 @@ function drawMoon() {
   ctx.restore()
 }
 
+// Corner signs only (the static part) — positions derive from m, W, H,
+// so drawCropMarks allocates nothing per frame.
+const CORNER_SIGNS = [1, 1, -1, 1, 1, -1, -1, -1]
 function drawCropMarks() {
   ctx.strokeStyle = 'rgba(36,64,179,0.6)'
   ctx.lineWidth = 1.5
   const m = 10
   const l = 14
-  const corners = [[m, m, 1, 1], [W - m, m, -1, 1], [m, H - m, 1, -1], [W - m, H - m, -1, -1]]
-  for (const [x, y, sx, sy] of corners) {
+  for (let k = 0; k < 4; k++) {
+    const sx = CORNER_SIGNS[k * 2]
+    const sy = CORNER_SIGNS[k * 2 + 1]
+    const x = sx > 0 ? m : W - m
+    const y = sy > 0 ? m : H - m
     ctx.beginPath()
     ctx.moveTo(x, y + sy * l)
     ctx.lineTo(x, y)
@@ -1182,6 +1269,13 @@ function handleKeyUp(e) {
   keys[e.code] = false
 }
 
+// A held arrow stuck down across tab-switch must not keep driving the cannon.
+function handleBlur() {
+  keys = {}
+  touchActive = false
+  touchFire = false
+}
+
 function handleResize() {
   setupCanvas()
 }
@@ -1234,6 +1328,7 @@ onMounted(() => {
 
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', handleKeyUp)
+  window.addEventListener('blur', handleBlur)
   window.addEventListener('resize', handleResize)
   window.addEventListener('touchstart', handleTouchStart, { passive: true })
   window.addEventListener('touchmove', handleTouchMove, { passive: false })
@@ -1245,6 +1340,7 @@ onBeforeUnmount(() => {
   if (raf) cancelAnimationFrame(raf)
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)
+  window.removeEventListener('blur', handleBlur)
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('touchstart', handleTouchStart)
   window.removeEventListener('touchmove', handleTouchMove)

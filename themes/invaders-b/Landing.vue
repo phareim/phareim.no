@@ -55,7 +55,14 @@ const gameOver = ref(false)
 const gameStarted = ref(false)
 
 onMounted(() => {
-  highScore.value = parseInt(localStorage.getItem('invaders-bHighScore') || '0', 10)
+  let v = 0
+  try {
+    const n = parseInt(localStorage.getItem('invaders-bHighScore') || '0', 10)
+    v = Number.isFinite(n) && n > 0 ? n : 0
+  } catch {
+    v = 0
+  }
+  highScore.value = v
 })
 
 // The game owns the arrow keys and horizontal touch while it runs.

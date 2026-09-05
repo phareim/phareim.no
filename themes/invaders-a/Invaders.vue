@@ -10,8 +10,9 @@
  * full-viewport canvas behind the landing overlay, attract-mode autopilot
  * until Enter/tap, events up to Landing.vue for the HUD.
  *
- * The cabinet look: the game is simulated on a virtual 224x256 pixel buffer
- * (near-white phosphor #dfe8df on black #050605), then tinted by horizontal
+ * The cabinet look: the game is simulated on a virtual pixel buffer of fixed
+ * height 256 whose width is derived from the viewport aspect (256 * W / H),
+ * so the field fills the screen with no letterbox (near-white phosphor
  * bands like the gel overlays on the original glass — red UFO band on top,
  * white formation band, green bunker/cannon band at the bottom. The buffer
  * is scaled up with smoothing off (chunky pixels), with scanlines, a
@@ -26,7 +27,7 @@
  * 3 lives +1 at 1500, next wave starts one row lower, CRT power-off collapse
  * between waves.
  */
-const emit = defineEmits(['score', 'wave', 'lives', 'death', 'restart', 'started'])
+const emit = defineEmits(['score', 'wave', 'lives', 'death', 'restart', 'started', 'over'])
 
 const canvas = ref(null)
 let ctx = null
@@ -43,12 +44,14 @@ let pfY = 0
 let pfW = 0
 let pfH = 0
 
-// Virtual buffer: 224x256 aspect, chunky pixels.
-const VW = 224
+// Virtual buffer: fixed height 256, width derived from the viewport aspect
+// (VW = round(256 * SW / SH)) so one layout() call maps it to the full
+// screen with no letterbox. Chunky pixels.
+let VW = 224
 const VH = 256
 const MARGIN = 8
-const CANNON_Y = 232
-const BUNKER_Y = 202
+let CANNON_Y = 244 // ~95%: cannon sprite sits at ~93-96% of the height
+let BUNKER_Y = 220 // ~86%: bunker band spans ~86-92% of the height
 const UFO_Y = 20
 const UFO_BAND = 34 // y < this: red gel
 const GREEN_BAND = 190 // y >= this: green gel
@@ -61,11 +64,12 @@ const BG = '#050605'
 const LIVES = 3
 const MAX_PARTICLES = 300
 
-let game = null // offscreen 224x256 playfield
+let game = null // offscreen VWx256 playfield
 let g = null
 let ghost = null // tiny copy of the last presented frame (persistence)
 let ghostCtx = null
 let moon = null // full-screen prerendered lunar backdrop
+let overlay = null // full-screen prerendered scanlines + vignette
 let stars = []
 
 // Gel tint by band: the coloured cellophane strips on the glass.
@@ -206,6 +210,8 @@ let formDir = 1
 let formFrame = 0
 let stepT = 0 // ms until next march step
 let totalInWave = 0
+let aliveLeft = 0 // cached live count: set on build, decremented on kill
+const DEMO_START_Y = 24 // attract formation starts just under the HUD band
 let wave = 1
 let score = 0
 let lastScoreSent = -1
@@ -219,19 +225,17 @@ let bombs = [] // { x, y, vy, type, phase }
 let bombT = 1.2
 let bunkers = [] // { x, grid:Uint8Array, cv, bctx, dirty }
 let ufo = null // { x, dir }
-let ufoT = 4
+let ufoT = 20 + Math.random() * 10
 let popups = [] // { x, y, text, t }
 let particles = []
 let shockwaves = []
 let pulse = 0 // heartbeat: 1 on each formation step, decays
-let trickleT = 0
 let gameStarted = false
 let gameOver = false
 let dying = false // cannon explosion freeze (~1 s, formation stops)
 let deathT = 0
 let deathAt = 0
 let deathEmitted = false
-let respawnAt = 0
 let invulnUntil = 0
 let fx = null // { mode:'collapse'|'fadein', t } — CRT power-off between waves
 let elapsed = 0
@@ -255,26 +259,40 @@ function setupCanvas() {
   dpr = Math.min(window.devicePixelRatio || 1, 2)
   SW = c.offsetWidth
   SH = c.offsetHeight
+  if (!(SW > 0) || !(SH > 0)) return
   c.width = Math.round(SW * dpr)
   c.height = Math.round(SH * dpr)
   ctx = c.getContext('2d')
-  scale = Math.min(SW / VW, SH / VH)
+  layout()
+  scale = SH / VH
+  if (!(scale > 0)) return
   pfW = VW * scale
-  pfH = VH * scale
+  pfH = SH
   pfX = (SW - pfW) / 2
-  pfY = (SH - pfH) / 2
+  pfY = 0
   if (!game) {
     game = document.createElement('canvas')
-    game.width = VW
-    game.height = VH
-    g = game.getContext('2d')
     ghost = document.createElement('canvas')
-    ghost.width = 112
-    ghost.height = 128
-    ghostCtx = ghost.getContext('2d')
   }
+  game.width = VW
+  game.height = VH
+  g = game.getContext('2d')
+  ghost.width = Math.max(1, Math.round(VW / 2))
+  ghost.height = Math.max(1, Math.round(VH / 2))
+  ghostCtx = ghost.getContext('2d')
   initStars()
   renderMoon()
+  renderOverlay()
+}
+
+// Everything derived from the viewport size lives here; called on mount and
+// on every resize so the field always fills the screen.
+function layout() {
+  VW = Math.max(80, Math.round(VH * SW / Math.max(1, SH)))
+  layoutColumns()
+  BUNKER_Y = Math.round(VH * 0.859)
+  CANNON_Y = Math.round(VH * 0.953)
+  cannonX = clamp(cannonX || VW / 2, 10, VW - 10)
 }
 
 function initStars() {
@@ -344,12 +362,34 @@ function renderMoon() {
   }
 }
 
+// Scanlines + vignette prerendered once per resize (like moon), so draw()
+// is a single drawImage instead of a gradient + ~SH/2 fillRects per frame.
+function renderOverlay() {
+  overlay = document.createElement('canvas')
+  overlay.width = Math.max(1, Math.round(SW))
+  overlay.height = Math.max(1, Math.round(SH))
+  const o = overlay.getContext('2d')
+  o.fillStyle = 'rgba(0,0,0,0.25)'
+  for (let y = 0; y < overlay.height; y += 2) {
+    o.fillRect(0, y, overlay.width, 1)
+  }
+  const vg = o.createRadialGradient(
+    overlay.width / 2, overlay.height / 2, Math.min(overlay.width, overlay.height) * 0.42,
+    overlay.width / 2, overlay.height / 2, Math.max(overlay.width, overlay.height) * 0.75,
+  )
+  vg.addColorStop(0, 'rgba(0,0,0,0)')
+  vg.addColorStop(1, 'rgba(0,0,0,0.5)')
+  o.fillStyle = vg
+  o.fillRect(0, 0, overlay.width, overlay.height)
+}
+
 // ---------------------------------------------------------------- waves
 
 function layoutColumns() {
-  // Fewer columns on narrow screens so the formation always fits with margins.
-  cols = SW < 560 ? 7 : 11
-  cellW = (VW - MARGIN * 2) / cols
+  // Portrait phones (width < 600 px) get 7 columns + 3 bunkers; the cell
+  // shrinks to fit narrow buffers instead of overflowing them.
+  cols = SW < 600 ? 7 : 11
+  cellW = Math.min(18, (VW - MARGIN * 2) / cols)
   cellH = 16
 }
 
@@ -369,7 +409,8 @@ function buildWave(startY) {
     }
   }
   totalInWave = invaders.length
-  formX = MARGIN
+  aliveLeft = totalInWave
+  formX = (VW - cols * cellW) / 2
   formY = startY
   formDir = 1
   formFrame = 0
@@ -388,15 +429,9 @@ function invaderXY(inv) {
   }
 }
 
-function aliveCount() {
-  let n = 0
-  for (let i = 0; i < invaders.length; i++) if (invaders[i].alive) n++
-  return n
-}
-
 function stepInterval() {
   // The classic heartbeat: full formation plods, the last one is frantic.
-  const alive = Math.max(1, aliveCount())
+  const alive = Math.max(1, aliveLeft)
   const base = 45 + 560 * (alive / totalInWave)
   return Math.max(40, base / (1 + (wave - 1) * 0.12))
 }
@@ -415,7 +450,7 @@ function bunkerSolid(x, y) {
 
 function buildBunkers() {
   bunkers = []
-  const narrow = SW < 560
+  const narrow = SW < 600
   const n = narrow ? 3 : 4
   for (let i = 0; i < n; i++) {
     const cx = VW * ((i + 1) / (n + 1))
@@ -514,13 +549,14 @@ function resetGame() {
   bombs = []
   bombT = 1.2
   ufo = null
-  ufoT = 4
+  ufoT = 20 + Math.random() * 10
   popups = []
   particles = []
   shockwaves = []
   pulse = 0
-  trickleT = 0
   elapsed = 0
+  touchPlaying = false
+  touchVX = VW / 2
   gameOver = false
   dying = false
   deathEmitted = false
@@ -536,6 +572,16 @@ function resetGame() {
   emit('lives', lives)
 }
 
+// In-flight bombs, the player shot and the UFO belong to the old formation:
+// drop them whenever the show restarts so nothing falls into fresh invaders.
+function clearTransients() {
+  bombs = []
+  shot = null
+  ufo = null
+  bombT = 1.2
+  ufoT = 20 + Math.random() * 10
+}
+
 // Attract mode: the cabinet plays itself behind the card until Enter/tap.
 function startDemo() {
   gameStarted = false
@@ -549,24 +595,25 @@ function startDemo() {
   bombs = []
   bombT = 1.4
   ufo = null
-  ufoT = 4
+  ufoT = 20 + Math.random() * 10
   popups = []
   particles = []
   shockwaves = []
   fx = null
   elapsed = 0
-  buildWave(52)
+  nextExtraAt = 1500
+  buildWave(DEMO_START_Y)
 }
 
 function addScore(n) {
   score += n
-  if (score >= nextExtraAt && gameStarted && !gameOver) {
-    // +1 life at 1500 (then every 1500 after).
-    lives = Math.min(6, lives + 1)
-    nextExtraAt += 1500
+  if (gameStarted && !gameOver && nextExtraAt > 0 && score >= nextExtraAt) {
+    // One +1 life at 1500, like the original.
+    lives += 1
+    nextExtraAt = 0
     emit('lives', lives)
   }
-  if (score > hiScore) hiScore = score
+  if (gameStarted && !gameOver && score > hiScore) hiScore = score
   if (gameStarted && score !== lastScoreSent) {
     lastScoreSent = score
     emit('score', score)
@@ -629,10 +676,10 @@ function settleDeath(now) {
   if (lives <= 0) {
     gameOver = true
     deathAt = now
+    emit('over')
   } else {
     cannonX = VW / 2
     shot = null
-    respawnAt = now
     invulnUntil = now + 2.5
   }
 }
@@ -642,11 +689,13 @@ function onInvaded(now) {
   if (gameOver) return
   explodeAt(cannonX, CANNON_Y, true)
   if (!gameStarted) {
-    buildWave(52) // attract mode just resets the show
+    clearTransients() // the old bombs/shot/UFO die with the old show
+    buildWave(DEMO_START_Y) // attract mode just resets the show
     return
   }
   gameOver = true
   deathAt = now
+  emit('over')
 }
 
 // ---------------------------------------------------------------- update
@@ -718,10 +767,11 @@ function dropBomb() {
 
 function killInvader(inv, x, y) {
   inv.alive = false
+  aliveLeft--
   addScore(inv.pts)
   const p = invaderXY(inv)
   explodeAt(p.x + p.w / 2, p.y + 4, false)
-  if (aliveCount() === 0) {
+  if (aliveLeft <= 0) {
     // Whole screen does a CRT power-off collapse; next wave fades in lower.
     fx = { mode: 'collapse', t: 0 }
   }
@@ -746,7 +796,9 @@ function updateFormation(dt, now) {
   if (left === Infinity) return
   const step = 2
   if ((formDir > 0 && right + step > VW - MARGIN) || (formDir < 0 && left - step < MARGIN)) {
-    formY += 8
+    // Attract mode drifts down gently so the bottom row stays clear of the
+    // card text; a real game steps down at full pace.
+    formY += gameStarted ? 8 : 4
     formDir *= -1
     eatBunkers()
     for (let i = 0; i < invaders.length; i++) {
@@ -800,7 +852,7 @@ function update(nowMs) {
     if (fx.mode === 'collapse' && fx.t > 0.7) {
       wave++
       if (!demo) emit('wave', wave)
-      buildWave(Math.min(52 + (wave - 1) * 8, 110))
+      buildWave(demo ? DEMO_START_Y : Math.min(52 + (wave - 1) * 8, 110))
       fx = { mode: 'fadein', t: 0 }
     } else if (fx.mode === 'fadein' && fx.t > 0.6) {
       fx = null
@@ -847,15 +899,6 @@ function update(nowMs) {
   updateFormation(dt, now)
   if (gameOver) return
 
-  // Score trickles up the whole time.
-  if (!demo) {
-    trickleT += dt
-    if (trickleT > 2) {
-      trickleT = 0
-      addScore(1)
-    }
-  }
-
   // Mystery UFO crosses the top every ~20-30 s.
   if (!ufo) {
     ufoT -= dt
@@ -873,7 +916,7 @@ function update(nowMs) {
 
   // Bombs: lowest invader per random occupied column drops one.
   bombT -= dt
-  const maxBombs = Math.min(4, 2 + (wave > 2 ? 1 : 0) + (aliveCount() < 10 ? 1 : 0))
+  const maxBombs = Math.min(4, 2 + (wave > 2 ? 1 : 0) + (aliveLeft < 10 ? 1 : 0))
   if (bombT <= 0) {
     bombT = Math.max(0.35, 1.1 - wave * 0.08) * (0.7 + Math.random() * 0.6)
     if (bombs.length < maxBombs) dropBomb()
@@ -918,7 +961,7 @@ function update(nowMs) {
       shot = null
     } else {
       // UFO first (it flies above everything).
-      if (ufo && shot.y < UFO_Y + 8 && shot.y > UFO_Y - 4 && shot.x > ufo.x && shot.x < ufo.x + 16) {
+      if (ufo && shot.y < UFO_Y + 8 && shot.y > UFO_Y - 4 && shot.x > ufo.x && shot.x < ufo.x + 18) {
         const val = [50, 100, 150, 300][Math.floor(Math.random() * 4)]
         addScore(val)
         popups.push({ x: ufo.x + 8, y: UFO_Y, text: String(val), t: 0 })
@@ -956,7 +999,10 @@ function update(nowMs) {
 
   // Attract mode resets the show instead of ending it.
   if (demo) {
-    if (aliveCount() === 0 && !fx) buildWave(52)
+    if (aliveLeft <= 0 && !fx) {
+      clearTransients()
+      buildWave(DEMO_START_Y)
+    }
     let invaded = false
     for (let i = 0; i < invaders.length; i++) {
       const inv = invaders[i]
@@ -967,7 +1013,10 @@ function update(nowMs) {
         break
       }
     }
-    if (invaded) buildWave(52)
+    if (invaded) {
+      clearTransients()
+      buildWave(DEMO_START_Y)
+    }
   }
 }
 
@@ -1017,14 +1066,24 @@ function drawGame(now) {
   g.textBaseline = 'top'
 
   // HUD in chunky monospace (the 5x7 pixel-font look, canvas fallback).
+  // Narrow buffers get compact labels so SCORE/HI/W1 never collide.
   g.font = 'bold 7px "Courier New", monospace'
   g.textAlign = 'left'
   g.fillStyle = RED
-  g.fillText('SCORE ' + String(score).padStart(4, '0'), 8, 4)
-  g.textAlign = 'center'
-  g.fillText('HI ' + String(Math.max(hiScore, score)).padStart(4, '0'), VW / 2, 4)
-  g.textAlign = 'right'
-  g.fillText('W' + wave, VW - 8, 4)
+  if (VW < 170) {
+    g.fillText('S' + String(score).padStart(4, '0'), 4, 4)
+    g.textAlign = 'center'
+    g.fillText('H' + String(gameStarted ? Math.max(hiScore, score) : hiScore).padStart(4, '0'), VW / 2, 4)
+    g.textAlign = 'right'
+    g.fillText('W' + wave, VW - 4, 4)
+  } else {
+    g.fillText('SCORE ' + String(score).padStart(4, '0'), 8, 4)
+    g.textAlign = 'center'
+    // The demo never owns the high score: only a real game may raise the HI.
+    g.fillText('HI ' + String((gameStarted ? Math.max(hiScore, score) : hiScore)).padStart(4, '0'), VW / 2, 4)
+    g.textAlign = 'right'
+    g.fillText('W' + wave, VW - 8, 4)
+  }
   g.textAlign = 'left'
   // Ground line above the moon paint.
   g.fillStyle = GREEN
@@ -1151,14 +1210,11 @@ function draw(nowMs) {
   } else {
     ctx.drawImage(game, pfX, pfY, pfW, pfH)
   }
-  // Remember this frame for the next ghost.
+  // Remember this frame for the next ghost: sample the game buffer, not the
+  // composited canvas, so chrome never smears into the phosphor trail.
   try {
-    ghostCtx.drawImage(
-      canvas.value,
-      Math.round(pfX * dpr), Math.round(pfY * dpr),
-      Math.round(pfW * dpr), Math.round(pfH * dpr),
-      0, 0, 112, 128,
-    )
+    ghostCtx.clearRect(0, 0, ghost.width, ghost.height)
+    ghostCtx.drawImage(game, 0, 0, VW, VH, 0, 0, ghost.width, ghost.height)
   } catch (e) { /* canvas not ready yet */ }
 
   // Heartbeat: the background throbs on every formation step.
@@ -1167,21 +1223,8 @@ function draw(nowMs) {
     ctx.fillRect(pfX, pfY, pfW, pfH)
   }
 
-  // Scanlines: every 2nd device row ~25 % darker.
-  ctx.fillStyle = 'rgba(0,0,0,0.25)'
-  for (let y = 0; y < SH; y += 2) {
-    ctx.fillRect(0, y, SW, 1)
-  }
-
-  // Soft vignette.
-  const vg = ctx.createRadialGradient(
-    SW / 2, SH / 2, Math.min(SW, SH) * 0.42,
-    SW / 2, SH / 2, Math.max(SW, SH) * 0.75,
-  )
-  vg.addColorStop(0, 'rgba(0,0,0,0)')
-  vg.addColorStop(1, 'rgba(0,0,0,0.5)')
-  ctx.fillStyle = vg
-  ctx.fillRect(0, 0, SW, SH)
+  // Scanlines + vignette: one prerendered overlay, no per-frame allocation.
+  if (overlay) ctx.drawImage(overlay, 0, 0, SW, SH)
 }
 
 function gameLoop(now) {
@@ -1213,12 +1256,10 @@ function handleKeyDown(e) {
   keys[e.code] = true
   if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
     e.preventDefault()
-    if (!e.repeat) {
-      if (!gameStarted || gameOver) resetGame()
-      else {
-        keys['__fireheld'] = true
-        tryFire()
-      }
+    // Fire only: the HUD advertises Enter/tap to start, so Space never does.
+    if (!e.repeat && gameStarted && !gameOver) {
+      keys['__fireheld'] = true
+      tryFire()
     }
   }
   if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && gameStarted && !gameOver) {
@@ -1237,13 +1278,19 @@ function handleKeyUp(e) {
 }
 
 function handleResize() {
+  const prevCols = cols
+  const prevVW = VW
   setupCanvas()
-  layoutColumns()
-  buildBunkers()
+  if ((cols !== prevCols || VW !== prevVW) && invaders.length) {
+    // Column indices and bunker grids belong to the layout that built them.
+    clearTransients()
+    buildWave(gameStarted ? clamp(formY, DEMO_START_Y, 110) : DEMO_START_Y)
+  }
   cannonX = clamp(cannonX, 10, VW - 10)
 }
 
 function clientToVirtual(cx) {
+  if (!(scale > 0)) return VW / 2
   const rect = canvas.value.getBoundingClientRect()
   return (cx - rect.left - pfX) / scale
 }
