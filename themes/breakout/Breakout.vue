@@ -28,7 +28,11 @@ let gridCols = 10
 let particles = []
 let powerups = []
 let shockwaves = []
-let sparks = [] // slow background dots
+// Background: everything drifts DOWN, so the playfield reads as climbing.
+let sparks = [] // dots in three depths; the near ones streak
+let rungs = [] // faint horizontal hairlines, ladder rungs passing by
+let drifts = [] // large, very dim outline shapes, the slowest layer
+let bgBoost = 0 // 1 right after a level clear, decays: a short warp upward
 let score = 0
 let lives = 3
 let level = 1
@@ -50,6 +54,7 @@ const BALL_RADIUS = 6
 const BASE_SPEED = 380 // px/s at level 1
 const MAX_SPEED = 720
 const LIVES = 3
+const MAX_BALLS = 8
 const ROW_COLORS = ['#ff2bd6', '#ff6a00', '#ffd400', '#3dff8f', '#00e5ff', '#7a5cff', '#ff2bd6', '#ff6a00', '#ffd400']
 const PADDLE_COLOR = '#00e5ff'
 const POWERUPS = {
@@ -76,16 +81,40 @@ function setupCanvas() {
   paddle.x = clamp(paddle.x || W / 2, paddle.w / 2, W - paddle.w / 2)
 }
 
+const RUNG_GAP = 170
+
 function initSparks() {
   sparks = []
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 70; i++) {
+    const depth = Math.random() // 0 = far, 1 = near
     sparks.push({
       x: Math.random() * W,
       y: Math.random() * H,
-      speed: 6 + Math.random() * 14,
-      size: Math.random() < 0.25 ? 2 : 1,
-      alpha: 0.15 + Math.random() * 0.4,
+      speed: 10 + depth * 55,
+      size: depth > 0.7 ? 2 : 1,
+      len: depth > 0.7 ? 5 + depth * 10 : 0,
+      alpha: 0.12 + depth * 0.4,
     })
+  }
+  rungs = []
+  const n = Math.ceil(H / RUNG_GAP) + 1
+  for (let i = 0; i < n; i++) rungs.push({ y: i * RUNG_GAP + Math.random() * 50 })
+  drifts = []
+  for (let i = 0; i < 4; i++) drifts.push(makeDrift(Math.random() * H))
+}
+
+function makeDrift(y) {
+  const sides = [0, 6, 4, 0][Math.floor(Math.random() * 4)] // 0 = circle
+  return {
+    x: Math.random() * W,
+    y,
+    r: 70 + Math.random() * 150,
+    sides,
+    rot: Math.random() * Math.PI,
+    rotV: (Math.random() - 0.5) * 0.08,
+    speed: 4 + Math.random() * 7,
+    alpha: 0.03 + Math.random() * 0.03,
+    color: Math.random() < 0.6 ? '#00e5ff' : '#ff2bd6',
   }
 }
 
@@ -244,10 +273,11 @@ function triggerShockwave(x, y, color = '#ff2bd6') {
 function maybeDropPowerup(b) {
   const roll = Math.random()
   let type = null
-  if (roll < 0.04) type = 'life'
-  else if (roll < 0.09) type = 'multi'
-  else if (roll < 0.15) type = 'wide'
-  else if (roll < 0.19) type = 'slow'
+  // Lives are rare; multiball is the common prize (retuned 2026-09-05).
+  if (roll < 0.015) type = 'life'
+  else if (roll < 0.115) type = 'multi'
+  else if (roll < 0.165) type = 'wide'
+  else if (roll < 0.205) type = 'slow'
   if (!type) return
   powerups.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, vy: 110, w: 34, h: 16, type })
 }
@@ -265,11 +295,11 @@ function applyPowerup(type, now) {
   if (type === 'multi') {
     const extra = []
     for (const b of balls) {
-      if (b.stuck || balls.length + extra.length >= 6) continue
+      if (b.stuck || balls.length + extra.length >= MAX_BALLS) continue
       const speed = Math.hypot(b.vx, b.vy) || b.speed
       const base = Math.atan2(b.vy, b.vx)
       for (const d of [-0.45, 0.45]) {
-        if (balls.length + extra.length >= 6) break
+        if (balls.length + extra.length >= MAX_BALLS) break
         extra.push({
           x: b.x, y: b.y,
           vx: Math.cos(base + d) * speed,
@@ -449,6 +479,7 @@ function update(now) {
 
   if (balls.length === 0 && !gameOver) loseLife(now)
   if (bricks.length === 0 && !gameOver) {
+    bgBoost = 1 // the world rushes past: we climbed a level
     if (demo) startDemo()
     else clearLevel(now)
   }
@@ -485,10 +516,26 @@ function update(now) {
     sw.life -= 1.6 * dt
     if (sw.life <= 0) shockwaves.splice(i, 1)
   }
+  const bg = 1 + bgBoost * 5
   for (const s of sparks) {
-    s.y += s.speed * dt
-    if (s.y > H) { s.y = -2; s.x = Math.random() * W }
+    s.y += s.speed * bg * dt
+    if (s.y > H + 20) { s.y = -20; s.x = Math.random() * W }
   }
+  for (const r of rungs) {
+    r.y += 22 * bg * dt
+    if (r.y > H + 4) r.y -= rungs.length * RUNG_GAP
+  }
+  for (let i = 0; i < drifts.length; i++) {
+    const d = drifts[i]
+    d.y += d.speed * bg * dt
+    d.rot += d.rotV * dt
+    if (d.y - d.r > H) {
+      const fresh = makeDrift(0)
+      fresh.y = -fresh.r - Math.random() * 120
+      drifts[i] = fresh
+    }
+  }
+  bgBoost = Math.max(0, bgBoost - 0.7 * dt)
   for (const b of bricks) if (b.flash > 0) b.flash = Math.max(0, b.flash - 4 * dt)
 
   shake = Math.max(0, shake - 2.5 * dt)
@@ -525,10 +572,37 @@ function draw() {
   ctx.fillStyle = '#07070f'
   ctx.fillRect(0, 0, W, H)
 
-  // Background sparks
+  // Background, far to near. All of it drifts down: the camera climbs.
+  ctx.lineWidth = 1.5
+  for (const d of drifts) {
+    ctx.globalAlpha = d.alpha
+    ctx.strokeStyle = d.color
+    ctx.beginPath()
+    if (d.sides === 0) {
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2)
+    } else {
+      for (let i = 0; i <= d.sides; i++) {
+        const a = d.rot + (Math.PI * 2 / d.sides) * i
+        const px = d.x + Math.cos(a) * d.r
+        const py = d.y + Math.sin(a) * d.r
+        if (i === 0) ctx.moveTo(px, py)
+        else ctx.lineTo(px, py)
+      }
+    }
+    ctx.stroke()
+  }
+  ctx.globalAlpha = 1
+  ctx.fillStyle = 'rgba(0, 229, 255, 0.06)'
+  for (const r of rungs) {
+    ctx.fillRect(W * 0.06, r.y, W * 0.88, 1)
+    ctx.fillRect(W * 0.06, r.y - 3, 1, 7)
+    ctx.fillRect(W * 0.94 - 1, r.y - 3, 1, 7)
+  }
+  const stretch = 1 + bgBoost * 4
   for (const s of sparks) {
     ctx.fillStyle = `rgba(0, 229, 255, ${s.alpha * 0.5})`
-    ctx.fillRect(s.x, s.y, s.size, s.size)
+    if (s.len) ctx.fillRect(s.x, s.y - s.len * stretch, s.size, s.len * stretch)
+    else ctx.fillRect(s.x, s.y, s.size, s.size)
   }
 
   if (shake > 0) {

@@ -14,6 +14,13 @@
  * Signature mechanics: the FORCE POD (orbiting orb, Shift or double-tap to
  * launch/return, second gun while attached) and the CHARGE BEAM (hold fire
  * >0.8s, release for a piercing wave beam).
+ *
+ * Orientation (2026-09-05): the game is simulated in WORLD space where the
+ * ship always flies +x and the cave walls sit at low/high y. On a landscape
+ * screen world == screen. On a portrait screen (taller than wide) the world
+ * is rotated 90° so +x points UP: W = screen height, H = screen width, and
+ * draw() applies the rotation once. Only input (keys, touch) and upright
+ * text need to know about the orientation.
  */
 const emit = defineEmits(['score', 'distance', 'lives', 'death', 'restart', 'started'])
 
@@ -21,8 +28,11 @@ const canvas = ref(null)
 let ctx = null
 let animationFrameId = null
 let gameRunning = false
-let W = 0
-let H = 0
+let W = 0 // world width (forward axis)
+let H = 0 // world height (lateral axis)
+let SW = 0 // screen width
+let SH = 0 // screen height
+let portrait = false // screen taller than wide -> world rotated, ship flies up
 let dpr = 1
 
 const CYAN = '#19f0ff'
@@ -89,18 +99,47 @@ let terrainSeedA = 1.7
 let terrainSeedB = 4.2
 let terrainPhase = 0
 
+// ---------------------------------------------------------------- orientation
+
+// World -> screen. Portrait: (x, y) -> (y, SH - x), i.e. +x is up.
+function applyWorldTransform() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  if (portrait) {
+    ctx.translate(0, SH)
+    ctx.rotate(-Math.PI / 2)
+  }
+}
+
+// Screen (client) -> world.
+function toWorld(cx, cy) {
+  return portrait ? { x: SH - cy, y: cx } : { x: cx, y: cy }
+}
+
+// Draw text that reads horizontally on screen regardless of orientation.
+// (wx, wy) is the world anchor; fn draws at (0, 0).
+function upright(wx, wy, fn) {
+  ctx.save()
+  ctx.translate(wx, wy)
+  if (portrait) ctx.rotate(Math.PI / 2)
+  fn()
+  ctx.restore()
+}
+
 // ---------------------------------------------------------------- setup
 
 function setupCanvas() {
   const c = canvas.value
   if (!c) return
   dpr = Math.min(window.devicePixelRatio || 1, 2)
-  W = c.offsetWidth
-  H = c.offsetHeight
-  c.width = Math.round(W * dpr)
-  c.height = Math.round(H * dpr)
+  SW = c.offsetWidth
+  SH = c.offsetHeight
+  portrait = SH > SW
+  W = portrait ? SH : SW
+  H = portrait ? SW : SH
+  c.width = Math.round(SW * dpr)
+  c.height = Math.round(SH * dpr)
   ctx = c.getContext('2d')
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  applyWorldTransform()
   ship.x = Math.max(40, W * 0.18)
   ship.y = ship.y || H / 2
   ship.y = clamp(ship.y, 30, H - 30)
@@ -627,6 +666,12 @@ function update(nowMs) {
       const rt = keys['ArrowRight'] || keys['KeyD']
       let mx = (rt ? 1 : 0) - (lf ? 1 : 0)
       let my = (dn ? 1 : 0) - (up ? 1 : 0)
+      if (portrait) {
+        // Up on the keyboard is forward (+x); left/right is lateral (y).
+        const f = my
+        my = mx
+        mx = -f
+      }
       if (touchActive && touchTarget.active) {
         const dx = touchTarget.x - ship.x
         const dy = touchTarget.y - ship.y
@@ -1259,7 +1304,7 @@ function draw() {
   const demo = !gameStarted
   const now = performance.now() / 1000
 
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  applyWorldTransform()
   ctx.fillStyle = BG
   ctx.fillRect(0, 0, W, H)
 
@@ -1441,7 +1486,10 @@ function draw() {
     ctx.textBaseline = 'top'
     ctx.fillStyle = CYAN
     ctx.globalAlpha = (demo ? 0.5 : 1) * 0.85
-    ctx.fillText(`FORCE ${force.attached ? '●' : '○'}  BEAM ${bars}  x${mult}`, ship.x - 34, ship.y + 22)
+    const hud = `FORCE ${force.attached ? '●' : '○'}  BEAM ${bars}  x${mult}`
+    // Below the ship on screen, left-aligned from 34 px left of it.
+    if (portrait) upright(ship.x - 22, ship.y - 34, () => ctx.fillText(hud, 0, 0))
+    else upright(ship.x - 34, ship.y + 22, () => ctx.fillText(hud, 0, 0))
     ctx.globalAlpha = demo ? 0.5 : 1
     // Multiplier rise pop near the ship.
     if (multPop) {
@@ -1451,7 +1499,9 @@ function draw() {
       ctx.shadowColor = CYAN
       ctx.shadowBlur = 12
       ctx.globalAlpha = (demo ? 0.5 : 1) * Math.max(0, 1 - multPop.t)
-      ctx.fillText(multPop.text, multPop.x, multPop.y - multPop.t * 40)
+      const rise = multPop.t * 40 // rises on screen: -y in landscape, +x in portrait
+      if (portrait) upright(multPop.x + rise, multPop.y, () => ctx.fillText(multPop.text, 0, 0))
+      else upright(multPop.x, multPop.y - rise, () => ctx.fillText(multPop.text, 0, 0))
       ctx.globalAlpha = demo ? 0.5 : 1
       ctx.shadowBlur = 0
     }
@@ -1524,8 +1574,20 @@ let tapStartX = 0
 let tapStartY = 0
 let tapStartTime = 0
 let lastTapTime = 0
-const TOUCH_X_OFFSET = -60
+const TOUCH_X_OFFSET = -60 // landscape: ship sits left of and above the finger
 const TOUCH_Y_OFFSET = -90
+const TOUCH_AHEAD = 90 // portrait: ship sits this far ahead (up) of the finger
+
+function setTouchTarget(cx, cy) {
+  if (portrait) {
+    const w = toWorld(cx, cy)
+    touchTarget.x = w.x + TOUCH_AHEAD
+    touchTarget.y = w.y
+  } else {
+    touchTarget.x = cx + TOUCH_X_OFFSET
+    touchTarget.y = cy + TOUCH_Y_OFFSET
+  }
+}
 
 function handleTouchStart(e) {
   if (isInteractiveElement(e.target)) return
@@ -1540,8 +1602,7 @@ function handleTouchStart(e) {
   }
   touchActive = true
   touchFire = true // auto-fire while touching
-  touchTarget.x = t.clientX + TOUCH_X_OFFSET
-  touchTarget.y = t.clientY + TOUCH_Y_OFFSET
+  setTouchTarget(t.clientX, t.clientY)
   touchTarget.active = true
   fireOnce()
 }
@@ -1551,8 +1612,7 @@ function handleTouchMove(e) {
   if (isInteractiveElement(e.target)) return
   e.preventDefault()
   const t = e.touches[0]
-  touchTarget.x = t.clientX + TOUCH_X_OFFSET
-  touchTarget.y = t.clientY + TOUCH_Y_OFFSET
+  setTouchTarget(t.clientX, t.clientY)
 }
 
 function handleTouchEnd(e) {
