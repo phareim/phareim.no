@@ -175,4 +175,12 @@ const socialLinks = [
   outline-offset: 3px;
   border-radius: 2px;
 }
+
+:global(.tetris-page .about-name) {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  font-weight: 400;
+  text-shadow: 3px 3px 0 var(--theme-card-border, #3b3470);
+}
 </style>

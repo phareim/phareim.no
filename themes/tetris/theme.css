@@ -1,0 +1,88 @@
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500&display=swap");
+
+/**
+ * Tetris / Midnight Arcade
+ * ---------------------------
+ * A midnight arcade cabinet running Tetris: deep indigo room (not black),
+ * warm yellow accent, seven classic bright tetromino colours drawn as
+ * chunky NES-style bevelled blocks. Press Start 2P for display type,
+ * Space Grotesk for body. Single dark look, no prefers-color-scheme variant.
+ */
+
+:root {
+  /* Base colors */
+  --tetris-bg: #15123a;
+  --tetris-bg-alt: #1e1a4e;
+
+  /* Text colors */
+  --tetris-text: #f4f1ff;
+  --tetris-text-muted: #b4add9;
+  --tetris-text-subtle: #6f6a99;
+
+  /* Card */
+  --tetris-card-bg: rgba(30, 26, 78, 0.78);
+  --tetris-card-border: #3b3470;
+  --tetris-card-shadow: rgba(0, 0, 0, 0.35);
+
+  /* Accents */
+  --tetris-accent: #ffd500;
+  --tetris-accent-secondary: #29d3e0;
+  --tetris-danger: #ff3b5c;
+
+  /* Board well */
+  --tetris-well-bg: #0d0b26;
+  --tetris-well-border: #3b3470;
+  --tetris-well-grid: rgba(255, 255, 255, 0.05);
+
+  /* Tetromino colors */
+  --tetris-i-color: #29d3e0;
+  --tetris-o-color: #ffd500;
+  --tetris-t-color: #b15ce0;
+  --tetris-s-color: #33e07a;
+  --tetris-z-color: #ff3b5c;
+  --tetris-j-color: #4a7de0;
+  --tetris-l-color: #ff8a1f;
+
+  /* Typography */
+  --font-tetris-display: 'Press Start 2P', 'Courier New', monospace;
+  --font-tetris-body: 'Space Grotesk', system-ui, sans-serif;
+}
+
+.tetris-page {
+  min-height: 100vh;
+  background-color: var(--tetris-bg);
+  color: var(--tetris-text);
+  font-family: var(--font-tetris-body);
+  overflow-x: hidden;
+  position: relative;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.035) 0px,
+      rgba(255, 255, 255, 0.035) 1px,
+      transparent 1px,
+      transparent 24px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.035) 0px,
+      rgba(255, 255, 255, 0.035) 1px,
+      transparent 1px,
+      transparent 24px
+    );
+
+  /* Semantic theme variables */
+  --theme-bg: var(--tetris-bg);
+  --theme-text: var(--tetris-text);
+  --theme-text-muted: var(--tetris-text-muted);
+  --theme-text-subtle: var(--tetris-text-subtle);
+
+  --theme-card-bg: var(--tetris-card-bg);
+  --theme-card-border: var(--tetris-card-border);
+  --theme-card-shadow: var(--tetris-card-shadow);
+  --theme-card-radius: 6px;
+
+  --theme-accent: var(--tetris-accent);
+
+  --theme-font-body: var(--font-tetris-body);
+}

@@ -64,7 +64,7 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
   `defineAsyncComponent` inside `<ClientOnly>` so the three chunk only ships with that theme);
   `desk` skips the shell and lays a grained paper sheet (`.desk-sheet`,
   `.desk-stamp`, `.desk-rule` are global classes from its theme.css) on the
-  desk. Rule without exception since 2026-09-05: the root fills the viewport
+  desk; `tetris` skips the shell and lays a profile column beside the arcade cabinet. Rule without exception since 2026-09-05: the root fills the viewport
   (`height: 100dvh; overflow: hidden`) and the page does not scroll —
   `html`, `body` and `#__nuxt` are locked in `app.vue`. The old `scrollable`
   registry flag is gone with the Almanac theme that needed it. A route with
@@ -86,7 +86,7 @@ theme's private variables, never hardcoded colours. `.{id}-page` must set:
 --theme-font-body
 ```
 
-Rules that keep eight themes from fighting:
+Rules that keep nine themes from fighting:
 - Private variables are namespaced (`--<id>-*`) and live on `:root`.
   `--theme-*` never goes on `:root`, only on `.{id}-page`.
 - Dark mode is the theme's business: a `@media (prefers-color-scheme: dark)`
@@ -103,7 +103,7 @@ The shell listens for ArrowLeft/ArrowRight and horizontal swipes on
 `document`. A theme that needs those (a game, a slider) sets
 `useTheme().navigationLocked.value = true` while it needs them and resets it
 on game over and in `onBeforeUnmount`. `hacker/Landing.vue`,
-`breakout/Landing.vue`, `rtype/Landing.vue`, `invaders/Landing.vue` and `starfox/Landing.vue` show the pattern; all five games
+`breakout/Landing.vue`, `rtype/Landing.vue`, `invaders/Landing.vue`, `starfox/Landing.vue` and `tetris/Game.vue` show the pattern; all six games
 also start on *tap*, not on touchstart, so a swipe on the idle game still changes
 theme. `invaders` also emits `over` the moment a run ends (before the delayed
 `death`) so the arrows unlock while the cannon is still exploding (2026-09-05). `rtype/Shooter.vue` simulates in world space (ship flies +x) and

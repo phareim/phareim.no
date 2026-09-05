@@ -10,6 +10,7 @@ import './desk/theme.css'
 import './rtype/theme.css'
 import './invaders/theme.css'
 import './starfox/theme.css'
+import './tetris/theme.css'
 
 // Static imports on purpose: a swipe should not wait for a chunk, and the
 // whole set is small (the Cyberpunk game is the only big one).
@@ -22,6 +23,7 @@ import DeskLanding from './desk/Landing.vue'
 import RtypeLanding from './rtype/Landing.vue'
 import InvadersLanding from './invaders/Landing.vue'
 import StarfoxLanding from './starfox/Landing.vue'
+import TetrisLanding from './tetris/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the cookie value. */
@@ -75,6 +77,13 @@ export const themes: ThemeDefinition[] = [
     name: 'Star Fox',
     themeColor: '#0b0616',
     landing: StarfoxLanding,
+  },
+  {
+    id: 'tetris',
+    name: 'Tetris',
+    themeColor: '#15123A',
+    themeColorDark: '#15123A',
+    landing: TetrisLanding,
   },
   {
     id: 'space',
