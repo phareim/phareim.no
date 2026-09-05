@@ -6,7 +6,6 @@ import './scandi/theme.css'
 import './hacker/theme.css'
 import './breakout/theme.css'
 import './space/theme.css'
-import './almanac/theme.css'
 import './desk/theme.css'
 import './rtype/theme.css'
 import './invaders/theme.css'
@@ -18,8 +17,6 @@ import HackerLanding from './hacker/Landing.vue'
 import BreakoutLanding from './breakout/Landing.vue'
 import SpaceLanding from './space/Landing.vue'
 import SpaceStarfield from './space/Starfield.vue'
-import AlmanacLanding from './almanac/Landing.vue'
-import AlmanacPaper from './almanac/Paper.vue'
 import DeskLanding from './desk/Landing.vue'
 import RtypeLanding from './rtype/Landing.vue'
 import InvadersLanding from './invaders/Landing.vue'
@@ -36,8 +33,6 @@ export interface ThemeDefinition {
   landing: Component
   /** Optional: rendered behind every route (starfield, texture, …). */
   backdrop?: Component
-  /** Landing may be taller than the viewport and scroll (default: locked to the viewport). */
-  scrollable?: boolean
 }
 
 // Order matters: swiping left/right walks this list, wrapping at the ends.
@@ -86,16 +81,6 @@ export const themes: ThemeDefinition[] = [
     themeColor: '#7a7062',
     themeColorDark: '#2a2622',
     landing: DeskLanding,
-    scrollable: true,
-  },
-  {
-    id: 'almanac',
-    name: 'Almanac',
-    themeColor: '#f4f0e8',
-    themeColorDark: '#161b24',
-    landing: AlmanacLanding,
-    backdrop: AlmanacPaper,
-    scrollable: true,
   },
 ]
 

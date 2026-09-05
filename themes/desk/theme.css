@@ -96,7 +96,7 @@
 
 /* The desk. Everything not on a sheet reads in desk ink. */
 .desk-page {
-  min-height: 100vh;
+  height: 100%;
   background: var(--desk-bg);
   color: var(--desk-ink-body);
   font-family: var(--desk-font);

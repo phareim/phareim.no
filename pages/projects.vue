@@ -1,4 +1,5 @@
 <template>
+  <div class="page-scroll">
   <div class="projects-page">
     <header class="projects-header">
       <h1>projects</h1>
@@ -42,6 +43,7 @@
       <span class="loading-text">no projects found</span>
     </div>
   </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -73,8 +75,7 @@ function formatDate(iso: string): string {
 
 <style scoped>
 .projects-page {
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100%;
   padding: 3rem 1.5rem 4rem;
   box-sizing: border-box;
   max-width: 900px;

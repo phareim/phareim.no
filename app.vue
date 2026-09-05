@@ -16,32 +16,35 @@ useHead({
   ]
 })
 
-onMounted(() => {
-  document.body.classList.add('scrollable');
-  document.documentElement.classList.add('scrollable');
-});
-
-onBeforeUnmount(() => {
-  document.body.classList.remove('scrollable');
-  document.documentElement.classList.remove('scrollable');
-});
 </script>
 
 <style>
 @import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300&display=swap");
 
-body,
-html {
+/* The document never scrolls (2026-09-05): every landing is locked to the
+   viewport, and a route with more content than fits scrolls inside its own
+   `.page-scroll` container instead. */
+html,
+body {
+  height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
   user-select: none;
   font-family: "Comfortaa", sans-serif;
   padding: 0;
   margin: 0;
 }
 
-body.scrollable,
-html.scrollable {
-  overflow: auto !important;
+#__nuxt {
+  height: 100%;
+  overflow: hidden;
+}
+
+.page-scroll {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 h1 {

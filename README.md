@@ -15,8 +15,9 @@ through them; a first visit lands on a random one. Each theme lives in
 - `/projects` — public GitHub repos, fetched live from the GitHub API
 - `/meta` — this site's commit log, from the GitHub API
 
-Themes: Scandinavian Glass, Cyberpunk, Space, Tufte Desk, Almanac. Preview
-one with `/?theme=<id>` (`scandi`, `hacker`, `space`, `desk`, `almanac`).
+Themes: Scandinavian Glass, Cyberpunk, Breakout, R-Type, Space Invaders, Space,
+Tufte Desk. Preview one with `/?theme=<id>` (`scandi`, `hacker`, `breakout`,
+`rtype`, `invaders`, `space`, `desk`).
 
 ## Development
 

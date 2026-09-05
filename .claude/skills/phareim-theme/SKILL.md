@@ -35,10 +35,13 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
 1. `cp -r themes/_template themes/<id>` and rename `mytheme` → `<id>` in
    `theme.css` (the root class must be `<id>-page`).
 2. Register it in `themes/index.ts`: add `import './<id>/theme.css'` and an
-   entry `{ id, name, themeColor, themeColorDark?, landing, backdrop?, scrollable? }`.
+   entry `{ id, name, themeColor, themeColorDark?, landing, backdrop? }`.
    Position in the array is the swipe order.
 3. Preview with `npm run dev` and `http://localhost:3030/?theme=<id>`. The
    query wins over the cookie and sets it, so the theme sticks while you work.
+   Check a phone viewport too (headless chromium at 375×667 works on Sleeper;
+   write the screenshot under `~/Pictures`, the snap cannot write to dotdirs
+   or /tmp): the document never scrolls, so the landing must fit.
 4. Check `/about`, `/projects`, `/meta` and a 404 (`/nope`) — they only get
    the tokens, so the palette has to carry them. `error.vue` has a per-theme
    404 block; add one if the default (scandi) block looks wrong in the theme.
@@ -57,12 +60,14 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
   with its starfield.
 - **Own the page.** Replace slots (`card`, `body`, `footer`) or skip
   DefaultLanding entirely. `hacker`, `breakout`, `rtype` and `invaders` replace `body` with a game HUD;
-  `almanac` skips the shell and renders a serif index page; `desk` skips it
-  too and lays a grained paper sheet (`.desk-sheet`, `.desk-stamp`,
-  `.desk-rule` are global classes from its theme.css) on the desk. Default rule:
-  the root fills the viewport and does not scroll. A landing that is
-  legitimately taller than a phone screen sets `scrollable: true` in the
-  registry (almanac does) and the page scrolls normally.
+  `desk` skips the shell and lays a grained paper sheet (`.desk-sheet`,
+  `.desk-stamp`, `.desk-rule` are global classes from its theme.css) on the
+  desk. Rule without exception since 2026-09-05: the root fills the viewport
+  (`height: 100dvh; overflow: hidden`) and the page does not scroll —
+  `html`, `body` and `#__nuxt` are locked in `app.vue`. The old `scrollable`
+  registry flag is gone with the Almanac theme that needed it. A route with
+  more content than fits (about, projects, meta) wraps itself in
+  `.page-scroll`, which scrolls inside the locked document.
 
 `themes/content.ts` is the default copy. A theme may pass its own `content`
 prop to DefaultLanding, reword it, or ignore it.
@@ -79,7 +84,7 @@ theme's private variables, never hardcoded colours. `.{id}-page` must set:
 --theme-font-body
 ```
 
-Rules that keep eight themes from fighting:
+Rules that keep seven themes from fighting:
 - Private variables are namespaced (`--<id>-*`) and live on `:root`.
   `--theme-*` never goes on `:root`, only on `.{id}-page`.
 - Dark mode is the theme's business: a `@media (prefers-color-scheme: dark)`

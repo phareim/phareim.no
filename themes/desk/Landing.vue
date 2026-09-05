@@ -45,8 +45,9 @@ const flipped = ref(false)
 .desk-landing {
   position: relative;
   z-index: 1;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   padding: clamp(1rem, 3vw, 2.5rem);
   box-sizing: border-box;
   display: flex;

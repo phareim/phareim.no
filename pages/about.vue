@@ -1,4 +1,5 @@
 <template>
+  <div class="page-scroll">
   <div class="about-page">
     <div class="about-inner">
 
@@ -44,6 +45,7 @@
 
     </div>
   </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -58,8 +60,7 @@ const socialLinks = [
 
 <style scoped>
 .about-page {
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100%;
   display: flex;
   justify-content: center;
   align-items: flex-start;
