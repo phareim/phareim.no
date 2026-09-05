@@ -56,7 +56,7 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
   landing) goes in the registry as `backdrop` instead — `space` does that
   with its starfield.
 - **Own the page.** Replace slots (`card`, `body`, `footer`) or skip
-  DefaultLanding entirely. `hacker` and `breakout` replace `body` with a game HUD;
+  DefaultLanding entirely. `hacker`, `breakout` and `rtype` replace `body` with a game HUD;
   `almanac` skips the shell and renders a serif index page; `desk` skips it
   too and lays a grained paper sheet (`.desk-sheet`, `.desk-stamp`,
   `.desk-rule` are global classes from its theme.css) on the desk. Default rule:
@@ -95,9 +95,10 @@ Rules that keep four themes from fighting:
 The shell listens for ArrowLeft/ArrowRight and horizontal swipes on
 `document`. A theme that needs those (a game, a slider) sets
 `useTheme().navigationLocked.value = true` while it needs them and resets it
-on game over and in `onBeforeUnmount`. `hacker/Landing.vue` and
-`breakout/Landing.vue` show the pattern; both games also start on *tap*, not on
-touchstart, so a swipe on the idle game still changes theme.
+on game over and in `onBeforeUnmount`. `hacker/Landing.vue`,
+`breakout/Landing.vue` and `rtype/Landing.vue` show the pattern; all three games
+also start on *tap*, not on touchstart, so a swipe on the idle game still changes
+theme.
 
 ## Taste
 

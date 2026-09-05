@@ -49,7 +49,7 @@ themes/              — see the phareim-theme skill
   content.ts         — default landing copy
   base/              — DefaultLanding shell, ProfileCard, SocialLink
   _template/         — starting point for a new theme
-  scandi/ hacker/ breakout/ space/ desk/ almanac/
+  scandi/ hacker/ breakout/ rtype/ space/ desk/ almanac/
 server/api/          — Nitro API routes (h3 helpers are auto-imported)
   projects.ts        — phareim's public GitHub repos
   meta.ts            — this repo's commits, paginated
@@ -61,7 +61,7 @@ reachable by URL only; a theme may link to them if it wants to.
 
 ## Theme System (short version — the skill has the rest)
 
-- Six themes, in swipe order: **Scandinavian Glass**, **Cyberpunk** (Space Invaders), **Breakout** (the arcade classic, added 2026-09-04; same canvas-behind-the-card pattern as Cyberpunk, plays itself until Enter), **Space**, **Tufte Desk** (the tactile paper-on-desk layer from the tufte-viz design system, added 2026-09-03; it replaced the flat Tufte theme 2026-09-04 and carries the ET Book @font-face), **Almanac** (the reverted May 2026 paper redesign, back as a theme 2026-09-03). Desk and Almanac are the scrollable landings. First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
+- Seven themes, in swipe order: **Scandinavian Glass**, **Cyberpunk** (Space Invaders), **Breakout** (the arcade classic, added 2026-09-04; same canvas-behind-the-card pattern as Cyberpunk, plays itself until Enter), **R-Type** (endless side-scrolling shooter in neon-vector outline style, added 2026-09-05; attract-mode autopilot until Enter/tap, Force pod on Shift/double-tap, charge beam on held Space, procedural cave walls that narrow with distance, kill-streak multiplier; built by Muse Spark via `/musecode` in three parallel variants, this one won), **Space**, **Tufte Desk** (the tactile paper-on-desk layer from the tufte-viz design system, added 2026-09-03; it replaced the flat Tufte theme 2026-09-04 and carries the ET Book @font-face), **Almanac** (the reverted May 2026 paper redesign, back as a theme 2026-09-03). Desk and Almanac are the scrollable landings. First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
 - Each `themes/<id>/theme.css` defines the `--theme-*` contract on `.{id}-page` (ten tokens, listed in the skill). Pages read `var(--theme-*, fallback)` and never hardcode colours or branch on `prefers-color-scheme` — dark mode is each theme's own business.
 - Each `themes/<id>/Landing.vue` owns the landing page. Most wrap `themes/base/DefaultLanding.vue`; a theme may replace the whole page.
 - A theme that uses arrow keys or horizontal touch itself (the Cyberpunk and Breakout games) sets `navigationLocked` while it does.

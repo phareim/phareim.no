@@ -1,0 +1,54 @@
+/**
+ * R-Type / NEON VECTOR
+ * -----------------------
+ * R-Type (1987) side-scroller in Tron vector-arcade style: stroked outline
+ * geometry with glow, electric cyan player/UI on deep navy-black, hot orange
+ * enemies. Single scheme — no dark variant. The landing is a playable
+ * endless scroller (Shooter.vue) behind the profile card.
+ */
+
+:root {
+  /* Base colors */
+  --rtype-bg: #05060c;
+  --rtype-bg-alt: #0a0d18;
+
+  /* Text colors */
+  --rtype-text: #19f0ff;
+  --rtype-text-dim: #0a94a8;
+  --rtype-text-bright: #e0fbff;
+
+  /* Accents */
+  --rtype-border: #063a44;
+  --rtype-glow: rgba(25, 240, 255, 0.2);
+  --rtype-enemy: #ff7a1a;
+
+  /* Typography */
+  --font-rtype-mono: 'Courier New', Courier, monospace;
+}
+
+.rtype-page {
+  min-height: 100vh;
+  background-color: var(--rtype-bg);
+  color: var(--rtype-text);
+  font-family: var(--font-rtype-mono);
+  overflow-x: hidden;
+  background-image:
+    linear-gradient(rgba(25, 240, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(25, 240, 255, 0.035) 1px, transparent 1px);
+  background-size: 40px 40px;
+
+  /* Semantic theme variables */
+  --theme-bg: var(--rtype-bg);
+  --theme-text: var(--rtype-text);
+  --theme-text-muted: var(--rtype-text-dim);
+  --theme-text-subtle: #3a4a5a;
+
+  --theme-card-bg: rgba(5, 12, 22, 0.8);
+  --theme-card-border: var(--rtype-text-dim);
+  --theme-card-shadow: var(--rtype-glow);
+  --theme-card-radius: 0px;
+
+  --theme-accent: var(--rtype-text);
+
+  --theme-font-body: var(--font-rtype-mono);
+}

@@ -3,7 +3,7 @@
     <component :is="theme.backdrop" v-if="theme.backdrop" />
 
     <!-- Hacker and Breakout themes (both neon-on-black, same block) -->
-    <div v-if="activeTheme === 'hacker' || activeTheme === 'breakout'" class="error-container hacker-container-inner">
+    <div v-if="activeTheme === 'hacker' || activeTheme === 'breakout' || activeTheme === 'rtype'" class="error-container hacker-container-inner">
       <p class="hacker-prompt">$ navigate --path {{ requestedPath }}</p>
       <p class="hacker-err">
         <span class="hacker-err-code">404</span>

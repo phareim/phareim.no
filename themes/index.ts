@@ -8,6 +8,7 @@ import './breakout/theme.css'
 import './space/theme.css'
 import './almanac/theme.css'
 import './desk/theme.css'
+import './rtype/theme.css'
 
 // Static imports on purpose: a swipe should not wait for a chunk, and the
 // whole set is small (the Cyberpunk game is the only big one).
@@ -19,6 +20,7 @@ import SpaceStarfield from './space/Starfield.vue'
 import AlmanacLanding from './almanac/Landing.vue'
 import AlmanacPaper from './almanac/Paper.vue'
 import DeskLanding from './desk/Landing.vue'
+import RtypeLanding from './rtype/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the cookie value. */
@@ -56,6 +58,12 @@ export const themes: ThemeDefinition[] = [
     name: 'Breakout',
     themeColor: '#07070f',
     landing: BreakoutLanding,
+  },
+  {
+    id: 'rtype',
+    name: 'R-Type',
+    themeColor: '#05060c',
+    landing: RtypeLanding,
   },
   {
     id: 'space',
