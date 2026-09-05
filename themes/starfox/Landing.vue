@@ -1,7 +1,7 @@
 <template>
   <DefaultLanding
     :flipped="gameOver"
-    :content-class="{ 'sfxb-fade': gameStarted }"
+    :content-class="{ 'sfx-fade': gameStarted }"
   >
     <template #background>
       <ClientOnly>
@@ -19,24 +19,24 @@
 
     <template #body>
       <template v-if="gameOver">
-        <h1 class="sfxb-over-title">MISSION FAILED</h1>
-        <p class="sfxb-hud sfxb-over-score">SCORE: {{ score }} · {{ distance }} KM</p>
-        <p v-if="isNewHigh && score > 0" class="sfxb-hud sfxb-new-high">NEW HIGH SCORE!</p>
-        <p v-else class="sfxb-hud">HIGH SCORE: {{ highScore }}</p>
-        <p class="sfxb-hint">PRESS ENTER OR TAP TO FLY AGAIN</p>
+        <h1 class="sfx-over-title">MISSION FAILED</h1>
+        <p class="sfx-hud sfx-over-score">SCORE: {{ score }} · {{ distance }} KM</p>
+        <p v-if="isNewHigh && score > 0" class="sfx-hud sfx-new-high">NEW HIGH SCORE!</p>
+        <p v-else class="sfx-hud">HIGH SCORE: {{ highScore }}</p>
+        <p class="sfx-hint">PRESS ENTER OR TAP TO FLY AGAIN</p>
       </template>
       <template v-else>
-        <div :class="{ 'sfxb-fade': gameStarted }">
+        <div :class="{ 'sfx-fade': gameStarted }">
           <h1>{{ profile.name }}</h1>
           <p v-for="line in profile.blurbs" :key="line" class="blurb">{{ line }}</p>
         </div>
-        <p class="location sfxb-hud">
+        <p class="location sfx-hud">
           SCORE: {{ score }} · {{ distance }} KM<template v-if="gameStarted"> · {{ '◆'.repeat(Math.max(0, lives)) }}</template>
         </p>
-        <p v-if="highScore > 0 && !gameStarted" class="location sfxb-hud-dim">HIGH SCORE: {{ highScore }}</p>
+        <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
-          <p class="sfxb-hint">PRESS ENTER OR TAP TO FLY</p>
-          <p class="sfxb-hint sfxb-hint-dim">ARROWS STEER · SPACE FIRE · SHIFT ROLL · RINGS +50</p>
+          <p class="sfx-hint">▶ PRESS ENTER OR TAP TO FLY ◀</p>
+          <p class="sfx-hint sfx-hint-dim">ARROWS · SPACE FIRE · SHIFT ROLL</p>
         </template>
       </template>
     </template>
@@ -76,16 +76,16 @@ function onGameStarted() {
 // 'over' fires the moment the run ends; 'death' a little later, after the explosion.
 function onGameEnded() {
   navigationLocked.value = false
-  isNewHigh.value = score.value > highScore.value
-  if (isNewHigh.value) {
-    highScore.value = score.value
-    localStorage.setItem('starfoxHighScore', String(highScore.value))
-  }
 }
 
 function onGameOver() {
   gameOver.value = true
   navigationLocked.value = false
+  isNewHigh.value = score.value > highScore.value
+  if (isNewHigh.value) {
+    highScore.value = score.value
+    localStorage.setItem('starfoxHighScore', String(highScore.value))
+  }
 }
 
 function onGameRestart() {
@@ -96,56 +96,63 @@ function onGameRestart() {
 </script>
 
 <style>
-.sfxb-hud {
+.sfx-hud {
   font-family: var(--theme-font-body, monospace);
-  color: var(--theme-accent, #fff);
+  color: var(--sfx-cyan, #2ff3ff);
   letter-spacing: 0.15em;
   font-size: 1em;
-  text-shadow: 0 0 8px rgba(25, 240, 255, 0.65);
+  text-shadow: 0 0 8px rgba(47, 243, 255, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
 }
 
-  .sfxb-over-title {
+.sfx-over-title {
   font-family: var(--theme-font-body, monospace);
-  color: var(--theme-accent, #fff);
+  color: var(--sfx-pink, #ff2fa0);
   font-size: 2.8em;
   letter-spacing: 0.1em;
   margin-top: 0.5em;
   margin-bottom: 0.1em;
+  text-shadow: 0 0 12px rgba(255, 47, 160, 0.8), 0 0 40px rgba(255, 47, 160, 0.4);
 }
 @media (min-width: 800px) {
-.sfxb-over-title {
+  .sfx-over-title {
     font-size: 3.2em;
   }
 }
 
-.sfxb-over-score {
+.sfx-over-score {
   margin-top: 0.3em;
 }
 
-.sfxb-new-high {
-  animation: sfxb-pulse 0.8s ease-in-out infinite alternate;
+.sfx-new-high {
+  animation: sfx-pulse 0.8s ease-in-out infinite alternate;
 }
-@keyframes sfxb-pulse {
+@keyframes sfx-pulse {
   from { opacity: 0.6; }
   to { opacity: 1; }
 }
 
-.sfxb-hint {
+.sfx-hint {
   font-family: var(--theme-font-body, monospace);
-  color: var(--theme-accent, #fff);
+  color: var(--sfx-pink, #ff2fa0);
   font-size: 0.9em;
-  letter-spacing: 0.1em;
-  opacity: 0.8;
+  letter-spacing: 0.12em;
+  opacity: 0.9;
   margin-top: 1em;
+  text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
+  animation: sfx-blink 1.6s ease-in-out infinite alternate;
+}
+@keyframes sfx-blink {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
 }
 
-.sfxb-hint-dim {
+.sfx-hint-dim {
   opacity: 0.45;
   font-size: 0.7em;
   margin-top: 0.2em;
 }
 
-.sfxb-hud-dim {
+.sfx-hud-dim {
   font-family: var(--theme-font-body, monospace);
   color: var(--theme-accent, #fff);
   opacity: 0.5;
@@ -153,10 +160,10 @@ function onGameRestart() {
   letter-spacing: 0.1em;
 }
 
-.sfxb-fade {
-  animation: sfxb-fade-out 4s forwards;
+.sfx-fade {
+  animation: sfx-fade-out 4s forwards;
 }
-@keyframes sfxb-fade-out {
+@keyframes sfx-fade-out {
   0% { opacity: 1; }
   50% { opacity: 1; }
   100% { opacity: 0; pointer-events: none; }

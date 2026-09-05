@@ -1,0 +1,45 @@
+/**
+ * Star Fox C — SYNTHWAVE.
+ * Outrun 1984 over a Star Fox corridor: deep violet-black sky, a striped
+ * gold-to-pink sun on the horizon, a magenta/cyan grid floor. Cyan is the
+ * player/HUD colour, hot pink the danger/bonus colour, gold the kills.
+ * One scheme — no dark variant.
+ */
+:root {
+  --sfx-bg: #0b0616;
+  --sfx-bg-deep: #060310;
+  --sfx-text: #f2e9ff;
+  --sfx-text-muted: #b9a8d9;
+  --sfx-text-subtle: #7a6a9a;
+  --sfx-accent: #2ff3ff;
+  --sfx-cyan: #2ff3ff;
+  --sfx-pink: #ff2fa0;
+  --sfx-gold: #ffd23f;
+  --sfx-card-bg: rgba(11, 6, 22, 0.74);
+  --sfx-card-border: rgba(255, 47, 160, 0.35);
+  --sfx-card-shadow: rgba(47, 243, 255, 0.15);
+  --sfx-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sfx-mono: "Courier New", ui-monospace, monospace;
+}
+
+.starfox-page {
+  min-height: 100vh;
+  background: var(--sfx-bg);
+  color: var(--sfx-text);
+  font-family: var(--sfx-font);
+  position: relative;
+  overflow-x: hidden;
+
+  /* The contract. All ten are read somewhere; add more only when a
+     second theme needs the same token. */
+  --theme-bg: var(--sfx-bg);
+  --theme-text: var(--sfx-text);
+  --theme-text-muted: var(--sfx-text-muted);
+  --theme-text-subtle: var(--sfx-text-subtle);
+  --theme-accent: var(--sfx-accent);
+  --theme-card-bg: var(--sfx-card-bg);
+  --theme-card-border: var(--sfx-card-border);
+  --theme-card-shadow: var(--sfx-card-shadow);
+  --theme-card-radius: 12px;
+  --theme-font-body: var(--sfx-font);
+}

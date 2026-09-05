@@ -1,7 +1,7 @@
 <template>
-  <div class="sfxc-wrap">
-    <canvas ref="canvas" class="sfxc-canvas"></canvas>
-    <div ref="flashEl" class="sfxc-flash"></div>
+  <div class="sfx-wrap">
+    <canvas ref="canvas" class="sfx-canvas"></canvas>
+    <div ref="flashEl" class="sfx-flash"></div>
   </div>
 </template>
 
@@ -1614,12 +1614,12 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
-.sfxc-wrap {
+.sfx-wrap {
   position: absolute;
   inset: 0;
   overflow: hidden;
 }
-.sfxc-canvas {
+.sfx-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1627,7 +1627,7 @@ onBeforeUnmount(() => {
   display: block;
   z-index: 1;
 }
-.sfxc-flash {
+.sfx-flash {
   position: absolute;
   inset: 0;
   z-index: 2;
