@@ -1,0 +1,50 @@
+/**
+ * Star Fox — variant c (scaffold palette, replace)
+ * ---------------------------
+ * On-rails 3D flight shooter (three.js) behind the profile card.
+ */
+:root {
+  /* Base colors */
+  --sfxc-bg: #05060c;
+  --sfxc-bg-alt: #0a0d18;
+
+  /* Text colors */
+  --sfxc-text: #19f0ff;
+  --sfxc-text-dim: #0a94a8;
+  --sfxc-text-bright: #e0fbff;
+
+  /* Accents */
+  --sfxc-border: #063a44;
+  --sfxc-glow: rgba(25, 240, 255, 0.2);
+  --sfxc-enemy: #ff7a1a;
+
+  /* Typography */
+  --font-sfxc: 'Courier New', Courier, monospace;
+}
+
+.starfox-c-page {
+  min-height: 100vh;
+  background-color: var(--sfxc-bg);
+  color: var(--sfxc-text);
+  font-family: var(--font-sfxc);
+  overflow-x: hidden;
+  background-image:
+    linear-gradient(rgba(25, 240, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(25, 240, 255, 0.035) 1px, transparent 1px);
+  background-size: 40px 40px;
+
+  /* Semantic theme variables */
+  --theme-bg: var(--sfxc-bg);
+  --theme-text: var(--sfxc-text);
+  --theme-text-muted: var(--sfxc-text-dim);
+  --theme-text-subtle: #3a4a5a;
+
+  --theme-card-bg: rgba(5, 12, 22, 0.8);
+  --theme-card-border: var(--sfxc-text-dim);
+  --theme-card-shadow: var(--sfxc-glow);
+  --theme-card-radius: 0px;
+
+  --theme-accent: var(--sfxc-text);
+
+  --theme-font-body: var(--font-sfxc);
+}

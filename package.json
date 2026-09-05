@@ -11,6 +11,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
+    "@types/three": "^0.185.4",
     "nuxt": "^3.21.11",
     "typescript": "^5.9.3",
     "vue-tsc": "^3.3.11"
@@ -18,5 +19,8 @@
   "overrides": {
     "tr46": "4.0.0",
     "serialize-javascript": "^7.0.3"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
   }
 }

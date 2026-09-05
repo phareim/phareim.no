@@ -1,0 +1,50 @@
+/**
+ * Star Fox — variant a (scaffold palette, replace)
+ * ---------------------------
+ * On-rails 3D flight shooter (three.js) behind the profile card.
+ */
+:root {
+  /* Base colors */
+  --sfxa-bg: #05060c;
+  --sfxa-bg-alt: #0a0d18;
+
+  /* Text colors */
+  --sfxa-text: #19f0ff;
+  --sfxa-text-dim: #0a94a8;
+  --sfxa-text-bright: #e0fbff;
+
+  /* Accents */
+  --sfxa-border: #063a44;
+  --sfxa-glow: rgba(25, 240, 255, 0.2);
+  --sfxa-enemy: #ff7a1a;
+
+  /* Typography */
+  --font-sfxa: 'Courier New', Courier, monospace;
+}
+
+.starfox-a-page {
+  min-height: 100vh;
+  background-color: var(--sfxa-bg);
+  color: var(--sfxa-text);
+  font-family: var(--font-sfxa);
+  overflow-x: hidden;
+  background-image:
+    linear-gradient(rgba(25, 240, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(25, 240, 255, 0.035) 1px, transparent 1px);
+  background-size: 40px 40px;
+
+  /* Semantic theme variables */
+  --theme-bg: var(--sfxa-bg);
+  --theme-text: var(--sfxa-text);
+  --theme-text-muted: var(--sfxa-text-dim);
+  --theme-text-subtle: #3a4a5a;
+
+  --theme-card-bg: rgba(5, 12, 22, 0.8);
+  --theme-card-border: var(--sfxa-text-dim);
+  --theme-card-shadow: var(--sfxa-glow);
+  --theme-card-radius: 0px;
+
+  --theme-accent: var(--sfxa-text);
+
+  --theme-font-body: var(--font-sfxa);
+}

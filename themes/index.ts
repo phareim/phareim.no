@@ -9,6 +9,9 @@ import './space/theme.css'
 import './desk/theme.css'
 import './rtype/theme.css'
 import './invaders/theme.css'
+import './starfox-a/theme.css'
+import './starfox-b/theme.css'
+import './starfox-c/theme.css'
 
 // Static imports on purpose: a swipe should not wait for a chunk, and the
 // whole set is small (the Cyberpunk game is the only big one).
@@ -20,6 +23,9 @@ import SpaceStarfield from './space/Starfield.vue'
 import DeskLanding from './desk/Landing.vue'
 import RtypeLanding from './rtype/Landing.vue'
 import InvadersLanding from './invaders/Landing.vue'
+import StarfoxALanding from './starfox-a/Landing.vue'
+import StarfoxBLanding from './starfox-b/Landing.vue'
+import StarfoxCLanding from './starfox-c/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the cookie value. */
@@ -67,6 +73,24 @@ export const themes: ThemeDefinition[] = [
     name: 'Space Invaders',
     themeColor: '#0b0616',
     landing: InvadersLanding,
+  },
+  {
+    id: 'starfox-a',
+    name: 'Star Fox A (wip)',
+    themeColor: '#05060c',
+    landing: StarfoxALanding,
+  },
+  {
+    id: 'starfox-b',
+    name: 'Star Fox B (wip)',
+    themeColor: '#05060c',
+    landing: StarfoxBLanding,
+  },
+  {
+    id: 'starfox-c',
+    name: 'Star Fox C (wip)',
+    themeColor: '#05060c',
+    landing: StarfoxCLanding,
   },
   {
     id: 'space',
