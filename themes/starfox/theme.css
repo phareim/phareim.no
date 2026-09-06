@@ -18,8 +18,8 @@
   --sfx-card-bg: rgba(11, 6, 22, 0.74);
   --sfx-card-border: rgba(255, 47, 160, 0.35);
   --sfx-card-shadow: rgba(47, 243, 255, 0.15);
-  --sfx-font: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --sfx-mono: "Courier New", ui-monospace, monospace;
+  --sfx-font: var(--font-person);
+  --sfx-mono: var(--font-machine);
 }
 
 .starfox-page {

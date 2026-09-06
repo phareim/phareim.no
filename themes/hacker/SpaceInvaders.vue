@@ -3,6 +3,7 @@
 </template>
 
 <script setup>
+import { MACHINE_FONT } from '~/themes/base/fonts'
 const emit = defineEmits(['score', 'death', 'restart', 'started'])
 
 const canvas = ref(null)
@@ -998,7 +999,7 @@ function draw() {
     ctx.fill()
     // Letter
     ctx.fillStyle = '#0a0a0a'
-    ctx.font = `bold ${p.size * 0.55}px monospace`
+    ctx.font = `bold ${p.size * 0.55}px ${MACHINE_FONT}`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(isShield ? 'S' : 'P', 0, 1)

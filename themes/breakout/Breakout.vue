@@ -3,6 +3,7 @@
 </template>
 
 <script setup>
+import { MACHINE_FONT } from '~/themes/base/fonts'
 /**
  * Breakout, the arcade original: a paddle, a ball, rows of bricks.
  * Same contract as hacker/SpaceInvaders.vue — a full-viewport canvas behind
@@ -578,7 +579,7 @@ function draw() {
     ctx.fill()
     ctx.shadowBlur = 0
     ctx.fillStyle = '#0b0616'
-    ctx.font = 'bold 12px "Courier New", monospace'
+    ctx.font = `bold 12px ${MACHINE_FONT}`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(def.label, p.x, p.y + 1)
@@ -650,7 +651,7 @@ function draw() {
     ctx.fillStyle = '#ff2fa0'
     ctx.shadowColor = '#ff2fa0'
     ctx.shadowBlur = 24
-    ctx.font = 'bold 32px "Courier New", monospace'
+    ctx.font = `bold 32px ${MACHINE_FONT}`
     try { ctx.letterSpacing = '0.1em' } catch (e) { /* canvas letterSpacing unsupported */ }
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'

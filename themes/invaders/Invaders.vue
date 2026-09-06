@@ -3,6 +3,7 @@
 </template>
 
 <script setup>
+import { MACHINE_FONT } from '~/themes/base/fonts'
 /**
  * SYNTHWAVE HORIZON — a faithful 1978 Space Invaders formation game.
  *
@@ -1735,7 +1736,7 @@ function drawCannon(now) {
   if (mult > 1 && gameStarted) {
     ctx.save()
     if (comboFontPx !== px) {
-      comboFont = `bold ${Math.max(11, px * 3)}px "Courier New", monospace`
+      comboFont = `bold ${Math.max(11, px * 3)}px ${MACHINE_FONT}`
       comboFontPx = px
     }
     ctx.font = comboFont
@@ -1844,9 +1845,9 @@ function draw() {
   // Score popups: 3 discrete pop sizes (no per-popup font rebuild).
   const popBase = Math.max(12, px * 3)
   const popFonts = [
-    `bold ${Math.round(popBase)}px "Courier New", monospace`,
-    `bold ${Math.round(popBase * 1.17)}px "Courier New", monospace`,
-    `bold ${Math.round(popBase * 1.35)}px "Courier New", monospace`,
+    `bold ${Math.round(popBase)}px ${MACHINE_FONT}`,
+    `bold ${Math.round(popBase * 1.17)}px ${MACHINE_FONT}`,
+    `bold ${Math.round(popBase * 1.35)}px ${MACHINE_FONT}`,
   ]
   for (let i = 0; i < ufoPopups.length; i++) {
     const p = ufoPopups[i]

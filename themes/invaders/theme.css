@@ -19,8 +19,8 @@
   --invaders-card-bg: rgba(11, 6, 22, 0.74);
   --invaders-card-border: rgba(47, 243, 255, 0.28);
   --invaders-card-shadow: rgba(255, 47, 160, 0.18);
-  --invaders-font: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --invaders-mono: "Courier New", ui-monospace, monospace;
+  --invaders-font: var(--font-person);
+  --invaders-mono: var(--font-machine);
 }
 
 .invaders-page {

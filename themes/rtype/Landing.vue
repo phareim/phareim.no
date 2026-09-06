@@ -84,7 +84,7 @@ function onGameRestart() {
 
 <style>
 .rtype-hud {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #2ff3ff;
   text-shadow: 0 0 8px rgba(47, 243, 255, 0.65), 0 0 24px rgba(255, 122, 26, 0.35);
@@ -93,7 +93,7 @@ function onGameRestart() {
 }
 
 .rtype-over-title {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #ff7a1a;
   text-shadow: 0 0 12px rgba(255, 122, 26, 0.8), 0 0 40px rgba(255, 122, 26, 0.4);
@@ -127,7 +127,7 @@ function onGameRestart() {
 }
 
 .rtype-hint {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #ff7a1a;
   text-shadow: 0 0 10px rgba(255, 122, 26, 0.6);
@@ -143,7 +143,7 @@ function onGameRestart() {
 }
 
 .rtype-hud-dim {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #2ff3ff;
   opacity: 0.5;

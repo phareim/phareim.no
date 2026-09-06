@@ -90,7 +90,9 @@ const emit = defineEmits<{
 
 .landing-home {
   text-align: center;
-  max-width: 600px;
+  max-width: min(600px, 100%);
+  box-sizing: border-box;
+  padding: 0 12px;
   margin: 0 auto;
 }
 

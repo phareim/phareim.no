@@ -67,7 +67,7 @@ onBeforeUnmount(() => observer?.disconnect())
 </script>
 
 <style scoped>
-.tetris-arcade { width: min(100%, 430px); min-height: 0; flex: 1; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; gap: 10px; color: var(--tetris-text); font: 12px 'Courier New', monospace; letter-spacing: .15em; }
+.tetris-arcade { width: min(100%, 430px); min-height: 0; flex: 1; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; gap: 10px; color: var(--tetris-text); font: 12px var(--font-machine); letter-spacing: .15em; }
 .arcade-header { display: flex; justify-content: space-between; align-items: center; min-height: 44px; }
 h2 { margin: 2px 0 0; font-size: 26px; line-height: 1; letter-spacing: .16em; color: var(--tetris-pink); text-shadow: 0 0 12px #ff2fa080, 0 0 32px #ff2fa040; }
 .eyebrow { font-size: 10px; color: var(--tetris-text-muted); }
@@ -92,7 +92,7 @@ strong { font-size: 19px; font-weight: normal; color: var(--tetris-accent); font
 .hold-button { padding: 10px 4px; }
 .exit-button { margin-top: auto; font-size: 10px; color: var(--tetris-text-muted); }
 .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.action-row b { font: 22px 'Courier New', monospace; vertical-align: -2px; margin-right: 6px; }
+.action-row b { font: 22px var(--font-machine); vertical-align: -2px; margin-right: 6px; }
 .drop-button { color: var(--tetris-pink); border-color: #ff2fa066; }
 .control-hint { background: #0b0616bd; border-radius: 4px; margin: 0; text-align: center; font-size: 10px; line-height: 1.8; letter-spacing: .06em; color: var(--tetris-text-muted); }
 .control-hint span { font-size: 9px; }

@@ -33,7 +33,7 @@
   --hacker-card-shadow: rgba(0, 255, 65, 0.15);
 
   /* Typography */
-  --font-mono: 'Courier New', Courier, monospace;
+  --font-mono: var(--font-machine);
 }
 
 .hacker-page {

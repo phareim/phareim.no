@@ -21,8 +21,8 @@
   --rtype-card-bg: rgba(11, 6, 22, 0.74);
   --rtype-card-border: rgba(255, 122, 26, 0.35);
   --rtype-card-shadow: rgba(47, 243, 255, 0.15);
-  --rtype-font: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --rtype-mono: "Courier New", ui-monospace, monospace;
+  --rtype-font: var(--font-person);
+  --rtype-mono: var(--font-machine);
 }
 
 .rtype-page {

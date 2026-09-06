@@ -19,8 +19,6 @@ useHead({
 </script>
 
 <style>
-@import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300&display=swap");
-
 /* The document never scrolls (2026-09-05): every landing is locked to the
    viewport, and a route with more content than fits scrolls inside its own
    `.page-scroll` container instead. */
@@ -30,7 +28,7 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
   user-select: none;
-  font-family: "Comfortaa", sans-serif;
+  font-family: var(--font-person, system-ui, sans-serif);
   padding: 0;
   margin: 0;
 }
@@ -49,7 +47,8 @@ body {
 
 h1 {
   font-size: 4rem;
-  font-weight: 500;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   margin: 0;
   padding: 0;
 }

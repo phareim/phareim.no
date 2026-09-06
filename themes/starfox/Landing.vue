@@ -98,7 +98,7 @@ function onGameRestart() {
 
 <style>
 .sfx-hud {
-  font-family: var(--theme-font-body, monospace);
+  font-family: var(--font-machine);
   color: var(--sfx-cyan, #2ff3ff);
   letter-spacing: 0.15em;
   font-size: 1em;
@@ -106,7 +106,7 @@ function onGameRestart() {
 }
 
 .sfx-over-title {
-  font-family: var(--theme-font-body, monospace);
+  font-family: var(--font-machine);
   color: var(--sfx-pink, #ff2fa0);
   font-size: 2.8em;
   letter-spacing: 0.1em;
@@ -133,7 +133,7 @@ function onGameRestart() {
 }
 
 .sfx-hint {
-  font-family: var(--theme-font-body, monospace);
+  font-family: var(--font-machine);
   color: var(--sfx-pink, #ff2fa0);
   font-size: 0.9em;
   letter-spacing: 0.12em;
@@ -154,7 +154,7 @@ function onGameRestart() {
 }
 
 .sfx-hud-dim {
-  font-family: var(--theme-font-body, monospace);
+  font-family: var(--font-machine);
   color: var(--theme-accent, #fff);
   opacity: 0.5;
   font-size: 0.65em;

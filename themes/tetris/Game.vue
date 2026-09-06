@@ -812,10 +812,10 @@ defineExpose({
 <style scoped>
 .tetris-game { position: relative; flex: 0 0 auto; border: 1px solid #2ff3ff70; border-radius: 4px; overflow: hidden; background: #090512; box-shadow: 0 0 20px #2ff3ff12, 0 0 40px #ff2fa010; touch-action: none; user-select: none; -webkit-user-select: none; }
 .tetris-board { display: block; }
-.tetris-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 8px; text-align: center; font: 12px/1.6 'Courier New', monospace; letter-spacing: .12em; color: var(--tetris-text); background: #0b0616d9; }
+.tetris-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 8px; text-align: center; font: 12px/1.6 var(--font-machine); letter-spacing: .12em; color: var(--tetris-text); background: #0b0616d9; }
 .tetris-gameover { font-size: clamp(18px, 3vw, 30px); color: var(--tetris-pink); text-shadow: 0 0 12px #ff2fa080; }
 .tetris-newbest { color: var(--tetris-gold); }
-.play-button { min-height: 44px; padding: 10px 6px; background: #ff2fa018; border: 1px solid #ff2fa060; border-radius: 4px; color: var(--tetris-pink); font: inherit; font-size: 11px; letter-spacing: .08em; cursor: pointer; }
+.play-button { min-height: 44px; padding: 10px 6px; white-space: nowrap; background: #ff2fa018; border: 1px solid #ff2fa060; border-radius: 4px; color: var(--tetris-pink); font: inherit; font-size: 11px; letter-spacing: .08em; cursor: pointer; }
 .play-button:focus-visible { outline: 2px solid var(--tetris-accent); outline-offset: 2px; }
 .overlay-hint { font-size: 9px; letter-spacing: .04em; color: var(--tetris-text-muted); }
 @media (max-height: 480px) { .tetris-overlay { gap: 4px; font-size: 10px; } .overlay-hint { display: none; } }

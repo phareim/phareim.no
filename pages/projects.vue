@@ -220,7 +220,7 @@ h1 {
 }
 
 :global(.hacker-page) .project-name {
-  font-family: monospace;
+  font-family: var(--font-machine);
   text-transform: lowercase;
 }
 
@@ -231,11 +231,11 @@ h1 {
 }
 
 :global(.hacker-page) .subtitle {
-  font-family: monospace;
+  font-family: var(--font-machine);
 }
 
 :global(.hacker-page) h1 {
-  font-family: monospace;
+  font-family: var(--font-machine);
   text-transform: lowercase;
   text-shadow: 0 0 10px currentColor;
 }

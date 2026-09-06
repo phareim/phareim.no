@@ -84,7 +84,7 @@ function onGameRestart() {
 
 <style>
 .breakout-hud {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #2ff3ff;
   text-shadow: 0 0 8px rgba(47, 243, 255, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
@@ -93,7 +93,7 @@ function onGameRestart() {
 }
 
 .breakout-over-title {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #ff2fa0;
   text-shadow: 0 0 12px rgba(255, 47, 160, 0.8), 0 0 40px rgba(255, 47, 160, 0.4);
@@ -127,7 +127,7 @@ function onGameRestart() {
 }
 
 .breakout-hint {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #ff2fa0;
   text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
@@ -143,7 +143,7 @@ function onGameRestart() {
 }
 
 .breakout-hud-dim {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #2ff3ff;
   opacity: 0.5;

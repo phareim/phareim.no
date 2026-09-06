@@ -21,6 +21,9 @@ themes/
     DefaultLanding.vue  the default shell: card + text + socials, slots for the rest
     ProfileCard.vue     flip card
     SocialLink.vue      icon links
+    fonts.css           :root --font-person (Space Grotesk) and --font-machine (Space Mono), self-hosted
+                        via @fontsource; imported first in index.ts (2026-09-06). fonts.ts exports
+                        MACHINE_FONT for canvas ctx.font strings
     neonHorizon.js      the Neon Dreams synthwave backdrop (sky, stars, sun, ridge, grid,
                         heartbeat) as a canvas module: createHorizon() → resize/update/beat/draw.
                         breakout, invaders and tetris use it (2026-09-06); starfox is three.js and draws its own
@@ -91,7 +94,10 @@ theme's private variables, never hardcoded colours. `.{id}-page` must set:
 
 Rules that keep nine themes from fighting:
 - Private variables are namespaced (`--<id>-*`) and live on `:root`.
-  `--theme-*` never goes on `:root`, only on `.{id}-page`.
+  `--theme-*` never goes on `:root`, only on `.{id}-page`. The two site-wide
+  exceptions are `--font-person` / `--font-machine` from `base/fonts.css`;
+  a Neon Dreams theme sets its `--<id>-font` / `--<id>-mono` to those, never
+  to a literal family (2026-09-06).
 - Dark mode is the theme's business: a `@media (prefers-color-scheme: dark)`
   block that overrides its own `:root` palette. Pages never branch on it.
 - Add a token only when a second theme needs it. Unused tokens were the

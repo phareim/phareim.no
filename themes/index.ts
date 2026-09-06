@@ -2,6 +2,7 @@ import type { Component } from 'vue'
 
 // Every theme's CSS is global: the `.{id}-page` class on the app root
 // carries the --theme-* tokens for all routes, not just the landing page.
+import './base/fonts.css'
 import './scandi/theme.css'
 import './hacker/theme.css'
 import './breakout/theme.css'

@@ -94,7 +94,7 @@ function onGameRestart() {
 
 <style>
 .invaders-hud {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   color: #2ff3ff;
   text-shadow: 0 0 10px #2ff3ff;
   letter-spacing: 0.15em;
@@ -102,7 +102,7 @@ function onGameRestart() {
 }
 
 .invaders-over-title {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   color: #ff2fa0;
   text-shadow: 0 0 20px #ff2fa0, 0 0 40px #ff2fa0;
   font-size: 2.8em;
@@ -131,7 +131,7 @@ function onGameRestart() {
 
 .invaders-hint {
   /* Neon Dreams hint recipe: pink is the call to action (2026-09-06). */
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #ff2fa0;
   text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
@@ -147,7 +147,7 @@ function onGameRestart() {
 }
 
 .invaders-hud-dim {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   color: #2ff3ff;
   opacity: 0.5;
   font-size: 0.65em;

@@ -3,6 +3,7 @@
 </template>
 
 <script setup>
+import { MACHINE_FONT } from '~/themes/base/fonts'
 /**
  * R-Type — an endless R-Type (1987) style side-scrolling space shooter in
  * NEON VECTOR style (stroked outlines + glow, canvas primitives only).
@@ -1483,7 +1484,7 @@ function draw() {
     // Small canvas HUD under the ship: force state + charge bars + multiplier.
     const full = Math.floor(clamp(chargeT / CHARGE_TIME, 0, 1) * 5)
     const bars = '▮'.repeat(full) + '▯'.repeat(5 - full)
-    ctx.font = '10px monospace'
+    ctx.font = `10px ${MACHINE_FONT}`
     ctx.textAlign = 'left'
     ctx.textBaseline = 'top'
     // Neon Dreams reward colour: the multiplier readout goes gold at x4+, cyan below.
@@ -1496,7 +1497,7 @@ function draw() {
     ctx.globalAlpha = demo ? 0.5 : 1
     // Multiplier rise pop near the ship.
     if (multPop) {
-      ctx.font = 'bold 14px monospace'
+      ctx.font = `bold 14px ${MACHINE_FONT}`
       ctx.textAlign = 'center'
       // Neon Dreams reward colour: the combo pop goes gold at x4+, cyan below.
       ctx.fillStyle = mult >= 4 ? GOLD : CYAN

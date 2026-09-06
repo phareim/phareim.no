@@ -79,7 +79,7 @@ function onGameRestart() {
    (themes/breakout/Landing.vue <style>), with this theme's own hues:
    HUD green #00ff41, alerts red #ff0055. */
 .hacker-score {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #00ff41;
   text-shadow: 0 0 8px rgba(0, 255, 65, 0.65), 0 0 24px rgba(255, 0, 85, 0.35);
@@ -88,7 +88,7 @@ function onGameRestart() {
 }
 
 .game-over-title {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #ff0055;
   text-shadow: 0 0 12px rgba(255, 0, 85, 0.8), 0 0 40px rgba(255, 0, 85, 0.4);
@@ -122,7 +122,7 @@ function onGameRestart() {
 }
 
 .game-over-restart {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #ff0055;
   text-shadow: 0 0 10px rgba(255, 0, 85, 0.6);
@@ -132,7 +132,7 @@ function onGameRestart() {
 }
 
 .hacker-highscore-inline {
-  font-family: "Courier New", monospace;
+  font-family: var(--font-machine);
   text-transform: uppercase;
   color: #00ff41;
   opacity: 0.5;

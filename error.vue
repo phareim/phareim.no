@@ -100,7 +100,7 @@ useHead({ title: '404 — phareim.no' })
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  font-family: var(--theme-font-body, 'Comfortaa', system-ui, sans-serif);
+  font-family: var(--theme-font-body, var(--font-person));
 }
 
 /* ---- Shared ---- */
@@ -188,13 +188,13 @@ useHead({ title: '404 — phareim.no' })
 /* ---- Hacker ---- */
 .hacker-container-inner {
   text-align: left;
-  font-family: monospace;
+  font-family: var(--font-machine);
   padding: 2rem;
 }
 
 .hacker-prompt {
   color: var(--theme-text, #00ff41);
-  font-family: monospace;
+  font-family: var(--font-machine);
   font-size: 0.9rem;
   margin: 0.4rem 0;
   letter-spacing: 0.05em;
@@ -224,7 +224,7 @@ useHead({ title: '404 — phareim.no' })
 
 .hacker-err-code {
   font-size: clamp(3rem, 10vw, 6rem);
-  font-family: monospace;
+  font-family: var(--font-machine);
   color: var(--theme-accent, #00ff41);
   text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
   line-height: 1;
@@ -232,7 +232,7 @@ useHead({ title: '404 — phareim.no' })
 }
 
 .hacker-err-msg {
-  font-family: monospace;
+  font-family: var(--font-machine);
   font-size: 1rem;
   color: var(--hacker-accent, #ff0055);
   text-shadow: 0 0 10px currentColor;
@@ -251,7 +251,7 @@ useHead({ title: '404 — phareim.no' })
   background: transparent;
   border: none;
   color: var(--theme-text, #00ff41);
-  font-family: monospace;
+  font-family: var(--font-machine);
   font-size: 0.9rem;
   cursor: pointer;
   padding: 0;
@@ -362,7 +362,7 @@ useHead({ title: '404 — phareim.no' })
 }
 
 .space-coords {
-  font-family: monospace;
+  font-family: var(--font-machine);
   font-size: 0.75rem;
   color: var(--theme-text-subtle, #5a6080);
   letter-spacing: 0.1em;
@@ -408,7 +408,7 @@ useHead({ title: '404 — phareim.no' })
 }
 
 .tetris-404-num {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-machine);
   font-size: clamp(3rem, 12vw, 6rem);
   font-weight: 400;
   line-height: 1;
@@ -442,7 +442,7 @@ useHead({ title: '404 — phareim.no' })
 }
 
 .tetris-title {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-machine);
   font-size: 0.875rem;
   font-weight: 400;
   text-transform: uppercase;
@@ -453,7 +453,7 @@ useHead({ title: '404 — phareim.no' })
 }
 
 .tetris-msg {
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-person);
   color: var(--theme-text-muted, #B4ADD9);
   font-size: 0.9rem;
   margin: 0 0 2.5rem;
@@ -464,7 +464,7 @@ useHead({ title: '404 — phareim.no' })
   background: transparent;
   border: 2px solid var(--theme-accent, #FFD500);
   color: var(--theme-accent, #FFD500);
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-machine);
   font-size: 0.6875rem;
   font-weight: 400;
   cursor: pointer;

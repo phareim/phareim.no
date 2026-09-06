@@ -28,7 +28,8 @@ When restoring things: cherry-pick onto this base, and **leave out the backgroun
 - **Hosting**: Cloudflare Pages, project `phareim-no`. SSR runs in the Pages worker (`_routes.json` sends everything except static assets to it), which is what lets the random first-visit theme be picked server-side.
 - **Database / storage**: none. D1 (`phareim-rpg`) was deleted 2026-07-23 (final export at `~/backups/d1/2026-07-23/phareim-rpg.sql` on Sleeper). The R2 binding and the image-generation API were removed 2026-09-03. Restore from git history if needed.
 - **External APIs**: GitHub REST only (`/api/projects`, `/api/meta`)
-- **Dependencies of note**: `three` 0.185 (+ `@types/three`), used only by the Star Fox theme and loaded as an async chunk (2026-09-05)
+- **Dependencies of note**: `three` 0.185 (+ `@types/three`), used only by the Star Fox theme and loaded as an async chunk (2026-09-05); `@fontsource/space-grotesk` + `@fontsource/space-mono` (self-hosted fonts, 2026-09-06)
+- **Fonts** (2026-09-06): two faces, the Neon Dreams split — `--font-person` (Space Grotesk: name, blurbs, prose) and `--font-machine` (Space Mono: HUD, hints, over-titles, canvas score pops, shas). Defined on `:root` in `themes/base/fonts.css` (imported first in `themes/index.ts`), latin subsets only; canvas code imports `MACHINE_FONT` from `themes/base/fonts.ts`. Nothing loads from Google Fonts any more (Comfortaa and the preconnects are gone). The parked themes keep their own faces (desk: ET Book).
 - **State**: Nuxt `useState` + a `theme` cookie (no state library, no localStorage)
 
 ## Project Structure
@@ -50,7 +51,7 @@ composables/
 themes/              — see the phareim-theme skill
   index.ts           — registry (order = swipe order) and every theme.css import
   content.ts         — default landing copy
-  base/              — DefaultLanding shell, ProfileCard, SocialLink, neonHorizon.js (the shared synthwave backdrop: sky, stars, striped sun, ridge, grid, heartbeat, wave-clear flare — used by Breakout, Invaders and Tetris since 2026-09-06; Star Fox draws its own in three.js)
+  base/              — DefaultLanding shell, ProfileCard, SocialLink, fonts.css + fonts.ts (site fonts, 2026-09-06), neonHorizon.js (the shared synthwave backdrop: sky, stars, striped sun, ridge, grid, heartbeat, wave-clear flare — used by Breakout, Invaders and Tetris since 2026-09-06; Star Fox draws its own in three.js)
   _template/         — starting point for a new theme
   scandi/ hacker/ breakout/ rtype/ invaders/ starfox/ tetris/ space/ desk/
 server/api/          — Nitro API routes (h3 helpers are auto-imported)

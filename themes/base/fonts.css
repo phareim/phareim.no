@@ -1,0 +1,20 @@
+/**
+ * Site fonts (2026-09-06). Two faces, the Neon Dreams split:
+ *   --font-person   Space Grotesk — the person: name, blurbs, prose, location.
+ *   --font-machine  Space Mono    — the machine: HUD, hints, over-titles,
+ *                                   canvas score pops, code and commit shas.
+ * Both are self-hosted from @fontsource (latin subset only, ~90 KB of woff2
+ * in total), so nothing loads from Google Fonts. Canvas code reads the same
+ * stack from ./fonts.ts. The parked themes (scandi, space, desk) keep their
+ * own faces.
+ */
+@import "@fontsource/space-grotesk/latin-400.css";
+@import "@fontsource/space-grotesk/latin-500.css";
+@import "@fontsource/space-grotesk/latin-700.css";
+@import "@fontsource/space-mono/latin-400.css";
+@import "@fontsource/space-mono/latin-700.css";
+
+:root {
+  --font-person: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-machine: "Space Mono", ui-monospace, "Courier New", monospace;
+}
