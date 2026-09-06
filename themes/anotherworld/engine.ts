@@ -1,12 +1,20 @@
-import type { Input, World } from './types'
+import type { DeathCause, Input, RockfallHazard, TideHazard, World } from './types'
 
 // Another Shore — pure deterministic platformer physics + authored level.
 // y points down, units are px, dt is seconds. Player x/y is feet centre,
 // body 22 wide x 52 tall. No rendering, no Vue, no randomness here.
+//
+// The crossing is three places: the shore (flat, teaches run and jump; a
+// stranded lamp post is the first beacon), the causeway (slabs over water,
+// an arch, the tide surge; a lamp post on the last slab is the second), and
+// the tower (a cracked overhang drops a rock, then three ledges up the
+// tower base to the lamp; lighting it wins).
 
 // ---- tuning ----
 const GRAVITY = 2100 // px/s^2, pulls +y
-const JUMP_VELOCITY = 840 // takeoff speed (-y); height ~168px, range ~200px
+const JUMP_VELOCITY = 840 // running takeoff (-y); height ~168px, range ~200px
+const HOP_VELOCITY = 600 // standing takeoff; height ~86px
+const HOP_BELOW_VX = 120 // slower than this at takeoff = a hop, not a jump
 const MAX_FALL = 950
 const RUN_SPEED = 250
 const RUN_ACCEL = 2000
@@ -23,8 +31,11 @@ const KILL_Y = 620 // below the world: a fall
 const FIXED_STEP = 1 / 120 // physics substep; keeps fast falls swept
 const MAX_FRAME_DT = 0.1 // clamp: huge tabs/pauses never tunnel or explode
 const BEACON_DX = 36
-const BEACON_DY = 90
+const BEACON_DY = 60
 const SPAWN_X = 80
+const HARD_LANDING_VY = 900 // faster than this on touchdown = a 250 ms crouch
+const CROUCH_TIME = 0.25
+export const DEATH_TIME = 0.8 // the vignette; then a hard cut to the checkpoint
 
 interface Timers {
   coyote: number
@@ -51,52 +62,66 @@ function approach(v: number, target: number, step: number): number {
   return v
 }
 
+// ---- level ----
+
+/** World x of the arch legs (near layer, drawn in front of the figure). */
+export const ARCHES = [1080, 2330]
+/** The tower wall: world x range and the ledges' top. Renderer geometry. */
+export const TOWER = { x0: 3850, x1: 4780, lampX: 4600 }
+/** The cracked overhang the rock hangs from: x range and its underside y. */
+export const OVERHANG = { x0: 3560, x1: 3820, y: 232 }
+
 function buildLevel(world: World): void {
-  // Ground tops sit at y=420 and run down past the 540 view to y=560.
+  // Ground tops sit at y=420 and run down past the view to y=560.
   // Gaps are absences; blocks sit on top and are jumped over.
   const G = (x: number, w: number) => world.platforms.push({ x, y: GROUND_Y, w, h: 140 })
   const block = (x: number, top: number, w: number) =>
     world.platforms.push({ x, y: top, w, h: GROUND_Y - top })
-  const spikes = (x: number, w: number) =>
-    world.hazards.push({ x, y: GROUND_Y - 16, w, h: 16 })
+  const lamp = (x: number, y: number) => world.beacons.push({ x, y, lit: false })
 
-  // Section 1 — shore: flat, one small gap, one low rock. Teaches run + jump.
+  // The shore (0–1700): flat, one small gap, a low rock, a wider gap.
   G(0, 620) // 0-620
-  block(950, 388, 50) // low rock on the flat
-  G(700, 450) // 700-1150
-  // gap 1150-1210 (60)
-  G(1210, 390) // 1210-1600
-  world.beacons.push({ x: 1500, y: GROUND_Y, lit: false })
+  // gap 620-700 (80)
+  G(700, 500) // 700-1200
+  block(950, 392, 44) // low rock, 28 high
+  // gap 1200-1290 (90)
+  G(1290, 410) // 1290-1700
+  lamp(1500, GROUND_Y) // a stranded lamp post
 
-  // Section 2 — broken causeway: wider gaps, hazards on the flat.
-  // gap 1600-1700 (100)
-  G(1700, 350) // 1700-2050
-  spikes(1900, 40)
-  // gap 2050-2160 (110)
-  G(2160, 340) // 2160-2500
-  block(2300, 380, 60)
-  // gap 2500-2610 (110)
-  G(2610, 690) // 2610-3300
-  spikes(2900, 60)
-  world.beacons.push({ x: 3200, y: GROUND_Y, lit: false })
+  // The causeway (1700–3400): slabs over water, the arch, the tide.
+  // gap 1700-1800 (100)
+  G(1800, 300) // 1800-2100
+  // gap 2100-2200 (100)
+  G(2200, 260) // 2200-2460, under the arch
+  // gap 2460-2570 (110)
+  world.platforms.push({ x: 2570, y: 436, w: 200, h: 124 }) // the low slab, 16 lower
+  const tide: TideHazard = { kind: 'tide', x: 2580, y: 436 - 44, w: 180, h: 44, period: 4, phase: 1.5 }
+  world.hazards.push(tide)
+  // gap 2770-2870 (100)
+  G(2870, 530) // 2870-3400
+  block(3050, 396, 40) // a rock, 24 high
+  lamp(3250, GROUND_Y)
 
-  // Section 3 — signal tower: taller rock, wide gaps, a raised ledge.
-  // gap 3300-3410 (110)
-  G(3410, 340) // 3410-3750
-  block(3520, 384, 60) // lone rock with flat run-up on both sides
-  // gap 3750-3860 (110)
-  G(3860, 290) // 3860-4150
-  spikes(4020, 50)
-  // gap 4150-4240 (90) up onto the ledge, 36 higher
-  world.platforms.push({ x: 4240, y: 384, w: 200, h: 176 }) // 4240-4440
-  // gap 4440-4520 (80) stepping back down
-  G(4520, 480) // 4520-5000
-  world.beacons.push({ x: 4850, y: GROUND_Y, lit: false })
+  // The tower (3400–5000): the rockfall, then three ledges up to the lamp.
+  // gap 3400-3500 (100)
+  G(3500, 1500) // 3500-5000
+  const rock: RockfallHazard = {
+    kind: 'rockfall',
+    x: 3700, y: GROUND_Y - 40, w: 52, h: 40,
+    triggerX: 3620, triggerW: 40,
+    dropY: OVERHANG.y, top: OVERHANG.y, vy: 0,
+    state: 'hanging',
+  }
+  world.hazards.push(rock)
+  world.platforms.push({ x: 3900, y: 372, w: 160, h: 48 }) // ledge 1, 48 up
+  world.platforms.push({ x: 4160, y: 324, w: 140, h: 48 }) // ledge 2, 96 up
+  world.platforms.push({ x: 4400, y: 276, w: 300, h: 48 }) // ledge 3, the lamp platform
+  lamp(TOWER.lampX, 276)
 }
 
 export function createWorld(): World {
   const world: World = {
-    player: { x: SPAWN_X, y: GROUND_Y, vx: 0, vy: 0, grounded: true, facing: 1 },
+    player: { x: SPAWN_X, y: GROUND_Y, vx: 0, vy: 0, grounded: true, facing: 1, crouch: 0, hop: false },
     platforms: [],
     hazards: [],
     beacons: [],
@@ -105,9 +130,47 @@ export function createWorld(): World {
     deaths: 0,
     checkpoint: -1, // index into beacons; -1 = still at spawn
     won: false,
+    dying: null,
   }
   buildLevel(world)
   return world
+}
+
+// ---- hazards ----
+
+/**
+ * Tide rise 0..1 at a moment. One cycle: quiet, rising over 15 % of the
+ * period (visible, harmless), full for 30 % (lethal), retreating 10 %.
+ */
+export function tideLevel(hz: TideHazard, time: number): number {
+  const u = (((time + hz.phase) % hz.period) + hz.period) % hz.period / hz.period
+  if (u < 0.35) return 0
+  if (u < 0.5) return (u - 0.35) / 0.15
+  if (u < 0.8) return 1
+  if (u < 0.9) return 1 - (u - 0.8) / 0.1
+  return 0
+}
+
+/** Cycle position 0..1 of a tide; the demo uses it to time its crossing. */
+export function tidePhase(hz: TideHazard, time: number): number {
+  return (((time + hz.phase) % hz.period) + hz.period) % hz.period / hz.period
+}
+
+function tideLethal(hz: TideHazard, time: number): boolean {
+  return tideLevel(hz, time) >= 0.999
+}
+
+function overlaps(l: number, r: number, t: number, b: number, x: number, y: number, w: number, h: number): boolean {
+  return l < x + w && r > x && t < y + h && b > y
+}
+
+function die(world: World, cause: DeathCause): void {
+  world.dying = { cause, t: 0 }
+  world.deaths += 1
+  const p = world.player
+  p.vx = 0
+  p.crouch = 0
+  if (cause !== 'fall') p.vy = 0
 }
 
 function respawn(world: World): void {
@@ -123,10 +186,53 @@ function respawn(world: World): void {
   p.vx = 0
   p.vy = 0
   p.grounded = false
+  p.crouch = 0
+  p.hop = false
   t.coyote = 0
   t.buffer = 0
-  world.deaths += 1
+  world.dying = null
 }
+
+// Advance hazards, then return the cause if one has the figure. During a
+// vignette (live = false) nothing triggers or kills, but a falling rock
+// still lands — the wedge stays where it came down.
+function stepHazards(world: World, h: number, live: boolean): DeathCause | null {
+  const p = world.player
+  const l = p.x - HALF_W
+  const r = p.x + HALF_W
+  const t = p.y - BODY_H
+  const b = p.y
+  let cause: DeathCause | null = null
+  for (const hz of world.hazards) {
+    if (hz.kind === 'tide') {
+      if (live && tideLethal(hz, world.time) && overlaps(l, r, t, b, hz.x, hz.y, hz.w, hz.h)) cause = 'tide'
+    } else {
+      if (hz.state === 'hanging') {
+        if (live && r > hz.triggerX && l < hz.triggerX + hz.triggerW) {
+          hz.state = 'falling'
+          hz.vy = 0
+        }
+      } else if (hz.state === 'falling') {
+        hz.vy += GRAVITY * h
+        hz.top += hz.vy * h
+        let landed = false
+        if (hz.top >= hz.y) {
+          hz.top = hz.y
+          landed = true
+        }
+        if (live && overlaps(l, r, t, b, hz.x, hz.top, hz.w, hz.h)) cause = 'rockfall'
+        if (landed) {
+          hz.state = 'landed'
+          hz.vy = 0
+          world.platforms.push({ x: hz.x, y: hz.y, w: hz.w, h: hz.h })
+        }
+      }
+    }
+  }
+  return cause
+}
+
+// ---- movement ----
 
 function moveX(world: World, h: number): void {
   const p = world.player
@@ -157,6 +263,7 @@ function moveX(world: World, h: number): void {
 
 function moveY(world: World, h: number): void {
   const p = world.player
+  const wasAirborne = !p.grounded
   p.grounded = false
   const ny = p.y + p.vy * h
   const left = p.x - HALF_W
@@ -170,8 +277,10 @@ function moveY(world: World, h: number): void {
     }
     if (landY !== Infinity) {
       p.y = landY
+      if (wasAirborne && p.vy >= HARD_LANDING_VY) p.crouch = CROUCH_TIME
       p.vy = 0
       p.grounded = true
+      p.hop = false
       return
     }
   } else {
@@ -190,18 +299,6 @@ function moveY(world: World, h: number): void {
   p.y = ny
 }
 
-function touchHazards(world: World): boolean {
-  const p = world.player
-  const l = p.x - HALF_W
-  const r = p.x + HALF_W
-  const t = p.y - BODY_H
-  const b = p.y
-  for (const hz of world.hazards) {
-    if (l < hz.x + hz.w && r > hz.x && t < hz.y + hz.h && b > hz.y) return true
-  }
-  return false
-}
-
 function touchBeacons(world: World): void {
   const p = world.player
   for (let i = 0; i < world.beacons.length; i++) {
@@ -217,10 +314,26 @@ function touchBeacons(world: World): void {
 function substep(world: World, input: Input, h: number): void {
   const t = timersFor(world)
   const p = world.player
+
+  if (world.dying) {
+    // The vignette: no input, no hazards. A fall keeps falling out of frame;
+    // the others hold the figure where it was. Then the hard cut.
+    world.dying.t += h
+    if (world.dying.cause === 'fall') {
+      p.vy = Math.min(p.vy + GRAVITY * h, MAX_FALL)
+      p.y += p.vy * h
+    }
+    stepHazards(world, h, false)
+    if (world.dying.t >= DEATH_TIME) respawn(world)
+    return
+  }
+
   t.coyote -= h
   t.buffer -= h
+  if (p.crouch > 0) p.crouch -= h
+  const controllable = p.crouch <= 0
 
-  const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0)
+  const dir = controllable ? (input.right ? 1 : 0) - (input.left ? 1 : 0) : 0
   if (dir !== 0) {
     p.vx = approach(p.vx, dir * RUN_SPEED, (p.grounded ? RUN_ACCEL : AIR_ACCEL) * h)
     p.facing = dir
@@ -229,8 +342,9 @@ function substep(world: World, input: Input, h: number): void {
   }
 
   if (p.grounded) t.coyote = COYOTE_TIME
-  if (t.buffer > 0 && (p.grounded || t.coyote > 0)) {
-    p.vy = -JUMP_VELOCITY
+  if (controllable && t.buffer > 0 && (p.grounded || t.coyote > 0)) {
+    p.hop = Math.abs(p.vx) < HOP_BELOW_VX
+    p.vy = p.hop ? -HOP_VELOCITY : -JUMP_VELOCITY
     p.grounded = false
     t.coyote = 0
     t.buffer = 0
@@ -241,8 +355,13 @@ function substep(world: World, input: Input, h: number): void {
   moveX(world, h)
   moveY(world, h)
 
-  if (touchHazards(world) || p.y > KILL_Y) {
-    respawn(world)
+  const cause = stepHazards(world, h, true)
+  if (cause) {
+    die(world, cause)
+    return
+  }
+  if (p.y > KILL_Y) {
+    die(world, 'fall')
     return
   }
   touchBeacons(world)
@@ -264,16 +383,41 @@ export function stepWorld(world: World, input: Input, dt: number): void {
   world.time += frame
 }
 
+// ---- demo autopilot ----
+
+const NONE: Input = { left: false, right: false, jump: false }
+
+// Waits for the tide and the rock the way a careful player would: it stops
+// short of a tide slab until the band has retreated, and stops the moment
+// the rock starts falling ahead of it. Everything else is the old runner.
+function shouldWait(world: World, front: number): boolean {
+  for (const hz of world.hazards) {
+    if (hz.kind === 'tide') {
+      if (front >= hz.x) continue // on or past the slab: keep going
+      if (hz.x - front > 220) continue
+      const u = tidePhase(hz, world.time)
+      // Crossing takes ~1.6 s (0.4 of the period); start only just after
+      // the retreat so the whole run happens on a quiet sea.
+      const open = u >= 0.88 || u < 0.05
+      if (!open) return true
+    } else if (hz.kind === 'rockfall') {
+      if (hz.state === 'falling' && front < hz.x && hz.x - front < 200) return true
+    }
+  }
+  return false
+}
+
 // Autopilot through the authored course with the same physics the player
-// gets. Always heads right; jumps for gap edges, rock steps and hazards it
+// gets. Always heads right; jumps for gap edges, rock steps and ledges it
 // can see ahead; holds jump while rising for full height. Once won it idles —
 // restarting the demo is the caller's job.
 export function demoInput(world: World): Input {
   const p = world.player
-  if (world.won) return { left: false, right: false, jump: false }
+  if (world.won || world.dying || p.crouch > 0) return NONE
   if (!p.grounded && p.vy < -50) return { left: false, right: true, jump: true }
 
   const front = p.x + HALF_W
+  if (p.grounded && shouldWait(world, front)) return NONE
   let jump = false
 
   // Nearest supporting top face: leap before its edge runs out.
@@ -291,23 +435,11 @@ export function demoInput(world: World): Input {
     jump = true // stepped past an edge; spend coyote time at once
   }
 
-  // Rock steps / the raised ledge: anything face-high overlapping the body.
+  // Rock steps / the ledges: anything face-high overlapping the body.
   if (!jump) {
     for (const pl of world.platforms) {
       const gap = pl.x - front
       if (gap >= 0 && gap < 70 && pl.y < p.y - 6 && pl.y + pl.h > p.y - BODY_H + 6) {
-        jump = true
-        break
-      }
-    }
-  }
-
-  // Hazards on the running line.
-  if (!jump) {
-    for (const hz of world.hazards) {
-      const gap = hz.x - front
-      const tail = hz.x + hz.w - (p.x - HALF_W)
-      if (gap < 80 && tail > 0 && Math.abs(hz.y + hz.h - p.y) < 70) {
         jump = true
         break
       }
