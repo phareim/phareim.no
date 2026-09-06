@@ -1,30 +1,36 @@
 <template>
   <div
+    ref="surfaceRef"
     class="tetris-game"
+    role="group"
+    aria-label="Tetris board"
     :style="{ width: boardW + 'px', height: boardH + 'px' }"
     @click="onTap"
   >
     <canvas ref="canvasRef" class="tetris-board" />
     <div v-if="phase === 'idle'" class="tetris-overlay tetris-overlay-idle">
-      <span>{{ hint('PRESS ENTER', 'TAP TO PLAY') }}</span>
+      <span class="tetris-gameover">READY?</span>
+      <button class="play-button" @click.stop="start">▶ {{ hint('PRESS ENTER', 'TAP TO PLAY') }} ◀</button>
+      <span class="overlay-hint">{{ hint('ARROWS MOVE · ↑ ROTATE', 'DRAG TO MOVE · TAP TO ROTATE') }}</span>
     </div>
     <div v-else-if="phase === 'over'" class="tetris-overlay tetris-overlay-over">
       <span class="tetris-gameover">GAME OVER</span>
       <span>SCORE {{ scoreText }}</span>
       <span v-if="newBest" class="tetris-newbest">NEW BEST</span>
       <span v-else>BEST {{ bestText }}</span>
-      <span>{{ hint('PRESS ENTER TO RETRY', 'TAP TO RETRY') }}</span>
+      <button class="play-button" @click.stop="start">▶ {{ hint('ENTER TO RETRY', 'TAP TO RETRY') }} ◀</button>
     </div>
     <div v-else-if="phase === 'paused'" class="tetris-overlay tetris-overlay-paused">
       <span>PAUSED</span>
-      <span>{{ hint('PRESS P TO RESUME', 'TAP TO RESUME') }}</span>
+      <button class="play-button" @click.stop="togglePause">▶ {{ hint('P TO RESUME', 'RESUME') }} ◀</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { PIECE_COLORS, TetrisEngine, type EngineEvent, type PieceType } from './engine'
+import { TetrisGesture } from './gestures'
+import { PIECE_SHAPES, TetrisEngine, type EngineEvent, type PieceType } from './engine'
 
 const { navigationLocked } = useTheme()
 const { hint } = useInputMode()
@@ -49,12 +55,13 @@ const emit = defineEmits<{
   started: []
   over: []
   exit: []
+  beat: [clear: boolean]
 }>()
 
 const COLS = 10
 const ROWS = 20
-const WELL_BG = '#0D0B26'
-const GRID_LINE = 'rgba(255, 255, 255, 0.05)'
+const WELL_BG = '#090512'
+const GRID_LINE = 'rgba(47, 243, 255, 0.055)'
 const DAS_MS = 150
 const ARR_MS = 40
 const SOFT_MS = 40
@@ -62,6 +69,7 @@ const CLEAR_FLASH_MS = 150
 const IDLE_STEP_MS = 900
 const BEST_KEY = 'tetrisHighScore'
 
+const surfaceRef = ref<HTMLElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const phase = ref<TetrisState['phase']>('idle')
 const score = ref(0)
@@ -99,6 +107,7 @@ let clearTimer: ReturnType<typeof setTimeout> | null = null
 let idleBoard: (PieceType | null)[][] = []
 let idlePiece: { type: PieceType, x: number, y: number } | null = null
 const sprites = new Map<PieceType, HTMLCanvasElement>()
+const activeSprites = new Map<PieceType, HTMLCanvasElement>()
 const PIECE_KEYS: PieceType[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']
 
 function emptyBoard(): (PieceType | null)[][] {
@@ -166,11 +175,13 @@ function persistBest(): void {
 
 function handleEngineEvent(e: EngineEvent): void {
   if (!mounted) return
+  if (e.type === 'lock') emit('beat', false)
   if (e.type === 'lock' || e.type === 'score') {
     syncHud()
     return
   }
   if (e.type === 'clear') {
+    emit('beat', true)
     syncHud()
     if (!engine) return
     if (reducedMotion) {
@@ -192,6 +203,7 @@ function handleEngineEvent(e: EngineEvent): void {
     return
   }
   if (e.type === 'over') {
+    cancelGesture()
     phase.value = 'over'
     softActive = false
     heldDir = 0
@@ -226,8 +238,7 @@ function spawnIdlePiece(): void {
 function idleCollides(): boolean {
   if (!idlePiece) return true
   const p = idlePiece
-  // 2x2 block approximation for the demo piece
-  const cells = [[0, 0], [1, 0], [0, 1], [1, 1]]
+  const cells = PIECE_SHAPES[p.type][0].flatMap((row, y) => row.flatMap((v, x) => v ? [[x, y]] : []))
   for (const [dx, dy] of cells) {
     const bx = p.x + (dx as number)
     const by = p.y + (dy as number)
@@ -254,6 +265,7 @@ function start(): void {
     clearTimeout(clearTimer)
     clearTimer = null
   }
+  cancelGesture()
   engine.reset()
   phase.value = 'playing'
   newBest.value = false
@@ -328,6 +340,7 @@ function hold(): void {
 }
 
 function togglePause(): void {
+  cancelGesture()
   if (phase.value === 'playing') {
     phase.value = 'paused'
     softActive = false
@@ -343,6 +356,7 @@ function togglePause(): void {
 }
 
 function exit(): void {
+  cancelGesture()
   if (clearTimer !== null) {
     clearTimeout(clearTimer)
     clearTimer = null
@@ -374,13 +388,15 @@ function isInteractiveElement(el: EventTarget | null): boolean {
 }
 
 function onTap(e: Event): void {
+  if (performance.now() < suppressClickUntil) return
   if (isInteractiveElement(e.target)) return
   if (phase.value === 'idle' || phase.value === 'over') start()
   else if (phase.value === 'paused') togglePause()
 }
 
 function handleKeyDown(e: KeyboardEvent): void {
-  if (isEditableTarget(e.target)) return
+  if (isEditableTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
+  if ((e.code === 'Space' || e.code === 'Enter') && isInteractiveElement(e.target)) return
   const code = e.code
   if (code === 'Enter') {
     if (isInteractiveElement(e.target)) return
@@ -445,89 +461,68 @@ function handleKeyUp(e: KeyboardEvent): void {
   else if (code === 'ArrowDown' || code === 'KeyS') softDropStop()
 }
 
-// --- canvas touch gestures (board only) ---
+// Touch starts on the surface (including overlays), never on touchstart alone.
 let touchId: number | null = null
-let touchSX = 0
-let touchSY = 0
-let touchST = 0
-let touchAppliedX = 0
-let touchLastY = 0
-let touchLastT = 0
-let touchVelY = 0
-let touchSoft = false
-
-function findTouch(e: TouchEvent): Touch | null {
-  for (let i = 0; i < e.changedTouches.length; i++) {
-    const t = e.changedTouches[i] as Touch
-    if (t.identifier === touchId) return t
-  }
-  return null
+let gesture: TetrisGesture | null = null
+let gesturePiece: TetrisEngine['active'] = null
+let touchStartX = 0, touchStartY = 0, touchTravel = 0
+let suppressClickUntil = 0
+let gesturePhase: TetrisState['phase'] = 'idle'
+function cancelGesture(): void {
+  touchId = null
+  gesture = null
+  gesturePiece = null
 }
-
+function findTouch(e: TouchEvent): Touch | undefined {
+  return Array.from(e.changedTouches).find(t => t.identifier === touchId)
+}
 function onTouchStart(e: TouchEvent): void {
-  if (phase.value !== 'playing') return
-  e.preventDefault()
-  const t = e.changedTouches[0] as Touch
-  touchId = t.identifier
-  touchSX = t.clientX
-  touchSY = t.clientY
-  touchST = performance.now()
-  touchAppliedX = 0
-  touchLastY = t.clientY
-  touchLastT = touchST
-  touchVelY = 0
-  touchSoft = false
-}
-
-function onTouchMove(e: TouchEvent): void {
-  if (touchId === null || phase.value !== 'playing' || !engine) return
-  const t = findTouch(e)
+  if (e.touches.length !== 1 || touchId !== null) { cancelGesture(); suppressClickUntil = performance.now() + 700; return }
+  const t = e.changedTouches[0]
   if (!t) return
-  e.preventDefault()
-  const need = Math.trunc((t.clientX - touchSX) / 24)
-  const d = need - touchAppliedX
-  if (d !== 0) {
-    const step = d > 0 ? 1 : -1
-    for (let i = 0; i < Math.abs(d); i++) engine.move(step as -1 | 1)
-    touchAppliedX = need
-    dirty = true
-  }
-  const now = performance.now()
-  const dt = Math.max(1, now - touchLastT)
-  const vy = ((t.clientY - touchLastY) / dt) * 1000
-  touchVelY = touchVelY * 0.8 + vy * 0.2
-  touchLastY = t.clientY
-  touchLastT = now
-  if (t.clientY - touchSY > 24 && !touchSoft) {
-    touchSoft = true
-    softDropStart()
-  }
+  touchId = t.identifier
+  touchStartX = t.clientX
+  touchStartY = t.clientY
+  touchTravel = 0
+  gesturePhase = phase.value
+  gesturePiece = engine?.active ?? null
+  gesture = new TetrisGesture(t.clientX, t.clientY, performance.now(), props.cellSize)
+  if (phase.value === 'playing') e.preventDefault()
 }
-
-function onTouchEnd(e: TouchEvent): void {
-  if (touchId === null) return
+function onTouchMove(e: TouchEvent): void {
   const t = findTouch(e)
-  if (touchSoft) {
-    softDropStop()
-    touchSoft = false
-  }
-  if (t && phase.value === 'playing') {
-    const dur = performance.now() - touchST
-    const dx = t.clientX - touchSX
-    const dy = t.clientY - touchSY
-    if (touchVelY > 600 && dy > 40) hardDrop()
-    else if (Math.hypot(dx, dy) < 10 && dur < 250) rotate(1)
-  }
-  touchId = null
+  if (!t || !gesture) return
+  touchTravel = Math.max(touchTravel, Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY))
+  if (gesturePhase !== 'playing' || phase.value !== 'playing' || !engine) return
+  e.preventDefault()
+  if (engine.active !== gesturePiece) return
+  const action = gesture.move(t.clientX, t.clientY, performance.now())
+  for (let i = 0; i < Math.abs(action.horizontal); i++) engine.move(action.horizontal > 0 ? 1 : -1)
+  for (let i = 0; i < action.down && engine.active === gesturePiece; i++) engine.softDrop()
+  syncHud()
 }
-
-function onTouchCancel(e: TouchEvent): void {
-  if (findTouch(e) === null && touchId !== null) return
-  if (touchSoft) {
-    softDropStop()
-    touchSoft = false
+function onTouchEnd(e: TouchEvent): void {
+  const t = findTouch(e)
+  if (!t || !gesture) return
+  // Suppress the compatibility click, including after a swipe over an overlay.
+  e.preventDefault()
+  suppressClickUntil = performance.now() + 700
+  const action = gesture.end(t.clientX, t.clientY, performance.now())
+  if (gesturePhase === phase.value) {
+    if (phase.value === 'playing' && engine?.active === gesturePiece) {
+      if (action === 'rotate') rotate(1)
+      if (action === 'drop') hardDrop()
+      if (action === 'hold') hold()
+    } else if (touchTravel < 10 && action === 'rotate') {
+      if (phase.value === 'paused') togglePause()
+      else if (phase.value === 'idle' || phase.value === 'over') start()
+    }
   }
-  touchId = null
+  cancelGesture()
+}
+function onTouchCancel(): void {
+  suppressClickUntil = performance.now() + 700
+  cancelGesture()
 }
 
 function onVisibility(): void {
@@ -554,7 +549,7 @@ function setupCanvas(): void {
   ctx = c
 }
 
-function drawBlockSprite(type: PieceType, ghost: boolean): HTMLCanvasElement {
+function drawBlockSprite(type: PieceType, active: boolean): HTMLCanvasElement {
   const cs = props.cellSize
   const d = dpr()
   const px = Math.max(2, Math.round(cs * d))
@@ -562,39 +557,30 @@ function drawBlockSprite(type: PieceType, ghost: boolean): HTMLCanvasElement {
   el.width = px
   el.height = px
   const g = el.getContext('2d') as CanvasRenderingContext2D
-  const color = PIECE_COLORS[type]
-  if (ghost) {
-    g.globalAlpha = 0.4
-    g.strokeStyle = color
-    g.lineWidth = Math.max(1, Math.round(px / 13))
-    const inset = g.lineWidth
-    g.strokeRect(inset / 2 + 0.5, inset / 2 + 0.5, px - inset - 1, px - inset - 1)
-    g.globalAlpha = 1
-    return el
-  }
-  g.fillStyle = color
-  g.fillRect(0, 0, px, px)
-  g.strokeStyle = 'rgba(0, 0, 0, 0.55)'
-  g.lineWidth = 1
-  g.strokeRect(0.5, 0.5, px - 1, px - 1)
-  const edge = Math.max(1, Math.round(px * 0.09))
-  g.fillStyle = 'rgba(255, 255, 255, 0.35)'
-  g.fillRect(edge, edge, px - edge * 2, edge)
-  g.fillRect(edge, edge, edge, px - edge * 2)
-  g.fillStyle = 'rgba(0, 0, 0, 0.3)'
-  g.fillRect(edge, px - edge * 2, px - edge * 2, edge)
-  g.fillRect(px - edge * 2, edge, edge, px - edge * 2)
+  const tints: Record<PieceType, string> = { I: '#ff2fa0', O: '#ff91ce', T: '#ff52b0', S: '#ce2682', Z: '#ff70be', J: '#e62b91', L: '#ed82bf' }
+  const color = active ? '#2ff3ff' : tints[type]
+  const inset = Math.max(2, px * .1)
+  g.fillStyle = active ? '#2ff3ff25' : color + '44'
+  g.fillRect(inset, inset, px - inset * 2, px - inset * 2)
+  g.strokeStyle = color
+  g.lineWidth = Math.max(1, d)
+  g.shadowColor = color
+  g.shadowBlur = px * .2
+  g.strokeRect(inset, inset, px - inset * 2, px - inset * 2)
+  g.shadowBlur = 0
+  g.strokeRect(inset, inset, px - inset * 2, px - inset * 2)
   return el
 }
 
 function buildSprites(): void {
   sprites.clear()
-  for (const t of PIECE_KEYS) sprites.set(t, drawBlockSprite(t, false))
+  activeSprites.clear()
+  for (const t of PIECE_KEYS) { sprites.set(t, drawBlockSprite(t, false)); activeSprites.set(t, drawBlockSprite(t, true)) }
 }
 
-function blit(type: PieceType, col: number, row: number): void {
+function blit(type: PieceType, col: number, row: number, active = false): void {
   if (!ctx) return
-  const s = sprites.get(type)
+  const s = (active ? activeSprites : sprites).get(type)
   if (!s) return
   ctx.drawImage(s, col * props.cellSize, row * props.cellSize, props.cellSize, props.cellSize)
 }
@@ -603,7 +589,7 @@ function blitGhost(type: PieceType, col: number, row: number): void {
   if (!ctx) return
   const cs = props.cellSize
   ctx.globalAlpha = 0.4
-  ctx.strokeStyle = PIECE_COLORS[type]
+  ctx.strokeStyle = '#2ff3ff'
   ctx.lineWidth = 2
   ctx.strokeRect(col * cs + 1.5, row * cs + 1.5, cs - 3, cs - 3)
   ctx.globalAlpha = 1
@@ -639,10 +625,9 @@ function draw(): void {
     }
     if (idlePiece && !reducedMotion) {
       ctx.globalAlpha = 0.4
-      blit(idlePiece.type, idlePiece.x, idlePiece.y)
-      blit(idlePiece.type, idlePiece.x + 1, idlePiece.y)
-      blit(idlePiece.type, idlePiece.x, idlePiece.y + 1)
-      blit(idlePiece.type, idlePiece.x + 1, idlePiece.y + 1)
+      PIECE_SHAPES[idlePiece.type][0].forEach((row, y) => row.forEach((v, x) => {
+        if (v) blit(idlePiece!.type, idlePiece!.x + x, idlePiece!.y + y, true)
+      }))
       ctx.globalAlpha = 1
     }
     return
@@ -656,7 +641,7 @@ function draw(): void {
     }
   }
   if (engine.pendingClear.length > 0) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
+    ctx.fillStyle = 'rgba(255, 210, 63, 0.85)'
     for (const r of engine.pendingClear) ctx.fillRect(0, r * cs, boardW.value, cs)
   }
   const a = engine.active
@@ -669,7 +654,7 @@ function draw(): void {
       }
     }
     for (const cell of engine.cells()) {
-      if (cell.y >= 0) blit(cell.type, cell.x, cell.y)
+      if (cell.y >= 0) blit(cell.type, cell.x, cell.y, true)
     }
   }
 }
@@ -770,7 +755,7 @@ onMounted(() => {
   setupCanvas()
   buildSprites()
   syncHud()
-  const canvas = canvasRef.value
+  const canvas = surfaceRef.value
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', handleKeyUp)
   document.addEventListener('visibilitychange', onVisibility)
@@ -778,7 +763,7 @@ onMounted(() => {
   if (canvas) {
     canvas.addEventListener('touchstart', onTouchStart, { passive: false })
     canvas.addEventListener('touchmove', onTouchMove, { passive: false })
-    canvas.addEventListener('touchend', onTouchEnd)
+    canvas.addEventListener('touchend', onTouchEnd, { passive: false })
     canvas.addEventListener('touchcancel', onTouchCancel)
   }
   rafId = requestAnimationFrame(frame)
@@ -794,7 +779,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('keyup', handleKeyUp)
   document.removeEventListener('visibilitychange', onVisibility)
   window.removeEventListener('blur', onBlur)
-  const canvas = canvasRef.value
+  cancelGesture()
+  const canvas = surfaceRef.value
   if (canvas) {
     canvas.removeEventListener('touchstart', onTouchStart)
     canvas.removeEventListener('touchmove', onTouchMove)
@@ -824,46 +810,13 @@ defineExpose({
 </script>
 
 <style scoped>
-.tetris-game {
-  position: relative;
-  display: inline-block;
-  border: 2px solid #3B3470;
-  border-radius: 6px;
-  overflow: hidden;
-  background: #0D0B26;
-}
-.tetris-board {
-  display: block;
-  touch-action: none;
-}
-.tetris-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 16px;
-  text-align: center;
-  font-family: 'Press Start 2P', 'Courier New', monospace;
-  font-size: 10px;
-  line-height: 1.6;
-  color: #F4F1FF;
-  background: rgba(13, 11, 38, 0.72);
-}
-.tetris-overlay-idle {
-  color: #F4F1FF;
-  opacity: 1;
-}
-.tetris-gameover {
-  font-size: 16px;
-  color: #FF3B5C;
-}
-.tetris-newbest {
-  color: #29D3E0;
-}
-.tetris-overlay-paused {
-  color: #FFD500;
-}
+.tetris-game { position: relative; flex: 0 0 auto; border: 1px solid #2ff3ff70; border-radius: 4px; overflow: hidden; background: #090512; box-shadow: 0 0 20px #2ff3ff12, 0 0 40px #ff2fa010; touch-action: none; user-select: none; -webkit-user-select: none; }
+.tetris-board { display: block; }
+.tetris-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 8px; text-align: center; font: 12px/1.6 'Courier New', monospace; letter-spacing: .12em; color: var(--tetris-text); background: #0b0616d9; }
+.tetris-gameover { font-size: clamp(18px, 3vw, 30px); color: var(--tetris-pink); text-shadow: 0 0 12px #ff2fa080; }
+.tetris-newbest { color: var(--tetris-gold); }
+.play-button { min-height: 44px; padding: 10px 6px; background: #ff2fa018; border: 1px solid #ff2fa060; border-radius: 4px; color: var(--tetris-pink); font: inherit; font-size: 11px; letter-spacing: .08em; cursor: pointer; }
+.play-button:focus-visible { outline: 2px solid var(--tetris-accent); outline-offset: 2px; }
+.overlay-hint { font-size: 9px; letter-spacing: .04em; color: var(--tetris-text-muted); }
+@media (max-height: 480px) { .tetris-overlay { gap: 4px; font-size: 10px; } .overlay-hint { display: none; } }
 </style>

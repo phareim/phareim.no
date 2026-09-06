@@ -4,16 +4,6 @@ export type PieceType = 'I' | 'O' | 'T' | 'S' | 'Z' | 'J' | 'L'
 
 export const PIECE_TYPES: PieceType[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']
 
-export const PIECE_COLORS: Record<PieceType, string> = {
-  I: '#29D3E0',
-  O: '#FFD500',
-  T: '#B15CE0',
-  S: '#33E07A',
-  Z: '#FF3B5C',
-  J: '#4A7DE0',
-  L: '#FF8A1F'
-}
-
 function rotateMatrixCW(m: number[][]): number[][] {
   const n = m.length
   const out: number[][] = []

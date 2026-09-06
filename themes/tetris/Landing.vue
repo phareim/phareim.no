@@ -3,6 +3,7 @@
     Desktop (≥900px): two columns. Mobile: compact header above the board,
     removed instantly while a run is active. -->
   <div class="tetris-landing" :class="{ 'tetris-run': running }">
+    <Horizon ref="horizon" />
     <div class="tetris-profile">
       <ProfileCard :flipped="false" />
       <h1 class="tetris-name">{{ profile.name }}</h1>
@@ -19,7 +20,7 @@
         />
       </div>
     </div>
-    <Arcade @state="onState" />
+    <Arcade @state="onState" @beat="horizon?.beat($event)" />
   </div>
 </template>
 
@@ -27,6 +28,8 @@
 import ProfileCard from '~/themes/base/ProfileCard.vue'
 import SocialLink from '~/themes/base/SocialLink.vue'
 import Arcade from './Arcade.vue'
+import Horizon from './Horizon.vue'
+const horizon = ref<InstanceType<typeof Horizon> | null>(null)
 import type { TetrisState } from './Game.vue'
 import { profile } from '~/themes/content'
 
@@ -59,106 +62,13 @@ onBeforeUnmount(() => { navigationLocked.value = false })
 </script>
 
 <style scoped>
-.tetris-landing {
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-}
-
-@media (min-width: 900px) {
-  .tetris-landing {
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    gap: 48px;
-    padding: 24px;
-  }
-}
-
-.tetris-profile {
-  text-align: center;
-  max-width: 360px;
-  flex: 0 0 auto;
-}
-
-.tetris-name {
-  font-family: 'Press Start 2P', 'Courier New', monospace;
-  font-size: clamp(1.3rem, 3.6vw, 2.1rem);
-  line-height: 1.4;
-  letter-spacing: 0.02em;
-  font-weight: 400;
-  color: var(--theme-text, #f4f1ff);
-  text-shadow: 3px 3px 0 var(--theme-card-border, #3b3470);
-  margin: 8px 0 4px;
-}
-
-.tetris-blurb {
-  font-family: 'Space Grotesk', system-ui, sans-serif;
-  font-size: 1em;
-  line-height: 1.5;
-  color: var(--theme-text, #f4f1ff);
-  margin: 2px 0;
-}
-@media (min-width: 800px) {
-  .tetris-blurb {
-    font-size: 1.2em;
-  }
-}
-
-.tetris-location {
-  font-size: 0.7em;
-  color: var(--theme-text-muted, #b4add9);
-  margin: 4px 0 8px;
-}
-
-.tetris-readout {
-  font-family: 'Press Start 2P', 'Courier New', monospace;
-  font-size: 11px;
-  color: var(--theme-accent, #ffd500);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.tetris-socials {
-  text-align: center;
-}
-
-@media (max-width: 899px) {
-  .tetris-profile :deep(.flip-container) {
-    width: 64px;
-    height: 64px;
-  }
-  .tetris-profile :deep(.profile-pic) {
-    width: 64px;
-    height: 64px;
-    border-width: 3px;
-  }
-  .tetris-name {
-    font-size: 1rem;
-    margin: 4px 0 2px;
-  }
-  .tetris-profile .tetris-blurb {
-    display: none;
-  }
-  .tetris-location {
-    margin: 2px 0 4px;
-  }
-  .tetris-socials :deep(svg),
-  .tetris-socials :deep(img) {
-    width: 32px;
-    height: 32px;
-  }
-  /* The compact header is removed instantly while a run is active. */
-  .tetris-run .tetris-profile {
-    display: none;
-  }
-}
+.tetris-landing { position: relative; isolation: isolate; height: 100dvh; overflow: hidden; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(54px, calc(42px + env(safe-area-inset-bottom))) max(16px, env(safe-area-inset-left)); }
+.tetris-profile { text-align: center; max-width: 360px; flex: 0 0 auto; }
+.tetris-name { font: 700 clamp(36px, 4vw, 56px)/1.05 system-ui, sans-serif; color: var(--tetris-text); letter-spacing: -.04em; margin: 20px 0 16px; text-transform: lowercase; }
+.tetris-blurb { font: 16px/1.5 system-ui, sans-serif; margin: 2px 0; }
+.tetris-location { color: var(--tetris-text-muted); font-size: 12px; margin: 12px 0; }
+.tetris-readout { color: var(--tetris-accent); font: 11px 'Courier New', monospace; font-variant-numeric: tabular-nums; }
+@media (min-width: 900px) { .tetris-landing { flex-direction: row; justify-content: center; gap: clamp(32px, 6vw, 96px); padding-top: 24px; } .tetris-profile { padding: 24px; border: 1px solid var(--tetris-card-border); border-radius: 12px; background: var(--tetris-card-bg); box-shadow: 0 0 24px var(--tetris-card-shadow); } }
+@media (max-width: 899px) { .tetris-profile { display: grid; grid-template-columns: 44px auto; column-gap: 12px; align-items: center; text-align: left; } .tetris-profile :deep(.flip-container), .tetris-profile :deep(.profile-pic) { width: 44px; height: 44px; } .tetris-profile :deep(.flip-container) { grid-row: span 2; } .tetris-profile :deep(.profile-pic) { border-width: 1px; } .tetris-name { font-size: 23px; margin: 0; } .tetris-blurb, .tetris-location { display: none; } .tetris-socials :deep(svg), .tetris-socials :deep(img) { width: 22px; height: 22px; } .tetris-run .tetris-profile { display: none; } }
+@media (max-height: 480px) { .tetris-profile { display: none; } .tetris-landing { padding-top: 6px; gap: 4px; } }
 </style>

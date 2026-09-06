@@ -87,8 +87,8 @@ export const allThemes: ThemeDefinition[] = [
   {
     id: 'tetris',
     name: 'Tetris',
-    themeColor: '#15123A',
-    themeColorDark: '#15123A',
+    themeColor: '#0b0616',
+    themeColorDark: '#0b0616',
     landing: TetrisLanding,
   },
   {

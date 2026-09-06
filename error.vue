@@ -42,16 +42,16 @@
     <div v-else-if="activeTheme === 'tetris'" class="error-container tetris-container-inner">
       <p class="tetris-404-num">404</p>
       <div class="tetris-cell-row" aria-hidden="true">
-        <span class="tetris-cell" style="--tetromino-color: var(--tetris-i-color, #29D3E0)"></span>
-        <span class="tetris-cell" style="--tetromino-color: var(--tetris-o-color, #FFD500)"></span>
-        <span class="tetris-cell" style="--tetromino-color: var(--tetris-t-color, #B15CE0)"></span>
-        <span class="tetris-cell" style="--tetromino-color: var(--tetris-s-color, #33E07A)"></span>
-        <span class="tetris-cell" style="--tetromino-color: var(--tetris-z-color, #FF3B5C)"></span>
-        <span class="tetris-cell" style="--tetromino-color: var(--tetris-j-color, #4A7DE0)"></span>
-        <span class="tetris-cell" style="--tetromino-color: var(--tetris-l-color, #FF8A1F)"></span>
+        <span class="tetris-cell"></span>
+        <span class="tetris-cell"></span>
+        <span class="tetris-cell"></span>
+        <span class="tetris-cell"></span>
+        <span class="tetris-cell"></span>
+        <span class="tetris-cell"></span>
+        <span class="tetris-cell"></span>
         <span class="tetris-cell tetris-cell-missing"></span>
-        <span class="tetris-cell" style="--tetromino-color: var(--tetris-o-color, #FFD500)"></span>
-        <span class="tetris-cell" style="--tetromino-color: var(--tetris-i-color, #29D3E0)"></span>
+        <span class="tetris-cell"></span>
+        <span class="tetris-cell"></span>
       </div>
       <h1 class="tetris-title">GAME OVER</h1>
       <p class="tetris-msg"><em>{{ requestedPath }}</em> never stacked here</p>
@@ -408,14 +408,14 @@ useHead({ title: '404 — phareim.no' })
 }
 
 .tetris-404-num {
-  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-family: 'Courier New', monospace;
   font-size: clamp(3rem, 12vw, 6rem);
   font-weight: 400;
   line-height: 1;
   margin: 0;
   color: var(--theme-text, #F4F1FF);
-  letter-spacing: 0.02em;
-  text-shadow: 6px 6px 0 var(--theme-card-border, #3B3470);
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 24px var(--theme-card-border);
 }
 
 .tetris-cell-row {
@@ -430,11 +430,9 @@ useHead({ title: '404 — phareim.no' })
   display: inline-block;
   width: 24px;
   height: 24px;
-  background: var(--tetromino-color, #FFD500);
-  border: 1px solid rgba(0, 0, 0, 0.55);
-  box-shadow:
-    inset 2px 2px 0 rgba(255, 255, 255, 0.35),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.3);
+  background: #ff2fa022;
+  border: 1px solid var(--tetris-pink);
+  box-shadow: 0 0 8px #ff2fa044;
 }
 
 .tetris-cell-missing {
@@ -444,18 +442,18 @@ useHead({ title: '404 — phareim.no' })
 }
 
 .tetris-title {
-  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-family: 'Courier New', monospace;
   font-size: 0.875rem;
   font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.15em;
   margin: 1rem 0;
-  color: var(--theme-accent-danger, #FF3B5C);
+  color: var(--tetris-pink);
   text-shadow: none;
 }
 
 .tetris-msg {
-  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-family: system-ui, sans-serif;
   color: var(--theme-text-muted, #B4ADD9);
   font-size: 0.9rem;
   margin: 0 0 2.5rem;
@@ -466,23 +464,23 @@ useHead({ title: '404 — phareim.no' })
   background: transparent;
   border: 2px solid var(--theme-accent, #FFD500);
   color: var(--theme-accent, #FFD500);
-  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-family: 'Courier New', monospace;
   font-size: 0.6875rem;
   font-weight: 400;
   cursor: pointer;
   padding: 0.75rem 1.25rem;
-  letter-spacing: 0.02em;
-  transition: all 0.12s linear;
+  letter-spacing: 0.15em;
+  transition: background-color 120ms, color 120ms;
 }
 
 .tetris-home-btn:hover {
   background: var(--theme-accent, #FFD500);
   color: var(--theme-bg, #15123A);
-  box-shadow: 4px 4px 0 rgba(255, 213, 0, 0.35);
+  box-shadow: 0 0 24px var(--theme-card-shadow);
 }
 
 .tetris-home-btn:focus-visible {
-  outline: 2px solid var(--theme-accent-secondary, #29D3E0);
+  outline: 2px solid var(--theme-accent);
   outline-offset: 4px;
 }
 </style>

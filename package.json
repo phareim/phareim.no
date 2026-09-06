@@ -7,7 +7,8 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "typecheck": "nuxi typecheck"
+    "typecheck": "nuxi typecheck",
+    "test:tetris": "node --test tests/tetris-gestures.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

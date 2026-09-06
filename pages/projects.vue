@@ -240,43 +240,4 @@ h1 {
   text-shadow: 0 0 10px currentColor;
 }
 
-/* Tetris theme overrides */
-:global(.tetris-page .subtitle) {
-  font-family: 'Press Start 2P', 'Courier New', monospace;
-  font-size: 0.625rem;
-  letter-spacing: 0.02em;
-}
-
-:global(.tetris-page h1) {
-  font-size: clamp(1.3rem, 3.6vw, 2.1rem);
-  font-family: "Press Start 2P", "Courier New", monospace;
-  line-height: 1.4;
-  letter-spacing: 0.02em;
-  font-weight: 400;
-  text-shadow: 3px 3px 0 var(--theme-card-border, #3b3470);
-}
-
-:global(.tetris-page .project-card) {
-  background: var(--theme-card-bg, #1E1A4E);
-  border: 2px solid var(--theme-card-border, #3B3470);
-  border-radius: var(--theme-card-radius, 6px);
-  box-shadow: 4px 4px 0 var(--theme-card-shadow, rgba(0, 0, 0, 0.35));
-  transition: transform 120ms linear, border-color 120ms linear, box-shadow 120ms linear;
-}
-
-:global(.tetris-page .project-card:hover),
-:global(.tetris-page .project-card:focus-visible) {
-  border-color: var(--theme-accent, #FFD500);
-  box-shadow: 4px 4px 0 rgba(255, 213, 0, 0.35);
-  transform: translateY(-2px);
-}
-
-:global(.tetris-page .project-name) {
-  font-family: 'Space Grotesk', system-ui, sans-serif;
-  text-shadow: none;
-}
-
-:global(.tetris-page .project-stars) {
-  color: var(--theme-accent, #FFD500);
-}
 </style>

@@ -23,7 +23,7 @@ themes/
     SocialLink.vue      icon links
     neonHorizon.js      the Neon Dreams synthwave backdrop (sky, stars, sun, ridge, grid,
                         heartbeat) as a canvas module: createHorizon() → resize/update/beat/draw.
-                        breakout and invaders use it (2026-09-06); starfox is three.js and draws its own
+                        breakout, invaders and tetris use it (2026-09-06); starfox is three.js and draws its own
   _template/          copy this to start a theme
   <id>/
     theme.css         :root palette + `.{id}-page` token contract
@@ -67,7 +67,7 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
   `defineAsyncComponent` inside `<ClientOnly>` so the three chunk only ships with that theme);
   `desk` skips the shell and lays a grained paper sheet (`.desk-sheet`,
   `.desk-stamp`, `.desk-rule` are global classes from its theme.css) on the
-  desk; `tetris` skips the shell and lays a profile column beside the arcade cabinet. Rule without exception since 2026-09-05: the root fills the viewport
+  desk; `tetris` skips the shell and lays a profile column beside its Neon Dreams board. Since 2026-09-06 its mobile profile hides during play/pause, ResizeObserver fits the board to remaining space, and landscape phones use a two-column layout. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
   (`height: 100dvh; overflow: hidden`) and the page does not scroll —
   `html`, `body` and `#__nuxt` are locked in `app.vue`. The old `scrollable`
   registry flag is gone with the Almanac theme that needed it. A route with

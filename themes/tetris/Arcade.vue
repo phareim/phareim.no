@@ -1,649 +1,107 @@
 <template>
-  <div class="tetris-arcade">
-    <!-- HUD strip (mobile only, under 900px): SCORE · LINES · LEVEL -->
-    <div class="hud-strip">
-      <div class="hud-strip-item">
-        <span class="hud-strip-label">SCORE</span>
-        <span class="hud-strip-value">{{ formatScore(tetrisState.score) }}</span>
-      </div>
-      <div class="hud-strip-item">
-        <span class="hud-strip-label">LINES</span>
-        <span class="hud-strip-value">{{ formatLines(tetrisState.lines) }}</span>
-      </div>
-      <div class="hud-strip-item">
-        <span class="hud-strip-label">LEVEL</span>
-        <span class="hud-strip-value" :class="{ 'level-up': isLevelingUp }">{{ formatLevel(tetrisState.level) }}</span>
-      </div>
+  <section class="tetris-arcade" aria-label="Tetris arcade">
+    <header class="arcade-header">
+      <div><span class="eyebrow">NEON DREAMS</span><h2>TETRIS</h2></div>
+      <button v-if="inRun" class="arcade-button pause-button" @click="gameRef?.togglePause()">{{ paused ? 'RESUME' : 'PAUSE' }}</button>
+      <span v-else class="eyebrow">{{ tetrisState.phase === 'over' ? 'TRY AGAIN' : 'ENDLESS PLAY' }}</span>
+    </header>
+    <div class="score-strip">
+      <div><span>SCORE</span><strong>{{ String(tetrisState.score).padStart(6, '0') }}</strong></div>
+      <div><span>LINES</span><strong>{{ String(tetrisState.lines).padStart(2, '0') }}</strong></div>
+      <div><span>LEVEL</span><strong>{{ String(tetrisState.level).padStart(2, '0') }}</strong></div>
     </div>
-
-    <div class="arcade-cluster">
-      <!-- HOLD tile -->
-      <div class="preview-panel hold-panel">
-        <div class="preview-label">HOLD</div>
-        <div class="preview-grid">
-          <template v-for="row in 4" :key="`hold-row-${row}`">
-            <span
-              v-for="col in 4"
-              :key="`hold-${row}-${col}`"
-              class="preview-cell"
-              :style="getHoldCellStyle(row - 1, col - 1)"
-            />
-          </template>
+    <div ref="playArea" class="play-area">
+      <div class="game-wrapper"><TetrisGame ref="gameRef" :cell-size="cellSize" @state="onGameState" @beat="emit('beat', $event)" /></div>
+      <aside class="side-rail">
+        <div class="preview-panel">
+          <span class="eyebrow">NEXT</span>
+          <div class="preview-grid" :aria-label="`Next piece: ${tetrisState.next ?? 'none'}`"><span v-for="i in 16" :key="i" :style="previewStyle(tetrisState.next, i - 1)" /></div>
         </div>
-      </div>
-
-      <!-- Game board -->
-      <div class="game-wrapper">
-        <TetrisGame
-          ref="gameRef"
-          :cell-size="cellSize"
-          @state="onGameState"
-        />
-      </div>
-
-      <!-- NEXT tile -->
-      <div class="preview-panel next-panel">
-        <div class="preview-label">NEXT</div>
-        <div class="preview-grid">
-          <template v-for="row in 4" :key="`next-row-${row}`">
-            <span
-              v-for="col in 4"
-              :key="`next-${row}-${col}`"
-              class="preview-cell"
-              :style="getNextCellStyle(row - 1, col - 1)"
-            />
-          </template>
-        </div>
-      </div>
-
-      <!-- HUD column -->
-      <div class="hud-column">
-        <div class="hud-row">
-          <div class="hud-label">SCORE</div>
-          <div class="hud-value">{{ formatScore(tetrisState.score) }}</div>
-        </div>
-        <div class="hud-row">
-          <div class="hud-label">LINES</div>
-          <div class="hud-value">{{ formatLines(tetrisState.lines) }}</div>
-        </div>
-        <div class="hud-row">
-          <div class="hud-label">LEVEL</div>
-          <div class="hud-value" :class="{ 'level-up': isLevelingUp }">{{ formatLevel(tetrisState.level) }}</div>
-        </div>
-        <div class="hud-row">
-          <div class="hud-label">BEST</div>
-          <div class="hud-value">{{ formatScore(tetrisState.best) }}</div>
-        </div>
-      </div>
+        <button class="preview-panel hold-button arcade-button" :disabled="!playing || !tetrisState.canHold" aria-label="Hold piece" @click="gameRef?.hold()">
+          <span class="eyebrow">HOLD</span>
+          <div class="preview-grid" aria-hidden="true"><span v-for="i in 16" :key="i" :style="previewStyle(tetrisState.hold, i - 1)" /></div>
+          <span class="rail-hint">{{ tetrisState.canHold ? hint('C · SHIFT', 'TAP') : 'USED' }}</span>
+        </button>
+        <div class="best-panel"><span class="eyebrow">BEST</span><strong>{{ tetrisState.best }}</strong></div>
+        <button v-if="inRun" class="arcade-button exit-button" @click="gameRef?.exit()">EXIT</button>
+      </aside>
     </div>
-
-    <!-- Touch controls: HOLD/NEXT mini tiles beside the buttons (mobile only) -->
-    <div class="control-row">
-      <div class="mobile-previews">
-        <div class="preview-panel mobile-hold hud-strip-preview-item">
-          <div class="preview-label">HOLD</div>
-          <div class="preview-grid mobile-grid">
-            <template v-for="row in 4" :key="`hold-row-${row}`">
-              <span
-                v-for="col in 4"
-                :key="`hold-${row}-${col}`"
-                class="preview-cell"
-                :style="getHoldCellStyle(row - 1, col - 1)"
-              />
-            </template>
-          </div>
-        </div>
-        <div class="preview-panel mobile-next hud-strip-preview-item">
-          <div class="preview-label">NEXT</div>
-          <div class="preview-grid mobile-grid">
-            <template v-for="row in 4" :key="`next-row-${row}`">
-              <span
-                v-for="col in 4"
-                :key="`next-${row}-${col}`"
-                class="preview-cell"
-                :style="getNextCellStyle(row - 1, col - 1)"
-              />
-            </template>
-          </div>
-        </div>
-      </div>
-      <div class="touch-buttons">
-        <button
-          class="touch-btn left-btn"
-          @touchstart="onTouchButtonStart('left')"
-          @touchend="onTouchButtonEnd"
-          @touchcancel="onTouchButtonEnd"
-          aria-label="Move left"
-        >
-          ◀
-        </button>
-        <button
-          class="touch-btn right-btn"
-          @touchstart="onTouchButtonStart('right')"
-          @touchend="onTouchButtonEnd"
-          @touchcancel="onTouchButtonEnd"
-          aria-label="Move right"
-        >
-          ▶
-        </button>
-        <button
-          class="touch-btn down-btn"
-          @touchstart="onTouchButtonStart('down')"
-          @touchend="onTouchButtonEnd"
-          @touchcancel="onTouchButtonEnd"
-          aria-label="Soft drop"
-        >
-          ▼
-        </button>
-        <button
-          class="touch-btn rotate-btn"
-          @click="onRotateClick"
-          aria-label="Rotate"
-        >
-          ⟳
-        </button>
-        <button
-          class="touch-btn hard-drop-btn"
-          @click="onHardDropClick"
-          aria-label="Hard drop"
-        >
-          ⤓
-        </button>
-        <button
-          class="touch-btn hold-btn"
-          @click="onHoldClick"
-          aria-label="Hold piece"
-        >
-          HOLD
-        </button>
-      </div>
+    <div class="action-row">
+      <button class="arcade-button" :disabled="!playing" aria-label="Rotate piece" @click="gameRef?.rotate(1)"><b>↻</b> ROTATE</button>
+      <button class="arcade-button drop-button" :disabled="!playing" aria-label="Hard drop" @click="gameRef?.hardDrop()"><b>↓</b> DROP</button>
     </div>
-  </div>
+    <p class="control-hint">{{ hint('← → MOVE · ↑ ROTATE · ↓ SOFT DROP', 'DRAG ↔ MOVE · TAP ROTATE') }}<br><span>{{ hint('SPACE DROP · C HOLD · P PAUSE · ESC EXIT', 'FLICK ↓ DROP · DRAG ↓ LOWER · SWIPE ↑ HOLD') }}</span></p>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import TetrisGame from './Game.vue'
-import type { TetrisState } from './Game.vue'
-import { PIECE_COLORS, PIECE_SHAPES, type PieceType } from './engine'
-
-const gameRef = ref()
-const cellSize = ref(26)
-const tetrisState = ref<TetrisState>({
-  phase: 'idle',
-  score: 0,
-  lines: 0,
-  level: 1,
-  best: 0,
-  next: null,
-  hold: null,
-  canHold: true,
-  newBest: false,
-  levelUpUntil: 0
-})
-
-const isLevelingUp = ref(false)
-let levelUpTimeout: ReturnType<typeof setTimeout> | null = null
-
-const touchButtonHeldKey = ref<string | null>(null)
-let touchButtonInterval: ReturnType<typeof setInterval> | null = null
-let touchButtonTimeout: ReturnType<typeof setTimeout> | null = null
-
-const emit = defineEmits<{
-  state: [value: TetrisState]
-}>()
-
-const calculateCellSize = () => {
-  const vw = typeof window !== 'undefined' ? window.innerWidth : 1024
-  const vh = typeof window !== 'undefined' ? window.innerHeight : 768
-
-  if (vw >= 900) {
-    // Desktop: fixed 26px
-    cellSize.value = 26
-  } else {
-    // Mobile formula: floor(min((innerWidth - 32) / 10, (innerHeight - 300) / 20))
-    const fromWidth = Math.floor((vw - 32) / 10)
-    const fromHeight = Math.floor((vh - 300) / 20)
-    const size = Math.min(fromWidth, fromHeight)
-    cellSize.value = Math.max(14, Math.min(26, size))
-  }
-}
-
-const onGameState = (state: TetrisState) => {
-  tetrisState.value = state
-  emit('state', state)
-}
-
-const formatScore = (score: number) => {
-  return String(score).padStart(6, '0')
-}
-
-const formatLines = (lines: number) => {
-  return String(lines).padStart(2, '0')
-}
-
-const formatLevel = (level: number) => {
-  return String(level).padStart(2, '0')
-}
-
-const getHoldPieceShape = (): number[][] | null => {
-  if (!tetrisState.value.hold) return null
-  const piece = tetrisState.value.hold
+import TetrisGame, { type TetrisState } from './Game.vue'
+import { PIECE_SHAPES, type PieceType } from './engine'
+const { hint } = useInputMode()
+const emit = defineEmits<{ state: [value: TetrisState], beat: [clear: boolean] }>()
+const gameRef = ref<InstanceType<typeof TetrisGame> | null>(null)
+const playArea = ref<HTMLElement | null>(null)
+const cellSize = ref(18)
+const tetrisState = ref<TetrisState>({ phase: 'idle', score: 0, lines: 0, level: 1, best: 0, next: null, hold: null, canHold: true, newBest: false, levelUpUntil: 0 })
+const playing = computed(() => tetrisState.value.phase === 'playing')
+const paused = computed(() => tetrisState.value.phase === 'paused')
+const inRun = computed(() => playing.value || paused.value)
+function onGameState(state: TetrisState) { tetrisState.value = state; emit('state', state) }
+function previewStyle(piece: PieceType | null, index: number) {
+  if (!piece) return {}
   const shape = PIECE_SHAPES[piece][0]
-  return shape
-}
-
-const getNextPieceShape = (): number[][] | null => {
-  if (!tetrisState.value.next) return null
-  const piece = tetrisState.value.next
-  const shape = PIECE_SHAPES[piece][0]
-  return shape
-}
-
-const getHoldCellStyle = (row: number, col: number) => {
-  const shape = getHoldPieceShape()
-  if (!shape || !tetrisState.value.hold) return {}
-
-  // Offset to center the piece in the 4x4 grid
   const offset = Math.floor((4 - shape.length) / 2)
-  const adjustedRow = row - offset
-  const adjustedCol = col - offset
-
-  const isActive = shape[adjustedRow]?.[adjustedCol] === 1
-  const piece = tetrisState.value.hold
-  const color = PIECE_COLORS[piece]
-  const opacity = 0.4
-
-  if (!isActive) return {}
-
-  return {
-    backgroundColor: color,
-    opacity: String(opacity),
-    boxShadow: `
-      inset 2px 2px 0 rgba(255,255,255,0.35),
-      inset -2px -2px 0 rgba(0,0,0,0.3),
-      0 0 0 1px rgba(0,0,0,0.55)
-    `
-  }
+  if (shape[Math.floor(index / 4) - offset]?.[index % 4 - offset] !== 1) return {}
+  return { background: '#2ff3ff33', borderColor: '#2ff3ff', boxShadow: '0 0 6px #2ff3ff55' }
 }
-
-const getNextCellStyle = (row: number, col: number) => {
-  const shape = getNextPieceShape()
-  if (!shape || !tetrisState.value.next) return {}
-
-  // Offset to center the piece in the 4x4 grid
-  const offset = Math.floor((4 - shape.length) / 2)
-  const adjustedRow = row - offset
-  const adjustedCol = col - offset
-
-  const isActive = shape[adjustedRow]?.[adjustedCol] === 1
-  const piece = tetrisState.value.next
-  const color = PIECE_COLORS[piece]
-
-  if (!isActive) return {}
-
-  return {
-    backgroundColor: color,
-    boxShadow: `
-      inset 2px 2px 0 rgba(255,255,255,0.35),
-      inset -2px -2px 0 rgba(0,0,0,0.3),
-      0 0 0 1px rgba(0,0,0,0.55)
-    `
-  }
-}
-
-const onTouchButtonStart = (button: string) => {
-  if (touchButtonHeldKey.value !== null) return
-
-  touchButtonHeldKey.value = button
-
-  if (button === 'down') {
-    // Soft drop
-    gameRef.value?.softDropStart?.()
-  } else if (button === 'left' || button === 'right') {
-    // Move left/right
-    const dx = button === 'left' ? -1 : 1
-    gameRef.value?.move?.(dx)
-
-    // DAS 150ms, ARR 40ms repeat
-    touchButtonTimeout = setTimeout(() => {
-      if (touchButtonHeldKey.value === button) {
-        touchButtonInterval = setInterval(() => {
-          if (touchButtonHeldKey.value === button) {
-            gameRef.value?.move?.(dx)
-          }
-        }, 40)
-      }
-    }, 150)
-  }
-}
-
-const onTouchButtonEnd = () => {
-  if (touchButtonHeldKey.value === 'down') {
-    gameRef.value?.softDropStop?.()
-  }
-  
-  if (touchButtonTimeout) {
-    clearTimeout(touchButtonTimeout)
-    touchButtonTimeout = null
-  }
-  if (touchButtonInterval) {
-    clearInterval(touchButtonInterval)
-    touchButtonInterval = null
-  }
-  touchButtonHeldKey.value = null
-}
-
-const onRotateClick = () => {
-  gameRef.value?.rotate?.(1)
-}
-
-const onHardDropClick = () => {
-  gameRef.value?.hardDrop?.()
-}
-
-const onHoldClick = () => {
-  gameRef.value?.hold?.()
-}
-
-watch(() => tetrisState.value.levelUpUntil, (newVal) => {
-  if (levelUpTimeout) {
-    clearTimeout(levelUpTimeout)
-    levelUpTimeout = null
-  }
-  
-  if (newVal > Date.now()) {
-    isLevelingUp.value = true
-    const delay = newVal - Date.now()
-    levelUpTimeout = setTimeout(() => {
-      isLevelingUp.value = false
-    }, delay)
-  }
-})
-
+let observer: ResizeObserver | undefined
 onMounted(() => {
-  calculateCellSize()
-  window.addEventListener('resize', calculateCellSize)
-  window.addEventListener('orientationchange', calculateCellSize)
+  observer = new ResizeObserver(([entry]) => {
+    if (!entry) return
+    // The layout owns the available space, including safe areas and the profile.
+    cellSize.value = Math.max(4, Math.min(28, Math.floor(Math.min((entry.contentRect.width - 90) / 10, (entry.contentRect.height - 2) / 20))))
+  })
+  if (playArea.value) observer.observe(playArea.value)
 })
-
-onUnmounted(() => {
-  window.removeEventListener('resize', calculateCellSize)
-  window.removeEventListener('orientationchange', calculateCellSize)
-  if (levelUpTimeout) {
-    clearTimeout(levelUpTimeout)
-  }
-  if (touchButtonTimeout) {
-    clearTimeout(touchButtonTimeout)
-  }
-  if (touchButtonInterval) {
-    clearInterval(touchButtonInterval)
-  }
-})
+onBeforeUnmount(() => observer?.disconnect())
 </script>
 
 <style scoped>
-.tetris-arcade {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
-
-@media (min-width: 900px) {
-  .tetris-arcade {
-    flex-direction: row;
-    justify-content: center;
-    gap: 48px;
-    width: auto;
-    flex: 0 0 auto;
-  }
-}
-
-.arcade-cluster {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-  align-items: start;
-  width: 100%;
-}
-
-@media (min-width: 900px) {
-  .arcade-cluster {
-    grid-template-columns: auto auto auto auto;
-    gap: 24px;
-  }
-}
-
-.game-wrapper {
-  display: flex;
-  justify-content: center;
-}
-
-.preview-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: center;
-}
-
-.preview-label {
-  font-family: 'Press Start 2P', 'Courier New', monospace;
-  font-size: 10px;
-  color: var(--theme-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.preview-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 2px;
-  padding: 6px;
-  background: var(--tetris-well-bg, #0d0b26);
-  border: 2px solid var(--theme-card-border);
-  border-radius: 4px;
-}
-
-.preview-cell {
-  display: block;
-  width: 16px;
-  height: 16px;
-  aspect-ratio: 1;
-  background: rgba(0, 0, 0, 0.2);
-  border: none;
-  border-radius: 1px;
-}
-
-.hold-panel {
-  display: none;
-}
-
-@media (min-width: 900px) {
-  .hold-panel {
-    display: flex;
-  }
-}
-
-.next-panel {
-  display: none;
-}
-
-@media (min-width: 900px) {
-  .next-panel {
-    display: flex;
-  }
-}
-
-.hud-column {
-  display: none;
-  flex-direction: column;
-  gap: 8px;
-  font-family: 'Press Start 2P', 'Courier New', monospace;
-}
-
-@media (min-width: 900px) {
-  .hud-column {
-    display: flex;
-  }
-}
-
-.hud-row {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  align-items: flex-start;
-}
-
-.hud-label {
-  font-size: 10px;
-  color: var(--theme-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.hud-value {
-  font-size: 14px;
-  color: var(--theme-text);
-  font-variant-numeric: tabular-nums;
-}
-
-.level-up {
-  color: var(--tetris-accent-secondary, #29d3e0);
-}
-
-.hud-strip {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  width: 100%;
-  font-family: 'Press Start 2P', 'Courier New', monospace;
-  font-size: 10px;
-}
-
-@media (min-width: 900px) {
-  .hud-strip {
-    display: none;
-  }
-}
-
-.hud-strip-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  align-items: center;
-}
-
-.hud-strip-label {
-  color: var(--theme-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  font-size: 10px;
-}
-
-.hud-strip-value {
-  color: var(--theme-text);
-  font-variant-numeric: tabular-nums;
-  font-size: 14px;
-}
-
-.control-row {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  width: 100%;
-  align-items: center;
-  justify-content: center;
-}
-
-@media (min-width: 900px) {
-  .control-row {
-    display: none;
-  }
-}
-
-.mobile-previews {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  align-items: center;
-  width: auto;
-  flex: 0 0 auto;
-}
-
-.hud-strip-preview-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  align-items: center;
-}
-
-.mobile-previews .preview-label {
-  font-size: 8px;
-}
-
-.mobile-hold,
-.mobile-next {
-  display: flex;
-}
-
-.mobile-grid {
-  padding: 4px;
-  gap: 1px;
-}
-
-.mobile-grid .preview-cell {
-  width: 6px;
-  height: 6px;
-}
-
-.touch-buttons {
-  display: none;
-  gap: 4px;
-  justify-content: center;
-  width: auto;
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 0 0 calc(4px + env(safe-area-inset-bottom, 0px));
-  flex-wrap: nowrap;
-}
-
-@media (pointer: coarse) {
-  .touch-buttons {
-    display: flex;
-  }
-}
-
-.touch-btn {
-  flex: 1 1 0;
-  min-width: 0;
-  max-width: 48px;
-  width: 46px;
-  height: 48px;
-  padding: 0;
-  background: var(--theme-card-bg);
-  border: 2px solid var(--theme-card-border);
-  border-radius: 4px;
-  color: var(--theme-text);
-  font-family: 'Press Start 2P', 'Courier New', monospace;
-  font-size: 16px;
-  cursor: pointer;
-  user-select: none;
-  transition: all 80ms linear;
-}
-
-.touch-btn:active {
-  border-color: var(--theme-accent);
-  background: var(--theme-accent);
-  color: var(--theme-bg);
-  transform: translateY(2px);
-}
-
-.hold-btn {
-  font-size: 8px;
-  padding: 0;
+.tetris-arcade { width: min(100%, 430px); min-height: 0; flex: 1; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; gap: 10px; color: var(--tetris-text); font: 12px 'Courier New', monospace; letter-spacing: .15em; }
+.arcade-header { display: flex; justify-content: space-between; align-items: center; min-height: 44px; }
+h2 { margin: 2px 0 0; font-size: 26px; line-height: 1; letter-spacing: .16em; color: var(--tetris-pink); text-shadow: 0 0 12px #ff2fa080, 0 0 32px #ff2fa040; }
+.eyebrow { font-size: 10px; color: var(--tetris-text-muted); }
+.score-strip { display: flex; justify-content: space-between; padding: 9px 12px; border-block: 1px solid #ff2fa040; background: #0b0616bd; }
+.score-strip div { display: grid; gap: 3px; }
+.score-strip span { font-size: 9px; color: var(--tetris-text-muted); }
+strong { font-size: 19px; font-weight: normal; color: var(--tetris-accent); font-variant-numeric: tabular-nums; letter-spacing: .06em; text-shadow: 0 0 8px #2ff3ff65; }
+.play-area { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 12px; }
+.game-wrapper { min-height: 0; display: flex; justify-content: center; align-items: center; }
+.side-rail { display: flex; flex-direction: column; gap: 12px; }
+.preview-panel { display: grid; justify-items: center; gap: 6px; padding: 10px 4px; background: #0b0616bd; border: 1px solid #2ff3ff30; border-radius: 4px; }
+.preview-grid { display: grid; grid-template-columns: repeat(4, 11px); grid-template-rows: repeat(4, 11px); gap: 2px; }
+.preview-grid span { border: 1px solid transparent; border-radius: 1px; }
+.rail-hint { font-size: 8px; letter-spacing: .06em; }
+.best-panel { display: grid; gap: 6px; text-align: center; }
+.best-panel strong { color: var(--tetris-gold); font-size: 14px; text-shadow: none; }
+.arcade-button { min-height: 44px; padding: 8px 12px; border: 1px solid #2ff3ff55; border-radius: 4px; background: #0b0616df; color: var(--tetris-accent); font: inherit; letter-spacing: .12em; cursor: pointer; touch-action: manipulation; transition: background-color 120ms, border-color 120ms; }
+.arcade-button:focus-visible { outline: 2px solid var(--tetris-accent); outline-offset: 2px; }
+@media (hover: hover) { .arcade-button:hover:not(:disabled) { background: #2ff3ff1f; border-color: var(--tetris-accent); } }
+.arcade-button:active:not(:disabled) { background: #2ff3ff30; }
+.arcade-button:disabled { opacity: .38; cursor: default; }
+.hold-button { padding: 10px 4px; }
+.exit-button { margin-top: auto; font-size: 10px; color: var(--tetris-text-muted); }
+.action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.action-row b { font: 22px 'Courier New', monospace; vertical-align: -2px; margin-right: 6px; }
+.drop-button { color: var(--tetris-pink); border-color: #ff2fa066; }
+.control-hint { background: #0b0616bd; border-radius: 4px; margin: 0; text-align: center; font-size: 10px; line-height: 1.8; letter-spacing: .06em; color: var(--tetris-text-muted); }
+.control-hint span { font-size: 9px; }
+@media (min-width: 900px) { .tetris-arcade { height: min(780px, 100%); flex: 0 1 430px; } }
+@media (max-height: 480px) { .tetris-arcade { gap: 4px; } .side-rail { gap: 4px; } .preview-panel { padding: 4px; } .preview-grid { grid-template-columns: repeat(4, 7px); grid-template-rows: repeat(4, 7px); } .best-panel { display: none; } .score-strip { padding: 4px 10px; } .control-hint { font-size: 9px; } }
+@media (max-height: 480px) and (min-width: 540px) {
+  .tetris-arcade { width: min(100%, 720px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, .85fr); grid-template-rows: auto auto 1fr auto; gap: 10px 20px; }
+  .play-area { grid-column: 1; grid-row: 1 / 5; }
+  .arcade-header, .score-strip, .action-row, .control-hint { grid-column: 2; }
+  .action-row { align-self: end; }
 }
 </style>
