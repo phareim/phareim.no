@@ -65,9 +65,9 @@ function approach(v: number, target: number, step: number): number {
 // ---- level ----
 
 /** World x of the arch legs (near layer, drawn in front of the figure). */
-export const ARCHES = [1080, 2330]
-/** The tower wall: world x range and the ledges' top. Renderer geometry. */
-export const TOWER = { x0: 3850, x1: 4780, lampX: 4600 }
+export const ARCHES = [1100, 2330]
+/** The tower wall behind the lamp platform: world x range. Renderer geometry. */
+export const TOWER = { x0: 4480, x1: 4760, lampX: 4600 }
 /** The cracked overhang the rock hangs from: x range and its underside y. */
 export const OVERHANG = { x0: 3560, x1: 3820, y: 232 }
 
@@ -113,9 +113,11 @@ function buildLevel(world: World): void {
     state: 'hanging',
   }
   world.hazards.push(rock)
-  world.platforms.push({ x: 3900, y: 372, w: 160, h: 48 }) // ledge 1, 48 up
-  world.platforms.push({ x: 4160, y: 324, w: 140, h: 48 }) // ledge 2, 96 up
-  world.platforms.push({ x: 4400, y: 276, w: 300, h: 48 }) // ledge 3, the lamp platform
+  // Three stacks up to the lamp platform at the tower's foot; each is solid
+  // down to the ground so a missed jump lands beside it, not under it.
+  world.platforms.push({ x: 3900, y: 372, w: 160, h: 48 }) // stack 1, 48 up
+  world.platforms.push({ x: 4160, y: 324, w: 140, h: 96 }) // stack 2, 96 up
+  world.platforms.push({ x: 4400, y: 276, w: 300, h: 144 }) // the lamp platform, 144 up
   lamp(TOWER.lampX, 276)
 }
 
