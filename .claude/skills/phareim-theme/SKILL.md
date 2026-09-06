@@ -21,6 +21,9 @@ themes/
     DefaultLanding.vue  the default shell: card + text + socials, slots for the rest
     ProfileCard.vue     flip card
     SocialLink.vue      icon links
+    neonHorizon.js      the Neon Dreams synthwave backdrop (sky, stars, sun, ridge, grid,
+                        heartbeat) as a canvas module: createHorizon() → resize/update/beat/draw.
+                        breakout uses it (2026-09-06); invaders/starfox still carry their own copy
   _template/          copy this to start a theme
   <id>/
     theme.css         :root palette + `.{id}-page` token contract

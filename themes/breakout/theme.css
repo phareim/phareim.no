@@ -1,53 +1,47 @@
 /**
- * Breakout / Arcade Aesthetic
- * ---------------------------
- * Neon cyan on near-black, a faint grid, magenta for alerts.
- * Sibling of the Cyberpunk theme (green); this one is the arcade cabinet
- * next to it. The landing is a playable Breakout (Breakout.vue).
+ * Breakout — NEON DREAMS.
+ * The Neon Dreams look shared with Invaders and Star Fox: violet-black
+ * ground (#0b0616), cyan player/interface (#2ff3ff), pink threat/ground/
+ * call-to-action (#ff2fa0), gold reward (#ffd23f). Values copied from the
+ * Neon Dreams design system (tokens/colors.css, tokens/effects.css,
+ * tokens/typography.css). The canvas draws the horizon; no CSS grid.
+ * One scheme — no dark variant.
  */
 
 :root {
-  /* Base colors */
-  --breakout-bg: #07070f;
-  --breakout-bg-alt: #0c0c18;
-
-  /* Text colors */
-  --breakout-text: #00e5ff;
-  --breakout-text-dim: #0a94a8;
-  --breakout-text-bright: #e0fbff;
-
-  /* Accents */
-  --breakout-border: #063a44;
-  --breakout-glow: rgba(0, 229, 255, 0.2);
-  --breakout-accent: #ff2bd6; /* Error/Alert color */
-
-  /* Typography */
-  --font-breakout-mono: 'Courier New', Courier, monospace;
+  --breakout-bg: #0b0616;
+  --breakout-bg-deep: #060310;
+  --breakout-text: #f2e9ff;
+  --breakout-text-muted: #b9a8d9;
+  --breakout-text-subtle: #7a6a9a;
+  --breakout-accent: #2ff3ff;
+  --breakout-pink: #ff2fa0;
+  --breakout-gold: #ffd23f;
+  --breakout-card-bg: rgba(11, 6, 22, 0.74);
+  --breakout-card-border: rgba(255, 47, 160, 0.35);
+  --breakout-card-shadow: rgba(47, 243, 255, 0.15);
+  --breakout-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --breakout-mono: "Courier New", ui-monospace, monospace;
 }
 
 .breakout-page {
   min-height: 100vh;
-  background-color: var(--breakout-bg);
+  background: var(--breakout-bg);
   color: var(--breakout-text);
-  font-family: var(--font-breakout-mono);
+  font-family: var(--breakout-font);
+  position: relative;
   overflow-x: hidden;
-  background-image:
-    linear-gradient(rgba(0, 229, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 229, 255, 0.035) 1px, transparent 1px);
-  background-size: 40px 40px;
 
-  /* Semantic theme variables */
+  /* The contract. All ten are read somewhere; add more only when a
+     second theme needs the same token. */
   --theme-bg: var(--breakout-bg);
   --theme-text: var(--breakout-text);
-  --theme-text-muted: var(--breakout-text-dim);
-  --theme-text-subtle: #3a4a5a;
-
-  --theme-card-bg: rgba(0, 14, 20, 0.8);
-  --theme-card-border: var(--breakout-text-dim);
-  --theme-card-shadow: var(--breakout-glow);
-  --theme-card-radius: 0px;
-
-  --theme-accent: var(--breakout-text);
-
-  --theme-font-body: var(--font-breakout-mono);
+  --theme-text-muted: var(--breakout-text-muted);
+  --theme-text-subtle: var(--breakout-text-subtle);
+  --theme-accent: var(--breakout-accent);
+  --theme-card-bg: var(--breakout-card-bg);
+  --theme-card-border: var(--breakout-card-border);
+  --theme-card-shadow: var(--breakout-card-shadow);
+  --theme-card-radius: 12px;
+  --theme-font-body: var(--breakout-font);
 }

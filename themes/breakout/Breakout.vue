@@ -12,6 +12,8 @@
  */
 const emit = defineEmits(['score', 'death', 'restart', 'started', 'lives', 'level'])
 
+import { createHorizon } from '../base/neonHorizon.js'
+
 const canvas = ref(null)
 let ctx = null
 let animationFrameId = null
@@ -19,6 +21,7 @@ let gameRunning = false
 let W = 0
 let H = 0
 let dpr = 1
+let horizon = null
 
 // Game state
 let paddle = { x: 0, y: 0, w: 110, h: 14, baseW: 110, visible: true }
@@ -28,11 +31,7 @@ let gridCols = 10
 let particles = []
 let powerups = []
 let shockwaves = []
-// Background: everything drifts DOWN, so the playfield reads as climbing.
-let sparks = [] // dots in three depths; the near ones streak
-let rungs = [] // faint horizontal hairlines, ladder rungs passing by
-let drifts = [] // large, very dim outline shapes, the slowest layer
-let bgBoost = 0 // 1 right after a level clear, decays: a short warp upward
+let deathFlash = 0 // red vignette timer (s) after a lost life, ~0.4 s decay
 let score = 0
 let lives = 3
 let level = 1
@@ -55,13 +54,18 @@ const BASE_SPEED = 380 // px/s at level 1
 const MAX_SPEED = 720
 const LIVES = 3
 const MAX_BALLS = 8
-const ROW_COLORS = ['#ff2bd6', '#ff6a00', '#ffd400', '#3dff8f', '#00e5ff', '#7a5cff', '#ff2bd6', '#ff6a00', '#ffd400']
-const PADDLE_COLOR = '#00e5ff'
+const ROW_COLORS = [
+  '#ff2fa0', '#ff2fa0', '#ff2fa0',
+  'rgba(255, 47, 160, 0.72)', 'rgba(255, 47, 160, 0.72)', 'rgba(255, 47, 160, 0.72)',
+  'rgba(255, 47, 160, 0.5)', 'rgba(255, 47, 160, 0.5)', 'rgba(255, 47, 160, 0.5)',
+]
+const PADDLE_COLOR = '#2ff3ff'
+const GOLD = '#ffd23f'
 const POWERUPS = {
-  wide: { color: '#00e5ff', label: 'W' },
-  multi: { color: '#ff2bd6', label: 'M' },
-  slow: { color: '#ffd400', label: 'S' },
-  life: { color: '#3dff8f', label: '+' },
+  wide: { color: '#ffd23f', label: 'W' },
+  multi: { color: '#ffd23f', label: 'M' },
+  slow: { color: '#ffd23f', label: 'S' },
+  life: { color: '#ffd23f', label: '+' },
 }
 
 // ---------------------------------------------------------------- setup
@@ -79,43 +83,8 @@ function setupCanvas() {
   paddle.baseW = Math.min(120, Math.max(72, W * 0.24))
   paddle.y = H - 56
   paddle.x = clamp(paddle.x || W / 2, paddle.w / 2, W - paddle.w / 2)
-}
-
-const RUNG_GAP = 170
-
-function initSparks() {
-  sparks = []
-  for (let i = 0; i < 70; i++) {
-    const depth = Math.random() // 0 = far, 1 = near
-    sparks.push({
-      x: Math.random() * W,
-      y: Math.random() * H,
-      speed: 10 + depth * 55,
-      size: depth > 0.7 ? 2 : 1,
-      len: depth > 0.7 ? 5 + depth * 10 : 0,
-      alpha: 0.12 + depth * 0.4,
-    })
-  }
-  rungs = []
-  const n = Math.ceil(H / RUNG_GAP) + 1
-  for (let i = 0; i < n; i++) rungs.push({ y: i * RUNG_GAP + Math.random() * 50 })
-  drifts = []
-  for (let i = 0; i < 4; i++) drifts.push(makeDrift(Math.random() * H))
-}
-
-function makeDrift(y) {
-  const sides = [0, 6, 4, 0][Math.floor(Math.random() * 4)] // 0 = circle
-  return {
-    x: Math.random() * W,
-    y,
-    r: 70 + Math.random() * 150,
-    sides,
-    rot: Math.random() * Math.PI,
-    rotV: (Math.random() - 0.5) * 0.08,
-    speed: 4 + Math.random() * 7,
-    alpha: 0.03 + Math.random() * 0.03,
-    color: Math.random() < 0.6 ? '#00e5ff' : '#ff2bd6',
-  }
+  if (!horizon) horizon = createHorizon({ ctx })
+  horizon.resize(W, H, ctx)
 }
 
 function computeGrid(cols) {
@@ -161,7 +130,7 @@ function buildLevel(n) {
         x: 0, y: 0, w: 0, h: 0,
         hp,
         maxHp: hp,
-        color: ROW_COLORS[r % ROW_COLORS.length],
+        color: hp > 1 ? GOLD : ROW_COLORS[r % ROW_COLORS.length],
         points: (rows - r) * 10 * hp,
         flash: 0,
       })
@@ -266,7 +235,7 @@ function spawnParticles(x, y, color, count = 10, spread = 220) {
   }
 }
 
-function triggerShockwave(x, y, color = '#ff2bd6') {
+function triggerShockwave(x, y, color = '#ff2fa0') {
   shockwaves.push({ x, y, radius: 6, life: 1, color })
 }
 
@@ -316,8 +285,12 @@ function applyPowerup(type, now) {
 
 function loseLife(now) {
   combo = 0
-  triggerShockwave(paddle.x, paddle.y)
+  triggerShockwave(paddle.x, paddle.y, '#2ff3ff')
   shake = 1
+  if (gameStarted) {
+    deathFlash = 1
+    spawnParticles(paddle.x, paddle.y, '#ffffff', 24, 280)
+  }
   if (!gameStarted) {
     balls = [newBall()]
     demoLaunchAt = now + 900
@@ -348,7 +321,12 @@ function clearLevel(now) {
   powerups = []
   levelBanner = 1500
   demoLaunchAt = now + 1200
-  spawnParticles(W / 2, H / 2, '#00e5ff', 30, 300)
+  spawnParticles(W / 2, H / 2, '#2ff3ff', 30, 300)
+  if (horizon) {
+    horizon.beat()
+    setTimeout(() => horizon && horizon.beat(), 120)
+    setTimeout(() => horizon && horizon.beat(), 240)
+  }
 }
 
 // ---------------------------------------------------------------- update
@@ -361,6 +339,7 @@ function update(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.05) || 0
   lastTime = now
   const demo = !gameStarted
+  if (horizon) horizon.update(dt)
 
   // Paddle width (powerup)
   const targetW = now < wideUntil ? paddle.baseW * 1.6 : paddle.baseW
@@ -429,6 +408,8 @@ function update(now) {
         ball.y = paddle.y - BALL_RADIUS
         paddleFlash = 1
         combo = 0
+        triggerShockwave(ball.x, paddle.y, '#2ff3ff')
+        if (horizon) horizon.beat()
         continue
       }
 
@@ -457,9 +438,11 @@ function update(now) {
 
         b.hp--
         b.flash = 1
+        if (horizon) horizon.beat()
         if (b.hp <= 0) {
           bricks.splice(j, 1)
           spawnParticles(nx, ny, b.color, 10)
+          triggerShockwave(nx, ny, '#ff2fa0')
           if (!demo) {
             combo++
             score += b.points * Math.min(combo, 4)
@@ -479,7 +462,6 @@ function update(now) {
 
   if (balls.length === 0 && !gameOver) loseLife(now)
   if (bricks.length === 0 && !gameOver) {
-    bgBoost = 1 // the world rushes past: we climbed a level
     if (demo) startDemo()
     else clearLevel(now)
   }
@@ -500,7 +482,7 @@ function update(now) {
     }
   }
 
-  // Particles, shockwaves, sparks
+  // Particles, shockwaves
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i]
     p.x += p.vx * dt
@@ -516,29 +498,10 @@ function update(now) {
     sw.life -= 1.6 * dt
     if (sw.life <= 0) shockwaves.splice(i, 1)
   }
-  const bg = 1 + bgBoost * 5
-  for (const s of sparks) {
-    s.y += s.speed * bg * dt
-    if (s.y > H + 20) { s.y = -20; s.x = Math.random() * W }
-  }
-  for (const r of rungs) {
-    r.y += 22 * bg * dt
-    if (r.y > H + 4) r.y -= rungs.length * RUNG_GAP
-  }
-  for (let i = 0; i < drifts.length; i++) {
-    const d = drifts[i]
-    d.y += d.speed * bg * dt
-    d.rot += d.rotV * dt
-    if (d.y - d.r > H) {
-      const fresh = makeDrift(0)
-      fresh.y = -fresh.r - Math.random() * 120
-      drifts[i] = fresh
-    }
-  }
-  bgBoost = Math.max(0, bgBoost - 0.7 * dt)
   for (const b of bricks) if (b.flash > 0) b.flash = Math.max(0, b.flash - 4 * dt)
 
   shake = Math.max(0, shake - 2.5 * dt)
+  deathFlash = Math.max(0, deathFlash - dt / 0.4)
   paddleFlash = Math.max(0, paddleFlash - 4 * dt)
   levelBanner = Math.max(0, levelBanner - dt * 1000)
 
@@ -567,42 +530,14 @@ function roundRect(x, y, w, h, r) {
 function draw() {
   if (!ctx) return
   const demo = !gameStarted
+  const PLAY_ALPHA = demo ? 0.6 : 1
+  const nowSec = performance.now() / 1000
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  ctx.fillStyle = '#07070f'
-  ctx.fillRect(0, 0, W, H)
-
-  // Background, far to near. All of it drifts down: the camera climbs.
-  ctx.lineWidth = 1.5
-  for (const d of drifts) {
-    ctx.globalAlpha = d.alpha
-    ctx.strokeStyle = d.color
-    ctx.beginPath()
-    if (d.sides === 0) {
-      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2)
-    } else {
-      for (let i = 0; i <= d.sides; i++) {
-        const a = d.rot + (Math.PI * 2 / d.sides) * i
-        const px = d.x + Math.cos(a) * d.r
-        const py = d.y + Math.sin(a) * d.r
-        if (i === 0) ctx.moveTo(px, py)
-        else ctx.lineTo(px, py)
-      }
-    }
-    ctx.stroke()
-  }
-  ctx.globalAlpha = 1
-  ctx.fillStyle = 'rgba(0, 229, 255, 0.06)'
-  for (const r of rungs) {
-    ctx.fillRect(W * 0.06, r.y, W * 0.88, 1)
-    ctx.fillRect(W * 0.06, r.y - 3, 1, 7)
-    ctx.fillRect(W * 0.94 - 1, r.y - 3, 1, 7)
-  }
-  const stretch = 1 + bgBoost * 4
-  for (const s of sparks) {
-    ctx.fillStyle = `rgba(0, 229, 255, ${s.alpha * 0.5})`
-    if (s.len) ctx.fillRect(s.x, s.y - s.len * stretch, s.size, s.len * stretch)
-    else ctx.fillRect(s.x, s.y, s.size, s.size)
+  if (horizon) horizon.draw(ctx, nowSec, { dim: demo })
+  else {
+    ctx.fillStyle = '#0b0616'
+    ctx.fillRect(0, 0, W, H)
   }
 
   if (shake > 0) {
@@ -610,15 +545,15 @@ function draw() {
     ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m)
   }
 
-  ctx.globalAlpha = demo ? 0.45 : 1
+  ctx.globalAlpha = PLAY_ALPHA
 
   // Bricks: cheap glow (an expanded translucent rect), then the body
   for (const b of bricks) {
     const a = b.hp / b.maxHp
     ctx.fillStyle = b.color
-    ctx.globalAlpha = (demo ? 0.45 : 1) * 0.18
+    ctx.globalAlpha = PLAY_ALPHA * 0.18
     ctx.fillRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6)
-    ctx.globalAlpha = (demo ? 0.45 : 1) * (0.55 + 0.45 * a)
+    ctx.globalAlpha = PLAY_ALPHA * (0.55 + 0.45 * a)
     roundRect(b.x, b.y, b.w, b.h, 2)
     ctx.fill()
     if (b.maxHp > 1) {
@@ -631,7 +566,7 @@ function draw() {
       ctx.fillRect(b.x, b.y, b.w, b.h)
     }
   }
-  ctx.globalAlpha = demo ? 0.45 : 1
+  ctx.globalAlpha = PLAY_ALPHA
 
   // Powerups
   for (const p of powerups) {
@@ -639,11 +574,11 @@ function draw() {
     ctx.shadowColor = def.color
     ctx.shadowBlur = 12
     ctx.fillStyle = def.color
-    roundRect(p.x - p.w / 2, p.y - p.h / 2, p.w, p.h, 8)
+    roundRect(p.x - p.w / 2, p.y - p.h / 2, p.w, p.h, 4)
     ctx.fill()
     ctx.shadowBlur = 0
-    ctx.fillStyle = '#07070f'
-    ctx.font = 'bold 12px monospace'
+    ctx.fillStyle = '#0b0616'
+    ctx.font = 'bold 12px "Courier New", monospace'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(def.label, p.x, p.y + 1)
@@ -652,7 +587,7 @@ function draw() {
   // Shockwaves
   for (const sw of shockwaves) {
     ctx.strokeStyle = sw.color
-    ctx.globalAlpha = (demo ? 0.45 : 1) * sw.life * 0.8
+    ctx.globalAlpha = PLAY_ALPHA * sw.life * 0.8
     ctx.lineWidth = 2 + sw.life * 6
     ctx.shadowColor = sw.color
     ctx.shadowBlur = 16 * sw.life
@@ -661,15 +596,15 @@ function draw() {
     ctx.stroke()
     ctx.shadowBlur = 0
   }
-  ctx.globalAlpha = demo ? 0.45 : 1
+  ctx.globalAlpha = PLAY_ALPHA
 
   // Particles
   for (const p of particles) {
-    ctx.globalAlpha = (demo ? 0.45 : 1) * Math.max(0, p.life)
+    ctx.globalAlpha = PLAY_ALPHA * Math.max(0, p.life)
     ctx.fillStyle = p.color
     ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
   }
-  ctx.globalAlpha = demo ? 0.45 : 1
+  ctx.globalAlpha = PLAY_ALPHA
 
   // Paddle
   if (paddle.visible) {
@@ -677,9 +612,9 @@ function draw() {
     ctx.shadowColor = PADDLE_COLOR
     ctx.shadowBlur = 14 + paddleFlash * 16
     const grad = ctx.createLinearGradient(x, paddle.y, x + paddle.w, paddle.y)
-    grad.addColorStop(0, '#0a94a8')
-    grad.addColorStop(0.5, paddleFlash > 0 ? '#ffffff' : '#a8f6ff')
-    grad.addColorStop(1, '#0a94a8')
+    grad.addColorStop(0, '#1d9aa6')
+    grad.addColorStop(0.5, paddleFlash > 0 ? '#ffffff' : '#c8fbff')
+    grad.addColorStop(1, '#1d9aa6')
     ctx.fillStyle = grad
     roundRect(x, paddle.y, paddle.w, paddle.h, 7)
     ctx.fill()
@@ -692,14 +627,14 @@ function draw() {
   for (const ball of balls) {
     ball.trail.forEach((t, i) => {
       const f = (i + 1) / ball.trail.length
-      ctx.globalAlpha = (demo ? 0.45 : 1) * f * 0.35
-      ctx.fillStyle = '#00e5ff'
+      ctx.globalAlpha = PLAY_ALPHA * f * 0.35
+      ctx.fillStyle = '#2ff3ff'
       ctx.beginPath()
       ctx.arc(t.x, t.y, BALL_RADIUS * f * 0.9, 0, Math.PI * 2)
       ctx.fill()
     })
-    ctx.globalAlpha = demo ? 0.45 : 1
-    ctx.shadowColor = '#00e5ff'
+    ctx.globalAlpha = PLAY_ALPHA
+    ctx.shadowColor = '#2ff3ff'
     ctx.shadowBlur = 18
     ctx.fillStyle = '#ffffff'
     ctx.beginPath()
@@ -712,14 +647,26 @@ function draw() {
   if (levelBanner > 0 && !demo) {
     const t = Math.min(1, levelBanner / 400)
     ctx.globalAlpha = t
-    ctx.fillStyle = '#00e5ff'
-    ctx.shadowColor = '#00e5ff'
+    ctx.fillStyle = '#ff2fa0'
+    ctx.shadowColor = '#ff2fa0'
     ctx.shadowBlur = 24
-    ctx.font = 'bold 32px monospace'
+    ctx.font = 'bold 32px "Courier New", monospace'
+    try { ctx.letterSpacing = '0.1em' } catch (e) { /* canvas letterSpacing unsupported */ }
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(`LEVEL ${level}`, W / 2, H * 0.62)
     ctx.shadowBlur = 0
+    try { ctx.letterSpacing = '0px' } catch (e) { /* canvas letterSpacing unsupported */ }
+  }
+
+  // Death: red vignette for ~400 ms after a lost life, on top of the shake.
+  if (deathFlash > 0.01) {
+    const a = deathFlash * 0.35
+    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.7)
+    g.addColorStop(0, 'rgba(255, 32, 64, 0)')
+    g.addColorStop(1, `rgba(255, 32, 64, ${a.toFixed(3)})`)
+    ctx.fillStyle = g
+    ctx.fillRect(0, 0, W, H)
   }
 
   ctx.globalAlpha = 1
@@ -758,7 +705,6 @@ function handleKeyUp(e) {
 
 function handleResize() {
   setupCanvas()
-  initSparks()
   layoutBricks()
 }
 
@@ -815,7 +761,6 @@ function handleTouchEnd(e) {
 
 onMounted(() => {
   setupCanvas()
-  initSparks()
   startDemo()
   gameRunning = true
   lastTime = performance.now()

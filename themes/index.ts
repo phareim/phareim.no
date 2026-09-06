@@ -57,7 +57,7 @@ export const themes: ThemeDefinition[] = [
   {
     id: 'breakout',
     name: 'Breakout',
-    themeColor: '#07070f',
+    themeColor: '#0b0616',
     landing: BreakoutLanding,
   },
   {

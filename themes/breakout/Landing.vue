@@ -20,7 +20,7 @@
         <p class="breakout-hud breakout-over-score">SCORE: {{ score }} · LEVEL {{ level }}</p>
         <p v-if="score >= highScore && score > 0" class="breakout-hud breakout-new-high">NEW HIGH SCORE!</p>
         <p v-else class="breakout-hud">HIGH SCORE: {{ highScore }}</p>
-        <p class="breakout-hint">PRESS ENTER OR TAP TO PLAY AGAIN</p>
+        <p class="breakout-hint">▶ PRESS ENTER OR TAP TO PLAY AGAIN ◀</p>
       </template>
       <template v-else>
         <div :class="{ 'breakout-fade': gameStarted }">
@@ -28,11 +28,11 @@
           <p v-for="line in profile.blurbs" :key="line" class="blurb">{{ line }}</p>
         </div>
         <p class="location breakout-hud">
-          SCORE: {{ score }}<template v-if="gameStarted"> · LEVEL {{ level }} · {{ '●'.repeat(Math.max(0, lives)) }}</template>
+          SCORE: {{ score }}<template v-if="gameStarted"> · LEVEL {{ level }} · {{ '◆'.repeat(Math.max(0, lives)) }}</template>
         </p>
         <p v-if="highScore > 0 && !gameStarted" class="location breakout-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
-          <p class="breakout-hint">PRESS ENTER OR TAP TO START</p>
+          <p class="breakout-hint">▶ PRESS ENTER OR TAP TO START ◀</p>
           <p class="breakout-hint breakout-hint-dim">← → MOVE · SPACE LAUNCH</p>
         </template>
       </template>
@@ -83,17 +83,19 @@ function onGameRestart() {
 
 <style>
 .breakout-hud {
-  font-family: monospace;
-  color: #00e5ff;
-  text-shadow: 0 0 10px #00e5ff;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  color: #2ff3ff;
+  text-shadow: 0 0 8px rgba(47, 243, 255, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
   letter-spacing: 0.15em;
   font-size: 1em;
 }
 
 .breakout-over-title {
-  font-family: monospace;
-  color: #00e5ff;
-  text-shadow: 0 0 20px #00e5ff, 0 0 40px #00e5ff;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  color: #ff2fa0;
+  text-shadow: 0 0 12px rgba(255, 47, 160, 0.8), 0 0 40px rgba(255, 47, 160, 0.4);
   font-size: 2.8em;
   letter-spacing: 0.1em;
   margin-top: 0.5em;
@@ -114,17 +116,22 @@ function onGameRestart() {
   animation: breakout-pulse-glow 0.8s ease-in-out infinite alternate;
 }
 @keyframes breakout-pulse-glow {
-  from { text-shadow: 0 0 10px #00e5ff; }
-  to { text-shadow: 0 0 20px #00e5ff, 0 0 40px #ff2bd6; }
+  from { text-shadow: 0 0 10px #2ff3ff; }
+  to { text-shadow: 0 0 20px #2ff3ff, 0 0 40px #ff2fa0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .breakout-new-high {
+    animation: none;
+  }
 }
 
 .breakout-hint {
-  font-family: monospace;
-  color: #00e5ff;
-  text-shadow: 0 0 8px #00e5ff;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  color: #ff2fa0;
+  text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
   font-size: 0.9em;
-  letter-spacing: 0.1em;
-  opacity: 0.8;
+  letter-spacing: 0.12em;
   margin-top: 1em;
 }
 
@@ -135,19 +142,20 @@ function onGameRestart() {
 }
 
 .breakout-hud-dim {
-  font-family: monospace;
-  color: #00e5ff;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  color: #2ff3ff;
   opacity: 0.5;
   font-size: 0.65em;
   letter-spacing: 0.1em;
 }
 
 .breakout-fade {
-  animation: breakout-fade-out 10s forwards;
+  animation: breakout-fade-out 4s forwards;
 }
 @keyframes breakout-fade-out {
   0% { opacity: 1; }
-  40% { opacity: 1; }
+  50% { opacity: 1; }
   100% { opacity: 0; pointer-events: none; }
 }
 </style>
