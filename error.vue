@@ -15,6 +15,13 @@
       </div>
     </div>
 
+    <div v-else-if="activeTheme === 'anotherworld'" class="error-container shore-error">
+      <p class="shore-coordinate">404 / BEYOND THE SHORE</p>
+      <h1>No path through here.</h1>
+      <p>This part of the coast is uncharted.</p>
+      <button @click="goHome">← Return to shore</button>
+    </div>
+
     <!-- Space theme -->
     <div v-else-if="activeTheme === 'space'" class="error-container space-container-inner">
       <p class="space-404-num">404</p>
@@ -92,6 +99,11 @@ useHead({ title: '404 — phareim.no' })
 
 
 <style scoped>
+.shore-error { text-align: left; color: var(--theme-text); }
+.shore-coordinate { font: 0.75rem var(--font-machine); color: var(--theme-accent); }
+.shore-error h1 { font-weight: 300; font-size: clamp(2rem, 6vw, 3.5rem); }
+.shore-error button { background: transparent; color: var(--theme-accent); border: 0; border-bottom: 1px solid currentColor; padding: 0.75rem 0; font: inherit; cursor: pointer; }
+.shore-error button:focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 5px; }
 /* ---- Root ---- */
 .error-root {
   min-height: 100vh;

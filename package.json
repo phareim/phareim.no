@@ -8,7 +8,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxi typecheck",
-    "test:tetris": "node --test tests/tetris-gestures.test.mjs"
+    "test:tetris": "node --test tests/tetris-gestures.test.mjs",
+    "test:anotherworld": "node --test tests/anotherworld-engine.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

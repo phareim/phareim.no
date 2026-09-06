@@ -20,6 +20,7 @@ jobs:
       - run: npm ci
 
       - run: npm run test:tetris
+      - run: npm run test:anotherworld
 
       - run: npm run typecheck
 

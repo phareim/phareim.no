@@ -12,6 +12,7 @@ import './rtype/theme.css'
 import './invaders/theme.css'
 import './starfox/theme.css'
 import './tetris/theme.css'
+import './anotherworld/theme.css'
 
 // Static imports on purpose: a swipe should not wait for a chunk, and the
 // whole set is small (the Cyberpunk game is the only big one).
@@ -25,6 +26,7 @@ import RtypeLanding from './rtype/Landing.vue'
 import InvadersLanding from './invaders/Landing.vue'
 import StarfoxLanding from './starfox/Landing.vue'
 import TetrisLanding from './tetris/Landing.vue'
+import AnotherworldLanding from './anotherworld/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the cookie value. */
@@ -47,6 +49,12 @@ export interface ThemeDefinition {
 
 // Order matters: swiping left/right walks this list, wrapping at the ends.
 export const allThemes: ThemeDefinition[] = [
+  {
+    id: 'anotherworld',
+    name: 'Another Shore',
+    themeColor: '#254b59',
+    landing: AnotherworldLanding,
+  },
   {
     id: 'scandi',
     disabled: true,

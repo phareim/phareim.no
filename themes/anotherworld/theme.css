@@ -1,0 +1,33 @@
+/* Another Shore: ink-dark coast under a petrol sky. Flat polygons only. */
+:root {
+  --aw-sky: #254b59;
+  --aw-far-rock: #356372;
+  --aw-middle-rock: #203d49;
+  --aw-ground: #101f2a;
+  --aw-shadow: #091720;
+  --aw-moon: #a9b8ac;
+  --aw-shirt: #d88b73;
+  --aw-trousers: #28303e;
+  --aw-skin: #ead7b4;
+  --aw-signal: #e7bb80;
+  --aw-ink-text: #ece4d4;
+  --aw-panel: #0b1820;
+  --aw-font: var(--font-person);
+  --aw-mono: var(--font-machine);
+}
+
+.anotherworld-page {
+  background: var(--aw-ground);
+  color: var(--aw-ink-text);
+  font-family: var(--font-person);
+  --theme-bg: var(--aw-ground);
+  --theme-text: var(--aw-ink-text);
+  --theme-text-muted: var(--aw-moon);
+  --theme-text-subtle: #7fa0ad;
+  --theme-accent: var(--aw-signal);
+  --theme-card-bg: var(--aw-panel);
+  --theme-card-border: var(--aw-far-rock);
+  --theme-card-shadow: rgba(9, 23, 32, 0.4);
+  --theme-card-radius: 3px;
+  --theme-font-body: var(--font-person);
+}
