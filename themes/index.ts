@@ -63,7 +63,7 @@ export const themes: ThemeDefinition[] = [
   {
     id: 'rtype',
     name: 'R-Type',
-    themeColor: '#05060c',
+    themeColor: '#0b0616',
     landing: RtypeLanding,
   },
   {

@@ -18,7 +18,7 @@
         <p class="hacker-score game-over-score">SCORE: {{ score }}</p>
         <p v-if="score >= highScore" class="hacker-score new-highscore">NEW HIGH SCORE!</p>
         <p v-else class="hacker-score">HIGH SCORE: {{ highScore }}</p>
-        <p class="game-over-restart">PRESS ENTER TO START A NEW GAME</p>
+        <p class="game-over-restart">▶ PRESS ENTER OR TAP TO PLAY AGAIN ◀</p>
       </template>
       <template v-else>
         <div :class="{ 'hacker-fade': gameStarted }">
@@ -27,7 +27,7 @@
         </div>
         <p class="location hacker-score">SCORE: {{ score }}</p>
         <p v-if="highScore > 0" class="location hacker-highscore-inline">HIGH SCORE: {{ highScore }}</p>
-        <p v-if="!gameStarted" class="game-over-restart">PRESS ENTER TO START</p>
+        <p v-if="!gameStarted" class="game-over-restart">▶ PRESS ENTER OR TAP TO START ◀</p>
       </template>
     </template>
   </DefaultLanding>
@@ -73,18 +73,24 @@ function onGameRestart() {
 </script>
 
 <style>
+/* Text recipes copied from the Neon Dreams design system
+   (tokens/typography.css, tokens/effects.css) via the Breakout reference
+   (themes/breakout/Landing.vue <style>), with this theme's own hues:
+   HUD green #00ff41, alerts red #ff0055. */
 .hacker-score {
-  font-family: monospace;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
   color: #00ff41;
-  text-shadow: 0 0 10px #00ff41;
+  text-shadow: 0 0 8px rgba(0, 255, 65, 0.65), 0 0 24px rgba(255, 0, 85, 0.35);
   letter-spacing: 0.15em;
   font-size: 1em;
 }
 
 .game-over-title {
-  font-family: monospace;
-  color: #00ff41;
-  text-shadow: 0 0 20px #00ff41, 0 0 40px #00ff41;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  color: #ff0055;
+  text-shadow: 0 0 12px rgba(255, 0, 85, 0.8), 0 0 40px rgba(255, 0, 85, 0.4);
   font-size: 2.8em;
   letter-spacing: 0.1em;
   margin-top: 0.5em;
@@ -106,21 +112,27 @@ function onGameRestart() {
 }
 @keyframes pulse-glow {
   from { text-shadow: 0 0 10px #00ff41; }
-  to { text-shadow: 0 0 20px #00ff41, 0 0 40px #ffcc00; }
+  to { text-shadow: 0 0 20px #00ff41, 0 0 40px #ff0055; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-highscore {
+    animation: none;
+  }
 }
 
 .game-over-restart {
-  font-family: monospace;
-  color: #00ff41;
-  text-shadow: 0 0 8px #00ff41;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  color: #ff0055;
+  text-shadow: 0 0 10px rgba(255, 0, 85, 0.6);
   font-size: 0.9em;
-  letter-spacing: 0.1em;
-  opacity: 0.8;
+  letter-spacing: 0.12em;
   margin-top: 1em;
 }
 
 .hacker-highscore-inline {
-  font-family: monospace;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
   color: #00ff41;
   opacity: 0.5;
   font-size: 0.65em;
@@ -128,11 +140,11 @@ function onGameRestart() {
 }
 
 .hacker-fade {
-  animation: fade-out-overlay 10s forwards;
+  animation: fade-out-overlay 4s forwards;
 }
 @keyframes fade-out-overlay {
   0% { opacity: 1; }
-  40% { opacity: 1; }
+  50% { opacity: 1; }
   100% { opacity: 0; pointer-events: none; }
 }
 </style>

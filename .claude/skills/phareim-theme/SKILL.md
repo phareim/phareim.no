@@ -23,7 +23,7 @@ themes/
     SocialLink.vue      icon links
     neonHorizon.js      the Neon Dreams synthwave backdrop (sky, stars, sun, ridge, grid,
                         heartbeat) as a canvas module: createHorizon() → resize/update/beat/draw.
-                        breakout uses it (2026-09-06); invaders/starfox still carry their own copy
+                        breakout and invaders use it (2026-09-06); starfox is three.js and draws its own
   _template/          copy this to start a theme
   <id>/
     theme.css         :root palette + `.{id}-page` token contract

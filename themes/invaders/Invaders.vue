@@ -26,8 +26,11 @@
  */
 const emit = defineEmits(['score', 'wave', 'lives', 'death', 'restart', 'started', 'over'])
 
+import { createHorizon } from '../base/neonHorizon.js'
+
 const canvas = ref(null)
 let ctx = null
+let horizon = null // shared synthwave backdrop (themes/base/neonHorizon.js)
 let animationFrameId = null
 let gameRunning = false
 
@@ -40,8 +43,6 @@ const PINK = '#ff2fa0'
 const CYAN = '#2ff3ff'
 const GOLD = '#ffd23f'
 const ORANGE = '#ff6a3d'
-const BG = '#0b0616'
-const BG_DEEP = '#060310'
 const LIVES = 3
 const EXTRA_AT = 1500
 const MAX_PARTICLES = 300
@@ -199,18 +200,9 @@ let ufoPopups = [] // { x, y, text, t, color }
 let particles = []
 let shockwaves = []
 let flashes = [] // 2-frame white sprite flashes { rows, x, y, px, t }
-let stars = []
-let ridge = [] // neon mountain silhouette points
-let pulse = 0 // heartbeat pulse, 1 on each formation step, decays
-let gridScroll = 0
-let sunNotch = 0
+let pulse = 0 // heartbeat copy for the formation aberration only (the
+// backdrop owns the real one in neonHorizon.js); set in doStep, decays
 let shake = 0
-let gridRailsPath = null
-let gridRailsKey = ''
-let skyGrad = null
-let skyGradSH = 0
-let sunGrad = null
-let sunGradKey = ''
 let comboFont = ''
 let comboFontPx = 0
 
@@ -218,11 +210,8 @@ let comboFontPx = 0
 // All timers are seconds, decayed with dt for frame-rate independence.
 let whiteFlash = 0 // cannon-death white frame
 let redPulse = 0 // cannon-death red vignette
-let heartT = 0 // 120 ms grid-brightness pulse per formation step
 let bassJolt = 0 // 120 ms horizontal bass jolt on the play layer
 let bassDir = 1
-let sunFlareT = 0 // wave-clear sun flare (~0.6 s)
-let gridRushT = 0 // wave-clear grid acceleration (~1.2 s)
 let bunkerRevealT = 0 // bunker scanline re-materialize
 const BUNKER_REVEAL_DUR = 0.8
 let formRevealT = 0 // formation row-by-row fade-in
@@ -244,8 +233,6 @@ let glowMobile = false
 let bunkerCellSprite = null // { c, pad } single glowing cell
 let bunkerCellPx = 0
 let goldBlob = null // soft gold radial blob for the UFO sky glow
-let pinkBlob = null // soft pink radial blob for the sun halo
-let dimOverlay = null // fullscreen dim behind the card (idle only)
 
 // Combo twist.
 let streak = 0
@@ -407,24 +394,8 @@ function buildFxCache() {
   bunkerCellSprite = { c: cc, pad }
   bunkerCellPx = bp
   for (let i = 0; i < bunkers.length; i++) bunkers[i].dirty = true
-  buildGradCache()
-  // Soft blobs (built once per resize, drawn per frame via drawImage).
+  // Soft blob (built once per resize, drawn per frame via drawImage).
   goldBlob = makeRadialBlob('rgba(255, 210, 63, 0.55)', 128)
-  pinkBlob = makeRadialBlob('rgba(255, 47, 160, 0.5)', 128)
-  // Idle dim overlay behind the card: fullscreen, built once.
-  const dc = document.createElement('canvas')
-  dc.width = Math.max(2, Math.round(SW / 2))
-  dc.height = Math.max(2, Math.round(SH / 2))
-  const d2 = dc.getContext('2d')
-  const dg = d2.createRadialGradient(
-    dc.width / 2, dc.height * 0.42, 10,
-    dc.width / 2, dc.height * 0.42, Math.max(dc.width, dc.height) * 0.42
-  )
-  dg.addColorStop(0, 'rgba(6, 3, 16, 0.62)')
-  dg.addColorStop(1, 'rgba(6, 3, 16, 0)')
-  d2.fillStyle = dg
-  d2.fillRect(0, 0, dc.width, dc.height)
-  dimOverlay = dc
 }
 
 // Bunker offscreen cache: one canvas per bunker holding the current damage
@@ -465,42 +436,6 @@ function renderBunkerCache(b) {
   b.dirty = false
 }
 
-// Gradient caches (finding 9): rebuilt on layout/resize, not per frame.
-function buildGradCache() {
-  if (!ctx || SW <= 0 || SH <= 0) return
-  const g = ctx.createLinearGradient(0, 0, 0, SH)
-  g.addColorStop(0, BG_DEEP)
-  g.addColorStop(0.55, BG)
-  g.addColorStop(0.7, '#170a30')
-  g.addColorStop(1, BG_DEEP)
-  skyGrad = g
-  skyGradSH = SH
-  const hy = horizonY()
-  let r = Math.min(SW * 0.22, SH * 0.15)
-  if (r >= 20) {
-    const cy = hy + r * 0.55
-    const sg = ctx.createLinearGradient(0, cy - r, 0, cy + r)
-    sg.addColorStop(0, '#ffd23f')
-    sg.addColorStop(0.55, '#ff6a3d')
-    sg.addColorStop(1, '#ff2fa0')
-    sunGrad = sg
-    sunGradKey = `${Math.round(SW)}x${Math.round(SH)}`
-  }
-}
-
-// Static rail geometry (finding 6): rails converge on the vanishing point and
-// never move, so one Path2D built on layout replaces ~17 strokes/frame.
-function buildGridCache() {
-  const hy = horizonY()
-  const p = new Path2D()
-  for (let k = -4; k <= 4; k++) {
-    p.moveTo(SW / 2 + k * 9, hy)
-    p.lineTo(SW / 2 + (k * SW) / 7, SH)
-  }
-  gridRailsPath = p
-  gridRailsKey = `${Math.round(SW)}x${Math.round(SH)}`
-}
-
 function setScore(v) {
   if (!gameStarted) return
   score = v
@@ -531,6 +466,8 @@ function setupCanvas() {
   cannonX = clamp(cannonX || SW / 2, 30, SW - 30)
   prevCannonX = cannonX
   layout()
+  if (!horizon) horizon = createHorizon({ ctx })
+  horizon.resize(SW, SH, ctx)
 }
 
 // Single layout entry: everything derives from SW/SH here, called on
@@ -541,9 +478,6 @@ function layout() {
   cannonY = SH * 0.95
   layoutGeometry()
   buildFxCache()
-  buildStars()
-  buildRidge()
-  buildGridCache()
   layoutBunkers()
 }
 
@@ -562,33 +496,10 @@ function bunkerTop() {
   return SH * 0.865
 }
 
-function buildStars() {
-  stars = []
-  const n = Math.round(clamp((SW * SH) / 16000, 40, 90))
-  for (let i = 0; i < n; i++) {
-    stars.push({
-      x: Math.random() * SW,
-      y: Math.random() * horizonY() * 0.94,
-      b: 0.25 + Math.random() * 0.6,
-      sp: 1 + Math.random() * 3,
-      ph: Math.random() * Math.PI * 2,
-    })
-  }
-}
-
+// Horizon line for the shooting-star flight below; the sky/stars/sun/
+// ridge/grid themselves live in the shared module (neonHorizon.js).
 function horizonY() {
   return SW < 600 ? SH * 0.92 : SH * 0.7
-}
-
-function buildRidge() {
-  ridge = []
-  const n = Math.max(12, Math.round(SW / 64))
-  for (let i = 0; i <= n; i++) {
-    ridge.push({
-      x: (i / n) * SW,
-      h: (0.25 + Math.random() * 0.75) * SH * 0.055,
-    })
-  }
 }
 
 // ---------------------------------------------------------------- waves
@@ -676,8 +587,7 @@ function startDemo() {
   deathEmitted = false
   invulnUntil = 0
   pulse = 0
-  sunNotch = 0
-  gridScroll = 0
+  if (horizon) horizon.reset()
   shake = 0
   demoCooldown = 0
   shot = null
@@ -693,10 +603,7 @@ function startDemo() {
   wavePause = 0
   whiteFlash = 0
   redPulse = 0
-  heartT = 0
   bassJolt = 0
-  sunFlareT = 0
-  gridRushT = 0
   bunkerRevealT = 0
   formRevealT = 0
   shotTrail = []
@@ -727,8 +634,7 @@ function startGame() {
   deathEmitted = false
   invulnUntil = 0
   pulse = 0
-  sunNotch = 0
-  gridScroll = 0
+  if (horizon) horizon.reset()
   shake = 0
   demoCooldown = 0
   touchActive = false
@@ -747,10 +653,7 @@ function startGame() {
   wavePause = 0
   whiteFlash = 0
   redPulse = 0
-  heartT = 0
   bassJolt = 0
-  sunFlareT = 0
-  gridRushT = 0
   bunkerRevealT = 0
   formRevealT = 0
   shotTrail = []
@@ -783,10 +686,9 @@ function doStep(now) {
   marchFrame ^= 1
   stepCount++
   pulse = 1
-  heartT = 0.12 // Effect 3a: grid brightness pulse window (~120 ms)
+  if (horizon) horizon.beat() // grid/sun heartbeat lives in neonHorizon.js
   bassJolt = 1 // Effect 3c: horizontal bass jolt, decays in updateFx
   bassDir = marchDir
-  sunNotch++ // Effect 3b: sun stripes scroll one notch per step
   const dx = Math.max(2, Math.round(cellW * 0.16))
   const dy = Math.max(4, Math.round(cellH * 0.7))
   // Live extents: outer dead columns must not trigger early edge turns.
@@ -1048,8 +950,7 @@ function killInvader(r, c, now) {
     bombs = []
     shotTrail = []
     // Effect 4: wave-clear flare + grid rush start now, reveal on rebuild.
-    sunFlareT = 0.6
-    gridRushT = 1.2
+    if (horizon) horizon.flare()
   }
 }
 
@@ -1201,16 +1102,10 @@ function update(nowMs) {
   dt = Math.min(dt, 0.05) // clamp to 50 ms for frame-rate independence
   lastTime = nowMs
 
-  pulse = Math.max(0, pulse - dt * 2.2)
-  heartT = Math.max(0, heartT - dt)
+  pulse = Math.max(0, pulse - dt * 2.2) // formation-aberration copy only
   bassJolt = Math.max(0, bassJolt - dt * 8.3) // ~120 ms jolt
   whiteFlash = Math.max(0, whiteFlash - dt * 6)
   redPulse = Math.max(0, redPulse - dt * 2.2)
-  sunFlareT = Math.max(0, sunFlareT - dt)
-  gridRushT = Math.max(0, gridRushT - dt)
-  // Effect 4: grid lines accelerate toward the viewer for 1.2 s.
-  const gridSpeed = gridRushT > 0 ? 1.6 : 0.35
-  gridScroll = (gridScroll + dt * gridSpeed) % 1
   shake = Math.max(0, shake - 2.6 * dt)
 
   cannonVX = dt > 0 ? (cannonX - prevCannonX) / dt : 0
@@ -1235,6 +1130,7 @@ function update(nowMs) {
 }
 
 function updateFx(dt, now) {
+  if (horizon) horizon.update(dt)
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i]
     p.x += p.vx * dt
@@ -1624,175 +1520,24 @@ function drawSprite(rows, ox, oy, s, color, o) {
   }
 }
 
-function drawBackground(now) {
-  // Sky: deep violet-black with a magenta haze at the horizon (cached).
-  if (!skyGrad || skyGradSH !== SH) buildGradCache()
-  ctx.fillStyle = skyGrad
-  ctx.fillRect(0, 0, SW, SH)
-
-  // Stars: sparse, twinkling, above the horizon (batched, quantized alpha).
-  ctx.fillStyle = '#cfe9ff'
-  for (let i = 0; i < stars.length; i++) {
-    const s = stars[i]
-    const tw = 0.5 + 0.5 * Math.sin(now * s.sp + s.ph)
-    ctx.globalAlpha = Math.round(s.b * (0.35 + 0.65 * tw) * 4) / 4
-    ctx.fillRect(s.x, s.y, 1.5, 1.5)
-  }
-  ctx.globalAlpha = 1
-
-  // Effect 8: rare shooting star above the horizon (thin, dim, brief).
-  if (shootStar) {
-    const a = Math.max(0, Math.min(1, shootStar.life)) * (gameStarted ? 0.9 : 0.45)
-    ctx.globalAlpha = a
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
-    ctx.moveTo(shootStar.x, shootStar.y)
-    ctx.lineTo(shootStar.x - shootStar.vx * 0.09, shootStar.y - shootStar.vy * 0.09)
-    ctx.stroke()
-    ctx.globalAlpha = a * 0.4
-    ctx.beginPath()
-    ctx.moveTo(shootStar.x, shootStar.y)
-    ctx.lineTo(shootStar.x - shootStar.vx * 0.2, shootStar.y - shootStar.vy * 0.2)
-    ctx.stroke()
-    ctx.globalAlpha = 1
-  }
-
-  drawSun()
-  drawMountains()
-  drawGrid()
-
-  // Keep the backdrop dim behind the profile card while idle (pre-rendered).
-  if (!gameStarted && dimOverlay) {
-    ctx.drawImage(dimOverlay, 0, 0, SW, SH)
-  }
-
-  // Heartbeat: the whole background pulses subtly on each formation step.
-  // Skipped while dimmed (attract mode) to save a fullscreen pass.
-  if (pulse > 0.01 && gameStarted) {
-    ctx.fillStyle = `rgba(255, 47, 160, ${0.05 * pulse})`
-    ctx.fillRect(0, 0, SW, SH)
-  }
-}
-
-function drawSun() {
-  const hy = horizonY()
-  // Low and compact: the disc stays mostly below the horizon line, partly
-  // behind the bunker band, so it never competes with the profile text.
-  let r = Math.min(SW * 0.22, SH * 0.15)
-  if (r < 20) return
-  // Effect 4: sun flare — brightens and grows ~10 % for 0.6 s.
-  const flare = sunFlareT > 0 ? sunFlareT / 0.6 : 0
-  r *= 1 + 0.1 * flare
-  const cx = SW / 2
-  const cy = hy + r * 0.55
-  const demo = !gameStarted
-  const portrait = SW < 600
-  // Halo: pre-rendered pink blob, no per-frame radial gradient.
-  if (pinkBlob) {
-    const hr = r * 2.1
-    const ha = (demo ? 0.28 : 0.44) + flare * 0.5
-    ctx.globalAlpha = Math.min(1, ha)
-    ctx.drawImage(pinkBlob, cx - hr, cy - hr, hr * 2, hr * 2)
-    ctx.globalAlpha = 1
-  }
-  // Disc, clipped, with horizontal dark cut-lines that scroll a notch per step.
-  // On portrait the horizon sits at ~92 % so the sun top lands at ~88 %;
-  // dim it there so it sits behind the hint text and icons.
-  ctx.save()
-  ctx.beginPath()
-  ctx.arc(cx, cy, r, 0, Math.PI * 2)
-  ctx.clip()
-  if (!sunGrad) buildGradCache()
-  const grad = sunGrad || (() => {
-    const f = ctx.createLinearGradient(0, cy - r, 0, cy + r)
-    f.addColorStop(0, '#ffd23f')
-    f.addColorStop(0.55, '#ff6a3d')
-    f.addColorStop(1, '#ff2fa0')
-    return f
-  })()
-  const flareA = sunFlareT > 0 ? (sunFlareT / 0.6) * 0.2 : 0
-  ctx.globalAlpha = Math.min(1, (portrait ? 0.32 : demo ? 0.5 : 0.8) + flareA)
-  ctx.fillStyle = grad
-  ctx.fillRect(cx - r, cy - r, r * 2, r * 2)
-  ctx.globalAlpha = 1
-  const phase = (sunNotch % 4) * 2
-  let yy = cy - r * 0.25 + phase
-  while (yy < cy + r) {
-    const barH = 1 + ((yy - (cy - r * 0.25)) / (2 * r)) * 9
-    ctx.fillStyle = BG
-    ctx.fillRect(cx - r, yy, r * 2, barH)
-    yy += barH + 9
-  }
-  ctx.restore()
-}
-
-function drawMountains() {
-  const hy = horizonY()
-  ctx.beginPath()
-  ctx.moveTo(0, hy)
-  for (let i = 0; i < ridge.length; i++) {
-    ctx.lineTo(ridge[i].x, hy - ridge[i].h)
-    if (i < ridge.length - 1) {
-      const nx = (ridge[i].x + ridge[i + 1].x) / 2
-      ctx.lineTo(nx, hy - Math.min(ridge[i].h, ridge[i + 1].h) * 0.3)
-    }
-  }
-  ctx.lineTo(SW, hy)
-  ctx.closePath()
-  ctx.fillStyle = '#120826'
-  ctx.fill()
-  ctx.strokeStyle = 'rgba(255, 47, 160, 0.65)'
+// Effect 8: rare shooting star above the horizon (thin, dim, brief).
+// Drawn right after the shared horizon, exactly as before.
+function drawShootStar() {
+  if (!shootStar) return
+  const a = Math.max(0, Math.min(1, shootStar.life)) * (gameStarted ? 0.9 : 0.45)
+  ctx.globalAlpha = a
+  ctx.strokeStyle = '#ffffff'
   ctx.lineWidth = 1.5
-  // shadowBlur is expensive on mobile — skip it there (ridge still reads).
-  if (!mobileFx) {
-    ctx.shadowColor = PINK
-    ctx.shadowBlur = 8
-  }
-  ctx.stroke()
-  ctx.shadowBlur = 0
-}
-
-function drawGrid() {
-  const hy = horizonY()
-  // Effect 3a: brightness pulses for ~120 ms per formation step (heartT),
-  // layered over the soft ambient pulse.
-  const heart = heartT > 0 ? heartT / 0.12 : 0
-  const brightness = 0.5 + heart * 0.6 + pulse * 0.15
-  ctx.save()
-  ctx.strokeStyle = PINK
-  ctx.lineWidth = 1
-  // shadowBlur is expensive on mobile — desktop only.
-  if (!mobileFx) {
-    ctx.shadowColor = PINK
-    ctx.shadowBlur = 6 + heart * 10
-  }
-  // Horizontal lines scroll toward the viewer (halved count for perf).
-  const rows = mobileFx ? 4 : 5
-  for (let i = 0; i < rows; i++) {
-    const p = ((i / rows) + gridScroll) % 1
-    const y = hy + (SH - hy) * p * p
-    ctx.globalAlpha = (0.12 + 0.5 * p) * brightness
-    ctx.beginPath()
-    ctx.moveTo(0, y)
-    ctx.lineTo(SW, y)
-    ctx.stroke()
-  }
-  // Rails converge on the vanishing point: one cached path, one stroke.
-  if (!gridRailsPath) buildGridCache()
-  ctx.globalAlpha = 0.35 * brightness
   ctx.beginPath()
-  ctx.stroke(gridRailsPath)
-  // Horizon line, brightest.
-  ctx.globalAlpha = 0.8
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.moveTo(0, hy)
-  ctx.lineTo(SW, hy)
+  ctx.moveTo(shootStar.x, shootStar.y)
+  ctx.lineTo(shootStar.x - shootStar.vx * 0.09, shootStar.y - shootStar.vy * 0.09)
   ctx.stroke()
-  ctx.restore()
+  ctx.globalAlpha = a * 0.4
+  ctx.beginPath()
+  ctx.moveTo(shootStar.x, shootStar.y)
+  ctx.lineTo(shootStar.x - shootStar.vx * 0.2, shootStar.y - shootStar.vy * 0.2)
+  ctx.stroke()
   ctx.globalAlpha = 1
-  ctx.shadowBlur = 0
 }
 
 function drawBunkers() {
@@ -2029,7 +1774,8 @@ function draw() {
     ctx.translate(bassDir * bassJolt * 2, 0)
   }
 
-  drawBackground(now)
+  if (horizon) horizon.draw(ctx, now, { dim: !gameStarted })
+  drawShootStar()
 
   // Gameplay dims behind the profile card in attract mode.
   ctx.globalAlpha = demo ? 0.6 : 1

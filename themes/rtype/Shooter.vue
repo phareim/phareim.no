@@ -35,9 +35,10 @@ let SH = 0 // screen height
 let portrait = false // screen taller than wide -> world rotated, ship flies up
 let dpr = 1
 
-const CYAN = '#19f0ff'
+const CYAN = '#2ff3ff' // Neon Dreams design system: cyan is the player & the interface
 const ORANGE = '#ff7a1a'
-const BG = '#05060c'
+const GOLD = '#ffd23f' // Neon Dreams design system: gold is the reward (combo x4+)
+const BG = '#0b0616' // Neon Dreams design system: violet-black page ground
 const LIVES = 3
 const SHIP_SPEED = 430 // px/s
 const BULLET_SPEED = 780
@@ -1030,10 +1031,11 @@ function stroke(color, width, glow) {
 
 function drawTerrain(demo) {
   const step = 8
-  // Wall fill: very dark navy near the rim fading to black at the edge.
+  // Wall fill: violet-black near the rim fading to deep violet at the edge
+  // (Neon Dreams ground; R-Type keeps its own neon-vector cave).
   let g = ctx.createLinearGradient(0, 0, 0, H * 0.4)
-  g.addColorStop(0, '#05060c')
-  g.addColorStop(1, '#0b1220')
+  g.addColorStop(0, '#0b0616')
+  g.addColorStop(1, '#160b2c')
   ctx.fillStyle = g
   ctx.beginPath()
   ctx.moveTo(0, 0)
@@ -1042,8 +1044,8 @@ function drawTerrain(demo) {
   ctx.closePath()
   ctx.fill()
   g = ctx.createLinearGradient(0, H, 0, H * 0.6)
-  g.addColorStop(0, '#05060c')
-  g.addColorStop(1, '#0b1220')
+  g.addColorStop(0, '#0b0616')
+  g.addColorStop(1, '#160b2c')
   ctx.fillStyle = g
   ctx.beginPath()
   ctx.moveTo(0, H)
@@ -1080,7 +1082,7 @@ function drawTerrain(demo) {
       if (hc >= 0.68) {
         const len = ((hc - 0.68) / 0.32) * H * 0.1
         const cy = ceilYAt(scx)
-        ctx.fillStyle = '#0b1220'
+        ctx.fillStyle = '#160b2c'
         ctx.beginPath()
         ctx.moveTo(scx - 11, cy)
         ctx.lineTo(scx + 11, cy)
@@ -1095,7 +1097,7 @@ function drawTerrain(demo) {
       if (hf >= 0.68) {
         const len = ((hf - 0.68) / 0.32) * H * 0.1
         const fy = floorYAt(scx)
-        ctx.fillStyle = '#0b1220'
+        ctx.fillStyle = '#160b2c'
         ctx.beginPath()
         ctx.moveTo(scx - 11, fy)
         ctx.lineTo(scx + 11, fy)
@@ -1315,18 +1317,18 @@ function draw() {
   }
 
   // Starfield: 3 parallax layers — far dim dots, mid dots, near streaks.
-  ctx.fillStyle = 'rgba(25, 240, 255, 0.25)'
+  ctx.fillStyle = 'rgba(47, 243, 255, 0.25)'
   for (let i = 0; i < starsFar.length; i++) {
     const s = starsFar[i]
     ctx.fillRect(s.x, s.y, 1, 1)
   }
-  ctx.fillStyle = 'rgba(25, 240, 255, 0.5)'
+  ctx.fillStyle = 'rgba(47, 243, 255, 0.5)'
   for (let i = 0; i < starsMid.length; i++) {
     const s = starsMid[i]
     ctx.fillRect(s.x, s.y, 2, 2)
   }
   const streakLen = 3 + lastWorld * 0.03
-  stroke('rgba(224, 251, 255, 0.7)', 1.5, 0)
+  stroke('rgba(242, 233, 255, 0.7)', 1.5, 0)
   ctx.shadowBlur = 0
   for (let i = 0; i < starsNear.length; i++) {
     const s = starsNear[i]
@@ -1334,7 +1336,7 @@ function draw() {
     ctx.moveTo(s.x, s.y)
     ctx.lineTo(s.x + streakLen, s.y)
     ctx.stroke()
-    ctx.fillStyle = '#e0fbff'
+    ctx.fillStyle = '#f2e9ff'
     ctx.fillRect(s.x - 1, s.y - 1, 2, 2)
   }
 
@@ -1364,7 +1366,7 @@ function draw() {
 
   ctx.globalAlpha = demo ? 0.5 : 1
 
-  // Terrain walls: navy fill, glowing cyan rims, outline spikes.
+  // Terrain walls: violet-black fill, glowing cyan rims, outline spikes.
   drawTerrain(demo)
   ctx.globalAlpha = demo ? 0.5 : 1
   ctx.shadowBlur = 0
@@ -1484,7 +1486,8 @@ function draw() {
     ctx.font = '10px monospace'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'top'
-    ctx.fillStyle = CYAN
+    // Neon Dreams reward colour: the multiplier readout goes gold at x4+, cyan below.
+    ctx.fillStyle = mult >= 4 ? GOLD : CYAN
     ctx.globalAlpha = (demo ? 0.5 : 1) * 0.85
     const hud = `FORCE ${force.attached ? '●' : '○'}  BEAM ${bars}  x${mult}`
     // Below the ship on screen, left-aligned from 34 px left of it.
@@ -1495,8 +1498,9 @@ function draw() {
     if (multPop) {
       ctx.font = 'bold 14px monospace'
       ctx.textAlign = 'center'
-      ctx.fillStyle = '#ffffff'
-      ctx.shadowColor = CYAN
+      // Neon Dreams reward colour: the combo pop goes gold at x4+, cyan below.
+      ctx.fillStyle = mult >= 4 ? GOLD : CYAN
+      ctx.shadowColor = mult >= 4 ? GOLD : CYAN
       ctx.shadowBlur = 12
       ctx.globalAlpha = (demo ? 0.5 : 1) * Math.max(0, 1 - multPop.t)
       const rise = multPop.t * 40 // rises on screen: -y in landscape, +x in portrait

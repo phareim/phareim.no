@@ -20,7 +20,7 @@
         <p class="rtype-hud rtype-over-score">SCORE: {{ score }} · DIST {{ distance }}M</p>
         <p v-if="score >= highScore && score > 0" class="rtype-hud rtype-new-high">NEW HIGH SCORE!</p>
         <p v-else class="rtype-hud">HIGH SCORE: {{ highScore }}</p>
-        <p class="rtype-hint">PRESS ENTER OR TAP TO PLAY AGAIN</p>
+        <p class="rtype-hint">▶ PRESS ENTER OR TAP TO PLAY AGAIN ◀</p>
       </template>
       <template v-else>
         <div :class="{ 'rtype-fade': gameStarted }">
@@ -28,11 +28,11 @@
           <p v-for="line in profile.blurbs" :key="line" class="blurb">{{ line }}</p>
         </div>
         <p class="location rtype-hud">
-          SCORE: {{ score }} · DIST {{ distance }}M<template v-if="gameStarted"> · {{ '●'.repeat(Math.max(0, lives)) }}</template>
+          SCORE: {{ score }} · DIST {{ distance }}M<template v-if="gameStarted"> · {{ '◆'.repeat(Math.max(0, lives)) }}</template>
         </p>
         <p v-if="highScore > 0 && !gameStarted" class="location rtype-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
-          <p class="rtype-hint">PRESS ENTER OR TAP TO START</p>
+          <p class="rtype-hint">▶ PRESS ENTER OR TAP TO START ◀</p>
           <p class="rtype-hint rtype-hint-dim">ARROWS/WASD MOVE · SPACE FIRE · SHIFT FORCE POD</p>
         </template>
       </template>
@@ -83,17 +83,19 @@ function onGameRestart() {
 
 <style>
 .rtype-hud {
-  font-family: monospace;
-  color: #19f0ff;
-  text-shadow: 0 0 10px #19f0ff;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  color: #2ff3ff;
+  text-shadow: 0 0 8px rgba(47, 243, 255, 0.65), 0 0 24px rgba(255, 122, 26, 0.35);
   letter-spacing: 0.15em;
   font-size: 1em;
 }
 
 .rtype-over-title {
-  font-family: monospace;
-  color: #19f0ff;
-  text-shadow: 0 0 20px #19f0ff, 0 0 40px #19f0ff;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  color: #ff7a1a;
+  text-shadow: 0 0 12px rgba(255, 122, 26, 0.8), 0 0 40px rgba(255, 122, 26, 0.4);
   font-size: 2.8em;
   letter-spacing: 0.1em;
   margin-top: 0.5em;
@@ -114,17 +116,22 @@ function onGameRestart() {
   animation: rtype-pulse-glow 0.8s ease-in-out infinite alternate;
 }
 @keyframes rtype-pulse-glow {
-  from { text-shadow: 0 0 10px #19f0ff; }
-  to { text-shadow: 0 0 20px #19f0ff, 0 0 40px #ff7a1a; }
+  from { text-shadow: 0 0 10px #2ff3ff; }
+  to { text-shadow: 0 0 20px #2ff3ff, 0 0 40px #ff7a1a; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rtype-new-high {
+    animation: none;
+  }
 }
 
 .rtype-hint {
-  font-family: monospace;
-  color: #19f0ff;
-  text-shadow: 0 0 8px #19f0ff;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  color: #ff7a1a;
+  text-shadow: 0 0 10px rgba(255, 122, 26, 0.6);
   font-size: 0.9em;
-  letter-spacing: 0.1em;
-  opacity: 0.8;
+  letter-spacing: 0.12em;
   margin-top: 1em;
 }
 
@@ -135,8 +142,9 @@ function onGameRestart() {
 }
 
 .rtype-hud-dim {
-  font-family: monospace;
-  color: #19f0ff;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+  color: #2ff3ff;
   opacity: 0.5;
   font-size: 0.65em;
   letter-spacing: 0.1em;

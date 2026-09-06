@@ -129,7 +129,7 @@ const enemyShapes = [
   }
 ]
 
-const enemyColors = ['#ff0055', '#ffcc00', '#4dffb8', '#ff6600', '#ff0055', '#00ccff']
+const enemyColors = ['#ff0055', '#ffcc00', '#4dffb8', '#ff6600', '#ff0055', '#2ff3ff']
 
 function initStars() {
   stars = []
@@ -395,7 +395,7 @@ function triggerDeathExplosion(x, y) {
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       life: 1, decay: 0.008 + Math.random() * 0.012,
-      color: Math.random() < 0.5 ? '#00ff41' : '#00cc33',
+      color: '#00ff41',
       size: 3 + Math.random() * 6
     })
   }
@@ -665,7 +665,7 @@ function update(now) {
         // Shield absorbs the bullet
         shield = false
         shieldFlash = 1
-        spawnParticles(b.x, shieldY, '#00ccff', 12)
+        spawnParticles(b.x, shieldY, '#2ff3ff', 12)
         spawnParticles(b.x, shieldY, '#ffffff', 6)
         enemyBullets.splice(i, 1)
         continue
@@ -731,14 +731,14 @@ function update(now) {
       if (p.type === 'shield') {
         shield = true
         // Blue shield activation burst
-        spawnParticles(player.x, player.y - player.height / 2, '#00ccff', 16)
+        spawnParticles(player.x, player.y - player.height / 2, '#2ff3ff', 16)
         spawnParticles(player.x, player.y - player.height / 2, '#ffffff', 8)
         playerGlow = 0.5
       } else {
         bulletLevel++
         playerGlow = 1
         // Bright cyan burst
-        spawnParticles(player.x, player.y, '#00ffff', 24)
+        spawnParticles(player.x, player.y, '#2ff3ff', 24)
         // Expanding ring of sparks
         for (let i = 0; i < 30; i++) {
           const angle = (Math.PI * 2 / 30) * i
@@ -750,7 +750,7 @@ function update(now) {
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
             life: 1, decay: 0.02 + Math.random() * 0.02,
-            color: Math.random() < 0.5 ? '#00ffff' : '#ffffff',
+            color: Math.random() < 0.5 ? '#2ff3ff' : '#ffffff',
             size: 3 + Math.random() * 3
           })
         }
@@ -859,15 +859,15 @@ function draw() {
 
   if (!gameOver) {
     // Player ship with powerup glow
-    const glowColor = playerGlow > 0 ? `rgba(0, 255, 255, ${playerGlow * 0.6})` : null
+    const glowColor = playerGlow > 0 ? `rgba(47, 243, 255, ${playerGlow * 0.6})` : null
     if (glowColor) {
-      ctx.shadowColor = '#00ffff'
+      ctx.shadowColor = '#2ff3ff'
       ctx.shadowBlur = 25 + playerGlow * 20
     } else {
       ctx.shadowColor = '#00ff41'
       ctx.shadowBlur = 10
     }
-    ctx.fillStyle = playerGlow > 0.5 ? '#00ffff' : '#00ff41'
+    ctx.fillStyle = playerGlow > 0.5 ? '#2ff3ff' : '#00ff41'
     ctx.beginPath()
     ctx.moveTo(player.x, player.y - player.height / 2)
     ctx.lineTo(player.x + player.width / 2, player.y + player.height / 2)
@@ -878,7 +878,7 @@ function draw() {
     ctx.fill()
 
     // Extra wing details for the bigger ship
-    ctx.fillStyle = playerGlow > 0.5 ? '#00cccc' : '#00cc33'
+    ctx.fillStyle = playerGlow > 0.5 ? '#2ff3ff' : '#00ff41'
     ctx.fillRect(player.x - 3, player.y - player.height * 0.1, 6, player.height * 0.4)
     ctx.shadowBlur = 0
 
@@ -887,7 +887,7 @@ function draw() {
       const shieldY = player.y - player.height / 2 - 12
       const shieldW = player.width * 1.2
       const shieldAlpha = shield ? 0.7 : shieldFlash * 0.8
-      const shieldColor = shield ? '#00ccff' : '#ffffff'
+      const shieldColor = shield ? '#2ff3ff' : '#ffffff'
       ctx.shadowColor = shieldColor
       ctx.shadowBlur = shield ? 12 : 25 * shieldFlash
       ctx.strokeStyle = shieldColor
@@ -967,12 +967,14 @@ function draw() {
     ctx.fillRect(barX, barY, barW * (boss.hp / boss.maxHp), barH)
   })
 
-  // Powerups — larger and glowier
+  // Powerups — larger and glowier. No combo/multiplier in this game, so the
+  // Neon Dreams reward colour (gold #ffd23f) shows here on both capsules,
+  // with the page ground #0a0a0a as the label ink.
   powerups.forEach(p => {
     const glow = 0.6 + 0.4 * Math.sin(p.pulse)
     const isShield = p.type === 'shield'
-    const pColor = isShield ? '#00ccff' : '#00ffff'
-    const pColorRgb = isShield ? '0, 200, 255' : '0, 255, 255'
+    const pColor = '#ffd23f'
+    const pColorRgb = '255, 210, 63'
     ctx.shadowColor = pColor
     ctx.shadowBlur = 20 + 15 * glow
     ctx.save()

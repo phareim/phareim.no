@@ -36,6 +36,10 @@
  *   horizon.draw(ctx, nowSec, { dim: !gameStarted })
  *   // on hits / level clear:
  *   horizon.beat()
+ *   // on wave clear (Invaders pattern: sun flare + grid rush):
+ *   horizon.flare()
+ *   // on demo / game start:
+ *   horizon.reset()
  */
 
 const PINK = '#ff2fa0'
@@ -79,6 +83,8 @@ export function createHorizon(opts) {
   let heartT = 0 // ~120 ms grid-brightness window per beat, like Invaders
   let gridScroll = 0
   let sunNotch = 0 // sun cut bands scroll one notch per beat
+  let sunFlareT = 0 // wave-clear sun flare (~0.6 s), set by flare()
+  let gridRushT = 0 // wave-clear grid acceleration (~1.2 s), set by flare()
   let mobile = false
 
   let skyGrad = null
@@ -168,7 +174,11 @@ export function createHorizon(opts) {
     if (!(dt > 0)) return
     pulse = Math.max(0, pulse - dt * 2.2)
     heartT = Math.max(0, heartT - dt)
-    gridScroll = (gridScroll + dt * 0.35) % 1
+    sunFlareT = Math.max(0, sunFlareT - dt)
+    gridRushT = Math.max(0, gridRushT - dt)
+    // Wave-clear rush: grid lines accelerate toward the viewer for 1.2 s.
+    const gridSpeed = gridRushT > 0 ? 1.6 : 0.35
+    gridScroll = (gridScroll + dt * gridSpeed) % 1
   }
 
   function beat() {
@@ -177,16 +187,36 @@ export function createHorizon(opts) {
     sunNotch++
   }
 
+  function flare() {
+    // Wave-clear effect, ported from Invaders: the sun brightens and grows
+    // ~10 % for 0.6 s while the grid rushes for 1.2 s.
+    sunFlareT = 0.6
+    gridRushT = 1.2
+  }
+
+  function reset() {
+    // Demo / game start, ported from Invaders' startDemo/startGame.
+    pulse = 0
+    heartT = 0
+    sunNotch = 0
+    sunFlareT = 0
+    gridRushT = 0
+    gridScroll = 0
+  }
+
   function drawSun(ctx, dim) {
     const hy = horizonY()
     let r = Math.min(W * 0.22, H * 0.15)
     if (r < 20) return
+    // Sun flare (from flare()): brightens and grows ~10 % for 0.6 s.
+    const flare = sunFlareT > 0 ? sunFlareT / 0.6 : 0
+    r *= 1 + 0.1 * flare
     const cx = W / 2
     const cy = hy + r * 0.55
     const portrait = W < 600
     if (pinkBlob) {
       const hr = r * 2.1
-      ctx.globalAlpha = dim ? 0.28 : 0.44
+      ctx.globalAlpha = Math.min(1, (dim ? 0.28 : 0.44) + flare * 0.5)
       ctx.drawImage(pinkBlob, cx - hr, cy - hr, hr * 2, hr * 2)
       ctx.globalAlpha = 1
     }
@@ -202,7 +232,7 @@ export function createHorizon(opts) {
       f.addColorStop(1, PINK)
       return f
     })()
-    ctx.globalAlpha = portrait ? 0.32 : dim ? 0.5 : 0.8
+    ctx.globalAlpha = Math.min(1, (portrait ? 0.32 : dim ? 0.5 : 0.8) + flare * 0.2)
     ctx.fillStyle = grad
     ctx.fillRect(cx - r, cy - r, r * 2, r * 2)
     ctx.globalAlpha = 1
@@ -323,5 +353,5 @@ export function createHorizon(opts) {
     }
   }
 
-  return { resize, update, beat, draw }
+  return { resize, update, beat, flare, reset, draw }
 }

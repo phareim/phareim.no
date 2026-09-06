@@ -21,7 +21,7 @@
         <p class="invaders-hud invaders-over-score">SCORE: {{ score }} · WAVE {{ wave }}</p>
         <p v-if="isNewHigh && score > 0" class="invaders-hud invaders-new-high">NEW HIGH SCORE!</p>
         <p v-else class="invaders-hud">HIGH SCORE: {{ highScore }}</p>
-        <p class="invaders-hint">PRESS ENTER OR TAP TO PLAY AGAIN</p>
+        <p class="invaders-hint">▶ PRESS ENTER OR TAP TO PLAY AGAIN ◀</p>
       </template>
       <template v-else>
         <div :class="{ 'invaders-fade': gameStarted }">
@@ -33,7 +33,7 @@
         </p>
         <p v-if="highScore > 0 && !gameStarted" class="location invaders-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
-          <p class="invaders-hint">PRESS ENTER OR TAP TO START</p>
+          <p class="invaders-hint">▶ PRESS ENTER OR TAP TO START ◀</p>
           <p class="invaders-hint invaders-hint-dim">← → / A-D MOVE · SPACE FIRE · 1 SHOT AT A TIME</p>
         </template>
       </template>
@@ -129,12 +129,13 @@ function onGameRestart() {
 }
 
 .invaders-hint {
+  /* Neon Dreams hint recipe: pink is the call to action (2026-09-06). */
   font-family: "Courier New", monospace;
-  color: #2ff3ff;
-  text-shadow: 0 0 8px #2ff3ff;
+  text-transform: uppercase;
+  color: #ff2fa0;
+  text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
   font-size: 0.9em;
-  letter-spacing: 0.1em;
-  opacity: 0.8;
+  letter-spacing: 0.12em;
   margin-top: 1em;
 }
 

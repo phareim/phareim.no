@@ -1,54 +1,48 @@
 /**
- * R-Type / NEON VECTOR
- * -----------------------
- * R-Type (1987) side-scroller in Tron vector-arcade style: stroked outline
- * geometry with glow, electric cyan player/UI on deep navy-black, hot orange
- * enemies. Single scheme — no dark variant. The landing is a playable
- * endless scroller (Shooter.vue) behind the profile card.
+ * R-Type — NEON VECTOR on NEON DREAMS ground.
+ * R-Type keeps the neon-vector world (stroked-outline ships, procedural cave,
+ * orange enemies), but the palette comes from the Neon Dreams design system
+ * (tokens/colors.css, tokens/effects.css, tokens/typography.css): violet-black
+ * ground (#0b0616), cyan player/interface (#2ff3ff), lavender-white ink,
+ * gold reward (#ffd23f). R-Type's own danger hue is orange (#ff7a1a), which
+ * takes pink's jobs (card border, hints, over-titles). The canvas covers the
+ * page; no CSS grid. One scheme — no dark variant.
  */
 
 :root {
-  /* Base colors */
-  --rtype-bg: #05060c;
-  --rtype-bg-alt: #0a0d18;
-
-  /* Text colors */
-  --rtype-text: #19f0ff;
-  --rtype-text-dim: #0a94a8;
-  --rtype-text-bright: #e0fbff;
-
-  /* Accents */
-  --rtype-border: #063a44;
-  --rtype-glow: rgba(25, 240, 255, 0.2);
-  --rtype-enemy: #ff7a1a;
-
-  /* Typography */
-  --font-rtype-mono: 'Courier New', Courier, monospace;
+  --rtype-bg: #0b0616;
+  --rtype-bg-deep: #060310;
+  --rtype-text: #f2e9ff;
+  --rtype-text-muted: #b9a8d9;
+  --rtype-text-subtle: #7a6a9a;
+  --rtype-accent: #2ff3ff;
+  --rtype-danger: #ff7a1a;
+  --rtype-gold: #ffd23f;
+  --rtype-card-bg: rgba(11, 6, 22, 0.74);
+  --rtype-card-border: rgba(255, 122, 26, 0.35);
+  --rtype-card-shadow: rgba(47, 243, 255, 0.15);
+  --rtype-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --rtype-mono: "Courier New", ui-monospace, monospace;
 }
 
 .rtype-page {
   min-height: 100vh;
-  background-color: var(--rtype-bg);
+  background: var(--rtype-bg);
   color: var(--rtype-text);
-  font-family: var(--font-rtype-mono);
+  font-family: var(--rtype-font);
+  position: relative;
   overflow-x: hidden;
-  background-image:
-    linear-gradient(rgba(25, 240, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(25, 240, 255, 0.035) 1px, transparent 1px);
-  background-size: 40px 40px;
 
-  /* Semantic theme variables */
+  /* The contract. All ten are read somewhere; add more only when a
+     second theme needs the same token. */
   --theme-bg: var(--rtype-bg);
   --theme-text: var(--rtype-text);
-  --theme-text-muted: var(--rtype-text-dim);
-  --theme-text-subtle: #3a4a5a;
-
-  --theme-card-bg: rgba(5, 12, 22, 0.8);
-  --theme-card-border: var(--rtype-text-dim);
-  --theme-card-shadow: var(--rtype-glow);
-  --theme-card-radius: 0px;
-
-  --theme-accent: var(--rtype-text);
-
-  --theme-font-body: var(--font-rtype-mono);
+  --theme-text-muted: var(--rtype-text-muted);
+  --theme-text-subtle: var(--rtype-text-subtle);
+  --theme-accent: var(--rtype-accent);
+  --theme-card-bg: var(--rtype-card-bg);
+  --theme-card-border: var(--rtype-card-border);
+  --theme-card-shadow: var(--rtype-card-shadow);
+  --theme-card-radius: 12px;
+  --theme-font-body: var(--rtype-font);
 }

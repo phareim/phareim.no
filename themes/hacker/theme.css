@@ -1,8 +1,13 @@
 /**
- * Hacker / Cyberpunk Aesthetic
- * ---------------------------
- * High contrast, terminal-inspired, digital grit.
- *
+ * Cyberpunk — the green outlier of the Neon Dreams family.
+ * Terminal green #00ff41 on black #0a0a0a with red #ff0055 for alerts is
+ * the one deliberate exception to the system's cyan/pink/gold neons; the
+ * structure below (card recipe, glow recipes, HUD/hint/over-title text
+ * recipes, gold #ffd23f as the reward colour) is copied from the Neon
+ * Dreams design system (tokens/colors.css, tokens/effects.css,
+ * tokens/typography.css) via the Breakout reference (themes/breakout/).
+ * Square corners (radius 0) and the 20px CSS grid are this theme's
+ * identity and stay. One scheme — no dark variant.
  */
 
 :root {
@@ -19,6 +24,13 @@
   --hacker-border: #003b00;
   --hacker-glow: rgba(0, 255, 65, 0.2);
   --hacker-accent: #ff0055; /* Error/Alert color */
+  --hacker-danger: #ff0055;
+  --hacker-gold: #ffd23f; /* Neon Dreams reward colour — shows on powerups */
+
+  /* Card recipe (Neon Dreams structure, green hues) */
+  --hacker-card-bg: rgba(10, 10, 10, 0.74);
+  --hacker-card-border: rgba(0, 255, 65, 0.35);
+  --hacker-card-shadow: rgba(0, 255, 65, 0.15);
 
   /* Typography */
   --font-mono: 'Courier New', Courier, monospace;
@@ -35,15 +47,16 @@
     linear-gradient(90deg, rgba(0, 255, 0, 0.03) 1px, transparent 1px);
   background-size: 20px 20px;
 
-  /* Semantic theme variables */
+  /* The contract. All ten are read somewhere; add more only when a
+     second theme needs the same token. */
   --theme-bg: var(--hacker-bg);
   --theme-text: var(--hacker-text);
   --theme-text-muted: var(--hacker-text-dim);
   --theme-text-subtle: #555;
 
-  --theme-card-bg: rgba(0, 20, 0, 0.8);
-  --theme-card-border: var(--hacker-text-dim);
-  --theme-card-shadow: var(--hacker-glow);
+  --theme-card-bg: var(--hacker-card-bg);
+  --theme-card-border: var(--hacker-card-border);
+  --theme-card-shadow: var(--hacker-card-shadow);
   --theme-card-radius: 0px;
 
   --theme-accent: var(--hacker-text);
