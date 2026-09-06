@@ -37,12 +37,18 @@ export interface ThemeDefinition {
   landing: Component
   /** Optional: rendered behind every route (starfield, texture, …). */
   backdrop?: Component
+  /**
+   * Parked: out of the swipe order, the pager, the random pick and the
+   * cookie, but still reachable with `?theme=<id>` so it can be worked on.
+   */
+  disabled?: boolean
 }
 
 // Order matters: swiping left/right walks this list, wrapping at the ends.
-export const themes: ThemeDefinition[] = [
+export const allThemes: ThemeDefinition[] = [
   {
     id: 'scandi',
+    disabled: true,
     name: 'Scandinavian Glass',
     themeColor: '#f5f5f3',
     themeColorDark: '#1a1c1e',
@@ -87,6 +93,7 @@ export const themes: ThemeDefinition[] = [
   },
   {
     id: 'space',
+    disabled: true,
     name: 'Space',
     themeColor: '#0a0a0f',
     landing: SpaceLanding,
@@ -94,6 +101,7 @@ export const themes: ThemeDefinition[] = [
   },
   {
     id: 'desk',
+    disabled: true,
     name: 'Tufte Desk',
     themeColor: '#7a7062',
     themeColorDark: '#2a2622',
@@ -101,10 +109,18 @@ export const themes: ThemeDefinition[] = [
   },
 ]
 
+/** The live rotation. Disabled themes are only reachable by deep link. */
+export const themes: ThemeDefinition[] = allThemes.filter(t => !t.disabled)
+
 export const themeIds = themes.map(t => t.id)
 
 export function isThemeId(id: unknown): id is string {
   return typeof id === 'string' && themeIds.includes(id)
+}
+
+/** Any theme, disabled ones included — for the `?theme=` deep link. */
+export function isAnyThemeId(id: unknown): id is string {
+  return typeof id === 'string' && allThemes.some(t => t.id === id)
 }
 
 export function randomThemeId(): string {

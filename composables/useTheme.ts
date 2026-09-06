@@ -1,11 +1,12 @@
-import { themes, isThemeId, randomThemeId, type ThemeDefinition } from '~/themes'
+import { themes, allThemes, isThemeId, isAnyThemeId, randomThemeId, type ThemeDefinition } from '~/themes'
 
 const COOKIE_NAME = 'theme'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 /**
  * Theme state. Resolved once per request, in this order:
- *   1. `?theme=<id>` in the URL (deep link, also handy when building a theme)
+ *   1. `?theme=<id>` in the URL (deep link, also handy when building a theme;
+ *      the only way to reach a theme marked `disabled`)
  *   2. the `theme` cookie (returning visitor)
  *   3. a random pick (first visit)
  * The pick happens during SSR, so the first paint is already the right theme
@@ -20,7 +21,7 @@ export const useTheme = () => {
 
   const activeTheme = useState<string>('activeTheme', () => {
     const fromQuery = useRoute().query.theme
-    if (isThemeId(fromQuery)) return fromQuery
+    if (isAnyThemeId(fromQuery)) return fromQuery
     if (isThemeId(cookie.value)) return cookie.value
     return randomThemeId()
   })
@@ -33,7 +34,7 @@ export const useTheme = () => {
   const navigationLocked = useState<boolean>('themeNavigationLocked', () => false)
 
   const theme = computed<ThemeDefinition>(
-    () => themes.find(t => t.id === activeTheme.value) ?? themes[0]
+    () => allThemes.find(t => t.id === activeTheme.value) ?? themes[0]
   )
 
   const themePageClass = computed(() => `${activeTheme.value}-page`)
