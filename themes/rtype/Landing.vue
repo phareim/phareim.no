@@ -20,7 +20,7 @@
         <p class="rtype-hud rtype-over-score">SCORE: {{ score }} · DIST {{ distance }}M</p>
         <p v-if="score >= highScore && score > 0" class="rtype-hud rtype-new-high">NEW HIGH SCORE!</p>
         <p v-else class="rtype-hud">HIGH SCORE: {{ highScore }}</p>
-        <p class="rtype-hint">▶ PRESS ENTER OR TAP TO PLAY AGAIN ◀</p>
+        <p class="rtype-hint">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
         <div :class="{ 'rtype-fade': gameStarted }">
@@ -32,8 +32,8 @@
         </p>
         <p v-if="highScore > 0 && !gameStarted" class="location rtype-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
-          <p class="rtype-hint">▶ PRESS ENTER OR TAP TO START ◀</p>
-          <p class="rtype-hint rtype-hint-dim">ARROWS/WASD MOVE · SPACE FIRE · SHIFT FORCE POD</p>
+          <p class="rtype-hint">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
+          <p class="rtype-hint rtype-hint-dim">{{ hint('ARROWS/WASD MOVE · SPACE FIRE · SHIFT FORCE POD', 'DRAG TO MOVE · AUTO-FIRE · DOUBLE-TAP FORCE POD') }}</p>
         </template>
       </template>
     </template>
@@ -46,6 +46,7 @@ import Shooter from './Shooter.vue'
 import { profile } from '~/themes/content'
 
 const { navigationLocked } = useTheme()
+const { hint } = useInputMode()
 
 const score = ref(0)
 const distance = ref(0)

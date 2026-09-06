@@ -45,6 +45,7 @@ components/
 composables/
   useTheme.ts        — active theme, cookie, setTheme/next/previous, navigationLocked
   useThemeNavigation.ts — swipe + ArrowLeft/ArrowRight, called once from app.vue
+  useInputMode.ts    — keyboard vs touch, so game hints say PRESS ENTER or TAP, never both (2026-09-06). SSR guess from sec-ch-ua-mobile/UA, then `(hover: none) and (pointer: coarse)` at mount, then the first keydown/touch/mouse press wins. `hint(keyboardText, touchText)` in templates.
 themes/              — see the phareim-theme skill
   index.ts           — registry (order = swipe order) and every theme.css import
   content.ts         — default landing copy

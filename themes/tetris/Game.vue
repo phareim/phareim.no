@@ -6,19 +6,18 @@
   >
     <canvas ref="canvasRef" class="tetris-board" />
     <div v-if="phase === 'idle'" class="tetris-overlay tetris-overlay-idle">
-      <span>PRESS ENTER</span>
-      <span>TAP TO PLAY</span>
+      <span>{{ hint('PRESS ENTER', 'TAP TO PLAY') }}</span>
     </div>
     <div v-else-if="phase === 'over'" class="tetris-overlay tetris-overlay-over">
       <span class="tetris-gameover">GAME OVER</span>
       <span>SCORE {{ scoreText }}</span>
       <span v-if="newBest" class="tetris-newbest">NEW BEST</span>
       <span v-else>BEST {{ bestText }}</span>
-      <span>PRESS ENTER OR TAP TO RETRY</span>
+      <span>{{ hint('PRESS ENTER TO RETRY', 'TAP TO RETRY') }}</span>
     </div>
     <div v-else-if="phase === 'paused'" class="tetris-overlay tetris-overlay-paused">
       <span>PAUSED</span>
-      <span>PRESS P OR TAP TO RESUME</span>
+      <span>{{ hint('PRESS P TO RESUME', 'TAP TO RESUME') }}</span>
     </div>
   </div>
 </template>
@@ -28,6 +27,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { PIECE_COLORS, TetrisEngine, type EngineEvent, type PieceType } from './engine'
 
 const { navigationLocked } = useTheme()
+const { hint } = useInputMode()
 
 export interface TetrisState {
   phase: 'idle' | 'playing' | 'paused' | 'over'

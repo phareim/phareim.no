@@ -21,7 +21,7 @@
         <p class="invaders-hud invaders-over-score">SCORE: {{ score }} · WAVE {{ wave }}</p>
         <p v-if="isNewHigh && score > 0" class="invaders-hud invaders-new-high">NEW HIGH SCORE!</p>
         <p v-else class="invaders-hud">HIGH SCORE: {{ highScore }}</p>
-        <p class="invaders-hint">▶ PRESS ENTER OR TAP TO PLAY AGAIN ◀</p>
+        <p class="invaders-hint">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
         <div :class="{ 'invaders-fade': gameStarted }">
@@ -33,8 +33,8 @@
         </p>
         <p v-if="highScore > 0 && !gameStarted" class="location invaders-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
-          <p class="invaders-hint">▶ PRESS ENTER OR TAP TO START ◀</p>
-          <p class="invaders-hint invaders-hint-dim">← → / A-D MOVE · SPACE FIRE · 1 SHOT AT A TIME</p>
+          <p class="invaders-hint">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
+          <p class="invaders-hint invaders-hint-dim">{{ hint('← → / A-D MOVE · SPACE FIRE · 1 SHOT AT A TIME', 'DRAG TO MOVE · AUTO-FIRE · 1 SHOT AT A TIME') }}</p>
         </template>
       </template>
     </template>
@@ -47,6 +47,7 @@ import Invaders from './Invaders.vue'
 import { profile } from '~/themes/content'
 
 const { navigationLocked } = useTheme()
+const { hint } = useInputMode()
 
 const score = ref(0)
 const wave = ref(1)

@@ -18,7 +18,7 @@
         <p class="hacker-score game-over-score">SCORE: {{ score }}</p>
         <p v-if="score >= highScore" class="hacker-score new-highscore">NEW HIGH SCORE!</p>
         <p v-else class="hacker-score">HIGH SCORE: {{ highScore }}</p>
-        <p class="game-over-restart">▶ PRESS ENTER OR TAP TO PLAY AGAIN ◀</p>
+        <p class="game-over-restart">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
         <div :class="{ 'hacker-fade': gameStarted }">
@@ -27,7 +27,7 @@
         </div>
         <p class="location hacker-score">SCORE: {{ score }}</p>
         <p v-if="highScore > 0" class="location hacker-highscore-inline">HIGH SCORE: {{ highScore }}</p>
-        <p v-if="!gameStarted" class="game-over-restart">▶ PRESS ENTER OR TAP TO START ◀</p>
+        <p v-if="!gameStarted" class="game-over-restart">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
       </template>
     </template>
   </DefaultLanding>
@@ -39,6 +39,7 @@ import SpaceInvaders from './SpaceInvaders.vue'
 import { profile } from '~/themes/content'
 
 const { navigationLocked } = useTheme()
+const { hint } = useInputMode()
 
 const score = ref(0)
 const highScore = ref(0)

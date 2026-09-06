@@ -20,7 +20,7 @@
         <p class="breakout-hud breakout-over-score">SCORE: {{ score }} · LEVEL {{ level }}</p>
         <p v-if="score >= highScore && score > 0" class="breakout-hud breakout-new-high">NEW HIGH SCORE!</p>
         <p v-else class="breakout-hud">HIGH SCORE: {{ highScore }}</p>
-        <p class="breakout-hint">▶ PRESS ENTER OR TAP TO PLAY AGAIN ◀</p>
+        <p class="breakout-hint">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
         <div :class="{ 'breakout-fade': gameStarted }">
@@ -32,8 +32,8 @@
         </p>
         <p v-if="highScore > 0 && !gameStarted" class="location breakout-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
-          <p class="breakout-hint">▶ PRESS ENTER OR TAP TO START ◀</p>
-          <p class="breakout-hint breakout-hint-dim">← → MOVE · SPACE LAUNCH</p>
+          <p class="breakout-hint">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
+          <p class="breakout-hint breakout-hint-dim">{{ hint('← → MOVE · SPACE LAUNCH', 'DRAG TO MOVE · TAP TO LAUNCH') }}</p>
         </template>
       </template>
     </template>
@@ -46,6 +46,7 @@ import Breakout from './Breakout.vue'
 import { profile } from '~/themes/content'
 
 const { navigationLocked } = useTheme()
+const { hint } = useInputMode()
 
 const score = ref(0)
 const lives = ref(3)

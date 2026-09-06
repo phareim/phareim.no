@@ -23,7 +23,7 @@
         <p class="sfx-hud sfx-over-score">SCORE: {{ score }} · {{ distance }} KM</p>
         <p v-if="isNewHigh && score > 0" class="sfx-hud sfx-new-high">NEW HIGH SCORE!</p>
         <p v-else class="sfx-hud">HIGH SCORE: {{ highScore }}</p>
-        <p class="sfx-hint">PRESS ENTER OR TAP TO FLY AGAIN</p>
+        <p class="sfx-hint">{{ hint('PRESS ENTER TO FLY AGAIN', 'TAP TO FLY AGAIN') }}</p>
       </template>
       <template v-else>
         <div :class="{ 'sfx-fade': gameStarted }">
@@ -35,8 +35,8 @@
         </p>
         <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
-          <p class="sfx-hint">▶ PRESS ENTER OR TAP TO FLY ◀</p>
-          <p class="sfx-hint sfx-hint-dim">ARROWS · SPACE FIRE · SHIFT ROLL</p>
+          <p class="sfx-hint">▶ {{ hint('PRESS ENTER TO FLY', 'TAP TO FLY') }} ◀</p>
+          <p class="sfx-hint sfx-hint-dim">{{ hint('ARROWS · SPACE FIRE · SHIFT ROLL', 'DRAG TO STEER · AUTO-FIRE · DOUBLE-TAP ROLL') }}</p>
         </template>
       </template>
     </template>
@@ -51,6 +51,7 @@ import { profile } from '~/themes/content'
 const Flight = defineAsyncComponent(() => import('./Flight.vue'))
 
 const { navigationLocked } = useTheme()
+const { hint } = useInputMode()
 
 const score = ref(0)
 const distance = ref(0)
