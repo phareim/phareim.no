@@ -97,7 +97,8 @@ const emit = defineEmits<{
 }
 
 .landing h1 {
-  font-size: 3.5em;
+  /* Scales with the viewport below 800px so the name stays on one line on phones. */
+  font-size: clamp(2.4em, 12.5vw, 3.5em);
   margin-top: 2px;
 }
 

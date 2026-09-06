@@ -1,6 +1,8 @@
 /**
  * Site fonts (2026-09-06). Two faces, the Neon Dreams split:
  *   --font-person   Space Grotesk — the person: name, blurbs, prose, location.
+ *                   Set light: 300 is the face's lightest weight and the site's
+ *                   default (body, name, page titles); 400/500 for emphasis.
  *   --font-machine  Space Mono    — the machine: HUD, hints, over-titles,
  *                                   canvas score pops, code and commit shas.
  * Both are self-hosted from @fontsource (latin subset only, ~90 KB of woff2
@@ -8,9 +10,9 @@
  * stack from ./fonts.ts. The parked themes (scandi, space, desk) keep their
  * own faces.
  */
+@import "@fontsource/space-grotesk/latin-300.css";
 @import "@fontsource/space-grotesk/latin-400.css";
 @import "@fontsource/space-grotesk/latin-500.css";
-@import "@fontsource/space-grotesk/latin-700.css";
 @import "@fontsource/space-mono/latin-400.css";
 @import "@fontsource/space-mono/latin-700.css";
 

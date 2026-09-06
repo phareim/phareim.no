@@ -64,7 +64,7 @@ onBeforeUnmount(() => { navigationLocked.value = false })
 <style scoped>
 .tetris-landing { position: relative; isolation: isolate; height: 100dvh; overflow: hidden; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(54px, calc(42px + env(safe-area-inset-bottom))) max(16px, env(safe-area-inset-left)); }
 .tetris-profile { text-align: center; max-width: 360px; flex: 0 0 auto; }
-.tetris-name { font: 700 clamp(36px, 4vw, 56px)/1.05 var(--font-person); color: var(--tetris-text); letter-spacing: -.04em; margin: 20px 0 16px; text-transform: lowercase; }
+.tetris-name { font: 300 clamp(36px, 4vw, 56px)/1.05 var(--font-person); color: var(--tetris-text); letter-spacing: -.01em; margin: 20px 0 16px; text-transform: lowercase; }
 .tetris-blurb { font: 16px/1.5 var(--font-person); margin: 2px 0; }
 .tetris-location { color: var(--tetris-text-muted); font-size: 12px; margin: 12px 0; }
 .tetris-readout { color: var(--tetris-accent); font: 11px var(--font-machine); font-variant-numeric: tabular-nums; }

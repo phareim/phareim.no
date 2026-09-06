@@ -100,7 +100,7 @@ const socialLinks = [
 
 .about-name {
   font-size: clamp(1.8rem, 5vw, 2.8rem);
-  font-weight: 500;
+  font-weight: 300;
   margin: 0 0 0.6rem;
   color: var(--theme-text, #111);
   line-height: 1;

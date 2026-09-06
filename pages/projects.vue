@@ -90,7 +90,7 @@ h1 {
   font-size: clamp(2rem, 6vw, 3.5rem);
   margin: 0 0 0.5rem;
   color: var(--theme-text, #111);
-  font-weight: 500;
+  font-weight: 300;
 }
 
 .subtitle {
@@ -147,7 +147,7 @@ h1 {
 
 .project-name {
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 500;
   margin: 0;
   color: var(--theme-text, #111);
   line-height: 1.3;

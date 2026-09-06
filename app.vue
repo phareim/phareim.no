@@ -29,6 +29,7 @@ body {
   overscroll-behavior: none;
   user-select: none;
   font-family: var(--font-person, system-ui, sans-serif);
+  font-weight: 300;
   padding: 0;
   margin: 0;
 }
@@ -47,8 +48,8 @@ body {
 
 h1 {
   font-size: 4rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 300;
+  letter-spacing: -0.01em;
   margin: 0;
   padding: 0;
 }
