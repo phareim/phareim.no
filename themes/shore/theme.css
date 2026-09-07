@@ -1,0 +1,36 @@
+/**
+ * Another Shore II
+ * ---------------------------
+ * Seven fixed frames of a night crossing. The tokens are the night palette
+ * (themes/shore/palette.ts): petrol sky, near-black rock, cream ink, the
+ * lamp's amber as the one accent. One scheme; the canvas owns light.
+ */
+
+:root {
+  --shore-sky: #1f414f;
+  --shore-far: #2b5364;
+  --shore-near: #0a161c;
+  --shore-ground: #0f2029;
+  --shore-ink: #ece4d4;
+  --shore-moon: #a9b8ac;
+  --shore-subtle: #6f8a95;
+  --shore-lamp: #e7bb80;
+  --shore-shirt: #d9836a;
+}
+
+.shore-page {
+  background: var(--shore-ground);
+  color: var(--shore-ink);
+  font-family: var(--font-person);
+
+  --theme-bg: var(--shore-ground);
+  --theme-text: var(--shore-ink);
+  --theme-text-muted: var(--shore-moon);
+  --theme-text-subtle: var(--shore-subtle);
+  --theme-accent: var(--shore-lamp);
+  --theme-card-bg: var(--shore-near);
+  --theme-card-border: var(--shore-far);
+  --theme-card-shadow: rgba(6, 15, 20, 0.4);
+  --theme-card-radius: 2px;
+  --theme-font-body: var(--font-person);
+}

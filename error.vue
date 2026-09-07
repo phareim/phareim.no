@@ -22,6 +22,14 @@
       <button @click="goHome">← Return to shore</button>
     </div>
 
+    <!-- Another Shore II: a frame with nothing in it -->
+    <div v-else-if="activeTheme === 'shore'" class="error-container shore2-error">
+      <p class="shore2-chapter">404 / off the edge of the frame</p>
+      <h1>No shot here.</h1>
+      <p>{{ requestedPath }} is past the last edge.</p>
+      <button @click="goHome">walk back</button>
+    </div>
+
     <!-- Space theme -->
     <div v-else-if="activeTheme === 'space'" class="error-container space-container-inner">
       <p class="space-404-num">404</p>
@@ -104,6 +112,12 @@ useHead({ title: '404 — phareim.no' })
 .shore-error h1 { font-weight: 300; font-size: clamp(2rem, 6vw, 3.5rem); }
 .shore-error button { background: transparent; color: var(--theme-accent); border: 0; border-bottom: 1px solid currentColor; padding: 0.75rem 0; font: inherit; cursor: pointer; }
 .shore-error button:focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 5px; }
+.shore2-error { text-align: left; color: var(--theme-text); }
+.shore2-chapter { font: 11px var(--font-machine); letter-spacing: 0.28em; text-transform: uppercase; color: var(--theme-accent); margin: 0 0 8px; }
+.shore2-error h1 { font-weight: 300; font-size: clamp(2rem, 6vw, 3.5rem); margin: 0 0 0.5rem; }
+.shore2-error p { font-weight: 300; color: var(--theme-text-muted); }
+.shore2-error button { background: transparent; color: var(--theme-accent); border: 0; border-bottom: 1px solid currentColor; padding: 0.6rem 0; font: 12px var(--font-machine); letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; }
+.shore2-error button:focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 5px; }
 /* ---- Root ---- */
 .error-root {
   min-height: 100vh;
