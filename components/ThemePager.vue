@@ -57,13 +57,16 @@ const neighbour = (delta: number) => {
   cursor: pointer;
   padding: 0;
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Edge arrows: only on devices with a hover pointer; touch users swipe.
-   Neon: the glyph glows in the theme accent and breathes; hovering lights
-   up the whole edge. */
+/* Edge arrows: on every device (touch users can still swipe). A theme that
+   owns horizontal input locks navigation, and then they are gone.
+   Neon: the glyph glows in the theme accent and breathes; hovering — or a
+   tap — lights up the whole edge. */
 .theme-arrow {
-  display: none;
+  display: grid;
+  place-items: center;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -113,7 +116,8 @@ const neighbour = (delta: number) => {
 .theme-arrow--next .theme-arrow__glyph { animation-delay: -1.7s; }
 
 .theme-arrow:hover .theme-arrow__glyph,
-.theme-arrow:focus-visible .theme-arrow__glyph {
+.theme-arrow:focus-visible .theme-arrow__glyph,
+.theme-arrow:active .theme-arrow__glyph {
   opacity: 1;
   animation-play-state: paused;
   border-color: #fff;
@@ -125,20 +129,21 @@ const neighbour = (delta: number) => {
 }
 
 .theme-arrow--prev:hover .theme-arrow__glyph,
-.theme-arrow--prev:focus-visible .theme-arrow__glyph {
+.theme-arrow--prev:focus-visible .theme-arrow__glyph,
+.theme-arrow--prev:active .theme-arrow__glyph {
   transform: rotate(-135deg) translate(0.05rem, -0.05rem);
 }
 .theme-arrow--next:hover .theme-arrow__glyph,
-.theme-arrow--next:focus-visible .theme-arrow__glyph {
+.theme-arrow--next:focus-visible .theme-arrow__glyph,
+.theme-arrow--next:active .theme-arrow__glyph {
   transform: rotate(45deg) translate(0.05rem, -0.05rem);
 }
 
 .theme-arrow:hover::before,
-.theme-arrow:focus-visible::before { opacity: 1; }
+.theme-arrow:focus-visible::before,
+.theme-arrow:active::before { opacity: 1; }
 
 .theme-arrow:focus-visible { outline: none; }
-
-.theme-arrow:active .theme-arrow__glyph { opacity: 0.7; }
 
 @keyframes theme-arrow-breathe {
   0%, 100% { opacity: 0.55; }
@@ -149,8 +154,22 @@ const neighbour = (delta: number) => {
   .theme-arrow__glyph { animation: none; opacity: 0.75; }
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .theme-arrow { display: grid; place-items: center; }
+/* Touch: smaller chevrons closer to the edge, so they stay out of the way of
+   a landing that fills a phone viewport. The hit box stays thumb-sized. */
+@media (hover: none), (pointer: coarse) {
+  .theme-arrow {
+    width: 3.25rem;
+    height: 7rem;
+  }
+
+  .theme-arrow--prev { left: 0; }
+  .theme-arrow--next { right: 0; }
+
+  .theme-arrow__glyph {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-width: 3px;
+  }
 }
 
 .theme-dots {
