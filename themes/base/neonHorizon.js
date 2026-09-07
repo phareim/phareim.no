@@ -20,9 +20,12 @@
  * the canvas 2D context, so this module needs a ctx to build them. Pass it
  * either way — whichever is handy:
  *   const horizon = createHorizon({ ctx })  // then resize(W, H)
- * Options: { ctx, sunX, sunY } — sunX is the sun's centre as a fraction of
- * the width (default .5), sunY how far its centre sits below the horizon in
- * radii (default .55; negative lifts it above).
+ * Options: { ctx, sunX, sunY, sunJitter } — sunX is the sun's centre as a
+ * fraction of the width (default .5), sunY how far its centre sits below the
+ * horizon in radii (default -.45, i.e. the horizon cuts the disc near its
+ * bottom so the cut bands read). Nothing of the sun is ever drawn below the
+ * horizon line. Both values are jittered per instance (±.09 W, ±.1 r) unless
+ * sunJitter is false, so the framing differs from load to load.
  *   // or
  *   const horizon = createHorizon()         // then resize(W, H, ctx)
  * draw(ctx, …) takes the live ctx every frame and rebuilds any missing or
@@ -89,10 +92,16 @@ export function createHorizon(opts) {
   let sunFlareT = 0 // wave-clear sun flare (~0.6 s), set by flare()
   let gridRushT = 0 // wave-clear grid acceleration (~1.2 s), set by flare()
   let mobile = false
-  // Where the sun sits. Defaults are the arcade layout (centred, 55 % of its
-  // radius below the horizon); Player One passes its own to clear the card.
-  const sunXFrac = typeof opts.sunX === 'number' ? opts.sunX : 0.5
-  const sunDrop = typeof opts.sunY === 'number' ? opts.sunY : 0.55
+  // Where the sun sits. sunX is its centre as a fraction of the width, sunY
+  // how far the centre sits below the horizon in radii — the disc is always
+  // clipped at the horizon line, so a smaller sunY shows more of it. Both are
+  // jittered a little per page load (sunJitter turns that off), so the same
+  // theme is never framed identically twice.
+  const jitter = opts.sunJitter === false ? 0 : 1
+  const sunXFrac = (typeof opts.sunX === 'number' ? opts.sunX : 0.5) +
+    jitter * (Math.random() - 0.5) * 0.18
+  const sunDrop = (typeof opts.sunY === 'number' ? opts.sunY : -0.45) +
+    jitter * (Math.random() - 0.5) * 0.2
 
   let skyGrad = null
   let skyGradH = 0
@@ -218,9 +227,15 @@ export function createHorizon(opts) {
   function drawSun(ctx, dim) {
     let { r, cx, cy } = sunGeom()
     if (r < 20) return
+    const hy = horizonY()
     // Sun flare (from flare()): brightens and grows ~10 % for 0.6 s.
     const flare = sunFlareT > 0 ? sunFlareT / 0.6 : 0
     r *= 1 + 0.1 * flare
+    // Nothing of the sun — disc or halo — is drawn below the horizon line.
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(0, 0, W, hy)
+    ctx.clip()
     const portrait = W < 600
     if (pinkBlob) {
       const hr = r * 2.1
@@ -252,6 +267,7 @@ export function createHorizon(opts) {
       ctx.fillRect(cx - r, yy, r * 2, barH)
       yy += barH + 9
     }
+    ctx.restore()
     ctx.restore()
   }
 

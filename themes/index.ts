@@ -68,6 +68,8 @@ export const allThemes: ThemeDefinition[] = [
   },
   {
     id: 'shore',
+    // Parked 2026-09-07 (the "WALK — ENTER" take); still reachable with ?theme=shore.
+    disabled: true,
     name: 'Another Shore II',
     themeColor: '#1f414f',
     landing: ShoreLanding,

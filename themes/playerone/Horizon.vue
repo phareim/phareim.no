@@ -17,9 +17,9 @@ onMounted(() => {
   reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
   ctx = canvas.value.getContext('2d')
   if (!ctx) return
-  // Sun out to the right and lifted clear of the horizon, so it balances the
-  // panel on the left instead of sitting behind it.
-  horizon = createHorizon({ sunX: .72, sunY: -.28 })
+  // Sun out to the right, so it balances the panel on the left instead of
+  // sitting behind it. Height is the module's default, jitter included.
+  horizon = createHorizon({ sunX: .72 })
   observer = new ResizeObserver(([entry]) => {
     const { width, height } = entry.contentRect
     const dpr = Math.min(devicePixelRatio || 1, 2)
