@@ -10,14 +10,13 @@ through them; a first visit lands on a random one. Each theme lives in
 
 ## Pages
 
-- `/` — landing page, rendered by the active theme
-- `/about` — bio, photo, social links
-- `/projects` — public GitHub repos, fetched live from the GitHub API
-- `/meta` — this site's commit log, from the GitHub API
+`/` is the whole site — the landing page, rendered by the active theme.
+`/about`, `/projects` and `/meta` were removed 2026-09-07; the profile and
+the contact links live in the **Player One** theme (`/?theme=playerone`).
 
-Themes: Scandinavian Glass, Cyberpunk, Breakout, R-Type, Space Invaders, Space,
-Tufte Desk. Preview one with `/?theme=<id>` (`scandi`, `hacker`, `breakout`,
-`rtype`, `invaders`, `space`, `desk`).
+Themes: Player One, Another Shore, Another Shore II, Cyberpunk, Breakout,
+R-Type, Space Invaders, Star Fox, Tetris — plus Scandinavian Glass, Space and
+Tufte Desk, parked but reachable. Preview one with `/?theme=<id>`.
 
 ## Development
 
@@ -27,8 +26,5 @@ npm run dev        # http://localhost:3030
 npm run typecheck  # vue-tsc via nuxi
 npm run build      # cloudflare-pages preset → dist/
 ```
-
-Optional: `NUXT_GITHUB_TOKEN` raises the GitHub API rate limit for
-`/projects` and `/meta`. Set it as a Pages environment variable in production.
 
 See `CLAUDE.md` for architecture and conventions.

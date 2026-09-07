@@ -18,17 +18,5 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: 'cloudflare-pages'
-  },
-
-  runtimeConfig: {
-    // Private keys, server only. On Cloudflare Pages they are set at runtime
-    // by NUXT_-prefixed env vars (NUXT_GITHUB_TOKEN -> githubToken).
-    // Server code must call useRuntimeConfig(event) — without the event,
-    // Workers return a config frozen before env vars exist.
-    // Optional: raises GitHub API rate limits for /api/projects and /api/meta
-    githubToken: '',
-
-    // Public keys that are exposed to the client
-    public: {}
   }
 });

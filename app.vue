@@ -20,8 +20,8 @@ useHead({
 
 <style>
 /* The document never scrolls (2026-09-05): every landing is locked to the
-   viewport, and a route with more content than fits scrolls inside its own
-   `.page-scroll` container instead. */
+   viewport. Since 2026-09-07 the site is landings only — the three content
+   routes that needed an inner scroller are gone. */
 html,
 body {
   height: 100%;
@@ -37,13 +37,6 @@ body {
 #__nuxt {
   height: 100%;
   overflow: hidden;
-}
-
-.page-scroll {
-  height: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
 }
 
 h1 {

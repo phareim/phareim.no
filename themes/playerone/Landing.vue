@@ -36,14 +36,6 @@
           </a>
         </li>
       </ul>
-
-      <nav class="p1-routes">
-        <NuxtLink to="/about">ABOUT</NuxtLink>
-        <span aria-hidden="true">·</span>
-        <NuxtLink to="/projects">PROJECTS</NuxtLink>
-        <span aria-hidden="true">·</span>
-        <NuxtLink to="/meta">META</NuxtLink>
-      </nav>
     </section>
 
     <p class="p1-hint">◀ {{ hint('ARROWS FOR THE ARCADE', 'SWIPE FOR THE ARCADE') }} ▶</p>
@@ -83,7 +75,6 @@ const contacts = [
 .p1-label,
 .p1-stats,
 .p1-contacts,
-.p1-routes,
 .p1-hint {
   font-family: var(--font-machine);
   text-transform: uppercase;
@@ -190,7 +181,7 @@ const contacts = [
 
 .p1-contacts {
   list-style: none;
-  margin: 0 0 16px;
+  margin: 0;
   padding: 0;
   display: grid;
   gap: 6px;
@@ -236,25 +227,8 @@ const contacts = [
 
 .p1-contacts a:active { transform: translateY(1px); }
 
-.p1-routes {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  font-size: 10.4px;
-  color: var(--p1-text-subtle);
-}
 
-.p1-routes a {
-  color: var(--p1-text-muted);
-  text-decoration: none;
-}
 
-.p1-routes a:hover,
-.p1-routes a:focus-visible {
-  color: var(--p1-gold);
-  text-shadow: 0 0 12px rgba(255, 210, 63, .5);
-  outline: none;
-}
 
 .p1-hint {
   position: absolute;
@@ -310,10 +284,8 @@ const contacts = [
   .p1-name { margin-top: 0; font-size: 26px; }
   .p1-rule { margin: 10px 0; }
   .p1-stats { margin-bottom: 12px; }
-  .p1-contacts { margin-bottom: 10px; }
   .p1-contacts a { min-height: 34px; }
   .p1-hint { display: none; }
-  .p1-routes { justify-content: flex-start; }
 }
 
 @media (max-width: 380px) {

@@ -48,9 +48,10 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
    Check a phone viewport too (headless chromium at 375×667 works on Sleeper;
    write the screenshot under `~/Pictures`, the snap cannot write to dotdirs
    or /tmp): the document never scrolls, so the landing must fit.
-4. Check `/about`, `/projects`, `/meta` and a 404 (`/nope`) — they only get
-   the tokens, so the palette has to carry them. `error.vue` has a per-theme
-   404 block; add one if the default (scandi) block looks wrong in the theme.
+4. Check a 404 (`/nope`) — it only gets the tokens, so the palette has to
+   carry it. `error.vue` has a per-theme 404 block; add one if the default
+   (scandi) block looks wrong in the theme. (`/about`, `/projects` and
+   `/meta` were deleted 2026-09-07; `/` is the only route.)
 5. `npm run typecheck`, commit, push. CI deploys `master`.
 
 ## Three levels of ambition
@@ -73,9 +74,9 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
   desk; `tetris` skips the shell and lays a profile column beside its Neon Dreams board; `playerone` skips it too and is the site's profile/contact card — the Neon Dreams horizon behind one blueprint panel, no game, no navigation lock. Since 2026-09-06 its mobile profile hides during play/pause, ResizeObserver fits the board to remaining space, and landscape phones use a two-column layout. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
   (`height: 100dvh; overflow: hidden`) and the page does not scroll —
   `html`, `body` and `#__nuxt` are locked in `app.vue`. The old `scrollable`
-  registry flag is gone with the Almanac theme that needed it. A route with
-  more content than fits (about, projects, meta) wraps itself in
-  `.page-scroll`, which scrolls inside the locked document.
+  registry flag is gone with the Almanac theme that needed it. Since
+  2026-09-07 `/` is the only route, so nothing scrolls anywhere and the
+  `.page-scroll` container is gone with about/projects/meta.
 
 `themes/content.ts` is the default copy. A theme may pass its own `content`
 prop to DefaultLanding, reword it, or ignore it.
@@ -104,7 +105,7 @@ Rules that keep nine themes from fighting:
   main dead weight cleaned out in September 2026.
 - Theme-only styling on shared pages goes in that page as
   `:global(.<id>-page) .selector` (see the hacker overrides at the bottom
-  of `pages/projects.vue`), not in `theme.css`.
+  of `pages/projects.vue` before it was deleted), not in `theme.css`.
 
 ## Navigation lock
 
