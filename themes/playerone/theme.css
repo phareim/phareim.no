@@ -1,0 +1,29 @@
+/* Player One — the profile theme, on the Neon Dreams contract:
+   cyan is the interface, pink is the call to action, gold is the reward. */
+:root {
+  --p1-bg: #0b0616;
+  --p1-text: #f2e9ff;
+  --p1-text-muted: #b9a8d9;
+  --p1-text-subtle: #7a6a9a;
+  --p1-card-bg: rgba(11, 6, 22, .74);
+  --p1-card-border: rgba(255, 47, 160, .35);
+  --p1-card-shadow: rgba(47, 243, 255, .15);
+  --p1-accent: #2ff3ff;
+  --p1-pink: #ff2fa0;
+  --p1-gold: #ffd23f;
+}
+.playerone-page {
+  background: var(--p1-bg);
+  color: var(--p1-text);
+  font-family: var(--font-person);
+  --theme-bg: var(--p1-bg);
+  --theme-text: var(--p1-text);
+  --theme-text-muted: var(--p1-text-muted);
+  --theme-text-subtle: var(--p1-text-subtle);
+  --theme-card-bg: var(--p1-card-bg);
+  --theme-card-border: var(--p1-card-border);
+  --theme-card-shadow: var(--p1-card-shadow);
+  --theme-card-radius: 12px;
+  --theme-accent: var(--p1-accent);
+  --theme-font-body: var(--font-person);
+}
