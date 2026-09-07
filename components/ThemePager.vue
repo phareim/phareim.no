@@ -1,12 +1,14 @@
 <template>
   <div class="theme-pager" aria-label="Theme">
     <button
+      v-if="!navigationLocked"
       class="theme-arrow theme-arrow--prev"
       :title="`← ${neighbour(-1).name}`"
       aria-label="Previous theme"
       @click="previousTheme"
     >‹</button>
     <button
+      v-if="!navigationLocked"
       class="theme-arrow theme-arrow--next"
       :title="`${neighbour(1).name} →`"
       aria-label="Next theme"
@@ -29,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-const { themes, activeTheme, setTheme, nextTheme, previousTheme } = useTheme()
+const { themes, activeTheme, setTheme, nextTheme, previousTheme, navigationLocked } = useTheme()
 
 const neighbour = (delta: number) => {
   const i = themes.findIndex(t => t.id === activeTheme.value)
@@ -63,9 +65,9 @@ const neighbour = (delta: number) => {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 3rem;
-  height: 6rem;
-  font-size: 2.2rem;
+  width: 4rem;
+  height: 7rem;
+  font-size: 3.6rem;
   line-height: 1;
   opacity: 0.18;
   transition: opacity 0.2s ease;

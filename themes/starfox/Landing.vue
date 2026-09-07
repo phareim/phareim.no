@@ -1,6 +1,5 @@
 <template>
   <DefaultLanding
-    :flipped="gameOver"
     :content-class="{ 'sfx-fade': gameStarted }"
   >
     <template #background>
@@ -26,10 +25,6 @@
         <p class="sfx-hint">{{ hint('PRESS ENTER TO FLY AGAIN', 'TAP TO FLY AGAIN') }}</p>
       </template>
       <template v-else>
-        <div :class="{ 'sfx-fade': gameStarted }">
-          <h1>{{ profile.name }}</h1>
-          <p v-for="line in profile.blurbs" :key="line" class="blurb">{{ line }}</p>
-        </div>
         <p class="location sfx-hud">
           SCORE: {{ score }} · {{ distance }} KM<template v-if="gameStarted"> · {{ '◆'.repeat(Math.max(0, lives)) }}</template>
         </p>
@@ -45,7 +40,6 @@
 
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
-import { profile } from '~/themes/content'
 
 // three.js is ~170 KB gzipped: load it only when this theme is on screen.
 const Flight = defineAsyncComponent(() => import('./Flight.vue'))

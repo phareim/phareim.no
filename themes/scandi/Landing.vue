@@ -1,10 +1,5 @@
 <template>
-  <DefaultLanding
-    @overlay-click="bubbles?.addBubble($event)"
-    @flip="bubbles?.flip($event)"
-    @flip-start="bubbles?.flipStart($event)"
-    @flip-stop="bubbles?.flipStop($event)"
-  >
+  <DefaultLanding @overlay-click="bubbles?.addBubble($event)">
     <template #background>
       <Bubbles ref="bubbles" />
     </template>

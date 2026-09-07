@@ -1,6 +1,5 @@
 <template>
   <DefaultLanding
-    :flipped="gameOver"
     :content-class="{ 'breakout-fade': gameStarted }"
   >
     <template #background>
@@ -23,10 +22,6 @@
         <p class="breakout-hint">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
-        <div :class="{ 'breakout-fade': gameStarted }">
-          <h1>{{ profile.name }}</h1>
-          <p v-for="line in profile.blurbs" :key="line" class="blurb">{{ line }}</p>
-        </div>
         <p class="location breakout-hud">
           SCORE: {{ score }}<template v-if="gameStarted"> · LEVEL {{ level }} · {{ '◆'.repeat(Math.max(0, lives)) }}</template>
         </p>
@@ -43,7 +38,6 @@
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import Breakout from './Breakout.vue'
-import { profile } from '~/themes/content'
 
 const { navigationLocked } = useTheme()
 const { hint } = useInputMode()

@@ -1,6 +1,5 @@
 <template>
   <DefaultLanding
-    :flipped="gameOver"
     :content-class="{ 'hacker-fade': gameStarted }"
   >
     <template #background>
@@ -21,10 +20,6 @@
         <p class="game-over-restart">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
-        <div :class="{ 'hacker-fade': gameStarted }">
-          <h1>{{ profile.name }}</h1>
-          <p v-for="line in profile.blurbs" :key="line" class="blurb">{{ line }}</p>
-        </div>
         <p class="location hacker-score">SCORE: {{ score }}</p>
         <p v-if="highScore > 0" class="location hacker-highscore-inline">HIGH SCORE: {{ highScore }}</p>
         <p v-if="!gameStarted" class="game-over-restart">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
@@ -36,7 +31,6 @@
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import SpaceInvaders from './SpaceInvaders.vue'
-import { profile } from '~/themes/content'
 
 const { navigationLocked } = useTheme()
 const { hint } = useInputMode()

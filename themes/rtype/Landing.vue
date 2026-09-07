@@ -1,6 +1,5 @@
 <template>
   <DefaultLanding
-    :flipped="gameOver"
     :content-class="{ 'rtype-fade': gameStarted }"
   >
     <template #background>
@@ -23,10 +22,6 @@
         <p class="rtype-hint">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
-        <div :class="{ 'rtype-fade': gameStarted }">
-          <h1>{{ profile.name }}</h1>
-          <p v-for="line in profile.blurbs" :key="line" class="blurb">{{ line }}</p>
-        </div>
         <p class="location rtype-hud">
           SCORE: {{ score }} · DIST {{ distance }}M<template v-if="gameStarted"> · {{ '◆'.repeat(Math.max(0, lives)) }}</template>
         </p>
@@ -43,7 +38,6 @@
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import Shooter from './Shooter.vue'
-import { profile } from '~/themes/content'
 
 const { navigationLocked } = useTheme()
 const { hint } = useInputMode()

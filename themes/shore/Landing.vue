@@ -1,26 +1,13 @@
 <template>
   <!-- Another Shore II: seven fixed frames. The canvas owns the picture; this
-    shell owns the loop, input and the few lines of DOM text (profile, pause
+    shell owns the loop, input and the few lines of DOM text (title, pause
     line, win line). No HUD: progress is the lamps on the tower. -->
   <div ref="shellRef" class="sh-shell" :class="{ 'sh-istouch': isTouch }">
     <canvas ref="canvasRef" class="sh-canvas" aria-hidden="true" />
 
-    <!-- Idle: the profile over the tide pool's sky. Shot 1 loops behind it. -->
+    <!-- Idle: the title over the tide pool's sky. Shot 1 loops behind it. -->
     <div v-if="phase === 'idle'" class="sh-profile">
       <p class="sh-chapter">another shore</p>
-      <h1 class="sh-name">{{ profile.name }}</h1>
-      <p v-for="line in profile.blurbs" :key="line" class="sh-blurb">{{ line }}</p>
-      <div class="sh-socials">
-        <SocialLink
-          v-for="s in profile.socials"
-          :key="s.type"
-          :href="s.href"
-          :type="s.type"
-          :css-class="s.cssClass ?? ''"
-          width="22"
-          height="22"
-        />
-      </div>
       <button type="button" class="sh-line sh-start" @click="startGame">
         {{ hint('walk — enter', 'walk') }}
       </button>
@@ -36,7 +23,7 @@
 
     <!-- Win: dawn. The name returns in the sky, then two plain buttons. -->
     <div v-if="phase === 'won'" class="sh-win" role="dialog" aria-label="The lamp is lit">
-      <p class="sh-win-name">{{ profile.name }}</p>
+      <p class="sh-win-name">the lamp is lit</p>
       <div class="sh-win-buttons">
         <button type="button" class="sh-line" @click="replay">{{ hint('walk again — enter', 'walk again') }}</button>
         <button type="button" class="sh-line" @click="exitToIdle">{{ hint('leave — esc', 'leave') }}</button>
@@ -65,8 +52,6 @@
 </template>
 
 <script setup lang="ts">
-import SocialLink from '~/themes/base/SocialLink.vue'
-import { profile } from '~/themes/content'
 import { createWorld, stepWorld, demoInput, STEP } from './engine'
 import { createRenderer } from './renderer'
 import type { World, Input } from './types'

@@ -1,27 +1,14 @@
 <template>
   <!-- Another Shore: own the page. A full-viewport flat-polygon coast with
-    the profile unboxed upper left while idle. No HUD boxes: beacon progress
+    the chapter title unboxed upper left while idle. No HUD boxes: beacon progress
     is three small dots, pause/exit are one line of text, touch controls are
     thin outlined zones in the black band at the bottom. -->
   <div ref="shellRef" class="aw-shell" :class="{ 'aw-istouch': isTouch, 'aw-dawn': dawn }">
     <canvas ref="canvasRef" class="aw-canvas" aria-hidden="true" />
 
-    <!-- Idle profile: the prologue, over the sky. -->
+    <!-- Idle title: the prologue, over the sky. -->
     <div v-if="phase === 'idle'" class="aw-profile">
       <p class="aw-chapter">Another shore</p>
-      <h1 class="aw-name">{{ profile.name }}</h1>
-      <p v-for="line in profile.blurbs" :key="line" class="aw-blurb">{{ line }}</p>
-      <div class="aw-socials">
-        <SocialLink
-          v-for="s in profile.socials"
-          :key="s.type"
-          :href="s.href"
-          :type="s.type"
-          :css-class="s.cssClass ?? ''"
-          width="24"
-          height="24"
-        />
-      </div>
       <button type="button" class="aw-start" @click="startGame">
         {{ hint('Start the crossing — Enter', 'Start the crossing') }}
       </button>
@@ -86,9 +73,9 @@
       paused — {{ hint('P to resume', 'resume above') }}
     </p>
 
-    <!-- Won: the lamp is lit, the world is at dawn, the name is back in the sky. -->
+    <!-- Won: the lamp is lit and the world is at dawn. -->
     <div v-if="phase === 'won'" class="aw-won" role="dialog" aria-label="The lamp is lit">
-      <p class="aw-won-name">{{ profile.name }}</p>
+      <p class="aw-won-name">the lamp is lit</p>
       <p class="aw-won-line">
         <button type="button" class="aw-text" @click="replay">{{ hint('walk again — Enter', 'walk again') }}</button>
         <span class="aw-sep">·</span>
@@ -99,8 +86,6 @@
 </template>
 
 <script setup lang="ts">
-import SocialLink from '~/themes/base/SocialLink.vue'
-import { profile } from '~/themes/content'
 import { createWorld, stepWorld, demoInput } from './engine'
 import { drawWorld, paletteNameFor } from './renderer'
 import type { World, Input } from './types'

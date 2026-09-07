@@ -5,41 +5,14 @@
       <article class="desk-sheet desk-landing-sheet">
         <header class="desk-landing-header">
           <span class="desk-landing-slug">— phareim.no</span>
-          <span class="desk-label">father / husband / geek</span>
         </header>
         <hr class="desk-rule" />
 
-        <div class="desk-landing-body">
-          <ProfileCard :flipped="flipped" @flip="flipped = !flipped" />
-
-          <h1 class="desk-landing-name">{{ profile.name }}</h1>
-          <p v-for="line in profile.blurbs" :key="line" class="desk-landing-blurb">{{ line }}</p>
-          <p class="desk-label desk-landing-location">{{ profile.location }}</p>
-
-          <div class="social-links desk-landing-socials">
-            <SocialLink
-              v-for="s in profile.socials"
-              :key="s.type"
-              :href="s.href"
-              :type="s.type"
-              :css-class="s.cssClass ?? ''"
-            />
-          </div>
-        </div>
-
-        <span class="desk-stamp desk-landing-stamp" aria-hidden="true">aspiring<br />good guy</span>
+        <div class="desk-landing-body" />
       </article>
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import ProfileCard from '~/themes/base/ProfileCard.vue'
-import SocialLink from '~/themes/base/SocialLink.vue'
-import { profile } from '~/themes/content'
-
-const flipped = ref(false)
-</script>
 
 <style scoped>
 .desk-landing {
