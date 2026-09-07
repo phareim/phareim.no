@@ -136,7 +136,7 @@ Keys: arrows / A D, Space / ↑ / W, ↓ / S crouch, P / Esc, Enter. Touch: four
 thin outlined zones along the bottom (◀ ▶ | ▼ ▲); the frame fits above them.
 
 `npm run test:shore` (16 engine tests, in CI after `test:anotherworld`).
-Verified 2026-09-06 in headless Chromium at 1440×900, 375×667 and 667×375:
+Verified 2026-09-07 in headless Chromium at 1440×900, 375×667 and 667×375:
 idle attract loop, play, pause, `/about`, `/nope`, reduced motion, emulated
 touch zones, and a deterministic keyboard replay of the autopilot to the win
 overlay. Dev-only gotcha: in a git worktree whose `node_modules` is a symlink,
