@@ -9,7 +9,7 @@ import { createMountainTerrain } from './mountainTerrain.js'
  *
  * Colours are the Neon Dreams tokens, as already used in Invaders:
  * sky #060310 / #0b0616 / #170a30, stars #cfe9ff, sun #ffd23f → #ff6a3d →
- * #ff2fa0 with ground-coloured cut bands, shaded violet XYZ terrain,
+ * #ff2fa0 with ground-coloured cut bands, jagged violet wire-mesh XYZ terrain,
  * grid pink with 9 rails at .35, a cyan centre rail
  * (Invaders strokes all rails pink; the design system calls the centre rail
  * cyan, so it is overdrawn here), and a 2 px horizon line at .8.
@@ -24,8 +24,8 @@ import { createMountainTerrain } from './mountainTerrain.js'
  *   const horizon = createHorizon({ ctx })  // then resize(W, H)
  * Options: { ctx, sunX, sunY, sunJitter } — sunX is the sun's centre as a
  * fraction of the width (default .5), sunY how far its centre sits below the
- * horizon in radii (default -.45, i.e. the horizon cuts the disc near its
- * bottom so the cut bands read). Nothing of the sun is ever drawn below the
+ * horizon in radii (optional; by default the sun clears the terrain with
+ * its bottom third behind the highest nearby tips). Nothing of the sun is ever drawn below the
  * horizon line. Both values are jittered per instance (±.09 W, ±.1 r) unless
  * sunJitter is false, so the framing differs from load to load.
  *   // or
@@ -105,8 +105,8 @@ export function createHorizon(opts) {
   const jitter = opts.sunJitter === false ? 0 : 1
   const sunXFrac = (typeof opts.sunX === 'number' ? opts.sunX : 0.5) +
     jitter * (Math.random() - 0.5) * 0.18
-  const sunDrop = (typeof opts.sunY === 'number' ? opts.sunY : -0.45) +
-    jitter * (Math.random() - 0.5) * 0.2
+  const sunDrop = typeof opts.sunY === 'number' ? opts.sunY : null
+  const sunVerticalJitter = jitter * (Math.random() - 0.5) * 0.2
 
   let skyGrad = null
   let skyGradH = 0
@@ -123,7 +123,10 @@ export function createHorizon(opts) {
   /** Sun geometry, shared by the gradient cache and the draw pass. */
   function sunGeom() {
     const r = Math.min(W * 0.22, H * 0.15)
-    return { r, cx: W * sunXFrac, cy: horizonY() + r * sunDrop }
+    const cx = W * sunXFrac
+    const lift = terrain.crestHeight(W, H, cx, r)
+    const cy = sunDrop === null ? horizonY() - lift - r / 3 : horizonY() + r * sunDrop
+    return { r, cx, cy: cy + r * sunVerticalJitter }
   }
 
   function buildGradCache(c) {

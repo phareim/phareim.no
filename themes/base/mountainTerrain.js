@@ -2,21 +2,26 @@
  * Canvas consumers share real XYZ terrain without needing a WebGL context.
  */
 export function createMountainTerrain() {
-  const cols = 112, rows = 18
+  const cols = 96, rows = 14
   const vertices = []
   const faces = []
-  const noise = (x, z) => Math.sin(x * 1.7 + z * .8) * .52 + Math.sin(x * 4.3 - z * 2.1) * .26 + Math.sin(x * 9.1 + z * 5.3) * .12
+  const hash = (x, z) => {
+    const n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453
+    return n - Math.floor(n)
+  }
   for (let row = 0; row <= rows; row++) {
     const z = 5 + row * (23.8 / rows)
     for (let col = 0; col <= cols; col++) {
-      const x = (col / cols - .5) * 110
-      const ridge = Math.pow(Math.max(0, Math.sin(x * .24 + z * .31) * .5 + .5), 2)
-      const envelope = Math.sin(Math.PI * row / rows) ** .7
-      const y = .12 + envelope * (1.1 + ridge * 3.5 + noise(x, z) * .8)
+      // Staggered, irregular vertices avoid a regular sawtooth skyline.
+      const x = (col / cols - .5) * 110 + (hash(col, row) - .5) * .65
+      const envelope = Math.sin(Math.PI * row / rows) ** .85
+      const peak = hash(col + 19, row + 7)
+      const ridge = Math.max(0, 1 - Math.abs(Math.sin(x * .39 + z * .27)))
+      const y = .12 + envelope * (.45 + ridge * 2.2 + peak ** 3 * 4.8)
       vertices.push({ x, y, z })
     }
   }
-  // Back to front; each surface is lit from the upper right, with distant haze.
+  // Back to front: opaque dark faces hide rear edges; violet lines reveal the mesh.
   for (let row = rows - 1; row >= 0; row--) {
     for (let col = 0; col < cols; col++) {
       const a = row * (cols + 1) + col, b = a + 1, c = a + cols + 1, d = c + 1
@@ -27,12 +32,24 @@ export function createMountainTerrain() {
         const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx
         const light = Math.max(0, (nx * .55 + ny * .75 + nz * .35) / Math.hypot(nx, ny, nz))
         const haze = row / rows
-        faces.push({ ids, color: `rgb(${Math.round(15 + light * 33 + haze * 12)},${Math.round(8 + light * 15 + haze * 6)},${Math.round(29 + light * 40 + haze * 20)})` })
+        faces.push({ ids, edge: `rgba(177,105,245,${.22 + light * .26 - haze * .12})`, color: `rgb(${Math.round(9 + light * 5 + haze * 5)},${Math.round(5 + light * 3 + haze * 2)},${Math.round(20 + light * 9 + haze * 9)})` })
       }
     }
   }
   const projected = vertices.map(() => ({ x: 0, y: 0 }))
   return {
+    // Highest tip across the middle of the sun, in screen pixels above ground.
+    // Use the resting camera so steering never makes the sun bob up and down.
+    crestHeight(width, height, centerX, radius) {
+      const focal = Math.max(width * .7, height * .65)
+      const vertical = Math.min(height * .5, width * .7)
+      let crest = 0
+      for (const v of vertices) {
+        const x = width / 2 + v.x * focal / v.z
+        if (Math.abs(x - centerX) < radius * .8) crest = Math.max(crest, v.y * vertical / v.z)
+      }
+      return crest
+    },
     draw(ctx, width, height, horizon, viewX, viewY) {
       const focal = Math.max(width * .7, height * .65)
       const vertical = Math.min(height * .5, width * .7)
@@ -49,8 +66,8 @@ export function createMountainTerrain() {
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.closePath()
         ctx.fillStyle = face.color
         ctx.fill()
-        // Same-colour hairline closes raster seams without a wireframe overlay.
-        ctx.strokeStyle = face.color; ctx.lineWidth = .6; ctx.stroke()
+        // Fine edges keep the triangulation legible without glow or bright filled facets.
+        ctx.strokeStyle = face.edge; ctx.lineWidth = .75; ctx.stroke()
       }
       ctx.restore()
     },
