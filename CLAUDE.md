@@ -43,7 +43,7 @@ pages/
   meta.vue           — /meta — commit log of this site from the GitHub API (same)
 error.vue            — per-theme 404 blocks
 components/
-  ThemePager.vue     — edge arrows (hover devices only) + dots; the only site chrome
+  ThemePager.vue     — neon edge chevrons (all devices since 2026-09-07; hidden while a theme locks navigation) + dots; the only site chrome
 composables/
   useTheme.ts        — active theme, cookie, setTheme/next/previous, navigationLocked
   useThemeNavigation.ts — swipe + ArrowLeft/ArrowRight, called once from app.vue
