@@ -4,6 +4,14 @@ import { createHorizon } from '~/themes/base/neonHorizon.js'
 const canvas = ref(null)
 let horizon, ctx, observer, raf = 0, last = 0
 let reduced = false
+function onPointerMove(event) {
+  if (reduced || !canvas.value) return
+  const rect = canvas.value.getBoundingClientRect()
+  if (!rect.width || !rect.height) return
+  horizon?.setView((event.clientX - rect.left) / rect.width * 2 - 1, (event.clientY - rect.top) / rect.height * 2 - 1)
+}
+function resetView() { horizon?.setView(0, 0) }
+function onPointerUp(event) { if (event.pointerType !== 'mouse') resetView() }
 function draw(time) {
   if (!ctx) return
   if (!document.hidden) {
@@ -30,9 +38,22 @@ onMounted(() => {
     if (reduced) draw(0)
   })
   observer.observe(canvas.value)
+  window.addEventListener('pointermove', onPointerMove, { passive: true })
+  window.addEventListener('pointerup', onPointerUp, { passive: true })
+  window.addEventListener('pointercancel', resetView, { passive: true })
+  window.addEventListener('blur', resetView)
+  document.documentElement.addEventListener('pointerleave', resetView)
   if (!reduced) raf = requestAnimationFrame(draw)
 })
-onBeforeUnmount(() => { cancelAnimationFrame(raf); observer?.disconnect() })
+onBeforeUnmount(() => {
+  cancelAnimationFrame(raf)
+  observer?.disconnect()
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', resetView)
+  window.removeEventListener('blur', resetView)
+  document.documentElement.removeEventListener('pointerleave', resetView)
+})
 defineExpose({ beat(clear) { if (!reduced) { horizon?.beat(); if (clear) horizon?.flare() } } })
 </script>
 <style scoped>

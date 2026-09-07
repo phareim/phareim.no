@@ -137,7 +137,10 @@ const tmpV = new THREE.Vector3()
 const tmpV2 = new THREE.Vector3()
 const tmpC = new THREE.Color()
 
-interface Mountain { side: number; x: number; w: number; h: number; z: number }
+interface Mountain { side: number; x: number; w: number; h: number; z: number; yaw: number }
+let mountainParallaxX = 0
+let mountainParallaxY = 0
+let reducedMotion: MediaQueryList | null = null
 const mountains: Mountain[] = []
 
 // ---- pools --------------------------------------------------------------
@@ -420,8 +423,44 @@ function buildStars() {
 }
 
 function buildMountains() {
-  const geo = new THREE.ConeGeometry(1, 1, 5)
-  const mat = new THREE.MeshBasicMaterial({ color: 0x140a2b })
+  // A ridged height field gives each massif shoulders, gullies and subsidiary
+  // summits. Shared geometry keeps all 44 mountains in a single draw call.
+  const columns = 24
+  const rows = 18
+  const positions: number[] = []
+  const indices: number[] = []
+  for (let z = 0; z <= rows; z++) {
+    for (let x = 0; x <= columns; x++) {
+      const px = x / columns * 2 - 1
+      const pz = z / rows * 2 - 1
+      const envelope = Math.pow(Math.max(0, 1 - px * px), 1.2)
+        * Math.pow(Math.max(0, 1 - pz * pz), 1.5)
+      const spine = pz + 0.19 * Math.sin(px * 5.7) - 0.1 * px
+      const ridge = Math.exp(-Math.abs(spine) * 3.4)
+      const peaks = 0.62 + 0.2 * Math.sin(px * 5.1 + 0.7)
+        + 0.11 * Math.sin(px * 11.3 - 1.2)
+      const gullies = 0.07 * Math.sin(px * 27 + pz * 9)
+        + 0.035 * Math.sin(px * 43 - pz * 17)
+      const height = envelope * Math.max(0.04, 0.16 + ridge * peaks + gullies)
+      positions.push(px, height, pz)
+      if (x < columns && z < rows) {
+        const a = z * (columns + 1) + x
+        const b = a + columns + 1
+        indices.push(a, b, a + 1, a + 1, b, b + 1)
+      }
+    }
+  }
+  const indexed = new THREE.BufferGeometry()
+  indexed.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  indexed.setIndex(indices)
+  const geo = indexed.toNonIndexed()
+  indexed.dispose()
+  geo.computeVertexNormals()
+  const mat = new THREE.MeshLambertMaterial({
+    color: 0x34213f,
+    emissive: 0x10071e,
+    flatShading: true,
+  })
   mountainMesh = new THREE.InstancedMesh(geo, mat, 44)
   mountainMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
   for (let i = 0; i < 44; i++) {
@@ -432,8 +471,12 @@ function buildMountains() {
       w: rand(14, 34),
       h: rand(10, 42),
       z: rand(-410, -90),
+      yaw: rand(-0.6, 0.6),
     })
   }
+  // Instances move through a large volume; a bound from their first frame
+  // would incorrectly cull the entire range later in the flight.
+  mountainMesh.frustumCulled = false
   scene.add(mountainMesh)
 }
 
@@ -1399,18 +1442,29 @@ function updateWaves(dt: number) {
 }
 
 function updateMountains(dt: number) {
+  const motion = reducedMotion?.matches ? 0 : 1
+  const follow = 1 - Math.exp(-3.5 * dt)
+  mountainParallaxX += (-shipX * 1.8 * motion - mountainParallaxX) * follow
+  mountainParallaxY += (-shipY * 0.45 * motion - mountainParallaxY) * follow
   for (let i = 0; i < mountains.length; i++) {
     const m = mountains[i]!
-    m.z += worldSpeed * 0.85 * dt
+    m.z += worldSpeed * 0.85 * dt * motion
     if (m.z > -90) {
       m.z -= 320
       m.x = m.side * rand(26, 110)
       m.w = rand(14, 34)
       m.h = rand(10, 42)
     }
-    dummy.position.set(m.x, -5 + m.h / 2 - 2, m.z)
-    dummy.scale.set(m.w, m.h, m.w)
-    dummy.rotation.set(0, 0, 0)
+    // Near slopes move farther than the distant ridges; steering leaves
+    // the sun and stars still, providing a stable reference for depth.
+    const depth = THREE.MathUtils.clamp((m.z + 410) / 320, 0, 1)
+    dummy.position.set(
+      m.x + mountainParallaxX * (0.2 + depth * 0.8),
+      -7 + mountainParallaxY * depth,
+      m.z,
+    )
+    dummy.scale.set(m.w, m.h, m.w * 0.8)
+    dummy.rotation.set(0, m.yaw, 0)
     dummy.updateMatrix()
     mountainMesh.setMatrixAt(i, dummy.matrix)
   }
@@ -1579,6 +1633,7 @@ onMounted(() => {
     renderer = new THREE.WebGLRenderer({ canvas: canvas.value!, antialias: false, powerPreference: 'low-power' })
   } catch { return }
   if (!renderer) return
+  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
   buildScene()
   resize()
   window.addEventListener('resize', resize)

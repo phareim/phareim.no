@@ -56,6 +56,7 @@ const emit = defineEmits<{
   over: []
   exit: []
   beat: [clear: boolean]
+  view: [position: { x: number, y: number }]
 }>()
 
 const COLS = 10
@@ -95,6 +96,8 @@ let running = false
 let mounted = false
 let dirty = true
 let lastEmitKey = ''
+let lastViewX = NaN
+let lastViewY = NaN
 let reducedMotion = false
 let softActive = false
 let softAcc = 0
@@ -154,6 +157,17 @@ function getState(): TetrisState {
     newBest: newBest.value,
     levelUpUntil: levelUpUntil.value
   }
+}
+
+function emitView(): void {
+  // Follow the occupied cells' centre; only send a new target when it moves.
+  const cells = phase.value === 'idle' ? [] : engine?.cells() ?? []
+  const x = cells.length ? cells.reduce((sum, cell) => sum + cell.x + .5, 0) / cells.length / COLS * 2 - 1 : 0
+  const y = cells.length ? cells.reduce((sum, cell) => sum + cell.y + .5, 0) / cells.length / ROWS * 2 - 1 : 0
+  if (x === lastViewX && y === lastViewY) return
+  lastViewX = x
+  lastViewY = y
+  emit('view', { x, y })
 }
 
 function maybeEmit(): void {
@@ -352,6 +366,7 @@ function togglePause(): void {
     lastT = 0
     dirty = true
     maybeEmit()
+    emitView()
   }
 }
 
@@ -711,6 +726,7 @@ function frame(t: number): void {
     dirty = false
     syncHudLight()
     maybeEmit()
+    emitView()
   }
 }
 

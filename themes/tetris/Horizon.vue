@@ -31,7 +31,7 @@ onMounted(() => {
   if (!reduced) raf = requestAnimationFrame(draw)
 })
 onBeforeUnmount(() => { cancelAnimationFrame(raf); observer?.disconnect() })
-defineExpose({ beat(clear) { if (!reduced) { horizon?.beat(); if (clear) horizon?.flare() } } })
+defineExpose({ setView(x, y = 0) { horizon?.setView(x, y) }, beat(clear) { if (!reduced) { horizon?.beat(); if (clear) horizon?.flare() } } })
 </script>
 <style scoped>
 .tetris-horizon { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }

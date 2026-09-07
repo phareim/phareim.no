@@ -1,3 +1,5 @@
+import { createMountainTerrain } from './mountainTerrain.js'
+
 /**
  * Neon Horizon — the shared synthwave backdrop for the Neon Dreams arcade
  * themes on phareim.no. Ported out of themes/invaders/Invaders.vue
@@ -7,8 +9,8 @@
  *
  * Colours are the Neon Dreams tokens, as already used in Invaders:
  * sky #060310 / #0b0616 / #170a30, stars #cfe9ff, sun #ffd23f → #ff6a3d →
- * #ff2fa0 with ground-coloured cut bands, ridge fill #120826 with a pink
- * .65 stroke at 1.5 px, grid pink with 9 rails at .35, a cyan centre rail
+ * #ff2fa0 with ground-coloured cut bands, shaded violet XYZ terrain,
+ * grid pink with 9 rails at .35, a cyan centre rail
  * (Invaders strokes all rails pink; the design system calls the centre rail
  * cyan, so it is overdrawn here), and a 2 px horizon line at .8.
  *
@@ -37,6 +39,7 @@
  *   // in setupCanvas / on resize:
  *   horizon.resize(W, H, ctx)
  *   // once per frame in update():
+ *   horizon.setView(playerX / width * 2 - 1) // normalized -1..1
  *   horizon.update(dt)
  *   // first thing in draw():
  *   horizon.draw(ctx, nowSec, { dim: !gameStarted })
@@ -56,7 +59,7 @@ const GROUND = '#0b0616'
 const GROUND_DEEP = '#060310'
 const SKY_GLOW = '#170a30'
 const STAR = '#cfe9ff'
-const RIDGE_FILL = '#120826'
+
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v))
@@ -84,7 +87,9 @@ export function createHorizon(opts) {
   let W = 0
   let H = 0
   let stars = []
-  let ridge = []
+  const terrain = createMountainTerrain()
+  let viewX = 0, viewY = 0, targetX = 0, targetY = 0
+  const reducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
   let pulse = 0 // heartbeat: 1 on beat(), decays at 2.2/s like Invaders
   let heartT = 0 // ~120 ms grid-brightness window per beat, like Invaders
   let gridScroll = 0
@@ -167,15 +172,10 @@ export function createHorizon(opts) {
     }
   }
 
-  function buildRidge() {
-    ridge = []
-    const n = Math.max(12, Math.round(W / 64))
-    for (let i = 0; i <= n; i++) {
-      ridge.push({
-        x: (i / n) * W,
-        h: (0.25 + Math.random() * 0.75) * H * 0.055,
-      })
-    }
+  // Player coordinates in [-1, 1]; depth determines how far each vertex moves.
+  function setView(x, y = 0) {
+    targetX = reducedMotion || !Number.isFinite(x) ? 0 : clamp(x, -1, 1)
+    targetY = reducedMotion || !Number.isFinite(y) ? 0 : clamp(y, -1, 1)
   }
 
   function resize(nW, nH, c) {
@@ -184,7 +184,6 @@ export function createHorizon(opts) {
     H = nH
     mobile = W < 600
     buildStars()
-    buildRidge()
     buildGradCache()
     buildGridCache()
     pinkBlob = makeRadialBlob('rgba(255, 47, 160, 0.5)', 128)
@@ -192,6 +191,9 @@ export function createHorizon(opts) {
 
   function update(dt) {
     if (!(dt > 0)) return
+    const follow = 1 - Math.exp(-Math.min(dt, .1) * 5)
+    viewX += (targetX - viewX) * follow
+    viewY += (targetY - viewY) * follow
     pulse = Math.max(0, pulse - dt * 2.2)
     heartT = Math.max(0, heartT - dt)
     sunFlareT = Math.max(0, sunFlareT - dt)
@@ -272,28 +274,7 @@ export function createHorizon(opts) {
   }
 
   function drawMountains(ctx) {
-    const hy = horizonY()
-    ctx.beginPath()
-    ctx.moveTo(0, hy)
-    for (let i = 0; i < ridge.length; i++) {
-      ctx.lineTo(ridge[i].x, hy - ridge[i].h)
-      if (i < ridge.length - 1) {
-        const nx = (ridge[i].x + ridge[i + 1].x) / 2
-        ctx.lineTo(nx, hy - Math.min(ridge[i].h, ridge[i + 1].h) * 0.3)
-      }
-    }
-    ctx.lineTo(W, hy)
-    ctx.closePath()
-    ctx.fillStyle = RIDGE_FILL
-    ctx.fill()
-    ctx.strokeStyle = 'rgba(255, 47, 160, 0.65)'
-    ctx.lineWidth = 1.5
-    if (!mobile) {
-      ctx.shadowColor = PINK
-      ctx.shadowBlur = 8
-    }
-    ctx.stroke()
-    ctx.shadowBlur = 0
+    terrain.draw(ctx, W, H, horizonY(), viewX, viewY)
   }
 
   function drawGrid(ctx) {
@@ -377,5 +358,5 @@ export function createHorizon(opts) {
     }
   }
 
-  return { resize, update, beat, flare, reset, draw }
+  return { resize, update, beat, flare, reset, draw, setView }
 }

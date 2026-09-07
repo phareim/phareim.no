@@ -11,7 +11,7 @@
       <div><span>LEVEL</span><strong>{{ String(tetrisState.level).padStart(2, '0') }}</strong></div>
     </div>
     <div ref="playArea" class="play-area">
-      <div class="game-wrapper"><TetrisGame ref="gameRef" :cell-size="cellSize" @state="onGameState" @beat="emit('beat', $event)" /></div>
+      <div class="game-wrapper"><TetrisGame ref="gameRef" :cell-size="cellSize" @state="onGameState" @beat="emit('beat', $event)" @view="emit('view', $event)" /></div>
       <aside class="side-rail">
         <div class="preview-panel">
           <span class="eyebrow">NEXT</span>
@@ -38,7 +38,7 @@
 import TetrisGame, { type TetrisState } from './Game.vue'
 import { PIECE_SHAPES, type PieceType } from './engine'
 const { hint } = useInputMode()
-const emit = defineEmits<{ state: [value: TetrisState], beat: [clear: boolean] }>()
+const emit = defineEmits<{ state: [value: TetrisState], beat: [clear: boolean], view: [position: { x: number, y: number }] }>()
 const gameRef = ref<InstanceType<typeof TetrisGame> | null>(null)
 const playArea = ref<HTMLElement | null>(null)
 const cellSize = ref(18)

@@ -340,7 +340,10 @@ function update(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.05) || 0
   lastTime = now
   const demo = !gameStarted
-  if (horizon) horizon.update(dt)
+  if (horizon) {
+    horizon.setView(W > 0 ? paddle.x / W * 2 - 1 : 0)
+    horizon.update(dt)
+  }
 
   // Paddle width (powerup)
   const targetW = now < wideUntil ? paddle.baseW * 1.6 : paddle.baseW

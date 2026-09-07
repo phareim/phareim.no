@@ -1131,7 +1131,10 @@ function update(nowMs) {
 }
 
 function updateFx(dt, now) {
-  if (horizon) horizon.update(dt)
+  if (horizon) {
+    horizon.setView(SW > 0 ? cannonX / SW * 2 - 1 : 0)
+    horizon.update(dt)
+  }
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i]
     p.x += p.vx * dt
