@@ -20,6 +20,9 @@
  * the canvas 2D context, so this module needs a ctx to build them. Pass it
  * either way — whichever is handy:
  *   const horizon = createHorizon({ ctx })  // then resize(W, H)
+ * Options: { ctx, sunX, sunY } — sunX is the sun's centre as a fraction of
+ * the width (default .5), sunY how far its centre sits below the horizon in
+ * radii (default .55; negative lifts it above).
  *   // or
  *   const horizon = createHorizon()         // then resize(W, H, ctx)
  * draw(ctx, …) takes the live ctx every frame and rebuilds any missing or
@@ -86,6 +89,10 @@ export function createHorizon(opts) {
   let sunFlareT = 0 // wave-clear sun flare (~0.6 s), set by flare()
   let gridRushT = 0 // wave-clear grid acceleration (~1.2 s), set by flare()
   let mobile = false
+  // Where the sun sits. Defaults are the arcade layout (centred, 55 % of its
+  // radius below the horizon); Player One passes its own to clear the card.
+  const sunXFrac = typeof opts.sunX === 'number' ? opts.sunX : 0.5
+  const sunDrop = typeof opts.sunY === 'number' ? opts.sunY : 0.55
 
   let skyGrad = null
   let skyGradH = 0
@@ -99,6 +106,12 @@ export function createHorizon(opts) {
     return W < 600 ? H * 0.92 : H * 0.7
   }
 
+  /** Sun geometry, shared by the gradient cache and the draw pass. */
+  function sunGeom() {
+    const r = Math.min(W * 0.22, H * 0.15)
+    return { r, cx: W * sunXFrac, cy: horizonY() + r * sunDrop }
+  }
+
   function buildGradCache(c) {
     const g = c || ctxRef
     if (!g || W <= 0 || H <= 0) return
@@ -109,10 +122,8 @@ export function createHorizon(opts) {
     sky.addColorStop(1, GROUND_DEEP)
     skyGrad = sky
     skyGradH = H
-    const hy = horizonY()
-    const r = Math.min(W * 0.22, H * 0.15)
+    const { r, cy } = sunGeom()
     if (r >= 20) {
-      const cy = hy + r * 0.55
       const sg = g.createLinearGradient(0, cy - r, 0, cy + r)
       sg.addColorStop(0, GOLD)
       sg.addColorStop(0.55, ORANGE)
@@ -205,14 +216,11 @@ export function createHorizon(opts) {
   }
 
   function drawSun(ctx, dim) {
-    const hy = horizonY()
-    let r = Math.min(W * 0.22, H * 0.15)
+    let { r, cx, cy } = sunGeom()
     if (r < 20) return
     // Sun flare (from flare()): brightens and grows ~10 % for 0.6 s.
     const flare = sunFlareT > 0 ? sunFlareT / 0.6 : 0
     r *= 1 + 0.1 * flare
-    const cx = W / 2
-    const cy = hy + r * 0.55
     const portrait = W < 600
     if (pinkBlob) {
       const hr = r * 2.1
