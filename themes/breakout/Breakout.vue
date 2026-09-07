@@ -34,7 +34,7 @@ let powerups = []
 let shockwaves = []
 let deathFlash = 0 // red vignette timer (s) after a lost life, ~0.4 s decay
 let score = 0
-let lives = 3
+let lives = 2
 let level = 1
 let combo = 0 // bricks broken since the last paddle hit
 let gameOver = false
@@ -54,7 +54,7 @@ const BALL_RADIUS = 6
 const BASE_SPEED = 380 // px/s at level 1
 const MAX_SPEED = 720
 const LIVES = 3
-const MAX_BALLS = 8
+const MAX_BALLS = 100
 const ROW_COLORS = [
   '#ff2fa0', '#ff2fa0', '#ff2fa0',
   'rgba(255, 47, 160, 0.72)', 'rgba(255, 47, 160, 0.72)', 'rgba(255, 47, 160, 0.72)',

@@ -44,7 +44,7 @@ const PINK = '#ff2fa0'
 const CYAN = '#2ff3ff'
 const GOLD = '#ffd23f'
 const ORANGE = '#ff6a3d'
-const LIVES = 3
+const LIVES = 2
 const EXTRA_AT = 1500
 const MAX_PARTICLES = 300
 const ROWS = 5
@@ -114,9 +114,9 @@ const OCTO_B = [
 ]
 const CANNON = [
   '......X......',
-  '......X......',
   '.....XXX.....',
-  '.....XXX.....',
+  '....XXXXX....',
+  '...XXXXXXX...',
   '.XXXXXXXXXXX.',
   'XXXXXXXXXXXXX',
   'XXXXXXXXXXXXX',
