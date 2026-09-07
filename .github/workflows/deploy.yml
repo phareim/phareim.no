@@ -21,6 +21,7 @@ jobs:
 
       - run: npm run test:tetris
       - run: npm run test:anotherworld
+      - run: npm run test:shore
 
       - run: npm run typecheck
 

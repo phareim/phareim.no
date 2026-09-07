@@ -1,0 +1,2 @@
+vite.server.fs.allow[]=/home/petter/github/phareim.no/node_modules
+vite.server.fs.allow[]=/home/petter/github/phareim.no-fresh
