@@ -6,14 +6,14 @@
       :title="`← ${neighbour(-1).name}`"
       aria-label="Previous theme"
       @click="previousTheme"
-    >‹</button>
+    ><span class="theme-arrow__glyph" aria-hidden="true" /></button>
     <button
       v-if="!navigationLocked"
       class="theme-arrow theme-arrow--next"
       :title="`${neighbour(1).name} →`"
       aria-label="Next theme"
       @click="nextTheme"
-    >›</button>
+    ><span class="theme-arrow__glyph" aria-hidden="true" /></button>
     <div class="theme-dots" role="tablist">
       <button
         v-for="t in themes"
@@ -59,31 +59,98 @@ const neighbour = (delta: number) => {
   font-family: inherit;
 }
 
-/* Edge arrows: only on devices with a hover pointer; touch users swipe. */
+/* Edge arrows: only on devices with a hover pointer; touch users swipe.
+   Neon: the glyph glows in the theme accent and breathes; hovering lights
+   up the whole edge. */
 .theme-arrow {
   display: none;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 4rem;
-  height: 7rem;
-  font-size: 3.6rem;
-  line-height: 1;
-  opacity: 0.18;
-  transition: opacity 0.2s ease;
+  width: 5.5rem;
+  height: 9rem;
+  color: var(--theme-accent, currentColor);
+  transition: opacity 0.25s ease;
 }
 
-.theme-arrow--prev { left: 0.5rem; }
-.theme-arrow--next { right: 0.5rem; }
+/* The edge wash — dark until you come near it. */
+.theme-arrow::before {
+  content: '';
+  position: absolute;
+  inset: -1rem -2rem;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: radial-gradient(
+    ellipse at var(--edge, 0%) 50%,
+    color-mix(in srgb, var(--theme-accent, #fff) 28%, transparent) 0%,
+    transparent 70%
+  );
+}
 
-.theme-arrow:hover,
-.theme-arrow:focus-visible {
-  opacity: 0.8;
-  outline: none;
+/* The chevron itself: two borders on a rotated square, so it stays crisp at
+   any size and the glow follows the stroke (drop-shadow, not box-shadow). */
+.theme-arrow__glyph {
+  position: relative;
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  border-top: 3.5px solid currentColor;
+  border-right: 3.5px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.7;
+  filter:
+    drop-shadow(0 0 3px color-mix(in srgb, var(--theme-accent, #fff) 90%, transparent))
+    drop-shadow(0 0 10px color-mix(in srgb, var(--theme-accent, #fff) 60%, transparent))
+    drop-shadow(0 0 26px color-mix(in srgb, var(--theme-accent, #fff) 35%, transparent));
+  animation: theme-arrow-breathe 3.4s ease-in-out infinite;
+  transition: opacity 0.25s ease, filter 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+}
+
+.theme-arrow--prev { left: 0.25rem; --edge: 0%; }
+.theme-arrow--next { right: 0.25rem; --edge: 100%; }
+.theme-arrow--prev .theme-arrow__glyph { transform: rotate(-135deg) translate(-0.15rem, 0.15rem); }
+.theme-arrow--next .theme-arrow__glyph { transform: rotate(45deg) translate(-0.15rem, 0.15rem); }
+.theme-arrow--next .theme-arrow__glyph { animation-delay: -1.7s; }
+
+.theme-arrow:hover .theme-arrow__glyph,
+.theme-arrow:focus-visible .theme-arrow__glyph {
+  opacity: 1;
+  animation-play-state: paused;
+  border-color: #fff;
+  filter:
+    drop-shadow(0 0 4px color-mix(in srgb, var(--theme-accent, #fff) 95%, transparent))
+    drop-shadow(0 0 14px color-mix(in srgb, var(--theme-accent, #fff) 85%, transparent))
+    drop-shadow(0 0 34px color-mix(in srgb, var(--theme-accent, #fff) 60%, transparent))
+    drop-shadow(0 0 70px color-mix(in srgb, var(--theme-accent, #fff) 40%, transparent));
+}
+
+.theme-arrow--prev:hover .theme-arrow__glyph,
+.theme-arrow--prev:focus-visible .theme-arrow__glyph {
+  transform: rotate(-135deg) translate(0.05rem, -0.05rem);
+}
+.theme-arrow--next:hover .theme-arrow__glyph,
+.theme-arrow--next:focus-visible .theme-arrow__glyph {
+  transform: rotate(45deg) translate(0.05rem, -0.05rem);
+}
+
+.theme-arrow:hover::before,
+.theme-arrow:focus-visible::before { opacity: 1; }
+
+.theme-arrow:focus-visible { outline: none; }
+
+.theme-arrow:active .theme-arrow__glyph { opacity: 0.7; }
+
+@keyframes theme-arrow-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.95; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-arrow__glyph { animation: none; opacity: 0.75; }
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .theme-arrow { display: block; }
+  .theme-arrow { display: grid; place-items: center; }
 }
 
 .theme-dots {
