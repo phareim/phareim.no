@@ -1,29 +1,88 @@
-import type { World } from './types'
+import type { Platform, RockfallHazard, TideHazard, World } from './types'
+import { ARCHES, OVERHANG, TOWER, tideLevel } from './engine'
 
-// Another Shore — flat-polygon cinematic alien coast.
+// Another Shore — flat-polygon night coast, drawn through a 16-entry palette.
 //
-// Palette (exact, from DESIGN.md — no other fills used):
-//   sky #254b59 · far rock #356372 · middle rock #203d49 · ground #101f2a
-//   shadow #091720 · moon #a9b8ac · shirt #d88b73 · trousers #28303e
-//   skin #ead7b4 · signal #e7bb80
+// Indices 0–7 are the base hues, 8–15 the same hues one step toward the
+// moon (the lit ramp). Everything that faces the moon — right sides of
+// slabs, top bands, crests — uses base + 8. That is the whole lighting
+// model. Four palettes share the vertex data: dusk, night, storm, dawn;
+// the world's lit beacons pick one and the swap is a hard cut.
 //
-// World units, y down. Player x/y is feet centre (body 22x52), ground ~y420,
-// world height 540. Coordinates are CSS pixels; the caller applies the DPR
-// transform. All geometry is deterministic (integer hashes) — nothing depends
-// on Math.random, so there is no flicker between frames.
+// World units, y down. Player x/y is feet centre (body 22x52), ground y420.
+// The camera fixes the ground line at 84 % of the height (80 % portrait),
+// the horizon 22 % above it. Coordinates are CSS pixels; the caller applies
+// the DPR transform. All scenery is a pure function of integer hashes.
 
-const SKY = '#254b59'
-const FAR = '#356372'
-const MID = '#203d49'
-const GROUND = '#101f2a'
-const SHADOW = '#091720'
-const MOON = '#a9b8ac'
-const SHIRT = '#d88b73'
-const TROUSER = '#28303e'
-const SKIN = '#ead7b4'
-const SIGNAL = '#e7bb80'
+export type PaletteName = 'dusk' | 'night' | 'storm' | 'dawn'
+export interface DrawOptions {
+  reducedMotion?: boolean
+  paused?: boolean
+}
+
+// Base indices.
+const SKY = 0
+const FAR = 1
+const MID = 2
+const NEAR = 3
+const SEA = 4
+const SLAB = 5
+const SKIN = 6
+const SHIRT = 7
+const L = 8 // + base = lit
+
+type Palette = readonly string[]
+
+const NIGHT: Palette = [
+  '#254b59', '#356372', '#203d49', '#091720', '#173540', '#101f2a', '#ead7b4', '#d88b73',
+  '#a9b8ac', '#4b8194', '#2f5768', '#1a3340', '#7ea6a8', '#3f6472', '#e7bb80', '#f2b39a',
+]
+const DUSK: Palette = [
+  '#4f4d5c', '#3b3a49', '#2b2b38', '#13131b', '#2e3342', '#1b1d27', '#d9c3a3', '#b47a6c',
+  '#726f80', '#4c4b5b', '#3a3b4a', '#23232e', '#4d5466', '#3b3e4d', '#d7b07a', '#c48b7c',
+]
+const STORM: Palette = [
+  '#17313b', '#23434f', '#152a33', '#050e14', '#0f232b', '#0a151c', '#c9b899', '#b8735f',
+  '#7f8d84', '#35606f', '#204049', '#11242d', '#587c80', '#2c4a55', '#e7bb80', '#d4957f',
+]
+// Dawn: the sky takes the skin tone, so the figure's face becomes the sky's.
+const DAWN: Palette = [
+  '#c8b596', '#6f7f86', '#4a5a62', '#1a2228', '#7f9599', '#2c3a42', '#c8b596', '#d88b73',
+  '#ecdcc0', '#8c9aa0', '#63747c', '#2e3a42', '#b5c3c2', '#566a73', '#f0c07f', '#f0ab90',
+]
+// One frame of lightning: every base index shows its lit colour.
+const LIGHTNING: Palette = [
+  STORM[9], STORM[9], STORM[10], STORM[11], STORM[12], STORM[13], STORM[14], STORM[15],
+  NIGHT[8], NIGHT[9], NIGHT[10], NIGHT[11], NIGHT[12], NIGHT[13], NIGHT[14], NIGHT[15],
+].map((c, i) => (i === 0 ? NIGHT[8] : c))
+
+const PALETTES: Record<PaletteName, Palette> = { dusk: DUSK, night: NIGHT, storm: STORM, dawn: DAWN }
+
+function darken(hex: string, k: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.round(((n >> 16) & 255) * k)
+  const g = Math.round(((n >> 8) & 255) * k)
+  const b = Math.round((n & 255) * k)
+  return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')
+}
+// Paused: every index one step darker. Computed once.
+const DIMMED: Record<PaletteName, Palette> = {
+  dusk: DUSK.map((c) => darken(c, 0.62)),
+  night: NIGHT.map((c) => darken(c, 0.62)),
+  storm: STORM.map((c) => darken(c, 0.62)),
+  dawn: DAWN.map((c) => darken(c, 0.62)),
+}
 
 const GROUND_Y = 420
+const LIGHTNING_PERIOD = 6.5
+const LIGHTNING_FRAME = 0.035
+
+/** dusk → night → storm → dawn, one turn per beacon. */
+export function paletteNameFor(world: World): PaletteName {
+  let lit = 0
+  for (const b of world.beacons) if (b.lit) lit++
+  return lit >= 3 ? 'dawn' : lit === 2 ? 'storm' : lit === 1 ? 'night' : 'dusk'
+}
 
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v
@@ -39,641 +98,9 @@ function hash(n: number): number {
   return (x >>> 0) / 4294967296
 }
 
-export function drawWorld(
-  ctx: CanvasRenderingContext2D,
-  world: World,
-  width: number,
-  height: number,
-): void {
-  if (width <= 0 || height <= 0) return
-  const p = world.player
+type Pt = [number, number]
 
-  // Uniform scale from viewport height: the visible strip is always 560
-  // world units tall, so ground sits near 75% of the screen with room above
-  // for jumps. Capped so huge monitors don't blow up and tiny landscape
-  // phones don't shrink into nothing.
-  const s = clamp(height / 560, 0.55, 1.6)
-  const visW = width / s
-  const visH = height / s
-
-  // Horizontal camera with lookahead: the player sits off-centre toward the
-  // side they face/move, leaving ~60% of a narrow phone screen ahead so the
-  // next landing stays visible. World-space, so portrait just crops width —
-  // the game always stays horizontal.
-  const vx = p.vx || 0
-  const facing = p.facing < 0 ? -1 : 1
-  // Velocity-based lookahead changes continuously when the player reverses.
-  const anchor = 0.5 - clamp(vx / 250, -1, 1) * 0.16
-  let camX = p.x - visW * anchor
-  if (world.width > visW) camX = clamp(camX, -80, world.width - visW + 80)
-  else camX = (world.width - visW) / 2
-
-  // Keep the landing line fixed during jumps, above the phone controls.
-  // Camera bobbing would hide the next landing behind the touch buttons.
-  const camY = GROUND_Y - visH * 0.72
-
-  const X = (wx: number): number => (wx - camX) * s
-  const Y = (wy: number): number => (wy - camY) * s
-  const groundScreenY = Y(GROUND_Y)
-
-  ctx.save()
-  ctx.lineJoin = 'miter'
-  ctx.lineCap = 'butt'
-
-  // --- Sky: vast petrol field ---
-  ctx.fillStyle = SKY
-  ctx.fillRect(0, 0, width, height)
-
-  // --- Sparse flat stars, screen-fixed, upper sky only ---
-  ctx.fillStyle = MOON
-  for (let i = 0; i < 26; i++) {
-    const sx = hash(i * 2 + 1) * width
-    const sy = hash(i * 2 + 2) * height * 0.42
-    const r = i % 5 === 0 ? 3 : 2
-    ctx.fillRect(sx, sy, r, r)
-  }
-
-  // --- Oversized pale moon, off to the right ---
-  const moonR = clamp(Math.min(width, height) * 0.17, 40, 170)
-  const moonX = width * 0.74
-  const moonY = height * (width < height ? 0.45 : 0.2)
-  poly(ctx, disc(moonX, moonY, moonR, 28), MOON)
-
-  const focusU = camX + visW / 2 // camera centre in world units
-
-  // --- Far layer: eroded angular spires and arches (parallax 0.22) ---
-  const f1 = 0.22
-  const farBase = groundScreenY - height * 0.07
-  const lx1 = (u: number): number => width / 2 + (u - focusU) * f1 * s
-  const ly1 = (wy: number): number => farBase + (wy - GROUND_Y) * 0.6 * s
-  drawFarSpires(ctx, lx1, ly1, focusU, visW / f1, s * f1)
-
-  // --- Still sea: flat mass with horizontal strips + moon reflection ---
-  const seaTop = farBase - 12 * s
-  const seaBot = groundScreenY - height * 0.015
-  if (seaBot > seaTop) {
-    ctx.fillStyle = MID
-    ctx.fillRect(0, seaTop, width, seaBot - seaTop)
-    ctx.fillStyle = FAR
-    const strips = 4
-    for (let k = 0; k < strips; k++) {
-      const yy = seaTop + ((seaBot - seaTop) * (0.2 + k * 0.2) + hash(950 + k) * 4)
-      ctx.fillRect(0, yy, width, Math.max(2, 2.5 * s * 0.5))
-    }
-    // Moon reflection: short horizontal bars under the moon, narrowing down.
-    const reflW = moonR * 1.5
-    ctx.fillStyle = MOON
-    for (let k = 0; k < 3; k++) {
-      const w = reflW * (1 - k * 0.28)
-      const yy = seaTop + (seaBot - seaTop) * (0.3 + k * 0.22)
-      ctx.fillRect(moonX - w / 2, yy, w, Math.max(2, 2 * s * 0.5))
-    }
-  }
-
-  // --- Middle layer: closer leaning slabs (parallax 0.5) ---
-  const f2 = 0.5
-  const midBase = groundScreenY - height * 0.015
-  const lx2 = (u: number): number => width / 2 + (u - focusU) * f2 * s
-  const ly2 = (wy: number): number => midBase + (wy - GROUND_Y) * f2 * s
-  drawMidSlabs(ctx, lx2, ly2, focusU, visW / f2, s * f2)
-
-  // --- Platforms: actual collision rects from world state ---
-  const viewBot = camY + visH + 80
-  for (let i = 0; i < world.platforms.length; i++) {
-    drawPlatform(ctx, world.platforms[i], i, X, Y, viewBot, s)
-  }
-
-  // --- Hazards: jagged dark shards exactly inside their rects ---
-  for (let i = 0; i < world.hazards.length; i++) {
-    drawHazard(ctx, world.hazards[i], i, X, Y, s)
-  }
-
-  // --- Beacons: slender old signal pylons, amber when lit ---
-  for (let i = 0; i < world.beacons.length; i++) {
-    drawBeacon(ctx, world.beacons[i].x, world.beacons[i].y, world.beacons[i].lit, X, Y, s)
-  }
-
-  // --- Parallax foreground: sharp dark slabs along the bottom ---
-  drawForeground(ctx, world.width, X, Y, viewBot, s)
-
-  // --- Player: angular coral-shirt runner, 22x52, feet centre ---
-  drawShadow(ctx, p.x, p.y, p.grounded, X, Y, s)
-  drawPlayer(ctx, p.x, p.y, facing, p.grounded, Math.abs(vx) > 30, world.time, X, Y, s)
-
-  ctx.restore()
-}
-
-// Eroded far towers: stepped sides, broken or pointed crowns; every fifth
-// cell is a freestanding arch. Pure function of the cell index.
-function drawFarSpires(
-  ctx: CanvasRenderingContext2D,
-  lx: (u: number) => number,
-  ly: (wy: number) => number,
-  focusU: number,
-  span: number,
-  k: number,
-): void {
-  const spacing = 190
-  const i0 = Math.floor((focusU - span / 2) / spacing) - 1
-  const i1 = Math.floor((focusU + span / 2) / spacing) + 1
-  ctx.fillStyle = FAR
-  for (let i = i0; i <= i1; i++) {
-    const cx = (i + 0.5 + (hash(i * 3 + 1) - 0.5) * 0.5) * spacing
-    const r1 = hash(i * 3 + 2)
-    const r2 = hash(i * 3 + 3)
-    const r3 = hash(i * 5 + 7)
-    if (r1 < 0.2) {
-      // Arch: two legs and a lintel, eroded inner corners.
-      const wLeg = 26 + r2 * 20
-      const gap = 60 + r3 * 50
-      const h = 130 + r2 * 90
-      const yB = GROUND_Y
-      const x0 = cx - gap / 2 - wLeg
-      path(ctx, [
-        [lx(x0), ly(yB)],
-        [lx(x0), ly(yB - h)],
-        [lx(x0 + wLeg), ly(yB - h)],
-        [lx(x0 + wLeg), ly(yB - h * 0.35)],
-        [lx(x0 + wLeg + gap), ly(yB - h * 0.35)],
-        [lx(x0 + wLeg + gap), ly(yB - h)],
-        [lx(x0 + wLeg * 2 + gap), ly(yB - h)],
-        [lx(x0 + wLeg * 2 + gap), ly(yB)],
-        [lx(x0 + wLeg * 2 + gap - 14), ly(yB)],
-        [lx(x0 + wLeg * 2 + gap - 14), ly(yB - h * 0.35 + 16)],
-        [lx(x0 + wLeg + 14), ly(yB - h * 0.35 + 16)],
-        [lx(x0 + wLeg + 14), ly(yB)],
-      ])
-      ctx.fill()
-    } else {
-      // Tower with stepped, eroded flanks.
-      const w = 44 + r2 * 52
-      const h = 120 + r3 * 150
-      const lean = (r2 - 0.5) * 60
-      const yB = GROUND_Y
-      const steps = 3 + Math.floor(r3 * 3)
-      const left: Array<[number, number]> = []
-      const right: Array<[number, number]> = []
-      for (let st = 0; st <= steps; st++) {
-        const t = st / steps
-        const wy = yB - h * t
-        const inset = t * (10 + r1 * 26)
-        const bite = (st % 2 === 0 ? 1 : -1) * (4 + r2 * 10) * t
-        left.push([cx - w / 2 + inset + bite * 0.4 + lean * t, wy])
-        right.push([cx + w / 2 - inset + bite + lean * t, wy])
-      }
-      // Broken crown: notch or single point.
-      const crown: Array<[number, number]> = []
-      if (r1 < 0.55) {
-        const tipX = cx + lean + (r3 - 0.5) * 30
-        crown.push([left[steps][0], left[steps][1]], [tipX, left[steps][1] - 26 - r2 * 30], [right[steps][0], right[steps][1]])
-      } else {
-        crown.push(
-          [left[steps][0], left[steps][1]],
-          [left[steps][0] + 8, left[steps][1] - 12],
-          [right[steps][0] - 14, right[steps][1] - 4],
-          [right[steps][0], right[steps][1]],
-        )
-      }
-      const pts: Array<[number, number]> = []
-      pts.push([lx(left[0][0]), ly(left[0][1])])
-      for (let st = 1; st <= steps; st++) pts.push([lx(left[st][0]), ly(left[st][1])])
-      for (const c of crown) pts.push([lx(c[0]), ly(c[1])])
-      for (let st = steps; st >= 0; st--) pts.push([lx(right[st][0]), ly(right[st][1])])
-      path(ctx, pts)
-      ctx.fill()
-      // Narrow sea-stack needle beside some towers.
-      if (r3 > 0.55) {
-        const nx = cx + w / 2 + 26 + r1 * 40
-        const nh = h * (0.4 + r2 * 0.3)
-        path(ctx, [
-          [lx(nx - 9), ly(yB)],
-          [lx(nx - 4), ly(yB - nh)],
-          [lx(nx + 6), ly(yB - nh * 0.7)],
-          [lx(nx + 9), ly(yB)],
-        ])
-        ctx.fill()
-      }
-    }
-  }
-  void k
-}
-
-// Closer slabs: tall leaning shards with notched tops, darker rock.
-function drawMidSlabs(
-  ctx: CanvasRenderingContext2D,
-  lx: (u: number) => number,
-  ly: (wy: number) => number,
-  focusU: number,
-  span: number,
-  k: number,
-): void {
-  const spacing = 260
-  const i0 = Math.floor((focusU - span / 2) / spacing) - 1
-  const i1 = Math.floor((focusU + span / 2) / spacing) + 1
-  ctx.fillStyle = MID
-  for (let i = i0; i <= i1; i++) {
-    const r1 = hash(i * 7 + 11)
-    const r2 = hash(i * 7 + 12)
-    if (r1 < 0.25) continue // gaps keep the sky vast
-    const cx = (i + 0.5 + (r1 - 0.5) * 0.6) * spacing
-    const w = 60 + r2 * 80
-    const h = 70 + r1 * 130
-    const lean = (r2 - 0.5) * 110
-    const yB = GROUND_Y + 30 // feet sink behind the sea/ground line
-    const notch = r2 > 0.5
-    const top = yB - h
-    const pts: Array<[number, number]> = [
-      [lx(cx - w / 2), ly(yB)],
-      [lx(cx - w / 2 + 12 + lean * 0.5), ly(top + h * 0.25)],
-    ]
-    if (notch) {
-      pts.push(
-        [lx(cx - w * 0.1 + lean * 0.8), ly(top)],
-        [lx(cx + w * 0.05 + lean * 0.8), ly(top + 22)],
-        [lx(cx + w * 0.2 + lean), ly(top)],
-      )
-    } else {
-      pts.push([lx(cx + w * 0.05 + lean), ly(top - 14)])
-    }
-    pts.push(
-      [lx(cx + w / 2 + lean), ly(top + h * 0.3)],
-      [lx(cx + w / 2), ly(yB)],
-    )
-    path(ctx, pts)
-    ctx.fill()
-  }
-  void k
-}
-
-// Platform body runs well below the viewport so sides read as cliffs; the
-// top cap is a varied flat plane whose upper edge is exactly the collision
-// line. Small pale ticks mark the corners so gaps read clearly.
-function drawPlatform(
-  ctx: CanvasRenderingContext2D,
-  pl: { x: number; y: number; w: number; h: number },
-  index: number,
-  X: (wx: number) => number,
-  Y: (wy: number) => number,
-  viewBot: number,
-  s: number,
-): void {
-  if (pl.w <= 0 || pl.h <= 0) return
-  const x0 = X(pl.x)
-  const x1 = X(pl.x + pl.w)
-  const yT = Y(pl.y)
-  const yB = Y(Math.max(pl.y + pl.h, viewBot))
-  ctx.fillStyle = GROUND
-  ctx.fillRect(x0, yT, x1 - x0, yB - yT)
-  // Varied top plane: alternate the two rock tones, vary depth by hash.
-  const capH = (5 + hash(index * 13 + 3) * 4) * s
-  ctx.fillStyle = hash(index * 13 + 5) < 0.5 ? MID : FAR
-  ctx.fillRect(x0, yT, x1 - x0, capH)
-  // Inset angular facets below the edge — decoration only, corners crisp.
-  ctx.fillStyle = SHADOW
-  const facets = 1 + Math.floor(hash(index * 13 + 7) * 3)
-  for (let f = 0; f < facets; f++) {
-    const fx = x0 + (x1 - x0) * (0.15 + 0.7 * hash(index * 29 + f * 3 + 1))
-    const fw = (10 + hash(index * 29 + f * 3 + 2) * 26) * s
-    const fh = (8 + hash(index * 29 + f * 3 + 3) * 18) * s
-    const fy = yT + capH + 3 * s
-    ctx.beginPath()
-    ctx.moveTo(fx, fy)
-    ctx.lineTo(fx + fw, fy)
-    ctx.lineTo(fx + fw * 0.6, fy + fh)
-    ctx.closePath()
-    ctx.fill()
-  }
-  // Pale corner ticks: the readable collision edge.
-  ctx.fillStyle = MOON
-  const tickW = Math.min(7 * s, (x1 - x0) / 2)
-  const tickH = Math.max(2, 2.5 * s)
-  ctx.fillRect(x0, yT, tickW, tickH)
-  ctx.fillRect(x1 - tickW, yT, tickW, tickH)
-}
-
-// Hazard shard cluster, contained exactly in its rect: dark teeth with a
-// pale glint on one flank each so the danger reads at a glance.
-function drawHazard(
-  ctx: CanvasRenderingContext2D,
-  hz: { x: number; y: number; w: number; h: number },
-  index: number,
-  X: (wx: number) => number,
-  Y: (wy: number) => number,
-  s: number,
-): void {
-  if (hz.w <= 0 || hz.h <= 0) return
-  const x0 = X(hz.x)
-  const x1 = X(hz.x + hz.w)
-  const yT = Y(hz.y)
-  const yB = Y(hz.y + hz.h)
-  ctx.fillStyle = SHADOW
-  ctx.fillRect(x0, yT, x1 - x0, yB - yT)
-  const n = Math.max(2, Math.round(hz.w / 26))
-  for (let k = 0; k < n; k++) {
-    const bx0 = hz.x + (hz.w * k) / n
-    const bx1 = hz.x + (hz.w * (k + 1)) / n
-    const apex = hz.x + (hz.w * (k + 0.3 + hash(index * 17 + k) * 0.4)) / n
-    const tipY = hz.y + 2 + hash(index * 31 + k * 2) * hz.h * 0.25
-    poly(ctx, [
-      [X(bx0), Y(hz.y + hz.h)],
-      [X(apex), Y(tipY)],
-      [X(bx1), Y(hz.y + hz.h)],
-    ], SHADOW)
-    // Pale glint on the left flank.
-    poly(ctx, [
-      [X(bx0), Y(hz.y + hz.h)],
-      [X(apex), Y(tipY)],
-      [X(apex - (apex - bx0) * 0.35), Y(tipY + (hz.h - 2) * 0.55)],
-      [X(bx0 + (bx1 - bx0) * 0.22), Y(hz.y + hz.h)],
-    ], MOON)
-  }
-  void s
-}
-
-// Slender old signal pylon rising from its base point: tapered legs, a
-// crossarm, an antenna rod, and a diamond lamp — amber when lit, pale when
-// dark — plus an amber pennant on a lit tower. Steady, no blinking.
-function drawBeacon(
-  ctx: CanvasRenderingContext2D,
-  bx: number,
-  by: number,
-  lit: boolean,
-  X: (wx: number) => number,
-  Y: (wy: number) => number,
-  s: number,
-): void {
-  const H = 104 // pylon height in world units
-  const top = by - H
-  // Base plate.
-  ctx.fillStyle = SHADOW
-  ctx.fillRect(X(bx - 13), Y(by - 6), 26 * s, 6 * s)
-  // Tapered legs.
-  poly(ctx, [
-    [X(bx - 9), Y(by - 6)],
-    [X(bx - 2.5), Y(top + 18)],
-    [X(bx + 2.5), Y(top + 18)],
-    [X(bx + 9), Y(by - 6)],
-  ], GROUND)
-  // Cross braces.
-  ctx.fillStyle = GROUND
-  const braceH = Math.max(2, 3 * s)
-  ctx.fillRect(X(bx - 6), Y(by - 44), 12 * s, braceH)
-  ctx.fillRect(X(bx - 4.5), Y(by - 72), 9 * s, braceH)
-  // Crossarm.
-  ctx.fillRect(X(bx - 15), Y(top + 26), 30 * s, braceH)
-  // Antenna rod up to the lamp.
-  ctx.fillRect(X(bx - 1.2), Y(top), 2.4 * s, (18) * s)
-  // Lamp diamond.
-  const lr = (lit ? 8 : 6) * s
-  const cx = X(bx)
-  const cy = Y(top - 4)
-  poly(ctx, [
-    [cx, cy - lr],
-    [cx + lr * 0.7, cy],
-    [cx, cy + lr],
-    [cx - lr * 0.7, cy],
-  ], lit ? SIGNAL : MOON)
-  // Lamp housing cap.
-  ctx.fillStyle = GROUND
-  ctx.fillRect(X(bx - 3), Y(top - 4) - lr - 3 * s, 6 * s, 3 * s)
-  if (lit) {
-    // Amber pennant streaming right, and a small mast dot.
-    poly(ctx, [
-      [X(bx + 1), Y(top + 8)],
-      [X(bx + 26), Y(top + 13)],
-      [X(bx + 1), Y(top + 18)],
-    ], SIGNAL)
-    ctx.fillStyle = SIGNAL
-    const dr = 2.2 * s
-    ctx.fillRect(cx - dr / 2, Y(by - 60) - dr / 2, dr, dr)
-  }
-  void s
-}
-
-// Sharp near-black slabs world-anchored along the bottom: they frame the
-// shot and glide past faster than the playfield. Kept below y~470 so they
-// never cover the player; drawn before the player anyway.
-function drawForeground(
-  ctx: CanvasRenderingContext2D,
-  worldWidth: number,
-  X: (wx: number) => number,
-  Y: (wy: number) => number,
-  viewBot: number,
-  s: number,
-): void {
-  const spacing = 430
-  const i0 = Math.floor((X(0) / s - spacing) / spacing) - 1
-  void i0
-  const n = Math.ceil(worldWidth / spacing) + 3
-  const start = -spacing
-  ctx.fillStyle = SHADOW
-  for (let i = 0; i < n; i++) {
-    const r1 = hash(i * 11 + 21)
-    const r2 = hash(i * 11 + 22)
-    const r3 = hash(i * 11 + 23)
-    if (r1 < 0.3) continue
-    const sx = start + i * spacing + r2 * 160
-    const w = 130 + r3 * 110
-    const topY = 468 + r1 * 34
-    const peak = topY - 14 - r2 * 26
-    const px = sx + w * (0.3 + r3 * 0.4)
-    path(ctx, [
-      [X(sx), Y(viewBot)],
-      [X(sx + 10), Y(topY)],
-      [X(px), Y(peak)],
-      [X(sx + w - 14), Y(topY + 8)],
-      [X(sx + w), Y(viewBot)],
-    ])
-    ctx.fill()
-  }
-}
-
-// Soft contact shadow: a flat dark ellipse exactly at the feet when grounded.
-function drawShadow(
-  ctx: CanvasRenderingContext2D,
-  px: number,
-  py: number,
-  grounded: boolean,
-  X: (wx: number) => number,
-  Y: (wy: number) => number,
-  s: number,
-): void {
-  if (!grounded) return
-  ctx.fillStyle = SHADOW
-  ctx.beginPath()
-  ctx.ellipse(X(px), Y(py) - 1.5 * s, 13 * s, 3.2 * s, 0, 0, Math.PI * 2)
-  ctx.fill()
-}
-
-// Angular human, 22 wide x 52 tall, feet at (px, py). Coral shirt torso,
-// dark trousers, skin head and hands. Limbs are two-segment flat quads
-// driven by a stride phase from world.time when running; tucked when
-// airborne; quiet standing pose otherwise. Mirrored by facing.
-function drawPlayer(
-  ctx: CanvasRenderingContext2D,
-  px: number,
-  py: number,
-  facing: number,
-  grounded: boolean,
-  running: boolean,
-  time: number,
-  X: (wx: number) => number,
-  Y: (wy: number) => number,
-  s: number,
-): void {
-  const f = facing < 0 ? -1 : 1
-  const t = Number.isFinite(time) ? time : 0
-  const phase = running && grounded ? t * 11 : 0
-  // Local frame: u right (pre-mirror), v up from the feet.
-  const U = (u: number): number => X(px + u * f)
-  const V = (v: number): number => Y(py - v)
-
-  const bob = !running && grounded ? Math.sin(t * 2) * 0.8 : 0
-  const lean = running ? 3 : grounded ? 1 : 4
-  const hipY = 26 + bob * 0.4
-  const shoY = 42 + bob
-
-  // Back limbs first (darker), then torso, head, then front limbs.
-  const swingA = running && grounded ? Math.sin(phase) : 0
-  const swingB = running && grounded ? Math.sin(phase + Math.PI) : 0
-
-  if (!grounded) {
-    // Airborne: front leg driving forward-up, back leg trailing, arms out.
-    leg(ctx, U, V, s, -3, hipY, 7, 20, 12, 12, TROUSER, true)
-    leg(ctx, U, V, s, 3, hipY, -6, 16, -11, 8, TROUSER, true)
-    arm(ctx, U, V, s, -4, shoY, -10, shoY - 8, -14, shoY - 2, true)
-  } else if (running) {
-    leg(ctx, U, V, s, -3.5, hipY, swingA * 10, 13 + Math.max(0, swingB) * 8, swingA * 12, 0, TROUSER, true)
-    arm(ctx, U, V, s, -5, shoY, swingB * 8, shoY - 9, swingB * 11, shoY - 16, true)
-  } else {
-    leg(ctx, U, V, s, -3.5, hipY, -3.5, 13, -3.5, 0, TROUSER, true)
-    arm(ctx, U, V, s, -5, shoY, -6, shoY - 10, -6, shoY - 18, true)
-  }
-
-  // Torso: angular coral shirt, leaning into the run.
-  poly(ctx, [
-    [U(-5), V(hipY)],
-    [U(5), V(hipY)],
-    [U(7 + lean), V(shoY)],
-    [U(-6 + lean), V(shoY)],
-  ], SHIRT)
-  // Shirt skirt wedge over the hips.
-  poly(ctx, [
-    [U(-5), V(hipY)],
-    [U(5), V(hipY)],
-    [U(4 + lean * 0.4), V(hipY - 6)],
-    [U(-4 + lean * 0.4), V(hipY - 6)],
-  ], SHIRT)
-
-  // Head: angular skin profile looking forward, dark hair cap.
-  const hx = 1.5 + lean * 0.7
-  const hy = shoY + 5.5
-  poly(ctx, [
-    [U(hx - 4.5), V(hy - 4)],
-    [U(hx - 4), V(hy + 3)],
-    [U(hx - 1), V(hy + 5)],
-    [U(hx + 3.5), V(hy + 3.5)],
-    [U(hx + 5.5), V(hy + 0.5)],
-    [U(hx + 3), V(hy - 1.5)],
-    [U(hx + 2), V(hy - 4)],
-  ], SKIN)
-  poly(ctx, [
-    [U(hx - 4.5), V(hy - 1)],
-    [U(hx - 4), V(hy + 3.5)],
-    [U(hx - 0.5), V(hy + 5.2)],
-    [U(hx + 2.5), V(hy + 2.5)],
-    [U(hx - 1), V(hy + 1)],
-    [U(hx - 3), V(hy - 3.5)],
-  ], SHADOW)
-
-  // Front limbs over the torso.
-  if (!grounded) {
-    arm(ctx, U, V, s, 5, shoY, 11, shoY + 2, 9, shoY - 8, false)
-  } else if (running) {
-    arm(ctx, U, V, s, 5, shoY, swingA * 8, shoY - 9, swingA * 11, shoY - 16, false)
-  } else {
-    arm(ctx, U, V, s, 5, shoY, 6, shoY - 10, 6, shoY - 18, false)
-  }
-  if (grounded) {
-    if (running) {
-      leg(ctx, U, V, s, 3.5, hipY, swingB * 10, 13 + Math.max(0, swingA) * 8, swingB * 12, 0, TROUSER, false)
-    } else {
-      leg(ctx, U, V, s, 3.5, hipY, 3.5, 13, 3.5, 0, TROUSER, false)
-    }
-  }
-}
-
-// Two-segment leg: hip (hu,hv) -> knee (ku,kv) -> foot (fu,fv) in local
-// units. Drawn as flat angular quads (trousers) plus a dark boot wedge.
-function leg(
-  ctx: CanvasRenderingContext2D,
-  U: (u: number) => number,
-  V: (v: number) => number,
-  s: number,
-  hu: number, hv: number,
-  ku: number, kv: number,
-  fu: number, fv: number,
-  color: string,
-  back: boolean,
-): void {
-  void back
-  const w1 = 3.1 * s
-  const w2 = 2.5 * s
-  ctx.strokeStyle = color
-  ctx.lineCap = 'butt'
-  ctx.lineWidth = w1
-  ctx.beginPath()
-  ctx.moveTo(U(hu), V(hv))
-  ctx.lineTo(U(ku), V(kv))
-  ctx.stroke()
-  ctx.lineWidth = w2
-  ctx.beginPath()
-  ctx.moveTo(U(ku), V(kv))
-  ctx.lineTo(U(fu), V(Math.max(0.5, fv)))
-  ctx.stroke()
-  // Boot: small dark wedge at the foot, pointing forward.
-  const fwd = 4
-  poly(ctx, [
-    [U(fu - 2), V(Math.max(0.5, fv))],
-    [U(fu + fwd), V(Math.max(0.5, fv))],
-    [U(fu + fwd), V(Math.max(0.5, fv) + 3)],
-    [U(fu - 2), V(Math.max(0.5, fv) + 3)],
-  ], SHADOW)
-}
-
-// Two-segment arm: shoulder -> elbow -> hand. Upper arm shirt sleeve, flat
-// skin quad for the forearm, square skin hand.
-function arm(
-  ctx: CanvasRenderingContext2D,
-  U: (u: number) => number,
-  V: (v: number) => number,
-  s: number,
-  su: number, sv: number,
-  eu: number, ev: number,
-  hu: number, hv: number,
-  back: boolean,
-): void {
-  void back
-  ctx.strokeStyle = SHIRT
-  ctx.lineCap = 'butt'
-  ctx.lineWidth = 2.8 * s
-  ctx.beginPath()
-  ctx.moveTo(U(su), V(sv))
-  ctx.lineTo(U(eu), V(ev))
-  ctx.stroke()
-  ctx.strokeStyle = SKIN
-  ctx.lineWidth = 2.2 * s
-  ctx.beginPath()
-  ctx.moveTo(U(eu), V(ev))
-  ctx.lineTo(U(hu), V(hv))
-  ctx.stroke()
-  ctx.fillStyle = SKIN
-  const hr = 1.8 * s
-  ctx.fillRect(U(hu) - hr / 2, V(hv) - hr / 2, hr, hr)
-}
-
-// Flat polygon fill from mixed world/screen points (already transformed).
-function poly(ctx: CanvasRenderingContext2D, pts: Array<[number, number]>, color: string): void {
+function poly(ctx: CanvasRenderingContext2D, pts: Pt[], color: string): void {
   if (pts.length < 3) return
   ctx.fillStyle = color
   ctx.beginPath()
@@ -683,19 +110,556 @@ function poly(ctx: CanvasRenderingContext2D, pts: Array<[number, number]>, color
   ctx.fill()
 }
 
-function path(ctx: CanvasRenderingContext2D, pts: Array<[number, number]>): void {
-  ctx.beginPath()
-  ctx.moveTo(pts[0][0], pts[0][1])
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
-  ctx.closePath()
+function rect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string): void {
+  if (w <= 0 || h <= 0) return
+  ctx.fillStyle = color
+  ctx.fillRect(x, y, w, h)
 }
 
-// Flat n-sided disc (no arcs-as-curves styling issue: fill only, no glow).
-function disc(cx: number, cy: number, r: number, n: number): Array<[number, number]> {
-  const pts: Array<[number, number]> = []
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2
-    pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r])
+// A thick line segment as a flat quad (limbs).
+function bar(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, w: number, color: string): void {
+  const dx = b[0] - a[0]
+  const dy = b[1] - a[1]
+  const len = Math.hypot(dx, dy) || 1
+  const nx = (-dy / len) * w * 0.5
+  const ny = (dx / len) * w * 0.5
+  poly(ctx, [[a[0] + nx, a[1] + ny], [b[0] + nx, b[1] + ny], [b[0] - nx, b[1] - ny], [a[0] - nx, a[1] - ny]], color)
+}
+
+interface View {
+  width: number
+  height: number
+  s: number
+  camX: number
+  camY: number
+  camCenter: number
+  groundY: number // screen y of the ground line
+  horizonY: number // screen y of the sea horizon
+  bandY: number // screen y where the black foreground band starts
+  capY: number // monolith tops never rise above this screen y
+  moon: { x: number; y: number; r: number }
+  X: (wx: number) => number
+  Y: (wy: number) => number
+}
+
+function makeView(world: World, width: number, height: number): View {
+  const p = world.player
+  const portrait = height > width
+  const s = clamp(height / 560, 0.55, 1.6)
+  const visW = width / s
+  const vx = p.vx || 0
+  // Off-centre toward the direction of travel; changes continuously.
+  const anchor = 0.5 - clamp(vx / 250, -1, 1) * 0.16
+  let camX = p.x - visW * anchor
+  if (world.width > visW) camX = clamp(camX, -80, world.width - visW + 80)
+  else camX = (world.width - visW) / 2
+
+  const groundY = Math.round(height * (portrait ? 0.8 : 0.84))
+  const camY = GROUND_Y - groundY / s
+  const horizonY = Math.round(groundY - height * (portrait ? 0.2 : 0.22))
+  const bandY = Math.round(groundY + height * (portrait ? 0.06 : 0.07))
+  const capY = Math.round(height * (portrait ? 0.34 : 0.3))
+  const moon = portrait
+    ? { x: width - 24 - 32, y: 40 + 32, r: 32 }
+    : { x: width * 0.74, y: height * 0.17, r: clamp(Math.min(width, height) * 0.11, 34, 100) }
+  return {
+    width, height, s, camX, camY,
+    camCenter: camX + visW / 2,
+    groundY, horizonY, bandY, capY, moon,
+    X: (wx) => (wx - camX) * s,
+    Y: (wy) => (wy - camY) * s,
   }
-  return pts
+}
+
+export function drawWorld(
+  ctx: CanvasRenderingContext2D,
+  world: World,
+  width: number,
+  height: number,
+  opts: DrawOptions = {},
+): void {
+  if (width <= 0 || height <= 0) return
+  const name = paletteNameFor(world)
+  let pal: Palette = opts.paused ? DIMMED[name] : PALETTES[name]
+  const lightning =
+    !opts.paused && !opts.reducedMotion && name === 'storm' && world.time % LIGHTNING_PERIOD < LIGHTNING_FRAME
+  if (lightning) pal = LIGHTNING
+  const v = makeView(world, width, height)
+
+  ctx.save()
+  ctx.lineJoin = 'miter'
+  ctx.lineCap = 'butt'
+
+  // Sky, stars (night only), moon.
+  rect(ctx, 0, 0, width, height, pal[SKY])
+  if (name === 'night' && !lightning) {
+    ctx.fillStyle = pal[SKY + L]
+    for (let i = 0; i < 16; i++) {
+      const sx = hash(i * 2 + 1) * width
+      const sy = hash(i * 2 + 2) * height * 0.34
+      ctx.fillRect(Math.round(sx), Math.round(sy), 2, 2)
+    }
+  }
+  drawMoon(ctx, v, pal)
+
+  // Far monoliths and the mid headland stand on the horizon; the sea,
+  // drawn after them, hides their feet.
+  drawMonoliths(ctx, v, pal)
+  drawHeadland(ctx, v, pal)
+  drawSea(ctx, v, pal, world.time)
+
+  // World-anchored masses behind the figure: tower, overhang.
+  drawTower(ctx, v, pal)
+  drawOverhang(ctx, v, pal)
+
+  // Water line in the gaps, then the slabs cover it.
+  rect(ctx, 0, v.groundY + 12 * v.s, width, Math.max(1.5, 1.5 * v.s), pal[SEA + L])
+  for (let i = 0; i < world.platforms.length; i++) drawSlab(ctx, v, pal, world.platforms[i], i)
+
+  for (const hz of world.hazards) if (hz.kind === 'rockfall') drawRock(ctx, v, pal, hz)
+  for (let i = 0; i < world.beacons.length; i++) {
+    const b = world.beacons[i]
+    drawLamp(ctx, v, pal, b.x, b.y, b.lit, i === world.beacons.length - 1)
+  }
+
+  drawFigure(ctx, v, pal, world)
+
+  // Water in front of the figure: the tide.
+  for (const hz of world.hazards) if (hz.kind === 'tide') drawTide(ctx, v, pal, hz, world)
+
+  // True foreground: arches and the black band with its rocks and plants.
+  drawArches(ctx, v, pal)
+  drawForeground(ctx, v, pal)
+
+  ctx.restore()
+}
+
+// ---- sky ----
+
+function drawMoon(ctx: CanvasRenderingContext2D, v: View, pal: Palette): void {
+  const { x, y, r } = v.moon
+  const pts: Pt[] = []
+  for (let i = 0; i < 28; i++) {
+    const a = (i / 28) * Math.PI * 2
+    pts.push([x + Math.cos(a) * r, y + Math.sin(a) * r])
+  }
+  poly(ctx, pts, pal[SKY + L])
+}
+
+// ---- far: monoliths (parallax 0.2) ----
+
+function drawMonoliths(ctx: CanvasRenderingContext2D, v: View, pal: Palette): void {
+  const k = 0.2
+  const s = v.s
+  const spacing = 240
+  const half = v.width / (2 * s)
+  const u0 = v.camCenter * k - half
+  const u1 = v.camCenter * k + half
+  const base = v.horizonY + 4
+  for (let i = Math.floor(u0 / spacing) - 1; i <= Math.floor(u1 / spacing) + 1; i++) {
+    const r1 = hash(i * 4 + 1)
+    const r2 = hash(i * 4 + 2)
+    const r3 = hash(i * 4 + 3)
+    const r4 = hash(i * 4 + 4)
+    if (r1 < 0.22) continue
+    const cu = (i + 0.5 + (r2 - 0.5) * 0.5) * spacing
+    const sx = v.width / 2 + (cu - v.camCenter * k) * s
+    const w = (44 + r3 * 70) * s
+    const h = Math.min((90 + r4 * 95) * s, base - v.capY)
+    if (h < 12) continue
+    const lean = (r2 - 0.5) * 26 * s
+    const top = base - h
+    const broken = r3 > 0.5
+    const xl = sx - w / 2
+    const xr = sx + w / 2
+    const tl: Pt = [xl + lean, top + (broken ? 10 : 6) * s]
+    const tr: Pt = [xr + lean - 3 * s, top + (broken ? h * 0.06 : 0)]
+    const pts: Pt[] = [[xl, base], tl]
+    if (broken) {
+      pts.push([xl + lean + w * 0.3, top], [sx + lean + w * 0.05, top + h * 0.17])
+    } else {
+      pts.push([xl + lean + w * 0.25, top + 2 * s])
+    }
+    pts.push(tr, [xr, base])
+    poly(ctx, pts, pal[FAR])
+    // Lit face: the right side, toward the moon.
+    const strip = Math.min(10 * s, w * 0.2)
+    poly(ctx, [[tr[0] + 0.7, tr[1]], [tr[0] - strip, tr[1]], [xr - strip, base], [xr + 0.7, base]], pal[FAR + L])
+    // A stump beside some of them.
+    if (r4 > 0.55) {
+      const sw = w * 0.5
+      const sh = h * 0.28
+      const ox = xr + 6 * s
+      poly(ctx, [[ox, base], [ox + 3 * s, base - sh], [ox + sw - 5 * s, base - sh + 4 * s], [ox + sw, base]], pal[FAR])
+      poly(ctx, [[ox + sw - 5 * s, base - sh + 4 * s], [ox + sw - 5 * s - 4 * s, base - sh + 4 * s], [ox + sw - 4 * s, base], [ox + sw, base]], pal[FAR + L])
+    }
+  }
+}
+
+// ---- mid: one continuous headland on the horizon (parallax 0.5) ----
+
+function drawHeadland(ctx: CanvasRenderingContext2D, v: View, pal: Palette): void {
+  const k = 0.5
+  const s = v.s
+  const seg = 100
+  const half = v.width / (2 * s)
+  const u0 = v.camCenter * k - half
+  const u1 = v.camCenter * k + half
+  const base = v.horizonY + 4
+  const cap = Math.round(v.height * 0.38)
+  const i0 = Math.floor(u0 / seg) - 1
+  const i1 = Math.floor(u1 / seg) + 2
+  const sxOf = (u: number) => v.width / 2 + (u - v.camCenter * k) * s
+  // Per segment: nothing, a low shelf, or a stack. Heights in world units.
+  const hOf = (i: number) => {
+    const r = hash(i * 3 + 101)
+    if (r < 0.38) return 0
+    if (r < 0.72) return 10 + hash(i * 3 + 102) * 30
+    return 55 + hash(i * 3 + 102) * 50
+  }
+  const pts: Pt[] = [[sxOf(i0 * seg), base]]
+  let prev = 0
+  for (let i = i0; i <= i1; i++) {
+    const h = Math.min(hOf(i) * s, base - cap)
+    const u = i * seg
+    const r = hash(i * 3 + 103)
+    const plateau = 22 + r * 40
+    // A notch between two masses, then a steep rise to the plateau.
+    if (prev > 0 && h > 0) pts.push([sxOf(u - 14), base - Math.min(prev, h) * 0.3])
+    pts.push([sxOf(u), base - h])
+    if (h > 0 && r > 0.5) pts.push([sxOf(u + plateau * 0.5), base - h - 6 * s])
+    pts.push([sxOf(u + plateau), base - h])
+    if (h > 0 && hash(i * 3 + 104) > 0.6) pts.push([sxOf(u + plateau + 8), base - h * 0.55])
+    prev = h
+  }
+  pts.push([sxOf((i1 + 1) * seg), base])
+  poly(ctx, pts, pal[MID])
+  // Lit faces: every slope that descends to the right faces the moon.
+  const t = 5 * s
+  for (let i = 1; i < pts.length - 1; i++) {
+    const a = pts[i]
+    const b = pts[i + 1]
+    if (b[1] > a[1] + 1 && b[0] > a[0]) {
+      poly(ctx, [a, b, [b[0] - t, b[1]], [a[0] - t, a[1]]], pal[MID + L])
+    }
+  }
+}
+
+// ---- the sea: one field, a horizon, two bands under the moon ----
+
+function drawSea(ctx: CanvasRenderingContext2D, v: View, pal: Palette, time: number): void {
+  rect(ctx, 0, v.horizonY, v.width, v.height - v.horizonY, pal[SEA])
+  const m = v.moon
+  const h1 = Math.max(2, 2 * v.s * 0.6)
+  const shift = (Math.floor(time) % 3) - 1
+  rect(ctx, m.x - m.r * 0.8, v.horizonY + v.height * 0.03, m.r * 1.6, h1, pal[SEA + L])
+  rect(ctx, m.x - m.r * 0.55 + shift, v.horizonY + v.height * 0.075, m.r * 1.1, h1, pal[SEA + L])
+}
+
+// ---- world-anchored masses ----
+
+function drawTower(ctx: CanvasRenderingContext2D, v: View, pal: Palette): void {
+  const { X, Y, s } = v
+  const x0 = X(TOWER.x0)
+  const x1 = X(TOWER.x1)
+  if (x1 < 0 || x0 > v.width) return
+  const bottom = v.height
+  const top = -10
+  const taper = 22 * s
+  poly(ctx, [[x0, bottom], [x0 + taper, top], [x1 - taper * 0.6, top], [x1, bottom]], pal[MID])
+  const strip = 14 * s
+  poly(ctx, [[x1 - taper * 0.6 + 0.7, top], [x1 - taper * 0.6 - strip, top], [x1 - strip, bottom], [x1 + 0.7, bottom]], pal[MID + L])
+  // A single dark doorway at the foot, behind the lamp platform.
+  const dy = Y(276)
+  rect(ctx, x0 + 60 * s, dy - 70 * s, 26 * s, 70 * s, pal[NEAR])
+}
+
+function drawOverhang(ctx: CanvasRenderingContext2D, v: View, pal: Palette): void {
+  const { X, Y, s } = v
+  const x0 = X(OVERHANG.x0)
+  const x1 = X(OVERHANG.x1)
+  if (x1 < 0 || x0 > v.width) return
+  const yb = Y(OVERHANG.y)
+  const xc = X(3700)
+  poly(ctx, [
+    [x0, -10], [x1, -10],
+    [x1 - 10 * s, yb - 70 * s],
+    [x1 - 40 * s, yb - 40 * s],
+    [xc + 60 * s, yb - 24 * s],
+    [xc + 52 * s, yb],
+    [xc, yb],
+    [xc - 30 * s, yb - 30 * s],
+    [x0 + 30 * s, yb - 60 * s],
+    [x0, yb - 110 * s],
+  ], pal[NEAR])
+  // The lit crack, above where the rock hangs.
+  const cx = xc + 26 * s
+  const cy = yb - 8 * s
+  const t = Math.max(1.5, 2 * s)
+  const zig: Pt[] = [[cx - 14 * s, cy - 40 * s], [cx - 4 * s, cy - 28 * s], [cx - 10 * s, cy - 16 * s], [cx + 2 * s, cy - 4 * s]]
+  for (let i = 0; i < zig.length - 1; i++) bar(ctx, zig[i], zig[i + 1], t, pal[NEAR + L])
+}
+
+// ---- slabs ----
+
+function drawSlab(ctx: CanvasRenderingContext2D, v: View, pal: Palette, pl: Platform, index: number): void {
+  const { X, Y, s } = v
+  if (pl.w <= 0 || pl.h <= 0) return
+  const x0 = X(pl.x)
+  const x1 = X(pl.x + pl.w)
+  if (x1 < -20 || x0 > v.width + 20) return
+  const yT = Y(pl.y)
+  const ground = pl.h >= 100
+  const yB = ground ? v.height + 10 : Y(pl.y + pl.h)
+  const r = hash(index * 13 + 3)
+  // Body: broken diagonal at the right end, an undercut at the left.
+  const pts: Pt[] = [[x0, yT], [x1, yT]]
+  if (ground) {
+    pts.push([x1 + (4 + r * 6) * s, yT + 26 * s], [x1 - (6 + r * 6) * s, yT + 70 * s], [x1 - 6 * s, yB])
+    pts.push([x0, yB], [x0 - 4 * s, yT + 44 * s], [x0 + 3 * s, yT + 18 * s])
+  } else {
+    pts.push([x1 + 3 * s, yT + pl.h * 0.5 * s], [x1 - 4 * s, yB], [x0 + 2 * s, yB], [x0 - 2 * s, yT + pl.h * 0.4 * s])
+  }
+  poly(ctx, pts, pal[SLAB])
+  // Top band: the lit face, exactly on the collision line.
+  rect(ctx, x0, yT, x1 - x0, Math.max(2, 3.5 * s), pal[SLAB + L])
+  // The right end catches the moon too.
+  if (ground) poly(ctx, [[x1, yT], [x1 + (4 + r * 6) * s, yT + 26 * s], [x1 + (4 + r * 6) * s - 5 * s, yT + 26 * s], [x1 - 4 * s, yT + 3 * s]], pal[SLAB + L])
+  else poly(ctx, [[x1, yT], [x1 + 3 * s, yT + pl.h * 0.5 * s], [x1 - 1 * s, yT + pl.h * 0.5 * s], [x1 - 4 * s, yT + 3 * s]], pal[SLAB + L])
+}
+
+// ---- hazards ----
+
+function drawRock(ctx: CanvasRenderingContext2D, v: View, pal: Palette, hz: RockfallHazard): void {
+  const { X, Y, s } = v
+  const x0 = X(hz.x)
+  const x1 = X(hz.x + hz.w)
+  if (x1 < 0 || x0 > v.width) return
+  const yT = Y(hz.top)
+  const yB = Y(hz.top + hz.h)
+  if (hz.state === 'landed') {
+    poly(ctx, [[x0, yB], [x0 + 8 * s, yT], [x1 - 9 * s, yT + 2 * s], [x1, yB]], pal[NEAR])
+    poly(ctx, [[x1 - 9 * s, yT + 2 * s], [x1 - 15 * s, yT + 2 * s], [x1 - 6 * s, yB], [x1, yB]], pal[NEAR + L])
+  } else {
+    // Hanging or falling: a wedge, point down.
+    poly(ctx, [[x0, yT], [x1, yT], [x1 - 14 * s, yB], [x0 + 10 * s, yB]], pal[NEAR])
+    poly(ctx, [[x1, yT], [x1 - 7 * s, yT], [x1 - 19 * s, yB], [x1 - 14 * s, yB]], pal[NEAR + L])
+  }
+}
+
+function drawTide(ctx: CanvasRenderingContext2D, v: View, pal: Palette, hz: TideHazard, world: World): void {
+  const { X, Y, s } = v
+  const x0 = X(hz.x - 6)
+  const x1 = X(hz.x + hz.w + 6)
+  if (x1 < 0 || x0 > v.width) return
+  const dyingHere = world.dying?.cause === 'tide'
+  const level = dyingHere ? 1 : tideLevel(hz, world.time)
+  if (level <= 0) return
+  const full = hz.h * (dyingHere ? 1.5 : 1)
+  const slabTop = Y(hz.y + hz.h)
+  const top = slabTop - full * level * s
+  const crest = Math.max(2, 3 * s)
+  const w = x1 - x0
+  // The surge: a lit slab of water with an uneven top, and a pale crest.
+  poly(ctx, [[x0, top + 3 * s], [x0 + w * 0.3, top], [x0 + w * 0.7, top + 1.5 * s], [x1, top + 2.5 * s], [x1, slabTop + 30 * s], [x0, slabTop + 30 * s]], pal[SEA + L])
+  poly(ctx, [[x0, top + 3 * s], [x0 + w * 0.3, top], [x0 + w * 0.7, top + 1.5 * s], [x1, top + 2.5 * s], [x1, top + 2.5 * s + crest], [x0 + w * 0.7, top + 1.5 * s + crest], [x0 + w * 0.3, top + crest], [x0, top + 3 * s + crest]], pal[SKY + L])
+}
+
+// ---- lamps (the beacons) ----
+
+function drawLamp(ctx: CanvasRenderingContext2D, v: View, pal: Palette, bx: number, by: number, lit: boolean, big: boolean): void {
+  const { X, Y, s } = v
+  const cx = X(bx)
+  if (cx < -60 || cx > v.width + 60) return
+  const H = big ? 46 : 64
+  const head = big ? 15 : 9
+  const top = by - H
+  rect(ctx, X(bx - 1.5), Y(top), 3 * s, H * s, pal[NEAR])
+  rect(ctx, X(bx - 8), Y(by - 3), 16 * s, 3 * s, pal[NEAR])
+  rect(ctx, X(bx - 5), Y(top), 10 * s, 2 * s, pal[NEAR])
+  const cy = Y(top - head * 0.6)
+  const r = head * s
+  poly(ctx, [[cx, cy - r * 0.7], [cx + r * 0.55, cy], [cx, cy + r * 0.7], [cx - r * 0.55, cy]], lit ? pal[SKIN + L] : pal[SKY + L])
+  if (lit) {
+    const c = r * 0.22
+    rect(ctx, cx - c, cy - c, c * 2, c * 2, pal[SHIRT + L])
+  }
+}
+
+// ---- the figure ----
+
+type Leg = [number, number, number, number] // knee u,v foot u,v
+type Arm = [number, number, number, number] // elbow u,v hand u,v
+interface Pose {
+  hip: number
+  hipU?: number
+  sho: number
+  lean: number
+  head: Pt
+  legs: [Leg, Leg] // back, front
+  arms: [Arm, Arm] // back, front
+}
+
+// Proportions of 52: head 7, torso 18, legs 27. u right, v up from the feet.
+const IDLE: Pose = { hip: 27, sho: 45, lean: 0, head: [1, 48.5], legs: [[-3, 14, -3.5, 0.5], [3, 14, 3.5, 0.5]], arms: [[-4.5, 36, -4.5, 29.5], [4.5, 36, 5, 29.5]] }
+const RUN_HALF: Pose[] = [
+  // contact: front heel ahead, back toe leaving the ground
+  { hip: 26, sho: 44, lean: 2, head: [3, 48.5], legs: [[-7, 13, -13, 5], [6, 15, 11, 0.5]], arms: [[6, 36, 10, 41], [-7, 36, -10, 30]] },
+  // down: weight over the front leg
+  { hip: 24, sho: 42, lean: 3, head: [4, 46.5], legs: [[-3, 16, -10, 9], [3, 12, 3, 0.5]], arms: [[3, 35, 7, 39], [-4, 35, -6, 31]] },
+  // pass / up: the back knee comes through high
+  { hip: 27, sho: 45, lean: 3, head: [4, 49.5], legs: [[5, 20, 3, 11], [-4, 14, -9, 3]], arms: [[-3, 36, -5, 31], [4, 36, 8, 41]] },
+]
+const RUN: Pose[] = [
+  ...RUN_HALF,
+  ...RUN_HALF.map((p): Pose => ({ ...p, legs: [p.legs[1], p.legs[0]], arms: [p.arms[1], p.arms[0]] })),
+]
+const JUMP: Pose = { hip: 27, sho: 45, lean: 4, head: [5, 49], legs: [[-7, 20, -13, 12], [9, 19, 15, 10]], arms: [[-8, 38, -12, 31], [8, 41, 14, 47]] }
+const HOP: Pose = { hip: 27, sho: 45, lean: 1, head: [2, 49], legs: [[-2, 16, -3, 7], [3, 17, 3, 7]], arms: [[-6, 38, -9, 32], [6, 38, 9, 32]] }
+const FALL: Pose = { hip: 27, sho: 45, lean: -1, head: [1, 49], legs: [[-4, 15, -6, 4], [5, 16, 6, 4]], arms: [[-6, 42, -9, 50], [6, 42, 9, 50]] }
+const CROUCH: Pose = { hip: 18, hipU: 1, sho: 34, lean: 5, head: [7, 38], legs: [[-7, 9, -7, 0.5], [7, 10, 6, 0.5]], arms: [[-3, 26, 1, 20], [9, 28, 13, 22]] }
+
+function poseFor(world: World): Pose | null {
+  const p = world.player
+  if (world.dying) {
+    if (world.dying.cause === 'fall') return FALL
+    if (world.dying.cause === 'tide') return world.dying.t < 0.12 ? IDLE : null
+    return CROUCH
+  }
+  if (p.crouch > 0) return CROUCH
+  if (!p.grounded) {
+    if (p.hop) return p.vy < 0 ? HOP : FALL
+    if (Math.abs(p.vx) > 100) return JUMP
+    return p.vy < 0 ? HOP : FALL
+  }
+  if (Math.abs(p.vx) > 30) return RUN[Math.floor(world.time * 12) % 6]
+  return IDLE
+}
+
+function drawFigure(ctx: CanvasRenderingContext2D, v: View, pal: Palette, world: World): void {
+  const pose = poseFor(world)
+  if (!pose) return
+  const p = world.player
+  const s = v.s
+  const f = p.facing < 0 ? -1 : 1
+  const U = (u: number): number => v.X(p.x + u * f)
+  const V = (vv: number): number => v.Y(p.y - vv)
+  const P = (u: number, vv: number): Pt => [U(u), V(vv)]
+
+  // One breath every 3 s: the torso and head rise 1 unit, held.
+  const breath = pose === IDLE && !world.dying && world.time % 3 > 0.9 && world.time % 3 < 1.9 ? 1 : 0
+  const hipU = pose.hipU ?? 0
+  const hip = pose.hip
+  const sho = pose.sho + breath
+  const lean = pose.lean
+  const shoU = hipU + lean * 0.6
+
+  const thigh = 4 * s
+  const shin = 3 * s
+  const upper = 3 * s
+  const fore = 2.4 * s
+
+  const leg = (l: Leg, color: string) => {
+    const hipPt = P(hipU, hip)
+    const knee = P(l[0], l[1])
+    const foot = P(l[2], Math.max(0.5, l[3]))
+    bar(ctx, hipPt, knee, thigh, color)
+    bar(ctx, knee, foot, shin, color)
+    rect(ctx, knee[0] - thigh / 2, knee[1] - thigh / 2, thigh, thigh, color)
+    // Boot: a small wedge pointing forward.
+    poly(ctx, [P(l[2] - 2, Math.max(0.5, l[3])), P(l[2] + 4, Math.max(0.5, l[3])), P(l[2] + 4, Math.max(0.5, l[3]) + 2.5), P(l[2] - 2, Math.max(0.5, l[3]) + 2.5)], pal[NEAR])
+  }
+  const arm = (a: Arm) => {
+    const shoPt = P(shoU, sho - 1)
+    const elbow = P(a[0], a[1] + breath)
+    const hand = P(a[2], a[3] + breath)
+    bar(ctx, shoPt, elbow, upper, pal[SHIRT])
+    bar(ctx, elbow, hand, fore, pal[SKIN])
+    const hr = 2 * s
+    rect(ctx, hand[0] - hr / 2, hand[1] - hr / 2, hr, hr, pal[SKIN])
+  }
+
+  leg(pose.legs[0], pal[NEAR])
+  arm(pose.arms[0])
+  // Torso.
+  poly(ctx, [P(hipU - 3, hip), P(hipU + 3, hip), P(shoU + 4.5, sho), P(shoU - 4, sho)], pal[SHIRT])
+  // Neck and head.
+  rect(ctx, U(shoU + (f < 0 ? 1 : -1)) - (f < 0 ? 2 * s : 0), V(sho + 1.5), 2 * s, 2 * s, pal[SKIN])
+  const hx = pose.head[0]
+  const hy = pose.head[1] + breath
+  poly(ctx, [
+    P(hx - 3, hy - 3.5), P(hx - 3, hy + 2), P(hx - 1, hy + 3.5), P(hx + 2, hy + 3.5),
+    P(hx + 3.5, hy + 1), P(hx + 3, hy - 2), P(hx + 1, hy - 3.5),
+  ], pal[SKIN])
+  poly(ctx, [P(hx - 3.2, hy + 0.5), P(hx - 3, hy + 2.5), P(hx - 1, hy + 3.7), P(hx + 2.2, hy + 3.7), P(hx + 1, hy + 1.5), P(hx - 1.5, hy + 1)], pal[NEAR])
+  arm(pose.arms[1])
+  leg(pose.legs[1], pal[NEAR + L])
+}
+
+// ---- foreground ----
+
+function drawArches(ctx: CanvasRenderingContext2D, v: View, pal: Palette): void {
+  const { X, Y, s } = v
+  for (const ax of ARCHES) {
+    const x0 = X(ax - 90)
+    const x1 = X(ax + 90)
+    if (x1 < 0 || x0 > v.width) continue
+    const legW = 30 * s
+    const yb = Y(250)
+    const bottom = v.height + 10
+    // Left leg, right leg, lintel with a rough top.
+    poly(ctx, [[x0, bottom], [x0 - 6 * s, yb + 40 * s], [x0 + 2 * s, yb], [x0 + legW, yb], [x0 + legW + 5 * s, yb + 60 * s], [x0 + legW + 2 * s, bottom]], pal[NEAR])
+    poly(ctx, [[x1 - legW - 4 * s, bottom], [x1 - legW - 6 * s, yb + 50 * s], [x1 - legW, yb], [x1 - 2 * s, yb], [x1 + 4 * s, yb + 30 * s], [x1, bottom]], pal[NEAR])
+    poly(ctx, [[x0 - 4 * s, yb], [x0 + 10 * s, Y(200)], [X(ax - 20), Y(212)], [X(ax + 30), Y(188)], [x1 + 2 * s, Y(206)], [x1 + 4 * s, yb], [X(ax + 40), Y(258)], [X(ax - 30), Y(254)]], pal[NEAR])
+    // The right leg's right face catches the moon.
+    poly(ctx, [[x1 - 2 * s, yb], [x1 + 4 * s, yb + 30 * s], [x1, bottom], [x1 - 5 * s, bottom], [x1 - 1 * s, yb + 30 * s], [x1 - 6 * s, yb + 2 * s]], pal[NEAR + L])
+  }
+}
+
+function drawForeground(ctx: CanvasRenderingContext2D, v: View, pal: Palette): void {
+  const k = 0.9
+  const s = v.s
+  const spacing = 260
+  const half = v.width / (2 * s)
+  const u0 = v.camCenter * k - half
+  const u1 = v.camCenter * k + half
+  const sxOf = (u: number) => v.width / 2 + (u - v.camCenter * k) * s
+  const top = v.bandY
+  const bottom = v.height + 10
+  rect(ctx, 0, top, v.width, v.height - top, pal[NEAR])
+  for (let i = Math.floor(u0 / spacing) - 1; i <= Math.floor(u1 / spacing) + 1; i++) {
+    const r1 = hash(i * 5 + 301)
+    const r2 = hash(i * 5 + 302)
+    const r3 = hash(i * 5 + 303)
+    const r4 = hash(i * 5 + 304)
+    const cu = (i + r2) * spacing
+    const cx = sxOf(cu)
+    if (r1 < 0.6) {
+      // A low hump.
+      const w = (60 + r3 * 90) * s
+      const h = (8 + r4 * 26) * s
+      poly(ctx, [[cx - w / 2, bottom], [cx - w / 2 + 6 * s, top + 2 * s], [cx - w * 0.15, top - h], [cx + w * 0.2, top - h * 0.7], [cx + w / 2, top + 4 * s], [cx + w / 2, bottom]], pal[NEAR])
+    }
+    if (r3 > 0.45) {
+      // Stiff plants: a cluster of blades.
+      const n = 2 + Math.floor(r4 * 3)
+      const bx = cx + (r1 - 0.5) * 80 * s
+      for (let j = 0; j < n; j++) {
+        const rj = hash(i * 17 + j * 3 + 401)
+        const rk = hash(i * 17 + j * 3 + 402)
+        const x = bx + (j - n / 2) * 7 * s
+        const h = (24 + rj * 44) * s
+        const w = (2.5 + rk * 2.5) * s
+        const lean = (rk - 0.5) * 14 * s
+        poly(ctx, [[x - w, top + 6 * s], [x + lean, top - h], [x + w, top + 6 * s]], pal[NEAR])
+      }
+    }
+    if (r1 > 0.9) {
+      // A tall frame rock, narrow, leaning.
+      const w = (30 + r2 * 20) * s
+      const h = v.groundY - v.height * (0.56 - r4 * 0.1)
+      const lean = (r3 - 0.5) * 30 * s
+      poly(ctx, [[cx - w / 2, bottom], [cx - w / 2 + lean, top - h + 12 * s], [cx + lean + w * 0.1, top - h], [cx + w / 2 + lean, top - h + 6 * s], [cx + w / 2, bottom]], pal[NEAR])
+    }
+  }
 }

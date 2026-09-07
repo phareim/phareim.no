@@ -1,12 +1,12 @@
 <template>
-  <!-- Another Shore: own the page. Full-viewport flat-polygon coast canvas
-    with the profile unboxed upper left while idle. The engine (world sim)
-    and renderer (camera + drawing) arrive from sibling workers; this shell
-    owns the loop, input, HUD and overlays only. -->
-  <div ref="shellRef" class="aw-shell" :class="{ 'aw-istouch': isTouch }">
+  <!-- Another Shore: own the page. A full-viewport flat-polygon coast with
+    the profile unboxed upper left while idle. No HUD boxes: beacon progress
+    is three small dots, pause/exit are one line of text, touch controls are
+    thin outlined zones in the black band at the bottom. -->
+  <div ref="shellRef" class="aw-shell" :class="{ 'aw-istouch': isTouch, 'aw-dawn': dawn }">
     <canvas ref="canvasRef" class="aw-canvas" aria-hidden="true" />
 
-    <!-- Idle profile: unboxed personal text, upper left. -->
+    <!-- Idle profile: the prologue, over the sky. -->
     <div v-if="phase === 'idle'" class="aw-profile">
       <p class="aw-chapter">Another shore</p>
       <h1 class="aw-name">{{ profile.name }}</h1>
@@ -25,70 +25,51 @@
       <button type="button" class="aw-start" @click="startGame">
         {{ hint('Start the crossing — Enter', 'Start the crossing') }}
       </button>
-      <p class="aw-controls-hint">{{ hint('← → / A D move · Space jump · P pause', '◀ ▶ move · Jump · pause above') }}</p>
+      <p class="aw-controls-hint">{{ hint('← → / A D move · Space jump · P pause', '◀ ▶ move · jump · pause above') }}</p>
     </div>
 
-    <!-- Sparse HUD once the profile is gone. No score. -->
-    <div v-if="phase === 'playing' || phase === 'paused'" class="aw-hud">
-      <p class="aw-beacons" aria-live="polite">Beacon {{ beaconLit }} / {{ beaconTotal }}</p>
-      <div class="aw-hud-buttons">
-        <button
-          v-if="phase === 'playing'"
-          type="button"
-          class="aw-hud-button"
-          aria-label="Pause"
-          @click="pauseGame"
-        >
-          Pause
-        </button>
-        <button
-          v-else
-          type="button"
-          class="aw-hud-button"
-          aria-label="Resume"
-          @click="resumeGame"
-        >
-          Resume
-        </button>
-        <button type="button" class="aw-hud-button" aria-label="Exit to profile" @click="exitToIdle">
-          Exit
-        </button>
-      </div>
-    </div>
+    <!-- One line of text, top right. No border, no background. -->
+    <p v-if="phase === 'playing' || phase === 'paused'" class="aw-top">
+      <button v-if="phase === 'playing'" type="button" class="aw-text" @click="pauseGame">pause</button>
+      <button v-else type="button" class="aw-text" @click="resumeGame">resume</button>
+      <span class="aw-sep">·</span>
+      <button type="button" class="aw-text" @click="exitToIdle">exit</button>
+    </p>
 
-    <!-- Pointer-captured touch buttons. No global tap-to-start: idle swipes
-      stay theme navigation. Rendered while a run is up; CSS shows them on
-      touch input mode or coarse pointers only. -->
-    <div v-if="phase === 'playing' || phase === 'paused'" class="aw-touch" aria-hidden="false">
-      <div class="aw-touch-left">
-        <button
-          type="button"
-          class="aw-touch-button"
-          aria-label="Move left"
-          @pointerdown="onTouchButton($event, 'left')"
-          @pointerup="onTouchRelease($event, 'left')"
-          @pointercancel="onTouchRelease($event, 'left')"
-          @lostpointercapture="onTouchRelease($event, 'left')"
-          @contextmenu.prevent
-        >
-          ◀
-        </button>
-        <button
-          type="button"
-          class="aw-touch-button"
-          aria-label="Move right"
-          @pointerdown="onTouchButton($event, 'right')"
-          @pointerup="onTouchRelease($event, 'right')"
-          @pointercancel="onTouchRelease($event, 'right')"
-          @lostpointercapture="onTouchRelease($event, 'right')"
-          @contextmenu.prevent
-        >
-          ▶
-        </button>
-      </div>
+    <!-- Beacon progress: three dots, low right. -->
+    <p v-if="phase !== 'idle'" class="aw-dots" :aria-label="`Beacon ${beaconLit} of ${beaconTotal}`">
+      <span v-for="i in beaconTotal" :key="i" class="aw-dot" :class="{ 'aw-dot-lit': i <= beaconLit }" />
+    </p>
+
+    <!-- Touch zones: pointer-captured, outlines only, in the black band. -->
+    <div v-if="phase === 'playing' || phase === 'paused'" class="aw-touch">
       <button
         type="button"
-        class="aw-touch-button aw-touch-jump"
+        class="aw-zone"
+        aria-label="Move left"
+        @pointerdown="onTouchButton($event, 'left')"
+        @pointerup="onTouchRelease($event, 'left')"
+        @pointercancel="onTouchRelease($event, 'left')"
+        @lostpointercapture="onTouchRelease($event, 'left')"
+        @contextmenu.prevent
+      >
+        ◀
+      </button>
+      <button
+        type="button"
+        class="aw-zone"
+        aria-label="Move right"
+        @pointerdown="onTouchButton($event, 'right')"
+        @pointerup="onTouchRelease($event, 'right')"
+        @pointercancel="onTouchRelease($event, 'right')"
+        @lostpointercapture="onTouchRelease($event, 'right')"
+        @contextmenu.prevent
+      >
+        ▶
+      </button>
+      <button
+        type="button"
+        class="aw-zone aw-zone-jump"
         aria-label="Jump"
         @pointerdown="onTouchButton($event, 'jump')"
         @pointerup="onTouchRelease($event, 'jump')"
@@ -96,28 +77,23 @@
         @lostpointercapture="onTouchRelease($event, 'jump')"
         @contextmenu.prevent
       >
-        Jump
+        jump
       </button>
     </div>
 
-    <!-- Pause overlay: explicit visible controls. -->
-    <div v-if="phase === 'paused'" class="aw-overlay" role="dialog" aria-label="Paused">
-      <p class="aw-overlay-kicker">Paused</p>
-      <p class="aw-overlay-hint">{{ hint('P or Esc to resume', 'Resume below') }}</p>
-      <div class="aw-overlay-buttons">
-        <button type="button" class="aw-button" @click="resumeGame">Resume</button>
-        <button type="button" class="aw-button" @click="exitToIdle">Exit</button>
-      </div>
-    </div>
+    <!-- Paused: the palette dims (renderer) and one line says so. -->
+    <p v-if="phase === 'paused'" class="aw-line" role="status">
+      paused — {{ hint('P to resume', 'resume above') }}
+    </p>
 
-    <!-- Win overlay: replay + exit, navigation released. -->
-    <div v-if="phase === 'won'" class="aw-overlay" role="dialog" aria-label="Signal reached">
-      <p class="aw-overlay-kicker">Signal reached</p>
-      <p class="aw-overlay-hint">{{ hint('Enter to walk it again · Esc to leave', 'Walk it again, or leave') }}</p>
-      <div class="aw-overlay-buttons">
-        <button type="button" class="aw-button" @click="replay">Walk again</button>
-        <button type="button" class="aw-button" @click="exitToIdle">Exit</button>
-      </div>
+    <!-- Won: the lamp is lit, the world is at dawn, the name is back in the sky. -->
+    <div v-if="phase === 'won'" class="aw-won" role="dialog" aria-label="The lamp is lit">
+      <p class="aw-won-name">{{ profile.name }}</p>
+      <p class="aw-won-line">
+        <button type="button" class="aw-text" @click="replay">{{ hint('walk again — Enter', 'walk again') }}</button>
+        <span class="aw-sep">·</span>
+        <button type="button" class="aw-text" @click="exitToIdle">{{ hint('leave — Esc', 'leave') }}</button>
+      </p>
     </div>
   </div>
 </template>
@@ -126,7 +102,7 @@
 import SocialLink from '~/themes/base/SocialLink.vue'
 import { profile } from '~/themes/content'
 import { createWorld, stepWorld, demoInput } from './engine'
-import { drawWorld } from './renderer'
+import { drawWorld, paletteNameFor } from './renderer'
 import type { World, Input } from './types'
 
 type Phase = 'idle' | 'playing' | 'paused' | 'won'
@@ -134,6 +110,7 @@ type TouchKind = 'left' | 'right' | 'jump'
 
 const STEP = 1 / 60
 const MAX_STEPS = 4
+const IDLE_WIN_HOLD = 2.5 // seconds of dawn before the attract loop restarts
 
 const { navigationLocked } = useTheme()
 const { isTouch, hint } = useInputMode()
@@ -144,11 +121,13 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const phase = ref<Phase>('idle')
 const beaconLit = ref(0)
 const beaconTotal = ref(3)
+const dawn = ref(false)
 
 let world: World | null = null
 let raf = 0
 let last = 0
 let acc = 0
+let idleHold = 0
 let needsDraw = true
 let cssW = 0
 let cssH = 0
@@ -169,6 +148,7 @@ function updateBeacons() {
   if (!world) return
   beaconTotal.value = world.beacons.length
   beaconLit.value = world.beacons.filter(b => b.lit).length
+  dawn.value = paletteNameFor(world) === 'dawn'
 }
 
 function resetInput() {
@@ -191,7 +171,7 @@ function currentInput(): Input {
 function draw() {
   if (!ctx || !world || cssW <= 0 || cssH <= 0) return
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  drawWorld(ctx, world, cssW, cssH)
+  drawWorld(ctx, world, cssW, cssH, { reducedMotion, paused: phase.value === 'paused' })
   needsDraw = false
 }
 
@@ -220,17 +200,20 @@ function stepIdle(dt: number) {
   acc += Math.min(dt, 0.1)
   let n = 0
   while (acc >= STEP && n < MAX_STEPS) {
-    stepWorld(world, demoInput(world), STEP)
+    if (world.won) {
+      // Attract mode holds the dawn for a beat, then restarts on the same physics.
+      idleHold += STEP
+      if (idleHold >= IDLE_WIN_HOLD) {
+        world = createWorld()
+        idleHold = 0
+      }
+    } else {
+      stepWorld(world, demoInput(world), STEP)
+    }
     acc -= STEP
     n += 1
-    if (world.won) break
   }
   if (n === MAX_STEPS) acc = 0
-  if (world.won) {
-    // Attract mode restarts on the same physics; no overlay, no nav change.
-    world = createWorld()
-    acc = 0
-  }
   updateBeacons()
 }
 
@@ -248,6 +231,12 @@ function frame(t: number) {
       stepIdle(dt)
       draw()
     }
+  } else if (phase.value === 'won') {
+    // The lamp stays lit; the figure breathes. Reduced motion holds the frame.
+    if (!reducedMotion && world) {
+      world.time += dt
+      draw()
+    } else if (needsDraw) draw()
   } else if (needsDraw) {
     draw()
   }
@@ -276,6 +265,7 @@ function startGame() {
   updateBeacons()
   acc = 0
   last = 0
+  idleHold = 0
   resetInput()
   phase.value = 'playing'
   navigationLocked.value = true
@@ -312,6 +302,7 @@ function exitToIdle() {
   world = createWorld()
   updateBeacons()
   acc = 0
+  idleHold = 0
   resetInput()
   phase.value = 'idle'
   navigationLocked.value = false
@@ -463,13 +454,25 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .aw-shell {
+  --aw-ink: #ece4d4;
+  --aw-ink-dim: #a9b8ac;
+  --aw-amber: #e7bb80;
+  --aw-edge: #4b8194;
   position: relative;
   height: 100dvh;
   overflow: hidden;
   background: #101f2a;
-  color: #ece4d4;
+  color: var(--aw-ink);
   font-family: var(--font-person);
   box-sizing: border-box;
+}
+
+/* At dawn the sky is pale: the ink goes dark. A hard cut like the palette. */
+.aw-dawn {
+  --aw-ink: #1a2228;
+  --aw-ink-dim: #4a5a62;
+  --aw-amber: #6a4534;
+  --aw-edge: #566a73;
 }
 
 .aw-canvas {
@@ -481,7 +484,7 @@ onBeforeUnmount(() => {
   touch-action: pan-x pan-y;
 }
 
-/* Idle profile: flat backing only, no card, no border, no shadow. */
+/* Idle profile: unboxed, over the sky. */
 .aw-profile {
   position: absolute;
   top: max(9vh, env(safe-area-inset-top));
@@ -495,7 +498,7 @@ onBeforeUnmount(() => {
   font-size: 11px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: #e7bb80;
+  color: var(--aw-amber);
   margin: 0 0 8px;
 }
 
@@ -505,7 +508,7 @@ onBeforeUnmount(() => {
   line-height: 1.05;
   letter-spacing: -0.01em;
   text-transform: lowercase;
-  color: #ece4d4;
+  color: var(--aw-ink);
   margin: 0 0 10px;
 }
 
@@ -513,7 +516,7 @@ onBeforeUnmount(() => {
   font-weight: 300;
   font-size: 15px;
   line-height: 1.5;
-  color: #ece4d4;
+  color: var(--aw-ink);
   margin: 2px 0;
 }
 
@@ -543,18 +546,18 @@ onBeforeUnmount(() => {
   font-size: 12px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #e7bb80;
+  white-space: nowrap;
+  color: var(--aw-amber);
   background: transparent;
   border: none;
-  border-bottom: 1px solid #e7bb80;
+  border-bottom: 1px solid var(--aw-amber);
   cursor: pointer;
 }
 
 .aw-start:focus-visible,
-.aw-button:focus-visible,
-.aw-hud-button:focus-visible,
-.aw-touch-button:focus-visible {
-  outline: 2px solid #e7bb80;
+.aw-text:focus-visible,
+.aw-zone:focus-visible {
+  outline: 2px solid var(--aw-amber);
   outline-offset: 3px;
 }
 
@@ -563,63 +566,70 @@ onBeforeUnmount(() => {
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #a9b8ac;
+  color: var(--aw-ink-dim);
   margin: 10px 0 0;
 }
 
-/* HUD: sparse beacon progress + visible pause/exit. */
-.aw-hud {
-  position: absolute;
-  top: max(12px, env(safe-area-inset-top));
-  left: max(12px, env(safe-area-inset-left));
-  right: max(12px, env(safe-area-inset-right));
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  pointer-events: none;
-}
-
-.aw-beacons {
-  font-family: var(--font-machine);
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #e7bb80;
-  background: rgba(9, 23, 32, 0.55);
-  padding: 8px 10px;
-  margin: 0;
-}
-
-.aw-hud-buttons {
-  display: flex;
-  gap: 8px;
-  pointer-events: auto;
-}
-
-.aw-hud-button {
+/* Text buttons: the only chrome while playing. */
+.aw-text {
   min-height: 44px;
-  min-width: 44px;
-  padding: 10px 14px;
+  padding: 10px 4px;
   font-family: var(--font-machine);
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #ece4d4;
-  background: rgba(9, 23, 32, 0.55);
-  border: 1px solid #356372;
+  color: var(--aw-ink);
+  background: transparent;
+  border: none;
   cursor: pointer;
 }
 
-/* Touch buttons: hidden on fine pointers unless touch input mode is live. */
+.aw-sep {
+  font-family: var(--font-machine);
+  font-size: 11px;
+  color: var(--aw-ink-dim);
+  padding: 0 4px;
+}
+
+.aw-top {
+  position: absolute;
+  top: max(4px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.aw-dots {
+  position: absolute;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.aw-dot {
+  width: 5px;
+  height: 5px;
+  background: var(--aw-ink-dim);
+  opacity: 0.55;
+}
+
+.aw-dot-lit {
+  background: var(--aw-amber);
+  opacity: 1;
+}
+
+/* Touch zones: hidden on fine pointers unless touch input mode is live. */
 .aw-touch {
   position: absolute;
-  left: max(12px, env(safe-area-inset-left));
-  right: max(12px, env(safe-area-inset-right));
-  bottom: max(72px, calc(60px + env(safe-area-inset-bottom)));
+  left: max(10px, env(safe-area-inset-left));
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(40px, calc(30px + env(safe-area-inset-bottom)));
   display: none;
-  align-items: flex-end;
-  justify-content: space-between;
+  gap: 8px;
   pointer-events: none;
 }
 
@@ -633,26 +643,32 @@ onBeforeUnmount(() => {
   }
 }
 
-.aw-touch-left {
-  display: flex;
-  gap: 12px;
-  pointer-events: auto;
+.aw-istouch .aw-dots,
+.aw-istouch .aw-line {
+  bottom: max(96px, calc(86px + env(safe-area-inset-bottom)));
 }
 
-.aw-touch-button {
+@media (pointer: coarse) {
+  .aw-shell .aw-dots,
+  .aw-shell .aw-line {
+    bottom: max(96px, calc(86px + env(safe-area-inset-bottom)));
+  }
+}
+
+.aw-zone {
+  flex: 1 1 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 56px;
-  min-height: 56px;
-  padding: 12px 16px;
+  min-height: 46px;
+  padding: 0;
   font-family: var(--font-machine);
-  font-size: 13px;
-  letter-spacing: 0.1em;
+  font-size: 12px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #ece4d4;
-  background: rgba(9, 23, 32, 0.6);
-  border: 1px solid #356372;
+  color: var(--aw-ink-dim);
+  background: transparent;
+  border: 1px solid var(--aw-edge);
   cursor: pointer;
   touch-action: none;
   pointer-events: auto;
@@ -660,63 +676,55 @@ onBeforeUnmount(() => {
   -webkit-user-select: none;
 }
 
-/* Overlays: flat panel, no animation. */
-.aw-overlay {
+.aw-zone-jump {
+  flex: 2 1 0;
+}
+
+/* Paused: one line at the bottom centre. */
+.aw-line {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  max-width: min(340px, calc(100vw - 48px));
-  width: max-content;
-  background: #0b1820;
-  border: 1px solid #356372;
-  padding: 20px 22px;
+  left: 0;
+  right: 0;
+  bottom: max(48px, calc(36px + env(safe-area-inset-bottom)));
+  margin: 0;
   text-align: center;
-}
-
-.aw-overlay-kicker {
-  font-family: var(--font-machine);
-  font-size: 14px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: #e7bb80;
-  margin: 0 0 8px;
-}
-
-.aw-overlay-hint {
   font-family: var(--font-machine);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  color: #a9b8ac;
-  margin: 0 0 14px;
-}
-
-.aw-overlay-buttons {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.aw-button {
-  min-height: 44px;
-  padding: 10px 18px;
-  font-family: var(--font-machine);
-  font-size: 12px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #101f2a;
-  background: #e7bb80;
-  border: none;
-  cursor: pointer;
+  color: var(--aw-ink-dim);
+  pointer-events: none;
 }
 
-/* Small phones: compact unboxed profile, still upper left. */
+/* Won: the name back in the sky, small; two plain buttons under it. */
+.aw-won {
+  position: absolute;
+  top: max(9vh, env(safe-area-inset-top));
+  left: max(7vw, env(safe-area-inset-left));
+}
+
+.aw-won-name {
+  font-weight: 300;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  color: var(--aw-ink);
+  margin: 0 0 4px;
+}
+
+.aw-won-line {
+  margin: 0 0 0 -4px;
+  display: flex;
+  align-items: center;
+}
+
+/* Small phones: compact unboxed profile, still upper left; the moon sits
+  top right beside it, so the copy stays under 262px wide. */
 @media (max-width: 600px) {
   .aw-profile {
-    top: max(40px, env(safe-area-inset-top));
+    top: max(36px, env(safe-area-inset-top));
     left: max(24px, env(safe-area-inset-left));
-    max-width: calc(100vw - 48px);
+    max-width: 262px;
     padding: 0;
   }
 
@@ -732,16 +740,21 @@ onBeforeUnmount(() => {
   .aw-controls-hint {
     display: none;
   }
+
+  .aw-won {
+    top: max(36px, env(safe-area-inset-top));
+    left: max(24px, env(safe-area-inset-left));
+  }
 }
 
-/* Short landscape phones: keep the profile narrow so the coast keeps
-  most of the viewport; the renderer owns the horizontal camera. */
+/* Short landscape phones: a narrow profile column; the start line never wraps. */
 @media (max-height: 480px) {
   .aw-controls-hint { display: none; }
   .aw-profile {
-    top: max(20px, env(safe-area-inset-top));
-    max-width: 220px;
-    padding: 8px 10px 10px;
+    top: max(14px, env(safe-area-inset-top));
+    left: max(24px, env(safe-area-inset-left));
+    max-width: 200px;
+    padding: 0;
   }
 
   .aw-chapter {
@@ -759,9 +772,10 @@ onBeforeUnmount(() => {
   }
 
   .aw-socials {
-    margin-top: 6px;
+    margin-top: 4px;
   }
 
+  .aw-socials :deep(a) { min-width: 36px; min-height: 36px; }
   .aw-socials :deep(svg),
   .aw-socials :deep(img) {
     width: 20px;
@@ -769,20 +783,35 @@ onBeforeUnmount(() => {
   }
 
   .aw-start {
-    margin-top: 8px;
-    padding: 8px 12px;
+    min-height: 36px;
+    margin-top: 4px;
+    padding: 6px 0;
+    font-size: 11px;
+    letter-spacing: 0.1em;
   }
 
   .aw-touch {
-    bottom: max(56px, calc(48px + env(safe-area-inset-bottom)));
+    bottom: max(34px, calc(26px + env(safe-area-inset-bottom)));
+  }
+
+  .aw-zone {
+    min-height: 30px;
+    font-size: 11px;
+  }
+
+  .aw-istouch .aw-dots,
+  .aw-istouch .aw-line {
+    bottom: 72px;
+  }
+
+  .aw-won {
+    top: max(14px, env(safe-area-inset-top));
+    left: max(24px, env(safe-area-inset-left));
   }
 }
 
-.aw-start:active, .aw-button:active, .aw-hud-button:active, .aw-touch-button:active { transform: scale(0.96); }
-
 @media (prefers-reduced-motion: reduce) {
   .aw-shell,
-  .aw-overlay,
   .aw-profile {
     animation: none;
   }
