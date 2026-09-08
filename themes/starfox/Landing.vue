@@ -29,27 +29,29 @@
         <p class="sfx-hint">{{ hint('PRESS ENTER TO FLY AGAIN', 'TAP TO FLY AGAIN') }}</p>
       </template>
       <template v-else>
-        <p class="location sfx-hud">
-          SECTOR {{ pad(sector) }} · SCORE: {{ score }} · {{ distance }} KM
-        </p>
-        <div v-if="gameStarted" class="sfx-bar" role="status" aria-label="Hull integrity">
-          <div class="sfx-bar-fill" :class="hpClass" :style="{ width: `${Math.round(100 * hp / hpMax)}%` }" />
+        <!-- In-game HUD lives in a bottom dock so the corridor stays clear. -->
+        <div class="sfx-dock">
+          <div v-if="bossActive" class="sfx-dock-boss">
+            <span class="sfx-boss-name">{{ BOSS_NAME }}</span>
+            <span class="sfx-bar sfx-boss-bar" role="status" aria-label="Boss integrity">
+              <span class="sfx-bar-fill sfx-bar-boss" :style="{ width: `${bossMax > 0 ? Math.round(100 * bossHp / bossMax) : 0}%` }" />
+            </span>
+          </div>
+          <p v-if="gameStarted" class="location sfx-hud">
+            SECTOR {{ pad(sector) }} · SCORE: {{ score }} · {{ distance }} KM
+          </p>
+          <div v-if="gameStarted" class="sfx-bar" role="status" aria-label="Hull integrity">
+            <div class="sfx-bar-fill" :class="hpClass" :style="{ width: `${Math.round(100 * hp / hpMax)}%` }" />
+          </div>
+          <p v-if="banner" class="location sfx-hud sfx-banner">{{ banner }}</p>
+          <p v-if="powerMsg" class="location sfx-hud sfx-power">{{ powerMsg }}</p>
+          <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
+          <template v-if="!gameStarted">
+            <p class="sfx-hint">▶ {{ hint('PRESS ENTER TO FLY', 'TAP TO FLY') }} ◀</p>
+            <p class="sfx-hint sfx-hint-dim">{{ hint('ARROWS · SPACE FIRE · SHIFT ROLL · ESC PAUSE', 'DRAG TO STEER · AUTO-FIRE · DOUBLE-TAP ROLL') }}</p>
+          </template>
         </div>
-        <p v-if="banner" class="location sfx-hud sfx-banner">{{ banner }}</p>
-        <p v-if="powerMsg" class="location sfx-hud sfx-power">{{ powerMsg }}</p>
-        <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
-        <template v-if="!gameStarted">
-          <p class="sfx-hint">▶ {{ hint('PRESS ENTER TO FLY', 'TAP TO FLY') }} ◀</p>
-          <p class="sfx-hint sfx-hint-dim">{{ hint('ARROWS · SPACE FIRE · SHIFT ROLL · ESC PAUSE', 'DRAG TO STEER · AUTO-FIRE · DOUBLE-TAP ROLL') }}</p>
-        </template>
       </template>
-      <!-- The boss meter sits above the card, fixed to the viewport top. -->
-      <div v-if="bossActive && !gameOver" class="sfx-boss">
-        <span class="sfx-boss-name">{{ BOSS_NAME }}</span>
-        <span class="sfx-bar sfx-boss-bar" role="status" aria-label="Boss integrity">
-          <span class="sfx-bar-fill sfx-bar-boss" :style="{ width: `${bossMax > 0 ? Math.round(100 * bossHp / bossMax) : 0}%` }" />
-        </span>
-      </div>
     </template>
   </DefaultLanding>
 </template>
@@ -224,14 +226,22 @@ function onGameRestart() {
   text-shadow: 0 0 8px rgba(255, 210, 63, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
   animation: sfx-pulse 0.8s ease-in-out infinite alternate;
 }
-.sfx-boss {
+/* Bottom dock: all in-game text and meters sit here so the corridor
+   stays clear. Clears the pager dots (~2.5 rem tall at the bottom). */
+.sfx-dock {
   position: fixed;
-  top: max(12px, env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
+  bottom: calc(max(3rem, env(safe-area-inset-bottom) + 2.2rem));
   z-index: 3;
+  width: min(520px, 72vw);
   text-align: center;
   pointer-events: none;
+}
+.sfx-dock-boss {
+  text-align: center;
+  pointer-events: none;
+  margin-bottom: 0.4em;
 }
 .sfx-boss-name {
   font-family: var(--font-machine);

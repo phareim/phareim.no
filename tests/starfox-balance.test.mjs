@@ -5,6 +5,8 @@ import {
   HP_MAX, DMG, HEAL_RING, HEAL_CLEAR, BOSS_NAME,
   TRAVEL_TIME, WARNING_TIME, CLEAR_TIME,
   bossMaxHp, sectorClearBonus, enemyFireInterval, boltSpeedBonus,
+  bossAttackInterval, BOSS_ENRAGE_RATE, bossFanCount, bossFanSpread,
+  bossMinions, sectorPalette,
   enemyShootChance, formationSize, pickEnemyKind, worldSpeedFor,
   spawnPace, applyDamage, heal, advanceSector,
 } from '../themes/starfox/balance.ts'
@@ -100,5 +102,39 @@ describe('Star Fox boss', () => {
     assert.equal(bossMaxHp(1), 40)
     assert.equal(bossMaxHp(2), 55)
     assert.equal(bossMaxHp(4), 85)
+  })
+
+  it('attacks faster on later sectors, enraged below 30 %', () => {
+    assert.ok(bossAttackInterval(2) < bossAttackInterval(1))
+    assert.ok(bossAttackInterval(3) <= bossAttackInterval(2))
+    assert.ok(bossAttackInterval(1) <= 1.8)
+    assert.ok(BOSS_ENRAGE_RATE > 1)
+  })
+
+  it('throws wider fans on later sectors', () => {
+    assert.ok(bossFanCount(2) > bossFanCount(1))
+    assert.ok(bossFanCount(3) >= bossFanCount(2))
+    assert.ok(bossFanSpread(3) >= bossFanSpread(1))
+  })
+
+  it('brings deadlier minion screens on later sectors', () => {
+    assert.equal(bossMinions(1).length, 2)
+    assert.ok(bossMinions(2).length > 2)
+    assert.ok(bossMinions(2).some(m => m.kind === 'sniper'))
+    assert.ok(bossMinions(3).some(m => m.kind === 'kamikaze'))
+  })
+})
+
+describe('Star Fox sector palettes', () => {
+  it('shifts the backdrop palette per sector and cycles', () => {
+    const p1 = sectorPalette(1)
+    const p2 = sectorPalette(2)
+    assert.ok(p1.face !== p2.face && p1.edge !== p2.edge && p1.grid !== p2.grid)
+    for (const p of [p1, p2, sectorPalette(3), sectorPalette(4)]) {
+      for (const c of [p.face, p.edge, p.grid, p.fog, p.sky]) {
+        assert.ok(Number.isInteger(c) && c >= 0 && c <= 0xffffff)
+      }
+    }
+    assert.deepEqual(sectorPalette(5), p1)
   })
 })
