@@ -87,7 +87,7 @@ export const allThemes: ThemeDefinition[] = [
   {
     id: 'hacker',
     name: 'Cyberpunk',
-    themeColor: '#0a0a0a',
+    themeColor: '#0b0616',
     landing: HackerLanding,
   },
   {
