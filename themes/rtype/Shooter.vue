@@ -65,6 +65,25 @@ let starsMid = []
 let starsNear = []
 let polys = [] // slow drifting outline polygons, 3 parallax depths
 let force = { attached: true, angle: 0, x: 0, y: 0 }
+let pickups = []
+let pickupIndex = 0
+let pickupTimer = 8
+let upgrades = { gun: null, beam: null, force: null }
+let pickupNotice = null
+const POWERUPS = [
+  { slot: 'gun', mode: 'spread', label: 'G · SPREAD' },
+  { slot: 'beam', mode: 'wide', label: 'B · WIDE' },
+  { slot: 'force', mode: 'twin', label: 'F · TWIN' },
+  { slot: 'gun', mode: 'rapid', label: 'G · RAPID' },
+  { slot: 'beam', mode: 'quick', label: 'B · QUICK' },
+  { slot: 'force', mode: 'seeker', label: 'F · SEEKER' },
+]
+const chargeTime = () => upgrades.beam?.mode === 'quick' ? 0.4 : CHARGE_TIME
+function resetPowerups() {
+  pickups = []; pickupIndex = 0; pickupTimer = 8
+  upgrades = { gun: null, beam: null, force: null }; pickupNotice = null
+}
+
 let fireAlt = false // alternate nose/pod gun while attached
 let score = 0
 let lastScoreSent = -1
@@ -99,7 +118,7 @@ let beamFlash = 0 // additive flash along the beam, decays fast
 let beamShakeT = 0 // holds the shake up for 120 ms after a beam fires
 let lastWorld = 90
 
-// Terrain: smooth organic cave walls (summed sines, slowly drifting phases).
+// Terrain: angular mountain faces over a slowly varying cave envelope.
 let scrollX = 0
 let terrainSeedA = 1.7
 let terrainSeedB = 4.2
@@ -216,42 +235,36 @@ function noiseY(wx, seed) {
     + 0.25 * Math.sin(wx * 0.021 + seed * 2.3 + terrainPhase * 0.7)
 }
 
-function ceilYAt(sx) {
+function rawCeilYAt(sx) {
   if (!gameStarted) return H * 0.05 + Math.sin((sx + scrollX) * 0.004 + terrainPhase) * H * 0.015
   const gap = H * gapFrac()
   return centerY() - gap / 2 + noiseY(sx + scrollX, terrainSeedA) * H * 0.045
 }
 
-function floorYAt(sx) {
+function rawFloorYAt(sx) {
   if (!gameStarted) return H * 0.95 + Math.sin((sx + scrollX) * 0.004 + terrainPhase + 2) * H * 0.015
   const gap = H * gapFrac()
   return centerY() + gap / 2 + noiseY(sx + scrollX, terrainSeedB) * H * 0.045
 }
 
-// Stalactite/stalagmite spikes: deterministic per 110 px world column,
-// suppressed in attract mode so the profile card stays readable.
-function spikeLenAt(sx, side) {
-  if (!gameStarted) return 0
-  const col = Math.floor((sx + scrollX) / 110)
-  const h = hash(col * 2 + (side === 'ceil' ? 0 : 1))
-  if (h < 0.68) return 0
-  return ((h - 0.68) / 0.32) * H * 0.1
-}
-
-function spikeCXAt(sx) {
-  const col = Math.floor((sx + scrollX) / 110)
-  return col * 110 + 55 - scrollX
-}
-
-function insideTerrain(x, y, r) {
-  if (y - r < ceilYAt(x)) return true
-  if (y + r > floorYAt(x)) return true
-  const scx = spikeCXAt(x)
-  if (Math.abs(x - scx) < 12) {
-    if (y - r < ceilYAt(scx) + spikeLenAt(scx, 'ceil')) return true
-    if (y + r > floorYAt(scx) - spikeLenAt(scx, 'floor')) return true
+// World-anchored angular ridges: the collision surface is the rendered mesh edge.
+const TERRAIN_STEP = 64
+function wallYAt(sx, side) {
+  const wx = sx + scrollX
+  const col = Math.floor(wx / TERRAIN_STEP)
+  const t = wx / TERRAIN_STEP - col
+  const sample = n => {
+    const x = n * TERRAIN_STEP - scrollX
+    const raw = side === 'ceil' ? rawCeilYAt(x) : rawFloorYAt(x)
+    const peak = hash(n * 7 + (side === 'ceil' ? 31 : 79)) ** 3
+    return raw + (side === 'ceil' ? 1 : -1) * peak * H * (gameStarted ? .07 : .035)
   }
-  return false
+  return sample(col) * (1 - t) + sample(col + 1) * t
+}
+function ceilYAt(x) { return wallYAt(x, 'ceil') }
+function floorYAt(x) { return wallYAt(x, 'floor') }
+function insideTerrain(x, y, r) {
+  return [-r, 0, r].some(dx => y - r < ceilYAt(x + dx) || y + r > floorYAt(x + dx))
 }
 
 // ---------------------------------------------------------------- state
@@ -298,6 +311,7 @@ function resetGame() {
   beamFlash = 0
   beamShakeT = 0
   resetTerrain()
+  resetPowerups()
   emit('restart')
   emit('started')
   emit('score', 0)
@@ -340,6 +354,7 @@ function startDemo() {
   beamFlash = 0
   beamShakeT = 0
   resetTerrain()
+  resetPowerups()
 }
 
 function difficulty() {
@@ -511,21 +526,57 @@ function explode(x, y, big) {
 }
 
 function fireBeam() {
-  beams.push({ x: ship.x + 24, y: ship.y, vx: 950, life: 1.4, t: 0 })
+  beams.push({ x: ship.x + 24, y: ship.y, vx: 950, life: 1.4, t: 0, width: upgrades.beam?.mode === 'wide' ? 95 : 60, damage: upgrades.beam?.mode === 'wide' ? 6 : 4 })
   spawnParticles(ship.x + 24, ship.y, CYAN, 12, 200)
   shake = Math.min(1, shake + 0.55)
   beamShakeT = 0.12 // 120 ms screen shake
   beamFlash = 1
 }
 
-function fireOnce() {
-  if (!gameStarted || gameOver || !ship.alive) return
-  bullets.push({ x: ship.x + 22, y: ship.y - 3, vx: BULLET_SPEED, vy: 0 })
-  if (force.attached) {
-    fireAlt = !fireAlt
-    if (fireAlt) bullets.push({ x: force.x + 8, y: force.y, vx: BULLET_SPEED, vy: 0 })
+function shootVolley() {
+  const spread = upgrades.gun?.mode === 'spread'
+  for (const vy of spread ? [-180, 0, 180] : [0]) {
+    bullets.push({ x: ship.x + 22, y: ship.y - 3, vx: BULLET_SPEED, vy })
   }
+  fireAlt = !fireAlt
+  const mode = upgrades.force?.mode
+  if ((force.attached && fireAlt) || mode) {
+    for (const vy of mode === 'twin' ? [-110, 110] : [0]) {
+      bullets.push({ x: force.x + 8, y: force.y, vx: BULLET_SPEED, vy, seeker: mode === 'seeker' })
+    }
+  }
+}
+function fireOnce() {
+  if (!gameStarted || gameOver || !ship.alive || paused.value) return
+  shootVolley()
   fireT = 0
+}
+function dropPickup(x, y) {
+  if (!gameStarted || gameOver || pickups.length >= 3) return
+  const spec = POWERUPS[pickupIndex++ % POWERUPS.length]
+  pickups.push({ ...spec, x: clamp(x, ship.x + 90, W - 30), y: corridorClampY(y, x), life: 12 })
+}
+function updatePowerups(dt, world) {
+  if (!gameStarted || gameOver || !ship.alive) return
+  for (const slot of ['gun', 'beam', 'force']) {
+    if (upgrades[slot] && (upgrades[slot].time -= dt) <= 0) upgrades[slot] = null
+  }
+  if (pickupNotice && (pickupNotice.time -= dt) <= 0) pickupNotice = null
+  pickupTimer -= dt
+  if (pickupTimer <= 0) { dropPickup(W - 40, H * (.3 + hash(pickupIndex + 9) * .4)); pickupTimer = 9 }
+  for (let i = pickups.length - 1; i >= 0; i--) {
+    const p = pickups[i]
+    p.x -= world * .7 * dt
+    p.y = corridorClampY(p.y, p.x)
+    p.life -= dt
+    if (Math.hypot(p.x - ship.x, p.y - ship.y) < 30) {
+      upgrades[p.slot] = { mode: p.mode, label: p.label, time: 20 }
+      pickupNotice = { label: p.label, time: 2.5 }
+      spawnParticles(p.x, p.y, GOLD, 16, 150)
+      triggerShockwave(p.x, p.y, GOLD)
+      pickups.splice(i, 1)
+    } else if (p.life <= 0 || p.x < -30) pickups.splice(i, 1)
+  }
 }
 
 function killEnemyAt(i) {
@@ -551,6 +602,9 @@ function onShipHit(now) {
     invulnUntil = now + 3.0
     return
   }
+  upgrades = { gun: null, beam: null, force: null }
+  pickups = []
+  chargeT = 0
   lives--
   emit('lives', lives)
   ship.alive = false
@@ -731,7 +785,7 @@ function update(nowMs) {
     }
     ship.x = clamp(ship.x, 16, W * 0.45)
     ship.y = clamp(ship.y, 20, H - 20)
-    // Cave walls bite (ship radius 9, spikes included).
+    // Cave walls bite; the rendered angular rim is also the collision surface.
     if (!demo && now >= invulnUntil) {
       if (insideTerrain(ship.x, ship.y, 9)) {
         onShipHit(now)
@@ -752,17 +806,14 @@ function update(nowMs) {
   }
 
   // Firing: hold for auto-fire, hold >0.8s then release for charge beam.
+  updatePowerups(dt, world)
   const firing = demo || keyFire || touchFire
   if (firing && ship.alive && !gameOver) {
     chargeT += dt
     fireT += dt
-    if (fireT >= FIRE_INTERVAL) {
+    if (fireT >= (upgrades.gun?.mode === 'rapid' ? .075 : FIRE_INTERVAL)) {
       fireT = 0
-      bullets.push({ x: ship.x + 22, y: ship.y - 3, vx: BULLET_SPEED, vy: 0 })
-      if (force.attached) {
-        fireAlt = !fireAlt
-        if (fireAlt) bullets.push({ x: force.x + 8, y: force.y, vx: BULLET_SPEED, vy: 0 })
-      }
+      shootVolley()
     }
     if (demo && chargeT > 1.4) {
       // Autopilot shows off the beam now and then.
@@ -770,7 +821,7 @@ function update(nowMs) {
       chargeT = 0
     }
   } else {
-    if (!demo && chargeT >= CHARGE_TIME && ship.alive && !gameOver) fireBeam()
+    if (!demo && chargeT >= chargeTime() && ship.alive && !gameOver) fireBeam()
     chargeT = 0
     fireT = FIRE_INTERVAL // first shot immediate on press
   }
@@ -778,9 +829,13 @@ function update(nowMs) {
   // Player bullets.
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i]
+    if (b.seeker) {
+      const target = enemies.filter(e => e.x > b.x).sort((a, c) => Math.hypot(a.x - b.x, a.y - b.y) - Math.hypot(c.x - b.x, c.y - b.y))[0] || boss
+      if (target) b.vy += (clamp((target.y - b.y) * 5, -360, 360) - b.vy) * Math.min(1, dt * 8)
+    }
     b.x += b.vx * dt
     b.y += b.vy * dt
-    if (b.x > W + 20) bullets.splice(i, 1)
+    if (b.x > W + 20 || b.y < -30 || b.y > H + 30) bullets.splice(i, 1)
   }
 
   // Charge beams: fly right, pierce everything, eat enemy bullets.
@@ -792,7 +847,7 @@ function update(nowMs) {
     if (bm.life <= 0 || bm.x - 120 > W) { beams.splice(i, 1); continue }
     for (let j = ebullets.length - 1; j >= 0; j--) {
       const eb = ebullets[j]
-      if (Math.abs(eb.x - bm.x) < 90 && Math.abs(eb.y - bm.y) < 60) {
+      if (Math.abs(eb.x - bm.x) < 90 && Math.abs(eb.y - bm.y) < bm.width) {
         spawnParticles(eb.x, eb.y, CYAN, 2, 120)
         ebullets.splice(j, 1)
       }
@@ -800,9 +855,9 @@ function update(nowMs) {
     for (let j = enemies.length - 1; j >= 0; j--) {
       const e = enemies[j]
       if (e.beamHit === bm) continue
-      if (Math.abs(e.x - bm.x) < 70 && Math.abs(e.y - bm.y) < 60) {
+      if (Math.abs(e.x - bm.x) < 70 && Math.abs(e.y - bm.y) < bm.width) {
         e.beamHit = bm
-        e.hp -= 4
+        e.hp -= bm.damage
         spawnParticles(e.x, e.y, '#ffffff', 6, 200)
         if (e.hp <= 0) killEnemyAt(j)
       }
@@ -812,7 +867,7 @@ function update(nowMs) {
       const dy = boss.y - bm.y
       if (Math.abs(dx) < 90 && Math.hypot(dx, dy) < boss.ringR + 30) {
         boss.beamHit.set(bm, 1)
-        boss.hp -= 4
+        boss.hp -= bm.damage
         spawnParticles(boss.x, boss.y, '#ffffff', 8, 240)
         if (boss.hp <= 0) killBoss()
       }
@@ -1057,6 +1112,7 @@ function killBoss() {
   spawnShards(boss.x, boss.y, ORANGE, 20)
   spawnShards(boss.x, boss.y, CYAN, 10)
   addKillScore(2000, boss.x, boss.y)
+  dropPickup(boss.x, boss.y)
   boss = null
   nextBossAt = elapsed + BOSS_EVERY
 }
@@ -1071,86 +1127,42 @@ function stroke(color, width, glow) {
 }
 
 function drawTerrain(demo) {
-  const step = 8
-  // Wall fill: violet-black near the rim fading to deep violet at the edge
-  // (Neon Dreams ground; R-Type keeps its own neon-vector cave).
-  let g = ctx.createLinearGradient(0, 0, 0, H * 0.4)
-  g.addColorStop(0, '#0b0616')
-  g.addColorStop(1, '#160b2c')
-  ctx.fillStyle = g
-  ctx.beginPath()
-  ctx.moveTo(0, 0)
-  for (let x = 0; x <= W; x += step) ctx.lineTo(x, ceilYAt(x))
-  ctx.lineTo(W, 0)
-  ctx.closePath()
-  ctx.fill()
-  g = ctx.createLinearGradient(0, H, 0, H * 0.6)
-  g.addColorStop(0, '#0b0616')
-  g.addColorStop(1, '#160b2c')
-  ctx.fillStyle = g
-  ctx.beginPath()
-  ctx.moveTo(0, H)
-  for (let x = 0; x <= W; x += step) ctx.lineTo(x, floorYAt(x))
-  ctx.lineTo(W, H)
-  ctx.closePath()
-  ctx.fill()
-  // Rims: glowing cyan outlines.
-  ctx.globalAlpha = demo ? 0.5 : 1
-  stroke(CYAN, 2, 10)
-  ctx.beginPath()
-  for (let x = 0; x <= W; x += step) {
-    const y = ceilYAt(x)
-    if (x === 0) ctx.moveTo(x, y)
-    else ctx.lineTo(x, y)
-  }
-  ctx.stroke()
-  ctx.beginPath()
-  for (let x = 0; x <= W; x += step) {
-    const y = floorYAt(x)
-    if (x === 0) ctx.moveTo(x, y)
-    else ctx.lineTo(x, y)
-  }
-  ctx.stroke()
+  ctx.save()
+  ctx.globalAlpha = 1
   ctx.shadowBlur = 0
-  // Stalactites / stalagmites: outline triangles.
-  if (gameStarted) {
-    const colW = 110
-    const first = Math.floor(scrollX / colW) - 1
-    const last = Math.floor((scrollX + W) / colW) + 1
-    for (let col = first; col <= last; col++) {
-      const scx = col * colW + 55 - scrollX
-      const hc = hash(col * 2)
-      if (hc >= 0.68) {
-        const len = ((hc - 0.68) / 0.32) * H * 0.1
-        const cy = ceilYAt(scx)
-        ctx.fillStyle = '#160b2c'
-        ctx.beginPath()
-        ctx.moveTo(scx - 11, cy)
-        ctx.lineTo(scx + 11, cy)
-        ctx.lineTo(scx, cy + len)
-        ctx.closePath()
-        ctx.fill()
-        stroke(CYAN, 1, 6)
-        ctx.stroke()
-        ctx.shadowBlur = 0
-      }
-      const hf = hash(col * 2 + 1)
-      if (hf >= 0.68) {
-        const len = ((hf - 0.68) / 0.32) * H * 0.1
-        const fy = floorYAt(scx)
-        ctx.fillStyle = '#160b2c'
-        ctx.beginPath()
-        ctx.moveTo(scx - 11, fy)
-        ctx.lineTo(scx + 11, fy)
-        ctx.lineTo(scx, fy - len)
-        ctx.closePath()
-        ctx.fill()
-        stroke(CYAN, 1, 6)
-        ctx.stroke()
-        ctx.shadowBlur = 0
+  const first = Math.floor(scrollX / TERRAIN_STEP) - 1
+  const last = Math.ceil((scrollX + W) / TERRAIN_STEP) + 1
+  for (const side of ['ceil', 'floor']) {
+    const edge = side === 'ceil' ? 0 : H
+    const point = (col, row) => {
+      const x = col * TERRAIN_STEP - scrollX
+      const rim = wallYAt(x, side)
+      const depth = row / 3
+      return { x: x + (row === 0 ? 0 : (hash(col * 13 + row * 3) - .5) * 38), y: rim * (1 - depth) + edge * depth }
+    }
+    for (let col = first; col < last; col++) {
+      for (let row = 0; row < 3; row++) {
+        const a = point(col, row), b = point(col + 1, row)
+        const c = point(col, row + 1), d = point(col + 1, row + 1)
+        for (const [i, face] of [[a, c, b], [b, c, d]].entries()) {
+          const light = hash(col * 17 + row * 5 + i + (side === 'ceil' ? 97 : 0))
+          ctx.beginPath(); ctx.moveTo(face[0].x, face[0].y)
+          ctx.lineTo(face[1].x, face[1].y); ctx.lineTo(face[2].x, face[2].y); ctx.closePath()
+          ctx.fillStyle = `rgb(${9 + Math.round(light * 7)},${5 + Math.round(light * 4)},${20 + Math.round(light * 14)})`
+          ctx.fill()
+          ctx.strokeStyle = `rgba(177,105,245,${.16 + light * .23})`
+          ctx.lineWidth = .75; ctx.stroke()
+        }
       }
     }
+    ctx.beginPath()
+    for (let col = first; col <= last; col++) {
+      const p = point(col, 0)
+      if (col === first) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y)
+    }
+    ctx.strokeStyle = 'rgba(177,105,245,.65)'; ctx.lineWidth = 1.2; ctx.stroke()
   }
+  ctx.restore()
 }
 
 function drawShip(now) {
@@ -1389,7 +1401,7 @@ function draw() {
     ctx.translate(p.x, p.y)
     ctx.rotate(p.rotation)
     ctx.globalAlpha = p.alpha
-    stroke(p.orange ? ORANGE : CYAN, 1.5, 0)
+    stroke('#b169f5', 1, 0)
     ctx.shadowBlur = 0
     ctx.beginPath()
     for (let j = 0; j < p.vertices.length; j++) {
@@ -1407,7 +1419,7 @@ function draw() {
 
   ctx.globalAlpha = demo ? 0.5 : 1
 
-  // Terrain walls: violet-black fill, glowing cyan rims, outline spikes.
+  // Terrain walls: dark mountain faces and fine violet mesh edges.
   drawTerrain(demo)
   ctx.globalAlpha = demo ? 0.5 : 1
   ctx.shadowBlur = 0
@@ -1492,7 +1504,7 @@ function draw() {
       stroke(color, wdt, 18)
       ctx.beginPath()
       for (let x = -20; x <= 110; x += 8) {
-        const y = bm.y + off * 0.4 + Math.sin(x * 0.09 + bm.t * 22) * 10
+        const y = bm.y + off * 0.4 + Math.sin(x * 0.09 + bm.t * 22) * (bm.width * .35)
         if (x === -20) ctx.moveTo(bm.x + x, y)
         else ctx.lineTo(bm.x + x, y)
       }
@@ -1516,13 +1528,36 @@ function draw() {
     ctx.globalAlpha = demo ? 0.5 : 1
   }
 
+  // Gold capsules keep their labels upright in the portrait flight orientation.
+  for (const p of pickups) {
+    upright(p.x, p.y, () => {
+      stroke(GOLD, 1.5, 8)
+      ctx.fillStyle = BG; ctx.fillRect(-13, -13, 26, 26); ctx.strokeRect(-13, -13, 26, 26)
+      ctx.shadowBlur = 0; ctx.fillStyle = GOLD; ctx.font = `bold 13px ${MACHINE_FONT}`
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.slot[0].toUpperCase(), 0, 0)
+      ctx.font = `9px ${MACHINE_FONT}`; ctx.fillText(p.mode.toUpperCase(), 0, 24)
+    })
+  }
+  // Fixed screen HUD: one row per weapon, clear of the steering area.
+  if (!demo && !gameOver) {
+    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.font = `10px ${MACHINE_FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+    for (const [i, slot] of ['gun', 'beam', 'force'].entries()) {
+      const u = upgrades[slot]
+      ctx.fillStyle = u ? GOLD : CYAN
+      ctx.fillText(u ? `${u.label} ${Math.ceil(u.time)}s` : `${slot.toUpperCase()} · STANDARD`, 20, 24 + i * 16)
+    }
+    if (pickupNotice) { ctx.fillStyle = GOLD; ctx.fillText(`${pickupNotice.label} · 20s`, 20, 78) }
+    ctx.restore()
+  }
+
   // Ship, force pod, and the near-ship FORCE/BEAM indicators.
   if (ship.alive && !gameOver) {
     drawShip(now)
     drawForce()
     ctx.shadowBlur = 0
     // Small canvas HUD under the ship: force state + charge bars + multiplier.
-    const full = Math.floor(clamp(chargeT / CHARGE_TIME, 0, 1) * 5)
+    const full = Math.floor(clamp(chargeT / chargeTime(), 0, 1) * 5)
     const bars = '▮'.repeat(full) + '▯'.repeat(5 - full)
     ctx.font = `10px ${MACHINE_FONT}`
     ctx.textAlign = 'left'
@@ -1581,7 +1616,7 @@ function isInteractiveElement(el) {
 }
 
 function toggleForce() {
-  if (!gameStarted || gameOver || !ship.alive) return
+  if (!gameStarted || gameOver || !ship.alive || paused.value) return
   if (force.attached) {
     force.attached = false
     force.x = ship.x + 24
