@@ -8,6 +8,7 @@
           @score="(s: number) => score = s"
           @distance="(m: number) => distance = m"
           @lives="(n: number) => lives = n"
+          @power="onPower"
           @over="onGameEnded"
           @death="onGameOver"
           @restart="onGameRestart"
@@ -29,6 +30,7 @@
         <p class="location sfx-hud">
           SCORE: {{ score }} · {{ distance }} KM<template v-if="gameStarted"> · {{ '◆'.repeat(Math.max(0, lives)) }}</template>
         </p>
+        <p v-if="powerMsg" class="location sfx-hud sfx-power">{{ powerMsg }}</p>
         <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
           <p class="sfx-hint">▶ {{ hint('PRESS ENTER TO FLY', 'TAP TO FLY') }} ◀</p>
@@ -58,6 +60,8 @@ const highScore = ref(0)
 const isNewHigh = ref(false)
 const gameOver = ref(false)
 const gameStarted = ref(false)
+const powerMsg = ref('')
+let powerTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(() => {
   const v = parseInt(localStorage.getItem('starfoxHighScore') || '0', 10)
@@ -72,6 +76,16 @@ function onGameStarted() {
   navigationLocked.value = true
 }
 
+function onPower(level: number) {
+  if (!gameStarted.value || gameOver.value) {
+    powerMsg.value = ''
+    return
+  }
+  powerMsg.value = level >= 3 ? 'WEAPONS MAXED' : level === 2 ? 'WEAPON UP ×2' : 'WEAPONS NOMINAL'
+  if (powerTimer) clearTimeout(powerTimer)
+  powerTimer = setTimeout(() => { powerMsg.value = '' }, 2200)
+}
+
 // 'over' fires the moment the run ends; 'death' a little later, after the explosion.
 function onGameEnded() {
   navigationLocked.value = false
@@ -79,6 +93,7 @@ function onGameEnded() {
 
 function onGameOver() {
   gameOver.value = true
+  powerMsg.value = ''
   navigationLocked.value = false
   submitScore('starfox', score.value)
   isNewHigh.value = score.value > highScore.value
@@ -91,6 +106,7 @@ function onGameOver() {
 function onGameRestart() {
   gameOver.value = false
   isNewHigh.value = false
+  powerMsg.value = ''
   navigationLocked.value = true
 }
 </script>
@@ -126,7 +142,11 @@ function onGameRestart() {
 .sfx-new-high {
   animation: sfx-pulse 0.8s ease-in-out infinite alternate;
 }
-@keyframes sfx-pulse {
+
+.sfx-power {
+  color: var(--sfx-gold, #ffd23f);
+  text-shadow: 0 0 8px rgba(255, 210, 63, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
+}@keyframes sfx-pulse {
   from { opacity: 0.6; }
   to { opacity: 1; }
 }

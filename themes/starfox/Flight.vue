@@ -29,6 +29,7 @@ const emit = defineEmits<{
   score: [n: number]
   distance: [km: number]
   lives: [n: number]
+  power: [level: number]
   started: []
   restart: []
   over: []
@@ -48,7 +49,9 @@ const COL_GOLD = 0xffd23f
 // ---- world tuning ----------------------------------------------------
 const SPAWN_Z = -230
 const KILL_Z = 18
-let laneX = 8.5
+// Wide corridor: the camera sits a little further back so the edges stay
+// framed while the ship has room to dodge.
+let laneX = 11
 const LANE_Y_LO = -1.5
 const LANE_Y_HI = 6.0
 // Attract mode keeps the ship out of the centre band (profile card + text).
@@ -61,12 +64,13 @@ const FIRE_INTERVAL = 1 / 6
 const ROLL_DUR = 0.55
 const MULT_STEPS = [1, 2, 3, 4, 6, 8]
 const MAX_PARTICLES = 420
-const MAX_LASERS = 30
+const MAX_LASERS = 48
 const MAX_BOLTS = 24
 const MAX_ENEMIES = 20
 const MAX_PILLARS = 16
 const MAX_ROCKS = 10
 const MAX_RINGS = 6
+const MAX_POWERUPS = 3
 const MAX_WAVES = 3
 
 // ---- run state --------------------------------------------------------
@@ -103,6 +107,9 @@ let streakT = 0
 let enemySpawnT = 1.5
 let obstacleSpawnT = 1.0
 let ringSpawnT = 3.0
+let powerSpawnT = 9.0
+// Weapon level 1–3, raised by gold power-up cores, lowered a step per hit.
+let weaponLevel = 1
 
 // per-frame difficulty cache (computed once in update(), read in updateSpawns)
 let diffSpeed = 42
@@ -136,6 +143,7 @@ let sunHalo: THREE.Sprite
 let glowTex: THREE.CanvasTexture
 let stars: THREE.Points
 let mountainMesh: THREE.InstancedMesh
+let mountainEdgeMesh: THREE.InstancedMesh
 const dummy = new THREE.Object3D()
 const tmpV = new THREE.Vector3()
 const tmpV2 = new THREE.Vector3()
@@ -180,6 +188,9 @@ const rocks: Rock[] = []
 
 interface Ring { root: THREE.Group; torus: THREE.Mesh; mat: THREE.MeshBasicMaterial; active: boolean; x: number; y: number; z: number; flash: number; spin: number }
 const rings: Ring[] = []
+
+interface PowerUp { root: THREE.Group; core: THREE.Mesh; halo: THREE.Sprite; active: boolean; x: number; y: number; z: number; spin: number }
+const powerups: PowerUp[] = []
 
 interface Wave { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial; t: number; active: boolean }
 const waves: Wave[] = []
@@ -255,6 +266,7 @@ function buildScene() {
   buildPillars()
   buildRocks()
   buildRings()
+  buildPowerups()
   buildParticles()
   buildWaves()
 }
@@ -460,13 +472,28 @@ function buildMountains() {
   const geo = indexed.toNonIndexed()
   indexed.dispose()
   geo.computeVertexNormals()
+  // Same look as the shared 2D mountains (mountainTerrain.js): near-black
+  // violet faces with a violet wireframe over them, unlit so the lines read.
   const mat = new THREE.MeshLambertMaterial({
-    color: 0x34213f,
-    emissive: 0x10071e,
+    color: 0x0d0718,
+    emissive: 0x070410,
     flatShading: true,
   })
   mountainMesh = new THREE.InstancedMesh(geo, mat, 44)
   mountainMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+  // Violet mesh lines over the dark faces — the 3D version of the shared
+  // terrain's stroked triangulation.
+  mountainEdgeMesh = new THREE.InstancedMesh(
+    geo,
+    new THREE.MeshBasicMaterial({
+      color: 0xb169f5,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.28,
+    }),
+    44,
+  )
+  mountainEdgeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
   for (let i = 0; i < 44; i++) {
     const side = i % 2 === 0 ? -1 : 1
     mountains.push({
@@ -481,7 +508,9 @@ function buildMountains() {
   // Instances move through a large volume; a bound from their first frame
   // would incorrectly cull the entire range later in the flight.
   mountainMesh.frustumCulled = false
+  mountainEdgeMesh.frustumCulled = false
   scene.add(mountainMesh)
+  scene.add(mountainEdgeMesh)
 }
 
 function edgeLines(mesh: THREE.Mesh, color: number, opacity: number): THREE.LineSegments {
@@ -580,7 +609,9 @@ function buildShip() {
 
 function buildLasers() {
   const geo = new THREE.BoxGeometry(0.14, 0.14, 2.4)
-  const mat = new THREE.MeshBasicMaterial({ color: COL_CYAN })
+  // White base: each bolt gets its real colour per instance (cyan wings,
+  // gold core at weapon level 2+).
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff })
   laserMesh = new THREE.InstancedMesh(geo, mat, MAX_LASERS)
   laserMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
   laserMesh.frustumCulled = false
@@ -589,19 +620,37 @@ function buildLasers() {
     laserDummy.position.set(0, -999, 0)
     laserDummy.updateMatrix()
     laserMesh.setMatrixAt(i, laserDummy.matrix)
+    laserMesh.setColorAt(i, tmpC.set(COL_CYAN))
   }
   laserMesh.instanceMatrix.needsUpdate = true
+  if (laserMesh.instanceColor) laserMesh.instanceColor.needsUpdate = true
   scene.add(laserMesh)
 }
 
+function fireOne(x: number, color: number) {
+  const slot = laserCursor
+  const st = laserState[slot]!
+  laserCursor = (laserCursor + 1) % MAX_LASERS
+  laserMesh.setColorAt(slot, tmpC.set(color))
+  if (laserMesh.instanceColor) laserMesh.instanceColor.needsUpdate = true
+  st.active = true
+  st.x = x
+  st.y = shipY + 0.05
+  st.z = -1.2
+}
+
+function fireInterval(): number {
+  return FIRE_INTERVAL / (weaponLevel >= 3 ? 1.6 : weaponLevel === 2 ? 1.25 : 1)
+}
+
 function fireLaser() {
-  for (const s of LASER_OFFS) {
-    const st = laserState[laserCursor]
-    laserCursor = (laserCursor + 1) % MAX_LASERS
-    st.active = true
-    st.x = shipX + s
-    st.y = shipY + 0.05
-    st.z = -1.2
+  for (const s of LASER_OFFS) fireOne(shipX + s, COL_CYAN)
+  if (weaponLevel >= 2) fireOne(shipX, COL_GOLD)
+  if (weaponLevel >= 3) {
+    fireOne(shipX - 0.6, COL_GOLD)
+    fireOne(shipX + 0.6, COL_GOLD)
+    // Muzzle sparkle on the full spread.
+    burst(shipX, shipY, -1.2, COL_GOLD, 2, 3)
   }
 }
 
@@ -819,6 +868,64 @@ function collectRing(r: Ring) {
   flash = Math.max(flash, 0.35)
 }
 
+function buildPowerups() {
+  // Gold cores drifting down the corridor: fly through one to step the
+  // weapons up (twin cyan → +gold core → full gold spread, faster).
+  const geo = new THREE.OctahedronGeometry(0.9)
+  for (let i = 0; i < MAX_POWERUPS; i++) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x8a6a1a,
+      emissive: COL_GOLD,
+      emissiveIntensity: 0.8,
+      metalness: 0.5,
+      roughness: 0.35,
+      flatShading: true,
+    })
+    const core = new THREE.Mesh(geo, mat)
+    const root = new THREE.Group()
+    root.add(core)
+    const haloMat = new THREE.SpriteMaterial({
+      map: glowTex,
+      color: COL_GOLD,
+      transparent: true,
+      opacity: 0.45,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+    const halo = new THREE.Sprite(haloMat)
+    halo.scale.set(6, 6, 1)
+    root.add(halo)
+    root.visible = false
+    scene.add(root)
+    powerups.push({ root, core, halo, active: false, x: 0, y: 0, z: 0, spin: 0 })
+  }
+}
+
+function spawnPowerup(demo = false) {
+  let p: PowerUp | null = null
+  for (const v of powerups) { if (!v.active) { p = v; break } }
+  if (!p) return
+  p.active = true
+  p.x = rand(-(laneX - 2), laneX - 2)
+  p.y = demo ? rand(-2.6, -2.0) : rand(-0.5, 5)
+  p.z = SPAWN_Z - rand(0, 30)
+  p.spin = 0
+  p.root.visible = true
+  p.root.position.set(p.x, p.y, p.z)
+}
+
+function collectPowerup(p: PowerUp) {
+  p.active = false
+  p.root.visible = false
+  weaponLevel = Math.min(3, weaponLevel + 1)
+  addScore(150 * mult)
+  burst(p.x, p.y, p.z, COL_GOLD, 34, 13)
+  burst(p.x, p.y, p.z, 0xffffff, 14, 8)
+  spawnWave(p.x, p.y, p.z)
+  flash = Math.max(flash, 0.5)
+  emit('power', weaponLevel)
+}
+
 function buildParticles() {
   pGeo = new THREE.BufferGeometry()
   pPos = new Float32Array(MAX_PARTICLES * 3)
@@ -906,6 +1013,7 @@ function onShipHit(now: number) {
   burst(shipX, shipY, 0, COL_CYAN, 30, 12)
   spawnWave(shipX, shipY, 0)
   if (lives <= 0) {
+    weaponLevel = 1
     gameOver = true
     deathAt = now + 0.9
     deathEmitted = false
@@ -920,6 +1028,11 @@ function onShipHit(now: number) {
     emit('over')
   } else {
     invulnUntil = now + 1.4
+    // A hit costs a weapon step as well as a shield.
+    if (weaponLevel > 1) {
+      weaponLevel--
+      emit('power', weaponLevel)
+    }
   }
 }
 
@@ -954,11 +1067,14 @@ function resetWorld() {
   }
   rockMesh.instanceMatrix.needsUpdate = true
   for (const r of rings) { r.active = false; r.root.visible = false; r.flash = 0 }
+  for (const p of powerups) { p.active = false; p.root.visible = false }
   for (const w of waves) { w.active = false; w.mesh.visible = false }
   for (let i = 0; i < MAX_PARTICLES; i++) { pLife[i] = 0; pPos[i * 3 + 1] = -9999 }
   enemySpawnT = 1.5
   obstacleSpawnT = 1.0
   ringSpawnT = 3.0
+  powerSpawnT = 9.0
+  weaponLevel = 1
 }
 
 function startGame() {
@@ -995,6 +1111,7 @@ function startGame() {
   emit('score', 0)
   emit('distance', 0)
   emit('lives', lives)
+  emit('power', weaponLevel)
 }
 
 // ---- autopilot ---------------------------------------------------------------
@@ -1125,16 +1242,18 @@ function update(dt: number, now: number) {
     const es = 0.7 + Math.sin(now * 31) * 0.08 + worldSpeed * 0.002
     engineGlow.scale.set(es, es, 1)
 
-    // firing
+    // firing (faster at higher weapon levels)
     const wantFire = keys.has('Space') || touchSteer.active || demo
     if (!demo && (wantFire)) {
       fireT += dt
-      while (fireT >= FIRE_INTERVAL) {
-        fireT -= FIRE_INTERVAL
+      let step = fireInterval()
+      while (fireT >= step) {
+        fireT -= step
         fireLaser()
+        step = fireInterval()
       }
     }
-    if (!wantFire) fireT = Math.min(fireT, FIRE_INTERVAL)
+    if (!wantFire) fireT = Math.min(fireT, fireInterval())
   }
 
   updateSpawns(dt, demo)
@@ -1144,6 +1263,7 @@ function update(dt: number, now: number) {
   updatePillars(dt, now, demo)
   updateRocks(dt, now, demo)
   updateRings(dt, now, demo)
+  updatePowerups(dt, now, demo)
   updateParticles(dt)
   updateWaves(dt)
   updateMountains(dt)
@@ -1181,6 +1301,11 @@ function updateSpawns(dt: number, demo: boolean) {
   if (ringSpawnT <= 0) {
     ringSpawnT = rand(5, 8.5)
     spawnRing(demo)
+  }
+  powerSpawnT -= dt
+  if (powerSpawnT <= 0) {
+    powerSpawnT = rand(11, 17)
+    spawnPowerup(demo)
   }
 }
 
@@ -1416,6 +1541,33 @@ function updateRings(dt: number, now: number, demo: boolean) {
   }
 }
 
+function updatePowerups(dt: number, now: number, demo: boolean) {
+  for (const p of powerups) {
+    if (!p.active) continue
+    const prevZ = p.z
+    p.z += worldSpeed * dt
+    p.spin += dt * 2.2
+    p.core.rotation.y = p.spin
+    p.core.rotation.x = Math.sin(p.spin * 0.7) * 0.4
+    p.core.position.y = Math.sin(now * 3 + p.spin) * 0.25
+    p.root.position.set(p.x, p.y, p.z)
+    // fly-through detection as the core crosses the ship plane
+    if (prevZ < 0 && p.z >= 0) {
+      const dx = shipX - p.x
+      const dy = shipY - p.y
+      if (shipVisible && !gameOver && dx * dx + dy * dy < 2.4 * 2.4) {
+        collectPowerup(p)
+        continue
+      }
+    }
+    if (p.z > 12) {
+      p.active = false
+      p.root.visible = false
+    }
+  }
+  void demo
+}
+
 function updateParticles(dt: number) {
   for (let i = 0; i < MAX_PARTICLES; i++) {
     if (pLife[i] <= 0) continue
@@ -1472,18 +1624,20 @@ function updateMountains(dt: number) {
     dummy.rotation.set(0, m.yaw, 0)
     dummy.updateMatrix()
     mountainMesh.setMatrixAt(i, dummy.matrix)
+    mountainEdgeMesh.setMatrixAt(i, dummy.matrix)
   }
   mountainMesh.instanceMatrix.needsUpdate = true
+  mountainEdgeMesh.instanceMatrix.needsUpdate = true
 }
 
 function updateCamera(dt: number, now: number) {
-  const fx = portrait ? 0.45 : 0.55
-  const fy = portrait ? 0.45 : 0.55
+  const fx = portrait ? 0.45 : 0.5
+  const fy = portrait ? 0.45 : 0.5
   const k = 1 - Math.exp(-4.5 * dt)
   tmpV2.set(
     shipX * fx + Math.sin(now * 1.3) * 0.15,
     (portrait ? 6.5 : 3.8) + shipY * 0.28 * fy + Math.sin(now * 1.7) * 0.12,
-    portrait ? 13.5 : 10.5,
+    portrait ? 14 : 11.5,
   )
   camera.position.lerp(tmpV2, k)
   if (shake > 0) {
@@ -1511,7 +1665,7 @@ function resize() {
   W = window.innerWidth
   H = window.innerHeight
   portrait = H > W
-  laneX = portrait ? 5.5 : 8.5
+  laneX = portrait ? 6.5 : 11
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
   renderer.setSize(W, H, false)
   camera.aspect = W / H
@@ -1546,6 +1700,7 @@ function quitToGameOver(): void {
   mult = 1
   streakT = 0
   lives = 0
+  weaponLevel = 1
   emit('lives', 0)
   gameOver = true
   deathAt = performance.now() / 1000 + 0.9
@@ -1715,6 +1870,7 @@ onBeforeUnmount(() => {
   pillarMesh?.dispose()
   rockMesh?.dispose()
   mountainMesh?.dispose()
+  mountainEdgeMesh?.dispose()
   scene?.traverse((o) => {    const m = o as THREE.Mesh
     m.geometry?.dispose?.()
     const mat = m.material as THREE.Material | THREE.Material[] | undefined
