@@ -13,6 +13,7 @@
     "test:anotherworld": "node --test tests/anotherworld-engine.test.mjs",
     "test:shore": "node --test tests/shore-engine.test.mjs",
     "test:invaders": "node --test tests/invaders-mobile.test.mjs",
+    "test:starfox": "node --test tests/starfox-balance.test.mjs",
     "test:leaderboard": "node --test tests/leaderboard-names.test.mjs"
   },
   "devDependencies": {
