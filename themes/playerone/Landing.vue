@@ -21,10 +21,7 @@
 
       <div class="p1-rule" aria-hidden="true" />
 
-      <dl class="p1-stats">
-        <div><dt>ROLE</dt><dd>CONSULTANT · MILES</dd></div>
-        <div><dt>BASE</dt><dd>{{ profile.location }}</dd></div>
-      </dl>
+      <p class="p1-coords">{{ profile.location }}</p>
 
       <p class="p1-label">CONTACT</p>
       <ul class="p1-contacts">
@@ -73,7 +70,7 @@ const contacts = [
 /* The machine speaks: mono, uppercase, tracked. */
 .p1-hud,
 .p1-label,
-.p1-stats,
+.p1-coords,
 .p1-contacts,
 .p1-hint {
   font-family: var(--font-machine);
@@ -153,22 +150,9 @@ const contacts = [
   background: rgba(255, 47, 160, .25);
 }
 
-.p1-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+.p1-coords {
   margin: 0 0 18px;
   font-size: 10.4px;
-}
-
-.p1-stats dt {
-  margin: 0 0 4px;
-  color: var(--p1-text-subtle);
-  letter-spacing: .12em;
-}
-
-.p1-stats dd {
-  margin: 0;
   color: var(--p1-accent);
   text-shadow: 0 0 8px rgba(47, 243, 255, .65), 0 0 24px rgba(255, 47, 160, .35);
 }
@@ -263,7 +247,7 @@ const contacts = [
   .p1-name { margin-top: 10px; font-size: 28px; }
   .p1-blurb { font-size: 13px; }
   .p1-rule { margin: 12px 0 10px; }
-  .p1-stats { margin-bottom: 12px; }
+  .p1-coords { margin-bottom: 12px; }
   .p1-hint { display: none; }
 }
 
@@ -283,13 +267,12 @@ const contacts = [
   .p1-photo { grid-row: span 8; align-self: center; }
   .p1-name { margin-top: 0; font-size: 26px; }
   .p1-rule { margin: 10px 0; }
-  .p1-stats { margin-bottom: 12px; }
+  .p1-coords { margin-bottom: 12px; }
   .p1-contacts a { min-height: 34px; }
   .p1-hint { display: none; }
 }
 
 @media (max-width: 380px) {
   .p1-name { font-size: 30px; }
-  .p1-stats { grid-template-columns: 1fr; gap: 8px; }
 }
 </style>

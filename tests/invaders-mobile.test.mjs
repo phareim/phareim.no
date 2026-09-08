@@ -93,7 +93,7 @@ test('shots cannot skip a thin bunker remnant between frames', () => {
 test('a bomb crossing the cannon on a slow frame still costs a life', () => {
   const run = game()
   run(`bunkers = []; bombs = [{x:cannonX,y:cannonY-30,v:1200,t:0,style:'plunger'}]; updateBombs(.05, 1)`)
-  assert.equal(run('lives'), 1)
+  assert.equal(run('lives'), run('LIVES') - 1)
   assert.equal(run('bombs.length'), 0)
 })
 
