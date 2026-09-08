@@ -99,7 +99,11 @@ export const useLeaderboard = () => {
     return p
   }
 
-  /** A new random name for this browser's player (and, in time, a new pilot). */
+  /**
+   * A new random name for this browser's player (and, in time, a new pilot).
+   * No button calls this since 2026-09-08 — a rename costs a painting — but
+   * the server side still handles it, so it stays for when it comes back.
+   */
   async function reroll(): Promise<LocalPlayer> {
     const current = await ensurePlayer()
     const name = await register(current.id, rerollName(current.name))

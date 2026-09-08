@@ -66,6 +66,8 @@
         </div>
       </Transition>
 
+      <!-- REROLL left 2026-09-08: a new name now costs a painting. The
+           composable still knows how; the button can come back with a cap. -->
       <footer class="lb-footer">
         <span class="lb-footer-label">YOU ARE</span>
         <span class="lb-footer-who">
@@ -74,9 +76,6 @@
           </span>
           <span class="lb-footer-name">{{ player ? player.name.toUpperCase() : '· · ·' }}</span>
         </span>
-        <button class="lb-reroll" :disabled="rolling || !player" @click="onReroll">
-          {{ rolling ? 'ROLLING…' : 'REROLL' }}
-        </button>
       </footer>
     </section>
 
@@ -102,7 +101,7 @@ import Horizon from './Horizon.vue'
 import { GAMES, TOP_N, type BoardRow, type GameBoard } from './games'
 
 const { hint } = useInputMode()
-const { player, avatar, fetchBoards, reroll } = useLeaderboard()
+const { player, avatar, fetchBoards } = useLeaderboard()
 
 const landing = ref<HTMLElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
@@ -113,7 +112,6 @@ const game = computed(() => GAMES[index.value])
 
 const boards = ref<Record<string, GameBoard> | null>(null)
 const status = ref<'loading' | 'ready' | 'error'>('loading')
-const rolling = ref(false)
 
 const board = computed(() => boards.value?.[game.value.id] ?? null)
 
@@ -182,22 +180,6 @@ async function load(): Promise<void> {
     if (data.player && !data.player.avatar) scheduleAvatarRecheck()
   } catch {
     status.value = 'error'
-  }
-}
-
-async function onReroll(): Promise<void> {
-  if (rolling.value) return
-  rolling.value = true
-  try {
-    await reroll()
-    // A new name means a new pilot: ask again once the painter has had time.
-    avatarRechecks = 0
-    await load()
-    scheduleAvatarRecheck()
-  } catch {
-    // keep the old name; the board simply did not answer
-  } finally {
-    rolling.value = false
   }
 }
 
@@ -302,7 +284,6 @@ watch(index, () => nextTick(fit))
 .lb-nudge,
 .lb-footer,
 .lb-step,
-.lb-reroll,
 .lb-hint {
   font-family: var(--font-machine);
   text-transform: uppercase;
@@ -540,10 +521,10 @@ watch(index, () => nextTick(fit))
   letter-spacing: .12em;
 }
 
-/* Footer: who this browser is, and the reroll. */
+/* Footer: who this browser is. */
 .lb-footer {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   align-items: center;
   column-gap: 12px;
   font-size: 10.4px;
@@ -584,30 +565,6 @@ watch(index, () => nextTick(fit))
   color: var(--lb-pink);
   text-shadow: 0 0 8px rgba(255, 47, 160, .6);
 }
-
-.lb-reroll {
-  min-height: 34px;
-  padding: 0 12px;
-  background: transparent;
-  border: 1px solid rgba(255, 47, 160, .4);
-  border-radius: 3px;
-  color: var(--lb-text);
-  font-size: 10.4px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
-}
-
-.lb-reroll:hover:not(:disabled),
-.lb-reroll:focus-visible {
-  background: rgba(255, 47, 160, .12);
-  border-color: var(--lb-pink);
-  box-shadow: 0 0 18px rgba(255, 47, 160, .3);
-  outline: none;
-}
-
-.lb-reroll:active:not(:disabled) { transform: translateY(1px); }
-.lb-reroll:disabled { opacity: .5; cursor: default; }
 
 /* The game rail: one dot per game, beside the panel. */
 .lb-rail {
