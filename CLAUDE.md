@@ -18,6 +18,7 @@ When restoring things: cherry-pick onto this base, and **leave out the backgroun
 
 - `npm run dev` — dev server on port 3030 (host 0.0.0.0)
 - `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); CI runs these before typecheck
+- `npm run test:leaderboard` — Hall of Fame name generator/validator and game list (2026-09-08)
 - `npm run typecheck` — `nuxi typecheck` (vue-tsc); CI runs this before build
 - `npm run build` — production build; the `cloudflare-pages` preset is set in `nuxt.config.ts`, output goes to `dist/`
 - `npm run preview` — preview built site
@@ -26,11 +27,11 @@ When restoring things: cherry-pick onto this base, and **leave out the backgroun
 
 - **Framework**: Nuxt 3 + Vue 3 Composition API + TypeScript (`themes/scandi/Bubbles.vue` is Options API, moved verbatim)
 - **Hosting**: Cloudflare Pages, project `phareim-no`. SSR runs in the Pages worker (`_routes.json` sends everything except static assets to it), which is what lets the random first-visit theme be picked server-side.
-- **Database / storage**: none. D1 (`phareim-rpg`) was deleted 2026-07-23 (final export at `~/backups/d1/2026-07-23/phareim-rpg.sql` on Sleeper). The R2 binding and the image-generation API were removed 2026-09-03. Restore from git history if needed.
-- **External APIs**: none since 2026-09-07 (the GitHub-backed `/api/projects` and `/api/meta` went with the pages they fed; `server/` is gone)
+- **Database / storage**: one D1, `phareim-leaderboard` (id `54e101f9-4026-4fd1-a78a-7a8976e1301e`, created 2026-09-08), bound as `LEADERBOARD_DB` in `wrangler.toml`, schema in `migrations/`, applied by CI before every deploy. It holds the Hall of Fame only — see that section. The older D1 (`phareim-rpg`) was deleted 2026-07-23 (export at `~/backups/d1/2026-07-23/phareim-rpg.sql` on Sleeper); the R2 binding and the image-generation API were removed 2026-09-03.
+- **External APIs**: none. `server/` came back 2026-09-08 with the three Hall of Fame routes (`/api/leaderboard`, `/api/player`, `/api/score`) and nothing else.
 - **Dependencies of note**: `three` 0.185 (+ `@types/three`), used only by the Star Fox theme and loaded as an async chunk (2026-09-05); `@fontsource/space-grotesk` + `@fontsource/space-mono` (self-hosted fonts, 2026-09-06)
 - **Fonts** (2026-09-06): two faces, the Neon Dreams split — `--font-person` (Space Grotesk at weight 300, the face's lightest, for body, name and page titles; 400/500 for emphasis: name, blurbs, prose) and `--font-machine` (Space Mono: HUD, hints, over-titles, canvas score pops, shas). Defined on `:root` in `themes/base/fonts.css` (imported first in `themes/index.ts`), latin subsets only; canvas code imports `MACHINE_FONT` from `themes/base/fonts.ts`. Nothing loads from Google Fonts any more (Comfortaa and the preconnects are gone). The parked themes keep their own faces (desk: ET Book).
-- **State**: Nuxt `useState` + a `theme` cookie (no state library, no localStorage)
+- **State**: Nuxt `useState` + a `theme` cookie (no state library). localStorage holds per-game high scores and, since 2026-09-08, the browser's Hall of Fame player (`phareim.player`).
 
 ## Project Structure
 
@@ -41,27 +42,32 @@ pages/
 error.vue            — per-theme 404 blocks
 components/
   ThemePager.vue     — neon edge chevrons (all devices since 2026-09-07; hidden while a theme locks navigation) + dots; the only site chrome
+server/
+  api/               — leaderboard.get, player.post, score.post (the Hall of Fame API, 2026-09-08)
+  utils/store.ts     — D1 store + in-memory dev store behind one interface, id validation
+migrations/          — D1 schema for phareim-leaderboard, numbered SQL, applied by CI
 composables/
   useTheme.ts        — active theme, cookie, setTheme/next/previous, navigationLocked
   useThemeNavigation.ts — swipe + ArrowLeft/ArrowRight, called once from app.vue
   useInputMode.ts    — keyboard vs touch, so game hints say PRESS ENTER or TAP, never both (2026-09-06). SSR guess from sec-ch-ua-mobile/UA, then `(hover: none) and (pointer: coarse)` at mount, then the first keydown/touch/mouse press wins. `hint(keyboardText, touchText)` in templates.
+  useLeaderboard.ts  — the browser's Hall of Fame player (localStorage), submitScore / fetchBoards / reroll (2026-09-08)
 themes/              — see the phareim-theme skill
   index.ts           — registry (order = swipe order) and every theme.css import
   content.ts         — default landing copy
   base/              — DefaultLanding shell, ProfileCard, SocialLink, fonts.css + fonts.ts (site fonts, 2026-09-06), neonHorizon.js (the shared synthwave backdrop: sky, stars, striped sun, ridge, grid, heartbeat, wave-clear flare — used by Breakout, Invaders and Tetris since 2026-09-06; Star Fox draws its own in three.js)
   _template/         — starting point for a new theme
-  anotherworld/ scandi/ hacker/ breakout/ rtype/ invaders/ starfox/ tetris/ space/ desk/
+  anotherworld/ scandi/ hacker/ breakout/ rtype/ invaders/ starfox/ tetris/ leaderboard/ space/ desk/
 ```
 
-There is no menu (removed 2026-09-03) and, since 2026-09-07, no routes but
-`/`: about, projects and meta are deleted, along with the Nitro API and the
-GitHub token that fed them. Who Petter is and how to reach him is the
+There is no menu (removed 2026-09-03) and, since 2026-09-07, no page routes
+but `/`: about, projects and meta are deleted, along with the GitHub token
+that fed them. The only server code is the Hall of Fame API (2026-09-08). Who Petter is and how to reach him is the
 **Player One** theme's job. Restore from git history if they are ever wanted
 back.
 
 ## Theme System (short version — the skill has the rest)
 
-- Twelve themes, eight live (2026-09-07). **Another Shore II** (parked 2026-09-07 — the “WALK — ENTER” take), **Scandinavian Glass**, **Space** and **Tufte Desk** (parked 2026-09-06) (`disabled: true` in `themes/index.ts`: out of swipe, pager, cookie and random pick; still reachable with `?theme=<id>`; nothing deleted). In swipe order: **Player One** (the profile theme, first in the list, added 2026-09-07 — see below), **Another Shore**, **Another Shore II**, **Scandinavian Glass**, **Cyberpunk** (a loose Space-Invaders-inspired shmup; the green outlier of the Neon Dreams family since 2026-09-06 — same text/glow/card recipes, own hues, gold powerups), **Breakout** (the arcade classic, added 2026-09-04; same canvas-behind-the-card pattern as Cyberpunk, plays itself until Enter. Re-skinned 2026-09-06 onto the Neon Dreams design system, `~/github/neon-dreams-design`: three neons with three jobs — cyan paddle/ball/HUD, pink bricks in three tints, gold armoured bricks and powerups — over the shared horizon backdrop `themes/base/neonHorizon.js`, which beats on every hit; done as two parallel Muse jobs via `/musecode`, Claude reviewed), **R-Type** (endless side-scrolling shooter in neon-vector outline style, added 2026-09-05; attract-mode autopilot until Enter/tap, Force pod on Shift/double-tap, charge beam on held Space, procedural cave walls that narrow with distance, kill-streak multiplier; built by Muse Spark via `/musecode` in three parallel variants, this one won; on the Neon Dreams contract since 2026-09-06 — violet-black ground, cyan snapped to `#2ff3ff`, orange kept as its danger hue, gold multiplier from x4), **Space Invaders** (the faithful 1978 formation game in a synthwave look, added 2026-09-05: 5×11 formation with the original sprites, step-timer march that quickens as invaders die, eroding bunkers, mystery UFO, one shot on screen, kill-combo multiplier; sprite-shatter kills, screen shake, heartbeat-coupled grid and sun, pre-rendered glow sprite cache for phones; the backdrop comes from `themes/base/neonHorizon.js` since 2026-09-06. Also `/musecode`: three looks (phosphor cabinet, risograph paper, synthwave) → review/polish → two effect packages on the winner → review/fix; the losers are in git history, commits `8344268`..`d5436f7`), **Star Fox** (on-rails 3D flight shooter in three.js, added 2026-09-05: camera behind a low-poly Arwing, twin lasers, barrel roll with immunity on Shift/double-tap, rings to fly through, enemy formations, ground pillars and rocks, 3-hit shield, kill-streak multiplier; synthwave look that shares the Space Invaders palette — striped sun, pulsing grid, mountain silhouettes. Attract-mode autopilot until Enter/tap. Also `/musecode`: three looks (Super FX pixel render, neon vector, synthwave) → Claude review + Muse fix round → synthwave won; the losers are in git history up to commit `dbede6f`. three.js is loaded lazily by `starfox/Landing.vue` so the other themes do not pay for it), **Tetris** (playable Tetris, ported from `tetris-theme-legacy` and reworked for Neon Dreams on 2026-09-06: cyan active piece/ghost, pink stacked blocks, gold line clears, shared horizon with lock/clear pulses. Drag sideways to move, tap to rotate, fast down flick to hard drop, slow down drag to lower, up swipe or HOLD to stash. ROTATE/DROP, pause/resume and exit buttons work on touch and mouse. A gesture stops controlling pieces when its original piece locks or swaps; idle swipes still switch theme. The board sizes to its actual remaining container space with ResizeObserver; landscape phones use two columns. The profile column was removed 2026-09-07 — the cabinet is the whole theme now, and Player One carries the person), **Space**, **Tufte Desk** (the tactile paper-on-desk layer from the tufte-viz design system, added 2026-09-03; it replaced the flat Tufte theme 2026-09-04 and carries the ET Book @font-face). **Nothing scrolls** (2026-09-05): `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, every landing is locked to the viewport — and since 2026-09-07 there is nothing but landings, so the `.page-scroll` container is gone too. Almanac, the one landing that needed the page to scroll, was removed 2026-09-05. First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
+- Thirteen themes, nine live (2026-09-08; the ninth is **Hall of Fame**, last in the rotation — see its section). **Another Shore II** (parked 2026-09-07 — the “WALK — ENTER” take), **Scandinavian Glass**, **Space** and **Tufte Desk** (parked 2026-09-06) (`disabled: true` in `themes/index.ts`: out of swipe, pager, cookie and random pick; still reachable with `?theme=<id>`; nothing deleted). In swipe order: **Player One** (the profile theme, first in the list, added 2026-09-07 — see below), **Another Shore**, **Another Shore II**, **Scandinavian Glass**, **Cyberpunk** (a loose Space-Invaders-inspired shmup; the green outlier of the Neon Dreams family since 2026-09-06 — same text/glow/card recipes, own hues, gold powerups), **Breakout** (the arcade classic, added 2026-09-04; same canvas-behind-the-card pattern as Cyberpunk, plays itself until Enter. Re-skinned 2026-09-06 onto the Neon Dreams design system, `~/github/neon-dreams-design`: three neons with three jobs — cyan paddle/ball/HUD, pink bricks in three tints, gold armoured bricks and powerups — over the shared horizon backdrop `themes/base/neonHorizon.js`, which beats on every hit; done as two parallel Muse jobs via `/musecode`, Claude reviewed), **R-Type** (endless side-scrolling shooter in neon-vector outline style, added 2026-09-05; attract-mode autopilot until Enter/tap, Force pod on Shift/double-tap, charge beam on held Space, procedural cave walls that narrow with distance, kill-streak multiplier; built by Muse Spark via `/musecode` in three parallel variants, this one won; on the Neon Dreams contract since 2026-09-06 — violet-black ground, cyan snapped to `#2ff3ff`, orange kept as its danger hue, gold multiplier from x4), **Space Invaders** (the faithful 1978 formation game in a synthwave look, added 2026-09-05: 5×11 formation with the original sprites, step-timer march that quickens as invaders die, eroding bunkers, mystery UFO, one shot on screen, kill-combo multiplier; sprite-shatter kills, screen shake, heartbeat-coupled grid and sun, pre-rendered glow sprite cache for phones; the backdrop comes from `themes/base/neonHorizon.js` since 2026-09-06. Also `/musecode`: three looks (phosphor cabinet, risograph paper, synthwave) → review/polish → two effect packages on the winner → review/fix; the losers are in git history, commits `8344268`..`d5436f7`), **Star Fox** (on-rails 3D flight shooter in three.js, added 2026-09-05: camera behind a low-poly Arwing, twin lasers, barrel roll with immunity on Shift/double-tap, rings to fly through, enemy formations, ground pillars and rocks, 3-hit shield, kill-streak multiplier; synthwave look that shares the Space Invaders palette — striped sun, pulsing grid, mountain silhouettes. Attract-mode autopilot until Enter/tap. Also `/musecode`: three looks (Super FX pixel render, neon vector, synthwave) → Claude review + Muse fix round → synthwave won; the losers are in git history up to commit `dbede6f`. three.js is loaded lazily by `starfox/Landing.vue` so the other themes do not pay for it), **Tetris** (playable Tetris, ported from `tetris-theme-legacy` and reworked for Neon Dreams on 2026-09-06: cyan active piece/ghost, pink stacked blocks, gold line clears, shared horizon with lock/clear pulses. Drag sideways to move, tap to rotate, fast down flick to hard drop, slow down drag to lower, up swipe or HOLD to stash. ROTATE/DROP, pause/resume and exit buttons work on touch and mouse. A gesture stops controlling pieces when its original piece locks or swaps; idle swipes still switch theme. The board sizes to its actual remaining container space with ResizeObserver; landscape phones use two columns. The profile column was removed 2026-09-07 — the cabinet is the whole theme now, and Player One carries the person), **Space**, **Tufte Desk** (the tactile paper-on-desk layer from the tufte-viz design system, added 2026-09-03; it replaced the flat Tufte theme 2026-09-04 and carries the ET Book @font-face). **Nothing scrolls** (2026-09-05): `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, every landing is locked to the viewport — and since 2026-09-07 there is nothing but landings, so the `.page-scroll` container is gone too. Almanac, the one landing that needed the page to scroll, was removed 2026-09-05. First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
 - Each `themes/<id>/theme.css` defines the `--theme-*` contract on `.{id}-page` (ten tokens, listed in the skill). Pages read `var(--theme-*, fallback)` and never hardcode colours or branch on `prefers-color-scheme` — dark mode is each theme's own business.
 - Each `themes/<id>/Landing.vue` owns the landing page. Most wrap `themes/base/DefaultLanding.vue`; a theme may replace the whole page.
 - A theme that uses arrow keys or horizontal touch itself (the Cyberpunk and Breakout games) sets `navigationLocked` while it does.
@@ -69,13 +75,13 @@ back.
 
 ## Key Patterns
 
-- No `runtimeConfig` and no server code any more (2026-09-07). If either comes back: secrets go in `runtimeConfig` and are set on Cloudflare by `NUXT_`-prefixed env vars, and server code **must** call `useRuntimeConfig(event)` — without the event, Workers return a config frozen at module init, before env vars exist, so the value silently never applies (found 2026-09-03).
+- No `runtimeConfig` (2026-09-07). The Hall of Fame routes read their D1 binding from `event.context.cloudflare.env` (2026-09-08), which needs no config. If `runtimeConfig` comes back: secrets are set on Cloudflare by `NUXT_`-prefixed env vars, and server code **must** call `useRuntimeConfig(event)` — without the event, Workers return a config frozen at module init, before env vars exist, so the value silently never applies (found 2026-09-03).
 - No auth system.
 
 ## Deployment
 
 - **CI/CD**: `.github/workflows/deploy.yml` — `build` job (npm ci → test:tetris → typecheck → build → artifact) on push and PR; `deploy` job (wrangler `pages deploy dist`) on push to `master` only, then notifies Sleeper.
-- `wrangler.toml` carries `pages_build_output_dir = "dist"` and `nodejs_compat`; no bindings.
+- `wrangler.toml` carries `pages_build_output_dir = "dist"`, `nodejs_compat` and the `LEADERBOARD_DB` D1 binding (2026-09-08). The deploy job runs `d1 migrations apply phareim-leaderboard --remote` before `pages deploy`, so the repo's `CLOUDFLARE_API_TOKEN` secret needs D1 edit rights (set to the host token 2026-09-08).
 - Tetris gesture regression tests: `npm run test:tetris` (added 2026-09-06).
 
 ## Player One (2026-09-07)
@@ -269,3 +275,54 @@ Typecheck, production build and engine tests verified 2026-09-08.
 Chromium gameplay smoke checks also passed at 320×568, 375×667, 390×844,
 667×375 and 1440×900 with touch/keyboard input, no page errors or document
 overflow (2026-09-08). Physical-phone feel remains unmeasured.
+
+## Hall of Fame — the global leaderboard (2026-09-08)
+
+`?theme=leaderboard` is the ninth live theme, last in the rotation: the
+world ranking of the six score games (Cyberpunk, Breakout, R-Type, Space
+Invaders, Star Fox, Tetris; Another Shore has no score) in one blueprint
+panel over the shared horizon, sun pushed right like Player One. Up/down
+arrows, PageUp/Down, the mouse wheel, a vertical swipe, the ▲▼ buttons or
+the dot rail beside the panel walk the games; the switch is the site's
+180 ms fade. Left/right still switch theme — nothing here locks navigation.
+
+**Players.** A player is a UUID plus a generated name kept in localStorage
+(`phareim.player`), so the same person on a phone, in Chrome and in Safari
+is three players — decided 2026-09-08. The player is created the first
+time a browser enters the board (its first score, or opening the theme).
+Names are one 80s/tech word and one animal from the two lists in
+`themes/leaderboard/names.ts` (NEON OTTER, FLUX CAPYBARA; 64 × 72 = 4 608
+combinations); the server only accepts names those lists can make, and a
+name is unique across players (409 → the client rerolls). REROLL on the
+board renames the player everywhere. No free-text names on purpose.
+
+**Board.** One best score per player per game (`scores` has
+`PRIMARY KEY (game, player_id)`; a lower run never overwrites). The theme
+shows the top ten, podium ranks in gold, your row in pink with ◀ YOU, and
+if you are outside the top ten a `· · ·` gap and your own row with its
+rank, plus RANK n OF total. Short viewports show fewer rows (measured from
+the space the panel has, minimum three). Empty game: NO SCORES YET.
+
+**Wiring.** The five arcade landings call `submitScore('<id>', score)` in
+`onGameOver`; Tetris does it in `Game.vue` on top-out and on the Escape
+hold. A run of 0 is not sent. When the API answers, the game-over screen
+adds WORLD RANK #n · NAME. Failures are silent — the board is a bonus.
+
+**API** (`server/api/`, store in `server/utils/store.ts`):
+`GET /api/leaderboard?player=<id>` → `{ boards: { [game]: { top, total, me } }, player }`
+(one window-function query plus a count, `Cache-Control: no-store`);
+`POST /api/player { id, name }` → 400 bad id/name, 409 name taken;
+`POST /api/score { playerId, game, score }` → `{ best, rank }`, 400 for an
+unknown game or a score outside 1..`maxScore` (a per-game plausibility cap in
+`themes/leaderboard/games.ts`), 404 unknown player (the client re-registers
+and retries once). There is no auth and no rate limit: a determined person
+can post any number under the cap, and a wipe is `DELETE FROM scores`.
+
+**Dev.** `nuxi dev` has no D1, so `getStore` falls back to an in-memory
+store with the same behaviour (production throws 500 if the binding is
+missing rather than silently serving an empty board). Verified 2026-09-08
+in headless Chromium (CDP script, no Playwright): 1440×900 keyboard walk,
+reroll, ArrowRight still switching theme; 375×667 and 667×375 with emulated
+touch swipes; a Space Invaders run to game over by keyboard producing the
+WORLD RANK line and the highlighted row; `/nope`; no page errors or document
+overflow. `npm run test:leaderboard` covers the name lists.

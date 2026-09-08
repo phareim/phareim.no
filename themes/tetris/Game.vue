@@ -18,6 +18,7 @@
       <span>SCORE {{ scoreText }}</span>
       <span v-if="newBest" class="tetris-newbest">NEW BEST</span>
       <span v-else>BEST {{ bestText }}</span>
+      <span v-if="rank" class="tetris-rank">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</span>
       <button class="play-button" @click.stop="start">▶ {{ hint('ENTER TO RETRY', 'TAP TO RETRY') }} ◀</button>
     </div>
     <div v-else-if="phase === 'paused'" class="tetris-overlay tetris-overlay-paused">
@@ -36,6 +37,7 @@ import { TetrisGesture } from './gestures'
 import { PIECE_SHAPES, TetrisEngine, type EngineEvent, type PieceType } from './engine'
 
 const { navigationLocked } = useTheme()
+const { submitScore, lastSubmission } = useLeaderboard()
 const { hint } = useInputMode()
 
 export interface TetrisState {
@@ -80,6 +82,8 @@ const score = ref(0)
 const lines = ref(0)
 const level = ref(1)
 const best = ref(0)
+/** This run's world rank, once the Hall of Fame has answered. */
+const rank = computed(() => lastSubmission.value?.game === 'tetris' && lastSubmission.value.score === score.value ? lastSubmission.value : null)
 const newBest = ref(false)
 const levelUpUntil = ref(0)
 const nextPiece = ref<PieceType | null>(null)
@@ -226,6 +230,7 @@ function handleEngineEvent(e: EngineEvent): void {
     heldDir = 0
     navigationLocked.value = false
     persistBest()
+    submitScore('tetris', score.value)
     syncHud()
     emit('over')
   }
@@ -413,6 +418,7 @@ function quitToGameOver(): void {
   heldDir = 0
   navigationLocked.value = false
   persistBest()
+  submitScore('tetris', score.value)
   syncHud()
   maybeEmit()
   emit('over')
@@ -863,6 +869,7 @@ defineExpose({
 .tetris-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 8px; text-align: center; font: 12px/1.6 var(--font-machine); letter-spacing: .12em; color: var(--tetris-text); background: #0b0616d9; }
 .tetris-gameover { font-size: clamp(18px, 3vw, 30px); color: var(--tetris-pink); text-shadow: 0 0 12px #ff2fa080; }
 .tetris-newbest { color: var(--tetris-gold); }
+.tetris-rank { font-size: .8em; color: var(--tetris-pink, #ff2fa0); text-shadow: 0 0 8px rgba(255, 47, 160, .6); }
 .play-button { min-height: 44px; padding: 10px 6px; white-space: nowrap; background: #ff2fa018; border: 1px solid #ff2fa060; border-radius: 4px; color: var(--tetris-pink); font: inherit; font-size: 11px; letter-spacing: .08em; cursor: pointer; }
 .play-button:focus-visible { outline: 2px solid var(--tetris-accent); outline-offset: 2px; }
 .overlay-hint { font-size: 9px; letter-spacing: .04em; color: var(--tetris-text-muted); }

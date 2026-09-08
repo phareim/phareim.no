@@ -71,7 +71,7 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
   `defineAsyncComponent` inside `<ClientOnly>` so the three chunk only ships with that theme);
   `desk` skips the shell and lays a grained paper sheet (`.desk-sheet`,
   `.desk-stamp`, `.desk-rule` are global classes from its theme.css) on the
-  desk; `tetris` skips the shell and lays a profile column beside its Neon Dreams board; `playerone` skips it too and is the site's profile/contact card — the Neon Dreams horizon behind one blueprint panel, no game, no navigation lock (it moves the sun with `createHorizon({ sunX })`; the module's sun options are `sunX`, `sunY` and `sunJitter` — the disc is always clipped at the horizon line and both values wander a little per load). ResizeObserver fits the board to remaining space and landscape phones use a two-column layout; the profile column is gone since 2026-09-07. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
+  desk; `tetris` skips the shell and lays a profile column beside its Neon Dreams board; `leaderboard` (Hall of Fame, 2026-09-08) skips it and shows the D1-backed world ranking, one game at a time, up/down to change game — its data comes from `composables/useLeaderboard.ts` and `server/api/`, see CLAUDE.md; `playerone` skips it too and is the site's profile/contact card — the Neon Dreams horizon behind one blueprint panel, no game, no navigation lock (it moves the sun with `createHorizon({ sunX })`; the module's sun options are `sunX`, `sunY` and `sunJitter` — the disc is always clipped at the horizon line and both values wander a little per load). ResizeObserver fits the board to remaining space and landscape phones use a two-column layout; the profile column is gone since 2026-09-07. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
   (`height: 100dvh; overflow: hidden`) and the page does not scroll —
   `html`, `body` and `#__nuxt` are locked in `app.vue`. The old `scrollable`
   registry flag is gone with the Almanac theme that needed it. Since
@@ -120,6 +120,8 @@ theme. `invaders` also emits `over` the moment a run ends (before the delayed
 rotates the canvas 90° when the screen is taller than wide, so the ship flies
 up on phones and sideways on desktop; keys, touch and upright text go through
 the same mapping (2026-09-05).
+
+A score game reports a finished run to the Hall of Fame: `const { submitScore } = useLeaderboard()` and `submitScore('<theme id>', score)` in the game-over handler, plus the theme id in `themes/leaderboard/games.ts` (2026-09-08).
 
 ## Taste
 

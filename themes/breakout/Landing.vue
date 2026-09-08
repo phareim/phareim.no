@@ -19,6 +19,7 @@
         <p class="breakout-hud breakout-over-score">SCORE: {{ score }} · LEVEL {{ level }}</p>
         <p v-if="score >= highScore && score > 0" class="breakout-hud breakout-new-high">NEW HIGH SCORE!</p>
         <p v-else class="breakout-hud">HIGH SCORE: {{ highScore }}</p>
+        <p v-if="rank" class="breakout-hud breakout-hud-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
         <p class="breakout-hint">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
@@ -40,6 +41,9 @@ import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import Breakout from './Breakout.vue'
 
 const { navigationLocked } = useTheme()
+const { submitScore, lastSubmission } = useLeaderboard()
+/** This run's world rank, once the Hall of Fame has answered. */
+const rank = computed(() => lastSubmission.value?.game === 'breakout' && lastSubmission.value.score === score.value ? lastSubmission.value : null)
 const { hint } = useInputMode()
 
 const score = ref(0)
@@ -64,6 +68,7 @@ function onGameStarted() {
 function onGameOver() {
   gameOver.value = true
   navigationLocked.value = false
+  submitScore('breakout', score.value)
   if (score.value > highScore.value) {
     highScore.value = score.value
     localStorage.setItem('breakoutHighScore', String(highScore.value))

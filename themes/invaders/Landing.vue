@@ -20,6 +20,7 @@
         <p class="invaders-hud invaders-over-score">SCORE: {{ score }} · WAVE {{ wave }}</p>
         <p v-if="isNewHigh && score > 0" class="invaders-hud invaders-new-high">NEW HIGH SCORE!</p>
         <p v-else class="invaders-hud">HIGH SCORE: {{ highScore }}</p>
+        <p v-if="rank" class="invaders-hud invaders-hud-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
         <p class="invaders-hint">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
@@ -42,6 +43,9 @@ import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import Invaders from './Invaders.vue'
 
 const { navigationLocked } = useTheme()
+const { submitScore, lastSubmission } = useLeaderboard()
+/** This run's world rank, once the Hall of Fame has answered. */
+const rank = computed(() => lastSubmission.value?.game === 'invaders' && lastSubmission.value.score === score.value ? lastSubmission.value : null)
 const { hint } = useInputMode()
 
 const score = ref(0)
@@ -73,6 +77,7 @@ function onGameEnded() {
 function onGameOver() {
   gameOver.value = true
   navigationLocked.value = false
+  submitScore('invaders', score.value)
   isNewHigh.value = score.value > highScore.value
   if (isNewHigh.value) {
     highScore.value = score.value

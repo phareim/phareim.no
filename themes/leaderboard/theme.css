@@ -1,0 +1,29 @@
+/* Hall of Fame — the world ranking, on the Neon Dreams contract like
+   Player One: cyan is the interface, pink is you, gold is the podium. */
+:root {
+  --lb-bg: #0b0616;
+  --lb-text: #f2e9ff;
+  --lb-text-muted: #b9a8d9;
+  --lb-text-subtle: #7a6a9a;
+  --lb-card-bg: rgba(11, 6, 22, .78);
+  --lb-card-border: rgba(255, 47, 160, .35);
+  --lb-card-shadow: rgba(47, 243, 255, .15);
+  --lb-accent: #2ff3ff;
+  --lb-pink: #ff2fa0;
+  --lb-gold: #ffd23f;
+}
+.leaderboard-page {
+  background: var(--lb-bg);
+  color: var(--lb-text);
+  font-family: var(--font-person);
+  --theme-bg: var(--lb-bg);
+  --theme-text: var(--lb-text);
+  --theme-text-muted: var(--lb-text-muted);
+  --theme-text-subtle: var(--lb-text-subtle);
+  --theme-card-bg: var(--lb-card-bg);
+  --theme-card-border: var(--lb-card-border);
+  --theme-card-shadow: var(--lb-card-shadow);
+  --theme-card-radius: 12px;
+  --theme-accent: var(--lb-accent);
+  --theme-font-body: var(--font-person);
+}

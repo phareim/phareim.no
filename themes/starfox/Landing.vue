@@ -22,6 +22,7 @@
         <p class="sfx-hud sfx-over-score">SCORE: {{ score }} · {{ distance }} KM</p>
         <p v-if="isNewHigh && score > 0" class="sfx-hud sfx-new-high">NEW HIGH SCORE!</p>
         <p v-else class="sfx-hud">HIGH SCORE: {{ highScore }}</p>
+        <p v-if="rank" class="sfx-hud sfx-hud-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
         <p class="sfx-hint">{{ hint('PRESS ENTER TO FLY AGAIN', 'TAP TO FLY AGAIN') }}</p>
       </template>
       <template v-else>
@@ -45,6 +46,9 @@ import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 const Flight = defineAsyncComponent(() => import('./Flight.vue'))
 
 const { navigationLocked } = useTheme()
+const { submitScore, lastSubmission } = useLeaderboard()
+/** This run's world rank, once the Hall of Fame has answered. */
+const rank = computed(() => lastSubmission.value?.game === 'starfox' && lastSubmission.value.score === score.value ? lastSubmission.value : null)
 const { hint } = useInputMode()
 
 const score = ref(0)
@@ -76,6 +80,7 @@ function onGameEnded() {
 function onGameOver() {
   gameOver.value = true
   navigationLocked.value = false
+  submitScore('starfox', score.value)
   isNewHigh.value = score.value > highScore.value
   if (isNewHigh.value) {
     highScore.value = score.value

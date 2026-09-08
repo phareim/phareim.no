@@ -17,6 +17,7 @@
         <p class="hacker-score game-over-score">SCORE: {{ score }}</p>
         <p v-if="score >= highScore" class="hacker-score new-highscore">NEW HIGH SCORE!</p>
         <p v-else class="hacker-score">HIGH SCORE: {{ highScore }}</p>
+        <p v-if="rank" class="hacker-score hacker-highscore-inline">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
         <p class="game-over-restart">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
@@ -33,6 +34,9 @@ import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import SpaceInvaders from './SpaceInvaders.vue'
 
 const { navigationLocked } = useTheme()
+const { submitScore, lastSubmission } = useLeaderboard()
+/** This run's world rank, once the Hall of Fame has answered. */
+const rank = computed(() => lastSubmission.value?.game === 'hacker' && lastSubmission.value.score === score.value ? lastSubmission.value : null)
 const { hint } = useInputMode()
 
 const score = ref(0)
@@ -55,6 +59,7 @@ function onGameStarted() {
 function onGameOver() {
   gameOver.value = true
   navigationLocked.value = false
+  submitScore('hacker', score.value)
   if (score.value > highScore.value) {
     highScore.value = score.value
     localStorage.setItem('hackerHighScore', String(highScore.value))

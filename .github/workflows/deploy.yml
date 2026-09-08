@@ -24,6 +24,7 @@ jobs:
       - run: npm run test:tetris
       - run: npm run test:anotherworld
       - run: npm run test:shore
+      - run: npm run test:leaderboard
 
       - run: npm run typecheck
 
@@ -46,6 +47,14 @@ jobs:
         with:
           name: dist
           path: dist
+
+      # Hall of Fame schema first, so the worker never ships ahead of its D1.
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          wranglerVersion: "4.128.0"
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply phareim-leaderboard --remote
 
       - uses: cloudflare/wrangler-action@v3
         with:

@@ -12,7 +12,8 @@
     "test:eschold": "node --test tests/esc-hold.test.mjs",
     "test:anotherworld": "node --test tests/anotherworld-engine.test.mjs",
     "test:shore": "node --test tests/shore-engine.test.mjs",
-    "test:invaders": "node --test tests/invaders-mobile.test.mjs"
+    "test:invaders": "node --test tests/invaders-mobile.test.mjs",
+    "test:leaderboard": "node --test tests/leaderboard-names.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

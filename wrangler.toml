@@ -2,3 +2,11 @@ name = "phareim-no"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
+
+# Hall of Fame (2026-09-08): the site's one system of record. CI applies
+# migrations/ before every deploy (see .github/workflows/deploy.yml).
+[[d1_databases]]
+binding = "LEADERBOARD_DB"
+database_name = "phareim-leaderboard"
+database_id = "54e101f9-4026-4fd1-a78a-7a8976e1301e"
+migrations_dir = "migrations"
