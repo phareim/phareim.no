@@ -12,6 +12,7 @@
           @sector="(n: number, p: SectorPhase) => { sector = n; phase = p }"
           @boss="(n: number, m: number, a: boolean) => { bossHp = n; bossMax = m; bossActive = a }"
           @wing="(hpLeft: number, alive: boolean, respawnT: number) => { wingHp = hpLeft; wingAlive = alive; wingRespawn = respawnT }"
+          @wing-say="onWingSay"
           @over="onGameEnded"
           @death="onGameOver"
           @restart="onGameRestart"
@@ -50,7 +51,7 @@
           <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
           <template v-if="!gameStarted">
             <p class="sfx-hint">▶ {{ hint('PRESS ENTER TO FLY', 'TAP TO FLY') }} ◀</p>
-            <p class="sfx-hint sfx-hint-dim">{{ hint('ARROWS · SPACE FIRE · SHIFT ROLL · WINGMAN COVERS RIGHT · ESC PAUSE', 'DRAG TO STEER · AUTO-FIRE · DOUBLE-TAP ROLL · WINGMAN COVERS RIGHT') }}</p>
+            <p class="sfx-hint sfx-hint-dim">{{ hint('ARROWS · SPACE FIRE · SHIFT ROLL · WINGMAN HUNTS · ESC PAUSE', 'DRAG TO STEER · AUTO-FIRE · DOUBLE-TAP ROLL · WINGMAN HUNTS') }}</p>
           </template>
         </div>
       </template>
@@ -61,6 +62,7 @@
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import { BOSS_NAME, sectorClearBonus, HEAL_CLEAR, type SectorPhase } from './balance'
+import { WING_AI } from './wingmanAi'
 
 // three.js is ~170 KB gzipped: load it only when this theme is on screen.
 const Flight = defineAsyncComponent(() => import('./Flight.vue'))
@@ -89,6 +91,14 @@ const gameOver = ref(false)
 const gameStarted = ref(false)
 const powerMsg = ref('')
 let powerTimer: ReturnType<typeof setTimeout> | null = null
+const wingCallout = ref('')
+let wingCalloutTimer: ReturnType<typeof setTimeout> | null = null
+
+function onWingSay(text: string) {
+  wingCallout.value = text
+  if (wingCalloutTimer) clearTimeout(wingCalloutTimer)
+  wingCalloutTimer = setTimeout(() => { wingCallout.value = '' }, WING_AI.calloutTime * 1000)
+}
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -110,6 +120,7 @@ const banner = computed(() => {
 
 const wingMsg = computed(() => {
   if (gameOver.value) return ''
+  if (wingCallout.value) return `WING ▸ ${wingCallout.value}`
   return wingAlive.value ? 'WING ● ONLINE' : `WING ○ ${Math.ceil(wingRespawn.value)}S`
 })
 
@@ -119,7 +130,10 @@ onMounted(() => {
 })
 
 // The game owns the arrow keys and horizontal touch while it runs.
-onBeforeUnmount(() => { navigationLocked.value = false })
+onBeforeUnmount(() => {
+  navigationLocked.value = false
+  if (wingCalloutTimer) clearTimeout(wingCalloutTimer)
+})
 
 function onGameStarted() {
   gameStarted.value = true
@@ -158,6 +172,8 @@ function onGameRestart() {
   gameOver.value = false
   isNewHigh.value = false
   powerMsg.value = ''
+  wingCallout.value = ''
+  if (wingCalloutTimer) { clearTimeout(wingCalloutTimer); wingCalloutTimer = null }
   bossActive.value = false
   bossHp.value = 0
   bossMax.value = 0

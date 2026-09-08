@@ -19,6 +19,7 @@ When restoring things: cherry-pick onto this base, and **leave out the backgroun
 - `npm run dev` — dev server on port 3030 (host 0.0.0.0)
 - `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); CI runs these before typecheck
 - `npm run test:leaderboard` — Hall of Fame name generator/validator and game list (2026-09-08)
+- `npm run test:wingman` — Star Fox wingman AI: targeting, modes, callouts (2026-09-08)
 - `npm run typecheck` — `nuxi typecheck` (vue-tsc); CI runs this before build
 - `npm run build` — production build; the `cloudflare-pages` preset is set in `nuxt.config.ts`, output goes to `dist/`
 - `npm run preview` — preview built site
@@ -306,14 +307,21 @@ the kind's value × multiplier.
 violet edges — thread the gap). Spawn mix ~34/22/24/20 pillar/rock/mine/
 arch; caps 6 mines, 3 arches, 2 bulwarks.
 
-**Wingman (2026-09-08).** A gold-trimmed AI co-flyer holds right-rear
-echelon, sidesteps obstacles like the autopilot, and fires one cyan bolt
-down its own lane every 0.28 s (two at player weapon level 3) through the
-shared laser pool, so its kills feed the same score/multiplier. 50 HP,
-draws ~35 % of enemy aimed fire, safe while you roll; death is an
-explosion + 10 s respawn with 2 s invuln. HUD dock shows
-`WING ● ONLINE` / `WING ○ nS` (`wing` event from Flight.vue). It flies
-formation in attract mode and breaks off when you die.
+**Wingman (2026-09-08).** A gold-trimmed AI co-flyer with its own brain in
+`wingmanAi.ts` (pure, tested). Modes: formation (echelon slot right-rear of
+the player, `BUDDY_OFFSET`), hunt (picks its own target among enemies in the
+−170…−10 z window — threat-weighted: kamikaze/mite/dasher first, sniper,
+then rest, bulwark last; boss turrets over core — flies to the target's lane
+with 0.45 s lead), regroup (target gone: back to slot), cover (player hull
+below 30 HP: glued to slot). Sticky lock with 0.6 s retarget cooldown and a
+cost margin so a diving kamikaze can steal the lock. Fires only with line of
+sight (|dx| < 0.9, |dy| < 1.3) every 0.28 s (two bolts at weapon level 3)
+through the shared laser pool, so its kills feed the same score/multiplier.
+Callouts (TARGET LOCKED, BREAKING OFF, BACK IN FORMATION, I'M HIT, WING DOWN,
+BACK ONLINE, COVERING YOU) reach the HUD as `WING ▸ …` for 2.2 s via the
+`wingSay` event; otherwise `WING ● ONLINE` / `WING ○ nS`. 50 HP, draws
+~35 % of enemy aimed fire (`BUDDY_AGGRO`), safe while you roll; death is an
+explosion + 10 s respawn with 2 s invuln, pure formation in attract mode.
 
 The sector boss is the DREADNOUGHT: a gunship that cruises in from deep
 field, parks at z ≈ −60 and strafes while its turrets cycle aimed bursts,
@@ -341,7 +349,9 @@ bestiary; `BUDDY_*`/`MINE_*`/`MAX_*` the wingman and obstacle caps;
 `sectorPalette` holds the
 four cycling backdrop palettes — violet dusk, emerald, ember, azure — cut
 hard onto mountains, grid, fog and sky at every sector rollover),
+`wingmanAi.ts` (the wingman brain),
 `tests/starfox-balance.test.mjs` (21 tests, `npm run test:starfox`, in
+CI), `tests/starfox-wingman.test.mjs` (17 tests, `npm run test:wingman`, in
 CI). During BOSS the corridor crawls at speed 16 and only rings spawn
 (the in-fight heal trickle).
 

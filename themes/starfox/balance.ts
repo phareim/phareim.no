@@ -234,6 +234,8 @@ export const BUDDY_OFFSET: { x: number; y: number } = { x: 3.5, y: -0.8 }
 export const BUDDY_INVULN = 2
 /** Wingman fire interval: ~60 % of a level-1 player's output. */
 export const BUDDY_FIRE_INTERVAL = 0.28
+/** Share of aimed enemy fire drawn to the wingman while it is alive. */
+export const BUDDY_AGGRO = 0.35
 
 /** Mine tuning: drifting proximity-fused obstacles. */
 export const MINE_FUSE_RADIUS = 3.2

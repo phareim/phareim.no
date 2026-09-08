@@ -23,6 +23,7 @@ jobs:
       - run: npm run test:galaga
       - run: npm run test:invaders
       - run: npm run test:starfox
+      - run: npm run test:wingman
       - run: npm run test:eschold
       - run: npm run test:tetris
       - run: npm run test:anotherworld

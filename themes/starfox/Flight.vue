@@ -38,9 +38,10 @@ import {
   enemyFireInterval, boltSpeedBonus, enemyShootChance,
   formationSize, pickEnemyKind, worldSpeedFor, spawnPace,
   applyDamage, heal, ENEMY_STATS, type EnemyKind,
-  BUDDY_HP, BUDDY_RESPAWN, BUDDY_OFFSET, BUDDY_INVULN, BUDDY_FIRE_INTERVAL,
+  BUDDY_HP, BUDDY_RESPAWN, BUDDY_OFFSET, BUDDY_INVULN, BUDDY_FIRE_INTERVAL, BUDDY_AGGRO,
   MINE_FUSE_RADIUS, MINE_BLAST_RADIUS, MINE_SCORE, MAX_MINES, MAX_BULWARKS, MAX_ARCHES,
 } from './balance'
+import { createWingAi, stepWingman, callout, WING_AI, type WingTarget } from './wingmanAi'
 
 const emit = defineEmits<{
   score: [n: number]
@@ -50,6 +51,7 @@ const emit = defineEmits<{
   sector: [n: number, phase: SectorPhase]
   boss: [hp: number, max: number, active: boolean]
   wing: [hp: number, alive: boolean, respawnT: number]
+  wingSay: [text: string]
   started: []
   restart: []
   over: []
@@ -183,6 +185,14 @@ function emitWing() {
   emit('wing', buddy.hp, buddy.alive && buddy.visible, buddy.alive ? 0 : buddy.respawnT)
 }
 
+const wingAi = createWingAi()
+const wingTargets: WingTarget[] = []
+let enemyUid = 0
+// Boss parts get negative target ids so they can never alias an enemy uid.
+const WING_ID_TURRET = -1
+const WING_ID_CORE = -100
+let wingHitSayAt = -10
+
 // ---- environment ------------------------------------------------------
 let gridMat: THREE.ShaderMaterial
 let skyMat: THREE.ShaderMaterial
@@ -219,6 +229,9 @@ interface Enemy {
   root: THREE.Group
   body: THREE.Mesh
   ring: THREE.Mesh
+  // Monotonic spawn id: pool slots are reused, so the wingman's target lock
+  // keys on this, never on the array index.
+  uid: number
   active: boolean
   kind: EnemyKind
   hp: number
@@ -786,9 +799,16 @@ function damageBuddy(dmg: number, now: number) {
     burst(buddy.x, buddy.y, buddy.z, COL_PINK, 40, 11)
     spawnWave(buddy.x, buddy.y, buddy.z)
     shake = Math.max(shake, 0.8)
+    emit('wingSay', callout(wingAi, 'down'))
   } else {
     buddy.invulnUntil = now + 0.8
     burst(buddy.x, buddy.y, buddy.z, COL_GOLD, 14, 8)
+    // The wingman soaks a third of enemy fire; one "I'm hit" per few seconds
+    // keeps the radio free for the hunt callouts.
+    if (now - wingHitSayAt > 4) {
+      wingHitSayAt = now
+      emit('wingSay', callout(wingAi, 'hit'))
+    }
   }
   emitWing()
 }
@@ -803,9 +823,11 @@ function updateBuddy(dt: number, now: number, demo: boolean) {
         buddy.hp = BUDDY_HP
         buddy.x = clamp(shipX + BUDDY_OFFSET.x, -laneX, laneX)
         buddy.y = clamp(shipY + BUDDY_OFFSET.y, LANE_Y_LO, LANE_Y_HI)
+        Object.assign(wingAi, createWingAi())
         buddy.invulnUntil = now + BUDDY_INVULN
         buddy.root.visible = buddy.visible
         burst(buddy.x, buddy.y, buddy.z, COL_GOLD, 30, 12)
+        emit('wingSay', callout(wingAi, 'online'))
         emitWing()
       } else if (Math.floor(buddy.respawnT * 2) !== Math.floor((buddy.respawnT + dt) * 2)) {
         emitWing() // tick the countdown twice a second
@@ -814,8 +836,31 @@ function updateBuddy(dt: number, now: number, demo: boolean) {
     return
   }
   if (!buddy.visible) return
-  let tx = clamp(shipX + BUDDY_OFFSET.x, -laneX, laneX)
-  let ty = clamp(shipY + BUDDY_OFFSET.y, LANE_Y_LO, LANE_Y_HI)
+  wingTargets.length = 0
+  for (const e of enemies) {
+    if (!e.active) continue
+    wingTargets.push({ id: e.uid, kind: e.kind, x: e.x, y: e.y, z: e.z, vx: e.vx })
+  }
+  if (boss.active) {
+    for (let i = 0; i < boss.turrets.length; i++) {
+      const t = boss.turrets[i]!
+      if (!t.alive) continue
+      wingTargets.push({ id: WING_ID_TURRET - i, kind: 'turret', x: boss.x + t.ox, y: boss.y + t.oy, z: boss.z + t.oz, vx: 0 })
+    }
+    wingTargets.push({ id: WING_ID_CORE, kind: 'core', x: boss.x, y: boss.y, z: boss.z, vx: 0 })
+  }
+  const step = stepWingman(wingAi, {
+    dt, now,
+    buddy: { x: buddy.x, y: buddy.y },
+    ship: { x: shipX, y: shipY, hp },
+    formation: { x: clamp(shipX + BUDDY_OFFSET.x, -laneX, laneX), y: clamp(shipY + BUDDY_OFFSET.y, LANE_Y_LO, LANE_Y_HI) },
+    lane: { xMax: laneX, yLo: LANE_Y_LO, yHi: LANE_Y_HI },
+    targets: wingTargets,
+    demo: demo || !gameStarted || gameOver,
+  })
+  if (step.say) emit('wingSay', step.say)
+  let tx = step.tx
+  let ty = step.ty
   // Sidestep obstacles ahead, like the attract autopilot does.
   for (const p of pillars) {
     if (!p.active || p.z < -70 || p.z > -4) continue
@@ -842,10 +887,11 @@ function updateBuddy(dt: number, now: number, demo: boolean) {
   }
   tx = clamp(tx, -laneX, laneX)
   ty = clamp(ty, LANE_Y_LO, LANE_Y_HI)
-  const k = 1 - Math.exp(-5 * dt)
+  const k = 1 - Math.exp(-WING_AI.turnRate[step.mode] * dt)
+  const bankTarget = clamp((tx - buddy.x) * -0.12, -0.7, 0.7)
   buddy.x += (tx - buddy.x) * k
   buddy.y += (ty - buddy.y) * k
-  buddy.bank.rotation.z += (clamp((tx - buddy.x) * -0.12, -0.7, 0.7) - buddy.bank.rotation.z) * Math.min(1, dt * 8)
+  buddy.bank.rotation.z += (bankTarget - buddy.bank.rotation.z) * Math.min(1, dt * 8)
   buddy.root.position.set(buddy.x, buddy.y + Math.sin(now * 2.1 + 1.3) * 0.08, buddy.z)
   buddy.root.visible = now >= buddy.invulnUntil || Math.floor(now * 12) % 2 === 0
   const es = 0.55 + Math.sin(now * 29 + 2) * 0.07
@@ -853,8 +899,12 @@ function updateBuddy(dt: number, now: number, demo: boolean) {
   if (!demo && gameStarted && !gameOver) {
     buddy.fireT += dt
     if (buddy.fireT >= BUDDY_FIRE_INTERVAL) {
-      buddy.fireT = 0
-      buddyFire()
+      if (step.fire) {
+        buddy.fireT = 0
+        buddyFire()
+      } else {
+        buddy.fireT = Math.min(buddy.fireT, BUDDY_FIRE_INTERVAL)
+      }
     }
   }
 }
@@ -937,10 +987,10 @@ function fireBoltAt(fromX: number, fromY: number, fromZ: number, tx: number, ty:
   b.mesh.visible = true
 }
 
-/** Bolt aim point: the wingman draws ~35 % of fire while alive, so the
+/** Bolt aim point: the wingman draws BUDDY_AGGRO of fire while alive, so the
  * buddy earns its damage and the player gets breathing room. */
 function pickBoltTarget(): { x: number; y: number } {
-  if (buddy.alive && buddy.visible && Math.random() < 0.35) return { x: buddy.x, y: buddy.y }
+  if (buddy.alive && buddy.visible && Math.random() < BUDDY_AGGRO) return { x: buddy.x, y: buddy.y }
   return { x: shipX, y: shipY }
 }
 
@@ -1010,7 +1060,7 @@ function buildEnemies() {
     root.add(ring)
     root.visible = false
     scene.add(root)
-    enemies.push({ root, body, ring, active: false, kind: 'drone', hp: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, wob: Math.random() * 6.28, wobSpeed: rand(1.5, 3), fireT: rand(1, 2.5), shoots: true, dashPhase: 0, dashVx: 0 })
+    enemies.push({ root, body, ring, uid: 0, active: false, kind: 'drone', hp: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, wob: Math.random() * 6.28, wobSpeed: rand(1.5, 3), fireT: rand(1, 2.5), shoots: true, dashPhase: 0, dashVx: 0 })
   }
 }
 
@@ -1080,6 +1130,7 @@ function spawnEnemy(x: number, y: number, z: number, shoots: boolean, kind: Enem
   for (const v of enemies) { if (!v.active) { e = v; break } }
   if (!e) return
   e.active = true
+  e.uid = ++enemyUid
   e.kind = kind
   e.hp = ENEMY_STATS[kind].hp
   e.x = clamp(x, -laneX, laneX)
@@ -1928,6 +1979,7 @@ function startGame() {
   buddy.respawnT = 0
   buddy.x = clamp(shipX + BUDDY_OFFSET.x, -laneX, laneX)
   buddy.y = clamp(shipY + BUDDY_OFFSET.y, LANE_Y_LO, LANE_Y_HI)
+  Object.assign(wingAi, createWingAi())
   buddy.fireT = 0
   buddy.invulnUntil = performance.now() / 1000 + 1.5
   if (buddy.root) {

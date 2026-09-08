@@ -9,7 +9,7 @@ import {
   bossMinions, sectorPalette, BOSS_WHEEL_LEN,
   enemyShootChance, formationSize, pickEnemyKind, worldSpeedFor,
   spawnPace, applyDamage, heal, advanceSector,
-  ENEMY_STATS, BUDDY_HP, BUDDY_RESPAWN, BUDDY_INVULN, BUDDY_FIRE_INTERVAL,
+  ENEMY_STATS, BUDDY_HP, BUDDY_RESPAWN, BUDDY_INVULN, BUDDY_FIRE_INTERVAL, BUDDY_AGGRO,
   MINE_FUSE_RADIUS, MINE_BLAST_RADIUS, MINE_SCORE, MAX_MINES, MAX_BULWARKS, MAX_ARCHES,
 } from '../themes/starfox/balance.ts'
 
@@ -154,6 +154,7 @@ describe('Star Fox wingman and obstacles', () => {
   it('pins wingman HP, respawn and fire pacing', () => {
     assert.equal(BUDDY_HP, 50)
     assert.equal(BUDDY_RESPAWN, 10)
+    assert.equal(BUDDY_AGGRO, 0.35)
     assert.ok(BUDDY_INVULN > 0 && BUDDY_INVULN <= BUDDY_RESPAWN)
     // ~60 % of a level-1 player's output (twin bolts every 1/6 s).
     assert.ok(BUDDY_FIRE_INTERVAL > 1 / 6)
