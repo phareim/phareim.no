@@ -50,7 +50,7 @@ const { hint } = useInputMode()
 
 const score = ref(0)
 const wave = ref(1)
-const lives = ref(3)
+const lives = ref(1)
 const highScore = ref(0)
 const isNewHigh = ref(false)
 const gameOver = ref(false)

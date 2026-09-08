@@ -17,7 +17,7 @@ import EscHold from '../base/EscHold.vue'
  * sideways march + step down on edge, step timer quickens as invaders die
  * (the heartbeat), lowest-per-column bombs (zigzag / plunger / rolling),
  * 4 eroding bunkers (3 on narrow screens), mystery UFO 50-300 pts, one
- * player shot at a time, 3 lives +1 at 1500, next wave starts one row lower,
+ * player shot at a time, one life +1 at 1500, next wave starts one row lower,
  * game over on invasion or 0 lives.
  *
  * Look: the playfield floats above a scrolling perspective grid floor
@@ -46,7 +46,7 @@ const PINK = '#ff2fa0'
 const CYAN = '#2ff3ff'
 const GOLD = '#ffd23f'
 const ORANGE = '#ff6a3d'
-const LIVES = 3
+const LIVES = 1
 const EXTRA_AT = 1500
 const MAX_PARTICLES = 300
 const ROWS = 5
