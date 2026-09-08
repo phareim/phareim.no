@@ -33,6 +33,9 @@ export const useTheme = () => {
   /** While true, swipe and arrow keys do not switch theme (a game owns them). */
   const navigationLocked = useState<boolean>('themeNavigationLocked', () => false)
 
+  const navigationCoolingDown = useState<boolean>('themeNavigationCoolingDown', () => false)
+  const navigationBlocked = computed(() => navigationLocked.value || navigationCoolingDown.value)
+
   const theme = computed<ThemeDefinition>(
     () => allThemes.find(t => t.id === activeTheme.value) ?? themes[0]
   )
@@ -48,7 +51,7 @@ export const useTheme = () => {
   })
 
   const setTheme = (id: string) => {
-    if (!isThemeId(id)) return
+    if (navigationBlocked.value || !isThemeId(id)) return
     activeTheme.value = id
     cookie.value = id
   }
@@ -66,6 +69,8 @@ export const useTheme = () => {
     themePageClass,
     themeColor,
     navigationLocked,
+    navigationCoolingDown,
+    navigationBlocked,
     setTheme,
     nextTheme: () => step(1),
     previousTheme: () => step(-1),

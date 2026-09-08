@@ -182,6 +182,7 @@ Vite refuses the @fontsource files (403) unless the real path is added to
 ## Keyboard
 
 - `←` / `→` switch theme (unless a theme has locked navigation).
+- After a game releases navigation at game over or exit, all theme switching stays blocked for 3 seconds (2026-09-08). Held-key repeats never switch themes: release and press again. The shared watcher in `useThemeNavigation` starts the grace period synchronously; `useTheme.setTheme` guards keys, swipes, arrows and dots. Starting another run clears the grace timer and keeps the game lock.
 
 ## Escape: tap pauses, 3 s hold quits (2026-09-08)
 

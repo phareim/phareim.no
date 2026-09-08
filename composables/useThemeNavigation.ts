@@ -4,7 +4,19 @@
  * touch for themselves set `navigationLocked` (see useTheme).
  */
 export const useThemeNavigation = () => {
-  const { nextTheme, previousTheme, navigationLocked } = useTheme()
+  const { nextTheme, previousTheme, navigationLocked, navigationCoolingDown, navigationBlocked } = useTheme()
+
+  let cooldownTimer: ReturnType<typeof setTimeout> | undefined
+  // Observe the game releasing its controls, before another input can navigate.
+  watch(navigationLocked, (locked: boolean, wasLocked: boolean) => {
+    if (cooldownTimer) clearTimeout(cooldownTimer)
+    if (locked) {
+      navigationCoolingDown.value = false
+    } else if (wasLocked) {
+      navigationCoolingDown.value = true
+      cooldownTimer = setTimeout(() => { navigationCoolingDown.value = false }, 3000)
+    }
+  }, { flush: 'sync' })
 
   const SWIPE_MIN_PX = 70
   const SWIPE_MAX_MS = 700
@@ -20,7 +32,7 @@ export const useThemeNavigation = () => {
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (navigationLocked.value || event.defaultPrevented) return
+    if (navigationBlocked.value || event.repeat || event.defaultPrevented) return
     if (event.metaKey || event.ctrlKey || event.altKey) return
     if (isTyping(event.target)) return
     if (event.key === 'ArrowRight') nextTheme()
@@ -28,7 +40,7 @@ export const useThemeNavigation = () => {
   }
 
   const onTouchStart = (event: TouchEvent) => {
-    if (event.touches.length !== 1) { tracking = false; return }
+    if (navigationBlocked.value || event.touches.length !== 1) { tracking = false; return }
     const t = event.touches[0]
     startX = t.clientX
     startY = t.clientY
@@ -39,7 +51,7 @@ export const useThemeNavigation = () => {
   const onTouchEnd = (event: TouchEvent) => {
     if (!tracking) return
     tracking = false
-    if (navigationLocked.value) return
+    if (navigationBlocked.value) return
     const t = event.changedTouches[0]
     const dx = t.clientX - startX
     const dy = t.clientY - startY
@@ -57,6 +69,8 @@ export const useThemeNavigation = () => {
   })
 
   onBeforeUnmount(() => {
+    if (cooldownTimer) clearTimeout(cooldownTimer)
+    navigationCoolingDown.value = false
     document.removeEventListener('keydown', onKeyDown)
     document.removeEventListener('touchstart', onTouchStart)
     document.removeEventListener('touchend', onTouchEnd)
