@@ -9,7 +9,7 @@ import EscHold from '../base/EscHold.vue'
 /**
  * R-Type — an endless R-Type (1987) style side-scrolling space shooter in
  * NEON VECTOR style (stroked outlines + glow, canvas primitives only).
- * Same contract as hacker/SpaceInvaders.vue and breakout/Breakout.vue: a
+ * Same contract as galaga/Galaga.vue and breakout/Breakout.vue: a
  * full-viewport canvas behind the landing overlay, Enter/tap to start,
  * events up to Landing.vue for the HUD. Before the game starts the canvas
  * plays itself (attract mode with a simple autopilot) so the page is alive.

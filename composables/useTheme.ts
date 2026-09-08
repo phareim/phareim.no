@@ -1,4 +1,4 @@
-import { themes, allThemes, isThemeId, isAnyThemeId, randomThemeId, type ThemeDefinition } from '~/themes'
+import { themes, allThemes, isThemeId, isAnyThemeId, randomThemeId, resolveThemeId, type ThemeDefinition } from '~/themes'
 
 const COOKIE_NAME = 'theme'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -7,7 +7,7 @@ const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
  * Theme state. Resolved once per request, in this order:
  *   1. `?theme=<id>` in the URL (deep link, also handy when building a theme;
  *      the only way to reach a theme marked `disabled`)
- *   2. the `theme` cookie (returning visitor)
+ *   2. the `theme` cookie (returning visitor; renamed ids are mapped first)
  *   3. a random pick (first visit)
  * The pick happens during SSR, so the first paint is already the right theme
  * and the cookie is set in the response — no flash, no client-side reshuffle.
@@ -20,9 +20,10 @@ export const useTheme = () => {
   })
 
   const activeTheme = useState<string>('activeTheme', () => {
-    const fromQuery = useRoute().query.theme
+    const fromQuery = resolveThemeId(useRoute().query.theme)
     if (isAnyThemeId(fromQuery)) return fromQuery
-    if (isThemeId(cookie.value)) return cookie.value
+    const fromCookie = resolveThemeId(cookie.value)
+    if (isThemeId(fromCookie)) return fromCookie
     return randomThemeId()
   })
 

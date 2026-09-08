@@ -19,7 +19,7 @@
 /**
  * The default landing shell. A theme can use it as-is (see tufte), wrap it
  * with a background and hook into its events (scandi, space), replace
- * individual slots (hacker), or skip it and render its own page entirely.
+ * individual slots (galaga), or skip it and render its own page entirely.
  */
 import { profile, type LandingContent } from '~/themes/content'
 

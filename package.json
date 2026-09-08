@@ -15,7 +15,7 @@
     "test:invaders": "node --test tests/invaders-mobile.test.mjs",
     "test:starfox": "node --test tests/starfox-balance.test.mjs",
     "test:leaderboard": "node --test tests/leaderboard-names.test.mjs",
-    "test:hacker": "node --test tests/hacker-game.test.mjs"
+    "test:galaga": "node --test tests/galaga-game.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

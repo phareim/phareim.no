@@ -1,5 +1,5 @@
 <template>
-  <canvas ref="canvas" class="invaders-canvas"></canvas>
+  <canvas ref="canvas" class="galaga-canvas"></canvas>
   <EscHold :is-active="escActive" :paused="paused" @tap="togglePause" @hold="quitToGameOver" />
 </template>
 
@@ -1145,7 +1145,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /* Full-viewport playfield behind the landing overlay. */
-.invaders-canvas {
+.galaga-canvas {
   position: absolute;
   top: 0;
   left: 0;

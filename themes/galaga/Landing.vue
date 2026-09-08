@@ -1,9 +1,9 @@
 <template>
   <DefaultLanding
-    :content-class="{ 'hacker-fade': gameStarted }"
+    :content-class="{ 'galaga-fade': gameStarted }"
   >
     <template #background>
-      <SpaceInvaders
+      <Galaga
         @score="s => score = s"
         @death="onGameOver"
         @restart="onGameRestart"
@@ -14,15 +14,15 @@
     <template #body>
       <template v-if="gameOver">
         <h1 class="game-over-title">GAME OVER</h1>
-        <p class="hacker-score game-over-score">SCORE: {{ score }}</p>
-        <p v-if="score >= highScore" class="hacker-score new-highscore">NEW HIGH SCORE!</p>
-        <p v-else class="hacker-score">HIGH SCORE: {{ highScore }}</p>
-        <p v-if="rank" class="hacker-score hacker-highscore-inline">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
+        <p class="galaga-score game-over-score">SCORE: {{ score }}</p>
+        <p v-if="score >= highScore" class="galaga-score new-highscore">NEW HIGH SCORE!</p>
+        <p v-else class="galaga-score">HIGH SCORE: {{ highScore }}</p>
+        <p v-if="rank" class="galaga-score galaga-highscore-inline">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
         <p class="game-over-restart">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
-        <p class="location hacker-score">SCORE: {{ score }}</p>
-        <p v-if="highScore > 0" class="location hacker-highscore-inline">HIGH SCORE: {{ highScore }}</p>
+        <p class="location galaga-score">SCORE: {{ score }}</p>
+        <p v-if="highScore > 0" class="location galaga-highscore-inline">HIGH SCORE: {{ highScore }}</p>
         <p v-if="!gameStarted" class="game-over-restart">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
       </template>
     </template>
@@ -31,13 +31,15 @@
 
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
-import SpaceInvaders from './SpaceInvaders.vue'
+import Galaga from './Galaga.vue'
 
 const { navigationLocked } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()
 /** This run's world rank, once the Hall of Fame has answered. */
-const rank = computed(() => lastSubmission.value?.game === 'hacker' && lastSubmission.value.score === score.value ? lastSubmission.value : null)
+const rank = computed(() => lastSubmission.value?.game === 'galaga' && lastSubmission.value.score === score.value ? lastSubmission.value : null)
 const { hint } = useInputMode()
+
+const HIGH_SCORE_KEY = 'galagaHighScore'
 
 const score = ref(0)
 const highScore = ref(0)
@@ -45,7 +47,10 @@ const gameOver = ref(false)
 const gameStarted = ref(false)
 
 onMounted(() => {
-  highScore.value = parseInt(localStorage.getItem('hackerHighScore') || '0', 10)
+  // The theme was called Cyberpunk with the id `hacker` until 2026-09-08; keep
+  // returning players' high score by falling back to the old key once.
+  const stored = localStorage.getItem(HIGH_SCORE_KEY) ?? localStorage.getItem('hackerHighScore')
+  highScore.value = parseInt(stored || '0', 10)
 })
 
 // The game owns the arrow keys and horizontal touch while it runs.
@@ -59,10 +64,10 @@ function onGameStarted() {
 function onGameOver() {
   gameOver.value = true
   navigationLocked.value = false
-  submitScore('hacker', score.value)
+  submitScore('galaga', score.value)
   if (score.value > highScore.value) {
     highScore.value = score.value
-    localStorage.setItem('hackerHighScore', String(highScore.value))
+    localStorage.setItem(HIGH_SCORE_KEY, String(highScore.value))
   }
 }
 
@@ -74,7 +79,7 @@ function onGameRestart() {
 
 <style>
 /* Shared Neon Dreams HUD and threat colours. */
-.hacker-score {
+.galaga-score {
   font-family: var(--font-machine);
   text-transform: uppercase;
   color: #2ff3ff;
@@ -127,7 +132,7 @@ function onGameRestart() {
   margin-top: 1em;
 }
 
-.hacker-highscore-inline {
+.galaga-highscore-inline {
   font-family: var(--font-machine);
   text-transform: uppercase;
   color: #2ff3ff;
@@ -136,7 +141,7 @@ function onGameRestart() {
   letter-spacing: 0.1em;
 }
 
-.hacker-fade {
+.galaga-fade {
   animation: fade-out-overlay 4s forwards;
 }
 @keyframes fade-out-overlay {

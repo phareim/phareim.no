@@ -1,0 +1,52 @@
+/* Galaga: shared Neon Dreams cyan / pink / gold on violet-black. */
+
+:root {
+  /* Base colors */
+  --galaga-bg: #0b0616;
+  --galaga-bg-alt: #120826;
+
+  /* Text colors */
+  --galaga-text: #2ff3ff;
+  --galaga-text-dim: #b9a8d9;
+  --galaga-text-bright: #f2e9ff;
+
+  /* Accents */
+  --galaga-border: #432351;
+  --galaga-glow: rgba(47, 243, 255, 0.2);
+  --galaga-accent: #ff2fa0; /* Error/Alert color */
+  --galaga-danger: #ff2fa0;
+  --galaga-gold: #ffd23f; /* Neon Dreams reward colour — shows on powerups */
+
+  /* Card recipe (Neon Dreams structure, neon hues) */
+  --galaga-card-bg: rgba(11, 6, 22, 0.74);
+  --galaga-card-border: rgba(47, 243, 255, 0.35);
+  --galaga-card-shadow: rgba(47, 243, 255, 0.15);
+
+  /* Typography */
+  --font-mono: var(--font-machine);
+}
+
+.galaga-page {
+  min-height: 100vh;
+  background-color: var(--galaga-bg);
+  color: var(--galaga-text);
+  font-family: var(--font-mono);
+  overflow-x: hidden;
+
+
+  /* The contract. All ten are read somewhere; add more only when a
+     second theme needs the same token. */
+  --theme-bg: var(--galaga-bg);
+  --theme-text: var(--galaga-text);
+  --theme-text-muted: var(--galaga-text-dim);
+  --theme-text-subtle: #7a6a9a;
+
+  --theme-card-bg: var(--galaga-card-bg);
+  --theme-card-border: var(--galaga-card-border);
+  --theme-card-shadow: var(--galaga-card-shadow);
+  --theme-card-radius: 0px;
+
+  --theme-accent: var(--galaga-text);
+
+  --theme-font-body: var(--font-mono);
+}

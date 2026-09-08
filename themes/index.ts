@@ -4,7 +4,7 @@ import type { Component } from 'vue'
 // carries the --theme-* tokens for all routes, not just the landing page.
 import './base/fonts.css'
 import './scandi/theme.css'
-import './hacker/theme.css'
+import './galaga/theme.css'
 import './breakout/theme.css'
 import './space/theme.css'
 import './desk/theme.css'
@@ -18,9 +18,9 @@ import './playerone/theme.css'
 import './leaderboard/theme.css'
 
 // Static imports on purpose: a swipe should not wait for a chunk, and the
-// whole set is small (the Cyberpunk game is the only big one).
+// whole set is small (the Galaga game is the only big one).
 import ScandiLanding from './scandi/Landing.vue'
-import HackerLanding from './hacker/Landing.vue'
+import GalagaLanding from './galaga/Landing.vue'
 import BreakoutLanding from './breakout/Landing.vue'
 import SpaceLanding from './space/Landing.vue'
 import SpaceStarfield from './space/Starfield.vue'
@@ -85,10 +85,10 @@ export const allThemes: ThemeDefinition[] = [
     landing: ScandiLanding,
   },
   {
-    id: 'hacker',
-    name: 'Cyberpunk',
+    id: 'galaga',
+    name: 'Galaga',
     themeColor: '#0b0616',
-    landing: HackerLanding,
+    landing: GalagaLanding,
   },
   {
     id: 'breakout',
@@ -160,6 +160,17 @@ export function isThemeId(id: unknown): id is string {
 /** Any theme, disabled ones included — for the `?theme=` deep link. */
 export function isAnyThemeId(id: unknown): id is string {
   return typeof id === 'string' && allThemes.some(t => t.id === id)
+}
+
+/**
+ * Ids a theme used to have. Old cookies and links keep working.
+ * `hacker` was the Cyberpunk shmup, renamed to Galaga 2026-09-08.
+ */
+const LEGACY_THEME_IDS: Record<string, string> = { hacker: 'galaga' }
+
+/** Maps a legacy id onto its current one; anything else is returned as-is. */
+export function resolveThemeId(id: unknown): unknown {
+  return typeof id === 'string' && id in LEGACY_THEME_IDS ? LEGACY_THEME_IDS[id] : id
 }
 
 export function randomThemeId(): string {

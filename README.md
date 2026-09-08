@@ -16,7 +16,7 @@ through them; a first visit lands on a random one. Each theme lives in
 `/about`, `/projects` and `/meta` were removed 2026-09-07; the profile and
 the contact links live in the **Player One** theme (`/?theme=playerone`).
 
-Themes: Player One, Another Shore, Cyberpunk, Breakout, R-Type, Space
+Themes: Player One, Another Shore, Galaga, Breakout, R-Type, Space
 Invaders, Star Fox, Tetris, Hall of Fame — plus Another Shore II,
 Scandinavian Glass, Space and Tufte Desk, parked but reachable. Preview one
 with `/?theme=<id>`.

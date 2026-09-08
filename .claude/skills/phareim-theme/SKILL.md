@@ -66,7 +66,7 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
   landing) goes in the registry as `backdrop` instead — `space` does that
   with its starfield.
 - **Own the page.** Replace slots (`card`, `body`, `footer`) or skip
-  DefaultLanding entirely. `hacker`, `breakout`, `rtype`, `invaders` and `starfox` replace `body` with a game HUD
+  DefaultLanding entirely. `galaga`, `breakout`, `rtype`, `invaders` and `starfox` replace `body` with a game HUD
   (`starfox` is three.js, not 2D canvas — its `Flight.vue` is loaded with
   `defineAsyncComponent` inside `<ClientOnly>` so the three chunk only ships with that theme);
   `desk` skips the shell and lays a grained paper sheet (`.desk-sheet`,
@@ -104,7 +104,7 @@ Rules that keep nine themes from fighting:
 - Add a token only when a second theme needs it. Unused tokens were the
   main dead weight cleaned out in September 2026.
 - Theme-only styling on shared pages goes in that page as
-  `:global(.<id>-page) .selector` (see the hacker overrides at the bottom
+  `:global(.<id>-page) .selector` (see the galaga overrides at the bottom
   of `pages/projects.vue` before it was deleted), not in `theme.css`.
 
 ## Navigation lock
@@ -112,7 +112,7 @@ Rules that keep nine themes from fighting:
 The shell listens for ArrowLeft/ArrowRight and horizontal swipes on
 `document`. A theme that needs those (a game, a slider) sets
 `useTheme().navigationLocked.value = true` while it needs them and resets it
-on game over and in `onBeforeUnmount`. `hacker/Landing.vue`,
+on game over and in `onBeforeUnmount`. `galaga/Landing.vue`,
 `breakout/Landing.vue`, `rtype/Landing.vue`, `invaders/Landing.vue`, `starfox/Landing.vue` and `tetris/Game.vue` show the pattern; all six games
 also start on *tap*, not on touchstart, so a swipe on the idle game still changes
 theme. `invaders` also emits `over` the moment a run ends (before the delayed

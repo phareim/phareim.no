@@ -2,16 +2,16 @@
   <div :class="[themePageClass, 'error-root']">
     <component :is="theme.backdrop" v-if="theme.backdrop" />
 
-    <!-- Hacker and Breakout themes (both neon-on-black, same block) -->
-    <div v-if="activeTheme === 'hacker' || activeTheme === 'breakout' || activeTheme === 'rtype'" class="error-container hacker-container-inner">
-      <p class="hacker-prompt">$ navigate --path {{ requestedPath }}</p>
-      <p class="hacker-err">
-        <span class="hacker-err-code">404</span>
-        <span class="hacker-err-msg">FILE_NOT_FOUND</span>
+    <!-- Galaga, Breakout and R-Type (all neon-on-black, same terminal block) -->
+    <div v-if="activeTheme === 'galaga' || activeTheme === 'breakout' || activeTheme === 'rtype'" class="error-container term-container-inner">
+      <p class="term-prompt">$ navigate --path {{ requestedPath }}</p>
+      <p class="term-err">
+        <span class="term-err-code">404</span>
+        <span class="term-err-msg">FILE_NOT_FOUND</span>
       </p>
-      <p class="hacker-prompt hacker-dim">$ the requested page does not exist in this system</p>
-      <div class="hacker-prompt hacker-cmd-row">
-        <button class="hacker-cmd-btn" @click="goHome">$ return --home<span class="cursor">_</span></button>
+      <p class="term-prompt term-dim">$ the requested page does not exist in this system</p>
+      <div class="term-prompt term-cmd-row">
+        <button class="term-cmd-btn" @click="goHome">$ return --home<span class="cursor">_</span></button>
       </div>
     </div>
 
@@ -211,44 +211,44 @@ useHead({ title: '404 — phareim.no' })
   50% { transform: translateY(-10px); }
 }
 
-/* ---- Hacker ---- */
-.hacker-container-inner {
+/* ---- Terminal 404 (galaga, breakout, rtype) ---- */
+.term-container-inner {
   text-align: left;
   font-family: var(--font-machine);
   padding: 2rem;
 }
 
-.hacker-prompt {
+.term-prompt {
   color: var(--theme-text, #00ff41);
   font-family: var(--font-machine);
   font-size: 0.9rem;
   margin: 0.4rem 0;
   letter-spacing: 0.05em;
-  animation: hacker-type-in 0.3s steps(20) forwards;
+  animation: term-type-in 0.3s steps(20) forwards;
   opacity: 0;
 }
 
-.hacker-prompt:nth-child(1) { animation-delay: 0.1s; }
-.hacker-prompt:nth-child(2) { animation-delay: 0.5s; }
-.hacker-prompt:nth-child(3) { animation-delay: 0.9s; }
-.hacker-prompt:nth-child(4) { animation-delay: 1.3s; }
+.term-prompt:nth-child(1) { animation-delay: 0.1s; }
+.term-prompt:nth-child(2) { animation-delay: 0.5s; }
+.term-prompt:nth-child(3) { animation-delay: 0.9s; }
+.term-prompt:nth-child(4) { animation-delay: 1.3s; }
 
-@keyframes hacker-type-in {
+@keyframes term-type-in {
   from { opacity: 0; transform: translateX(-8px); }
   to   { opacity: 1; transform: translateX(0); }
 }
 
-.hacker-err {
+.term-err {
   display: flex;
   align-items: baseline;
   gap: 1rem;
   margin: 1rem 0;
-  animation: hacker-type-in 0.3s steps(20) forwards;
+  animation: term-type-in 0.3s steps(20) forwards;
   animation-delay: 0.5s;
   opacity: 0;
 }
 
-.hacker-err-code {
+.term-err-code {
   font-size: clamp(3rem, 10vw, 6rem);
   font-family: var(--font-machine);
   color: var(--theme-accent, #00ff41);
@@ -257,23 +257,23 @@ useHead({ title: '404 — phareim.no' })
   font-weight: bold;
 }
 
-.hacker-err-msg {
+.term-err-msg {
   font-family: var(--font-machine);
   font-size: 1rem;
-  color: var(--hacker-accent, #ff0055);
+  color: var(--galaga-accent, #ff0055);
   text-shadow: 0 0 10px currentColor;
   letter-spacing: 0.1em;
 }
 
-.hacker-dim {
+.term-dim {
   color: var(--theme-text-muted, #008F11);
 }
 
-.hacker-cmd-row {
+.term-cmd-row {
   margin-top: 1.5rem;
 }
 
-.hacker-cmd-btn {
+.term-cmd-btn {
   background: transparent;
   border: none;
   color: var(--theme-text, #00ff41);
@@ -287,11 +287,11 @@ useHead({ title: '404 — phareim.no' })
   transition: text-shadow 0.2s;
 }
 
-.hacker-cmd-btn:hover {
+.term-cmd-btn:hover {
   text-shadow: 0 0 16px currentColor, 0 0 32px currentColor;
 }
 
-.hacker-cmd-btn:focus-visible {
+.term-cmd-btn:focus-visible {
   outline: 1px solid var(--theme-text, #00ff41);
   outline-offset: 4px;
 }

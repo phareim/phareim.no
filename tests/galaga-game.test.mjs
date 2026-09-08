@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 
-const source = readFileSync(new URL('../themes/hacker/SpaceInvaders.vue', import.meta.url), 'utf8')
+const source = readFileSync(new URL('../themes/galaga/Galaga.vue', import.meta.url), 'utf8')
   .split('<script setup>')[1].split('</script>')[0].replace(/^import .*$/gm, '')
 function game(w = 375, h = 667) {
   const context = vm.createContext({ ref: value => ({ value }), defineEmits: () => () => {},
