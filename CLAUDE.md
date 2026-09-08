@@ -287,38 +287,68 @@ The old 3-life shield is a 100 HP hull meter; bolts/rams/pillars/rocks
 deal 12/25/20/20, rings heal 12, the weapon still downgrades a step per
 hit, and the barrel roll still grants i-frames. The HP buffer pays for
 fiercer enemies: sector-scaled fire intervals and bolt speed (floored),
-shoot chance up to 0.9, formations of up to 5, plus snipers (sooner,
+shoot chance up to 0.95, formations of up to 5, plus snipers (sooner,
 faster bolts) and diving kamikazes from sector 2/3.
+
+**Bestiary (2026-09-08).** Sector 1 is drones only (onboarding). Sector 2
+adds weavers (wide cyan sine strafe), dashers (lock the player's lane,
+then boost past, never shoot) and snipers; sector 3 adds bulwarks (3 HP,
+gold ring, slow heavy bolts, survive rams), splitters (2 HP, pop into two
+diving mites) — mites never spawn directly. Per-kind HP/score lives in
+`ENEMY_STATS` (`balance.ts`); pooled enemies are restyled per kind at
+spawn (tetra/cone/icosa geometries, cyan/pink/gold mats). Kill score uses
+the kind's value × multiplier.
+
+**Obstacles (2026-09-08).** Pillars + rocks plus, from sector 2: mines
+(pulsing gold icosahedra, proximity fuse near either ship, shootable for
+75 × mult, chain-detonate) and arches (twin posts + lethal lintel with
+violet edges — thread the gap). Spawn mix ~34/22/24/20 pillar/rock/mine/
+arch; caps 6 mines, 3 arches, 2 bulwarks.
+
+**Wingman (2026-09-08).** A gold-trimmed AI co-flyer holds right-rear
+echelon, sidesteps obstacles like the autopilot, and fires one cyan bolt
+down its own lane every 0.28 s (two at player weapon level 3) through the
+shared laser pool, so its kills feed the same score/multiplier. 50 HP,
+draws ~35 % of enemy aimed fire, safe while you roll; death is an
+explosion + 10 s respawn with 2 s invuln. HUD dock shows
+`WING ● ONLINE` / `WING ○ nS` (`wing` event from Flight.vue). It flies
+formation in attract mode and breaks off when you die.
 
 The sector boss is the DREADNOUGHT: a gunship that cruises in from deep
 field, parks at z ≈ −60 and strafes while its turrets cycle aimed bursts,
-a spread fan and minion screens. Only the gold core takes damage (40 hits
-+ 15 per sector; gold bolts count double); turrets can be shot off and
-regrow after 8 s. Since 2026-09-08 it hits harder per sector: attack
-interval 1.8/1.6/1.4 s (enrage ×1.5 below 30 %), fan 5/7/9 bolts widening
-per sector, the core joins the aimed bursts from sector 2, and the minion
-screen grows from 2 drones to +2 snipers (sector 2) + a kamikaze
-(sector 3); the bolt pool is 64. HUD and boss meter share one bottom dock
+a spread fan, a minion screen and mine-seeding. Only the gold core takes
+damage (**55 hits + 20 per sector** — scaled for ~+60 % allied DPS, net
+harder; gold bolts count double); **four** turrets (pod + upper-hull pairs)
+can be shot off and regrow after 8 s. Aimed volleys alternate between you
+and the wingman. Attack interval 1.6/1.35/1.15 s (enrage ×1.5 below 30 %),
+fan 5/7/9 bolts widening per sector, minions grow from 2 drones to
+weaver/sniper (sector 2) + bulwark/kamikaze (sector 3); the bolt pool is
+96 and the laser pool 72 for the buddy's bolts.
+
+HUD and boss meter share one bottom dock
 (sector/score, hull cyan → gold → blinking pink under 30 %, banners,
-hints; boss meter stacked on top while active) so the corridor stays
-clear — the sector line hides until launch, and the attract ship flies a
+hints, wing status; boss meter stacked on top while active) so the corridor
+stays clear — the sector line hides until launch, and the attract ship flies a
 little higher to clear the dock.
 
 Files: `themes/starfox/Flight.vue` (scene + state machine), `Landing.vue`
 (HUD dock, bars, banners), `balance.ts` (all tuning as pure functions —
 `advanceSector` holds the travel/warning/boss/clear edges except the
 kill, which lives in the scene; `bossAttackInterval`/`bossFanCount`/
-`bossFanSpread`/`bossMinions` pin the boss ramp; `sectorPalette` holds the
+`bossFanSpread`/`bossMinions` pin the boss ramp; `ENEMY_STATS` the
+bestiary; `BUDDY_*`/`MINE_*`/`MAX_*` the wingman and obstacle caps;
+`sectorPalette` holds the
 four cycling backdrop palettes — violet dusk, emerald, ember, azure — cut
 hard onto mountains, grid, fog and sky at every sector rollover),
-`tests/starfox-balance.test.mjs` (16 tests, `npm run test:starfox`, in
+`tests/starfox-balance.test.mjs` (21 tests, `npm run test:starfox`, in
 CI). During BOSS the corridor crawls at speed 16 and only rings spawn
 (the in-fight heal trickle).
 
-Verified 2026-09-08: 12/12 tests, typecheck, production build, and a live
-headless-Chromium run (shortened timers, reverted after) through two full
-sectors — WARNING banner, boss bar shrinking under fire, CLEAR banners
-(+1000/+2000), SECTOR 02, no page errors. One transient all-magenta frame
+Verified 2026-09-08: 21/21 tests, typecheck, production build, and live
+headless-Chromium runs (shortened timers, reverted after) — travel with
+the wingman scoring, sector-2 mines/arches/weavers, and the DREADNOUGHT
+fight with its full bar, minions and mine-seeding, no page errors or
+document overflow. One transient all-magenta frame
 was a bolt passing point-blank past the camera, not a bug.
 
 ## Hall of Fame — the global leaderboard (2026-09-08)

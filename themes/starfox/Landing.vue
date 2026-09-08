@@ -11,6 +11,7 @@
           @power="onPower"
           @sector="(n: number, p: SectorPhase) => { sector = n; phase = p }"
           @boss="(n: number, m: number, a: boolean) => { bossHp = n; bossMax = m; bossActive = a }"
+          @wing="(hpLeft: number, alive: boolean, respawnT: number) => { wingHp = hpLeft; wingAlive = alive; wingRespawn = respawnT }"
           @over="onGameEnded"
           @death="onGameOver"
           @restart="onGameRestart"
@@ -45,10 +46,11 @@
           </div>
           <p v-if="banner" class="location sfx-hud sfx-banner">{{ banner }}</p>
           <p v-if="powerMsg" class="location sfx-hud sfx-power">{{ powerMsg }}</p>
+          <p v-if="gameStarted" class="location sfx-hud sfx-wing">{{ wingMsg }}</p>
           <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
           <template v-if="!gameStarted">
             <p class="sfx-hint">▶ {{ hint('PRESS ENTER TO FLY', 'TAP TO FLY') }} ◀</p>
-            <p class="sfx-hint sfx-hint-dim">{{ hint('ARROWS · SPACE FIRE · SHIFT ROLL · ESC PAUSE', 'DRAG TO STEER · AUTO-FIRE · DOUBLE-TAP ROLL') }}</p>
+            <p class="sfx-hint sfx-hint-dim">{{ hint('ARROWS · SPACE FIRE · SHIFT ROLL · WINGMAN COVERS RIGHT · ESC PAUSE', 'DRAG TO STEER · AUTO-FIRE · DOUBLE-TAP ROLL · WINGMAN COVERS RIGHT') }}</p>
           </template>
         </div>
       </template>
@@ -78,6 +80,9 @@ const phase = ref<SectorPhase>('travel')
 const bossHp = ref(0)
 const bossMax = ref(0)
 const bossActive = ref(false)
+const wingHp = ref(50)
+const wingAlive = ref(true)
+const wingRespawn = ref(0)
 const highScore = ref(0)
 const isNewHigh = ref(false)
 const gameOver = ref(false)
@@ -101,6 +106,11 @@ const banner = computed(() => {
   if (phase.value === 'warning') return `⚠ ${BOSS_NAME} APPROACHING`
   if (phase.value === 'clear') return `SECTOR ${pad(sector.value)} CLEAR · +${sectorClearBonus(sector.value)} · +${HEAL_CLEAR} HULL`
   return ''
+})
+
+const wingMsg = computed(() => {
+  if (gameOver.value) return ''
+  return wingAlive.value ? 'WING ● ONLINE' : `WING ○ ${Math.ceil(wingRespawn.value)}S`
 })
 
 onMounted(() => {
@@ -151,6 +161,8 @@ function onGameRestart() {
   bossActive.value = false
   bossHp.value = 0
   bossMax.value = 0
+  wingAlive.value = true
+  wingRespawn.value = 0
   sector.value = 1
   phase.value = 'travel'
   navigationLocked.value = true
@@ -192,6 +204,11 @@ function onGameRestart() {
 .sfx-power {
   color: var(--sfx-gold, #ffd23f);
   text-shadow: 0 0 8px rgba(255, 210, 63, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
+}
+
+.sfx-wing {
+  font-size: 0.7em;
+  opacity: 0.8;
 }
 
 /* Hull + boss meters: thin machine-font bars, never touch targets. */

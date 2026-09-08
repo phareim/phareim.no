@@ -34,10 +34,12 @@ import {
   HP_MAX, DMG, HEAL_RING, HEAL_CLEAR,
   type SectorPhase, advanceSector, bossMaxHp, sectorClearBonus,
   bossAttackInterval, BOSS_ENRAGE_RATE, bossFanCount, bossFanSpread,
-  bossMinions, sectorPalette,
+  bossMinions, sectorPalette, BOSS_WHEEL_LEN,
   enemyFireInterval, boltSpeedBonus, enemyShootChance,
   formationSize, pickEnemyKind, worldSpeedFor, spawnPace,
-  applyDamage, heal,
+  applyDamage, heal, ENEMY_STATS, type EnemyKind,
+  BUDDY_HP, BUDDY_RESPAWN, BUDDY_OFFSET, BUDDY_INVULN, BUDDY_FIRE_INTERVAL,
+  MINE_FUSE_RADIUS, MINE_BLAST_RADIUS, MINE_SCORE, MAX_MINES, MAX_BULWARKS, MAX_ARCHES,
 } from './balance'
 
 const emit = defineEmits<{
@@ -47,6 +49,7 @@ const emit = defineEmits<{
   power: [level: number]
   sector: [n: number, phase: SectorPhase]
   boss: [hp: number, max: number, active: boolean]
+  wing: [hp: number, alive: boolean, respawnT: number]
   started: []
   restart: []
   over: []
@@ -81,9 +84,9 @@ const FIRE_INTERVAL = 1 / 6
 const ROLL_DUR = 0.55
 const MULT_STEPS = [1, 2, 3, 4, 6, 8]
 const MAX_PARTICLES = 420
-const MAX_LASERS = 48
-// Boss spreads need more bolts in the air than the old aimed shots.
-const MAX_BOLTS = 64
+const MAX_LASERS = 72
+// Boss spreads + buddy-targeted volleys need more bolts in the air.
+const MAX_BOLTS = 96
 const MAX_ENEMIES = 28
 const MAX_PILLARS = 16
 const MAX_ROCKS = 10
@@ -158,6 +161,28 @@ let rollDir = 1
 let lastLeftTap = 0
 let lastRightTap = 0
 
+// ---- wingman state --------------------------------------------------------
+// A hittable AI co-flyer: mirrors the player from an echelon offset,
+// covers a parallel lane, draws ~35 % of enemy fire, and respawns.
+const buddy = {
+  root: null as unknown as THREE.Group,
+  bank: null as unknown as THREE.Group,
+  glow: null as unknown as THREE.Sprite,
+  x: BUDDY_OFFSET.x,
+  y: 0,
+  z: 1.2,
+  hp: BUDDY_HP,
+  alive: true,
+  visible: true,
+  respawnT: 0,
+  invulnUntil: 0,
+  fireT: 0,
+}
+
+function emitWing() {
+  emit('wing', buddy.hp, buddy.alive && buddy.visible, buddy.alive ? 0 : buddy.respawnT)
+}
+
 // ---- environment ------------------------------------------------------
 let gridMat: THREE.ShaderMaterial
 let skyMat: THREE.ShaderMaterial
@@ -193,8 +218,10 @@ const bolts: Bolt[] = []
 interface Enemy {
   root: THREE.Group
   body: THREE.Mesh
+  ring: THREE.Mesh
   active: boolean
-  kind: 'drone' | 'sniper' | 'kamikaze'
+  kind: EnemyKind
+  hp: number
   x: number; y: number; z: number
   vx: number
   vy: number
@@ -202,8 +229,20 @@ interface Enemy {
   wobSpeed: number
   fireT: number
   shoots: boolean
+  // dasher lock-and-boost state: 0 = tracking, 1 = boosting past
+  dashPhase: number
+  dashVx: number
 }
 const enemies: Enemy[] = []
+
+// Shared per-kind geometries/materials (one set, reused at spawn).
+let kindGeoOcta: THREE.OctahedronGeometry
+let kindGeoTetra: THREE.TetrahedronGeometry
+let kindGeoCone: THREE.ConeGeometry
+let kindGeoIcosa: THREE.IcosahedronGeometry
+let kindMatPink: THREE.MeshStandardMaterial
+let kindMatGold: THREE.MeshStandardMaterial
+let kindMatCyan: THREE.MeshStandardMaterial
 
 interface Pillar { i: number; active: boolean; x: number; w: number; top: number; z: number }
 let pillarMesh: THREE.InstancedMesh
@@ -303,11 +342,14 @@ function buildScene() {
   buildStars()
   buildMountains()
   buildShip()
+  buildBuddy()
   buildLasers()
   buildBolts()
   buildEnemies()
   buildPillars()
   buildRocks()
+  buildMines()
+  buildArches()
   buildRings()
   buildPowerups()
   buildBoss()
@@ -651,6 +693,172 @@ function buildShip() {
   scene.add(shipRoot)
 }
 
+function buildBuddy() {
+  const root = new THREE.Group()
+  const bank = new THREE.Group()
+  root.add(bank)
+  // A simplified Arwing in gold/pink so it reads as wingman, not echo.
+  const hull = new THREE.MeshStandardMaterial({
+    color: 0x3a2c14,
+    metalness: 0.85,
+    roughness: 0.35,
+    flatShading: true,
+  })
+  const dark = new THREE.MeshStandardMaterial({
+    color: 0x1a142a,
+    metalness: 0.6,
+    roughness: 0.5,
+    flatShading: true,
+  })
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.45, 2.8, 6), hull)
+  nose.rotation.x = -Math.PI / 2
+  nose.position.z = -0.5
+  bank.add(nose)
+  bank.add(edgeLines(nose, COL_GOLD, 0.9))
+  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.34, 8, 6), hull)
+  cockpit.position.set(0, 0.34, 0.3)
+  cockpit.scale.set(1, 0.7, 1.6)
+  bank.add(cockpit)
+  const wingGeo = new THREE.BoxGeometry(2.6, 0.1, 0.9)
+  for (const s of [-1, 1]) {
+    const wing = new THREE.Mesh(wingGeo, dark)
+    wing.position.set(s * 1.3, -0.04, 0.55)
+    wing.rotation.y = s * -0.35
+    bank.add(wing)
+    bank.add(edgeLines(wing, COL_GOLD, 0.7))
+    const tip = new THREE.Mesh(
+      new THREE.SphereGeometry(0.11, 6, 6),
+      new THREE.MeshBasicMaterial({ color: s < 0 ? COL_GOLD : COL_PINK }),
+    )
+    tip.position.set(s * 2.4, 0.04, -0.2)
+    bank.add(tip)
+  }
+  const engMat = new THREE.SpriteMaterial({
+    map: glowTex,
+    color: COL_GOLD,
+    transparent: true,
+    opacity: 0.55,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  })
+  const glow = new THREE.Sprite(engMat)
+  glow.position.set(0, -0.04, 1.3)
+  glow.scale.set(0.55, 0.55, 1)
+  bank.add(glow)
+  buddy.root = root
+  buddy.bank = bank
+  buddy.glow = glow
+  root.position.set(buddy.x, buddy.y, buddy.z)
+  scene.add(root)
+}
+
+/** One buddy bolt straight down its own lane (shared pool, shared score). */
+function buddyFireOne(x: number) {
+  const slot = laserCursor
+  const st = laserState[slot]!
+  laserCursor = (laserCursor + 1) % MAX_LASERS
+  laserMesh.setColorAt(slot, tmpC.set(COL_CYAN))
+  if (laserMesh.instanceColor) laserMesh.instanceColor.needsUpdate = true
+  st.active = true
+  st.x = x
+  st.y = buddy.y + 0.05
+  st.z = buddy.z - 1.2
+  st.dmg = 1
+}
+
+function buddyFire() {
+  buddyFireOne(buddy.x)
+  // At player weapon level 3 the wingman doubles up too.
+  if (weaponLevel >= 3) buddyFireOne(buddy.x - 0.5)
+}
+
+function damageBuddy(dmg: number, now: number) {
+  if (!buddy.alive || !buddy.visible) return
+  if (now < buddy.invulnUntil) return
+  // Formation discipline: the wingman is safe while you roll.
+  if (rollT >= 0) return
+  buddy.hp = Math.max(0, buddy.hp - dmg)
+  if (buddy.hp <= 0) {
+    buddy.alive = false
+    buddy.respawnT = BUDDY_RESPAWN
+    buddy.root.visible = false
+    burst(buddy.x, buddy.y, buddy.z, COL_GOLD, 60, 15)
+    burst(buddy.x, buddy.y, buddy.z, COL_PINK, 40, 11)
+    spawnWave(buddy.x, buddy.y, buddy.z)
+    shake = Math.max(shake, 0.8)
+  } else {
+    buddy.invulnUntil = now + 0.8
+    burst(buddy.x, buddy.y, buddy.z, COL_GOLD, 14, 8)
+  }
+  emitWing()
+}
+
+function updateBuddy(dt: number, now: number, demo: boolean) {
+  if (!buddy.root) return
+  if (!buddy.alive) {
+    if (!demo && gameStarted && !gameOver) {
+      buddy.respawnT -= dt
+      if (buddy.respawnT <= 0) {
+        buddy.alive = true
+        buddy.hp = BUDDY_HP
+        buddy.x = clamp(shipX + BUDDY_OFFSET.x, -laneX, laneX)
+        buddy.y = clamp(shipY + BUDDY_OFFSET.y, LANE_Y_LO, LANE_Y_HI)
+        buddy.invulnUntil = now + BUDDY_INVULN
+        buddy.root.visible = buddy.visible
+        burst(buddy.x, buddy.y, buddy.z, COL_GOLD, 30, 12)
+        emitWing()
+      } else if (Math.floor(buddy.respawnT * 2) !== Math.floor((buddy.respawnT + dt) * 2)) {
+        emitWing() // tick the countdown twice a second
+      }
+    }
+    return
+  }
+  if (!buddy.visible) return
+  let tx = clamp(shipX + BUDDY_OFFSET.x, -laneX, laneX)
+  let ty = clamp(shipY + BUDDY_OFFSET.y, LANE_Y_LO, LANE_Y_HI)
+  // Sidestep obstacles ahead, like the attract autopilot does.
+  for (const p of pillars) {
+    if (!p.active || p.z < -70 || p.z > -4) continue
+    if (Math.abs(p.x - tx) < 3.5 && ty < p.top + 1.2) tx = tx < p.x ? p.x - 5 : p.x + 5
+  }
+  for (const r of rocks) {
+    if (!r.active || r.z < -70 || r.z > -4) continue
+    if (Math.abs(r.x - tx) < 3 + r.r && Math.abs(r.y - ty) < 2.5 + r.r) {
+      tx = tx < r.x ? r.x - 4.5 : r.x + 4.5
+    }
+  }
+  for (const m of mines) {
+    if (!m.active || m.z < -70 || m.z > -4) continue
+    if (Math.abs(m.x - tx) < 3.5 && Math.abs(m.y - ty) < 3) {
+      tx = tx < m.x ? m.x - 4.5 : m.x + 4.5
+    }
+  }
+  for (const a of arches) {
+    if (!a.active || a.z < -70 || a.z > -4) continue
+    if (Math.abs(tx - a.x) < ARCH_HALF_W + 0.8 && !archClear(a, tx, ty)) {
+      tx = a.x
+      ty = a.gapY
+    }
+  }
+  tx = clamp(tx, -laneX, laneX)
+  ty = clamp(ty, LANE_Y_LO, LANE_Y_HI)
+  const k = 1 - Math.exp(-5 * dt)
+  buddy.x += (tx - buddy.x) * k
+  buddy.y += (ty - buddy.y) * k
+  buddy.bank.rotation.z += (clamp((tx - buddy.x) * -0.12, -0.7, 0.7) - buddy.bank.rotation.z) * Math.min(1, dt * 8)
+  buddy.root.position.set(buddy.x, buddy.y + Math.sin(now * 2.1 + 1.3) * 0.08, buddy.z)
+  buddy.root.visible = now >= buddy.invulnUntil || Math.floor(now * 12) % 2 === 0
+  const es = 0.55 + Math.sin(now * 29 + 2) * 0.07
+  buddy.glow.scale.set(es, es, 1)
+  if (!demo && gameStarted && !gameOver) {
+    buddy.fireT += dt
+    if (buddy.fireT >= BUDDY_FIRE_INTERVAL) {
+      buddy.fireT = 0
+      buddyFire()
+    }
+  }
+}
+
 function buildLasers() {
   const geo = new THREE.BoxGeometry(0.14, 0.14, 2.4)
   // White base: each bolt gets its real colour per instance (cyan wings,
@@ -711,10 +919,15 @@ function buildBolts() {
 }
 
 function fireBolt(fromX: number, fromY: number, fromZ: number, speedMul = 1) {
+  fireBoltAt(fromX, fromY, fromZ, shipX, shipY, 0, speedMul)
+}
+
+/** A bolt aimed at an explicit target (the player or the wingman). */
+function fireBoltAt(fromX: number, fromY: number, fromZ: number, tx: number, ty: number, tz: number, speedMul = 1) {
   let b: Bolt | null = null
   for (const x of bolts) { if (!x.active) { b = x; break } }
   if (!b) return
-  tmpV.set(shipX - fromX, shipY - fromY, 0 - fromZ).normalize()
+  tmpV.set(tx - fromX, ty - fromY, tz - fromZ).normalize()
   const speed = (worldSpeed + 26 + boltSpeedBonus(sector)) * speedMul
   b.active = true
   b.vx = tmpV.x * speed
@@ -722,6 +935,13 @@ function fireBolt(fromX: number, fromY: number, fromZ: number, speedMul = 1) {
   b.vz = tmpV.z * speed
   b.mesh.position.set(fromX, fromY, fromZ)
   b.mesh.visible = true
+}
+
+/** Bolt aim point: the wingman draws ~35 % of fire while alive, so the
+ * buddy earns its damage and the player gets breathing room. */
+function pickBoltTarget(): { x: number; y: number } {
+  if (buddy.alive && buddy.visible && Math.random() < 0.35) return { x: buddy.x, y: buddy.y }
+  return { x: shipX, y: shipY }
 }
 
 /** A bolt along an explicit direction (boss spread fans). */
@@ -741,9 +961,11 @@ function fireBoltDir(fromX: number, fromY: number, fromZ: number, dx: number, dy
 }
 
 function buildEnemies() {
-  const bodyGeo = new THREE.OctahedronGeometry(0.95)
-  const wingGeo = new THREE.BoxGeometry(2.6, 0.14, 0.7)
-  const goldBodyMat = new THREE.MeshStandardMaterial({
+  kindGeoOcta = new THREE.OctahedronGeometry(0.95)
+  kindGeoTetra = new THREE.TetrahedronGeometry(1.0)
+  kindGeoCone = new THREE.ConeGeometry(0.6, 2.6, 6)
+  kindGeoIcosa = new THREE.IcosahedronGeometry(1.15, 0)
+  kindMatGold = new THREE.MeshStandardMaterial({
     color: 0x8a6a1a,
     emissive: COL_GOLD,
     emissiveIntensity: 0.35,
@@ -751,7 +973,7 @@ function buildEnemies() {
     roughness: 0.4,
     flatShading: true,
   })
-  const pinkBodyMat = new THREE.MeshStandardMaterial({
+  kindMatPink = new THREE.MeshStandardMaterial({
     color: 0x8a1a5a,
     emissive: COL_PINK,
     emissiveIntensity: 0.35,
@@ -759,39 +981,119 @@ function buildEnemies() {
     roughness: 0.4,
     flatShading: true,
   })
+  kindMatCyan = new THREE.MeshStandardMaterial({
+    color: 0x1a5a6a,
+    emissive: COL_CYAN,
+    emissiveIntensity: 0.4,
+    metalness: 0.5,
+    roughness: 0.4,
+    flatShading: true,
+  })
+  const wingGeo = new THREE.BoxGeometry(2.6, 0.14, 0.7)
+  const ringGeo = new THREE.TorusGeometry(1.7, 0.12, 8, 24)
   const goldWingMat = new THREE.MeshBasicMaterial({ color: COL_GOLD })
   const pinkWingMat = new THREE.MeshBasicMaterial({ color: COL_PINK })
+  const cyanWingMat = new THREE.MeshBasicMaterial({ color: COL_CYAN })
+  const ringMat = new THREE.MeshBasicMaterial({ color: COL_GOLD })
   for (let i = 0; i < MAX_ENEMIES; i++) {
     const root = new THREE.Group()
     const gold = i % 3 !== 2
-    const body = new THREE.Mesh(bodyGeo, gold ? goldBodyMat : pinkBodyMat)
+    root.userData.gold = gold
+    const body = new THREE.Mesh(kindGeoOcta, gold ? kindMatGold : kindMatPink)
     body.rotation.y = Math.PI / 4
     root.add(body)
     const wing = new THREE.Mesh(wingGeo, gold ? goldWingMat : pinkWingMat)
+    wing.visible = false // only drones/snipers/kamikazes fly the wing; set at spawn
     root.add(wing)
+    const ring = new THREE.Mesh(ringGeo, gold ? ringMat : cyanWingMat)
+    ring.visible = false // bulwark shield ring only
+    root.add(ring)
     root.visible = false
     scene.add(root)
-    enemies.push({ root, body, active: false, kind: 'drone', x: 0, y: 0, z: 0, vx: 0, vy: 0, wob: Math.random() * 6.28, wobSpeed: rand(1.5, 3), fireT: rand(1, 2.5), shoots: true })
+    enemies.push({ root, body, ring, active: false, kind: 'drone', hp: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, wob: Math.random() * 6.28, wobSpeed: rand(1.5, 3), fireT: rand(1, 2.5), shoots: true, dashPhase: 0, dashVx: 0 })
   }
 }
 
-function spawnEnemy(x: number, y: number, z: number, shoots: boolean, kind: 'drone' | 'sniper' | 'kamikaze' = 'drone') {
+/** Restyle one pooled enemy for its kind. Bulwark/mite counts are capped
+ * by the caller (spawnFormation / splitter death). */
+function styleEnemyForKind(e: Enemy) {
+  const wing = e.root.children[1]!
+  switch (e.kind) {
+    case 'weaver':
+      e.body.geometry = kindGeoTetra
+      e.body.material = kindMatCyan
+      e.body.scale.setScalar(0.9)
+      wing.visible = false
+      e.ring.visible = false
+      break
+    case 'dasher':
+      e.body.geometry = kindGeoCone
+      e.body.material = kindMatPink
+      e.body.scale.setScalar(1)
+      // nose forward (-Z), like the player ship
+      e.body.rotation.set(-Math.PI / 2, 0, 0)
+      wing.visible = false
+      e.ring.visible = false
+      break
+    case 'bulwark':
+      e.body.geometry = kindGeoIcosa
+      e.body.material = kindMatGold
+      e.body.scale.setScalar(1.5)
+      wing.visible = false
+      e.ring.visible = true
+      break
+    case 'splitter':
+      e.body.geometry = kindGeoIcosa
+      e.body.material = kindMatPink
+      e.body.scale.setScalar(1.1)
+      wing.visible = false
+      e.ring.visible = false
+      break
+    case 'mite':
+      e.body.geometry = kindGeoTetra
+      e.body.material = kindMatPink
+      e.body.scale.setScalar(0.5)
+      wing.visible = false
+      e.ring.visible = false
+      break
+    default: { // drone / sniper / kamikaze share the classic look
+      e.body.geometry = kindGeoOcta
+      e.body.material = e.root.userData.gold ? kindMatGold : kindMatPink
+      e.body.rotation.set(0, Math.PI / 4, 0)
+      e.body.scale.setScalar(e.kind === 'kamikaze' ? 0.7 : 1)
+      wing.visible = true
+      e.ring.visible = false
+    }
+  }
+}
+
+function bulwarkCount(): number {
+  let n = 0
+  for (const e of enemies) if (e.active && e.kind === 'bulwark') n++
+  return n
+}
+
+function spawnEnemy(x: number, y: number, z: number, shoots: boolean, kind: EnemyKind = 'drone') {
+  if (kind === 'bulwark' && bulwarkCount() >= MAX_BULWARKS) kind = 'drone'
+  if (kind === 'mite') shoots = false
   let e: Enemy | null = null
   for (const v of enemies) { if (!v.active) { e = v; break } }
   if (!e) return
   e.active = true
   e.kind = kind
+  e.hp = ENEMY_STATS[kind].hp
   e.x = clamp(x, -laneX, laneX)
   e.y = clamp(y, LANE_Y_LO, LANE_Y_HI)
   e.z = z
-  e.vx = rand(-3, 3)
+  e.vx = kind === 'weaver' ? rand(-6, 6) : rand(-3, 3)
   e.vy = 0
+  e.dashPhase = 0
+  e.dashVx = 0
   const iv = enemyFireInterval(sector)
   e.fireT = kind === 'sniper' ? rand(iv.lo * 0.55, iv.hi * 0.6) : rand(iv.lo, iv.hi)
-  e.shoots = shoots
-  // Kamikazes read as small darts; snipers share the drone look but
-  // shoot sooner (their fireT above) and with faster bolts.
-  e.body.scale.setScalar(kind === 'kamikaze' ? 0.7 : 1)
+  // Dashers and mites don't shoot; dashers trade fire for their boost.
+  e.shoots = kind === 'dasher' || kind === 'mite' ? false : shoots
+  styleEnemyForKind(e)
   e.root.visible = true
   e.root.position.set(e.x, e.y, e.z)
 }
@@ -806,18 +1108,34 @@ function spawnFormation() {
   }
 }
 
+function damageEnemy(e: Enemy, dmg: number, now: number) {
+  if (!e.active) return
+  e.hp -= dmg
+  if (e.hp > 0) {
+    burst(e.x, e.y, e.z, 0xffffff, 6, 6)
+    return
+  }
+  killEnemy(e, now)
+}
+
 function killEnemy(e: Enemy, now: number) {
   void now
   e.active = false
   e.root.visible = false
+  const col = e.kind === 'weaver' || e.kind === 'mite' ? COL_CYAN : e.kind === 'bulwark' ? COL_GOLD : COL_PINK
   burst(e.x, e.y, e.z, COL_GOLD, 26, 14)
-  burst(e.x, e.y, e.z, COL_PINK, 14, 9)
+  burst(e.x, e.y, e.z, col, 14, 9)
   spawnWave(e.x, e.y, e.z)
+  // Splitters pop into two diving mites.
+  if (e.kind === 'splitter') {
+    spawnEnemy(e.x - 1.5, e.y, e.z, false, 'mite')
+    spawnEnemy(e.x + 1.5, e.y, e.z, false, 'mite')
+  }
   killCount++
   streakT = 3.0
   const idx = Math.min(Math.floor(killCount / 2), MULT_STEPS.length - 1)
   mult = MULT_STEPS[idx] ?? 1
-  addScore(100 * mult)
+  addScore(ENEMY_STATS[e.kind].score * mult)
 }
 
 function buildPillars() {
@@ -889,6 +1207,166 @@ function spawnRock() {
   r.y = rand(LANE_Y_LO, LANE_Y_HI)
   r.r = rand(1.0, 2.2)
   r.z = SPAWN_Z - rand(0, 40)
+}
+
+// ---- mines + arches: the extra obstacle layer (sector 2+) ------------------
+// Mines drift down the corridor, pulse gold, and fuse near either ship —
+// shoot them early for +MINE_SCORE, or bait them and dodge the blast.
+// Arches are twin posts with a lethal lintel: thread the gap.
+interface Mine { root: THREE.Group; core: THREE.Mesh; mat: THREE.MeshStandardMaterial; active: boolean; x: number; y: number; z: number; pulse: number }
+const mines: Mine[] = []
+
+interface Arch { root: THREE.Group; active: boolean; x: number; gapY: number; gapH: number; z: number }
+const arches: Arch[] = []
+const ARCH_HALF_W = 3.5
+
+function buildMines() {
+  const geo = new THREE.IcosahedronGeometry(0.9, 0)
+  for (let i = 0; i < MAX_MINES; i++) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x8a6a1a,
+      emissive: COL_GOLD,
+      emissiveIntensity: 0.9,
+      metalness: 0.5,
+      roughness: 0.35,
+      flatShading: true,
+    })
+    const core = new THREE.Mesh(geo, mat)
+    const root = new THREE.Group()
+    root.add(core)
+    const haloMat = new THREE.SpriteMaterial({
+      map: glowTex,
+      color: COL_GOLD,
+      transparent: true,
+      opacity: 0.4,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+    const halo = new THREE.Sprite(haloMat)
+    halo.scale.set(5, 5, 1)
+    root.add(halo)
+    root.visible = false
+    scene.add(root)
+    mines.push({ root, core, mat, active: false, x: 0, y: 0, z: 0, pulse: Math.random() * 6.28 })
+  }
+}
+
+function mineCount(): number {
+  let n = 0
+  for (const m of mines) if (m.active) n++
+  return n
+}
+
+function spawnMine(x?: number, y?: number, z?: number) {
+  if (mineCount() >= MAX_MINES) return
+  let m: Mine | null = null
+  for (const v of mines) { if (!v.active) { m = v; break } }
+  if (!m) return
+  m.active = true
+  m.x = x ?? rand(-(laneX - 1.5), laneX - 1.5)
+  m.y = y ?? rand(LANE_Y_LO, LANE_Y_HI)
+  m.z = z ?? SPAWN_Z - rand(0, 40)
+  m.pulse = 0
+  m.root.visible = true
+  m.root.position.set(m.x, m.y, m.z)
+}
+
+/** Detonate a mine: blast hurts either ship in radius, chains neighbours. */
+function detonateMine(m: Mine, now: number, chain = true) {
+  if (!m.active) return
+  m.active = false
+  m.root.visible = false
+  burst(m.x, m.y, m.z, COL_GOLD, 40, 14)
+  burst(m.x, m.y, m.z, COL_PINK, 20, 10)
+  spawnWave(m.x, m.y, m.z)
+  shake = Math.max(shake, 0.5)
+  if (!gameStarted || gameOver) return
+  tmpV.set(m.x - shipX, m.y - shipY, m.z - 0)
+  if (shipVisible && tmpV.lengthSq() < MINE_BLAST_RADIUS * MINE_BLAST_RADIUS) onShipHit(now, DMG.rock)
+  if (buddy.alive && buddy.visible) {
+    tmpV.set(m.x - buddy.x, m.y - buddy.y, m.z - buddy.z)
+    if (tmpV.lengthSq() < MINE_BLAST_RADIUS * MINE_BLAST_RADIUS) damageBuddy(DMG.rock, now)
+  }
+  if (chain) {
+    for (const o of mines) {
+      if (!o.active || o === m) continue
+      tmpV.set(o.x - m.x, o.y - m.y, o.z - m.z)
+      if (tmpV.lengthSq() < (MINE_BLAST_RADIUS + 1) * (MINE_BLAST_RADIUS + 1)) detonateMine(o, now, false)
+    }
+  }
+}
+
+function buildArches() {
+  const postGeo = new THREE.BoxGeometry(1.2, 1, 1)
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x1c0f38,
+    emissive: 0xff2fa0,
+    emissiveIntensity: 0.12,
+    metalness: 0.3,
+    roughness: 0.7,
+    flatShading: true,
+  })
+  for (let i = 0; i < MAX_ARCHES; i++) {
+    const root = new THREE.Group()
+    const left = new THREE.Mesh(postGeo, mat)
+    const right = new THREE.Mesh(postGeo, mat)
+    const lintel = new THREE.Mesh(postGeo, mat)
+    // Violet edges so the gate reads as geometry, not a flat wall, when
+    // the camera threads it. Edges are unit-box lines; layoutArch scales
+    // each post, so scale its lines to match.
+    const mkEdges = () => {
+      const g = new THREE.EdgesGeometry(postGeo)
+      return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xb169f5, transparent: true, opacity: 0.55 }))
+    }
+    const le = mkEdges()
+    const re = mkEdges()
+    const te = mkEdges()
+    left.add(le)
+    right.add(re)
+    lintel.add(te)
+    root.add(left, right, lintel)
+    root.visible = false
+    scene.add(root)
+    arches.push({ root, active: false, x: 0, gapY: 2, gapH: 3.4, z: 0 })
+  }
+}
+
+function spawnArch() {
+  let a: Arch | null = null
+  for (const v of arches) { if (!v.active) { a = v; break } }
+  if (!a) return
+  a.active = true
+  a.x = rand(-(laneX - ARCH_HALF_W - 0.5), laneX - ARCH_HALF_W - 0.5)
+  a.gapH = rand(3.0, 4.0)
+  a.gapY = rand(LANE_Y_LO + a.gapH / 2, LANE_Y_HI - 0.5)
+  a.z = SPAWN_Z - rand(0, 40)
+  a.root.visible = true
+}
+
+function layoutArch(a: Arch) {
+  const kids = a.root.children
+  const postH = 14
+  // posts rise from the floor to the gap edges; lintel spans the top
+  const gapLo = a.gapY - a.gapH / 2
+  const gapHi = a.gapY + a.gapH / 2
+  const left = kids[0]!
+  const right = kids[1]!
+  const lintel = kids[2]!
+  left.position.set(-ARCH_HALF_W, -5 + postH / 2, 0)
+  left.scale.set(1.2, postH, 1.2)
+  right.position.set(ARCH_HALF_W, -5 + postH / 2, 0)
+  right.scale.set(1.2, postH, 1.2)
+  const lintelH = (-5 + postH) - gapHi + 3
+  lintel.position.set(0, gapHi + lintelH / 2, 0)
+  lintel.scale.set(ARCH_HALF_W * 2 + 1.2, Math.max(1, lintelH), 1.2)
+  a.root.position.set(a.x, 0, a.z)
+  void gapLo
+}
+
+/** True when a ship at (sx, sy) threads this arch cleanly. */
+function archClear(a: Arch, sx: number, sy: number): boolean {
+  if (Math.abs(sx - a.x) > ARCH_HALF_W - 0.6) return false // hit a post
+  return Math.abs(sy - a.gapY) < a.gapH / 2 - 0.4
 }
 
 function buildRings() {
@@ -1000,8 +1478,9 @@ function collectPowerup(p: PowerUp) {
 
 // ---- sector boss: a gunship with a weak core ---------------------------------
 // The DREADNOUGHT parks at z ≈ -60 and strafes while its turrets work
-// through an attack wheel (aimed bursts → spread fan → minions). Lasers
-// only hurt the gold core; turrets can be shot off and grow back.
+// through an attack wheel (aimed bursts → spread fan → minions →
+// mine-seed). Lasers only hurt the gold core; turrets can be shot off
+// and grow back. Aimed volleys alternate between you and the wingman.
 const BOSS_Z = -60
 const BOSS_NAME = 'DREADNOUGHT'
 
@@ -1010,6 +1489,8 @@ interface BossTurret {
   alive: boolean
   respawnT: number
   ox: number
+  oy: number
+  oz: number
 }
 
 const boss = {
@@ -1026,6 +1507,7 @@ const boss = {
   t: 0,
   attackT: 0,
   attackStep: 0,
+  aimBuddy: false,
   deathT: -1,
   deathTick: 0,
   lastHpSent: -1,
@@ -1068,9 +1550,16 @@ function buildBoss() {
   core.position.set(0, 0.4, 6.2)
   root.add(core)
 
-  // turrets on the pods, tracked separately so they can die and regrow
+  // turrets on the pods and upper hull, tracked separately so they can
+  // die and regrow — four guns since the wingman arrived
   const turretGeo = new THREE.OctahedronGeometry(0.9)
-  for (const s of [-1, 1]) {
+  const turretSpots: [number, number, number][] = [
+    [-10.5, 0.6, 3.2],
+    [10.5, 0.6, 3.2],
+    [-5.5, 2.4, 2.0],
+    [5.5, 2.4, 2.0],
+  ]
+  for (const [ox, oy, oz] of turretSpots) {
     const mat = new THREE.MeshStandardMaterial({
       color: 0x8a1a5a,
       emissive: COL_PINK,
@@ -1080,9 +1569,9 @@ function buildBoss() {
       flatShading: true,
     })
     const mesh = new THREE.Mesh(turretGeo, mat)
-    mesh.position.set(s * 10.5, 0.6, 3.2)
+    mesh.position.set(ox, oy, oz)
     root.add(mesh)
-    boss.turrets.push({ mesh, alive: true, respawnT: 0, ox: s * 10.5 })
+    boss.turrets.push({ mesh, alive: true, respawnT: 0, ox, oy, oz })
   }
 
   boss.root = root
@@ -1100,6 +1589,7 @@ function startBoss() {
   boss.t = 0
   boss.attackT = 2.0
   boss.attackStep = 0
+  boss.aimBuddy = false
   boss.deathT = -1
   boss.x = 0
   boss.y = 2
@@ -1124,12 +1614,17 @@ function deactivateBoss() {
 function bossAttack(now: number) {
   void now
   const aliveTurrets = boss.turrets.filter(t => t.alive)
-  const step = boss.attackStep % 3
+  const step = boss.attackStep % BOSS_WHEEL_LEN
   boss.attackStep++
   if (step === 0) {
-    // aimed bursts from each living turret; from sector 2 the core joins in
-    for (const t of aliveTurrets) fireBolt(boss.x + t.ox, boss.y + 0.6, boss.z)
-    if (aliveTurrets.length === 0 || sector >= 2) fireBolt(boss.x, boss.y, boss.z, sector >= 2 ? 1.15 : 1)
+    // aimed bursts alternate between you and the wingman, so the buddy
+    // earns its damage and you get a breath every other volley
+    boss.aimBuddy = !boss.aimBuddy
+    const aim = boss.aimBuddy && buddy.alive && buddy.visible
+      ? { x: buddy.x, y: buddy.y }
+      : { x: shipX, y: shipY }
+    for (const t of aliveTurrets) fireBoltAt(boss.x + t.ox, boss.y + t.oy, boss.z + t.oz, aim.x, aim.y, 0)
+    if (aliveTurrets.length === 0 || sector >= 2) fireBoltAt(boss.x, boss.y, boss.z, aim.x, aim.y, 0, sector >= 2 ? 1.15 : 1)
   } else if (step === 1) {
     // spread fan from the core — dodge the gaps, not the bolts
     const n = bossFanCount(sector)
@@ -1138,11 +1633,18 @@ function bossAttack(now: number) {
       const dx = (i / (n - 1) - 0.5) * spread
       fireBoltDir(boss.x, boss.y + 0.4, boss.z + 6, dx, 0, sector >= 3 ? 1.0 : 0.9)
     }
-  } else {
+  } else if (step === 2) {
     // minion screen peeling off the hull — grows teeth per sector
     for (const m of bossMinions(sector)) {
       spawnEnemy(boss.x + m.dx, boss.y + rand(-1, 1), boss.z + 10, Math.random() < 0.7, m.kind)
     }
+  } else {
+    // mine-seed: armed mines shed off the hull and drift at the formation
+    const n = sector >= 3 ? 5 : sector >= 2 ? 4 : 3
+    for (let i = 0; i < n; i++) {
+      spawnMine(boss.x + rand(-8, 8), boss.y + rand(-2, 2), boss.z + 14 + i * 6)
+    }
+    burst(boss.x, boss.y, boss.z + 8, COL_GOLD, 20, 10)
   }
 }
 
@@ -1214,7 +1716,7 @@ function updateBoss(dt: number, now: number) {
       if (t.respawnT <= 0) {
         t.alive = true
         t.mesh.visible = true
-        burst(boss.x + t.ox, boss.y + 0.6, boss.z, COL_PINK, 16, 8)
+        burst(boss.x + t.ox, boss.y + t.oy, boss.z + t.oz, COL_PINK, 16, 8)
       }
     }
     t.mesh.rotation.y += dt * 1.8
@@ -1315,6 +1817,12 @@ function onShipHit(now: number, dmg: number) {
     deathEmitted = false
     shipVisible = false
     shipRoot.visible = false
+    // The wingman breaks off when you go down.
+    buddy.visible = false
+    buddy.alive = false
+    buddy.respawnT = 0
+    if (buddy.root) buddy.root.visible = false
+    emitWing()
     burst(shipX, shipY, 0, COL_GOLD, 90, 18)
     burst(shipX, shipY, 0, COL_PINK, 70, 14)
     burst(shipX, shipY, 0, 0xffffff, 40, 10)
@@ -1365,6 +1873,8 @@ function resetWorld() {
   rockMesh.instanceMatrix.needsUpdate = true
   for (const r of rings) { r.active = false; r.root.visible = false; r.flash = 0 }
   for (const p of powerups) { p.active = false; p.root.visible = false }
+  for (const m of mines) { m.active = false; m.root.visible = false }
+  for (const a of arches) { a.active = false; a.root.visible = false }
   deactivateBoss()
   for (const w of waves) { w.active = false; w.mesh.visible = false }
   for (let i = 0; i < MAX_PARTICLES; i++) { pLife[i] = 0; pPos[i * 3 + 1] = -9999 }
@@ -1411,6 +1921,20 @@ function startGame() {
   shipTY = 0.5
   shipVisible = true
   shipRoot.visible = true
+  // The wingman launches with you, at full health.
+  buddy.hp = BUDDY_HP
+  buddy.alive = true
+  buddy.visible = true
+  buddy.respawnT = 0
+  buddy.x = clamp(shipX + BUDDY_OFFSET.x, -laneX, laneX)
+  buddy.y = clamp(shipY + BUDDY_OFFSET.y, LANE_Y_LO, LANE_Y_HI)
+  buddy.fireT = 0
+  buddy.invulnUntil = performance.now() / 1000 + 1.5
+  if (buddy.root) {
+    buddy.root.visible = true
+    buddy.root.position.set(buddy.x, buddy.y, buddy.z)
+  }
+  emitWing()
   emit('started')
   emit('score', 0)
   emit('distance', 0)
@@ -1587,6 +2111,9 @@ function update(dt: number, now: number) {
   updateBolts(dt, now, demo)
   updatePillars(dt, now, demo)
   updateRocks(dt, now, demo)
+  updateMines(dt, now, demo)
+  updateArches(dt, now, demo)
+  updateBuddy(dt, now, demo)
   updateRings(dt, now, demo)
   updatePowerups(dt, now, demo)
   updateBoss(dt, now)
@@ -1625,8 +2152,20 @@ function updateSpawns(dt: number, demo: boolean) {
     obstacleSpawnT -= dt * (demo ? 0.5 : 1)
     if (obstacleSpawnT <= 0) {
       obstacleSpawnT = (demo ? 2.6 : diffObstacle) * rand(0.7, 1.3)
-      if (Math.random() < 0.55) spawnPillar()
-      else spawnRock()
+      const r = Math.random()
+      const varied = sector >= 2 || demo
+      if (!varied) {
+        if (r < 0.55) spawnPillar()
+        else spawnRock()
+      } else if (r < 0.34) {
+        spawnPillar()
+      } else if (r < 0.56) {
+        spawnRock()
+      } else if (r < 0.80) {
+        spawnMine()
+      } else {
+        spawnArch()
+      }
     }
   }
   if (!draining) {
@@ -1665,11 +2204,12 @@ function updateLasers(dt: number) {
       const dy = st.y - e.y
       const dz = st.z - e.z
       if (dx * dx + dy * dy < 2.6 && Math.abs(dz) < 2.4) {
+        const dmg = st.dmg
         st.active = false
         laserDummy.position.set(0, -999, 0)
         laserDummy.updateMatrix()
         laserMesh.setMatrixAt(i, laserDummy.matrix)
-        killEnemy(e, 0)
+        damageEnemy(e, dmg, 0)
         break
       }
     }
@@ -1693,10 +2233,10 @@ function updateLasers(dt: number) {
       if (st.active) {
         for (const t of boss.turrets) {
           if (!t.alive) continue
-          const tdz = st.z - (boss.z + 3.2)
+          const tdz = st.z - (boss.z + t.oz)
           if (Math.abs(tdz) > 2.8) continue
           const tdx = st.x - (boss.x + t.ox)
-          const tdy = st.y - (boss.y + 0.6)
+          const tdy = st.y - (boss.y + t.oy)
           if (tdx * tdx + tdy * tdy < 2.2 * 2.2) {
             st.active = false
             laserDummy.position.set(0, -999, 0)
@@ -1744,6 +2284,25 @@ function updateLasers(dt: number) {
       }
     }
     if (!st.active) continue
+    // hit mines (they pop for +MINE_SCORE without the blast hurting you —
+    // the reward for shooting early)
+    for (const m of mines) {
+      if (!m.active) continue
+      tmpV.set(st.x - m.x, st.y - m.y, st.z - m.z)
+      if (tmpV.lengthSq() < 1.5 * 1.5) {
+        st.active = false
+        m.active = false
+        m.root.visible = false
+        burst(m.x, m.y, m.z, COL_GOLD, 30, 12)
+        spawnWave(m.x, m.y, m.z)
+        addScore(MINE_SCORE * mult)
+        laserDummy.position.set(0, -999, 0)
+        laserDummy.updateMatrix()
+        laserMesh.setMatrixAt(i, laserDummy.matrix)
+        break
+      }
+    }
+    if (!st.active) continue
     // shoot enemy bolts (+10)
     for (const b of bolts) {
       if (!b.active) continue
@@ -1772,41 +2331,77 @@ function updateLasers(dt: number) {
 function updateEnemies(dt: number, now: number, demo: boolean) {
   for (const e of enemies) {
     if (!e.active) continue
-    // Kamikazes trade their weave for a dive at the ship.
-    const diving = e.kind === 'kamikaze' && !demo && e.z > -140 && e.z < -4
-    e.z += worldSpeed * (diving ? 1.1 : 0.6) * dt
+    // Kamikazes and mites trade their weave for a dive at the ship.
+    const diving = (e.kind === 'kamikaze' || e.kind === 'mite') && !demo && e.z > -140 && e.z < -4
+    // Dashers: track the player's lane until z ≈ -120, then boost past.
+    const dashing = e.kind === 'dasher' && !demo && e.dashPhase === 1
+    const drift = e.kind === 'bulwark' ? 0.45 : dashing ? 1.6 : diving ? 1.1 : 0.6
+    e.z += worldSpeed * drift * dt
     e.wob += e.wobSpeed * dt
-    if (diving) {
-      e.x += clamp(shipX - e.x, -1, 1) * 6 * dt
-      e.y += clamp(shipY - e.y, -1, 1) * 5 * dt
+    if (e.kind === 'dasher' && !demo) {
+      if (e.dashPhase === 0) {
+        e.x += clamp(shipX - e.x, -1, 1) * 4 * dt
+        e.y += clamp(shipY - e.y, -1, 1) * 3 * dt
+        if (e.z > -120) {
+          e.dashPhase = 1
+          e.dashVx = clamp((shipX - e.x) * 0.4, -8, 8)
+          burst(e.x, e.y, e.z, COL_PINK, 8, 6)
+        }
+      } else {
+        e.x += e.dashVx * dt
+      }
+    } else if (diving) {
+      e.x += clamp(shipX - e.x, -1, 1) * (e.kind === 'mite' ? 4 : 6) * dt
+      e.y += clamp(shipY - e.y, -1, 1) * (e.kind === 'mite' ? 3.5 : 5) * dt
+    } else if (e.kind === 'weaver') {
+      // wide sine strafe across the corridor
+      e.x += (e.vx + Math.sin(e.wob) * 5.5) * dt
     } else {
       e.x += (e.vx + Math.sin(e.wob) * 2.2) * dt
     }
     if (e.x < -laneX - 1 || e.x > laneX + 1) e.vx *= -1
     e.x = clamp(e.x, -laneX - 1.5, laneX + 1.5)
     e.root.position.set(e.x, e.y + Math.sin(e.wob * 1.3) * 0.3, e.z)
-    e.body.rotation.z += dt * (diving ? 4 : 1.5)
+    e.body.rotation.z += dt * (diving || dashing ? 4 : 1.5)
+    if (e.kind === 'bulwark') e.ring.rotation.y += dt * 1.2
     if (e.z > KILL_Z) {
       e.active = false
       e.root.visible = false
       continue
     }
-    // fire aimed shots (snipers shoot sooner and faster)
+    // fire aimed shots (snipers shoot sooner and faster; bulwarks lob
+    // slow heavy bolts; dashers and mites never shoot)
     if (e.shoots && !demo && !gameOver && e.z > -170 && e.z < -18) {
       e.fireT -= dt
       if (e.fireT <= 0) {
         const iv = enemyFireInterval(sector)
         e.fireT = e.kind === 'sniper' ? rand(iv.lo * 0.55, iv.hi * 0.6) : rand(iv.lo, iv.hi)
-        fireBolt(e.x, e.y, e.z, e.kind === 'sniper' ? 1.35 : 1)
+        const t = pickBoltTarget()
+        const mul = e.kind === 'sniper' ? 1.35 : e.kind === 'bulwark' ? 0.85 : 1
+        fireBoltAt(e.x, e.y, e.z, t.x, t.y, 0, mul)
       }
     }
-    // ram the player
+    // ram the player (bulwarks are walls: they don't die on impact)
     if (!demo && !gameOver && shipVisible && Math.abs(e.z) < 1.6) {
       const dx = e.x - shipX
       const dy = e.y - shipY
       if (dx * dx + dy * dy < 2.9) {
-        killEnemy(e, now)
-        onShipHit(now, DMG.ram)
+        if (e.kind === 'bulwark') {
+          damageEnemy(e, 1, now)
+          onShipHit(now, DMG.ram)
+        } else {
+          killEnemy(e, now)
+          onShipHit(now, DMG.ram)
+        }
+      }
+    }
+    // ram the wingman
+    if (!demo && !gameOver && buddy.alive && buddy.visible && Math.abs(e.z - buddy.z) < 1.6) {
+      const dx = e.x - buddy.x
+      const dy = e.y - buddy.y
+      if (dx * dx + dy * dy < 2.9) {
+        if (e.kind !== 'bulwark') killEnemy(e, now)
+        damageBuddy(DMG.ram, now)
       }
     }
   }
@@ -1830,6 +2425,15 @@ function updateBolts(dt: number, now: number, demo: boolean) {
         b.active = false
         b.mesh.visible = false
         onShipHit(now, DMG.bolt)
+        continue
+      }
+    }
+    if (!demo && !gameOver && buddy.alive && buddy.visible) {
+      tmpV.set(p.x - buddy.x, p.y - buddy.y, p.z - buddy.z)
+      if (tmpV.lengthSq() < 1.44) {
+        b.active = false
+        b.mesh.visible = false
+        damageBuddy(DMG.bolt, now)
       }
     }
   }
@@ -1853,9 +2457,12 @@ function updatePillars(dt: number, now: number, demo: boolean) {
     dummy.rotation.set(0, 0, 0)
     dummy.updateMatrix()
     pillarMesh.setMatrixAt(p.i, dummy.matrix)
-    if (!demo && !gameOver && shipVisible && Math.abs(p.z) < 1.4) {
-      if (Math.abs(shipX - p.x) < p.w / 2 + 0.8 && shipY < p.top + 0.8) {
+    if (!demo && !gameOver && Math.abs(p.z) < 1.4) {
+      if (shipVisible && Math.abs(shipX - p.x) < p.w / 2 + 0.8 && shipY < p.top + 0.8) {
         onShipHit(now, DMG.pillar)
+      }
+      if (buddy.alive && buddy.visible && Math.abs(buddy.x - p.x) < p.w / 2 + 0.8 && buddy.y < p.top + 0.8) {
+        damageBuddy(DMG.pillar, now)
       }
     }
   }
@@ -1885,10 +2492,72 @@ function updateRocks(dt: number, now: number, demo: boolean) {
         r.active = false
         burst(r.x, r.y, r.z, COL_PINK, 24, 11)
         onShipHit(now, DMG.rock)
+        continue
+      }
+    }
+    if (!demo && !gameOver && buddy.alive && buddy.visible) {
+      tmpV.set(r.x - buddy.x, r.y - buddy.y, r.z - buddy.z)
+      if (tmpV.lengthSq() < (r.r + 0.9) * (r.r + 0.9)) {
+        r.active = false
+        burst(r.x, r.y, r.z, COL_PINK, 24, 11)
+        damageBuddy(DMG.rock, now)
       }
     }
   }
   rockMesh.instanceMatrix.needsUpdate = true
+}
+
+function updateMines(dt: number, now: number, demo: boolean) {
+  for (const m of mines) {
+    if (!m.active) continue
+    m.z += worldSpeed * 0.7 * dt
+    m.pulse += dt * 5
+    const s = 1 + Math.sin(m.pulse) * 0.12
+    m.core.scale.set(s, s, s)
+    m.core.rotation.y += dt * 1.4
+    m.mat.emissiveIntensity = 0.7 + Math.sin(m.pulse) * 0.35
+    m.root.position.set(m.x, m.y, m.z)
+    if (m.z > KILL_Z) {
+      m.active = false
+      m.root.visible = false
+      continue
+    }
+    if (demo || gameOver) continue
+    // proximity fuse near either ship
+    if (shipVisible) {
+      tmpV.set(m.x - shipX, m.y - shipY, m.z - 0)
+      if (tmpV.lengthSq() < MINE_FUSE_RADIUS * MINE_FUSE_RADIUS) {
+        detonateMine(m, now)
+        continue
+      }
+    }
+    if (buddy.alive && buddy.visible) {
+      tmpV.set(m.x - buddy.x, m.y - buddy.y, m.z - buddy.z)
+      if (tmpV.lengthSq() < MINE_FUSE_RADIUS * MINE_FUSE_RADIUS) detonateMine(m, now)
+    }
+  }
+}
+
+function updateArches(dt: number, now: number, demo: boolean) {
+  for (const a of arches) {
+    if (!a.active) continue
+    a.z += worldSpeed * dt
+    if (a.z > KILL_Z) {
+      a.active = false
+      a.root.visible = false
+      continue
+    }
+    layoutArch(a)
+    if (demo || gameOver) continue
+    if (Math.abs(a.z) < 1.4) {
+      if (shipVisible && Math.abs(shipX - a.x) < ARCH_HALF_W + 0.8 && !archClear(a, shipX, shipY)) {
+        onShipHit(now, DMG.pillar)
+      }
+      if (buddy.alive && buddy.visible && Math.abs(buddy.x - a.x) < ARCH_HALF_W + 0.8 && !archClear(a, buddy.x, buddy.y)) {
+        damageBuddy(DMG.pillar, now)
+      }
+    }
+  }
 }
 
 function updateRings(dt: number, now: number, demo: boolean) {
@@ -2103,6 +2772,11 @@ function quitToGameOver(): void {
   deathEmitted = false
   shipVisible = false
   shipRoot.visible = false
+  buddy.visible = false
+  buddy.alive = false
+  buddy.respawnT = 0
+  if (buddy.root) buddy.root.visible = false
+  emitWing()
   burst(shipX, shipY, 0, COL_CYAN, 30, 12)
   burst(shipX, shipY, 0, COL_GOLD, 90, 18)
   burst(shipX, shipY, 0, COL_PINK, 70, 14)
