@@ -11,7 +11,7 @@
       <button type="button" class="sh-line sh-start" @click="startGame">
         {{ hint('walk — enter', 'walk') }}
       </button>
-      <p class="sh-hint">{{ hint('← → run · space jump · ↓ crouch · p pause', '◀ ▶ run · ▲ jump · ▼ crouch') }}</p>
+      <p class="sh-hint">{{ hint('← → run · space jump · ↓ crouch · esc pause · hold esc to leave', '◀ ▶ run · ▲ jump · ▼ crouch') }}</p>
     </div>
 
     <!-- Pause: the palette is one step darker; one line of machine text. -->
@@ -48,10 +48,13 @@
         {{ z.glyph }}
       </button>
     </div>
+    <!-- EscHold owns Escape while playing: tap pauses/resumes, a 3 s hold leaves. -->
+    <EscHold :is-active="escActive" :paused="false" :show-paused="false" @tap="escTap" @hold="exitToIdle" />
   </div>
 </template>
 
 <script setup lang="ts">
+import EscHold from '../base/EscHold.vue'
 import { createWorld, stepWorld, demoInput, STEP } from './engine'
 import { createRenderer } from './renderer'
 import type { World, Input } from './types'
@@ -224,6 +227,15 @@ function exitToIdle() {
   needsDraw = true
 }
 
+function escActive() {
+  return phase.value === 'playing' || phase.value === 'paused'
+}
+
+function escTap() {
+  if (phase.value === 'playing') pauseGame()
+  else if (phase.value === 'paused') resumeGame()
+}
+
 function isInteractiveTarget(t: EventTarget | null): boolean {
   return t instanceof HTMLElement && t.closest('a,button,input,textarea,select') !== null
 }
@@ -275,13 +287,13 @@ function onKeyDown(e: KeyboardEvent) {
       e.preventDefault()
       break
     case 'KeyP':
-    case 'Escape':
       if (!e.repeat) {
         e.preventDefault()
         if (phase.value === 'playing') pauseGame()
         else resumeGame()
       }
       break
+    // Escape while playing belongs to EscHold (tap = pause, 3 s hold = leave).
     case 'Enter':
       if (!e.repeat && phase.value === 'paused') {
         e.preventDefault()

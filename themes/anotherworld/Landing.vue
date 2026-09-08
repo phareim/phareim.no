@@ -12,7 +12,7 @@
       <button type="button" class="aw-start" @click="startGame">
         {{ hint('Start the crossing — Enter', 'Start the crossing') }}
       </button>
-      <p class="aw-controls-hint">{{ hint('← → / A D move · Space jump · P pause', '◀ ▶ move · jump · pause above') }}</p>
+      <p class="aw-controls-hint">{{ hint('← → / A D move · Space jump · Esc pause · hold Esc to leave', '◀ ▶ move · jump · pause above') }}</p>
     </div>
 
     <!-- One line of text, top right. No border, no background. -->
@@ -82,10 +82,14 @@
         <button type="button" class="aw-text" @click="exitToIdle">{{ hint('leave — Esc', 'leave') }}</button>
       </p>
     </div>
+
+    <!-- EscHold owns Escape while crossing: tap pauses/resumes, a 3 s hold leaves. -->
+    <EscHold :is-active="escActive" :paused="false" :show-paused="false" @tap="escTap" @hold="exitToIdle" />
   </div>
 </template>
 
 <script setup lang="ts">
+import EscHold from '../base/EscHold.vue'
 import { createWorld, stepWorld, demoInput } from './engine'
 import { drawWorld, paletteNameFor } from './renderer'
 import type { World, Input } from './types'
@@ -295,6 +299,15 @@ function exitToIdle() {
   needsDraw = true
 }
 
+function escActive() {
+  return phase.value === 'playing' || phase.value === 'paused'
+}
+
+function escTap() {
+  if (phase.value === 'playing') pauseGame()
+  else if (phase.value === 'paused') resumeGame()
+}
+
 function isInteractiveTarget(t: EventTarget | null): boolean {
   if (!(t instanceof HTMLElement)) return false
   return t.closest('a,button,input,textarea,select') !== null
@@ -347,13 +360,13 @@ function onKeyDown(e: KeyboardEvent) {
       e.preventDefault()
       break
     case 'KeyP':
-    case 'Escape':
       if (!e.repeat) {
         e.preventDefault()
         if (phase.value === 'playing') pauseGame()
         else resumeGame()
       }
       break
+    // Escape while crossing belongs to EscHold (tap = pause, 3 s hold = leave).
     case 'Enter':
       if (!repeatGuard && phase.value === 'paused') {
         e.preventDefault()

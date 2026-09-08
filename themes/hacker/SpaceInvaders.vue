@@ -1,9 +1,11 @@
 <template>
   <canvas ref="canvas" class="invaders-canvas"></canvas>
+  <EscHold :is-active="escActive" :paused="paused" @tap="togglePause" @hold="quitToGameOver" />
 </template>
 
 <script setup>
 import { MACHINE_FONT } from '~/themes/base/fonts'
+import EscHold from '../base/EscHold.vue'
 const emit = defineEmits(['score', 'death', 'restart', 'started'])
 
 const canvas = ref(null)
@@ -24,6 +26,8 @@ let shockwaves = []
 let score = 0
 let gameOver = false
 let gameStarted = false
+// Esc tap pauses (EscHold owns Escape); a 3 s hold quits into game over.
+const paused = ref(false)
 let keys = {}
 let lastShotTime = 0
 let waveTimer = 0
@@ -245,6 +249,8 @@ function resetGame() {
   score = 0
   gameOver = false
   gameStarted = true
+  paused.value = false
+  keys = {}
   waveInterval = 2500
   waveTimer = now - waveInterval // first wave spawns right away
   bulletLevel = 1
@@ -423,6 +429,29 @@ function triggerDeathExplosion(x, y) {
     speed: 7,
     life: 1
   })
+}
+
+// ---------------------------------------------------------------- Esc pause / hold-quit
+
+function escActive() {
+  return gameStarted && !gameOver
+}
+
+function togglePause() {
+  if (!gameStarted || gameOver) return
+  paused.value = !paused.value
+  keys = {}
+}
+
+// A 3 s Escape hold cancels the run: the same death as a collision, so the
+// landing shows GAME OVER with the run's score.
+function quitToGameOver() {
+  if (!gameStarted || gameOver) return
+  paused.value = false
+  keys = {}
+  gameOver = true
+  triggerDeathExplosion(player.x, player.y)
+  emit('death')
 }
 
 function update(now) {
@@ -1025,7 +1054,7 @@ function draw() {
 
 function gameLoop(now) {
   if (!gameRunning) return
-  update(now)
+  if (!paused.value) update(now)
   draw()
   animationFrameId = requestAnimationFrame(gameLoop)
 }
@@ -1038,6 +1067,15 @@ function setupCanvas() {
 }
 
 function handleKeyDown(e) {
+  // Escape belongs to EscHold (tap = pause, 3 s hold = quit); P pauses too.
+  if (e.code === 'Escape') return
+  if (e.code === 'KeyP' && !e.repeat) {
+    if (gameStarted && !gameOver) {
+      e.preventDefault()
+      togglePause()
+    }
+    return
+  }
   keys[e.code] = true
   if (e.code === 'Space') e.preventDefault()
 

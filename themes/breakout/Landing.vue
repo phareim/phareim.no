@@ -28,7 +28,7 @@
         <p v-if="highScore > 0 && !gameStarted" class="location breakout-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
           <p class="breakout-hint">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
-          <p class="breakout-hint breakout-hint-dim">{{ hint('← → MOVE · SPACE LAUNCH', 'DRAG TO MOVE · TAP TO LAUNCH') }}</p>
+          <p class="breakout-hint breakout-hint-dim">{{ hint('← → MOVE · SPACE LAUNCH · ESC PAUSE', 'DRAG TO MOVE · TAP TO LAUNCH') }}</p>
         </template>
       </template>
     </template>

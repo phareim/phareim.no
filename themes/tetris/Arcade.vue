@@ -30,7 +30,7 @@
       <button class="arcade-button" :disabled="!playing" aria-label="Rotate piece" @click="gameRef?.rotate(1)"><b>↻</b> ROTATE</button>
       <button class="arcade-button drop-button" :disabled="!playing" aria-label="Hard drop" @click="gameRef?.hardDrop()"><b>↓</b> DROP</button>
     </div>
-    <p class="control-hint">{{ hint('← → MOVE · ↑ ROTATE · ↓ SOFT DROP', 'DRAG ↔ MOVE · TAP ROTATE') }}<br><span>{{ hint('SPACE DROP · C HOLD · P PAUSE · ESC EXIT', 'FLICK ↓ DROP · DRAG ↓ LOWER · SWIPE ↑ HOLD') }}</span></p>
+    <p class="control-hint">{{ hint('← → MOVE · ↑ ROTATE · ↓ SOFT DROP', 'DRAG ↔ MOVE · TAP ROTATE') }}<br><span>{{ hint('SPACE DROP · C HOLD · P/ESC PAUSE · HOLD ESC QUIT', 'FLICK ↓ DROP · DRAG ↓ LOWER · SWIPE ↑ HOLD') }}</span></p>
   </section>
 </template>
 

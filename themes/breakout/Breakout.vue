@@ -1,9 +1,11 @@
 <template>
   <canvas ref="canvas" class="breakout-canvas"></canvas>
+  <EscHold :is-active="escActive" :paused="paused" @tap="togglePause" @hold="quitToGameOver" />
 </template>
 
 <script setup>
 import { MACHINE_FONT } from '~/themes/base/fonts'
+import EscHold from '../base/EscHold.vue'
 /**
  * Breakout, the arcade original: a paddle, a ball, rows of bricks.
  * Same contract as hacker/SpaceInvaders.vue — a full-viewport canvas behind
@@ -39,6 +41,8 @@ let level = 1
 let combo = 0 // bricks broken since the last paddle hit
 let gameOver = false
 let gameStarted = false
+// Esc tap pauses (EscHold owns Escape); a 3 s hold quits into game over.
+const paused = ref(false)
 let keys = {}
 let lastTime = 0
 let shake = 0
@@ -179,6 +183,8 @@ function resetGame() {
   combo = 0
   gameOver = false
   gameStarted = true
+  paused.value = false
+  keys = {}
   particles = []
   powerups = []
   shockwaves = []
@@ -205,6 +211,8 @@ function resetGame() {
 function startDemo() {
   gameStarted = false
   gameOver = false
+  paused.value = false
+  keys = {}
   level = 1
   lives = LIVES
   paddle.visible = true
@@ -328,6 +336,40 @@ function clearLevel(now) {
     setTimeout(() => horizon && horizon.beat(), 120)
     setTimeout(() => horizon && horizon.beat(), 240)
   }
+}
+
+// ---------------------------------------------------------------- Esc pause / hold-quit
+
+function escActive() {
+  return gameStarted && !gameOver
+}
+
+function togglePause() {
+  if (!gameStarted || gameOver) return
+  paused.value = !paused.value
+  keys = {}
+}
+
+// A 3 s Escape hold cancels the run: same death as losing the last life,
+// so the landing shows GAME OVER with the run's score.
+function quitToGameOver() {
+  if (!gameStarted || gameOver) return
+  paused.value = false
+  keys = {}
+  const now = performance.now()
+  combo = 0
+  triggerShockwave(paddle.x, paddle.y, '#2ff3ff')
+  shake = 1
+  deathFlash = 1
+  spawnParticles(paddle.x, paddle.y, '#ffffff', 24, 280)
+  lives = 0
+  emit('lives', lives)
+  gameOver = true
+  deathAt = now
+  paddle.visible = false
+  spawnParticles(paddle.x, paddle.y, PADDLE_COLOR, 40, 320)
+  spawnParticles(paddle.x, paddle.y, '#ffffff', 12, 120)
+  powerups = []
 }
 
 // ---------------------------------------------------------------- update
@@ -678,8 +720,15 @@ function draw() {
 
 function gameLoop(now) {
   if (!gameRunning) return
-  update(now)
-  draw()
+  if (paused.value) {
+    // Frozen frame behind the PAUSED pill; keep the clock fresh so resume
+    // never sees a huge dt (update clamps it anyway).
+    lastTime = now
+    draw()
+  } else {
+    update(now)
+    draw()
+  }
   animationFrameId = requestAnimationFrame(gameLoop)
 }
 
@@ -694,6 +743,15 @@ function isInteractiveElement(el) {
 }
 
 function handleKeyDown(e) {
+  // Escape belongs to EscHold (tap = pause, 3 s hold = quit); P pauses too.
+  if (e.code === 'Escape') return
+  if (e.code === 'KeyP' && !e.repeat) {
+    if (gameStarted && !gameOver) {
+      e.preventDefault()
+      togglePause()
+    }
+    return
+  }
   keys[e.code] = true
   if (e.code === 'Space') e.preventDefault()
   if (!gameStarted || gameOver) {

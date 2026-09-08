@@ -176,6 +176,25 @@ Vite refuses the @fontsource files (403) unless the real path is added to
 
 - `←` / `→` switch theme (unless a theme has locked navigation).
 
+## Escape: tap pauses, 3 s hold quits (2026-09-08)
+
+Every game theme shares one Escape contract: a quick tap pauses or resumes
+the run, holding Escape for 3 seconds cancels the run into game over (the
+score games show their GAME OVER screen; Another Shore I/II return to idle;
+Tetris shows its GAME OVER overlay, where a further Esc tap dismisses to
+idle). `P` pauses too, everywhere. Idle attract mode ignores Escape.
+
+Implementation: `themes/base/escHold.ts` holds the framework-free
+`EscHoldTracker` state machine (tap vs hold, `performance.now`-injected so
+`tests/esc-hold.test.mjs` covers it in plain node, in CI as `test:eschold`);
+`themes/base/EscHold.vue` wraps it with the window listeners and the fixed
+progress pill (HOLD ESC TO QUIT with a filling bar) plus a PAUSED pill for
+games with no paused UI of their own (the five arcade games freeze their
+loop behind it; Tetris and the Shores pass `show-paused=false` and keep
+their native paused states). Each game's `quitToGameOver` reuses its natural
+death path so high-score persistence and the delayed `death`/`over` emits
+behave exactly like losing.
+
 ## Mountain depth and steering (2026-09-07)
 
 The shared Neon Horizon uses `themes/base/mountainTerrain.js`: a deterministic

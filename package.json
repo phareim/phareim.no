@@ -9,6 +9,7 @@
     "postinstall": "nuxt prepare",
     "typecheck": "nuxi typecheck",
     "test:tetris": "node --test tests/tetris-gestures.test.mjs",
+    "test:eschold": "node --test tests/esc-hold.test.mjs",
     "test:anotherworld": "node --test tests/anotherworld-engine.test.mjs",
     "test:shore": "node --test tests/shore-engine.test.mjs",
     "test:invaders": "node --test tests/invaders-mobile.test.mjs"

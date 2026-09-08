@@ -2,6 +2,7 @@
   <div class="sfx-wrap">
     <canvas ref="canvas" class="sfx-canvas"></canvas>
     <div ref="flashEl" class="sfx-flash"></div>
+    <EscHold :is-active="escActive" :paused="paused" @tap="togglePause" @hold="quitToGameOver" />
   </div>
 </template>
 
@@ -22,6 +23,7 @@
  * silhouettes, fog the colour of the sky.
  */
 import * as THREE from 'three'
+import EscHold from '../base/EscHold.vue'
 
 const emit = defineEmits<{
   score: [n: number]
@@ -79,6 +81,8 @@ let portrait = false
 
 let gameStarted = false
 let gameOver = false
+// Esc tap pauses (EscHold owns Escape); a 3 s hold quits into game over.
+const paused = ref(false)
 let score = 0
 let lastScoreSent = -1
 let distance = 0
@@ -965,6 +969,7 @@ function startGame() {
   keys.clear()
   gameStarted = true
   gameOver = false
+  paused.value = false
   score = 0
   lastScoreSent = -1
   distance = 0
@@ -1496,7 +1501,8 @@ function frame(now: number) {
   raf = requestAnimationFrame(frame)
   const dt = Math.min(0.05, (now - last) / 1000 || 0.016)
   last = now
-  update(dt, now / 1000)
+  // Paused: freeze the world behind the PAUSED pill, keep rendering it.
+  if (!paused.value) update(dt, now / 1000)
   renderer!.render(scene, camera)
 }
 
@@ -1514,6 +1520,47 @@ function resize() {
   if (sunMesh && sunHalo) placeSun()
 }
 
+// ---- Esc pause / hold-quit -----------------------------------------------------
+function escActive(): boolean {
+  return gameStarted && !gameOver
+}
+
+function togglePause(): void {
+  if (!gameStarted || gameOver) return
+  paused.value = !paused.value
+  keys.clear()
+  touchSteer.active = false
+  touchSteer.id = -1
+}
+
+// A 3 s Escape hold cancels the run: the same death as losing the last
+// shield, so the landing shows MISSION FAILED with the run's score. Times
+// here are in seconds (frame() passes now / 1000).
+function quitToGameOver(): void {
+  if (!gameStarted || gameOver) return
+  paused.value = false
+  keys.clear()
+  touchSteer.active = false
+  touchSteer.id = -1
+  killCount = 0
+  mult = 1
+  streakT = 0
+  lives = 0
+  emit('lives', 0)
+  gameOver = true
+  deathAt = performance.now() / 1000 + 0.9
+  deathEmitted = false
+  shipVisible = false
+  shipRoot.visible = false
+  burst(shipX, shipY, 0, COL_CYAN, 30, 12)
+  burst(shipX, shipY, 0, COL_GOLD, 90, 18)
+  burst(shipX, shipY, 0, COL_PINK, 70, 14)
+  spawnWave(shipX, shipY, 0)
+  shake = 1.4
+  flash = 1
+  emit('over')
+}
+
 // ---- input --------------------------------------------------------------------
 function doRoll(dir: number) {
   if (!gameStarted || gameOver || !shipVisible || rollT >= 0) return
@@ -1524,6 +1571,12 @@ function doRoll(dir: number) {
 function onKeyDown(e: KeyboardEvent) {
   if (e.code === 'Enter' && (!gameStarted || (gameOver && deathEmitted))) {
     startGame()
+    return
+  }
+  // Escape belongs to EscHold (tap = pause, 3 s hold = quit); P pauses too.
+  if (e.code === 'Escape') return
+  if (e.code === 'KeyP' && !e.repeat) {
+    if (gameStarted && !gameOver) togglePause()
     return
   }
   if (!gameStarted || gameOver) return

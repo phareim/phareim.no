@@ -29,7 +29,7 @@
         <p v-if="highScore > 0 && !gameStarted" class="location invaders-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
           <p class="invaders-hint">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
-          <p class="invaders-hint invaders-hint-dim">{{ hint('← → / A-D MOVE · SPACE FIRE · 1 SHOT AT A TIME', 'DRAG TO MOVE · HOLD TO FIRE') }}</p>
+          <p class="invaders-hint invaders-hint-dim">{{ hint('← → / A-D MOVE · SPACE FIRE · ESC PAUSE · 1 SHOT AT A TIME', 'DRAG TO MOVE · HOLD TO FIRE') }}</p>
         </template>
       </template>
     </template>

@@ -24,11 +24,14 @@
       <span>PAUSED</span>
       <button class="play-button" @click.stop="togglePause">▶ {{ hint('P TO RESUME', 'RESUME') }} ◀</button>
     </div>
+    <!-- EscHold owns Escape: tap pauses/resumes, a 3 s hold quits into game over. -->
+    <EscHold :is-active="escActive" :paused="false" :show-paused="false" @tap="escTap" @hold="quitToGameOver" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import EscHold from '../base/EscHold.vue'
 import { TetrisGesture } from './gestures'
 import { PIECE_SHAPES, TetrisEngine, type EngineEvent, type PieceType } from './engine'
 
@@ -388,6 +391,33 @@ function exit(): void {
   emit('exit')
 }
 
+function escActive(): boolean {
+  return phase.value === 'playing' || phase.value === 'paused'
+}
+
+function escTap(): void {
+  if (escActive()) togglePause()
+}
+
+// A 3 s Escape hold cancels the run into the GAME OVER screen with the
+// run's score — the same state as topping out.
+function quitToGameOver(): void {
+  if (!escActive()) return
+  cancelGesture()
+  if (clearTimer !== null) {
+    clearTimeout(clearTimer)
+    clearTimer = null
+  }
+  phase.value = 'over'
+  softActive = false
+  heldDir = 0
+  navigationLocked.value = false
+  persistBest()
+  syncHud()
+  maybeEmit()
+  emit('over')
+}
+
 function isEditableTarget(t: EventTarget | null): boolean {
   if (!(t instanceof HTMLElement)) return false
   const tag = t.tagName
@@ -423,7 +453,9 @@ function handleKeyDown(e: KeyboardEvent): void {
     return
   }
   if (code === 'Escape') {
-    if (phase.value === 'playing' || phase.value === 'paused' || phase.value === 'over') exit()
+    // Playing/paused belong to EscHold (tap = pause, hold = game over);
+    // on the GAME OVER screen a tap dismisses back to idle.
+    if (phase.value === 'over') exit()
     return
   }
   if (code === 'KeyP') {

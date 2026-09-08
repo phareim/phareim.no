@@ -1,9 +1,11 @@
 <template>
   <canvas ref="canvas" class="invaders-canvas"></canvas>
+  <EscHold :is-active="escActive" :paused="paused" @tap="togglePause" @hold="quitToGameOver" />
 </template>
 
 <script setup>
 import { MACHINE_FONT } from '~/themes/base/fonts'
+import EscHold from '../base/EscHold.vue'
 /**
  * SYNTHWAVE HORIZON — a faithful 1978 Space Invaders formation game.
  *
@@ -147,6 +149,8 @@ function speciesScore(r) {
 
 let gameStarted = false
 let gameOver = false
+// Esc tap pauses (EscHold owns Escape); a 3 s hold quits into game over.
+const paused = ref(false)
 let score = 0
 let lastScoreSent = -1
 let wave = 1
@@ -577,6 +581,8 @@ function layoutBunkers() {
 function startDemo() {
   gameStarted = false
   gameOver = false
+  paused.value = false
+  keys = {}
   score = 0
   lastScoreSent = -1
   wave = 1
@@ -634,6 +640,8 @@ function startGame() {
   stepCount = 0
   gameOver = false
   gameStarted = true
+  paused.value = false
+  keys = {}
   dying = 0
   deathEmitted = false
   invulnUntil = 0
@@ -999,6 +1007,35 @@ function onCannonHit(now) {
     dying = 1.0 // ~1 s freeze where the formation stops, like the original
     invulnUntil = now + 1.0 + 2.5
   }
+}
+
+// ---------------------------------------------------------------- Esc pause / hold-quit
+
+function escActive() {
+  return gameStarted && !gameOver
+}
+
+function togglePause() {
+  if (!gameStarted || gameOver) return
+  paused.value = !paused.value
+  clearInput()
+}
+
+// A 3 s Escape hold cancels the run: the same death as an invasion, so the
+// landing shows GAME OVER with the run's score. Times are in seconds.
+function quitToGameOver() {
+  if (!gameStarted || gameOver) return
+  paused.value = false
+  clearInput()
+  lives = 0
+  emit('lives', lives)
+  dying = 0
+  shot = null
+  bombs = []
+  explode(cannonX, cannonY, true)
+  gameOver = true
+  emit('over')
+  deathAt = performance.now() / 1000
 }
 
 // ---------------------------------------------------------------- bombs & UFO
@@ -1910,8 +1947,10 @@ function frame(now) {
   if (!gameRunning) return
   const dtMs = Math.min(50, Math.max(0, now - lastFrameT))
   lastFrameT = now
-  update(now)
-  updateGame(dtMs / 1000 || 0.016, now / 1000)
+  if (!paused.value) {
+    update(now)
+    updateGame(dtMs / 1000 || 0.016, now / 1000)
+  }
   draw()
   animationFrameId = requestAnimationFrame(frame)
 }
@@ -1930,6 +1969,15 @@ function isInteractiveElement(el) {
 
 function handleKeyDown(e) {
   if (isInteractiveElement(e.target)) return
+  // Escape belongs to EscHold (tap = pause, 3 s hold = quit); P pauses too.
+  if (e.code === 'Escape') return
+  if (e.code === 'KeyP' && !e.repeat) {
+    if (gameStarted && !gameOver) {
+      e.preventDefault()
+      togglePause()
+    }
+    return
+  }
   keys[e.code] = true
   if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
     if (!gameStarted || gameOver) return

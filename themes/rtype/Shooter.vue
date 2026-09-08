@@ -1,9 +1,11 @@
 <template>
   <canvas ref="canvas" class="rtype-canvas"></canvas>
+  <EscHold :is-active="escActive" :paused="paused" @tap="togglePause" @hold="quitToGameOver" />
 </template>
 
 <script setup>
 import { MACHINE_FONT } from '~/themes/base/fonts'
+import EscHold from '../base/EscHold.vue'
 /**
  * R-Type — an endless R-Type (1987) style side-scrolling space shooter in
  * NEON VECTOR style (stroked outlines + glow, canvas primitives only).
@@ -71,6 +73,8 @@ let lastDistSent = -1
 let lives = LIVES
 let gameOver = false
 let gameStarted = false
+// Esc tap pauses (EscHold owns Escape); a 3 s hold quits into game over.
+const paused = ref(false)
 let keys = {}
 let keyFire = false
 let touchFire = false
@@ -273,6 +277,9 @@ function resetGame() {
   shake = 0
   gameOver = false
   gameStarted = true
+  paused.value = false
+  keys = {}
+  keyFire = false
   ship.x = Math.max(40, W * 0.18)
   ship.y = H / 2
   ship.alive = true
@@ -302,6 +309,9 @@ function resetGame() {
 function startDemo() {
   gameStarted = false
   gameOver = false
+  paused.value = false
+  keys = {}
+  keyFire = false
   lives = LIVES
   score = 0
   distPx = 0
@@ -551,6 +561,36 @@ function onShipHit(now) {
     respawnAt = now + 1.2
     invulnUntil = respawnAt + 2.5 // 2.5 s blinking invulnerability after respawn
   }
+}
+
+// ---------------------------------------------------------------- Esc pause / hold-quit
+
+function escActive() {
+  return gameStarted && !gameOver
+}
+
+function togglePause() {
+  if (!gameStarted || gameOver) return
+  paused.value = !paused.value
+  keys = {}
+  keyFire = false
+}
+
+// A 3 s Escape hold cancels the run: the same death as losing the last ship,
+// so the landing shows GAME OVER with the run's score. Times are in seconds
+// (update() works in nowMs / 1000).
+function quitToGameOver() {
+  if (!gameStarted || gameOver) return
+  paused.value = false
+  keys = {}
+  keyFire = false
+  explode(ship.x, ship.y, true)
+  spawnShards(ship.x, ship.y, CYAN, 12)
+  lives = 0
+  emit('lives', lives)
+  ship.alive = false
+  gameOver = true
+  deathAt = performance.now() / 1000
 }
 
 // ---------------------------------------------------------------- update
@@ -1519,8 +1559,14 @@ function draw() {
 
 function gameLoop(now) {
   if (!gameRunning) return
-  update(now)
-  draw()
+  if (paused.value) {
+    // Frozen frame behind the PAUSED pill; keep the clock fresh for resume.
+    lastTime = now
+    draw()
+  } else {
+    update(now)
+    draw()
+  }
   animationFrameId = requestAnimationFrame(gameLoop)
 }
 
@@ -1546,6 +1592,15 @@ function toggleForce() {
 }
 
 function handleKeyDown(e) {
+  // Escape belongs to EscHold (tap = pause, 3 s hold = quit); P pauses too.
+  if (e.code === 'Escape') return
+  if (e.code === 'KeyP' && !e.repeat) {
+    if (gameStarted && !gameOver) {
+      e.preventDefault()
+      togglePause()
+    }
+    return
+  }
   keys[e.code] = true
   if (e.code === 'Space') {
     e.preventDefault()

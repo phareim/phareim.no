@@ -31,7 +31,7 @@
         <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
           <p class="sfx-hint">▶ {{ hint('PRESS ENTER TO FLY', 'TAP TO FLY') }} ◀</p>
-          <p class="sfx-hint sfx-hint-dim">{{ hint('ARROWS · SPACE FIRE · SHIFT ROLL', 'DRAG TO STEER · AUTO-FIRE · DOUBLE-TAP ROLL') }}</p>
+          <p class="sfx-hint sfx-hint-dim">{{ hint('ARROWS · SPACE FIRE · SHIFT ROLL · ESC PAUSE', 'DRAG TO STEER · AUTO-FIRE · DOUBLE-TAP ROLL') }}</p>
         </template>
       </template>
     </template>

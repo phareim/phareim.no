@@ -28,7 +28,7 @@
         <p v-if="highScore > 0 && !gameStarted" class="location rtype-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
           <p class="rtype-hint">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
-          <p class="rtype-hint rtype-hint-dim">{{ hint('ARROWS/WASD MOVE · SPACE FIRE · SHIFT FORCE POD', 'DRAG TO MOVE · AUTO-FIRE · DOUBLE-TAP FORCE POD') }}</p>
+          <p class="rtype-hint rtype-hint-dim">{{ hint('ARROWS/WASD MOVE · SPACE FIRE · SHIFT FORCE POD · ESC PAUSE', 'DRAG TO MOVE · AUTO-FIRE · DOUBLE-TAP FORCE POD') }}</p>
         </template>
       </template>
     </template>
