@@ -247,6 +247,7 @@ let lastTime = 0
 let keys = {}
 let touchActive = false
 let touchX = 0
+let activeTouchId = null
 let tapStartX = 0
 let tapStartY = 0
 let tapStartTime = 0
@@ -358,7 +359,7 @@ function makeRadialBlob(color, size) {
 }
 
 function buildFxCache() {
-  mobileFx = SW < 600
+  mobileFx = SW < 600 || SH < 500
   glowCache = new Map()
   glowPx = px
   glowMobile = mobileFx
@@ -472,11 +473,11 @@ function setupCanvas() {
 }
 
 // Single layout entry: everything derives from SW/SH here, called on
-// mount and resize. Portrait phones (< 600 px) get 7 columns / 3 bunkers
+// mount and resize. Portrait phones (< 600 px) get 5 columns / 3 bunkers
 // via buildWave()/resetBunkers().
 function layout() {
   margin = Math.max(12, SW * 0.04)
-  cannonY = SH * 0.95
+  cannonY = SH < 500 ? SH - 60 : SW < 600 ? SH - 100 : SH * 0.95
   layoutGeometry()
   buildFxCache()
   layoutBunkers()
@@ -484,7 +485,9 @@ function layout() {
 
 // Cell size from the current column count; formation fits with margins.
 function layoutGeometry() {
-  px = clamp(Math.floor((SW * 0.7) / (cols * 14)), 2, 5)
+  const widthScale = Math.floor((SW * (SW < 600 ? .8 : .7)) / (cols * 14))
+  const heightScale = Math.floor((bunkerTop() - SH * .085) / ((ROWS + 1.5) * 11))
+  px = clamp(Math.min(widthScale, heightScale), 2, 5)
   cellW = 14 * px
   cellH = 11 * px
   formW = cols * cellW
@@ -494,7 +497,7 @@ function layoutGeometry() {
 }
 
 function bunkerTop() {
-  return SH * 0.865
+  return SH < 500 ? cannonY - 66 : SW < 600 ? cannonY - 74 : SH * 0.865
 }
 
 // Horizon line for the shooting-star flight below; the sky/stars/sun/
@@ -506,7 +509,7 @@ function horizonY() {
 // ---------------------------------------------------------------- waves
 
 function buildWave() {
-  cols = SW >= 900 ? 11 : SW >= 600 ? 8 : 7
+  cols = SW >= 900 ? 11 : SW >= 600 ? 8 : 5
   alive = []
   for (let r = 0; r < ROWS; r++) {
     const row = []
@@ -520,7 +523,7 @@ function buildWave() {
   stepAcc = 0
   stepCount = 0
   layoutGeometry()
-  if (px !== glowPx || (SW < 600) !== glowMobile) buildFxCache()
+  if (px !== glowPx || (SW < 600 || SH < 500) !== glowMobile) buildFxCache()
   // The next formation starts one row lower, up to a floor above the bunkers.
   const maxExtra = Math.max(0, Math.floor((bunkerTop() - cellH * 1.5 - formH - SH * 0.085) / cellH))
   const extra = Math.min(wave - 1, maxExtra, 4)
@@ -638,7 +641,7 @@ function startGame() {
   if (horizon) horizon.reset()
   shake = 0
   demoCooldown = 0
-  touchActive = false
+  clearInput()
   touchX = 0
   keys = {}
   shot = null
@@ -848,6 +851,15 @@ function hitBunker(sx, sy, radius) {
       if (bunkerJolts.length < 12) bunkerJolts.push({ bi: i, sx, sy, t: 0.2 })
       return true
     }
+  }
+  return false
+}
+
+// Walk the travelled segment at bunker-cell resolution, including thin remnants.
+function hitBunkerPath(x, fromY, toY, radius) {
+  const steps = Math.max(1, Math.ceil(Math.abs(toY - fromY) / 2))
+  for (let i = 0; i <= steps; i++) {
+    if (hitBunker(x, fromY + (toY - fromY) * i / steps, radius)) return true
   }
   return false
 }
@@ -1079,9 +1091,14 @@ function autopilot(dt) {
 }
 
 function moveCannonToward(tx, dt) {
-  const dx = clamp(tx, 24, SW - 24) - cannonX
+  const dx = clampCannon(tx) - cannonX
   cannonX += clamp(dx, -1, 1) * cannonSpeed() * dt
-  if (Math.abs(dx) < cannonSpeed() * dt) cannonX = clamp(tx, 24, SW - 24)
+  if (Math.abs(dx) < cannonSpeed() * dt) cannonX = clampCannon(tx)
+}
+
+function clampCannon(x) {
+  const inset = Math.max(24, CANNON[0].length * px / 2 + 2)
+  return clamp(x, inset, SW - inset)
 }
 
 function cannonSpeed() {
@@ -1284,12 +1301,13 @@ function updateGame(dt, now) {
     const rt = keys['ArrowRight'] || keys['KeyD']
     const m = (rt ? 1 : 0) - (lf ? 1 : 0)
     if (touchActive) {
-      moveCannonToward(touchX, dt)
+      cannonX = clampCannon(touchX)
+      fire()
     } else if (m) {
-      cannonX = clamp(cannonX + m * cannonSpeed() * dt, 24, SW - 24)
+      cannonX = clampCannon(cannonX + m * cannonSpeed() * dt)
     }
   }
-  cannonX = clamp(cannonX, 24, SW - 24)
+  cannonX = clampCannon(cannonX)
 
   updateShot(dt, now)
   updateBombs(dt, now)
@@ -1355,19 +1373,19 @@ function updateShot(dt, now) {
   }
   // Bunkers erode pixel by pixel — before invaders, so a bolt cannot
   // kill through a bunker without chewing it.
-  if (hitBunker(shot.x, shot.y, 2)) {
+  if (hitBunkerPath(shot.x, prevY, shot.y, 2)) {
     // Effect 5: bunker impact throws 4-6 cyan sparks.
     spawnParticles(shot.x, shot.y, CYAN, 4 + Math.floor(Math.random() * 3), 160)
     shot = null
     shotTrail = []
     return
   }
-  // Invaders.
-  for (let r = 0; r < ROWS; r++) {
+  // Sweep upward from the lowest row: slow frames must not skip a target.
+  for (let r = ROWS - 1; r >= 0; r--) {
     for (let c = 0; c < cols; c++) {
       if (!alive[r][c]) continue
       invaderRectInto(r, c, _rc)
-      if (shot.x > _rc.x && shot.x < _rc.x + _rc.w && shot.y > _rc.y && shot.y < _rc.y + _rc.h) {
+      if (shot.x > _rc.x && shot.x < _rc.x + _rc.w && prevY >= _rc.y && shot.y <= _rc.y + _rc.h) {
         shot = null
         killInvader(r, c, now)
         return
@@ -1397,6 +1415,7 @@ function updateBombs(dt, now) {
   for (let i = bombs.length - 1; i >= 0; i--) {
     const b = bombs[i]
     b.t += dt
+    const prevY = b.y
     b.y += b.v * dt
     // Effect 5: faint magenta smear — keep last 3 positions per bomb.
     if (!b.trail) b.trail = []
@@ -1412,14 +1431,14 @@ function updateBombs(dt, now) {
       continue
     }
     // Bunkers erode.
-    if (hitBunker(b.x, b.y + 6, 2.5)) {
+    if (hitBunkerPath(b.x, prevY + 6, b.y + 6, 2.5)) {
       spawnParticles(b.x, b.y, PINK, 5, 140)
       bombs.splice(i, 1)
       continue
     }
     // The cannon.
     if (now >= invulnUntil && dying <= 0 &&
-      b.x > cr.x && b.x < cr.x + cr.w && b.y > cr.y && b.y < cr.y + cr.h) {
+      b.x > cr.x && b.x < cr.x + cr.w && b.y >= cr.y && prevY <= cr.y + cr.h) {
       bombs.splice(i, 1)
       onCannonHit(now)
       return
@@ -1600,7 +1619,7 @@ function drawFormation(now) {
   const frac = totalCount > 0 ? aliveCount / totalCount : 0
   const baseAb = 0.5 + (1 - frac) * 2.0
   const vib = (1 - frac) * Math.sin((now || 0) * 40) * 0.5
-  const ab = Math.min(3, Math.max(0, baseAb + pulse * 0.8 + vib))
+  const ab = mobileFx ? 0 : Math.min(3, Math.max(0, baseAb + pulse * 0.8 + vib))
   // Shared sprite opts: one object per frame, no dead glow/blur fields.
   const SPR_O = { ab }
   // Effect 4: new formation fades in row by row from the top.
@@ -1774,7 +1793,7 @@ function draw() {
     ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m)
   }
   // Effect 3c: subtle horizontal bass jolt (1-2 px) on the play layer.
-  if (bassJolt > 0.01) {
+  if (!mobileFx && bassJolt > 0.01) {
     ctx.translate(bassDir * bassJolt * 2, 0)
   }
 
@@ -1928,10 +1947,10 @@ function handleKeyUp(e) {
 
 function handleResize() {
   // setupCanvas() refreshes SW/SH via layout(), then we rebuild the wave if
-  // the width class changed so the 11/8/7 column count adapts while bunkers
+  // the width class changed so the 11/8/5 column count adapts while bunkers
   // flip 3<->4.
   setupCanvas()
-  const nowCols = SW >= 900 ? 11 : SW >= 600 ? 8 : 7
+  const nowCols = SW >= 900 ? 11 : SW >= 600 ? 8 : 5
   if (nowCols !== cols) {
     buildWave()
     resetBunkers()
@@ -1939,7 +1958,7 @@ function handleResize() {
   // Keep everything on screen after a resize.
   fx = clamp(fx, margin, Math.max(margin, SW - margin - formW))
   fy = Math.max(0, Math.min(fy, bunkerTop() - formH - cellH))
-  cannonX = clamp(cannonX, 24, SW - 24)
+  cannonX = clampCannon(cannonX)
   if (ufo) ufo.y = Math.max(26, SH * 0.055)
 }
 
@@ -1949,42 +1968,49 @@ function debouncedResize() {
   resizeT = setTimeout(() => { resizeT = null; handleResize() }, 150)
 }
 
+function clearInput() {
+  touchActive = false
+  activeTouchId = null
+  keys = {}
+}
+
 function handleTouchStart(e) {
-  if (isInteractiveElement(e.target)) return
-  const t = e.touches[0]
+  if (isInteractiveElement(e.target) || activeTouchId !== null) return
+  const t = e.changedTouches[0]
+  if (!t) return
+  activeTouchId = t.identifier
   tapStartX = t.clientX
   tapStartY = t.clientY
   tapStartTime = performance.now()
-  if (!gameStarted || gameOver) {
-    // Start on tap, not on touchstart, so a horizontal swipe can still
-    // switch theme without launching the game.
-    return
-  }
+  if (!gameStarted || gameOver) return // Idle swipes still switch themes.
+  e.preventDefault()
   touchActive = true
   touchX = t.clientX
+  // Like Breakout, follow the finger directly instead of chasing it at key speed.
+  if (dying <= 0) cannonX = clampCannon(touchX)
 }
 
 function handleTouchMove(e) {
-  if (!touchActive) return
-  if (isInteractiveElement(e.target)) return
+  const t = Array.from(e.changedTouches).find(t => t.identifier === activeTouchId)
+  if (!t || !touchActive) return
   e.preventDefault()
-  const t = e.touches[0]
   touchX = t.clientX
-  // Auto-fire while touching.
-  if (!shot) fire()
 }
 
 function handleTouchEnd(e) {
-  if (isInteractiveElement(e.target)) {
-    touchActive = false
-    return
-  }
-  const t = e.changedTouches[0]
-  const isTap = t && Math.hypot(t.clientX - tapStartX, t.clientY - tapStartY) < 15 && performance.now() - tapStartTime < 400
-  if (!gameStarted || gameOver) {
-    if (isTap) startGame()
-  }
-  touchActive = false
+  const t = Array.from(e.changedTouches).find(t => t.identifier === activeTouchId)
+  if (!t) return
+  const isTap = Math.hypot(t.clientX - tapStartX, t.clientY - tapStartY) < 15 && performance.now() - tapStartTime < 400
+  if ((!gameStarted || gameOver) && isTap) startGame()
+  clearInput()
+}
+
+function handleTouchCancel(e) {
+  if (Array.from(e.changedTouches).some(t => t.identifier === activeTouchId)) clearInput()
+}
+
+function handleVisibility() {
+  if (document.hidden) clearInput()
 }
 
 onMounted(() => {
@@ -1998,13 +2024,18 @@ onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', handleKeyUp)
   window.addEventListener('resize', debouncedResize)
-  window.addEventListener('touchstart', handleTouchStart, { passive: true })
+  window.addEventListener('touchstart', handleTouchStart, { passive: false })
   window.addEventListener('touchmove', handleTouchMove, { passive: false })
   window.addEventListener('touchend', handleTouchEnd)
+  window.addEventListener('touchcancel', handleTouchCancel)
+  window.addEventListener('blur', clearInput)
+  document.addEventListener('visibilitychange', handleVisibility)
 })
 
 onBeforeUnmount(() => {
   gameRunning = false
+  clearInput()
+  if (resizeT) clearTimeout(resizeT)
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)
@@ -2012,6 +2043,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('touchstart', handleTouchStart)
   window.removeEventListener('touchmove', handleTouchMove)
   window.removeEventListener('touchend', handleTouchEnd)
+  window.removeEventListener('touchcancel', handleTouchCancel)
+  window.removeEventListener('blur', clearInput)
+  document.removeEventListener('visibilitychange', handleVisibility)
 })
 </script>
 

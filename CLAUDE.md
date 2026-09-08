@@ -206,3 +206,26 @@ An explicit `sunY` still overrides the automatic framing. Star Fox keeps its
 separate terrain and sun. Verified 2026-09-07: Player One, Breakout, Invaders
 and Tetris at 1440×900 and 375×667 in Chromium, no page errors or document
 overflow; `npm run typecheck` passes.
+
+## Space Invaders on phones (2026-09-08)
+
+Portrait widths below 600 px use five columns, with 24–32 px tall sprites
+at 320–390 px viewport widths (previously 16 px). Sprite scale also respects
+available height. The cannon and bunkers leave finger space below the playfield,
+including landscape phones; the live score sits at the top instead of covering
+play. Mobile rendering omits chromatic sprite offsets and the marching camera
+jolt, keeping the pixel silhouettes clear with fewer sprite draws.
+
+Touch steering follows the finger directly, like Breakout. Holding a stationary
+finger fires the next bolt as soon as the previous one clears; only one player
+bolt exists at a time. The initiating touch owns control until release/cancel;
+blur and page hiding clear held input. Idle swipes still navigate themes.
+Shots and bombs check the distance travelled between frames for bunker/cannon/
+invader collisions, so a slow frame cannot skip a small target or thin remnant.
+
+`npm run test:invaders` covers layout, hold-to-fire, direct steering, extra
+fingers/cancellation, idle tap versus swipe, cannon bounds and collision sweeps
+(eight tests, included in CI). Verified 2026-09-08 in Chromium with emulated
+touch at 320×568, 375×667, 390×844 and 667×375, plus keyboard at 1440×900:
+held touch scores without further movement, HUD stays clear, no page errors
+or document overflow. Physical-phone feel and frame rate are not measured.

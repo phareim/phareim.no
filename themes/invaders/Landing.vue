@@ -1,6 +1,6 @@
 <template>
   <DefaultLanding
-    :content-class="{ 'invaders-fade': gameStarted }"
+    :class="{ 'invaders-playing': gameStarted && !gameOver }"
   >
     <template #background>
       <Invaders
@@ -29,7 +29,7 @@
         <p v-if="highScore > 0 && !gameStarted" class="location invaders-hud-dim">HIGH SCORE: {{ highScore }}</p>
         <template v-if="!gameStarted">
           <p class="invaders-hint">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
-          <p class="invaders-hint invaders-hint-dim">{{ hint('← → / A-D MOVE · SPACE FIRE · 1 SHOT AT A TIME', 'DRAG TO MOVE · AUTO-FIRE · 1 SHOT AT A TIME') }}</p>
+          <p class="invaders-hint invaders-hint-dim">{{ hint('← → / A-D MOVE · SPACE FIRE · 1 SHOT AT A TIME', 'DRAG TO MOVE · HOLD TO FIRE') }}</p>
         </template>
       </template>
     </template>
@@ -148,12 +148,13 @@ function onGameRestart() {
   letter-spacing: 0.1em;
 }
 
-.invaders-fade {
-  animation: invaders-fade-out 4s forwards;
+.invaders-playing .landing-overlay {
+  align-items: flex-start;
+  padding-top: max(14px, env(safe-area-inset-top));
+  pointer-events: none;
 }
-@keyframes invaders-fade-out {
-  0% { opacity: 1; }
-  50% { opacity: 1; }
-  100% { opacity: 0; pointer-events: none; }
+.invaders-playing .invaders-hud {
+  font-size: .65em;
+  margin: 0;
 }
 </style>
