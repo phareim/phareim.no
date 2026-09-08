@@ -12,9 +12,15 @@
  * behind the landing overlay. Same contract as rtype/Shooter.vue:
  * full-viewport canvas, attract mode (autopilot) until Enter/tap, events
  * up to Landing.vue for the HUD:
- *   score(n)  distance(km)  lives(n)  started  restart
+ *   score(n)  distance(km)  health(hp, max)  power(level)
+ *   sector(n, phase)  boss(hp, max, active)  started  restart
  *   over      — the moment the run ends (unlocks theme navigation)
  *   death     — after the explosion (shows the GAME OVER card)
+ *
+ * The run is endless sectors: TRAVEL (~80 s) → WARNING → BOSS (a gunship
+ * with a weak core and its own health meter) → CLEAR (bonus + heal) →
+ * next sector, harder. The ship has 100 HP; rings heal. Tuning lives in
+ * balance.ts so plain node tests can pin it.
  *
  * The world streams toward the player down -Z. The Arwing flies inside a
  * screen-space box, banks into lateral moves, and the camera lags behind
@@ -24,12 +30,21 @@
  */
 import * as THREE from 'three'
 import EscHold from '../base/EscHold.vue'
+import {
+  HP_MAX, DMG, HEAL_RING, HEAL_CLEAR,
+  type SectorPhase, advanceSector, bossMaxHp, sectorClearBonus,
+  enemyFireInterval, boltSpeedBonus, enemyShootChance,
+  formationSize, pickEnemyKind, worldSpeedFor, spawnPace,
+  applyDamage, heal,
+} from './balance'
 
 const emit = defineEmits<{
   score: [n: number]
   distance: [km: number]
-  lives: [n: number]
+  health: [hp: number, max: number]
   power: [level: number]
+  sector: [n: number, phase: SectorPhase]
+  boss: [hp: number, max: number, active: boolean]
   started: []
   restart: []
   over: []
@@ -65,8 +80,9 @@ const ROLL_DUR = 0.55
 const MULT_STEPS = [1, 2, 3, 4, 6, 8]
 const MAX_PARTICLES = 420
 const MAX_LASERS = 48
-const MAX_BOLTS = 24
-const MAX_ENEMIES = 20
+// Boss spreads need more bolts in the air than the old aimed shots.
+const MAX_BOLTS = 40
+const MAX_ENEMIES = 28
 const MAX_PILLARS = 16
 const MAX_ROCKS = 10
 const MAX_RINGS = 6
@@ -91,8 +107,14 @@ let score = 0
 let lastScoreSent = -1
 let distance = 0
 let lastKm = 0
-let lives = 2
+let hp = HP_MAX
 let elapsed = 0
+// Endless sectors: TRAVEL → WARNING → BOSS → CLEAR → next sector.
+let sector = 1
+let phase: SectorPhase = 'travel'
+let phaseT = 0
+let lastPhaseSent: SectorPhase | '' = ''
+let lastSectorSent = 0
 let worldSpeed = 26
 let shake = 0
 let flash = 0
@@ -160,7 +182,8 @@ let laserMesh: THREE.InstancedMesh
 
 const laserDummy = new THREE.Object3D()
 let laserCursor = 0
-const laserState: { active: boolean; x: number; y: number; z: number }[] = []
+// Gold bolts (weapon level 2+) hit the boss core twice as hard.
+const laserState: { active: boolean; x: number; y: number; z: number; dmg: number }[] = []
 
 interface Bolt { mesh: THREE.Mesh; active: boolean; vx: number; vy: number; vz: number }
 const bolts: Bolt[] = []
@@ -169,8 +192,10 @@ interface Enemy {
   root: THREE.Group
   body: THREE.Mesh
   active: boolean
+  kind: 'drone' | 'sniper' | 'kamikaze'
   x: number; y: number; z: number
   vx: number
+  vy: number
   wob: number
   wobSpeed: number
   fireT: number
@@ -220,6 +245,22 @@ function addScore(n: number) {
   }
 }
 
+function emitHealth() {
+  emit('health', hp, HP_MAX)
+}
+
+function emitSector(force = false) {
+  if (force || sector !== lastSectorSent || phase !== lastPhaseSent) {
+    lastSectorSent = sector
+    lastPhaseSent = phase
+    emit('sector', sector, phase)
+  }
+}
+
+function emitBoss() {
+  emit('boss', boss.hp, boss.max, boss.active)
+}
+
 function makeGlowTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas')
   c.width = 64
@@ -267,6 +308,7 @@ function buildScene() {
   buildRocks()
   buildRings()
   buildPowerups()
+  buildBoss()
   buildParticles()
   buildWaves()
 }
@@ -616,7 +658,7 @@ function buildLasers() {
   laserMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
   laserMesh.frustumCulled = false
   for (let i = 0; i < MAX_LASERS; i++) {
-    laserState.push({ active: false, x: 0, y: -999, z: 0 })
+    laserState.push({ active: false, x: 0, y: -999, z: 0, dmg: 1 })
     laserDummy.position.set(0, -999, 0)
     laserDummy.updateMatrix()
     laserMesh.setMatrixAt(i, laserDummy.matrix)
@@ -637,6 +679,7 @@ function fireOne(x: number, color: number) {
   st.x = x
   st.y = shipY + 0.05
   st.z = -1.2
+  st.dmg = color === COL_GOLD ? 2 : 1
 }
 
 function fireInterval(): number {
@@ -665,13 +708,29 @@ function buildBolts() {
   }
 }
 
-function fireBolt(fromX: number, fromY: number, fromZ: number) {
+function fireBolt(fromX: number, fromY: number, fromZ: number, speedMul = 1) {
   let b: Bolt | null = null
   for (const x of bolts) { if (!x.active) { b = x; break } }
   if (!b) return
   tmpV.set(shipX - fromX, shipY - fromY, 0 - fromZ).normalize()
-  const speed = worldSpeed + 26
+  const speed = (worldSpeed + 26 + boltSpeedBonus(sector)) * speedMul
   b.active = true
+  b.vx = tmpV.x * speed
+  b.vy = tmpV.y * speed
+  b.vz = tmpV.z * speed
+  b.mesh.position.set(fromX, fromY, fromZ)
+  b.mesh.visible = true
+}
+
+/** A bolt along an explicit direction (boss spread fans). */
+function fireBoltDir(fromX: number, fromY: number, fromZ: number, dx: number, dy: number, speedMul = 1) {
+  let b: Bolt | null = null
+  for (const x of bolts) { if (!x.active) { b = x; break } }
+  if (!b) return
+  tmpV.set(dx, dy, 1).normalize()
+  const speed = (worldSpeed + 26 + boltSpeedBonus(sector)) * speedMul
+  b.active = true
+  // +Z is toward the player; the bolt update adds its own forward drift.
   b.vx = tmpV.x * speed
   b.vy = tmpV.y * speed
   b.vz = tmpV.z * speed
@@ -710,21 +769,27 @@ function buildEnemies() {
     root.add(wing)
     root.visible = false
     scene.add(root)
-    enemies.push({ root, body, active: false, x: 0, y: 0, z: 0, vx: 0, wob: Math.random() * 6.28, wobSpeed: rand(1.5, 3), fireT: rand(1, 2.5), shoots: true })
+    enemies.push({ root, body, active: false, kind: 'drone', x: 0, y: 0, z: 0, vx: 0, vy: 0, wob: Math.random() * 6.28, wobSpeed: rand(1.5, 3), fireT: rand(1, 2.5), shoots: true })
   }
 }
 
-function spawnEnemy(x: number, y: number, z: number, shoots: boolean) {
+function spawnEnemy(x: number, y: number, z: number, shoots: boolean, kind: 'drone' | 'sniper' | 'kamikaze' = 'drone') {
   let e: Enemy | null = null
   for (const v of enemies) { if (!v.active) { e = v; break } }
   if (!e) return
   e.active = true
+  e.kind = kind
   e.x = clamp(x, -laneX, laneX)
   e.y = clamp(y, LANE_Y_LO, LANE_Y_HI)
   e.z = z
   e.vx = rand(-3, 3)
-  e.fireT = rand(0.8, 2.2)
+  e.vy = 0
+  const iv = enemyFireInterval(sector)
+  e.fireT = kind === 'sniper' ? rand(iv.lo * 0.55, iv.hi * 0.6) : rand(iv.lo, iv.hi)
   e.shoots = shoots
+  // Kamikazes read as small darts; snipers share the drone look but
+  // shoot sooner (their fireT above) and with faster bolts.
+  e.body.scale.setScalar(kind === 'kamikaze' ? 0.7 : 1)
   e.root.visible = true
   e.root.position.set(e.x, e.y, e.z)
 }
@@ -732,9 +797,10 @@ function spawnEnemy(x: number, y: number, z: number, shoots: boolean) {
 function spawnFormation() {
   const cx = rand(-(laneX - 2.5), laneX - 2.5)
   const cy = rand(-0.5, 5)
-  const n = 2 + Math.floor(Math.random() * 2)
+  const chance = enemyShootChance(sector)
+  const n = formationSize(sector)
   for (let i = 0; i < n; i++) {
-    spawnEnemy(cx + (i - (n - 1) / 2) * 3.2, cy + (i % 2) * 1.2, SPAWN_Z - i * 7, Math.random() < 0.6)
+    spawnEnemy(cx + (i - (n - 1) / 2) * 3.2, cy + (i % 2) * 1.2, SPAWN_Z - i * 7, Math.random() < chance, pickEnemyKind(sector))
   }
 }
 
@@ -863,6 +929,10 @@ function spawnRing(demo = false) {
 function collectRing(r: Ring) {
   r.flash = 1
   addScore(50 * mult)
+  if (hp < HP_MAX) {
+    hp = heal(hp, HEAL_RING)
+    emitHealth()
+  }
   burst(r.x, r.y, r.z, COL_PINK, 30, 12)
   burst(r.x, r.y, r.z, 0xffffff, 12, 8)
   flash = Math.max(flash, 0.35)
@@ -924,6 +994,229 @@ function collectPowerup(p: PowerUp) {
   spawnWave(p.x, p.y, p.z)
   flash = Math.max(flash, 0.5)
   emit('power', weaponLevel)
+}
+
+// ---- sector boss: a gunship with a weak core ---------------------------------
+// The DREADNOUGHT parks at z ≈ -60 and strafes while its turrets work
+// through an attack wheel (aimed bursts → spread fan → minions). Lasers
+// only hurt the gold core; turrets can be shot off and grow back.
+const BOSS_Z = -60
+const BOSS_NAME = 'DREADNOUGHT'
+
+interface BossTurret {
+  mesh: THREE.Mesh
+  alive: boolean
+  respawnT: number
+  ox: number
+}
+
+const boss = {
+  active: false,
+  hp: 0,
+  max: 0,
+  root: null as unknown as THREE.Group,
+  core: null as unknown as THREE.Mesh,
+  coreMat: null as unknown as THREE.MeshStandardMaterial,
+  turrets: [] as BossTurret[],
+  x: 0,
+  y: 2,
+  z: BOSS_Z,
+  t: 0,
+  attackT: 0,
+  attackStep: 0,
+  deathT: -1,
+  deathTick: 0,
+  lastHpSent: -1,
+}
+
+function buildBoss() {
+  const root = new THREE.Group()
+  const hullMat = new THREE.MeshStandardMaterial({
+    color: 0x2a1040,
+    emissive: COL_PINK,
+    emissiveIntensity: 0.18,
+    metalness: 0.6,
+    roughness: 0.45,
+    flatShading: true,
+  })
+  const hull = new THREE.Mesh(new THREE.OctahedronGeometry(6), hullMat)
+  hull.scale.set(1.6, 0.75, 1)
+  hull.rotation.y = Math.PI / 4
+  root.add(hull)
+  root.add(edgeLines(hull, COL_PINK, 0.8))
+
+  // side pods
+  const podGeo = new THREE.OctahedronGeometry(2.2)
+  for (const s of [-1, 1]) {
+    const pod = new THREE.Mesh(podGeo, hullMat)
+    pod.position.set(s * 10.5, -1, 1)
+    root.add(pod)
+  }
+
+  // the weak core: gold, front and centre
+  const coreMat = new THREE.MeshStandardMaterial({
+    color: 0x8a6a1a,
+    emissive: COL_GOLD,
+    emissiveIntensity: 1.0,
+    metalness: 0.4,
+    roughness: 0.3,
+    flatShading: true,
+  })
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(1.7), coreMat)
+  core.position.set(0, 0.4, 6.2)
+  root.add(core)
+
+  // turrets on the pods, tracked separately so they can die and regrow
+  const turretGeo = new THREE.OctahedronGeometry(0.9)
+  for (const s of [-1, 1]) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x8a1a5a,
+      emissive: COL_PINK,
+      emissiveIntensity: 0.7,
+      metalness: 0.5,
+      roughness: 0.4,
+      flatShading: true,
+    })
+    const mesh = new THREE.Mesh(turretGeo, mat)
+    mesh.position.set(s * 10.5, 0.6, 3.2)
+    root.add(mesh)
+    boss.turrets.push({ mesh, alive: true, respawnT: 0, ox: s * 10.5 })
+  }
+
+  boss.root = root
+  boss.core = core
+  boss.coreMat = coreMat
+  root.visible = false
+  scene.add(root)
+}
+
+function startBoss() {
+  boss.max = bossMaxHp(sector)
+  boss.hp = boss.max
+  boss.lastHpSent = -1
+  boss.active = true
+  boss.t = 0
+  boss.attackT = 2.0
+  boss.attackStep = 0
+  boss.deathT = -1
+  boss.x = 0
+  boss.y = 2
+  boss.z = SPAWN_Z - 40
+  for (const t of boss.turrets) {
+    t.alive = true
+    t.respawnT = 0
+    t.mesh.visible = true
+  }
+  boss.root.visible = true
+  emitBoss()
+}
+
+function deactivateBoss() {
+  if (!boss.active) return
+  boss.active = false
+  boss.deathT = -1
+  if (boss.root) boss.root.visible = false
+  emitBoss()
+}
+
+function bossAttack(now: number) {
+  void now
+  const aliveTurrets = boss.turrets.filter(t => t.alive)
+  const step = boss.attackStep % 3
+  boss.attackStep++
+  if (step === 0) {
+    // aimed bursts from each living turret
+    for (const t of aliveTurrets) fireBolt(boss.x + t.ox, boss.y + 0.6, boss.z)
+    if (aliveTurrets.length === 0) fireBolt(boss.x, boss.y, boss.z)
+  } else if (step === 1) {
+    // spread fan from the core — dodge the gaps, not the bolts
+    const n = sector >= 2 ? 7 : 5
+    for (let i = 0; i < n; i++) {
+      const dx = (i / (n - 1) - 0.5) * (sector >= 3 ? 0.9 : 0.7)
+      fireBoltDir(boss.x, boss.y + 0.4, boss.z + 6, dx, 0, 0.9)
+    }
+  } else {
+    // minion screen: two drones peel off the hull
+    for (const s of [-1, 1]) {
+      spawnEnemy(boss.x + s * 6, boss.y + rand(-1, 1), boss.z + 10, Math.random() < 0.7, 'drone')
+    }
+  }
+}
+
+function damageBoss(dmg: number) {
+  if (!boss.active || boss.deathT >= 0) return
+  boss.hp = Math.max(0, boss.hp - dmg)
+  if (boss.hp !== boss.lastHpSent) {
+    boss.lastHpSent = boss.hp
+    emitBoss()
+  }
+  if (boss.hp <= 0) {
+    boss.deathT = 1.2
+    boss.deathTick = 0
+    shake = 1.2
+  }
+}
+
+function killBoss() {
+  const bonus = sectorClearBonus(sector)
+  addScore(bonus)
+  hp = heal(hp, HEAL_CLEAR)
+  emitHealth()
+  burst(boss.x, boss.y, boss.z, COL_GOLD, 90, 20)
+  burst(boss.x, boss.y, boss.z, COL_PINK, 70, 16)
+  burst(boss.x, boss.y, boss.z, 0xffffff, 40, 12)
+  spawnWave(boss.x, boss.y, boss.z)
+  flash = 1
+  shake = 1.4
+  deactivateBoss()
+  phase = 'clear'
+  phaseT = 0
+  emitSector()
+}
+
+function updateBoss(dt: number, now: number) {
+  if (!boss.active) return
+  boss.t += dt
+  const motion = reducedMotion?.matches ? 0.25 : 1
+  if (boss.z < BOSS_Z) {
+    // entrance: cruise in from deep field
+    boss.z = Math.min(BOSS_Z, boss.z + 55 * dt)
+  } else if (boss.deathT >= 0) {
+    // death throes: chained explosions, then the CLEAR banner
+    boss.deathT -= dt
+    boss.deathTick -= dt
+    if (boss.deathTick <= 0) {
+      boss.deathTick = 0.18
+      burst(boss.x + rand(-8, 8), boss.y + rand(-3, 3), boss.z + rand(-4, 6), Math.random() < 0.5 ? COL_GOLD : COL_PINK, 30, 14)
+      shake = Math.max(shake, 0.8)
+    }
+    if (boss.deathT <= 0) killBoss()
+  } else {
+    // strafe + bob; steering the ship still matters (bolts track it)
+    boss.x = Math.sin(boss.t * 0.5) * laneX * 0.55 * motion
+    boss.y = 2 + Math.sin(boss.t * 0.8) * 1.2 * motion
+    boss.core.rotation.y += dt * 2.4
+    boss.coreMat.emissiveIntensity = 0.85 + Math.sin(now * 6) * 0.3
+    const enraged = boss.hp < boss.max * 0.3
+    boss.attackT -= dt * (enraged ? 1.25 : 1)
+    if (boss.attackT <= 0) {
+      boss.attackT = sector >= 3 ? 2.0 : 2.4
+      bossAttack(now)
+    }
+  }
+  // regrow shot-off turrets
+  for (const t of boss.turrets) {
+    if (!t.alive) {
+      t.respawnT -= dt
+      if (t.respawnT <= 0) {
+        t.alive = true
+        t.mesh.visible = true
+        burst(boss.x + t.ox, boss.y + 0.6, boss.z, COL_PINK, 16, 8)
+      }
+    }
+    t.mesh.rotation.y += dt * 1.8
+  }
+  boss.root.position.set(boss.x, boss.y, boss.z)
 }
 
 function buildParticles() {
@@ -1001,18 +1294,18 @@ function spawnWave(x: number, y: number, z: number) {
 }
 
 // ---- damage / death ---------------------------------------------------------
-function onShipHit(now: number) {
+function onShipHit(now: number, dmg: number) {
   if (now < invulnUntil || rollT >= 0 || !shipVisible) return
   killCount = 0
   mult = 1
   streakT = 0
-  lives--
-  emit('lives', Math.max(0, lives))
+  hp = applyDamage(hp, dmg)
+  emitHealth()
   flash = 1
   shake = 0.7
   burst(shipX, shipY, 0, COL_CYAN, 30, 12)
   spawnWave(shipX, shipY, 0)
-  if (lives <= 0) {
+  if (hp <= 0) {
     weaponLevel = 1
     gameOver = true
     deathAt = now + 0.9
@@ -1025,10 +1318,11 @@ function onShipHit(now: number) {
     spawnWave(shipX, shipY, 0)
     shake = 1.4
     flash = 1
+    deactivateBoss()
     emit('over')
   } else {
-    invulnUntil = now + 1.4
-    // A hit costs a weapon step as well as a shield.
+    invulnUntil = now + 1.0
+    // A hit costs a weapon step as well as health.
     if (weaponLevel > 1) {
       weaponLevel--
       emit('power', weaponLevel)
@@ -1068,6 +1362,7 @@ function resetWorld() {
   rockMesh.instanceMatrix.needsUpdate = true
   for (const r of rings) { r.active = false; r.root.visible = false; r.flash = 0 }
   for (const p of powerups) { p.active = false; p.root.visible = false }
+  deactivateBoss()
   for (const w of waves) { w.active = false; w.mesh.visible = false }
   for (let i = 0; i < MAX_PARTICLES; i++) { pLife[i] = 0; pPos[i * 3 + 1] = -9999 }
   enemySpawnT = 1.5
@@ -1090,7 +1385,12 @@ function startGame() {
   lastScoreSent = -1
   distance = 0
   lastKm = 0
-  lives = 3
+  hp = HP_MAX
+  sector = 1
+  phase = 'travel'
+  phaseT = 0
+  lastPhaseSent = ''
+  lastSectorSent = 0
   elapsed = 0
   killCount = 0
   mult = 1
@@ -1110,7 +1410,9 @@ function startGame() {
   emit('started')
   emit('score', 0)
   emit('distance', 0)
-  emit('lives', lives)
+  emitHealth()
+  emitSector(true)
+  emitBoss()
   emit('power', weaponLevel)
 }
 
@@ -1152,11 +1454,24 @@ function autopilot(dt: number, now: number) {
 // ---- update -------------------------------------------------------------------
 function difficulty(): { speed: number; enemy: number; obstacle: number } {
   const d = clamp(elapsed / 120, 0, 1) // full ramp over 2 min
+  const pace = spawnPace(sector)
   return {
-    speed: 42 + 38 * d,
-    enemy: 2.1 - 1.2 * d,
-    obstacle: 1.5 - 0.7 * d,
+    speed: worldSpeedFor(elapsed, sector),
+    enemy: (2.1 - 1.2 * d) * pace,
+    obstacle: (1.5 - 0.7 * d) * pace,
   }
+}
+
+/** Endless sectors: TRAVEL → WARNING → BOSS → CLEAR → next sector. */
+function updateSector(dt: number) {
+  phaseT += dt
+  const next = advanceSector(phase, phaseT)
+  if (next === phase) return
+  phaseT = 0
+  if (phase === 'warning' && next === 'boss') startBoss()
+  phase = next
+  if (phase === 'travel') sector++
+  emitSector()
 }
 
 function update(dt: number, now: number) {
@@ -1170,17 +1485,20 @@ function update(dt: number, now: number) {
   gridMat.uniforms.uPulse.value = 0.25 + beat
   gridMat.uniforms.uOffset.value = (gridMat.uniforms.uOffset.value + worldSpeed * dt) % 4.0
 
-  // scroll speed
+  // scroll speed: the boss parks the corridor into an arena crawl
   if (gameOver) {
     worldSpeed += (14 - worldSpeed) * Math.min(1, dt * 2)
   } else if (demo) {
     worldSpeed += (26 - worldSpeed) * Math.min(1, dt * 2)
+  } else if (phase === 'boss') {
+    worldSpeed += (16 - worldSpeed) * Math.min(1, dt * 2)
   } else {
     worldSpeed = diffSpeed
   }
 
   if (!demo && !gameOver) {
     elapsed += dt
+    updateSector(dt)
     distance += worldSpeed * dt
     const km = Math.floor(distance / 100)
     if (km !== lastKm) {
@@ -1264,6 +1582,7 @@ function update(dt: number, now: number) {
   updateRocks(dt, now, demo)
   updateRings(dt, now, demo)
   updatePowerups(dt, now, demo)
+  updateBoss(dt, now)
   updateParticles(dt)
   updateWaves(dt)
   updateMountains(dt)
@@ -1286,26 +1605,36 @@ function update(dt: number, now: number) {
 
 function updateSpawns(dt: number, demo: boolean) {
   if (gameOver) return
-  enemySpawnT -= dt * (demo ? 0.5 : 1)
-  if (enemySpawnT <= 0) {
-    enemySpawnT = (demo ? 3.2 : diffEnemy) * rand(0.7, 1.3)
-    spawnFormation()
+  // WARNING drains the field; the boss brings its own minions, but rings
+  // keep trickling as the in-fight heal source.
+  const draining = !demo && phase === 'warning'
+  const bossFight = !demo && phase === 'boss'
+  if (!draining && !bossFight) {
+    enemySpawnT -= dt * (demo ? 0.5 : 1)
+    if (enemySpawnT <= 0) {
+      enemySpawnT = (demo ? 3.2 : diffEnemy) * rand(0.7, 1.3)
+      spawnFormation()
+    }
+    obstacleSpawnT -= dt * (demo ? 0.5 : 1)
+    if (obstacleSpawnT <= 0) {
+      obstacleSpawnT = (demo ? 2.6 : diffObstacle) * rand(0.7, 1.3)
+      if (Math.random() < 0.55) spawnPillar()
+      else spawnRock()
+    }
   }
-  obstacleSpawnT -= dt * (demo ? 0.5 : 1)
-  if (obstacleSpawnT <= 0) {
-    obstacleSpawnT = (demo ? 2.6 : diffObstacle) * rand(0.7, 1.3)
-    if (Math.random() < 0.55) spawnPillar()
-    else spawnRock()
+  if (!draining) {
+    ringSpawnT -= dt
+    if (ringSpawnT <= 0) {
+      ringSpawnT = bossFight ? rand(7, 10) : rand(5, 8.5)
+      spawnRing(demo)
+    }
   }
-  ringSpawnT -= dt
-  if (ringSpawnT <= 0) {
-    ringSpawnT = rand(5, 8.5)
-    spawnRing(demo)
-  }
-  powerSpawnT -= dt
-  if (powerSpawnT <= 0) {
-    powerSpawnT = rand(11, 17)
-    spawnPowerup(demo)
+  if (!draining && !bossFight) {
+    powerSpawnT -= dt
+    if (powerSpawnT <= 0) {
+      powerSpawnT = rand(11, 17)
+      spawnPowerup(demo)
+    }
   }
 }
 
@@ -1335,6 +1664,46 @@ function updateLasers(dt: number) {
         laserMesh.setMatrixAt(i, laserDummy.matrix)
         killEnemy(e, 0)
         break
+      }
+    }
+    if (!st.active) continue
+    // hit the boss: gold core (weak point) or a turret (shoots it off)
+    if (boss.active && boss.deathT < 0 && st.z < boss.z + 14 && st.z > boss.z - 14) {
+      const cdz = st.z - (boss.z + 6.2)
+      if (Math.abs(cdz) < 3.2) {
+        const cdx = st.x - boss.x
+        const cdy = st.y - (boss.y + 0.4)
+        if (cdx * cdx + cdy * cdy < 2.8 * 2.8) {
+          st.active = false
+          laserDummy.position.set(0, -999, 0)
+          laserDummy.updateMatrix()
+          laserMesh.setMatrixAt(i, laserDummy.matrix)
+          damageBoss(st.dmg)
+          burst(st.x, st.y, st.z, COL_GOLD, 10, 8)
+          addScore(25)
+        }
+      }
+      if (st.active) {
+        for (const t of boss.turrets) {
+          if (!t.alive) continue
+          const tdz = st.z - (boss.z + 3.2)
+          if (Math.abs(tdz) > 2.8) continue
+          const tdx = st.x - (boss.x + t.ox)
+          const tdy = st.y - (boss.y + 0.6)
+          if (tdx * tdx + tdy * tdy < 2.2 * 2.2) {
+            st.active = false
+            laserDummy.position.set(0, -999, 0)
+            laserDummy.updateMatrix()
+            laserMesh.setMatrixAt(i, laserDummy.matrix)
+            t.alive = false
+            t.mesh.visible = false
+            t.respawnT = 8
+            burst(st.x, st.y, st.z, COL_PINK, 18, 9)
+            spawnWave(st.x, st.y, st.z)
+            addScore(150 * mult)
+            break
+          }
+        }
       }
     }
     if (!st.active) continue
@@ -1396,24 +1765,32 @@ function updateLasers(dt: number) {
 function updateEnemies(dt: number, now: number, demo: boolean) {
   for (const e of enemies) {
     if (!e.active) continue
-    e.z += worldSpeed * 0.6 * dt
+    // Kamikazes trade their weave for a dive at the ship.
+    const diving = e.kind === 'kamikaze' && !demo && e.z > -140 && e.z < -4
+    e.z += worldSpeed * (diving ? 1.1 : 0.6) * dt
     e.wob += e.wobSpeed * dt
-    e.x += (e.vx + Math.sin(e.wob) * 2.2) * dt
+    if (diving) {
+      e.x += clamp(shipX - e.x, -1, 1) * 6 * dt
+      e.y += clamp(shipY - e.y, -1, 1) * 5 * dt
+    } else {
+      e.x += (e.vx + Math.sin(e.wob) * 2.2) * dt
+    }
     if (e.x < -laneX - 1 || e.x > laneX + 1) e.vx *= -1
     e.x = clamp(e.x, -laneX - 1.5, laneX + 1.5)
     e.root.position.set(e.x, e.y + Math.sin(e.wob * 1.3) * 0.3, e.z)
-    e.body.rotation.z += dt * 1.5
+    e.body.rotation.z += dt * (diving ? 4 : 1.5)
     if (e.z > KILL_Z) {
       e.active = false
       e.root.visible = false
       continue
     }
-    // fire aimed shots
+    // fire aimed shots (snipers shoot sooner and faster)
     if (e.shoots && !demo && !gameOver && e.z > -170 && e.z < -18) {
       e.fireT -= dt
       if (e.fireT <= 0) {
-        e.fireT = rand(1.4, 2.8)
-        fireBolt(e.x, e.y, e.z)
+        const iv = enemyFireInterval(sector)
+        e.fireT = e.kind === 'sniper' ? rand(iv.lo * 0.55, iv.hi * 0.6) : rand(iv.lo, iv.hi)
+        fireBolt(e.x, e.y, e.z, e.kind === 'sniper' ? 1.35 : 1)
       }
     }
     // ram the player
@@ -1422,7 +1799,7 @@ function updateEnemies(dt: number, now: number, demo: boolean) {
       const dy = e.y - shipY
       if (dx * dx + dy * dy < 2.9) {
         killEnemy(e, now)
-        onShipHit(now)
+        onShipHit(now, DMG.ram)
       }
     }
   }
@@ -1445,7 +1822,7 @@ function updateBolts(dt: number, now: number, demo: boolean) {
       if (tmpV.lengthSq() < 1.44) {
         b.active = false
         b.mesh.visible = false
-        onShipHit(now)
+        onShipHit(now, DMG.bolt)
       }
     }
   }
@@ -1471,7 +1848,7 @@ function updatePillars(dt: number, now: number, demo: boolean) {
     pillarMesh.setMatrixAt(p.i, dummy.matrix)
     if (!demo && !gameOver && shipVisible && Math.abs(p.z) < 1.4) {
       if (Math.abs(shipX - p.x) < p.w / 2 + 0.8 && shipY < p.top + 0.8) {
-        onShipHit(now)
+        onShipHit(now, DMG.pillar)
       }
     }
   }
@@ -1500,7 +1877,7 @@ function updateRocks(dt: number, now: number, demo: boolean) {
       if (tmpV.lengthSq() < (r.r + 0.9) * (r.r + 0.9)) {
         r.active = false
         burst(r.x, r.y, r.z, COL_PINK, 24, 11)
-        onShipHit(now)
+        onShipHit(now, DMG.rock)
       }
     }
   }
@@ -1699,9 +2076,10 @@ function quitToGameOver(): void {
   killCount = 0
   mult = 1
   streakT = 0
-  lives = 0
+  hp = 0
   weaponLevel = 1
-  emit('lives', 0)
+  emitHealth()
+  deactivateBoss()
   gameOver = true
   deathAt = performance.now() / 1000 + 0.9
   deathEmitted = false

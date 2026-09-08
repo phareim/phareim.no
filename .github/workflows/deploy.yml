@@ -20,6 +20,7 @@ jobs:
       - run: npm ci
 
       - run: npm run test:invaders
+      - run: npm run test:starfox
       - run: npm run test:eschold
       - run: npm run test:tetris
       - run: npm run test:anotherworld
