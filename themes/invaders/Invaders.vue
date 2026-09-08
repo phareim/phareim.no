@@ -188,6 +188,11 @@ let cannonTrail = [] // { x, t } afterimages
 
 // Shots.
 let shot = null // one player bolt at a time
+let weapon = null
+let weaponTime = 0
+let pickups = []
+let pickupKills = 0
+let pickupSerial = 0
 let bombs = []
 let bombAcc = 1
 
@@ -583,6 +588,7 @@ function startDemo() {
   gameOver = false
   paused.value = false
   keys = {}
+  resetWeapons()
   score = 0
   lastScoreSent = -1
   wave = 1
@@ -628,6 +634,7 @@ function startDemo() {
 }
 
 function startGame() {
+  resetWeapons()
   score = 0
   lastScoreSent = -1
   wave = 1
@@ -691,7 +698,7 @@ function stepIntervalMs() {
   const base = 45 + 520 * Math.pow(Math.max(0, frac), 1.2)
   // Attract mode drifts down slowly so the bottom row stays above ~45 %
   // for the first ~20 s and the name stays readable.
-  return gameStarted ? base : base * 1.9
+  return gameStarted ? base / 1.15 : base * 1.9
 }
 
 function doStep(now) {
@@ -942,17 +949,85 @@ function explode(x, y, big) {
   shake = Math.min(1, shake + (big ? 0.7 : 0.3))
 }
 
+function resetWeapons() {
+  weapon = null
+  weaponTime = 0
+  pickups = []
+  pickupKills = 0
+  pickupSerial = 0
+}
+
+function dropPickup(x, y) {
+  if (pickups.length >= 3) return
+  pickups.push({ x: clamp(x, 22, SW - 22), y, kind: pickupSerial++ % 2 ? 'blast' : 'pierce' })
+}
+
+function updateWeapons(dt) {
+  weaponTime = Math.max(0, weaponTime - dt)
+  if (!weaponTime) weapon = null
+  const rc = cannonRect()
+  for (let i = pickups.length - 1; i >= 0; i--) {
+    const p = pickups[i]
+    const prevY = p.y
+    p.y += Math.max(85, SH * 0.16) * dt
+    if (p.x >= rc.x - 14 && p.x <= rc.x + rc.w + 14 && prevY <= rc.y + rc.h + 14 && p.y >= rc.y - 14) {
+      weapon = p.kind
+      weaponTime = 12
+      spawnParticles(p.x, cannonY, GOLD, 18, 180)
+      shockwaves.push({ x: p.x, y: cannonY, radius: 6, life: 1, color: GOLD })
+      pickups.splice(i, 1)
+    } else if (p.y > SH + 20) pickups.splice(i, 1)
+  }
+}
+
+function blast(x, y, now) {
+  const radius = cellW * 1.35
+  explode(x, y, true)
+  shockwaves.push({ x, y, radius: radius * 0.65, life: 1, color: CYAN })
+  if (horizon) horizon.beat()
+  for (let r = ROWS - 1; r >= 0; r--) {
+    for (let c = 0; c < cols; c++) {
+      if (!alive[r][c]) continue
+      const rc = invaderRect(r, c)
+      if (Math.hypot(rc.x + rc.w / 2 - x, rc.y + rc.h / 2 - y) <= radius) killInvader(r, c, now)
+    }
+  }
+  bombs = bombs.filter(b => Math.hypot(b.x - x, b.y - y) > radius)
+}
+
+function drawWeapons() {
+  if (!gameStarted || gameOver) return
+  ctx.save()
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = `bold 12px ${MACHINE_FONT}`
+  ctx.strokeStyle = GOLD
+  ctx.fillStyle = GOLD
+  ctx.shadowColor = GOLD
+  ctx.shadowBlur = mobileFx ? 4 : 10
+  for (const p of pickups) {
+    ctx.strokeRect(p.x - 14, p.y - 14, 28, 28)
+    ctx.fillText(p.kind === 'pierce' ? 'P' : 'B', p.x, p.y)
+  }
+  if (weapon) {
+    ctx.fillText(`${weapon.toUpperCase()} · ${Math.ceil(weaponTime)}S`, clamp(cannonX, 85, SW - 85), cannonY + px * 4 + 18)
+  }
+  ctx.restore()
+}
+
 function fire() {
-  if (!gameStarted || gameOver || dying > 0 || shot) return
-  shot = { x: cannonX, y: cannonY - 4 * px - 6 }
+  if (!gameStarted || gameOver || dying > 0 || paused.value || wavePause > 0 || shot) return
+  shot = { x: cannonX, y: cannonY - 4 * px - 6, weapon }
 }
 
 function killInvader(r, c, now) {
+  if (!alive[r][c]) return
   alive[r][c] = false
   aliveCount--
   const rc = invaderRect(r, c)
   const cx = rc.x + rc.w / 2
   const cy = rc.y + rc.h / 2
+  if (gameStarted && ++pickupKills % 5 === 0) dropPickup(cx, cy)
   // Combo twist: a kill within 1.5 s of the previous one bumps x1->x4.
   const gap = now - lastKillT
   streak = gap < 1.5 ? streak + 1 : 0
@@ -966,7 +1041,7 @@ function killInvader(r, c, now) {
   shatterSprite(rows, rc.x, rc.y, px, PINK)
   shockwaves.push({ x: cx, y: cy, radius: 6, life: 1, color: PINK })
   if (aliveCount <= 0 && !gameOver) {
-    wavePause = 1.6
+    wavePause = 1.3
     shot = null
     bombs = []
     shotTrail = []
@@ -977,6 +1052,7 @@ function killInvader(r, c, now) {
 
 function onCannonHit(now) {
   if (now < invulnUntil || dying > 0) return
+  resetWeapons()
   explode(cannonX, cannonY, true)
   spawnParticles(cannonX, cannonY, '#ffffff', 8, 200)
   // Effect 2: cannon shatters into cyan pixels + white frame + red vignette.
@@ -1346,12 +1422,14 @@ function updateGame(dt, now) {
   }
   cannonX = clampCannon(cannonX)
 
+  updateWeapons(dt)
+  if (gameStarted && (keys.Space || keys.ArrowUp || keys.KeyW)) fire()
   updateShot(dt, now)
   updateBombs(dt, now)
 }
 
 function shotSpeed() {
-  return Math.max(520, SH * 0.9)
+  return Math.max(620, SH * 1.08) * (shot?.weapon === 'pierce' ? 1.35 : 1)
 }
 
 function updateShot(dt, now) {
@@ -1402,6 +1480,7 @@ function updateShot(dt, now) {
         }
       }
       shockwaves.push({ x: ufo.x, y: ufo.y + uh / 2, radius: 6, life: 1, color: GOLD })
+      if (gameStarted) dropPickup(ufo.x, ufo.y)
       ufo = null
       shot = null
       shotTrail = []
@@ -1423,12 +1502,17 @@ function updateShot(dt, now) {
       if (!alive[r][c]) continue
       invaderRectInto(r, c, _rc)
       if (shot.x > _rc.x && shot.x < _rc.x + _rc.w && prevY >= _rc.y && shot.y <= _rc.y + _rc.h) {
-        shot = null
+        const bolt = shot
+        const x = _rc.x + _rc.w / 2
+        const y = _rc.y + _rc.h / 2
+        if (bolt.weapon !== 'pierce') shot = null
         killInvader(r, c, now)
-        return
+        if (bolt.weapon === 'blast') blast(x, y, now)
+        if (!shot) return
       }
     }
   }
+  if (!shot) return
   // Shooting a bomb out of the sky.
   for (let i = bombs.length - 1; i >= 0; i--) {
     const b = bombs[i]
@@ -1924,6 +2008,8 @@ function draw() {
   ctx.restore()
   ctx.globalAlpha = 1
   ctx.shadowBlur = 0
+
+  drawWeapons()
 
   // Effect 2: white flash frame + brief red vignette pulse (no gradients).
   if (whiteFlash > 0.01) {

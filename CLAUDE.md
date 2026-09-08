@@ -248,3 +248,24 @@ fingers/cancellation, idle tap versus swipe, cannon bounds and collision sweeps
 touch at 320×568, 375×667, 390×844 and 667×375, plus keyboard at 1440×900:
 held touch scores without further movement, HUD stays clear, no page errors
 or document overflow. Physical-phone feel and frame rate are not measured.
+
+## Space Invaders weapon pickups (2026-09-08)
+
+The live formation marches 15% faster and base bolts travel about 20% faster;
+wave breaks are 1.3 seconds. Holding Space/Up/W fires again when the current
+bolt clears, matching held touch. Gold pickups drop every fifth invader kill
+and on UFO kills, alternating P (Pierce) and B (Blast), with at most three
+falling at once. Catch them with the cannon: Pierce passes through invaders
+with a faster bolt; Blast damages a 1.35-cell-radius area and removes nearby
+bombs, with extra particles and shockwaves. Bunkers still stop either bolt.
+
+Each pickup replaces the weapon for 12 seconds of active play; the label and
+remaining seconds appear below the cannon. Pause, death freezes and wave breaks
+freeze pickup movement and duration. Losing a life or restarting clears weapons
+and pickups. Existing bolts retain their weapon until impact. No extra controls.
+The additions stay in `themes/invaders/Invaders.vue`; the mobile regression suite
+also covers pickup lifecycle, piercing, blast damage and wave-clear behavior.
+Typecheck, production build and engine tests verified 2026-09-08.
+Chromium gameplay smoke checks also passed at 320×568, 375×667, 390×844,
+667×375 and 1440×900 with touch/keyboard input, no page errors or document
+overflow (2026-09-08). Physical-phone feel remains unmeasured.

@@ -39,6 +39,7 @@ test('phone sprites are larger and leave room for the formation, bunkers and fin
 
 test('holding a still finger keeps firing, with only one bolt at a time', () => {
   const run = game()
+  run('bunkers = []')
   run(`handleTouchStart(${event(touch(1, 290))}); updateGame(.016, 1)`)
   assert.equal(run('cannonX'), 290)
   assert.equal(run('shot.x'), 290)
@@ -102,4 +103,58 @@ test('direct steering keeps the entire enlarged cannon inside the viewport', () 
   assert.ok(run('cannonRect().x >= 0'))
   run(`handleTouchMove(${event(touch(1, 375))}); updateGame(.016,1.016)`)
   assert.ok(run('cannonRect().x + cannonRect().w <= SW'))
+})
+
+test('gold pickups alternate, collect on swept contact, expire and reset on death', () => {
+  const run = game()
+  run('dropPickup(cannonX, cannonY - 50); dropPickup(30, 100)')
+  assert.equal(run('pickups[0].kind'), 'pierce')
+  assert.equal(run('pickups[1].kind'), 'blast')
+  run('updateWeapons(.5)')
+  assert.equal(run('weapon'), 'pierce')
+  run('updateWeapons(12)')
+  assert.equal(run('weapon'), null)
+  run("weapon = 'blast'; weaponTime = 12; onCannonHit(2)")
+  assert.equal(run('weapon'), null)
+  assert.equal(run('pickups.length'), 0)
+})
+
+test('piercing bolt crosses multiple rows; blast kills neighbors and clears nearby bombs', () => {
+  const run = game()
+  run(`bunkers = []; const target = invaderRect(4, 2);
+    shot = {x:target.x + target.w / 2, y:target.y + target.h + 1, weapon:'pierce'};
+    updateShot(.12, 1)`)
+  assert.equal(run('alive[4][2]'), false)
+  assert.equal(run('alive[3][2]'), false)
+  run(`startGame(); bunkers = []; const target2 = invaderRect(4, 2);
+    bombs = [{x:target2.x,y:target2.y}];
+    shot = {x:target2.x + target2.w / 2,y:target2.y + target2.h + 1,weapon:'blast'};
+    updateShot(.02, 2)`)
+  assert.equal(run('alive[4][1] || alive[4][2] || alive[4][3]'), false)
+  assert.equal(run('bombs.length'), 0)
+  assert.ok(run('shockwaves.length > 3'))
+})
+
+test('held keyboard fires and pause or wave transition blocks new bolts', () => {
+  const run = game()
+  run('keys.Space = true; updateGame(.016, 1)')
+  assert.ok(run('shot'))
+  run('shot = null; paused.value = true; fire()')
+  assert.equal(run('shot'), null)
+  run('paused.value = false; wavePause = 1; fire()')
+  assert.equal(run('shot'), null)
+})
+
+test('blast wave clear happens once and restarts without a stale bolt', () => {
+  const run = game()
+  run(`for(let r=0;r<ROWS;r++) for(let c=0;c<cols;c++) alive[r][c] = r===4 && c===2;
+    aliveCount=1; bunkers=[]; const finalTarget=invaderRect(4,2);
+    shot={x:finalTarget.x+finalTarget.w/2,y:finalTarget.y+finalTarget.h+1,weapon:'blast'};
+    updateShot(.02,1)`)
+  assert.equal(run('aliveCount'), 0)
+  assert.equal(run('shot'), null)
+  assert.equal(run('wavePause'), 1.3)
+  run('updateGame(1.4,2.4)')
+  assert.equal(run('wave'), 2)
+  assert.equal(run('aliveCount'), 25)
 })
