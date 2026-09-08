@@ -33,6 +33,8 @@ import EscHold from '../base/EscHold.vue'
 import {
   HP_MAX, DMG, HEAL_RING, HEAL_CLEAR,
   type SectorPhase, advanceSector, bossMaxHp, sectorClearBonus,
+  bossAttackInterval, BOSS_ENRAGE_RATE, bossFanCount, bossFanSpread,
+  bossMinions, sectorPalette,
   enemyFireInterval, boltSpeedBonus, enemyShootChance,
   formationSize, pickEnemyKind, worldSpeedFor, spawnPace,
   applyDamage, heal,
@@ -69,10 +71,10 @@ const KILL_Z = 18
 let laneX = 11
 const LANE_Y_LO = -1.5
 const LANE_Y_HI = 6.0
-// Attract mode keeps the ship out of the centre band (profile card + text).
+// Attract mode keeps the ship low, clear of the HUD dock at the bottom.
 // Landscape: lower fifth. Portrait: lower-right, below the hint text (2026-09-05).
-const ATTRACT_Y = -2.9
-const ATTRACT_Y_PORTRAIT = -3.8
+const ATTRACT_Y = -2.0
+const ATTRACT_Y_PORTRAIT = -3.0
 const ATTRACT_X_PORTRAIT = 3.0
 const ATTRACT_LOOK_UP_PORTRAIT = 1.6
 const FIRE_INTERVAL = 1 / 6
@@ -81,7 +83,7 @@ const MULT_STEPS = [1, 2, 3, 4, 6, 8]
 const MAX_PARTICLES = 420
 const MAX_LASERS = 48
 // Boss spreads need more bolts in the air than the old aimed shots.
-const MAX_BOLTS = 40
+const MAX_BOLTS = 64
 const MAX_ENEMIES = 28
 const MAX_PILLARS = 16
 const MAX_ROCKS = 10
@@ -1125,20 +1127,21 @@ function bossAttack(now: number) {
   const step = boss.attackStep % 3
   boss.attackStep++
   if (step === 0) {
-    // aimed bursts from each living turret
+    // aimed bursts from each living turret; from sector 2 the core joins in
     for (const t of aliveTurrets) fireBolt(boss.x + t.ox, boss.y + 0.6, boss.z)
-    if (aliveTurrets.length === 0) fireBolt(boss.x, boss.y, boss.z)
+    if (aliveTurrets.length === 0 || sector >= 2) fireBolt(boss.x, boss.y, boss.z, sector >= 2 ? 1.15 : 1)
   } else if (step === 1) {
     // spread fan from the core — dodge the gaps, not the bolts
-    const n = sector >= 2 ? 7 : 5
+    const n = bossFanCount(sector)
+    const spread = bossFanSpread(sector)
     for (let i = 0; i < n; i++) {
-      const dx = (i / (n - 1) - 0.5) * (sector >= 3 ? 0.9 : 0.7)
-      fireBoltDir(boss.x, boss.y + 0.4, boss.z + 6, dx, 0, 0.9)
+      const dx = (i / (n - 1) - 0.5) * spread
+      fireBoltDir(boss.x, boss.y + 0.4, boss.z + 6, dx, 0, sector >= 3 ? 1.0 : 0.9)
     }
   } else {
-    // minion screen: two drones peel off the hull
-    for (const s of [-1, 1]) {
-      spawnEnemy(boss.x + s * 6, boss.y + rand(-1, 1), boss.z + 10, Math.random() < 0.7, 'drone')
+    // minion screen peeling off the hull — grows teeth per sector
+    for (const m of bossMinions(sector)) {
+      spawnEnemy(boss.x + m.dx, boss.y + rand(-1, 1), boss.z + 10, Math.random() < 0.7, m.kind)
     }
   }
 }
@@ -1198,9 +1201,9 @@ function updateBoss(dt: number, now: number) {
     boss.core.rotation.y += dt * 2.4
     boss.coreMat.emissiveIntensity = 0.85 + Math.sin(now * 6) * 0.3
     const enraged = boss.hp < boss.max * 0.3
-    boss.attackT -= dt * (enraged ? 1.25 : 1)
+    boss.attackT -= dt * (enraged ? BOSS_ENRAGE_RATE : 1)
     if (boss.attackT <= 0) {
-      boss.attackT = sector >= 3 ? 2.0 : 2.4
+      boss.attackT = bossAttackInterval(sector)
       bossAttack(now)
     }
   }
@@ -1389,6 +1392,7 @@ function startGame() {
   sector = 1
   phase = 'travel'
   phaseT = 0
+  applySectorPalette(1)
   lastPhaseSent = ''
   lastSectorSent = 0
   elapsed = 0
@@ -1470,7 +1474,10 @@ function updateSector(dt: number) {
   phaseT = 0
   if (phase === 'warning' && next === 'boss') startBoss()
   phase = next
-  if (phase === 'travel') sector++
+  if (phase === 'travel') {
+    sector++
+    applySectorPalette(sector)
+  }
   emitSector()
 }
 
@@ -2007,6 +2014,17 @@ function updateMountains(dt: number) {
   mountainEdgeMesh.instanceMatrix.needsUpdate = true
 }
 
+/** Hard-cut the backdrop palette on a new sector: mountains, grid, fog, sky. */
+function applySectorPalette(s: number) {
+  if (!mountainMesh || !gridMat || !skyMat || !scene) return
+  const p = sectorPalette(s)
+  ;(mountainMesh.material as THREE.MeshLambertMaterial).color.set(p.face)
+  ;(mountainEdgeMesh.material as THREE.MeshBasicMaterial).color.set(p.edge)
+  ;(gridMat.uniforms.magenta.value as THREE.Color).set(p.grid)
+  ;(scene.fog as THREE.Fog).color.set(p.fog)
+  ;(skyMat.uniforms.hor.value as THREE.Color).set(p.sky)
+}
+
 function updateCamera(dt: number, now: number) {
   const fx = portrait ? 0.45 : 0.5
   const fy = portrait ? 0.45 : 0.5
@@ -2221,6 +2239,7 @@ onMounted(() => {
   if (!renderer) return
   reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
   buildScene()
+  applySectorPalette(1)
   resize()
   window.addEventListener('resize', resize)
   window.addEventListener('keydown', onKeyDown)

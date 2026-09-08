@@ -66,6 +66,69 @@ export function bossMaxHp(sector: number): number {
   return 40 + 15 * (Math.max(1, Math.floor(sector)) - 1)
 }
 
+/** Seconds between boss attacks: fiercer every sector. */
+export function bossAttackInterval(sector: number): number {
+  const s = Math.max(1, Math.floor(sector))
+  return s >= 3 ? 1.4 : s >= 2 ? 1.6 : 1.8
+}
+
+/** Enrage multiplier on the attack clock below 30 % core health. */
+export const BOSS_ENRAGE_RATE = 1.5
+
+/** Bolts in the boss spread fan per sector. */
+export function bossFanCount(sector: number): number {
+  const s = Math.max(1, Math.floor(sector))
+  return s >= 3 ? 9 : s >= 2 ? 7 : 5
+}
+
+/** Full width of the spread fan (lateral direction units). */
+export function bossFanSpread(sector: number): number {
+  const s = Math.max(1, Math.floor(sector))
+  return s >= 3 ? 1.0 : s >= 2 ? 0.85 : 0.7
+}
+
+/** Minion screen per sector: pairs of [kind, lateral offset]. */
+export function bossMinions(sector: number): { kind: EnemyKind; dx: number }[] {
+  const s = Math.max(1, Math.floor(sector))
+  const out: { kind: EnemyKind; dx: number }[] = [
+    { kind: 'drone', dx: -6 },
+    { kind: 'drone', dx: 6 },
+  ]
+  if (s >= 2) out.push({ kind: 'sniper', dx: -9 }, { kind: 'sniper', dx: 9 })
+  if (s >= 3) out.push({ kind: 'kamikaze', dx: 0 })
+  return out
+}
+
+/** Sector backdrop palette: mountains, grid and fog shift per sector. */
+export interface SectorPalette {
+  /** mountain face fill */
+  face: number
+  /** mountain wireframe edge */
+  edge: number
+  /** grid line colour (the magenta accent) */
+  grid: number
+  /** fog colour */
+  fog: number
+  /** sky horizon band */
+  sky: number
+}
+
+const SECTOR_PALETTES: SectorPalette[] = [
+  // 1 — violet dusk (the original look)
+  { face: 0x0d0718, edge: 0xb169f5, grid: 0xff2fa0, fog: 0x1a0b2e, sky: 0x6b1450 },
+  // 2 — emerald night
+  { face: 0x06180f, edge: 0x3ff5a5, grid: 0x2df5a0, fog: 0x06231a, sky: 0x0d5a3c },
+  // 3 — ember storm
+  { face: 0x1c0a06, edge: 0xff7a3f, grid: 0xff5a3f, fog: 0x2b0e06, sky: 0x7a2a10 },
+  // 4 — deep azure
+  { face: 0x080e24, edge: 0x5aa5ff, grid: 0xb12fff, fog: 0x0a1030, sky: 0x1c2a6b },
+]
+
+export function sectorPalette(sector: number): SectorPalette {
+  const s = Math.max(1, Math.floor(sector))
+  return SECTOR_PALETTES[(s - 1) % SECTOR_PALETTES.length]!
+}
+
 /** Score bonus for killing the sector boss. */
 export function sectorClearBonus(sector: number): number {
   return 1000 * Math.max(1, Math.floor(sector))

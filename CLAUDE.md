@@ -291,18 +291,28 @@ faster bolts) and diving kamikazes from sector 2/3.
 
 The sector boss is the DREADNOUGHT: a gunship that cruises in from deep
 field, parks at z ≈ −60 and strafes while its turrets cycle aimed bursts,
-a spread fan and minion screens (double fan from sector 2, enrage below
-30 %). Only the gold core takes damage (40 hits + 15 per sector; gold
-bolts count double); turrets can be shot off and regrow after 8 s. Its
-pink meter sits fixed at the viewport top; the hull meter (cyan → gold →
-blinking pink under 30 %) sits under the sector/score HUD.
+a spread fan and minion screens. Only the gold core takes damage (40 hits
++ 15 per sector; gold bolts count double); turrets can be shot off and
+regrow after 8 s. Since 2026-09-08 it hits harder per sector: attack
+interval 1.8/1.6/1.4 s (enrage ×1.5 below 30 %), fan 5/7/9 bolts widening
+per sector, the core joins the aimed bursts from sector 2, and the minion
+screen grows from 2 drones to +2 snipers (sector 2) + a kamikaze
+(sector 3); the bolt pool is 64. HUD and boss meter share one bottom dock
+(sector/score, hull cyan → gold → blinking pink under 30 %, banners,
+hints; boss meter stacked on top while active) so the corridor stays
+clear — the sector line hides until launch, and the attract ship flies a
+little higher to clear the dock.
 
 Files: `themes/starfox/Flight.vue` (scene + state machine), `Landing.vue`
-(HUD, bars, banners), `balance.ts` (all tuning as pure functions —
+(HUD dock, bars, banners), `balance.ts` (all tuning as pure functions —
 `advanceSector` holds the travel/warning/boss/clear edges except the
-kill, which lives in the scene), `tests/starfox-balance.test.mjs` (12
-tests, `npm run test:starfox`, in CI). During BOSS the corridor crawls
-at speed 16 and only rings spawn (the in-fight heal trickle).
+kill, which lives in the scene; `bossAttackInterval`/`bossFanCount`/
+`bossFanSpread`/`bossMinions` pin the boss ramp; `sectorPalette` holds the
+four cycling backdrop palettes — violet dusk, emerald, ember, azure — cut
+hard onto mountains, grid, fog and sky at every sector rollover),
+`tests/starfox-balance.test.mjs` (16 tests, `npm run test:starfox`, in
+CI). During BOSS the corridor crawls at speed 16 and only rings spawn
+(the in-fight heal trickle).
 
 Verified 2026-09-08: 12/12 tests, typecheck, production build, and a live
 headless-Chromium run (shortened timers, reverted after) through two full
