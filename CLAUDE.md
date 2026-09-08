@@ -28,7 +28,7 @@ When restoring things: cherry-pick onto this base, and **leave out the backgroun
 - **Framework**: Nuxt 3 + Vue 3 Composition API + TypeScript (`themes/scandi/Bubbles.vue` is Options API, moved verbatim)
 - **Hosting**: Cloudflare Pages, project `phareim-no`. SSR runs in the Pages worker (`_routes.json` sends everything except static assets to it), which is what lets the random first-visit theme be picked server-side.
 - **Database / storage**: one D1, `phareim-leaderboard` (id `54e101f9-4026-4fd1-a78a-7a8976e1301e`, created 2026-09-08), bound as `LEADERBOARD_DB` in `wrangler.toml`, schema in `migrations/`, applied by CI before every deploy. It holds the Hall of Fame only — see that section. The older D1 (`phareim-rpg`) was deleted 2026-07-23 (export at `~/backups/d1/2026-07-23/phareim-rpg.sql` on Sleeper); the R2 binding and the image-generation API were removed 2026-09-03.
-- **External APIs**: none. `server/` came back 2026-09-08 with the three Hall of Fame routes (`/api/leaderboard`, `/api/player`, `/api/score`) and nothing else.
+- **External APIs**: one — wave-jobs on Sleeper (`POST https://sleeper.phareim.no/wave-jobs/avatar`, Bearer `WAVE_JOBS_KEY`) paints the Hall of Fame avatars (2026-09-08). `server/` came back 2026-09-08 with the three Hall of Fame routes (`/api/leaderboard`, `/api/player`, `/api/score`) and nothing else.
 - **Dependencies of note**: `three` 0.185 (+ `@types/three`), used only by the Star Fox theme and loaded as an async chunk (2026-09-05); `@fontsource/space-grotesk` + `@fontsource/space-mono` (self-hosted fonts, 2026-09-06)
 - **Fonts** (2026-09-06): two faces, the Neon Dreams split — `--font-person` (Space Grotesk at weight 300, the face's lightest, for body, name and page titles; 400/500 for emphasis: name, blurbs, prose) and `--font-machine` (Space Mono: HUD, hints, over-titles, canvas score pops, shas). Defined on `:root` in `themes/base/fonts.css` (imported first in `themes/index.ts`), latin subsets only; canvas code imports `MACHINE_FONT` from `themes/base/fonts.ts`. Nothing loads from Google Fonts any more (Comfortaa and the preconnects are gone). The parked themes keep their own faces (desk: ET Book).
 - **State**: Nuxt `useState` + a `theme` cookie (no state library). localStorage holds per-game high scores and, since 2026-09-08, the browser's Hall of Fame player (`phareim.player`).
@@ -75,7 +75,7 @@ back.
 
 ## Key Patterns
 
-- No `runtimeConfig` (2026-09-07). The Hall of Fame routes read their D1 binding from `event.context.cloudflare.env` (2026-09-08), which needs no config. If `runtimeConfig` comes back: secrets are set on Cloudflare by `NUXT_`-prefixed env vars, and server code **must** call `useRuntimeConfig(event)` — without the event, Workers return a config frozen at module init, before env vars exist, so the value silently never applies (found 2026-09-03).
+- No `runtimeConfig` (2026-09-07). The Hall of Fame routes read their D1 binding and the `WAVE_JOBS_KEY` secret from `event.context.cloudflare.env` (2026-09-08), which needs no config; background work goes through `event.context.cloudflare.context.waitUntil`. If `runtimeConfig` comes back: secrets are set on Cloudflare by `NUXT_`-prefixed env vars, and server code **must** call `useRuntimeConfig(event)` — without the event, Workers return a config frozen at module init, before env vars exist, so the value silently never applies (found 2026-09-03).
 - No auth system.
 
 ## Deployment
@@ -303,6 +303,31 @@ if you are outside the top ten a `· · ·` gap and your own row with its
 rank, plus RANK n OF total. Short viewports show fewer rows (measured from
 the space the panel has, minimum three). Empty game: NO SCORES YET.
 
+**Avatars (2026-09-08).** Every player gets a painted portrait of their
+name's animal as a space pilot — Petter's painterly Fortiche-style prompt,
+animal edition, the name stencilled on the helmet as callsign — made by
+gpt-image-2 at quality `low` through the wave CLI on Sleeper and stored in
+the fixer.ink media library (tag `phareim-avatar`, rating G, **3:2** so the
+picture can be a card or banner later; the prompt pins the head to the
+centre for the board's round crop). The site never talks to WaveSpeed:
+`server/utils/avatar.ts` posts the name to wave-jobs' `POST /avatar`
+(Bearer `WAVE_JOBS_KEY`, a Pages secret since 2026-09-08) inside
+`waitUntil`, and stores the returned filename in `players.avatar_file`
+(migration `0002_avatars.sql`; URLs are composed from it by
+`avatarThumbUrl`/`avatarImageUrl` in `themes/leaderboard/games.ts` —
+`media.fixer.ink/thumbnails/<stem>_thumb.jpg` is a 320 px thumbnail, what
+the board shows). Painting starts on `POST /api/player` (new name or reroll)
+and on `GET /api/leaderboard` for a known player whose picture is missing
+or made for another name, so pre-avatar players catch up on their next
+visit. Guards in the store: `claimAvatar` takes one painting per name, at
+most `AVATAR_MAX_GENS` (6) per player, and not twice within three minutes;
+wave-jobs adds a daily cap. ≈$0.02–0.06 per painting, ~35–45 s. On the
+board the pilot is a 20 px disc between rank and name at 55 % opacity — full
+strength on your row, under the pointer, and beside YOU ARE in the footer,
+where it breathes pink while a painting is pending; the theme refetches the
+board once or twice at 45 s while its own picture is missing. `nuxi dev`
+has no key, so avatars stay null there.
+
 **Wiring.** The five arcade landings call `submitScore('<id>', score)` in
 `onGameOver`; Tetris does it in `Game.vue` on top-out and on the Escape
 hold. A run of 0 is not sent. When the API answers, the game-over screen
@@ -310,7 +335,8 @@ adds WORLD RANK #n · NAME. Failures are silent — the board is a bonus.
 
 **API** (`server/api/`, store in `server/utils/store.ts`):
 `GET /api/leaderboard?player=<id>` → `{ boards: { [game]: { top, total, me } }, player }`
-(one window-function query plus a count, `Cache-Control: no-store`);
+(rows and `player` carry `avatar`, the thumbnail URL or null;
+one window-function query plus a count, `Cache-Control: no-store`);
 `POST /api/player { id, name }` → 400 bad id/name, 409 name taken;
 `POST /api/score { playerId, game, score }` → `{ best, rank }`, 400 for an
 unknown game or a score outside 1..`maxScore` (a per-game plausibility cap in

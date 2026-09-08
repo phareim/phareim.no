@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { GAMES, TOP_N, type BoardRow, type GameBoard } from '~/themes/leaderboard/games'
+import { GAMES, TOP_N, AVATAR_MAX_GENS, avatarThumbUrl, type BoardRow, type GameBoard } from '~/themes/leaderboard/games'
 
 /**
  * Hall of Fame storage. Production is the `LEADERBOARD_DB` D1 binding from
@@ -12,6 +12,12 @@ import { GAMES, TOP_N, type BoardRow, type GameBoard } from '~/themes/leaderboar
 export interface Player {
   id: string
   name: string
+  /** Filename of the painted pilot in the fixer.ink library, once one exists. */
+  avatarFile: string | null
+  /** The name that painting was made for; differs from `name` after a reroll. */
+  avatarName: string | null
+  /** Paintings started for this player so far (bounded by AVATAR_MAX_GENS). */
+  avatarGens: number
 }
 
 export interface SubmitResult {
@@ -29,7 +35,18 @@ export interface Store {
   submitScore(playerId: string, game: string, score: number): Promise<SubmitResult | 'no-player'>
   /** Top rows per game, plus the given player's own row. */
   boards(playerId: string | null): Promise<Record<string, GameBoard>>
+  /**
+   * Reserves one painting of `name` for the player: true when the caller
+   * should go and paint. False when the current avatar already is `name`,
+   * the player has hit the cap, or a painting started less than a few
+   * minutes ago (two tabs, one picture).
+   */
+  claimAvatar(id: string, name: string): Promise<boolean>
+  /** Stores the finished painting for `name`. */
+  setAvatar(id: string, name: string, file: string): Promise<void>
 }
+
+const AVATAR_CLAIM_MINUTES = 3
 
 // --- D1 ------------------------------------------------------------------
 
@@ -38,7 +55,7 @@ interface D1PreparedLike {
   bind(...values: unknown[]): D1PreparedLike
   first<T = Record<string, unknown>>(): Promise<T | null>
   all<T = Record<string, unknown>>(): Promise<{ results: T[] }>
-  run(): Promise<unknown>
+  run(): Promise<{ meta?: { changes?: number } }>
 }
 
 export interface D1Like {
@@ -51,15 +68,48 @@ interface RankedRow {
   score: number
   player_id: string
   name: string
+  avatar_file: string | null
   rank: number
+}
+
+interface PlayerRow {
+  id: string
+  name: string
+  avatar_file: string | null
+  avatar_name: string | null
+  avatar_gens: number
+}
+
+function toPlayer(r: PlayerRow): Player {
+  return { id: r.id, name: r.name, avatarFile: r.avatar_file, avatarName: r.avatar_name, avatarGens: r.avatar_gens }
 }
 
 class D1Store implements Store {
   constructor(private db: D1Like) {}
 
   async getPlayer(id: string): Promise<Player | null> {
-    const row = await this.db.prepare('SELECT id, name FROM players WHERE id = ?').bind(id).first<Player>()
-    return row ?? null
+    const row = await this.db
+      .prepare('SELECT id, name, avatar_file, avatar_name, avatar_gens FROM players WHERE id = ?')
+      .bind(id)
+      .first<PlayerRow>()
+    return row ? toPlayer(row) : null
+  }
+
+  async claimAvatar(id: string, name: string): Promise<boolean> {
+    const res = await this.db
+      .prepare(`UPDATE players SET avatar_started_at = datetime('now'), avatar_gens = avatar_gens + 1
+                WHERE id = ? AND (avatar_name IS NULL OR avatar_name != ?) AND avatar_gens < ?
+                  AND (avatar_started_at IS NULL OR avatar_started_at < datetime('now', ?))`)
+      .bind(id, name, AVATAR_MAX_GENS, `-${AVATAR_CLAIM_MINUTES} minutes`)
+      .run()
+    return (res.meta?.changes ?? 0) > 0
+  }
+
+  async setAvatar(id: string, name: string, file: string): Promise<void> {
+    await this.db
+      .prepare('UPDATE players SET avatar_file = ?, avatar_name = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      .bind(file, name, id)
+      .run()
   }
 
   async upsertPlayer(id: string, name: string): Promise<'ok' | 'name-taken'> {
@@ -97,8 +147,8 @@ class D1Store implements Store {
 
   async boards(playerId: string | null): Promise<Record<string, GameBoard>> {
     const ranked = this.db
-      .prepare(`SELECT game, score, player_id, name, rank FROM (
-                  SELECT s.game, s.score, s.player_id, p.name,
+      .prepare(`SELECT game, score, player_id, name, avatar_file, rank FROM (
+                  SELECT s.game, s.score, s.player_id, p.name, p.avatar_file,
                          ROW_NUMBER() OVER (PARTITION BY s.game ORDER BY s.score DESC, s.achieved_at ASC) AS rank
                   FROM scores s JOIN players p ON p.id = s.player_id
                 ) WHERE rank <= ? OR player_id = ?
@@ -109,7 +159,10 @@ class D1Store implements Store {
     const rows = rankedRes.results as unknown as RankedRow[]
     const counts = new Map((totalsRes.results as unknown as { game: string, n: number }[]).map(r => [r.game, r.n]))
     return assemble(
-      rows.map(r => ({ game: r.game, row: { rank: r.rank, name: r.name, score: r.score, playerId: r.player_id } })),
+      rows.map(r => ({
+        game: r.game,
+        row: { rank: r.rank, name: r.name, score: r.score, playerId: r.player_id, avatar: avatarThumbUrl(r.avatar_file) },
+      })),
       counts,
       playerId,
     )
@@ -125,19 +178,39 @@ interface MemScore {
 }
 
 class MemoryStore implements Store {
-  private players = new Map<string, Player>()
+  private players = new Map<string, Player & { avatarStartedAt: number | null }>()
   /** game → playerId → score */
   private scores = new Map<string, Map<string, MemScore>>()
   private seq = 0
 
   async getPlayer(id: string): Promise<Player | null> {
-    return this.players.get(id) ?? null
+    const p = this.players.get(id)
+    if (!p) return null
+    const { avatarStartedAt: _started, ...player } = p
+    return player
   }
 
   async upsertPlayer(id: string, name: string): Promise<'ok' | 'name-taken'> {
     for (const p of this.players.values()) if (p.name === name && p.id !== id) return 'name-taken'
-    this.players.set(id, { id, name })
+    const existing = this.players.get(id)
+    this.players.set(id, existing
+      ? { ...existing, name }
+      : { id, name, avatarFile: null, avatarName: null, avatarGens: 0, avatarStartedAt: null })
     return 'ok'
+  }
+
+  async claimAvatar(id: string, name: string): Promise<boolean> {
+    const p = this.players.get(id)
+    if (!p || p.avatarName === name || p.avatarGens >= AVATAR_MAX_GENS) return false
+    if (p.avatarStartedAt && Date.now() - p.avatarStartedAt < AVATAR_CLAIM_MINUTES * 60_000) return false
+    p.avatarStartedAt = Date.now()
+    p.avatarGens += 1
+    return true
+  }
+
+  async setAvatar(id: string, name: string, file: string): Promise<void> {
+    const p = this.players.get(id)
+    if (p) { p.avatarFile = file; p.avatarName = name }
   }
 
   private ranked(game: string): { playerId: string, score: number, rank: number }[] {
@@ -165,7 +238,8 @@ class MemoryStore implements Store {
       counts.set(game, ranked.length)
       for (const r of ranked) {
         if (r.rank > TOP_N && r.playerId !== playerId) continue
-        rows.push({ game, row: { ...r, name: this.players.get(r.playerId)?.name ?? '?' } })
+        const p = this.players.get(r.playerId)
+        rows.push({ game, row: { ...r, name: p?.name ?? '?', avatar: avatarThumbUrl(p?.avatarFile) } })
       }
     }
     return assemble(rows, counts, playerId)

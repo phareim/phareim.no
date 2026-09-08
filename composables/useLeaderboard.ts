@@ -68,6 +68,8 @@ async function post(path: string, body: unknown): Promise<Response> {
 
 export const useLeaderboard = () => {
   const player = useState<LocalPlayer | null>('lbPlayer', () => null)
+  /** Thumbnail URL of this browser's painted pilot, once the server has one. */
+  const avatar = useState<string | null>('lbAvatar', () => null)
   const lastSubmission = useState<Submission | null>('lbLastSubmission', () => null)
 
   /** Registers `name` for `id`, rerolling on a name clash. Resolves to the name that stuck. */
@@ -97,13 +99,14 @@ export const useLeaderboard = () => {
     return p
   }
 
-  /** A new random name for this browser's player. */
+  /** A new random name for this browser's player (and, in time, a new pilot). */
   async function reroll(): Promise<LocalPlayer> {
     const current = await ensurePlayer()
     const name = await register(current.id, rerollName(current.name))
     const p = { id: current.id, name }
     writeStored(p)
     player.value = p
+    avatar.value = null
     return p
   }
 
@@ -140,6 +143,7 @@ export const useLeaderboard = () => {
     const res = await fetch(`/api/leaderboard?player=${encodeURIComponent(p.id)}`, { cache: 'no-store' })
     if (!res.ok) throw new Error(`leaderboard ${res.status}`)
     const data = await res.json() as LeaderboardResponse
+    avatar.value = data.player?.avatar ?? null
     // The server is the authority on the name (another browser may never
     // rename us, but a wiped database can): keep the local copy in step.
     if (data.player && data.player.name !== p.name) {
@@ -155,5 +159,5 @@ export const useLeaderboard = () => {
     return data
   }
 
-  return { player, lastSubmission, ensurePlayer, reroll, submitScore, fetchBoards }
+  return { player, avatar, lastSubmission, ensurePlayer, reroll, submitScore, fetchBoards }
 }

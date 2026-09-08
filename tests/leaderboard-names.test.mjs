@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { FIRST_WORDS, SECOND_WORDS, NAME_SPACE, randomName, rerollName, isValidName } from '../themes/leaderboard/names.ts'
-import { GAMES, GAME_IDS, gameById, TOP_N } from '../themes/leaderboard/games.ts'
+import { GAMES, GAME_IDS, gameById, TOP_N, avatarThumbUrl, avatarImageUrl, AVATAR_MAX_GENS } from '../themes/leaderboard/games.ts'
 
 /** Deterministic rng: walks a fixed sequence. */
 function seq(values) {
@@ -60,5 +60,24 @@ describe('Hall of Fame games', () => {
     assert.equal(gameById('anotherworld'), undefined)
     assert.equal(gameById(7), undefined)
     assert.equal(TOP_N, 10)
+  })
+})
+
+describe('Hall of Fame avatars', () => {
+  it('composes fixer.ink URLs from the stored filename', () => {
+    assert.equal(avatarThumbUrl('abc123.png'), 'https://media.fixer.ink/thumbnails/abc123_thumb.jpg')
+    assert.equal(avatarImageUrl('abc123.png'), 'https://media.fixer.ink/images/abc123.png')
+    assert.equal(avatarThumbUrl('x.y.webp'), 'https://media.fixer.ink/thumbnails/x.y_thumb.jpg')
+  })
+
+  it('has no URL without a file', () => {
+    assert.equal(avatarThumbUrl(null), null)
+    assert.equal(avatarThumbUrl(undefined), null)
+    assert.equal(avatarThumbUrl(''), null)
+    assert.equal(avatarImageUrl(null), null)
+  })
+
+  it('bounds paintings per player', () => {
+    assert.ok(Number.isInteger(AVATAR_MAX_GENS) && AVATAR_MAX_GENS >= 2 && AVATAR_MAX_GENS <= 20)
   })
 })

@@ -38,6 +38,8 @@ export interface BoardRow {
   name: string
   score: number
   playerId: string
+  /** Thumbnail URL of the player's painted pilot, once it exists. */
+  avatar: string | null
 }
 
 export interface GameBoard {
@@ -51,5 +53,26 @@ export interface GameBoard {
 export interface LeaderboardResponse {
   boards: Record<string, GameBoard>
   /** The requesting player, if `?player=` named a known one. */
-  player: { id: string, name: string } | null
+  player: { id: string, name: string, avatar: string | null } | null
+}
+
+/**
+ * Avatars (2026-09-08). A player's pilot portrait lives in the fixer.ink
+ * media library; D1 keeps only the filename and these compose the public
+ * URLs. The 320 px thumbnail is what the board shows.
+ */
+export const AVATAR_MEDIA_BASE = 'https://media.fixer.ink'
+
+/** How many paintings one player may cost (a reroll repaints). */
+export const AVATAR_MAX_GENS = 6
+
+export function avatarThumbUrl(file: string | null | undefined): string | null {
+  if (!file) return null
+  const stem = file.replace(/\.[a-z0-9]+$/i, '')
+  return `${AVATAR_MEDIA_BASE}/thumbnails/${encodeURIComponent(`${stem}_thumb.jpg`)}`
+}
+
+export function avatarImageUrl(file: string | null | undefined): string | null {
+  if (!file) return null
+  return `${AVATAR_MEDIA_BASE}/images/${encodeURIComponent(file)}`
 }

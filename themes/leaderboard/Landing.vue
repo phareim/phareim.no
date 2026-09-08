@@ -36,6 +36,9 @@
               :class="{ 'lb-row--me': row.playerId === player?.id, 'lb-row--podium': row.rank <= 3 }"
             >
               <span class="lb-rank">{{ pad(row.rank) }}</span>
+              <span class="lb-avatar" aria-hidden="true">
+                <img v-if="row.avatar" :src="row.avatar" alt="" loading="lazy" decoding="async">
+              </span>
               <span class="lb-name">{{ row.name.toUpperCase() }}</span>
               <span class="lb-you" aria-hidden="true">◀ YOU</span>
               <span class="lb-score">{{ fmt(row.score) }}</span>
@@ -43,6 +46,9 @@
             <li v-if="gapBeforeMe" class="lb-row lb-row--gap" aria-hidden="true">· · ·</li>
             <li v-if="meOutside" class="lb-row lb-row--me">
               <span class="lb-rank">{{ pad(meOutside.rank) }}</span>
+              <span class="lb-avatar" aria-hidden="true">
+                <img v-if="meOutside.avatar" :src="meOutside.avatar" alt="" loading="lazy" decoding="async">
+              </span>
               <span class="lb-name">{{ meOutside.name.toUpperCase() }}</span>
               <span class="lb-you" aria-hidden="true">◀ YOU</span>
               <span class="lb-score">{{ fmt(meOutside.score) }}</span>
@@ -62,7 +68,12 @@
 
       <footer class="lb-footer">
         <span class="lb-footer-label">YOU ARE</span>
-        <span class="lb-footer-name">{{ player ? player.name.toUpperCase() : '· · ·' }}</span>
+        <span class="lb-footer-who">
+          <span class="lb-avatar lb-avatar--me" :class="{ 'lb-avatar--pending': player && !avatar }" aria-hidden="true">
+            <img v-if="avatar" :src="avatar" alt="" decoding="async">
+          </span>
+          <span class="lb-footer-name">{{ player ? player.name.toUpperCase() : '· · ·' }}</span>
+        </span>
         <button class="lb-reroll" :disabled="rolling || !player" @click="onReroll">
           {{ rolling ? 'ROLLING…' : 'REROLL' }}
         </button>
@@ -91,7 +102,7 @@ import Horizon from './Horizon.vue'
 import { GAMES, TOP_N, type BoardRow, type GameBoard } from './games'
 
 const { hint } = useInputMode()
-const { player, fetchBoards, reroll } = useLeaderboard()
+const { player, avatar, fetchBoards, reroll } = useLeaderboard()
 
 const landing = ref<HTMLElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
@@ -144,12 +155,31 @@ function step(delta: number): void {
   go(index.value + delta)
 }
 
+/**
+ * A player's pilot is painted on Sleeper after registration (~40 s). While
+ * ours is missing, or a reroll made it stale, one more fetch after a pause
+ * picks it up — then we stop asking; the next visit shows it anyway.
+ */
+const AVATAR_RECHECK_MS = 45_000
+let avatarTimer: ReturnType<typeof setTimeout> | undefined
+let avatarRechecks = 0
+
+function scheduleAvatarRecheck(): void {
+  if (avatarRechecks >= 2 || avatarTimer) return
+  avatarTimer = setTimeout(() => {
+    avatarTimer = undefined
+    avatarRechecks += 1
+    load()
+  }, AVATAR_RECHECK_MS)
+}
+
 async function load(): Promise<void> {
   status.value = boards.value ? 'ready' : 'loading'
   try {
     const data = await fetchBoards()
     boards.value = data.boards
     status.value = 'ready'
+    if (data.player && !data.player.avatar) scheduleAvatarRecheck()
   } catch {
     status.value = 'error'
   }
@@ -160,7 +190,10 @@ async function onReroll(): Promise<void> {
   rolling.value = true
   try {
     await reroll()
+    // A new name means a new pilot: ask again once the painter has had time.
+    avatarRechecks = 0
     await load()
+    scheduleAvatarRecheck()
   } catch {
     // keep the old name; the board simply did not answer
   } finally {
@@ -240,6 +273,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('touchstart', onTouchStart)
   document.removeEventListener('touchend', onTouchEnd)
   observer?.disconnect()
+  if (avatarTimer) clearTimeout(avatarTimer)
 })
 
 watch(index, () => nextTick(fit))
@@ -386,7 +420,7 @@ watch(index, () => nextTick(fit))
 
 .lb-row {
   display: grid;
-  grid-template-columns: 30px 1fr auto auto;
+  grid-template-columns: 30px 20px 1fr auto auto;
   align-items: center;
   column-gap: 10px;
   height: 30px;
@@ -412,6 +446,38 @@ watch(index, () => nextTick(fit))
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--lb-text);
+}
+
+/* The pilot: a small dim disc beside the name — the row's colour, not its
+   subject. Full strength only on your own row and under the pointer. */
+.lb-avatar {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(47, 243, 255, .22);
+  background: rgba(47, 243, 255, .05);
+  overflow: hidden;
+  opacity: .55;
+  transition: opacity 160ms ease, box-shadow 160ms ease;
+}
+
+.lb-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lb-row:hover .lb-avatar { opacity: 1; }
+
+.lb-row--podium .lb-avatar { border-color: rgba(255, 210, 63, .45); }
+
+.lb-row--me .lb-avatar,
+.lb-avatar--me {
+  opacity: 1;
+  border-color: rgba(255, 47, 160, .7);
+  box-shadow: 0 0 10px rgba(255, 47, 160, .45);
 }
 
 .lb-you {
@@ -484,6 +550,31 @@ watch(index, () => nextTick(fit))
 }
 
 .lb-footer-label { color: var(--lb-text-subtle); }
+
+.lb-footer-who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lb-avatar--me {
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+
+/* Painting in progress: a slow pink breath until the picture lands. */
+.lb-avatar--pending { animation: lb-breathe 2.4s ease-in-out infinite; }
+
+@keyframes lb-breathe {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 47, 160, .2); }
+  50% { box-shadow: 0 0 12px rgba(255, 47, 160, .6); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-avatar--pending { animation: none; }
+}
 
 .lb-footer-name {
   overflow: hidden;
@@ -581,7 +672,9 @@ watch(index, () => nextTick(fit))
   .lb-landing { padding: 10px 46px 48px; }
   .lb-panel { padding: 14px 14px 12px; }
   .lb-title { font-size: 22px; }
-  .lb-row { padding: 0 6px; column-gap: 8px; font-size: 11.2px; letter-spacing: .1em; }
+  .lb-row { padding: 0 6px; column-gap: 8px; font-size: 11.2px; letter-spacing: .1em; grid-template-columns: 26px 18px 1fr auto auto; }
+  .lb-avatar { width: 18px; height: 18px; }
+  .lb-avatar--me { width: 22px; height: 22px; }
   .lb-footer-name { letter-spacing: .1em; }
   .lb-rail { display: none; }
   .lb-hint { display: none; }
