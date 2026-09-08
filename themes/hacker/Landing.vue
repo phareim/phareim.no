@@ -73,15 +73,12 @@ function onGameRestart() {
 </script>
 
 <style>
-/* Text recipes copied from the Neon Dreams design system
-   (tokens/typography.css, tokens/effects.css) via the Breakout reference
-   (themes/breakout/Landing.vue <style>), with this theme's own hues:
-   HUD green #00ff41, alerts red #ff0055. */
+/* Shared Neon Dreams HUD and threat colours. */
 .hacker-score {
   font-family: var(--font-machine);
   text-transform: uppercase;
-  color: #00ff41;
-  text-shadow: 0 0 8px rgba(0, 255, 65, 0.65), 0 0 24px rgba(255, 0, 85, 0.35);
+  color: #2ff3ff;
+  text-shadow: 0 0 8px rgba(47, 243, 255, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
   letter-spacing: 0.15em;
   font-size: 1em;
 }
@@ -89,8 +86,8 @@ function onGameRestart() {
 .game-over-title {
   font-family: var(--font-machine);
   text-transform: uppercase;
-  color: #ff0055;
-  text-shadow: 0 0 12px rgba(255, 0, 85, 0.8), 0 0 40px rgba(255, 0, 85, 0.4);
+  color: #ff2fa0;
+  text-shadow: 0 0 12px rgba(255, 47, 160, 0.8), 0 0 40px rgba(255, 47, 160, 0.4);
   font-size: 2.8em;
   letter-spacing: 0.1em;
   margin-top: 0.5em;
@@ -111,8 +108,8 @@ function onGameRestart() {
   animation: pulse-glow 0.8s ease-in-out infinite alternate;
 }
 @keyframes pulse-glow {
-  from { text-shadow: 0 0 10px #00ff41; }
-  to { text-shadow: 0 0 20px #00ff41, 0 0 40px #ff0055; }
+  from { text-shadow: 0 0 10px #2ff3ff; }
+  to { text-shadow: 0 0 20px #2ff3ff, 0 0 40px #ff2fa0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .new-highscore {
@@ -123,8 +120,8 @@ function onGameRestart() {
 .game-over-restart {
   font-family: var(--font-machine);
   text-transform: uppercase;
-  color: #ff0055;
-  text-shadow: 0 0 10px rgba(255, 0, 85, 0.6);
+  color: #ff2fa0;
+  text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
   font-size: 0.9em;
   letter-spacing: 0.12em;
   margin-top: 1em;
@@ -133,7 +130,7 @@ function onGameRestart() {
 .hacker-highscore-inline {
   font-family: var(--font-machine);
   text-transform: uppercase;
-  color: #00ff41;
+  color: #2ff3ff;
   opacity: 0.5;
   font-size: 0.65em;
   letter-spacing: 0.1em;

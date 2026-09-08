@@ -134,7 +134,8 @@ const enemyShapes = [
   }
 ]
 
-const enemyColors = ['#ff0055', '#ffcc00', '#4dffb8', '#ff6600', '#ff0055', '#2ff3ff']
+let waveNumber = 0
+let reducedMotion = false
 
 function initStars() {
   stars = []
@@ -150,88 +151,57 @@ function initStars() {
   }
 }
 
-const bgShapeColors = [
-  [255, 0, 100],   // pink
-  [0, 200, 255],   // cyan
-  [255, 100, 0],   // orange
-  [100, 255, 100], // green
-  [180, 0, 255],   // purple
-  [255, 200, 0],   // yellow
-]
-
-function generateIrregularVertices() {
-  // Random number of vertices (4–9) at irregular angles and radii
-  const count = 4 + Math.floor(Math.random() * 6)
-  const vertices = []
-  // Generate random angles, then sort to form a non-self-intersecting polygon
-  const angles = []
-  for (let i = 0; i < count; i++) {
-    angles.push(Math.random() * Math.PI * 2)
-  }
-  angles.sort((a, b) => a - b)
-  for (let i = 0; i < count; i++) {
-    const radius = 0.5 + Math.random() * 0.5 // 0.5–1.0 of half-size
-    vertices.push({
-      angle: angles[i],
-      r: radius
-    })
-  }
-  return vertices
-}
-
+// Small irregular heightfields: the same dark faces and violet triangle edges
+// as mountainTerrain, seen from above as the ship passes over them.
 function createBgShape(startY) {
   if (!canvas.value) return null
-  const w = canvas.value.width
-  const depth = 0.15 + Math.random() * 0.45 // 0.15 = far, 0.6 = closer
-  return {
-    x: Math.random() * (w + 200) - 100,
-    y: startY !== undefined ? startY : -(80 + Math.random() * 200),
-    depth,
-    speed: 0.2 + depth * 1.2,
-    size: 200 + (1 - depth) * 350 + Math.random() * 150,
-    rotation: Math.random() * Math.PI * 2,
-    rotSpeed: (Math.random() - 0.5) * 0.003,
-    vertices: generateIrregularVertices(),
-    color: bgShapeColors[Math.floor(Math.random() * bgShapeColors.length)],
-    alpha: 0.03 + depth * 0.07
+  const depth = .3 + Math.random() * .7
+  const vertices = [{ x: 0, y: -.12, z: .5 + Math.random() * .4 }]
+  const count = 9
+  for (let ring = 1; ring <= 2; ring++) {
+    for (let i = 0; i < count; i++) {
+      const angle = i / count * Math.PI * 2
+      const radius = ring === 1 ? .4 : .75 + Math.random() * .25
+      vertices.push({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius,
+        z: ring === 1 ? .15 + Math.random() * .6 : 0 })
+    }
   }
+  const faces = []
+  for (let i = 0; i < count; i++) {
+    const a = 1 + i, b = 1 + (i + 1) % count, c = a + count, d = b + count
+    faces.push([0, a, b], [a, c, d], [a, d, b])
+  }
+  return { x: Math.random() * canvas.value.width,
+    y: startY ?? -350, depth, speed: .35 + depth * .85,
+    size: (160 + Math.random() * 220) * (.6 + depth * .4),
+    rotation: Math.random() * Math.PI * 2, rotSpeed: 0, vertices, faces }
 }
 
 function initBgShapes() {
-  bgShapes = []
   if (!canvas.value) return
-  const h = canvas.value.height
-  for (let i = 0; i < 6; i++) {
-    const shape = createBgShape(Math.random() * (h + 400) - 200)
-    if (shape) bgShapes.push(shape)
-  }
+  bgShapes = Array.from({ length: 6 }, (_, i) => createBgShape(i / 6 * (canvas.value.height + 400) - 200))
+  bgShapes.sort((a, b) => a.depth - b.depth)
 }
 
 function drawBgShape(shape, offsetX) {
-  const sx = shape.x + offsetX * shape.depth * 15
-  const sy = shape.y
-  const [r, g, b] = shape.color
-  const s = shape.size / 2
   ctx.save()
-  ctx.translate(sx, sy)
-  ctx.rotate(shape.rotation)
-  ctx.globalAlpha = shape.alpha
-  ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`
-  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${shape.alpha * 0.3})`
-  ctx.lineWidth = 1.5
-  ctx.beginPath()
-  for (let i = 0; i < shape.vertices.length; i++) {
-    const v = shape.vertices[i]
-    const px = Math.cos(v.angle) * v.r * s
-    const py = Math.sin(v.angle) * v.r * s
-    if (i === 0) ctx.moveTo(px, py)
-    else ctx.lineTo(px, py)
+  ctx.translate(shape.x + offsetX * shape.depth * 15, shape.y)
+  const cos = Math.cos(shape.rotation), sin = Math.sin(shape.rotation)
+  const points = shape.vertices.map(v => ({
+    x: (v.x * cos - v.y * sin) * shape.size / 2,
+    y: (v.x * sin + v.y * cos) * shape.size * .35 - v.z * shape.size * .3,
+  }))
+  for (const face of shape.faces) {
+    const [a, b, c] = face.map(i => points[i])
+    const light = shape.vertices[face[1]].z
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.closePath()
+    ctx.fillStyle = `rgb(${12 + light * 8}, ${6 + light * 4}, ${26 + light * 16})`
+    ctx.fill()
+    ctx.strokeStyle = `rgba(177,105,245,${.16 + light * .23 + shape.depth * .08})`
+    ctx.lineWidth = .75
+    ctx.stroke()
   }
-  ctx.closePath()
-  ctx.fill()
-  ctx.stroke()
   ctx.restore()
-  ctx.globalAlpha = 1
 }
 
 function resetGame() {
@@ -251,6 +221,7 @@ function resetGame() {
   gameStarted = true
   paused.value = false
   keys = {}
+  waveNumber = 0
   waveInterval = 2500
   waveTimer = now - waveInterval // first wave spawns right away
   bulletLevel = 1
@@ -268,46 +239,23 @@ function resetGame() {
 
 function spawnWave() {
   if (!canvas.value) return
-  const w = canvas.value.width
-  const count = 4 + Math.floor(Math.random() * 5) + Math.floor((bulletLevel - 1) * 1.5)
-  const pattern = Math.floor(Math.random() * 4)
-  const shapeIdx = Math.floor(Math.random() * enemyShapes.length)
-  const color = enemyColors[Math.floor(Math.random() * enemyColors.length)]
-  const size = 22 + Math.random() * 14
-
+  const w = canvas.value.width, h = canvas.value.height
+  const pattern = waveNumber++ % 4
+  const heavy = pattern === 3
+  const count = heavy ? 3 : Math.min(7, 4 + Math.floor(w / 350))
+  const size = heavy ? 52 : pattern === 0 ? 28 : 32
+  const direction = pattern === 2 ? -1 : 1
   for (let i = 0; i < count; i++) {
-    let x, y, vx, vy, movementType
-    const baseSpeed = 0.8 + Math.random() * 0.8
-
-    switch (pattern) {
-      case 0:
-        x = 40 + (i / (count - 1 || 1)) * (w - 80)
-        y = -20 - i * 30
-        vx = 0; vy = baseSpeed; movementType = 'straight'; break
-      case 1:
-        x = 40 + (i / (count - 1 || 1)) * (w - 80)
-        y = -20 - i * 35
-        vx = 0; vy = baseSpeed; movementType = 'sine'; break
-      case 2:
-        x = w / 2 + (i - count / 2) * 45
-        y = -20 - Math.abs(i - count / 2) * 30
-        vx = 0; vy = baseSpeed; movementType = 'straight'; break
-      case 3:
-        x = 40 + (i / (count - 1 || 1)) * (w - 80)
-        y = -20 - i * 25
-        vx = (Math.random() < 0.5 ? 1 : -1) * 1.5
-        vy = baseSpeed * 0.7; movementType = 'zigzag'; break
-    }
-
-    enemies.push({
-      x, y, vx, vy, size, color, shapeIdx, movementType,
-      sineOffset: Math.random() * Math.PI * 2,
-      sineAmplitude: 40 + Math.random() * 60,
-      zigzagTimer: Math.random() * 100,
-      hp: 1,
-      shootCooldown: 1000 + Math.random() * 3000,
-      lastShot: performance.now() + Math.random() * 2000,
-      spawnX: x
+    const side = pattern === 1 || pattern === 2
+    const x = side ? (direction === 1 ? -size - i * 44 : w + size + i * 44)
+      : 40 + i / (count - 1) * (w - 80)
+    enemies.push({ x, y: side ? h * .16 : -size - Math.abs(i - (count - 1) / 2) * 28,
+      vx: direction * 2.1, vy: heavy ? .7 : 1.15,
+      size, color: heavy ? '#ff70bc' : '#ff2fa0', shapeIdx: heavy ? 3 : side ? 4 : 0,
+      movementType: side ? 'formation' : 'straight', age: 0, slot: i, direction,
+      spawnX: x, spawnY: h * .16, hp: heavy ? 3 : 1, maxHp: heavy ? 3 : 1,
+      shootCooldown: heavy ? 1800 : 2600 + i * 200,
+      lastShot: performance.now() + 800, flash: 0,
     })
   }
 }
@@ -316,17 +264,17 @@ function spawnBoss() {
   if (!canvas.value) return
   const w = canvas.value.width
   const h = canvas.value.height
-  const bossHp = Math.max(4, Math.floor(4 * Math.pow(1.5, bulletLevel - 1)))
+  const bossHp = Math.max(18, Math.floor(18 * Math.pow(1.35, bulletLevel - 1)))
   bosses.push({
-    x: Math.random() * (w - 120) + 60,
-    y: -60,
-    targetY: 60 + Math.random() * (h * 0.3),
+    x: w / 2,
+    y: -150,
+    targetY: Math.min(h * .28, 150),
     vx: (Math.random() < 0.5 ? 1 : -1) * (0.5 + Math.random() * 1),
     vy: 1.5,
-    size: 60,
+    size: Math.min(210, w * .46, h * .48),
     hp: bossHp,
     maxHp: bossHp,
-    color: '#ff00ff',
+    color: '#ff2fa0',
     shootCooldown: 600 + Math.random() * 800,
     lastShot: performance.now(),
     arrived: false,
@@ -378,11 +326,11 @@ function triggerDeathExplosion(x, y) {
     x, y, vx: 0, vy: 0,
     life: 1, decay: 0.02, color: '#ffffff', size: 90
   })
-  // Fiery core — orange/yellow expanding fireball
+  // Neon core — pink and cyan expanding fragments
   for (let i = 0; i < 60; i++) {
     const angle = Math.random() * Math.PI * 2
     const speed = 0.5 + Math.random() * 3.5
-    const colors = ['#ff6600', '#ff9900', '#ffcc00', '#ff3300', '#ffffff']
+    const colors = ['#ff2fa0', '#ff70bc', '#2ff3ff', '#f2e9ff', '#ffffff']
     particles.push({
       x: x + (Math.random() - 0.5) * 16,
       y: y + (Math.random() - 0.5) * 16,
@@ -393,7 +341,7 @@ function triggerDeathExplosion(x, y) {
       size: 5 + Math.random() * 12
     })
   }
-  // Green debris flying outward (ship fragments)
+  // Cyan debris flying outward (ship fragments)
   for (let i = 0; i < 28; i++) {
     const angle = (Math.PI * 2 / 28) * i + Math.random() * 0.3
     const speed = 2.5 + Math.random() * 6
@@ -402,7 +350,7 @@ function triggerDeathExplosion(x, y) {
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       life: 1, decay: 0.008 + Math.random() * 0.012,
-      color: '#00ff41',
+      color: '#2ff3ff',
       size: 3 + Math.random() * 6
     })
   }
@@ -415,7 +363,7 @@ function triggerDeathExplosion(x, y) {
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       life: 1, decay: 0.012 + Math.random() * 0.01,
-      color: '#00ff41',
+      color: '#2ff3ff',
       size: 2 + Math.random() * 3
     })
   }
@@ -475,17 +423,6 @@ function update(now) {
       deathExplosion.timer++
       deathExplosion.flash = Math.max(0, deathExplosion.flash - 0.04)
     }
-    stars.forEach(star => {
-      star.y += star.speed
-      if (star.y > canvas.value.height) {
-        star.y = 0
-        star.x = Math.random() * canvas.value.width
-      }
-    })
-    bgShapes.forEach(s => {
-      s.y += s.speed
-      s.rotation += s.rotSpeed
-    })
     return
   }
   const w = canvas.value.width
@@ -550,21 +487,20 @@ function update(now) {
 
   // Update enemies
   enemies = enemies.filter(enemy => {
+    enemy.flash = Math.max(0, enemy.flash - 1)
     enemy.y += enemy.vy
-    if (enemy.movementType === 'sine') {
-      enemy.x = enemy.spawnX + Math.sin(enemy.y * 0.02 + enemy.sineOffset) * enemy.sineAmplitude
-    } else if (enemy.movementType === 'zigzag') {
-      enemy.zigzagTimer += 0.05
-      if (Math.sin(enemy.zigzagTimer) > 0.95) enemy.vx = -enemy.vx
-      enemy.x += enemy.vx
+    if (enemy.movementType === 'formation') {
+      enemy.age++
+      enemy.x = enemy.spawnX + enemy.vx * enemy.age
+      enemy.y = enemy.spawnY + Math.sin(enemy.age * .012) * h * .13 + enemy.slot * 12
     }
-    enemy.x = Math.max(enemy.size, Math.min(w - enemy.size, enemy.x))
-    if (now - enemy.lastShot > enemy.shootCooldown) {
+    if (enemy.movementType !== 'formation') enemy.x = Math.max(enemy.size / 2, Math.min(w - enemy.size / 2, enemy.x))
+    if (enemy.y > enemy.size && enemy.x > enemy.size && enemy.x < w - enemy.size && now - enemy.lastShot > enemy.shootCooldown) {
       enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.size / 2, vy: 2.5 + Math.random() * 1.5 })
       enemy.lastShot = now
       enemy.shootCooldown = 800 + Math.random() * 2500
     }
-    return enemy.y < h + 40
+    return enemy.y < h + enemy.size && (enemy.movementType !== 'formation' || (enemy.direction === 1 ? enemy.x < w + enemy.size : enemy.x > -enemy.size))
   })
 
   // Update bosses
@@ -587,15 +523,15 @@ function update(now) {
       boss.x += boss.vx
       boss.y += boss.vy
       // Keep in top half
-      boss.x = Math.max(boss.size, Math.min(w - boss.size, boss.x))
-      boss.y = Math.max(boss.size, Math.min(h * 0.45, boss.y))
+      boss.x = Math.max(boss.size * .6, Math.min(w - boss.size * .6, boss.x))
+      boss.y = Math.max(boss.size * .55 + 18, Math.min(h * 0.4, boss.y))
     }
 
     // Boss shooting — fires downward with slight random spread
     if (boss.arrived && now - boss.lastShot > boss.shootCooldown) {
       const spread = (Math.random() - 0.5) * 1.5
-      enemyBullets.push({ x: boss.x - 15, y: boss.y + boss.size / 2, vy: 3 + Math.random() * 1.5, vx: spread })
-      enemyBullets.push({ x: boss.x + 15, y: boss.y + boss.size / 2, vy: 3 + Math.random() * 1.5, vx: -spread })
+      enemyBullets.push({ x: boss.x - boss.size * .36, y: boss.y + boss.size * .38, vy: 3 + Math.random() * 1.5, vx: spread })
+      enemyBullets.push({ x: boss.x + boss.size * .36, y: boss.y + boss.size * .38, vy: 3 + Math.random() * 1.5, vx: -spread })
       boss.lastShot = now
       boss.shootCooldown = 400 + Math.random() * 1200
     }
@@ -645,11 +581,17 @@ function update(now) {
       const dx = b.x - e.x
       const dy = b.y - e.y
       if (dx * dx + dy * dy < (e.size / 2 + 4) * (e.size / 2 + 4)) {
+        bullets.splice(i, 1)
+        e.hp--
+        e.flash = 5
+        if (e.hp > 0) {
+          spawnParticles(b.x, b.y, e.color, 5)
+          break
+        }
         spawnParticles(e.x, e.y, e.color, 14)
         spawnSmoke(e.x, e.y, 5)
         enemies.splice(j, 1)
-        bullets.splice(i, 1)
-        score += 100
+        score += e.maxHp > 1 ? 250 : 100
         emit('score', score)
         break
       }
@@ -665,7 +607,7 @@ function update(now) {
       if (dist < sw.radius + 20 && dist > sw.radius - 30) {
         spawnParticles(e.x, e.y, e.color, 10)
         spawnSmoke(e.x, e.y, 4)
-        score += 100
+        score += e.maxHp > 1 ? 250 : 100
         emit('score', score)
         return false
       }
@@ -821,26 +763,21 @@ function update(now) {
     return p.life > 0
   })
 
-  // Update stars
+}
+
+function updateBackdrop() {
+  if (!canvas.value || reducedMotion) return
+  const h = canvas.value.height
   stars.forEach(star => {
     star.y += star.speed
-    if (star.y > h) {
-      star.y = 0
-      star.x = Math.random() * w
-    }
+    if (star.y > h) star.y = 0
   })
-
-  // Update background shapes
   bgShapes = bgShapes.filter(s => {
     s.y += s.speed
-    s.rotation += s.rotSpeed
     return s.y < h + s.size
   })
-  // Replenish shapes
-  while (bgShapes.length < 6) {
-    const shape = createBgShape()
-    if (shape) bgShapes.push(shape)
-  }
+  while (bgShapes.length < 6) bgShapes.push(createBgShape())
+  bgShapes.sort((a, b) => a.depth - b.depth)
 }
 
 function draw() {
@@ -848,19 +785,19 @@ function draw() {
   const w = canvas.value.width
   const h = canvas.value.height
 
-  ctx.fillStyle = '#0a0a0a'
+  ctx.fillStyle = '#0b0616'
   ctx.fillRect(0, 0, w, h)
 
   // Compute parallax: player moves left → background shifts right (inverted)
   // Smooth interpolation for acceleration/deceleration feel
   const centerX = w / 2
-  const targetParallaxX = gameStarted ? -(player.x - centerX) * 0.015 : 0
-  smoothParallaxX += (targetParallaxX - smoothParallaxX) * 0.04
+  const targetParallaxX = gameStarted && !reducedMotion && !paused.value ? -(player.x - centerX) * 0.015 : 0
+  if (!paused.value) smoothParallaxX += (targetParallaxX - smoothParallaxX) * 0.04
 
   // Stars (with subtle parallax based on star speed as depth proxy)
   stars.forEach(star => {
     const sx = star.x + smoothParallaxX * star.speed * 0.5
-    ctx.fillStyle = `rgba(100, 255, 180, ${star.brightness * 0.5})`
+    ctx.fillStyle = `rgba(207, 233, 255, ${star.brightness * 0.5})`
     ctx.fillRect(sx, star.y, star.size, star.size)
   })
 
@@ -869,9 +806,9 @@ function draw() {
 
   // Shockwaves
   shockwaves.forEach(sw => {
-    ctx.strokeStyle = `rgba(255, 0, 255, ${sw.life * 0.8})`
+    ctx.strokeStyle = `rgba(255, 47, 160, ${sw.life * 0.8})`
     ctx.lineWidth = 4 + sw.life * 8
-    ctx.shadowColor = '#ff00ff'
+    ctx.shadowColor = '#ff2fa0'
     ctx.shadowBlur = 20 * sw.life
     ctx.beginPath()
     ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2)
@@ -894,10 +831,10 @@ function draw() {
       ctx.shadowColor = '#2ff3ff'
       ctx.shadowBlur = 25 + playerGlow * 20
     } else {
-      ctx.shadowColor = '#00ff41'
+      ctx.shadowColor = '#2ff3ff'
       ctx.shadowBlur = 10
     }
-    ctx.fillStyle = playerGlow > 0.5 ? '#2ff3ff' : '#00ff41'
+    ctx.fillStyle = playerGlow > 0.5 ? '#2ff3ff' : '#2ff3ff'
     ctx.beginPath()
     ctx.moveTo(player.x, player.y - player.height / 2)
     ctx.lineTo(player.x + player.width / 2, player.y + player.height / 2)
@@ -908,7 +845,7 @@ function draw() {
     ctx.fill()
 
     // Extra wing details for the bigger ship
-    ctx.fillStyle = playerGlow > 0.5 ? '#2ff3ff' : '#00ff41'
+    ctx.fillStyle = playerGlow > 0.5 ? '#2ff3ff' : '#2ff3ff'
     ctx.fillRect(player.x - 3, player.y - player.height * 0.1, 6, player.height * 0.4)
     ctx.shadowBlur = 0
 
@@ -939,13 +876,13 @@ function draw() {
     // Player bullets
     bullets.forEach(b => {
       // Outer glow
-      ctx.shadowColor = '#00ff41'
+      ctx.shadowColor = '#2ff3ff'
       ctx.shadowBlur = 14
-      ctx.fillStyle = '#00ff41'
+      ctx.fillStyle = '#2ff3ff'
       ctx.fillRect(b.x - 3, b.y - 8, 6, 16)
       // Hot white core
       ctx.shadowBlur = 0
-      ctx.fillStyle = '#aaffaa'
+      ctx.fillStyle = '#cfe9ff'
       ctx.fillRect(b.x - 1.5, b.y - 7, 3, 14)
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(b.x - 0.75, b.y - 6, 1.5, 12)
@@ -957,34 +894,58 @@ function draw() {
   enemies.forEach(e => {
     ctx.shadowColor = e.color
     ctx.shadowBlur = 8
-    enemyShapes[e.shapeIdx](ctx, e.x, e.y, e.size, e.color)
+    ctx.save()
+    ctx.translate(e.x, e.y)
+    if (e.movementType === 'formation') ctx.rotate(e.direction * Math.PI / 2)
+    enemyShapes[e.shapeIdx](ctx, 0, 0, e.size, e.flash ? '#ffffff' : e.color)
+    ctx.restore()
+    if (e.maxHp > 1) {
+      ctx.strokeStyle = '#ff2fa0'
+      ctx.lineWidth = 1
+      ctx.strokeRect(e.x - e.size * .28, e.y - e.size * .38, e.size * .56, e.size * .62)
+      ctx.fillStyle = '#0b0616'
+      ctx.fillRect(e.x - 8, e.y - 6, 16, 9)
+      ctx.fillStyle = '#ff70bc'
+      for (let i = 0; i < e.hp; i++) ctx.fillRect(e.x - 8 + i * 6, e.y - 4, 4, 5)
+    }
     ctx.shadowBlur = 0
   })
 
   // Bosses
   bosses.forEach(boss => {
-    // Outer hull
+    // Twin armoured wings, recessed reactor and four engine pods.
+    ctx.save()
+    ctx.translate(boss.x, boss.y)
+    ctx.scale(boss.size, boss.size)
+    ctx.lineWidth = 1.3 / boss.size
     ctx.shadowColor = boss.color
-    ctx.shadowBlur = 15
-    ctx.fillStyle = boss.color
-    ctx.beginPath()
-    ctx.moveTo(boss.x, boss.y - boss.size / 2)
-    ctx.lineTo(boss.x + boss.size / 2, boss.y)
-    ctx.lineTo(boss.x + boss.size * 0.4, boss.y + boss.size / 3)
-    ctx.lineTo(boss.x - boss.size * 0.4, boss.y + boss.size / 3)
-    ctx.lineTo(boss.x - boss.size / 2, boss.y)
-    ctx.closePath()
-    ctx.fill()
-    // Inner detail
-    ctx.fillStyle = '#220033'
-    ctx.beginPath()
-    ctx.arc(boss.x, boss.y - boss.size * 0.1, boss.size * 0.2, 0, Math.PI * 2)
-    ctx.fill()
-    // Wings
-    ctx.fillStyle = boss.color
-    ctx.fillRect(boss.x - boss.size * 0.6, boss.y - 5, boss.size * 0.2, 10)
-    ctx.fillRect(boss.x + boss.size * 0.4, boss.y - 5, boss.size * 0.2, 10)
+    ctx.shadowBlur = 10
+    const panel = (points, fill = '#23102e') => {
+      ctx.beginPath()
+      points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))
+      ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = boss.color; ctx.stroke()
+    }
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.scale(side, 1)
+      panel([[.08,-.28],[.3,-.4],[.56,-.12],[.53,.27],[.35,.38],[.19,.08]])
+      panel([[.22,-.23],[.33,-.29],[.46,-.08],[.41,.19],[.28,.1]], '#13091f')
+      for (const x of [.26, .43]) {
+        panel([[x-.035,-.27],[x+.035,-.27],[x+.04,-.43],[x-.04,-.43]])
+        ctx.fillStyle = '#ff70bc'; ctx.fillRect(x-.023,-.47,.046,.04)
+      }
+      panel([[.3,.12],[.41,.12],[.41,.38],[.3,.38]], '#120826')
+      ctx.fillStyle = '#ff70bc'; ctx.fillRect(.32,.32,.07,.05)
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath(); ctx.moveTo(.24+i*.07,-.13); ctx.lineTo(.28+i*.06,-.02); ctx.stroke()
+      }
+      ctx.restore()
+    }
+    panel([[0,-.4],[.2,-.17],[.15,.23],[0,.4],[-.15,.23],[-.2,-.17]], '#301037')
+    panel([[0,-.21],[.085,-.08],[.065,.1],[0,.17],[-.065,.1],[-.085,-.08]], '#ff2fa0')
     ctx.shadowBlur = 0
+    ctx.strokeStyle = '#ff70bc'
+    ctx.beginPath(); ctx.moveTo(0,-.36); ctx.lineTo(0,-.24); ctx.moveTo(0,.2); ctx.lineTo(0,.33); ctx.stroke()
+    ctx.restore()
 
     // HP bar
     const barW = boss.size * 0.8
@@ -993,13 +954,13 @@ function draw() {
     const barY = boss.y - boss.size / 2 - 10
     ctx.fillStyle = '#333'
     ctx.fillRect(barX, barY, barW, barH)
-    ctx.fillStyle = '#ff00ff'
+    ctx.fillStyle = '#ff2fa0'
     ctx.fillRect(barX, barY, barW * (boss.hp / boss.maxHp), barH)
   })
 
   // Powerups — larger and glowier. No combo/multiplier in this game, so the
   // Neon Dreams reward colour (gold #ffd23f) shows here on both capsules,
-  // with the page ground #0a0a0a as the label ink.
+  // with the page ground #0b0616 as the label ink.
   powerups.forEach(p => {
     const glow = 0.6 + 0.4 * Math.sin(p.pulse)
     const isShield = p.type === 'shield'
@@ -1027,7 +988,7 @@ function draw() {
     ctx.closePath()
     ctx.fill()
     // Letter
-    ctx.fillStyle = '#0a0a0a'
+    ctx.fillStyle = '#0b0616'
     ctx.font = `bold ${p.size * 0.55}px ${MACHINE_FONT}`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
@@ -1037,8 +998,8 @@ function draw() {
   })
 
   // Enemy bullets
-  ctx.fillStyle = '#ff0055'
-  ctx.shadowColor = '#ff0055'
+  ctx.fillStyle = '#ff2fa0'
+  ctx.shadowColor = '#ff2fa0'
   ctx.shadowBlur = 6
   enemyBullets.forEach(b => {
     ctx.fillRect(b.x - 2, b.y - 4, 4, 8)
@@ -1047,14 +1008,17 @@ function draw() {
 
   // Death explosion screen flash
   if (deathExplosion && deathExplosion.flash > 0) {
-    ctx.fillStyle = `rgba(255, 150, 50, ${deathExplosion.flash * 0.4})`
+    ctx.fillStyle = `rgba(255, 47, 160, ${deathExplosion.flash * 0.4})`
     ctx.fillRect(0, 0, w, h)
   }
 }
 
 function gameLoop(now) {
   if (!gameRunning) return
-  if (!paused.value) update(now)
+  if (!paused.value) {
+    updateBackdrop()
+    update(now)
+  }
   draw()
   animationFrameId = requestAnimationFrame(gameLoop)
 }
@@ -1148,6 +1112,7 @@ function handleTouchEnd(e) {
 }
 
 onMounted(() => {
+  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   setupCanvas()
   initStars()
   initBgShapes()
