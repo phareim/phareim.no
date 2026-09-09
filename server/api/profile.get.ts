@@ -1,4 +1,4 @@
-import { avatarThumbUrl } from '~/themes/leaderboard/games'
+import { avatarImageUrl, avatarThumbUrl } from '~/themes/leaderboard/games'
 
 /**
  * GET /api/profile?player=<id>
@@ -16,6 +16,13 @@ export default defineEventHandler(async (event) => {
   const { player, bests, ships, selected, distinctGames } = profile
   return {
     profile: { bests, ships, selected, distinctGames },
-    player: { id: player.id, name: player.name, avatar: avatarThumbUrl(player.avatarFile) },
+    player: {
+      id: player.id,
+      name: player.name,
+      avatar: avatarThumbUrl(player.avatarFile),
+      // The full painting for the Hangar's large portrait; the board keeps
+      // showing the thumbnail.
+      avatarFull: avatarImageUrl(player.avatarFile),
+    },
   }
 })

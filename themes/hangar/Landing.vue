@@ -14,47 +14,55 @@
       <span class="hg-tick hg-tick--bl" aria-hidden="true" />
       <span class="hg-tick hg-tick--br" aria-hidden="true" />
 
-      <p class="hg-over">PILOT PROFILE</p>
-      <div class="hg-who">
-        <span class="hg-avatar" :class="{ 'hg-avatar--pending': player && !avatar }" aria-hidden="true">
-          <img v-if="avatar" :src="avatar" alt="" decoding="async">
-        </span>
-        <span class="hg-name">{{ player ? player.name.toUpperCase() : '· · ·' }}</span>
-      </div>
-
-      <p class="hg-label">HIGH SCORES</p>
-      <ol v-if="status === 'ready'" class="hg-scores">
-        <li v-for="g in GAMES" :key="g.id" class="hg-score">
-          <span class="hg-score-game">{{ g.title.toUpperCase() }}</span>
-          <span v-if="bests[g.id]" class="hg-score-line">BEST {{ fmt(bests[g.id]!.score) }} · #{{ bests[g.id]!.rank }}</span>
-          <span v-else class="hg-score-line hg-score-line--none">NO RUN YET</span>
-        </li>
-      </ol>
-      <p v-else-if="status === 'loading'" class="hg-empty">SYNCING…</p>
-      <p v-else class="hg-empty">OFFLINE<br><span>THE HANGAR DID NOT ANSWER</span></p>
-
-      <p class="hg-label">YOUR SHIP</p>
-      <div class="hg-viewer-box">
-        <ShipViewer :ship-id="preview.id" />
-      </div>
-      <div class="hg-ship-row">
-        <button class="hg-step" aria-label="Previous ship" @click="stepShip(-1)">◀</button>
-        <Transition name="hg-fade" mode="out-in">
-          <div :key="preview.id" class="hg-ship-name">
-            <strong>{{ preview.name.toUpperCase() }}</strong>
-            <span>{{ preview.tagline.toUpperCase() }}</span>
+      <!-- Two frames on wide screens (pilot/scores · ship); one flow
+           everywhere else — the cols dissolve via display:contents. -->
+      <div class="hg-cols">
+        <div class="hg-col hg-col--id">
+          <p class="hg-over">PILOT PROFILE</p>
+          <div class="hg-who">
+            <span class="hg-avatar" :class="{ 'hg-avatar--pending': player && !pic }" aria-hidden="true">
+              <img v-if="pic" :src="pic" alt="" decoding="async">
+            </span>
+            <span class="hg-name">{{ player ? player.name.toUpperCase() : '· · ·' }}</span>
           </div>
-        </Transition>
-        <button class="hg-step" aria-label="Next ship" @click="stepShip(1)">▶</button>
-      </div>
-      <div class="hg-ship-cta">
-        <button
-          v-if="previewState?.unlocked && preview.id !== selected"
-          class="hg-fly"
-          @click="fly"
-        >FLY THIS SHIP</button>
-        <p v-else-if="preview.id === selected" class="hg-flying">◈ FLYING THIS SHIP</p>
-        <p v-else class="hg-locked">LOCKED · SCORE IN {{ remaining }} MORE {{ remaining === 1 ? 'GAME' : 'GAMES' }} ({{ distinctGames }}/4)</p>
+
+          <p class="hg-label">HIGH SCORES</p>
+          <ol v-if="status === 'ready'" class="hg-scores">
+            <li v-for="g in GAMES" :key="g.id" class="hg-score">
+              <span class="hg-score-game">{{ g.title.toUpperCase() }}</span>
+              <span v-if="bests[g.id]" class="hg-score-line">BEST {{ fmt(bests[g.id]!.score) }} · #{{ bests[g.id]!.rank }}</span>
+              <span v-else class="hg-score-line hg-score-line--none">NO RUN YET</span>
+            </li>
+          </ol>
+          <p v-else-if="status === 'loading'" class="hg-empty">SYNCING…</p>
+          <p v-else class="hg-empty">OFFLINE<br><span>THE HANGAR DID NOT ANSWER</span></p>
+        </div>
+
+        <div class="hg-col hg-col--ship">
+          <p class="hg-label">YOUR SHIP</p>
+          <div class="hg-viewer-box">
+            <ShipViewer :ship-id="preview.id" />
+          </div>
+          <div class="hg-ship-row">
+            <button class="hg-step" aria-label="Previous ship" @click="stepShip(-1)">◀</button>
+            <Transition name="hg-fade" mode="out-in">
+              <div :key="preview.id" class="hg-ship-name">
+                <strong>{{ preview.name.toUpperCase() }}</strong>
+                <span>{{ preview.tagline.toUpperCase() }}</span>
+              </div>
+            </Transition>
+            <button class="hg-step" aria-label="Next ship" @click="stepShip(1)">▶</button>
+          </div>
+          <div class="hg-ship-cta">
+            <button
+              v-if="previewState?.unlocked && preview.id !== selected"
+              class="hg-fly"
+              @click="fly"
+            >FLY THIS SHIP</button>
+            <p v-else-if="preview.id === selected" class="hg-flying">◈ FLYING THIS SHIP</p>
+            <p v-else class="hg-locked">LOCKED · SCORE IN {{ remaining }} MORE {{ remaining === 1 ? 'GAME' : 'GAMES' }} ({{ distinctGames }}/4)</p>
+          </div>
+        </div>
       </div>
 
       <p class="hg-nudge">{{ nudge }}</p>
@@ -73,7 +81,10 @@ const ShipViewer = defineAsyncComponent(() => import('./ShipViewer.vue'))
 
 const { hint } = useInputMode()
 const { player, avatar, fetchBoards } = useLeaderboard()
-const { selected, ships, bests, distinctGames, loadProfile, selectShip } = useShip()
+const { selected, ships, bests, distinctGames, avatarFull, loadProfile, selectShip } = useShip()
+
+/** The portrait: the full painting once the profile answers, thumbnail meanwhile. */
+const pic = computed(() => avatarFull.value ?? avatar.value)
 
 const status = ref<'loading' | 'ready' | 'error'>('loading')
 const previewIndex = ref(0)
@@ -191,6 +202,10 @@ onMounted(async () => {
 .hg-tick--tr { top: -1px; right: -1px; border-top-width: 2px; border-right-width: 2px; }
 .hg-tick--bl { bottom: -1px; left: -1px; border-bottom-width: 2px; border-left-width: 2px; }
 .hg-tick--br { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
+
+/* Narrow: the two frames dissolve — everything flows in the one panel. */
+.hg-cols,
+.hg-col { display: contents; }
 
 .hg-over {
   margin: 0;
@@ -420,6 +435,49 @@ onMounted(async () => {
     justify-items: start;
     padding-left: clamp(48px, 10vw, 160px);
   }
+}
+
+/* Wide: the panel spreads into two frames — pilot + scores left, the
+   ship in a larger bay right, portrait at full-painting size. */
+@media (min-width: 1024px) and (min-height: 700px) {
+  .hg-panel { width: min(920px, 100%); }
+  .hg-cols {
+    display: grid;
+    grid-template-columns: 330px 1fr;
+    gap: 16px;
+    align-items: stretch;
+  }
+  .hg-col {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(47, 243, 255, .16);
+    border-radius: 3px;
+    background: rgba(11, 6, 22, .45);
+    padding: 16px 18px 14px;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+  .hg-label {
+    border-top: none;
+    padding-top: 0;
+  }
+  .hg-label:first-child { margin-top: 0; }
+  .hg-who {
+    justify-content: flex-start;
+    margin: 12px 0 6px;
+  }
+  .hg-avatar {
+    width: 88px;
+    height: 88px;
+    border-width: 2px;
+  }
+  .hg-name { font-size: 22px; }
+  .hg-score {
+    min-height: 27px;
+    font-size: 12px;
+  }
+  .hg-viewer-box { height: 330px; }
+  .hg-ship-name strong { font-size: 16px; }
 }
 
 @media (max-width: 640px), (max-height: 700px) {

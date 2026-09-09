@@ -512,12 +512,16 @@ and releases a charged beam. Physical-phone performance is unmeasured.
 ## Hangar — the pilot profile and cross-game ships (2026-09-09)
 
 `?theme=hangar` is the tenth live theme, last in the rotation: the pilot
-profile in one blueprint panel over the shared horizon — avatar + name,
-all six high scores with ranks, and a 3D viewer of the ship the player
-flies in every ship game. Ship browsing is ◀ ▶ buttons only (left/right
-still switch theme; nothing locks navigation). The viewer is an async
-component (`ShipViewer.vue`) so three.js stays out of the initial bundle,
-like Star Fox; mouse-drag spins, touch is left to the shell's swipe.
+profile over the shared horizon — avatar + name, all six high scores
+with ranks, and a 3D viewer of the ship the player flies in every ship
+game. Wide screens (≥1024×700) spread it into two frames — pilot/scores
+left with the portrait at full-painting size (88 px, `avatarFull` from
+`/api/profile`), the ship in a larger bay right; narrower viewports keep
+the single stacked panel (the cols dissolve via `display:contents`).
+Ship browsing is ◀ ▶ buttons only (left/right still switch theme;
+nothing locks navigation). The viewer is an async component
+(`ShipViewer.vue`) so three.js stays out of the initial bundle, like
+Star Fox; mouse-drag spins, touch is left to the shell's swipe.
 
 **Ships.** `themes/ships/ships.ts` is the catalogue both games read
 (colours + `dart`/`vandal` variant, plain TS shared client/server/tests).

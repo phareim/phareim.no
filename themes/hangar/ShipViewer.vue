@@ -22,7 +22,8 @@ let observer: ResizeObserver | undefined
 let raf = 0
 let last = 0
 let reduced = false
-let rotY = 0.6
+// Nose toward the viewer (the nose points -Z; the camera sits at +Z).
+let rotY = 2.7
 let rotX = 0.12
 let dragging = false
 let lastPX = 0

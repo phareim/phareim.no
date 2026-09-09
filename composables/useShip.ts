@@ -55,6 +55,8 @@ export const useShip = () => {
   const bests = useState<Record<string, BestEntry | null>>('shipBests', () => ({}))
   const distinctGames = useState<number>('shipDistinct', () => 0)
   const hydrated = useState<boolean>('shipHydrated', () => false)
+  /** Full-size painted pilot for the Hangar portrait (thumbnail lives in useLeaderboard). */
+  const avatarFull = useState<string | null>('shipAvatarFull', () => null)
 
   // First paint comes from localStorage so the ship is known before
   // the profile round-trip answers.
@@ -71,12 +73,13 @@ export const useShip = () => {
       if (!res.ok) return null
       const data = await res.json() as {
         profile: ShipProfile | null
-        player: { id: string, name: string, avatar: string | null } | null
+        player: { id: string, name: string, avatar: string | null, avatarFull: string | null } | null
       }
       if (!data.profile) return null
       ships.value = data.profile.ships
       bests.value = data.profile.bests
       distinctGames.value = data.profile.distinctGames
+      avatarFull.value = data.player?.avatarFull ?? null
       selected.value = data.profile.selected
       writeSelected(data.profile.selected)
       hydrated.value = true
@@ -116,7 +119,7 @@ export const useShip = () => {
   const selectedDef = computed<ShipDef>(() => shipById(selected.value) ?? shipById(STARTER_SHIP)!)
 
   return {
-    selected, ships, bests, distinctGames, hydrated, selectedDef,
+    selected, ships, bests, distinctGames, hydrated, selectedDef, avatarFull,
     loadProfile, selectShip, UNLOCK_DISTINCT_GAMES,
   }
 }
