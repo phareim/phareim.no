@@ -698,7 +698,9 @@ function stepIntervalMs() {
   const base = 45 + 520 * Math.pow(Math.max(0, frac), 1.2)
   // Attract mode drifts down slowly so the bottom row stays above ~45 %
   // for the first ~20 s and the name stays readable.
-  return gameStarted ? base / 1.15 : base * 1.9
+  const speed = gameStarted ? base / 1.15 : base * 1.9
+  // Power-ups cut both ways: while one is live the formation marches twice as fast.
+  return weapon ? speed / 2 : speed
 }
 
 function doStep(now) {
@@ -972,7 +974,7 @@ function updateWeapons(dt) {
     p.y += Math.max(85, SH * 0.16) * dt
     if (p.x >= rc.x - 14 && p.x <= rc.x + rc.w + 14 && prevY <= rc.y + rc.h + 14 && p.y >= rc.y - 14) {
       weapon = p.kind
-      weaponTime = 12
+      weaponTime = 6
       spawnParticles(p.x, cannonY, GOLD, 18, 180)
       shockwaves.push({ x: p.x, y: cannonY, radius: 6, life: 1, color: GOLD })
       pickups.splice(i, 1)
