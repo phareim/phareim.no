@@ -30,6 +30,7 @@ import EscHold from '../base/EscHold.vue'
 const emit = defineEmits(['score', 'wave', 'lives', 'death', 'restart', 'started', 'over'])
 
 import { createHorizon } from '../base/neonHorizon.js'
+import { readShipDef } from '~/composables/useShip'
 
 const canvas = ref(null)
 let ctx = null
@@ -46,6 +47,9 @@ const PINK = '#ff2fa0'
 const CYAN = '#2ff3ff'
 const GOLD = '#ffd23f'
 const ORANGE = '#ff6a3d'
+// The Hangar ship, read live: the cannon flies its colours. (CYAN stays
+// for invader-side effects and the combo tag's own semantics.)
+let shipDef = readShipDef()
 const LIVES = 1
 const EXTRA_AT = 1500
 const MAX_PARTICLES = 300
@@ -635,6 +639,7 @@ function startDemo() {
 
 function startGame() {
   resetWeapons()
+  shipDef = readShipDef()
   score = 0
   lastScoreSent = -1
   wave = 1
@@ -1599,7 +1604,9 @@ function getGlowByRows(rows, color) {
     // White flashes use the pre-warmed white variant.
     if (color === '#ffffff') return getGlow(id + '_w', rows, '#ffffff')
     if (id === 'ufo') return getGlow('ufo', rows, GOLD)
-    if (id === 'cannon') return getGlow('cannon', rows, CYAN)
+    // The cannon wears the Hangar ship's hull; the cache key carries the
+    // colour so a re-read ship never shows a stale glow.
+    if (id === 'cannon') return getGlow(`cannon:${color}`, rows, color)
     return getGlow(id, rows, color)
   }
   const k = glowKey('rows:' + rows.join('|') + ':' + color)
@@ -1852,22 +1859,26 @@ function drawBomb(b) {
 function drawCannon(now) {
   const w = CANNON[0].length * px
   const h = CANNON.length * px
+  // The cannon keeps its 1978 silhouette but flies the Hangar ship: hull
+  // body, trim-coloured base row, bolts in hull colour.
+  const hull = shipDef.colors.hull
+  const trim = shipDef.colors.trim
   // Afterimage trail when moving fast.
   const baseAft = gameStarted ? 1 : 0.6
   for (let i = 0; i < cannonTrail.length; i++) {
     const t = cannonTrail[i]
     ctx.globalAlpha = baseAft * 0.14 * (t.t / 0.25)
-    plotSpriteRaw(CANNON, t.x - w / 2, cannonY - h / 2, px)
+    plotSpriteRaw(CANNON, t.x - w / 2, cannonY - h / 2, px, hull)
   }
   ctx.globalAlpha = baseAft
   if (dying > 0) {
-    // Cannon explosion: scattering cyan/white blocks.
+    // Cannon explosion: scattering hull/white blocks.
     const keepAlpha = ctx.globalAlpha
     const k = 1 - dying
     for (let i = 0; i < 14; i++) {
       const a = (i / 14) * Math.PI * 2 + k * 3
       const d = k * 46
-      ctx.fillStyle = i % 3 === 0 ? '#ffffff' : CYAN
+      ctx.fillStyle = i % 3 === 0 ? '#ffffff' : hull
       ctx.globalAlpha = keepAlpha * (1 - k)
       ctx.fillRect(cannonX + Math.cos(a) * d, cannonY + Math.sin(a) * d * 0.7, px, px)
     }
@@ -1876,7 +1887,10 @@ function drawCannon(now) {
   }
   const blink = now < invulnUntil && Math.floor(now * 12) % 2 === 0
   if (blink || gameOver) return
-  drawSprite(CANNON, cannonX - w / 2, cannonY - h / 2, px, CYAN, CANNON_SPR_O)
+  drawSprite(CANNON, cannonX - w / 2, cannonY - h / 2, px, hull, CANNON_SPR_O)
+  // Trim stripe along the base row, so the ship's second colour reads.
+  ctx.fillStyle = trim
+  ctx.fillRect(cannonX - w / 2, cannonY + h / 2 - px, w, px)
   // Combo tag near the cannon.
   if (mult > 1 && gameStarted) {
     ctx.save()
@@ -1896,8 +1910,8 @@ function drawCannon(now) {
   }
 }
 
-function plotSpriteRaw(rows, ox, oy, s) {
-  ctx.fillStyle = CYAN
+function plotSpriteRaw(rows, ox, oy, s, color) {
+  ctx.fillStyle = color || CYAN
   plotRows(rows, ox, oy, s)
 }
 
@@ -1930,24 +1944,26 @@ function draw() {
   drawFormation(now)
   drawUFO()
 
-  // Effect 5: player-shot cyan trail (afterimages, decreasing alpha).
+  // Effect 5: player-shot trail in the ship's hull colour (afterimages,
+  // decreasing alpha).
+  const boltCol = shipDef.colors.hull
   for (let i = 0; i < shotTrail.length; i++) {
     const t = shotTrail[i]
     const a = Math.max(0, t.t / 0.18) * 0.4
     ctx.globalAlpha = (demo ? 0.6 : 1) * a
-    ctx.fillStyle = CYAN
+    ctx.fillStyle = boltCol
     const w = 4 - (shotTrail.length - 1 - i) * 0.5
     ctx.fillRect(t.x - w / 2, t.y - 12, w, 12)
   }
   ctx.globalAlpha = demo ? 0.6 : 1
-  // Player shot: white-hot core with a cyan glow.
+  // Player shot: white-hot core with a hull-coloured glow.
   if (shot) {
     ctx.save()
     if (!mobileFx) {
-      ctx.shadowColor = CYAN
+      ctx.shadowColor = boltCol
       ctx.shadowBlur = 12
     }
-    ctx.fillStyle = CYAN
+    ctx.fillStyle = boltCol
     ctx.fillRect(shot.x - 2, shot.y - 12, 4, 12)
     ctx.shadowBlur = 0
     ctx.fillStyle = '#ffffff'

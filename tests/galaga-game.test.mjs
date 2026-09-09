@@ -3,11 +3,19 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 
+// The Hangar ship, stubbed: imports are stripped above, so the game reads
+// the pick through this. Counts calls to prove resetGame re-reads it.
+const shipCalls = { n: 0 }
+const dartDef = () => ({
+  id: 'dart', variant: 'dart',
+  colors: { hull: '#2ff3ff', trim: '#2ff3ff', glow: '#2ff3ff', cockpit: '#ffffff' },
+})
 const source = readFileSync(new URL('../themes/galaga/Galaga.vue', import.meta.url), 'utf8')
   .split('<script setup>')[1].split('</script>')[0].replace(/^import .*$/gm, '')
 function game(w = 375, h = 667) {
   const context = vm.createContext({ ref: value => ({ value }), defineEmits: () => () => {},
-    onMounted() {}, onBeforeUnmount() {}, performance: { now: () => 100 } })
+    onMounted() {}, onBeforeUnmount() {}, performance: { now: () => 100 },
+    readShipDef: () => { shipCalls.n++; return dartDef() } })
   vm.runInContext(source, context)
   const run = code => vm.runInContext(code, context)
   run(`canvas.value = {width:${w},height:${h}}; resetGame(); waveTimer = bossTimer = powerupTimer = 1e9`)
@@ -49,6 +57,16 @@ test('larger bosses fit phone and desktop bounds and fire from both gun ports', 
     assert.equal(run('enemyBullets.length'), 2)
     assert.ok(run('enemyBullets[0].x < bosses[0].x && enemyBullets[1].x > bosses[0].x'))
   }
+})
+
+test('picks up the Hangar ship on every reset', () => {
+  const before = shipCalls.n
+  const run = game()
+  assert.ok(run('shipDef.variant') === 'dart')
+  assert.ok(run('shipDef.colors.hull') === '#2ff3ff')
+  assert.equal(shipCalls.n, before + 2) // once at setup, once in resetGame
+  run('resetGame()')
+  assert.equal(shipCalls.n, before + 3)
 })
 
 test('mesh passes beneath idle screen, recycles, and stops under reduced motion', () => {

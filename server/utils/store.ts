@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import { GAMES, TOP_N, AVATAR_MAX_GENS, avatarThumbUrl, type BoardRow, type GameBoard } from '~/themes/leaderboard/games'
+import { STARTER_SHIP, isShipId, shipStates, isShipUnlocked, type ShipState } from '~/themes/ships/ships'
 
 /**
  * Hall of Fame storage. Production is the `LEADERBOARD_DB` D1 binding from
@@ -18,6 +19,27 @@ export interface Player {
   avatarName: string | null
   /** Paintings started for this player so far (bounded by AVATAR_MAX_GENS). */
   avatarGens: number
+  /** The ship the player flies in every ship game. */
+  selectedShip: string
+}
+
+/** One best score plus its rank, per game. */
+export interface BestEntry {
+  score: number
+  rank: number
+}
+
+/**
+ * The Hangar profile: identity, per-game bests, ship states and the
+ * selected ship. Unlock is derived live from the distinct game count, so
+ * trying a fourth game unlocks the second ship on the next read.
+ */
+export interface Profile {
+  player: Player
+  bests: Record<string, BestEntry | null>
+  ships: ShipState[]
+  selected: string
+  distinctGames: number
 }
 
 export interface SubmitResult {
@@ -44,6 +66,19 @@ export interface Store {
   claimAvatar(id: string, name: string): Promise<boolean>
   /** Stores the finished painting for `name`. */
   setAvatar(id: string, name: string, file: string): Promise<void>
+  /**
+   * The Hangar profile, or null for an unknown player. Reading also
+   * records newly unlocked ships (INSERT OR IGNORE into player_ships).
+   */
+  getProfile(playerId: string): Promise<Profile | null>
+  /**
+   * Picks the ship the player flies everywhere. 'bad-ship' for an unknown
+   * id, 'no-player' for an unknown player, 'locked' when the player has
+   * not tried enough games yet.
+   */
+  selectShip(playerId: string, shipId: string): Promise<'ok' | 'no-player' | 'bad-ship' | 'locked'>
+  /** Distinct games the player has a score in (drives the unlock). */
+  distinctGameCount(playerId: string): Promise<number>
 }
 
 const AVATAR_CLAIM_MINUTES = 3
@@ -78,10 +113,23 @@ interface PlayerRow {
   avatar_file: string | null
   avatar_name: string | null
   avatar_gens: number
+  selected_ship: string | null
 }
 
 function toPlayer(r: PlayerRow): Player {
-  return { id: r.id, name: r.name, avatarFile: r.avatar_file, avatarName: r.avatar_name, avatarGens: r.avatar_gens }
+  const selected = typeof r.selected_ship === 'string' && isShipId(r.selected_ship) ? r.selected_ship : STARTER_SHIP
+  return { id: r.id, name: r.name, avatarFile: r.avatar_file, avatarName: r.avatar_name, avatarGens: r.avatar_gens, selectedShip: selected }
+}
+
+const PLAYER_COLS = 'id, name, avatar_file, avatar_name, avatar_gens, selected_ship'
+
+/** Unlock flags from the live distinct count, with stored xp/level layered on. */
+function assembleShips(distinct: number, stored: { ship_id: string, xp: number, level: number }[]): ShipState[] {
+  const byId = new Map(stored.map(s => [s.ship_id, s]))
+  return shipStates(distinct).map(s => {
+    const row = byId.get(s.id)
+    return row ? { ...s, xp: row.xp, level: row.level } : s
+  })
 }
 
 class D1Store implements Store {
@@ -89,10 +137,67 @@ class D1Store implements Store {
 
   async getPlayer(id: string): Promise<Player | null> {
     const row = await this.db
-      .prepare('SELECT id, name, avatar_file, avatar_name, avatar_gens FROM players WHERE id = ?')
+      .prepare(`SELECT ${PLAYER_COLS} FROM players WHERE id = ?`)
       .bind(id)
       .first<PlayerRow>()
     return row ? toPlayer(row) : null
+  }
+
+  async distinctGameCount(playerId: string): Promise<number> {
+    const row = await this.db
+      .prepare('SELECT COUNT(DISTINCT game) AS n FROM scores WHERE player_id = ?')
+      .bind(playerId)
+      .first<{ n: number }>()
+    return row?.n ?? 0
+  }
+
+  async getProfile(playerId: string): Promise<Profile | null> {
+    const player = await this.getPlayer(playerId)
+    if (!player) return null
+    const distinct = await this.distinctGameCount(playerId)
+    const bestRows = await this.db
+      .prepare(`SELECT s.game, s.score,
+                (SELECT COUNT(*) FROM scores o WHERE o.game = s.game
+                  AND (o.score > s.score OR (o.score = s.score AND o.achieved_at < s.achieved_at))) + 1 AS rank
+                FROM scores s WHERE s.player_id = ?`)
+      .bind(playerId)
+      .all<{ game: string, score: number, rank: number }>()
+    const shipRows = await this.db
+      .prepare('SELECT ship_id, xp, level FROM player_ships WHERE player_id = ?')
+      .bind(playerId)
+      .all<{ ship_id: string, xp: number, level: number }>()
+    const ships = assembleShips(distinct, shipRows.results)
+    // Record newly unlocked ships (history only; unlock itself is derived).
+    for (const s of ships) {
+      if (!s.unlocked) continue
+      await this.db
+        .prepare('INSERT OR IGNORE INTO player_ships (player_id, ship_id) VALUES (?, ?)')
+        .bind(playerId, s.id)
+        .run()
+    }
+    const selected = isShipUnlocked(player.selectedShip, distinct) ? player.selectedShip : STARTER_SHIP
+    const bests: Record<string, BestEntry | null> = {}
+    for (const g of GAMES) bests[g.id] = null
+    for (const r of bestRows.results) {
+      if (bests[r.game] !== undefined) bests[r.game] = { score: r.score, rank: r.rank }
+    }
+    return { player: { ...player, selectedShip: selected }, bests, ships, selected, distinctGames: distinct }
+  }
+
+  async selectShip(playerId: string, shipId: string): Promise<'ok' | 'no-player' | 'bad-ship' | 'locked'> {
+    if (!isShipId(shipId)) return 'bad-ship'
+    if (!(await this.getPlayer(playerId))) return 'no-player'
+    const distinct = await this.distinctGameCount(playerId)
+    if (!isShipUnlocked(shipId, distinct)) return 'locked'
+    await this.db
+      .prepare('UPDATE players SET selected_ship = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      .bind(shipId, playerId)
+      .run()
+    await this.db
+      .prepare('INSERT OR IGNORE INTO player_ships (player_id, ship_id) VALUES (?, ?)')
+      .bind(playerId, shipId)
+      .run()
+    return 'ok'
   }
 
   async claimAvatar(id: string, name: string): Promise<boolean> {
@@ -195,7 +300,43 @@ class MemoryStore implements Store {
     const existing = this.players.get(id)
     this.players.set(id, existing
       ? { ...existing, name }
-      : { id, name, avatarFile: null, avatarName: null, avatarGens: 0, avatarStartedAt: null })
+      : { id, name, avatarFile: null, avatarName: null, avatarGens: 0, avatarStartedAt: null, selectedShip: STARTER_SHIP })
+    return 'ok'
+  }
+
+  async distinctGameCount(playerId: string): Promise<number> {
+    const games = new Set<string>()
+    for (const [game, byPlayer] of this.scores) if (byPlayer.has(playerId)) games.add(game)
+    return games.size
+  }
+
+  async getProfile(playerId: string): Promise<Profile | null> {
+    const stored = this.players.get(playerId)
+    if (!stored) return null
+    const { avatarStartedAt: _started, ...player } = stored
+    const distinct = await this.distinctGameCount(playerId)
+    const bests: Record<string, BestEntry | null> = {}
+    for (const g of GAMES) {
+      const rank = this.ranked(g.id).find(r => r.playerId === playerId)
+      bests[g.id] = rank ? { score: rank.score, rank: rank.rank } : null
+    }
+    const selected = isShipUnlocked(player.selectedShip, distinct) ? player.selectedShip : STARTER_SHIP
+    return {
+      player: { ...player, selectedShip: selected },
+      bests,
+      ships: shipStates(distinct),
+      selected,
+      distinctGames: distinct,
+    }
+  }
+
+  async selectShip(playerId: string, shipId: string): Promise<'ok' | 'no-player' | 'bad-ship' | 'locked'> {
+    if (!isShipId(shipId)) return 'bad-ship'
+    const p = this.players.get(playerId)
+    if (!p) return 'no-player'
+    const distinct = await this.distinctGameCount(playerId)
+    if (!isShipUnlocked(shipId, distinct)) return 'locked'
+    p.selectedShip = shipId
     return 'ok'
   }
 

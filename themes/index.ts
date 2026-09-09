@@ -16,6 +16,7 @@ import './anotherworld/theme.css'
 import './shore/theme.css'
 import './playerone/theme.css'
 import './leaderboard/theme.css'
+import './hangar/theme.css'
 
 // Static imports on purpose: a swipe should not wait for a chunk, and the
 // whole set is small (the Galaga game is the only big one).
@@ -33,6 +34,7 @@ import AnotherworldLanding from './anotherworld/Landing.vue'
 import ShoreLanding from './shore/Landing.vue'
 import PlayeroneLanding from './playerone/Landing.vue'
 import LeaderboardLanding from './leaderboard/Landing.vue'
+import HangarLanding from './hangar/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the cookie value. */
@@ -123,12 +125,22 @@ export const allThemes: ThemeDefinition[] = [
   },
   {
     // Hall of Fame (2026-09-08): the world ranking of the six score games.
-    // Last in the live rotation, so it follows the arcade.
+    // Follows the arcade; the Hangar closes the rotation after it.
     id: 'leaderboard',
     name: 'Hall of Fame',
     themeColor: '#0b0616',
     themeColorDark: '#0b0616',
     landing: LeaderboardLanding,
+  },
+  {
+    // Hangar (2026-09-09): the pilot profile — avatar, high scores and
+    // the 3D ship the player flies in every ship game. Last of all, after
+    // the board it reads from.
+    id: 'hangar',
+    name: 'Hangar',
+    themeColor: '#0b0616',
+    themeColorDark: '#0b0616',
+    landing: HangarLanding,
   },
   {
     id: 'space',

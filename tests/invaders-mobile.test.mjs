@@ -4,12 +4,20 @@ import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 
 // Exercise the actual game loop and event handlers, without mounting a renderer.
+// The Hangar ship is stubbed (imports are stripped above); calls are counted
+// to prove startGame re-reads the pick.
+const shipCalls = { n: 0 }
+const dartDef = () => ({
+  id: 'dart', variant: 'dart',
+  colors: { hull: '#2ff3ff', trim: '#2ff3ff', glow: '#2ff3ff', cockpit: '#ffffff' },
+})
 const source = readFileSync(new URL('../themes/invaders/Invaders.vue', import.meta.url), 'utf8')
   .split('<script setup>')[1].split('</script>')[0].replace(/^import .*$/gm, '')
 function game(width = 375, height = 667) {
   const context = vm.createContext({
     ref: () => ({ value: null }), defineEmits: () => () => {},
     onMounted: () => {}, onBeforeUnmount: () => {}, performance: { now: () => 100 },
+    readShipDef: () => { shipCalls.n++; return dartDef() },
   })
   vm.runInContext(source, context)
   const run = code => vm.runInContext(code, context)
@@ -143,6 +151,18 @@ test('held keyboard fires and pause or wave transition blocks new bolts', () => 
   assert.equal(run('shot'), null)
   run('paused.value = false; wavePause = 1; fire()')
   assert.equal(run('shot'), null)
+})
+
+test('cannon flies the Hangar ship, re-read on every start', () => {
+  const before = shipCalls.n
+  const run = game()
+  assert.equal(run('shipDef.colors.hull'), '#2ff3ff')
+  assert.equal(shipCalls.n, before + 2) // once at setup, once in startGame
+  run('startGame()')
+  assert.equal(shipCalls.n, before + 3)
+  // A full update loop runs clean on the stubbed ship.
+  run('update(100)')
+  assert.equal(run('shipDef.variant'), 'dart')
 })
 
 test('blast wave clear happens once and restarts without a stale bolt', () => {

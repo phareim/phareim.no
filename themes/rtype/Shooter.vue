@@ -6,6 +6,7 @@
 <script setup>
 import { MACHINE_FONT } from '~/themes/base/fonts'
 import EscHold from '../base/EscHold.vue'
+import { readShipDef } from '~/composables/useShip'
 /**
  * R-Type — an endless R-Type (1987) style side-scrolling space shooter in
  * NEON VECTOR style (stroked outlines + glow, canvas primitives only).
@@ -269,8 +270,12 @@ function insideTerrain(x, y, r) {
 
 // ---------------------------------------------------------------- state
 
+// The Hangar ship, read live: the same hull the profile shows.
+let shipDef = readShipDef()
+
 function resetGame() {
   if (!canvas.value) return
+  shipDef = readShipDef()
   score = 0
   lastScoreSent = -1
   distPx = 0
@@ -1170,6 +1175,12 @@ function drawShip(now) {
   if (blink) return
   const x = ship.x
   const y = ship.y
+  // Hangar colours: hull for the airframe, glow for the flame core.
+  const hull = shipDef.colors.hull
+  const glow = shipDef.colors.glow
+  const trim = shipDef.colors.trim
+  // The vandal flies a heavier striker silhouette: broader wings, chin fin.
+  const wide = shipDef.variant === 'vandal' ? 1.35 : 1
   // Engine flame: flickering triangle behind the ship.
   const fl = 12 + Math.random() * 14
   ctx.save()
@@ -1180,28 +1191,37 @@ function drawShip(now) {
   ctx.lineTo(x - 16 - fl, y)
   ctx.lineTo(x - 16, y + 5)
   ctx.stroke()
-  stroke(CYAN, 1.5, 8)
+  stroke(glow, 1.5, 8)
   ctx.beginPath()
   ctx.moveTo(x - 16, y - 2)
   ctx.lineTo(x - 16 - fl * 0.5, y)
   ctx.lineTo(x - 16, y + 2)
   ctx.stroke()
-  // Hull: sleek dart.
-  stroke(CYAN, 2, 14)
+  // Hull: sleek dart, or the vandal's wide striker.
+  stroke(hull, 2, 14)
   ctx.beginPath()
   ctx.moveTo(x + 22, y)
-  ctx.lineTo(x - 4, y - 9)
-  ctx.lineTo(x - 12, y - 15)
+  ctx.lineTo(x - 4, y - 9 * wide)
+  ctx.lineTo(x - 12, y - 15 * wide)
   ctx.lineTo(x - 10, y - 4)
   ctx.lineTo(x - 16, y)
   ctx.lineTo(x - 10, y + 4)
-  ctx.lineTo(x - 12, y + 15)
-  ctx.lineTo(x - 4, y + 9)
+  ctx.lineTo(x - 12, y + 15 * wide)
+  ctx.lineTo(x - 4, y + 9 * wide)
   ctx.closePath()
   ctx.stroke()
+  if (shipDef.variant === 'vandal') {
+    // Chin fin under the nose.
+    stroke(trim, 2, 10)
+    ctx.beginPath()
+    ctx.moveTo(x + 8, y + 3)
+    ctx.lineTo(x + 2, y + 12)
+    ctx.lineTo(x - 4, y + 3)
+    ctx.stroke()
+  }
   // Cockpit core.
   ctx.fillStyle = '#ffffff'
-  ctx.shadowColor = CYAN
+  ctx.shadowColor = hull
   ctx.shadowBlur = 10
   ctx.fillRect(x + 2, y - 1.5, 6, 3)
   ctx.shadowBlur = 0
@@ -1210,7 +1230,8 @@ function drawShip(now) {
 
 function drawForce() {
   const { x, y } = force
-  stroke(CYAN, 2, 14)
+  // The Force pod wears the ship's trim, so the loadout reads as one.
+  stroke(shipDef.colors.trim, 2, 14)
   ctx.beginPath()
   for (let i = 0; i < 6; i++) {
     const a = (Math.PI / 3) * i + force.angle * 0.7

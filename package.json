@@ -16,6 +16,7 @@
     "test:starfox": "node --test tests/starfox-balance.test.mjs",
     "test:wingman": "node --test tests/starfox-wingman.test.mjs",
     "test:leaderboard": "node --test tests/leaderboard-names.test.mjs",
+    "test:ships": "node --test tests/ships.test.mjs",
     "test:galaga": "node --test tests/galaga-game.test.mjs",
     "test:rtype": "node --test tests/rtype-game.test.mjs"
   },

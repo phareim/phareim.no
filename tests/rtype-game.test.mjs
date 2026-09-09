@@ -2,9 +2,30 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
+// The Hangar ship, stubbed: imports are stripped above, so the game reads
+// the pick through this. Counts calls to prove resetGame re-reads it.
+const shipCalls = { n: 0 }
+const dartDef = () => ({
+  id: 'dart', variant: 'dart',
+  colors: { hull: '#2ff3ff', trim: '#2ff3ff', glow: '#2ff3ff', cockpit: '#ffffff' },
+})
+const vandalDef = () => ({
+  id: 'vandal', variant: 'vandal',
+  colors: { hull: '#ffd23f', trim: '#ff2fa0', glow: '#ffd23f', cockpit: '#ffffff' },
+})
+/** A canvas 2D context that absorbs every call — enough to run draw fns. */
+function absorbCtx() {
+  const fn = new Proxy(function () {}, {
+    get: (t, p) => (p === Symbol.toPrimitive ? () => 0 : absorbCtx()),
+    set: () => true,
+    apply: () => absorbCtx(),
+  })
+  return fn
+}
 const source = readFileSync(new URL('../themes/rtype/Shooter.vue', import.meta.url), 'utf8').split('<script setup>')[1].split('</script>')[0].replace(/^import .*$/gm, '')
 function game() {
-  const context = vm.createContext({ ref: value => ({ value }), defineEmits: () => () => {}, onMounted() {}, onBeforeUnmount() {}, performance: { now: () => 1000 } })
+  const context = vm.createContext({ ref: value => ({ value }), defineEmits: () => () => {}, onMounted() {}, onBeforeUnmount() {}, performance: { now: () => 1000 },
+    readShipDef: () => { shipCalls.n++; return dartDef() }, __absorbCtx: absorbCtx })
   vm.runInContext(source, context)
   const run = code => vm.runInContext(code, context)
   run('canvas.value = {}; W = 900; H = 375; resetGame(); spawnT = nextBossAt = 1e9; invulnUntil = 1e9')
@@ -50,6 +71,20 @@ test('death and restart reset upgrades; paused input cannot fire or launch pod',
   assert.equal(run('bullets.length'), 0)
   assert.equal(run('force.attached'), true)
 })
+test('picks up the Hangar ship on every reset and draws both variants', () => {
+  const before = shipCalls.n
+  const run = game()
+  assert.equal(run('shipDef.variant'), 'dart')
+  assert.equal(shipCalls.n, before + 2) // once at setup, once in resetGame
+  // Both silhouettes draw without a canvas behind them.
+  run('ctx = __absorbCtx(); ship.x = 200; ship.y = 180; invulnUntil = 0; drawShip(2000); drawForce()')
+  run(`shipDef = (${vandalDef.toString()})(); drawShip(2000); drawForce()`)
+  assert.equal(run('shipDef.variant'), 'vandal')
+  run('resetGame()')
+  assert.equal(run('shipDef.variant'), 'dart')
+  assert.equal(shipCalls.n, before + 3)
+})
+
 test('angular wall collision matches interpolated edges across viewport sizes and scrolling', () => {
   const run = game()
   for (const h of [320,375,900]) {

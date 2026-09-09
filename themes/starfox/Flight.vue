@@ -42,6 +42,8 @@ import {
   MINE_FUSE_RADIUS, MINE_BLAST_RADIUS, MINE_SCORE, MAX_MINES, MAX_BULWARKS, MAX_ARCHES,
 } from './balance'
 import { createWingAi, stepWingman, callout, WING_AI, type WingTarget } from './wingmanAi'
+import { buildPlayerShip } from '~/themes/ships/three'
+import { readShipDef } from '~/composables/useShip'
 
 const emit = defineEmits<{
   score: [n: number]
@@ -153,6 +155,8 @@ let shipRoot: THREE.Group
 let shipBank: THREE.Group
 let shipMeshes: THREE.Object3D[] = []
 let engineGlow: THREE.Sprite
+/** Base engine sprite size — differs per Hangar ship; flicker adds on top. */
+let engineBase = 0.7
 let shipX = 0
 let shipY = 0.5
 let shipTX = 0 // touch steer target
@@ -623,85 +627,18 @@ function edgeLines(mesh: THREE.Mesh, color: number, opacity: number): THREE.Line
 }
 
 function buildShip() {
-  shipRoot = new THREE.Group()
-  shipBank = new THREE.Group()
-  shipRoot.add(shipBank)
+  // The Hangar ship, built by the shared builder — the exact model the
+  // profile theme shows. Read live per mount (glows before buildSun, so
+  // glowTex is ready: buildScene runs buildSun first).
+  const model = buildPlayerShip(readShipDef(), glowTex)
+  shipRoot = model.root
+  shipBank = model.bank
+  engineGlow = model.engine
   shipMeshes = []
-
-  const chrome = new THREE.MeshStandardMaterial({
-    color: 0x232c44,
-    metalness: 0.85,
-    roughness: 0.35,
-    flatShading: true,
+  shipBank.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) shipMeshes.push(o)
   })
-  const dark = new THREE.MeshStandardMaterial({
-    color: 0x11162a,
-    metalness: 0.6,
-    roughness: 0.5,
-    flatShading: true,
-  })
-  const glowCyan = new THREE.MeshBasicMaterial({ color: COL_CYAN })
-  const glowPink = new THREE.MeshBasicMaterial({ color: COL_PINK })
-
-  // fuselage: nose spike forward (-Z)
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.55, 3.4, 6), chrome)
-  nose.rotation.x = -Math.PI / 2
-  nose.position.z = -0.6
-  shipBank.add(nose)
-  shipMeshes.push(nose, edgeLines(nose, COL_CYAN, 0.9))
-  shipBank.add(shipMeshes[shipMeshes.length - 1])
-
-  // cockpit hump
-  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), chrome)
-  cockpit.position.set(0, 0.42, 0.4)
-  cockpit.scale.set(1, 0.7, 1.6)
-  shipBank.add(cockpit)
-  shipBank.add(edgeLines(cockpit, COL_CYAN, 0.9))
-
-  // main wings, swept
-  const wingGeo = new THREE.BoxGeometry(3.4, 0.12, 1.1)
-  for (const s of [-1, 1]) {
-    const wing = new THREE.Mesh(wingGeo, dark)
-    wing.position.set(s * 1.7, -0.05, 0.7)
-    wing.rotation.y = s * -0.35
-    wing.rotation.z = s * -0.12
-    shipBank.add(wing)
-    const el = edgeLines(wing, COL_CYAN, 0.75)
-    shipBank.add(el)
-    // wingtip gun
-    const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.0, 6), chrome)
-    gun.rotation.x = Math.PI / 2
-    gun.position.set(s * 3.1, 0.05, -0.1)
-    shipBank.add(gun)
-    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 6), s < 0 ? glowCyan : glowPink)
-    tip.position.set(s * 3.1, 0.05, -1.1)
-    shipBank.add(tip)
-  }
-
-  // tail fins
-  const finGeo = new THREE.BoxGeometry(0.1, 1.0, 0.9)
-  for (const s of [-1, 1]) {
-    const fin = new THREE.Mesh(finGeo, chrome)
-    fin.position.set(s * 0.5, 0.5, 1.4)
-    fin.rotation.z = s * -0.25
-    shipBank.add(fin)
-    shipBank.add(edgeLines(fin, COL_CYAN, 0.7))
-  }
-
-  // engine glow sprite
-  const engMat = new THREE.SpriteMaterial({
-    map: glowTex,
-    color: COL_CYAN,
-    transparent: true,
-    opacity: 0.6,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  })
-  engineGlow = new THREE.Sprite(engMat)
-  engineGlow.position.set(0, -0.05, 1.7)
-  engineGlow.scale.set(0.7, 0.7, 1)
-  shipBank.add(engineGlow)
-
+  engineBase = model.engine.scale.x
   shipRoot.position.set(0, 0.5, 0)
   scene.add(shipRoot)
 }
@@ -2139,8 +2076,8 @@ function update(dt: number, now: number) {
     shipRoot.position.y = shipY + Math.sin(now * 2.1) * 0.08
     // invulnerability blink
     shipRoot.visible = shipVisible && (now >= invulnUntil || Math.floor(now * 12) % 2 === 0)
-    // engine flicker
-    const es = 0.7 + Math.sin(now * 31) * 0.08 + worldSpeed * 0.002
+    // engine flicker, around the ship's own base size
+    const es = engineBase + Math.sin(now * 31) * 0.08 + worldSpeed * 0.002
     engineGlow.scale.set(es, es, 1)
 
     // firing (faster at higher weapon levels)

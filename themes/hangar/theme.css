@@ -1,0 +1,29 @@
+/* Hangar — the pilot profile, on the Neon Dreams contract like Player One
+   and Hall of Fame: cyan is the interface, pink is you, gold is the prize. */
+:root {
+  --hg-bg: #0b0616;
+  --hg-text: #f2e9ff;
+  --hg-text-muted: #b9a8d9;
+  --hg-text-subtle: #7a6a9a;
+  --hg-card-bg: rgba(11, 6, 22, .78);
+  --hg-card-border: rgba(255, 47, 160, .35);
+  --hg-card-shadow: rgba(47, 243, 255, .15);
+  --hg-accent: #2ff3ff;
+  --hg-pink: #ff2fa0;
+  --hg-gold: #ffd23f;
+}
+.hangar-page {
+  background: var(--hg-bg);
+  color: var(--hg-text);
+  font-family: var(--font-person);
+  --theme-bg: var(--hg-bg);
+  --theme-text: var(--hg-text);
+  --theme-text-muted: var(--hg-text-muted);
+  --theme-text-subtle: var(--hg-text-subtle);
+  --theme-card-bg: var(--hg-card-bg);
+  --theme-card-border: var(--hg-card-border);
+  --theme-card-shadow: var(--hg-card-shadow);
+  --theme-card-radius: 12px;
+  --theme-accent: var(--hg-accent);
+  --theme-font-body: var(--font-person);
+}

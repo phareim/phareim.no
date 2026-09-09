@@ -6,7 +6,11 @@
 <script setup>
 import { MACHINE_FONT } from '~/themes/base/fonts'
 import EscHold from '../base/EscHold.vue'
+import { readShipDef } from '~/composables/useShip'
 const emit = defineEmits(['score', 'death', 'restart', 'started'])
+
+// The Hangar ship, read live: the same hull the profile shows.
+let shipDef = readShipDef()
 
 const canvas = ref(null)
 let ctx = null
@@ -206,6 +210,7 @@ function drawBgShape(shape, offsetX) {
 
 function resetGame() {
   if (!canvas.value) return
+  shipDef = readShipDef()
   const now = performance.now()
   player.x = canvas.value.width / 2
   player.y = canvas.value.height - 60
@@ -825,27 +830,31 @@ function draw() {
   ctx.globalAlpha = 1
 
   if (!gameOver) {
-    // Player ship with powerup glow
+    // Player ship with powerup glow, in the Hangar ship's colours. The
+    // vandal flies wider wings, matching its 3D striker silhouette.
+    const hull = shipDef.colors.hull
+    const trim = shipDef.colors.trim
+    const wide = shipDef.variant === 'vandal' ? 1.25 : 1
     const glowColor = playerGlow > 0 ? `rgba(47, 243, 255, ${playerGlow * 0.6})` : null
     if (glowColor) {
-      ctx.shadowColor = '#2ff3ff'
+      ctx.shadowColor = hull
       ctx.shadowBlur = 25 + playerGlow * 20
     } else {
-      ctx.shadowColor = '#2ff3ff'
+      ctx.shadowColor = hull
       ctx.shadowBlur = 10
     }
-    ctx.fillStyle = playerGlow > 0.5 ? '#2ff3ff' : '#2ff3ff'
+    ctx.fillStyle = hull
     ctx.beginPath()
     ctx.moveTo(player.x, player.y - player.height / 2)
-    ctx.lineTo(player.x + player.width / 2, player.y + player.height / 2)
-    ctx.lineTo(player.x + player.width / 4, player.y + player.height / 4)
-    ctx.lineTo(player.x - player.width / 4, player.y + player.height / 4)
-    ctx.lineTo(player.x - player.width / 2, player.y + player.height / 2)
+    ctx.lineTo(player.x + player.width / 2 * wide, player.y + player.height / 2)
+    ctx.lineTo(player.x + player.width / 4 * wide, player.y + player.height / 4)
+    ctx.lineTo(player.x - player.width / 4 * wide, player.y + player.height / 4)
+    ctx.lineTo(player.x - player.width / 2 * wide, player.y + player.height / 2)
     ctx.closePath()
     ctx.fill()
 
-    // Extra wing details for the bigger ship
-    ctx.fillStyle = playerGlow > 0.5 ? '#2ff3ff' : '#2ff3ff'
+    // Cockpit bar in the ship's trim colour.
+    ctx.fillStyle = trim
     ctx.fillRect(player.x - 3, player.y - player.height * 0.1, 6, player.height * 0.4)
     ctx.shadowBlur = 0
 

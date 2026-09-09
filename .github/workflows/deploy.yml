@@ -29,6 +29,7 @@ jobs:
       - run: npm run test:anotherworld
       - run: npm run test:shore
       - run: npm run test:leaderboard
+      - run: npm run test:ships
 
       - run: npm run typecheck
 
