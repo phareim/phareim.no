@@ -20,6 +20,7 @@ When restoring things: cherry-pick onto this base, and **leave out the backgroun
 - `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); CI runs these before typecheck
 - `npm run test:leaderboard` — Hall of Fame name generator/validator and game list (2026-09-08)
 - `npm run test:wingman` — Star Fox wingman AI: targeting, modes, callouts (2026-09-08)
+- `npm run test:outrun` — OutRun road engine: generation, driving, traffic/scoring, clock/stages (2026-09-10)
 - `npm run typecheck` — `nuxi typecheck` (vue-tsc); CI runs this before build
 - `npm run build` — production build; the `cloudflare-pages` preset is set in `nuxt.config.ts`, output goes to `dist/`
 - `npm run preview` — preview built site
@@ -59,7 +60,7 @@ themes/              — see the phareim-theme skill
   content.ts         — default landing copy
   base/              — DefaultLanding shell, ProfileCard, SocialLink, fonts.css + fonts.ts (site fonts, 2026-09-06), neonHorizon.js (the shared synthwave backdrop: sky, stars, striped sun, ridge, grid, heartbeat, wave-clear flare — used by Breakout, Invaders and Tetris since 2026-09-06; Star Fox draws its own in three.js)
   _template/         — starting point for a new theme
-  anotherworld/ scandi/ galaga/ breakout/ rtype/ invaders/ starfox/ tetris/ leaderboard/ space/ desk/
+  anotherworld/ scandi/ galaga/ breakout/ rtype/ invaders/ starfox/ outrun/ tetris/ leaderboard/ space/ desk/
 ```
 
 There is no menu (removed 2026-09-03) and, since 2026-09-07, no page routes
@@ -70,7 +71,7 @@ back.
 
 ## Theme System (short version — the skill has the rest)
 
-- Fourteen themes, ten live (2026-09-09; the tenth is **Hangar**, last in the rotation — see its section). **Another Shore II** (parked 2026-09-07 — the “WALK — ENTER” take), **Scandinavian Glass**, **Space** and **Tufte Desk** (parked 2026-09-06) (`disabled: true` in `themes/index.ts`: out of swipe, pager, cookie and random pick; still reachable with `?theme=<id>`; nothing deleted). In swipe order: **Player One** (the profile theme, first in the list, added 2026-09-07 — see below), **Another Shore**, **Another Shore II**, **Scandinavian Glass**, **Galaga** (a vertical shmup in the Galaga mould — named Cyberpunk with the id `hacker` until 2026-09-08, when it was renamed for its lineage rather than its palette; on the shared cyan/pink/gold palette since 2026-09-08, with violet terrain meshes beneath the stars, side-entry squadrons, armoured ships and larger detailed bosses — see its section), **Breakout** (the arcade classic, added 2026-09-04; same canvas-behind-the-card pattern as Galaga, plays itself until Enter. Re-skinned 2026-09-06 onto the Neon Dreams design system, `~/github/neon-dreams-design`: three neons with three jobs — cyan paddle/ball/HUD, pink bricks in three tints, gold armoured bricks and powerups — over the shared horizon backdrop `themes/base/neonHorizon.js`, which beats on every hit; done as two parallel Muse jobs via `/musecode`, Claude reviewed), **R-Type** (endless side-scrolling shooter in neon-vector outline style, added 2026-09-05; attract-mode autopilot until Enter/tap, Force pod on Shift/double-tap, charge beam on held Space, procedural cave walls that narrow with distance, kill-streak multiplier; built by Muse Spark via `/musecode` in three parallel variants, this one won; on the Neon Dreams contract since 2026-09-06 — violet-black ground, cyan snapped to `#2ff3ff`, orange kept as its danger hue, gold multiplier from x4), **Space Invaders** (the faithful 1978 formation game in a synthwave look, added 2026-09-05: 5×11 formation with the original sprites, step-timer march that quickens as invaders die, eroding bunkers, mystery UFO, one shot on screen, kill-combo multiplier; sprite-shatter kills, screen shake, heartbeat-coupled grid and sun, pre-rendered glow sprite cache for phones; the backdrop comes from `themes/base/neonHorizon.js` since 2026-09-06. Also `/musecode`: three looks (phosphor cabinet, risograph paper, synthwave) → review/polish → two effect packages on the winner → review/fix; the losers are in git history, commits `8344268`..`d5436f7`), **Star Fox** (on-rails 3D flight shooter in three.js, added 2026-09-05: camera behind a low-poly Arwing, twin lasers, barrel roll with immunity on Shift/double-tap, rings to fly through, enemy formations, ground pillars and rocks, 100 HP hull, endless sectors with a Dreadnought boss (2026-09-08, see section below), kill-streak multiplier; synthwave look that shares the Space Invaders palette — striped sun, pulsing grid, mountain silhouettes. Attract-mode autopilot until Enter/tap. Also `/musecode`: three looks (Super FX pixel render, neon vector, synthwave) → Claude review + Muse fix round → synthwave won; the losers are in git history up to commit `dbede6f`. three.js is loaded lazily by `starfox/Landing.vue` so the other themes do not pay for it), **Tetris** (playable Tetris, ported from `tetris-theme-legacy` and reworked for Neon Dreams on 2026-09-06: cyan active piece/ghost, pink stacked blocks, gold line clears, shared horizon with lock/clear pulses. Drag sideways to move, tap to rotate, fast down flick to hard drop, slow down drag to lower, up swipe or HOLD to stash. ROTATE/DROP, pause/resume and exit buttons work on touch and mouse. A gesture stops controlling pieces when its original piece locks or swaps; idle swipes still switch theme. The board sizes to its actual remaining container space with ResizeObserver; landscape phones use two columns. The profile column was removed 2026-09-07 — the cabinet is the whole theme now, and Player One carries the person), **Space**, **Tufte Desk** (the tactile paper-on-desk layer from the tufte-viz design system, added 2026-09-03; it replaced the flat Tufte theme 2026-09-04 and carries the ET Book @font-face). **Nothing scrolls** (2026-09-05): `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, every landing is locked to the viewport — and since 2026-09-07 there is nothing but landings, so the `.page-scroll` container is gone too. Almanac, the one landing that needed the page to scroll, was removed 2026-09-05. First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
+- Fifteen themes, eleven live (2026-09-10; the eleventh is **Hangar**, last in the rotation — see its section). **Another Shore II** (parked 2026-09-07 — the “WALK — ENTER” take), **Scandinavian Glass**, **Space** and **Tufte Desk** (parked 2026-09-06) (`disabled: true` in `themes/index.ts`: out of swipe, pager, cookie and random pick; still reachable with `?theme=<id>`; nothing deleted). In swipe order: **Player One** (the profile theme, first in the list, added 2026-09-07 — see below), **Another Shore**, **Another Shore II**, **Scandinavian Glass**, **Galaga** (a vertical shmup in the Galaga mould — named Cyberpunk with the id `hacker` until 2026-09-08, when it was renamed for its lineage rather than its palette; on the shared cyan/pink/gold palette since 2026-09-08, with violet terrain meshes beneath the stars, side-entry squadrons, armoured ships and larger detailed bosses — see its section), **Breakout** (the arcade classic, added 2026-09-04; same canvas-behind-the-card pattern as Galaga, plays itself until Enter. Re-skinned 2026-09-06 onto the Neon Dreams design system, `~/github/neon-dreams-design`: three neons with three jobs — cyan paddle/ball/HUD, pink bricks in three tints, gold armoured bricks and powerups — over the shared horizon backdrop `themes/base/neonHorizon.js`, which beats on every hit; done as two parallel Muse jobs via `/musecode`, Claude reviewed), **R-Type** (endless side-scrolling shooter in neon-vector outline style, added 2026-09-05; attract-mode autopilot until Enter/tap, Force pod on Shift/double-tap, charge beam on held Space, procedural cave walls that narrow with distance, kill-streak multiplier; built by Muse Spark via `/musecode` in three parallel variants, this one won; on the Neon Dreams contract since 2026-09-06 — violet-black ground, cyan snapped to `#2ff3ff`, orange kept as its danger hue, gold multiplier from x4), **Space Invaders** (the faithful 1978 formation game in a synthwave look, added 2026-09-05: 5×11 formation with the original sprites, step-timer march that quickens as invaders die, eroding bunkers, mystery UFO, one shot on screen, kill-combo multiplier; sprite-shatter kills, screen shake, heartbeat-coupled grid and sun, pre-rendered glow sprite cache for phones; the backdrop comes from `themes/base/neonHorizon.js` since 2026-09-06. Also `/musecode`: three looks (phosphor cabinet, risograph paper, synthwave) → review/polish → two effect packages on the winner → review/fix; the losers are in git history, commits `8344268`..`d5436f7`), **Star Fox** (on-rails 3D flight shooter in three.js, added 2026-09-05: camera behind a low-poly Arwing, twin lasers, barrel roll with immunity on Shift/double-tap, rings to fly through, enemy formations, ground pillars and rocks, 100 HP hull, endless sectors with a Dreadnought boss (2026-09-08, see section below), kill-streak multiplier; synthwave look that shares the Space Invaders palette — striped sun, pulsing grid, mountain silhouettes. Attract-mode autopilot until Enter/tap. Also `/musecode`: three looks (Super FX pixel render, neon vector, synthwave) → Claude review + Muse fix round → synthwave won; the losers are in git history up to commit `dbede6f`. three.js is loaded lazily by `starfox/Landing.vue` so the other themes do not pay for it), **OutRun** (the 1986 checkpoint road racer in pseudo-3D, added 2026-09-10 — see its section), **Tetris** (playable Tetris, ported from `tetris-theme-legacy` and reworked for Neon Dreams on 2026-09-06: cyan active piece/ghost, pink stacked blocks, gold line clears, shared horizon with lock/clear pulses. Drag sideways to move, tap to rotate, fast down flick to hard drop, slow down drag to lower, up swipe or HOLD to stash. ROTATE/DROP, pause/resume and exit buttons work on touch and mouse. A gesture stops controlling pieces when its original piece locks or swaps; idle swipes still switch theme. The board sizes to its actual remaining container space with ResizeObserver; landscape phones use two columns. The profile column was removed 2026-09-07 — the cabinet is the whole theme now, and Player One carries the person), **Space**, **Tufte Desk** (the tactile paper-on-desk layer from the tufte-viz design system, added 2026-09-03; it replaced the flat Tufte theme 2026-09-04 and carries the ET Book @font-face). **Nothing scrolls** (2026-09-05): `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, every landing is locked to the viewport — and since 2026-09-07 there is nothing but landings, so the `.page-scroll` container is gone too. Almanac, the one landing that needed the page to scroll, was removed 2026-09-05. First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
 - Each `themes/<id>/theme.css` defines the `--theme-*` contract on `.{id}-page` (ten tokens, listed in the skill). Pages read `var(--theme-*, fallback)` and never hardcode colours or branch on `prefers-color-scheme` — dark mode is each theme's own business.
 - Each `themes/<id>/Landing.vue` owns the landing page. Most wrap `themes/base/DefaultLanding.vue`; a theme may replace the whole page.
 - A theme that uses arrow keys or horizontal touch itself (the Galaga and Breakout games) sets `navigationLocked` while it does.
@@ -362,11 +363,45 @@ fight with its full bar, minions and mine-seeding, no page errors or
 document overflow. One transient all-magenta frame
 was a bolt passing point-blank past the camera, not a bug.
 
+## OutRun — the checkpoint road racer (2026-09-10)
+
+`?theme=outrun` is the eighth live theme, between Star Fox and Tetris: the
+1986 checkpoint arcade racer as a pseudo-3D segmented road in Neon Dreams
+paint. `themes/outrun/` holds `engine.ts` (pure, deterministic: endless
+procedural road with curves/hills/S-bends, centrifugal push, off-road bog-down,
+traffic with near-miss and pass bonuses, 60 s clock with +25 s per 6000 m
+checkpoint, a stage per checkpoint), `OutRun.vue` (canvas renderer + input)
+and `Landing.vue` (HUD shell with countdown bar).
+
+Auto-accelerating rear-view car: arrows/A-D or drag to steer, down/S or a
+second finger to brake. Traffic shunts cost speed (one crash per shunt, with
+shake); threading a car pays NEAR MISS +150; checkpoints pay +1500 and cut
+the palette hard to the next of four stage looks (violet dusk, emerald,
+ember, azure). No lives — the clock is the enemy; TIME UP coasts the car
+down for 2.2 s, while an Esc-hold quit is GAME OVER at once (a separate
+`quit` event tells the landing apart). Attract-mode autopilot (clock frozen,
+ghost traffic) until Enter/tap; P/EscHold pause like the other games.
+
+The renderer projects each segment against the camera (classic
+two-point projection with accumulated bend, near-to-far single pass, hillside
+occlusion via maxy) and draws everything vector: striped sun, two parallax
+mountain ridges, pink/cyan rumble strips, gold lane markers, neon pylons,
+billboards, palms and START/checkpoint gantry arches, four traffic paints
+plus the player's winged cyan car with brake flare and off-road dust.
+Reduced motion drops shake, dust, flames and twinkle but keeps driving.
+
+`npm run test:outrun` (19 engine tests, in CI). The Hall of Fame lists
+`outrun` between starfox and tetris (maxScore 500_000; no D1 migration — new
+game ids need none). Verified 2026-09-10: all suites green, typecheck,
+production build, and live headless-Chromium runs — attract, drive, steer,
+off-road cap, pause pill, Esc-hold quit into game over with world rank,
+touch-tap start at 375×667, themed 404, no page errors or document overflow.
+
 ## Hall of Fame — the global leaderboard (2026-09-08)
 
-`?theme=leaderboard` is the ninth live theme, second to last in the rotation: the
-world ranking of the six score games (Galaga, Breakout, R-Type, Space
-Invaders, Star Fox, Tetris; Another Shore has no score) in one blueprint
+`?theme=leaderboard` is the tenth live theme, third to last in the rotation: the
+world ranking of the seven score games (Galaga, Breakout, R-Type, Space
+Invaders, Star Fox, OutRun, Tetris; Another Shore has no score) in one blueprint
 panel over the shared horizon, sun pushed right like Player One. Up/down
 arrows, PageUp/Down, the mouse wheel, a vertical swipe, the ▲▼ buttons or
 the dot rail beside the panel walk the games; the switch is the site's

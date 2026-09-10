@@ -11,6 +11,7 @@ import './desk/theme.css'
 import './rtype/theme.css'
 import './invaders/theme.css'
 import './starfox/theme.css'
+import './outrun/theme.css'
 import './tetris/theme.css'
 import './anotherworld/theme.css'
 import './shore/theme.css'
@@ -29,6 +30,7 @@ import DeskLanding from './desk/Landing.vue'
 import RtypeLanding from './rtype/Landing.vue'
 import InvadersLanding from './invaders/Landing.vue'
 import StarfoxLanding from './starfox/Landing.vue'
+import OutrunLanding from './outrun/Landing.vue'
 import TetrisLanding from './tetris/Landing.vue'
 import AnotherworldLanding from './anotherworld/Landing.vue'
 import ShoreLanding from './shore/Landing.vue'
@@ -115,6 +117,12 @@ export const allThemes: ThemeDefinition[] = [
     name: 'Star Fox',
     themeColor: '#0b0616',
     landing: StarfoxLanding,
+  },
+  {
+    id: 'outrun',
+    name: 'OutRun',
+    themeColor: '#0b0616',
+    landing: OutrunLanding,
   },
   {
     id: 'tetris',

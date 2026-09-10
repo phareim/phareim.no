@@ -1,0 +1,46 @@
+/**
+ * OutRun — NEON DREAMS.
+ * The Neon Dreams look shared with the arcade: violet-black ground
+ * (#0b0616), cyan car/interface (#2ff3ff), pink threat/call-to-action
+ * (#ff2fa0), gold reward (#ffd23f). The canvas paints its own striped sun,
+ * mountain ridges and segmented road; no CSS grid. One scheme — no dark
+ * variant.
+ */
+
+:root {
+  --outrun-bg: #0b0616;
+  --outrun-bg-deep: #060310;
+  --outrun-text: #f2e9ff;
+  --outrun-text-muted: #b9a8d9;
+  --outrun-text-subtle: #7a6a9a;
+  --outrun-accent: #2ff3ff;
+  --outrun-pink: #ff2fa0;
+  --outrun-gold: #ffd23f;
+  --outrun-card-bg: rgba(11, 6, 22, 0.74);
+  --outrun-card-border: rgba(255, 47, 160, 0.35);
+  --outrun-card-shadow: rgba(47, 243, 255, 0.15);
+  --outrun-font: var(--font-person);
+  --outrun-mono: var(--font-machine);
+}
+
+.outrun-page {
+  min-height: 100vh;
+  background: var(--outrun-bg);
+  color: var(--outrun-text);
+  font-family: var(--outrun-font);
+  position: relative;
+  overflow-x: hidden;
+
+  /* The contract. All ten are read somewhere; add more only when a
+     second theme needs the same token. */
+  --theme-bg: var(--outrun-bg);
+  --theme-text: var(--outrun-text);
+  --theme-text-muted: var(--outrun-text-muted);
+  --theme-text-subtle: var(--outrun-text-subtle);
+  --theme-accent: var(--outrun-accent);
+  --theme-card-bg: var(--outrun-card-bg);
+  --theme-card-border: var(--outrun-card-border);
+  --theme-card-shadow: var(--outrun-card-shadow);
+  --theme-card-radius: 12px;
+  --theme-font-body: var(--outrun-font);
+}

@@ -20,6 +20,7 @@ jobs:
       - run: npm ci
 
       - run: npm run test:rtype
+      - run: npm run test:outrun
       - run: npm run test:galaga
       - run: npm run test:invaders
       - run: npm run test:starfox

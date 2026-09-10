@@ -2,8 +2,8 @@
   <div :class="[themePageClass, 'error-root']">
     <component :is="theme.backdrop" v-if="theme.backdrop" />
 
-    <!-- Galaga, Breakout and R-Type (all neon-on-black, same terminal block) -->
-    <div v-if="activeTheme === 'galaga' || activeTheme === 'breakout' || activeTheme === 'rtype'" class="error-container term-container-inner">
+    <!-- Galaga, Breakout, R-Type and OutRun (all neon-on-black, same terminal block) -->
+    <div v-if="activeTheme === 'galaga' || activeTheme === 'breakout' || activeTheme === 'rtype' || activeTheme === 'outrun'" class="error-container term-container-inner">
       <p class="term-prompt">$ navigate --path {{ requestedPath }}</p>
       <p class="term-err">
         <span class="term-err-code">404</span>
