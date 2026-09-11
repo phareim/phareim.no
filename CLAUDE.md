@@ -20,7 +20,7 @@ When restoring things: cherry-pick onto this base, and **leave out the backgroun
 - `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); CI runs these before typecheck
 - `npm run test:leaderboard` — Hall of Fame name generator/validator and game list (2026-09-08)
 - `npm run test:wingman` — Star Fox wingman AI: targeting, modes, callouts (2026-09-08)
-- `npm run test:outrun` — OutRun road engine: generation, driving, traffic/scoring, clock/stages (2026-09-10)
+- `npm run test:outrun` — OutRun engine: road and forks, driving model, traffic and crashes, clock, goal, autopilot (rebuilt 2026-09-11)
 - `npm run typecheck` — `nuxi typecheck` (vue-tsc); CI runs this before build
 - `npm run build` — production build; the `cloudflare-pages` preset is set in `nuxt.config.ts`, output goes to `dist/`
 - `npm run preview` — preview built site
@@ -71,7 +71,7 @@ back.
 
 ## Theme System (short version — the skill has the rest)
 
-- Fifteen themes, eleven live (2026-09-10; the eleventh is **Hangar**, last in the rotation — see its section). **Another Shore II** (parked 2026-09-07 — the “WALK — ENTER” take), **Scandinavian Glass**, **Space** and **Tufte Desk** (parked 2026-09-06) (`disabled: true` in `themes/index.ts`: out of swipe, pager, cookie and random pick; still reachable with `?theme=<id>`; nothing deleted). In swipe order: **Player One** (the profile theme, first in the list, added 2026-09-07 — see below), **Another Shore**, **Another Shore II**, **Scandinavian Glass**, **Galaga** (a vertical shmup in the Galaga mould — named Cyberpunk with the id `hacker` until 2026-09-08, when it was renamed for its lineage rather than its palette; on the shared cyan/pink/gold palette since 2026-09-08, with violet terrain meshes beneath the stars, side-entry squadrons, armoured ships and larger detailed bosses — see its section), **Breakout** (the arcade classic, added 2026-09-04; same canvas-behind-the-card pattern as Galaga, plays itself until Enter. Re-skinned 2026-09-06 onto the Neon Dreams design system, `~/github/neon-dreams-design`: three neons with three jobs — cyan paddle/ball/HUD, pink bricks in three tints, gold armoured bricks and powerups — over the shared horizon backdrop `themes/base/neonHorizon.js`, which beats on every hit; done as two parallel Muse jobs via `/musecode`, Claude reviewed), **R-Type** (endless side-scrolling shooter in neon-vector outline style, added 2026-09-05; attract-mode autopilot until Enter/tap, Force pod on Shift/double-tap, charge beam on held Space, procedural cave walls that narrow with distance, kill-streak multiplier; built by Muse Spark via `/musecode` in three parallel variants, this one won; on the Neon Dreams contract since 2026-09-06 — violet-black ground, cyan snapped to `#2ff3ff`, orange kept as its danger hue, gold multiplier from x4), **Space Invaders** (the faithful 1978 formation game in a synthwave look, added 2026-09-05: 5×11 formation with the original sprites, step-timer march that quickens as invaders die, eroding bunkers, mystery UFO, one shot on screen, kill-combo multiplier; sprite-shatter kills, screen shake, heartbeat-coupled grid and sun, pre-rendered glow sprite cache for phones; the backdrop comes from `themes/base/neonHorizon.js` since 2026-09-06. Also `/musecode`: three looks (phosphor cabinet, risograph paper, synthwave) → review/polish → two effect packages on the winner → review/fix; the losers are in git history, commits `8344268`..`d5436f7`), **Star Fox** (on-rails 3D flight shooter in three.js, added 2026-09-05: camera behind a low-poly Arwing, twin lasers, barrel roll with immunity on Shift/double-tap, rings to fly through, enemy formations, ground pillars and rocks, 100 HP hull, endless sectors with a Dreadnought boss (2026-09-08, see section below), kill-streak multiplier; synthwave look that shares the Space Invaders palette — striped sun, pulsing grid, mountain silhouettes. Attract-mode autopilot until Enter/tap. Also `/musecode`: three looks (Super FX pixel render, neon vector, synthwave) → Claude review + Muse fix round → synthwave won; the losers are in git history up to commit `dbede6f`. three.js is loaded lazily by `starfox/Landing.vue` so the other themes do not pay for it), **OutRun** (the 1986 checkpoint road racer in pseudo-3D, added 2026-09-10 — see its section), **Tetris** (playable Tetris, ported from `tetris-theme-legacy` and reworked for Neon Dreams on 2026-09-06: cyan active piece/ghost, pink stacked blocks, gold line clears, shared horizon with lock/clear pulses. Drag sideways to move, tap to rotate, fast down flick to hard drop, slow down drag to lower, up swipe or HOLD to stash. ROTATE/DROP, pause/resume and exit buttons work on touch and mouse. A gesture stops controlling pieces when its original piece locks or swaps; idle swipes still switch theme. The board sizes to its actual remaining container space with ResizeObserver; landscape phones use two columns. The profile column was removed 2026-09-07 — the cabinet is the whole theme now, and Player One carries the person), **Space**, **Tufte Desk** (the tactile paper-on-desk layer from the tufte-viz design system, added 2026-09-03; it replaced the flat Tufte theme 2026-09-04 and carries the ET Book @font-face). **Nothing scrolls** (2026-09-05): `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, every landing is locked to the viewport — and since 2026-09-07 there is nothing but landings, so the `.page-scroll` container is gone too. Almanac, the one landing that needed the page to scroll, was removed 2026-09-05. First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
+- Fifteen themes, eleven live (2026-09-10; the eleventh is **Hangar**, last in the rotation — see its section). **Another Shore II** (parked 2026-09-07 — the “WALK — ENTER” take), **Scandinavian Glass**, **Space** and **Tufte Desk** (parked 2026-09-06) (`disabled: true` in `themes/index.ts`: out of swipe, pager, cookie and random pick; still reachable with `?theme=<id>`; nothing deleted). In swipe order: **Player One** (the profile theme, first in the list, added 2026-09-07 — see below), **Another Shore**, **Another Shore II**, **Scandinavian Glass**, **Galaga** (a vertical shmup in the Galaga mould — named Cyberpunk with the id `hacker` until 2026-09-08, when it was renamed for its lineage rather than its palette; on the shared cyan/pink/gold palette since 2026-09-08, with violet terrain meshes beneath the stars, side-entry squadrons, armoured ships and larger detailed bosses — see its section), **Breakout** (the arcade classic, added 2026-09-04; same canvas-behind-the-card pattern as Galaga, plays itself until Enter. Re-skinned 2026-09-06 onto the Neon Dreams design system, `~/github/neon-dreams-design`: three neons with three jobs — cyan paddle/ball/HUD, pink bricks in three tints, gold armoured bricks and powerups — over the shared horizon backdrop `themes/base/neonHorizon.js`, which beats on every hit; done as two parallel Muse jobs via `/musecode`, Claude reviewed), **R-Type** (endless side-scrolling shooter in neon-vector outline style, added 2026-09-05; attract-mode autopilot until Enter/tap, Force pod on Shift/double-tap, charge beam on held Space, procedural cave walls that narrow with distance, kill-streak multiplier; built by Muse Spark via `/musecode` in three parallel variants, this one won; on the Neon Dreams contract since 2026-09-06 — violet-black ground, cyan snapped to `#2ff3ff`, orange kept as its danger hue, gold multiplier from x4), **Space Invaders** (the faithful 1978 formation game in a synthwave look, added 2026-09-05: 5×11 formation with the original sprites, step-timer march that quickens as invaders die, eroding bunkers, mystery UFO, one shot on screen, kill-combo multiplier; sprite-shatter kills, screen shake, heartbeat-coupled grid and sun, pre-rendered glow sprite cache for phones; the backdrop comes from `themes/base/neonHorizon.js` since 2026-09-06. Also `/musecode`: three looks (phosphor cabinet, risograph paper, synthwave) → review/polish → two effect packages on the winner → review/fix; the losers are in git history, commits `8344268`..`d5436f7`), **Star Fox** (on-rails 3D flight shooter in three.js, added 2026-09-05: camera behind a low-poly Arwing, twin lasers, barrel roll with immunity on Shift/double-tap, rings to fly through, enemy formations, ground pillars and rocks, 100 HP hull, endless sectors with a Dreadnought boss (2026-09-08, see section below), kill-streak multiplier; synthwave look that shares the Space Invaders palette — striped sun, pulsing grid, mountain silhouettes. Attract-mode autopilot until Enter/tap. Also `/musecode`: three looks (Super FX pixel render, neon vector, synthwave) → Claude review + Muse fix round → synthwave won; the losers are in git history up to commit `dbede6f`. three.js is loaded lazily by `starfox/Landing.vue` so the other themes do not pay for it), **OutRun** (the 1986 road racer in pseudo-3D: five stages joined by forks, a goal, synthesised engine and radio; added 2026-09-10, rebuilt from scratch 2026-09-11 — see its section), **Tetris** (playable Tetris, ported from `tetris-theme-legacy` and reworked for Neon Dreams on 2026-09-06: cyan active piece/ghost, pink stacked blocks, gold line clears, shared horizon with lock/clear pulses. Drag sideways to move, tap to rotate, fast down flick to hard drop, slow down drag to lower, up swipe or HOLD to stash. ROTATE/DROP, pause/resume and exit buttons work on touch and mouse. A gesture stops controlling pieces when its original piece locks or swaps; idle swipes still switch theme. The board sizes to its actual remaining container space with ResizeObserver; landscape phones use two columns. The profile column was removed 2026-09-07 — the cabinet is the whole theme now, and Player One carries the person), **Space**, **Tufte Desk** (the tactile paper-on-desk layer from the tufte-viz design system, added 2026-09-03; it replaced the flat Tufte theme 2026-09-04 and carries the ET Book @font-face). **Nothing scrolls** (2026-09-05): `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, every landing is locked to the viewport — and since 2026-09-07 there is nothing but landings, so the `.page-scroll` container is gone too. Almanac, the one landing that needed the page to scroll, was removed 2026-09-05. First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
 - Each `themes/<id>/theme.css` defines the `--theme-*` contract on `.{id}-page` (ten tokens, listed in the skill). Pages read `var(--theme-*, fallback)` and never hardcode colours or branch on `prefers-color-scheme` — dark mode is each theme's own business.
 - Each `themes/<id>/Landing.vue` owns the landing page. Most wrap `themes/base/DefaultLanding.vue`; a theme may replace the whole page.
 - A theme that uses arrow keys or horizontal touch itself (the Galaga and Breakout games) sets `navigationLocked` while it does.
@@ -363,39 +363,88 @@ fight with its full bar, minions and mine-seeding, no page errors or
 document overflow. One transient all-magenta frame
 was a bolt passing point-blank past the camera, not a bug.
 
-## OutRun — the checkpoint road racer (2026-09-10)
+## OutRun — five stages and a fork in the road (rebuilt 2026-09-11)
 
 `?theme=outrun` is the eighth live theme, between Star Fox and Tetris: the
-1986 checkpoint arcade racer as a pseudo-3D segmented road in Neon Dreams
-paint. `themes/outrun/` holds `engine.ts` (pure, deterministic: endless
-procedural road with curves/hills/S-bends, centrifugal push, off-road bog-down,
-traffic with near-miss and pass bonuses, 60 s clock with +25 s per 6000 m
-checkpoint, a stage per checkpoint), `OutRun.vue` (canvas renderer + input)
-and `Landing.vue` (HUD shell with countdown bar).
+1986 cabinet as a pseudo-3D road racer in Neon Dreams paint. The first
+version (2026-09-10, commit `fde2e30`) was replaced from scratch the next
+day; see the lessons at the end of this section.
 
-Auto-accelerating rear-view car: arrows/A-D or drag to steer, down/S or a
-second finger to brake. Traffic shunts cost speed (one crash per shunt, with
-shake); threading a car pays NEAR MISS +150; checkpoints pay +1500 and cut
-the palette hard to the next of four stage looks (violet dusk, emerald,
-ember, azure). No lives — the clock is the enemy; TIME UP coasts the car
-down for 2.2 s, while an Esc-hold quit is GAME OVER at once (a separate
-`quit` event tells the landing apart). Attract-mode autopilot (clock frozen,
-ghost traffic) until Enter/tap; P/EscHold pause like the other games.
+**The run.** Title (autopilot drives behind it) → SELECT MUSIC (three tracks,
+←/→ or tap, 10 s timer) → 3-2-1-GO → five stages. Every stage ends in a Y:
+left leads to the easier stage, right to the harder, fifteen stages in a
+pyramid (1+2+3+4+5), a direction board over the road before each split and a
+sign in the gore. The checkpoint after the fork extends the clock
+(75 s start, +65/64/63/62). The fifth stage ends at a GOAL gantry that pays
+20000 per second left. TIME UP rolls the car to a stop; an Esc hold quits.
+Score is km/h × 10 per second, +1000 per close pass, +50000 per stage.
 
-The renderer projects each segment against the camera (classic
-two-point projection with accumulated bend, near-to-far single pass, hillside
-occlusion via maxy) and draws everything vector: striped sun, two parallax
-mountain ridges, pink/cyan rumble strips, gold lane markers, neon pylons,
-billboards, palms and START/checkpoint gantry arches, four traffic paints
-plus the player's winged cyan car with brake flare and off-road dust.
-Reduced motion drops shake, dust, flames and twinkle but keeps driving.
+**Driving model** (`engine.ts`, 1/120 s substeps): five-speed automatic
+(torque dip at each upshift, heard as the note dropping), gravity along the
+slope, smoothed steering whose authority grows with speed, centrifugal push
+with speed², tyre load that squeals and scrubs speed in hard bends (a full-lock
+lane change on a straight does not), dirt that caps speed at 42 %. Traffic is
+always slower than you and only changes lanes well ahead of you: a soft hit is
+a BUMP, a hard one a SPIN, a roadside prop at speed a TUMBLE (barrel roll,
+restart from standstill on the nearest lane). The car body leaves the road
+over sharp crests (visual only).
 
-`npm run test:outrun` (19 engine tests, in CI). The Hall of Fame lists
-`outrun` between starfox and tetris (maxScore 500_000; no D1 migration — new
-game ids need none). Verified 2026-09-10: all suites green, typecheck,
-production build, and live headless-Chromium runs — attract, drive, steer,
-off-road cap, pause pill, Esc-hold quit into game over with world rank,
-touch-tap start at 375×667, themed 404, no page errors or document overflow.
+**Files.** `engine.ts` — pure and deterministic; road generation per biome,
+forks, traffic, collisions, clock, autopilot (attract loop, goal cruise,
+balance sims). `renderer.ts` — Canvas 2D: camera solved per screen so the car
+keeps its share of the width (bigger on phones), near-to-far segment
+projection with crest occlusion, road batched into one Path2D per colour,
+sprites far-to-near clipped at their slice, five sky palettes blended across
+the run-in to the next stage, six backdrops (wire peaks, mesas, skyline,
+canyon, coast, grid), vector props, rear-view cars that show a flank when
+turned, sun reflection on the wet road, canvas HUD (score, time, stage +
+route map, speed + tacho + gear, radio). `audio.ts` — Web Audio only: engine
+(detuned saws + square sub, clipper, low-pass on throttle/revs, firing LFO),
+tyre squeal, wind, dirt, one-shots, and a step sequencer for the three
+original tracks (MIDNIGHT SHOWER, PASSING NEON, SPLASH GRID; bass, pad, arp,
+lead through a dotted-eighth delay, drums through a gated reverb). Nothing
+plays before the Enter/tap that opens SELECT MUSIC. `OutRun.vue` — loop,
+input, phases, messages. `Landing.vue` — title and result panels (DOM).
+
+**Controls.** Keys: ↑/W/Space gas, ↓/S brake, ←→/AD steer, M cycles the
+radio (three tracks, then off), P or an Esc tap pauses (audio suspends).
+Touch: throttle is open, drag anywhere to steer (analog, relative to the
+touchdown), a second finger brakes, tap the radio readout to change track.
+The radio choice is kept in `localStorage.outrunRadio`, the best score in
+`outrunHighScore`.
+
+**Checks.** `npm run test:outrun` (28 engine tests, in CI): road
+determinism, fork structure, props off the asphalt, countdown, gears and
+acceleration, coasting/braking, dirt cap, steering, centrifugal push, skid,
+bump/spin/close pass, tumble and restart, both fork branches with checkpoint
+and clock extension, TIME UP, warnings, demo mode, goal bonus, autopilot
+through the first fork. Balance, verified 2026-09-11 with the autopilot over
+five seeds: it reaches stage 5 every time and finishes about one run in
+five, so a clean human run makes the goal with seconds to spare. In dev,
+`window.__outrun` exposes `state`, `phase`, `drawMs`, `ff(seconds)` and
+`jump(col, node)` for headless screenshots (headless Chromium runs at ~4 fps
+on Sleeper, so fast-forward instead of waiting). Draw cost ~3.5 ms per frame
+of JavaScript at 1280×720; the backing store is capped at 3.2 megapixels.
+
+The Hall of Fame lists `outrun` between starfox and tetris with
+`maxScore: 5_000_000` (raised from 500_000 with the rebuild; a full run scores
+about 1.1 million).
+
+**Lessons from the first version** (what the rebuild fixed):
+- The HUD sat on the horizon, over the vanishing point — the one place the
+  driver must see. HUD belongs in the corners.
+- The car covered 44 % of the width and was a flat box; the camera math put
+  the road two screens wide at the car. Solve the camera from the car size.
+- The ground had no pattern that moved (two near-identical band colours), so
+  300 km/h felt like 60. Speed comes from things streaming past: rumble
+  strips, grid lines, dashes, props.
+- Binary steering (touch drag turned into left/right at a threshold) and no
+  steering inertia: no feel. Steering is analog and smoothed now.
+- Sprites were drawn in the road pass, near to far, so far palms painted over
+  near cars. Road near-to-far, sprites far-to-near.
+- An endless random road has no shape. Stages, forks and a goal give a run
+  an arc and a reason to choose.
+- No sound. An engine note that follows the gearbox is half the feel.
 
 ## Hall of Fame — the global leaderboard (2026-09-08)
 

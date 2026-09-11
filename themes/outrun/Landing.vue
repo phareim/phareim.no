@@ -1,49 +1,28 @@
 <template>
-  <DefaultLanding
-    :content-class="{ 'outrun-fade': gameStarted }"
-  >
+  <DefaultLanding>
     <template #background>
-      <OutRun
-        @score="(s: number) => score = s"
-        @distance="(m: number) => distance = m"
-        @time="(t: number) => timeLeft = t"
-        @stage="(n: number) => stage = n"
-        @speed="(k: number) => speed = k"
-        @death="onGameOver"
-        @restart="onGameRestart"
-        @started="onGameStarted"
-        @over="onGameEnded"
-        @quit="onQuit"
-      />
+      <OutRun @phase="onPhase" @over="onOver" />
     </template>
 
     <template #body>
-      <template v-if="gameOver">
-        <h1 class="outrun-over-title">{{ timedOut ? 'TIME UP' : 'GAME OVER' }}</h1>
-        <p class="outrun-hud outrun-over-score">SCORE: {{ score }} · {{ distance }}M · STAGE {{ stage + 1 }}</p>
-        <p v-if="score >= highScore && score > 0" class="outrun-hud outrun-new-high">NEW HIGH SCORE!</p>
-        <p v-else class="outrun-hud">HIGH SCORE: {{ highScore }}</p>
-        <p v-if="rank" class="outrun-hud outrun-hud-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
-        <p class="outrun-hint">▶ {{ hint('PRESS ENTER TO DRIVE AGAIN', 'TAP TO DRIVE AGAIN') }} ◀</p>
-      </template>
-      <template v-else>
-        <p class="location outrun-hud">
-          SCORE: {{ score }} · {{ distance }}M
-        </p>
-        <div v-if="gameStarted" class="outrun-dock">
-          <div class="outrun-timebar" role="status" aria-label="Time left">
-            <div class="outrun-timebar-fill" :class="{ 'outrun-time-low': timeLeft <= 10 }" :style="{ width: `${timePct}%` }" />
-          </div>
-          <p class="location outrun-hud outrun-sub">
-            {{ timeLeft }}S · STAGE {{ stage + 1 }} · {{ speed }} KM/H
-          </p>
-        </div>
-        <p v-if="highScore > 0 && !gameStarted" class="location outrun-hud-dim">HIGH SCORE: {{ highScore }}</p>
-        <template v-if="!gameStarted">
+      <div v-if="phase === 'attract'" class="outrun-title-block">
+        <h1 class="outrun-logo">OUTRUN</h1>
+        <p class="outrun-hud outrun-tag">FIVE STAGES · FIFTEEN ROADS · ONE CLOCK</p>
+        <div class="outrun-plate">
           <p class="outrun-hint">▶ {{ hint('PRESS ENTER TO DRIVE', 'TAP TO DRIVE') }} ◀</p>
-          <p class="outrun-hint outrun-hint-dim">{{ hint('← → STEER · ↓ BRAKE · ESC PAUSE', 'DRAG TO STEER · 2ND FINGER BRAKES') }}</p>
-        </template>
-      </template>
+          <p class="outrun-hint outrun-hint-dim">{{ hint('↑ GAS · ↓ BRAKE · ← → STEER · M RADIO', 'DRAG TO STEER · 2ND FINGER BRAKES') }}</p>
+          <p v-if="highScore > 0" class="outrun-hud outrun-dim">HIGH SCORE: {{ highScore }}</p>
+        </div>
+      </div>
+      <div v-else-if="phase === 'over' && result" class="outrun-over">
+        <h1 class="outrun-over-title">{{ title }}</h1>
+        <p class="outrun-hud">SCORE: {{ result.score }}</p>
+        <p class="outrun-hud outrun-route">{{ result.route.join(' · ') }}</p>
+        <p v-if="isNewHigh" class="outrun-hud outrun-new-high">NEW HIGH SCORE!</p>
+        <p v-else class="outrun-hud outrun-dim">HIGH SCORE: {{ highScore }}</p>
+        <p v-if="rank" class="outrun-hud outrun-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
+        <p class="outrun-hint">▶ {{ hint('PRESS ENTER TO DRIVE AGAIN', 'TAP TO DRIVE AGAIN') }} ◀</p>
+      </div>
     </template>
   </DefaultLanding>
 </template>
@@ -51,66 +30,99 @@
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import OutRun from './OutRun.vue'
-import { START_TIME } from './engine'
+import type { OutrunResult } from './engine'
 
 const { navigationLocked } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()
-/** This run's world rank, once the Hall of Fame has answered. */
-const rank = computed(() => lastSubmission.value?.game === 'outrun' && lastSubmission.value.score === score.value ? lastSubmission.value : null)
 const { hint } = useInputMode()
 
-const score = ref(0)
-const distance = ref(0)
-const timeLeft = ref(START_TIME)
-const stage = ref(0)
-const speed = ref(0)
+const phase = ref<'attract' | 'radio' | 'play' | 'over'>('attract')
+const result = ref<OutrunResult | null>(null)
 const highScore = ref(0)
-const gameOver = ref(false)
-const timedOut = ref(true)
-const gameStarted = ref(false)
+const isNewHigh = ref(false)
 
-const timePct = computed(() => Math.max(0, Math.min(100, (timeLeft.value / START_TIME) * 100)))
+/** This run's world rank, once the Hall of Fame has answered. */
+const rank = computed(() => lastSubmission.value?.game === 'outrun' && result.value && lastSubmission.value.score === result.value.score ? lastSubmission.value : null)
 
-onMounted(() => {
-  highScore.value = parseInt(localStorage.getItem('outrunHighScore') || '0', 10)
+const title = computed(() => {
+  if (!result.value) return ''
+  if (result.value.reason === 'goal') return 'GOAL'
+  if (result.value.reason === 'timeup') return 'TIME UP'
+  return 'GAME OVER'
 })
 
-// The game owns the arrow keys and horizontal touch while it runs.
+onMounted(() => {
+  highScore.value = parseInt(localStorage.getItem('outrunHighScore') || '0', 10) || 0
+})
+
+// The game owns the arrows while the radio screen or a run is up.
 onBeforeUnmount(() => { navigationLocked.value = false })
 
-function onGameStarted() {
-  gameStarted.value = true
-  navigationLocked.value = true
+function onPhase(p: typeof phase.value) {
+  phase.value = p
+  navigationLocked.value = p === 'radio' || p === 'play'
+  if (p !== 'over') isNewHigh.value = false
 }
 
-// 'over' fires the moment the run ends; 'death' a little later, after TIME UP.
-function onGameEnded() {
-  navigationLocked.value = false
-}
-
-function onGameOver() {
-  gameOver.value = true
-  navigationLocked.value = false
-  submitScore('outrun', score.value)
-  if (score.value > highScore.value) {
-    highScore.value = score.value
-    localStorage.setItem('outrunHighScore', String(highScore.value))
+function onOver(r: OutrunResult) {
+  result.value = r
+  if (r.score > 0) submitScore('outrun', r.score)
+  isNewHigh.value = r.score > highScore.value && r.score > 0
+  if (isNewHigh.value) {
+    highScore.value = r.score
+    localStorage.setItem('outrunHighScore', String(r.score))
   }
-}
-
-/** A manual Esc-hold quit shows GAME OVER; only the clock shows TIME UP. */
-function onQuit() {
-  timedOut.value = false
-}
-
-function onGameRestart() {
-  gameOver.value = false
-  timedOut.value = true
-  navigationLocked.value = true
 }
 </script>
 
 <style>
+.outrun-title-block,
+.outrun-over {
+  pointer-events: none;
+  padding: 0 16px;
+}
+
+/* The logo sits in the sky, over the sun, like the cabinet's title screen;
+   the call to action gets a glass plate so the road does not eat it. */
+.outrun-title-block {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 9vh;
+}
+.outrun-plate {
+  display: inline-block;
+  margin-top: 1.2em;
+  padding: 0.6em 1.2em 0.7em;
+  background: rgba(11, 6, 22, 0.62);
+  border: 1px solid rgba(255, 47, 160, 0.35);
+  border-radius: 4px;
+}
+.outrun-plate .outrun-hint {
+  margin-top: 0;
+}
+.outrun-over {
+  background: rgba(11, 6, 22, 0.66);
+  border: 1px solid rgba(255, 47, 160, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 0 24px rgba(47, 243, 255, 0.15);
+  padding: 1.2em 1.6em 1.4em;
+  max-width: min(92vw, 560px);
+}
+
+.outrun-logo {
+  font-family: var(--font-machine);
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.08em;
+  color: #ff2fa0;
+  text-shadow: 0 0 2px #0b0616, 0 0 12px rgba(255, 47, 160, 0.8), 0 0 40px rgba(255, 47, 160, 0.4);
+  -webkit-text-stroke: 1.5px #0b0616;
+  font-size: clamp(2.8em, 14vw, 6em) !important;
+  margin: 0 0 0.1em;
+  transform: skewX(-8deg);
+}
+
 .outrun-hud {
   font-family: var(--font-machine);
   text-transform: uppercase;
@@ -118,6 +130,24 @@ function onGameRestart() {
   text-shadow: 0 0 8px rgba(47, 243, 255, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
   letter-spacing: 0.15em;
   font-size: 1em;
+  margin: 0.3em 0;
+}
+
+.outrun-tag {
+  font-size: 0.7em !important;
+  opacity: 0.8;
+}
+
+.outrun-dim {
+  opacity: 0.55;
+  font-size: 0.7em !important;
+}
+
+.outrun-route {
+  font-size: 0.65em !important;
+  opacity: 0.85;
+  letter-spacing: 0.1em;
+  line-height: 1.6;
 }
 
 .outrun-over-title {
@@ -125,33 +155,24 @@ function onGameRestart() {
   text-transform: uppercase;
   color: #ff2fa0;
   text-shadow: 0 0 12px rgba(255, 47, 160, 0.8), 0 0 40px rgba(255, 47, 160, 0.4);
-  font-size: 2.8em;
+  font-size: 2.8em !important;
   letter-spacing: 0.1em;
-  margin-top: 0.5em;
-  margin-bottom: 0.1em;
+  margin: 0 0 0.2em;
 }
 @media (min-width: 800px) {
   .outrun-over-title {
-    font-size: 3.2em;
-    margin-top: 0.5em;
+    font-size: 3.2em !important;
   }
-}
-
-.outrun-over-score {
-  margin-top: 0.3em;
 }
 
 .outrun-new-high {
-  animation: outrun-pulse-glow 0.8s ease-in-out infinite alternate;
+  color: #ffd23f;
+  text-shadow: 0 0 10px rgba(255, 210, 63, 0.7);
+  animation: outrun-pulse 0.8s ease-in-out infinite alternate;
 }
-@keyframes outrun-pulse-glow {
-  from { text-shadow: 0 0 10px #2ff3ff; }
-  to { text-shadow: 0 0 20px #2ff3ff, 0 0 40px #ff2fa0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .outrun-new-high {
-    animation: none;
-  }
+@keyframes outrun-pulse {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
 }
 
 .outrun-hint {
@@ -161,60 +182,26 @@ function onGameRestart() {
   text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
   font-size: 0.9em;
   letter-spacing: 0.12em;
-  margin-top: 1em;
+  margin-top: 1.2em;
+  animation: outrun-blink 1.6s ease-in-out infinite alternate;
 }
 
 .outrun-hint-dim {
   opacity: 0.45;
   font-size: 0.7em;
-  margin-top: 0.2em;
+  margin-top: 0.3em;
+  animation: none;
 }
 
-.outrun-hud-dim {
-  font-family: var(--font-machine);
-  text-transform: uppercase;
-  color: #2ff3ff;
-  opacity: 0.5;
-  font-size: 0.65em;
-  letter-spacing: 0.1em;
+@keyframes outrun-blink {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
 }
 
-/* Countdown bar + speed readout dock above the pager dots. */
-.outrun-dock {
-  width: min(320px, 64vw);
-  margin: 0.5em auto 0;
-  pointer-events: none;
-}
-.outrun-timebar {
-  display: block;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(47, 243, 255, 0.4);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.outrun-timebar-fill {
-  display: block;
-  height: 100%;
-  background: #2ff3ff;
-  box-shadow: 0 0 8px rgba(47, 243, 255, 0.8);
-  transition: width 0.2s linear;
-}
-.outrun-time-low {
-  background: #ff2fa0;
-  box-shadow: 0 0 8px rgba(255, 47, 160, 0.8);
-  animation: outrun-pulse-glow 0.5s ease-in-out infinite alternate;
-}
-.outrun-sub {
-  margin-top: 0.4em;
-}
-
-.outrun-fade {
-  animation: outrun-fade-out 4s forwards;
-}
-@keyframes outrun-fade-out {
-  0% { opacity: 1; }
-  50% { opacity: 1; }
-  100% { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .outrun-new-high,
+  .outrun-hint {
+    animation: none;
+  }
 }
 </style>

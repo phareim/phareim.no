@@ -1,729 +1,322 @@
 <template>
-  <canvas ref="canvas" class="outrun-canvas"></canvas>
-  <EscHold :is-active="escActive" :paused="paused" @tap="togglePause" @hold="quitToGameOver" />
+  <canvas ref="canvas" class="outrun-canvas" />
+  <EscHold :is-active="escActive" :paused="paused" @tap="togglePause" @hold="quit" />
 </template>
 
-<script setup>
-import EscHold from '../base/EscHold.vue'
+<script setup lang="ts">
 /**
- * OUTRUN — an endless 1986-style checkpoint road racer in Neon Dreams paint.
+ * OUTRUN — the loop, input and sound around engine.ts (rules) and
+ * renderer.ts (pictures). Phases: `attract` (autopilot behind the title),
+ * `radio` (SELECT MUSIC, the road keeps rolling behind it), `play`
+ * (countdown, the run, TIME UP or GOAL) and `over` (the landing shows the
+ * result; the car cruises on).
  *
- * Same shell contract as the other arcade themes: a full-viewport canvas
- * behind the landing overlay, attract-mode autopilot until Enter/tap,
- * events up to Landing.vue for the HUD, Esc tap pauses and a 3 s hold quits
- * into game over, P pauses too.
- *
- * Rules: auto-accelerating rear-view car, steer with arrows/A-D or drag,
- * brake with down/S or a second finger. Dodge traffic (pink = shunt,
- * threading one = NEAR MISS bonus), keep it on the asphalt (dirt bogs the
- * car down), beat the 60 s clock to each checkpoint for +25 s. Score is
- * metres plus pass and checkpoint bonuses. No lives — the clock kills you.
- *
- * Look: a pseudo-3D segmented road (projected like the arcade originals)
- * under a striped synthwave sun, two parallax mountain ridges, neon pylons,
- * billboards and palms by the roadside, gantry arches at the start and every
- * checkpoint, and a stage palette per checkpoint (violet dusk, emerald,
- * ember, azure). All sprites are vector-drawn — no assets, no network.
+ * Keys: ← → / A D steer, ↑ / W / Space gas, ↓ / S brake, M radio, P or an
+ * Esc tap pause, a 3 s Esc hold quits. Touch: the car accelerates by
+ * itself, drag anywhere to steer (analog, relative to where the finger went
+ * down), a second finger brakes, tap the radio readout to change track.
  */
+import EscHold from '../base/EscHold.vue'
 import {
-  SEG_LEN, DRAW_DIST, ROAD_WIDTH, CAMERA_HEIGHT, FIELD_OF_VIEW,
-  MAX_SPEED, totalScore, displaySpeed, createGame, stepGame,
-  stageName, stagePalette, M_PER_SEG, CHECKPOINT_M,
+  createGame, stepGame, autopilot, totalScore, stageDef, MAX_SPEED,
+  type OutrunState, type OutrunEvent, type OutrunInput, type OutrunResult,
 } from './engine'
+import { createRenderer, type Message, type OutrunRenderer, type FrameUI } from './renderer'
+import { createAudio, TRACK_NAMES, type OutrunAudio } from './audio'
 
-const emit = defineEmits(['score', 'distance', 'time', 'stage', 'speed', 'death', 'restart', 'started', 'over', 'quit'])
+const emit = defineEmits<{
+  phase: [phase: 'attract' | 'radio' | 'play' | 'over']
+  over: [result: OutrunResult]
+}>()
 
-const canvas = ref(null)
-let ctx = null
-let animationFrameId = null
-let gameRunning = false
-
-// Viewport (CSS px).
-let SW = 0
-let SH = 0
-
-const PINK = '#ff2fa0'
-const CYAN = '#2ff3ff'
-const GOLD = '#ffd23f'
-const WHITE = '#eafcff'
-
-const CAMERA_DEPTH = 1 / Math.tan(((FIELD_OF_VIEW / 2) * Math.PI) / 180)
-const PLAYER_Z = CAMERA_HEIGHT * CAMERA_DEPTH
-const HORIZON_FRAC = 0.46
-const FOG_COLOR = '23, 10, 48'
-
-const BILLBOARDS = ['NEON DREAMS', 'OUTRUN', 'TURBO', 'NIGHT DRIVE', 'PALM VEIL', 'CHECKPOINT']
-const TRAFFIC_PAINTS = [
-  { body: '#0e5a66', trim: CYAN, glass: '#9beeff' },
-  { body: '#6b1040', trim: PINK, glass: '#ffc7e6' },
-  { body: '#6b5110', trim: GOLD, glass: '#fff3c4' },
-  { body: '#3a4066', trim: WHITE, glass: '#dfe6ff' },
-]
-
-let state = createGame((Math.random() * 1e9) | 0)
-const gameStarted = ref(false)
-const gameOver = ref(false)
+const canvas = ref<HTMLCanvasElement | null>(null)
 const paused = ref(false)
-let outroT = 0 // seconds since TIME UP, while the car coasts to a stop
-let timeUpShown = false
 
-const reducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
+const CYAN = '#2ff3ff'
+const PINK = '#ff2fa0'
+const GOLD = '#ffd23f'
+const RADIO_TIME = 10
 
-// Transient canvas messages: { text, sub, color, t, life }.
-let messages = []
-let skyOffset = 0
-let sunFlareT = 0
-let shakeT = 0
-let dust = []
-let stars = []
-// Sun framing, jittered once per load like the shared horizon.
-const sunJitterX = (Math.random() - 0.5) * 0.16
-const sunJitterY = (Math.random() - 0.5) * 0.1
-let skyGrad = null
-let skyGradH = 0
-let vignette = null
+let renderer: OutrunRenderer | null = null
+let audio: OutrunAudio | null = null
+let state: OutrunState = attractGame()
+let phase: 'attract' | 'radio' | 'play' | 'over' = 'attract'
+let raf = 0
+let last = 0
+let messages: Message[] = []
+let shake = 0
+let flash = 0
+let radioIndex = 0
+let radioTimer = RADIO_TIME
+let endT = 0
+let ended = false
+/** Seconds since GO, to nudge a keyboard player who has not found the gas. */
+let sinceGo = -1
+let reduced = false
+let touchMode = false
 
-const keys = {}
-// Drag steering: one pointer steers relative to its touchdown, a second brakes.
-let steerId = null
+const keys: Record<string, boolean> = {}
+let steerId: number | null = null
 let steerStartX = 0
-let brakeId = null
+let steerStartY = 0
+let steerStartT = 0
+let steerValue = 0
+let brakeId: number | null = null
 
-function horizonY() {
-  return SH * HORIZON_FRAC
+function seed() {
+  return (Math.random() * 1e9) | 0
 }
 
-// ---------------------------------------------------------------- sizing
-
-function setupCanvas() {
-  const c = canvas.value
-  if (!c) return
-  SW = Math.max(320, c.clientWidth || window.innerWidth)
-  SH = Math.max(320, c.clientHeight || window.innerHeight)
-  const dpr = Math.min(2, window.devicePixelRatio || 1)
-  c.width = Math.round(SW * dpr)
-  c.height = Math.round(SH * dpr)
-  ctx = c.getContext('2d')
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  skyGrad = null
-  buildStars()
-  buildVignette()
+/** The attract loop starts past the start gantry, already at speed. */
+function attractGame(): OutrunState {
+  const g = createGame(seed(), { countdown: false })
+  for (let t = 0; t < 4; t += 1 / 30) stepGame(g, 1 / 30, autopilot(g), true)
+  return g
 }
 
-function buildStars() {
-  stars = []
-  const n = Math.round(Math.max(30, Math.min(90, (SW * horizonY()) / 14000)))
-  for (let i = 0; i < n; i++) {
-    stars.push({ x: Math.random() * SW, y: Math.random() * horizonY() * 0.94, b: 0.25 + Math.random() * 0.6, sp: 1 + Math.random() * 3, ph: Math.random() * Math.PI * 2 })
-  }
+function setPhase(p: typeof phase) {
+  phase = p
+  emit('phase', p)
 }
 
-function buildVignette() {
-  vignette = ctx.createRadialGradient(SW / 2, SH * 0.55, Math.min(SW, SH) * 0.42, SW / 2, SH * 0.55, Math.max(SW, SH) * 0.75)
-  vignette.addColorStop(0, 'rgba(0,0,0,0)')
-  vignette.addColorStop(1, 'rgba(3,1,10,0.5)')
-}
-
-// ------------------------------------------------------------- projection
-
-function poly(x1, y1, x2, y2, x3, y3, x4, y4, color) {
-  ctx.fillStyle = color
-  ctx.beginPath()
-  ctx.moveTo(x1, y1)
-  ctx.lineTo(x2, y2)
-  ctx.lineTo(x3, y3)
-  ctx.lineTo(x4, y4)
-  ctx.closePath()
-  ctx.fill()
-}
-
-// ------------------------------------------------------------------ sky
-
-function drawSky(now, pal) {
-  const hy = horizonY()
-  if (!skyGrad || skyGradH !== SH) {
-    const g = ctx.createLinearGradient(0, 0, 0, hy)
-    g.addColorStop(0, pal.skyTop)
-    g.addColorStop(0.62, pal.skyMid)
-    g.addColorStop(1, pal.skyGlow)
-    skyGrad = g
-    skyGradH = SH
-    // Palette changes per checkpoint rebuild the cached gradient.
-    skyGrad.pal = pal
-  }
-  if (skyGrad.pal !== pal) skyGrad = null
-  if (!skyGrad) return drawSky(now, pal)
-  ctx.fillStyle = skyGrad
-  ctx.fillRect(0, 0, SW, hy + 1)
-
-  // Stars, twinkling above the horizon.
-  ctx.fillStyle = '#cfe9ff'
-  for (const s of stars) {
-    const tw = reducedMotion ? 0.7 : 0.5 + 0.5 * Math.sin(now * s.sp + s.ph)
-    ctx.globalAlpha = Math.round(s.b * (0.35 + 0.65 * tw) * 4) / 4
-    ctx.fillRect(s.x, s.y, 1.5, 1.5)
-  }
-  ctx.globalAlpha = 1
-
-  // Striped sun, clipped at the horizon.
-  const r = Math.min(SW * 0.2, SH * 0.13)
-  if (r >= 18) {
-    const cx = SW * (0.5 + sunJitterX)
-    const cy = hy - r * (0.55 + sunJitterY)
-    const flare = sunFlareT > 0 ? sunFlareT / 0.8 : 0
-    ctx.save()
-    ctx.beginPath()
-    ctx.rect(0, 0, SW, hy)
-    ctx.clip()
-    const rr = r * (1 + 0.08 * flare)
-    const g = ctx.createLinearGradient(0, cy - rr, 0, cy + rr)
-    g.addColorStop(0, pal.sunTop)
-    g.addColorStop(1, pal.sunBottom)
-    ctx.globalAlpha = (SW < 600 ? 0.55 : 0.85) + flare * 0.15
-    ctx.fillStyle = g
-    ctx.beginPath()
-    ctx.arc(cx, cy, rr, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.globalAlpha = 1
-    ctx.fillStyle = pal.skyMid
-    let yy = cy - rr * 0.2
-    while (yy < cy + rr) {
-      const barH = 1 + ((yy - (cy - rr * 0.2)) / (2 * rr)) * 8
-      ctx.fillRect(cx - rr, yy, rr * 2, barH)
-      yy += barH + 8
-    }
-    ctx.restore()
-  }
-
-  // Two parallax mountain ridges, seamless over one period.
-  drawRidge(hy, SH * 0.1, pal.mountainFar, skyOffset * 0.12, 3, 7)
-  drawRidge(hy, SH * 0.055, pal.mountainNear, skyOffset * 0.3, 5, 13)
-}
-
-function drawRidge(hy, height, color, offset, cyclesA, cyclesB) {
-  const P = SW * 2
-  let off = ((offset % P) + P) % P
-  ctx.fillStyle = color
-  ctx.beginPath()
-  ctx.moveTo(-4, hy + 2)
-  for (let x = -4; x <= SW + 8; x += 8) {
-    const t = ((x + off) / P) * Math.PI * 2
-    const y = hy - height * (0.45 + 0.32 * Math.sin(t * cyclesA + 1.3) + 0.23 * Math.sin(t * cyclesB + 4.1))
-    ctx.lineTo(x, y)
-  }
-  ctx.lineTo(SW + 4, hy + 2)
-  ctx.closePath()
-  ctx.fill()
-}
-
-// -------------------------------------------------------------- roadside
-
-function drawPylon(x, y, w) {
-  const h = w * 1.5
-  ctx.fillStyle = 'rgba(47,243,255,0.25)'
-  ctx.fillRect(x - w * 0.09, y - h, w * 0.18, h)
-  ctx.fillStyle = CYAN
-  ctx.fillRect(x - w * 0.035, y - h, w * 0.07, h)
-  ctx.fillStyle = PINK
-  ctx.beginPath()
-  ctx.arc(x, y - h, Math.max(1.5, w * 0.06), 0, Math.PI * 2)
-  ctx.fill()
-}
-
-function drawBillboard(x, y, w, segIndex) {
-  const h = w * 0.5
-  const legH = w * 0.35
-  ctx.fillStyle = '#0b0616'
-  ctx.fillRect(x - w * 0.04, y - h - legH, w * 0.08, legH)
-  ctx.fillRect(x + w * 0.42, y - h - legH, w * 0.08, legH)
-  ctx.fillStyle = '#120826'
-  ctx.fillRect(x - w * 0.5, y - h - legH, w, h)
-  ctx.strokeStyle = PINK
-  ctx.lineWidth = Math.max(1, w * 0.02)
-  ctx.strokeRect(x - w * 0.5, y - h - legH, w, h)
-  ctx.fillStyle = GOLD
-  ctx.font = `${Math.max(6, w * 0.11)}px "Space Mono", monospace`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(BILLBOARDS[Math.floor(segIndex / 47) % BILLBOARDS.length], x, y - h / 2 - legH)
-}
-
-function drawPalm(x, y, w) {
-  const h = w * 1.7
-  ctx.strokeStyle = '#241423'
-  ctx.lineWidth = Math.max(1.5, w * 0.09)
-  ctx.beginPath()
-  ctx.moveTo(x, y)
-  ctx.quadraticCurveTo(x + w * 0.12, y - h * 0.6, x - w * 0.05, y - h)
-  ctx.stroke()
-  ctx.strokeStyle = CYAN
-  ctx.lineWidth = Math.max(1, w * 0.045)
-  for (let i = 0; i < 5; i++) {
-    const a = (-0.15 + i * 0.18) * Math.PI
-    ctx.beginPath()
-    ctx.moveTo(x - w * 0.05, y - h)
-    ctx.quadraticCurveTo(
-      x - w * 0.05 + Math.cos(a) * w * 0.4, y - h - Math.sin(a) * w * 0.22,
-      x - w * 0.05 + Math.cos(a) * w * 0.62, y - h - Math.sin(a) * w * 0.1 + w * 0.12,
-    )
-    ctx.stroke()
-  }
-}
-
-function drawGantry(x, y, w, label) {
-  const h = w * 0.85
-  ctx.fillStyle = '#1a0f33'
-  ctx.fillRect(x - w * 0.62, y - h, w * 0.1, h)
-  ctx.fillRect(x + w * 0.52, y - h, w * 0.1, h)
-  ctx.fillStyle = '#120826'
-  ctx.fillRect(x - w * 0.62, y - h, w * 1.24, h * 0.22)
-  ctx.strokeStyle = CYAN
-  ctx.lineWidth = Math.max(1, w * 0.015)
-  ctx.strokeRect(x - w * 0.62, y - h, w * 1.24, h * 0.22)
-  ctx.fillStyle = GOLD
-  ctx.font = `${Math.max(7, w * 0.09)}px "Space Mono", monospace`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(label, x, y - h * 0.89)
-}
-
-// ------------------------------------------------------------------ cars
-
-function drawTrafficCar(x, y, w, paint) {
-  const h = w * 0.42
-  ctx.fillStyle = 'rgba(0,0,0,0.45)'
-  ctx.beginPath()
-  ctx.ellipse(x, y - h * 0.04, w * 0.52, h * 0.12, 0, 0, Math.PI * 2)
-  ctx.fill()
-  // Body: wide rear trapezoid.
-  poly(x - w * 0.5, y, x - w * 0.38, y - h * 0.62, x + w * 0.38, y - h * 0.62, x + w * 0.5, y, paint.body)
-  // Cabin.
-  poly(x - w * 0.26, y - h * 0.62, x - w * 0.18, y - h, x + w * 0.18, y - h, x + w * 0.26, y - h * 0.62, paint.glass)
-  // Spoiler.
-  ctx.fillStyle = paint.trim
-  ctx.fillRect(x - w * 0.46, y - h * 0.78, w * 0.92, h * 0.09)
-  ctx.fillRect(x - w * 0.46, y - h * 0.78, w * 0.06, h * 0.22)
-  ctx.fillRect(x + w * 0.4, y - h * 0.78, w * 0.06, h * 0.22)
-  // Taillight bar.
-  ctx.fillStyle = PINK
-  ctx.fillRect(x - w * 0.4, y - h * 0.34, w * 0.8, h * 0.1)
-  // Wheels.
-  ctx.fillStyle = '#05030c'
-  ctx.fillRect(x - w * 0.55, y - h * 0.3, w * 0.12, h * 0.3)
-  ctx.fillRect(x + w * 0.43, y - h * 0.3, w * 0.12, h * 0.3)
-}
-
-function drawPlayerCar(dt) {
-  const w = Math.min(SW * 0.44, 360)
-  const h = w * 0.4
-  const bounce = reducedMotion ? 0 : Math.sin(performance.now() / 90) * Math.min(3, state.speed / MAX_SPEED * 3)
-  let cx = SW / 2
-  let tilt = 0
-  if (keys.ArrowLeft || keys.KeyA) tilt -= 1
-  if (keys.ArrowRight || keys.KeyD) tilt += 1
-  if (steerId !== null) tilt += steerLean
-  tilt = Math.max(-1.4, Math.min(1.4, tilt))
-  cx += tilt * SW * 0.045
-  if (!reducedMotion && state.crashT > 0) {
-    cx += Math.sin(performance.now() / 40) * 9 * (state.crashT / 1.1)
-    tilt += Math.sin(performance.now() / 55) * 0.5
-  }
-  const y = SH - Math.max(28, SH * 0.045) + bounce * 0.4
-
-  ctx.save()
-  ctx.translate(cx, y)
-  ctx.rotate(tilt * 0.045)
-  // Shadow.
-  ctx.fillStyle = 'rgba(0,0,0,0.5)'
-  ctx.beginPath()
-  ctx.ellipse(0, -h * 0.02, w * 0.55, h * 0.12, 0, 0, Math.PI * 2)
-  ctx.fill()
-  // Rear tires.
-  ctx.fillStyle = '#05030c'
-  ctx.fillRect(-w * 0.58, -h * 0.34, w * 0.15, h * 0.32)
-  ctx.fillRect(w * 0.43, -h * 0.34, w * 0.15, h * 0.32)
-  // Body — low, wide, Testarossa-at-midnight-red turned neon cyan.
-  poly(-w * 0.52, 0, -w * 0.42, -h * 0.6, w * 0.42, -h * 0.6, w * 0.52, 0, '#0b4a56')
-  poly(-w * 0.42, -h * 0.6, -w * 0.36, -h * 0.78, w * 0.36, -h * 0.78, w * 0.42, -h * 0.6, '#0e5a66')
-  // Cabin + rear glass.
-  poly(-w * 0.24, -h * 0.78, -w * 0.16, -h * 1.18, w * 0.16, -h * 1.18, w * 0.24, -h * 0.78, '#0a2028')
-  poly(-w * 0.2, -h * 0.82, -w * 0.14, -h * 1.1, w * 0.14, -h * 1.1, w * 0.2, -h * 0.82, '#9beeff')
-  // Wing.
-  ctx.fillStyle = CYAN
-  ctx.fillRect(-w * 0.5, -h * 1.06, w, h * 0.09)
-  ctx.fillRect(-w * 0.5, -h * 1.06, w * 0.06, h * 0.3)
-  ctx.fillRect(w * 0.44, -h * 1.06, w * 0.06, h * 0.3)
-  ctx.fillStyle = PINK
-  ctx.fillRect(-w * 0.5, -h * 1.06, w, h * 0.025)
-  // Full-width taillight bar (flares under brakes).
-  const braking = keys.ArrowDown || keys.KeyS || brakeId !== null
-  ctx.fillStyle = braking ? '#ffd7ec' : PINK
-  ctx.fillRect(-w * 0.44, -h * 0.4, w * 0.88, h * 0.11)
-  if (!reducedMotion) {
-    ctx.fillStyle = 'rgba(255,47,160,0.35)'
-    ctx.fillRect(-w * 0.48, -h * 0.44, w * 0.96, h * 0.19)
-  }
-  // Exhausts: cyan flicker at speed.
-  ctx.fillStyle = CYAN
-  const flame = reducedMotion ? 0 : (state.speed / MAX_SPEED) * h * 0.22 * (0.6 + 0.4 * Math.sin(performance.now() / 50))
-  ctx.fillRect(-w * 0.12, -h * 0.06, w * 0.07, h * 0.06 + flame)
-  ctx.fillRect(w * 0.05, -h * 0.06, w * 0.07, h * 0.06 + flame)
-  ctx.restore()
-
-  // Dust when ragged over the dirt.
-  if (state.offroad && state.speed > MAX_SPEED * 0.2 && !reducedMotion && dust.length < 120) {
-    for (let i = 0; i < 3; i++) {
-      dust.push({ x: cx + (Math.random() - 0.5) * w, y: y - 4, vx: (Math.random() - 0.5) * 60 - tilt * 40, vy: -40 - Math.random() * 60, life: 0.7 })
-    }
-  }
-  void dt
-}
-
-function drawDust(dt) {
-  for (let i = dust.length - 1; i >= 0; i--) {
-    const p = dust[i]
-    p.life -= dt
-    if (p.life <= 0) {
-      dust.splice(i, 1)
-      continue
-    }
-    p.x += p.vx * dt
-    p.y += p.vy * dt
-    ctx.globalAlpha = Math.min(0.6, p.life)
-    ctx.fillStyle = '#b98a9a'
-    const s = 3 + (0.7 - p.life) * 8
-    ctx.fillRect(p.x, p.y, s, s)
-  }
-  ctx.globalAlpha = 1
-}
-
-function drawMessages(dt) {
-  const cx = SW / 2
-  let y = SH * 0.24
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]
-    m.t += dt
-    if (m.t > m.life) {
-      messages.splice(i, 1)
-      continue
-    }
-    const a = m.t < 0.15 ? m.t / 0.15 : m.t > m.life - 0.4 ? Math.max(0, (m.life - m.t) / 0.4) : 1
-    ctx.globalAlpha = a
-    ctx.textAlign = 'center'
-    ctx.fillStyle = m.color
-    ctx.font = `${Math.min(30, SW * 0.055)}px "Space Mono", monospace`
-    ctx.fillText(m.text, cx, y)
-    if (m.sub) {
-      ctx.font = `${Math.min(15, SW * 0.032)}px "Space Mono", monospace`
-      ctx.fillText(m.sub, cx, y + Math.min(24, SW * 0.045))
-    }
-    y += SH * 0.09
-  }
-  ctx.globalAlpha = 1
-}
-
-function pushMessage(text, sub, color, life = 2.2) {
-  messages.push({ text, sub: sub || '', color, t: 0, life })
+function say(text: string, color: string, life = 1.6, sub?: string, big = false) {
+  // A big call (3, 2, 1, GO, TIME UP) replaces the last one; a repeat restarts.
+  messages = messages.filter(m => m.text !== text && !(big && m.big))
+  messages.push({ text, sub, color, t: 0, life, big })
   if (messages.length > 3) messages.shift()
 }
 
-// ------------------------------------------------------------- main loop
+// ------------------------------------------------------------- the loop
 
-const p1 = {}
-const p2 = {}
-
-function frame(nowMs) {
-  if (!gameRunning) return
+function frame(nowMs: number) {
+  raf = requestAnimationFrame(frame)
+  if (!renderer) return
   const now = nowMs / 1000
-  let dt = Math.min(0.05, now - (frame.last || now))
-  frame.last = now
-  if (paused.value) {
-    animationFrameId = requestAnimationFrame(frame)
-    return
+  const dt = Math.min(0.05, last ? now - last : 1 / 60)
+  last = now
+  if (paused.value) return
+
+  if (phase === 'attract' || phase === 'radio') {
+    stepGame(state, dt, autopilot(state), true)
+    if (phase === 'radio') {
+      radioTimer -= dt
+      if (radioTimer <= 0) beginRun()
+    }
+  } else if (phase === 'play' || phase === 'over') {
+    handleEvents(stepGame(state, dt, readInput(), false))
+    tickRun(dt)
+    audio?.updateEngine({
+      rpm: state.rpm,
+      throttle: state.throttle,
+      speed: state.speed / MAX_SPEED,
+      gear: state.gear,
+      skid: state.skid,
+      offroad: state.offroad,
+      running: phase === 'play' || state.status === 'goal',
+    })
   }
 
-  const input = {
-    left: !!(keys.ArrowLeft || keys.KeyA) || steerLean < -0.25,
-    right: !!(keys.ArrowRight || keys.KeyD) || steerLean > 0.25,
-    brake: !!(keys.ArrowDown || keys.KeyS) || brakeId !== null,
-  }
+  for (const m of messages) m.t += dt
+  messages = messages.filter(m => m.t < m.life)
+  shake = Math.max(0, shake - dt * 2.6)
+  flash = Math.max(0, flash - dt * 4)
 
-  if (gameStarted.value && !gameOver.value) {
-    const events = stepGame(state, dt, input, false)
-    for (const e of events) {
-      if (e.type === 'crash') {
-        shakeT = 0.5
-        pushMessage('CRASH!', '', PINK, 1.2)
-      } else if (e.type === 'nearmiss') {
-        pushMessage('NEAR MISS +150', '', GOLD, 1.4)
-        sunFlareT = Math.max(sunFlareT, 0.35)
-      } else if (e.type === 'checkpoint') {
-        sunFlareT = 0.8
-        pushMessage(`CHECKPOINT · ${stageName(e.stage)}`, '+25S · +1500', GOLD, 2.6)
-      } else if (e.type === 'timeup') {
-        timeUpShown = true
-        outroT = 0
-        pushMessage('TIME UP', '', PINK, 2.4)
-        emit('over')
+  const ui: FrameUI = {
+    now,
+    dt,
+    phase,
+    reduced,
+    touch: touchMode,
+    braking: phase === 'play' && readInput().brake,
+    messages,
+    radioIndex,
+    radioNames: TRACK_NAMES,
+    radioTimer,
+    shake,
+    flash,
+    paused: paused.value,
+  }
+  const t0 = performance.now()
+  renderer.draw(state, ui)
+  drawMs = drawMs * 0.9 + (performance.now() - t0) * 0.1
+}
+
+let drawMs = 0
+/** Dev-only handle for headless checks: read the state, fast-forward on autopilot. */
+function exposeDevHook() {
+  if (!import.meta.dev) return
+  ;(window as unknown as Record<string, unknown>).__outrun = {
+    get state() { return state },
+    get phase() { return phase },
+    get drawMs() { return drawMs },
+    jump(col: number, node: number) {
+      state = createGame(seed(), { countdown: false, col, node })
+      renderer?.resetCamera()
+    },
+    ff(seconds: number, drive = true) {
+      for (let t = 0; t < seconds; t += 1 / 60) {
+        handleEvents(stepGame(state, 1 / 60, drive ? autopilot(state) : readInput(), phase !== 'play'))
+        tickRun(1 / 60)
+        for (const m of messages) m.t += 1 / 60
+        messages = messages.filter(m => m.t < m.life)
       }
-    }
-    if (timeUpShown) {
-      // The clock has killed the run: coast down, then hand over.
-      outroT += dt
-      state.speed = Math.max(0, state.speed - MAX_SPEED * 0.7 * dt)
-      state.position += state.speed * dt
-      if (outroT > 2.2) {
-        gameOver.value = true
-        emit('death')
-      }
-    }
-    emit('score', totalScore(state))
-    emit('distance', Math.floor(state.meters))
-    emit('time', Math.ceil(state.time))
-    emit('stage', state.stage)
-    emit('speed', displaySpeed(state))
-  } else if (!gameStarted.value) {
-    stepGame(state, dt, input, true)
+      renderer?.resetCamera()
+    },
   }
-
-  // Camera shake decays; parallax follows the road's bend.
-  shakeT = Math.max(0, shakeT - dt)
-  sunFlareT = Math.max(0, sunFlareT - dt)
-  const frameBase = state.segments[Math.floor(state.position / SEG_LEN)]
-  if (frameBase) skyOffset += frameBase.curve * (state.speed / MAX_SPEED) * dt * SW * 0.25
-
-  render(now, dt)
-  animationFrameId = requestAnimationFrame(frame)
 }
 
-function render(now, dt) {
-  const pal = stagePalette(state.stage)
-  drawSky(now, pal)
-
-  const baseSegIndex = Math.floor(state.position / SEG_LEN)
-  const basePercent = (state.position % SEG_LEN) / SEG_LEN
-  // Camera height follows the road under the car's nose, not under the
-  // camera — that is what sells the hills.
-  const noseZ = state.position + PLAYER_Z
-  const noseIndex = Math.floor(noseZ / SEG_LEN)
-  const nosePercent = (noseZ % SEG_LEN) / SEG_LEN
-  const noseA = state.segments[noseIndex]
-  const noseB = state.segments[noseIndex + 1]
-  const playerY = noseA && noseB ? noseA.y + (noseB.y - noseA.y) * nosePercent : 0
-  renderPlayerY = playerY
-  const baseSeg = state.segments[baseSegIndex]
-
-  let x = 0
-  let dx = -(baseSeg ? baseSeg.curve * basePercent : 0)
-  let maxy = SH
-
-  const shakeX = !reducedMotion && shakeT > 0 ? (Math.random() - 0.5) * 14 * shakeT : 0
-  const shakeY = !reducedMotion && shakeT > 0 ? (Math.random() - 0.5) * 10 * shakeT : 0
-  ctx.save()
-  ctx.translate(shakeX, shakeY)
-
-  // One near-to-far pass: project each slice with the accumulated bend and
-  // paint it. Nearer slices paint first; farther ones only touch pixels
-  // above `maxy`, so hillsides occlude the road behind them and the nearest
-  // slice's own ground band covers the bottom of the screen.
-  const gantryEvery = Math.round(CHECKPOINT_M / M_PER_SEG)
-  for (let n = 0; n < DRAW_DIST; n++) {
-    const seg = state.segments[baseSegIndex + n]
-    if (!seg) break
-    const camX = state.playerX * ROAD_WIDTH - x
-    // Two-point projection: near edge follows the accumulated bend, far
-    // edge bends one curve further — that is the pseudo-3D road.
-    projectRoadPoint(seg.index, camX, p1)
-    projectRoadPoint(seg.index + 1, camX - dx, p2)
-    x += dx
-    dx += seg.curve
-    if (p1.cameraZ <= CAMERA_DEPTH || p2.screenY >= p1.screenY || p2.screenY >= maxy) continue
-    renderSegment(p1.screenX, p1.screenY, p1.screenW, p2.screenX, p2.screenY, p2.screenW, seg.band, pal, n)
-    // Checkpoint gantry every CHECKPOINT_M metres of road.
-    if (seg.index > 40 && seg.index % gantryEvery < 1) {
-      drawPropClipped(3, seg.index, 0, p1, maxy, `STAGE ${Math.floor(seg.index / gantryEvery) + 1}`)
-    } else {
-      for (const prop of seg.props) drawPropClipped(prop.kind, seg.index, prop.offset, p1, maxy)
-    }
-    for (const car of carsInSegment(seg.index)) drawCarClipped(car, p1, maxy)
-    maxy = p1.screenY
-  }
-
-  // (The nearest slice's own ground band reaches past the bottom edge, so
-  // nothing needs painting below the road.)
-  // Fog wash over the distance, then the vignette.
-  const fogH = SH - horizonY()
-  if (fogH > 0) {
-    const g = ctx.createLinearGradient(0, horizonY(), 0, SH)
-    g.addColorStop(0, `rgba(${FOG_COLOR},0.55)`)
-    g.addColorStop(1, `rgba(${FOG_COLOR},0)`)
-    ctx.fillStyle = g
-    ctx.fillRect(0, horizonY(), SW, fogH)
-  }
-  if (vignette) {
-    ctx.fillStyle = vignette
-    ctx.fillRect(0, 0, SW, SH)
-  }
-
-  drawDust(dt)
-  if (gameStarted.value) drawPlayerCar(dt)
-  else drawPlayerCarIdle(now)
-  ctx.restore()
-
-  drawMessages(dt)
-}
-
-/** Camera height interpolated under the car's nose; set once per render. */
-let renderPlayerY = 0
-
-function projectRoadPoint(segIndex, camX, out) {
-  const seg = state.segments[segIndex]
-  if (!seg) {
-    out.cameraZ = 1
-    out.scale = CAMERA_DEPTH
-    out.screenX = SW / 2
-    out.screenY = SH
-    out.screenW = 0
-    return
-  }
-  const camY = CAMERA_HEIGHT + renderPlayerY
-  const worldZ = segIndex * SEG_LEN
-  const cz = worldZ - state.position
-  out.cameraZ = cz
-  out.scale = CAMERA_DEPTH / Math.max(1, cz)
-  out.screenX = Math.round(SW / 2 + out.scale * (0 - camX) * SW / 2)
-  out.screenY = Math.round(SH / 2 - out.scale * (seg.y - camY) * SH / 2)
-  out.screenW = Math.round(out.scale * ROAD_WIDTH * SW / 2)
-}
-
-function renderSegment(x1, y1, w1, x2, y2, w2, band, pal, n) {
-  // Ground band across the full width.
-  ctx.fillStyle = band === 0 ? pal.groundA : pal.groundB
-  ctx.fillRect(0, y2, SW, y1 - y2)
-  // Rumble strips.
-  const r1 = w1 * 1.18
-  const r2 = w2 * 1.18
-  poly(x1 - r1, y1, x1 + r1, y1, x2 + r2, y2, x2 - r2, y2, band === 0 ? PINK : CYAN)
-  // Asphalt.
-  poly(x1 - w1, y1, x1 + w1, y1, x2 + w2, y2, x2 - w2, y2, '#131022')
-  // Gold lane markers on the light band: three lanes, two dividers.
-  if (band === 0) {
-    const lw1 = Math.max(1, w1 * 0.025)
-    const lw2 = Math.max(1, w2 * 0.025)
-    for (const lane of [-1 / 3, 1 / 3]) {
-      const lx1 = x1 + w1 * lane
-      const lx2 = x2 + w2 * lane
-      poly(lx1 - lw1, y1, lx1 + lw1, y1, lx2 + lw2, y2, lx2 - lw2, y2, GOLD)
+/** Run-level timers: the gas nudge after GO, and the hand-over after TIME UP or the goal. */
+function tickRun(dt: number) {
+  if (sinceGo >= 0 && phase === 'play') {
+    sinceGo += dt
+    if (sinceGo > 1.4) {
+      if (!touchMode && state.speed < MAX_SPEED * 0.03) say('HOLD ↑ FOR GAS', PINK, 2.2)
+      sinceGo = -1
     }
   }
-  // Distance fog over the slice.
-  const f = Math.pow(n / DRAW_DIST, 2.2) * 0.75
-  if (f > 0.02) {
-    ctx.fillStyle = `rgba(${FOG_COLOR},${f.toFixed(3)})`
-    ctx.fillRect(0, y2, SW, y1 - y2)
+  if (phase === 'play' && ended) {
+    endT += dt
+    const done = state.status === 'goal' ? endT > 5 : (endT > 1.2 && state.speed < MAX_SPEED * 0.02) || endT > 4
+    if (done) finish(state.status === 'goal' ? 'goal' : 'timeup')
   }
 }
 
-function carsInSegment(segIndex) {
-  const out = []
-  const z0 = segIndex * SEG_LEN
-  const z1 = z0 + SEG_LEN
-  for (const car of state.cars) {
-    if (car.z >= z0 && car.z < z1) out.push(car)
+function readInput(): OutrunInput {
+  let steer = 0
+  if (keys.ArrowLeft || keys.KeyA) steer -= 1
+  if (keys.ArrowRight || keys.KeyD) steer += 1
+  if (steerId !== null) steer += steerValue
+  const brake = !!(keys.ArrowDown || keys.KeyS) || brakeId !== null
+  // Touch drives with the throttle open; keys need ↑.
+  const gas = touchMode ? !brake : !!(keys.ArrowUp || keys.KeyW || keys.Space)
+  return { steer: Math.max(-1, Math.min(1, steer)), gas, brake }
+}
+
+function handleEvents(events: OutrunEvent[]) {
+  for (const e of events) {
+    switch (e.type) {
+      case 'countdown':
+        say(String(e.n), CYAN, 0.9, undefined, true)
+        audio?.play('count')
+        break
+      case 'go':
+        say('GO!', GOLD, 1.1, stageDef(state.col, state.node).name, true)
+        audio?.play('go')
+        sinceGo = 0
+        break
+      case 'crash':
+        shake = e.kind === 'bump' ? 0.45 : 1
+        if (e.kind !== 'bump') flash = 0.35
+        audio?.play(e.kind)
+        renderer?.sparksAtCar(e.kind === 'bump' ? 12 : 30)
+        if (e.kind === 'tumble') say('WIPEOUT', PINK, 1.8)
+        break
+      case 'close':
+        say('CLOSE +1000', GOLD, 1.1)
+        audio?.play('close')
+        break
+      case 'fork':
+        say(`${e.side < 0 ? '◀' : ''} ${stageDef(e.col, e.node).name} ${e.side > 0 ? '▶' : ''}`.trim(), CYAN, 1.8)
+        break
+      case 'checkpoint':
+        say('CHECKPOINT', GOLD, 2.6, `EXTENDED PLAY +${e.extend}S · STAGE ${e.col + 1}`)
+        audio?.play('checkpoint')
+        flash = 0.25
+        break
+      case 'warn':
+        audio?.play('warn')
+        break
+      case 'timeup':
+        say('TIME UP', PINK, 3.5, undefined, true)
+        audio?.play('timeup')
+        audio?.fadeMusic(2.5)
+        ended = true
+        endT = 0
+        break
+      case 'goal':
+        say('GOAL!', GOLD, 4.5, `TIME BONUS ${e.timeBonus}`, true)
+        audio?.play('goal')
+        flash = 0.4
+        ended = true
+        endT = 0
+        break
+      case 'shift':
+        break
+      case 'offroad':
+        break
+    }
   }
-  return out
-}
-
-function spriteScaleClipped(p, maxy, hWorld, minH) {
-  const h = Math.max(minH, p.screenW * hWorld)
-  if (p.screenY - h > maxy || p.screenW < 4) return 0
-  return h
-}
-
-function drawPropClipped(kind, segIndex, offset, p, maxy, label) {
-  const scale = p.scale
-  const x = p.screenX + scale * offset * ROAD_WIDTH * SW / 2
-  const y = p.screenY
-  if (x < -SW * 0.3 || x > SW * 1.3) return
-  if (kind === 0) {
-    const h = spriteScaleClipped(p, maxy, 0.5, 8)
-    if (!h) return
-    drawPylon(x, y, h * 0.28)
-  } else if (kind === 1) {
-    const h = spriteScaleClipped(p, maxy, 0.62, 14)
-    if (!h) return
-    drawBillboard(x, y, h * 1.15, segIndex)
-  } else if (kind === 2) {
-    const h = spriteScaleClipped(p, maxy, 0.6, 12)
-    if (!h) return
-    drawPalm(x, y, h * 0.5)
-  } else {
-    const h = spriteScaleClipped(p, maxy, 0.5, 20)
-    if (!h) return
-    drawGantry(p.screenX, y, p.screenW * 2, label || (segIndex < 60 ? 'START' : 'CHECKPOINT'))
-  }
-}
-
-function drawCarClipped(car, p, maxy) {
-  const w = p.screenW * 0.44
-  if (w < 6 || p.screenY - w * 0.5 > maxy) return
-  const x = p.screenX + p.scale * car.offset * ROAD_WIDTH * SW / 2
-  drawTrafficCar(x, p.screenY, w, TRAFFIC_PAINTS[car.color % TRAFFIC_PAINTS.length])
-}
-
-function drawPlayerCarIdle(now) {
-  // The attract loop parks the camera behind a cruising ghost: draw the car
-  // centred and still, over the demo's own road.
-  const keepCrash = state.crashT
-  state.crashT = 0
-  drawPlayerCar(0)
-  state.crashT = keepCrash
-  void now
 }
 
 // ------------------------------------------------------------ game flow
 
-let steerLean = 0
-
-function startGame() {
-  state = createGame((Math.random() * 1e9) | 0)
+function toRadio() {
+  if (!audio) audio = createAudio()
+  audio.start()
+  radioTimer = RADIO_TIME
+  if (phase !== 'attract' && phase !== 'over') return
+  if (phase === 'over') {
+    state = attractGame()
+    renderer?.resetCamera()
+  }
   messages = []
-  dust = []
-  skyOffset = 0
-  outroT = 0
-  timeUpShown = false
-  shakeT = 0
-  sunFlareT = 0
-  paused.value = false
-  gameOver.value = false
-  gameStarted.value = true
-  pushMessage('GO!', stageName(0), GOLD, 1.6)
-  emit('started')
-  emit('restart')
+  setPhase('radio')
+  audio.playTrack(radioIndex)
 }
 
-function endToGameOver() {
-  if (!gameStarted.value || gameOver.value) return
-  gameOver.value = true
+function beginRun() {
+  if (phase !== 'radio') return
+  try { localStorage.setItem('outrunRadio', String(radioIndex)) } catch { /* private mode */ }
+  state = createGame(seed())
+  renderer?.resetCamera()
+  messages = []
+  ended = false
+  endT = 0
+  sinceGo = -1
   paused.value = false
+  setPhase('play')
+}
+
+function cycleRadio() {
+  // Tracks, then silence, then round again.
+  radioIndex = radioIndex >= TRACK_NAMES.length - 1 ? -1 : radioIndex + 1
+  try { localStorage.setItem('outrunRadio', String(radioIndex)) } catch { /* private mode */ }
+  if (radioIndex < 0) audio?.stopTrack()
+  else audio?.playTrack(radioIndex)
+  audio?.play('select')
+}
+
+function chooseRadio(i: number) {
+  radioIndex = (i + TRACK_NAMES.length) % TRACK_NAMES.length
+  audio?.playTrack(radioIndex)
+  audio?.play('select')
+}
+
+function finish(reason: OutrunResult['reason']) {
+  if (phase !== 'play') return
+  setPhase('over')
   clearInput()
-  emit('over')
-  // A manual quit is GAME OVER, not TIME UP — the landing tells them apart.
-  emit('quit')
-  emit('death')
+  if (reason !== 'goal') audio?.silenceEngine()
+  audio?.fadeMusic(3)
+  const route = state.route.map((n, c) => stageDef(c, n).name)
+  emit('over', { score: totalScore(state), reason, route, stage: state.col + 1 })
 }
 
-function quitToGameOver() {
-  endToGameOver()
+function quit() {
+  if (phase !== 'play') return
+  paused.value = false
+  audio?.suspend(false)
+  finish('quit')
 }
 
 function escActive() {
-  return gameStarted.value && !gameOver.value
+  return phase === 'play'
 }
 
 function togglePause() {
-  if (!gameStarted.value || gameOver.value) return
+  if (phase !== 'play') return
   paused.value = !paused.value
+  audio?.suspend(paused.value)
   clearInput()
 }
 
@@ -731,132 +324,182 @@ function clearInput() {
   for (const k of Object.keys(keys)) keys[k] = false
   steerId = null
   brakeId = null
-  steerLean = 0
+  steerValue = 0
 }
 
-function isInteractiveElement(el) {
-  if (!el || !el.closest) return false
-  if (el.closest('a, button, .social-links, .flip-container, .theme-pager')) return true
-  return false
+// ---------------------------------------------------------------- input
+
+function isInteractive(el: EventTarget | null) {
+  const e = el as HTMLElement | null
+  return !!e?.closest?.('a, button, .theme-pager')
 }
 
-function handleKeyDown(e) {
-  if (isInteractiveElement(e.target)) return
-  // Escape belongs to EscHold (tap = pause, 3 s hold = quit); P pauses too.
+const GAME_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS'])
+
+function onKeyDown(e: KeyboardEvent) {
+  if (isInteractive(e.target)) return
   if (e.code === 'Escape') return
+  if (e.key !== 'Unidentified') touchMode = false
   if (e.code === 'KeyP' && !e.repeat) {
-    if (gameStarted.value && !gameOver.value) {
+    if (phase === 'play') {
       e.preventDefault()
       togglePause()
     }
     return
   }
-  keys[e.code] = true
-  if (e.code === 'Enter' && !e.repeat) {
-    if (!gameStarted.value || gameOver.value) startGame()
+  if (e.code === 'KeyM' && !e.repeat && (phase === 'play' || phase === 'radio')) {
+    if (phase === 'radio') chooseRadio(radioIndex + 1)
+    else cycleRadio()
     return
   }
-  if (!gameStarted.value || gameOver.value) return
-  if (e.code.startsWith('Arrow')) e.preventDefault()
-  if (e.code === 'Space') e.preventDefault()
+  if (phase === 'radio') {
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') chooseRadio(radioIndex - 1)
+    else if (e.code === 'ArrowRight' || e.code === 'KeyD') chooseRadio(radioIndex + 1)
+    else if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat) beginRun()
+    if (GAME_KEYS.has(e.code) || e.code === 'Enter') e.preventDefault()
+    return
+  }
+  if (e.code === 'Enter' && !e.repeat && (phase === 'attract' || phase === 'over')) {
+    if (radioIndex < 0) radioIndex = 0
+    toRadio()
+    return
+  }
+  if (phase !== 'play') return
+  keys[e.code] = true
+  if (GAME_KEYS.has(e.code)) e.preventDefault()
 }
 
-function handleKeyUp(e) {
+function onKeyUp(e: KeyboardEvent) {
   keys[e.code] = false
 }
 
-function handlePointerDown(e) {
-  if (isInteractiveElement(e.target)) return
-  if (!gameStarted.value || gameOver.value) {
-    // Idle: remember the touch so a tap can start; swipes still change theme.
-    if (e.pointerType !== 'mouse' && steerId === null) {
-      steerId = e.pointerId
-      steerStartX = e.clientX
-      steerStartY = e.clientY
-      steerStartT = performance.now()
+function onPointerDown(e: PointerEvent) {
+  if (isInteractive(e.target)) return
+  if (e.pointerType !== 'mouse') touchMode = true
+  if (phase === 'radio') {
+    const i = renderer?.radioCardAt(e.clientX, e.clientY, TRACK_NAMES.length) ?? -1
+    if (i >= 0) {
+      if (i === radioIndex || e.pointerType !== 'mouse') {
+        radioIndex = i
+        beginRun()
+      } else chooseRadio(i)
     }
     return
   }
-  if (steerId === null) {
-    steerId = e.pointerId
-    steerStartX = e.clientX
-    steerLean = 0
-  } else if (brakeId === null && e.pointerId !== steerId) {
-    brakeId = e.pointerId
+  if (phase === 'play') {
+    if (e.pointerType === 'mouse') return
+    if (renderer?.radioHudHit(e.clientX, e.clientY)) {
+      cycleRadio()
+      return
+    }
+    if (steerId === null) {
+      steerId = e.pointerId
+      steerStartX = e.clientX
+      steerValue = 0
+    } else if (brakeId === null && e.pointerId !== steerId) {
+      brakeId = e.pointerId
+    }
+    return
   }
+  // Attract / over: remember the press so a tap starts; a swipe changes theme.
+  steerId = e.pointerId
+  steerStartX = e.clientX
+  steerStartY = e.clientY
+  steerStartT = performance.now()
 }
 
-let steerStartY = 0
-let steerStartT = 0
-
-function handlePointerMove(e) {
-  if (e.pointerId !== steerId) return
-  if (!gameStarted.value || gameOver.value) return
-  steerLean = Math.max(-1, Math.min(1, (e.clientX - steerStartX) / (SW * 0.18)))
+function onPointerMove(e: PointerEvent) {
+  if (e.pointerId !== steerId || phase !== 'play') return
+  const w = renderer?.width ?? window.innerWidth
+  steerValue = Math.max(-1, Math.min(1, (e.clientX - steerStartX) / (w * 0.16)))
 }
 
-function handlePointerUp(e) {
+function onPointerUp(e: PointerEvent) {
   if (e.pointerId === brakeId) {
     brakeId = null
     return
   }
   if (e.pointerId !== steerId) return
-  const wasIdle = !gameStarted.value || gameOver.value
-  const moved = Math.hypot(e.clientX - steerStartX, (e.clientY || 0) - (steerStartY || 0))
-  const quick = performance.now() - (steerStartT || 0) < 400
   steerId = null
-  steerLean = 0
-  if (wasIdle && (e.pointerType === 'mouse' || (moved < 15 && quick))) startGame()
-}
-
-function handlePointerCancel(e) {
-  if (e.pointerId === brakeId) brakeId = null
-  if (e.pointerId === steerId) {
-    steerId = null
-    steerLean = 0
+  steerValue = 0
+  if (phase === 'attract' || phase === 'over') {
+    const moved = Math.hypot(e.clientX - steerStartX, e.clientY - steerStartY)
+    const quick = performance.now() - steerStartT < 450
+    if (moved < 15 && quick) {
+      if (radioIndex < 0) radioIndex = 0
+      toRadio()
+    }
   }
 }
 
-let resizeT = null
-function debouncedResize() {
+function onPointerCancel(e: PointerEvent) {
+  if (e.pointerId === brakeId) brakeId = null
+  if (e.pointerId === steerId) {
+    steerId = null
+    steerValue = 0
+  }
+}
+
+function onVisibility() {
+  if (document.hidden) {
+    clearInput()
+    if (phase === 'play' && !paused.value) togglePause()
+    else audio?.suspend(true)
+  } else if (!paused.value) {
+    audio?.suspend(false)
+  }
+}
+
+let resizeT: ReturnType<typeof setTimeout> | null = null
+function resize() {
+  const c = canvas.value
+  if (!c || !renderer) return
+  renderer.resize(c.clientWidth || window.innerWidth, c.clientHeight || window.innerHeight, window.devicePixelRatio || 1)
+}
+function onResize() {
   if (resizeT) clearTimeout(resizeT)
-  resizeT = setTimeout(() => {
-    resizeT = null
-    setupCanvas()
-  }, 150)
+  resizeT = setTimeout(resize, 120)
 }
 
 onMounted(() => {
-  setupCanvas()
-  gameRunning = true
-  frame.last = 0
-  animationFrameId = requestAnimationFrame(frame)
-  window.addEventListener('keydown', handleKeyDown)
-  window.addEventListener('keyup', handleKeyUp)
-  window.addEventListener('resize', debouncedResize)
-  window.addEventListener('pointerdown', handlePointerDown)
-  window.addEventListener('pointermove', handlePointerMove)
-  window.addEventListener('pointerup', handlePointerUp)
-  window.addEventListener('pointercancel', handlePointerCancel)
+  reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+  touchMode = matchMedia('(hover: none) and (pointer: coarse)').matches
+  try {
+    const r = parseInt(localStorage.getItem('outrunRadio') ?? '0', 10)
+    radioIndex = Number.isFinite(r) && r >= -1 && r < TRACK_NAMES.length ? r : 0
+  } catch { /* private mode */ }
+  if (canvas.value) {
+    renderer = createRenderer(canvas.value)
+    resize()
+  }
+  emit('phase', phase)
+  exposeDevHook()
+  raf = requestAnimationFrame(frame)
+  window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
+  window.addEventListener('resize', onResize)
+  window.addEventListener('pointerdown', onPointerDown)
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointercancel', onPointerCancel)
   window.addEventListener('blur', clearInput)
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) clearInput()
-  })
+  document.addEventListener('visibilitychange', onVisibility)
 })
 
 onBeforeUnmount(() => {
-  gameRunning = false
-  clearInput()
+  cancelAnimationFrame(raf)
   if (resizeT) clearTimeout(resizeT)
-  if (animationFrameId) cancelAnimationFrame(animationFrameId)
-  window.removeEventListener('keydown', handleKeyDown)
-  window.removeEventListener('keyup', handleKeyUp)
-  window.removeEventListener('resize', debouncedResize)
-  window.removeEventListener('pointerdown', handlePointerDown)
-  window.removeEventListener('pointermove', handlePointerMove)
-  window.removeEventListener('pointerup', handlePointerUp)
-  window.removeEventListener('pointercancel', handlePointerCancel)
+  audio?.dispose()
+  audio = null
+  window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('keyup', onKeyUp)
+  window.removeEventListener('resize', onResize)
+  window.removeEventListener('pointerdown', onPointerDown)
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', onPointerCancel)
   window.removeEventListener('blur', clearInput)
+  document.removeEventListener('visibilitychange', onVisibility)
 })
 </script>
 
