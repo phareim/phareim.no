@@ -632,6 +632,43 @@ ikke håndhevet (`Math.max(1, count)`), deep field re-allokerer canvas ved
 hver resize, radiohint tegnes på touch, ~100 Web Audio-linjer duplisert
 fra `outrun/audio.ts`, leaderboard-cap 500 000 kan nås av gode runs.
 
+## Global radio — én musikkspiller på tvers av spillene (2026-09-12, branch `muse/radio-widget`)
+
+Spillerønske 2026-09-12: en musikkspiller øverst til høyre som til enhver
+tid viser radioen som spiller, og blir med på tvers av spillene. Bygd i
+worktree `~/github/phareim-radio-widget` fordi en annen agent jobber med
+lyd samtidig — ikke flettet til main ennå.
+
+**Hvordan:** `components/RadioWidget.vue` (i `app.vue`, fast øverst høyre,
+z 60, Space Mono, `♪ STASJON n/6` + mute) leser `composables/useRadio.ts`
+(stasjon/mute i `useState`, persistert `phareim.radioStation` /
+`phareim.radioMuted`). Lyden kommer fra singleton-motoren
+`themes/radio/engine.ts` (samme sequencer-oppsett som spillene hadde:
+buss, delt noise, gated reverb, dotted-eighth delay, 25 ms / 0,14 s
+lookahead) — opprettes på første gesture, disponeres aldri ved
+theme-bytte. Katalogen `themes/radio/catalog.ts` (ren, testbar) samler alle
+seks sporene: Galaga 0–2 + OutRun 3–5. M sykler globalt (widgeten eier den),
+første pointerdown/keydown hvor som helst starter radioen.
+
+**Spillene:** Galaga og OutRun spiller musikk via `radio.*` og beholder kun
+SFX/motorlyd lokalt (to AudioContexts). Død, TIME UP og GOAL fader ikke
+lenger musikken — radioen spiller videre. Galagas `M` og intensitets-
+styring (`setIntensity` per wave/boss) går mot radioen; OutRuns
+SELECT MUSIC-screen velger global stasjon (OFF = start muted) og canvas-
+HUD-en viser sann global stasjon under kjøring. Pauser og skjult fane
+suspender begge kontekster; resume overstyrer aldri mute.
+
+**Kontrakt mot lyd-agenten:** notene eies av `TRACKS` i hvert spills
+`audio.ts` (motoren importerer dem; katalogen speiler navnene og
+`tests/radio-catalog.test.mjs` feiler høyt ved avvik i stedet for å drive
+stille). `intensityVoices`/`transposeFor`/`hz` gjenbrukes fra
+`galaga/audio.ts`. Per-spill `playTrack/stopTrack/fadeMusic` er døde —
+ikke koble dem til igjen. `npm run test:radio` (5 tester) + én ny
+regressjon i `galaga-game` (reset driver radioen); CI-linje lagt til.
+Verifisert: alle suiter grønne, typecheck, produksjonsbygg, SSR-widget på
+galaga/outrun/playerone/tetris, headless Chromium uten JS-feil på fem
+themes. Fysisk telefon og reappl multi-context-batterikostnad er umålt.
+
 ## R-Type mountain walls and weapon pickups (2026-09-08)
 
 `themes/rtype/Shooter.vue` draws the cave as dark triangular rock faces with

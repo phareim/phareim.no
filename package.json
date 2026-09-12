@@ -18,6 +18,7 @@
     "test:leaderboard": "node --test tests/leaderboard-names.test.mjs",
     "test:ships": "node --test tests/ships.test.mjs",
     "test:galaga": "node --test tests/galaga-game.test.mjs tests/galaga-balance.test.mjs tests/galaga-audio.test.mjs",
+    "test:radio": "node --test tests/radio-catalog.test.mjs",
     "test:rtype": "node --test tests/rtype-game.test.mjs",
     "test:outrun": "node --test tests/outrun-engine.test.mjs"
   },

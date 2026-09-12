@@ -3,6 +3,7 @@
     <component :is="theme.backdrop" v-if="theme.backdrop" />
     <NuxtPage />
     <ThemePager />
+    <RadioWidget />
   </div>
 </template>
 
