@@ -2,6 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
+import * as balance from '../themes/galaga/balance.ts'
+import { TRACK_NAMES } from '../themes/galaga/audio.ts'
 
 // The Hangar ship, stubbed: imports are stripped above, so the game reads
 // the pick through this. Counts calls to prove resetGame re-reads it.
@@ -10,12 +12,22 @@ const dartDef = () => ({
   id: 'dart', variant: 'dart',
   colors: { hull: '#2ff3ff', trim: '#2ff3ff', glow: '#2ff3ff', cockpit: '#ffffff' },
 })
+const audioStub = () => ({
+  start: () => true,
+  playTrack() {}, stopTrack() {}, fadeMusic() {},
+  setIntensity() {}, suspend() {}, dispose() {}, play() {},
+  trackIndex: 0,
+})
 const source = readFileSync(new URL('../themes/galaga/Galaga.vue', import.meta.url), 'utf8')
-  .split('<script setup>')[1].split('</script>')[0].replace(/^import .*$/gm, '')
+  .split('<script setup>')[1].split('</script>')[0]
+  .replace(/import\s*\{[^}]*\}\s*from\s*['"][^'"]*['"]/g, '')
+  .replace(/^import .*$/gm, '')
 function game(w = 375, h = 667) {
   const context = vm.createContext({ ref: value => ({ value }), defineEmits: () => () => {},
     onMounted() {}, onBeforeUnmount() {}, performance: { now: () => 100 },
-    readShipDef: () => { shipCalls.n++; return dartDef() } })
+    readShipDef: () => { shipCalls.n++; return dartDef() },
+    createGalagaAudio: audioStub, TRACK_NAMES,
+    ...balance })
   vm.runInContext(source, context)
   const run = code => vm.runInContext(code, context)
   run(`canvas.value = {width:${w},height:${h}}; resetGame(); waveTimer = bossTimer = powerupTimer = 1e9`)
@@ -51,7 +63,7 @@ test('larger bosses fit phone and desktop bounds and fire from both gun ports', 
   for (const [w, h] of [[320,568],[375,667],[667,375],[1440,900]]) {
     const run = game(w,h)
     run('spawnBoss(); bosses[0].arrived = true; bosses[0].y = bosses[0].targetY; bosses[0].lastShot = -10000; update(100)')
-    assert.ok(run('bosses[0].size > 140 && bosses[0].hp === 18'))
+    assert.ok(run('bosses[0].size > 140 && bosses[0].hp === 24'))
     assert.ok(run(`bosses[0].x - bosses[0].size * .56 > 0 && bosses[0].x + bosses[0].size * .56 < ${w}`))
     assert.ok(run(`bosses[0].y - bosses[0].size * .5 - 10 > 0 && bosses[0].y + bosses[0].size * .4 < ${h} * .65`))
     assert.equal(run('enemyBullets.length'), 2)
@@ -71,11 +83,85 @@ test('picks up the Hangar ship on every reset', () => {
 
 test('mesh passes beneath idle screen, recycles, and stops under reduced motion', () => {
   const run = game()
-  run('initStars(); initBgShapes(); gameStarted = false; const y = bgShapes[0].y; updateBackdrop()')
+  run('initStars(); initBgShapes(); gameStarted=false; const y = bgShapes[0].y; updateBackdrop()')
   assert.ok(run('bgShapes[0].y > y'))
   assert.ok(run('bgShapes.every(s => s.faces.length === 27 && s.vertices.length === 19)'))
   run('bgShapes.forEach(s => s.y = 2000); updateBackdrop()')
   assert.equal(run('bgShapes.length'), 6)
   run('reducedMotion = true; const still = JSON.stringify([stars,bgShapes]); updateBackdrop()')
   assert.ok(run('JSON.stringify([stars,bgShapes]) === still'))
+})
+
+test('hull absorbs five hits with downgrade and invulnerability', () => {
+  const run = game()
+  assert.equal(run('hull'), 5)
+  run('bulletLevel = 3; hitPlayer(100, "bolt")')
+  assert.equal(run('hull'), 4)
+  assert.equal(run('bulletLevel'), 2)
+  // Inside the invulnerability window the hit is ignored.
+  run('hitPlayer(200, "bolt")')
+  assert.equal(run('hull'), 4)
+  run('hitPlayer(2000, "bolt")')
+  assert.equal(run('hull'), 3)
+  // The fifth segment ends the run through the normal death path.
+  run('hull = 1; invulnUntil = 0; hitPlayer(5000, "ram")')
+  assert.equal(run('hull'), 0)
+  assert.equal(run('gameOver'), true)
+})
+
+test('escort is sacrificed before the hull, even against a ram', () => {
+  const run = game()
+  run('dualTimer = 10; hitPlayer(100, "ram")')
+  assert.equal(run('dualTimer'), 0)
+  assert.equal(run('hull'), 5)
+  assert.equal(run('gameOver'), false)
+})
+
+test('shield heals first, then guards, then feeds the fan', () => {
+  const run = game()
+  run('hull = 3; applyPowerup("shield", 100)')
+  assert.equal(run('hull'), 4)
+  assert.equal(run('shield'), false)
+  run('hull = 5; shield = false; aegis = 0; bulletLevel = 1; applyPowerup("shield", 100)')
+  assert.equal(run('shield'), true)
+  run('applyPowerup("aegis", 100)')
+  assert.equal(run('aegis'), 2)
+  assert.equal(run('shield'), false)
+})
+
+test('divers/weavers and snipers spawn on their patterns', () => {
+  const run = game()
+  run('waveNumber = 4; spawnWave()')
+  assert.ok(run('enemies.some(e => e.kind === "diver")'))
+  assert.ok(run('enemies.some(e => e.kind === "weaver")'))
+  const run2 = game()
+  run2('waveNumber = 5; spawnWave()')
+  assert.ok(run2('enemies.length >= 1 && enemies.every(e => e.kind === "sniper")'))
+})
+
+test('splitters pop into two mites on destruction', () => {
+  const run = game()
+  run(`enemies = [makeEnemy({kind:'splitter',x:180,y:180,vx:0,vy:0,size:40,color:'#ff70bc',shapeIdx:5,movementType:'straight',hp:1,maxHp:2,shootCooldown:1e9,lastShot:100,shootChance:0})]; killEnemy(0, 100)`)
+  assert.equal(run('enemies.length'), 2)
+  assert.ok(run('enemies.every(e => e.kind === "mite")'))
+  assert.equal(run('score'), 200)
+})
+
+test('soak: three minutes of autopilot play stay coherent', () => {
+  const run = game()
+  run('waveTimer = 0; bossTimer = 0; powerupTimer = 0; keys["Space"] = true')
+  run(`for (let i = 0; i < 5000; i++) { update(100 + i * 36); if (gameOver) { for (let j = 0; j < 60; j++) update(100 + i * 36 + j); break } }`)
+  assert.ok(run('waveNumber') > 10)
+  assert.ok(run('bossNum') >= 1)
+  assert.ok(run('score') >= 0)
+  assert.ok(run('hull') >= 0 && run('hull') <= 5)
+  assert.ok(run('particles.length') <= 300)
+  assert.ok(run('powerups.length') <= 3)
+  assert.ok(run('bullets.length') < 200)
+})
+
+test('powerup letters cover every capsule type', () => {
+  const run = game()
+  assert.equal(run('JSON.stringify(["shield","weapon","dual","rear","aegis","tempo","nova","magnet","combo"].map(t => POWERUP_LETTERS[t]))'),
+    JSON.stringify(['S', 'P', 'D', 'R', 'A', 'T', 'N', 'M', 'C']))
 })
