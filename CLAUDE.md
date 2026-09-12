@@ -632,12 +632,12 @@ ikke håndhevet (`Math.max(1, count)`), deep field re-allokerer canvas ved
 hver resize, radiohint tegnes på touch, ~100 Web Audio-linjer duplisert
 fra `outrun/audio.ts`, leaderboard-cap 500 000 kan nås av gode runs.
 
-## Global radio — én musikkspiller på tvers av spillene (2026-09-12, branch `muse/radio-widget`)
+## Global radio — én musikkspiller på tvers av spillene (2026-09-12, flettet til master samme dag)
 
 Spillerønske 2026-09-12: en musikkspiller øverst til høyre som til enhver
 tid viser radioen som spiller, og blir med på tvers av spillene. Bygd i
-worktree `~/github/phareim-radio-widget` fordi en annen agent jobber med
-lyd samtidig — ikke flettet til main ennå.
+worktree `~/github/phareim-radio-widget` parallelt med spill-lyd
+(`feat/invaders-powerups`) — begge flettet til master 2026-09-12.
 
 **Hvordan:** `components/RadioWidget.vue` (i `app.vue`, fast øverst høyre,
 z 60, Space Mono, `♪ STASJON n/6` + mute) leser `composables/useRadio.ts`
@@ -668,6 +668,18 @@ regressjon i `galaga-game` (reset driver radioen); CI-linje lagt til.
 Verifisert: alle suiter grønne, typecheck, produksjonsbygg, SSR-widget på
 galaga/outrun/playerone/tetris, headless Chromium uten JS-feil på fem
 themes. Fysisk telefon og reappl multi-context-batterikostnad er umålt.
+
+**Spill-lyd og samspill (2026-09-12).** De andre spillene har eget lydspor
+i `composables/useSound.ts` (syntetiserte one-shots + én 16-toners sløyfe
+per spill: breakout, rtype, invaders, starfox, tetris, shore; Cyberpunk-
+sporene døde med `hacker`-temaet da det ble Galaga) med `SoundToggle`
+(`themes/base/SoundToggle.vue`) på hvert spill-landing. Attract-modus er
+alltid stille. Regelen som holder det hele på greip: et spill med eget
+soundtrack parkerer radioen mens et run pågår (`music.start` →
+radio-`suspend(true)`, `music.stop()` → resume) og holder den parkert i
+pause (`stop(false)`); one-shots spiller alltid over radioen. Resume
+overstyrer aldri mute — verken radioens eller spillets egen. To
+AudioContexts er normalt: radioens lever i widgeten, spillets i temaet.
 
 ## R-Type mountain walls and weapon pickups (2026-09-08)
 

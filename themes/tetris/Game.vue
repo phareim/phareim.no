@@ -391,7 +391,7 @@ function togglePause(): void {
     heldDir = 0
     dirty = true
     maybeEmit()
-    sound.music.stop()
+    sound.music.stop(false)
   } else if (phase.value === 'paused') {
     phase.value = 'playing'
     lastT = 0

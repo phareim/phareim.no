@@ -1145,7 +1145,7 @@ function togglePause() {
   if (!gameStarted || gameOver) return
   paused.value = !paused.value
   clearInput()
-  if (paused.value) sound.music.stop()
+  if (paused.value) sound.music.stop(false)
   else sound.music.start('invaders')
 }
 

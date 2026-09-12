@@ -2785,7 +2785,7 @@ function togglePause(): void {
   keys.clear()
   touchSteer.active = false
   touchSteer.id = -1
-  if (paused.value) sound.music.stop()
+  if (paused.value) sound.music.stop(false)
   else sound.music.start('starfox')
 }
 

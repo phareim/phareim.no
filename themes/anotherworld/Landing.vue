@@ -304,7 +304,7 @@ function pauseGame() {
   resetInput()
   needsDraw = true
   blurActiveElement()
-  sound.music.stop()
+  sound.music.stop(false)
 }
 
 function resumeGame() {

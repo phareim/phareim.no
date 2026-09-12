@@ -23,9 +23,17 @@ function absorbCtx() {
   return fn
 }
 const source = readFileSync(new URL('../themes/rtype/Shooter.vue', import.meta.url), 'utf8').split('<script setup>')[1].split('</script>')[0].replace(/^import .*$/gm, '')
+// The game plays sounds through the shared useSound() composable (a Nuxt
+// auto-import, stripped above with the other imports). Stub it as silent.
+const noop = () => {}
+const stubSound = () => ({
+  unlock: noop,
+  sfx: new Proxy({}, { get: () => noop }),
+  music: { start: noop, stop: noop, playing: false },
+})
 function game() {
   const context = vm.createContext({ ref: value => ({ value }), defineEmits: () => () => {}, onMounted() {}, onBeforeUnmount() {}, performance: { now: () => 1000 },
-    readShipDef: () => { shipCalls.n++; return dartDef() }, __absorbCtx: absorbCtx })
+    readShipDef: () => { shipCalls.n++; return dartDef() }, __absorbCtx: absorbCtx, useSound: stubSound })
   vm.runInContext(source, context)
   const run = code => vm.runInContext(code, context)
   run('canvas.value = {}; W = 900; H = 375; resetGame(); spawnT = nextBossAt = 1e9; invulnUntil = 1e9')

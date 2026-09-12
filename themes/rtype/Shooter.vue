@@ -678,7 +678,7 @@ function togglePause() {
   paused.value = !paused.value
   keys = {}
   keyFire = false
-  if (paused.value) sound.music.stop()
+  if (paused.value) sound.music.stop(false)
   else sound.music.start('rtype')
 }
 

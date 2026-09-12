@@ -17,6 +17,13 @@
  * method no-ops on the server). Attract/demo modes should stay silent —
  * start music in `resetGame`/`startGame`, stop it on game over, pause and
  * unmount.
+ *
+ * Coexistence with the global radio (`themes/radio/engine.ts`): the radio
+ * is the site-wide music and autostarts on the first gesture, so a game
+ * with its own soundtrack parks it while a run plays and resumes it when
+ * the run ends. Pass `stop(false)` while paused so the radio stays parked
+ * behind the pause menu (Galaga does the same). One-shot SFX always play
+ * over the radio — they are short and both systems do this.
  */
 
 export type MusicStyle =
@@ -29,6 +36,11 @@ export type MusicStyle =
   | 'shore'
 
 const MUTE_KEY = 'phareim-sound-muted'
+
+// Radio coexistence: these two modules are Web Audio + pure data (the
+// games' note tables), so importing them here cannot cycle back.
+import { getRadioEngine } from '~/themes/radio/engine'
+import { MUTE_KEY as RADIO_MUTE_KEY } from '~/themes/radio/catalog'
 
 // ---------------------------------------------------------------------------
 // Singleton audio graph (module scope, client only)
@@ -398,6 +410,7 @@ const music = {
     const c = ensureCtx()
     if (!c) return
     if (musicStyle === style && musicTimer) return
+    parkRadio()
     musicStyle = style
     musicStep = 0
     musicNextTime = c.currentTime + 0.06
@@ -405,16 +418,66 @@ const music = {
       musicTimer = setInterval(musicTick, 90)
     }
   },
-  stop(): void {
+  /**
+   * Stop the loop. Resumes the parked radio unless `resumeRadio` is false
+   * (pause menus keep it parked — the run still owns the music).
+   */
+  stop(resumeRadio = true): void {
     if (musicTimer) {
       clearInterval(musicTimer)
       musicTimer = null
     }
     musicStyle = null
+    if (resumeRadio) unparkRadio()
   },
   get playing(): boolean {
     return musicTimer !== null
   },
+}
+
+// ---------------------------------------------------------------------------
+// Radio coexistence (themes/radio/engine.ts + catalog.ts are dependency-free
+// apart from the games' note data, so importing them here cannot cycle).
+// ---------------------------------------------------------------------------
+
+// True while this module parked a playing radio for a game run.
+let radioParked = false
+
+function readStorage(key: string): string | null {
+  try {
+    return typeof window !== 'undefined' ? localStorage.getItem(key) : null
+  } catch {
+    return null
+  }
+}
+
+/** Park a playing radio while a game soundtrack takes over. Idempotent. */
+function parkRadio(): void {
+  if (import.meta.server || typeof window === 'undefined' || radioParked) return
+  try {
+    if (mutedState.value) return // game sound off: leave the radio alone
+    if (readStorage(RADIO_MUTE_KEY) === '1') return
+    const engine = getRadioEngine()
+    if (engine.playing) {
+      engine.suspend(true)
+      radioParked = true
+    }
+  } catch {
+    // Radio not present (or not yet loaded) — game music plays alone.
+  }
+}
+
+/** Resume a radio parked by parkRadio(). Never overrides an explicit mute. */
+function unparkRadio(): void {
+  if (!radioParked) return
+  radioParked = false
+  if (import.meta.server || typeof window === 'undefined') return
+  try {
+    if (readStorage(RADIO_MUTE_KEY) === '1') return
+    getRadioEngine().suspend(false)
+  } catch {
+    // ignore
+  }
 }
 
 // ---------------------------------------------------------------------------
