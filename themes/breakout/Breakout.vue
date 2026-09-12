@@ -16,6 +16,9 @@ import EscHold from '../base/EscHold.vue'
 const emit = defineEmits(['score', 'death', 'restart', 'started', 'lives', 'level'])
 
 import { createHorizon } from '../base/neonHorizon.js'
+import { useSound } from '~/composables/useSound'
+
+const sound = useSound()
 
 const canvas = ref(null)
 let ctx = null
@@ -171,6 +174,7 @@ function launch(ball) {
 function launchAll() {
   let any = false
   balls.forEach(b => { if (b.stuck) { launch(b); any = true } })
+  if (any && gameStarted) sound.sfx.uiStart()
   return any
 }
 
@@ -200,6 +204,9 @@ function resetGame() {
   buildLevel(level)
   balls = [newBall()]
   demoLaunchAt = now
+  sound.unlock()
+  sound.sfx.uiStart()
+  sound.music.start('breakout')
   emit('restart')
   emit('started')
   emit('score', 0)
@@ -210,6 +217,7 @@ function resetGame() {
 // Attract mode: the game plays itself behind the card until Enter.
 function startDemo() {
   gameStarted = false
+  sound.music.stop()
   gameOver = false
   paused.value = false
   keys = {}
@@ -264,6 +272,10 @@ function applyPowerup(type, now) {
   const p = POWERUPS[type]
   spawnParticles(paddle.x, paddle.y, p.color, 14, 160)
   paddleFlash = 1
+  if (gameStarted) {
+    if (type === 'life') sound.sfx.extraLife()
+    else sound.sfx.powerup()
+  }
   if (type === 'wide') wideUntil = now + 12000
   if (type === 'slow') slowUntil = now + 8000
   if (type === 'life') {
@@ -310,12 +322,16 @@ function loseLife(now) {
   if (lives <= 0) {
     gameOver = true
     deathAt = now
+    sound.sfx.lifeLost()
+    sound.sfx.gameOver()
+    sound.music.stop()
     paddle.visible = false
     spawnParticles(paddle.x, paddle.y, PADDLE_COLOR, 40, 320)
     spawnParticles(paddle.x, paddle.y, '#ffffff', 12, 120)
     powerups = []
     return
   }
+  sound.sfx.lifeLost()
   balls = [newBall()]
   wideUntil = 0
   slowUntil = 0
@@ -330,6 +346,7 @@ function clearLevel(now) {
   powerups = []
   levelBanner = 1500
   demoLaunchAt = now + 1200
+  sound.sfx.levelClear()
   spawnParticles(W / 2, H / 2, '#2ff3ff', 30, 300)
   if (horizon) {
     horizon.beat()
@@ -348,6 +365,8 @@ function togglePause() {
   if (!gameStarted || gameOver) return
   paused.value = !paused.value
   keys = {}
+  if (paused.value) sound.music.stop()
+  else sound.music.start('breakout')
 }
 
 // A 3 s Escape hold cancels the run: same death as losing the last life,
@@ -366,6 +385,8 @@ function quitToGameOver() {
   emit('lives', lives)
   gameOver = true
   deathAt = now
+  sound.sfx.gameOver()
+  sound.music.stop()
   paddle.visible = false
   spawnParticles(paddle.x, paddle.y, PADDLE_COLOR, 40, 320)
   spawnParticles(paddle.x, paddle.y, '#ffffff', 12, 120)
@@ -435,9 +456,9 @@ function update(now) {
       ball.y += ball.vy * sdt
 
       // Walls
-      if (ball.x - BALL_RADIUS < 0) { ball.x = BALL_RADIUS; ball.vx = Math.abs(ball.vx) }
-      if (ball.x + BALL_RADIUS > W) { ball.x = W - BALL_RADIUS; ball.vx = -Math.abs(ball.vx) }
-      if (ball.y - BALL_RADIUS < 0) { ball.y = BALL_RADIUS; ball.vy = Math.abs(ball.vy) }
+      if (ball.x - BALL_RADIUS < 0) { ball.x = BALL_RADIUS; ball.vx = Math.abs(ball.vx); if (!demo) sound.sfx.wall() }
+      if (ball.x + BALL_RADIUS > W) { ball.x = W - BALL_RADIUS; ball.vx = -Math.abs(ball.vx); if (!demo) sound.sfx.wall() }
+      if (ball.y - BALL_RADIUS < 0) { ball.y = BALL_RADIUS; ball.vy = Math.abs(ball.vy); if (!demo) sound.sfx.wall() }
       if (ball.y - BALL_RADIUS > H) { lost = true; break }
 
       // Paddle
@@ -454,6 +475,7 @@ function update(now) {
         ball.y = paddle.y - BALL_RADIUS
         paddleFlash = 1
         combo = 0
+        if (!demo) sound.sfx.paddle()
         triggerShockwave(ball.x, paddle.y, '#2ff3ff')
         if (horizon) horizon.beat()
         continue
@@ -490,12 +512,14 @@ function update(now) {
           spawnParticles(nx, ny, b.color, 10)
           triggerShockwave(nx, ny, '#ff2fa0')
           if (!demo) {
+            sound.sfx.brickBreak()
             combo++
             score += b.points * Math.min(combo, 4)
             emit('score', score)
             maybeDropPowerup(b)
           }
         } else {
+          if (!demo) sound.sfx.brick()
           spawnParticles(nx, ny, b.color, 4, 120)
         }
         break
@@ -840,6 +864,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   gameRunning = false
+  sound.music.stop()
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)

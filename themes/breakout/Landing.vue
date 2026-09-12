@@ -14,6 +14,7 @@
     </template>
 
     <template #body>
+      <SoundToggle />
       <template v-if="gameOver">
         <h1 class="breakout-over-title">GAME OVER</h1>
         <p class="breakout-hud breakout-over-score">SCORE: {{ score }} · LEVEL {{ level }}</p>
@@ -39,6 +40,7 @@
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import Breakout from './Breakout.vue'
+import SoundToggle from '~/themes/base/SoundToggle.vue'
 
 const { navigationLocked } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()

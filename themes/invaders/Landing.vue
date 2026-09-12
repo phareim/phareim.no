@@ -15,6 +15,7 @@
     </template>
 
     <template #body>
+      <SoundToggle />
       <template v-if="gameOver">
         <h1 class="invaders-over-title">GAME OVER</h1>
         <p class="invaders-hud invaders-over-score">SCORE: {{ score }} · WAVE {{ wave }}</p>
@@ -41,6 +42,7 @@
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import Invaders from './Invaders.vue'
+import SoundToggle from '~/themes/base/SoundToggle.vue'
 
 const { navigationLocked } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()

@@ -31,6 +31,31 @@ const emit = defineEmits(['score', 'wave', 'lives', 'death', 'restart', 'started
 
 import { createHorizon } from '../base/neonHorizon.js'
 import { readShipDef } from '~/composables/useShip'
+import { useSound } from '~/composables/useSound'
+
+const sound = useSound()
+// Throttles: the march steps and multi-kills would be a wall of noise.
+let lastStepSfx = 0
+let lastBoomSfx = 0
+let lastZapSfx = 0
+function stepSfx() {
+  const now = performance.now() / 1000
+  if (now - lastStepSfx < 0.09) return
+  lastStepSfx = now
+  sound.sfx.marchStep()
+}
+function boomSfx(big = false) {
+  const now = performance.now() / 1000
+  if (now - lastBoomSfx < 0.09) return
+  lastBoomSfx = now
+  sound.sfx.explosion(big)
+}
+function zapSfx() {
+  const now = performance.now() / 1000
+  if (now - lastZapSfx < 0.25) return
+  lastZapSfx = now
+  sound.sfx.enemyShoot()
+}
 
 const canvas = ref(null)
 let ctx = null
@@ -458,6 +483,7 @@ function setScore(v) {
     extraAwarded = true
     lives++
     emit('lives', lives)
+    sound.sfx.extraLife()
     ufoPopups.push({ x: cannonX, y: cannonY - 60, text: 'EXTRA ▲', t: 0, color: GOLD })
   }
   if (gameStarted && v !== lastScoreSent) {
@@ -589,6 +615,7 @@ function layoutBunkers() {
 
 function startDemo() {
   gameStarted = false
+  sound.music.stop()
   gameOver = false
   paused.value = false
   keys = {}
@@ -689,6 +716,9 @@ function startGame() {
   resetBunkers()
   cannonX = SW / 2
   prevCannonX = cannonX
+  sound.unlock()
+  sound.sfx.uiStart()
+  sound.music.start('invaders')
   emit('restart')
   emit('started')
   emit('score', 0)
@@ -712,6 +742,7 @@ function doStep(now) {
   marchFrame ^= 1
   stepCount++
   pulse = 1
+  if (gameStarted) stepSfx()
   if (horizon) horizon.beat() // grid/sun heartbeat lives in neonHorizon.js
   bassJolt = 1 // Effect 3c: horizontal bass jolt, decays in updateFx
   bassDir = marchDir
@@ -811,6 +842,9 @@ function checkInvasion(now) {
     emit('over')
     deathAt = now
     explode(cannonX, cannonY, true)
+    sound.sfx.explosion(true)
+    sound.sfx.gameOver()
+    sound.music.stop()
   }
 }
 
@@ -980,6 +1014,7 @@ function updateWeapons(dt) {
     if (p.x >= rc.x - 14 && p.x <= rc.x + rc.w + 14 && prevY <= rc.y + rc.h + 14 && p.y >= rc.y - 14) {
       weapon = p.kind
       weaponTime = 6
+      sound.sfx.powerup()
       spawnParticles(p.x, cannonY, GOLD, 18, 180)
       shockwaves.push({ x: p.x, y: cannonY, radius: 6, life: 1, color: GOLD })
       pickups.splice(i, 1)
@@ -990,6 +1025,7 @@ function updateWeapons(dt) {
 function blast(x, y, now) {
   const radius = cellW * 1.35
   explode(x, y, true)
+  if (gameStarted) sound.sfx.beam()
   shockwaves.push({ x, y, radius: radius * 0.65, life: 1, color: CYAN })
   if (horizon) horizon.beat()
   for (let r = ROWS - 1; r >= 0; r--) {
@@ -1025,6 +1061,7 @@ function drawWeapons() {
 function fire() {
   if (!gameStarted || gameOver || dying > 0 || paused.value || wavePause > 0 || shot) return
   shot = { x: cannonX, y: cannonY - 4 * px - 6, weapon }
+  sound.sfx.shoot()
 }
 
 function killInvader(r, c, now) {
@@ -1047,6 +1084,7 @@ function killInvader(r, c, now) {
   const rows = speciesRows(r, marchFrame)
   shatterSprite(rows, rc.x, rc.y, px, PINK)
   shockwaves.push({ x: cx, y: cy, radius: 6, life: 1, color: PINK })
+  if (gameStarted) boomSfx()
   if (aliveCount <= 0 && !gameOver) {
     wavePause = 1.3
     shot = null
@@ -1054,6 +1092,7 @@ function killInvader(r, c, now) {
     shotTrail = []
     // Effect 4: wave-clear flare + grid rush start now, reveal on rebuild.
     if (horizon) horizon.flare()
+    if (gameStarted) sound.sfx.levelClear()
   }
 }
 
@@ -1086,7 +1125,11 @@ function onCannonHit(now) {
     gameOver = true
     emit('over')
     deathAt = now
+    sound.sfx.explosion(true)
+    sound.sfx.gameOver()
+    sound.music.stop()
   } else {
+    sound.sfx.lifeLost()
     dying = 1.0 // ~1 s freeze where the formation stops, like the original
     invulnUntil = now + 1.0 + 2.5
   }
@@ -1102,6 +1145,8 @@ function togglePause() {
   if (!gameStarted || gameOver) return
   paused.value = !paused.value
   clearInput()
+  if (paused.value) sound.music.stop()
+  else sound.music.start('invaders')
 }
 
 // A 3 s Escape hold cancels the run: the same death as an invasion, so the
@@ -1119,6 +1164,9 @@ function quitToGameOver() {
   gameOver = true
   emit('over')
   deathAt = performance.now() / 1000
+  sound.sfx.explosion(true)
+  sound.sfx.gameOver()
+  sound.music.stop()
 }
 
 // ---------------------------------------------------------------- bombs & UFO
@@ -1152,12 +1200,14 @@ function spawnBomb() {
     v: bombSpeed() * (style === 'plunger' ? 1.25 : style === 'rolling' ? 0.9 : 1),
     t: Math.random() * 10,
     frame: 0,
-    trail: [], // Effect 5: faint magenta smear (last 3 positions)
+    trail: [], // Effect 5: faint magenta smear (last 3 positions per bomb)
   })
+  if (gameStarted) zapSfx()
 }
 
 function spawnUFO(now) {
   const dir = Math.random() < 0.5 ? 1 : -1
+  if (gameStarted) sound.sfx.ufo()
   ufo = {
     x: dir > 0 ? -60 : SW + 60,
     dir,
@@ -1487,7 +1537,11 @@ function updateShot(dt, now) {
         }
       }
       shockwaves.push({ x: ufo.x, y: ufo.y + uh / 2, radius: 6, life: 1, color: GOLD })
-      if (gameStarted) dropPickup(ufo.x, ufo.y)
+      if (gameStarted) {
+        sound.sfx.ufo()
+        boomSfx()
+        dropPickup(ufo.x, ufo.y)
+      }
       ufo = null
       shot = null
       shotTrail = []
@@ -2186,6 +2240,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   gameRunning = false
+  sound.music.stop()
   clearInput()
   if (resizeT) clearTimeout(resizeT)
   if (animationFrameId) cancelAnimationFrame(animationFrameId)

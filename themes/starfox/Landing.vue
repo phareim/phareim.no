@@ -22,6 +22,7 @@
     </template>
 
     <template #body>
+      <SoundToggle />
       <template v-if="gameOver">
         <h1 class="sfx-over-title">MISSION FAILED</h1>
         <p class="sfx-hud sfx-over-score">SCORE: {{ score }} · {{ distance }} KM · SECTOR {{ pad(sector) }}</p>
@@ -63,6 +64,7 @@
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import { BOSS_NAME, sectorClearBonus, HEAL_CLEAR, type SectorPhase } from './balance'
 import { WING_AI } from './wingmanAi'
+import SoundToggle from '~/themes/base/SoundToggle.vue'
 
 // three.js is ~170 KB gzipped: load it only when this theme is on screen.
 const Flight = defineAsyncComponent(() => import('./Flight.vue'))

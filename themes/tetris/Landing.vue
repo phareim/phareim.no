@@ -5,12 +5,14 @@
   <div class="tetris-landing">
     <Horizon ref="horizon" />
     <Arcade @beat="horizon?.beat($event)" @view="horizon?.setView($event.x, $event.y)" />
+    <SoundToggle />
   </div>
 </template>
 
 <script setup lang="ts">
 import Arcade from './Arcade.vue'
 import Horizon from './Horizon.vue'
+import SoundToggle from '~/themes/base/SoundToggle.vue'
 const horizon = ref<InstanceType<typeof Horizon> | null>(null)
 // The game itself owns navigationLocked while a run is active; reset here too
 // so a mid-run theme switch never leaves the shell locked.

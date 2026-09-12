@@ -7,6 +7,38 @@
 import { MACHINE_FONT } from '~/themes/base/fonts'
 import EscHold from '../base/EscHold.vue'
 import { readShipDef } from '~/composables/useShip'
+import { useSound } from '~/composables/useSound'
+
+const sound = useSound()
+// Throttles: auto-fire and multi-kills would otherwise be a wall of noise.
+let lastPewSfx = 0
+let lastBoomSfx = 0
+let lastTickSfx = 0
+function pewSfx() {
+  const now = performance.now()
+  if (now - lastPewSfx < 90) return
+  lastPewSfx = now
+  sound.sfx.shoot()
+}
+function boomSfx(big = false) {
+  const now = performance.now()
+  if (now - lastBoomSfx < 90) return
+  lastBoomSfx = now
+  sound.sfx.explosion(big)
+}
+function tickSfx() {
+  const now = performance.now()
+  if (now - lastTickSfx < 70) return
+  lastTickSfx = now
+  sound.sfx.hit()
+}
+let lastZapSfx = 0
+function pewSfxEnemy() {
+  const now = performance.now()
+  if (now - lastZapSfx < 200) return
+  lastZapSfx = now
+  sound.sfx.enemyShoot()
+}
 /**
  * R-Type — an endless R-Type (1987) style side-scrolling space shooter in
  * NEON VECTOR style (stroked outlines + glow, canvas primitives only).
@@ -317,6 +349,9 @@ function resetGame() {
   beamShakeT = 0
   resetTerrain()
   resetPowerups()
+  sound.unlock()
+  sound.sfx.uiStart()
+  sound.music.start('rtype')
   emit('restart')
   emit('started')
   emit('score', 0)
@@ -327,6 +362,7 @@ function resetGame() {
 // Attract mode: the game plays itself behind the card until Enter/tap.
 function startDemo() {
   gameStarted = false
+  sound.music.stop()
   gameOver = false
   paused.value = false
   keys = {}
@@ -456,6 +492,7 @@ function spawnWave(d) {
 
 function spawnBoss(d) {
   bossCount++
+  if (gameStarted) sound.sfx.ufo()
   const hp = 26 + bossCount * 14 + Math.floor(d.m / 60)
   boss = {
     x: W + 120, y: H / 2, ringR: 64, coreR: 17,
@@ -511,6 +548,7 @@ function addKillScore(base, x, y) {
     multIdx++
     mult = MULT_STEPS[multIdx]
     multPop = { x: x !== undefined ? x : ship.x + 30, y: y !== undefined ? y : ship.y - 30, t: 0, text: 'x' + mult + '!' }
+    if (gameStarted) sound.sfx.powerup()
   }
   if (gameStarted) {
     score += base * mult
@@ -536,6 +574,7 @@ function fireBeam() {
   shake = Math.min(1, shake + 0.55)
   beamShakeT = 0.12 // 120 ms screen shake
   beamFlash = 1
+  if (gameStarted) sound.sfx.beam()
 }
 
 function shootVolley() {
@@ -554,6 +593,7 @@ function shootVolley() {
 function fireOnce() {
   if (!gameStarted || gameOver || !ship.alive || paused.value) return
   shootVolley()
+  sound.sfx.shoot()
   fireT = 0
 }
 function dropPickup(x, y) {
@@ -587,6 +627,7 @@ function updatePowerups(dt, world) {
 function killEnemyAt(i) {
   const e = enemies[i]
   explode(e.x, e.y, e.kind === 'gunship')
+  if (gameStarted) boomSfx(e.kind === 'gunship')
   spawnShards(e.x, e.y, ORANGE, e.kind === 'gunship' ? 14 : 8)
   addKillScore(e.score, e.x, e.y)
   enemies.splice(i, 1)
@@ -616,7 +657,11 @@ function onShipHit(now) {
   if (lives <= 0) {
     gameOver = true
     deathAt = now
+    sound.sfx.explosion(true)
+    sound.sfx.gameOver()
+    sound.music.stop()
   } else {
+    sound.sfx.lifeLost()
     respawnAt = now + 1.2
     invulnUntil = respawnAt + 2.5 // 2.5 s blinking invulnerability after respawn
   }
@@ -633,6 +678,8 @@ function togglePause() {
   paused.value = !paused.value
   keys = {}
   keyFire = false
+  if (paused.value) sound.music.stop()
+  else sound.music.start('rtype')
 }
 
 // A 3 s Escape hold cancels the run: the same death as losing the last ship,
@@ -650,6 +697,9 @@ function quitToGameOver() {
   ship.alive = false
   gameOver = true
   deathAt = performance.now() / 1000
+  sound.sfx.explosion(true)
+  sound.sfx.gameOver()
+  sound.music.stop()
 }
 
 // ---------------------------------------------------------------- update
@@ -819,6 +869,7 @@ function update(nowMs) {
     if (fireT >= (upgrades.gun?.mode === 'rapid' ? .075 : FIRE_INTERVAL)) {
       fireT = 0
       shootVolley()
+      if (!demo) pewSfx()
     }
     if (demo && chargeT > 1.4) {
       // Autopilot shows off the beam now and then.
@@ -920,6 +971,7 @@ function update(nowMs) {
           const len = Math.hypot(dx, dy) || 1
           const sp = d.eshot
           ebullets.push({ x: e.x - 20, y: e.y, vx: dx / len * sp, vy: dy / len * sp })
+          pewSfxEnemy()
         }
       }
     }
@@ -985,6 +1037,7 @@ function update(nowMs) {
         bullets.splice(i, 1)
         consumed = true
         if (e.hp <= 0) killEnemyAt(j)
+        else if (gameStarted) tickSfx()
         break
       }
     }
@@ -1007,6 +1060,7 @@ function update(nowMs) {
           spawnParticles(b.x, b.y, '#ffffff', 4, 180)
           bullets.splice(i, 1)
           if (boss.hp <= 0) killBoss()
+          else if (gameStarted) tickSfx()
         }
       }
     }
@@ -1118,6 +1172,10 @@ function killBoss() {
   spawnShards(boss.x, boss.y, CYAN, 10)
   addKillScore(2000, boss.x, boss.y)
   dropPickup(boss.x, boss.y)
+  if (gameStarted) {
+    boomSfx(true)
+    sound.sfx.levelClear()
+  }
   boss = null
   nextBossAt = elapsed + BOSS_EVERY
 }
@@ -1638,6 +1696,7 @@ function isInteractiveElement(el) {
 
 function toggleForce() {
   if (!gameStarted || gameOver || !ship.alive || paused.value) return
+  sound.sfx.hold()
   if (force.attached) {
     force.attached = false
     force.x = ship.x + 24
@@ -1772,6 +1831,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   gameRunning = false
+  sound.music.stop()
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)
