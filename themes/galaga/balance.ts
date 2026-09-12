@@ -204,11 +204,11 @@ export const POWERUP_DURATION: Record<PowerupKind, number> = {
  */
 export function powerupWeights(
   wave: number,
-  opts: { shieldActive: boolean; aegisActive: boolean },
+  opts: { shieldActive: boolean; aegisActive: boolean; hullFull?: boolean },
 ): { kind: PowerupKind; weight: number }[] {
   const out: { kind: PowerupKind; weight: number }[] = [{ kind: 'weapon', weight: 45 }]
   if (!opts.aegisActive) {
-    out.push({ kind: 'shield', weight: opts.shieldActive ? 0 : 14 })
+    out.push({ kind: 'shield', weight: opts.shieldActive && opts.hullFull !== false ? 0 : 14 })
     if (Math.max(0, wave) >= 4) out.push({ kind: 'aegis', weight: 6 })
   }
   out.push(
@@ -225,7 +225,7 @@ export function powerupWeights(
 /** Weighted pick with an injectable rng (deterministic in tests). */
 export function pickPowerup(
   wave: number,
-  opts: { shieldActive: boolean; aegisActive: boolean },
+  opts: { shieldActive: boolean; aegisActive: boolean; hullFull?: boolean },
   rng: () => number = Math.random,
 ): PowerupKind {
   const table = powerupWeights(wave, opts)
@@ -239,10 +239,10 @@ export function pickPowerup(
 }
 
 /**
- * Music intensity tier for the adaptive sequencer: 0 scouts … 3 armoured,
- * boss forces tier 3 with a transposition on top.
+ * Music intensity tier for the adaptive sequencer: follows the wave tier
+ * (0 scouts … 3 late-game), boss forces tier 3 with a transposition on top.
  */
 export function intensityFor(waveNumber: number, bossActive: boolean): 0 | 1 | 2 | 3 {
   if (bossActive) return 3
-  return (Math.abs(Math.floor(waveNumber)) % 4) as 0 | 1 | 2 | 3
+  return waveTier(waveNumber)
 }

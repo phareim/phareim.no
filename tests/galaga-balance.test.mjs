@@ -76,6 +76,9 @@ test('powerup weights respect shield state and pity gating', () => {
   assert.ok(noShield.some(w => w.kind === 'shield'))
   const withShield = powerupWeights(0, { shieldActive: true, aegisActive: false })
   assert.ok(!withShield.some(w => w.kind === 'shield'))
+  // A damaged hull still offers the heal even with the shield up.
+  const shieldNotFull = powerupWeights(0, { shieldActive: true, aegisActive: false, hullFull: false })
+  assert.ok(shieldNotFull.some(w => w.kind === 'shield' && w.weight === 14))
   const early = powerupWeights(0, { shieldActive: false, aegisActive: false })
   assert.ok(!early.some(w => w.kind === 'aegis'))
   const mid = powerupWeights(5, { shieldActive: false, aegisActive: false })
@@ -86,9 +89,10 @@ test('powerup weights respect shield state and pity gating', () => {
   assert.ok(kinds.has('weapon') && kinds.size > 3)
 })
 
-test('music intensity follows the wave pattern, boss forces tier 3', () => {
+test('music intensity follows the wave tier, boss forces tier 3', () => {
   assert.equal(intensityFor(0, false), 0)
-  assert.equal(intensityFor(3, false), 3)
+  assert.equal(intensityFor(3, false), 0)
   assert.equal(intensityFor(0, true), 3)
-  assert.equal(intensityFor(7, false), 3)
+  assert.equal(intensityFor(7, false), 1)
+  assert.equal(intensityFor(15, false), 3)
 })

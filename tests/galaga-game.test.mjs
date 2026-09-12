@@ -165,3 +165,65 @@ test('powerup letters cover every capsule type', () => {
   assert.equal(run('JSON.stringify(["shield","weapon","dual","rear","aegis","tempo","nova","magnet","combo"].map(t => POWERUP_LETTERS[t]))'),
     JSON.stringify(['S', 'P', 'D', 'R', 'A', 'T', 'N', 'M', 'C']))
 })
+
+test('combo rings do not kill', () => {
+  const run = game()
+  run(`enemies = [
+    makeEnemy({kind:'bulwark', x:180, y:300, vx:0, vy:0, size:56, color:'#ff70bc', shapeIdx:2, movementType:'straight', hp:5, maxHp:5, shootCooldown:1e9, lastShot:100, shootChance:0}),
+    makeEnemy({kind:'bulwark', x:180, y:300, vx:0, vy:0, size:56, color:'#ff70bc', shapeIdx:2, movementType:'straight', hp:5, maxHp:5, shootCooldown:1e9, lastShot:100, shootChance:0})
+  ]`)
+  run('registerKill(100); registerKill(100); registerKill(100)')
+  assert.equal(run('shockwaves.length'), 1)
+  assert.equal(run('shockwaves[0].lethal'), false)
+  run('for (let i = 0; i < 20; i++) update(100)')
+  assert.equal(run('enemies.length'), 2)
+  assert.equal(run('hull'), 5)
+})
+
+test('nova kills a boss with bounty and heal', () => {
+  const run = game()
+  run('spawnBoss(); bosses[0].hp = 4; hull = 3; applyPowerup("nova", 100); update(200)')
+  assert.equal(run('bosses.length'), 0)
+  assert.ok(run('score') > 0)
+  assert.equal(run('hull'), balance.heal(3, balance.HEAL_BOSS))
+})
+
+test('rams during invulnerability are not free kills', () => {
+  const run = game()
+  run(`invulnUntil = 1e9; enemies = [makeEnemy({kind:'heavy', x:player.x, y:player.y, vx:0, vy:0, size:52, color:'#ff70bc', shapeIdx:3, movementType:'straight', hp:3, maxHp:3, shootCooldown:1e9, lastShot:100, shootChance:0})]`)
+  run('update(100)')
+  assert.equal(run('enemies.length'), 1)
+  assert.equal(run('score'), 0)
+})
+
+test('rammed splitter splits', () => {
+  const run = game()
+  run(`invulnUntil = 0; dualTimer = 0; hull = 5; enemies = [makeEnemy({kind:'splitter', x:player.x, y:player.y, vx:0, vy:0, size:40, color:'#ff70bc', shapeIdx:5, movementType:'straight', hp:2, maxHp:2, shootCooldown:1e9, lastShot:100, shootChance:0})]`)
+  run('update(100)')
+  assert.equal(run("enemies.filter(e => e.kind === 'mite').length"), 2)
+  assert.ok(run('score') > 0)
+  assert.equal(run('hull'), 4)
+})
+
+test('formation enemies do not jump when tempo changes', () => {
+  const run = game()
+  run('waveNumber = 1; spawnWave()')
+  run('for (let i = 0; i < 100; i++) update(100)')
+  const before = run('enemies[0].x')
+  run('tempoTimer = 10')
+  run('update(100)')
+  const after = run('enemies[0].x')
+  assert.ok(Math.abs(after - before) < 10)
+})
+
+test('shooting roll is gated per cooldown', () => {
+  const run = game()
+  run('Math.random = () => 0.99')
+  run(`enemies = Array.from({length:5}, (_, i) => makeEnemy({
+    kind:'scout', x: 60 + i * 60, y:300, vx:0, vy:0, size:30, color:'#ff2fa0', shapeIdx:0,
+    movementType:'straight', hp:1, maxHp:1,
+    shootChance:0.5, lastShot:-1e9, shootCooldown:500
+  }))`)
+  run('update(100); update(100); update(100)')
+  assert.equal(run('enemyBullets.length'), 0)
+})

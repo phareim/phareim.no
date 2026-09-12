@@ -609,11 +609,28 @@ gullring + heal), muzzle flash, screen shake. `MAX_PARTICLES = 300` med
 pool, `mobileFx` (<600 px: 0.6× partikler, ingen `shadowBlur`), alt nytt
 gatet på `reducedMotion`.
 
-**Tester:** `npm run test:galaga` kjører nå tre filer (23 tester, inkl.
+**Tester:** `npm run test:galaga` kjører nå tre filer (29 tester, inkl.
 soak-testen som autospiller ~3 min: waves > 10, boss ≥ 1, partikler/powerups bounded):
 `galaga-game` (12: alle gamle + hull/escort/shield/sniper/splitter/bokstaver),
 `galaga-balance` (8: pinner alle formler + regresjon på frakoblet boss-HP),
 `galaga-audio` (3: spor/voices/parser). CI uendret (én linje).
+
+**Review-fikser (2026-09-12, samme dag):** åtte feil funnet av
+`/code-review` og rettet. Chain-combo-ringene er nå kosmetiske
+(`triggerShockwave(…, lethal=false)`); alle drap går gjennom
+`damageEnemy`/`killEnemy` (kuler, nova, boss-/nova-ringer, ramming), så
+score, mites og lyd er konsistente og ramming under blink-invuln er ikke
+gratis drap; `killBoss` deles av kule- og nova-stien (bounty/heal/cinematic
+også ved nova-kill, intensitet resettes bare når ingen boss lever);
+formasjonsfiender integrerer x inkrementelt (ingen teleport når tempo eller
+wave endrer `foeMul`); `fadeMusic` sporer timeren sin så rask restart ikke
+dreper musikken; S kan spawne med skjold oppe når hullet ikke er fullt
+(`hullFull` i `pickPowerup`, pity krever ikke lenger `!shield`);
+`shootChance`-rullet skjer én gang per cooldown; `intensityFor` bruker
+`waveTier`. 29 tester (6 nye regresjoner). Kjent, ikke rettet: sniper-cap
+ikke håndhevet (`Math.max(1, count)`), deep field re-allokerer canvas ved
+hver resize, radiohint tegnes på touch, ~100 Web Audio-linjer duplisert
+fra `outrun/audio.ts`, leaderboard-cap 500 000 kan nås av gode runs.
 
 ## R-Type mountain walls and weapon pickups (2026-09-08)
 

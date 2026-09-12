@@ -93,7 +93,7 @@ function registerKill(now) {
   else comboCount = 1
   lastKillTime = now
   if (comboCount === 3 || comboCount === 4 || comboCount === 6) {
-    triggerShockwave(player.x, player.y - 60, '#ffd23f')
+    triggerShockwave(player.x, player.y - 60, '#ffd23f', false)
     audio?.play('combo')
   }
 }
@@ -606,8 +606,8 @@ function spawnSmoke(x, y, count = 6) {
   }
 }
 
-function triggerShockwave(x, y, color = '#ff2fa0') {
-  shockwaves.push({ x, y, radius: 0, maxRadius: Math.max(canvas.value.width, canvas.value.height), speed: 12, life: 1, color })
+function triggerShockwave(x, y, color = '#ff2fa0', lethal = true) {
+  shockwaves.push({ x, y, radius: 0, maxRadius: Math.max(canvas.value.width, canvas.value.height), speed: 12, life: 1, color, lethal })
 }
 
 // Nova blast: instant screen bomb from the N capsule.
@@ -616,17 +616,26 @@ function novaBlast(now) {
   spawnShatter(player.x, player.y - 100, '#ffd23f', 60)
   audio?.play('nova')
   for (let j = enemies.length - 1; j >= 0; j--) {
-    const e = enemies[j]
-    e.hp -= 2
-    e.flash = 5
-    if (e.hp <= 0) {
-      killEnemy(j, now)
-    }
+    damageEnemy(j, 2, now)
   }
-  for (const boss of bosses) {
+  for (let j = bosses.length - 1; j >= 0; j--) {
+    const boss = bosses[j]
     boss.hp -= 5
     spawnParticles(boss.x, boss.y, '#ffd23f', 10)
+    if (boss.hp <= 0) killBoss(j, now)
   }
+}
+
+// Single kill entry point: damage an enemy by index, killing it past 0 HP.
+function damageEnemy(index, amount, now) {
+  const e = enemies[index]
+  e.hp -= amount
+  e.flash = 5
+  if (e.hp <= 0) {
+    killEnemy(index, now)
+    return true
+  }
+  return false
 }
 
 function killEnemy(index, now) {
@@ -648,6 +657,24 @@ function killEnemy(index, now) {
     }
   }
   audio?.play('kill')
+}
+
+// Boss kill: gold shockwave cinematic — flash, shake, hit-stop, bounty, heal.
+function killBoss(j, now) {
+  const boss = bosses[j]
+  spawnShatter(boss.x, boss.y, '#ffffff', boss.size)
+  spawnShatter(boss.x, boss.y, boss.color, boss.size)
+  spawnSmoke(boss.x, boss.y, 12)
+  triggerShockwave(boss.x, boss.y, '#ffd23f')
+  if (!reducedMotion) {
+    shake = Math.min(1, shake + 0.9)
+    hitStopUntil = now + 90
+  }
+  addScore(bossBountyFor(boss.num ?? 0), now)
+  hull = heal(hull, HEAL_BOSS)
+  audio?.play('bossKill')
+  bosses.splice(j, 1)
+  if (bosses.length === 0) audio?.setIntensity(intensityFor(waveNumber, false), false)
 }
 
 function triggerDeathExplosion(x, y) {
@@ -884,7 +911,7 @@ function update(now) {
     enemy.flash = Math.max(0, enemy.flash - 1)
     if (enemy.movementType === 'formation') {
       enemy.age++
-      enemy.x = enemy.spawnX + enemy.vx * foeMul * enemy.age
+      enemy.x += enemy.vx * foeMul
       enemy.y = enemy.spawnY + Math.sin(enemy.age * .012) * h * .13 + enemy.slot * 12
       if (enemy.kind === 'stinger' && !enemy.hasFired && ((enemy.direction === 1 && enemy.x > w / 2) || (enemy.direction === -1 && enemy.x < w / 2))) {
         enemy.hasFired = true
@@ -913,15 +940,20 @@ function update(now) {
     }
     if (enemy.movementType !== 'formation') enemy.x = Math.max(enemy.size / 2, Math.min(w - enemy.size / 2, enemy.x))
     if (enemy.y > enemy.size && enemy.x > enemy.size && enemy.x < w - enemy.size
-        && now - enemy.lastShot > enemy.shootCooldown && Math.random() < (enemy.shootChance ?? 1)) {
-      const fast = enemy.kind === 'sniper'
-      if (enemy.kind === 'bulwark') {
-        for (const sx of [-0.8, 0, 0.8]) enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.size / 2, vx: sx, vy: 2.8 * foeMul })
+        && now - enemy.lastShot > enemy.shootCooldown) {
+      if (Math.random() < (enemy.shootChance ?? 1)) {
+        const fast = enemy.kind === 'sniper'
+        if (enemy.kind === 'bulwark') {
+          for (const sx of [-0.8, 0, 0.8]) enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.size / 2, vx: sx, vy: 2.8 * foeMul })
+        } else {
+          enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.size / 2, vy: (fast ? 4.0 : boltSpeedFor(waveNumber)) + Math.random() * 1.5 })
+        }
+        enemy.lastShot = now
+        enemy.shootCooldown = (fast ? 1400 : 800) + Math.random() * enemyRefireWindowFor(waveNumber)
       } else {
-        enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.size / 2, vy: (fast ? 4.0 : boltSpeedFor(waveNumber)) + Math.random() * 1.5 })
+        enemy.lastShot = now
+        enemy.shootCooldown = 400 + Math.random() * 400
       }
-      enemy.lastShot = now
-      enemy.shootCooldown = (fast ? 1400 : 800) + Math.random() * enemyRefireWindowFor(waveNumber)
     }
     return enemy.y < h + enemy.size && (enemy.movementType !== 'formation' || (enemy.direction === 1 ? enemy.x < w + enemy.size : enemy.x > -enemy.size))
   })
@@ -991,22 +1023,7 @@ function update(now) {
         bullets.splice(i, 1)
         bulletConsumed = true
         audio?.play('bossHit')
-        if (boss.hp <= 0) {
-          // Boss killed — gold shockwave cinematic: flash, shake, hit-stop.
-          spawnShatter(boss.x, boss.y, '#ffffff', boss.size)
-          spawnShatter(boss.x, boss.y, boss.color, boss.size)
-          spawnSmoke(boss.x, boss.y, 12)
-          triggerShockwave(boss.x, boss.y, '#ffd23f')
-          if (!reducedMotion) {
-            shake = Math.min(1, shake + 0.9)
-            hitStopUntil = now + 90
-          }
-          addScore(bossBountyFor(boss.num ?? 0), now)
-          hull = heal(hull, HEAL_BOSS)
-          audio?.play('bossKill')
-          bosses.splice(j, 1)
-          audio?.setIntensity(intensityFor(waveNumber, false), false)
-        }
+        if (boss.hp <= 0) killBoss(j, now)
         break
       }
     }
@@ -1019,34 +1036,25 @@ function update(now) {
       const dy = b.y - e.y
       if (dx * dx + dy * dy < (e.size / 2 + 4) * (e.size / 2 + 4)) {
         bullets.splice(i, 1)
-        e.hp--
-        e.flash = 5
-        if (e.hp > 0) {
+        if (!damageEnemy(j, 1, now)) {
           spawnParticles(b.x, b.y, e.color, 5)
           audio?.play('armourTick')
-          break
         }
-        killEnemy(j, now)
         break
       }
     }
   }
 
-  // Shockwave kills all normal enemies in the ring
+  // Shockwave kills all normal enemies in the ring (cosmetic combo rings skip this)
   shockwaves.forEach(sw => {
-    enemies = enemies.filter(e => {
+    if (sw.lethal === false) return
+    for (let j = enemies.length - 1; j >= 0; j--) {
+      const e = enemies[j]
       const dx = e.x - sw.x
       const dy = e.y - sw.y
       const dist = Math.sqrt(dx * dx + dy * dy)
-      if (dist < sw.radius + 20 && dist > sw.radius - 30) {
-        spawnShatter(e.x, e.y, e.color, e.size)
-        spawnSmoke(e.x, e.y, 4)
-        registerKill(now)
-        addScore(ENEMY_STATS[e.kind]?.score ?? (e.maxHp > 1 ? 250 : 100), now)
-        return false
-      }
-      return true
-    })
+      if (dist < sw.radius + 20 && dist > sw.radius - 30) damageEnemy(j, e.hp, now)
+    }
   })
 
   // Update shockwaves
@@ -1088,22 +1096,18 @@ function update(now) {
   }
 
   // Enemy-player collision (shield does NOT help here — the escort does)
-  for (const e of enemies) {
+  for (let j = enemies.length - 1; j >= 0; j--) {
+    const e = enemies[j]
     const dx = e.x - player.x
     const dy = e.y - player.y
     if (dx * dx + dy * dy < (e.size / 2 + player.width / 2) * (e.size / 2 + player.width / 2)) {
+      const wasInvuln = now < invulnUntil
       if (hitPlayer(now, 'ram')) return
-      // A survived ram still destroys the rammer (no free passes).
-      e.hp = 0
+      // A survived ram still destroys the rammer (no free passes) — unless
+      // the player was invulnerable, which blocks the hit outright.
+      if (!wasInvuln) damageEnemy(j, e.hp, now)
     }
   }
-  enemies = enemies.filter(e => {
-    if (e.hp <= 0 && e.maxHp > 0) {
-      spawnShatter(e.x, e.y, e.color, e.size)
-      return false
-    }
-    return true
-  })
 
   // Boss-player collision (shield does NOT help here)
   for (const boss of bosses) {
@@ -1118,8 +1122,8 @@ function update(now) {
   if (now - powerupTimer > powerupInterval) {
     const falling = powerups.length
     if (falling < MAX_FALLING_POWERUPS) {
-      let type = pickPowerup(waveNumber, { shieldActive: shield, aegisActive: aegis > 0 })
-      if (hull <= 1 && now - lastShieldTime > PITY_TIME_MS && !shield && aegis === 0) type = 'shield'
+      let type = pickPowerup(waveNumber, { shieldActive: shield, aegisActive: aegis > 0, hullFull: hull >= HULL_MAX })
+      if (hull <= 1 && now - lastShieldTime > PITY_TIME_MS && aegis === 0) type = 'shield'
       powerups.push({
         x: 40 + Math.random() * (w - 80),
         y: -20,

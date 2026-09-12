@@ -134,6 +134,7 @@ export function createGalagaAudio() {
   let step = 0
   let nextTime = 0
   let timer: ReturnType<typeof setInterval> | null = null
+  let fadeTimer: ReturnType<typeof setTimeout> | null = null
   let lead: number[] = []
   let tier: 0 | 1 | 2 | 3 = 0
   let bossMode = false
@@ -363,8 +364,17 @@ export function createGalagaAudio() {
   }
 
   function playTrack(i: number): void {
+    if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null }
     if (!ensure() || i < 0 || i >= TRACKS.length) return
     stopTrack()
+    if (ac) {
+      try {
+        musicBus.gain.cancelScheduledValues(ac.currentTime)
+        musicBus.gain.setValueAtTime(0.3, ac.currentTime)
+      } catch {
+        // context gone
+      }
+    }
     track = i
     step = 0
     lead = parseLead(TRACKS[i]!.lead)
@@ -374,6 +384,7 @@ export function createGalagaAudio() {
   }
 
   function stopTrack(): void {
+    if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null }
     if (timer) {
       clearInterval(timer)
       timer = null
@@ -395,7 +406,8 @@ export function createGalagaAudio() {
       // already silent
     }
     const tr = track
-    setTimeout(() => {
+    fadeTimer = setTimeout(() => {
+      fadeTimer = null
       stopTrack()
       if (ac && tr >= 0) {
         try {
@@ -429,6 +441,7 @@ export function createGalagaAudio() {
   }
 
   function dispose(): void {
+    if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null }
     stopTrack()
     if (ac) ac.close().catch(() => {})
     ac = null
