@@ -12,6 +12,7 @@
     </template>
 
     <template #body>
+      <SoundToggle />
       <template v-if="gameOver">
         <h1 class="game-over-title">GAME OVER</h1>
         <p class="hacker-score game-over-score">SCORE: {{ score }}</p>
@@ -31,6 +32,7 @@
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import SpaceInvaders from './SpaceInvaders.vue'
+import SoundToggle from '~/themes/base/SoundToggle.vue'
 
 const { navigationLocked } = useTheme()
 const { hint } = useInputMode()

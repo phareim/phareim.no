@@ -85,11 +85,14 @@
 
     <!-- EscHold owns Escape while crossing: tap pauses/resumes, a 3 s hold leaves. -->
     <EscHold :is-active="escActive" :paused="false" :show-paused="false" @tap="escTap" @hold="exitToIdle" />
+    <SoundToggle />
   </div>
 </template>
 
 <script setup lang="ts">
 import EscHold from '../base/EscHold.vue'
+import SoundToggle from '../base/SoundToggle.vue'
+import { useSound } from '~/composables/useSound'
 import { createWorld, stepWorld, demoInput } from './engine'
 import { drawWorld, paletteNameFor } from './renderer'
 import type { World, Input } from './types'
@@ -103,6 +106,7 @@ const IDLE_WIN_HOLD = 2.5 // seconds of dawn before the attract loop restarts
 
 const { navigationLocked } = useTheme()
 const { isTouch, hint } = useInputMode()
+const sound = useSound()
 
 const shellRef = ref<HTMLElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -168,6 +172,13 @@ function stepPlaying(dt: number) {
   if (!world) return
   acc += Math.min(dt, 0.1)
   const input = currentInput()
+  // Snapshot the sound-relevant state before stepping; the engine itself
+  // emits no events, so sounds are derived from world diffs.
+  const wasGrounded = world.player.grounded
+  const wasDying = world.dying !== null
+  const deaths = world.deaths
+  const lit = world.beacons.filter(b => b.lit).length
+  const rockStates = world.hazards.map(h => h.kind === 'rockfall' ? h.state : '')
   let n = 0
   while (acc >= STEP && n < MAX_STEPS) {
     stepWorld(world, input, STEP)
@@ -176,11 +187,27 @@ function stepPlaying(dt: number) {
     if (world.won) break
   }
   if (n === MAX_STEPS) acc = 0
+  // Sparse by design: takeoff, landing, rockfall, death, beacons, the lamp.
+  if (world.deaths > deaths) {
+    sound.sfx.death()
+  } else if (!wasDying && !world.dying) {
+    if (wasGrounded && !world.player.grounded && world.player.vy < 0) sound.sfx.jump()
+    if (!wasGrounded && world.player.grounded) sound.sfx.land()
+    world.hazards.forEach((h, i) => {
+      if (h.kind !== 'rockfall') return
+      const prev = rockStates[i]
+      if (prev === 'hanging' && h.state === 'falling') sound.sfx.roll()
+      if (prev === 'falling' && h.state === 'landed') sound.sfx.land()
+    })
+  }
+  if (world.beacons.filter(b => b.lit).length > lit) sound.sfx.checkpoint()
   updateBeacons()
   if (world.won) {
     phase.value = 'won'
     navigationLocked.value = false
     resetInput()
+    sound.sfx.win()
+    sound.music.stop()
   }
 }
 
@@ -260,6 +287,9 @@ function startGame() {
   navigationLocked.value = true
   blurActiveElement()
   needsDraw = true
+  sound.unlock()
+  sound.sfx.uiStart()
+  sound.music.start('shore')
 }
 
 function replay() {
@@ -274,6 +304,7 @@ function pauseGame() {
   resetInput()
   needsDraw = true
   blurActiveElement()
+  sound.music.stop()
 }
 
 function resumeGame() {
@@ -285,6 +316,7 @@ function resumeGame() {
   navigationLocked.value = true
   blurActiveElement()
   needsDraw = true
+  sound.music.start('shore')
 }
 
 function exitToIdle() {
@@ -297,6 +329,7 @@ function exitToIdle() {
   navigationLocked.value = false
   blurActiveElement()
   needsDraw = true
+  sound.music.stop()
 }
 
 function escActive() {
@@ -439,6 +472,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf)
+  sound.music.stop()
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('keyup', onKeyUp)
   window.removeEventListener('resize', resize)

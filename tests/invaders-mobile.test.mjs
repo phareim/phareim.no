@@ -6,10 +6,19 @@ import vm from 'node:vm'
 // Exercise the actual game loop and event handlers, without mounting a renderer.
 const source = readFileSync(new URL('../themes/invaders/Invaders.vue', import.meta.url), 'utf8')
   .split('<script setup>')[1].split('</script>')[0].replace(/^import .*$/gm, '')
+// The game plays sounds through the shared useSound() composable (a Nuxt
+// auto-import, stripped above with the other imports). Stub it as silent.
+const noop = () => {}
+const stubSound = () => ({
+  unlock: noop,
+  sfx: new Proxy({}, { get: () => noop }),
+  music: { start: noop, stop: noop, playing: false },
+})
 function game(width = 375, height = 667) {
   const context = vm.createContext({
     ref: () => ({ value: null }), defineEmits: () => () => {},
     onMounted: () => {}, onBeforeUnmount: () => {}, performance: { now: () => 100 },
+    useSound: stubSound,
   })
   vm.runInContext(source, context)
   const run = code => vm.runInContext(code, context)

@@ -32,11 +32,21 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import EscHold from '../base/EscHold.vue'
+import { useSound } from '~/composables/useSound'
 import { TetrisGesture } from './gestures'
 import { PIECE_SHAPES, TetrisEngine, type EngineEvent, type PieceType } from './engine'
 
 const { navigationLocked } = useTheme()
 const { hint } = useInputMode()
+const sound = useSound()
+// Drags can move several cells per touch event — throttle the step tick.
+let lastMoveSfx = 0
+function moveSfx(): void {
+  const now = performance.now()
+  if (now - lastMoveSfx < 60) return
+  lastMoveSfx = now
+  sound.sfx.move()
+}
 
 export interface TetrisState {
   phase: 'idle' | 'playing' | 'paused' | 'over'
@@ -192,13 +202,17 @@ function persistBest(): void {
 
 function handleEngineEvent(e: EngineEvent): void {
   if (!mounted) return
-  if (e.type === 'lock') emit('beat', false)
+  if (e.type === 'lock') {
+    emit('beat', false)
+    sound.sfx.lock()
+  }
   if (e.type === 'lock' || e.type === 'score') {
     syncHud()
     return
   }
   if (e.type === 'clear') {
     emit('beat', true)
+    sound.sfx.clear(e.count)
     syncHud()
     if (!engine) return
     if (reducedMotion) {
@@ -216,6 +230,7 @@ function handleEngineEvent(e: EngineEvent): void {
   }
   if (e.type === 'levelup') {
     levelUpUntil.value = Date.now() + 1200
+    sound.sfx.levelup()
     syncHud()
     return
   }
@@ -227,6 +242,9 @@ function handleEngineEvent(e: EngineEvent): void {
     navigationLocked.value = false
     persistBest()
     syncHud()
+    sound.sfx.hardDrop()
+    sound.sfx.gameOver()
+    sound.music.stop()
     emit('over')
   }
 }
@@ -297,18 +315,21 @@ function start(): void {
   lastT = 0
   syncHud()
   maybeEmit()
+  sound.unlock()
+  sound.sfx.uiStart()
+  sound.music.start('tetris')
   emit('started')
 }
 
 function move(dx: -1 | 1): void {
   if (phase.value !== 'playing' || !engine) return
-  engine.move(dx)
+  if (engine.move(dx)) moveSfx()
   syncHud()
 }
 
 function pressDir(dir: -1 | 1): void {
   if (phase.value !== 'playing' || !engine) return
-  engine.move(dir)
+  if (engine.move(dir)) moveSfx()
   heldDir = dir
   dasAcc = 0
   arrAcc = 0
@@ -329,7 +350,7 @@ function softDropStart(): void {
   if (phase.value !== 'playing' || !engine) return
   softActive = true
   softAcc = 0
-  engine.softDrop()
+  if (engine.softDrop()) moveSfx()
   syncHud()
 }
 
@@ -341,18 +362,19 @@ function softDropStop(): void {
 function hardDrop(): void {
   if (phase.value !== 'playing' || !engine) return
   engine.hardDrop()
+  sound.sfx.hardDrop()
   syncHud()
 }
 
 function rotate(dir: 1 | -1): void {
   if (phase.value !== 'playing' || !engine) return
-  engine.rotate(dir)
+  if (engine.rotate(dir)) sound.sfx.rotate()
   syncHud()
 }
 
 function hold(): void {
   if (phase.value !== 'playing' || !engine) return
-  engine.holdPiece()
+  if (engine.holdPiece()) sound.sfx.hold()
   syncHud()
 }
 
@@ -364,12 +386,14 @@ function togglePause(): void {
     heldDir = 0
     dirty = true
     maybeEmit()
+    sound.music.stop()
   } else if (phase.value === 'paused') {
     phase.value = 'playing'
     lastT = 0
     dirty = true
     maybeEmit()
     emitView()
+    sound.music.start('tetris')
   }
 }
 
@@ -388,6 +412,7 @@ function exit(): void {
   heldDir = 0
   syncHud()
   maybeEmit()
+  sound.music.stop()
   emit('exit')
 }
 
@@ -415,6 +440,8 @@ function quitToGameOver(): void {
   persistBest()
   syncHud()
   maybeEmit()
+  sound.sfx.gameOver()
+  sound.music.stop()
   emit('over')
 }
 
@@ -544,7 +571,9 @@ function onTouchMove(e: TouchEvent): void {
   e.preventDefault()
   if (engine.active !== gesturePiece) return
   const action = gesture.move(t.clientX, t.clientY, performance.now())
-  for (let i = 0; i < Math.abs(action.horizontal); i++) engine.move(action.horizontal > 0 ? 1 : -1)
+  for (let i = 0; i < Math.abs(action.horizontal); i++) {
+    if (engine.move(action.horizontal > 0 ? 1 : -1)) moveSfx()
+  }
   for (let i = 0; i < action.down && engine.active === gesturePiece; i++) engine.softDrop()
   syncHud()
 }
@@ -822,6 +851,7 @@ onBeforeUnmount(() => {
   navigationLocked.value = false
   mounted = false
   running = false
+  sound.music.stop()
   cancelAnimationFrame(rafId)
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)

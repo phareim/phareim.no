@@ -6,7 +6,26 @@
 <script setup>
 import { MACHINE_FONT } from '~/themes/base/fonts'
 import EscHold from '../base/EscHold.vue'
+import { useSound } from '~/composables/useSound'
 const emit = defineEmits(['score', 'death', 'restart', 'started'])
+
+const sound = useSound()
+// Throttle rapid-fire sounds (enemy zaps, shockwave multi-kills) so they
+// stay effects, not a wall of noise.
+let lastZapSfx = 0
+let lastBoomSfx = 0
+function zapSfx() {
+  const now = performance.now()
+  if (now - lastZapSfx < 140) return
+  lastZapSfx = now
+  sound.sfx.enemyShoot()
+}
+function boomSfx(big = false) {
+  const now = performance.now()
+  if (now - lastBoomSfx < 90) return
+  lastBoomSfx = now
+  sound.sfx.explosion(big)
+}
 
 const canvas = ref(null)
 let ctx = null
@@ -261,6 +280,9 @@ function resetGame() {
   shieldFlash = 0
   deathExplosion = null
   smoothParallaxX = 0
+  sound.unlock()
+  sound.sfx.uiStart()
+  sound.music.start('cyberpunk')
   emit('restart')
   emit('started')
   emit('score', 0)
@@ -314,6 +336,7 @@ function spawnWave() {
 
 function spawnBoss() {
   if (!canvas.value) return
+  sound.sfx.ufo()
   const w = canvas.value.width
   const h = canvas.value.height
   const bossHp = Math.max(4, Math.floor(4 * Math.pow(1.5, bulletLevel - 1)))
@@ -373,6 +396,9 @@ function triggerShockwave(x, y) {
 
 function triggerDeathExplosion(x, y) {
   deathExplosion = { x, y, phase: 0, timer: 0, flash: 1 }
+  sound.sfx.explosion(true)
+  sound.sfx.gameOver()
+  sound.music.stop()
   // Bright white flash at center
   particles.push({
     x, y, vx: 0, vy: 0,
@@ -441,6 +467,8 @@ function togglePause() {
   if (!gameStarted || gameOver) return
   paused.value = !paused.value
   keys = {}
+  if (paused.value) sound.music.stop()
+  else sound.music.start('cyberpunk')
 }
 
 // A 3 s Escape hold cancels the run: the same death as a collision, so the
@@ -520,6 +548,7 @@ function update(now) {
       }
     }
     lastShotTime = now
+    sound.sfx.shoot()
   }
 
   // Update bullets
@@ -563,6 +592,7 @@ function update(now) {
       enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.size / 2, vy: 2.5 + Math.random() * 1.5 })
       enemy.lastShot = now
       enemy.shootCooldown = 800 + Math.random() * 2500
+      zapSfx()
     }
     return enemy.y < h + 40
   })
@@ -598,6 +628,7 @@ function update(now) {
       enemyBullets.push({ x: boss.x + 15, y: boss.y + boss.size / 2, vy: 3 + Math.random() * 1.5, vx: -spread })
       boss.lastShot = now
       boss.shootCooldown = 400 + Math.random() * 1200
+      zapSfx()
     }
 
     return boss.hp > 0
@@ -630,9 +661,12 @@ function update(now) {
           spawnParticles(boss.x, boss.y, boss.color, 35)
           spawnSmoke(boss.x, boss.y, 12)
           triggerShockwave(boss.x, boss.y)
+          boomSfx(true)
           score += 500
           emit('score', score)
           bosses.splice(j, 1)
+        } else {
+          sound.sfx.hit()
         }
         break
       }
@@ -649,6 +683,7 @@ function update(now) {
         spawnSmoke(e.x, e.y, 5)
         enemies.splice(j, 1)
         bullets.splice(i, 1)
+        boomSfx()
         score += 100
         emit('score', score)
         break
@@ -695,6 +730,7 @@ function update(now) {
         // Shield absorbs the bullet
         shield = false
         shieldFlash = 1
+        sound.sfx.shield()
         spawnParticles(b.x, shieldY, '#2ff3ff', 12)
         spawnParticles(b.x, shieldY, '#ffffff', 6)
         enemyBullets.splice(i, 1)
@@ -760,12 +796,14 @@ function update(now) {
     if (dx * dx + dy * dy < (p.size / 2 + player.width / 2) * (p.size / 2 + player.width / 2)) {
       if (p.type === 'shield') {
         shield = true
+        sound.sfx.shield()
         // Blue shield activation burst
         spawnParticles(player.x, player.y - player.height / 2, '#2ff3ff', 16)
         spawnParticles(player.x, player.y - player.height / 2, '#ffffff', 8)
         playerGlow = 0.5
       } else {
         bulletLevel++
+        sound.sfx.powerup()
         playerGlow = 1
         // Bright cyan burst
         spawnParticles(player.x, player.y, '#2ff3ff', 24)
@@ -1168,6 +1206,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   gameRunning = false
+  sound.music.stop()
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)

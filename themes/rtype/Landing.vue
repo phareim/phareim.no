@@ -14,6 +14,7 @@
     </template>
 
     <template #body>
+      <SoundToggle />
       <template v-if="gameOver">
         <h1 class="rtype-over-title">GAME OVER</h1>
         <p class="rtype-hud rtype-over-score">SCORE: {{ score }} · DIST {{ distance }}M</p>
@@ -38,6 +39,7 @@
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import Shooter from './Shooter.vue'
+import SoundToggle from '~/themes/base/SoundToggle.vue'
 
 const { navigationLocked } = useTheme()
 const { hint } = useInputMode()

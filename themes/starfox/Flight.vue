@@ -24,6 +24,38 @@
  */
 import * as THREE from 'three'
 import EscHold from '../base/EscHold.vue'
+import { useSound } from '~/composables/useSound'
+
+const sound = useSound()
+// Throttles: lasers and dogfight kills fire several times a second.
+let lastLaserSfx = 0
+let lastBoomSfx = 0
+let lastZapSfx = 0
+let lastTickSfx = 0
+function laserSfx(): void {
+  const now = performance.now()
+  if (now - lastLaserSfx < 80) return
+  lastLaserSfx = now
+  sound.sfx.laser()
+}
+function boomSfx(big = false): void {
+  const now = performance.now()
+  if (now - lastBoomSfx < 100) return
+  lastBoomSfx = now
+  sound.sfx.explosion(big)
+}
+function zapSfx(): void {
+  const now = performance.now()
+  if (now - lastZapSfx < 220) return
+  lastZapSfx = now
+  sound.sfx.enemyShoot()
+}
+function tickSfx(): void {
+  const now = performance.now()
+  if (now - lastTickSfx < 90) return
+  lastTickSfx = now
+  sound.sfx.hit()
+}
 
 const emit = defineEmits<{
   score: [n: number]
@@ -603,6 +635,7 @@ function fireLaser() {
     st.y = shipY + 0.05
     st.z = -1.2
   }
+  if (gameStarted) laserSfx()
 }
 
 function buildBolts() {
@@ -628,6 +661,7 @@ function fireBolt(fromX: number, fromY: number, fromZ: number) {
   b.vz = tmpV.z * speed
   b.mesh.position.set(fromX, fromY, fromZ)
   b.mesh.visible = true
+  if (gameStarted) zapSfx()
 }
 
 function buildEnemies() {
@@ -701,6 +735,7 @@ function killEnemy(e: Enemy, now: number) {
   const idx = Math.min(Math.floor(killCount / 2), MULT_STEPS.length - 1)
   mult = MULT_STEPS[idx] ?? 1
   addScore(100 * mult)
+  if (gameStarted) boomSfx()
 }
 
 function buildPillars() {
@@ -817,6 +852,7 @@ function collectRing(r: Ring) {
   burst(r.x, r.y, r.z, COL_PINK, 30, 12)
   burst(r.x, r.y, r.z, 0xffffff, 12, 8)
   flash = Math.max(flash, 0.35)
+  sound.sfx.ring()
 }
 
 function buildParticles() {
@@ -917,8 +953,14 @@ function onShipHit(now: number) {
     spawnWave(shipX, shipY, 0)
     shake = 1.4
     flash = 1
+    if (gameStarted) {
+      sound.sfx.explosion(true)
+      sound.sfx.gameOver()
+      sound.music.stop()
+    }
     emit('over')
   } else {
+    if (gameStarted) sound.sfx.hit()
     invulnUntil = now + 1.4
   }
 }
@@ -991,6 +1033,9 @@ function startGame() {
   shipTY = 0.5
   shipVisible = true
   shipRoot.visible = true
+  sound.unlock()
+  sound.sfx.uiStart()
+  sound.music.start('starfox')
   emit('started')
   emit('score', 0)
   emit('distance', 0)
@@ -1236,6 +1281,7 @@ function updateLasers(dt: number) {
         r.active = false
         burst(r.x, r.y, r.z, COL_CYAN, 20, 10)
         addScore(25 * mult)
+        if (gameStarted) tickSfx()
         laserDummy.position.set(0, -999, 0)
         laserDummy.updateMatrix()
         laserMesh.setMatrixAt(i, laserDummy.matrix)
@@ -1253,6 +1299,7 @@ function updateLasers(dt: number) {
         b.mesh.visible = false
         burst(st.x, st.y, st.z, COL_PINK, 8, 7)
         addScore(10)
+        if (gameStarted) tickSfx()
         laserDummy.position.set(0, -999, 0)
         laserDummy.updateMatrix()
         laserMesh.setMatrixAt(i, laserDummy.matrix)
@@ -1531,6 +1578,8 @@ function togglePause(): void {
   keys.clear()
   touchSteer.active = false
   touchSteer.id = -1
+  if (paused.value) sound.music.stop()
+  else sound.music.start('starfox')
 }
 
 // A 3 s Escape hold cancels the run: the same death as losing the last
@@ -1558,6 +1607,9 @@ function quitToGameOver(): void {
   spawnWave(shipX, shipY, 0)
   shake = 1.4
   flash = 1
+  sound.sfx.explosion(true)
+  sound.sfx.gameOver()
+  sound.music.stop()
   emit('over')
 }
 
@@ -1566,6 +1618,7 @@ function doRoll(dir: number) {
   if (!gameStarted || gameOver || !shipVisible || rollT >= 0) return
   rollT = 0
   rollDir = dir >= 0 ? 1 : -1
+  sound.sfx.roll()
 }
 
 function onKeyDown(e: KeyboardEvent) {
@@ -1703,6 +1756,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf)
+  sound.music.stop()
   window.removeEventListener('resize', resize)
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('keyup', onKeyUp)
