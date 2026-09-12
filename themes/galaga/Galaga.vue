@@ -17,7 +17,7 @@ import {
   ENEMY_STATS, POWERUP_LETTERS, POWERUP_DURATION,
   pickPowerup, intensityFor,
 } from './balance'
-import { createGalagaAudio, TRACK_NAMES } from './audio'
+import { createGalagaAudio } from './audio'
 const emit = defineEmits(['score', 'death', 'restart', 'started'])
 
 // The Hangar ship, read live: the same hull the profile shows.
@@ -106,27 +106,16 @@ let muzzleT = 0 // frame counter for the muzzle flash
 let nebulae = []
 let planet = null
 let station = null
-// --- Radio: full sequencer, M / top-right tap cycles the station.
+// --- Radio: the global site-wide station (the widget and M cycle it; the
+// top-right canvas tap does too). The local audio object is SFX only —
+// music lives in the shared radio engine so it keeps playing across themes.
 let audio = null
-let radioIndex = 0
-try {
-  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('galagaRadio') : null
-  radioIndex = Math.max(0, TRACK_NAMES.indexOf(stored))
-  if (!stored) radioIndex = 0
-} catch {
-  radioIndex = 0
-}
+const radio = useRadio()
 function currentTrackName() {
-  return TRACK_NAMES[radioIndex] ?? TRACK_NAMES[0]
+  return radio.trackName.value
 }
 function cycleRadio() {
-  radioIndex = (radioIndex + 1) % TRACK_NAMES.length
-  try {
-    if (typeof localStorage !== 'undefined') localStorage.setItem('galagaRadio', currentTrackName())
-  } catch {
-    // storage unavailable — the station lives for this run only
-  }
-  if (audio && gameStarted && !gameOver) audio.playTrack(radioIndex)
+  radio.next()
 }
 function pushParticle(p) {
   if (particles.length >= MAX_PARTICLES) particles.shift()
@@ -378,16 +367,16 @@ function resetGame() {
   shake = 0
   hitStopUntil = 0
   warpT = 0
-  // The radio starts on the gesture that begins the run (browser policy).
+  // SFX starts on the gesture that begins the run (browser policy); the
+  // shared radio resumes its station instead of restarting it.
   try {
     if (!audio) audio = createGalagaAudio()
-    if (audio && audio.start()) {
-      audio.setIntensity(0, false)
-      audio.playTrack(radioIndex)
-    }
+    if (audio) audio.start()
   } catch {
     audio = null
   }
+  radio.ensurePlaying()
+  radio.setIntensity(0, false)
   emit('restart')
   emit('started')
   emit('score', 0)
@@ -517,8 +506,8 @@ function spawnWave() {
     }
   }
   warpT = reducedMotion ? 0 : 0.5
-  audio?.setIntensity(intensityFor(waveNumber, bosses.length > 0), bosses.length > 0)
-  audio?.play('waveStart')
+    radio.setIntensity(intensityFor(waveNumber, bosses.length > 0), bosses.length > 0)
+    audio?.play('waveStart')
 }
 
 function spawnBoss() {
@@ -544,8 +533,8 @@ function spawnBoss() {
     dirChangeTimer: 0
   })
   bossNum++
-  audio?.setIntensity(3, true)
-  audio?.play('bossStinger')
+    radio.setIntensity(3, true)
+    audio?.play('bossStinger')
 }
 
 function spawnParticles(x, y, color, count = 8) {
@@ -674,7 +663,7 @@ function killBoss(j, now) {
   hull = heal(hull, HEAL_BOSS)
   audio?.play('bossKill')
   bosses.splice(j, 1)
-  if (bosses.length === 0) audio?.setIntensity(intensityFor(waveNumber, false), false)
+  if (bosses.length === 0) radio.setIntensity(intensityFor(waveNumber, false), false)
 }
 
 function triggerDeathExplosion(x, y) {
@@ -750,6 +739,7 @@ function togglePause() {
   paused.value = !paused.value
   keys = {}
   audio?.suspend(paused.value)
+  radio.suspend(paused.value)
 }
 
 // A 3 s Escape hold cancels the run: the same death as a collision, so the
@@ -761,7 +751,7 @@ function quitToGameOver() {
   audio?.suspend(false)
   gameOver = true
   triggerDeathExplosion(player.x, player.y)
-  audio?.fadeMusic(1.5)
+  // The radio keeps playing through game over — only the SFX death stinger.
   audio?.play('death')
   emit('death')
 }
@@ -787,7 +777,7 @@ function hitPlayer(now, source) {
   if (hull <= 0) {
     gameOver = true
     triggerDeathExplosion(player.x, player.y)
-    audio?.fadeMusic(1.5)
+    // The radio keeps playing through game over — only the SFX death stinger.
     audio?.play('death')
     emit('death')
     return true
@@ -1699,10 +1689,8 @@ function handleKeyDown(e) {
     }
     return
   }
-  if (e.code === 'KeyM' && !e.repeat) {
-    cycleRadio()
-    return
-  }
+  // M is owned globally by the RadioWidget (it cycles all six stations);
+  // the top-right canvas tap below still cycles too.
   keys[e.code] = true
   if (e.code === 'Space') e.preventDefault()
 
@@ -1729,9 +1717,10 @@ function handleVisibility() {
   if (typeof document === 'undefined') return
   if (document.hidden) {
     if (gameStarted && !gameOver && !paused.value) togglePause()
-    else audio?.suspend(true)
+    else { audio?.suspend(true); radio.suspend(true) }
   } else if (!paused.value) {
     audio?.suspend(false)
+    radio.suspend(false)
   }
 }
 
@@ -1819,6 +1808,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   gameRunning = false
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
+  // SFX context only — the shared radio keeps playing across themes.
   audio?.dispose()
   audio = null
   window.removeEventListener('keydown', handleKeyDown)

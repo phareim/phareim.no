@@ -18,14 +18,28 @@ const audioStub = () => ({
   setIntensity() {}, suspend() {}, dispose() {}, play() {},
   trackIndex: 0,
 })
+// The shared radio, stubbed: music lives outside the game now, so the
+// harness records what the game asks of it (station cycles, intensity).
+const radioCalls = { ensured: 0, next: 0, intensity: [] }
+const useRadioStub = () => ({
+  trackName: { value: 'STARDUST RUN' },
+  next() { radioCalls.next++ },
+  ensurePlaying() { radioCalls.ensured++; return true },
+  setIntensity(t, b) { radioCalls.intensity.push([t, b]) },
+  suspend() {},
+})
 const source = readFileSync(new URL('../themes/galaga/Galaga.vue', import.meta.url), 'utf8')
   .split('<script setup>')[1].split('</script>')[0]
   .replace(/import\s*\{[^}]*\}\s*from\s*['"][^'"]*['"]/g, '')
   .replace(/^import .*$/gm, '')
 function game(w = 375, h = 667) {
+  radioCalls.ensured = 0
+  radioCalls.next = 0
+  radioCalls.intensity.length = 0
   const context = vm.createContext({ ref: value => ({ value }), defineEmits: () => () => {},
     onMounted() {}, onBeforeUnmount() {}, performance: { now: () => 100 },
     readShipDef: () => { shipCalls.n++; return dartDef() },
+    useRadio: useRadioStub,
     createGalagaAudio: audioStub, TRACK_NAMES,
     ...balance })
   vm.runInContext(source, context)
@@ -226,4 +240,18 @@ test('shooting roll is gated per cooldown', () => {
   }))`)
   run('update(100); update(100); update(100)')
   assert.equal(run('enemyBullets.length'), 0)
+})
+
+test('music lives on the shared radio, not the local SFX object', () => {
+  const run = game()
+  // resetGame resumes the shared station at tier 0 instead of starting a
+  // local track.
+  assert.equal(radioCalls.ensured, 1)
+  assert.deepEqual(radioCalls.intensity[0], [0, false])
+  // The canvas tap / station control cycles the global dial.
+  run('cycleRadio()')
+  assert.equal(radioCalls.next, 1)
+  // Waves drive intensity through the radio.
+  run('waveNumber = 1; spawnWave(); update(100)')
+  assert.ok(radioCalls.intensity.some(([t]) => t >= 0))
 })

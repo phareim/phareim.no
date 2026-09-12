@@ -23,6 +23,7 @@ import {
 } from './engine'
 import { createRenderer, type Message, type OutrunRenderer, type FrameUI } from './renderer'
 import { createAudio, TRACK_NAMES, type OutrunAudio } from './audio'
+import { STATION_NAMES } from '~/themes/radio/catalog'
 
 const emit = defineEmits<{
   phase: [phase: 'attract' | 'radio' | 'play' | 'over']
@@ -47,6 +48,8 @@ let messages: Message[] = []
 let shake = 0
 let flash = 0
 let radioIndex = 0
+/** Select-screen memory (local 0–2 + OFF); the music itself is global. */
+const radio = useRadio()
 let radioTimer = RADIO_TIME
 let endT = 0
 let ended = false
@@ -129,8 +132,10 @@ function frame(nowMs: number) {
     touch: touchMode,
     braking: phase === 'play' && readInput().brake,
     messages,
-    radioIndex,
-    radioNames: TRACK_NAMES,
+    // Select screen shows the local 3 + OFF; the in-run HUD shows the true
+    // global station (M / taps can move it off the OutRun block mid-run).
+    radioIndex: phase === 'radio' ? radioIndex : radio.station.value,
+    radioNames: phase === 'radio' ? TRACK_NAMES : STATION_NAMES,
     radioTimer,
     shake,
     flash,
@@ -229,7 +234,7 @@ function handleEvents(events: OutrunEvent[]) {
       case 'timeup':
         say('TIME UP', PINK, 3.5, undefined, true)
         audio?.play('timeup')
-        audio?.fadeMusic(2.5)
+        // The shared radio keeps playing — no music lives on the local ctx.
         ended = true
         endT = 0
         break
@@ -261,7 +266,8 @@ function toRadio() {
   }
   messages = []
   setPhase('radio')
-  audio.playTrack(radioIndex)
+  // Preview the highlighted choice on the shared radio (OFF previews nothing).
+  if (radioIndex >= 0) radio.playOriginStation('outrun', radioIndex)
 }
 
 function beginRun() {
@@ -275,20 +281,26 @@ function beginRun() {
   sinceGo = -1
   paused.value = false
   setPhase('play')
+  // OFF starts muted; anything else joins the shared radio at full band.
+  if (radioIndex < 0) {
+    if (!radio.muted.value) radio.toggleMute()
+  } else {
+    radio.playOriginStation('outrun', radioIndex)
+    if (radio.muted.value) radio.toggleMute()
+    else radio.ensurePlaying()
+    radio.setFull()
+  }
 }
 
 function cycleRadio() {
-  // Tracks, then silence, then round again.
-  radioIndex = radioIndex >= TRACK_NAMES.length - 1 ? -1 : radioIndex + 1
-  try { localStorage.setItem('outrunRadio', String(radioIndex)) } catch { /* private mode */ }
-  if (radioIndex < 0) audio?.stopTrack()
-  else audio?.playTrack(radioIndex)
+  // The canvas tap cycles the global dial (mute lives in the widget).
+  radio.next()
   audio?.play('select')
 }
 
 function chooseRadio(i: number) {
   radioIndex = (i + TRACK_NAMES.length) % TRACK_NAMES.length
-  audio?.playTrack(radioIndex)
+  radio.playOriginStation('outrun', radioIndex)
   audio?.play('select')
 }
 
@@ -297,7 +309,7 @@ function finish(reason: OutrunResult['reason']) {
   setPhase('over')
   clearInput()
   if (reason !== 'goal') audio?.silenceEngine()
-  audio?.fadeMusic(3)
+  // The shared radio keeps playing through the result screen.
   const route = state.route.map((n, c) => stageDef(c, n).name)
   emit('over', { score: totalScore(state), reason, route, stage: state.col + 1 })
 }
@@ -306,6 +318,7 @@ function quit() {
   if (phase !== 'play') return
   paused.value = false
   audio?.suspend(false)
+  radio.suspend(false)
   finish('quit')
 }
 
@@ -317,6 +330,7 @@ function togglePause() {
   if (phase !== 'play') return
   paused.value = !paused.value
   audio?.suspend(paused.value)
+  radio.suspend(paused.value)
   clearInput()
 }
 
@@ -347,9 +361,10 @@ function onKeyDown(e: KeyboardEvent) {
     }
     return
   }
-  if (e.code === 'KeyM' && !e.repeat && (phase === 'play' || phase === 'radio')) {
-    if (phase === 'radio') chooseRadio(radioIndex + 1)
-    else cycleRadio()
+  // M in play is owned globally by the RadioWidget; here it only walks the
+  // select-screen options.
+  if (e.code === 'KeyM' && !e.repeat && phase === 'radio') {
+    chooseRadio(radioIndex + 1)
     return
   }
   if (phase === 'radio') {
@@ -444,9 +459,10 @@ function onVisibility() {
   if (document.hidden) {
     clearInput()
     if (phase === 'play' && !paused.value) togglePause()
-    else audio?.suspend(true)
+    else { audio?.suspend(true); radio.suspend(true) }
   } else if (!paused.value) {
     audio?.suspend(false)
+    radio.suspend(false)
   }
 }
 
@@ -489,6 +505,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf)
   if (resizeT) clearTimeout(resizeT)
+  // Local engine/SFX context only — the shared radio keeps playing.
   audio?.dispose()
   audio = null
   window.removeEventListener('keydown', onKeyDown)

@@ -22,6 +22,7 @@ jobs:
       - run: npm run test:rtype
       - run: npm run test:outrun
       - run: npm run test:galaga
+      - run: npm run test:radio
       - run: npm run test:invaders
       - run: npm run test:starfox
       - run: npm run test:wingman
