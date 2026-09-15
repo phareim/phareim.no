@@ -32,6 +32,7 @@ interface Track {
   bpm: number
   /** Per bar: chord root for the bass (midi) and the triad for pad/arp. */
   bars: { root: number, chord: number[] }[]
+  /** 16 steps: R root, o octave up, 5 fifth, 3 chord third, 7 minor 7th, . rest. */
   bass: string
   lead: string[]
   kick: string
@@ -39,46 +40,71 @@ interface Track {
   hat: string
   arp: boolean
   pad: boolean
+  /** Shuffle: fraction of a 16th added to odd steps (0 = straight). */
+  swing?: number
 }
 
-const NOTE: Record<string, number> = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, Bb: 10, B: 11 }
+const NOTE: Record<string, number> = {
+  C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5,
+  'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, Bb: 10, B: 11,
+}
 function midi(name: string): number {
   const m = /^([A-G](?:#|b)?)(\d)$/.exec(name)
   if (!m) return -1
-  return 12 * (Number(m[2]) + 1) + NOTE[m[1]]
+  const semi = NOTE[m[1]]
+  if (semi === undefined) return -1
+  return 12 * (Number(m[2]) + 1) + semi
 }
 const hz = (m: number) => 440 * Math.pow(2, (m - 69) / 12)
 
+/**
+ * Semitone offset of the chord third above the bass root (3 = minor,
+ * 4 = major), found by pitch class so inversions resolve correctly.
+ */
+function thirdFor(bar: { root: number, chord: readonly number[] }): 3 | 4 {
+  const pcs = new Set(bar.chord.map(n => ((n - bar.root) % 12 + 12) % 12))
+  if (pcs.has(3)) return 3
+  if (pcs.has(4)) return 4
+  return 4
+}
+
 export const TRACKS: readonly Track[] = [
   {
+    // F G Em Am / F E Am C — the E-major bridge (G# leading tone) lifts the
+    // second half into Am, and the closing C sets up the plagal return to F.
+    // Singable C-major lead, driving 8th bass, hat pickup into the loop.
     name: 'MIDNIGHT SHOWER',
     bpm: 124,
     bars: [
       { root: 41, chord: [53, 57, 60] }, { root: 43, chord: [55, 59, 62] }, { root: 40, chord: [52, 55, 59] }, { root: 45, chord: [57, 60, 64] },
-      { root: 41, chord: [53, 57, 60] }, { root: 43, chord: [55, 59, 62] }, { root: 45, chord: [57, 60, 64] }, { root: 45, chord: [57, 60, 64] },
+      { root: 41, chord: [53, 57, 60] }, { root: 40, chord: [52, 56, 59] }, { root: 45, chord: [57, 60, 64] }, { root: 48, chord: [60, 64, 67] },
     ],
-    bass: 'R.R.o.R.R.R.o.R.',
+    bass: 'R.R.o.R.R.3.R.5.',
     lead: [
-      'C5 . A4 C5 - D5 C5 A4', 'B4 . G4 B4 - D5 E5 D5', 'E5 - - D5 B4 - G4 B4', 'A4 - - - . E4 A4 C5',
-      'C5 . A4 C5 - F5 E5 C5', 'D5 . B4 D5 - G5 F5 D5', 'E5 - D5 C5 - B4 C5 -', 'A4 - - - - - . .',
+      'A4 . C5 A4 G4 A4 C5 .', 'B4 . D5 B4 A4 B4 D5 .', 'G4 . B4 G4 F#4 G4 B4 .', 'A4 . E4 A4 C5 B4 A4 .',
+      'C5 . A4 C5 D5 C5 A4 .', 'B4 . G#4 B4 D5 B4 G#4 .', 'A4 . C5 E5 D5 C5 B4 .', 'G4 . E4 G4 B4 . D5 .',
     ],
     kick: 'x...x...x...x...',
     snare: '....x.......x...',
-    hat: '..x...x...x...x.',
+    hat: '..x...x...x...xx',
     arp: true,
     pad: true,
   },
   {
+    // Bb Bbm F C / Bb Bbm Gm A — noir loop with real borrowed minor (Db);
+    // the closing A major lifts a semitone back into Bb. Sparse half-time
+    // groove with swing, smoky minor lead.
     name: 'PASSING NEON',
     bpm: 102,
+    swing: 0.12,
     bars: [
-      { root: 38, chord: [50, 53, 57] }, { root: 34, chord: [46, 50, 53] }, { root: 41, chord: [53, 57, 60] }, { root: 36, chord: [48, 52, 55] },
-      { root: 38, chord: [50, 53, 57] }, { root: 34, chord: [46, 50, 53] }, { root: 43, chord: [55, 58, 62] }, { root: 45, chord: [57, 61, 64] },
+      { root: 38, chord: [50, 53, 57] }, { root: 34, chord: [46, 49, 53] }, { root: 41, chord: [53, 57, 60] }, { root: 36, chord: [48, 52, 55] },
+      { root: 38, chord: [50, 53, 57] }, { root: 34, chord: [46, 49, 53] }, { root: 43, chord: [55, 58, 62] }, { root: 45, chord: [57, 61, 64] },
     ],
-    bass: 'R..R..R.o..R.5..',
+    bass: 'R...o...5...3...',
     lead: [
-      'A4 - - F4 - D4 F4 G4', 'A4 - - - . F4 G4 A4', 'C5 - A4 - G4 - F4 -', 'E4 - - - G4 - - .',
-      'A4 - - F4 - D5 C5 A4', 'Bb4 - A4 - G4 - F4 G4', 'G4 - Bb4 - D5 - C5 Bb4', 'A4 - - - C#5 - E5 -',
+      'D5 - - C5 Bb4 - A4 .', 'C#5 - - C5 Bb4 - G4 .', 'C5 - A4 - G4 - F4 .', 'E4 - - - G4 - - .',
+      'D5 - F5 - D5 C5 Bb4 .', 'C#5 - D5 - C5 - Bb4 .', 'D5 - C5 Bb4 A4 - G4 .', 'C#5 - E5 - G#5 - E5 .',
     ],
     kick: 'x......x..x.....',
     snare: '....x.......x...',
@@ -87,20 +113,23 @@ export const TRACKS: readonly Track[] = [
     pad: true,
   },
   {
+    // Em C G Bb / Em C Bb B — bVII rock loop (the old D-over-Bb rub is now a
+    // clean Bb), B-major turnaround snaps back into Em. Syncopated gallop
+    // bass, lead climbs to a Bb5 peak in bar 7 and unwinds into the loop.
     name: 'SPLASH GRID',
     bpm: 136,
     bars: [
-      { root: 40, chord: [52, 55, 59] }, { root: 36, chord: [48, 52, 55] }, { root: 43, chord: [55, 59, 62] }, { root: 38, chord: [50, 54, 57] },
-      { root: 40, chord: [52, 55, 59] }, { root: 36, chord: [48, 52, 55] }, { root: 38, chord: [50, 54, 57] }, { root: 35, chord: [47, 51, 54] },
+      { root: 40, chord: [52, 55, 59] }, { root: 36, chord: [48, 52, 55] }, { root: 43, chord: [55, 59, 62] }, { root: 46, chord: [58, 62, 65] },
+      { root: 40, chord: [52, 55, 59] }, { root: 36, chord: [48, 52, 55] }, { root: 46, chord: [58, 62, 65] }, { root: 47, chord: [59, 63, 66] },
     ],
-    bass: 'RoRoRoRoRoRoRoRo',
+    bass: 'R5R.R5R.R5R.353.',
     lead: [
-      'E5 - G5 - F#5 E5 D5 -', 'E5 - - - B4 - C5 D5', 'D5 - B4 - G4 - B4 D5', 'F#5 - - E5 D5 - A4 -',
-      'E5 - G5 - B5 - A5 G5', 'G5 - E5 - C5 - E5 G5', 'F#5 - D5 - A4 - D5 F#5', 'D#5 - - - F#5 - B4 -',
+      'E5 - G5 - A5 G5 F#5 -', 'G5 - - - E5 - D5 C5', 'D5 - B4 - D5 - G5 -', 'F5 - D5 - Bb4 - D5 F5',
+      'E5 - G5 - B5 - A5 G5', 'G5 - A5 - E5 - C5 E5', 'D5 - F5 - G5 - A5 Bb5', 'B5 - A5 - G#5 - F#5 .',
     ],
     kick: 'x...x...x...x...',
-    snare: '....x.......x..x',
-    hat: 'xxxxxxxxxxxxxxxx',
+    snare: '....x.......x.x.',
+    hat: 'xxxxxxxx.xxxxxx.',
     arp: true,
     pad: false,
   },
@@ -468,10 +497,11 @@ export function createAudio() {
     if (!ac || track < 0) return
     const tr = TRACKS[track]
     const stepDur = 60 / tr.bpm / 4
+    const swing = tr.swing ?? 0
     while (nextTime < ac.currentTime + 0.14) {
       const bar = Math.floor(step / 16) % tr.bars.length
       const s = step % 16
-      const at = nextTime
+      const at = nextTime + (s % 2 === 1 ? swing * stepDur : 0)
       const b = tr.bars[bar]
       // Drums.
       if (tr.kick[s] === 'x') drum('k', at, 1)
@@ -480,7 +510,7 @@ export function createAudio() {
       // Bass.
       const bc = tr.bass[s]
       if (bc !== '.') {
-        const n = bc === 'o' ? b.root + 12 : bc === '5' ? b.root + 7 : b.root
+        const n = bc === 'o' ? b.root + 12 : bc === '5' ? b.root + 7 : bc === '3' ? b.root + thirdFor(b) : bc === '7' ? b.root + 10 : b.root
         voice(hz(n), at, stepDur * 1.6, 'sawtooth', 0.2, 900, musicBus)
       }
       // Pad, once per bar.

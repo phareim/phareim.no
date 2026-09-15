@@ -661,13 +661,53 @@ suspender begge kontekster; resume overstyrer aldri mute.
 **Kontrakt mot lyd-agenten:** notene eies av `TRACKS` i hvert spills
 `audio.ts` (motoren importerer dem; katalogen speiler navnene og
 `tests/radio-catalog.test.mjs` feiler høyt ved avvik i stedet for å drive
-stille). `intensityVoices`/`transposeFor`/`hz` gjenbrukes fra
+stille). `intensityVoices`/`transposeFor`/`hz`/`thirdFor` gjenbrukes fra
 `galaga/audio.ts`. Per-spill `playTrack/stopTrack/fadeMusic` er døde —
-ikke koble dem til igjen. `npm run test:radio` (5 tester) + én ny
-regressjon i `galaga-game` (reset driver radioen); CI-linje lagt til.
+ikke koble dem til igjen. `npm run test:radio` (catalog + music-regressjon,
+se under) + én ny regressjon i `galaga-game` (reset driver radioen);
+CI-linje lagt til.
 Verifisert: alle suiter grønne, typecheck, produksjonsbygg, SSR-widget på
 galaga/outrun/playerone/tetris, headless Chromium uten JS-feil på fem
 themes. Fysisk telefon og reappl multi-context-batterikostnad er umålt.
+
+## Radio music-quality pass (2026-09-15, branch `muse/radio-widget`)
+
+Deep dive på selve musikken: de seks loopene var harmonisk flate (andre
+halvdel repeterte første), bassen robotisk (samme klang/trykk, kun R/o/5),
+trommene leketøy (mono, ingen fills/crash, kick uten transient) og alt i
+mono uten dynamikk. Omskrevet innenfor samme sequencer-format (8 takter,
+16-stegs mønstre, 3-toners akkorder — ingen testform-endring).
+
+**Komposisjon** (`TRACKS` i `galaga/audio.ts` + `outrun/audio.ts`): A-del
+(1–4) beholder identiteten, B-del (5–8) løfter med ny harmonikk og takt 8 er
+alltid turnaround tilbake i loopen — STARDUST Am F C G / Am F Dm **E**,
+VOID Am Fm C Gm / Am Fm Bb **G**, BULLET Em Em C Bb / Em G Bb **B**,
+SHOWER F G Em Am / F **E** Am **C**, NEON Bb **Bbm** F C / Bb Bbm Gm **A**
+(ekte lånt moll, før var takt 2 dur), GRID Em C G **Bb** / Em C Bb **B**
+(takt 4/7 var D-dur over Bb-bass — ren Bb nå). Bassalfabetet er utvidet med
+`3` (akkordters via `thirdFor`, inversjons-sikker) og `7` (liten septim);
+`o` er standardisert til oktav opp (spillene var uenige). Nytt valgfritt
+`swing`-felt (0.12 på VOID/NEON). Alle lead-innslag lander på akkordtone
+eller halvtonetilnærming. To latente feil rettet: `midi()` ga NaN for
+be-tegn (Db/Ab/Eb/Gb manglet i NOTE-tabellen — flat note = stille
+oscillator), og SHOWER-kicket var 12 tegn (siste beat aldri spilt).
+
+**Lydmotor** (`themes/radio/engine.ts`, live-avspilling): stereobilde (bred
+detunet pad, arp venstre, hats høyre, ping-pong dotted-eighth), egen
+pad-buss som ducker under kick, master-kompressor, eksponential
+reverb-hale (1.4 s), kick med klikk-transient, snare med snap, crash på
+hver andre loopstart (tier ≥ 2), snare-fill inn i loop-restart, open-hat +
+arp-shimmer på tier 3, vibrato på lead, aksent-dynamikk (downbeat/backbeat/
+offbeat). Stasjonsbytte relauncher mykt uten klikk. Arv-schedulere i
+spillenes `audio.ts` leser samme dataformat (swing + 3/7) men er fortsatt
+døde — ikke koble til igjen.
+
+**Tester:** `tests/radio-music.test.mjs` (ny, kjøres via `test:radio`):
+form, bass/tromme-alfabet, swing-range, be-støtte, `thirdFor`,
+downbeat-regel per takt, turnaround-krav (takt 8 ≠ takt 1, B ≠ A).
+Verifisert 2026-09-15: alle suiter grønne (radio 10, galaga 30, resten
+uendret), typecheck, produksjonsbygg. Ikke lyttet i nettleser — fysisk
+telefon og øre-sjekk gjenstår.
 
 ## R-Type mountain walls and weapon pickups (2026-09-08)
 
