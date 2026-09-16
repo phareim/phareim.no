@@ -2,8 +2,11 @@
 
 Status 2026-09-16: plan only, no code. Parked-first rollout. Codex review
 completed with Petter in chat and incorporated on 2026-09-16 (original
-request: agora #phareim-no #10). Big v1 stays; prove combat, touch and saves
-in the first playable room before authoring the rest.
+request: agora #phareim-no #10). Claude review folded in the same day
+(floating stick, the first 30 seconds, three music loops). Big v1 stays;
+prove combat, touch and saves in the first playable room before authoring
+the rest. Scope estimate: ~4 000–4 500 lines including tests, about OutRun's
+size (4 413 on 2026-09-16); the cost is the engine, not the nine rooms.
 
 Decided with Petter: **big v1** (multi-area overworld + full dungeon),
 **loot in** (pots/keys/chests on top of sword+hearts), **Neon reskin**.
@@ -17,7 +20,11 @@ under reduced motion. No scrolling or theme-switch cinematics.
 
 Use a fixed, roughly square logical playfield, controls below in portrait
 and beside it in landscape, HUD outside the room. Fit the whole room without
-cropping or stretching. Settle tile dimensions in the first phone prototype.
+cropping or stretching. Settle tile dimensions in the first phone prototype:
+375×667 with HUD above and controls below leaves roughly 375×375, about
+25 px tiles at 15 wide — readable, small sprites; landscape 667×375 with
+controls beside leaves ~300 px square and is the real constraint. Try 13×11
+as well as 15×11.
 Rooms are data; new routes still need progression and reachability checks.
 
 Neon Dreams: violet-black ground with faint grid, cyan player/sword/HUD,
@@ -61,6 +68,13 @@ motif on title/win only, never behind combat.
   forest maze (trees, hidden heart-container chest), graveyard approach
   (turrets, dungeon mouth). Portals stitch them together. Mandatory combat
   starts only after the sword is reachable.
+- **The first 30 seconds are pinned.** This is a 15–30 minute game in a
+  rotation of two-minute arcade games on a landing page that picks a random
+  theme; a visitor must learn it is a game before swiping on. The sword is
+  within ~3 s of walking from spawn, a pot to smash sits on the way, and the
+  first enemy is within ~10 s. Attract mode is the meadow with the hero on
+  autopilot circling a pot or two (Another Shore's idle pattern), so the
+  theme reads at a glance.
 - **Six dungeon rooms:** entry hub, loot room, key room, miniboss room,
   boss antechamber, boss room. The hub shows the locked miniboss door early;
   an open side branch leads through loot to the small key. A shortcut opens
@@ -85,14 +99,24 @@ movement has a dead zone and clamped magnitude. Sword facing is cardinal,
 selected by the dominant movement axis and retained at rest; freeze facing
 through a swing. Initially allow movement during swings and tune in the
 first-room playtest. Space/J/A button swings with cooldown and an arc;
-each swing hits a target at most once and cannot damage through walls.
+each swing hits a target at most once and cannot damage through walls (one
+tile raycast from player centre to target centre, never per-pixel).
 Contact damage, knockback and one second of blink invulnerability.
 E/B button interacts with the nearest eligible object in reach.
 
-Touch uses a left movement zone and right A/B buttons, with separate pointer
-capture so moving and attacking work simultaneously. The initiating movement
-pointer owns the stick. Clear held input on blur, hidden tab, cancellation
-and phase changes. Pause simulation while hidden and discard catch-up time.
+**Touch is the biggest risk.** Every game here that feels right on a phone
+uses the finger directly (Breakout, Invaders) or relative drag from the
+touchdown point (OutRun); a fixed virtual pad does neither. So: a
+**floating stick** — it spawns wherever the first finger lands on the left
+~60 % of the screen and direction is the offset from that point, with a
+dead zone and clamped magnitude. **Attack is any tap on the right side**,
+no button to find; on touch, a swing at rest auto-faces the nearest enemy in
+sword reach (keyboard keeps strict cardinal facing). Interact is rare, so a
+small B button or a hold on the right side is enough; settle it in the
+first-room playtest. Separate pointer capture so moving and attacking work
+simultaneously; the initiating movement pointer owns the stick. Clear held
+input on blur, hidden tab, cancellation and phase changes. Pause simulation
+while hidden and discard catch-up time.
 
 ## Progress, death and saves
 
@@ -130,7 +154,10 @@ and phase changes. Pause simulation while hidden and discard catch-up time.
   idle swipes navigate. The shell supplies the three-second unlock grace.
 - `<EscHold>`: tap pauses/resumes, three-second hold quits; P also pauses;
   idle ignores Escape. Reuse the existing tested tracker and progress UI.
-- `useSound` supplies SFX and a new Zelda music style/16-tone loop.
+- `useSound` supplies SFX and **three** Zelda 16-tone loops — overworld,
+  dungeon, boss — so the dungeon does not sound like the meadow; shape the
+  style API for three from the start (phase 1 may ship with one). The engine
+  emits room-area/boss events and `Zelda.vue` switches the loop.
   `music.start()` already owns radio parking: no independent suspension
   calls. `music.stop(false)` keeps the radio parked during pause;
   `music.stop()` releases ownership on exit/win/unmount. Attract is silent,
@@ -183,7 +210,12 @@ playtesting occurred; headless checks do not establish control feel.
    and responsive polish. Touch and persistence already work.
 5. Parked preview → playtest → unpark into rotation.
 6. Optional later work: completion-time board with proper ranking semantics,
-   second region/dungeon through the same world-data structure.
+   second region/dungeon through the same world-data structure. No
+   `maxScore − ms` hacks on the existing high-score board.
+
+**Execution.** Build in a git worktree. Phase 1's engine + world + tests is
+pure TypeScript against a clear spec and suits Muse (`/musecode`) with Claude
+reviewing; `Zelda.vue` touch wiring and the renderer stay on a stronger model.
 
 ## Review outcome (Codex, 2026-09-16)
 
