@@ -1,589 +1,388 @@
 <template>
   <canvas ref="canvas" class="zelda-canvas" />
-  <EscHold :is-active="() => escActive()" :paused="paused" @tap="togglePause" @hold="quit" />
+  <EscHold :is-active="() => phase === 'play'" :paused="paused" @tap="togglePause" @hold="quit" />
 </template>
 
 <script setup lang="ts">
 /**
- * NEON SHRINE — the loop, input, phases and audio wiring for the Zelda-like
- * action-adventure game. Follows the pattern of OutRun.vue with touch input
- * from Another Shore (autopilot for attract mode).
+ * NEON SHRINE — loop, input, phases and audio for the top-down adventure.
+ * The simulation is `engine.ts` (pure), the world `world.ts` (data), the
+ * picture `renderer.ts` (Canvas 2D). This file owns the clock, the
+ * pointers, the save file and the navigation lock, following OutRun.vue.
  *
- * Phases: 'attract' (autopilot, silent), 'play' (the run), 'over' (quit path
- * preserving progress), 'won' (victory).
+ * Phases: `attract` (autopilot demo, silent, never saved) → `play` → `over`
+ * (Escape hold: progress kept, no automatic respawn) or `won`.
  *
- * Keys: arrows/WASD move, Space/J attack, E/K interact, P pause, Enter start.
- * Touch: floating stick on left 60%, attack tap on right 40%, interact hold on right side.
+ * Keys: arrows / WASD move, Space / J sword, E / K interact, P or an Escape
+ * tap pause, Enter start, N new game. Touch: the first finger on the left
+ * 60 % of the canvas becomes a floating stick (direction = offset from where
+ * it landed); any tap on the right 40 % swings, a hold there interacts.
  */
 
 import EscHold from '../base/EscHold.vue'
-import type {
-  GameState,
-  GameEvent,
-  Input,
-  Vec,
-  SaveData,
-  World,
-  Renderer,
-} from './types'
+import { createGame, stepGame, autopilot, toSave, parseSave } from './engine'
+import { WORLD } from './world'
+import { createRenderer } from './renderer'
+import { SAVE_KEY, BEST_KEY, type GameState, type GameEvent, type Input, type Renderer, type FrameUI } from './types'
+
+type Phase = 'attract' | 'play' | 'over' | 'won'
+type Style = 'zelda' | 'zeldaDungeon' | 'zeldaBoss'
 
 const emit = defineEmits<{
-  phase: [phase: 'attract' | 'play' | 'over' | 'won']
+  phase: [phase: Phase]
   result: [result: { reason: 'quit' | 'won'; elapsed: number; best: number | null }]
 }>()
 
+const STICK_PX = 40 // finger offset that means full speed
+const STICK_ZONE = 0.6 // left share of the canvas that owns the stick
+const HOLD_MS = 350 // a right-side hold this long interacts instead of swinging
+const TAP_PX = 10 // idle taps that move less than this start the game
+
 const canvas = ref<HTMLCanvasElement | null>(null)
 const paused = ref(false)
-
-// Lazy-loaded engine and world
-let engine: any = null
-let world: World | null = null
-let renderer: Renderer | null = null
-
-let state: GameState | null = null
-let phase: 'attract' | 'play' | 'over' | 'won' = 'attract'
-let raf = 0
-let last = 0
-let touchMode = false
-let hitStopTime = 0
-let stickStartT = 0
-let reducedMotion = false
-
-// Room-to-music mapping
-const areaToMusic: Record<string, 'zelda' | 'zeldaDungeon' | 'zeldaBoss'> = {
-  overworld: 'zelda',
-  dungeon: 'zeldaDungeon',
-  boss: 'zeldaBoss',
-}
-
-const keys: Record<string, boolean> = {}
-let stickId: number | null = null
-let stickOriginX = 0
-let stickOriginY = 0
-let stickDx = 0
-let stickDy = 0
-let attackId: number | null = null
-let attackStartTime = 0
-let interactPending = false
-
-// UI state
-const ui = ref({
-  banner: null as { text: string; t: number } | null,
-  paused: false,
-  reducedMotion: false,
-  alpha: 1,
-  stick: null as { originX: number; originY: number; dx: number; dy: number } | null,
-  hint: '',
-})
-
+const phase = ref<Phase>('attract')
+const { navigationLocked } = useTheme()
 const sound = useSound()
 
-// Load engine and world on mount
-onMounted(async () => {
-  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  
-  try {
-    // Dynamic import to handle if engine.ts doesn't exist yet
-    const engineModule = await import('./engine')
-    const worldModule = await import('./world')
-    const rendererModule = await import('./renderer')
+let renderer: Renderer | null = null
+let state: GameState = createGame(WORLD, { demo: true })
+let raf = 0
+let lastT = 0
+let hitStopMs = 0
+let reducedMotion = false
+let attractDrawn = false
+let music: Style | null = null
 
-    engine = {
-      createGame: engineModule.createGame,
-      stepGame: engineModule.stepGame,
-      autopilot: engineModule.autopilot,
-      toSave: engineModule.toSave,
-      parseSave: engineModule.parseSave,
-      respawn: engineModule.respawn,
-    }
-    world = worldModule.WORLD
-    
-    if (!canvas.value || !engine || !world) return
+const ui: FrameUI = { banner: null, paused: false, reducedMotion: false, alpha: 1, stick: null, hint: '' }
 
-    renderer = rendererModule.createRenderer(canvas.value, world)
-    state = createAttractGame()
-    
-    setupCanvas()
-    startLoop()
-  } catch (e) {
-    console.error('Failed to load Zelda game:', e)
-    if (canvas.value) {
-      const ctx = canvas.value.getContext('2d')
-      if (ctx) {
-        ctx.fillStyle = '#ff2fa0'
-        ctx.font = '16px monospace'
-        ctx.fillText('Engine loading...', 20, 30)
-      }
-    }
-  }
-})
+// ---- input ------------------------------------------------------------------
 
-function createAttractGame(): GameState {
-  if (!engine || !world) throw new Error('Engine not loaded')
-  return engine.createGame(world, { demo: true })
-}
-
-function createNewGame(): GameState {
-  if (!engine || !world) throw new Error('Engine not loaded')
-  return engine.createGame(world, { demo: false })
-}
-
-function createResumeGame(): GameState {
-  if (!engine || !world) throw new Error('Engine not loaded')
-  let save: SaveData | null = null
-  try {
-    const raw = localStorage.getItem('zeldaSave')
-    if (raw) save = engine.parseSave(JSON.parse(raw))
-  } catch { /* ignore */ }
-  return engine.createGame(world, { save, demo: false })
-}
-
-function setPhase(p: typeof phase) {
-  phase = p
-  emit('phase', p)
-}
-
-function setupCanvas() {
-  if (!canvas.value || !renderer) return
-  const obs = new ResizeObserver(() => updateCanvasSize())
-  obs.observe(canvas.value)
-  updateCanvasSize()
-  window.addEventListener('resize', updateCanvasSize)
-}
-
-function updateCanvasSize() {
-  if (!canvas.value || !renderer) return
-  const w = canvas.value.clientWidth
-  const h = canvas.value.clientHeight
-  const dpr = Math.min(devicePixelRatio, 2)
-  renderer.resize(w, h, dpr)
-}
-
-function startLoop() {
-  if (raf) cancelAnimationFrame(raf)
-  raf = requestAnimationFrame(frame)
-}
-
-function frame(nowMs: number) {
-  raf = requestAnimationFrame(frame)
-  if (!renderer || !state || !engine) return
-
-  const now = nowMs / 1000
-  let dt = last ? now - last : 1 / 60
-  last = now
-  
-  ui.value.reducedMotion = reducedMotion
-  ui.value.paused = paused.value
-
-  if (paused.value || (reducedMotion && phase === 'attract')) {
-    renderer.draw(state, ui.value, 0)
-    return
-  }
-
-  // Hit-stop: skip engine steps, keep drawing
-  if (hitStopTime > 0) {
-    hitStopTime -= dt * 1000
-    renderer.draw(state, ui.value, dt)
-    return
-  }
-
-  dt = Math.min(dt, 0.1)
-
-  if (phase === 'attract') {
-    const input = engine.autopilot(world, state)
-    const events = engine.stepGame(world, state, dt, input)
-    renderer.onEvents(events)
-  } else if (phase === 'play') {
-    const input = readInput()
-    const events = engine.stepGame(world, state, dt, input)
-    renderer.onEvents(events)
-    handleEvents(events)
-    
-    if (state.phase === 'won') {
-      finishWon()
-      return
-    }
-  }
-
-  updateBanner(dt)
-  renderer.draw(state, ui.value, dt)
-}
-
-function updateBanner(dt: number) {
-  if (ui.value.banner) {
-    ui.value.banner.t -= dt
-    if (ui.value.banner.t <= 0) {
-      ui.value.banner = null
-    }
-  }
-}
+const keys = new Set<string>()
+let attackPending = false
+let interactPending = false
+let stick: { id: number; ox: number; oy: number; dx: number; dy: number } | null = null
+let hold: { id: number; t: number; done: boolean } | null = null
+let idleTap: { id: number; x: number; y: number } | null = null
 
 function readInput(): Input {
-  const move: Vec = { x: 0, y: 0 }
-  
-  // Keyboard
-  if (keys.ArrowUp || keys.KeyW) move.y -= 1
-  if (keys.ArrowDown || keys.KeyS) move.y += 1
-  if (keys.ArrowLeft || keys.KeyA) move.x -= 1
-  if (keys.ArrowRight || keys.KeyD) move.x += 1
-
-  // Touch stick
-  if (stickId !== null) {
-    const len = Math.hypot(stickDx, stickDy)
-    if (len > 0.1) {
-      const scale = 1 / Math.max(len, 1)
-      move.x = stickDx * scale
-      move.y = stickDy * scale
-    }
+  let x = 0
+  let y = 0
+  if (keys.has('ArrowLeft') || keys.has('KeyA')) x -= 1
+  if (keys.has('ArrowRight') || keys.has('KeyD')) x += 1
+  if (keys.has('ArrowUp') || keys.has('KeyW')) y -= 1
+  if (keys.has('ArrowDown') || keys.has('KeyS')) y += 1
+  if (stick) { x = stick.dx / STICK_PX; y = stick.dy / STICK_PX }
+  const len = Math.hypot(x, y)
+  if (len > 1) { x /= len; y /= len }
+  // A long right-side hold turns into one interact instead of a second swing.
+  if (hold && !hold.done && performance.now() - hold.t > HOLD_MS) {
+    hold.done = true
+    interactPending = true
   }
-
-  // Normalize diagonal
-  const len = Math.hypot(move.x, move.y)
-  if (len > 1) {
-    move.x /= len
-    move.y /= len
-  }
-
-  const attack = (keys.Space || keys.KeyJ) && !keys.prevSpace
-  const interact = (keys.KeyE || keys.KeyK) && !keys.prevE
-  const autoFace = touchMode && attackId !== null && !interactPending
-
-  keys.prevSpace = keys.Space || keys.KeyJ
-  keys.prevE = keys.KeyE || keys.KeyK
-
-  return { move, attack, interact, autoFace }
+  const input: Input = { move: { x, y }, attack: attackPending, interact: interactPending, autoFace: stick !== null || hold !== null }
+  attackPending = false
+  interactPending = false
+  return input
 }
 
-function handleEvents(events: GameEvent[]) {
-  for (const e of events) {
-    switch (e.type) {
-      case 'swing':
-        sound.sfx.laser()
-        break
-      case 'swordHit':
-        sound.sfx.hit()
-        if (e.killed) sound.sfx.explosion()
-        break
-      case 'swordClank':
-        sound.sfx.wall()
-        break
-      case 'playerHit':
-        sound.sfx.lifeLost()
-        break
-      case 'playerDied':
-        sound.sfx.death()
-        break
-      case 'respawn':
-        sound.sfx.shield()
-        break
-      case 'enemyDied':
-        sound.sfx.explosion()
-        break
-      case 'potSmash':
-        sound.sfx.brickBreak()
-        break
-      case 'grassCut':
-        sound.sfx.brick()
-        break
-      case 'pickup':
-        sound.sfx.powerup()
-        break
-      case 'chestOpened':
-      case 'reward':
-        sound.sfx.extraLife()
-        saveToDisk()
-        break
-      case 'doorUnlocked':
-      case 'doorOpened':
-        sound.sfx.checkpoint()
-        saveToDisk()
-        break
-      case 'roomEnter':
-        ui.value.banner = { text: e.name, t: 1.6 }
-        const musicStyle = areaToMusic[e.area] || 'zelda'
-        sound.music.start(musicStyle)
-        saveToDisk()
-        break
-      case 'slideStart':
-        break
-      case 'bossPhase':
-        sound.sfx.levelup()
-        break
-      case 'bossDefeated':
-        sound.sfx.levelClear()
-        break
-      case 'won':
-        sound.sfx.win()
-        break
-      case 'hitStop':
-        if (!reducedMotion) {
-          hitStopTime = e.ms
-        }
-        break
-      case 'shoot':
-        sound.sfx.enemyShoot()
-        break
-    }
-  }
+function clearInput() {
+  keys.clear()
+  attackPending = false
+  interactPending = false
+  stick = null
+  hold = null
+  idleTap = null
+  ui.stick = null
 }
 
-function saveToDisk() {
-  if (!state || !engine) return
-  const save = engine.toSave(state)
-  if (!save) return
-  try {
-    localStorage.setItem('zeldaSave', JSON.stringify(save))
-  } catch { /* private mode */ }
-}
-
-function finishWon() {
-  setPhase('won')
-  clearInput()
-  sound.music.stop()
-  
-  let best: number | null = null
-  try {
-    const rawBest = localStorage.getItem('zeldaBest')
-    if (rawBest) {
-      const seconds = parseInt(rawBest, 10)
-      if (!isNaN(seconds) && state!.elapsed < seconds) {
-        best = state!.elapsed
-        localStorage.setItem('zeldaBest', String(best))
-      } else if (!isNaN(seconds)) {
-        best = seconds
-      }
-    } else {
-      best = state!.elapsed
-      localStorage.setItem('zeldaBest', String(best))
-    }
-  } catch { /* ignore */ }
-
-  emit('result', {
-    reason: 'won',
-    elapsed: state!.elapsed,
-    best,
-  })
-}
-
-function onKeyDown(e: KeyboardEvent) {
-  if (isInteractive(e.target)) return
-  if (e.code === 'Escape') return
-  if (e.key !== 'Unidentified') touchMode = false
-
-  if (e.code === 'KeyP' && !e.repeat) {
-    if (phase === 'play') {
-      e.preventDefault()
-      togglePause()
-    }
-    return
-  }
-
-  if (e.code === 'KeyN' && !e.repeat && (phase === 'attract' || phase === 'over' || phase === 'won')) {
-    try { localStorage.removeItem('zeldaSave') } catch { /* ignore */ }
-    startGame()
-    e.preventDefault()
-    return
-  }
-
-  if (e.code === 'Enter' && !e.repeat) {
-    if (phase === 'attract') {
-      startGame()
-      e.preventDefault()
-    } else if (phase === 'over' || phase === 'won') {
-      continueGame()
-      e.preventDefault()
-    }
-    return
-  }
-
-  if (phase !== 'play') return
-
-  keys[e.code] = true
-  const gameKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS', 'KeyE', 'KeyJ', 'KeyK']
-  if (gameKeys.includes(e.code)) {
-    e.preventDefault()
-  }
-}
-
-function onKeyUp(e: KeyboardEvent) {
-  keys[e.code] = false
+function canvasPoint(e: PointerEvent) {
+  const r = canvas.value!.getBoundingClientRect()
+  return { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width }
 }
 
 function onPointerDown(e: PointerEvent) {
   if (isInteractive(e.target)) return
-  if (e.pointerType !== 'mouse') touchMode = true
-
-  if (phase === 'attract') {
-    stickStartT = performance.now()
-    stickOriginX = e.clientX
-    stickOriginY = e.clientY
+  const p = canvasPoint(e)
+  if (phase.value !== 'play') {
+    idleTap = { id: e.pointerId, x: p.x, y: p.y }
     return
   }
-
-  if (phase === 'play' && renderer) {
-    const rect = renderer.roomRect()
-    const localX = e.clientX - rect.x
-
-    if (localX < rect.w * 0.6) {
-      // Left side: stick
-      if (stickId === null) {
-        stickId = e.pointerId
-        stickOriginX = e.clientX
-        stickOriginY = e.clientY
-        ;(e.target as any)?.setPointerCapture?.(e.pointerId)
-      }
-    } else {
-      // Right side: attack or interact
-      if (attackId === null) {
-        attackId = e.pointerId
-        attackStartTime = performance.now()
-        interactPending = false
-        ;(e.target as any)?.setPointerCapture?.(e.pointerId)
-      }
-    }
+  if (paused.value) return
+  if (e.pointerType !== 'mouse' && p.x < p.w * STICK_ZONE) {
+    if (!stick) stick = { id: e.pointerId, ox: p.x, oy: p.y, dx: 0, dy: 0 }
+    return
   }
+  attackPending = true
+  if (e.pointerType !== 'mouse' && !hold) hold = { id: e.pointerId, t: performance.now(), done: false }
 }
 
 function onPointerMove(e: PointerEvent) {
-  if (phase !== 'play' || stickId !== e.pointerId || !renderer) return
-
-  stickDx = (e.clientX - stickOriginX) / 40
-  stickDy = (e.clientY - stickOriginY) / 40
-  
-  const len = Math.hypot(stickDx, stickDy)
-  if (len > 1) {
-    const scale = 1 / len
-    stickDx *= scale
-    stickDy *= scale
-  }
-
-  const rect = renderer.roomRect()
-  ui.value.stick = {
-    originX: stickOriginX - rect.x,
-    originY: stickOriginY - rect.y,
-    dx: stickDx * 40,
-    dy: stickDy * 40,
-  }
+  if (!stick || stick.id !== e.pointerId) return
+  const p = canvasPoint(e)
+  stick.dx = p.x - stick.ox
+  stick.dy = p.y - stick.oy
+  const len = Math.hypot(stick.dx, stick.dy)
+  if (len > STICK_PX) { stick.dx *= STICK_PX / len; stick.dy *= STICK_PX / len }
+  ui.stick = { originX: stick.ox, originY: stick.oy, dx: stick.dx, dy: stick.dy }
 }
 
 function onPointerUp(e: PointerEvent) {
-  if (e.pointerId === stickId) {
-    stickId = null
-    stickDx = 0
-    stickDy = 0
-    ui.value.stick = null
-  }
-
-  if (phase === 'attract' && e.pointerId === stickId) {
-    const now = performance.now()
-    const dx = Math.abs(e.clientX - stickOriginX)
-    const dy = Math.abs(e.clientY - stickOriginY)
-    if (dx < 10 && dy < 10 && now - stickStartT < 200) {
-      startGame()
+  if (idleTap && idleTap.id === e.pointerId) {
+    const p = canvasPoint(e)
+    const moved = Math.hypot(p.x - idleTap.x, p.y - idleTap.y)
+    idleTap = null
+    if (moved < TAP_PX && !isInteractive(e.target)) {
+      if (phase.value === 'attract' || phase.value === 'over') startRun(false)
+      else if (phase.value === 'won') startRun(true)
     }
+    return
   }
+  releasePointer(e.pointerId)
+}
 
-  if (e.pointerId === attackId) {
-    const held = performance.now() - attackStartTime
-    if (held > 350) {
-      interactPending = true
-    }
-    attackId = null
-  }
+function onPointerCancel(e: PointerEvent) {
+  if (idleTap?.id === e.pointerId) idleTap = null
+  releasePointer(e.pointerId)
+}
+
+function releasePointer(id: number) {
+  if (stick?.id === id) { stick = null; ui.stick = null }
+  if (hold?.id === id) hold = null
 }
 
 function isInteractive(el: EventTarget | null) {
-  const e = el as HTMLElement | null
-  return !!e?.closest?.('a, button, .theme-pager')
+  return !!(el as HTMLElement | null)?.closest?.('a, button, .theme-pager')
 }
 
-function startGame() {
-  if (!engine || !world) return
-  paused.value = false
-  state = createNewGame()
-  setPhase('play')
-  clearInput()
-  sound.unlock()
-  sound.music.start('zelda')
-}
+const GAME_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS', 'KeyE', 'KeyJ', 'KeyK'])
 
-function continueGame() {
-  if (phase === 'over') {
-    if (!engine || !world) return
-    state = createResumeGame()
-  } else if (phase === 'won') {
-    if (!engine || !world) return
-    state = createNewGame()
+function onKeyDown(e: KeyboardEvent) {
+  if (isInteractive(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
+  if (e.code === 'Enter' && !e.repeat) {
+    if (phase.value === 'attract' || phase.value === 'over') { e.preventDefault(); startRun(false) }
+    else if (phase.value === 'won') { e.preventDefault(); startRun(true) }
+    return
   }
-  setPhase('play')
-  paused.value = false
-  clearInput()
-  sound.unlock()
-  sound.music.start('zelda')
+  if (e.code === 'KeyN' && !e.repeat && phase.value !== 'play') { e.preventDefault(); startRun(true); return }
+  if (phase.value !== 'play') return
+  if (e.code === 'KeyP') { if (!e.repeat) togglePause(); e.preventDefault(); return }
+  if (!GAME_KEYS.has(e.code)) return
+  e.preventDefault()
+  if (e.repeat || paused.value) return
+  if (e.code === 'Space' || e.code === 'KeyJ') attackPending = true
+  else if (e.code === 'KeyE' || e.code === 'KeyK') interactPending = true
+  else keys.add(e.code)
 }
 
-function quit() {
-  if (phase !== 'play') return
-  paused.value = false
-  setPhase('over')
-  clearInput()
-  sound.music.stop(false)
+function onKeyUp(e: KeyboardEvent) { keys.delete(e.code) }
 
-  emit('result', {
-    reason: 'quit',
-    elapsed: state?.elapsed ?? 0,
-    best: null,
-  })
+// ---- phases -----------------------------------------------------------------
+
+function setPhase(p: Phase) {
+  phase.value = p
+  navigationLocked.value = p === 'play'
+  emit('phase', p)
+}
+
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY)
+    return raw ? parseSave(JSON.parse(raw)) : null
+  } catch { return null }
+}
+
+function persist() {
+  const save = toSave(state)
+  if (!save) return
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)) } catch { /* private mode */ }
+}
+
+/** Enter or continue a run. `fresh` discards the save first (NEW GAME / after a win). */
+function startRun(fresh: boolean) {
+  if (fresh) { try { localStorage.removeItem(SAVE_KEY) } catch { /* ignore */ } }
+  const save = fresh ? null : loadSave()
+  state = createGame(WORLD, { save, seed: (Date.now() >>> 0) })
+  clearInput()
+  paused.value = false
+  hitStopMs = 0
+  setPhase('play')
+  sound.unlock()
+  music = null
+  enterRoom(state.room.id)
+  lastT = 0
+}
+
+function enterRoom(id: string) {
+  const room = WORLD.rooms[id]
+  if (!room) return
+  ui.banner = { text: room.name, t: 1.6 }
+  const style: Style = room.area === 'boss' ? 'zeldaBoss' : room.area === 'dungeon' ? 'zeldaDungeon' : 'zelda'
+  if (style !== music) { music = style; sound.music.start(style) }
 }
 
 function togglePause() {
-  if (phase !== 'play') return
+  if (phase.value !== 'play') return
   paused.value = !paused.value
-  if (paused.value) {
-    sound.music.stop(false)
-  } else {
-    sound.music.start('zelda')
-  }
   clearInput()
+  if (paused.value) sound.music.stop(false)
+  else if (music) sound.music.start(music)
 }
 
-function escActive() {
-  return phase === 'play'
+function quit() {
+  if (phase.value !== 'play') return
+  persist()
+  paused.value = false
+  clearInput()
+  sound.music.stop()
+  music = null
+  setPhase('over')
+  emit('result', { reason: 'quit', elapsed: state.elapsed, best: readBest() })
 }
 
-function clearInput() {
-  for (const k of Object.keys(keys)) keys[k] = false
-  stickId = null
-  attackId = null
-  stickDx = 0
-  stickDy = 0
-  ui.value.stick = null
+function readBest(): number | null {
+  try {
+    const v = parseFloat(localStorage.getItem(BEST_KEY) || '')
+    return Number.isFinite(v) && v > 0 ? v : null
+  } catch { return null }
 }
+
+function finishWon() {
+  persist()
+  clearInput()
+  sound.music.stop()
+  music = null
+  const prev = readBest()
+  const best = prev === null || state.elapsed < prev ? state.elapsed : prev
+  if (best !== prev) { try { localStorage.setItem(BEST_KEY, String(best)) } catch { /* ignore */ } }
+  setPhase('won')
+  emit('result', { reason: 'won', elapsed: state.elapsed, best })
+}
+
+// ---- events → sound + save -------------------------------------------------
+
+function handleEvents(events: GameEvent[]) {
+  const s = sound.sfx
+  for (const e of events) {
+    switch (e.type) {
+      case 'swing': s.laser(); break
+      case 'swordHit': s.hit(); break
+      case 'swordClank': s.wall(); break
+      case 'playerHit': s.lifeLost(); break
+      case 'playerDied': s.death(); break
+      case 'respawn': s.shield(); persist(); break
+      case 'enemyDied': s.explosion(); break
+      case 'potSmash': s.brickBreak(); break
+      case 'grassCut': s.brick(); break
+      case 'pickup': s.powerup(); break
+      case 'chestOpened': s.extraLife(); persist(); break
+      case 'reward': if (e.reward.kind !== 'relic') s.extraLife(); persist(); break
+      case 'doorUnlocked': case 'doorOpened': s.checkpoint(); persist(); break
+      case 'roomEnter': enterRoom(e.room); persist(); break
+      case 'bossPhase': s.levelup(); break
+      case 'bossDefeated': s.levelClear(); persist(); break
+      case 'won': s.win(); break
+      case 'shoot': s.enemyShoot(); break
+      case 'hitStop': if (!reducedMotion) hitStopMs = Math.max(hitStopMs, e.ms); break
+    }
+  }
+}
+
+// ---- loop -------------------------------------------------------------------
+
+function frame(nowMs: number) {
+  raf = requestAnimationFrame(frame)
+  if (!renderer) return
+  const dt = lastT ? Math.min((nowMs - lastT) / 1000, 0.1) : 0
+  lastT = nowMs
+  ui.paused = paused.value
+  ui.reducedMotion = reducedMotion
+
+  if (phase.value === 'play') {
+    ui.hint = ''
+    if (paused.value) { renderer.draw(state, ui, 0); return }
+    if (hitStopMs > 0) { hitStopMs -= dt * 1000; renderer.draw(state, ui, dt); return }
+    const events = stepGame(WORLD, state, dt, readInput())
+    renderer.onEvents(events)
+    handleEvents(events)
+    tickBanner(dt)
+    renderer.draw(state, ui, dt)
+    if (state.phase === 'won') finishWon()
+    return
+  }
+
+  // Attract, over and won all show the demo world behind the panel.
+  ui.hint = ''
+  ui.banner = null
+  if (reducedMotion) {
+    if (attractDrawn) return
+    attractDrawn = true
+    renderer.draw(state, ui, 0)
+    return
+  }
+  if (phase.value === 'attract') {
+    const events = stepGame(WORLD, state, dt, autopilot(WORLD, state))
+    renderer.onEvents(events)
+  }
+  renderer.draw(state, ui, dt)
+}
+
+function tickBanner(dt: number) {
+  if (!ui.banner) return
+  ui.banner.t -= dt
+  if (ui.banner.t <= 0) ui.banner = null
+}
+
+function onVisibility() {
+  if (document.hidden) {
+    clearInput()
+    if (phase.value === 'play' && !paused.value) togglePause()
+  }
+  lastT = 0
+}
+
+function resize() {
+  if (!canvas.value || !renderer) return
+  renderer.resize(canvas.value.clientWidth, canvas.value.clientHeight, Math.min(devicePixelRatio || 1, 2))
+  attractDrawn = false
+}
+
+let observer: ResizeObserver | null = null
+
+onMounted(() => {
+  if (!canvas.value) return
+  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  renderer = createRenderer(canvas.value, WORLD)
+  resize()
+  observer = new ResizeObserver(resize)
+  observer.observe(canvas.value)
+  window.addEventListener('resize', resize)
+  window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
+  window.addEventListener('blur', clearInput)
+  document.addEventListener('visibilitychange', onVisibility)
+  // On window, like OutRun: the title/result panels sit above the canvas.
+  window.addEventListener('pointerdown', onPointerDown)
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointercancel', onPointerCancel)
+  raf = requestAnimationFrame(frame)
+})
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf)
-  clearInput()
+  observer?.disconnect()
+  window.removeEventListener('resize', resize)
+  window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('keyup', onKeyUp)
+  window.removeEventListener('blur', clearInput)
+  document.removeEventListener('visibilitychange', onVisibility)
+  window.removeEventListener('pointerdown', onPointerDown)
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', onPointerCancel)
+  if (phase.value === 'play') persist()
   sound.music.stop()
-  useTheme().navigationLocked.value = false
-  window.removeEventListener('resize', updateCanvasSize)
-  document.removeEventListener('keydown', onKeyDown)
-  document.removeEventListener('keyup', onKeyUp)
-  if (canvas.value) {
-    canvas.value.removeEventListener('pointerdown', onPointerDown)
-    canvas.value.removeEventListener('pointermove', onPointerMove)
-    canvas.value.removeEventListener('pointerup', onPointerUp)
-  }
-})
-
-onMounted(() => {
-  useTheme().navigationLocked.value = phase === 'play'
-  document.addEventListener('keydown', onKeyDown)
-  document.addEventListener('keyup', onKeyUp)
-  if (canvas.value) {
-    canvas.value.addEventListener('pointerdown', onPointerDown)
-    canvas.value.addEventListener('pointermove', onPointerMove)
-    canvas.value.addEventListener('pointerup', onPointerUp)
-  }
+  navigationLocked.value = false
 })
 </script>
 

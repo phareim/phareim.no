@@ -78,6 +78,9 @@ onBeforeUnmount(() => {
 function onPhase(p: typeof phase.value) {
   phase.value = p
   navigationLocked.value = p === 'play'
+  if (p !== 'play') {
+    try { hasSave.value = !!localStorage.getItem('zeldaSave') } catch { /* ignore */ }
+  }
 }
 
 function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | null }) {
@@ -213,6 +216,24 @@ function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | n
 .zelda-won .zelda-over-title {
   color: #ffd23f;
   text-shadow: 0 0 12px rgba(255, 210, 63, 0.8), 0 0 40px rgba(255, 210, 63, 0.4);
+}
+
+/* Landscape phones: a small logo above the room, hints in one line, nothing under the pager dots. */
+@media (max-height: 480px) {
+  .zelda-title-block { top: 6vh; }
+  .zelda-logo { font-size: 2em !important; margin-bottom: 0.1em; }
+  .zelda-tag { display: none; }
+  .zelda-hints { padding: 0.4em 0.9em; margin-top: 0.3em; }
+  .zelda-hint { font-size: 0.75em; margin: 0.15em 0; }
+  .zelda-hint-dim { display: none; }
+  .zelda-over { padding: 0.6em 1.2em 0.8em; }
+  .zelda-over-title { font-size: 1.8em !important; margin-bottom: 0.2em; }
+  .zelda-time { font-size: 1em !important; margin: 0.1em 0 0.4em; }
+}
+
+/* Phones keep the pager chevrons clear. */
+@media (max-width: 600px) {
+  .zelda-title-block { padding: 0 46px; }
 }
 
 @keyframes zelda-blink {

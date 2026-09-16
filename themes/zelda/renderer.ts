@@ -1092,14 +1092,15 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
         g.fillText('BOSS KEY', kx + 15, midY + 0.5)
       }
     }
-    // Room name, right-aligned, cyan at 70 %.
+    // Room name after the keys, cyan at 70 % (the top-right corner belongs to the radio widget).
+    // Phones skip it: the entry banner already names the room and the radio widget needs the corner.
+    if (cssW < 480) return
     const name = roomName.get(state.room.id) ?? state.room.id
     g.fillStyle = 'rgba(47,243,255,0.7)'
     g.font = `${cssW < 400 ? 12 : 13}px ${MACHINE_FONT}`
-    g.textAlign = 'right'
-    g.textBaseline = 'middle'
-    g.fillText(name, cssW - 10, midY)
     g.textAlign = 'left'
+    g.textBaseline = 'middle'
+    g.fillText(name, kx + (state.player.hasBossKey ? 90 : 12), midY)
   }
 
   function drawBanner(g: Ctx, ui: FrameUI): void {
