@@ -71,7 +71,7 @@ back.
 
 ## Theme System (short version — the skill has the rest)
 
-- Fifteen themes, eleven live (2026-09-10; the eleventh is **Hangar**, last in the rotation — see its section). **Another Shore II** (parked 2026-09-07 — the “WALK — ENTER” take), **Scandinavian Glass**, **Space** and **Tufte Desk** (parked 2026-09-06) (`disabled: true` in `themes/index.ts`: out of swipe, pager, cookie and random pick; still reachable with `?theme=<id>`; nothing deleted). In swipe order: **Player One** (the profile theme, first in the list, added 2026-09-07 — see below), **Another Shore**, **Another Shore II**, **Scandinavian Glass**, **Galaga** (a vertical shmup in the Galaga mould — named Cyberpunk with the id `hacker` until 2026-09-08, when it was renamed for its lineage rather than its palette; on the shared cyan/pink/gold palette since 2026-09-08, with violet terrain meshes beneath the stars, side-entry squadrons, armoured ships and larger detailed bosses — see its section), **Breakout** (the arcade classic, added 2026-09-04; same canvas-behind-the-card pattern as Galaga, plays itself until Enter. Re-skinned 2026-09-06 onto the Neon Dreams design system, `~/github/neon-dreams-design`: three neons with three jobs — cyan paddle/ball/HUD, pink bricks in three tints, gold armoured bricks and powerups — over the shared horizon backdrop `themes/base/neonHorizon.js`, which beats on every hit; done as two parallel Muse jobs via `/musecode`, Claude reviewed), **R-Type** (endless side-scrolling shooter in neon-vector outline style, added 2026-09-05; attract-mode autopilot until Enter/tap, Force pod on Shift/double-tap, charge beam on held Space, procedural cave walls that narrow with distance, kill-streak multiplier; built by Muse Spark via `/musecode` in three parallel variants, this one won; on the Neon Dreams contract since 2026-09-06 — violet-black ground, cyan snapped to `#2ff3ff`, orange kept as its danger hue, gold multiplier from x4), **Space Invaders** (the faithful 1978 formation game in a synthwave look, added 2026-09-05: 5×11 formation with the original sprites, step-timer march that quickens as invaders die, eroding bunkers, mystery UFO, one shot on screen, kill-combo multiplier; sprite-shatter kills, screen shake, heartbeat-coupled grid and sun, pre-rendered glow sprite cache for phones; the backdrop comes from `themes/base/neonHorizon.js` since 2026-09-06. Also `/musecode`: three looks (phosphor cabinet, risograph paper, synthwave) → review/polish → two effect packages on the winner → review/fix; the losers are in git history, commits `8344268`..`d5436f7`), **Star Fox** (on-rails 3D flight shooter in three.js, added 2026-09-05: camera behind a low-poly Arwing, twin lasers, barrel roll with immunity on Shift/double-tap, rings to fly through, enemy formations, ground pillars and rocks, 100 HP hull, endless sectors with a Dreadnought boss (2026-09-08, see section below), kill-streak multiplier; synthwave look that shares the Space Invaders palette — striped sun, pulsing grid, mountain silhouettes. Attract-mode autopilot until Enter/tap. Also `/musecode`: three looks (Super FX pixel render, neon vector, synthwave) → Claude review + Muse fix round → synthwave won; the losers are in git history up to commit `dbede6f`. three.js is loaded lazily by `starfox/Landing.vue` so the other themes do not pay for it), **OutRun** (the 1986 road racer in pseudo-3D: five stages joined by forks, a goal, synthesised engine and radio; added 2026-09-10, rebuilt from scratch 2026-09-11 — see its section), **Tetris** (playable Tetris, ported from `tetris-theme-legacy` and reworked for Neon Dreams on 2026-09-06: cyan active piece/ghost, pink stacked blocks, gold line clears, shared horizon with lock/clear pulses. Drag sideways to move, tap to rotate, fast down flick to hard drop, slow down drag to lower, up swipe or HOLD to stash. ROTATE/DROP, pause/resume and exit buttons work on touch and mouse. A gesture stops controlling pieces when its original piece locks or swaps; idle swipes still switch theme. The board sizes to its actual remaining container space with ResizeObserver; landscape phones use two columns. The profile column was removed 2026-09-07 — the cabinet is the whole theme now, and Player One carries the person), **Space**, **Tufte Desk** (the tactile paper-on-desk layer from the tufte-viz design system, added 2026-09-03; it replaced the flat Tufte theme 2026-09-04 and carries the ET Book @font-face). **Nothing scrolls** (2026-09-05): `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, every landing is locked to the viewport — and since 2026-09-07 there is nothing but landings, so the `.page-scroll` container is gone too. Almanac, the one landing that needed the page to scroll, was removed 2026-09-05. First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
+- Sixteen themes, eleven live (2026-09-16; the eleventh is **Hangar**, last in the rotation — see its section; **Neon Shrine** is parked after OutRun, see its section). **Another Shore II** (parked 2026-09-07 — the “WALK — ENTER” take), **Scandinavian Glass**, **Space** and **Tufte Desk** (parked 2026-09-06) (`disabled: true` in `themes/index.ts`: out of swipe, pager, cookie and random pick; still reachable with `?theme=<id>`; nothing deleted). In swipe order: **Player One** (the profile theme, first in the list, added 2026-09-07 — see below), **Another Shore**, **Another Shore II**, **Scandinavian Glass**, **Galaga** (a vertical shmup in the Galaga mould — named Cyberpunk with the id `hacker` until 2026-09-08, when it was renamed for its lineage rather than its palette; on the shared cyan/pink/gold palette since 2026-09-08, with violet terrain meshes beneath the stars, side-entry squadrons, armoured ships and larger detailed bosses — see its section), **Breakout** (the arcade classic, added 2026-09-04; same canvas-behind-the-card pattern as Galaga, plays itself until Enter. Re-skinned 2026-09-06 onto the Neon Dreams design system, `~/github/neon-dreams-design`: three neons with three jobs — cyan paddle/ball/HUD, pink bricks in three tints, gold armoured bricks and powerups — over the shared horizon backdrop `themes/base/neonHorizon.js`, which beats on every hit; done as two parallel Muse jobs via `/musecode`, Claude reviewed), **R-Type** (endless side-scrolling shooter in neon-vector outline style, added 2026-09-05; attract-mode autopilot until Enter/tap, Force pod on Shift/double-tap, charge beam on held Space, procedural cave walls that narrow with distance, kill-streak multiplier; built by Muse Spark via `/musecode` in three parallel variants, this one won; on the Neon Dreams contract since 2026-09-06 — violet-black ground, cyan snapped to `#2ff3ff`, orange kept as its danger hue, gold multiplier from x4), **Space Invaders** (the faithful 1978 formation game in a synthwave look, added 2026-09-05: 5×11 formation with the original sprites, step-timer march that quickens as invaders die, eroding bunkers, mystery UFO, one shot on screen, kill-combo multiplier; sprite-shatter kills, screen shake, heartbeat-coupled grid and sun, pre-rendered glow sprite cache for phones; the backdrop comes from `themes/base/neonHorizon.js` since 2026-09-06. Also `/musecode`: three looks (phosphor cabinet, risograph paper, synthwave) → review/polish → two effect packages on the winner → review/fix; the losers are in git history, commits `8344268`..`d5436f7`), **Star Fox** (on-rails 3D flight shooter in three.js, added 2026-09-05: camera behind a low-poly Arwing, twin lasers, barrel roll with immunity on Shift/double-tap, rings to fly through, enemy formations, ground pillars and rocks, 100 HP hull, endless sectors with a Dreadnought boss (2026-09-08, see section below), kill-streak multiplier; synthwave look that shares the Space Invaders palette — striped sun, pulsing grid, mountain silhouettes. Attract-mode autopilot until Enter/tap. Also `/musecode`: three looks (Super FX pixel render, neon vector, synthwave) → Claude review + Muse fix round → synthwave won; the losers are in git history up to commit `dbede6f`. three.js is loaded lazily by `starfox/Landing.vue` so the other themes do not pay for it), **OutRun** (the 1986 road racer in pseudo-3D: five stages joined by forks, a goal, synthesised engine and radio; added 2026-09-10, rebuilt from scratch 2026-09-11 — see its section), **Tetris** (playable Tetris, ported from `tetris-theme-legacy` and reworked for Neon Dreams on 2026-09-06: cyan active piece/ghost, pink stacked blocks, gold line clears, shared horizon with lock/clear pulses. Drag sideways to move, tap to rotate, fast down flick to hard drop, slow down drag to lower, up swipe or HOLD to stash. ROTATE/DROP, pause/resume and exit buttons work on touch and mouse. A gesture stops controlling pieces when its original piece locks or swaps; idle swipes still switch theme. The board sizes to its actual remaining container space with ResizeObserver; landscape phones use two columns. The profile column was removed 2026-09-07 — the cabinet is the whole theme now, and Player One carries the person), **Space**, **Tufte Desk** (the tactile paper-on-desk layer from the tufte-viz design system, added 2026-09-03; it replaced the flat Tufte theme 2026-09-04 and carries the ET Book @font-face). **Nothing scrolls** (2026-09-05): `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, every landing is locked to the viewport — and since 2026-09-07 there is nothing but landings, so the `.page-scroll` container is gone too. Almanac, the one landing that needed the page to scroll, was removed 2026-09-05. First visit: random. Then: the `theme` cookie (one year). `?theme=<id>` overrides and re-sets the cookie.
 - Each `themes/<id>/theme.css` defines the `--theme-*` contract on `.{id}-page` (ten tokens, listed in the skill). Pages read `var(--theme-*, fallback)` and never hardcode colours or branch on `prefers-color-scheme` — dark mode is each theme's own business.
 - Each `themes/<id>/Landing.vue` owns the landing page. Most wrap `themes/base/DefaultLanding.vue`; a theme may replace the whole page.
 - A theme that uses arrow keys or horizontal touch itself (the Galaga and Breakout games) sets `navigationLocked` while it does.
@@ -445,6 +445,65 @@ about 1.1 million).
 - An endless random road has no shape. Stages, forks and a goal give a run
   an arc and a reason to choose.
 - No sound. An engine note that follows the gearbox is half the feel.
+
+## Neon Shrine — the Zelda-like, phase 1 (2026-09-16, parked)
+
+`?theme=zelda` is a top-down action-adventure in the LTTP mould, painted in
+Neon Dreams. **Parked** (`disabled: true`, registered after OutRun) until it
+is fun on a phone; the design and the build phases are in
+`themes/zelda/PLAN.md` (Codex and Claude reviews folded in). Phase 1 is
+done: one finished playable room plus a test-connection room, combat,
+touch and saves. Phases 2–3 (three overworld areas, six-room dungeon with
+miniboss, boss and relic) are content on top of the same engine, which
+already implements every enemy kind, door, chest and boss the plan names.
+
+**Files.** `themes/zelda/types.ts` is the contract (tile legend, world
+data, state, events, save format, Engine/Renderer interfaces — written by
+Claude, everything else built on Muse via `/musecode` and reviewed).
+`world.ts` — authored rooms as 15×11 string grids (`meadow`, `glade`) with
+`validateWorld` (row lengths, ids, portals, flood-fill reachability of the
+sword and every chest). `engine.ts` — pure, deterministic, 1/120 s steps:
+wall-sliding circle movement, cardinal sword arcs with one hit per swing
+and a tile raycast (no hits through walls), knockback + 1 s i-frames,
+brains for chaser/wanderer/turret/bat/knight/slimeKnight, pots, grass,
+drops, chests, small/Boss Key doors, `S` doors that open on room clear,
+portals with a 0.35 s slide, death → respawn at the safe entry with
+enemies/pots reset and progress kept, seeded mulberry32 RNG in the state,
+`toSave`/`parseSave`, and an attract autopilot. `renderer.ts` — Canvas 2D,
+cached tile layer, bounded particle pool, telegraph rings, slide with a
+snapshot of the previous room, HUD strip (hearts, keys, room name on wide
+screens). `Zelda.vue` — loop, phases, input, audio, save; `Landing.vue` —
+title/RESTING/THE SHRINE WAKES panels. `theme.css` — the token contract.
+
+**Controls.** Keys: arrows/WASD, Space/J sword, E/K interact, P or Esc-tap
+pause, Esc-hold quit (progress kept, no auto-respawn), Enter start, N new
+game. Touch: the first finger on the left 60 % becomes a **floating stick**
+(direction = offset from touchdown, 40 px = full speed); any tap on the
+right 40 % swings (auto-facing the nearest enemy at rest), a 350 ms hold
+there interacts. Pointer listeners sit on `window`, like OutRun, because the
+title panels are above the canvas. Music: `useSound` styles `zelda`,
+`zeldaDungeon`, `zeldaBoss` by room area; attract is silent.
+
+**Saves.** `localStorage.zeldaSave` (`SAVE_VERSION` 1: room, safe entry,
+hearts, sword, keys, flags, containers, rng, elapsed) written on every
+progression event, room entry, respawn and quit; garbage is ignored and the
+game starts fresh. `zeldaBest` holds the best completion time in seconds
+(no Hall of Fame — it would need lower-is-better semantics).
+
+**Checks.** `npm run test:zelda` (in CI): 42 engine tests incl. a scripted
+run through an inline test world to the relic, a 120 s autopilot soak and
+save/death regressions; 12 world tests; a renderer smoke against a stub
+canvas. Verified 2026-09-16 in headless Chromium: 1440×900 keyboard run
+(sword, pot, chaser, pause, Esc-hold quit with the save written), 375×667
+emulated touch (stick + simultaneous swing), 667×375, `/nope`; no page
+errors or document overflow. Physical-phone feel is unmeasured.
+
+**Known gaps.** Portrait phones waste the band under the room (the room is
+width-limited, 25 px tiles at 375 wide); the meadow chaser is beatable but
+the first room has not been tuned for feel; `respawn` carries no position,
+so the renderer draws no respawn ring; Muse's first engine attempt was cut
+off by its per-response output limit — it needed the "write in small
+modules, one per call" instruction to finish.
 
 ## Hall of Fame — the global leaderboard (2026-09-08)
 

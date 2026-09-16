@@ -34,6 +34,9 @@ export type MusicStyle =
   | 'starfox'
   | 'tetris'
   | 'shore'
+  | 'zelda'
+  | 'zeldaDungeon'
+  | 'zeldaBoss'
 
 const MUTE_KEY = 'phareim-sound-muted'
 
@@ -359,6 +362,24 @@ const PATTERNS: Record<MusicStyle, MusicPattern> = {
     bpm: 60, bassType: 'sine', leadType: 'sine', leadVol: 0.2,
     bass: [38, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0],
     lead: [62, 0, 0, 0, 0, 0, 0, 0, 60, 0, 0, 0, 0, 0, 58, 0],
+  },
+  // Adventure overworld — bright A-minor, steady pulse for exploration.
+  zelda: {
+    bpm: 100, bassType: 'triangle', leadType: 'square', leadVol: 0.14,
+    bass: [45, 0, 45, 0, 41, 0, 43, 0, 45, 0, 45, 0, 48, 0, 43, 0],
+    lead: [69, 0, 72, 69, 0, 71, 69, 0, 67, 0, 69, 67, 0, 72, 67, 0],
+  },
+  // Dungeon — sparse and low, minor-key foreboding, slower than overworld.
+  zeldaDungeon: {
+    bpm: 90, bassType: 'sine', leadType: 'triangle', leadVol: 0.1,
+    bass: [45, 0, 0, 0, 41, 0, 0, 0, 43, 0, 0, 0, 41, 0, 45, 0],
+    lead: [57, 0, 0, 0, 60, 0, 0, 0, 57, 0, 0, 0, 60, 0, 57, 0],
+  },
+  // Boss chamber — urgent and fast, same minor key, dangerous energy.
+  zeldaBoss: {
+    bpm: 140, bassType: 'sawtooth', leadType: 'square', leadVol: 0.13,
+    bass: [45, 45, 0, 45, 0, 45, 41, 0, 43, 45, 0, 43, 45, 0, 41, 43],
+    lead: [69, 0, 72, 0, 76, 0, 72, 0, 71, 0, 69, 0, 67, 0, 72, 0],
   },
 }
 

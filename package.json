@@ -20,7 +20,8 @@
     "test:galaga": "node --test tests/galaga-game.test.mjs tests/galaga-balance.test.mjs tests/galaga-audio.test.mjs",
     "test:radio": "node --test tests/radio-catalog.test.mjs",
     "test:rtype": "node --test tests/rtype-game.test.mjs",
-    "test:outrun": "node --test tests/outrun-engine.test.mjs"
+    "test:outrun": "node --test tests/outrun-engine.test.mjs",
+    "test:zelda": "node --test tests/zelda-engine.test.mjs tests/zelda-world.test.mjs tests/zelda-renderer.smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.3",

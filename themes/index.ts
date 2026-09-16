@@ -18,6 +18,7 @@ import './shore/theme.css'
 import './playerone/theme.css'
 import './leaderboard/theme.css'
 import './hangar/theme.css'
+import './zelda/theme.css'
 
 // Static imports on purpose: a swipe should not wait for a chunk, and the
 // whole set is small (the Galaga game is the only big one).
@@ -37,6 +38,7 @@ import ShoreLanding from './shore/Landing.vue'
 import PlayeroneLanding from './playerone/Landing.vue'
 import LeaderboardLanding from './leaderboard/Landing.vue'
 import HangarLanding from './hangar/Landing.vue'
+import ZeldaLanding from './zelda/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the cookie value. */
@@ -123,6 +125,15 @@ export const allThemes: ThemeDefinition[] = [
     name: 'OutRun',
     themeColor: '#0b0616',
     landing: OutrunLanding,
+  },
+  {
+    id: 'zelda',
+    // Parked while phase 1 is playtested (2026-09-16); reachable with ?theme=zelda.
+    disabled: true,
+    name: 'Neon Shrine',
+    themeColor: '#0b0616',
+    themeColorDark: '#0b0616',
+    landing: ZeldaLanding,
   },
   {
     id: 'tetris',
