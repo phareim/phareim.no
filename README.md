@@ -37,4 +37,4 @@ npm run typecheck  # vue-tsc via nuxi
 npm run build      # cloudflare-pages preset → dist/
 ```
 
-See `CLAUDE.md` for architecture and conventions.
+See `AGENTS.md` for architecture and conventions.
