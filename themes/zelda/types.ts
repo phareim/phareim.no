@@ -342,8 +342,11 @@ export interface FrameUI {
 }
 
 export interface Renderer {
-  /** Fit the backing store to the canvas' CSS size. */
-  resize(width: number, height: number, dpr: number): void
+  /**
+   * Fit the backing store to the canvas' CSS size. `touch` (default true)
+   * keeps the side reserves for the touch control deck in landscape.
+   */
+  resize(width: number, height: number, dpr: number, touch?: boolean): void
   /** Draw one frame. `dt` is presentation time for particles only. */
   draw(state: GameState, ui: FrameUI, dt: number): void
   /** Feed events for particles/shake/flash; the renderer keeps its own bounded pools. */

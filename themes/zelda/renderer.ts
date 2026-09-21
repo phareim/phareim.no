@@ -72,7 +72,8 @@ const LAV_DIM = '#7a6a9a'
 
 const HUD_MIN = 34 // px strip above the room
 const PORTRAIT_RESERVE = 0.34 // fraction of height kept below in portrait
-const LANDSCAPE_RESERVE = 0.22 // fraction of width kept on EACH side
+const LANDSCAPE_RESERVE = 0.22 // fraction of width kept on EACH side (touch deck)
+const DESKTOP_MARGIN = 0.06 // same, when there is no touch deck to reserve for
 const MAX_PARTICLES = 200
 const MAX_RINGS = 8
 const DROP_LIFE = 8 // drops blink after t > 6 (last 2 s)
@@ -412,6 +413,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
   let cssW = 0
   let cssH = 0
   let dprEff = 1
+  let touchLayout = true
   let rect: Rect = { x: 0, y: 0, w: 0, h: 0 }
   let tile = 16
   let lastRoomW = 15
@@ -477,7 +479,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
       ay = hud
       ah = cssH - hud - reserveBottom
     } else {
-      const side = cssW * LANDSCAPE_RESERVE
+      // The side reserves are the touch control deck; without touch the room
+      // may grow into them (a slim margin stays for the backdrop).
+      const side = cssW * (touchLayout ? LANDSCAPE_RESERVE : DESKTOP_MARGIN)
       ax = side
       aw = cssW - side * 2
       ay = hud
@@ -485,21 +489,27 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
     }
     aw = Math.max(1, aw)
     ah = Math.max(1, ah)
-    tile = Math.max(1, Math.floor(Math.min(aw / roomW, ah / roomH)))
+    // Snap the tile so one logical pixel (tile / 16) is a whole number of
+    // DEVICE pixels — otherwise sprite pixels come out uneven sizes.
+    const raw = Math.min(aw / roomW, ah / roomH)
+    const q = 16 / dprEff
+    tile = raw >= q ? Math.floor(raw / q) * q : Math.max(1, Math.floor(raw))
     const rw = tile * roomW
     const rh = tile * roomH
+    const snap = (v: number): number => Math.round(v * dprEff) / dprEff
     rect = {
-      x: ax + (aw - rw) / 2,
-      y: ay + (ah - rh) / 2,
+      x: snap(ax + (aw - rw) / 2),
+      y: snap(ay + (ah - rh) / 2),
       w: rw,
       h: rh,
     }
   }
 
-  function resize(width: number, height: number, dpr: number): void {
+  function resize(width: number, height: number, dpr: number, touch = true): void {
     cssW = Math.max(0, width)
     cssH = Math.max(0, height)
-    dprEff = clamp(dpr || 1, 1, 2)
+    dprEff = clamp(dpr || 1, 1, 3)
+    touchLayout = touch
     try {
       canvas.width = Math.max(1, Math.round(cssW * dprEff))
       canvas.height = Math.max(1, Math.round(cssH * dprEff))
@@ -523,6 +533,16 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
 
   function drawMap(g: Ctx, map: PixMap, dx: number, dy: number, u: number, pal: Record<string, string>, flip = false): void {
     const w = map[0]?.length ?? 0
+    // On the snapped grid a logical pixel is whole device pixels: align the
+    // sprite to it and draw exact squares. Off-grid (tiny screens) keep the
+    // half-pixel overdraw so no seams show.
+    const du = u * dprEff
+    const exact = Math.abs(du - Math.round(du)) < 0.01
+    const over = exact ? 0 : 0.5
+    if (exact) {
+      dx = Math.round(dx * dprEff) / dprEff
+      dy = Math.round(dy * dprEff) / dprEff
+    }
     for (let j = 0; j < map.length; j++) {
       const row = map[j]
       for (let i = 0; i < row.length; i++) {
@@ -532,7 +552,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
         if (!col) continue
         const ii = flip ? w - 1 - i : i
         g.fillStyle = col
-        g.fillRect(dx + ii * u, dy + j * u, u + 0.5, u + 0.5)
+        g.fillRect(dx + ii * u, dy + j * u, u + over, u + over)
       }
     }
   }
@@ -803,37 +823,56 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
       g.fillStyle = `rgba(207,233,255,${a.toFixed(2)})`
       g.fillRect(sx, sy, s.s, s.s)
     }
-    // Small striped sun: a stepped disc in the left letterbox, subordinate.
-    const sunR = clamp(Math.min(cssW, cssH) * 0.035, 10, 26)
-    const sunX = Math.max(14, rect.x / 2)
-    const sunY = rect.y + rect.h * 0.28
-    if (rect.x > sunR * 2 + 20) {
-      const stripes = ['#ffd23f', '#ff9a3d', '#ff2fa0', '#b02070'] as const
-      for (let i = 0; i < 4; i++) {
-        const sy = sunY - sunR + (i * 2 * sunR) / 4
-        const hh = 2 * sunR / 4 - (i > 0 ? (i - 1) * 1.5 : 0)
-        // Stepped circle: width from the disc equation, snapped to 2px.
-        const half = Math.sqrt(Math.max(0, sunR * sunR - (sunY - (sy + hh / 2)) ** 2))
-        const w2 = Math.max(2, Math.floor(half / 2) * 2)
-        g.fillStyle = stripes[i]
-        g.fillRect(sunX - w2, sy, w2 * 2, Math.max(1, hh))
+    // Striped sun setting on the ridge: a big stepped half-disc, subdued, in
+    // the free space (left letterbox in landscape, behind the control deck in
+    // portrait). Never under the room.
+    const portrait = cssH > cssW
+    const horizon = cssH - 10
+    const freeW = portrait ? cssW : rect.x
+    const freeH = portrait ? cssH - (rect.y + rect.h) : cssH
+    const sunR = Math.floor(clamp(Math.min(freeW * (portrait ? 0.3 : 0.4), freeH * 0.5), 0, 190) / 4) * 4
+    const sunX = Math.round(portrait ? cssW / 2 : rect.x / 2)
+    if (sunR >= 24) {
+      const halo = g.createRadialGradient(sunX, horizon, sunR * 0.4, sunX, horizon, sunR * 1.9)
+      halo.addColorStop(0, 'rgba(255,47,160,0.16)')
+      halo.addColorStop(1, 'rgba(255,47,160,0)')
+      g.fillStyle = halo
+      g.fillRect(sunX - sunR * 2, horizon - sunR * 2, sunR * 4, sunR * 2)
+      const px = 4 // stepped row height
+      g.globalAlpha = portrait ? 0.4 : 0.8
+      const rows = sunR / px
+      for (let i = 0; i < rows; i++) {
+        // i = 0 at the horizon, growing upward. Lower rows are cut by
+        // widening gaps — the classic blinds.
+        const k = i / rows
+        const gapEvery = k < 0.55 ? 3 : 0
+        if (gapEvery && i % gapEvery === 0) continue
+        if (k < 0.25 && i % 3 === 1) continue
+        const yMid = (i + 0.5) * px
+        const half = Math.floor(Math.sqrt(Math.max(0, sunR * sunR - yMid * yMid)) / px) * px
+        g.fillStyle = k > 0.72 ? '#c9a540' : k > 0.45 ? '#c7753a' : k > 0.2 ? '#b8307a' : '#7a1d5c'
+        g.fillRect(sunX - half, horizon - (i + 1) * px, half * 2, px)
       }
+      g.globalAlpha = 1
     }
     {
-      // Ridge silhouette along the bottom edge.
-      g.fillStyle = '#120826'
-      const baseY = cssH - 8
-      g.beginPath()
-      g.moveTo(0, cssH)
-      g.lineTo(0, baseY)
-      for (let x = 0; x <= cssW; x += 24) {
-        const h = 4 + hash2(Math.round(x / 24), 3) * 10
-        g.lineTo(x + 12, baseY - h)
-        g.lineTo(x + 24, baseY)
+      // Two ridge silhouettes along the bottom edge (far, then near).
+      const layers: Array<[string, number, number, number]> = [
+        ['#1a0d33', 40, 26, 11],
+        ['#120826', 24, 12, 3],
+      ]
+      for (const [col, stepX, amp, seed] of layers) {
+        g.fillStyle = col
+        for (let x = 0; x < cssW; x += 4) {
+          const i = Math.floor(x / stepX)
+          const f = (x % stepX) / stepX
+          const h0 = hash2(i, seed)
+          const h1 = hash2(i + 1, seed)
+          const h = 6 + (h0 + (h1 - h0) * f) * amp
+          const hh = Math.round(h / 2) * 2
+          g.fillRect(x, cssH - hh, 4, hh)
+        }
       }
-      g.lineTo(cssW, cssH)
-      g.closePath()
-      g.fill()
     }
   }
 
@@ -970,37 +1009,53 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
     drawMap(g, map, feetX - mw / 2, feetY - mh, u, HERO_PAL, flip)
     g.restore()
 
-    // Sword: stepped pixel arc + white blade at the leading edge.
+    // Sword: a solid pixel blade sweeping the arc, with a stepped crescent
+    // smear behind it. Reach matches SWORD_REACH exactly.
     if (pl.swing && swingP >= 0) {
       const base = facingAngle(pl.swing.facing)
       const a0 = base - SWORD_ARC / 2
       const cx = feetX
-      const cy = feetY - mh * 0.55
+      const cy = feetY - mh * 0.5
       const R = SWORD_REACH * tile
-      const a1 = a0 + SWORD_ARC * swingP
-      // Arc trail: coarse pixel steps in cyan (attack phase only).
-      if (swingP >= 0.25) {
-        const steps = 9
-        for (let i = 0; i <= Math.floor(steps * swingP); i++) {
-          const a = a0 + (SWORD_ARC * i) / steps
-          const ax = cx + Math.cos(a) * R
-          const ay = cy + Math.sin(a) * R
-          g.fillStyle = 'rgba(47,243,255,0.5)'
-          g.fillRect(ax - u, ay - u, 2 * u + 0.5, 2 * u + 0.5)
+      // Anticipation holds the blade cocked at a0; the sweep runs 0.2 -> 0.75.
+      const sweep = clamp((swingP - 0.2) / 0.55, 0, 1)
+      const eased = 1 - (1 - sweep) * (1 - sweep)
+      const a1 = a0 + SWORD_ARC * eased
+      const cell = 2 * u
+      const snapC = (v: number): number => Math.round(v / u) * u
+      if (!reducedMotion && sweep > 0 && swingP < 0.95) {
+        const tail = Math.min(a1 - a0, 1.2)
+        const n = Math.max(1, Math.ceil(tail / 0.07))
+        const fade = swingP > 0.75 ? 1 - (swingP - 0.75) / 0.2 : 1
+        for (let i = 0; i < n; i++) {
+          const k = i / n
+          const a = a1 - tail * (1 - k)
+          g.fillStyle = `rgba(47,243,255,${((0.06 + 0.4 * k * k) * fade).toFixed(3)})`
+          for (let r = 0.58; r <= 1.001; r += 0.105) {
+            g.fillRect(snapC(cx + Math.cos(a) * R * r - u), snapC(cy + Math.sin(a) * R * r - u), cell, cell)
+          }
         }
       }
-      // Blade at the leading edge: 5 white pixels + cyan spine.
-      const bx = cx + Math.cos(a1) * R
-      const by = cy + Math.sin(a1) * R
       const dxn = Math.cos(a1)
       const dyn = Math.sin(a1)
-      for (let i = 0; i < 5; i++) {
-        const q = 0.45 + i * 0.14
-        g.fillStyle = WHITE
-        g.fillRect(cx + dxn * R * q - u / 2, cy + dyn * R * q - u / 2, u + 0.5, u + 0.5)
+      const steps = Math.ceil((R * 0.72) / u)
+      for (let i = 0; i <= steps; i++) {
+        const d = R * 0.28 + i * u
+        const bx = snapC(cx + dxn * d - u)
+        const by = snapC(cy + dyn * d - u)
+        g.fillStyle = i < 2 ? GOLD : i > steps - 2 ? CYAN : WHITE
+        g.fillRect(bx, by, cell, cell)
       }
-      g.fillStyle = CYAN
-      g.fillRect(bx - u, by - u, 2 * u + 0.5, 2 * u + 0.5)
+      if (!reducedMotion && sweep > 0 && sweep < 1) {
+        // One soft under-glow at the tip (magic focal, per DESIGN.md).
+        const tx = cx + dxn * R
+        const ty = cy + dyn * R
+        const glow = g.createRadialGradient(tx, ty, 0, tx, ty, tile * 0.7)
+        glow.addColorStop(0, 'rgba(47,243,255,0.35)')
+        glow.addColorStop(1, 'rgba(47,243,255,0)')
+        g.fillStyle = glow
+        g.fillRect(tx - tile, ty - tile, tile * 2, tile * 2)
+      }
     }
   }
 

@@ -406,7 +406,7 @@ function onVisibility() {
 
 function resize() {
   if (!canvas.value || !renderer) return
-  renderer.resize(canvas.value.clientWidth, canvas.value.clientHeight, Math.min(devicePixelRatio || 1, 2))
+  renderer.resize(canvas.value.clientWidth, canvas.value.clientHeight, Math.min(devicePixelRatio || 1, 3), touchUI.value)
   attractDrawn = false
 }
 

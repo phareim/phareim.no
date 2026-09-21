@@ -43,7 +43,7 @@ const save = scene === 'glade'
   : null
 const state = createGame(WORLD, { seed: 7, save })
 const renderer = createRenderer(canvas, WORLD)
-renderer.resize(W, H, dpr)
+renderer.resize(W, H, dpr, q.get('touch') === '1')
 const idle = { move: { x: 0, y: 0 }, attack: false, interact: false, autoFace: false }
 const ui = { banner: null, paused: false, reducedMotion: false, alpha: 1, stick: null, hint: '' }
 const run = (n, input) => { for (let i = 0; i < n; i++) renderer.onEvents(stepGame(WORLD, state, 1 / 60, input)) }
@@ -81,7 +81,7 @@ for (const [name, scene, w, h, dpr] of SHOTS) {
       '--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
       `--force-device-scale-factor=${dpr}`, `--window-size=${w},${h}`,
       '--virtual-time-budget=2000', `--screenshot=${png}`,
-      `file://${html}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}`,
+      `file://${html}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}&touch=${w < 1000 ? 1 : 0}`,
     ], { stdio: 'ignore', timeout: 60000 })
     console.log(png)
   } catch (e) {
