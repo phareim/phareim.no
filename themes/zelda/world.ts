@@ -29,24 +29,25 @@ export const ROOM_H = 11
 // Room maps
 // ---------------------------------------------------------------------------
 //
-// Legend (from types.ts): '#' wall, '.' floor, ',' dark floor, '~' grass,
+// Legend (from types.ts): '#' wall, '.' floor, ',' path (walkable, drawn as a worn trail), '~' grass,
 // 'o' pot, 'T' tree, 'G' gravestone, 'W' water, 'L' locked door,
 // 'B' Boss Key door, 'S' shut door.
 //
 // The meadow reads west -> east along row 5: spawn, sword, pot, grass,
-// chaser, east portal. Trees cluster north as the landmark; the small-key
-// chest sits in the open north-east on plain floor.
+// chaser, east portal — and that row is the authored path (',' tiles), with
+// the pot standing in the road and a spur north to the small-key chest.
+// Trees cluster north-west as the landmark.
 
 const MEADOW_ROWS: string[] = [
   '###############',
   '#..TTT........#',
-  '#..TT....,....#',
-  '#...T....,....#',
-  '#.......~~~...#',
-  '#......o.......',
-  '#.......~~.....',
-  '#..,..........#',
-  '#..T.......,..#',
+  '#..TT.........#',
+  '#...T.......,.#',
+  '#.......~~~.,.#',
+  '#,,,,,,o,,,,,,,',
+  '#.......~~...,,',
+  '#.............#',
+  '#..T..........#',
   '#.............#',
   '###############',
 ]
@@ -61,11 +62,11 @@ const GLADE_ROWS: string[] = [
   '#......#.WW...#',
   '#..G...#.WW...#',
   '#......#......#',
-  '#..G...#..,...#',
-  '.......L......#',
-  '.......#......#',
+  '#..G...#....,.#',
+  ',,,,,,,L,,,,,.#',
+  ',,.....#......#',
   '#......#......#',
-  '#..,...#......#',
+  '#......#......#',
   '#......#......#',
   '###############',
 ]

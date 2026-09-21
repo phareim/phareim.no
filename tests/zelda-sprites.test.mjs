@@ -17,8 +17,13 @@ function loadRenderer() {
   const renderer = read('themes/zelda/renderer.ts')
     .split(`from './types'`).join(`from './types.ts'`)
     .split(`from '../base/fonts'`).join(`from '../base/fonts.ts'`)
+    .split(`from './terrain'`).join(`from './terrain.ts'`)
   writeFileSync(join(tmp, 'themes/zelda/renderer.ts'), renderer)
   writeFileSync(join(tmp, 'themes/zelda/types.ts'), read('themes/zelda/types.ts'))
+  writeFileSync(
+    join(tmp, 'themes/zelda/terrain.ts'),
+    read('themes/zelda/terrain.ts').split(`from './types'`).join(`from './types.ts'`),
+  )
   writeFileSync(join(tmp, 'themes/base/fonts.ts'), read('themes/base/fonts.ts'))
   return import(pathToFileURL(join(tmp, 'themes/zelda/renderer.ts')).href)
 }
