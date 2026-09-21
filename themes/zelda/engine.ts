@@ -58,6 +58,10 @@ export const STEP = 1 / 120
 export const START_HEARTS = 3
 export const MAX_HEARTS = 5
 export const SAVE_VERSION = 1
+/** A sword press this close before the cooldown ends still swings (seconds). */
+export const ATTACK_BUFFER = 0.14
+/** How far (tiles) a blocked axis-aligned walk may slip sideways round a corner. */
+export const CORNER_ASSIST = 0.3
 
 /** Max catch-up simulated per stepGame call; the rest is discarded. */
 export const MAX_CATCH_UP = 0.25
@@ -226,10 +230,26 @@ export function moveCircle(
   room: RoomState, x: number, y: number, r: number, dx: number, dy: number,
   worldRoom: Room | null, flyOver: boolean,
 ): { x: number; y: number } {
+  // A blocked axis advances flush to the obstacle (bisected fraction of the
+  // step) instead of stopping a partial step short — no invisible gaps, and
+  // contact triggers such as locked doors fire reliably.
+  const flush = (horizontal: boolean, bx: number, by: number, d: number): number => {
+    let lo = 0
+    let hi = 1
+    for (let i = 0; i < 6; i++) {
+      const mid = (lo + hi) / 2
+      const hit = horizontal
+        ? circleHitsSolid(room, bx + d * mid, by, r, worldRoom, flyOver)
+        : circleHitsSolid(room, bx, by + d * mid, r, worldRoom, flyOver)
+      if (hit) hi = mid
+      else lo = mid
+    }
+    return d * lo
+  }
   let nx = x + dx
-  if (circleHitsSolid(room, nx, y, r, worldRoom, flyOver)) nx = x
+  if (dx !== 0 && circleHitsSolid(room, nx, y, r, worldRoom, flyOver)) nx = x + flush(true, x, y, dx)
   let ny = y + dy
-  if (circleHitsSolid(room, nx, ny, r, worldRoom, flyOver)) ny = y
+  if (dy !== 0 && circleHitsSolid(room, nx, ny, r, worldRoom, flyOver)) ny = y + flush(false, nx, y, dy)
   return { x: nx, y: ny }
 }
 
@@ -518,6 +538,7 @@ export function createGame(world: World, opts?: { seed?: number; save?: SaveData
         invuln: 0,
         swing: null,
         cooldown: 0,
+        attackBuf: 0,
         knockback: null,
         vx: 0,
         vy: 0,
@@ -555,6 +576,7 @@ export function createGame(world: World, opts?: { seed?: number; save?: SaveData
       invuln: 0,
       swing: null,
       cooldown: 0,
+      attackBuf: 0,
       knockback: null,
       vx: 0,
       vy: 0,
@@ -584,6 +606,35 @@ export function cleanMove(m: Vec): Vec {
 }
 
 /** One player movement substep. Facing follows the dominant axis. */
+/**
+ * Corner assist: an axis-aligned walk that is fully blocked slips sideways
+ * when free passage lies within CORNER_ASSIST tiles — the player rounds tile
+ * corners instead of snagging on them. Flat walls never qualify.
+ */
+function cornerAssist(
+  room: RoomState, x: number, y: number, m: Vec, step: number, worldRoom: Room | null,
+): { x: number; y: number } | null {
+  const horizontal = Math.abs(m.x) > Math.abs(m.y) * 2
+  const vertical = Math.abs(m.y) > Math.abs(m.x) * 2
+  if (!horizontal && !vertical) return null
+  const dir = Math.sign(horizontal ? m.x : m.y)
+  const free = (px: number, py: number): boolean => !circleHitsSolid(room, px, py, PLAYER_RADIUS, worldRoom, false)
+  for (let off = 0.05; off <= CORNER_ASSIST + 1e-9; off += 0.05) {
+    for (const side of [-1, 1]) {
+      const sx = horizontal ? x : x + side * off
+      const sy = horizontal ? y + side * off : y
+      const ax = horizontal ? sx + dir * step : sx
+      const ay = horizontal ? sy : sy + dir * step
+      if (!free(sx, sy) || !free(ax, ay)) continue
+      const slip = side * Math.min(step, off)
+      const nx = horizontal ? x : x + slip
+      const ny = horizontal ? y + slip : y
+      return free(nx, ny) ? { x: nx, y: ny } : null
+    }
+  }
+  return null
+}
+
 export function stepPlayerMove(world: World, state: GameState, move: Vec, dt: number): void {
   const p = state.player
   const room = state.room
@@ -596,7 +647,10 @@ export function stepPlayerMove(world: World, state: GameState, move: Vec, dt: nu
   }
   const vx = m.x * PLAYER_SPEED
   const vy = m.y * PLAYER_SPEED
-  const moved = moveCircle(room, p.x, p.y, PLAYER_RADIUS, vx * dt, vy * dt, worldRoom, false)
+  let moved = moveCircle(room, p.x, p.y, PLAYER_RADIUS, vx * dt, vy * dt, worldRoom, false)
+  if (hasInput && Math.abs(moved.x - p.x) + Math.abs(moved.y - p.y) < PLAYER_SPEED * dt * 0.25) {
+    moved = cornerAssist(room, p.x, p.y, m, PLAYER_SPEED * dt, worldRoom) ?? moved
+  }
   p.x = moved.x
   p.y = moved.y
   p.vx = vx
@@ -649,6 +703,7 @@ export function tickPlayerTimers(state: GameState, dt: number): void {
   const p = state.player
   if (p.invuln > 0) p.invuln = Math.max(0, p.invuln - dt)
   if (p.cooldown > 0) p.cooldown = Math.max(0, p.cooldown - dt)
+  if (p.attackBuf > 0) p.attackBuf = Math.max(0, p.attackBuf - dt)
   if (p.swing) {
     p.swing.t += dt
     if (p.swing.t >= SWING_TIME) p.swing = null
@@ -682,8 +737,11 @@ function nearestEnemyInReach(state: GameState): Enemy | null {
 export function tryStartSwing(world: World, state: GameState, input: Input, events: GameEvent[]): void {
   void world
   const p = state.player
-  if (!input.attack || p.swing || p.cooldown > 0) return
   if (!p.hasSword) return
+  // Buffer the press: mashing a hair early still swings when the cooldown ends.
+  if (input.attack) p.attackBuf = ATTACK_BUFFER
+  if (p.attackBuf <= 0 || p.swing || p.cooldown > 0) return
+  p.attackBuf = 0
   const m = cleanMove(input.move)
   if (input.autoFace && m.x === 0 && m.y === 0) {
     const near = nearestEnemyInReach(state)

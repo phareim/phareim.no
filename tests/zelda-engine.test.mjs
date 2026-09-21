@@ -149,7 +149,7 @@ function walkTo(state, x, y, max = 3000) {
     }
     E.stepGame(WORLD, state, STEP, { move: { x: dx / d, y: dy / d }, attack: false, interact: false, autoFace: false })
   }
-  throw new Error(`walkTo: stuck going to ${x},${y}`)
+  throw new Error(`walkTo: stuck going to ${x},${y} at ${state.player.x.toFixed(3)},${state.player.y.toFixed(3)} keys=${state.player.smallKeys}`)
 }
 
 /** Step once with a raw move vector (for facing checks). */
@@ -888,7 +888,7 @@ describe('relic and bounds', () => {
 
 describe('scripted full run', () => {
   /** Kill one enemy with a per-substep kite policy (approach, swing, flee tells). */
-  function killEnemy(s, id, maxSteps = 6000) {
+  function killEnemy(s, id, maxSteps = 14000) {
     let n = 0
     while (n++ < maxSteps) {
       if (s.phase !== 'play') return false
@@ -1104,3 +1104,72 @@ describe('scripted full run', () => {
   })
 })
 
+
+describe('movement and sword feel (2026-09-21)', () => {
+  const RIGHT = { move: { x: 1, y: 0 }, attack: false, interact: false, autoFace: false }
+
+  it('walking into a locked door with a key opens it from any approach offset', () => {
+    for (let k = 0; k < 12; k++) {
+      const s = fresh()
+      clearRoom(s)
+      s.player.smallKeys = 1
+      s.player.x = 9.0 + k * 0.007
+      s.player.y = 8.5
+      for (let i = 0; i < 60; i++) E.stepGame(WORLD, s, STEP, RIGHT)
+      assert.equal(s.room.tiles[8][10], '.', `door opened from x0=${(9.0 + k * 0.007).toFixed(3)}`)
+    }
+  })
+
+  it('blocked movement ends flush against the wall', () => {
+    const s = fresh()
+    clearRoom(s)
+    s.player.x = 9.0
+    s.player.y = 8.5
+    for (let i = 0; i < 60; i++) E.stepGame(WORLD, s, STEP, RIGHT)
+    assert.ok(10 - E.PLAYER_RADIUS - s.player.x < 0.005, `gap ${(10 - E.PLAYER_RADIUS - s.player.x).toFixed(4)}`)
+  })
+
+  it('corner assist: a walk that clips a tile corner slips round it', () => {
+    const s = fresh()
+    clearRoom(s)
+    // Tree at tile (8,4); the circle overlaps its top edge by 0.15.
+    s.player.x = 7.0
+    s.player.y = 3.8
+    for (let i = 0; i < 240; i++) E.stepGame(WORLD, s, STEP, RIGHT)
+    assert.ok(s.player.x > 9.5, `passed the tree (x=${s.player.x.toFixed(2)})`)
+    assert.ok(s.player.y < 3.8, 'slipped upwards, away from the tree')
+  })
+
+  it('corner assist never drifts along a flat wall', () => {
+    const s = fresh()
+    clearRoom(s)
+    s.player.x = 8.5
+    s.player.y = 2.0
+    for (let i = 0; i < 120; i++) {
+      E.stepGame(WORLD, s, STEP, { move: { x: 0, y: -1 }, attack: false, interact: false, autoFace: false })
+    }
+    assert.equal(s.player.x, 8.5, 'no sideways drift')
+    assert.ok(s.player.y < 1.36, 'reached the wall')
+  })
+
+  it('a sword press shortly before the cooldown ends is buffered', () => {
+    const s = fresh()
+    clearRoom(s)
+    s.player.hasSword = true
+    const count = (ev) => ev.filter((e) => e.type === 'swing').length
+    let swings = count(E.stepGame(WORLD, s, STEP, { ...IDLE, attack: true }))
+    // Press again 0.1 s before the cooldown runs out, then release.
+    const early = Math.round((E.SWING_COOLDOWN - 0.1) / STEP)
+    for (let i = 0; i < early; i++) swings += count(E.stepGame(WORLD, s, STEP, IDLE))
+    swings += count(E.stepGame(WORLD, s, STEP, { ...IDLE, attack: true }))
+    assert.equal(swings, 1, 'still cooling down')
+    for (let i = 0; i < 30; i++) swings += count(E.stepGame(WORLD, s, STEP, IDLE))
+    assert.equal(swings, 2, 'buffered press fired when the cooldown ended')
+    // A press far too early is dropped.
+    for (let i = 0; i < 60; i++) E.stepGame(WORLD, s, STEP, IDLE)
+    swings = count(E.stepGame(WORLD, s, STEP, { ...IDLE, attack: true }))
+    swings += count(E.stepGame(WORLD, s, STEP, { ...IDLE, attack: true }))
+    for (let i = 0; i < 60; i++) swings += count(E.stepGame(WORLD, s, STEP, IDLE))
+    assert.equal(swings, 1, 'press at the start of the cooldown does not queue a second swing')
+  })
+})

@@ -154,6 +154,8 @@ export interface Player {
   invuln: number // seconds left
   swing: null | { t: number; facing: Facing; hit: Set<string> }
   cooldown: number
+  /** Seconds a buffered sword press stays alive (engine ATTACK_BUFFER). */
+  attackBuf: number
   knockback: null | { vx: number; vy: number; t: number }
   /** Velocity of the last step, for the renderer's walk cycle. */
   vx: number

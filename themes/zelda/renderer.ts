@@ -102,8 +102,8 @@ const FOE_PAL: Record<string, string> = {
   p: PINK_DARK,
   D: PINK_DEEP,
   W: WHITE,
-  V: '#3a3f5e',
-  v: STONE_DARK,
+  V: '#7a78ad',
+  v: '#38356a',
   E: INK,
   G: GOLD,
   g: GOLD_DEEP,
@@ -969,6 +969,15 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
     }
   }
 
+  /** Stepped contact shadow under a sprite's feet (grounds it on any terrain). */
+  function drawShadow(g: Ctx, cx: number, footY: number, halfW: number): void {
+    const u = unit()
+    const sn = (v: number): number => Math.round(v / u) * u
+    g.fillStyle = 'rgba(8,4,26,0.42)'
+    g.fillRect(sn(cx - halfW * u), sn(footY - 2 * u), 2 * halfW * u, 2 * u)
+    g.fillRect(sn(cx - (halfW - 2) * u), sn(footY), 2 * (halfW - 2) * u, u)
+  }
+
   function drawPlayer(g: Ctx, state: GameState, ox: number, oy: number, reducedMotion: boolean): void {
     const pl = state.player
     if (pl.invuln > 0 && !reducedMotion && Math.floor(presentT * 12) % 2 === 1) return
@@ -1002,6 +1011,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
     }
     const feetX = c.x + tile / 2 + lx
     const feetY = c.y + tile * 0.98 + ly
+    drawShadow(g, c.x + tile / 2, c.y + tile * 0.98, 5)
     g.save()
     g.translate(feetX, feetY)
     g.scale(scale, scale)
@@ -1030,8 +1040,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
         for (let i = 0; i < n; i++) {
           const k = i / n
           const a = a1 - tail * (1 - k)
-          g.fillStyle = `rgba(47,243,255,${((0.06 + 0.4 * k * k) * fade).toFixed(3)})`
-          for (let r = 0.58; r <= 1.001; r += 0.105) {
+          g.fillStyle = `rgba(47,243,255,${((0.05 + 0.55 * k * k) * fade).toFixed(3)})`
+          for (let r = 0.8; r <= 1.001; r += 0.1) {
             g.fillRect(snapC(cx + Math.cos(a) * R * r - u), snapC(cy + Math.sin(a) * R * r - u), cell, cell)
           }
         }
@@ -1096,6 +1106,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
 
     const cx = c.x + tile / 2
     const cy = c.y + tile / 2
+    if (e.kind !== 'bat') drawShadow(g, cx, cy + (e.kind === 'turret' ? 7 : 5) * u, e.kind === 'slimeKnight' ? 9 : 6)
     switch (e.kind) {
       case 'chaser': {
         const map = SPRITES.chaser

@@ -113,7 +113,7 @@ function makeState() {
       x: 7, y: 8, facing: 'up', hp: 3, maxHp: 3, hasSword: true,
       smallKeys: 1, hasBossKey: true, invuln: 0.5,
       swing: { t: 0.05, facing: 'up', hit: new Set() },
-      cooldown: 0, knockback: null, vx: 1, vy: 0,
+      cooldown: 0, attackBuf: 0, knockback: null, vx: 1, vy: 0,
     },
     progress: { flags: [], containers: [] },
     safe: { room: 'meadow', entry: 'start' },
