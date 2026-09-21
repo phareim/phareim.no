@@ -7,10 +7,9 @@
     <template #body>
       <div v-if="phase === 'attract'" class="zelda-title-block">
         <h1 class="zelda-logo">NEON SHRINE</h1>
-        <p class="zelda-tag">THREE SHORES · ONE SHRINE · FIVE HEARTS</p>
         <div class="zelda-hints">
           <p class="zelda-hint">{{ hint('PRESS ENTER TO WAKE', 'TAP TO WAKE') }}</p>
-          <p class="zelda-hint zelda-hint-dim">{{ hint('ARROWS MOVE · SPACE SWORD · E INTERACT', 'LEFT: DRAG TO MOVE · RIGHT: TAP TO SWING') }}</p>
+          <p class="zelda-hint zelda-hint-dim">{{ hint('ARROWS MOVE · SPACE SWORD · E USE', 'DRAG MOVE · SWORD · USE') }}</p>
           <div v-if="hasSave" class="zelda-buttons">
             <button class="zelda-btn" @click.stop="newGame">NEW GAME</button>
             <p class="zelda-hint-dim" style="margin-top: 0.5em">or press N</p>
@@ -99,22 +98,11 @@ function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | n
 .zelda-logo {
   font-family: var(--font-machine);
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   color: #ff2fa0;
-  text-shadow: 0 0 2px #0b0616, 0 0 12px rgba(255, 47, 160, 0.8), 0 0 40px rgba(255, 47, 160, 0.4);
-  font-size: clamp(2.2em, 12vw, 5em) !important;
-  margin: 0 0 0.2em;
-}
-
-.zelda-tag {
-  font-family: var(--font-machine);
-  text-transform: uppercase;
-  color: #2ff3ff;
-  text-shadow: 0 0 8px rgba(47, 243, 255, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
-  letter-spacing: 0.15em;
-  font-size: 0.7em !important;
-  opacity: 0.8;
-  margin: 0 0 1.2em;
+  text-shadow: 0 0 2px #0b0616, 0 0 12px rgba(255, 47, 160, 0.8);
+  font-size: clamp(1.1em, 5vw, 1.8em) !important;
+  margin: 0 0 0.4em;
 }
 
 .zelda-title-block {
@@ -123,17 +111,16 @@ function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | n
   position: absolute;
   left: 0;
   right: 0;
-  top: 10vh;
+  top: 7vh;
 }
 
 .zelda-hints {
   pointer-events: auto;
   display: inline-block;
-  background: rgba(11, 6, 22, 0.62);
-  border: 1px solid rgba(255, 47, 160, 0.35);
+  background: rgba(11, 6, 22, 0.55);
+  border: 1px solid rgba(47, 243, 255, 0.25);
   border-radius: 4px;
-  padding: 0.8em 1.2em;
-  margin-top: 0.8em;
+  padding: 0.5em 0.9em;
 }
 
 .zelda-hint {
@@ -220,9 +207,8 @@ function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | n
 
 /* Landscape phones: a small logo above the room, hints in one line, nothing under the pager dots. */
 @media (max-height: 480px) {
-  .zelda-title-block { top: 6vh; }
-  .zelda-logo { font-size: 2em !important; margin-bottom: 0.1em; }
-  .zelda-tag { display: none; }
+  .zelda-title-block { top: 4vh; }
+  .zelda-logo { font-size: 1.1em !important; margin-bottom: 0.2em; }
   .zelda-hints { padding: 0.4em 0.9em; margin-top: 0.3em; }
   .zelda-hint { font-size: 0.75em; margin: 0.15em 0; }
   .zelda-hint-dim { display: none; }

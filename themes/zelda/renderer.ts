@@ -1,5 +1,10 @@
 /**
- * Neon Shrine (theme id `zelda`) — Canvas 2D renderer.
+ * Neon Shrine (theme id `zelda`) — Canvas 2D pixel-art renderer.
+ *
+ * Handcrafted 16-bit look in the LTTP mould, painted in Neon Dreams.
+ * One logical pixel = tile/16 device px. All art is original string pixel
+ * maps (`SPRITES`) drawn with fillRect — always crisp, no smoothing, no
+ * scaled image blits except the 1:1 tile-cache copy. See DESIGN.md.
  *
  * Read-only: reads GameState, never mutates it (only reads `state.shake`).
  * Owns its own bounded pools (<= 200 particles, <= 8 rings, objects reused).
@@ -7,10 +12,8 @@
  *
  * NOTE TO INTEGRATOR (Zelda.vue): createRenderer takes an extra `world`
  * argument — createRenderer(canvas, world) — so chests/pickups/room names
- * can be resolved from room.chestsClosed / room.pickupsLeft via an internal
- * `chestLookup`. This deviation from the Renderer interface in types.ts is
- * intentional. `world` is optional at runtime (missing world = ids as names,
- * no chests/pickups drawn), but always pass it.
+ * and portal exit posts resolve via internal lookups. `world` is optional
+ * at runtime but always pass it.
  */
 
 import type {
@@ -21,6 +24,7 @@ import type {
   GameEvent,
   GameState,
   PickupPlacement,
+  Portal,
   Renderer,
   TileChar,
   World,
@@ -29,19 +33,40 @@ import { MACHINE_FONT } from '../base/fonts'
 import { SLIDE_TIME, SWING_TIME, SWORD_ARC, SWORD_REACH } from './types'
 
 // ---------------------------------------------------------------------------
-// Palette (Neon Dreams)
+// Palette (Neon Dreams discipline: three saturated accents only)
 // ---------------------------------------------------------------------------
 
 const BG = '#0b0616'
-const FLOOR_ALT = '#120a26'
-const WALL_FILL = '#160b2e'
+const FLOOR = '#141026'
+const FLOOR_DARK = '#100826'
+const DIRT = '#2c1e33'
+const DIRT_DARK = '#241828'
+const STONE_TOP = '#3d4266'
+const STONE_FACE = '#20243a'
+const STONE_DARK = '#14172a'
+const CANOPY = '#2c2148'
+const CANOPY_DARK = '#1d1533'
+const CANOPY_LITE = '#4a3a75'
+const TRUNK = '#4a3220'
+const TRUNK_DARK = '#332216'
+const CLAY = '#6e3f2a'
+const CLAY_DARK = '#472818'
+const WATER = '#0a2036'
+const WATER_DARK = '#071627'
+const FOAM = '#8e83b8'
 const CYAN = '#2ff3ff'
+const CYAN_DEEP = '#0d4b57'
+const CYAN_SHADE = '#0f8a96'
 const PINK = '#ff2fa0'
+const PINK_DARK = '#8c1a55'
+const PINK_DEEP = '#33102a'
 const GOLD = '#ffd23f'
-const VIOLET = '#7b3fe4'
-const WATER_BASE = '#062a33'
-const GRASS_STROKE = '#35f2c8'
+const GOLD_DEEP = '#6e5410'
 const WHITE = '#ffffff'
+const SKIN = '#e8c39a'
+const INK = '#14101f'
+const LAV = '#b9a8d9'
+const LAV_DIM = '#7a6a9a'
 
 const HUD_MIN = 34 // px strip above the room
 const PORTRAIT_RESERVE = 0.34 // fraction of height kept below in portrait
@@ -51,6 +76,264 @@ const MAX_RINGS = 8
 const DROP_LIFE = 8 // drops blink after t > 6 (last 2 s)
 
 type Ctx = CanvasRenderingContext2D
+
+// ---------------------------------------------------------------------------
+// Pixel maps. '.' = transparent. Every map is rectangular (pinned by test).
+// ---------------------------------------------------------------------------
+
+type PixMap = string[]
+
+const HERO_PAL: Record<string, string> = {
+  H: CYAN_DEEP,
+  h: '#083038',
+  F: SKIN,
+  E: INK,
+  T: CYAN,
+  t: CYAN_SHADE,
+  B: '#1a1030',
+  G: GOLD,
+}
+
+const FOE_PAL: Record<string, string> = {
+  P: PINK,
+  p: PINK_DARK,
+  D: PINK_DEEP,
+  W: WHITE,
+  V: '#3a3f5e',
+  v: STONE_DARK,
+  E: INK,
+  G: GOLD,
+  g: GOLD_DEEP,
+  e: '#5c1038',
+}
+
+/** Distinct silhouette key per enemy kind (test pins the set). */
+export const ENEMY_SPRITES: Record<string, string[]> = {
+  chaser: ['chaser'],
+  wanderer: ['blob0', 'blob1'],
+  turret: ['statue'],
+  bat: ['bat0', 'bat1'],
+  knight: ['knight'],
+  slimeKnight: ['crown'],
+}
+
+export const SPRITES: Record<string, PixMap> = {
+  heroDown0: [
+    '....HHHH....',
+    '..HHHHHHHH..',
+    '..HHHHHHHH..',
+    '..HHFFFFHH..',
+    '..HFFFFFFH..',
+    '..HFEFFEFH..',
+    '...FFFFFF...',
+    '..TTTTTTTT..',
+    '.HFTTTTTTFH.',
+    '.HFTTTTTTFH.',
+    '..tTTTTTTt..',
+    '...TTTTTT...',
+    '...B....B...',
+    '...B....B...',
+    '..BB....BB..',
+  ],
+  heroDown1: [
+    '....HHHH....',
+    '..HHHHHHHH..',
+    '..HHHHHHHH..',
+    '..HHFFFFHH..',
+    '..HFFFFFFH..',
+    '..HFEFFEFH..',
+    '...FFFFFF...',
+    '..TTTTTTTT..',
+    '.HFTTTTTTFH.',
+    '.HFTTTTTTFH.',
+    '..tTTTTTTt..',
+    '...TTTTTT...',
+    '...B....B...',
+    '..B......B..',
+    '.BB......BB.',
+  ],
+  heroUp0: [
+    '....HHHH....',
+    '..HHHHHHHH..',
+    '..HHHHHHHH..',
+    '..HHHHHHHH..',
+    '..HHHHHHHH..',
+    '..HhHHHHhH..',
+    '...HHHHHH...',
+    '..TTTTTTTT..',
+    '..TTTTTTTT..',
+    '..TTTTTTTT..',
+    '..tTTTTTTt..',
+    '...TTTTTT...',
+    '...B....B...',
+    '...B....B...',
+    '..BB....BB..',
+  ],
+  heroUp1: [
+    '....HHHH....',
+    '..HHHHHHHH..',
+    '..HHHHHHHH..',
+    '..HHHHHHHH..',
+    '..HHHHHHHH..',
+    '..HhHHHHhH..',
+    '...HHHHHH...',
+    '..TTTTTTTT..',
+    '..TTTTTTTT..',
+    '..TTTTTTTT..',
+    '..tTTTTTTt..',
+    '...TTTTTT...',
+    '...B....B...',
+    '..B......B..',
+    '.BB......BB.',
+  ],
+  heroSide0: [
+    '....HHHH....',
+    '..HHHHHHHH..',
+    '..HHHHHHH...',
+    '..HHHFFFF...',
+    '..HHFFFFF...',
+    '..HHFFFEF...',
+    '...FFFFFF...',
+    '..TTTTTTTT..',
+    '..TTTTTTTFH.',
+    '..TTTTTTTFH.',
+    '..tTTTTTt...',
+    '...TTTTTT...',
+    '...B....B...',
+    '...B....B...',
+    '..BB....BB..',
+  ],
+  heroSide1: [
+    '....HHHH....',
+    '..HHHHHHHH..',
+    '..HHHHHHH...',
+    '..HHHFFFF...',
+    '..HHFFFFF...',
+    '..HHFFFEF...',
+    '...FFFFFF...',
+    '..TTTTTTTT..',
+    '..TTTTTTTFH.',
+    '..TTTTTTTFH.',
+    '..tTTTTTt...',
+    '...TTTTTT...',
+    '...B....B...',
+    '..B......B..',
+    '.BB......BB.',
+  ],
+  chaser: [
+    '.....PPPP.....',
+    '....PPPPPP....',
+    '.P..PPPPPP..P.',
+    '.PPPPPPPPPPPP.',
+    '..PPWPPPPWPP..',
+    '..PPPPPPPPPP..',
+    '...PDPPPPDP...',
+    '...PPPPPPPP...',
+    '....PpPPpP....',
+  ],
+  blob0: [
+    '.....PP.....',
+    '...PPPPPP...',
+    '..PPPPPPPP..',
+    '..PWPPPPWP..',
+    '..PPPPPPPP..',
+    '..pPPPPPPp..',
+    '..pDDDDDDp..',
+    '...pppppp...',
+  ],
+  blob1: [
+    '............',
+    '...PPPPPP...',
+    '.PPPPPPPPPP.',
+    '.PWPPPPPWP..',
+    '.PPPPPPPPPP.',
+    '..pPPPPPPp..',
+    '..pppppppp..',
+  ],
+  statue: [
+    '....VVVVVV....',
+    '...VVVVVVVV...',
+    '...VvvvvvvV...',
+    '...VvVvvVvV...',
+    '...VvvEEvvV...',
+    '...VvvvvvvV...',
+    '....VvvvvV....',
+    '....VvVVvV....',
+    '...VVVVVVVV...',
+    '...VvVvvVvV...',
+    '...VVVVVVVV...',
+    '....vVVVVv....',
+    '....vVVVVv....',
+    '...vvVVVVvv...',
+  ],
+  bat0: [
+    'PP...PPPP...PP',
+    'PPP..PPPP..PPP',
+    '.PPPPWPPWPPPP.',
+    '..PPPPPPPPPP..',
+    '....pPPPPp....',
+  ],
+  bat1: [
+    '....PPPPPP....',
+    '....WPPPPW....',
+    '....PPPPPP....',
+    '.P..pPPPPp..P.',
+    '.PP..pppp..PP.',
+  ],
+  knight: [
+    '......PP......',
+    '.....PPPP.....',
+    '....VVVVVV....',
+    '....VVVVVV....',
+    '....VEvvEV....',
+    '....VVVVVV....',
+    '.....VVVV.....',
+    '...VVVVVVVV...',
+    '...VVvVVvVV...',
+    '...VVvVVvVV...',
+    '....VVVVVV....',
+    '....VvVVvV....',
+    '....VV..VV....',
+    '....VV..VV....',
+    '...VVV..VVV...',
+    '...VVV..VVV...',
+  ],
+  crown: [
+    '.........PP.........',
+    '....P....PP....P....',
+    '....PP..PPPP..PP....',
+    '....PPPGGGGGGPPP....',
+    '.....PGGGGGGGGP.....',
+    '.....GGGGGGGGGG.....',
+    '....PGGGGGGGGGGP....',
+    '....PGGWGGGGWGGP....',
+    '.....GGGGGGGGGG.....',
+    '.....GpGGGGGGpG.....',
+    '.....GGGGGGGGGG.....',
+    '......GGpGGpGG......',
+    '......GGGGGGGG......',
+    '.......GGGGGG.......',
+    '.......ggGGgg.......',
+  ],
+  heart: [
+    '.PP...PP.',
+    'PPPP.PPPP',
+    'PPPPPPPPP',
+    '.PPPPPPP.',
+    '..PPPPP..',
+    '...PPP...',
+    '....P....',
+  ],
+  heartEmpty: [
+    '.pp...pp.',
+    'pppp.pppp',
+    'pp.....pp',
+    '.p.....p.',
+    '..p...p..',
+    '...p.p...',
+    '....p....',
+  ],
+}
 
 interface Particle {
   alive: boolean
@@ -62,7 +345,6 @@ interface Particle {
   maxLife: number
   size: number
   color: string
-  tri: boolean
 }
 
 interface Ring {
@@ -87,6 +369,15 @@ function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v
 }
 
+/** Deterministic 0..1 hash for scenery variants. */
+function hash2(x: number, y: number): number {
+  let h = (x * 374761393 + y * 668265263) | 0
+  h = (h ^ (h >> 13)) | 0
+  h = Math.imul(h, 1274126177)
+  h = (h ^ (h >> 16)) >>> 0
+  return h / 4294967295
+}
+
 function facingAngle(f: Facing): number {
   switch (f) {
     case 'up': return -Math.PI / 2
@@ -103,11 +394,15 @@ function facingAngle(f: Facing): number {
 export function createRenderer(canvas: HTMLCanvasElement, world?: World): Renderer {
   // The smoke-test stub returns a Proxy here; cast through unknown.
   const ctx = canvas.getContext('2d') as unknown as Ctx
+  try {
+    ;(ctx as unknown as { imageSmoothingEnabled: boolean }).imageSmoothingEnabled = false
+  } catch { /* stub absorbs */ }
 
-  // Lookups built from the authored world (chest/pickup id -> placement).
+  // Lookups built from the authored world.
   const chestLookup = new Map<string, ChestPlacement>()
   const pickupLookup = new Map<string, PickupPlacement>()
   const roomName = new Map<string, string>()
+  const roomPortals = new Map<string, Portal[]>()
   if (world) {
     for (const id of Object.keys(world.rooms)) {
       const room = world.rooms[id]
@@ -115,6 +410,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
       roomName.set(room.id, room.name)
       for (const c of room.chests) chestLookup.set(c.id, c)
       for (const p of room.pickups) pickupLookup.set(p.id, p)
+      roomPortals.set(room.id, room.portals)
     }
   }
 
@@ -126,29 +422,29 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
   let lastRoomW = 15
   let lastRoomH = 11
 
-  // Static tile-layer cache (offscreen; null when document is unavailable,
-  // e.g. the node smoke test — then tiles are painted directly each frame).
   let tileCache: HTMLCanvasElement | null = null
   let tileHash = ''
-  // Previous room's tile layer, snapshotted on slideStart for the scroll.
   let slideFrom: HTMLCanvasElement | null = null
 
-  // Presentation clock (particles, bob, water, walk cycle only).
+  // Presentation clock (particles, bob, water frame, walk cycle only).
   let presentT = 0
-  // Last seen player/room centre in tile units, for position-less events
-  // ('bossDefeated' and 'won' carry no coordinates).
   let lastFx = 7.5
   let lastFy = 5.5
   let walkPhase = 0
-  let flashT = 0 // pink playerHit overlay, seconds left
+  let flashT = 0
 
   const particles: Particle[] = []
   for (let i = 0; i < MAX_PARTICLES; i++) {
-    particles.push({ alive: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 2, color: CYAN, tri: false })
+    particles.push({ alive: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 2, color: CYAN })
   }
   const rings: Ring[] = []
   for (let i = 0; i < MAX_RINGS; i++) {
     rings.push({ alive: false, x: 0, y: 0, r0: 0, r1: 0, t: 0, dur: 1, color: GOLD })
+  }
+  // Deterministic starfield for the letterbox backdrop.
+  const stars: Array<{ x: number; y: number; s: number; tw: number }> = []
+  for (let i = 0; i < 90; i++) {
+    stars.push({ x: hash2(i, 7), y: hash2(i, 13), s: i % 5 === 0 ? 2 : 1, tw: hash2(i, 29) * 6.28 })
   }
 
   function makeOffscreen(w: number, h: number): HTMLCanvasElement | null {
@@ -213,9 +509,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
       canvas.width = Math.max(1, Math.round(cssW * dprEff))
       canvas.height = Math.max(1, Math.round(cssH * dprEff))
     } catch {
-      // stub canvas in tests — width/height fields still assign fine
+      // stub canvas in tests
     }
-    tileHash = '' // tile size may have changed; repaint
+    tileHash = ''
     computeLayout(lastRoomW, lastRoomH)
   }
 
@@ -223,9 +519,30 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
     return { x: rect.x, y: rect.y, w: rect.w, h: rect.h }
   }
 
-  // -- tile hash: repaint only when the grid or size changes -----------------
-  // Covers room.id, dimensions, tile size, '.' count and the counts of the
-  // mutable tiles ('o' pots, '~' grass, 'L'/'B'/'S' doors).
+  // -- pixel helpers ----------------------------------------------------------
+
+  /** Unit: device-independent px per logical pixel (tile = 16 logical px). */
+  function unit(): number {
+    return tile / 16
+  }
+
+  function drawMap(g: Ctx, map: PixMap, dx: number, dy: number, u: number, pal: Record<string, string>, flip = false): void {
+    const w = map[0]?.length ?? 0
+    for (let j = 0; j < map.length; j++) {
+      const row = map[j]
+      for (let i = 0; i < row.length; i++) {
+        const ch = row[i]
+        if (ch === '.') continue
+        const col = pal[ch]
+        if (!col) continue
+        const ii = flip ? w - 1 - i : i
+        g.fillStyle = col
+        g.fillRect(dx + ii * u, dy + j * u, u + 0.5, u + 0.5)
+      }
+    }
+  }
+
+  // -- tile hash ----------------------------------------------------------------
 
   function hashRoom(state: GameState): string {
     const r = state.room
@@ -251,179 +568,244 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
     return `${r.id}|${r.width}x${r.height}|ts=${tile}|.=${dots}|o=${pots}|~=${grass}|L=${ldoors}|B=${bdoors}|S=${sdoors}`
   }
 
-  // -- tile painting ----------------------------------------------------------
+  // -- tile painting (neighbor-aware, LTTP masses) -------------------------------
 
-  function paintFloor(g: Ctx, px: number, py: number, alt: boolean): void {
-    g.fillStyle = alt ? FLOOR_ALT : BG
-    g.fillRect(px, py, tile + 0.5, tile + 0.5)
-    g.strokeStyle = 'rgba(123,63,228,0.12)'
-    g.lineWidth = 1
-    g.strokeRect(px + 0.5, py + 0.5, tile - 1, tile - 1)
+  function tileAt(state: GameState, x: number, y: number): TileChar {
+    if (y < 0 || y >= state.room.height || x < 0 || x >= state.room.width) return '#'
+    return (state.room.tiles[y]?.[x] as TileChar) ?? '#'
   }
 
-  function paintTile(g: Ctx, t: TileChar, px: number, py: number): void {
-    const cx = px + tile / 2
-    const cy = py + tile / 2
+  function isWall(t: TileChar): boolean {
+    return t === '#' || t === 'L' || t === 'B' || t === 'S'
+  }
+
+  function paintFloorBase(g: Ctx, px: number, py: number, x: number, y: number, dirt: boolean): void {
+    g.fillStyle = dirt ? DIRT : FLOOR
+    g.fillRect(px, py, tile + 0.5, tile + 0.5)
+    // Sparse deterministic dither — shaded clusters, never outlines.
+    const u = unit()
+    for (let j = 0; j < 4; j++) {
+      for (let i = 0; i < 4; i++) {
+        const h = hash2(x * 4 + i, y * 4 + j)
+        if (h > 0.82) {
+          g.fillStyle = dirt ? DIRT_DARK : FLOOR_DARK
+          g.fillRect(px + i * tile / 4, py + j * tile / 4, tile / 4 + 0.5, tile / 4 + 0.5)
+        } else if (!dirt && h < 0.04) {
+          g.fillStyle = '#1a1430'
+          g.fillRect(px + i * tile / 4, py + j * tile / 4, tile / 4 + 0.5, tile / 4 + 0.5)
+        }
+      }
+    }
+    void u
+  }
+
+  function paintTile(g: Ctx, state: GameState, x: number, y: number, px: number, py: number): void {
+    const t = tileAt(state, x, y)
+    const u = unit()
+    const v = hash2(x, y)
     switch (t) {
       case ',':
-        paintFloor(g, px, py, true)
+        paintFloorBase(g, px, py, x, y, true)
         break
       case '#': {
-        paintFloor(g, px, py, false)
-        g.fillStyle = WALL_FILL
-        g.fillRect(px + 1, py + 1, tile - 2, tile - 2)
-        g.strokeStyle = VIOLET
-        g.lineWidth = 1
-        g.strokeRect(px + 1.5, py + 1.5, tile - 3, tile - 3)
-        g.strokeStyle = 'rgba(47,243,255,0.55)'
-        g.lineWidth = 2
-        g.beginPath()
-        g.moveTo(px + 1, py + 1.5)
-        g.lineTo(px + tile - 1, py + 1.5)
-        g.stroke()
+        // Stone wall: light top where open sky is above, dark face below.
+        const above = tileAt(state, x, y - 1)
+        const openAbove = !isWall(above)
+        g.fillStyle = STONE_FACE
+        g.fillRect(px, py, tile + 0.5, tile + 0.5)
+        // Vertical face shading: darker towards the bottom.
+        g.fillStyle = STONE_DARK
+        g.fillRect(px, py + tile * 0.55, tile + 0.5, tile * 0.45 + 0.5)
+        if (openAbove) {
+          // Wall top: light cap + 1px lavender highlight.
+          g.fillStyle = STONE_TOP
+          g.fillRect(px, py, tile + 0.5, tile * 0.38 + 0.5)
+          g.fillStyle = '#8e93b8'
+          g.fillRect(px, py, tile + 0.5, Math.max(1, 1 * u) + 0.5)
+          // Mortar joints.
+          g.fillStyle = STONE_DARK
+          const jx = px + ((x * 5 + 3) % 8) * u
+          g.fillRect(jx, py + 2 * u, u, 4 * u)
+        } else {
+          // Buried run: faint top edge so masses read.
+          g.fillStyle = '#2e3350'
+          g.fillRect(px, py, tile + 0.5, Math.max(1, 1 * u) + 0.5)
+        }
+        // Side joints where a walkable tile touches left/right.
+        const l = tileAt(state, x - 1, y)
+        const r = tileAt(state, x + 1, y)
+        if (!isWall(l) && l !== 'T' && l !== 'G' && l !== 'W') {
+          g.fillStyle = STONE_TOP
+          g.fillRect(px, py, 2 * u + 0.5, tile + 0.5)
+        }
+        if (!isWall(r) && r !== 'T' && r !== 'G' && r !== 'W') {
+          g.fillStyle = STONE_DARK
+          g.fillRect(px + tile - 2 * u, py, 2 * u + 0.5, tile + 0.5)
+        }
         break
       }
       case 'T': {
-        paintFloor(g, px, py, false)
-        const s = tile / 16
-        for (let i = 0; i < 3; i++) {
-          const ty = py + tile - (3 - i) * 4.6 * s - 1.5 * s
-          const half = (2.2 + i * 1.5) * s
-          g.beginPath()
-          g.moveTo(cx, ty - 5 * s)
-          g.lineTo(cx - half, ty)
-          g.lineTo(cx + half, ty)
-          g.closePath()
-          g.fillStyle = '#101c2c'
-          g.fill()
-          g.strokeStyle = i === 2 ? PINK : VIOLET
-          g.lineWidth = 1
-          g.stroke()
-        }
-        g.fillStyle = '#241a10'
-        g.fillRect(cx - 1 * s, py + tile - 3.4 * s, 2 * s, 3 * s)
+        paintFloorBase(g, px, py, x, y, false)
+        // Shadow under the canopy.
+        g.fillStyle = 'rgba(0,0,0,0.35)'
+        g.fillRect(px + 2 * u, py + 12 * u, 12 * u + 0.5, 2 * u + 0.5)
+        // Trunk, always visible below the canopy mass.
+        g.fillStyle = TRUNK
+        g.fillRect(px + 7 * u, py + 9 * u, 2 * u + 0.5, 5 * u + 0.5)
+        g.fillStyle = '#2a1c12'
+        g.fillRect(px + 8 * u, py + 9 * u, 1 * u + 0.5, 5 * u + 0.5)
+        // Canopy mass: a wide shaded crown, variant by hash. Top-light is a
+        // band along the crown's top edge; pits sit along the bottom edge so
+        // no face-like features appear mid-crown.
+        const lift = v > 0.5 ? 0 : 1
+        g.fillStyle = CANOPY_DARK
+        g.fillRect(px + 1 * u, py + (3 + lift) * u, 14 * u + 0.5, 6 * u + 0.5)
+        g.fillStyle = CANOPY
+        g.fillRect(px + 2 * u, py + (1 + lift) * u, 12 * u + 0.5, 6 * u + 0.5)
+        g.fillStyle = CANOPY_LITE
+        g.fillRect(px + 3 * u, py + (1 + lift) * u, 10 * u + 0.5, u + 0.5)
+        g.fillStyle = CANOPY_DARK
+        g.fillRect(px + 4 * u, py + (7 + lift) * u, 3 * u + 0.5, u + 0.5)
+        g.fillRect(px + (9 + (x % 2)) * u, py + (8 + lift) * u, 2 * u + 0.5, u + 0.5)
         break
       }
       case 'G': {
-        paintFloor(g, px, py, false)
-        const w = tile * 0.52
-        const h = tile * 0.62
-        const rx = cx - w / 2
-        const ry = py + tile - h - tile * 0.12
-        g.beginPath()
-        if (typeof (g as unknown as { roundRect?: unknown }).roundRect === 'function') {
-          ;(g as unknown as { roundRect(x: number, y: number, w: number, h: number, r: number): void }).roundRect(rx, ry, w, h, tile * 0.12)
-        } else {
-          g.rect(rx, ry, w, h)
-        }
-        g.fillStyle = '#1a1430'
-        g.fill()
-        g.strokeStyle = GOLD
-        g.lineWidth = 1.5
-        g.stroke()
-        g.strokeStyle = 'rgba(255,210,63,0.5)'
-        g.lineWidth = 1
-        g.beginPath()
-        g.moveTo(cx, ry + h * 0.25)
-        g.lineTo(cx, ry + h * 0.7)
-        g.stroke()
+        paintFloorBase(g, px, py, x, y, false)
+        g.fillStyle = 'rgba(0,0,0,0.3)'
+        g.fillRect(px + 3 * u, py + 12 * u, 10 * u + 0.5, 2 * u + 0.5)
+        // Slab with rounded-ish top.
+        g.fillStyle = STONE_TOP
+        g.fillRect(px + 5 * u, py + 3 * u, 6 * u + 0.5, 9 * u + 0.5)
+        g.fillStyle = STONE_FACE
+        g.fillRect(px + 5 * u, py + 9 * u, 6 * u + 0.5, 3 * u + 0.5)
+        g.fillStyle = '#8e93b8'
+        g.fillRect(px + 5 * u, py + 3 * u, 6 * u + 0.5, u + 0.5)
+        // Carved line.
+        g.fillStyle = STONE_DARK
+        g.fillRect(px + 7 * u, py + 6 * u, 2 * u + 0.5, 3 * u + 0.5)
+        // Base.
+        g.fillStyle = STONE_DARK
+        g.fillRect(px + 4 * u, py + 12 * u, 8 * u + 0.5, 2 * u + 0.5)
         break
       }
       case 'W': {
-        g.fillStyle = WATER_BASE
+        g.fillStyle = WATER
         g.fillRect(px, py, tile + 0.5, tile + 0.5)
-        g.strokeStyle = 'rgba(47,243,255,0.25)'
-        g.lineWidth = 1
-        g.strokeRect(px + 0.5, py + 0.5, tile - 1, tile - 1)
+        const n = tileAt(state, x, y - 1)
+        const s = tileAt(state, x, y + 1)
+        const l = tileAt(state, x - 1, y)
+        const r = tileAt(state, x + 1, y)
+        // Banks where water meets walkable/solid shore.
+        const shore = (q: TileChar): boolean => q !== 'W'
+        g.fillStyle = '#3d3457'
+        if (shore(n)) g.fillRect(px, py, tile + 0.5, 3 * u + 0.5)
+        if (shore(s)) g.fillRect(px, py + tile - 3 * u, tile + 0.5, 3 * u + 0.5)
+        if (shore(l)) g.fillRect(px, py, 3 * u + 0.5, tile + 0.5)
+        if (shore(r)) g.fillRect(px + tile - 3 * u, py, 3 * u + 0.5, tile + 0.5)
+        if (shore(n)) {
+          g.fillStyle = FOAM
+          g.fillRect(px, py + 3 * u, tile + 0.5, u + 0.5)
+        }
+        // Still deep speck, two stepped frames.
+        const f = Math.floor(presentT * 0.8 + v * 2) % 2
+        g.fillStyle = 'rgba(142,131,184,0.35)'
+        g.fillRect(px + (4 + f * 5) * u, py + 8 * u, 3 * u + 0.5, u + 0.5)
         break
       }
       case '~': {
-        paintFloor(g, px, py, false)
-        g.strokeStyle = GRASS_STROKE
-        g.lineWidth = Math.max(1, tile / 16)
-        g.beginPath()
-        const s = tile / 16
-        g.moveTo(cx - 4 * s, py + 11 * s)
-        g.lineTo(cx - 3 * s, py + 6 * s)
-        g.moveTo(cx, py + 12 * s)
-        g.lineTo(cx + 0.6 * s, py + 5 * s)
-        g.moveTo(cx + 4 * s, py + 11 * s)
-        g.lineTo(cx + 3.4 * s, py + 7 * s)
-        g.stroke()
+        paintFloorBase(g, px, py, x, y, false)
+        // Grass tufts: muted mauve blades, clustered.
+        g.fillStyle = '#6f5f95'
+        const tufts: Array<[number, number]> = [
+          [3, 9], [9, 4], [11, 10], [6, 12],
+        ]
+        for (const [tx, ty] of tufts) {
+          if (hash2(x * 7 + tx, y * 7 + ty) < 0.35) continue
+          g.fillRect(px + tx * u, py + ty * u, u + 0.5, 3 * u + 0.5)
+          g.fillRect(px + (tx + 2) * u, py + (ty + 1) * u, u + 0.5, 2 * u + 0.5)
+          g.fillStyle = LAV_DIM
+          g.fillRect(px + (tx + 1) * u, py + (ty - 1) * u, u + 0.5, u + 0.5)
+          g.fillStyle = '#6f5f95'
+        }
         break
       }
       case 'o': {
-        paintFloor(g, px, py, false)
-        const r = tile * 0.3
-        g.beginPath()
-        g.arc(cx, cy + tile * 0.06, r, 0, Math.PI * 2)
-        g.fillStyle = '#241a08'
-        g.fill()
-        g.strokeStyle = GOLD
-        g.lineWidth = 1.5
-        g.stroke()
-        g.beginPath()
-        g.arc(cx, cy - tile * 0.16, r * 0.55, Math.PI, 0)
-        g.stroke()
+        paintFloorBase(g, px, py, x, y, false)
+        g.fillStyle = 'rgba(0,0,0,0.3)'
+        g.fillRect(px + 3 * u, py + 12 * u, 10 * u + 0.5, 2 * u + 0.5)
+        // Clay pot: belly, neck, rim highlight.
+        g.fillStyle = CLAY_DARK
+        g.fillRect(px + 3 * u, py + 5 * u, 10 * u + 0.5, 8 * u + 0.5)
+        g.fillStyle = CLAY
+        g.fillRect(px + 4 * u, py + 4 * u, 8 * u + 0.5, 8 * u + 0.5)
+        g.fillStyle = '#8a5233'
+        g.fillRect(px + 4 * u, py + 4 * u, 8 * u + 0.5, 2 * u + 0.5)
+        g.fillRect(px + 4 * u, py + 4 * u, 2 * u + 0.5, 8 * u + 0.5)
+        // Rim.
+        g.fillStyle = CLAY_DARK
+        g.fillRect(px + 5 * u, py + 2 * u, 6 * u + 0.5, 3 * u + 0.5)
+        g.fillStyle = '#241408'
+        g.fillRect(px + 6 * u, py + 3 * u, 4 * u + 0.5, u + 0.5)
         break
       }
       case 'L':
       case 'B': {
-        paintFloor(g, px, py, false)
-        g.fillStyle = '#2a2008'
-        g.fillRect(px + 1, py + 1, tile - 2, tile - 2)
-        g.strokeStyle = GOLD
-        g.lineWidth = t === 'B' ? 2.5 : 1.5
-        g.strokeRect(px + 1.5, py + 1.5, tile - 3, tile - 3)
+        paintFloorBase(g, px, py, x, y, true)
+        // Stone threshold plate.
+        g.fillStyle = STONE_DARK
+        g.fillRect(px + u, py + 5 * u, 14 * u + 0.5, 6 * u + 0.5)
+        g.fillStyle = STONE_TOP
+        g.fillRect(px + u, py + 5 * u, 14 * u + 0.5, u + 0.5)
         if (t === 'L') {
-          g.fillStyle = '#0b0616'
-          g.beginPath()
-          g.arc(cx, cy - tile * 0.06, tile * 0.07, 0, Math.PI * 2)
-          g.fill()
-          g.fillRect(cx - tile * 0.03, cy - tile * 0.02, tile * 0.06, tile * 0.16)
-        } else {
-          g.strokeStyle = GOLD
-          g.lineWidth = 1.5
-          g.beginPath()
-          g.moveTo(cx, py + tile * 0.18)
-          g.lineTo(cx + tile * 0.2, cy)
-          g.lineTo(cx, py + tile * 0.82)
-          g.lineTo(cx - tile * 0.2, cy)
-          g.closePath()
-          g.stroke()
+          // Wooden door + gold lock (progression focal).
+          g.fillStyle = TRUNK
+          g.fillRect(px + 3 * u, py + 2 * u, 10 * u + 0.5, 12 * u + 0.5)
+          g.fillStyle = '#2a1c12'
+          g.fillRect(px + 7 * u, py + 2 * u, 2 * u + 0.5, 12 * u + 0.5)
           g.fillStyle = GOLD
-          g.beginPath()
-          g.arc(cx, cy, tile * 0.05, 0, Math.PI * 2)
-          g.fill()
+          g.fillRect(px + 7 * u, py + 7 * u, 2 * u + 0.5, 3 * u + 0.5)
+          g.fillStyle = GOLD_DEEP
+          g.fillRect(px + 7 * u, py + 9 * u, 2 * u + 0.5, u + 0.5)
+        } else {
+          // Boss gate: dark bars + gold sigil.
+          g.fillStyle = '#101322'
+          g.fillRect(px + 3 * u, py + 2 * u, 10 * u + 0.5, 12 * u + 0.5)
+          g.fillStyle = STONE_TOP
+          for (let i = 0; i < 4; i++) {
+            g.fillRect(px + (4 + i * 3) * u, py + 2 * u, u + 0.5, 12 * u + 0.5)
+          }
+          g.fillStyle = GOLD
+          g.fillRect(px + 7 * u, py + 6 * u, 2 * u + 0.5, 4 * u + 0.5)
+          g.fillRect(px + 6 * u, py + 7 * u, 4 * u + 0.5, 2 * u + 0.5)
         }
         break
       }
       case 'S': {
-        paintFloor(g, px, py, false)
-        g.fillStyle = '#1c0a18'
-        g.fillRect(px + 1, py + 1, tile - 2, tile - 2)
-        g.fillStyle = PINK
-        const bars = 4
-        for (let i = 0; i < bars; i++) {
-          const bx = px + ((i + 0.7) * tile) / (bars + 0.4)
-          g.fillRect(bx - tile * 0.045, py + 2, tile * 0.09, tile - 4)
+        paintFloorBase(g, px, py, x, y, true)
+        g.fillStyle = STONE_DARK
+        g.fillRect(px + u, py + 2 * u, 14 * u + 0.5, 12 * u + 0.5)
+        // Shut portcullis: slate bars with desaturated pink studs.
+        g.fillStyle = '#2e3350'
+        for (let i = 0; i < 4; i++) {
+          g.fillRect(px + (3 + i * 3) * u, py + 2 * u, 2 * u + 0.5, 12 * u + 0.5)
+        }
+        g.fillStyle = '#a02060'
+        for (let i = 0; i < 4; i++) {
+          g.fillRect(px + (3 + i * 3) * u, py + 7 * u, 2 * u + 0.5, 2 * u + 0.5)
         }
         break
       }
       case '.':
       default:
-        paintFloor(g, px, py, false)
+        paintFloorBase(g, px, py, x, y, false)
         break
     }
   }
 
   function paintStaticLayer(g: Ctx, state: GameState): void {
-    const r = state.room
-    for (let y = 0; y < r.height; y++) {
-      const row = r.tiles[y]
-      if (!row) continue
-      for (let x = 0; x < r.width; x++) {
-        paintTile(g, (row[x] as TileChar) ?? '.', x * tile, y * tile)
+    for (let y = 0; y < state.room.height; y++) {
+      for (let x = 0; x < state.room.width; x++) {
+        paintTile(g, state, x, y, x * tile, y * tile)
       }
     }
   }
@@ -444,6 +826,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
       tileCache = null
       return
     }
+    try {
+      ;(g as unknown as { imageSmoothingEnabled: boolean }).imageSmoothingEnabled = false
+    } catch { /* ignore */ }
     g.setTransform(dprEff, 0, 0, dprEff, 0, 0)
     g.clearRect(0, 0, rect.w, rect.h)
     paintStaticLayer(g, state)
@@ -452,7 +837,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
 
   // -- particles / rings -------------------------------------------------------
 
-  function spawn(x: number, y: number, vx: number, vy: number, life: number, size: number, color: string, tri: boolean): void {
+  function spawn(x: number, y: number, vx: number, vy: number, life: number, size: number, color: string): void {
     for (const p of particles) {
       if (!p.alive) {
         p.alive = true
@@ -464,17 +849,16 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
         p.maxLife = life
         p.size = size
         p.color = color
-        p.tri = tri
         return
       }
     }
   }
 
-  function burst(tx: number, ty: number, n: number, speed: number, color: string, tri: boolean, size: number, life: number): void {
+  function burst(tx: number, ty: number, n: number, speed: number, color: string, size: number, life: number): void {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2
       const s = speed * (0.4 + Math.random() * 0.8)
-      spawn(tx, ty, Math.cos(a) * s, Math.sin(a) * s, life * (0.7 + Math.random() * 0.6), size, color, tri)
+      spawn(tx, ty, Math.cos(a) * s, Math.sin(a) * s, life * (0.7 + Math.random() * 0.6), size, color)
     }
   }
 
@@ -500,19 +884,22 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
         case 'swing':
           break
         case 'swordHit':
-          burst(e.x, e.y, 6, 3, CYAN, false, 2.5, 0.35)
+          burst(e.x, e.y, 4, 2.5, WHITE, 2, 0.18)
+          burst(e.x, e.y, 3, 2, CYAN, 2, 0.3)
           break
         case 'swordClank':
-          burst(e.x, e.y, 4, 2, CYAN, false, 2, 0.25)
+          burst(e.x, e.y, 3, 1.5, LAV, 2, 0.2)
           break
         case 'enemyDied':
-          burst(e.x, e.y, 10 + Math.floor(Math.random() * 5), 4, PINK, true, 3, 0.5)
+          burst(e.x, e.y, 8, 3.5, PINK, 2.5, 0.4)
+          burst(e.x, e.y, 3, 2, WHITE, 2, 0.2)
           break
         case 'potSmash':
-          burst(e.x, e.y, 8, 3.5, GOLD, true, 2.5, 0.45)
+          burst(e.x, e.y, 7, 3, CLAY, 2.5, 0.4)
+          burst(e.x, e.y, 3, 2, GOLD, 2, 0.4)
           break
         case 'grassCut':
-          burst(e.x, e.y, 6, 2.5, GRASS_STROKE, false, 2, 0.4)
+          burst(e.x, e.y, 5, 2, '#6f5f95', 2, 0.35)
           break
         case 'playerHit':
           flashT = 0.08
@@ -521,29 +908,32 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
           const c = chestLookup.get(e.id)
           const chx = c ? c.x + 0.5 : lastFx
           const chy = c ? c.y + 0.5 : lastFy
-          burst(chx, chy, 12, 3, GOLD, false, 2.5, 0.6)
-          addRing(chx, chy, 1.2, 0.5, GOLD)
+          burst(chx, chy, 8, 2.5, GOLD, 2.5, 0.5) // small gold burst, no ring spam
+          addRing(chx, chy, 1.0, 0.4, GOLD)
+          break
+        }
+        case 'pickup': {
+          burst(lastFx, lastFy, 6, 2, GOLD, 2, 0.4)
           break
         }
         case 'respawn':
           break
         case 'bossDefeated':
-          burst(lastFx, lastFy, 24, 5, PINK, true, 3.5, 0.8)
-          burst(lastFx, lastFy, 12, 3, GOLD, false, 3, 0.8)
-          addRing(lastFx, lastFy, 2.5, 0.7, PINK)
+          burst(lastFx, lastFy, 14, 4, PINK, 3, 0.6)
+          burst(lastFx, lastFy, 8, 2.5, GOLD, 2.5, 0.6)
+          addRing(lastFx, lastFy, 2.0, 0.6, PINK)
           break
         case 'won':
-          addRing(lastFx, lastFy, 3, 1.0, GOLD)
+          addRing(lastFx, lastFy, 2.5, 0.9, GOLD)
           break
         case 'shoot':
-          burst(e.x, e.y, 2, 1.5, PINK, false, 2, 0.2)
+          burst(e.x, e.y, 2, 1.5, PINK, 2, 0.2)
           break
         case 'doorUnlocked':
         case 'doorOpened':
-          burst(e.x, e.y, 8, 2.5, GOLD, false, 2.5, 0.5)
+          burst(e.x, e.y, 6, 2, GOLD, 2.5, 0.4)
           break
         case 'slideStart':
-          // Snapshot the current tile layer for the scroll-out side.
           if (tileCache) {
             const copy = makeOffscreen(tileCache.width, tileCache.height)
             if (copy) {
@@ -600,447 +990,355 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
     return { x: rect.x + ox + tx * tile, y: rect.y + oy + ty * tile }
   }
 
+  // -- letterbox backdrop (subdued: stars, ridge, small striped sun) -------------
+
+  function drawBackdrop(g: Ctx, reducedMotion: boolean): void {
+    g.fillStyle = BG
+    g.fillRect(0, 0, cssW, cssH)
+    // Stars outside the room only.
+    const t = reducedMotion ? 0 : presentT
+    for (const s of stars) {
+      const sx = s.x * cssW
+      const sy = s.y * cssH
+      if (sx > rect.x - 4 && sx < rect.x + rect.w + 4 && sy > rect.y - 4 && sy < rect.y + rect.h + 4) continue
+      const a = reducedMotion ? 0.5 : 0.3 + 0.25 * Math.sin(t * 1.2 + s.tw)
+      g.fillStyle = `rgba(207,233,255,${a.toFixed(2)})`
+      g.fillRect(sx, sy, s.s, s.s)
+    }
+    // Small striped sun: a stepped disc in the left letterbox, subordinate.
+    const sunR = clamp(Math.min(cssW, cssH) * 0.035, 10, 26)
+    const sunX = Math.max(14, rect.x / 2)
+    const sunY = rect.y + rect.h * 0.28
+    if (rect.x > sunR * 2 + 20) {
+      const stripes = ['#ffd23f', '#ff9a3d', '#ff2fa0', '#b02070'] as const
+      for (let i = 0; i < 4; i++) {
+        const sy = sunY - sunR + (i * 2 * sunR) / 4
+        const hh = 2 * sunR / 4 - (i > 0 ? (i - 1) * 1.5 : 0)
+        // Stepped circle: width from the disc equation, snapped to 2px.
+        const half = Math.sqrt(Math.max(0, sunR * sunR - (sunY - (sy + hh / 2)) ** 2))
+        const w2 = Math.max(2, Math.floor(half / 2) * 2)
+        g.fillStyle = stripes[i]
+        g.fillRect(sunX - w2, sy, w2 * 2, Math.max(1, hh))
+      }
+    }
+    {
+      // Ridge silhouette along the bottom edge.
+      g.fillStyle = '#120826'
+      const baseY = cssH - 8
+      g.beginPath()
+      g.moveTo(0, cssH)
+      g.lineTo(0, baseY)
+      for (let x = 0; x <= cssW; x += 24) {
+        const h = 4 + hash2(Math.round(x / 24), 3) * 10
+        g.lineTo(x + 12, baseY - h)
+        g.lineTo(x + 24, baseY)
+      }
+      g.lineTo(cssW, cssH)
+      g.closePath()
+      g.fill()
+    }
+  }
+
   // -- dynamic drawing ----------------------------------------------------------
 
-  function drawHeart(g: Ctx, x: number, y: number, s: number, fill: string | null): void {
-    g.beginPath()
-    g.moveTo(x, y + s * 0.32)
-    g.bezierCurveTo(x - s * 0.55, y - s * 0.08, x - s * 0.32, y - s * 0.5, x, y - s * 0.18)
-    g.bezierCurveTo(x + s * 0.32, y - s * 0.5, x + s * 0.55, y - s * 0.08, x, y + s * 0.32)
-    g.closePath()
-    if (fill) {
-      g.fillStyle = fill
-      g.fill()
-    } else {
-      g.strokeStyle = PINK
-      g.lineWidth = 1.2
-      g.stroke()
-    }
-  }
-
-  function drawKeyGlyph(g: Ctx, x: number, y: number, s: number): void {
-    g.strokeStyle = GOLD
-    g.fillStyle = GOLD
-    g.lineWidth = Math.max(1.2, s * 0.12)
-    g.beginPath()
-    g.arc(x, y, s * 0.28, 0, Math.PI * 2)
-    g.stroke()
-    g.beginPath()
-    g.moveTo(x + s * 0.2, y + s * 0.2)
-    g.lineTo(x + s * 0.5, y + s * 0.5)
-    g.moveTo(x + s * 0.36, y + s * 0.36)
-    g.lineTo(x + s * 0.36, y + s * 0.52)
-    g.moveTo(x + s * 0.46, y + s * 0.46)
-    g.lineTo(x + s * 0.46, y + s * 0.6)
-    g.stroke()
-  }
-
-  function drawChests(g: Ctx, state: GameState, ox: number, oy: number): void {
-    for (const id of state.room.chestsClosed) {
-      const c = chestLookup.get(id)
-      if (!c) continue
-      const p = toPx(c.x, c.y, ox, oy)
-      const w = tile * 0.72
-      const h = tile * 0.56
-      const x0 = p.x + (tile - w) / 2
-      const y0 = p.y + (tile - h) / 2 + tile * 0.08
-      g.fillStyle = '#2a2008'
-      g.fillRect(x0, y0, w, h)
-      g.strokeStyle = GOLD
-      g.lineWidth = 1.5
-      g.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1)
-      g.strokeStyle = CYAN
-      g.lineWidth = 1.5
-      g.beginPath()
-      g.moveTo(x0 + 2, y0 + h * 0.3)
-      g.lineTo(x0 + w - 2, y0 + h * 0.3)
-      g.stroke()
-      g.fillStyle = CYAN
-      g.fillRect(x0 + w / 2 - 1.5, y0 + h * 0.18, 3, h * 0.3)
-    }
-  }
-
-  function drawPickups(g: Ctx, state: GameState, ox: number, oy: number, reducedMotion: boolean): void {
-    const bob = reducedMotion ? 0 : Math.sin(presentT * 3) * tile * 0.05
-    for (const id of state.room.pickupsLeft) {
-      const p = pickupLookup.get(id)
-      if (!p) continue
-      const c = toPx(p.x, p.y, ox, oy)
-      const cx = c.x + tile / 2
-      const cy = c.y + tile / 2 + bob
-      const len = tile * 0.6
-      g.strokeStyle = CYAN
-      g.lineWidth = 3
-      g.beginPath()
-      g.moveTo(cx - len / 2, cy + len / 3)
-      g.lineTo(cx + len / 2, cy - len / 3)
-      g.stroke()
-      g.strokeStyle = 'rgba(47,243,255,0.35)'
-      g.lineWidth = 6
-      g.beginPath()
-      g.moveTo(cx - len / 2, cy + len / 3)
-      g.lineTo(cx + len / 2, cy - len / 3)
-      g.stroke()
-      g.fillStyle = GOLD
-      g.fillRect(cx - len / 2 - 4, cy + len / 3 - 1.5, 5, 3)
-    }
-  }
-
-  function drawDrops(g: Ctx, state: GameState, ox: number, oy: number, reducedMotion: boolean): void {
-    for (const d of state.room.drops) {
-      // Blink in the last 2 s of the 8 s life.
-      if (d.t > DROP_LIFE - 2 && !reducedMotion && Math.floor(presentT * 8) % 2 === 1) continue
-      const c = toPx(d.x, d.y, ox, oy)
-      const cx = c.x + tile / 2
-      const cy = c.y + tile / 2
-      if (d.kind === 'heart') {
-        drawHeart(g, cx, cy, tile * 0.55, PINK)
-      } else {
-        drawKeyGlyph(g, cx, cy, tile * 0.8)
+  function drawExitPosts(g: Ctx, state: GameState, ox: number, oy: number): void {
+    const portals = roomPortals.get(state.room.id)
+    if (!portals) return
+    const u = unit()
+    for (const p of portals) {
+      // Two lamp posts at the trigger's room-edge corners.
+      const corners: Array<[number, number]> = [
+        [p.x, p.y],
+        [p.x + p.w, p.y + p.h],
+      ]
+      for (const [cx, cy] of corners) {
+        const s = toPx(cx, cy, ox, oy)
+        g.fillStyle = TRUNK_DARK
+        g.fillRect(s.x - u, s.y - 5 * u, 2 * u + 0.5, 5 * u + 0.5)
+        g.fillStyle = GOLD
+        g.fillRect(s.x - 1.5 * u, s.y - 7 * u, 3 * u + 0.5, 2 * u + 0.5)
       }
     }
   }
 
-  function drawWaterSheen(g: Ctx, state: GameState, ox: number, oy: number, reducedMotion: boolean): void {
-    const t = reducedMotion ? 0 : presentT
-    g.strokeStyle = 'rgba(47,243,255,0.30)'
-    g.lineWidth = 1.5
-    for (let y = 0; y < state.room.height; y++) {
-      const row = state.room.tiles[y]
-      if (!row) continue
-      for (let x = 0; x < state.room.width; x++) {
-        if ((row[x] as TileChar) !== 'W') continue
-        const px = rect.x + ox + x * tile
-        const py = rect.y + oy + y * tile
-        const off = Math.sin(t * 1.6 + (x + y) * 0.9) * tile * 0.12
-        g.beginPath()
-        g.moveTo(px + tile * 0.15, py + tile * 0.5 + off)
-        g.quadraticCurveTo(px + tile * 0.5, py + tile * 0.32 + off, px + tile * 0.85, py + tile * 0.5 + off)
-        g.stroke()
+  function drawChests(g: Ctx, state: GameState, ox: number, oy: number): void {
+    const u = unit()
+    for (const id of state.room.chestsClosed) {
+      const c = chestLookup.get(id)
+      if (!c) continue
+      const p = toPx(c.x, c.y, ox, oy)
+      const bx = p.x + 2 * u
+      const by = p.y + 5 * u
+      // Shadow + wooden body with gold trim (treasure focal).
+      g.fillStyle = 'rgba(0,0,0,0.35)'
+      g.fillRect(bx, by + 7 * u, 12 * u + 0.5, 2 * u + 0.5)
+      g.fillStyle = TRUNK
+      g.fillRect(bx, by, 12 * u + 0.5, 7 * u + 0.5)
+      g.fillStyle = '#2a1c12'
+      g.fillRect(bx, by + 5 * u, 12 * u + 0.5, 2 * u + 0.5)
+      g.fillStyle = GOLD
+      g.fillRect(bx, by, 12 * u + 0.5, u + 0.5)
+      g.fillRect(bx, by, u + 0.5, 7 * u + 0.5)
+      g.fillRect(bx + 11 * u, by, u + 0.5, 7 * u + 0.5)
+      g.fillStyle = GOLD_DEEP
+      g.fillRect(bx + 5 * u, by + 2 * u, 2 * u + 0.5, 3 * u + 0.5)
+    }
+  }
+
+  function drawPickups(g: Ctx, state: GameState, ox: number, oy: number, reducedMotion: boolean): void {
+    const u = unit()
+    const bob = reducedMotion ? 0 : (Math.floor(presentT * 2) % 2 === 0 ? 0 : -u)
+    for (const id of state.room.pickupsLeft) {
+      const p = pickupLookup.get(id)
+      if (!p) continue
+      const c = toPx(p.x, p.y, ox, oy)
+      const cx = c.x + 7 * u
+      const cy = c.y + 6 * u + bob
+      // Sword on a stone marker: diagonal white blade, cyan edge, gold hilt.
+      g.fillStyle = STONE_DARK
+      g.fillRect(cx - 3 * u, cy + 3 * u, 7 * u + 0.5, 2 * u + 0.5)
+      for (let i = 0; i < 7; i++) {
+        g.fillStyle = WHITE
+        g.fillRect(cx + 3 * u - i * u, cy - 4 * u + i * u, u + 0.5, u + 0.5)
+        g.fillStyle = CYAN
+        g.fillRect(cx + 3 * u - i * u, cy - 3 * u + i * u, u + 0.5, u + 0.5)
+      }
+      g.fillStyle = GOLD
+      g.fillRect(cx - 5 * u, cy + 4 * u, 4 * u + 0.5, u + 0.5)
+      g.fillRect(cx - 4 * u, cy + 4 * u, u + 0.5, 3 * u + 0.5)
+    }
+  }
+
+  function drawDrops(g: Ctx, state: GameState, ox: number, oy: number, reducedMotion: boolean): void {
+    const u = unit()
+    for (const d of state.room.drops) {
+      if (d.t > DROP_LIFE - 2 && !reducedMotion && Math.floor(presentT * 4) % 2 === 1) continue
+      const c = toPx(d.x, d.y, ox, oy)
+      if (d.kind === 'heart') {
+        drawMap(g, SPRITES.heart, c.x + tile / 2 - 4.5 * u, c.y + tile / 2 - 3.5 * u, u, FOE_PAL)
+      } else {
+        // Small gold key: ring + shaft + teeth.
+        const kx = c.x + tile / 2
+        const ky = c.y + tile / 2
+        g.fillStyle = GOLD
+        g.fillRect(kx - 4 * u, ky - 4 * u, 4 * u + 0.5, 4 * u + 0.5)
+        g.fillStyle = BG
+        g.fillRect(kx - 3 * u, ky - 3 * u, 2 * u + 0.5, 2 * u + 0.5)
+        g.fillStyle = GOLD
+        g.fillRect(kx, ky - u, 5 * u + 0.5, 2 * u + 0.5)
+        g.fillRect(kx + 3 * u, ky + u, u + 0.5, 2 * u + 0.5)
+        g.fillRect(kx + 4.5 * u, ky + u, u + 0.5, 2 * u + 0.5)
       }
     }
   }
 
   function drawPlayer(g: Ctx, state: GameState, ox: number, oy: number, reducedMotion: boolean): void {
     const pl = state.player
-    // Blink at 12 Hz while invulnerable: skip every other 1/12 s.
     if (pl.invuln > 0 && !reducedMotion && Math.floor(presentT * 12) % 2 === 1) return
     const c = toPx(pl.x, pl.y, ox, oy)
-    const cx = c.x + tile / 2
-    const feetY = c.y + tile * 0.92
-    const h = tile * 0.8
-    const topY = feetY - h
+    const u = unit()
+    const moving = Math.abs(pl.vx) + Math.abs(pl.vy) > 0.15
+    const frame = reducedMotion || !moving ? 0 : Math.floor(walkPhase * 4) % 2
+    let key = 'heroDown0'
+    if (pl.facing === 'up') key = frame === 0 ? 'heroUp0' : 'heroUp1'
+    else if (pl.facing === 'down') key = frame === 0 ? 'heroDown0' : 'heroDown1'
+    else key = frame === 0 ? 'heroSide0' : 'heroSide1'
+    const flip = pl.facing === 'left'
+    const map = SPRITES[key]
+    const mw = (map[0]?.length ?? 12) * u
+    const mh = map.length * u
     let scale = 1
     if (state.phase === 'dying' && state.dying) {
       scale = Math.max(0.2, 1 - state.dying.t * 0.9)
     }
-    g.save()
-    g.translate(cx, feetY)
-    g.scale(scale, scale)
-    g.translate(-cx, -feetY)
-
-    const moving = Math.abs(pl.vx) + Math.abs(pl.vy) > 0.15
-    const frame = reducedMotion || !moving ? 0 : Math.floor(walkPhase * 8) % 4
-    const legSwing = frame === 1 ? 1 : frame === 3 ? -1 : 0
-    const s = tile / 16
-
-    // Legs (4-frame walk cycle).
-    g.strokeStyle = CYAN
-    g.lineWidth = Math.max(1.5, 2 * s)
-    g.beginPath()
-    g.moveTo(cx - 2.4 * s, feetY - 5 * s)
-    g.lineTo(cx - 2.4 * s + legSwing * 2.2 * s, feetY)
-    g.moveTo(cx + 2.4 * s, feetY - 5 * s)
-    g.lineTo(cx + 2.4 * s - legSwing * 2.2 * s, feetY)
-    g.stroke()
-
-    // Torso: low-poly diamond.
-    const hipY = feetY - 5 * s
-    const shY = topY + 4.5 * s
-    g.beginPath()
-    g.moveTo(cx, shY)
-    g.lineTo(cx + 3.6 * s, (shY + hipY) / 2)
-    g.lineTo(cx, hipY)
-    g.lineTo(cx - 3.6 * s, (shY + hipY) / 2)
-    g.closePath()
-    g.fillStyle = pl.facing === 'up' ? '#0e5a63' : '#123a44'
-    g.fill()
-    g.strokeStyle = CYAN
-    g.lineWidth = 1.5
-    g.stroke()
-
-    // Head with facing-dependent silhouette.
-    const hy = topY + 2.4 * s
-    g.beginPath()
-    g.arc(cx, hy, 2.8 * s, 0, Math.PI * 2)
-    g.fillStyle = '#0e5a63'
-    g.fill()
-    g.strokeStyle = CYAN
-    g.lineWidth = 1.2
-    g.stroke()
-    g.fillStyle = CYAN
-    if (pl.facing === 'down') {
-      g.fillRect(cx - 1.8 * s, hy - 0.6 * s, 1.2 * s, 1.6 * s)
-      g.fillRect(cx + 0.6 * s, hy - 0.6 * s, 1.2 * s, 1.6 * s)
-    } else if (pl.facing === 'left') {
-      g.fillRect(cx - 2.4 * s, hy - 0.6 * s, 1.4 * s, 1.6 * s)
-    } else if (pl.facing === 'right') {
-      g.fillRect(cx + 1.0 * s, hy - 0.6 * s, 1.4 * s, 1.6 * s)
+    // Swing body language: anticipation leans back, attack lunges.
+    let lx = 0
+    let ly = 0
+    let swingP = -1
+    if (pl.swing) {
+      swingP = clamp(pl.swing.t / SWING_TIME, 0, 1)
+      const lunge = swingP < 0.25 ? -u : swingP < 0.7 ? 1.5 * u : 0.5 * u
+      if (pl.swing.facing === 'left') lx = -lunge
+      else if (pl.swing.facing === 'right') lx = lunge
+      else if (pl.swing.facing === 'up') ly = -lunge
+      else ly = lunge
     }
+    const feetX = c.x + tile / 2 + lx
+    const feetY = c.y + tile * 0.98 + ly
+    g.save()
+    g.translate(feetX, feetY)
+    g.scale(scale, scale)
+    g.translate(-feetX, -feetY)
+    drawMap(g, map, feetX - mw / 2, feetY - mh, u, HERO_PAL, flip)
     g.restore()
 
-    // Sword arc sweep.
-    if (pl.swing) {
-      const p = clamp(pl.swing.t / SWING_TIME, 0, 1)
+    // Sword: stepped pixel arc + white blade at the leading edge.
+    if (pl.swing && swingP >= 0) {
       const base = facingAngle(pl.swing.facing)
       const a0 = base - SWORD_ARC / 2
-      const a1 = a0 + SWORD_ARC * p
+      const cx = feetX
+      const cy = feetY - mh * 0.55
       const R = SWORD_REACH * tile
-      g.strokeStyle = 'rgba(47,243,255,0.30)'
-      g.lineWidth = 8
-      g.beginPath()
-      g.arc(cx, feetY - h / 2, R, a0, Math.max(a1, a0 + 0.05))
-      g.stroke()
-      g.strokeStyle = CYAN
-      g.lineWidth = 3
-      g.beginPath()
-      g.arc(cx, feetY - h / 2, R, a0, Math.max(a1, a0 + 0.05))
-      g.stroke()
-      // Blade at the leading edge.
+      const a1 = a0 + SWORD_ARC * swingP
+      // Arc trail: coarse pixel steps in cyan (attack phase only).
+      if (swingP >= 0.25) {
+        const steps = 9
+        for (let i = 0; i <= Math.floor(steps * swingP); i++) {
+          const a = a0 + (SWORD_ARC * i) / steps
+          const ax = cx + Math.cos(a) * R
+          const ay = cy + Math.sin(a) * R
+          g.fillStyle = 'rgba(47,243,255,0.5)'
+          g.fillRect(ax - u, ay - u, 2 * u + 0.5, 2 * u + 0.5)
+        }
+      }
+      // Blade at the leading edge: 5 white pixels + cyan spine.
       const bx = cx + Math.cos(a1) * R
-      const by = feetY - h / 2 + Math.sin(a1) * R
-      g.strokeStyle = WHITE
-      g.lineWidth = 2
-      g.beginPath()
-      g.moveTo(cx + Math.cos(a1) * R * 0.55, feetY - h / 2 + Math.sin(a1) * R * 0.55)
-      g.lineTo(bx, by)
-      g.stroke()
+      const by = cy + Math.sin(a1) * R
+      const dxn = Math.cos(a1)
+      const dyn = Math.sin(a1)
+      for (let i = 0; i < 5; i++) {
+        const q = 0.45 + i * 0.14
+        g.fillStyle = WHITE
+        g.fillRect(cx + dxn * R * q - u / 2, cy + dyn * R * q - u / 2, u + 0.5, u + 0.5)
+      }
+      g.fillStyle = CYAN
+      g.fillRect(bx - u, by - u, 2 * u + 0.5, 2 * u + 0.5)
     }
   }
 
   function drawEnemy(g: Ctx, e: Enemy, ox: number, oy: number, reducedMotion: boolean): void {
     const c = toPx(e.x, e.y, ox, oy)
-    const cx = c.x + tile / 2
-    const cy = c.y + tile / 2
-    const r = Math.max(3, e.r * tile)
+    const u = unit()
     const tell = e.brain.tell > 0
-    const pulse = reducedMotion ? 0 : Math.sin(presentT * 10) * r * 0.08
+    const r = Math.max(3, e.r * tile)
 
     if (tell && (e.kind === 'chaser' || e.kind === 'knight')) {
-      // Pulsing pink outline ring = the telegraph.
-      g.strokeStyle = PINK
-      g.lineWidth = 2
-      g.beginPath()
-      g.arc(cx, cy, r + tile * 0.16 + pulse, 0, Math.PI * 2)
-      g.stroke()
+      // Single corner-tick ring: four ticks, no pulsing aura.
+      g.fillStyle = PINK
+      const cx = c.x + tile / 2
+      const cy = c.y + tile / 2
+      const rr = r + 2 * u
+      const L = 4 * u
+      g.fillRect(cx - rr, cy - rr, L, u)
+      g.fillRect(cx - rr, cy - rr, u, L)
+      g.fillRect(cx + rr - L, cy - rr, L, u)
+      g.fillRect(cx + rr - L, cy - rr, u, L)
+      g.fillRect(cx - rr, cy + rr - u, L, u)
+      g.fillRect(cx - rr, cy + rr - L, u, L)
+      g.fillRect(cx + rr - L, cy + rr - u, L, u)
+      g.fillRect(cx + rr - L, cy + rr - L, u, L)
     }
     if (e.kind === 'slimeKnight' && tell) {
-      // Unmistakable slam disc: radius 1.6 tiles, pink at 35 % alpha, pulsing.
-      const a = reducedMotion ? 0.35 : 0.28 + 0.12 * Math.sin(presentT * 8)
-      g.fillStyle = `rgba(255,47,160,${a.toFixed(3)})`
-      g.beginPath()
-      g.arc(cx, cy, tile * 1.6, 0, Math.PI * 2)
-      g.fill()
-      g.strokeStyle = PINK
-      g.lineWidth = 2
-      g.stroke()
+      // Slam disc: flat pink at fixed alpha, stepped edge.
+      const cx = c.x + tile / 2
+      const cy = c.y + tile / 2
+      g.fillStyle = 'rgba(255,47,160,0.30)'
+      const R = tile * 1.5
+      g.fillRect(cx - R, cy - R + 4 * u, R * 2, R * 2 - 8 * u)
+      g.fillRect(cx - R + 4 * u, cy - R, R * 2 - 8 * u, R * 2)
+      g.fillStyle = PINK
+      g.fillRect(cx - R, cy - R, R * 2, u)
+      g.fillRect(cx - R, cy + R, R * 2, u)
     }
 
+    const cx = c.x + tile / 2
+    const cy = c.y + tile / 2
     switch (e.kind) {
       case 'chaser': {
-        g.beginPath()
-        g.moveTo(cx, cy - r)
-        g.lineTo(cx + r * 0.9, cy + r * 0.7)
-        g.lineTo(cx - r * 0.9, cy + r * 0.7)
-        g.closePath()
-        g.fillStyle = '#3d0a26'
-        g.fill()
-        g.strokeStyle = PINK
-        g.lineWidth = 1.5
-        g.stroke()
-        g.fillStyle = WHITE
-        g.fillRect(cx - r * 0.4, cy - r * 0.15, r * 0.28, r * 0.28)
-        g.fillRect(cx + r * 0.12, cy - r * 0.15, r * 0.28, r * 0.28)
+        const map = SPRITES.chaser
+        drawMap(g, map, cx - 7 * u, cy - 4.5 * u, u, FOE_PAL)
+        // Snout pixel leads the facing.
+        g.fillStyle = '#ff7fc0'
+        if (e.facing === 'left') g.fillRect(cx - 8 * u, cy - u, 2 * u, 2 * u)
+        else if (e.facing === 'right') g.fillRect(cx + 6 * u, cy - u, 2 * u, 2 * u)
+        else if (e.facing === 'up') g.fillRect(cx - u, cy - 6 * u, 2 * u, 2 * u)
+        else g.fillRect(cx - u, cy + 4 * u, 2 * u, 2 * u)
         break
       }
       case 'wanderer': {
-        g.beginPath()
-        g.arc(cx, cy, r * 0.9, 0, Math.PI * 2)
-        g.fillStyle = '#3d0a26'
-        g.fill()
-        g.strokeStyle = PINK
-        g.lineWidth = 1.5
-        g.stroke()
-        g.fillStyle = PINK
-        g.beginPath()
-        g.arc(cx - r * 0.25, cy - r * 0.1, r * 0.14, 0, Math.PI * 2)
-        g.arc(cx + r * 0.25, cy - r * 0.1, r * 0.14, 0, Math.PI * 2)
-        g.fill()
+        const squash = !reducedMotion && Math.sin(presentT * 6) > 0.4
+        const map = squash ? SPRITES.blob1 : SPRITES.blob0
+        drawMap(g, map, cx - 6 * u, cy - 4 * u, u, FOE_PAL)
         break
       }
       case 'turret': {
-        const s2 = r * 1.1
-        g.fillStyle = '#3d0a26'
-        g.fillRect(cx - s2 / 2, cy - s2 / 2, s2, s2)
-        g.strokeStyle = PINK
-        g.lineWidth = 1.5
-        g.strokeRect(cx - s2 / 2, cy - s2 / 2, s2, s2)
-        const a = facingAngle(e.facing)
-        const bx = cx + Math.cos(a) * s2 * 0.5
-        const by = cy + Math.sin(a) * s2 * 0.5
-        g.strokeStyle = tell ? WHITE : PINK
-        g.lineWidth = tell ? 4 : 3
-        g.beginPath()
-        g.moveTo(cx, cy)
-        g.lineTo(bx + Math.cos(a) * s2 * 0.4, by + Math.sin(a) * s2 * 0.4)
-        g.stroke()
+        const map = SPRITES.statue
+        drawMap(g, map, cx - 7 * u, cy - 7 * u, u, FOE_PAL)
+        // Eye: dark slit, bright pink + white core on telegraph.
+        const ex = cx - 2 * u
+        const ey = cy - 3 * u
         if (tell) {
-          // Barrel glow.
-          g.fillStyle = 'rgba(255,47,160,0.5)'
-          g.beginPath()
-          g.arc(bx, by, s2 * 0.3 + pulse, 0, Math.PI * 2)
-          g.fill()
+          g.fillStyle = PINK
+          g.fillRect(ex, ey, 4 * u + 0.5, 2 * u + 0.5)
+          g.fillStyle = WHITE
+          g.fillRect(ex + u, ey, 2 * u + 0.5, 2 * u + 0.5)
         }
+        // Barrel stub toward facing.
+        const a = facingAngle(e.facing)
+        g.fillStyle = '#3a3f5e'
+        g.fillRect(cx + Math.cos(a) * 6 * u - u, cy + Math.sin(a) * 6 * u - u, 4 * u, 2 * u)
         break
       }
       case 'bat': {
-        const flap = reducedMotion ? 0.4 : Math.sin(presentT * 10) * 0.5 + 0.5
-        const wingY = cy - r * (0.2 + flap * 0.6)
-        g.beginPath()
-        g.moveTo(cx - r * 1.2, wingY)
-        g.lineTo(cx - r * 0.3, cy)
-        g.lineTo(cx, cy - r * 0.3)
-        g.lineTo(cx + r * 0.3, cy)
-        g.lineTo(cx + r * 1.2, wingY)
-        g.closePath()
-        g.fillStyle = '#3d0a26'
-        g.fill()
-        g.strokeStyle = PINK
-        g.lineWidth = 1.5
-        g.stroke()
-        g.fillStyle = PINK
-        g.beginPath()
-        g.arc(cx, cy, r * 0.3, 0, Math.PI * 2)
-        g.fill()
+        const flap = reducedMotion ? 0 : Math.floor(presentT * 8) % 2
+        const map = flap === 0 ? SPRITES.bat0 : SPRITES.bat1
+        drawMap(g, map, cx - 7 * u, cy - 2.5 * u, u, FOE_PAL)
         break
       }
       case 'knight': {
-        g.beginPath()
-        g.moveTo(cx, cy - r)
-        g.lineTo(cx + r * 0.75, cy)
-        g.lineTo(cx + r * 0.5, cy + r)
-        g.lineTo(cx - r * 0.5, cy + r)
-        g.lineTo(cx - r * 0.75, cy)
-        g.closePath()
-        g.fillStyle = '#3d0a26'
-        g.fill()
-        g.strokeStyle = PINK
-        g.lineWidth = 2
-        g.stroke()
-        // GOLD frontal shield plate on the facing side.
-        const a = facingAngle(e.facing)
-        const sx = cx + Math.cos(a) * r * 0.85
-        const sy = cy + Math.sin(a) * r * 0.85
-        g.save()
-        g.translate(sx, sy)
-        g.rotate(a)
+        const map = SPRITES.knight
+        drawMap(g, map, cx - 7 * u, cy - 8 * u, u, FOE_PAL)
+        // Gold shield plate on the facing side.
         g.fillStyle = GOLD
-        g.fillRect(-r * 0.12, -r * 0.55, r * 0.3, r * 1.1)
-        g.strokeStyle = '#7a5c00'
-        g.lineWidth = 1
-        g.strokeRect(-r * 0.12, -r * 0.55, r * 0.3, r * 1.1)
-        g.restore()
+        if (e.facing === 'left') g.fillRect(cx - 10 * u, cy - 3 * u, 3 * u + 0.5, 7 * u + 0.5)
+        else if (e.facing === 'right') g.fillRect(cx + 7 * u, cy - 3 * u, 3 * u + 0.5, 7 * u + 0.5)
+        else if (e.facing === 'up') g.fillRect(cx - 3 * u, cy - 11 * u, 7 * u + 0.5, 3 * u + 0.5)
+        else g.fillRect(cx - 3 * u, cy + 5 * u, 7 * u + 0.5, 3 * u + 0.5)
         g.fillStyle = WHITE
-        g.fillRect(cx - r * 0.3, cy - r * 0.5, r * 0.2, r * 0.2)
-        g.fillRect(cx + r * 0.1, cy - r * 0.5, r * 0.2, r * 0.2)
+        if (e.facing === 'left') g.fillRect(cx - 10 * u, cy - 3 * u, u + 0.5, 2 * u + 0.5)
+        else if (e.facing === 'right') g.fillRect(cx + 7 * u, cy - 3 * u, u + 0.5, 2 * u + 0.5)
         break
       }
       case 'slimeKnight': {
-        // Big gold body, pink hostile face, pink crown spikes.
-        g.beginPath()
-        g.arc(cx, cy, r, 0, Math.PI * 2)
-        g.fillStyle = '#3a2c05'
-        g.fill()
-        g.strokeStyle = GOLD
-        g.lineWidth = 2.5
-        g.stroke()
-        const spikes = 7
-        g.fillStyle = PINK
-        for (let i = 0; i < spikes; i++) {
-          const a = (i / spikes) * Math.PI * 2 - Math.PI / 2
-          const sx = cx + Math.cos(a) * r
-          const sy = cy + Math.sin(a) * r
-          g.beginPath()
-          g.moveTo(sx + Math.cos(a) * r * 0.35, sy + Math.sin(a) * r * 0.35)
-          g.lineTo(sx + Math.cos(a + 0.22) * r * 0.18, sy + Math.sin(a + 0.22) * r * 0.18)
-          g.lineTo(sx + Math.cos(a - 0.22) * r * 0.18, sy + Math.sin(a - 0.22) * r * 0.18)
-          g.closePath()
-          g.fill()
-        }
-        // Hostile face: angled eyes + jagged mouth.
-        g.strokeStyle = PINK
-        g.lineWidth = 2
-        g.beginPath()
-        g.moveTo(cx - r * 0.5, cy - r * 0.25)
-        g.lineTo(cx - r * 0.1, cy - r * 0.05)
-        g.moveTo(cx + r * 0.5, cy - r * 0.25)
-        g.lineTo(cx + r * 0.1, cy - r * 0.05)
-        g.moveTo(cx - r * 0.4, cy + r * 0.4)
-        g.lineTo(cx - r * 0.2, cy + r * 0.25)
-        g.lineTo(cx, cy + r * 0.4)
-        g.lineTo(cx + r * 0.2, cy + r * 0.25)
-        g.lineTo(cx + r * 0.4, cy + r * 0.4)
-        g.stroke()
+        const map = SPRITES.crown
+        const bu = u * 1.5 // boss reads bigger; still whole logical pixels
+        const bw = (map[0]?.length ?? 19) * bu
+        const bh = map.length * bu
+        drawMap(g, map, cx - bw / 2, cy - bh / 2, bu, FOE_PAL)
         break
       }
     }
 
-    // Hit flash: white overlay while invulnerable.
+    // Hit flash: single white silhouette while invulnerable.
     if (e.invuln > 0) {
-      g.fillStyle = 'rgba(255,255,255,0.7)'
-      g.beginPath()
-      g.arc(cx, cy, r, 0, Math.PI * 2)
-      g.fill()
+      g.fillStyle = 'rgba(255,255,255,0.65)'
+      g.fillRect(cx - r, cy - r, r * 2 + 0.5, r * 2 + 0.5)
     }
   }
 
   function drawProjectiles(g: Ctx, state: GameState, ox: number, oy: number): void {
+    const u = unit()
     for (const pr of state.room.projectiles) {
       const c = toPx(pr.x, pr.y, ox, oy)
       const cx = c.x + tile / 2
       const cy = c.y + tile / 2
-      // Short trail.
-      g.strokeStyle = 'rgba(255,47,160,0.5)'
-      g.lineWidth = 2
-      g.beginPath()
-      g.moveTo(cx - pr.vx * tile * 0.05, cy - pr.vy * tile * 0.05)
-      g.lineTo(cx, cy)
-      g.stroke()
+      // Pink 3px bolt + white core pixel.
       g.fillStyle = PINK
-      g.beginPath()
-      g.arc(cx, cy, Math.max(2, pr.r * tile), 0, Math.PI * 2)
-      g.fill()
+      g.fillRect(cx - 1.5 * u, cy - 1.5 * u, 3 * u + 0.5, 3 * u + 0.5)
+      g.fillStyle = WHITE
+      g.fillRect(cx - 0.5 * u, cy - 0.5 * u, u + 0.5, u + 0.5)
     }
   }
 
   function drawFx(g: Ctx, ox: number, oy: number): void {
+    const u = unit()
     for (const p of particles) {
       if (!p.alive) continue
       const a = clamp(p.life / p.maxLife, 0, 1)
       g.globalAlpha = a
       g.fillStyle = p.color
-      const px = rect.x + ox + p.x * tile
-      const py = rect.y + oy + p.y * tile
-      if (p.tri) {
-        g.beginPath()
-        g.moveTo(px, py - p.size)
-        g.lineTo(px + p.size, py + p.size)
-        g.lineTo(px - p.size, py + p.size)
-        g.closePath()
-        g.fill()
-      } else {
-        g.fillRect(px - p.size / 2, py - p.size / 2, p.size, p.size)
-      }
+      const s = Math.max(1.5, p.size * u * 0.6)
+      g.fillRect(rect.x + ox + p.x * tile - s / 2, rect.y + oy + p.y * tile - s / 2, s, s)
     }
     g.globalAlpha = 1
     for (const r of rings) {
@@ -1048,11 +1346,15 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
       const p = clamp(r.t / r.dur, 0, 1)
       const rad = (r.r0 + (r.r1 - r.r0) * p) * tile
       g.globalAlpha = 1 - p
-      g.strokeStyle = r.color
-      g.lineWidth = 2.5
-      g.beginPath()
-      g.arc(rect.x + ox + r.x * tile, rect.y + oy + r.y * tile, rad, 0, Math.PI * 2)
-      g.stroke()
+      g.fillStyle = r.color
+      const cx = rect.x + ox + r.x * tile
+      const cy = rect.y + oy + r.y * tile
+      const th = Math.max(1.5, unit())
+      // Stepped ring: four edge bars.
+      g.fillRect(cx - rad, cy - rad, rad * 2, th)
+      g.fillRect(cx - rad, cy + rad - th, rad * 2, th)
+      g.fillRect(cx - rad, cy - rad, th, rad * 2)
+      g.fillRect(cx + rad - th, cy - rad, th, rad * 2)
     }
     g.globalAlpha = 1
   }
@@ -1060,47 +1362,53 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
   // -- HUD / overlays -----------------------------------------------------------
 
   function drawHud(g: Ctx, state: GameState): void {
-    const hudH = Math.max(HUD_MIN, Math.min(44, Math.floor(cssH * 0.06)))
-    const midY = hudH / 2
-    // Hearts: 5 slots, filled pink up to hp, outline up to maxHp, hidden beyond.
+    const u = Math.max(1, Math.round(unit()))
+    const hx = 10
+    const hy = 8
+    // Pixel hearts: filled pink to hp, empty glyph beyond.
     const maxShow = Math.min(5, state.player.maxHp)
-    const s = 13
     for (let i = 0; i < maxShow; i++) {
-      drawHeart(g, 16 + i * (s + 5), midY, s, i < state.player.hp ? PINK : null)
+      const map = i < state.player.hp ? SPRITES.heart : SPRITES.heartEmpty
+      drawMap(g, map, hx + i * 11 * u, hy, u, FOE_PAL)
     }
-    // Keys: gold glyph × count (always shown, stable layout) + BOSS KEY sigil.
-    let kx = 16 + maxShow * (s + 5) + 8
-    drawKeyGlyph(g, kx + 6, midY, 14)
+    // Key count: gold key glyph + machine count.
+    let kx = hx + maxShow * 11 * u + 8
     g.fillStyle = GOLD
-    g.font = `12px ${MACHINE_FONT}`
+    g.fillRect(kx, hy + 2 * u, 3 * u, 3 * u)
+    g.fillStyle = BG
+    g.fillRect(kx + u, hy + 3 * u, u, u)
+    g.fillStyle = GOLD
+    g.fillRect(kx + 3 * u, hy + 3 * u, 4 * u, 2 * u)
+    g.fillRect(kx + 5 * u, hy + 5 * u, u, 2 * u)
+    g.fillStyle = GOLD
+    g.font = `${12}px ${MACHINE_FONT}`
     g.textAlign = 'left'
     g.textBaseline = 'middle'
-    g.fillText(`×${state.player.smallKeys}`, kx + 15, midY + 0.5)
-    kx += 15 + 26
+    g.fillText(`x${state.player.smallKeys}`, kx + 9 * u, hy + 4 * u)
+    kx += 9 * u + 24
     if (state.player.hasBossKey) {
-      g.save()
-      g.translate(kx + 6, midY)
-      g.rotate(Math.PI / 4)
       g.fillStyle = GOLD
-      g.fillRect(-5, -5, 10, 10)
-      g.restore()
-      if (cssW > 360) {
-        g.fillStyle = GOLD
+      g.fillRect(kx, hy + u, 6 * u, 6 * u)
+      g.fillStyle = BG
+      g.fillRect(kx + 2 * u, hy + 3 * u, 2 * u, 2 * u)
+      if (cssW > 420) {
         g.font = `10px ${MACHINE_FONT}`
-        g.textAlign = 'left'
-        g.textBaseline = 'middle'
-        g.fillText('BOSS KEY', kx + 15, midY + 0.5)
+        g.fillStyle = GOLD
+        g.fillText('BOSS', kx + 8 * u, hy + 4 * u)
+        kx += 8 * u + 34
+      } else {
+        kx += 8 * u
       }
     }
-    // Room name after the keys, cyan at 70 % (the top-right corner belongs to the radio widget).
-    // Phones skip it: the entry banner already names the room and the radio widget needs the corner.
-    if (cssW < 480) return
-    const name = roomName.get(state.room.id) ?? state.room.id
-    g.fillStyle = 'rgba(47,243,255,0.7)'
-    g.font = `${cssW < 400 ? 12 : 13}px ${MACHINE_FONT}`
-    g.textAlign = 'left'
-    g.textBaseline = 'middle'
-    g.fillText(name, kx + (state.player.hasBossKey ? 90 : 12), midY)
+    // Room label on wide screens (top-right belongs to the radio widget).
+    if (cssW >= 480) {
+      const name = roomName.get(state.room.id) ?? state.room.id
+      g.fillStyle = 'rgba(185,168,217,0.85)'
+      g.font = `12px ${MACHINE_FONT}`
+      g.textAlign = 'left'
+      g.textBaseline = 'middle'
+      g.fillText(name, kx + 8, hy + 4 * u)
+    }
   }
 
   function drawBanner(g: Ctx, ui: FrameUI): void {
@@ -1121,7 +1429,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
     if (!ui.hint) return
     const y = rect.y + rect.h + 20
     if (y > cssH - 6) return
-    g.fillStyle = 'rgba(47,243,255,0.7)'
+    g.fillStyle = 'rgba(185,168,217,0.8)'
     g.font = `11px ${MACHINE_FONT}`
     g.textAlign = 'center'
     g.textBaseline = 'middle'
@@ -1132,17 +1440,18 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
   function drawStick(g: Ctx, ui: FrameUI): void {
     if (!ui.stick) return
     const { originX, originY, dx, dy } = ui.stick
-    g.strokeStyle = 'rgba(47,243,255,0.35)'
-    g.lineWidth = 1.5
-    g.beginPath()
-    g.arc(originX, originY, 40, 0, Math.PI * 2)
-    g.stroke()
+    g.fillStyle = 'rgba(47,243,255,0.25)'
+    const R = 40
+    g.fillRect(originX - R, originY - 1, R * 2, 2)
+    g.fillRect(originX - 1, originY - R, 2, R * 2)
     const len = Math.hypot(dx, dy)
     const cl = len > 40 && len > 0 ? 40 / len : 1
-    g.fillStyle = 'rgba(47,243,255,0.8)'
-    g.beginPath()
-    g.arc(originX + dx * cl, originY + dy * cl, 9, 0, Math.PI * 2)
-    g.fill()
+    g.fillStyle = CYAN
+    const nx = originX + dx * cl
+    const ny = originY + dy * cl
+    g.fillRect(nx - 7, ny - 7, 14, 14)
+    g.fillStyle = BG
+    g.fillRect(nx - 4, ny - 4, 8, 8)
   }
 
   // -- main draw ------------------------------------------------------------------
@@ -1161,9 +1470,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
     lastFy = state.player.y
 
     gSaveReset()
-    // Background.
-    ctx.fillStyle = BG
-    ctx.fillRect(0, 0, cssW, cssH)
+    drawBackdrop(ctx, ui.reducedMotion)
 
     // Screen shake (±4 px decaying), skipped under reduced motion.
     let shx = 0
@@ -1173,6 +1480,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
       shx = (Math.random() * 2 - 1) * m
       shy = (Math.random() * 2 - 1) * m
     }
+
+    // Room frame: 2px stone border so the play area reads as the main visual.
+    ctx.fillStyle = STONE_DARK
+    ctx.fillRect(rect.x - 2, rect.y - 2, rect.w + 4, 2)
+    ctx.fillRect(rect.x - 2, rect.y + rect.h, rect.w + 4, 2)
+    ctx.fillRect(rect.x - 2, rect.y, 2, rect.h)
+    ctx.fillRect(rect.x + rect.w, rect.y, 2, rect.h)
 
     const sliding = state.phase === 'slide' && state.slide && !ui.reducedMotion && slideFrom && tileCache
     if (sliding && state.slide) {
@@ -1196,19 +1510,16 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
       ctx.restore()
     }
 
-    // Dying: darken the room to 70 %.
     if (state.phase === 'dying') {
       ctx.fillStyle = 'rgba(11,6,22,0.3)'
       ctx.fillRect(rect.x, rect.y, rect.w, rect.h)
     }
-    // Paused: the shell's EscHold pill draws 'PAUSED'; only dim to 60 %.
     if (ui.paused) {
       ctx.fillStyle = 'rgba(11,6,22,0.4)'
       ctx.fillRect(rect.x, rect.y, rect.w, rect.h)
     }
-    // playerHit flash overlay (80 ms).
     if (flashT > 0 && !ui.reducedMotion) {
-      ctx.fillStyle = 'rgba(255,47,160,0.25)'
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'
       ctx.fillRect(rect.x, rect.y, rect.w, rect.h)
     }
 
@@ -1227,24 +1538,15 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
   }
 
   function paintStaticLayerAt(g: Ctx, state: GameState, ox: number, oy: number): void {
-    const r = state.room
-    for (let y = 0; y < r.height; y++) {
-      const row = r.tiles[y]
-      if (!row) continue
-      for (let x = 0; x < r.width; x++) {
-        // paintTile draws at tile-grid origin; offset via save/translate.
-        paintTileAt(g, (row[x] as TileChar) ?? '.', ox + x * tile, oy + y * tile)
+    for (let y = 0; y < state.room.height; y++) {
+      for (let x = 0; x < state.room.width; x++) {
+        paintTile(g, state, x, y, ox + x * tile, oy + y * tile)
       }
     }
   }
 
-  // paintTile draws relative to an absolute origin (no extra translate).
-  function paintTileAt(g: Ctx, t: TileChar, px: number, py: number): void {
-    paintTile(g, t, px, py)
-  }
-
   function drawRoomDynamics(state: GameState, ui: FrameUI, shx: number, shy: number): void {
-    drawWaterSheen(ctx, state, shx, shy, ui.reducedMotion)
+    drawExitPosts(ctx, state, shx, shy)
     drawChests(ctx, state, shx, shy)
     drawPickups(ctx, state, shx, shy, ui.reducedMotion)
     drawDrops(ctx, state, shx, shy, ui.reducedMotion)
@@ -1281,20 +1583,17 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
     ctx.beginPath()
     ctx.rect(rect.x, rect.y, rect.w + 0.5, rect.h + 0.5)
     ctx.clip()
-    // From-room: the cached previous frame.
     try {
       ctx.drawImage(slideFrom, rect.x + shx + fx, rect.y + shy + fy, rect.w, rect.h)
     } catch {
       // stub: ignore
     }
-    // To-room: the current tile layer.
     try {
       ctx.drawImage(tileCache, rect.x + shx + tx, rect.y + shy + ty, rect.w, rect.h)
     } catch {
       paintStaticLayerAt(ctx, state, rect.x + shx + tx, rect.y + shy + ty)
     }
-    // Entities ride with the new room.
-    drawWaterSheen(ctx, state, shx + tx, shy + ty, true)
+    drawExitPosts(ctx, state, shx + tx, shy + ty)
     drawChests(ctx, state, shx + tx, shy + ty)
     drawPickups(ctx, state, shx + tx, shy + ty, true)
     drawDrops(ctx, state, shx + tx, shy + ty, true)

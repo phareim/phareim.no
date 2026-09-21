@@ -1,6 +1,39 @@
 <template>
   <canvas ref="canvas" class="zelda-canvas" />
   <EscHold :is-active="() => phase === 'play'" :paused="paused" @tap="togglePause" @hold="quit" />
+  <!-- Touch deck: lives in the renderer's reserved portrait/landscape space.
+    SWORD + USE are real buttons (>=64px); the left thumb zone keeps the
+    floating stick. Paused touch players get RESUME + QUIT. -->
+  <div v-if="touchUI && phase === 'play'" class="zelda-touch">
+    <div v-if="!paused" class="zelda-touch-row">
+      <div class="zelda-stick-label">DRAG<br />TO MOVE</div>
+      <div class="zelda-touch-btns">
+        <button
+          class="zelda-padbtn"
+          @pointerdown.prevent="pressUse"
+          @pointerup="releaseBtn"
+          @pointercancel="releaseBtn"
+          @contextmenu.prevent
+        >USE</button>
+        <button
+          class="zelda-padbtn zelda-padbtn-sword"
+          @pointerdown.prevent="pressAttack"
+          @pointerup="releaseBtn"
+          @pointercancel="releaseBtn"
+          @contextmenu.prevent
+        >SWORD</button>
+        <button
+          class="zelda-padbtn zelda-padbtn-small"
+          @pointerdown.prevent="togglePause"
+          @contextmenu.prevent
+        >II</button>
+      </div>
+    </div>
+    <div v-else class="zelda-touch-row zelda-touch-paused">
+      <button class="zelda-padbtn" @pointerdown.prevent="togglePause" @contextmenu.prevent>RESUME</button>
+      <button class="zelda-padbtn" @pointerdown.prevent="quit" @contextmenu.prevent>QUIT</button>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -16,7 +49,9 @@
  * Keys: arrows / WASD move, Space / J sword, E / K interact, P or an Escape
  * tap pause, Enter start, N new game. Touch: the first finger on the left
  * 60 % of the canvas becomes a floating stick (direction = offset from where
- * it landed); any tap on the right 40 % swings, a hold there interacts.
+ * it landed, 6 px dead zone); SWORD / USE are visible buttons below the room
+ * (SWORD repeats while held), plus a pause button. A right-side hold still
+ * interacts as a fallback.
  */
 
 import EscHold from '../base/EscHold.vue'
@@ -41,6 +76,7 @@ const TAP_PX = 10 // idle taps that move less than this start the game
 const canvas = ref<HTMLCanvasElement | null>(null)
 const paused = ref(false)
 const phase = ref<Phase>('attract')
+const touchUI = ref(false)
 const { navigationLocked } = useTheme()
 const sound = useSound()
 
@@ -71,7 +107,12 @@ function readInput(): Input {
   if (keys.has('ArrowRight') || keys.has('KeyD')) x += 1
   if (keys.has('ArrowUp') || keys.has('KeyW')) y -= 1
   if (keys.has('ArrowDown') || keys.has('KeyS')) y += 1
-  if (stick) { x = stick.dx / STICK_PX; y = stick.dy / STICK_PX }
+  if (stick) {
+    // 6px dead zone so a resting thumb reads as still.
+    const len0 = Math.hypot(stick.dx, stick.dy)
+    if (len0 < 6) { x = 0; y = 0 }
+    else { x = stick.dx / STICK_PX; y = stick.dy / STICK_PX }
+  }
   const len = Math.hypot(x, y)
   if (len > 1) { x /= len; y /= len }
   // A long right-side hold turns into one interact instead of a second swing.
@@ -101,6 +142,7 @@ function canvasPoint(e: PointerEvent) {
 }
 
 function onPointerDown(e: PointerEvent) {
+  if (e.pointerType === 'touch' && !touchUI.value) touchUI.value = true
   if (isInteractive(e.target)) return
   const p = canvasPoint(e)
   if (phase.value !== 'play') {
@@ -152,6 +194,28 @@ function releasePointer(id: number) {
 
 function isInteractive(el: EventTarget | null) {
   return !!(el as HTMLElement | null)?.closest?.('a, button, .theme-pager')
+}
+
+// ---- touch buttons (SWORD repeats while held, USE fires once) ---------------
+
+let btnRepeat = 0
+
+function pressAttack() {
+  if (phase.value !== 'play' || paused.value) return
+  attackPending = true
+  window.clearInterval(btnRepeat)
+  btnRepeat = window.setInterval(() => {
+    if (phase.value === 'play' && !paused.value) attackPending = true
+  }, 280)
+}
+
+function pressUse() {
+  if (phase.value !== 'play' || paused.value) return
+  interactPending = true
+}
+
+function releaseBtn() {
+  window.clearInterval(btnRepeat)
 }
 
 const GAME_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS', 'KeyE', 'KeyJ', 'KeyK'])
@@ -351,6 +415,10 @@ let observer: ResizeObserver | null = null
 onMounted(() => {
   if (!canvas.value) return
   reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  try {
+    touchUI.value = window.matchMedia('(hover: none) and (pointer: coarse)').matches
+      || 'ontouchstart' in window
+  } catch { touchUI.value = false }
   renderer = createRenderer(canvas.value, WORLD)
   resize()
   observer = new ResizeObserver(resize)
@@ -369,6 +437,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.clearInterval(btnRepeat)
   cancelAnimationFrame(raf)
   observer?.disconnect()
   window.removeEventListener('resize', resize)
@@ -393,5 +462,112 @@ onBeforeUnmount(() => {
   height: 100%;
   background: #0b0616;
   touch-action: none;
+}
+
+/* Touch deck in the renderer's reserved space: thumb hint left, buttons right. */
+.zelda-touch {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  pointer-events: none;
+  /* 54px keeps the pager chevrons and dots clear. */
+  padding: 0 14px calc(54px + env(safe-area-inset-bottom, 0px));
+}
+
+.zelda-touch-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.zelda-stick-label {
+  font-family: var(--font-machine);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  line-height: 1.7;
+  text-align: center;
+  color: rgba(47, 243, 255, 0.4);
+  border: 1px dashed rgba(47, 243, 255, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  pointer-events: none;
+}
+
+.zelda-touch-btns {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.zelda-padbtn {
+  font-family: var(--font-machine);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  min-width: 64px;
+  min-height: 64px;
+  border-radius: 8px;
+  background: rgba(11, 6, 22, 0.72);
+  border: 1px solid rgba(255, 210, 63, 0.55);
+  color: #ffd23f;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.zelda-padbtn-sword {
+  min-width: 76px;
+  min-height: 76px;
+  border-color: rgba(47, 243, 255, 0.6);
+  color: #2ff3ff;
+}
+
+.zelda-padbtn-small {
+  min-width: 48px;
+  min-height: 48px;
+  font-size: 12px;
+  border-color: rgba(185, 168, 217, 0.45);
+  color: #b9a8d9;
+}
+
+.zelda-padbtn:active {
+  background: rgba(47, 243, 255, 0.18);
+}
+
+.zelda-touch-paused {
+  justify-content: center;
+  pointer-events: auto;
+}
+
+/* Landscape phones: deck docks right, beside the room. */
+@media (min-aspect-ratio: 1/1) and (max-height: 500px) {
+  .zelda-touch {
+    left: auto;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 21vw;
+    display: flex;
+    align-items: flex-end;
+    padding: 0 10px 12px 0;
+  }
+
+  .zelda-touch-row {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .zelda-touch-btns {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .zelda-stick-label {
+    display: none;
+  }
 }
 </style>

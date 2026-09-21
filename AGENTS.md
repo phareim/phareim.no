@@ -505,6 +505,40 @@ so the renderer draws no respawn ring; Muse's first engine attempt was cut
 off by its per-response output limit — it needed the "write in small
 modules, one per call" instruction to finish.
 
+## Neon Shrine — LTTP pixel-art direction (2026-09-21, still parked)
+
+Approved Petter task, Codex design, Muse implementation. The abstract
+neon-geometry look is replaced with handcrafted 16-bit pixel art, all
+original code-drawn maps in `renderer.ts` (`SPRITES`: hero down/up/side ×
+2 walk frames with hood/face/tunic/boots, six distinct enemy silhouettes,
+pixel hearts). One logical pixel = tile/16, `fillRect` only, no smoothing.
+Direction in `themes/zelda/DESIGN.md`.
+
+**What changed.** Neighbor-aware tiles (merging stone wall tops + faces,
+water banks/foam, shaded tree crowns with visible trunks, dirt-path `,`
+tiles), visible portal exit posts with gold lamps, sword pickup on a stone
+marker, swing in three beats (anticipation lean / lunge + stepped pixel arc
++ white blade at `SWORD_REACH`) on unchanged engine timing, single white hit
+flash, corner-tick telegraphs, gold square-burst rewards. Vivid green and
+violet outlines removed; terrain is muted plum/slate, only cyan/pink/gold
+saturate. Striped sun/stars/ridge live only in the letterbox, never under
+combat. Compact title bar (room visible behind), pixel-heart HUD. Touch deck
+in the reserved space: DRAG TO MOVE marker, SWORD (repeats while held) +
+USE buttons ≥64 px, pause; paused touch overlay has RESUME + QUIT; 6 px
+stick dead zone. Theme stays `disabled: true`.
+
+**Checks.** `npm run test:zelda` (62 tests: 42 engine + 12 world + 3 smoke +
+5 sprite/palette, incl. retired-accent regression; in CI). Verified
+2026-09-21 in headless Chromium: 1440×900 (attract, keyboard play + swing
+arc, portal meadow→glade, P pause, 3 s Esc-hold quit → RESTING → Enter
+continues), 375×667 touch (tap start, stick drag moves, SWORD button fires
+with repeat, USE/II visible, deck clears pager dots), 667×375 (deck docks
+right); `/nope` 404; no page errors, no overflow. Typecheck + production
+build green. **Limitations:** physical-phone feel unmeasured (emulation
+only); reduced motion honored in code, not re-shot this round; chest-open
+via USE button not end-to-end exercised (same flag path as keyboard E,
+engine-tested); combat tuning untouched.
+
 ## Hall of Fame — the global leaderboard (2026-09-08)
 
 `?theme=leaderboard` is the tenth live theme, third to last in the rotation: the
