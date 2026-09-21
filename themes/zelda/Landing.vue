@@ -111,7 +111,13 @@ function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | n
   position: absolute;
   left: 0;
   right: 0;
-  top: 7vh;
+  /* Title card sits over the room's open lower ground, never on its top edge. */
+  top: 64vh;
+}
+
+/* Portrait: the room fills the upper half; the card goes just below it. */
+@media (orientation: portrait) {
+  .zelda-title-block { top: 58vh; }
 }
 
 .zelda-hints {
@@ -207,7 +213,7 @@ function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | n
 
 /* Landscape phones: a small logo above the room, hints in one line, nothing under the pager dots. */
 @media (max-height: 480px) {
-  .zelda-title-block { top: 4vh; }
+  .zelda-title-block { top: 56vh; }
   .zelda-logo { font-size: 1.1em !important; margin-bottom: 0.2em; }
   .zelda-hints { padding: 0.4em 0.9em; margin-top: 0.3em; }
   .zelda-hint { font-size: 0.75em; margin: 0.15em 0; }

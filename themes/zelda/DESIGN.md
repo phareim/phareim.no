@@ -76,6 +76,26 @@ assignment (Codex design, Muse implementation).
   blur/hidden/cancel/unmount; navigation lock unchanged.
 - Reduced motion: hard cuts, no bob/pulse/shake/particles, idle draws once.
 
+## Revision 2026-09-21 (look lab) — supersedes the palette and map notes above
+
+The first pass followed "restrained contrast" into a room that sat within a
+few percent of the page background. What holds now:
+
+- **Value first.** The room is a lit diorama on a dark page: violet ground
+  (`#2a2355`) well above `#0b0616`; solids separate from ground by value
+  AND hue (teal canopies, lavender-rose rock); the rose trail is the
+  lightest large shape. Terrain stays far less saturated than the three
+  accents, which keep their jobs (cyan hero, pink danger, gold treasure).
+- **Masses, not tiles.** Trees merge into canopy masses, the overworld
+  boundary is a forested cliff, trails are connected and edge-aware, the
+  floor carries sparse authored motifs instead of noise. All of it lives in
+  `terrain.ts`; a new look is a new `terrain.ts`.
+- **Light.** Warm rims on top edges (the setting sun), contact shadows
+  under sprites and tall solids, gold pools at lamps, a gentle vignette.
+- **Crisp.** Logical pixels are whole device pixels wherever the room does
+  not have to shrink more than 10 % for it.
+- **Feel.** Flush wall contact, corner assist, buffered sword presses.
+
 ## Non-goals (unchanged)
 
 Parked status, theme id, engine determinism, saves (`zeldaSave` v1),

@@ -491,9 +491,17 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
     ah = Math.max(1, ah)
     // Snap the tile so one logical pixel (tile / 16) is a whole number of
     // DEVICE pixels — otherwise sprite pixels come out uneven sizes.
+    // On dense screens (dpr >= 2) a snap that would cost more than 10 % of
+    // the room is skipped: uneven logical pixels are invisible there, a
+    // shrunken room is not.
     const raw = Math.min(aw / roomW, ah / roomH)
     const q = 16 / dprEff
-    tile = raw >= q ? Math.floor(raw / q) * q : Math.max(1, Math.floor(raw))
+    const snapped = Math.floor(raw / q) * q
+    if (raw < q || (dprEff >= 2 && snapped < raw * 0.9)) {
+      tile = Math.max(1, Math.floor(raw * dprEff) / dprEff)
+    } else {
+      tile = snapped
+    }
     const rw = tile * roomW
     const rh = tile * roomH
     const snap = (v: number): number => Math.round(v * dprEff) / dprEff
@@ -538,7 +546,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
     // half-pixel overdraw so no seams show.
     const du = u * dprEff
     const exact = Math.abs(du - Math.round(du)) < 0.01
-    const over = exact ? 0 : 0.5
+    const over = exact ? 0 : 1 / dprEff
     if (exact) {
       dx = Math.round(dx * dprEff) / dprEff
       dy = Math.round(dy * dprEff) / dprEff
@@ -839,7 +847,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world?: World): Render
       g.fillStyle = halo
       g.fillRect(sunX - sunR * 2, horizon - sunR * 2, sunR * 4, sunR * 2)
       const px = 4 // stepped row height
-      g.globalAlpha = portrait ? 0.4 : 0.8
+      g.globalAlpha = portrait ? 0.28 : 0.8
       const rows = sunR / px
       for (let i = 0; i < rows; i++) {
         // i = 0 at the horizon, growing upward. Lower rows are cut by

@@ -539,6 +539,51 @@ only); reduced motion honored in code, not re-shot this round; chest-open
 via USE button not end-to-end exercised (same flag path as keyboard E,
 engine-tested); combat tuning untouched.
 
+## Neon Shrine — look lab and the violet-dusk terrain (2026-09-21, still parked)
+
+Petter found the first pixel pass too dark and gave Claude a free hand. A
+look lab ran the same day: the static-room painter was pulled out of
+`renderer.ts` into **`themes/zelda/terrain.ts`** (`TerrainEnv`, `paintTile`,
+`paintAmbient`, `hash2`), so a look is one file. Three Muse jobs painted
+alternatives in worktrees (branches `zelda-lab/teal`, `zelda-lab/sunset`,
+`zelda-lab/blacklight`, local only), Claude painted `zelda-lab/dusk`.
+Verdict: teal was readable but generic (crate-like trees, cyan hero sinks
+into teal ground); blacklight kept the night and lost the trees; sunset had
+the best mood but slab trees; **dusk won** and took sunset's warm rim light
+and rose trail. Compare with `node scripts/zelda-lab/shot.mjs <repoDir>
+<outDir> [prefix]` — esbuild + headless Chromium, real renderer/engine/world,
+no Nuxt (snap Chromium: `outDir` must be a non-hidden path under `$HOME`).
+
+**Look.** Violet ground clearly above the `#0b0616` page, sparse authored
+motifs (no static); `,` tiles are now authored as **connected trails**
+(`world.ts`, collision unchanged) with neighbour-aware edges; adjacent `T`
+merge into one canopy mass; the overworld `#` boundary is a forested cliff
+(rock face on the north side, lips elsewhere) — brick is kept for other
+areas via `env.area`; pixel-map pot and gravestone; lamp light pools and a
+vignette in `paintAmbient`. Sprites get contact shadows. The sun is a big
+stepped half-disc on the ridge (left letterbox; dimmed behind the deck in
+portrait). Title card sits over the room's lower ground, not its top edge.
+
+**Pixels and layout.** The tile snaps so one logical pixel is a whole number
+of device pixels (skipped on dpr ≥ 2 when it would cost > 10 % of the room);
+`resize(w, h, dpr, touch)` — dpr up to 3, and without touch the landscape
+side reserves shrink (room 960×704 at 1440×900).
+
+**Feel (engine).** Blocked movement now ends **flush** against the obstacle
+— before, walking into a locked door with a key opened it only when the
+step quantisation happened to land within 0.02 tiles. Axis-aligned walks
+**slip round tile corners** (`CORNER_ASSIST` 0.3). Sword presses are
+**buffered** (`ATTACK_BUFFER` 0.14 s; `Player.attackBuf`, not saved). The
+blade is a solid pixel sword with a thin crescent smear.
+
+**Checks.** `npm run test:zelda`: 67 tests (5 new feel regressions; the
+scripted-run bot got a larger step budget). Verified 2026-09-21 in headless
+Chromium against `nuxi dev`: 1440×900, 375×667 touch, 667×375 — attract,
+start, move, swing, portal, pause, no page errors, no overflow; lab shots at
+390×844 dpr 3. Typecheck + build green. **Limitations:** still no
+physical-phone playtest; reduced motion not re-shot; only the two phase-1
+rooms exist, dungeon brick is recoloured but unseen.
+
 ## Hall of Fame — the global leaderboard (2026-09-08)
 
 `?theme=leaderboard` is the tenth live theme, third to last in the rotation: the

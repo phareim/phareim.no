@@ -68,6 +68,7 @@ const html = join(out, `_${prefix}.html`)
 writeFileSync(html, `<!doctype html><meta charset="utf-8"><body><script src="${bundle}"></script>`)
 
 const SHOTS = [
+  ["meadow-390x3", "meadow", 390, 844, 3],
   ['meadow-1440', 'meadow', 1440, 900, 1],
   ['glade-1440', 'glade', 1440, 900, 1],
   ['swing-1440', 'swing', 1440, 900, 1],
