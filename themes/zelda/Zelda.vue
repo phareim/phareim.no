@@ -1,104 +1,126 @@
 <template>
   <canvas ref="canvas" class="zelda-canvas" />
-  <EscHold :is-active="() => phase === 'play'" :paused="paused" @tap="togglePause" @hold="quit" />
-  <!-- Touch deck: lives in the renderer's reserved portrait/landscape space.
-    SWORD + USE are real buttons (>=64px); the left thumb zone keeps the
-    floating stick. Paused touch players get RESUME + QUIT. -->
-  <div v-if="touchUI && phase === 'play'" class="zelda-touch">
-    <div v-if="!paused" class="zelda-touch-row">
-      <div class="zelda-stick-label">DRAG<br />TO MOVE</div>
-      <div class="zelda-touch-btns">
-        <button
-          class="zelda-padbtn"
-          @pointerdown.prevent="pressUse"
-          @pointerup="releaseBtn"
-          @pointercancel="releaseBtn"
-          @contextmenu.prevent
-        >USE</button>
-        <button
-          class="zelda-padbtn zelda-padbtn-sword"
-          @pointerdown.prevent="pressAttack"
-          @pointerup="releaseBtn"
-          @pointercancel="releaseBtn"
-          @contextmenu.prevent
-        >SWORD</button>
-        <button
-          class="zelda-padbtn zelda-padbtn-small"
-          @pointerdown.prevent="togglePause"
-          @contextmenu.prevent
-        >II</button>
+  <EscHold :is-active="() => phase === 'play'" :paused="paused" :show-paused="false" @tap="togglePause" @hold="quit" />
+  <!-- Touch deck. Portrait: a console band under the view (the renderer
+    leaves it free). Landscape: buttons float bottom-right over the world.
+    The floating stick starts anywhere on the left 60 % that isn't a button. -->
+  <div v-if="touchUI && phase === 'play'" class="zelda-deck" :class="{ 'zelda-deck--band': band > 0 }" :style="band ? { height: band + 'px' } : undefined">
+    <template v-if="!paused">
+      <div v-if="band" class="zelda-stick-hint">DRAG<br>TO MOVE</div>
+      <div class="zelda-deck-small">
+        <button v-if="itemIcon" class="zelda-chip" @pointerdown.prevent.stop="cycle" @contextmenu.prevent>
+          <span class="zelda-chip-label">SWAP</span>
+        </button>
+        <button class="zelda-chip" aria-label="Pause" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>II</button>
       </div>
-    </div>
-    <div v-else class="zelda-touch-row zelda-touch-paused">
-      <button class="zelda-padbtn" @pointerdown.prevent="togglePause" @contextmenu.prevent>RESUME</button>
-      <button class="zelda-padbtn" @pointerdown.prevent="quit" @contextmenu.prevent>QUIT</button>
+      <div class="zelda-deck-btns">
+        <button
+          class="zelda-pad zelda-pad-b"
+          :class="{ 'zelda-pad--off': !itemIcon }"
+          @pointerdown.prevent.stop="pressB"
+          @contextmenu.prevent
+        >
+          <img v-if="itemIcon" :src="itemIcon" alt="" class="zelda-pad-icon">
+          <span class="zelda-pad-letter">B</span>
+        </button>
+        <button
+          class="zelda-pad zelda-pad-a"
+          @pointerdown.prevent.stop="pressA"
+          @pointerup.prevent.stop="releaseA"
+          @pointercancel="releaseA"
+          @pointerleave="releaseA"
+          @contextmenu.prevent
+        ><span class="zelda-pad-letter">A</span></button>
+      </div>
+    </template>
+    <div v-else class="zelda-deck-paused">
+      <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>RESUME</button>
+      <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="quit" @contextmenu.prevent>QUIT</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 /**
- * NEON SHRINE — loop, input, phases and audio for the top-down adventure.
- * The simulation is `engine.ts` (pure), the world `world.ts` (data), the
- * picture `renderer.ts` (Canvas 2D). This file owns the clock, the
- * pointers, the save file and the navigation lock, following OutRun.vue.
+ * NEON SHRINE — the shell: clock, input, touch deck, audio, saves and the
+ * navigation lock. The game is `engine/` (pure), `world/` (data) and
+ * `render/` (Canvas). Phases: attract (camera drifts over the overworld,
+ * silent, never saved) → play → over (Escape hold: progress kept) or won.
  *
- * Phases: `attract` (autopilot demo, silent, never saved) → `play` → `over`
- * (Escape hold: progress kept, no automatic respawn) or `won`.
- *
- * Keys: arrows / WASD move, Space / J sword, E / K interact, P or an Escape
- * tap pause, Enter start, N new game. Touch: the first finger on the left
- * 60 % of the canvas becomes a floating stick (direction = offset from where
- * it landed, 6 px dead zone); SWORD / USE are visible buttons below the room
- * (SWORD repeats while held), plus a pause button. A right-side hold still
- * interacts as a fallback.
+ * Keys: arrows / WASD move; Space / J / Z = A (sword, talk, lift, throw;
+ * hold then release for a spin); K / X / Shift = B (item); Q / Tab swap
+ * item; Enter = A in play; P or an Escape tap pause. Touch: floating stick
+ * on the left, A / B buttons on the right, SWAP and pause chips.
  */
-
 import EscHold from '../base/EscHold.vue'
-import { createGame, stepGame, autopilot, toSave, parseSave } from './engine'
-import { WORLD } from './world'
-import { createRenderer } from './renderer'
-import { SAVE_KEY, BEST_KEY, type GameState, type GameEvent, type Input, type Renderer, type FrameUI } from './types'
+import { createGame, stepGame, toSave, parseSave } from './engine/index'
+import { WORLD } from './world/index'
+import { createRenderer, type FrameUI, type Renderer } from './render/renderer'
+import { sprite } from './render/sheet'
+import { createZeldaAudio, type SfxName, type ZeldaAudio } from './audio'
+import { SAVE_KEY, BEST_KEY, NO_INPUT, type GameState, type GameEvent, type Input, type TrackId, type UseItem } from './types'
 
 type Phase = 'attract' | 'play' | 'over' | 'won'
-type Style = 'zelda' | 'zeldaDungeon' | 'zeldaBoss'
 
 const emit = defineEmits<{
   phase: [phase: Phase]
   result: [result: { reason: 'quit' | 'won'; elapsed: number; best: number | null }]
 }>()
 
-const STICK_PX = 40 // finger offset that means full speed
-const STICK_ZONE = 0.6 // left share of the canvas that owns the stick
-const HOLD_MS = 350 // a right-side hold this long interacts instead of swinging
-const TAP_PX = 10 // idle taps that move less than this start the game
+const STICK_PX = 38
+const TAP_PX = 10
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const paused = ref(false)
 const phase = ref<Phase>('attract')
 const touchUI = ref(false)
+const band = ref(0)
+const selected = ref<UseItem | null>(null)
 const { navigationLocked } = useTheme()
 const sound = useSound()
 
 let renderer: Renderer | null = null
+let audio: ZeldaAudio | null = null
 let state: GameState = createGame(WORLD, { demo: true })
 let raf = 0
 let lastT = 0
 let hitStopMs = 0
 let reducedMotion = false
-let attractDrawn = false
-let music: Style | null = null
+let attractT = 0
+let lowHpT = 0
+let track: TrackId | null = null
 
-const ui: FrameUI = { banner: null, paused: false, reducedMotion: false, alpha: 1, stick: null, hint: '' }
+const ui: FrameUI = {
+  paused: false, reducedMotion: false, touch: false, stick: null, attract: true, cam: null, banner: null,
+  keys: { a: 'SPACE', b: 'K', cycle: 'Q' },
+}
 
-// ---- input ------------------------------------------------------------------
+const iconCache = new Map<string, string>()
+const itemIcon = computed(() => {
+  const s = selected.value
+  if (!s) return ''
+  const name = s === 'disc' ? 'item_disc' : 'item_bombbag'
+  if (!import.meta.client) return ''
+  let url = iconCache.get(name)
+  if (!url) { url = sprite(name).toDataURL(); iconCache.set(name, url) }
+  return url
+})
+
+// ---- input -------------------------------------------------------------------
 
 const keys = new Set<string>()
-let attackPending = false
-let interactPending = false
+let aHeldKey = false
+let aHeldTouch = false
+let aPress = false
+let bPress = false
+let cyclePress = false
 let stick: { id: number; ox: number; oy: number; dx: number; dy: number } | null = null
-let hold: { id: number; t: number; done: boolean } | null = null
 let idleTap: { id: number; x: number; y: number } | null = null
+
+const A_KEYS = new Set(['Space', 'KeyJ', 'KeyZ', 'Enter'])
+const B_KEYS = new Set(['KeyK', 'KeyX', 'ShiftLeft', 'ShiftRight'])
+const CYCLE_KEYS = new Set(['KeyQ', 'Tab', 'KeyC'])
+const MOVE_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'KeyW', 'KeyS'])
 
 function readInput(): Input {
   let x = 0
@@ -108,32 +130,39 @@ function readInput(): Input {
   if (keys.has('ArrowUp') || keys.has('KeyW')) y -= 1
   if (keys.has('ArrowDown') || keys.has('KeyS')) y += 1
   if (stick) {
-    // 6px dead zone so a resting thumb reads as still.
-    const len0 = Math.hypot(stick.dx, stick.dy)
-    if (len0 < 6) { x = 0; y = 0 }
-    else { x = stick.dx / STICK_PX; y = stick.dy / STICK_PX }
+    const len = Math.hypot(stick.dx, stick.dy)
+    if (len < 7) { x = 0; y = 0 } else { x = stick.dx / STICK_PX; y = stick.dy / STICK_PX }
   }
   const len = Math.hypot(x, y)
   if (len > 1) { x /= len; y /= len }
-  // A long right-side hold turns into one interact instead of a second swing.
-  if (hold && !hold.done && performance.now() - hold.t > HOLD_MS) {
-    hold.done = true
-    interactPending = true
+  const input: Input = {
+    move: { x, y },
+    a: aHeldKey || aHeldTouch,
+    aPress,
+    bPress,
+    cycle: cyclePress,
+    autoFace: touchUI.value,
   }
-  const input: Input = { move: { x, y }, attack: attackPending, interact: interactPending, autoFace: stick !== null || hold !== null }
-  attackPending = false
-  interactPending = false
+  aPress = false
+  bPress = false
+  cyclePress = false
   return input
 }
 
 function clearInput() {
   keys.clear()
-  attackPending = false
-  interactPending = false
+  aHeldKey = false
+  aHeldTouch = false
+  aPress = false
+  bPress = false
+  cyclePress = false
   stick = null
-  hold = null
   idleTap = null
   ui.stick = null
+}
+
+function isInteractive(el: EventTarget | null) {
+  return !!(el as HTMLElement | null)?.closest?.('a, button, .theme-pager, .radio-widget')
 }
 
 function canvasPoint(e: PointerEvent) {
@@ -142,30 +171,38 @@ function canvasPoint(e: PointerEvent) {
 }
 
 function onPointerDown(e: PointerEvent) {
-  if (e.pointerType === 'touch' && !touchUI.value) touchUI.value = true
+  if (e.pointerType === 'touch' && !touchUI.value) { touchUI.value = true; resize() }
   if (isInteractive(e.target)) return
   const p = canvasPoint(e)
-  if (phase.value !== 'play') {
-    idleTap = { id: e.pointerId, x: p.x, y: p.y }
-    return
-  }
+  if (phase.value !== 'play') { idleTap = { id: e.pointerId, x: p.x, y: p.y }; return }
   if (paused.value) return
-  if (e.pointerType !== 'mouse' && p.x < p.w * STICK_ZONE) {
-    if (!stick) stick = { id: e.pointerId, ox: p.x, oy: p.y, dx: 0, dy: 0 }
-    return
+  if (e.pointerType === 'mouse') return
+  if (!stick && p.x < p.w * 0.6) {
+    stick = { id: e.pointerId, ox: p.x, oy: p.y, dx: 0, dy: 0 }
+    ui.stick = { ox: p.x, oy: p.y, dx: 0, dy: 0 }
+  } else if (p.x >= p.w * 0.6) {
+    // A tap on the right half of the world is a sword press too.
+    aPress = true
   }
-  attackPending = true
-  if (e.pointerType !== 'mouse' && !hold) hold = { id: e.pointerId, t: performance.now(), done: false }
 }
 
 function onPointerMove(e: PointerEvent) {
   if (!stick || stick.id !== e.pointerId) return
   const p = canvasPoint(e)
-  stick.dx = p.x - stick.ox
-  stick.dy = p.y - stick.oy
-  const len = Math.hypot(stick.dx, stick.dy)
-  if (len > STICK_PX) { stick.dx *= STICK_PX / len; stick.dy *= STICK_PX / len }
-  ui.stick = { originX: stick.ox, originY: stick.oy, dx: stick.dx, dy: stick.dy }
+  let dx = p.x - stick.ox
+  let dy = p.y - stick.oy
+  const len = Math.hypot(dx, dy)
+  if (len > STICK_PX) {
+    // The stick follows a finger that drifts too far, so it never goes dead.
+    const over = len - STICK_PX
+    stick.ox += (dx / len) * over
+    stick.oy += (dy / len) * over
+    dx = p.x - stick.ox
+    dy = p.y - stick.oy
+  }
+  stick.dx = dx
+  stick.dy = dy
+  ui.stick = { ox: stick.ox, oy: stick.oy, dx, dy }
 }
 
 function onPointerUp(e: PointerEvent) {
@@ -179,73 +216,51 @@ function onPointerUp(e: PointerEvent) {
     }
     return
   }
-  releasePointer(e.pointerId)
+  if (stick?.id === e.pointerId) { stick = null; ui.stick = null }
 }
 
 function onPointerCancel(e: PointerEvent) {
   if (idleTap?.id === e.pointerId) idleTap = null
-  releasePointer(e.pointerId)
+  if (stick?.id === e.pointerId) { stick = null; ui.stick = null }
 }
 
-function releasePointer(id: number) {
-  if (stick?.id === id) { stick = null; ui.stick = null }
-  if (hold?.id === id) hold = null
-}
-
-function isInteractive(el: EventTarget | null) {
-  return !!(el as HTMLElement | null)?.closest?.('a, button, .theme-pager')
-}
-
-// ---- touch buttons (SWORD repeats while held, USE fires once) ---------------
-
-let btnRepeat = 0
-
-function pressAttack() {
-  if (phase.value !== 'play' || paused.value) return
-  attackPending = true
-  window.clearInterval(btnRepeat)
-  btnRepeat = window.setInterval(() => {
-    if (phase.value === 'play' && !paused.value) attackPending = true
-  }, 280)
-}
-
-function pressUse() {
-  if (phase.value !== 'play' || paused.value) return
-  interactPending = true
-}
-
-function releaseBtn() {
-  window.clearInterval(btnRepeat)
-}
-
-const GAME_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS', 'KeyE', 'KeyJ', 'KeyK'])
+function pressA() { if (phase.value === 'play' && !paused.value) { aPress = true; aHeldTouch = true } }
+function releaseA() { aHeldTouch = false }
+function pressB() { if (phase.value === 'play' && !paused.value) bPress = true }
+function cycle() { if (phase.value === 'play' && !paused.value) cyclePress = true }
 
 function onKeyDown(e: KeyboardEvent) {
   if (isInteractive(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
-  if (e.code === 'Enter' && !e.repeat) {
-    if (phase.value === 'attract' || phase.value === 'over') { e.preventDefault(); startRun(false) }
-    else if (phase.value === 'won') { e.preventDefault(); startRun(true) }
+  if (phase.value !== 'play') {
+    if (e.code === 'Enter' && !e.repeat) { e.preventDefault(); startRun(phase.value === 'won') }
+    else if (e.code === 'KeyN' && !e.repeat) { e.preventDefault(); startRun(true) }
     return
   }
-  if (e.code === 'KeyN' && !e.repeat && phase.value !== 'play') { e.preventDefault(); startRun(true); return }
-  if (phase.value !== 'play') return
-  if (e.code === 'KeyP') { if (!e.repeat) togglePause(); e.preventDefault(); return }
-  if (!GAME_KEYS.has(e.code)) return
+  if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) togglePause(); return }
+  const game = MOVE_KEYS.has(e.code) || A_KEYS.has(e.code) || B_KEYS.has(e.code) || CYCLE_KEYS.has(e.code)
+  if (!game) return
   e.preventDefault()
-  if (e.repeat || paused.value) return
-  if (e.code === 'Space' || e.code === 'KeyJ') attackPending = true
-  else if (e.code === 'KeyE' || e.code === 'KeyK') interactPending = true
-  else keys.add(e.code)
+  if (paused.value) return
+  if (MOVE_KEYS.has(e.code)) { keys.add(e.code); return }
+  if (e.repeat) return
+  if (A_KEYS.has(e.code)) { aPress = true; aHeldKey = true }
+  else if (B_KEYS.has(e.code)) bPress = true
+  else if (CYCLE_KEYS.has(e.code)) cyclePress = true
 }
 
-function onKeyUp(e: KeyboardEvent) { keys.delete(e.code) }
+function onKeyUp(e: KeyboardEvent) {
+  keys.delete(e.code)
+  if (A_KEYS.has(e.code)) aHeldKey = false
+}
 
-// ---- phases -----------------------------------------------------------------
+// ---- phases --------------------------------------------------------------------
 
 function setPhase(p: Phase) {
   phase.value = p
   navigationLocked.value = p === 'play'
+  ui.attract = p !== 'play'
   emit('phase', p)
+  resize()
 }
 
 function loadSave() {
@@ -261,46 +276,64 @@ function persist() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)) } catch { /* private mode */ }
 }
 
-/** Enter or continue a run. `fresh` discards the save first (NEW GAME / after a win). */
 function startRun(fresh: boolean) {
   if (fresh) { try { localStorage.removeItem(SAVE_KEY) } catch { /* ignore */ } }
+  audio?.unlock()
+  sound.unlock()
   const save = fresh ? null : loadSave()
-  state = createGame(WORLD, { save, seed: (Date.now() >>> 0) })
+  state = createGame(WORLD, { save, seed: Date.now() >>> 0 })
   clearInput()
   paused.value = false
   hitStopMs = 0
+  track = null
+  ui.banner = null
+  selected.value = state.inv.selected
   setPhase('play')
-  sound.unlock()
-  music = null
-  enterRoom(state.room.id)
+  const area = state.area
+  playTrack(trackFor(state))
+  ui.banner = { text: area, t: 0 }
   lastT = 0
 }
 
-function enterRoom(id: string) {
-  const room = WORLD.rooms[id]
-  if (!room) return
-  ui.banner = { text: room.name, t: 1.6 }
-  const style: Style = room.area === 'boss' ? 'zeldaBoss' : room.area === 'dungeon' ? 'zeldaDungeon' : 'zelda'
-  if (style !== music) { music = style; sound.music.start(style) }
+function trackFor(s: GameState): TrackId {
+  const def = WORLD.maps[s.map.id]!
+  if (def.areas) {
+    const h = s.hero
+    const a = def.areas.find(r => h.x >= r.x && h.x < r.x + r.w && h.y >= r.y && h.y < r.y + r.h)
+    return a?.track ?? def.track
+  }
+  if (def.cell) {
+    const cols = Math.ceil(def.rows[0]!.length / def.cell.w)
+    const key = `${s.zoneIndex % cols},${Math.floor(s.zoneIndex / cols)}`
+    return def.cells?.[key]?.track ?? def.track
+  }
+  return def.track
+}
+
+function playTrack(t: TrackId | null) {
+  if (t === track) return
+  track = t
+  audio?.music(t)
 }
 
 function togglePause() {
   if (phase.value !== 'play') return
   paused.value = !paused.value
   clearInput()
-  if (paused.value) sound.music.stop(false)
-  else if (music) sound.music.start(music)
+  audio?.sfx('menu')
+  audio?.pause(paused.value)
 }
 
 function quit() {
   if (phase.value !== 'play') return
   persist()
   paused.value = false
+  audio?.pause(false)
   clearInput()
-  sound.music.stop()
-  music = null
+  playTrack(null)
   setPhase('over')
   emit('result', { reason: 'quit', elapsed: state.elapsed, best: readBest() })
+  backToAttract()
 }
 
 function readBest(): number | null {
@@ -311,10 +344,9 @@ function readBest(): number | null {
 }
 
 function finishWon() {
-  persist()
+  try { localStorage.removeItem(SAVE_KEY) } catch { /* ignore */ }
   clearInput()
-  sound.music.stop()
-  music = null
+  playTrack('ending')
   const prev = readBest()
   const best = prev === null || state.elapsed < prev ? state.elapsed : prev
   if (best !== prev) { try { localStorage.setItem(BEST_KEY, String(best)) } catch { /* ignore */ } }
@@ -322,36 +354,82 @@ function finishWon() {
   emit('result', { reason: 'won', elapsed: state.elapsed, best })
 }
 
-// ---- events → sound + save -------------------------------------------------
+function backToAttract() {
+  state = createGame(WORLD, { demo: true })
+  attractT = 0
+}
+
+// ---- events → sound, save, banner ----------------------------------------------
+
+const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
+  swing: 'sword', spin: 'spin', charged: 'charge', clank: 'clank', hurt: 'hurt', shock: 'shock',
+  cut: 'cut', shatter: 'shatter', lift: 'lift', throw: 'throw', unlock: 'unlock', gate: 'gate',
+  plate: 'plate', crystal: 'crystal', push: 'push', bombPlace: 'bombPlace', boom: 'boom', disc: 'disc',
+  discHit: 'discHit', fall: 'fall', reflect: 'reflect', warp: 'stairs', text: 'text', talk: 'select',
+  error: 'error', cycle: 'select', died: 'die', bossPhase: 'bossRoar',
+}
 
 function handleEvents(events: GameEvent[]) {
-  const s = sound.sfx
+  const a = audio
+  let save = false
   for (const e of events) {
+    const name = SFX[e.type]
+    if (name) a?.sfx(name)
     switch (e.type) {
-      case 'swing': s.laser(); break
-      case 'swordHit': s.hit(); break
-      case 'swordClank': s.wall(); break
-      case 'playerHit': s.lifeLost(); break
-      case 'playerDied': s.death(); break
-      case 'respawn': s.shield(); persist(); break
-      case 'enemyDied': s.explosion(); break
-      case 'potSmash': s.brickBreak(); break
-      case 'grassCut': s.brick(); break
-      case 'pickup': s.powerup(); break
-      case 'chestOpened': s.extraLife(); persist(); break
-      case 'reward': if (e.reward.kind !== 'relic') s.extraLife(); persist(); break
-      case 'doorUnlocked': case 'doorOpened': s.checkpoint(); persist(); break
-      case 'roomEnter': enterRoom(e.room); persist(); break
-      case 'bossPhase': s.levelup(); break
-      case 'bossDefeated': s.levelClear(); persist(); break
-      case 'won': s.win(); break
-      case 'shoot': s.enemyShoot(); break
+      case 'hit': a?.sfx(e.kind === 'king' || e.kind === 'knight' ? 'bossHit' : e.killed ? 'kill' : 'hit'); break
+      case 'collect': a?.sfx(e.kind === 'heart' ? 'heart' : e.kind === 'key' ? 'key' : 'coin'); break
+      case 'chest': a?.sfx('chest'); break
+      case 'itemGet':
+        a?.jingle(e.item === 'prism' ? 'fanfare' : e.item === 'heartPiece' || e.item === 'heartContainer' ? 'heartPiece' : 'item')
+        save = true
+        break
+      case 'secret': a?.jingle('secret'); save = true; break
+      case 'shoot': a?.sfx(e.kind === 'laser' ? 'laser' : 'pellet'); break
+      case 'buy': if (!e.ok) a?.sfx('error'); break
+      case 'bossDown': a?.sfx('bossDie'); a?.jingle('fanfare'); save = true; break
+      case 'unlock': case 'gate': save = true; break
+      case 'enter':
+        save = true
+        ui.banner = { text: e.area, t: 0 }
+        playTrack(e.track)
+        break
+      case 'area':
+        ui.banner = { text: e.name, t: 0 }
+        playTrack(e.track)
+        break
+      case 'scroll': break
+      case 'respawn': save = true; break
+      case 'died': a?.jingle('gameOver'); break
       case 'hitStop': if (!reducedMotion) hitStopMs = Math.max(hitStopMs, e.ms); break
     }
   }
+  if (save) persist()
 }
 
-// ---- loop -------------------------------------------------------------------
+// ---- loop -------------------------------------------------------------------------
+
+const ATTRACT_PATH = [
+  { x: 40, y: 11 }, { x: 50, y: 34 }, { x: 14, y: 30 }, { x: 57, y: 12 }, { x: 12, y: 8 },
+]
+
+function attractCam(dt: number) {
+  if (!reducedMotion) attractT += dt
+  const seg = 9
+  const n = ATTRACT_PATH.length
+  const i = Math.floor(attractT / seg) % n
+  const f = (attractT % seg) / seg
+  const e = f < 0.5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2
+  const a = ATTRACT_PATH[i]!
+  const b = ATTRACT_PATH[(i + 1) % n]!
+  const v = renderer!.viewTiles()
+  const map = WORLD.maps.overworld!
+  const mw = map.rows[0]!.length
+  const mh = map.rows.length
+  const cx = a.x + (b.x - a.x) * e - v.w / 2
+  const cy = a.y + (b.y - a.y) * e - v.h / 2
+  ui.cam = { x: Math.max(0, Math.min(mw - v.w, cx)), y: Math.max(0, Math.min(mh - v.h, cy)) }
+  state.zone = { x: ui.cam.x, y: ui.cam.y, w: v.w, h: v.h }
+}
 
 function frame(nowMs: number) {
   raf = requestAnimationFrame(frame)
@@ -360,40 +438,31 @@ function frame(nowMs: number) {
   lastT = nowMs
   ui.paused = paused.value
   ui.reducedMotion = reducedMotion
+  ui.touch = touchUI.value
+  ui.keys = touchUI.value ? { a: 'A', b: 'B', cycle: 'SWAP' } : { a: 'SPACE', b: 'K', cycle: 'Q' }
 
   if (phase.value === 'play') {
-    ui.hint = ''
+    ui.cam = null
     if (paused.value) { renderer.draw(state, ui, 0); return }
-    if (hitStopMs > 0) { hitStopMs -= dt * 1000; renderer.draw(state, ui, dt); return }
+    if (hitStopMs > 0) { hitStopMs -= dt * 1000; renderer.draw(state, ui, 0); return }
     const events = stepGame(WORLD, state, dt, readInput())
     renderer.onEvents(events)
     handleEvents(events)
-    tickBanner(dt)
+    if (ui.banner) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }
+    if (state.inv.selected !== selected.value) selected.value = state.inv.selected
+    if (state.hero.hp > 0 && state.hero.hp <= 2 && state.mode === 'play') {
+      lowHpT -= dt
+      if (lowHpT <= 0) { audio?.sfx('lowHp'); lowHpT = 1.2 }
+    }
     renderer.draw(state, ui, dt)
-    if (state.phase === 'won') finishWon()
+    if (state.mode === 'won') finishWon()
     return
   }
 
-  // Attract, over and won all show the demo world behind the panel.
-  ui.hint = ''
-  ui.banner = null
-  if (reducedMotion) {
-    if (attractDrawn) return
-    attractDrawn = true
-    renderer.draw(state, ui, 0)
-    return
-  }
-  if (phase.value === 'attract') {
-    const events = stepGame(WORLD, state, dt, autopilot(WORLD, state))
-    renderer.onEvents(events)
-  }
-  renderer.draw(state, ui, dt)
-}
-
-function tickBanner(dt: number) {
-  if (!ui.banner) return
-  ui.banner.t -= dt
-  if (ui.banner.t <= 0) ui.banner = null
+  // Attract / over / won: the overworld drifts by behind the title.
+  attractCam(dt)
+  if (!reducedMotion) stepGame(WORLD, state, dt, NO_INPUT)
+  renderer.draw(state, ui, reducedMotion ? 0 : dt)
 }
 
 function onVisibility() {
@@ -406,20 +475,25 @@ function onVisibility() {
 
 function resize() {
   if (!canvas.value || !renderer) return
-  renderer.resize(canvas.value.clientWidth, canvas.value.clientHeight, Math.min(devicePixelRatio || 1, 3), touchUI.value)
-  attractDrawn = false
+  const w = canvas.value.clientWidth
+  const h = canvas.value.clientHeight
+  const portraitTouch = touchUI.value && phase.value === 'play' && h > w
+  band.value = portraitTouch ? Math.round(Math.max(190, Math.min(290, h * 0.32))) : 0
+  renderer.resize(w, h, Math.min(devicePixelRatio || 1, 3), band.value)
 }
 
 let observer: ResizeObserver | null = null
+let muteStop: (() => void) | null = null
 
 onMounted(() => {
   if (!canvas.value) return
   reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   try {
     touchUI.value = window.matchMedia('(hover: none) and (pointer: coarse)').matches
-      || 'ontouchstart' in window
   } catch { touchUI.value = false }
   renderer = createRenderer(canvas.value, WORLD)
+  audio = createZeldaAudio()
+  muteStop = watch(sound.muted, (m: boolean) => audio?.setMuted(m), { immediate: true })
   resize()
   observer = new ResizeObserver(resize)
   observer.observe(canvas.value)
@@ -428,18 +502,19 @@ onMounted(() => {
   window.addEventListener('keyup', onKeyUp)
   window.addEventListener('blur', clearInput)
   document.addEventListener('visibilitychange', onVisibility)
-  // On window, like OutRun: the title/result panels sit above the canvas.
   window.addEventListener('pointerdown', onPointerDown)
   window.addEventListener('pointermove', onPointerMove)
   window.addEventListener('pointerup', onPointerUp)
   window.addEventListener('pointercancel', onPointerCancel)
   raf = requestAnimationFrame(frame)
+  // Dev-only handle for the headless play-throughs in scripts/zelda-lab.
+  if (import.meta.dev) (window as unknown as { __zelda: unknown }).__zelda = { get state() { return state }, get phase() { return phase.value } }
 })
 
 onBeforeUnmount(() => {
-  window.clearInterval(btnRepeat)
   cancelAnimationFrame(raf)
   observer?.disconnect()
+  muteStop?.()
   window.removeEventListener('resize', resize)
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('keyup', onKeyUp)
@@ -450,7 +525,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerup', onPointerUp)
   window.removeEventListener('pointercancel', onPointerCancel)
   if (phase.value === 'play') persist()
-  sound.music.stop()
+  audio?.dispose()
+  audio = null
   navigationLocked.value = false
 })
 </script>
@@ -462,112 +538,173 @@ onBeforeUnmount(() => {
   height: 100%;
   background: #0b0616;
   touch-action: none;
+  image-rendering: pixelated;
 }
 
-/* Touch deck in the renderer's reserved space: thumb hint left, buttons right. */
-.zelda-touch {
+.zelda-deck {
   position: absolute;
-  left: 0;
   right: 0;
   bottom: 0;
   z-index: 5;
   pointer-events: none;
-  /* 54px keeps the pager chevrons and dots clear. */
-  padding: 0 14px calc(54px + env(safe-area-inset-bottom, 0px));
-}
-
-.zelda-touch-row {
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
   gap: 12px;
-}
-
-.zelda-stick-label {
+  padding: 0 14px calc(14px + env(safe-area-inset-bottom, 0px));
   font-family: var(--font-machine);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  line-height: 1.7;
-  text-align: center;
-  color: rgba(47, 243, 255, 0.4);
-  border: 1px dashed rgba(47, 243, 255, 0.3);
-  border-radius: 8px;
-  padding: 12px 16px;
-  pointer-events: none;
 }
 
-.zelda-touch-btns {
+/* Portrait: a console band across the bottom. */
+.zelda-deck--band {
+  left: 0;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 18px calc(40px + env(safe-area-inset-bottom, 0px));
+  background:
+    linear-gradient(180deg, rgba(255, 47, 160, 0.55) 0, rgba(255, 47, 160, 0) 2px),
+    repeating-linear-gradient(0deg, rgba(47, 243, 255, 0.04) 0 1px, transparent 1px 6px),
+    #0e0720;
+}
+
+.zelda-stick-hint {
+  align-self: center;
+  width: 118px;
+  height: 118px;
+  border-radius: 50%;
+  border: 1px dashed rgba(47, 243, 255, 0.28);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  line-height: 1.6;
+  color: rgba(47, 243, 255, 0.4);
+}
+
+.zelda-deck-small {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   gap: 10px;
   pointer-events: auto;
 }
 
-.zelda-padbtn {
+.zelda-deck--band .zelda-deck-small {
+  margin-left: auto;
+  margin-right: 4px;
+}
+
+.zelda-chip {
+  min-width: 48px;
+  min-height: 40px;
+  border-radius: 20px;
+  background: rgba(11, 6, 22, 0.75);
+  border: 1px solid rgba(185, 168, 217, 0.45);
+  color: #b9a8d9;
   font-family: var(--font-machine);
-  font-size: 13px;
+  font-size: 11px;
   letter-spacing: 0.1em;
-  min-width: 64px;
-  min-height: 64px;
-  border-radius: 8px;
-  background: rgba(11, 6, 22, 0.72);
-  border: 1px solid rgba(255, 210, 63, 0.55);
-  color: #ffd23f;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }
 
-.zelda-padbtn-sword {
-  min-width: 76px;
-  min-height: 76px;
-  border-color: rgba(47, 243, 255, 0.6);
-  color: #2ff3ff;
-}
-
-.zelda-padbtn-small {
-  min-width: 48px;
-  min-height: 48px;
-  font-size: 12px;
-  border-color: rgba(185, 168, 217, 0.45);
-  color: #b9a8d9;
-}
-
-.zelda-padbtn:active {
-  background: rgba(47, 243, 255, 0.18);
-}
-
-.zelda-touch-paused {
-  justify-content: center;
+.zelda-deck-btns {
+  position: relative;
+  width: 168px;
+  height: 142px;
   pointer-events: auto;
 }
 
-/* Landscape phones: deck docks right, beside the room. */
-@media (min-aspect-ratio: 1/1) and (max-height: 500px) {
-  .zelda-touch {
-    left: auto;
-    top: 0;
-    bottom: 0;
-    right: 0;
-    width: 21vw;
-    display: flex;
-    align-items: flex-end;
-    padding: 0 10px 12px 0;
-  }
+.zelda-pad {
+  position: absolute;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-machine);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  background: rgba(11, 6, 22, 0.72);
+}
 
-  .zelda-touch-row {
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-  }
+.zelda-pad:active {
+  filter: brightness(1.6);
+  transform: scale(0.96);
+}
 
-  .zelda-touch-btns {
-    flex-direction: column;
-    align-items: center;
-  }
+.zelda-pad-a {
+  right: 0;
+  top: 0;
+  width: 88px;
+  height: 88px;
+  border: 2px solid #ff2fa0;
+  color: #ff2fa0;
+  box-shadow: 0 0 18px rgba(255, 47, 160, 0.45), inset 0 0 12px rgba(255, 47, 160, 0.25);
+}
 
-  .zelda-stick-label {
-    display: none;
-  }
+.zelda-pad-b {
+  left: 0;
+  bottom: 0;
+  width: 72px;
+  height: 72px;
+  border: 2px solid #2ff3ff;
+  color: #2ff3ff;
+  box-shadow: 0 0 14px rgba(47, 243, 255, 0.4), inset 0 0 10px rgba(47, 243, 255, 0.2);
+}
+
+.zelda-pad--off {
+  opacity: 0.35;
+}
+
+.zelda-pad-letter {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.zelda-pad-icon {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  opacity: 0.9;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.zelda-pad-b .zelda-pad-letter {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  font-size: 13px;
+}
+
+.zelda-deck-paused {
+  display: flex;
+  gap: 14px;
+  margin: 0 auto;
+  pointer-events: auto;
+}
+
+.zelda-pad-wide {
+  position: static;
+  border-radius: 10px;
+  min-width: 118px;
+  min-height: 54px;
+  border: 1px solid #2ff3ff;
+  color: #2ff3ff;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+}
+
+.zelda-pad-quit {
+  border-color: #ff2fa0;
+  color: #ff2fa0;
+}
+
+/* Landscape touch: buttons over the world, bottom right, half see-through. */
+.zelda-deck:not(.zelda-deck--band) .zelda-pad {
+  background: rgba(11, 6, 22, 0.35);
 }
 </style>

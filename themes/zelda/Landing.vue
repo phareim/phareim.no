@@ -7,9 +7,10 @@
     <template #body>
       <div v-if="phase === 'attract'" class="zelda-title-block">
         <h1 class="zelda-logo">NEON SHRINE</h1>
+        <p class="zelda-tagline">THE SUN WON'T SET. GO GET IT BACK.</p>
         <div class="zelda-hints">
-          <p class="zelda-hint">{{ hint('PRESS ENTER TO WAKE', 'TAP TO WAKE') }}</p>
-          <p class="zelda-hint zelda-hint-dim">{{ hint('ARROWS MOVE · SPACE SWORD · E USE', 'DRAG MOVE · SWORD · USE') }}</p>
+          <p class="zelda-hint">{{ hasSave ? hint('PRESS ENTER TO CONTINUE', 'TAP TO CONTINUE') : hint('PRESS ENTER TO BEGIN', 'TAP TO BEGIN') }}</p>
+          <p class="zelda-hint zelda-hint-dim">{{ hint('ARROWS MOVE · SPACE SWORD / TALK · K ITEM · Q SWAP', 'DRAG TO MOVE · A SWORD / TALK · B ITEM') }}</p>
           <div v-if="hasSave" class="zelda-buttons">
             <button class="zelda-btn" @click.stop="newGame">NEW GAME</button>
             <p class="zelda-hint-dim" style="margin-top: 0.5em">or press N</p>
@@ -20,12 +21,13 @@
 
       <div v-else-if="phase === 'over'" class="zelda-over">
         <h1 class="zelda-over-title">RESTING</h1>
+        <p class="zelda-hint zelda-hint-dim">PROGRESS SAVED</p>
         <p class="zelda-time">{{ formatTime(result?.elapsed ?? 0) }}</p>
         <p class="zelda-hint">{{ hint('PRESS ENTER TO CONTINUE', 'TAP TO CONTINUE') }}</p>
       </div>
 
       <div v-else-if="phase === 'won'" class="zelda-over zelda-won">
-        <h1 class="zelda-over-title">THE SHRINE WAKES</h1>
+        <h1 class="zelda-over-title">THE SUN SETS AT LAST</h1>
         <p class="zelda-time">{{ formatTime(result?.elapsed ?? 0) }}</p>
         <p v-if="isNewBest" class="zelda-best">NEW BEST!</p>
         <p class="zelda-hint">{{ hint('PRESS ENTER FOR NEW QUEST', 'TAP FOR NEW QUEST') }}</p>
@@ -65,7 +67,7 @@ onMounted(() => {
     hasSave.value = !!localStorage.getItem('zeldaSave')
     const best = localStorage.getItem('zeldaBest')
     if (best) {
-      bestTime.value = parseInt(best, 10)
+      bestTime.value = parseFloat(best)
     }
   } catch { /* ignore */ }
 })
@@ -105,6 +107,15 @@ function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | n
   margin: 0 0 0.4em;
 }
 
+.zelda-tagline {
+  font-family: var(--font-machine);
+  font-size: 0.72em !important;
+  letter-spacing: 0.16em;
+  color: #ffd23f;
+  text-shadow: 0 0 10px rgba(255, 210, 63, 0.5);
+  margin: 0 0 0.9em;
+}
+
 .zelda-title-block {
   pointer-events: none;
   padding: 0 16px;
@@ -117,7 +128,16 @@ function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | n
 
 /* Portrait: the room fills the upper half; the card goes just below it. */
 @media (orientation: portrait) {
-  .zelda-title-block { top: 58vh; }
+  .zelda-tagline {
+  font-family: var(--font-machine);
+  font-size: 0.72em !important;
+  letter-spacing: 0.16em;
+  color: #ffd23f;
+  text-shadow: 0 0 10px rgba(255, 210, 63, 0.5);
+  margin: 0 0 0.9em;
+}
+
+.zelda-title-block { top: 58vh; }
 }
 
 .zelda-hints {
@@ -213,7 +233,16 @@ function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | n
 
 /* Landscape phones: a small logo above the room, hints in one line, nothing under the pager dots. */
 @media (max-height: 480px) {
-  .zelda-title-block { top: 56vh; }
+  .zelda-tagline {
+  font-family: var(--font-machine);
+  font-size: 0.72em !important;
+  letter-spacing: 0.16em;
+  color: #ffd23f;
+  text-shadow: 0 0 10px rgba(255, 210, 63, 0.5);
+  margin: 0 0 0.9em;
+}
+
+.zelda-title-block { top: 56vh; }
   .zelda-logo { font-size: 1.1em !important; margin-bottom: 0.2em; }
   .zelda-hints { padding: 0.4em 0.9em; margin-top: 0.3em; }
   .zelda-hint { font-size: 0.75em; margin: 0.15em 0; }
@@ -225,7 +254,16 @@ function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | n
 
 /* Phones keep the pager chevrons clear. */
 @media (max-width: 600px) {
-  .zelda-title-block { padding: 0 46px; }
+  .zelda-tagline {
+  font-family: var(--font-machine);
+  font-size: 0.72em !important;
+  letter-spacing: 0.16em;
+  color: #ffd23f;
+  text-shadow: 0 0 10px rgba(255, 210, 63, 0.5);
+  margin: 0 0 0.9em;
+}
+
+.zelda-title-block { padding: 0 46px; }
 }
 
 @keyframes zelda-blink {
