@@ -128,7 +128,7 @@ export const allThemes: ThemeDefinition[] = [
   },
   {
     id: 'zelda',
-    // Parked while phase 1 is playtested (2026-09-16); reachable with ?theme=zelda.
+    // Rebuilt 2026-09-22; parked until played on a phone. Reachable with ?theme=zelda.
     disabled: true,
     name: 'Neon Shrine',
     themeColor: '#0b0616',

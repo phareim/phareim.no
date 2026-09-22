@@ -91,13 +91,13 @@ function setZone(world: World, s: GameState, index: number) {
   s.zone = info.def.kind === 'dungeon' ? cellRect(info, index) : { x: 0, y: 0, w: info.w, h: info.h }
 }
 
-function areaAt(world: World, s: GameState): { name: string; track: import('../types').TrackId } {
+function areaAt(world: World, s: GameState): { name: string; track: import('../types').TrackId; entry?: string } {
   const info = mapInfo(world, s.map.id)
   const def = info.def
   if (def.areas) {
     const h = s.hero
     for (const a of def.areas) {
-      if (h.x >= a.x && h.x < a.x + a.w && h.y >= a.y && h.y < a.y + a.h) return { name: a.name, track: a.track ?? def.track }
+      if (h.x >= a.x && h.x < a.x + a.w && h.y >= a.y && h.y < a.y + a.h) return { name: a.name, track: a.track ?? def.track, entry: a.entry }
     }
   }
   const cd = def.kind === 'dungeon' ? cellDef(info, s.zoneIndex) : undefined
@@ -216,6 +216,7 @@ function play(c: Ctx, dt: number, inp: Input) {
     const a = areaAt(c.w, s)
     if (a.name !== s.area) {
       s.area = a.name
+      if (a.entry) s.entry = { map: s.map.id, entry: a.entry }
       c.ev.push({ type: 'area', name: a.name, track: a.track })
     }
   }

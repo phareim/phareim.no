@@ -62,13 +62,21 @@ export const OVERWORLD: MapDef = {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT################################',
   ],
   areas: [
-    { name: 'WHISPER WOODS', x: 0, y: 0, w: 28, h: 20 },
-    { name: 'NIGHT MARKET', x: 28, y: 0, w: 24, h: 20, track: 'village' },
-    { name: 'HOLLOW GRAVES', x: 52, y: 0, w: 12, h: 28 },
-    { name: 'HOME GLADE', x: 0, y: 20, w: 32, h: 28 },
-    { name: 'THE CROSSROADS', x: 32, y: 20, w: 20, h: 8 },
-    { name: 'MIRROR LAKE', x: 32, y: 28, w: 32, h: 20 },
+    { name: 'WHISPER WOODS', x: 0, y: 0, w: 28, h: 20, entry: 'woods' },
+    { name: 'NIGHT MARKET', x: 28, y: 0, w: 24, h: 20, track: 'village', entry: 'market' },
+    { name: 'HOLLOW GRAVES', x: 52, y: 0, w: 12, h: 28, entry: 'graves' },
+    { name: 'HOME GLADE', x: 0, y: 20, w: 32, h: 28, entry: 'start' },
+    { name: 'THE CROSSROADS', x: 32, y: 20, w: 20, h: 8, entry: 'crossroads' },
+    { name: 'MIRROR LAKE', x: 32, y: 28, w: 32, h: 20, entry: 'lake' },
   ],
+  // Continue points per area (death puts you back at the last one visited).
+  entries: {
+    woods: { x: 7, y: 17.5, dir: 'up' },
+    market: { x: 40, y: 17.5, dir: 'up' },
+    graves: { x: 53.5, y: 12.5, dir: 'right' },
+    crossroads: { x: 40.5, y: 24.5, dir: 'right' },
+    lake: { x: 42, y: 29.5, dir: 'down' },
+  },
   marks: {
     // Home Glade
     '1': { ent: { t: 'entry', id: 'start', dir: 'up' } },

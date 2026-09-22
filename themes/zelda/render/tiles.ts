@@ -146,6 +146,9 @@ function pathTile(g: G, px: number, py: number, tx: number, ty: number, at: At) 
 function water(g: G, px: number, py: number, tx: number, ty: number, at: At, deep: string, base: string) {
   r(g, base, px, py, T, T)
   if (hash2(tx, ty, 1) > 0.5) r(g, deep, px + Math.floor(hash2(tx, ty, 2) * 10), py + Math.floor(hash2(tx, ty, 3) * 12), 5, 1)
+  // A faint synthwave grid on open water.
+  r(g, '#18418e', px, py + 8, T, 1)
+  if (tx % 2 === 0) r(g, '#18418e', px + 8, py, 1, T)
   const land = (t: TileChar) => !isWater(t) && t !== '='
   if (land(at(0, -1))) { r(g, OW.bank, px, py, T, 3); r(g, OW.foam, px, py + 3, T, 1) }
   if (land(at(0, 1))) { r(g, OW.foam, px, py + T - 2, T, 1); r(g, OW.bank, px, py + T - 1, T, 1) }
@@ -224,35 +227,40 @@ function tree(g: G, px: number, py: number, tx: number, ty: number, at: At) {
   const right = isTree(at(1, 0))
   const cx = px + 8
   const cy = py + 7
+  // Two canopy moods across the map: teal, and a moonlit violet.
+  const P = noise(tx * T, ty * T, 96, 7) > 0.56
+    ? { d: '#1a1f4c', m: '#27366e', l: '#3f58a4', h: '#86a2ff' }
+    : { d: OW.canopyD, m: OW.canopyM, l: OW.canopyL, h: OW.canopyH }
   if (!down) {
     r(g, OW.g3, px + 1, py + 13, 14, 3)
     r(g, OW.trunkD, px + 6, py + 11, 4, 5)
     r(g, OW.trunk, px + 7, py + 11, 2, 4)
   }
   // Canopy: a round crown per tile, bridged to tree neighbours so woods read as one mass.
-  disc(g, OW.canopyD, cx, cy, 9)
-  if (right) r(g, OW.canopyD, cx, cy - 8, 16, 17)
-  if (down) r(g, OW.canopyD, cx - 8, cy, 17, 16)
-  disc(g, OW.canopyM, cx, cy - 1, 7)
-  if (right) r(g, OW.canopyM, cx, cy - 7, 16, 13)
-  if (down) r(g, OW.canopyM, cx - 7, cy, 14, 16)
-  if (right && down && isTree(at(1, 1))) r(g, OW.canopyM, cx, cy, 16, 16)
+  disc(g, P.d, cx, cy, 9)
+  if (right) r(g, P.d, cx, cy - 8, 16, 17)
+  if (down) r(g, P.d, cx - 8, cy, 17, 16)
+  disc(g, P.m, cx, cy - 1, 7)
+  if (right) r(g, P.m, cx, cy - 7, 16, 13)
+  if (down) r(g, P.m, cx - 7, cy, 14, 16)
+  if (right && down && isTree(at(1, 1))) r(g, P.m, cx, cy, 16, 16)
   // Leaf clumps in world-stable spots.
   for (let i = 0; i < 4; i++) {
     const lx = px + 1 + Math.floor(hash2(tx, ty, 70 + i) * 12)
     const ly = py + 1 + Math.floor(hash2(tx, ty, 80 + i) * 11)
     if (!up && ly < py + 3) continue
-    r(g, OW.canopyL, lx, ly, 4, 1)
-    r(g, OW.canopyL, lx + 1, ly - 1, 2, 1)
-    r(g, OW.canopyD, lx, ly + 1, 4, 1)
+    r(g, P.l, lx, ly, 4, 1)
+    r(g, P.l, lx + 1, ly - 1, 2, 1)
+    r(g, P.d, lx, ly + 1, 4, 1)
   }
+  if (hash2(tx, ty, 88) > 0.9) { r(g, '#ff5fd0', cx + 2, cy + 1, 1, 1); r(g, '#ff5fd0', cx + 3, cy + 2, 1, 1); r(g, '#ffd0f0', cx + 2, cy + 2, 1, 1) }
   // Rim light: teal on top of the mass, magenta on its lower right.
   if (!up) {
-    r(g, OW.canopyL, cx - 5, cy - 7, 8, 1)
-    r(g, OW.canopyH, cx - 4, cy - 8, 5, 1)
-    r(g, OW.canopyL, cx - 7, cy - 5, 2, 2)
+    r(g, P.l, cx - 5, cy - 7, 8, 1)
+    r(g, P.h, cx - 4, cy - 8, 5, 1)
+    r(g, P.l, cx - 7, cy - 5, 2, 2)
   }
-  if (!left && !up) r(g, OW.canopyH, cx - 8, cy - 3, 1, 3)
+  if (!left && !up) r(g, P.h, cx - 8, cy - 3, 1, 3)
   if (!right) { r(g, OW.rim, cx + 7, cy - 1, 1, 4); r(g, OW.rim, cx + 6, cy + 3, 1, 2) }
   if (!down) { r(g, OW.rim, cx + 1, cy + 7, 4, 1); r(g, '#0a2530', cx - 6, cy + 8, 12, 1) }
 }
@@ -324,12 +332,21 @@ function cliff(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: num
       r(g, '#7a1a58', px, py + 1, T, 1)
       r(g, DG.faceD, px, py + T - 1, T, 1)
     } else {
+      // Wall top: dressed stone blocks, lit edges where they meet a room.
       r(g, DG.top, px, py, T, T)
-      if (hash2(tx, ty) > 0.5) r(g, DG.topL, px + 3, py + 4, 4, 1)
-      if (open(at(0, -1))) { r(g, DG.neonC, px, py + T - 1 - 14, 0, 0) }
-      if (open(at(-1, 0))) { r(g, DG.faceL, px, py, 1, T); r(g, DG.neonC, px + 1, py, 1, T) }
-      if (open(at(1, 0))) { r(g, DG.neonC, px + T - 2, py, 1, T); r(g, DG.faceL, px + T - 1, py, 1, T) }
-      if (open(at(0, -1))) { r(g, DG.faceL, px, py, T, 1); r(g, DG.neonC, px, py + 1, T, 1) }
+      for (let by = 0; by < T; by += 8) {
+        const off = (by / 8 + tx) % 2 ? 4 : 0
+        for (let bx = -off; bx < T; bx += 8) {
+          r(g, DG.topL, px + Math.max(0, bx) + 1, py + by + 1, Math.min(6, 6 + bx), 1)
+          r(g, '#171230', px + Math.max(0, bx), py + by + 7, Math.min(8, 8 + bx), 1)
+        }
+      }
+      const L = open(at(-1, 0))
+      const R = open(at(1, 0))
+      const U = open(at(0, -1))
+      if (L) { r(g, DG.faceD, px, py, 3, T); r(g, DG.faceL, px + 2, py, 1, T); r(g, DG.neonC, px + 3, py, 1, T) }
+      if (R) { r(g, DG.neonC, px + T - 4, py, 1, T); r(g, DG.faceL, px + T - 3, py, 1, T); r(g, DG.faceD, px + T - 2, py, 2, T) }
+      if (U) { r(g, DG.faceL, px, py, T, 2); r(g, DG.neonC, px, py + 2, T, 1) }
     }
   } else {
     if (open(below)) {

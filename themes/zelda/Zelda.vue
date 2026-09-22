@@ -176,6 +176,8 @@ function onPointerDown(e: PointerEvent) {
   const p = canvasPoint(e)
   if (phase.value !== 'play') { idleTap = { id: e.pointerId, x: p.x, y: p.y }; return }
   if (paused.value) return
+  // Any tap moves a dialog on.
+  if (state.mode === 'dialog') { aPress = true; return }
   if (e.pointerType === 'mouse') return
   if (!stick && p.x < p.w * 0.6) {
     stick = { id: e.pointerId, ox: p.x, oy: p.y, dx: 0, dy: 0 }

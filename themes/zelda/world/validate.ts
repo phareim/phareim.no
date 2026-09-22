@@ -23,6 +23,10 @@ export function validateWorld(world: World): string[] {
       if (m.ent.t === 'entry') entries.add(m.ent.id)
       if (!def.rows.some(r => r.includes(ch))) out.push(`${id}: marker '${ch}' is never placed`)
     }
+    for (const [name, e] of Object.entries(def.entries ?? {})) {
+      const ch = def.rows[Math.floor(e.y)]?.[Math.floor(e.x)]
+      if (!ch || !PASSABLE.has((def.marks[ch]?.tile ?? ch) as TileChar)) out.push(`${id}: entry ${name} stands on '${ch}'`)
+    }
     entriesOf[id] = entries
     if (!entries.size) out.push(`${id}: no entries`)
     def.rows.forEach((r, y) => {

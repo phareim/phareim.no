@@ -52,6 +52,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let lg = light.getContext('2d')!
   let hud = makeCanvas(1, 1)
   let hg = hud.getContext('2d')!
+  let bloom = makeCanvas(1, 1)
+  let bg = bloom.getContext('2d')!
   let W = 1
   let H = 1
   let gameH = 1
@@ -100,6 +102,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     lg = light.getContext('2d')!
     hud = makeCanvas(vw, vh)
     hg = hud.getContext('2d')!
+    bloom = makeCanvas(vw, vh)
+    bg = bloom.getContext('2d')!
     for (const g of [sg, lg, hg, screen]) g.imageSmoothingEnabled = false
     // Scanline pattern at screen resolution.
     const p = makeCanvas(1, Math.max(2, scale))
@@ -447,7 +451,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     g.fillStyle = kind === 'overworld' ? '#0e2a3c' : '#07040f'
     g.fillRect(0, 0, vw, vh)
     g.drawImage(layer.canvas, -cx, -cy)
-    if (kind === 'overworld') drawLakeSun(g, s, cx, cy, ui.reducedMotion)
     drawLiveTiles(g, world, s, cx, cy, vw, vh, time, lights, ui.reducedMotion)
 
     // Sort things by feet.
@@ -537,6 +540,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     g.globalCompositeOperation = 'source-over'
 
     // --- emissive things after light ----------------------------------------------
+    if (kind === 'overworld') drawLakeSun(g, s, cx, cy, ui.reducedMotion)
     for (const p of m.projectiles) {
       const px = p.x * T - cx
       const py = p.y * T - cy
@@ -603,18 +607,27 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const oy = Math.floor((gameH - vh * scale) / 2)
     screen.imageSmoothingEnabled = false
     screen.drawImage(scene, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
-    // Neon bloom at screen resolution.
+    // Neon bloom: glows gathered at logical resolution, then one smooth
+    // upscale added onto the screen (cheap on phones, soft on big screens).
     if (fade < 1) {
-      screen.globalCompositeOperation = 'lighter'
+      bg.globalCompositeOperation = 'source-over'
+      bg.clearRect(0, 0, vw, vh)
+      bg.globalCompositeOperation = 'lighter'
       for (const L of lights) {
         if (L.a < 0.3) continue
-        const rad = L.r * T * scale * 0.9
-        const px = ox + (L.x * T - cx) * scale
-        const py = oy + (L.y * T - cy) * scale
-        if (px < -rad || py < -rad || px > W + rad || py > gameH + rad) continue
-        screen.globalAlpha = Math.min(1, L.a) * 0.3 * (1 - fade)
-        screen.drawImage(glow(L.color), px - rad, py - rad, rad * 2, rad * 2)
+        const rad = L.r * T * 0.9
+        const px = L.x * T - cx
+        const py = L.y * T - cy
+        if (px < -rad || py < -rad || px > vw + rad || py > vh + rad) continue
+        bg.globalAlpha = Math.min(1, L.a) * 0.32
+        bg.drawImage(glow(L.color), px - rad, py - rad, rad * 2, rad * 2)
       }
+      bg.globalAlpha = 1
+      screen.globalCompositeOperation = 'lighter'
+      screen.globalAlpha = 1 - fade
+      screen.imageSmoothingEnabled = true
+      screen.drawImage(bloom, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+      screen.imageSmoothingEnabled = false
       screen.globalAlpha = 1
       screen.globalCompositeOperation = 'source-over'
     }
@@ -662,21 +675,21 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   /** The striped synthwave sun, reflected in Mirror Lake. */
   function drawLakeSun(g: G, s: GameState, cx: number, cy: number, reduced: boolean) {
-    const sx = 50 * T - cx
-    const sy = 32 * T - cy
+    const sx = 55 * T - cx
+    const sy = 33 * T - cy
     if (sx < -120 || sx > vw + 120 || sy < -80 || sy > vh + 80) return
     const m = s.map
     const cols = ['#ffd23f', '#ffb13f', '#ff8a3d', '#ff5f7a', '#ff2fa0', '#c42a9a']
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 14; i++) {
       const y = sy + i * 3
-      const half = Math.round(Math.sqrt(Math.max(0, 1 - ((i - 0) / 12) ** 2)) * 34)
+      const half = Math.round(Math.sqrt(Math.max(0, 1 - (i / 14) ** 2)) * 48)
       const wob = reduced ? 0 : Math.round(Math.sin(time * 2 + i * 0.9) * 2)
       g.fillStyle = cols[Math.min(cols.length - 1, Math.floor(i / 2))]!
       for (let x = -half; x < half; x += 2) {
         const tx = Math.floor((sx + x + cx) / T)
         const ty = Math.floor((y + cy) / T)
         if (m.tiles[ty * m.w + tx] !== '~') continue
-        g.globalAlpha = 0.55 - i * 0.03
+        g.globalAlpha = 0.8 - i * 0.04
         g.fillRect(Math.round(sx + x + wob), Math.round(y), 2, 1)
       }
     }

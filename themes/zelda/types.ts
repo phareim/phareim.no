@@ -6,7 +6,7 @@
  * Positions are in TILE UNITS (floats). A map of W×H tiles spans x 0..W,
  * y 0..H; a tile (tx, ty) covers [tx, tx+1) × [ty, ty+1). The renderer
  * draws one tile as TILE logical pixels. Nothing here imports Vue or the DOM.
- * Design: PLAN.md next to this file.
+ * Design: DESIGN.md next to this file; status and checks: docs/games/neon-shrine.md.
  */
 
 // ---------------------------------------------------------------------------
@@ -209,8 +209,8 @@ export interface MapDef {
   /** Extra entries/warps besides the ones placed by markers. */
   entries?: Record<string, Spot>
   warps?: Warp[]
-  /** Named regions of an overworld for the area banner (tile rects). */
-  areas?: Array<Rect & { name: string; track?: TrackId }>
+  /** Named regions of an overworld: banner, music, and (entry) where death and Continue put you after visiting it. */
+  areas?: Array<Rect & { name: string; track?: TrackId; entry?: string }>
 }
 
 export interface World {

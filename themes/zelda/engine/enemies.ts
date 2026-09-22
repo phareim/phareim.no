@@ -116,7 +116,8 @@ function contact(c: Ctx, e: Enemy) {
   if (e.dead || e.stun > 0) return
   const st = STATS[e.kind]
   const h = c.s.hero
-  if (st.dmg > 0 && Math.hypot(h.x - e.x, h.y - e.y) < e.r + HERO_R - 0.05) {
+  const harmless = e.kind === 'king' && (e.ai.mode === 'down' || e.ai.mode === 'rise')
+  if (st.dmg > 0 && !harmless && Math.hypot(h.x - e.x, h.y - e.y) < e.r + HERO_R - 0.05) {
     hurtHero(c, st.dmg, e.x, e.y, e.kind === 'zapper')
   }
   if (e.kind === 'king' && e.ai.mode !== 'down') {

@@ -58,7 +58,7 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
   // B-item box right of the hearts (touch shows it on the B button instead;
   // the site radio owns the top-right corner).
   if (!touch && inv.selected) {
-    const bx = 4 + Math.min(hearts, 10) * 9 + 6
+    const bx = Math.max(4 + Math.min(hearts, 10) * 9, cx) + 4
     box(g, bx, 3, 22, 22, '#2ff3ff')
     const icon = inv.selected === 'disc' ? 'item_disc' : 'item_bombbag'
     const spr = sprite(icon)
