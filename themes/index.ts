@@ -128,8 +128,7 @@ export const allThemes: ThemeDefinition[] = [
   },
   {
     id: 'zelda',
-    // Rebuilt 2026-09-22; parked until played on a phone. Reachable with ?theme=zelda.
-    disabled: true,
+    // Rebuilt 2026-09-22; live in the rotation since 2026-09-23.
     name: 'Neon Shrine',
     themeColor: '#0b0616',
     themeColorDark: '#0b0616',

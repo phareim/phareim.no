@@ -1,10 +1,10 @@
-## Neon Shrine — the Zelda-like (rebuilt 2026-09-22, parked)
+## Neon Shrine — the Zelda-like (rebuilt 2026-09-22, live 2026-09-23)
 
 `?theme=zelda` is a full A Link to the Past–style adventure in 80s neon
 paint: scrolling overworld, shop, arcade, cave, a ten-room dungeon with
 keys, a block puzzle, crystal switches, a miniboss and a two-phase boss.
-About 20–30 minutes to finish. **Parked** (`disabled: true`, after OutRun)
-until Petter has played it on a phone. Design (story, maps, progression,
+About 20–30 minutes to finish. Live in the swipe rotation after OutRun
+since 2026-09-23, when Petter unparked it. Design (story, maps, progression,
 enemies, look): `themes/zelda/DESIGN.md`.
 
 The 2026-09-16/21 version (two 15×11 rooms, Muse-built engine) was replaced
