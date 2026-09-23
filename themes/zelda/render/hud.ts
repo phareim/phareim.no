@@ -116,9 +116,26 @@ export function objective(s: GameState): string {
   return questHint(questStep(s.inv, Object.keys(s.flags), s.map.id))
 }
 
-export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudKeys) {
+/** The "start over?" question that replaces the pause box until answered. */
+function drawConfirmReset(g: G, vw: number, vh: number, keys: HudKeys) {
+  const w = Math.min(vw - 16, 240)
+  const x = Math.round((vw - w) / 2)
+  const lines = wrapText('YOUR QUEST, ITEMS AND HEARTS WILL BE GONE, HERE AND ON YOUR PILOT. YOUR BEST TIME STAYS.', w - 16)
+  const h = 20 + lines.length * 10
+  let y = Math.max(8, Math.round(vh / 2 - h / 2 - 14))
+  const title = 'START OVER?'
+  drawText(g, title, Math.round((vw - textWidth(title)) / 2), y, '#ff2fa0', '#0b0616')
+  y += 14
+  box(g, x, y, w, h, '#ff2fa0')
+  lines.forEach((l, i) => drawText(g, l, x + 8, y + 10 + i * 10, '#fff4ff'))
+  const hint = keys.a === 'A' ? 'YES OR NO BELOW' : 'ENTER YES   ESC NO'
+  drawText(g, hint, Math.round((vw - textWidth(hint)) / 2), y + h + 8, '#b9a8d9')
+}
+
+export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudKeys, confirmReset = false) {
   g.fillStyle = 'rgba(11,6,22,0.78)'
   g.fillRect(0, 0, vw, vh)
+  if (confirmReset) { drawConfirmReset(g, vw, vh, keys); return }
   const w = Math.min(vw - 16, 240)
   const x = Math.round((vw - w) / 2)
   let y = Math.max(8, Math.round(vh / 2 - 70))
@@ -157,6 +174,6 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
   const lines = wrapText(objective(s), w - 16)
   drawText(g, 'QUEST', x + 8, y + 62, '#ffd23f')
   lines.slice(0, 4).forEach((l, i) => drawText(g, l, x + 8, y + 74 + i * 10, '#fff4ff'))
-  const hint = keys.a === 'A' ? 'TAP RESUME' : 'P OR ESC TO RESUME'
+  const hint = keys.a === 'A' ? 'TAP RESUME' : 'P RESUME   R START OVER'
   drawText(g, hint, Math.round((vw - textWidth(hint)) / 2), y + 126, '#b9a8d9')
 }

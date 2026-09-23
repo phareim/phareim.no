@@ -21,6 +21,8 @@ const T = TILE
 
 export interface FrameUI {
   paused: boolean
+  /** The pause screen is asking "start over?". */
+  confirmReset: boolean
   reducedMotion: boolean
   touch: boolean
   /** Touch stick in CSS px relative to the canvas. */
@@ -643,7 +645,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       drawHud(hg, s, vw, time, ui.touch)
       if (ui.banner && s.mode !== 'dialog') drawBanner(hg, ui.banner.text, ui.banner.t, vw, vh)
       if (s.dialog) drawDialog(hg, s, vw, vh, s.hero.y * T - cy, ui.keys, time)
-      if (ui.paused) drawPause(hg, s, vw, vh, ui.keys)
+      if (ui.paused) drawPause(hg, s, vw, vh, ui.keys, ui.confirmReset)
     }
     screen.drawImage(hud, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
 

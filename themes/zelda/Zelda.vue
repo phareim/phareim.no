@@ -33,8 +33,13 @@
         ><span class="zelda-pad-letter">A</span></button>
       </div>
     </template>
+    <div v-else-if="confirmReset" class="zelda-deck-paused">
+      <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="resetRun" @contextmenu.prevent>YES, START OVER</button>
+      <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="cancelReset" @contextmenu.prevent>NO</button>
+    </div>
     <div v-else class="zelda-deck-paused">
       <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>RESUME</button>
+      <button class="zelda-pad zelda-pad-wide zelda-pad-reset" @pointerdown.prevent.stop="askReset" @contextmenu.prevent>START OVER</button>
       <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="quit" @contextmenu.prevent>QUIT</button>
     </div>
   </div>
@@ -73,6 +78,8 @@ const TAP_PX = 10
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const paused = ref(false)
+/** The pause screen is asking whether to throw the run away. */
+const confirmReset = ref(false)
 const phase = ref<Phase>('attract')
 const touchUI = ref(false)
 const band = ref(0)
@@ -93,7 +100,7 @@ let lowHpT = 0
 let track: TrackId | null = null
 
 const ui: FrameUI = {
-  paused: false, reducedMotion: false, touch: false, stick: null, attract: true, cam: null, banner: null,
+  paused: false, confirmReset: false, reducedMotion: false, touch: false, stick: null, attract: true, cam: null, banner: null,
   keys: { a: 'SPACE', b: 'K', cycle: 'Q' },
 }
 
@@ -240,6 +247,12 @@ function onKeyDown(e: KeyboardEvent) {
     else if (e.code === 'KeyN' && !e.repeat) { e.preventDefault(); startRun(true) }
     return
   }
+  if (paused.value && !e.repeat) {
+    if (confirmReset.value) {
+      if (e.code === 'Enter' || e.code === 'KeyY') { e.preventDefault(); resetRun(); return }
+      if (e.code === 'KeyN' || e.code === 'Backspace') { e.preventDefault(); cancelReset(); return }
+    } else if (e.code === 'KeyR') { e.preventDefault(); askReset(); return }
+  }
   if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) togglePause(); return }
   const game = MOVE_KEYS.has(e.code) || A_KEYS.has(e.code) || B_KEYS.has(e.code) || CYCLE_KEYS.has(e.code)
   if (!game) return
@@ -285,6 +298,7 @@ function dropSave(extra: { best?: number, won?: boolean } = {}) {
 }
 
 function startRun(fresh: boolean) {
+  confirmReset.value = false
   if (fresh) dropSave()
   audio?.unlock()
   sound.unlock()
@@ -326,14 +340,35 @@ function playTrack(t: TrackId | null) {
 
 function togglePause() {
   if (phase.value !== 'play') return
+  // P or an Escape tap while asking "start over?" means no, not resume.
+  if (confirmReset.value) { cancelReset(); return }
   paused.value = !paused.value
   clearInput()
   audio?.sfx('menu')
   audio?.pause(paused.value)
 }
 
+function askReset() {
+  if (phase.value !== 'play' || !paused.value) return
+  confirmReset.value = true
+  audio?.sfx('menu')
+}
+
+function cancelReset() {
+  confirmReset.value = false
+  audio?.sfx('menu')
+}
+
+/** Throws the run away — here and on the profile — and begins again from the intro. Best time stays. */
+function resetRun() {
+  if (phase.value !== 'play' || !confirmReset.value) return
+  audio?.pause(false)
+  startRun(true)
+}
+
 function quit() {
   if (phase.value !== 'play') return
+  confirmReset.value = false
   persist()
   paused.value = false
   audio?.pause(false)
@@ -438,6 +473,7 @@ function frame(nowMs: number) {
   const dt = lastT ? Math.min((nowMs - lastT) / 1000, 0.1) : 0
   lastT = nowMs
   ui.paused = paused.value
+  ui.confirmReset = confirmReset.value
   ui.reducedMotion = reducedMotion
   ui.touch = touchUI.value
   ui.keys = touchUI.value ? { a: 'A', b: 'B', cycle: 'SWAP' } : { a: 'SPACE', b: 'K', cycle: 'Q' }
@@ -705,6 +741,17 @@ onBeforeUnmount(() => {
 .zelda-pad-quit {
   border-color: #ff2fa0;
   color: #ff2fa0;
+}
+
+.zelda-pad-reset {
+  border-color: #ffd23f;
+  color: #ffd23f;
+}
+
+/* Three buttons across a 375 px phone. */
+@media (max-width: 440px) {
+  .zelda-deck-paused { gap: 8px; }
+  .zelda-pad-wide { min-width: 0; padding: 0 12px; font-size: 12px; letter-spacing: 0.08em; }
 }
 
 /* Landscape touch: buttons over the world, bottom right, half see-through. */

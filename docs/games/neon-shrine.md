@@ -25,9 +25,11 @@ result panels.
 **Controls.** Keys: arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
 open, lift, throw; hold after a swing, release to spin); K/X/Shift = B
 (item); Q/Tab swap item; P or an Escape tap pause (the pause screen shows
-items, heart pieces and the current quest); Escape hold quits with progress
-kept; N new game on the title. Touch: floating stick on the left 60 %, A and
-B buttons, SWAP and pause chips; any tap moves a dialog on; a tap on the
+items, heart pieces and the current quest); R on the pause screen asks
+START OVER? (Enter/Y yes, Esc/P/N no) and a yes wipes the save here and on
+the profile and starts from the intro, best time kept; Escape hold quits
+with progress kept; N new game on the title. Touch: floating stick on the left 60 %, A and
+B buttons, SWAP and pause chips (paused: RESUME, START OVER with a yes/no step, QUIT); any tap moves a dialog on; a tap on the
 right of the world also swings. Portrait phones get a console band under the
 view; landscape keeps buttons over the world.
 

@@ -25,6 +25,8 @@ const KEYS = {
   KeyQ: { key: 'q', code: 'KeyQ', keyCode: 81 },
   KeyP: { key: 'p', code: 'KeyP', keyCode: 80 },
   KeyN: { key: 'n', code: 'KeyN', keyCode: 78 },
+  KeyR: { key: 'r', code: 'KeyR', keyCode: 82 },
+  KeyY: { key: 'y', code: 'KeyY', keyCode: 89 },
 }
 
 export async function launch({ width = 1440, height = 900, dpr = 1, mobile = false } = {}) {
