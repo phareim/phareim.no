@@ -19,7 +19,7 @@ project skill `.claude/skills/phareim-theme/SKILL.md` (use it).
 
 - **Framework**: Nuxt 3 + Vue 3 Composition API + TypeScript (`themes/scandi/Bubbles.vue` is Options API, moved verbatim)
 - **Hosting**: Cloudflare Pages, project `phareim-no`. SSR runs in the Pages worker (`_routes.json` sends everything except static assets to it), which is what lets the random first-visit theme be picked server-side.
-- **Database / storage**: one D1, `phareim-leaderboard` (id `54e101f9-4026-4fd1-a78a-7a8976e1301e`, created 2026-09-08), bound as `LEADERBOARD_DB` in `wrangler.toml`, schema in `migrations/`, applied by CI before every deploy. It holds the Hall of Fame only — see `docs/games/hall-of-fame.md`. The older D1 (`phareim-rpg`) was deleted 2026-07-23 (export at `~/backups/d1/2026-07-23/phareim-rpg.sql` on Sleeper); the R2 binding and the image-generation API were removed 2026-09-03.
+- **Database / storage**: one D1, `phareim-leaderboard` (id `54e101f9-4026-4fd1-a78a-7a8976e1301e`, created 2026-09-08), bound as `LEADERBOARD_DB` in `wrangler.toml`, schema in `migrations/`, applied by CI before every deploy. It holds the player profiles: Hall of Fame scores, Hangar ships and, since 2026-09-23, the Neon Shrine save slots — see `docs/games/hall-of-fame.md`. The older D1 (`phareim-rpg`) was deleted 2026-07-23 (export at `~/backups/d1/2026-07-23/phareim-rpg.sql` on Sleeper); the R2 binding and the image-generation API were removed 2026-09-03.
 - **External APIs**: one — wave-jobs on Sleeper (`POST https://sleeper.phareim.no/wave-jobs/avatar`, Bearer `WAVE_JOBS_KEY`) paints the Hall of Fame avatars (2026-09-08). `server/` came back 2026-09-08 with the Hall of Fame routes (`/api/leaderboard`, `/api/player`, `/api/score`, and `/api/avatar` for wave-jobs' callback) and nothing else.
 - **Dependencies of note**: `three` 0.185 (+ `@types/three`), used only by the Star Fox theme and loaded as an async chunk (2026-09-05); `@fontsource/space-grotesk` + `@fontsource/space-mono` (self-hosted fonts, 2026-09-06)
 - **Fonts** (2026-09-06): two faces, the Neon Dreams split — `--font-person` (Space Grotesk at weight 300, the face's lightest, for body, name and page titles; 400/500 for emphasis: name, blurbs, prose) and `--font-machine` (Space Mono: HUD, hints, over-titles, canvas score pops, shas). Defined on `:root` in `themes/base/fonts.css` (imported first in `themes/index.ts`), latin subsets only; canvas code imports `MACHINE_FONT` from `themes/base/fonts.ts`. Nothing loads from Google Fonts any more (Comfortaa and the preconnects are gone). The parked themes keep their own faces (desk: ET Book).
@@ -36,7 +36,7 @@ error.vue            — per-theme 404 blocks
 components/
   ThemePager.vue     — neon edge chevrons (all devices since 2026-09-07; hidden while a theme locks navigation) + dots; the only site chrome
 server/
-  api/               — leaderboard.get, player.post, score.post, avatar.post (the Hall of Fame API, 2026-09-08)
+  api/               — leaderboard.get, player.post, score.post, avatar.post (the Hall of Fame API, 2026-09-08); profile.get, ship/select.post (Hangar); save.get/.post (profile save slots, Neon Shrine, 2026-09-23)
   utils/store.ts     — D1 store + in-memory dev store behind one interface, id validation
   utils/avatar.ts    — asks wave-jobs on Sleeper to paint a player's pilot (callback into avatar.post)
 migrations/          — D1 schema for phareim-leaderboard, numbered SQL, applied by CI

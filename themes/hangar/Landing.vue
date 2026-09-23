@@ -33,6 +33,10 @@
               <span v-if="bests[g.id]" class="hg-score-line">BEST {{ fmt(bests[g.id]!.score) }} · #{{ bests[g.id]!.rank }}</span>
               <span v-else class="hg-score-line hg-score-line--none">NO RUN YET</span>
             </li>
+            <li v-for="g in SAVE_GAMES" :key="g.id" class="hg-score hg-score--quest">
+              <span class="hg-score-game">{{ g.title.toUpperCase() }}</span>
+              <span class="hg-score-line" :class="{ 'hg-score-line--none': !saves[g.id] }">{{ questLine(g.id) }}</span>
+            </li>
           </ol>
           <p v-else-if="status === 'loading'" class="hg-empty">SYNCING…</p>
           <p v-else class="hg-empty">OFFLINE<br><span>THE HANGAR DID NOT ANSWER</span></p>
@@ -74,14 +78,15 @@
 
 <script setup lang="ts">
 import Horizon from './Horizon.vue'
-import { GAMES } from '~/themes/leaderboard/games'
+import { GAMES, SAVE_GAMES } from '~/themes/leaderboard/games'
+import { QUEST_STEPS, formatPlayTime, summarizeRaw } from '~/themes/zelda/progress'
 import { SHIPS, unlockProgress } from '~/themes/ships/ships'
 
 const ShipViewer = defineAsyncComponent(() => import('./ShipViewer.vue'))
 
 const { hint } = useInputMode()
 const { player, avatar, fetchBoards } = useLeaderboard()
-const { selected, ships, bests, distinctGames, avatarFull, loadProfile, selectShip } = useShip()
+const { selected, ships, bests, distinctGames, saves, avatarFull, loadProfile, selectShip } = useShip()
 
 /** The portrait: the full painting once the profile answers, thumbnail meanwhile. */
 const pic = computed(() => avatarFull.value ?? avatar.value)
@@ -100,6 +105,16 @@ const nudge = computed(() => {
   if (remaining.value > 0) return `FLOWN IN ${distinctGames.value}/6 GAMES · ${remaining.value} MORE TO UNLOCK THE VANDAL`
   return `FLOWN IN ${distinctGames.value}/6 GAMES · BOTH SHIPS UNLOCKED`
 })
+
+/** The adventure row: the quest in progress, else the best finish, else nothing yet. */
+function questLine(game: string): string {
+  const slot = saves.value[game]
+  if (!slot) return 'NOT STARTED'
+  const q = slot.data ? summarizeRaw(slot.data) : null
+  if (q) return `${q.step}/${QUEST_STEPS} · ${formatPlayTime(q.elapsed)}`
+  if (slot.best !== null) return `CLEARED · BEST ${formatPlayTime(slot.best)}`
+  return slot.clears > 0 ? 'CLEARED' : 'NEW QUEST'
+}
 
 function fmt(score: number): string {
   return String(score).padStart(6, '0')
@@ -288,6 +303,11 @@ onMounted(async () => {
   text-shadow: 0 0 8px rgba(47, 243, 255, .45);
 }
 .hg-score-line--none { color: var(--hg-text-subtle); text-shadow: none; }
+.hg-score--quest {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(47, 243, 255, .2);
+}
 
 .hg-empty {
   margin: 0;

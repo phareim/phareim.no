@@ -31,10 +31,23 @@ B buttons, SWAP and pause chips; any tap moves a dialog on; a tap on the
 right of the world also swings. Portrait phones get a console band under the
 view; landscape keeps buttons over the world.
 
-**Saves.** `localStorage.zeldaSave`, `SAVE_VERSION` 2 (v1 saves are
-ignored): continue point, max hearts, inventory, flags, rng, play time.
-Written on every map entry, item, secret, door, gate, boss and respawn. A
-win clears it and records `zeldaBest` (seconds).
+**Saves (on the profile since 2026-09-23).** The save belongs to the
+browser's Hall of Fame player — the same pilot as the scores and the Hangar
+ship. `localStorage.zeldaSave` (`SAVE_VERSION` 2: continue point, max
+hearts, inventory, flags, rng, play time, `savedAt`) is the instant copy;
+every write also goes to the player's slot through `POST /api/save`
+(`composables/useGameSave.ts`, one request in flight, keepalive). Written
+on every map entry, item, secret, door, gate, boss, respawn, quit and when
+the tab is hidden. The first save creates the player if the browser has
+none, as a first score does. On the title the landing pulls the slot and
+`reconcile` in `progress.ts` keeps the newer write: a lost local copy comes
+back, and a new game or a win (a cleared slot, remembered locally as
+`zeldaClearedAt`) is not undone by an older copy. Best times meet at the
+lower (`zeldaBest` locally, `best_seconds` on the slot, which also counts
+clears). The title shows QUEST n/7 · next goal · play time and SAVED TO
+<PILOT>; the Hangar shows the same quest row. `progress.ts` also owns the
+seven quest steps behind the pause screen's QUEST line. A player is still
+one browser, so the save does not follow a person to another device.
 
 **Checks.** `npm run test:zelda` (in CI): world validation, the first
 minute (blade in one step, swing/cut/spin, lift/throw), saves and death, and

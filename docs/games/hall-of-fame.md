@@ -71,7 +71,13 @@ one window-function query plus a count, `Cache-Control: no-store`);
 `POST /api/score { playerId, game, score }` → `{ best, rank }`, 400 for an
 unknown game or a score outside 1..`maxScore` (a per-game plausibility cap in
 `themes/leaderboard/games.ts`), 404 unknown player (the client re-registers
-and retries once). There is no auth and no rate limit: a determined person
+and retries once). `GET /api/save?player=&game=` → `{ save: { data, savedAt, best, clears } | null }`
+and `POST /api/save { playerId, game, data?, savedAt, best?, won? }` are the
+adventure save slots (2026-09-23, migration `0005_game_saves.sql`, games in
+`SAVE_GAMES` — Neon Shrine only): opaque JSON up to 16 KB, newest `savedAt`
+wins, `data: null` clears, `best` keeps the lowest (60 s–100 h, else
+ignored), `won` counts a clear; 404 unknown player.
+There is no auth and no rate limit: a determined person
 can post any number under the cap, and a wipe is `DELETE FROM scores`.
 
 **Dev.** `nuxi dev` has no D1, so `getStore` falls back to an in-memory

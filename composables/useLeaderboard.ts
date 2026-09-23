@@ -38,7 +38,8 @@ function uuid(): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
 }
 
-function readStored(): LocalPlayer | null {
+/** This browser's player if it has one — never creates one. */
+export function readStoredPlayer(): LocalPlayer | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
@@ -86,7 +87,7 @@ export const useLeaderboard = () => {
   /** The stored player, or a freshly generated and registered one. */
   async function ensurePlayer(): Promise<LocalPlayer> {
     if (player.value) return player.value
-    const stored = readStored()
+    const stored = readStoredPlayer()
     if (stored) {
       player.value = stored
       return stored
@@ -97,6 +98,18 @@ export const useLeaderboard = () => {
     writeStored(p)
     player.value = p
     return p
+  }
+
+  /**
+   * Registers the stored player again after the server forgot it (a wiped
+   * database answers 404), keeping the name if it is still free.
+   */
+  async function reRegister(p: LocalPlayer): Promise<void> {
+    const name = await register(p.id, p.name)
+    if (name !== p.name) {
+      player.value = { id: p.id, name }
+      writeStored(player.value)
+    }
   }
 
   /**
@@ -125,11 +138,7 @@ export const useLeaderboard = () => {
       const p = await ensurePlayer()
       let res = await post('/api/score', { playerId: p.id, game, score })
       if (res.status === 404) {
-        const name = await register(p.id, p.name)
-        if (name !== p.name) {
-          player.value = { id: p.id, name }
-          writeStored(player.value)
-        }
+        await reRegister(p)
         res = await post('/api/score', { playerId: p.id, game, score })
       }
       if (!res.ok) return null
@@ -154,14 +163,10 @@ export const useLeaderboard = () => {
       player.value = { id: p.id, name: data.player.name }
       writeStored(player.value)
     } else if (!data.player) {
-      const name = await register(p.id, p.name)
-      if (name !== p.name) {
-        player.value = { id: p.id, name }
-        writeStored(player.value)
-      }
+      await reRegister(p)
     }
     return data
   }
 
-  return { player, avatar, lastSubmission, ensurePlayer, reroll, submitScore, fetchBoards }
+  return { player, avatar, lastSubmission, ensurePlayer, reRegister, reroll, submitScore, fetchBoards }
 }

@@ -1,8 +1,9 @@
 ## Hangar — the pilot profile and cross-game ships (2026-09-09)
 
 `?theme=hangar` is the tenth live theme, last in the rotation: the pilot
-profile over the shared horizon — avatar + name, all six high scores
-with ranks, and a 3D viewer of the ship the player flies in every ship
+profile over the shared horizon — avatar + name, the seven high scores
+with ranks, the Neon Shrine quest (step n/7 and play time, or the best
+finish; since 2026-09-23), and a 3D viewer of the ship the player flies in every ship
 game. Wide screens (≥1024×700) spread it into two frames — pilot/scores
 left with the portrait at full-painting size (88 px, `avatarFull` from
 `/api/profile`), the ship in a larger bay right; narrower viewports keep
@@ -24,7 +25,8 @@ low-poly model both the viewer and Star Fox use — one builder, one ship.
 
 **Wiring.** Migration `0004_ships.sql` (`players.selected_ship`,
 `player_ships` with reserved xp/level). `GET /api/profile?player=` →
-bests + ships + selected + distinct count; `POST /api/ship/select` →
+bests + ships + selected + distinct count + `saves` (the adventure save
+slots, see `docs/games/neon-shrine.md`); `POST /api/ship/select` →
 400 bad id/ship, 404 unknown player, 423 locked. Unlock is derived live
 from `COUNT(DISTINCT game)`, so no backfill. Games re-read the ship on
 every start: Galaga (hull + wide wings + trim cockpit), R-Type (hull,

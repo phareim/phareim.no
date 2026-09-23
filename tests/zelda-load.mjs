@@ -11,7 +11,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'themes', 'zeld
 export async function load() {
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export * from './engine/index'; export { WORLD } from './world/index'; export * from './types'; export { TILE_INFO } from './world/tiles'; export { validateWorld } from './world/validate'`,
+      contents: `export * from './engine/index'; export { WORLD } from './world/index'; export * from './types'; export { TILE_INFO } from './world/tiles'; export { validateWorld } from './world/validate'; export * from './progress'`,
       resolveDir: root,
       loader: 'ts',
     },

@@ -3,6 +3,7 @@ import {
   type ShipDef, type ShipState,
 } from '~/themes/ships/ships'
 import type { BestEntry } from '~/server/utils/store'
+import type { GameSave } from '~/themes/leaderboard/games'
 
 /**
  * The browser's side of the Hangar. The selected ship id lives in
@@ -47,6 +48,8 @@ export interface ShipProfile {
   ships: ShipState[]
   selected: string
   distinctGames: number
+  /** Adventure save slots by game id (Neon Shrine). */
+  saves: Record<string, GameSave>
 }
 
 export const useShip = () => {
@@ -54,6 +57,7 @@ export const useShip = () => {
   const ships = useState<ShipState[]>('shipStates', () => [])
   const bests = useState<Record<string, BestEntry | null>>('shipBests', () => ({}))
   const distinctGames = useState<number>('shipDistinct', () => 0)
+  const saves = useState<Record<string, GameSave>>('shipSaves', () => ({}))
   const hydrated = useState<boolean>('shipHydrated', () => false)
   /** Full-size painted pilot for the Hangar portrait (thumbnail lives in useLeaderboard). */
   const avatarFull = useState<string | null>('shipAvatarFull', () => null)
@@ -79,6 +83,7 @@ export const useShip = () => {
       ships.value = data.profile.ships
       bests.value = data.profile.bests
       distinctGames.value = data.profile.distinctGames
+      saves.value = data.profile.saves ?? {}
       avatarFull.value = data.player?.avatarFull ?? null
       selected.value = data.profile.selected
       writeSelected(data.profile.selected)
@@ -119,7 +124,7 @@ export const useShip = () => {
   const selectedDef = computed<ShipDef>(() => shipById(selected.value) ?? shipById(STARTER_SHIP)!)
 
   return {
-    selected, ships, bests, distinctGames, hydrated, selectedDef, avatarFull,
+    selected, ships, bests, distinctGames, saves, hydrated, selectedDef, avatarFull,
     loadProfile, selectShip, UNLOCK_DISTINCT_GAMES,
   }
 }

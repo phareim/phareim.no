@@ -50,6 +50,8 @@ export const MAX_BITS = 999
 export const START_HP = 6 // half-hearts
 export const SAVE_KEY = 'zeldaSave'
 export const BEST_KEY = 'zeldaBest'
+/** When this browser last cleared its save (new game, win), in ms — see progress.ts reconcile. */
+export const CLEARED_KEY = 'zeldaClearedAt'
 export const SAVE_VERSION = 2
 
 // ---------------------------------------------------------------------------
@@ -506,7 +508,7 @@ export type GameEvent =
   | { type: 'error' } // a buzz: no bombs, no key, can't afford
 
 // ---------------------------------------------------------------------------
-// Save (localStorage.zeldaSave)
+// Save (localStorage.zeldaSave, mirrored to the player's profile)
 // ---------------------------------------------------------------------------
 
 export interface SaveData {
@@ -519,4 +521,6 @@ export interface SaveData {
   flags: string[]
   rng: number
   elapsed: number
+  /** Wall-clock ms of the write, set by the shell; newest wins against the profile copy. */
+  savedAt?: number
 }

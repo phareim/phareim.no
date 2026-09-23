@@ -4,7 +4,7 @@
  * pause screen with the quest hint.
  */
 import type { GameState } from '../types'
-import { has } from '../engine/index'
+import { questHint, questStep } from '../progress'
 import { drawText, textWidth, wrapText, GLYPH_H } from './font'
 import { sprite } from './sheet'
 
@@ -113,13 +113,7 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
 }
 
 export function objective(s: GameState): string {
-  if (!s.inv.sword) return "OPEN THE CHEST BY THE KEEPER'S HUT."
-  if (!s.inv.bombBag) return 'SEARCH WHISPER WOODS, NORTH OF HOME, FOR SOMETHING THAT GOES BOOM.'
-  if (!Object.keys(s.flags).some(f => f.startsWith('bomb:overworld:')) && s.map.id !== 'shrine') return 'BLAST THE RUBBLE AT THE NORTH END OF THE HOLLOW GRAVES.'
-  if (!s.inv.disc) return "FIND THE SHRINE'S TREASURE. KEYS OPEN THE WAY WEST OF THE GREAT HALL."
-  if (!s.inv.bigKey) return 'A KNIGHT GUARDS THE BIG KEY, NORTH OF THE CRYSTAL ROOM.'
-  if (!has(s, 'boss')) return 'OPEN THE GREAT DOOR AND FACE THE STATIC KING.'
-  return 'CLAIM THE SUN PRISM.'
+  return questHint(questStep(s.inv, Object.keys(s.flags), s.map.id))
 }
 
 export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudKeys) {

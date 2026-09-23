@@ -11,24 +11,26 @@
         <h1 class="zelda-logo"><span class="zelda-logo-neon">NEON</span><span class="zelda-logo-shrine">SHRINE</span></h1>
         <p class="zelda-tagline">THE SUN WON'T SET. GO GET IT BACK.</p>
         <p class="zelda-start">{{ hasSave ? hint('PRESS ENTER TO CONTINUE', 'TAP TO CONTINUE') : hint('PRESS ENTER TO BEGIN', 'TAP TO BEGIN') }}</p>
+        <p v-if="quest" class="zelda-save">QUEST {{ quest.step }}/{{ QUEST_STEPS }}<span class="zelda-save-goal"> · {{ quest.goal }}</span> · {{ formatPlayTime(quest.elapsed) }}</p>
+        <p v-if="pilot" class="zelda-pilot">SAVED TO {{ pilot.toUpperCase() }}</p>
         <p class="zelda-keys">{{ hint('ARROWS MOVE · SPACE SWORD / TALK · K ITEM · Q SWAP · P PAUSE', 'DRAG TO MOVE · A SWORD / TALK · B ITEM') }}</p>
         <div v-if="hasSave" class="zelda-row">
           <button class="zelda-btn" @click.stop="newGame">NEW GAME</button>
           <span v-if="inputMode === 'keyboard'" class="zelda-keys">OR PRESS N</span>
         </div>
-        <p v-if="bestTime !== null" class="zelda-best">BEST TIME {{ formatTime(bestTime) }}</p>
+        <p v-if="bestTime !== null" class="zelda-best">BEST TIME {{ formatPlayTime(bestTime) }}</p>
       </div>
 
       <div v-else-if="phase === 'over'" class="zelda-panel">
         <h1 class="zelda-panel-title">RESTING</h1>
-        <p class="zelda-keys">PROGRESS SAVED · {{ formatTime(result?.elapsed ?? 0) }} PLAYED</p>
+        <p class="zelda-keys">{{ pilot ? `SAVED TO ${pilot.toUpperCase()}` : 'PROGRESS SAVED' }} · {{ formatPlayTime(result?.elapsed ?? 0) }} PLAYED</p>
         <p class="zelda-start">{{ hint('PRESS ENTER TO CONTINUE', 'TAP TO CONTINUE') }}</p>
       </div>
 
       <div v-else-if="phase === 'won'" class="zelda-panel zelda-panel--won">
         <div class="zelda-sun zelda-sun--small" aria-hidden="true" />
         <h1 class="zelda-panel-title">THE SUN SETS AT LAST</h1>
-        <p class="zelda-time">{{ formatTime(result?.elapsed ?? 0) }}</p>
+        <p class="zelda-time">{{ formatPlayTime(result?.elapsed ?? 0) }}</p>
         <p v-if="isNewBest" class="zelda-best">NEW BEST!</p>
         <p class="zelda-start">{{ hint('PRESS ENTER FOR A NEW QUEST', 'TAP FOR A NEW QUEST') }}</p>
       </div>
@@ -38,38 +40,76 @@
 
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
+import { readStoredPlayer } from '~/composables/useLeaderboard'
 import Zelda from './Zelda.vue'
-import { SAVE_KEY, BEST_KEY } from './types'
+import { parseSave } from './engine/index'
+import { QUEST_STEPS, formatPlayTime, reconcile, summarizeSave, type QuestSummary } from './progress'
+import { readLocalSave, writeLocalSave, clearLocalSave, localSavedAt, readLocalBest, writeLocalBest } from './localSave'
 
 const { navigationLocked } = useTheme()
 const { hint, inputMode } = useInputMode()
+const { player } = useLeaderboard()
+const profileSave = useGameSave('zelda')
 
 const phase = ref<'attract' | 'play' | 'over' | 'won'>('attract')
 const result = ref<{ reason: 'quit' | 'won'; elapsed: number; best: number | null } | null>(null)
 const hasSave = ref(false)
 const bestTime = ref<number | null>(null)
 const isNewBest = ref(false)
-
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${String(secs).padStart(2, '0')}`
-}
+const quest = ref<QuestSummary | null>(null)
+const storedPilot = ref<string | null>(null)
+/** The Hall of Fame player the save belongs to, once this browser has one. */
+const pilot = computed(() => player.value?.name ?? storedPilot.value)
 
 function refresh() {
-  try {
-    hasSave.value = !!localStorage.getItem(SAVE_KEY)
-    const best = parseFloat(localStorage.getItem(BEST_KEY) || '')
-    bestTime.value = Number.isFinite(best) && best > 0 ? best : null
-  } catch { /* private mode */ }
+  const save = readLocalSave()
+  hasSave.value = save !== null
+  quest.value = save ? summarizeSave(save) : null
+  bestTime.value = readLocalBest()
+  storedPilot.value = readStoredPlayer()?.name ?? null
+}
+
+/**
+ * Brings this browser's save and the profile's copy into step: the newer
+ * one wins, best times meet at the lower. Skipped for a browser with no
+ * player yet — its first save creates one.
+ */
+async function syncWithProfile() {
+  if (!profileSave.hasPlayer()) return
+  let local = readLocalSave()
+  if (local && !local.savedAt) {
+    // A save from before profile sync: stamp it now so it counts.
+    local = { ...local, savedAt: Date.now() }
+    writeLocalSave(local)
+  }
+  const remote = await profileSave.pull()
+  // A run that started meanwhile owns the save; its own writes go up.
+  if (remote === 'offline' || phase.value !== 'attract') return
+  const remoteData = remote?.data ? parseSave(remote.data) : null
+  const action = reconcile(local, localSavedAt(local), remote, remoteData)
+  if (action.kind === 'pull') {
+    if (action.save) writeLocalSave({ ...action.save, savedAt: remote!.savedAt })
+    else clearLocalSave(remote!.savedAt)
+  } else if (action.kind === 'push') {
+    profileSave.push({ data: action.save, savedAt: action.savedAt })
+  }
+  const localBest = readLocalBest()
+  if (remote?.best != null && (localBest === null || remote.best < localBest)) writeLocalBest(remote.best)
+  else if (localBest !== null && (remote?.best == null || localBest < remote.best)) profileSave.push({ savedAt: Date.now(), best: localBest })
+  refresh()
 }
 
 function newGame() {
-  try { localStorage.removeItem(SAVE_KEY) } catch { /* ignore */ }
-  hasSave.value = false
+  const at = Date.now()
+  clearLocalSave(at)
+  if (profileSave.hasPlayer()) profileSave.push({ data: null, savedAt: at })
+  refresh()
 }
 
-onMounted(refresh)
+onMounted(() => {
+  refresh()
+  void syncWithProfile()
+})
 
 onBeforeUnmount(() => {
   navigationLocked.value = false
@@ -115,6 +155,7 @@ function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | n
 }
 
 @media (max-width: 480px) {
+  .zelda-save-goal { display: none; }
   .zelda-kicker { letter-spacing: 0.2em; font-size: 10px; }
   .zelda-tagline { letter-spacing: 0.14em; font-size: 11px; }
   .zelda-start { font-size: 14px; letter-spacing: 0.16em; }
@@ -234,6 +275,22 @@ function onResult(r: { reason: 'quit' | 'won'; elapsed: number; best: number | n
 
 .zelda-btn:hover {
   box-shadow: 0 0 14px rgba(47, 243, 255, 0.45);
+}
+
+.zelda-save,
+.zelda-pilot {
+  margin: 0.6em 0 0;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: #2ff3ff;
+  text-shadow: 0 0 8px rgba(47, 243, 255, 0.55);
+}
+
+.zelda-pilot {
+  margin-top: 0.3em;
+  font-size: 10px;
+  color: rgba(185, 168, 217, 0.85);
+  text-shadow: none;
 }
 
 .zelda-best {

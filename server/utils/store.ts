@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { GAMES, TOP_N, AVATAR_MAX_GENS, avatarThumbUrl, type BoardRow, type GameBoard } from '~/themes/leaderboard/games'
+import { GAMES, TOP_N, AVATAR_MAX_GENS, avatarThumbUrl, type BoardRow, type GameBoard, type GameSave } from '~/themes/leaderboard/games'
 import { STARTER_SHIP, isShipId, shipStates, isShipUnlocked, type ShipState } from '~/themes/ships/ships'
 
 /**
@@ -40,6 +40,20 @@ export interface Profile {
   ships: ShipState[]
   selected: string
   distinctGames: number
+  /** Save slots by game id (adventure games only; none until the first save). */
+  saves: Record<string, GameSave>
+}
+
+/** One write to a save slot. */
+export interface SaveWrite {
+  /** JSON text of the save; null clears it; undefined leaves it alone (a best-time-only write). */
+  data?: string | null
+  /** Client wall-clock ms; an older write than the stored one leaves the save as it is. */
+  savedAt: number
+  /** A finish time in seconds; the slot keeps the lowest. */
+  best: number | null
+  /** Counts a finish. */
+  won: boolean
 }
 
 export interface SubmitResult {
@@ -79,6 +93,10 @@ export interface Store {
   selectShip(playerId: string, shipId: string): Promise<'ok' | 'no-player' | 'bad-ship' | 'locked'>
   /** Distinct games the player has a score in (drives the unlock). */
   distinctGameCount(playerId: string): Promise<number>
+  /** The player's save slot for a game, or null when there is none. */
+  getSave(playerId: string, game: string): Promise<GameSave | null>
+  /** Writes a save slot (newest wins, best keeps the lowest). 'no-player' if the id is unknown. */
+  putSave(playerId: string, game: string, write: SaveWrite): Promise<GameSave | 'no-player'>
 }
 
 const AVATAR_CLAIM_MINUTES = 3
@@ -122,6 +140,24 @@ function toPlayer(r: PlayerRow): Player {
 }
 
 const PLAYER_COLS = 'id, name, avatar_file, avatar_name, avatar_gens, selected_ship'
+
+interface SaveRow {
+  game: string
+  data: string | null
+  saved_at: number
+  best_seconds: number | null
+  clears: number
+}
+
+function toSave(r: SaveRow): GameSave {
+  let data: unknown = null
+  if (r.data !== null) {
+    try { data = JSON.parse(r.data) } catch { data = null }
+  }
+  return { data, savedAt: r.saved_at, best: r.best_seconds, clears: r.clears }
+}
+
+const SAVE_COLS = 'game, data, saved_at, best_seconds, clears'
 
 /** Unlock flags from the live distinct count, with stored xp/level layered on. */
 function assembleShips(distinct: number, stored: { ship_id: string, xp: number, level: number }[]): ShipState[] {
@@ -181,7 +217,42 @@ class D1Store implements Store {
     for (const r of bestRows.results) {
       if (bests[r.game] !== undefined) bests[r.game] = { score: r.score, rank: r.rank }
     }
-    return { player: { ...player, selectedShip: selected }, bests, ships, selected, distinctGames: distinct }
+    const saveRows = await this.db
+      .prepare(`SELECT ${SAVE_COLS} FROM game_saves WHERE player_id = ?`)
+      .bind(playerId)
+      .all<SaveRow>()
+    const saves: Record<string, GameSave> = {}
+    for (const r of saveRows.results) saves[r.game] = toSave(r)
+    return { player: { ...player, selectedShip: selected }, bests, ships, selected, distinctGames: distinct, saves }
+  }
+
+  async getSave(playerId: string, game: string): Promise<GameSave | null> {
+    const row = await this.db
+      .prepare(`SELECT ${SAVE_COLS} FROM game_saves WHERE player_id = ? AND game = ?`)
+      .bind(playerId, game)
+      .first<SaveRow>()
+    return row ? toSave(row) : null
+  }
+
+  async putSave(playerId: string, game: string, w: SaveWrite): Promise<GameSave | 'no-player'> {
+    if (!(await this.getPlayer(playerId))) return 'no-player'
+    const touch = w.data === undefined ? 0 : 1
+    await this.db
+      .prepare(`INSERT INTO game_saves (player_id, game, data, saved_at, best_seconds, clears)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(player_id, game) DO UPDATE SET
+                  data = CASE WHEN ? = 1 AND excluded.saved_at >= game_saves.saved_at
+                              THEN excluded.data ELSE game_saves.data END,
+                  saved_at = CASE WHEN ? = 1 THEN MAX(game_saves.saved_at, excluded.saved_at)
+                                  ELSE game_saves.saved_at END,
+                  best_seconds = CASE WHEN excluded.best_seconds IS NULL THEN game_saves.best_seconds
+                                      WHEN game_saves.best_seconds IS NULL THEN excluded.best_seconds
+                                      ELSE MIN(game_saves.best_seconds, excluded.best_seconds) END,
+                  clears = game_saves.clears + excluded.clears,
+                  updated_at = datetime('now')`)
+      .bind(playerId, game, w.data ?? null, touch ? w.savedAt : 0, w.best, w.won ? 1 : 0, touch, touch)
+      .run()
+    return (await this.getSave(playerId, game))!
   }
 
   async selectShip(playerId: string, shipId: string): Promise<'ok' | 'no-player' | 'bad-ship' | 'locked'> {
@@ -286,6 +357,8 @@ class MemoryStore implements Store {
   private players = new Map<string, Player & { avatarStartedAt: number | null }>()
   /** game → playerId → score */
   private scores = new Map<string, Map<string, MemScore>>()
+  /** `${playerId} ${game}` → slot, data kept as JSON text like D1 */
+  private saves = new Map<string, { data: string | null, savedAt: number, best: number | null, clears: number }>()
   private seq = 0
 
   async getPlayer(id: string): Promise<Player | null> {
@@ -321,13 +394,40 @@ class MemoryStore implements Store {
       bests[g.id] = rank ? { score: rank.score, rank: rank.rank } : null
     }
     const selected = isShipUnlocked(player.selectedShip, distinct) ? player.selectedShip : STARTER_SHIP
+    const saves: Record<string, GameSave> = {}
+    for (const [key, slot] of this.saves) {
+      if (!key.startsWith(`${playerId} `)) continue
+      const game = key.slice(playerId.length + 1)
+      saves[game] = toSave({ game, data: slot.data, saved_at: slot.savedAt, best_seconds: slot.best, clears: slot.clears })
+    }
     return {
       player: { ...player, selectedShip: selected },
       bests,
       ships: shipStates(distinct),
       selected,
       distinctGames: distinct,
+      saves,
     }
+  }
+
+  async getSave(playerId: string, game: string): Promise<GameSave | null> {
+    const slot = this.saves.get(`${playerId} ${game}`)
+    if (!slot) return null
+    return toSave({ game, data: slot.data, saved_at: slot.savedAt, best_seconds: slot.best, clears: slot.clears })
+  }
+
+  async putSave(playerId: string, game: string, w: SaveWrite): Promise<GameSave | 'no-player'> {
+    if (!this.players.has(playerId)) return 'no-player'
+    const key = `${playerId} ${game}`
+    const slot = this.saves.get(key) ?? { data: null, savedAt: 0, best: null, clears: 0 }
+    if (w.data !== undefined && w.savedAt >= slot.savedAt) {
+      slot.data = w.data
+      slot.savedAt = w.savedAt
+    }
+    if (w.best !== null) slot.best = slot.best === null ? w.best : Math.min(slot.best, w.best)
+    if (w.won) slot.clears += 1
+    this.saves.set(key, slot)
+    return (await this.getSave(playerId, game))!
   }
 
   async selectShip(playerId: string, shipId: string): Promise<'ok' | 'no-player' | 'bad-ship' | 'locked'> {

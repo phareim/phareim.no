@@ -53,12 +53,13 @@
  * on the left, A / B buttons on the right, SWAP and pause chips.
  */
 import EscHold from '../base/EscHold.vue'
-import { createGame, stepGame, toSave, parseSave } from './engine/index'
+import { createGame, stepGame, toSave } from './engine/index'
 import { WORLD } from './world/index'
 import { createRenderer, type FrameUI, type Renderer } from './render/renderer'
 import { sprite } from './render/sheet'
 import { createZeldaAudio, type SfxName, type ZeldaAudio } from './audio'
-import { SAVE_KEY, BEST_KEY, NO_INPUT, type GameState, type GameEvent, type Input, type TrackId, type UseItem } from './types'
+import { readLocalSave, writeLocalSave, clearLocalSave, readLocalBest, writeLocalBest } from './localSave'
+import { NO_INPUT, type GameState, type GameEvent, type Input, type TrackId, type UseItem } from './types'
 
 type Phase = 'attract' | 'play' | 'over' | 'won'
 
@@ -78,6 +79,7 @@ const band = ref(0)
 const selected = ref<UseItem | null>(null)
 const { navigationLocked } = useTheme()
 const sound = useSound()
+const profileSave = useGameSave('zelda')
 
 let renderer: Renderer | null = null
 let audio: ZeldaAudio | null = null
@@ -265,24 +267,28 @@ function setPhase(p: Phase) {
   resize()
 }
 
-function loadSave() {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY)
-    return raw ? parseSave(JSON.parse(raw)) : null
-  } catch { return null }
-}
-
+/** Saves here and on the player's profile (the first save creates the player). */
 function persist() {
   const save = toSave(state)
   if (!save) return
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)) } catch { /* private mode */ }
+  save.savedAt = Date.now()
+  writeLocalSave(save)
+  profileSave.push({ data: save, savedAt: save.savedAt })
+}
+
+/** Drops the save here and, if this browser has a player, on the profile. */
+function dropSave(extra: { best?: number, won?: boolean } = {}) {
+  const had = readLocalSave() !== null
+  const at = Date.now()
+  clearLocalSave(at)
+  if (extra.won || (had && profileSave.hasPlayer())) profileSave.push({ data: null, savedAt: at, ...extra })
 }
 
 function startRun(fresh: boolean) {
-  if (fresh) { try { localStorage.removeItem(SAVE_KEY) } catch { /* ignore */ } }
+  if (fresh) dropSave()
   audio?.unlock()
   sound.unlock()
-  const save = fresh ? null : loadSave()
+  const save = fresh ? null : readLocalSave()
   state = createGame(WORLD, { save, seed: Date.now() >>> 0 })
   clearInput()
   paused.value = false
@@ -334,24 +340,17 @@ function quit() {
   clearInput()
   playTrack(null)
   setPhase('over')
-  emit('result', { reason: 'quit', elapsed: state.elapsed, best: readBest() })
+  emit('result', { reason: 'quit', elapsed: state.elapsed, best: readLocalBest() })
   backToAttract()
 }
 
-function readBest(): number | null {
-  try {
-    const v = parseFloat(localStorage.getItem(BEST_KEY) || '')
-    return Number.isFinite(v) && v > 0 ? v : null
-  } catch { return null }
-}
-
 function finishWon() {
-  try { localStorage.removeItem(SAVE_KEY) } catch { /* ignore */ }
+  dropSave({ best: state.elapsed, won: true })
   clearInput()
   playTrack('ending')
-  const prev = readBest()
+  const prev = readLocalBest()
   const best = prev === null || state.elapsed < prev ? state.elapsed : prev
-  if (best !== prev) { try { localStorage.setItem(BEST_KEY, String(best)) } catch { /* ignore */ } }
+  if (best !== prev) writeLocalBest(best)
   setPhase('won')
   emit('result', { reason: 'won', elapsed: state.elapsed, best })
 }
@@ -470,6 +469,8 @@ function frame(nowMs: number) {
 function onVisibility() {
   if (document.hidden) {
     clearInput()
+    // Phones kill background tabs: keep the play time up to now.
+    if (phase.value === 'play') persist()
     if (phase.value === 'play' && !paused.value) togglePause()
   }
   lastT = 0

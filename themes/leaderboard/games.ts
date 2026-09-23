@@ -77,3 +77,35 @@ export function avatarImageUrl(file: string | null | undefined): string | null {
   if (!file) return null
   return `${AVATAR_MEDIA_BASE}/images/${encodeURIComponent(file)}`
 }
+
+/**
+ * Adventure games whose progress lives on the player's profile (2026-09-23)
+ * — a save slot per player per game behind `/api/save`, shown in the
+ * Hangar. The id is the theme id. The server stores the save as opaque
+ * JSON; the game validates it on load.
+ */
+export interface SaveGameEntry {
+  id: string
+  title: string
+  /** Largest save the API accepts, in bytes of JSON. */
+  maxBytes: number
+}
+
+export const SAVE_GAMES: readonly SaveGameEntry[] = [
+  { id: 'zelda', title: 'Neon Shrine', maxBytes: 16_384 },
+] as const
+
+export function saveGameById(id: unknown): SaveGameEntry | undefined {
+  return typeof id === 'string' ? SAVE_GAMES.find(g => g.id === id) : undefined
+}
+
+/** One save slot as the API returns it. `data` is null when no run is in progress. */
+export interface GameSave {
+  data: unknown | null
+  /** Client wall-clock ms of the newest write; newest wins. */
+  savedAt: number
+  /** Fastest finish in seconds, or null before the first. */
+  best: number | null
+  /** Times the game has been finished on this profile. */
+  clears: number
+}

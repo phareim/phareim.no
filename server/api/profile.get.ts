@@ -2,8 +2,8 @@ import { avatarImageUrl, avatarThumbUrl } from '~/themes/leaderboard/games'
 
 /**
  * GET /api/profile?player=<id>
- * The Hangar profile: identity + avatar, per-game bests, ship states and
- * the selected ship. Unknown player → { profile: null } (the client
+ * The Hangar profile: identity + avatar, per-game bests, ship states,
+ * the selected ship and the adventure save slots. Unknown player → { profile: null } (the client
  * registers through /api/player like the board does).
  */
 export default defineEventHandler(async (event) => {
@@ -13,9 +13,9 @@ export default defineEventHandler(async (event) => {
   const profile = await getStore(event).getProfile(playerId)
   setResponseHeader(event, 'Cache-Control', 'no-store')
   if (!profile) return { profile: null, player: null } as const
-  const { player, bests, ships, selected, distinctGames } = profile
+  const { player, bests, ships, selected, distinctGames, saves } = profile
   return {
-    profile: { bests, ships, selected, distinctGames },
+    profile: { bests, ships, selected, distinctGames, saves },
     player: {
       id: player.id,
       name: player.name,

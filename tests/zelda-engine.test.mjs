@@ -179,6 +179,53 @@ describe('saves', () => {
   })
 })
 
+describe('profile saves', () => {
+  const saveAt = (at, patch = {}) => ({ ...Z.toSave(newGame()), savedAt: at, ...patch })
+
+  it('keeps savedAt through parseSave and drops junk stamps', () => {
+    const save = saveAt(1_700_000_000_000)
+    assert.equal(Z.parseSave(JSON.parse(JSON.stringify(save))).savedAt, 1_700_000_000_000)
+    assert.equal(Z.parseSave({ ...save, savedAt: 'x' }).savedAt, undefined)
+  })
+
+  it('reconciles by newest write', () => {
+    const old = saveAt(100)
+    const fresh = saveAt(200, { elapsed: 99 })
+    const remote = (data, savedAt) => ({ data, savedAt, best: null, clears: 0 })
+    // No profile copy yet: send ours (a save, or a clear we remember).
+    assert.deepEqual(Z.reconcile(old, 100, null, null), { kind: 'push', save: old, savedAt: 100 })
+    assert.deepEqual(Z.reconcile(null, 50, null, null), { kind: 'push', save: null, savedAt: 50 })
+    assert.deepEqual(Z.reconcile(null, 0, null, null), { kind: 'none' })
+    // Profile newer: take it, including a cleared slot after a win elsewhere.
+    assert.deepEqual(Z.reconcile(old, 100, remote(fresh, 200), fresh), { kind: 'pull', save: fresh })
+    assert.deepEqual(Z.reconcile(old, 100, remote(null, 200), null), { kind: 'pull', save: null })
+    // Local newer: send it; equal: nothing.
+    assert.equal(Z.reconcile(fresh, 200, remote(old, 100), old).kind, 'push')
+    assert.equal(Z.reconcile(old, 100, remote(old, 100), old).kind, 'none')
+    // A newer local clear beats an older profile save (new game stays new).
+    assert.deepEqual(Z.reconcile(null, 300, remote(old, 100), old), { kind: 'push', save: null, savedAt: 300 })
+    // An unreadable profile save never replaces a readable local one.
+    assert.equal(Z.reconcile(old, 100, remote({ v: 99 }, 200), null).kind, 'push')
+  })
+
+  it('summarises the quest from a save', () => {
+    const s = newGame()
+    let q = Z.summarizeSave(Z.toSave(s))
+    assert.equal(q.step, 0)
+    assert.equal(q.goal, 'THE BLADE')
+    assert.equal(q.hearts, Z.START_HP / 2)
+    s.inv.sword = true
+    s.inv.bombBag = true
+    s.flags['bomb:overworld:3,4'] = true
+    q = Z.summarizeRaw(JSON.parse(JSON.stringify(Z.toSave(s))))
+    assert.equal(q.step, 3)
+    assert.equal(q.goal, 'THE DISC')
+    assert.equal(Z.summarizeRaw({ nope: true }), null)
+    assert.equal(Z.formatPlayTime(3725), '1:02:05')
+    assert.equal(Z.formatPlayTime(95), '1:35')
+  })
+})
+
 describe('full run', () => {
   it('goes from the hut to the Sun Prism', () => {
     const s = newGame(11)
