@@ -1,7 +1,5 @@
 <template>
-  <DefaultLanding
-    :content-class="{ 'breakout-fade': gameStarted }"
-  >
+  <DefaultLanding>
     <template #background>
       <Breakout
         @score="s => score = s"
@@ -24,7 +22,7 @@
         <p class="breakout-hint">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
-        <p class="location breakout-hud">
+        <p class="location breakout-hud" :class="{ 'breakout-hud-live': gameStarted }">
           SCORE: {{ score }}<template v-if="gameStarted"> · LEVEL {{ level }} · {{ '◆'.repeat(Math.max(0, lives)) }}</template>
         </p>
         <p v-if="highScore > 0 && !gameStarted" class="location breakout-hud-dim">HIGH SCORE: {{ highScore }}</p>
@@ -143,6 +141,25 @@ function onGameRestart() {
   margin-top: 0.2em;
 }
 
+/* During a run the HUD line moves to the top-left corner, clear of the
+   ball's path; on phones it sits between the radio widget and the bricks. */
+.landing .breakout-hud-live {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  margin: 0;
+  font-size: 0.85em;
+  text-align: left;
+  pointer-events: none;
+}
+@media (max-width: 640px) {
+  .landing .breakout-hud-live {
+    top: calc(max(0.6rem, env(safe-area-inset-top)) + 42px);
+    left: 12px;
+    font-size: 0.75em;
+  }
+}
+
 .breakout-hud-dim {
   font-family: var(--font-machine);
   text-transform: uppercase;
@@ -152,12 +169,4 @@ function onGameRestart() {
   letter-spacing: 0.1em;
 }
 
-.breakout-fade {
-  animation: breakout-fade-out 4s forwards;
-}
-@keyframes breakout-fade-out {
-  0% { opacity: 1; }
-  50% { opacity: 1; }
-  100% { opacity: 0; pointer-events: none; }
-}
 </style>
