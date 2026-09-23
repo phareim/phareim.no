@@ -40,7 +40,8 @@ inside; the engine gets a slap-back echo.
 slope, smoothed steering whose authority grows with speed, centrifugal push
 with speed², tyre load that squeals and scrubs speed in hard bends (a full-lock
 lane change on a straight does not), dirt that caps speed at 42 %. Traffic is
-always slower than you and only changes lanes well ahead of you: a soft hit is
+sparse (a new car every 1–3 s, halved 2026-09-23), always slower than you,
+and only changes lanes well ahead of you: a soft hit is
 a BUMP, a hard one a SPIN, a roadside prop at speed a TUMBLE (barrel roll,
 restart from standstill on the nearest lane). The car body leaves the road
 over sharp crests (visual only).

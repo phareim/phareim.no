@@ -690,7 +690,7 @@ export function createGame(seed = 1986, opts: { countdown?: boolean, col?: numbe
   startSeg.tag = 'start'
   startSeg.props.push({ kind: 'gantry', side: 1, rel: 0, v: 0, label: 'START' })
   // Some traffic already out on the road.
-  for (let i = 0; i < 6; i++) spawnCar(state, state.position + SEG_LEN * (40 + i * 28 + rand(state, 0, 12)))
+  for (let i = 0; i < 3; i++) spawnCar(state, state.position + SEG_LEN * (40 + i * 56 + rand(state, 0, 12)))
   return state
 }
 
@@ -755,7 +755,7 @@ function updateTrafficSpawns(state: OutrunState, dt: number): void {
   state.spawnT -= dt
   if (state.spawnT > 0) return
   const diff = difficulty(state.col, state.node)
-  state.spawnT = Math.max(0.5, 1.5 - diff * 0.9) * rand(state, 0.6, 1.4)
+  state.spawnT = Math.max(1, 3 - diff * 1.8) * rand(state, 0.6, 1.4)
   spawnCar(state, state.position + SEG_LEN * (DRAW_DIST + rand(state, 0, 30)))
 }
 
