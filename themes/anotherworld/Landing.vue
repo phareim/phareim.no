@@ -1,90 +1,97 @@
 <template>
-  <!-- Another Shore: own the page. A full-viewport flat-polygon coast with
-    the chapter title unboxed upper left while idle. No HUD boxes: beacon progress
-    is three small dots, pause/exit are one line of text, touch controls are
-    thin outlined zones in the black band at the bottom. -->
-  <div ref="shellRef" class="aw-shell" :class="{ 'aw-istouch': isTouch, 'aw-dawn': dawn }">
-    <canvas ref="canvasRef" class="aw-canvas" aria-hidden="true" />
+  <!-- Another Shore: own the page. The canvas is the whole scene; the title,
+    the chapter line, the hints and the result are unboxed text over the sky.
+    The radio sits top right, so the run's own chrome lives top left. -->
+  <div
+    ref="shellRef"
+    class="as-shell"
+    :class="{ 'as-istouch': isTouch, 'as-light': lightInk }"
+  >
+    <canvas ref="canvasRef" class="as-canvas" aria-hidden="true" @pointerdown="onCanvasPointer" />
 
-    <!-- Idle title: the prologue, over the sky. -->
-    <div v-if="phase === 'idle'" class="aw-profile">
-      <p class="aw-chapter">Another shore</p>
-      <button type="button" class="aw-start" @click="startGame">
-        {{ hint('Start the crossing — Enter', 'Start the crossing') }}
+    <!-- Title, over the attract loop. -->
+    <div v-if="phase === 'idle'" class="as-title">
+      <p class="as-over">A crossing in five chapters</p>
+      <h1 class="as-name">another shore</h1>
+      <p class="as-lede">Your ship went down on the far side of the sun.</p>
+      <button type="button" class="as-start" @click="continueOrBegin">
+        {{ saved ? `Continue · ${chapterLabel(saved.chapter)}` : 'Begin' }}{{ hint(' — Enter', '') }}
       </button>
-      <p class="aw-controls-hint">{{ hint('← → / A D move · Space jump · Esc pause · hold Esc to leave', '◀ ▶ move · jump · pause above') }}</p>
+      <button v-if="saved" type="button" class="as-text as-new" @click="beginNew">
+        {{ hint('New crossing — N', 'New crossing') }}
+      </button>
+      <p class="as-keys">{{ hint('← → move · ↑ jump · ↓ crouch · Space kick / fire · Esc pause', '◀ ▶ move · ▲ jump · ▼ crouch · ◆ kick / fire') }}</p>
+      <p v-if="metaLine" class="as-meta">{{ metaLine }}</p>
     </div>
 
-    <!-- One line of text, top right. No border, no background. -->
-    <p v-if="phase === 'playing' || phase === 'paused'" class="aw-top">
-      <button v-if="phase === 'playing'" type="button" class="aw-text" @click="pauseGame">pause</button>
-      <button v-else type="button" class="aw-text" @click="resumeGame">resume</button>
-      <span class="aw-sep">·</span>
-      <button type="button" class="aw-text" @click="exitToIdle">exit</button>
+    <!-- Playing: one line, top left. -->
+    <p v-if="(phase === 'playing' && !inCut) || phase === 'paused'" class="as-top">
+      <span class="as-chapter">{{ chapterText }}</span>
+      <button v-if="phase === 'playing'" type="button" class="as-text" @click="pauseGame">pause</button>
+      <button v-else type="button" class="as-text" @click="resumeGame">resume</button>
+      <span class="as-sep">·</span>
+      <button type="button" class="as-text" @click="quitToTitle">leave</button>
     </p>
 
-    <!-- Beacon progress: three dots, low right. -->
-    <p v-if="phase !== 'idle'" class="aw-dots" :aria-label="`Beacon ${beaconLit} of ${beaconTotal}`">
-      <span v-for="i in beaconTotal" :key="i" class="aw-dot" :class="{ 'aw-dot-lit': i <= beaconLit }" />
-    </p>
+    <p v-if="phase === 'playing' && inCut" class="as-skip">{{ hint('Enter — skip', 'tap — skip') }}</p>
 
-    <!-- Touch zones: pointer-captured, outlines only, in the black band. -->
-    <div v-if="phase === 'playing' || phase === 'paused'" class="aw-touch">
-      <button
-        type="button"
-        class="aw-zone"
-        aria-label="Move left"
-        @pointerdown="onTouchButton($event, 'left')"
-        @pointerup="onTouchRelease($event, 'left')"
-        @pointercancel="onTouchRelease($event, 'left')"
-        @lostpointercapture="onTouchRelease($event, 'left')"
-        @contextmenu.prevent
-      >
-        ◀
-      </button>
-      <button
-        type="button"
-        class="aw-zone"
-        aria-label="Move right"
-        @pointerdown="onTouchButton($event, 'right')"
-        @pointerup="onTouchRelease($event, 'right')"
-        @pointercancel="onTouchRelease($event, 'right')"
-        @lostpointercapture="onTouchRelease($event, 'right')"
-        @contextmenu.prevent
-      >
-        ▶
-      </button>
-      <button
-        type="button"
-        class="aw-zone aw-zone-jump"
-        aria-label="Jump"
-        @pointerdown="onTouchButton($event, 'jump')"
-        @pointerup="onTouchRelease($event, 'jump')"
-        @pointercancel="onTouchRelease($event, 'jump')"
-        @lostpointercapture="onTouchRelease($event, 'jump')"
-        @contextmenu.prevent
-      >
-        jump
-      </button>
+    <p v-if="phase === 'playing' && hintText && !inCut" class="as-hint" role="status">{{ hintText }}</p>
+
+    <!-- Touch zones: pointer-captured outlines along the bottom. -->
+    <div v-if="(phase === 'playing' && !inCut) || phase === 'paused'" class="as-touch">
+      <div class="as-pad">
+        <button
+          v-for="z in padLeft"
+          :key="z.kind"
+          type="button"
+          class="as-zone"
+          :aria-label="z.label"
+          @pointerdown="onTouchButton($event, z.kind)"
+          @pointerup="onTouchRelease($event, z.kind)"
+          @pointercancel="onTouchRelease($event, z.kind)"
+          @lostpointercapture="onTouchRelease($event, z.kind)"
+          @contextmenu.prevent
+        >
+          {{ z.glyph }}
+        </button>
+      </div>
+      <div class="as-pad as-pad-right">
+        <button
+          v-for="z in padRight"
+          :key="z.kind"
+          type="button"
+          class="as-zone"
+          :class="{ 'as-zone-action': z.kind === 'action' }"
+          :aria-label="z.label"
+          @pointerdown="onTouchButton($event, z.kind)"
+          @pointerup="onTouchRelease($event, z.kind)"
+          @pointercancel="onTouchRelease($event, z.kind)"
+          @lostpointercapture="onTouchRelease($event, z.kind)"
+          @contextmenu.prevent
+        >
+          {{ z.glyph }}
+        </button>
+      </div>
     </div>
 
-    <!-- Paused: the palette dims (renderer) and one line says so. -->
-    <p v-if="phase === 'paused'" class="aw-line" role="status">
-      paused — {{ hint('P to resume', 'resume above') }}
+    <p v-if="phase === 'paused'" class="as-line" role="status">
+      paused — {{ hint('P or Esc to resume · hold Esc to leave', 'resume above') }}
     </p>
 
-    <!-- Won: the lamp is lit and the world is at dawn. -->
-    <div v-if="phase === 'won'" class="aw-won" role="dialog" aria-label="The lamp is lit">
-      <p class="aw-won-name">the lamp is lit</p>
-      <p class="aw-won-line">
-        <button type="button" class="aw-text" @click="replay">{{ hint('walk again — Enter', 'walk again') }}</button>
-        <span class="aw-sep">·</span>
-        <button type="button" class="aw-text" @click="exitToIdle">{{ hint('leave — Esc', 'leave') }}</button>
+    <!-- The end: the lamp is lit and the ship is home. -->
+    <div v-if="phase === 'done'" class="as-result" role="dialog" aria-label="The crossing is over">
+      <p class="as-over">The lamp is lit</p>
+      <p class="as-name as-name-small">welcome back, {{ pilotName.toLowerCase() }}</p>
+      <p class="as-stats">
+        Crossing {{ formatTime(result.elapsed) }} · falls {{ result.deaths }}<template v-if="result.best"> · best {{ formatTime(result.best) }}</template>
+      </p>
+      <p class="as-result-line">
+        <button type="button" class="as-start" @click="beginNew">{{ hint('Walk again — Enter', 'Walk again') }}</button>
+        <button type="button" class="as-text" @click="toTitle">{{ hint('Leave — Esc', 'Leave') }}</button>
       </p>
     </div>
 
-    <!-- EscHold owns Escape while crossing: tap pauses/resumes, a 3 s hold leaves. -->
-    <EscHold :is-active="escActive" :paused="false" :show-paused="false" @tap="escTap" @hold="exitToIdle" />
+    <EscHold :is-active="escActive" :paused="phase === 'paused'" :show-paused="false" @tap="escTap" @hold="quitToTitle" />
     <SoundToggle />
   </div>
 </template>
@@ -93,144 +100,310 @@
 import EscHold from '../base/EscHold.vue'
 import SoundToggle from '../base/SoundToggle.vue'
 import { useSound } from '~/composables/useSound'
-import { createWorld, stepWorld, demoInput } from './engine'
-import { drawWorld, paletteNameFor } from './renderer'
-import type { World, Input } from './types'
+import { useGameSave } from '~/composables/useGameSave'
+import { readStoredPlayer } from '~/composables/useLeaderboard'
+import { readShipDef } from '~/composables/useShip'
+import {
+  CHAPTERS, buildChapter, createGame, demoInput, drainEvents, gameFromSave, parseSave, saveOf,
+  skipCut, stepGame, stepWorld,
+} from './engine/index'
+import { createRenderer, type CutLook } from './render/index'
+import { createShoreAudio, type Ambience } from './audio'
+import {
+  chapterLabel, clearLocalSave, formatTime, localSavedAt, readLocalBest, readLocalRaw, reconcile,
+  writeLocalBest, writeLocalSave, type RemoteSave,
+} from './progress'
+import type { Game, GameEvent, Input, PaletteName, ShoreSave, World } from './types'
 
-type Phase = 'idle' | 'playing' | 'paused' | 'won'
-type TouchKind = 'left' | 'right' | 'jump'
+type Phase = 'idle' | 'playing' | 'paused' | 'done'
+type TouchKind = 'left' | 'right' | 'down' | 'up' | 'action'
 
 const STEP = 1 / 60
-const MAX_STEPS = 4
-const IDLE_WIN_HOLD = 2.5 // seconds of dawn before the attract loop restarts
+const MAX_STEPS = 5
+const GAME_ID = 'anotherworld'
 
 const { navigationLocked } = useTheme()
 const { isTouch, hint } = useInputMode()
 const sound = useSound()
+const profileSave = useGameSave(GAME_ID)
 
 const shellRef = ref<HTMLElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 
 const phase = ref<Phase>('idle')
-const beaconLit = ref(0)
-const beaconTotal = ref(3)
-const dawn = ref(false)
+const saved = ref<ShoreSave | null>(null)
+const best = ref<number | null>(null)
+const pilotName = ref('PLAYER ONE')
+const chapterText = ref('')
+const hintKey = ref<string | null>(null)
+const hasGun = ref(false)
+const inCut = ref(false)
+const lightInk = ref(false)
+const result = reactive({ elapsed: 0, deaths: 0, best: null as number | null })
 
-let world: World | null = null
+let game: Game | null = null
+let attract: World | null = null
+let renderer = createRenderer()
+let audio: ReturnType<typeof createShoreAudio> | null = null
 let raf = 0
 let last = 0
 let acc = 0
-let idleHold = 0
-let needsDraw = true
 let cssW = 0
 let cssH = 0
 let dpr = 1
 let ctx: CanvasRenderingContext2D | null = null
 let reducedMotion = false
 let resizeObserver: ResizeObserver | null = null
+let needsDraw = true
+let look: CutLook = { accent: '#2ff3ff', trim: '#2ff3ff', pilot: 'PLAYER ONE', ship: 'DART' }
+let cutClock = { id: '', t: 0 }
 
-// Keyboard state + per-button touch pointer sets (multi-touch safe).
-const keyState = { left: false, right: false, jump: false }
+const keyState: Record<TouchKind, boolean> = { left: false, right: false, down: false, up: false, action: false }
 const touchPoints: Record<TouchKind, Set<number>> = {
-  left: new Set(),
-  right: new Set(),
-  jump: new Set(),
+  left: new Set(), right: new Set(), down: new Set(), up: new Set(), action: new Set(),
 }
 
-function updateBeacons() {
-  if (!world) return
-  beaconTotal.value = world.beacons.length
-  beaconLit.value = world.beacons.filter(b => b.lit).length
-  dawn.value = paletteNameFor(world) === 'dawn'
+const padLeft = [
+  { kind: 'left' as const, glyph: '◀', label: 'Move left' },
+  { kind: 'right' as const, glyph: '▶', label: 'Move right' },
+  { kind: 'down' as const, glyph: '▼', label: 'Crouch' },
+]
+const padRight = computed(() => [
+  { kind: 'up' as const, glyph: '▲', label: 'Jump' },
+  { kind: 'action' as const, glyph: hasGun.value ? '◆ fire' : '◆ kick', label: hasGun.value ? 'Fire' : 'Kick' },
+])
+
+const HINTS: Record<string, [string, string]> = {
+  swim: ['Swim up — ↑ · then → onto the bank', 'Swim up — ▲ · then ▶ onto the bank'],
+  kick: ['Kick — Space', 'Kick — ◆'],
+  swing: ['Swing the cage — ← → with the swing', 'Swing the cage — ◀ ▶ with the swing'],
+  gun: ['Tap Space: fire · hold: shield · hold longer: beam', 'Tap ◆ fire · hold shield · hold longer beam'],
 }
+const hintText = computed(() => {
+  const h = hintKey.value ? HINTS[hintKey.value] : null
+  return h ? hint(h[0], h[1]) : ''
+})
+
+const metaLine = computed(() => {
+  const parts: string[] = []
+  if (best.value) parts.push(`Best ${formatTime(best.value)}`)
+  if (saved.value) parts.push(`${formatTime(saved.value.elapsed)} in`)
+  if (profileSave.hasPlayer()) parts.push(`saved to ${pilotName.value}`)
+  return parts.join(' · ')
+})
+
+// ---- look: the pilot and the ship from the profile ----
+
+function readLook() {
+  const ship = readShipDef()
+  const player = readStoredPlayer()
+  pilotName.value = player?.name ?? 'PLAYER ONE'
+  look = { accent: ship.colors.hull, trim: ship.colors.trim, pilot: pilotName.value.toUpperCase(), ship: ship.name.toUpperCase() }
+}
+
+// ---- input ----
 
 function resetInput() {
-  keyState.left = false
-  keyState.right = false
-  keyState.jump = false
-  touchPoints.left.clear()
-  touchPoints.right.clear()
-  touchPoints.jump.clear()
+  for (const k of Object.keys(keyState) as TouchKind[]) {
+    keyState[k] = false
+    touchPoints[k].clear()
+  }
 }
 
 function currentInput(): Input {
   return {
     left: keyState.left || touchPoints.left.size > 0,
     right: keyState.right || touchPoints.right.size > 0,
-    jump: keyState.jump || touchPoints.jump.size > 0,
+    up: keyState.up || touchPoints.up.size > 0,
+    down: keyState.down || touchPoints.down.size > 0,
+    action: keyState.action || touchPoints.action.size > 0,
   }
 }
 
+// ---- audio ----
+
+const AMBIENCE: Record<PaletteName, Ambience> = { dusk: 'sea', night: 'night', hall: 'hall', storm: 'storm', dawn: 'dawn' }
+
+function syncAmbience() {
+  if (!audio || !game) return
+  const w = game.world
+  if (game.mode === 'cut' && game.cut?.id === 'prologue') {
+    audio.ambience(null)
+    return
+  }
+  audio.ambience(AMBIENCE[w.dawn ? 'dawn' : w.palette])
+}
+
+/** Beats of the cuts that the engine does not know about: fired when the cut clock passes them. */
+const CUT_BEATS: Record<string, Array<[number, () => void]>> = {
+  prologue: [
+    [0.3, () => { audio?.cue('prologue'); audio?.beat('engine') }],
+    [12.5, () => audio?.beat('lightning')],
+    [13.2, () => audio?.beat('fall')],
+    [19.2, () => audio?.beat('splash')],
+    [19.8, () => audio?.beat('bubbles')],
+  ],
+  capture: [
+    [0, () => audio?.cue('capture')],
+    [4.5, () => audio?.beat('flash')],
+  ],
+  ending: [
+    [0, () => { audio?.cue('ending'); audio?.ambience('dawn') }],
+    [3.1, () => audio?.beat('flash')],
+    [6.5, () => audio?.beat('wings')],
+    [10.6, () => audio?.beat('wings')],
+  ],
+}
+
+function tickCutBeats() {
+  if (!game || game.mode !== 'cut' || !game.cut) {
+    cutClock = { id: '', t: 0 }
+    return
+  }
+  const { id, t } = game.cut
+  const prev = cutClock.id === id ? cutClock.t : -1
+  for (const [at, fire] of CUT_BEATS[id] ?? []) if (prev < at && t >= at) fire()
+  cutClock = { id, t }
+}
+
+function onEvents(events: GameEvent[]) {
+  if (!game) return
+  let persist = false
+  for (const e of events) {
+    audio?.event(e)
+    switch (e.type) {
+      case 'beastRoar': audio?.cue('chase'); break
+      case 'death':
+        if (game.world.chapter === 2) audio?.cue(null)
+        break
+      case 'chapter':
+        audio?.cue(null)
+        persist = true
+        break
+      case 'lamp':
+      case 'gun':
+        persist = true
+        break
+      case 'cut':
+        if (e.id === 'capture') persist = true
+        break
+    }
+  }
+  if (persist) writeSave()
+}
+
+// ---- saves ----
+
+function writeSave() {
+  if (!game || game.mode === 'done') return
+  const s = saveOf(game, Date.now())
+  writeLocalSave(s)
+  saved.value = s
+  profileSave.push({ data: s, savedAt: s.savedAt })
+}
+
+function finishRun() {
+  if (!game) return
+  const now = Date.now()
+  const elapsed = Math.round(game.elapsed)
+  const prevBest = readLocalBest()
+  const newBest = prevBest === null ? elapsed : Math.min(prevBest, elapsed)
+  writeLocalBest(newBest)
+  best.value = newBest
+  clearLocalSave(now)
+  saved.value = null
+  profileSave.push({ data: null, savedAt: now, best: elapsed, won: true })
+  result.elapsed = elapsed
+  result.deaths = game.deaths
+  result.best = newBest
+}
+
+async function syncWithProfile() {
+  const local = parseSave(readLocalRaw())
+  saved.value = local
+  best.value = readLocalBest()
+  if (!profileSave.hasPlayer()) return
+  const remote = await profileSave.pull()
+  if (remote === 'offline') return
+  const r = remote as RemoteSave | null
+  const action = reconcile(local, localSavedAt(local), r, r?.data ? parseSave(r.data) : null)
+  if (action.kind === 'pull') {
+    if (action.save) writeLocalSave(action.save)
+    else clearLocalSave(r?.savedAt ?? Date.now())
+    if (phase.value === 'idle') saved.value = action.save
+  } else if (action.kind === 'push') {
+    profileSave.push({ data: action.save, savedAt: action.savedAt || Date.now() })
+  }
+  if (r?.best && (!best.value || r.best < best.value)) {
+    best.value = r.best
+    writeLocalBest(r.best)
+  }
+}
+
+// ---- loop ----
+
 function draw() {
-  if (!ctx || !world || cssW <= 0 || cssH <= 0) return
+  if (!ctx || cssW <= 0 || cssH <= 0) return
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  drawWorld(ctx, world, cssW, cssH, { reducedMotion, paused: phase.value === 'paused' })
+  if (phase.value === 'idle' || !game) {
+    if (attract) renderer.drawWorld(ctx, attract, cssW, cssH, { reducedMotion, look })
+  } else {
+    renderer.draw(ctx, game, cssW, cssH, { reducedMotion, paused: phase.value === 'paused', look })
+  }
   needsDraw = false
 }
 
+function syncUi() {
+  if (!game) return
+  const w = game.world
+  const c = CHAPTERS[w.chapter]
+  chapterText.value = `${c.roman} · ${c.title}`
+  hintKey.value = w.hint
+  hasGun.value = w.player.hasGun
+  inCut.value = game.mode === 'cut'
+  lightInk.value = w.dawn || (game.mode === 'cut' && game.cut?.id === 'ending')
+}
+
 function stepPlaying(dt: number) {
-  if (!world) return
+  if (!game) return
   acc += Math.min(dt, 0.1)
-  const input = currentInput()
-  // Snapshot the sound-relevant state before stepping; the engine itself
-  // emits no events, so sounds are derived from world diffs.
-  const wasGrounded = world.player.grounded
-  const wasDying = world.dying !== null
-  const deaths = world.deaths
-  const lit = world.beacons.filter(b => b.lit).length
-  const rockStates = world.hazards.map(h => h.kind === 'rockfall' ? h.state : '')
   let n = 0
+  const input = currentInput()
+  let prevWorld = game.world
   while (acc >= STEP && n < MAX_STEPS) {
-    stepWorld(world, input, STEP)
+    stepGame(game, input, STEP)
     acc -= STEP
     n += 1
-    if (world.won) break
+    if (game.world !== prevWorld) {
+      prevWorld = game.world
+      syncAmbience()
+    }
+    if (game.mode === 'done') break
   }
   if (n === MAX_STEPS) acc = 0
-  // Sparse by design: takeoff, landing, rockfall, death, beacons, the lamp.
-  if (world.deaths > deaths) {
-    sound.sfx.death()
-  } else if (!wasDying && !world.dying) {
-    if (wasGrounded && !world.player.grounded && world.player.vy < 0) sound.sfx.jump()
-    if (!wasGrounded && world.player.grounded) sound.sfx.land()
-    world.hazards.forEach((h, i) => {
-      if (h.kind !== 'rockfall') return
-      const prev = rockStates[i]
-      if (prev === 'hanging' && h.state === 'falling') sound.sfx.roll()
-      if (prev === 'falling' && h.state === 'landed') sound.sfx.land()
-    })
-  }
-  if (world.beacons.filter(b => b.lit).length > lit) sound.sfx.checkpoint()
-  updateBeacons()
-  if (world.won) {
-    phase.value = 'won'
+  tickCutBeats()
+  onEvents(drainEvents(game))
+  syncUi()
+  if (game.mode === 'done') {
+    phase.value = 'done'
     navigationLocked.value = false
     resetInput()
-    sound.sfx.win()
-    sound.music.stop()
+    finishRun()
   }
 }
 
-function stepIdle(dt: number) {
-  if (!world) return
+function stepAttract(dt: number) {
+  if (!attract) return
   acc += Math.min(dt, 0.1)
   let n = 0
   while (acc >= STEP && n < MAX_STEPS) {
-    if (world.won) {
-      // Attract mode holds the dawn for a beat, then restarts on the same physics.
-      idleHold += STEP
-      if (idleHold >= IDLE_WIN_HOLD) {
-        world = createWorld()
-        idleHold = 0
-      }
-    } else {
-      stepWorld(world, demoInput(world), STEP)
-    }
+    if (attract.exit || attract.dying) attract = buildChapter(1)
+    stepWorld(attract, demoInput(attract), STEP)
+    attract.events.length = 0
     acc -= STEP
     n += 1
   }
   if (n === MAX_STEPS) acc = 0
-  updateBeacons()
 }
 
 function frame(t: number) {
@@ -241,18 +414,12 @@ function frame(t: number) {
     stepPlaying(dt)
     draw()
   } else if (phase.value === 'idle') {
-    if (reducedMotion) {
-      if (needsDraw) draw()
-    } else {
-      stepIdle(dt)
-      draw()
-    }
-  } else if (phase.value === 'won') {
-    // The lamp stays lit; the figure breathes. Reduced motion holds the frame.
-    if (!reducedMotion && world) {
-      world.time += dt
+    if (!reducedMotion) {
+      stepAttract(dt)
       draw()
     } else if (needsDraw) draw()
+  } else if (phase.value === 'done') {
+    draw()
   } else if (needsDraw) {
     draw()
   }
@@ -276,35 +443,54 @@ function blurActiveElement() {
   if (el && typeof el.blur === 'function') el.blur()
 }
 
-function startGame() {
-  world = createWorld()
-  updateBeacons()
+// ---- phases ----
+
+function ensureAudio() {
+  if (!audio) audio = createShoreAudio()
+  audio.setMuted(sound.muted.value)
+  audio.unlock()
+}
+
+function startRun(g: Game) {
+  readLook()
+  game = g
+  renderer = createRenderer()
   acc = 0
   last = 0
-  idleHold = 0
+  cutClock = { id: '', t: 0 }
   resetInput()
   phase.value = 'playing'
   navigationLocked.value = true
   blurActiveElement()
+  ensureAudio()
+  syncAmbience()
+  syncUi()
   needsDraw = true
-  sound.unlock()
-  sound.sfx.uiStart()
-  sound.music.start('shore')
 }
 
-function replay() {
-  startGame()
+function continueOrBegin() {
+  if (saved.value) startRun(gameFromSave(saved.value))
+  else startRun(createGame())
+}
+
+function beginNew() {
+  const now = Date.now()
+  if (saved.value || phase.value === 'done') {
+    clearLocalSave(now)
+    if (saved.value) profileSave.push({ data: null, savedAt: now })
+    saved.value = null
+  }
+  startRun(createGame())
 }
 
 function pauseGame() {
   if (phase.value !== 'playing') return
   phase.value = 'paused'
-  // Navigation stays locked while paused so arrows never switch theme.
-  navigationLocked.value = true
   resetInput()
   needsDraw = true
   blurActiveElement()
-  sound.music.stop(false)
+  audio?.suspend(true)
+  writeSave()
 }
 
 function resumeGame() {
@@ -313,23 +499,29 @@ function resumeGame() {
   last = 0
   resetInput()
   phase.value = 'playing'
-  navigationLocked.value = true
   blurActiveElement()
+  audio?.suspend(false)
   needsDraw = true
-  sound.music.start('shore')
 }
 
-function exitToIdle() {
-  world = createWorld()
-  updateBeacons()
-  acc = 0
-  idleHold = 0
-  resetInput()
+function toTitle() {
   phase.value = 'idle'
   navigationLocked.value = false
+  game = null
+  attract = buildChapter(1)
+  acc = 0
+  resetInput()
+  audio?.cue(null)
+  audio?.ambience(null)
+  audio?.suspend(false)
   blurActiveElement()
   needsDraw = true
-  sound.music.stop()
+}
+
+/** Leaving mid-run keeps the progress: the title offers to continue. */
+function quitToTitle() {
+  if (phase.value === 'playing' || phase.value === 'paused') writeSave()
+  toTitle()
 }
 
 function escActive() {
@@ -337,94 +529,78 @@ function escActive() {
 }
 
 function escTap() {
+  if (phase.value === 'playing' && inCut.value && game) {
+    skipCut(game)
+    return
+  }
   if (phase.value === 'playing') pauseGame()
   else if (phase.value === 'paused') resumeGame()
 }
 
 function isInteractiveTarget(t: EventTarget | null): boolean {
-  if (!(t instanceof HTMLElement)) return false
-  return t.closest('a,button,input,textarea,select') !== null
+  return t instanceof HTMLElement && t.closest('a,button,input,textarea,select') !== null
+}
+
+const KEYMAP: Record<string, TouchKind> = {
+  ArrowLeft: 'left', KeyA: 'left',
+  ArrowRight: 'right', KeyD: 'right',
+  ArrowUp: 'up', KeyW: 'up', KeyZ: 'up',
+  ArrowDown: 'down', KeyS: 'down',
+  Space: 'action', KeyX: 'action', KeyJ: 'action', ShiftLeft: 'action', ShiftRight: 'action',
 }
 
 function onKeyDown(e: KeyboardEvent) {
   if (e.metaKey || e.ctrlKey || e.altKey) return
   if (e.target instanceof HTMLElement && e.target.closest('input,textarea,select,[contenteditable="true"]')) return
-  // Space/Enter on a focused link or button belongs to that control
-  // (native activation); the start/resume/exit buttons cover it.
   if ((e.code === 'Space' || e.code === 'Enter') && isInteractiveTarget(e.target)) return
-  // No repeat toggling: holding Enter must not start/stop repeatedly.
-  const repeatGuard = e.repeat && (e.code === 'Enter' || e.code === 'Space')
 
   if (phase.value === 'idle') {
     if (e.code === 'Enter' && !e.repeat) {
       e.preventDefault()
-      startGame()
+      continueOrBegin()
+    } else if (e.code === 'KeyN' && !e.repeat && saved.value) {
+      e.preventDefault()
+      beginNew()
     }
     return
   }
-
-  if (phase.value === 'won') {
+  if (phase.value === 'done') {
     if (e.code === 'Enter' && !e.repeat) {
       e.preventDefault()
-      replay()
+      beginNew()
     } else if (e.code === 'Escape') {
       e.preventDefault()
-      exitToIdle()
+      toTitle()
     }
     return
   }
-
-  // Playing or paused: the run owns gameplay keys.
-  switch (e.code) {
-    case 'ArrowLeft':
-    case 'KeyA':
-      keyState.left = true
+  // A cut: Enter or Space moves on.
+  if (phase.value === 'playing' && inCut.value && game) {
+    if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
       e.preventDefault()
-      break
-    case 'ArrowRight':
-    case 'KeyD':
-      keyState.right = true
-      e.preventDefault()
-      break
-    case 'ArrowUp':
-    case 'KeyW':
-    case 'Space':
-      keyState.jump = true
-      e.preventDefault()
-      break
-    case 'KeyP':
-      if (!e.repeat) {
-        e.preventDefault()
-        if (phase.value === 'playing') pauseGame()
-        else resumeGame()
-      }
-      break
-    // Escape while crossing belongs to EscHold (tap = pause, 3 s hold = leave).
-    case 'Enter':
-      if (!repeatGuard && phase.value === 'paused') {
-        e.preventDefault()
-        resumeGame()
-      }
-      break
+      skipCut(game)
+    }
+    return
+  }
+  const kind = KEYMAP[e.code]
+  if (kind) {
+    keyState[kind] = true
+    e.preventDefault()
+    return
+  }
+  if (e.code === 'KeyP' && !e.repeat) {
+    e.preventDefault()
+    if (phase.value === 'playing') pauseGame()
+    else resumeGame()
+  } else if (e.code === 'Enter' && !e.repeat && phase.value === 'paused') {
+    e.preventDefault()
+    resumeGame()
   }
 }
 
 function onKeyUp(e: KeyboardEvent) {
-  switch (e.code) {
-    case 'ArrowLeft':
-    case 'KeyA':
-      keyState.left = false
-      break
-    case 'ArrowRight':
-    case 'KeyD':
-      keyState.right = false
-      break
-    case 'ArrowUp':
-    case 'KeyW':
-    case 'Space':
-      keyState.jump = false
-      break
-  }
+  const kind = KEYMAP[e.code]
+  if (kind) keyState[kind] = false
 }
 
 function onTouchButton(e: PointerEvent, kind: TouchKind) {
@@ -432,7 +608,7 @@ function onTouchButton(e: PointerEvent, kind: TouchKind) {
   try {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   } catch {
-    // Older browsers may not support capture; per-button sets still work.
+    // no capture: the per-button sets still work
   }
   touchPoints[kind].add(e.pointerId)
 }
@@ -441,22 +617,48 @@ function onTouchRelease(e: PointerEvent, kind: TouchKind) {
   touchPoints[kind].delete(e.pointerId)
 }
 
+function onCanvasPointer(e: PointerEvent) {
+  // A tap on the picture moves a cut on; on the title it starts (tap, not swipe: click fires on the button).
+  if (phase.value === 'playing' && inCut.value && game) {
+    e.preventDefault()
+    skipCut(game)
+  }
+}
+
 function pauseOnHidden() {
-  if (phase.value === 'playing') pauseGame()
-  else resetInput()
+  if (phase.value === 'playing' && !inCut.value) pauseGame()
+  else if (phase.value === 'playing') writeSave()
+  resetInput()
 }
 
 function onVisibilityChange() {
   if (document.visibilityState === 'hidden') pauseOnHidden()
 }
 
+watch(() => sound.muted.value, (m: boolean) => audio?.setMuted(m))
+
 onMounted(() => {
   reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  world = createWorld()
-  updateBeacons()
+  readLook()
+  attract = buildChapter(1)
   resize()
-  if (reducedMotion) draw()
-
+  if (reducedMotion) {
+    // A still frame: the figure already out of the pool, on the shore.
+    for (let i = 0; i < 60 * 6; i++) stepWorld(attract, demoInput(attract), STEP)
+    draw()
+  }
+  void syncWithProfile()
+  if (import.meta.dev) {
+    // Dev only: jump into a chapter or a cut for headless checks (scripts/shore-lab).
+    (window as unknown as Record<string, unknown>).__shore = {
+      start: (chapter: 1 | 2 | 3 | 4 | 5, checkpoint = -1, gun = false) =>
+        startRun(createGame({ chapter, checkpoint, hasGun: gun, skipPrologue: true })),
+      prologue: () => startRun(createGame()),
+      game: () => game,
+      skip: () => { if (game) skipCut(game) },
+      seek: (t: number) => { if (game?.cut) game.cut.t = t },
+    }
+  }
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
   window.addEventListener('resize', resize)
@@ -472,7 +674,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf)
-  sound.music.stop()
+  if (phase.value === 'playing' || phase.value === 'paused') writeSave()
+  audio?.dispose()
+  audio = null
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('keyup', onKeyUp)
   window.removeEventListener('resize', resize)
@@ -485,29 +689,31 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.aw-shell {
-  --aw-ink: #ece4d4;
-  --aw-ink-dim: #a9b8ac;
-  --aw-amber: #e7bb80;
-  --aw-edge: #4b8194;
+.as-shell {
+  --as-ink: #ece4f4;
+  --as-dim: #a99bc8;
+  --as-cyan: #2ff3ff;
+  --as-pink: #ff2fa0;
+  --as-gold: #ffd23f;
+  --as-edge: rgba(47, 243, 255, 0.45);
   position: relative;
   height: 100dvh;
   overflow: hidden;
-  background: #101f2a;
-  color: var(--aw-ink);
+  background: #0b0616;
+  color: var(--as-ink);
   font-family: var(--font-person);
   box-sizing: border-box;
 }
 
-/* At dawn the sky is pale: the ink goes dark. A hard cut like the palette. */
-.aw-dawn {
-  --aw-ink: #1a2228;
-  --aw-ink-dim: #4a5a62;
-  --aw-amber: #6a4534;
-  --aw-edge: #566a73;
+/* At dawn the sky is warm and bright: the ink goes dark, a hard cut like the palette. */
+.as-light {
+  --as-ink: #1a0f24;
+  --as-dim: #4a2a52;
+  --as-cyan: #12304a;
+  --as-edge: rgba(26, 15, 36, 0.5);
 }
 
-.aw-canvas {
+.as-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -516,191 +722,225 @@ onBeforeUnmount(() => {
   touch-action: pan-x pan-y;
 }
 
-/* Idle profile: unboxed, over the sky. */
-.aw-profile {
+.as-title,
+.as-result {
   position: absolute;
   top: max(9vh, env(safe-area-inset-top));
   left: max(7vw, env(safe-area-inset-left));
-  max-width: min(440px, calc(100vw - 48px));
-  padding: 0;
+  max-width: min(460px, calc(100vw - 48px));
 }
 
-.aw-chapter {
+.as-over {
   font-family: var(--font-machine);
   font-size: 11px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: var(--aw-amber);
-  margin: 0 0 8px;
+  color: var(--as-cyan);
+  margin: 0 0 6px;
 }
 
-.aw-name {
+.as-name {
   font-weight: 300;
-  font-size: clamp(34px, 4.2vw, 60px);
-  line-height: 1.05;
+  font-size: clamp(38px, 5vw, 68px);
+  line-height: 1.02;
   letter-spacing: -0.01em;
-  text-transform: lowercase;
-  color: var(--aw-ink);
   margin: 0 0 10px;
+  color: var(--as-ink);
 }
 
-.aw-blurb {
+.as-name-small {
+  font-size: clamp(24px, 3vw, 36px);
+}
+
+.as-lede {
   font-weight: 300;
   font-size: 15px;
   line-height: 1.5;
-  color: var(--aw-ink);
-  margin: 2px 0;
+  margin: 0 0 6px;
+  color: var(--as-ink);
 }
 
-.aw-socials {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin: 10px -10px 0;
-}
-
-.aw-socials :deep(svg),
-.aw-socials :deep(img) {
-  width: 24px;
-  height: 24px;
-  transition: none;
-}
-.aw-socials :deep(a) { min-width: 44px; min-height: 44px; margin: 0; }
-.aw-socials :deep(svg:hover), .aw-socials :deep(img:hover) { transform: none; }
-
-.aw-start {
+.as-start {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  margin-top: 12px;
+  margin: 10px 18px 0 0;
   padding: 10px 0;
   font-family: var(--font-machine);
   font-size: 12px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   white-space: nowrap;
-  color: var(--aw-amber);
+  color: var(--as-pink);
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--aw-amber);
+  border-bottom: 1px solid var(--as-pink);
   cursor: pointer;
+  text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
 }
 
-.aw-start:focus-visible,
-.aw-text:focus-visible,
-.aw-zone:focus-visible {
-  outline: 2px solid var(--aw-amber);
-  outline-offset: 3px;
-}
-
-.aw-controls-hint {
-  font-family: var(--font-machine);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--aw-ink-dim);
-  margin: 10px 0 0;
-}
-
-/* Text buttons: the only chrome while playing. */
-.aw-text {
+.as-text {
   min-height: 44px;
   padding: 10px 4px;
   font-family: var(--font-machine);
   font-size: 11px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--aw-ink);
+  color: var(--as-ink);
   background: transparent;
   border: none;
   cursor: pointer;
 }
 
-.aw-sep {
-  font-family: var(--font-machine);
-  font-size: 11px;
-  color: var(--aw-ink-dim);
-  padding: 0 4px;
+.as-new {
+  color: var(--as-dim);
 }
 
-.aw-top {
+.as-start:focus-visible,
+.as-text:focus-visible,
+.as-zone:focus-visible {
+  outline: 2px solid var(--as-cyan);
+  outline-offset: 3px;
+}
+
+.as-keys,
+.as-meta {
+  font-family: var(--font-machine);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--as-dim);
+  margin: 12px 0 0;
+  line-height: 1.7;
+}
+
+.as-meta {
+  color: var(--as-gold);
+  margin-top: 6px;
+}
+
+.as-stats {
+  font-family: var(--font-machine);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--as-ink);
+  margin: 0;
+}
+
+.as-result-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+}
+
+.as-top {
   position: absolute;
   top: max(4px, env(safe-area-inset-top));
-  right: max(12px, env(safe-area-inset-right));
+  left: max(14px, env(safe-area-inset-left));
   margin: 0;
   display: flex;
   align-items: center;
+  gap: 2px;
 }
 
-.aw-dots {
+.as-chapter {
+  font-family: var(--font-machine);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--as-cyan);
+  margin-right: 12px;
+}
+
+.as-sep {
+  font-family: var(--font-machine);
+  font-size: 11px;
+  color: var(--as-dim);
+  padding: 0 2px;
+}
+
+.as-skip {
   position: absolute;
-  right: max(20px, env(safe-area-inset-right));
+  right: max(18px, env(safe-area-inset-right));
   bottom: max(18px, env(safe-area-inset-bottom));
   margin: 0;
-  display: flex;
-  gap: 8px;
+  font-family: var(--font-machine);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--as-dim);
   pointer-events: none;
 }
 
-.aw-dot {
-  width: 5px;
-  height: 5px;
-  background: var(--aw-ink-dim);
-  opacity: 0.55;
+.as-hint,
+.as-line {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: max(52px, calc(40px + env(safe-area-inset-bottom)));
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-machine);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--as-cyan);
+  pointer-events: none;
 }
 
-.aw-dot-lit {
-  background: var(--aw-amber);
-  opacity: 1;
+.as-line {
+  color: var(--as-dim);
 }
 
 /* Touch zones: hidden on fine pointers unless touch input mode is live. */
-.aw-touch {
+.as-touch {
   position: absolute;
   left: max(10px, env(safe-area-inset-left));
   right: max(10px, env(safe-area-inset-right));
   bottom: max(40px, calc(30px + env(safe-area-inset-bottom)));
   display: none;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 16px;
   pointer-events: none;
 }
 
-.aw-istouch .aw-touch {
+.as-istouch .as-touch {
   display: flex;
 }
 
 @media (pointer: coarse) {
-  .aw-touch {
+  .as-touch {
     display: flex;
   }
 }
 
-.aw-istouch .aw-dots,
-.aw-istouch .aw-line {
-  bottom: max(96px, calc(86px + env(safe-area-inset-bottom)));
+.as-pad {
+  display: flex;
+  gap: 6px;
+  flex: 1 1 0;
+  max-width: 260px;
 }
 
-@media (pointer: coarse) {
-  .aw-shell .aw-dots,
-  .aw-shell .aw-line {
-    bottom: max(96px, calc(86px + env(safe-area-inset-bottom)));
-  }
+.as-pad-right {
+  justify-content: flex-end;
 }
 
-.aw-zone {
+.as-zone {
   flex: 1 1 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 46px;
+  min-height: 50px;
   padding: 0;
   font-family: var(--font-machine);
   font-size: 12px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--aw-ink-dim);
+  color: var(--as-dim);
   background: transparent;
-  border: 1px solid var(--aw-edge);
+  border: 1px solid var(--as-edge);
   cursor: pointer;
   touch-action: none;
   pointer-events: auto;
@@ -708,144 +948,93 @@ onBeforeUnmount(() => {
   -webkit-user-select: none;
 }
 
-.aw-zone-jump {
-  flex: 2 1 0;
+.as-zone-action {
+  flex: 1.6 1 0;
+  color: var(--as-pink);
+  border-color: rgba(255, 47, 160, 0.6);
 }
 
-/* Paused: one line at the bottom centre. */
-.aw-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: max(48px, calc(36px + env(safe-area-inset-bottom)));
-  margin: 0;
-  text-align: center;
-  font-family: var(--font-machine);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--aw-ink-dim);
-  pointer-events: none;
+.as-istouch .as-hint,
+.as-istouch .as-line {
+  bottom: max(104px, calc(94px + env(safe-area-inset-bottom)));
 }
 
-/* Won: the name back in the sky, small; two plain buttons under it. */
-.aw-won {
-  position: absolute;
-  top: max(9vh, env(safe-area-inset-top));
-  left: max(7vw, env(safe-area-inset-left));
+@media (pointer: coarse) {
+  .as-shell .as-hint,
+  .as-shell .as-line {
+    bottom: max(104px, calc(94px + env(safe-area-inset-bottom)));
+  }
 }
 
-.aw-won-name {
-  font-weight: 300;
-  font-size: 20px;
-  letter-spacing: 0.02em;
-  text-transform: lowercase;
-  color: var(--aw-ink);
-  margin: 0 0 4px;
-}
-
-.aw-won-line {
-  margin: 0 0 0 -4px;
-  display: flex;
-  align-items: center;
-}
-
-/* Small phones: compact unboxed profile, still upper left; the moon sits
-  top right beside it, so the copy stays under 262px wide. */
 @media (max-width: 600px) {
-  .aw-profile {
-    top: max(36px, env(safe-area-inset-top));
-    left: max(24px, env(safe-area-inset-left));
-    max-width: 262px;
-    padding: 0;
-  }
-
-  .aw-name {
-    font-size: 27px;
-    margin-bottom: 6px;
-  }
-
-  .aw-blurb {
-    font-size: 13px;
-  }
-
-  .aw-controls-hint {
+  /* The radio owns the top right; the chapter name gives way to it. */
+  .as-chapter {
     display: none;
   }
 
-  .aw-won {
-    top: max(36px, env(safe-area-inset-top));
-    left: max(24px, env(safe-area-inset-left));
+  .as-title,
+  .as-result {
+    top: max(72px, calc(env(safe-area-inset-top) + 56px));
+    left: max(22px, env(safe-area-inset-left));
+    max-width: 290px;
+  }
+
+  .as-name {
+    font-size: 34px;
+  }
+
+  .as-lede {
+    font-size: 13px;
+  }
+
+  .as-keys {
+    display: none;
   }
 }
 
-/* Short landscape phones: a narrow profile column; the start line never wraps. */
 @media (max-height: 480px) {
-  .aw-controls-hint { display: none; }
-  .aw-profile {
-    top: max(14px, env(safe-area-inset-top));
-    left: max(24px, env(safe-area-inset-left));
-    max-width: 200px;
-    padding: 0;
+  .as-title,
+  .as-result {
+    top: max(12px, env(safe-area-inset-top));
+    left: max(22px, env(safe-area-inset-left));
+    max-width: 320px;
   }
 
-  .aw-chapter {
-    margin-bottom: 4px;
+  .as-over {
+    margin-bottom: 2px;
   }
 
-  .aw-name {
-    font-size: 22px;
-    margin-bottom: 4px;
+  .as-name {
+    font-size: 26px;
+    margin-bottom: 2px;
   }
 
-  .aw-blurb {
+  .as-lede {
     font-size: 12px;
-    line-height: 1.4;
+    margin: 0;
   }
 
-  .aw-socials {
-    margin-top: 4px;
+  .as-keys {
+    display: none;
   }
 
-  .aw-socials :deep(a) { min-width: 36px; min-height: 36px; }
-  .aw-socials :deep(svg),
-  .aw-socials :deep(img) {
-    width: 20px;
-    height: 20px;
-  }
-
-  .aw-start {
+  .as-start {
     min-height: 36px;
     margin-top: 4px;
     padding: 6px 0;
-    font-size: 11px;
-    letter-spacing: 0.1em;
   }
 
-  .aw-touch {
-    bottom: max(34px, calc(26px + env(safe-area-inset-bottom)));
+  .as-touch {
+    bottom: max(30px, calc(22px + env(safe-area-inset-bottom)));
   }
 
-  .aw-zone {
-    min-height: 30px;
-    font-size: 11px;
+  .as-zone {
+    min-height: 36px;
   }
 
-  .aw-istouch .aw-dots,
-  .aw-istouch .aw-line {
-    bottom: 72px;
-  }
-
-  .aw-won {
-    top: max(14px, env(safe-area-inset-top));
-    left: max(24px, env(safe-area-inset-left));
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .aw-shell,
-  .aw-profile {
-    animation: none;
+  .as-istouch .as-hint,
+  .as-istouch .as-line {
+    bottom: 76px;
   }
 }
 </style>

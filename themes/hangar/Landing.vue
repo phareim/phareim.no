@@ -80,6 +80,7 @@
 import Horizon from './Horizon.vue'
 import { GAMES, SAVE_GAMES } from '~/themes/leaderboard/games'
 import { QUEST_STEPS, formatPlayTime, summarizeRaw } from '~/themes/zelda/progress'
+import { CHAPTER_COUNT, summarizeShoreRaw } from '~/themes/anotherworld/progress'
 import { SHIPS, unlockProgress } from '~/themes/ships/ships'
 
 const ShipViewer = defineAsyncComponent(() => import('./ShipViewer.vue'))
@@ -110,8 +111,13 @@ const nudge = computed(() => {
 function questLine(game: string): string {
   const slot = saves.value[game]
   if (!slot) return 'NOT STARTED'
-  const q = slot.data ? summarizeRaw(slot.data) : null
-  if (q) return `${q.step}/${QUEST_STEPS} · ${formatPlayTime(q.elapsed)}`
+  if (game === 'anotherworld') {
+    const c = slot.data ? summarizeShoreRaw(slot.data) : null
+    if (c) return `CHAPTER ${c.chapter}/${CHAPTER_COUNT} · ${formatPlayTime(c.elapsed)}`
+  } else {
+    const q = slot.data ? summarizeRaw(slot.data) : null
+    if (q) return `${q.step}/${QUEST_STEPS} · ${formatPlayTime(q.elapsed)}`
+  }
   if (slot.best !== null) return `CLEARED · BEST ${formatPlayTime(slot.best)}`
   return slot.clears > 0 ? 'CLEARED' : 'NEW QUEST'
 }

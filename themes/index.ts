@@ -71,7 +71,8 @@ export const allThemes: ThemeDefinition[] = [
   {
     id: 'anotherworld',
     name: 'Another Shore',
-    themeColor: '#254b59',
+    themeColor: '#2a1446',
+    themeColorDark: '#2a1446',
     landing: AnotherworldLanding,
   },
   {

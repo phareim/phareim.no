@@ -93,6 +93,7 @@ export interface SaveGameEntry {
 
 export const SAVE_GAMES: readonly SaveGameEntry[] = [
   { id: 'zelda', title: 'Neon Shrine', maxBytes: 16_384 },
+  { id: 'anotherworld', title: 'Another Shore', maxBytes: 1_024 },
 ] as const
 
 export function saveGameById(id: unknown): SaveGameEntry | undefined {

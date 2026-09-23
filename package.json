@@ -10,7 +10,7 @@
     "typecheck": "nuxi typecheck",
     "test:tetris": "node --test tests/tetris-gestures.test.mjs",
     "test:eschold": "node --test tests/esc-hold.test.mjs",
-    "test:anotherworld": "node --test tests/anotherworld-engine.test.mjs",
+    "test:anotherworld": "node --test tests/anotherworld-engine.test.mjs tests/anotherworld-audio.test.mjs",
     "test:shore": "node --test tests/shore-engine.test.mjs",
     "test:invaders": "node --test tests/invaders-mobile.test.mjs",
     "test:starfox": "node --test tests/starfox-balance.test.mjs",

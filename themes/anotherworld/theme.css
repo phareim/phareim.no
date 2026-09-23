@@ -1,19 +1,16 @@
-/* Another Shore: ink-dark coast under a petrol sky. Flat polygons only. */
+/* Another Shore: a flat-polygon alien coast in the Neon Dreams inks.
+   The world is matte; only the living glow (cyan pilot, pink threat, gold reward). */
 :root {
-  --aw-sky: #254b59;
-  --aw-far-rock: #356372;
-  --aw-middle-rock: #203d49;
-  --aw-ground: #101f2a;
-  --aw-shadow: #091720;
-  --aw-moon: #a9b8ac;
-  --aw-shirt: #d88b73;
-  --aw-trousers: #28303e;
-  --aw-skin: #ead7b4;
-  --aw-signal: #e7bb80;
-  --aw-ink-text: #ece4d4;
-  --aw-panel: #0b1820;
-  --aw-font: var(--font-person);
-  --aw-mono: var(--font-machine);
+  --aw-sky: #2a1446;
+  --aw-ground: #0b0616;
+  --aw-ink-text: #ece4f4;
+  --aw-dim: #a99bc8;
+  --aw-subtle: #6f5f92;
+  --aw-cyan: #2ff3ff;
+  --aw-pink: #ff2fa0;
+  --aw-gold: #ffd23f;
+  --aw-panel: #160d28;
+  --aw-edge: #3b2661;
 }
 
 .anotherworld-page {
@@ -22,12 +19,12 @@
   font-family: var(--font-person);
   --theme-bg: var(--aw-ground);
   --theme-text: var(--aw-ink-text);
-  --theme-text-muted: var(--aw-moon);
-  --theme-text-subtle: #7fa0ad;
-  --theme-accent: var(--aw-signal);
+  --theme-text-muted: var(--aw-dim);
+  --theme-text-subtle: var(--aw-subtle);
+  --theme-accent: var(--aw-cyan);
   --theme-card-bg: var(--aw-panel);
-  --theme-card-border: var(--aw-far-rock);
-  --theme-card-shadow: rgba(9, 23, 32, 0.4);
+  --theme-card-border: var(--aw-edge);
+  --theme-card-shadow: rgba(11, 6, 22, 0.5);
   --theme-card-radius: 3px;
   --theme-font-body: var(--font-person);
 }

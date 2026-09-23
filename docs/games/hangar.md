@@ -2,7 +2,7 @@
 
 `?theme=hangar` is the tenth live theme, last in the rotation: the pilot
 profile over the shared horizon — avatar + name, the seven high scores
-with ranks, the Neon Shrine quest (step n/7 and play time, or the best
+with ranks, the adventure rows — Neon Shrine (step n/7) and Another Shore (chapter n/5), each with play time, or the best
 finish; since 2026-09-23), and a 3D viewer of the ship the player flies in every ship
 game. Wide screens (≥1024×700) spread it into two frames — pilot/scores
 left with the portrait at full-painting size (88 px, `avatarFull` from

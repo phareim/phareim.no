@@ -1,43 +1,54 @@
-## Another Shore (2026-09-06)
+## Another Shore (rebuilt 2026-09-23)
 
-`?theme=anotherworld` selects **Another Shore**, an original sidescrolling
-platformer in the manner of Another World's flat polygon landscapes. First
-in the live theme rotation. `themes/anotherworld/` holds `types.ts`,
-`engine.ts` (pure physics + the authored level, no runtime imports),
-`renderer.ts` (Canvas 2D through a 16-entry palette array) and
-`Landing.vue` (loop, input, chrome). `DESIGN.md` there describes what is
-built.
+`?theme=anotherworld` selects **Another Shore**, a homage to *Another
+World* in five chapters with a prologue and an ending, second in the live
+rotation after Player One. It replaced the one-screen coastal walk of
+2026-09-06 (in git history up to `ff0d618`). Story, look and rules:
+`themes/anotherworld/DESIGN.md`.
 
-Reworked 2026-09-06 after an audit of the first version (branch `aw-fix`):
-ground line at 84 % (80 % portrait), three background layers with mass
-(monoliths, a headland, black arches and a foreground band), the sea as one
-field with a horizon, moon top right clear of the profile and the
-monoliths, slab edges from silhouette plus a lit top band. Sixteen colours
-— 8 base + 8 lit — and four palettes that turn on a hard cut per beacon:
-dusk → night → storm (one-frame lightning, not under reduced motion) →
-dawn. The figure has six held run poses at 12 fps, hop vs running jump, a
-landing crouch. Hazards have shape and show before they kill: a tide surge
-on a 4 s cycle and a rockfall from a cracked overhang; deaths are 0.8 s
-vignettes, then a hard cut to the checkpoint. The level is three places —
-shore, causeway, tower — and the finish is climbing to the lamp. No HUD
-boxes: beacon dots, pause/exit as text, outlined touch zones above the
-pager dots. No sound.
+**Tie-ins with the arcade.** The prologue is the shared Neon Dreams
+horizon (`themes/base/neonHorizon.js`) with the player's Hangar ship
+flying into the sun; the flight log names the Hall of Fame pilot. The
+pilot's suit, shots and shield take the ship's hull colour. The palettes
+are the Neon Dreams inks on flat Another World polygons. Progress is a save
+slot on the pilot profile (`SAVE_GAMES` in `themes/leaderboard/games.ts`),
+shown in the Hangar beside Neon Shrine. There is no score and no Hall of
+Fame board.
 
-Idle runs the same simulation on autopilot (it waits for the tide and the
-rock, never dies, and holds the dawn 2.5 s before restarting); reduced
-motion leaves the idle scene still. The game stays horizontal on phones
-with a cropped following camera. No external assets, network calls or new
-dependencies. Palette tokens also cover the content routes and the 404
-block.
+**Files** (`themes/anotherworld/`). `types.ts` — the contract.
+`engine/` — `player.ts` (movement, mantle, swim, kick, gun), `actors.ts`
+(tide, rockfall, tentacles, leeches, guards, shields, shots, the beast,
+lifts), `levels.ts` (the five chapters and their scripts), `game.ts`
+(cuts, deaths, chapters, saves), `demo.ts` (the attract autopilot).
+`render/` — `core.ts` (palettes, primitives, camera), `scenery.ts`,
+`figures.ts`, `things.ts`, `cuts.ts` (prologue, capture, ending, chapter
+card), `index.ts`. `audio.ts` — ambience, one-shots, cues. `progress.ts` —
+local save, profile reconcile, the Hangar summary. `Landing.vue` — title,
+loop, input, touch pad, pause, result, saves.
 
-`npm run test:anotherworld` runs 14 engine tests (physics, tide, rockfall,
-vignettes, demo traversal without deaths), also in CI.
+**Controls.** Keys: ← → / A D move; ↑ / W / Z jump (swim up); ↓ / S
+crouch; Space / X / J / Shift kick, or with the gun tap fire · hold shield
+· hold longer beam. P or an Escape tap pauses; a 3 s Escape hold leaves
+(progress kept); Enter or Space skips a cut. Touch: ◀ ▶ ▼ on the left, ▲
+and ◆ (kick / fire) on the right; a tap on the picture skips a cut. The
+title offers CONTINUE (chapter) and NEW CROSSING (N).
 
-Verified 2026-09-06 in headless Chromium: 1440×900, 375×667 and 667×375,
-keyboard and touch, pause, the four palettes, a fall vignette, `/about` and
-`/nope`; no console or page errors. (In a git worktree whose `node_modules`
-is a symlink into the main clone, the dev server 403s the `@fontsource`
-woff files — Vite's fs allow-list — so text renders in fallback fonts there;
-the main clone and production are unaffected.) Move with arrows or A/D,
-jump with Space/Up/W (hold for the full arc), pause with P/Escape.
+**Checks.** `npm run test:anotherworld` (in CI): 20 engine tests — jump,
+crouch, mantle, the pool and its tentacles, the attract loop crossing
+chapter I, a playtester that crosses **each of the five chapters without
+dying** with ordinary button presses, the beast, guards and shields, the
+beam and the blast door, the cage, cuts and chapter changes, death and
+respawn, saves and reconcile, determinism — plus 6 audio tests against a
+fake Web Audio. `node scripts/shore-lab/shots.mjs <outDir> <base> <WxH>
+[scenes]` screenshots chapters and cuts in the dev server through the
+dev-only `window.__shore` hook; `scripts/shore-lab/play.mjs` plays the
+title → prologue → pool → bank with the keyboard and checks the save.
 
+Verified 2026-09-23 in headless Chromium at 1440×900, 1280×800, 375×667
+and 667×375: title, all five chapters, the three cuts, pause, leave and
+continue, no page errors. **Not yet:** a physical phone, the sound heard by
+a person, a full manual play-through.
+
+Dev-only gotcha: in a git worktree whose `node_modules` is a symlink, Vite
+refuses the @fontsource files (403) unless a local, uncommitted `.nuxtrc`
+sets `vite.server.fs.strict=false`.
