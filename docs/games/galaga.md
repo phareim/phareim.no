@@ -1,101 +1,151 @@
-## Galaga (2026-09-08)
+# Galaga
 
-`themes/galaga/Galaga.vue` keeps the starfield and vertical shooter,
-with cyan player/bolts/HUD, pink enemies, gold pickups and violet-black ground.
-Six drifting rocks use irregular triangulated heightfields, dark shaded faces
-and fine violet edges matching the shared mountain renderer. Rocks and stars
-move in idle and play; reduced motion stops the backdrop and steering parallax.
-Pause freezes both gameplay and the backdrop.
+A vertical shooter in the Galaga mould, on the Neon Dreams palette: cyan
+player and HUD, pink enemies, gold rewards, violet-black ground. The title
+screen waits for Enter or a tap. Current state verified 2026-09-23.
 
-Waves cycle through small scouts, a curved squadron from the left, one from the
-right, and three larger armoured ships. Side squadrons keep their spacing,
-point along their flight path, fire only on screen and leave at the opposite
-edge. Armoured ships take three hits, show remaining armour and award 250
-points; scouts award 100. Bosses scale to the viewport (about 147–210 px body
-size), have layered wing panels, engine pods, a recessed reactor and two gun
-ports. They start at 18 HP, scale with weapon level, and retain the 500-point
-reward and screen-clearing shockwave.
+## Files
 
-`npm run test:galaga` tests both side entrances and exits, armour damage and
-scoring, boss bounds/gun ports, and mesh recycling/reduced motion. Included in
-CI. Verified 2026-09-08: all 67 tests, typecheck and production build pass; Chromium keyboard
-start/pause at 1440×900, 375×667 and 667×375 has no page errors or overflow.
-Production renderer encounter screenshots checked at desktop and phone sizes.
-Physical-phone performance has not been measured.
+| File | Job |
+|---|---|
+| `themes/galaga/Galaga.vue` | Game loop, update, drawing, HUD, input |
+| `themes/galaga/balance.ts` | Pure tuning: hull, difficulty ramps, bestiary, capsules, boss, SYNC |
+| `themes/galaga/weapons.ts` | Pure volley patterns (SPREAD, LASER, SEEKER) and seeker steering |
+| `themes/galaga/story.ts` | Sectors, the intercom script and the director that paces it |
+| `themes/galaga/sprites.ts` | Sprite atlas: every ship, bolt and glow pre-rendered at the pixel ratio |
+| `themes/galaga/Intercom.vue` | The intercom panel (DOM, typewriter) |
+| `themes/galaga/audio.ts` | One-shot SFX; music comes from the global radio (`docs/games/global-radio.md`) |
+| `themes/galaga/Landing.vue` | Title, game over, Hall of Fame submit, high score |
 
-**Renamed 2026-09-08.** The theme was called *Cyberpunk* under the id `hacker`,
-which described the palette it now shares with every other theme. Curved
-squadrons entering from the edges and a recurring boss are Galaga's, so the
-name follows the lineage like Breakout, R-Type, Space Invaders and Tetris do.
-The id changed with it: the directory is `themes/galaga/`, the game component
-`Galaga.vue`, the test `npm run test:galaga`, the D1 `game` column `galaga`
-(migration `0003_rename_hacker_to_galaga.sql` moves the Hall of Fame rows) and
-the localStorage key `galagaHighScore` (falling back to `hackerHighScore`
-once). Old links and cookies still work: `LEGACY_THEME_IDS` in
-`themes/index.ts` maps `hacker` onto `galaga` before the id is resolved.
+## Story and intercom
 
-## Galaga overhaul — bestiary, hull, radio, deep field (2026-09-12)
+Relay station Kestrel has lost every channel to a song. The Choir, a swarm,
+sings over the whole band, and each boss is a Cantor carrying one of its
+voices. Claude rides in the ship's second seat and talks over the intercom.
 
-`?theme=galaga` skalerte aldri: 4 bølgemønstre, 2 powerups, one-hit death,
-ingen lyd. Omskrevet til tre filer etter Star Fox/OutRun-mal:
-`themes/galaga/balance.ts` (ren tuning, ingen Vue/DOM — alle
-vanskelighetsfunksjoner av `wave`/`bossNum`),
-`themes/galaga/audio.ts` (full radio-sequencer etter `outrun/audio.ts`:
-tre originale chiploops STARDUST RUN 128 / VOID CHOIR 96 / BULLET BALLET
-142, M eller tap øverst til høyre sykler stasjon, valget i
-`localStorage.galagaRadio`, intensitet følger wave-tier + boss-transponering
-+2, one-shots for alt) og `Galaga.vue` (wiring, canvas, HUD).
+- **Sectors.** Each boss ends a sector: KESTREL APPROACH, THE SHOALS,
+  RINGFALL, CHOIR SPACE, CONDUCTOR'S NEST (boss: THE CONDUCTOR), then
+  DEEP CHOIR I, II, … A sector opens with a banner, a Claude line and new
+  nebula tints (`sectorFor` in `story.ts`).
+- **Who speaks.** Claude in the person voice (lowercase Space Grotesk, gold
+  spark portrait, cyan panel). The Choir in the machine voice (uppercase
+  mono, pink panel) when a Cantor arrives and in the odd taunt from sector 3.
+  `tests/galaga-story.test.mjs` checks the script against those rules.
+- **What Claude says.** A briefing on the first run of a page load, a
+  shorter line on retries, a first look at each new enemy kind and capsule,
+  SYNC instructions, low-hull warnings, boss warnings and kills, sector
+  openings, wave 10 and 25, a new personal best and the last word at death.
+  The pilot is addressed by the Hall of Fame animal (`Neon Otter` → `otter`,
+  `pilot` without a profile).
+- **The director** (`createDirector`) queues lines by priority. 3 is story
+  and interrupts; 2 is teaching; 1 is ambient and only lands after 9 s of
+  silence. Cues can be once per page load (`SESSION_SEEN`, survives theme
+  switches), once per run, or on a cooldown. A teaching line cut by a story
+  beat is said again afterwards. Lines type at 26 ms per character and hold
+  for 1.5 s + 32 ms per character, all on the game clock, so pause freezes
+  the intercom too.
 
-**Bestiary:** 10 kinds (`ENEMY_STATS` i balance.ts) — scout/squadron/heavy
-pluss diver (selvmords-stuper), weaver (sinus), sniper (lanesøker, raskeste
-kuler, max 2), splitter (2 HP, popper til 2 mites som aldri spawner
-direkte), bulwark (5 HP, 3-skudds vifte, max 1, fra wave 12) og stinger
-(2× formasjonsfart, ett skudd). 7-mønsters rotasjon. **Skalering:**
-`waveIntervalFor` 2500→1100, `enemySpeedMul` +3 %/wave cap +80 %,
-`shootChanceFor` 0.5→0.9, `boltSpeedFor`, `heavyHpFor` 3→5, speider-veteraner
-2 HP fra wave 6, boss hver `bossEveryFor` 25→14 s med
-`bossMaxHpFor(n,w) = 24+6n+2w` (**frakoblet `bulletLevel`** — den gamle
-`18·1.35^(bulletLevel-1)` straffet sterke spillere), fan 2→3 kuler fra boss
-#3, bounty `500+250n`. Tiers 1–4/5–9/10+/15+.
+## Weapons and capsules
 
-**Hull:** `HULL_MAX = 5` med 1.2 s blink-invuln, ett våpentinn ned per treff
-(aldri full wipe), boss-kill healer 1. S-kapsel healer først, ellers skjold,
-ellers våpen; AEGIS er 2-treffs skjold; D-eskorten ofres før skroget (også
-mot ramming). Pity: hull ≤ 1 + >20 s siden S tvinger S. **9 kapsler:**
-S/P pluss D (dual), R (hekkskudd), A (aegis), T (slow-mo 0.6×), N (nova
-skjermbombe), M (magnet), C (2× score-timer); chain-combo (1.5 s-vindu)
-stabler oppå til x4 med gullringer. Spawn-vektet (`pickPowerup`), max 3
-fallende. Canvas-HUD: 5-segment hull-bar (cyan→gull→blinkende pink), WAVE,
-xCOMBO, stasjon.
+One weapon level (1–5) is shared by three modules. A hit costs one level;
+it is never wiped.
 
-**Bakgrunn/effekter:** 4 pre-renderede nebula-blobs, planet-bue med ringer,
-stasjons-silhuett med blinkende vinduer, warp-streaks ved wave-start —
-ingen horisont/sol i skuddlinjen (sjangerlesbarhet). Kill-shatter,
-chain-ringer i gull, boss-cinematic (flash + shake + 90 ms hit-stop +
-gullring + heal), muzzle flash, screen shake. `MAX_PARTICLES = 300` med
-pool, `mobileFx` (<600 px: 0.6× partikler, ingen `shadowBlur`), alt nytt
-gatet på `reducedMotion`.
+- **SPREAD** (start): a fan of bolts, one stream per level, up to 70°.
+- **LASER** (`L`): piercing lances, fastest fire rate; level adds lances.
+- **SEEKER** (`H`): a forward bolt plus seekers on every other volley that
+  pick the nearest on-screen target and turn at a capped rate.
 
-**Tester:** `npm run test:galaga` kjører nå tre filer (29 tester, inkl.
-soak-testen som autospiller ~3 min: waves > 10, boss ≥ 1, partikler/powerups bounded):
-`galaga-game` (12: alle gamle + hull/escort/shield/sniper/splitter/bokstaver),
-`galaga-balance` (8: pinner alle formler + regresjon på frakoblet boss-HP),
-`galaga-audio` (3: spor/voices/parser). CI uendret (én linje).
+`P` raises the level of the current module; `L` and `H` switch module and
+keep the level (the same module raises it). Both appear from wave 3.
 
-**Review-fikser (2026-09-12, samme dag):** åtte feil funnet av
-`/code-review` og rettet. Chain-combo-ringene er nå kosmetiske
-(`triggerShockwave(…, lethal=false)`); alle drap går gjennom
-`damageEnemy`/`killEnemy` (kuler, nova, boss-/nova-ringer, ramming), så
-score, mites og lyd er konsistente og ramming under blink-invuln er ikke
-gratis drap; `killBoss` deles av kule- og nova-stien (bounty/heal/cinematic
-også ved nova-kill, intensitet resettes bare når ingen boss lever);
-formasjonsfiender integrerer x inkrementelt (ingen teleport når tempo eller
-wave endrer `foeMul`); `fadeMusic` sporer timeren sin så rask restart ikke
-dreper musikken; S kan spawne med skjold oppe når hullet ikke er fullt
-(`hullFull` i `pickPowerup`, pity krever ikke lenger `!shield`);
-`shootChance`-rullet skjer én gang per cooldown; `intensityFor` bruker
-`waveTier`. 29 tester (6 nye regresjoner). Kjent, ikke rettet: sniper-cap
-ikke håndhevet (`Math.max(1, count)`), deep field re-allokerer canvas ved
-hver resize, radiohint tegnes på touch, ~100 Web Audio-linjer duplisert
-fra `outrun/audio.ts`, leaderboard-cap 500 000 kan nås av gode runs.
+Other capsules, all gold hexes with a letter and a name tag: `S` heals a
+hull segment, else shields the nose, else feeds the gun; `A` double shield;
+`D` escort wingman that fires with you and takes the next hit; `R` rear gun;
+`T` slow motion for enemies and their fire; `N` nova screen bomb; `M` magnet
+for capsules and incoming fire; `C` double score. Timed capsules show as
+chips with a draining bar on the HUD's sector line. At most three fall at
+once; hull ≤ 1 with no `S` for 20 s forces one.
 
+**SYNC** is the overdrive. Kills charge the meter (3.5 % per enemy HP, a
+little per boss hit). When it is full, Shift (keyboard) or a second finger
+(touch) hands the guns to Claude for 6 s: every enemy bolt on screen turns
+into 10 points, the module fires at level 5, twice as fast, with seekers on
+top.
+
+## Enemies and bosses
+
+Ten kinds (`ENEMY_STATS`): scout (bee), squadron (butterfly, side entry),
+heavy (armoured beetle, 3–5 HP), diver, weaver (manta), sniper (shows a pink
+sightline for the half second before it fires), splitter (pod that pops into
+two mites), mite, bulwark (hex fort, three-way gun, from wave 12) and
+stinger (wasp, flank run). At most two snipers are alive at once. Armour
+shows as pips above the sprite. Squadrons, stingers, divers and mites turn
+along their flight path.
+
+Bosses are Cantors. The boss clock (25 s → 14 s) only runs while no boss is
+alive, so each sector ends with exactly one. A Cantor cannot be hurt until it
+has arrived on screen. It has `80 + 40·boss + 2·wave` HP (raised 2026-09-23
+for the new weapons), a fan that gains an aimed bolt from the fourth boss,
+a radial ring every 4th volley from the second (every 3rd from the fifth),
+and below half HP it enrages: faster guns, damage smoke, and from the third
+boss two mites at its side. Waves spawn at half rate during the fight. A
+kill pays `500 + 250·boss`, heals one segment and opens the next sector.
+
+## Hull, score, difficulty
+
+Five hull segments with 1.2 s of blink invulnerability after a hit. Kills
+within 1.5 s chain into a multiplier (up to x4 with `C`). Waves come every
+2.5 s → 1.1 s; enemy speed, fire rate and bolt speed ramp with the wave
+(`balance.ts`, pinned by `tests/galaga-balance.test.mjs`).
+
+## Rendering and clock
+
+- The world steps at a fixed 60 Hz on a simulated clock (`simNow`), so a
+  120 Hz screen does not double the speed, and pause stops every timer.
+- The canvas is backed at the device pixel ratio (capped at 2); game logic
+  works in CSS pixels through `W()`/`H()`.
+- `sprites.ts` bakes every enemy (two animation frames plus a white hit
+  silhouette), the player ship (five bank angles, rebaked when the Hangar
+  ship changes), the Cantor (per on-screen size), bolts, orbs, capsules and
+  glow dots once. Sparks, bolts and glows draw additively; smoke is soft
+  violet puffs.
+- The deep field (nebulae, a ringed planet, Kestrel station), six drifting
+  low-poly rocks and twinkling stars sit behind a vignette. Reduced motion
+  stops the backdrop, the shake and the intercom animations.
+- HUD: score top-centre (first line on phones, where the radio widget owns
+  the top right), then hull, weapon module and level, SYNC meter, sector and
+  wave, capsule chips. The boss bar sits under the score, or above the pager
+  on phones. The intercom panel is bottom-left on wide screens, compact in
+  the corner on short landscape screens, and under the HUD on phones.
+
+`?theme=galaga&debug=galaga` exposes `window.__galaga` (`boss()`,
+`give(type)`, `sync()`, `wave(n)`, `state()`) for screenshots and manual
+checks.
+
+## Controls
+
+Arrows or WASD move, Space fires, Shift triggers SYNC, Esc tap or P pauses,
+a 3 s Esc hold quits. Touch: drag to fly (the ship sits 80 px above the
+finger and fires while touching), a second finger triggers SYNC. M cycles
+the global radio.
+
+## Tests
+
+`npm run test:galaga` runs five files: `galaga-game` (the engine in a node
+vm: waves, armour, bosses and entry shield, sectors, hull, escort, capsules,
+weapon modules, seekers, SYNC, intercom, a three-minute soak),
+`galaga-balance`, `galaga-weapons`, `galaga-story` and `galaga-audio`.
+
+## Known gaps
+
+- Physical-phone performance has not been measured.
+- `audio.ts` still carries the old per-game chiptune sequencer, unused since
+  the music moved to the global radio.
+
+## History
+
+The theme was called *Cyberpunk* under the id `hacker` until 2026-09-08.
+`LEGACY_THEME_IDS` in `themes/index.ts` still maps `hacker` onto `galaga`,
+migration `0003_rename_hacker_to_galaga.sql` moved the Hall of Fame rows, and
+the landing reads the old `hackerHighScore` key once. Earlier passes (the
+bestiary and hull on 2026-09-12, the radio move) are in `git log`.

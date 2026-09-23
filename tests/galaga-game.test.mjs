@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import * as balance from '../themes/galaga/balance.ts'
+import * as weapons from '../themes/galaga/weapons.ts'
+import * as story from '../themes/galaga/story.ts'
 import { TRACK_NAMES } from '../themes/galaga/audio.ts'
 
 // The Hangar ship, stubbed: imports are stripped above, so the game reads
@@ -40,8 +42,12 @@ function game(w = 375, h = 667) {
     onMounted() {}, onBeforeUnmount() {}, performance: { now: () => 100 },
     readShipDef: () => { shipCalls.n++; return dartDef() },
     useRadio: useRadioStub,
+    useInputMode: () => ({ inputMode: { value: 'keyboard' } }),
+    readStoredPlayer: () => ({ id: 'x', name: 'Neon Otter' }),
     createGalagaAudio: audioStub, TRACK_NAMES,
-    ...balance })
+    ...balance, ...weapons, ...story,
+    // A fresh session per game so once-per-session cues fire in each test.
+    createDirector: (o = {}) => story.createDirector({ ...o, seen: new Set() }) })
   vm.runInContext(source, context)
   const run = code => vm.runInContext(code, context)
   run(`canvas.value = {width:${w},height:${h}}; resetGame(); waveTimer = bossTimer = powerupTimer = 1e9`)
@@ -77,7 +83,7 @@ test('larger bosses fit phone and desktop bounds and fire from both gun ports', 
   for (const [w, h] of [[320,568],[375,667],[667,375],[1440,900]]) {
     const run = game(w,h)
     run('spawnBoss(); bosses[0].arrived = true; bosses[0].y = bosses[0].targetY; bosses[0].lastShot = -10000; update(100)')
-    assert.ok(run('bosses[0].size > 140 && bosses[0].hp === 24'))
+    assert.ok(run('bosses[0].size > 140 && bosses[0].hp === 80'))
     assert.ok(run(`bosses[0].x - bosses[0].size * .56 > 0 && bosses[0].x + bosses[0].size * .56 < ${w}`))
     assert.ok(run(`bosses[0].y - bosses[0].size * .5 - 10 > 0 && bosses[0].y + bosses[0].size * .4 < ${h} * .65`))
     assert.equal(run('enemyBullets.length'), 2)
@@ -196,7 +202,7 @@ test('combo rings do not kill', () => {
 
 test('nova kills a boss with bounty and heal', () => {
   const run = game()
-  run('spawnBoss(); bosses[0].hp = 4; hull = 3; applyPowerup("nova", 100); update(200)')
+  run('spawnBoss(); bosses[0].arrived = true; bosses[0].hp = 4; hull = 3; applyPowerup("nova", 100); update(200)')
   assert.equal(run('bosses.length'), 0)
   assert.ok(run('score') > 0)
   assert.equal(run('hull'), balance.heal(3, balance.HEAL_BOSS))
@@ -248,10 +254,85 @@ test('music lives on the shared radio, not the local SFX object', () => {
   // local track.
   assert.equal(radioCalls.ensured, 1)
   assert.deepEqual(radioCalls.intensity[0], [0, false])
-  // The canvas tap / station control cycles the global dial.
-  run('cycleRadio()')
-  assert.equal(radioCalls.next, 1)
   // Waves drive intensity through the radio.
   run('waveNumber = 1; spawnWave(); update(100)')
   assert.ok(radioCalls.intensity.some(([t]) => t >= 0))
+})
+
+test('a Cantor cannot be hurt on its way in', () => {
+  const run = game()
+  run('spawnBoss(); bosses[0].y = 100; bosses[0].arrived = false; bullets.push({x:bosses[0].x,y:bosses[0].y,vy:0}); update(100)')
+  assert.equal(run('bosses[0].hp'), run('bosses[0].maxHp'))
+  assert.equal(run('bullets.length'), 0)
+  run('bosses[0].arrived = true; bullets.push({x:bosses[0].x,y:bosses[0].y,vy:0}); update(100)')
+  assert.equal(run('bosses[0].maxHp - bosses[0].hp'), 1)
+})
+
+test('one boss per sector: the boss clock waits while a Cantor lives, a kill opens the next sector', () => {
+  const run = game()
+  run('bossTimer = 0; update(100000)')
+  assert.equal(run('bosses.length'), 1)
+  run('update(200000)')
+  assert.equal(run('bosses.length'), 1)
+  assert.equal(run('sectorIndex'), 0)
+  run('killBoss(0, 200000)')
+  assert.equal(run('sectorIndex'), 1)
+  assert.equal(run('bannerT'), 3)
+  assert.equal(run('bosses[0]?.name ?? "none"'), 'none')
+  run('spawnBoss()')
+  assert.equal(run('bosses[0].name'), 'CANTOR II')
+})
+
+test('weapon capsules switch module and keep the level; hits still cost a level', () => {
+  const run = game()
+  run('bulletLevel = 3; applyPowerup("laser", 100)')
+  assert.equal(run('weapon'), 'laser')
+  assert.equal(run('bulletLevel'), 3)
+  run('applyPowerup("laser", 100)')
+  assert.equal(run('bulletLevel'), 4)
+  run('hitPlayer(5000, "bolt")')
+  assert.equal(run('bulletLevel'), 3)
+  run('keys.Space = true; lastShotTime = -1e9; update(6000)')
+  assert.ok(run('bullets.every(b => b.kind === "lance")'))
+})
+
+test('seekers fly to an on-screen target and hit it', () => {
+  const run = game()
+  run(`weapon = 'homing'; enemies = [makeEnemy({kind:'heavy', x:60, y:200, vx:0, vy:0, size:52, color:'#ff70bc', movementType:'straight', hp:50, maxHp:50, shootCooldown:1e9, lastShot:0, shootChance:0})]`)
+  run('keys.Space = true; lastShotTime = -1e9; update(6000); keys.Space = false')
+  assert.ok(run('bullets.some(b => b.kind === "seeker")'))
+  run('for (let i = 0; i < 150; i++) update(6000 + i)')
+  assert.ok(run('enemies[0].hp') < 50)
+})
+
+test('SYNC charges on kills, clears enemy fire into score and powers the guns', () => {
+  const run = game()
+  run('syncMeter = 0.99; enemies = [makeEnemy({kind:"heavy", x:100, y:100, vx:0, vy:0, size:52, color:"#ff70bc", movementType:"straight", hp:1, maxHp:3, shootCooldown:1e9, lastShot:0, shootChance:0})]; killEnemy(0, 100)')
+  assert.equal(run('syncMeter'), 1)
+  run('enemyBullets = [{x:10,y:10,vy:1},{x:20,y:20,vy:1}]; const before = score; activateSync(); globalThis.gain = score - before')
+  assert.equal(run('enemyBullets.length'), 0)
+  assert.equal(run('gain'), 20)
+  assert.equal(run('syncTimer'), balance.SYNC.duration)
+  assert.equal(run('syncMeter'), 0)
+  // Nothing more to spend until it charges again.
+  assert.equal(run('activateSync()'), false)
+  // Claude fires with no hand on the trigger.
+  run('keys = {}; bullets = []; lastShotTime = -1e9; update(200)')
+  assert.ok(run('bullets.length') > 0)
+})
+
+test('the intercom briefs a new pilot by callsign and names new enemies', () => {
+  const run = game()
+  const first = run('director.tick(simNow)')
+  assert.equal(first.text, 'morning, otter. claude here, second seat.')
+  run('director.hush(simNow); director.tick(simNow + 1000); simNow += 1000')
+  run('waveNumber = 5; spawnWave()')
+  let t = run('simNow') + 500
+  const seen = []
+  for (let i = 0; i < 20; i++) {
+    const l = run(`director.tick(${t})`)
+    if (l && !seen.includes(l.key)) seen.push(l.key)
+    t += 500
+  }
+  assert.ok(seen.includes('meet:sniper'))
 })

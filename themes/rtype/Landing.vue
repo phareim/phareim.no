@@ -1,7 +1,5 @@
 <template>
-  <DefaultLanding
-    :content-class="{ 'rtype-fade': gameStarted }"
-  >
+  <DefaultLanding>
     <template #background>
       <Shooter
         @score="s => score = s"
@@ -24,7 +22,7 @@
         <p class="rtype-hint">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
-        <p class="location rtype-hud">
+        <p class="location rtype-hud" :class="{ 'rtype-hud-live': gameStarted }">
           SCORE: {{ score }} · DIST {{ distance }}M<template v-if="gameStarted"> · {{ '◆'.repeat(Math.max(0, lives)) }}</template>
         </p>
         <p v-if="highScore > 0 && !gameStarted" class="location rtype-hud-dim">HIGH SCORE: {{ highScore }}</p>
@@ -84,6 +82,25 @@ function onGameRestart() {
 </script>
 
 <style>
+/* During a run the HUD line moves to the top centre (the canvas draws the
+   power-up list top-left); on phones it sits below that list. */
+.landing .rtype-hud-live {
+  position: absolute;
+  top: 16px;
+  left: 0;
+  right: 0;
+  margin: 0;
+  font-size: 0.85em;
+  text-align: center;
+  pointer-events: none;
+}
+@media (max-width: 640px) {
+  .landing .rtype-hud-live {
+    top: calc(max(0.6rem, env(safe-area-inset-top)) + 64px);
+    font-size: 0.75em;
+  }
+}
+
 .rtype-hud {
   font-family: var(--font-machine);
   text-transform: uppercase;
@@ -152,12 +169,4 @@ function onGameRestart() {
   letter-spacing: 0.1em;
 }
 
-.rtype-fade {
-  animation: rtype-fade-out 4s forwards;
-}
-@keyframes rtype-fade-out {
-  0% { opacity: 1; }
-  50% { opacity: 1; }
-  100% { opacity: 0; pointer-events: none; }
-}
 </style>

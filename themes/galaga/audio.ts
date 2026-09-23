@@ -497,6 +497,38 @@ export function createGalagaAudio() {
         tone(220, 0.5, 'square', 0.12, 0, 880)
         burst(0.4, 0.2, 6000, 1000, 'highpass')
         break
+      case 'laser':
+        if (now - lastShoot < 0.09) return
+        lastShoot = now
+        tone(1320, 0.07, 'sawtooth', 0.03, 0, 1760)
+        break
+      case 'seeker':
+        tone(520, 0.12, 'triangle', 0.05, 0, 1040)
+        break
+      case 'comms':
+        // Intercom chirp: Claude keys the mic.
+        tone(1250, 0.05, 'square', 0.035)
+        tone(1680, 0.07, 'square', 0.03, 0.055)
+        break
+      case 'choir':
+        // The Choir cuts in: a detuned low chord sliding down.
+        tone(147, 0.9, 'sawtooth', 0.05, 0, 110)
+        tone(156, 0.9, 'sawtooth', 0.04, 0, 116)
+        tone(220, 0.7, 'triangle', 0.05, 0.05, 165)
+        burst(0.5, 0.08, 1800, 300, 'bandpass')
+        break
+      case 'syncReady':
+        tone(988, 0.08, 'triangle', 0.07)
+        tone(1319, 0.12, 'triangle', 0.07, 0.08)
+        break
+      case 'sync':
+        tone(330, 0.5, 'sawtooth', 0.1, 0, 1320)
+        tone(660, 0.4, 'square', 0.05, 0.1, 1760)
+        burst(0.4, 0.2, 6000, 800, 'highpass')
+        break
+      case 'warning':
+        for (let i = 0; i < 3; i++) tone(440, 0.22, 'square', 0.06, i * 0.32, 330)
+        break
       case 'hullHit':
         tone(300, 0.25, 'sawtooth', 0.18, 0, 80)
         burst(0.25, 0.3, 2500, 200)

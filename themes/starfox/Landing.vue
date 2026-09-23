@@ -1,7 +1,5 @@
 <template>
-  <DefaultLanding
-    :content-class="{ 'sfx-fade': gameStarted }"
-  >
+  <DefaultLanding>
     <template #background>
       <ClientOnly>
         <Flight
@@ -327,12 +325,4 @@ function onGameRestart() {
   letter-spacing: 0.1em;
 }
 
-.sfx-fade {
-  animation: sfx-fade-out 4s forwards;
-}
-@keyframes sfx-fade-out {
-  0% { opacity: 1; }
-  50% { opacity: 1; }
-  100% { opacity: 0; pointer-events: none; }
-}
 </style>

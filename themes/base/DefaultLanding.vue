@@ -25,11 +25,8 @@ import { profile, type LandingContent } from '~/themes/content'
 
 withDefaults(defineProps<{
   content?: LandingContent
-  /** Class applied to whatever a theme puts in the slots (e.g. to fade it). */
-  contentClass?: string | Record<string, boolean>
 }>(), {
   content: () => profile,
-  contentClass: '',
 })
 
 const emit = defineEmits<{
