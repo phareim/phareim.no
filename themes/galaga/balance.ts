@@ -101,10 +101,12 @@ export function bossEveryFor(n: number): number {
 
 /**
  * Boss max HP: decoupled from player power (regression guard in tests).
- * Boss #1 ≈ 24, boss #5 at wave 20 ≈ 94.
+ * Raised 2026-09-23 with the seekers, lances and SYNC so a Cantor lasts a
+ * fight instead of a volley: boss #1 at wave 8 ≈ 96, the Conductor (#5) at
+ * wave 35 ≈ 310. Bosses cannot be hurt until they have arrived on screen.
  */
 export function bossMaxHpFor(bossNum: number, wave: number): number {
-  return 24 + 6 * Math.max(0, Math.floor(bossNum)) + 2 * Math.max(0, Math.floor(wave))
+  return 80 + 40 * Math.max(0, Math.floor(bossNum)) + 2 * Math.max(0, Math.floor(wave))
 }
 
 /** Boss base attack clock (ms): 800 → 600 floor, spread narrows too. */
@@ -170,6 +172,8 @@ export type PowerupKind =
   | 'nova'
   | 'magnet'
   | 'combo'
+  | 'laser'
+  | 'homing'
 
 /** Letters painted on the gold capsules. */
 export const POWERUP_LETTERS: Record<PowerupKind, string> = {
@@ -182,6 +186,23 @@ export const POWERUP_LETTERS: Record<PowerupKind, string> = {
   nova: 'N',
   magnet: 'M',
   combo: 'C',
+  laser: 'L',
+  homing: 'H',
+}
+
+/** Short names shown under a capsule and in the pickup pop. */
+export const POWERUP_NAMES: Record<PowerupKind, string> = {
+  shield: 'SHIELD',
+  weapon: 'POWER',
+  dual: 'ESCORT',
+  rear: 'REAR GUN',
+  aegis: 'AEGIS',
+  tempo: 'TEMPO',
+  nova: 'NOVA',
+  magnet: 'MAGNET',
+  combo: 'x2 SCORE',
+  laser: 'LASER',
+  homing: 'SEEKERS',
 }
 
 /** Durations in seconds of active play (0 = instant / permanent). */
@@ -195,6 +216,8 @@ export const POWERUP_DURATION: Record<PowerupKind, number> = {
   nova: 0,
   magnet: 20,
   combo: 15,
+  laser: 0,
+  homing: 0,
 }
 
 /**
@@ -219,6 +242,8 @@ export function powerupWeights(
     { kind: 'combo', weight: 6 },
     { kind: 'nova', weight: 4 },
   )
+  // Weapon modules from wave 3: switching weapon keeps the level.
+  if (Math.max(0, wave) >= 3) out.push({ kind: 'laser', weight: 7 }, { kind: 'homing', weight: 7 })
   return out.filter(w => w.weight > 0)
 }
 
@@ -245,4 +270,45 @@ export function pickPowerup(
 export function intensityFor(waveNumber: number, bossActive: boolean): 0 | 1 | 2 | 3 {
   if (bossActive) return 3
   return waveTier(waveNumber)
+}
+
+/**
+ * Boss fights are the sector ends: waves thin out to this multiple of their
+ * interval while a boss is alive, and the next boss clock only runs while
+ * none is (2026-09-23).
+ */
+export const BOSS_WAVE_SLOWDOWN = 2
+
+/** Every `bossRingEvery(n)`th volley is a radial ring (0 = never). */
+export function bossRingEvery(n: number): number {
+  const k = Math.max(0, Math.floor(n))
+  if (k < 1) return 0
+  return k >= 4 ? 3 : 4
+}
+
+/** Orbs in a boss ring: 10 → 16. */
+export function bossRingCount(n: number): number {
+  return Math.min(16, 10 + 2 * Math.max(0, Math.floor(n) - 1))
+}
+
+/** Below half HP a boss fires this much faster (cooldown multiplier). */
+export const BOSS_ENRAGE_MUL = 0.7
+
+/** SYNC overdrive: Claude takes the guns (2026-09-23). */
+export const SYNC = {
+  /** Meter gain per kill, per point of the victim's max HP. */
+  perKillHp: 0.035,
+  /** Meter gain per boss hit. */
+  perBossHit: 0.004,
+  /** Seconds of overdrive. */
+  duration: 6,
+  /** Fire interval multiplier while synced. */
+  fireMul: 0.5,
+  /** Score per enemy bolt converted when sync starts. */
+  cancelScore: 10,
+} as const
+
+/** Meter after a kill of an enemy with `maxHp` hit points (0..1). */
+export function syncGain(meter: number, maxHp: number): number {
+  return Math.min(1, meter + SYNC.perKillHp * Math.max(1, maxHp))
 }

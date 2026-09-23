@@ -1,12 +1,15 @@
 <template>
   <canvas ref="canvas" class="galaga-canvas"></canvas>
+  <Intercom :line="intercom" :shown="intercomShown" />
   <EscHold :is-active="escActive" :paused="paused" @tap="togglePause" @hold="quitToGameOver" />
 </template>
 
 <script setup>
 import { MACHINE_FONT } from '~/themes/base/fonts'
 import EscHold from '../base/EscHold.vue'
+import Intercom from './Intercom.vue'
 import { readShipDef } from '~/composables/useShip'
+import { readStoredPlayer } from '~/composables/useLeaderboard'
 import {
   HULL_MAX, DMG, HEAL_BOSS, INVULN_TIME, BULLET_LEVEL_MAX, PITY_TIME_MS,
   MAX_FALLING_POWERUPS, MAX_PARTICLES,
@@ -14,9 +17,19 @@ import {
   waveIntervalFor, enemySpeedMul, enemyFireFirstFor, enemyRefireWindowFor,
   boltSpeedFor, shootChanceFor, waveCountFor, heavyHpFor, scoutHpFor,
   bossEveryFor, bossMaxHpFor, bossAttackFor, bossFanCount, bossBountyFor,
-  ENEMY_STATS, POWERUP_LETTERS, POWERUP_DURATION,
+  bossRingEvery, bossRingCount, BOSS_ENRAGE_MUL, BOSS_WAVE_SLOWDOWN,
+  ENEMY_STATS, POWERUP_LETTERS, POWERUP_NAMES, POWERUP_DURATION,
+  SYNC, syncGain,
   pickPowerup, intensityFor,
 } from './balance'
+import {
+  volley, applyWeaponPickup, pickTarget, steer, clampLevel,
+  FIRE_INTERVAL, WEAPON_NAMES, SEEKER_LIFE,
+} from './weapons'
+import {
+  createDirector, sectorFor, callsignFrom, visibleChars,
+} from './story'
+import { buildAtlas, ensureShip, ensureBoss, blit, TURNING_KINDS, ENEMY_SIZE } from './sprites'
 import { createGalagaAudio } from './audio'
 const emit = defineEmits(['score', 'death', 'restart', 'started'])
 
@@ -27,9 +40,23 @@ const canvas = ref(null)
 let ctx = null
 let animationFrameId = null
 let gameRunning = false
+// Pixel ratio the canvas is backed at (capped at 2); game logic works in
+// CSS pixels, W() × H().
+let dpr = 1
+function W() { return canvas.value.width / dpr }
+function H() { return canvas.value.height / dpr }
+let atlas = null
+
+// --- Clock (2026-09-23): the world steps at a fixed 60 Hz on a simulated
+// clock, so 120 Hz screens do not run the game twice as fast and pause
+// freezes every timer (waves, boss, powerups, intercom) with the world.
+const STEP_MS = 1000 / 60
+let simNow = 0
+let lastReal = 0
+let stepAcc = 0
 
 // Game state
-let player = { x: 0, y: 0, width: 44, height: 36, speed: 5 }
+let player = { x: 0, y: 0, width: 44, height: 36, speed: 5, bank: 0, prevX: 0, prevY: 0 }
 let bullets = []
 let enemyBullets = []
 let enemies = []
@@ -38,6 +65,7 @@ let stars = []
 let particles = []
 let powerups = []
 let shockwaves = []
+let pops = [] // floating pickup / bounty text
 let score = 0
 let gameOver = false
 let gameStarted = false
@@ -48,6 +76,8 @@ let lastShotTime = 0
 let waveTimer = 0
 let waveInterval = 2500
 let bulletLevel = 1
+let weapon = 'spread'
+let volleyIndex = 0
 let powerupTimer = 0
 let powerupInterval = 12000
 let bossTimer = 0
@@ -62,7 +92,7 @@ let smoothParallaxX = 0 // smoothed parallax offset (lerps toward target)
 
 // --- Hull / power-bar (2026-09-12): 5 segments instead of one-hit death.
 let hull = HULL_MAX
-let invulnUntil = 0 // ms timestamp: blink-invulnerability after a hull hit
+let invulnUntil = 0 // sim ms: blink-invulnerability after a hull hit
 let lastFrameTime = 0
 // --- Timed powerups (seconds of active play left).
 let dualTimer = 0 // D: escort doubling the fan, sacrificed on a hit
@@ -71,152 +101,80 @@ let tempoTimer = 0 // T: slow-mo on enemies and their bullets
 let magnetTimer = 0 // M: attracts falling powerups, brakes nearby bullets
 let comboTimer = 0 // C: 2x score baseline while active
 let lastShieldTime = 0 // pity clock: force S when low hull + long drought
+// --- SYNC overdrive: kills charge the meter, Shift (or a two-finger tap)
+// hands the guns to Claude for SYNC.duration seconds.
+let syncMeter = 0
+let syncTimer = 0
+// --- Sectors: each boss ends one. sectorIndex = bosses killed this run.
+let sectorIndex = 0
+let bannerT = 0 // seconds left on the SECTOR banner
+let warnT = 0 // seconds left on the boss WARNING banner
+let warnName = ''
+let runCount = 0
+let bestBefore = 0 // stored high score when the run began
 // --- Chain combo: kills inside a 1.5 s window raise the multiplier.
 let comboCount = 0
 let lastKillTime = 0
 function chainBonus() {
   if (comboCount >= 6) return 2
   if (comboCount >= 4) return 1
-  if (comboCount >= 2) return 0
   return 0
 }
-function scoreMult(now) {
+function scoreMult() {
   const base = comboTimer > 0 ? 2 : 1
   return Math.min(4, base + chainBonus())
 }
-function addScore(base, now) {
-  score += base * scoreMult(now)
+function addScore(base) {
+  const before = score
+  score += base * scoreMult()
   emit('score', score)
+  if (bestBefore > 0 && before <= bestBefore && score > bestBefore) director.cue('best', simNow)
 }
 function registerKill(now) {
   if (now - lastKillTime < 1500) comboCount++
   else comboCount = 1
   lastKillTime = now
   if (comboCount === 3 || comboCount === 4 || comboCount === 6) {
-    triggerShockwave(player.x, player.y - 60, '#ffd23f', false)
+    ring(player.x, player.y - 30, 90 + comboCount * 15, '#ffd23f')
     audio?.play('combo')
   }
+  if (scoreMult() >= 4) director.cue('combo:4', now)
 }
 // --- Juice: shake, hit-stop, warp, muzzle.
 let shake = 0 // 0..1 screen shake magnitude
-let hitStopUntil = 0 // ms timestamp: world frozen, draw continues
+let hitStopUntil = 0 // sim ms: world frozen, draw continues
 let warpT = 0 // seconds of warp-stretch after a wave spawns
 let muzzleT = 0 // frame counter for the muzzle flash
 // --- Deep background: nebulae, planet, station (all dark, all slow).
 let nebulae = []
 let planet = null
 let station = null
-// --- Radio: the global site-wide station (the widget and M cycle it; the
-// top-right canvas tap does too). The local audio object is SFX only —
-// music lives in the shared radio engine so it keeps playing across themes.
+let vignette = null
+// --- Radio: the global site-wide station lives in RadioWidget (M cycles
+// it). The local audio object is SFX only.
 let audio = null
 const radio = useRadio()
-function currentTrackName() {
-  return radio.trackName.value
-}
-function cycleRadio() {
-  radio.next()
-}
+// --- Intercom: the story director picks lines; the view shows one.
+const director = createDirector()
+const intercom = ref(null)
+const intercomShown = ref(0)
+const { inputMode } = useInputMode()
+function isTouch() { return inputMode.value === 'touch' }
+
 function pushParticle(p) {
   if (particles.length >= MAX_PARTICLES) particles.shift()
   particles.push(p)
 }
 function fxScale() {
   let s = 1
-  if (typeof canvas !== 'undefined' && canvas.value && canvas.value.width < 600) s *= 0.6
+  if (canvas.value && W() < 600) s *= 0.6
   if (reducedMotion) s *= 0.5
   return s
 }
-
-// Enemy shapes as pixel-art style draw functions
-const enemyShapes = [
-  // Classic invader
-  (ctx, x, y, size, color) => {
-    ctx.fillStyle = color
-    const s = size / 8
-    ctx.fillRect(x - 3 * s, y - s, 6 * s, 2 * s)
-    ctx.fillRect(x - 4 * s, y - 2 * s, 8 * s, s)
-    ctx.fillRect(x - 2 * s, y - 3 * s, 4 * s, s)
-    ctx.fillRect(x - 4 * s, y + s, 2 * s, s)
-    ctx.fillRect(x + 2 * s, y + s, 2 * s, s)
-    ctx.fillStyle = '#000'
-    ctx.fillRect(x - 2 * s, y - s, s, s)
-    ctx.fillRect(x + s, y - s, s, s)
-  },
-  // Diamond
-  (ctx, x, y, size, color) => {
-    ctx.fillStyle = color
-    ctx.beginPath()
-    ctx.moveTo(x, y - size / 2)
-    ctx.lineTo(x + size / 2, y)
-    ctx.lineTo(x, y + size / 2)
-    ctx.lineTo(x - size / 2, y)
-    ctx.closePath()
-    ctx.fill()
-    ctx.strokeStyle = '#000'
-    ctx.lineWidth = 1
-    ctx.stroke()
-  },
-  // Hexagon
-  (ctx, x, y, size, color) => {
-    ctx.fillStyle = color
-    ctx.beginPath()
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i - Math.PI / 6
-      const px = x + (size / 2) * Math.cos(angle)
-      const py = y + (size / 2) * Math.sin(angle)
-      if (i === 0) ctx.moveTo(px, py)
-      else ctx.lineTo(px, py)
-    }
-    ctx.closePath()
-    ctx.fill()
-    ctx.strokeStyle = '#000'
-    ctx.lineWidth = 1
-    ctx.stroke()
-  },
-  // Crab invader
-  (ctx, x, y, size, color) => {
-    ctx.fillStyle = color
-    const s = size / 8
-    ctx.fillRect(x - 3 * s, y - 2 * s, 6 * s, 3 * s)
-    ctx.fillRect(x - s, y - 3 * s, 2 * s, s)
-    ctx.fillRect(x - 5 * s, y - s, 2 * s, 2 * s)
-    ctx.fillRect(x + 3 * s, y - s, 2 * s, 2 * s)
-    ctx.fillRect(x - 3 * s, y + s, s, s)
-    ctx.fillRect(x + 2 * s, y + s, s, s)
-    ctx.fillStyle = '#000'
-    ctx.fillRect(x - 2 * s, y - s, s, s)
-    ctx.fillRect(x + s, y - s, s, s)
-  },
-  // Triangle ship
-  (ctx, x, y, size, color) => {
-    ctx.fillStyle = color
-    ctx.beginPath()
-    ctx.moveTo(x, y - size / 2)
-    ctx.lineTo(x + size / 2, y + size / 3)
-    ctx.lineTo(x - size / 2, y + size / 3)
-    ctx.closePath()
-    ctx.fill()
-    ctx.fillStyle = '#000'
-    ctx.beginPath()
-    ctx.arc(x, y - size / 6, size / 8, 0, Math.PI * 2)
-    ctx.fill()
-  },
-  // Skull-like
-  (ctx, x, y, size, color) => {
-    ctx.fillStyle = color
-    const r = size / 2
-    ctx.beginPath()
-    ctx.arc(x, y - r * 0.2, r * 0.8, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillRect(x - r * 0.5, y + r * 0.3, r, r * 0.4)
-    ctx.fillStyle = '#000'
-    ctx.beginPath()
-    ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.18, 0, Math.PI * 2)
-    ctx.arc(x + r * 0.3, y - r * 0.3, r * 0.18, 0, Math.PI * 2)
-    ctx.fill()
-  }
-]
+function pop(x, y, text, color = '#ffd23f') {
+  if (pops.length > 6) pops.shift()
+  pops.push({ x, y, text, color, life: 1 })
+}
 
 let waveNumber = 0
 let reducedMotion = false
@@ -224,13 +182,14 @@ let reducedMotion = false
 function initStars() {
   stars = []
   if (!canvas.value) return
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 90; i++) {
     stars.push({
-      x: Math.random() * canvas.value.width,
-      y: Math.random() * canvas.value.height,
+      x: Math.random() * W(),
+      y: Math.random() * H(),
       speed: 0.3 + Math.random() * 1.5,
       size: Math.random() < 0.3 ? 2 : 1,
-      brightness: 0.3 + Math.random() * 0.7
+      brightness: 0.3 + Math.random() * 0.7,
+      twinkle: Math.random() * Math.PI * 2,
     })
   }
 }
@@ -255,7 +214,7 @@ function createBgShape(startY) {
     const a = 1 + i, b = 1 + (i + 1) % count, c = a + count, d = b + count
     faces.push([0, a, b], [a, c, d], [a, d, b])
   }
-  return { x: Math.random() * canvas.value.width,
+  return { x: Math.random() * W(),
     y: startY ?? -350, depth, speed: .35 + depth * .85,
     size: (160 + Math.random() * 220) * (.6 + depth * .4),
     rotation: Math.random() * Math.PI * 2, rotSpeed: 0, vertices, faces }
@@ -263,42 +222,59 @@ function createBgShape(startY) {
 
 function initBgShapes() {
   if (!canvas.value) return
-  bgShapes = Array.from({ length: 6 }, (_, i) => createBgShape(i / 6 * (canvas.value.height + 400) - 200))
+  bgShapes = Array.from({ length: 6 }, (_, i) => createBgShape(i / 6 * (H() + 400) - 200))
   bgShapes.sort((a, b) => a.depth - b.depth)
 }
 
-// Deep background: slow dark nebulae, one planet arc, one station silhouette.
+function nebulaImage(tint, alpha, r) {
+  const off = document.createElement('canvas')
+  off.width = off.height = Math.ceil(r * 2)
+  const g = off.getContext('2d')
+  const grad = g.createRadialGradient(r, r, 0, r, r, r)
+  grad.addColorStop(0, `rgba(${tint},${alpha})`)
+  grad.addColorStop(1, `rgba(${tint},0)`)
+  g.fillStyle = grad
+  g.fillRect(0, 0, r * 2, r * 2)
+  return off
+}
+
+// Deep background: slow dark nebulae (tinted per sector), one planet arc,
+// one station silhouette — relay station Kestrel, where the story starts.
 function initDeepField() {
-  if (!canvas.value) return
-  const w = canvas.value.width, h = canvas.value.height
-  const tints = [
-    { c: '42,18,69', a: 0.14 }, { c: '80,20,80', a: 0.10 },
-    { c: '20,80,110', a: 0.10 }, { c: '30,16,60', a: 0.16 },
-  ]
+  if (!canvas.value || typeof document === 'undefined') return
+  const w = W(), h = H()
+  const tints = sectorFor(sectorIndex).tints
+  const alphas = [0.14, 0.10, 0.10, 0.16]
   nebulae = tints.map((t, i) => {
     const r = 120 + Math.random() * 160
-    const off = document.createElement('canvas')
-    off.width = off.height = Math.ceil(r * 2)
-    const g = off.getContext('2d')
-    const grad = g.createRadialGradient(r, r, 0, r, r, r)
-    grad.addColorStop(0, `rgba(${t.c},${t.a})`)
-    grad.addColorStop(1, `rgba(${t.c},0)`)
-    g.fillStyle = grad
-    g.fillRect(0, 0, r * 2, r * 2)
     return {
-      img: off, r,
+      img: nebulaImage(t, alphas[i], r), r,
       x: Math.random() * w, y: (i / tints.length) * (h + r * 2) - r,
       speed: 0.05 + Math.random() * 0.07,
     }
   })
-  planet = {
-    x: w * 0.82, y: -140, r: Math.min(150, w * 0.28),
-    speed: 0.06, ringTilt: 0.35,
-  }
-  station = {
-    x: w * 0.16, y: h * 0.3, size: Math.min(90, w * 0.2),
-    speed: 0.09, blink: 0,
-  }
+  planet = { x: w * 0.82, y: -140, r: Math.min(150, w * 0.28), speed: 0.06, ringTilt: 0.35 }
+  station = { x: w * 0.16, y: h * 0.3, size: Math.min(90, w * 0.2), speed: 0.09, blink: 0 }
+  // Vignette, baked once per size at quarter resolution.
+  const vc = document.createElement('canvas')
+  vc.width = Math.max(1, Math.ceil(w / 4))
+  vc.height = Math.max(1, Math.ceil(h / 4))
+  const vg = vc.getContext('2d')
+  const cx = vc.width / 2, cy = vc.height / 2
+  const grad = vg.createRadialGradient(cx, cy, Math.min(cx, cy) * 0.55, cx, cy, Math.hypot(cx, cy))
+  grad.addColorStop(0, 'rgba(6,3,16,0)')
+  grad.addColorStop(1, 'rgba(6,3,16,0.62)')
+  vg.fillStyle = grad
+  vg.fillRect(0, 0, vc.width, vc.height)
+  vignette = vc
+}
+
+// A new sector re-tints the nebulae where they are.
+function retintNebulae() {
+  if (typeof document === 'undefined') return
+  const tints = sectorFor(sectorIndex).tints
+  const alphas = [0.14, 0.10, 0.10, 0.16]
+  nebulae.forEach((n, i) => { n.img = nebulaImage(tints[i % tints.length], alphas[i % 4], n.r) })
 }
 
 function drawBgShape(shape, offsetX) {
@@ -322,12 +298,24 @@ function drawBgShape(shape, offsetX) {
   ctx.restore()
 }
 
+function readBest() {
+  try {
+    return parseInt(localStorage.getItem('galagaHighScore') || '0', 10) || 0
+  } catch {
+    return 0
+  }
+}
+
 function resetGame() {
   if (!canvas.value) return
   shipDef = readShipDef()
-  const now = performance.now()
-  player.x = canvas.value.width / 2
-  player.y = canvas.value.height - 60
+  if (atlas) ensureShip(atlas, shipDef)
+  const now = simNow
+  player.x = W() / 2
+  player.y = H() - 60
+  player.bank = 0
+  player.prevX = player.x
+  player.prevY = player.y
   bullets = []
   enemyBullets = []
   enemies = []
@@ -335,6 +323,7 @@ function resetGame() {
   powerups = []
   particles = []
   shockwaves = []
+  pops = []
   score = 0
   gameOver = false
   gameStarted = true
@@ -344,6 +333,8 @@ function resetGame() {
   waveInterval = waveIntervalFor(0)
   waveTimer = now - waveInterval // first wave spawns right away
   bulletLevel = 1
+  weapon = 'spread'
+  volleyIndex = 0
   powerupTimer = now
   bossTimer = now
   bossNum = 0
@@ -367,6 +358,23 @@ function resetGame() {
   shake = 0
   hitStopUntil = 0
   warpT = 0
+  syncMeter = 0
+  syncTimer = 0
+  const oldSector = sectorIndex
+  sectorIndex = 0
+  if (oldSector !== 0) retintNebulae()
+  bannerT = 3
+  warnT = 0
+  bestBefore = readBest()
+  runCount++
+  // The intercom: callsign from the Hall of Fame animal, then the briefing.
+  director.resetRun()
+  director.setVars({
+    cs: callsignFrom(readStoredPlayer()?.name),
+    run: runCount,
+    sync: isTouch() ? 'tap with two fingers' : 'press shift',
+  })
+  if (!director.cue('start:first', now)) director.cue('start:again', now)
   // SFX starts on the gesture that begins the run (browser policy); the
   // shared radio resumes its station instead of restarting it.
   try {
@@ -386,17 +394,16 @@ function makeEnemy(base) {
   return {
     age: 0, slot: 0, flash: 0, hasFired: false,
     shootChance: 1, lockY: 0, baseX: base.x ?? 0,
+    seed: Math.random() * 2, heading: Math.PI / 2,
     ...base,
   }
 }
 
 function spawnWave() {
   if (!canvas.value) return
-  const w = canvas.value.width, h = canvas.value.height
-  const now = performance.now()
+  const w = W(), h = H()
+  const now = simNow
   const pattern = waveNumber++ % 7
-  const speedMul = enemySpeedMul(waveNumber) * 1 // tempo applies in update
-  void speedMul
   const firstShot = enemyFireFirstFor(waveNumber)
   const mk = (kind, o) => makeEnemy({
     kind,
@@ -408,6 +415,7 @@ function spawnWave() {
     flash: 0,
     ...o,
   })
+  const before = enemies.length
   if (pattern === 0) {
     // Scouts from above, V formation; veterans (2 HP) from wave 6.
     const count = waveCountFor(waveNumber, w)
@@ -416,7 +424,7 @@ function spawnWave() {
       enemies.push(mk('scout', {
         x: 40 + (count === 1 ? (w - 80) / 2 : i / (count - 1) * (w - 80)),
         y: -28 - Math.abs(i - (count - 1) / 2) * 28,
-        vx: 0, vy: 1.15, size: 28, color: '#ff2fa0', shapeIdx: 0,
+        vx: 0, vy: 1.15, size: 28, color: '#ff2fa0',
         movementType: 'straight', hp, maxHp: hp,
       }))
     }
@@ -428,8 +436,9 @@ function spawnWave() {
       enemies.push(mk('squadron', {
         x: direction === 1 ? -32 - i * 44 : w + 32 + i * 44,
         y: h * .16, vx: direction * 2.1, vy: 1.15,
-        size: 32, color: '#ff2fa0', shapeIdx: 4,
+        size: 32, color: '#ff2fa0',
         movementType: 'formation', slot: i, direction,
+        heading: direction === 1 ? 0 : Math.PI,
         spawnX: direction === 1 ? -32 - i * 44 : w + 32 + i * 44, spawnY: h * .16,
       }))
     }
@@ -441,14 +450,14 @@ function spawnWave() {
       if (bulwarkWave) {
         enemies.push(mk('bulwark', {
           x: 60 + i / (count - 1) * (w - 120), y: -56 - i * 30,
-          vx: 0, vy: 0.5, size: 56, color: '#ff70bc', shapeIdx: 2,
+          vx: 0, vy: 0.5, size: 56, color: '#ff70bc',
           movementType: 'straight', hp: ENEMY_STATS.bulwark.hp, maxHp: ENEMY_STATS.bulwark.hp,
         }))
       } else {
         const hp = heavyHpFor(waveNumber)
         enemies.push(mk('heavy', {
           x: 60 + i / (count - 1) * (w - 120), y: -52 - i * 30,
-          vx: 0, vy: 0.7, size: 52, color: '#ff70bc', shapeIdx: 3,
+          vx: 0, vy: 0.7, size: 52, color: '#ff70bc',
           movementType: 'straight', hp, maxHp: hp,
         }))
       }
@@ -460,62 +469,70 @@ function spawnWave() {
       if (i % 2 === 0) {
         enemies.push(mk('diver', {
           x: 40 + Math.random() * (w - 80), y: -30 - i * 26,
-          vx: 0, vy: 1.5, size: 26, color: '#ff2fa0', shapeIdx: 1,
+          vx: 0, vy: 1.5, size: 26, color: '#ff2fa0',
           movementType: 'dive', lockY: h * 0.35,
         }))
       } else {
         const bx = 40 + i / (count - 1) * (w - 80)
         enemies.push(mk('weaver', {
           x: bx, y: -30 - i * 26, baseX: bx,
-          vx: 0, vy: 1.0, size: 30, color: '#ff2fa0', shapeIdx: 5,
+          vx: 0, vy: 1.0, size: 30, color: '#ff2fa0',
           movementType: 'weave',
         }))
       }
     }
   } else if (pattern === 5) {
-    // Snipers: slow lane-seekers with the fastest bolts (max 2).
+    // Snipers: slow lane-seekers with the fastest bolts (max 2 alive).
     const alive = enemies.filter(e => e.kind === 'sniper').length
-    const count = Math.min(2, Math.max(1, waveCountFor(waveNumber, w) - 3)) - Math.min(2, alive)
-    for (let i = 0; i < Math.max(1, count); i++) {
+    const count = Math.min(2, Math.max(1, waveCountFor(waveNumber, w) - 3)) - alive
+    for (let i = 0; i < count; i++) {
       enemies.push(mk('sniper', {
         x: 60 + Math.random() * (w - 120), y: -30 - i * 40,
-        vx: 0, vy: 0.55, size: 26, color: '#ff70bc', shapeIdx: 4,
+        vx: 0, vy: 0.55, size: 26, color: '#ff70bc',
         movementType: 'sniper',
       }))
     }
   } else {
-    // Stingers and splitters: fast edge darts plus skulls with mites.
+    // Stingers and splitters: fast edge darts plus pods with mites.
     const count = waveCountFor(waveNumber, w)
     const direction = Math.random() < 0.5 ? 1 : -1
     for (let i = 0; i < count; i++) {
       if (waveNumber >= 8 && i === count - 1) {
         enemies.push(mk('splitter', {
           x: 50 + Math.random() * (w - 100), y: -40,
-          vx: 0, vy: 0.9, size: 40, color: '#ff70bc', shapeIdx: 5,
+          vx: 0, vy: 0.9, size: 40, color: '#ff70bc',
           movementType: 'straight',
         }))
       } else {
         enemies.push(mk('stinger', {
           x: direction === 1 ? -26 - i * 40 : w + 26 + i * 40,
           y: h * .2, vx: direction * 4.2, vy: 1.0,
-          size: 26, color: '#ff2fa0', shapeIdx: 1,
+          size: 26, color: '#ff2fa0',
           movementType: 'formation', slot: i, direction,
+          heading: direction === 1 ? 0 : Math.PI,
           spawnX: direction === 1 ? -26 - i * 40 : w + 26 + i * 40, spawnY: h * .2,
         }))
       }
     }
   }
+  // Claude names each new kind the first time it shows up.
+  const kinds = new Set(enemies.slice(before).map(e => e.kind))
+  for (const k of kinds) director.cue(`meet:${k}`, now)
+  if (waveNumber === 10) director.cue('wave:10', now)
+  if (waveNumber === 25) director.cue('wave:25', now)
+  if (sectorIndex >= 2 && Math.random() < 0.25) director.cue('taunt', now)
   warpT = reducedMotion ? 0 : 0.5
-    radio.setIntensity(intensityFor(waveNumber, bosses.length > 0), bosses.length > 0)
-    audio?.play('waveStart')
+  radio.setIntensity(intensityFor(waveNumber, bosses.length > 0), bosses.length > 0)
+  audio?.play('waveStart')
 }
 
 function spawnBoss() {
   if (!canvas.value) return
-  const w = canvas.value.width
-  const h = canvas.value.height
+  const w = W()
+  const h = H()
   const hp = bossMaxHpFor(bossNum, waveNumber)
   const atk = bossAttackFor(bossNum)
+  const sector = sectorFor(sectorIndex)
   bosses.push({
     x: w / 2,
     y: -150,
@@ -526,20 +543,29 @@ function spawnBoss() {
     hp,
     maxHp: hp,
     num: bossNum,
+    name: sector.boss,
     color: '#ff2fa0',
     shootCooldown: atk.base + Math.random() * atk.spread,
-    lastShot: performance.now(),
+    lastShot: simNow,
     arrived: false,
-    dirChangeTimer: 0
+    dirChangeTimer: 0,
+    volleys: 0,
+    flash: 0,
+    enraged: false,
   })
+  warnT = reducedMotion ? 1.6 : 2.6
+  warnName = sector.boss
+  director.cue(sectorIndex === 4 ? 'boss:conductor' : bossNum === 0 ? 'boss:1' : 'boss:n', simNow)
   bossNum++
-    radio.setIntensity(3, true)
-    audio?.play('bossStinger')
+  radio.setIntensity(3, true)
+  audio?.play('warning')
+  audio?.play('bossStinger')
 }
 
 function spawnParticles(x, y, color, count = 8) {
   const s = fxScale()
   const n = Math.max(2, Math.round(count * s))
+  const glow = glowFor(color)
   for (let i = 0; i < n; i++) {
     const angle = (Math.PI * 2 / n) * i + Math.random() * 0.5
     const speed = 1.5 + Math.random() * 4
@@ -548,11 +574,21 @@ function spawnParticles(x, y, color, count = 8) {
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       life: 1,
-      decay: 0.015 + Math.random() * 0.025,
+      decay: 0.02 + Math.random() * 0.03,
       color,
-      size: 3 + Math.random() * 5
+      glow,
+      size: 3 + Math.random() * 4
     })
   }
+}
+
+// Glow sprite for a neon colour, so sparks draw additively.
+function glowFor(color) {
+  if (color === '#2ff3ff' || color === '#cfe9ff') return 'cyan'
+  if (color === '#ffd23f') return 'gold'
+  if (color === '#ffffff' || color === '#f2e9ff') return 'white'
+  if (color === '#ff2fa0' || color === '#ff70bc') return 'pink'
+  return null
 }
 
 // Kill shatter: directional debris in the victim's colour (Invaders' idea,
@@ -571,7 +607,8 @@ function spawnShatter(x, y, color, size) {
       life: 1,
       decay: 0.02 + Math.random() * 0.02,
       color,
-      size: 2 + Math.random() * (size / 8)
+      size: 2 + Math.random() * (size / 8),
+      spin: Math.random() * Math.PI,
     })
   }
 }
@@ -588,15 +625,26 @@ function spawnSmoke(x, y, count = 6) {
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed - 0.4,
       life: 1,
-      decay: 0.006 + Math.random() * 0.01,
-      color: `rgba(${80 + Math.floor(Math.random() * 80)}, ${80 + Math.floor(Math.random() * 60)}, ${80 + Math.floor(Math.random() * 60)}, 0.5)`,
-      size: 6 + Math.random() * 10
+      decay: 0.008 + Math.random() * 0.01,
+      color: `rgba(${60 + Math.floor(Math.random() * 40)}, ${30 + Math.floor(Math.random() * 30)}, ${90 + Math.floor(Math.random() * 50)}, 0.45)`,
+      size: 6 + Math.random() * 10,
+      smoke: true,
     })
   }
 }
 
+// A hot white flash at an impact: one additive glow that shrinks away.
+function spawnFlash(x, y, size, glow = 'white') {
+  pushParticle({ x, y, vx: 0, vy: 0, life: 1, decay: 0.12, color: '#ffffff', glow, size, flash: true })
+}
+
 function triggerShockwave(x, y, color = '#ff2fa0', lethal = true) {
-  shockwaves.push({ x, y, radius: 0, maxRadius: Math.max(canvas.value.width, canvas.value.height), speed: 12, life: 1, color, lethal })
+  shockwaves.push({ x, y, radius: 0, maxRadius: Math.max(W(), H()), speed: 12, life: 1, color, lethal })
+}
+
+// Small cosmetic ring at a kill.
+function ring(x, y, r, color = '#ff70bc') {
+  shockwaves.push({ x, y, radius: r * 0.2, maxRadius: r, speed: 2.4, life: 1, color, lethal: false, thin: true })
 }
 
 // Nova blast: instant screen bomb from the N capsule.
@@ -609,7 +657,9 @@ function novaBlast(now) {
   }
   for (let j = bosses.length - 1; j >= 0; j--) {
     const boss = bosses[j]
+    if (!boss.arrived) continue // the entry shield holds
     boss.hp -= 5
+    boss.flash = 4
     spawnParticles(boss.x, boss.y, '#ffd23f', 10)
     if (boss.hp <= 0) killBoss(j, now)
   }
@@ -619,7 +669,7 @@ function novaBlast(now) {
 function damageEnemy(index, amount, now) {
   const e = enemies[index]
   e.hp -= amount
-  e.flash = 5
+  e.flash = 4
   if (e.hp <= 0) {
     killEnemy(index, now)
     return true
@@ -629,17 +679,21 @@ function damageEnemy(index, amount, now) {
 
 function killEnemy(index, now) {
   const e = enemies[index]
+  spawnFlash(e.x, e.y, e.size * 1.6, 'pink')
   spawnShatter(e.x, e.y, e.color, e.size)
-  spawnSmoke(e.x, e.y, 4)
+  spawnParticles(e.x, e.y, '#ff70bc', 6)
+  spawnSmoke(e.x, e.y, 3)
+  ring(e.x, e.y, e.size * 1.1)
   registerKill(now)
-  addScore(ENEMY_STATS[e.kind]?.score ?? (e.maxHp > 1 ? 250 : 100), now)
+  addScore(ENEMY_STATS[e.kind]?.score ?? (e.maxHp > 1 ? 250 : 100))
+  chargeSync(syncGain(syncMeter, e.maxHp ?? 1))
   enemies.splice(index, 1)
   // Splitters pop into two diving mites (never spawned directly).
   if (e.kind === 'splitter' && canvas.value) {
     for (const dir of [-1, 1]) {
       enemies.push(makeEnemy({
         kind: 'mite', x: e.x + dir * 14, y: e.y,
-        vx: dir * 1.2, vy: 1.6, size: 18, color: '#ff2fa0', shapeIdx: 1,
+        vx: dir * 1.2, vy: 1.6, size: 18, color: '#ff2fa0',
         movementType: 'straight', hp: 1, maxHp: 1,
         shootCooldown: 1e9, lastShot: now, shootChance: 0,
       }))
@@ -648,45 +702,54 @@ function killEnemy(index, now) {
   audio?.play('kill')
 }
 
-// Boss kill: gold shockwave cinematic — flash, shake, hit-stop, bounty, heal.
+// Boss kill: gold shockwave cinematic — flash, shake, hit-stop, bounty, heal,
+// and the next sector.
 function killBoss(j, now) {
   const boss = bosses[j]
+  spawnFlash(boss.x, boss.y, boss.size * 2.2, 'gold')
   spawnShatter(boss.x, boss.y, '#ffffff', boss.size)
   spawnShatter(boss.x, boss.y, boss.color, boss.size)
+  spawnParticles(boss.x, boss.y, '#ffd23f', 20)
   spawnSmoke(boss.x, boss.y, 12)
   triggerShockwave(boss.x, boss.y, '#ffd23f')
   if (!reducedMotion) {
     shake = Math.min(1, shake + 0.9)
     hitStopUntil = now + 90
   }
-  addScore(bossBountyFor(boss.num ?? 0), now)
+  const bounty = bossBountyFor(boss.num ?? 0)
+  addScore(bounty)
+  pop(boss.x, boss.y, `+${bounty * scoreMult()}`)
   hull = heal(hull, HEAL_BOSS)
   audio?.play('bossKill')
   bosses.splice(j, 1)
   if (bosses.length === 0) radio.setIntensity(intensityFor(waveNumber, false), false)
+  // The Cantor carried a voice; the band clears and the next sector opens.
+  director.cue(sectorIndex === 4 ? 'boss:down:conductor' : 'boss:down', now)
+  sectorIndex++
+  const n = sectorIndex + 1
+  director.cue(n <= 6 ? `sector:${n}` : 'sector:deep', now, { n })
+  bannerT = 3
+  retintNebulae()
 }
 
 function triggerDeathExplosion(x, y) {
   deathExplosion = { x, y, phase: 0, timer: 0, flash: 1 }
-  // Bright white flash at center
-  pushParticle({
-    x, y, vx: 0, vy: 0,
-    life: 1, decay: 0.02, color: '#ffffff', size: 90
-  })
+  spawnFlash(x, y, 160, 'white')
   // Neon core — pink and cyan expanding fragments
   const s = fxScale()
+  const colors = ['#ff2fa0', '#ff70bc', '#2ff3ff', '#f2e9ff', '#ffffff']
   for (let i = 0; i < Math.round(60 * s); i++) {
     const angle = Math.random() * Math.PI * 2
     const speed = 0.5 + Math.random() * 3.5
-    const colors = ['#ff2fa0', '#ff70bc', '#2ff3ff', '#f2e9ff', '#ffffff']
+    const color = colors[Math.floor(Math.random() * colors.length)]
     pushParticle({
       x: x + (Math.random() - 0.5) * 16,
       y: y + (Math.random() - 0.5) * 16,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       life: 1, decay: 0.006 + Math.random() * 0.01,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      size: 5 + Math.random() * 12
+      color, glow: glowFor(color),
+      size: 5 + Math.random() * 10
     })
   }
   // Cyan debris flying outward (ship fragments)
@@ -698,34 +761,13 @@ function triggerDeathExplosion(x, y) {
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       life: 1, decay: 0.008 + Math.random() * 0.012,
-      color: '#2ff3ff',
-      size: 3 + Math.random() * 6
+      color: shipDef.colors.hull,
+      size: 3 + Math.random() * 5,
+      spin: Math.random() * Math.PI,
     })
   }
-  // Expanding sparks ring
-  for (let i = 0; i < Math.round(32 * s); i++) {
-    const angle = (Math.PI * 2 / 32) * i
-    const speed = 5 + Math.random() * 4
-    pushParticle({
-      x, y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      life: 1, decay: 0.012 + Math.random() * 0.01,
-      color: '#2ff3ff',
-      size: 2 + Math.random() * 3
-    })
-  }
-  // Heavy smoke cloud
   spawnSmoke(x, y, 25)
-  // Shockwave ring from player death
-  shockwaves.push({
-    x, y,
-    radius: 0,
-    maxRadius: 400,
-    speed: 7,
-    life: 1,
-    color: '#ff2fa0',
-  })
+  shockwaves.push({ x, y, radius: 0, maxRadius: 400, speed: 7, life: 1, color: '#ff2fa0', lethal: false })
 }
 
 // ---------------------------------------------------------------- Esc pause / hold-quit
@@ -742,6 +784,15 @@ function togglePause() {
   radio.suspend(paused.value)
 }
 
+function endRun() {
+  gameOver = true
+  syncTimer = 0
+  triggerDeathExplosion(player.x, player.y)
+  // The radio keeps playing through game over — only the SFX death stinger.
+  audio?.play('death')
+  emit('death', { sector: sectorIndex + 1, sectorName: sectorFor(sectorIndex).name, wave: waveNumber })
+}
+
 // A 3 s Escape hold cancels the run: the same death as a collision, so the
 // landing shows GAME OVER with the run's score.
 function quitToGameOver() {
@@ -749,11 +800,9 @@ function quitToGameOver() {
   paused.value = false
   keys = {}
   audio?.suspend(false)
-  gameOver = true
-  triggerDeathExplosion(player.x, player.y)
-  // The radio keeps playing through game over — only the SFX death stinger.
-  audio?.play('death')
-  emit('death')
+  radio.suspend(false)
+  director.hush(simNow)
+  endRun()
 }
 
 // A hull hit: escort sacrificed first, then a segment, a weapon step and
@@ -763,25 +812,29 @@ function hitPlayer(now, source) {
   if (dualTimer > 0) {
     // The escort takes the hit instead — even against a ram.
     dualTimer = 0
-    spawnShatter(player.x - player.width * 0.7, player.y, '#2ff3ff', 30)
+    spawnShatter(player.x - player.width * 0.85, player.y, shipDef.colors.hull, 30)
+    spawnFlash(player.x - player.width * 0.85, player.y, 50, 'cyan')
     audio?.play('shield')
     invulnUntil = now + 600
     comboCount = 0
+    director.cue('escort:lost', now)
     return false
   }
   hull = applyDamage(hull, DMG[source] ?? 1)
   bulletLevel = Math.max(1, bulletLevel - 1)
   comboCount = 0
   shake = reducedMotion ? 0 : Math.min(1, shake + 0.5)
+  spawnFlash(player.x, player.y, 70, 'pink')
   audio?.play('hullHit')
   if (hull <= 0) {
-    gameOver = true
-    triggerDeathExplosion(player.x, player.y)
-    // The radio keeps playing through game over — only the SFX death stinger.
-    audio?.play('death')
-    emit('death')
+    // The last word cuts whatever was playing.
+    director.hush(now)
+    director.cue('death', now)
+    endRun()
     return true
   }
+  if (hull === 2) director.cue('hull:2', now)
+  if (hull === 1) director.cue('hull:1', now)
   invulnUntil = now + INVULN_TIME * 1000
   return false
 }
@@ -792,20 +845,96 @@ function tickTimers(dt) {
   if (tempoTimer > 0) tempoTimer = Math.max(0, tempoTimer - dt)
   if (magnetTimer > 0) magnetTimer = Math.max(0, magnetTimer - dt)
   if (comboTimer > 0) comboTimer = Math.max(0, comboTimer - dt)
+  if (syncTimer > 0) syncTimer = Math.max(0, syncTimer - dt)
+  if (bannerT > 0) bannerT = Math.max(0, bannerT - dt)
+  if (warnT > 0) warnT = Math.max(0, warnT - dt)
+}
+
+// --- SYNC -------------------------------------------------------------
+
+function chargeSync(next) {
+  if (syncTimer > 0) return
+  const was = syncMeter
+  syncMeter = next
+  if (was < 1 && syncMeter >= 1) {
+    audio?.play('syncReady')
+    if (!director.cue('sync:ready', simNow)) director.cue('sync:ready:again', simNow)
+  }
+}
+
+function activateSync() {
+  if (!gameStarted || gameOver || paused.value || syncMeter < 1 || syncTimer > 0) return false
+  syncMeter = 0
+  syncTimer = SYNC.duration
+  // Claude clears the air first: every enemy bolt turns into a gold spark.
+  for (const b of enemyBullets) {
+    pushParticle({ x: b.x, y: b.y, vx: 0, vy: -1.2, life: 1, decay: 0.04, color: '#ffd23f', glow: 'gold', size: 10 })
+  }
+  // Flat points (no multiplier), through addScore for the best-score check.
+  if (enemyBullets.length) addScore(enemyBullets.length * SYNC.cancelScore / scoreMult())
+  enemyBullets = []
+  shockwaves.push({ x: player.x, y: player.y, radius: 0, maxRadius: Math.max(W(), H()), speed: 16, life: 1, color: '#2ff3ff', lethal: false })
+  spawnFlash(player.x, player.y, 120, 'gold')
+  playerGlow = 1
+  audio?.play('sync')
+  director.cue('sync:on', simNow)
+  return true
+}
+
+// --- Firing -------------------------------------------------------------
+
+function fire(now) {
+  const interval = FIRE_INTERVAL[weapon] * (syncTimer > 0 ? SYNC.fireMul : 1)
+  if (now - lastShotTime <= interval) return
+  const shots = volley(weapon, bulletLevel, {
+    escort: dualTimer > 0,
+    escortDx: -player.width * 0.85,
+    rear: rearTimer > 0,
+    sync: syncTimer > 0,
+    index: volleyIndex++,
+  })
+  let seekers = 0
+  for (const s of shots) {
+    bullets.push({
+      x: player.x + s.dx, y: player.y - player.height / 2 + s.dy,
+      vx: s.vx, vy: s.vy, dmg: s.dmg, pierce: s.pierce, kind: s.kind,
+      life: s.kind === 'seeker' ? SEEKER_LIFE : 0, hits: null, target: null,
+    })
+    if (s.kind === 'seeker') seekers++
+  }
+  muzzleT = 3
+  audio?.play(weapon === 'laser' ? 'laser' : 'shoot')
+  if (seekers) audio?.play('seeker')
+  lastShotTime = now
+}
+
+// A bullet's hit test against a circle; lances are long, so they test as a
+// short vertical capsule.
+function bulletHits(b, cx, cy, r) {
+  const dx = b.x - cx
+  let dy = b.y - cy
+  if (b.kind === 'lance') dy = Math.max(0, Math.abs(dy) - 14)
+  return dx * dx + dy * dy < r * r
+}
+
+// After a hit: piercing shots remember the target and fly on.
+function consumeBullet(i, target) {
+  const b = bullets[i]
+  if (b.pierce > 0) {
+    b.pierce--
+    ;(b.hits ??= []).push(target)
+  } else {
+    bullets.splice(i, 1)
+  }
 }
 
 function update(now) {
   if (!canvas.value || !gameStarted) return
+  simNow = now
 
   // Keep updating particles/shockwaves after death for explosion animation
   if (gameOver) {
-    particles = particles.filter(p => {
-      p.x += p.vx
-      p.y += p.vy
-      p.life -= p.decay
-      p.vy += 0.02
-      return p.life > 0
-    })
+    stepParticles()
     shockwaves = shockwaves.filter(sw => {
       sw.radius += sw.speed
       sw.life = Math.max(0, 1 - sw.radius / sw.maxRadius)
@@ -815,10 +944,23 @@ function update(now) {
       deathExplosion.timer++
       deathExplosion.flash = Math.max(0, deathExplosion.flash - 0.04)
     }
+    // Behind the GAME OVER screen the swarm drifts on and its fire runs out.
+    const hh = H()
+    enemyBullets = enemyBullets.filter(b => {
+      b.y += b.vy
+      if (b.vx) b.x += b.vx
+      return b.y < hh + 10 && b.y > -40
+    })
+    for (const e of enemies) {
+      e.y += (e.vy || 1) * 0.6
+      if (e.movementType === 'formation') e.x += e.vx * 0.6
+    }
+    for (const boss of bosses) boss.y -= 0.8
+    pops = pops.filter(p => (p.life -= 0.018) > 0)
     return
   }
-  const w = canvas.value.width
-  const h = canvas.value.height
+  const w = W()
+  const h = H()
   const dt = Math.min(0.1, Math.max(0, (now - (lastFrameTime || now)) / 1000))
   lastFrameTime = now
   tickTimers(dt)
@@ -829,6 +971,8 @@ function update(now) {
   if (playerGlow > 0) playerGlow = Math.max(0, playerGlow - 0.02)
 
   // Player movement
+  player.prevX = player.x
+  player.prevY = player.y
   if (keys['ArrowLeft'] || keys['KeyA']) player.x -= player.speed
   if (keys['ArrowRight'] || keys['KeyD']) player.x += player.speed
   if (keys['ArrowUp'] || keys['KeyW']) player.y -= player.speed
@@ -836,39 +980,29 @@ function update(now) {
   player.x = Math.max(player.width / 2, Math.min(w - player.width / 2, player.x))
   player.y = Math.max(player.height, Math.min(h - player.height / 2, player.y))
 
-  // Shooting (rear guard adds a backwards bolt in the same volley)
-  if (keys['Space'] && now - lastShotTime > 180) {
-    const streams = dualTimer > 0 ? bulletLevel + 1 : bulletLevel
-    const n = Math.min(streams, BULLET_LEVEL_MAX + 1)
-    const bulletSpeed = 7
-    if (n === 1) {
-      bullets.push({ x: player.x, y: player.y - player.height / 2, vx: 0, vy: -bulletSpeed })
-    } else {
-      const totalSpread = Math.min(n * 10, 70) * (Math.PI / 180)
-      for (let i = 0; i < n; i++) {
-        const angle = -Math.PI / 2 + (i / (n - 1) - 0.5) * totalSpread
-        bullets.push({
-          x: player.x, y: player.y - player.height / 2,
-          vx: Math.cos(angle) * bulletSpeed,
-          vy: Math.sin(angle) * bulletSpeed
-        })
-      }
-    }
-    if (rearTimer > 0) bullets.push({ x: player.x, y: player.y + player.height / 2, vx: 0, vy: bulletSpeed })
-    muzzleT = 3
-    audio?.play('shoot')
-    lastShotTime = now
-  }
+  // SYNC fires by itself: Claude has the trigger.
+  if (keys['Space'] || syncTimer > 0) fire(now)
   if (muzzleT > 0) muzzleT--
 
-  // Update bullets
+  // Update bullets; seekers steer toward the nearest target ahead.
+  const targets = enemies.filter(e => e.y > 0 && e.x > 0 && e.x < w)
+  for (const boss of bosses) if (boss.arrived) targets.push(boss)
   bullets = bullets.filter(b => {
+    if (b.kind === 'seeker') {
+      if (!b.target || !targets.includes(b.target) || b.life % 12 === 0) b.target = pickTarget(b.x, b.y, targets)
+      if (b.target) steer(b, b.target.x, b.target.y)
+      else steer(b, b.x + b.vx, b.y - 40)
+      if (b.life-- <= 0) return false
+      // Trails yield to kill debris when the particle pool runs full.
+      if (b.life % 2 === 0 && particles.length < MAX_PARTICLES * 0.7) pushParticle({ x: b.x, y: b.y, vx: 0, vy: 0, life: 0.7, decay: 0.07, color: '#2ff3ff', glow: 'cyan', size: 6 })
+    }
     b.x += (b.vx || 0)
     b.y += b.vy
-    return b.y > -10 && b.y < h + 10 && b.x > -10 && b.x < w + 10
+    return b.y > -40 && b.y < h + 20 && b.x > -20 && b.x < w + 20
   })
 
   // Update enemy bullets (magnet brakes nearby bullets, never steers them in)
+  const bulletMul = tempoTimer > 0 ? 0.6 : 1
   enemyBullets = enemyBullets.filter(b => {
     if (magnetTimer > 0) {
       const dx = b.x - player.x, dy = b.y - player.y
@@ -877,19 +1011,23 @@ function update(now) {
         b.x += Math.sign(dx || 1) * 0.15
       }
     }
-    b.y += b.vy
-    return b.y < h + 10
+    b.y += b.vy * bulletMul
+    if (b.vx) b.x += b.vx * bulletMul
+    return b.y < h + 10 && b.y > -40 && b.x > -20 && b.x < w + 20
   })
 
-  // Wave spawning
-  if (now - waveTimer > waveInterval) {
+  // Wave spawning — thinner while a Cantor is on the field.
+  const interval = waveInterval * (bosses.length ? BOSS_WAVE_SLOWDOWN : 1)
+  if (now - waveTimer > interval) {
     spawnWave()
     waveTimer = now
     waveInterval = waveIntervalFor(waveNumber)
   }
 
-  // Boss spawning (tightens with every boss)
-  if (now - bossTimer > bossEveryFor(bossNum) * 1000) {
+  // Boss spawning: the clock only runs while no boss is alive, so each
+  // sector ends with exactly one Cantor.
+  if (bosses.length) bossTimer = now
+  else if (now - bossTimer > bossEveryFor(bossNum) * 1000) {
     spawnBoss()
     bossTimer = now
   }
@@ -899,6 +1037,7 @@ function update(now) {
   // Update enemies
   enemies = enemies.filter(enemy => {
     enemy.flash = Math.max(0, enemy.flash - 1)
+    const px = enemy.x, py = enemy.y
     if (enemy.movementType === 'formation') {
       enemy.age++
       enemy.x += enemy.vx * foeMul
@@ -926,17 +1065,27 @@ function update(now) {
       if (Math.abs(dx) > 30) enemy.x += Math.sign(dx) * 0.6 * foeMul
     } else {
       enemy.y += enemy.vy * foeMul
-      enemy.x = Math.max(enemy.size / 2, Math.min(w - enemy.size / 2, enemy.x))
+      if (enemy.vx) enemy.x += enemy.vx * foeMul
     }
     if (enemy.movementType !== 'formation') enemy.x = Math.max(enemy.size / 2, Math.min(w - enemy.size / 2, enemy.x))
-    if (enemy.y > enemy.size && enemy.x > enemy.size && enemy.x < w - enemy.size
-        && now - enemy.lastShot > enemy.shootCooldown) {
+    // Heading follows the path (drawn for the kinds that turn).
+    const mdx = enemy.x - px, mdy = enemy.y - py
+    if (mdx * mdx + mdy * mdy > 0.01) {
+      let d = Math.atan2(mdy, mdx) - enemy.heading
+      while (d > Math.PI) d -= Math.PI * 2
+      while (d < -Math.PI) d += Math.PI * 2
+      enemy.heading += d * 0.25
+    }
+    const canFire = enemy.y > enemy.size && enemy.x > enemy.size && enemy.x < w - enemy.size
+    // Snipers telegraph: the aim line shows for the last half second.
+    enemy.aiming = enemy.kind === 'sniper' && canFire && now - enemy.lastShot > enemy.shootCooldown - 500
+    if (canFire && now - enemy.lastShot > enemy.shootCooldown) {
       if (Math.random() < (enemy.shootChance ?? 1)) {
         const fast = enemy.kind === 'sniper'
         if (enemy.kind === 'bulwark') {
           for (const sx of [-0.8, 0, 0.8]) enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.size / 2, vx: sx, vy: 2.8 * foeMul })
         } else {
-          enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.size / 2, vy: (fast ? 4.0 : boltSpeedFor(waveNumber)) + Math.random() * 1.5 })
+          enemyBullets.push({ x: enemy.x, y: enemy.y + enemy.size / 2, vy: (fast ? 4.0 : boltSpeedFor(waveNumber)) + Math.random() * 1.5, type: fast ? 'needle' : 'orb' })
         }
         enemy.lastShot = now
         enemy.shootCooldown = (fast ? 1400 : 800) + Math.random() * enemyRefireWindowFor(waveNumber)
@@ -950,6 +1099,7 @@ function update(now) {
 
   // Update bosses
   bosses = bosses.filter(boss => {
+    boss.flash = Math.max(0, boss.flash - 1)
     // Move to target Y, then roam
     if (!boss.arrived) {
       boss.y += boss.vy
@@ -973,61 +1123,97 @@ function update(now) {
       boss.y = Math.max(boss.size * .55 + 18, Math.min(h * 0.4, boss.y))
     }
 
-    // Boss shooting — fan widens from boss #3 with an aimed middle bolt
+    // Below half HP the Cantor enrages: faster guns, and from the third
+    // one on it calls two mites to its side.
+    if (!boss.enraged && boss.hp < boss.maxHp / 2) {
+      boss.enraged = true
+      if ((boss.num ?? 0) >= 2) {
+        for (const dir of [-1, 1]) {
+          enemies.push(makeEnemy({
+            kind: 'mite', x: boss.x + dir * boss.size * 0.4, y: boss.y,
+            vx: dir * 1.4, vy: 1.8, size: 18, color: '#ff2fa0',
+            movementType: 'straight', hp: 1, maxHp: 1,
+            shootCooldown: 1e9, lastShot: now, shootChance: 0,
+          }))
+        }
+      }
+    }
+    // Damage smoke from the wings once it is hurting.
+    if (boss.enraged && Math.random() < 0.08) {
+      spawnSmoke(boss.x + (Math.random() - 0.5) * boss.size * 0.8, boss.y + (Math.random() - 0.3) * boss.size * 0.4, 1)
+    }
+
+    // Boss shooting — fan widens from boss #3 with an aimed middle bolt;
+    // every few volleys a radial ring from boss #2.
     if (boss.arrived && now - boss.lastShot > boss.shootCooldown) {
-      const spread = (Math.random() - 0.5) * 1.5
-      enemyBullets.push({ x: boss.x - boss.size * .36, y: boss.y + boss.size * .38, vy: 3 + Math.random() * 1.5, vx: spread })
-      enemyBullets.push({ x: boss.x + boss.size * .36, y: boss.y + boss.size * .38, vy: 3 + Math.random() * 1.5, vx: -spread })
-      if (bossFanCount(boss.num ?? 0) >= 3) {
-        const aim = Math.max(-2, Math.min(2, (player.x - boss.x) * 0.01))
-        enemyBullets.push({ x: boss.x, y: boss.y + boss.size * .4, vy: 3.5 + Math.random(), vx: aim })
+      boss.volleys++
+      const every = bossRingEvery(boss.num ?? 0)
+      if (every && boss.volleys % every === 0) {
+        const n = bossRingCount(boss.num ?? 0)
+        const off = boss.volleys * 0.37
+        for (let i = 0; i < n; i++) {
+          const a = off + i / n * Math.PI * 2
+          enemyBullets.push({ x: boss.x, y: boss.y + boss.size * .1, vx: Math.cos(a) * 2.4, vy: Math.sin(a) * 2.4 + 0.6, type: 'big' })
+        }
+      } else {
+        const spread = (Math.random() - 0.5) * 1.5
+        enemyBullets.push({ x: boss.x - boss.size * .36, y: boss.y + boss.size * .38, vy: 3 + Math.random() * 1.5, vx: spread, type: 'big' })
+        enemyBullets.push({ x: boss.x + boss.size * .36, y: boss.y + boss.size * .38, vy: 3 + Math.random() * 1.5, vx: -spread, type: 'big' })
+        if (bossFanCount(boss.num ?? 0) >= 3) {
+          const aim = Math.max(-2, Math.min(2, (player.x - boss.x) * 0.01))
+          enemyBullets.push({ x: boss.x, y: boss.y + boss.size * .4, vy: 3.5 + Math.random(), vx: aim, type: 'big' })
+        }
       }
       boss.lastShot = now
       const atk = bossAttackFor(boss.num ?? 0)
-      boss.shootCooldown = atk.base + Math.random() * atk.spread
+      boss.shootCooldown = (atk.base + Math.random() * atk.spread) * (boss.enraged ? BOSS_ENRAGE_MUL : 1)
+      boss.muzzle = 4
     }
+    if (boss.muzzle > 0) boss.muzzle--
 
     return boss.hp > 0
-  })
-
-  // Update enemy bullets (with vx for boss aimed bullets)
-  enemyBullets = enemyBullets.filter(b => {
-    if (b.vx) b.x += b.vx
-    return b.y < h + 10 && b.x > -20 && b.x < w + 20
   })
 
   // Bullet-enemy collisions
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i]
-    let bulletConsumed = false
+    const dmg = b.dmg ?? 1
+    let done = false
 
     // Check bosses
     for (let j = bosses.length - 1; j >= 0; j--) {
       const boss = bosses[j]
-      const dx = b.x - boss.x
-      const dy = b.y - boss.y
-      if (dx * dx + dy * dy < (boss.size / 2 + 4) * (boss.size / 2 + 4)) {
-        boss.hp--
-        spawnParticles(b.x, b.y, boss.color, 7)
-        spawnSmoke(b.x, b.y, 3)
-        bullets.splice(i, 1)
-        bulletConsumed = true
+      if (b.hits?.includes(boss)) continue
+      if (bulletHits(b, boss.x, boss.y, boss.size / 2 + 4)) {
+        // Still on its way in: the Cantor's entry shield eats the shot.
+        if (!boss.arrived) {
+          spawnParticles(b.x, b.y, '#f2e9ff', 2)
+          bullets.splice(i, 1)
+          done = true
+          break
+        }
+        boss.hp -= dmg
+        boss.flash = 3
+        spawnParticles(b.x, b.y, boss.color, 5)
+        spawnSmoke(b.x, b.y, 2)
+        consumeBullet(i, boss)
+        chargeSync(Math.min(1, syncMeter + SYNC.perBossHit))
         audio?.play('bossHit')
         if (boss.hp <= 0) killBoss(j, now)
+        done = true
         break
       }
     }
-    if (bulletConsumed) continue
+    if (done) continue
 
     // Check normal enemies
     for (let j = enemies.length - 1; j >= 0; j--) {
       const e = enemies[j]
-      const dx = b.x - e.x
-      const dy = b.y - e.y
-      if (dx * dx + dy * dy < (e.size / 2 + 4) * (e.size / 2 + 4)) {
-        bullets.splice(i, 1)
-        if (!damageEnemy(j, 1, now)) {
-          spawnParticles(b.x, b.y, e.color, 5)
+      if (b.hits?.includes(e)) continue
+      if (bulletHits(b, e.x, e.y, e.size / 2 + 4)) {
+        consumeBullet(i, e)
+        if (!damageEnemy(j, dmg, now)) {
+          spawnParticles(b.x, b.y, e.color, 4)
           audio?.play('armourTick')
         }
         break
@@ -1140,18 +1326,38 @@ function update(now) {
     return p.y < h + 20
   })
 
-  // Update particles
+  // Engine sparks off the nozzles.
+  if (!reducedMotion && Math.random() < (syncTimer > 0 ? 0.6 : 0.25)) {
+    pushParticle({
+      x: player.x + (Math.random() - 0.5) * 6, y: player.y + player.height / 2 - 2,
+      vx: (Math.random() - 0.5) * 0.4, vy: 2 + Math.random() * 2,
+      life: 0.8, decay: 0.08, color: syncTimer > 0 ? '#ffd23f' : '#2ff3ff',
+      glow: syncTimer > 0 ? 'gold' : 'cyan', size: 5,
+    })
+  }
+
+  stepParticles()
+  pops = pops.filter(p => {
+    p.y -= 0.6
+    p.life -= 0.018
+    return p.life > 0
+  })
+}
+
+function stepParticles() {
   particles = particles.filter(p => {
     p.x += p.vx
     p.y += p.vy
     p.life -= p.decay
-    p.vy += 0.02
+    if (!p.flash) p.vy += p.smoke ? -0.005 : 0.02
+    if (p.spin !== undefined) p.spin += 0.2
     return p.life > 0
   })
-
 }
 
 function applyPowerup(type, now) {
+  const firstTime = director.cue(`pick:${type}`, now)
+  pop(player.x, player.y - 40, POWERUP_NAMES[type] ?? type.toUpperCase())
   if (type === 'shield') {
     if (hull < HULL_MAX) {
       hull = heal(hull, 1)
@@ -1175,44 +1381,17 @@ function applyPowerup(type, now) {
     spawnParticles(player.x, player.y - player.height / 2, '#ffffff', 8)
     lastShieldTime = now
     audio?.play('shield')
-  } else if (type === 'weapon') {
-    bulletLevel = Math.min(BULLET_LEVEL_MAX, bulletLevel + 1)
+  } else if (type === 'weapon' || type === 'laser' || type === 'homing') {
+    const pick = type === 'weapon' ? 'weapon' : type
+    const next = applyWeaponPickup(weapon, bulletLevel, pick)
+    if (next.kind !== weapon && !firstTime) director.cue('pick:switch', now)
+    weapon = next.kind
+    bulletLevel = Math.min(BULLET_LEVEL_MAX, next.level)
+    pops[pops.length - 1].text = `${WEAPON_NAMES[weapon]} LV${bulletLevel}`
     playerGlow = 1
+    spawnFlash(player.x, player.y, 60, 'cyan')
     spawnParticles(player.x, player.y, '#2ff3ff', 24)
-    for (let i = 0; i < 30; i++) {
-      const angle = (Math.PI * 2 / 30) * i
-      const speed = 3 + Math.random() * 4
-      const r = player.width * 0.6
-      pushParticle({
-        x: player.x + Math.cos(angle) * r,
-        y: player.y + Math.sin(angle) * r,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        life: 1, decay: 0.02 + Math.random() * 0.02,
-        color: Math.random() < 0.5 ? '#2ff3ff' : '#ffffff',
-        size: 3 + Math.random() * 3
-      })
-    }
-    for (let i = 0; i < 18; i++) {
-      const angle = Math.random() * Math.PI * 2
-      const speed = 0.5 + Math.random() * 2
-      pushParticle({
-        x: player.x + (Math.random() - 0.5) * 20,
-        y: player.y + (Math.random() - 0.5) * 20,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 0.5,
-        life: 1, decay: 0.01 + Math.random() * 0.015,
-        color: `rgba(0, ${150 + Math.floor(Math.random() * 105)}, ${200 + Math.floor(Math.random() * 55)}, 0.6)`,
-        size: 6 + Math.random() * 8
-      })
-    }
-    pushParticle({
-      x: player.x, y: player.y,
-      vx: 0, vy: 0,
-      life: 1, decay: 0.05,
-      color: '#ffffff',
-      size: 40
-    })
+    ring(player.x, player.y, 60, '#2ff3ff')
     audio?.play('pickup')
   } else if (type === 'dual') {
     dualTimer = POWERUP_DURATION.dual
@@ -1243,8 +1422,8 @@ function applyPowerup(type, now) {
 
 function updateBackdrop() {
   if (!canvas.value || reducedMotion) return
-  const w = canvas.value.width
-  const h = canvas.value.height
+  const w = W()
+  const h = H()
   const warpMul = warpT > 0 ? 4 : 1
   const warpStretch = warpT > 0 ? 10 : 0
   stars.forEach(star => {
@@ -1283,41 +1462,177 @@ function updateBackdrop() {
   }
 }
 
+// ---------------------------------------------------------------- HUD
+
+function hudText(text, x, y, color, size = 10.4, align = 'left', glow = null) {
+  ctx.font = `${size}px ${MACHINE_FONT}`
+  ctx.textAlign = align
+  ctx.textBaseline = 'top'
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${(size * 0.15).toFixed(1)}px`
+  if (glow) {
+    ctx.shadowColor = glow
+    ctx.shadowBlur = 8
+  }
+  ctx.fillStyle = color
+  ctx.fillText(text, x, y)
+  ctx.shadowBlur = 0
+}
+
 function drawHud(now) {
-  const w = canvas.value.width
-  // Hull bar: 5 segments, cyan → gold → blinking pink under 2.
-  const segW = 26, segH = 7, gap = 5
-  const x0 = 12, y0 = 12
+  const w = W()
+  const phone = w < 640
+  const x0 = 14
+  let y = 12
+  const dim = 'rgba(207,233,255,0.55)'
+  // Score: top-centre on wide screens, first line of the block on phones
+  // (the radio widget owns the top-right).
+  if (phone) {
+    hudText(`SCORE ${score}`, x0, y, '#2ff3ff', 13, 'left', 'rgba(47,243,255,0.65)')
+    y += 19
+  } else {
+    hudText(`SCORE ${score}`, w / 2, 12, '#2ff3ff', 16, 'center', 'rgba(47,243,255,0.65)')
+    if (bestBefore > 0) hudText(`HI ${Math.max(bestBefore, score)}`, w / 2, 33, dim, 10.4, 'center')
+  }
+
+  // Hull: 5 segments, cyan → gold → blinking pink under 2.
+  const segW = phone ? 18 : 22, segH = 7, gap = 4
   const blink = hull <= 1 && Math.floor(now / 300) % 2 === 0
   for (let i = 0; i < HULL_MAX; i++) {
     const on = i < hull
-    ctx.fillStyle = !on ? 'rgba(80,60,110,0.5)'
+    ctx.fillStyle = !on ? 'rgba(80,60,110,0.45)'
       : hull >= 4 ? '#2ff3ff' : hull >= 2 ? '#ffd23f' : blink ? '#ff70bc' : '#ff2fa0'
-    ctx.fillRect(x0 + i * (segW + gap), y0, segW, segH)
+    if (on) {
+      ctx.shadowColor = ctx.fillStyle
+      ctx.shadowBlur = 6
+    }
+    ctx.fillRect(x0 + i * (segW + gap), y, segW, segH)
+    ctx.shadowBlur = 0
   }
-  // Wave + combo under the hull.
-  ctx.font = `10px ${MACHINE_FONT}`
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'top'
-  ctx.fillStyle = 'rgba(207,233,255,0.55)'
-  ctx.fillText(`WAVE ${waveNumber}`, x0, y0 + segH + 5)
-  const mult = scoreMult(now)
+  const hullW = HULL_MAX * (segW + gap)
+  // Weapon: module name and five level pips — beside the hull on wide
+  // screens, on its own row on phones (the radio widget owns the right).
+  let wx = x0 + hullW + 8
+  let wy = y - 1
+  if (phone) {
+    y += 12
+    wx = x0
+    wy = y
+  }
+  hudText(WEAPON_NAMES[weapon], wx, wy, '#2ff3ff', 10.4)
+  const nameW = ctx.measureText(WEAPON_NAMES[weapon]).width + 8
+  const lv = syncTimer > 0 ? 5 : clampLevel(bulletLevel)
+  for (let i = 0; i < 5; i++) {
+    ctx.save()
+    ctx.translate(wx + nameW + i * 9 + 3, wy + 4.5)
+    ctx.rotate(Math.PI / 4)
+    ctx.fillStyle = i < lv ? (syncTimer > 0 ? '#ffd23f' : '#2ff3ff') : 'rgba(80,60,110,0.6)'
+    ctx.fillRect(-2.5, -2.5, 5, 5)
+    ctx.restore()
+  }
+  y += 14
+
+  // SYNC meter: cyan while charging, gold and pulsing when ready or live.
+  const mw = hullW - gap
+  ctx.fillStyle = 'rgba(80,60,110,0.45)'
+  ctx.fillRect(x0, y, mw, 4)
+  const live = syncTimer > 0
+  const ready = !live && syncMeter >= 1
+  const frac = live ? syncTimer / SYNC.duration : syncMeter
+  ctx.fillStyle = live || ready ? '#ffd23f' : '#2ff3ff'
+  if (ready && Math.floor(now / 250) % 2 === 0) ctx.fillStyle = '#fff4c9'
+  ctx.shadowColor = ctx.fillStyle
+  ctx.shadowBlur = live || ready ? 8 : 0
+  ctx.fillRect(x0, y, mw * Math.min(1, frac), 4)
+  ctx.shadowBlur = 0
+  const syncLabel = live ? 'SYNC · CLAUDE HAS THE GUNS'
+    : ready ? `SYNC READY · ${isTouch() ? '2-FINGER TAP' : 'SHIFT'}` : 'SYNC'
+  hudText(syncLabel, x0 + mw + 8, y - 3, live || ready ? '#ffd23f' : dim, 10.4)
+  y += 12
+
+  // Sector, wave, combo — then the timed capsules as letter chips with a
+  // draining bar on the same row.
+  const sector = sectorFor(sectorIndex)
+  const info = `SECTOR ${sector.num} · WAVE ${waveNumber}`
+  hudText(info, x0, y, dim)
+  let cx = x0 + ctx.measureText(info).width + 10
+  const mult = scoreMult()
   if (mult > 1) {
-    ctx.fillStyle = '#ffd23f'
-    ctx.fillText(`x${mult} COMBO`, x0, y0 + segH + 19)
+    hudText(`x${mult}`, cx, y, '#ffd23f', 10.4, 'left', 'rgba(255,210,63,0.6)')
+    cx += ctx.measureText(`x${mult}`).width + 12
   }
-  // Radio: station name, M / tap cycles.
-  ctx.textAlign = 'right'
-  ctx.fillStyle = 'rgba(207,233,255,0.55)'
-  ctx.fillText(`♪ ${currentTrackName()} [M]`, w - 12, y0 + 1)
+  const timed = [['D', dualTimer, 'dual'], ['R', rearTimer, 'rear'], ['T', tempoTimer, 'tempo'], ['M', magnetTimer, 'magnet'], ['C', comboTimer, 'combo']]
+  for (const [letter, t, kind] of timed) {
+    if (t <= 0) continue
+    const f = t / POWERUP_DURATION[kind]
+    hudText(letter, cx + 5, y, '#ffd23f', 10.4, 'center')
+    ctx.fillStyle = t < 3 && Math.floor(now / 200) % 2 ? 'rgba(255,210,63,0.3)' : '#ffd23f'
+    ctx.fillRect(cx, y + 13, 11 * f, 2)
+    cx += 18
+  }
+
+  // Boss bar: wide and top-centre under the score, named.
+  const boss = bosses[0]
+  if (boss) {
+    const bw = Math.min(420, w - (phone ? 28 : 200))
+    const bx = (w - bw) / 2
+    // Phones: above the pager at the bottom, clear of the intercom.
+    const by = phone ? H() - 64 : 52
+    hudText(boss.name ?? 'CANTOR', bx, by, '#ff2fa0', 10.4, 'left', 'rgba(255,47,160,0.6)')
+    ctx.fillStyle = 'rgba(80,60,110,0.45)'
+    ctx.fillRect(bx, by + 15, bw, 5)
+    ctx.fillStyle = boss.flash ? '#ffffff' : '#ff2fa0'
+    ctx.shadowColor = '#ff2fa0'
+    ctx.shadowBlur = 8
+    ctx.fillRect(bx, by + 15, bw * Math.max(0, boss.hp / boss.maxHp), 5)
+    ctx.shadowBlur = 0
+  }
+}
+
+// Sector title and boss warning: centred over-titles, drawn unshaken.
+function drawBanners(now) {
+  const w = W(), h = H()
+  if (bannerT > 0 && gameStarted && !gameOver) {
+    const a = Math.min(1, bannerT / 0.5, (3 - bannerT) / 0.3)
+    const sector = sectorFor(sectorIndex)
+    ctx.globalAlpha = Math.max(0, a)
+    hudText(`SECTOR ${sector.num}`, w / 2, h * 0.34, '#ff2fa0', w < 640 ? 26 : 38, 'center', 'rgba(255,47,160,0.8)')
+    hudText(sector.name, w / 2, h * 0.34 + (w < 640 ? 34 : 48), '#2ff3ff', w < 640 ? 12 : 15, 'center', 'rgba(47,243,255,0.65)')
+    ctx.globalAlpha = 1
+  }
+  if (warnT > 0 && !gameOver) {
+    const on = reducedMotion || Math.floor(now / 220) % 2 === 0
+    const yMid = h * 0.46
+    ctx.globalAlpha = Math.min(1, warnT / 0.4)
+    // Hazard stripes above and below.
+    ctx.fillStyle = 'rgba(255,47,160,0.16)'
+    ctx.fillRect(0, yMid - 34, w, 68)
+    ctx.fillStyle = 'rgba(255,47,160,0.7)'
+    const off = reducedMotion ? 0 : (now / 20) % 24
+    for (let x = -24 + off; x < w; x += 24) {
+      ctx.fillRect(x, yMid - 34, 12, 3)
+      ctx.fillRect(w - x - 12, yMid + 31, 12, 3)
+    }
+    if (on) hudText('WARNING', w / 2, yMid - 22, '#ff2fa0', w < 640 ? 26 : 34, 'center', 'rgba(255,47,160,0.9)')
+    hudText(`${warnName} APPROACHING`, w / 2, yMid + 14, '#ffd23f', 10.4, 'center')
+    ctx.globalAlpha = 1
+  }
+}
+
+// ---------------------------------------------------------------- draw
+
+function glowBlit(kind, x, y, size, alpha) {
+  const s = atlas.glow[kind]
+  ctx.globalAlpha = alpha
+  ctx.drawImage(s.img, x - size / 2, y - size / 2, size, size)
 }
 
 function draw() {
-  if (!ctx || !canvas.value) return
-  const w = canvas.value.width
-  const h = canvas.value.height
-  const now = performance.now()
+  if (!ctx || !canvas.value || !atlas) return
+  const w = W()
+  const h = H()
+  const now = simNow
 
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.fillStyle = '#0b0616'
   ctx.fillRect(0, 0, w, h)
 
@@ -1327,7 +1642,6 @@ function draw() {
   }
 
   // Compute parallax: player moves left → background shifts right (inverted)
-  // Smooth interpolation for acceleration/deceleration feel
   const centerX = w / 2
   const targetParallaxX = gameStarted && !reducedMotion && !paused.value ? -(player.x - centerX) * 0.015 : 0
   if (!paused.value) smoothParallaxX += (targetParallaxX - smoothParallaxX) * 0.04
@@ -1339,13 +1653,21 @@ function draw() {
   if (planet) {
     const px = planet.x + smoothParallaxX * 4
     ctx.save()
-    ctx.globalAlpha = 0.5
-    ctx.fillStyle = '#150a28'
+    ctx.globalAlpha = 0.55
+    const pg = ctx.createRadialGradient(px - planet.r * 0.4, planet.y - planet.r * 0.4, planet.r * 0.1, px, planet.y, planet.r)
+    pg.addColorStop(0, '#2a1450')
+    pg.addColorStop(1, '#100820')
+    ctx.fillStyle = pg
     ctx.beginPath()
     ctx.arc(px, planet.y, planet.r, 0, Math.PI * 2)
     ctx.fill()
-    ctx.strokeStyle = 'rgba(255,47,160,0.35)'
+    // Rim light on the sun side.
+    ctx.strokeStyle = 'rgba(255,112,188,0.25)'
     ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(px, planet.y, planet.r - 1, Math.PI * 1.05, Math.PI * 1.6)
+    ctx.stroke()
+    ctx.strokeStyle = 'rgba(255,47,160,0.35)'
     ctx.beginPath()
     ctx.ellipse(px, planet.y, planet.r * 1.5, planet.r * 0.32, planet.ringTilt, 0, Math.PI * 2)
     ctx.stroke()
@@ -1360,7 +1682,7 @@ function draw() {
     const sx = station.x + smoothParallaxX * 6
     const s = station.size
     ctx.save()
-    ctx.globalAlpha = 0.55
+    ctx.globalAlpha = 0.6
     ctx.fillStyle = '#0a0518'
     ctx.beginPath()
     ctx.moveTo(sx - s / 2, station.y)
@@ -1369,21 +1691,30 @@ function draw() {
     ctx.lineTo(sx - s * 0.3, station.y + s * 0.2)
     ctx.closePath()
     ctx.fill()
-    ctx.strokeStyle = 'rgba(177,105,245,0.4)'
+    ctx.strokeStyle = 'rgba(177,105,245,0.45)'
     ctx.lineWidth = 1
     ctx.stroke()
+    // Mast and dish.
+    ctx.beginPath()
+    ctx.moveTo(sx + s * 0.1, station.y - s * 0.1)
+    ctx.lineTo(sx + s * 0.1, station.y - s * 0.42)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.arc(sx + s * 0.1, station.y - s * 0.42, s * 0.08, Math.PI * 0.1, Math.PI * 0.9)
+    ctx.stroke()
     const lit = Math.sin(station.blink) > 0
-    ctx.fillStyle = lit ? 'rgba(255,210,63,0.8)' : 'rgba(255,210,63,0.3)'
+    ctx.fillStyle = lit ? 'rgba(255,210,63,0.85)' : 'rgba(255,210,63,0.3)'
     for (let i = -1; i <= 1; i++) ctx.fillRect(sx + i * s * 0.22 - 1.5, station.y - 2, 3, 3)
+    ctx.fillStyle = Math.sin(station.blink * 3) > 0.6 ? 'rgba(255,47,160,0.9)' : 'rgba(255,47,160,0.2)'
+    ctx.fillRect(sx + s * 0.1 - 1.5, station.y - s * 0.42 - 1.5, 3, 3)
     ctx.restore()
   }
 
-  // Stars (with subtle parallax based on star speed as depth proxy;
-  // stretched vertically while a warp is running).
-  const mobileFx = w < 600
+  // Stars (twinkling; stretched vertically while a warp is running).
   stars.forEach(star => {
     const sx = star.x + smoothParallaxX * star.speed * 0.5
-    ctx.fillStyle = `rgba(207, 233, 255, ${star.brightness * 0.5})`
+    const tw = reducedMotion ? 1 : 0.75 + 0.25 * Math.sin(now / 400 + star.twinkle)
+    ctx.fillStyle = `rgba(207, 233, 255, ${star.brightness * 0.55 * tw})`
     const stretch = star.stretch || 0
     ctx.fillRect(sx, star.y, star.size, star.size + stretch)
   })
@@ -1391,291 +1722,360 @@ function draw() {
   // Background geometric shapes (parallax per-shape depth)
   bgShapes.forEach(s => drawBgShape(s, smoothParallaxX))
 
+  if (vignette) ctx.drawImage(vignette, 0, 0, w, h)
+
   // Shockwaves (gold for boss/nova/combo, pink otherwise)
+  ctx.globalCompositeOperation = 'lighter'
   shockwaves.forEach(sw => {
     const col = sw.color ?? '#ff2fa0'
-    const glow = col === '#ffd23f' ? '#ffd23f' : '#ff2fa0'
-    ctx.strokeStyle = col.startsWith('#')
-      ? col + Math.round(sw.life * 0.8 * 255).toString(16).padStart(2, '0')
-      : `rgba(255, 47, 160, ${sw.life * 0.8})`
-    ctx.lineWidth = mobileFx ? 4 : 4 + sw.life * 8
-    if (!mobileFx && !reducedMotion) {
-      ctx.shadowColor = glow
-      ctx.shadowBlur = 20 * sw.life
-    }
+    ctx.globalAlpha = sw.life * (sw.thin ? 0.7 : 0.8)
+    ctx.strokeStyle = col
+    ctx.lineWidth = sw.thin ? 1.5 : 3 + sw.life * 6
     ctx.beginPath()
     ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2)
     ctx.stroke()
-    ctx.shadowBlur = 0
-  })
-
-  // Particles
-  const noGlow = mobileFx || reducedMotion
-  particles.forEach(p => {
-    ctx.globalAlpha = p.life
-    ctx.fillStyle = p.color
-    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
+    if (!sw.thin) {
+      ctx.globalAlpha = sw.life * 0.25
+      ctx.lineWidth = 14 * sw.life + 4
+      ctx.stroke()
+    }
   })
   ctx.globalAlpha = 1
-  void noGlow
+  ctx.globalCompositeOperation = 'source-over'
 
-  if (!gameOver) {
-    // Player ship with powerup glow, in the Hangar ship's colours. The
-    // vandal flies wider wings, matching its 3D striker silhouette.
-    const hull = shipDef.colors.hull
-    const trim = shipDef.colors.trim
-    const wide = shipDef.variant === 'vandal' ? 1.25 : 1
-    const invuln = performance.now() < invulnUntil
-    const glowColor = playerGlow > 0 ? `rgba(47, 243, 255, ${playerGlow * 0.6})` : null
-    ctx.save()
-    if (invuln && Math.floor(now / 120) % 2 === 0) ctx.globalAlpha = 0.35
-    if (glowColor) {
-      ctx.shadowColor = hull
-      ctx.shadowBlur = 25 + playerGlow * 20
-    } else if (!mobileFx) {
-      ctx.shadowColor = hull
-      ctx.shadowBlur = 10
-    }
-    ctx.fillStyle = hull
-    ctx.beginPath()
-    ctx.moveTo(player.x, player.y - player.height / 2)
-    ctx.lineTo(player.x + player.width / 2 * wide, player.y + player.height / 2)
-    ctx.lineTo(player.x + player.width / 4 * wide, player.y + player.height / 4)
-    ctx.lineTo(player.x - player.width / 4 * wide, player.y + player.height / 4)
-    ctx.lineTo(player.x - player.width / 2 * wide, player.y + player.height / 2)
-    ctx.closePath()
-    ctx.fill()
-
-    // Cockpit bar in the ship's trim colour.
-    ctx.fillStyle = trim
-    ctx.fillRect(player.x - 3, player.y - player.height * 0.1, 6, player.height * 0.4)
-    ctx.shadowBlur = 0
-    // Muzzle flash: one hot frame at the nose per volley.
-    if (muzzleT > 0) {
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(player.x - 2, player.y - player.height / 2 - 8, 4, 8)
-    }
-    // Rear guard barrel.
-    if (rearTimer > 0) {
-      ctx.fillStyle = '#ffd23f'
-      ctx.fillRect(player.x - 2, player.y + player.height / 2 - 2, 4, 8)
-    }
-    // Dual escort: a small wingman to port, sacrificed on the next hit.
-    if (dualTimer > 0) {
-      const ex = player.x - player.width * 0.85
-      ctx.fillStyle = hull
-      ctx.beginPath()
-      ctx.moveTo(ex, player.y - 12)
-      ctx.lineTo(ex + 11, player.y + 12)
-      ctx.lineTo(ex - 11, player.y + 12)
-      ctx.closePath()
-      ctx.fill()
-      ctx.fillStyle = trim
-      ctx.fillRect(ex - 1.5, player.y - 4, 3, 12)
-    }
-    ctx.restore()
-
-    // Shield in front of ship (double arc while AEGIS holds two hits)
-    if (shield || aegis > 0 || shieldFlash > 0) {
-      const shieldY = player.y - player.height / 2 - 12
-      const shieldW = player.width * 1.2
-      const active = shield || aegis > 0
-      const shieldAlpha = active ? 0.7 : shieldFlash * 0.8
-      const shieldColor = active ? '#2ff3ff' : '#ffffff'
-      ctx.shadowColor = shieldColor
-      ctx.shadowBlur = active ? 12 : 25 * shieldFlash
-      ctx.strokeStyle = shieldColor
-      ctx.globalAlpha = shieldAlpha
-      ctx.lineWidth = active ? 3 : 2
-      ctx.beginPath()
-      // Curved shield arc
-      ctx.ellipse(player.x, shieldY, shieldW / 2, 6, 0, Math.PI, 0)
-      ctx.stroke()
-      if (aegis === 2) {
-        ctx.beginPath()
-        ctx.ellipse(player.x, shieldY - 5, shieldW / 2 - 6, 5, 0, Math.PI, 0)
-        ctx.stroke()
-      }
-      // Inner glow fill
-      ctx.fillStyle = `rgba(0, 200, 255, ${shieldAlpha * 0.2})`
-      ctx.beginPath()
-      ctx.ellipse(player.x, shieldY, shieldW / 2, 6, 0, Math.PI, 0)
-      ctx.fill()
-      ctx.globalAlpha = 1
-      ctx.shadowBlur = 0
-    }
-
-    // Player bullets
-    bullets.forEach(b => {
-      const rear = b.vy > 0
-      const col = rear ? '#ffd23f' : '#2ff3ff'
-      // Outer glow
-      if (!mobileFx) {
-        ctx.shadowColor = col
-        ctx.shadowBlur = 14
-      }
-      ctx.fillStyle = col
-      ctx.fillRect(b.x - 3, b.y - 8, 6, 16)
-      // Hot white core
-      ctx.shadowBlur = 0
-      ctx.fillStyle = '#cfe9ff'
-      ctx.fillRect(b.x - 1.5, b.y - 7, 3, 14)
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(b.x - 0.75, b.y - 6, 1.5, 12)
-    })
-    ctx.shadowBlur = 0
-  }
-
-  // Enemies
-  enemies.forEach(e => {
-    ctx.shadowColor = e.color
-    ctx.shadowBlur = mobileFx ? 0 : 8
-    ctx.save()
-    ctx.translate(e.x, e.y)
-    if (e.movementType === 'formation') ctx.rotate(e.direction * Math.PI / 2)
-    enemyShapes[e.shapeIdx](ctx, 0, 0, e.size, e.flash ? '#ffffff' : e.color)
-    ctx.restore()
-    if (e.maxHp > 1) {
-      ctx.strokeStyle = '#ff2fa0'
-      ctx.lineWidth = 1
-      ctx.strokeRect(e.x - e.size * .28, e.y - e.size * .38, e.size * .56, e.size * .62)
-      ctx.fillStyle = '#0b0616'
-      ctx.fillRect(e.x - 8, e.y - 6, 16, 9)
-      ctx.fillStyle = '#ff70bc'
-      for (let i = 0; i < e.hp; i++) ctx.fillRect(e.x - 8 + i * 6, e.y - 4, 4, 5)
-    }
-    ctx.shadowBlur = 0
-  })
-
-  // Bosses
-  bosses.forEach(boss => {
-    // Twin armoured wings, recessed reactor and four engine pods.
-    ctx.save()
-    ctx.translate(boss.x, boss.y)
-    ctx.scale(boss.size, boss.size)
-    ctx.lineWidth = 1.3 / boss.size
-    ctx.shadowColor = boss.color
-    ctx.shadowBlur = 10
-    const panel = (points, fill = '#23102e') => {
-      ctx.beginPath()
-      points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))
-      ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = boss.color; ctx.stroke()
-    }
-    for (const side of [-1, 1]) {
-      ctx.save(); ctx.scale(side, 1)
-      panel([[.08,-.28],[.3,-.4],[.56,-.12],[.53,.27],[.35,.38],[.19,.08]])
-      panel([[.22,-.23],[.33,-.29],[.46,-.08],[.41,.19],[.28,.1]], '#13091f')
-      for (const x of [.26, .43]) {
-        panel([[x-.035,-.27],[x+.035,-.27],[x+.04,-.43],[x-.04,-.43]])
-        ctx.fillStyle = '#ff70bc'; ctx.fillRect(x-.023,-.47,.046,.04)
-      }
-      panel([[.3,.12],[.41,.12],[.41,.38],[.3,.38]], '#120826')
-      ctx.fillStyle = '#ff70bc'; ctx.fillRect(.32,.32,.07,.05)
-      for (let i = 0; i < 3; i++) {
-        ctx.beginPath(); ctx.moveTo(.24+i*.07,-.13); ctx.lineTo(.28+i*.06,-.02); ctx.stroke()
-      }
-      ctx.restore()
-    }
-    panel([[0,-.4],[.2,-.17],[.15,.23],[0,.4],[-.15,.23],[-.2,-.17]], '#301037')
-    panel([[0,-.21],[.085,-.08],[.065,.1],[0,.17],[-.065,.1],[-.085,-.08]], '#ff2fa0')
-    ctx.shadowBlur = 0
-    ctx.strokeStyle = '#ff70bc'
-    ctx.beginPath(); ctx.moveTo(0,-.36); ctx.lineTo(0,-.24); ctx.moveTo(0,.2); ctx.lineTo(0,.33); ctx.stroke()
-    ctx.restore()
-
-    // HP bar
-    const barW = boss.size * 0.8
-    const barH = 4
-    const barX = boss.x - barW / 2
-    const barY = boss.y - boss.size / 2 - 10
-    ctx.fillStyle = '#333'
-    ctx.fillRect(barX, barY, barW, barH)
-    ctx.fillStyle = '#ff2fa0'
-    ctx.fillRect(barX, barY, barW * (boss.hp / boss.maxHp), barH)
-  })
-
-  // Powerups — gold diamonds with a per-type letter. S heals/shields,
-  // P feeds the fan; D/R/A/T/N/M/C are the new capsules.
+  // Powerups — gold hex capsules with a letter and a name tag. Weapon
+  // modules (P, L, H) carry a cyan inner ring.
   powerups.forEach(p => {
     const glow = 0.6 + 0.4 * Math.sin(p.pulse)
-    const pColor = '#ffd23f'
-    const pColorRgb = '255, 210, 63'
-    ctx.shadowColor = pColor
-    ctx.shadowBlur = 20 + 15 * glow
+    ctx.globalCompositeOperation = 'lighter'
+    glowBlit('gold', p.x, p.y, 54 + glow * 14, 0.35 * glow)
+    ctx.globalAlpha = 1
+    ctx.globalCompositeOperation = 'source-over'
     ctx.save()
     ctx.translate(p.x, p.y)
-    ctx.rotate(p.pulse * 0.5)
-    // Outer glow ring
-    ctx.strokeStyle = `rgba(${pColorRgb}, ${0.3 * glow})`
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.arc(0, 0, p.size * 0.75, 0, Math.PI * 2)
-    ctx.stroke()
-    // Diamond shape
-    ctx.fillStyle = `rgba(${pColorRgb}, ${0.8 + 0.2 * glow})`
-    ctx.beginPath()
-    const s = p.size / 2
-    ctx.moveTo(0, -s)
-    ctx.lineTo(s, 0)
-    ctx.lineTo(0, s)
-    ctx.lineTo(-s, 0)
-    ctx.closePath()
-    ctx.fill()
-    // Letter
-    ctx.fillStyle = '#0b0616'
-    ctx.font = `bold ${p.size * 0.55}px ${MACHINE_FONT}`
+    ctx.rotate(Math.sin(p.pulse * 0.5) * 0.25)
+    blit(ctx, atlas.capsule, 0, 0)
+    if (p.type === 'weapon' || p.type === 'laser' || p.type === 'homing') {
+      ctx.strokeStyle = 'rgba(47,243,255,0.8)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.arc(0, 0, 9.5, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+    ctx.restore()
+    ctx.font = `bold 13px ${MACHINE_FONT}`
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(POWERUP_LETTERS[p.type] ?? '?', 0, 1)
+    ctx.fillStyle = '#ffd23f'
+    ctx.fillText(POWERUP_LETTERS[p.type] ?? '?', p.x, p.y + 1)
+    hudText(POWERUP_NAMES[p.type] ?? '', p.x, p.y + 19, 'rgba(255,210,63,0.75)', 8)
+  })
+
+  // Enemies: two-frame sprites, white silhouette on a hit, armour pips.
+  const beat = Math.floor(now / 180)
+  enemies.forEach(e => {
+    const frames = atlas.enemy[e.kind] ?? atlas.enemy.scout
+    const sprite = e.flash ? atlas.flash[e.kind] : frames[(beat + Math.floor(e.seed ?? 0)) % 2]
+    ctx.save()
+    ctx.translate(e.x, e.y)
+    if (TURNING_KINDS.has(e.kind)) ctx.rotate((e.heading ?? Math.PI / 2) - Math.PI / 2)
+    blit(ctx, sprite, 0, 0, e.size / (ENEMY_SIZE[e.kind] ?? e.size))
     ctx.restore()
-    ctx.shadowBlur = 0
+    if (e.aiming) {
+      // Sniper telegraph: a flickering pink sightline straight down.
+      ctx.globalAlpha = 0.25 + (Math.floor(now / 60) % 2) * 0.25
+      ctx.fillStyle = '#ff2fa0'
+      ctx.fillRect(e.x - 0.5, e.y + e.size / 2, 1, h)
+      ctx.globalAlpha = 1
+    }
+    if (e.maxHp > 1) {
+      const n = e.maxHp
+      const x0 = e.x - (n - 1) * 3.5
+      for (let i = 0; i < n; i++) {
+        ctx.fillStyle = i < e.hp ? '#ff70bc' : 'rgba(80,60,110,0.8)'
+        ctx.fillRect(x0 + i * 7 - 2, e.y - e.size / 2 - 7, 4, 3)
+      }
+    }
   })
 
-  // Enemy bullets
-  ctx.fillStyle = '#ff2fa0'
-  ctx.shadowColor = '#ff2fa0'
-  ctx.shadowBlur = mobileFx ? 0 : 6
+  // Bosses: the baked Cantor, reactor pulse, muzzle flashes, hit flare.
+  bosses.forEach(boss => {
+    const sprite = ensureBoss(atlas, boss.size)
+    blit(ctx, sprite, boss.x, boss.y)
+    ctx.globalCompositeOperation = 'lighter'
+    const pulse = reducedMotion ? 0.8 : 0.7 + 0.3 * Math.sin(now / (boss.enraged ? 90 : 200))
+    glowBlit('pink', boss.x, boss.y - boss.size * 0.02, boss.size * 0.34 * pulse, 0.9)
+    glowBlit('white', boss.x, boss.y - boss.size * 0.02, boss.size * 0.12 * pulse, 0.8)
+    if (boss.muzzle > 0) {
+      glowBlit('pink', boss.x - boss.size * .36, boss.y + boss.size * .38, 30, 0.9)
+      glowBlit('pink', boss.x + boss.size * .36, boss.y + boss.size * .38, 30, 0.9)
+    }
+    if (boss.flash) {
+      ctx.globalAlpha = 0.35
+      blit(ctx, sprite, boss.x, boss.y)
+    }
+    ctx.globalAlpha = 1
+    ctx.globalCompositeOperation = 'source-over'
+  })
+
+  if (!gameOver) drawPlayer(now)
+
+  // Particles: debris and smoke normally, sparks and flashes additive.
+  particles.forEach(p => {
+    if (p.glow) return
+    ctx.globalAlpha = Math.max(0, p.life)
+    if (p.smoke) {
+      const r = p.size * (1.6 - p.life * 0.6)
+      ctx.drawImage(atlas.puff.img, p.x - r, p.y - r, r * 2, r * 2)
+      return
+    }
+    ctx.fillStyle = p.color
+    if (p.spin !== undefined) {
+      ctx.save()
+      ctx.translate(p.x, p.y)
+      ctx.rotate(p.spin)
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size)
+      ctx.restore()
+    } else {
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
+    }
+  })
+  ctx.globalCompositeOperation = 'lighter'
+  particles.forEach(p => {
+    if (!p.glow) return
+    const size = p.flash ? p.size * (0.4 + p.life * 0.6) : p.size * 2.2
+    glowBlit(p.glow, p.x, p.y, size, Math.max(0, Math.min(1, p.life)))
+  })
+
+  // Enemy bullets: pink orbs on top of everything that is not the HUD.
+  ctx.globalAlpha = 1
   enemyBullets.forEach(b => {
-    ctx.fillRect(b.x - 2, b.y - 4, 4, 8)
+    if (b.type === 'needle') {
+      ctx.save()
+      ctx.translate(b.x, b.y)
+      blit(ctx, atlas.needle, 0, 0)
+      ctx.restore()
+    } else {
+      blit(ctx, b.type === 'big' ? atlas.bigOrb : atlas.orb, b.x, b.y)
+    }
   })
-  ctx.shadowBlur = 0
+  ctx.globalCompositeOperation = 'source-over'
 
-  // Tempo tint: cold wash while slow-mo runs.
+  // Floating pickup / bounty text.
+  pops.forEach(p => {
+    ctx.globalAlpha = Math.min(1, p.life * 1.5)
+    hudText(p.text, p.x, p.y, p.color, 10.4, 'center', 'rgba(255,210,63,0.6)')
+  })
+  ctx.globalAlpha = 1
+
+  // Tempo tint: cold wash while slow-mo runs; SYNC: gold edge light.
   if (tempoTimer > 0) {
     ctx.fillStyle = 'rgba(47, 243, 255, 0.05)'
+    ctx.fillRect(0, 0, w, h)
+  }
+  if (syncTimer > 0) {
+    const a = 0.18 + (reducedMotion ? 0 : 0.08 * Math.sin(now / 120))
+    const g = ctx.createLinearGradient(0, 0, 0, h)
+    g.addColorStop(0, `rgba(255,210,63,${a})`)
+    g.addColorStop(0.12, 'rgba(255,210,63,0)')
+    g.addColorStop(0.88, 'rgba(255,210,63,0)')
+    g.addColorStop(1, `rgba(255,210,63,${a})`)
+    ctx.fillStyle = g
     ctx.fillRect(0, 0, w, h)
   }
 
   // Death explosion screen flash
   if (deathExplosion && deathExplosion.flash > 0) {
-    ctx.fillStyle = `rgba(255, 47, 160, ${deathExplosion.flash * 0.4})`
+    ctx.fillStyle = `rgba(255, 47, 160, ${deathExplosion.flash * 0.35})`
     ctx.fillRect(0, 0, w, h)
   }
 
   ctx.restore()
 
-  // Canvas HUD: hull segments, wave, combo, radio (screen space, unshaken).
-  if (gameStarted) drawHud(now)
+  // Screen-space HUD and banners (unshaken).
+  if (gameStarted) {
+    drawHud(now)
+    drawBanners(now)
+  }
 }
 
-function gameLoop(now) {
-  if (!gameRunning) return
-  if (!paused.value) {
-    // Hit-stop freezes the world but keeps drawing (boss-kill beat).
-    if (now >= hitStopUntil) {
-      updateBackdrop()
-      update(now)
-    }
+function drawPlayer(now) {
+  ensureShip(atlas, shipDef)
+  const invuln = now < invulnUntil
+  // Bank toward the direction of travel; the sprite has five roll steps.
+  const vx = player.x - player.prevX
+  player.bank += (Math.max(-1, Math.min(1, vx / 4)) - player.bank) * 0.2
+  const frame = atlas.ship[Math.round(player.bank * 2) + 2] ?? atlas.ship[2]
+  const climbing = player.y < player.prevY
+  const hullCol = shipDef.colors.hull
+
+  // Engine flame: additive, flickering, longer when climbing or synced.
+  ctx.globalCompositeOperation = 'lighter'
+  const flameLen = (climbing ? 16 : 10) + Math.random() * 6 + (syncTimer > 0 ? 6 : 0)
+  for (const dx of [-2.5, 2.5]) {
+    const fx = player.x + dx * (1 - Math.abs(player.bank) * 0.1)
+    const fy = player.y + 17
+    const g = ctx.createLinearGradient(0, fy, 0, fy + flameLen)
+    g.addColorStop(0, 'rgba(255,255,255,0.95)')
+    g.addColorStop(0.3, syncTimer > 0 ? 'rgba(255,210,63,0.8)' : 'rgba(47,243,255,0.8)')
+    g.addColorStop(1, 'rgba(47,243,255,0)')
+    ctx.fillStyle = g
+    ctx.beginPath()
+    ctx.moveTo(fx - 2, fy)
+    ctx.lineTo(fx + 2, fy)
+    ctx.lineTo(fx, fy + flameLen)
+    ctx.closePath()
+    ctx.fill()
   }
+  if (playerGlow > 0) glowBlit('cyan', player.x, player.y, 90 + playerGlow * 50, playerGlow * 0.6)
+  if (syncTimer > 0) {
+    const r = 70 + (reducedMotion ? 0 : Math.sin(now / 90) * 6)
+    glowBlit('gold', player.x, player.y, r, 0.45)
+  }
+  ctx.globalAlpha = 1
+  ctx.globalCompositeOperation = 'source-over'
+
+  if (invuln && Math.floor(now / 100) % 2 === 0) ctx.globalAlpha = 0.35
+  blit(ctx, frame, player.x, player.y)
+  ctx.globalAlpha = 1
+
+  // Muzzle flash: one hot frame at the nose per volley.
+  if (muzzleT > 0) {
+    ctx.globalCompositeOperation = 'lighter'
+    glowBlit(syncTimer > 0 ? 'gold' : 'cyan', player.x, player.y - player.height / 2 - 4, 26, 0.9)
+    ctx.globalAlpha = 1
+    ctx.globalCompositeOperation = 'source-over'
+  }
+  // Rear guard barrel.
+  if (rearTimer > 0) {
+    ctx.fillStyle = '#ffd23f'
+    ctx.fillRect(player.x - 1.5, player.y + player.height / 2 - 2, 3, 7)
+  }
+  // Dual escort: a small wingman to port, sacrificed on the next hit.
+  if (dualTimer > 0) {
+    const ex = player.x - player.width * 0.85
+    const ey = player.y + 10
+    blit(ctx, frame, ex, ey, 0.55)
+    ctx.globalCompositeOperation = 'lighter'
+    glowBlit('cyan', ex, ey + 10, 14, 0.8)
+    ctx.globalAlpha = 1
+    ctx.globalCompositeOperation = 'source-over'
+    // A thin tether shows the link.
+    ctx.strokeStyle = hullCol
+    ctx.globalAlpha = 0.25
+    ctx.setLineDash([2, 4])
+    ctx.beginPath()
+    ctx.moveTo(ex + 8, ey)
+    ctx.lineTo(player.x - 12, player.y + 6)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.globalAlpha = 1
+  }
+
+  // Shield in front of ship (double arc while AEGIS holds two hits)
+  if (shield || aegis > 0 || shieldFlash > 0) {
+    const shieldY = player.y - player.height / 2 - 12
+    const shieldW = player.width * 1.2
+    const active = shield || aegis > 0
+    const shieldAlpha = active ? 0.75 : shieldFlash * 0.8
+    const shieldColor = active ? '#2ff3ff' : '#ffffff'
+    ctx.shadowColor = shieldColor
+    ctx.shadowBlur = active ? 12 : 25 * shieldFlash
+    ctx.strokeStyle = shieldColor
+    ctx.globalAlpha = shieldAlpha
+    ctx.lineWidth = active ? 2.5 : 2
+    ctx.beginPath()
+    ctx.ellipse(player.x, shieldY, shieldW / 2, 6, 0, Math.PI, 0)
+    ctx.stroke()
+    if (aegis === 2) {
+      ctx.beginPath()
+      ctx.ellipse(player.x, shieldY - 5, shieldW / 2 - 6, 5, 0, Math.PI, 0)
+      ctx.stroke()
+    }
+    ctx.fillStyle = `rgba(47, 243, 255, ${shieldAlpha * 0.18})`
+    ctx.beginPath()
+    ctx.ellipse(player.x, shieldY, shieldW / 2, 6, 0, Math.PI, 0)
+    ctx.fill()
+    ctx.globalAlpha = 1
+    ctx.shadowBlur = 0
+  }
+
+  // Player bullets: additive sprites; seekers point along their path.
+  ctx.globalCompositeOperation = 'lighter'
+  ctx.globalAlpha = 1
+  bullets.forEach(b => {
+    if (b.kind === 'lance') {
+      blit(ctx, atlas.lance, b.x, b.y)
+    } else if (b.kind === 'seeker') {
+      ctx.save()
+      ctx.translate(b.x, b.y)
+      ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2)
+      blit(ctx, atlas.seeker, 0, 0)
+      ctx.restore()
+    } else if (b.kind === 'rear' || b.vy > 0) {
+      blit(ctx, atlas.rearBolt, b.x, b.y)
+    } else {
+      ctx.save()
+      ctx.translate(b.x, b.y)
+      if (b.vx) ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2)
+      blit(ctx, atlas.bolt, 0, 0)
+      ctx.restore()
+    }
+  })
+  ctx.globalCompositeOperation = 'source-over'
+}
+
+// ---------------------------------------------------------------- loop
+
+// Mirror the director's current line into the Intercom view.
+function syncIntercom() {
+  const cur = director.tick(simNow)
+  const prev = intercom.value
+  if ((cur?.id ?? 0) !== (prev?.id ?? 0)) {
+    intercom.value = cur ? { id: cur.id, who: cur.who, text: cur.text } : null
+    if (cur) audio?.play(cur.who === 'choir' ? 'choir' : 'comms')
+  }
+  const shown = cur ? (reducedMotion ? cur.text.length : visibleChars(cur, simNow)) : 0
+  if (shown !== intercomShown.value) intercomShown.value = shown
+}
+
+function gameLoop(real) {
+  if (!gameRunning) return
+  const elapsed = lastReal ? Math.min(100, real - lastReal) : STEP_MS
+  lastReal = real
+  if (!paused.value) {
+    // Fixed 60 Hz steps; a 1 ms tolerance keeps 60 Hz displays at exactly
+    // one step per frame despite rAF jitter.
+    stepAcc += elapsed
+    let steps = 0
+    while (stepAcc >= STEP_MS - 1 && steps < 4) {
+      stepAcc -= STEP_MS
+      steps++
+      simNow += STEP_MS
+      // Hit-stop freezes the world but keeps drawing (boss-kill beat).
+      if (simNow >= hitStopUntil) {
+        updateBackdrop()
+        update(simNow)
+      }
+    }
+    if (steps === 4) stepAcc = 0
+  }
+  syncIntercom()
   draw()
   animationFrameId = requestAnimationFrame(gameLoop)
 }
 
 function setupCanvas() {
   if (!canvas.value) return
-  canvas.value.width = canvas.value.offsetWidth
-  canvas.value.height = canvas.value.offsetHeight
+  dpr = Math.min(2, window.devicePixelRatio || 1)
+  const cssW = canvas.value.offsetWidth
+  const cssH = canvas.value.offsetHeight
+  canvas.value.width = Math.round(cssW * dpr)
+  canvas.value.height = Math.round(cssH * dpr)
   ctx = canvas.value.getContext('2d')
+  if (!atlas || atlas.dpr !== dpr) atlas = buildAtlas(dpr)
+  ensureShip(atlas, shipDef)
   initDeepField()
 }
 
@@ -1689,8 +2089,11 @@ function handleKeyDown(e) {
     }
     return
   }
-  // M is owned globally by the RadioWidget (it cycles all six stations);
-  // the top-right canvas tap below still cycles too.
+  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) {
+    if (activateSync()) e.preventDefault()
+    return
+  }
+  // M is owned globally by the RadioWidget (it cycles all six stations).
   keys[e.code] = true
   if (e.code === 'Space') e.preventDefault()
 
@@ -1732,14 +2135,8 @@ function isInteractiveElement(el) {
   if (!el) return false
   const tag = el.tagName
   if (tag === 'A' || tag === 'BUTTON' || tag === 'INPUT') return true
-  if (el.closest('a, button, .social-links, .profile-card')) return true
+  if (el.closest('a, button, .social-links, .profile-card, .radio-widget')) return true
   return false
-}
-
-function isRadioTap(clientX, clientY) {
-  if (!canvas.value) return false
-  const r = canvas.value.getBoundingClientRect()
-  return clientY - r.top < 44 && clientX - r.left > r.width - 150
 }
 
 let tapStartX = 0
@@ -1754,9 +2151,9 @@ function handleTouchStart(e) {
     tapStartY = e.touches[0].clientY
     return
   }
-  const t = e.touches[0]
-  if (isRadioTap(t.clientX, t.clientY)) {
-    cycleRadio()
+  // A second finger hands the guns to Claude.
+  if (e.touches.length >= 2) {
+    activateSync()
     return
   }
   touchActive = true
@@ -1780,9 +2177,13 @@ function handleTouchEnd(e) {
     const t = e.changedTouches[0]
     if (Math.hypot(t.clientX - tapStartX, t.clientY - tapStartY) < 15) resetGame()
   }
+  // Lifting the second finger keeps the first one flying.
+  if (e.touches.length > 0) return
   touchActive = false
   keys['Space'] = false
 }
+
+let idleCueTimer = null
 
 onMounted(() => {
   reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -1790,11 +2191,27 @@ onMounted(() => {
   initStars()
   initBgShapes()
   // Don't auto-start — wait for Enter
-  player.x = canvas.value ? canvas.value.width / 2 : 0
-  player.y = canvas.value ? canvas.value.height - 60 : 0
+  player.x = canvas.value ? W() / 2 : 0
+  player.y = canvas.value ? H() - 60 : 0
+  player.prevX = player.x
+  player.prevY = player.y
   gameRunning = true
   gameStarted = false
   animationFrameId = requestAnimationFrame(gameLoop)
+  // `?debug=galaga` exposes a few levers for screenshots and manual checks.
+  if (location.search.includes('debug=galaga')) {
+    window.__galaga = {
+      boss: () => spawnBoss(),
+      give: type => applyPowerup(type, simNow),
+      sync: () => { syncMeter = 1; return activateSync() },
+      wave: n => { waveNumber = n },
+      state: () => ({ score, hull, weapon, bulletLevel, waveNumber, sectorIndex, syncMeter, enemies: enemies.length, bosses: bosses.length, simNow }),
+    }
+  }
+  // Claude says hello once per page load while the attract screen waits.
+  idleCueTimer = setTimeout(() => {
+    if (!gameStarted) director.cue('idle', simNow, { start: isTouch() ? 'tap' : 'press enter' })
+  }, 1400)
 
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', handleKeyUp)
@@ -1808,6 +2225,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   gameRunning = false
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
+  if (idleCueTimer) clearTimeout(idleCueTimer)
   // SFX context only — the shared radio keeps playing across themes.
   audio?.dispose()
   audio = null
