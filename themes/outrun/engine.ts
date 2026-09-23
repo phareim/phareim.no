@@ -28,7 +28,9 @@
  *   GRIP scrubs speed and squeals (the `skid` value drives smoke and audio);
  * - off the asphalt the car bogs down towards OFFROAD_MAX;
  * - traffic is always slower than you: a soft hit is a BUMP (speed matched,
- *   shoved aside), a hard one a SPIN; a roadside prop at speed is a TUMBLE.
+ *   shoved aside), a hard one a SPIN; a roadside prop at speed is a TUMBLE;
+ * - inside a tunnel the walls hold the car on the asphalt: leaning on one
+ *   scrapes speed off and throws sparks instead of wrecking the car.
  */
 
 // ------------------------------------------------------------ constants
@@ -105,7 +107,7 @@ export const STAGE_COUNT = 5
 
 /** Clock at the start, and the extension at each checkpoint by column. */
 export const START_TIME = 75
-export const EXTEND_TIME = [0, 65, 64, 63, 62] as const
+export const EXTEND_TIME = [0, 63, 62, 61, 60] as const
 /** Countdown before GO. */
 export const COUNTDOWN = 3
 
@@ -113,6 +115,9 @@ export const COUNTDOWN = 3
 export const SCORE_PER_KMH = 10
 export const CLOSE_PASS_SCORE = 1000
 export const CLOSE_PASS_GAP = 0.62
+/** Close passes within this many seconds of each other build a chain; each link pays CLOSE_PASS_SCORE × chain. */
+export const CHAIN_WINDOW = 3.5
+export const CHAIN_MAX = 8
 export const STAGE_SCORE = 50000
 export const GOAL_TIME_SCORE = 20000
 
@@ -144,6 +149,16 @@ export function stageDef(col: number, node: number): StageDef {
 export function difficulty(col: number, node: number): number {
   return col * 0.18 + node * 0.12
 }
+
+// -------------------------------------------------------------- tunnels
+
+/** Tunnel walls, in half-widths from the road centre, and the ceiling height in world units. */
+export const TUNNEL_WALL = 1.2
+export const TUNNEL_H = 2300
+/** Speed lost per second while a wall is scraping the car. */
+export const SCRAPE_DECEL = 5200
+/** Tunnels per stage body by biome (none elsewhere). */
+export const TUNNELS: Partial<Record<Biome, number>> = { city: 2, canyon: 1, peaks: 1 }
 
 // ---------------------------------------------------------------- props
 
@@ -195,6 +210,8 @@ export interface RoadSegment {
   blend: number
   /** Segment role, for gantries and triggers. */
   tag?: 'start' | 'fork-decide' | 'checkpoint' | 'goal'
+  /** Inside a tunnel: walls at TUNNEL_WALL, a ceiling, no props. */
+  tunnel?: boolean
 }
 
 // -------------------------------------------------------------- traffic
@@ -236,7 +253,11 @@ export type OutrunEvent =
   | { type: 'go' }
   | { type: 'shift', gear: number }
   | { type: 'crash', kind: CrashKind }
-  | { type: 'close' }
+  | { type: 'close', chain: number, points: number }
+  | { type: 'pass', dx: number }
+  | { type: 'scrape', side: -1 | 1 }
+  | { type: 'backfire' }
+  | { type: 'tunnel', on: boolean }
   | { type: 'fork', side: -1 | 1, col: number, node: number }
   | { type: 'checkpoint', col: number, node: number, extend: number }
   | { type: 'offroad', on: boolean }
@@ -252,6 +273,10 @@ export interface OutrunResult {
   reason: 'timeup' | 'goal' | 'quit'
   route: string[]
   stage: number
+  /** Seconds spent on each stage driven, in order (the last one unfinished unless the goal was reached). */
+  splits: number[]
+  /** Node of the final stage reached, which picks the ending. */
+  node: number
 }
 
 export interface OutrunState {
@@ -297,6 +322,17 @@ export interface OutrunState {
   nextCarId: number
   spawnT: number
   closes: number
+  /** Close passes in the current chain, and the seconds left to extend it. */
+  chain: number
+  chainT: number
+  /** Seconds on the current stage, and the finished stages' times. */
+  stageT: number
+  splits: number[]
+  /** Inside a tunnel now; scraping a wall (-1/1, 0 none). */
+  inTunnel: boolean
+  scrape: number
+  /** Gas pedal as of the last substep, for the lift-off backfire. */
+  gasOn: boolean
   crashes: number
   /** Last whole second announced by the low-time warning. */
   warned: number
@@ -369,6 +405,19 @@ const BIOME_HILLS: Record<Biome, [number, number]> = {
   grid: [400, 2600],
 }
 
+/**
+ * A tunnel: a short straight approach, then a gentle bend under a roof
+ * (segments flagged `tunnel`), then a straight out into the light.
+ */
+function addTunnel(state: OutrunState, maxCurve: number): void {
+  addRoad(state, 10, 20, 10, 0, 0)
+  const t0 = state.segments.length
+  const dir = rand(state) < 0.5 ? -1 : 1
+  addRoad(state, 30, Math.round(rand(state, 60, 120)), 30, dir * rand(state, 1, Math.min(2.6, maxCurve)), rand(state, -300, 300))
+  for (let i = t0; i < state.segments.length; i++) state.segments[i].tunnel = true
+  addRoad(state, 10, 20, 10, 0, 0)
+}
+
 /** Builds one stage body: STAGE_SEGS segments of curves, hills and straights. */
 function buildStageBody(state: OutrunState): void {
   const def = stageDef(state.col, state.node)
@@ -378,10 +427,20 @@ function buildStageBody(state: OutrunState): void {
   const end = start + STAGE_SEGS - 120
   const maxCurve = 3 + diff * 5
   let last = ''
+  // Tunnels sit at even fractions of the stage.
+  const tunnels = TUNNELS[def.biome] ?? 0
+  let tunnelsLeft = tunnels
+  const nextTunnelAt = () => start + Math.round(((tunnels - tunnelsLeft + 1) / (tunnels + 1)) * (STAGE_SEGS - 400))
   // The first stage opens on a long straight behind the start gantry.
   if (state.col === 0) addRoad(state, 10, 90, 10, 0, 0)
   else addRoad(state, 20, 40, 20, 0, rand(state, -hLo, hLo))
   while (state.segments.length < end) {
+    if (tunnelsLeft > 0 && state.segments.length >= nextTunnelAt() && state.segments.length < end - 300) {
+      tunnelsLeft--
+      addTunnel(state, maxCurve)
+      last = 'tunnel'
+      continue
+    }
     let kind = pick(state, ['curve', 'curve', 'hill', 'scurve', 'sweeper', 'straight', 'crest'] as const)
     if (kind === last) kind = pick(state, ['curve', 'hill', 'scurve', 'sweeper'] as const)
     last = kind
@@ -425,9 +484,13 @@ function buildStageBody(state: OutrunState): void {
 
 /** Roadside dressing for a stretch, per biome. Props never sit on the asphalt. */
 function decorate(state: OutrunState, from: number, to: number, biome: Biome): void {
+  const covered = (i: number) => {
+    for (let k = i - 3; k <= i + 3; k++) if (state.segments[k]?.tunnel) return true
+    return false
+  }
   const put = (i: number, kind: PropKind, rel: number, label?: string) => {
     const seg = state.segments[i]
-    if (seg) seg.props.push({ kind, side: rel < 0 ? -1 : 1, rel, v: rand(state), label })
+    if (seg && !covered(i)) seg.props.push({ kind, side: rel < 0 ? -1 : 1, rel, v: rand(state), label })
   }
   const sideOf = (i: number) => (i % 2 === 0 ? -1 : 1)
   for (let i = from + 20; i < to - 10; i++) {
@@ -610,13 +673,20 @@ export function createGame(seed = 1986, opts: { countdown?: boolean, col?: numbe
     nextCarId: 1,
     spawnT: 0,
     closes: 0,
+    chain: 0,
+    chainT: 0,
+    stageT: 0,
+    splits: [],
+    inTunnel: false,
+    scrape: 0,
+    gasOn: false,
     crashes: 0,
     warned: 11,
     goalBonus: 0,
   }
   buildStage(state)
-  // The start gantry, just ahead of the grid slot.
-  const startSeg = state.segments[12]
+  // The start gantry with its lights, far enough ahead of the grid slot to read whole.
+  const startSeg = state.segments[20]
   startSeg.tag = 'start'
   startSeg.props.push({ kind: 'gantry', side: 1, rel: 0, v: 0, label: 'START' })
   // Some traffic already out on the road.
@@ -828,6 +898,28 @@ function substep(state: OutrunState, dt: number, input: OutrunInput, demo: boole
   const hi = Math.max(...seg.centers) + 2.7
   state.playerX = Math.max(lo, Math.min(hi, state.playerX))
 
+  // ---- tunnel walls: they hold the car on the road and scrape it
+  if (!!seg.tunnel !== state.inTunnel) {
+    state.inTunnel = !!seg.tunnel
+    events.push({ type: 'tunnel', on: state.inTunnel })
+  }
+  const wasScraping = state.scrape
+  state.scrape = 0
+  if (seg.tunnel) {
+    const c = nearestCenter(seg, state.playerX)
+    const lim = TUNNEL_WALL - PLAYER_HALF_W - 0.02
+    const d = state.playerX - c
+    if (Math.abs(d) > lim) {
+      state.playerX = c + Math.sign(d) * lim
+      if (ratio0 > 0.08) state.scrape = d < 0 ? -1 : 1
+    }
+  }
+  if (state.scrape && !wasScraping) {
+    events.push({ type: 'scrape', side: state.scrape as -1 | 1 })
+    state.chain = 0
+    state.chainT = 0
+  }
+
   // ---- off-road
   const center = nearestCenter(seg, state.playerX)
   const off = Math.abs(state.playerX - center) > 1.03
@@ -839,6 +931,9 @@ function substep(state: OutrunState, dt: number, input: OutrunInput, demo: boole
   // ---- longitudinal
   const gas = !crash && !finished && control.gas && !control.brake
   const cruise = state.status === 'goal' && control.gas
+  // Lifting off at high revs pops the exhaust.
+  if (state.gasOn && !gas && !crash && !finished && ratio0 > 0.3 && (state.rpm > 0.72 || ratio0 > 0.75)) events.push({ type: 'backfire' })
+  state.gasOn = gas
   state.throttle += ((gas || cruise ? 1 : 0) - state.throttle) * Math.min(1, dt * 8)
   let accel = 0
   if (crash) {
@@ -855,6 +950,7 @@ function substep(state: OutrunState, dt: number, input: OutrunInput, demo: boole
     if (state.offroad && state.speed > OFFROAD_MAX) accel -= OFFROAD_DECEL
     if (state.offroad) accel -= state.speed * 0.25
     accel -= state.skid * SKID_SCRUB
+    if (state.scrape) accel -= SCRAPE_DECEL
     if (state.status === 'timeout') accel -= 2200
   }
   // Gravity along the slope.
@@ -870,6 +966,7 @@ function substep(state: OutrunState, dt: number, input: OutrunInput, demo: boole
   if (gear > state.gear) {
     state.shiftT = SHIFT_TIME
     events.push({ type: 'shift', gear })
+    if (gear >= 2 && gas) events.push({ type: 'backfire' })
   } else if (gear < state.gear) {
     events.push({ type: 'shift', gear })
   }
@@ -917,6 +1014,7 @@ function substep(state: OutrunState, dt: number, input: OutrunInput, demo: boole
   if (state.checkpointAt >= 0 && segNow.index >= state.checkpointAt) enterStage(state, state.segments[state.checkpointAt], events, demo)
   if (state.goalAt >= 0 && segNow.index >= state.goalAt && state.status === 'run') {
     state.status = 'goal'
+    state.splits.push(state.stageT)
     if (!demo) {
       state.goalBonus = Math.ceil(state.time) * GOAL_TIME_SCORE
       state.score += state.goalBonus + STAGE_SCORE
@@ -930,6 +1028,11 @@ function substep(state: OutrunState, dt: number, input: OutrunInput, demo: boole
   if (!crash && state.status !== 'goal') collide(state, events, demo)
 
   // ---- clock and score
+  if (state.chainT > 0) {
+    state.chainT = Math.max(0, state.chainT - dt)
+    if (state.chainT === 0) state.chain = 0
+  }
+  if (state.status === 'run') state.stageT += dt
   if (!demo && state.status === 'run') {
     state.time -= dt
     state.score += displaySpeed(state) * SCORE_PER_KMH * dt
@@ -986,6 +1089,8 @@ function enterStage(state: OutrunState, seg: RoadSegment, events: OutrunEvent[],
   state.col = seg.col
   state.node = seg.node
   state.route.push(seg.node)
+  state.splits.push(state.stageT)
+  state.stageT = 0
   const extend = extendFor(seg.col)
   if (!demo) {
     state.time += extend
@@ -1031,6 +1136,8 @@ function collide(state: OutrunState, events: OutrunEvent[], demo: boolean): void
       const rel = state.speed - car.speed
       const dir = state.playerX < cx ? -1 : 1
       state.crashes++
+      state.chain = 0
+      state.chainT = 0
       if (rel > SPIN_REL) {
         state.crash = { kind: 'spin', t: 0, dur: SPIN_TIME, dir }
         state.speed = car.speed * 0.75
@@ -1047,10 +1154,14 @@ function collide(state: OutrunState, events: OutrunEvent[], demo: boolean): void
     // Passing: once it drops behind, a tight pass at speed pays.
     if (!car.passed && dz < -CAR_HALF_LEN) {
       car.passed = true
+      if (state.speed > MAX_SPEED * 0.3) events.push({ type: 'pass', dx: cx - state.playerX })
       if (gap < CLOSE_PASS_GAP && state.speed > MAX_SPEED * 0.6) {
         state.closes++
-        if (!demo) state.score += CLOSE_PASS_SCORE
-        events.push({ type: 'close' })
+        state.chain = state.chainT > 0 ? Math.min(CHAIN_MAX, state.chain + 1) : 1
+        state.chainT = CHAIN_WINDOW
+        const points = CLOSE_PASS_SCORE * state.chain
+        if (!demo) state.score += points
+        events.push({ type: 'close', chain: state.chain, points })
       }
     }
   }
@@ -1068,6 +1179,8 @@ function collide(state: OutrunState, events: OutrunEvent[], demo: boolean): void
       if (Math.abs(px - state.playerX) < PLAYER_HALF_W + def.w) {
         const dir = state.playerX < px ? -1 : 1
         state.crashes++
+        state.chain = 0
+        state.chainT = 0
         if (state.speed > TUMBLE_SPEED) {
           state.crash = { kind: 'tumble', t: 0, dur: TUMBLE_TIME, dir }
           events.push({ type: 'crash', kind: 'tumble' })

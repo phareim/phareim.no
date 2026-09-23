@@ -7,8 +7,12 @@
  *   the gearbox is heard as the note drops at each upshift.
  * - Tyres, wind and dirt: looped noise through band/low-pass filters, gains
  *   driven by skid, speed² and off-road.
- * - One-shots for crashes, bumps, close passes, checkpoints, the countdown,
- *   the low-time warning, TIME UP and the goal.
+ * - Tunnels: the engine and wind also feed a short slap-back delay whose
+ *   send opens under a roof, and a grinding noise band plays while a wall
+ *   scrapes the car.
+ * - One-shots for crashes, bumps, close passes (rising with the chain),
+ *   cars whooshing past (panned to their side), exhaust pops, checkpoints,
+ *   the countdown, the low-time warning, TIME UP and the goal.
  * - The radio: three original synthwave loops on a small step sequencer
  *   (bass, pad, arpeggio, lead with a dotted-eighth delay, drums through a
  *   short gated reverb). Chosen on the SELECT MUSIC screen, M cycles.
@@ -25,6 +29,8 @@ export interface EngineInput {
   skid: number
   offroad: boolean
   running: boolean
+  tunnel: boolean
+  scrape: boolean
 }
 
 interface Track {
@@ -135,6 +141,7 @@ export function createAudio() {
     lp: BiquadFilterNode, gain: GainNode, trem: GainNode
     squeal: GainNode, squealBp: BiquadFilterNode, whistle: OscillatorNode, whistleGain: GainNode
     wind: GainNode, windLp: BiquadFilterNode, dirt: GainNode
+    echo: GainNode, grind: GainNode
   } | null = null
   // Sequencer.
   let track = -1
@@ -249,6 +256,22 @@ export function createAudio() {
     trem.connect(lp)
     lp.connect(gain)
     gain.connect(sfx)
+    // Tunnel slap-back: engine and wind into a short feedback delay.
+    const echo = ac.createGain()
+    echo.gain.value = 0
+    const echoDelay = ac.createDelay(0.5)
+    echoDelay.delayTime.value = 0.085
+    const echoFb = ac.createGain()
+    echoFb.gain.value = 0.42
+    const echoLp = ac.createBiquadFilter()
+    echoLp.type = 'lowpass'
+    echoLp.frequency.value = 1800
+    gain.connect(echo)
+    echo.connect(echoDelay)
+    echoDelay.connect(echoLp)
+    echoLp.connect(echoFb)
+    echoFb.connect(echoDelay)
+    echoLp.connect(sfx)
 
     // Tyres: a narrow noise band plus a wavering whistle.
     const sq = noiseSource()
@@ -288,12 +311,25 @@ export function createAudio() {
     dn.connect(dirtLp)
     dirtLp.connect(dirt)
     dirt.connect(sfx)
+    wind.connect(echo)
+    // Wall scrape: a harsh high band of noise.
+    const gn = noiseSource()
+    const grindBp = ac.createBiquadFilter()
+    grindBp.type = 'bandpass'
+    grindBp.frequency.value = 3400
+    grindBp.Q.value = 2.5
+    const grind = ac.createGain()
+    grind.gain.value = 0
+    gn.connect(grindBp)
+    grindBp.connect(grind)
+    grind.connect(sfx)
+    gn.start(t)
 
     for (const n of [o1, o2, o3, lfo, whistle]) n.start(t)
     sq.start(t)
     wn.start(t)
     dn.start(t)
-    eng = { o1, o2, o3, lfo, lp, gain, trem, squeal, squealBp, whistle, whistleGain, wind, windLp, dirt }
+    eng = { o1, o2, o3, lfo, lp, gain, trem, squeal, squealBp, whistle, whistleGain, wind, windLp, dirt, echo, grind }
   }
 
   function updateEngine(e: EngineInput) {
@@ -317,6 +353,8 @@ export function createAudio() {
     eng.wind.gain.setTargetAtTime(e.running ? e.speed * e.speed * 0.09 : 0, t, 0.1)
     eng.windLp.frequency.setTargetAtTime(400 + e.speed * 1400, t, 0.1)
     eng.dirt.gain.setTargetAtTime(e.running && e.offroad ? 0.2 + e.speed * 0.5 : 0, t, 0.05)
+    eng.echo.gain.setTargetAtTime(e.running && e.tunnel ? 0.9 : 0, t, 0.12)
+    eng.grind.gain.setTargetAtTime(e.running && e.scrape ? 0.25 + e.speed * 0.2 : 0, t, 0.03)
   }
 
   // ------------------------------------------------------------ one-shots
@@ -356,7 +394,34 @@ export function createAudio() {
     src.stop(t + dur + 0.05)
   }
 
-  function play(name: string) {
+  /** A car whooshing past: a falling band of noise, panned to its side (dx in half-widths). */
+  function pass(dx: number, speed: number) {
+    if (!ac || !enabled) return
+    const t = ac.currentTime
+    const src = noiseSource(false)
+    const f = ac.createBiquadFilter()
+    f.type = 'bandpass'
+    f.Q.value = 1.4
+    f.frequency.setValueAtTime(1700, t)
+    f.frequency.exponentialRampToValueAtTime(380, t + 0.4)
+    const g = ac.createGain()
+    const vol = 0.28 * Math.max(0.2, 1 - Math.abs(dx) / 2.5) * speed
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(Math.max(0.001, vol), t + 0.06)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45)
+    src.connect(f)
+    f.connect(g)
+    if (ac.createStereoPanner) {
+      const pan = ac.createStereoPanner()
+      pan.pan.setValueAtTime(Math.max(-0.9, Math.min(0.9, dx / 1.2)), t)
+      g.connect(pan)
+      pan.connect(sfx)
+    } else g.connect(sfx)
+    src.start(t)
+    src.stop(t + 0.5)
+  }
+
+  function play(name: string, n = 1) {
     if (!ac || !enabled) return
     switch (name) {
       case 'bump':
@@ -376,10 +441,21 @@ export function createAudio() {
         tone(60, 0.3, 'sine', 0.5, 1.1, undefined, 30)
         burst(0.4, 0.2, 2000, 150, 1.1)
         break
-      case 'close':
+      case 'close': {
+        // Each link of the chain rings a step higher up the scale.
+        const up = Math.pow(2, [0, 2, 4, 7, 9, 12, 14, 16][Math.min(7, n - 1)] / 12)
         burst(0.28, 0.2, 500, 2500, 0, 'bandpass')
-        tone(1319, 0.09, 'square', 0.05, 0.05)
-        tone(1760, 0.12, 'square', 0.05, 0.12)
+        tone(1319 * up, 0.09, 'square', 0.05, 0.05)
+        tone(1760 * up, 0.12, 'square', 0.05, 0.12)
+        break
+      }
+      case 'backfire':
+        tone(75, 0.08, 'square', 0.18, 0, undefined, 40)
+        burst(0.07, 0.35, 1400, 200)
+        burst(0.06, 0.25, 1100, 180, 0.075)
+        break
+      case 'scrape':
+        burst(0.25, 0.3, 5000, 1500, 0, 'bandpass')
         break
       case 'checkpoint':
         ;[523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, 0.14, 'square', 0.07, i * 0.07))
@@ -571,7 +647,7 @@ export function createAudio() {
     eng = null
   }
 
-  return { start: ensure, updateEngine, play, playTrack, stopTrack, fadeMusic, silenceEngine, suspend, setEnabled, dispose }
+  return { start: ensure, updateEngine, play, pass, playTrack, stopTrack, fadeMusic, silenceEngine, suspend, setEnabled, dispose }
 }
 
 export type OutrunAudio = ReturnType<typeof createAudio>

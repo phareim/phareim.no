@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import {
   SEG_LEN, MAX_SPEED, STAGE_SEGS, FORK_SEGS, TRANSITION_SEGS, FORK_SPLIT, CHECKPOINT_AT,
   START_TIME, COUNTDOWN, OFFROAD_MAX, TUMBLE_TIME, CLOSE_PASS_SCORE, GOAL_TIME_SCORE,
-  STAGES, STAGE_COUNT, EXTEND_TIME, LANES,
+  STAGES, STAGE_COUNT, EXTEND_TIME, LANES, TUNNEL_WALL, PLAYER_HALF_W, TUNNELS, CHAIN_WINDOW,
   createGame, stepGame, autopilot, displaySpeed, totalScore, worldX, nearestCenter,
   segmentAt, difficulty,
 } from '../themes/outrun/engine.ts'
@@ -249,6 +249,92 @@ describe('traffic', () => {
   })
 })
 
+describe('close-pass chain', () => {
+  /** A straight with a slow car beside the line every few segments, all to be passed close. */
+  function slalom(n, gapSegs) {
+    const s = clean(12)
+    const i = parkOnStraight(s, 600)
+    const c = s.segments[i].centers[0]
+    s.playerX = c + 0.02
+    s.speed = MAX_SPEED * 0.9
+    s.cars = Array.from({ length: n }, (_, k) => ({ id: k + 1, z: s.position + (6 + k * gapSegs) * SEG_LEN, side: 1, rel: 0.5, targetRel: 0.5, laneT: 99, speed: MAX_SPEED * 0.4, kind: 0, paint: 0, passed: false }))
+    return s
+  }
+
+  it('pays each link of a chain more than the one before', () => {
+    const s = slalom(3, 30)
+    const ev = run(s, 4, { steer: 0, gas: true, brake: false })
+    const closes = ev.filter(e => e.type === 'close')
+    assert.equal(closes.length, 3)
+    assert.deepEqual(closes.map(e => e.chain), [1, 2, 3])
+    assert.deepEqual(closes.map(e => e.points), [CLOSE_PASS_SCORE, CLOSE_PASS_SCORE * 2, CLOSE_PASS_SCORE * 3])
+  })
+
+  it('breaks when the window runs out', () => {
+    const s = slalom(2, 30)
+    s.cars[1].z += MAX_SPEED * 0.5 * (CHAIN_WINDOW + 1)
+    const ev = run(s, CHAIN_WINDOW + 4, { steer: 0, gas: true, brake: false })
+    assert.deepEqual(ev.filter(e => e.type === 'close').map(e => e.chain), [1, 1])
+  })
+
+  it('whooshes for every car passed', () => {
+    const s = slalom(3, 30)
+    const ev = run(s, 4, { steer: 0, gas: true, brake: false })
+    const passes = ev.filter(e => e.type === 'pass')
+    assert.equal(passes.length, 3)
+    assert.ok(passes.every(e => e.dx > 0.3 && e.dx < 0.7))
+  })
+})
+
+describe('tunnels', () => {
+  it('bore through city, canyon and peaks stages only, with nothing inside', () => {
+    for (const [col, node] of [[1, 1], [2, 1], [2, 2], [0, 0], [2, 0], [3, 1]]) {
+      const s = createGame(5, { countdown: false, col, node })
+      const biome = STAGES[col][node].biome
+      let bores = 0
+      for (let i = 1; i < s.segments.length; i++) {
+        const seg = s.segments[i]
+        if (seg.tunnel && !s.segments[i - 1].tunnel) bores++
+        if (seg.tunnel) assert.equal(seg.props.length, 0, `props inside a tunnel on ${biome}`)
+      }
+      assert.equal(bores, TUNNELS[biome] ?? 0, `${biome}: ${bores} tunnels`)
+    }
+  })
+
+  it('holds the car on the road and scrapes speed off it', () => {
+    const s = clean(6, { col: 2, node: 1 })
+    const i = s.segments.findIndex(g => g.tunnel) + 10
+    s.position = i * SEG_LEN
+    s.playerX = s.segments[i].centers[0]
+    s.speed = MAX_SPEED * 0.8
+    const ev = run(s, 1.5, { steer: 1, gas: true, brake: false })
+    const seg = segmentAt(s, s.position)
+    assert.ok(seg.tunnel)
+    assert.ok(s.playerX - seg.centers[0] <= TUNNEL_WALL - PLAYER_HALF_W + 1e-6)
+    assert.ok(ev.some(e => e.type === 'tunnel' && e.on))
+    assert.ok(ev.some(e => e.type === 'scrape' && e.side === 1))
+    assert.ok(!ev.some(e => e.type === 'crash'))
+    assert.equal(s.offroad, false)
+    assert.ok(s.speed < MAX_SPEED * 0.7, `speed ${s.speed / MAX_SPEED} after the scrape`)
+  })
+})
+
+describe('exhaust', () => {
+  it('pops when lifting off at high revs, not when coasting slowly', () => {
+    const s = clean(8)
+    parkOnStraight(s, 300)
+    s.speed = MAX_SPEED * 0.8
+    run(s, 0.5, GAS)
+    assert.ok(run(s, 0.2, COAST).some(e => e.type === 'backfire'))
+    const slow = clean(8)
+    parkOnStraight(slow, 300)
+    slow.speed = MAX_SPEED * 0.1
+    run(slow, 0.3, { steer: 0, gas: true, brake: false })
+    slow.rpm = 0.4
+    assert.ok(!run(slow, 0.2, COAST).some(e => e.type === 'backfire'))
+  })
+})
+
 describe('crashes', () => {
   it('tumbles into a roadside prop and restarts on the asphalt', () => {
     const s = clean(13)
@@ -293,6 +379,9 @@ describe('forks and checkpoints', () => {
     assert.equal(s.node, 0)
     assert.deepEqual(s.route, [0, 0])
     assert.equal(cp.extend, EXTEND_TIME[1])
+    assert.equal(s.splits.length, 1, 'stage time recorded at the checkpoint')
+    assert.ok(s.splits[0] > 0)
+    assert.ok(s.stageT < 8)
   })
 
   it('takes the right branch to the harder stage and keeps one road', () => {
@@ -366,6 +455,7 @@ describe('goal', () => {
     assert.ok(goal)
     assert.equal(goal.timeBonus, 13 * GOAL_TIME_SCORE)
     assert.equal(s.status, 'goal')
+    assert.equal(s.splits.length, 1, 'the last stage time closes at the goal')
   })
 })
 

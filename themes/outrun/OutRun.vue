@@ -116,6 +116,8 @@ function frame(nowMs: number) {
       skid: state.skid,
       offroad: state.offroad,
       running: phase === 'play' || state.status === 'goal',
+      tunnel: state.inTunnel,
+      scrape: state.scrape !== 0,
     })
   }
 
@@ -217,8 +219,21 @@ function handleEvents(events: OutrunEvent[]) {
         if (e.kind === 'tumble') say('WIPEOUT', PINK, 1.8)
         break
       case 'close':
-        say('CLOSE +1000', GOLD, 1.1)
-        audio?.play('close')
+        say(e.chain > 1 ? `CLOSE ×${e.chain} +${e.points}` : `CLOSE +${e.points}`, GOLD, 1.1)
+        audio?.play('close', e.chain)
+        break
+      case 'pass':
+        audio?.pass(e.dx, state.speed / MAX_SPEED)
+        break
+      case 'backfire':
+        renderer?.backfire()
+        audio?.play('backfire')
+        break
+      case 'scrape':
+        shake = Math.max(shake, 0.3)
+        audio?.play('scrape')
+        break
+      case 'tunnel':
         break
       case 'fork':
         say(`${e.side < 0 ? '◀' : ''} ${stageDef(e.col, e.node).name} ${e.side > 0 ? '▶' : ''}`.trim(), CYAN, 1.8)
@@ -311,7 +326,8 @@ function finish(reason: OutrunResult['reason']) {
   if (reason !== 'goal') audio?.silenceEngine()
   // The shared radio keeps playing through the result screen.
   const route = state.route.map((n, c) => stageDef(c, n).name)
-  emit('over', { score: totalScore(state), reason, route, stage: state.col + 1 })
+  const splits = state.status === 'goal' ? state.splits : [...state.splits, state.stageT]
+  emit('over', { score: totalScore(state), reason, route, stage: state.col + 1, splits, node: state.node })
 }
 
 function quit() {

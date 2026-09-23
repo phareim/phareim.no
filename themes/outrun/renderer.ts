@@ -14,16 +14,12 @@
  */
 import {
   SEG_LEN, DRAW_DIST, ROAD_W, LANES, MAX_SPEED, PLAYER_HALF_W, TRAFFIC_KINDS, STAGES,
-  STAGE_COUNT, displaySpeed, totalScore, roadY, segmentAt, worldX, stageDef,
+  STAGE_COUNT, TUNNEL_WALL, TUNNEL_H, CHAIN_WINDOW, displaySpeed, totalScore, roadY, segmentAt, worldX, stageDef,
   type OutrunState, type RoadSegment, type RoadProp, type Sky, type Biome,
 } from './engine'
 import { MACHINE_FONT } from '../base/fonts'
-
-const CYAN = '#2ff3ff'
-const PINK = '#ff2fa0'
-const GOLD = '#ffd23f'
-const INK = '#f2e9ff'
-const INK_MUTED = '#b9a8d9'
+import { CYAN, PINK, GOLD, INK, INK_MUTED, mix, rgba } from './color'
+import { drawTraffic, drawPlayer as drawPlayerCar } from './cars'
 
 // ------------------------------------------------------------ palettes
 
@@ -91,31 +87,6 @@ export const SKIES: Record<Sky, Palette> = {
   },
 }
 
-const rgbCache = new Map<string, [number, number, number]>()
-function rgb(hex: string): [number, number, number] {
-  let c = rgbCache.get(hex)
-  if (!c) {
-    const n = parseInt(hex.slice(1), 16)
-    c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-    rgbCache.set(hex, c)
-  }
-  return c
-}
-function mix(a: string, b: string, t: number): string {
-  if (t <= 0) return a
-  if (t >= 1) return b
-  const x = rgb(a)
-  const y = rgb(b)
-  const r = Math.round(x[0] + (y[0] - x[0]) * t)
-  const g = Math.round(x[1] + (y[1] - x[1]) * t)
-  const bl = Math.round(x[2] + (y[2] - x[2]) * t)
-  return `#${((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1)}`
-}
-function rgba(hex: string, a: number): string {
-  const c = rgb(hex)
-  return `rgba(${c[0]},${c[1]},${c[2]},${a})`
-}
-
 function nodeDef(col: number, node: number) {
   return STAGES[Math.min(col, STAGES.length - 1)][node]
 }
@@ -165,7 +136,7 @@ interface Particle {
   max: number
   size: number
   color: string
-  kind: 'smoke' | 'spark' | 'dust'
+  kind: 'smoke' | 'spark' | 'dust' | 'firework'
 }
 
 interface Slice {
@@ -197,6 +168,15 @@ export function createRenderer(canvas: HTMLCanvasElement) {
   let portrait = false
   let stars: { x: number, y: number, b: number, ph: number, sp: number }[] = []
   let particles: Particle[] = []
+  const streaks: { a: number, r: number }[] = []
+  /** Exhaust flame left from the last backfire, light on the car (tunnels), where the car was drawn. */
+  let flame = 0
+  let light = 1
+  let carScreenX = 0
+  let carScreenY = 0
+  let fireworkT = 0
+  /** Countdown lamps on the start gantry: lamps lit (0..3), or 4 for all green. */
+  let startLamps = 4
   let skyOffset = 0
   let camX = 0
   let camInit = false
@@ -215,7 +195,8 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     portrait = SH > SW * 1.05
     HY = Math.round(SH * (portrait ? 0.43 : 0.47))
-    carBaseY = SH - Math.max(58, SH * (portrait ? 0.12 : 0.1))
+    // Portrait lifts the car clear of the speedo and tacho beneath it.
+    carBaseY = SH - Math.max(58, SH * (portrait ? 0.16 : 0.1))
     carPx = Math.min(portrait ? SW * 0.46 : SW * 0.25, 400)
     // Solve the camera height so the car is carPx wide at carBaseY.
     F = Math.max(SW, SH) * (portrait ? 0.62 : 0.55)
@@ -547,6 +528,11 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     const lines = new Path2D()
     const edges = new Path2D()
     const centerDash = new Path2D()
+    const sand = new Path2D()
+    const waterA = new Path2D()
+    const waterB = new Path2D()
+    const glints = new Path2D()
+    const glintStep = Math.floor(ui.now * 3)
 
     const quad = (p: Path2D, ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number) => {
       p.moveTo(ax, ay)
@@ -570,12 +556,36 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       }
       const band = Math.floor(seg.index / 4) % 2
       if (band) groundB.rect(0, y2, SW, y1 - y2 + 0.5)
-      if (seg.index % 8 === 0) gridH.rect(0, y1 - 0.75, SW, 1.5)
-      // Grid rails across the ground, anchored to the first road centre.
       const c0 = seg.centers[0]
+      // The coast stages run along the sea: a beach, then water to the horizon.
+      const sea = seg.centers.length === 1 && stageDef(seg.col, seg.node).biome === 'coast' ? (seg.node % 2 === 0 ? -1 : 1) : 0
+      if (sea) {
+        const beach = c0 + sea * 2.3
+        const shore = c0 + sea * 3.4
+        const b1 = sx(beach, s1, x1)
+        const b2 = sx(beach, s2, x2)
+        const e1 = sx(shore, s1, x1)
+        const e2 = sx(shore, s2, x2)
+        const far = sea < 0 ? -20 : SW + 20
+        quad(sand, b1, y1, e1, y1, e2, y2, b2, y2)
+        quad(band ? waterB : waterA, e1, y1, far, y1, far, y2, e2, y2)
+        if ((seg.index * 7 + glintStep) % 5 === 0) {
+          const h = ((seg.index * 2654435761) >>> 0) / 4294967296
+          const g = shore + sea * (0.6 + h * 7)
+          const gw = 0.35 + h * 0.5
+          quad(glints, sx(g - gw, s1, x1), y1, sx(g + gw, s1, x1), y1, sx(g + gw, s2, x2), y2, sx(g - gw, s2, x2), y2)
+        }
+      }
+      if (seg.index % 8 === 0) {
+        if (!sea) gridH.rect(0, y1 - 0.75, SW, 1.5)
+        else if (sea < 0) gridH.rect(sx(c0 - 2.3, s1, x1), y1 - 0.75, SW, 1.5)
+        else gridH.rect(0, y1 - 0.75, sx(c0 + 2.3, s1, x1), 1.5)
+      }
+      // Grid rails across the ground, anchored to the first road centre.
       for (let k = -9; k <= 9; k++) {
         if (Math.abs(k) < 2) continue
-        const lat = c0 + k * 1.1 + (seg.centers.length > 1 ? 0 : 0)
+        if (sea && Math.sign(k) === sea && Math.abs(k) * 1.1 > 2.3) continue
+        const lat = c0 + k * 1.1
         const ax = sx(lat, s1, x1)
         const bx = sx(lat, s2, x2)
         if ((ax < -50 && bx < -50) || (ax > SW + 50 && bx > SW + 50)) continue
@@ -619,6 +629,15 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     }
     ctx.fillStyle = pal.ground2
     ctx.fill(groundB)
+    ctx.fillStyle = mix(pal.ground, pal.sunMid, 0.14)
+    ctx.fill(sand)
+    // The water mirrors the low sky; glints of sun ride on it.
+    ctx.fillStyle = mix(pal.skyLow, pal.ground, 0.62)
+    ctx.fill(waterA)
+    ctx.fillStyle = mix(pal.skyLow, pal.ground, 0.7)
+    ctx.fill(waterB)
+    ctx.fillStyle = rgba(pal.sunTop, 0.75)
+    ctx.fill(glints)
     ctx.strokeStyle = rgba(pal.grid, 0.28)
     ctx.lineWidth = 1
     ctx.stroke(gridV)
@@ -646,8 +665,8 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     ctx.fillStyle = fg
     ctx.fillRect(0, HY, SW, fogH)
 
-    // The sun's reflection on the wet road.
-    if (!ui.reduced || true) {
+    // The sun's reflection on the wet road (not under a roof).
+    if (!state.inTunnel) {
       const r = Math.min(SW * (portrait ? 0.3 : 0.17), HY * 0.62)
       const sunX = SW / 2 + wrapCentered(-skyOffset * 0.35, SW * 1.4)
       ctx.save()
@@ -683,13 +702,18 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       const sl = slices[i]
       const seg = sl.seg
       const clip = sl.clip
-      if (sl.y2 >= clip && sl.y1 >= clip && seg.props.length === 0 && !bySeg.has(seg.index)) continue
+      if (sl.y2 >= clip && sl.y1 >= clip && seg.props.length === 0 && !bySeg.has(seg.index) && !seg.tunnel) continue
       const needClip = sl.clip < SH
       if (needClip) {
         ctx.save()
         ctx.beginPath()
         ctx.rect(0, 0, SW, clip)
         ctx.clip()
+      }
+      if (seg.tunnel) {
+        tunnelSlice(sl, pal, ui)
+        const prev = state.segments[seg.index - 1]
+        if (prev && !prev.tunnel && sl.z1 > 10) tunnelMouth(sl, pal, stageDef(seg.col, seg.node).biome)
       }
       for (const p of seg.props) drawProp(p, seg, sl, pal, ui)
       const cars = bySeg.get(seg.index)
@@ -698,7 +722,9 @@ export function createRenderer(canvas: HTMLCanvasElement) {
         for (const car of cars) {
           const t = (car.z - seg.index * SEG_LEN) / SEG_LEN
           const z = sl.z1 + (sl.z2 - sl.z1) * t
-          if (z < camDist * 0.35) continue
+          // Cars dropping behind the player are gone before they fill the screen.
+          if (z < camDist * 0.74) continue
+          const fade = Math.min(1, (z / camDist - 0.74) / 0.2)
           const s = F / z
           const xo = sl.x1 + (sl.x2 - sl.x1) * t
           const lat = worldX(seg, car.side, car.rel)
@@ -708,14 +734,144 @@ export function createRenderer(canvas: HTMLCanvasElement) {
           const w = kind.halfW * 2 * ROAD_W * s
           if (w < 3 || x < -w || x > SW + w) continue
           const panel = Math.max(-0.8, Math.min(0.8, (SW / 2 - x) / (SW * 0.7)))
-          drawCar(x, y, w, {
-            kind: kind.name, paint: car.paint, panel, brake: false, glow: w > 40, roll: 0, pal,
-          })
+          ctx.globalAlpha = fade
+          drawTraffic(ctx, x, y, w, { kind: kind.name, paint: car.paint, panel, glow: w > 40 })
+          ctx.globalAlpha = 1
         }
       }
       if (needClip) ctx.restore()
     }
     void camZ
+  }
+
+  // ------------------------------------------------------------ tunnels
+
+  /**
+   * One segment of tunnel, drawn in the far-to-near sprite pass so nearer
+   * walls cover farther ones in any bend: two walls and a ceiling, a neon
+   * strip along each wall, lamps down the middle of the roof.
+   */
+  function tunnelSlice(sl: Slice, pal: Palette, ui: FrameUI) {
+    const seg = sl.seg
+    const c = seg.centers[0]
+    const l1 = sx(c - TUNNEL_WALL, sl.s1, sl.x1)
+    const r1 = sx(c + TUNNEL_WALL, sl.s1, sl.x1)
+    const l2 = sx(c - TUNNEL_WALL, sl.s2, sl.x2)
+    const r2 = sx(c + TUNNEL_WALL, sl.s2, sl.x2)
+    const c1 = sl.y1 - TUNNEL_H * sl.s1
+    const c2 = sl.y2 - TUNNEL_H * sl.s2
+    // Further in is darker; alternating bands stream past.
+    const band = Math.floor(seg.index / 2) % 2
+    const wall = mix(pal.ridgeNear, '#000000', band ? 0.35 : 0.5)
+    const roof = mix(pal.ridgeNear, '#000000', band ? 0.55 : 0.65)
+    ctx.fillStyle = wall
+    ctx.beginPath()
+    ctx.moveTo(l1, sl.y1)
+    ctx.lineTo(l1, c1)
+    ctx.lineTo(l2, c2)
+    ctx.lineTo(l2, sl.y2)
+    ctx.closePath()
+    ctx.moveTo(r1, sl.y1)
+    ctx.lineTo(r1, c1)
+    ctx.lineTo(r2, c2)
+    ctx.lineTo(r2, sl.y2)
+    ctx.closePath()
+    ctx.fill()
+    ctx.fillStyle = roof
+    ctx.beginPath()
+    ctx.moveTo(l1, c1)
+    ctx.lineTo(r1, c1)
+    ctx.lineTo(r2, c2)
+    ctx.lineTo(l2, c2)
+    ctx.closePath()
+    ctx.fill()
+    // Neon strip at two thirds up each wall, and the roof edges.
+    const strip = (h: number, color: string, width: number) => {
+      const a1 = sl.y1 - TUNNEL_H * h * sl.s1
+      const a2 = sl.y2 - TUNNEL_H * h * sl.s2
+      const w1 = Math.max(0.6, width * sl.s1)
+      const w2 = Math.max(0.6, width * sl.s2)
+      ctx.fillStyle = color
+      ctx.beginPath()
+      ctx.moveTo(l1, a1 - w1)
+      ctx.lineTo(l2, a2 - w2)
+      ctx.lineTo(l2, a2 + w2)
+      ctx.lineTo(l1, a1 + w1)
+      ctx.closePath()
+      ctx.moveTo(r1, a1 - w1)
+      ctx.lineTo(r2, a2 - w2)
+      ctx.lineTo(r2, a2 + w2)
+      ctx.lineTo(r1, a1 + w1)
+      ctx.closePath()
+      ctx.fill()
+    }
+    strip(0.62, rgba(pal.edge, 0.85), 40)
+    strip(0.99, rgba(pal.prop, 0.5), 30)
+    // Roof lamps: every fourth segment, a gold bar down the middle.
+    if (seg.index % 4 === 0) {
+      const lw = 0.28
+      const m1 = sx(c, sl.s1, sl.x1)
+      const m2 = sx(c, sl.s2, sl.x2)
+      const hw1 = lw * ROAD_W * sl.s1
+      const hw2 = lw * ROAD_W * sl.s2
+      ctx.fillStyle = GOLD
+      if (sl.s1 * ROAD_W > 30 && !ui.reduced) {
+        ctx.shadowColor = GOLD
+        ctx.shadowBlur = Math.min(30, 0.5 * ROAD_W * sl.s1 * 0.1)
+      }
+      ctx.beginPath()
+      ctx.moveTo(m1 - hw1, c1 + 2)
+      ctx.lineTo(m1 + hw1, c1 + 2)
+      ctx.lineTo(m2 + hw2, c2 + 2)
+      ctx.lineTo(m2 - hw2, c2 + 2)
+      ctx.closePath()
+      ctx.fill()
+      ctx.shadowBlur = 0
+    }
+  }
+
+  /** The face around the tunnel entrance: a rock or concrete wall with a lit portal. */
+  function tunnelMouth(sl: Slice, pal: Palette, biome: Biome) {
+    const c = sl.seg.centers[0]
+    const s = sl.s1
+    const y = sl.y1
+    const l = sx(c - TUNNEL_WALL, s, sl.x1)
+    const r = sx(c + TUNNEL_WALL, s, sl.x1)
+    const top = y - TUNNEL_H * s
+    const faceH = TUNNEL_H * s * (biome === 'city' ? 2.4 : 3.2)
+    const faceW = ROAD_W * s * (biome === 'city' ? 9 : 12)
+    const m = sx(c, s, sl.x1)
+    const face = new Path2D()
+    if (biome === 'city') {
+      face.rect(m - faceW / 2, y - faceH, faceW, faceH)
+    } else {
+      // A hill shoulder over the portal.
+      face.moveTo(m - faceW / 2, y)
+      face.quadraticCurveTo(m - faceW * 0.3, y - faceH * 0.9, m - faceW * 0.05, y - faceH)
+      face.quadraticCurveTo(m + faceW * 0.2, y - faceH * 1.05, m + faceW * 0.3, y - faceH * 0.7)
+      face.quadraticCurveTo(m + faceW * 0.42, y - faceH * 0.4, m + faceW / 2, y)
+      face.closePath()
+    }
+    face.rect(r, y, l - r, top - y)
+    ctx.fillStyle = biome === 'city' ? mix(pal.ridgeNear, '#000000', 0.1) : pal.ridgeFar
+    ctx.fill(face, 'evenodd')
+    ctx.strokeStyle = rgba(pal.edge, 0.55)
+    ctx.lineWidth = Math.max(0.8, 26 * s)
+    ctx.stroke(face)
+    if (biome === 'city' && faceW > 40) {
+      // Windows on the building the road dives under.
+      ctx.fillStyle = rgba(GOLD, 0.5)
+      const cw = faceW / 18
+      for (let yy = y - faceH + cw; yy < top - cw * 0.5; yy += cw * 1.3) {
+        for (let xx = m - faceW / 2 + cw * 0.5; xx < m + faceW / 2 - cw; xx += cw * 1.4) {
+          if (Math.sin(xx * 0.37 + yy * 0.71) > 0.2) ctx.fillRect(xx, yy, cw * 0.5, cw * 0.6)
+        }
+      }
+    }
+    // The portal itself glows.
+    const ring = new Path2D()
+    ring.rect(l, top, r - l, y - top)
+    glowStroke(ring, pal.edge, Math.max(1, 60 * s), r - l > 60)
   }
 
   function drawProp(p: RoadProp, seg: RoadSegment, sl: Slice, pal: Palette, ui: FrameUI) {
@@ -1056,6 +1212,27 @@ export function createRenderer(canvas: HTMLCanvasElement) {
         ctx.fillStyle = i % 2 ? INK : '#0d0620'
         ctx.fillRect(x - w / 2 + i * cw, y - h + bh, cw, cw * 0.4)
       }
+      if (label === 'START') {
+        // The start lights: three reds one by one, then all green on GO.
+        const lr = Math.max(1.5, 150 * u)
+        const ly = y - h + bh + cw * 0.4 + lr * 1.6
+        ctx.fillStyle = '#0d0620'
+        ctx.fillRect(x - lr * 6, ly - lr * 1.4, lr * 12, lr * 2.8)
+        for (let i = 0; i < 4; i++) {
+          const green = startLamps >= 4
+          const on = green || i < startLamps
+          const col = green ? '#3dff9a' : i < 3 ? '#ff3050' : '#3dff9a'
+          ctx.fillStyle = on ? col : mix(col, '#000000', 0.8)
+          if (on && lr > 4) {
+            ctx.shadowColor = col
+            ctx.shadowBlur = lr * 2
+          }
+          ctx.beginPath()
+          ctx.arc(x + (i - 1.5) * lr * 2.8, ly, lr, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.shadowBlur = 0
+        }
+      }
     } else {
       for (let i = 0; i < 6; i++) {
         const on = ui.reduced || Math.floor(ui.now * 4 + i) % 2 === 0
@@ -1064,227 +1241,6 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       }
     }
     void pal
-  }
-
-  // --------------------------------------------------------------- cars
-
-  interface CarOpts {
-    kind: string
-    paint: number
-    panel: number
-    brake: boolean
-    glow: boolean
-    roll: number
-    pal: Palette
-    player?: boolean
-  }
-
-  const TRAFFIC_PAINT = [
-    { body: '#2a1450', hi: '#51308f' },
-    { body: '#0f3a4a', hi: '#1e6a80' },
-    { body: '#4a0f2a', hi: '#8a2350' },
-    { body: '#24243a', hi: '#4a4a70' },
-  ]
-
-  /**
-   * A car seen from behind, bottom-centre at (x, y), w pixels wide. `panel`
-   * (-1..1) turns it: the flank on that side comes into view and the cabin
-   * slides towards it, which is all a rear view needs to read as a turn.
-   */
-  function drawCar(x: number, y: number, w: number, o: CarOpts) {
-    const paint = TRAFFIC_PAINT[o.paint % TRAFFIC_PAINT.length]
-    const player = !!o.player
-    const body = player ? '#141a36' : o.kind === 'truck' ? '#2e2a44' : paint.body
-    const hi = player ? '#2c3a74' : o.kind === 'truck' ? '#4c4670' : paint.hi
-    const trim = player ? CYAN : PINK
-    const hRatio = o.kind === 'truck' ? 0.95 : o.kind === 'bug' ? 0.62 : o.kind === 'sedan' ? 0.5 : 0.4
-    const h = w * hRatio
-    const pn = o.panel
-    ctx.save()
-    ctx.translate(x, y)
-    if (o.roll) {
-      // Roll about the body's middle, not its wheels.
-      ctx.translate(0, -h * 0.5)
-      ctx.rotate(o.roll)
-      ctx.translate(0, h * 0.5)
-    }
-
-    // Shadow and the taillights' reflection on the road.
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'
-    ctx.beginPath()
-    ctx.ellipse(0, -h * 0.02, w * 0.58, h * 0.1, 0, 0, Math.PI * 2)
-    ctx.fill()
-    if (o.glow && o.kind !== 'truck') {
-      // Taillights mirrored in the wet road: two soft streaks under the lamps.
-      ctx.globalCompositeOperation = 'lighter'
-      for (const side of [-1, 1]) {
-        const cx = side * w * 0.33
-        const rg = ctx.createLinearGradient(0, 0, 0, h * 0.35)
-        rg.addColorStop(0, rgba(PINK, o.brake ? 0.32 : 0.14))
-        rg.addColorStop(1, rgba(PINK, 0))
-        ctx.fillStyle = rg
-        ctx.beginPath()
-        ctx.ellipse(cx, 0, w * 0.1, h * 0.35, 0, 0, Math.PI)
-        ctx.fill()
-      }
-      ctx.globalCompositeOperation = 'source-over'
-    }
-
-    // The flank on the turn side.
-    if (Math.abs(pn) > 0.04) {
-      const sd = Math.sign(pn)
-      const a = Math.abs(pn)
-      const ex = sd * (w * 0.5 + w * 0.32 * a)
-      const flank = new Path2D()
-      // Receding into the distance, the far end sits lower and shorter.
-      flank.moveTo(sd * w * 0.49, -h * 0.06)
-      flank.lineTo(sd * w * 0.47, -h * 0.64)
-      flank.lineTo(ex * 0.97, -h * 0.52)
-      flank.lineTo(ex, -h * 0.14)
-      flank.closePath()
-      ctx.fillStyle = mix(body, '#000000', 0.45)
-      ctx.fill(flank)
-      ctx.strokeStyle = rgba(trim, 0.22)
-      ctx.lineWidth = Math.max(0.6, w * 0.006)
-      ctx.stroke(flank)
-      // Front wheel peeking out.
-      ctx.fillStyle = '#05030c'
-      const fw = w * 0.12 * a + w * 0.02
-      ctx.fillRect(ex - sd * fw * 1.4 - fw / 2, -h * 0.28, fw, h * 0.26)
-    }
-
-    // Rear tyres.
-    ctx.fillStyle = '#05030c'
-    const tw = w * 0.14
-    const th = h * (o.kind === 'truck' ? 0.16 : 0.34)
-    ctx.fillRect(-w * 0.49, -th, tw, th)
-    ctx.fillRect(w * 0.49 - tw, -th, tw, th)
-    if (player && w > 60) {
-      ctx.fillStyle = 'rgba(47,243,255,0.25)'
-      ctx.fillRect(-w * 0.49 + tw * 0.2, -th * 0.9, tw * 0.6, Math.max(1, th * 0.08))
-      ctx.fillRect(w * 0.49 - tw * 0.8, -th * 0.9, tw * 0.6, Math.max(1, th * 0.08))
-    }
-
-    const shift = pn * w * 0.05
-    if (o.kind === 'truck') {
-      // Box body with doors.
-      ctx.fillStyle = body
-      ctx.fillRect(-w * 0.5, -h, w, h * 0.88)
-      ctx.strokeStyle = rgba(trim, 0.6)
-      ctx.lineWidth = Math.max(0.6, w * 0.008)
-      ctx.strokeRect(-w * 0.5, -h, w, h * 0.88)
-      ctx.beginPath()
-      ctx.moveTo(0, -h)
-      ctx.lineTo(0, -h * 0.12)
-      ctx.stroke()
-      ctx.fillStyle = PINK
-      ctx.fillRect(-w * 0.46, -h * 0.22, w * 0.1, h * 0.06)
-      ctx.fillRect(w * 0.36, -h * 0.22, w * 0.1, h * 0.06)
-      ctx.fillStyle = rgba(GOLD, 0.8)
-      ctx.fillRect(-w * 0.4, -h * 0.97, w * 0.8, h * 0.02)
-    } else {
-      // Lower body.
-      const lowTop = -h * 0.55
-      const lb = new Path2D()
-      lb.moveTo(-w * 0.5, -h * 0.08)
-      lb.lineTo(-w * 0.49, lowTop)
-      lb.lineTo(w * 0.49, lowTop)
-      lb.lineTo(w * 0.5, -h * 0.08)
-      lb.closePath()
-      const bg = ctx.createLinearGradient(0, lowTop, 0, 0)
-      bg.addColorStop(0, hi)
-      bg.addColorStop(1, body)
-      ctx.fillStyle = bg
-      ctx.fill(lb)
-      // Deck.
-      const deckTop = o.kind === 'bug' ? -h * 0.72 : -h * 0.66
-      ctx.fillStyle = body
-      ctx.beginPath()
-      ctx.moveTo(-w * 0.49, lowTop)
-      ctx.lineTo(-w * 0.44 + shift, deckTop)
-      ctx.lineTo(w * 0.44 + shift, deckTop)
-      ctx.lineTo(w * 0.49, lowTop)
-      ctx.closePath()
-      ctx.fill()
-      // Cabin.
-      const cabW = o.kind === 'bug' ? 0.34 : 0.32
-      const cab = new Path2D()
-      if (o.kind === 'bug') {
-        cab.moveTo(-w * cabW + shift, deckTop)
-        cab.bezierCurveTo(-w * cabW + shift, -h * 1.05, w * cabW + shift, -h * 1.05, w * cabW + shift, deckTop)
-      } else {
-        cab.moveTo(-w * cabW + shift * 1.3, deckTop)
-        cab.lineTo(-w * (cabW - 0.08) + shift * 1.6, -h)
-        cab.lineTo(w * (cabW - 0.08) + shift * 1.6, -h)
-        cab.lineTo(w * cabW + shift * 1.3, deckTop)
-      }
-      cab.closePath()
-      ctx.fillStyle = mix(body, '#000000', 0.15)
-      ctx.fill(cab)
-      // Rear glass, inset, with the sky mirrored in it.
-      if (w > 24) {
-        const gl = new Path2D()
-        const inset = w * 0.035
-        const gTop = deckTop + (-h - deckTop) * 0.82
-        if (o.kind === 'bug') {
-          gl.moveTo(-w * (cabW - 0.07) + shift, deckTop - h * 0.04)
-          gl.bezierCurveTo(-w * (cabW - 0.08) + shift, -h * 0.95, w * (cabW - 0.08) + shift, -h * 0.95, w * (cabW - 0.07) + shift, deckTop - h * 0.04)
-        } else {
-          gl.moveTo(-w * cabW + inset + shift * 1.3, deckTop - h * 0.03)
-          gl.lineTo(-w * (cabW - 0.08) + inset * 0.8 + shift * 1.55, gTop)
-          gl.lineTo(w * (cabW - 0.08) - inset * 0.8 + shift * 1.55, gTop)
-          gl.lineTo(w * cabW - inset + shift * 1.3, deckTop - h * 0.03)
-        }
-        gl.closePath()
-        const gg = ctx.createLinearGradient(0, gTop, 0, deckTop)
-        gg.addColorStop(0, player ? '#3a1a5a' : '#2a1640')
-        gg.addColorStop(0.6, player ? '#b02a7a' : '#6a2050')
-        gg.addColorStop(1, '#1a0a26')
-        ctx.fillStyle = gg
-        ctx.fill(gl)
-        ctx.strokeStyle = rgba(player ? CYAN : INK_MUTED, player ? 0.75 : 0.3)
-        ctx.lineWidth = Math.max(0.6, w * 0.005)
-        ctx.stroke(gl)
-      }
-      // Rim along the deck line.
-      ctx.fillStyle = trim
-      ctx.fillRect(-w * 0.47, lowTop - h * 0.02, w * 0.94, Math.max(1, h * 0.025))
-      // Strakes across the rear panel (the Testarossa nod), taillights over them.
-      if (player || o.kind === 'coupe') {
-        ctx.fillStyle = 'rgba(0,0,0,0.55)'
-        for (let i = 0; i < 4; i++) ctx.fillRect(-w * 0.3, -h * (0.48 - i * 0.07), w * 0.6, Math.max(1, h * 0.028))
-      }
-      const lightY = -h * (player ? 0.46 : 0.44)
-      const lightH = h * (player ? 0.13 : 0.1)
-      const bright = o.brake ? '#ffe0f0' : PINK
-      if (o.glow) {
-        ctx.shadowColor = PINK
-        ctx.shadowBlur = o.brake ? w * 0.12 : w * 0.06
-      }
-      ctx.fillStyle = bright
-      if (o.kind === 'bug') {
-        ctx.beginPath()
-        ctx.ellipse(-w * 0.34, lightY + lightH / 2, w * 0.06, lightH * 0.7, 0, 0, Math.PI * 2)
-        ctx.ellipse(w * 0.34, lightY + lightH / 2, w * 0.06, lightH * 0.7, 0, 0, Math.PI * 2)
-        ctx.fill()
-      } else {
-        ctx.fillRect(-w * 0.46, lightY, w * 0.26, lightH)
-        ctx.fillRect(w * 0.2, lightY, w * 0.26, lightH)
-      }
-      ctx.shadowBlur = 0
-      // Plate and exhausts.
-      ctx.fillStyle = player ? rgba(CYAN, 0.85) : '#d8d0e8'
-      ctx.fillRect(-w * 0.07, -h * 0.3, w * 0.14, h * 0.08)
-      ctx.fillStyle = '#05030c'
-      ctx.fillRect(-w * 0.44, -h * 0.13, w * 0.88, h * 0.05)
-      if (player) {
-        ctx.fillStyle = '#3a3f55'
-        ctx.fillRect(-w * 0.2, -h * 0.12, w * 0.06, h * 0.05)
-        ctx.fillRect(w * 0.14, -h * 0.12, w * 0.06, h * 0.05)
-      }
-    }
-    ctx.restore()
-    void o.pal
   }
 
   function drawPlayer(state: OutrunState, ui: FrameUI, pal: Palette) {
@@ -1316,7 +1272,17 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       }
     }
     x = Math.max(w * 0.45, Math.min(SW - w * 0.45, x))
-    drawCar(x, y, w, { kind: 'player', paint: 0, panel, brake: ui.braking && !c, glow: true, roll, pal, player: true })
+    // The curve pushes the two heads outward; the tunnel dims the paint.
+    const seg = segmentAt(state, state.position)
+    const lean = Math.max(-1, Math.min(1, -seg.curve * ratio * ratio * 0.35))
+    light += ((state.inTunnel ? 0.45 : 1) - light) * Math.min(1, ui.dt * 6)
+    flame = Math.max(0, flame - ui.dt * 7)
+    drawPlayerCar(ctx, x, y, w, {
+      panel, brake: ui.braking && !c, roll, lean, now: ui.now, speed: ratio, reduced: ui.reduced, flame, light,
+    })
+    carScreenX = x
+    carScreenY = y
+    if (state.scrape && !ui.reduced && Math.random() < 0.8) sparks(x + state.scrape * w * 0.5, y - w * 0.12, 2, -state.scrape)
 
     // Tyre smoke, dust, sparks.
     if (!ui.reduced && ui.phase === 'play') {
@@ -1330,13 +1296,13 @@ export function createRenderer(canvas: HTMLCanvasElement) {
             vy: -30 - Math.random() * 60,
             life: 0,
             max: kind === 'spark' ? 0.35 : 0.8 + Math.random() * 0.4,
-            size: kind === 'spark' ? 2 : w * (0.04 + Math.random() * 0.04),
+            size: kind === 'spark' ? 2 : w * (0.02 + Math.random() * 0.025),
             color,
             kind,
           })
         }
       }
-      if (state.skid > 0.25 && Math.random() < state.skid) emit(1, 'smoke', '#b8a8d8')
+      if (state.skid > 0.25 && Math.random() < state.skid * 0.7) emit(1, 'smoke', '#b8a8d8')
       if (state.offroad && ratio > 0.1) emit(2, 'dust', mix(pal.ground, '#c89a9a', 0.6))
       if (c && c.kind !== 'bump' && c.t < c.dur * 0.8) emit(2, 'smoke', '#9a8ab8')
     }
@@ -1352,12 +1318,25 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       }
       p.x += p.vx * dt
       p.y += p.vy * dt
-      p.vy += (p.kind === 'spark' ? 400 : -10) * dt
+      p.vy += (p.kind === 'spark' ? 400 : p.kind === 'firework' ? 60 : -10) * dt
+      if (p.kind === 'firework') {
+        p.vx *= 1 - dt * 1.5
+        p.vy *= 1 - dt * 1.5
+      }
       const t = p.life / p.max
-      ctx.globalAlpha = (1 - t) * (p.kind === 'spark' ? 1 : 0.45)
+      const hard = p.kind === 'spark' || p.kind === 'firework'
+      ctx.globalAlpha = (1 - t) * (hard ? 1 : 0.32)
       ctx.fillStyle = p.color
-      const sz = p.size * (p.kind === 'spark' ? 1 : 1 + t * 2.5)
-      if (p.kind === 'spark') ctx.fillRect(p.x, p.y, sz, sz)
+      const sz = p.size * (hard ? 1 : 1 + t * 2)
+      if (p.kind === 'firework') {
+        // A short streak along its flight, so a burst reads as a shell.
+        ctx.strokeStyle = p.color
+        ctx.lineWidth = sz
+        ctx.beginPath()
+        ctx.moveTo(p.x, p.y)
+        ctx.lineTo(p.x - p.vx * 0.06, p.y - p.vy * 0.06)
+        ctx.stroke()
+      } else if (hard) ctx.fillRect(p.x, p.y, sz, sz)
       else {
         ctx.beginPath()
         ctx.arc(p.x, p.y, sz, 0, Math.PI * 2)
@@ -1365,13 +1344,63 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       }
     }
     ctx.globalAlpha = 1
-    if (particles.length > 260) particles.splice(0, particles.length - 260)
+    if (particles.length > 400) particles.splice(0, particles.length - 400)
   }
 
-  function sparks(x: number, y: number, n: number) {
+  /** Sparks from a point; `dir` biases them sideways (a wall scrape throws them away from the wall). */
+  function sparks(x: number, y: number, n: number, dir = 0) {
     for (let i = 0; i < n; i++) {
-      particles.push({ x, y, vx: (Math.random() - 0.5) * 500, vy: -Math.random() * 300, life: 0, max: 0.4 + Math.random() * 0.3, size: 2, color: GOLD, kind: 'spark' })
+      particles.push({ x, y, vx: (Math.random() - 0.5) * 500 + dir * 260, vy: -Math.random() * 300, life: 0, max: 0.4 + Math.random() * 0.3, size: 2, color: GOLD, kind: 'spark' })
     }
+  }
+
+  /** One firework shell bursting in the sky over the goal. */
+  function firework() {
+    const x = SW * (0.15 + Math.random() * 0.7)
+    const y = HY * (0.2 + Math.random() * 0.45)
+    const color = [CYAN, PINK, GOLD, INK][Math.floor(Math.random() * 4)]
+    const n = 36
+    const v = Math.min(SW, SH) * (0.25 + Math.random() * 0.15)
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2
+      const k = 0.7 + Math.random() * 0.3
+      particles.push({ x, y, vx: Math.cos(a) * v * k, vy: Math.sin(a) * v * k, life: 0, max: 1.1 + Math.random() * 0.5, size: 3, color, kind: 'firework' })
+    }
+  }
+
+  // ------------------------------------------------------------ streaks
+
+  /** Speed lines rushing out from the vanishing point once the car is flying. */
+  function drawStreaks(state: OutrunState, ui: FrameUI) {
+    const ratio = state.speed / MAX_SPEED
+    const on = Math.max(0, (ratio - 0.7) / 0.3) * (state.inTunnel ? 1.6 : 1)
+    if (ui.reduced || on <= 0 || ui.phase !== 'play') {
+      streaks.length = 0
+      return
+    }
+    const R = Math.hypot(SW, SH) * 0.6
+    while (streaks.length < 22) streaks.push({ a: Math.random() * Math.PI * 2, r: R * (0.25 + Math.random() * 0.75) })
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
+    ctx.strokeStyle = rgba(INK, 0.1 * Math.min(1.4, on))
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    for (const st of streaks) {
+      st.r += R * ui.dt * (1.2 + ratio * 1.6) * (st.r / R + 0.2)
+      if (st.r > R) {
+        st.a = Math.random() * Math.PI * 2
+        st.r = R * (0.25 + Math.random() * 0.2)
+      }
+      // Keep clear of the road and car in the middle of the lower half.
+      const dx = Math.cos(st.a)
+      const dy = Math.sin(st.a)
+      if (dy > 0.2 && Math.abs(dx) < 0.75) continue
+      const len = st.r * 0.22
+      ctx.moveTo(SW / 2 + dx * st.r, HY + dy * st.r * 0.8)
+      ctx.lineTo(SW / 2 + dx * (st.r + len), HY + dy * (st.r + len) * 0.8)
+    }
+    ctx.stroke()
+    ctx.restore()
   }
 
   // ---------------------------------------------------------------- HUD
@@ -1407,6 +1436,16 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     // Score, top left.
     label('SCORE', pad, top + small, small, CYAN)
     text(String(totalScore(state)), pad, top + small + mid * 1.1, mid, CYAN)
+    // The close-pass chain and the time left to extend it.
+    if (state.chain > 1) {
+      const cy = top + small + mid * 1.1 + small * 2
+      text(`CHAIN ×${state.chain}`, pad, cy, small * 1.15, GOLD, 'left', true, 'bold ')
+      const bw = Math.min(110, SW * 0.2)
+      ctx.fillStyle = rgba(GOLD, 0.2)
+      ctx.fillRect(pad, cy + 6, bw, 3)
+      ctx.fillStyle = GOLD
+      ctx.fillRect(pad, cy + 6, bw * (state.chainT / CHAIN_WINDOW), 3)
+    }
 
     // Time, top centre.
     const secs = Math.max(0, Math.ceil(state.time))
@@ -1576,6 +1615,14 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     camX += (target - camX) * Math.min(1, ui.dt * (state.crash?.kind === 'tumble' ? 1.5 : 4.5))
     const ratio = state.speed / MAX_SPEED
     skyOffset += seg.curve * ratio * ui.dt * SW * 0.09
+    startLamps = state.status === 'countdown' ? Math.max(0, Math.min(3, 4 - Math.ceil(state.countdown))) : 4
+    if (state.status === 'goal' && ui.phase !== 'attract' && ui.phase !== 'radio' && !ui.reduced) {
+      fireworkT -= ui.dt
+      if (fireworkT <= 0) {
+        firework()
+        fireworkT = 0.25 + Math.random() * 0.35
+      }
+    }
 
     ctx.save()
     if (ui.shake > 0 && !ui.reduced) ctx.translate((Math.random() - 0.5) * 14 * ui.shake, (Math.random() - 0.5) * 10 * ui.shake)
@@ -1583,6 +1630,7 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     projectSlices(state)
     drawRoad(state, pal, ui)
     drawSprites(state, pal, ui)
+    drawStreaks(state, ui)
     drawPlayer(state, ui, pal)
     drawParticles(ui.dt)
     ctx.restore()
@@ -1606,12 +1654,16 @@ export function createRenderer(canvas: HTMLCanvasElement) {
   function resetCamera() {
     camInit = false
     particles = []
+    streaks.length = 0
+    flame = 0
+    light = 1
     skyOffset = 0
   }
 
   return {
     resize, draw, resetCamera, radioCardAt, radioHudHit,
-    sparksAtCar: (n: number) => sparks(SW / 2 + (Math.random() - 0.5) * carPx * 0.5, carBaseY - carPx * 0.1, n),
+    sparksAtCar: (n: number) => sparks((carScreenX || SW / 2) + (Math.random() - 0.5) * carPx * 0.5, (carScreenY || carBaseY) - carPx * 0.1, n),
+    backfire() { flame = 1 },
     get width() { return SW },
     get height() { return SH },
   }

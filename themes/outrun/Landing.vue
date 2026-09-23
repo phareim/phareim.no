@@ -7,7 +7,7 @@
     <template #body>
       <div v-if="phase === 'attract'" class="outrun-title-block">
         <h1 class="outrun-logo">OUTRUN</h1>
-        <p class="outrun-hud outrun-tag">FIVE STAGES · FIFTEEN ROADS · ONE CLOCK</p>
+        <p class="outrun-hud outrun-tag">FIFTEEN ROADS · FIVE ENDINGS · ONE CLOCK</p>
         <div class="outrun-plate">
           <p class="outrun-hint">▶ {{ hint('PRESS ENTER TO DRIVE', 'TAP TO DRIVE') }} ◀</p>
           <p class="outrun-hint outrun-hint-dim">{{ hint('↑ GAS · ↓ BRAKE · ← → STEER · M RADIO', 'DRAG TO STEER · 2ND FINGER BRAKES') }}</p>
@@ -16,8 +16,15 @@
       </div>
       <div v-else-if="phase === 'over' && result" class="outrun-over">
         <h1 class="outrun-over-title">{{ title }}</h1>
+        <p v-if="ending" class="outrun-ending">{{ ending }}</p>
         <p class="outrun-hud">SCORE: {{ result.score }}</p>
-        <p class="outrun-hud outrun-route">{{ result.route.join(' · ') }}</p>
+        <table class="outrun-splits">
+          <tr v-for="(name, i) in result.route" :key="i">
+            <td class="outrun-splits-n">{{ i + 1 }}</td>
+            <td>{{ name }}</td>
+            <td class="outrun-splits-t">{{ i < result.splits.length ? lap(result.splits[i]) : '' }}</td>
+          </tr>
+        </table>
         <p v-if="isNewHigh" class="outrun-hud outrun-new-high">NEW HIGH SCORE!</p>
         <p v-else class="outrun-hud outrun-dim">HIGH SCORE: {{ highScore }}</p>
         <p v-if="rank" class="outrun-hud outrun-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
@@ -43,6 +50,24 @@ const isNewHigh = ref(false)
 
 /** This run's world rank, once the Hall of Fame has answered. */
 const rank = computed(() => lastSubmission.value?.game === 'outrun' && result.value && lastSubmission.value.score === result.value.score ? lastSubmission.value : null)
+
+/** One line of epilogue per road the goal can be reached on (the fifth column, easiest to hardest). */
+const ENDINGS = [
+  'THE BOULEVARD TURNS ITS LIGHTS ON FOR YOU, ONE BY ONE.',
+  'YOU PARK AT THE WATER AND WATCH THE SUN REFUSE TO SET.',
+  'A TROPHY IN THE SAND, AND NOBODY FOR A HUNDRED MILES.',
+  'ABOVE THE CLOUDS NOW. THE RADIO IS STILL PLAYING.',
+  'THE HARDEST ROAD. THE CROWD WAITED ALL NIGHT FOR YOU.',
+]
+const ending = computed(() => (result.value?.reason === 'goal' ? ENDINGS[result.value.node] ?? '' : ''))
+
+/** Stage time the way the cabinet shows it: 1'04"37. */
+function lap(t: number) {
+  const m = Math.floor(t / 60)
+  const sec = Math.floor(t % 60)
+  const cs = Math.floor((t * 100) % 100)
+  return `${m}'${String(sec).padStart(2, '0')}"${String(cs).padStart(2, '0')}`
+}
 
 const title = computed(() => {
   if (!result.value) return ''
@@ -143,11 +168,40 @@ function onOver(r: OutrunResult) {
   font-size: 0.7em !important;
 }
 
-.outrun-route {
-  font-size: 0.65em !important;
-  opacity: 0.85;
-  letter-spacing: 0.1em;
-  line-height: 1.6;
+.outrun-ending {
+  font-family: var(--font-machine);
+  color: #ffd23f;
+  text-shadow: 0 0 10px rgba(255, 210, 63, 0.5);
+  font-size: 0.72em;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  margin: 0 auto 0.8em;
+  max-width: 34em;
+  text-wrap: balance;
+}
+
+/* The lap table: stage, road, time. */
+.outrun-splits {
+  margin: 0.5em auto 0.6em;
+  border-collapse: collapse;
+  font-family: var(--font-machine);
+  font-size: 0.66em;
+  letter-spacing: 0.08em;
+  color: #2ff3ff;
+  opacity: 0.9;
+}
+.outrun-splits td {
+  padding: 0.12em 0.6em;
+  text-align: left;
+  white-space: nowrap;
+}
+.outrun-splits .outrun-splits-n {
+  color: #ff2fa0;
+}
+.outrun-splits .outrun-splits-t {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #f2e9ff;
 }
 
 .outrun-over-title {
