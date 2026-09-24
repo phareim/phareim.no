@@ -270,7 +270,7 @@ watch(index, () => nextTick(fit))
   touch-action: none;
   display: grid;
   place-items: center;
-  padding: 12px;
+  padding: 12px 12px calc(12px + var(--app-safe-bottom, 0px));
   box-sizing: border-box;
 }
 
@@ -600,7 +600,7 @@ watch(index, () => nextTick(fit))
   z-index: 2;
   left: 0;
   right: 0;
-  bottom: 42px;
+  bottom: calc(42px + var(--app-safe-bottom, 0px));
   margin: 0;
   text-align: center;
   font-size: 11.2px;
@@ -626,7 +626,7 @@ watch(index, () => nextTick(fit))
 
 /* Phones: the dots rail and hint go. */
 @media (max-width: 640px), (max-height: 700px) {
-  .lb-landing { padding: 10px 46px 48px; }
+  .lb-landing { padding: 10px 46px calc(48px + var(--app-safe-bottom, 0px)); }
   .lb-panel { padding: 14px 14px 12px; }
   .lb-title { font-size: 22px; }
   .lb-row { padding: 0 6px; column-gap: 8px; font-size: 11.2px; letter-spacing: .1em; grid-template-columns: 26px 18px 1fr auto auto; }
@@ -639,7 +639,7 @@ watch(index, () => nextTick(fit))
 
 @media (max-height: 560px) {
   .lb-hud { display: none; }
-  .lb-landing { padding: 8px 46px 26px; }
+  .lb-landing { padding: 8px 46px calc(26px + var(--app-safe-bottom, 0px)); }
   .lb-panel { width: min(560px, 100%); }
   .lb-over, .lb-tagline { display: none; }
   .lb-board { margin: 8px 0 6px; padding-top: 4px; }

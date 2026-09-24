@@ -6,6 +6,7 @@
 <script setup>
 import { MACHINE_FONT } from '~/themes/base/fonts'
 import EscHold from '../base/EscHold.vue'
+import { safeBottom } from '../base/safeBottom'
 import { readShipDef } from '~/composables/useShip'
 import { useSound } from '~/composables/useSound'
 
@@ -70,6 +71,11 @@ let SW = 0 // screen width
 let SH = 0 // screen height
 let portrait = false // screen taller than wide -> world rotated, ship flies up
 let dpr = 1
+let bottomBand = 0 // --app-safe-bottom in CSS px; 0 in a browser tab
+// Ship limits that keep it and the HUD line under it out of the bottom band
+// (landscape: high world y; portrait: low world x). Band 0 = the old limits.
+const shipMinX = () => portrait && bottomBand ? bottomBand + 36 : 16
+const shipMaxY = () => !portrait && bottomBand ? H - bottomBand - 36 : H - 20
 
 const CYAN = '#2ff3ff' // Neon Dreams design system: cyan is the player & the interface
 const ORANGE = '#ff7a1a'
@@ -197,10 +203,11 @@ function setupCanvas() {
   c.width = Math.round(SW * dpr)
   c.height = Math.round(SH * dpr)
   ctx = c.getContext('2d')
+  bottomBand = safeBottom()
   applyWorldTransform()
-  ship.x = Math.max(40, W * 0.18)
+  ship.x = Math.max(shipMinX(), 40, W * 0.18)
   ship.y = ship.y || H / 2
-  ship.y = clamp(ship.y, 30, H - 30)
+  ship.y = clamp(ship.y, 30, Math.min(H - 30, shipMaxY()))
 }
 
 function initStars() {
@@ -330,7 +337,7 @@ function resetGame() {
   paused.value = false
   keys = {}
   keyFire = false
-  ship.x = Math.max(40, W * 0.18)
+  ship.x = Math.max(shipMinX(), 40, W * 0.18)
   ship.y = H / 2
   ship.alive = true
   force.attached = true
@@ -381,7 +388,7 @@ function startDemo() {
   enemies = []
   particles = []
   shockwaves = []
-  ship.x = Math.max(40, W * 0.18)
+  ship.x = Math.max(shipMinX(), 40, W * 0.18)
   ship.y = H / 2
   ship.alive = true
   force.attached = true
@@ -733,11 +740,11 @@ function autopilot(dt, now) {
   // Respect the cave walls.
   const margin = 34
   targetY = clamp(targetY, ceilYAt(ship.x) + margin, floorYAt(ship.x) - margin)
-  targetY = clamp(targetY, 24, H - 24)
+  targetY = clamp(targetY, 24, Math.min(H - 24, shipMaxY()))
   if (ship.y < ceilYAt(ship.x) + 40 || ship.y > floorYAt(ship.x) - 40) {
     targetY = (ceilYAt(ship.x) + floorYAt(ship.x)) / 2
   }
-  const targetX = clamp(Math.max(40, W * 0.18), 20, W * 0.45)
+  const targetX = clamp(Math.max(shipMinX(), 40, W * 0.18), 20, W * 0.45)
   ship.x += clamp(targetX - ship.x, -1, 1) * SHIP_SPEED * 0.5 * dt
   ship.y += clamp(targetY - ship.y, -1, 1) * SHIP_SPEED * 0.9 * dt
 }
@@ -800,7 +807,7 @@ function update(nowMs) {
   // Respawn handling.
   if (!ship.alive && !gameOver && now >= respawnAt) {
     ship.alive = true
-    ship.x = Math.max(40, W * 0.18)
+    ship.x = Math.max(shipMinX(), 40, W * 0.18)
     ship.y = H / 2
     force.attached = true
     force.angle = 0
@@ -838,8 +845,8 @@ function update(nowMs) {
         ship.y += my * SHIP_SPEED * dt
       }
     }
-    ship.x = clamp(ship.x, 16, W * 0.45)
-    ship.y = clamp(ship.y, 20, H - 20)
+    ship.x = clamp(ship.x, shipMinX(), W * 0.45)
+    ship.y = clamp(ship.y, 20, shipMaxY())
     // Cave walls bite; the rendered angular rim is also the collision surface.
     if (!demo && now >= invulnUntil) {
       if (insideTerrain(ship.x, ship.y, 9)) {

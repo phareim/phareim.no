@@ -260,12 +260,12 @@ function onGameRestart() {
   animation: sfx-pulse 0.8s ease-in-out infinite alternate;
 }
 /* Bottom dock: all in-game text and meters sit here so the corridor
-   stays clear. Clears the pager dots (~2.5 rem tall at the bottom). */
+   stays clear. Sits above the bottom band (--app-safe-bottom), at least 3 rem up. */
 .sfx-dock {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(max(3rem, env(safe-area-inset-bottom) + 2.2rem));
+  bottom: max(3rem, calc(2.2rem + var(--app-safe-bottom, 0px)));
   z-index: 3;
   width: min(520px, 72vw);
   text-align: center;

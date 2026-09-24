@@ -17,6 +17,7 @@
  * down), a second finger brakes, tap the radio readout to change track.
  */
 import EscHold from '../base/EscHold.vue'
+import { safeBottom } from '../base/safeBottom'
 import {
   createGame, stepGame, autopilot, totalScore, stageDef, MAX_SPEED,
   type OutrunState, type OutrunEvent, type OutrunInput, type OutrunResult,
@@ -486,7 +487,7 @@ let resizeT: ReturnType<typeof setTimeout> | null = null
 function resize() {
   const c = canvas.value
   if (!c || !renderer) return
-  renderer.resize(c.clientWidth || window.innerWidth, c.clientHeight || window.innerHeight, window.devicePixelRatio || 1)
+  renderer.resize(c.clientWidth || window.innerWidth, c.clientHeight || window.innerHeight, window.devicePixelRatio || 1, safeBottom())
 }
 function onResize() {
   if (resizeT) clearTimeout(resizeT)

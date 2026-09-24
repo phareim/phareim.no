@@ -864,7 +864,7 @@ onBeforeUnmount(() => {
 .as-skip {
   position: absolute;
   right: max(18px, env(safe-area-inset-right));
-  bottom: max(18px, env(safe-area-inset-bottom));
+  bottom: max(18px, var(--app-safe-bottom, 0px));
   margin: 0;
   font-family: var(--font-machine);
   font-size: 10px;
@@ -879,7 +879,7 @@ onBeforeUnmount(() => {
   position: absolute;
   left: 16px;
   right: 16px;
-  bottom: max(52px, calc(40px + env(safe-area-inset-bottom)));
+  bottom: max(52px, calc(40px + var(--app-safe-bottom, 0px)));
   margin: 0;
   text-align: center;
   font-family: var(--font-machine);
@@ -899,7 +899,7 @@ onBeforeUnmount(() => {
   position: absolute;
   left: max(10px, env(safe-area-inset-left));
   right: max(10px, env(safe-area-inset-right));
-  bottom: max(40px, calc(30px + env(safe-area-inset-bottom)));
+  bottom: max(40px, calc(30px + var(--app-safe-bottom, 0px)));
   display: none;
   justify-content: space-between;
   gap: 16px;
@@ -956,13 +956,13 @@ onBeforeUnmount(() => {
 
 .as-istouch .as-hint,
 .as-istouch .as-line {
-  bottom: max(104px, calc(94px + env(safe-area-inset-bottom)));
+  bottom: max(104px, calc(94px + var(--app-safe-bottom, 0px)));
 }
 
 @media (pointer: coarse) {
   .as-shell .as-hint,
   .as-shell .as-line {
-    bottom: max(104px, calc(94px + env(safe-area-inset-bottom)));
+    bottom: max(104px, calc(94px + var(--app-safe-bottom, 0px)));
   }
 }
 
@@ -1025,7 +1025,7 @@ onBeforeUnmount(() => {
   }
 
   .as-touch {
-    bottom: max(30px, calc(22px + env(safe-area-inset-bottom)));
+    bottom: max(30px, calc(22px + var(--app-safe-bottom, 0px)));
   }
 
   .as-zone {
@@ -1034,7 +1034,7 @@ onBeforeUnmount(() => {
 
   .as-istouch .as-hint,
   .as-istouch .as-line {
-    bottom: 76px;
+    bottom: calc(76px + var(--app-safe-bottom, 0px));
   }
 }
 </style>

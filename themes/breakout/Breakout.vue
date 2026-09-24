@@ -16,6 +16,7 @@ import EscHold from '../base/EscHold.vue'
 const emit = defineEmits(['score', 'death', 'restart', 'started', 'lives', 'level'])
 
 import { createHorizon } from '../base/neonHorizon.js'
+import { safeBottom } from '../base/safeBottom'
 import { useSound } from '~/composables/useSound'
 
 const sound = useSound()
@@ -27,6 +28,7 @@ let gameRunning = false
 let W = 0
 let H = 0
 let dpr = 1
+let bandBottom = 0 // --app-safe-bottom in CSS px; the paddle sits above it
 let horizon = null
 
 // Game state
@@ -89,7 +91,8 @@ function setupCanvas() {
   ctx = c.getContext('2d')
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   paddle.baseW = Math.min(120, Math.max(72, W * 0.24))
-  paddle.y = H - 56
+  bandBottom = safeBottom()
+  paddle.y = H - 56 - bandBottom
   paddle.x = clamp(paddle.x || W / 2, paddle.w / 2, W - paddle.w / 2)
   if (!horizon) horizon = createHorizon({ ctx })
   horizon.resize(W, H, ctx)

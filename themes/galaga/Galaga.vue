@@ -6,6 +6,7 @@
 
 <script setup>
 import { MACHINE_FONT } from '~/themes/base/fonts'
+import { safeBottom } from '~/themes/base/safeBottom'
 import EscHold from '../base/EscHold.vue'
 import Intercom from './Intercom.vue'
 import { readShipDef } from '~/composables/useShip'
@@ -45,6 +46,9 @@ let gameRunning = false
 let dpr = 1
 function W() { return canvas.value.width / dpr }
 function H() { return canvas.value.height / dpr }
+// The site's bottom band in CSS px (0 in a browser tab): the ship, its
+// clamp and the phone boss bar stay above it; the backdrop runs through.
+let band = 0
 let atlas = null
 
 // --- Clock (2026-09-23): the world steps at a fixed 60 Hz on a simulated
@@ -312,7 +316,7 @@ function resetGame() {
   if (atlas) ensureShip(atlas, shipDef)
   const now = simNow
   player.x = W() / 2
-  player.y = H() - 60
+  player.y = H() - 60 - band
   player.bank = 0
   player.prevX = player.x
   player.prevY = player.y
@@ -978,7 +982,7 @@ function update(now) {
   if (keys['ArrowUp'] || keys['KeyW']) player.y -= player.speed
   if (keys['ArrowDown'] || keys['KeyS']) player.y += player.speed
   player.x = Math.max(player.width / 2, Math.min(w - player.width / 2, player.x))
-  player.y = Math.max(player.height, Math.min(h - player.height / 2, player.y))
+  player.y = Math.max(player.height, Math.min(h - band - player.height / 2, player.y))
 
   // SYNC fires by itself: Claude has the trigger.
   if (keys['Space'] || syncTimer > 0) fire(now)
@@ -1576,7 +1580,7 @@ function drawHud(now) {
     const bw = Math.min(420, w - (phone ? 28 : 200))
     const bx = (w - bw) / 2
     // Phones: above the pager at the bottom, clear of the intercom.
-    const by = phone ? H() - 64 : 52
+    const by = phone ? H() - 64 - band : 52
     hudText(boss.name ?? 'CANTOR', bx, by, '#ff2fa0', 10.4, 'left', 'rgba(255,47,160,0.6)')
     ctx.fillStyle = 'rgba(80,60,110,0.45)'
     ctx.fillRect(bx, by + 15, bw, 5)
@@ -2071,6 +2075,7 @@ function setupCanvas() {
   dpr = Math.min(2, window.devicePixelRatio || 1)
   const cssW = canvas.value.offsetWidth
   const cssH = canvas.value.offsetHeight
+  band = safeBottom()
   canvas.value.width = Math.round(cssW * dpr)
   canvas.value.height = Math.round(cssH * dpr)
   ctx = canvas.value.getContext('2d')
@@ -2192,7 +2197,7 @@ onMounted(() => {
   initBgShapes()
   // Don't auto-start — wait for Enter
   player.x = canvas.value ? W() / 2 : 0
-  player.y = canvas.value ? H() - 60 : 0
+  player.y = canvas.value ? H() - 60 - band : 0
   player.prevX = player.x
   player.prevY = player.y
   gameRunning = true

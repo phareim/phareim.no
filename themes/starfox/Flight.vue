@@ -30,6 +30,7 @@
  */
 import * as THREE from 'three'
 import EscHold from '../base/EscHold.vue'
+import { safeBottom } from '../base/safeBottom'
 import {
   HP_MAX, DMG, HEAL_RING, HEAL_CLEAR,
   type SectorPhase, advanceSector, bossMaxHp, sectorClearBonus,
@@ -138,6 +139,8 @@ let raf = 0
 let last = 0
 let W = 0
 let H = 0
+// Bottom band in CSS px (0 in a browser tab); the view shifts up by it.
+let band = 0
 let portrait = false
 
 let gameStarted = false
@@ -2770,6 +2773,11 @@ function resize() {
   renderer.setSize(W, H, false)
   camera.aspect = W / H
   camera.fov = portrait ? 80 : 62
+  // Installed web app: render the view `band` px lower so the scene (ship
+  // included) lifts off the bottom edge; the canvas stays full-bleed.
+  band = safeBottom()
+  if (band > 0) camera.setViewOffset(W, H, 0, band, W, H)
+  else camera.clearViewOffset()
   camera.updateProjectionMatrix()
   if (sunMesh && sunHalo) placeSun()
 }

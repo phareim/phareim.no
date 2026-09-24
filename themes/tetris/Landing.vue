@@ -21,7 +21,7 @@ onBeforeUnmount(() => { navigationLocked.value = false })
 </script>
 
 <style scoped>
-.tetris-landing { position: relative; isolation: isolate; height: var(--app-height, 100dvh); overflow: hidden; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(54px, calc(42px + env(safe-area-inset-bottom))) max(16px, env(safe-area-inset-left)); }
+.tetris-landing { position: relative; isolation: isolate; height: var(--app-height, 100dvh); overflow: hidden; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(54px, calc(42px + var(--app-safe-bottom, 0px))) max(16px, env(safe-area-inset-left)); }
 /* The cabinet keeps the desktop sizing it was tuned for: at ≥900px it is a
    row with one item, and Arcade.vue caps itself at 780px tall. */
 @media (min-width: 900px) { .tetris-landing { flex-direction: row; justify-content: center; padding-top: 24px; } }

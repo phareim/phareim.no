@@ -47,6 +47,8 @@ const emit = defineEmits<{
 .landing-overlay {
   position: absolute;
   inset: 0;
+  /* Centred start and game-over text stays above the bottom band. */
+  bottom: var(--app-safe-bottom, 0px);
   display: flex;
   justify-content: center;
   align-items: center;

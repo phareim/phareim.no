@@ -58,7 +58,7 @@ const typing = computed(() => !!props.line && props.shown < props.line.text.leng
   position: absolute;
   z-index: 3;
   left: 16px;
-  bottom: 64px;
+  bottom: calc(64px + var(--app-safe-bottom, 0px));
   width: min(400px, calc(100vw - 32px));
   box-sizing: border-box;
   display: flex;
@@ -91,7 +91,7 @@ const typing = computed(() => !!props.line && props.shown < props.line.text.leng
 @media (min-width: 641px) and (max-height: 520px) {
   .intercom {
     left: 10px;
-    bottom: 10px;
+    bottom: calc(10px + var(--app-safe-bottom, 0px));
     width: min(320px, 44vw);
     padding: 6px 10px 7px 6px;
     gap: 8px;

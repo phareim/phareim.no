@@ -162,7 +162,7 @@ onMounted(async () => {
   touch-action: none;
   display: grid;
   place-items: center;
-  padding: 12px;
+  padding: 12px 12px calc(12px + var(--app-safe-bottom, 0px));
   box-sizing: border-box;
 }
 
@@ -442,7 +442,7 @@ onMounted(async () => {
   z-index: 2;
   left: 0;
   right: 0;
-  bottom: 42px;
+  bottom: calc(42px + var(--app-safe-bottom, 0px));
   margin: 0;
   text-align: center;
   font-size: 11.2px;
@@ -507,7 +507,7 @@ onMounted(async () => {
 }
 
 @media (max-width: 640px), (max-height: 700px) {
-  .hg-landing { padding: 10px 46px 48px; }
+  .hg-landing { padding: 10px 46px calc(48px + var(--app-safe-bottom, 0px)); }
   .hg-panel { padding: 12px 14px 10px; }
   .hg-viewer-box { height: 150px; }
   .hg-hint { display: none; }
@@ -515,7 +515,7 @@ onMounted(async () => {
 
 @media (max-height: 560px) {
   .hg-hud { display: none; }
-  .hg-landing { padding: 8px 46px 26px; }
+  .hg-landing { padding: 8px 46px calc(26px + var(--app-safe-bottom, 0px)); }
   .hg-panel { width: min(560px, 100%); }
   .hg-over { display: none; }
   .hg-viewer-box { height: 110px; }

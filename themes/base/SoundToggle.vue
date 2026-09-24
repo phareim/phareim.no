@@ -23,7 +23,7 @@ const { muted, toggleMute } = useSound()
 .sound-toggle {
   position: fixed;
   left: 12px;
-  bottom: 12px;
+  bottom: calc(12px + var(--app-safe-bottom, 0px));
   z-index: 40;
   font-family: var(--font-machine, monospace);
   font-size: 11px;

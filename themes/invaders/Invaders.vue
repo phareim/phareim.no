@@ -30,6 +30,7 @@ import EscHold from '../base/EscHold.vue'
 const emit = defineEmits(['score', 'wave', 'lives', 'death', 'restart', 'started', 'over'])
 
 import { createHorizon } from '../base/neonHorizon.js'
+import { safeBottom } from '../base/safeBottom'
 import { readShipDef } from '~/composables/useShip'
 import { useSound } from '~/composables/useSound'
 
@@ -67,6 +68,9 @@ let gameRunning = false
 let SW = 0
 let SH = 0
 let dpr = 1
+// The site's bottom band (--app-safe-bottom): the backdrop runs through it,
+// the cannon, bunkers and weapon label stay above. 0 in a browser tab.
+let band = 0
 
 const PINK = '#ff2fa0'
 const CYAN = '#2ff3ff'
@@ -500,6 +504,7 @@ function setupCanvas() {
   dpr = Math.min(window.devicePixelRatio || 1, 2)
   SW = c.offsetWidth
   SH = c.offsetHeight
+  band = safeBottom()
   c.width = Math.round(SW * dpr)
   c.height = Math.round(SH * dpr)
   ctx = c.getContext('2d')
@@ -516,7 +521,10 @@ function setupCanvas() {
 // via buildWave()/resetBunkers().
 function layout() {
   margin = Math.max(12, SW * 0.04)
-  cannonY = SH < 500 ? SH - 60 : SW < 600 ? SH - 100 : SH * 0.95
+  const h = SH - band
+  // With a band, the wide layout also keeps the weapon label (up to 44 px
+  // below cannonY at px 5) out of it.
+  cannonY = h < 500 ? h - 60 : SW < 600 ? h - 100 : Math.min(h * 0.95, band ? h - 44 : h)
   layoutGeometry()
   buildFxCache()
   layoutBunkers()
@@ -536,7 +544,8 @@ function layoutGeometry() {
 }
 
 function bunkerTop() {
-  return SH < 500 ? cannonY - 66 : SW < 600 ? cannonY - 74 : SH * 0.865
+  const h = SH - band
+  return h < 500 ? cannonY - 66 : SW < 600 ? cannonY - 74 : h * 0.865 - (h * 0.95 - cannonY)
 }
 
 // Horizon line for the shooting-star flight below; the sky/stars/sun/

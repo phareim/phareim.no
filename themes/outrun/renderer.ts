@@ -164,6 +164,8 @@ export function createRenderer(canvas: HTMLCanvasElement) {
   let camY = 0
   let camDist = 0
   let carBaseY = 0
+  /** Bottom edge of the play area: SH less the site's bottom band (installed web app). */
+  let floorY = 0
   let carPx = 0
   let portrait = false
   let stars: { x: number, y: number, b: number, ph: number, sp: number }[] = []
@@ -184,9 +186,11 @@ export function createRenderer(canvas: HTMLCanvasElement) {
   for (let i = 0; i < DRAW_DIST; i++) slices.push({ seg: null as unknown as RoadSegment, z1: 0, z2: 0, s1: 0, s2: 0, x1: 0, x2: 0, y1: 0, y2: 0, clip: 0 })
   let sliceCount = 0
 
-  function resize(w: number, h: number, dprIn: number) {
+  function resize(w: number, h: number, dprIn: number, bottomInset = 0) {
     SW = Math.max(300, w)
     SH = Math.max(300, h)
+    // The car, the gauges and the radio tap stay above the band; the road runs through it.
+    floorY = SH - Math.max(0, bottomInset)
     // Cap the backing store at ~3.2 megapixels: the road is a lot of fill.
     let dpr = Math.min(2, dprIn || 1)
     while (dpr > 1 && SW * SH * dpr * dpr > 3.2e6) dpr -= 0.25
@@ -196,7 +200,7 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     portrait = SH > SW * 1.05
     HY = Math.round(SH * (portrait ? 0.43 : 0.47))
     // Portrait lifts the car clear of the speedo and tacho beneath it.
-    carBaseY = SH - Math.max(58, SH * (portrait ? 0.16 : 0.1))
+    carBaseY = floorY - Math.max(58, SH * (portrait ? 0.16 : 0.1))
     carPx = Math.min(portrait ? SW * 0.46 : SW * 0.25, 400)
     // Solve the camera height so the car is carPx wide at carBaseY.
     F = Math.max(SW, SH) * (portrait ? 0.62 : 0.55)
@@ -1461,7 +1465,7 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     drawRouteMap(state, SW - pad, top + small + mid * 1.35, Math.min(120, SW * 0.24), ui)
 
     // Speed and revs, bottom left.
-    const by = SH - Math.max(56, SH * 0.075)
+    const by = floorY - Math.max(56, SH * 0.075)
     const kmh = displaySpeed(state)
     const spdSize = Math.max(26, Math.min(48, SW * 0.06))
     text(String(kmh), pad, by, spdSize, CYAN, 'left', true, 'bold ')
@@ -1593,7 +1597,7 @@ export function createRenderer(canvas: HTMLCanvasElement) {
 
   /** True when a tap lands on the radio readout (bottom right). */
   function radioHudHit(px: number, py: number): boolean {
-    return px > SW * 0.62 && py > SH - Math.max(56, SH * 0.075) - 50 && py < SH - 30
+    return px > SW * 0.62 && py > floorY - Math.max(56, SH * 0.075) - 50 && py < floorY - 30
   }
 
   // --------------------------------------------------------------- frame
