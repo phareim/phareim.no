@@ -29,16 +29,31 @@ and the draw section of `Breakout.vue`. Rules unchanged.
 
 ## Tetris
 
-`?theme=tetris` — playable Tetris, ported from `tetris-theme-legacy` and
-reworked for Neon Dreams: cyan active piece/ghost, pink stacked blocks, gold
-line clears, shared horizon with lock/clear pulses. Drag sideways to move,
-tap to rotate, fast down flick to hard drop, slow down drag to lower, up
-swipe or HOLD to stash. ROTATE/DROP, pause/resume and exit buttons work on
-touch and mouse. A gesture stops controlling pieces once its original piece
-locks or swaps. The board sizes to its
-actual remaining container space with ResizeObserver; landscape phones use
-two columns. The profile column was removed — the cabinet is the whole
-theme now, and the portal carries the person.
+`?theme=tetris` — playable Tetris, ported from `tetris-theme-legacy`. Drag
+sideways to move, tap to rotate, fast down flick to hard drop, slow down
+drag to lower, up swipe or HOLD to stash. ROTATE/DROP, pause/resume and
+exit buttons work on touch and mouse. A gesture stops controlling pieces
+once its original piece locks or swaps. The board sizes to its actual
+remaining container space with ResizeObserver; landscape phones use two
+columns. The cabinet is the whole theme; the portal carries the person.
+
+**Look (2026-09-24): Neon Shrine's pixels** (`docs/games/pixel-look.md`).
+The well is a stone shaft on its own pixel stage: a brick back wall with
+grout on the cell lines, a violet stone rim with a pink neon strip, lit
+from above by two flickering torches and from the floor by a cool glow
+through the light map. Pieces are carved bevelled tiles, one palette family
+each (I cyan, O gold, T violet, S lime, Z pink, J blue, L orange); the
+falling piece is at full brightness with a pool of its own colour, the
+ghost is a dotted outline, cleared rows flash white and throw pixel sparks.
+A cell is a T×T tile (T 6–10) scaled by a whole number, chosen in
+`Game.vue` so T·scale device px is as close as it gets to the layout's cell
+size; the rim adds 3 px each side, which `Arcade.vue` allows for. Behind
+the cabinet the town at dusk (`Horizon.vue`, its own full-screen stage):
+sky, stars, the striped sun, ridges, houses with lit windows, lamps, a
+cobbled plaza; a lock pulses the horizon, a clear flares the sun, and the
+near layers lean with the falling piece. The chrome (score strip, NEXT/HOLD,
+buttons, board overlays) is in the 5×7 font with Neon Shrine dialog boxes;
+NEXT/HOLD show the same carved tiles in CSS. Code: `themes/tetris/pixel.ts`.
 
 Tests: `npm run test:tetris` (gesture regression: tap, direction lock, drop,
 soft drop, hold); CI runs it before typecheck.

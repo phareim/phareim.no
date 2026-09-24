@@ -9,21 +9,27 @@
   >
     <canvas ref="canvasRef" class="tetris-board" />
     <div v-if="phase === 'idle'" class="tetris-overlay tetris-overlay-idle">
-      <span class="tetris-gameover">READY?</span>
-      <button class="play-button" @click.stop="start">▶ {{ hint('PRESS ENTER', 'TAP TO PLAY') }} ◀</button>
-      <span class="overlay-hint">{{ hint('ARROWS MOVE · ↑ ROTATE', 'DRAG TO MOVE · TAP TO ROTATE') }}</span>
+      <div class="tetris-box">
+        <span class="tetris-gameover">READY?</span>
+        <button class="play-button" @click.stop="start">▶ {{ hint('PRESS ENTER', 'TAP TO PLAY') }} ◀</button>
+        <span class="overlay-hint">{{ hint('ARROWS MOVE · ↑ ROTATE', 'DRAG TO MOVE · TAP TO ROTATE') }}</span>
+      </div>
     </div>
     <div v-else-if="phase === 'over'" class="tetris-overlay tetris-overlay-over">
-      <span class="tetris-gameover">GAME OVER</span>
-      <span>SCORE {{ scoreText }}</span>
-      <span v-if="newBest" class="tetris-newbest">NEW BEST</span>
-      <span v-else>BEST {{ bestText }}</span>
-      <span v-if="rank" class="tetris-rank">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</span>
-      <button class="play-button" @click.stop="start">▶ {{ hint('ENTER TO RETRY', 'TAP TO RETRY') }} ◀</button>
+      <div class="tetris-box">
+        <span class="tetris-gameover">GAME OVER</span>
+        <span>SCORE {{ scoreText }}</span>
+        <span v-if="newBest" class="tetris-newbest">NEW BEST</span>
+        <span v-else>BEST {{ bestText }}</span>
+        <span v-if="rank" class="tetris-rank">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</span>
+        <button class="play-button" @click.stop="start">▶ {{ hint('ENTER TO RETRY', 'TAP TO RETRY') }} ◀</button>
+      </div>
     </div>
     <div v-else-if="phase === 'paused'" class="tetris-overlay tetris-overlay-paused">
-      <span>PAUSED</span>
-      <button class="play-button" @click.stop="togglePause">▶ {{ hint('P TO RESUME', 'RESUME') }} ◀</button>
+      <div class="tetris-box">
+        <span class="tetris-gameover">PAUSED</span>
+        <button class="play-button" @click.stop="togglePause">▶ {{ hint('P TO RESUME', 'RESUME') }} ◀</button>
+      </div>
     </div>
     <!-- EscHold owns Escape: tap pauses/resumes, a 3 s hold quits into game over. -->
     <EscHold :is-active="escActive" :paused="false" :show-paused="false" @tap="escTap" @hold="quitToGameOver" />
@@ -36,6 +42,8 @@ import EscHold from '../base/EscHold.vue'
 import { useSound } from '~/composables/useSound'
 import { TetrisGesture } from './gestures'
 import { PIECE_SHAPES, TetrisEngine, type EngineEvent, type PieceType } from './engine'
+import { createPixelStage, type PixelStage } from '../base/pixel/stage'
+import { FRAME, drawSparks, ghostTile, paintWell, rowSparks, stepSparks, tile, tones, type Spark } from './pixel'
 
 const { navigationLocked } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()
@@ -76,8 +84,6 @@ const emit = defineEmits<{
 
 const COLS = 10
 const ROWS = 20
-const WELL_BG = '#090512'
-const GRID_LINE = 'rgba(47, 243, 255, 0.055)'
 const DAS_MS = 150
 const ARR_MS = 40
 const SOFT_MS = 40
@@ -102,11 +108,29 @@ const canHoldRef = ref(true)
 
 const scoreText = computed(() => String(score.value).padStart(6, '0'))
 const bestText = computed(() => String(best.value).padStart(6, '0'))
-const boardW = computed(() => COLS * props.cellSize)
-const boardH = computed(() => ROWS * props.cellSize)
+// The board is a pixel stage (themes/base/pixel): each cell is a T×T
+// carved tile scaled by a whole number s, so T·s device px is as close to
+// the layout's cell size as it gets. The stone rim adds FRAME px each side.
+const dprRef = ref(1)
+const grid = computed(() => {
+  const target = props.cellSize * dprRef.value
+  let best = { T: Math.max(3, Math.floor(target)), s: 1 }
+  let bestP = 0
+  for (let T = 10; T >= 6; T--) {
+    const s = Math.floor(target / T)
+    if (s >= 1 && T * s > bestP) { bestP = T * s; best = { T, s } }
+  }
+  return best
+})
+/** CSS px per cell, what the gestures measure drags in. */
+const cellPx = computed(() => grid.value.T * grid.value.s / dprRef.value)
+const boardW = computed(() => (COLS * grid.value.T + FRAME * 2) * grid.value.s / dprRef.value)
+const boardH = computed(() => (ROWS * grid.value.T + FRAME * 2) * grid.value.s / dprRef.value)
 
 let engine: TetrisEngine | null = null
-let ctx: CanvasRenderingContext2D | null = null
+let stage: PixelStage | null = null
+let well: HTMLCanvasElement | null = null
+const sparks: Spark[] = []
 let rafId = 0
 let lastT = 0
 let running = false
@@ -126,9 +150,6 @@ let idleAcc = 0
 let clearTimer: ReturnType<typeof setTimeout> | null = null
 let idleBoard: (PieceType | null)[][] = []
 let idlePiece: { type: PieceType, x: number, y: number } | null = null
-const sprites = new Map<PieceType, HTMLCanvasElement>()
-const activeSprites = new Map<PieceType, HTMLCanvasElement>()
-const PIECE_KEYS: PieceType[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']
 
 function emptyBoard(): (PieceType | null)[][] {
   const b: (PieceType | null)[][] = []
@@ -216,6 +237,14 @@ function handleEngineEvent(e: EngineEvent): void {
   }
   if (e.type === 'clear') {
     emit('beat', true)
+    if (engine && !reducedMotion) {
+      const T = grid.value.T
+      for (const r of engine.pendingClear) {
+        const colors = ['#ffffff']
+        for (const v of engine.board[r] ?? []) if (v) colors.push(tones(v as PieceType).spark)
+        rowSparks(sparks, FRAME + r * T + T / 2, FRAME, COLS * T, colors)
+      }
+    }
     sound.sfx.clear(e.count)
     syncHud()
     if (!engine) return
@@ -570,7 +599,7 @@ function onTouchStart(e: TouchEvent): void {
   touchTravel = 0
   gesturePhase = phase.value
   gesturePiece = engine?.active ?? null
-  gesture = new TetrisGesture(t.clientX, t.clientY, performance.now(), props.cellSize)
+  gesture = new TetrisGesture(t.clientX, t.clientY, performance.now(), cellPx.value)
   if (phase.value === 'playing') e.preventDefault()
 }
 function onTouchMove(e: TouchEvent): void {
@@ -619,130 +648,83 @@ function onBlur(): void {
   if (phase.value === 'playing') togglePause()
 }
 
-function dpr(): number {
-  return Math.min(2, window.devicePixelRatio || 1)
-}
-
 function setupCanvas(): void {
   const canvas = canvasRef.value
   if (!canvas) return
-  const d = dpr()
-  canvas.width = Math.round(boardW.value * d)
-  canvas.height = Math.round(boardH.value * d)
-  canvas.style.width = boardW.value + 'px'
-  canvas.style.height = boardH.value + 'px'
-  const c = canvas.getContext('2d')
-  ctx = c
-}
-
-function drawBlockSprite(type: PieceType, active: boolean): HTMLCanvasElement {
-  const cs = props.cellSize
-  const d = dpr()
-  const px = Math.max(2, Math.round(cs * d))
-  const el = document.createElement('canvas')
-  el.width = px
-  el.height = px
-  const g = el.getContext('2d') as CanvasRenderingContext2D
-  const tints: Record<PieceType, string> = { I: '#ff2fa0', O: '#ff91ce', T: '#ff52b0', S: '#ce2682', Z: '#ff70be', J: '#e62b91', L: '#ed82bf' }
-  const color = active ? '#2ff3ff' : tints[type]
-  const inset = Math.max(2, px * .1)
-  g.fillStyle = active ? '#2ff3ff25' : color + '44'
-  g.fillRect(inset, inset, px - inset * 2, px - inset * 2)
-  g.strokeStyle = color
-  g.lineWidth = Math.max(1, d)
-  g.shadowColor = color
-  g.shadowBlur = px * .2
-  g.strokeRect(inset, inset, px - inset * 2, px - inset * 2)
-  g.shadowBlur = 0
-  g.strokeRect(inset, inset, px - inset * 2, px - inset * 2)
-  return el
-}
-
-function buildSprites(): void {
-  sprites.clear()
-  activeSprites.clear()
-  for (const t of PIECE_KEYS) { sprites.set(t, drawBlockSprite(t, false)); activeSprites.set(t, drawBlockSprite(t, true)) }
-}
-
-function blit(type: PieceType, col: number, row: number, active = false): void {
-  if (!ctx) return
-  const s = (active ? activeSprites : sprites).get(type)
-  if (!s) return
-  ctx.drawImage(s, col * props.cellSize, row * props.cellSize, props.cellSize, props.cellSize)
-}
-
-function blitGhost(type: PieceType, col: number, row: number): void {
-  if (!ctx) return
-  const cs = props.cellSize
-  ctx.globalAlpha = 0.4
-  ctx.strokeStyle = '#2ff3ff'
-  ctx.lineWidth = 2
-  ctx.strokeRect(col * cs + 1.5, row * cs + 1.5, cs - 3, cs - 3)
-  ctx.globalAlpha = 1
+  dprRef.value = Math.min(3, window.devicePixelRatio || 1)
+  const { T, s: scale } = grid.value
+  const lw = COLS * T + FRAME * 2
+  const lh = ROWS * T + FRAME * 2
+  const d = dprRef.value
+  if (!stage) stage = createPixelStage(canvas)
+  canvas.style.width = (lw * scale) / d + 'px'
+  canvas.style.height = (lh * scale) / d + 'px'
+  stage.resize((lw * scale) / d, (lh * scale) / d, d, lw, lh)
+  well = paintWell(COLS, ROWS, T)
+  sparks.length = 0
 }
 
 function draw(): void {
-  if (!ctx || !engine) return
-  const cs = props.cellSize
-  const d = dpr()
-  ctx.setTransform(d, 0, 0, d, 0, 0)
-  ctx.fillStyle = WELL_BG
-  ctx.fillRect(0, 0, boardW.value, boardH.value)
-  ctx.strokeStyle = GRID_LINE
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  for (let c = 1; c < COLS; c++) {
-    ctx.moveTo(c * cs + 0.5, 0)
-    ctx.lineTo(c * cs + 0.5, boardH.value)
-  }
-  for (let r = 1; r < ROWS; r++) {
-    ctx.moveTo(0, r * cs + 0.5)
-    ctx.lineTo(boardW.value, r * cs + 0.5)
-  }
-  ctx.stroke()
-  if (phase.value === 'idle') {
-    for (let r = 0; r < ROWS; r++) {
-      const row = idleBoard[r]
-      if (!row) continue
-      for (let c = 0; c < COLS; c++) {
-        const v = row[c]
-        if (v !== null && v !== undefined) blit(v as PieceType, c, r)
-      }
-    }
-    if (idlePiece && !reducedMotion) {
-      ctx.globalAlpha = 0.4
-      PIECE_SHAPES[idlePiece.type][0].forEach((row, y) => row.forEach((v, x) => {
-        if (v) blit(idlePiece!.type, idlePiece!.x + x, idlePiece!.y + y, true)
-      }))
-      ctx.globalAlpha = 1
-    }
-    return
-  }
+  if (!stage || !engine || !well) return
+  const T = grid.value.T
+  const F = FRAME
+  const g = stage.begin()
+  g.drawImage(well, 0, 0)
+  const lw = COLS * T + F * 2
+  const lh = ROWS * T + F * 2
+  const time = performance.now() / 1000
+  // Two torches above the shaft, and a cool glow from the floor.
+  const flick = reducedMotion ? 0 : Math.sin(time * 9) * 0.05 + Math.sin(time * 23.7) * 0.04
+  stage.light(F + 1, F + 1, lw * 0.95, '#ff8a3d', 0.6 + flick)
+  stage.light(lw - F - 1, F + 1, lw * 0.95, '#ff8a3d', 0.6 - flick)
+  stage.light(lw / 2, lh - F, lw * 0.8, '#3ff0ff', 0.3)
+  const put = (img: HTMLCanvasElement, c: number, r: number) => g.drawImage(img, F + c * T, F + r * T)
+  const board = phase.value === 'idle' ? idleBoard : engine.board as (PieceType | null)[][]
   for (let r = 0; r < ROWS; r++) {
-    const row = engine.board[r] as (PieceType | null)[]
+    const row = board[r]
     if (!row) continue
     for (let c = 0; c < COLS; c++) {
       const v = row[c]
-      if (v !== null && v !== undefined) blit(v as PieceType, c, r)
+      if (v !== null && v !== undefined) put(tile(v, T), c, r)
     }
   }
-  if (engine.pendingClear.length > 0) {
-    ctx.fillStyle = 'rgba(255, 210, 63, 0.85)'
-    for (const r of engine.pendingClear) ctx.fillRect(0, r * cs, boardW.value, cs)
-  }
-  const a = engine.active
-  if (a && phase.value !== 'over') {
-    const gy = engine.ghostY()
-    if (gy !== a.y) {
-      for (const cell of engine.cells()) {
-        const gr = cell.y + (gy - a.y)
-        if (gr >= 0) blitGhost(cell.type, cell.x, gr)
+  if (phase.value === 'idle') {
+    if (idlePiece && !reducedMotion) {
+      const p = idlePiece
+      g.globalAlpha = 0.5
+      PIECE_SHAPES[p.type][0].forEach((row, y) => row.forEach((v, x) => { if (v) put(tile(p.type, T), p.x + x, p.y + y) }))
+      g.globalAlpha = 1
+    }
+  } else {
+    if (engine.pendingClear.length > 0) {
+      g.fillStyle = '#fff4ff'
+      for (const r of engine.pendingClear) {
+        g.fillRect(F, F + r * T, COLS * T, T)
+        stage.emit(F, F + r * T, COLS * T, T)
+        stage.light(lw / 2, F + r * T + T / 2, lw * 0.8, '#fff1b0', 0.8)
       }
     }
-    for (const cell of engine.cells()) {
-      if (cell.y >= 0) blit(cell.type, cell.x, cell.y, true)
+    const a = engine.active
+    if (a && phase.value !== 'over') {
+      const gy = engine.ghostY()
+      if (gy !== a.y) {
+        for (const cell of engine.cells()) {
+          const gr = cell.y + (gy - a.y)
+          if (gr >= 0) put(ghostTile(cell.type, T), cell.x, gr)
+        }
+      }
+      // The falling piece glows: full brightness and a pool of its own colour.
+      let lx = 0, ly = 0, n = 0
+      for (const cell of engine.cells()) {
+        if (cell.y < 0) continue
+        put(tile(cell.type, T), cell.x, cell.y)
+        stage.emit(F + cell.x * T, F + cell.y * T, T, T)
+        lx += cell.x; ly += cell.y; n++
+      }
+      if (n) stage.light(F + (lx / n + 0.5) * T, F + (ly / n + 0.5) * T, T * 4, tones(a.type).body, 0.7)
     }
   }
+  stage.present({ ambient: '#b2a6dc', afterLight: g2 => drawSparks(g2, sparks) })
 }
 
 function step(dt: number): void {
@@ -792,8 +774,10 @@ function frame(t: number): void {
   const dt = Math.min(100, Math.max(0, t - (lastT || t)))
   lastT = t
   step(dt)
+  stepSparks(sparks, dt / 1000)
+  // The torches flicker and sparks fly, so the well redraws every frame.
+  draw()
   if (phase.value === 'playing' || dirty) {
-    draw()
     dirty = false
     syncHudLight()
     maybeEmit()
@@ -819,7 +803,6 @@ function syncHudLight(): void {
 
 watch(() => props.cellSize, () => {
   setupCanvas()
-  buildSprites()
   draw()
 })
 
@@ -840,7 +823,6 @@ onMounted(() => {
   if (!engine) engine = new TetrisEngine({ onEvent: handleEngineEvent })
   buildIdle()
   setupCanvas()
-  buildSprites()
   syncHud()
   const canvas = surfaceRef.value
   window.addEventListener('keydown', handleKeyDown)
@@ -898,14 +880,22 @@ defineExpose({
 </script>
 
 <style scoped>
-.tetris-game { position: relative; flex: 0 0 auto; border: 1px solid #2ff3ff70; border-radius: 4px; overflow: hidden; background: #090512; box-shadow: 0 0 20px #2ff3ff12, 0 0 40px #ff2fa010; touch-action: none; user-select: none; -webkit-user-select: none; }
-.tetris-board { display: block; }
-.tetris-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 8px; text-align: center; font: 12px/1.6 var(--font-machine); letter-spacing: .12em; color: var(--tetris-text); background: #0b0616d9; }
-.tetris-gameover { font-size: clamp(18px, 3vw, 30px); color: var(--tetris-pink); text-shadow: 0 0 12px #ff2fa080; }
-.tetris-newbest { color: var(--tetris-gold); }
-.tetris-rank { font-size: .8em; color: var(--tetris-pink, #ff2fa0); text-shadow: 0 0 8px rgba(255, 47, 160, .6); }
-.play-button { min-height: 44px; padding: 10px 6px; white-space: nowrap; background: #ff2fa018; border: 1px solid #ff2fa060; border-radius: 4px; color: var(--tetris-pink); font: inherit; font-size: 11px; letter-spacing: .08em; cursor: pointer; }
+/* The well and its stone rim are drawn on the canvas (./pixel.ts); the
+   overlays are Neon Shrine dialog boxes in the 5×7 font (--font-pixel).
+   One box pixel is 2 CSS px, like 16 px text. */
+.tetris-game { position: relative; flex: 0 0 auto; overflow: hidden; background: #0b0616; box-shadow: 6px 6px 0 #0b0616aa; touch-action: none; user-select: none; -webkit-user-select: none; }
+.tetris-board { display: block; image-rendering: pixelated; }
+.tetris-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 4px; text-align: center; background: #0b061666; }
+.tetris-overlay > .tetris-box { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.tetris-box { max-width: 100%; box-sizing: border-box; padding: 12px 8px; background: rgba(11, 6, 22, .9); border: 2px solid var(--tetris-pink); box-shadow: inset 0 0 0 2px rgba(11, 6, 22, .9), inset 0 4px 0 0 rgba(47, 243, 255, .35), 4px 4px 0 #0b0616; clip-path: polygon(2px 0, calc(100% - 2px) 0, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 0 calc(100% - 2px), 0 2px); font: 16px/1.25 var(--font-pixel); -webkit-font-smoothing: none; color: #fff4ff; text-shadow: 2px 2px 0 #3a1a4a; }
+.tetris-gameover { font-size: 24px; color: var(--tetris-pink); text-shadow: 3px 3px 0 #0b0616, 0 0 16px #ff2fa080; }
+.tetris-newbest { color: var(--tetris-gold); animation: tetris-blink 1.1s steps(1) infinite; }
+.tetris-rank { font-size: 8px; color: var(--tetris-pink, #ff2fa0); text-shadow: 1px 1px 0 #0b0616; }
+.play-button { max-width: 100%; min-height: 44px; padding: 8px 4px; white-space: normal; line-height: 1.4; background: #ff2fa022; border: 2px solid var(--tetris-pink); border-radius: 0; color: var(--tetris-pink); font: 16px var(--font-pixel); text-shadow: 2px 2px 0 #0b0616; cursor: pointer; animation: tetris-blink 1.1s steps(1) infinite; }
 .play-button:focus-visible { outline: 2px solid var(--tetris-accent); outline-offset: 2px; }
-.overlay-hint { font-size: 9px; letter-spacing: .04em; color: var(--tetris-text-muted); }
-@media (max-height: 480px) { .tetris-overlay { gap: 4px; font-size: 10px; } .overlay-hint { display: none; } }
+.overlay-hint { font-size: 8px; color: var(--tetris-text-muted); text-shadow: 1px 1px 0 #0b0616; }
+@keyframes tetris-blink { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .play-button, .tetris-newbest { animation: none; } }
+@media (max-height: 480px) { .tetris-overlay > .tetris-box { gap: 4px; padding: 8px; } .overlay-hint { display: none; } }
 </style>
+
