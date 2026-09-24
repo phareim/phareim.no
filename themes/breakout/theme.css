@@ -4,7 +4,8 @@
  * ground (#0b0616), cyan player/interface (#2ff3ff), pink threat/ground/
  * call-to-action (#ff2fa0), gold reward (#ffd23f). Values copied from the
  * Neon Dreams design system (tokens/colors.css, tokens/effects.css,
- * tokens/typography.css). The canvas draws the horizon; no CSS grid.
+ * tokens/typography.css). The canvas draws the shrine chamber (pixel look,
+ * docs/games/pixel-look.md); no CSS grid.
  * One scheme — no dark variant.
  */
 

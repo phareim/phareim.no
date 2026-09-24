@@ -4,7 +4,6 @@
 </template>
 
 <script setup>
-import { MACHINE_FONT } from '~/themes/base/fonts'
 import EscHold from '../base/EscHold.vue'
 /**
  * Breakout, the arcade original: a paddle, a ball, rows of bricks.
@@ -12,24 +11,33 @@ import EscHold from '../base/EscHold.vue'
  * the landing overlay, Enter/tap to start, arrows/mouse/touch to move,
  * events up to Landing.vue for the HUD. Before the game starts the canvas
  * plays itself (attract mode) so the landing is alive behind the card.
+ *
+ * Look (2026-09-24): Neon Shrine's pixel stage (themes/base/pixel). A
+ * shrine chamber seen from above — dungeon floor, braziers, a pit under the
+ * paddle — with stone and crystal bricks, a glowing orb and a cyan shield
+ * bar, drawn in logical pixels and lit by a light map (./pixel.ts). Rules
+ * stay in CSS px; `L()` converts.
  */
 const emit = defineEmits(['score', 'death', 'restart', 'started', 'lives', 'level'])
 
-import { createHorizon } from '../base/neonHorizon.js'
+import { createPixelStage } from '../base/pixel/stage'
+import { drawBigText, bigTextWidth } from '../base/pixel/sprites'
+import { brickCanvas, capsuleCanvas, createChamber, crystalColor, orbCanvas, paddleCanvas, ring } from './pixel'
 import { safeBottom } from '../base/safeBottom'
 import { useSound } from '~/composables/useSound'
 
 const sound = useSound()
 
 const canvas = ref(null)
-let ctx = null
 let animationFrameId = null
 let gameRunning = false
 let W = 0
 let H = 0
 let dpr = 1
 let bandBottom = 0 // --app-safe-bottom in CSS px; the paddle sits above it
-let horizon = null
+let stage = null // Neon Shrine's pixel stage (themes/base/pixel/stage.ts)
+const chamber = createChamber() // the shrine chamber (./pixel.ts)
+let flare = 0 // braziers flare on hits and level clears
 
 // Game state
 let paddle = { x: 0, y: 0, w: 110, h: 14, baseW: 110, visible: true }
@@ -64,11 +72,8 @@ const BASE_SPEED = 380 // px/s at level 1
 const MAX_SPEED = 720
 const LIVES = 3
 const MAX_BALLS = 100
-const ROW_COLORS = [
-  '#ff2fa0', '#ff2fa0', '#ff2fa0',
-  'rgba(255, 47, 160, 0.72)', 'rgba(255, 47, 160, 0.72)', 'rgba(255, 47, 160, 0.72)',
-  'rgba(255, 47, 160, 0.5)', 'rgba(255, 47, 160, 0.5)', 'rgba(255, 47, 160, 0.5)',
-]
+// Crystal rows: pink, violet, teal (colours in ./pixel.ts).
+const ROW_COLORS = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(crystalColor)
 const PADDLE_COLOR = '#2ff3ff'
 const GOLD = '#ffd23f'
 const POWERUPS = {
@@ -83,19 +88,19 @@ const POWERUPS = {
 function setupCanvas() {
   const c = canvas.value
   if (!c) return
-  dpr = Math.min(window.devicePixelRatio || 1, 2)
+  dpr = window.devicePixelRatio || 1
   W = c.offsetWidth
   H = c.offsetHeight
-  c.width = Math.round(W * dpr)
-  c.height = Math.round(H * dpr)
-  ctx = c.getContext('2d')
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  if (!stage) stage = createPixelStage(c)
+  // About 3 CSS px per pixel on phones and laptops, 4 on big screens, so the
+  // orb and the shield bar read at every size.
+  stage.resize(W, H, dpr, W < 600 ? 128 : 360, 225)
   paddle.baseW = Math.min(120, Math.max(72, W * 0.24))
   bandBottom = safeBottom()
   paddle.y = H - 56 - bandBottom
   paddle.x = clamp(paddle.x || W / 2, paddle.w / 2, W - paddle.w / 2)
-  if (!horizon) horizon = createHorizon({ ctx })
-  horizon.resize(W, H, ctx)
+  const grid = computeGrid(gridCols)
+  chamber.layout(stage.vw, stage.vh, stage.px(paddle.y + paddle.h + 16), stage.px(grid.top + (H - grid.top) * 0.55))
 }
 
 function computeGrid(cols) {
@@ -351,11 +356,7 @@ function clearLevel(now) {
   demoLaunchAt = now + 1200
   sound.sfx.levelClear()
   spawnParticles(W / 2, H / 2, '#2ff3ff', 30, 300)
-  if (horizon) {
-    horizon.beat()
-    setTimeout(() => horizon && horizon.beat(), 120)
-    setTimeout(() => horizon && horizon.beat(), 240)
-  }
+  flare = 1.5
 }
 
 // ---------------------------------------------------------------- Esc pause / hold-quit
@@ -406,10 +407,7 @@ function update(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.05) || 0
   lastTime = now
   const demo = !gameStarted
-  if (horizon) {
-    horizon.setView(W > 0 ? paddle.x / W * 2 - 1 : 0)
-    horizon.update(dt)
-  }
+  flare = Math.max(0, flare - dt * 2.5)
 
   // Paddle width (powerup)
   const targetW = now < wideUntil ? paddle.baseW * 1.6 : paddle.baseW
@@ -480,7 +478,7 @@ function update(now) {
         combo = 0
         if (!demo) sound.sfx.paddle()
         triggerShockwave(ball.x, paddle.y, '#2ff3ff')
-        if (horizon) horizon.beat()
+        flare = Math.max(flare, 0.5)
         continue
       }
 
@@ -509,7 +507,7 @@ function update(now) {
 
         b.hp--
         b.flash = 1
-        if (horizon) horizon.beat()
+        flare = Math.max(flare, 0.35)
         if (b.hp <= 0) {
           bricks.splice(j, 1)
           spawnParticles(nx, ny, b.color, 10)
@@ -585,164 +583,137 @@ function update(now) {
 }
 
 // ---------------------------------------------------------------- draw
+// Everything below draws in the stage's logical pixels: L() takes a CSS
+// coordinate to the pixel grid. The orb, flames, sparks and rings glow after
+// the light map; the chamber and the bricks are lit by it.
 
-function roundRect(x, y, w, h, r) {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.lineTo(x + w - r, y)
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
-  ctx.lineTo(x + w, y + h - r)
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
-  ctx.lineTo(x + r, y + h)
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
-  ctx.lineTo(x, y + r)
-  ctx.quadraticCurveTo(x, y, x + r, y)
-  ctx.closePath()
+function L(v) {
+  return Math.round(v / stage.k)
+}
+
+let reducedMotion = false
+
+function drawBricks(g) {
+  for (const b of bricks) {
+    const x0 = L(b.x)
+    const y0 = L(b.y)
+    const w = L(b.x + b.w) - x0
+    const h = L(b.y + b.h) - y0
+    const stone = b.maxHp > 1
+    const img = brickCanvas(w, h, stone ? 'stone' : 'crystal', b.row, b.maxHp >= 3 ? '#ff3fae' : '#ffd23f', b.maxHp - b.hp)
+    g.drawImage(img, x0, y0)
+    // The stone's neon strip is emissive; crystals glow faintly.
+    if (stone) stage.emit(x0 + 2, y0 + Math.max(2, Math.floor(h / 2)), w - 4, 1)
+    stage.light(x0 + w / 2, y0 + h / 2, stone ? w * 0.7 : w * 0.6, stone ? (b.maxHp >= 3 ? '#ff3fae' : '#ffd23f') : b.color, stone ? 0.3 : 0.22)
+  }
+}
+
+function drawBrickFlashes(g) {
+  for (const b of bricks) {
+    if (b.flash <= 0) continue
+    const x0 = L(b.x)
+    const y0 = L(b.y)
+    g.globalAlpha = Math.min(1, b.flash)
+    g.fillStyle = '#ffffff'
+    g.fillRect(x0 + 1, y0 + 1, L(b.x + b.w) - x0 - 2, L(b.y + b.h) - y0 - 2)
+  }
+  g.globalAlpha = 1
+}
+
+function drawPaddle(g) {
+  if (!paddle.visible) return
+  const w = Math.max(6, L(paddle.x + paddle.w / 2) - L(paddle.x - paddle.w / 2))
+  const h = Math.max(3, L(paddle.h) + 1)
+  const img = paddleCanvas(w, h, paddleFlash > 0.5)
+  const x = L(paddle.x) - (w >> 1)
+  const y = L(paddle.y)
+  g.drawImage(img, x, y)
+  stage.light(L(paddle.x), y + 1, w * 0.8 + paddleFlash * 8, '#2ff3ff', 0.55 + paddleFlash * 0.4)
+}
+
+function drawPowerups(g) {
+  for (const p of powerups) {
+    const img = capsuleCanvas(POWERUPS[p.type].label)
+    const x = L(p.x) - (img.width >> 1)
+    const y = L(p.y) - (img.height >> 1)
+    g.drawImage(img, x, y)
+    stage.light(L(p.x), L(p.y), 16, '#ffd23f', 0.85)
+  }
+}
+
+function drawGlowing(g, nowSec) {
+  chamber.drawGlow(g, nowSec, flare, reducedMotion)
+  drawBrickFlashes(g)
+  // Orbs and their trails.
+  const big = stage.k < 3.5
+  const orb = orbCanvas(big)
+  const half = orb.width >> 1
+  for (const ball of balls) {
+    g.fillStyle = '#2ff3ff'
+    for (let i = 0; i < ball.trail.length; i++) {
+      const t = ball.trail[i]
+      const f = (i + 1) / ball.trail.length
+      g.globalAlpha = f * 0.45
+      const n = f > 0.6 ? 2 : 1
+      g.fillRect(L(t.x) - (n >> 1), L(t.y) - (n >> 1), n, n)
+    }
+    g.globalAlpha = 1
+    g.drawImage(orb, L(ball.x) - half, L(ball.y) - half)
+  }
+  for (const sw of shockwaves) {
+    g.globalAlpha = Math.max(0, sw.life)
+    ring(g, L(sw.x), L(sw.y), L(sw.radius), sw.color)
+  }
+  g.globalAlpha = 1
+  for (const p of particles) {
+    g.globalAlpha = Math.max(0, Math.min(1, p.life * 1.4))
+    g.fillStyle = p.color
+    const n = Math.max(1, Math.round(p.size / stage.k))
+    g.fillRect(L(p.x) - (n >> 1), L(p.y) - (n >> 1), n, n)
+  }
+  g.globalAlpha = 1
+  if (deathFlash > 0.01) {
+    g.globalAlpha = deathFlash * 0.35
+    g.fillStyle = '#ff3b5c'
+    const e = Math.max(3, L(Math.max(18, W * 0.03)))
+    g.fillRect(0, 0, stage.vw, e)
+    g.fillRect(0, stage.vh - e, stage.vw, e)
+    g.fillRect(0, 0, e, stage.vh)
+    g.fillRect(stage.vw - e, 0, e, stage.vh)
+    g.globalAlpha = 1
+  }
 }
 
 function draw() {
-  if (!ctx) return
+  if (!stage) return
   const demo = !gameStarted
-  const PLAY_ALPHA = demo ? 0.6 : 1
   const nowSec = performance.now() / 1000
+  const g = stage.begin()
+  chamber.drawBack(g, stage, nowSec, flare, reducedMotion)
+  drawBricks(g)
+  drawPowerups(g)
+  drawPaddle(g)
+  for (const ball of balls) stage.light(L(ball.x), L(ball.y), 20, '#2ff3ff', 0.95)
+  for (const sw of shockwaves) stage.light(L(sw.x), L(sw.y), Math.max(4, L(sw.radius)), sw.color, sw.life * 0.5)
 
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  if (horizon) horizon.draw(ctx, nowSec, { dim: demo })
-  else {
-    ctx.fillStyle = '#0b0616'
-    ctx.fillRect(0, 0, W, H)
+  // Level banner in big pixel letters on the HUD layer.
+  // It blinks out over its last 0.4 s.
+  const blinkOff = !reducedMotion && levelBanner < 400 && Math.floor(nowSec * 8) % 2 === 1
+  if (levelBanner > 0 && !demo && !blinkOff) {
+    const text = `LEVEL ${level}`
+    const n = stage.vw > 200 ? 3 : 2
+    const tw = bigTextWidth(text, n)
+    drawBigText(stage.hud, text, Math.round((stage.vw - tw) / 2), Math.round(L(H * 0.62) - 3.5 * n), n, '#ff2fa0', '#0b0616')
   }
 
-  if (shake > 0) {
-    const m = shake * 6
-    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m)
-  }
-
-  ctx.globalAlpha = PLAY_ALPHA
-
-  // Bricks: cheap glow (an expanded translucent rect), then the body
-  for (const b of bricks) {
-    const a = b.hp / b.maxHp
-    ctx.fillStyle = b.color
-    ctx.globalAlpha = PLAY_ALPHA * 0.18
-    ctx.fillRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6)
-    ctx.globalAlpha = PLAY_ALPHA * (0.55 + 0.45 * a)
-    roundRect(b.x, b.y, b.w, b.h, 2)
-    ctx.fill()
-    if (b.maxHp > 1) {
-      // A lighter inner bar for armored bricks, thinner as they take damage
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'
-      ctx.fillRect(b.x + 3, b.y + 3, (b.w - 6) * a, 2)
-    }
-    if (b.flash > 0) {
-      ctx.fillStyle = `rgba(255, 255, 255, ${b.flash * 0.8})`
-      ctx.fillRect(b.x, b.y, b.w, b.h)
-    }
-  }
-  ctx.globalAlpha = PLAY_ALPHA
-
-  // Powerups
-  for (const p of powerups) {
-    const def = POWERUPS[p.type]
-    ctx.shadowColor = def.color
-    ctx.shadowBlur = 12
-    ctx.fillStyle = def.color
-    roundRect(p.x - p.w / 2, p.y - p.h / 2, p.w, p.h, 4)
-    ctx.fill()
-    ctx.shadowBlur = 0
-    ctx.fillStyle = '#0b0616'
-    ctx.font = `bold 12px ${MACHINE_FONT}`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(def.label, p.x, p.y + 1)
-  }
-
-  // Shockwaves
-  for (const sw of shockwaves) {
-    ctx.strokeStyle = sw.color
-    ctx.globalAlpha = PLAY_ALPHA * sw.life * 0.8
-    ctx.lineWidth = 2 + sw.life * 6
-    ctx.shadowColor = sw.color
-    ctx.shadowBlur = 16 * sw.life
-    ctx.beginPath()
-    ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2)
-    ctx.stroke()
-    ctx.shadowBlur = 0
-  }
-  ctx.globalAlpha = PLAY_ALPHA
-
-  // Particles
-  for (const p of particles) {
-    ctx.globalAlpha = PLAY_ALPHA * Math.max(0, p.life)
-    ctx.fillStyle = p.color
-    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
-  }
-  ctx.globalAlpha = PLAY_ALPHA
-
-  // Paddle
-  if (paddle.visible) {
-    const x = paddle.x - paddle.w / 2
-    ctx.shadowColor = PADDLE_COLOR
-    ctx.shadowBlur = 14 + paddleFlash * 16
-    const grad = ctx.createLinearGradient(x, paddle.y, x + paddle.w, paddle.y)
-    grad.addColorStop(0, '#1d9aa6')
-    grad.addColorStop(0.5, paddleFlash > 0 ? '#ffffff' : '#c8fbff')
-    grad.addColorStop(1, '#1d9aa6')
-    ctx.fillStyle = grad
-    roundRect(x, paddle.y, paddle.w, paddle.h, 7)
-    ctx.fill()
-    ctx.shadowBlur = 0
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'
-    ctx.fillRect(x + 8, paddle.y + 3, paddle.w - 16, 2)
-  }
-
-  // Balls
-  for (const ball of balls) {
-    ball.trail.forEach((t, i) => {
-      const f = (i + 1) / ball.trail.length
-      ctx.globalAlpha = PLAY_ALPHA * f * 0.35
-      ctx.fillStyle = '#2ff3ff'
-      ctx.beginPath()
-      ctx.arc(t.x, t.y, BALL_RADIUS * f * 0.9, 0, Math.PI * 2)
-      ctx.fill()
-    })
-    ctx.globalAlpha = PLAY_ALPHA
-    ctx.shadowColor = '#2ff3ff'
-    ctx.shadowBlur = 18
-    ctx.fillStyle = '#ffffff'
-    ctx.beginPath()
-    ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.shadowBlur = 0
-  }
-
-  // Level banner
-  if (levelBanner > 0 && !demo) {
-    const t = Math.min(1, levelBanner / 400)
-    ctx.globalAlpha = t
-    ctx.fillStyle = '#ff2fa0'
-    ctx.shadowColor = '#ff2fa0'
-    ctx.shadowBlur = 24
-    ctx.font = `bold 32px ${MACHINE_FONT}`
-    try { ctx.letterSpacing = '0.1em' } catch (e) { /* canvas letterSpacing unsupported */ }
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(`LEVEL ${level}`, W / 2, H * 0.62)
-    ctx.shadowBlur = 0
-    try { ctx.letterSpacing = '0px' } catch (e) { /* canvas letterSpacing unsupported */ }
-  }
-
-  // Death: red vignette for ~400 ms after a lost life, on top of the shake.
-  if (deathFlash > 0.01) {
-    const a = deathFlash * 0.35
-    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.7)
-    g.addColorStop(0, 'rgba(255, 32, 64, 0)')
-    g.addColorStop(1, `rgba(255, 32, 64, ${a.toFixed(3)})`)
-    ctx.fillStyle = g
-    ctx.fillRect(0, 0, W, H)
-  }
-
-  ctx.globalAlpha = 1
+  const m = shake * 6 / stage.k
+  stage.present({
+    // Attract mode sits darker behind the start text.
+    ambient: demo ? '#6a5e9c' : '#8e80c4',
+    shakeX: shake > 0 ? (Math.random() - 0.5) * m : 0,
+    shakeY: shake > 0 ? (Math.random() - 0.5) * m : 0,
+    afterLight: g2 => drawGlowing(g2, nowSec),
+  })
 }
 
 function gameLoop(now) {
@@ -849,6 +820,7 @@ function handleTouchEnd(e) {
 }
 
 onMounted(() => {
+  reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
   setupCanvas()
   startDemo()
   gameRunning = true

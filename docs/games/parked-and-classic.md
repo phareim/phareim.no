@@ -9,9 +9,23 @@ reachable with `?theme=<id>`.
 
 `?theme=breakout` — the arcade classic, added 2026-09-04. Same
 canvas-behind-the-card pattern as Galaga; plays itself (autopilot) until
-Enter. On the Neon Dreams design system: cyan paddle/ball/HUD, pink bricks
-in three tints, gold armoured bricks and powerups, over the shared horizon
-backdrop (`themes/base/neonHorizon.js`), which beats on every hit.
+Enter.
+
+**Look (2026-09-24): Neon Shrine's pixels** (`docs/games/pixel-look.md`).
+A shrine chamber seen from above, on the shared pixel stage: dungeon floor
+tiles with a faint inlaid sigil, thin walls with a pink neon strip,
+braziers on the side walls (orange and cyan fire) that light the room
+through the light map, and a dark pit under the paddle. Armoured bricks are
+shrine stone with a gold neon strip (pink for the 3-hit top row) that
+cracks with each hit; the rest are crystals, pink, violet and teal by row
+band. The ball is a glowing orb that lights what it passes, the paddle the
+hero's cyan shield bar with a gold gem; powerups are gold capsules with
+their letter in the 5×7 font. Braziers flare on paddle and brick hits and
+on a level clear; the LEVEL banner is in big pixel letters. The HTML text
+uses `.px-*`. The stage shows at least 360×225 logical pixels (128 across
+on phones), about 3 CSS px per pixel on laptops and phones. Code:
+`themes/breakout/pixel.ts` (chamber, brick/paddle/orb/capsule painters)
+and the draw section of `Breakout.vue`. Rules unchanged.
 
 ## Tetris
 
