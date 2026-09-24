@@ -62,7 +62,7 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
   if (!touch && inv.selected) {
     const bx = Math.max(4 + Math.min(hearts, 10) * 9, cx) + 4
     box(g, bx, 3, 22, 22, '#2ff3ff')
-    const icon = inv.selected === 'disc' ? 'item_disc' : 'item_bombbag'
+    const icon = inv.selected === 'disc' ? 'item_disc' : inv.selected === 'hook' ? 'item_hook' : 'item_bombbag'
     const spr = sprite(icon)
     g.drawImage(spr, bx + 11 - spr.width / 2, 6)
     drawText(g, 'K', bx + 24, 4, '#2ff3ff', '#0b0616')
@@ -146,12 +146,13 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
   box(g, x, y, w, 118, '#2ff3ff')
   // Items
   const items: Array<[string, boolean, string]> = [
-    ['item_sword', s.inv.sword, 'BLADE'],
+    [s.inv.arc ? 'item_arc' : 'item_sword', s.inv.sword, s.inv.arc ? 'ARC' : 'BLADE'],
     ['item_bombbag', s.inv.bombBag, 'BOMBS'],
+    ['item_hook', s.inv.hook, 'HOOK'],
     ['item_disc', s.inv.disc, 'DISC'],
-    ['item_bigkey', s.inv.bigKey, 'BIG KEY'],
+    ['item_bigkey', hasBigKey(s), 'BIG KEY'],
   ]
-  const slot = Math.floor((w - 16) / 4)
+  const slot = Math.floor((w - 16) / 5)
   items.forEach(([icon, owned, label], i) => {
     const ix = x + 8 + i * slot
     const iy = y + 8
@@ -160,7 +161,7 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
     if (owned) {
       const spr = sprite(icon)
       g.drawImage(spr, Math.round(ix + (slot - 4) / 2 - spr.width / 2), iy + 2)
-      const selected = (icon === 'item_disc' && s.inv.selected === 'disc') || (icon === 'item_bombbag' && s.inv.selected === 'bombs')
+      const selected = (icon === 'item_disc' && s.inv.selected === 'disc') || (icon === 'item_bombbag' && s.inv.selected === 'bombs') || (icon === 'item_hook' && s.inv.selected === 'hook')
       if (selected) { g.fillStyle = '#ffd23f'; g.fillRect(ix, iy + 29, slot - 4, 1) }
     }
     drawText(g, owned ? label : '---', Math.round(ix + (slot - 4) / 2 - textWidth(owned ? label : '---') / 2), iy + 21, owned ? '#b9a8d9' : '#4a3d68')
@@ -172,6 +173,18 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
     g.fillStyle = i < s.inv.pieces ? '#ff2fa0' : '#3a2a5a'
     g.fillRect(x + 8 + textWidth('HEART PIECES') + 6 + (i % 2) * 5, py - 1 + Math.floor(i / 2) * 5, 4, 4)
   }
+  // Things carried for someone: small icons at the right of that row.
+  const errands: string[] = []
+  const f = (k: string) => s.flags[k] === true
+  if (f('item:waffle') && !f('luna')) errands.push('item_waffle')
+  if (s.inv.shrooms > 0 && !f('got:mossa:heartPiece')) errands.push('item_shroom')
+  if (f('item:tube') && !f('got:dusty:heartPiece')) errands.push('item_tube')
+  if (f('item:walkie') && !f('got:toby:bits50')) errands.push('item_walkie')
+  if (f('item:hat') && !f('got:troll:bigBag')) errands.push('item_hat')
+  errands.forEach((icon, i) => {
+    const spr = sprite(icon)
+    g.drawImage(spr, x + w - 8 - (errands.length - i) * 14, py - 5, 12, 12)
+  })
   // Objective
   const lines = wrapText(objective(s), w - 16)
   drawText(g, 'QUEST', x + 8, y + 62, '#ffd23f')

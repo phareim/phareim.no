@@ -417,9 +417,13 @@ describe('profile saves', () => {
     assert.equal(q.hearts, Z.START_HP / 2)
     s.inv.sword = true
     s.inv.bombBag = true
-    s.flags['bomb:overworld:3,4'] = true
     q = Z.summarizeRaw(JSON.parse(JSON.stringify(Z.toSave(s))))
-    assert.equal(q.step, 3)
+    assert.equal(q.step, 2)
+    assert.equal(q.goal, 'THE WILDWOOD')
+    Object.assign(s.inv, { hook: true, arc: true })
+    for (const f of ['luna', 'mistral', 'gateShut', 'bomb:overworld:3,4']) s.flags[f] = true
+    q = Z.summarizeRaw(JSON.parse(JSON.stringify(Z.toSave(s))))
+    assert.equal(q.step, 8)
     assert.equal(q.goal, 'THE DISC')
     assert.equal(Z.summarizeRaw({ nope: true }), null)
     assert.equal(Z.formatPlayTime(3725), '1:02:05')

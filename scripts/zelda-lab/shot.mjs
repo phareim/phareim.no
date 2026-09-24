@@ -88,7 +88,36 @@ switch (scene) {
   case 'r-arcade': place('arcade', 'door'); run(20); break
   case 'r-home': place('home', 'door'); run(20); break
   case 'r-desk': place('home', 'door', -2, -4); s.hero.dir = 'left'; run(5); break
+  // The Wildwood and Project Horizon's labs (w-* outdoors, l-* Horizon Lab, d-* the Deep Lab, i-* rooms)
+  case 'w-shore': wild(); go('wildwood', 76.5, 38.5, 'left'); run(30); break
+  case 'w-camp': wild(true); go('wildwood', 50.5, 38.5, 'up'); run(60, inp({ move: { x: 0.01, y: 0 } })); run(30); break
+  case 'w-lab': wild(true); go('wildwood', 52.5, 24.5, 'up'); run(30); break
+  case 'w-grove': wild(true); go('wildwood', 39.5, 9.5, 'up'); run(30); break
+  case 'w-brambles': wild(); go('wildwood', 37.5, 36.5, 'up'); run(30); break
+  case 'w-ravine': wild(true); s.inv.hook = true; s.inv.selected = 'hook'; go('wildwood', 32.5, 37.5, 'left'); run(10); r.onEvents(stepGame(world, s, 1 / 60, inp({ bPress: true }))); run(12); break
+  case 'w-deep': wild(true); go('wildwood', 12.5, 20.5, 'up'); run(30); break
+  case 'i-mossa': wild(); go('mossa', 5.5, 5.5, 'up'); run(20); break
+  case 'i-radio': wild(); go('radio', 4.5, 5.5, 'up'); run(20); break
+  case 'l-lobby': wild(true); go('lab1', 23.5, 31.5, 'up'); run(30); break
+  case 'l-dark': wild(true); go('lab1', 7.5, 30.5, 'up'); run(30); break
+  case 'l-psi': wild(true); go('lab1', 34.5, 20.5, 'right'); run(10); r.onEvents(stepGame(world, s, 1 / 60, inp({ aPress: true, a: true }))); run(8); break
+  case 'l-llama': wild(true); go('lab1', 40.5, 9.5, 'up'); run(100); break
+  case 'l-mistral': wild(true); s.inv.hook = true; go('lab1', 23.5, 9.5, 'up'); run(160); break
+  case 'l-vault': wild(true); s.inv.hook = true; s.inv.selected = 'hook'; go('lab1', 7.5, 8.5, 'up'); run(5); r.onEvents(stepGame(world, s, 1 / 60, inp({ bPress: true }))); run(9); break
+  case 'l-b1': wild(true); s.flags['crystal:lab1'] = true; go('lab1b', 30.5, 29.5, 'left'); run(30); break
+  case 'd-room11': wild(true); go('deep1', 7.5, 4.5, 'up'); run(90); break
+  case 'd-hall': wild(true); go('deep1', 23.5, 21.5, 'up'); run(30); break
+  case 'd-deepseek': wild(true); s.inv.hook = true; go('deep1', 39.5, 19.5, 'up'); run(150); break
+  case 'd-vines': wild(true); s.inv.arc = true; go('deep1', 7.5, 28.5, 'left'); run(10); r.onEvents(stepGame(world, s, 1 / 60, inp({ aPress: true, a: true }))); run(4); break
+  case 'd-gemini': wild(true); s.inv.arc = true; go('deep2', 23.5, 10.5, 'up'); run(140); break
+  case 'd-gate': wild(true); s.inv.arc = true; s.flags.gemini = true; s.flags.gateShut = true; go('deep2', 23.5, 8.5, 'up'); run(20); break
 }
+function wild(luna = false) {
+  give(); s.inv.hook = true; s.hero.hp = s.hero.maxHp
+  for (const f of ['intro', 'llama.met', 'mistral.met', 'deepseek.met', 'gemini.met', 'room11', 'mistral.told']) s.flags[f] = true
+  if (luna) s.flags.luna = true
+}
+function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.dir = dir; s.hero.auto = null; s.mode = 'play'; s.dialog = null }
 // Several frames so fades (exit labels) settle and the clock moves.
 for (let k = 0; k < 40; k++) r.draw(s, ui, 1 / 60)
 document.title = 'ready'
@@ -149,6 +178,30 @@ const SHOTS = [
   ['r-arcade-390', 'r-arcade', 390, 844, 3, 0],
   ['r-home-1280', 'r-home', 1280, 800, 1, 0],
   ['r-home-390', 'r-home', 390, 844, 3, 0],
+  ['w-shore-1280', 'w-shore', 1280, 800, 1, 0],
+  ['w-camp-1280', 'w-camp', 1280, 800, 1, 0],
+  ['w-lab-1280', 'w-lab', 1280, 800, 1, 0],
+  ['w-grove-1280', 'w-grove', 1280, 800, 1, 0],
+  ['w-brambles-1280', 'w-brambles', 1280, 800, 1, 0],
+  ['w-ravine-1280', 'w-ravine', 1280, 800, 1, 0],
+  ['w-deep-1280', 'w-deep', 1280, 800, 1, 0],
+  ['i-mossa-1280', 'i-mossa', 1280, 800, 1, 0],
+  ['i-radio-1280', 'i-radio', 1280, 800, 1, 0],
+  ['l-lobby-1280', 'l-lobby', 1280, 800, 1, 0],
+  ['l-dark-1280', 'l-dark', 1280, 800, 1, 0],
+  ['l-psi-1280', 'l-psi', 1280, 800, 1, 0],
+  ['l-llama-1280', 'l-llama', 1280, 800, 1, 0],
+  ['l-mistral-1280', 'l-mistral', 1280, 800, 1, 0],
+  ['l-vault-1280', 'l-vault', 1280, 800, 1, 0],
+  ['l-b1-1280', 'l-b1', 1280, 800, 1, 0],
+  ['d-room11-1280', 'd-room11', 1280, 800, 1, 0],
+  ['d-hall-1280', 'd-hall', 1280, 800, 1, 0],
+  ['d-deepseek-1280', 'd-deepseek', 1280, 800, 1, 0],
+  ['d-vines-1280', 'd-vines', 1280, 800, 1, 0],
+  ['d-gemini-1280', 'd-gemini', 1280, 800, 1, 0],
+  ['d-gate-1280', 'd-gate', 1280, 800, 1, 0],
+  ['w-camp-390', 'w-camp', 390, 844, 3, 0],
+  ['d-room11-390', 'd-room11', 390, 844, 3, 0],
 ]
 const want = only ? new Set(only.split(',')) : null
 for (const [name, scene, w, h, dpr, top] of SHOTS) {

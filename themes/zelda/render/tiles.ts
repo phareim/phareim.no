@@ -14,6 +14,10 @@ import { makeCanvas, sprite } from './sheet'
 import { exitTiles } from './exits'
 import { decalCover } from './decals'
 import { bookshelf, desk, drawFurnitureLive, picture, plant, rug, sofa, stool } from './furniture'
+import { drawLabLive, paintLabBase, paintLabObject, paintNewObject } from './labTiles'
+
+/** The Wildwood's deeper night: darker grass, more moonlit violet crowns. Set per paint. */
+let wild = false
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -96,13 +100,13 @@ const isPath = (t: TileChar) => t === ',' || t === '=' || t === 'D' || t === '>'
 // ---------------------------------------------------------------------------
 
 function grass(g: G, px: number, py: number, tx: number, ty: number, at: At) {
-  r(g, OW.g0, px, py, T, T)
+  r(g, wild ? '#1b4260' : OW.g0, px, py, T, T)
   // Large soft patches from value noise, in 4-px blocks.
   for (let by = 0; by < T; by += 4) {
     for (let bx = 0; bx < T; bx += 4) {
       const n = noise(tx * T + bx, ty * T + by, 56) * 0.7 + noise(tx * T + bx, ty * T + by, 14, 3) * 0.3
-      if (n > 0.64) r(g, OW.g1, px + bx, py + by, 4, 4)
-      else if (n < 0.3) r(g, OW.g2, px + bx, py + by, 4, 4)
+      if (n > 0.64) r(g, wild ? '#234f6c' : OW.g1, px + bx, py + by, 4, 4)
+      else if (n < 0.3) r(g, wild ? '#132f48' : OW.g2, px + bx, py + by, 4, 4)
     }
   }
   // A few blades, fewer on dark patches.
@@ -208,6 +212,7 @@ function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx:
       rug(g, px, py, tx, ty, at)
       return
     case 'O':
+      if (kind === 'overworld') { chasm(g, px, py, tx, ty, at); return }
       r(g, '#05030c', px, py, T, T)
       if (at(0, -1) !== 'O') { r(g, kind === 'dungeon' ? DG.faceD : OW.rockD, px, py, T, 4); r(g, '#0d0820', px, py + 4, T, 2) }
       return
@@ -223,6 +228,20 @@ function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx:
   }
 }
 
+/** A ravine in the open: rock walls falling away into the dark, a glint of neon far below. */
+function chasm(g: G, px: number, py: number, tx: number, ty: number, at: At) {
+  // Depth: lighter near the rims.
+  let depth = 0
+  for (let d = 1; d <= 3; d++) if (at(-d, 0) === 'O' && at(d, 0) === 'O') depth = d
+  r(g, ['#1a1233', '#110b24', '#0a0618', '#05030c'][depth]!, px, py, T, T)
+  for (let i = 0; i < 3; i++) r(g, '#0d0820', px + Math.floor(hash2(tx, ty, 90 + i) * 14), py + Math.floor(hash2(tx, ty, 95 + i) * 14), 2, 1)
+  if (hash2(tx, ty, 99) > 0.93) { r(g, '#ff2fa0', px + 7, py + 9, 1, 1); r(g, '#2ff3ff', px + 3, py + 4, 1, 1) }
+  // Rock faces where the ground breaks off.
+  if (at(-1, 0) !== 'O') { r(g, OW.rockD, px, py, 5, T); r(g, OW.rock, px, py, 3, T); r(g, OW.rockL, px, py, 1, T); for (let y = 2; y < T; y += 5) r(g, OW.rockDD, px + 1, py + y, 3, 1) }
+  if (at(1, 0) !== 'O') { r(g, OW.rockD, px + T - 5, py, 5, T); r(g, OW.rockDD, px + T - 3, py, 3, T); for (let y = 4; y < T; y += 5) r(g, OW.rockD, px + T - 4, py + y, 3, 1) }
+  if (at(0, -1) !== 'O') { r(g, OW.rock, px, py, T, 5); r(g, OW.rockL, px, py, T, 1); r(g, OW.rockD, px, py + 5, T, 2); r(g, OW.rockDD, px, py + 7, T, 1) }
+}
+
 // ---------------------------------------------------------------------------
 // Object pass
 // ---------------------------------------------------------------------------
@@ -235,7 +254,7 @@ function tree(g: G, px: number, py: number, tx: number, ty: number, at: At) {
   const cx = px + 8
   const cy = py + 7
   // Two canopy moods across the map: teal, and a moonlit violet.
-  const P = noise(tx * T, ty * T, 96, 7) > 0.56
+  const P = noise(tx * T, ty * T, 96, 7) > (wild ? 0.4 : 0.56)
     ? { d: '#1a1f4c', m: '#27366e', l: '#3f58a4', h: '#86a2ff' }
     : { d: OW.canopyD, m: OW.canopyM, l: OW.canopyL, h: OW.canopyH }
   if (!down) {
@@ -584,7 +603,9 @@ function plateBase(g: G, px: number, py: number) {
   r(g, '#2b2553', px + 4, py + 4, 8, 8)
 }
 
-function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At, marquee: boolean, bare: boolean) {
+function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At, marquee: boolean, bare: boolean, look?: string) {
+  if (paintNewObject(look, g, t, px, py, tx, ty)) return
+  if (look === 'lab' && paintLabObject(g, t, px, py, tx, ty, at)) return
   switch (t) {
     case 'T': tree(g, px, py, tx, ty, at); break
     case '*': bush(g, px, py, tx, ty); break
@@ -650,6 +671,8 @@ function atFor(m: MapState, tx: number, ty: number, kind: MapKind): At {
 
 function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1: number, y1: number) {
   const kind = mapInfo(world, m.id).def.kind
+  const look = mapInfo(world, m.id).def.look
+  wild = look === 'wild'
   // Exits that bring their own sprite (cabinets, board, kiosk, terminals) stand on bare ground.
   const own = exitTiles(world, m.id)
   // Only the arcade's signs are high-score marquees; other rooms get a plain plaque.
@@ -665,12 +688,14 @@ function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1
   g.rect(X0 * T, Y0 * T, (X1 - X0 + 1) * T, (Y1 - Y0 + 1) * T)
   g.clip()
   for (let ty = Y0; ty <= Y1; ty++) for (let tx = X0; tx <= X1; tx++) {
-    paintBase(kind, g, m.tiles[ty * m.w + tx]!, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind))
+    const t = m.tiles[ty * m.w + tx]!
+    if (look === 'lab' && paintLabBase(g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind))) continue
+    paintBase(kind, g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind))
   }
   // Objects from one tile further out so overhangs reach in.
   for (let ty = Math.max(0, Y0 - 1); ty <= Math.min(m.h - 1, Y1 + 1); ty++) for (let tx = Math.max(0, X0 - 1); tx <= Math.min(m.w - 1, X1 + 1); tx++) {
     if (own.has(ty * m.w + tx)) continue
-    paintObject(kind, g, m.tiles[ty * m.w + tx]!, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind), marquee, cover.has(ty * m.w + tx))
+    paintObject(kind, g, m.tiles[ty * m.w + tx]!, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind), marquee, cover.has(ty * m.w + tx), look)
   }
   g.restore()
 }
@@ -727,6 +752,7 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
       const py = ty * T - cy
       const wx = tx + 0.5
       const wy = ty + 0.5
+      if (drawLabLive(g, world, s, kind, info.def.look, t, tx, ty, px, py, time, reduced, lights)) continue
       switch (t) {
         case '~': {
           const ph = tm * 1.6 + hash2(tx, ty) * 6

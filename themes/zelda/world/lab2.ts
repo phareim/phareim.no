@@ -28,7 +28,7 @@ const letter = (ch: string): Mark => ({ ent: { t: 'glyph', ch } })
 
 const ROOM11 = [
   '################',
-  '#..............#',
+  '################',
   '#.nn...........#',
   '#.nn......Y....#',
   '#..............#',
@@ -276,7 +276,7 @@ export const DEEP1: MapDef = {
       events: [{ when: { notFlag: 'deepseek' }, lines: ['DEEPSEEK. IT HUNTS UNDER THE FLOOR, WHERE THE LIGHT DOES NOT GO.', 'IT HAS TO COME UP TO BITE. SOMETHING ON A CHAIN COULD HAUL IT UP SOONER.'], set: 'deepseek.met' }],
     },
   },
-  props: [{ kind: 'lights', x: 1.5, y: 0, w: 13, h: 1, text: 'DUSK' }],
+  props: [{ kind: 'lights', x: 1.5, y: 1, w: 13, h: 1, text: 'DUSK' }],
   rows: joinCells([
     [ROOM11, ELEVATOR, COOLANT],
     [CHUTE, HALL, DEEPSEEK],

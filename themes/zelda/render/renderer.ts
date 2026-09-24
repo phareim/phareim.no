@@ -17,13 +17,15 @@
  */
 import type { Dir, Enemy, GameEvent, GameState, World } from '../types'
 import { BOMB_FUSE, SPIN_TIME, SWING_TIME, TILE, WARP_TIME } from '../types'
-import { cameraFor, cellDef, cellIndex, mapInfo, shardPos, swingAngle } from '../engine/index'
+import { cameraFor, cellDef, cellIndex, cellIsDark, mapInfo, shardPos, swingAngle } from '../engine/index'
 import { drawText, textWidth } from './font'
 import { drawBanner, drawDialog, drawHud, drawPause, type HudKeys } from './hud'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { createLabels, drawExitLabels, queueExits, type Emit } from './exits'
 import { makeCanvas, silhouette, sprite, spriteT } from './sheet'
 import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
+import { drawPsiBlock } from './labTiles'
+import { drawHookChain, drawStaticMood, fireflies, queueLuna, queueProps } from './wild'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -208,6 +210,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         case 'spin': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: SPIN_TIME, color: '#2ff3ff', size: 1.6, name: 'hero' }); break
         case 'bossPhase': flashT = 0.3; flashColor = '#ff2fa0'; break
         case 'won': flashT = 1; flashColor = '#ffd23f'; break
+        case 'psi': fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.5, color: '#ff8ae0', size: 1.2 }); break
+        case 'hookHit': spark(e.x, e.y, 6, '#cfc6ff', 4, 0.3); break
+        case 'lever': spark(e.x, e.y, 12, '#b6ff4a', 5, 0.5); flashT = 0.1; flashColor = '#b6ff4a'; break
+        case 'glyph': if (e.ok) fx.push({ kind: 'ring', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.4, color: '#2ff3ff', size: 0.6 }); break
+        case 'join': fx.push({ kind: 'ring', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 0.8, color: '#ff8ae0', size: 1.6, name: 'hero' }); break
       }
     }
     if (fx.length > 260) fx = fx.slice(fx.length - 260)
@@ -261,7 +268,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const walkFrame = [1, 0, 2, 0][step]!
     switch (h.act) {
       case 'walk': name = `hero_${key}_${walkFrame}`; break
-      case 'swing': case 'throw': case 'use': name = `hero_${key}_atk`; break
+      case 'swing': case 'throw': case 'use': case 'hook': name = `hero_${key}_atk`; break
       case 'spin': {
         const order: Dir[] = [h.dir, h.dir === 'down' ? 'left' : h.dir === 'left' ? 'up' : h.dir === 'up' ? 'right' : 'down']
         const p = h.spin ? h.spin.t / SPIN_TIME : 0
@@ -297,7 +304,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
   }
 
+  let arc = false
   function bladeSprite(a: number): { name: string; fh: boolean; fv: boolean } {
+    const b = bladeSprite1(a)
+    return arc ? { ...b, name: b.name.replace('sword_', 'sword2_') } : b
+  }
+
+  function bladeSprite1(a: number): { name: string; fh: boolean; fv: boolean } {
     // Quantise to 8 directions.
     const o = ((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8
     switch (o) {
@@ -331,7 +344,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const by = y + Math.sin(a) * reach
     // Smear behind the swing.
     if (h.swing) {
-      g.fillStyle = 'rgba(47,243,255,0.35)'
+      g.fillStyle = arc ? 'rgba(255,210,63,0.4)' : 'rgba(47,243,255,0.35)'
       for (let k = 1; k <= 3; k++) {
         const pa = swingAngle(h.swing.dir, Math.max(0, h.swing.t / SWING_TIME - k * 0.12))
         g.fillRect(Math.round(x + Math.cos(pa) * 13) - 1, Math.round(y + Math.sin(pa) * 13) - 1, 3, 3)
@@ -339,7 +352,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
     blit(g, bs.name, bs.fh, bs.fv, bx, by)
     const charged = !h.swing && h.charge >= 0.55
-    lights.push({ x: (x + Math.cos(a) * 16) / T + camX / T, y: (y + Math.sin(a) * 16) / T + camY / T, r: charged ? 2.6 : 1.8, color: '#2ff3ff', a: charged ? (Math.floor(time * 12) % 2 ? 1 : 0.5) : 0.7 })
+    lights.push({ x: (x + Math.cos(a) * 16) / T + camX / T, y: (y + Math.sin(a) * 16) / T + camY / T, r: charged ? 2.6 : 1.8, color: arc ? '#ffd23f' : '#2ff3ff', a: charged ? (Math.floor(time * 12) % 2 ? 1 : 0.5) : 0.7 })
     if (charged && Math.floor(time * 12) % 2 === 0) {
       g.fillStyle = '#ffffff'
       const tx = Math.round(x + Math.cos(a) * 17)
@@ -375,6 +388,14 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       case 'heartContainer': return 'item_container'
       case 'heart': return 'drop_heart'
       case 'prism': return 'item_prism'
+      case 'hook': return 'item_hook'
+      case 'arc': return 'item_arc'
+      case 'bigBag': return 'item_bigbag'
+      case 'waffle': return 'item_waffle'
+      case 'shroom': return 'item_shroom'
+      case 'tube': return 'item_tube'
+      case 'walkie': return 'item_walkie'
+      case 'hat': return 'item_hat'
       default: return 'item_bits'
     }
   }
@@ -394,14 +415,59 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       case 'blade': return { name: 'blade', flip: false }
       case 'knight': return { name: `knight_${key}_${e.ai.mode === 'charge' ? Math.floor(time * 10) % 2 : f}`, flip }
       case 'king': return { name: e.flash > 0 || e.ai.mode === 'down' ? 'king_hurt' : `king_${f}`, flip: false }
+      case 'hound': return { name: e.ai.mode === 'tell' ? 'hound_open' : `hound_${key}_${e.ai.mode === 'lunge' ? 1 : f}`, flip }
+      case 'drone': return { name: `drone_${Math.floor(time * 10) % 2}`, flip: false }
+      case 'llama': return { name: e.ai.mode === 'aim' ? 'llama_spit' : `llama_${key}_${e.ai.mode === 'charge' ? Math.floor(time * 10) % 2 : f}`, flip }
+      case 'mistral': return { name: e.ai.mode === 'down' ? 'mistral_down' : `mistral_${Math.floor(time * (e.ai.mode === 'blow' ? 14 : 7)) % 4}`, flip: false }
+      case 'deepseek': return { name: e.ai.tell > 0 && e.ai.mode === 'up' ? 'deepseek_bite' : `deepseek_${f}`, flip: e.dir === 'left' }
+      case 'gemini': {
+        const other = this_map_twin(e)
+        const t = !other || e.home.x < other.home.x ? 'a' : 'b'
+        return { name: e.ai.mode === 'down' ? `gemini_${t}_down` : `gemini_${t}_${f}`, flip: false }
+      }
     }
+  }
+
+  let twinList: Enemy[] = []
+  function this_map_twin(e: Enemy): Enemy | undefined {
+    return twinList.find(o => o !== e && o.kind === 'gemini' && o.cell === e.cell)
   }
 
   function drawEnemy(g: G, s: GameState, e: Enemy, cx: number, cy: number, lights: Light[]) {
     const x = e.x * T - cx
     let feet = e.y * T - cy + e.r * T + 1
+    if (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise')) {
+      // Under the floor: only a fin cutting through it, and a ripple as it rises.
+      const rising = e.ai.mode === 'rise'
+      g.strokeStyle = rising ? '#ff3b5c' : 'rgba(47,243,255,0.6)'
+      g.lineWidth = 1
+      const rad = rising ? 6 + (1 - e.ai.t / 0.6) * 10 : 5 + Math.sin(time * 8) * 1.5
+      g.beginPath(); g.ellipse(Math.round(x), Math.round(e.y * T - cy + 3), rad, rad * 0.45, 0, 0, Math.PI * 2); g.stroke()
+      put(g, 'deepseek_fin', x, e.y * T - cy + 5, e.dir === 'left')
+      lights.push({ x: e.x, y: e.y, r: rising ? 2.6 : 1.4, color: rising ? '#ff3b5c' : '#2ff3ff', a: 0.7 })
+      return
+    }
+    if (e.kind === 'gemini' && e.ai.mode !== 'down') {
+      const other = this_map_twin(e)
+      if (other && !other.dead && other.ai.mode !== 'down' && e.home.x > other.home.x) {
+        // The tether between the twins.
+        const ox = other.x * T - cx
+        const oy = other.y * T - cy - 10
+        const flick = Math.floor(time * 20) % 2
+        g.strokeStyle = flick ? '#ff2fa0' : '#2ff3ff'
+        g.lineWidth = 2
+        g.beginPath(); g.moveTo(Math.round(x), Math.round(e.y * T - cy - 10)); g.lineTo(Math.round(ox), Math.round(oy)); g.stroke()
+        g.strokeStyle = '#ffffff'
+        g.lineWidth = 1
+        g.beginPath(); g.moveTo(Math.round(x), Math.round(e.y * T - cy - 10)); g.lineTo(Math.round(ox), Math.round(oy)); g.stroke()
+        lights.push({ x: (e.x + other.x) / 2, y: (e.y + other.y) / 2 - 0.6, r: 3, color: '#ff2fa0', a: 0.6 })
+      }
+    }
     const { name, flip } = enemySprite(e)
-    const flying = e.kind === 'bat' || e.kind === 'king'
+    const flying = e.kind === 'bat' || e.kind === 'king' || e.kind === 'drone' || (e.kind === 'mistral' && e.ai.mode !== 'down') || (e.kind === 'gemini' && e.ai.mode !== 'down')
+    if (e.kind === 'mistral') lights.push({ x: e.x, y: e.y - 1, r: 4, color: '#9ff6ff', a: e.ai.mode === 'down' ? 1 : 0.6 })
+    if (e.kind === 'gemini') lights.push({ x: e.x, y: e.y - 1, r: 2.4, color: e.home.x < (this_map_twin(e)?.home.x ?? Infinity) ? '#2ff3ff' : '#ff2fa0', a: e.ai.mode === 'down' ? 0.3 : 0.8 })
+    if (e.kind === 'drone') lights.push({ x: e.x, y: e.y - 0.6, r: 1.2, color: '#ff3b5c', a: 0.7 })
     if (e.kind === 'king') {
       const down = e.ai.mode === 'down'
       const hover = down ? 0 : 6 + Math.sin(time * 2) * 2
@@ -442,9 +508,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       lights.push({ x: e.x, y: e.y - 0.3, r: hot ? 2.4 : 1.2, color: '#ff3b5c', a: hot ? 1 : 0.6 })
     }
     if (e.kind === 'zapper' && e.stun <= 0) lights.push({ x: e.x, y: e.y - 0.4, r: 2, color: '#b6ff4a', a: 0.5 + 0.3 * Math.sin(time * 15) })
-    if (e.kind === 'knight' && e.ai.mode === 'dazed') drawStars(g, x, feet - 25)
+    if ((e.kind === 'knight' || e.kind === 'llama') && e.ai.mode === 'dazed') drawStars(g, x, feet - 25)
+    if (e.kind === 'mistral' && e.ai.mode === 'down') drawStars(g, x, feet - 22)
     if (e.stun > 0) drawStars(g, x, feet - (e.kind === 'knight' ? 25 : 16))
-    if (e.ai.tell > 0 && e.kind !== 'eye' && e.kind !== 'spitter') {
+    if (e.ai.tell > 0 && e.kind !== 'eye' && e.kind !== 'spitter' && e.kind !== 'hound' && e.kind !== 'llama' && e.kind !== 'deepseek') {
       g.fillStyle = '#ff2fa0'
       const top = feet - (e.kind === 'knight' ? 28 : 19)
       g.fillRect(Math.round(x), Math.round(top), 1, 4)
@@ -504,11 +571,24 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     type Item = { y: number; draw: () => void }
     const items: Item[] = []
     const m = s.map
+    arc = s.inv.arc
+    twinList = m.enemies
+    queueProps(g, world, s, cx, cy, vw, vh, time, ui.reducedMotion, items, lights)
+    if (!ui.attract) queueLuna(g, s, cx, cy, items, lights)
     for (const b of m.moving) {
-      const p = Math.min(1, b.t / 0.28)
+      const p = Math.min(1, b.t / (b.dur ?? 0.28))
       const bx = (b.fx + (b.tx - b.fx) * p) * T - cx
       const by = (b.fy + (b.ty - b.fy) * p) * T - cy
-      items.push({ y: b.fy + 1, draw: () => drawBlock(g, Math.round(bx), Math.round(by)) })
+      items.push({
+        y: b.fy + 1,
+        draw: () => {
+          if (b.kind !== 'B') { drawBlock(g, Math.round(bx), Math.round(by)); return }
+          // A block dropping into a hole shrinks away at the end.
+          const k = b.falls ? Math.max(0, 1 - Math.max(0, p - 0.7) / 0.3) : 1
+          if (k >= 1) drawPsiBlock(g, Math.round(bx), Math.round(by))
+          else if (k > 0) { g.save(); g.translate(Math.round(bx + 8), Math.round(by + 8)); g.scale(k, k); drawPsiBlock(g, -8, -8); g.restore() }
+        },
+      })
     }
     for (const d of m.drops) {
       const left = d.life - d.t
@@ -562,9 +642,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (!ui.attract && s.hero.x > -10) items.push({ y: s.hero.y, draw: () => drawHero(g, s, cx, cy, lights) })
     items.sort((a, b) => a.y - b.y)
     for (const it of items) it.draw()
+    drawHookChain(g, s, cx, cy, lights)
+    if (info.def.look === 'wild' && !ui.attract) fireflies(cx, cy, vw, vh, ui.reducedMotion ? 0 : time, lights, g)
 
     // --- light --------------------------------------------------------------------
-    const dark = kind !== 'overworld' && !!cellDef(info, s.zoneIndex)?.dark
+    const dark = kind !== 'overworld' && cellIsDark(s, info, s.zoneIndex)
     const amb = dark ? (kind === 'interior' ? AMBIENT.caveDark : AMBIENT.dark) : AMBIENT[kind]
     lg.globalCompositeOperation = 'source-over'
     lg.fillStyle = amb
@@ -573,7 +655,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const h = s.hero
     if (!ui.attract && h.x > -10) lights.push({ x: h.x, y: h.y - 0.2, r: dark ? 5.2 : 2.6, color: dark ? '#b8a8e8' : '#8a7ab8', a: dark ? 1 : 0.35 })
     if (s.disc) lights.push({ x: s.disc.x, y: s.disc.y, r: 2.2, color: '#2ff3ff', a: 0.9 })
-    for (const p of m.projectiles) lights.push({ x: p.x, y: p.y, r: p.kind === 'laser' ? 1.6 : 1.4, color: p.friendly ? '#2ff3ff' : p.kind === 'laser' ? '#ff3b5c' : '#ff2fa0', a: 0.9 })
+    for (const p of m.projectiles) {
+      if (p.kind === 'gust') continue
+      lights.push({ x: p.x, y: p.y, r: p.kind === 'laser' || p.kind === 'beam' ? 1.8 : 1.4, color: p.kind === 'beam' ? '#ffd23f' : p.friendly ? '#2ff3ff' : p.kind === 'laser' ? '#ff3b5c' : p.kind === 'spit' ? '#cfc6ff' : '#ff2fa0', a: 0.9 })
+    }
     for (const b of m.blasts) lights.push({ x: b.x, y: b.y, r: 5 * (1 - b.t), color: '#ff8a3d', a: 1 })
     for (const L of lights) {
       const rad = L.r * T
@@ -592,11 +677,34 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     g.globalCompositeOperation = 'source-over'
 
     // --- emissive things after light ----------------------------------------------
-    if (kind === 'overworld') drawLakeSun(g, s, cx, cy, ui.reducedMotion)
+    if (s.map.id === 'overworld') drawLakeSun(g, s, cx, cy, ui.reducedMotion)
+    if (staticMood(s, info)) drawStaticMood(g, vw, vh, cx, cy, time, ui.reducedMotion)
     for (const p of m.projectiles) {
       const px = p.x * T - cx
       const py = p.y * T - cy
       if (p.kind === 'pellet') put(g, 'pellet', px, py + 3)
+      else if (p.kind === 'spit') {
+        g.fillStyle = p.friendly ? '#2ff3ff' : '#cfc6ff'
+        g.fillRect(Math.round(px) - 2, Math.round(py) - 2, 5, 4)
+        g.fillStyle = '#ffffff'
+        g.fillRect(Math.round(px) - 1, Math.round(py) - 2, 2, 1)
+      } else if (p.kind === 'beam') {
+        const n = Math.hypot(p.vx, p.vy) || 1
+        const ux = p.vx / n
+        const uy = p.vy / n
+        g.strokeStyle = '#ffd23f'
+        g.lineWidth = 4
+        g.beginPath(); g.moveTo(px - ux * 9, py - uy * 9); g.lineTo(px + ux * 3, py + uy * 3); g.stroke()
+        g.strokeStyle = '#ffffff'
+        g.lineWidth = 2
+        g.beginPath(); g.moveTo(px - ux * 7, py - uy * 7); g.lineTo(px + ux * 3, py + uy * 3); g.stroke()
+      } else if (p.kind === 'gust') {
+        g.strokeStyle = 'rgba(207,250,255,0.75)'
+        g.lineWidth = 1
+        const a0 = p.t * 14
+        g.beginPath(); g.arc(Math.round(px), Math.round(py), 4, a0, a0 + 4); g.stroke()
+        g.beginPath(); g.arc(Math.round(px), Math.round(py), 2, a0 + 2, a0 + 5); g.stroke()
+      }
       else if (p.kind === 'laser') {
         const len = 7
         const n = Math.hypot(p.vx, p.vy) || 1
@@ -807,6 +915,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       g.globalAlpha = 1
     }
     fx = keep
+  }
+
+  /** The Other Side's mood: a dungeon room marked 'static', or an overworld area with the 'static' track. */
+  function staticMood(s: GameState, info: ReturnType<typeof mapInfo>): boolean {
+    if (info.def.kind === 'dungeon') return cellDef(info, s.zoneIndex)?.mood === 'static'
+    const h = s.hero
+    return !!info.def.areas?.some(a => a.track === 'static' && h.x >= a.x && h.x < a.x + a.w && h.y >= a.y && h.y < a.y + a.h)
   }
 
   void cellIndex

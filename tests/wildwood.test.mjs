@@ -405,6 +405,7 @@ describe('full run through the Wildwood', () => {
     assert.equal(Z.keyCount(s), 1)
     // The coolant: hook to the island, down to the strip; Deepseek; back.
     P.walkTo(s, 34, 5)
+    P.killCell(s) // the bats over the coolant would catch the hook
     P.useB(s, 'hook', 'right')
     assert.deepEqual([s.hero.x, s.hero.y], [41.5, 5.5])
     P.walkTo(s, 41, 6)

@@ -8,8 +8,9 @@
 import type { Dir, GameState } from '../types'
 import { HERO_SPEED } from '../types'
 import type { Ctx } from './combat'
-import { condMet, has } from './map'
-import { toDir } from './util'
+import { TILE_INFO } from '../world/tiles'
+import { condMet, has, tileAt } from './map'
+import { dirVec, toDir } from './util'
 
 /** How far behind the hero she walks, along his trail (tiles). */
 const GAP = 1.15
@@ -17,7 +18,13 @@ const GAP = 1.15
 export function placeLuna(s: GameState) {
   if (!has(s, 'luna')) { s.luna = null; return }
   const h = s.hero
-  s.luna = { x: h.x, y: h.y, dir: h.dir, walkT: 0, trail: [{ x: h.x, y: h.y }], psi: 0 }
+  // A step behind the hero if there is floor there, else right on his heels.
+  const v = dirVec(h.dir)
+  let x = h.x - v.x * 0.9
+  let y = h.y - v.y * 0.9
+  const t = tileAt(s.map, Math.floor(x), Math.floor(y))
+  if (TILE_INFO[t].solid || t === 'O' || t === 'D' || t === '>') { x = h.x; y = h.y }
+  s.luna = { x, y, dir: h.dir, walkT: 0, trail: [{ x, y }, { x: h.x, y: h.y }], psi: 0 }
 }
 
 export function stepLuna(c: Ctx, dt: number) {

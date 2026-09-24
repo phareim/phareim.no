@@ -6,11 +6,16 @@
  */
 import type { Inventory, SaveData } from './types'
 
-/** The quest as seven steps; the index is how many are done. */
+/** The quest as twelve steps; the index is how many are done. */
 const STEPS: Array<{ short: string; hint: string }> = [
   { short: 'THE BLADE', hint: "OPEN THE CHEST BY THE KEEPER'S HUT." },
   { short: 'THE BOMB BAG', hint: 'SEARCH WHISPER WOODS, NORTH OF HOME, FOR SOMETHING THAT GOES BOOM.' },
-  { short: 'THE RUBBLE', hint: 'BLAST THE RUBBLE AT THE NORTH END OF THE HOLLOW GRAVES.' },
+  { short: 'THE WILDWOOD', hint: "CUT INTO THE WILDWOOD, WEST OF TOWN ALONG THE SHORE. SOMEONE HIDES IN THE BRAMBLES. MOSSA KNOWS WHAT SHE LIKES." },
+  { short: 'THE HOOK', hint: 'THE LAB IS NORTH OF THE CAMP. LUNA MOVES THE BLOCK; THE POWER IS DOWNSTAIRS; THE LLAMA HAS THE HOOK.' },
+  { short: 'MISTRAL', hint: "THE BIG KEY IS IN THE LAB'S COOLANT VAULT. MISTRAL WAITS NORTH OF THE HUB. HOOK IT DOWN, THEN STRIKE." },
+  { short: 'THE ARC BLADE', hint: 'SWING OVER THE RAVINE TO THE DEEP LAB. THE LIGHTS IN ROOM ELEVEN SPELL THE WORD THE VAULT LISTENS FOR.' },
+  { short: 'GEMINI', hint: 'CUT THROUGH THE VINES TO THE STAIRS. GEMINI GUARDS THE GATE: BRING THE TWINS DOWN TOGETHER.' },
+  { short: 'THE RUBBLE', hint: 'THE VINES IN THE GRAVES ARE DEAD. BLAST THE RUBBLE AT THE NORTH END OF THE HOLLOW GRAVES.' },
   { short: 'THE DISC', hint: "FIND THE SHRINE'S TREASURE. KEYS OPEN THE WAY WEST OF THE GREAT HALL." },
   { short: 'THE BIG KEY', hint: 'A KNIGHT GUARDS THE BIG KEY, NORTH OF THE CRYSTAL ROOM.' },
   { short: 'THE STATIC KING', hint: 'OPEN THE GREAT DOOR AND FACE THE STATIC KING.' },
@@ -19,16 +24,22 @@ const STEPS: Array<{ short: string; hint: string }> = [
 
 export const QUEST_STEPS = STEPS.length
 
-/** Steps done, 0..QUEST_STEPS (7 only once the prism is taken). */
+/** Steps done, 0..QUEST_STEPS (12 only once the prism is taken). */
 export function questStep(inv: Inventory, flags: readonly string[], mapId: string): number {
+  const has = (f: string) => flags.includes(f)
   if (!inv.sword) return 0
   if (!inv.bombBag) return 1
+  if (!has('luna')) return 2
+  if (!inv.hook) return 3
+  if (!has('mistral')) return 4
+  if (!inv.arc) return 5
+  if (!has('gateShut')) return 6
   // Being inside the shrine means the rubble is behind you.
-  if (!flags.some(f => f.startsWith('bomb:overworld:')) && mapId !== 'shrine') return 2
-  if (!inv.disc) return 3
-  if (!inv.bigKey) return 4
-  if (!flags.includes('boss')) return 5
-  return inv.prism ? QUEST_STEPS : 6
+  if (!flags.some(f => f.startsWith('bomb:overworld:')) && mapId !== 'shrine') return 7
+  if (!inv.disc) return 8
+  if (!inv.bigKey) return 9
+  if (!has('boss')) return 10
+  return inv.prism ? QUEST_STEPS : 11
 }
 
 export function questHint(step: number): string {

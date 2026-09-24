@@ -150,7 +150,7 @@ const iconCache = new Map<string, string>()
 const itemIcon = computed(() => {
   const s = selected.value
   if (!s) return ''
-  const name = s === 'disc' ? 'item_disc' : 'item_bombbag'
+  const name = s === 'disc' ? 'item_disc' : s === 'hook' ? 'item_hook' : 'item_bombbag'
   if (!import.meta.client) return ''
   let url = iconCache.get(name)
   if (!url) { url = sprite(name).toDataURL(); iconCache.set(name, url) }
@@ -292,7 +292,7 @@ function dropSave(extra: { best?: number, won?: boolean } = {}) {
 
 function syncDeck() {
   if (state.inv.selected !== selected.value) selected.value = state.inv.selected
-  const item = state.inv.bombBag || state.inv.disc
+  const item = state.inv.bombBag || state.inv.disc || state.inv.hook
   if (item !== hasItem.value) hasItem.value = item
   if (talking.value !== (state.mode === 'dialog')) {
     talking.value = state.mode === 'dialog'
@@ -411,12 +411,16 @@ function newQuest() {
 
 // ---- events → sound, save, banner ----------------------------------------------
 
+const BIG_FOES = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
+
 const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   swing: 'sword', spin: 'spin', charged: 'charge', clank: 'clank', hurt: 'hurt', shock: 'shock',
   cut: 'cut', shatter: 'shatter', lift: 'lift', throw: 'throw', unlock: 'unlock', gate: 'gate',
   plate: 'plate', crystal: 'crystal', push: 'push', bombPlace: 'bombPlace', boom: 'boom', disc: 'disc',
   discHit: 'discHit', fall: 'fall', reflect: 'reflect', warp: 'stairs', text: 'text', talk: 'select',
   error: 'error', cycle: 'select', died: 'die', bossPhase: 'bossRoar',
+  hook: 'hook', hookHit: 'hookHit', pull: 'pull', psi: 'psi', glyph: 'glyph', lever: 'lever', land: 'land',
+  beam: 'beam', gust: 'gust', bark: 'bark',
 }
 
 function handleEvents(events: GameEvent[]) {
@@ -426,7 +430,9 @@ function handleEvents(events: GameEvent[]) {
     const name = SFX[e.type]
     if (name) a?.sfx(name)
     switch (e.type) {
-      case 'hit': a?.sfx(e.kind === 'king' || e.kind === 'knight' ? 'bossHit' : e.killed ? 'kill' : 'hit'); break
+      case 'hit': a?.sfx(BIG_FOES.has(e.kind) ? 'bossHit' : e.killed ? 'kill' : 'hit'); break
+      case 'join': a?.jingle('friend'); save = true; break
+      case 'lever': save = true; break
       case 'collect': a?.sfx(e.kind === 'heart' ? 'heart' : e.kind === 'key' ? 'key' : 'coin'); break
       case 'chest': a?.sfx('chest'); break
       case 'itemGet':
