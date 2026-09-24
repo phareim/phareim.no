@@ -212,6 +212,11 @@ function underfoot(c: Ctx) {
     return
   }
   stepOnGlyph(c)
+  // Out in the open a fall puts you back where you last stood clear of the edge.
+  if (c.info.def.kind === 'overworld' && t !== 'O' && !h.knock) {
+    const edge = [[0.7, 0], [-0.7, 0], [0, 0.7], [0, -0.7]].some(([dx, dy]) => tileAt(s.map, Math.floor(h.x + dx!), Math.floor(h.y + dy!)) === 'O')
+    if (!edge) h.safe = { x: h.x, y: h.y }
+  }
   if (t === 'O') {
     h.act = 'fall'
     h.actT = 0
