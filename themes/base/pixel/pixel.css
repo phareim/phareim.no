@@ -1,0 +1,61 @@
+/**
+ * HTML text for the pixel games (2026-09-24): Neon Shrine's 5×7 letters
+ * (--font-pixel) at whole multiples of the font's 8 px em, with the hard
+ * one-pixel drop shadow the canvas font uses and a soft neon glow behind.
+ *   .px-title  48 px (6 CSS px per font pixel), 64 px from 800 px wide
+ *   .px-hud    16 px, cyan
+ *   .px-hint   16 px, pink — the call to action
+ *   .px-dim    muted, on any of the above
+ * Colours come from --px-hud / --px-hint / --px-title so a game can retint.
+ */
+.px-title,
+.px-hud,
+.px-hint {
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  line-height: 1.25;
+}
+
+.landing .px-title {
+  font-size: 48px;
+  color: var(--px-title, #ff2fa0);
+  text-shadow: 6px 6px 0 #0b0616, 0 0 24px color-mix(in srgb, var(--px-title, #ff2fa0) 60%, transparent);
+  margin: 0.3em 0 0.2em;
+}
+@media (min-width: 800px) {
+  .landing .px-title { font-size: 64px; text-shadow: 8px 8px 0 #0b0616, 0 0 32px color-mix(in srgb, var(--px-title, #ff2fa0) 60%, transparent); }
+}
+
+.landing .px-hud {
+  font-size: 16px;
+  color: var(--px-hud, #2ff3ff);
+  text-shadow: 2px 2px 0 #0b0616, 0 0 10px color-mix(in srgb, var(--px-hud, #2ff3ff) 55%, transparent);
+  margin: 0.5em 0 0;
+}
+
+.landing .px-hint {
+  font-size: 16px;
+  color: var(--px-hint, #ff2fa0);
+  text-shadow: 2px 2px 0 #0b0616, 0 0 10px color-mix(in srgb, var(--px-hint, #ff2fa0) 50%, transparent);
+  margin: 1em 0 0;
+}
+
+.landing .px-dim {
+  color: var(--px-dim, #b9a8d9);
+  text-shadow: 2px 2px 0 #0b0616;
+  margin-top: 0.5em;
+}
+
+.landing .px-blink {
+  animation: px-blink 1.1s steps(1) infinite;
+}
+@keyframes px-blink {
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing .px-blink { animation: none; }
+}

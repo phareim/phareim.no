@@ -36,6 +36,11 @@ themes/
     fonts.css           :root --font-person (Space Grotesk) and --font-machine (Space Mono), self-hosted
                         via @fontsource; imported first in index.ts (2026-09-06). fonts.ts exports
                         MACHINE_FONT for canvas ctx.font strings
+    pixel/              Neon Shrine's pixel look for any canvas game (2026-09-24): stage.ts
+                        (logical buffer, whole-number scale, light map, bloom, scanlines, HUD layer),
+                        sprites.ts (palette, string-map sprites, 5×7 font), scenery.ts (dusk sky,
+                        sun, ridges, trees, houses), pixel.css (.px-* HTML text in --font-pixel).
+                        New games use it; see docs/games/pixel-look.md
     neonHorizon.js      the Neon Dreams synthwave backdrop (sky, stars, sun, ridge, grid,
                         heartbeat) as a canvas module: createHorizon() → resize/update/beat/draw.
                         breakout, invaders and tetris use it (2026-09-06); starfox is three.js and draws its own
@@ -114,7 +119,7 @@ theme's private variables, never hardcoded colours. `.{id}-page` must set:
 Rules that keep the themes from fighting:
 - Private variables are namespaced (`--<id>-*`) and live on `:root`.
   `--theme-*` never goes on `:root`, only on `.{id}-page`. The two site-wide
-  exceptions are `--font-person` / `--font-machine` from `base/fonts.css`;
+  exceptions are `--font-person` / `--font-machine` / `--font-pixel` from `base/fonts.css`;
   a Neon Dreams theme sets its `--<id>-font` / `--<id>-mono` to those, never
   to a literal family (2026-09-06).
 - Dark mode is the theme's business: a `@media (prefers-color-scheme: dark)`
