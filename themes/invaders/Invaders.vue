@@ -1527,8 +1527,8 @@ function drawBunkers(g) {
     const y = L(b.y) - 1 + jy
     if (bunkerRevealT > 0) {
       // Re-materialise bottom to top after a wave clear, a neon scan line at the front.
-      const from = Math.floor((b.gh + 2) * (1 - revealP))
-      if (from < b.pix.height) g.drawImage(b.pix, 0, from, b.pix.width, b.pix.height - from, x, y + from, b.pix.width, b.pix.height - from)
+      const from = Math.min(b.pix.height - 1, Math.floor((b.gh + 2) * (1 - revealP)))
+      g.drawImage(b.pix, 0, from, b.pix.width, b.pix.height - from, x, y + from, b.pix.width, b.pix.height - from)
       stage.emit(x, y + from, b.pix.width, 1)
       g.fillStyle = '#7ce4ff'
       g.fillRect(x, y + from, b.pix.width, 1)

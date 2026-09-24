@@ -36,13 +36,15 @@ export const SPECIES_LOOK: Look[] = [
   { body: 'r', hi: 'j', lo: 'R', glow: '#ff3b5c' },
 ]
 
-const shadedCache = new Map<Rows, string[]>()
+const shadedCache = new Map<Rows, Map<Look, string[]>>()
 /** The shaded, outlined map for a 1978 bitmap (1 px bigger on every side). */
 export function shaded(rows: Rows, look: Look, eyeRow = 3): string[] {
-  let s = shadedCache.get(rows)
+  let byLook = shadedCache.get(rows)
+  if (!byLook) { byLook = new Map(); shadedCache.set(rows, byLook) }
+  let s = byLook.get(look)
   if (!s) {
     s = shade(withEyes(rows, eyeRow), look.body, look.hi, look.lo)
-    shadedCache.set(rows, s)
+    byLook.set(look, s)
   }
   return s
 }
@@ -115,7 +117,7 @@ export interface InvadersScene {
   /** Repaint the static layers for a logical size with the ground at `groundY`. */
   layout(w: number, h: number, groundY: number): void
   drawBack(g: G, stage: PixelStage, time: number, beat: number): void
-  /** Emissive bits after the light map (stars, sun). */
+  /** Emissive bits after the light map (stars, the heartbeat line). */
   drawGlow(g: G, time: number, beat: number): void
   readonly horizon: number
   readonly groundY: number
@@ -187,12 +189,13 @@ export function createInvadersScene(): InvadersScene {
 
   function drawBack(g: G, stage: PixelStage, time: number, beat: number) {
     if (back) g.drawImage(back, 0, 0)
+    // The sun (already in the back layer) keeps full brightness; sprites drawn over it cover it.
+    if (sunLayer) stage.emitImage(sunLayer)
     for (const L of lights) stage.light(L.x, L.y, L.r, L.color, L.a * (L.color === '#ff8a3d' ? 1 + beat * 0.3 : 1))
   }
 
   function drawGlow(g: G, time: number, beat: number) {
     drawStars(g, W, starTop, time, 1, 11)
-    if (sunLayer) g.drawImage(sunLayer, 0, 0)
     if (beat > 0.05) {
       // The heartbeat: the horizon line flashes pink under the sun.
       g.globalAlpha = Math.min(1, beat) * 0.6

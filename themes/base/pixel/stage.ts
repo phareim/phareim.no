@@ -62,6 +62,12 @@ export interface PixelStage {
   light(x: number, y: number, r: number, color: string, a?: number): void
   /** A rectangle that stays at full brightness through the light map. */
   emit(x: number, y: number, w: number, h: number): void
+  /**
+   * Every opaque pixel of a static image (e.g. a sun layer) stays at full
+   * brightness through the light map. The white mask is cached per image,
+   * so the image must not change after its first use here.
+   */
+  emitImage(img: HTMLCanvasElement, x?: number, y?: number): void
   present(opts?: PresentOptions): void
   /** CSS px → logical px, rounded to the pixel. */
   px(v: number): number
@@ -127,8 +133,26 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
   let dpr = 1
   let cssW = 1
   let cssH = 1
+  // Lights are pooled: light() reuses objects across frames (phones).
   const lights: Light[] = []
+  const pool: Light[] = []
   const emits: number[] = []
+  const emitImgs: { img: HTMLCanvasElement; x: number; y: number }[] = []
+  const masks = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>()
+
+  function maskOf(img: HTMLCanvasElement): HTMLCanvasElement {
+    let m = masks.get(img)
+    if (!m) {
+      m = makeCanvas(img.width, img.height)
+      const mg = m.getContext('2d')!
+      mg.drawImage(img, 0, 0)
+      mg.globalCompositeOperation = 'source-in'
+      mg.fillStyle = '#ffffff'
+      mg.fillRect(0, 0, m.width, m.height)
+      masks.set(img, m)
+    }
+    return m
+  }
 
   function resize(w: number, h: number, ratio: number, minW = defW, minH = defH) {
     dpr = Math.max(1, Math.min(3, ratio || 1))
@@ -174,6 +198,7 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
   function begin(): G {
     lights.length = 0
     emits.length = 0
+    emitImgs.length = 0
     sg.setTransform(1, 0, 0, 1, 0, 0)
     sg.globalAlpha = 1
     sg.globalCompositeOperation = 'source-over'
@@ -183,11 +208,17 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
   }
 
   function light(x: number, y: number, r: number, color: string, a = 1) {
-    lights.push({ x, y, r, color, a })
+    let L = pool[lights.length]
+    if (!L) { L = { x, y, r, color, a }; pool.push(L) } else { L.x = x; L.y = y; L.r = r; L.color = color; L.a = a }
+    lights.push(L)
   }
 
   function emit(x: number, y: number, w: number, h: number) {
     emits.push(x, y, w, h)
+  }
+
+  function emitImage(img: HTMLCanvasElement, x = 0, y = 0) {
+    emitImgs.push({ img, x, y })
   }
 
   function present(o: PresentOptions = {}) {
@@ -210,6 +241,7 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
       lg.globalCompositeOperation = 'source-over'
       lg.fillStyle = '#ffffff'
       for (let i = 0; i < emits.length; i += 4) lg.fillRect(emits[i]!, emits[i + 1]!, emits[i + 2]!, emits[i + 3]!)
+      for (const e of emitImgs) lg.drawImage(maskOf(e.img), e.x, e.y)
       g.globalCompositeOperation = 'multiply'
       g.drawImage(lightC, 0, 0)
       g.globalCompositeOperation = 'source-over'
@@ -276,6 +308,7 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
     begin,
     light,
     emit,
+    emitImage,
     present,
     px: (v: number) => Math.round((v * dpr) / scale),
     get g() { return sg },
