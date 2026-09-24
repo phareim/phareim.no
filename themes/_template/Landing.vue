@@ -8,7 +8,7 @@
        if the background wants to react (see themes/scandi).
     3. Own the page: drop DefaultLanding and render whatever you like.
        The only contract is that the root fills the viewport and does not
-       scroll — the shell still draws the ThemePager on top.
+       scroll — the shell still draws the ⌂ home chip on top.
   -->
   <DefaultLanding>
     <!--

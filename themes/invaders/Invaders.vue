@@ -2121,7 +2121,7 @@ function isInteractiveElement(el) {
   if (!el || !el.closest) return false
   const tag = el.tagName
   if (tag === 'A' || tag === 'BUTTON' || tag === 'INPUT') return true
-  if (el.closest('a, button, .social-links, .flip-container, .theme-pager')) return true
+  if (el.closest('a, button, .social-links, .flip-container')) return true
   return false
 }
 
@@ -2188,7 +2188,7 @@ function handleTouchStart(e) {
   tapStartX = t.clientX
   tapStartY = t.clientY
   tapStartTime = performance.now()
-  if (!gameStarted || gameOver) return // Idle swipes still switch themes.
+  if (!gameStarted || gameOver) return // Idle: a tap starts, a swipe does nothing.
   e.preventDefault()
   touchActive = true
   touchX = t.clientX

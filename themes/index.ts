@@ -20,7 +20,7 @@ import './hangar/theme.css'
 import './zelda/theme.css'
 import './portal/theme.css'
 
-// Static imports on purpose: a swipe should not wait for a chunk, and the
+// Static imports on purpose: a cabinet should not wait for a chunk, and the
 // whole set is small (the Galaga game is the only big one).
 import ScandiLanding from './scandi/Landing.vue'
 import GalagaLanding from './galaga/Landing.vue'
@@ -43,7 +43,7 @@ import PortalLanding from './portal/Landing.vue'
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the `?theme=` value. */
   id: string
-  /** Human name, shown in the pager tooltip. */
+  /** Human name, shown in the page title. */
   name: string
   /** `<meta name="theme-color">` for light and dark system schemes. */
   themeColor: string
@@ -53,18 +53,17 @@ export interface ThemeDefinition {
   /** Optional: rendered behind every route (starfield, texture, …). */
   backdrop?: Component
   /**
-   * Parked: out of the swipe order and the pager, but still reachable with
+   * Parked: no way in from the portal, but still reachable with
    * `?theme=<id>` so it can be worked on.
    */
   disabled?: boolean
   /**
-   * The front door, shown on `/`. Never in the rotation, never picked by a
-   * swipe or `setTheme`, and it has no pager. Exactly one theme has it.
+   * The front door, shown on `/`, with no home chip. Exactly one theme
+   * has it.
    */
   home?: true
 }
 
-// Order matters: swiping left/right walks this list, wrapping at the ends.
 export const allThemes: ThemeDefinition[] = [
   {
     // The Portal (2026-09-24): the neon town on `/` that leads to everything
@@ -137,7 +136,7 @@ export const allThemes: ThemeDefinition[] = [
   },
   {
     id: 'zelda',
-    // Rebuilt 2026-09-22; live in the rotation since 2026-09-23.
+    // Rebuilt 2026-09-22; live since 2026-09-23.
     name: 'Neon Shrine',
     themeColor: '#0b0616',
     themeColorDark: '#0b0616',
@@ -152,7 +151,6 @@ export const allThemes: ThemeDefinition[] = [
   },
   {
     // Hall of Fame (2026-09-08): the world ranking of the six score games.
-    // Follows the arcade; the Hangar closes the rotation after it.
     id: 'leaderboard',
     name: 'Hall of Fame',
     themeColor: '#0b0616',
@@ -187,17 +185,11 @@ export const allThemes: ThemeDefinition[] = [
   },
 ]
 
-/** The live rotation. Disabled themes are only reachable by deep link. */
-export const themes: ThemeDefinition[] = allThemes.filter(t => !t.disabled && !t.home)
+/** The live games: not parked, not the portal. The portal's hidden link list names them. */
+export const liveThemes: ThemeDefinition[] = allThemes.filter(t => !t.disabled && !t.home)
 
 /** The theme on `/`. */
 export const homeTheme: ThemeDefinition = allThemes.find(t => t.home)!
-
-export const themeIds = themes.map(t => t.id)
-
-export function isThemeId(id: unknown): id is string {
-  return typeof id === 'string' && themeIds.includes(id)
-}
 
 /** Any theme, disabled and home included — for the `?theme=` deep link. */
 export function isAnyThemeId(id: unknown): id is string {

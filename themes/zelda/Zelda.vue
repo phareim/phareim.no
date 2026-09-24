@@ -69,6 +69,7 @@ import { sprite } from './render/sheet'
 import { createZeldaAudio, type SfxName, type ZeldaAudio } from './audio'
 import { readLocalSave, writeLocalSave, clearLocalSave, readLocalBest, writeLocalBest } from './localSave'
 import { createInput, type GameInput } from './input'
+import { loadHighScoreSign } from './hiscore'
 import { NO_INPUT, type ExitTarget, type GameState, type GameEvent, type TrackId, type UseItem } from './types'
 
 type Phase = 'attract' | 'play' | 'over' | 'won'
@@ -447,6 +448,7 @@ onMounted(() => {
     touchUI.value = window.matchMedia('(hover: none) and (pointer: coarse)').matches
   } catch { touchUI.value = false }
   renderer = createRenderer(canvas.value, WORLD)
+  void loadHighScoreSign()
   audio = createZeldaAudio()
   muteStop = watch(sound.muted, (m: boolean) => audio?.setMuted(m), { immediate: true })
   resize()

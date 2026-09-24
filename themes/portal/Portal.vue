@@ -220,7 +220,7 @@ onMounted(() => {
   try {
     touchUI.value = window.matchMedia('(hover: none) and (pointer: coarse)').matches
   } catch { touchUI.value = false }
-  // The portal owns the arrows and swipes: they walk the hero.
+  // The portal owns every key: arrows walk the hero, Escape is its own.
   navigationLocked.value = true
   renderer = createRenderer(canvas.value, PORTAL_WORLD)
   audio = createZeldaAudio()

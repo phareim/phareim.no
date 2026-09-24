@@ -2,7 +2,7 @@
   <div :class="themePageClass">
     <component :is="theme.backdrop" v-if="theme.backdrop" />
     <NuxtPage />
-    <ThemePager />
+    <HomeChip />
     <!-- The portal plays its own town music (it parks the radio) and its name
       billboard sits where the widget would; the radio returns in the games. -->
     <RadioWidget v-if="!isHome" />

@@ -58,7 +58,7 @@ export function isGameKey(code: string) {
 
 /** Links, buttons and site chrome keep their own clicks and keys. */
 export function isInteractive(el: EventTarget | null) {
-  return !!(el as HTMLElement | null)?.closest?.('a, button, .theme-pager, .radio-widget')
+  return !!(el as HTMLElement | null)?.closest?.('a, button, .radio-widget')
 }
 
 export function createInput(hooks: InputHooks): GameInput {

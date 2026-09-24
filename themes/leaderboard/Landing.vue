@@ -92,7 +92,7 @@
       />
     </nav>
 
-    <p class="lb-hint">{{ hint('↑ ↓ MORE GAMES · ← → THE ARCADE', 'SWIPE ↕ GAMES · ↔ ARCADE') }}</p>
+    <p class="lb-hint">{{ hint('↑ ↓ MORE GAMES · ESC PORTAL', 'SWIPE ↕ GAMES · ⌂ PORTAL') }}</p>
   </div>
 </template>
 
@@ -624,7 +624,7 @@ watch(index, () => nextTick(fit))
   .lb-rail { right: auto; left: calc(clamp(48px, 10vw, 160px) + min(460px, 100%) + 18px); }
 }
 
-/* Phones: room for the pager chevrons; the dots rail and hint go. */
+/* Phones: the dots rail and hint go. */
 @media (max-width: 640px), (max-height: 700px) {
   .lb-landing { padding: 10px 46px 48px; }
   .lb-panel { padding: 14px 14px 12px; }

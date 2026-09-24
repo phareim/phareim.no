@@ -72,7 +72,7 @@
       <p class="hg-nudge">{{ nudge }}</p>
     </section>
 
-    <p class="hg-hint">{{ hint('← → THE ARCADE', 'SWIPE ↔ ARCADE') }}</p>
+    <p class="hg-hint">{{ hint('ESC · BACK TO THE PORTAL', '⌂ BACK TO THE PORTAL') }}</p>
   </div>
 </template>
 

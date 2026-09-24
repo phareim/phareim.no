@@ -1,7 +1,6 @@
 <template>
   <!-- The player's ship in 3D, built by the same builder Star Fox flies.
-       Mouse-drag spins it; touch is left to the shell (swipe switches
-       theme), so phones get a slow auto-spin instead. -->
+       Mouse-drag spins it; phones get a slow auto-spin instead. -->
   <canvas ref="canvas" class="hg-viewer" aria-label="Your ship in 3D" />
 </template>
 

@@ -1,4 +1,4 @@
-import { themes, allThemes, homeTheme, isThemeId, isAnyThemeId, resolveThemeId, type ThemeDefinition } from '~/themes'
+import { allThemes, homeTheme, isAnyThemeId, resolveThemeId, type ThemeDefinition } from '~/themes'
 
 /** Set by `launch()`, read (and cleared) by the theme it launched. */
 export interface PortalLaunch {
@@ -16,8 +16,9 @@ export interface PortalLaunch {
  *
  * Leaving the portal (`launch`) pushes a history entry, so the back button
  * returns. Coming back (`goHome`) steps back to that entry when the portal is
- * the previous one, and pushes otherwise (a deep link into a game). Swiping
- * between games replaces the entry, so history does not fill up.
+ * the previous one, and pushes otherwise (a deep link into a game). There is
+ * no way from one game straight to another (2026-09-24): you walk out to the
+ * portal and into the next cabinet.
  */
 export const useTheme = () => {
   const route = useRoute()
@@ -30,7 +31,7 @@ export const useTheme = () => {
 
   const isHome = computed(() => activeTheme.value === homeTheme.id)
 
-  /** While true, swipe and arrow keys do not switch theme (a game owns them). */
+  /** While true a game owns the controls: Escape and the home chip leave it alone. */
   const navigationLocked = useState<boolean>('themeNavigationLocked', () => false)
 
   const navigationCoolingDown = useState<boolean>('themeNavigationCoolingDown', () => false)
@@ -52,20 +53,6 @@ export const useTheme = () => {
     return t.themeColor
   })
 
-  /** Swipe, arrow, chevron or dot: another game in the rotation. Respects the lock. */
-  const setTheme = (id: string) => {
-    if (navigationBlocked.value || !isThemeId(id) || id === activeTheme.value) return
-    router.replace({ path: '/', query: { theme: id } })
-  }
-
-  const step = (delta: number) => {
-    if (isHome.value) return
-    const i = themes.findIndex(t => t.id === activeTheme.value)
-    // A parked theme is not in the rotation: a step lands on the first or last game.
-    const next = i < 0 ? (delta > 0 ? 0 : themes.length - 1) : (i + delta + themes.length) % themes.length
-    setTheme(themes[next].id)
-  }
-
   /** From the portal into a theme. Ignores the lock; the back button returns. */
   const launch = (id: string) => {
     if (!isAnyThemeId(id) || id === homeTheme.id) return
@@ -83,7 +70,6 @@ export const useTheme = () => {
   }
 
   return {
-    themes,
     theme,
     activeTheme,
     isHome,
@@ -93,9 +79,6 @@ export const useTheme = () => {
     navigationCoolingDown,
     navigationBlocked,
     portalLaunch,
-    setTheme,
-    nextTheme: () => step(1),
-    previousTheme: () => step(-1),
     launch,
     goHome,
   }

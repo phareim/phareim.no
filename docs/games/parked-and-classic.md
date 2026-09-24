@@ -2,7 +2,7 @@
 
 Breakout and Tetris are live, older arcade themes that didn't have their own
 doc yet. Scandinavian Glass, Space and Tufte Desk are parked (`disabled:
-true` in `themes/index.ts`): out of the swipe order and the pager, still
+true` in `themes/index.ts`): no way in from the portal, still
 reachable with `?theme=<id>`.
 
 ## Breakout
@@ -21,7 +21,7 @@ line clears, shared horizon with lock/clear pulses. Drag sideways to move,
 tap to rotate, fast down flick to hard drop, slow down drag to lower, up
 swipe or HOLD to stash. ROTATE/DROP, pause/resume and exit buttons work on
 touch and mouse. A gesture stops controlling pieces once its original piece
-locks or swaps; idle swipes still switch theme. The board sizes to its
+locks or swaps. The board sizes to its
 actual remaining container space with ResizeObserver; landscape phones use
 two columns. The profile column was removed — the cabinet is the whole
 theme now, and the portal carries the person.

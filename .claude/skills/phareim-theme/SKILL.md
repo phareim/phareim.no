@@ -1,6 +1,6 @@
 ---
 name: phareim-theme
-description: Add, change, or debug a theme on phareim.no — the portal on `/` and the swipeable game themes in `themes/<id>/`. Use when asked for a new theme/look/skin for the site, when a theme's landing page or colours need work, when the swipe/arrow/Escape navigation or the portal↔game routing misbehaves, or when the --theme-* tokens need extending. Covers the registry, the URL-driven theme choice, the default landing shell, the CSS token contract, the navigation lock, and how to open one theme with ?theme=<id>.
+description: Add, change, or debug a theme on phareim.no — the portal on `/` and the game themes in `themes/<id>/`. Use when asked for a new theme/look/skin for the site, when a theme's landing page or colours need work, when the Escape navigation or the portal↔game routing misbehaves, or when the --theme-* tokens need extending. Covers the registry, the URL-driven theme choice, the default landing shell, the CSS token contract, the navigation lock, and how to open one theme with ?theme=<id>.
 ---
 
 # Themes on phareim.no
@@ -12,15 +12,12 @@ else; `/?theme=<id>` is that theme. The route is read during SSR, so the
 first paint is already correct, and client navigation (back/forward
 included) switches theme with no extra state. No cookie, no random pick.
 
-Inside a game, visitors walk the rotation by swiping left/right, pressing
-ArrowLeft/ArrowRight, or using the edge chevrons and dots
-(`components/ThemePager.vue`); those `router.replace`, so history does not
-fill. The ⌂ chip (bottom-right), Escape when the game is not using it, and
-the back button return to the portal. The portal has no pager and the shell
-ignores arrows and swipes there.
+There is no way from one game straight to another (removed 2026-09-24):
+visitors walk out to the portal and into the next cabinet. The ⌂ chip
+(`components/HomeChip.vue`, bottom-right), Escape when the game is not using
+it, and the back button return to the portal.
 
 `useTheme()` contract: `activeTheme` (computed from the route), `isHome`,
-`setTheme`/`nextTheme`/`previousTheme` (rotation only, respect the lock),
 `launch(id)` (router.push to `/?theme=id`, ignores the lock, sets
 `portalLaunch = { theme, at }` for the target to read and clear),
 `goHome()` (router.push to `/`, ignores the lock), `navigationLocked`.
@@ -46,8 +43,8 @@ themes/
     theme.css         :root palette + `.{id}-page` token contract
     Landing.vue       the landing page (uses DefaultLanding or not)
     *.vue             anything private to the theme (canvas, game, …)
-composables/useTheme.ts            state from the URL, setTheme/next/previous, launch/goHome, navigationLocked
-composables/useThemeNavigation.ts  swipe + arrow keys between games, Escape → portal (called once in app.vue)
+composables/useTheme.ts            state from the URL, launch/goHome, navigationLocked
+composables/useThemeNavigation.ts  Escape → portal, 3 s grace after a game lets go (called once in app.vue)
 ```
 
 ## Add a theme
@@ -56,8 +53,8 @@ composables/useThemeNavigation.ts  swipe + arrow keys between games, Escape → 
    `theme.css` (the root class must be `<id>-page`).
 2. Register it in `themes/index.ts`: add `import './<id>/theme.css'` and an
    entry `{ id, name, themeColor, themeColorDark?, landing, backdrop? }`.
-   Position in the array is the swipe order. A game also wants a way in from
-   the portal: a cabinet or door in `themes/portal/world/`.
+   A game also needs a way in from the portal: a cabinet or door in
+   `themes/portal/world/` (there is no other way to reach it).
 3. Preview with `npm run dev` and `http://localhost:3030/?theme=<id>`.
    Check a phone viewport too (headless chromium at 375×667 works on Sleeper;
    write the screenshot under `~/Pictures`, the snap cannot write to dotdirs
@@ -123,16 +120,14 @@ Rules that keep the themes from fighting:
 
 ## Navigation lock
 
-The shell listens for ArrowLeft/ArrowRight and horizontal swipes on
-`document`, and for Escape on `window` (home to the portal, decided after the
-whole dispatch, so any game listener's `preventDefault` wins). A game that
-uses Escape outside a run calls `preventDefault` on it. A theme that needs those (a game, a slider) sets
-`useTheme().navigationLocked.value = true` while it needs them and resets it
+The shell listens only for Escape, on `window` (home to the portal, decided
+after the whole dispatch, so any game listener's `preventDefault` wins). A
+game that uses Escape outside a run calls `preventDefault` on it. A game sets
+`useTheme().navigationLocked.value = true` while a run is on and resets it
 on game over and in `onBeforeUnmount`. `galaga/Landing.vue`,
 `breakout/Landing.vue`, `rtype/Landing.vue`, `invaders/Landing.vue`, `starfox/Landing.vue` and `tetris/Game.vue` show the pattern; all six games
-also start on *tap*, not on touchstart, so a swipe on the idle game still changes
-theme. `invaders` also emits `over` the moment a run ends (before the delayed
-`death`) so the arrows unlock while the cannon is still exploding (2026-09-05). `rtype/Shooter.vue` simulates in world space (ship flies +x) and
+also start on *tap*, not on touchstart, so a stray swipe does not start a run. `invaders` also emits `over` the moment a run ends (before the delayed
+`death`) so Escape unlocks while the cannon is still exploding (2026-09-05). `rtype/Shooter.vue` simulates in world space (ship flies +x) and
 rotates the canvas 90° when the screen is taller than wide, so the ship flies
 up on phones and sideways on desktop; keys, touch and upright text go through
 the same mapping (2026-09-05).

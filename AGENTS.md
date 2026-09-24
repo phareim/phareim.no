@@ -2,7 +2,7 @@
 
 Personal site, Nuxt 3 on Cloudflare Pages. `/` is the **Portal**, a small
 neon town you walk around in, whose buildings lead to everything else; each
-game is a swipeable **theme** at `/?theme=<id>`. The theme system and how to
+game is a **theme** at `/?theme=<id>`, reached from its cabinet. The theme system and how to
 add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 (use it). The portal itself: `docs/games/portal.md`.
 
@@ -34,24 +34,24 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 ## Project Structure
 
 ```
-app.vue              — root shell: theme class, theme backdrop, <NuxtPage>, ThemePager, page title; global CSS locks the document (no scrolling)
+app.vue              — root shell: theme class, theme backdrop, <NuxtPage>, HomeChip, page title; global CSS locks the document (no scrolling)
 pages/
   index.vue          — renders the active theme's Landing component (180 ms fade on switch)
 error.vue            — 404: a terminal block for the portal and the neon games, own blocks for a few themes; every one leads to `/`
 components/
-  ThemePager.vue     — in games only: neon edge chevrons, dots and the ⌂ home chip (bottom-right), chevrons and chip hidden while a game locks navigation; the only site chrome
+  HomeChip.vue       — in games only: the ⌂ chip back to the portal (bottom-right), hidden while a game locks navigation; the only site chrome
 server/
   api/               — leaderboard.get, player.post, score.post, avatar.post (the Hall of Fame API, 2026-09-08); profile.get, ship/select.post (Hangar); save.get/.post (profile save slots, Neon Shrine and Another Shore, 2026-09-23)
   utils/store.ts     — D1 store + in-memory dev store behind one interface, id validation
   utils/avatar.ts    — asks wave-jobs on Sleeper to paint a player's pilot (callback into avatar.post)
 migrations/          — D1 schema for phareim-leaderboard, numbered SQL, applied by CI
 composables/
-  useTheme.ts        — active theme from the URL, isHome, setTheme/next/previous (router.replace), launch/goHome (router.push), portalLaunch, navigationLocked
-  useThemeNavigation.ts — swipe + ArrowLeft/ArrowRight between games, Escape back to the portal; called once from app.vue
+  useTheme.ts        — active theme from the URL, isHome, launch/goHome (router.push), portalLaunch, navigationLocked
+  useThemeNavigation.ts — Escape back to the portal, and the 3 s grace after a game lets go; called once from app.vue
   useInputMode.ts    — keyboard vs touch, so game hints say PRESS ENTER or TAP, never both (2026-09-06). SSR guess from sec-ch-ua-mobile/UA, then `(hover: none) and (pointer: coarse)` at mount, then the first keydown/touch/mouse press wins. `hint(keyboardText, touchText)` in templates.
   useLeaderboard.ts  — the browser's Hall of Fame player (localStorage), submitScore / fetchBoards / reroll (2026-09-08)
 themes/              — see the phareim-theme skill
-  index.ts           — registry (order = swipe order) and every theme.css import
+  index.ts           — registry, `liveThemes` (not parked, not the portal) and every theme.css import
   content.ts         — default landing copy (DefaultLanding)
   base/              — DefaultLanding shell, SocialLink, EscHold (shared Escape tap/hold), fonts.css + fonts.ts (site fonts, 2026-09-06), neonHorizon.js (the shared synthwave backdrop: sky, stars, striped sun, ridge, grid, heartbeat, wave-clear flare — used by Breakout, Invaders and Tetris since 2026-09-06; Star Fox draws its own in three.js)
   _template/         — starting point for a new theme
@@ -67,13 +67,14 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 
 ## Theme System (short version — the skill has the rest)
 
-- Sixteen themes in `themes/index.ts` (verified 2026-09-24): the portal (`home: true`), eleven in the rotation and four parked. Swipe order: Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Neon Shrine, Tetris, Hall of Fame, Hangar. Parked (`disabled: true`: out of swipe and pager; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
+- Sixteen themes in `themes/index.ts` (verified 2026-09-24): the portal (`home: true`), eleven live and four parked. Live: Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Neon Shrine, Tetris, Hall of Fame, Hangar. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
 - **Nothing scrolls**: `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, and every landing is locked to the viewport.
-- The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal), an unknown id shows the portal. No cookie, no random pick. The portal is never in the rotation and has no pager.
-- History: the portal's `launch(id)` and the home chip / Escape (`goHome()`) push, so the back button walks between portal and game; both ignore the navigation lock. Swipes, arrows, chevrons and dots between games `router.replace`.
+- The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal), an unknown id shows the portal. No cookie, no random pick.
+- No way from one game straight to another (2026-09-24: arrows, swipes, chevrons and dots removed on Petter's wish). You walk out to the portal and into the next cabinet.
+- History: the portal's `launch(id)` pushes and the home chip / Escape (`goHome()`) steps back to it, so the back button walks between portal and game; both ignore the navigation lock.
 - Each `themes/<id>/theme.css` defines the `--theme-*` contract on `.{id}-page` (ten tokens, listed in the skill). Pages read `var(--theme-*, fallback)` and never hardcode colours or branch on `prefers-color-scheme` — dark mode is each theme's own business.
 - Each `themes/<id>/Landing.vue` owns the landing page. Most wrap `themes/base/DefaultLanding.vue`; a theme may replace the whole page.
-- A theme that uses arrow keys or horizontal touch itself (every game while a run is on) sets `navigationLocked` while it does.
+- A game sets `navigationLocked` while a run is on; Escape and the home chip leave it alone then.
 - A landing must fit a phone viewport (checked at 375×667): the document does not scroll, so anything below the fold is unreachable.
 
 ## Key Patterns
@@ -88,9 +89,9 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 
 ## Keyboard
 
-- `←` / `→` switch game (unless a theme has locked navigation). On the portal they walk the hero; the shell ignores them there.
+- The shell does not use the arrow keys: they belong to the games, and on the portal they walk the hero.
 - `Esc` in a game goes back to the portal when the game is not using it: navigation not blocked, not a repeat, not in a form field, and no game listener called `preventDefault` (checked in a `setTimeout(0)` after the whole dispatch, since games listen on `window` too). A game that uses Escape outside a run must `preventDefault` (Tetris's GAME OVER dismiss, Another Shore's ending, Another Shore II's won screen do).
-- After a game releases navigation at game over or exit, all theme switching stays blocked for 3 seconds (2026-09-08). Held-key repeats never switch themes: release and press again. The shared watcher in `useThemeNavigation` starts the grace period synchronously; `useTheme.setTheme` guards keys, swipes, arrows and dots. Starting another run clears the grace timer and keeps the game lock. A lock released because the route changed (back button, home chip) starts no grace period, and arriving on a theme by URL clears one.
+- After a game releases navigation at game over or exit, Escape and the home chip stay blocked for 3 seconds (2026-09-08), so the Escape that ended a run does not also leave the game. The shared watcher in `useThemeNavigation` starts the grace period synchronously. Starting another run clears the grace timer and keeps the game lock. A lock released because the route changed (back button, home chip) starts no grace period, and arriving on a theme by URL clears one.
 
 ## Escape: tap pauses, 3 s hold quits (2026-09-08)
 

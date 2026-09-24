@@ -50,8 +50,8 @@ began without a key or tap wakes on the first one.
 **Page.** The canvas fills the locked viewport. The hint ("ARROWS TO WALK ·
 SPACE TO TALK" / "DRAG TO WALK · A TO TALK") fades in and goes at the first
 step; it is skipped once `portal.return` exists. A visually hidden `nav`
-holds the h1 name, the blurbs from `themes/content.ts`, a link to every game
-in the rotation, phareim.md, games.phareim.no and the three profiles. It
+holds the h1 name, the blurbs from `themes/content.ts`, a link to every live
+game, phareim.md, games.phareim.no and the three profiles. It
 shows as a panel while one of its links has keyboard focus.
 
 **Checks** (2026-09-24). `npm run test:portal` (in CI): the world validates;

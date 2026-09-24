@@ -16,12 +16,11 @@ Theme id `portal`. Engine, renderer and audio are Neon Shrine's
 - `/` always shows the portal. `/?theme=<id>` shows a theme (deep link,
   parked themes included). The URL is the source of truth: the `theme`
   cookie and the random first pick are gone.
-- The portal is not in the swipe rotation and has no pager. Inside a game,
-  swiping/arrows walk the games as before, with `router.replace` so history
-  does not fill up.
+- There is no way from one game straight to another (2026-09-24): no
+  arrows, swipes, chevrons or dots. You walk out and into the next cabinet.
 - Leaving the portal for a game is a `router.push` to `/?theme=<id>`, so the
   browser's back button returns to the portal.
-- Back to the portal from a game: a home chip (⌂) in the pager, Escape when
+- Back to the portal from a game: a home chip (⌂) bottom-right, Escape when
   the game is idle (a game's own Escape use wins), or the back button.
 - Coming back, the hero stands where they left: in front of the cabinet or
   outside the door they used (sessionStorage `portal.return`).
@@ -43,8 +42,7 @@ const {
 ```
 
 `ThemeDefinition` gains `home?: true` (the portal's entry). A home theme is
-never in `themes` (the rotation), never picked by `setTheme`, and hides the
-pager.
+never in `liveThemes` and shows no home chip.
 
 ## World (`themes/portal/world/`)
 
@@ -133,7 +131,7 @@ The canvas fills the viewport. A short hint fades in at the start and goes
 after the first move ("ARROWS TO WALK · SPACE TO TALK" / "DRAG TO WALK · A TO
 TALK"); it is skipped when the visitor comes back from an exit. A visually
 hidden block carries the same content as real HTML for search engines and
-screen readers: the h1 name, the blurbs, links to every game in the rotation
+screen readers: the h1 name, the blurbs, links to every live game
 (`/?theme=<id>`), the projects and the contact links (their addresses read
 from the world's exits). Tab reaches it (the portal leaves Tab alone), and
 it shows as a panel while a link has focus.

@@ -1690,7 +1690,7 @@ function isInteractiveElement(el) {
   if (!el || !el.closest) return false
   const tag = el.tagName
   if (tag === 'A' || tag === 'BUTTON' || tag === 'INPUT') return true
-  if (el.closest('a, button, .social-links, .flip-container, .theme-pager')) return true
+  if (el.closest('a, button, .social-links, .flip-container')) return true
   return false
 }
 
@@ -1771,8 +1771,8 @@ function handleTouchStart(e) {
   tapStartY = t.clientY
   tapStartTime = performance.now()
   if (!gameStarted || gameOver) {
-    // Start on tap, not on touchstart, so a horizontal swipe can still
-    // switch theme without launching the game.
+    // Start on tap, not on touchstart, so a stray swipe does not launch
+    // the game.
     return
   }
   touchActive = true

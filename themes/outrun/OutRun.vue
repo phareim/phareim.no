@@ -361,7 +361,7 @@ function clearInput() {
 
 function isInteractive(el: EventTarget | null) {
   const e = el as HTMLElement | null
-  return !!e?.closest?.('a, button, .theme-pager')
+  return !!e?.closest?.('a, button')
 }
 
 const GAME_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS'])
@@ -432,7 +432,7 @@ function onPointerDown(e: PointerEvent) {
     }
     return
   }
-  // Attract / over: remember the press so a tap starts; a swipe changes theme.
+  // Attract / over: remember the press so a tap starts; a swipe does nothing.
   steerId = e.pointerId
   steerStartX = e.clientX
   steerStartY = e.clientY

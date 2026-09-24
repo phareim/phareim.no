@@ -68,6 +68,17 @@ export const SHOP: MapDef = {
   },
 }
 
+/**
+ * The arcade's HIGH SCORES sign. This is the offline text; in the browser
+ * `hiscore.ts` rewrites the array in place with a real top three from one
+ * Hall of Fame game, picked at random on each visit.
+ */
+export const HIGH_SCORE_SIGN: string[] = [
+  'HIGH SCORES',
+  '1. KNG  999999   2. KNG  999998   3. KNG  999997',
+  'SOMEONE SHOULD DO SOMETHING ABOUT THAT KING.',
+]
+
 export const ARCADE: MapDef = {
   id: 'arcade',
   name: 'THE ARCADE',
@@ -89,7 +100,7 @@ export const ARCADE: MapDef = {
     '@': { ent: { t: 'entry', id: 'door', dir: 'up' } },
     D: { tile: 'D', ent: { t: 'warp', to: 'overworld', entry: 'arcade' } },
     $: { ent: { t: 'chest', id: 'arcade.chest', item: 'bits20' } },
-    S: { tile: 'S', ent: { t: 'sign', lines: ['HIGH SCORES', '1. KNG  999999   2. KNG  999998   3. KNG  999997', 'SOMEONE SHOULD DO SOMETHING ABOUT THAT KING.'] } },
+    S: { tile: 'S', ent: { t: 'sign', lines: HIGH_SCORE_SIGN } },
     u: {
       ent: {
         t: 'npc', id: 'robot', look: 'robot', dir: 'right',

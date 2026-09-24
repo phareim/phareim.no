@@ -27,7 +27,7 @@ jolt, keeping the pixel silhouettes clear with fewer sprite draws.
 Touch steering follows the finger directly, like Breakout. Holding a stationary
 finger fires the next bolt as soon as the previous one clears; only one player
 bolt exists at a time. The initiating touch owns control until release/cancel;
-blur and page hiding clear held input. Idle swipes still navigate themes.
+blur and page hiding clear held input.
 Shots and bombs check the distance travelled between frames for bunker/cannon/
 invader collisions, so a slow frame cannot skip a small target or thin remnant.
 

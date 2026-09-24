@@ -5,9 +5,12 @@ paint: scrolling overworld, the Keeper's hut, shop, arcade, cave, a
 ten-room dungeon with keys, a block puzzle, crystal switches, a miniboss and
 a two-phase boss. A new game starts with the hero stepping out of the hut
 door; the hut's back door, THE WAY HOME, leaves the game for the portal on
-phareim.no (engine and world side since 2026-09-24).
-About 20–30 minutes to finish. Live in the swipe rotation after OutRun
-since 2026-09-23, when Petter unparked it. Design (story, maps, progression,
+phareim.no (engine and world side since 2026-09-24). The arcade's HIGH
+SCORES sign shows a real top three from one Hall of Fame game, picked at
+random per visit (`hiscore.ts` fetches `/api/leaderboard` without a player
+id and rewrites the sign's lines in place; offline it keeps the KNG joke).
+About 20–30 minutes to finish. Live since 2026-09-23, when Petter unparked
+it. Design (story, maps, progression,
 enemies, look): `themes/zelda/DESIGN.md`.
 
 The 2026-09-16/21 version (two 15×11 rooms, Muse-built engine) was replaced

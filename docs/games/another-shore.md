@@ -1,8 +1,8 @@
 ## Another Shore (rebuilt 2026-09-23)
 
 `?theme=anotherworld` selects **Another Shore**, a homage to *Another
-World* in five chapters with a prologue and an ending, first in the live
-rotation. It replaced the one-screen coastal walk of
+World* in five chapters with a prologue and an ending, one of the live
+games. It replaced the one-screen coastal walk of
 2026-09-06 (in git history up to `ff0d618`). Story, look and rules:
 `themes/anotherworld/DESIGN.md`.
 

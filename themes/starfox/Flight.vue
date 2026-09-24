@@ -2876,7 +2876,7 @@ let lastTapEnd = 0
 function isTypingTarget(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null
   if (!el || !el.closest) return false
-  return !!el.closest('a, button, input, .social-links, .flip-container, .theme-pager')
+  return !!el.closest('a, button, input, .social-links, .flip-container')
 }
 
 function onTouchStart(e: TouchEvent) {

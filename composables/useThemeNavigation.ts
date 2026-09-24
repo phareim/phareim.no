@@ -1,12 +1,14 @@
 /**
- * Swipe left/right and ArrowLeft/ArrowRight walk the theme list; Escape
- * goes back to the portal. Call once, from app.vue. Themes that need the
- * arrows or horizontal touch for themselves set `navigationLocked` (see
- * useTheme). None of it applies on the portal, which owns every key.
+ * Escape goes back to the portal. Call once, from app.vue. There is no
+ * switching between games here (arrows and swipes were removed 2026-09-24):
+ * the way to another game is out through the portal. A game that owns the
+ * controls sets `navigationLocked` (see useTheme); after it lets go, Escape
+ * waits a 3 s grace period. None of it applies on the portal, which owns
+ * every key.
  */
 export const useThemeNavigation = () => {
   const {
-    activeTheme, isHome, nextTheme, previousTheme, goHome,
+    activeTheme, isHome, goHome,
     navigationLocked, navigationCoolingDown, navigationBlocked,
   } = useTheme()
 
@@ -36,25 +38,9 @@ export const useThemeNavigation = () => {
     navigationCoolingDown.value = false
   })
 
-  const SWIPE_MIN_PX = 70
-  const SWIPE_MAX_MS = 700
-
-  let startX = 0
-  let startY = 0
-  let startTime = 0
-  let tracking = false
-
   const isTyping = (target: EventTarget | null) => {
     const el = target as HTMLElement | null
     return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
-  }
-
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (isHome.value || navigationBlocked.value || event.repeat || event.defaultPrevented) return
-    if (event.metaKey || event.ctrlKey || event.altKey) return
-    if (isTyping(event.target)) return
-    if (event.key === 'ArrowRight') nextTheme()
-    else if (event.key === 'ArrowLeft') previousTheme()
   }
 
   /**
@@ -75,42 +61,13 @@ export const useThemeNavigation = () => {
     }, 0)
   }
 
-  const onTouchStart = (event: TouchEvent) => {
-    if (isHome.value || navigationBlocked.value || event.touches.length !== 1) { tracking = false; return }
-    const t = event.touches[0]
-    startX = t.clientX
-    startY = t.clientY
-    startTime = Date.now()
-    tracking = true
-  }
-
-  const onTouchEnd = (event: TouchEvent) => {
-    if (!tracking) return
-    tracking = false
-    if (isHome.value || navigationBlocked.value) return
-    const t = event.changedTouches[0]
-    const dx = t.clientX - startX
-    const dy = t.clientY - startY
-    if (Date.now() - startTime > SWIPE_MAX_MS) return
-    if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 2) return
-    // Finger moving left reveals the next theme, like a carousel.
-    if (dx < 0) nextTheme()
-    else previousTheme()
-  }
-
   onMounted(() => {
-    document.addEventListener('keydown', onKeyDown)
     window.addEventListener('keydown', onEscape)
-    document.addEventListener('touchstart', onTouchStart, { passive: true })
-    document.addEventListener('touchend', onTouchEnd, { passive: true })
   })
 
   onBeforeUnmount(() => {
     if (cooldownTimer) clearTimeout(cooldownTimer)
     navigationCoolingDown.value = false
-    document.removeEventListener('keydown', onKeyDown)
     window.removeEventListener('keydown', onEscape)
-    document.removeEventListener('touchstart', onTouchStart)
-    document.removeEventListener('touchend', onTouchEnd)
   })
 }

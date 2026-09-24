@@ -2,7 +2,7 @@
 
 `?theme=shore` selects **Another Shore II**, a second take on the Another
 World homage built from scratch on branch `aw-fresh`. **Parked 2026-09-07**
-(`disabled: true`): out of the swipe order, still reachable by deep link.
+(`disabled: true`): no way in from the portal, still reachable by deep link.
 It is: fixed frames and hard
 cuts instead of a scrolling camera. Registered directly after `anotherworld`
 in `themes/index.ts` (live, `themeColor` = the night sky). `themes/shore/`

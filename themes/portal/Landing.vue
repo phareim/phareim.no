@@ -12,7 +12,7 @@
       <p v-for="b in blurbs" :key="b">{{ b }}</p>
       <h2>Games</h2>
       <ul>
-        <li v-for="g in themes" :key="g.id"><a :href="`/?theme=${g.id}`">{{ g.name }}</a></li>
+        <li v-for="g in liveThemes" :key="g.id"><a :href="`/?theme=${g.id}`">{{ g.name }}</a></li>
       </ul>
       <h2>Writing and projects</h2>
       <ul>
@@ -34,10 +34,10 @@
  * town and the index cannot drift apart.
  */
 import { profile } from '~/themes/content'
+import { liveThemes } from '~/themes'
 import Portal from './Portal.vue'
 import { portalExits } from './world/index'
 
-const { themes } = useTheme()
 const { hint, isTouch } = useInputMode()
 const moved = ref(false)
 

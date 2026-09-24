@@ -8,9 +8,8 @@ small API routes; nothing else is stored.
 The front page is the Portal: a small neon town you walk around in. Its
 buildings lead to everything else — an arcade with a cabinet per game, the
 way into Neon Shrine, Petter's house (who he is, where to find him), and his
-public projects. Each game is a theme at `/?theme=<id>`; inside the games,
-swipe or use the arrow keys to walk through them, and Escape or the ⌂ chip
-goes back to the portal. Each theme lives in `themes/<id>/` and owns its
+public projects. Each game is a theme at `/?theme=<id>`; Escape or the ⌂ chip
+goes back to the portal, and the next game is another cabinet. Each theme lives in `themes/<id>/` and owns its
 whole page — see `.claude/skills/phareim-theme/SKILL.md` for how to add one.
 
 ## Pages

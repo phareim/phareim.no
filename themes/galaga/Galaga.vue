@@ -2145,8 +2145,8 @@ let tapStartY = 0
 function handleTouchStart(e) {
   if (isInteractiveElement(e.target)) return
   if (!gameStarted || gameOver) {
-    // Start on tap, not on touchstart, so a horizontal swipe can still
-    // switch theme without launching the game.
+    // Start on tap, not on touchstart, so a stray swipe does not launch
+    // the game.
     tapStartX = e.touches[0].clientX
     tapStartY = e.touches[0].clientY
     return
