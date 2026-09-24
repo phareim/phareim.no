@@ -38,11 +38,16 @@ export async function launch({ width = 1440, height = 900, dpr = 1, mobile = fal
     `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`, 'about:blank',
   ], { stdio: 'ignore' })
   let targets
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 160; i++) {
     try { targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json(); if (targets.length) break } catch { /* not yet */ }
     await sleep(250)
   }
-  const page = targets.find(t => t.type === 'page')
+  const page = targets?.find(t => t.type === 'page')
+  if (!page) {
+    // A browser that never answered must not be left running.
+    proc.kill('SIGKILL')
+    throw new Error('chromium did not start within 40 s (server busy?)')
+  }
   const ws = new WebSocket(page.webSocketDebuggerUrl)
   await new Promise(r => ws.addEventListener('open', r, { once: true }))
   let id = 0
