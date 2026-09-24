@@ -4,9 +4,11 @@
 </template>
 
 <script setup>
-import { MACHINE_FONT } from '~/themes/base/fonts'
 import EscHold from '../base/EscHold.vue'
 import { safeBottom } from '../base/safeBottom'
+import { createPixelStage, makeCanvas } from '../base/pixel/stage'
+import { drawText, mix, silhouette, sprite, textWidth } from '../base/pixel/sprites'
+import { CRATE, CRYSTAL_DOWN, CRYSTAL_UP, DRONE, ENEMY_SHOT, GUNSHIP, POD, ROCK, ROCK_TW, SHIP_ROWS, caveBack, hash1, hexFrame, line, ridgeStrip, ring, rockTexture, weaverFrame } from './pixel'
 import { readShipDef } from '~/composables/useShip'
 import { useSound } from '~/composables/useSound'
 
@@ -41,8 +43,10 @@ function pewSfxEnemy() {
   sound.sfx.enemyShoot()
 }
 /**
- * R-Type — an endless R-Type (1987) style side-scrolling space shooter in
- * NEON VECTOR style (stroked outlines + glow, canvas primitives only).
+ * R-Type — an endless R-Type (1987) style side-scrolling shooter, drawn in
+ * Neon Shrine's pixel look (2026-09-24, ./pixel.ts): a flight through the
+ * shrine caves on the shared pixel stage (themes/base/pixel/), lit by a
+ * light map — crystals, the engine, shots and beams light the rock.
  * Same contract as galaga/Galaga.vue and breakout/Breakout.vue: a
  * full-viewport canvas behind the landing overlay, Enter/tap to start,
  * events up to Landing.vue for the HUD. Before the game starts the canvas
@@ -56,13 +60,13 @@ function pewSfxEnemy() {
  * ship always flies +x and the cave walls sit at low/high y. On a landscape
  * screen world == screen. On a portrait screen (taller than wide) the world
  * is rotated 90° so +x points UP: W = screen height, H = screen width, and
- * draw() applies the rotation once. Only input (keys, touch) and upright
- * text need to know about the orientation.
+ * the pixel stage turns the whole scene once (resize(…, rotate)). Only
+ * input (keys, touch) and the upright HUD text need the orientation.
  */
 const emit = defineEmits(['score', 'distance', 'lives', 'death', 'restart', 'started'])
 
 const canvas = ref(null)
-let ctx = null
+let stage = null // Neon Shrine's pixel stage (themes/base/pixel/stage.ts)
 let animationFrameId = null
 let gameRunning = false
 let W = 0 // world width (forward axis)
@@ -80,7 +84,6 @@ const shipMaxY = () => !portrait && bottomBand ? H - bottomBand - 36 : H - 20
 const CYAN = '#2ff3ff' // Neon Dreams design system: cyan is the player & the interface
 const ORANGE = '#ff7a1a'
 const GOLD = '#ffd23f' // Neon Dreams design system: gold is the reward (combo x4+)
-const BG = '#0b0616' // Neon Dreams design system: violet-black page ground
 const LIVES = 2
 const SHIP_SPEED = 430 // px/s
 const BULLET_SPEED = 780
@@ -102,7 +105,6 @@ let shockwaves = []
 let starsFar = []
 let starsMid = []
 let starsNear = []
-let polys = [] // slow drifting outline polygons, 3 parallax depths
 let force = { attached: true, angle: 0, x: 0, y: 0 }
 let pickups = []
 let pickupIndex = 0
@@ -165,28 +167,9 @@ let terrainPhase = 0
 
 // ---------------------------------------------------------------- orientation
 
-// World -> screen. Portrait: (x, y) -> (y, SH - x), i.e. +x is up.
-function applyWorldTransform() {
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  if (portrait) {
-    ctx.translate(0, SH)
-    ctx.rotate(-Math.PI / 2)
-  }
-}
-
 // Screen (client) -> world.
 function toWorld(cx, cy) {
   return portrait ? { x: SH - cy, y: cx } : { x: cx, y: cy }
-}
-
-// Draw text that reads horizontally on screen regardless of orientation.
-// (wx, wy) is the world anchor; fn draws at (0, 0).
-function upright(wx, wy, fn) {
-  ctx.save()
-  ctx.translate(wx, wy)
-  if (portrait) ctx.rotate(Math.PI / 2)
-  fn()
-  ctx.restore()
 }
 
 // ---------------------------------------------------------------- setup
@@ -194,17 +177,19 @@ function upright(wx, wy, fn) {
 function setupCanvas() {
   const c = canvas.value
   if (!c) return
-  dpr = Math.min(window.devicePixelRatio || 1, 2)
+  dpr = window.devicePixelRatio || 1
   SW = c.offsetWidth
   SH = c.offsetHeight
   portrait = SH > SW
   W = portrait ? SH : SW
   H = portrait ? SW : SH
-  c.width = Math.round(SW * dpr)
-  c.height = Math.round(SH * dpr)
-  ctx = c.getContext('2d')
   bottomBand = safeBottom()
-  applyWorldTransform()
+  if (!stage) stage = createPixelStage(c)
+  // About 3 CSS px per pixel: the ship keeps its old ~40 px size. The
+  // minimums measure the world (forward × lateral); portrait turns it.
+  const phone = Math.min(SW, SH) < 500
+  stage.resize(SW, SH, dpr, phone ? 260 : 400, phone ? 140 : 250, portrait)
+  backdropKey = ''
   ship.x = Math.max(shipMinX(), 40, W * 0.18)
   ship.y = ship.y || H / 2
   ship.y = clamp(ship.y, 30, Math.min(H - 30, shipMaxY()))
@@ -217,35 +202,6 @@ function initStars() {
   for (let i = 0; i < 60; i++) starsFar.push({ x: Math.random() * W, y: Math.random() * H })
   for (let i = 0; i < 32; i++) starsMid.push({ x: Math.random() * W, y: Math.random() * H })
   for (let i = 0; i < 16; i++) starsNear.push({ x: Math.random() * W, y: Math.random() * H })
-}
-
-function makePolyVertices() {
-  const count = 4 + Math.floor(Math.random() * 5)
-  const angles = []
-  for (let i = 0; i < count; i++) angles.push(Math.random() * Math.PI * 2)
-  angles.sort((a, b) => a - b)
-  return angles.map(a => ({ angle: a, r: 0.5 + Math.random() * 0.5 }))
-}
-
-function makePoly(anyY) {
-  const depth = [0.2, 0.5, 0.85][Math.floor(Math.random() * 3)]
-  return {
-    x: Math.random() * (W + 200) - 100,
-    y: anyY !== undefined ? anyY : Math.random() * H,
-    depth,
-    speed: 12 + depth * 46,
-    size: 120 + (1 - depth) * 260 + Math.random() * 120,
-    rotation: Math.random() * Math.PI * 2,
-    rotSpeed: (Math.random() - 0.5) * 0.12,
-    vertices: makePolyVertices(),
-    orange: Math.random() < 0.25,
-    alpha: 0.04 + depth * 0.08,
-  }
-}
-
-function initPolys() {
-  polys = []
-  for (let i = 0; i < 9; i++) polys.push(makePoly())
 }
 
 function hash(n) {
@@ -793,16 +749,7 @@ function update(nowMs) {
     s.x -= (world * 0.8 + 20) * dt
     if (s.x < -8) { s.x = W + 8; s.y = Math.random() * H }
   }
-  for (let i = 0; i < polys.length; i++) {
-    const p = polys[i]
-    p.x -= p.speed * (demo ? 0.5 : 1) * dt
-    p.rotation += p.rotSpeed * dt
-    if (p.x < -p.size) {
-      const fresh = makePoly()
-      fresh.x = W + p.size * 0.5
-      polys[i] = fresh
-    }
-  }
+
 
   // Respawn handling.
   if (!ship.alive && !gameOver && now >= respawnAt) {
@@ -1188,494 +1135,451 @@ function killBoss() {
 }
 
 // ---------------------------------------------------------------- draw
+// Everything below draws in the stage's logical pixels, in world
+// orientation (the stage turns the scene for portrait). L() takes a CSS
+// world coordinate to the pixel grid; hudAt() maps a world point to the
+// upright HUD layer. Rock, ship and enemies are lit by the light map;
+// shots, beams, sparks and crystals glow.
 
-function stroke(color, width, glow) {
-  ctx.strokeStyle = color
-  ctx.lineWidth = width
-  ctx.shadowColor = color
-  ctx.shadowBlur = glow
+function L(v) {
+  return Math.round(v / stage.k)
 }
 
-function drawTerrain(demo) {
-  ctx.save()
-  ctx.globalAlpha = 1
-  ctx.shadowBlur = 0
-  const first = Math.floor(scrollX / TERRAIN_STEP) - 1
-  const last = Math.ceil((scrollX + W) / TERRAIN_STEP) + 1
-  for (const side of ['ceil', 'floor']) {
-    const edge = side === 'ceil' ? 0 : H
-    const point = (col, row) => {
-      const x = col * TERRAIN_STEP - scrollX
-      const rim = wallYAt(x, side)
-      const depth = row / 3
-      return { x: x + (row === 0 ? 0 : (hash(col * 13 + row * 3) - .5) * 38), y: rim * (1 - depth) + edge * depth }
-    }
-    for (let col = first; col < last; col++) {
-      for (let row = 0; row < 3; row++) {
-        const a = point(col, row), b = point(col + 1, row)
-        const c = point(col, row + 1), d = point(col + 1, row + 1)
-        for (const [i, face] of [[a, c, b], [b, c, d]].entries()) {
-          const light = hash(col * 17 + row * 5 + i + (side === 'ceil' ? 97 : 0))
-          ctx.beginPath(); ctx.moveTo(face[0].x, face[0].y)
-          ctx.lineTo(face[1].x, face[1].y); ctx.lineTo(face[2].x, face[2].y); ctx.closePath()
-          ctx.fillStyle = `rgb(${9 + Math.round(light * 7)},${5 + Math.round(light * 4)},${20 + Math.round(light * 14)})`
-          ctx.fill()
-          ctx.strokeStyle = `rgba(177,105,245,${.16 + light * .23})`
-          ctx.lineWidth = .75; ctx.stroke()
-        }
-      }
-    }
-    ctx.beginPath()
-    for (let col = first; col <= last; col++) {
-      const p = point(col, 0)
-      if (col === first) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y)
-    }
-    ctx.strokeStyle = 'rgba(177,105,245,.65)'; ctx.lineWidth = 1.2; ctx.stroke()
+// World point -> upright HUD pixel (portrait: screen (y, SH - x)).
+function hudAt(wx, wy) {
+  if (!stage.rotated) return { x: L(wx), y: L(wy) }
+  return { x: L(wy), y: stage.hh - L(wx) }
+}
+
+function hudText(text, x, y, color, center = false) {
+  const w = textWidth(text)
+  drawText(stage.hud, text, Math.round(center ? x - w / 2 : x), Math.round(y), color, '#0b0616')
+}
+
+// --- backdrop: the far cave, parallax ridges, stars ---------------------
+
+let backdropKey = ''
+let backC = null
+let ridges = [] // { c, speed, top }
+function buildBackdrop() {
+  const key = stage.vw + 'x' + stage.vh
+  if (key === backdropKey) return
+  backdropKey = key
+  const vw = stage.vw
+  const vh = stage.vh
+  backC = caveBack(vw, vh)
+  const w = 512
+  const far = Math.max(8, Math.round(vh * 0.26))
+  const mid = Math.max(6, Math.round(vh * 0.16))
+  ridges = [
+    // Quiet silhouettes: dark bodies with a faint rim, so only the real walls read as walls.
+    { c: ridgeStrip(w, far, '#1c1030', '#2a1a4c', 3, true), speed: 0.2, top: true },
+    { c: ridgeStrip(w, far, '#1c1030', '#2a1a4c', 7, false), speed: 0.2, top: false },
+    { c: ridgeStrip(w, mid, '#140b26', '#43246e', 11, true), speed: 0.45, top: true },
+    { c: ridgeStrip(w, mid, '#140b26', '#43246e', 13, false), speed: 0.45, top: false },
+  ]
+}
+
+function drawBackdrop(g, now) {
+  g.drawImage(backC, 0, 0)
+  // Stars: far dim, mid bright, near streaks (their motion lives in update()).
+  g.fillStyle = '#6a5fa0'
+  for (let i = 0; i < starsFar.length; i++) g.fillRect(L(starsFar[i].x), L(starsFar[i].y), 1, 1)
+  for (let i = 0; i < starsMid.length; i++) {
+    const s = starsMid[i]
+    g.fillStyle = Math.sin(now * 3 + i) > 0.6 ? '#fff4ff' : '#cfc6ff'
+    g.fillRect(L(s.x), L(s.y), 1, 1)
   }
-  ctx.restore()
+  const streak = Math.max(1, Math.round((3 + lastWorld * 0.03) / stage.k))
+  for (let i = 0; i < starsNear.length; i++) {
+    const s = starsNear[i]
+    g.fillStyle = '#8f86b8'
+    g.fillRect(L(s.x) + 1, L(s.y), streak, 1)
+    g.fillStyle = '#fff4ff'
+    g.fillRect(L(s.x), L(s.y), 1, 1)
+  }
+  const off = scrollX / stage.k
+  for (const r of ridges) {
+    const w = r.c.width
+    let x = -Math.floor(off * r.speed) % w
+    if (x > 0) x -= w
+    const y = r.top ? 0 : stage.vh - r.c.height
+    for (; x < stage.vw; x += w) g.drawImage(r.c, x, y)
+  }
+}
+
+// --- terrain: rock walls with a lit rim, moss, drips and crystals --------
+
+let rockTex = null
+let terrC = null
+let tg = null
+let rockPat = null
+let ceilA = new Int16Array(0)
+let floorA = new Int16Array(0)
+const CRYSTAL_LOOKS = [
+  { pal: { x: '#b01874', X: '#ff2fa0' }, glow: '#ff2fa0' },
+  { pal: { x: '#1a9fc4', X: '#2ff3ff' }, glow: '#2ff3ff' },
+  { pal: { x: '#c4861c', X: '#ffd23f' }, glow: '#ffd23f' },
+]
+
+function drawTerrain(g) {
+  const k = stage.k
+  const vw = stage.vw
+  const vh = stage.vh
+  if (!terrC || terrC.width !== vw || terrC.height !== vh) {
+    terrC = makeCanvas(vw, vh)
+    tg = terrC.getContext('2d')
+    rockPat = null
+    ceilA = new Int16Array(vw + 1)
+    floorA = new Int16Array(vw + 1)
+  }
+  if (!rockTex) rockTex = rockTexture()
+  if (!rockPat) rockPat = tg.createPattern(rockTex, 'repeat')
+  // World-anchored columns: column lx shows world pixel u = base + lx.
+  const off = scrollX / k
+  const base = Math.floor(off)
+  const frac = off - base
+  tg.globalCompositeOperation = 'source-over'
+  tg.clearRect(0, 0, vw, vh)
+  tg.fillStyle = '#000'
+  for (let lx = 0; lx <= vw; lx++) {
+    const x = (lx - frac + 0.5) * k
+    const cy = Math.round(ceilYAt(x) / k)
+    const fy = Math.round(floorYAt(x) / k)
+    ceilA[lx] = cy
+    floorA[lx] = fy
+    if (cy > 0) tg.fillRect(lx, 0, 1, cy)
+    if (fy < vh) tg.fillRect(lx, fy, 1, vh - fy)
+  }
+  tg.globalCompositeOperation = 'source-in'
+  tg.save()
+  tg.translate(-(((base % ROCK_TW) + ROCK_TW) % ROCK_TW), 0)
+  tg.fillStyle = rockPat
+  tg.fillRect(0, 0, vw + ROCK_TW, vh)
+  tg.restore()
+  tg.globalCompositeOperation = 'source-over'
+  for (let lx = 0; lx < vw; lx++) {
+    const u = base + lx
+    const cy = ceilA[lx]
+    const fy = floorA[lx]
+    // Floor: lit top edge, moss on it.
+    tg.fillStyle = ROCK.rim
+    tg.fillRect(lx, fy, 1, 1)
+    tg.fillStyle = ROCK.rockL
+    tg.fillRect(lx, fy + 1, 1, 1)
+    const m = hash1(u, 21)
+    if (m > 0.5) {
+      tg.fillStyle = m > 0.8 ? ROCK.moss : ROCK.mossD
+      tg.fillRect(lx, fy - 1, 1, m > 0.9 ? 2 : 1)
+      if (m > 0.9) { tg.fillStyle = ROCK.moss; tg.fillRect(lx, fy - 2, 1, 1) }
+    }
+    // Ceiling: a dark underside and drips.
+    tg.fillStyle = ROCK.rockDD
+    tg.fillRect(lx, cy - 1, 1, 1)
+    const d = hash1(u, 22)
+    if (d > 0.84) {
+      const len = 1 + Math.floor(hash1(u, 23) * 4)
+      tg.fillStyle = ROCK.rockD
+      tg.fillRect(lx, cy, 1, len)
+      tg.fillStyle = ROCK.rockL
+      tg.fillRect(lx, cy + len - 1, 1, 1)
+    }
+  }
+  g.drawImage(terrC, 0, 0)
+  // Crystals at world-anchored spots on the rims; they light the rock round them.
+  for (let lx = -4; lx < vw + 4; lx++) {
+    const u = base + lx
+    if (u % 23 !== 0) continue
+    const h = hash1(u, 31)
+    if (h < 0.3) continue
+    const col = Math.max(0, Math.min(vw, lx))
+    const look = CRYSTAL_LOOKS[Math.floor(hash1(u, 32) * 3)]
+    const onFloor = hash1(u, 33) > 0.45
+    const spr = sprite(onFloor ? CRYSTAL_UP : CRYSTAL_DOWN, look.pal)
+    const x = lx - 2
+    const y = onFloor ? floorA[col] - spr.height + 2 : ceilA[col] - 2
+    g.drawImage(spr, x, y)
+    stage.emit(x, y, spr.width, spr.height)
+    stage.light(x + 2.5, y + 3, 22, look.glow, 0.85)
+  }
+}
+
+// --- sprites ---------------------------------------------------------------
+
+let shipSprKey = ''
+let shipSpr = null
+function shipSprite() {
+  const c = shipDef.colors
+  const key = shipDef.variant + c.hull + c.trim
+  if (key !== shipSprKey) {
+    shipSprKey = key
+    shipSpr = sprite(SHIP_ROWS[shipDef.variant === 'vandal' ? 'vandal' : 'dart'], { c: c.hull, C: mix(c.hull, '#0b0616', 0.45), w: mix(c.hull, '#ffffff', 0.55), T: c.trim })
+  }
+  return shipSpr
 }
 
 function drawShip(now) {
   const blink = now < invulnUntil && Math.floor(now * 12) % 2 === 0
   if (blink) return
-  const x = ship.x
-  const y = ship.y
-  // Hangar colours: hull for the airframe, glow for the flame core.
-  const hull = shipDef.colors.hull
-  const glow = shipDef.colors.glow
-  const trim = shipDef.colors.trim
-  // The vandal flies a heavier striker silhouette: broader wings, chin fin.
-  const wide = shipDef.variant === 'vandal' ? 1.35 : 1
-  // Engine flame: flickering triangle behind the ship.
-  const fl = 12 + Math.random() * 14
-  ctx.save()
-  ctx.globalAlpha *= 0.9
-  stroke(ORANGE, 2, 12)
-  ctx.beginPath()
-  ctx.moveTo(x - 16, y - 5)
-  ctx.lineTo(x - 16 - fl, y)
-  ctx.lineTo(x - 16, y + 5)
-  ctx.stroke()
-  stroke(glow, 1.5, 8)
-  ctx.beginPath()
-  ctx.moveTo(x - 16, y - 2)
-  ctx.lineTo(x - 16 - fl * 0.5, y)
-  ctx.lineTo(x - 16, y + 2)
-  ctx.stroke()
-  // Hull: sleek dart, or the vandal's wide striker.
-  stroke(hull, 2, 14)
-  ctx.beginPath()
-  ctx.moveTo(x + 22, y)
-  ctx.lineTo(x - 4, y - 9 * wide)
-  ctx.lineTo(x - 12, y - 15 * wide)
-  ctx.lineTo(x - 10, y - 4)
-  ctx.lineTo(x - 16, y)
-  ctx.lineTo(x - 10, y + 4)
-  ctx.lineTo(x - 12, y + 15 * wide)
-  ctx.lineTo(x - 4, y + 9 * wide)
-  ctx.closePath()
-  ctx.stroke()
-  if (shipDef.variant === 'vandal') {
-    // Chin fin under the nose.
-    stroke(trim, 2, 10)
-    ctx.beginPath()
-    ctx.moveTo(x + 8, y + 3)
-    ctx.lineTo(x + 2, y + 12)
-    ctx.lineTo(x - 4, y + 3)
-    ctx.stroke()
-  }
-  // Cockpit core.
-  ctx.fillStyle = '#ffffff'
-  ctx.shadowColor = hull
-  ctx.shadowBlur = 10
-  ctx.fillRect(x + 2, y - 1.5, 6, 3)
-  ctx.shadowBlur = 0
-  ctx.restore()
+  const g = stage.g
+  const spr = shipSprite()
+  const cx = L(ship.x)
+  const cy = L(ship.y)
+  const x0 = cx - Math.floor(spr.width * 0.55)
+  const y0 = cy - Math.floor(spr.height / 2)
+  // Engine flame behind the tail: flickering pixels in orange and the ship's glow.
+  const fl = 2 + Math.floor(Math.random() * 4)
+  g.fillStyle = '#ff8a3d'
+  g.fillRect(x0 - fl, cy - 1, fl, 3)
+  g.fillStyle = shipDef.colors.glow || '#ffd23f'
+  g.fillRect(x0 - Math.ceil(fl / 2), cy, Math.ceil(fl / 2), 1)
+  g.drawImage(spr, x0, y0)
+  stage.emit(x0 - fl, cy - 1, fl, 3)
+  stage.light(x0 - 2, cy, 16, '#ff8a3d', 0.8)
+  stage.light(cx, cy, 14, shipDef.colors.hull, 0.45)
 }
 
 function drawForce() {
-  const { x, y } = force
-  // The Force pod wears the ship's trim, so the loadout reads as one.
-  stroke(shipDef.colors.trim, 2, 14)
-  ctx.beginPath()
-  for (let i = 0; i < 6; i++) {
-    const a = (Math.PI / 3) * i + force.angle * 0.7
-    const px = x + Math.cos(a) * 8
-    const py = y + Math.sin(a) * 8
-    if (i === 0) ctx.moveTo(px, py)
-    else ctx.lineTo(px, py)
-  }
-  ctx.closePath()
-  ctx.stroke()
-  ctx.fillStyle = '#ffffff'
-  ctx.shadowColor = CYAN
-  ctx.shadowBlur = 12
-  ctx.beginPath()
-  ctx.arc(x, y, 2.5, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.shadowBlur = 0
+  const g = stage.g
+  const trim = shipDef.colors.trim
+  const spr = sprite(POD, { T: trim, U: mix(trim, '#0b0616', 0.45) })
+  const x = L(force.x)
+  const y = L(force.y)
   if (!force.attached) {
-    // Trail while flying free.
-    stroke(CYAN, 1.5, 8)
-    ctx.beginPath()
-    ctx.moveTo(x - 8, y)
-    ctx.lineTo(x - 60, y)
-    ctx.stroke()
+    g.fillStyle = CYAN
+    g.fillRect(x - Math.round(60 / stage.k), y, Math.round(52 / stage.k), 1)
   }
+  g.drawImage(spr, x - 3, y - 3)
+  // A spark turning round the pod.
+  const a = force.angle * 0.7
+  g.fillStyle = '#ffffff'
+  g.fillRect(Math.round(x + Math.cos(a) * 4), Math.round(y + Math.sin(a) * 4), 1, 1)
+  stage.emit(x - 3, y - 3, 7, 7)
+  stage.light(x, y, 12, trim, 0.8)
 }
 
-function drawEnemy(e) {
-  stroke(ORANGE, 2, 10)
-  if (e.kind === 'drone') {
-    // Outline diamond.
-    ctx.beginPath()
-    ctx.moveTo(e.x, e.y - e.size)
-    ctx.lineTo(e.x + e.size, e.y)
-    ctx.lineTo(e.x, e.y + e.size)
-    ctx.lineTo(e.x - e.size, e.y)
-    ctx.closePath()
-    ctx.stroke()
-    ctx.fillStyle = '#ffffff'
-    ctx.shadowColor = ORANGE
-    ctx.shadowBlur = 8
-    ctx.fillRect(e.x - 1.5, e.y - 1.5, 3, 3)
-    ctx.shadowBlur = 0
-  } else if (e.kind === 'weaver') {
-    // Spinner: rotating triangle pair.
-    for (const dir of [1, -1]) {
-      const a = e.t * 3 * dir + e.phase
-      ctx.beginPath()
-      for (let i = 0; i < 3; i++) {
-        const ta = a + (Math.PI * 2 / 3) * i
-        const px = e.x + Math.cos(ta) * e.size
-        const py = e.y + Math.sin(ta) * e.size
-        if (i === 0) ctx.moveTo(px, py)
-        else ctx.lineTo(px, py)
-      }
-      ctx.closePath()
-      ctx.stroke()
-    }
-  } else if (e.kind === 'hex') {
-    ctx.beginPath()
-    for (let i = 0; i < 6; i++) {
-      const a = (Math.PI / 3) * i + Math.PI / 6 + e.t * 0.8
-      const px = e.x + Math.cos(a) * e.size
-      const py = e.y + Math.sin(a) * e.size
-      if (i === 0) ctx.moveTo(px, py)
-      else ctx.lineTo(px, py)
-    }
-    ctx.closePath()
-    ctx.stroke()
-    stroke('#ffffff', 1, 6)
-    ctx.beginPath()
-    ctx.arc(e.x, e.y, 3, 0, Math.PI * 2)
-    ctx.stroke()
-  } else if (e.kind === 'gunship') {
-    // Slow tanky hull with a barrel.
-    const s = e.size
-    ctx.beginPath()
-    ctx.moveTo(e.x - s, e.y - s * 0.55)
-    ctx.lineTo(e.x + s * 0.4, e.y - s * 0.55)
-    ctx.lineTo(e.x + s, e.y)
-    ctx.lineTo(e.x + s * 0.4, e.y + s * 0.55)
-    ctx.lineTo(e.x - s, e.y + s * 0.55)
-    ctx.closePath()
-    ctx.stroke()
-    stroke(ORANGE, 2, 10)
-    ctx.beginPath()
-    ctx.moveTo(e.x - s, e.y)
-    ctx.lineTo(e.x - s - 12, e.y)
-    ctx.stroke()
-  }
-  ctx.shadowBlur = 0
+function drawEnemy(g, e, now) {
+  let rows
+  if (e.kind === 'drone') rows = DRONE[Math.floor(now * 6 + (e.phase || 0)) % 2]
+  else if (e.kind === 'weaver') rows = weaverFrame((e.t * 3 + e.phase) / (Math.PI * 2 / 3))
+  else if (e.kind === 'hex') rows = hexFrame((e.t * 0.8) / (Math.PI / 3))
+  else rows = GUNSHIP
+  const spr = sprite(rows)
+  const x = L(e.x) - Math.floor(spr.width / 2)
+  const y = L(e.y) - Math.floor(spr.height / 2)
+  g.drawImage(spr, x, y)
+  stage.light(L(e.x), L(e.y), Math.max(8, e.size / stage.k * 1.6), '#ff8a3d', 0.55)
 }
 
-function drawBoss() {
+function drawBoss(g) {
   const b = boss
-  // Rotating polygon ring with a gap; the core is only hittable through it.
-  stroke(ORANGE, 3, 16)
-  ctx.beginPath()
+  const cx = L(b.x)
+  const cy = L(b.y)
+  const R = Math.max(6, L(b.ringR))
   const sides = 10
-  let prevInGap = false
-  for (let i = 0; i <= sides; i++) {
-    const a = b.angle + (Math.PI * 2 / sides) * i
+  const gapHalf = b.gap / 2
+  const inGap = a => {
     let da = a - b.angle
     while (da > Math.PI) da -= Math.PI * 2
     while (da < -Math.PI) da += Math.PI * 2
-    const inGap = Math.abs(da) < b.gap / 2
-    const px = b.x + Math.cos(a) * b.ringR
-    const py = b.y + Math.sin(a) * b.ringR
-    if (i === 0 || inGap || prevInGap) ctx.moveTo(px, py)
-    else ctx.lineTo(px, py)
-    prevInGap = inGap
+    return Math.abs(da) < gapHalf
   }
-  ctx.stroke()
+  // The ring: ten plates with outline, orange face and a gold top edge.
+  for (const [w, col, rr] of [[4, '#0b0616', R], [2, '#ff8a3d', R], [1, '#ffd23f', R - 1]]) {
+    for (let i = 0; i < sides; i++) {
+      const a0 = b.angle + (Math.PI * 2 / sides) * i
+      const a1 = a0 + Math.PI * 2 / sides
+      if (inGap(a0) || inGap(a1) || inGap((a0 + a1) / 2)) continue
+      line(g, cx + Math.cos(a0) * rr, cy + Math.sin(a0) * rr, cx + Math.cos(a1) * rr, cy + Math.sin(a1) * rr, col, w)
+    }
+  }
   // Gap markers.
-  stroke('#ffffff', 2, 10)
-  for (const s of [-1, 1]) {
-    const a = b.angle + s * b.gap / 2
-    ctx.beginPath()
-    ctx.moveTo(b.x + Math.cos(a) * (b.ringR - 8), b.y + Math.sin(a) * (b.ringR - 8))
-    ctx.lineTo(b.x + Math.cos(a) * (b.ringR + 8), b.y + Math.sin(a) * (b.ringR + 8))
-    ctx.stroke()
+  for (const sd of [-1, 1]) {
+    const a = b.angle + sd * gapHalf
+    line(g, cx + Math.cos(a) * (R - 3), cy + Math.sin(a) * (R - 3), cx + Math.cos(a) * (R + 3), cy + Math.sin(a) * (R + 3), '#ffffff', 1)
   }
-  // Core.
+  // Core: a pulsing orb.
   const pulse = 0.7 + 0.3 * Math.sin(b.t * 5)
-  stroke(ORANGE, 2, 18 * pulse)
-  ctx.beginPath()
-  ctx.arc(b.x, b.y, b.coreR, 0, Math.PI * 2)
-  ctx.stroke()
-  ctx.fillStyle = '#ffffff'
-  ctx.shadowColor = ORANGE
-  ctx.shadowBlur = 14
-  ctx.beginPath()
-  ctx.arc(b.x, b.y, 4 * pulse, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.shadowBlur = 0
-  // HP bar.
-  const bw = 130
-  ctx.fillStyle = 'rgba(255, 122, 26, 0.25)'
-  ctx.fillRect(b.x - bw / 2, b.y - b.ringR - 18, bw, 4)
-  ctx.fillStyle = ORANGE
-  ctx.fillRect(b.x - bw / 2, b.y - b.ringR - 18, bw * Math.max(0, b.hp / b.maxHp), 4)
+  const cr = Math.max(3, L(b.coreR))
+  ring(g, cx, cy, cr + 1, '#0b0616')
+  for (let r2 = cr; r2 >= 1; r2--) ring(g, cx, cy, r2, r2 > cr - 2 ? '#9e1638' : '#ff8a3d')
+  g.fillStyle = '#ffffff'
+  const pr = Math.max(1, Math.round(2 * pulse))
+  g.fillRect(cx - pr + 1, cy - pr + 1, pr * 2 - 1, pr * 2 - 1)
+  stage.emit(cx - pr, cy - pr, pr * 2, pr * 2)
+  stage.light(cx, cy, R * 1.6, '#ff8a3d', 0.5 + 0.4 * pulse)
+  // HP bar above the ring.
+  const bw = Math.round(130 / stage.k)
+  const by = cy - R - 6
+  g.fillStyle = '#0b0616'
+  g.fillRect(cx - (bw >> 1) - 1, by - 1, bw + 2, 4)
+  g.fillStyle = '#5b2a1c'
+  g.fillRect(cx - (bw >> 1), by, bw, 2)
+  g.fillStyle = '#ff8a3d'
+  g.fillRect(cx - (bw >> 1), by, Math.round(bw * Math.max(0, b.hp / b.maxHp)), 2)
+}
+
+// --- glowing things (after the light map) -----------------------------------
+
+function drawGlowing(g) {
+  // Shockwaves: pixel rings.
+  for (let i = 0; i < shockwaves.length; i++) {
+    const sw = shockwaves[i]
+    g.globalAlpha = Math.max(0, sw.life)
+    ring(g, L(sw.x), L(sw.y), L(sw.radius), sw.color)
+    if (sw.life > 0.6) ring(g, L(sw.x), L(sw.y), L(sw.radius) - 1, '#ffffff')
+  }
+  g.globalAlpha = 1
+  // Particles: dots and shards.
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i]
+    g.globalAlpha = Math.max(0, Math.min(1, p.life * 1.5))
+    if (p.shard) {
+      const len = Math.max(1, p.len / stage.k)
+      const dx = Math.cos(p.rot) * len
+      const dy = Math.sin(p.rot) * len
+      line(g, L(p.x) - dx, L(p.y) - dy, L(p.x) + dx, L(p.y) + dy, p.color, 1)
+    } else {
+      const n = Math.max(1, Math.round(p.size / stage.k))
+      g.fillStyle = p.color
+      g.fillRect(L(p.x) - (n >> 1), L(p.y) - (n >> 1), n, n)
+    }
+  }
+  g.globalAlpha = 1
+  // Enemy shots: orange orbs with a white core.
+  const es = sprite(ENEMY_SHOT, { O: '#ff3b5c' })
+  for (let i = 0; i < ebullets.length; i++) g.drawImage(es, L(ebullets[i].x) - 2, L(ebullets[i].y) - 2)
+  // Player shots: cyan bolts, white-hot core.
+  for (let i = 0; i < bullets.length; i++) {
+    const b = bullets[i]
+    const x = L(b.x)
+    const y = L(b.y)
+    g.fillStyle = CYAN
+    g.fillRect(x - 2, y, 4, 1)
+    g.fillStyle = '#ffffff'
+    g.fillRect(x - 1, y, 2, 1)
+  }
+  // Charge beams: a fat sine wave in three layers.
+  for (let i = 0; i < beams.length; i++) {
+    const bm = beams[i]
+    g.globalAlpha = Math.min(1, bm.life)
+    for (const [off, color, wdt] of BEAM_LAYERS) {
+      let px = null
+      let py = null
+      for (let x = -20; x <= 110; x += 6) {
+        const wy = bm.y + off * 0.4 + Math.sin(x * 0.09 + bm.t * 22) * (bm.width * 0.35)
+        const lx = L(bm.x + x)
+        const ly = L(wy)
+        if (px !== null) line(g, px, py, lx, ly, color, wdt > 3 ? 2 : 1)
+        px = lx
+        py = ly
+      }
+    }
+  }
+  g.globalAlpha = 1
+
+}
+
+function drawLights() {
+  for (let i = 0; i < bullets.length; i++) if (i % 2 === 0) stage.light(L(bullets[i].x), L(bullets[i].y), 7, CYAN, 0.8)
+  for (let i = 0; i < ebullets.length; i++) stage.light(L(ebullets[i].x), L(ebullets[i].y), 8, '#ff8a3d', 0.8)
+  for (let i = 0; i < beams.length; i++) {
+    const bm = beams[i]
+    // The first instant of a beam flares brighter and wider (beamFlash).
+    for (let x = -20; x <= 110; x += 40) stage.light(L(bm.x + x), L(bm.y), 26 + beamFlash * 20, CYAN, Math.min(1, bm.life + beamFlash))
+  }
+  for (let i = 0; i < shockwaves.length; i++) {
+    const sw = shockwaves[i]
+    stage.light(L(sw.x), L(sw.y), Math.max(6, L(sw.radius) * 1.2), sw.color, sw.life * 0.7)
+  }
+  // Charging: the nose gathers light.
+  if (ship.alive && !gameOver && chargeT > 0.1) {
+    const c = clamp(chargeT / chargeTime(), 0, 1)
+    stage.light(L(ship.x) + 6, L(ship.y), 6 + c * 16, CYAN, 0.4 + c * 0.6)
+  }
+}
+
+// --- HUD (upright, screen space) ---------------------------------------------
+
+function drawHud(demo) {
+  const h = stage.hud
+  // Pickup letters and names, upright over their crates.
+  for (const p of pickups) {
+    const at = hudAt(p.x, p.y)
+    hudText(p.slot[0].toUpperCase(), at.x + 1, at.y - 3, GOLD, true)
+    hudText(p.mode.toUpperCase(), at.x, at.y + 8, GOLD, true)
+  }
+  // Active upgrades, top left of the screen (standard weapons show nothing).
+  if (!demo && !gameOver) {
+    const x = L(20)
+    let y = L(24)
+    for (const slot of ['gun', 'beam', 'force']) {
+      const u = upgrades[slot]
+      if (!u) continue
+      hudText(`${u.label} ${Math.ceil(u.time)}S`, x, y, GOLD)
+      y += 9
+    }
+    if (pickupNotice) hudText(`${pickupNotice.label} · 20S`, x, y, GOLD)
+  }
+  if (!ship.alive || gameOver) return
+  // Under the ship: the force pod's state and five charge pips, and the
+  // multiplier once it counts.
+  const col = mult >= 4 ? GOLD : CYAN
+  const at = portrait ? hudAt(ship.x - 22, ship.y - 20) : hudAt(ship.x - 20, ship.y + 20)
+  const x = at.x
+  const y = at.y
+  h.fillStyle = '#0b0616'
+  h.fillRect(x, y, 5, 5)
+  h.fillStyle = col
+  if (force.attached) h.fillRect(x, y, 4, 4)
+  else { h.fillRect(x, y, 4, 1); h.fillRect(x, y + 3, 4, 1); h.fillRect(x, y, 1, 4); h.fillRect(x + 3, y, 1, 4) }
+  const full = Math.floor(clamp(chargeT / chargeTime(), 0, 1) * 5)
+  for (let i = 0; i < 5; i++) {
+    const px = x + 7 + i * 3
+    h.fillStyle = '#0b0616'
+    h.fillRect(px + 1, y + 1, 2, 4)
+    h.fillStyle = i < full ? (full === 5 ? '#ffffff' : col) : '#3a2f70'
+    h.fillRect(px, y, 2, 4)
+  }
+  if (mult > 1) hudText('X' + mult, x + 24, y - 2, col)
+  if (multPop) {
+    const rise = multPop.t * 40
+    const p = portrait ? hudAt(multPop.x + rise, multPop.y) : hudAt(multPop.x, multPop.y - rise)
+    if (multPop.t < 0.8 || Math.floor(multPop.t * 20) % 2) hudText(multPop.text.toUpperCase(), p.x, p.y - 3, col, true)
+  }
 }
 
 function draw() {
-  if (!ctx) return
+  if (!stage) return
   const demo = !gameStarted
   const now = performance.now() / 1000
-
-  applyWorldTransform()
-  ctx.fillStyle = BG
-  ctx.fillRect(0, 0, W, H)
-
-  ctx.save()
-  if (shake > 0) {
-    const m = shake * 7
-    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m)
-  }
-
-  // Starfield: 3 parallax layers — far dim dots, mid dots, near streaks.
-  ctx.fillStyle = 'rgba(47, 243, 255, 0.25)'
-  for (let i = 0; i < starsFar.length; i++) {
-    const s = starsFar[i]
-    ctx.fillRect(s.x, s.y, 1, 1)
-  }
-  ctx.fillStyle = 'rgba(47, 243, 255, 0.5)'
-  for (let i = 0; i < starsMid.length; i++) {
-    const s = starsMid[i]
-    ctx.fillRect(s.x, s.y, 2, 2)
-  }
-  const streakLen = 3 + lastWorld * 0.03
-  stroke('rgba(242, 233, 255, 0.7)', 1.5, 0)
-  ctx.shadowBlur = 0
-  for (let i = 0; i < starsNear.length; i++) {
-    const s = starsNear[i]
-    ctx.beginPath()
-    ctx.moveTo(s.x, s.y)
-    ctx.lineTo(s.x + streakLen, s.y)
-    ctx.stroke()
-    ctx.fillStyle = '#f2e9ff'
-    ctx.fillRect(s.x - 1, s.y - 1, 2, 2)
-  }
-
-  // Drifting irregular outline polygons, very dim.
-  for (let i = 0; i < polys.length; i++) {
-    const p = polys[i]
-    const s = p.size / 2
-    ctx.save()
-    ctx.translate(p.x, p.y)
-    ctx.rotate(p.rotation)
-    ctx.globalAlpha = p.alpha
-    stroke('#b169f5', 1, 0)
-    ctx.shadowBlur = 0
-    ctx.beginPath()
-    for (let j = 0; j < p.vertices.length; j++) {
-      const v = p.vertices[j]
-      const px = Math.cos(v.angle) * v.r * s
-      const py = Math.sin(v.angle) * v.r * s
-      if (j === 0) ctx.moveTo(px, py)
-      else ctx.lineTo(px, py)
-    }
-    ctx.closePath()
-    ctx.stroke()
-    ctx.restore()
-  }
-  ctx.shadowBlur = 0
-
-  ctx.globalAlpha = demo ? 0.5 : 1
-
-  // Terrain walls: dark mountain faces and fine violet mesh edges.
-  drawTerrain(demo)
-  ctx.globalAlpha = demo ? 0.5 : 1
-  ctx.shadowBlur = 0
-
-  // Shockwaves.
-  for (let i = 0; i < shockwaves.length; i++) {
-    const sw = shockwaves[i]
-    ctx.globalAlpha = (demo ? 0.5 : 1) * sw.life * 0.8
-    stroke(sw.color, 2 + sw.life * 6, 16 * sw.life)
-    ctx.beginPath()
-    ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2)
-    ctx.stroke()
-  }
-  ctx.globalAlpha = demo ? 0.5 : 1
-  ctx.shadowBlur = 0
-
-  // Particles: dots and outline shards (short line segments).
-  for (let i = 0; i < particles.length; i++) {
-    const p = particles[i]
-    ctx.globalAlpha = (demo ? 0.5 : 1) * Math.max(0, p.life)
-    if (p.shard) {
-      stroke(p.color, 1.5, 6)
-      const dx = Math.cos(p.rot) * p.len
-      const dy = Math.sin(p.rot) * p.len
-      ctx.beginPath()
-      ctx.moveTo(p.x - dx, p.y - dy)
-      ctx.lineTo(p.x + dx, p.y + dy)
-      ctx.stroke()
-      ctx.shadowBlur = 0
-    } else {
-      ctx.fillStyle = p.color
-      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
-    }
-  }
-  ctx.globalAlpha = demo ? 0.5 : 1
-
-  // Enemies + boss.
-  for (let i = 0; i < enemies.length; i++) drawEnemy(enemies[i])
-  if (boss) drawBoss()
-  ctx.shadowBlur = 0
-
-  // Enemy bullets: orange ring bullets with a bright core, ~8 px.
-  stroke(ORANGE, 2.5, 12)
-  for (let i = 0; i < ebullets.length; i++) {
-    const b = ebullets[i]
-    ctx.beginPath()
-    ctx.arc(b.x, b.y, 8, 0, Math.PI * 2)
-    ctx.stroke()
-  }
-  ctx.fillStyle = '#ffffff'
-  ctx.shadowColor = ORANGE
-  ctx.shadowBlur = 10
-  for (let i = 0; i < ebullets.length; i++) {
-    const b = ebullets[i]
-    ctx.beginPath()
-    ctx.arc(b.x, b.y, 3, 0, Math.PI * 2)
-    ctx.fill()
-  }
-  ctx.shadowBlur = 0
-
-  // Player bullets: white-hot cores with cyan glow.
-  ctx.shadowColor = CYAN
-  ctx.shadowBlur = 12
-  ctx.fillStyle = CYAN
-  for (let i = 0; i < bullets.length; i++) {
-    const b = bullets[i]
-    ctx.fillRect(b.x - 5, b.y - 2, 10, 4)
-  }
-  ctx.shadowBlur = 0
-  ctx.fillStyle = '#ffffff'
-  for (let i = 0; i < bullets.length; i++) {
-    const b = bullets[i]
-    ctx.fillRect(b.x - 4, b.y - 1, 8, 2)
-  }
-
-  // Charge beams: fat sine wave, pierces everything.
-  for (let i = 0; i < beams.length; i++) {
-    const bm = beams[i]
-    const a = Math.min(1, bm.life)
-    ctx.globalAlpha = (demo ? 0.5 : 1) * a
-    for (const [off, color, wdt] of BEAM_LAYERS) {
-      stroke(color, wdt, 18)
-      ctx.beginPath()
-      for (let x = -20; x <= 110; x += 8) {
-        const y = bm.y + off * 0.4 + Math.sin(x * 0.09 + bm.t * 22) * (bm.width * .35)
-        if (x === -20) ctx.moveTo(bm.x + x, y)
-        else ctx.lineTo(bm.x + x, y)
-      }
-      ctx.stroke()
-    }
-    ctx.shadowBlur = 0
-  }
-  ctx.globalAlpha = demo ? 0.5 : 1
-
-  // Beam flash: brief additive band along each beam.
-  if (beamFlash > 0 && beams.length > 0) {
-    ctx.save()
-    ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = beamFlash * 0.22
-    ctx.fillStyle = CYAN
-    for (let i = 0; i < beams.length; i++) {
-      const bm = beams[i]
-      ctx.fillRect(bm.x - 140, bm.y - 34, 260, 68)
-    }
-    ctx.restore()
-    ctx.globalAlpha = demo ? 0.5 : 1
-  }
-
-  // Gold capsules keep their labels upright in the portrait flight orientation.
+  buildBackdrop()
+  const g = stage.begin()
+  drawBackdrop(g, now)
+  drawTerrain(g)
+  // Enemies, boss, pickups: lit.
+  for (let i = 0; i < enemies.length; i++) drawEnemy(g, enemies[i], now)
+  if (boss) drawBoss(g)
+  const crate = sprite(CRATE)
   for (const p of pickups) {
-    upright(p.x, p.y, () => {
-      stroke(GOLD, 1.5, 8)
-      ctx.fillStyle = BG; ctx.fillRect(-13, -13, 26, 26); ctx.strokeRect(-13, -13, 26, 26)
-      ctx.shadowBlur = 0; ctx.fillStyle = GOLD; ctx.font = `bold 13px ${MACHINE_FONT}`
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.slot[0].toUpperCase(), 0, 0)
-      ctx.font = `9px ${MACHINE_FONT}`; ctx.fillText(p.mode.toUpperCase(), 0, 24)
-    })
+    g.drawImage(crate, L(p.x) - 5, L(p.y) - 5)
+    stage.light(L(p.x), L(p.y), 12, GOLD, 0.8)
   }
-  // Fixed screen HUD: one row per weapon, clear of the steering area.
-  if (!demo && !gameOver) {
-    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.font = `10px ${MACHINE_FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
-    for (const [i, slot] of ['gun', 'beam', 'force'].entries()) {
-      const u = upgrades[slot]
-      ctx.fillStyle = u ? GOLD : CYAN
-      ctx.fillText(u ? `${u.label} ${Math.ceil(u.time)}s` : `${slot.toUpperCase()} · STANDARD`, 20, 24 + i * 16)
-    }
-    if (pickupNotice) { ctx.fillStyle = GOLD; ctx.fillText(`${pickupNotice.label} · 20s`, 20, 78) }
-    ctx.restore()
-  }
-
-  // Ship, force pod, and the near-ship FORCE/BEAM indicators.
   if (ship.alive && !gameOver) {
     drawShip(now)
     drawForce()
-    ctx.shadowBlur = 0
-    // Small canvas HUD under the ship: force state + charge bars + multiplier.
-    const full = Math.floor(clamp(chargeT / chargeTime(), 0, 1) * 5)
-    const bars = '▮'.repeat(full) + '▯'.repeat(5 - full)
-    ctx.font = `10px ${MACHINE_FONT}`
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'top'
-    // Neon Dreams reward colour: the multiplier readout goes gold at x4+, cyan below.
-    ctx.fillStyle = mult >= 4 ? GOLD : CYAN
-    ctx.globalAlpha = (demo ? 0.5 : 1) * 0.85
-    const hud = `FORCE ${force.attached ? '●' : '○'}  BEAM ${bars}  x${mult}`
-    // Below the ship on screen, left-aligned from 34 px left of it.
-    if (portrait) upright(ship.x - 22, ship.y - 34, () => ctx.fillText(hud, 0, 0))
-    else upright(ship.x - 34, ship.y + 22, () => ctx.fillText(hud, 0, 0))
-    ctx.globalAlpha = demo ? 0.5 : 1
-    // Multiplier rise pop near the ship.
-    if (multPop) {
-      ctx.font = `bold 14px ${MACHINE_FONT}`
-      ctx.textAlign = 'center'
-      // Neon Dreams reward colour: the combo pop goes gold at x4+, cyan below.
-      ctx.fillStyle = mult >= 4 ? GOLD : CYAN
-      ctx.shadowColor = mult >= 4 ? GOLD : CYAN
-      ctx.shadowBlur = 12
-      ctx.globalAlpha = (demo ? 0.5 : 1) * Math.max(0, 1 - multPop.t)
-      const rise = multPop.t * 40 // rises on screen: -y in landscape, +x in portrait
-      if (portrait) upright(multPop.x + rise, multPop.y, () => ctx.fillText(multPop.text, 0, 0))
-      else upright(multPop.x, multPop.y - rise, () => ctx.fillText(multPop.text, 0, 0))
-      ctx.globalAlpha = demo ? 0.5 : 1
-      ctx.shadowBlur = 0
-    }
   }
-
-  ctx.restore()
-  ctx.globalAlpha = 1
-  ctx.shadowBlur = 0
+  drawLights()
+  drawHud(demo)
+  const sx = shake > 0 ? (Math.random() - 0.5) * shake * 7 / stage.k : 0
+  const sy = shake > 0 ? (Math.random() - 0.5) * shake * 7 / stage.k : 0
+  stage.present({
+    // The cave is dim; what glows lights it. Attract mode sits darker.
+    ambient: demo ? '#6a5f9c' : '#8a7dbf',
+    shakeX: sx,
+    shakeY: sy,
+    afterLight: g2 => drawGlowing(g2),
+  })
 }
 
 function gameLoop(now) {
@@ -1745,7 +1649,6 @@ function handleKeyUp(e) {
 function handleResize() {
   setupCanvas()
   initStars()
-  initPolys()
   resetTerrain()
   ship.y = corridorClampY(ship.y, ship.x)
 }
@@ -1822,7 +1725,6 @@ function handleTouchEnd(e) {
 onMounted(() => {
   setupCanvas()
   initStars()
-  initPolys()
   startDemo()
   gameRunning = true
   lastTime = performance.now()

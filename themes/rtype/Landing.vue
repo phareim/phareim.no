@@ -14,21 +14,21 @@
     <template #body>
       <SoundToggle />
       <template v-if="gameOver">
-        <h1 class="rtype-over-title">GAME OVER</h1>
-        <p class="rtype-hud rtype-over-score">SCORE: {{ score }} · DIST {{ distance }}M</p>
-        <p v-if="score >= highScore && score > 0" class="rtype-hud rtype-new-high">NEW HIGH SCORE!</p>
-        <p v-else class="rtype-hud">HIGH SCORE: {{ highScore }}</p>
-        <p v-if="rank" class="rtype-hud rtype-hud-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
-        <p class="rtype-hint">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
+        <h1 class="px-title rtype-px">GAME OVER</h1>
+        <p class="px-hud">SCORE {{ score }} · DIST {{ distance }}M</p>
+        <p v-if="score >= highScore && score > 0" class="px-hud px-blink" style="--px-hud: #ffd23f">NEW HIGH SCORE!</p>
+        <p v-else class="px-hud px-dim">HIGH SCORE {{ highScore }}</p>
+        <p v-if="rank" class="px-hud px-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
+        <p class="px-hint px-blink rtype-px">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
-        <p class="location rtype-hud" :class="{ 'rtype-hud-live': gameStarted }">
-          SCORE: {{ score }} · DIST {{ distance }}M<template v-if="gameStarted"> · {{ '◆'.repeat(Math.max(0, lives)) }}</template>
+        <p class="location px-hud" :class="{ 'rtype-hud-live': gameStarted }">
+          SCORE {{ score }} · DIST {{ distance }}M<template v-if="gameStarted"> · {{ '▶'.repeat(Math.max(0, lives)) }}</template>
         </p>
-        <p v-if="highScore > 0 && !gameStarted" class="location rtype-hud-dim">HIGH SCORE: {{ highScore }}</p>
+        <p v-if="highScore > 0 && !gameStarted" class="location px-hud px-dim">HIGH SCORE {{ highScore }}</p>
         <template v-if="!gameStarted">
-          <p class="rtype-hint">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
-          <p class="rtype-hint rtype-hint-dim">{{ hint('ARROWS/WASD MOVE · SPACE FIRE · SHIFT FORCE POD · ESC PAUSE', 'DRAG TO MOVE · AUTO-FIRE · DOUBLE-TAP FORCE POD') }}</p>
+          <p class="px-hint px-blink rtype-px">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
+          <p class="px-hint px-dim">{{ hint('ARROWS/WASD MOVE · SPACE FIRE · SHIFT FORCE POD · ESC PAUSE', 'DRAG TO MOVE · AUTO-FIRE · DOUBLE-TAP FORCE POD') }}</p>
         </template>
       </template>
     </template>
@@ -82,91 +82,27 @@ function onGameRestart() {
 </script>
 
 <style>
-/* During a run the HUD line moves to the top centre (the canvas draws the
-   power-up list top-left); on phones it sits below that list. */
+/* Text styles: themes/base/pixel/pixel.css (.px-*); R-Type's call to
+   action and title stay in its orange danger hue. */
+.landing .rtype-px {
+  --px-hint: #ff8a3d;
+  --px-title: #ff8a3d;
+}
+
+/* During a run the score line moves to the top centre (the canvas lists
+   active power-ups top-left); on phones it sits below that list. */
 .landing .rtype-hud-live {
   position: absolute;
   top: 16px;
   left: 0;
   right: 0;
   margin: 0;
-  font-size: 0.85em;
   text-align: center;
   pointer-events: none;
 }
 @media (max-width: 640px) {
   .landing .rtype-hud-live {
     top: calc(max(0.6rem, env(safe-area-inset-top)) + 64px);
-    font-size: 0.75em;
   }
 }
-
-.rtype-hud {
-  font-family: var(--font-machine);
-  text-transform: uppercase;
-  color: #2ff3ff;
-  text-shadow: 0 0 8px rgba(47, 243, 255, 0.65), 0 0 24px rgba(255, 122, 26, 0.35);
-  letter-spacing: 0.15em;
-  font-size: 1em;
-}
-
-.rtype-over-title {
-  font-family: var(--font-machine);
-  text-transform: uppercase;
-  color: #ff7a1a;
-  text-shadow: 0 0 12px rgba(255, 122, 26, 0.8), 0 0 40px rgba(255, 122, 26, 0.4);
-  font-size: 2.8em;
-  letter-spacing: 0.1em;
-  margin-top: 0.5em;
-  margin-bottom: 0.1em;
-}
-@media (min-width: 800px) {
-  .rtype-over-title {
-    font-size: 3.2em;
-    margin-top: 0.5em;
-  }
-}
-
-.rtype-over-score {
-  margin-top: 0.3em;
-}
-
-.rtype-new-high {
-  animation: rtype-pulse-glow 0.8s ease-in-out infinite alternate;
-}
-@keyframes rtype-pulse-glow {
-  from { text-shadow: 0 0 10px #2ff3ff; }
-  to { text-shadow: 0 0 20px #2ff3ff, 0 0 40px #ff7a1a; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .rtype-new-high {
-    animation: none;
-  }
-}
-
-.rtype-hint {
-  font-family: var(--font-machine);
-  text-transform: uppercase;
-  color: #ff7a1a;
-  text-shadow: 0 0 10px rgba(255, 122, 26, 0.6);
-  font-size: 0.9em;
-  letter-spacing: 0.12em;
-  margin-top: 1em;
-}
-
-.rtype-hint-dim {
-  opacity: 0.45;
-  font-size: 0.7em;
-  margin-top: 0.2em;
-}
-
-.rtype-hud-dim {
-  font-family: var(--font-machine);
-  text-transform: uppercase;
-  color: #2ff3ff;
-  opacity: 0.5;
-  font-size: 0.65em;
-  letter-spacing: 0.1em;
-}
-
 </style>

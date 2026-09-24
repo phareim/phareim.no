@@ -16,6 +16,12 @@
  * pixels. The scale is the largest whole number that still shows at least
  * `minW`×`minH` logical pixels, so a phone and a monitor both get chunky,
  * crisp pixels like the town on `/`.
+ *
+ * Rotated (R-Type on a portrait phone, 2026-09-24): `resize(…, rotate =
+ * true)` keeps the scene in the game's world orientation (vw along the
+ * world's forward axis, which points up the screen) and turns it a quarter
+ * at `present()`. `minW`/`minH` then measure the world, and the HUD layer
+ * (`hw`×`hh`) stays upright in screen orientation.
  */
 
 type G = CanvasRenderingContext2D
@@ -55,8 +61,12 @@ export interface StageOptions {
 }
 
 export interface PixelStage {
-  /** `minW`/`minH` override the stage's defaults for this size. */
-  resize(cssW: number, cssH: number, dpr: number, minW?: number, minH?: number): void
+  /**
+   * `minW`/`minH` override the stage's defaults for this size. `rotate`
+   * draws the scene turned a quarter (world +x up the screen, world y
+   * across it, left to right).
+   */
+  resize(cssW: number, cssH: number, dpr: number, minW?: number, minH?: number, rotate?: boolean): void
   /** Start a frame: clears the light list and the HUD layer; returns the scene context. */
   begin(): G
   light(x: number, y: number, r: number, color: string, a?: number): void
@@ -74,9 +84,13 @@ export interface PixelStage {
   readonly g: G
   readonly hud: G
   readonly lights: Light[]
-  /** Logical size. */
+  /** Logical size of the scene (world orientation when rotated). */
   readonly vw: number
   readonly vh: number
+  /** Logical size of the HUD layer (always screen orientation). */
+  readonly hw: number
+  readonly hh: number
+  readonly rotated: boolean
   /** Device pixels per logical pixel (whole number). */
   readonly scale: number
   /** CSS px per logical pixel. */
@@ -130,6 +144,9 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
   let scale = 1
   let vw = 1
   let vh = 1
+  let hw = 1
+  let hh = 1
+  let rot = false
   let dpr = 1
   let cssW = 1
   let cssH = 1
@@ -154,7 +171,7 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
     return m
   }
 
-  function resize(w: number, h: number, ratio: number, minW = defW, minH = defH) {
+  function resize(w: number, h: number, ratio: number, minW = defW, minH = defH, rotate = false) {
     dpr = Math.max(1, Math.min(3, ratio || 1))
     cssW = Math.max(1, w)
     cssH = Math.max(1, h)
@@ -162,14 +179,19 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
     H = Math.max(1, Math.round(cssH * dpr))
     canvas.width = W
     canvas.height = H
-    scale = Math.max(1, Math.floor(Math.min(W / minW, H / minH)))
-    vw = Math.ceil(W / scale)
-    vh = Math.ceil(H / scale)
+    rot = rotate
+    const fw = rot ? H : W
+    const fh = rot ? W : H
+    scale = Math.max(1, Math.floor(Math.min(fw / minW, fh / minH)))
+    vw = Math.ceil(fw / scale)
+    vh = Math.ceil(fh / scale)
+    hw = Math.ceil(W / scale)
+    hh = Math.ceil(H / scale)
     scene = makeCanvas(vw, vh)
     sg = scene.getContext('2d')!
     lightC = makeCanvas(vw, vh)
     lg = lightC.getContext('2d')!
-    hudC = makeCanvas(vw, vh)
+    hudC = makeCanvas(hw, hh)
     hg = hudC.getContext('2d')!
     bloomC = makeCanvas(vw, vh)
     bg = bloomC.getContext('2d')!
@@ -203,7 +225,7 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
     sg.globalAlpha = 1
     sg.globalCompositeOperation = 'source-over'
     hg.setTransform(1, 0, 0, 1, 0, 0)
-    hg.clearRect(0, 0, vw, vh)
+    hg.clearRect(0, 0, hw, hh)
     return sg
   }
 
@@ -268,10 +290,18 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
     screen.globalAlpha = 1
     screen.fillStyle = bgColor
     screen.fillRect(0, 0, W, H)
-    const ox = Math.floor((W - vw * scale) / 2) + Math.round(o.shakeX ?? 0) * scale
-    const oy = Math.floor((H - vh * scale) / 2) + Math.round(o.shakeY ?? 0) * scale
+    const sw = rot ? vh : vw // scene size on screen
+    const sh = rot ? vw : vh
+    const ox = Math.floor((W - sw * scale) / 2) + Math.round(o.shakeX ?? 0) * scale
+    const oy = Math.floor((H - sh * scale) / 2) + Math.round(o.shakeY ?? 0) * scale
+    // Rotated: world (x, y) lands at screen (y, bottom - x).
+    const place = () => { if (rot) screen.setTransform(0, -scale, scale, 0, ox, oy + vw * scale) }
+    const unplace = () => { if (rot) screen.setTransform(1, 0, 0, 1, 0, 0) }
     screen.imageSmoothingEnabled = false
-    screen.drawImage(scene, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+    place()
+    if (rot) screen.drawImage(scene, 0, 0)
+    else screen.drawImage(scene, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+    unplace()
     const bloomK = o.bloom ?? 1
     if (bloomK > 0 && fade < 1 && lights.length) {
       bg.globalCompositeOperation = 'source-over'
@@ -288,7 +318,10 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
       screen.globalCompositeOperation = 'lighter'
       screen.globalAlpha = 1 - fade
       screen.imageSmoothingEnabled = true
-      screen.drawImage(bloomC, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+      place()
+      if (rot) screen.drawImage(bloomC, 0, 0)
+      else screen.drawImage(bloomC, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+      unplace()
       screen.imageSmoothingEnabled = false
       screen.globalAlpha = 1
       screen.globalCompositeOperation = 'source-over'
@@ -298,9 +331,9 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
       screen.fillRect(0, 0, W, H)
     }
     vignette()
-    const hx = Math.floor((W - vw * scale) / 2)
-    const hy = Math.floor((H - vh * scale) / 2)
-    screen.drawImage(hudC, 0, 0, vw, vh, hx, hy, vw * scale, vh * scale)
+    const hx = Math.floor((W - hw * scale) / 2)
+    const hy = Math.floor((H - hh * scale) / 2)
+    screen.drawImage(hudC, 0, 0, hw, hh, hx, hy, hw * scale, hh * scale)
   }
 
   const stage: PixelStage = {
@@ -316,6 +349,9 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
     lights,
     get vw() { return vw },
     get vh() { return vh },
+    get hw() { return hw },
+    get hh() { return hh },
+    get rotated() { return rot },
     get scale() { return scale },
     get k() { return scale / dpr },
     get cssW() { return cssW },

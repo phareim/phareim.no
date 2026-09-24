@@ -33,7 +33,10 @@ const stubSound = () => ({
 })
 function game() {
   const context = vm.createContext({ ref: value => ({ value }), defineEmits: () => () => {}, onMounted() {}, onBeforeUnmount() {}, performance: { now: () => 1000 },
-    readShipDef: () => { shipCalls.n++; return dartDef() }, __absorbCtx: absorbCtx, useSound: stubSound })
+    readShipDef: () => { shipCalls.n++; return dartDef() }, __absorbCtx: absorbCtx, useSound: stubSound,
+    // The pixel look's imports (stripped above): enough to run drawShip/drawForce.
+    sprite: () => ({ width: 15, height: 11 }), silhouette: () => ({ width: 15, height: 11 }), mix: a => a,
+    SHIP_ROWS: { dart: [], vandal: [] }, POD: [], line() {}, ring() {} })
   vm.runInContext(source, context)
   const run = code => vm.runInContext(code, context)
   run('canvas.value = {}; W = 900; H = 375; resetGame(); spawnT = nextBossAt = 1e9; invulnUntil = 1e9')
@@ -85,7 +88,7 @@ test('picks up the Hangar ship on every reset and draws both variants', () => {
   assert.equal(run('shipDef.variant'), 'dart')
   assert.equal(shipCalls.n, before + 2) // once at setup, once in resetGame
   // Both silhouettes draw without a canvas behind them.
-  run('ctx = __absorbCtx(); ship.x = 200; ship.y = 180; invulnUntil = 0; drawShip(2000); drawForce()')
+  run('stage = { g: __absorbCtx(), k: 3, light() {}, emit() {}, vw: 300, vh: 125 }; ship.x = 200; ship.y = 180; invulnUntil = 0; drawShip(2000); drawForce()')
   run(`shipDef = (${vandalDef.toString()})(); drawShip(2000); drawForce()`)
   assert.equal(run('shipDef.variant'), 'vandal')
   run('resetGame()')
