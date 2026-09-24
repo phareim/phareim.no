@@ -621,6 +621,14 @@ onBeforeUnmount(() => {
   font-family: var(--font-machine);
 }
 
+/* Installed web app: the page reaches the very bottom edge, where the home
+   indicator and swipe gestures live, so the deck sits a thumb higher. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  .zelda-deck {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* The pause buttons sit centred across the bottom. */
 .zelda-deck--paused {
   left: 0;

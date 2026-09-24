@@ -53,7 +53,9 @@ a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status
 bar: the shell measures the safe-area insets and the renderer keeps the HUD
-and the dialog box clear of them (`resize(w, h, dpr, safe)`).
+and the dialog box clear of them (`resize(w, h, dpr, safe)`). There the
+button deck also sits 26 px higher (`display-mode: standalone/fullscreen`),
+clear of the home indicator's swipe zone.
 
 **Saves (on the profile since 2026-09-23).** The save belongs to the
 browser's Hall of Fame player — the same pilot as the scores and the Hangar
