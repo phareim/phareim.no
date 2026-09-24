@@ -4,7 +4,6 @@
 </template>
 
 <script setup>
-import { MACHINE_FONT } from '~/themes/base/fonts'
 import EscHold from '../base/EscHold.vue'
 /**
  * SYNTHWAVE HORIZON — a faithful 1978 Space Invaders formation game.
@@ -20,16 +19,19 @@ import EscHold from '../base/EscHold.vue'
  * player shot at a time, one life +1 at 1500, next wave starts one row lower,
  * game over on invasion or 0 lives.
  *
- * Look: the playfield floats above a scrolling perspective grid floor
- * (magenta on violet-black) with a striped sun on the horizon and neon
- * mountain silhouettes. Invaders are the classic 1978 sprites as glowing
- * magenta pixel blocks with chromatic aberration that grows on each
- * heartbeat pulse. Twist: a KILL COMBO — kills within 1.5 s bump a
+ * Look (2026-09-24): Neon Shrine's pixel stage. The formation comes down
+ * over the town at dusk — sky, striped sun, ridges, trees, houses with lit
+ * windows, grass — drawn in logical pixels (one sprite pixel each), lit by
+ * a light map, bloomed and scanlined like the portal. Invaders are the 1978
+ * bitmaps outlined and shaded, with eyes that flash on the heartbeat; the
+ * bunkers are shrine stone. Rules stay in CSS px; `L()` converts. Twist: a KILL COMBO — kills within 1.5 s bump a
  * multiplier x1->x4 shown as a glowing tag near the cannon; a miss resets it.
  */
 const emit = defineEmits(['score', 'wave', 'lives', 'death', 'restart', 'started', 'over'])
 
-import { createHorizon } from '../base/neonHorizon.js'
+import { createPixelStage } from '../base/pixel/stage'
+import { drawText, mix, silhouette, sprite, textWidth } from '../base/pixel/sprites'
+import { PICKUP_B, PICKUP_P, SPECIES_LOOK, cannonRows, createInvadersScene, paintBunker, ring, shaded } from './pixel'
 import { safeBottom } from '../base/safeBottom'
 import { readShipDef } from '~/composables/useShip'
 import { useSound } from '~/composables/useSound'
@@ -59,8 +61,9 @@ function zapSfx() {
 }
 
 const canvas = ref(null)
-let ctx = null
-let horizon = null // shared synthwave backdrop (themes/base/neonHorizon.js)
+let stage = null // Neon Shrine's pixel stage (themes/base/pixel/stage.ts)
+const scene = createInvadersScene() // the town at dusk (./pixel.ts)
+let sunFlare = 0 // wave-clear flare on the sun
 let animationFrameId = null
 let gameRunning = false
 
@@ -246,8 +249,6 @@ let flashes = [] // 2-frame white sprite flashes { rows, x, y, px, t }
 let pulse = 0 // heartbeat copy for the formation aberration only (the
 // backdrop owns the real one in neonHorizon.js); set in doStep, decays
 let shake = 0
-let comboFont = ''
-let comboFontPx = 0
 
 // Visual-effects package state (draw-only; no gameplay impact).
 // All timers are seconds, decayed with dt for frame-rate independence.
@@ -266,16 +267,10 @@ let shootStar = null // { x, y, vx, vy, life }
 let shootTimer = 18 // next shooting star in s (15-25)
 let mobileFx = false // cached per layout: fewer particles, smaller blurs
 
-// Pre-rendered glow cache (REQUIRED): every sprite is drawn once with
-// shadowBlur into an offscreen canvas per species+frame+colour at the
-// current px, then blitted with drawImage — zero per-frame shadowBlur
-// on invaders, cannon, bunkers, UFO. Rebuilt on layout/resize.
-let glowCache = new Map() // key -> { c, ox, oy }
+// Layout the pixel caches were built for (rebuilt when px or the phone
+// layout changes).
 let glowPx = 0
 let glowMobile = false
-let bunkerCellSprite = null // { c, pad } single glowing cell
-let bunkerCellPx = 0
-let goldBlob = null // soft gold radial blob for the UFO sky glow
 
 // Combo twist.
 let streak = 0
@@ -303,180 +298,24 @@ function rand(lo, hi) {
   return lo + Math.random() * (hi - lo)
 }
 
-// ------------------------------------------------- pre-rendered glow cache
-// One shadowBlur per sprite at build time; per-frame draws are drawImage.
+// ------------------------------------------------- pixel caches
 
-function glowBlur() {
-  return mobileFx ? 5 : 12
-}
-
-function makeGlowSprite(rows, color, blur) {
-  const colsN = rows[0].length
-  const w = colsN * px
-  const h = rows.length * px
-  const pad = Math.ceil(blur * 1.6) + 5 // room for blur + max 3 px aberration
-  const c = document.createElement('canvas')
-  c.width = Math.max(2, w + pad * 2)
-  c.height = Math.max(2, h + pad * 2)
-  const g2 = c.getContext('2d')
-  g2.shadowColor = color
-  g2.shadowBlur = blur
-  g2.fillStyle = color
-  for (let r = 0; r < rows.length; r++) {
-    const line = rows[r]
-    for (let cc = 0; cc < line.length; cc++) {
-      if (line[cc] === 'X') g2.fillRect(pad + cc * px, pad + r * px, px, px)
-    }
-  }
-  // Crisp core pass without shadow so the sprite stays readable.
-  g2.shadowBlur = 0
-  g2.fillStyle = color
-  for (let r = 0; r < rows.length; r++) {
-    const line = rows[r]
-    for (let cc = 0; cc < line.length; cc++) {
-      if (line[cc] === 'X') g2.fillRect(pad + cc * px, pad + r * px, px, px)
-    }
-  }
-  return { c, ox: pad, oy: pad }
-}
-
-function makeSolidSprite(rows, color) {
-  const colsN = rows[0].length
-  const w = colsN * px
-  const h = rows.length * px
-  const c = document.createElement('canvas')
-  c.width = Math.max(2, w)
-  c.height = Math.max(2, h)
-  const g2 = c.getContext('2d')
-  g2.fillStyle = color
-  for (let r = 0; r < rows.length; r++) {
-    const line = rows[r]
-    for (let cc = 0; cc < line.length; cc++) {
-      if (line[cc] === 'X') g2.fillRect(cc * px, r * px, px, px)
-    }
-  }
-  return { c, ox: 0, oy: 0 }
-}
-
-function glowKey(id) {
-  return `${id}|${px}`
-}
-
-function getGlow(id, rows, color) {
-  const k = glowKey(id + ':' + color)
-  let s = glowCache.get(k)
-  if (!s) {
-    s = makeGlowSprite(rows, color, id === 'ufo' ? glowBlur() + 4 : glowBlur() + 2)
-    glowCache.set(k, s)
-  }
-  return s
-}
-
-function getSolid(id, rows, color) {
-  const k = glowKey(id + ':solid:' + color)
-  let s = glowCache.get(k)
-  if (!s) {
-    s = makeSolidSprite(rows, color)
-    glowCache.set(k, s)
-  }
-  return s
-}
-
-function blitSprite(s, x, y, alpha) {
-  if (alpha !== undefined) ctx.globalAlpha *= alpha
-  ctx.drawImage(s.c, Math.round(x - s.ox), Math.round(y - s.oy))
-}
-
-function makeRadialBlob(color, size) {
-  const c = document.createElement('canvas')
-  c.width = size
-  c.height = size
-  const g2 = c.getContext('2d')
-  const g = g2.createRadialGradient(size / 2, size / 2, 1, size / 2, size / 2, size / 2)
-  g.addColorStop(0, color)
-  g.addColorStop(1, 'rgba(0,0,0,0)')
-  g2.fillStyle = g
-  g2.fillRect(0, 0, size, size)
-  return c
-}
-
+// Rebuild what depends on the layout: the town backdrop and the bunkers.
 function buildFxCache() {
   mobileFx = SW < 600 || SH < 500
-  glowCache = new Map()
   glowPx = px
   glowMobile = mobileFx
-  // Warm the cache for every species frame + cannon + UFO, in main,
-  // aberration-tint and white-flash colours. No per-frame allocation.
-  const defs = [
-    ['squid0', SQUID_A], ['squid1', SQUID_B],
-    ['crab0', CRAB_A], ['crab1', CRAB_B],
-    ['octo0', OCTO_A], ['octo1', OCTO_B],
-    ['cannon', CANNON], ['ufo', UFO_SPRITE],
-  ]
-  for (const [id, rows] of defs) {
-    const main = id === 'ufo' ? GOLD : id === 'cannon' ? CYAN : PINK
-    getGlow(id, rows, main)
-    getSolid(id + '_r', rows, '#ff2244')
-    getSolid(id + '_c', rows, CYAN)
-    getGlow(id + '_w', rows, '#ffffff')
-  }
-  // Single glowing bunker cell at the current cell size.
-  const bp = clamp(Math.floor(Math.min(SW * 0.13, 80) / BUNKER_GW), 2, 3)
-  const blur = mobileFx ? 3 : 6
-  const pad = blur * 2 + 2
-  const cc = document.createElement('canvas')
-  cc.width = bp + pad * 2
-  cc.height = bp + pad * 2
-  const c2 = cc.getContext('2d')
-  c2.shadowColor = CYAN
-  c2.shadowBlur = blur
-  c2.fillStyle = CYAN
-  c2.fillRect(pad, pad, bp, bp)
-  c2.shadowBlur = 0
-  c2.fillStyle = CYAN
-  c2.fillRect(pad, pad, bp, bp)
-  bunkerCellSprite = { c: cc, pad }
-  bunkerCellPx = bp
   for (let i = 0; i < bunkers.length; i++) bunkers[i].dirty = true
-  // Soft blob (built once per resize, drawn per frame via drawImage).
-  goldBlob = makeRadialBlob('rgba(255, 210, 63, 0.55)', 128)
+  if (stage) scene.layout(stage.vw, stage.vh, stage.px(groundLine()))
 }
 
-// Bunker offscreen cache: one canvas per bunker holding the current damage
-// state, re-rendered only when splat/eraseRect sets dirty. Per-frame draws
-// are a single drawImage; hit jitter applies as a whole-blit 1 px offset.
+// The bunkers stand in the grass, the town behind them on this line.
+function groundLine() {
+  return bunkerTop() + px * 5
+}
+
 function renderBunkerCache(b) {
-  const pad = bunkerCellSprite ? bunkerCellSprite.pad : 0
-  const cw = Math.max(2, Math.round(b.w + pad * 2))
-  const ch = Math.max(2, Math.round(b.h + pad * 2))
-  if (!b.cache) {
-    b.cache = document.createElement('canvas')
-    b.cachePad = pad
-  }
-  if (b.cache.width !== cw || b.cache.height !== ch) {
-    b.cache.width = cw
-    b.cache.height = ch
-    b.cachePad = pad
-  }
-  const g2 = b.cache.getContext('2d')
-  g2.clearRect(0, 0, cw, ch)
-  g2.shadowBlur = 0
-  if (bunkerCellSprite && b.cell === bunkerCellPx) {
-    const spr = bunkerCellSprite
-    for (let gy = 0; gy < b.gh; gy++) {
-      for (let gx = 0; gx < b.gw; gx++) {
-        if (!b.grid[gy * b.gw + gx]) continue
-        g2.drawImage(spr.c, Math.round(gx * b.cell), Math.round(gy * b.cell))
-      }
-    }
-  } else {
-    g2.fillStyle = CYAN
-    for (let gy = 0; gy < b.gh; gy++) {
-      for (let gx = 0; gx < b.gw; gx++) {
-        if (b.grid[gy * b.gw + gx]) g2.fillRect(gx * b.cell, gy * b.cell, b.cell, b.cell)
-      }
-    }
-  }
+  paintBunker(b)
   b.dirty = false
 }
 
@@ -501,19 +340,21 @@ function setScore(v) {
 function setupCanvas() {
   const c = canvas.value
   if (!c) return
-  dpr = Math.min(window.devicePixelRatio || 1, 2)
+  dpr = window.devicePixelRatio || 1
   SW = c.offsetWidth
   SH = c.offsetHeight
   band = safeBottom()
-  c.width = Math.round(SW * dpr)
-  c.height = Math.round(SH * dpr)
-  ctx = c.getContext('2d')
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  if (!stage) stage = createPixelStage(c)
+  stage.resize(SW, SH, dpr, stageMinW(), 180)
   cannonX = clamp(cannonX || SW / 2, 30, SW - 30)
   prevCannonX = cannonX
   layout()
-  if (!horizon) horizon = createHorizon({ ctx })
-  horizon.resize(SW, SH, ctx)
+}
+
+// The stage's minimum logical width: phones get chunkier pixels (3 CSS px
+// or more) so the five-column formation keeps 24 px tall sprites.
+function stageMinW() {
+  return SW < 600 ? 104 : 240
 }
 
 // Single layout entry: everything derives from SW/SH here, called on
@@ -534,7 +375,8 @@ function layout() {
 function layoutGeometry() {
   const widthScale = Math.floor((SW * (SW < 600 ? .8 : .7)) / (cols * 14))
   const heightScale = Math.floor((bunkerTop() - SH * .085) / ((ROWS + 1.5) * 11))
-  px = clamp(Math.min(widthScale, heightScale), 2, 5)
+  // One invader pixel is one logical pixel of the stage.
+  px = stage ? stage.k : clamp(Math.min(widthScale, heightScale), 2, 5)
   cellW = 14 * px
   cellH = 11 * px
   formW = cols * cellW
@@ -548,10 +390,9 @@ function bunkerTop() {
   return h < 500 ? cannonY - 66 : SW < 600 ? cannonY - 74 : h * 0.865 - (h * 0.95 - cannonY)
 }
 
-// Horizon line for the shooting-star flight below; the sky/stars/sun/
-// ridge/grid themselves live in the shared module (neonHorizon.js).
+// Horizon line (CSS px) for the shooting-star flight; the town is in ./pixel.ts.
 function horizonY() {
-  return SW < 600 ? SH * 0.92 : SH * 0.7
+  return stage && scene.horizon ? scene.horizon * stage.k : SH * 0.7
 }
 
 // ---------------------------------------------------------------- waves
@@ -581,13 +422,14 @@ function buildWave() {
 
 function resetBunkers() {
   const n = SW < 600 ? 3 : 4
-  const bp = clamp(Math.floor(Math.min(SW * 0.13, 80) / BUNKER_GW), 2, 3)
+  // One bunker cell is one logical pixel.
+  const bp = px
   const bw = BUNKER_GW * bp
   const bh = BUNKER_GH * bp
   const gap = bw * 0.9
   const totalW = n * bw + (n - 1) * gap
   let x = (SW - totalW) / 2
-  const y = bunkerTop()
+  const y = Math.round(bunkerTop() / px) * px
   bunkers = []
   for (let i = 0; i < n; i++) {
     const grid = new Uint8Array(BUNKER_GW * BUNKER_GH)
@@ -603,7 +445,7 @@ function resetBunkers() {
         grid[gy * BUNKER_GW + gx] = solid ? 1 : 0
       }
     }
-    bunkers.push({ x, y, w: bw, h: bh, cell: bp, gw: BUNKER_GW, gh: BUNKER_GH, grid, dirty: true, cache: null, cachePad: 0 })
+    bunkers.push({ x: Math.round(x / px) * px, y, w: bw, h: bh, cell: bp, gw: BUNKER_GW, gh: BUNKER_GH, grid, dirty: true, cache: null, cachePad: 0 })
     x += bw + gap
   }
 }
@@ -643,7 +485,7 @@ function startDemo() {
   deathEmitted = false
   invulnUntil = 0
   pulse = 0
-  if (horizon) horizon.reset()
+  sunFlare = 0
   shake = 0
   demoCooldown = 0
   shot = null
@@ -694,7 +536,7 @@ function startGame() {
   deathEmitted = false
   invulnUntil = 0
   pulse = 0
-  if (horizon) horizon.reset()
+  sunFlare = 0
   shake = 0
   demoCooldown = 0
   clearInput()
@@ -752,7 +594,6 @@ function doStep(now) {
   stepCount++
   pulse = 1
   if (gameStarted) stepSfx()
-  if (horizon) horizon.beat() // grid/sun heartbeat lives in neonHorizon.js
   bassJolt = 1 // Effect 3c: horizontal bass jolt, decays in updateFx
   bassDir = marchDir
   const dx = Math.max(2, Math.round(cellW * 0.16))
@@ -802,8 +643,6 @@ function invaderRect(r, c) {
 // Scratch rect: same math, no per-frame allocation for hot loops.
 const _rc = { x: 0, y: 0, w: 0, h: 0 }
 // Shared sprite opts (finding 12): drawSprite only reads o.ab/o.flash.
-const UFO_SPR_O = { ab: 1 }
-const CANNON_SPR_O = { ab: 0 }
 function invaderRectInto(r, c, out) {
   const rows = speciesRows(r, 0)
   out.w = rows[0].length * px
@@ -1036,7 +875,7 @@ function blast(x, y, now) {
   explode(x, y, true)
   if (gameStarted) sound.sfx.beam()
   shockwaves.push({ x, y, radius: radius * 0.65, life: 1, color: CYAN })
-  if (horizon) horizon.beat()
+  pulse = 1
   for (let r = ROWS - 1; r >= 0; r--) {
     for (let c = 0; c < cols; c++) {
       if (!alive[r][c]) continue
@@ -1045,26 +884,6 @@ function blast(x, y, now) {
     }
   }
   bombs = bombs.filter(b => Math.hypot(b.x - x, b.y - y) > radius)
-}
-
-function drawWeapons() {
-  if (!gameStarted || gameOver) return
-  ctx.save()
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.font = `bold 12px ${MACHINE_FONT}`
-  ctx.strokeStyle = GOLD
-  ctx.fillStyle = GOLD
-  ctx.shadowColor = GOLD
-  ctx.shadowBlur = mobileFx ? 4 : 10
-  for (const p of pickups) {
-    ctx.strokeRect(p.x - 14, p.y - 14, 28, 28)
-    ctx.fillText(p.kind === 'pierce' ? 'P' : 'B', p.x, p.y)
-  }
-  if (weapon) {
-    ctx.fillText(`${weapon.toUpperCase()} · ${Math.ceil(weaponTime)}S`, clamp(cannonX, 85, SW - 85), cannonY + px * 4 + 18)
-  }
-  ctx.restore()
 }
 
 function fire() {
@@ -1091,7 +910,7 @@ function killInvader(r, c, now) {
   flashes.push({ rows: speciesRows(r, marchFrame), x: rc.x, y: rc.y, px, t: 0.12 })
   // Effect 1: sprite shatter replaces the generic burst + one ring.
   const rows = speciesRows(r, marchFrame)
-  shatterSprite(rows, rc.x, rc.y, px, PINK)
+  shatterSprite(rows, rc.x, rc.y, px, SPECIES_LOOK[r === 0 ? 0 : r <= 2 ? 1 : 2].glow)
   shockwaves.push({ x: cx, y: cy, radius: 6, life: 1, color: PINK })
   if (gameStarted) boomSfx()
   if (aliveCount <= 0 && !gameOver) {
@@ -1100,7 +919,7 @@ function killInvader(r, c, now) {
     bombs = []
     shotTrail = []
     // Effect 4: wave-clear flare + grid rush start now, reveal on rebuild.
-    if (horizon) horizon.flare()
+    sunFlare = 1
     if (gameStarted) sound.sfx.levelClear()
   }
 }
@@ -1327,10 +1146,7 @@ function update(nowMs) {
 }
 
 function updateFx(dt, now) {
-  if (horizon) {
-    horizon.setView(SW > 0 ? cannonX / SW * 2 - 1 : 0)
-    horizon.update(dt)
-  }
+  sunFlare = Math.max(0, sunFlare - dt * 0.8)
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i]
     p.x += p.vx * dt
@@ -1638,184 +1454,92 @@ function updateBombs(dt, now) {
 }
 
 // ---------------------------------------------------------------- draw
+// Everything below draws in the stage's logical pixels: L() takes a CSS
+// coordinate to the pixel grid. Shots, bombs, sparks and the sun are drawn
+// after the light map (they glow); the rest is lit by it.
 
-function plotRows(rows, ox, oy, s) {
-  for (let r = 0; r < rows.length; r++) {
-    const line = rows[r]
-    for (let c = 0; c < line.length; c++) {
-      if (line[c] === 'X') ctx.fillRect(ox + c * s, oy + r * s, s, s)
+function L(v) {
+  return Math.round(v / stage.k)
+}
+
+const UFO_LOOK = { body: 'y', hi: 'e', lo: 'Y', glow: '#ffd23f' }
+
+function lookFor(rows) {
+  if (rows === SQUID_A || rows === SQUID_B) return SPECIES_LOOK[0]
+  if (rows === CRAB_A || rows === CRAB_B) return SPECIES_LOOK[1]
+  if (rows === UFO_SPRITE) return UFO_LOOK
+  return SPECIES_LOOK[2]
+}
+
+let cannonSpr = null
+let cannonKey = ''
+function cannonSprite() {
+  const hull = shipDef.colors.hull
+  const trim = shipDef.colors.trim
+  const key = hull + trim
+  if (!cannonSpr || key !== cannonKey) {
+    cannonKey = key
+    cannonSpr = sprite(cannonRows(CANNON), { c: hull, C: mix(hull, '#0b0616', 0.45), w: mix(hull, '#ffffff', 0.55), T: trim })
+  }
+  return cannonSpr
+}
+
+// Invaders' eyes, gathered while drawing so the glow pass can light them.
+const eyes = []
+
+function drawSpriteAt(g, rows, x, y, look) {
+  const map = shaded(rows, look)
+  const spr = sprite(map)
+  const ox = L(x) - 1
+  const oy = L(y) - 1
+  g.drawImage(spr, ox, oy)
+  eyes.push(ox, oy, map)
+  return spr
+}
+
+function drawEyes(g) {
+  const hot = pulse > 0.5
+  g.fillStyle = hot ? '#ffffff' : '#fff1b0'
+  for (let i = 0; i < eyes.length; i += 3) {
+    const ox = eyes[i]
+    const oy = eyes[i + 1]
+    const map = eyes[i + 2]
+    for (let y = 0; y < map.length; y++) {
+      const line = map[y]
+      for (let x = 0; x < line.length; x++) if (line[x] === 'e') g.fillRect(ox + x, oy + y, 1, 1)
     }
   }
 }
 
-function spriteIdFor(rows) {
-  if (rows === SQUID_A) return 'squid0'
-  if (rows === SQUID_B) return 'squid1'
-  if (rows === CRAB_A) return 'crab0'
-  if (rows === CRAB_B) return 'crab1'
-  if (rows === OCTO_A) return 'octo0'
-  if (rows === OCTO_B) return 'octo1'
-  if (rows === CANNON) return 'cannon'
-  if (rows === UFO_SPRITE) return 'ufo'
-  return null
-}
-
-function getGlowByRows(rows, color) {
-  const id = spriteIdFor(rows)
-  if (id) {
-    const main = color === '#ffffff' ? id + '_w' : id
-    // White flashes use the pre-warmed white variant.
-    if (color === '#ffffff') return getGlow(id + '_w', rows, '#ffffff')
-    if (id === 'ufo') return getGlow('ufo', rows, GOLD)
-    // The cannon wears the Hangar ship's hull; the cache key carries the
-    // colour so a re-read ship never shows a stale glow.
-    if (id === 'cannon') return getGlow(`cannon:${color}`, rows, color)
-    return getGlow(id, rows, color)
-  }
-  const k = glowKey('rows:' + rows.join('|') + ':' + color)
-  let s = glowCache.get(k)
-  if (!s) {
-    s = makeGlowSprite(rows, color, glowBlur() + 2)
-    glowCache.set(k, s)
-  }
-  return s
-}
-
-// Cache-based sprite draw: zero per-frame shadowBlur. Aberration tints
-// are pre-rendered solid sprites drawn with low alpha at ±ab.
-function drawSprite(rows, ox, oy, s, color, o) {
-  o = o || {}
-  const ab = o.ab || 0
-  const id = spriteIdFor(rows)
-  // Aberration tints (no glow, no shadowBlur).
-  if (ab > 0.05 && id && s === px) {
-    const keepA = ctx.globalAlpha
-    ctx.globalAlpha = keepA * 0.32
-    const rs = getSolid(id + '_r', rows, '#ff2244')
-    const cs = getSolid(id + '_c', rows, CYAN)
-    ctx.drawImage(rs.c, Math.round(ox - ab), Math.round(oy))
-    ctx.drawImage(cs.c, Math.round(ox + ab), Math.round(oy))
-    ctx.globalAlpha = keepA
-  } else if (ab > 0.05) {
-    const keepA = ctx.globalAlpha
-    ctx.globalAlpha = keepA * 0.32
-    ctx.fillStyle = '#ff2244'
-    plotRows(rows, ox - ab, oy, s)
-    ctx.fillStyle = CYAN
-    plotRows(rows, ox + ab, oy, s)
-    ctx.globalAlpha = keepA
-  }
-  const flash = o.flash
-  const mainColor = flash ? '#ffffff' : color
-  if (s === px) {
-    const g = getGlowByRows(rows, mainColor)
-    blitSprite(g, ox, oy)
-  } else {
-    // Kill flashes carrying a stale px after resize: build directly every
-    // time instead of caching — stale entries would pin glowCache forever.
-    const colsN = rows[0].length
-    const w = colsN * s
-    const h = rows.length * s
-    const blur = (mobileFx ? 5 : 12) + 2
-    const pad = Math.ceil(blur * 1.6) + 5
-    const c = document.createElement('canvas')
-    c.width = Math.max(2, w + pad * 2)
-    c.height = Math.max(2, h + pad * 2)
-    const g2 = c.getContext('2d')
-    g2.shadowColor = mainColor
-    g2.shadowBlur = blur
-    g2.fillStyle = mainColor
-    for (let r = 0; r < rows.length; r++) {
-      const line = rows[r]
-      for (let cc = 0; cc < line.length; cc++) {
-        if (line[cc] === 'X') g2.fillRect(pad + cc * s, pad + r * s, s, s)
-      }
-    }
-    g2.shadowBlur = 0
-    blitSprite({ c, ox: pad, oy: pad }, ox, oy)
-  }
-}
-
-// Effect 8: rare shooting star above the horizon (thin, dim, brief).
-// Drawn right after the shared horizon, exactly as before.
-function drawShootStar() {
-  if (!shootStar) return
-  const a = Math.max(0, Math.min(1, shootStar.life)) * (gameStarted ? 0.9 : 0.45)
-  ctx.globalAlpha = a
-  ctx.strokeStyle = '#ffffff'
-  ctx.lineWidth = 1.5
-  ctx.beginPath()
-  ctx.moveTo(shootStar.x, shootStar.y)
-  ctx.lineTo(shootStar.x - shootStar.vx * 0.09, shootStar.y - shootStar.vy * 0.09)
-  ctx.stroke()
-  ctx.globalAlpha = a * 0.4
-  ctx.beginPath()
-  ctx.moveTo(shootStar.x, shootStar.y)
-  ctx.lineTo(shootStar.x - shootStar.vx * 0.2, shootStar.y - shootStar.vy * 0.2)
-  ctx.stroke()
-  ctx.globalAlpha = 1
-}
-
-function drawBunkers() {
-  // Effect 4: scanline re-materialize, bottom to top, after a wave clear.
+function drawBunkers(g) {
   const revealP = bunkerRevealT > 0 ? 1 - bunkerRevealT / BUNKER_REVEAL_DUR : 1
-  const revealing = bunkerRevealT > 0
   for (let i = 0; i < bunkers.length; i++) {
     const b = bunkers[i]
-    // Whole-bunker 1 px electric jitter (Effect 6): one pass over the jolts,
-    // applied as a blit offset — no per-cell scan.
     let jx = 0
     let jy = 0
-    let jflick = 1
     for (let j = 0; j < bunkerJolts.length; j++) {
-      const jl = bunkerJolts[j]
-      if (jl.bi !== i) continue
-      const jr = (jl.t / 0.2)
+      if (bunkerJolts[j].bi !== i) continue
       jx = Math.round(rand(-1, 1))
       jy = Math.round(rand(-1, 1))
-      jflick = 0.6 + 0.4 * jr
     }
-    if (revealing) {
-      // Rare 0.8 s reveal: per-cell path with the frontier scanline.
-      const revealRow = Math.floor(b.gh * (1 - revealP))
-      for (let gy = revealRow; gy < b.gh; gy++) {
-        const isfrontier = gy === revealRow
-        for (let gx = 0; gx < b.gw; gx++) {
-          if (!b.grid[gy * b.gw + gx]) continue
-          ctx.fillStyle = CYAN
-          if (jflick !== 1) ctx.globalAlpha *= jflick
-          ctx.fillRect(b.x + gx * b.cell + jx, b.y + gy * b.cell + jy, b.cell, b.cell)
-          if (jflick !== 1) ctx.globalAlpha /= jflick
-          if (isfrontier) {
-            ctx.fillStyle = 'rgba(255,255,255,0.5)'
-            ctx.fillRect(b.x + gx * b.cell, b.y + gy * b.cell, b.cell, 1)
-          }
-        }
-      }
-      continue
+    if (!b.pix || b.dirty) renderBunkerCache(b)
+    const x = L(b.x) - 1 + jx
+    const y = L(b.y) - 1 + jy
+    if (bunkerRevealT > 0) {
+      // Re-materialise bottom to top after a wave clear, a neon scan line at the front.
+      const from = Math.min(b.pix.height - 1, Math.floor((b.gh + 2) * (1 - revealP)))
+      g.drawImage(b.pix, 0, from, b.pix.width, b.pix.height - from, x, y + from, b.pix.width, b.pix.height - from)
+      stage.emit(x, y + from, b.pix.width, 1)
+      g.fillStyle = '#7ce4ff'
+      g.fillRect(x, y + from, b.pix.width, 1)
+    } else {
+      g.drawImage(b.pix, x, y)
     }
-    if (!b.cache || b.dirty || (bunkerCellSprite && b.cachePad !== bunkerCellSprite.pad)) {
-      renderBunkerCache(b)
-    }
-    const pad = b.cachePad || 0
-    if (jflick !== 1) ctx.globalAlpha *= jflick
-    ctx.drawImage(b.cache, Math.round(b.x - pad + jx), Math.round(b.y - pad + jy))
-    if (jflick !== 1) ctx.globalAlpha /= jflick
+    stage.light(x + b.pix.width / 2, y + 2, b.pix.width * 0.7, '#3ff0ff', 0.35)
   }
-  ctx.shadowBlur = 0
-  ctx.globalAlpha = 1
 }
 
-function drawFormation(now) {
-  // Effect 3d: chromatic aberration widens as the step interval shortens
-  // (max ~3 px) so the last invaders visibly vibrate.
-  const frac = totalCount > 0 ? aliveCount / totalCount : 0
-  const baseAb = 0.5 + (1 - frac) * 2.0
-  const vib = (1 - frac) * Math.sin((now || 0) * 40) * 0.5
-  const ab = mobileFx ? 0 : Math.min(3, Math.max(0, baseAb + pulse * 0.8 + vib))
-  // Shared sprite opts: one object per frame, no dead glow/blur fields.
-  const SPR_O = { ab }
-  // Effect 4: new formation fades in row by row from the top.
+function drawFormation(g, now) {
   const revealP = formRevealT > 0 ? 1 - formRevealT / FORM_REVEAL_DUR : 1
   for (let r = 0; r < ROWS; r++) {
     let rowA = 1
@@ -1824,290 +1548,235 @@ function drawFormation(now) {
       if (rowA <= 0) continue
     }
     const rows = speciesRows(r, marchFrame)
+    const look = lookFor(rows)
     for (let c = 0; c < cols; c++) {
       if (!alive[r][c]) continue
       invaderRectInto(r, c, _rc)
-      if (rowA < 1) {
-        const keepA = ctx.globalAlpha
-        ctx.globalAlpha = keepA * rowA
-        drawSprite(rows, _rc.x, _rc.y, px, PINK, SPR_O)
-        ctx.globalAlpha = keepA
-      } else {
-        drawSprite(rows, _rc.x, _rc.y, px, PINK, SPR_O)
-      }
-      // White-hot core eye.
-      ctx.fillStyle = '#ffffff'
-      const ex = _rc.x + _rc.w / 2
-      const ey = _rc.y + _rc.h * 0.38
-      ctx.fillRect(ex - px / 2, ey - px / 2, px, px)
+      g.globalAlpha = rowA
+      const spr = drawSpriteAt(g, rows, _rc.x, _rc.y, look)
+      g.globalAlpha = 1
+      stage.light(L(_rc.x) + spr.width / 2, L(_rc.y) + spr.height / 2, 10 + pulse * 3, look.glow, (0.4 + pulse * 0.35) * rowA)
     }
-  }
-  // 2-frame white kill flashes (cached white glow, no shadowBlur).
-  const baseFl = gameStarted ? 1 : 0.6
-  for (let i = 0; i < flashes.length; i++) {
-    const f = flashes[i]
-    ctx.globalAlpha = baseFl * Math.min(1, f.t / 0.06)
-    drawSprite(f.rows, f.x, f.y, f.px, '#ffffff', {})
-    ctx.globalAlpha = 1
   }
 }
 
-function drawUFO() {
+function drawUFO(g) {
   if (!ufo) return
-  const uh = UFO_SPRITE.length * px
-  // Effect 7: soft gold glow on the sky under its path (pre-rendered blob).
-  if (goldBlob) {
-    const gw = px * 30
-    const demoA = gameStarted ? 0.35 : 0.18
-    ctx.globalAlpha = demoA
-    ctx.drawImage(goldBlob, ufo.x - gw / 2, ufo.y - uh * 0.4, gw, uh * 2.2)
-    ctx.globalAlpha = 1
-  }
-  // Effect 7: light streak behind it (fading horizontal band, no gradient).
-  {
-    const keepA = ctx.globalAlpha
-    for (let i = 0; i < ufoTrail.length; i++) {
-      const t = ufoTrail[i]
-      const a = (t.t / 0.4) * 0.28
-      if (a <= 0.004) continue
-      ctx.globalAlpha = keepA * a
-      ctx.fillStyle = GOLD
-      const len = 10 + (1 - t.t / 0.4) * 26
-      ctx.fillRect(t.x - len / 2, t.y + uh * 0.35, len, 2)
-    }
-    ctx.globalAlpha = keepA
-  }
   const w = UFO_SPRITE[0].length * px
-  drawSprite(UFO_SPRITE, ufo.x - w / 2, ufo.y, px, GOLD, UFO_SPR_O)
+  const spr = drawSpriteAt(g, UFO_SPRITE, ufo.x - w / 2, ufo.y, UFO_LOOK)
+  stage.light(L(ufo.x), L(ufo.y) + spr.height / 2, 26, '#ffd23f', 0.8)
 }
 
-function drawBomb(b) {
-  // Effect 5: faint magenta smear under each bomb (2-3 fading rects).
-  if (b.trail) {
-    for (let i = 0; i < b.trail.length; i++) {
-      const t = b.trail[i]
-      const a = ((i + 1) / b.trail.length) * 0.22
-      ctx.globalAlpha = a
-      ctx.fillStyle = PINK
-      ctx.fillRect(t.x - 2, t.y - 4, 4, 8)
-    }
-    ctx.globalAlpha = 1
-  }
-  ctx.save()
-  if (!mobileFx) {
-    ctx.shadowColor = '#ffffff'
-    ctx.shadowBlur = 10
-  }
-  ctx.fillStyle = '#ffffff'
-  const s = Math.max(2, Math.round(px * 0.8))
-  if (b.style === 'zigzag') {
-    for (let i = 0; i < 5; i++) {
-      ctx.fillRect(b.x + (i % 2 ? s : -s), b.y + i * s * 1.4, s, s)
-    }
-  } else if (b.style === 'plunger') {
-    ctx.fillRect(b.x - s / 2, b.y, s, s * 2)
-    ctx.fillRect(b.x - s * 1.5, b.y + s * 2, s * 3, s)
-    ctx.fillRect(b.x - s / 2, b.y + s * 3, s, s * 3)
-    ctx.fillRect(b.x - s * 1.5, b.y + s * 6, s * 3, s)
-  } else {
-    // Rolling: alternating horizontal bars.
-    const off = b.frame ? s : -s
-    for (let i = 0; i < 3; i++) {
-      ctx.fillRect(b.x - s * 2 + (i === 1 ? off : 0), b.y + i * s * 1.4, s * 4, s)
-    }
-  }
-  ctx.restore()
-}
-
-function drawCannon(now) {
-  const w = CANNON[0].length * px
-  const h = CANNON.length * px
-  // The cannon keeps its 1978 silhouette but flies the Hangar ship: hull
-  // body, trim-coloured base row, bolts in hull colour.
+function drawCannon(g, now) {
+  const spr = cannonSprite()
   const hull = shipDef.colors.hull
-  const trim = shipDef.colors.trim
-  // Afterimage trail when moving fast.
-  const baseAft = gameStarted ? 1 : 0.6
-  for (let i = 0; i < cannonTrail.length; i++) {
-    const t = cannonTrail[i]
-    ctx.globalAlpha = baseAft * 0.14 * (t.t / 0.25)
-    plotSpriteRaw(CANNON, t.x - w / 2, cannonY - h / 2, px, hull)
-  }
-  ctx.globalAlpha = baseAft
+  const cx = L(cannonX)
+  const cy = L(cannonY)
+  const x0 = cx - Math.floor(spr.width / 2)
+  const y0 = cy - Math.floor(spr.height / 2)
   if (dying > 0) {
-    // Cannon explosion: scattering hull/white blocks.
-    const keepAlpha = ctx.globalAlpha
     const k = 1 - dying
     for (let i = 0; i < 14; i++) {
       const a = (i / 14) * Math.PI * 2 + k * 3
-      const d = k * 46
-      ctx.fillStyle = i % 3 === 0 ? '#ffffff' : hull
-      ctx.globalAlpha = keepAlpha * (1 - k)
-      ctx.fillRect(cannonX + Math.cos(a) * d, cannonY + Math.sin(a) * d * 0.7, px, px)
+      const d = (k * 46) / stage.k
+      g.globalAlpha = 1 - k
+      g.fillStyle = i % 3 === 0 ? '#ffffff' : hull
+      g.fillRect(Math.round(cx + Math.cos(a) * d), Math.round(cy + Math.sin(a) * d * 0.7), 1, 1)
     }
-    ctx.globalAlpha = keepAlpha
+    g.globalAlpha = 1
+    stage.light(cx, cy, 30 * (1 - k), '#ff8a3d', 1)
     return
   }
   const blink = now < invulnUntil && Math.floor(now * 12) % 2 === 0
   if (blink || gameOver) return
-  drawSprite(CANNON, cannonX - w / 2, cannonY - h / 2, px, hull, CANNON_SPR_O)
-  // Trim stripe along the base row, so the ship's second colour reads.
-  ctx.fillStyle = trim
-  ctx.fillRect(cannonX - w / 2, cannonY + h / 2 - px, w, px)
-  // Combo tag near the cannon.
-  if (mult > 1 && gameStarted) {
-    ctx.save()
-    if (comboFontPx !== px) {
-      comboFont = `bold ${Math.max(11, px * 3)}px ${MACHINE_FONT}`
-      comboFontPx = px
-    }
-    ctx.font = comboFont
-    ctx.textAlign = 'center'
-    ctx.fillStyle = mult >= 4 ? GOLD : CYAN
-    if (!mobileFx) {
-      ctx.shadowColor = mult >= 4 ? GOLD : CYAN
-      ctx.shadowBlur = 12
-    }
-    ctx.fillText(`x${mult} COMBO`, cannonX, cannonY - h / 2 - 12)
-    ctx.restore()
+  // Afterimages when moving fast.
+  for (let i = 0; i < cannonTrail.length; i++) {
+    const t = cannonTrail[i]
+    g.globalAlpha = 0.25 * (t.t / 0.25)
+    g.drawImage(silhouette(cannonRows(CANNON), hull), L(t.x) - Math.floor(spr.width / 2), y0)
+  }
+  g.globalAlpha = 1
+  // Contact shadow on the grass, then the ship.
+  g.fillStyle = 'rgba(5,3,12,0.45)'
+  g.fillRect(x0 + 1, y0 + spr.height - 1, spr.width - 2, 2)
+  g.drawImage(spr, x0, y0)
+  stage.light(cx, cy - 2, 18, hull, 0.6)
+}
+
+function drawPickups(g) {
+  if (!gameStarted || gameOver) return
+  for (const p of pickups) {
+    const spr = sprite(p.kind === 'pierce' ? PICKUP_P : PICKUP_B)
+    const x = L(p.x) - 4
+    const y = L(p.y) - 4
+    g.drawImage(spr, x, y)
+    stage.light(x + 4, y + 4, 12, '#ffd23f', 0.8)
   }
 }
 
-function plotSpriteRaw(rows, ox, oy, s, color) {
-  ctx.fillStyle = color || CYAN
-  plotRows(rows, ox, oy, s)
+// Emissive pass: after the light map.
+function drawGlowing(g, now) {
+  scene.drawGlow(g, now, Math.max(pulse * 0.5, sunFlare))
+  drawEyes(g)
+  // Kill flashes: the invader's shape in white for two frames.
+  for (let i = 0; i < flashes.length; i++) {
+    const f = flashes[i]
+    g.globalAlpha = Math.min(1, f.t / 0.06)
+    g.drawImage(silhouette(shaded(f.rows, lookFor(f.rows)), '#ffffff'), L(f.x) - 1, L(f.y) - 1)
+  }
+  g.globalAlpha = 1
+  if (shootStar) {
+    g.globalAlpha = Math.max(0, Math.min(1, shootStar.life)) * (gameStarted ? 0.9 : 0.5)
+    g.fillStyle = '#fff4ff'
+    const n = 8
+    for (let i = 0; i < n; i++) {
+      const t = i / n
+      if (i > 3) g.fillStyle = '#8f86b8'
+      g.fillRect(L(shootStar.x - shootStar.vx * 0.12 * t), L(shootStar.y - shootStar.vy * 0.12 * t), 1, 1)
+    }
+    g.globalAlpha = 1
+  }
+  // UFO streak.
+  if (ufo) {
+    g.fillStyle = '#ffd23f'
+    for (let i = 0; i < ufoTrail.length; i++) {
+      const t = ufoTrail[i]
+      const a = (t.t / 0.4) * 0.5
+      if (a <= 0.02) continue
+      g.globalAlpha = a
+      const len = Math.max(1, Math.round((10 + (1 - t.t / 0.4) * 26) / stage.k))
+      g.fillRect(L(t.x) - (len >> 1), L(t.y) + 3, len, 1)
+    }
+    g.globalAlpha = 1
+  }
+  // Player shot and its trail, in the ship's colour.
+  const bolt = shipDef.colors.hull
+  for (let i = 0; i < shotTrail.length; i++) {
+    const t = shotTrail[i]
+    g.globalAlpha = Math.max(0, t.t / 0.18) * 0.5
+    g.fillStyle = bolt
+    g.fillRect(L(t.x), L(t.y - 12), 1, 3)
+  }
+  g.globalAlpha = 1
+  if (shot) {
+    const x = L(shot.x)
+    const y = L(shot.y - 12)
+    g.fillStyle = bolt
+    g.fillRect(x - 1, y + 1, 3, 2)
+    g.fillRect(x, y - 1, 1, 5)
+    g.fillStyle = '#ffffff'
+    g.fillRect(x, y, 1, 3)
+  }
+  for (let i = 0; i < bombs.length; i++) drawBomb(g, bombs[i])
+  // Shockwaves: pixel rings.
+  for (let i = 0; i < shockwaves.length; i++) {
+    const sw = shockwaves[i]
+    g.globalAlpha = Math.max(0, sw.life)
+    ring(g, L(sw.x), L(sw.y), L(sw.radius), sw.color)
+    if (sw.life > 0.6) ring(g, L(sw.x), L(sw.y), L(sw.radius) - 1, '#ffffff')
+  }
+  g.globalAlpha = 1
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i]
+    g.globalAlpha = Math.max(0, Math.min(1, p.life * 1.5))
+    g.fillStyle = p.color
+    const n = Math.max(1, Math.round(p.size / stage.k))
+    g.fillRect(L(p.x) - (n >> 1), L(p.y) - (n >> 1), n, n)
+  }
+  g.globalAlpha = 1
+  if (redPulse > 0.01) {
+    g.globalAlpha = redPulse * 0.35
+    g.fillStyle = '#ff3b5c'
+    const e = Math.max(3, L(Math.max(18, SW * 0.03)))
+    g.fillRect(0, 0, stage.vw, e)
+    g.fillRect(0, stage.vh - e, stage.vw, e)
+    g.fillRect(0, 0, e, stage.vh)
+    g.fillRect(stage.vw - e, 0, e, stage.vh)
+    g.globalAlpha = 1
+  }
+}
+
+function drawBomb(g, b) {
+  const x = L(b.x)
+  const y = L(b.y)
+  if (b.trail) {
+    g.fillStyle = PINK
+    for (let i = 0; i < b.trail.length; i++) {
+      g.globalAlpha = ((i + 1) / b.trail.length) * 0.4
+      g.fillRect(L(b.trail[i].x), L(b.trail[i].y) - 1, 1, 2)
+    }
+    g.globalAlpha = 1
+  }
+  g.fillStyle = '#ffffff'
+  if (b.style === 'zigzag') {
+    for (let i = 0; i < 5; i++) g.fillRect(x + (i % 2 ? 1 : -1), y + i, 1, 1)
+  } else if (b.style === 'plunger') {
+    g.fillRect(x, y, 1, 5)
+    g.fillRect(x - 1, y + 1, 3, 1)
+    g.fillRect(x - 1, y + 4, 3, 1)
+  } else {
+    const off = b.frame ? 1 : -1
+    g.fillRect(x - 1, y, 3, 1)
+    g.fillRect(x - 1 + off, y + 2, 3, 1)
+    g.fillRect(x - 1, y + 4, 3, 1)
+  }
+  g.fillStyle = PINK
+  g.fillRect(x, y + 5, 1, 1)
+}
+
+function drawHud(h, now) {
+  // Score pop-ups rise from where they were earned.
+  for (let i = 0; i < ufoPopups.length; i++) {
+    const p = ufoPopups[i]
+    if (p.t > 1.1 && Math.floor(now * 16) % 2) continue
+    const w = textWidth(p.text)
+    drawText(h, p.text, L(p.x) - (w >> 1), L(p.y - p.t * 34) - 3, p.color, '#0b0616')
+  }
+  if (!gameStarted || gameOver || dying > 0) return
+  const cy = L(cannonY)
+  if (mult > 1) {
+    const t = `X${mult} COMBO`
+    const w = textWidth(t)
+    drawText(h, t, clamp(L(cannonX) - (w >> 1), 2, stage.vw - w - 2), cy - 16, mult >= 4 ? GOLD : CYAN, '#0b0616')
+  }
+  if (weapon) {
+    const t = `${weapon.toUpperCase()} ${Math.ceil(weaponTime)}S`
+    const w = textWidth(t)
+    const y = Math.min(stage.vh - L(band) - 9, cy + 7)
+    drawText(h, t, clamp(L(cannonX) - (w >> 1), 2, stage.vw - w - 2), y, GOLD, '#0b0616')
+  }
 }
 
 function draw() {
-  if (!ctx) return
+  if (!stage) return
   const now = performance.now() / 1000
-  const demo = !gameStarted
-
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  ctx.globalAlpha = 1
-  ctx.shadowBlur = 0
-
-  ctx.save()
-  if (shake > 0) {
-    const m = shake * 7
-    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m)
-  }
-  // Effect 3c: subtle horizontal bass jolt (1-2 px) on the play layer.
-  if (!mobileFx && bassJolt > 0.01) {
-    ctx.translate(bassDir * bassJolt * 2, 0)
-  }
-
-  if (horizon) horizon.draw(ctx, now, { dim: !gameStarted })
-  drawShootStar()
-
-  // Gameplay dims behind the profile card in attract mode.
-  ctx.globalAlpha = demo ? 0.6 : 1
-
-  drawBunkers()
-  drawFormation(now)
-  drawUFO()
-
-  // Effect 5: player-shot trail in the ship's hull colour (afterimages,
-  // decreasing alpha).
-  const boltCol = shipDef.colors.hull
-  for (let i = 0; i < shotTrail.length; i++) {
-    const t = shotTrail[i]
-    const a = Math.max(0, t.t / 0.18) * 0.4
-    ctx.globalAlpha = (demo ? 0.6 : 1) * a
-    ctx.fillStyle = boltCol
-    const w = 4 - (shotTrail.length - 1 - i) * 0.5
-    ctx.fillRect(t.x - w / 2, t.y - 12, w, 12)
-  }
-  ctx.globalAlpha = demo ? 0.6 : 1
-  // Player shot: white-hot core with a hull-coloured glow.
-  if (shot) {
-    ctx.save()
-    if (!mobileFx) {
-      ctx.shadowColor = boltCol
-      ctx.shadowBlur = 12
-    }
-    ctx.fillStyle = boltCol
-    ctx.fillRect(shot.x - 2, shot.y - 12, 4, 12)
-    ctx.shadowBlur = 0
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(shot.x - 1, shot.y - 10, 2, 8)
-    ctx.restore()
-  }
-  for (let i = 0; i < bombs.length; i++) drawBomb(bombs[i])
-
-  drawCannon(now)
-
-  // Shockwaves (rtype style rings).
+  const g = stage.begin()
+  eyes.length = 0
+  scene.drawBack(g, stage, now, Math.max(pulse * 0.5, sunFlare))
+  drawBunkers(g)
+  drawFormation(g, now)
+  drawUFO(g)
+  drawPickups(g)
+  drawCannon(g, now)
+  if (shot) stage.light(L(shot.x), L(shot.y - 8), 8, shipDef.colors.hull, 0.9)
+  for (let i = 0; i < bombs.length; i++) stage.light(L(bombs[i].x), L(bombs[i].y) + 2, 6, PINK, 0.8)
   for (let i = 0; i < shockwaves.length; i++) {
     const sw = shockwaves[i]
-    ctx.globalAlpha = (demo ? 0.6 : 1) * sw.life * 0.8
-    ctx.strokeStyle = sw.color
-    ctx.lineWidth = 2 + sw.life * 5
-    if (!mobileFx) {
-      ctx.shadowColor = sw.color
-      ctx.shadowBlur = 16 * sw.life
-    }
-    ctx.beginPath()
-    ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2)
-    ctx.stroke()
+    stage.light(L(sw.x), L(sw.y), Math.max(4, L(sw.radius)), sw.color, sw.life * 0.6)
   }
-  ctx.shadowBlur = 0
-  ctx.globalAlpha = demo ? 0.6 : 1
-
-  // Particles.
-  for (let i = 0; i < particles.length; i++) {
-    const p = particles[i]
-    ctx.globalAlpha = (demo ? 0.6 : 1) * Math.max(0, p.life)
-    ctx.fillStyle = p.color
-    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
-  }
-  ctx.globalAlpha = 1
-
-  // Score popups (UFO value, extra life) rise with a small scale pop.
-  ctx.save()
-  ctx.textAlign = 'center'
-  // Score popups: 3 discrete pop sizes (no per-popup font rebuild).
-  const popBase = Math.max(12, px * 3)
-  const popFonts = [
-    `bold ${Math.round(popBase)}px ${MACHINE_FONT}`,
-    `bold ${Math.round(popBase * 1.17)}px ${MACHINE_FONT}`,
-    `bold ${Math.round(popBase * 1.35)}px ${MACHINE_FONT}`,
-  ]
-  for (let i = 0; i < ufoPopups.length; i++) {
-    const p = ufoPopups[i]
-    ctx.globalAlpha = Math.max(0, 1 - p.t / 1.4)
-    ctx.fillStyle = p.color
-    if (!mobileFx) {
-      ctx.shadowColor = p.color
-      ctx.shadowBlur = 12
-    }
-    // Scale pop: ~1.35x at birth, easing to 1x over ~0.25 s (quantized).
-    const pop = 1 + 0.35 * Math.max(0, 1 - p.t / 0.25)
-    ctx.font = pop > 1.26 ? popFonts[2] : pop > 1.09 ? popFonts[1] : popFonts[0]
-    ctx.fillText(p.text, p.x, p.y - p.t * 34)
-  }
-  ctx.restore()
-  ctx.globalAlpha = 1
-  ctx.shadowBlur = 0
-
-  drawWeapons()
-
-  // Effect 2: white flash frame + brief red vignette pulse (no gradients).
-  if (whiteFlash > 0.01) {
-    ctx.fillStyle = `rgba(255, 255, 255, ${(whiteFlash * 0.55).toFixed(3)})`
-    ctx.fillRect(0, 0, SW, SH)
-  }
-  if (redPulse > 0.01) {
-    const a = redPulse * 0.22
-    ctx.fillStyle = `rgba(255, 32, 64, ${a.toFixed(3)})`
-    const edge = Math.max(18, Math.round(SW * 0.03))
-    ctx.fillRect(0, 0, SW, edge)
-    ctx.fillRect(0, SH - edge, SW, edge)
-    ctx.fillRect(0, 0, edge, SH)
-    ctx.fillRect(SW - edge, 0, edge, SH)
-  }
-
-  ctx.restore()
+  drawHud(stage.hud, now)
+  let sx = 0
+  if (shake > 0) sx = (Math.random() - 0.5) * shake * 7 / stage.k
+  if (!mobileFx && bassJolt > 0.3) sx += bassDir
+  const sy = shake > 0 ? (Math.random() - 0.5) * shake * 7 / stage.k : 0
+  stage.present({
+    // Attract mode sits darker behind the start text.
+    ambient: gameStarted ? '#a497d4' : '#766aa8',
+    shakeX: sx,
+    shakeY: sy,
+    flash: whiteFlash > 0.01 ? { color: '#ffffff', a: whiteFlash * 0.55 } : null,
+    afterLight: g2 => drawGlowing(g2, now),
+  })
 }
 
 function frame(now) {

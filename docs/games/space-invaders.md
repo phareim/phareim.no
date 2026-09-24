@@ -1,12 +1,26 @@
 ## Space Invaders overview (added 2026-09-05)
 
-`?theme=invaders` is the faithful 1978 formation game in a synthwave look:
-a 5×11 formation with the original sprites, a step-timer march that
-quickens as invaders die, eroding bunkers, a mystery UFO, one shot on
-screen at a time, and a kill-combo multiplier. Sprite-shatter kills, screen
-shake, a heartbeat-coupled grid and sun, and a pre-rendered glow sprite
-cache keep it smooth on phones. The backdrop is the shared
-`themes/base/neonHorizon.js` since 2026-09-06.
+`?theme=invaders` is the faithful 1978 formation game: a 5×11 formation
+with the original sprites, a step-timer march that quickens as invaders
+die, eroding bunkers, a mystery UFO, one shot on screen at a time, and a
+kill-combo multiplier.
+
+**Look (2026-09-24): Neon Shrine's pixels** (`docs/games/pixel-look.md`).
+The formation comes down over the town at dusk: a dithered sky with stars,
+the striped sun behind two ridges, a tree line with houses (lit windows)
+and lamps, grass where the cannon rides. Drawn on the shared pixel stage,
+lit by a light map. One invader pixel is one logical pixel (`px` = the
+stage's `k`); the 1978 bitmaps get an outline, shading (squid pink, crab
+violet, octopus rose) and eyes that flash white on each heartbeat step.
+Bunkers are shrine stone (brick courses, a cyan neon strip along every
+exposed top) at one cell per logical pixel. The cannon keeps its 13×8
+silhouette in the Hangar ship's colours. Shots, bombs, sparks, rings and
+the sun glow after the light map. Pickups are gold crates; score pops,
+the combo and the weapon label are in the 5×7 font on the HUD layer; the
+HTML text uses `.px-*`. Code: `themes/invaders/pixel.ts` (scene, sprites,
+bunker painter) and the draw section of `Invaders.vue`. Phones use a
+minimum of 104 logical pixels across (`stageMinW()`), which keeps sprites
+≥ 24 CSS px tall.
 
 ## History
 
@@ -17,12 +31,11 @@ commits `8344268`..`d5436f7`.
 
 ## Space Invaders on phones (2026-09-08)
 
-Portrait widths below 600 px use five columns, with 24–32 px tall sprites
-at 320–390 px viewport widths (previously 16 px). Sprite scale also respects
+Portrait widths below 600 px use five columns, with sprites at least 24 px
+tall (the stage's pixel scale, see above). Sprite scale also respects
 available height. The cannon and bunkers leave finger space below the playfield,
 including landscape phones; the live score sits at the top instead of covering
-play. Mobile rendering omits chromatic sprite offsets and the marching camera
-jolt, keeping the pixel silhouettes clear with fewer sprite draws.
+play. Mobile rendering omits the marching camera jolt.
 
 Touch steering follows the finger directly, like Breakout. Holding a stationary
 finger fires the next bolt as soon as the previous one clears; only one player

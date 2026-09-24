@@ -17,22 +17,22 @@
     <template #body>
       <SoundToggle />
       <template v-if="gameOver">
-        <h1 class="invaders-over-title">GAME OVER</h1>
-        <p class="invaders-hud invaders-over-score">SCORE: {{ score }} · WAVE {{ wave }}</p>
-        <p v-if="isNewHigh && score > 0" class="invaders-hud invaders-new-high">NEW HIGH SCORE!</p>
-        <p v-else class="invaders-hud">HIGH SCORE: {{ highScore }}</p>
-        <p v-if="rank" class="invaders-hud invaders-hud-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
-        <p class="invaders-hint">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
+        <h1 class="px-title">GAME OVER</h1>
+        <p class="px-hud">SCORE {{ score }} · WAVE {{ wave }}</p>
+        <p v-if="isNewHigh && score > 0" class="px-hud px-blink" style="--px-hud: #ffd23f">NEW HIGH SCORE!</p>
+        <p v-else class="px-hud px-dim">HIGH SCORE {{ highScore }}</p>
+        <p v-if="rank" class="px-hud px-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
+        <p class="px-hint px-blink">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
-        <p class="location invaders-hud">
-          SCORE: {{ score }} · WAVE {{ wave }}<template v-if="gameStarted"> · {{ '▲'.repeat(Math.max(0, lives)) }}</template>
+        <p class="location px-hud">
+          SCORE {{ score }} · WAVE {{ wave }}<template v-if="gameStarted"> · {{ '▲'.repeat(Math.max(0, lives)) }}</template>
         </p>
-        <p v-if="highScore > 0 && !gameStarted" class="location invaders-hud-dim">HIGH SCORE: {{ highScore }}</p>
+        <p v-if="highScore > 0 && !gameStarted" class="location px-hud px-dim">HIGH SCORE {{ highScore }}</p>
         <template v-if="!gameStarted">
-          <p class="invaders-hint">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
-          <p class="invaders-hint invaders-hint-dim">{{ hint('← → / A-D MOVE · HOLD SPACE FIRE · ESC PAUSE', 'DRAG TO MOVE · HOLD TO FIRE') }}</p>
-          <p class="invaders-hint invaders-hint-dim">GOLD PICKUPS · P PIERCE · B BLAST</p>
+          <p class="px-hint px-blink">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
+          <p class="px-hint px-dim">{{ hint('← → / A-D MOVE · HOLD SPACE FIRE · ESC PAUSE', 'DRAG TO MOVE · HOLD TO FIRE') }}</p>
+          <p class="px-hint px-dim">GOLD CRATES · P PIERCE · B BLAST</p>
         </template>
       </template>
     </template>
@@ -95,74 +95,23 @@ function onGameRestart() {
 </script>
 
 <style>
-.invaders-hud {
-  font-family: var(--font-machine);
-  color: #2ff3ff;
-  text-shadow: 0 0 10px #2ff3ff;
-  letter-spacing: 0.15em;
-  font-size: 1em;
-}
-
-.invaders-over-title {
-  font-family: var(--font-machine);
-  color: #ff2fa0;
-  text-shadow: 0 0 20px #ff2fa0, 0 0 40px #ff2fa0;
-  font-size: 2.8em;
-  letter-spacing: 0.1em;
-  margin-top: 0.5em;
-  margin-bottom: 0.1em;
-}
-@media (min-width: 800px) {
-  .invaders-over-title {
-    font-size: 3.2em;
-    margin-top: 0.5em;
-  }
-}
-
-.invaders-over-score {
-  margin-top: 0.3em;
-}
-
-.invaders-new-high {
-  animation: invaders-pulse-glow 0.8s ease-in-out infinite alternate;
-}
-@keyframes invaders-pulse-glow {
-  from { text-shadow: 0 0 10px #2ff3ff; }
-  to { text-shadow: 0 0 20px #2ff3ff, 0 0 40px #ff2fa0; }
-}
-
-.invaders-hint {
-  /* Neon Dreams hint recipe: pink is the call to action (2026-09-06). */
-  font-family: var(--font-machine);
-  text-transform: uppercase;
-  color: #ff2fa0;
-  text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
-  font-size: 0.9em;
-  letter-spacing: 0.12em;
-  margin-top: 1em;
-}
-
-.invaders-hint-dim {
-  opacity: 0.45;
-  font-size: 0.7em;
-  margin-top: 0.2em;
-}
-
-.invaders-hud-dim {
-  font-family: var(--font-machine);
-  color: #2ff3ff;
-  opacity: 0.5;
-  font-size: 0.65em;
-  letter-spacing: 0.1em;
-}
-
+/* Text styles: themes/base/pixel/pixel.css (.px-*). */
 .invaders-playing .landing-overlay {
   align-items: flex-start;
   padding-top: max(14px, env(safe-area-inset-top));
   pointer-events: none;
 }
-.invaders-playing .invaders-hud {
-  font-size: .65em;
+.invaders-playing .px-hud {
   margin: 0;
+}
+/* On phones the run's score sits top-left, clear of the radio. */
+@media (max-width: 600px) {
+  .invaders-playing .landing-overlay {
+    justify-content: flex-start;
+  }
+  .invaders-playing .landing-home {
+    text-align: left;
+    margin: 0;
+  }
 }
 </style>

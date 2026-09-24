@@ -21,16 +21,25 @@ const stubSound = () => ({
   sfx: new Proxy({}, { get: () => noop }),
   music: { start: noop, stop: noop, playing: false },
 })
-function game(width = 375, height = 667) {
+// The pixel stage (themes/base/pixel/stage.ts) without canvases: the same
+// whole-number scale, so px (one sprite pixel) matches a real screen.
+const fakeStage = (w, h, dpr, minW, minH) => {
+  const scale = Math.max(1, Math.floor(Math.min((w * dpr) / minW, (h * dpr) / minH)))
+  return { k: scale / dpr, scale, vw: Math.ceil((w * dpr) / scale), vh: Math.ceil((h * dpr) / scale), px: v => Math.round((v * dpr) / scale) }
+}
+function game(width = 375, height = 667, dpr = width < 600 ? 3 : 1) {
   const context = vm.createContext({
     ref: () => ({ value: null }), defineEmits: () => () => {},
     onMounted: () => {}, onBeforeUnmount: () => {}, performance: { now: () => 100 },
     readShipDef: () => { shipCalls.n++; return dartDef() },
     useSound: stubSound,
+    createInvadersScene: () => ({ layout() {}, drawBack() {}, drawGlow() {}, horizon: 0, groundY: 0 }),
+    SPECIES_LOOK: [{ glow: '#ff2fa0' }, { glow: '#9a4ff0' }, { glow: '#ff3b5c' }],
+    fakeStage,
   })
   vm.runInContext(source, context)
   const run = code => vm.runInContext(code, context)
-  run(`buildFxCache = () => {}; SW = ${width}; SH = ${height}; layout(); startGame(); bombAcc = 999; ufoTimer = 999;`)
+  run(`buildFxCache = () => {}; SW = ${width}; SH = ${height}; stage = fakeStage(SW, SH, ${dpr}, stageMinW(), 180); layout(); startGame(); bombAcc = 999; ufoTimer = 999;`)
   return run
 }
 const touch = (id, x, y = 620) => `({identifier:${id},clientX:${x},clientY:${y}})`
@@ -38,7 +47,7 @@ const event = t => `({target:null,changedTouches:[${t}],preventDefault(){}})`
 
 test('phone sprites are larger and leave room for the formation, bunkers and finger', () => {
   for (const width of [320, 375, 390, 430]) {
-    const run = game(width)
+    const run = game(width, 667, width === 320 ? 2 : 3)
     assert.equal(run('cols'), 5)
     assert.ok(run('px * 8') >= 24)
     assert.ok(run('formW + margin * 2 < SW'))

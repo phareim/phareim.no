@@ -9,7 +9,17 @@
  * in total), so nothing loads from Google Fonts. Canvas code reads the same
  * stack from ./fonts.ts. The parked themes (scandi, space, desk) keep their
  * own faces.
+ *
+ *   --font-pixel    Neon Pixel — Neon Shrine's 5×7 canvas font as a webfont
+ *                   (2026-09-24, built by scripts/make-pixel-font.mjs, 3 KB),
+ *                   for the pixel games' HTML text. Crisp at font-size 8n px.
  */
+@font-face {
+  font-family: "Neon Pixel";
+  src: url("/fonts/neon-pixel.woff") format("woff");
+  font-display: block;
+}
+
 @import "@fontsource/space-grotesk/latin-300.css";
 @import "@fontsource/space-grotesk/latin-400.css";
 @import "@fontsource/space-grotesk/latin-500.css";
@@ -19,4 +29,5 @@
 :root {
   --font-person: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-machine: "Space Mono", ui-monospace, "Courier New", monospace;
+  --font-pixel: "Neon Pixel", "Space Mono", ui-monospace, monospace;
 }
