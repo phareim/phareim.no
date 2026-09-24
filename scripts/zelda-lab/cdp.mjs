@@ -83,7 +83,13 @@ export async function launch({ width = 1440, height = 900, dpr = 1, mobile = fal
     async tap(x, y) { await b.touch('touchStart', [{ x, y }]); await sleep(60); await b.touch('touchEnd', []); await sleep(60) },
     async shot(path) { const r = await send('Page.captureScreenshot', { format: 'png' }); writeFileSync(path, Buffer.from(r.data, 'base64')) },
     sleep,
-    async close() { try { ws.close() } catch { /* ignore */ } proc.kill('SIGKILL') },
+    // Snap's chromium-browser is a wrapper: killing it orphans the real
+    // browser, so ask the browser itself to quit first.
+    async close() {
+      try { await Promise.race([send('Browser.close'), sleep(1500)]) } catch { /* ignore */ }
+      try { ws.close() } catch { /* ignore */ }
+      proc.kill('SIGKILL')
+    },
   }
   return b
 }
