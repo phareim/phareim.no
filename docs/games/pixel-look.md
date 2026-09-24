@@ -26,7 +26,9 @@ treasure.
   keeps its rules in CSS px.
 - `sprites.ts` — `PAL` (Neon Shrine's palette), `sprite(rows, palOverride)`,
   `silhouette()`, `shade()` (outline + highlight/shadow for a one-colour
-  'X' map), `bayer()`, `mix()`, `drawBigText()`, and the 5×7 font
+  'X' map), `pixelize()` / `relight()` (turn vector-painted art into
+  palette-snapped, outlined, top-lit pixel sprites; Galaga uses them),
+  `bayer()`, `mix()`, `drawBigText()`, and the 5×7 font
   (`drawText`, `textWidth`, re-exported from `themes/zelda/render/font.ts`).
 - `scenery.ts` — side-view painters in the terrain palette: dithered dusk
   sky, stars, striped sun, ridges with a rim, tree lines, houses with lit
@@ -45,7 +47,9 @@ maps to the capitals; it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂.
 | Game | Pixel look | Setting |
 |---|---|---|
 | Space Invaders | done | the formation comes down over the town at dusk; bunkers are shrine stone |
-| Galaga, Breakout, Tetris, R-Type, OutRun, Star Fox, Another Shore | not yet | |
+| Galaga | done | a dithered violet night with nebulae in the sector tints, a ringed planet, cratered rocks; the vector ships pixelized at run time; the intercom is Neon Shrine's dialog box |
+| Breakout | done | a shrine chamber seen from above: stone and crystal bricks, braziers, a pit under the paddle |
+| Tetris, R-Type, OutRun, Star Fox, Another Shore | in progress | |
 
 **Checking a look.** `node scripts/zelda-lab/games-shot.mjs <devUrl> <outDir>
 [ids] [w] [h]` screenshots each game idle and after a moment of play;
