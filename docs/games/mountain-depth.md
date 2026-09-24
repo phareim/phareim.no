@@ -1,31 +1,19 @@
-## Mountain depth and steering (2026-09-07)
+## Mountain depth: the Neon Horizon backdrop (2026-09-07; users updated 2026-09-24)
 
-The shared Neon Horizon uses `themes/base/mountainTerrain.js`: a deterministic
-XYZ heightfield projected into Canvas 2D, with irregular pointed peaks, dark
-faces and violet triangle edges (mesh revision 2026-09-07). Geometry and
-face/edge colours are built once per theme instance;
-resize reprojects the same landscape. `horizon.setView(x, y)` accepts normalized
-coordinates from -1 to 1; `update(dt)` smooths the camera response. Near terrain
-moves farther than distant ridges, while the sun stays fixed.
+`themes/base/neonHorizon.js` draws the old vector synthwave backdrop: sky,
+stars, the striped sun, a mountain range and the perspective grid, with a
+heartbeat. The mountains come from `themes/base/mountainTerrain.js`, a
+deterministic XYZ heightfield projected into Canvas 2D, with irregular
+pointed peaks, dark faces and violet triangle edges. Geometry and colours
+are built once per instance; resize reprojects the same landscape.
+`horizon.setView(x, y)` takes normalized coordinates (-1…1) and `update(dt)`
+smooths the camera, so near terrain moves farther than distant ridges while
+the sun stays fixed. The sun frames itself against the highest nearby
+terrain tips (about a third of the disc above them); an explicit `sunY`
+overrides that. Reduced motion stops the parallax.
 
-Breakout follows the paddle, Invaders the cannon, Tetris the active piece's
-occupied-cell centre (a change-only `view` event through Arcade and
-Landing). Reduced motion disables this parallax. Star Fox
-uses an instanced, lit three.js heightfield with ship-driven parallax; its
-mountain travel and parallax stop under reduced motion. These changes cover
-the five synthwave mountain backgrounds; Another Shore's authored landscapes
-and the other games keep their own renderers.
-
-Verified 2026-09-07 in headless Chromium at 1440×900 and 375×667 for all
-five themes: no page errors or document overflow; keyboard start/steering
-smoke checks, pointer input on the since-retired Player One, and unchanged canvas under reduced
-motion. Star Fox rendering was separately checked with SwiftShader enabled.
-
-The shared sun now frames itself against the highest nearby terrain tips,
-placing those tips about one third of the disc height above its bottom
-(2026-09-07). Per-load jitter remains; steering does not move the sun.
-An explicit `sunY` still overrides the automatic framing. Star Fox keeps its
-separate terrain and sun. Verified 2026-09-07: Breakout, Invaders, Tetris
-and the since-retired Player One at 1440×900 and 375×667 in Chromium, no page errors or document
-overflow; `npm run typecheck` passes.
-
+**Who uses it** (verified 2026-09-24): only the Hall of Fame and Hangar
+pages (`themes/leaderboard/Horizon.vue`, `themes/hangar/Horizon.vue`). Every
+game moved to the pixel look on 2026-09-24 and paints its own scenery on
+the pixel stage (`docs/games/pixel-look.md`). If those two pages move to the
+pixel look too, both files can go.

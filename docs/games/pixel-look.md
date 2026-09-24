@@ -42,7 +42,7 @@ scripts/make-pixel-font.mjs` (fontTools). One font pixel is an eighth of
 the em, so it is crisp at font sizes that are multiples of 8 px. Lower case
 maps to the capitals; it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂.
 
-**Status** (2026-09-24):
+**Status** (2026-09-24): all eight games are on the pixel look. Not yet: the Hall of Fame and Hangar pages, which still use the old vector `neonHorizon.js`.
 
 | Game | Pixel look | Setting |
 |---|---|---|
@@ -53,7 +53,7 @@ maps to the capitals; it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂.
 | R-Type | done | the shrine caves: rock walls with glowing crystals that light the walls, a warm far cave behind; turned a quarter on portrait phones (`resize(…, rotate)`) |
 | Star Fox | done | the Super FX way: three.js at the stage's logical size, snapped to the palette with a Bayer dither in a shader; grass and the rose path below, dusk and the striped sun over violet ridges |
 | OutRun | done | the coast road at dusk as a SNES-era sprite-scaler: Neon Shrine ground per biome, teal canopies, shrine-gate tunnels, pixelized cars |
-| Another Shore | in progress | |
+| Another Shore | done | flat Another World polygons scanline-filled on the pixel grid, snapped to the palette; dithered sky and sea; glowing things lit through an emissive layer; the prologue flies over the pixel dusk |
 
 **Checking a look.** `node scripts/zelda-lab/games-shot.mjs <devUrl> <outDir>
 [ids] [w] [h]` screenshots each game idle and after a moment of play;

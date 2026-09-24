@@ -246,8 +246,8 @@ let ufoPopups = [] // { x, y, text, t, color }
 let particles = []
 let shockwaves = []
 let flashes = [] // 2-frame white sprite flashes { rows, x, y, px, t }
-let pulse = 0 // heartbeat copy for the formation aberration only (the
-// backdrop owns the real one in neonHorizon.js); set in doStep, decays
+let pulse = 0 // the heartbeat: eyes flash, glows swell, the horizon line
+// flares; set in doStep, decays
 let shake = 0
 
 // Visual-effects package state (draw-only; no gameplay impact).

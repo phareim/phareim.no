@@ -57,7 +57,7 @@ themes/              — see the phareim-theme skill
   index.ts           — registry, `liveThemes` (not parked, not the portal) and every theme.css import
   content.ts         — default landing copy (DefaultLanding)
   base/pixel/        — the pixel look (2026-09-24): stage (buffer, whole-number scale, light map, bloom, scanlines), sprites + 5×7 font, side-view scenery, pixel.css. The games are moving onto it one by one: `docs/games/pixel-look.md`
-  base/              — DefaultLanding shell, SocialLink, EscHold (shared Escape tap/hold), fonts.css + fonts.ts (site fonts, 2026-09-06), neonHorizon.js (the shared synthwave backdrop: sky, stars, striped sun, ridge, grid, heartbeat, wave-clear flare — used by Breakout, Invaders and Tetris since 2026-09-06; Star Fox draws its own in three.js)
+  base/              — DefaultLanding shell, SocialLink, EscHold (shared Escape tap/hold), fonts.css + fonts.ts (site fonts, 2026-09-06), neonHorizon.js + mountainTerrain.js (the old vector synthwave backdrop; since the games moved to the pixel look on 2026-09-24 only the Hall of Fame and Hangar pages use it)
   _template/         — starting point for a new theme
   portal/            — the home theme on `/`: the page (hint, hidden link index, ending panel) around the world shell
   zelda/             — the one world: engine, world data (town + Neon Shrine), renderer, audio, and the shell `Zelda.vue`

@@ -41,9 +41,9 @@ themes/
                         sprites.ts (palette, string-map sprites, 5×7 font), scenery.ts (dusk sky,
                         sun, ridges, trees, houses), pixel.css (.px-* HTML text in --font-pixel).
                         New games use it; see docs/games/pixel-look.md
-    neonHorizon.js      the Neon Dreams synthwave backdrop (sky, stars, sun, ridge, grid,
-                        heartbeat) as a canvas module: createHorizon() → resize/update/beat/draw.
-                        breakout, invaders and tetris use it (2026-09-06); starfox is three.js and draws its own
+    neonHorizon.js      the old vector synthwave backdrop (sky, stars, sun, ridge, grid, heartbeat):
+                        createHorizon() → resize/update/beat/draw. Since 2026-09-24 only the Hall of
+                        Fame and Hangar pages use it; every game draws on pixel/ instead
   _template/          copy this to start a theme
   <id>/
     theme.css         :root palette + `.{id}-page` token contract
