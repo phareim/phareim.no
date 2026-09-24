@@ -22,35 +22,35 @@
     <template #body>
       <SoundToggle />
       <template v-if="gameOver">
-        <h1 class="sfx-over-title">MISSION FAILED</h1>
-        <p class="sfx-hud sfx-over-score">SCORE: {{ score }} · {{ distance }} KM · SECTOR {{ pad(sector) }}</p>
-        <p v-if="isNewHigh && score > 0" class="sfx-hud sfx-new-high">NEW HIGH SCORE!</p>
-        <p v-else class="sfx-hud">HIGH SCORE: {{ highScore }}</p>
-        <p v-if="rank" class="sfx-hud sfx-hud-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
-        <p class="sfx-hint">{{ hint('PRESS ENTER TO FLY AGAIN', 'TAP TO FLY AGAIN') }}</p>
+        <h1 class="px-title">MISSION FAILED</h1>
+        <p class="px-hud">SCORE {{ score }} · {{ distance }} KM · SECTOR {{ pad(sector) }}</p>
+        <p v-if="isNewHigh && score > 0" class="px-hud px-blink" style="--px-hud: #ffd23f">NEW HIGH SCORE!</p>
+        <p v-else class="px-hud px-dim">HIGH SCORE {{ highScore }}</p>
+        <p v-if="rank" class="px-hud px-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
+        <p class="px-hint px-blink">▶ {{ hint('PRESS ENTER TO FLY AGAIN', 'TAP TO FLY AGAIN') }} ◀</p>
       </template>
       <template v-else>
         <!-- In-game HUD lives in a bottom dock so the corridor stays clear. -->
         <div class="sfx-dock">
           <div v-if="bossActive" class="sfx-dock-boss">
-            <span class="sfx-boss-name">{{ BOSS_NAME }}</span>
+            <span class="sfx-boss-name px-hud">{{ BOSS_NAME }}</span>
             <span class="sfx-bar sfx-boss-bar" role="status" aria-label="Boss integrity">
               <span class="sfx-bar-fill sfx-bar-boss" :style="{ width: `${bossMax > 0 ? Math.round(100 * bossHp / bossMax) : 0}%` }" />
             </span>
           </div>
-          <p v-if="gameStarted" class="location sfx-hud">
-            SECTOR {{ pad(sector) }} · SCORE: {{ score }} · {{ distance }} KM
+          <p v-if="gameStarted" class="location px-hud">
+            SECTOR {{ pad(sector) }} · SCORE {{ score }} · {{ distance }} KM
           </p>
           <div v-if="gameStarted" class="sfx-bar" role="status" aria-label="Hull integrity">
             <div class="sfx-bar-fill" :class="hpClass" :style="{ width: `${Math.round(100 * hp / hpMax)}%` }" />
           </div>
-          <p v-if="banner" class="location sfx-hud sfx-banner">{{ banner }}</p>
-          <p v-if="powerMsg" class="location sfx-hud sfx-power">{{ powerMsg }}</p>
-          <p v-if="gameStarted" class="location sfx-hud sfx-wing">{{ wingMsg }}</p>
-          <p v-if="highScore > 0 && !gameStarted" class="location sfx-hud-dim">HIGH SCORE: {{ highScore }}</p>
+          <p v-if="banner" class="location px-hud px-blink sfx-gold">{{ banner }}</p>
+          <p v-if="powerMsg" class="location px-hud sfx-gold">{{ powerMsg }}</p>
+          <p v-if="gameStarted" class="location px-hud px-dim sfx-wing">{{ wingMsg }}</p>
+          <p v-if="highScore > 0 && !gameStarted" class="location px-hud px-dim">HIGH SCORE {{ highScore }}</p>
           <template v-if="!gameStarted">
-            <p class="sfx-hint">▶ {{ hint('PRESS ENTER TO FLY', 'TAP TO FLY') }} ◀</p>
-            <p class="sfx-hint sfx-hint-dim">{{ hint('ARROWS · SPACE FIRE · SHIFT ROLL · WINGMAN HUNTS · ESC PAUSE', 'DRAG TO STEER · AUTO-FIRE · DOUBLE-TAP ROLL · WINGMAN HUNTS') }}</p>
+            <p class="px-hint px-blink">▶ {{ hint('PRESS ENTER TO FLY', 'TAP TO FLY') }} ◀</p>
+            <p class="px-hint px-dim">{{ hint('ARROWS · SPACE FIRE · SHIFT ROLL · WINGMAN HUNTS · ESC PAUSE', 'DRAG TO STEER · AUTO-FIRE · DOUBLE-TAP ROLL · WINGMAN HUNTS') }}</p>
           </template>
         </div>
       </template>
@@ -113,15 +113,15 @@ const hpClass = computed(() => {
 
 const banner = computed(() => {
   if (!gameStarted.value || gameOver.value) return ''
-  if (phase.value === 'warning') return `⚠ ${BOSS_NAME} APPROACHING`
+  if (phase.value === 'warning') return `! ${BOSS_NAME} APPROACHING !`
   if (phase.value === 'clear') return `SECTOR ${pad(sector.value)} CLEAR · +${sectorClearBonus(sector.value)} · +${HEAL_CLEAR} HULL`
   return ''
 })
 
 const wingMsg = computed(() => {
   if (gameOver.value) return ''
-  if (wingCallout.value) return `WING ▸ ${wingCallout.value}`
-  return wingAlive.value ? 'WING ● ONLINE' : `WING ○ ${Math.ceil(wingRespawn.value)}S`
+  if (wingCallout.value) return `WING ▶ ${wingCallout.value}`
+  return wingAlive.value ? 'WING · ONLINE' : `WING · BACK IN ${Math.ceil(wingRespawn.value)}S`
 })
 
 onMounted(() => {
@@ -186,78 +186,40 @@ function onGameRestart() {
 </script>
 
 <style>
-.sfx-hud {
-  font-family: var(--font-machine);
-  color: var(--sfx-cyan, #2ff3ff);
-  letter-spacing: 0.15em;
-  font-size: 1em;
-  text-shadow: 0 0 8px rgba(47, 243, 255, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
+/* Text: themes/base/pixel/pixel.css (.px-*). Meters are pixel bars: hard
+   2 px frames, stepped fills, no radius, no soft glow. */
+.sfx-gold {
+  --px-hud: #ffd23f;
+}
+.landing .sfx-wing {
+  margin-top: 0.25em;
 }
 
-.sfx-over-title {
-  font-family: var(--font-machine);
-  color: var(--sfx-pink, #ff2fa0);
-  font-size: 2.8em;
-  letter-spacing: 0.1em;
-  margin-top: 0.5em;
-  margin-bottom: 0.1em;
-  text-shadow: 0 0 12px rgba(255, 47, 160, 0.8), 0 0 40px rgba(255, 47, 160, 0.4);
-}
-@media (min-width: 800px) {
-  .sfx-over-title {
-    font-size: 3.2em;
-  }
-}
-
-.sfx-over-score {
-  margin-top: 0.3em;
-}
-
-.sfx-new-high {
-  animation: sfx-pulse 0.8s ease-in-out infinite alternate;
-}
-
-.sfx-power {
-  color: var(--sfx-gold, #ffd23f);
-  text-shadow: 0 0 8px rgba(255, 210, 63, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
-}
-
-.sfx-wing {
-  font-size: 0.7em;
-  opacity: 0.8;
-}
-
-/* Hull + boss meters: thin machine-font bars, never touch targets. */
 .sfx-bar {
   display: block;
-  width: min(280px, 60vw);
-  height: 6px;
+  width: min(288px, 60vw);
+  height: 10px;
   margin: 0.5em auto 0;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(47, 243, 255, 0.4);
-  border-radius: 3px;
+  background: #1c1030;
+  border: 2px solid #0b0616;
+  box-shadow: 0 0 0 2px #2a8579;
   overflow: hidden;
 }
 .sfx-bar-fill {
   display: block;
   height: 100%;
-  background: var(--sfx-cyan, #2ff3ff);
-  box-shadow: 0 0 8px rgba(47, 243, 255, 0.8);
-  transition: width 0.2s linear;
+  background: #2ff3ff;
+  box-shadow: inset 0 2px 0 #fff4ff, inset 0 -2px 0 #1a9fc4;
+  transition: width 0.2s steps(4);
 }
 .sfx-bar-mid {
-  background: var(--sfx-gold, #ffd23f);
-  box-shadow: 0 0 8px rgba(255, 210, 63, 0.8);
+  background: #ffd23f;
+  box-shadow: inset 0 2px 0 #fff1b0, inset 0 -2px 0 #c4861c;
 }
 .sfx-bar-low {
-  background: var(--sfx-pink, #ff2fa0);
-  box-shadow: 0 0 8px rgba(255, 47, 160, 0.8);
-  animation: sfx-pulse 0.5s ease-in-out infinite alternate;
-}
-.sfx-banner {
-  color: var(--sfx-gold, #ffd23f);
-  text-shadow: 0 0 8px rgba(255, 210, 63, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
-  animation: sfx-pulse 0.8s ease-in-out infinite alternate;
+  background: #ff2fa0;
+  box-shadow: inset 0 2px 0 #ff8ae0, inset 0 -2px 0 #b01874;
+  animation: px-blink 0.5s steps(1) infinite;
 }
 /* Bottom dock: all in-game text and meters sit here so the corridor
    stays clear. Sits above the bottom band (--app-safe-bottom), at least 3 rem up. */
@@ -267,7 +229,7 @@ function onGameRestart() {
   transform: translateX(-50%);
   bottom: max(3rem, calc(2.2rem + var(--app-safe-bottom, 0px)));
   z-index: 3;
-  width: min(520px, 72vw);
+  width: min(560px, 92vw);
   text-align: center;
   pointer-events: none;
 }
@@ -276,53 +238,16 @@ function onGameRestart() {
   pointer-events: none;
   margin-bottom: 0.4em;
 }
-.sfx-boss-name {
-  font-family: var(--font-machine);
-  font-size: 0.7em;
-  letter-spacing: 0.3em;
-  color: var(--sfx-pink, #ff2fa0);
-  text-shadow: 0 0 10px rgba(255, 47, 160, 0.7);
+.landing .sfx-boss-name {
+  --px-hud: #ff2fa0;
+  display: block;
+  margin: 0;
 }
 .sfx-boss-bar {
-  margin-top: 0.3em;
-  border-color: rgba(255, 47, 160, 0.5);
+  box-shadow: 0 0 0 2px #b01874;
 }
 .sfx-bar-boss {
-  background: var(--sfx-pink, #ff2fa0);
-  box-shadow: 0 0 8px rgba(255, 47, 160, 0.8);
+  background: #ff2fa0;
+  box-shadow: inset 0 2px 0 #ff8ae0, inset 0 -2px 0 #b01874;
 }
-@keyframes sfx-pulse {
-  from { opacity: 0.6; }
-  to { opacity: 1; }
-}
-
-.sfx-hint {
-  font-family: var(--font-machine);
-  color: var(--sfx-pink, #ff2fa0);
-  font-size: 0.9em;
-  letter-spacing: 0.12em;
-  opacity: 0.9;
-  margin-top: 1em;
-  text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
-  animation: sfx-blink 1.6s ease-in-out infinite alternate;
-}
-@keyframes sfx-blink {
-  from { opacity: 0.55; }
-  to { opacity: 1; }
-}
-
-.sfx-hint-dim {
-  opacity: 0.45;
-  font-size: 0.7em;
-  margin-top: 0.2em;
-}
-
-.sfx-hud-dim {
-  font-family: var(--font-machine);
-  color: var(--theme-accent, #fff);
-  opacity: 0.5;
-  font-size: 0.65em;
-  letter-spacing: 0.1em;
-}
-
 </style>

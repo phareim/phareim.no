@@ -1,7 +1,6 @@
 <template>
   <div class="sfx-wrap">
     <canvas ref="canvas" class="sfx-canvas"></canvas>
-    <div ref="flashEl" class="sfx-flash"></div>
     <EscHold :is-active="escActive" :paused="paused" @tap="togglePause" @hold="quitToGameOver" />
   </div>
 </template>
@@ -24,9 +23,16 @@
  *
  * The world streams toward the player down -Z. The Arwing flies inside a
  * screen-space box, banks into lateral moves, and the camera lags behind
- * it so the world feels heavy. Synthwave dressing: striped sun, gradient
- * sky dome, scrolling magenta/cyan grid with a heartbeat pulse, mountain
- * silhouettes, fog the colour of the sky.
+ * it so the world feels heavy.
+ *
+ * Look (2026-09-24): Neon Shrine's pixels, the Super FX way. three.js
+ * draws into a small render target (the pixel stage's logical size), a
+ * post pass snaps it to Neon Shrine's palette with a Bayer dither
+ * (./pixel.ts), and the shared 2D stage (themes/base/pixel/stage.ts) takes
+ * it from there: light map from the lasers, bolts, engines, rings and the
+ * boss core, whole-number upscale, bloom, scanlines, vignette. Below: the
+ * grass and rose path of the portal's world with a neon strip that beats;
+ * above: a dithered dusk and the striped sun behind flat-shaded ridges.
  */
 import * as THREE from 'three'
 import EscHold from '../base/EscHold.vue'
@@ -35,7 +41,7 @@ import {
   HP_MAX, DMG, HEAL_RING, HEAL_CLEAR,
   type SectorPhase, advanceSector, bossMaxHp, sectorClearBonus,
   bossAttackInterval, BOSS_ENRAGE_RATE, bossFanCount, bossFanSpread,
-  bossMinions, sectorPalette, BOSS_WHEEL_LEN,
+  bossMinions, BOSS_WHEEL_LEN,
   enemyFireInterval, boltSpeedBonus, enemyShootChance,
   formationSize, pickEnemyKind, worldSpeedFor, spawnPace,
   applyDamage, heal, ENEMY_STATS, type EnemyKind,
@@ -44,6 +50,8 @@ import {
 } from './balance'
 import { createWingAi, stepWingman, callout, WING_AI, type WingTarget } from './wingmanAi'
 import { buildPlayerShip } from '~/themes/ships/three'
+import { createPixelStage, type PixelStage } from '../base/pixel/stage'
+import { createGroundMaterial, createPixelPipeline, pixelSector, project, tintGround, type PixelPipeline } from './pixel'
 import { readShipDef } from '~/composables/useShip'
 import { useSound } from '~/composables/useSound'
 
@@ -94,7 +102,6 @@ const emit = defineEmits<{
 }>()
 
 const canvas = ref<HTMLCanvasElement | null>(null)
-const flashEl = ref<HTMLDivElement | null>(null)
 
 // ---- palette ---------------------------------------------------------
 const COL_BG = 0x0b0616
@@ -133,6 +140,10 @@ const MAX_WAVES = 3
 
 // ---- run state --------------------------------------------------------
 let renderer: THREE.WebGLRenderer | null = null
+// The WebGL canvas is offscreen; the visible canvas is the 2D pixel stage.
+let glCanvas: HTMLCanvasElement | null = null
+let pipeline: PixelPipeline | null = null
+let stage: PixelStage | null = null
 let scene: THREE.Scene
 let camera: THREE.PerspectiveCamera
 let raf = 0
@@ -233,7 +244,7 @@ const WING_ID_CORE = -100
 let wingHitSayAt = -10
 
 // ---- environment ------------------------------------------------------
-let gridMat: THREE.ShaderMaterial
+let gridMat: THREE.ShaderMaterial // the ground (Neon Shrine grass and path)
 let skyMat: THREE.ShaderMaterial
 let sunMat: THREE.ShaderMaterial
 let sunMesh: THREE.Mesh
@@ -416,9 +427,9 @@ function buildSky() {
     depthWrite: false,
     fog: false,
     uniforms: {
-      top: { value: new THREE.Color(0x060310) },
-      mid: { value: new THREE.Color(0x2b0f4d) },
-      hor: { value: new THREE.Color(0x6b1450) },
+      top: { value: new THREE.Color('#0b0616') },
+      mid: { value: new THREE.Color('#43246e') },
+      hor: { value: new THREE.Color('#e0508a') },
     },
     vertexShader: `
       varying vec3 vPos;
@@ -433,11 +444,14 @@ function buildSky() {
         float h = normalize(vPos).y;
         vec3 col = mix(hor, mid, smoothstep(0.0, 0.32, h));
         col = mix(col, top, smoothstep(0.28, 0.85, h));
-        col = mix(vec3(0.023, 0.012, 0.06), col, smoothstep(-0.25, 0.0, h));
+        col = mix(mid, col, smoothstep(-0.25, 0.0, h));
         gl_FragColor = vec4(col, 1.0);
       }`,
   })
-  scene.add(new THREE.Mesh(geo, skyMat))
+  const sky = new THREE.Mesh(geo, skyMat)
+  // First, so the ground (no depth write) and the sun draw over it.
+  sky.renderOrder = -5
+  scene.add(sky)
 }
 
 function buildSun() {
@@ -447,7 +461,7 @@ function buildSun() {
     depthWrite: false,
     fog: false,
     uniforms: {
-      top: { value: new THREE.Color(COL_GOLD) },
+      top: { value: new THREE.Color('#fff1b0') },
       bottom: { value: new THREE.Color(COL_PINK) },
     },
     vertexShader: `
@@ -466,7 +480,7 @@ function buildSun() {
         // horizontal cut-out bands, thicker toward the bottom
         float band = fract(y * 11.0);
         if (band < (1.0 - y) * 0.42) discard;
-        vec3 col = mix(bottom, top, pow(y, 1.4));
+        vec3 col = mix(bottom, top, pow(y, 1.1));
         gl_FragColor = vec4(col, 1.0);
       }`,
   })
@@ -482,7 +496,7 @@ function buildSun() {
     map: glowTex,
     color: COL_PINK,
     transparent: true,
-    opacity: 0.5,
+    opacity: 0.32,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     fog: false,
@@ -491,6 +505,9 @@ function buildSun() {
   halo.position.set(0, 14, -465)
   halo.scale.set(260, 260, 1)
   halo.renderOrder = -3
+  // At pixel size the halo quantizes to a grey disc over the ridges; the
+  // stage's bloom of the sun's light does the glow instead.
+  halo.visible = false
   scene.add(halo)
   sunHalo = halo
 }
@@ -511,41 +528,10 @@ function placeSun() {
 }
 
 function buildGrid() {
+  // Neon Shrine's ground from above: grass patches, blades, the rose path
+  // down the lane and a neon strip that beats with the music (./pixel.ts).
   const geo = new THREE.PlaneGeometry(600, 800, 1, 1)
-  gridMat = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    fog: false,
-    uniforms: {
-      uOffset: { value: 0 },
-      uPulse: { value: 0 },
-      magenta: { value: new THREE.Color(COL_PINK) },
-      cyan: { value: new THREE.Color(COL_CYAN) },
-    },
-    vertexShader: `
-      varying vec3 vWorld;
-      void main() {
-        vec4 w = modelMatrix * vec4(position, 1.0);
-        vWorld = w.xyz;
-        gl_Position = projectionMatrix * viewMatrix * w;
-      }`,
-    fragmentShader: `
-      varying vec3 vWorld;
-      uniform float uOffset; uniform float uPulse;
-      uniform vec3 magenta; uniform vec3 cyan;
-      void main() {
-        vec2 gp = vec2(vWorld.x, vWorld.z - uOffset);
-        vec2 q = abs(fract(gp / 4.0) - 0.5) * 4.0;
-        float line = 1.0 - smoothstep(0.0, 0.14, min(q.x, q.y));
-        float centre = 1.0 - smoothstep(0.0, 0.6, abs(vWorld.x));
-        float dist = length(vWorld - cameraPosition);
-        float fade = exp(-dist * 0.009);
-        float beat = 0.72 + 0.28 * uPulse;
-        vec3 col = magenta * line + cyan * centre * (line * 0.9 + 0.08);
-        float a = clamp((line * 0.85 + centre * 0.12) * fade * beat, 0.0, 1.0);
-        gl_FragColor = vec4(col * beat, a);
-      }`,
-  })
+  gridMat = createGroundMaterial()
   const grid = new THREE.Mesh(geo, gridMat)
   grid.rotation.x = -Math.PI / 2
   grid.position.set(0, -5, -260)
@@ -564,8 +550,8 @@ function buildStars() {
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
   const mat = new THREE.PointsMaterial({
-    color: 0xcfe9ff,
-    size: 1.6,
+    color: 0xcfc6ff,
+    size: 1,
     sizeAttenuation: false,
     transparent: true,
     opacity: 0.85,
@@ -613,8 +599,8 @@ function buildMountains() {
   // Same look as the shared 2D mountains (mountainTerrain.js): near-black
   // violet faces with a violet wireframe over them, unlit so the lines read.
   const mat = new THREE.MeshLambertMaterial({
-    color: 0x0d0718,
-    emissive: 0x070410,
+    color: 0x2c2058,
+    emissive: 0x140b26,
     flatShading: true,
   })
   mountainMesh = new THREE.InstancedMesh(geo, mat, 44)
@@ -648,6 +634,8 @@ function buildMountains() {
   mountainMesh.frustumCulled = false
   mountainEdgeMesh.frustumCulled = false
   scene.add(mountainMesh)
+  // The mesh lines read as noise at pixel size; the flat faces carry the ridges.
+  mountainEdgeMesh.visible = false
   scene.add(mountainEdgeMesh)
 }
 
@@ -1762,8 +1750,10 @@ function buildParticles() {
   }
   pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3))
   pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3))
+  // Sparks are whole pixels of the low-res target, near or far.
   const mat = new THREE.PointsMaterial({
-    size: 0.55,
+    size: 2,
+    sizeAttenuation: false,
     vertexColors: true,
     transparent: true,
     opacity: 0.95,
@@ -2165,13 +2155,8 @@ function update(dt: number, now: number) {
     emit('death')
   }
 
-  // screen flash overlay
-  if (flash > 0) {
-    flash = Math.max(0, flash - dt * 2.2)
-    if (flashEl.value) flashEl.value.style.opacity = String(flash * 0.55)
-  } else if (flashEl.value && flashEl.value.style.opacity !== '0') {
-    flashEl.value.style.opacity = '0'
-  }
+  // screen flash (drawn by the pixel stage)
+  if (flash > 0) flash = Math.max(0, flash - dt * 2.2)
 }
 
 function updateSpawns(dt: number, demo: boolean) {
@@ -2725,12 +2710,13 @@ function updateMountains(dt: number) {
 /** Hard-cut the backdrop palette on a new sector: mountains, grid, fog, sky. */
 function applySectorPalette(s: number) {
   if (!mountainMesh || !gridMat || !skyMat || !scene) return
-  const p = sectorPalette(s)
-  ;(mountainMesh.material as THREE.MeshLambertMaterial).color.set(p.face)
-  ;(mountainEdgeMesh.material as THREE.MeshBasicMaterial).color.set(p.edge)
-  ;(gridMat.uniforms.magenta.value as THREE.Color).set(p.grid)
+  const p = pixelSector(s)
+  ;(mountainMesh.material as THREE.MeshLambertMaterial).color.set(p.ridge)
+  tintGround(gridMat, p)
   ;(scene.fog as THREE.Fog).color.set(p.fog)
-  ;(skyMat.uniforms.hor.value as THREE.Color).set(p.sky)
+  ;(skyMat.uniforms.top.value as THREE.Color).set(p.skyTop)
+  ;(skyMat.uniforms.mid.value as THREE.Color).set(p.skyMid)
+  ;(skyMat.uniforms.hor.value as THREE.Color).set(p.skyHor)
 }
 
 function updateCamera(dt: number, now: number) {
@@ -2760,7 +2746,39 @@ function frame(now: number) {
   last = now
   // Paused: freeze the world behind the PAUSED pill, keep rendering it.
   if (!paused.value) update(dt, now / 1000)
-  renderer!.render(scene, camera)
+  if (!pipeline || !stage || !glCanvas) return
+  pipeline.render(scene, camera)
+  const g = stage.begin()
+  g.drawImage(glCanvas, 0, 0)
+  pushLights(now / 1000)
+  stage.present({
+    ambient: '#c9bde6',
+    flash: flash > 0 ? { color: '#ff2fa0', a: flash * 0.4 } : null,
+  })
+}
+
+/** Glows for the stage's light map and bloom, projected from the 3D scene. */
+function pushLights(t: number) {
+  const s = stage!
+  const vw = s.vw
+  const vh = s.vh
+  const add = (x: number, y: number, z: number, r: number, color: string, a: number, min = 2, max = 60) => {
+    const p = project(camera, vw, vh, x, y, z, r, min, max)
+    if (p) s.light(p.x, p.y, p.r, color, a)
+  }
+  // Keep the sun bright through the light map. Under 0.3 the stage adds no
+  // bloom for it, which would wash the ridges in front of it grey.
+  if (sunMesh) add(sunMesh.position.x, sunMesh.position.y, sunMesh.position.z, 60 * sunMesh.scale.x, '#ffffff', 0.29, 6, 200)
+  if (shipVisible && shipRoot?.visible !== false) add(shipX, shipY, 1.3, 2.4, '#2ff3ff', 0.75)
+  if (buddy.root?.visible) add(buddy.root.position.x, buddy.root.position.y, buddy.root.position.z + 1.3, 2, '#ffd23f', 0.6)
+  for (const l of laserState) if (l.active) add(l.x, l.y, l.z, 1.4, l.dmg >= 2 ? '#ffd23f' : '#2ff3ff', 0.85)
+  for (const b of bolts) if (b.active) add(b.mesh.position.x, b.mesh.position.y, b.mesh.position.z, 1.2, '#ff2fa0', 0.85)
+  for (const e of enemies) if (e.active) add(e.x, e.y, e.z, 2.2, e.kind === 'drone' ? '#ff2fa0' : '#ffd23f', 0.5)
+  for (const r of rings) if (r.active) add(r.x, r.y, r.z, 3.5, '#ff2fa0', 0.55 + r.flash * 0.4)
+  for (const p of powerups) if (p.active) add(p.x, p.y, p.z, 2.5, '#ffd23f', 0.7)
+  for (const m of mines) if (m.active) add(m.x, m.y, m.z, 1.8, '#ffd23f', 0.5 + 0.3 * Math.sin(m.pulse))
+  for (const w of waves) if (w.active) add(w.mesh.position.x, w.mesh.position.y, w.mesh.position.z, 4 * w.mesh.scale.x, '#2ff3ff', w.mat.opacity)
+  if (boss.active) add(boss.x, boss.y, boss.z, 6, '#ffd23f', 0.7 + 0.2 * Math.sin(t * 6), 4, 80)
 }
 
 function resize() {
@@ -2769,14 +2787,19 @@ function resize() {
   H = window.innerHeight
   portrait = H > W
   laneX = portrait ? 6.5 : 11
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
-  renderer.setSize(W, H, false)
-  camera.aspect = W / H
+  // The 3D renders at the stage's logical size: ~320×200 on a monitor,
+  // ~195×420 on a portrait phone, scaled up by a whole number.
+  stage!.resize(W, H, window.devicePixelRatio || 1, portrait ? 180 : 320, 180)
+  const vw = stage!.vw
+  const vh = stage!.vh
+  pipeline!.setSize(vw, vh)
+  camera.aspect = vw / vh
   camera.fov = portrait ? 80 : 62
   // Installed web app: render the view `band` px lower so the scene (ship
   // included) lifts off the bottom edge; the canvas stays full-bleed.
   band = safeBottom()
-  if (band > 0) camera.setViewOffset(W, H, 0, band, W, H)
+  const bandL = Math.round(band / stage!.k)
+  if (bandL > 0) camera.setViewOffset(vw, vh, 0, bandL, vw, vh)
   else camera.clearViewOffset()
   camera.updateProjectionMatrix()
   if (sunMesh && sunHalo) placeSun()
@@ -2958,9 +2981,12 @@ function onBlur() {
 // ---- lifecycle -----------------------------------------------------------------
 onMounted(() => {
   try {
-    renderer = new THREE.WebGLRenderer({ canvas: canvas.value!, antialias: false, powerPreference: 'low-power' })
+    glCanvas = document.createElement('canvas')
+    renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: false, powerPreference: 'low-power' })
   } catch { return }
   if (!renderer) return
+  stage = createPixelStage(canvas.value!)
+  pipeline = createPixelPipeline(renderer)
   reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
   buildScene()
   applySectorPalette(1)
@@ -3000,6 +3026,9 @@ onBeforeUnmount(() => {
     else mat?.dispose?.()
   })
   glowTex?.dispose()
+  pipeline?.dispose()
+  pipeline = null
+  stage = null
   renderer?.dispose()
   renderer?.forceContextLoss()
   renderer = null
@@ -3020,12 +3049,5 @@ onBeforeUnmount(() => {
   display: block;
   z-index: 1;
 }
-.sfx-flash {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0;
-  background: radial-gradient(ellipse at center, rgba(255, 47, 160, 0.55) 0%, rgba(47, 243, 255, 0.25) 60%, transparent 100%);
-}
+
 </style>

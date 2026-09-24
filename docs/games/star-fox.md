@@ -7,6 +7,25 @@ pillars and rocks, endless sectors, kill-streak multiplier. Attract-mode
 autopilot flies the ship until Enter/tap. three.js loads lazily from
 `starfox/Landing.vue` so the other themes don't pay for it.
 
+**Look (2026-09-24): Neon Shrine's pixels, the Super FX way**
+(`docs/games/pixel-look.md`). three.js renders into a render target at the
+pixel stage's logical size (~320×200 on a monitor, ~195×420 on a portrait
+phone); a post pass (`themes/starfox/pixel.ts`) snaps every pixel to Neon
+Shrine's palette with a 4×4 Bayer dither; the shared 2D stage then adds the
+light map (lasers, bolts, engines, rings, mines, the boss core, projected
+from 3D), the whole-number upscale, bloom, scanlines and vignette. The WebGL
+canvas is offscreen; the visible canvas is the stage. The ground is the
+portal's world from above, drawn by a world-space shader: grass patches,
+blades and flowers up close, the rose path down the flight lane with a
+neon strip that beats with the music, distance fog in bands. Above: a
+dithered dusk and the striped sun behind flat-shaded violet ridges (the
+mesh lines and the sun halo are hidden; they turn to noise at pixel size).
+Sparks are 2 px points. Each sector has its own Neon Shrine mood
+(`PIXEL_SECTORS`: coast dusk, Whisper Woods, ember, Mirror Lake); the
+Landing overlay uses `.px-*` and pixel meters. Frame time in headless
+Chromium with software GL (SwiftShader, a loaded CPU, 2026-09-24): ~63 ms at
+1280×800, ~95 ms at 390×844 dpr 3 — not a phone measurement.
+
 ## History
 
 Built via `/musecode`: three looks (Super FX pixel render, neon vector,
@@ -79,9 +98,9 @@ Files: `themes/starfox/Flight.vue` (scene + state machine), `Landing.vue`
 kill, which lives in the scene; `bossAttackInterval`/`bossFanCount`/
 `bossFanSpread`/`bossMinions` pin the boss ramp; `ENEMY_STATS` the
 bestiary; `BUDDY_*`/`MINE_*`/`MAX_*` the wingman and obstacle caps;
-`sectorPalette` holds the
-four cycling backdrop palettes — violet dusk, emerald, ember, azure — cut
-hard onto mountains, grid, fog and sky at every sector rollover),
+`sectorPalette` holds four cycling token sets the tests pin; the
+renderer takes its sector moods from `PIXEL_SECTORS` in `pixel.ts` instead,
+cut hard onto ridges, ground, fog and sky at every sector rollover),
 `wingmanAi.ts` (the wingman brain),
 `tests/starfox-balance.test.mjs` (21 tests, `npm run test:starfox`, in
 CI), `tests/starfox-wingman.test.mjs` (17 tests, `npm run test:wingman`, in
