@@ -91,6 +91,10 @@ composables/useThemeNavigation.ts  Escape → portal, 3 s grace after a game let
   registry flag is gone with the Almanac theme that needed it. Since
   2026-09-07 `/` is the only route, so nothing scrolls anywhere and the
   `.page-scroll` container is gone with about/projects/meta.
+  Bottom-anchored UI (buttons, hints, HUD text, the player's ship or paddle)
+  stays above the bottom band `var(--app-safe-bottom, 0px)` from `app.vue`
+  (browser tab: the safe-area inset; installed web app: `max(48px, inset + 30px)`);
+  backdrops may run through it. See AGENTS.md, "Bottom band".
 
 `themes/content.ts` is the default copy. A theme may pass its own `content`
 prop to DefaultLanding, reword it, or ignore it.

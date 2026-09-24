@@ -34,6 +34,18 @@ useHead({
    strip stays blank at the bottom; there it adds the top inset back. */
 :root {
   --app-height: 100dvh;
+  /* The bottom band: nothing interactive or meaning-bearing (buttons, text,
+     the player's ship) sits lower than this above the bottom edge; backdrops
+     may run through it. In a browser tab it is the safe-area inset. */
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Installed as a web app the page reaches the very bottom of the screen, where
+   the home indicator and the system swipe gestures live. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  :root {
+    --app-safe-bottom: max(48px, calc(env(safe-area-inset-bottom, 0px) + 30px));
+  }
 }
 
 @supports (-webkit-touch-callout: none) {

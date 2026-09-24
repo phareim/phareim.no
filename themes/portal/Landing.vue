@@ -92,7 +92,7 @@ const contacts = urlExits.filter(e => e.look === 'terminal')
 .portal-hint {
   position: absolute;
   left: 50%;
-  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(28px + var(--app-safe-bottom, 0px));
   z-index: 4;
   margin: 0;
   padding: 0.7em 1.1em;
@@ -114,7 +114,7 @@ const contacts = urlExits.filter(e => e.look === 'terminal')
 
 /* Clear of the A button. */
 .portal-hint--touch {
-  bottom: calc(124px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(124px + var(--app-safe-bottom, 0px));
 }
 
 .portal-hint--gone {

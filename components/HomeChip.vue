@@ -30,7 +30,7 @@ const { isHome, goHome, navigationBlocked } = useTheme()
   position: fixed;
   z-index: 50;
   right: max(0.5rem, env(safe-area-inset-right));
-  bottom: calc(max(0.9rem, env(safe-area-inset-bottom)) - 0.45rem);
+  bottom: calc(max(0.9rem, var(--app-safe-bottom, 0px)) - 0.45rem);
   width: 2.5rem;
   height: 2.5rem;
   display: grid;

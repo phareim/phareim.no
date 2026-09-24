@@ -604,7 +604,7 @@ onBeforeUnmount(() => {
   inset: 0;
   visibility: hidden;
   pointer-events: none;
-  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) var(--app-safe-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
 .zelda-deck {
@@ -617,16 +617,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  padding: 0 calc(14px + env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px));
+  padding: 0 calc(14px + env(safe-area-inset-right, 0px)) calc(14px + var(--app-safe-bottom, 0px));
   font-family: var(--font-machine);
-}
-
-/* Installed web app: the page reaches the very bottom edge, where the home
-   indicator and swipe gestures live, so the deck sits a thumb higher. */
-@media (display-mode: standalone), (display-mode: fullscreen) {
-  .zelda-deck {
-    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
-  }
 }
 
 /* The pause buttons sit centred across the bottom. */
