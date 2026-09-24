@@ -50,7 +50,8 @@ maps to the capitals; it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂.
 | Galaga | done | a dithered violet night with nebulae in the sector tints, a ringed planet, cratered rocks; the vector ships pixelized at run time; the intercom is Neon Shrine's dialog box |
 | Breakout | done | a shrine chamber seen from above: stone and crystal bricks, braziers, a pit under the paddle |
 | Tetris | done | a torchlit stone shaft in the shrine; carved bevelled blocks; the town at dusk behind the cabinet |
-| R-Type, OutRun, Star Fox, Another Shore | in progress | |
+| R-Type | done | the shrine caves: rock walls with glowing crystals that light the walls, a warm far cave behind; turned a quarter on portrait phones (`present({ rotate })`) |
+| OutRun, Star Fox, Another Shore | in progress | |
 
 **Checking a look.** `node scripts/zelda-lab/games-shot.mjs <devUrl> <outDir>
 [ids] [w] [h]` screenshots each game idle and after a moment of play;

@@ -30,14 +30,17 @@
   .landing .px-title { font-size: 64px; text-shadow: 8px 8px 0 #0b0616, 0 0 32px color-mix(in srgb, var(--px-title, #ff2fa0) 60%, transparent); }
 }
 
-.landing .px-hud {
+/* p.px-* outranks DefaultLanding's `.landing .location` (0.7em), which loads later. */
+.landing .px-hud,
+.landing p.px-hud {
   font-size: 16px;
   color: var(--px-hud, #2ff3ff);
   text-shadow: 2px 2px 0 #0b0616, 0 0 10px color-mix(in srgb, var(--px-hud, #2ff3ff) 55%, transparent);
   margin: 0.5em 0 0;
 }
 
-.landing .px-hint {
+.landing .px-hint,
+.landing p.px-hint {
   font-size: 16px;
   color: var(--px-hint, #ff2fa0);
   text-shadow: 2px 2px 0 #0b0616, 0 0 10px color-mix(in srgb, var(--px-hint, #ff2fa0) 50%, transparent);
