@@ -22,10 +22,10 @@
         <p class="px-hint px-blink rtype-px">▶ {{ hint('PRESS ENTER TO PLAY AGAIN', 'TAP TO PLAY AGAIN') }} ◀</p>
       </template>
       <template v-else>
-        <p class="location px-hud" :class="{ 'rtype-hud-live': gameStarted }">
+        <p class="px-hud" :class="{ 'rtype-hud-live': gameStarted }">
           SCORE {{ score }} · DIST {{ distance }}M<template v-if="gameStarted"> · {{ '▶'.repeat(Math.max(0, lives)) }}</template>
         </p>
-        <p v-if="highScore > 0 && !gameStarted" class="location px-hud px-dim">HIGH SCORE {{ highScore }}</p>
+        <p v-if="highScore > 0 && !gameStarted" class="px-hud px-dim">HIGH SCORE {{ highScore }}</p>
         <template v-if="!gameStarted">
           <p class="px-hint px-blink rtype-px">▶ {{ hint('PRESS ENTER TO START', 'TAP TO START') }} ◀</p>
           <p class="px-hint px-dim">{{ hint('ARROWS/WASD MOVE · SPACE FIRE · SHIFT FORCE POD · ESC PAUSE', 'DRAG TO MOVE · AUTO-FIRE · DOUBLE-TAP FORCE POD') }}</p>
