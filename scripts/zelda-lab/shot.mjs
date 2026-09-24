@@ -86,6 +86,7 @@ switch (scene) {
   case 'r-plaza': run(20); break
   case 'r-arcade': place('arcade', 'door'); run(20); break
   case 'r-home': place('home', 'door'); run(20); break
+  case 'r-desk': place('home', 'door', -2, -4); s.hero.dir = 'left'; run(5); break
 }
 // Several frames so fades (exit labels) settle and the clock moves.
 for (let k = 0; k < 40; k++) r.draw(s, ui, 1 / 60)
@@ -138,6 +139,7 @@ const SHOTS = [
   ['r-plaza-412', 'r-plaza', 412, 915, 2.625, 280],
   ['r-arcade-1280', 'r-arcade', 1280, 800, 1, 0],
   ['r-arcade-390', 'r-arcade', 390, 844, 3, 260],
+  ['r-home-1280', 'r-home', 1280, 800, 1, 0],
   ['r-home-390', 'r-home', 390, 844, 3, 260],
 ]
 const want = only ? new Set(only.split(',')) : null

@@ -13,6 +13,7 @@ import type { GameState } from '../types'
 import { makeCanvas, sprite } from './sheet'
 import { exitTiles } from './exits'
 import { decalCover } from './decals'
+import { bookshelf, desk, drawFurnitureLive, picture, plant, rug, sofa, stool } from './furniture'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -84,7 +85,7 @@ function disc(g: G, c: string, cx: number, cy: number, rad: number) {
 
 type At = (dx: number, dy: number) => TileChar
 
-const isWall = (t: TileChar) => t === '#' || t === '%'
+const isWall = (t: TileChar) => t === '#' || t === '%' || t === '^'
 const isWater = (t: TileChar) => t === '~'
 const isTree = (t: TileChar) => t === 'T'
 const isBuilding = (t: TileChar) => t === 'H' || t === 'M'
@@ -192,7 +193,8 @@ function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx:
     case '=':
       water(g, px, py, tx, ty, at, OW.waterD, OW.water)
       return
-    case ',':
+    case ',': case 'i':
+      if (t === 'i' && (kind !== 'interior' || (at(-1, 0) !== ',' && at(1, 0) !== ',' && at(-1, 0) !== 'i'))) { ground(kind, g, px, py, tx, ty, at); return }
       if (kind === 'overworld') pathTile(g, px, py, tx, ty, at)
       else if (kind === 'interior') {
         r(g, IN.rug, px, py, T, T)
@@ -200,8 +202,11 @@ function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx:
         r(g, IN.rugL, px + 2, py + T - 3, T - 4, 1)
       } else dungeonFloor(g, px, py, tx, ty, at)
       return
-    case '#': case '%':
+    case '#': case '%': case '^':
       return // walls paint in the object pass
+    case 'f':
+      rug(g, px, py, tx, ty, at)
+      return
     case 'O':
       r(g, '#05030c', px, py, T, T)
       if (at(0, -1) !== 'O') { r(g, kind === 'dungeon' ? DG.faceD : OW.rockD, px, py, T, 4); r(g, '#0d0820', px, py + 4, T, 2) }
@@ -586,6 +591,15 @@ function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, t
     case ';': tallGrass(g, px, py, tx, ty); break
     case ':': if (kind === 'overworld') flowers(g, px, py, tx, ty); else { r(g, DG.moss, px + 4, py + 6, 2, 1); r(g, DG.moss, px + 9, py + 10, 2, 1); r(g, '#1f7a6e', px + 3, py + 7, 4, 1) } break
     case '#': case '%': cliff(kind, g, t, px, py, tx, ty, at); break
+    case '^':
+      cliff(kind, g, t, px, py, tx, ty, at)
+      if (!isWall(at(0, 1))) picture(g, px, py, tx, ty)
+      break
+    case '[': bookshelf(g, px, py, tx, ty, at); break
+    case '(': sofa(g, px, py, tx, ty, at); break
+    case 'w': desk(g, px, py, tx, ty, at); break
+    case 'Y': plant(g, px, py, tx, ty); break
+    case 'i': stool(g, px, py); break
     case '=':
       r(g, OW.woodD, px, py + 2, T, 12)
       for (let i = 0; i < T; i += 4) { r(g, OW.wood, px + i, py + 3, 3, 10); r(g, OW.woodL, px + i, py + 3, 3, 1) }
@@ -823,6 +837,9 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
           drawBlock(g, px, py)
           break
         }
+        case 'w':
+          drawFurnitureLive(g, t, px, py, atFor(m, tx, ty, kind), wx, wy, tm, lights)
+          break
         case '$': {
           const ch = info.chests.get(ty * m.w + tx)
           const open = ch ? has(s, `chest:${ch.id}`) : true

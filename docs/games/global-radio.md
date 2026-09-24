@@ -47,3 +47,12 @@ pause (`stop(false)`); one-shots spiller alltid over radioen. Resume
 overstyrer aldri mute — verken radioens eller spillets egen. To
 AudioContexts er normalt: radioens lever i widgeten, spillets i temaet.
 
+**Portalen og Neon Shrine (2026-09-24).** Disse to spiller musikk fra
+`themes/zelda/audio.ts` og *holder* radioen med `engine.hold(true)` i stedet
+for bare å suspendere den: mens den holdes, gjenopptar ingenting radioen —
+verken widgetens første-trykk-autostart, unmute eller en lukket pausemeny.
+Portalen holder den fra den monteres (`audio.holdRadio()`), før første
+tastetrykk; `dispose` slipper den og gjenopptar radioen hvis den spilte og
+ikke er mutet. Widgeten er skjult på portalen (`app.vue`), der navneskiltet
+ligger øverst til høyre.
+

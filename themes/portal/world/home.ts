@@ -1,7 +1,8 @@
 /**
  * Petter's house, half home and half workshop: three terminals on the back
- * wall that open his profiles, Petter by his desk, shelves, a sofa facing
- * the rug, an aquarium, plants, a framed print and a toy chest. No email
+ * wall that open his profiles, Petter by his desk and its glowing monitor,
+ * bookshelves in both back corners, a sofa facing the rug, an aquarium,
+ * a patterned rug, potted plants, a framed print on the wall and a toy chest. No email
  * address, on purpose (decided 2026-09-07). 15×10.
  */
 import type { ExitDef, MapDef } from '../../zelda/types'
@@ -17,15 +18,15 @@ export const HOME: MapDef = {
   kind: 'interior',
   track: 'indoor',
   rows: [
-    '###############',
-    '#tS.1..2..3.*t#',
+    '############S##',
+    '#[[.1..2..3..[#',
     '#.............#',
-    '#.nn.,,,,,.~~.#',
-    '#..p.,,,,,....#',
-    '#n...,,,,,.nnn#',
-    '#n..........*.#',
-    '#*...........$#',
-    '#......@......#',
+    '#wwp..(((.~~..#',
+    '#....fffff....#',
+    '#Y...fffff...Y#',
+    '#....fffff....#',
+    '#............$#',
+    '#t.....@.....t#',
     '#######d#######',
   ],
   marks: {
@@ -43,10 +44,10 @@ export const HOME: MapDef = {
       'BLUESKY: PHAREIM.NO. SHORT POSTS, NOW AND THEN.',
       'OPEN IT? PRESS {A}.',
     ]),
-    S: { tile: 'S', ent: { t: 'sign', lines: ['A FRAMED PRINT: THE NEON COAST AT NIGHT, THE SUN STUCK ON THE HORIZON.'] } },
+    S: { tile: '^', ent: { t: 'sign', lines: ['A FRAMED PRINT: THE NEON COAST AT NIGHT, THE SUN STUCK ON THE HORIZON.'] } },
     p: {
       ent: {
-        t: 'npc', id: 'petter', look: 'petter', dir: 'right',
+        t: 'npc', id: 'petter', look: 'petter', dir: 'left',
         talk: [{
           lines: [
             "PETTER: OH, HI! I'M PETTER HAREIM. WELCOME TO MY LITTLE TOWN.",

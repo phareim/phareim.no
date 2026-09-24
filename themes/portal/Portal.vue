@@ -1,7 +1,8 @@
 <template>
   <canvas ref="canvas" class="portal-canvas" />
-  <!-- Touch: the floating stick starts anywhere on the left 60 %; A sits bottom right. -->
-  <div v-if="touchUI" class="portal-deck">
+  <!-- Touch: the floating stick starts anywhere on the left 60 %; A sits bottom right.
+    A dialog box takes the bottom of the screen and any tap moves it on, so A steps aside. -->
+  <div v-if="touchUI && !talking" class="portal-deck">
     <button
       class="portal-pad"
       tabindex="-1"
@@ -41,9 +42,12 @@ const emit = defineEmits<{
 const RETURN_KEY = 'portal.return'
 /** A theme exit that has not navigated after this long (bad id) comes back to the world. */
 const STUCK_S = 2.5
+const STUCK_URL_S = 8
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const touchUI = ref(false)
+/** A dialog is open (the A button hides so it doesn't sit on the text). */
+const talking = ref(false)
 const { navigationLocked, launch } = useTheme()
 const sound = useSound()
 
@@ -57,7 +61,7 @@ let reducedMotion = false
 let moved = false
 let unlocked = false
 let track: TrackId | null = null
-/** Seconds spent in mode 'exit' without leaving (only for theme exits; a URL exit waits for the browser). */
+/** Seconds spent in mode 'exit' without leaving. A URL exit waits longer (the next site may be slow), but not forever: Esc or Stop can cancel the navigation. */
 let stuckT = 0
 let leavingUrl = false
 
@@ -179,9 +183,13 @@ function frame(nowMs: number) {
   renderer.onEvents(events)
   handleEvents(events)
   if (ui.banner) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }
-  if (state.mode === 'exit' && !leavingUrl) {
+  if (talking.value !== (state.mode === 'dialog')) {
+    talking.value = state.mode === 'dialog'
+    if (talking.value) releaseA() // the button unmounts under the finger; its pointerup never comes
+  }
+  if (state.mode === 'exit') {
     stuckT += dt
-    if (stuckT > STUCK_S) begin()
+    if (stuckT > (leavingUrl ? STUCK_URL_S : STUCK_S)) begin()
   }
   renderer.draw(state, ui, dt)
 }
@@ -216,6 +224,8 @@ onMounted(() => {
   navigationLocked.value = true
   renderer = createRenderer(canvas.value, PORTAL_WORLD)
   audio = createZeldaAudio()
+  // The town plays its own music; the radio (and its hidden widget) stays quiet here.
+  audio.holdRadio()
   muteStop = watch(sound.muted, (m: boolean) => audio?.setMuted(m), { immediate: true })
   begin()
   resize()

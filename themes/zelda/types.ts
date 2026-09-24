@@ -105,6 +105,14 @@ export type TileChar =
   | 'I' // pillar / statue (solid)
   | 'M' // neon sign / machine (solid, light)
   | 'Z' // blocked tile (solid, invisible barrier)
+  // Interior furniture (the portal's rooms; painted from neighbours where they join)
+  | '[' // bookshelf (solid, stops everything; stands against a wall, reaches up over it)
+  | '(' // sofa (solid; a run of them paints as one sofa with arms at the ends)
+  | 'w' // desk (solid; a run is one desk, its first tile carries a glowing monitor)
+  | 'Y' // potted plant (solid, not liftable)
+  | 'i' // bar stool (walkable decor)
+  | 'f' // patterned rug (walkable decor; a run paints as one rug with a border)
+  | '^' // wall with a framed picture (a wall tile in every other way)
 
 // ---------------------------------------------------------------------------
 // Items

@@ -1,8 +1,9 @@
 /**
  * The arcade hall: four cabinets along the back wall beside the Hall of Fame
  * board, four more on an island between two pillars, a carpet loop around
- * them, the HANGAR door in the back wall, the prize counter with its vendor,
- * a snack table, plants, and the robot by the entrance. 17×11, so the whole
+ * them with bar stools in front of every cabinet, the HANGAR door in the
+ * back wall, the prize counter with its vendor, a snack table, potted
+ * plants, and the robot by the entrance. 17×11, so the whole
  * hall fits one desktop screen (≈18×11 tiles).
  *
  * A cabinet is a solid machine tile carrying an exit (`art` = the theme id
@@ -26,14 +27,14 @@ export const ARCADE: MapDef = {
   rows: [
     '#############h###',
     '#t1234ZZBZZ....t#',
-    '#,,,,,,,,,,,,,,,#',
+    '#,iiii,,,,,,,,,,#',
     '#.,...........,.#',
     '#.,..I5678I...,.#',
-    '#.,,,,,,,,,,,,,.#',
-    '#*......,..v...S#',
+    '#.,,,,iiii,,,,,.#',
+    '#Y......,..v...S#',
     '#.nn....,.nnnn..#',
-    '#*......,.......#',
-    '#.....u.@.....*.#',
+    '#Y......,.......#',
+    '#.....u.@.....Y.#',
     '########d########',
   ],
   // Z: the board is five tiles wide; its wings stay solid.

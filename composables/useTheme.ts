@@ -14,9 +14,10 @@ export interface PortalLaunch {
  * It is read from the route, so SSR paints the right theme and client
  * navigation (links, back/forward) switches it with no extra state.
  *
- * Leaving the portal (`launch`) and coming back (`goHome`) push a history
- * entry, so the back button walks between them. Swiping between games
- * replaces the entry, so history does not fill up.
+ * Leaving the portal (`launch`) pushes a history entry, so the back button
+ * returns. Coming back (`goHome`) steps back to that entry when the portal is
+ * the previous one, and pushes otherwise (a deep link into a game). Swiping
+ * between games replaces the entry, so history does not fill up.
  */
 export const useTheme = () => {
   const route = useRoute()
@@ -75,7 +76,10 @@ export const useTheme = () => {
   /** Back to the portal. Ignores the lock. */
   const goHome = () => {
     if (isHome.value) return
-    router.push('/')
+    // vue-router keeps the previous entry's path in history.state.back.
+    const back = import.meta.client ? (window.history.state as { back?: unknown } | null)?.back : null
+    if (back === '/') router.back()
+    else router.push('/')
   }
 
   return {

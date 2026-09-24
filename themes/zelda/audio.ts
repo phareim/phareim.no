@@ -38,6 +38,8 @@ export interface ZeldaAudio {
   jingle(name: JingleName): void
   pause(on: boolean): void
   setMuted(muted: boolean): void
+  /** Silence the site radio now, before any track plays (the portal on arrival). Released by dispose. */
+  holdRadio(): void
   dispose(): void
 }
 
@@ -711,11 +713,10 @@ export function createZeldaAudio(): ZeldaAudio {
   // ---- radio --------------------------------------------------------------
 
   function parkRadio(): void {
-    if (radioParked || muted) return
+    if (radioParked) return
     try {
-      if (localStorage.getItem(RADIO_MUTE_KEY) === '1') return
-      const r = getRadioEngine()
-      if (r.playing) { r.suspend(true); radioParked = true }
+      getRadioEngine().hold(true)
+      radioParked = true
     } catch { /* no radio */ }
   }
 
@@ -723,8 +724,9 @@ export function createZeldaAudio(): ZeldaAudio {
     if (!radioParked) return
     radioParked = false
     try {
-      if (localStorage.getItem(RADIO_MUTE_KEY) === '1') return
-      getRadioEngine().suspend(false)
+      const r = getRadioEngine()
+      r.hold(false)
+      if (r.playing && localStorage.getItem(RADIO_MUTE_KEY) !== '1') r.suspend(false)
     } catch { /* ignore */ }
   }
 
@@ -1429,10 +1431,12 @@ export function createZeldaAudio(): ZeldaAudio {
 
     setMuted(m) {
       muted = m
-      if (m) unparkRadio()
-      else if (current) parkRadio()
       if (!ac) return
       master.gain.setTargetAtTime(m ? 0 : MASTER_LEVEL, ac.currentTime, 0.02)
+    },
+
+    holdRadio() {
+      parkRadio()
     },
 
     dispose() {

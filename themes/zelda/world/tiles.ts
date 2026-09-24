@@ -57,6 +57,13 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   I: S,
   M: { ...S, light: true },
   Z: LOW,
+  '[': S,
+  '(': LOW,
+  w: LOW,
+  Y: LOW,
+  i: OPEN,
+  f: OPEN,
+  '^': S,
 }
 
 export const TILE_CHARS = Object.keys(TILE_INFO) as TileChar[]

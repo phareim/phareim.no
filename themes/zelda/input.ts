@@ -175,7 +175,9 @@ export function createInput(hooks: InputHooks): GameInput {
     if (!isGameKey(e.code)) return
     e.preventDefault()
     if (hooks.paused()) return
-    if (MOVE_KEYS.has(e.code)) { keys.add(e.code); return }
+    // A repeat of a key this input never saw go down was held across a page
+    // change (walking into the portal's hut door): it doesn't walk here.
+    if (MOVE_KEYS.has(e.code)) { if (!e.repeat || keys.has(e.code)) keys.add(e.code); return }
     if (e.repeat) return
     if (A_KEYS.has(e.code)) { aPress = true; aHeldKey = true }
     else if (B_KEYS.has(e.code)) bPress = true

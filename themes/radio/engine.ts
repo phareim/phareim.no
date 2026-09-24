@@ -67,10 +67,12 @@ function createRadioEngine() {
   let lead: number[] = []
   let tier: 0 | 1 | 2 | 3 = 3
   let bossMode = false
+  /** A game with its own soundtrack holds the radio silent; nothing resumes it until released. */
+  let held = false
 
   function ensure(): boolean {
     if (ac) {
-      if (ac.state === 'suspended') ac.resume().catch(() => {})
+      if (ac.state === 'suspended' && !held) ac.resume().catch(() => {})
       return true
     }
     const Ctor = typeof window !== 'undefined'
@@ -115,7 +117,7 @@ function createRadioEngine() {
     fb.connect(delay)
     delay.connect(wet)
     wet.connect(musicBus)
-    if (ac.state === 'suspended') ac.resume().catch(() => {})
+    if (ac.state === 'suspended' && !held) ac.resume().catch(() => {})
     return true
   }
 
@@ -300,7 +302,17 @@ function createRadioEngine() {
   function suspend(on: boolean): void {
     if (!ac) return
     if (on) ac.suspend().catch(() => {})
-    else ac.resume().catch(() => {})
+    else if (!held) ac.resume().catch(() => {})
+  }
+
+  /**
+   * Neon Shrine and the portal play their own music: while held, the radio
+   * stays silent whatever else asks it to play (a first-gesture autostart,
+   * an unmute, a pause menu closing). Releasing does not resume by itself.
+   */
+  function hold(on: boolean): void {
+    held = on
+    if (on && ac) ac.suspend().catch(() => {})
   }
 
   /** Only for tests/HMR — themes never dispose the shared radio. */
@@ -317,6 +329,7 @@ function createRadioEngine() {
     setIntensity,
     setFull,
     suspend,
+    hold,
     dispose,
     get station() { return station },
     /** True once a context exists (it may still be suspended). */
