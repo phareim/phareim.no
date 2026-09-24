@@ -7,17 +7,17 @@
     <template #body>
       <div v-if="phase === 'attract'" class="outrun-title-block">
         <h1 class="outrun-logo">OUTRUN</h1>
-        <p class="outrun-hud outrun-tag">FIFTEEN ROADS · FIVE ENDINGS · ONE CLOCK</p>
+        <p class="px-hud outrun-tag">FIFTEEN ROADS · FIVE ENDINGS · ONE CLOCK</p>
         <div class="outrun-plate">
-          <p class="outrun-hint">▶ {{ hint('PRESS ENTER TO DRIVE', 'TAP TO DRIVE') }} ◀</p>
-          <p class="outrun-hint outrun-hint-dim">{{ hint('↑ GAS · ↓ BRAKE · ← → STEER · M RADIO', 'DRAG TO STEER · 2ND FINGER BRAKES') }}</p>
-          <p v-if="highScore > 0" class="outrun-hud outrun-dim">HIGH SCORE: {{ highScore }}</p>
+          <p class="px-hint px-blink">▶ {{ hint('PRESS ENTER TO DRIVE', 'TAP TO DRIVE') }} ◀</p>
+          <p class="px-hint px-dim">{{ hint('↑ GAS · ↓ BRAKE · ← → STEER · M RADIO', 'DRAG TO STEER · 2ND FINGER BRAKES') }}</p>
+          <p v-if="highScore > 0" class="px-hud px-dim">HIGH SCORE {{ highScore }}</p>
         </div>
       </div>
       <div v-else-if="phase === 'over' && result" class="outrun-over">
-        <h1 class="outrun-over-title">{{ title }}</h1>
-        <p v-if="ending" class="outrun-ending">{{ ending }}</p>
-        <p class="outrun-hud">SCORE: {{ result.score }}</p>
+        <h1 class="px-title">{{ title }}</h1>
+        <p v-if="ending" class="px-hud outrun-ending">{{ ending }}</p>
+        <p class="px-hud">SCORE {{ result.score }}</p>
         <table class="outrun-splits">
           <tr v-for="(name, i) in result.route" :key="i">
             <td class="outrun-splits-n">{{ i + 1 }}</td>
@@ -25,10 +25,10 @@
             <td class="outrun-splits-t">{{ i < result.splits.length ? lap(result.splits[i]) : '' }}</td>
           </tr>
         </table>
-        <p v-if="isNewHigh" class="outrun-hud outrun-new-high">NEW HIGH SCORE!</p>
-        <p v-else class="outrun-hud outrun-dim">HIGH SCORE: {{ highScore }}</p>
-        <p v-if="rank" class="outrun-hud outrun-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
-        <p class="outrun-hint">▶ {{ hint('PRESS ENTER TO DRIVE AGAIN', 'TAP TO DRIVE AGAIN') }} ◀</p>
+        <p v-if="isNewHigh" class="px-hud px-blink" style="--px-hud: #ffd23f">NEW HIGH SCORE!</p>
+        <p v-else class="px-hud px-dim">HIGH SCORE {{ highScore }}</p>
+        <p v-if="rank" class="px-hud px-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
+        <p class="px-hint px-blink">▶ {{ hint('PRESS ENTER TO DRIVE AGAIN', 'TAP TO DRIVE AGAIN') }} ◀</p>
       </div>
     </template>
   </DefaultLanding>
@@ -101,6 +101,7 @@ function onOver(r: OutrunResult) {
 </script>
 
 <style>
+/* Text styles: themes/base/pixel/pixel.css (.px-*); Neon Shrine's dialog box for the plates. */
 .outrun-title-block,
 .outrun-over {
   pointer-events: none;
@@ -108,72 +109,63 @@ function onOver(r: OutrunResult) {
 }
 
 /* The logo sits in the sky, over the sun, like the cabinet's title screen;
-   the call to action gets a glass plate so the road does not eat it. */
+   the call to action gets a dialog box so the road does not eat it. */
 .outrun-title-block {
   position: absolute;
   left: 0;
   right: 0;
   top: 9vh;
 }
+.outrun-plate,
+.outrun-over {
+  background: rgba(11, 6, 22, 0.86);
+  border: 2px solid #ff2fa0;
+  border-radius: 0;
+  box-shadow: 0 0 0 2px #0b0616, inset 0 2px 0 rgba(255, 255, 255, 0.08);
+}
 .outrun-plate {
   display: inline-block;
-  margin-top: 1.2em;
-  padding: 0.6em 1.2em 0.7em;
-  background: rgba(11, 6, 22, 0.62);
-  border: 1px solid rgba(255, 47, 160, 0.35);
-  border-radius: 4px;
+  margin-top: 16px;
+  padding: 10px 18px 12px;
 }
-.outrun-plate .outrun-hint {
+.outrun-plate .px-hint {
   margin-top: 0;
 }
 .outrun-over {
-  background: rgba(11, 6, 22, 0.66);
-  border: 1px solid rgba(255, 47, 160, 0.35);
-  border-radius: 12px;
-  box-shadow: 0 0 24px rgba(47, 243, 255, 0.15);
-  padding: 1.2em 1.6em 1.4em;
-  max-width: min(92vw, 560px);
+  padding: 16px 20px 18px;
+  max-width: min(94vw, 560px);
+  box-sizing: border-box;
+}
+@media (max-width: 600px) {
+  .outrun-over {
+    padding: 12px 8px 14px;
+  }
 }
 
-.outrun-logo {
-  font-family: var(--font-machine);
-  font-weight: 700;
-  font-style: italic;
-  letter-spacing: 0.08em;
+.landing .outrun-logo {
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  -webkit-font-smoothing: none;
+  font-size: 64px;
+  line-height: 1;
   color: #ff2fa0;
-  text-shadow: 0 0 2px #0b0616, 0 0 12px rgba(255, 47, 160, 0.8), 0 0 40px rgba(255, 47, 160, 0.4);
-  -webkit-text-stroke: 1.5px #0b0616;
-  font-size: clamp(2.8em, 14vw, 6em) !important;
-  margin: 0 0 0.1em;
-  transform: skewX(-8deg);
+  text-shadow: 8px 8px 0 #0b0616, 0 0 32px rgba(255, 47, 160, 0.55);
+  margin: 0 0 0.15em;
+  transform: skewX(-10deg);
+}
+@media (min-width: 800px) {
+  .landing .outrun-logo {
+    font-size: 96px;
+    text-shadow: 12px 12px 0 #0b0616, 0 0 40px rgba(255, 47, 160, 0.55);
+  }
 }
 
-.outrun-hud {
-  font-family: var(--font-machine);
-  text-transform: uppercase;
-  color: #2ff3ff;
-  text-shadow: 0 0 8px rgba(47, 243, 255, 0.65), 0 0 24px rgba(255, 47, 160, 0.35);
-  letter-spacing: 0.15em;
-  font-size: 1em;
-  margin: 0.3em 0;
+.landing .outrun-tag {
+  --px-hud: #ffd23f;
 }
 
-.outrun-tag {
-  font-size: 0.7em !important;
-  opacity: 0.8;
-}
-
-.outrun-dim {
-  opacity: 0.55;
-  font-size: 0.7em !important;
-}
-
-.outrun-ending {
-  font-family: var(--font-machine);
-  color: #ffd23f;
-  text-shadow: 0 0 10px rgba(255, 210, 63, 0.5);
-  font-size: 0.72em;
-  letter-spacing: 0.08em;
+.landing .outrun-ending {
+  --px-hud: #ffd23f;
   line-height: 1.5;
   margin: 0 auto 0.8em;
   max-width: 34em;
@@ -182,16 +174,16 @@ function onOver(r: OutrunResult) {
 
 /* The lap table: stage, road, time. */
 .outrun-splits {
-  margin: 0.5em auto 0.6em;
+  margin: 0.6em auto 0.6em;
   border-collapse: collapse;
-  font-family: var(--font-machine);
-  font-size: 0.66em;
-  letter-spacing: 0.08em;
+  font-family: var(--font-pixel);
+  -webkit-font-smoothing: none;
+  font-size: 16px;
   color: #2ff3ff;
-  opacity: 0.9;
+  text-shadow: 2px 2px 0 #0b0616;
 }
 .outrun-splits td {
-  padding: 0.12em 0.6em;
+  padding: 2px 8px;
   text-align: left;
   white-space: nowrap;
 }
@@ -200,62 +192,6 @@ function onOver(r: OutrunResult) {
 }
 .outrun-splits .outrun-splits-t {
   text-align: right;
-  font-variant-numeric: tabular-nums;
   color: #f2e9ff;
-}
-
-.outrun-over-title {
-  font-family: var(--font-machine);
-  text-transform: uppercase;
-  color: #ff2fa0;
-  text-shadow: 0 0 12px rgba(255, 47, 160, 0.8), 0 0 40px rgba(255, 47, 160, 0.4);
-  font-size: 2.8em !important;
-  letter-spacing: 0.1em;
-  margin: 0 0 0.2em;
-}
-@media (min-width: 800px) {
-  .outrun-over-title {
-    font-size: 3.2em !important;
-  }
-}
-
-.outrun-new-high {
-  color: #ffd23f;
-  text-shadow: 0 0 10px rgba(255, 210, 63, 0.7);
-  animation: outrun-pulse 0.8s ease-in-out infinite alternate;
-}
-@keyframes outrun-pulse {
-  from { opacity: 0.6; }
-  to { opacity: 1; }
-}
-
-.outrun-hint {
-  font-family: var(--font-machine);
-  text-transform: uppercase;
-  color: #ff2fa0;
-  text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
-  font-size: 0.9em;
-  letter-spacing: 0.12em;
-  margin-top: 1.2em;
-  animation: outrun-blink 1.6s ease-in-out infinite alternate;
-}
-
-.outrun-hint-dim {
-  opacity: 0.45;
-  font-size: 0.7em;
-  margin-top: 0.3em;
-  animation: none;
-}
-
-@keyframes outrun-blink {
-  from { opacity: 0.55; }
-  to { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .outrun-new-high,
-  .outrun-hint {
-    animation: none;
-  }
 }
 </style>

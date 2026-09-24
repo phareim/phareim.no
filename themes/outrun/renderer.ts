@@ -1,27 +1,37 @@
 /**
  * OutRun renderer — draws an OutrunState onto a 2D canvas. Reads the state,
- * never changes it. All art is vector, drawn in code: no images, no network.
+ * never changes it. All art is drawn in code: no images, no network.
+ *
+ * Look (2026-09-24): Neon Shrine's pixels (docs/games/pixel-look.md). The
+ * whole picture is drawn at a low logical resolution on the shared pixel
+ * stage (themes/base/pixel/stage.ts) — about 320×200 on a monitor, 234×506
+ * on a phone — then scaled up by a whole number, lit by a light map, bloomed
+ * and scanlined. The road is drawn one scanline at a time, like the arcade
+ * sprite-scalers; polygons (mountains, tunnel walls, signs) are rasterised
+ * by hand into whole-pixel spans (`pixel.ts`); cars are the vector painters
+ * of `cars.ts` pixelized at a few width steps and cached. Lamps, tail
+ * lights, tunnel lamps, start lights and fireworks light the scene; a
+ * tunnel drops the ambient light so the lamps pass over the car.
  *
  * Projection: a pinhole camera `camDist` behind the car, `camY` above the
- * road under it, focal length F in pixels, horizon at HY. The camera height
- * is solved per screen so the car always has the same share of the width
- * (a phone gets a proportionally bigger car and road). Each road segment is
- * projected near to far with the classic accumulated-curve offset; a slice
- * is only drawn where it rises above everything nearer (`maxy`), which is
- * what lets crests hide the road behind them. Road pieces are batched into
- * one path per colour. Sprites are drawn in a second pass, far to near, each
- * clipped at the terrain line of its own slice.
+ * road under it, focal length F in logical pixels, horizon at HY. The camera
+ * height is solved per screen so the car always has the same share of the
+ * width. Each road segment is projected near to far with the classic
+ * accumulated-curve offset; a slice is only drawn where it rises above
+ * everything nearer (`maxy`), which lets crests hide the road behind them.
+ * Sprites are drawn in a second pass, far to near, each clipped at the
+ * terrain line of its own slice.
  */
 import {
   SEG_LEN, DRAW_DIST, ROAD_W, LANES, MAX_SPEED, PLAYER_HALF_W, TRAFFIC_KINDS, STAGES,
   STAGE_COUNT, TUNNEL_WALL, TUNNEL_H, CHAIN_WINDOW, displaySpeed, totalScore, roadY, segmentAt, worldX, stageDef,
   type OutrunState, type RoadSegment, type RoadProp, type Sky, type Biome,
 } from './engine'
-import { MACHINE_FONT } from '../base/fonts'
-import { CYAN, PINK, GOLD, INK, INK_MUTED, mix, rgba } from './color'
-import { drawTraffic, drawPlayer as drawPlayerCar } from './cars'
-
-// ------------------------------------------------------------ palettes
+import { CYAN, PINK, GOLD, INK, INK_MUTED, mix } from './color'
+import { createPixelStage, type PixelStage } from '../base/pixel/stage'
+import { bayer, bigTextWidth, drawBigText, drawText, textWidth } from '../base/pixel/sprites'
+import { hash2 } from '../base/pixel/scenery'
+import { box, drawCar, newFrame, widthStep, pdisc, pfill, pline, playerSprite, prect, stoneTile, trafficSprite } from './pixel'
 
 export interface Palette {
   skyTop: string
@@ -155,10 +165,36 @@ interface Slice {
 /** World sizes (units) for sprites. */
 const CAR_W = PLAYER_HALF_W * 2 * ROAD_W
 
+/**
+ * The ground each biome drives through, in Neon Shrine's terrain colours:
+ * two bands, a detail colour and a highlight (blades, pebbles, specks).
+ */
+const GROUND: Record<Biome, readonly [string, string, string, string]> = {
+  coast: ['#245573', '#1f4d69', '#3f8fa8', '#6fd2d6'],
+  peaks: ['#1d4560', '#183c55', '#2a5a76', '#5fd6b8'],
+  mesa: ['#7d4d7c', '#6e4270', '#9b6593', '#b784ad'],
+  city: ['#2b2553', '#251f4a', '#3a3170', '#ff3fae'],
+  canyon: ['#5b2a1c', '#4f2418', '#b0543a', '#e07a4e'],
+  grid: ['#140c24', '#110a20', '#ff2fa0', '#2ff3ff'],
+}
+const ASPHALT = ['#231d40', '#1f1a3a'] as const
+const SAND = ['#b784ad', '#a8759f'] as const
+const WATER = ['#15407e', '#123874'] as const
+const FOAM = '#7ce4ff'
+/** Open-road and tunnel light-map ambients. */
+const AMB_OPEN = '#e2d8f6'
+const AMB_TUNNEL = '#4a3c7c'
+
 export function createRenderer(canvas: HTMLCanvasElement) {
-  const ctx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D
+  const stage: PixelStage = createPixelStage(canvas, { minW: 320, minH: 180 })
+  /** Logical size (the stage buffer). */
   let SW = 0
   let SH = 0
+  /** CSS size, for input. */
+  let cssW = 0
+  let cssH = 0
+  /** CSS px per logical px. */
+  let K = 1
   let HY = 0
   let F = 0
   let camY = 0
@@ -185,102 +221,120 @@ export function createRenderer(canvas: HTMLCanvasElement) {
   const slices: Slice[] = []
   for (let i = 0; i < DRAW_DIST; i++) slices.push({ seg: null as unknown as RoadSegment, z1: 0, z2: 0, s1: 0, s2: 0, x1: 0, x2: 0, y1: 0, y2: 0, clip: 0 })
   let sliceCount = 0
+  let g = stage.g
+  /** How strongly lamps show: full in a tunnel's dark, a third in the open (the ambient is bright there). */
+  let lightK = 0.35
+
+  /** A light, capped in size and scaled for the ambient, so many lamps never add up to a white-out. */
+  function glow(x: number, y: number, r: number, color: string, a: number) {
+    const rr = Math.min(r, SW * 0.28)
+    if (rr < 1.5) return
+    stage.light(x, y, rr, color, a * lightK)
+  }
+  /** Painted skies by palette (a stage blend repaints a few times, then hits). */
+  const skyCache = new Map<string, HTMLCanvasElement>()
 
   function resize(w: number, h: number, dprIn: number, bottomInset = 0) {
-    SW = Math.max(300, w)
-    SH = Math.max(300, h)
+    cssW = Math.max(300, w)
+    cssH = Math.max(300, h)
+    portrait = cssH > cssW * 1.05
+    // A monitor shows about 320×200 logical pixels; a portrait phone ~234 across.
+    // The backing store stops at 2× (the road is a lot of fill on a 3× phone);
+    // the canvas's CSS `image-rendering: pixelated` keeps the last step crisp.
+    stage.resize(cssW, cssH, Math.min(2, dprIn || 1), portrait ? 200 : 320, portrait ? 300 : 180)
+    SW = stage.vw
+    SH = stage.vh
+    K = stage.k
     // The car, the gauges and the radio tap stay above the band; the road runs through it.
-    floorY = SH - Math.max(0, bottomInset)
-    // Cap the backing store at ~3.2 megapixels: the road is a lot of fill.
-    let dpr = Math.min(2, dprIn || 1)
-    while (dpr > 1 && SW * SH * dpr * dpr > 3.2e6) dpr -= 0.25
-    canvas.width = Math.round(SW * dpr)
-    canvas.height = Math.round(SH * dpr)
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    portrait = SH > SW * 1.05
+    floorY = SH - Math.max(0, bottomInset) / K
     HY = Math.round(SH * (portrait ? 0.43 : 0.47))
     // Portrait lifts the car clear of the speedo and tacho beneath it.
-    carBaseY = floorY - Math.max(58, SH * (portrait ? 0.16 : 0.1))
-    carPx = Math.min(portrait ? SW * 0.46 : SW * 0.25, 400)
+    carBaseY = Math.round(floorY - Math.max(58 / K, SH * (portrait ? 0.16 : 0.1)))
+    carPx = Math.min(portrait ? SW * 0.46 : SW * 0.25, 400 / K)
     // Solve the camera height so the car is carPx wide at carBaseY.
     F = Math.max(SW, SH) * (portrait ? 0.62 : 0.55)
     const below = carBaseY - HY
     camDist = (CAR_W * F) / carPx
     camY = (below * camDist) / F
     stars = []
-    const n = Math.round(Math.min(160, (SW * HY) / 5000))
+    const n = Math.round(Math.min(120, (SW * HY) / 260))
     for (let i = 0; i < n; i++) {
-      stars.push({ x: Math.random() * SW, y: Math.random() * HY * 0.9, b: 0.3 + Math.random() * 0.7, ph: Math.random() * 6.28, sp: 0.5 + Math.random() * 2.5 })
+      stars.push({ x: Math.random() * SW, y: Math.pow(Math.random(), 1.4) * HY * 0.8, b: Math.random(), ph: Math.random() * 6.28, sp: 0.5 + Math.random() * 2.5 })
     }
+    skyCache.clear()
   }
 
   // --------------------------------------------------------------- sky
 
-  function drawSky(pal: Palette, biome: Biome, prevBiome: Biome, blend: number, ui: FrameUI, state: OutrunState) {
-    const g = ctx.createLinearGradient(0, 0, 0, HY)
-    g.addColorStop(0, pal.skyTop)
-    g.addColorStop(0.55, pal.skyMid)
-    g.addColorStop(1, pal.skyLow)
-    ctx.fillStyle = g
-    ctx.fillRect(0, 0, SW, HY + 2)
-
-    // Stars fade out towards the glowing horizon.
-    ctx.fillStyle = '#cfe9ff'
-    for (const s of stars) {
-      const tw = ui.reduced ? 0.8 : 0.55 + 0.45 * Math.sin(ui.now * s.sp + s.ph)
-      ctx.globalAlpha = s.b * tw * (1 - s.y / HY) * 0.9
-      const x = ((s.x - skyOffset * 0.05) % SW + SW) % SW
-      ctx.fillRect(x, s.y, 1.5, 1.5)
+  /** The sky gradient for a palette, dithered between three stops, cached. */
+  function skyLayer(pal: Palette): HTMLCanvasElement {
+    const key = pal.skyTop + pal.skyMid + pal.skyLow
+    let c = skyCache.get(key)
+    if (c) return c
+    c = document.createElement('canvas')
+    c.width = SW
+    c.height = HY + 2
+    const sg = c.getContext('2d')!
+    const stops = [pal.skyTop, mix(pal.skyTop, pal.skyMid, 0.5), pal.skyMid, mix(pal.skyMid, pal.skyLow, 0.5), pal.skyLow]
+    const n = stops.length - 1
+    const h = HY + 2
+    for (let y = 0; y < h; y++) {
+      // Ease the gradient so the warm band hugs the horizon.
+      const t = Math.pow(y / Math.max(1, h - 1), 1.35) * n
+      const i = Math.min(n - 1, Math.floor(t))
+      const f = t - i
+      const d = (f - 0.5) * 3 + 0.5
+      sg.fillStyle = stops[i]!
+      sg.fillRect(0, y, SW, 1)
+      if (d <= 0) continue
+      sg.fillStyle = stops[i + 1]!
+      if (d >= 1) { sg.fillRect(0, y, SW, 1); continue }
+      for (let x = 0; x < SW; x++) if (bayer(x, y) < d) sg.fillRect(x, y, 1, 1)
     }
-    ctx.globalAlpha = 1
+    skyCache.set(key, c)
+    if (skyCache.size > 16) skyCache.delete(skyCache.keys().next().value as string)
+    return c
+  }
 
-    // The striped sun, clipped at the horizon, drifting with the bends.
-    const r = Math.min(SW * (portrait ? 0.3 : 0.17), HY * 0.62)
-    const sx = SW / 2 + wrapCentered(-skyOffset * 0.35, SW * 1.4)
-    const sy = HY - r * 0.42
-    // Halo.
-    const halo = ctx.createRadialGradient(sx, sy, r * 0.6, sx, sy, r * 2.4)
-    halo.addColorStop(0, rgba(pal.sunBottom, 0.42))
-    halo.addColorStop(1, rgba(pal.sunBottom, 0))
-    ctx.fillStyle = halo
-    ctx.fillRect(sx - r * 2.4, sy - r * 2.4, r * 4.8, Math.min(r * 4.8, HY - (sy - r * 2.4)))
-    ctx.save()
-    ctx.beginPath()
-    ctx.rect(0, 0, SW, HY)
-    ctx.clip()
-    const sg = ctx.createLinearGradient(0, sy - r, 0, sy + r)
-    sg.addColorStop(0, pal.sunTop)
-    sg.addColorStop(0.5, pal.sunMid)
-    sg.addColorStop(1, pal.sunBottom)
-    ctx.fillStyle = sg
-    ctx.beginPath()
-    ctx.arc(sx, sy, r, 0, Math.PI * 2)
-    ctx.fill()
-    // Cut bands, thicker towards the bottom, scrolling one notch per beat.
-    ctx.fillStyle = pal.skyLow
-    const scroll = ui.reduced ? 0 : (ui.now * 6) % 10
-    for (let i = 0; i < 9; i++) {
-      const t = i / 9
-      const yy = sy + r * 0.05 + t * r + scroll * t
-      const hh = 1 + t * 9
-      ctx.fillRect(sx - r, yy, r * 2, hh * 0.8)
-    }
-    ctx.restore()
+  function sunGeom() {
+    const r = Math.round(Math.min(SW * (portrait ? 0.3 : 0.17), HY * 0.62))
+    const x = Math.round(SW / 2 + wrapCentered(-skyOffset * 0.35, SW * 1.4))
+    const y = Math.round(HY - r * 0.42)
+    return { r, x, y }
+  }
 
-    // Backdrop per biome; cross-fade on stage change.
-    if (blend < 1 && prevBiome !== biome) {
-      ctx.globalAlpha = 1 - blend
-      drawBackdrop(prevBiome, pal, ui)
-      ctx.globalAlpha = blend
-      drawBackdrop(biome, pal, ui)
-      ctx.globalAlpha = 1
-    } else {
-      drawBackdrop(biome, pal, ui)
+  function drawSky(pal: Palette, biome: Biome, ui: FrameUI) {
+    g.drawImage(skyLayer(pal), 0, 0)
+    drawStars(ui)
+    // The striped sun, cut at the horizon: three bands of colour, dark cuts
+    // thicker towards the bottom, scrolling one notch per beat.
+    const { r, x: sx0, y: sy0 } = sunGeom()
+    const scroll = ui.reduced ? 0 : Math.floor((ui.now * 6) % 6)
+    for (let yy = -r; yy <= r; yy++) {
+      const row = sy0 + yy
+      if (row >= HY) break
+      if (row < 0) continue
+      const half = Math.floor(Math.sqrt(Math.max(0, r * r - yy * yy + r * 0.6)))
+      const t = (yy + r) / (2 * r)
+      const below = yy - Math.floor(r * 0.05)
+      if (below > 0) {
+        const period = Math.max(4, Math.round(r / 4))
+        const gap = 1 + Math.floor((below / r) * (period - 2))
+        if ((below + scroll) % period < gap) continue
+      }
+      g.fillStyle = t < 0.3 ? pal.sunTop : t < 0.62 ? pal.sunMid : pal.sunBottom
+      g.fillRect(sx0 - half, row, half * 2 + 1, 1)
     }
+    // The sun lights the sky round it; under a roof it is out of sight.
+    const open = Math.max(0, Math.min(1, (light - 0.45) / 0.55))
+    if (open > 0.05) {
+      stage.light(sx0, sy0, r * 2.6, '#ffffff', 0.9 * open)
+      stage.light(sx0, HY, r * 3.4, pal.sunBottom, 0.45 * open)
+    }
+    drawBackdrop(biome, pal, ui)
     // Horizon line — the brightest line on screen.
-    ctx.fillStyle = rgba(pal.edge, 0.8)
-    ctx.fillRect(0, HY - 1, SW, 2)
-    void state
+    g.fillStyle = pal.edge
+    g.fillRect(0, HY - 1, SW, 1)
   }
 
   function wrapCentered(v: number, period: number) {
@@ -290,27 +344,27 @@ export function createRenderer(canvas: HTMLCanvasElement) {
   function drawBackdrop(biome: Biome, pal: Palette, ui: FrameUI) {
     switch (biome) {
       case 'peaks':
-        wirePeaks(pal, skyOffset * 0.1, HY * 0.42, 7, 11)
-        wirePeaks(pal, skyOffset * 0.22, HY * 0.24, 11, 23)
+        peaks(pal, skyOffset * 0.1, HY * 0.42, 7, 11, pal.ridgeFar)
+        peaks(pal, skyOffset * 0.22, HY * 0.26, 11, 23, pal.ridgeNear)
         break
       case 'mesa':
         mesas(pal, skyOffset * 0.12, HY * 0.2, pal.ridgeFar, 5)
         mesas(pal, skyOffset * 0.25, HY * 0.12, pal.ridgeNear, 9)
         break
       case 'city':
-        skyline(pal, skyOffset * 0.14, HY * 0.34, pal.ridgeFar, 3, ui)
-        skyline(pal, skyOffset * 0.28, HY * 0.2, pal.ridgeNear, 7, ui)
+        skyline(skyOffset * 0.14, HY * 0.34, pal.ridgeFar, 3, ui)
+        skyline(skyOffset * 0.28, HY * 0.2, pal.ridgeNear, 7, ui)
         break
       case 'canyon':
-        ridge(pal.ridgeFar, pal.edge, skyOffset * 0.12, HY * 0.3, 5, 17, 0.7)
-        ridge(pal.ridgeNear, pal.edge, skyOffset * 0.26, HY * 0.18, 9, 31, 0.9)
+        ridge(pal.ridgeFar, pal.edge, skyOffset * 0.12, HY * 0.3, 5, 17)
+        ridge(pal.ridgeNear, pal.edge, skyOffset * 0.26, HY * 0.18, 9, 31)
         break
       case 'coast':
-        ridge(pal.ridgeFar, pal.edge, skyOffset * 0.1, HY * 0.08, 3, 7, 0.4)
-        sea(pal, ui)
+        ridge(pal.ridgeFar, pal.edge, skyOffset * 0.1, HY * 0.08, 3, 7)
+        coastTrees(skyOffset * 0.3)
         break
       case 'grid':
-        ridge(pal.ridgeNear, pal.edge, skyOffset * 0.2, HY * 0.05, 4, 9, 0.6)
+        ridge(pal.ridgeNear, pal.edge, skyOffset * 0.2, HY * 0.05, 4, 9)
         break
     }
   }
@@ -321,28 +375,42 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     return h * (0.5 + 0.28 * Math.sin(t * a + 1.3) + 0.22 * Math.sin(t * b + 4.1))
   }
 
-  function ridge(fill: string, edge: string, off: number, h: number, a: number, b: number, edgeA: number) {
+  function ridge(fill: string, edge: string, off: number, h: number, a: number, b: number) {
     const P = SW * 2
-    ctx.fillStyle = fill
-    ctx.beginPath()
-    ctx.moveTo(0, HY)
-    for (let x = 0; x <= SW + 8; x += 8) ctx.lineTo(x, HY - ridgeY(x, off, h, a, b, P))
-    ctx.lineTo(SW, HY)
-    ctx.closePath()
-    ctx.fill()
-    ctx.strokeStyle = rgba(edge, 0.65 * edgeA)
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
-    for (let x = 0; x <= SW + 8; x += 8) {
-      const y = HY - ridgeY(x, off, h, a, b, P)
-      if (x === 0) ctx.moveTo(x, y)
-      else ctx.lineTo(x, y)
+    let prev = -1
+    for (let x = 0; x < SW; x++) {
+      const top = Math.round(HY - ridgeY(x, off, h, a, b, P))
+      g.fillStyle = fill
+      g.fillRect(x, top, 1, HY - top)
+      g.fillStyle = edge
+      g.fillRect(x, top, 1, 1)
+      if (prev >= 0 && Math.abs(top - prev) > 1) g.fillRect(x, Math.min(top, prev), 1, Math.abs(top - prev))
+      prev = top
     }
-    ctx.stroke()
   }
 
-  /** Wireframe pyramids, the Neon Dreams mountain. */
-  function wirePeaks(pal: Palette, off: number, h: number, count: number, seed: number) {
+  /** A low line of Neon Shrine canopies along the far shore. */
+  function coastTrees(off: number) {
+    const P = SW * 2
+    const o = ((off % P) + P) % P
+    const step = Math.max(5, Math.round(SW / 40))
+    for (let k = 0; k * step < P; k++) {
+      const x = k * step - o + (k * step - o < -step ? P : 0)
+      if (x < -step || x > SW + step) continue
+      const r = 2 + Math.floor(hash2(k, 3, 5) * 3)
+      if (hash2(k, 1, 5) < 0.35) continue
+      const cy = HY - r - 1
+      pdisc(g, x, cy, r, '#0f3445')
+      pdisc(g, x - 0.5, cy - 0.5, r - 1, '#1b5763')
+      g.fillStyle = '#5fd6b8'
+      g.fillRect(Math.round(x - r * 0.5), Math.round(cy - r), Math.max(1, r - 1), 1)
+      g.fillStyle = '#d0509e'
+      g.fillRect(Math.round(x + r - 1), Math.round(cy), 1, 1)
+    }
+  }
+
+  /** Pyramids with a lit and a shaded face, a rim of neon on the lit edge. */
+  function peaks(pal: Palette, off: number, h: number, count: number, seed: number, fill: string) {
     const P = SW * 2
     const o = ((off % P) + P) % P
     for (let k = 0; k < count * 2; k++) {
@@ -353,38 +421,18 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       const ph = h * (0.55 + 0.45 * f)
       const pw = ph * (1.3 + f * 0.8)
       const px = cx + (f - 0.5) * pw * 0.3
-      ctx.fillStyle = pal.ridgeNear
-      ctx.beginPath()
-      ctx.moveTo(cx - pw, HY)
-      ctx.lineTo(px, HY - ph)
-      ctx.lineTo(cx + pw, HY)
-      ctx.closePath()
-      ctx.fill()
-      ctx.strokeStyle = rgba(pal.edge, 0.55)
-      ctx.lineWidth = 1.2
-      ctx.stroke()
-      // Wire facets.
-      ctx.strokeStyle = rgba(pal.edge, 0.22)
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      for (let i = 1; i < 4; i++) {
-        const t = i / 4
-        ctx.moveTo(px, HY - ph)
-        ctx.lineTo(cx - pw + (pw * 2) * t, HY)
-        const yy = HY - ph * (1 - t)
-        ctx.moveTo(cx - pw + (px - (cx - pw)) * t, yy)
-        ctx.lineTo(cx + pw + (px - (cx + pw)) * t, yy)
-      }
-      ctx.stroke()
+      const lit = mix(fill, pal.edge, 0.18)
+      pfill(g, [cx - pw, HY, px, HY - ph, px, HY], lit)
+      pfill(g, [px, HY - ph, cx + pw, HY, px, HY], fill)
+      // A cap of light on the summit.
+      pfill(g, [px - ph * 0.22, HY - ph * 0.8, px, HY - ph, px + ph * 0.08, HY - ph * 0.8], mix(lit, '#ffffff', 0.25))
+      pline(g, cx - pw, HY - 1, px, HY - ph, pal.edge)
     }
   }
 
   function mesas(pal: Palette, off: number, h: number, fill: string, count: number) {
     const P = SW * 2
     const o = ((off % P) + P) % P
-    ctx.fillStyle = fill
-    ctx.strokeStyle = rgba(pal.edge, 0.5)
-    ctx.lineWidth = 1.3
     for (let k = 0; k < count * 2; k++) {
       const hash = Math.sin((k % count) * 78.233 + count) * 43758.5453
       const f = hash - Math.floor(hash)
@@ -393,60 +441,60 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       const mh = h * (0.5 + f)
       const top = SW * (0.05 + f * 0.1)
       const base = top + mh * 1.2
-      ctx.beginPath()
-      ctx.moveTo(cx - base, HY)
-      ctx.lineTo(cx - top, HY - mh)
-      ctx.lineTo(cx + top, HY - mh)
-      ctx.lineTo(cx + base, HY)
-      ctx.closePath()
-      ctx.fill()
-      ctx.stroke()
+      pfill(g, [cx - base, HY, cx - top, HY - mh, cx + top, HY - mh, cx + base, HY], fill)
+      pline(g, cx - top, HY - mh, cx + top, HY - mh, pal.edge)
+      pline(g, cx - base, HY - 1, cx - top, HY - mh, mix(fill, pal.edge, 0.6))
       // Strata.
-      ctx.beginPath()
-      ctx.moveTo(cx - top - (base - top) * 0.35, HY - mh * 0.65)
-      ctx.lineTo(cx + top + (base - top) * 0.35, HY - mh * 0.65)
-      ctx.globalAlpha *= 0.5
-      ctx.stroke()
-      ctx.globalAlpha /= 0.5
+      const sy = HY - mh * 0.65
+      pline(g, cx - top - (base - top) * 0.35, sy, cx + top + (base - top) * 0.35, sy, mix(fill, pal.edge, 0.35))
     }
   }
 
-  function skyline(pal: Palette, off: number, h: number, fill: string, seed: number, ui: FrameUI) {
+  function skyline(off: number, h: number, fill: string, seed: number, ui: FrameUI) {
     const P = SW * 2
     const o = ((off % P) + P) % P
-    const bw = Math.max(14, SW / 34)
+    const bw = Math.max(5, Math.round(SW / 34))
     const n = Math.ceil(P / bw)
     for (let k = 0; k < n; k++) {
       const hash = Math.sin(k * 91.7 + seed * 13.1) * 43758.5453
       const f = hash - Math.floor(hash)
-      let x = k * bw - o
+      let x = Math.round(k * bw - o)
       if (x < -bw) x += P
       if (x > SW) continue
-      const bh = h * (0.25 + f * f * 1.1)
-      ctx.fillStyle = fill
-      ctx.fillRect(x, HY - bh, bw - 2, bh)
-      // Windows.
-      if (bw > 10) {
-        ctx.fillStyle = rgba(f > 0.5 ? CYAN : GOLD, 0.45)
-        for (let wy = HY - bh + 5; wy < HY - 4; wy += 7) {
-          for (let wx = x + 3; wx < x + bw - 5; wx += 5) {
-            const on = Math.sin(wx * 3.1 + wy * 7.7 + seed) > 0.35
-            if (on) ctx.fillRect(wx, wy, 1.5, 2)
-          }
+      const bh = Math.round(h * (0.25 + f * f * 1.1))
+      g.fillStyle = fill
+      g.fillRect(x, HY - bh, bw - 1, bh)
+      g.fillStyle = mix(fill, '#ffffff', 0.12)
+      g.fillRect(x, HY - bh, bw - 1, 1)
+      // Windows, one pixel each.
+      g.fillStyle = f > 0.5 ? '#3ff0ff' : '#ffd23f'
+      for (let wy = HY - bh + 2; wy < HY - 2; wy += 3) {
+        for (let wx = x + 1; wx < x + bw - 2; wx += 2) {
+          if (Math.sin(wx * 3.1 + wy * 7.7 + seed + k) > 0.35) g.fillRect(wx, wy, 1, 1)
         }
       }
-      if (f > 0.82) {
-        ctx.fillStyle = PINK
-        const blink = ui.reduced || Math.sin(ui.now * 3 + k) > 0
-        if (blink) ctx.fillRect(x + bw / 2 - 1.5, HY - bh - 6, 3, 3)
+      if (f > 0.82 && (ui.reduced || Math.sin(ui.now * 3 + k) > 0)) {
+        g.fillStyle = PINK
+        g.fillRect(x + (bw >> 1) - 1, HY - bh - 2, 2, 2)
+        glow(x + (bw >> 1), HY - bh - 1, 5, PINK, 0.7)
       }
     }
   }
 
-  function sea(pal: Palette, ui: FrameUI) {
-    // Glints on the water band just below the horizon; the ground covers the rest.
-    void pal
-    void ui
+  function drawStars(ui: FrameUI) {
+    for (const s of stars) {
+      const tw = ui.reduced ? 0.8 : 0.5 + 0.5 * Math.sin(ui.now * s.sp + s.ph)
+      const fade = 1 - s.y / HY
+      if (s.b * tw * fade < 0.25) continue
+      const x = Math.round((((s.x - skyOffset * 0.05) % SW) + SW) % SW)
+      const y = Math.round(s.y)
+      g.fillStyle = s.b > 0.85 && tw > 0.7 ? '#fff4ff' : s.b > 0.5 ? '#cfc6ff' : '#6a5fa0'
+      g.fillRect(x, y, 1, 1)
+      if (s.b > 0.93 && tw > 0.8) {
+        g.fillStyle = '#cfc6ff'
+        g.fillRect(x - 1, y, 1, 1); g.fillRect(x + 1, y, 1, 1); g.fillRect(x, y - 1, 1, 1); g.fillRect(x, y + 1, 1, 1)
+      }
+    }
   }
 
   // -------------------------------------------------------------- road
@@ -478,7 +526,6 @@ export function createRenderer(canvas: HTMLCanvasElement) {
         ddx += seg.curve
       }
     }
-    const curveScale = 1
     sliceCount = 0
     let maxy = SH
     for (let n = 0; n < DRAW_DIST; n++) {
@@ -497,14 +544,14 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       const s2 = F / z2
       const y1 = HY + (camH - seg.y) * s1
       const y2 = HY + (camH - next.y) * s2
-      const sl = slices[sliceCount++]
+      const sl = slices[sliceCount++]!
       sl.seg = seg
       sl.z1 = zz1
       sl.z2 = z2
       sl.s1 = s1
       sl.s2 = s2
-      sl.x1 = (x1 - carOffset) * curveScale
-      sl.x2 = (x2 - carOffset) * curveScale
+      sl.x1 = x1 - carOffset
+      sl.x2 = x2 - carOffset
       sl.y1 = y1
       sl.y2 = y2
       sl.clip = maxy
@@ -512,188 +559,160 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     }
   }
 
-  /** Screen x of a lateral position (half-widths) at a slice edge. */
+  /** Screen x of a lateral position (half-widths) at scale s with curve offset xo. */
   function sx(lat: number, s: number, xo: number) {
     return SW / 2 + (lat * ROAD_W - camX * ROAD_W + xo) * s
   }
 
+  function biomeOf(seg: RoadSegment): Biome {
+    const b = stageDef(seg.col, seg.node).biome
+    if (seg.blend >= 0.5) return b
+    return stageDef(Math.max(0, seg.col - 1), seg.fromNode).biome
+  }
+
+  /** A whole-pixel span of one row, clipped to the screen. */
+  function span(y: number, a: number, b: number, color: string) {
+    let l = Math.round(a)
+    let r = Math.round(b)
+    if (l > r) { const t = l; l = r; r = t }
+    if (r <= 0 || l >= SW) return
+    l = Math.max(0, l)
+    r = Math.min(SW, r)
+    if (r <= l) return
+    g.fillStyle = color
+    g.fillRect(l, y, r - l, 1)
+  }
+
+  /**
+   * The road, one scanline at a time: each slice covers the rows between its
+   * far and near edge (cut at the terrain line in front of it), and each row
+   * interpolates the slice's scale and bend.
+   */
   function drawRoad(state: OutrunState, pal: Palette, ui: FrameUI) {
-    // Ground behind everything below the horizon.
-    ctx.fillStyle = pal.ground
-    ctx.fillRect(0, HY, SW, SH - HY)
-
-    const groundB = new Path2D()
-    const gridH = new Path2D()
-    const gridV = new Path2D()
-    const rumbleA = new Path2D()
-    const rumbleB = new Path2D()
-    const asphaltA = new Path2D()
-    const asphaltB = new Path2D()
-    const lines = new Path2D()
-    const edges = new Path2D()
-    const centerDash = new Path2D()
-    const sand = new Path2D()
-    const waterA = new Path2D()
-    const waterB = new Path2D()
-    const glints = new Path2D()
     const glintStep = Math.floor(ui.now * 3)
-
-    const quad = (p: Path2D, ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number) => {
-      p.moveTo(ax, ay)
-      p.lineTo(bx, by)
-      p.lineTo(cx, cy)
-      p.lineTo(dx, dy)
-      p.closePath()
-    }
-
     for (let i = 0; i < sliceCount; i++) {
-      const sl = slices[i]
-      let { y1, s1, x1 } = sl
-      const { y2, s2, x2, clip, seg } = sl
+      const sl = slices[i]!
+      const { y1, y2, s1, s2, x1, x2, clip, seg } = sl
       if (y2 >= clip) continue
-      // Partly hidden behind a nearer crest: cut the slice at the terrain line.
-      if (y1 > clip) {
-        const t = (clip - y2) / (y1 - y2)
-        y1 = clip
-        s1 = s2 + (s1 - s2) * t
-        x1 = x2 + (x1 - x2) * t
-      }
+      const rowTop = Math.max(0, Math.ceil(y2 - 0.5))
+      const rowBot = Math.min(SH - 1, Math.floor(Math.min(y1, clip) - 0.5))
+      if (rowBot < rowTop) continue
+      const biome = biomeOf(seg)
+      const gnd = GROUND[biome]
       const band = Math.floor(seg.index / 4) % 2
-      if (band) groundB.rect(0, y2, SW, y1 - y2 + 0.5)
-      const c0 = seg.centers[0]
+      const rb = Math.floor(seg.index / 3) % 2
+      const c0 = seg.centers[0]!
       // The coast stages run along the sea: a beach, then water to the horizon.
       const sea = seg.centers.length === 1 && stageDef(seg.col, seg.node).biome === 'coast' ? (seg.node % 2 === 0 ? -1 : 1) : 0
-      if (sea) {
-        const beach = c0 + sea * 2.3
-        const shore = c0 + sea * 3.4
-        const b1 = sx(beach, s1, x1)
-        const b2 = sx(beach, s2, x2)
-        const e1 = sx(shore, s1, x1)
-        const e2 = sx(shore, s2, x2)
-        const far = sea < 0 ? -20 : SW + 20
-        quad(sand, b1, y1, e1, y1, e2, y2, b2, y2)
-        quad(band ? waterB : waterA, e1, y1, far, y1, far, y2, e2, y2)
-        if ((seg.index * 7 + glintStep) % 5 === 0) {
-          const h = ((seg.index * 2654435761) >>> 0) / 4294967296
-          const g = shore + sea * (0.6 + h * 7)
-          const gw = 0.35 + h * 0.5
-          quad(glints, sx(g - gw, s1, x1), y1, sx(g + gw, s1, x1), y1, sx(g + gw, s2, x2), y2, sx(g - gw, s2, x2), y2)
+      const dash = seg.index % 6 < 3
+      for (let y = rowTop; y <= rowBot; y++) {
+        const t = y1 === y2 ? 0 : (y1 - (y + 0.5)) / (y1 - y2)
+        const s = s1 + (s2 - s1) * t
+        const xo = x1 + (x2 - x1) * t
+        g.fillStyle = gnd[band]!
+        g.fillRect(0, y, SW, 1)
+        if (biome === 'grid' && seg.index % 8 === 0 && y === rowBot) span(y, 0, SW, mix(gnd[0]!, pal.grid, 0.5))
+        if (sea) {
+          const beach = sx(c0 + sea * 2.3, s, xo)
+          const shore = sx(c0 + sea * 3.4, s, xo)
+          const far = sea < 0 ? -1 : SW + 1
+          span(y, beach, shore, SAND[band]!)
+          span(y, shore, far, WATER[band]!)
+          // Ripples: short lighter dashes that ride the swell.
+          const rip = Math.max(1, Math.round(ROAD_W * 0.3 * s))
+          for (let k = 0; k < 4; k++) {
+            const hk = hash2(seg.index, k + y * 3, 21)
+            if (hk < 0.62) continue
+            const rx = sx(c0 + sea * (3.8 + hk * 9 + k * 2.1), s, xo)
+            span(y, rx, rx + rip * (hk > 0.9 ? 2 : 1), hk > 0.93 ? '#5fa8e8' : '#1f4f98')
+          }
+          // Foam at the waterline, sun glitter further out.
+          span(y, shore, shore + sea * Math.max(1, 0.25 * ROAD_W * s), FOAM)
+          if ((seg.index * 7 + glintStep) % 5 === 0 && y === rowTop) {
+            const h = ((seg.index * 2654435761) >>> 0) / 4294967296
+            const gl = sx(c0 + sea * (3.4 + 0.6 + h * 7), s, xo)
+            span(y, gl, gl + Math.max(1, 0.6 * ROAD_W * s), pal.sunTop)
+          }
+        }
+        for (const c of seg.centers) {
+          const l = sx(c - 1, s, xo)
+          const r = sx(c + 1, s, xo)
+          const rw = Math.max(1, ROAD_W * 0.09 * s)
+          const rc = rb ? pal.rumble : '#fff4ff'
+          span(y, l - rw, l, rc)
+          span(y, r, r + rw, rc)
+          span(y, l, r, ASPHALT[band]!)
+          // Edge lines.
+          const ew = Math.max(1, ROAD_W * 0.02 * s)
+          span(y, l + ew, l + ew * 2.2, pal.edge)
+          span(y, r - ew * 2.2, r - ew, pal.edge)
+          if (dash) {
+            const lw = Math.max(1, ROAD_W * 0.028 * s)
+            if (seg.centers.length === 1) {
+              for (const lane of [-(LANES[2] / 2), LANES[2] / 2]) {
+                const a = sx(c + lane, s, xo)
+                span(y, a - lw / 2, a + lw / 2, '#e8e0ff')
+              }
+            } else {
+              const a = sx(c, s, xo)
+              span(y, a - lw / 2, a + lw / 2, '#e8e0ff')
+            }
+          }
         }
       }
-      if (seg.index % 8 === 0) {
-        if (!sea) gridH.rect(0, y1 - 0.75, SW, 1.5)
-        else if (sea < 0) gridH.rect(sx(c0 - 2.3, s1, x1), y1 - 0.75, SW, 1.5)
-        else gridH.rect(0, y1 - 0.75, sx(c0 + 2.3, s1, x1), 1.5)
-      }
-      // Grid rails across the ground, anchored to the first road centre.
-      for (let k = -9; k <= 9; k++) {
-        if (Math.abs(k) < 2) continue
-        if (sea && Math.sign(k) === sea && Math.abs(k) * 1.1 > 2.3) continue
-        const lat = c0 + k * 1.1
-        const ax = sx(lat, s1, x1)
-        const bx = sx(lat, s2, x2)
-        if ((ax < -50 && bx < -50) || (ax > SW + 50 && bx > SW + 50)) continue
-        gridV.moveTo(ax, y1)
-        gridV.lineTo(bx, y2)
-      }
-      const rb = Math.floor(seg.index / 3) % 2
-      for (const c of seg.centers) {
-        const l1 = sx(c - 1, s1, x1)
-        const r1 = sx(c + 1, s1, x1)
-        const l2 = sx(c - 1, s2, x2)
-        const r2 = sx(c + 1, s2, x2)
-        const rw1 = ROAD_W * 0.09 * s1
-        const rw2 = ROAD_W * 0.09 * s2
-        const rp = rb ? rumbleA : rumbleB
-        quad(rp, l1 - rw1, y1, l1, y1, l2, y2, l2 - rw2, y2)
-        quad(rp, r1, y1, r1 + rw1, y1, r2 + rw2, y2, r2, y2)
-        quad(band ? asphaltB : asphaltA, l1, y1, r1, y1, r2, y2, l2, y2)
-        // Edge lines.
-        const ew1 = Math.max(0.6, ROAD_W * 0.018 * s1)
-        const ew2 = Math.max(0.6, ROAD_W * 0.018 * s2)
-        quad(edges, l1 + ew1, y1, l1 + ew1 * 2.2, y1, l2 + ew2 * 2.2, y2, l2 + ew2, y2)
-        quad(edges, r1 - ew1 * 2.2, y1, r1 - ew1, y1, r2 - ew2, y2, r2 - ew2 * 2.2, y2)
-        // Lane dashes: two dividers between three lanes.
-        if (seg.index % 6 < 3 && seg.centers.length === 1) {
-          for (const lane of [-(LANES[2] / 2), LANES[2] / 2]) {
-            const lw1 = Math.max(0.5, ROAD_W * 0.014 * s1)
-            const lw2 = Math.max(0.5, ROAD_W * 0.014 * s2)
-            const a1 = sx(c + lane, s1, x1)
-            const a2 = sx(c + lane, s2, x2)
-            quad(lines, a1 - lw1, y1, a1 + lw1, y1, a2 + lw2, y2, a2 - lw2, y2)
-          }
-        } else if (seg.index % 6 < 3) {
-          const lw1 = Math.max(0.5, ROAD_W * 0.014 * s1)
-          const lw2 = Math.max(0.5, ROAD_W * 0.014 * s2)
-          const a1 = sx(c, s1, x1)
-          const a2 = sx(c, s2, x2)
-          quad(centerDash, a1 - lw1, y1, a1 + lw1, y1, a2 + lw2, y2, a2 - lw2, y2)
+      // Ground detail on the slice's first row: blades, pebbles, specks.
+      if (rowBot - rowTop < 60) {
+        const s = s1 + (s2 - s1) * 0.5
+        const xo = (x1 + x2) / 2
+        const size = Math.max(1, Math.min(4, Math.round(ROAD_W * 0.05 * s)))
+        for (let k = -10; k <= 10; k++) {
+          const hk = hash2(seg.index, k, 9)
+          if (hk < 0.55) continue
+          const lat = c0 + (k + hash2(seg.index, k, 4) * 0.8) * 0.6
+          let onRoad = false
+          for (const c of seg.centers) if (Math.abs(lat - c) < 1.25) onRoad = true
+          if (onRoad) continue
+          if (sea && Math.sign(lat - c0) === sea && Math.abs(lat - c0) > 2.2) continue
+          const px = Math.round(sx(lat, s, xo))
+          if (px < 0 || px >= SW) continue
+          const y = rowTop + Math.floor(hash2(seg.index, k, 7) * Math.max(1, rowBot - rowTop + 1))
+          g.fillStyle = hk > 0.93 ? gnd[3]! : gnd[2]!
+          g.fillRect(px, y - size + 1, Math.max(1, size >> 1), size)
+          if (size > 2) g.fillRect(px + size, y - size + 2, Math.max(1, size >> 1), size - 1)
         }
       }
     }
-    ctx.fillStyle = pal.ground2
-    ctx.fill(groundB)
-    ctx.fillStyle = mix(pal.ground, pal.sunMid, 0.14)
-    ctx.fill(sand)
-    // The water mirrors the low sky; glints of sun ride on it.
-    ctx.fillStyle = mix(pal.skyLow, pal.ground, 0.62)
-    ctx.fill(waterA)
-    ctx.fillStyle = mix(pal.skyLow, pal.ground, 0.7)
-    ctx.fill(waterB)
-    ctx.fillStyle = rgba(pal.sunTop, 0.75)
-    ctx.fill(glints)
-    ctx.strokeStyle = rgba(pal.grid, 0.28)
-    ctx.lineWidth = 1
-    ctx.stroke(gridV)
-    ctx.fillStyle = rgba(pal.grid, 0.45)
-    ctx.fill(gridH)
-    ctx.fillStyle = pal.rumble
-    ctx.fill(rumbleA)
-    ctx.fillStyle = mix(pal.road, pal.rumble, 0.18)
-    ctx.fill(rumbleB)
-    ctx.fillStyle = pal.road
-    ctx.fill(asphaltA)
-    ctx.fillStyle = pal.road2
-    ctx.fill(asphaltB)
-    ctx.fillStyle = rgba(pal.line, 0.55)
-    ctx.fill(lines)
-    ctx.fill(centerDash)
-    ctx.fillStyle = rgba(pal.edge, 0.85)
-    ctx.fill(edges)
-
-    // Distance haze: a wash from the horizon down, the road fades into it.
-    const fogH = (SH - HY) * 0.35
-    const fg = ctx.createLinearGradient(0, HY, 0, HY + fogH)
-    fg.addColorStop(0, rgba(pal.fog, 0.85))
-    fg.addColorStop(1, rgba(pal.fog, 0))
-    ctx.fillStyle = fg
-    ctx.fillRect(0, HY, SW, fogH)
-
+    // Distance haze: a few stepped rows of fog from the horizon down.
+    const fogH = Math.round((SH - HY) * 0.2)
+    g.fillStyle = pal.fog
+    for (let y = 0; y < fogH; y++) {
+      const a = Math.floor((1 - y / fogH) * 4) / 4 * 0.6
+      if (a <= 0) continue
+      g.globalAlpha = a
+      g.fillRect(0, HY + y, SW, 1)
+    }
+    g.globalAlpha = 1
     // The sun's reflection on the wet road (not under a roof).
     if (!state.inTunnel) {
-      const r = Math.min(SW * (portrait ? 0.3 : 0.17), HY * 0.62)
-      const sunX = SW / 2 + wrapCentered(-skyOffset * 0.35, SW * 1.4)
-      ctx.save()
-      ctx.globalCompositeOperation = 'lighter'
-      const rg = ctx.createLinearGradient(0, HY, 0, HY + (SH - HY) * 0.55)
-      rg.addColorStop(0, rgba(pal.sunMid, 0.3))
-      rg.addColorStop(1, rgba(pal.sunBottom, 0))
-      ctx.fillStyle = rg
+      const { r, x: sunX } = sunGeom()
       const shimmer = ui.reduced ? 0 : ui.now * 40
-      for (let yy = HY + 1; yy < HY + (SH - HY) * 0.55; yy += 5) {
-        const t = (yy - HY) / ((SH - HY) * 0.55)
+      const depth = (SH - HY) * 0.55
+      g.globalCompositeOperation = 'lighter'
+      for (let yy = HY + 1; yy < HY + depth; yy += 3) {
+        const t = (yy - HY) / depth
         const w = r * (0.9 - t * 0.5) * (0.75 + 0.25 * Math.sin(yy * 0.7 + shimmer))
-        ctx.fillRect(sunX - w, yy, w * 2, 2)
+        g.globalAlpha = 0.28 * (1 - t)
+        g.fillStyle = t < 0.4 ? pal.sunMid : pal.sunBottom
+        g.fillRect(Math.round(sunX - w), yy, Math.round(w * 2), 1)
       }
-      ctx.restore()
+      g.globalAlpha = 1
+      g.globalCompositeOperation = 'source-over'
     }
-    void state
   }
 
   // ------------------------------------------------------------ sprites
 
   function drawSprites(state: OutrunState, pal: Palette, ui: FrameUI) {
-    const camZ = state.position - camDist
     // Cars indexed by segment for the far-to-near pass.
     const bySeg = new Map<number, typeof state.cars>()
     for (const car of state.cars) {
@@ -703,16 +722,16 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       list.push(car)
     }
     for (let i = sliceCount - 1; i >= 0; i--) {
-      const sl = slices[i]
+      const sl = slices[i]!
       const seg = sl.seg
-      const clip = sl.clip
+      const clip = Math.round(sl.clip)
       if (sl.y2 >= clip && sl.y1 >= clip && seg.props.length === 0 && !bySeg.has(seg.index) && !seg.tunnel) continue
-      const needClip = sl.clip < SH
+      const needClip = clip < SH
       if (needClip) {
-        ctx.save()
-        ctx.beginPath()
-        ctx.rect(0, 0, SW, clip)
-        ctx.clip()
+        g.save()
+        g.beginPath()
+        g.rect(0, 0, SW, clip)
+        g.clip()
       }
       if (seg.tunnel) {
         tunnelSlice(sl, pal, ui)
@@ -728,24 +747,31 @@ export function createRenderer(canvas: HTMLCanvasElement) {
           const z = sl.z1 + (sl.z2 - sl.z1) * t
           // Cars dropping behind the player are gone before they fill the screen.
           if (z < camDist * 0.74) continue
-          const fade = Math.min(1, (z / camDist - 0.74) / 0.2)
           const s = F / z
           const xo = sl.x1 + (sl.x2 - sl.x1) * t
           const lat = worldX(seg, car.side, car.rel)
           const x = sx(lat, s, xo)
           const y = HY + (roadY(state, state.position) + camY - roadY(state, car.z)) * s
-          const kind = TRAFFIC_KINDS[car.kind]
+          const kind = TRAFFIC_KINDS[car.kind]!
           const w = kind.halfW * 2 * ROAD_W * s
-          if (w < 3 || x < -w || x > SW + w) continue
+          if (w < 2 || x < -w || x > SW + w) continue
           const panel = Math.max(-0.8, Math.min(0.8, (SW / 2 - x) / (SW * 0.7)))
-          ctx.globalAlpha = fade
-          drawTraffic(ctx, x, y, w, { kind: kind.name, paint: car.paint, panel, glow: w > 40 })
-          ctx.globalAlpha = 1
+          const spr = trafficSprite(kind.name, car.paint, panel, w)
+          // Passing behind the player: dither the car out instead of fading it.
+          if (z < camDist * 0.94) {
+            const fade = Math.min(1, (z / camDist - 0.74) / 0.2)
+            if (bayer(Math.round(x), Math.round(y)) > fade) continue
+          }
+          drawCar(g, spr, x, y, widthStep(w))
+          if (w > 8 && kind.name !== 'truck') {
+            const ty = y - w * (kind.name === 'bug' ? 0.2 : 0.16)
+            glow(x - w * 0.33, ty, Math.max(3, w * 0.3), PINK, 0.65)
+            glow(x + w * 0.33, ty, Math.max(3, w * 0.3), PINK, 0.65)
+          }
         }
       }
-      if (needClip) ctx.restore()
+      if (needClip) g.restore()
     }
-    void camZ
   }
 
   // ------------------------------------------------------------ tunnels
@@ -757,86 +783,60 @@ export function createRenderer(canvas: HTMLCanvasElement) {
    */
   function tunnelSlice(sl: Slice, pal: Palette, ui: FrameUI) {
     const seg = sl.seg
-    const c = seg.centers[0]
+    const c = seg.centers[0]!
     const l1 = sx(c - TUNNEL_WALL, sl.s1, sl.x1)
     const r1 = sx(c + TUNNEL_WALL, sl.s1, sl.x1)
     const l2 = sx(c - TUNNEL_WALL, sl.s2, sl.x2)
     const r2 = sx(c + TUNNEL_WALL, sl.s2, sl.x2)
     const c1 = sl.y1 - TUNNEL_H * sl.s1
     const c2 = sl.y2 - TUNNEL_H * sl.s2
-    // Further in is darker; alternating bands stream past.
+    // Stone courses stream past: alternate bands of violet stone.
     const band = Math.floor(seg.index / 2) % 2
-    const wall = mix(pal.ridgeNear, '#000000', band ? 0.35 : 0.5)
-    const roof = mix(pal.ridgeNear, '#000000', band ? 0.55 : 0.65)
-    ctx.fillStyle = wall
-    ctx.beginPath()
-    ctx.moveTo(l1, sl.y1)
-    ctx.lineTo(l1, c1)
-    ctx.lineTo(l2, c2)
-    ctx.lineTo(l2, sl.y2)
-    ctx.closePath()
-    ctx.moveTo(r1, sl.y1)
-    ctx.lineTo(r1, c1)
-    ctx.lineTo(r2, c2)
-    ctx.lineTo(r2, sl.y2)
-    ctx.closePath()
-    ctx.fill()
-    ctx.fillStyle = roof
-    ctx.beginPath()
-    ctx.moveTo(l1, c1)
-    ctx.lineTo(r1, c1)
-    ctx.lineTo(r2, c2)
-    ctx.lineTo(l2, c2)
-    ctx.closePath()
-    ctx.fill()
-    // Neon strip at two thirds up each wall, and the roof edges.
+    const wall = band ? '#3a2f70' : '#312862'
+    const roof = band ? '#1f1a3c' : '#1a1634'
+    pfill(g, [l1, sl.y1, l1, c1, l2, c2, l2, sl.y2], wall)
+    pfill(g, [r1, sl.y1, r1, c1, r2, c2, r2, sl.y2], wall)
+    pfill(g, [l1, c1, r1, c1, r2, c2, l2, c2], roof)
+    // Mortar line along each course edge.
+    if (seg.index % 2 === 0) {
+      pline(g, l1, sl.y1, l1, c1, '#271f50')
+      pline(g, r1, sl.y1, r1, c1, '#271f50')
+    }
+    // Neon strip at two thirds up each wall, the roof edges in the prop colour.
     const strip = (h: number, color: string, width: number) => {
       const a1 = sl.y1 - TUNNEL_H * h * sl.s1
       const a2 = sl.y2 - TUNNEL_H * h * sl.s2
-      const w1 = Math.max(0.6, width * sl.s1)
-      const w2 = Math.max(0.6, width * sl.s2)
-      ctx.fillStyle = color
-      ctx.beginPath()
-      ctx.moveTo(l1, a1 - w1)
-      ctx.lineTo(l2, a2 - w2)
-      ctx.lineTo(l2, a2 + w2)
-      ctx.lineTo(l1, a1 + w1)
-      ctx.closePath()
-      ctx.moveTo(r1, a1 - w1)
-      ctx.lineTo(r2, a2 - w2)
-      ctx.lineTo(r2, a2 + w2)
-      ctx.lineTo(r1, a1 + w1)
-      ctx.closePath()
-      ctx.fill()
+      const w1 = Math.max(0.5, width * sl.s1)
+      const w2 = Math.max(0.5, width * sl.s2)
+      if (w1 < 0.8) {
+        pline(g, l1, a1, l2, a2, color)
+        pline(g, r1, a1, r2, a2, color)
+        return
+      }
+      pfill(g, [l1, a1 - w1, l2, a2 - w2, l2, a2 + w2, l1, a1 + w1], color)
+      pfill(g, [r1, a1 - w1, r2, a2 - w2, r2, a2 + w2, r1, a1 + w1], color)
     }
-    strip(0.62, rgba(pal.edge, 0.85), 40)
-    strip(0.99, rgba(pal.prop, 0.5), 30)
-    // Roof lamps: every fourth segment, a gold bar down the middle.
+    strip(0.62, pal.edge, 40)
+    strip(0.99, pal.prop, 30)
+    // Roof lamps: every fourth segment, a gold bar down the middle that lights the tunnel.
     if (seg.index % 4 === 0) {
       const lw = 0.28
       const m1 = sx(c, sl.s1, sl.x1)
       const m2 = sx(c, sl.s2, sl.x2)
       const hw1 = lw * ROAD_W * sl.s1
       const hw2 = lw * ROAD_W * sl.s2
-      ctx.fillStyle = GOLD
-      if (sl.s1 * ROAD_W > 30 && !ui.reduced) {
-        ctx.shadowColor = GOLD
-        ctx.shadowBlur = Math.min(30, 0.5 * ROAD_W * sl.s1 * 0.1)
-      }
-      ctx.beginPath()
-      ctx.moveTo(m1 - hw1, c1 + 2)
-      ctx.lineTo(m1 + hw1, c1 + 2)
-      ctx.lineTo(m2 + hw2, c2 + 2)
-      ctx.lineTo(m2 - hw2, c2 + 2)
-      ctx.closePath()
-      ctx.fill()
-      ctx.shadowBlur = 0
+      pfill(g, [m1 - hw1, c1 + 1, m1 + hw1, c1 + 1, m2 + hw2, c2 + 1, m2 - hw2, c2 + 1], GOLD)
+      pline(g, m1 - hw1, c1 + 1, m1 + hw1, c1 + 1, '#fff1b0')
+      const rad = Math.max(3, ROAD_W * 0.9 * sl.s1)
+      // Far lamps bunch at the vanishing point; they fade with depth so they never glare.
+      const near = Math.max(0, Math.min(1, (sl.y1 - HY) / ((SH - HY) * 0.45)))
+      if (near > 0.05) glow(m1, (c1 + sl.y1) / 2, rad, '#ffd23f', 0.8 * near)
     }
   }
 
-  /** The face around the tunnel entrance: a rock or concrete wall with a lit portal. */
+  /** The face around the tunnel entrance: a rock hill or a building with a lit portal. */
   function tunnelMouth(sl: Slice, pal: Palette, biome: Biome) {
-    const c = sl.seg.centers[0]
+    const c = sl.seg.centers[0]!
     const s = sl.s1
     const y = sl.y1
     const l = sx(c - TUNNEL_WALL, s, sl.x1)
@@ -845,50 +845,60 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     const faceH = TUNNEL_H * s * (biome === 'city' ? 2.4 : 3.2)
     const faceW = ROAD_W * s * (biome === 'city' ? 9 : 12)
     const m = sx(c, s, sl.x1)
-    const face = new Path2D()
+    const faceCol = biome === 'city' ? '#2b2553' : pal.ridgeFar
+    const lit = mix(faceCol, '#ffffff', 0.12)
     if (biome === 'city') {
-      face.rect(m - faceW / 2, y - faceH, faceW, faceH)
-    } else {
-      // A hill shoulder over the portal.
-      face.moveTo(m - faceW / 2, y)
-      face.quadraticCurveTo(m - faceW * 0.3, y - faceH * 0.9, m - faceW * 0.05, y - faceH)
-      face.quadraticCurveTo(m + faceW * 0.2, y - faceH * 1.05, m + faceW * 0.3, y - faceH * 0.7)
-      face.quadraticCurveTo(m + faceW * 0.42, y - faceH * 0.4, m + faceW / 2, y)
-      face.closePath()
-    }
-    face.rect(r, y, l - r, top - y)
-    ctx.fillStyle = biome === 'city' ? mix(pal.ridgeNear, '#000000', 0.1) : pal.ridgeFar
-    ctx.fill(face, 'evenodd')
-    ctx.strokeStyle = rgba(pal.edge, 0.55)
-    ctx.lineWidth = Math.max(0.8, 26 * s)
-    ctx.stroke(face)
-    if (biome === 'city' && faceW > 40) {
-      // Windows on the building the road dives under.
-      ctx.fillStyle = rgba(GOLD, 0.5)
-      const cw = faceW / 18
-      for (let yy = y - faceH + cw; yy < top - cw * 0.5; yy += cw * 1.3) {
-        for (let xx = m - faceW / 2 + cw * 0.5; xx < m + faceW / 2 - cw; xx += cw * 1.4) {
-          if (Math.sin(xx * 0.37 + yy * 0.71) > 0.2) ctx.fillRect(xx, yy, cw * 0.5, cw * 0.6)
+      pfill(g, [m - faceW / 2, y, m - faceW / 2, y - faceH, m + faceW / 2, y - faceH, m + faceW / 2, y, r, y, r, top, l, top, l, y], faceCol)
+      prect(g, m - faceW / 2, y - faceH, faceW, 1, lit)
+      if (faceW > 16) {
+        // Windows on the building the road dives under.
+        const cw = Math.max(2, faceW / 18)
+        g.fillStyle = '#ffd23f'
+        for (let yy = y - faceH + cw; yy < top - cw * 0.5; yy += cw * 1.3) {
+          for (let xx = m - faceW / 2 + cw * 0.5; xx < m + faceW / 2 - cw; xx += cw * 1.4) {
+            if (Math.sin(xx * 0.37 + yy * 0.71) > 0.2) g.fillRect(Math.round(xx), Math.round(yy), Math.max(1, Math.round(cw * 0.5)), Math.max(1, Math.round(cw * 0.6)))
+          }
         }
       }
+    } else {
+      // A shrine gate over the portal: dungeon stone in courses that scale
+      // with distance in whole steps, a crown of lit stone along the top.
+      const pat = g.createPattern(stoneTile(), 'repeat')!
+      const k = Math.max(1, Math.round(ROAD_W * s * 0.12))
+      pat.setTransform(new DOMMatrix([k, 0, 0, k, Math.round(m), Math.round(y)]))
+      const pts: number[] = []
+      const n = 14
+      for (let i = 0; i <= n; i++) {
+        const t = i / n
+        const hx = m - faceW / 2 + faceW * t
+        const bump = Math.sin(t * Math.PI) * (0.85 + 0.15 * Math.sin(t * 9 + 1))
+        pts.push(hx, y - faceH * bump)
+      }
+      pts.push(m + faceW / 2, y, r, y, r, top, l, top, l, y)
+      pfill(g, pts, pat)
+      for (let i = 0; i < n; i++) pline(g, pts[i * 2]!, pts[i * 2 + 1]!, pts[i * 2 + 2]!, pts[i * 2 + 3]!, i < n / 2 ? lit : pal.edge)
     }
     // The portal itself glows.
-    const ring = new Path2D()
-    ring.rect(l, top, r - l, y - top)
-    glowStroke(ring, pal.edge, Math.max(1, 60 * s), r - l > 60)
+    const pw = Math.max(1, 60 * s)
+    prect(g, l - pw, top - pw, r - l + pw * 2, pw, pal.edge)
+    prect(g, l - pw, top, pw, y - top, pal.edge)
+    prect(g, r, top, pw, y - top, pal.edge)
+    glow(m, top, Math.max(4, (r - l) * 0.6), pal.edge, 0.6)
   }
+
+  // ------------------------------------------------------------ props
 
   function drawProp(p: RoadProp, seg: RoadSegment, sl: Slice, pal: Palette, ui: FrameUI) {
     const s = sl.s1
     const lat = worldX(seg, p.side, p.rel)
     const x = sx(lat, s, sl.x1)
-    const y = sl.y1
-    const u = s // pixels per world unit
+    const y = Math.round(sl.y1)
+    const u = s // logical px per world unit
     if (x < -SW * 0.6 || x > SW * 1.6) return
     switch (p.kind) {
-      case 'palm': return palm(x, y, u, p.v, pal)
-      case 'lamp': return lamp(x, y, u, lat - seg.centers[0], pal)
-      case 'billboard': return billboard(x, y, u, p.label ?? '', pal)
+      case 'palm': return tree(x, y, u, p.v)
+      case 'lamp': return lamp(x, y, u, lat - seg.centers[0]!)
+      case 'billboard': return billboard(x, y, u, p.label ?? '')
       case 'rock': return rock(x, y, u, p.v, pal)
       case 'pine': return pine(x, y, u, p.v, pal)
       case 'cactus': return cactus(x, y, u, p.v, pal)
@@ -896,356 +906,308 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       case 'pylon': return pylon(x, y, u, pal)
       case 'tower': return tower(x, y, u, p.v, pal, ui)
       case 'hut': return hut(x, y, u, p.v, pal)
-      case 'gore': return gore(x, y, u, p.label ?? '', pal)
-      case 'chevron': return chevron(x, y, u, pal)
-      case 'arch': return arch(sx(seg.centers[0], s, sl.x1), y, u, pal)
-      case 'gantry': return gantry(x, y, u, p.label ?? '', pal, ui)
+      case 'gore': return gore(x, y, u, p.label ?? '')
+      case 'chevron': return chevron(x, y, u)
+      case 'arch': return arch(sx(seg.centers[0]!, s, sl.x1), y, u, pal)
+      case 'gantry': return gantry(x, y, u, p.label ?? '', ui)
     }
   }
 
-  function glowStroke(path: Path2D, color: string, width: number, strong = true) {
-    if (width > 1.2 && strong) {
-      ctx.strokeStyle = rgba(color, 0.22)
-      ctx.lineWidth = width * 3.2
-      ctx.stroke(path)
-    }
-    ctx.strokeStyle = color
-    ctx.lineWidth = width
-    ctx.stroke(path)
-  }
-
-  function palm(x: number, y: number, u: number, v: number, pal: Palette) {
+  /** The palms are Neon Shrine's trees: a round teal crown with a magenta rim. */
+  function tree(x: number, y: number, u: number, v: number) {
     const h = 2700 * u * (0.85 + v * 0.35)
-    if (h < 3) return
-    const lean = (v - 0.5) * h * 0.35
-    const topX = x + lean
-    const topY = y - h
-    ctx.strokeStyle = '#1a0c1e'
-    ctx.lineWidth = Math.max(1, 110 * u)
-    ctx.lineCap = 'round'
-    ctx.beginPath()
-    ctx.moveTo(x, y)
-    ctx.quadraticCurveTo(x + lean * 0.1, y - h * 0.55, topX, topY)
-    ctx.stroke()
-    const fr = new Path2D()
-    const len = h * 0.5
-    for (let i = 0; i < 7; i++) {
-      const a = Math.PI * (1.08 + i * 0.14) + (v - 0.5) * 0.3
-      const ex = topX + Math.cos(a) * len
-      const ey = topY + Math.sin(a) * len * 0.45 + len * 0.42
-      fr.moveTo(topX, topY)
-      fr.quadraticCurveTo(topX + Math.cos(a) * len * 0.55, topY + Math.sin(a) * len * 0.55 - len * 0.12, ex, ey)
+    if (h < 2) return
+    const r = Math.max(1, h * 0.27)
+    const tw = Math.max(1, Math.round(140 * u))
+    const lean = Math.round((v - 0.5) * h * 0.2)
+    const cx = x + lean
+    const cy = y - h + r
+    g.fillStyle = 'rgba(5,3,12,0.4)'
+    g.fillRect(Math.round(x - r * 0.8), y - 1, Math.max(1, Math.round(r * 1.6)), Math.max(1, Math.round(r * 0.18)))
+    prect(g, x - tw / 2, cy, tw, y - cy, '#24142c')
+    prect(g, x - tw / 2 + Math.max(1, tw * 0.3), cy, Math.max(1, tw * 0.4), y - cy, '#3a2240')
+    if (r < 2) {
+      prect(g, cx - 1, cy - 1, 2, 2, '#1b5763')
+      return
     }
-    glowStroke(fr, pal.prop, Math.max(1, 55 * u), h > 60)
-    ctx.lineCap = 'butt'
+    const violet = v > 0.62
+    const P = violet ? ['#1a1f4c', '#27366e', '#3f58a4', '#86a2ff'] : ['#0f3445', '#1b5763', '#2a8579', '#5fd6b8']
+    pdisc(g, cx, cy, r, P[0]!)
+    pdisc(g, cx - r * 0.12, cy - r * 0.14, r * 0.78, P[1]!)
+    // Leaf clumps.
+    if (r > 4) {
+      for (let i = 0; i < 4; i++) {
+        const lx = cx - r * 0.7 + hash2(i, Math.round(v * 97), 7) * r * 1.2
+        const ly = cy - r * 0.6 + hash2(i, Math.round(v * 97), 8) * r * 1.0
+        prect(g, lx, ly, Math.max(2, r * 0.3), 1, P[2]!)
+        prect(g, lx, ly + 1, Math.max(2, r * 0.3), 1, P[0]!)
+      }
+    }
+    prect(g, cx - r * 0.55, cy - r * 0.86, Math.max(1, r * 0.8), 1, P[2]!)
+    prect(g, cx - r * 0.4, cy - r * 0.98, Math.max(1, r * 0.5), 1, P[3]!)
+    prect(g, cx + r * 0.85, cy - r * 0.1, 1, Math.max(1, r * 0.55), '#d0509e')
+    prect(g, cx - r * 0.2, cy + r * 0.88, Math.max(1, r * 0.6), 1, '#d0509e')
   }
 
-  function lamp(x: number, y: number, u: number, side: number, pal: Palette) {
+  function lamp(x: number, y: number, u: number, side: number) {
     const h = 2100 * u
-    if (h < 3) return
+    if (h < 2) return
     const dir = side < 0 ? 1 : -1
-    ctx.fillStyle = '#1c1430'
-    ctx.fillRect(x - 30 * u, y - h, 60 * u, h)
-    ctx.fillRect(x, y - h, dir * 380 * u, 50 * u)
+    const pw = Math.max(1, 60 * u)
+    prect(g, x - pw / 2, y - h, pw, h, '#140a22')
+    if (pw > 2) prect(g, x - pw / 2 + 1, y - h, 1, h, '#3a2a5a')
+    prect(g, dir > 0 ? x : x - 380 * u, y - h, 380 * u, Math.max(1, 50 * u), '#140a22')
     const hx = x + dir * 380 * u
-    if (h > 40) {
-      ctx.shadowColor = GOLD
-      ctx.shadowBlur = Math.min(24, 200 * u)
-    }
-    ctx.fillStyle = GOLD
-    ctx.fillRect(hx - 90 * u, y - h + 40 * u, 180 * u, 34 * u)
-    ctx.shadowBlur = 0
-    void pal
+    prect(g, hx - 90 * u, y - h + 40 * u, 180 * u, Math.max(1, 34 * u), GOLD)
+    if (h > 6) prect(g, hx - 45 * u, y - h + 40 * u, 90 * u, 1, '#fff1b0')
+    glow(hx, y - h + 60 * u, Math.max(3, 1500 * u), GOLD, 0.85)
   }
 
-  function billboard(x: number, y: number, u: number, label: string, pal: Palette) {
+  /** Neon Shrine's signboard: dark board, pink frame, the text in the 5×7 font when it fits. */
+  function signBoard(x: number, y: number, w: number, h: number, frame: string, label: string, color: string) {
+    const fw = Math.max(1, Math.round(h * 0.07))
+    prect(g, x, y, w, h, '#0d0620')
+    prect(g, x, y, w, fw, frame)
+    prect(g, x, y + h - fw, w, fw, frame)
+    prect(g, x, y, fw, h, frame)
+    prect(g, x + w - fw, y, fw, h, frame)
+    const inner = w - fw * 4
+    if (!label) return
+    const n = Math.max(1, Math.floor(Math.min((h - fw * 2) * 0.6 / 7, inner / Math.max(1, bigTextWidth(label, 1)))))
+    if (bigTextWidth(label, n) <= inner && (h - fw * 2) >= 7 * n + 2) {
+      drawBigText(g, label, Math.round(x + (w - bigTextWidth(label, n)) / 2), Math.round(y + (h - 7 * n) / 2), n, color)
+    } else if (w > 6) {
+      // Too small to read: a line of lit pixels stands in for the letters.
+      prect(g, x + w * 0.2, y + h / 2, w * 0.6, 1, color)
+    }
+  }
+
+  function billboard(x: number, y: number, u: number, label: string) {
     const w = 2400 * u
     const h = 900 * u
-    if (w < 4) return
+    if (w < 3) return
     const top = y - h - 900 * u
-    ctx.fillStyle = '#120826'
-    ctx.fillRect(x - w * 0.3 - 40 * u, top + h, 80 * u, 900 * u)
-    ctx.fillRect(x + w * 0.3 - 40 * u, top + h, 80 * u, 900 * u)
-    ctx.fillStyle = '#0d0620'
-    ctx.fillRect(x - w / 2, top, w, h)
-    const frame = new Path2D()
-    frame.rect(x - w / 2, top, w, h)
-    glowStroke(frame, PINK, Math.max(1, 40 * u), w > 80)
-    if (w > 40) {
-      ctx.fillStyle = GOLD
-      ctx.font = `bold ${Math.round(h * 0.42)}px ${MACHINE_FONT}`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(label, x, top + h / 2, w * 0.9)
-    }
-    void pal
+    prect(g, x - w * 0.3 - 40 * u, top + h, Math.max(1, 80 * u), 900 * u, '#120826')
+    prect(g, x + w * 0.3 - 40 * u, top + h, Math.max(1, 80 * u), 900 * u, '#120826')
+    signBoard(x - w / 2, top, w, h, PINK, label, GOLD)
+    glow(x, top + h / 2, Math.max(4, w * 0.6), PINK, 0.5)
   }
 
   function rock(x: number, y: number, u: number, v: number, pal: Palette) {
     const w = 1100 * u * (0.7 + v * 0.6)
     const h = w * (0.6 + v * 0.3)
-    if (w < 3) return
-    const p = new Path2D()
-    p.moveTo(x - w / 2, y)
-    p.lineTo(x - w * 0.42, y - h * 0.55)
-    p.lineTo(x - w * 0.12, y - h)
-    p.lineTo(x + w * 0.25, y - h * 0.85)
-    p.lineTo(x + w / 2, y - h * 0.3)
-    p.lineTo(x + w / 2, y)
-    p.closePath()
-    ctx.fillStyle = pal.ridgeNear
-    ctx.fill(p)
-    glowStroke(p, rgba(pal.edge, 0.8), Math.max(0.8, 26 * u), false)
+    if (w < 2) return
+    const pts = [x - w / 2, y, x - w * 0.42, y - h * 0.55, x - w * 0.12, y - h, x + w * 0.25, y - h * 0.85, x + w / 2, y - h * 0.3, x + w / 2, y]
+    pfill(g, pts, pal.ridgeNear)
+    pfill(g, [x - w * 0.42, y - h * 0.55, x - w * 0.12, y - h, x - w * 0.02, y - h * 0.5, x - w * 0.3, y - h * 0.2], mix(pal.ridgeNear, '#ffffff', 0.14))
+    pline(g, x - w * 0.12, y - h, x + w * 0.25, y - h * 0.85, pal.edge)
   }
 
   function pine(x: number, y: number, u: number, v: number, pal: Palette) {
     const h = 2600 * u * (0.7 + v * 0.6)
-    if (h < 3) return
+    if (h < 2) return
     const w = h * 0.36
-    const p = new Path2D()
+    prect(g, x - 40 * u, y - h * 0.15, Math.max(1, 80 * u), h * 0.15, '#24142c')
     for (let i = 0; i < 3; i++) {
       const t = i / 3
       const by = y - h * 0.15 - t * h * 0.28
       const ww = w * (1 - t * 0.3)
-      p.moveTo(x - ww, by)
-      p.lineTo(x, by - h * 0.45)
-      p.lineTo(x + ww, by)
-      p.closePath()
+      pfill(g, [x - ww, by, x, by - h * 0.45, x + ww, by], '#0f3445')
+      pfill(g, [x - ww, by, x, by - h * 0.45, x - ww * 0.1, by], '#1b5763')
+      pline(g, x, by - h * 0.45, x + ww, by, pal.edge === CYAN ? '#3ff0ff' : '#d0509e')
     }
-    ctx.fillStyle = '#081420'
-    ctx.fill(p)
-    glowStroke(p, pal.edge === CYAN ? CYAN : pal.prop, Math.max(0.8, 30 * u), h > 50)
-    ctx.fillStyle = '#081420'
-    ctx.fillRect(x - 40 * u, y - h * 0.15, 80 * u, h * 0.15)
   }
 
   function cactus(x: number, y: number, u: number, v: number, pal: Palette) {
     const h = 1600 * u * (0.8 + v * 0.4)
-    if (h < 3) return
+    if (h < 2) return
     const t = Math.max(1, 150 * u)
-    const p = new Path2D()
-    p.moveTo(x, y)
-    p.lineTo(x, y - h)
-    p.moveTo(x, y - h * 0.45)
-    p.lineTo(x - h * 0.25, y - h * 0.45)
-    p.lineTo(x - h * 0.25, y - h * 0.75)
-    p.moveTo(x, y - h * 0.6)
-    p.lineTo(x + h * 0.22, y - h * 0.6)
-    p.lineTo(x + h * 0.22, y - h * 0.85)
-    ctx.lineCap = 'round'
-    ctx.strokeStyle = '#1a0c18'
-    ctx.lineWidth = t
-    ctx.stroke(p)
-    ctx.lineCap = 'butt'
-    glowStroke(p, rgba(pal.prop, 0.9), Math.max(0.6, t * 0.18), false)
+    const col = '#1f7a6e'
+    prect(g, x - t / 2, y - h, t, h, col)
+    prect(g, x - h * 0.25 - t / 2, y - h * 0.45 - t / 2, h * 0.25, t, col)
+    prect(g, x - h * 0.25 - t / 2, y - h * 0.75, t, h * 0.3, col)
+    prect(g, x, y - h * 0.6 - t / 2, h * 0.22, t, col)
+    prect(g, x + h * 0.22 - t / 2, y - h * 0.85, t, h * 0.25, col)
+    prect(g, x - t / 2, y - h, Math.max(1, t * 0.35), h, '#3fd8b0')
+    prect(g, x + t / 2 - 1, y - h, 1, h, pal.prop)
   }
 
   function spire(x: number, y: number, u: number, v: number, pal: Palette) {
     const h = 3200 * u * (0.6 + v * 0.8)
-    if (h < 3) return
+    if (h < 2) return
     const w = h * 0.18
-    const p = new Path2D()
-    p.moveTo(x - w, y)
-    p.lineTo(x - w * 0.2, y - h)
-    p.lineTo(x + w * 0.4, y - h * 0.7)
-    p.lineTo(x + w, y)
-    p.closePath()
-    ctx.fillStyle = rgba(pal.ridgeFar, 0.95)
-    ctx.fill(p)
-    glowStroke(p, pal.edge, Math.max(0.7, 26 * u), h > 60)
+    pfill(g, [x - w, y, x - w * 0.2, y - h, x + w * 0.4, y - h * 0.7, x + w, y], pal.ridgeFar)
+    pfill(g, [x - w, y, x - w * 0.2, y - h, x - w * 0.1, y], mix(pal.ridgeFar, '#ffffff', 0.14))
+    pline(g, x - w * 0.2, y - h, x + w * 0.4, y - h * 0.7, pal.edge)
   }
 
   function pylon(x: number, y: number, u: number, pal: Palette) {
     const h = 1500 * u
-    if (h < 3) return
+    if (h < 2) return
     const w = Math.max(1, 60 * u)
-    ctx.fillStyle = rgba(pal.edge, 0.2)
-    ctx.fillRect(x - w * 2, y - h, w * 4, h)
-    ctx.fillStyle = pal.edge
-    ctx.fillRect(x - w / 2, y - h, w, h)
-    ctx.fillStyle = PINK
-    ctx.fillRect(x - w * 1.5, y - h - w * 3, w * 3, w * 3)
+    prect(g, x - w / 2, y - h, w, h, pal.edge)
+    prect(g, x - w * 1.5, y - h - w * 3, w * 3, w * 3, PINK)
+    glow(x, y - h, Math.max(3, h * 0.5), pal.edge, 0.6)
   }
 
   function tower(x: number, y: number, u: number, v: number, pal: Palette, ui: FrameUI) {
     const w = 2600 * u * (0.7 + v * 0.6)
     const h = 9000 * u * (0.4 + v * 0.9)
-    if (w < 3) return
-    ctx.fillStyle = mix(pal.ridgeNear, '#000000', 0.2)
-    ctx.fillRect(x - w / 2, y - h, w, h)
-    ctx.strokeStyle = rgba(pal.edge, 0.5)
-    ctx.lineWidth = Math.max(0.6, 20 * u)
-    ctx.strokeRect(x - w / 2, y - h, w, h)
-    if (w > 14) {
-      const cols = 4
-      const rows = Math.floor(h / (w / cols) / 1.4)
-      ctx.fillStyle = rgba(v > 0.5 ? CYAN : GOLD, 0.55)
+    if (w < 2) return
+    const body = mix(pal.ridgeNear, '#2b2553', 0.5)
+    prect(g, x - w / 2, y - h, w, h, body)
+    prect(g, x - w / 2, y - h, w, 1, mix(body, '#ffffff', 0.2))
+    prect(g, x - w / 2, y - h, 1, h, mix(body, '#ffffff', 0.1))
+    prect(g, x + w / 2 - 1, y - h, 1, h, pal.edge)
+    if (w > 5) {
+      const cols = Math.max(2, Math.min(6, Math.floor(w / 3)))
       const cw = w / cols
+      const rows = Math.floor(h / (cw * 1.4))
+      g.fillStyle = v > 0.5 ? '#3ff0ff' : '#ffd23f'
       for (let r = 1; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           if (Math.sin(r * 12.3 + c * 7.1 + v * 50) > 0.1) {
-            ctx.fillRect(x - w / 2 + c * cw + cw * 0.3, y - h + r * cw * 1.4, cw * 0.4, cw * 0.5)
+            g.fillRect(Math.round(x - w / 2 + c * cw + cw * 0.3), Math.round(y - h + r * cw * 1.4), Math.max(1, Math.round(cw * 0.4)), Math.max(1, Math.round(cw * 0.5)))
           }
         }
       }
     }
     if (v > 0.7 && (ui.reduced || Math.sin(ui.now * 2.5 + v * 20) > 0)) {
-      ctx.fillStyle = PINK
-      ctx.fillRect(x - 60 * u, y - h - 200 * u, 120 * u, 120 * u)
+      prect(g, x - 60 * u, y - h - 200 * u, 120 * u, 120 * u, PINK)
+      glow(x, y - h - 140 * u, Math.max(3, 900 * u), PINK, 0.8)
     }
   }
 
+  /** A beach hut: Neon Shrine's house, shingle roof over a plank wall, a lit window. */
   function hut(x: number, y: number, u: number, v: number, pal: Palette) {
     const w = 1400 * u
     if (w < 3) return
     const h = w * 0.55
-    ctx.fillStyle = '#1a0c22'
-    ctx.fillRect(x - w / 2, y - h, w, h)
-    const roof = new Path2D()
-    roof.moveTo(x - w * 0.65, y - h)
-    roof.lineTo(x, y - h * 1.7)
-    roof.lineTo(x + w * 0.65, y - h)
-    roof.closePath()
-    ctx.fillStyle = '#12081a'
-    ctx.fill(roof)
-    glowStroke(roof, pal.prop, Math.max(0.7, 30 * u), w > 60)
-    ctx.fillStyle = v > 0.5 ? GOLD : CYAN
-    ctx.fillRect(x - w * 0.15, y - h * 0.6, w * 0.3, h * 0.35)
+    const wallTop = y - h
+    prect(g, x - w / 2, wallTop, w, h, '#3b2b62')
+    if (w > 10) for (let i = 2; i < w; i += 4) prect(g, x - w / 2 + i, wallTop, 1, h, '#271c46')
+    pfill(g, [x - w * 0.65, wallTop, x, y - h * 1.7, x + w * 0.65, wallTop], '#8c2e72')
+    pfill(g, [x - w * 0.65, wallTop, x, y - h * 1.7, x - w * 0.05, wallTop], '#b8468f')
+    pline(g, x - w * 0.65, wallTop, x, y - h * 1.7, '#e070b0')
+    const col = v > 0.5 ? GOLD : CYAN
+    prect(g, x - w * 0.15, y - h * 0.6, w * 0.3, h * 0.35, col)
+    glow(x, y - h * 0.45, Math.max(3, w * 0.7), col, 0.7)
+    void pal
   }
 
-  function gore(x: number, y: number, u: number, label: string, pal: Palette) {
+  function gore(x: number, y: number, u: number, label: string) {
     const w = 3600 * u
     if (w < 4) return
     const h = w * 0.42
     const top = y - h - 700 * u
-    ctx.fillStyle = '#120826'
-    ctx.fillRect(x - 60 * u, top + h, 120 * u, 700 * u)
-    ctx.fillStyle = '#0d0620'
-    ctx.fillRect(x - w / 2, top, w, h)
-    const frame = new Path2D()
-    frame.rect(x - w / 2, top, w, h)
-    glowStroke(frame, GOLD, Math.max(1, 40 * u), w > 60)
-    if (w > 50) {
-      const [l, r] = label.split('|')
-      ctx.fillStyle = INK
-      ctx.textBaseline = 'middle'
-      const fs = Math.round(h * 0.2)
-      ctx.font = `bold ${fs}px ${MACHINE_FONT}`
-      ctx.textAlign = 'left'
-      ctx.fillText(`◀ ${l}`, x - w * 0.46, top + h * 0.32, w * 0.9)
-      ctx.textAlign = 'right'
-      ctx.fillText(`${r} ▶`, x + w * 0.46, top + h * 0.7, w * 0.9)
+    prect(g, x - 60 * u, top + h, Math.max(1, 120 * u), 700 * u, '#120826')
+    const [l, r] = label.split('|')
+    signBoard(x - w / 2, top, w, h, GOLD, '', INK)
+    const inner = w * 0.9
+    const n = Math.max(1, Math.floor(h * 0.25 / 7))
+    for (const [text, row, left] of [[`← ${l ?? ''}`, 0.3, true], [`${r ?? ''} →`, 0.7, false]] as const) {
+      const tw = bigTextWidth(text, n)
+      if (tw > inner || h * 0.3 < 7 * n) {
+        prect(g, x - w * 0.3, top + h * row, w * 0.6, 1, INK)
+        continue
+      }
+      drawBigText(g, text, Math.round(left ? x - w * 0.45 : x + w * 0.45 - tw), Math.round(top + h * row - (7 * n) / 2), n, INK)
     }
-    void pal
+    glow(x, top + h / 2, Math.max(4, w * 0.5), GOLD, 0.45)
   }
 
-  function chevron(x: number, y: number, u: number, pal: Palette) {
+  function chevron(x: number, y: number, u: number) {
     const h = 700 * u
-    if (h < 3) return
+    if (h < 2) return
     const w = h * 0.9
     const top = y - h
-    ctx.fillStyle = '#1a0f33'
-    ctx.fillRect(x - h * 0.04, top + h * 0.5, h * 0.08, h * 0.5)
-    ctx.fillStyle = '#0d0620'
-    ctx.fillRect(x - w / 2, top, w, h * 0.5)
-    // Arrows both ways: the median splits here.
-    ctx.strokeStyle = GOLD
-    ctx.lineWidth = Math.max(1, h * 0.07)
-    ctx.beginPath()
-    ctx.moveTo(x - w * 0.1, top + h * 0.1)
-    ctx.lineTo(x - w * 0.35, top + h * 0.25)
-    ctx.lineTo(x - w * 0.1, top + h * 0.4)
-    ctx.moveTo(x + w * 0.1, top + h * 0.1)
-    ctx.lineTo(x + w * 0.35, top + h * 0.25)
-    ctx.lineTo(x + w * 0.1, top + h * 0.4)
-    ctx.stroke()
-    void pal
+    prect(g, x - h * 0.04, top + h * 0.5, Math.max(1, h * 0.08), h * 0.5, '#1a0f33')
+    prect(g, x - w / 2, top, w, h * 0.5, '#0d0620')
+    pline(g, x - w * 0.1, top + h * 0.1, x - w * 0.35, top + h * 0.25, GOLD)
+    pline(g, x - w * 0.35, top + h * 0.25, x - w * 0.1, top + h * 0.4, GOLD)
+    pline(g, x + w * 0.1, top + h * 0.1, x + w * 0.35, top + h * 0.25, GOLD)
+    pline(g, x + w * 0.35, top + h * 0.25, x + w * 0.1, top + h * 0.4, GOLD)
   }
 
   function arch(cx: number, y: number, u: number, pal: Palette) {
     const w = ROAD_W * 2.6 * u
     const h = 2600 * u
-    if (w < 6) return
-    const p = new Path2D()
-    p.moveTo(cx - w / 2, y)
-    p.lineTo(cx - w / 2, y - h * 0.7)
-    p.quadraticCurveTo(cx, y - h * 1.25, cx + w / 2, y - h * 0.7)
-    p.lineTo(cx + w / 2, y)
-    glowStroke(p, pal.edge, Math.max(1, 70 * u), w > 100)
+    if (w < 4) return
+    const t = Math.max(1, 70 * u)
+    const pts: number[] = []
+    const n = 12
+    for (let i = 0; i <= n; i++) {
+      const a = i / n
+      const px = cx - w / 2 + w * a
+      const py = y - h * 0.7 - Math.sin(a * Math.PI) * h * 0.4
+      pts.push(px, py)
+    }
+    for (let i = 0; i < n; i++) {
+      for (let k = 0; k < Math.round(t); k++) pline(g, pts[i * 2]!, pts[i * 2 + 1]! + k, pts[i * 2 + 2]!, pts[i * 2 + 3]! + k, pal.edge)
+    }
+    prect(g, cx - w / 2, y - h * 0.7, t, h * 0.7, pal.edge)
+    prect(g, cx + w / 2 - t, y - h * 0.7, t, h * 0.7, pal.edge)
+    glow(cx, y - h * 1.1, Math.max(4, w * 0.5), pal.edge, 0.5)
   }
 
-  function gantry(x: number, y: number, u: number, label: string, pal: Palette, ui: FrameUI) {
+  function gantry(x: number, y: number, u: number, label: string, ui: FrameUI) {
     const w = ROAD_W * 2.5 * u
     const h = 2700 * u
-    if (w < 6) return
-    const leg = Math.max(2, 140 * u)
-    ctx.fillStyle = '#1a0f33'
-    ctx.fillRect(x - w / 2 - leg, y - h, leg, h)
-    ctx.fillRect(x + w / 2, y - h, leg, h)
+    if (w < 4) return
+    const leg = Math.max(1, 140 * u)
+    prect(g, x - w / 2 - leg, y - h, leg, h, '#1a0f33')
+    prect(g, x + w / 2, y - h, leg, h, '#1a0f33')
     const bh = h * 0.24
-    ctx.fillStyle = '#0d0620'
-    ctx.fillRect(x - w / 2 - leg, y - h, w + leg * 2, bh)
-    const frame = new Path2D()
-    frame.rect(x - w / 2 - leg, y - h, w + leg * 2, bh)
     const goal = label === 'GOAL'
-    glowStroke(frame, goal ? GOLD : CYAN, Math.max(1, 40 * u), w > 80)
-    if (w > 40) {
-      ctx.fillStyle = goal || label === 'START' ? GOLD : INK
-      ctx.textBaseline = 'middle'
-      if (label.includes('|')) {
-        // Direction board before a fork: left stage left, right stage right.
-        const [l, r] = label.split('|')
-        ctx.font = `bold ${Math.round(bh * 0.36)}px ${MACHINE_FONT}`
-        ctx.textAlign = 'left'
-        ctx.fillText(`◀ ${l}`, x - w / 2 + w * 0.03, y - h + bh / 2, w * 0.45)
-        ctx.textAlign = 'right'
-        ctx.fillText(`${r} ▶`, x + w / 2 - w * 0.03, y - h + bh / 2, w * 0.45)
-      } else {
-        ctx.font = `bold ${Math.round(bh * 0.55)}px ${MACHINE_FONT}`
-        ctx.textAlign = 'center'
-        ctx.fillText(label, x, y - h + bh / 2, w * 0.92)
+    const fork = label.includes('|')
+    const textCol = goal || label === 'START' ? GOLD : INK
+    signBoard(x - w / 2 - leg, y - h, w + leg * 2, bh, goal ? GOLD : CYAN, fork ? '' : label, textCol)
+    if (fork) {
+      // Direction board before a fork: left stage left, right stage right.
+      const [l, r] = label.split('|')
+      const n = Math.max(1, Math.floor(bh * 0.4 / 7))
+      const half = w * 0.45
+      for (const [text, left] of [[`← ${l ?? ''}`, true], [`${r ?? ''} →`, false]] as const) {
+        const tw = bigTextWidth(text, n)
+        if (tw > half || bh < 7 * n + 2) {
+          prect(g, left ? x - w * 0.4 : x + w * 0.1, y - h + bh / 2, w * 0.3, 1, INK)
+          continue
+        }
+        drawBigText(g, text, Math.round(left ? x - w / 2 + w * 0.03 : x + w / 2 - w * 0.03 - tw), Math.round(y - h + (bh - 7 * n) / 2), n, INK)
       }
     }
-    // A chequer strip for start and goal; checkpoint lamps otherwise.
-    if (label.includes('|')) {
-      // No lamps on a direction board.
-    } else if (goal || label === 'START') {
-      const n = 16
-      const cw = w / n
-      for (let i = 0; i < n; i++) {
-        ctx.fillStyle = i % 2 ? INK : '#0d0620'
-        ctx.fillRect(x - w / 2 + i * cw, y - h + bh, cw, cw * 0.4)
-      }
+    glow(x, y - h + bh / 2, Math.max(4, w * 0.45), goal ? GOLD : CYAN, 0.55)
+    if (fork) return
+    if (goal || label === 'START') {
+      // A chequer strip under the board.
+      const nq = 16
+      const cw = w / nq
+      for (let i = 0; i < nq; i++) prect(g, x - w / 2 + i * cw, y - h + bh, cw, Math.max(1, cw * 0.4), i % 2 ? INK : '#0d0620')
       if (label === 'START') {
         // The start lights: three reds one by one, then all green on GO.
-        const lr = Math.max(1.5, 150 * u)
+        const lr = Math.max(1, 150 * u)
         const ly = y - h + bh + cw * 0.4 + lr * 1.6
-        ctx.fillStyle = '#0d0620'
-        ctx.fillRect(x - lr * 6, ly - lr * 1.4, lr * 12, lr * 2.8)
+        prect(g, x - lr * 6, ly - lr * 1.4, lr * 12, lr * 2.8, '#0d0620')
         for (let i = 0; i < 4; i++) {
           const green = startLamps >= 4
           const on = green || i < startLamps
           const col = green ? '#3dff9a' : i < 3 ? '#ff3050' : '#3dff9a'
-          ctx.fillStyle = on ? col : mix(col, '#000000', 0.8)
-          if (on && lr > 4) {
-            ctx.shadowColor = col
-            ctx.shadowBlur = lr * 2
-          }
-          ctx.beginPath()
-          ctx.arc(x + (i - 1.5) * lr * 2.8, ly, lr, 0, Math.PI * 2)
-          ctx.fill()
-          ctx.shadowBlur = 0
+          const lx = x + (i - 1.5) * lr * 2.8
+          pdisc(g, lx, ly, lr, on ? col : mix(col, '#000000', 0.8))
+          if (on) glow(lx, ly, Math.max(3, lr * 4), col, 0.9)
         }
       }
     } else {
       for (let i = 0; i < 6; i++) {
         const on = ui.reduced || Math.floor(ui.now * 4 + i) % 2 === 0
-        ctx.fillStyle = on ? GOLD : '#3a2a10'
-        ctx.fillRect(x - w / 2 + (i + 0.5) * (w / 6) - 60 * u, y - h + bh + 40 * u, 120 * u, 80 * u)
+        const lx = x - w / 2 + (i + 0.5) * (w / 6)
+        prect(g, lx - 60 * u, y - h + bh + 40 * u, 120 * u, Math.max(1, 80 * u), on ? GOLD : '#3a2a10')
+        if (on) glow(lx, y - h + bh + 80 * u, Math.max(3, 500 * u), GOLD, 0.7)
       }
     }
-    void pal
   }
+
+  // ------------------------------------------------------------ the player
 
   function drawPlayer(state: OutrunState, ui: FrameUI, pal: Palette) {
     const s = F / camDist
@@ -1255,8 +1217,8 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     const ratio = state.speed / MAX_SPEED
     let panel = state.steer * 0.55 + (state.skid > 0.1 ? -Math.sign(state.steer) * state.skid * 0.25 : 0)
     let roll = 0
-    // Road buzz and the body's lift over crests.
-    const buzz = ui.reduced ? 0 : (state.offroad ? 3.5 : 0.8) * ratio * Math.sin(ui.now * (state.offroad ? 60 : 35))
+    // Road buzz and the body's lift over crests, in whole pixels.
+    const buzz = ui.reduced ? 0 : (state.offroad ? 1 : 0.5) * ratio * Math.sign(Math.sin(ui.now * (state.offroad ? 60 : 35)))
     y += buzz - Math.max(0, state.bodyY - roadY(state, state.position)) * s
     const c = state.crash
     if (c) {
@@ -1272,49 +1234,57 @@ export function createRenderer(canvas: HTMLCanvasElement) {
         roll = ui.reduced ? 0 : c.dir * Math.min(1, k * 1.1) * Math.PI * 2
         panel = k < 1 ? Math.sin(t * 9) * 0.8 : 0
       } else {
-        x += ui.reduced ? 0 : Math.sin(ui.now * 70) * w * 0.02
+        x += ui.reduced ? 0 : Math.sign(Math.sin(ui.now * 70)) * Math.max(1, w * 0.02)
       }
     }
     x = Math.max(w * 0.45, Math.min(SW - w * 0.45, x))
-    // The curve pushes the two heads outward; the tunnel dims the paint.
     const seg = segmentAt(state, state.position)
     const lean = Math.max(-1, Math.min(1, -seg.curve * ratio * ratio * 0.35))
     light += ((state.inTunnel ? 0.45 : 1) - light) * Math.min(1, ui.dt * 6)
     flame = Math.max(0, flame - ui.dt * 7)
-    drawPlayerCar(ctx, x, y, w, {
-      panel, brake: ui.braking && !c, roll, lean, now: ui.now, speed: ratio, reduced: ui.reduced, flame, light,
-    })
+    const brake = ui.braking && !c
+    const spr = playerSprite({ panel, brake, lean, now: ui.now, speed: ratio, reduced: ui.reduced, flame }, w)
+    // Contact shadow.
+    g.fillStyle = 'rgba(5,3,12,0.55)'
+    g.fillRect(Math.round(x - w * 0.55), Math.round(y) - 1, Math.round(w * 1.1), Math.max(2, Math.round(w * 0.04)))
+    drawCar(g, spr, x, y, widthStep(w), roll)
+    // Tail lights and backfire light the road behind.
+    const ty = y - w * 0.18
+    glow(x - w * 0.3, ty, w * (brake ? 0.42 : 0.3), PINK, brake ? 1 : 0.7)
+    glow(x + w * 0.3, ty, w * (brake ? 0.42 : 0.3), PINK, brake ? 1 : 0.7)
+    if (flame > 0) glow(x, y - w * 0.06, w * 0.5 * flame + 4, GOLD, 1)
     carScreenX = x
     carScreenY = y
     if (state.scrape && !ui.reduced && Math.random() < 0.8) sparks(x + state.scrape * w * 0.5, y - w * 0.12, 2, -state.scrape)
 
     // Tyre smoke, dust, sparks.
     if (!ui.reduced && ui.phase === 'play') {
-      const emit = (n: number, kind: Particle['kind'], color: string) => {
+      const emitP = (n: number, kind: Particle['kind'], color: string) => {
         for (let i = 0; i < n; i++) {
           const side = Math.random() < 0.5 ? -1 : 1
           particles.push({
             x: x + side * w * 0.42 + (Math.random() - 0.5) * w * 0.1,
-            y: y - 2,
-            vx: (Math.random() - 0.5) * 80 - state.steer * 60,
-            vy: -30 - Math.random() * 60,
+            y: y - 1,
+            vx: ((Math.random() - 0.5) * 80 - state.steer * 60) / K,
+            vy: (-30 - Math.random() * 60) / K,
             life: 0,
             max: kind === 'spark' ? 0.35 : 0.8 + Math.random() * 0.4,
-            size: kind === 'spark' ? 2 : w * (0.02 + Math.random() * 0.025),
+            size: kind === 'spark' ? 1 : Math.max(1, w * (0.02 + Math.random() * 0.025)),
             color,
             kind,
           })
         }
       }
-      if (state.skid > 0.25 && Math.random() < state.skid * 0.7) emit(1, 'smoke', '#b8a8d8')
-      if (state.offroad && ratio > 0.1) emit(2, 'dust', mix(pal.ground, '#c89a9a', 0.6))
-      if (c && c.kind !== 'bump' && c.t < c.dur * 0.8) emit(2, 'smoke', '#9a8ab8')
+      if (state.skid > 0.25 && Math.random() < state.skid * 0.7) emitP(1, 'smoke', '#b8a8d8')
+      if (state.offroad && ratio > 0.1) emitP(2, 'dust', GROUND[biomeOf(seg)][2])
+      if (c && c.kind !== 'bump' && c.t < c.dur * 0.8) emitP(2, 'smoke', '#9a8ab8')
     }
+    void pal
   }
 
-  function drawParticles(dt: number) {
+  function stepParticles(dt: number) {
     for (let i = particles.length - 1; i >= 0; i--) {
-      const p = particles[i]
+      const p = particles[i]!
       p.life += dt
       if (p.life >= p.max) {
         particles.splice(i, 1)
@@ -1322,39 +1292,53 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       }
       p.x += p.vx * dt
       p.y += p.vy * dt
-      p.vy += (p.kind === 'spark' ? 400 : p.kind === 'firework' ? 60 : -10) * dt
+      p.vy += ((p.kind === 'spark' ? 400 : p.kind === 'firework' ? 60 : -10) / K) * dt
       if (p.kind === 'firework') {
         p.vx *= 1 - dt * 1.5
         p.vy *= 1 - dt * 1.5
       }
+    }
+    if (particles.length > 400) particles.splice(0, particles.length - 400)
+  }
+
+  /** Particles glow after the light map; smoke and dust are drawn lit, before it. */
+  function drawParticles(hard: boolean) {
+    for (const p of particles) {
+      const isHard = p.kind === 'spark' || p.kind === 'firework'
+      if (isHard !== hard) continue
       const t = p.life / p.max
-      const hard = p.kind === 'spark' || p.kind === 'firework'
-      ctx.globalAlpha = (1 - t) * (hard ? 1 : 0.32)
-      ctx.fillStyle = p.color
-      const sz = p.size * (hard ? 1 : 1 + t * 2)
+      const x = Math.round(p.x)
+      const y = Math.round(p.y)
+      if (!hard) {
+        // Smoke puffs grow and thin out: a disc of dithered pixels.
+        const r = Math.min(8, p.size * (1 + t * 2))
+        const dens = 0.55 * (1 - t)
+        g.fillStyle = p.color
+        const n = Math.ceil(r)
+        for (let yy = -n; yy <= n; yy++) {
+          for (let xx = -n; xx <= n; xx++) {
+            if (xx * xx + yy * yy > r * r) continue
+            if (bayer(x + xx, y + yy) < dens) g.fillRect(x + xx, y + yy, 1, 1)
+          }
+        }
+        continue
+      }
+      if (t > 0.7 && (Math.floor(p.life * 20) & 1)) continue
+      g.fillStyle = t > 0.5 ? mix(p.color, '#0b0616', 0.3) : p.color
+      g.fillRect(x, y, 1, 1)
       if (p.kind === 'firework') {
         // A short streak along its flight, so a burst reads as a shell.
-        ctx.strokeStyle = p.color
-        ctx.lineWidth = sz
-        ctx.beginPath()
-        ctx.moveTo(p.x, p.y)
-        ctx.lineTo(p.x - p.vx * 0.06, p.y - p.vy * 0.06)
-        ctx.stroke()
-      } else if (hard) ctx.fillRect(p.x, p.y, sz, sz)
-      else {
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, sz, 0, Math.PI * 2)
-        ctx.fill()
+        const tx = Math.round(p.x - p.vx * 0.05)
+        const ty = Math.round(p.y - p.vy * 0.05)
+        if (tx !== x || ty !== y) g.fillRect(tx, ty, 1, 1)
       }
     }
-    ctx.globalAlpha = 1
-    if (particles.length > 400) particles.splice(0, particles.length - 400)
   }
 
   /** Sparks from a point; `dir` biases them sideways (a wall scrape throws them away from the wall). */
   function sparks(x: number, y: number, n: number, dir = 0) {
     for (let i = 0; i < n; i++) {
-      particles.push({ x, y, vx: (Math.random() - 0.5) * 500 + dir * 260, vy: -Math.random() * 300, life: 0, max: 0.4 + Math.random() * 0.3, size: 2, color: GOLD, kind: 'spark' })
+      particles.push({ x, y, vx: ((Math.random() - 0.5) * 500 + dir * 260) / K, vy: (-Math.random() * 300) / K, life: 0, max: 0.4 + Math.random() * 0.3, size: 1, color: GOLD, kind: 'spark' })
     }
   }
 
@@ -1362,13 +1346,21 @@ export function createRenderer(canvas: HTMLCanvasElement) {
   function firework() {
     const x = SW * (0.15 + Math.random() * 0.7)
     const y = HY * (0.2 + Math.random() * 0.45)
-    const color = [CYAN, PINK, GOLD, INK][Math.floor(Math.random() * 4)]
-    const n = 36
+    const color = [CYAN, PINK, GOLD, INK][Math.floor(Math.random() * 4)]!
+    const n = 28
     const v = Math.min(SW, SH) * (0.25 + Math.random() * 0.15)
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2
       const k = 0.7 + Math.random() * 0.3
-      particles.push({ x, y, vx: Math.cos(a) * v * k, vy: Math.sin(a) * v * k, life: 0, max: 1.1 + Math.random() * 0.5, size: 3, color, kind: 'firework' })
+      particles.push({ x, y, vx: Math.cos(a) * v * k, vy: Math.sin(a) * v * k, life: 0, max: 1.1 + Math.random() * 0.5, size: 1, color, kind: 'firework' })
+    }
+  }
+
+  function fireworkLights() {
+    let n = 0
+    for (const p of particles) {
+      if (p.kind !== 'firework' || n++ % 7) continue
+      glow(p.x, p.y, 14, p.color, 0.7 * (1 - p.life / p.max))
     }
   }
 
@@ -1383,221 +1375,217 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       return
     }
     const R = Math.hypot(SW, SH) * 0.6
-    while (streaks.length < 22) streaks.push({ a: Math.random() * Math.PI * 2, r: R * (0.25 + Math.random() * 0.75) })
-    ctx.save()
-    ctx.globalCompositeOperation = 'lighter'
-    ctx.strokeStyle = rgba(INK, 0.1 * Math.min(1.4, on))
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
+    while (streaks.length < 18) streaks.push({ a: Math.random() * Math.PI * 2, r: R * (0.25 + Math.random() * 0.75) })
+    g.fillStyle = '#fff4ff'
+    g.globalAlpha = Math.min(0.5, 0.25 * on)
     for (const st of streaks) {
       st.r += R * ui.dt * (1.2 + ratio * 1.6) * (st.r / R + 0.2)
       if (st.r > R) {
         st.a = Math.random() * Math.PI * 2
         st.r = R * (0.25 + Math.random() * 0.2)
       }
-      // Keep clear of the road and car in the middle of the lower half.
       const dx = Math.cos(st.a)
       const dy = Math.sin(st.a)
       if (dy > 0.2 && Math.abs(dx) < 0.75) continue
-      const len = st.r * 0.22
-      ctx.moveTo(SW / 2 + dx * st.r, HY + dy * st.r * 0.8)
-      ctx.lineTo(SW / 2 + dx * (st.r + len), HY + dy * (st.r + len) * 0.8)
+      // A dotted dash: three pixels along the ray.
+      for (let k = 0; k < 3; k++) {
+        const rr = st.r + k * st.r * 0.07
+        g.fillRect(Math.round(SW / 2 + dx * rr), Math.round(HY + dy * rr * 0.8), 1, 1)
+      }
     }
-    ctx.stroke()
-    ctx.restore()
+    g.globalAlpha = 1
   }
 
   // ---------------------------------------------------------------- HUD
 
-  function text(str: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = 'left', glow = true, weight = '') {
-    ctx.font = `${weight}${Math.round(size)}px ${MACHINE_FONT}`
-    ctx.textAlign = align
-    ctx.textBaseline = 'alphabetic'
-    if (glow) {
-      ctx.shadowColor = color
-      ctx.shadowBlur = size * 0.5
-    }
-    ctx.fillStyle = color
-    ctx.fillText(str, x, y)
-    ctx.shadowBlur = 0
-  }
+  const SHADOW = '#0b0616'
 
-  /** Letter-spaced label (canvas letterSpacing is not everywhere yet). */
-  function label(str: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = 'left', alpha = 0.6) {
-    const spaced = str.split('').join(' ')
-    ctx.globalAlpha = alpha
-    text(spaced, x, y, size, color, align, false)
-    ctx.globalAlpha = 1
+  function htext(h: CanvasRenderingContext2D, str: string, x: number, y: number, color: string, align: 'left' | 'center' | 'right' = 'left', n = 1) {
+    const w = n === 1 ? textWidth(str) : bigTextWidth(str, n)
+    const ax = Math.round(align === 'left' ? x : align === 'center' ? x - w / 2 : x - w)
+    if (n === 1) drawText(h, str, ax, Math.round(y), color, SHADOW)
+    else drawBigText(h, str, ax, Math.round(y), n, color, SHADOW)
+    return w
   }
 
   function drawHud(state: OutrunState, ui: FrameUI) {
-    const pad = Math.max(16, SW * 0.025)
-    const top = Math.max(16, SH * 0.03)
-    const small = Math.max(10, Math.min(13, SW * 0.028))
-    const mid = Math.max(16, Math.min(26, SW * 0.042))
-    const big = Math.max(34, Math.min(64, SW * 0.085))
+    const h = stage.hud
+    const pad = Math.max(3, Math.round(12 / K))
+    const top = Math.max(3, Math.round(12 / K))
+    const bigN = 2
 
     // Score, top left.
-    label('SCORE', pad, top + small, small, CYAN)
-    text(String(totalScore(state)), pad, top + small + mid * 1.1, mid, CYAN)
+    htext(h, 'SCORE', pad, top, INK_MUTED)
+    htext(h, String(totalScore(state)), pad, top + 9, CYAN)
     // The close-pass chain and the time left to extend it.
     if (state.chain > 1) {
-      const cy = top + small + mid * 1.1 + small * 2
-      text(`CHAIN ×${state.chain}`, pad, cy, small * 1.15, GOLD, 'left', true, 'bold ')
-      const bw = Math.min(110, SW * 0.2)
-      ctx.fillStyle = rgba(GOLD, 0.2)
-      ctx.fillRect(pad, cy + 6, bw, 3)
-      ctx.fillStyle = GOLD
-      ctx.fillRect(pad, cy + 6, bw * (state.chainT / CHAIN_WINDOW), 3)
+      const cy = top + (portrait ? 44 : 20)
+      htext(h, `CHAIN ×${state.chain}`, pad, cy, GOLD)
+      const bw = Math.min(40, SW * 0.2)
+      h.fillStyle = 'rgba(255,210,63,0.25)'
+      h.fillRect(pad, cy + 9, Math.round(bw), 1)
+      h.fillStyle = GOLD
+      h.fillRect(pad, cy + 9, Math.round(bw * (state.chainT / CHAIN_WINDOW)), 1)
     }
 
     // Time, top centre.
     const secs = Math.max(0, Math.ceil(state.time))
     const low = secs <= 10 && state.status === 'run'
     const blinkOff = low && !ui.reduced && Math.floor(ui.now * 4) % 2 === 1
-    label('TIME', SW / 2, top + small, small, low ? PINK : CYAN, 'center')
-    if (!blinkOff) text(String(secs), SW / 2, top + small + big * 0.95, big, low ? PINK : CYAN, 'center', true, 'bold ')
+    // On a portrait phone the site's radio chip covers the top middle, so the
+    // clock joins the score on the left.
+    const tx = portrait ? pad : SW / 2
+    const ty = portrait ? top + 20 : top
+    const ta = portrait ? 'left' : 'center'
+    htext(h, 'TIME', tx, ty, low ? PINK : INK_MUTED, ta)
+    if (!blinkOff) htext(h, String(secs), tx, ty + 9, low ? PINK : CYAN, ta, bigN)
 
-    // Stage and the route map, top right.
+    // Stage and the route map, top right (below the site's radio chip).
     const def = stageDef(state.col, state.node)
-    label(`STAGE ${state.col + 1}`, SW - pad, top + small, small, CYAN, 'right')
-    text(def.name, SW - pad, top + small + mid * 0.95, Math.min(mid * 0.8, 18), CYAN, 'right')
-    drawRouteMap(state, SW - pad, top + small + mid * 1.35, Math.min(120, SW * 0.24), ui)
+    const rTop = top + Math.round(60 / K)
+    htext(h, `STAGE ${state.col + 1}`, SW - pad, rTop, INK_MUTED, 'right')
+    htext(h, def.name, SW - pad, rTop + 9, CYAN, 'right')
+    drawRouteMap(h, state, SW - pad, rTop + 19, Math.min(44, SW * 0.2), ui)
 
     // Speed and revs, bottom left.
-    const by = floorY - Math.max(56, SH * 0.075)
-    const kmh = displaySpeed(state)
-    const spdSize = Math.max(26, Math.min(48, SW * 0.06))
-    text(String(kmh), pad, by, spdSize, CYAN, 'left', true, 'bold ')
-    ctx.font = `bold ${Math.round(spdSize)}px ${MACHINE_FONT}`
-    const kw = ctx.measureText(String(kmh)).width
-    label('KM/H', pad + kw + 6, by, small, CYAN)
+    const by = Math.round(floorY - Math.max(8, 30 / K))
+    const kmh = String(displaySpeed(state))
+    const kw = htext(h, kmh, pad, by - 14, CYAN, 'left', 2)
+    htext(h, 'KM/H', pad + kw + 3, by - 7, INK_MUTED)
     // Tacho: segmented bar, pink at the top of each gear.
     const bars = 14
-    const bw = Math.max(4, Math.min(9, SW * 0.012))
     const lit = Math.round(state.rpm * bars)
     for (let i = 0; i < bars; i++) {
-      const hh = 5 + i * 1.3
-      const on = i < lit
-      ctx.fillStyle = on ? (i >= bars - 3 ? PINK : CYAN) : 'rgba(47,243,255,0.14)'
-      ctx.fillRect(pad + i * (bw + 2), by - spdSize - 8 - hh, bw, hh)
+      const hh = 2 + Math.round(i * 0.45)
+      h.fillStyle = i < lit ? (i >= bars - 3 ? PINK : CYAN) : '#1c2f4a'
+      h.fillRect(pad + i * 3, by - 18 - hh, 2, hh)
     }
-    label(`GEAR ${state.gear + 1}`, pad + bars * (bw + 2) + 6, by - spdSize - 8, small, CYAN, 'left', 0.7)
+    htext(h, `GEAR ${state.gear + 1}`, pad + bars * 3 + 3, by - 24, INK_MUTED)
 
     // Radio, bottom right.
-    const name = ui.radioIndex < 0 ? 'OFF' : ui.radioNames[ui.radioIndex]
-    label(ui.touch ? 'RADIO · TAP' : 'RADIO · M', SW - pad, by - small * 1.5, small, PINK, 'right')
-    text(name, SW - pad, by, Math.min(mid * 0.7, 15), PINK, 'right', false)
+    const name = ui.radioIndex < 0 ? 'OFF' : ui.radioNames[ui.radioIndex] ?? ''
+    htext(h, ui.touch ? 'RADIO · TAP' : 'RADIO · M', SW - pad, by - 17, PINK, 'right')
+    htext(h, name, SW - pad, by - 8, PINK, 'right')
   }
 
-  function drawRouteMap(state: OutrunState, right: number, top: number, width: number, ui: FrameUI) {
+  function drawRouteMap(h: CanvasRenderingContext2D, state: OutrunState, right: number, top: number, width: number, ui: FrameUI) {
     const cols = STAGE_COUNT
-    const gx = width / (cols - 1)
-    const gy = Math.min(9, width / 12)
-    const left = right - width
-    const pos = (c: number, n: number) => [left + c * gx, top + (n - c / 2) * gy + gy * 2] as const
+    const gx = Math.floor(width / (cols - 1))
+    const gy = 3
+    const left = right - gx * (cols - 1)
+    const pos = (c: number, n: number) => [left + c * gx, Math.round(top + (n - c / 2) * gy * 2 + gy * 4)] as const
     // All nodes dim, the route travelled bright.
+    h.fillStyle = '#1c4a5a'
     for (let c = 0; c < cols; c++) {
       for (let n = 0; n <= c; n++) {
         const [x, y] = pos(c, n)
-        ctx.fillStyle = 'rgba(47,243,255,0.22)'
-        ctx.fillRect(x - 1.5, y - 1.5, 3, 3)
+        h.fillRect(x, y, 1, 1)
       }
     }
-    ctx.strokeStyle = CYAN
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
+    let prev: readonly [number, number] | null = null
     state.route.forEach((n, c) => {
-      const [x, y] = pos(c, n)
-      if (c === 0) ctx.moveTo(x, y)
-      else ctx.lineTo(x, y)
+      const p = pos(c, n)
+      if (prev) pline(h, prev[0], prev[1], p[0], p[1], CYAN)
+      prev = p
     })
-    ctx.stroke()
     const [cx, cy] = pos(state.col, state.node)
-    const pulse = ui.reduced ? 1 : 0.6 + 0.4 * Math.sin(ui.now * 5)
-    ctx.fillStyle = GOLD
-    ctx.globalAlpha = pulse
-    ctx.fillRect(cx - 3, cy - 3, 6, 6)
-    ctx.globalAlpha = 1
+    if (ui.reduced || Math.sin(ui.now * 5) > -0.3) {
+      h.fillStyle = GOLD
+      h.fillRect(cx - 1, cy - 1, 3, 3)
+    }
   }
 
   function drawMessages(ui: FrameUI) {
+    const h = stage.hud
     // Below the top HUD row, above the car.
-    let y = Math.max(SH * 0.3, 150)
+    let y = Math.round(Math.max(SH * 0.3, 150 / K))
     for (const m of ui.messages) {
       const a = m.t < 0.12 ? m.t / 0.12 : m.t > m.life - 0.35 ? Math.max(0, (m.life - m.t) / 0.35) : 1
-      const pop = ui.reduced ? 1 : m.t < 0.18 ? 0.8 + (m.t / 0.18) * 0.2 : 1
-      ctx.globalAlpha = a
-      const size = (m.big ? Math.min(96, SW * 0.16) : Math.min(34, SW * 0.06)) * pop
-      text(m.text, SW / 2, y, size, m.color, 'center', true, 'bold ')
-      if (m.sub) text(m.sub, SW / 2, y + size * 0.55 + 10, Math.min(16, SW * 0.034), m.color, 'center', false)
-      ctx.globalAlpha = 1
-      y += size + (m.sub ? 34 : 14)
+      // Appear and leave in two dithered steps, not a smooth fade.
+      if (a < 0.5 && Math.floor(m.t * 30) % 2) continue
+      let n = m.big ? (SW >= 300 ? 5 : 4) : 2
+      while (n > 1 && bigTextWidth(m.text, n) > SW - 8) n--
+      htext(h, m.text, SW / 2, y, m.color, 'center', n)
+      const sizeY = 7 * n
+      if (m.sub) htext(h, m.sub, SW / 2, y + sizeY + 4, m.color, 'center')
+      y += sizeY + (m.sub ? 18 : 8)
     }
+  }
+
+  /** The SELECT MUSIC cards, in logical px (also used for the hit test). */
+  function radioCards(count: number) {
+    const vertical = portrait
+    const cw = vertical ? Math.min(SW - 24, 160) : Math.min(96, Math.floor((SW - 40) / count))
+    const ch = vertical ? 28 : 46
+    const gap = 6
+    const total = vertical ? count * ch + (count - 1) * gap : count * cw + (count - 1) * gap
+    const y0 = Math.round(SH * (vertical ? 0.3 : 0.36))
+    const cards: { x: number, y: number }[] = []
+    for (let i = 0; i < count; i++) {
+      cards.push({
+        x: Math.round(vertical ? SW / 2 - cw / 2 : SW / 2 - total / 2 + i * (cw + gap)),
+        y: vertical ? y0 + i * (ch + gap) : y0,
+      })
+    }
+    return { cards, cw, ch, total, y0, vertical }
   }
 
   function drawRadioSelect(ui: FrameUI) {
-    ctx.fillStyle = 'rgba(6,3,16,0.62)'
-    ctx.fillRect(0, 0, SW, SH)
-    const title = Math.min(40, SW * 0.07)
-    text('SELECT MUSIC', SW / 2, SH * 0.2, title, PINK, 'center', true, 'bold ')
+    const h = stage.hud
+    h.fillStyle = 'rgba(6,3,16,0.62)'
+    h.fillRect(0, 0, SW, SH)
+    htext(h, 'SELECT MUSIC', SW / 2, Math.round(SH * 0.14), PINK, 'center', SW >= 300 ? 3 : 2)
     const n = ui.radioNames.length
-    const vertical = portrait
-    const cw = vertical ? Math.min(SW - 48, 320) : Math.min(240, (SW - 80) / n)
-    const ch = vertical ? 64 : 120
-    const gap = 16
-    const total = vertical ? n * ch + (n - 1) * gap : n * cw + (n - 1) * gap
+    const { cards, cw, ch, total, y0, vertical } = radioCards(n)
     for (let i = 0; i < n; i++) {
-      const x = vertical ? SW / 2 - cw / 2 : SW / 2 - total / 2 + i * (cw + gap)
-      const y = vertical ? SH * 0.3 + i * (ch + gap) : SH * 0.36
+      const { x, y } = cards[i]!
       const sel = i === ui.radioIndex
-      ctx.fillStyle = sel ? 'rgba(47,243,255,0.12)' : 'rgba(6,3,16,0.6)'
-      ctx.fillRect(x, y, cw, ch)
-      ctx.strokeStyle = sel ? CYAN : 'rgba(47,243,255,0.35)'
-      ctx.lineWidth = 1
-      if (sel) {
-        ctx.shadowColor = CYAN
-        ctx.shadowBlur = 16
+      box(h, x, y, cw, ch, sel ? CYAN : '#1a6a80')
+      htext(h, `TRACK ${i + 1}`, x + 4, y + 4, sel ? INK : INK_MUTED)
+      // Long names wrap onto the card's second line.
+      const words = ui.radioNames[i]!.split(' ')
+      let line = ''
+      let ly = y + 14
+      for (const w of words) {
+        const next = line ? line + ' ' + w : w
+        if (textWidth(next) > cw - 8 && line) {
+          htext(h, line, x + 4, ly, sel ? CYAN : INK_MUTED)
+          ly += 9
+          line = w
+        } else line = next
       }
-      ctx.strokeRect(x + 0.5, y + 0.5, cw - 1, ch - 1)
-      ctx.shadowBlur = 0
-      label(`TRACK ${i + 1}`, x + 12, y + 20, 11, CYAN, 'left', sel ? 0.9 : 0.5)
-      text(ui.radioNames[i], x + 12, y + (vertical ? 46 : 52), Math.min(16, cw * 0.075), sel ? CYAN : INK_MUTED, 'left', sel)
+      if (line) htext(h, line, x + 4, ly, sel ? CYAN : INK_MUTED)
       // An equaliser on the selected track.
       if (sel && !vertical) {
         for (let b = 0; b < 10; b++) {
-          const hh = ui.reduced ? 10 : 6 + 22 * Math.abs(Math.sin(ui.now * (3 + b * 0.7) + b))
-          ctx.fillStyle = b > 7 ? PINK : CYAN
-          ctx.fillRect(x + 12 + b * 9, y + ch - 14 - hh, 6, hh)
+          const hh = ui.reduced ? 4 : 2 + Math.round(8 * Math.abs(Math.sin(ui.now * (3 + b * 0.7) + b)))
+          h.fillStyle = b > 7 ? PINK : CYAN
+          h.fillRect(x + 4 + b * 3, y + ch - 3 - hh, 2, hh)
         }
       }
     }
-    const hy = vertical ? SH * 0.3 + total + 40 : SH * 0.36 + ch + 50
-    ctx.globalAlpha = 0.9
-    text(ui.touch ? '▶ TAP A TRACK TO DRIVE ◀' : '▶ ← → CHOOSE · ENTER DRIVE ◀', SW / 2, hy, Math.min(15, SW * 0.034), PINK, 'center')
-    ctx.globalAlpha = 0.5
-    text(String(Math.max(0, Math.ceil(ui.radioTimer))), SW / 2, hy + 30, 14, PINK, 'center', false)
-    ctx.globalAlpha = 1
+    const hy = vertical ? y0 + total + 12 : y0 + ch + 14
+    const hint = ui.touch ? 'TAP A TRACK TO DRIVE' : '← → CHOOSE · ENTER DRIVE'
+    htext(h, hint, SW / 2, hy, PINK, 'center')
+    htext(h, String(Math.max(0, Math.ceil(ui.radioTimer))), SW / 2, hy + 12, INK_MUTED, 'center')
   }
 
-  /** Hit-test for the radio cards (touch). */
+  /** Hit-test for the radio cards (touch), in CSS px. */
   function radioCardAt(px: number, py: number, count: number): number {
-    const vertical = portrait
-    const cw = vertical ? Math.min(SW - 48, 320) : Math.min(240, (SW - 80) / count)
-    const ch = vertical ? 64 : 120
-    const gap = 16
-    const total = vertical ? count * ch + (count - 1) * gap : count * cw + (count - 1) * gap
+    const lx = px / K
+    const ly = py / K
+    const { cards, cw, ch } = radioCards(count)
     for (let i = 0; i < count; i++) {
-      const x = vertical ? SW / 2 - cw / 2 : SW / 2 - total / 2 + i * (cw + gap)
-      const y = vertical ? SH * 0.3 + i * (ch + gap) : SH * 0.36
-      if (px >= x && px <= x + cw && py >= y && py <= y + ch) return i
+      const c = cards[i]!
+      if (lx >= c.x && lx <= c.x + cw && ly >= c.y && ly <= c.y + ch) return i
     }
     return -1
   }
 
-  /** True when a tap lands on the radio readout (bottom right). */
+  /** True when a tap lands on the radio readout (bottom right), in CSS px. */
   function radioHudHit(px: number, py: number): boolean {
-    return px > SW * 0.62 && py > floorY - Math.max(56, SH * 0.075) - 50 && py < floorY - 30
+    const floorCss = floorY * K
+    return px > cssW * 0.62 && py > floorCss - Math.max(56, cssH * 0.075) - 50 && py < floorCss - 30
   }
 
   // --------------------------------------------------------------- frame
@@ -1605,11 +1593,10 @@ export function createRenderer(canvas: HTMLCanvasElement) {
   function draw(state: OutrunState, ui: FrameUI) {
     const seg = segmentAt(state, state.position)
     const pal = paletteFor(seg)
-    const biome = stageDef(seg.col, seg.node).biome
-    const prevBiome = seg.blend < 1 ? stageDef(Math.max(0, seg.col - 1), seg.fromNode).biome : biome
+    const biome = biomeOf(seg)
 
     // Camera eases after the car sideways; the backdrop drifts with the bends.
-    const center = seg.centers.length === 1 ? seg.centers[0] : seg.centers.reduce((a, c) => (Math.abs(c - state.playerX) < Math.abs(a - state.playerX) ? c : a))
+    const center = seg.centers.length === 1 ? seg.centers[0]! : seg.centers.reduce((a, c) => (Math.abs(c - state.playerX) < Math.abs(a - state.playerX) ? c : a))
     // Portrait screens show less road either side, so the camera follows closer.
     const target = center + (state.playerX - center) * (portrait ? 0.85 : 0.62)
     if (!camInit) {
@@ -1628,31 +1615,35 @@ export function createRenderer(canvas: HTMLCanvasElement) {
       }
     }
 
-    ctx.save()
-    if (ui.shake > 0 && !ui.reduced) ctx.translate((Math.random() - 0.5) * 14 * ui.shake, (Math.random() - 0.5) * 10 * ui.shake)
-    drawSky(pal, biome, prevBiome, seg.blend, ui, state)
+    lightK = 0.35 + 0.65 * Math.max(0, Math.min(1, (1 - light) / 0.55))
+    g = stage.begin()
+    newFrame()
+    drawSky(pal, biome, ui)
     projectSlices(state)
     drawRoad(state, pal, ui)
     drawSprites(state, pal, ui)
-    drawStreaks(state, ui)
     drawPlayer(state, ui, pal)
-    drawParticles(ui.dt)
-    ctx.restore()
-
-    if (ui.flash > 0 && !ui.reduced) {
-      ctx.fillStyle = `rgba(255,255,255,${Math.min(0.5, ui.flash)})`
-      ctx.fillRect(0, 0, SW, SH)
-    }
-    // Vignette.
-    const vg = ctx.createRadialGradient(SW / 2, SH * 0.55, Math.min(SW, SH) * 0.45, SW / 2, SH * 0.55, Math.max(SW, SH) * 0.8)
-    vg.addColorStop(0, 'rgba(0,0,0,0)')
-    vg.addColorStop(1, 'rgba(3,1,10,0.55)')
-    ctx.fillStyle = vg
-    ctx.fillRect(0, 0, SW, SH)
+    if (!ui.paused) stepParticles(ui.dt)
+    drawParticles(false)
+    fireworkLights()
 
     if (ui.phase === 'play') drawHud(state, ui)
     drawMessages(ui)
     if (ui.phase === 'radio') drawRadioSelect(ui)
+
+    const amb = mix(AMB_TUNNEL, AMB_OPEN, Math.max(0, Math.min(1, (light - 0.45) / 0.55)))
+    const shake = ui.shake > 0 && !ui.reduced ? ui.shake : 0
+    stage.present({
+      ambient: amb,
+      shakeX: shake ? (Math.random() - 0.5) * 14 * shake / K : 0,
+      shakeY: shake ? (Math.random() - 0.5) * 10 * shake / K : 0,
+      flash: ui.flash > 0 && !ui.reduced ? { color: '#ffffff', a: Math.min(0.5, ui.flash) } : null,
+      afterLight: gg => {
+        g = gg
+        drawStreaks(state, ui)
+        drawParticles(true)
+      },
+    })
   }
 
   function resetCamera() {
@@ -1668,8 +1659,9 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     resize, draw, resetCamera, radioCardAt, radioHudHit,
     sparksAtCar: (n: number) => sparks((carScreenX || SW / 2) + (Math.random() - 0.5) * carPx * 0.5, (carScreenY || carBaseY) - carPx * 0.1, n),
     backfire() { flame = 1 },
-    get width() { return SW },
-    get height() { return SH },
+    /** CSS size (touch steering measures drags against it). */
+    get width() { return cssW },
+    get height() { return cssH },
   }
 }
 

@@ -544,5 +544,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   display: block;
+  /* The pixel stage's buffer is at most 2× the CSS size; a 3× screen scales it the last step. */
+  image-rendering: pixelated;
 }
 </style>

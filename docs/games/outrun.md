@@ -1,11 +1,37 @@
 ## OutRun — five stages and a fork in the road (rebuilt 2026-09-11, third pass 2026-09-23)
 
 `?theme=outrun` is the eighth live theme, between Star Fox and Tetris: the
-1986 cabinet as a pseudo-3D road racer in Neon Dreams paint. The first
-version (2026-09-10, commit `fde2e30`) was replaced from scratch the next
-day; see the lessons at the end of this section. The third pass
-(2026-09-23) added the convertible with its two passengers, tunnels, the
-sea, start lights, the close-pass chain, stage times and endings.
+1986 cabinet as a pseudo-3D road racer. The first version (2026-09-10,
+commit `fde2e30`) was replaced from scratch the next day; see the lessons
+at the end of this section. The third pass (2026-09-23) added the
+convertible with its two passengers, tunnels, the sea, start lights, the
+close-pass chain, stage times and endings.
+
+**Look (2026-09-24): Neon Shrine's pixels, as a SNES-era sprite-scaler**
+(`docs/games/pixel-look.md`). The picture is drawn at a low logical
+resolution on the shared pixel stage — about 320×200 on a monitor, 234×506
+on a portrait phone — and scaled up by a whole number, lit by a light map,
+bloomed and scanlined like the town on `/`. The road is drawn one scanline
+at a time, so stripes, rumble strips and ground bands are chunky pixels;
+mountains, tunnel walls and signs are polygons rasterised into whole-pixel
+spans (`pixel.ts`, no antialiasing). The ground wears Neon Shrine's terrain
+colours per biome (teal grass on the coast, rose sand on the mesa, violet
+shrine floor in the city, clay in the canyon; the grid stage keeps its
+grid); the sea is blue water with ripples, foam and sun glitter beside a
+rose beach. The palms are Neon Shrine's round teal (or moonlit violet)
+canopies with a magenta rim; beach huts are its shingle-roofed houses;
+tunnel mouths outside the city are shrine gates of dungeon stone. Signs and
+gantries are dark boards with a neon frame and the 5×7 font when they are
+near enough to read. The cars are the vector painters of `cars.ts`
+pixelized (palette-snapped, outlined, top-lit) at width steps and cached;
+a frame bakes at most three new sizes and scales the nearest one
+(nearest-neighbour) until then. Lamps, tail lights, brake lights, the
+backfire, tunnel lamps, start lights and fireworks light the scene; in a
+tunnel the ambient drops, so the roof lamps pass over the car. The HUD and
+SELECT MUSIC are drawn in the 5×7 font on the stage's HUD layer (the clock
+sits under the score on a portrait phone, clear of the site's radio chip);
+the title and result panels are HTML in `.px-*` with Neon Shrine dialog
+boxes.
 
 **The run.** Title (autopilot drives behind it) → SELECT MUSIC (three tracks,
 ←/→ or tap, 10 s timer) → 3-2-1-GO → five stages. Every stage ends in a Y:
@@ -29,11 +55,12 @@ approach, a gentle bend under a roof, a straight out. Tunnel segments carry
 `tunnel: true` and no props. The walls stand at 1.2 half-widths
 (`TUNNEL_WALL`): they hold the car on the asphalt, and leaning on one
 scrapes speed off (`SCRAPE_DECEL`), throws sparks and grinds instead of
-wrecking the car. The renderer draws walls, roof, a neon strip and gold
-roof lamps per segment in the far-to-near sprite pass, so nearer wall
+wrecking the car. The renderer draws stone walls, roof, a neon strip and
+gold roof lamps per segment in the far-to-near sprite pass, so nearer wall
 covers farther wall in a bend, and a face with a lit portal at the mouth
-(a building in the city, a hill shoulder elsewhere). The car's paint dims
-inside; the engine gets a slap-back echo.
+(a building in the city, a shrine gate elsewhere). Inside, the light map
+darkens and each roof lamp lights the car as it passes; the engine gets a
+slap-back echo.
 
 **Driving model** (`engine.ts`, 1/120 s substeps): five-speed automatic
 (torque dip at each upshift, heard as the note dropping), gravity along the
@@ -48,23 +75,28 @@ over sharp crests (visual only).
 
 **Files.** `engine.ts` — pure and deterministic; road generation per biome,
 forks, traffic, collisions, clock, autopilot (attract loop, goal cruise,
-balance sims). `renderer.ts` — Canvas 2D: camera solved per screen so the car
+balance sims). `renderer.ts` — the pixel stage: camera solved per screen so the car
 keeps its share of the width (bigger on phones), near-to-far segment
-projection with crest occlusion, road batched into one Path2D per colour,
-sprites far-to-near clipped at their slice, five sky palettes blended across
-the run-in to the next stage, six backdrops (wire peaks, mesas, skyline,
-canyon, coast, grid), the sea beside coast stages (beach, water mirroring
-the low sky, sun glints; left on even nodes, right on odd), vector props,
+projection with crest occlusion, the road one scanline at a time,
+sprites far-to-near clipped at their slice, five sky palettes (dithered,
+cached per palette) blended across the run-in to the next stage, six
+backdrops (peaks, mesas, skyline, canyon, coast with a far tree line,
+grid), the sea beside coast stages (beach, water, ripples, foam, sun
+glints; left on even nodes, right on odd), pixel props,
 tunnels, sun reflection on the wet road, speed streaks from the vanishing
 point above 70 % speed, fireworks at the goal, canvas HUD (score + chain,
 time, stage + route map, speed + tacho + gear, radio). Traffic that drops
-behind the player fades out before it can fill a corner of the screen.
+behind the player dithers out before it can fill a corner of the screen.
+`pixel.ts` — the pixel kit: whole-pixel polygon/line/disc fills, the
+dialog box, the dungeon-stone tile, and the car-sprite bakes (a fast
+typed-array pixelize with a colour memo, width steps, the per-frame bake
+budget).
 `cars.ts` — the cars, drawn from behind: traffic (sedan, truck, bug, coupe,
 a flank shows when turned) and the player's Testarossa Spider in Neon
 Dreams pink: wide hips, the slatted rear panel with the lamps glowing
 through it, the top down, the driver on the left and a passenger whose gold
-hair streams harder with speed; both heads lean out of the bends, the pipes
-flame on a backfire. `color.ts` — the three inks and the mix/rgba helpers. `audio.ts` — Web Audio only: engine
+hair streams harder with speed (six baked frames); both heads lean out of
+the bends, the pipes flame on a backfire. `color.ts` — the three inks and the mix/rgba helpers. `audio.ts` — Web Audio only: engine
 (detuned saws + square sub, clipper, low-pass on throttle/revs, firing LFO),
 tyre squeal, wind, dirt, one-shots, and a step sequencer for the three
 original tracks (MIDNIGHT SHOWER, PASSING NEON, SPLASH GRID; bass, pad, arp,
@@ -99,8 +131,13 @@ and `jump(col, node)`. `node scripts/outrun-lab/shot.mjs ~/oshots/x
 [scene,…]` renders the real engine and renderer to PNGs in headless
 Chromium without Nuxt (coast, peaks, city, tunnel, mouth, countdown, goal,
 phone sizes; the out dir must be a non-hidden path under `$HOME` for snap
-Chromium). Draw cost 2.8–3.5 ms per frame of JavaScript at 1280×720; the
-backing store is capped at 3.2 megapixels.
+Chromium). The backing store stops at 2× the CSS size (the canvas has
+`image-rendering: pixelated` for the last step on a 3× screen). Measured
+2026-09-24 in headless Chromium without a GPU: a car bake 1.5–9 ms; the
+renderer's own drawing (sky, road, sprites, car, HUD) ≤ 20 ms per frame and
+about 9 ms median at 390×844; the shared stage's full-screen upscale and
+bloom spike to ~200 ms in that software-rendered setup (p95), which a phone
+with a GPU canvas should not see. Not measured on a physical phone.
 
 The Hall of Fame lists `outrun` between starfox and tetris with
 `maxScore: 5_000_000` (raised from 500_000 with the rebuild; a full run scores
