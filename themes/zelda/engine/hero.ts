@@ -276,9 +276,10 @@ function interact(c: Ctx): boolean {
   const ty = Math.floor(fy)
   const t = tileAt(s.map, tx, ty)
 
-  // Luna, a step behind.
+  // Luna, a step behind — she talks only when nothing is attacking (in a fight, A swings).
   const L = s.luna
-  if (L && Math.hypot(L.x - fx, L.y - fy) < 0.75 && c.w.luna) {
+  const calm = !s.map.enemies.some(e => enemyActive(c, e) && Math.hypot(e.x - h.x, e.y - h.y) < 8)
+  if (L && calm && Math.hypot(L.x - fx, L.y - fy) < 0.75 && c.w.luna) {
     const br = c.w.luna.find(b => condMet(s, c.w, b.when, -1))
     if (br) {
       openDialog(c, br.lines, 'luna', br.set ? { set: [br.set] } : null)

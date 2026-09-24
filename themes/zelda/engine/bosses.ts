@@ -26,7 +26,7 @@ import { dirVec, rnd, rndRange, toDir } from './util'
 export function llama(c: Ctx, e: Enemy, dt: number) {
   const ai = e.ai
   const h = c.s.hero
-  const p2 = e.hp <= 4
+  const p2 = e.hp <= 5
   if (ai.mode === 'idle') { ai.mode = 'walk'; ai.t = 1.4 }
   if (ai.mode === 'walk') {
     const d = heroDist(c, e) || 1
@@ -155,7 +155,7 @@ export function deepseek(c: Ctx, e: Enemy, dt: number) {
   if (ai.mode === 'rise') {
     if (ai.t <= 0) {
       ai.mode = 'up'
-      ai.t = p2 ? 1.2 : 1.6
+      ai.t = p2 ? 1.6 : 2
       s.shake = Math.max(s.shake, 0.2)
       // Surfacing right under the hero bites.
       if (heroDist(c, e) < e.r + HERO_R + 0.2) hurtHero(c, 2, e.x, e.y)
@@ -166,7 +166,7 @@ export function deepseek(c: Ctx, e: Enemy, dt: number) {
   }
   if (ai.mode === 'up' || ai.mode === 'hauled') {
     e.dir = toDir(h.x - e.x, h.y - e.y, e.dir)
-    if (ai.mode === 'up' && seesHero(c, e, 3) && ai.tell <= 0 && ai.t > 0.5 && !ai.snapped) {
+    if (ai.mode === 'up' && seesHero(c, e, 3) && ai.tell <= 0 && ai.t > 0.8 && !ai.snapped) {
       ai.snapped = true
       ai.tell = 0.3
     }
@@ -192,7 +192,7 @@ export function gemini(c: Ctx, e: Enemy, dt: number) {
   const twin = s.map.enemies.find(o => o !== e && o.kind === 'gemini' && o.cell === e.cell && !o.dead)
   if (ai.mode === 'down') {
     if (ai.t <= 0) {
-      e.hp = 3
+      e.hp = 4
       ai.mode = 'orbit'
       ai.fire = 1
       ai.angry = true

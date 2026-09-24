@@ -17,10 +17,10 @@ export const STATS: Record<EnemyKind, EnemyStats> = {
   king: { hp: 16, r: 1.15, dmg: 2, flying: true },
   hound: { hp: 3, r: 0.38, dmg: 1 },
   drone: { hp: 2, r: 0.36, dmg: 1, flying: true },
-  llama: { hp: 8, r: 0.8, dmg: 2 },
+  llama: { hp: 10, r: 0.8, dmg: 2 },
   mistral: { hp: 12, r: 1.1, dmg: 2, flying: true },
-  deepseek: { hp: 10, r: 0.9, dmg: 2 },
-  gemini: { hp: 6, r: 0.62, dmg: 2, flying: true },
+  deepseek: { hp: 8, r: 0.9, dmg: 2 },
+  gemini: { hp: 8, r: 0.62, dmg: 2, flying: true },
 }
 
 export function spawnEnemy(

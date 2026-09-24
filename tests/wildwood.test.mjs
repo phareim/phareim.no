@@ -152,16 +152,19 @@ describe('the bosses', () => {
   it('LLAMA: the blade bounces off the wool; its own spit hurts it', () => {
     const { e, c } = boss('lab1', 'start', 'llama')
     assert.equal(Z.hitEnemy(c, e, 2, e.x, e.y + 1, 'sword'), false)
-    assert.equal(e.hp, 8)
+    assert.equal(e.hp, 10)
     e.invuln = 0
     assert.equal(Z.hitEnemy(c, e, 2, e.x, e.y + 1, 'spit'), true)
-    assert.equal(e.hp, 6)
+    assert.equal(e.hp, 8)
   })
 
   it('MISTRAL: untouchable in the air until the hook pulls it down', () => {
     const { e, c } = boss('lab1', 'start', 'mistral')
     assert.equal(Z.hitEnemy(c, e, 1, e.x, e.y + 1, 'sword'), false)
     e.invuln = 0
+    assert.equal(Z.hitEnemy(c, e, 1, e.x, e.y + 1, 'hook'), false, 'not while it drifts')
+    e.invuln = 0
+    e.ai.mode = 'inhale'
     assert.equal(Z.hitEnemy(c, e, 1, e.x, e.y + 1, 'hook'), true)
     assert.equal(e.ai.mode, 'down')
     e.invuln = 0
@@ -184,17 +187,17 @@ describe('the bosses', () => {
     const { s, c } = boss('deep2', 'down', 'gemini', ['gemini.met'], { x: 23.5, y: 10.5 })
     const [a, b] = s.map.enemies.filter(o => o.kind === 'gemini')
     a.invuln = 0
-    Z.hitEnemy(c, a, 6, a.x, a.y + 1, 'sword')
+    Z.hitEnemy(c, a, 8, a.x, a.y + 1, 'sword')
     assert.equal(a.dead, false)
     assert.equal(a.ai.mode, 'down')
     // Left alone it gets up.
     P.frames(s, 60 * 5)
     assert.equal(a.ai.mode, 'orbit')
-    assert.equal(a.hp, 3)
+    assert.equal(a.hp, 4)
     // Both down together: both gone, the flag set.
     a.invuln = 0; b.invuln = 0
-    Z.hitEnemy(c, a, 6, a.x, a.y + 1, 'sword')
-    Z.hitEnemy(c, b, 6, b.x, b.y + 1, 'sword')
+    Z.hitEnemy(c, a, 8, a.x, a.y + 1, 'sword')
+    Z.hitEnemy(c, b, 8, b.x, b.y + 1, 'sword')
     assert.ok(a.dead && b.dead)
     assert.ok(s.flags.gemini)
   })

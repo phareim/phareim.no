@@ -153,7 +153,8 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       return false
     case 'mistral':
       if (ai.mode === 'down') return src === 'hook' || src === 'disc' ? false : damage(c, e, dmg, fromX, fromY)
-      if (src === 'hook') {
+      // The hook only bites while it holds still to breathe in (or blows).
+      if (src === 'hook' && (ai.mode === 'inhale' || ai.mode === 'blow')) {
         ai.mode = 'down'
         ai.t = ai.phase === 2 ? 2.2 : 2.8
         ai.tell = 0
@@ -169,14 +170,18 @@ function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, 
       if (ai.mode === 'under' || ai.mode === 'rise') {
         if (src !== 'hook') return false
         ai.mode = 'hauled'
-        ai.t = 2.4
+        ai.t = 3
         ai.tell = 0
         e.flash = 0.2
         c.ev.push({ type: 'discHit', x: e.x, y: e.y })
         return true
       }
-      if (src === 'hook' || src === 'disc') { e.stun = 1; c.ev.push({ type: 'discHit', x: e.x, y: e.y }); return true }
-      return damage(c, e, dmg, fromX, fromY)
+      if (src === 'hook' || src === 'disc') return false
+      // Three blows and it dives back under the floor.
+      ai.hits = ((ai.hits as number) ?? 0) + 1
+      if (!damage(c, e, dmg, fromX, fromY)) return false
+      if ((ai.hits as number) >= 3 && !e.dead) { ai.hits = 0; ai.mode = 'under'; ai.t = 2.2; ai.tell = 0; e.invuln = 1.4 }
+      return true
     case 'gemini':
       if (ai.mode === 'down') return false
       if (src === 'hook' || src === 'disc') { e.stun = 0.8; c.ev.push({ type: 'discHit', x: e.x, y: e.y }); return true }

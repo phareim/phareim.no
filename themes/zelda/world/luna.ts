@@ -15,7 +15,7 @@ export const LUNA_TALK: TalkBranch[] = [
     when: { notFlag: 'bigkey:lab1' },
     lines: ['LUNA: THE HOLE IN THE HALL GOES DOWN. THERE IS A KEY DOWN THERE.', 'LUNA: THE BIG KEY IS IN THE COOLING VAULT, PAST THE BEDROOMS. THE HOOK BITES POSTS AND PILLARS.'],
   },
-  { when: { notFlag: 'mistral' }, lines: ['LUNA: MISTRAL IS THE WIND. YOU CANNOT HIT WIND.', 'LUNA: HOOK IT. PULL IT DOWN. THEN HIT IT.'] },
+  { when: { notFlag: 'mistral' }, lines: ['LUNA: MISTRAL IS THE WIND. YOU CANNOT HIT WIND.', 'LUNA: WHEN IT BREATHES IN, HOOK IT. PULL IT DOWN. THEN HIT IT.'] },
   {
     when: { notFlag: 'item:arc' },
     lines: [

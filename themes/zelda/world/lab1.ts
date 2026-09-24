@@ -216,7 +216,7 @@ export const LAB1: MapDef = {
     '1,0': {
       track: 'boss',
       events: [
-        { when: { notFlag: 'mistral' }, lines: ['MISTRAL, THE COLD WIND. IT BLOWS FROM THE NORTH AND NEVER STOPS TO LISTEN.', 'NO BLADE CAN CUT THE WIND. SOMETHING WOULD HAVE TO PULL IT DOWN FIRST.'], set: 'mistral.met' },
+        { when: { notFlag: 'mistral' }, lines: ['MISTRAL, THE COLD WIND. IT BLOWS FROM THE NORTH AND NEVER STOPS TO LISTEN.', 'NO BLADE CAN CUT THE WIND. BUT WHEN IT STOPS TO BREATHE IN, SOMETHING ON A CHAIN COULD PULL IT DOWN.'], set: 'mistral.met' },
         {
           when: { flag: 'mistral' },
           who: 'luna',
