@@ -16,7 +16,13 @@
 export type Dir = 'up' | 'down' | 'left' | 'right'
 export interface Vec { x: number; y: number }
 export interface Rect { x: number; y: number; w: number; h: number }
-export interface Spot { x: number; y: number; dir: Dir }
+export interface Spot {
+  x: number
+  y: number
+  dir: Dir
+  /** Spawn on the door tile and walk one tile out along `dir` before control returns (stepping out of a house). */
+  out?: boolean
+}
 
 export const TILE = 16 // logical pixels per tile
 export const STEP = 1 / 120 // fixed simulation step (s)
@@ -172,8 +178,55 @@ export type EntDef =
   | { t: 'entry'; id: string; dir?: Dir } // an entry point at the marker's tile centre
   | { t: 'warp'; to: string; entry: string } // stepping on this tile warps
   | { t: 'gate'; open: Cond } // on one tile of an X run (tile 'X')
+  | ExitDef
 
-export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost'
+export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter'
+
+/**
+ * Where an exit leads: another theme on phareim.no (`?theme=<id>`), the
+ * portal at `/`, or a page outside the site. The engine only reports it (the
+ * `exit` event); the Vue shell does the navigating.
+ */
+export type ExitTarget = { theme: string } | { home: true } | { url: string }
+
+/** How the renderer draws an exit. The engine ignores it. */
+export type ExitLook = 'door' | 'cabinet' | 'board' | 'kiosk' | 'terminal' | 'sign'
+
+/**
+ * A way out of the game (the portal's cabinets and doors, Neon Shrine's way home).
+ * - On a walkable tile ('D' door, '>' stairs): stepping on it starts the
+ *   usual warp fade; at full dark the engine emits `exit` and enters mode 'exit'.
+ * - On a solid tile (cabinet 'M', sign 'S', board 'I', …): pressing A while
+ *   facing it shows `lines` as a dialog (if any); closing the dialog starts
+ *   the same fade and exit.
+ * The engine also registers an entry named `id` on the neighbouring tile on
+ * `side` (default 'down'): facing the exit for a solid one, facing away (along
+ * `side`) for a walkable one. The portal spawns you there when you come back.
+ */
+export interface ExitDef {
+  t: 'exit'
+  id: string
+  to: ExitTarget
+  side?: Dir
+  look?: ExitLook
+  /** Renderer art key: a theme id for a cabinet's marquee ('galaga', 'outrun', …). */
+  art?: string
+  /** Short name shown over the exit when the hero is next to it ('GALAGA'). */
+  label?: string
+  lines?: string[]
+}
+
+/** Neon lettering painted into the world (the owner's name over the portal plaza). */
+export interface Decal {
+  /** Anchor in tile units: the text's top edge, and its left edge or centre (align). */
+  x: number
+  y: number
+  text: string
+  color?: string
+  /** Whole-number pixel scale of the 5×7 font (default 2). */
+  scale?: 1 | 2 | 3
+  align?: 'left' | 'center'
+}
 
 export interface Mark {
   ent: EntDef
@@ -213,11 +266,15 @@ export interface MapDef {
   warps?: Warp[]
   /** Named regions of an overworld: banner, music, and (entry) where death and Continue put you after visiting it. */
   areas?: Array<Rect & { name: string; track?: TrackId; entry?: string }>
+  /** Painted lettering, drawn over the ground and under entities. */
+  decals?: Decal[]
 }
 
 export interface World {
   maps: Record<string, MapDef>
   start: { map: string; entry: string }
+  /** A world to walk, not fight in (the portal): no HUD hearts, bits or items, and the hero cannot be hurt. */
+  peaceful?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -321,6 +378,19 @@ export interface Npc {
   vy: number
 }
 
+/** An exit as the renderer sees it (tile centre). */
+export interface ExitSpot {
+  id: string
+  x: number
+  y: number
+  to: ExitTarget
+  look: ExitLook
+  art?: string
+  label?: string
+  /** True for a door/stairs exit you walk onto, false for one you face and press A. */
+  walk: boolean
+}
+
 export interface Pickup {
   id: string
   item: ItemId
@@ -349,6 +419,7 @@ export interface MapState {
   moving: MovingBlock[]
   npcs: Npc[]
   pickups: Pickup[]
+  exits: ExitSpot[]
   /** Plate ids currently held down. */
   plates: string[]
   /** Crystal blocks the hero stood on when they rose; solid once left. */
@@ -399,7 +470,8 @@ export interface Inventory {
   prism: boolean
 }
 
-export type Mode = 'play' | 'scroll' | 'warp' | 'dialog' | 'get' | 'dying' | 'won'
+/** 'exit' is terminal like 'won': the screen stays dark and the shell navigates away. */
+export type Mode = 'play' | 'scroll' | 'warp' | 'dialog' | 'get' | 'dying' | 'won' | 'exit'
 
 export interface Dialog {
   lines: string[]
@@ -503,6 +575,7 @@ export type GameEvent =
   | { type: 'bossPhase'; phase: number }
   | { type: 'bossDown'; kind: EnemyKind }
   | { type: 'won'; elapsed: number }
+  | { type: 'exit'; id: string; to: ExitTarget }
   | { type: 'hitStop'; ms: number }
   | { type: 'cycle'; item: UseItem | null }
   | { type: 'error' } // a buzz: no bombs, no key, can't afford
