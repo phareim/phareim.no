@@ -30,7 +30,7 @@ export const OVERWORLD: MapDef = {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT:..;;:TTTTTTTTTTTTTT.:.TT#..HHHHHHH.....:..:....#####IVVI####',
     'TTTTTTTTTTTTTHHHHHHHHHHHHHHHTTTTTTTTTTTTTT..:....TTTTTTTTTTTTTT.5.TT#..HHHHHHH.....nn.nn...#####IW.I####',
     'TTTT....:.T..HHHHHHHHHHHHHHH..T..:..TTTTTT:..4...:.....;;..TTTT...TT#t.HHHMHHH..t........t.######RR#####',
-    'TTT..::......HHHHHHHHHHHHHHH...:.....TTTTT..:...:.TTTTT;;;..TTTTRTTT#..HHHBHHH......:N.....##T:......:T#',
+    'TTT..::......HHHHHHHHHHHHHHH...:.....TTTTT..:...:.TTTTT;;;..TTTTRTTT#..HHHBHHH......:N.....##T:..X"..:T#',
     'TT.......:.t.HHHHHHHHHHHHHHH.t....:...TTTTT:..a..TTTTTTT;;..TTTT.TTT#.....E....:...........##.G..G..G..#',
     'TT..:..:.....HHHHHHHpHHHHHHH....:..:..TTTTTT....TTT;;TTTT...TTT;.;TT#.t,,,,,,,,,,,,,,,,,,t.##.....z....#',
     'TTTT........,,,,,,,,@,,,,,,,,.......TTTTTTTTT..TTT;;;;TT..a..TT...TT#..,:,,,,,,,,,,,,,,:,..##.G..G..G.g#',
@@ -50,9 +50,9 @@ export const OVERWORLD: MapDef = {
     'TT......T.....HHH..........T.......T..TTTTTT:..,..:TTTTTT*......*TTTTTTTT..j...,,......*...T#T;;;...;TT#',
     'TT..T:......T.HHH::,,,:.;;.....T......TTTTT....,.......................,,,,,,,,,,,..!......T#T;..q..;;T#',
     'TT.*..;;.:*...HHH..,,,.......*..;;:.*.TTTT.....,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,..;.....;TT#',
-    'TTT..........tnmnt.,,,..t.:s:.t......TTTTT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
-    'TT.:,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,HHHHHH.,..........;;;......TTT..*....,,..j...:TT#TTTTTTTTTT#',
-    'TT.:,,,,,,,,,,,,,,,,,,J,,,,,,,,,,,,,,,,,,,,,HHHHHH.,...t..e...;;;......TTTTTTTTTT,,TTTTTTTTT############',
+    'TTT.)........tnmnt.,,,..t.:s:.t......TTTTT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
+    '<,**,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,HHHHHH.,..........;;;......TTT..*....,,..j...:TT#TTTTTTTTTT#',
+    '<,**,,,,,,,,,,,,,,,,,,J,,,,,,,,,,,,,,,,,,,,,HHHHHH.,...t..e...;;;......TTTTTTTTTT,,TTTTTTTTT############',
     'TT.T...............t,t..............T.TTTT,,HHHhHH.,.......:...........TTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTTT',
     'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTT,,t.2.3..,.........*..*......TTT:.....,,...:.......:....TTTTTT',
     'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTT,,,,1....,............e......TT.....,,,.......*...........:TTT',
@@ -104,6 +104,7 @@ export const OVERWORLD: MapDef = {
     crossroads: { x: 80.5, y: 24.5, dir: 'right' },
     lake: { x: 82, y: 29.5, dir: 'down' },
     home: { x: 20.5, y: 8.5, dir: 'down' },
+    wildwood: { x: 1.5, y: 26.5, dir: 'right' },
     arcade: { x: 8.5, y: 15.5, dir: 'down' },
   },
   marks: {
@@ -143,6 +144,9 @@ export const OVERWORLD: MapDef = {
     },
     '9': { ent: { t: 'npc', id: 'towncat', look: 'cat', wander: true, talk: [{ lines: ['MRRROW.', '(THE CAT WAS HERE FIRST.)'] }] } },
     '0': { tile: 'S', ent: { t: 'sign', lines: ["↑ PETTER'S HOUSE   ← THE ARCADE   ↓ THE COAST ROAD AND THE KEEPER'S HUT"] } },
+    // The west road: into the Wildwood, through a thicket only a blade gets through.
+    '<': { tile: ',', ent: { t: 'warp', to: 'wildwood', entry: 'town' } },
+    ')': { tile: 'S', ent: { t: 'sign', lines: ['← THE WILDWOOD', 'THE THICKET HAS GROWN OVER THE ROAD AGAIN. YOU WOULD NEED A BLADE.'] } },
     J: { tile: 'S', ent: { t: 'sign', lines: ['THE NEON COAST.   ← PHAREIM.MD   GAMES.PHAREIM.NO →', "FOLLOW THE ROAD EAST TO THE KEEPER'S HUT."] } },
     u: { tile: 'S', ent: { t: 'sign', lines: ['THE FOUNTAIN. MAKE A WISH.', 'NO COINS, PLEASE. THOSE ARE FOR THE ARCADE.'] } },
     v: { tile: 'S', ent: { t: 'sign', lines: ["THE KEEPER'S HUT: DOWN TO THE COAST, THEN EAST ALONG THE ROAD.", 'THE SUN WON\'T SET. THE KEEPER IS LOOKING FOR SOMEONE TO GO GET IT BACK.'] } },
@@ -164,13 +168,21 @@ export const OVERWORLD: MapDef = {
           {
             when: { notFlag: 'item:bombBag' },
             lines: [
-              'KEEPER: THE SHRINE LIES NORTH OF THE HOLLOW GRAVES, PAST THE NIGHT MARKET.',
-              'RUBBLE SEALS ITS DOOR. SOMETHING IN WHISPER WOODS, UP NORTH, COULD BLOW IT OPEN.',
+              'KEEPER: THE SHRINE LIES NORTH OF THE HOLLOW GRAVES, PAST THE NIGHT MARKET. RUBBLE SEALS ITS DOOR.',
+              'KEEPER: FIRST, BOMBS. SOMETHING IN WHISPER WOODS, UP NORTH, GOES BOOM.',
+            ],
+          },
+          {
+            when: { notFlag: 'gateShut' },
+            lines: [
+              'KEEPER: BOMBS! GOOD. BUT THE GRAVES ARE WORSE SINCE YESTERDAY: STATIC VINES, ACROSS THE SHRINE ROAD. NO BLADE BITES THEM.',
+              "KEEPER: THE STATIC COMES FROM THE WEST. THE OLD LAB IN THE WILDWOOD, PAST THE TOWN. THEY OPENED SOMETHING THERE THEY COULDN'T SHUT.",
+              'KEEPER: GO WEST ALONG THE SHORE. FIND WHAT OPENED, AND SHUT IT.',
             ],
           },
           {
             when: { notFlag: 'boss' },
-            lines: ['KEEPER: BOMBS! GOOD. NOW TO THE GRAVES, AND MIND THE JELLIES. THEY BITE BACK.'],
+            lines: ['KEEPER: THE VINES ARE GONE! THE GRAVES ARE OPEN. NOW TO THE SHRINE, AND MIND THE JELLIES. THEY BITE BACK.'],
           },
           { lines: ['KEEPER: LOOK AT THAT SKY. WELL DONE, KID.'] },
         ],
@@ -205,11 +217,14 @@ export const OVERWORLD: MapDef = {
         t: 'npc', id: 'ghost', look: 'ghost', dir: 'left',
         talk: [
           { when: { notFlag: 'item:bombBag' }, lines: ['GHOST: BOO. SORRY. HABIT.', 'THE SHRINE IS SEALED BY RUBBLE. ONLY A BLAST WILL MOVE IT.'] },
+          { when: { notFlag: 'gateShut' }, lines: ['GHOST: THE VINES CAME UP OUT OF THE GROUND, HUMMING LIKE A DEAD CHANNEL.', 'GHOST: THEY GROW FROM SOMEWHERE FAR WEST. SHUT THE DOOR THEY CAME THROUGH AND THEY WILL WITHER.'] },
           { lines: ['GHOST: THE JELLIES SPARK WHEN STRUCK. A BLAST OR A THROWN POT DOES THE TRICK.'] },
         ],
       },
     },
     '+': { tile: 'S', ent: { t: 'sign', lines: ['HOLLOW GRAVES.   ↑ THE NEON SHRINE'] } },
+    // Static vines from the Other Side, until the Gate in the Deep Lab is shut.
+    '"': { tile: 'X', ent: { t: 'gate', open: { flag: 'gateShut' } } },
     // ---- Crossroads ----
     '!': { tile: 'S', ent: { t: 'sign', lines: ['↑ NIGHT MARKET   → HOLLOW GRAVES   ↓ MIRROR LAKE   ← HOME GLADE, PHAREIM.NO'] } },
     // ---- Mirror Lake ----

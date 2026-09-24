@@ -15,6 +15,10 @@ export interface TileInfo {
   hurt?: boolean
   pit?: boolean
   light?: boolean
+  /** The grappling hook bites into it and reels the hero over. */
+  hook?: boolean
+  /** Static vines: only the Arc Blade cuts them. */
+  vine?: boolean
 }
 
 const S = { solid: true, wall: true }
@@ -45,16 +49,16 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   C: LOW,
   x: { ...OPEN, hurt: true },
   O: { ...OPEN, pit: true },
-  t: { ...LOW, light: true },
+  t: { ...LOW, light: true, hook: true },
   S: LOW,
   G: S,
   F: LOW,
   H: S,
   D: OPEN,
   '>': OPEN,
-  $: LOW,
+  $: { ...LOW, hook: true },
   n: LOW,
-  I: S,
+  I: { ...S, hook: true },
   M: { ...S, light: true },
   Z: LOW,
   '[': S,
@@ -64,6 +68,11 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   i: OPEN,
   f: OPEN,
   '^': S,
+  '|': { ...LOW, hook: true },
+  l: { ...S, vine: true },
+  B: S,
+  '{': OPEN,
+  '}': LOW,
 }
 
 export const TILE_CHARS = Object.keys(TILE_INFO) as TileChar[]

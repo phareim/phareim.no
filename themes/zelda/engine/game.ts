@@ -6,18 +6,23 @@
  * get (item held up, then its text) / dying → respawn; won and exit (the
  * hero left through an exit, the shell navigates) are terminal.
  */
-import type { AreaIntro, GameEvent, GameState, Input, Inventory, SaveData, TrackId, World } from '../types'
+import type { AreaIntro, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
 import { HERO_R, NO_INPUT, SAVE_VERSION, SCROLL_TIME, START_HP, STEP, WARP_TIME } from '../types'
-import { ctx, type Ctx } from './combat'
+import { acquire, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
 import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
-import { cellDef, cellIndex, cellRect, condMet, has, loadMap, mapInfo } from './map'
+import { cellDef, cellIndex, cellRect, circleBlocked, condMet, has, loadMap, mapInfo, moveCircle, tileAt } from './map'
 import { stepObjects } from './objects'
 import { resetEnemy } from './spawn'
+import { placeLuna, refreshNpcs, stepLuna } from './luna'
+import { stepHook } from './hook'
 import { dirVec } from './util'
 
 function freshInv(): Inventory {
-  return { sword: false, bombBag: false, bombs: 0, disc: false, bits: 0, keys: 0, bigKey: false, pieces: 0, selected: null, prism: false }
+  return {
+    sword: false, bombBag: false, bombs: 0, disc: false, bits: 0, keys: 0, bigKey: false, pieces: 0, selected: null, prism: false,
+    hook: false, arc: false, bigBag: false, shrooms: 0, keyrings: {},
+  }
 }
 
 /**
@@ -58,6 +63,8 @@ export function createGame(
     shake: 0,
     demo: !!opts.demo,
     disc: null,
+    hook: null,
+    luna: null,
   }
   if (save) for (const f of save.flags) s.flags[f] = true
   const ev: GameEvent[] = []
@@ -71,11 +78,15 @@ export function createGame(
   return s
 }
 
-/** Put the hero on a map at an entry; resets per-visit things. An `out` entry starts the walk out of its door. */
-export function enterMap(world: World, s: GameState, mapId: string, entryId: string, ev: GameEvent[]) {
+/**
+ * Put the hero on a map at an entry; resets per-visit things. An `out`
+ * entry starts the walk out of its door. `at` lands on that spot instead
+ * (a drop through a hole); the continue point stays where it was.
+ */
+export function enterMap(world: World, s: GameState, mapId: string, entryId: string, ev: GameEvent[], at?: Vec) {
   const info = mapInfo(world, mapId)
   s.map = loadMap(world, s, mapId)
-  const spot = info.entries[entryId] ?? info.entries[Object.keys(info.entries)[0]!]!
+  const spot: Spot = at ? { x: at.x, y: at.y, dir: s.hero.dir } : info.entries[entryId] ?? info.entries[Object.keys(info.entries)[0]!]!
   const h = s.hero
   h.x = spot.x
   h.y = spot.y
@@ -92,7 +103,9 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
     h.auto = { dir: spot.dir, t: WALK_OUT_TIME + 0.1, x: spot.x + v.x, y: spot.y + v.y }
   } else h.auto = null
   s.disc = null
-  s.entry = { map: mapId, entry: entryId }
+  s.hook = null
+  if (!at) s.entry = { map: mapId, entry: entryId }
+  placeLuna(s)
   setZone(world, s, cellIndex(info, h.x, h.y))
   const area = areaAt(world, s)
   s.area = area.name
@@ -135,19 +148,29 @@ function enterCell(c: Ctx, index: number) {
   m.bombs.length = 0
   m.blasts.length = 0
   m.thrown.length = 0
+  m.spell = ''
+  m.spellTiles = []
   // Push blocks go home unless their puzzle is solved.
   const authored = c.info.blocks.get(index)
   if (authored) {
     const gateSolved = c.info.gates.some(g => g.cell === index && has(s, `gate:${g.id}`))
     if (!gateSolved) {
       const r = cellRect(c.info, index)
-      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (m.tiles[y * m.w + x] === 'b') m.tiles[y * m.w + x] = '.'
-      for (const i of authored) m.tiles[i] = 'b'
+      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+        const t = m.tiles[y * m.w + x]
+        if (t === 'b' || t === 'B') m.tiles[y * m.w + x] = '.'
+      }
+      for (const [i, t] of authored) m.tiles[i] = t
+      for (const f of Object.keys(s.flags)) {
+        const p = f.split(':')
+        if (p[0] === 'drop' && p[1] === m.id) m.tiles[Number(p[2])] = 'B'
+      }
       m.moving.length = 0
       m.version++
     }
   }
   s.hero.safe = { x: s.hero.x, y: s.hero.y }
+  placeLuna(s)
   const area = areaAt(c.w, s)
   c.ev.push({ type: 'area', name: area.name, track: area.track })
 }
@@ -195,9 +218,12 @@ function play(c: Ctx, dt: number, inp: Input) {
   stepEnemies(c, dt)
   stepObjects(c, dt)
   if (s.mode !== 'play' || s.demo) return
+  stepHook(c, dt)
+  stepLuna(c, dt)
+  if (s.mode !== 'play') return
   const h = s.hero
-  // Still stepping out of a door (standing on its warp).
-  if (h.auto) return
+  // Still stepping out of a door (standing on its warp), or on the end of the hook's chain.
+  if (h.auto || s.hook) return
   // Walk-on exits leave the game.
   const exit = c.info.exits.get(Math.floor(h.y) * c.info.w + Math.floor(h.x))
   if (exit?.walk) { beginExit(c, exit); return }
@@ -231,6 +257,15 @@ function play(c: Ctx, dt: number, inp: Input) {
       return
     }
   }
+  // A room's scripted beat (a boss's name, Luna remembering, the Gate shutting).
+  if (c.info.def.kind === 'dungeon') {
+    const ev = cellDef(c.info, s.zoneIndex)?.events?.find(e => !has(s, e.set) && condMet(s, c.w, e.when, s.zoneIndex))
+    if (ev) {
+      s.flags[ev.set] = true
+      openDialog(c, ev.lines, ev.who ?? null)
+      return
+    }
+  }
   // Overworld area banner
   if (c.info.def.areas) {
     const a = areaAt(c.w, s)
@@ -253,8 +288,10 @@ function scroll(c: Ctx, dt: number) {
   sc.t += dt
   // Walk the hero through the doorway while the camera slides.
   const dist = sc.dy !== 0 ? 1.5 : 1.3
-  h.x += (sc.dx * dist * dt) / SCROLL_TIME
-  h.y += (sc.dy * dist * dt) / SCROLL_TIME
+  // Through the doorway, stopping short of anything standing just inside.
+  const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, (sc.dx * dist * dt) / SCROLL_TIME, (sc.dy * dist * dt) / SCROLL_TIME)
+  h.x = r.x
+  h.y = r.y
   h.walkT += dt
   h.act = 'walk'
   if (sc.t >= SCROLL_TIME) {
@@ -279,7 +316,13 @@ function warp(c: Ctx, dt: number) {
   }
   if (!w.swapped && w.t >= WARP_TIME) {
     w.swapped = true
-    enterMap(c.w, s, w.to, w.entry, c.ev)
+    enterMap(c.w, s, w.to, w.entry, c.ev, w.at)
+    if (w.drop) {
+      landClear(c)
+      s.hero.act = 'idle'
+      s.shake = Math.max(s.shake, 0.2)
+      c.ev.push({ type: 'land' })
+    }
   }
   if (w.t >= WARP_TIME * 2) {
     s.warp = null
@@ -309,6 +352,8 @@ function dialog(c: Ctx, dt: number, inp: Input) {
   if (d.after) {
     for (const f of d.after.set ?? []) s.flags[f] = true
     if (d.after.exit) { beginExit(c, d.after.exit); return }
+    refreshNpcs(c)
+    if (d.after.give) { acquire(c, d.after.give); return }
   }
   if (s.get) {
     const item = s.get.item
@@ -390,15 +435,19 @@ export function parseSave(raw: unknown): SaveData | null {
   const inv = r.inv as Record<string, unknown> | undefined
   if (!inv || typeof inv !== 'object') return null
   const base = freshInv()
+  // Fields added after a save was written (the hook, the Arc Blade…) start at their defaults.
+  const OLD_KEYS = ['sword', 'bombBag', 'bombs', 'disc', 'bits', 'keys', 'bigKey', 'pieces', 'selected', 'prism']
   for (const k of Object.keys(base) as Array<keyof Inventory>) {
     const want = typeof base[k]
-    if (k === 'selected') { if (inv[k] !== null && inv[k] !== 'disc' && inv[k] !== 'bombs') return null; continue }
+    if (k === 'selected') { if (inv[k] !== null && inv[k] !== 'disc' && inv[k] !== 'bombs' && inv[k] !== 'hook') return null; continue }
+    if (inv[k] === undefined && !OLD_KEYS.includes(k)) continue
+    if (k === 'keyrings') { if (!inv[k] || typeof inv[k] !== 'object' || Array.isArray(inv[k])) return null; continue }
     if (typeof inv[k] !== want) return null
   }
   const maxHp = Math.max(START_HP, Math.min(20, Math.round(r.maxHp as number)))
   return {
     v: SAVE_VERSION, map: r.map, entry: r.entry, hp: maxHp, maxHp,
-    inv: inv as unknown as Inventory, flags: r.flags as string[], rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
+    inv: { ...base, ...(inv as unknown as Inventory), keyrings: cleanRings(inv.keyrings) }, flags: r.flags as string[], rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
     ...(num(r.savedAt) && (r.savedAt as number) > 0 ? { savedAt: Math.floor(r.savedAt as number) } : {}),
   }
 }
@@ -422,3 +471,23 @@ export function cameraFor(s: GameState, vw: number, vh: number): { x: number; y:
 }
 
 export { NO_INPUT, HERO_R }
+
+function cleanRings(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {}
+  if (raw && typeof raw === 'object') for (const [k, v] of Object.entries(raw)) if (typeof v === 'number' && Number.isFinite(v)) out[k] = Math.max(0, Math.floor(v))
+  return out
+}
+
+/** Landing from a hole on something solid (a block dropped earlier): step to the nearest free spot. */
+function landClear(c: Ctx) {
+  const s = c.s
+  const h = s.hero
+  if (!circleBlocked(c.w, s.map, h.x, h.y, HERO_R)) return
+  for (let r = 1; r <= 3; r++) {
+    for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
+      const x = Math.floor(h.x) + dx * r + 0.5
+      const y = Math.floor(h.y) + dy * r + 0.5
+      if (!circleBlocked(c.w, s.map, x, y, HERO_R) && tileAt(s.map, Math.floor(x), Math.floor(y)) !== 'O') { h.x = x; h.y = y; h.safe = { x, y }; return }
+    }
+  }
+}

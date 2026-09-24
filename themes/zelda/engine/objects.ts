@@ -7,11 +7,13 @@ import { BOMB_FUSE, BOMB_RADIUS, DISC_RANGE, DISC_SPEED, HERO_R, PUSH_TIME, THRO
 import { TILE_INFO } from '../world/tiles'
 import { collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx } from './combat'
 import { breakShards, enemyActive } from './enemies'
-import { cutTile, toggleCrystal } from './hero'
+import { cutTile, throwLever, toggleCrystal } from './hero'
 import { circleBlocked, condMet, has, moveCircle, setFlag, solidTile, tileAt } from './map'
 import { nextId, rndRange } from './util'
 
 export function stepObjects(c: Ctx, dt: number) {
+  const m = c.s.map
+  if (m.crystalCool) m.crystalCool = Math.max(0, m.crystalCool - dt)
   stepBombs(c, dt)
   stepDisc(c, dt)
   stepThrown(c, dt)
@@ -83,6 +85,7 @@ export function explode(c: Ctx, x: number, y: number) {
         c.ev.push({ type: 'shatter', x: tx + 0.5, y: ty + 0.5, kind: 'pot' })
         rollDrop(c, tx + 0.5, ty + 0.5, 0.5)
       } else if (t === 'c') toggleCrystal(c, tx, ty)
+      else if (t === '}') throwLever(c, tx, ty)
     }
   }
   if (secret) c.ev.push({ type: 'secret' })
@@ -138,6 +141,11 @@ function stepDisc(c: Ctx, dt: number) {
   if (tileAt(m, tx, ty) === 'c' && !d.hit.includes(key)) {
     d.hit.push(key)
     toggleCrystal(c, tx, ty)
+    d.returning = true
+  }
+  if (tileAt(m, tx, ty) === '}' && !d.hit.includes(key)) {
+    d.hit.push(key)
+    throwLever(c, tx, ty)
     d.returning = true
   }
   for (const q of m.drops) {
@@ -198,7 +206,24 @@ function stepProjectiles(c: Ctx, dt: number) {
     p.x += p.vx * dt
     p.y += p.vy * dt
     let dead = p.t > p.life || solidTile(c.w, m, Math.floor(p.x), Math.floor(p.y), 'fly')
-    if (!dead && !p.friendly && Math.hypot(h.x - p.x, h.y - p.y) < p.r + HERO_R) {
+    if (p.friendly) {
+      // Beams and reflected shots flip switches and throw levers on their way.
+      const tx = Math.floor(p.x)
+      const ty = Math.floor(p.y)
+      const t = tileAt(m, tx, ty)
+      if (t === 'c') { toggleCrystal(c, tx, ty); dead = true } else if (t === '}') { throwLever(c, tx, ty); dead = true }
+    }
+    if (!dead && !p.friendly && p.kind === 'gust') {
+      // Wind: no harm, a hard shove (towards the pits, if Mistral has aimed well).
+      if (Math.hypot(h.x - p.x, h.y - p.y) < p.r + HERO_R && h.act !== 'fall' && !s.hook) {
+        const len = Math.hypot(p.vx, p.vy) || 1
+        h.knock = { vx: (p.vx / len) * 9, vy: (p.vy / len) * 9, t: 0.32 }
+        h.swing = null
+        h.charge = -1
+        c.ev.push({ type: 'gust', x: p.x, y: p.y })
+        dead = true
+      }
+    } else if (!dead && !p.friendly && Math.hypot(h.x - p.x, h.y - p.y) < p.r + HERO_R) {
       if (hurtHero(c, p.kind === 'laser' || p.kind === 'spark' ? 2 : 1, p.x - p.vx * 0.05, p.y - p.vy * 0.05)) dead = true
       else if (h.invuln > 0) dead = p.kind !== 'laser'
     }
@@ -206,7 +231,7 @@ function stepProjectiles(c: Ctx, dt: number) {
       for (const e of m.enemies) {
         if (!enemyActive(c, e) || e.kind === 'eye') continue
         if (Math.hypot(e.x - p.x, e.y - p.y) < e.r + p.r) {
-          hitEnemy(c, e, 2, p.x - p.vx * 0.05, p.y - p.vy * 0.05, 'shot')
+          hitEnemy(c, e, 2, p.x - p.vx * 0.05, p.y - p.vy * 0.05, p.kind === 'beam' ? 'beam' : p.kind === 'spit' ? 'spit' : 'shot')
           dead = true
           break
         }
@@ -243,7 +268,7 @@ function stepBlocks(c: Ctx, dt: number) {
   for (let i = m.moving.length - 1; i >= 0; i--) {
     const b = m.moving[i]!
     b.t += dt
-    if (b.t >= PUSH_TIME) m.moving.splice(i, 1)
+    if (b.t >= (b.dur ?? PUSH_TIME)) m.moving.splice(i, 1)
   }
 }
 
@@ -256,7 +281,7 @@ function stepPuzzles(c: Ctx) {
     const tx = idx % m.w
     const ty = Math.floor(idx / m.w)
     const moving = m.moving.some(b => b.tx === tx && b.ty === ty)
-    if (m.tiles[idx] === 'b' && !moving) pressed.push(id)
+    if ((m.tiles[idx] === 'b' || m.tiles[idx] === 'B') && !moving) pressed.push(id)
   })
   for (const id of pressed) {
     if (!m.plates.includes(id)) {

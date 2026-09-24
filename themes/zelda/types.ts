@@ -50,6 +50,12 @@ export const BOMB_FUSE = 1.7
 export const BOMB_RADIUS = 1.55
 export const DISC_SPEED = 13
 export const DISC_RANGE = 6
+export const HOOK_SPEED = 17 // tiles/s, out and back
+export const HOOK_RANGE = 8
+export const HOOK_PULL_SPEED = 13
+export const ARC_REACH = 1.4 // the Arc Blade's swing
+export const BEAM_SPEED = 12
+export const PSI_SPEED = 11 // a psi block sliding, tiles/s
 export const PUSH_DELAY = 0.32 // walk into a block this long to push it
 export const PUSH_TIME = 0.28
 export const MAX_BITS = 999
@@ -113,6 +119,12 @@ export type TileChar =
   | 'i' // bar stool (walkable decor)
   | 'f' // patterned rug (walkable decor; a run paints as one rug with a border)
   | '^' // wall with a framed picture (a wall tile in every other way)
+  // The Wildwood and Project Horizon's labs
+  | '|' // hook post (solid, projectiles pass; the hook grabs it)
+  | 'l' // static vines (solid; only the Arc Blade cuts them)
+  | 'B' // psi block (solid; with Luna along, A slides it until it hits something)
+  | '{' // letter stone (walkable; stepping on stones spells a word, see MapDef.codes)
+  | '}' // lever / breaker (solid; a hit throws it for good and sets its flag)
 
 // ---------------------------------------------------------------------------
 // Items
@@ -133,15 +145,23 @@ export type ItemId =
   | 'bits20'
   | 'bits50'
   | 'prism' // the Sun Prism — picking it up wins
+  | 'hook' // the grappling hook
+  | 'arc' // the Arc Blade: the sword, upgraded
+  | 'bigBag' // a bigger bomb bag (20)
+  | 'waffle' // for Luna
+  | 'shroom' // one of Mossa's three glowshrooms
+  | 'tube' // a vacuum tube for Dusty's radio
+  | 'walkie' // Toby's lost walkie-talkie
+  | 'hat' // the troll's hat
 
-export type UseItem = 'disc' | 'bombs'
+export type UseItem = 'disc' | 'bombs' | 'hook'
 
 // ---------------------------------------------------------------------------
 // Authored world
 // ---------------------------------------------------------------------------
 
 export type MapKind = 'overworld' | 'dungeon' | 'interior'
-export type TrackId = 'title' | 'overworld' | 'village' | 'dungeon' | 'boss' | 'indoor' | 'ending'
+export type TrackId = 'title' | 'overworld' | 'village' | 'dungeon' | 'boss' | 'indoor' | 'ending' | 'forest' | 'lab' | 'static'
 
 export type EnemyKind =
   | 'blob' // slow hopping slime
@@ -155,6 +175,12 @@ export type EnemyKind =
   | 'blade' // spike trap; slides when you line up
   | 'knight' // miniboss: guards its front, charges
   | 'king' // boss: the Static King
+  | 'hound' // static hound: circles, then lunges
+  | 'drone' // lab drone: hovers, zaps along a line
+  | 'llama' // miniboss: wool turns the blade; only its own spit (reflected) or a bomb hurts
+  | 'mistral' // boss: the cold wind; hook it down, then strike
+  | 'deepseek' // miniboss: swims under the floor, surfaces to bite; the hook drags it up
+  | 'gemini' // boss: one of the twins; both must fall close together
 
 /** A condition on progress. `clear` = every enemy of the gate's room is dead. */
 export type Cond =
@@ -163,6 +189,7 @@ export type Cond =
   | { clear: true }
   | { plates: string[] }
   | { item: ItemId }
+  | { flags: string[] } // all of them
 
 export interface TalkBranch {
   /** First branch whose condition holds is spoken. No condition = default. */
@@ -179,16 +206,24 @@ export type EntDef =
   | { t: 'enemy'; kind: EnemyKind; dir?: Dir; once?: string; carries?: ItemId }
   | { t: 'chest'; id: string; item: ItemId; big?: boolean; appear?: Cond }
   | { t: 'item'; id: string; item: ItemId; appear?: Cond } // lies on the floor, one-time
-  | { t: 'npc'; id: string; look: NpcLook; dir?: Dir; talk: TalkBranch[]; wander?: boolean }
+  | {
+    t: 'npc'; id: string; look: NpcLook; dir?: Dir; talk: TalkBranch[]; wander?: boolean
+    /** Not there while this holds (checked on load and after every talk). */
+    hide?: Cond
+    /** Joins the hero as a follower once `hide` holds after a talk (Luna). */
+    join?: boolean
+  }
   | { t: 'sign'; lines: string[] }
   | { t: 'shop'; id: string; item: ItemId; price: number; once?: boolean }
   | { t: 'plate'; id: string }
   | { t: 'entry'; id: string; dir?: Dir } // an entry point at the marker's tile centre
   | { t: 'warp'; to: string; entry: string } // stepping on this tile warps
   | { t: 'gate'; open: Cond } // on one tile of an X run (tile 'X')
+  | { t: 'glyph'; ch: string } // a letter stone (tile '{')
+  | { t: 'lever'; flag: string } // a lever or breaker (tile '}'): a hit sets `flag` for good
   | ExitDef
 
-export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter'
+export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll'
 
 /**
  * Where an exit leads: another theme on phareim.no (`?theme=<id>`), the
@@ -254,7 +289,31 @@ export interface Warp {
 export interface CellDef {
   name?: string
   dark?: boolean
+  /** A dark room is lit once this flag is set (the lab's power). */
+  lit?: string
   track?: TrackId
+  /** 'static': the Other Side leaks in — red-violet tint and drifting ash. */
+  mood?: 'static'
+  /** Scripted beats: the first time the hero is in this room while `when` holds, the lines play and `set` is set. */
+  events?: Array<{ when?: Cond; lines: string[]; who?: string; set: string }>
+}
+
+/**
+ * Renderer-only set dressing, in tile units (the tiles under it do the
+ * blocking): tents, a campfire, the radio mast, the wall of Christmas
+ * lights that spells a word, the Gate, specimen tanks.
+ */
+export interface Prop {
+  kind: 'tent' | 'campfire' | 'mast' | 'lights' | 'rift' | 'tank' | 'van' | 'fort' | 'bike' | 'lift'
+  x: number
+  y: number
+  w?: number
+  h?: number
+  /** 'lights': the word the bulbs spell; 'stone'/'truck': a label. */
+  text?: string
+  color?: string
+  /** Drawn only while this holds (the Gate after it shuts). */
+  when?: Cond
 }
 
 export interface MapDef {
@@ -280,6 +339,22 @@ export interface MapDef {
   areas?: Array<Rect & { name: string; track?: TrackId; entry?: string; intro?: AreaIntro }>
   /** Painted lettering, drawn over the ground and under entities. */
   decals?: Decal[]
+  /**
+   * Maps sharing a keyring share small keys and a big key (a dungeon's
+   * floors). Default 'shrine': `Inventory.keys`/`bigKey`; any other ring
+   * keeps its small keys in `Inventory.keyrings` and its big key in the
+   * flag `bigkey:<ring>`.
+   */
+  keyring?: string
+  /** The painter's palette: Project Horizon's labs, the deep Wildwood. */
+  look?: 'lab' | 'wild'
+  /** Crystal switches of every map in this group share one state (a flag), across rooms and floors. */
+  crystal?: string
+  /** Pits drop to this map (same size) at the same spot instead of hurting. */
+  below?: string
+  /** Letter stones: walking over them in this order sets `flag`. */
+  codes?: Array<{ word: string; flag: string }>
+  props?: Prop[]
 }
 
 export interface AreaIntro {
@@ -292,6 +367,8 @@ export interface AreaIntro {
 export interface World {
   maps: Record<string, MapDef>
   start: { map: string; entry: string }
+  /** What Luna says when the hero talks to her while she follows (first branch that holds). */
+  luna?: TalkBranch[]
   /** Dialog opened when a new game (no save) starts, after any walk-out from the start entry. */
   intro?: { lines: string[]; who?: string | null }
 }
@@ -327,7 +404,7 @@ export interface Enemy {
 
 export interface Projectile {
   id: number
-  kind: 'pellet' | 'laser' | 'spark' | 'shard' | 'wave'
+  kind: 'pellet' | 'laser' | 'spark' | 'shard' | 'wave' | 'beam' | 'spit' | 'gust'
   x: number
   y: number
   vx: number
@@ -382,7 +459,14 @@ export interface Thrown {
   dist: number
 }
 
-export interface MovingBlock { id: number; fx: number; fy: number; tx: number; ty: number; t: number }
+export interface MovingBlock {
+  id: number; fx: number; fy: number; tx: number; ty: number; t: number
+  /** Slide time (default PUSH_TIME); psi blocks slide further and longer. */
+  dur?: number
+  kind?: 'b' | 'B'
+  /** Slid into a hole: gone when it arrives (it lands on the floor below). */
+  falls?: boolean
+}
 
 export interface Npc {
   id: string
@@ -445,11 +529,22 @@ export interface MapState {
   pending: number[]
   /** Crystal state per camera room ('pink' raises P, 'cyan' raises C). */
   crystal: Record<number, 'pink' | 'cyan'>
+  /** Seconds before a crystal switch answers again (a blade and its beam strike together). */
+  crystalCool?: number
+  /** The shared state of a crystal group (MapDef.crystal); overrides `crystal`. */
+  crystalAll?: 'pink' | 'cyan'
+  /** Letters spelled so far on this map's letter stones, and the stones lit by them. */
+  spell: string
+  spellTiles: number[]
+  /** The letter stone the hero stands on (a letter counts once per step onto it). */
+  onGlyph: number
+  /** MapDef.keyring, resolved. */
+  ring: string
 }
 
 export type HeroAct =
   | 'idle' | 'walk' | 'swing' | 'spin' | 'lift' | 'carry' | 'throw' | 'push'
-  | 'use' | 'hurt' | 'get' | 'fall' | 'dead'
+  | 'use' | 'hurt' | 'get' | 'fall' | 'dead' | 'hook'
 
 export interface Hero {
   x: number
@@ -489,6 +584,42 @@ export interface Inventory {
   pieces: number // heart pieces towards the next container (0..3)
   selected: UseItem | null
   prism: boolean
+  hook: boolean
+  /** The Arc Blade (the sword, upgraded). */
+  arc: boolean
+  /** Bomb bag holds 20 instead of 12. */
+  bigBag: boolean
+  /** Mossa's glowshrooms found (0..3). */
+  shrooms: number
+  /** Small keys per dungeon other than the Shrine (whose keys are `keys`), by MapDef.keyring. */
+  keyrings: Record<string, number>
+}
+
+/** The grappling hook in flight. Positions in tiles. */
+export interface Hook {
+  x: number
+  y: number
+  dx: number
+  dy: number
+  /** Tiles travelled out. */
+  dist: number
+  phase: 'out' | 'back' | 'pull'
+  /** Where a pull ends (the hero's centre). */
+  to: Vec | null
+  hit: string[]
+  carrying: number[]
+}
+
+/** Luna, following the hero. */
+export interface Follower {
+  x: number
+  y: number
+  dir: Dir
+  walkT: number
+  /** The hero's recent positions, newest last. */
+  trail: Vec[]
+  /** Seconds left of her "moving something with her mind" pose. */
+  psi: number
 }
 
 /** 'exit' is terminal like 'won': the screen stays dark and the shell navigates away. */
@@ -519,8 +650,12 @@ export interface GameState {
   zone: Rect
   zoneIndex: number
   scroll: null | { from: Rect; to: Rect; t: number; dx: number; dy: number; index: number }
-  /** A door fade. With `exit` it leaves the game at full dark (mode 'exit') instead of changing map. */
-  warp: null | { t: number; to: string; entry: string; swapped: boolean; exit?: { id: string; to: ExitTarget } }
+  /**
+   * A door fade. With `exit` it leaves the game at full dark (mode 'exit')
+   * instead of changing map; with `at` it lands on that spot (a drop through
+   * a hole) instead of an entry.
+   */
+  warp: null | { t: number; to: string; entry: string; swapped: boolean; exit?: { id: string; to: ExitTarget }; at?: Vec; drop?: boolean }
   dialog: Dialog | null
   get: null | { item: ItemId; t: number; text: string[] }
   dying: null | { t: number }
@@ -533,6 +668,8 @@ export interface GameState {
   shake: number
   demo: boolean
   disc: Disc | null
+  hook: Hook | null
+  luna: Follower | null
 }
 
 // ---------------------------------------------------------------------------
@@ -601,6 +738,17 @@ export type GameEvent =
   | { type: 'hitStop'; ms: number }
   | { type: 'cycle'; item: UseItem | null }
   | { type: 'error' } // a buzz: no bombs, no key, can't afford
+  | { type: 'hook' }
+  | { type: 'hookHit'; x: number; y: number }
+  | { type: 'pull' }
+  | { type: 'psi'; x: number; y: number }
+  | { type: 'glyph'; x: number; y: number; ok: boolean }
+  | { type: 'lever'; x: number; y: number }
+  | { type: 'land' }
+  | { type: 'beam' }
+  | { type: 'gust'; x: number; y: number }
+  | { type: 'join' }
+  | { type: 'bark'; x: number; y: number }
 
 // ---------------------------------------------------------------------------
 // Save (localStorage.zeldaSave, mirrored to the player's profile)

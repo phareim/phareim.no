@@ -12,6 +12,8 @@
  * designs are original.
  */
 
+import { WILD_RAW } from './spritesWild'
+
 export interface SpriteDef { rows: string[] }
 
 export const PAL: Record<string, string> = {
@@ -51,6 +53,13 @@ export const PAL: Record<string, string> = {
   a: '#5b2a1c', // dark clay
   i: '#b0543a', // clay
   j: '#e07a4e', // clay light
+  // Wildwood additions (spritesWild*.ts)
+  d: '#a8876a', // hide tan (troll belly, owl face, basket light)
+  f: '#4e7a3c', // moss / felt green
+  F: '#2b4a28', // dark moss / felt shadow
+  q: '#c4fbff', // pale wind cyan (Mistral's bands)
+  x: '#8a7c68', // troll skin, stone grey-brown
+  X: '#574a3c', // troll skin shadow
 }
 
 // ---------------------------------------------------------------------------
@@ -443,6 +452,12 @@ const swordD = (() => {
   g[11]![0] = 'y'
   return join(g)
 })()
+
+// The Arc Blade: same shapes, a white-hot blade with gold and violet edges.
+const ARC: Record<string, string> = { c: 'y', C: 'v' }
+const sword2V = swapChars(swordV, ARC)
+const sword2H = swapChars(swordH, ARC)
+const sword2D = swapChars(swordD, ARC)
 
 // ---------------------------------------------------------------------------
 // Items
@@ -1763,6 +1778,7 @@ const RAW: Record<string, Rows> = {
   hero_dead: heroDead,
 
   sword_v: swordV, sword_h: swordH, sword_d: swordD,
+  sword2_v: sword2V, sword2_h: sword2H, sword2_d: sword2D,
 
   item_sword: itemSword, item_bombbag: itemBombbag, item_disc: itemDisc, item_key: itemKey,
   item_bigkey: itemBigkey, item_heartpiece: itemHeartpiece, item_container: itemContainer,
@@ -1808,6 +1824,8 @@ const RAW: Record<string, Rows> = {
 
   hud_heart_full: hudHeartFull, hud_heart_half: hudHeartHalf, hud_heart_empty: hudHeartEmpty,
   hud_bit: hudBit, hud_bomb: hudBomb, hud_key: hudKey, hud_bigkey: hudBigkey,
+
+  ...WILD_RAW,
 }
 
 

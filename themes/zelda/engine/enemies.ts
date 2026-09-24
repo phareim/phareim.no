@@ -5,6 +5,7 @@
 import type { Enemy, Projectile } from '../types'
 import { HERO_R } from '../types'
 import { STATS, spawnEnemy } from './spawn'
+import { deepseek, gemini, llama, mistral } from './bosses'
 import { type Ctx, hurtHero, hitEnemy } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
 import { angleDiff, chance, clamp, dirVec, nextId, opposite, pick, rnd, rndRange, toDir, DIRS } from './util'
@@ -37,12 +38,12 @@ export function stepEnemies(c: Ctx, dt: number) {
   }
 }
 
-function mode(e: Enemy): MoveMode {
+export function mode(e: Enemy): MoveMode {
   return STATS[e.kind].flying ? 'fly' : 'enemy'
 }
 
 /** Move with collision inside the enemy's own camera room. Returns true if blocked. */
-function walk(c: Ctx, e: Enemy, vx: number, vy: number, dt: number): boolean {
+export function walk(c: Ctx, e: Enemy, vx: number, vy: number, dt: number): boolean {
   const r = moveCircle(c.w, c.s.map, e.x, e.y, e.r, vx * dt, vy * dt, mode(e))
   let x = r.x
   let y = r.y
@@ -60,21 +61,21 @@ function walk(c: Ctx, e: Enemy, vx: number, vy: number, dt: number): boolean {
   return hit
 }
 
-function seesHero(c: Ctx, e: Enemy, range: number): boolean {
+export function seesHero(c: Ctx, e: Enemy, range: number): boolean {
   const h = c.s.hero
   if (c.s.demo || h.act === 'dead') return false
   const d = Math.hypot(h.x - e.x, h.y - e.y)
   return d < range && lineClear(c.w, c.s.map, e.x, e.y, h.x, h.y)
 }
 
-function heroDist(c: Ctx, e: Enemy) {
+export function heroDist(c: Ctx, e: Enemy) {
   return Math.hypot(c.s.hero.x - e.x, c.s.hero.y - e.y)
 }
 
-function shoot(c: Ctx, e: Enemy, kind: Projectile['kind'], vx: number, vy: number, r = 0.22, life = 3) {
+export function shoot(c: Ctx, e: Enemy, kind: Projectile['kind'], vx: number, vy: number, r = 0.22, life = 3) {
   const p = c.s.map.projectiles
   if (p.length > 40) return
-  p.push({ id: nextId(c.s), kind, x: e.x, y: e.y, vx, vy, r, t: 0, life, reflect: kind === 'pellet' })
+  p.push({ id: nextId(c.s), kind, x: e.x, y: e.y, vx, vy, r, t: 0, life, reflect: kind === 'pellet' || kind === 'spit' })
   c.ev.push({ type: 'shoot', x: e.x, y: e.y, kind })
 }
 
@@ -108,6 +109,12 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     case 'blade': blade(c, e, dt); break
     case 'knight': knight(c, e, dt); break
     case 'king': king(c, e, dt); break
+    case 'hound': hound(c, e, dt); break
+    case 'drone': drone(c, e, dt); break
+    case 'llama': llama(c, e, dt); break
+    case 'mistral': mistral(c, e, dt); break
+    case 'deepseek': deepseek(c, e, dt); break
+    case 'gemini': gemini(c, e, dt); break
   }
   contact(c, e)
 }
@@ -116,7 +123,9 @@ function contact(c: Ctx, e: Enemy) {
   if (e.dead || e.stun > 0) return
   const st = STATS[e.kind]
   const h = c.s.hero
-  const harmless = e.kind === 'king' && (e.ai.mode === 'down' || e.ai.mode === 'rise')
+  const harmless = (e.kind === 'king' && (e.ai.mode === 'down' || e.ai.mode === 'rise')) ||
+    (e.kind === 'mistral' && e.ai.mode === 'down') || (e.kind === 'gemini' && e.ai.mode === 'down') ||
+    (e.kind === 'deepseek' && (e.ai.mode === 'under' || e.ai.mode === 'rise'))
   if (st.dmg > 0 && !harmless && Math.hypot(h.x - e.x, h.y - e.y) < e.r + HERO_R - 0.05) {
     hurtHero(c, st.dmg, e.x, e.y, e.kind === 'zapper')
   }
@@ -467,3 +476,82 @@ export function breakShards(c: Ctx, x: number, y: number, r: number): boolean {
 }
 
 export { hitEnemy }
+
+// ---------------------------------------------------------------------------
+// The Wildwood's small fry
+// ---------------------------------------------------------------------------
+
+/** Static hound: circles at a distance, opens its head, lunges where you stood. */
+function hound(c: Ctx, e: Enemy, dt: number) {
+  const ai = e.ai
+  const h = c.s.hero
+  if (ai.mode === 'lunge') {
+    const hit = walk(c, e, ai.vx as number, ai.vy as number, dt)
+    if (hit || ai.t <= 0) { ai.mode = 'rest'; ai.t = rndRange(c.s, 0.5, 0.9) }
+    return
+  }
+  if (ai.mode === 'tell') {
+    e.dir = toDir(h.x - e.x, h.y - e.y, e.dir)
+    if (ai.t <= 0) {
+      const d = heroDist(c, e) || 1
+      ai.vx = ((h.x - e.x) / d) * 10
+      ai.vy = ((h.y - e.y) / d) * 10
+      ai.mode = 'lunge'
+      ai.t = 0.36
+    }
+    return
+  }
+  if (ai.mode === 'rest') { if (ai.t <= 0) { ai.mode = 'prowl'; ai.t = rndRange(c.s, 1.2, 2.2) } return }
+  if (!seesHero(c, e, 8)) {
+    const v = dirVec(e.dir)
+    if (walk(c, e, v.x * 1.5, v.y * 1.5, dt) || ai.t <= 0) { e.dir = pick(c.s, DIRS); ai.t = rndRange(c.s, 0.8, 1.6) }
+    return
+  }
+  // Prowl: keep ~3 tiles off, sidestepping round the hero.
+  const dx = e.x - h.x
+  const dy = e.y - h.y
+  const d = Math.hypot(dx, dy) || 1
+  const side = (ai.side as number) || (rnd(c.s) < 0.5 ? -1 : 1)
+  ai.side = side
+  const radial = (3 - d) * 1.6
+  const vx = (dx / d) * radial + (-dy / d) * side * 2.4
+  const vy = (dy / d) * radial + (dx / d) * side * 2.4
+  if (walk(c, e, vx, vy, dt)) ai.side = -side
+  e.dir = toDir(-dx, -dy, e.dir)
+  if (ai.t <= 0 && d < 5.5) {
+    ai.mode = 'tell'
+    ai.t = 0.42
+    ai.tell = 0.42
+    c.ev.push({ type: 'bark', x: e.x, y: e.y })
+  }
+}
+
+/** Lab drone: hovers in a slow figure eight; lined up with the hero it fires a pellet (send it back). */
+function drone(c: Ctx, e: Enemy, dt: number) {
+  const ai = e.ai
+  const h = c.s.hero
+  ai.ph = ((ai.ph as number) ?? rnd(c.s) * 6) + dt
+  const ph = ai.ph as number
+  if (ai.mode === 'aim') {
+    if (ai.t <= 0) {
+      const v = dirVec(e.dir)
+      shoot(c, e, 'pellet', v.x * 7, v.y * 7)
+      ai.mode = 'cool'
+      ai.t = 1.3
+    }
+    return
+  }
+  const tx = e.home.x + Math.sin(ph * 0.9) * 2.2
+  const ty = e.home.y + Math.sin(ph * 1.8) * 1.1
+  walk(c, e, (tx - e.x) * 2, (ty - e.y) * 2, dt)
+  if (ai.mode === 'cool' && ai.t > 0) return
+  ai.mode = 'hover'
+  const dx = h.x - e.x
+  const dy = h.y - e.y
+  if ((Math.abs(dx) < 0.5 || Math.abs(dy) < 0.5) && seesHero(c, e, 8)) {
+    e.dir = toDir(dx, dy, e.dir)
+    ai.mode = 'aim'
+    ai.t = 0.45
+    ai.tell = 0.45
+  }
+}

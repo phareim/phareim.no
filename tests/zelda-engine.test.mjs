@@ -446,7 +446,9 @@ describe('full run', () => {
     walkTo(s, OX + 24, 3)
     settle(s)
     assert.equal(s.inv.pieces, 1)
-    // Rubble at the shrine: stand below it and bomb it
+    // Rubble at the shrine (the static vines in front of it died with the Gate, in the Wildwood run): bomb it
+    s.flags.gateShut = true
+    step(s)
     walkTo(s, OX + 57, 5)
     face(s, 'up')
     step(s, inp({ bPress: true }))

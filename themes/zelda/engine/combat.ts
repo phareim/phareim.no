@@ -2,11 +2,11 @@
  * Damage, drops and item grants — the rules every other engine module
  * calls into. `Ctx` bundles what a step needs.
  */
-import type { DropKind, Enemy, GameEvent, GameState, ItemId, World } from '../types'
+import type { DropKind, Enemy, EnemyKind, GameEvent, GameState, ItemId, World } from '../types'
 import { INVULN, KNOCK_SPEED, KNOCK_TIME, MAX_BITS } from '../types'
 import { STATS } from './spawn'
 import { chance, nextId, rnd } from './util'
-import { mapInfo, setFlag, type MapInfo } from './map'
+import { addKeys, mapInfo, setFlag, type MapInfo } from './map'
 
 export interface Ctx {
   w: World
@@ -64,7 +64,14 @@ export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shoc
 // Enemy damage
 // ---------------------------------------------------------------------------
 
-export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot'
+export type HitSource = 'sword' | 'spin' | 'disc' | 'bomb' | 'pot' | 'shot' | 'hook' | 'beam' | 'spit'
+
+/** Bosses and minibosses: heavy, barely knocked back, longer mercy after a hit. */
+export const BIG = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
+/** The ones whose fall clears the room and plays the boss fanfare. */
+const BOSSES = new Set<EnemyKind>(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
+
+const blade = (src: HitSource) => src === 'sword' || src === 'spin' || src === 'beam'
 
 /** Apply a hit. Returns true if it connected (damage or stun). */
 export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource): boolean {
@@ -73,6 +80,17 @@ export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: nu
   if (st.invulnerable) {
     if (src === 'sword' || src === 'spin') c.ev.push({ type: 'clank', x: e.x, y: e.y })
     return false
+  }
+  const special = bossRules(c, e, dmg, fromX, fromY, src)
+  if (special !== null) return special
+  // The hook stuns like the disc, and bites the frail.
+  if (src === 'hook') {
+    if (BIG.has(e.kind)) { c.ev.push({ type: 'clank', x: e.x, y: e.y }); return false }
+    e.stun = 2
+    e.flash = 0.1
+    c.ev.push({ type: 'discHit', x: e.x, y: e.y })
+    if (e.kind === 'bat' || e.kind === 'blob' || e.kind === 'drone') return damage(c, e, 1, fromX, fromY)
+    return true
   }
   // The disc stuns; it only hurts the frail.
   if (src === 'disc') {
@@ -112,22 +130,94 @@ export function hitEnemy(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: nu
   return damage(c, e, dmg, fromX, fromY)
 }
 
+/**
+ * The new bosses' own rules; null = the ordinary rules apply.
+ * LLAMA: wool turns blades and hooks; its own spit sent back, or a bomb, hurts.
+ * MISTRAL: untouchable in the air; the hook drags it down, then anything hurts.
+ * DEEPSEEK: under the floor nothing reaches it but the hook, which hauls it up.
+ * GEMINI: ordinary, but a twin at zero only falls down (see damage).
+ */
+function bossRules(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number, src: HitSource): boolean | null {
+  const ai = e.ai
+  switch (e.kind) {
+    case 'llama':
+      if (src === 'spit' || src === 'shot' || src === 'bomb' || src === 'pot') return damage(c, e, 2, fromX, fromY)
+      if (src === 'disc') { e.stun = 1; c.ev.push({ type: 'discHit', x: e.x, y: e.y }); return true }
+      c.ev.push({ type: 'clank', x: e.x, y: e.y })
+      e.invuln = 0.2
+      if (blade(src)) {
+        const h = c.s.hero
+        const len = Math.hypot(h.x - e.x, h.y - e.y) || 1
+        h.knock = { vx: ((h.x - e.x) / len) * KNOCK_SPEED * 0.7, vy: ((h.y - e.y) / len) * KNOCK_SPEED * 0.7, t: KNOCK_TIME }
+      }
+      return false
+    case 'mistral':
+      if (ai.mode === 'down') return src === 'hook' || src === 'disc' ? false : damage(c, e, dmg, fromX, fromY)
+      if (src === 'hook') {
+        ai.mode = 'down'
+        ai.t = ai.phase === 2 ? 2.2 : 2.8
+        ai.tell = 0
+        e.flash = 0.2
+        c.s.shake = Math.max(c.s.shake, 0.3)
+        c.ev.push({ type: 'boom', x: e.x, y: e.y + 0.4 })
+        return true
+      }
+      c.ev.push({ type: 'clank', x: e.x, y: e.y })
+      e.invuln = 0.15
+      return false
+    case 'deepseek':
+      if (ai.mode === 'under' || ai.mode === 'rise') {
+        if (src !== 'hook') return false
+        ai.mode = 'hauled'
+        ai.t = 2.4
+        ai.tell = 0
+        e.flash = 0.2
+        c.ev.push({ type: 'discHit', x: e.x, y: e.y })
+        return true
+      }
+      if (src === 'hook' || src === 'disc') { e.stun = 1; c.ev.push({ type: 'discHit', x: e.x, y: e.y }); return true }
+      return damage(c, e, dmg, fromX, fromY)
+    case 'gemini':
+      if (ai.mode === 'down') return false
+      if (src === 'hook' || src === 'disc') { e.stun = 0.8; c.ev.push({ type: 'discHit', x: e.x, y: e.y }); return true }
+      return damage(c, e, dmg, fromX, fromY)
+    default:
+      return null
+  }
+}
+
 function damage(c: Ctx, e: Enemy, dmg: number, fromX: number, fromY: number): boolean {
   e.hp -= dmg
   e.flash = 0.14
-  e.invuln = e.kind === 'king' || e.kind === 'knight' ? 0.45 : 0.28
-  if (e.kind !== 'king') {
+  e.invuln = BIG.has(e.kind) ? 0.45 : 0.28
+  if (e.kind !== 'king' && e.kind !== 'mistral' && e.kind !== 'gemini') {
     const dx = e.x - fromX
     const dy = e.y - fromY
     const len = Math.hypot(dx, dy) || 1
-    const k = e.kind === 'knight' ? 0.4 : 1
+    const k = BIG.has(e.kind) ? 0.4 : 1
     e.knock = { vx: (dx / len) * 9 * k, vy: (dy / len) * 9 * k, t: 0.14 }
+  }
+  if (e.kind === 'gemini' && e.hp <= 0) {
+    // A twin at zero falls down; the other must follow before it gets up again.
+    const twin = c.s.map.enemies.find(o => o !== e && o.kind === 'gemini' && o.cell === e.cell && !o.dead)
+    if (twin && twin.ai.mode !== 'down') {
+      e.hp = 0
+      e.ai.mode = 'down'
+      e.ai.t = 4
+      e.ai.tell = 0
+      e.knock = null
+      c.ev.push({ type: 'hit', x: e.x, y: e.y, kind: e.kind, killed: false })
+      c.ev.push({ type: 'hitStop', ms: 70 })
+      c.ev.push({ type: 'bossPhase', phase: 2 })
+      return true
+    }
+    if (twin) { twin.hp = 0; twin.dead = true; c.ev.push({ type: 'kill', x: twin.x, y: twin.y, kind: twin.kind }) }
   }
   const killed = e.hp <= 0
   c.ev.push({ type: 'hit', x: e.x, y: e.y, kind: e.kind, killed })
   c.ev.push({ type: 'hitStop', ms: killed ? 70 : 40 })
   if (killed) killEnemy(c, e)
-  else if (e.kind === 'king' && e.hp <= STATS.king.hp / 2 && e.ai.phase !== 2) {
+  else if ((e.kind === 'king' || e.kind === 'mistral' || e.kind === 'deepseek') && e.hp <= STATS[e.kind].hp / 2 && e.ai.phase !== 2) {
     e.ai.phase = 2
     c.ev.push({ type: 'bossPhase', phase: 2 })
     c.s.shake = 0.4
@@ -140,7 +230,7 @@ export function killEnemy(c: Ctx, e: Enemy) {
   e.knock = null
   c.ev.push({ type: 'kill', x: e.x, y: e.y, kind: e.kind })
   if (e.once) setFlag(c.s, e.once)
-  if (e.kind === 'king' || e.kind === 'knight') {
+  if (BOSSES.has(e.kind)) {
     c.ev.push({ type: 'bossDown', kind: e.kind })
     c.s.shake = 0.6
     // The room's small fry go with their master.
@@ -182,11 +272,11 @@ export function collectDrop(c: Ctx, kind: DropKind) {
   else if (kind === 'bit') inv.bits = Math.min(MAX_BITS, inv.bits + 1)
   else if (kind === 'bit5') inv.bits = Math.min(MAX_BITS, inv.bits + 5)
   else if (kind === 'bomb') inv.bombs = Math.min(bombMax(s), inv.bombs + 2)
-  else if (kind === 'key') inv.keys++
+  else if (kind === 'key') addKeys(s, 1)
   c.ev.push({ type: 'collect', kind })
 }
 
-export const bombMax = (s: GameState) => (s.inv.bombBag ? 12 : 0)
+export const bombMax = (s: GameState) => (s.inv.bombBag ? (s.inv.bigBag ? 20 : 12) : 0)
 
 // ---------------------------------------------------------------------------
 // Items
@@ -209,6 +299,16 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'bits20': return ['YOU GOT 20 BITS!']
     case 'bits50': return ['YOU GOT 50 BITS!']
     case 'prism': return ['YOU GOT THE SUN PRISM!', 'THE SKY CAN FINALLY SET. TIME TO GO HOME.']
+    case 'hook': return ['YOU GOT THE GRAPPLING HOOK!', 'PRESS {B} TO FIRE IT. IT BITES INTO POSTS, PILLARS, LAMPS AND CHESTS, AND REELS YOU OVER PITS AND WATER.', '{CYCLE} SWAPS BETWEEN YOUR ITEMS.']
+    case 'arc': return ['YOU GOT THE ARC BLADE!', "PROJECT HORIZON'S LAST PROTOTYPE. IT HITS TWICE AS HARD AND CUTS THROUGH STATIC VINES.", 'WHILE YOUR HEARTS ARE FULL, EVERY SWING THROWS A BEAM.']
+    case 'bigBag': return ['A BIGGER BOMB BAG! YOU CAN CARRY 20 BOMBS NOW.']
+    case 'waffle': return ['A WAFFLE, STILL WARM.', 'SOMEONE IN THESE WOODS WOULD DO A LOT FOR ONE OF THESE.']
+    case 'shroom': return s.inv.shrooms >= 3
+      ? ['A GLOWSHROOM! (3/3)', 'THAT IS ALL THREE. MOSSA WILL BE PLEASED.']
+      : [`A GLOWSHROOM! (${s.inv.shrooms}/3)`]
+    case 'tube': return ['A VACUUM TUBE, STILL GOOD.', "SOMEBODY'S RADIO NEEDS ONE OF THESE."]
+    case 'walkie': return ['A WALKIE-TALKIE. A STICKER ON THE BACK SAYS: PROPERTY OF TOBY. OVER.']
+    case 'hat': return ['AN ENORMOUS GREEN FELT HAT. IT SMELLS OF MOSS AND BROWN CHEESE.']
   }
 }
 
@@ -221,8 +321,8 @@ export function grant(s: GameState, item: ItemId) {
     case 'bombBag': inv.bombBag = true; inv.bombs = 8; if (!inv.selected) inv.selected = 'bombs'; break
     case 'bombs5': inv.bombs = Math.min(bombMax(s), inv.bombs + 5); break
     case 'disc': inv.disc = true; inv.selected = 'disc'; break
-    case 'smallKey': inv.keys++; break
-    case 'bigKey': inv.bigKey = true; break
+    case 'smallKey': addKeys(s, 1); break
+    case 'bigKey': if (s.map.ring === 'shrine') inv.bigKey = true; else setFlag(s, `bigkey:${s.map.ring}`); break
     case 'heartPiece':
       inv.pieces++
       if (inv.pieces >= 4) { inv.pieces = 0; h.maxHp += 2; h.hp = h.maxHp }
@@ -233,6 +333,11 @@ export function grant(s: GameState, item: ItemId) {
     case 'bits20': inv.bits = Math.min(MAX_BITS, inv.bits + 20); break
     case 'bits50': inv.bits = Math.min(MAX_BITS, inv.bits + 50); break
     case 'prism': inv.prism = true; break
+    case 'hook': inv.hook = true; inv.selected = 'hook'; break
+    case 'arc': inv.arc = true; inv.sword = true; break
+    case 'bigBag': inv.bigBag = true; inv.bombBag = true; inv.bombs = 20; if (!inv.selected) inv.selected = 'bombs'; break
+    case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
+    case 'waffle': case 'tube': case 'walkie': case 'hat': break
   }
   setFlag(s, `item:${item}`)
 }

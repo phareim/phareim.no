@@ -7,6 +7,7 @@ import type { GameState } from '../types'
 import { questHint, questStep } from '../progress'
 import { drawText, textWidth, wrapText, GLYPH_H } from './font'
 import { sprite } from './sheet'
+import { hasBigKey, keyCount } from '../engine/map'
 
 type G = CanvasRenderingContext2D
 
@@ -52,8 +53,9 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
   }
   counter('hud_bit', inv.bits, 3, '#b6ff4a')
   if (inv.bombBag) counter('hud_bomb', inv.bombs, 2)
-  if (inv.keys > 0 || s.map.id === 'shrine') counter('hud_key', inv.keys, 1, '#ffd23f')
-  if (inv.bigKey) { g.drawImage(sprite('hud_bigkey'), cx, cy); cx += 12 }
+  const keys = keyCount(s)
+  if (keys > 0 || s.map.ring !== 'shrine' || s.map.id === 'shrine') counter('hud_key', keys, 1, '#ffd23f')
+  if (hasBigKey(s)) { g.drawImage(sprite('hud_bigkey'), cx, cy); cx += 12 }
 
   // B-item box right of the hearts (touch shows it on the B button instead;
   // the site radio owns the top-right corner).

@@ -5,13 +5,14 @@
  */
 import type { Dir, ExitSpot, Input, TileChar } from '../types'
 import {
-  CARRY_SPEED, CHARGE_SPEED, CHARGE_TIME, HERO_R, HERO_SPEED, LIFT_TIME, PUSH_DELAY, SPIN_REACH,
+  ARC_REACH, BEAM_SPEED, CARRY_SPEED, CHARGE_SPEED, CHARGE_TIME, HERO_R, HERO_SPEED, LIFT_TIME, PSI_SPEED, PUSH_DELAY, SPIN_REACH,
   SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, THROW_SPEED,
 } from '../types'
 import { TILE_INFO } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx } from './combat'
 import { breakShards, enemyActive } from './enemies'
-import { circleBlocked, floodRun, has, lineClear, moveCircle, setFlag, setTile, tileAt, cellIndex } from './map'
+import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, tileAt, cellIndex } from './map'
+import { fireHook } from './hook'
 import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
 
 const CORNER_ASSIST = 0.34
@@ -25,6 +26,8 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   if (h.invuln > 0) h.invuln -= dt
   if (h.cooldown > 0) h.cooldown -= dt
   if (h.auto) { walkOut(c, dt); return }
+  // On the end of the hook's chain: stepHook moves him.
+  if (s.hook) { h.act = 'hook'; return }
 
   if (h.act === 'fall') {
     if (h.actT > 0.55) {
@@ -131,7 +134,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
       h.push += dt
       if (h.push >= PUSH_DELAY) { tryPush(c, tx, ty, h.dir); h.push = 0 }
     } else h.push = 0
-    if ((t === 'L' && s.inv.keys > 0) || (t === 'K' && s.inv.bigKey)) unlockDoor(c, tx, ty, t)
+    if ((t === 'L' && keyCount(s) > 0) || (t === 'K' && hasBigKey(s))) unlockDoor(c, tx, ty, t)
   } else h.push = 0
 
   if (!h.swing && !h.spin && h.act !== 'throw' && h.act !== 'use') {
@@ -195,6 +198,20 @@ function underfoot(c: Ctx) {
   const s = c.s
   const h = s.hero
   const t = tileAt(s.map, Math.floor(h.x), Math.floor(h.y))
+  if (t === 'O' && c.info.def.below) {
+    // A hole: down to the floor below, landing on the same spot.
+    h.act = 'fall'
+    h.actT = 0
+    h.swing = null
+    h.spin = null
+    h.charge = -1
+    h.carry = null
+    s.mode = 'warp'
+    s.warp = { t: 0, to: c.info.def.below, entry: '', swapped: false, at: { x: h.x, y: h.y }, drop: true }
+    c.ev.push({ type: 'fall' })
+    return
+  }
+  stepOnGlyph(c)
   if (t === 'O') {
     h.act = 'fall'
     h.actT = 0
@@ -259,6 +276,17 @@ function interact(c: Ctx): boolean {
   const ty = Math.floor(fy)
   const t = tileAt(s.map, tx, ty)
 
+  // Luna, a step behind.
+  const L = s.luna
+  if (L && Math.hypot(L.x - fx, L.y - fy) < 0.75 && c.w.luna) {
+    const br = c.w.luna.find(b => condMet(s, c.w, b.when, -1))
+    if (br) {
+      openDialog(c, br.lines, 'luna', br.set ? { set: [br.set] } : null)
+      L.dir = toDir(h.x - L.x, h.y - L.y, L.dir)
+      c.ev.push({ type: 'talk' })
+      return true
+    }
+  }
   // NPCs in front (also across a counter).
   for (const n of s.map.npcs) {
     const near = Math.hypot(n.x - fx, n.y - fy) < 0.75
@@ -276,6 +304,15 @@ function interact(c: Ctx): boolean {
   if (t === 'S') {
     const lines = c.info.signs.get(idx)
     if (lines) { openDialog(c, lines, null); return true }
+  }
+  if (t === 'B') {
+    if (s.luna) psiPush(c, tx, ty, h.dir)
+    else openDialog(c, ['A HEAVY BLOCK WITH A MOON CARVED IN IT. IT WON\'T BUDGE.', 'SOMEONE WITH A STRONGER MIND MIGHT MOVE IT.'], null)
+    return true
+  }
+  if (t === '}') {
+    if (!has(s, c.info.levers.get(idx) ?? '')) { throwLever(c, tx, ty); return true }
+    return false
   }
   if (t === '$') {
     const chest = c.info.chests.get(idx)
@@ -304,7 +341,7 @@ function interact(c: Ctx): boolean {
     return true
   }
   if (t === 'L' || t === 'K') {
-    const ok = t === 'L' ? s.inv.keys > 0 : s.inv.bigKey
+    const ok = t === 'L' ? keyCount(s) > 0 : hasBigKey(s)
     if (ok) unlockDoor(c, tx, ty, t)
     else openDialog(c, [t === 'L' ? 'LOCKED. A SMALL KEY WOULD OPEN IT.' : 'A GREAT LOCK. ONLY THE BIG KEY FITS.'], null)
     return true
@@ -319,8 +356,8 @@ function talkTo(c: Ctx, id: string) {
     if (e.t !== 'npc' || e.id !== id) continue
     for (const br of e.talk) {
       if (!condFor(c, br.when)) continue
-      const give = br.give && !has(s, `got:${id}`) ? br.give : undefined
-      openDialog(c, br.lines, e.look, { give, set: [br.set, give ? `got:${id}` : undefined].filter((x): x is string => !!x) })
+      const give = br.give && !has(s, `got:${id}:${br.give}`) ? br.give : undefined
+      openDialog(c, br.lines, e.look, { give, set: [br.set, give ? `got:${id}:${give}` : undefined].filter((x): x is string => !!x) })
       c.ev.push({ type: 'talk' })
       return
     }
@@ -328,11 +365,7 @@ function talkTo(c: Ctx, id: string) {
 }
 
 function condFor(c: Ctx, cond: import('../types').Cond | undefined) {
-  if (!cond) return true
-  if ('flag' in cond) return has(c.s, cond.flag)
-  if ('notFlag' in cond) return !has(c.s, cond.notFlag)
-  if ('item' in cond) return has(c.s, `item:${cond.item}`)
-  return true
+  return condMet(c.s, c.w, cond, -1)
 }
 
 export function openDialog(c: Ctx, lines: string[], who: string | null, after: import('../types').Dialog['after'] = null) {
@@ -391,7 +424,7 @@ function unlockDoor(c: Ctx, tx: number, ty: number, t: TileChar) {
   const s = c.s
   const m = s.map
   const run = floodRun(m.tiles, m.w, m.h, ty * m.w + tx, t)
-  if (t === 'L') s.inv.keys--
+  if (t === 'L') addKeys(s, -1)
   for (const i of run) {
     m.tiles[i] = '.'
     setFlag(s, `door:${m.id}:${i}`)
@@ -421,6 +454,12 @@ function startSwing(c: Ctx, inp: Input) {
   h.actT = 0
   h.charge = 0
   c.ev.push({ type: 'swing' })
+  // The Arc Blade throws a beam while the hero's hearts are full.
+  if (s.inv.arc && h.hp >= h.maxHp && !s.map.projectiles.some(p => p.kind === 'beam')) {
+    const v = dirVec(h.dir)
+    s.map.projectiles.push({ id: nextId(s), kind: 'beam', x: h.x + v.x * 0.7, y: h.y + v.y * 0.7, vx: v.x * BEAM_SPEED, vy: v.y * BEAM_SPEED, r: 0.32, t: 0, life: 0.55, friendly: true })
+    c.ev.push({ type: 'beam' })
+  }
 }
 
 /** Angle of the blade at swing progress p (0..1): sweeps across the facing. */
@@ -439,7 +478,8 @@ function stepSwing(c: Ctx, dt: number) {
   // Sample the sweep between the last and this step.
   for (let k = 0; k <= 2; k++) {
     const a = swingAngle(sw.dir, p0 + ((p1 - p0) * k) / 2)
-    bladeHits(c, a, SWORD_REACH, 1, 'sword', sw.hit)
+    const arc = c.s.inv.arc
+    bladeHits(c, a, arc ? ARC_REACH : SWORD_REACH, arc ? 2 : 1, 'sword', sw.hit)
   }
   if (sw.t >= SWING_TIME) {
     h.swing = null
@@ -465,7 +505,7 @@ function stepSpin(c: Ctx, dt: number) {
   const base = dirAngle(h.dir)
   for (let k = 0; k <= 3; k++) {
     const a = base + Math.PI * 2 * (p0 + ((p1 - p0) * k) / 3)
-    bladeHits(c, a, SPIN_REACH, 2, 'spin', sp.hit)
+    bladeHits(c, a, SPIN_REACH + (c.s.inv.arc ? 0.2 : 0), c.s.inv.arc ? 3 : 2, 'spin', sp.hit)
   }
   if (sp.t >= SPIN_TIME) {
     h.spin = null
@@ -521,6 +561,13 @@ function bladeHits(c: Ctx, a: number, reach: number, dmg: number, src: 'sword' |
     } else if (t === 'c') {
       hit.push(key)
       toggleCrystal(c, tx, ty)
+    } else if (t === 'l') {
+      hit.push(key)
+      if (s.inv.arc) cutTile(c, tx, ty, t)
+      else c.ev.push({ type: 'clank', x: tx + 0.5, y: ty + 0.5 })
+    } else if (t === '}') {
+      hit.push(key)
+      throwLever(c, tx, ty)
     }
   }
 }
@@ -535,9 +582,17 @@ export function toggleCrystal(c: Ctx, tx: number, ty: number) {
   const s = c.s
   const m = s.map
   const cell = cellIndex(c.info, tx + 0.5, ty + 0.5)
-  const cur = m.crystal[cell] ?? 'pink'
+  if ((m.crystalCool ?? 0) > 0) return
+  m.crystalCool = 0.35
+  const group = c.info.def.crystal
+  const cur = m.crystalAll ?? m.crystal[cell] ?? 'pink'
   const next = cur === 'pink' ? 'cyan' : 'pink'
-  m.crystal[cell] = next
+  if (group) {
+    // One state for the whole group, on every floor: kept in a flag.
+    m.crystalAll = next
+    if (next === 'cyan') s.flags[`crystal:${group}`] = true
+    else delete s.flags[`crystal:${group}`]
+  } else m.crystal[cell] = next
   // Blocks rising under the hero wait until he steps off.
   const raise: TileChar = next === 'pink' ? 'P' : 'C'
   const h = s.hero
@@ -592,7 +647,8 @@ function tryPush(c: Ctx, tx: number, ty: number, d: Dir) {
 
 export function cycleItem(c: Ctx) {
   const inv = c.s.inv
-  const owned: Array<'disc' | 'bombs'> = []
+  const owned: Array<'disc' | 'bombs' | 'hook'> = []
+  if (inv.hook) owned.push('hook')
   if (inv.disc) owned.push('disc')
   if (inv.bombBag) owned.push('bombs')
   if (!owned.length) return
@@ -616,6 +672,8 @@ function useItem(c: Ctx, inp: Input) {
     h.act = 'use'
     h.actT = 0
     c.ev.push({ type: 'bombPlace' })
+  } else if (inv.selected === 'hook') {
+    fireHook(c)
   } else if (inv.selected === 'disc') {
     if (s.disc) return
     let dx = inp.move.x
@@ -634,3 +692,99 @@ export function heroInvulnFlash(h: { invuln: number }) {
 }
 
 export { hurtHero }
+
+// ---------------------------------------------------------------------------
+// Levers, psi blocks, letter stones
+// ---------------------------------------------------------------------------
+
+/** A hit on a lever: throws it for good and sets its flag. */
+export function throwLever(c: Ctx, tx: number, ty: number) {
+  const s = c.s
+  const flag = c.info.levers.get(ty * s.map.w + tx)
+  if (!flag || has(s, flag)) return
+  setFlag(s, flag)
+  s.map.version++
+  s.shake = Math.max(s.shake, 0.15)
+  c.ev.push({ type: 'lever', x: tx + 0.5, y: ty + 0.5 })
+  c.ev.push({ type: 'secret' })
+}
+
+/** Luna slides a psi block along `d` until something stops it (a wall, a block, the room's edge, a foe). */
+export function psiPush(c: Ctx, tx: number, ty: number, d: Dir) {
+  const s = c.s
+  const m = s.map
+  const v = dirVec(d)
+  const cell = cellIndex(c.info, tx + 0.5, ty + 0.5)
+  const free = (t: TileChar) => t === '.' || t === ',' || t === '_' || t === ':' || t === '{' || t === 'i' || t === 'f'
+  let x = tx
+  let y = ty
+  let falls = false
+  for (let n = 0; n < 64; n++) {
+    const nx = x + v.x
+    const ny = y + v.y
+    // Into a hole: the block drops to the floor below.
+    if (tileAt(m, nx, ny) === 'O' && c.info.def.below) { x = nx; y = ny; falls = true; break }
+    if (!free(tileAt(m, nx, ny))) break
+    if (c.info.def.kind === 'dungeon' && cellIndex(c.info, nx + 0.5, ny + 0.5) !== cell) break
+    if (m.enemies.some(e => !e.dead && Math.floor(e.x) === nx && Math.floor(e.y) === ny)) break
+    if (m.npcs.some(n2 => Math.floor(n2.x) === nx && Math.floor(n2.y) === ny)) break
+    const h = s.hero
+    if (Math.abs(h.x - (nx + 0.5)) < 0.5 + HERO_R && Math.abs(h.y - (ny + 0.5)) < 0.5 + HERO_R) break
+    x = nx
+    y = ny
+  }
+  if (s.luna) { s.luna.psi = 0.7; s.luna.dir = toDir(tx + 0.5 - s.luna.x, ty + 0.5 - s.luna.y, s.luna.dir) }
+  c.ev.push({ type: 'psi', x: tx + 0.5, y: ty + 0.5 })
+  if (x === tx && y === ty) return
+  m.tiles[ty * m.w + tx] = '.'
+  const dist = Math.abs(x - tx) + Math.abs(y - ty)
+  const dur = Math.max(0.12, dist / PSI_SPEED)
+  if (falls) {
+    // It lands on the same spot one floor down, for good.
+    setFlag(s, `drop:${c.info.def.below}:${y * m.w + x}`)
+    m.moving.push({ id: nextId(s), fx: tx, fy: ty, tx: x, ty: y, t: 0, dur, kind: 'B', falls: true })
+    m.version++
+    c.ev.push({ type: 'fall' })
+    return
+  }
+  m.tiles[y * m.w + x] = 'B'
+  m.version++
+  m.moving.push({ id: nextId(s), fx: tx, fy: ty, tx: x, ty: y, t: 0, dur, kind: 'B' })
+  // Out in the open a moved block stays moved (the lab's door must stay clear).
+  if (c.info.def.kind !== 'dungeon') {
+    const key = Object.keys(s.flags).find(f => f.startsWith(`psi:${m.id}:`) && f.endsWith(`:${ty * m.w + tx}`))
+    const home = key ? key.split(':')[2] : String(ty * m.w + tx)
+    if (key) delete s.flags[key]
+    s.flags[`psi:${m.id}:${home}:${y * m.w + x}`] = true
+  }
+}
+
+/** Stepping onto a letter stone adds its letter; a finished word sets its flag. */
+function stepOnGlyph(c: Ctx) {
+  const s = c.s
+  const m = s.map
+  const h = s.hero
+  const idx = Math.floor(h.y) * m.w + Math.floor(h.x)
+  const ch = c.info.glyphs.get(idx)
+  if (ch === undefined) { m.onGlyph = -1; return }
+  if (m.onGlyph === idx) return
+  m.onGlyph = idx
+  const codes = (c.info.def.codes ?? []).filter(k => !has(s, k.flag))
+  if (!codes.length) { c.ev.push({ type: 'glyph', x: (idx % m.w) + 0.5, y: Math.floor(idx / m.w) + 0.5, ok: true }); return }
+  const next = m.spell + ch
+  let ok = true
+  if (codes.some(k => k.word.startsWith(next))) { m.spell = next; m.spellTiles.push(idx) } else {
+    ok = false
+    if (codes.some(k => k.word.startsWith(ch))) { m.spell = ch; m.spellTiles = [idx] } else { m.spell = ''; m.spellTiles = [] }
+  }
+  c.ev.push({ type: 'glyph', x: (idx % m.w) + 0.5, y: Math.floor(idx / m.w) + 0.5, ok })
+  if (!ok) c.ev.push({ type: 'error' })
+  const done = codes.find(k => k.word === m.spell)
+  if (done) {
+    setFlag(s, done.flag)
+    m.spell = ''
+    m.spellTiles = []
+    m.version++
+    c.ev.push({ type: 'secret' })
+  }
+}

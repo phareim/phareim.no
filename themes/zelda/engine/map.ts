@@ -30,8 +30,12 @@ export interface MapInfo {
   exitLines: Map<number, string[]>
   gates: GateInfo[]
   plates: Map<number, string>
-  /** Authored push-block tiles, per camera room. */
-  blocks: Map<number, number[]>
+  /** Letter stones: tile index → letter. */
+  glyphs: Map<number, string>
+  /** Levers: tile index → the flag a hit sets. */
+  levers: Map<number, string>
+  /** Authored push blocks ('b') and psi blocks ('B'), per camera room: [tile index, char]. */
+  blocks: Map<number, Array<[number, TileChar]>>
   cw: number
   ch: number
   cols: number
@@ -86,7 +90,8 @@ function buildInfo(def: MapDef): MapInfo {
     def, w, h, base, marks,
     entries: { ...(def.entries ?? {}) },
     warps: (def.warps ?? []).map(wp => ({ w: 1, h: 1, ...wp })),
-    chests: new Map(), chestList: [], signs: new Map(), exits: new Map(), exitLines: new Map(), gates: [], plates: new Map(), blocks: new Map(),
+    chests: new Map(), chestList: [], signs: new Map(), exits: new Map(), exitLines: new Map(), gates: [], plates: new Map(),
+    glyphs: new Map(), levers: new Map(), blocks: new Map(),
     cw, ch: chh, cols: Math.ceil(w / cw), rows: Math.ceil(h / chh),
   }
   for (const m of marks) {
@@ -101,6 +106,8 @@ function buildInfo(def: MapDef): MapInfo {
       info.chestList.push(c)
     } else if (e.t === 'sign') info.signs.set(idx, e.lines)
     else if (e.t === 'plate') info.plates.set(idx, e.id)
+    else if (e.t === 'glyph') info.glyphs.set(idx, e.ch)
+    else if (e.t === 'lever') info.levers.set(idx, e.flag)
     else if (e.t === 'gate') info.gates.push({ id: `${def.id}.${m.x},${m.y}`, tiles: floodRun(base, w, h, idx, 'X'), open: e.open, cell })
   }
   // Exits, and the entry beside each one (after the entry markers, which win a name clash).
@@ -118,10 +125,10 @@ function buildInfo(def: MapDef): MapInfo {
     if (!info.entries[e.id]) info.entries[e.id] = { x: m.x + v.x + 0.5, y: m.y + v.y + 0.5, dir: walk ? side : opposite(side) }
   }
   base.forEach((t, i) => {
-    if (t !== 'b') return
+    if (t !== 'b' && t !== 'B') return
     const cell = cellIndex(info, (i % w) + 0.5, Math.floor(i / w) + 0.5)
     const list = info.blocks.get(cell) ?? []
-    list.push(i)
+    list.push([i, t])
     info.blocks.set(cell, list)
   })
   return info
@@ -135,6 +142,8 @@ function defaultTile(e: EntDef): TileChar {
     case 'gate': return 'X'
     case 'shop': return 'n'
     case 'exit': return 'D'
+    case 'glyph': return '{'
+    case 'lever': return '}'
     default: return '.'
   }
 }
@@ -192,6 +201,7 @@ export function condMet(s: GameState, world: World, c: Cond | undefined, cell: n
   if ('notFlag' in c) return !has(s, c.notFlag)
   if ('plates' in c) return c.plates.every(p => s.map.plates.includes(p))
   if ('item' in c) return has(s, `item:${c.item}`)
+  if ('flags' in c) return c.flags.every(f => has(s, f))
   // clear: the room's enemies are all dead (and it had some)
   const inCell = s.map.enemies.filter(e => e.cell === cell && e.kind !== 'eye' && e.kind !== 'blade')
   return inCell.length > 0 && inCell.every(e => e.dead)
@@ -212,6 +222,12 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
   }
   for (const g of info.gates) if (flag(`gate:${g.id}`)) for (const i of g.tiles) tiles[i] = '.'
   for (const c of info.chestList) if (c.appear) tiles[c.idx] = flag(`appear:${c.id}`) ? '$' : '.'
+  // Psi blocks moved out in the open, and blocks dropped here from the floor above.
+  for (const f of Object.keys(s.flags)) {
+    const p = f.split(':')
+    if (p[0] === 'psi' && p[1] === id) { const from = Number(p[2]); const to = Number(p[3]); if (tiles[from] === 'B') tiles[from] = '.'; tiles[to] = 'B' }
+    else if (p[0] === 'drop' && p[1] === id) tiles[Number(p[2])] = 'B'
+  }
 
   const enemies: Enemy[] = []
   const npcs: Npc[] = []
@@ -224,6 +240,7 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
       if (e.once && flag(e.once)) continue
       enemies.push(spawnEnemy(`${id}:${m.x},${m.y}`, e.kind, cx, cy, e.dir ?? 'down', cellIndex(info, cx, cy), e.once, e.carries))
     } else if (e.t === 'npc') {
+      if (e.hide && condMet(s, world, e.hide, -1)) continue
       npcs.push({ id: e.id, look: e.look, x: cx, y: cy, dir: e.dir ?? 'down', home: { x: cx, y: cy }, wander: !!e.wander, t: 0, vx: 0, vy: 0 })
     } else if (e.t === 'item') {
       if (flag(`took:${e.id}`)) continue
@@ -237,6 +254,8 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
     id, w: info.w, h: info.h, tiles, version: 1,
     enemies, projectiles: [], drops: [], bombs: [], blasts: [], thrown: [], moving: [],
     npcs, pickups, exits: [...info.exits.values()].map(x => ({ ...x })), plates: [], pending: [], crystal: {},
+    crystalAll: info.def.crystal ? (flag(`crystal:${info.def.crystal}`) ? 'cyan' : 'pink') : undefined,
+    spell: '', spellTiles: [], onGlyph: -1, ring: info.def.keyring ?? 'shrine',
   }
 }
 
@@ -257,6 +276,7 @@ export function setTile(m: MapState, tx: number, ty: number, t: TileChar) {
 
 /** Crystal state of the camera room holding tile (tx, ty). */
 export function crystalAt(world: World, m: MapState, tx: number, ty: number): 'pink' | 'cyan' {
+  if (m.crystalAll) return m.crystalAll
   const info = mapInfo(world, m.id)
   return m.crystal[cellIndex(info, tx + 0.5, ty + 0.5)] ?? 'pink'
 }
@@ -361,4 +381,27 @@ export function lineClear(world: World, m: MapState, x0: number, y0: number, x1:
     if (solidTile(world, m, tx, ty, 'fly')) return false
   }
   return true
+}
+
+/** A dark room stays dark until its `lit` flag is set (the lab's power coming back). */
+export function cellIsDark(s: GameState, info: MapInfo, i: number): boolean {
+  const cd = cellDef(info, i)
+  return !!cd?.dark && !(cd.lit && has(s, cd.lit))
+}
+
+// ---------------------------------------------------------------------------
+// Keys: each dungeon keeps its own (see MapDef.keyring)
+// ---------------------------------------------------------------------------
+
+export function keyCount(s: GameState, ring = s.map.ring): number {
+  return ring === 'shrine' ? s.inv.keys : s.inv.keyrings[ring] ?? 0
+}
+
+export function addKeys(s: GameState, n: number, ring = s.map.ring) {
+  if (ring === 'shrine') s.inv.keys += n
+  else s.inv.keyrings = { ...s.inv.keyrings, [ring]: Math.max(0, (s.inv.keyrings[ring] ?? 0) + n) }
+}
+
+export function hasBigKey(s: GameState, ring = s.map.ring): boolean {
+  return ring === 'shrine' ? s.inv.bigKey : has(s, `bigkey:${ring}`)
 }

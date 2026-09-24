@@ -6,8 +6,12 @@ import type { ExitDef, World } from '../types'
 import { hasEntry } from '../engine/game'
 import { OVERWORLD } from './overworld'
 import { SHRINE } from './shrine'
-import { HUT, SHOP, CAVE } from './interiors'
+import { HUT, SHOP, CAVE, MOSSA, RADIO } from './interiors'
 import { ARCADE, HOME } from './town'
+import { WILDWOOD } from './wildwood'
+import { LAB1, LAB1B } from './lab1'
+import { DEEP1, DEEP2 } from './lab2'
+import { LUNA_TALK } from './luna'
 
 export { INTRO } from './intro'
 
@@ -20,8 +24,16 @@ export const WORLD: World = {
     cave: CAVE,
     arcade: ARCADE,
     home: HOME,
+    wildwood: WILDWOOD,
+    mossa: MOSSA,
+    radio: RADIO,
+    lab1: LAB1,
+    lab1b: LAB1B,
+    deep1: DEEP1,
+    deep2: DEEP2,
   },
   start: { map: 'overworld', entry: 'start' },
+  luna: LUNA_TALK,
 }
 
 /** Every exit in the world with the map it stands in, in authoring order (the page's hidden link list reads it). */

@@ -10,7 +10,7 @@ import type { Dir, EntDef, ExitTarget, MapDef, TileChar, World } from '../types'
 import { TILE_INFO, isTileChar } from './tiles'
 
 // Tiles that eventually let the hero through.
-const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f'])
+const PASSABLE = new Set<TileChar>(['.', ',', ':', ';', '*', '=', 'o', 'r', 'R', '%', 'L', 'K', 'X', 'b', '_', 'P', 'C', 'x', 'D', '>', 'i', 'f', 'B', 'l', '{'])
 const STEP: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
 
 /** The tile under a marker, as the engine's map loader places it. */
@@ -22,6 +22,8 @@ function markTile(e: EntDef): TileChar {
     case 'gate': return 'X'
     case 'plate': return '_'
     case 'exit': return 'D'
+    case 'glyph': return '{'
+    case 'lever': return '}'
     default: return '.'
   }
 }
@@ -96,6 +98,21 @@ export function validateWorld(world: World): string[] {
       if (m.ent.t === 'warp' && !entriesOf[m.ent.to]?.has(m.ent.entry)) out.push(`${id}: warp to ${m.ent.to}:${m.ent.entry} lands nowhere`)
     }
     out.push(...reachability(id, world))
+    // Holes: the floor below has the same size and floor under every hole.
+    if (def.below) {
+      const lo = world.maps[def.below]
+      if (!lo) out.push(`${id}: below map ${def.below} missing`)
+      else if (lo.rows.length !== def.rows.length || lo.rows[0]!.length !== def.rows[0]!.length) out.push(`${id}: below map ${def.below} has another size`)
+      else def.rows.forEach((r, y) => {
+        for (let x = 0; x < r.length; x++) {
+          if (tileOf(def, x, y) !== 'O') continue
+          if (!PASSABLE.has(tileOf(lo, x, y))) out.push(`${id}: the hole at ${x},${y} lands on '${lo.rows[y]![x]}' in ${def.below}`)
+        }
+      })
+    }
+    // Words: every letter has a stone.
+    const letters = new Set(Object.values(def.marks).flatMap(m => (m.ent.t === 'glyph' ? [m.ent.ch] : [])))
+    for (const k of def.codes ?? []) for (const ch of k.word) if (!letters.has(ch)) out.push(`${id}: word ${k.word} needs a '${ch}' stone`)
   }
   return out
 }
@@ -121,6 +138,14 @@ function reachability(id: string, world: World): string[] {
     }
   })
   for (const e of Object.values(def.entries ?? {})) seed(Math.floor(e.x), Math.floor(e.y))
+  // Landing spots under the holes of the floor above.
+  for (const up of Object.values(world.maps)) {
+    if (up.below !== id || up.rows.length !== h || up.rows[0]!.length !== w) continue
+    up.rows.forEach((r, y) => { for (let x = 0; x < w; x++) if (tileOf(up, x, y) === 'O' && PASSABLE.has(tile(x, y))) seed(x, y) })
+  }
+  const cw = def.cell?.w ?? w
+  const chh = def.cell?.h ?? h
+  const cellOf = (x: number, y: number) => Math.floor(x / cw) * 1000 + Math.floor(y / chh)
   while (stack.length) {
     const i = stack.pop()!
     const x = i % w
@@ -131,6 +156,23 @@ function reachability(id: string, world: World): string[] {
       if (seen[j] || !PASSABLE.has(tile(nx, ny))) continue
       seen[j] = 1
       stack.push(j)
+    }
+    // The hook: along each axis, over anything low, to an anchor in the same room.
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      for (let k = 1; k <= 7; k++) {
+        const ax = x + dx * k
+        const ay = y + dy * k
+        if (ax < 0 || ay < 0 || ax >= w || ay >= h || cellOf(ax, ay) !== cellOf(x, y)) break
+        const t = tile(ax, ay)
+        if (TILE_INFO[t].hook) {
+          const lx = ax - dx
+          const ly = ay - dy
+          const j = ly * w + lx
+          if (k > 1 && !seen[j] && PASSABLE.has(tile(lx, ly))) { seen[j] = 1; stack.push(j) }
+          break
+        }
+        if (TILE_INFO[t].wall) break
+      }
     }
   }
   const reached = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && !!seen[y * w + x]

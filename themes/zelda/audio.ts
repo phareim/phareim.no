@@ -28,8 +28,10 @@ export type SfxName =
   | 'crystal' | 'push' | 'bombPlace' | 'boom' | 'disc' | 'discHit' | 'fall' | 'pellet' | 'laser'
   | 'reflect' | 'warp' | 'stairs' | 'text' | 'menu' | 'select' | 'error' | 'bossRoar' | 'bossHit'
   | 'bossDie' | 'lowHp' | 'gate'
+  // The Wildwood and Project Horizon
+  | 'hook' | 'hookHit' | 'pull' | 'psi' | 'glyph' | 'lever' | 'land' | 'beam' | 'gust' | 'bark'
 
-export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver'
+export type JingleName = 'item' | 'secret' | 'fanfare' | 'heartPiece' | 'gameOver' | 'friend'
 
 export interface ZeldaAudio {
   unlock(): void
@@ -112,8 +114,10 @@ interface SectionDef {
   pad?: boolean
 }
 
-type LeadVoice = 'square' | 'saw' | 'pulse' | 'soft' | 'bell'
+type LeadVoice = 'square' | 'saw' | 'pulse' | 'soft' | 'bell' | 'hollow'
 type BassVoice = 'saw' | 'square' | 'round'
+/** 'square' chip arp (default), 'pluck' resonant saw sequence, 'warm' soft detuned analog, 'glass' sine bells. */
+type ArpVoice = 'square' | 'pluck' | 'warm' | 'glass'
 
 export interface TrackDef {
   bpm: number
@@ -130,6 +134,13 @@ export interface TrackDef {
   delay: number
   /** Overall level of this track (1 = default). */
   level?: number
+  arpVoice?: ArpVoice
+  /** Pad saws detuned this many cents either side (default 9). */
+  padDetune?: number
+  /** Pads swell in over half the chord instead of snapping in. */
+  padSwell?: boolean
+  /** Tape wow: a slow pitch drift on lead and pads, in cents (default none). */
+  wow?: number
 }
 
 const D_NONE: Drums = { k: '................', s: '................', h: '................' }
@@ -360,6 +371,154 @@ export const TRACKS: Record<TrackId, TrackDef> = {
       },
     },
   },
+
+  // The Wildwood at night: E dorian (the bright C# of the A chord) that
+  // slips into aeolian further in. A soft analog arp, a hollow flute-ish
+  // lead walking between the trunks, a dotted bass. I is a pedal intro;
+  // A wanders, B climbs toward the canopy, C goes deep and quiet.
+  forest: {
+    bpm: 106, swing: 0, lead: 'hollow', bass: 'saw', reverb: 0.42, delay: 0.38,
+    arpVoice: 'warm',
+    form: ['I', 'A', 'B', 'C'], loopFrom: 1,
+    sections: {
+      I: {
+        chords: 'Em7 A/E Em7 A/E',
+        bass: 'R-------R---5---',
+        drums: { k: 'x...............', s: '................', h: '................' },
+        fill: { k: 'x.........x.....', s: '............g.g.', h: '..x...x...x...x.' },
+        arp: 'up', arpRate: 16, pad: true,
+      },
+      A: {
+        chords: 'Em7 A Em7 A Cmaj7 D Bm7 A',
+        lead: [
+          'B4 - - - E5 - F#5 G5', 'F#5 - E5 - C#5 - - -', 'B4 - - - E5 - F#5 G5', 'A5 - - - F#5 - - .',
+          'G5 - - - E5 - B4 -', 'A5 - F#5 - D5 - E5 F#5', 'D5 - - - B4 - A4 -', 'C#5 - - - - - . .',
+        ],
+        bass: 'R..R..R...R.5.O.',
+        drums: { k: 'x.....x...x.....', s: '....x.......x..g', h: '..x...x...x...x.' },
+        arp: 'updown', arpRate: 16, pad: true,
+      },
+      B: {
+        chords: 'Cmaj7 G D Em Cmaj7 G Asus4 A',
+        lead: [
+          'E5 - G5 - B5 - - -', 'D6 - - - B5 - G5 -', 'A5 - - - F#5 - A5 -', 'B5 - - - G5 - E5 F#5',
+          'G5 - - - E5 - C6 -', 'B5 - - - D6 - B5 -', 'A5 - - - D6 - - -', 'C#6 - - - - - . .',
+        ],
+        counter: [
+          'C5 - - - - - - -', 'B4 - - - - - - -', 'A4 - - - - - - -', 'G4 - - - - - - -',
+          'E4 - - - - - - -', 'D4 - - - - - - -', 'D4 - - - - - - -', 'C#4 - - - E4 - - -',
+        ],
+        bass: 'R-.R..R.O-.R..5.',
+        drums: { k: 'x.....x...x...x.', s: '....x.......x...', h: 'x.x.x.x.x.x.x.xo' },
+        fill: { k: 'x.....x.x.......', s: '....x...t.t.tttt', h: 'x.x.x.x.........' },
+        arp: 'up', arpRate: 16, pad: true,
+      },
+      C: {
+        chords: 'Am7 Em7 Am7 Em7 Cmaj7 D Em7 C|D',
+        lead: [
+          'C5 - - - B4 - A4 -', 'G4 - - - - - . .', 'C5 - - - D5 - E5 -', 'B4 - - - - - . .',
+          'G4 - - - B4 - E5 -', 'F#5 - - - A5 - - -', 'G5 - - - F#5 - E5 -', 'D5 - - - F#5 - - .',
+        ],
+        bass: 'R-------5-------',
+        drums: { k: 'x.........x.....', s: '................', h: '....x.......x...' },
+        fill: { k: 'x.........x.....', s: '........g...g.gg', h: '....x.......x...' },
+        arp: 'down', arpRate: 8, pad: true,
+      },
+    },
+  },
+
+  // Project HORIZON: C minor, a resonant saw sequence running steady
+  // sixteenths (four notes on triads, five on the sevenths, so it drifts
+  // against the bar), an eighth-note ostinato bass, a cold lead that says
+  // little. I is sequence and bass alone; A settles in; B turns through a
+  // Neapolitan Dbmaj7; C drops the lead and climbs a counter line over a
+  // sixteenth pulse back into A.
+  lab: {
+    bpm: 104, swing: 0, lead: 'saw', bass: 'saw', reverb: 0.32, delay: 0.36,
+    arpVoice: 'pluck',
+    form: ['I', 'A', 'B', 'C'], loopFrom: 1,
+    sections: {
+      I: {
+        chords: 'Cm Cm Abmaj7 Abmaj7',
+        bass: 'R.R.R.R.R.R.R.R.',
+        drums: D_NONE,
+        fill: { k: 'x.......x.......', s: '............g.g.', h: '................' },
+        arp: 'up', arpRate: 16,
+      },
+      A: {
+        chords: 'Cm Cm Abmaj7 Abmaj7 Cm Cm Fm7 G',
+        lead: [
+          'G5 - - - - - - -', '- - - - Eb5 - - -', 'C5 - - - - - - -', 'G5 - - - - - . .',
+          'G5 - - - Ab5 - G5 -', 'Eb5 - - - - - . .', 'F5 - - - Ab5 - C6 -', 'B5 - - - - - . .',
+        ],
+        bass: 'R.R.O.R.R.R.O.R.',
+        drums: { k: 'x.......x.......', s: '........x.......', h: 'x.x.x.x.x.x.x.x.' },
+        arp: 'up', arpRate: 16, pad: true,
+      },
+      B: {
+        chords: 'Abmaj7 Ebmaj7 Fm7 Cm Abmaj7 Ebmaj7 Dbmaj7 G',
+        lead: [
+          'C6 - - - - - Bb5 -', 'G5 - - - - - . .', 'Ab5 - - - G5 - F5 -', 'G5 - - - - - . .',
+          'Eb6 - - - - - C6 -', 'D6 - - - Bb5 - - -', 'C6 - - - Ab5 - F5 -', 'D5 - - - B4 - - -',
+        ],
+        counter: [
+          'Eb4 - - - - - - -', 'D4 - - - - - - -', 'C4 - - - - - - -', 'Eb4 - - - - - - -',
+          'Eb4 - - - - - - -', 'G4 - - - - - - -', 'F4 - - - - - - -', 'F4 - - - - - - -',
+        ],
+        bass: 'R.R.O.R.R.R.O.5.',
+        drums: { k: 'x.......x.x.....', s: '....x.......x...', h: 'x.xxx.xxx.xxx.xx' },
+        fill: { k: 'x.......x.x.....', s: '....x.......tttt', h: 'x.xxx.xxx.......' },
+        arp: 'up', arpRate: 16, pad: true,
+      },
+      C: {
+        chords: 'Fm7 Fm7 Cm Cm Fm7 Fm7 G G',
+        counter: [
+          'Ab4 - - - - - - -', 'Bb4 - - - - - - -', 'C5 - - - - - - -', 'Eb5 - - - - - - -',
+          'F5 - - - - - - -', 'Ab5 - - - - - - -', 'B5 - - - - - - -', 'D6 - - - - - . .',
+        ],
+        bass: 'RRRRRRRRRRRRRRRR',
+        drums: { k: 'x...x...x...x...', s: '................', h: '..x...x...x...x.' },
+        fill: { k: 'x...x...x...x...', s: 'x.x.x.x.xxxxtttt', h: 'xxxxxxxx........' },
+        arp: 'up', arpRate: 16,
+      },
+    },
+  },
+
+  // The Other Side: B minor with a Phrygian C leaning on a B pedal. Wide
+  // detuned pads swelling in and out, a drone bass, tape wow on everything,
+  // a sad bell motif (F# D C# B, answered E C B G). A is almost only the
+  // drone; B lifts through Gmaj7 and Cmaj7 with slow glass bells falling.
+  static: {
+    bpm: 74, swing: 0, lead: 'bell', bass: 'round', reverb: 0.62, delay: 0.5,
+    arpVoice: 'glass', padDetune: 17, padSwell: true, wow: 16,
+    form: ['A', 'B'],
+    sections: {
+      A: {
+        chords: 'Bm Bm C/B C/B Bm Bm Gmaj7 F#sus4',
+        lead: [
+          'F#5 - - - D5 - C#5 -', 'B4 - - - - - - -', 'E5 - - - C5 - B4 -', 'G4 - - - - - - -',
+          '. . . . F#5 - D5 -', 'A5 - - - F#5 - - -', 'F#5 - - - D5 - B4 -', 'C#5 - - - B4 - - -',
+        ],
+        bass: 'R---------------',
+        drums: { k: 'x...............', s: '................', h: '................' },
+        pad: true,
+      },
+      B: {
+        chords: 'Gmaj7 Gmaj7 Em7 Em7 Cmaj7 Cmaj7 F#sus4 F#m',
+        lead: [
+          'D6 - - - B5 - - -', 'F#5 - - - - - - -', 'G5 - - - E5 - D5 -', 'B4 - - - - - - -',
+          'E5 - - - G5 - B5 -', 'C6 - - - B5 - - -', 'B5 - - - A5 - F#5 -', 'C#5 - - - - - - -',
+        ],
+        counter: [
+          'D4 - - - - - - -', '- - - - - - - -', 'E4 - - - - - - -', '- - - - D4 - - -',
+          'E4 - - - - - - -', '- - - - - - - -', 'C#4 - - - - - - -', '- - - - . . . .',
+        ],
+        bass: 'R-------5-------',
+        drums: { k: 'x.........x.....', s: '............g...', h: '................' },
+        arp: 'down', arpRate: 8, pad: true,
+      },
+    },
+  },
 }
 
 // ---- compile ---------------------------------------------------------------
@@ -581,6 +740,21 @@ export const JINGLES: Record<JingleName, JingleDef> = {
       [2, N('A3'), 2, 'pad'], [2, N('C4'), 2, 'pad'], [2, N('E4'), 2, 'pad'],
     ],
   },
+  // Someone joins you: two voices in thirds walking IV–V–I into F, a bell on top.
+  friend: {
+    bpm: 112,
+    notes: [
+      [0, N('D5'), 0.5, 'lead'], [0.5, N('F5'), 0.5, 'lead'], [1, N('E5'), 0.5, 'lead'], [1.5, N('G5'), 0.5, 'lead'],
+      [2, N('A5'), 2, 'lead'],
+      [0, N('Bb4'), 0.5, 'harm'], [0.5, N('D5'), 0.5, 'harm'], [1, N('C5'), 0.5, 'harm'], [1.5, N('E5'), 0.5, 'harm'],
+      [2, N('F5'), 2, 'harm'],
+      [0, N('Bb2'), 1, 'bass'], [1, N('C3'), 1, 'bass'], [2, N('F2'), 2, 'bass'],
+      [0, N('Bb3'), 1, 'pad'], [0, N('D4'), 1, 'pad'], [0, N('F4'), 1, 'pad'],
+      [1, N('C4'), 1, 'pad'], [1, N('E4'), 1, 'pad'], [1, N('G4'), 1, 'pad'],
+      [2, N('F4'), 2, 'pad'], [2, N('A4'), 2, 'pad'], [2, N('C5'), 2, 'pad'],
+      [2, N('F6'), 0.5, 'bell'], [2.5, N('C7'), 0.5, 'bell'], [3, N('A6'), 1, 'bell'],
+    ],
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -627,6 +801,9 @@ export function createZeldaAudio(): ZeldaAudio {
   let muted = readMuted()
   let radioParked = false
   let lastText = 0
+  let glyphI = 0
+  let lastGlyph = 0
+  let grit: WaveShaperNode | null = null
   let duckUntil = 0
 
   const client = () => typeof window !== 'undefined'
@@ -784,6 +961,12 @@ export function createZeldaAudio(): ZeldaAudio {
       g.gain.exponentialRampToValueAtTime(vol * 0.35, at + 0.25)
       g.gain.setValueAtTime(vol * 0.35, at + Math.max(0.26, dur))
       g.gain.exponentialRampToValueAtTime(0.0001, at + Math.max(0.26, dur) + 0.2)
+    } else if (voice === 'hollow') {
+      // A breathy synth flute: two soft triangles, a slow swell, a dark filter.
+      shaped.push(osc('triangle', f, at, end, 4), osc('triangle', f, at, end, -4), osc('sine', f * 2, at, end))
+      lp.frequency.setValueAtTime(1500, at)
+      lp.frequency.linearRampToValueAtTime(2600, at + Math.min(0.2, dur))
+      env(g, at, vol * 0.95, Math.min(0.05, dur * 0.4), dur, 0.18)
     } else {
       shaped.push(osc('sine', f, at, end), osc('sine', f * 3.01, at, end))
       lp.frequency.setValueAtTime(8000, at)
@@ -801,6 +984,7 @@ export function createZeldaAudio(): ZeldaAudio {
       lfo.connect(depth)
       for (const o of shaped) depth.connect(o.detune)
     }
+    wobble(shaped, p.def.wow, at, end)
     for (const o of shaped) o.connect(lp)
     lp.connect(g)
     g.connect(p.dry)
@@ -832,23 +1016,41 @@ export function createZeldaAudio(): ZeldaAudio {
     g.connect(p.dry)
   }
 
+  /** Tape wow: a slow shared pitch drift (cents) on a note's oscillators. */
+  function wobble(oscs: OscillatorNode[], cents: number | undefined, at: number, end: number): void {
+    if (!cents) return
+    const c = ac!
+    const lfo = osc('sine', 0.23, at, end)
+    const lfo2 = osc('sine', 0.61, at, end)
+    const depth = c.createGain()
+    depth.gain.value = cents
+    const depth2 = c.createGain()
+    depth2.gain.value = cents * 0.4
+    lfo.connect(depth)
+    lfo2.connect(depth2)
+    for (const o of oscs) { depth.connect(o.detune); depth2.connect(o.detune) }
+  }
+
   function padChord(p: Player, notes: number[], at: number, dur: number): void {
     const c = ac!
+    const def = p.def
     const g = c.createGain()
     const lp = c.createBiquadFilter()
     lp.type = 'lowpass'
     lp.frequency.setValueAtTime(900, at)
     lp.frequency.linearRampToValueAtTime(1500, at + dur * 0.5)
     lp.frequency.linearRampToValueAtTime(1000, at + dur)
-    const end = at + dur + 0.5
-    for (const m of notes) {
-      osc('sawtooth', hz(m), at, end, 9).connect(lp)
-      osc('sawtooth', hz(m), at, end, -9).connect(lp)
-    }
+    const tail = def.padSwell ? 1.1 : 0.4
+    const end = at + dur + tail + 0.1
+    const det = def.padDetune ?? 9
+    const oscs: OscillatorNode[] = []
+    for (const m of notes) oscs.push(osc('sawtooth', hz(m), at, end, det), osc('sawtooth', hz(m), at, end, -det))
+    wobble(oscs, def.wow, at, end)
+    for (const o of oscs) o.connect(lp)
     g.gain.setValueAtTime(0, at)
-    g.gain.linearRampToValueAtTime(0.045, at + Math.min(0.35, dur * 0.3))
+    g.gain.linearRampToValueAtTime(0.045, at + (def.padSwell ? dur * 0.45 : Math.min(0.35, dur * 0.3)))
     g.gain.setValueAtTime(0.045, at + dur - 0.05)
-    g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 0.4)
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur + tail)
     lp.connect(g)
     g.connect(p.dry)
     g.connect(p.rev)
@@ -859,9 +1061,35 @@ export function createZeldaAudio(): ZeldaAudio {
     const g = c.createGain()
     const lp = c.createBiquadFilter()
     lp.type = 'lowpass'
-    lp.frequency.value = 3200
-    osc('square', hz(midi), at, at + dur + 0.05).connect(lp)
-    env(g, at, 0.055, 0.003, dur * 0.8, 0.03)
+    const f = hz(midi)
+    const voice = p.def.arpVoice ?? 'square'
+    if (voice === 'pluck') {
+      // The sequencer: a saw through a resonant filter that snaps shut.
+      lp.Q.value = 7
+      lp.frequency.setValueAtTime(2800, at)
+      lp.frequency.exponentialRampToValueAtTime(420, at + Math.max(0.05, dur * 0.9))
+      osc('sawtooth', f, at, at + dur + 0.05).connect(lp)
+      osc('square', f / 2, at, at + dur + 0.05, 5).connect(lp)
+      env(g, at, 0.07, 0.002, dur * 0.85, 0.03)
+    } else if (voice === 'warm') {
+      lp.Q.value = 2
+      lp.frequency.setValueAtTime(2000, at)
+      lp.frequency.exponentialRampToValueAtTime(900, at + Math.max(0.05, dur))
+      osc('sawtooth', f, at, at + dur + 0.08, 6).connect(lp)
+      osc('triangle', f, at, at + dur + 0.08, -6).connect(lp)
+      env(g, at, 0.05, 0.006, dur * 0.8, 0.06)
+    } else if (voice === 'glass') {
+      lp.frequency.value = 7000
+      osc('sine', f, at, at + dur + 0.6).connect(lp)
+      osc('sine', f * 2.76, at, at + dur + 0.6).connect(lp)
+      g.gain.setValueAtTime(0, at)
+      g.gain.linearRampToValueAtTime(0.04, at + 0.004)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 0.5)
+    } else {
+      lp.frequency.value = 3200
+      osc('square', f, at, at + dur + 0.05).connect(lp)
+      env(g, at, 0.055, 0.003, dur * 0.8, 0.03)
+    }
     lp.connect(g)
     g.connect(p.dry)
     g.connect(p.del)
@@ -1331,6 +1559,135 @@ export function createZeldaAudio(): ZeldaAudio {
       tone({ f: 880, dur: 0.07, type: 'sine', vol: 0.1 })
       tone({ f: 880, dur: 0.07, type: 'sine', vol: 0.08, at: 0.14 })
     },
+
+    // ---- the Wildwood and Project Horizon ----
+    hook() {
+      nz({ dur: 0.28, vol: 0.28, f: 450, to: 2800, q: 1.4 })
+      for (let i = 0; i < 7; i++) {
+        const at = i * 0.034 + (i % 2) * 0.007
+        nz({ dur: 0.022, vol: 0.12, f: 4200 + (i % 3) * 900, q: 6, at })
+        tone({ f: 2600 + (i % 3) * 430, dur: 0.03, type: 'triangle', vol: 0.05, at })
+      }
+    },
+    hookHit() {
+      tone({ f: 320, to: 170, dur: 0.05, vol: 0.12, lp: 1400 })
+      tone({ f: 2150, dur: 0.18, type: 'triangle', vol: 0.16, verb: true })
+      tone({ f: 3170, dur: 0.13, type: 'sine', vol: 0.09 })
+      tone({ f: 5230, dur: 0.08, type: 'sine', vol: 0.05 })
+      nz({ dur: 0.03, vol: 0.2, type: 'highpass', f: 6000 })
+    },
+    pull() {
+      nz({ dur: 0.36, vol: 0.2, f: 700, to: 4200, q: 3 })
+      for (let i = 0; i < 10; i++) tone({ f: 260 * Math.pow(1.19, i), dur: 0.028, vol: 0.07, at: i * 0.032, lp: 3500 })
+    },
+    psi() {
+      const c = ac!
+      const at = c.currentTime
+      // The deep warble: two sines swelling, their pitch wobbling at 7 Hz.
+      const g = c.createGain()
+      g.gain.setValueAtTime(0, at)
+      g.gain.linearRampToValueAtTime(0.32, at + 0.22)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.8)
+      const lfo = c.createOscillator()
+      lfo.frequency.value = 7
+      const depth = c.createGain()
+      depth.gain.value = 60
+      lfo.connect(depth)
+      for (const [f, to] of [[72, 110], [145, 222]] as const) {
+        const o = c.createOscillator()
+        o.type = f < 100 ? 'sine' : 'triangle'
+        o.frequency.setValueAtTime(f, at)
+        o.frequency.exponentialRampToValueAtTime(to, at + 0.7)
+        depth.connect(o.detune)
+        o.connect(g)
+        o.start(at)
+        o.stop(at + 0.85)
+      }
+      lfo.start(at)
+      lfo.stop(at + 0.85)
+      g.connect(sfxBus)
+      g.connect(sfxVerb)
+      // The shimmer above it.
+      ;[2637, 3520, 4186, 5274].forEach((f, i) => tone({ f, dur: 0.55, type: 'sine', vol: 0.04, attack: 0.18, at: 0.08 + i * 0.05, verb: true }))
+      nz({ dur: 0.6, vol: 0.05, type: 'highpass', f: 7000, attack: 0.2, at: 0.1 })
+    },
+    glyph() {
+      // Each stone in a run rings the next note of a pentatonic; a pause starts over.
+      const now = performance.now()
+      if (now - lastGlyph > 2500) glyphI = 0
+      lastGlyph = now
+      const f = hz([76, 79, 81, 83, 86, 88, 91][glyphI % 7]!)
+      glyphI++
+      tone({ f, dur: 0.7, type: 'sine', vol: 0.12, verb: true })
+      tone({ f: f * 3.01, dur: 0.22, type: 'sine', vol: 0.025 })
+      tone({ f: f * 2, dur: 0.4, type: 'sine', vol: 0.04, at: 0.005 })
+    },
+    lever() {
+      nz({ dur: 0.14, vol: 0.5, type: 'lowpass', f: 650 })
+      tone({ f: 95, to: 50, dur: 0.16, type: 'sine', vol: 0.45 })
+      tone({ f: 160, dur: 0.05, vol: 0.14, lp: 1200, at: 0.02 })
+      // The breaker takes hold: mains hum rising, a few sparks.
+      tone({ f: 50, to: 120, dur: 1, type: 'sawtooth', vol: 0.13, attack: 0.35, at: 0.12, lp: 900 })
+      tone({ f: 100, to: 240, dur: 0.95, type: 'square', vol: 0.05, attack: 0.35, at: 0.14, lp: 1400 })
+      ;[0.55, 0.68, 0.74, 0.9].forEach(at => nz({ dur: 0.025, vol: 0.14, type: 'highpass', f: 5000, at }))
+    },
+    land() {
+      tone({ f: 140, to: 45, dur: 0.22, type: 'sine', vol: 0.5 })
+      nz({ dur: 0.16, vol: 0.35, type: 'lowpass', f: 420 })
+      tone({ f: 220, to: 110, dur: 0.06, type: 'triangle', vol: 0.12 })
+      nz({ dur: 0.12, vol: 0.07, f: 1800, q: 1, at: 0.03 })
+    },
+    beam() {
+      tone({ f: 1760, to: 2640, dur: 0.09, type: 'triangle', vol: 0.12 })
+      tone({ f: 2400, to: 1200, dur: 0.2, type: 'square', vol: 0.08, lp: 6000 })
+      tone({ f: 3520, dur: 0.24, type: 'sine', vol: 0.08, at: 0.02, verb: true })
+      nz({ dur: 0.12, vol: 0.12, type: 'highpass', f: 5500 })
+    },
+    gust() {
+      nz({ dur: 0.75, vol: 0.42, f: 350, to: 1400, q: 0.8, attack: 0.12 })
+      nz({ dur: 0.6, vol: 0.2, f: 2400, to: 900, q: 2, at: 0.1, attack: 0.1 })
+      tone({ f: 900, to: 1300, dur: 0.6, type: 'sine', vol: 0.03, attack: 0.2, at: 0.05 })
+    },
+    bark() {
+      const c = ac!
+      if (!grit) {
+        grit = c.createWaveShaper()
+        const curve = new Float32Array(1024)
+        for (let i = 0; i < curve.length; i++) curve[i] = Math.tanh(((i / 511.5) - 1) * 7)
+        grit.curve = curve
+        const bp = c.createBiquadFilter()
+        bp.type = 'bandpass'
+        bp.frequency.value = 1100
+        bp.Q.value = 0.9
+        const out = c.createGain()
+        out.gain.value = 0.5
+        grit.connect(bp)
+        bp.connect(out)
+        out.connect(sfxBus)
+      }
+      const shaper = grit
+      // Two barks, the second lower, each a pitch-dropping saw pair driven into the shaper.
+      ;[[0, 400], [0.17, 330]].forEach(([dt, f]) => {
+        const at = c.currentTime + dt!
+        const g = c.createGain()
+        g.gain.setValueAtTime(0, at)
+        g.gain.linearRampToValueAtTime(0.5, at + 0.01)
+        g.gain.exponentialRampToValueAtTime(0.0001, at + 0.13)
+        for (const [ff, type] of [[f!, 'sawtooth'], [f! / 2 + 7, 'square']] as const) {
+          const o = c.createOscillator()
+          o.type = type
+          o.frequency.setValueAtTime(ff, at)
+          o.frequency.exponentialRampToValueAtTime(ff * 0.45, at + 0.12)
+          o.connect(g)
+          o.start(at)
+          o.stop(at + 0.15)
+        }
+        g.connect(shaper)
+        nz({ dur: 0.1, vol: 0.2, f: 1600, q: 1.5, at: dt })
+      })
+      // The static in its throat.
+      for (let i = 0; i < 5; i++) nz({ dur: 0.02, vol: 0.1, type: 'highpass', f: 4500, at: 0.02 + i * 0.07 })
+    },
   }
 
   function playJingle(j: JingleDef): number {
@@ -1446,6 +1803,7 @@ export function createZeldaAudio(): ZeldaAudio {
       unparkRadio()
       if (ac) ac.close().catch(() => {})
       ac = null
+      grit = null
     },
   }
 }
