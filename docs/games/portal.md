@@ -25,9 +25,9 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 use; with the blade, swing). K/X/Shift is B and Q swaps once there is an
 item; Tab swaps only then too, otherwise it reaches the page's link index.
 P or an Escape tap pauses. Touch: drag anywhere on the left 60 % for a
-floating stick. Before the blade there is only the A button and a pause
-chip over the world; with it, portrait phones get Neon Shrine's console
-band, and B and SWAP appear once there is an item. Any tap moves a dialog
+floating stick. The world fills the whole screen and the buttons float
+half see-through over it, bottom right: A and a pause chip, with B and
+SWAP once there is an item. Any tap moves a dialog
 on. The page locks theme navigation while it is shown, so arrows and swipes
 walk the hero.
 
@@ -75,7 +75,7 @@ coming back stands the hero in front of the exit used (and the old `plaza`
 map id is refused); the coast road leads to the Keeper's hut and the Keeper
 tells the story on the way. Checked headless in the dev server the same
 day at 1280×800 and 390×844 (3×, touch): the start, the road and the
-Keeper's story, the blade, the HUD and the console band, pause → TO TOWN,
+Keeper's story, the blade, the HUD and the floating buttons, pause → TO TOWN,
 back in front of the Galaga cabinet after a reload, the cabinet into
 Galaga and the back button to the cabinet; no page errors. Not checked: a
 real phone, iOS audio wake-up, the phareim.md and games.phareim.no exits

@@ -1,19 +1,18 @@
 <template>
   <canvas ref="canvas" class="zelda-canvas" />
+  <!-- Measures the notch and status-bar insets for the HUD (installed web app, landscape). -->
+  <div ref="safeProbe" class="zelda-safe" aria-hidden="true" />
   <EscHold :is-active="() => phase === 'play'" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="togglePause" @hold="toTown" />
-  <!-- Touch deck. Portrait, once the hero has the blade: a console band under
-    the view (the renderer leaves it free). Otherwise the buttons float
-    bottom-right over the world and step aside while a dialog box takes the
-    bottom of the screen (any tap moves it on). The floating stick starts
-    anywhere on the left 60 % that isn't a button. -->
+  <!-- Touch deck. The buttons float bottom-right over the world, which fills
+    the whole screen, and step aside while a dialog box takes the bottom of
+    the screen (any tap moves it on). The floating stick starts anywhere on
+    the left 60 % that isn't a button. -->
   <div
-    v-if="touchUI && phase === 'play' && (paused || band > 0 || !talking)"
+    v-if="touchUI && phase === 'play' && (paused || !talking)"
     class="zelda-deck"
-    :class="{ 'zelda-deck--band': band > 0, 'zelda-deck--paused': paused }"
-    :style="band ? { height: band + 'px' } : undefined"
+    :class="{ 'zelda-deck--paused': paused }"
   >
     <template v-if="!paused">
-      <div v-if="band" class="zelda-stick-hint">DRAG<br>TO MOVE</div>
       <div class="zelda-deck-small">
         <button v-if="hasItem" class="zelda-chip" @pointerdown.prevent.stop="cycle" @contextmenu.prevent>
           <span class="zelda-chip-label">SWAP</span>
@@ -103,15 +102,13 @@ const WON_GRACE_MS = 1200
 const NEW_QUEST_KEYS = new Set(['Enter', 'Space', 'KeyJ', 'KeyZ'])
 
 const canvas = ref<HTMLCanvasElement | null>(null)
+const safeProbe = ref<HTMLDivElement | null>(null)
 const paused = ref(false)
 /** The pause screen is asking whether to throw the run away. */
 const confirmReset = ref(false)
 const phase = ref<Phase>('play')
 const touchUI = ref(false)
-const band = ref(0)
 const selected = ref<UseItem | null>(null)
-/** The hero carries the blade: the console band, saves and auto-pause switch on. */
-const hasSword = ref(false)
 /** The hero owns bombs or the disc: B, SWAP and Tab have a job. */
 const hasItem = ref(false)
 /** A dialog is open (the floating buttons hide so they don't sit on the text). */
@@ -295,13 +292,12 @@ function dropSave(extra: { best?: number, won?: boolean } = {}) {
 
 function syncDeck() {
   if (state.inv.selected !== selected.value) selected.value = state.inv.selected
-  if (state.inv.sword !== hasSword.value) hasSword.value = state.inv.sword
   const item = state.inv.bombBag || state.inv.disc
   if (item !== hasItem.value) hasItem.value = item
   if (talking.value !== (state.mode === 'dialog')) {
     talking.value = state.mode === 'dialog'
     // The floating A unmounts under the finger; its pointerup never comes.
-    if (talking.value && !band.value) releaseA()
+    if (talking.value) releaseA()
   }
 }
 
@@ -524,12 +520,15 @@ function resize() {
   if (!canvas.value || !renderer) return
   const w = canvas.value.clientWidth
   const h = canvas.value.clientHeight
-  const portraitTouch = touchUI.value && phase.value === 'play' && hasSword.value && h > w
-  band.value = portraitTouch ? Math.round(Math.max(190, Math.min(290, h * 0.32))) : 0
-  renderer.resize(w, h, Math.min(devicePixelRatio || 1, 3), band.value)
+  renderer.resize(w, h, Math.min(devicePixelRatio || 1, 3), safeInsets())
 }
 
-watch(hasSword, resize)
+/** The screen's safe-area insets in CSS px (all 0 in an ordinary browser tab). */
+function safeInsets() {
+  const cs = safeProbe.value ? getComputedStyle(safeProbe.value) : null
+  const px = (v?: string) => parseFloat(v ?? '') || 0
+  return { top: px(cs?.paddingTop), right: px(cs?.paddingRight), bottom: px(cs?.paddingBottom), left: px(cs?.paddingLeft) }
+}
 
 let observer: ResizeObserver | null = null
 let muteStop: (() => void) | null = null
@@ -600,6 +599,14 @@ onBeforeUnmount(() => {
   image-rendering: pixelated;
 }
 
+.zelda-safe {
+  position: fixed;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
 .zelda-deck {
   box-sizing: border-box;
   position: absolute;
@@ -610,20 +617,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  padding: 0 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  padding: 0 calc(14px + env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px));
   font-family: var(--font-machine);
-}
-
-/* Portrait with the blade: a console band across the bottom. */
-.zelda-deck--band {
-  left: 0;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 18px calc(40px + env(safe-area-inset-bottom, 0px));
-  background:
-    linear-gradient(180deg, rgba(255, 47, 160, 0.55) 0, rgba(255, 47, 160, 0) 2px),
-    repeating-linear-gradient(0deg, rgba(47, 243, 255, 0.04) 0 1px, transparent 1px 6px),
-    #0e0720;
 }
 
 /* The pause buttons sit centred across the bottom. */
@@ -632,31 +627,11 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-.zelda-stick-hint {
-  align-self: center;
-  width: 118px;
-  height: 118px;
-  border-radius: 50%;
-  border: 1px dashed rgba(47, 243, 255, 0.28);
-  display: grid;
-  place-items: center;
-  text-align: center;
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  line-height: 1.6;
-  color: rgba(47, 243, 255, 0.4);
-}
-
 .zelda-deck-small {
   display: flex;
   flex-direction: column;
   gap: 10px;
   pointer-events: auto;
-}
-
-.zelda-deck--band .zelda-deck-small {
-  margin-left: auto;
-  margin-right: 4px;
 }
 
 .zelda-chip {
@@ -698,7 +673,7 @@ onBeforeUnmount(() => {
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  background: rgba(11, 6, 22, 0.72);
+  background: rgba(11, 6, 22, 0.35);
 }
 
 .zelda-pad:active {
@@ -782,10 +757,5 @@ onBeforeUnmount(() => {
 @media (max-width: 440px) {
   .zelda-deck-paused { gap: 8px; }
   .zelda-pad-wide { min-width: 0; padding: 0 12px; font-size: 12px; letter-spacing: 0.08em; }
-}
-
-/* Floating over the world: half see-through. */
-.zelda-deck:not(.zelda-deck--band) .zelda-pad {
-  background: rgba(11, 6, 22, 0.35);
 }
 </style>

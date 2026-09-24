@@ -32,7 +32,7 @@ import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/ty
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
-const W = +q.get('w'), H = +q.get('h'), dpr = +(q.get('dpr') || 1), bottom = +(q.get('bottom') || 0)
+const W = +q.get("w"), H = +q.get("h"), dpr = +(q.get("dpr") || 1), top = +(q.get("top") || 0)
 const scene = q.get('scene')
 const canvas = document.createElement('canvas')
 canvas.style.cssText = 'display:block;width:' + W + 'px;height:' + H + 'px'
@@ -42,7 +42,7 @@ const world = scene.startsWith('p-') ? LAB : WORLD
 const s = createGame(world, { seed: 7, at: ['start', 'intro', 'swing', 'pause', 'hutout'].includes(scene) ? { map: 'overworld', entry: 'hut' } : null })
 if (scene !== 'hutout') { s.dialog = null; s.mode = 'play'; s.hero.auto = null }
 const r = createRenderer(canvas, world)
-r.resize(W, H, dpr, bottom)
+r.resize(W, H, dpr, { top, right: 0, bottom: top ? 34 : 0, left: 0 })
 const inp = (o) => ({ ...NO_INPUT, ...o })
 const run = (n, i = inp({})) => { for (let k = 0; k < n; k++) r.onEvents(stepGame(world, s, 1 / 60, i)) }
 const ev = []
@@ -102,9 +102,9 @@ writeFileSync(html, `<!doctype html><meta charset="utf-8"><body><script src="${b
 
 const SHOTS = [
   ['start-1440', 'start', 1440, 900, 1, 0],
-  ['start-390', 'start', 390, 844, 3, 260],
+  ['start-390', 'start', 390, 844, 3, 0],
   ['swing-1440', 'swing', 1440, 900, 1, 0],
-  ['intro-390', 'intro', 390, 844, 3, 260],
+  ['intro-390', 'intro', 390, 844, 3, 0],
   ['market-1440', 'market', 1440, 900, 1, 0],
   ['woods-1440', 'woods', 1440, 900, 1, 0],
   ['lake-1440', 'lake', 1440, 900, 1, 0],
@@ -119,35 +119,39 @@ const SHOTS = [
   ['pause-1440', 'pause', 1440, 900, 1, 0],
   ['hut-1280', 'hut', 1280, 800, 1, 0],
   ['hutout-1280', 'hutout', 1280, 800, 1, 0],
-  ['hutfront-390', 'hutfront', 390, 844, 3, 260],
+  ['hutfront-390', 'hutfront', 390, 844, 3, 0],
   ['p-plaza-1280', 'p-plaza', 1280, 800, 1, 0],
-  ['p-plaza-390', 'p-plaza', 390, 844, 3, 260],
+  ['p-plaza-390', 'p-plaza', 390, 844, 3, 0],
   ['p-kiosk-1280', 'p-kiosk', 1280, 800, 1, 0],
-  ['p-sign-390', 'p-sign', 390, 844, 3, 260],
+  ['p-sign-390', 'p-sign', 390, 844, 3, 0],
   ['p-term-1280', 'p-term', 1280, 800, 1, 0],
   ['p-door-1280', 'p-door', 1280, 800, 1, 0],
   ['p-arcade-1280', 'p-arcade', 1280, 800, 1, 0],
-  ['p-arcade-390', 'p-arcade', 390, 844, 3, 260],
+  ['p-arcade-390', 'p-arcade', 390, 844, 3, 0],
   ['p-back-1280', 'p-back', 1280, 800, 1, 0],
   ['p-board-1280', 'p-board', 1280, 800, 1, 0],
-  ['p-hangar-390', 'p-hangar', 390, 844, 3, 260],
+  ['p-hangar-390', 'p-hangar', 390, 844, 3, 0],
   ['p-home-1280', 'p-home', 1280, 800, 1, 0],
   ['p-exit-1280', 'p-exit', 1280, 800, 1, 0],
   ['p-reduced-1280', 'p-reduced', 1280, 800, 1, 0],
-  ['shop-390', 'shop', 390, 844, 3, 260],
+  ['shop-390', 'shop', 390, 844, 3, 0],
   ['r-plaza-1280', 'r-plaza', 1280, 800, 1, 0],
-  ['r-plaza-390', 'r-plaza', 390, 844, 3, 260],
-  ['r-plaza-412', 'r-plaza', 412, 915, 2.625, 280],
+  ['r-plaza-390', 'r-plaza', 390, 844, 3, 0],
+  ['r-plaza-412', 'r-plaza', 412, 915, 2.625, 0],
   ['r-road-1280', 'r-road', 1280, 800, 1, 0],
-  ['r-road-390', 'r-road', 390, 844, 3, 260],
+  ['r-road-390', 'r-road', 390, 844, 3, 0],
   ['r-sword-1280', 'r-sword', 1280, 800, 1, 0],
+  ['r-sword-390', 'r-sword', 390, 844, 3, 0],
+  // Installed web app on an iPhone: the status bar over the top, the home bar under the bottom.
+  ['r-sword-app-390', 'r-sword', 390, 844, 3, 47],
+  ['intro-app-390', 'intro', 390, 844, 3, 47],
   ['r-arcade-1280', 'r-arcade', 1280, 800, 1, 0],
-  ['r-arcade-390', 'r-arcade', 390, 844, 3, 260],
+  ['r-arcade-390', 'r-arcade', 390, 844, 3, 0],
   ['r-home-1280', 'r-home', 1280, 800, 1, 0],
-  ['r-home-390', 'r-home', 390, 844, 3, 260],
+  ['r-home-390', 'r-home', 390, 844, 3, 0],
 ]
 const want = only ? new Set(only.split(',')) : null
-for (const [name, scene, w, h, dpr, bottom] of SHOTS) {
+for (const [name, scene, w, h, dpr, top] of SHOTS) {
   if (want && !want.has(name) && !want.has(scene)) continue
   const png = join(out, `${name}.png`)
   try {
@@ -155,7 +159,7 @@ for (const [name, scene, w, h, dpr, bottom] of SHOTS) {
       '--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
       `--force-device-scale-factor=${dpr}`, `--window-size=${w},${h}`,
       '--virtual-time-budget=3000', `--screenshot=${png}`,
-      `file://${html}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}&bottom=${bottom}&touch=${w < 1000 ? 1 : 0}`,
+      `file://${html}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}&top=${top}&touch=${w < 1000 ? 1 : 0}`,
     ], { stdio: 'ignore', timeout: 60000 })
     console.log(png)
   } catch (e) {

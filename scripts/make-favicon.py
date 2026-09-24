@@ -81,6 +81,10 @@ i16 = small.resize((16, 16), Image.LANCZOS)
 i32 = full.resize((32, 32), Image.LANCZOS)
 i48 = full.resize((48, 48), Image.LANCZOS)
 full.resize((180, 180), Image.LANCZOS).save(os.path.join(out, 'apple-touch-icon.png'))
+# The web app manifest's icons (Android wants 192 and 512 to offer an install).
+# The art fills the square, so the same files double as maskable icons.
+for n in (192, 512):
+    full.resize((n, n), Image.LANCZOS).save(os.path.join(out, f'icon-{n}.png'))
 
 # Pillow's ICO writer ignores append_images, so build the container by hand:
 # a 16 px entry from the simplified art, 32/48 from the detailed art.
@@ -98,4 +102,4 @@ for im, blob in zip(entries, blobs):
     data += blob
 with open(os.path.join(out, 'favicon.ico'), 'wb') as f:
     f.write(struct.pack('<HHH', 0, 1, len(entries)) + dirs + data)
-print('wrote public/favicon.ico (16/32/48) and public/apple-touch-icon.png (180)')
+print('wrote public/favicon.ico (16/32/48), apple-touch-icon.png (180), icon-192.png and icon-512.png')

@@ -33,6 +33,8 @@ body {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
+  /* No double-tap zoom (Safari ignores user-scalable=no); pinch still works outside the games. */
+  touch-action: manipulation;
   user-select: none;
   font-family: var(--font-person, system-ui, sans-serif);
   font-weight: 300;

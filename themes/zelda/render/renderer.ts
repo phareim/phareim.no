@@ -47,8 +47,12 @@ interface Fx { kind: 'sprite' | 'spark' | 'leaf' | 'ring' | 'bit' | 'text'; x: n
 
 const AMBIENT = { overworld: '#8e82c4', dungeon: '#7d6fb4', interior: '#c8b4dc', dark: '#1d1433', caveDark: '#2a1e44' }
 
+export interface SafeInsets { top: number; right: number; bottom: number; left: number }
+const NO_INSETS: SafeInsets = { top: 0, right: 0, bottom: 0, left: 0 }
+
 export interface Renderer {
-  resize(cssW: number, cssH: number, dpr: number, bottomCss: number): void
+  /** `safe`: the screen's notch and status-bar insets in CSS px; the world runs under them, the HUD stays clear. */
+  resize(cssW: number, cssH: number, dpr: number, safe?: SafeInsets): void
   draw(s: GameState, ui: FrameUI, dt: number): void
   onEvents(ev: GameEvent[]): void
   /** View size in tiles (for the attract camera). */
@@ -67,7 +71,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let bg = bloom.getContext('2d')!
   let W = 1
   let H = 1
-  let gameH = 1
+  let insets: SafeInsets = NO_INSETS
   let scale = 1
   let vw = 1
   let vh = 1
@@ -102,15 +106,15 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     return c
   }
 
-  function resize(cssW: number, cssH: number, ratio: number, bottomCss: number) {
+  function resize(cssW: number, cssH: number, ratio: number, safe: SafeInsets = NO_INSETS) {
     dpr = Math.max(1, Math.min(3, ratio || 1))
     W = Math.max(1, Math.round(cssW * dpr))
     H = Math.max(1, Math.round(cssH * dpr))
-    gameH = Math.max(1, Math.round((cssH - bottomCss) * dpr))
+    insets = safe
     canvas.width = W
     canvas.height = H
     // Whole-number scale showing at least 13×11 tiles (and at most ~28 wide).
-    baseScale = Math.max(1, Math.floor(Math.min(W / (13 * T), gameH / (11 * T))))
+    baseScale = Math.max(1, Math.floor(Math.min(W / (13 * T), H / (11 * T))))
     while (W / baseScale > 30 * T) baseScale++
     layoutMap = ''
     setScale(baseScale)
@@ -119,10 +123,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   /** The scale for a map: the screen's, or larger for an interior that would leave the tall view half empty. */
   function scaleFor(mapId: string): number {
     const def = world.maps[mapId]
-    if (!def || def.kind !== 'interior' || gameH <= W) return baseScale
+    if (!def || def.kind !== 'interior' || H <= W) return baseScale
     const rows = def.rows.length
-    if (rows * T * baseScale >= gameH * 0.8) return baseScale
-    const byHeight = Math.floor(gameH / (rows * T))
+    if (rows * T * baseScale >= H * 0.8) return baseScale
+    const byHeight = Math.floor(H / (rows * T))
     const byWidth = Math.floor(W / (10 * T))
     return Math.max(baseScale, Math.min(byHeight, byWidth))
   }
@@ -131,7 +135,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     scale = next
     vw = Math.ceil(W / scale)
     decalMaxW = vw - 8
-    vh = Math.ceil(gameH / scale)
+    vh = Math.ceil(H / scale)
     scene = makeCanvas(vw, vh)
     sg = scene.getContext('2d')!
     light = makeCanvas(vw, vh)
@@ -654,7 +658,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     screen.fillStyle = '#0b0616'
     screen.fillRect(0, 0, W, H)
     const ox = Math.floor((W - vw * scale) / 2)
-    const oy = Math.floor((gameH - vh * scale) / 2)
+    const oy = Math.floor((H - vh * scale) / 2)
     screen.imageSmoothingEnabled = false
     screen.drawImage(scene, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
     // Neon bloom: glows gathered at logical resolution, then one smooth
@@ -684,7 +688,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
     if (scan && scale >= 3) {
       screen.fillStyle = scan
-      screen.fillRect(0, 0, W, gameH)
+      screen.fillRect(0, 0, W, H)
     }
     vignette(screen)
 
@@ -693,10 +697,25 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (!ui.attract && s.mode !== 'exit') {
       // Hearts, bits and items appear with the blade; before that the town is just a town.
       const hud = s.inv.sword
-      if (hud) drawHud(hg, s, vw, time, ui.touch)
-      drawExitLabels(hg, s, labels, cx, cy, vw, vh, ui.paused ? 0 : dt, ui.keys.a, ui.reducedMotion, !ui.paused, hud ? 30 : 2)
+      // Clear of the notch and the status bar when the page fills the whole screen.
+      const top = Math.ceil(insets.top * dpr / scale)
+      const left = Math.ceil(insets.left * dpr / scale)
+      const right = Math.ceil(insets.right * dpr / scale)
+      const bottom = Math.ceil(insets.bottom * dpr / scale)
+      if (hud) {
+        hg.save()
+        hg.translate(left, top)
+        drawHud(hg, s, vw - left - right, time, ui.touch)
+        hg.restore()
+      }
+      drawExitLabels(hg, s, labels, cx, cy, vw, vh, ui.paused ? 0 : dt, ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top)
       if (ui.banner && s.mode !== 'dialog') drawBanner(hg, ui.banner.text, ui.banner.t, vw, vh)
-      if (s.dialog) drawDialog(hg, s, vw, vh, s.hero.y * T - cy, ui.keys, time)
+      if (s.dialog) {
+        hg.save()
+        hg.translate(0, top)
+        drawDialog(hg, s, vw, vh - top - bottom, s.hero.y * T - cy - top, ui.keys, time)
+        hg.restore()
+      }
       if (ui.paused) drawPause(hg, s, vw, vh, ui.keys, ui.confirmReset)
     }
     screen.drawImage(hud, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
@@ -715,14 +734,14 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   let vig: HTMLCanvasElement | null = null
   function vignette(g: G) {
-    if (!vig || vig.width !== W || vig.height !== gameH) {
-      vig = makeCanvas(W, gameH)
+    if (!vig || vig.width !== W || vig.height !== H) {
+      vig = makeCanvas(W, H)
       const vg = vig.getContext('2d')!
-      const grad = vg.createRadialGradient(W / 2, gameH / 2, Math.min(W, gameH) * 0.35, W / 2, gameH / 2, Math.max(W, gameH) * 0.75)
+      const grad = vg.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75)
       grad.addColorStop(0, 'rgba(11,6,22,0)')
       grad.addColorStop(1, 'rgba(11,6,22,0.55)')
       vg.fillStyle = grad
-      vg.fillRect(0, 0, W, gameH)
+      vg.fillRect(0, 0, W, H)
     }
     g.drawImage(vig, 0, 0)
   }

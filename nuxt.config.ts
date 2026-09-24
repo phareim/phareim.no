@@ -15,11 +15,14 @@ export default defineNuxtConfig({
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+        { name: 'apple-mobile-web-app-title', content: 'phareim' },
         { name: 'theme-color', content: '#0b0616' }
       ],
       link: [
         { rel: 'icon', href: '/favicon.ico', sizes: '16x16 32x32 48x48' },
-        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' }
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' },
+        // Installed as a web app, the site takes the whole screen (fullscreen on Android, standalone on iOS).
+        { rel: 'manifest', href: '/manifest.webmanifest' }
       ]
     }
   },
