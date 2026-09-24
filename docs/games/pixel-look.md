@@ -51,7 +51,8 @@ maps to the capitals; it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂.
 | Breakout | done | a shrine chamber seen from above: stone and crystal bricks, braziers, a pit under the paddle |
 | Tetris | done | a torchlit stone shaft in the shrine; carved bevelled blocks; the town at dusk behind the cabinet |
 | R-Type | done | the shrine caves: rock walls with glowing crystals that light the walls, a warm far cave behind; turned a quarter on portrait phones (`resize(…, rotate)`) |
-| OutRun, Star Fox, Another Shore | in progress | |
+| Star Fox | done | the Super FX way: three.js at the stage's logical size, snapped to the palette with a Bayer dither in a shader; grass and the rose path below, dusk and the striped sun over violet ridges |
+| OutRun, Another Shore | in progress | |
 
 **Checking a look.** `node scripts/zelda-lab/games-shot.mjs <devUrl> <outDir>
 [ids] [w] [h]` screenshots each game idle and after a moment of play;
