@@ -61,7 +61,8 @@ the blade.
 SPACE TO TALK" / "DRAG TO WALK · A TO TALK") fades in and goes at the first
 step; it is skipped once `portal.return` exists. Winning shows the ending
 panel (THE SUN SETS AT LAST, play time, NEW BEST!); Enter or a tap after
-1.2 s starts a fresh quest on the plaza. A visually hidden `nav` holds the
+1.2 s closes it and play goes on where the prism was taken, the run kept
+(START OVER in the pause menu is the way to a fresh quest). A visually hidden `nav` holds the
 h1 name, the blurbs from `themes/content.ts`, a link to every live game,
 phareim.md, games.phareim.no and the three profiles. It shows as a panel
 while one of its links has keyboard focus.

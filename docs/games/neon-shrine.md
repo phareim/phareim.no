@@ -76,10 +76,13 @@ secret, door, gate, boss, respawn, exit, TO TOWN and when the tab is
 hidden. On load the shell starts on the local copy and pulls the slot in
 the background; `reconcile` in `progress.ts` keeps the newer write, and a
 newer profile save replaces the run at the next calm frame only if this
-session has not saved yet. A new game or a win (a cleared slot, remembered
-locally as `zeldaClearedAt`) is not undone by an older copy. Best times
-meet at the lower (`zeldaBest` locally, `best_seconds` on the slot, which
-also counts clears). The Hangar shows QUEST n/7 from the slot. A player is
+session has not saved yet. A new game (a cleared slot, remembered locally
+as `zeldaClearedAt`) is not undone by an older copy. Winning keeps the run
+(since 2026-09-24): the save is written with the prism taken, the win is
+counted and the best time sent; after the ending the hero plays on where
+the prism was, and only START OVER in the pause menu clears the save. Best
+times meet at the lower (`zeldaBest` locally, `best_seconds` on the slot,
+which also counts clears). The Hangar shows QUEST n/12 from the slot. A player is
 still one browser, so the save does not follow a person to another device.
 
 **Exits.** An `exit` marker (`ExitDef` in `types.ts`) is a way out of the

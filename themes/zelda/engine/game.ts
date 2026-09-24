@@ -384,6 +384,14 @@ function dying(c: Ctx, dt: number) {
   if (d.t >= 1.8) respawn(c.w, s, c.ev)
 }
 
+/** After the ending: the quest is won, the world stays, and play goes on from where the prism was. */
+export function resumeAfterWin(s: GameState) {
+  if (s.mode !== 'won') return
+  s.mode = 'play'
+  s.hero.act = 'idle'
+  s.hero.actT = 0
+}
+
 export function respawn(world: World, s: GameState, ev: GameEvent[] = []): GameEvent[] {
   s.dying = null
   s.mode = 'play'

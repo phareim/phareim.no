@@ -53,7 +53,8 @@
  * town, the coast, the shrine. Clock, input, touch deck, audio, saves and
  * the ways out. The game is `engine/` (pure), `world/` (data) and `render/`
  * (Canvas). Always in play: no title. Phases: play → won (the ending panel
- * is the page's, `portal/Landing.vue`).
+ * is the page's, `portal/Landing.vue`) → play again: the run is kept and
+ * the hero plays on; START OVER in the pause menu is the only reset.
  *
  * Start: in front of the exit last used (sessionStorage `portal.return`,
  * { map, entry }), else the plaza start; the save brings items, hearts and
@@ -71,7 +72,7 @@
  * theme or opens the URL.
  */
 import EscHold from '../base/EscHold.vue'
-import { createGame, stepGame, toSave } from './engine/index'
+import { createGame, resumeAfterWin, stepGame, toSave } from './engine/index'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer } from './render/renderer'
 import { sprite } from './render/sheet'
@@ -99,7 +100,7 @@ const STUCK_S = 2.5
 const STUCK_URL_S = 8
 /** The ending panel ignores keys and taps this long, so the press that took the prism does not skip it. */
 const WON_GRACE_MS = 1200
-const NEW_QUEST_KEYS = new Set(['Enter', 'Space', 'KeyJ', 'KeyZ'])
+const CONTINUE_KEYS = new Set(['Enter', 'Space', 'KeyJ', 'KeyZ'])
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const safeProbe = ref<HTMLDivElement | null>(null)
@@ -166,14 +167,14 @@ const input: GameInput = createInput({
   idle: () => phase.value !== 'play',
   paused: () => paused.value,
   dialog: () => state.mode === 'dialog',
-  onIdleTap: () => { if (phase.value === 'won') newQuest() },
+  onIdleTap: () => { if (phase.value === 'won') keepExploring() },
   onKey: shellKey,
 })
 
 /** Ending, pause-screen and pause keys; the game keys are input.ts's. */
 function shellKey(e: KeyboardEvent): boolean {
   if (phase.value === 'won') {
-    if (NEW_QUEST_KEYS.has(e.code) && !e.repeat) { e.preventDefault(); newQuest() }
+    if (CONTINUE_KEYS.has(e.code) && !e.repeat) { e.preventDefault(); keepExploring() }
     return true
   }
   if (paused.value && !e.repeat) {
@@ -391,7 +392,15 @@ function toTown() {
 }
 
 function finishWon() {
-  dropSave({ best: state.elapsed, won: true })
+  // The run is kept: the world stays, the prism in hand. Starting over is the player's call (pause menu).
+  const save = toSave(state)
+  if (save) {
+    save.savedAt = Date.now()
+    writeLocalSave(save)
+    profileSave.push({ data: save, savedAt: save.savedAt, best: state.elapsed, won: true })
+    ownsSave = true
+    pendingPull = null
+  }
   input.clear()
   playTrack('ending')
   const prev = readLocalBest()
@@ -402,11 +411,14 @@ function finishWon() {
   emit('result', { elapsed: state.elapsed, best })
 }
 
-/** From the ending: a fresh quest on the plaza. */
-function newQuest() {
+/** From the ending: back into the world, where the prism was taken. */
+function keepExploring() {
   if (phase.value !== 'won' || performance.now() - wonAt < WON_GRACE_MS) return
-  clearReturn()
-  begin(null, WORLD.start, true)
+  resumeAfterWin(state)
+  input.clear()
+  setPhase('play')
+  track = null
+  playTrack(trackFor(state))
 }
 
 // ---- events → sound, save, banner ----------------------------------------------

@@ -12,7 +12,8 @@
         <h2 class="portal-end-title">THE SUN SETS AT LAST</h2>
         <p class="portal-end-time">{{ formatPlayTime(result?.elapsed ?? 0) }}</p>
         <p v-if="isNewBest" class="portal-end-best">NEW BEST!</p>
-        <p class="portal-end-start">{{ hint('PRESS ENTER FOR A NEW QUEST', 'TAP FOR A NEW QUEST') }}</p>
+        <p class="portal-end-start">{{ hint('PRESS ENTER TO KEEP EXPLORING', 'TAP TO KEEP EXPLORING') }}</p>
+        <p class="portal-end-note">START OVER IS IN THE PAUSE MENU</p>
       </div>
     </div>
 
@@ -195,6 +196,13 @@ const contacts = urlExits.filter(e => e.look === 'terminal')
   text-shadow: 0 0 10px rgba(255, 210, 63, 0.6);
 }
 
+.portal-end-note {
+  margin: 0.6em 0 0;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--portal-text-muted);
+}
+
 .portal-end-start {
   margin: 0.3em 0 0;
   font-size: 14px;
@@ -210,7 +218,14 @@ const contacts = urlExits.filter(e => e.look === 'terminal')
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .portal-end-start { animation: none; }
+  .portal-end-note {
+  margin: 0.6em 0 0;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--portal-text-muted);
+}
+
+.portal-end-start { animation: none; }
 }
 
 /* Visually hidden, until a keyboard user tabs into a link. */
