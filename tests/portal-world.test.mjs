@@ -1,15 +1,18 @@
-// The portal (phareim.no's front door) on the Neon Shrine engine: the world
-// validates, the start view shows the name and two buildings on a phone and
-// a desktop, every exit leads where it says, a path-finding walker reaches
-// and uses each one from the start, coming back stands you in front of it,
-// and nothing here can hurt you.
+// The town — phareim.no's front door, the west end of Neon Shrine's one
+// world: the world validates, the start view shows the name and two
+// buildings on a phone and a desktop, the town has no enemies, every exit
+// leads where it says, a path-finding walker reaches and uses each one from
+// the start without a scratch, coming back stands you in front of it, and
+// the coast road leads to the Keeper's hut.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './portal-load.mjs'
 
 let P
 let W
-before(async () => { P = await load(); W = P.PORTAL_WORLD })
+before(async () => { P = await load(); W = P.WORLD })
+/** The town is the overworld's first 40 columns. */
+const TOWN_W = 40
 
 const GAMES = ['anotherworld', 'galaga', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'tetris']
 const EXPECTED = {
@@ -17,9 +20,8 @@ const EXPECTED = {
   ...Object.fromEntries(GAMES.map(g => [g, { map: 'arcade', to: { theme: g }, look: 'cabinet' }])),
   leaderboard: { map: 'arcade', to: { theme: 'leaderboard' }, look: 'board' },
   hangar: { map: 'arcade', to: { theme: 'hangar' }, look: 'door' },
-  shrine: { map: 'plaza', to: { theme: 'zelda' }, look: 'door' },
-  kiosk: { map: 'plaza', to: { url: 'https://phareim.md' }, look: 'kiosk' },
-  games: { map: 'plaza', to: { url: 'https://games.phareim.no' }, look: 'sign' },
+  kiosk: { map: 'overworld', to: { url: 'https://phareim.md' }, look: 'kiosk' },
+  games: { map: 'overworld', to: { url: 'https://games.phareim.no' }, look: 'sign' },
   linkedin: { map: 'home', to: { url: 'https://www.linkedin.com/in/phareim' }, look: 'terminal' },
   github: { map: 'home', to: { url: 'https://github.com/phareim' }, look: 'terminal' },
   bluesky: { map: 'home', to: { url: 'https://bsky.app/profile/phareim.no' }, look: 'terminal' },
@@ -44,17 +46,18 @@ function placedExits() {
 // ---- walker ------------------------------------------------------------------------
 
 /**
- * A game plus everything it has said, and a hero that must never get hurt.
- * `step` checks the peaceful rules on every frame.
+ * A game plus everything it has said, and a hero that must never get hurt
+ * (`step` checks it on every frame; `safe: false` for walks out of town).
  */
-function session(world = W) {
+function session(world = W, safe = true) {
   const s = P.createGame(world, { seed: 7 })
   const events = []
   const step = (i = inp(), dt = 1 / 60) => {
     const ev = P.stepGame(world, s, dt, i)
     events.push(...ev)
-    assert.equal(s.hero.hp, s.hero.maxHp, 'the hero lost health in a peaceful world')
-    for (const e of ev) assert.ok(!['hurt', 'swing', 'spin', 'died', 'shock'].includes(e.type), `peaceful world emitted ${e.type}`)
+    if (!safe) return ev
+    assert.equal(s.hero.hp, s.hero.maxHp, 'the hero lost health in the town')
+    for (const e of ev) assert.ok(!['hurt', 'swing', 'spin', 'died', 'shock'].includes(e.type), `the town emitted ${e.type}`)
     return ev
   }
   return { s, events, step, world }
@@ -98,6 +101,7 @@ function walkTo(g, tx, ty, budget = 6000) {
   let p = path(g, tx, ty)
   assert.ok(p, `no path in ${map} from ${Math.floor(s.hero.x)},${Math.floor(s.hero.y)} to ${tx},${ty}`)
   let i = 0
+  let last = null
   for (let n = 0; n < budget; n++) {
     if (s.mode === 'exit') return
     if (s.mode === 'dialog') { g.step(inp(), 0.5); g.step(inp({ aPress: true, a: true })); continue }
@@ -106,6 +110,19 @@ function walkTo(g, tx, ty, budget = 6000) {
     const h = s.hero
     if (Math.floor(h.x) === tx && Math.floor(h.y) === ty && Math.hypot(h.x - tx - 0.5, h.y - ty - 0.5) < 0.12) return
     while (i < p.length - 1 && Math.floor(h.x) === p[i][0] && Math.floor(h.y) === p[i][1] && Math.hypot(h.x - p[i][0] - 0.5, h.y - p[i][1] - 0.5) < 0.25) i++
+    // Stuck on a wandering NPC: back off from it for a moment, then find a new path.
+    if (n % 30 === 0) {
+      if (last && Math.hypot(h.x - last.x, h.y - last.y) < 0.05) {
+        const npc = s.map.npcs.reduce((a, b) => (Math.hypot(b.x - h.x, b.y - h.y) < Math.hypot(a.x - h.x, a.y - h.y) ? b : a))
+        const ax = h.x - npc.x
+        const ay = h.y - npc.y
+        const al = Math.hypot(ax, ay) || 1
+        for (let k = 0; k < 20; k++) g.step(inp({ move: { x: ax / al, y: ay / al } }))
+        p = path(g, tx, ty) ?? p
+        i = 0
+      }
+      last = { x: h.x, y: h.y }
+    }
     const [gx, gy] = p[Math.min(i, p.length - 1)]
     const dx = gx + 0.5 - h.x
     const dy = gy + 0.5 - h.y
@@ -120,8 +137,8 @@ function walkTo(g, tx, ty, budget = 6000) {
 function goToMap(g, map) {
   const { s, world } = g
   if (s.map.id === map) return
-  // Every inside map hangs off the plaza.
-  if (s.map.id !== 'plaza' && map !== 'plaza') goToMap(g, 'plaza')
+  // Every inside map hangs off the overworld.
+  if (s.map.id !== 'overworld' && map !== 'overworld') goToMap(g, 'overworld')
   const door = P.mapInfo(world, s.map.id).warps.find(w => w.to === map)
   assert.ok(door, `no door from ${s.map.id} to ${map}`)
   walkTo(g, door.x, door.y)
@@ -163,16 +180,17 @@ function useExit(id) {
 describe('portal world', () => {
   it('validates', () => assert.deepEqual(P.validateWorld(W), []))
 
-  it('is peaceful, and starts in the plaza facing the name', () => {
-    assert.equal(W.peaceful, true)
+  it('starts in the town facing the name, and the town has no enemies', () => {
     const s = P.createGame(W, { seed: 1 })
     assert.equal(s.mode, 'play')
-    assert.equal(s.map.id, 'plaza')
+    assert.equal(s.map.id, 'overworld')
+    assert.equal(s.area, 'PHAREIM.NO')
+    assert.ok(s.hero.x < TOWN_W)
     assert.equal(s.hero.dir, 'up')
     assert.equal(s.dialog, null)
-    for (const def of Object.values(W.maps)) {
-      for (const m of Object.values(def.marks)) assert.notEqual(m.ent.t, 'enemy', `${def.id} has an enemy`)
-    }
+    assert.equal(s.inv.sword, false)
+    assert.ok(!s.map.enemies.some(e => e.x < TOWN_W), 'an enemy in the town')
+    for (const id of ['arcade', 'home']) assert.equal(P.createGame(W, { at: { map: id, entry: 'door' } }).map.enemies.length, 0, `an enemy in ${id}`)
   })
 
   it('has one cabinet per arcade game, each with a pitch that ends on the coin line', () => {
@@ -198,7 +216,7 @@ describe('portal world', () => {
 
   it('shows the name and at least two buildings at the start, on a phone and on a desktop', () => {
     const s = P.createGame(W, { seed: 1 })
-    const def = W.maps.plaza
+    const def = W.maps.overworld
     const name = def.decals.find(d => d.text === 'PETTER HAREIM')
     assert.equal(name.scale, 3)
     const nameW = (P.textWidth(name.text) * name.scale) / 16
@@ -223,7 +241,7 @@ describe('portal world', () => {
         blocks.push(cells)
       }
     })
-    assert.ok(blocks.length >= 3, 'house, arcade and hut')
+    assert.ok(blocks.length >= 3, 'house, arcade and newsstand')
     // 390×844 phone at 3× (≈15×28 tiles) and 1280×800 desktop at 1× and 2× (≈20×12.5, ≈18×11).
     for (const [label, vw, vh] of [['phone', 14.6, 28], ['desktop 1x', 20, 12.5], ['desktop 2x', 17.8, 11.1]]) {
       const cam = P.cameraFor(s, vw, vh)
@@ -263,6 +281,7 @@ describe('portal world', () => {
       assert.equal(s.mode, 'play')
       assert.ok(!ev.some(x => x.type === 'exit'))
     }
+    assert.equal(P.worldStartingAt('plaza', 'start'), null) // the town's old map id, from before 2026-09-24
     assert.equal(P.worldStartingAt('nowhere', 'galaga'), null)
     assert.equal(P.worldStartingAt('arcade', 'nope'), null)
     assert.equal(P.worldStartingAt('arcade', '__proto__'), null)
@@ -271,11 +290,23 @@ describe('portal world', () => {
 
   it('talks: the kid explains, Petter introduces himself', () => {
     const talk = (map, id) => Object.values(W.maps[map].marks).find(m => m.ent.t === 'npc' && m.ent.id === id).ent.talk[0].lines.join(' ')
-    assert.match(talk('plaza', 'kid'), /PRESS \{A\}/)
+    assert.match(talk('overworld', 'townkid'), /PRESS \{A\}/)
     const petter = talk('home', 'petter')
     assert.match(petter, /FATHER, HUSBAND, GEEK, ASPIRING GOOD GUY\./)
     assert.match(petter, /HELP FOLKS\. WRITE CODE\. BUILD THINGS\./)
     assert.equal(Object.values(W.maps.home.marks).find(m => m.ent.t === 'npc').ent.look, 'petter')
+  })
+})
+
+describe('the coast road', () => {
+  it("leads from the start to the Keeper's hut, where the Keeper tells the story", () => {
+    const g = session(W, false)
+    const dialogs = []
+    const step = g.step
+    g.step = (...a) => { const ev = step(...a); if (g.s.dialog && !dialogs.includes(g.s.dialog.lines)) dialogs.push(g.s.dialog.lines); return ev }
+    goToMap(g, 'hut')
+    assert.equal(g.s.map.id, 'hut')
+    assert.ok(dialogs.some(l => l === P.INTRO), 'the Keeper did not speak on the way')
   })
 })
 

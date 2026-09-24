@@ -57,7 +57,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   if (inp.aPress) {
     if (h.carry) throwCarried(c)
     else if (!h.swing && !h.spin && !interact(c)) {
-      if (s.inv.sword && !c.w.peaceful && h.cooldown <= 0) startSwing(c, inp)
+      if (s.inv.sword && h.cooldown <= 0) startSwing(c, inp)
     }
     // Talking, reading or an item-get pose freezes the rest of the step.
     if (s.mode !== 'play') return
@@ -626,7 +626,7 @@ function useItem(c: Ctx, inp: Input) {
     h.act = 'use'
     h.actT = 0
     c.ev.push({ type: 'disc' })
-  } else if (!c.w.peaceful) c.ev.push({ type: 'error' })
+  } else if (s.inv.sword) c.ev.push({ type: 'error' }) // no buzz for a visitor who has nothing yet
 }
 
 export function heroInvulnFlash(h: { invuln: number }) {

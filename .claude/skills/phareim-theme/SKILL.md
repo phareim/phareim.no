@@ -8,7 +8,9 @@ description: Add, change, or debug a theme on phareim.no — the portal on `/` a
 A theme is a folder in `themes/` that owns the whole landing page. The URL
 picks it (2026-09-24): `/` is the **portal** (`themes/portal/`, the one
 theme with `home: true`), a neon town whose buildings launch everything
-else; `/?theme=<id>` is that theme. The route is read during SSR, so the
+else. The town is the west end of Neon Shrine's world (one world since
+2026-09-24: the adventure is no longer a theme of its own, `?theme=zelda`
+is a legacy id for the portal); `/?theme=<id>` is that theme. The route is read during SSR, so the
 first paint is already correct, and client navigation (back/forward
 included) switches theme with no extra state. No cookie, no random pick.
 
@@ -18,8 +20,7 @@ visitors walk out to the portal and into the next cabinet. The ⌂ chip
 it, and the back button return to the portal.
 
 `useTheme()` contract: `activeTheme` (computed from the route), `isHome`,
-`launch(id)` (router.push to `/?theme=id`, ignores the lock, sets
-`portalLaunch = { theme, at }` for the target to read and clear),
+`launch(id)` (router.push to `/?theme=id`, ignores the lock),
 `goHome()` (router.push to `/`, ignores the lock), `navigationLocked`.
 
 ## Files
@@ -53,8 +54,9 @@ composables/useThemeNavigation.ts  Escape → portal, 3 s grace after a game let
    `theme.css` (the root class must be `<id>-page`).
 2. Register it in `themes/index.ts`: add `import './<id>/theme.css'` and an
    entry `{ id, name, themeColor, themeColorDark?, landing, backdrop? }`.
-   A game also needs a way in from the portal: a cabinet or door in
-   `themes/portal/world/` (there is no other way to reach it).
+   A game also needs a way in from the portal: a cabinet in the town's
+   arcade, `themes/zelda/world/town.ts` (there is no other way to reach it).
+   `npm run test:portal` lists the cabinets it expects.
 3. Preview with `npm run dev` and `http://localhost:3030/?theme=<id>`.
    Check a phone viewport too (headless chromium at 375×667 works on Sleeper;
    write the screenshot under `~/Pictures`, the snap cannot write to dotdirs
@@ -83,7 +85,7 @@ composables/useThemeNavigation.ts  Escape → portal, 3 s grace after a game let
   `defineAsyncComponent` inside `<ClientOnly>` so the three chunk only ships with that theme);
   `desk` skips the shell and lays a grained paper sheet (`.desk-sheet`,
   `.desk-stamp`, `.desk-rule` are global classes from its theme.css) on the
-  desk; `tetris` skips the shell and fills the page with its Neon Dreams board; `leaderboard` (Hall of Fame, 2026-09-08) skips it and shows the D1-backed world ranking, one game at a time, up/down to change game — its data comes from `composables/useLeaderboard.ts` and `server/api/`, see `docs/games/hall-of-fame.md`; `portal` skips it and runs Neon Shrine's engine over its own world (`docs/games/portal.md`). `createHorizon`'s sun options are `sunX`, `sunY` and `sunJitter` — the disc is always clipped at the horizon line and both values wander a little per load. In Tetris, ResizeObserver fits the board to remaining space and landscape phones use a two-column layout. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
+  desk; `tetris` skips the shell and fills the page with its Neon Dreams board; `leaderboard` (Hall of Fame, 2026-09-08) skips it and shows the D1-backed world ranking, one game at a time, up/down to change game — its data comes from `composables/useLeaderboard.ts` and `server/api/`, see `docs/games/hall-of-fame.md`; `portal` skips it and runs the one world, Neon Shrine's engine and shell (`docs/games/portal.md`). `createHorizon`'s sun options are `sunX`, `sunY` and `sunJitter` — the disc is always clipped at the horizon line and both values wander a little per load. In Tetris, ResizeObserver fits the board to remaining space and landscape phones use a two-column layout. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
   (`height: 100dvh; overflow: hidden`) and the page does not scroll —
   `html`, `body` and `#__nuxt` are locked in `app.vue`. The old `scrollable`
   registry flag is gone with the Almanac theme that needed it. Since

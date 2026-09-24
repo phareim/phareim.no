@@ -2,8 +2,8 @@
  * The Portal (portal)
  * ---------------------------
  * phareim.no's front door: a neon town drawn by the Neon Shrine renderer.
- * The page tokens only; the world is canvas (Portal.vue), the hint and the
- * hidden link list live in Landing.vue.
+ * The page tokens only; the world is canvas (zelda/Zelda.vue), the hint,
+ * the ending panel and the hidden link list live in Landing.vue.
  */
 
 :root {

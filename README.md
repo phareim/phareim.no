@@ -6,9 +6,10 @@ Hall of Fame — the world ranking of the six score games — behind three
 small API routes; nothing else is stored.
 
 The front page is the Portal: a small neon town you walk around in. Its
-buildings lead to everything else — an arcade with a cabinet per game, the
-way into Neon Shrine, Petter's house (who he is, where to find him), and his
-public projects. Each game is a theme at `/?theme=<id>`; Escape or the ⌂ chip
+buildings lead to everything else — an arcade with a cabinet per game,
+Petter's house (who he is, where to find him), and his public projects —
+and the coast road east leads out of town into Neon Shrine, the adventure
+the town is part of. Each game is a theme at `/?theme=<id>`; Escape or the ⌂ chip
 goes back to the portal, and the next game is another cabinet. Each theme lives in `themes/<id>/` and owns its
 whole page — see `.claude/skills/phareim-theme/SKILL.md` for how to add one.
 
@@ -18,7 +19,7 @@ whole page — see `.claude/skills/phareim-theme/SKILL.md` for how to add one.
 profile and the contact links live in the portal (Petter's house).
 
 Themes: Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox,
-OutRun, Neon Shrine, Tetris, Hall of Fame, Hangar — plus Another Shore II,
+OutRun, Tetris, Hall of Fame, Hangar — plus Another Shore II,
 Scandinavian Glass, Space and Tufte Desk, parked but reachable. Open one
 with `/?theme=<id>`.
 

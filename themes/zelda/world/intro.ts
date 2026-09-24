@@ -1,0 +1,6 @@
+/** What the Keeper says the first time you reach Home Glade without the blade (the area's `intro`). */
+export const INTRO = [
+  'KEEPER: YOU CAME ALONG THE COAST ROAD. GOOD. I NEED A PAIR OF HANDS.',
+  'THE SUN HAS HUNG ON THE HORIZON FOR THREE NIGHTS. THE STATIC KING TOOK THE SUN PRISM INTO THE OLD NEON SHRINE.',
+  'OPEN THAT CHEST BY MY DOOR. THE BLADE INSIDE IS YOURS NOW.',
+]

@@ -1,5 +1,5 @@
 /**
- * A small peaceful World for the look lab: a plaza with the name in neon,
+ * A small World (no enemies) for the look lab: a plaza with the name in neon,
  * an arcade room with all eight cabinets and the Hall of Fame board, and a
  * home with three terminals. Only for rendering checks; the portal's real
  * maps live in themes/portal/world/.
@@ -115,5 +115,4 @@ const HOME: MapDef = {
 export const LAB: World = {
   maps: { plaza: PLAZA, parcade: ARCADE, home: HOME },
   start: { map: 'plaza', entry: 'start' },
-  peaceful: true,
 }

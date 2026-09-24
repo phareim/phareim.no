@@ -1,6 +1,6 @@
 /**
  * Keyboard, pointer and floating-stick input for the Neon Shrine engine,
- * shared by Neon Shrine (`Zelda.vue`) and the portal (`portal/Portal.vue`).
+ * used by the world shell (`Zelda.vue`).
  * Framework-free: the shell passes hooks for what depends on its own state
  * (phase, pause, touch deck) and calls `read()` once per frame.
  *
@@ -176,7 +176,7 @@ export function createInput(hooks: InputHooks): GameInput {
     e.preventDefault()
     if (hooks.paused()) return
     // A repeat of a key this input never saw go down was held across a page
-    // change (walking into the portal's hut door): it doesn't walk here.
+    // change (back from a cabinet): it doesn't walk here.
     if (MOVE_KEYS.has(e.code)) { if (!e.repeat || keys.has(e.code)) keys.add(e.code); return }
     if (e.repeat) return
     if (A_KEYS.has(e.code)) { aPress = true; aHeldKey = true }

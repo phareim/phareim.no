@@ -201,7 +201,7 @@ export type ExitTarget = { theme: string } | { home: true } | { url: string }
 export type ExitLook = 'door' | 'cabinet' | 'board' | 'kiosk' | 'terminal' | 'sign'
 
 /**
- * A way out of the game (the portal's cabinets and doors, Neon Shrine's way home).
+ * A way out of the game: the town's cabinets, doors, kiosk and terminals.
  * - On a walkable tile ('D' door, '>' stairs): stepping on it starts the
  *   usual warp fade; at full dark the engine emits `exit` and enters mode 'exit'.
  * - On a solid tile (cabinet 'M', sign 'S', board 'I', …): pressing A while
@@ -224,7 +224,7 @@ export interface ExitDef {
   lines?: string[]
 }
 
-/** Neon lettering painted into the world (the owner's name over the portal plaza). */
+/** Neon lettering painted into the world (Petter's name over the town). */
 export interface Decal {
   /** Anchor in tile units: the text's top edge, and its left edge or centre (align). */
   x: number
@@ -272,17 +272,26 @@ export interface MapDef {
   /** Extra entries/warps besides the ones placed by markers. */
   entries?: Record<string, Spot>
   warps?: Warp[]
-  /** Named regions of an overworld: banner, music, and (entry) where death and Continue put you after visiting it. */
-  areas?: Array<Rect & { name: string; track?: TrackId; entry?: string }>
+  /**
+   * Named regions of an overworld: banner, music, and (entry) where death puts
+   * you after visiting it. `intro` opens a dialog the first time the hero walks
+   * in while `when` holds, and sets `flag` so it never repeats.
+   */
+  areas?: Array<Rect & { name: string; track?: TrackId; entry?: string; intro?: AreaIntro }>
   /** Painted lettering, drawn over the ground and under entities. */
   decals?: Decal[]
+}
+
+export interface AreaIntro {
+  lines: string[]
+  who?: string | null
+  flag: string
+  when?: Cond
 }
 
 export interface World {
   maps: Record<string, MapDef>
   start: { map: string; entry: string }
-  /** A world to walk, not fight in (the portal): no HUD hearts, bits or items, and the hero cannot be hurt. */
-  peaceful?: boolean
   /** Dialog opened when a new game (no save) starts, after any walk-out from the start entry. */
   intro?: { lines: string[]; who?: string | null }
 }

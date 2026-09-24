@@ -691,8 +691,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     // --- HUD ----------------------------------------------------------------------
     hg.clearRect(0, 0, vw, vh)
     if (!ui.attract && s.mode !== 'exit') {
-      if (!world.peaceful) drawHud(hg, s, vw, time, ui.touch)
-      drawExitLabels(hg, s, labels, cx, cy, vw, vh, ui.paused ? 0 : dt, ui.keys.a, ui.reducedMotion, !ui.paused, world.peaceful ? 2 : 30)
+      // Hearts, bits and items appear with the blade; before that the town is just a town.
+      const hud = s.inv.sword
+      if (hud) drawHud(hg, s, vw, time, ui.touch)
+      drawExitLabels(hg, s, labels, cx, cy, vw, vh, ui.paused ? 0 : dt, ui.keys.a, ui.reducedMotion, !ui.paused, hud ? 30 : 2)
       if (ui.banner && s.mode !== 'dialog') drawBanner(hg, ui.banner.text, ui.banner.t, vw, vh)
       if (s.dialog) drawDialog(hg, s, vw, vh, s.hero.y * T - cy, ui.keys, time)
       if (ui.paused) drawPause(hg, s, vw, vh, ui.keys, ui.confirmReset)

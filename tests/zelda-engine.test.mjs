@@ -1,8 +1,9 @@
-// Neon Shrine engine tests: world checks, the first minute (out of the hut
-// door, the intro, the blade), the hut and its way home, exits and peaceful
-// worlds on a small fixture, saves, and a full scripted run from the
-// Keeper's hut to the Sun Prism with a path-finding walker (god mode on,
-// bosses killed directly).
+// Neon Shrine engine tests: world checks, the first minute (down the coast
+// road from the town, the Keeper's story, the blade, out of the hut door),
+// the hut, exits on a small fixture, the rules before the blade, saves, and
+// a full scripted run from the Keeper's hut to the Sun Prism with a
+// path-finding walker (god mode on, bosses killed directly). The town's own
+// checks are in portal-world.test.mjs.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './zelda-load.mjs'
@@ -12,12 +13,14 @@ before(async () => { Z = await load() })
 
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
 const step = (s, i = inp(), dt = 1 / 60) => Z.stepGame(Z.WORLD, s, dt, i)
+/** The old overworld sits east of the town: add this to its x coordinates. */
+const OX = 40
+const HUT = { map: 'overworld', entry: 'hut' }
 
+/** A new game out of the Keeper's hut door, the quest not yet begun. */
 function newGame(seed = 5) {
-  const s = Z.createGame(Z.WORLD, { seed })
-  // Let the hero step out of the hut, then skip the intro.
-  for (let k = 0; k < 120 && s.mode !== 'dialog'; k++) step(s)
-  while (s.mode === 'dialog') { step(s, inp(), 0.5); step(s, inp({ aPress: true, a: true })) }
+  const s = Z.createGame(Z.WORLD, { seed, at: HUT })
+  for (let k = 0; k < 120 && s.hero.auto; k++) step(s)
   return s
 }
 
@@ -58,13 +61,14 @@ function path(s, tx, ty) {
 }
 
 /** Walk the hero to tile (tx, ty) (map may change on the way). God mode. */
-function walkTo(s, tx, ty, { map = s.map.id, budget = 4000 } = {}) {
+function walkTo(s, tx, ty, { map = s.map.id, budget = 4000, keepDialog = false } = {}) {
   let p = path(s, tx, ty)
   assert.ok(p, `no path in ${s.map.id} from ${Math.floor(s.hero.x)},${Math.floor(s.hero.y)} to ${tx},${ty}`)
   let i = 0
   for (let n = 0; n < budget; n++) {
     s.hero.hp = s.hero.maxHp
     s.hero.invuln = 1
+    if (keepDialog && s.mode === 'dialog') return true
     if (s.mode === 'dialog' || s.mode === 'get') { settle(s); continue }
     if (s.mode === 'won') return true
     if (s.mode !== 'play') { step(s); continue }
@@ -99,41 +103,67 @@ describe('world', () => {
 })
 
 describe('the first minute', () => {
-  it('steps out of the hut door, then the Keeper speaks, with the blade beside you', () => {
+  it('starts in the town; the coast road leads to the Keeper, who tells the story once', () => {
     const s = Z.createGame(Z.WORLD, { seed: 1 })
-    // On the door, walking out on its own: input waits.
     assert.equal(s.mode, 'play')
     assert.equal(s.map.id, 'overworld')
-    assert.deepEqual([s.hero.x, s.hero.y, s.hero.dir], [7.5, 28.5, 'down'])
-    assert.ok(s.hero.auto)
-    step(s, inp({ move: { x: 1, y: 0 } }))
-    assert.equal(s.hero.act, 'walk')
-    let frames = 1
-    while (s.mode === 'play' && frames < 120) { step(s, inp({ move: { x: 1, y: 0 } })); frames++ }
-    const t = frames / 60
-    assert.ok(t >= 0.18 && t <= 0.3, `walk-out took ${t.toFixed(2)} s`)
-    // One tile out, not pushed sideways, still on the overworld, and the intro is up.
-    assert.equal(s.map.id, 'overworld')
-    assert.ok(Math.abs(s.hero.x - 7.5) < 1e-6 && Math.abs(s.hero.y - 29.5) < 1e-6, `at ${s.hero.x},${s.hero.y}`)
-    assert.equal(s.hero.auto, null)
+    assert.equal(s.area, 'PHAREIM.NO')
+    assert.equal(s.dialog, null)
+    // East along the road to the hut's front yard; the Keeper speaks on arrival in Home Glade.
+    walkTo(s, OX + 2, 30, { keepDialog: true })
     assert.equal(s.mode, 'dialog')
+    assert.equal(s.area, 'HOME GLADE')
     assert.equal(s.dialog.who, 'keeper')
-    assert.match(s.dialog.lines[0], /^KEEPER: /)
+    assert.deepEqual(s.dialog.lines, Z.INTRO)
     settle(s)
+    assert.ok(s.flags.intro)
+    // No play time without the blade.
+    assert.equal(s.elapsed, 0)
+    // Out and back in: no second telling.
+    walkTo(s, OX - 3, 26)
+    walkTo(s, OX + 6, 30)
     assert.equal(s.mode, 'play')
-    // The chest is right there on the left.
-    face(s, 'left')
-    pressA(s)
+    // The chest beside the door holds the blade; the clock starts with it.
+    face(s, 'up'); pressA(s)
     assert.equal(s.inv.sword, true)
+    for (let k = 0; k < 60; k++) step(s)
+    assert.ok(s.elapsed > 0.9)
   })
 
-  it('continues a save on the hut door without the intro', () => {
-    const save = Z.toSave(newGame())
-    assert.equal(save.entry, 'hut')
-    const s = Z.createGame(Z.WORLD, { save: Z.parseSave(JSON.parse(JSON.stringify(save))) })
-    for (let k = 0; k < 60; k++) step(s)
+  it('steps out of the hut door on its own, then hands over', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 1, at: HUT })
     assert.equal(s.mode, 'play')
-    assert.equal(s.hero.y, 29.5)
+    assert.deepEqual([s.hero.x, s.hero.y, s.hero.dir], [OX + 7.5, 28.5, 'down'])
+    assert.ok(s.hero.auto)
+    // Input waits while the hero walks out.
+    step(s, inp({ move: { x: 1, y: 0 } }))
+    assert.equal(s.hero.x, OX + 7.5)
+    let frames = 1
+    while (s.hero.auto && frames < 120) { step(s); frames++ }
+    const t = frames / 60
+    assert.ok(t >= 0.18 && t <= 0.3, `walk-out took ${t.toFixed(2)} s`)
+    assert.ok(Math.abs(s.hero.x - OX - 7.5) < 1e-6 && Math.abs(s.hero.y - 29.5) < 1e-6, `at ${s.hero.x},${s.hero.y}`)
+    assert.equal(s.mode, 'play')
+  })
+
+  it('a save continues where it is told to, with its items', () => {
+    const g = newGame()
+    g.inv.sword = true
+    g.inv.bits = 12
+    const save = Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(g))))
+    assert.equal(save.entry, 'hut')
+    // By default at its continue point…
+    let s = Z.createGame(Z.WORLD, { save })
+    assert.equal(s.area, 'HOME GLADE')
+    // …or at the town's start, or in front of a cabinet.
+    s = Z.createGame(Z.WORLD, { save, at: Z.WORLD.start })
+    assert.deepEqual([s.map.id, s.area, s.inv.sword, s.inv.bits], ['overworld', 'PHAREIM.NO', true, 12])
+    s = Z.createGame(Z.WORLD, { save, at: { map: 'arcade', entry: 'galaga' } })
+    assert.equal(s.map.id, 'arcade')
+    assert.equal(s.hero.dir, 'up')
+    // An unknown spot falls back to the start.
+    s = Z.createGame(Z.WORLD, { save, at: { map: 'arcade', entry: 'nope' } })
+    assert.equal(s.area, 'HOME GLADE')
   })
 
   it('swings, cuts a bush and spins', () => {
@@ -174,56 +204,25 @@ describe('the first minute', () => {
 })
 
 describe("the Keeper's hut", () => {
-  it('opens onto the hut, whose back door leads home', () => {
+  it('has one door, and leaving walks you out of it again', () => {
     const s = newGame()
-    walkTo(s, 7, 28)
+    walkTo(s, OX + 7, 28)
     for (let k = 0; k < 80 && s.mode !== 'play'; k++) step(s)
     assert.equal(s.map.id, 'hut')
     assert.equal(s.area, "KEEPER'S HUT")
-    const home = s.map.exits.find(e => e.id === 'home')
-    assert.deepEqual(home && { to: home.to, look: home.look, label: home.label, walk: home.walk }, { to: { home: true }, look: 'door', label: 'THE WAY HOME', walk: true })
-    assert.deepEqual(Z.mapInfo(Z.WORLD, 'hut').entries.home, { x: 6.5, y: 1.5, dir: 'down' })
-    // The sign by the back door says where it goes.
-    walkTo(s, 7, 2)
-    face(s, 'up')
-    step(s, inp({ aPress: true, a: true }))
-    assert.equal(s.mode, 'dialog')
-    assert.ok(s.dialog.lines.join(' ').includes('PHAREIM.NO'))
-    settle(s)
-    // Walk through the back door: fade, then the exit at full dark.
-    walkTo(s, 6, 1)
-    const ev = []
-    for (let k = 0; k < 120 && s.mode !== 'exit'; k++) ev.push(...step(s, inp({ move: { x: 0, y: -1 } })))
-    assert.equal(s.mode, 'exit')
-    assert.deepEqual(ev.filter(e => e.type === 'exit'), [{ type: 'exit', id: 'home', to: { home: true } }])
-    assert.ok(ev.some(e => e.type === 'warp'))
-    // Terminal: nothing moves, nothing more happens.
-    const at = [s.hero.x, s.hero.y]
-    const more = []
-    for (let k = 0; k < 120; k++) more.push(...step(s, inp({ move: { x: 0, y: 1 }, aPress: true, a: true })))
-    assert.deepEqual(more, [])
-    assert.deepEqual([s.hero.x, s.hero.y], at)
-    assert.equal(s.mode, 'exit')
-  })
-
-  it('leaving by the front door walks you out of the hut again', () => {
-    const s = newGame()
-    walkTo(s, 7, 28)
-    for (let k = 0; k < 80 && s.mode !== 'play'; k++) step(s)
-    assert.equal(s.map.id, 'hut')
+    assert.deepEqual(s.map.exits, [])
     walkTo(s, 6, 8)
     for (let k = 0; k < 80 && s.mode !== 'play'; k++) step(s)
     assert.equal(s.map.id, 'overworld')
     for (let k = 0; k < 40; k++) step(s)
     assert.equal(s.map.id, 'overworld', 'did not bounce back in')
-    assert.deepEqual([s.hero.x, s.hero.y, s.mode], [7.5, 29.5, 'play'])
+    assert.deepEqual([s.hero.x, s.hero.y, s.mode], [OX + 7.5, 29.5, 'play'])
   })
 })
 
 // A small world with every kind of exit, spikes, a pit, a blob and a spitter.
-function fixture(peaceful) {
+function fixture() {
   return {
-    peaceful,
     start: { map: 'room', entry: 'start' },
     maps: {
       room: {
@@ -260,7 +259,7 @@ function runOut(W, s, input = inp(), max = 240) {
 
 describe('exits', () => {
   it('validates, registers an entry beside each exit and lists them on the map', () => {
-    const W = fixture(false)
+    const W = fixture()
     assert.deepEqual(Z.validateWorld(W), [])
     const e = Z.mapInfo(W, 'room').entries
     assert.deepEqual(e.galaga, { x: 1.5, y: 2.5, dir: 'up' }) // below a cabinet, facing it
@@ -277,7 +276,7 @@ describe('exits', () => {
   })
 
   it('a cabinet: A shows its lines, closing them leaves through it', () => {
-    const W = fixture(true)
+    const W = fixture()
     const s = Z.createGame(W)
     Z.enterMap(W, s, 'room', 'galaga', [])
     const ev = [...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true }))]
@@ -296,7 +295,7 @@ describe('exits', () => {
   })
 
   it('a solid exit without lines leaves at once', () => {
-    const W = fixture(true)
+    const W = fixture()
     const s = Z.createGame(W)
     Z.enterMap(W, s, 'room', 'md', [])
     Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true }))
@@ -306,7 +305,7 @@ describe('exits', () => {
   })
 
   it('a door: walking onto it leaves', () => {
-    const W = fixture(false)
+    const W = fixture()
     const s = Z.createGame(W)
     Z.enterMap(W, s, 'room', 'hangar', [])
     const ev = runOut(W, s, inp({ move: { x: 0, y: -1 } }))
@@ -315,7 +314,7 @@ describe('exits', () => {
   })
 
   it('the validator catches bad exits', () => {
-    const W = fixture(false)
+    const W = fixture()
     const m = W.maps.room
     m.rows = m.rows.map(r => r.replace('k', 'c'))
     m.marks.c.ent.to = { url: 'http://insecure.example' }
@@ -327,50 +326,22 @@ describe('exits', () => {
   })
 })
 
-describe('peaceful worlds', () => {
-  const hazards = W => {
+describe('before the blade', () => {
+  it('A and B do nothing with nothing to talk to, and nothing shows a buzz', () => {
+    const W = fixture()
     const s = Z.createGame(W)
-    const ev = []
-    const run = (n, i = inp()) => { for (let k = 0; k < n; k++) { ev.push(...Z.stepGame(W, s, 1 / 60, i)); s.hero.invuln = 0 } }
-    // Spikes
-    s.hero.x = 7.5; s.hero.y = 2.5
-    run(30)
-    // A blob on top of the hero
-    const blob = s.map.enemies.find(e => e.kind === 'blob')
-    for (let k = 0; k < 30; k++) { s.hero.x = blob.x; s.hero.y = blob.y; run(1) }
-    // A pellet into the hero
-    s.hero.x = 3.5; s.hero.y = 6.5
-    s.map.projectiles.push({ id: 999, kind: 'pellet', x: 3.5, y: 6.1, vx: 0, vy: 4, r: 0.2, t: 0, life: 2, reflect: true })
-    run(20)
-    // A pit: back to safe ground
-    s.hero.safe = { x: 8.5, y: 6.5 }
-    s.hero.x = 9.5; s.hero.y = 5.5
-    run(60)
-    return { s, ev }
-  }
-
-  it('the hero cannot be hurt or die', () => {
-    const { s, ev } = hazards(fixture(true))
-    assert.equal(s.hero.hp, Z.START_HP)
-    assert.ok(!ev.some(e => e.type === 'hurt' || e.type === 'died'))
-    assert.ok(ev.some(e => e.type === 'fall'), 'fell in the pit')
-    assert.deepEqual([s.hero.x, s.hero.y], [8.5, 6.5])
-    assert.equal(s.mode, 'play')
-  })
-
-  it('the same hazards hurt in an ordinary world', () => {
-    const { ev } = hazards(fixture(false))
-    assert.ok(ev.filter(e => e.type === 'hurt').length >= 3)
-  })
-
-  it('A and B do nothing with nothing to talk to', () => {
-    const W = fixture(true)
-    const s = Z.createGame(W)
-    s.inv.sword = true
     const ev = [...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true, bPress: true }))]
     for (let k = 0; k < 30; k++) ev.push(...Z.stepGame(W, s, 1 / 60, inp()))
     assert.deepEqual(ev.filter(e => e.type === 'swing' || e.type === 'error'), [])
     assert.equal(s.mode, 'play')
+  })
+
+  it('with the blade, A swings', () => {
+    const W = fixture()
+    const s = Z.createGame(W)
+    s.inv.sword = true
+    const ev = [...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true, bPress: true }))]
+    assert.ok(ev.some(e => e.type === 'swing'))
   })
 })
 
@@ -461,28 +432,28 @@ describe('full run', () => {
     const s = newGame(11)
     const got = item => assert.ok(s.flags[`item:${item}`], `expected ${item}`)
     // Blade
-    walkTo(s, 6, 30)
+    walkTo(s, OX + 6, 30)
     face(s, 'up'); pressA(s); got('sword')
-    // Bomb bag in Whisper Woods (chest at 5,4 — stand below it)
-    walkTo(s, 5, 5)
+    // Bomb bag in Whisper Woods (chest at OX+5,4 — stand below it)
+    walkTo(s, OX + 5, 5)
     face(s, 'up'); pressA(s); got('bombBag')
-    // Heart piece behind the woods boulder (24,5): bomb from below
-    walkTo(s, 24, 6)
+    // Heart piece behind the woods boulder (OX+24,5): bomb from below
+    walkTo(s, OX + 24, 6)
     face(s, 'up')
     step(s, inp({ bPress: true }))
     for (let k = 0; k < 150; k++) { s.hero.invuln = 1; step(s) }
-    walkTo(s, 24, 5)
-    walkTo(s, 24, 3)
+    walkTo(s, OX + 24, 5)
+    walkTo(s, OX + 24, 3)
     settle(s)
     assert.equal(s.inv.pieces, 1)
     // Rubble at the shrine: stand below it and bomb it
-    walkTo(s, 57, 5)
+    walkTo(s, OX + 57, 5)
     face(s, 'up')
     step(s, inp({ bPress: true }))
     for (let k = 0; k < 150; k++) { s.hero.invuln = 1; step(s) }
-    assert.equal(s.map.tiles[4 * s.map.w + 57], '.')
-    walkTo(s, 57, 3)
-    walkTo(s, 57, 2, { map: 'overworld' })
+    assert.equal(s.map.tiles[4 * s.map.w + OX + 57], '.')
+    walkTo(s, OX + 57, 3)
+    walkTo(s, OX + 57, 2, { map: 'overworld' })
     for (let k = 0; k < 80; k++) step(s)
     assert.equal(s.map.id, 'shrine')
     // East room: clear it, key chest appears

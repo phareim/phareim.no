@@ -3,7 +3,7 @@
 // a headless chromium-browser started with a debugging port.
 //
 //   const b = await launch({ width: 1440, height: 900, mobile: false })
-//   await b.goto('http://localhost:3001/?theme=zelda')
+//   await b.goto('http://localhost:3001/')
 //   await b.key('Enter'); await b.hold('ArrowUp', 400)
 //   await b.shot('/home/petter/zshots/x.png'); b.errors; await b.close()
 import { spawn } from 'node:child_process'
@@ -27,6 +27,7 @@ const KEYS = {
   KeyN: { key: 'n', code: 'KeyN', keyCode: 78 },
   KeyR: { key: 'r', code: 'KeyR', keyCode: 82 },
   KeyY: { key: 'y', code: 'KeyY', keyCode: 89 },
+  KeyT: { key: 't', code: 'KeyT', keyCode: 84 },
 }
 
 export async function launch({ width = 1440, height = 900, dpr = 1, mobile = false } = {}) {

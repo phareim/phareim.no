@@ -3,13 +3,16 @@
 phareim.no opens on a small neon town you walk around in, drawn with the
 Neon Shrine engine and art. Petter's name is painted into the world. The
 buildings lead to everything else on the site: an arcade hall with a cabinet
-per game, the Keeper's hut that drops you into Neon Shrine, Petter's own
-house (who he is, where to find him), and a kiosk and signs for the public
-projects. It replaces the Player One theme (retired) and the random
-first-visit theme.
+per game, Petter's own house (who he is, where to find him), and a kiosk and
+signs for the public projects. It replaces the Player One theme (retired)
+and the random first-visit theme.
 
-Theme id `portal`. Engine, renderer and audio are Neon Shrine's
-(`themes/zelda/`); the portal brings its own world data and Vue shell.
+One world (Petter, 2026-09-24): the town is the west end of Neon Shrine's
+overworld, and a road east along the coast leads to the Keeper's hut, where
+the adventure starts. Sword, items, pause menu and saves are the same
+everywhere. Theme id `portal`; the page is `themes/portal/Landing.vue`, and
+everything else (world data, engine, renderer, audio, the shell `Zelda.vue`)
+is in `themes/zelda/`.
 
 ## Site behaviour
 
@@ -24,9 +27,8 @@ Theme id `portal`. Engine, renderer and audio are Neon Shrine's
   the game is idle (a game's own Escape use wins), or the back button.
 - Coming back, the hero stands where they left: in front of the cabinet or
   outside the door they used (sessionStorage `portal.return`).
-- Neon Shrine entered from the portal skips its title: it continues the save
-  if there is one, otherwise it starts a new game with the hero stepping out
-  of the Keeper's hut door. The arcade games open on their own title
+- A reload or a new visit starts on the plaza, facing the name, carrying
+  whatever the save holds. The arcade games open on their own title
   screens (that screen is the insert-coin moment and shows the controls).
 
 ### Contract between the pieces (`composables/useTheme.ts`)
@@ -35,27 +37,27 @@ Theme id `portal`. Engine, renderer and audio are Neon Shrine's
 const {
   activeTheme,      // 'portal' on '/', else the ?theme id
   isHome,           // computed: activeTheme === 'portal'
-  launch,           // (id: string) => void — router.push('/?theme=id'); ignores the navigation lock; records portalLaunch
+  launch,           // (id: string) => void — router.push('/?theme=id'); ignores the navigation lock
   goHome,           // () => void — router.push('/'); ignores the lock
-  portalLaunch,     // useState<{ theme: string; at: number } | null>('portalLaunch') — set by launch(), read (and cleared) by the target
 } = useTheme()
 ```
 
 `ThemeDefinition` gains `home?: true` (the portal's entry). A home theme is
 never in `liveThemes` and shows no home chip.
 
-## World (`themes/portal/world/`)
+## World (`themes/zelda/world/`)
 
-Three maps, same format as Neon Shrine's (`themes/zelda/types.ts`), with
-`peaceful: true` on the World: no HUD hearts/bits/items, no enemies, the hero
-cannot be hurt and has no sword (A only talks, reads and uses exits).
+The town is columns 0–39 of the overworld (`overworld.ts`, area
+PHAREIM.NO) plus two rooms in `town.ts`. It has no enemies or hazards. A
+visitor starts with nothing: no HUD, no swing (A only talks, reads and uses
+exits), and nothing is saved until the Keeper's blade.
 
-### `plaza` — overworld, 40×38, area name PHAREIM.NO
+### The town — overworld columns 0–39, area PHAREIM.NO
 
 A night town square on the neon coast, one screen and a bit in each
 direction. At the start a phone (≈15×28 tiles) sees the name, the house and
-the newsstand; a desktop (≈18×11) sees the name, the house and the ends of
-the arcade and the hut. `tests/portal-world.test.mjs` checks both.
+the newsstand; a desktop (≈18×11) sees the name, the house and the end of
+the arcade. `tests/portal-world.test.mjs` checks both.
 
 - **Start**: just below Petter's door, facing up at the name. (A desktop
   view is only about 11 tiles tall, so the name has to sit within five rows
@@ -67,12 +69,15 @@ the arcade and the hut. `tests/portal-world.test.mjs` checks both.
 - **North**: Petter's house, 15 wide, under the name (door → `home` interior).
 - **West**: THE ARCADE, a big building with a neon marquee decal (door →
   `arcade` interior).
-- **East**: a copy of the Keeper's hut, with a sign NEON SHRINE — AN
-  ADVENTURE. Its door is an exit to `{ theme: 'zelda' }`.
+- **East**: a small grove where the Keeper's hut copy used to stand, with a
+  sign pointing down to the coast road.
 - **South**: the coast path: a small newsstand building (PHAREIM.MD decal)
   with the kiosk counter in front (exit `{ url: 'https://phareim.md' }`,
   lines saying it is Petter's writing), a signpost for GAMES.PHAREIM.NO
   (exit `{ url: 'https://games.phareim.no' }`), and a pier into the sea.
+  The coast path runs on east out of town as the coast road: into Home
+  Glade, down beside the Keeper's hut and into its front yard, where the
+  Keeper tells the story to anyone arriving without the blade.
 - Life: lamps, flowers, a fountain, the cat, a kid who explains the
   controls ("WALK UP TO A CABINET AND PRESS A"). No enemies.
 - Signs with arrows where paths branch.
@@ -90,7 +95,9 @@ the arcade and the hut. `tests/portal-world.test.mjs` checks both.
 - The Hall of Fame board on the back wall: exit look `board` →
   `{ theme: 'leaderboard' }`.
 - A door at the back labelled HANGAR: walkable exit → `{ theme: 'hangar' }`.
-- The robot NPC from Neon Shrine's arcade, with portal lines.
+- The robot: welcome lines, then Neon Shrine hints as the quest goes on.
+- The HIGH SCORES sign (a live top three) and a chest, both from the Night
+  Market arcade, which was removed when the worlds joined.
 - Door at the bottom → back to the plaza.
 
 ### `home` — interior, Petter's house, 15×10
@@ -108,11 +115,10 @@ the arcade and the hut. `tests/portal-world.test.mjs` checks both.
 ## Engine additions (Neon Shrine's `engine/`)
 
 The types are fixed in `themes/zelda/types.ts` (`ExitDef`, `ExitTarget`,
-`ExitSpot`, `Decal`, `World.peaceful`, `Spot.out`, mode `exit`, event `exit`,
-look `petter`). Behaviour as documented there. Neon Shrine gets two things
-from it: the Keeper's hut has a door and an interior; a new game starts with
-the hero stepping out of that door; inside the hut a back door is an exit
-`{ home: true }` labelled THE WAY HOME.
+`ExitSpot`, `Decal`, `Spot.out`, `AreaIntro`, mode `exit`, event `exit`,
+look `petter`, `createGame`'s `at`). Behaviour as documented there.
+`World.peaceful` and the hut's THE WAY HOME door existed while the portal
+was its own world; both went with the merge.
 
 ## Render additions (Neon Shrine's `render/`)
 
@@ -123,20 +129,23 @@ the hero stepping out of that door; inside the hut a back door is an exit
 - The `petter` NPC.
 - An exit's `label` floats over it while the hero is next to it, with the A
   key hint.
-- `peaceful` worlds draw no hearts/bits/items HUD.
+- No hearts/bits/items HUD until the hero has the blade.
 
 ## Page (`themes/portal/Landing.vue`)
 
-The canvas fills the viewport. A short hint fades in at the start and goes
+The canvas fills the viewport. The ending panel (THE SUN SETS AT LAST) shows
+over the world after the Sun Prism. A short hint fades in at the start and goes
 after the first move ("ARROWS TO WALK · SPACE TO TALK" / "DRAG TO WALK · A TO
 TALK"); it is skipped when the visitor comes back from an exit. A visually
 hidden block carries the same content as real HTML for search engines and
 screen readers: the h1 name, the blurbs, links to every live game
 (`/?theme=<id>`), the projects and the contact links (their addresses read
-from the world's exits). Tab reaches it (the portal leaves Tab alone), and
+from the world's exits). Tab reaches it (the shell leaves Tab alone until
+the hero has an item to swap), and
 it shows as a panel while a link has focus.
 
 ## What would make it redundant
 
-A different front door for phareim.no. If the portal is replaced, delete
-`themes/portal/` and point `/` at the new landing in `useTheme`.
+A different front door for phareim.no. If the portal is replaced, point `/`
+at the new landing in `useTheme`, and decide whether Neon Shrine gets its
+own theme page back or the town's maps go.

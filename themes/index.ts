@@ -17,7 +17,6 @@ import './anotherworld/theme.css'
 import './shore/theme.css'
 import './leaderboard/theme.css'
 import './hangar/theme.css'
-import './zelda/theme.css'
 import './portal/theme.css'
 
 // Static imports on purpose: a cabinet should not wait for a chunk, and the
@@ -37,7 +36,6 @@ import AnotherworldLanding from './anotherworld/Landing.vue'
 import ShoreLanding from './shore/Landing.vue'
 import LeaderboardLanding from './leaderboard/Landing.vue'
 import HangarLanding from './hangar/Landing.vue'
-import ZeldaLanding from './zelda/Landing.vue'
 import PortalLanding from './portal/Landing.vue'
 
 export interface ThemeDefinition {
@@ -67,7 +65,8 @@ export interface ThemeDefinition {
 export const allThemes: ThemeDefinition[] = [
   {
     // The Portal (2026-09-24): the neon town on `/` that leads to everything
-    // else. Replaced Player One and the random first-visit theme.
+    // else, and Neon Shrine's coast and shrine beyond it (one world since
+    // 2026-09-24). Replaced Player One and the random first-visit theme.
     id: 'portal',
     home: true,
     name: 'Portal',
@@ -135,14 +134,6 @@ export const allThemes: ThemeDefinition[] = [
     landing: OutrunLanding,
   },
   {
-    id: 'zelda',
-    // Rebuilt 2026-09-22; live since 2026-09-23.
-    name: 'Neon Shrine',
-    themeColor: '#0b0616',
-    themeColorDark: '#0b0616',
-    landing: ZeldaLanding,
-  },
-  {
     id: 'tetris',
     name: 'Tetris',
     themeColor: '#0b0616',
@@ -199,9 +190,10 @@ export function isAnyThemeId(id: unknown): id is string {
 /**
  * Ids a theme used to have. Old links keep working.
  * `hacker` was the Cyberpunk shmup, renamed to Galaga 2026-09-08;
- * `playerone` was the profile theme, retired for the portal 2026-09-24.
+ * `playerone` was the profile theme, retired for the portal 2026-09-24;
+ * `zelda` was Neon Shrine, merged into the portal's world 2026-09-24.
  */
-const LEGACY_THEME_IDS: Record<string, string> = { hacker: 'galaga', playerone: 'portal' }
+const LEGACY_THEME_IDS: Record<string, string> = { hacker: 'galaga', playerone: 'portal', zelda: 'portal' }
 
 /** Maps a legacy id onto its current one; anything else is returned as-is. */
 export function resolveThemeId(id: unknown): unknown {

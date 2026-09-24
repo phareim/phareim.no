@@ -6,9 +6,9 @@
 //   node scripts/zelda-lab/shot.mjs <outDir> [scene,scene…]
 //
 // Scenes place the hero somewhere and simulate a moment; see SCENES below.
-// Scenes named p-* use the peaceful fixture world in fixture.ts (portal
-// looks: cabinets, board, kiosk, terminals, decals, the petter NPC); r-*
-// use the real portal world (themes/portal/world).
+// Scenes named p-* use the fixture world in fixture.ts (the town's looks:
+// cabinets, board, kiosk, terminals, decals, the petter NPC); r-* are the
+// real town in the one world.
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -30,7 +30,6 @@ import { enterMap } from ${JSON.stringify(join(repo, 'themes/zelda/engine/game.t
 import { WORLD } from ${JSON.stringify(join(repo, 'themes/zelda/world/index.ts'))}
 import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
-import { PORTAL_WORLD } from ${JSON.stringify(join(repo, 'themes/portal/world/index.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
 const W = +q.get('w'), H = +q.get('h'), dpr = +(q.get('dpr') || 1), bottom = +(q.get('bottom') || 0)
@@ -39,8 +38,8 @@ const canvas = document.createElement('canvas')
 canvas.style.cssText = 'display:block;width:' + W + 'px;height:' + H + 'px'
 document.body.style.cssText = 'margin:0;background:#0b0616;overflow:hidden'
 document.body.appendChild(canvas)
-const world = scene.startsWith('p-') ? LAB : scene.startsWith('r-') ? PORTAL_WORLD : WORLD
-const s = createGame(world, { seed: 7 })
+const world = scene.startsWith('p-') ? LAB : WORLD
+const s = createGame(world, { seed: 7, at: ['start', 'intro', 'swing', 'pause', 'hutout'].includes(scene) ? { map: 'overworld', entry: 'hut' } : null })
 if (scene !== 'hutout') { s.dialog = null; s.mode = 'play'; s.hero.auto = null }
 const r = createRenderer(canvas, world)
 r.resize(W, H, dpr, bottom)
@@ -57,7 +56,7 @@ switch (scene) {
   case 'intro': s.dialog = { lines: ['KEEPER: THE SUN HAS HUNG ON THE HORIZON FOR THREE NIGHTS. THE STATIC KING TOOK THE SUN PRISM INTO THE OLD NEON SHRINE.'], line: 0, chars: 80, who: 'keeper', after: null }; s.mode = 'dialog'; break
   case 'swing': give(); run(10); r.onEvents(stepGame(WORLD, s, 1/60, inp({ aPress: true, a: true }))); run(5, inp({ a: true })); break
   case 'market': give(); place('overworld', 'shop', 4, 4); run(20); break
-  case 'woods': give(); s.hero.x = 8; s.hero.y = 9; run(40); break
+  case 'woods': give(); s.hero.x = 48; s.hero.y = 9; run(40); break
   case 'lake': give(); place('overworld', 'cave', -4, -6); run(30); break
   case 'graves': give(); place('overworld', 'shrine', 0, 7); run(30); break
   case 'shop': give(); place('shop', 'door', 0, -2); run(20); break
@@ -84,6 +83,8 @@ switch (scene) {
   case 'p-exit': put('parcade', 7.5, 5.5, 'up'); s.mode = 'exit'; s.warp = { t: WARP_TIME, to: '', entry: '', swapped: false }; break
   case 'p-reduced': ui.reducedMotion = true; run(20); break
   case 'r-plaza': run(20); break
+  case 'r-road': s.hero.x = 39.5; s.hero.y = 26.5; s.hero.dir = 'right'; run(20); break
+  case 'r-sword': give(); run(20); break
   case 'r-arcade': place('arcade', 'door'); run(20); break
   case 'r-home': place('home', 'door'); run(20); break
   case 'r-desk': place('home', 'door', -2, -4); s.hero.dir = 'left'; run(5); break
@@ -137,6 +138,9 @@ const SHOTS = [
   ['r-plaza-1280', 'r-plaza', 1280, 800, 1, 0],
   ['r-plaza-390', 'r-plaza', 390, 844, 3, 260],
   ['r-plaza-412', 'r-plaza', 412, 915, 2.625, 280],
+  ['r-road-1280', 'r-road', 1280, 800, 1, 0],
+  ['r-road-390', 'r-road', 390, 844, 3, 260],
+  ['r-sword-1280', 'r-sword', 1280, 800, 1, 0],
   ['r-arcade-1280', 'r-arcade', 1280, 800, 1, 0],
   ['r-arcade-390', 'r-arcade', 390, 844, 3, 260],
   ['r-home-1280', 'r-home', 1280, 800, 1, 0],

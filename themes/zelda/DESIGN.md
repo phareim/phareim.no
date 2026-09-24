@@ -1,8 +1,11 @@
 # Neon Shrine — design
 
 A Link to the Past–style adventure on an 80s neon coast: a 20–30 minute
-quest with one overworld, four small interiors and one dungeon. Original
-story, maps, sprites and music. Status and checks: `docs/games/neon-shrine.md`.
+quest with one overworld, a handful of small interiors and one dungeon.
+Original story, maps, sprites and music. Since 2026-09-24 it is phareim.no's
+front page: the town (the portal) is the west end of the same world, and the
+quest starts down the coast road from it. Status and checks:
+`docs/games/neon-shrine.md`; the town: `docs/games/portal.md`.
 
 ## Story
 
@@ -10,9 +13,11 @@ The sun has hung on the horizon for three nights. The Static King crawled
 out of the old Neon Shrine and took the Sun Prism. The Keeper hands you a
 blade; you bring the prism back and the sun can finally set.
 
-A new game opens with the hero stepping out of the Keeper's hut door; the
-Keeper, standing beside it, tells the story (`World.intro`), and the blade's
-chest is right next to the door.
+A visitor starts in the town square facing Petter's name, with nothing. The
+coast road east leads to Home Glade; walking in without the blade, the
+Keeper (standing by the hut door) tells the story once (the area's `intro`),
+and the blade's chest is right next to the door. The quest clock starts with
+the blade.
 
 ## World (`world/`)
 
@@ -25,28 +30,30 @@ hero walks one tile out along its direction before control returns.
 checks shapes, warps, exits, and that every chest, item, NPC, warp and exit
 is reachable once locks and cracks have given way.
 
-**Overworld** (`overworld.ts`, 64×48, free-scrolling camera). Six areas, each
+**Overworld** (`overworld.ts`, 104×48, free-scrolling camera). The town fills
+columns 0–39; the old coast is shifted 40 east (`TOWN_W`). Seven areas, each
 with a banner, a music track and a continue point:
 
 | Area | Where | What |
 |---|---|---|
-| Home Glade | SW, start | Keeper's hut (door → hut), Keeper, sword chest, pots, blobs, rock-ring chest |
+| PHAREIM.NO | W, the start | the town: Petter's house, the arcade, fountain, newsstand, pier; no enemies; `village` music. Details: `themes/portal/DESIGN.md` |
+| Home Glade | SW | the coast road arrives here; Keeper's hut (door → hut), Keeper, sword chest, pots, blobs, rock-ring chest |
 | Whisper Woods | NW | bats, dashers, **bomb bag** chest, heart piece behind a boulder |
-| Night Market | N | shop, arcade, kid, cat, fountain; `village` music |
+| Night Market | N | shop, kid, cat, fountain, market stalls and a sign where the old arcade stood (the arcade is in town since 2026-09-24); `village` music |
 | Hollow Graves | NE | zappers, sentry, ghost; rubble seals the Shrine stairs |
 | Crossroads | centre | signpost, spitters, a sentry |
 | Mirror Lake | SE | the sun's reflection, island chest, bomb-able cliff → cave |
 
 **Interiors** (`interiors.ts`): the Keeper's hut (bed, table, lamps, pots,
-the Keeper's cat; its back door is THE WAY HOME, see below), shop (bombs 15,
-heart 10, heart piece 100 bits), arcade (robot hints, high-score sign,
-chest), lakeside cave (dark, heart piece).
+the Keeper's cat), shop (bombs 15, heart 10, heart piece 100 bits), lakeside
+cave (dark, heart piece). In `town.ts`: the arcade (eight cabinets, the Hall
+of Fame board, the HANGAR door, the robot's hints, the HIGH SCORES sign, a
+chest) and Petter's house.
 
-**Exits** (`ExitDef` in `types.ts`) leave the game for somewhere else on
-phareim.no. Neon Shrine has one: the hut's back door, `{ home: true }`,
-labelled THE WAY HOME, with a sign beside it saying it leads back to
-phareim.no and that the quest will wait. The portal's world is built from
-the same kind: arcade cabinets, doors, a kiosk, terminals.
+**Exits** (`ExitDef` in `types.ts`) leave the game for somewhere else: the
+town's cabinets, board, HANGAR door, kiosk, signpost and terminals. The
+hut has no exit any more; `{ home: true }` is still a valid target but
+nothing uses it.
 
 **The Neon Shrine** (`shrine.ts`, 3×4 camera rooms of 16×12): entry → east
 room (clear it, key 1) → push-block puzzle opens the gate to the dark room
@@ -83,8 +90,10 @@ emits `exit` and enters mode `exit`, which is terminal like `won`. The shell
 does the navigating. The engine also registers an entry named after each
 exit beside it (on `side`), so the portal can put you back where you left.
 
-Peaceful worlds (`World.peaceful`, the portal): nothing hurts the hero, pits
-only put you back on safe ground, and A with nothing in front does nothing.
+Before the blade: A only talks, reads and uses; B does nothing and makes
+no sound; the HUD (hearts, bits, items) is hidden and the clock stands
+still. The town is safe because it has no enemies or hazards, not because
+of a rule (`World.peaceful` was removed 2026-09-24).
 
 ## Look (`render/`)
 

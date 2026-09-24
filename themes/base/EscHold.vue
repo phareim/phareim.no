@@ -4,18 +4,18 @@
     Fixed above the canvas and the landing overlay (pager is z-50), never
     intercepting input. Games with their own paused UI pass show-paused=false. -->
   <div v-if="holding || (paused && showPaused)" class="esc-hold-layer">
-    <div v-if="holding" class="esc-hold-pill" role="status" aria-label="Holding Escape to quit">
-      <span class="esc-hold-label">HOLD ESC TO QUIT</span>
+    <div v-if="holding" class="esc-hold-pill" role="status" :aria-label="holdLabel">
+      <span class="esc-hold-label">{{ holdLabel }}</span>
       <span class="esc-hold-track" aria-hidden="true"><span class="esc-hold-fill" :style="{ transform: `scaleX(${progress})` }" /></span>
     </div>
     <div v-else class="esc-hold-pill" role="status" aria-label="Game paused">
-      <span class="esc-hold-label">PAUSED — ESC RESUMES · HOLD ESC QUITS</span>
+      <span class="esc-hold-label">{{ pausedLabel }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { EscHoldTracker, ESC_HOLD_MS } from './escHold'
 
 const props = withDefaults(defineProps<{
@@ -26,6 +26,8 @@ const props = withDefaults(defineProps<{
   /** False when the game already shows its own paused state (Tetris, Another Shore). */
   showPaused?: boolean
   holdMs?: number
+  /** What the hold does, on the progress pill; default 'HOLD ESC TO QUIT'. */
+  label?: string
 }>(), {
   showPaused: true,
   holdMs: ESC_HOLD_MS,
@@ -37,6 +39,9 @@ const emit = defineEmits<{
   /** Full hold: quit the run into game over. */
   hold: []
 }>()
+
+const holdLabel = computed(() => props.label ?? 'HOLD ESC TO QUIT')
+const pausedLabel = computed(() => `PAUSED — ESC RESUMES · ${props.label ?? 'HOLD ESC QUITS'}`)
 
 const holding = ref(false)
 const progress = ref(0)

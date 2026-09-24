@@ -6,12 +6,12 @@
  * get (item held up, then its text) / dying → respawn; won and exit (the
  * hero left through an exit, the shell navigates) are terminal.
  */
-import type { GameEvent, GameState, Input, Inventory, SaveData, World } from '../types'
+import type { AreaIntro, GameEvent, GameState, Input, Inventory, SaveData, TrackId, World } from '../types'
 import { HERO_R, NO_INPUT, SAVE_VERSION, SCROLL_TIME, START_HP, STEP, WARP_TIME } from '../types'
 import { ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
 import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
-import { cellDef, cellIndex, cellRect, has, loadMap, mapInfo } from './map'
+import { cellDef, cellIndex, cellRect, condMet, has, loadMap, mapInfo } from './map'
 import { stepObjects } from './objects'
 import { resetEnemy } from './spawn'
 import { dirVec } from './util'
@@ -20,10 +20,19 @@ function freshInv(): Inventory {
   return { sword: false, bombBag: false, bombs: 0, disc: false, bits: 0, keys: 0, bigKey: false, pieces: 0, selected: null, prism: false }
 }
 
-export function createGame(world: World, opts: { seed?: number; save?: SaveData | null; demo?: boolean } = {}): GameState {
+/**
+ * A new game, or a save continued. `at` puts the hero at that entry instead
+ * of the save's continue point (the town's start, or in front of the cabinet
+ * they left by); an `at` the world does not have is ignored.
+ */
+export function createGame(
+  world: World,
+  opts: { seed?: number; save?: SaveData | null; demo?: boolean; at?: { map: string; entry: string } | null } = {},
+): GameState {
   const save = opts.save && validSave(world, opts.save) ? opts.save : null
-  const map = save ? save.map : world.start.map
-  const entry = save ? save.entry : world.start.entry
+  const at = opts.at && hasEntry(world, opts.at.map, opts.at.entry) ? opts.at : null
+  const map = at ? at.map : save ? save.map : world.start.map
+  const entry = at ? at.entry : save ? save.entry : world.start.entry
   const s: GameState = {
     mode: 'play',
     map: null as unknown as GameState['map'],
@@ -54,7 +63,7 @@ export function createGame(world: World, opts: { seed?: number; save?: SaveData 
   const ev: GameEvent[] = []
   enterMap(world, s, map, entry, ev)
   // A new game's intro waits until the hero has stepped out of the start door.
-  if (!save && !s.demo && world.intro) {
+  if (!save && !at && !s.demo && world.intro) {
     if (s.hero.auto) s.hero.auto.intro = true
     else openDialog(ctx(world, s, ev), world.intro.lines, world.intro.who ?? null)
   }
@@ -96,13 +105,13 @@ function setZone(world: World, s: GameState, index: number) {
   s.zone = info.def.kind === 'dungeon' ? cellRect(info, index) : { x: 0, y: 0, w: info.w, h: info.h }
 }
 
-function areaAt(world: World, s: GameState): { name: string; track: import('../types').TrackId; entry?: string } {
+function areaAt(world: World, s: GameState): { name: string; track: TrackId; entry?: string; intro?: AreaIntro } {
   const info = mapInfo(world, s.map.id)
   const def = info.def
   if (def.areas) {
     const h = s.hero
     for (const a of def.areas) {
-      if (h.x >= a.x && h.x < a.x + a.w && h.y >= a.y && h.y < a.y + a.h) return { name: a.name, track: a.track ?? def.track, entry: a.entry }
+      if (h.x >= a.x && h.x < a.x + a.w && h.y >= a.y && h.y < a.y + a.h) return { name: a.name, track: a.track ?? def.track, entry: a.entry, intro: a.intro }
     }
   }
   const cd = def.kind === 'dungeon' ? cellDef(info, s.zoneIndex) : undefined
@@ -178,7 +187,8 @@ function substep(world: World, s: GameState, dt: number, inp: Input, ev: GameEve
 function play(c: Ctx, dt: number, inp: Input) {
   const s = c.s
   if (!s.demo) {
-    s.elapsed += dt
+    // The quest clock starts with the blade: strolling round the town is free.
+    if (s.inv.sword) s.elapsed += dt
     stepHero(c, inp, dt)
   }
   if (s.mode !== 'play') return
@@ -228,6 +238,10 @@ function play(c: Ctx, dt: number, inp: Input) {
       s.area = a.name
       if (a.entry) s.entry = { map: s.map.id, entry: a.entry }
       c.ev.push({ type: 'area', name: a.name, track: a.track })
+      if (a.intro && !has(s, a.intro.flag) && condMet(s, c.w, a.intro.when, -1)) {
+        s.flags[a.intro.flag] = true
+        openDialog(c, a.intro.lines, a.intro.who ?? null)
+      }
     }
   }
 }
@@ -355,9 +369,14 @@ export function toSave(s: GameState): SaveData | null {
 }
 
 function validSave(world: World, v: SaveData): boolean {
-  const m = world.maps[v.map]
-  if (!m) return false
-  try { return !!mapInfo(world, v.map).entries[v.entry] } catch { return false }
+  return hasEntry(world, v.map, v.entry)
+}
+
+/** True when `map` is in the world and has an entry `entry` (placed, listed, or beside an exit). */
+export function hasEntry(world: World, map: unknown, entry: unknown): boolean {
+  if (typeof map !== 'string' || typeof entry !== 'string') return false
+  if (!Object.prototype.hasOwnProperty.call(world.maps, map)) return false
+  try { return Object.prototype.hasOwnProperty.call(mapInfo(world, map).entries, entry) } catch { return false }
 }
 
 export function parseSave(raw: unknown): SaveData | null {

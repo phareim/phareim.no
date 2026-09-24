@@ -174,6 +174,6 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
   const lines = wrapText(objective(s), w - 16)
   drawText(g, 'QUEST', x + 8, y + 62, '#ffd23f')
   lines.slice(0, 4).forEach((l, i) => drawText(g, l, x + 8, y + 74 + i * 10, '#fff4ff'))
-  const hint = keys.a === 'A' ? 'TAP RESUME' : 'P RESUME   R START OVER'
+  const hint = keys.a === 'A' ? 'TAP RESUME' : 'P RESUME   R START OVER   T TOWN'
   drawText(g, hint, Math.round((vw - textWidth(hint)) / 2), y + 126, '#b9a8d9')
 }

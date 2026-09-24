@@ -1,11 +1,5 @@
 import { allThemes, homeTheme, isAnyThemeId, resolveThemeId, type ThemeDefinition } from '~/themes'
 
-/** Set by `launch()`, read (and cleared) by the theme it launched. */
-export interface PortalLaunch {
-  theme: string
-  at: number
-}
-
 /**
  * Theme state. The URL is the only source (2026-09-24):
  *   - `/` is the portal, the home theme
@@ -37,8 +31,6 @@ export const useTheme = () => {
   const navigationCoolingDown = useState<boolean>('themeNavigationCoolingDown', () => false)
   const navigationBlocked = computed(() => navigationLocked.value || navigationCoolingDown.value)
 
-  const portalLaunch = useState<PortalLaunch | null>('portalLaunch', () => null)
-
   const theme = computed<ThemeDefinition>(
     () => allThemes.find(t => t.id === activeTheme.value) ?? homeTheme
   )
@@ -56,7 +48,6 @@ export const useTheme = () => {
   /** From the portal into a theme. Ignores the lock; the back button returns. */
   const launch = (id: string) => {
     if (!isAnyThemeId(id) || id === homeTheme.id) return
-    portalLaunch.value = { theme: id, at: Date.now() }
     router.push({ path: '/', query: { theme: id } })
   }
 
@@ -78,7 +69,6 @@ export const useTheme = () => {
     navigationLocked,
     navigationCoolingDown,
     navigationBlocked,
-    portalLaunch,
     launch,
     goHome,
   }

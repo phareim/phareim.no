@@ -1,14 +1,15 @@
-/** The whole world: every map, and where a new game starts. */
-import type { World } from '../types'
+/**
+ * The one world: the town (phareim.no's front door) and Neon Shrine's coast,
+ * shrine and rooms. A visitor starts in the town square facing Petter's name.
+ */
+import type { ExitDef, World } from '../types'
+import { hasEntry } from '../engine/game'
 import { OVERWORLD } from './overworld'
 import { SHRINE } from './shrine'
-import { HUT, SHOP, ARCADE, CAVE } from './interiors'
+import { HUT, SHOP, CAVE } from './interiors'
+import { ARCADE, HOME } from './town'
 
-/** Opens a new game once the hero has stepped out of the hut. */
-export const INTRO = [
-  'KEEPER: THE SUN HAS HUNG ON THE HORIZON FOR THREE NIGHTS. THE STATIC KING TOOK THE SUN PRISM INTO THE OLD NEON SHRINE.',
-  'OPEN THAT CHEST, KID. THE BLADE INSIDE IS YOURS NOW.',
-]
+export { INTRO } from './intro'
 
 export const WORLD: World = {
   maps: {
@@ -16,9 +17,27 @@ export const WORLD: World = {
     shrine: SHRINE,
     hut: HUT,
     shop: SHOP,
-    arcade: ARCADE,
     cave: CAVE,
+    arcade: ARCADE,
+    home: HOME,
   },
-  start: { map: 'overworld', entry: 'hut' },
-  intro: { lines: INTRO, who: 'keeper' },
+  start: { map: 'overworld', entry: 'start' },
+}
+
+/** Every exit in the world with the map it stands in, in authoring order (the page's hidden link list reads it). */
+export function worldExits(world: World = WORLD): Array<ExitDef & { map: string }> {
+  const out: Array<ExitDef & { map: string }> = []
+  for (const [map, def] of Object.entries(world.maps)) {
+    for (const m of Object.values(def.marks)) if (m.ent.t === 'exit') out.push({ ...m.ent, map })
+  }
+  return out
+}
+
+/**
+ * A copy of the world that starts at `entry` in `map` — coming back from a
+ * cabinet or door — or null when that spot is not in the world (an old or
+ * tampered `portal.return`). Exits register an entry under their own id.
+ */
+export function worldStartingAt(map: unknown, entry: unknown, world: World = WORLD): World | null {
+  return hasEntry(world, map, entry) ? { ...world, start: { map: map as string, entry: entry as string } } : null
 }

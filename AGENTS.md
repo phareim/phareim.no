@@ -2,14 +2,17 @@
 
 Personal site, Nuxt 3 on Cloudflare Pages. `/` is the **Portal**, a small
 neon town you walk around in, whose buildings lead to everything else; each
-game is a **theme** at `/?theme=<id>`, reached from its cabinet. The theme system and how to
+game is a **theme** at `/?theme=<id>`, reached from its cabinet. The town is
+the west end of Neon Shrine's world: the coast road east leads into the
+adventure (one world since 2026-09-24). The theme system and how to
 add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 (use it). The portal itself: `docs/games/portal.md`.
 
 ## Commands
 
 - `npm run dev` — dev server on port 3030 (host 0.0.0.0)
-- `npm run test:portal` — the Portal's world data: maps, exits, every cabinet and link
+- `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link, the coast road to the Keeper
+- `npm run test:zelda` — Neon Shrine: the first minute from the town, exits, saves, a full scripted run to the Sun Prism
 - `npm run test:eschold` — the shared Escape tap/hold state machine
 - `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); CI runs these before typecheck
 - `npm run test:leaderboard` — Hall of Fame name generator/validator and game list (2026-09-08)
@@ -55,8 +58,9 @@ themes/              — see the phareim-theme skill
   content.ts         — default landing copy (DefaultLanding)
   base/              — DefaultLanding shell, SocialLink, EscHold (shared Escape tap/hold), fonts.css + fonts.ts (site fonts, 2026-09-06), neonHorizon.js (the shared synthwave backdrop: sky, stars, striped sun, ridge, grid, heartbeat, wave-clear flare — used by Breakout, Invaders and Tetris since 2026-09-06; Star Fox draws its own in three.js)
   _template/         — starting point for a new theme
-  portal/            — the home theme on `/`: world data and Vue shell over Neon Shrine's engine
-  anotherworld/ shore/ scandi/ galaga/ breakout/ rtype/ invaders/ starfox/ outrun/ zelda/ tetris/ leaderboard/ hangar/ ships/ radio/ space/ desk/
+  portal/            — the home theme on `/`: the page (hint, hidden link index, ending panel) around the world shell
+  zelda/             — the one world: engine, world data (town + Neon Shrine), renderer, audio, and the shell `Zelda.vue`
+  anotherworld/ shore/ scandi/ galaga/ breakout/ rtype/ invaders/ starfox/ outrun/ tetris/ leaderboard/ hangar/ ships/ radio/ space/ desk/
 ```
 
 There is no menu and no page route but `/`. The only server code is the
@@ -67,9 +71,9 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 
 ## Theme System (short version — the skill has the rest)
 
-- Sixteen themes in `themes/index.ts` (verified 2026-09-24): the portal (`home: true`), eleven live and four parked. Live: Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Neon Shrine, Tetris, Hall of Fame, Hangar. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
+- Fifteen themes in `themes/index.ts` (verified 2026-09-24): the portal (`home: true`), ten live and four parked. Live: Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Tetris, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
 - **Nothing scrolls**: `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, and every landing is locked to the viewport.
-- The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal), an unknown id shows the portal. No cookie, no random pick.
+- The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal, `zelda` → portal), an unknown id shows the portal. No cookie, no random pick.
 - No way from one game straight to another (2026-09-24: arrows, swipes, chevrons and dots removed on Petter's wish). You walk out to the portal and into the next cabinet.
 - History: the portal's `launch(id)` pushes and the home chip / Escape (`goHome()`) steps back to it, so the back button walks between portal and game; both ignore the navigation lock.
 - Each `themes/<id>/theme.css` defines the `--theme-*` contract on `.{id}-page` (ten tokens, listed in the skill). Pages read `var(--theme-*, fallback)` and never hardcode colours or branch on `prefers-color-scheme` — dark mode is each theme's own business.
@@ -99,7 +103,8 @@ Every game theme shares one Escape contract: a quick tap pauses or resumes
 the run, holding Escape for 3 seconds cancels the run into game over (the
 score games show their GAME OVER screen; Another Shore returns to its title with progress kept, Another Shore II to idle;
 Tetris shows its GAME OVER overlay, where a further Esc tap dismisses to
-idle). `P` pauses too, everywhere. Idle attract mode leaves Escape to the
+idle; the portal's world saves and puts you back in town, its pill reads
+HOLD ESC FOR TOWN). `P` pauses too, everywhere. Idle attract mode leaves Escape to the
 shell, which goes back to the portal (see Keyboard).
 
 Implementation: `themes/base/escHold.ts` holds the framework-free
@@ -135,14 +140,14 @@ contract with each game's `audio.ts`: `docs/games/global-radio.md`.
 
 | Game / feature | Docs | Code |
 |---|---|---|
-| Portal (home, on `/`) | `docs/games/portal.md` | `themes/portal/` |
+| Portal (home, on `/`) | `docs/games/portal.md` | `themes/portal/`, `themes/zelda/world/` |
 | Another Shore | `docs/games/another-shore.md` | `themes/anotherworld/` |
 | Another Shore II | `docs/games/another-shore-ii.md` | `themes/shore/` (parked) |
 | Mountain depth & steering (shared backdrop) | `docs/games/mountain-depth.md` | `themes/base/mountainTerrain.js`, `themes/base/neonHorizon.js` |
 | Space Invaders | `docs/games/space-invaders.md` | `themes/invaders/` |
 | Star Fox | `docs/games/star-fox.md` | `themes/starfox/` |
 | OutRun | `docs/games/outrun.md` | `themes/outrun/` |
-| Neon Shrine | `docs/games/neon-shrine.md` | `themes/zelda/` |
+| Neon Shrine (the portal's world) | `docs/games/neon-shrine.md` | `themes/zelda/` |
 | Hall of Fame | `docs/games/hall-of-fame.md` | `themes/leaderboard/`, `server/api/` |
 | Galaga | `docs/games/galaga.md` | `themes/galaga/` |
 | Global radio | `docs/games/global-radio.md` | `themes/radio/`, `components/RadioWidget.vue` |

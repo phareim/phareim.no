@@ -1,11 +1,23 @@
 /**
- * The overworld: one 64×48 map the camera scrolls over freely. Six areas —
- * Whisper Woods (NW), Night Market (N), Hollow Graves (NE, the Shrine's
- * door), Home Glade (SW, the start: a new game steps out of the Keeper's hut
- * door), the Crossroads and Mirror Lake (SE).
+ * The overworld: one 104×48 map the camera scrolls over freely. The town
+ * (PHAREIM.NO, phareim.no's front door) fills the west 40 columns: Petter's
+ * house with his name on the roof, the arcade, the fountain, the coast with
+ * the PHAREIM.MD newsstand and the pier. The coast road runs east along the
+ * water into Home Glade and round to the Keeper's hut, where the quest begins.
+ * East of that the old Neon Coast: Whisper Woods (NW), Night Market (N),
+ * Hollow Graves (NE, the Shrine's door), Home Glade (SW), the Crossroads and
+ * Mirror Lake (SE).
+ *
+ * The start stands just below Petter's door, so the name and two buildings
+ * are in view on a phone (≈15×28 tiles) and on a desktop (≈18×11).
+ * tests/portal-world.test.mjs checks both. The town has no enemies.
  * Tile legend: types.ts. Marker chars are listed in `marks` below.
  */
 import type { MapDef } from '../types'
+import { INTRO } from './intro'
+
+/** The town is the first 40 columns; everything east of it is the old overworld, shifted by this much. */
+export const TOWN_W = 40
 
 export const OVERWORLD: MapDef = {
   id: 'overworld',
@@ -13,76 +25,129 @@ export const OVERWORLD: MapDef = {
   kind: 'overworld',
   track: 'overworld',
   rows: [
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTT####################################',
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTT#T:..................:T######II#####',
-    'TTT:..;;:TTTTTTTTTTTTTT.:.TT#..HHHHHHH....HHHHHH...#####IVVI####',
-    'TT..:....TTTTTTTTTTTTTT.5.TT#..HHHHHHH....HHHHHH...#####IW.I####',
-    'TT:..4...:.....;;..TTTT...TT#t.HHHMHHH..t.HHHMHH.t.######RR#####',
-    'TT..:...:.TTTTT;;;..TTTTRTTT#..HHHBHHH....HHHNHH...##T:......:T#',
-    'TTT:..a..TTTTTTT;;..TTTT.TTT#.....E....:.....U.....##.G..G..G..#',
-    'TTTT....TTT;;TTTT...TTT;.;TT#.t,,,,,,,,,,,,,,,,,,t.##.....z....#',
-    'TTTTT..TTT;;;;TT..a..TT...TT#..,:,,,,,,,,,,,,,,:,..##.G..G..G.g#',
-    'TTTT...TTTT;;TTT.....TT.;.TT#..,,,,,t~~~~t,,,,,,,..##..........#',
-    'TTT;..;..TTTTTTT..d.....;......,,,,,,~~~~,,,,y,,,..##.G..G..G..#',
-    'TTT;;...;TTTTTTTT.......;......,,,,,,~~~~,,,,,,,,..##:....z....#',
-    'TTTT;...;;TTTTTTTTTTT;;TTTTT#..,,,,,t~~~~t,,,,,,,..............#',
-    'TTTTT..;;;;TTTTTTTTT;;;;TTTT#..,:,,,,,,,,,,,,,,:,.......+......#',
-    'TTTTT...d..;TTTTTT;;*;;TTTTT#.t,,,,,,,k,,,,,,,,,,t.##.G..G..G..#',
-    'TTTTTT.....;;TTTT;;*;*;TTTTT#T..:....,,,,....:...T.##..........#',
-    'TTTTTTT..TTTT;;;;;;;*;TTTTTT#TT*....:,,,,:....*..TT##T.G..G..G.#',
-    'TTTTTT...TTTTTTTTTTTTTTTTTTT#TTT*...,,,,,,....*TTTT##T....z....#',
-    'TTTTTT...TTTTTTTTTTTTTTTTTTT#TTTT..&.,,,,,...TTTTTT##TT.......T#',
-    'TTTTTT..TTTTTTTTTTTTTTTTTTTT#TTTTTTTTTT,,TTTTTTTTTT##TT..*..*.T#',
-    'TTTTTT..TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT,,TTTTTTTTTTT#TTT.....TT#',
-    'TTTTT....TTTTTTTTTT:.:TTTTTTTTTTTT:....,,.....:...TT#TT;;..;;TT#',
-    'TTTT:..,..:TTTTTT*......*TTTTTTTT..j...,,......*...T#T;;;...;TT#',
-    'TTT....,.......................,,,,,,,,,,,..!......T#T;..q..;;T#',
-    'TT.....,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,..;.....;TT#',
-    'TT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
-    'TTo.HHHHHH.,..........;;;......TTT..*....,,..j...:TT#TTTTTTTTTT#',
-    'TTo.HHHHHH.,...t..e...;;;......TTTTTTTTTT,,TTTTTTTTT############',
-    'TT..HHHhHH.,.......:...........TTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTTT',
-    'TT..t.2.3..,.........*..*......TTT:.....,,...:.......:....TTTTTT',
-    'TT.?..1....,............e......TT.....,,,.......*...........:TTT',
-    'TT:..o.....,.......:...........TT...,,...~~~~~~~~~~~~~~~~~.....T',
-    'TT....,,,,,,.....;;;;.....*....TT..,,..~~~~~~~~~~~~~~~~~~~~~...T',
-    'TTT..,.................;;......TT..,..~~~~~~~~~~~~~~~~~~~~~~~..T',
-    'TTTT.,..:.....*.............:..TT..,.~~~~~~~~~~~~~~~~~~~~~~~~..T',
-    'TTT..,.....*..*..e.............TT..,.~~~~~~~~~...~~~~~~~~~~~~..T',
-    'TT...,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,===========.6.~~~~~~~~~~~..T',
-    'TT:...;;;.......:.......;;.....,,,,,.~~~~~~~~~...~~~~~~~~~~~~..T',
-    'TT...;;;;;..rrr.....*..........TT..,.~~~~~~~~~~~~~~~~~~~~~~~~..T',
-    'TT....;;;.rr.7.r....:.....e....TT../..~~~~~~~~~~~~~~~~~~~~~~~..T',
-    'TT........rr...r........*......TT..,,..~~~~~~~~~~~~~~~~~~~~~...T',
-    'TT.:.......rrrr..........;;;...TT...,,...~~~~~~~~~~~~~~~~~.....T',
-    'TT..~~~.............:...;;;;...TT.....,,,,,,,,,,,,,,,,,,,,,,...T',
-    'TT.~~~~~.....*.............:..TTT.:...e.......;;;......e...:...T',
-    'TT..~~~.....:.......*.......TTTTT....*..j.......;;;....tA......T',
-    'TTT......TT.....TT......TTTTTTTTT#######################%#######',
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT#######################Q#######',
-    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT################################',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT####################################',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT#T:..................:T######II#####',
+    'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT:..;;:TTTTTTTTTTTTTT.:.TT#..HHHHHHH.....:..:....#####IVVI####',
+    'TTTTTTTTTTTTTHHHHHHHHHHHHHHHTTTTTTTTTTTTTT..:....TTTTTTTTTTTTTT.5.TT#..HHHHHHH.....nn.nn...#####IW.I####',
+    'TTTT....:.T..HHHHHHHHHHHHHHH..T..:..TTTTTT:..4...:.....;;..TTTT...TT#t.HHHMHHH..t........t.######RR#####',
+    'TTT..::......HHHHHHHHHHHHHHH...:.....TTTTT..:...:.TTTTT;;;..TTTTRTTT#..HHHBHHH......:N.....##T:......:T#',
+    'TT.......:.t.HHHHHHHHHHHHHHH.t....:...TTTTT:..a..TTTTTTT;;..TTTT.TTT#.....E....:...........##.G..G..G..#',
+    'TT..:..:.....HHHHHHHpHHHHHHH....:..:..TTTTTT....TTT;;TTTT...TTT;.;TT#.t,,,,,,,,,,,,,,,,,,t.##.....z....#',
+    'TTTT........,,,,,,,,@,,,,,,,,.......TTTTTTTTT..TTT;;;;TT..a..TT...TT#..,:,,,,,,,,,,,,,,:,..##.G..G..G.g#',
+    'TTT..........::,,,,,,,,,,,::.........TTTTTTT...TTTT;;TTT.....TT.;.TT#..,,,,,t~~~~t,,,,,,,..##..........#',
+    'TT..HHHHHHHHH:,,,,,,,,,,,,,:.T...:..T.TTTTT;..;..TTTTTTT..d.....;......,,,,,,~~~~,,,,y,,,..##.G..G..G..#',
+    'TT..HHHHHHHHH,,,,,t~~~~t,,,t..:...T...TTTTT;;...;TTTTTTTT.......;......,,,,,,~~~~,,,,,,,,..##:....z....#',
+    'TT..HHHHHHHHH,,,,,,~~~~,,,,,T.....t.:.TTTTTT;...;;TTTTTTTTTTT;;TTTTT#..,,,,,t~~~~t,,,,,,,..............#',
+    'TT.tHHHHHHHHHt,,8,,~~~~,,,,,.:...T....TTTTTTT..;;;;TTTTTTTTT;;;;TTTT#..,:,,,,,,,,,,,,,,:,.......+......#',
+    'TT..HHHHUHHHH,,,,,t~~~~tu,,,,,,v..:...TTTTTTT...d..;TTTTTT;;*;;TTTTT#.t,,,,,,,k,,,,,,,,,,t.##.G..G..G..#',
+    'TT..,,,,,,,,,,,,,,,,,,,,,,,,.........TTTTTTTTT.....;;TTTT;;*;*;TTTTT#T..:....,,,,....:...T.##..........#',
+    'TTT..........,,,,,,,,,,,9,,,.........TTTTTTTTTT..TTTT;;;;;;;*;TTTTTT#TT*....:,,,,:....*..TT##T.G..G..G.#',
+    'TTTT.........:,,,,,,,,,,,,,:........TTTTTTTTTT...TTTTTTTTTTTTTTTTTTT#TTT*...,,,,,,....*TTTT##T....z....#',
+    'TT...........::,,,,,,,,,,,::..........TTTTTTTT...TTTTTTTTTTTTTTTTTTT#TTTT..&.,,,,,...TTTTTT##TT.......T#',
+    'TT...:T....t.......,,,.......t...:T...TTTTTTTT..TTTTTTTTTTTTTTTTTTTT#TTTTTTTTTT,,TTTTTTTTTT##TT..*..*.T#',
+    'TT.............::..,,,0.::............TTTTTTTT..TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT,,TTTTTTTTTTT#TTT.....TT#',
+    'TTTTTTTTTTTTTTTTTT.,,,.TTTTTTTTTTTTTTTTTTTTTT....TTTTTTTTTT:.:TTTTTTTTTTTT:....,,.....:...TT#TT;;..;;TT#',
+    'TT......T.....HHH..........T.......T..TTTTTT:..,..:TTTTTT*......*TTTTTTTT..j...,,......*...T#T;;;...;TT#',
+    'TT..T:......T.HHH::,,,:.;;.....T......TTTTT....,.......................,,,,,,,,,,,..!......T#T;..q..;;T#',
+    'TT.*..;;.:*...HHH..,,,.......*..;;:.*.TTTT.....,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,..;.....;TT#',
+    'TTT..........tnmnt.,,,..t.:s:.t......TTTTT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
+    'TT.:,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,HHHHHH.,..........;;;......TTT..*....,,..j...:TT#TTTTTTTTTT#',
+    'TT.:,,,,,,,,,,,,,,,,,,J,,,,,,,,,,,,,,,,,,,,,HHHHHH.,...t..e...;;;......TTTTTTTTTT,,TTTTTTTTT############',
+    'TT.T...............t,t..............T.TTTT,,HHHhHH.,.......:...........TTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTTT',
+    'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTT,,t.2.3..,.........*..*......TTT:.....,,...:.......:....TTTTTT',
+    'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTT,,,,1....,............e......TT.....,,,.......*...........:TTT',
+    'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTT:?.o.....,.......:...........TT...,,...~~~~~~~~~~~~~~~~~.....T',
+    'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTT....,,,,,,.....;;;;.....*....TT..,,..~~~~~~~~~~~~~~~~~~~~~...T',
+    'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTTT..,.................;;......TT..,..~~~~~~~~~~~~~~~~~~~~~~~..T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTTTT.,..:.....*.............:..TT..,.~~~~~~~~~~~~~~~~~~~~~~~~..T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTTT..,.....*..*..e.............TT..,.~~~~~~~~~...~~~~~~~~~~~~..T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT...,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,===========.6.~~~~~~~~~~~..T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT:...;;;.......:.......;;.....,,,,,.~~~~~~~~~...~~~~~~~~~~~~..T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT...;;;;;..rrr.....*..........TT..,.~~~~~~~~~~~~~~~~~~~~~~~~..T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT....;;;.rr.7.r....:.....e....TT../..~~~~~~~~~~~~~~~~~~~~~~~..T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT........rr...r........*......TT..,,..~~~~~~~~~~~~~~~~~~~~~...T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT.:.......rrrr..........;;;...TT...,,...~~~~~~~~~~~~~~~~~.....T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT..~~~.............:...;;;;...TT.....,,,,,,,,,,,,,,,,,,,,,,...T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT.~~~~~.....*.............:..TTT.:...e.......;;;......e...:...T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTT..~~~.....:.......*.......TTTTT....*..j.......;;;....tA......T',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTTT......TT.....TT......TTTTTTTTT#######################%#######',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT#######################Q#######',
+    'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT################################',
   ],
   areas: [
-    { name: 'WHISPER WOODS', x: 0, y: 0, w: 28, h: 20, entry: 'woods' },
-    { name: 'NIGHT MARKET', x: 28, y: 0, w: 24, h: 20, track: 'village', entry: 'market' },
-    { name: 'HOLLOW GRAVES', x: 52, y: 0, w: 12, h: 28, entry: 'graves' },
-    { name: 'HOME GLADE', x: 0, y: 20, w: 32, h: 28, entry: 'start' },
-    { name: 'THE CROSSROADS', x: 32, y: 20, w: 20, h: 8, entry: 'crossroads' },
-    { name: 'MIRROR LAKE', x: 32, y: 28, w: 32, h: 20, entry: 'lake' },
+    { name: 'PHAREIM.NO', x: 0, y: 0, w: 40, h: 48, track: 'village', entry: 'start' },
+    { name: 'WHISPER WOODS', x: 40, y: 0, w: 28, h: 20, entry: 'woods' },
+    { name: 'NIGHT MARKET', x: 68, y: 0, w: 24, h: 20, track: 'village', entry: 'market' },
+    { name: 'HOLLOW GRAVES', x: 92, y: 0, w: 12, h: 28, entry: 'graves' },
+    // Arriving without the blade, the Keeper calls you over and tells the story (once).
+    {
+      name: 'HOME GLADE', x: 40, y: 20, w: 32, h: 28, entry: 'glade',
+      intro: { lines: INTRO, who: 'keeper', flag: 'intro', when: { notFlag: 'item:sword' } },
+    },
+    { name: 'THE CROSSROADS', x: 72, y: 20, w: 20, h: 8, entry: 'crossroads' },
+    { name: 'MIRROR LAKE', x: 72, y: 28, w: 32, h: 20, entry: 'lake' },
+  ],
+  // The name on the roof of Petter's house, the arcade's marquee and the newsstand's sign.
+  decals: [
+    { x: 20.5, y: 3.15, text: 'PETTER HAREIM', scale: 3, align: 'center', color: '#2ff3ff' },
+    { x: 20.5, y: 4.75, text: 'PHAREIM.NO', scale: 2, align: 'center', color: '#ffd23f' },
+    { x: 8.5, y: 10.55, text: 'ARCADE', scale: 2, align: 'center', color: '#ff5fd0' },
+    { x: 15.5, y: 22.35, text: 'PHAREIM.MD', scale: 1, align: 'center', color: '#ffd23f' },
   ],
   // Continue points per area (death puts you back at the last one visited),
-  // and the Keeper's hut door, which a new game walks out of.
+  // the Keeper's hut door (stepping out of it), and where the town's doors put you back outside.
   entries: {
-    hut: { x: 7.5, y: 28.5, dir: 'down', out: true },
-    woods: { x: 7, y: 17.5, dir: 'up' },
-    market: { x: 40, y: 17.5, dir: 'up' },
-    graves: { x: 53.5, y: 12.5, dir: 'right' },
-    crossroads: { x: 40.5, y: 24.5, dir: 'right' },
-    lake: { x: 42, y: 29.5, dir: 'down' },
+    hut: { x: 47.5, y: 28.5, dir: 'down', out: true },
+    woods: { x: 47, y: 17.5, dir: 'up' },
+    market: { x: 80, y: 17.5, dir: 'up' },
+    graves: { x: 93.5, y: 12.5, dir: 'right' },
+    crossroads: { x: 80.5, y: 24.5, dir: 'right' },
+    lake: { x: 82, y: 29.5, dir: 'down' },
+    home: { x: 20.5, y: 8.5, dir: 'down' },
+    arcade: { x: 8.5, y: 15.5, dir: 'down' },
   },
   marks: {
-    // Home Glade
-    '1': { ent: { t: 'entry', id: 'start', dir: 'up' } },
+    // ---- The town ----
+    '@': { ent: { t: 'entry', id: 'start', dir: 'up' } },
+    p: { tile: 'D', ent: { t: 'warp', to: 'home', entry: 'door' } },
+    U: { tile: 'D', ent: { t: 'warp', to: 'arcade', entry: 'door' } },
+    m: {
+      tile: 'n',
+      ent: {
+        t: 'exit', id: 'kiosk', to: { url: 'https://phareim.md' }, look: 'kiosk', label: 'PHAREIM.MD', side: 'down',
+        lines: ["PHAREIM.MD: PETTER'S WRITING. ESSAYS, NOTES AND THINGS HE WORKED OUT THE LONG WAY.", 'TAKE A COPY? PRESS {A}.'],
+      },
+    },
+    s: {
+      tile: 'S',
+      ent: {
+        t: 'exit', id: 'games', to: { url: 'https://games.phareim.no' }, look: 'sign', label: 'GAMES.PHAREIM.NO', side: 'down',
+        lines: ['GAMES.PHAREIM.NO: MORE GAMES, ON A SITE OF THEIR OWN.', 'FOLLOW THE SIGN? PRESS {A}.'],
+      },
+    },
+    '8': {
+      ent: {
+        t: 'npc', id: 'townkid', look: 'kid', wander: true,
+        talk: [
+          {
+            when: { notFlag: 'item:sword' },
+            lines: [
+              'KID: NEW HERE? WALK UP TO ANYTHING THAT GLOWS AND PRESS {A}.',
+              "THE ARCADE IS WEST, ONE CABINET PER GAME. THE COAST ROAD, DOWN BY THE WATER, GOES EAST TO THE KEEPER'S HUT. THERE'S A JOB WAITING THERE.",
+              'PETTER LIVES RIGHT THERE, UNDER HIS NAME. HE LIKES VISITORS.',
+            ],
+          },
+          { lines: ['KID: IS THAT A REAL BLADE? DON\'T SWING IT AT THE CAT.', 'THE ARCADE IS WEST. PETTER LIVES UNDER HIS NAME.'] },
+        ],
+      },
+    },
+    '9': { ent: { t: 'npc', id: 'towncat', look: 'cat', wander: true, talk: [{ lines: ['MRRROW.', '(THE CAT WAS HERE FIRST.)'] }] } },
+    '0': { tile: 'S', ent: { t: 'sign', lines: ["↑ PETTER'S HOUSE   ← THE ARCADE   ↓ THE COAST ROAD AND THE KEEPER'S HUT"] } },
+    J: { tile: 'S', ent: { t: 'sign', lines: ['THE NEON COAST.   ← PHAREIM.MD   GAMES.PHAREIM.NO →', "FOLLOW THE ROAD EAST TO THE KEEPER'S HUT."] } },
+    u: { tile: 'S', ent: { t: 'sign', lines: ['THE FOUNTAIN. MAKE A WISH.', 'NO COINS, PLEASE. THOSE ARE FOR THE ARCADE.'] } },
+    v: { tile: 'S', ent: { t: 'sign', lines: ["THE KEEPER'S HUT: DOWN TO THE COAST, THEN EAST ALONG THE ROAD.", 'THE SUN WON\'T SET. THE KEEPER IS LOOKING FOR SOMEONE TO GO GET IT BACK.'] } },
+    // ---- Home Glade ----
+    '1': { ent: { t: 'entry', id: 'glade', dir: 'up' } },
     '2': { ent: { t: 'chest', id: 'ow.sword', item: 'sword' } },
     '3': {
       ent: {
@@ -111,17 +176,16 @@ export const OVERWORLD: MapDef = {
         ],
       },
     },
-    '?': { tile: 'S', ent: { t: 'sign', lines: ["KEEPER'S HUT.   ↑ WHISPER WOODS   → NIGHT MARKET"] } },
+    '?': { tile: 'S', ent: { t: 'sign', lines: ["KEEPER'S HUT.   ↑ WHISPER WOODS   → NIGHT MARKET   ← PHAREIM.NO"] } },
     'h': { tile: 'D', ent: { t: 'warp', to: 'hut', entry: 'door' } },
     '7': { ent: { t: 'chest', id: 'ow.rockring', item: 'bits20' } },
-    // Whisper Woods
+    // ---- Whisper Woods ----
     '4': { ent: { t: 'chest', id: 'ow.bombbag', item: 'bombBag' } },
     '5': { ent: { t: 'item', id: 'ow.piece.woods', item: 'heartPiece' } },
-    // Night Market
+    // ---- Night Market ----
     'B': { tile: 'D', ent: { t: 'warp', to: 'shop', entry: 'door' } },
-    'N': { tile: 'D', ent: { t: 'warp', to: 'arcade', entry: 'door' } },
     'E': { ent: { t: 'entry', id: 'shop', dir: 'down' } },
-    'U': { ent: { t: 'entry', id: 'arcade', dir: 'down' } },
+    'N': { tile: 'S', ent: { t: 'sign', lines: ['THE ARCADE MOVED TO TOWN: WEST, PAST THE KEEPER\'S HUT, ALONG THE COAST ROAD.', 'THE CABINETS WERE LONELY OUT HERE.'] } },
     'k': {
       ent: {
         t: 'npc', id: 'kid', look: 'kid', wander: true,
@@ -133,7 +197,7 @@ export const OVERWORLD: MapDef = {
     },
     'y': { ent: { t: 'npc', id: 'cat', look: 'cat', wander: true, talk: [{ lines: ['MRRROW.'] }] } },
     '&': { tile: 'S', ent: { t: 'sign', lines: ['NIGHT MARKET. OPEN ALL NIGHT.', '(IT IS ALWAYS NIGHT.)'] } },
-    // Hollow Graves
+    // ---- Hollow Graves ----
     'V': { tile: '>', ent: { t: 'warp', to: 'shrine', entry: 'start' } },
     'W': { ent: { t: 'entry', id: 'shrine', dir: 'down' } },
     'g': {
@@ -146,14 +210,14 @@ export const OVERWORLD: MapDef = {
       },
     },
     '+': { tile: 'S', ent: { t: 'sign', lines: ['HOLLOW GRAVES.   ↑ THE NEON SHRINE'] } },
-    // Crossroads
-    '!': { tile: 'S', ent: { t: 'sign', lines: ['↑ NIGHT MARKET   → HOLLOW GRAVES   ↓ MIRROR LAKE   ← HOME'] } },
-    // Mirror Lake
+    // ---- Crossroads ----
+    '!': { tile: 'S', ent: { t: 'sign', lines: ['↑ NIGHT MARKET   → HOLLOW GRAVES   ↓ MIRROR LAKE   ← HOME GLADE, PHAREIM.NO'] } },
+    // ---- Mirror Lake ----
     '6': { ent: { t: 'chest', id: 'ow.island', item: 'bits50' } },
     '/': { tile: 'S', ent: { t: 'sign', lines: ['MIRROR LAKE. THE SUN STILL SHINES IN IT.'] } },
     'A': { ent: { t: 'entry', id: 'cave', dir: 'down' } },
     'Q': { tile: 'D', ent: { t: 'warp', to: 'cave', entry: 'door' } },
-    // Enemies
+    // ---- Enemies (none in the town) ----
     'e': { ent: { t: 'enemy', kind: 'blob' } },
     'a': { ent: { t: 'enemy', kind: 'bat' } },
     'd': { ent: { t: 'enemy', kind: 'dasher' } },
