@@ -71,7 +71,7 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
   `defineAsyncComponent` inside `<ClientOnly>` so the three chunk only ships with that theme);
   `desk` skips the shell and lays a grained paper sheet (`.desk-sheet`,
   `.desk-stamp`, `.desk-rule` are global classes from its theme.css) on the
-  desk; `tetris` skips the shell and lays a profile column beside its Neon Dreams board; `leaderboard` (Hall of Fame, 2026-09-08) skips it and shows the D1-backed world ranking, one game at a time, up/down to change game — its data comes from `composables/useLeaderboard.ts` and `server/api/`, see `docs/games/hall-of-fame.md`; `playerone` skips it too and is the site's profile/contact card — the Neon Dreams horizon behind one blueprint panel, no game, no navigation lock (it moves the sun with `createHorizon({ sunX })`; the module's sun options are `sunX`, `sunY` and `sunJitter` — the disc is always clipped at the horizon line and both values wander a little per load). ResizeObserver fits the board to remaining space and landscape phones use a two-column layout; the profile column is gone since 2026-09-07. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
+  desk; `tetris` skips the shell and fills the page with its Neon Dreams board; `leaderboard` (Hall of Fame, 2026-09-08) skips it and shows the D1-backed world ranking, one game at a time, up/down to change game — its data comes from `composables/useLeaderboard.ts` and `server/api/`, see `docs/games/hall-of-fame.md`; `playerone` skips it too and is the site's profile/contact card — the Neon Dreams horizon behind one blueprint panel, no game, no navigation lock (it moves the sun with `createHorizon({ sunX })`; the module's sun options are `sunX`, `sunY` and `sunJitter` — the disc is always clipped at the horizon line and both values wander a little per load). ResizeObserver fits the board to remaining space and landscape phones use a two-column layout. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
   (`height: 100dvh; overflow: hidden`) and the page does not scroll —
   `html`, `body` and `#__nuxt` are locked in `app.vue`. The old `scrollable`
   registry flag is gone with the Almanac theme that needed it. Since
@@ -93,7 +93,7 @@ theme's private variables, never hardcoded colours. `.{id}-page` must set:
 --theme-font-body
 ```
 
-Rules that keep nine themes from fighting:
+Rules that keep the themes from fighting:
 - Private variables are namespaced (`--<id>-*`) and live on `:root`.
   `--theme-*` never goes on `:root`, only on `.{id}-page`. The two site-wide
   exceptions are `--font-person` / `--font-machine` from `base/fonts.css`;
@@ -104,8 +104,7 @@ Rules that keep nine themes from fighting:
 - Add a token only when a second theme needs it. Unused tokens were the
   main dead weight cleaned out in September 2026.
 - Theme-only styling on shared pages goes in that page as
-  `:global(.<id>-page) .selector` (see the galaga overrides at the bottom
-  of `pages/projects.vue` before it was deleted), not in `theme.css`.
+  `:global(.<id>-page) .selector`, not in `theme.css`.
 
 ## Navigation lock
 
