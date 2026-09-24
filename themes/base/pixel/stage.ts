@@ -138,7 +138,7 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
   let bloomC = makeCanvas(1, 1)
   let bg = bloomC.getContext('2d')!
   let vignetteC: HTMLCanvasElement | null = null
-  let scan: CanvasPattern | null = null
+  let scanTile: HTMLCanvasElement | null = null
   let W = 1
   let H = 1
   let scale = 1
@@ -200,14 +200,20 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
     const pg = p.getContext('2d')!
     pg.fillStyle = 'rgba(0,0,0,0.13)'
     pg.fillRect(0, 0, 1, Math.max(1, Math.floor(scale / 3)))
-    scan = screen.createPattern(p, 'repeat')
+    scanTile = p
     vignetteC = null
   }
 
+  // Scanlines and vignette are static: one overlay, built once per size, one blit a frame.
   function vignette() {
     if (!vignetteC) {
       vignetteC = makeCanvas(W, H)
       const g = vignetteC.getContext('2d')!
+      const scan = scanTile && scale >= 3 ? g.createPattern(scanTile, 'repeat') : null
+      if (scan) {
+        g.fillStyle = scan
+        g.fillRect(0, 0, W, H)
+      }
       const grad = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75)
       grad.addColorStop(0, 'rgba(5,3,12,0)')
       grad.addColorStop(1, 'rgba(5,3,12,0.45)')
@@ -325,10 +331,6 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
       screen.imageSmoothingEnabled = false
       screen.globalAlpha = 1
       screen.globalCompositeOperation = 'source-over'
-    }
-    if (scan && scale >= 3) {
-      screen.fillStyle = scan
-      screen.fillRect(0, 0, W, H)
     }
     vignette()
     const hx = Math.floor((W - hw * scale) / 2)
