@@ -384,7 +384,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .sh-shell {
   position: relative;
-  height: 100dvh;
+  height: var(--app-height, 100dvh);
   overflow: hidden;
   background: var(--shore-ground);
   color: var(--shore-ink);

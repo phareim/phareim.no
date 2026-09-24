@@ -2264,7 +2264,7 @@ onBeforeUnmount(() => {
   left: 0;
   width: 100vw;
   height: 100vh;
-  height: 100dvh;
+  height: var(--app-height, 100dvh);
   display: block;
   z-index: 1;
 }

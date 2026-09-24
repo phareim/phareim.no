@@ -86,7 +86,7 @@ composables/useThemeNavigation.ts  Escape → portal, 3 s grace after a game let
   `desk` skips the shell and lays a grained paper sheet (`.desk-sheet`,
   `.desk-stamp`, `.desk-rule` are global classes from its theme.css) on the
   desk; `tetris` skips the shell and fills the page with its Neon Dreams board; `leaderboard` (Hall of Fame, 2026-09-08) skips it and shows the D1-backed world ranking, one game at a time, up/down to change game — its data comes from `composables/useLeaderboard.ts` and `server/api/`, see `docs/games/hall-of-fame.md`; `portal` skips it and runs the one world, Neon Shrine's engine and shell (`docs/games/portal.md`). `createHorizon`'s sun options are `sunX`, `sunY` and `sunJitter` — the disc is always clipped at the horizon line and both values wander a little per load. In Tetris, ResizeObserver fits the board to remaining space and landscape phones use a two-column layout. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
-  (`height: 100dvh; overflow: hidden`) and the page does not scroll —
+  (`height: var(--app-height, 100dvh); overflow: hidden`) and the page does not scroll —
   `html`, `body` and `#__nuxt` are locked in `app.vue`. The old `scrollable`
   registry flag is gone with the Almanac theme that needed it. Since
   2026-09-07 `/` is the only route, so nothing scrolls anywhere and the

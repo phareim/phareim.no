@@ -697,7 +697,7 @@ onBeforeUnmount(() => {
   --as-gold: #ffd23f;
   --as-edge: rgba(47, 243, 255, 0.45);
   position: relative;
-  height: 100dvh;
+  height: var(--app-height, 100dvh);
   overflow: hidden;
   background: #0b0616;
   color: var(--as-ink);

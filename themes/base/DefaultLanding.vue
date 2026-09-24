@@ -39,7 +39,7 @@ const emit = defineEmits<{
   position: relative;
   width: 100vw;
   height: 100vh;
-  height: 100dvh;
+  height: var(--app-height, 100dvh);
   overflow: hidden;
   touch-action: none;
 }

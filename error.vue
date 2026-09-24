@@ -127,7 +127,7 @@ useHead({ title: '404 — phareim.no' })
 /* ---- Root ---- */
 .error-root {
   min-height: 100vh;
-  min-height: 100dvh;
+  min-height: var(--app-height, 100dvh);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -85,7 +85,7 @@ const contacts = urlExits.filter(e => e.look === 'terminal')
 .portal-landing {
   position: relative;
   width: 100%;
-  height: 100dvh;
+  height: var(--app-height, 100dvh);
   overflow: hidden;
 }
 
@@ -232,7 +232,7 @@ const contacts = urlExits.filter(e => e.look === 'terminal')
   top: 16px;
   left: 16px;
   max-width: min(360px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
+  max-height: calc(var(--app-height, 100dvh) - 32px);
   overflow: auto;
   padding: 16px 20px;
   background: var(--theme-card-bg);

@@ -28,9 +28,29 @@ useHead({
 /* The document never scrolls (2026-09-05): every landing is locked to the
    viewport. Since 2026-09-07 the site is landings only — the three content
    routes that needed an inner scroller are gone. */
+/* The screen height every landing fills. In an iOS home-screen app with the
+   black-translucent status bar, Safari starts the page under the status bar
+   but still sizes 100dvh (and 100%) as if it did not, so a status-bar-high
+   strip stays blank at the bottom; there it adds the top inset back. */
+:root {
+  --app-height: 100dvh;
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone), (display-mode: fullscreen) {
+    :root {
+      --app-height: calc(100dvh + env(safe-area-inset-top, 0px));
+    }
+  }
+}
+
+html {
+  background: #0b0616;
+}
+
 html,
 body {
-  height: 100%;
+  height: var(--app-height);
   overflow: hidden;
   overscroll-behavior: none;
   /* No double-tap zoom (Safari ignores user-scalable=no); pinch still works outside the games. */
@@ -43,7 +63,7 @@ body {
 }
 
 #__nuxt {
-  height: 100%;
+  height: var(--app-height);
   overflow: hidden;
 }
 
