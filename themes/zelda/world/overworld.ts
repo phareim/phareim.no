@@ -1,7 +1,8 @@
 /**
  * The overworld: one 64×48 map the camera scrolls over freely. Six areas —
  * Whisper Woods (NW), Night Market (N), Hollow Graves (NE, the Shrine's
- * door), Home Glade (SW, the start), the Crossroads and Mirror Lake (SE).
+ * door), Home Glade (SW, the start: a new game steps out of the Keeper's hut
+ * door), the Crossroads and Mirror Lake (SE).
  * Tile legend: types.ts. Marker chars are listed in `marks` below.
  */
 import type { MapDef } from '../types'
@@ -40,7 +41,7 @@ export const OVERWORLD: MapDef = {
     'TT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
     'TTo.HHHHHH.,..........;;;......TTT..*....,,..j...:TT#TTTTTTTTTT#',
     'TTo.HHHHHH.,...t..e...;;;......TTTTTTTTTT,,TTTTTTTTT############',
-    'TT..HHHHHH.,.......:...........TTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTTT',
+    'TT..HHHhHH.,.......:...........TTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTTT',
     'TT..t.2.3..,.........*..*......TTT:.....,,...:.......:....TTTTTT',
     'TT.?..1....,............e......TT.....,,,.......*...........:TTT',
     'TT:..o.....,.......:...........TT...,,...~~~~~~~~~~~~~~~~~.....T',
@@ -69,8 +70,10 @@ export const OVERWORLD: MapDef = {
     { name: 'THE CROSSROADS', x: 32, y: 20, w: 20, h: 8, entry: 'crossroads' },
     { name: 'MIRROR LAKE', x: 32, y: 28, w: 32, h: 20, entry: 'lake' },
   ],
-  // Continue points per area (death puts you back at the last one visited).
+  // Continue points per area (death puts you back at the last one visited),
+  // and the Keeper's hut door, which a new game walks out of.
   entries: {
+    hut: { x: 7.5, y: 28.5, dir: 'down', out: true },
     woods: { x: 7, y: 17.5, dir: 'up' },
     market: { x: 40, y: 17.5, dir: 'up' },
     graves: { x: 53.5, y: 12.5, dir: 'right' },
@@ -109,6 +112,7 @@ export const OVERWORLD: MapDef = {
       },
     },
     '?': { tile: 'S', ent: { t: 'sign', lines: ["KEEPER'S HUT.   ↑ WHISPER WOODS   → NIGHT MARKET"] } },
+    'h': { tile: 'D', ent: { t: 'warp', to: 'hut', entry: 'door' } },
     '7': { ent: { t: 'chest', id: 'ow.rockring', item: 'bits20' } },
     // Whisper Woods
     '4': { ent: { t: 'chest', id: 'ow.bombbag', item: 'bombBag' } },

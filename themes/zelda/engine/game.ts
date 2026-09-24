@@ -3,21 +3,18 @@
  * deterministic — all gameplay randomness goes through state.rng.
  *
  * Modes: play → scroll (dungeon room change) / warp (door fade) / dialog /
- * get (item held up, then its text) / dying → respawn; won is terminal.
+ * get (item held up, then its text) / dying → respawn; won and exit (the
+ * hero left through an exit, the shell navigates) are terminal.
  */
 import type { GameEvent, GameState, Input, Inventory, SaveData, World } from '../types'
 import { HERO_R, NO_INPUT, SAVE_VERSION, SCROLL_TIME, START_HP, STEP, WARP_TIME } from '../types'
 import { ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
-import { openDialog, stepHero } from './hero'
+import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
 import { cellDef, cellIndex, cellRect, has, loadMap, mapInfo } from './map'
 import { stepObjects } from './objects'
 import { resetEnemy } from './spawn'
-
-export const INTRO = [
-  'KEEPER: THE SUN HAS HUNG ON THE HORIZON FOR THREE NIGHTS. THE STATIC KING TOOK THE SUN PRISM INTO THE OLD NEON SHRINE.',
-  'OPEN THAT CHEST, KID. THE BLADE INSIDE IS YOURS NOW.',
-]
+import { dirVec } from './util'
 
 function freshInv(): Inventory {
   return { sword: false, bombBag: false, bombs: 0, disc: false, bits: 0, keys: 0, bigKey: false, pieces: 0, selected: null, prism: false }
@@ -56,12 +53,16 @@ export function createGame(world: World, opts: { seed?: number; save?: SaveData 
   if (save) for (const f of save.flags) s.flags[f] = true
   const ev: GameEvent[] = []
   enterMap(world, s, map, entry, ev)
-  if (!save && !s.demo) openDialog(ctx(world, s, ev), INTRO, 'keeper')
-  if (s.demo) { s.hero.x = -50; s.hero.y = -50 }
+  // A new game's intro waits until the hero has stepped out of the start door.
+  if (!save && !s.demo && world.intro) {
+    if (s.hero.auto) s.hero.auto.intro = true
+    else openDialog(ctx(world, s, ev), world.intro.lines, world.intro.who ?? null)
+  }
+  if (s.demo) { s.hero.x = -50; s.hero.y = -50; s.hero.auto = null }
   return s
 }
 
-/** Put the hero on a map at an entry; resets per-visit things. */
+/** Put the hero on a map at an entry; resets per-visit things. An `out` entry starts the walk out of its door. */
 export function enterMap(world: World, s: GameState, mapId: string, entryId: string, ev: GameEvent[]) {
   const info = mapInfo(world, mapId)
   s.map = loadMap(world, s, mapId)
@@ -77,6 +78,10 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   h.knock = null
   h.carry = null
   h.act = 'idle'
+  if (spot.out) {
+    const v = dirVec(spot.dir)
+    h.auto = { dir: spot.dir, t: WALK_OUT_TIME + 0.1, x: spot.x + v.x, y: spot.y + v.y }
+  } else h.auto = null
   s.disc = null
   s.entry = { map: mapId, entry: entryId }
   setZone(world, s, cellIndex(info, h.x, h.y))
@@ -166,7 +171,7 @@ function substep(world: World, s: GameState, dt: number, inp: Input, ev: GameEve
     case 'dialog': return dialog(c, dt, inp)
     case 'get': return getItem(c, dt, inp)
     case 'dying': return dying(c, dt)
-    case 'won': return
+    case 'won': case 'exit': return
   }
 }
 
@@ -181,6 +186,11 @@ function play(c: Ctx, dt: number, inp: Input) {
   stepObjects(c, dt)
   if (s.mode !== 'play' || s.demo) return
   const h = s.hero
+  // Still stepping out of a door (standing on its warp).
+  if (h.auto) return
+  // Walk-on exits leave the game.
+  const exit = c.info.exits.get(Math.floor(h.y) * c.info.w + Math.floor(h.x))
+  if (exit?.walk) { beginExit(c, exit); return }
   // Warps
   for (const w of c.info.warps) {
     if (h.x >= w.x && h.x < w.x + w.w && h.y >= w.y && h.y < w.y + w.h) {
@@ -245,6 +255,14 @@ function warp(c: Ctx, dt: number) {
   const s = c.s
   const w = s.warp!
   w.t += dt
+  if (w.exit && w.t >= WARP_TIME) {
+    // Full dark: hold it there and hand over to the shell.
+    w.t = WARP_TIME
+    s.mode = 'exit'
+    s.hero.act = 'idle'
+    c.ev.push({ type: 'exit', id: w.exit.id, to: w.exit.to })
+    return
+  }
   if (!w.swapped && w.t >= WARP_TIME) {
     w.swapped = true
     enterMap(c.w, s, w.to, w.entry, c.ev)
@@ -276,6 +294,7 @@ function dialog(c: Ctx, dt: number, inp: Input) {
   s.mode = 'play'
   if (d.after) {
     for (const f of d.after.set ?? []) s.flags[f] = true
+    if (d.after.exit) { beginExit(c, d.after.exit); return }
   }
   if (s.get) {
     const item = s.get.item

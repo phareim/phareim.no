@@ -1,11 +1,11 @@
 <template>
   <DefaultLanding>
     <template #background>
-      <Zelda @phase="onPhase" @result="onResult" />
+      <Zelda ref="game" @phase="onPhase" @result="onResult" />
     </template>
 
     <template #body>
-      <div v-if="phase === 'attract'" class="zelda-title">
+      <div v-if="phase === 'attract' && !launching" class="zelda-title">
         <div class="zelda-sun" aria-hidden="true" />
         <p class="zelda-kicker">A NEON COAST ADVENTURE</p>
         <h1 class="zelda-logo"><span class="zelda-logo-neon">NEON</span><span class="zelda-logo-shrine">SHRINE</span></h1>
@@ -46,12 +46,15 @@ import { parseSave } from './engine/index'
 import { QUEST_STEPS, formatPlayTime, reconcile, summarizeSave, type QuestSummary } from './progress'
 import { readLocalSave, writeLocalSave, clearLocalSave, localSavedAt, readLocalBest, writeLocalBest } from './localSave'
 
-const { navigationLocked } = useTheme()
+const { navigationLocked, portalLaunch } = useTheme()
 const { hint, inputMode } = useInputMode()
 const { player } = useLeaderboard()
 const profileSave = useGameSave('zelda')
 
+const game = ref<InstanceType<typeof Zelda> | null>(null)
 const phase = ref<'attract' | 'play' | 'over' | 'won'>('attract')
+/** Entered from the portal's hut: the title stays hidden while the profile save syncs, then the run starts. */
+const launching = ref(false)
 const result = ref<{ reason: 'quit' | 'won'; elapsed: number; best: number | null } | null>(null)
 const hasSave = ref(false)
 const bestTime = ref<number | null>(null)
@@ -106,9 +109,28 @@ function newGame() {
   refresh()
 }
 
-onMounted(() => {
+/** How long a portal launch counts as "just now", and how long the profile sync may hold the start. */
+const LAUNCH_FRESH_MS = 10_000
+const LAUNCH_SYNC_MS = 1500
+
+/** True (once) when the portal's hut door just sent the visitor here. */
+function takePortalLaunch(): boolean {
+  const l = portalLaunch.value
+  if (!l || l.theme !== 'zelda') return false
+  portalLaunch.value = null
+  return Date.now() - l.at < LAUNCH_FRESH_MS
+}
+
+onMounted(async () => {
   refresh()
-  void syncWithProfile()
+  const fromPortal = takePortalLaunch()
+  if (fromPortal) launching.value = true
+  const sync = syncWithProfile()
+  if (!fromPortal) return
+  // Start on the newest save: wait (briefly) for the profile copy first.
+  await Promise.race([sync.catch(() => {}), new Promise(r => setTimeout(r, LAUNCH_SYNC_MS))])
+  launching.value = false
+  game.value?.start()
 })
 
 onBeforeUnmount(() => {

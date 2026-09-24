@@ -1,6 +1,8 @@
-// Neon Shrine engine tests: world checks, the first minute, saves, combat
-// rules, puzzles, and a full scripted run from the Keeper's hut to the Sun
-// Prism with a path-finding walker (god mode on, bosses killed directly).
+// Neon Shrine engine tests: world checks, the first minute (out of the hut
+// door, the intro, the blade), the hut and its way home, exits and peaceful
+// worlds on a small fixture, saves, and a full scripted run from the
+// Keeper's hut to the Sun Prism with a path-finding walker (god mode on,
+// bosses killed directly).
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { load } from './zelda-load.mjs'
@@ -13,7 +15,8 @@ const step = (s, i = inp(), dt = 1 / 60) => Z.stepGame(Z.WORLD, s, dt, i)
 
 function newGame(seed = 5) {
   const s = Z.createGame(Z.WORLD, { seed })
-  // Skip the intro.
+  // Let the hero step out of the hut, then skip the intro.
+  for (let k = 0; k < 120 && s.mode !== 'dialog'; k++) step(s)
   while (s.mode === 'dialog') { step(s, inp(), 0.5); step(s, inp({ aPress: true, a: true })) }
   return s
 }
@@ -96,15 +99,41 @@ describe('world', () => {
 })
 
 describe('the first minute', () => {
-  it('opens with the Keeper and has the blade one step away', () => {
+  it('steps out of the hut door, then the Keeper speaks, with the blade beside you', () => {
     const s = Z.createGame(Z.WORLD, { seed: 1 })
+    // On the door, walking out on its own: input waits.
+    assert.equal(s.mode, 'play')
+    assert.equal(s.map.id, 'overworld')
+    assert.deepEqual([s.hero.x, s.hero.y, s.hero.dir], [7.5, 28.5, 'down'])
+    assert.ok(s.hero.auto)
+    step(s, inp({ move: { x: 1, y: 0 } }))
+    assert.equal(s.hero.act, 'walk')
+    let frames = 1
+    while (s.mode === 'play' && frames < 120) { step(s, inp({ move: { x: 1, y: 0 } })); frames++ }
+    const t = frames / 60
+    assert.ok(t >= 0.18 && t <= 0.3, `walk-out took ${t.toFixed(2)} s`)
+    // One tile out, not pushed sideways, still on the overworld, and the intro is up.
+    assert.equal(s.map.id, 'overworld')
+    assert.ok(Math.abs(s.hero.x - 7.5) < 1e-6 && Math.abs(s.hero.y - 29.5) < 1e-6, `at ${s.hero.x},${s.hero.y}`)
+    assert.equal(s.hero.auto, null)
     assert.equal(s.mode, 'dialog')
+    assert.equal(s.dialog.who, 'keeper')
+    assert.match(s.dialog.lines[0], /^KEEPER: /)
     settle(s)
     assert.equal(s.mode, 'play')
-    face(s, 'up')
-    step(s, inp({ move: { x: 0, y: -1 } }))
+    // The chest is right there on the left.
+    face(s, 'left')
     pressA(s)
     assert.equal(s.inv.sword, true)
+  })
+
+  it('continues a save on the hut door without the intro', () => {
+    const save = Z.toSave(newGame())
+    assert.equal(save.entry, 'hut')
+    const s = Z.createGame(Z.WORLD, { save: Z.parseSave(JSON.parse(JSON.stringify(save))) })
+    for (let k = 0; k < 60; k++) step(s)
+    assert.equal(s.mode, 'play')
+    assert.equal(s.hero.y, 29.5)
   })
 
   it('swings, cuts a bush and spins', () => {
@@ -141,6 +170,207 @@ describe('the first minute', () => {
     for (let k = 0; k < 60; k++) ev.push(...step(s))
     assert.ok(ev.some(e => e.type === 'shatter'))
     assert.equal(s.hero.carry, null)
+  })
+})
+
+describe("the Keeper's hut", () => {
+  it('opens onto the hut, whose back door leads home', () => {
+    const s = newGame()
+    walkTo(s, 7, 28)
+    for (let k = 0; k < 80 && s.mode !== 'play'; k++) step(s)
+    assert.equal(s.map.id, 'hut')
+    assert.equal(s.area, "KEEPER'S HUT")
+    const home = s.map.exits.find(e => e.id === 'home')
+    assert.deepEqual(home && { to: home.to, look: home.look, label: home.label, walk: home.walk }, { to: { home: true }, look: 'door', label: 'THE WAY HOME', walk: true })
+    assert.deepEqual(Z.mapInfo(Z.WORLD, 'hut').entries.home, { x: 6.5, y: 1.5, dir: 'down' })
+    // The sign by the back door says where it goes.
+    walkTo(s, 7, 2)
+    face(s, 'up')
+    step(s, inp({ aPress: true, a: true }))
+    assert.equal(s.mode, 'dialog')
+    assert.ok(s.dialog.lines.join(' ').includes('PHAREIM.NO'))
+    settle(s)
+    // Walk through the back door: fade, then the exit at full dark.
+    walkTo(s, 6, 1)
+    const ev = []
+    for (let k = 0; k < 120 && s.mode !== 'exit'; k++) ev.push(...step(s, inp({ move: { x: 0, y: -1 } })))
+    assert.equal(s.mode, 'exit')
+    assert.deepEqual(ev.filter(e => e.type === 'exit'), [{ type: 'exit', id: 'home', to: { home: true } }])
+    assert.ok(ev.some(e => e.type === 'warp'))
+    // Terminal: nothing moves, nothing more happens.
+    const at = [s.hero.x, s.hero.y]
+    const more = []
+    for (let k = 0; k < 120; k++) more.push(...step(s, inp({ move: { x: 0, y: 1 }, aPress: true, a: true })))
+    assert.deepEqual(more, [])
+    assert.deepEqual([s.hero.x, s.hero.y], at)
+    assert.equal(s.mode, 'exit')
+  })
+
+  it('leaving by the front door walks you out of the hut again', () => {
+    const s = newGame()
+    walkTo(s, 7, 28)
+    for (let k = 0; k < 80 && s.mode !== 'play'; k++) step(s)
+    assert.equal(s.map.id, 'hut')
+    walkTo(s, 6, 8)
+    for (let k = 0; k < 80 && s.mode !== 'play'; k++) step(s)
+    assert.equal(s.map.id, 'overworld')
+    for (let k = 0; k < 40; k++) step(s)
+    assert.equal(s.map.id, 'overworld', 'did not bounce back in')
+    assert.deepEqual([s.hero.x, s.hero.y, s.mode], [7.5, 29.5, 'play'])
+  })
+})
+
+// A small world with every kind of exit, spikes, a pit, a blob and a spitter.
+function fixture(peaceful) {
+  return {
+    peaceful,
+    start: { map: 'room', entry: 'start' },
+    maps: {
+      room: {
+        id: 'room', name: 'FIXTURE', kind: 'interior', track: 'indoor',
+        rows: [
+          '#####E######',
+          '#c.........#',
+          '#......x...#',
+          '#k....@....#',
+          '#......j...#',
+          '#...e....O.#',
+          '#..........#',
+          '############',
+        ],
+        marks: {
+          '@': { ent: { t: 'entry', id: 'start', dir: 'up' } },
+          c: { tile: 'M', ent: { t: 'exit', id: 'galaga', to: { theme: 'galaga' }, look: 'cabinet', art: 'galaga', label: 'GALAGA', lines: ['GALAGA. SHOOT THE SWARM.', 'INSERT COIN? PRESS A.'] } },
+          k: { tile: 'n', ent: { t: 'exit', id: 'md', to: { url: 'https://phareim.md' }, side: 'right' } },
+          E: { tile: 'D', ent: { t: 'exit', id: 'hangar', to: { theme: 'hangar' } } },
+          e: { ent: { t: 'enemy', kind: 'blob' } },
+          j: { ent: { t: 'enemy', kind: 'spitter' } },
+        },
+      },
+    },
+  }
+}
+
+/** Step until the game leaves, collecting events. */
+function runOut(W, s, input = inp(), max = 240) {
+  const ev = []
+  for (let k = 0; k < max && s.mode !== 'exit'; k++) ev.push(...Z.stepGame(W, s, 1 / 60, input))
+  return ev
+}
+
+describe('exits', () => {
+  it('validates, registers an entry beside each exit and lists them on the map', () => {
+    const W = fixture(false)
+    assert.deepEqual(Z.validateWorld(W), [])
+    const e = Z.mapInfo(W, 'room').entries
+    assert.deepEqual(e.galaga, { x: 1.5, y: 2.5, dir: 'up' }) // below a cabinet, facing it
+    assert.deepEqual(e.md, { x: 2.5, y: 3.5, dir: 'left' }) // side: 'right', facing it
+    assert.deepEqual(e.hangar, { x: 5.5, y: 1.5, dir: 'down' }) // below a door, facing away
+    const s = Z.createGame(W)
+    assert.equal(s.mode, 'play') // no intro in this world
+    const byId = Object.fromEntries(s.map.exits.map(x => [x.id, x]))
+    assert.deepEqual(byId.galaga, { id: 'galaga', x: 1.5, y: 1.5, to: { theme: 'galaga' }, look: 'cabinet', art: 'galaga', label: 'GALAGA', walk: false })
+    assert.equal(byId.md.look, 'sign')
+    assert.equal(byId.md.walk, false)
+    assert.equal(byId.hangar.look, 'door')
+    assert.equal(byId.hangar.walk, true)
+  })
+
+  it('a cabinet: A shows its lines, closing them leaves through it', () => {
+    const W = fixture(true)
+    const s = Z.createGame(W)
+    Z.enterMap(W, s, 'room', 'galaga', [])
+    const ev = [...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true }))]
+    assert.equal(s.mode, 'dialog')
+    assert.deepEqual(s.dialog.lines, ['GALAGA. SHOOT THE SWARM.', 'INSERT COIN? PRESS A.'])
+    for (let k = 0; k < 20 && s.mode === 'dialog'; k++) {
+      ev.push(...Z.stepGame(W, s, 0.3, inp()))
+      ev.push(...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true })))
+    }
+    assert.equal(s.mode, 'warp')
+    assert.ok(ev.some(e => e.type === 'text'))
+    ev.push(...runOut(W, s))
+    assert.equal(s.mode, 'exit')
+    assert.deepEqual(ev.filter(e => e.type === 'exit'), [{ type: 'exit', id: 'galaga', to: { theme: 'galaga' } }])
+    assert.equal(s.warp.t, Z.WARP_TIME) // held at full dark
+  })
+
+  it('a solid exit without lines leaves at once', () => {
+    const W = fixture(true)
+    const s = Z.createGame(W)
+    Z.enterMap(W, s, 'room', 'md', [])
+    Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true }))
+    assert.equal(s.mode, 'warp')
+    const ev = runOut(W, s)
+    assert.deepEqual(ev.filter(e => e.type === 'exit'), [{ type: 'exit', id: 'md', to: { url: 'https://phareim.md' } }])
+  })
+
+  it('a door: walking onto it leaves', () => {
+    const W = fixture(false)
+    const s = Z.createGame(W)
+    Z.enterMap(W, s, 'room', 'hangar', [])
+    const ev = runOut(W, s, inp({ move: { x: 0, y: -1 } }))
+    assert.equal(s.mode, 'exit')
+    assert.deepEqual(ev.filter(e => e.type === 'exit'), [{ type: 'exit', id: 'hangar', to: { theme: 'hangar' } }])
+  })
+
+  it('the validator catches bad exits', () => {
+    const W = fixture(false)
+    const m = W.maps.room
+    m.rows = m.rows.map(r => r.replace('k', 'c'))
+    m.marks.c.ent.to = { url: 'http://insecure.example' }
+    m.marks.E.ent.side = 'up'
+    const out = Z.validateWorld(W).join('\n')
+    assert.match(out, /exit id galaga is used twice/)
+    assert.match(out, /exit galaga goes to url http:\/\/insecure.example/)
+    assert.match(out, /exit hangar has no floor on its up side/)
+  })
+})
+
+describe('peaceful worlds', () => {
+  const hazards = W => {
+    const s = Z.createGame(W)
+    const ev = []
+    const run = (n, i = inp()) => { for (let k = 0; k < n; k++) { ev.push(...Z.stepGame(W, s, 1 / 60, i)); s.hero.invuln = 0 } }
+    // Spikes
+    s.hero.x = 7.5; s.hero.y = 2.5
+    run(30)
+    // A blob on top of the hero
+    const blob = s.map.enemies.find(e => e.kind === 'blob')
+    for (let k = 0; k < 30; k++) { s.hero.x = blob.x; s.hero.y = blob.y; run(1) }
+    // A pellet into the hero
+    s.hero.x = 3.5; s.hero.y = 6.5
+    s.map.projectiles.push({ id: 999, kind: 'pellet', x: 3.5, y: 6.1, vx: 0, vy: 4, r: 0.2, t: 0, life: 2, reflect: true })
+    run(20)
+    // A pit: back to safe ground
+    s.hero.safe = { x: 8.5, y: 6.5 }
+    s.hero.x = 9.5; s.hero.y = 5.5
+    run(60)
+    return { s, ev }
+  }
+
+  it('the hero cannot be hurt or die', () => {
+    const { s, ev } = hazards(fixture(true))
+    assert.equal(s.hero.hp, Z.START_HP)
+    assert.ok(!ev.some(e => e.type === 'hurt' || e.type === 'died'))
+    assert.ok(ev.some(e => e.type === 'fall'), 'fell in the pit')
+    assert.deepEqual([s.hero.x, s.hero.y], [8.5, 6.5])
+    assert.equal(s.mode, 'play')
+  })
+
+  it('the same hazards hurt in an ordinary world', () => {
+    const { ev } = hazards(fixture(false))
+    assert.ok(ev.filter(e => e.type === 'hurt').length >= 3)
+  })
+
+  it('A and B do nothing with nothing to talk to', () => {
+    const W = fixture(true)
+    const s = Z.createGame(W)
+    s.inv.sword = true
+    const ev = [...Z.stepGame(W, s, 1 / 60, inp({ aPress: true, a: true, bPress: true }))]
+    for (let k = 0; k < 30; k++) ev.push(...Z.stepGame(W, s, 1 / 60, inp()))
+    assert.deepEqual(ev.filter(e => e.type === 'swing' || e.type === 'error'), [])
+    assert.equal(s.mode, 'play')
   })
 })
 

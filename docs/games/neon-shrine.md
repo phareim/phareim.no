@@ -1,8 +1,11 @@
 ## Neon Shrine — the Zelda-like (rebuilt 2026-09-22, live 2026-09-23)
 
 `?theme=zelda` is a full A Link to the Past–style adventure in 80s neon
-paint: scrolling overworld, shop, arcade, cave, a ten-room dungeon with
-keys, a block puzzle, crystal switches, a miniboss and a two-phase boss.
+paint: scrolling overworld, the Keeper's hut, shop, arcade, cave, a
+ten-room dungeon with keys, a block puzzle, crystal switches, a miniboss and
+a two-phase boss. A new game starts with the hero stepping out of the hut
+door; the hut's back door, THE WAY HOME, leaves the game for the portal on
+phareim.no (engine and world side since 2026-09-24).
 About 20–30 minutes to finish. Live in the swipe rotation after OutRun
 since 2026-09-23, when Petter unparked it. Design (story, maps, progression,
 enemies, look): `themes/zelda/DESIGN.md`.
@@ -12,10 +15,16 @@ wholesale on 2026-09-22 because it was not fun; it is in git history up to
 `a110530`.
 
 **Files.** `types.ts` is the contract. `world/` — maps as string grids with
-marker chars (`overworld.ts`, `shrine.ts`, `interiors.ts`), tile behaviour
-(`tiles.ts`), `validate.ts`. `engine/` — pure simulation split by concern
-(`game.ts` modes/saves/camera, `hero.ts`, `enemies.ts`, `objects.ts` bombs,
-disc, puzzles, `combat.ts` damage/items, `map.ts` loading/collision).
+marker chars (`overworld.ts`, `shrine.ts`, `interiors.ts` with the hut,
+shop, arcade and cave), tile behaviour (`tiles.ts`), `validate.ts` (works
+for any `World`; the portal uses it too). `index.ts` holds `WORLD`: the
+start (`overworld`/`hut`, the hut door) and the Keeper's intro.
+`engine/` — pure simulation split by concern (`game.ts`
+modes/saves/camera/exits, `hero.ts` incl. the walk out of a door and A on
+exits, `enemies.ts`, `objects.ts` bombs, disc, puzzles, `combat.ts`
+damage/items, `map.ts` loading/collision, exits and their entries). The
+engine is shared with the portal (`themes/portal/`), which brings its own
+peaceful world.
 `render/` — `renderer.ts` (camera, lighting, bloom, entities, effects),
 `tiles.ts` (terrain painter), `sprites.ts` + `sheet.ts` (pixel art),
 `font.ts`, `hud.ts`. `audio.ts` — music, jingles, SFX. `Zelda.vue` — loop,
@@ -51,11 +60,23 @@ clears). The title shows QUEST n/7 · next goal · play time and SAVED TO
 seven quest steps behind the pause screen's QUEST line. A player is still
 one browser, so the save does not follow a person to another device.
 
-**Checks.** `npm run test:zelda` (in CI): world validation, the first
-minute (blade in one step, swing/cut/spin, lift/throw), saves and death, and
-a **full scripted run** from the hut to the Sun Prism with a path-finding
-walker (god mode, bosses killed directly) — it proves every key, gate,
-crystal, push block and appear-chest is wired. `node
+**Exits and the way home.** An `exit` marker (`ExitDef` in `types.ts`) is a
+way out of the game: walk onto a door exit, or press A at a solid one and
+read its lines, and the door fade runs; at full dark the engine emits
+`{ type: 'exit', id, to }` and stays in mode `exit`. Neon Shrine's only exit
+is the hut's back door (`{ home: true }`). The save written on entering the
+hut keeps the quest. `World.peaceful` (the portal) turns off all damage.
+
+**Checks.** `npm run test:zelda` (in CI, 21 tests, green 2026-09-24): world
+validation, the first minute (out of the hut door in ~0.22 s with input
+ignored, then the intro, blade chest beside the door, swing/cut/spin,
+lift/throw), the hut (in and out, the sign, the way home emits
+`{ home: true }` and holds mode `exit`), exits and peaceful rules on a small
+fixture world (cabinet with lines, solid exit without, door, the entries
+beside them, validator errors; no damage from spikes, blob, pellet or pit),
+saves and death, and a **full scripted run** from the hut to the Sun Prism
+with a path-finding walker (god mode, bosses killed directly) — it proves
+every key, gate, crystal, push block and appear-chest is wired. `node
 scripts/zelda-lab/shot.mjs <outDir> [scenes]` renders the real renderer for
 named scenes without Nuxt; `scripts/zelda-lab/cdp.mjs` is a small DevTools
 driver (no puppeteer on Sleeper) for headless play in the dev server, which

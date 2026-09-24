@@ -11,6 +11,8 @@ import { TILE } from '../types'
 import { cellIndex, crystalAt, has, mapInfo, raised } from '../engine/index'
 import type { GameState } from '../types'
 import { makeCanvas, sprite } from './sheet'
+import { exitTiles } from './exits'
+import { decalCover } from './decals'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -369,7 +371,7 @@ function cliff(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: num
   }
 }
 
-function building(g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At) {
+function building(g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At, bare: boolean) {
   const b = (q: TileChar) => isBuilding(q) || q === 'D'
   const wallRow = !b(at(0, 2))
   const bottom = !b(at(0, 1))
@@ -382,7 +384,7 @@ function building(g: G, t: TileChar, px: number, py: number, tx: number, ty: num
       r(g, OW.wallD, px, py, T, 3)
     }
     if (bottom) r(g, OW.wallD, px, py + T - 2, T, 2)
-    if (t === 'H' && !bottom && hash2(tx, ty, 3) > 0.35 && at(0, 1) !== 'D') {
+    if (t === 'H' && !bottom && !bare && hash2(tx, ty, 3) > 0.35 && at(0, 1) !== 'D') {
       // Lit window
       r(g, '#1a0f2a', px + 4, py + 5, 8, 7)
       r(g, OW.window, px + 5, py + 6, 6, 5)
@@ -413,7 +415,23 @@ function building(g: G, t: TileChar, px: number, py: number, tx: number, ty: num
   }
 }
 
-function doorway(kind: MapKind, g: G, px: number, py: number) {
+function doorway(kind: MapKind, g: G, px: number, py: number, at: At) {
+  if (kind === 'interior' && isWall(at(0, 1)) === false && at(0, -1) === '#' && isWall(at(-1, 0)) && isWall(at(1, 0))) {
+    // A back door in the top wall: a frame around the neon night outside.
+    r(g, IN.wallL, px, py, T, T)
+    r(g, '#1a0f2a', px + 2, py + 1, 12, 15)
+    r(g, '#0e0a2e', px + 3, py + 2, 10, 6)
+    r(g, '#241450', px + 3, py + 8, 10, 3)
+    r(g, '#5a1a5a', px + 3, py + 11, 10, 1)
+    r(g, '#ff2fa0', px + 3, py + 12, 10, 1)
+    r(g, '#12081e', px + 3, py + 13, 10, 3)
+    r(g, '#2ff3ff', px + 5, py + 14, 6, 1)
+    r(g, '#fff4ff', px + 5, py + 4); r(g, '#cfc6ff', px + 10, py + 3); r(g, '#cfc6ff', px + 8, py + 6)
+    r(g, OW.woodL, px + 2, py + 1, 12, 1)
+    r(g, OW.wood, px + 2, py + 2, 1, 14); r(g, OW.woodD, px + 13, py + 2, 1, 14)
+    r(g, IN.trim, px + 1, py, 14, 1)
+    return
+  }
   if (kind === 'overworld') {
     r(g, OW.wallD, px, py, T, T)
     r(g, '#120818', px + 3, py + 3, 10, 13)
@@ -448,8 +466,8 @@ function pillar(kind: MapKind, g: G, px: number, py: number) {
   r(g, '#ff2fa0', px + 3, py + 6, 10, 1)
 }
 
-function sign(g: G, px: number, py: number, kind: MapKind) {
-  if (kind === 'interior') {
+function sign(g: G, px: number, py: number, kind: MapKind, marquee: boolean) {
+  if (kind === 'interior' && marquee) {
     // A high-score cabinet marquee
     r(g, '#1a0f2a', px + 1, py + 1, 14, 15)
     r(g, '#3ff0ff', px + 3, py + 3, 10, 6)
@@ -458,13 +476,14 @@ function sign(g: G, px: number, py: number, kind: MapKind) {
     r(g, '#ff2fa0', px + 5, py + 7, 4, 1)
     return
   }
-  r(g, OW.g3, px + 3, py + 13, 10, 2)
+  r(g, kind === 'overworld' ? OW.g3 : 'rgba(8,4,20,0.4)', px + 3, py + 13, 10, 2)
   r(g, OW.woodD, px + 7, py + 9, 2, 6)
   r(g, OW.woodD, px + 2, py + 3, 12, 8)
   r(g, OW.wood, px + 3, py + 4, 10, 6)
   r(g, OW.woodL, px + 3, py + 4, 10, 1)
   r(g, OW.woodD, px + 5, py + 6, 6, 1)
   r(g, OW.woodD, px + 5, py + 8, 4, 1)
+  if (kind === 'interior') { r(g, IN.trim, px + 2, py + 3, 12, 1); r(g, '#2ff3ff', px + 2, py + 10, 12, 1) }
 }
 
 function grave(g: G, px: number, py: number) {
@@ -560,7 +579,7 @@ function plateBase(g: G, px: number, py: number) {
   r(g, '#2b2553', px + 4, py + 4, 8, 8)
 }
 
-function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At) {
+function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: number, ty: number, at: At, marquee: boolean, bare: boolean) {
   switch (t) {
     case 'T': tree(g, px, py, tx, ty, at); break
     case '*': bush(g, px, py, tx, ty); break
@@ -577,14 +596,14 @@ function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, t
     case 'r': g.drawImage(sprite('rock'), px, py); break
     case 'R': boulder(g, px, py); break
     case 't': lampPost(g, px, py, kind); break
-    case 'S': sign(g, px, py, kind); break
+    case 'S': sign(g, px, py, kind, marquee); break
     case 'G': grave(g, px, py); break
     case 'F': fence(g, px, py, at); break
     case 'H': case 'M':
-      if (kind === 'overworld') building(g, t, px, py, tx, ty, at)
+      if (kind === 'overworld') building(g, t, px, py, tx, ty, at, bare)
       else machine(kind, g, px, py)
       break
-    case 'D': if (kind === 'overworld' && isBuilding(at(0, -1))) doorway(kind, g, px, py); else if (kind !== 'overworld') doorway(kind, g, px, py); break
+    case 'D': if (kind === 'overworld' && isBuilding(at(0, -1))) doorway(kind, g, px, py, at); else if (kind !== 'overworld') doorway(kind, g, px, py, at); break
     case '>': stairs(kind, g, px, py); break
     case 'I': pillar(kind, g, px, py); break
     case 'n': counter(g, px, py, at); break
@@ -617,6 +636,12 @@ function atFor(m: MapState, tx: number, ty: number, kind: MapKind): At {
 
 function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1: number, y1: number) {
   const kind = mapInfo(world, m.id).def.kind
+  // Exits that bring their own sprite (cabinets, board, kiosk, terminals) stand on bare ground.
+  const own = exitTiles(world, m.id)
+  // Only the arcade's signs are high-score marquees; other rooms get a plain plaque.
+  const marquee = m.id === 'arcade'
+  // Walls behind painted lettering keep their windows dark.
+  const cover = decalCover(mapInfo(world, m.id).def, m.w)
   const X0 = Math.max(0, x0)
   const Y0 = Math.max(0, y0)
   const X1 = Math.min(m.w - 1, x1)
@@ -630,7 +655,8 @@ function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1
   }
   // Objects from one tile further out so overhangs reach in.
   for (let ty = Math.max(0, Y0 - 1); ty <= Math.min(m.h - 1, Y1 + 1); ty++) for (let tx = Math.max(0, X0 - 1); tx <= Math.min(m.w - 1, X1 + 1); tx++) {
-    paintObject(kind, g, m.tiles[ty * m.w + tx]!, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind))
+    if (own.has(ty * m.w + tx)) continue
+    paintObject(kind, g, m.tiles[ty * m.w + tx]!, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind), marquee, cover.has(ty * m.w + tx))
   }
   g.restore()
 }
@@ -678,6 +704,8 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
   const x1 = Math.min(m.w - 1, Math.floor((cx + vw) / T) + 1)
   const y1 = Math.min(m.h - 1, Math.floor((cy + vh) / T) + 1)
   const tm = reduced ? 0 : time
+  const own = exitTiles(world, m.id)
+  const cover = decalCover(info.def, m.w)
   for (let ty = y0; ty <= y1; ty++) {
     for (let tx = x0; tx <= x1; tx++) {
       const t = m.tiles[ty * m.w + tx]!
@@ -709,6 +737,7 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
           break
         }
         case 'M':
+          if (own.has(ty * m.w + tx)) break
           if (kind === 'overworld') {
             const on = reduced || Math.sin(time * 1.3 + tx) > -0.92
             if (on) {
@@ -728,7 +757,7 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
           }
           break
         case 'H':
-          if (kind === 'overworld' && hash2(tx, ty, 3) > 0.35 && !(tx >= 0 && isBuilding(m.tiles[(ty + 2) * m.w + tx] ?? '.'))) {
+          if (kind === 'overworld' && !cover.has(ty * m.w + tx) && hash2(tx, ty, 3) > 0.35 && !(tx >= 0 && isBuilding(m.tiles[(ty + 2) * m.w + tx] ?? '.'))) {
             // lit windows
             const below = m.tiles[(ty + 1) * m.w + tx]
             if (below === 'H' || below === 'M') lights.push({ x: wx, y: wy + 0.4, r: 2.2, color: '#ffb13f', a: 0.75 })

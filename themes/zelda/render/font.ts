@@ -56,6 +56,7 @@ const G: Record<string, string[]> = {
   ':': ['.', '.', '#', '.', '.', '#', '.'],
   ';': ['..', '..', '.#', '..', '..', '.#', '#.'],
   '-': ['....', '....', '....', '####', '....', '....', '....'],
+  '·': ['..', '..', '..', '##', '##', '..', '..'],
   '+': ['.....', '..#..', '..#..', '#####', '..#..', '..#..', '.....'],
   '/': ['....#', '....#', '...#.', '..#..', '.#...', '#....', '#....'],
   '(': ['.#', '#.', '#.', '#.', '#.', '#.', '.#'],
@@ -81,6 +82,11 @@ const ALIAS: Record<string, string> = { '—': '-', '–': '-', '’': "'", '‘
 
 function glyph(ch: string): string[] {
   return G[ch] ?? G[ALIAS[ch] ?? '?'] ?? G['?']!
+}
+
+/** A character's glyph rows ('#' = lit), after upper-casing. */
+export function glyphRows(ch: string): string[] {
+  return glyph(ch.toUpperCase())
 }
 
 function norm(text: string): string {

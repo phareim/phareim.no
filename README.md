@@ -5,20 +5,22 @@ every push to `master`. One D1 database (`phareim-leaderboard`) holds the
 Hall of Fame — the world ranking of the six score games — behind three
 small API routes; nothing else is stored.
 
-The front page is a set of themes. Swipe or use the arrow keys to walk
-through them; a first visit lands on a random one. Each theme lives in
-`themes/<id>/` and owns its whole landing page — see
-`.claude/skills/phareim-theme/SKILL.md` for how to add one.
+The front page is the Portal: a small neon town you walk around in. Its
+buildings lead to everything else — an arcade with a cabinet per game, the
+way into Neon Shrine, Petter's house (who he is, where to find him), and his
+public projects. Each game is a theme at `/?theme=<id>`; inside the games,
+swipe or use the arrow keys to walk through them, and Escape or the ⌂ chip
+goes back to the portal. Each theme lives in `themes/<id>/` and owns its
+whole page — see `.claude/skills/phareim-theme/SKILL.md` for how to add one.
 
 ## Pages
 
-`/` is the whole site — the landing page, rendered by the active theme.
-`/about`, `/projects` and `/meta` were removed 2026-09-07; the profile and
-the contact links live in the **Player One** theme (`/?theme=playerone`).
+`/` is the whole site: the portal, or the theme `?theme=<id>` names. The
+profile and the contact links live in the portal (Petter's house).
 
-Themes: Player One, Another Shore, Galaga, Breakout, R-Type, Space
-Invaders, Star Fox, Tetris, Hall of Fame — plus Another Shore II,
-Scandinavian Glass, Space and Tufte Desk, parked but reachable. Preview one
+Themes: Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox,
+OutRun, Neon Shrine, Tetris, Hall of Fame, Hangar — plus Another Shore II,
+Scandinavian Glass, Space and Tufte Desk, parked but reachable. Open one
 with `/?theme=<id>`.
 
 The Hall of Fame (`/?theme=leaderboard`) is the global leaderboard: each

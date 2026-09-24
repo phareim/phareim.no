@@ -1,9 +1,9 @@
 /**
- * The hero: movement, the contextual A button (talk / read / open / lift /
- * throw / sword), the charged spin, B items, block pushing, doors and the
- * tiles underfoot.
+ * The hero: movement, the contextual A button (talk / read / open / use an
+ * exit / lift / throw / sword), the charged spin, B items, block pushing,
+ * doors, walking out of a door, and the tiles underfoot.
  */
-import type { Dir, Input, TileChar } from '../types'
+import type { Dir, ExitSpot, Input, TileChar } from '../types'
 import {
   CARRY_SPEED, CHARGE_SPEED, CHARGE_TIME, HERO_R, HERO_SPEED, LIFT_TIME, PUSH_DELAY, SPIN_REACH,
   SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, THROW_SPEED,
@@ -15,6 +15,8 @@ import { circleBlocked, floodRun, has, lineClear, moveCircle, setFlag, setTile, 
 import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
 
 const CORNER_ASSIST = 0.34
+/** Stepping out of a door: one tile in this long (a touch slower than a walk). */
+export const WALK_OUT_TIME = 0.22
 
 export function stepHero(c: Ctx, inp: Input, dt: number) {
   const s = c.s
@@ -22,6 +24,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   h.actT += dt
   if (h.invuln > 0) h.invuln -= dt
   if (h.cooldown > 0) h.cooldown -= dt
+  if (h.auto) { walkOut(c, dt); return }
 
   if (h.act === 'fall') {
     if (h.actT > 0.55) {
@@ -54,7 +57,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   if (inp.aPress) {
     if (h.carry) throwCarried(c)
     else if (!h.swing && !h.spin && !interact(c)) {
-      if (s.inv.sword && h.cooldown <= 0) startSwing(c, inp)
+      if (s.inv.sword && !c.w.peaceful && h.cooldown <= 0) startSwing(c, inp)
     }
     // Talking, reading or an item-get pose freezes the rest of the step.
     if (s.mode !== 'play') return
@@ -136,6 +139,34 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   }
   underfoot(c)
   collect(c)
+}
+
+/** The short walk out of a door after spawning on a `Spot.out` entry; input waits. */
+function walkOut(c: Ctx, dt: number) {
+  const s = c.s
+  const h = s.hero
+  const a = h.auto!
+  const v = dirVec(a.dir)
+  const left = Math.max(0, (a.x - h.x) * v.x + (a.y - h.y) * v.y)
+  const d = Math.min(left, dt / WALK_OUT_TIME)
+  const r = moveCircle(c.w, s.map, h.x, h.y, HERO_R, v.x * d, v.y * d)
+  h.x = r.x
+  h.y = r.y
+  h.dir = a.dir
+  h.act = 'walk'
+  h.walkT += dt * (1 / WALK_OUT_TIME / HERO_SPEED)
+  h.vx = v.x / WALK_OUT_TIME
+  h.vy = v.y / WALK_OUT_TIME
+  a.t -= dt
+  // Done on arrival, or when something (an NPC) blocks the way and time runs out.
+  if (left - d > 1e-6 && a.t > 0) return
+  h.auto = null
+  h.act = 'idle'
+  h.actT = 0
+  h.vx = 0
+  h.vy = 0
+  h.safe = { x: h.x, y: h.y }
+  if (a.intro && c.w.intro) openDialog(c, c.w.intro.lines, c.w.intro.who ?? null)
 }
 
 /** Keep facing along an axis the stick still pushes (diagonals don't flicker). */
@@ -235,6 +266,13 @@ function interact(c: Ctx): boolean {
     if (near || across) { talkTo(c, n.id); n.dir = toDir(h.x - n.x, h.y - n.y, n.dir); return true }
   }
   const idx = ty * s.map.w + tx
+  const exit = c.info.exits.get(idx)
+  if (exit && !exit.walk) {
+    const lines = c.info.exitLines.get(idx)
+    if (lines) openDialog(c, lines, null, { exit: { id: exit.id, to: exit.to } })
+    else beginExit(c, exit)
+    return true
+  }
   if (t === 'S') {
     const lines = c.info.signs.get(idx)
     if (lines) { openDialog(c, lines, null); return true }
@@ -305,6 +343,21 @@ export function openDialog(c: Ctx, lines: string[], who: string | null, after: i
   h.swing = null
   h.charge = -1
   if (h.act === 'walk' || h.act === 'push') h.act = 'idle'
+}
+
+/** Start the door fade that leaves the game through an exit (see game.ts `warp`). */
+export function beginExit(c: Ctx, exit: Pick<ExitSpot, 'id' | 'to'>) {
+  const s = c.s
+  const h = s.hero
+  s.mode = 'warp'
+  s.warp = { t: 0, to: s.map.id, entry: '', swapped: false, exit: { id: exit.id, to: exit.to } }
+  h.swing = null
+  h.spin = null
+  h.charge = -1
+  h.vx = 0
+  h.vy = 0
+  if (h.act !== 'walk') h.act = 'idle'
+  c.ev.push({ type: 'warp' })
 }
 
 function buy(c: Ctx, id: string) {
@@ -573,7 +626,7 @@ function useItem(c: Ctx, inp: Input) {
     h.act = 'use'
     h.actT = 0
     c.ev.push({ type: 'disc' })
-  } else c.ev.push({ type: 'error' })
+  } else if (!c.w.peaceful) c.ev.push({ type: 'error' })
 }
 
 export function heroInvulnFlash(h: { invuln: number }) {

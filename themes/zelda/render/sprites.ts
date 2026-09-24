@@ -1571,6 +1571,28 @@ const ghost1 = rowsAt(shiftDown(ghost0, 1), 14, [
   '....k..k..k.....',
 ])
 
+// Petter, the portal's host: short side-parted hair, glasses, a dark hoodie
+// with a cyan chest stripe, jeans. The glasses catch the light on frame 1.
+const petter0: Rows = [
+  '................',
+  '.....kkkkkk.....',
+  '....kNnnnnNk....',
+  '...kNnnnnnnnk...',
+  '...knnnsssssk...',
+  '...kGGGGGGGGk...',
+  '...kGkGssGkGk...',
+  '....ksSssSsk....',
+  '..kKuwuuuuwuKk..',
+  '..kuuuwuuwuuuk..',
+  '..kcccccccccck..',
+  '..ksuuuuuuuusk..',
+  '...kBbbbbbbbk...',
+  '...kbbBkkBbbk...',
+  '...kggk..kggk...',
+  '...kkkk..kkkk...',
+]
+const petter1 = edit(petter0, [5, 6, 'c'], [10, 6, 'c'])
+
 // ---------------------------------------------------------------------------
 // FX
 // ---------------------------------------------------------------------------
@@ -1776,6 +1798,7 @@ const RAW: Record<string, Rows> = {
   robot_0: robot0, robot_1: robot1,
   cat_0: catRows0, cat_1: catRows1,
   ghost_0: ghost0, ghost_1: ghost1,
+  petter_0: petter0, petter_1: petter1,
 
   poof_0: poof[0]!, poof_1: poof[1]!, poof_2: poof[2]!, poof_3: poof[3]!,
   spark_0: spark0, spark_1: spark1,

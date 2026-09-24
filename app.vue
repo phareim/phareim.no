@@ -3,15 +3,20 @@
     <component :is="theme.backdrop" v-if="theme.backdrop" />
     <NuxtPage />
     <ThemePager />
-    <RadioWidget />
+    <!-- The portal plays its own town music (it parks the radio) and its name
+      billboard sits where the widget would; the radio returns in the games. -->
+    <RadioWidget v-if="!isHome" />
   </div>
 </template>
 
 <script setup lang="ts">
-const { theme, themePageClass, themeColor } = useTheme()
+const { theme, isHome, themePageClass, themeColor } = useTheme()
 useThemeNavigation()
 
+// The portal carries the site's name; a game names itself, so history and
+// tabs read "Galaga — phareim.no". Description and og tags: nuxt.config.ts.
 useHead({
+  title: computed(() => isHome.value ? 'Petter Hareim — phareim.no' : `${theme.value.name} — phareim.no`),
   meta: [
     { name: 'theme-color', content: themeColor }
   ]

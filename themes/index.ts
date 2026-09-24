@@ -15,10 +15,10 @@ import './outrun/theme.css'
 import './tetris/theme.css'
 import './anotherworld/theme.css'
 import './shore/theme.css'
-import './playerone/theme.css'
 import './leaderboard/theme.css'
 import './hangar/theme.css'
 import './zelda/theme.css'
+import './portal/theme.css'
 
 // Static imports on purpose: a swipe should not wait for a chunk, and the
 // whole set is small (the Galaga game is the only big one).
@@ -35,13 +35,13 @@ import OutrunLanding from './outrun/Landing.vue'
 import TetrisLanding from './tetris/Landing.vue'
 import AnotherworldLanding from './anotherworld/Landing.vue'
 import ShoreLanding from './shore/Landing.vue'
-import PlayeroneLanding from './playerone/Landing.vue'
 import LeaderboardLanding from './leaderboard/Landing.vue'
 import HangarLanding from './hangar/Landing.vue'
 import ZeldaLanding from './zelda/Landing.vue'
+import PortalLanding from './portal/Landing.vue'
 
 export interface ThemeDefinition {
-  /** Short id. Doubles as the CSS root class (`${id}-page`) and the cookie value. */
+  /** Short id. Doubles as the CSS root class (`${id}-page`) and the `?theme=` value. */
   id: string
   /** Human name, shown in the pager tooltip. */
   name: string
@@ -53,20 +53,28 @@ export interface ThemeDefinition {
   /** Optional: rendered behind every route (starfield, texture, …). */
   backdrop?: Component
   /**
-   * Parked: out of the swipe order, the pager, the random pick and the
-   * cookie, but still reachable with `?theme=<id>` so it can be worked on.
+   * Parked: out of the swipe order and the pager, but still reachable with
+   * `?theme=<id>` so it can be worked on.
    */
   disabled?: boolean
+  /**
+   * The front door, shown on `/`. Never in the rotation, never picked by a
+   * swipe or `setTheme`, and it has no pager. Exactly one theme has it.
+   */
+  home?: true
 }
 
 // Order matters: swiping left/right walks this list, wrapping at the ends.
 export const allThemes: ThemeDefinition[] = [
   {
-    id: 'playerone',
-    name: 'Player One',
+    // The Portal (2026-09-24): the neon town on `/` that leads to everything
+    // else. Replaced Player One and the random first-visit theme.
+    id: 'portal',
+    home: true,
+    name: 'Portal',
     themeColor: '#0b0616',
     themeColorDark: '#0b0616',
-    landing: PlayeroneLanding,
+    landing: PortalLanding,
   },
   {
     id: 'anotherworld',
@@ -180,7 +188,10 @@ export const allThemes: ThemeDefinition[] = [
 ]
 
 /** The live rotation. Disabled themes are only reachable by deep link. */
-export const themes: ThemeDefinition[] = allThemes.filter(t => !t.disabled)
+export const themes: ThemeDefinition[] = allThemes.filter(t => !t.disabled && !t.home)
+
+/** The theme on `/`. */
+export const homeTheme: ThemeDefinition = allThemes.find(t => t.home)!
 
 export const themeIds = themes.map(t => t.id)
 
@@ -188,22 +199,19 @@ export function isThemeId(id: unknown): id is string {
   return typeof id === 'string' && themeIds.includes(id)
 }
 
-/** Any theme, disabled ones included — for the `?theme=` deep link. */
+/** Any theme, disabled and home included — for the `?theme=` deep link. */
 export function isAnyThemeId(id: unknown): id is string {
   return typeof id === 'string' && allThemes.some(t => t.id === id)
 }
 
 /**
- * Ids a theme used to have. Old cookies and links keep working.
- * `hacker` was the Cyberpunk shmup, renamed to Galaga 2026-09-08.
+ * Ids a theme used to have. Old links keep working.
+ * `hacker` was the Cyberpunk shmup, renamed to Galaga 2026-09-08;
+ * `playerone` was the profile theme, retired for the portal 2026-09-24.
  */
-const LEGACY_THEME_IDS: Record<string, string> = { hacker: 'galaga' }
+const LEGACY_THEME_IDS: Record<string, string> = { hacker: 'galaga', playerone: 'portal' }
 
 /** Maps a legacy id onto its current one; anything else is returned as-is. */
 export function resolveThemeId(id: unknown): unknown {
   return typeof id === 'string' && id in LEGACY_THEME_IDS ? LEGACY_THEME_IDS[id] : id
-}
-
-export function randomThemeId(): string {
-  return themeIds[Math.floor(Math.random() * themeIds.length)]
 }

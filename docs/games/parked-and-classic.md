@@ -2,8 +2,8 @@
 
 Breakout and Tetris are live, older arcade themes that didn't have their own
 doc yet. Scandinavian Glass, Space and Tufte Desk are parked (`disabled:
-true` in `themes/index.ts`): out of the swipe order, pager, cookie and
-random pick, still reachable with `?theme=<id>`.
+true` in `themes/index.ts`): out of the swipe order and the pager, still
+reachable with `?theme=<id>`.
 
 ## Breakout
 
@@ -24,7 +24,7 @@ touch and mouse. A gesture stops controlling pieces once its original piece
 locks or swaps; idle swipes still switch theme. The board sizes to its
 actual remaining container space with ResizeObserver; landscape phones use
 two columns. The profile column was removed — the cabinet is the whole
-theme now, and Player One carries the person.
+theme now, and the portal carries the person.
 
 Tests: `npm run test:tetris` (gesture regression: tap, direction lock, drop,
 soft drop, hold); CI runs it before typecheck.

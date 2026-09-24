@@ -1,8 +1,40 @@
 /**
- * Small single-room maps entered through overworld doors: the Night Market
- * shop, the arcade and the cave behind the cracked lake cliff.
+ * Small single-room maps entered through overworld doors: the Keeper's hut
+ * (with the way home to phareim.no), the Night Market shop, the arcade and
+ * the cave behind the cracked lake cliff.
  */
 import type { MapDef } from '../types'
+
+export const HUT: MapDef = {
+  id: 'hut',
+  name: "KEEPER'S HUT",
+  kind: 'interior',
+  track: 'indoor',
+  rows: [
+    '######E#####',
+    '#nn.t.,S.M.#',
+    '#nn...,....#',
+    '#.....,..nn#',
+    '#o.y..,..nn#',
+    '#.....,....#',
+    '#t....,...o#',
+    '#o....@...t#',
+    '######D#####',
+  ],
+  marks: {
+    '@': { ent: { t: 'entry', id: 'door', dir: 'up' } },
+    D: { tile: 'D', ent: { t: 'warp', to: 'overworld', entry: 'hut' } },
+    // The back door leaves the game for the portal on phareim.no.
+    E: { tile: 'D', ent: { t: 'exit', id: 'home', to: { home: true }, look: 'door', label: 'THE WAY HOME' } },
+    S: { tile: 'S', ent: { t: 'sign', lines: ['THE WAY HOME.', 'THE BACK DOOR LEADS OUT OF THE GAME AND BACK TO PHAREIM.NO. YOUR QUEST WILL WAIT.'] } },
+    y: {
+      ent: {
+        t: 'npc', id: 'hutcat', look: 'cat', dir: 'down',
+        talk: [{ lines: ["THE KEEPER'S CAT OPENS ONE EYE, THEN THE OTHER. MRRP."] }],
+      },
+    },
+  },
+}
 
 export const SHOP: MapDef = {
   id: 'shop',

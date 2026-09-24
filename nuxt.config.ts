@@ -3,7 +3,14 @@ import { defineNuxtConfig } from 'nuxt/config'
 export default defineNuxtConfig({
   app: {
     head: {
+      htmlAttrs: { lang: 'en' },
+      title: 'Petter Hareim — phareim.no',
       meta: [
+        { name: 'description', content: 'Petter Hareim\'s corner of the web: a small neon town with an arcade of home-made games, his writing, and where to find him.' },
+        { property: 'og:title', content: 'Petter Hareim — phareim.no' },
+        { property: 'og:description', content: 'A small neon town with an arcade of home-made games, his writing, and where to find him.' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:url', content: 'https://phareim.no/' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover' },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },

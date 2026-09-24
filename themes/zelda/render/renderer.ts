@@ -6,13 +6,22 @@
  *
  * The view size follows the screen: at least 13×11 tiles, more on big or
  * tall screens, so portrait phones see a tall slice of the world instead of
- * a letterboxed box. Read-only on the game state.
+ * a letterboxed box. On a tall screen a small interior is zoomed until it
+ * fills the height (keeping at least 10 tiles across), so a room is not a
+ * thin strip between black bands. Read-only on the game state.
+ *
+ * Exits (cabinets, board, kiosk, terminals, signs) and their labels live in
+ * `exits.ts`; the neon lettering of `MapDef.decals` in `decals.ts`. Anything
+ * that glows by itself lands in `emit` and is left at full brightness by the
+ * light map.
  */
 import type { Dir, Enemy, GameEvent, GameState, World } from '../types'
 import { BOMB_FUSE, SPIN_TIME, SWING_TIME, TILE, WARP_TIME } from '../types'
 import { cameraFor, cellDef, cellIndex, mapInfo, shardPos, swingAngle } from '../engine/index'
 import { drawText, textWidth } from './font'
 import { drawBanner, drawDialog, drawHud, drawPause, type HudKeys } from './hud'
+import { bloomDecals, drawDecals, lightDecals } from './decals'
+import { createLabels, drawExitLabels, queueExits, type Emit } from './exits'
 import { makeCanvas, silhouette, sprite, spriteT } from './sheet'
 import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
 
@@ -63,6 +72,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let vw = 1
   let vh = 1
   let dpr = 1
+  /** Scale from the screen alone; `scale` may be larger for a small room. */
+  let baseScale = 1
+  let layoutMap = ''
+  /** Widest a decal may be; a scale-3 name steps down on a narrow phone. */
+  let decalMaxW = Infinity
   let layer: TileLayer | null = null
   let time = 0
   let fx: Fx[] = []
@@ -70,6 +84,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let flashColor = '#ffffff'
   const glowCache = new Map<string, HTMLCanvasElement>()
   let scan: CanvasPattern | null = null
+  const labels = createLabels()
+  const emit: Emit[] = []
 
   function glow(color: string): HTMLCanvasElement {
     let c = glowCache.get(color)
@@ -94,9 +110,27 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     canvas.width = W
     canvas.height = H
     // Whole-number scale showing at least 13×11 tiles (and at most ~28 wide).
-    scale = Math.max(1, Math.floor(Math.min(W / (13 * T), gameH / (11 * T))))
-    while (W / scale > 30 * T) scale++
+    baseScale = Math.max(1, Math.floor(Math.min(W / (13 * T), gameH / (11 * T))))
+    while (W / baseScale > 30 * T) baseScale++
+    layoutMap = ''
+    setScale(baseScale)
+  }
+
+  /** The scale for a map: the screen's, or larger for an interior that would leave the tall view half empty. */
+  function scaleFor(mapId: string): number {
+    const def = world.maps[mapId]
+    if (!def || def.kind !== 'interior' || gameH <= W) return baseScale
+    const rows = def.rows.length
+    if (rows * T * baseScale >= gameH * 0.8) return baseScale
+    const byHeight = Math.floor(gameH / (rows * T))
+    const byWidth = Math.floor(W / (10 * T))
+    return Math.max(baseScale, Math.min(byHeight, byWidth))
+  }
+
+  function setScale(next: number) {
+    scale = next
     vw = Math.ceil(W / scale)
+    decalMaxW = vw - 8
     vh = Math.ceil(gameH / scale)
     scene = makeCanvas(vw, vh)
     sg = scene.getContext('2d')!
@@ -433,6 +467,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     time += ui.paused ? 0 : dt
     const info = mapInfo(world, s.map.id)
     const kind = info.def.kind
+    if (layoutMap !== s.map.id) {
+      layoutMap = s.map.id
+      const want = scaleFor(s.map.id)
+      if (want !== scale) setScale(want)
+    }
     if (!layer || layer.mapId !== s.map.id) layer = createTileLayer(world, s.map)
     else updateTileLayer(layer, world, s.map)
 
@@ -454,6 +493,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     g.fillRect(0, 0, vw, vh)
     g.drawImage(layer.canvas, -cx, -cy)
     drawLiveTiles(g, world, s, cx, cy, vw, vh, time, lights, ui.reducedMotion)
+    const decalFrame = { t: time, reduced: ui.reducedMotion, maxW: decalMaxW }
+    drawDecals(g, info.def.decals, cx, cy, vw, vh, decalFrame, lights)
 
     // Sort things by feet.
     type Item = { y: number; draw: () => void }
@@ -498,6 +539,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (n.look === 'keeper') lights.push({ x: n.x + 0.3, y: n.y - 0.9, r: 1.6, color: '#2ff3ff', a: 0.7 })
       if (n.look === 'ghost') lights.push({ x: n.x, y: n.y, r: 2, color: '#cfc6ff', a: 0.4 })
     }
+    emit.length = 0
+    queueExits(g, m.exits ?? [], cx, cy, vw, vh, ui.reducedMotion ? 0 : time, ui.reducedMotion, items, lights, emit)
     for (const e of m.enemies) {
       if (e.dead) continue
       if (kind === 'dungeon' && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
@@ -537,6 +580,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       lg.drawImage(glow(L.color), px - rad, py - rad, rad * 2, rad * 2)
     }
     lg.globalAlpha = 1
+    lg.fillStyle = '#ffffff'
+    for (const e of emit) lg.fillRect(e.x, e.y, e.w, e.h)
+    lightDecals(lg, info.def.decals, cx, cy, vw, vh, decalFrame)
     g.globalCompositeOperation = 'multiply'
     g.drawImage(light, 0, 0)
     g.globalCompositeOperation = 'source-over'
@@ -593,6 +639,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     let fade = 0
     if (s.warp) fade = s.warp.t < WARP_TIME ? s.warp.t / WARP_TIME : 2 - s.warp.t / WARP_TIME
     if (s.dying) fade = Math.max(0, (s.dying.t - 1) / 0.8)
+    // Leaving the game: hold full dark until the shell navigates away.
+    if (s.mode === 'exit') fade = 1
     if (fade > 0) {
       g.globalAlpha = Math.min(1, fade)
       g.fillStyle = '#0b0616'
@@ -625,6 +673,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         bg.drawImage(glow(L.color), px - rad, py - rad, rad * 2, rad * 2)
       }
       bg.globalAlpha = 1
+      bloomDecals(bg, info.def.decals, cx, cy, vw, vh, decalFrame)
       screen.globalCompositeOperation = 'lighter'
       screen.globalAlpha = 1 - fade
       screen.imageSmoothingEnabled = true
@@ -641,8 +690,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
     // --- HUD ----------------------------------------------------------------------
     hg.clearRect(0, 0, vw, vh)
-    if (!ui.attract) {
-      drawHud(hg, s, vw, time, ui.touch)
+    if (!ui.attract && s.mode !== 'exit') {
+      if (!world.peaceful) drawHud(hg, s, vw, time, ui.touch)
+      drawExitLabels(hg, s, labels, cx, cy, vw, vh, ui.paused ? 0 : dt, ui.keys.a, ui.reducedMotion, !ui.paused, world.peaceful ? 2 : 30)
       if (ui.banner && s.mode !== 'dialog') drawBanner(hg, ui.banner.text, ui.banner.t, vw, vh)
       if (s.dialog) drawDialog(hg, s, vw, vh, s.hero.y * T - cy, ui.keys, time)
       if (ui.paused) drawPause(hg, s, vw, vh, ui.keys, ui.confirmReset)

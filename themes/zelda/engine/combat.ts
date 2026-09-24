@@ -26,6 +26,8 @@ export function ctx(w: World, s: GameState, ev: GameEvent[]): Ctx {
 export function hurtHero(c: Ctx, dmg: number, fromX: number, fromY: number, shock = false): boolean {
   const s = c.s
   const h = s.hero
+  // Peaceful worlds (the portal) never hurt; nor does anything while the hero steps out of a door.
+  if (c.w.peaceful || h.auto) return false
   if (s.mode !== 'play' || h.invuln > 0 || h.act === 'fall' || h.act === 'dead' || h.act === 'get') return false
   h.hp = Math.max(0, h.hp - dmg)
   h.invuln = INVULN

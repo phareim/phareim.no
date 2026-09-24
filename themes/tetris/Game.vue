@@ -487,8 +487,12 @@ function handleKeyDown(e: KeyboardEvent): void {
   }
   if (code === 'Escape') {
     // Playing/paused belong to EscHold (tap = pause, hold = game over);
-    // on the GAME OVER screen a tap dismisses back to idle.
-    if (phase.value === 'over') exit()
+    // on the GAME OVER screen a tap dismisses back to idle (claimed, so the
+    // shell does not also take it as "back to the portal").
+    if (phase.value === 'over') {
+      e.preventDefault()
+      exit()
+    }
     return
   }
   if (code === 'KeyP') {

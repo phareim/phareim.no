@@ -1,25 +1,39 @@
 ---
 name: phareim-theme
-description: Add, change, or debug a theme on phareim.no — the swipeable landing-page themes in `themes/<id>/`. Use when asked for a new theme/look/skin for the site, when a theme's landing page or colours need work, when the swipe/arrow theme switching misbehaves, or when the --theme-* tokens need extending. Covers the registry, the default landing shell, the CSS token contract, the navigation lock, and how to preview one theme with ?theme=<id>.
+description: Add, change, or debug a theme on phareim.no — the portal on `/` and the swipeable game themes in `themes/<id>/`. Use when asked for a new theme/look/skin for the site, when a theme's landing page or colours need work, when the swipe/arrow/Escape navigation or the portal↔game routing misbehaves, or when the --theme-* tokens need extending. Covers the registry, the URL-driven theme choice, the default landing shell, the CSS token contract, the navigation lock, and how to open one theme with ?theme=<id>.
 ---
 
 # Themes on phareim.no
 
-A theme is a folder in `themes/` that owns the whole landing page. Visitors
-walk the theme list by swiping left/right, pressing ArrowLeft/ArrowRight, or
-using the faint edge arrows and dots (`components/ThemePager.vue`). A first
-visit gets a random theme; the choice is stored in a `theme` cookie and
-resolved during SSR, so the first paint is already correct.
+A theme is a folder in `themes/` that owns the whole landing page. The URL
+picks it (2026-09-24): `/` is the **portal** (`themes/portal/`, the one
+theme with `home: true`), a neon town whose buildings launch everything
+else; `/?theme=<id>` is that theme. The route is read during SSR, so the
+first paint is already correct, and client navigation (back/forward
+included) switches theme with no extra state. No cookie, no random pick.
+
+Inside a game, visitors walk the rotation by swiping left/right, pressing
+ArrowLeft/ArrowRight, or using the edge chevrons and dots
+(`components/ThemePager.vue`); those `router.replace`, so history does not
+fill. The ⌂ chip (bottom-right), Escape when the game is not using it, and
+the back button return to the portal. The portal has no pager and the shell
+ignores arrows and swipes there.
+
+`useTheme()` contract: `activeTheme` (computed from the route), `isHome`,
+`setTheme`/`nextTheme`/`previousTheme` (rotation only, respect the lock),
+`launch(id)` (router.push to `/?theme=id`, ignores the lock, sets
+`portalLaunch = { theme, at }` for the target to read and clear),
+`goHome()` (router.push to `/`, ignores the lock), `navigationLocked`.
 
 ## Files
 
 ```
 themes/
   index.ts            registry — ordered list, imports every theme.css
-  content.ts          default landing content (name, blurbs, location, socials)
+  content.ts          default landing content for DefaultLanding (name, blurbs, location, socials)
   base/
     DefaultLanding.vue  the default shell: card + text + socials, slots for the rest
-    ProfileCard.vue     flip card
+    EscHold.vue         shared Escape tap (pause) / 3 s hold (quit) with its pill; escHold.ts is the state machine
     SocialLink.vue      icon links
     fonts.css           :root --font-person (Space Grotesk) and --font-machine (Space Mono), self-hosted
                         via @fontsource; imported first in index.ts (2026-09-06). fonts.ts exports
@@ -32,8 +46,8 @@ themes/
     theme.css         :root palette + `.{id}-page` token contract
     Landing.vue       the landing page (uses DefaultLanding or not)
     *.vue             anything private to the theme (canvas, game, …)
-composables/useTheme.ts            state, cookie, setTheme/next/previous, navigationLocked
-composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
+composables/useTheme.ts            state from the URL, setTheme/next/previous, launch/goHome, navigationLocked
+composables/useThemeNavigation.ts  swipe + arrow keys between games, Escape → portal (called once in app.vue)
 ```
 
 ## Add a theme
@@ -42,16 +56,17 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
    `theme.css` (the root class must be `<id>-page`).
 2. Register it in `themes/index.ts`: add `import './<id>/theme.css'` and an
    entry `{ id, name, themeColor, themeColorDark?, landing, backdrop? }`.
-   Position in the array is the swipe order.
-3. Preview with `npm run dev` and `http://localhost:3030/?theme=<id>`. The
-   query wins over the cookie and sets it, so the theme sticks while you work.
+   Position in the array is the swipe order. A game also wants a way in from
+   the portal: a cabinet or door in `themes/portal/world/`.
+3. Preview with `npm run dev` and `http://localhost:3030/?theme=<id>`.
    Check a phone viewport too (headless chromium at 375×667 works on Sleeper;
    write the screenshot under `~/Pictures`, the snap cannot write to dotdirs
    or /tmp): the document never scrolls, so the landing must fit.
-4. Check a 404 (`/nope`) — it only gets the tokens, so the palette has to
-   carry it. `error.vue` has a per-theme 404 block; add one if the default
-   (scandi) block looks wrong in the theme. (`/about`, `/projects` and
-   `/meta` were deleted 2026-09-07; `/` is the only route.)
+4. Check a 404 (`/nope?theme=<id>`) — it only gets the tokens, so the
+   palette has to carry it. `error.vue` gives the portal and the neon games
+   one terminal block and a few themes their own; add one if the terminal
+   looks wrong in the theme. Every block leads back to `/`. (`/` is the only
+   route.)
 5. `npm run typecheck`, commit, push. CI deploys `master`.
 
 ## Three levels of ambition
@@ -71,7 +86,7 @@ composables/useThemeNavigation.ts  swipe + arrow keys (called once in app.vue)
   `defineAsyncComponent` inside `<ClientOnly>` so the three chunk only ships with that theme);
   `desk` skips the shell and lays a grained paper sheet (`.desk-sheet`,
   `.desk-stamp`, `.desk-rule` are global classes from its theme.css) on the
-  desk; `tetris` skips the shell and fills the page with its Neon Dreams board; `leaderboard` (Hall of Fame, 2026-09-08) skips it and shows the D1-backed world ranking, one game at a time, up/down to change game — its data comes from `composables/useLeaderboard.ts` and `server/api/`, see `docs/games/hall-of-fame.md`; `playerone` skips it too and is the site's profile/contact card — the Neon Dreams horizon behind one blueprint panel, no game, no navigation lock (it moves the sun with `createHorizon({ sunX })`; the module's sun options are `sunX`, `sunY` and `sunJitter` — the disc is always clipped at the horizon line and both values wander a little per load). ResizeObserver fits the board to remaining space and landscape phones use a two-column layout. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
+  desk; `tetris` skips the shell and fills the page with its Neon Dreams board; `leaderboard` (Hall of Fame, 2026-09-08) skips it and shows the D1-backed world ranking, one game at a time, up/down to change game — its data comes from `composables/useLeaderboard.ts` and `server/api/`, see `docs/games/hall-of-fame.md`; `portal` skips it and runs Neon Shrine's engine over its own world (`docs/games/portal.md`). `createHorizon`'s sun options are `sunX`, `sunY` and `sunJitter` — the disc is always clipped at the horizon line and both values wander a little per load. In Tetris, ResizeObserver fits the board to remaining space and landscape phones use a two-column layout. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
   (`height: 100dvh; overflow: hidden`) and the page does not scroll —
   `html`, `body` and `#__nuxt` are locked in `app.vue`. The old `scrollable`
   registry flag is gone with the Almanac theme that needed it. Since
@@ -109,7 +124,9 @@ Rules that keep the themes from fighting:
 ## Navigation lock
 
 The shell listens for ArrowLeft/ArrowRight and horizontal swipes on
-`document`. A theme that needs those (a game, a slider) sets
+`document`, and for Escape on `window` (home to the portal, decided after the
+whole dispatch, so any game listener's `preventDefault` wins). A game that
+uses Escape outside a run calls `preventDefault` on it. A theme that needs those (a game, a slider) sets
 `useTheme().navigationLocked.value = true` while it needs them and resets it
 on game over and in `onBeforeUnmount`. `galaga/Landing.vue`,
 `breakout/Landing.vue`, `rtype/Landing.vue`, `invaders/Landing.vue`, `starfox/Landing.vue` and `tetris/Game.vue` show the pattern; all six games

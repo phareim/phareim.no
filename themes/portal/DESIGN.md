@@ -52,31 +52,40 @@ Three maps, same format as Neon Shrine's (`themes/zelda/types.ts`), with
 `peaceful: true` on the World: no HUD hearts/bits/items, no enemies, the hero
 cannot be hurt and has no sword (A only talks, reads and uses exits).
 
-### `plaza` — overworld, about 40×30, area name PHAREIM.NO
+### `plaza` — overworld, 40×38, area name PHAREIM.NO
 
 A night town square on the neon coast, one screen and a bit in each
-direction, so a phone sees the name and at least two buildings at start.
+direction. At the start a phone (≈15×28 tiles) sees the name, the house and
+the newsstand; a desktop (≈18×11) sees the name, the house and the ends of
+the arcade and the hut. `tests/portal-world.test.mjs` checks both.
 
-- **Start**: centre of the plaza, facing up at the name.
-- **The name**: `PETTER HAREIM` as a scale-3 decal on a billboard/arch
-  across the north, with `PHAREIM.NO` smaller under it. The most visible
-  thing on the first screen.
-- **North**: Petter's house under the billboard (door → `home` interior).
+- **Start**: just below Petter's door, facing up at the name. (A desktop
+  view is only about 11 tiles tall, so the name has to sit within five rows
+  of the hero; the plaza and fountain open out below.)
+- **The name**: `PETTER HAREIM` as a scale-3 decal painted across the roof
+  of Petter's house, with `PHAREIM.NO` smaller under it. The most visible
+  thing on the first screen. Two rows of trees above keep it clear of the
+  radio widget on phones.
+- **North**: Petter's house, 15 wide, under the name (door → `home` interior).
 - **West**: THE ARCADE, a big building with a neon marquee decal (door →
   `arcade` interior).
 - **East**: a copy of the Keeper's hut, with a sign NEON SHRINE — AN
   ADVENTURE. Its door is an exit to `{ theme: 'zelda' }`.
-- **South**: the coast path: a newsstand kiosk for PHAREIM.MD (exit
-  `{ url: 'https://phareim.md' }`, lines saying it is Petter's writing) and a
-  signpost for GAMES.PHAREIM.NO (exit `{ url: 'https://games.phareim.no' }`).
+- **South**: the coast path: a small newsstand building (PHAREIM.MD decal)
+  with the kiosk counter in front (exit `{ url: 'https://phareim.md' }`,
+  lines saying it is Petter's writing), a signpost for GAMES.PHAREIM.NO
+  (exit `{ url: 'https://games.phareim.no' }`), and a pier into the sea.
 - Life: lamps, flowers, a fountain, the cat, a kid who explains the
   controls ("WALK UP TO A CABINET AND PRESS A"). No enemies.
 - Signs with arrows where paths branch.
 
-### `arcade` — interior, about 20×14
+### `arcade` — interior, 17×11 (the whole hall fits one desktop screen)
 
-- Two rows of cabinets (solid `M` tiles with an `exit` of look `cabinet`,
-  `art` = theme id, `side: 'down'`), one per game: Another Shore
+- Cabinets side by side: four along the back wall beside the board, four
+  on an island between two pillars, a carpet loop around them, a prize
+  counter with a vendor, a snack table, plants and a house-rules sign.
+  Each is a solid `M` tile with an `exit` of look `cabinet`, `art` = theme
+  id, `side: 'down'`, one per game: Another Shore
   (`anotherworld`), Galaga, Breakout, R-Type, Space Invaders, Star Fox,
   OutRun, Tetris. Each has a label and two or three short lines: the game's
   pitch and "INSERT COIN? PRESS A." The lines are the only confirmation.
@@ -86,8 +95,10 @@ direction, so a phone sees the name and at least two buildings at start.
 - The robot NPC from Neon Shrine's arcade, with portal lines.
 - Door at the bottom → back to the plaza.
 
-### `home` — interior, Petter's house, about 14×10
+### `home` — interior, Petter's house, 15×10
 
+- Half home, half workshop: a desk, shelves, a sofa facing the rug, an
+  aquarium, plants, a framed print and a toy chest.
 - An NPC `petter` (new look) who says the profile blurbs:
   "FATHER, HUSBAND, GEEK, ASPIRING GOOD GUY." / "HELP FOLKS. WRITE CODE.
   BUILD THINGS." and where he is.
@@ -120,9 +131,12 @@ the hero stepping out of that door; inside the hut a back door is an exit
 
 The canvas fills the viewport. A short hint fades in at the start and goes
 after the first move ("ARROWS TO WALK · SPACE TO TALK" / "DRAG TO WALK · A TO
-TALK"). A visually hidden block carries the same content as real HTML for
-search engines and screen readers: the h1 name, the blurbs, links to every
-game (`/?theme=<id>`), the projects and the contact links.
+TALK"); it is skipped when the visitor comes back from an exit. A visually
+hidden block carries the same content as real HTML for search engines and
+screen readers: the h1 name, the blurbs, links to every game in the rotation
+(`/?theme=<id>`), the projects and the contact links (their addresses read
+from the world's exits). Tab reaches it (the portal leaves Tab alone), and
+it shows as a panel while a link has focus.
 
 ## What would make it redundant
 

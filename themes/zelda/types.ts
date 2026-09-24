@@ -275,6 +275,8 @@ export interface World {
   start: { map: string; entry: string }
   /** A world to walk, not fight in (the portal): no HUD hearts, bits or items, and the hero cannot be hurt. */
   peaceful?: boolean
+  /** Dialog opened when a new game (no save) starts, after any walk-out from the start entry. */
+  intro?: { lines: string[]; who?: string | null }
 }
 
 // ---------------------------------------------------------------------------
@@ -455,6 +457,8 @@ export interface Hero {
   push: number
   /** Where a pit fall returns the hero. */
   safe: Vec
+  /** Walking out of a door after spawning on a `Spot.out` entry: input is ignored until it ends at (x, y). */
+  auto?: null | { dir: Dir; t: number; x: number; y: number; intro?: boolean }
 }
 
 export interface Inventory {
@@ -481,8 +485,8 @@ export interface Dialog {
   chars: number
   /** Speaker look, for a portrait-free name tag. */
   who: string | null
-  /** Shop purchase awaiting the last line, applied on close. */
-  after: null | { give?: ItemId; set?: string[]; sourceId?: string; price?: number }
+  /** Shop purchase awaiting the last line, applied on close; `exit` starts that exit's fade on close. */
+  after: null | { give?: ItemId; set?: string[]; sourceId?: string; price?: number; exit?: { id: string; to: ExitTarget } }
 }
 
 export interface GameState {
@@ -498,7 +502,8 @@ export interface GameState {
   zone: Rect
   zoneIndex: number
   scroll: null | { from: Rect; to: Rect; t: number; dx: number; dy: number; index: number }
-  warp: null | { t: number; to: string; entry: string; swapped: boolean }
+  /** A door fade. With `exit` it leaves the game at full dark (mode 'exit') instead of changing map. */
+  warp: null | { t: number; to: string; entry: string; swapped: boolean; exit?: { id: string; to: ExitTarget } }
   dialog: Dialog | null
   get: null | { item: ItemId; t: number; text: string[] }
   dying: null | { t: number }

@@ -1,5 +1,17 @@
 <template>
-  <div class="theme-pager" aria-label="Theme">
+  <div v-if="!isHome" class="theme-pager" aria-label="Theme">
+    <button
+      v-if="!navigationBlocked"
+      class="theme-home"
+      title="Back to the portal (Esc)"
+      aria-label="Back to the portal"
+      @click="goHome"
+    >
+      <!-- ⌂ drawn as strokes, so it glows like the chevrons in any font. -->
+      <svg class="theme-home__glyph" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3.5 11.5 12 4l8.5 7.5M6.5 9.5V20h11V9.5M10 20v-5.5h4V20" />
+      </svg>
+    </button>
     <button
       v-if="!navigationBlocked"
       class="theme-arrow theme-arrow--prev"
@@ -32,10 +44,12 @@
 </template>
 
 <script setup lang="ts">
-const { themes, activeTheme, setTheme, nextTheme, previousTheme, navigationBlocked } = useTheme()
+const { themes, activeTheme, isHome, setTheme, nextTheme, previousTheme, goHome, navigationBlocked } = useTheme()
 
+// Same walk as useTheme's step: from a parked theme, the first or last game.
 const neighbour = (delta: number) => {
   const i = themes.findIndex(t => t.id === activeTheme.value)
+  if (i < 0) return themes[delta > 0 ? 0 : themes.length - 1]
   return themes[(i + delta + themes.length) % themes.length]
 }
 </script>
@@ -50,6 +64,7 @@ const neighbour = (delta: number) => {
 }
 
 .theme-arrow,
+.theme-home,
 .theme-dot {
   pointer-events: auto;
   background: transparent;
@@ -173,6 +188,49 @@ const neighbour = (delta: number) => {
   }
 }
 
+/* Home chip: back to the portal. Bottom-right, on the dots' baseline — the
+   one corner no game uses (radio top-right, sound toggle bottom-left, titles
+   and labels top-left; checked at 375×667 and 1280×800, 2026-09-24). Gone
+   while a game owns the controls, like the chevrons. */
+.theme-home {
+  position: absolute;
+  right: max(0.5rem, env(safe-area-inset-right));
+  bottom: calc(max(0.9rem, env(safe-area-inset-bottom)) - 0.45rem);
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  color: var(--theme-accent, currentColor);
+}
+
+.theme-home__glyph {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
+  filter:
+    drop-shadow(0 0 3px color-mix(in srgb, var(--theme-accent, #fff) 90%, transparent))
+    drop-shadow(0 0 10px color-mix(in srgb, var(--theme-accent, #fff) 55%, transparent));
+  transition: opacity 0.25s ease, filter 0.25s ease, color 0.25s ease;
+}
+
+.theme-home:hover .theme-home__glyph,
+.theme-home:focus-visible .theme-home__glyph,
+.theme-home:active .theme-home__glyph {
+  opacity: 1;
+  color: #fff;
+  filter:
+    drop-shadow(0 0 4px color-mix(in srgb, var(--theme-accent, #fff) 95%, transparent))
+    drop-shadow(0 0 14px color-mix(in srgb, var(--theme-accent, #fff) 80%, transparent))
+    drop-shadow(0 0 30px color-mix(in srgb, var(--theme-accent, #fff) 50%, transparent));
+}
+
+.theme-home:focus-visible { outline: none; }
+
 .theme-dots {
   position: absolute;
   left: 0;
@@ -201,6 +259,12 @@ const neighbour = (delta: number) => {
 }
 
 .theme-dot.active { opacity: 0.85; }
+
+/* Phones: a tighter row, so eleven dots clear the home chip at 375 px. */
+@media (max-width: 420px) {
+  .theme-dots { gap: 0.25rem; }
+  .theme-dot { width: 1.3rem; }
+}
 .theme-dot:hover,
 .theme-dot:focus-visible { opacity: 0.85; outline: none; }
 </style>

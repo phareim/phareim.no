@@ -32,7 +32,7 @@ stille). `intensityVoices`/`transposeFor`/`hz` gjenbrukes fra
 ikke koble dem til igjen. `npm run test:radio` (5 tester) + én ny
 regressjon i `galaga-game` (reset driver radioen); CI-linje lagt til.
 Verifisert: alle suiter grønne, typecheck, produksjonsbygg, SSR-widget på
-galaga/outrun/playerone/tetris, headless Chromium uten JS-feil på fem
+galaga/outrun/playerone (nå pensjonert)/tetris, headless Chromium uten JS-feil på fem
 themes. Fysisk telefon og reappl multi-context-batterikostnad er umålt.
 
 **Spill-lyd og samspill (2026-09-12).** De andre spillene har eget lydspor

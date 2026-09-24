@@ -4,10 +4,11 @@
  * it; `loadMap` builds the mutable MapState for the current progress.
  */
 import type {
-  Cond, EntDef, GameState, MapDef, MapState, Rect, Spot, TileChar, Warp, World, Enemy, Npc, Pickup,
+  Cond, EntDef, ExitSpot, GameState, MapDef, MapState, Rect, Spot, TileChar, Warp, World, Enemy, Npc, Pickup,
 } from '../types'
 import { TILE_INFO, isTileChar } from '../world/tiles'
 import { spawnEnemy } from './spawn'
+import { dirVec, opposite } from './util'
 
 export interface MarkAt { x: number; y: number; ent: EntDef }
 export interface ChestInfo { id: string; item: import('../types').ItemId; big: boolean; appear?: Cond; idx: number; x: number; y: number; cell: number }
@@ -24,6 +25,9 @@ export interface MapInfo {
   chests: Map<number, ChestInfo>
   chestList: ChestInfo[]
   signs: Map<number, string[]>
+  /** Exits by tile index; `exitLines` holds a solid exit's dialog. */
+  exits: Map<number, ExitSpot>
+  exitLines: Map<number, string[]>
   gates: GateInfo[]
   plates: Map<number, string>
   /** Authored push-block tiles, per camera room. */
@@ -82,7 +86,7 @@ function buildInfo(def: MapDef): MapInfo {
     def, w, h, base, marks,
     entries: { ...(def.entries ?? {}) },
     warps: (def.warps ?? []).map(wp => ({ w: 1, h: 1, ...wp })),
-    chests: new Map(), chestList: [], signs: new Map(), gates: [], plates: new Map(), blocks: new Map(),
+    chests: new Map(), chestList: [], signs: new Map(), exits: new Map(), exitLines: new Map(), gates: [], plates: new Map(), blocks: new Map(),
     cw, ch: chh, cols: Math.ceil(w / cw), rows: Math.ceil(h / chh),
   }
   for (const m of marks) {
@@ -98,6 +102,20 @@ function buildInfo(def: MapDef): MapInfo {
     } else if (e.t === 'sign') info.signs.set(idx, e.lines)
     else if (e.t === 'plate') info.plates.set(idx, e.id)
     else if (e.t === 'gate') info.gates.push({ id: `${def.id}.${m.x},${m.y}`, tiles: floodRun(base, w, h, idx, 'X'), open: e.open, cell })
+  }
+  // Exits, and the entry beside each one (after the entry markers, which win a name clash).
+  for (const m of marks) {
+    const e = m.ent
+    if (e.t !== 'exit') continue
+    const idx = m.y * w + m.x
+    const walk = !TILE_INFO[base[idx]!].solid
+    info.exits.set(idx, {
+      id: e.id, x: m.x + 0.5, y: m.y + 0.5, to: e.to, look: e.look ?? (walk ? 'door' : 'sign'), art: e.art, label: e.label, walk,
+    })
+    if (!walk && e.lines?.length) info.exitLines.set(idx, e.lines)
+    const side = e.side ?? 'down'
+    const v = dirVec(side)
+    if (!info.entries[e.id]) info.entries[e.id] = { x: m.x + v.x + 0.5, y: m.y + v.y + 0.5, dir: walk ? side : opposite(side) }
   }
   base.forEach((t, i) => {
     if (t !== 'b') return
@@ -116,6 +134,7 @@ function defaultTile(e: EntDef): TileChar {
     case 'plate': return '_'
     case 'gate': return 'X'
     case 'shop': return 'n'
+    case 'exit': return 'D'
     default: return '.'
   }
 }
@@ -217,7 +236,7 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
   return {
     id, w: info.w, h: info.h, tiles, version: 1,
     enemies, projectiles: [], drops: [], bombs: [], blasts: [], thrown: [], moving: [],
-    npcs, pickups, plates: [], pending: [], crystal: {},
+    npcs, pickups, exits: [...info.exits.values()].map(x => ({ ...x })), plates: [], pending: [], crystal: {},
   }
 }
 

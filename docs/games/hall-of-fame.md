@@ -3,7 +3,7 @@
 `?theme=leaderboard` is the tenth live theme, third to last in the rotation: the
 world ranking of the seven score games (Galaga, Breakout, R-Type, Space
 Invaders, Star Fox, OutRun, Tetris; Another Shore has no score) in one blueprint
-panel over the shared horizon, sun pushed right like Player One. Up/down
+panel over the shared horizon, sun pushed right. Up/down
 arrows, PageUp/Down, the mouse wheel, a vertical swipe, the ▲▼ buttons or
 the dot rail beside the panel walk the games; the switch is the site's
 180 ms fade. Left/right still switch theme — nothing here locks navigation.

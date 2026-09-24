@@ -1,35 +1,33 @@
-import { themes, allThemes, isThemeId, isAnyThemeId, randomThemeId, resolveThemeId, type ThemeDefinition } from '~/themes'
+import { themes, allThemes, homeTheme, isThemeId, isAnyThemeId, resolveThemeId, type ThemeDefinition } from '~/themes'
 
-const COOKIE_NAME = 'theme'
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+/** Set by `launch()`, read (and cleared) by the theme it launched. */
+export interface PortalLaunch {
+  theme: string
+  at: number
+}
 
 /**
- * Theme state. Resolved once per request, in this order:
- *   1. `?theme=<id>` in the URL (deep link, also handy when building a theme;
- *      the only way to reach a theme marked `disabled`)
- *   2. the `theme` cookie (returning visitor; renamed ids are mapped first)
- *   3. a random pick (first visit)
- * The pick happens during SSR, so the first paint is already the right theme
- * and the cookie is set in the response — no flash, no client-side reshuffle.
+ * Theme state. The URL is the only source (2026-09-24):
+ *   - `/` is the portal, the home theme
+ *   - `/?theme=<id>` is that theme, parked ones included; legacy ids are
+ *     mapped first, an unknown id falls back to the portal
+ * It is read from the route, so SSR paints the right theme and client
+ * navigation (links, back/forward) switches it with no extra state.
+ *
+ * Leaving the portal (`launch`) and coming back (`goHome`) push a history
+ * entry, so the back button walks between them. Swiping between games
+ * replaces the entry, so history does not fill up.
  */
 export const useTheme = () => {
-  const cookie = useCookie<string | undefined>(COOKIE_NAME, {
-    maxAge: COOKIE_MAX_AGE,
-    sameSite: 'lax',
-    path: '/',
+  const route = useRoute()
+  const router = useRouter()
+
+  const activeTheme = computed<string>(() => {
+    const id = resolveThemeId(route.query.theme)
+    return isAnyThemeId(id) ? id : homeTheme.id
   })
 
-  const activeTheme = useState<string>('activeTheme', () => {
-    const fromQuery = resolveThemeId(useRoute().query.theme)
-    if (isAnyThemeId(fromQuery)) return fromQuery
-    const fromCookie = resolveThemeId(cookie.value)
-    if (isThemeId(fromCookie)) return fromCookie
-    return randomThemeId()
-  })
-
-  if (cookie.value !== activeTheme.value) {
-    cookie.value = activeTheme.value
-  }
+  const isHome = computed(() => activeTheme.value === homeTheme.id)
 
   /** While true, swipe and arrow keys do not switch theme (a game owns them). */
   const navigationLocked = useState<boolean>('themeNavigationLocked', () => false)
@@ -37,8 +35,10 @@ export const useTheme = () => {
   const navigationCoolingDown = useState<boolean>('themeNavigationCoolingDown', () => false)
   const navigationBlocked = computed(() => navigationLocked.value || navigationCoolingDown.value)
 
+  const portalLaunch = useState<PortalLaunch | null>('portalLaunch', () => null)
+
   const theme = computed<ThemeDefinition>(
-    () => allThemes.find(t => t.id === activeTheme.value) ?? themes[0]
+    () => allThemes.find(t => t.id === activeTheme.value) ?? homeTheme
   )
 
   const themePageClass = computed(() => `${activeTheme.value}-page`)
@@ -51,29 +51,48 @@ export const useTheme = () => {
     return t.themeColor
   })
 
+  /** Swipe, arrow, chevron or dot: another game in the rotation. Respects the lock. */
   const setTheme = (id: string) => {
-    if (navigationBlocked.value || !isThemeId(id)) return
-    activeTheme.value = id
-    cookie.value = id
+    if (navigationBlocked.value || !isThemeId(id) || id === activeTheme.value) return
+    router.replace({ path: '/', query: { theme: id } })
   }
 
   const step = (delta: number) => {
+    if (isHome.value) return
     const i = themes.findIndex(t => t.id === activeTheme.value)
-    const next = (i + delta + themes.length) % themes.length
+    // A parked theme is not in the rotation: a step lands on the first or last game.
+    const next = i < 0 ? (delta > 0 ? 0 : themes.length - 1) : (i + delta + themes.length) % themes.length
     setTheme(themes[next].id)
+  }
+
+  /** From the portal into a theme. Ignores the lock; the back button returns. */
+  const launch = (id: string) => {
+    if (!isAnyThemeId(id) || id === homeTheme.id) return
+    portalLaunch.value = { theme: id, at: Date.now() }
+    router.push({ path: '/', query: { theme: id } })
+  }
+
+  /** Back to the portal. Ignores the lock. */
+  const goHome = () => {
+    if (isHome.value) return
+    router.push('/')
   }
 
   return {
     themes,
     theme,
     activeTheme,
+    isHome,
     themePageClass,
     themeColor,
     navigationLocked,
     navigationCoolingDown,
     navigationBlocked,
+    portalLaunch,
     setTheme,
     nextTheme: () => step(1),
     previousTheme: () => step(-1),
+    launch,
+    goHome,
   }
 }

@@ -302,7 +302,7 @@ watch(index, () => nextTick(fit))
 .lb-hud--left { left: 18px; }
 .lb-hud--right { right: 18px; }
 
-/* Blueprint panel, as on Player One. */
+/* Blueprint panel, as in the Hangar. */
 .lb-panel {
   position: relative;
   z-index: 2;

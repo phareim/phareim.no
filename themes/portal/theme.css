@@ -1,0 +1,42 @@
+/**
+ * The Portal (portal)
+ * ---------------------------
+ * phareim.no's front door: a neon town drawn by the Neon Shrine renderer.
+ * The page tokens only; the world is canvas (Portal.vue), the hint and the
+ * hidden link list live in Landing.vue.
+ */
+
+:root {
+  --portal-bg: #0b0616;
+  --portal-text: #e8f6ff;
+  --portal-text-muted: rgba(232, 246, 255, 0.66);
+  --portal-text-subtle: rgba(232, 246, 255, 0.4);
+  --portal-accent: #2ff3ff;
+  --portal-pink: #ff2fa0;
+  --portal-card-bg: rgba(11, 6, 22, 0.9);
+  --portal-card-border: rgba(47, 243, 255, 0.35);
+  --portal-card-shadow: rgba(0, 0, 0, 0.5);
+  --portal-font: var(--font-person);
+  --portal-mono: var(--font-machine);
+}
+
+.portal-page {
+  height: 100dvh;
+  overflow: hidden;
+  touch-action: none;
+  background: var(--portal-bg);
+  color: var(--portal-text);
+  font-family: var(--portal-font);
+  position: relative;
+
+  --theme-bg: var(--portal-bg);
+  --theme-text: var(--portal-text);
+  --theme-text-muted: var(--portal-text-muted);
+  --theme-text-subtle: var(--portal-text-subtle);
+  --theme-accent: var(--portal-accent);
+  --theme-card-bg: var(--portal-card-bg);
+  --theme-card-border: var(--portal-card-border);
+  --theme-card-shadow: var(--portal-card-shadow);
+  --theme-card-radius: 8px;
+  --theme-font-body: var(--portal-font);
+}

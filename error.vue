@@ -2,8 +2,9 @@
   <div :class="[themePageClass, 'error-root']">
     <component :is="theme.backdrop" v-if="theme.backdrop" />
 
-    <!-- Galaga, Breakout, R-Type and OutRun (all neon-on-black, same terminal block) -->
-    <div v-if="activeTheme === 'galaga' || activeTheme === 'breakout' || activeTheme === 'rtype' || activeTheme === 'outrun'" class="error-container term-container-inner">
+    <!-- The portal and every neon game without a block of its own: one terminal block.
+      A 404 has no ?theme, so it is usually the portal's. -->
+    <div v-if="terminal" class="error-container term-container-inner">
       <p class="term-prompt">$ navigate --path {{ requestedPath }}</p>
       <p class="term-err">
         <span class="term-err-code">404</span>
@@ -73,7 +74,7 @@
       <button class="tetris-home-btn" @click="goHome">[ PRESS START ]</button>
     </div>
 
-    <!-- Scandinavian (default) theme -->
+    <!-- Scandinavian Glass (parked) -->
     <div v-else class="error-container scandi-container-inner">
       <p class="scandi-404-num">404</p>
       <h1 class="scandi-title">drifted off course</h1>
@@ -91,6 +92,10 @@ const props = defineProps({
 
 const { theme, activeTheme, themePageClass } = useTheme()
 
+/** Themes with their own 404 block; everything else gets the terminal. */
+const OWN_BLOCK = ['anotherworld', 'shore', 'space', 'desk', 'tetris', 'scandi']
+const terminal = computed(() => !OWN_BLOCK.includes(activeTheme.value))
+
 const requestedPath = computed(() => {
   if (props.error?.url) {
     try { return new URL(props.error.url, 'http://x').pathname } catch { return props.error.url }
@@ -98,6 +103,7 @@ const requestedPath = computed(() => {
   return import.meta.client ? window.location.pathname : '/'
 })
 
+/** Every 404 leads back to the portal. */
 function goHome() {
   clearError({ redirect: '/' })
 }
@@ -211,7 +217,7 @@ useHead({ title: '404 — phareim.no' })
   50% { transform: translateY(-10px); }
 }
 
-/* ---- Terminal 404 (galaga, breakout, rtype) ---- */
+/* ---- Terminal 404 (the portal and the neon games) ---- */
 .term-container-inner {
   text-align: left;
   font-family: var(--font-machine);

@@ -55,7 +55,11 @@
  * Keys: arrows / WASD move; Space / J / Z = A (sword, talk, lift, throw;
  * hold then release for a spin); K / X / Shift = B (item); Q / Tab swap
  * item; Enter = A in play; P or an Escape tap pause. Touch: floating stick
- * on the left, A / B buttons on the right, SWAP and pause chips.
+ * on the left, A / B buttons on the right, SWAP and pause chips. The input
+ * itself is `input.ts`, shared with the portal.
+ *
+ * From the portal: Landing.vue calls the exposed `start()` (no title); an
+ * `exit` event (the hut's way home) saves and hands off to useTheme.
  */
 import EscHold from '../base/EscHold.vue'
 import { createGame, stepGame, toSave } from './engine/index'
@@ -64,7 +68,8 @@ import { createRenderer, type FrameUI, type Renderer } from './render/renderer'
 import { sprite } from './render/sheet'
 import { createZeldaAudio, type SfxName, type ZeldaAudio } from './audio'
 import { readLocalSave, writeLocalSave, clearLocalSave, readLocalBest, writeLocalBest } from './localSave'
-import { NO_INPUT, type GameState, type GameEvent, type Input, type TrackId, type UseItem } from './types'
+import { createInput, type GameInput } from './input'
+import { NO_INPUT, type ExitTarget, type GameState, type GameEvent, type TrackId, type UseItem } from './types'
 
 type Phase = 'attract' | 'play' | 'over' | 'won'
 
@@ -72,9 +77,6 @@ const emit = defineEmits<{
   phase: [phase: Phase]
   result: [result: { reason: 'quit' | 'won'; elapsed: number; best: number | null }]
 }>()
-
-const STICK_PX = 38
-const TAP_PX = 10
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const paused = ref(false)
@@ -84,7 +86,7 @@ const phase = ref<Phase>('attract')
 const touchUI = ref(false)
 const band = ref(0)
 const selected = ref<UseItem | null>(null)
-const { navigationLocked } = useTheme()
+const { navigationLocked, launch, goHome } = useTheme()
 const sound = useSound()
 const profileSave = useGameSave('zelda')
 
@@ -98,6 +100,8 @@ let reducedMotion = false
 let attractT = 0
 let lowHpT = 0
 let track: TrackId | null = null
+/** The run began without a key or tap (from the portal): wake the audio on the first one. */
+let wakeAudio = false
 
 const ui: FrameUI = {
   paused: false, confirmReset: false, reducedMotion: false, touch: false, stick: null, attract: true, cam: null, banner: null,
@@ -117,158 +121,42 @@ const itemIcon = computed(() => {
 
 // ---- input -------------------------------------------------------------------
 
-const keys = new Set<string>()
-let aHeldKey = false
-let aHeldTouch = false
-let aPress = false
-let bPress = false
-let cyclePress = false
-let stick: { id: number; ox: number; oy: number; dx: number; dy: number } | null = null
-let idleTap: { id: number; x: number; y: number } | null = null
+const input: GameInput = createInput({
+  canvas: () => canvas.value,
+  touch: () => touchUI.value,
+  onTouch: () => { touchUI.value = true; resize() },
+  idle: () => phase.value !== 'play',
+  paused: () => paused.value,
+  dialog: () => state.mode === 'dialog',
+  onIdleTap: () => {
+    if (phase.value === 'attract' || phase.value === 'over') startRun(false)
+    else if (phase.value === 'won') startRun(true)
+  },
+  onKey: shellKey,
+})
 
-const A_KEYS = new Set(['Space', 'KeyJ', 'KeyZ', 'Enter'])
-const B_KEYS = new Set(['KeyK', 'KeyX', 'ShiftLeft', 'ShiftRight'])
-const CYCLE_KEYS = new Set(['KeyQ', 'Tab', 'KeyC'])
-const MOVE_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'KeyW', 'KeyS'])
-
-function readInput(): Input {
-  let x = 0
-  let y = 0
-  if (keys.has('ArrowLeft') || keys.has('KeyA')) x -= 1
-  if (keys.has('ArrowRight') || keys.has('KeyD')) x += 1
-  if (keys.has('ArrowUp') || keys.has('KeyW')) y -= 1
-  if (keys.has('ArrowDown') || keys.has('KeyS')) y += 1
-  if (stick) {
-    const len = Math.hypot(stick.dx, stick.dy)
-    if (len < 7) { x = 0; y = 0 } else { x = stick.dx / STICK_PX; y = stick.dy / STICK_PX }
-  }
-  const len = Math.hypot(x, y)
-  if (len > 1) { x /= len; y /= len }
-  const input: Input = {
-    move: { x, y },
-    a: aHeldKey || aHeldTouch,
-    aPress,
-    bPress,
-    cycle: cyclePress,
-    autoFace: touchUI.value,
-  }
-  aPress = false
-  bPress = false
-  cyclePress = false
-  return input
-}
-
-function clearInput() {
-  keys.clear()
-  aHeldKey = false
-  aHeldTouch = false
-  aPress = false
-  bPress = false
-  cyclePress = false
-  stick = null
-  idleTap = null
-  ui.stick = null
-}
-
-function isInteractive(el: EventTarget | null) {
-  return !!(el as HTMLElement | null)?.closest?.('a, button, .theme-pager, .radio-widget')
-}
-
-function canvasPoint(e: PointerEvent) {
-  const r = canvas.value!.getBoundingClientRect()
-  return { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width }
-}
-
-function onPointerDown(e: PointerEvent) {
-  if (e.pointerType === 'touch' && !touchUI.value) { touchUI.value = true; resize() }
-  if (isInteractive(e.target)) return
-  const p = canvasPoint(e)
-  if (phase.value !== 'play') { idleTap = { id: e.pointerId, x: p.x, y: p.y }; return }
-  if (paused.value) return
-  // Any tap moves a dialog on.
-  if (state.mode === 'dialog') { aPress = true; return }
-  if (e.pointerType === 'mouse') return
-  if (!stick && p.x < p.w * 0.6) {
-    stick = { id: e.pointerId, ox: p.x, oy: p.y, dx: 0, dy: 0 }
-    ui.stick = { ox: p.x, oy: p.y, dx: 0, dy: 0 }
-  } else if (p.x >= p.w * 0.6) {
-    // A tap on the right half of the world is a sword press too.
-    aPress = true
-  }
-}
-
-function onPointerMove(e: PointerEvent) {
-  if (!stick || stick.id !== e.pointerId) return
-  const p = canvasPoint(e)
-  let dx = p.x - stick.ox
-  let dy = p.y - stick.oy
-  const len = Math.hypot(dx, dy)
-  if (len > STICK_PX) {
-    // The stick follows a finger that drifts too far, so it never goes dead.
-    const over = len - STICK_PX
-    stick.ox += (dx / len) * over
-    stick.oy += (dy / len) * over
-    dx = p.x - stick.ox
-    dy = p.y - stick.oy
-  }
-  stick.dx = dx
-  stick.dy = dy
-  ui.stick = { ox: stick.ox, oy: stick.oy, dx, dy }
-}
-
-function onPointerUp(e: PointerEvent) {
-  if (idleTap && idleTap.id === e.pointerId) {
-    const p = canvasPoint(e)
-    const moved = Math.hypot(p.x - idleTap.x, p.y - idleTap.y)
-    idleTap = null
-    if (moved < TAP_PX && !isInteractive(e.target)) {
-      if (phase.value === 'attract' || phase.value === 'over') startRun(false)
-      else if (phase.value === 'won') startRun(true)
-    }
-    return
-  }
-  if (stick?.id === e.pointerId) { stick = null; ui.stick = null }
-}
-
-function onPointerCancel(e: PointerEvent) {
-  if (idleTap?.id === e.pointerId) idleTap = null
-  if (stick?.id === e.pointerId) { stick = null; ui.stick = null }
-}
-
-function pressA() { if (phase.value === 'play' && !paused.value) { aPress = true; aHeldTouch = true } }
-function releaseA() { aHeldTouch = false }
-function pressB() { if (phase.value === 'play' && !paused.value) bPress = true }
-function cycle() { if (phase.value === 'play' && !paused.value) cyclePress = true }
-
-function onKeyDown(e: KeyboardEvent) {
-  if (isInteractive(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
+/** Title, pause-screen and pause keys; the game keys are input.ts's. */
+function shellKey(e: KeyboardEvent): boolean {
   if (phase.value !== 'play') {
     if (e.code === 'Enter' && !e.repeat) { e.preventDefault(); startRun(phase.value === 'won') }
     else if (e.code === 'KeyN' && !e.repeat) { e.preventDefault(); startRun(true) }
-    return
+    return true
   }
   if (paused.value && !e.repeat) {
     if (confirmReset.value) {
-      if (e.code === 'Enter' || e.code === 'KeyY') { e.preventDefault(); resetRun(); return }
-      if (e.code === 'KeyN' || e.code === 'Backspace') { e.preventDefault(); cancelReset(); return }
-    } else if (e.code === 'KeyR') { e.preventDefault(); askReset(); return }
+      if (e.code === 'Enter' || e.code === 'KeyY') { e.preventDefault(); resetRun(); return true }
+      if (e.code === 'KeyN' || e.code === 'Backspace') { e.preventDefault(); cancelReset(); return true }
+    } else if (e.code === 'KeyR') { e.preventDefault(); askReset(); return true }
   }
-  if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) togglePause(); return }
-  const game = MOVE_KEYS.has(e.code) || A_KEYS.has(e.code) || B_KEYS.has(e.code) || CYCLE_KEYS.has(e.code)
-  if (!game) return
-  e.preventDefault()
-  if (paused.value) return
-  if (MOVE_KEYS.has(e.code)) { keys.add(e.code); return }
-  if (e.repeat) return
-  if (A_KEYS.has(e.code)) { aPress = true; aHeldKey = true }
-  else if (B_KEYS.has(e.code)) bPress = true
-  else if (CYCLE_KEYS.has(e.code)) cyclePress = true
+  if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) togglePause(); return true }
+  return false
 }
 
-function onKeyUp(e: KeyboardEvent) {
-  keys.delete(e.code)
-  if (A_KEYS.has(e.code)) aHeldKey = false
-}
+function clearInput() { input.clear() }
+function pressA() { input.pressA() }
+function releaseA() { input.releaseA() }
+function pressB() { input.pressB() }
+function cycle() { input.cycle() }
 
 // ---- phases --------------------------------------------------------------------
 
@@ -316,6 +204,32 @@ function startRun(fresh: boolean) {
   ui.banner = { text: area, t: 0 }
   lastT = 0
 }
+
+/** Wakes the audio on the first key or tap of a run that began without one (iOS keeps it asleep). */
+function onFirstGesture() {
+  if (!wakeAudio || phase.value !== 'play') return
+  wakeAudio = false
+  audio?.unlock()
+  sound.unlock()
+}
+
+/** Where the engine's `exit` leads. The save is written first; the component unmounts on the way out. */
+function leave(to: ExitTarget) {
+  persist()
+  clearInput()
+  if ('home' in to) goHome()
+  else if ('theme' in to) launch(to.theme)
+  else window.location.assign(to.url)
+}
+
+defineExpose({
+  /** Continue the save, or begin a new game, without the title (entered from the portal). */
+  start() {
+    if (phase.value === 'play') return
+    startRun(false)
+    wakeAudio = true
+  },
+})
 
 function trackFor(s: GameState): TrackId {
   const def = WORLD.maps[s.map.id]!
@@ -437,6 +351,7 @@ function handleEvents(events: GameEvent[]) {
       case 'respawn': save = true; break
       case 'died': a?.jingle('gameOver'); break
       case 'hitStop': if (!reducedMotion) hitStopMs = Math.max(hitStopMs, e.ms); break
+      case 'exit': leave(e.to); return
     }
   }
   if (save) persist()
@@ -477,12 +392,13 @@ function frame(nowMs: number) {
   ui.reducedMotion = reducedMotion
   ui.touch = touchUI.value
   ui.keys = touchUI.value ? { a: 'A', b: 'B', cycle: 'SWAP' } : { a: 'SPACE', b: 'K', cycle: 'Q' }
+  ui.stick = input.stick
 
   if (phase.value === 'play') {
     ui.cam = null
     if (paused.value) { renderer.draw(state, ui, 0); return }
     if (hitStopMs > 0) { hitStopMs -= dt * 1000; renderer.draw(state, ui, 0); return }
-    const events = stepGame(WORLD, state, dt, readInput())
+    const events = stepGame(WORLD, state, dt, input.read())
     renderer.onEvents(events)
     handleEvents(events)
     if (ui.banner) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }
@@ -537,14 +453,10 @@ onMounted(() => {
   observer = new ResizeObserver(resize)
   observer.observe(canvas.value)
   window.addEventListener('resize', resize)
-  window.addEventListener('keydown', onKeyDown)
-  window.addEventListener('keyup', onKeyUp)
-  window.addEventListener('blur', clearInput)
+  input.attach()
+  window.addEventListener('keydown', onFirstGesture, true)
+  window.addEventListener('pointerdown', onFirstGesture, true)
   document.addEventListener('visibilitychange', onVisibility)
-  window.addEventListener('pointerdown', onPointerDown)
-  window.addEventListener('pointermove', onPointerMove)
-  window.addEventListener('pointerup', onPointerUp)
-  window.addEventListener('pointercancel', onPointerCancel)
   raf = requestAnimationFrame(frame)
   // Dev-only handle for the headless play-throughs in scripts/zelda-lab.
   if (import.meta.dev) (window as unknown as { __zelda: unknown }).__zelda = { get state() { return state }, get phase() { return phase.value } }
@@ -555,14 +467,10 @@ onBeforeUnmount(() => {
   observer?.disconnect()
   muteStop?.()
   window.removeEventListener('resize', resize)
-  window.removeEventListener('keydown', onKeyDown)
-  window.removeEventListener('keyup', onKeyUp)
-  window.removeEventListener('blur', clearInput)
+  input.detach()
+  window.removeEventListener('keydown', onFirstGesture, true)
+  window.removeEventListener('pointerdown', onFirstGesture, true)
   document.removeEventListener('visibilitychange', onVisibility)
-  window.removeEventListener('pointerdown', onPointerDown)
-  window.removeEventListener('pointermove', onPointerMove)
-  window.removeEventListener('pointerup', onPointerUp)
-  window.removeEventListener('pointercancel', onPointerCancel)
   if (phase.value === 'play') persist()
   audio?.dispose()
   audio = null
