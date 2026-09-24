@@ -129,14 +129,18 @@ within 1.5 s chain into a multiplier (up to x4 with `C`). Waves come every
   globe), Kestrel station, six drifting cratered rocks at parallax depths,
   twinkling one-pixel stars (they stay bright through the light map).
   Reduced motion stops the backdrop, the shake and the intercom animations.
-- HUD (canvas, 5×7 font on the stage's HUD layer): score top-centre (first
-  line on phones, where the radio widget owns the top right; the rest
-  starts below the radio), then hull, weapon module and level, SYNC meter,
-  sector and wave, capsule chips. The boss bar sits on the sector line,
-  right of it, or above the pager on phones. The intercom panel is Neon
-  Shrine's dialog box: bottom-left on wide screens, compact in the corner
-  on short landscape screens, and under the HUD on phones. Title and game
-  over use the `.px-*` classes.
+- HUD (canvas, 5×7 font on the stage's HUD layer). Wide screens: score
+  top-centre, then hull, weapon module and level, SYNC meter, sector and
+  wave, capsule chips; the boss bar on the sector line. Phones and short
+  landscape screens: two lines, about 8 % of a phone's height. Line 1
+  (score, `S1 W2`) stays left of the radio widget; line 2 starts at the
+  radio's bottom edge with hull, weapon and level, the SYNC bar, the
+  multiplier and the chips. The boss bar is above the pager on phones and
+  on the right of line 2 on short landscape screens. The intercom panel is
+  Neon Shrine's dialog box: bottom-left on wide screens; in the corner
+  without its name line on short landscape screens; on phones just under
+  the HUD, where it sat before, clear of the ship and the thumb, with a
+  smaller portrait and no name line. Title and game over use `.px-*`.
 
 `?theme=galaga&debug=galaga` exposes `window.__galaga` (`boss()`,
 `give(type)`, `sync()`, `wave(n)`, `state()`) for screenshots and manual

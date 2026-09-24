@@ -126,24 +126,34 @@ function paint(el: unknown, who: 'claude' | 'choir' | undefined, frame: number) 
   .intercom {
     left: 12px;
     bottom: calc(12px + var(--app-safe-bottom, 0px));
-    width: min(340px, 46vw);
+    width: min(400px, 52vw);
     padding: 8px 10px 8px 8px;
     gap: 8px;
   }
+  .intercom::before { display: none; }
   .intercom-portrait { width: 26px !important; height: 26px !important; }
+  .intercom .intercom-who { display: none; }
+  .intercom .intercom-text { line-height: 18px; }
 }
 
-/* Phones: under the HUD at the top, clear of the ship and the thumb. */
+/* Phones: just under the two-line HUD at the top (where it sat before the
+   pixel look), clear of the ship's lane and the thumb at the bottom. */
 @media (max-width: 640px) {
   .intercom {
-    left: 14px;
-    right: 14px;
+    left: 10px;
+    right: 10px;
     width: auto;
     bottom: auto;
-    top: calc(max(0.6rem, env(safe-area-inset-top)) + 118px);
-    padding: 10px 10px 10px 10px;
-    gap: 10px;
+    top: calc(max(0.6rem, env(safe-area-inset-top)) + 64px);
+    padding: 8px 10px 8px 8px;
+    gap: 8px;
+    background: rgba(11, 6, 22, 0.78);
   }
+  .intercom::before { display: none; }
+  .intercom-portrait { width: 26px !important; height: 26px !important; }
+  /* The portrait and the panel colour say who talks; the name line goes. */
+  .intercom .intercom-who { display: none; }
+  .intercom .intercom-text { line-height: 18px; }
 }
 
 .intercom-portrait {

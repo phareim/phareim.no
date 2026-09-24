@@ -1442,10 +1442,73 @@ function hudBar(x, y, w, h, frac, color) {
   g.fillRect(x, y, Math.round(w * Math.max(0, Math.min(1, frac))), h)
 }
 
+// Phones and short landscape screens: two lines, about 8 % of a phone's height. Line 1 (score, sector,
+// wave) stays left of the radio widget; line 2 starts at the radio's
+// bottom edge: hull, weapon and level, SYNC bar, multiplier, capsule chips.
+function drawHudPhone(now) {
+  const g = stage.hud
+  const vw = stage.vw
+  const x0 = 4
+  const scoreW = hud(`${score}`, x0, 4, '#2ff3ff')
+  hud(`S${sectorFor(sectorIndex).num} W${waveNumber}`, x0 + scoreW + 6, 4, DIM)
+  const y = Math.ceil(48 / stage.k)
+  const blink = hull <= 1 && Math.floor(now / 300) % 2 === 0
+  let x = x0
+  for (let i = 0; i < HULL_MAX; i++) {
+    const on = i < hull
+    g.fillStyle = '#0b0616'
+    g.fillRect(x - 1, y + 1, 7, 5)
+    g.fillStyle = !on ? SLOT : hull >= 4 ? '#2ff3ff' : hull >= 2 ? '#ffd23f' : blink ? '#ff70bc' : '#ff2fa0'
+    g.fillRect(x, y + 2, 5, 3)
+    x += 6
+  }
+  x += 3
+  x += hud(WEAPON_NAMES[weapon], x, y, '#2ff3ff') + 3
+  const lv = syncTimer > 0 ? 5 : clampLevel(bulletLevel)
+  for (let i = 0; i < 5; i++) {
+    g.fillStyle = i < lv ? (syncTimer > 0 ? '#ffd23f' : '#2ff3ff') : SLOT
+    g.fillRect(x + i * 3, y + 3, 2, 2)
+  }
+  x += 17
+  const live = syncTimer > 0
+  const ready = !live && syncMeter >= 1
+  let col = live || ready ? '#ffd23f' : '#2ff3ff'
+  if (ready && Math.floor(now / 250) % 2 === 0) col = '#fff1b0'
+  hudBar(x, y + 3, 16, 2, live ? syncTimer / SYNC.duration : syncMeter, col)
+  x += 20
+  const mult = scoreMult()
+  if (mult > 1 && x + 12 < vw) x += hud(`X${mult}`, x, y, '#ffd23f') + 4
+  const timed = [['D', dualTimer, 'dual'], ['R', rearTimer, 'rear'], ['T', tempoTimer, 'tempo'], ['M', magnetTimer, 'magnet'], ['C', comboTimer, 'combo']]
+  for (const [letter, t, kind] of timed) {
+    if (t <= 0 || x + 7 > vw) continue
+    hud(letter, x, y, '#ffd23f')
+    g.fillStyle = t < 3 && Math.floor(now / 200) % 2 ? '#5b2a1c' : '#ffd23f'
+    g.fillRect(x, y + 8, Math.max(1, Math.round(5 * t / POWERUP_DURATION[kind])), 1)
+    x += 8
+  }
+  const boss = bosses[0]
+  // Short landscape: the boss bar takes the rest of line 2 (the bottom
+  // corner belongs to the intercom).
+  if (boss && H() < 520 && W() >= 640) {
+    const nx = Math.max(x + 10, vw >> 1)
+    const nw = hud(boss.name ?? 'CANTOR', nx, y, '#ff2fa0')
+    hudBar(nx + nw + 4, y + 3, Math.max(20, vw - nx - nw - 8), 2, boss.hp / boss.maxHp, boss.flash ? '#ffffff' : '#ff2fa0')
+    return
+  }
+  if (boss) {
+    const bw = vw - 12
+    const by = stage.vh - L(64 + band)
+    hud(boss.name ?? 'CANTOR', 6, by, '#ff2fa0')
+    hudBar(6, by + 9, bw, 2, boss.hp / boss.maxHp, boss.flash ? '#ffffff' : '#ff2fa0')
+  }
+}
+
 function drawHud(now) {
   const g = stage.hud
   const vw = stage.vw
-  const phone = W() < 640
+  // Phones and short landscape screens get the two-line layout.
+  if (W() < 640 || H() < 520) return drawHudPhone(now)
+  const phone = false
   const x0 = 5
   let y = 5
   // Score: top-centre on wide screens, first line of the block on phones
