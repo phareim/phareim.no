@@ -1,3 +1,18 @@
+## Star Fox overview (added 2026-09-05)
+
+`?theme=starfox` is an on-rails 3D flight shooter in three.js: camera
+behind a low-poly Arwing, twin lasers, a barrel roll with immunity on
+Shift or a double-tap, rings to fly through, enemy formations, ground
+pillars and rocks, endless sectors, kill-streak multiplier. Attract-mode
+autopilot flies the ship until Enter/tap. three.js loads lazily from
+`starfox/Landing.vue` so the other themes don't pay for it.
+
+## History
+
+Built via `/musecode`: three looks (Super FX pixel render, neon vector,
+synthwave) went through Claude review plus a Muse fix round; synthwave won.
+The losing looks are in `git log` up to commit `dbede6f`.
+
 ## Star Fox: health, sectors, gunship boss (2026-09-08)
 
 `?theme=starfox` runs endless sectors instead of one endless corridor:
@@ -79,5 +94,3 @@ the wingman scoring, sector-2 mines/arches/weavers, and the DREADNOUGHT
 fight with its full bar, minions and mine-seeding, no page errors or
 document overflow. One transient all-magenta frame
 was a bolt passing point-blank past the camera, not a bug.
-
-## OutRun — five stages and a fork in the road (rebuilt 2026-09-11)

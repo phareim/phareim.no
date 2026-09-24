@@ -1,3 +1,20 @@
+## Space Invaders overview (added 2026-09-05)
+
+`?theme=invaders` is the faithful 1978 formation game in a synthwave look:
+a 5×11 formation with the original sprites, a step-timer march that
+quickens as invaders die, eroding bunkers, a mystery UFO, one shot on
+screen at a time, and a kill-combo multiplier. Sprite-shatter kills, screen
+shake, a heartbeat-coupled grid and sun, and a pre-rendered glow sprite
+cache keep it smooth on phones. The backdrop is the shared
+`themes/base/neonHorizon.js` since 2026-09-06.
+
+## History
+
+Built via `/musecode`: three looks (phosphor cabinet, risograph paper,
+synthwave) went through review/polish, then two effect packages were tried
+on the winner and one was fixed up. The losing looks are in `git log`,
+commits `8344268`..`d5436f7`.
+
 ## Space Invaders on phones (2026-09-08)
 
 Portrait widths below 600 px use five columns, with 24–32 px tall sprites

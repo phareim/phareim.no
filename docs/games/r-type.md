@@ -1,3 +1,18 @@
+## R-Type overview (added 2026-09-05)
+
+`?theme=rtype` is an endless side-scrolling shooter in neon-vector outline
+style. Attract-mode autopilot flies the ship until Enter/tap; Shift or a
+double-tap fires the Force pod; holding Space charges a beam; procedural
+cave walls narrow with distance; kills chain into a streak multiplier. On
+the Neon Dreams contract since 2026-09-06: violet-black ground, cyan
+snapped to `#2ff3ff`, orange kept as the danger hue, gold as the multiplier
+colour from x4.
+
+## History
+
+Built by Muse Spark via `/musecode` in three parallel variants; this one
+won. The other two are in `git log`.
+
 ## R-Type mountain walls and weapon pickups (2026-09-08)
 
 `themes/rtype/Shooter.vue` draws the cave as dark triangular rock faces with
