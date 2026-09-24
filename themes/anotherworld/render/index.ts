@@ -1,7 +1,8 @@
-import type { Game, World } from '../types'
+import type { Game, PaletteName, World } from '../types'
+import type { PixelStage } from '../../base/pixel/stage'
 import { LIGHTNING_FRAME, LIGHTNING_PERIOD } from '../engine/levels'
 import {
-  MID, NEAR, SCENES, createCamera, dimScene, flashScene, makeView, rect,
+  AMBIENT, MID, NEAR, SCENES, beginPixelFrame, createCamera, dimScene, endPixelFrame, flashScene, makeView, rect,
   type Camera, type Scene, type View,
 } from './core'
 import {
@@ -14,8 +15,10 @@ import { drawCage, drawItem, drawLamp, drawPool, drawRock, drawShield, drawShot,
 import { createCutState, drawCapture, drawCard, drawEnding, drawPrologue, type CutLook } from './cuts'
 
 // The renderer owns a camera and the prologue's arcade backdrop; the shell
-// makes one per canvas and calls draw() every frame at CSS pixel size (it
-// applies the device-pixel transform itself).
+// makes one per canvas and calls draw() every frame with its pixel stage
+// (themes/base/pixel/stage.ts). Scenes are still laid out in CSS pixels;
+// core.ts puts every primitive on the stage's logical grid, and the frame
+// goes out through the stage's light map, bloom and scanlines.
 
 export type { CutLook } from './cuts'
 
@@ -110,14 +113,47 @@ export function createRenderer() {
     return undefined
   }
 
-  function drawWorld(ctx: CanvasRenderingContext2D, world: World, w: number, h: number, opts: DrawOptions): void {
+  /** One frame on the stage: draw, then light map, emissive layer, bloom. */
+  function frame(stage: PixelStage, ambient: string, body: (ctx: CanvasRenderingContext2D, w: number, h: number) => void): void {
+    const g = stage.begin()
+    beginPixelFrame(stage)
+    g.save()
+    try {
+      body(g, stage.cssW, stage.cssH)
+    } finally {
+      g.restore()
+    }
+    const e = endPixelFrame()
+    stage.present({ ambient, afterLight: e ? gg => gg.drawImage(e, 0, 0) : undefined })
+  }
+
+  function ambientOf(world: World, paused: boolean): string {
+    const name: PaletteName = world.dawn ? 'dawn' : world.palette
+    return paused ? '#8a82b4' : AMBIENT[name]
+  }
+
+  function drawWorldOn(ctx: CanvasRenderingContext2D, world: World, w: number, h: number, opts: DrawOptions): void {
     const { sc, flash } = sceneFor(world, !!opts.paused, !!opts.reducedMotion)
     const v = makeView(cam, world, w, h, focusFor(world))
     drawWorldInto(ctx, v, world, sc, opts.look, { flash })
   }
 
-  function draw(ctx: CanvasRenderingContext2D, game: Game, w: number, h: number, opts: DrawOptions): void {
-    if (w <= 0 || h <= 0) return
+  function drawWorld(stage: PixelStage, world: World, opts: DrawOptions): void {
+    if (stage.cssW <= 0 || stage.cssH <= 0) return
+    frame(stage, ambientOf(world, !!opts.paused), (ctx, w, h) => drawWorldOn(ctx, world, w, h, opts))
+  }
+
+  function draw(stage: PixelStage, game: Game, opts: DrawOptions): void {
+    if (stage.cssW <= 0 || stage.cssH <= 0) return
+    const cutId = game.mode === 'cut' ? game.cut?.id : game.mode === 'done' ? 'ending' : null
+    const ambient = cutId === 'prologue' ? '#d4c8ea'
+      : cutId === 'capture' ? AMBIENT.night
+      : cutId === 'ending' ? AMBIENT.dawn
+      : ambientOf(game.world, !!opts.paused)
+    frame(stage, ambient, (ctx, w, h) => drawGame(ctx, game, w, h, opts))
+  }
+
+  function drawGame(ctx: CanvasRenderingContext2D, game: Game, w: number, h: number, opts: DrawOptions): void {
     ctx.save()
     ctx.lineJoin = 'miter'
     const cut = game.cut
@@ -128,7 +164,7 @@ export function createRenderer() {
           drawPrologue(ctx, cutState, w, h, cut.t, opts.look, reduced)
           break
         case 'card':
-          drawWorld(ctx, game.world, w, h, opts)
+          drawWorldOn(ctx, game.world, w, h, opts)
           drawCard(ctx, w, h, cut.t, game.world.chapter, false)
           break
         case 'capture':
@@ -145,7 +181,7 @@ export function createRenderer() {
       // The last frame of the ending holds under the result.
       drawEnding(ctx, cutState, cam, game, w, h, 26.5, opts.look, (v, lift) => drawWorldInto(ctx, v, game.world, SCENES.dawn, opts.look, { flash: false, sunLift: lift, hidePilot: true }), true)
     } else {
-      drawWorld(ctx, game.world, w, h, opts)
+      drawWorldOn(ctx, game.world, w, h, opts)
     }
     ctx.restore()
   }

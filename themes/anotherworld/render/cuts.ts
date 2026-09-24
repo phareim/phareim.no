@@ -1,12 +1,12 @@
 import type { Game } from '../types'
-import { createHorizon } from '../../base/neonHorizon.js'
-import { MACHINE_FONT } from '../../base/fonts'
 import { CAPTURE_X, CHAPTERS } from '../engine/levels'
 import {
   CYAN, GOLD, INK, PINK, SCENES,
-  bar, clamp, disc, glow, hash, poly, rect,
+  bar, clamp, disc, emissiveLayer, glow, hash, pixelMode, pixelText, poly, rect, textStep,
   type Camera, type Pt, type View, makeView,
 } from './core'
+import { makeCanvas } from '../../base/pixel/stage'
+import { DUSK as NSD, ditherGradient, drawStars, paintRidge, paintSky, paintSun } from '../../base/pixel/scenery'
 import { drawBeastAt, drawBuddyAt, drawGuard, drawPilotAt, drawShip, drawWinged, type PilotLook } from './figures'
 import { drawSun, sunGeom } from './scenery'
 
@@ -21,44 +21,95 @@ export interface CutLook extends PilotLook {
   ship: string
 }
 
-type Horizon = ReturnType<typeof createHorizon>
+/** The arcade dusk the prologue and the homecoming fly through, painted once per size. */
+interface ArcadeLayer {
+  w: number
+  h: number
+  back: HTMLCanvasElement
+  sun: HTMLCanvasElement
+  hy: number
+  sx: number
+  sy: number
+  r: number
+  starTop: number
+}
 
 export interface CutState {
-  horizon: Horizon | null
-  hw: number
-  hh: number
-  lastT: number
+  layer: ArcadeLayer | null
 }
 
 export function createCutState(): CutState {
-  return { horizon: null, hw: 0, hh: 0, lastT: 0 }
+  return { layer: null }
 }
 
+/**
+ * The arcade's dusk, the Neon Shrine way (2026-09-24): dithered sky, the
+ * striped sun behind two ridges, a dithered sea with the sun's glitter.
+ * Everything in logical pixels; the returned geometry is in CSS px for the
+ * shots that fly through it.
+ */
 function arcade(ctx: CanvasRenderingContext2D, st: CutState, w: number, h: number, t: number): { hy: number; sx: number; sy: number; r: number } {
-  if (!st.horizon) st.horizon = createHorizon({ ctx, sunX: 0.5, sunJitter: false })
-  if (st.hw !== w || st.hh !== h) {
-    st.horizon.resize(w, h, ctx)
-    st.hw = w
-    st.hh = h
-  }
-  const dt = clamp(t - st.lastT, 0, 0.1)
-  st.lastT = t
-  st.horizon.update(dt)
-  st.horizon.draw(ctx, t, { dim: false })
   const hy = w < 600 ? h * 0.92 : h * 0.7
   const r = Math.min(w * 0.22, h * 0.15)
-  return { hy, sx: w * 0.5, sy: hy - r * 0.62, r }
+  const geo = { hy, sx: w * 0.5, sy: hy - r * 0.62, r }
+  const m = pixelMode()
+  if (!m) return geo
+  const k = m.k
+  const vw = m.vw
+  const vh = m.vh
+  let L = st.layer
+  if (!L || L.w !== vw || L.h !== vh) {
+    const hyL = Math.round(hy / k)
+    const rL = Math.max(6, Math.round(r / k))
+    const sxL = Math.round(vw / 2)
+    const syL = Math.round((hy - r * 0.62) / k)
+    const farH = Math.max(8, Math.round(vh * 0.08))
+    const front = makeCanvas(vw, vh)
+    const f = front.getContext('2d')!
+    paintRidge(f, vw, hyL, farH, hyL + 1, NSD.ridgeFar, NSD.ridgeFarRim, 21, 0.8)
+    paintRidge(f, vw, hyL + 1, Math.round(farH * 0.5), hyL + 2, NSD.ridge, NSD.ridgeRim, 33, 0.4)
+    ditherGradient(f, 0, hyL + 1, vw, vh, [NSD.water, NSD.waterD, NSD.sky1, NSD.sky0])
+    f.fillStyle = NSD.foam
+    f.fillRect(0, hyL + 1, vw, 1)
+    const sun = makeCanvas(vw, vh)
+    const sg = sun.getContext('2d')!
+    paintSun(sg, sxL, syL, rL, NSD.sky5)
+    sg.globalCompositeOperation = 'destination-out'
+    sg.drawImage(front, 0, 0)
+    sg.globalCompositeOperation = 'source-over'
+    const back = makeCanvas(vw, vh)
+    const bg = back.getContext('2d')!
+    paintSky(bg, vw, hyL + 1)
+    bg.drawImage(sun, 0, 0)
+    bg.drawImage(front, 0, 0)
+    L = st.layer = { w: vw, h: vh, back, sun, hy: hyL, sx: sxL, sy: syL, r: rL, starTop: Math.max(4, hyL - farH - rL * 2) }
+  }
+  // Through rect() first so the emissive layer is cleared under the backdrop.
+  rect(ctx, 0, 0, w, h, INK)
+  ctx.drawImage(L.back, 0, 0)
+  drawStars(ctx, vw, L.starTop, t, 1, 7)
+  // The sun and its glitter glow over the light map.
+  const e = emissiveLayer()
+  if (e) {
+    e.drawImage(L.sun, 0, 0)
+    const stripes = [NSD.sun0, NSD.sun1, NSD.sun2, NSD.sun3]
+    for (let i = 0; i < 7; i++) {
+      const y = L.hy + 2 + i * (i + 1)
+      if (y >= vh) break
+      const ww = Math.max(2, Math.round(L.r * (1.5 - i * 0.18)))
+      const shift = Math.round(Math.sin(t * 2.2 + i * 1.7) * 2)
+      e.fillStyle = stripes[Math.min(3, i >> 1)]!
+      e.fillRect(L.sx - (ww >> 1) + shift, y, ww, 1)
+    }
+  }
+  m.stage.light(L.sx, L.sy, L.r * 3.2, '#ff8a3d', 0.7)
+  return geo
 }
 
-function text(ctx: CanvasRenderingContext2D, s: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = 'left', font = MACHINE_FONT, weight = 400, tracking = 0.15): void {
-  ctx.save()
-  ctx.font = `${weight} ${size}px ${font}`
-  ctx.textAlign = align
-  ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = color
-  if ('letterSpacing' in ctx) (ctx as unknown as { letterSpacing: string }).letterSpacing = `${tracking * size}px`
-  ctx.fillText(s, x, y)
-  ctx.restore()
+/** Cut text in Neon Shrine's 5×7 font, on the HUD layer (the font is upper case only). */
+function text(ctx: CanvasRenderingContext2D, s: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = 'left'): void {
+  void ctx
+  pixelText(s, x, y, size, color, align)
 }
 
 /** Typed out, one character per 30 ms, from `start`. */
@@ -67,7 +118,6 @@ function typed(s: string, t: number, start: number): string {
   return s.slice(0, Math.floor((t - start) / 0.03))
 }
 
-const PERSON_FONT = '"Space Grotesk", system-ui, sans-serif'
 
 /** Flat banks of storm cloud coming down over the arcade sky. */
 function clouds(ctx: CanvasRenderingContext2D, w: number, h: number, hy: number, storm: number, t: number): void {
@@ -112,11 +162,11 @@ export function drawPrologue(ctx: CanvasRenderingContext2D, st: CutState, w: num
       ['STORM CELL AHEAD', 8.3, PINK],
       ['SUN READING — UNSTABLE', 10.1, PINK],
     ]
-    let ly = pad + fs * 2
+    let ly = pad + textStep(fs)
     for (const [s, start, c] of lines) {
       const shown = typed(s, t, start)
       if (shown) text(ctx, shown, pad, ly, fs, c)
-      ly += fs * 2
+      ly += textStep(fs)
     }
     return
   }
@@ -156,7 +206,7 @@ export function drawPrologue(ctx: CanvasRenderingContext2D, st: CutState, w: num
   if (t < 19.2) {
     rect(ctx, 0, 0, w, h, INK)
     const big = clamp(Math.min(w, h) * 0.11, 30, 76)
-    text(ctx, 'another shore', w / 2, h * 0.48, big, '#ece4f4', 'center', PERSON_FONT, 300, -0.01)
+    text(ctx, 'another shore', w / 2, h * 0.48, big, '#ece4f4', 'center')
     text(ctx, 'A CROSSING IN FIVE CHAPTERS', w / 2, h * 0.48 + big * 0.9, fs, CYAN, 'center')
     return
   }
@@ -314,11 +364,11 @@ export function drawEnding(ctx: CanvasRenderingContext2D, st: CutState, cam: Cam
     ['SIGNAL FOUND', 19.8, GOLD],
     [`WELCOME BACK, ${look.pilot}`, 21.0, CYAN],
   ]
-  let ly2 = (small ? 18 : 40) + fs * 2
+  let ly2 = (small ? 18 : 40) + textStep(fs)
   for (const [s, start, c] of lines) {
     const shown = typed(s, t, start)
     if (shown) text(ctx, shown, small ? 18 : 40, ly2, fs, c)
-    ly2 += fs * 2
+    ly2 += textStep(fs)
   }
   void reduced
 }
@@ -333,8 +383,8 @@ export function drawCard(ctx: CanvasRenderingContext2D, w: number, h: number, t:
   const c = CHAPTERS[chapter]
   const big = clamp(Math.min(w, h) * 0.075, 24, 54)
   const y = h * 0.3
-  text(ctx, `CHAPTER ${c.roman}`, w / 2, y - big * 0.9, Math.max(10, big * 0.26), dark ? '#3a1f4c' : CYAN, 'center')
-  text(ctx, c.title.toLowerCase(), w / 2, y, big, dark ? '#1a0f24' : '#ece4f4', 'center', PERSON_FONT, 300, -0.01)
+  text(ctx, `CHAPTER ${c.roman}`, w / 2, y - big * 0.9 - (pixelMode()?.k ?? 0) * 4, Math.max(10, big * 0.26), dark ? '#3a1f4c' : CYAN, 'center')
+  text(ctx, c.title, w / 2, y, big, dark ? '#1a0f24' : '#ece4f4', 'center')
 }
 
 export { drawSun, disc }

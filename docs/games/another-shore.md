@@ -6,11 +6,21 @@ games. It replaced the one-screen coastal walk of
 2026-09-06 (in git history up to `ff0d618`). Story, look and rules:
 `themes/anotherworld/DESIGN.md`.
 
-**Tie-ins with the arcade.** The prologue is the shared Neon Dreams
-horizon (`themes/base/neonHorizon.js`) with the player's Hangar ship
-flying into the sun; the flight log names the Hall of Fame pilot. The
-pilot's suit, shots and shield take the ship's hull colour. The palettes
-are the Neon Dreams inks on flat Another World polygons. Progress is a save
+**Look (2026-09-24): Neon Shrine's pixels** (`docs/games/pixel-look.md`).
+Flat Another World polygons, scanline-filled on the shared pixel stage at
+close to 320×200 (234×506 on a 390×844 phone), every colour snapped to
+Neon Shrine's palette, the sky and the sea Bayer-dithered, a light map
+per palette. Glowing things (bolts, shields, eyes, lamps, the hall's
+emitter lines, the sun) go through an emissive layer and light what is
+round them. Detail: the Look section of `themes/anotherworld/DESIGN.md`.
+Headless Chromium on Sleeper (software rendering, 390×844 at dpr 3)
+measured 33 ms median, 50 ms p95 per frame in chapter III (2026-09-24);
+not measured on a phone.
+
+**Tie-ins with the arcade.** The prologue flies the player's Hangar ship
+over the arcade's pixel dusk into the striped sun; the flight log names
+the Hall of Fame pilot. The pilot's suit, shots and shield take the ship's
+hull colour. Progress is a save
 slot on the pilot profile (`SAVE_GAMES` in `themes/leaderboard/games.ts`),
 shown in the Hangar beside Neon Shrine. There is no score and no Hall of
 Fame board.
@@ -20,7 +30,7 @@ Fame board.
 (tide, rockfall, tentacles, leeches, guards, shields, shots, the beast,
 lifts), `levels.ts` (the five chapters and their scripts), `game.ts`
 (cuts, deaths, chapters, saves), `demo.ts` (the attract autopilot).
-`render/` — `core.ts` (palettes, primitives, camera), `scenery.ts`,
+`render/` — `core.ts` (palettes, primitives and their pixel mode, camera), `scenery.ts`,
 `figures.ts`, `things.ts`, `cuts.ts` (prologue, capture, ending, chapter
 card), `index.ts`. `audio.ts` — ambience, one-shots, cues. `progress.ts` —
 local save, profile reconcile, the Hangar summary. `Landing.vue` — title,

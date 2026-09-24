@@ -108,6 +108,7 @@ import {
   skipCut, stepGame, stepWorld,
 } from './engine/index'
 import { createRenderer, type CutLook } from './render/index'
+import { createPixelStage, type PixelStage } from '../base/pixel/stage'
 import { createShoreAudio, type Ambience } from './audio'
 import {
   chapterLabel, clearLocalSave, formatTime, localSavedAt, readLocalBest, readLocalRaw, reconcile,
@@ -150,8 +151,8 @@ let last = 0
 let acc = 0
 let cssW = 0
 let cssH = 0
-let dpr = 1
-let ctx: CanvasRenderingContext2D | null = null
+/** Neon Shrine's pixel stage (themes/base/pixel/stage.ts) the renderer draws on. */
+let stage: PixelStage | null = null
 let reducedMotion = false
 let resizeObserver: ResizeObserver | null = null
 let needsDraw = true
@@ -343,12 +344,11 @@ async function syncWithProfile() {
 // ---- loop ----
 
 function draw() {
-  if (!ctx || cssW <= 0 || cssH <= 0) return
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  if (!stage || cssW <= 0 || cssH <= 0) return
   if (phase.value === 'idle' || !game) {
-    if (attract) renderer.drawWorld(ctx, attract, cssW, cssH, { reducedMotion, look })
+    if (attract) renderer.drawWorld(stage, attract, { reducedMotion, look })
   } else {
-    renderer.draw(ctx, game, cssW, cssH, { reducedMotion, paused: phase.value === 'paused', look })
+    renderer.draw(stage, game, { reducedMotion, paused: phase.value === 'paused', look })
   }
   needsDraw = false
 }
@@ -431,10 +431,10 @@ function resize() {
   const rect = canvas.getBoundingClientRect()
   cssW = Math.max(1, Math.round(rect.width))
   cssH = Math.max(1, Math.round(rect.height))
-  dpr = Math.min(window.devicePixelRatio || 1, 2)
-  canvas.width = Math.round(cssW * dpr)
-  canvas.height = Math.round(cssH * dpr)
-  ctx = canvas.getContext('2d')
+  // Close to the original's 320×200 on a monitor; a tall slice on a phone.
+  if (!stage) stage = createPixelStage(canvas)
+  const portrait = cssH > cssW
+  stage.resize(cssW, cssH, window.devicePixelRatio || 1, portrait ? 200 : 320, portrait ? 320 : 200)
   needsDraw = true
 }
 
@@ -1036,5 +1036,51 @@ onBeforeUnmount(() => {
   .as-istouch .as-line {
     bottom: calc(76px + var(--app-safe-bottom, 0px));
   }
+}
+
+/* Neon Shrine's pixel letters (2026-09-24, docs/games/pixel-look.md):
+   --font-pixel at multiples of 8 px, the hard one-pixel drop shadow the
+   canvas font uses. At dawn the ink goes dark and the shadow goes pale. */
+.as-shell {
+  --as-shadow: #0b0616;
+}
+.as-light {
+  --as-shadow: rgba(255, 244, 255, 0.55);
+}
+.as-over, .as-name, .as-lede, .as-start, .as-text, .as-keys, .as-meta, .as-stats,
+.as-chapter, .as-sep, .as-skip, .as-hint, .as-line, .as-zone {
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  letter-spacing: 0;
+  -webkit-font-smoothing: none;
+  text-shadow: 2px 2px 0 var(--as-shadow);
+}
+.as-over, .as-lede, .as-start, .as-text, .as-keys, .as-meta, .as-stats,
+.as-chapter, .as-sep, .as-skip, .as-hint, .as-line, .as-zone {
+  font-size: 16px;
+  line-height: 1.5;
+}
+.as-name {
+  font-size: 48px;
+  line-height: 1.1;
+  text-shadow: 6px 6px 0 var(--as-shadow);
+}
+.as-name-small {
+  font-size: 32px;
+  text-shadow: 4px 4px 0 var(--as-shadow);
+}
+.as-start {
+  text-shadow: 2px 2px 0 var(--as-shadow), 0 0 10px rgba(255, 47, 160, 0.5);
+}
+@media (min-width: 800px) {
+  .as-name { font-size: 64px; text-shadow: 8px 8px 0 var(--as-shadow); }
+  .as-name-small { font-size: 40px; text-shadow: 5px 5px 0 var(--as-shadow); }
+}
+@media (max-width: 600px) {
+  .as-name { font-size: 40px; text-shadow: 5px 5px 0 var(--as-shadow); }
+}
+@media (max-height: 480px) {
+  .as-name { font-size: 32px; text-shadow: 4px 4px 0 var(--as-shadow); }
+  .as-over, .as-lede, .as-start, .as-text { font-size: 16px; }
 }
 </style>

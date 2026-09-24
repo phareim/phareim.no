@@ -8,7 +8,7 @@ ten minutes long. Status and checks: `docs/games/another-shore.md`.
 ## Story
 
 The pilot on your Hall of Fame profile flies the last run of the night over
-the neon grid, in the ship you picked in the Hangar. A storm cell, a
+the sea at dusk, toward the striped sun, in the ship you picked in the Hangar. A storm cell, a
 reading off the sun, lightning. The sun tears open like a door and the
 ship falls through it, into a pool on the far side.
 
@@ -23,7 +23,7 @@ ship falls through it, into a pool on the far side.
 Ending: the sun comes up behind the lamp; the last guard's shot takes the
 pilot down; the stranger drops on the guard, carries the pilot to a
 winged thing that has settled at the edge, and they fly into the sun. Hard
-cut to the neon grid: the ship comes out of the sun. *Signal found.
+cut to the dusk sea: the ship comes out of the sun. *Signal found.
 Welcome back, <pilot>.*
 
 What is taken from the original: the pool and the tentacles, the leeches
@@ -34,21 +34,41 @@ winged creature. What is not: any of its screens, music or text.
 
 ## Look (`render/`)
 
-Another World's discipline: flat polygons, no outlines, no gradients, a
-gradient is two or three flat bands, sixteen colours per scene — indices
-0–7 base hues, 8–15 the same hues turned to the light. A face toward the
-light is base + 8; that is the lighting model. Palettes turn on hard cuts:
+Another World's discipline in Neon Shrine's paint (the pixel look since
+2026-09-24, `docs/games/pixel-look.md`): flat polygons, no outlines,
+sixteen colours per scene — indices 0–7 base hues, 8–15 the same hues
+turned to the light. A face toward the light is base + 8; that is the
+lighting model. Every palette is snapped to Neon Shrine's colours, keeping
+each lit entry apart from its base.
+
+The frame is drawn on the shared pixel stage at close to the original's
+320×200 (a tall slice on a phone), scaled by a whole number. Scenes are
+still laid out in CSS pixels; `render/core.ts` puts every primitive on the
+logical grid: polygons are filled scanline by scanline at pixel centres (no
+antialiasing; a sliver keeps one pixel, so thin limbs and stalks hold),
+rectangles snap to whole pixels. The only gradients are the sky and the
+sea, Bayer-dithered like the other pixel games. Palettes turn on hard cuts:
 **dusk** (chapter I), **night** (II), **hall** (III–IV), **storm** (V, one
 all-lit frame per lightning strike, none under reduced motion), **dawn**
 (when the lamp is lit). Pausing draws the palette a step darker.
 
-Over the matte world sit the Neon Dreams inks, and only the living glow:
-cyan for the pilot and the friend's eyes, pink for what kills (leech tips,
-the beast's eyes, guards' eyes, bolts, shields, the blast door, the hall's
-emitter lines), gold for what helps (lamps, the gun on the floor, the lamp
-at the top). A glowing thing is drawn twice. The pilot's suit, shots,
-charge and shield take the Hangar ship's hull colour. The sun is the same
-striped sun as every other game in the arcade, flattened into bands.
+The world sits under a light map (a pale ambient per palette), and only
+the living glow: cyan for the pilot and the friend's eyes, pink for what
+kills (leech tips, the beast's eyes, guards' eyes, bolts, shields, the
+blast door, the hall's emitter lines), gold for what helps (lamps, the gun
+on the floor, the lamp at the top). What `glow()` draws also goes into an
+emissive layer that later ordinary fills erase where they cover it; after
+the light map that layer goes back on at full brightness, and each glowing
+shape adds a light pool round it, so a bolt lights the wall it passes and
+z-order stays exact. The pilot's suit, shots, charge and shield take the
+Hangar ship's hull colour. The sun is the same striped sun as every other
+game in the arcade, flattened into bands; it glows but only faintly lights
+the rock it sets behind. The prologue and the homecoming fly over the
+arcade's pixel dusk (`themes/base/pixel/scenery.ts`: dithered sky, stars,
+the striped sun behind two ridges, a dithered sea with the sun's glitter).
+Text in the cuts (flight log, SIGNAL LOST, the title, chapter cards) is
+Neon Shrine's 5×7 font on the stage's HUD layer; the page's own text is
+`--font-pixel`.
 
 The camera follows with a lead toward where the figure faces, holds the
 ground line at 84 % (80 % portrait), follows dives and climbs with a dead

@@ -1,9 +1,39 @@
 import type { Platform, Prop, World } from '../types'
 import {
   FAR, GOLD, L, MID, NEAR, PINK, SEA, SKY, SLAB, STAR,
-  bar, clamp, disc, glow, hash, poly, rect,
+  bar, clamp, clipRects, disc, glow, hash, pixelMode, poly, rect, snapColor, unclip,
   type Pt, type Scene, type View,
 } from './core'
+import { makeCanvas } from '../../base/pixel/stage'
+import { ditherGradient } from '../../base/pixel/scenery'
+
+// On the pixel stage the sky and the sea are dithered gradients (Bayer, the
+// way the other pixel games paint theirs), cached per size and horizon.
+const gradCache = new Map<string, HTMLCanvasElement>()
+function gradient(key: string, w: number, h: number, stops: string[]): HTMLCanvasElement {
+  const id = `${key}|${w}|${h}|${stops.join(',')}`
+  let c = gradCache.get(id)
+  if (!c) {
+    if (gradCache.size > 24) gradCache.clear()
+    c = makeCanvas(w, h)
+    ditherGradient(c.getContext('2d')!, 0, 0, w, h, stops.map(snapColor))
+    gradCache.set(id, c)
+  }
+  return c
+}
+
+/** Paint a cached gradient at logical y0..y1 across the frame (pixel mode only). */
+function pixelBand(ctx: CanvasRenderingContext2D, key: string, y0: number, y1: number, stops: string[]): boolean {
+  const m = pixelMode()
+  if (!m) return false
+  const a = Math.max(0, Math.round(y0 / m.k))
+  const b = Math.min(m.vh, Math.round(y1 / m.k))
+  if (b <= a) return true
+  // Drawn through rect() first so the emissive layer is cleared under it.
+  rect(ctx, 0, a * m.k, m.vw * m.k, (b - a) * m.k, stops[0]!)
+  ctx.drawImage(gradient(key, m.vw, Math.round(y1 / m.k) - Math.round(y0 / m.k), stops), 0, Math.round(y0 / m.k))
+  return true
+}
 
 // The places: sky, sun or moons, far spires, the headland, the sea, the
 // world's slabs and walls, and the black foreground band. Everything is a
@@ -16,9 +46,11 @@ export function drawSky(ctx: CanvasRenderingContext2D, v: View, sc: Scene, time:
   const hz = v.horizonY
   const b1 = Math.round(hz * 0.42)
   const b2 = Math.round(hz * 0.78)
-  rect(ctx, 0, 0, v.width, b1 + 1, sc.bands[0])
-  rect(ctx, 0, b1, v.width, b2 - b1 + 1, sc.bands[1])
-  rect(ctx, 0, b2, v.width, hz - b2 + 1, sc.bands[2])
+  if (!pixelBand(ctx, 'sky', 0, hz + 1, [sc.bands[0], sc.bands[0], sc.bands[1], sc.bands[2]])) {
+    rect(ctx, 0, 0, v.width, b1 + 1, sc.bands[0])
+    rect(ctx, 0, b1, v.width, b2 - b1 + 1, sc.bands[1])
+    rect(ctx, 0, b2, v.width, hz - b2 + 1, sc.bands[2])
+  }
   if (sc.stars) {
     for (let i = 0; i < 46; i++) {
       const sx = hash(i * 7 + 1) * v.width
@@ -73,9 +105,10 @@ export function drawSun(ctx: CanvasRenderingContext2D, v: View, stripes: readonl
       shapes.push({ pts, c })
     }
   }
+  // The sun glows, but only faintly lights the rock it sets behind.
   glow(ctx, stripes[2] ?? GOLD, v.cheap ? 0 : 30, () => {
     for (const s of shapes) poly(ctx, s.pts, s.c)
-  }, v.cheap)
+  }, v.cheap, 0.25)
 }
 
 function drawMoons(ctx: CanvasRenderingContext2D, v: View): void {
@@ -216,7 +249,10 @@ export function drawRidgeBeast(ctx: CanvasRenderingContext2D, v: View, sc: Scene
 // ---- the sea ----
 
 export function drawSea(ctx: CanvasRenderingContext2D, v: View, sc: Scene, time: number, sunLift = sc.sunLift): void {
-  rect(ctx, 0, v.horizonY, v.width, v.height - v.horizonY, sc.pal[SEA])
+  // The sea: its lit colour at the horizon, dithered down into the deep.
+  if (!pixelBand(ctx, 'sea', v.horizonY, v.height, [sc.pal[SEA + L]!, sc.pal[SEA]!, sc.pal[SEA]!, sc.pal[SEA]!])) {
+    rect(ctx, 0, v.horizonY, v.width, v.height - v.horizonY, sc.pal[SEA])
+  }
   const shift = (Math.floor(time) % 3) - 1
   if (sc.sun && sunLift > 0) {
     // The sun's stripes on the water: flat bars that narrow toward the shore.
@@ -414,15 +450,12 @@ export function drawHallBack(ctx: CanvasRenderingContext2D, v: View, sc: Scene, 
     if (x0 + w < 0 || x0 > v.width) continue
     const y0 = sy(pr.y)
     const h = pr.h * s
-    ctx.save()
-    ctx.beginPath()
-    ctx.rect(x0, y0, w, h)
-    ctx.clip()
+    clipRects(ctx, [[x0, y0, w, h]])
     rect(ctx, x0, y0, w, h, sc.bands[0])
     rect(ctx, x0, y0 + h * 0.55, w, h * 0.45, sc.bands[1])
     for (let i = 0; i < 6; i++) rect(ctx, x0 + hash(pr.x + i * 2) * w, y0 + hash(pr.x + i * 2 + 1) * h * 0.7, 1.5, 1.5, STAR)
     if (sc.moons && hash(pr.x) > 0.4) disc(ctx, x0 + w * 0.62, y0 + h * 0.3, 9 * s, '#c9d8ff', 16)
-    ctx.restore()
+    unclip(ctx)
     rect(ctx, x0 - 6 * s, y0 - 6 * s, w + 12 * s, 6 * s, pal[NEAR])
     rect(ctx, x0 - 6 * s, y0 + h, w + 12 * s, 8 * s, pal[NEAR + L])
     rect(ctx, x0 + w / 2 - 2 * s, y0, 4 * s, h, pal[NEAR])
@@ -504,13 +537,8 @@ export function drawForeground(ctx: CanvasRenderingContext2D, v: View, sc: Scene
   const bottom = v.height + 10
   const ink = sc.pal[NEAR]
   // Water keeps its depth: the band stops at a pool's edges.
-  ctx.save()
-  if (holes.length) {
-    ctx.beginPath()
-    ctx.rect(0, 0, v.width, v.height)
-    for (const [a, b] of holes) ctx.rect(v.X(b), 0, v.X(a) - v.X(b), v.height)
-    ctx.clip('evenodd')
-  }
+  const clipped = holes.length > 0
+  if (clipped) clipRects(ctx, [[0, 0, v.width, v.height], ...holes.map(([a, b]): [number, number, number, number] => [v.X(b), 0, v.X(a) - v.X(b), v.height])], true)
   rect(ctx, 0, top, v.width, bottom - top, ink)
   for (let i = Math.floor(u0 / spacing) - 1; i <= Math.floor(u1 / spacing) + 1; i++) {
     const r1 = hash(i * 5 + seed)
@@ -542,7 +570,7 @@ export function drawForeground(ctx: CanvasRenderingContext2D, v: View, sc: Scene
       }
     }
   }
-  ctx.restore()
+  if (clipped) unclip(ctx)
 }
 
 /** Rain for the storm: short slanted bars on a fixed lattice that falls. */

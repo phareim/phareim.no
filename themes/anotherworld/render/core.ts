@@ -1,4 +1,7 @@
 import type { PaletteName, World } from '../types'
+import { makeCanvas, type PixelStage } from '../../base/pixel/stage'
+import { PAL, drawText, drawBigText, bigTextWidth, textWidth } from '../../base/pixel/sprites'
+import { DUSK as NS } from '../../base/pixel/scenery'
 
 // Palettes, primitives and the camera. Another World's discipline: flat
 // polygons, no outlines, no gradients, sixteen colours per scene — indices
@@ -70,6 +73,20 @@ export const SCENES: Record<PaletteName, Scene> = {
   dawn: { pal: DAWN, bands: ['#2a1240', '#7a2a5e', '#d8456a'], sun: SUN_STRIPES, sunLift: 1.25, stars: false, moons: false },
 }
 
+/** Light-map ambient per scene: the dim the lamps, shots and eyes light up out of. */
+export const AMBIENT: Record<PaletteName, string> = {
+  dusk: '#e2d8f2',
+  night: '#d2c8ee',
+  hall: '#d6ccf0',
+  storm: '#c8c0e8',
+  dawn: '#f4ecf8',
+}
+
+/** Line step for cut text in CSS px: the pixel font needs 9 logical rows. */
+export function textStep(fs: number): number {
+  return Math.max(fs * 2, (PX?.k ?? 1) * 10)
+}
+
 function scale(hex: string, k: number): string {
   const n = parseInt(hex.slice(1), 16)
   const r = Math.min(255, Math.round(((n >> 16) & 255) * k))
@@ -108,12 +125,275 @@ export function flashScene(sc: Scene): Scene {
   return f
 }
 
+// ---- pixel mode (2026-09-24) ----
+//
+// The scenes are still described in CSS pixels, but while a frame is on the
+// pixel stage (themes/base/pixel/stage.ts) every primitive lands on the
+// stage's logical grid: polygons are filled scanline by scanline at pixel
+// centres (no antialiasing, a sliver never vanishes), rectangles snap to
+// whole pixels, and every colour snaps to Neon Shrine's palette. What
+// glow() draws also goes into an emissive layer that later, ordinary fills
+// erase where they cover it; after the light map the layer is laid back on
+// at full brightness, and each glowing shape adds a light pool. So neon
+// keeps its brightness, and z-order stays exact.
+
+interface PixelMode {
+  stage: PixelStage
+  k: number
+  vw: number
+  vh: number
+  g: CanvasRenderingContext2D
+  e: CanvasRenderingContext2D
+  emitting: number
+  eDirty: boolean
+  box: number[] | null
+}
+
+let PX: PixelMode | null = null
+let emitCanvas: HTMLCanvasElement | null = null
+
+/** Start drawing a frame onto the stage (after stage.begin()). */
+export function beginPixelFrame(stage: PixelStage): void {
+  const vw = stage.vw
+  const vh = stage.vh
+  if (!emitCanvas || emitCanvas.width !== vw || emitCanvas.height !== vh) emitCanvas = makeCanvas(vw, vh)
+  const e = emitCanvas.getContext('2d')!
+  e.setTransform(1, 0, 0, 1, 0, 0)
+  e.clearRect(0, 0, vw, vh)
+  stage.g.setTransform(1, 0, 0, 1, 0, 0)
+  PX = { stage, k: stage.k, vw, vh, g: stage.g, e, emitting: 0, eDirty: false, box: null }
+}
+
+/** Stop the frame; returns the emissive layer to lay on after the light map. */
+export function endPixelFrame(): HTMLCanvasElement | null {
+  const had = PX?.eDirty ? emitCanvas : null
+  PX = null
+  return had
+}
+
+export function pixelMode(): { k: number; vw: number; vh: number; stage: PixelStage } | null {
+  return PX
+}
+
+/** Mark the emissive layer as in use (for things drawn straight into it). */
+export function emissiveLayer(): CanvasRenderingContext2D | null {
+  if (!PX) return null
+  PX.eDirty = true
+  return PX.e
+}
+
+// Neon Shrine's colours: the sprite palette and the terrain/scenery palette.
+const NS_COLORS: number[] = []
+{
+  const seen = new Set<string>()
+  const add = (c: string) => { if (/^#[0-9a-f]{6}$/i.test(c) && !seen.has(c.toLowerCase())) { seen.add(c.toLowerCase()); NS_COLORS.push(parseInt(c.slice(1), 16)) } }
+  for (const c of Object.values(PAL)) add(c)
+  for (const c of Object.values(NS)) add(c)
+  // A few more from the shrine's floors, walls and night water.
+  for (const c of ['#05030d', '#120a24', '#1a0f30', '#201a40', '#2b2553', '#332c61', '#1a1535', '#3b2868', '#4b2c44', '#5a3752', '#12483f', '#0f3445', '#1a1f4c', '#27366e', '#8e5566', '#e2bfa6', '#ece4f4', '#c9d8ff', '#9fb2e8', '#f4f0ff', '#6d6a9a']) add(c)
+}
+
+function nearest(rgb: number, not = -1): number {
+  const r = (rgb >> 16) & 255, g = (rgb >> 8) & 255, b = rgb & 255
+  let best = NS_COLORS[0]!
+  let bd = Infinity
+  for (const c of NS_COLORS) {
+    if (c === not) continue
+    const cr = (c >> 16) & 255, cg = (c >> 8) & 255, cb = c & 255
+    const rm = (r + cr) / 2
+    const dr = r - cr, dg = g - cg, db = b - cb
+    const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db
+    if (d < bd) { bd = d; best = c }
+  }
+  return best
+}
+
+const hex = (n: number) => '#' + n.toString(16).padStart(6, '0')
+const snapCache = new Map<string, string>()
+
+/** A colour on Neon Shrine's palette (rgba() keeps its alpha). */
+export function snapColor(color: string): string {
+  let out = snapCache.get(color)
+  if (out) return out
+  if (color[0] === '#' && color.length === 7) {
+    out = hex(nearest(parseInt(color.slice(1), 16)))
+  } else {
+    const m = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?/)
+    if (m) {
+      const n = nearest((+m[1]! << 16) | (+m[2]! << 8) | +m[3]!)
+      out = m[4] !== undefined ? `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${m[4]})` : hex(n)
+    } else {
+      out = color
+    }
+  }
+  snapCache.set(color, out)
+  return out
+}
+
+/**
+ * A scene palette on Neon Shrine's colours, keeping each lit entry apart
+ * from its base (Another World's whole lighting model is base vs base + 8).
+ */
+function snapPalette(pal: readonly string[]): string[] {
+  const out = pal.map(c => snapColor(c))
+  for (let i = 0; i < 8; i++) {
+    if (out[i] === out[i + 8]) out[i + 8] = hex(nearest(parseInt(pal[i + 8]!.slice(1), 16), parseInt(out[i]!.slice(1), 16)))
+  }
+  return out
+}
+
+// The scenes wear Neon Shrine's colours (2026-09-24): each palette snapped
+// to it once, lit entries kept apart from their bases.
+for (const sc of Object.values(SCENES)) (sc as { pal: Palette }).pal = snapPalette(sc.pal)
+
+/** The colour a fill actually uses on the stage. */
+function fillOf(color: string): string {
+  return snapColor(color)
+}
+
+function span(m: PixelMode, x: number, y: number, w: number, h: number): void {
+  if (x < 0) { w += x; x = 0 }
+  if (y < 0) { h += y; y = 0 }
+  if (x + w > m.vw) w = m.vw - x
+  if (y + h > m.vh) h = m.vh - y
+  if (w <= 0 || h <= 0) return
+  m.g.fillRect(x, y, w, h)
+  if (m.emitting > 0) m.e.fillRect(x, y, w, h)
+  else if (m.eDirty) m.e.clearRect(x, y, w, h)
+  const b = m.box
+  if (b) {
+    if (x < b[0]!) b[0] = x
+    if (y < b[1]!) b[1] = y
+    if (x + w > b[2]!) b[2] = x + w
+    if (y + h > b[3]!) b[3] = y + h
+  }
+}
+
+const XS: number[] = []
+const YS: number[] = []
+const HITS: number[] = []
+
+function pixelPoly(m: PixelMode, pts: Pt[], color: string): void {
+  const k = m.k
+  const n = pts.length
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  for (let i = 0; i < n; i++) {
+    const x = pts[i]![0] / k
+    const y = pts[i]![1] / k
+    XS[i] = x
+    YS[i] = y
+    if (x < minX) minX = x
+    if (x > maxX) maxX = x
+    if (y < minY) minY = y
+    if (y > maxY) maxY = y
+  }
+  if (maxX < 0 || maxY < 0 || minX > m.vw || minY > m.vh || !(maxX >= minX)) return
+  const c = fillOf(color)
+  m.g.fillStyle = c
+  if (m.emitting > 0) m.e.fillStyle = c
+  const y0 = Math.max(0, Math.ceil(minY - 0.5))
+  const y1 = Math.min(m.vh - 1, Math.floor(maxY - 0.5))
+  if (y0 > y1) {
+    // Thinner than a row: one row through its middle.
+    const y = Math.floor((minY + maxY) / 2)
+    const xa = Math.round(minX)
+    span(m, xa, y, Math.max(1, Math.round(maxX) - xa), 1)
+    return
+  }
+  for (let y = y0; y <= y1; y++) {
+    const yc = y + 0.5
+    HITS.length = 0
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+      const yi = YS[i]!
+      const yj = YS[j]!
+      if ((yi <= yc) !== (yj <= yc)) HITS.push(XS[i]! + ((yc - yi) * (XS[j]! - XS[i]!)) / (yj - yi))
+    }
+    if (HITS.length > 2) HITS.sort((a, b) => a - b)
+    else if (HITS.length === 2 && HITS[0]! > HITS[1]!) { const t = HITS[0]!; HITS[0] = HITS[1]!; HITS[1] = t }
+    for (let h = 0; h + 1 < HITS.length; h += 2) {
+      let xa = Math.round(HITS[h]!)
+      let xb = Math.round(HITS[h + 1]!)
+      // A sliver narrower than a pixel keeps one pixel, so thin limbs and stalks never break up.
+      if (xb <= xa) { xa = Math.floor((HITS[h]! + HITS[h + 1]!) / 2); xb = xa + 1 }
+      span(m, xa, y, xb - xa, 1)
+    }
+  }
+}
+
+function pixelRect(m: PixelMode, x: number, y: number, w: number, h: number, color: string): void {
+  const k = m.k
+  const x0 = Math.round(x / k)
+  const y0 = Math.round(y / k)
+  let x1 = Math.round((x + w) / k)
+  let y1 = Math.round((y + h) / k)
+  if (x1 <= x0) x1 = x0 + 1
+  if (y1 <= y0) y1 = y0 + 1
+  const c = fillOf(color)
+  m.g.fillStyle = c
+  if (m.emitting > 0) m.e.fillStyle = c
+  span(m, x0, y0, x1 - x0, y1 - y0)
+}
+
+/** Clip to rectangles (CSS px); on the stage the emissive layer is clipped too. */
+export function clipRects(ctx: CanvasRenderingContext2D, rects: Array<[number, number, number, number]>, evenodd = false): void {
+  const m = PX
+  const targets = m ? [m.g, m.e] : [ctx]
+  const k = m ? m.k : 1
+  for (const t of targets) {
+    t.save()
+    t.beginPath()
+    for (const [x, y, w, h] of rects) {
+      if (m) {
+        const x0 = Math.round(x / k)
+        const y0 = Math.round(y / k)
+        t.rect(x0, y0, Math.round((x + w) / k) - x0, Math.round((y + h) / k) - y0)
+      } else {
+        t.rect(x, y, w, h)
+      }
+    }
+    if (evenodd) t.clip('evenodd')
+    else t.clip()
+  }
+}
+
+export function unclip(ctx: CanvasRenderingContext2D): void {
+  if (PX) {
+    PX.g.restore()
+    PX.e.restore()
+  } else {
+    ctx.restore()
+  }
+}
+
+/**
+ * Text in Neon Shrine's 5×7 font on the stage's HUD layer. `size` is the
+ * old CSS font size: it picks the block size (at least one logical pixel
+ * per font pixel). `y` is the baseline, as with fillText.
+ */
+export function pixelText(s: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = 'left'): void {
+  const m = PX
+  if (!m) return
+  const h = m.stage.hud
+  let n = Math.max(1, Math.round(size / m.k / 8))
+  let w = n === 1 ? textWidth(s) : bigTextWidth(s, n)
+  // A title never runs off a narrow screen: step the blocks down.
+  while (n > 1 && w > m.vw * 0.92) { n--; w = n === 1 ? textWidth(s) : bigTextWidth(s, n) }
+  let lx = Math.round(x / m.k)
+  if (align === 'center') lx -= Math.round(w / 2)
+  else if (align === 'right' || align === 'end') lx -= w
+  const ly = Math.round(y / m.k) - 7 * n
+  const c = snapColor(color)
+  if (n === 1) drawText(h, s, lx, ly, c, '#0b0616')
+  else drawBigText(h, s, lx, ly, n, c, '#0b0616')
+}
+
 // ---- primitives ----
 
 export type Pt = [number, number]
 
 export function poly(ctx: CanvasRenderingContext2D, pts: Pt[], color: string): void {
   if (pts.length < 3) return
+  if (PX) { pixelPoly(PX, pts, color); return }
   ctx.fillStyle = color
   ctx.beginPath()
   ctx.moveTo(pts[0][0], pts[0][1])
@@ -124,6 +404,7 @@ export function poly(ctx: CanvasRenderingContext2D, pts: Pt[], color: string): v
 
 export function rect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string): void {
   if (w <= 0 || h <= 0) return
+  if (PX) { pixelRect(PX, x, y, w, h, color); return }
   ctx.fillStyle = color
   ctx.fillRect(x, y, w, h)
 }
@@ -151,7 +432,28 @@ export function disc(ctx: CanvasRenderingContext2D, x: number, y: number, r: num
  * The neon rule: a glowing shape is drawn twice — a soft wide pass, then
  * the hard core. `draw` is called with the colour to fill in.
  */
-export function glow(ctx: CanvasRenderingContext2D, color: string, blur: number, draw: () => void, cheap = false): void {
+export function glow(ctx: CanvasRenderingContext2D, color: string, blur: number, draw: () => void, cheap = false, lightA = 0.75): void {
+  const m = PX
+  if (m) {
+    // On the stage: into the emissive layer too, and a light pool round it.
+    const box = [Infinity, Infinity, -Infinity, -Infinity]
+    const outer = m.box
+    m.box = box
+    m.emitting++
+    m.eDirty = true
+    draw()
+    m.emitting--
+    m.box = outer
+    if (outer && box[2]! > box[0]!) {
+      outer[0] = Math.min(outer[0]!, box[0]!); outer[1] = Math.min(outer[1]!, box[1]!)
+      outer[2] = Math.max(outer[2]!, box[2]!); outer[3] = Math.max(outer[3]!, box[3]!)
+    }
+    if (box[2]! > box[0]!) {
+      const r = Math.max(box[2]! - box[0]!, box[3]! - box[1]!) / 2 + Math.max(3, (blur / m.k) * 1.3)
+      if (lightA > 0) m.stage.light((box[0]! + box[2]!) / 2, (box[1]! + box[3]!) / 2, r, snapColor(color).slice(0, 7), lightA)
+    }
+    return
+  }
   ctx.save()
   if (!cheap) {
     ctx.shadowColor = color
