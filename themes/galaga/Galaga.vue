@@ -5,7 +5,6 @@
 </template>
 
 <script setup>
-import { MACHINE_FONT } from '~/themes/base/fonts'
 import { safeBottom } from '~/themes/base/safeBottom'
 import EscHold from '../base/EscHold.vue'
 import Intercom from './Intercom.vue'
@@ -30,7 +29,9 @@ import {
 import {
   createDirector, sectorFor, callsignFrom, visibleChars,
 } from './story'
-import { buildAtlas, ensureShip, ensureBoss, blit, TURNING_KINDS, ENEMY_SIZE } from './sprites'
+import { createPixelStage } from '../base/pixel/stage'
+import { bigTextWidth, drawBigText, drawText, textWidth } from '../base/pixel/sprites'
+import { arcTop, createGalagaArt, dot, paintNebula, paintPlanet, paintSpace, ring as pxRing, rockSprite } from './pixel'
 import { createGalagaAudio } from './audio'
 const emit = defineEmits(['score', 'death', 'restart', 'started'])
 
@@ -38,18 +39,19 @@ const emit = defineEmits(['score', 'death', 'restart', 'started'])
 let shipDef = readShipDef()
 
 const canvas = ref(null)
-let ctx = null
+let stage = null // Neon Shrine's pixel stage (themes/base/pixel/stage.ts)
+let art = null // pixel art for the stage's pixel size (./pixel.ts)
+let spaceLayer = null // the dithered night, painted per size
 let animationFrameId = null
 let gameRunning = false
-// Pixel ratio the canvas is backed at (capped at 2); game logic works in
-// CSS pixels, W() × H().
+// Pixel ratio the canvas is backed at (1–3, as the stage); game logic
+// works in CSS pixels, W() × H().
 let dpr = 1
 function W() { return canvas.value.width / dpr }
 function H() { return canvas.value.height / dpr }
 // The site's bottom band in CSS px (0 in a browser tab): the ship, its
 // clamp and the phone boss bar stay above it; the backdrop runs through.
 let band = 0
-let atlas = null
 
 // --- Clock (2026-09-23): the world steps at a fixed 60 Hz on a simulated
 // clock, so 120 Hz screens do not run the game twice as fast and pause
@@ -153,7 +155,6 @@ let muzzleT = 0 // frame counter for the muzzle flash
 let nebulae = []
 let planet = null
 let station = null
-let vignette = null
 // --- Radio: the global site-wide station lives in RadioWidget (M cycles
 // it). The local audio object is SFX only.
 let audio = null
@@ -198,30 +199,14 @@ function initStars() {
   }
 }
 
-// Small irregular heightfields: the same dark faces and violet triangle edges
-// as mountainTerrain, seen from above as the ship passes over them.
+// Drifting rocks at different depths; ./pixel.ts paints each one once.
 function createBgShape(startY) {
   if (!canvas.value) return null
   const depth = .3 + Math.random() * .7
-  const vertices = [{ x: 0, y: -.12, z: .5 + Math.random() * .4 }]
-  const count = 9
-  for (let ring = 1; ring <= 2; ring++) {
-    for (let i = 0; i < count; i++) {
-      const angle = i / count * Math.PI * 2
-      const radius = ring === 1 ? .4 : .75 + Math.random() * .25
-      vertices.push({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius,
-        z: ring === 1 ? .15 + Math.random() * .6 : 0 })
-    }
-  }
-  const faces = []
-  for (let i = 0; i < count; i++) {
-    const a = 1 + i, b = 1 + (i + 1) % count, c = a + count, d = b + count
-    faces.push([0, a, b], [a, c, d], [a, d, b])
-  }
   return { x: Math.random() * W(),
     y: startY ?? -350, depth, speed: .35 + depth * .85,
     size: (160 + Math.random() * 220) * (.6 + depth * .4),
-    rotation: Math.random() * Math.PI * 2, rotSpeed: 0, vertices, faces }
+    rotation: Math.random() * Math.PI * 2 }
 }
 
 function initBgShapes() {
@@ -230,76 +215,35 @@ function initBgShapes() {
   bgShapes.sort((a, b) => a.depth - b.depth)
 }
 
-function nebulaImage(tint, alpha, r) {
-  const off = document.createElement('canvas')
-  off.width = off.height = Math.ceil(r * 2)
-  const g = off.getContext('2d')
-  const grad = g.createRadialGradient(r, r, 0, r, r, r)
-  grad.addColorStop(0, `rgba(${tint},${alpha})`)
-  grad.addColorStop(1, `rgba(${tint},0)`)
-  g.fillStyle = grad
-  g.fillRect(0, 0, r * 2, r * 2)
-  return off
-}
-
-// Deep background: slow dark nebulae (tinted per sector), one planet arc,
-// one station silhouette — relay station Kestrel, where the story starts.
+// Deep background: slow dark nebulae (tinted per sector), one ringed
+// planet, one station — relay station Kestrel, where the story starts.
+// Positions and radii are CSS px; the pixel images come from ./pixel.ts.
 function initDeepField() {
-  if (!canvas.value || typeof document === 'undefined') return
+  if (!canvas.value || typeof document === 'undefined' || !stage) return
   const w = W(), h = H()
   const tints = sectorFor(sectorIndex).tints
-  const alphas = [0.14, 0.10, 0.10, 0.16]
   nebulae = tints.map((t, i) => {
     const r = 120 + Math.random() * 160
     return {
-      img: nebulaImage(t, alphas[i], r), r,
+      tint: t, r, salt: i * 17 + 3,
+      img: paintNebula(t, r / stage.k, i * 17 + 3, i === 3 ? 1.2 : 1),
       x: Math.random() * w, y: (i / tints.length) * (h + r * 2) - r,
       speed: 0.05 + Math.random() * 0.07,
     }
   })
-  planet = { x: w * 0.82, y: -140, r: Math.min(150, w * 0.28), speed: 0.06, ringTilt: 0.35 }
+  const pr = Math.min(150, w * 0.28)
+  planet = { x: w * 0.82, y: -140, r: pr, speed: 0.06, ringTilt: 0.35, img: paintPlanet(pr / stage.k, 0.35) }
   station = { x: w * 0.16, y: h * 0.3, size: Math.min(90, w * 0.2), speed: 0.09, blink: 0 }
-  // Vignette, baked once per size at quarter resolution.
-  const vc = document.createElement('canvas')
-  vc.width = Math.max(1, Math.ceil(w / 4))
-  vc.height = Math.max(1, Math.ceil(h / 4))
-  const vg = vc.getContext('2d')
-  const cx = vc.width / 2, cy = vc.height / 2
-  const grad = vg.createRadialGradient(cx, cy, Math.min(cx, cy) * 0.55, cx, cy, Math.hypot(cx, cy))
-  grad.addColorStop(0, 'rgba(6,3,16,0)')
-  grad.addColorStop(1, 'rgba(6,3,16,0.62)')
-  vg.fillStyle = grad
-  vg.fillRect(0, 0, vc.width, vc.height)
-  vignette = vc
 }
 
 // A new sector re-tints the nebulae where they are.
 function retintNebulae() {
-  if (typeof document === 'undefined') return
+  if (typeof document === 'undefined' || !stage) return
   const tints = sectorFor(sectorIndex).tints
-  const alphas = [0.14, 0.10, 0.10, 0.16]
-  nebulae.forEach((n, i) => { n.img = nebulaImage(tints[i % tints.length], alphas[i % 4], n.r) })
-}
-
-function drawBgShape(shape, offsetX) {
-  ctx.save()
-  ctx.translate(shape.x + offsetX * shape.depth * 15, shape.y)
-  const cos = Math.cos(shape.rotation), sin = Math.sin(shape.rotation)
-  const points = shape.vertices.map(v => ({
-    x: (v.x * cos - v.y * sin) * shape.size / 2,
-    y: (v.x * sin + v.y * cos) * shape.size * .35 - v.z * shape.size * .3,
-  }))
-  for (const face of shape.faces) {
-    const [a, b, c] = face.map(i => points[i])
-    const light = shape.vertices[face[1]].z
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.closePath()
-    ctx.fillStyle = `rgb(${12 + light * 8}, ${6 + light * 4}, ${26 + light * 16})`
-    ctx.fill()
-    ctx.strokeStyle = `rgba(177,105,245,${.16 + light * .23 + shape.depth * .08})`
-    ctx.lineWidth = .75
-    ctx.stroke()
-  }
-  ctx.restore()
+  nebulae.forEach((n, i) => {
+    n.tint = tints[i % tints.length]
+    n.img = paintNebula(n.tint, n.r / stage.k, n.salt, i === 3 ? 1.2 : 1)
+  })
 }
 
 function readBest() {
@@ -313,7 +257,6 @@ function readBest() {
 function resetGame() {
   if (!canvas.value) return
   shipDef = readShipDef()
-  if (atlas) ensureShip(atlas, shipDef)
   const now = simNow
   player.x = W() / 2
   player.y = H() - 60 - band
@@ -1466,568 +1409,545 @@ function updateBackdrop() {
   }
 }
 
-// ---------------------------------------------------------------- HUD
+// ---------------------------------------------------------------- draw
+// Neon Shrine's pixel stage (themes/base/pixel): the rules stay in CSS px,
+// everything is drawn in the stage's logical pixels, L() converts. Ships,
+// rocks and the deep field are lit by the light map; bolts, sparks, rings,
+// flames and stars glow after it. Text is the 5×7 font on the HUD layer.
 
-function hudText(text, x, y, color, size = 10.4, align = 'left', glow = null) {
-  ctx.font = `${size}px ${MACHINE_FONT}`
-  ctx.textAlign = align
-  ctx.textBaseline = 'top'
-  if ('letterSpacing' in ctx) ctx.letterSpacing = `${(size * 0.15).toFixed(1)}px`
-  if (glow) {
-    ctx.shadowColor = glow
-    ctx.shadowBlur = 8
-  }
-  ctx.fillStyle = color
-  ctx.fillText(text, x, y)
-  ctx.shadowBlur = 0
+function L(v) {
+  return Math.round(v / stage.k)
+}
+
+const GLOW_HEX = { cyan: '#2ff3ff', pink: '#ff2fa0', gold: '#ffd23f', white: '#f2e9ff' }
+const DIM = '#8f86b8'
+const SLOT = '#3a2a5a'
+
+// HUD text with the font's hard shadow; returns the width.
+function hud(text, x, y, color, align = 'left') {
+  const w = textWidth(text)
+  const x0 = align === 'center' ? x - (w >> 1) : align === 'right' ? x - w : x
+  drawText(stage.hud, text, x0, y, color, '#0b0616')
+  return w
+}
+
+// A bar with a dark rim, filled `frac` of the way in `color`.
+function hudBar(x, y, w, h, frac, color) {
+  const g = stage.hud
+  g.fillStyle = '#0b0616'
+  g.fillRect(x - 1, y - 1, w + 2, h + 2)
+  g.fillStyle = SLOT
+  g.fillRect(x, y, w, h)
+  g.fillStyle = color
+  g.fillRect(x, y, Math.round(w * Math.max(0, Math.min(1, frac))), h)
 }
 
 function drawHud(now) {
-  const w = W()
-  const phone = w < 640
-  const x0 = 14
-  let y = 12
-  const dim = 'rgba(207,233,255,0.55)'
+  const g = stage.hud
+  const vw = stage.vw
+  const phone = W() < 640
+  const x0 = 5
+  let y = 5
   // Score: top-centre on wide screens, first line of the block on phones
   // (the radio widget owns the top-right).
   if (phone) {
-    hudText(`SCORE ${score}`, x0, y, '#2ff3ff', 13, 'left', 'rgba(47,243,255,0.65)')
-    y += 19
+    // The score stays short enough to clear the radio; the rest starts below it.
+    hud(`SCORE ${score}`, x0, y, '#2ff3ff')
+    y = 22
   } else {
-    hudText(`SCORE ${score}`, w / 2, 12, '#2ff3ff', 16, 'center', 'rgba(47,243,255,0.65)')
-    if (bestBefore > 0) hudText(`HI ${Math.max(bestBefore, score)}`, w / 2, 33, dim, 10.4, 'center')
+    hud(`SCORE ${score}`, vw >> 1, 5, '#2ff3ff', 'center')
+    if (bestBefore > 0) hud(`HI ${Math.max(bestBefore, score)}`, vw >> 1, 14, DIM, 'center')
   }
-
   // Hull: 5 segments, cyan → gold → blinking pink under 2.
-  const segW = phone ? 18 : 22, segH = 7, gap = 4
+  const segW = 7, segH = 3, gap = 2
   const blink = hull <= 1 && Math.floor(now / 300) % 2 === 0
   for (let i = 0; i < HULL_MAX; i++) {
     const on = i < hull
-    ctx.fillStyle = !on ? 'rgba(80,60,110,0.45)'
-      : hull >= 4 ? '#2ff3ff' : hull >= 2 ? '#ffd23f' : blink ? '#ff70bc' : '#ff2fa0'
-    if (on) {
-      ctx.shadowColor = ctx.fillStyle
-      ctx.shadowBlur = 6
-    }
-    ctx.fillRect(x0 + i * (segW + gap), y, segW, segH)
-    ctx.shadowBlur = 0
+    const col = !on ? SLOT : hull >= 4 ? '#2ff3ff' : hull >= 2 ? '#ffd23f' : blink ? '#ff70bc' : '#ff2fa0'
+    g.fillStyle = '#0b0616'
+    g.fillRect(x0 + i * (segW + gap) - 1, y + 1, segW + 2, segH + 2)
+    g.fillStyle = col
+    g.fillRect(x0 + i * (segW + gap), y + 2, segW, segH)
+    if (on) { g.fillStyle = '#ffffff'; g.globalAlpha = 0.5; g.fillRect(x0 + i * (segW + gap), y + 2, segW, 1); g.globalAlpha = 1 }
   }
-  const hullW = HULL_MAX * (segW + gap)
-  // Weapon: module name and five level pips — beside the hull on wide
-  // screens, on its own row on phones (the radio widget owns the right).
-  let wx = x0 + hullW + 8
-  let wy = y - 1
-  if (phone) {
-    y += 12
-    wx = x0
-    wy = y
-  }
-  hudText(WEAPON_NAMES[weapon], wx, wy, '#2ff3ff', 10.4)
-  const nameW = ctx.measureText(WEAPON_NAMES[weapon]).width + 8
+  const hullW = HULL_MAX * (segW + gap) - gap
+  // Weapon: module name and five level pips beside the hull.
+  const wx = x0 + hullW + 5
+  const wy = y
+  const nameW = hud(WEAPON_NAMES[weapon], wx, wy, '#2ff3ff')
   const lv = syncTimer > 0 ? 5 : clampLevel(bulletLevel)
   for (let i = 0; i < 5; i++) {
-    ctx.save()
-    ctx.translate(wx + nameW + i * 9 + 3, wy + 4.5)
-    ctx.rotate(Math.PI / 4)
-    ctx.fillStyle = i < lv ? (syncTimer > 0 ? '#ffd23f' : '#2ff3ff') : 'rgba(80,60,110,0.6)'
-    ctx.fillRect(-2.5, -2.5, 5, 5)
-    ctx.restore()
+    const px = wx + nameW + 5 + i * 5
+    g.fillStyle = '#0b0616'
+    g.fillRect(px - 1, wy + 2, 5, 3)
+    g.fillRect(px, wy + 1, 3, 5)
+    g.fillStyle = i < lv ? (syncTimer > 0 ? '#ffd23f' : '#2ff3ff') : SLOT
+    g.fillRect(px, wy + 3, 3, 1)
+    g.fillRect(px + 1, wy + 2, 1, 3)
   }
-  y += 14
-
-  // SYNC meter: cyan while charging, gold and pulsing when ready or live.
-  const mw = hullW - gap
-  ctx.fillStyle = 'rgba(80,60,110,0.45)'
-  ctx.fillRect(x0, y, mw, 4)
+  y += 10
+  // SYNC meter: cyan while charging, gold and blinking when ready or live.
   const live = syncTimer > 0
   const ready = !live && syncMeter >= 1
   const frac = live ? syncTimer / SYNC.duration : syncMeter
-  ctx.fillStyle = live || ready ? '#ffd23f' : '#2ff3ff'
-  if (ready && Math.floor(now / 250) % 2 === 0) ctx.fillStyle = '#fff4c9'
-  ctx.shadowColor = ctx.fillStyle
-  ctx.shadowBlur = live || ready ? 8 : 0
-  ctx.fillRect(x0, y, mw * Math.min(1, frac), 4)
-  ctx.shadowBlur = 0
+  let col = live || ready ? '#ffd23f' : '#2ff3ff'
+  if (ready && Math.floor(now / 250) % 2 === 0) col = '#fff1b0'
+  hudBar(x0, y + 2, hullW, 2, frac, col)
   const syncLabel = live ? 'SYNC · CLAUDE HAS THE GUNS'
     : ready ? `SYNC READY · ${isTouch() ? '2-FINGER TAP' : 'SHIFT'}` : 'SYNC'
-  hudText(syncLabel, x0 + mw + 8, y - 3, live || ready ? '#ffd23f' : dim, 10.4)
-  y += 12
-
+  const lw = textWidth(syncLabel)
+  if (x0 + hullW + 5 + lw > vw - 3) {
+    y += 7
+    hud(syncLabel, x0, y, live || ready ? '#ffd23f' : DIM)
+  } else hud(syncLabel, x0 + hullW + 5, y, live || ready ? '#ffd23f' : DIM)
+  y += 10
   // Sector, wave, combo — then the timed capsules as letter chips with a
   // draining bar on the same row.
   const sector = sectorFor(sectorIndex)
-  const info = `SECTOR ${sector.num} · WAVE ${waveNumber}`
-  hudText(info, x0, y, dim)
-  let cx = x0 + ctx.measureText(info).width + 10
+  let cx = x0 + hud(`SECTOR ${sector.num} · WAVE ${waveNumber}`, x0, y, DIM) + 6
   const mult = scoreMult()
-  if (mult > 1) {
-    hudText(`x${mult}`, cx, y, '#ffd23f', 10.4, 'left', 'rgba(255,210,63,0.6)')
-    cx += ctx.measureText(`x${mult}`).width + 12
-  }
+  if (mult > 1) cx += hud(`X${mult}`, cx, y, '#ffd23f') + 6
   const timed = [['D', dualTimer, 'dual'], ['R', rearTimer, 'rear'], ['T', tempoTimer, 'tempo'], ['M', magnetTimer, 'magnet'], ['C', comboTimer, 'combo']]
   for (const [letter, t, kind] of timed) {
     if (t <= 0) continue
+    if (cx + 8 > vw - 2) { cx = x0; y += 11 }
     const f = t / POWERUP_DURATION[kind]
-    hudText(letter, cx + 5, y, '#ffd23f', 10.4, 'center')
-    ctx.fillStyle = t < 3 && Math.floor(now / 200) % 2 ? 'rgba(255,210,63,0.3)' : '#ffd23f'
-    ctx.fillRect(cx, y + 13, 11 * f, 2)
-    cx += 18
+    hud(letter, cx + 1, y, '#ffd23f')
+    g.fillStyle = t < 3 && Math.floor(now / 200) % 2 ? '#5b2a1c' : '#ffd23f'
+    g.fillRect(cx, y + 8, Math.max(1, Math.round(7 * f)), 1)
+    cx += 10
   }
-
-  // Boss bar: wide and top-centre under the score, named.
+  // Boss bar: top-centre under the score, named, nudged right of the
+  // sector line; on phones above the bottom band.
   const boss = bosses[0]
   if (boss) {
-    const bw = Math.min(420, w - (phone ? 28 : 200))
-    const bx = (w - bw) / 2
-    // Phones: above the pager at the bottom, clear of the intercom.
-    const by = phone ? H() - 64 - band : 52
-    hudText(boss.name ?? 'CANTOR', bx, by, '#ff2fa0', 10.4, 'left', 'rgba(255,47,160,0.6)')
-    ctx.fillStyle = 'rgba(80,60,110,0.45)'
-    ctx.fillRect(bx, by + 15, bw, 5)
-    ctx.fillStyle = boss.flash ? '#ffffff' : '#ff2fa0'
-    ctx.shadowColor = '#ff2fa0'
-    ctx.shadowBlur = 8
-    ctx.fillRect(bx, by + 15, bw * Math.max(0, boss.hp / boss.maxHp), 5)
-    ctx.shadowBlur = 0
+    let bw = Math.min(180, vw - (phone ? 12 : 90))
+    let bx = (vw - bw) >> 1
+    if (!phone && bx < cx + 6) {
+      bx = cx + 6
+      bw = Math.max(60, Math.min(bw, vw - bx - 6))
+    }
+    const by = phone ? stage.vh - L(64 + band) : y
+    hud(boss.name ?? 'CANTOR', bx, by, '#ff2fa0')
+    hudBar(bx, by + 9, bw, 2, boss.hp / boss.maxHp, boss.flash ? '#ffffff' : '#ff2fa0')
   }
 }
 
 // Sector title and boss warning: centred over-titles, drawn unshaken.
 function drawBanners(now) {
-  const w = W(), h = H()
+  const g = stage.hud
+  const vw = stage.vw
+  const vh = stage.vh
+  const big = vw < 200 ? 2 : 3
   if (bannerT > 0 && gameStarted && !gameOver) {
     const a = Math.min(1, bannerT / 0.5, (3 - bannerT) / 0.3)
     const sector = sectorFor(sectorIndex)
-    ctx.globalAlpha = Math.max(0, a)
-    hudText(`SECTOR ${sector.num}`, w / 2, h * 0.34, '#ff2fa0', w < 640 ? 26 : 38, 'center', 'rgba(255,47,160,0.8)')
-    hudText(sector.name, w / 2, h * 0.34 + (w < 640 ? 34 : 48), '#2ff3ff', w < 640 ? 12 : 15, 'center', 'rgba(47,243,255,0.65)')
-    ctx.globalAlpha = 1
+    g.globalAlpha = Math.max(0, a)
+    const t = `SECTOR ${sector.num}`
+    const y = Math.round(vh * 0.34)
+    drawBigText(g, t, (vw - bigTextWidth(t, big)) >> 1, y, big, '#ff2fa0', '#0b0616')
+    hud(sector.name, vw >> 1, y + 7 * big + 5, '#2ff3ff', 'center')
+    g.globalAlpha = 1
   }
   if (warnT > 0 && !gameOver) {
     const on = reducedMotion || Math.floor(now / 220) % 2 === 0
-    const yMid = h * 0.46
-    ctx.globalAlpha = Math.min(1, warnT / 0.4)
+    const yMid = Math.round(vh * 0.46)
+    g.globalAlpha = Math.min(1, warnT / 0.4)
     // Hazard stripes above and below.
-    ctx.fillStyle = 'rgba(255,47,160,0.16)'
-    ctx.fillRect(0, yMid - 34, w, 68)
-    ctx.fillStyle = 'rgba(255,47,160,0.7)'
-    const off = reducedMotion ? 0 : (now / 20) % 24
-    for (let x = -24 + off; x < w; x += 24) {
-      ctx.fillRect(x, yMid - 34, 12, 3)
-      ctx.fillRect(w - x - 12, yMid + 31, 12, 3)
+    g.fillStyle = '#2a0f28'
+    g.fillRect(0, yMid - 14, vw, 28)
+    g.fillStyle = '#ff2fa0'
+    const off = reducedMotion ? 0 : Math.floor(now / 60) % 8
+    for (let x = -8 + off; x < vw; x += 8) {
+      g.fillRect(x, yMid - 14, 4, 1)
+      g.fillRect(vw - x - 4, yMid + 13, 4, 1)
     }
-    if (on) hudText('WARNING', w / 2, yMid - 22, '#ff2fa0', w < 640 ? 26 : 34, 'center', 'rgba(255,47,160,0.9)')
-    hudText(`${warnName} APPROACHING`, w / 2, yMid + 14, '#ffd23f', 10.4, 'center')
-    ctx.globalAlpha = 1
+    if (on) drawBigText(g, 'WARNING', (vw - bigTextWidth('WARNING', 2)) >> 1, yMid - 10, 2, '#ff2fa0', '#0b0616')
+    hud(`${warnName} APPROACHING`, vw >> 1, yMid + 5, '#ffd23f', 'center')
+    g.globalAlpha = 1
   }
 }
 
-// ---------------------------------------------------------------- draw
+// A bolt as a pixel streak along its velocity: hot head, coloured tail.
+function streak(g, x, y, vx, vy, len, head, tail, wide) {
+  const n = Math.hypot(vx, vy) || 1
+  const dx = vx / n
+  const dy = vy / n
+  for (let i = 0; i < len; i++) {
+    g.fillStyle = i < 2 ? head : tail
+    const px = Math.round(x - dx * i)
+    const py = Math.round(y - dy * i)
+    g.fillRect(px, py, 1, 1)
+    if (wide && i > 0) g.fillRect(px + (Math.abs(dy) > Math.abs(dx) ? 1 : 0), py + (Math.abs(dy) > Math.abs(dx) ? 0 : 1), 1, 1)
+  }
+}
 
-function glowBlit(kind, x, y, size, alpha) {
-  const s = atlas.glow[kind]
-  ctx.globalAlpha = alpha
-  ctx.drawImage(s.img, x - size / 2, y - size / 2, size, size)
+// A dithered smoke puff: denser in the middle, thinning as it fades.
+function puff(g, cx, cy, r, color, density) {
+  g.fillStyle = color
+  cx = Math.round(cx)
+  cy = Math.round(cy)
+  for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
+    const d = (x * x + y * y) / (r * r + 0.01)
+    if (d > 1) continue
+    const th = ((((cx + x) & 3) * 4 + ((cy + y) & 3)) * 7 % 16) / 16
+    if ((1 - d) * density > th) g.fillRect(cx + x, cy + y, 1, 1)
+  }
+}
+
+function drawDeepField(g, px) {
+  const k = stage.k
+  if (spaceLayer) g.drawImage(spaceLayer, 0, 0)
+  for (const n of nebulae) if (n.img) g.drawImage(n.img, L(n.x - n.r + px * 2), L(n.y - n.r))
+  if (planet?.img) g.drawImage(planet.img, L(planet.x + px * 4) - (planet.img.width >> 1), L(planet.y) - (planet.img.height >> 1))
+  if (station) {
+    const spr = art.station(station.size)
+    const sx = L(station.x + px * 6)
+    const sy = L(station.y)
+    g.drawImage(spr, sx - (spr.width >> 1), sy - (spr.height >> 1))
+    const s = station.size / k
+    const lit = Math.sin(station.blink) > 0
+    g.fillStyle = lit ? '#ffd23f' : '#5b2a1c'
+    for (let i = -1; i <= 1; i++) g.fillRect(Math.round(sx + i * s * 0.22), sy, 1, 1)
+    if (lit) stage.light(sx, sy, s * 0.5, '#ffd23f', 0.35)
+    const mast = Math.sin(station.blink * 3) > 0.6
+    g.fillStyle = mast ? '#ff2fa0' : '#54259e'
+    g.fillRect(Math.round(sx + s * 0.1), Math.round(sy - s * 0.42), 1, 1)
+    if (mast) stage.light(sx + s * 0.1, sy - s * 0.42, 6, '#ff2fa0', 0.8)
+  }
+  // Stars: one pixel each, bright ones a small cross; stretched on warps.
+  for (const star of stars) {
+    const sx = L(star.x + px * star.speed * 0.5)
+    const sy = L(star.y)
+    const tw = reducedMotion ? 1 : 0.75 + 0.25 * Math.sin(simNow / 400 + star.twinkle)
+    const b = star.brightness * tw
+    g.fillStyle = b > 0.75 ? '#fff4ff' : b > 0.5 ? '#cfc6ff' : b > 0.3 ? '#8f86b8' : '#5a5285'
+    const stretch = Math.round((star.stretch || 0) / k)
+    g.fillRect(sx, sy, 1, 1 + stretch)
+    if (star.size > 1 && b > 0.7 && !stretch) {
+      g.fillStyle = '#8f86b8'
+      g.fillRect(sx - 1, sy, 1, 1); g.fillRect(sx + 1, sy, 1, 1); g.fillRect(sx, sy - 1, 1, 1); g.fillRect(sx, sy + 1, 1, 1)
+    }
+    if (b > 0.5) stage.emit(sx, sy, 1, 1 + stretch)
+  }
+  // Drifting rocks, each at its own parallax depth.
+  for (const shape of bgShapes) {
+    const spr = rockSprite(shape, k)
+    g.drawImage(spr, L(shape.x + px * shape.depth * 15) - (spr.width >> 1), L(shape.y) - Math.round(spr.height * 0.6))
+  }
+}
+
+function drawPowerups(g, glowing) {
+  for (const p of powerups) {
+    const bob = Math.round(Math.sin(p.pulse) * 1)
+    const x = L(p.x)
+    const y = L(p.y) + bob
+    const letter = POWERUP_LETTERS[p.type] ?? '?'
+    const weaponCap = p.type === 'weapon' || p.type === 'laser' || p.type === 'homing'
+    if (!glowing) {
+      const c = art.capsule
+      g.drawImage(c, x - (c.width >> 1), y - (c.height >> 1))
+      stage.light(x, y, 14 + Math.sin(p.pulse) * 3, '#ffd23f', 0.75)
+      continue
+    }
+    if (weaponCap) pxRing(g, x, y, Math.max(3, Math.round(art.capsule.width * 0.3)), '#2ff3ff')
+    const w = textWidth(letter)
+    drawText(g, letter, x - (w >> 1), y - 3, '#fff1b0', '#5b2a1c')
+    const name = POWERUP_NAMES[p.type] ?? ''
+    if (name) hud(name, x, y + (art.capsule.height >> 1) + 2, '#c4861c', 'center')
+  }
+}
+
+function drawEnemies(g, now) {
+  const k = stage.k
+  const beat = Math.floor(now / 180)
+  for (const e of enemies) {
+    const frame = (beat + Math.floor(e.seed ?? 0)) % 2
+    const spr = art.enemy(e.kind, e.size, frame, e.heading ?? Math.PI / 2, e.flash > 0)
+    const x = L(e.x)
+    const y = L(e.y)
+    g.drawImage(spr, x - (spr.width >> 1), y - (spr.height >> 1))
+    stage.light(x, y, Math.max(6, (e.size / k) * 0.9), '#ff2fa0', 0.35)
+    if (e.maxHp > 1) {
+      const n = e.maxHp
+      const sx = x - Math.floor((n * 3 - 1) / 2)
+      const py = y - Math.round(e.size / k / 2) - 3
+      g.fillStyle = '#0b0616'
+      g.fillRect(sx - 1, py - 1, n * 3 + 1, 3)
+      for (let i = 0; i < n; i++) {
+        g.fillStyle = i < e.hp ? '#ff70bc' : SLOT
+        g.fillRect(sx + i * 3, py, 2, 1)
+      }
+    }
+  }
+}
+
+function drawBosses(g, now) {
+  const k = stage.k
+  for (const boss of bosses) {
+    const spr = art.boss(boss.size, false)
+    const x = L(boss.x)
+    const y = L(boss.y)
+    g.drawImage(spr, x - (spr.width >> 1), y - (spr.height >> 1))
+    if (boss.flash) {
+      g.globalAlpha = 0.55
+      g.drawImage(art.boss(boss.size, true), x - (spr.width >> 1), y - (spr.height >> 1))
+      g.globalAlpha = 1
+    }
+    const s = boss.size / k
+    const pulse = reducedMotion ? 0.8 : 0.7 + 0.3 * Math.sin(now / (boss.enraged ? 90 : 200))
+    stage.light(x, y, s * 0.55 * pulse, '#ff2fa0', 0.9)
+    if (boss.muzzle > 0) {
+      stage.light(x - s * 0.36, y + s * 0.38, 12, '#ff2fa0', 1)
+      stage.light(x + s * 0.36, y + s * 0.38, 12, '#ff2fa0', 1)
+    }
+  }
+}
+
+// The boss's reactor and muzzles glow after the light map.
+function drawBossGlow(g, now) {
+  const k = stage.k
+  for (const boss of bosses) {
+    const x = L(boss.x)
+    const y = L(boss.y - boss.size * 0.02)
+    const s = boss.size / k
+    const pulse = reducedMotion ? 0.8 : 0.7 + 0.3 * Math.sin(now / (boss.enraged ? 90 : 200))
+    dot(g, x, y, Math.max(1, Math.round(s * 0.06 * pulse)), '#ff2fa0')
+    dot(g, x, y, Math.max(0, Math.round(s * 0.03 * pulse)), '#ffffff')
+    if (boss.muzzle > 0) {
+      dot(g, x - s * 0.36, y + s * 0.4, 2, '#ff70bc')
+      dot(g, x + s * 0.36, y + s * 0.4, 2, '#ff70bc')
+    }
+  }
+}
+
+function drawPlayer(g, now) {
+  const k = stage.k
+  const invuln = now < invulnUntil
+  // Bank toward the direction of travel; five roll steps.
+  const vx = player.x - player.prevX
+  player.bank += (Math.max(-1, Math.min(1, vx / 4)) - player.bank) * 0.2
+  const bank = Math.max(-2, Math.min(2, Math.round(player.bank * 2)))
+  const spr = art.ship(shipDef, bank)
+  const x = L(player.x)
+  const y = L(player.y)
+  const hullCol = shipDef.colors.hull
+  stage.light(x, y + 4, 14, hullCol, 0.6)
+  stage.light(x, y + Math.round(17 / k) + 3, 8, syncTimer > 0 ? '#ffd23f' : '#2ff3ff', 0.9)
+  if (playerGlow > 0) stage.light(x, y, 20 + playerGlow * 10, '#2ff3ff', playerGlow)
+  if (syncTimer > 0) stage.light(x, y, 26, '#ffd23f', 0.7)
+  if (dualTimer > 0) {
+    const small = art.ship(shipDef, 0, true)
+    const ex = L(player.x - player.width * 0.85)
+    const ey = L(player.y + 10)
+    g.drawImage(small, ex - (small.width >> 1), ey - (small.height >> 1))
+    stage.light(ex, ey + 4, 6, '#2ff3ff', 0.8)
+  }
+  if (invuln && Math.floor(now / 100) % 2 === 0) return
+  g.drawImage(spr, x - (spr.width >> 1), y - (spr.height >> 1))
+  if (rearTimer > 0) {
+    g.fillStyle = '#ffd23f'
+    g.fillRect(x, y + Math.round(player.height / 2 / k) - 1, 1, 3)
+  }
+}
+
+// Flames, muzzle flash, tether and shields: after the light map.
+function drawPlayerGlow(g, now) {
+  const k = stage.k
+  const x = L(player.x)
+  const y = L(player.y)
+  const climbing = player.y < player.prevY
+  const flame = Math.round(((climbing ? 16 : 10) + Math.random() * 6 + (syncTimer > 0 ? 6 : 0)) / k)
+  const tail = syncTimer > 0 ? '#ffd23f' : '#2ff3ff'
+  const fy = y + Math.round(15 / k)
+  for (const dx of [-1, 1]) {
+    const fx = x + dx * Math.max(1, Math.round(2.5 / k))
+    for (let i = 0; i < flame; i++) {
+      g.fillStyle = i < 1 ? '#ffffff' : i < flame * 0.5 ? tail : '#1a9fc4'
+      g.fillRect(fx, fy + i, 1, 1)
+    }
+  }
+  if (muzzleT > 0) dot(g, x, y - Math.round(player.height / 2 / k) - 2, 1, syncTimer > 0 ? '#fff1b0' : '#ffffff')
+  if (dualTimer > 0) {
+    const ex = L(player.x - player.width * 0.85)
+    const ey = L(player.y + 10)
+    g.fillStyle = shipDef.colors.hull
+    g.globalAlpha = 0.5
+    const n = Math.max(1, Math.round(Math.hypot(x - ex, y - ey) / 3))
+    for (let i = 1; i < n; i++) g.fillRect(Math.round(ex + (x - ex) * i / n), Math.round(ey + (y - ey) * i / n), 1, 1)
+    g.globalAlpha = 1
+  }
+  if (shield || aegis > 0 || shieldFlash > 0) {
+    const active = shield || aegis > 0
+    const sy = L(player.y - player.height / 2 - 12)
+    const a = Math.round(player.width * 0.6 / k)
+    g.globalAlpha = active ? 1 : Math.min(1, shieldFlash)
+    arcTop(g, x, sy + 2, a, 2, active ? '#2ff3ff' : '#ffffff')
+    if (aegis === 2) arcTop(g, x, sy, a - 2, 2, '#7ce4ff')
+    g.globalAlpha = 1
+    if (active) stage.light(x, sy, a + 4, '#2ff3ff', 0.5)
+  }
+}
+
+function drawBullets(g) {
+  const k = stage.k
+  for (const b of bullets) {
+    const x = L(b.x)
+    const y = L(b.y)
+    if (b.kind === 'lance') streak(g, x, y - Math.round(17 / k), 0, -1, Math.round(34 / k), '#ffffff', '#2ff3ff', true)
+    else if (b.kind === 'seeker') streak(g, x, y, b.vx, b.vy, 4, '#ffffff', '#2ff3ff', false)
+    else if (b.kind === 'rear' || b.vy > 0) streak(g, x, y + 3, 0, 1, Math.round(15 / k), '#fff1b0', '#ffd23f', false)
+    else streak(g, x, y - 3, b.vx || 0, b.vy || -1, Math.round(17 / k), '#ffffff', '#2ff3ff', k < 2.5)
+  }
+  for (const b of enemyBullets) {
+    const x = L(b.x)
+    const y = L(b.y)
+    if (b.type === 'needle') streak(g, x, y + 3, b.vx || 0, b.vy || 1, Math.round(15 / k), '#ffffff', '#ff2fa0', false)
+    else {
+      const r = Math.max(1, Math.round((b.type === 'big' ? 7 : 4.5) / k))
+      dot(g, x, y, r, '#ff2fa0')
+      g.fillStyle = '#ffffff'
+      g.fillRect(x, y, 1, 1)
+      if (r > 1) g.fillRect(x - 1, y - 1, 1, 1)
+    }
+  }
+}
+
+function bulletLights() {
+  let n = 0
+  for (const b of bullets) {
+    if (n++ > 48) break
+    stage.light(L(b.x), L(b.y), 6, b.kind === 'rear' ? '#ffd23f' : '#2ff3ff', 0.6)
+  }
+  for (const b of enemyBullets) stage.light(L(b.x), L(b.y), b.type === 'big' ? 9 : 6, '#ff2fa0', 0.8)
+}
+
+function drawParticles(g, glowing) {
+  const k = stage.k
+  for (const p of particles) {
+    if (p.smoke) {
+      if (glowing) continue
+      puff(g, L(p.x), L(p.y), Math.max(1, Math.round(p.size * (1.6 - p.life * 0.6) / k)), '#43246e', p.life * 0.9)
+      continue
+    }
+    if (!glowing) continue
+    const a = Math.max(0, Math.min(1, p.life))
+    if (p.glow) {
+      const col = GLOW_HEX[p.glow] ?? '#ffffff'
+      if (p.flash) {
+        const r = Math.round((p.size * (0.4 + p.life * 0.6)) / k / 3)
+        g.globalAlpha = a
+        dot(g, L(p.x), L(p.y), Math.max(1, r), '#ffffff')
+        g.globalAlpha = 1
+        stage.light(L(p.x), L(p.y), Math.max(4, (p.size * 1.2) / k), col, a)
+        continue
+      }
+      g.globalAlpha = a
+      g.fillStyle = a > 0.6 ? '#ffffff' : col
+      const n = p.size > 7 ? 2 : 1
+      g.fillRect(L(p.x), L(p.y), n, n)
+      g.globalAlpha = 1
+      continue
+    }
+    g.globalAlpha = a
+    g.fillStyle = p.color
+    const n = Math.max(1, Math.round(p.size / k))
+    g.fillRect(L(p.x) - (n >> 1), L(p.y) - (n >> 1), n, n)
+  }
+  g.globalAlpha = 1
+}
+
+function particleLights() {
+  let n = 0
+  for (const p of particles) {
+    if (!p.glow || p.flash || n > 40) continue
+    if (p.life < 0.4) continue
+    n++
+    stage.light(L(p.x), L(p.y), 5, GLOW_HEX[p.glow] ?? '#ffffff', p.life * 0.6)
+  }
+}
+
+function drawGlowing(g, now) {
+  // Shockwaves: pixel rings (gold for boss/nova/combo, pink otherwise).
+  for (const sw of shockwaves) {
+    const col = sw.color ?? '#ff2fa0'
+    g.globalAlpha = Math.max(0, sw.life)
+    const r = L(sw.radius)
+    pxRing(g, L(sw.x), L(sw.y), r, col)
+    if (!sw.thin && sw.life > 0.3) pxRing(g, L(sw.x), L(sw.y), r - 1, sw.life > 0.7 ? '#ffffff' : col)
+  }
+  g.globalAlpha = 1
+  // Sniper telegraph: a flickering dotted sightline straight down.
+  for (const e of enemies) {
+    if (!e.aiming) continue
+    const x = L(e.x)
+    const on = Math.floor(now / 60) % 2
+    g.fillStyle = '#ff2fa0'
+    for (let y = L(e.y + e.size / 2) + on; y < stage.vh; y += 2) g.fillRect(x, y, 1, 1)
+  }
+  drawBossGlow(g, now)
+  drawPowerups(g, true)
+  if (!gameOver) drawPlayerGlow(g, now)
+  drawBullets(g)
+  drawParticles(g, true)
+  // Tempo: a cold wash while slow-mo runs; SYNC: dithered gold at the edges.
+  if (tempoTimer > 0) {
+    g.globalAlpha = 0.07
+    g.fillStyle = '#2ff3ff'
+    g.fillRect(0, 0, stage.vw, stage.vh)
+    g.globalAlpha = 1
+  }
+  if (syncTimer > 0) {
+    // Gold light along the top and bottom edges, fading inwards in a dither.
+    const a = 0.75 + (reducedMotion ? 0 : 0.25 * Math.sin(now / 120))
+    g.fillStyle = '#ffd23f'
+    for (let y = 0; y < 5; y++) {
+      const f = (1 - y / 5) * a
+      for (let x = 0; x < stage.vw; x++) {
+        if (((x * 5 + y * 3) & 7) / 8 < f * (y === 0 ? 2 : 0.7)) {
+          g.fillRect(x, y, 1, 1)
+          g.fillRect(x, stage.vh - 1 - y, 1, 1)
+        }
+      }
+    }
+  }
 }
 
 function draw() {
-  if (!ctx || !canvas.value || !atlas) return
-  const w = W()
-  const h = H()
+  if (!stage || !art || !canvas.value) return
   const now = simNow
-
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  ctx.fillStyle = '#0b0616'
-  ctx.fillRect(0, 0, w, h)
-
-  ctx.save()
-  if (shake > 0 && !reducedMotion) {
-    ctx.translate((Math.random() - 0.5) * shake * 12, (Math.random() - 0.5) * shake * 12)
-  }
-
-  // Compute parallax: player moves left → background shifts right (inverted)
-  const centerX = w / 2
+  const g = stage.begin()
+  // Parallax: the player moves left → the background shifts right.
+  const centerX = W() / 2
   const targetParallaxX = gameStarted && !reducedMotion && !paused.value ? -(player.x - centerX) * 0.015 : 0
   if (!paused.value) smoothParallaxX += (targetParallaxX - smoothParallaxX) * 0.04
-
-  // Deep field first: nebulae, planet arc, station silhouette.
-  for (const n of nebulae) {
-    ctx.drawImage(n.img, n.x - n.r + smoothParallaxX * 2, n.y - n.r)
-  }
-  if (planet) {
-    const px = planet.x + smoothParallaxX * 4
-    ctx.save()
-    ctx.globalAlpha = 0.55
-    const pg = ctx.createRadialGradient(px - planet.r * 0.4, planet.y - planet.r * 0.4, planet.r * 0.1, px, planet.y, planet.r)
-    pg.addColorStop(0, '#2a1450')
-    pg.addColorStop(1, '#100820')
-    ctx.fillStyle = pg
-    ctx.beginPath()
-    ctx.arc(px, planet.y, planet.r, 0, Math.PI * 2)
-    ctx.fill()
-    // Rim light on the sun side.
-    ctx.strokeStyle = 'rgba(255,112,188,0.25)'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.arc(px, planet.y, planet.r - 1, Math.PI * 1.05, Math.PI * 1.6)
-    ctx.stroke()
-    ctx.strokeStyle = 'rgba(255,47,160,0.35)'
-    ctx.beginPath()
-    ctx.ellipse(px, planet.y, planet.r * 1.5, planet.r * 0.32, planet.ringTilt, 0, Math.PI * 2)
-    ctx.stroke()
-    ctx.strokeStyle = 'rgba(255,112,188,0.2)'
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.ellipse(px, planet.y, planet.r * 1.2, planet.r * 0.26, planet.ringTilt, 0, Math.PI * 2)
-    ctx.stroke()
-    ctx.restore()
-  }
-  if (station) {
-    const sx = station.x + smoothParallaxX * 6
-    const s = station.size
-    ctx.save()
-    ctx.globalAlpha = 0.6
-    ctx.fillStyle = '#0a0518'
-    ctx.beginPath()
-    ctx.moveTo(sx - s / 2, station.y)
-    ctx.lineTo(sx + s / 2, station.y - s * 0.18)
-    ctx.lineTo(sx + s * 0.3, station.y + s * 0.2)
-    ctx.lineTo(sx - s * 0.3, station.y + s * 0.2)
-    ctx.closePath()
-    ctx.fill()
-    ctx.strokeStyle = 'rgba(177,105,245,0.45)'
-    ctx.lineWidth = 1
-    ctx.stroke()
-    // Mast and dish.
-    ctx.beginPath()
-    ctx.moveTo(sx + s * 0.1, station.y - s * 0.1)
-    ctx.lineTo(sx + s * 0.1, station.y - s * 0.42)
-    ctx.stroke()
-    ctx.beginPath()
-    ctx.arc(sx + s * 0.1, station.y - s * 0.42, s * 0.08, Math.PI * 0.1, Math.PI * 0.9)
-    ctx.stroke()
-    const lit = Math.sin(station.blink) > 0
-    ctx.fillStyle = lit ? 'rgba(255,210,63,0.85)' : 'rgba(255,210,63,0.3)'
-    for (let i = -1; i <= 1; i++) ctx.fillRect(sx + i * s * 0.22 - 1.5, station.y - 2, 3, 3)
-    ctx.fillStyle = Math.sin(station.blink * 3) > 0.6 ? 'rgba(255,47,160,0.9)' : 'rgba(255,47,160,0.2)'
-    ctx.fillRect(sx + s * 0.1 - 1.5, station.y - s * 0.42 - 1.5, 3, 3)
-    ctx.restore()
-  }
-
-  // Stars (twinkling; stretched vertically while a warp is running).
-  stars.forEach(star => {
-    const sx = star.x + smoothParallaxX * star.speed * 0.5
-    const tw = reducedMotion ? 1 : 0.75 + 0.25 * Math.sin(now / 400 + star.twinkle)
-    ctx.fillStyle = `rgba(207, 233, 255, ${star.brightness * 0.55 * tw})`
-    const stretch = star.stretch || 0
-    ctx.fillRect(sx, star.y, star.size, star.size + stretch)
-  })
-
-  // Background geometric shapes (parallax per-shape depth)
-  bgShapes.forEach(s => drawBgShape(s, smoothParallaxX))
-
-  if (vignette) ctx.drawImage(vignette, 0, 0, w, h)
-
-  // Shockwaves (gold for boss/nova/combo, pink otherwise)
-  ctx.globalCompositeOperation = 'lighter'
-  shockwaves.forEach(sw => {
-    const col = sw.color ?? '#ff2fa0'
-    ctx.globalAlpha = sw.life * (sw.thin ? 0.7 : 0.8)
-    ctx.strokeStyle = col
-    ctx.lineWidth = sw.thin ? 1.5 : 3 + sw.life * 6
-    ctx.beginPath()
-    ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2)
-    ctx.stroke()
-    if (!sw.thin) {
-      ctx.globalAlpha = sw.life * 0.25
-      ctx.lineWidth = 14 * sw.life + 4
-      ctx.stroke()
-    }
-  })
-  ctx.globalAlpha = 1
-  ctx.globalCompositeOperation = 'source-over'
-
-  // Powerups — gold hex capsules with a letter and a name tag. Weapon
-  // modules (P, L, H) carry a cyan inner ring.
-  powerups.forEach(p => {
-    const glow = 0.6 + 0.4 * Math.sin(p.pulse)
-    ctx.globalCompositeOperation = 'lighter'
-    glowBlit('gold', p.x, p.y, 54 + glow * 14, 0.35 * glow)
-    ctx.globalAlpha = 1
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.save()
-    ctx.translate(p.x, p.y)
-    ctx.rotate(Math.sin(p.pulse * 0.5) * 0.25)
-    blit(ctx, atlas.capsule, 0, 0)
-    if (p.type === 'weapon' || p.type === 'laser' || p.type === 'homing') {
-      ctx.strokeStyle = 'rgba(47,243,255,0.8)'
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.arc(0, 0, 9.5, 0, Math.PI * 2)
-      ctx.stroke()
-    }
-    ctx.restore()
-    ctx.font = `bold 13px ${MACHINE_FONT}`
-    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillStyle = '#ffd23f'
-    ctx.fillText(POWERUP_LETTERS[p.type] ?? '?', p.x, p.y + 1)
-    hudText(POWERUP_NAMES[p.type] ?? '', p.x, p.y + 19, 'rgba(255,210,63,0.75)', 8)
-  })
-
-  // Enemies: two-frame sprites, white silhouette on a hit, armour pips.
-  const beat = Math.floor(now / 180)
-  enemies.forEach(e => {
-    const frames = atlas.enemy[e.kind] ?? atlas.enemy.scout
-    const sprite = e.flash ? atlas.flash[e.kind] : frames[(beat + Math.floor(e.seed ?? 0)) % 2]
-    ctx.save()
-    ctx.translate(e.x, e.y)
-    if (TURNING_KINDS.has(e.kind)) ctx.rotate((e.heading ?? Math.PI / 2) - Math.PI / 2)
-    blit(ctx, sprite, 0, 0, e.size / (ENEMY_SIZE[e.kind] ?? e.size))
-    ctx.restore()
-    if (e.aiming) {
-      // Sniper telegraph: a flickering pink sightline straight down.
-      ctx.globalAlpha = 0.25 + (Math.floor(now / 60) % 2) * 0.25
-      ctx.fillStyle = '#ff2fa0'
-      ctx.fillRect(e.x - 0.5, e.y + e.size / 2, 1, h)
-      ctx.globalAlpha = 1
-    }
-    if (e.maxHp > 1) {
-      const n = e.maxHp
-      const x0 = e.x - (n - 1) * 3.5
-      for (let i = 0; i < n; i++) {
-        ctx.fillStyle = i < e.hp ? '#ff70bc' : 'rgba(80,60,110,0.8)'
-        ctx.fillRect(x0 + i * 7 - 2, e.y - e.size / 2 - 7, 4, 3)
-      }
-    }
-  })
-
-  // Bosses: the baked Cantor, reactor pulse, muzzle flashes, hit flare.
-  bosses.forEach(boss => {
-    const sprite = ensureBoss(atlas, boss.size)
-    blit(ctx, sprite, boss.x, boss.y)
-    ctx.globalCompositeOperation = 'lighter'
-    const pulse = reducedMotion ? 0.8 : 0.7 + 0.3 * Math.sin(now / (boss.enraged ? 90 : 200))
-    glowBlit('pink', boss.x, boss.y - boss.size * 0.02, boss.size * 0.34 * pulse, 0.9)
-    glowBlit('white', boss.x, boss.y - boss.size * 0.02, boss.size * 0.12 * pulse, 0.8)
-    if (boss.muzzle > 0) {
-      glowBlit('pink', boss.x - boss.size * .36, boss.y + boss.size * .38, 30, 0.9)
-      glowBlit('pink', boss.x + boss.size * .36, boss.y + boss.size * .38, 30, 0.9)
-    }
-    if (boss.flash) {
-      ctx.globalAlpha = 0.35
-      blit(ctx, sprite, boss.x, boss.y)
-    }
-    ctx.globalAlpha = 1
-    ctx.globalCompositeOperation = 'source-over'
-  })
-
-  if (!gameOver) drawPlayer(now)
-
-  // Particles: debris and smoke normally, sparks and flashes additive.
-  particles.forEach(p => {
-    if (p.glow) return
-    ctx.globalAlpha = Math.max(0, p.life)
-    if (p.smoke) {
-      const r = p.size * (1.6 - p.life * 0.6)
-      ctx.drawImage(atlas.puff.img, p.x - r, p.y - r, r * 2, r * 2)
-      return
-    }
-    ctx.fillStyle = p.color
-    if (p.spin !== undefined) {
-      ctx.save()
-      ctx.translate(p.x, p.y)
-      ctx.rotate(p.spin)
-      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size)
-      ctx.restore()
-    } else {
-      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
-    }
-  })
-  ctx.globalCompositeOperation = 'lighter'
-  particles.forEach(p => {
-    if (!p.glow) return
-    const size = p.flash ? p.size * (0.4 + p.life * 0.6) : p.size * 2.2
-    glowBlit(p.glow, p.x, p.y, size, Math.max(0, Math.min(1, p.life)))
-  })
-
-  // Enemy bullets: pink orbs on top of everything that is not the HUD.
-  ctx.globalAlpha = 1
-  enemyBullets.forEach(b => {
-    if (b.type === 'needle') {
-      ctx.save()
-      ctx.translate(b.x, b.y)
-      blit(ctx, atlas.needle, 0, 0)
-      ctx.restore()
-    } else {
-      blit(ctx, b.type === 'big' ? atlas.bigOrb : atlas.orb, b.x, b.y)
-    }
-  })
-  ctx.globalCompositeOperation = 'source-over'
-
+  drawDeepField(g, smoothParallaxX)
+  drawPowerups(g, false)
+  drawEnemies(g, now)
+  drawBosses(g, now)
+  if (!gameOver) drawPlayer(g, now)
+  drawParticles(g, false)
+  bulletLights()
+  particleLights()
+  for (const sw of shockwaves) if (sw.thin) stage.light(L(sw.x), L(sw.y), Math.max(4, L(sw.radius)), sw.color ?? '#ff2fa0', sw.life * 0.5)
   // Floating pickup / bounty text.
-  pops.forEach(p => {
-    ctx.globalAlpha = Math.min(1, p.life * 1.5)
-    hudText(p.text, p.x, p.y, p.color, 10.4, 'center', 'rgba(255,210,63,0.6)')
-  })
-  ctx.globalAlpha = 1
-
-  // Tempo tint: cold wash while slow-mo runs; SYNC: gold edge light.
-  if (tempoTimer > 0) {
-    ctx.fillStyle = 'rgba(47, 243, 255, 0.05)'
-    ctx.fillRect(0, 0, w, h)
+  for (const p of pops) {
+    stage.hud.globalAlpha = Math.min(1, p.life * 1.5)
+    hud(p.text, L(p.x), L(p.y) - 3, p.color, 'center')
   }
-  if (syncTimer > 0) {
-    const a = 0.18 + (reducedMotion ? 0 : 0.08 * Math.sin(now / 120))
-    const g = ctx.createLinearGradient(0, 0, 0, h)
-    g.addColorStop(0, `rgba(255,210,63,${a})`)
-    g.addColorStop(0.12, 'rgba(255,210,63,0)')
-    g.addColorStop(0.88, 'rgba(255,210,63,0)')
-    g.addColorStop(1, `rgba(255,210,63,${a})`)
-    ctx.fillStyle = g
-    ctx.fillRect(0, 0, w, h)
-  }
-
-  // Death explosion screen flash
-  if (deathExplosion && deathExplosion.flash > 0) {
-    ctx.fillStyle = `rgba(255, 47, 160, ${deathExplosion.flash * 0.35})`
-    ctx.fillRect(0, 0, w, h)
-  }
-
-  ctx.restore()
-
-  // Screen-space HUD and banners (unshaken).
+  stage.hud.globalAlpha = 1
   if (gameStarted) {
     drawHud(now)
     drawBanners(now)
   }
-}
-
-function drawPlayer(now) {
-  ensureShip(atlas, shipDef)
-  const invuln = now < invulnUntil
-  // Bank toward the direction of travel; the sprite has five roll steps.
-  const vx = player.x - player.prevX
-  player.bank += (Math.max(-1, Math.min(1, vx / 4)) - player.bank) * 0.2
-  const frame = atlas.ship[Math.round(player.bank * 2) + 2] ?? atlas.ship[2]
-  const climbing = player.y < player.prevY
-  const hullCol = shipDef.colors.hull
-
-  // Engine flame: additive, flickering, longer when climbing or synced.
-  ctx.globalCompositeOperation = 'lighter'
-  const flameLen = (climbing ? 16 : 10) + Math.random() * 6 + (syncTimer > 0 ? 6 : 0)
-  for (const dx of [-2.5, 2.5]) {
-    const fx = player.x + dx * (1 - Math.abs(player.bank) * 0.1)
-    const fy = player.y + 17
-    const g = ctx.createLinearGradient(0, fy, 0, fy + flameLen)
-    g.addColorStop(0, 'rgba(255,255,255,0.95)')
-    g.addColorStop(0.3, syncTimer > 0 ? 'rgba(255,210,63,0.8)' : 'rgba(47,243,255,0.8)')
-    g.addColorStop(1, 'rgba(47,243,255,0)')
-    ctx.fillStyle = g
-    ctx.beginPath()
-    ctx.moveTo(fx - 2, fy)
-    ctx.lineTo(fx + 2, fy)
-    ctx.lineTo(fx, fy + flameLen)
-    ctx.closePath()
-    ctx.fill()
-  }
-  if (playerGlow > 0) glowBlit('cyan', player.x, player.y, 90 + playerGlow * 50, playerGlow * 0.6)
-  if (syncTimer > 0) {
-    const r = 70 + (reducedMotion ? 0 : Math.sin(now / 90) * 6)
-    glowBlit('gold', player.x, player.y, r, 0.45)
-  }
-  ctx.globalAlpha = 1
-  ctx.globalCompositeOperation = 'source-over'
-
-  if (invuln && Math.floor(now / 100) % 2 === 0) ctx.globalAlpha = 0.35
-  blit(ctx, frame, player.x, player.y)
-  ctx.globalAlpha = 1
-
-  // Muzzle flash: one hot frame at the nose per volley.
-  if (muzzleT > 0) {
-    ctx.globalCompositeOperation = 'lighter'
-    glowBlit(syncTimer > 0 ? 'gold' : 'cyan', player.x, player.y - player.height / 2 - 4, 26, 0.9)
-    ctx.globalAlpha = 1
-    ctx.globalCompositeOperation = 'source-over'
-  }
-  // Rear guard barrel.
-  if (rearTimer > 0) {
-    ctx.fillStyle = '#ffd23f'
-    ctx.fillRect(player.x - 1.5, player.y + player.height / 2 - 2, 3, 7)
-  }
-  // Dual escort: a small wingman to port, sacrificed on the next hit.
-  if (dualTimer > 0) {
-    const ex = player.x - player.width * 0.85
-    const ey = player.y + 10
-    blit(ctx, frame, ex, ey, 0.55)
-    ctx.globalCompositeOperation = 'lighter'
-    glowBlit('cyan', ex, ey + 10, 14, 0.8)
-    ctx.globalAlpha = 1
-    ctx.globalCompositeOperation = 'source-over'
-    // A thin tether shows the link.
-    ctx.strokeStyle = hullCol
-    ctx.globalAlpha = 0.25
-    ctx.setLineDash([2, 4])
-    ctx.beginPath()
-    ctx.moveTo(ex + 8, ey)
-    ctx.lineTo(player.x - 12, player.y + 6)
-    ctx.stroke()
-    ctx.setLineDash([])
-    ctx.globalAlpha = 1
-  }
-
-  // Shield in front of ship (double arc while AEGIS holds two hits)
-  if (shield || aegis > 0 || shieldFlash > 0) {
-    const shieldY = player.y - player.height / 2 - 12
-    const shieldW = player.width * 1.2
-    const active = shield || aegis > 0
-    const shieldAlpha = active ? 0.75 : shieldFlash * 0.8
-    const shieldColor = active ? '#2ff3ff' : '#ffffff'
-    ctx.shadowColor = shieldColor
-    ctx.shadowBlur = active ? 12 : 25 * shieldFlash
-    ctx.strokeStyle = shieldColor
-    ctx.globalAlpha = shieldAlpha
-    ctx.lineWidth = active ? 2.5 : 2
-    ctx.beginPath()
-    ctx.ellipse(player.x, shieldY, shieldW / 2, 6, 0, Math.PI, 0)
-    ctx.stroke()
-    if (aegis === 2) {
-      ctx.beginPath()
-      ctx.ellipse(player.x, shieldY - 5, shieldW / 2 - 6, 5, 0, Math.PI, 0)
-      ctx.stroke()
-    }
-    ctx.fillStyle = `rgba(47, 243, 255, ${shieldAlpha * 0.18})`
-    ctx.beginPath()
-    ctx.ellipse(player.x, shieldY, shieldW / 2, 6, 0, Math.PI, 0)
-    ctx.fill()
-    ctx.globalAlpha = 1
-    ctx.shadowBlur = 0
-  }
-
-  // Player bullets: additive sprites; seekers point along their path.
-  ctx.globalCompositeOperation = 'lighter'
-  ctx.globalAlpha = 1
-  bullets.forEach(b => {
-    if (b.kind === 'lance') {
-      blit(ctx, atlas.lance, b.x, b.y)
-    } else if (b.kind === 'seeker') {
-      ctx.save()
-      ctx.translate(b.x, b.y)
-      ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2)
-      blit(ctx, atlas.seeker, 0, 0)
-      ctx.restore()
-    } else if (b.kind === 'rear' || b.vy > 0) {
-      blit(ctx, atlas.rearBolt, b.x, b.y)
-    } else {
-      ctx.save()
-      ctx.translate(b.x, b.y)
-      if (b.vx) ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2)
-      blit(ctx, atlas.bolt, 0, 0)
-      ctx.restore()
-    }
+  const sh = shake > 0 && !reducedMotion ? shake * 12 / stage.k : 0
+  stage.present({
+    ambient: gameStarted ? '#a79bd6' : '#8a7fbd',
+    shakeX: sh ? (Math.random() - 0.5) * sh : 0,
+    shakeY: sh ? (Math.random() - 0.5) * sh : 0,
+    flash: deathExplosion && deathExplosion.flash > 0 ? { color: '#ff2fa0', a: deathExplosion.flash * 0.35 } : null,
+    afterLight: g2 => drawGlowing(g2, now),
   })
-  ctx.globalCompositeOperation = 'source-over'
 }
 
 // ---------------------------------------------------------------- loop
@@ -2072,15 +1992,19 @@ function gameLoop(real) {
 
 function setupCanvas() {
   if (!canvas.value) return
-  dpr = Math.min(2, window.devicePixelRatio || 1)
+  dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1))
   const cssW = canvas.value.offsetWidth
   const cssH = canvas.value.offsetHeight
   band = safeBottom()
-  canvas.value.width = Math.round(cssW * dpr)
-  canvas.value.height = Math.round(cssH * dpr)
-  ctx = canvas.value.getContext('2d')
-  if (!atlas || atlas.dpr !== dpr) atlas = buildAtlas(dpr)
-  ensureShip(atlas, shipDef)
+  if (!stage) stage = createPixelStage(canvas.value)
+  // Pixel size: 3 CSS px on wide screens (chunky like the portal), a bit
+  // finer on phones so the ship stays ~20 px and the field wide enough.
+  const scale = Math.max(1, Math.round((cssW < 640 ? 2.34 : 3) * dpr))
+  const bw = Math.round(cssW * dpr)
+  const bh = Math.round(cssH * dpr)
+  stage.resize(cssW, cssH, dpr, bw / scale - 0.01, bh / scale - 0.01)
+  if (!art || art.k !== stage.k) art = createGalagaArt(stage.k)
+  spaceLayer = paintSpace(stage.vw, stage.vh)
   initDeepField()
 }
 

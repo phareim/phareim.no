@@ -1,26 +1,17 @@
 /**
- * Galaga sprite atlas (2026-09-23): every enemy, bolt, glow and the player
- * ship drawn once as neon vector art into offscreen canvases at the screen's
- * pixel ratio, glow pass baked in. The frame loop only calls drawImage, so
- * phones get the glow without paying for shadowBlur per frame.
+ * Galaga's source art (2026-09-23, pixelized since 2026-09-24): every
+ * enemy, the player ship and the Cantor as vector painters. They are not
+ * drawn to the screen directly: `pixel.ts` renders them at the pixel
+ * stage's logical size and snaps them to Neon Shrine's palette.
  *
  * Enemies face +y (down, toward the player). Kinds that turn along their
- * path are rotated by the game; the rest stay upright. Each enemy has two
- * frames (wing beat / legs, swapped on steps like an arcade sprite) and a
- * white silhouette for the two-frame hit flash.
+ * path are pixelized at 16 headings. Each enemy has two frames (wing beat
+ * / legs, swapped on steps like an arcade sprite).
  */
 import type { EnemyKind } from './balance'
 
-export interface Sprite {
-  img: HTMLCanvasElement
-  /** Size in CSS px; draw centred. */
-  w: number
-  h: number
-}
-
 const PINK = '#ff2fa0'
 const PINK_L = '#ff70bc'
-const CYAN = '#2ff3ff'
 const GOLD = '#ffd23f'
 const INK = '#f2e9ff'
 const HULL_D = '#1c0f38'
@@ -28,47 +19,6 @@ const HULL_D2 = '#2a1450'
 
 type G = CanvasRenderingContext2D
 type Painter = (g: G, s: number, frame: number) => void
-
-function makeCanvas(w: number, h: number): HTMLCanvasElement {
-  const c = document.createElement('canvas')
-  c.width = Math.max(1, Math.ceil(w))
-  c.height = Math.max(1, Math.ceil(h))
-  return c
-}
-
-/**
- * Render `paint` centred into a padded canvas. The glow pass draws the
- * shape blurred in `glow`; the crisp pass draws it again on top.
- */
-function bake(w: number, h: number, dpr: number, paint: (g: G) => void, glow: string | null, blur = 10, pad = 12): Sprite {
-  const cw = w + pad * 2, ch = h + pad * 2
-  const c = makeCanvas(cw * dpr, ch * dpr)
-  const g = c.getContext('2d')!
-  g.scale(dpr, dpr)
-  g.translate(cw / 2, ch / 2)
-  g.lineJoin = 'round'
-  g.lineCap = 'round'
-  if (glow) {
-    g.save()
-    g.shadowColor = glow
-    g.shadowBlur = blur * dpr
-    paint(g)
-    g.restore()
-  }
-  paint(g)
-  return { img: c, w: cw, h: ch }
-}
-
-/** White silhouette of a sprite (hit flash). */
-function silhouette(src: Sprite): Sprite {
-  const c = makeCanvas(src.img.width, src.img.height)
-  const g = c.getContext('2d')!
-  g.drawImage(src.img, 0, 0)
-  g.globalCompositeOperation = 'source-in'
-  g.fillStyle = '#ffffff'
-  g.fillRect(0, 0, c.width, c.height)
-  return { img: c, w: src.w, h: src.h }
-}
 
 function poly(g: G, pts: number[][], s: number): void {
   g.beginPath()
@@ -424,7 +374,7 @@ const stinger: Painter = (g, s, f) => {
   g.fill()
 }
 
-const PAINTERS: Record<EnemyKind, Painter> = {
+export const PAINTERS: Record<EnemyKind, Painter> = {
   scout, squadron, heavy, diver, weaver, sniper, splitter, mite, bulwark, stinger,
 }
 
@@ -445,7 +395,7 @@ export interface ShipLook {
 }
 
 /** The player ship at a bank step (-2 … 2, negative = rolling left). */
-function paintShip(look: ShipLook, bank: number): (g: G) => void {
+export function paintShip(look: ShipLook, bank: number): (g: G) => void {
   const wide = look.variant === 'vandal'
   const { hull, trim, cockpit } = look.colors
   return g => {
@@ -520,7 +470,7 @@ function paintShip(look: ShipLook, bank: number): (g: G) => void {
 // ------------------------------------------------------------------ boss
 
 /** The Cantor: twin armoured wings, engine pods, a recessed reactor. */
-function paintBoss(size: number, color: string): (g: G) => void {
+export function paintBoss(size: number, color: string): (g: G) => void {
   return g => {
     g.scale(size, size)
     g.lineWidth = 1.4 / size
@@ -570,163 +520,4 @@ function paintBoss(size: number, color: string): (g: G) => void {
     g.lineTo(0, .33)
     g.stroke()
   }
-}
-
-// ------------------------------------------------------------------ atlas
-
-export interface Atlas {
-  dpr: number
-  enemy: Record<EnemyKind, [Sprite, Sprite]>
-  flash: Record<EnemyKind, Sprite>
-  bolt: Sprite
-  rearBolt: Sprite
-  lance: Sprite
-  seeker: Sprite
-  orb: Sprite
-  needle: Sprite
-  bigOrb: Sprite
-  /** Soft round glows for additive sparks, by colour. */
-  glow: Record<'cyan' | 'pink' | 'gold' | 'white', Sprite>
-  capsule: Sprite
-  /** Soft violet smoke puff (drawn normally, not additive). */
-  puff: Sprite
-  ship: Sprite[]
-  shipKey: string
-  boss: Sprite | null
-  bossKey: string
-}
-
-function capsule(dpr: number): Sprite {
-  return bake(30, 30, dpr, g => {
-    g.beginPath()
-    for (let i = 0; i < 6; i++) {
-      const a = Math.PI / 3 * i
-      const x = Math.cos(a) * 13, y = Math.sin(a) * 13
-      i ? g.lineTo(x, y) : g.moveTo(x, y)
-    }
-    g.closePath()
-    g.fillStyle = 'rgba(40,24,6,0.92)'
-    g.fill()
-    g.lineWidth = 2
-    g.strokeStyle = GOLD
-    g.stroke()
-  }, GOLD, 14, 14)
-}
-
-function glowDot(dpr: number, rgb: string): Sprite {
-  const size = 32
-  const c = makeCanvas(size * dpr, size * dpr)
-  const g = c.getContext('2d')!
-  const r = size * dpr / 2
-  const grad = g.createRadialGradient(r, r, 0, r, r, r)
-  grad.addColorStop(0, 'rgba(255,255,255,1)')
-  grad.addColorStop(0.18, `rgba(${rgb},0.95)`)
-  grad.addColorStop(0.5, `rgba(${rgb},0.3)`)
-  grad.addColorStop(1, `rgba(${rgb},0)`)
-  g.fillStyle = grad
-  g.fillRect(0, 0, c.width, c.height)
-  return { img: c, w: size, h: size }
-}
-
-function puff(dpr: number): Sprite {
-  const size = 32
-  const c = makeCanvas(size * dpr, size * dpr)
-  const g = c.getContext('2d')!
-  const r = size * dpr / 2
-  const grad = g.createRadialGradient(r, r, 0, r, r, r)
-  grad.addColorStop(0, 'rgba(96,64,140,0.5)')
-  grad.addColorStop(0.6, 'rgba(60,34,96,0.25)')
-  grad.addColorStop(1, 'rgba(40,20,70,0)')
-  g.fillStyle = grad
-  g.fillRect(0, 0, c.width, c.height)
-  return { img: c, w: size, h: size }
-}
-
-function orb(dpr: number, r: number, color: string): Sprite {
-  return bake(r * 2, r * 2, dpr, g => {
-    g.beginPath()
-    g.arc(0, 0, r, 0, Math.PI * 2)
-    g.fillStyle = color
-    g.fill()
-    g.beginPath()
-    g.arc(0, 0, r * 0.45, 0, Math.PI * 2)
-    g.fillStyle = '#ffffff'
-    g.fill()
-  }, color, 10, 8)
-}
-
-function bar(dpr: number, w: number, h: number, color: string, blur: number): Sprite {
-  return bake(w, h, dpr, g => {
-    g.beginPath()
-    g.roundRect(-w / 2, -h / 2, w, h, w / 2)
-    g.fillStyle = color
-    g.fill()
-    g.beginPath()
-    g.roundRect(-w / 4, -h / 2 + 1, w / 2, h - 2, w / 4)
-    g.fillStyle = '#ffffff'
-    g.fill()
-  }, color, blur, 8)
-}
-
-export function buildAtlas(dpr: number): Atlas {
-  const enemy = {} as Atlas['enemy']
-  const flash = {} as Atlas['flash']
-  for (const kind of Object.keys(PAINTERS) as EnemyKind[]) {
-    const s = ENEMY_SIZE[kind]
-    const frames = [0, 1].map(f => bake(s * 1.1, s * 1.15, dpr, g => PAINTERS[kind](g, s, f), PINK, 9)) as [Sprite, Sprite]
-    enemy[kind] = frames
-    flash[kind] = silhouette(frames[0])
-  }
-  return {
-    dpr, enemy, flash,
-    bolt: bar(dpr, 5, 17, CYAN, 12),
-    rearBolt: bar(dpr, 5, 15, GOLD, 12),
-    lance: bar(dpr, 3.5, 34, CYAN, 16),
-    seeker: bake(6, 12, dpr, g => {
-      poly(g, [[0, -6], [3, 3], [0, 6], [-3, 3]], 1)
-      g.fillStyle = '#ffffff'
-      g.fill()
-      g.strokeStyle = CYAN
-      g.lineWidth = 1.2
-      g.stroke()
-    }, CYAN, 10, 8),
-    orb: orb(dpr, 4.5, PINK),
-    needle: bar(dpr, 3, 15, PINK, 10),
-    bigOrb: orb(dpr, 7, PINK),
-    glow: {
-      cyan: glowDot(dpr, '47,243,255'),
-      pink: glowDot(dpr, '255,47,160'),
-      gold: glowDot(dpr, '255,210,63'),
-      white: glowDot(dpr, '242,233,255'),
-    },
-    capsule: capsule(dpr),
-    puff: puff(dpr),
-    ship: [],
-    shipKey: '',
-    boss: null,
-    bossKey: '',
-  }
-}
-
-/** (Re)bake the five bank frames when the Hangar ship changes. */
-export function ensureShip(atlas: Atlas, look: ShipLook): void {
-  const key = `${look.variant}|${look.colors.hull}|${look.colors.trim}|${look.colors.cockpit}`
-  if (atlas.shipKey === key) return
-  atlas.ship = [-2, -1, 0, 1, 2].map(b => bake(60, 40, atlas.dpr, paintShip(look, b), look.colors.glow, 12))
-  atlas.shipKey = key
-}
-
-/** (Re)bake the Cantor when its on-screen size changes. */
-export function ensureBoss(atlas: Atlas, size: number): Sprite {
-  const key = String(Math.round(size))
-  if (atlas.boss && atlas.bossKey === key) return atlas.boss
-  atlas.boss = bake(size * 1.16, size * 1.0, atlas.dpr, paintBoss(size, PINK), PINK, 12, 16)
-  atlas.bossKey = key
-  return atlas.boss
-}
-
-/** Draw a sprite centred at (x, y). */
-export function blit(g: G, s: Sprite, x: number, y: number, scale = 1): void {
-  const w = s.w * scale, h = s.h * scale
-  g.drawImage(s.img, x - w / 2, y - h / 2, w, h)
 }

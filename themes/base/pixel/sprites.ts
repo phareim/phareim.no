@@ -183,3 +183,73 @@ export function mix(a: string, b: string, t: number): string {
   }
   return '#' + ((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1)
 }
+
+/** Palette keys a pixelized drawing may snap to (no skin/clay/lime). */
+const SNAP_KEYS = ['K', 'u', 'w', 'W', 'g', 'G', 'c', 'C', 'b', 'B', 'p', 'P', 'm', 'v', 'V', 'y', 'Y', 'o', 'r', 'R', 'h', 'e', 't', 'T']
+
+/**
+ * Pixel art from a vector drawing: `paint` draws centred at (0, 0) into a
+ * w×h logical canvas; every pixel at least half covered snaps to the
+ * nearest palette colour, the rest goes transparent, and a dark outline
+ * ('k') is added round the shape. Returns the rows as a string map, so
+ * the result works with `sprite()` / `silhouette()`. Used for art whose
+ * size is only known at run time (a boss scaled to the screen).
+ */
+export function pixelize(paint: (g: CanvasRenderingContext2D) => void, w: number, h: number, keys: string[] = SNAP_KEYS, outline = true): string[] {
+  w = Math.max(1, Math.round(w))
+  h = Math.max(1, Math.round(h))
+  const c = makeCanvas(w, h)
+  const g = c.getContext('2d')!
+  g.translate(w / 2, h / 2)
+  paint(g)
+  const d = g.getImageData(0, 0, w, h).data
+  const pal = keys.map(k => {
+    const v = parseInt(PAL[k]!.slice(1), 16)
+    return [k, (v >> 16) & 255, (v >> 8) & 255, v & 255] as const
+  })
+  const grid: string[][] = []
+  for (let y = 0; y < h; y++) {
+    const row: string[] = []
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4
+      if (d[i + 3]! < 115) { row.push('.'); continue }
+      let best = 'k'
+      let bd = Infinity
+      for (const [k, r, gg, b] of pal) {
+        const dr = d[i]! - r
+        const dg = d[i + 1]! - gg
+        const db = d[i + 2]! - b
+        const dist = dr * dr * 0.3 + dg * dg * 0.59 + db * db * 0.11
+        if (dist < bd) { bd = dist; best = k }
+      }
+      row.push(best)
+    }
+    grid.push(row)
+  }
+  if (!outline) return grid.map(r => r.join(''))
+  const on = (x: number, y: number) => y >= 0 && y < h && x >= 0 && x < w && grid[y]![x] !== '.'
+  const out: string[] = []
+  for (let y = -1; y <= h; y++) {
+    let line = ''
+    for (let x = -1; x <= w; x++) {
+      if (on(x, y)) line += grid[y]![x]
+      else line += on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1) ? 'k' : '.'
+    }
+    out.push(line)
+  }
+  return out
+}
+
+const LIGHTER: Record<string, string> = { K: 'u', u: 'G', G: 'g', V: 'v', v: 'm', P: 'p', p: 'm', m: 'w', C: 'c', c: 'w', B: 'b', b: 'c', Y: 'y', y: 'e', h: 'H', R: 'r', r: 'm', T: 't', t: 'c', g: 'W', W: 'w' }
+
+/**
+ * Neon Shrine's top light on a sprite map: every pixel with open space or
+ * outline above it steps one shade lighter. `remap` swaps colours first
+ * (e.g. { K: 'u' } lifts near-black hulls off a dark background).
+ */
+export function relight(rows: readonly string[], remap: Record<string, string> = {}): string[] {
+  const h = rows.length
+  const src = rows.map(r => [...r].map(ch => remap[ch] ?? ch))
+  const open = (x: number, y: number) => y < 0 || src[y]![x] === '.' || src[y]![x] === 'k'
+  return src.map((row, y) => row.map((ch, x) => (ch !== '.' && ch !== 'k' && open(x, y - 1) ? LIGHTER[ch] ?? ch : ch)).join('')).slice(0, h)
+}

@@ -101,11 +101,11 @@ test('picks up the Hangar ship on every reset', () => {
   assert.equal(shipCalls.n, before + 3)
 })
 
-test('mesh passes beneath idle screen, recycles, and stops under reduced motion', () => {
+test('rocks pass beneath idle screen, recycle, and stop under reduced motion', () => {
   const run = game()
   run('initStars(); initBgShapes(); gameStarted=false; const y = bgShapes[0].y; updateBackdrop()')
   assert.ok(run('bgShapes[0].y > y'))
-  assert.ok(run('bgShapes.every(s => s.faces.length === 27 && s.vertices.length === 19)'))
+  assert.ok(run('bgShapes.every(s => s.size > 0 && s.depth >= .3 && s.depth <= 1)'))
   run('bgShapes.forEach(s => s.y = 2000); updateBackdrop()')
   assert.equal(run('bgShapes.length'), 6)
   run('reducedMotion = true; const still = JSON.stringify([stars,bgShapes]); updateBackdrop()')
