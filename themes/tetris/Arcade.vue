@@ -100,8 +100,7 @@ strong { font-size: 16px; font-weight: normal; color: var(--tetris-accent); font
 .hold-button.px-panel { border: 2px solid var(--tetris-pink); }
 .exit-button { margin-top: auto; font-size: 8px; color: var(--tetris-text-muted); }
 .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-/* ↻ has no clear 5×7 form; the arrows keep Space Mono. */
-.action-row b { font: 20px var(--font-machine); vertical-align: -2px; margin-right: 8px; text-shadow: none; }
+.action-row b { margin-right: 8px; font-weight: 400; }
 .drop-button { color: var(--tetris-pink); border-color: #ff2fa088; }
 .control-hint { background: rgba(11, 6, 22, .8); margin: 0; padding: 6px 4px; text-align: center; font-size: 8px; line-height: 2; color: var(--tetris-text-muted); text-shadow: 1px 1px 0 #0b0616; }
 .control-hint span { font-size: 8px; }
