@@ -9,28 +9,13 @@
       aria-live="polite"
     >
       <div class="intercom-portrait" aria-hidden="true">
-        <svg v-if="line.who === 'claude'" viewBox="-20 -20 40 40" class="intercom-spark">
-          <g class="intercom-spark-rays">
-            <path
-              v-for="i in 10"
-              :key="i"
-              :transform="`rotate(${i * 36 + (i % 2 ? 8 : 0)})`"
-              :d="i % 2 ? 'M0 -3 L1.6 -9 L0 -16 L-1.6 -9 Z' : 'M0 -3 L1.3 -8 L0 -12 L-1.3 -8 Z'"
-            />
-          </g>
-          <circle r="3.2" class="intercom-spark-core" />
-        </svg>
-        <svg v-else viewBox="-20 -20 40 40" class="intercom-choir">
-          <circle r="15" />
-          <circle r="10" />
-          <circle r="5" />
-          <path d="M-16 0 L-10 -4 L-6 5 L-2 -7 L2 7 L6 -5 L10 4 L16 0" />
-        </svg>
+        <canvas :ref="el => paint(el, line?.who, 0)" class="intercom-face intercom-face--a" width="13" height="13" />
+        <canvas :ref="el => paint(el, line?.who, 1)" class="intercom-face intercom-face--b" width="13" height="13" />
       </div>
       <div class="intercom-body">
         <p class="intercom-who">{{ line.who === 'claude' ? 'CLAUDE · COMMS' : 'THE CHOIR · INTERCEPT' }}</p>
         <p class="intercom-text">
-          <span>{{ line.text.slice(0, shown) }}</span><span v-if="typing" class="intercom-caret">▍</span><span class="intercom-ghost">{{ line.text.slice(shown) }}</span>
+          <span>{{ line.text.slice(0, shown) }}</span><span v-if="typing" class="intercom-caret">▶</span><span class="intercom-ghost">{{ line.text.slice(shown) }}</span>
         </p>
       </div>
     </div>
@@ -40,152 +25,157 @@
 <script setup lang="ts">
 /**
  * The Galaga intercom: one line at a time from the story director
- * (story.ts), typed out, on a blueprint panel. Claude speaks in the
- * person voice (lowercase, Space Grotesk, cyan hairline); the Choir in the
- * machine voice (uppercase mono, pink). The untyped remainder is laid out
- * invisibly so the panel never changes size while typing.
+ * (story.ts), typed out, in Neon Shrine's dialog box (2026-09-24): a dark
+ * panel with a notched one-pixel border and the 5×7 pixel font. Claude's
+ * panel is cyan with a gold pixel spark; the Choir's is pink with rings
+ * and a waveform that glitches while it talks. The untyped remainder is
+ * laid out invisibly so the panel never changes size while typing.
  */
+import { PAL } from '~/themes/base/pixel/sprites'
+
 const props = defineProps<{
   line: { id: number; who: 'claude' | 'choir'; text: string } | null
   shown: number
 }>()
 
 const typing = computed(() => !!props.line && props.shown < props.line.text.length)
+
+/** The portrait as a 13×13 pixel map; frame 1 is the talking beat. */
+function face(who: 'claude' | 'choir', frame: number): string[] {
+  const n = 13
+  const c = 6
+  const grid = Array.from({ length: n }, () => Array<string>(n).fill('.'))
+  const set = (x: number, y: number, ch: string) => { if (x >= 0 && y >= 0 && x < n && y < n) grid[y]![x] = ch }
+  if (who === 'claude') {
+    // Eight rays round a hot core, long and short alternating; they swap on the beat.
+    const dirs = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]]
+    dirs.forEach(([dx, dy], i) => {
+      const len = (i % 2 === frame ? 6 : 4)
+      for (let r = 2; r <= len; r++) set(c + dx! * r, c + dy! * r, r === len ? 'Y' : 'y')
+    })
+    for (let y = -1; y <= 1; y++) for (let x = -1; x <= 1; x++) set(c + x, c + y, 'e')
+    set(c, c, 'w')
+  } else {
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const d = Math.round(Math.hypot(x - c, y - c))
+      if (d === 6) set(x, y, 'P')
+      else if (d === 4) set(x, y, 'p')
+      else if (d === 2) set(x, y, 'm')
+    }
+    // The waveform across the middle.
+    const wave = frame ? [0, -2, 1, -3, 3, -1, 2, -2, 1, 0] : [0, -1, 1, -1, 2, -2, 1, -1, 1, 0]
+    for (let i = 0; i < 11; i++) set(1 + i, c + (wave[i] ?? 0), 'w')
+  }
+  return grid.map(r => r.join(''))
+}
+
+// Called by Vue with the element on mount and null on unmount (when the
+// line may already be gone).
+function paint(el: unknown, who: 'claude' | 'choir' | undefined, frame: number) {
+  if (!who || !(el instanceof HTMLCanvasElement) || el.dataset.who === who) return
+  el.dataset.who = who
+  const g = el.getContext('2d')
+  if (!g) return
+  g.clearRect(0, 0, 13, 13)
+  face(who, frame).forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch === '.') return
+    g.fillStyle = PAL[ch] ?? '#ffffff'
+    g.fillRect(x, y, 1, 1)
+  }))
+}
 </script>
 
 <style scoped>
+/* Neon Shrine's dialog box (themes/zelda/render/hud.ts box()) at 2 CSS px
+   per pixel: the four offset shadows draw a one-pixel border with notched
+   corners, the ::before line is the faint cyan rule inside the top edge. */
 .intercom {
+  --edge: #2ff3ff;
   position: absolute;
   z-index: 3;
-  left: 16px;
+  left: 18px;
   bottom: calc(64px + var(--app-safe-bottom, 0px));
-  width: min(400px, calc(100vw - 32px));
+  width: min(420px, calc(100vw - 36px));
   box-sizing: border-box;
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  padding: 10px 14px 12px 10px;
-  background: rgba(6, 3, 16, 0.78);
-  border: 1px solid rgba(47, 243, 255, 0.45);
-  border-radius: 4px;
-  box-shadow: 0 0 24px rgba(47, 243, 255, 0.12);
+  padding: 12px 14px 12px 12px;
+  background: rgba(11, 6, 22, 0.88);
+  box-shadow: 0 -2px 0 0 var(--edge), 0 2px 0 0 var(--edge), -2px 0 0 0 var(--edge), 2px 0 0 0 var(--edge);
   pointer-events: none;
-  /* Corner ticks, blueprint style. */
-  background-image:
-    linear-gradient(#2ff3ff, #2ff3ff), linear-gradient(#2ff3ff, #2ff3ff),
-    linear-gradient(#2ff3ff, #2ff3ff), linear-gradient(#2ff3ff, #2ff3ff);
-  background-size: 10px 1px, 1px 10px, 10px 1px, 1px 10px;
-  background-position: top left, top left, bottom right, bottom right;
-  background-repeat: no-repeat;
+  font-family: var(--font-pixel);
+  -webkit-font-smoothing: none;
+}
+.intercom::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 4px;
+  height: 2px;
+  background: rgba(47, 243, 255, 0.35);
 }
 
 .intercom--choir {
-  border-color: rgba(255, 47, 160, 0.55);
-  box-shadow: 0 0 24px rgba(255, 47, 160, 0.18);
-  background-image:
-    linear-gradient(#ff2fa0, #ff2fa0), linear-gradient(#ff2fa0, #ff2fa0),
-    linear-gradient(#ff2fa0, #ff2fa0), linear-gradient(#ff2fa0, #ff2fa0);
+  --edge: #ff2fa0;
 }
 
 /* Short landscape screens: a compact panel in the corner. */
 @media (min-width: 641px) and (max-height: 520px) {
   .intercom {
-    left: 10px;
-    bottom: calc(10px + var(--app-safe-bottom, 0px));
-    width: min(320px, 44vw);
-    padding: 6px 10px 7px 6px;
+    left: 12px;
+    bottom: calc(12px + var(--app-safe-bottom, 0px));
+    width: min(340px, 46vw);
+    padding: 8px 10px 8px 8px;
     gap: 8px;
-    background-color: rgba(6, 3, 16, 0.66);
   }
-  .intercom-portrait { width: 28px !important; height: 28px !important; }
-  .intercom-text { font-size: 12.5px !important; }
-  .intercom--choir .intercom-text { font-size: 10.5px !important; }
+  .intercom-portrait { width: 26px !important; height: 26px !important; }
 }
 
 /* Phones: under the HUD at the top, clear of the ship and the thumb. */
 @media (max-width: 640px) {
   .intercom {
-    left: 12px;
-    right: 12px;
+    left: 14px;
+    right: 14px;
     width: auto;
     bottom: auto;
-    top: calc(max(0.6rem, env(safe-area-inset-top)) + 78px);
-    background-color: rgba(6, 3, 16, 0.66);
-    padding: 8px 10px 9px 8px;
+    top: calc(max(0.6rem, env(safe-area-inset-top)) + 118px);
+    padding: 10px 10px 10px 10px;
     gap: 10px;
   }
 }
 
 .intercom-portrait {
+  position: relative;
   flex: none;
-  width: 40px;
-  height: 40px;
-  border: 1px solid rgba(47, 243, 255, 0.3);
-  border-radius: 3px;
-  background:
-    repeating-linear-gradient(0deg, rgba(47, 243, 255, 0.06) 0 1px, transparent 1px 3px),
-    #0b0616;
-  display: grid;
-  place-items: center;
-}
-.intercom--choir .intercom-portrait {
-  border-color: rgba(255, 47, 160, 0.4);
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 47, 160, 0.08) 0 1px, transparent 1px 3px),
-    #0b0616;
-}
-@media (max-width: 640px) {
-  .intercom-portrait { width: 32px; height: 32px; }
+  width: 39px;
+  height: 39px;
+  background: #0b0616;
+  box-shadow: 0 0 0 2px #1c1030;
 }
 
-.intercom-portrait svg {
+.intercom-face {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  overflow: visible;
+  image-rendering: pixelated;
 }
-
-.intercom-spark-rays path {
-  fill: #ffd23f;
+.intercom-face--b {
+  visibility: hidden;
 }
-.intercom-spark-core {
-  fill: #fff4c9;
+.intercom--talking .intercom-face--a {
+  animation: face-a 0.32s steps(1) infinite;
 }
-.intercom-spark {
-  filter: drop-shadow(0 0 4px rgba(255, 210, 63, 0.7));
+.intercom--talking .intercom-face--b {
+  animation: face-b 0.32s steps(1) infinite;
 }
-.intercom-spark-rays {
-  transform-origin: 0 0;
-  animation: spark-turn 9s linear infinite;
+@keyframes face-a {
+  50% { visibility: hidden; }
 }
-.intercom--talking .intercom-spark-rays {
-  animation: spark-turn 9s linear infinite, spark-talk 0.16s steps(2) infinite alternate;
-}
-@keyframes spark-turn {
-  to { rotate: 360deg; }
-}
-@keyframes spark-talk {
-  from { scale: 0.86; }
-  to { scale: 1.08; }
-}
-
-.intercom-choir circle,
-.intercom-choir path {
-  fill: none;
-  stroke: #ff2fa0;
-  stroke-width: 1.4;
-}
-.intercom-choir circle:nth-child(1) { opacity: 0.35; }
-.intercom-choir circle:nth-child(2) { opacity: 0.6; }
-.intercom-choir {
-  filter: drop-shadow(0 0 4px rgba(255, 47, 160, 0.8));
-}
-.intercom--talking .intercom-choir path {
-  animation: choir-wave 0.12s steps(2) infinite alternate;
-  transform-origin: 0 0;
-}
-@keyframes choir-wave {
-  from { scale: 1 0.5; }
-  to { scale: 1 1.3; }
+@keyframes face-b {
+  50% { visibility: visible; }
 }
 
 .intercom-body {
@@ -194,50 +184,38 @@ const typing = computed(() => !!props.line && props.shown < props.line.text.leng
 }
 
 .intercom-who {
-  margin: 0 0 3px;
-  font-family: var(--font-machine);
-  font-size: 10.4px;
-  letter-spacing: 0.15em;
-  color: #2ff3ff;
-  opacity: 0.75;
-}
-.intercom--choir .intercom-who {
-  color: #ff2fa0;
+  margin: 0 0 6px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--edge);
+  text-shadow: 2px 2px 0 #0b0616;
 }
 
 .intercom-text {
   margin: 0;
-  font-family: var(--font-person);
-  font-weight: 400;
-  font-size: 15px;
-  line-height: 1.35;
-  color: #f2e9ff;
+  font-size: 16px;
+  line-height: 22px;
+  color: #fff4ff;
+  text-shadow: 2px 2px 0 #3a1a4a;
   text-align: left;
+  text-transform: uppercase;
 }
 .intercom--choir .intercom-text {
-  font-family: var(--font-machine);
-  font-size: 13px;
-  letter-spacing: 0.15em;
-  color: #ff70bc;
-  text-shadow: 0 0 10px rgba(255, 47, 160, 0.6);
-}
-@media (max-width: 640px) {
-  .intercom-text { font-size: 13.5px; }
-  .intercom--choir .intercom-text { font-size: 11.5px; }
+  color: #ff8ae0;
+  text-shadow: 2px 2px 0 #3a1a4a;
 }
 .intercom--choir.intercom--talking .intercom-text {
   animation: choir-glitch 0.18s steps(2) infinite;
 }
 @keyframes choir-glitch {
   0% { transform: translateX(0); }
-  50% { transform: translateX(1px); text-shadow: -1px 0 rgba(47, 243, 255, 0.5), 0 0 10px rgba(255, 47, 160, 0.6); }
+  50% { transform: translateX(2px); text-shadow: -2px 0 0 rgba(47, 243, 255, 0.6), 2px 2px 0 #3a1a4a; }
 }
 
 .intercom-caret {
-  color: #2ff3ff;
+  color: var(--edge);
   animation: caret 0.5s steps(2) infinite;
 }
-.intercom--choir .intercom-caret { color: #ff2fa0; }
 @keyframes caret {
   50% { opacity: 0; }
 }
@@ -247,23 +225,22 @@ const typing = computed(() => !!props.line && props.shown < props.line.text.leng
 }
 
 .intercom-enter-active {
-  transition: opacity 0.32s, transform 0.32s cubic-bezier(0.2, 0.9, 0.2, 1);
+  transition: opacity 0.24s steps(3), transform 0.24s steps(3);
 }
 .intercom-leave-active {
-  transition: opacity 0.25s;
+  transition: opacity 0.2s steps(2);
 }
 .intercom-enter-from {
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(8px);
 }
 .intercom-leave-to {
   opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .intercom-spark-rays,
-  .intercom--talking .intercom-spark-rays,
-  .intercom--talking .intercom-choir path,
+  .intercom--talking .intercom-face--a,
+  .intercom--talking .intercom-face--b,
   .intercom--choir.intercom--talking .intercom-text,
   .intercom-caret {
     animation: none;

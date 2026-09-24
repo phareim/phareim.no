@@ -1,8 +1,9 @@
 # Galaga
 
-A vertical shooter in the Galaga mould, on the Neon Dreams palette: cyan
-player and HUD, pink enemies, gold rewards, violet-black ground. The title
-screen waits for Enter or a tap. Current state verified 2026-09-23.
+A vertical shooter in the Galaga mould, drawn since 2026-09-24 in Neon
+Shrine's pixel look (`docs/games/pixel-look.md`): cyan player and HUD, pink
+enemies, gold rewards, a dithered violet night. The title screen waits for
+Enter or a tap. Rules verified 2026-09-23, look 2026-09-24.
 
 ## Files
 
@@ -12,8 +13,9 @@ screen waits for Enter or a tap. Current state verified 2026-09-23.
 | `themes/galaga/balance.ts` | Pure tuning: hull, difficulty ramps, bestiary, capsules, boss, SYNC |
 | `themes/galaga/weapons.ts` | Pure volley patterns (SPREAD, LASER, SEEKER) and seeker steering |
 | `themes/galaga/story.ts` | Sectors, the intercom script and the director that paces it |
-| `themes/galaga/sprites.ts` | Sprite atlas: every ship, bolt and glow pre-rendered at the pixel ratio |
-| `themes/galaga/Intercom.vue` | The intercom panel (DOM, typewriter) |
+| `themes/galaga/sprites.ts` | Source art: every enemy, the player ship and the Cantor as vector painters |
+| `themes/galaga/pixel.ts` | The pixel art: those painters pixelized per pixel size, rocks, nebulae, planet, night sky |
+| `themes/galaga/Intercom.vue` | The intercom panel (DOM, typewriter, Neon Shrine dialog box) |
 | `themes/galaga/audio.ts` | One-shot SFX; music comes from the global radio (`docs/games/global-radio.md`) |
 | `themes/galaga/Landing.vue` | Title, game over, Hall of Fame submit, high score |
 
@@ -27,9 +29,11 @@ voices. Claude rides in the ship's second seat and talks over the intercom.
   RINGFALL, CHOIR SPACE, CONDUCTOR'S NEST (boss: THE CONDUCTOR), then
   DEEP CHOIR I, II, … A sector opens with a banner, a Claude line and new
   nebula tints (`sectorFor` in `story.ts`).
-- **Who speaks.** Claude in the person voice (lowercase Space Grotesk, gold
-  spark portrait, cyan panel). The Choir in the machine voice (uppercase
-  mono, pink panel) when a Cantor arrives and in the odd taunt from sector 3.
+- **Who speaks.** Claude in the person voice (written lowercase; gold
+  pixel-spark portrait, cyan panel). The Choir in the machine voice (written
+  uppercase; ring-and-waveform portrait, pink panel, glitching while it
+  talks) when a Cantor arrives and in the odd taunt from sector 3. Both show
+  in the 5×7 pixel font, which has only capitals.
   `tests/galaga-story.test.mjs` checks the script against those rules.
 - **What Claude says.** A briefing on the first run of a page load, a
   shorter line on retries, a first look at each new enemy kind and capsule,
@@ -102,21 +106,37 @@ within 1.5 s chain into a multiplier (up to x4 with `C`). Waves come every
 
 - The world steps at a fixed 60 Hz on a simulated clock (`simNow`), so a
   120 Hz screen does not double the speed, and pause stops every timer.
-- The canvas is backed at the device pixel ratio (capped at 2); game logic
-  works in CSS pixels through `W()`/`H()`.
-- `sprites.ts` bakes every enemy (two animation frames plus a white hit
-  silhouette), the player ship (five bank angles, rebaked when the Hangar
-  ship changes), the Cantor (per on-screen size), bolts, orbs, capsules and
-  glow dots once. Sparks, bolts and glows draw additively; smoke is soft
-  violet puffs.
-- The deep field (nebulae, a ringed planet, Kestrel station), six drifting
-  low-poly rocks and twinkling stars sit behind a vignette. Reduced motion
-  stops the backdrop, the shake and the intercom animations.
-- HUD: score top-centre (first line on phones, where the radio widget owns
-  the top right), then hull, weapon module and level, SYNC meter, sector and
-  wave, capsule chips. The boss bar sits under the score, or above the pager
-  on phones. The intercom panel is bottom-left on wide screens, compact in
-  the corner on short landscape screens, and under the HUD on phones.
+- Drawing is on the shared pixel stage (`themes/base/pixel/`): a logical
+  buffer at 3 CSS px per pixel on wide screens and ~2.3 on phones (about
+  2.5 on phones with a pixel ratio of 2), lit by a light map, bloomed and
+  scanlined. Game logic works in CSS pixels through `W()`/`H()`; `L()`
+  converts when drawing.
+- `pixel.ts` pixelizes the vector painters of `sprites.ts` at the current
+  pixel size (`pixelize()`: palette snap, outline, top light), so every
+  enemy keeps its silhouette at any screen size: two frames each, a white
+  silhouette for the hit flash, 16 headings for the kinds that turn along
+  their path (squadron, stinger, diver, mite). The player ship (five bank
+  steps, per Hangar look, plus a small escort copy), the Cantor (per
+  on-screen size) and the relay station the same way; all cached.
+- Bolts are pixel streaks along their velocity (white head, coloured
+  tail), enemy fire pink pixel discs and needles, shockwaves pixel rings,
+  sparks single pixels with a light, smoke dithered puffs. Capsules are
+  gold hexes with the letter in the 5×7 font and the name below. The engine
+  flame is two flickering pixel columns; the shield a one-pixel arc.
+- The deep field: a dithered violet night, per-sector nebulae as three
+  dithered tones of the sector tint, a ringed planet shaded like the
+  striped sun (pink rim on the lit side, the ring's back half behind the
+  globe), Kestrel station, six drifting cratered rocks at parallax depths,
+  twinkling one-pixel stars (they stay bright through the light map).
+  Reduced motion stops the backdrop, the shake and the intercom animations.
+- HUD (canvas, 5×7 font on the stage's HUD layer): score top-centre (first
+  line on phones, where the radio widget owns the top right; the rest
+  starts below the radio), then hull, weapon module and level, SYNC meter,
+  sector and wave, capsule chips. The boss bar sits on the sector line,
+  right of it, or above the pager on phones. The intercom panel is Neon
+  Shrine's dialog box: bottom-left on wide screens, compact in the corner
+  on short landscape screens, and under the HUD on phones. Title and game
+  over use the `.px-*` classes.
 
 `?theme=galaga&debug=galaga` exposes `window.__galaga` (`boss()`,
 `give(type)`, `sync()`, `wave(n)`, `state()`) for screenshots and manual
