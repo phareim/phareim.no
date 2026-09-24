@@ -1,7 +1,8 @@
 # Neon Shrine — design
 
-A Link to the Past–style adventure on an 80s neon coast: a 20–30 minute
-quest with one overworld, a handful of small interiors and one dungeon.
+A Link to the Past–style adventure on an 80s neon coast: a quest of an hour
+or more with two overworlds (the coast and the Wildwood), a handful of
+interiors, two labs of two floors each and the Shrine.
 Original story, maps, sprites and music. Since 2026-09-24 it is phareim.no's
 front page: the town (the portal) is the west end of the same world, and the
 quest starts down the coast road from it. Status and checks:
@@ -12,6 +13,16 @@ quest starts down the coast road from it. Status and checks:
 The sun has hung on the horizon for three nights. The Static King crawled
 out of the old Neon Shrine and took the Sun Prism. The Keeper hands you a
 blade; you bring the prism back and the sun can finally set.
+
+The King came from somewhere: Project Horizon, a lab in the Wildwood west of
+town, opened a Gate to the static between stations. Static vines from it
+have grown over the Graves road to the Shrine. With Luna, the lab's escaped
+test subject, you go down through both labs and shut the Gate; then the
+vines wither and the Shrine is open. The Wildwood part: `docs/games/wildwood.md`.
+
+Quest (`progress.ts`, twelve steps): blade · bomb bag · Luna · hook ·
+Mistral · Arc Blade · Gemini (the Gate shut) · rubble · disc · big key ·
+Static King · Sun Prism.
 
 A visitor starts in the town square facing Petter's name, with nothing. The
 coast road east leads to Home Glade; walking in without the blade, the
@@ -31,7 +42,7 @@ checks shapes, warps, exits, and that every chest, item, NPC, warp and exit
 is reachable once locks and cracks have given way.
 
 **Overworld** (`overworld.ts`, 104×48, free-scrolling camera). The town fills
-columns 0–39; the old coast is shifted 40 east (`TOWN_W`). Seven areas, each
+columns 0–39; the old coast is shifted 40 east (`TOWN_W`). Seven areas (the Wildwood is a map of its own), each
 with a banner, a music track and a continue point:
 
 | Area | Where | What |
@@ -40,9 +51,13 @@ with a banner, a music track and a continue point:
 | Home Glade | SW | the coast road arrives here; Keeper's hut (door → hut), Keeper, sword chest, pots, blobs, rock-ring chest |
 | Whisper Woods | NW | bats, dashers, **bomb bag** chest, heart piece behind a boulder |
 | Night Market | N | shop, kid, cat, fountain, market stalls and a sign where the old arcade stood (the arcade is in town since 2026-09-24); `village` music |
-| Hollow Graves | NE | zappers, sentry, ghost; rubble seals the Shrine stairs |
+| Hollow Graves | NE | zappers, sentry, ghost; static vines (a gate open on `gateShut`) and rubble seal the Shrine stairs |
 | Crossroads | centre | signpost, spitters, a sentry |
 | Mirror Lake | SE | the sun's reflection, island chest, bomb-able cliff → cave |
+
+**The Wildwood** (`wildwood.ts`, its own overworld map, 84×52; the town's
+west road warps there through a thicket you cut) and its labs (`lab1.ts`,
+`lab2.ts`): see `docs/games/wildwood.md`.
 
 **Interiors** (`interiors.ts`): the Keeper's hut (bed, table, lamps, pots,
 the Keeper's cat), shop (bombs 15, heart 10, heart piece 100 bits), lakeside
@@ -73,11 +88,18 @@ for a spin (2 damage). B uses the selected item: bombs (crack `R`/`%`, hurt
 everything, stun zappers) or the Prism Disc (boomerang: stuns, kills bats and
 blobs, fetches drops, flips crystal switches, breaks the King's shards).
 
+The Wildwood added the grappling hook (B: bites posts, pillars, lamps and
+chests and reels you over pits and water), the Arc Blade (the upgraded
+sword: 2 damage, a beam at full hearts, cuts static vines), Luna (follows;
+slides psi blocks), letter stones, levers, crystal groups shared across
+floors, holes to the floor below, per-dungeon keyrings and room events.
+
 Enemies: blob, spitter (reflect its pellets), sentry (sees you, charges),
 bat, dasher, zapper (shocks a blade unless stunned), skull (dodges), eye
 statue (laser), knight (shield front, charges, dazed after a wall hit),
 king (orbiting shards; break all four, then strike while he's down; phase 2
-at half health).
+at half health). The Wildwood: hound (circles, lunges), drone (fires along
+a line), and the bosses LLAMA, MISTRAL, DEEPSEEK and GEMINI.
 
 Death: full hearts back at the last continue point (overworld area entry,
 the hut door, or the Shrine entrance); progress, keys and opened doors stay.
@@ -109,6 +131,6 @@ pink danger, gold treasure. Sprites and the 5×7 pixel font are code
 
 ## Sound (`audio.ts`)
 
-Own Web Audio graph: seven original looping tracks (title, overworld,
-village, dungeon, boss, indoor, ending), five jingles and ~40 SFX, all
-synthesised. The site radio is parked while a track plays.
+Own Web Audio graph: ten original looping tracks (title, overworld,
+village, dungeon, boss, indoor, ending, forest, lab, static), six jingles
+and ~50 SFX, all synthesised. The site radio is parked while a track plays.

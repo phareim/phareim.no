@@ -5,7 +5,9 @@ of Neon Shrine's world. Petter's name is painted on the roof of his house.
 The buildings lead to everything else on the site: the arcade (a cabinet
 per game, the Hall of Fame board, the Hangar door), Petter's house (who he
 is, three terminals to his profiles), the PHAREIM.MD newsstand and the
-GAMES.PHAREIM.NO signpost. The coast road runs east along the water into
+GAMES.PHAREIM.NO signpost. West, the shore road ends in a thicket: cut it
+with the blade and it leads into the Wildwood (`docs/games/wildwood.md`).
+The coast road runs east along the water into
 Home Glade and round to the Keeper's hut, where the adventure begins
 (`docs/games/neon-shrine.md`). It replaced Player One, the random
 first-visit theme and, later the same day, Neon Shrine's own theme page.
@@ -15,7 +17,7 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 
 | File | Job |
 |---|---|
-| `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, newsstand, signpost, pier, the kid and the cat, the coast road east |
+| `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, newsstand, signpost, pier, the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
 | `themes/zelda/world/town.ts` | The arcade, 17×11 (eight cabinets, the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, no email on purpose, Petter at his desk) |
 | `themes/zelda/world/index.ts` | `WORLD` (the one world), `worldExits()`, `worldStartingAt()` |
 | `themes/zelda/Zelda.vue` | The shell: loop, input, touch deck, audio, saves, pause menu, exits, the way back |

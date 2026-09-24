@@ -3,7 +3,10 @@
 Neon Shrine is a full A Link to the Past–style adventure in 80s neon paint:
 scrolling overworld, the Keeper's hut, shop, cave, a ten-room dungeon with
 keys, a block puzzle, crystal switches, a miniboss and a two-phase boss.
-About 20–30 minutes to finish. Since 2026-09-24 it is not a theme of its
+Since 2026-09-24 the Wildwood west of town sits in the middle of the quest:
+a second overworld and two two-floor labs with the hook, Luna, the Arc
+Blade and four bosses (`docs/games/wildwood.md`). An hour or more to
+finish. Since 2026-09-24 it is not a theme of its
 own: its overworld begins in the town on `/` (the portal,
 `docs/games/portal.md`), and the coast road east out of town leads to the
 Keeper's hut. `?theme=zelda` is a legacy id and shows the portal. The
@@ -20,11 +23,15 @@ is in git history before the one-world merge.
 marker chars: `overworld.ts` (town + coast, 104×48), `town.ts` (the arcade
 and Petter's house, `HIGH_SCORE_SIGN`), `interiors.ts` (hut, shop, cave),
 `shrine.ts`, `intro.ts` (the Keeper's story), tile behaviour (`tiles.ts`),
-`validate.ts`. `index.ts` holds `WORLD` (start: the plaza), `worldExits()`
+`validate.ts`; the Wildwood: `wildwood.ts`, `lab1.ts`, `lab2.ts`, `luna.ts`,
+`cells.ts`. `index.ts` holds `WORLD` (start: the plaza), `worldExits()`
 and `worldStartingAt()`. `engine/` — pure simulation split by concern
 (`game.ts` modes/saves/camera/exits/area intros, `hero.ts`, `enemies.ts`,
-`objects.ts`, `combat.ts`, `map.ts`). `render/` — `renderer.ts`,
-`tiles.ts`, `sprites.ts` + `sheet.ts`, `font.ts`, `hud.ts`. `audio.ts` —
+`objects.ts`, `combat.ts`, `map.ts`; the Wildwood's `hook.ts`, `luna.ts`,
+`bosses.ts`). `render/` — `renderer.ts`, `tiles.ts`, `sprites.ts` +
+`sheet.ts` (+ `spritesWild*.ts`), `font.ts`, `hud.ts`, `labTiles.ts` (the
+labs' look and the new tiles), `wild.ts` (props, Luna, the hook's chain,
+moods). `audio.ts` —
 music, jingles, SFX. `Zelda.vue` — the world shell (loop, input, touch
 deck, audio, saves, pause menu, exits, navigation lock), mounted by
 `themes/portal/Landing.vue`. `profileSync.ts` — the profile pull.
@@ -81,7 +88,9 @@ and the door fade runs; at full dark the engine emits `{ type: 'exit', id,
 to }` and stays in mode `exit`. All exits are in the town (cabinets, board,
 HANGAR door, kiosk, signpost, terminals); the shell saves and navigates.
 
-**Checks.** `npm run test:zelda` (in CI, 20 tests, green 2026-09-24): world
+**Checks.** `npm run test:zelda` (in CI, 40 tests with the audio and
+Wildwood suites, green 2026-09-24; the Wildwood's own checks are in
+`docs/games/wildwood.md`): world
 validation (everything reachable from the plaza), the first minute (the
 coast road from the town, the Keeper's story once, no clock before the
 blade, the blade chest; out of the hut door in ~0.22 s with input ignored;

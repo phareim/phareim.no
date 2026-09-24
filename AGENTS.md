@@ -12,7 +12,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 
 - `npm run dev` — dev server on port 3030 (host 0.0.0.0)
 - `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link, the coast road to the Keeper
-- `npm run test:zelda` — Neon Shrine: the first minute from the town, exits, saves, a full scripted run to the Sun Prism
+- `npm run test:zelda` — Neon Shrine: the first minute from the town, exits, saves, a full scripted run to the Sun Prism; the audio data; the Wildwood's rules and a full run from the town's thicket to the Gate shutting (2026-09-24)
 - `npm run test:eschold` — the shared Escape tap/hold state machine
 - `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); CI runs these before typecheck
 - `npm run test:leaderboard` — Hall of Fame name generator/validator and game list (2026-09-08)
@@ -149,6 +149,7 @@ contract with each game's `audio.ts`: `docs/games/global-radio.md`.
 | Star Fox | `docs/games/star-fox.md` | `themes/starfox/` |
 | OutRun | `docs/games/outrun.md` | `themes/outrun/` |
 | Neon Shrine (the portal's world) | `docs/games/neon-shrine.md` | `themes/zelda/` |
+| The Wildwood (Neon Shrine's second act) | `docs/games/wildwood.md` | `themes/zelda/world/wildwood.ts`, `lab1.ts`, `lab2.ts` |
 | Hall of Fame | `docs/games/hall-of-fame.md` | `themes/leaderboard/`, `server/api/` |
 | Galaga | `docs/games/galaga.md` | `themes/galaga/` |
 | Global radio | `docs/games/global-radio.md` | `themes/radio/`, `components/RadioWidget.vue` |
