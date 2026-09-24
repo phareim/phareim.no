@@ -313,6 +313,7 @@ function interact(c: Ctx): boolean {
   }
   if (t === 'B') {
     if (s.luna) psiPush(c, tx, ty, h.dir)
+    else if (has(s, 'luna.home')) openDialog(c, ['A HEAVY BLOCK WITH A MOON CARVED IN IT. IT WON\'T BUDGE.', 'LUNA COULD MOVE IT. SHE IS WAITING AT HER FORT IN THE BRAMBLES.'], null)
     else openDialog(c, ['A HEAVY BLOCK WITH A MOON CARVED IN IT. IT WON\'T BUDGE.', 'SOMEONE WITH A STRONGER MIND MIGHT MOVE IT.'], null)
     return true
   }
@@ -363,7 +364,7 @@ function talkTo(c: Ctx, id: string) {
     for (const br of e.talk) {
       if (!condFor(c, br.when)) continue
       const give = br.give && !has(s, `got:${id}:${br.give}`) ? br.give : undefined
-      openDialog(c, br.lines, e.look, { give, set: [br.set, give ? `got:${id}:${give}` : undefined].filter((x): x is string => !!x) })
+      openDialog(c, br.lines, e.look, { give, set: [br.set, give ? `got:${id}:${give}` : undefined].filter((x): x is string => !!x), clear: br.clear ? [br.clear] : undefined })
       c.ev.push({ type: 'talk' })
       return
     }

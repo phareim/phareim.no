@@ -444,6 +444,7 @@ function handleEvents(events: GameEvent[]) {
     switch (e.type) {
       case 'hit': a?.sfx(BIG_FOES.has(e.kind) ? 'bossHit' : e.killed ? 'kill' : 'hit'); break
       case 'join': a?.jingle('friend'); save = true; break
+      case 'wait': save = true; break
       case 'lever': save = true; break
       case 'collect': a?.sfx(e.kind === 'heart' ? 'heart' : e.kind === 'key' ? 'key' : 'coin'); break
       case 'chest': a?.sfx('chest'); break

@@ -201,7 +201,7 @@ export function condMet(s: GameState, world: World, c: Cond | undefined, cell: n
   if ('notFlag' in c) return !has(s, c.notFlag)
   if ('plates' in c) return c.plates.every(p => s.map.plates.includes(p))
   if ('item' in c) return has(s, `item:${c.item}`)
-  if ('flags' in c) return c.flags.every(f => has(s, f))
+  if ('flags' in c) return c.flags.every(f => has(s, f)) && !(c.not ?? []).some(f => has(s, f))
   // clear: the room's enemies are all dead (and it had some)
   const inCell = s.map.enemies.filter(e => e.cell === cell && e.kind !== 'eye' && e.kind !== 'blade')
   return inCell.length > 0 && inCell.every(e => e.dead)

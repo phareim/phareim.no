@@ -351,6 +351,7 @@ function dialog(c: Ctx, dt: number, inp: Input) {
   s.mode = 'play'
   if (d.after) {
     for (const f of d.after.set ?? []) s.flags[f] = true
+    for (const f of d.after.clear ?? []) delete s.flags[f]
     if (d.after.exit) { beginExit(c, d.after.exit); return }
     refreshNpcs(c)
     if (d.after.give) { acquire(c, d.after.give); return }

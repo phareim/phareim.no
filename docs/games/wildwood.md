@@ -34,7 +34,8 @@ warp). A little way in, two cracked boulders on the trail need a bomb
 
 1. **Mossa** (cottage by the entry) gives a waffle and asks for three glowshrooms.
 2. **Boulders** on the trail: bomb them. **Max** at the camp gives five bombs.
-3. **Luna**: cut into the bramble ring west of camp, give her the waffle; she follows from then on.
+3. **Luna**: cut into the bramble ring west of camp, give her the waffle; she follows. Walk her back
+   to her fort and she sits down and waits; talk to her there and she comes along again.
 4. **Horizon Lab** (north of camp): Luna slides the psi block off the door (it stays moved). Inside:
    security (clear it, key 1) → stairwell switch to cyan (every floor's crystals change) → B1: the pink
    blocks are down, key 1 opens the breaker room → throw the **breaker** (`lab1.power`: dark rooms light,
@@ -84,6 +85,9 @@ Hit rules: `engine/combat.ts` (`bossRules`); brains: `engine/bosses.ts`.
 - **The Arc Blade**: 2 damage (spin 3), longer reach, a beam at full hearts, cuts static vines `l`.
 - **Luna** (`engine/luna.ts`): follows on the hero's trail; A at a psi block `B` makes her slide it
   until something stops it (into a hole with a floor below: it drops and lands there for good).
+  Back within 2.2 tiles of where she joined (her fort), after the hero has been 3.5 tiles away, she
+  sits down there (flag `luna.home`, an NPC again); her talk branch with `clear` ends it. A psi block
+  without her says where she waits. `TalkBranch.clear` and `Cond { flags, not }` came with this.
 - **Letter stones** `{` and `MapDef.codes`; **levers** `}`; **crystal groups** (`MapDef.crystal`,
   one state in a flag across floors); **holes** (`MapDef.below`); **keyrings** (`MapDef.keyring`,
   each dungeon its own small and big keys); **room events** (`CellDef.events`: boss names, Luna's
@@ -93,8 +97,8 @@ Hit rules: `engine/combat.ts` (`bossRules`); brains: `engine/bosses.ts`.
 
 ### Checks (2026-09-24)
 
-`npm run test:zelda` runs `tests/wildwood.test.mjs` next to the engine and audio tests (40 green):
-the hook, Luna and her blocks, the letter stones, crystal groups across floors, holes, keyrings, each
+`npm run test:zelda` runs `tests/wildwood.test.mjs` next to the engine and audio tests (41 green, 2026-09-24):
+the hook, Luna and her blocks, Luna waiting at her fort, the letter stones, crystal groups across floors, holes, keyrings, each
 boss's rule, an old save, and a **full scripted run** from the town's thicket to the Gate shutting
 (`tests/zelda-walk.mjs` is the shared walker). Boss fights were also played by simple scripted bots
 without god mode (all four won). Renders: `node scripts/zelda-lab/shot.mjs ~/zshots/<dir> w-camp,l-psi,d-gemini`

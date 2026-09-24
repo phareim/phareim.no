@@ -182,7 +182,7 @@ export const WILDWOOD: MapDef = {
           'TOBY: ALSO I LOST MY WALKIE-TALKIE IN THE LAB WHEN THE DRONES CHASED US. NOT THAT I WAS SCARED.',
         ],
       },
-      { lines: ['TOBY: LUNA\'S WITH YOU! COOL. COOL COOL COOL.', 'TOBY: MY WALKIE\'S STILL IN THE LAB SOMEWHERE. THE DORMS, I THINK. BEHIND SOME GLOWY BLOCKS.'] },
+      { lines: ['TOBY: YOU FOUND LUNA! COOL. COOL COOL COOL.', 'TOBY: MY WALKIE\'S STILL IN THE LAB SOMEWHERE. THE DORMS, I THINK. BEHIND SOME GLOWY BLOCKS.'] },
     ]),
     p: npc('max', 'max', [
       {
@@ -212,8 +212,10 @@ export const WILDWOOD: MapDef = {
     ]),
     j: {
       ent: {
-        t: 'npc', id: 'luna', look: 'luna', dir: 'down', hide: { flag: 'luna.fed' }, join: true,
+        t: 'npc', id: 'luna', look: 'luna', dir: 'down', hide: { flags: ['luna.fed'], not: ['luna.home'] }, join: true,
         talk: [
+          // Left at her fort (walk her back to it): talk to her and she comes along again.
+          { when: { flag: 'luna.home' }, lines: ['LUNA: OUT AGAIN? OK. I\'M COMING.'], clear: 'luna.home' },
           { when: { notFlag: 'item:waffle' }, lines: ['…', '(THE GIRL HUGS HER KNEES AND WATCHES YOU. HER STOMACH GROWLS.)'] },
           {
             lines: [
@@ -222,6 +224,7 @@ export const WILDWOOD: MapDef = {
               'LUNA: I AM LUNA. I RAN FROM THE LAB. THEY OPENED A DOOR TO THE OTHER SIDE. SOMETHING CAME THROUGH.',
               'LUNA: THE STATIC KING. HE TOOK YOUR SUN. THE DOOR IS STILL OPEN, DEEP UNDER THE LAB.',
               'LUNA: I CAN MOVE THINGS. (SHE STARES AT A PEBBLE. IT SLIDES AWAY.) I WILL HELP. WE CLOSE THE DOOR.',
+              'LUNA: IF YOU WANT TO GO ALONE FOR A BIT, WALK ME BACK TO MY FORT. I\'LL WAIT THERE.',
             ],
             set: 'luna.fed',
           },

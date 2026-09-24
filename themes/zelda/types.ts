@@ -189,7 +189,7 @@ export type Cond =
   | { clear: true }
   | { plates: string[] }
   | { item: ItemId }
-  | { flags: string[] } // all of them
+  | { flags: string[]; not?: string[] } // all of `flags`, none of `not`
 
 export interface TalkBranch {
   /** First branch whose condition holds is spoken. No condition = default. */
@@ -199,6 +199,8 @@ export interface TalkBranch {
   give?: ItemId
   /** Flag set after speaking. */
   set?: string
+  /** Flag cleared after speaking. */
+  clear?: string
 }
 
 /** Entity placed by a marker char in the rows. */
@@ -620,6 +622,8 @@ export interface Follower {
   trail: Vec[]
   /** Seconds left of her "moving something with her mind" pose. */
   psi: number
+  /** Set once the hero has walked away from her fort; coming back to it then sits her down there. */
+  armed?: boolean
 }
 
 /** 'exit' is terminal like 'won': the screen stays dark and the shell navigates away. */
@@ -634,7 +638,7 @@ export interface Dialog {
   /** Speaker look, for a portrait-free name tag. */
   who: string | null
   /** Shop purchase awaiting the last line, applied on close; `exit` starts that exit's fade on close. */
-  after: null | { give?: ItemId; set?: string[]; sourceId?: string; price?: number; exit?: { id: string; to: ExitTarget } }
+  after: null | { give?: ItemId; set?: string[]; clear?: string[]; sourceId?: string; price?: number; exit?: { id: string; to: ExitTarget } }
 }
 
 export interface GameState {
@@ -748,6 +752,7 @@ export type GameEvent =
   | { type: 'beam' }
   | { type: 'gust'; x: number; y: number }
   | { type: 'join' }
+  | { type: 'wait' } // Luna sat down at her fort
   | { type: 'bark'; x: number; y: number }
 
 // ---------------------------------------------------------------------------

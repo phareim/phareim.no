@@ -76,6 +76,54 @@ describe('Luna', () => {
     assert.ok(s.luna, 'Luna came along')
   })
 
+  it('waits at her fort when walked back to it, and comes along again when fetched', () => {
+    const s = at('wildwood', 'brambles', {}, ['item:waffle'])
+    s.hero.x = 37.5; s.hero.y = 32.5
+    P.face(s, 'up')
+    P.pressA(s)
+    assert.ok(s.luna)
+    // Right after joining she is at the fort: she does not sit straight back down.
+    P.walkTo(s, 37, 33)
+    assert.ok(s.luna && !s.flags['luna.home'])
+    // Away (through the brambles) and back: she sits down where she was found.
+    P.walkTo(s, 37, 34)
+    P.swing(s, 'down')
+    P.walkTo(s, 37, 36)
+    assert.ok(s.luna)
+    P.walkTo(s, 37, 33, { keepDialog: true })
+    assert.equal(s.mode, 'dialog')
+    assert.equal(s.dialog.who, 'luna')
+    P.settle(s)
+    assert.ok(s.flags['luna.home'])
+    assert.equal(s.luna, null)
+    assert.ok(s.map.npcs.some(n => n.id === 'luna'))
+    // She stays there across a reload and a save.
+    const back = Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s))))
+    assert.ok(back.flags.includes('luna.home'))
+    Z.enterMap(Z.WORLD, s, 'wildwood', 'lab', [])
+    assert.equal(s.luna, null)
+    assert.ok(s.map.npcs.some(n => n.id === 'luna'))
+    // The lab door's block: without her, a hint where she is.
+    s.hero.x = 51.5; s.hero.y = 21.5
+    P.face(s, 'right')
+    P.step(s, P.inp({ aPress: true, a: true }))
+    assert.match(s.dialog.lines.join(' '), /WAITING AT HER FORT/)
+    P.settle(s)
+    assert.equal(tile(s, 52, 21), 'B')
+    // Fetch her: talk, and she follows again.
+    s.hero.x = 37.5; s.hero.y = 33.5
+    P.walkTo(s, 37, 32)
+    P.face(s, 'up')
+    P.pressA(s)
+    assert.ok(s.luna)
+    assert.ok(!s.flags['luna.home'])
+    assert.equal(s.map.npcs.some(n => n.id === 'luna'), false)
+    P.walkTo(s, 37, 34)
+    P.swing(s, 'down')
+    P.walkTo(s, 37, 36)
+    assert.ok(s.luna, 'still following')
+  })
+
   it('without Luna the block will not budge', () => {
     const s = at('wildwood', 'compound')
     s.hero.x = 51.5; s.hero.y = 21.5
