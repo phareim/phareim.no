@@ -461,10 +461,16 @@ export function createBoss(ctx: Ctx): Boss {
         list.push(w)
         if (core) cores++
       }
-      // Nothing open: keep the wingmen on the nearest closed core, waiting.
+      // Nothing open and nothing to break: keep the wingmen on a closed core, waiting.
       if (cores === 0 && list.length < pool.length) {
-        const p = rt.parts.find(q => q.alive && q.model.kind === 'core')
-        if (p && !rt.parts.some(q => q.alive && q.model.kind === 'part')) {
+        let p: RtPart | null = null
+        let parts = 0
+        for (const q of rt.parts) {
+          if (!q.alive) continue
+          if (q.model.kind === 'part') parts++
+          else if (!p) p = q
+        }
+        if (p && parts === 0) {
           const w = pool[list.length]!
           w.id = -1 - p.idx
           w.kind = 'core'
