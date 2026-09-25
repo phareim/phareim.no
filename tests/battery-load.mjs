@@ -17,6 +17,7 @@ export async function load() {
         `export { CONTENT } from './content/index'`,
         `export { F } from './content/flags'`,
         `export * from './progress'`,
+        `export { SFX, MUSIC } from './content/sfx'`,
       ].join('; '),
       resolveDir: root,
       loader: 'ts',
