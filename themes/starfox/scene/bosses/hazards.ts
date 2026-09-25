@@ -256,17 +256,18 @@ export function createHazards(ctx: Ctx): Hazards {
       if (!v.on) continue
       const prev = v.z
       v.z += v.speed * dt
-      if (v.z > 16) { v.on = false; v.g.visible = false; live_--; continue }
+      if (!v.hit && prev < 0 && v.z >= 0) {
+        v.hit = true
+        if (live(ctx) && p.visible && shockwaveHits(v.top, p.y)) p.damage(DMG.shockwave)
+      }
+      // gone once past the ship: a wall of heat through the camera hides everything
+      if (v.z > 4) { v.on = false; v.g.visible = false; live_--; continue }
       const h = v.top - GROUND_Y
       v.body.scale.set(w, h, 0.9)
       v.body.position.set(0, GROUND_Y + h / 2, 0)
       v.crest.scale.set(w, 0.32, 0.5)
       v.crest.position.set(0, v.top, 0)
       v.g.position.z = v.z
-      if (!v.hit && prev < 0 && v.z >= 0) {
-        v.hit = true
-        if (live(ctx) && p.visible && shockwaveHits(v.top, p.y)) p.damage(DMG.shockwave)
-      }
     }
   }
 
@@ -281,17 +282,18 @@ export function createHazards(ctx: Ctx): Hazards {
       if (!v.on) continue
       const prev = v.z
       v.z += v.speed * dt
-      if (v.z > 14) {
+      if (!v.hit && prev < 0 && v.z >= 0) {
+        v.hit = true
+        if (live(ctx) && p.visible && twinsWallHits(v.gap, p.x, hw)) p.damage(DMG.bossBolt)
+      }
+      // gone once past the ship (through the camera it would fill the screen)
+      if (v.z > 2.5) {
         v.on = false
         live_--
         for (let l = 0; l < LANES_ALL; l++) barMesh.setMatrixAt(k * LANES_ALL + l, hide)
         continue
       }
       any = true
-      if (!v.hit && prev < 0 && v.z >= 0) {
-        v.hit = true
-        if (live(ctx) && p.visible && twinsWallHits(v.gap, p.x, hw)) p.damage(DMG.bossBolt)
-      }
       for (let l = 0; l < LANES_ALL; l++) {
         const i = k * LANES_ALL + l
         if (l === v.gap) { barMesh.setMatrixAt(i, hide); continue }

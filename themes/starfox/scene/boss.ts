@@ -18,7 +18,7 @@
  */
 import * as THREE from 'three'
 import {
-  BOSS_DEFS, bossBarMax, bossEnraged, bossParts, bossPhase, createBossClock, drainTo, laneX as laneCentreX,
+  BOSS_DEFS, BOSS_LASER_DAMAGE, bossBarMax, bossEnraged, bossParts, bossPhase, createBossClock, drainTo, laneX as laneCentreX,
   tickBossClock, twinsPhase, type BossPartRole,
 } from '../bosses'
 import { LANES } from '../balance'
@@ -497,7 +497,7 @@ export function createBoss(ctx: Ctx): Boss {
         const dx = lx - p.wx, dy = ly - p.wy
         if (dx * dx + dy * dy < p.wr * p.wr) {
           ctx.fx.sparks(lx, ly, p.wz + p.wr * 0.5, p.model.kind === 'core' ? P.gold : P.hot, 6, 7)
-          damagePart(p, dmg)
+          damagePart(p, dmg * BOSS_LASER_DAMAGE)
           return true
         }
       }

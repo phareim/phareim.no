@@ -269,6 +269,13 @@ export function nextBossAttack(id: BossId, step: number, phase: number): { attac
 // laser TWIN+, three wingmen flying — lands at ~35–60 s, and losing the
 // whole squad makes it ~1.5× longer, not a slog.
 
+/** Share of a laser's damage a boss part takes. The DPS model below
+ * assumes dodging and misses; in play (checked 2026-09-25) a ship parked
+ * on the Pincer's open maw with TWIN+ and three wingmen hit nearly every
+ * shot and killed it in ~16 s, so lasers count half on bosses. Charge
+ * orbs and bombs are unaffected. */
+export const BOSS_LASER_DAMAGE = 0.5
+
 /** Effective player DPS on a boss weak point by laser level (1–3). */
 export const PLAYER_BOSS_DPS = [0, 2.5, 5, 9] as const
 

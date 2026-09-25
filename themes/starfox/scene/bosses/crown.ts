@@ -118,7 +118,8 @@ export function createCrownBrain(ctx: Ctx): BossBrain {
             debrisT = CROWN_CHASE.debrisEvery / loopTempo(rt.sector)
             chunkAt(rt, rt.x + rand(-7, 7) * rt.k, rt.y + rand(-5, 5) * rt.k, rt.z + 4, rand(0.8, 1.3) * Math.max(0.7, rt.k))
           }
-          if (Math.random() < 0.3) ctx.fx.sparks(rt.x + rand(-3, 3) * rt.k, rt.y, rt.z + 7 * rt.k, P.pink, 2, 5)
+          // engine wash toward the ship: it is running
+          for (let i = -1; i <= 1; i++) ctx.fx.sparks(rt.x + i * 2.6 * rt.k, rt.y, rt.z + 6 * rt.k, i === 0 ? P.pink : P.hot, 1, 6)
         }
       }
     },
