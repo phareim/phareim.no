@@ -31,6 +31,13 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  // The radio engine vendored in themes/radio/station/ imports with `.ts`
+  // extensions (Node runs it with type stripping in phareim/radio); Vite
+  // resolves those, and vue-tsc needs leave to read them.
+  typescript: {
+    tsConfig: { compilerOptions: { allowImportingTsExtensions: true, noEmit: true } },
+  },
+
   nitro: {
     preset: 'cloudflare-pages'
   }
