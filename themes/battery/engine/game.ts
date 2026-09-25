@@ -475,7 +475,7 @@ export class Game {
       this.resetSentence()
       const table = v === 'give' ? hs.giveWith : hs.useWith
       const h = table?.[item] ?? hs.anyItem
-      this.sentenceOn(hs, h ?? (() => this.pickLine(this.heroDef().failWith)))
+      this.sentenceOn(hs, h ?? (() => this.pickLine(this.heroDef().failWith)), v)
       return
     }
     let v = this.verb
@@ -491,13 +491,13 @@ export class Game {
       const h0 = hs.verbs?.[v]
       if (!h0 && v === 'give') { this.verb = null; return }
       if (!h0 && hs.exit) { this.goThrough(hs); return }
-      this.sentenceOn(hs, h0 ?? (() => this.failLine(v)))
+      this.sentenceOn(hs, h0 ?? (() => this.failLine(v)), v)
       return
     }
     const h = hs.verbs?.[v]
     if (!h && hs.exit && (v === 'open' || v === 'push' || v === 'pull')) { this.goThrough(hs); return }
     if (!h && hs.exit && v === 'close') { this.sentenceOn(hs, () => this.pickLine(['It is closed enough.', 'Fine as it is.'])); return }
-    this.sentenceOn(hs, h ?? (() => this.failLine(v)))
+    this.sentenceOn(hs, h ?? (() => this.failLine(v)), v)
   }
 
   // ------------------------------------------------------------------
@@ -513,7 +513,7 @@ export class Game {
   }
 
   /** Walk to the hotspot (soft: a click cancels), then run the handler (hard). */
-  private sentenceOn(hs: HotspotDef, h: Handler | string | null | undefined) {
+  private sentenceOn(hs: HotspotDef, h: Handler | string | null | undefined, verb: Verb | null = null) {
     const game = this
     this.cancelSoft()
     this.start(function* (): Script {
@@ -523,6 +523,8 @@ export class Game {
         else yield { t: 'face', who: game.hero, dir: faceToward(game.actor(game.hero), hs) }
       }
       game.soft = false
+      // Hands-on verbs reach for the thing, DOTT-style.
+      if (verb && REACH.has(verb) && !hs.far) yield { t: 'pose', who: game.hero, pose: 'reach', s: 0.45 }
       if (h == null) return
       yield* game.toScript(h)
     }, true)
@@ -1031,6 +1033,8 @@ export class Game {
     return { x: a.x, y: a.y - talkY, color, room: a.room }
   }
 }
+
+const REACH: ReadonlySet<Verb> = new Set<Verb>(['give', 'pickup', 'use', 'open', 'push', 'close', 'pull'])
 
 function floorRank(f: Floor): number {
   return f === 'cellar' ? 0 : f === 'ground' || f === 'outside' ? 1 : 2

@@ -43,6 +43,13 @@ export const F = {
   junctionBridged: 'junction.bridged',
   /** Times the clock has been wound to midnight. */
   midnightTries: 'midnight.tries',
-  // the end
+  // the end (set by the finale in story.ts; the painters show them)
+  /** The strike has happened: the battery is charged, the Professor is back. */
+  struck: 'struck',
+  /** The Professor has unbolted the battery: the machine's heart is empty. */
+  batteryOut: 'battery.out',
+  /** The house lets the stairs down (foyer) and the cellar door open (pantry). */
+  stairsDown: 'stairs.down',
+  frontDoorOpen: 'frontdoor.open',
   won: 'won',
 } as const
