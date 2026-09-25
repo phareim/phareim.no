@@ -584,3 +584,15 @@ export function project(camera: THREE.PerspectiveCamera, vw: number, vh: number,
   const pxPerUnit = vh / (2 * Math.tan((camera.fov * Math.PI) / 360) * Math.max(0.1, dist))
   return { x: sx, y: sy, r: Math.max(min, Math.min(max, r * pxPerUnit)) }
 }
+
+/** `project` without the allocation (the game's frame loop): writes into `out`, false behind the camera. */
+export function projectTo(out: { x: number; y: number; r: number }, camera: THREE.PerspectiveCamera, vw: number, vh: number, x: number, y: number, z: number, r: number, min = 2, max = 60): boolean {
+  tmp.set(x, y, z).project(camera)
+  if (tmp.z > 1 || tmp.z < -1) return false
+  out.x = (tmp.x + 1) * 0.5 * vw
+  out.y = (1 - tmp.y) * 0.5 * vh
+  const dist = camera.position.distanceTo(tmp.set(x, y, z))
+  const pxPerUnit = vh / (2 * Math.tan((camera.fov * Math.PI) / 360) * Math.max(0.1, dist))
+  out.r = Math.max(min, Math.min(max, r * pxPerUnit))
+  return true
+}

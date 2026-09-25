@@ -367,10 +367,18 @@ export function createEngineTrail(color: Hex = P.cyan, n = 9, width = 0.34, maxL
         for (let i = n - 1; i > 0; i--) { pts[i * 3] = pts[(i - 1) * 3]!; pts[i * 3 + 1] = pts[(i - 1) * 3 + 1]!; pts[i * 3 + 2] = pts[(i - 1) * 3 + 2]! }
       }
       pts[0] = x; pts[1] = y; pts[2] = z
-      // Cap the length (slow frames would otherwise stretch it into a streak).
+      // Cap each segment (slow frames and fast turns would otherwise stretch it into a streak).
+      const seg = maxLen / (n - 1)
       for (let i = 1; i < n; i++) {
-        const lim = z + (maxLen * i) / (n - 1)
-        if (pts[i * 3 + 2]! > lim) pts[i * 3 + 2] = lim
+        const j = i * 3, k = j - 3
+        const dx = pts[j]! - pts[k]!, dy = pts[j + 1]! - pts[k + 1]!, dz = pts[j + 2]! - pts[k + 2]!
+        const l = Math.hypot(dx, dy, dz)
+        if (l > seg) {
+          const f = seg / l
+          pts[j] = pts[k]! + dx * f
+          pts[j + 1] = pts[k + 1]! + dy * f
+          pts[j + 2] = pts[k + 2]! + dz * f
+        }
       }
       for (let i = 0; i < n; i++) {
         const w = width * (1 - i / n) * 0.5
