@@ -19,6 +19,7 @@ import './shore/theme.css'
 import './leaderboard/theme.css'
 import './hangar/theme.css'
 import './portal/theme.css'
+import './radio/theme.css'
 
 // Static imports on purpose: a cabinet should not wait for a chunk, and the
 // whole set is small (the Galaga game is the only big one).
@@ -38,6 +39,7 @@ import ShoreLanding from './shore/Landing.vue'
 import LeaderboardLanding from './leaderboard/Landing.vue'
 import HangarLanding from './hangar/Landing.vue'
 import PortalLanding from './portal/Landing.vue'
+import RadioLanding from './radio/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the `?theme=` value. */
@@ -61,6 +63,11 @@ export interface ThemeDefinition {
    * has it.
    */
   home?: true
+  /**
+   * The theme is a radio of its own: the site radio widget (the six game
+   * stations, top-right) is not shown, and the theme holds that radio silent.
+   */
+  ownRadio?: true
 }
 
 export const allThemes: ThemeDefinition[] = [
@@ -158,6 +165,16 @@ export const allThemes: ThemeDefinition[] = [
     themeColor: '#0b0616',
     themeColorDark: '#0b0616',
     landing: HangarLanding,
+  },
+  {
+    // Radio (2026-09-25): the generative radio from radio.phareim.no, reached
+    // through the radio station's door in the town, not an arcade cabinet.
+    id: 'radio',
+    name: 'Radio',
+    ownRadio: true,
+    themeColor: '#0b0616',
+    themeColorDark: '#0b0616',
+    landing: RadioLanding,
   },
   {
     id: 'space',

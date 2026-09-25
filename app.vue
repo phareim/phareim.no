@@ -4,8 +4,9 @@
     <NuxtPage />
     <HomeChip />
     <!-- The portal plays its own town music (it parks the radio) and its name
-      billboard sits where the widget would; the radio returns in the games. -->
-    <RadioWidget v-if="!isHome" />
+      billboard sits where the widget would; the radio returns in the games.
+      The radio theme is a radio of its own (`ownRadio`). -->
+    <RadioWidget v-if="!isHome && !theme.ownRadio" />
   </div>
 </template>
 

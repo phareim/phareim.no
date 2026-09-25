@@ -1,0 +1,69 @@
+/* Radio (2026-09-25): the generative radio from radio.phareim.no, tuned in
+   at the town's radio station. Neon Shrine's pixel look, like the radio app
+   itself: cyan is the interface, pink is you (play, intensity), gold is the
+   drift (AUTO, HOLD). */
+:root {
+  --rd-bg: #0b0616;
+  --rd-text: #f2e9ff;
+  --rd-text-muted: #b9a8d9;
+  --rd-text-subtle: #7a6a9a;
+  --rd-accent: #2ff3ff;
+}
+.radio-page {
+  background: var(--rd-bg);
+  color: var(--rd-text);
+  font-family: var(--font-pixel);
+  --theme-bg: var(--rd-bg);
+  --theme-text: var(--rd-text);
+  --theme-text-muted: var(--rd-text-muted);
+  --theme-text-subtle: var(--rd-text-subtle);
+  --theme-card-bg: rgba(11, 6, 22, .88);
+  --theme-card-border: rgba(47, 243, 255, .5);
+  --theme-card-shadow: rgba(47, 243, 255, .15);
+  --theme-card-radius: 0;
+  --theme-accent: var(--rd-accent);
+  --theme-font-body: var(--font-pixel);
+}
+
+/* The vendored radio components (station/) read the radio app's short
+   palette names; they are defined here on the station's root only. */
+.radio-station {
+  --bg: #0b0616;
+  --bg-2: #140b26;
+  --bg-3: #1c1030;
+  --ink: #f2e9ff;
+  --muted: #b9a8d9;
+  --subtle: #7a6a9a;
+  --edge-dim: #4a3d88;
+  --cyan: #2ff3ff;
+  --pink: #ff2fa0;
+  --gold: #ffd23f;
+  color-scheme: dark;
+  color: var(--ink);
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.radio-station *,
+.radio-station *::before,
+.radio-station *::after { box-sizing: border-box; }
+.radio-station button { font: inherit; color: inherit; }
+.radio-station ::selection { background: var(--pink); color: var(--bg); }
+
+/* The radio app's button modifiers on top of the site's .px-btn. */
+.radio-station .px-btn { line-height: 16px; white-space: nowrap; transition: none; }
+.radio-station .px-btn:active { transform: translate(2px, 2px); }
+.radio-station .px-btn--gold { --px-edge: #ffd23f; }
+.radio-station .px-btn--dim { --px-edge: #4a3d88; color: var(--muted); }
+@media (hover: none) {
+  .radio-station .px-btn:hover:not(:focus-visible) { color: var(--px-edge); background: rgba(11, 6, 22, 0.88); }
+  .radio-station .px-btn--dim:hover:not(:focus-visible) { color: var(--muted); }
+}
+.radio-station .px-blink { animation: rd-blink 1.1s steps(1) infinite; }
+@keyframes rd-blink { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) {
+  .radio-station .px-blink { animation: none; }
+}
