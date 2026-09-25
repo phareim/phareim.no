@@ -39,11 +39,9 @@ themes/
     pixel/              Neon Shrine's pixel look for any canvas game (2026-09-24): stage.ts
                         (logical buffer, whole-number scale, light map, bloom, scanlines, HUD layer),
                         sprites.ts (palette, string-map sprites, 5×7 font), scenery.ts (dusk sky,
-                        sun, ridges, trees, houses), pixel.css (.px-* HTML text in --font-pixel).
+                        sun, ridges, trees, houses), pixel.css (.px-* HTML text in --font-pixel, .px-box/.px-btn
+                        for HTML panels and buttons).
                         New games use it; see docs/games/pixel-look.md
-    neonHorizon.js      the old vector synthwave backdrop (sky, stars, sun, ridge, grid, heartbeat):
-                        createHorizon() → resize/update/beat/draw. Since 2026-09-24 only the Hall of
-                        Fame and Hangar pages use it; every game draws on pixel/ instead
   _template/          copy this to start a theme
   <id>/
     theme.css         :root palette + `.{id}-page` token contract
@@ -90,7 +88,7 @@ composables/useThemeNavigation.ts  Escape → portal, 3 s grace after a game let
   `defineAsyncComponent` inside `<ClientOnly>` so the three chunk only ships with that theme);
   `desk` skips the shell and lays a grained paper sheet (`.desk-sheet`,
   `.desk-stamp`, `.desk-rule` are global classes from its theme.css) on the
-  desk; `tetris` skips the shell and fills the page with its Neon Dreams board; `leaderboard` (Hall of Fame, 2026-09-08) skips it and shows the D1-backed world ranking, one game at a time, up/down to change game — its data comes from `composables/useLeaderboard.ts` and `server/api/`, see `docs/games/hall-of-fame.md`; `portal` skips it and runs the one world, Neon Shrine's engine and shell (`docs/games/portal.md`). `createHorizon`'s sun options are `sunX`, `sunY` and `sunJitter` — the disc is always clipped at the horizon line and both values wander a little per load. In Tetris, ResizeObserver fits the board to remaining space and landscape phones use a two-column layout. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
+  desk; `tetris` skips the shell and fills the page with its pixel-look cabinet; `leaderboard` (Hall of Fame, 2026-09-08) skips it and shows the D1-backed world ranking, one game at a time, up/down to change game — its data comes from `composables/useLeaderboard.ts` and `server/api/`, see `docs/games/hall-of-fame.md`; `portal` skips it and runs the one world, Neon Shrine's engine and shell (`docs/games/portal.md`). In Tetris, ResizeObserver fits the board to remaining space and landscape phones use a two-column layout. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
   (`height: var(--app-height, 100dvh); overflow: hidden`) and the page does not scroll —
   `html`, `body` and `#__nuxt` are locked in `app.vue`. The old `scrollable`
   registry flag is gone with the Almanac theme that needed it. Since
@@ -120,8 +118,9 @@ Rules that keep the themes from fighting:
 - Private variables are namespaced (`--<id>-*`) and live on `:root`.
   `--theme-*` never goes on `:root`, only on `.{id}-page`. The two site-wide
   exceptions are `--font-person` / `--font-machine` / `--font-pixel` from `base/fonts.css`;
-  a Neon Dreams theme sets its `--<id>-font` / `--<id>-mono` to those, never
-  to a literal family (2026-09-06).
+  a theme sets its `--<id>-font` / `--<id>-mono` to those, never to a
+  literal family (2026-09-06). Pixel-look pages use `--font-pixel` at
+  multiples of 8 px and `.px-box`/`.px-btn` for panels and buttons.
 - Dark mode is the theme's business: a `@media (prefers-color-scheme: dark)`
   block that overrides its own `:root` palette. Pages never branch on it.
 - Add a token only when a second theme needs it. Unused tokens were the

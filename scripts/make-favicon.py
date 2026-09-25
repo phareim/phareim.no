@@ -1,94 +1,98 @@
-"""Neon Dreams favicon for phareim.no — the shared synthwave horizon
-(striped sun over a cyan horizon line and a pink perspective grid),
-same tokens as themes/base/neonHorizon.js."""
-from PIL import Image, ImageDraw, ImageFilter, ImageChops
+"""Pixel favicon and app icons for phareim.no (2026-09-25): the pixel look's
+dusk (themes/base/pixel/scenery.ts) on a tiny grid — a dithered sky, the
+striped sun, a violet ridge with a magenta rim, teal grass and the rose path
+into town. Each icon is drawn on its own grid of N logical pixels and scaled
+up by a whole number with nearest-neighbour, so every pixel stays square."""
+import io
+import os
+import struct
 
-S, K = 32, 24
-W = S * K
+from PIL import Image
 
-PINK   = (0xff, 0x2f, 0xa0)
-CYAN   = (0x2f, 0xf3, 0xff)
-GOLD   = (0xff, 0xd2, 0x3f)
-ORANGE = (0xff, 0x6a, 0x3d)
-GROUND = (0x0b, 0x06, 0x16)
-DEEP   = (0x06, 0x03, 0x10)
-SKY    = (0x17, 0x0a, 0x30)
-STAR   = (0xcf, 0xe9, 0xff)
+HEX = {
+    'sky0': '0b0616', 'sky1': '140b26', 'sky2': '1c1030', 'sky3': '2a1a4c', 'sky4': '43246e', 'sky5': '6a2a7c', 'sky6': 'a8347e',
+    'star': 'cfc6ff', 'sun0': 'fff1b0', 'sun1': 'ffd23f', 'sun2': 'ff8a3d', 'sun3': 'ff2fa0',
+    'ridge': '2c2058', 'rim': 'd0509e', 'g0': '245573', 'g2': '1b4560', 'tip': '6fd2d6',
+    'path': '7d4d7c', 'pathL': '9b6593',
+}
+C = {k: tuple(int(v[i:i + 2], 16) for i in (0, 2, 4)) + (255,) for k, v in HEX.items()}
+BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
 
-def lerp(a, b, t):
-    return tuple(int(round(a[i] + (b[i] - a[i]) * t)) for i in range(3))
 
-def render(detail=True):
-    img = Image.new('RGB', (W, W), DEEP)
-    d = ImageDraw.Draw(img)
-    HOR = 21 * K
+def draw(n: int) -> Image.Image:
+    img = Image.new('RGBA', (n, n), C['sky0'])
+    px = img.load()
+    horizon = round(n * 0.62)
 
-    for y in range(HOR):
-        d.line([(0, y), (W, y)], fill=lerp(DEEP, SKY, (y / HOR) ** 1.4))
-    d.rectangle([0, HOR, W, W], fill=GROUND)
+    # Sky: bands top to horizon, each dithered into the next.
+    stops = ['sky1', 'sky2', 'sky3', 'sky4', 'sky5', 'sky6']
+    for y in range(horizon):
+        t = y / horizon * (len(stops) - 1)
+        i = min(int(t), len(stops) - 2)
+        f = t - i
+        for x in range(n):
+            px[x, y] = C[stops[i + 1] if f * 16 > BAYER[y % 4][x % 4] + 0.5 else stops[i]]
+    if n >= 24:
+        for sx, sy in ((0.14, 0.12), (0.8, 0.08), (0.9, 0.3), (0.3, 0.26)):
+            px[int(sx * n), int(sy * n)] = C['star']
 
-    # sun: gold -> orange -> pink, cut by ground-coloured bands, clipped at horizon
-    cx, cy, r = 16 * K, 16.6 * K, (9.6 if detail else 10.4) * K
-    sun = Image.new('RGBA', (W, W), (0, 0, 0, 0))
-    sd = ImageDraw.Draw(sun)
-    top = cy - r
-    for y in range(int(top), HOR):
-        t = (y - top) / (2 * r)
-        c = lerp(GOLD, ORANGE, t / 0.55) if t < 0.55 else lerp(ORANGE, PINK, (t - 0.55) / 0.45)
-        dx2 = r * r - (y - cy) ** 2
-        if dx2 <= 0:
+    # The striped sun, sitting on the horizon.
+    r = n * 0.34
+    cx, cy = (n - 1) / 2, horizon - 0.5
+    period = max(2, round(r / 3))
+    for y in range(horizon):
+        dy = y + 0.5 - cy
+        if dy * dy > r * r:
             continue
-        dx = dx2 ** 0.5
-        sd.line([(cx - dx, y), (cx + dx, y)], fill=c + (255,))
-    bands = [(13.6, 0.9), (15.6, 1.15), (17.8, 1.5), (20.0, 1.9)] if detail else [(15.2, 1.5), (18.4, 2.0)]
-    for yb, hb in bands:
-        sd.rectangle([0, yb * K, W, (yb + hb) * K], fill=(0, 0, 0, 0))
-    img.paste(sun, (0, 0), sun)
+        t = (dy + r) / (2 * r)
+        below = y - (cy - r * 0.45)
+        if below > 0 and below % period < 1 + below / r * (period - 1) * 0.9:
+            continue  # a dark band: the sky shows through
+        col = C['sun0'] if t < 0.2 else C['sun1'] if t < 0.34 else C['sun2'] if t < 0.44 else C['sun3']
+        for x in range(n):
+            dx = x + 0.5 - (cx + 0.5)
+            if dx * dx + dy * dy <= r * r:
+                px[x, y] = col
 
-    # glow
-    glow = Image.new('RGB', (W, W), (0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    gd.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(0x60, 0x14, 0x38))
-    gd.rectangle([0, HOR, W, W], fill=(0, 0, 0))
-    img = ImageChops.add(img, glow.filter(ImageFilter.GaussianBlur(2.2 * K)))
-    d = ImageDraw.Draw(img)
+    # Ridge: two humps at the sides, dipping behind the sun's foot.
+    for x in range(n):
+        u = x / (n - 1)
+        h = max(0.0, 0.2 - 2.4 * (u - 0.1) ** 2, 0.17 - 2.6 * (u - 0.92) ** 2) * n
+        top = horizon - round(h)
+        for y in range(top, horizon + 1):
+            px[x, y] = C['ridge']
+        if h > 0.5:
+            px[x, top] = C['rim']
 
-    if detail:
-        for sx, sy, a in [(4.5, 4.0, 1.0), (26.5, 3.2, .8), (9.0, 2.4, .55),
-                          (28.5, 8.5, .6), (2.6, 9.5, .5), (21.0, 1.8, .45)]:
-            d.ellipse([sx * K - .55 * K, sy * K - .55 * K, sx * K + .55 * K, sy * K + .55 * K],
-                      fill=lerp(SKY, STAR, a))
-        for i in range(-4, 5):
-            d.line([(16 * K + i * 1.15 * K, HOR), (16 * K + i * 8.2 * K, W)],
-                   fill=lerp(GROUND, PINK, .62), width=int(.9 * K))
-        for yy, t in [(23.4, .5), (26.2, .38), (30.0, .3)]:
-            d.line([(0, yy * K), (W, yy * K)], fill=lerp(GROUND, PINK, t), width=int(.8 * K))
-    else:
-        # 16 px: the grid turns to noise, so only three fat rails and one rung
-        for i in (-2, 0, 2):
-            d.line([(16 * K + i * 1.6 * K, HOR), (16 * K + i * 9.0 * K, W)],
-                   fill=lerp(GROUND, PINK, .60), width=int(1.6 * K))
-        d.line([(0, 26.0 * K), (W, 26.0 * K)], fill=lerp(GROUND, PINK, .42), width=int(1.6 * K))
+    # Grass, then the path from the bottom edge up to the horizon.
+    for y in range(horizon + 1, n):
+        for x in range(n):
+            px[x, y] = C['g2'] if (x * 7 + y * 13 + x * y) % 11 < 2 else C['g0']
+    for x in range(n):
+        px[x, horizon] = C['tip']
+    for y in range(horizon + 1, n):
+        t = (y - horizon) / (n - horizon)
+        half = 0.5 + t * n * 0.22
+        for x in range(n):
+            if abs(x + 0.5 - n / 2) <= half:
+                px[x, y] = C['pathL'] if (x + y) % 4 == 0 and n >= 24 else C['path']
+    return img
 
-    d.line([(0, HOR), (W, HOR)], fill=CYAN, width=int((1.6 if detail else 2.2) * K))
-    return img.convert('RGBA')
 
-full, small = render(True), render(False)
+def icon(size: int, grid: int) -> Image.Image:
+    assert size % grid == 0, (size, grid)
+    return draw(grid).resize((size, size), Image.NEAREST)
 
-import io, os, struct
+
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'public')
-i16 = small.resize((16, 16), Image.LANCZOS)
-i32 = full.resize((32, 32), Image.LANCZOS)
-i48 = full.resize((48, 48), Image.LANCZOS)
-full.resize((180, 180), Image.LANCZOS).save(os.path.join(out, 'apple-touch-icon.png'))
+icon(180, 36).save(os.path.join(out, 'apple-touch-icon.png'))
 # The web app manifest's icons (Android wants 192 and 512 to offer an install).
 # The art fills the square, so the same files double as maskable icons.
-for n in (192, 512):
-    full.resize((n, n), Image.LANCZOS).save(os.path.join(out, f'icon-{n}.png'))
+icon(192, 32).save(os.path.join(out, 'icon-192.png'))
+icon(512, 32).save(os.path.join(out, 'icon-512.png'))
 
-# Pillow's ICO writer ignores append_images, so build the container by hand:
-# a 16 px entry from the simplified art, 32/48 from the detailed art.
-entries = [i16, i32, i48]
+# Pillow's ICO writer ignores append_images, so build the container by hand.
+entries = [icon(16, 16), icon(32, 16), icon(48, 16)]
 blobs = []
 for im in entries:
     b = io.BytesIO()

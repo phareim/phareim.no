@@ -596,8 +596,8 @@ function buildMountains() {
   const geo = indexed.toNonIndexed()
   indexed.dispose()
   geo.computeVertexNormals()
-  // Same look as the shared 2D mountains (mountainTerrain.js): near-black
-  // violet faces with a violet wireframe over them, unlit so the lines read.
+  // Near-black violet faces with a violet wireframe over them, unlit so the
+  // lines read.
   const mat = new THREE.MeshLambertMaterial({
     color: 0x2c2058,
     emissive: 0x140b26,

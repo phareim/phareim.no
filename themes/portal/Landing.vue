@@ -100,14 +100,14 @@ const contacts = urlExits.filter(e => e.look === 'terminal')
   transform: translateX(-50%);
   white-space: nowrap;
   pointer-events: none;
-  font-family: var(--portal-mono);
-  font-size: 11px;
-  letter-spacing: 0.16em;
+  /* Neon Shrine's dialog box and letters (.px-box in themes/base/pixel/pixel.css). */
+  font: 400 16px/20px var(--font-pixel);
+  -webkit-font-smoothing: none;
+  text-transform: uppercase;
   color: var(--portal-accent);
-  text-shadow: 0 0 8px rgba(47, 243, 255, 0.6);
-  background: rgba(11, 6, 22, 0.72);
-  border: 1px solid rgba(47, 243, 255, 0.3);
-  border-radius: 4px;
+  text-shadow: 2px 2px 0 #0b0616;
+  background: rgba(11, 6, 22, 0.88);
+  box-shadow: 0 -2px 0 0 #2ff3ff, 0 2px 0 0 #2ff3ff, -2px 0 0 0 #2ff3ff, 2px 0 0 0 #2ff3ff;
   opacity: 0;
   animation: portal-hint-in 0.6s ease 0.8s forwards;
   transition: opacity 0.5s ease;
@@ -150,12 +150,12 @@ const contacts = urlExits.filter(e => e.look === 'terminal')
   flex-direction: column;
   align-items: center;
   text-align: center;
-  font-family: var(--portal-mono);
+  font-family: var(--font-pixel);
+  -webkit-font-smoothing: none;
   text-transform: uppercase;
-  background: rgba(11, 6, 22, 0.72);
-  border: 1px solid rgba(255, 47, 160, 0.45);
-  border-radius: 12px;
-  box-shadow: 0 0 30px rgba(255, 47, 160, 0.2);
+  text-shadow: 2px 2px 0 #0b0616;
+  background: rgba(11, 6, 22, 0.88);
+  box-shadow: 0 -2px 0 0 #ff2fa0, 0 2px 0 0 #ff2fa0, -2px 0 0 0 #ff2fa0, 2px 0 0 0 #ff2fa0;
 }
 
 /* The striped synthwave sun, setting. */
@@ -163,65 +163,56 @@ const contacts = urlExits.filter(e => e.look === 'terminal')
   width: 120px;
   aspect-ratio: 2 / 1;
   margin: 0 auto 0.6em;
-  border-radius: 300px 300px 0 0;
+  /* Stepped half-disc and hard bands, like paintSun in themes/base/pixel/scenery.ts. */
+  clip-path: polygon(0 100%, 0 80%, 4% 60%, 10% 40%, 18% 25%, 28% 12%, 40% 4%, 60% 4%, 72% 12%, 82% 25%, 90% 40%, 96% 60%, 100% 80%, 100% 100%);
   background:
     repeating-linear-gradient(180deg, transparent 0 58%, #0b0616 58% 61%, transparent 61% 67%, #0b0616 67% 71%, transparent 71% 77%, #0b0616 77% 82%, transparent 82% 88%, #0b0616 88% 94%),
-    linear-gradient(180deg, #ffd23f 0%, #ff8a3d 45%, #ff2fa0 80%, #b01874 100%);
-  opacity: 0.85;
-  filter: drop-shadow(0 0 28px rgba(255, 47, 160, 0.55));
+    linear-gradient(180deg, #fff1b0 0 25%, #ffd23f 25% 45%, #ff8a3d 45% 70%, #ff2fa0 70%);
 }
 
 .portal-end-title {
   margin: 0 0 0.3em;
-  font-size: clamp(22px, 7vw, 44px);
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.1;
   color: #ffd23f;
-  text-shadow: 0 0 12px rgba(255, 210, 63, 0.8), 0 0 40px rgba(255, 138, 61, 0.4);
+  text-shadow: 4px 4px 0 #0b0616;
 }
 
 .portal-end-time {
   margin: 0.2em 0 0.6em;
-  font-size: 26px;
-  letter-spacing: 0.12em;
+  font-size: 32px;
   color: var(--portal-accent);
-  text-shadow: 0 0 10px rgba(47, 243, 255, 0.7);
+  text-shadow: 4px 4px 0 #0b0616;
 }
 
 .portal-end-best {
   margin: 0 0 0.6em;
-  font-size: 11px;
-  letter-spacing: 0.18em;
+  font-size: 16px;
   color: #ffd23f;
-  text-shadow: 0 0 10px rgba(255, 210, 63, 0.6);
 }
 
 .portal-end-note {
   margin: 0.6em 0 0;
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-size: 16px;
   color: var(--portal-text-muted);
 }
 
 .portal-end-start {
   margin: 0.3em 0 0;
-  font-size: 14px;
-  letter-spacing: 0.16em;
+  font-size: 16px;
   color: var(--portal-pink);
-  text-shadow: 0 0 10px rgba(255, 47, 160, 0.75);
-  animation: portal-end-blink 1.4s ease-in-out infinite alternate;
+  animation: portal-end-blink 1.1s steps(1) infinite;
 }
 
 @keyframes portal-end-blink {
-  from { opacity: 0.5; }
-  to { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .portal-end-note {
   margin: 0.6em 0 0;
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-size: 16px;
   color: var(--portal-text-muted);
 }
 

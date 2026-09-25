@@ -637,7 +637,9 @@ onBeforeUnmount(() => {
   align-items: flex-end;
   gap: 12px;
   padding: 0 calc(14px + env(safe-area-inset-right, 0px)) calc(14px + var(--app-safe-bottom, 0px));
-  font-family: var(--font-machine);
+  /* Neon Shrine's letters and hard edges; round pads, like a SNES pad. */
+  font-family: var(--font-pixel);
+  -webkit-font-smoothing: none;
 }
 
 /* The pause buttons sit centred across the bottom. */
@@ -656,13 +658,13 @@ onBeforeUnmount(() => {
 .zelda-chip {
   min-width: 48px;
   min-height: 40px;
-  border-radius: 20px;
-  background: rgba(11, 6, 22, 0.75);
-  border: 1px solid rgba(185, 168, 217, 0.45);
+  border: 0;
+  border-radius: 0;
+  background: rgba(11, 6, 22, 0.88);
+  box-shadow: 0 -2px 0 0 #b9a8d9, 0 2px 0 0 #b9a8d9, -2px 0 0 0 #b9a8d9, 2px 0 0 0 #b9a8d9;
   color: #b9a8d9;
-  font-family: var(--font-machine);
-  font-size: 11px;
-  letter-spacing: 0.1em;
+  font-family: var(--font-pixel);
+  font-size: 16px;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -687,7 +689,7 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-family: var(--font-machine);
+  font-family: var(--font-pixel);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -705,9 +707,9 @@ onBeforeUnmount(() => {
   top: 0;
   width: 88px;
   height: 88px;
-  border: 2px solid #ff2fa0;
+  border: 4px solid #ff2fa0;
   color: #ff2fa0;
-  box-shadow: 0 0 18px rgba(255, 47, 160, 0.45), inset 0 0 12px rgba(255, 47, 160, 0.25);
+  box-shadow: 4px 4px 0 #0b0616;
 }
 
 .zelda-pad-b {
@@ -715,15 +717,16 @@ onBeforeUnmount(() => {
   bottom: 0;
   width: 72px;
   height: 72px;
-  border: 2px solid #2ff3ff;
+  border: 4px solid #2ff3ff;
   color: #2ff3ff;
-  box-shadow: 0 0 14px rgba(47, 243, 255, 0.4), inset 0 0 10px rgba(47, 243, 255, 0.2);
+  box-shadow: 4px 4px 0 #0b0616;
 }
 
 .zelda-pad-letter {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 32px;
+  font-weight: 400;
   line-height: 1;
+  text-shadow: 2px 2px 0 #0b0616;
 }
 
 .zelda-pad-icon {
@@ -741,7 +744,7 @@ onBeforeUnmount(() => {
   position: absolute;
   right: 6px;
   bottom: 4px;
-  font-size: 13px;
+  font-size: 16px;
 }
 
 .zelda-deck-paused {
@@ -753,28 +756,28 @@ onBeforeUnmount(() => {
 
 .zelda-pad-wide {
   position: static;
-  border-radius: 10px;
+  border-radius: 0;
   min-width: 118px;
   min-height: 54px;
-  border: 1px solid #2ff3ff;
-  color: #2ff3ff;
-  font-size: 14px;
-  letter-spacing: 0.12em;
+  border: 0;
+  --edge: #2ff3ff;
+  box-shadow: 0 -2px 0 0 var(--edge), 0 2px 0 0 var(--edge), -2px 0 0 0 var(--edge), 2px 0 0 0 var(--edge);
+  background: rgba(11, 6, 22, 0.88);
+  color: var(--edge);
+  font-size: 16px;
 }
 
 .zelda-pad-quit {
-  border-color: #ff2fa0;
-  color: #ff2fa0;
+  --edge: #ff2fa0;
 }
 
 .zelda-pad-reset {
-  border-color: #ffd23f;
-  color: #ffd23f;
+  --edge: #ffd23f;
 }
 
 /* Three buttons across a 375 px phone. */
 @media (max-width: 440px) {
   .zelda-deck-paused { gap: 8px; }
-  .zelda-pad-wide { min-width: 0; padding: 0 12px; font-size: 12px; letter-spacing: 0.08em; }
+  .zelda-pad-wide { min-width: 0; padding: 0 12px; }
 }
 </style>

@@ -42,7 +42,7 @@ scripts/make-pixel-font.mjs` (fontTools). One font pixel is an eighth of
 the em, so it is crisp at font sizes that are multiples of 8 px. Lower case
 maps to the capitals; it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂ — … ❚ ◈ ■.
 
-**Status** (2026-09-24): all eight games are on the pixel look. Not yet: the Hall of Fame and Hangar pages, which still use the old vector `neonHorizon.js`.
+**Status** (2026-09-25): the whole site is on the pixel look — the eight games, the Hall of Fame and Hangar pages, the shell's chrome, the 404 and the icons. The old vector synthwave backdrop (`neonHorizon.js`, `mountainTerrain.js`) is gone.
 
 | Game | Pixel look | Setting |
 |---|---|---|
@@ -54,6 +54,16 @@ maps to the capitals; it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂ — … ❚ �
 | Star Fox | done | the Super FX way: three.js at the stage's logical size, snapped to the palette with a Bayer dither in a shader; grass and the rose path below, dusk and the striped sun over violet ridges |
 | OutRun | done | the coast road at dusk as a SNES-era sprite-scaler: Neon Shrine ground per biome, teal canopies, shrine-gate tunnels, pixelized cars |
 | Another Shore | done | flat Another World polygons scanline-filled on the pixel grid, snapped to the palette; dithered sky and sea; glowing things lit through an emissive layer; the prologue flies over the pixel dusk |
+| Hall of Fame | done | the shrine's hall of champions at night: arched windows on the dusk, banners, torches, trophies, a statue of the hero; the board is a `.px-box`, avatars shrunk to 12×12 pixels (`docs/games/hall-of-fame.md`) |
+| Hangar | done | a shrine-stone launch bay open to the sea at dusk; the ship rendered the Star Fox way (low-res three.js, palette dither) on a pad with a neon ring (`docs/games/hangar.md`) |
+
+**Outside the games** (2026-09-25), all in the pixel font and Neon Shrine's dialog box:
+
+- `.px-text`, `.px-box`, `.px-btn` in `pixel.css`: the dialog box for HTML panels — a one-pixel edge with notched corners drawn by four offset shadows, `--px-u` CSS px per pixel, `--px-edge` for the colour; no border-radius, no soft glows.
+- The radio (`components/RadioWidget.vue`) is a box in the theme's accent; on phones it shows ♪ instead of the station name. The home chip is a 9×8 pixel house. The Escape pills (`themes/base/EscHold.vue`) are boxes with a bar that fills in twelve cells; touch players see just PAUSED. The sound toggle is a `.px-btn` reading ♪ ON / ♪ OFF.
+- The 404 (`error.vue` + `components/LostScene.vue`): the path out of town ends at a signpost reading 404, on the pixel stage; the parked themes keep their own 404 blocks.
+- The portal's hint and ending panel, and Neon Shrine's touch pads, use the pixel font and hard edges.
+- Favicon and app icons (`scripts/make-favicon.py`): the dusk on a 16/32/36-pixel grid, scaled up nearest-neighbour.
 
 **Checking a look.** `node scripts/zelda-lab/games-shot.mjs <devUrl> <outDir>
 [ids] [w] [h]` screenshots each game idle and after a moment of play;
