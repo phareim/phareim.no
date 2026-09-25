@@ -60,7 +60,7 @@
  */
 import { computed, onMounted } from 'vue'
 import { PAL } from '~/themes/base/pixel/sprites'
-import { PILOTS, nameLine, type PilotId, type Speaker } from './story'
+import { PILOTS, nameLine, type PilotId, type Speaker } from './cast'
 
 const props = defineProps<{
   line: { id: number; who: Speaker; text: string; name?: string } | null
