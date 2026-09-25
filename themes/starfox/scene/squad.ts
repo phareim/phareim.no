@@ -67,6 +67,11 @@ const WING_SCALE = 0.72
 const WING_Z_SHIFT = -3
 const WING_X_SCALE = 1.3
 const HUNT_Z = -16
+/** On travel the wingmen fire this much slower than their profile (the
+ * profile rate is the boss-fight rate bosses.ts counts on): the player
+ * gets most kills. */
+const TRAVEL_FIRE_SLOW = 2.2
+const TRAVEL_FIRE_Z = -45
 
 /** The formation slot in the scene: the WINGMEN slot spread a little wider and never behind the lead. */
 function slotX(p: WingProfile) { return p.slot.x * WING_X_SCALE }
@@ -251,9 +256,12 @@ export function createSquad(ctx: Ctx): Squad {
         m.model.animate(t, dt, wingMul > 1 ? 1 : 0)
         if (live(ctx) && !m.trouble && !ctx.holdWings) {
           m.fireT += dt
-          const iv = m.prof.fireInterval / wingMul
+          const iv = m.prof.fireInterval / wingMul * (ctx.phase === 'boss' ? 1 : TRAVEL_FIRE_SLOW)
           if (m.fireT >= iv) {
-            if (step.fire) {
+            // On travel they leave the mid-field approach to the player and
+            // open up only on what has come close.
+            const close = ctx.phase === 'boss' || (m.ai.targetId !== null && ctx.enemies.locate(m.ai.targetId, loc) && loc.z > TRAVEL_FIRE_Z)
+            if (step.fire && close) {
               m.fireT = 0
               ctx.shots.laser(m.x, m.y + 0.05, m.z - 1.2, WING_TRIMS[m.id][0], 1, m.slot, 0)
             } else m.fireT = iv

@@ -154,10 +154,18 @@ test('a run opens with wombat, the briefing and the squad; later runs get a retr
   assert.equal(first.name, 'WOMBAT · HANGAR')
   assert.equal(first.shown, 0)
   const keys = drain(d)
-  assert.deepEqual(keys, ['launch', 'brief', 'brief', 'brief', 'brief', 'hello:walrus', 'hello:bison', 'hello:dingo'])
+  assert.deepEqual(keys, ['launch', 'brief', 'brief', 'hello:walrus', 'hello:bison', 'hello:dingo'])
   d.startRun({ run: 2 })
   const again = drain(d)
   assert.deepEqual(again, ['launch', 'retry'])
+})
+
+test('the sector line and first sightings go ahead of the opening chatter', () => {
+  const d = createDirector({ rng: () => 0, seen: new Set() })
+  d.startRun({ cs: 'otter', run: 1, squad: squadFor('otter') })
+  d.cue('sector:coast')
+  d.cue('meet:drone')
+  assert.deepEqual(drain(d), ['sector:coast', 'meet:drone', 'launch', 'brief', 'brief', 'hello:heron', 'hello:bison', 'hello:dingo'])
 })
 
 test('a line types out on the game clock, holds, then a gap before the next', () => {
@@ -175,7 +183,7 @@ test('a line types out on the game clock, holds, then a gap before the next', ()
   d.tick((dur.total - dur.type) / 1000)
   assert.equal(d.current(), null) // the gap
   d.tick(GAP_MS / 1000)
-  assert.ok(d.current().text.startsWith('the hollow came in'))
+  assert.ok(d.current().text.startsWith('the hollow eats light'))
   // Not ticking (pause) freezes the typewriter.
   const shown = d.current().shown
   d.tick(0)

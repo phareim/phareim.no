@@ -59,6 +59,9 @@ export interface Enemy {
   missiles: boolean
   /** 0 normal, 1 Dingo's chaser, 2 the rival */
   role: number
+  /** mid-field station: it slows to a crawl at holdZ for holdT s, then comes on */
+  holdZ: number
+  holdT: number
   bank: number
 }
 
@@ -95,6 +98,8 @@ export interface Enemies {
   /** Lancer sightlines for the stage HUD. */
   eachAim(cb: (x: number, y: number, z: number, tx: number, ty: number, tz: number) => void): void
   readonly list: readonly Enemy[]
+  /** Kills this run: by the player (lasers, orb, bomb, rams) and by the wingmen. */
+  readonly kills: { player: number; wing: number }
 }
 
 const POOL: Record<EnemyKind, number> = {
@@ -102,6 +107,12 @@ const POOL: Record<EnemyKind, number> = {
   carrier: 2, turret: 8, missile: 6, rival: 1,
 }
 const MAX_TARGETS = 90
+/** Models a little larger than built, so they read at mid-field pixel size (collision scales too). */
+const SCALE: Partial<Record<EnemyKind, number>> = {
+  drone: 1.8, kamikaze: 1.6, weaver: 1.5, sniper: 1.7, dasher: 1.5, bulwark: 1.45, splitter: 1.6, mite: 1.7, turret: 1.35, missile: 1.6, rival: 1.3,
+}
+/** Past the ship an enemy has had its chance; it goes before it fills the camera. */
+const PAST_Z = 6
 const FORMATION_Z = -150
 
 export function createEnemies(ctx: Ctx): Enemies {
@@ -109,6 +120,7 @@ export function createEnemies(ctx: Ctx): Enemies {
   for (const kind of Object.keys(POOL) as EnemyKind[]) {
     for (let i = 0; i < POOL[kind]; i++) {
       const model = createEnemyModel(kind)
+      model.root.scale.setScalar(SCALE[kind] ?? 1)
       model.root.visible = false
       ctx.scene.add(model.root)
       list.push(blank(kind, model))
@@ -120,6 +132,7 @@ export function createEnemies(ctx: Ctx): Enemies {
   for (let i = 0; i < MAX_TARGETS; i++) targetPool.push({ id: 0, kind: 'drone', x: 0, y: 0, z: 0, vx: 0, onShip: false })
   let uid = 0
   const chaserIds = new Set<number>()
+  const kills = { player: 0, wing: 0 }
   let count = 0
   const met = new Set<EnemyKind>()
 
@@ -131,7 +144,9 @@ export function createEnemies(ctx: Ctx): Enemies {
     e.active = true
     e.uid = ++uid
     e.hp = e.maxHp = s.hp
-    e.radius = ENEMY_INFO[kind].radius
+    e.radius = ENEMY_INFO[kind].radius * (SCALE[kind] ?? 1)
+    e.holdZ = rand(-54, -30)
+    e.holdT = rand(2.5, 4.5)
     e.x = x; e.y = y; e.z = z
     e.vx = e.vy = e.vz = 0
     e.lat = 0
@@ -212,6 +227,8 @@ export function createEnemies(ctx: Ctx): Enemies {
     if (e.role === 2) ctx.sets.rivalDown()
     if (live(ctx)) {
       scoreKill(ctx, ENEMY_STATS[k].score)
+      if (owner >= 0) kills.wing++
+      else kills.player++
       ctx.sfx.boom(k === 'carrier' || k === 'rival')
       if (owner >= 0) ctx.squad.credit(owner)
     }
@@ -277,6 +294,7 @@ export function createEnemies(ctx: Ctx): Enemies {
   }
 
   const enemies: Enemies = {
+    kills,
     targets,
     wingTargets,
     list,
@@ -392,7 +410,8 @@ export function createEnemies(ctx: Ctx): Enemies {
         else stepEnemy(ctx, e, dt, demo)
         if (!e.active) continue
         e.lat = dt > 0 ? (e.x - px) / dt : 0
-        if (e.z > KILL_Z || e.y > 60 || e.z < SPAWN_Z - 120) { deactivate(e); continue }
+        const past = e.z > PAST_Z && !(e.kind === 'dasher' && e.st === 0)
+        if (past || e.z > KILL_Z || e.y > 60 || e.z < SPAWN_Z - 120) { deactivate(e); continue }
         e.model.root.position.set(e.x, e.y, e.z)
         e.anim.bank = e.bank
         e.model.animate(ctx.now, dt, e.anim)
@@ -405,6 +424,7 @@ export function createEnemies(ctx: Ctx): Enemies {
       targets.length = 0
       wingTargets.length = 0
       met.clear()
+      if (!live(ctx)) { kills.player = 0; kills.wing = 0 }
     },
     lights(add) {
       for (const e of list) if (e.active) eachLight(e.model.lights, add)
@@ -422,6 +442,6 @@ function blank(kind: EnemyKind, model: EnemyModel): Enemy {
     x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, lat: 0, t: 0, st: 0, a: 0, b: 0, c: 0, n: 0, side: 1,
     entry: 0, path: 'dropTop', sx: 0, sy: 0, ex: 0, ey: 0, delay: 0, wob: 0, wobSpeed: 2,
     fireT: 1, sinceShot: 9, shoots: true, aimOn: false, aimX: 0, aimY: 0, aimZ: 0, flashT: 0, shieldT: 0,
-    invuln: false, owner: 0, target: -1, missiles: false, role: 0, bank: 0,
+    invuln: false, owner: 0, target: -1, missiles: false, role: 0, bank: 0, holdZ: -50, holdT: 0,
   }
 }

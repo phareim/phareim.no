@@ -489,7 +489,8 @@ export const MITE = { turn: { x: 4, y: 3.5 }, driftMul: 1.1 } as const
  * holdTime if still alive. Parts glow brighter as it takes damage. */
 export const CARRIER = {
   driftMul: 0.22,
-  parkZ: -115,
+  /** where it parks: the mid-field, where it reads as the big ship it is */
+  parkZ: -85,
   holdTime: 16,
   firstLaunch: 1.2,
   launchEvery: 2.6,
@@ -610,7 +611,10 @@ export const BUDDY_AGGRO = 0.35
 // kills; BISON the veteran stays close, tanks, and shoots down whatever
 // threatens the player; DINGO the rookie is fragile and in between.
 // WALRUS and ZEBRA are reserves (a reserve takes the slot of the pilot it
-// replaces). The BUDDY_* constants above are the single-wingman tuning
+// replaces). Retuned after the first playthrough (2026-09-25): the hunt
+// windows reach into the mid-field only (~−95 at most), leashes are
+// shorter and heron/dingo sturdier and less shot at, so the player gets
+// most kills and a wingman loss is an event (Dingo's trouble aside). The BUDDY_* constants above are the single-wingman tuning
 // Flight.vue still uses until the squad lands there.
 
 export type WingId = 'heron' | 'bison' | 'dingo' | 'walrus' | 'zebra'
@@ -651,28 +655,28 @@ export interface WingProfile {
 export const WINGMEN: Readonly<Record<WingId, WingProfile>> = {
   heron: {
     name: 'HERON', role: 'ace', slot: { x: -4.6, y: 1.8, z: 0.8 },
-    hp: 40, respawn: 12, fireInterval: 0.24, aggro: 0.14,
-    huntZ: [-200, -10], leash: 11, guard: 0, steal: 1.5, margin: 1.5, coverHp: 20, turn: 1.25,
+    hp: 55, respawn: 12, fireInterval: 0.24, aggro: 0.1,
+    huntZ: [-95, -8], leash: 7, guard: 0, steal: 1.5, margin: 1.5, coverHp: 20, turn: 1.25,
   },
   bison: {
     name: 'BISON', role: 'veteran', slot: { x: 4.4, y: -0.4, z: 1.4 },
     hp: 80, respawn: 10, fireInterval: 0.32, aggro: 0.2,
-    huntZ: [-120, -3], leash: 5, guard: 2.5, steal: 0, margin: 3, coverHp: 45, turn: 0.9,
+    huntZ: [-75, -3], leash: 4, guard: 2.5, steal: 0, margin: 3, coverHp: 45, turn: 0.9,
   },
   dingo: {
     name: 'DINGO', role: 'rookie', slot: { x: -3.4, y: -1.0, z: 4.2 },
-    hp: 30, respawn: 9, fireInterval: 0.3, aggro: 0.11,
-    huntZ: [-160, -10], leash: 8, guard: 0.5, steal: 0.5, margin: 2.5, coverHp: 30, turn: 1,
+    hp: 40, respawn: 9, fireInterval: 0.3, aggro: 0.07,
+    huntZ: [-85, -8], leash: 5.5, guard: 0.5, steal: 0.5, margin: 2.5, coverHp: 30, turn: 1,
   },
   walrus: {
     name: 'WALRUS', role: 'reserve', slot: { x: 4.4, y: -0.4, z: 1.4 },
     hp: 70, respawn: 10, fireInterval: 0.34, aggro: 0.18,
-    huntZ: [-120, -3], leash: 5, guard: 2, steal: 0, margin: 3, coverHp: 40, turn: 0.9,
+    huntZ: [-75, -3], leash: 4, guard: 2, steal: 0, margin: 3, coverHp: 40, turn: 0.9,
   },
   zebra: {
     name: 'ZEBRA', role: 'reserve', slot: { x: -4.6, y: 1.8, z: 0.8 },
-    hp: 35, respawn: 11, fireInterval: 0.26, aggro: 0.13,
-    huntZ: [-180, -10], leash: 10, guard: 0, steal: 1, margin: 2, coverHp: 25, turn: 1.15,
+    hp: 45, respawn: 11, fireInterval: 0.26, aggro: 0.09,
+    huntZ: [-90, -8], leash: 6.5, guard: 0, steal: 1, margin: 2, coverHp: 25, turn: 1.15,
   },
 }
 

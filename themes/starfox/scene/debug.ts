@@ -56,7 +56,7 @@ export function installDebug(ctx: Ctx, stats: FrameStats): () => void {
       else if (k === 'turret') ctx.enemies.turrets([-0.4, 0.4])
       else if (k === 'missile') ctx.enemies.missile(ctx.player.x + 4, ctx.player.y + 2, -70, -1)
       else if (k === 'rival') ctx.enc.force('duel')
-      else ctx.enemies.spawn(k, ctx.player.x * 0.5, laneY(0.55), SPAWN_Z * 0.55)
+      else ctx.enemies.spawn(k, (Math.random() - 0.5) * ctx.laneX * 1.2, laneY(0.35 + Math.random() * 0.4), SPAWN_Z * 0.55)
       return k
     },
     setPiece(id: string) { return ctx.enc.force(id) },
@@ -72,7 +72,7 @@ export function installDebug(ctx: Ctx, stats: FrameStats): () => void {
         biome: ctx.env.biome, t: ctx.enc.runner ? +ctx.enc.runner.t.toFixed(1) : 0, setPiece: ctx.enc.runner?.setPiece ?? null,
         hp: ctx.hp, score: ctx.score, bombs: ctx.arsenal.bombs, laser: ctx.arsenal.laser, shield: ctx.arsenal.shieldHp,
         overdrive: +ctx.arsenal.overdriveT.toFixed(1), wingOd: +ctx.arsenal.wingOdT.toFixed(1), charge: ctx.player.charge, lock: ctx.player.lockId,
-        squad: sq, enemies: ctx.enemies.count, kinds, rival: rival ? { x: +rival.x.toFixed(1), y: +rival.y.toFixed(1), z: +rival.z.toFixed(1), hp: rival.hp } : null, bolts: ctx.shots.bolts, lasers: ctx.shots.lasers, pickups: ctx.pickups.count,
+        squad: sq, enemies: ctx.enemies.count, kinds, kills: { ...ctx.enemies.kills }, rival: rival ? { x: +rival.x.toFixed(1), y: +rival.y.toFixed(1), z: +rival.z.toFixed(1), hp: rival.hp } : null, bolts: ctx.shots.bolts, lasers: ctx.shots.lasers, pickups: ctx.pickups.count,
         mines: ctx.obstacles.mines, boss: ctx.boss.active, speed: +ctx.worldSpeed.toFixed(1), warp: +ctx.env.warp.toFixed(2),
         line: ctx.story.director.spoken?.text ?? null,
         fps: +stats.fps.toFixed(1), frameMs: +stats.frameMs.toFixed(1), workMs: +stats.workMs.toFixed(1),

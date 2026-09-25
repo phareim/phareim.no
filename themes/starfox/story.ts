@@ -52,7 +52,10 @@
  * survivorsText(squad, alive) (game over: who is still flying).
  *
  * The director (Galaga's model): priority 3 is story and interrupts; 2 is
- * teaching; 1 is ambient and lands only after 9 s of silence. Cues can be
+ * teaching; 1 is ambient and lands only after 9 s of silence. The opening
+ * chatter (briefing, roll call, retry) is `soft`: lines about what is
+ * happening now go ahead of it, so the sector line and first sightings are
+ * never more than a line late. Cues can be
  * once per page load (SESSION_SEEN, survives remounts), once per run, or on
  * a cooldown. A teaching line cut mid-sentence by a story beat is said
  * again afterwards. Variants never repeat back to back.
@@ -281,6 +284,10 @@ export interface CueDef {
   once?: Once
   /** Minimum ms of game time between two plays of this cue. */
   cooldown?: number
+  /** The opening chatter (briefing, roll call, retry): cues about what is
+   * happening now (the sector line, first sightings, pickups) go ahead of
+   * it in the queue instead of waiting behind it. */
+  soft?: boolean
   /** Variants; each is a short exchange of one or more lines. */
   variants: Line[][]
 }
@@ -307,7 +314,7 @@ export const CUES: Record<string, CueDef> = {
 
   // --- run start (startRun)
   launch: {
-    prio: 3, variants: [
+    prio: 3, soft: true, variants: [
       [W('wombat to nightlight. doors open. bring it back in one piece.')],
       [W('the neon dreams sign is lit, so launch is on. go.')],
       [W('doors open, {cs}. i just polished that canopy.')],
@@ -315,20 +322,19 @@ export const CUES: Record<string, CueDef> = {
     ],
   },
   brief: {
-    prio: 3, once: 'session', variants: [[
+    prio: 3, once: 'session', soft: true, variants: [[
       C('{cs}, claude here. second seat, same as always.'),
-      C('the hollow came in over the sea. they eat light, one beacon at a time.'),
-      H('LIGHT · DETECTED · DIM IT'),
-      C('operation nightlight. we turn the coast back on. three wings with us.'),
+      C('the hollow eats light, one beacon at a time. we turn the coast back on.'),
     ]],
   },
-  'hello:heron': { prio: 3, once: 'session', variants: [[HE('heron, wing two. try to keep up, {cs}.')]] },
-  'hello:bison': { prio: 3, once: 'session', variants: [[BI('bison. i fly behind you. that is where i stay.')]] },
-  'hello:dingo': { prio: 3, once: 'session', variants: [[DI('dingo here. i made a mixtape for this. it is mostly synth.')]] },
-  'hello:walrus': { prio: 3, once: 'session', variants: [[WA('walrus, filling in. i read the manual on the way over.')]] },
-  'hello:zebra': { prio: 3, once: 'session', variants: [[ZE('zebra, from the reserve. nobody said it would be this dark.')]] },
+  // The roll call: one short line each, after the briefing.
+  'hello:heron': { prio: 3, once: 'session', soft: true, variants: [[HE('heron. keep up, {cs}.')]] },
+  'hello:bison': { prio: 3, once: 'session', soft: true, variants: [[BI('bison. on your six.')]] },
+  'hello:dingo': { prio: 3, once: 'session', soft: true, variants: [[DI('dingo. mixtape is loaded.')]] },
+  'hello:walrus': { prio: 3, once: 'session', soft: true, variants: [[WA('walrus, filling in.')]] },
+  'hello:zebra': { prio: 3, once: 'session', soft: true, variants: [[ZE('zebra, from the reserve.')]] },
   retry: {
-    prio: 3, variants: [
+    prio: 3, soft: true, variants: [
       [C('new ship, same plan. lights on, dark things off.')],
       [C('round {run}. they have learned nothing. we have.')],
       [DI('you are back. i restarted the mixtape.')],
@@ -813,7 +819,7 @@ export const GAP_MS = 260
 /** Ambient cues also wait this long after any line. */
 export const AMBIENT_GAP_MS = 9000
 /** Teaching lines older than this in the queue are dropped as stale. */
-export const STALE_MS = 8000
+export const STALE_MS = 6000
 const QUEUE_MAX = 5
 
 export function lineDuration(text: string): { type: number; total: number } {
@@ -835,7 +841,7 @@ export function variantFits(variant: readonly Line[], squad: readonly WingId[]):
 /** Remembers once-per-session cues across remounts within a page load. */
 export const SESSION_SEEN = new Set<string>()
 
-interface Pending { line: Line; key: string; prio: number; queuedAt: number }
+interface Pending { line: Line; key: string; prio: number; queuedAt: number; soft: boolean }
 
 export function createDirector(opts: { rng?: () => number; seen?: Set<string>; reduced?: boolean; squad?: readonly WingId[] } = {}) {
   const rng = opts.rng ?? Math.random
@@ -890,27 +896,36 @@ export function createDirector(opts: { rng?: () => number; seen?: Set<string>; r
     lastPlayed.set(key, now)
     const v = { ...vars, ...extra }
     const lines = def.variants[vi]!.map(l => ({ who: l.who, text: fill(l.text, v) }))
-    const entries = lines.map(line => ({ line, key, prio: def.prio, queuedAt: now }))
+    const soft = !!def.soft
+    const entries = lines.map(line => ({ line, key, prio: def.prio, queuedAt: now, soft }))
     if (def.prio === 3) {
       // Story beats cut ambient and teaching lines and jump the queue. A
       // teaching line cut mid-sentence is said again afterwards.
       const resume: Pending[] = []
       if (current && current.prio === 2 && now < current.typed) {
-        resume.push({ line: { who: current.who, text: current.text }, key: current.key, prio: 2, queuedAt: now + 4000 })
+        resume.push({ line: { who: current.who, text: current.text }, key: current.key, prio: 2, queuedAt: now + 4000, soft: false })
       }
       queue = queue.filter(p => p.prio >= 3)
       if (current && current.prio < 3) current.end = Math.min(current.end, now + 120)
-      queue.push(...entries, ...resume)
+      enqueue([...entries, ...resume], soft)
     } else {
-      queue.push(...entries)
+      enqueue(entries, soft)
     }
     // Too much waiting: drop the oldest teaching/ambient lines (story stays).
-    while (queue.length > QUEUE_MAX) {
+    // The opening chatter waits at the back and does not count.
+    while (queue.length - queue.filter(p => p.soft).length > QUEUE_MAX) {
       const i = queue.findIndex(p => p.prio < 3)
       if (i < 0) break
       queue.splice(i, 1)
     }
     return true
+  }
+
+  /** Append, or (a cue about the game right now) go ahead of the opening chatter. */
+  function enqueue(entries: Pending[], soft: boolean): void {
+    const at = soft ? -1 : queue.findIndex(p => p.soft)
+    if (at < 0) queue.push(...entries)
+    else queue.splice(at, 0, ...entries)
   }
 
   /** A per-wingman cue for the wingman in `slot` (0–2). */

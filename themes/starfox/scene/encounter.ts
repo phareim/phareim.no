@@ -72,7 +72,7 @@ export function createEncounters(ctx: Ctx): Encounters {
     demoRingT -= dt
     if (demoRingT <= 0) {
       demoRingT = rand(5, 8)
-      ctx.pickups.ring(rand(-0.3, 0.3), ctx.portrait ? 0.14 : 0.42, false)
+      ctx.pickups.ring(rand(-0.3, 0.3), ctx.portrait ? 0.28 : 0.42, false)
     }
   }
 

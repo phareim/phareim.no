@@ -12,7 +12,7 @@ import { createPropField, geyserJet, biomeAccent, type PropField } from '../mode
 import { P, geo, hullMat, glowMat, mesh, setMat } from '../models/core'
 import type { ObstacleKind } from '../encounters'
 import type { BiomeId } from '../pixel'
-import { GROUND_Y, KILL_Z, LANE_Y_HI, LANE_Y_LO, SPAWN_Z, addScore, clamp, live, rand, type Ctx } from './ctx'
+import { GROUND_Y, LANE_Y_HI, LANE_Y_LO, SPAWN_Z, addScore, clamp, live, rand, type Ctx } from './ctx'
 
 export interface Obstacles {
   setBiome(id: BiomeId): void
@@ -36,6 +36,8 @@ const MAX_FLOAT = 10
 const MINE_POOL = 8
 const ARCH_HALF_W = 3.5
 const ARCH_TOP = 9
+/** Past the ship a prop only blocks the camera: it goes (collision is done by then). */
+const PAST_Z = 3
 
 interface Tall { active: boolean; x: number; z: number; w: number; h: number; maxH: number; spin: number; v: number; phase: number; geyser: boolean }
 interface Float { active: boolean; x: number; y: number; z: number; r: number; spin: number; v: number }
@@ -234,7 +236,7 @@ export function createObstacles(ctx: Ctx): Obstacles {
       const t = talls[i]!
       if (!t.active) continue
       t.z += ws * dt
-      if (t.z > KILL_Z) { t.active = false; tallField.hide(i); continue }
+      if (t.z > PAST_Z) { t.active = false; tallField.hide(i); continue }
       if (t.geyser) t.h = t.maxH * geyserJet(ctx.now, t.phase)
       tallField.set(i, t.x, GROUND_Y, t.z, t.w, t.h, t.spin, t.v)
       if (!on || Math.abs(t.z) > 6) continue
@@ -250,7 +252,7 @@ export function createObstacles(ctx: Ctx): Obstacles {
       const f = floats[i]!
       if (!f.active) continue
       f.z += ws * 0.9 * dt
-      if (f.z > KILL_Z) { f.active = false; floatField.hide(i); continue }
+      if (f.z > PAST_Z + 1) { f.active = false; floatField.hide(i); continue }
       f.spin += dt * 0.8
       floatField.set(i, f.x, f.y, f.z, f.r, 0, f.spin, f.v)
       if (!on) continue
@@ -276,7 +278,7 @@ export function createObstacles(ctx: Ctx): Obstacles {
       m.root.scale.setScalar(s)
       m.root.rotation.y += dt * 1.4
       m.root.position.set(m.x, m.y, m.z)
-      if (m.z > KILL_Z) { m.active = false; m.root.visible = false; mineCount--; continue }
+      if (m.z > PAST_Z + 1) { m.active = false; m.root.visible = false; mineCount--; continue }
       if (!on) continue
       const F2 = MINE_FUSE_RADIUS * MINE_FUSE_RADIUS
       if (p.visible) {
@@ -293,7 +295,7 @@ export function createObstacles(ctx: Ctx): Obstacles {
     for (const a of arches) {
       if (!a.active) continue
       a.z += ws * dt
-      if (a.z > KILL_Z) { a.active = false; a.root.visible = false; continue }
+      if (a.z > PAST_Z - 0.5) { a.active = false; a.root.visible = false; continue }
       a.root.position.z = a.z
       if (!on) continue
       if (p.visible && Math.abs(a.z) < 1.4 && Math.abs(p.x - a.x) < ARCH_HALF_W + 0.8 && !archClear(a, p.x, p.y)) p.damage(DMG.pillar)

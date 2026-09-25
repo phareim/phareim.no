@@ -56,6 +56,18 @@ function entry(ctx: Ctx, e: Enemy, dt: number): boolean {
   return true
 }
 
+/** Close in, hold station in the mid-field for a few seconds (where the
+ * models read and the player can fight them), then come on past. */
+function approach(ctx: Ctx, e: Enemy, dt: number, mul: number) {
+  const ws = ctx.worldSpeed
+  if (e.holdT > 0 && e.z >= e.holdZ) {
+    e.holdT -= dt
+    e.z += ws * 0.03 * dt
+    return
+  }
+  e.z += Math.max(ws * mul, e.holdT > 0 ? 30 : 0) * dt
+}
+
 function sway(e: Enemy, dt: number, amp: number) {
   e.wob += e.wobSpeed * dt
   e.x += Math.sin(e.wob) * amp * dt
@@ -76,13 +88,13 @@ export function stepEnemy(ctx: Ctx, e: Enemy, dt: number, demo: boolean): void {
   switch (e.kind) {
     case 'drone':
       sway(e, dt, 2.2)
-      e.z += ws * GNAT.driftMul * dt
+      approach(ctx, e, dt, GNAT.driftMul)
       aimedFire(ctx, e, dt, armed)
       break
 
     case 'splitter':
       sway(e, dt, 1.6)
-      e.z += ws * 0.6 * dt
+      approach(ctx, e, dt, 0.6)
       aimedFire(ctx, e, dt, armed)
       break
 
@@ -132,7 +144,7 @@ export function stepEnemy(ctx: Ctx, e: Enemy, dt: number, demo: boolean): void {
       e.x += (e.a + Math.sin(e.wob) * MANTA.sineAmp) * dt
       e.bank = -Math.cos(e.wob) * 0.5
       edges(ctx, e)
-      e.z += ws * MANTA.driftMul * dt
+      approach(ctx, e, dt, MANTA.driftMul)
       if (armed && e.n > 0 && e.z > MANTA.mineZ[0] && e.z < MANTA.mineZ[1]) {
         e.b -= dt
         if (e.b <= 0) {
@@ -147,7 +159,7 @@ export function stepEnemy(ctx: Ctx, e: Enemy, dt: number, demo: boolean): void {
     case 'sniper':
       if (e.st === 0) {
         sway(e, dt, 1.0)
-        e.z += ws * LANCER.driftMul * dt
+        approach(ctx, e, dt, LANCER.driftMul)
         e.anim.charge = 0
         if (armed && e.z > LANCER.fireZ[0] && e.z < LANCER.fireZ[1]) {
           e.fireT -= dt
@@ -181,7 +193,7 @@ export function stepEnemy(ctx: Ctx, e: Enemy, dt: number, demo: boolean): void {
     case 'bulwark':
       if (e.st === 0) { e.st = 1; e.fireT = rand(BULWARK.fireEvery[0], BULWARK.fireEvery[1]) }
       sway(e, dt, 0.8)
-      e.z += ws * BULWARK.driftMul * dt
+      approach(ctx, e, dt, BULWARK.driftMul)
       e.sinceShot += dt
       if (e.shieldT > 0) e.shieldT -= dt
       if (armed && e.z > FIRE_Z_FAR && e.z < FIRE_Z_NEAR) {

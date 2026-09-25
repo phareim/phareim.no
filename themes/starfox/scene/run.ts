@@ -96,6 +96,7 @@ export function createRun(ctx: Ctx, sound: SoundLike): Run {
       if (ctx.over) ctx.out.restart()
       ctx.runs++
       clearField()
+      ctx.enemies.kills.player = ctx.enemies.kills.wing = 0
       resetScoreSent()
       ctx.started = true
       ctx.over = false

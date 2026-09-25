@@ -373,7 +373,7 @@ test('createWingAi() with no id keeps the original brain', () => {
 })
 
 test('three instances keep separate state', () => {
-  const targets = [{ id: 1, kind: 'drone', x: 0, y: 0, z: -80, vx: 0 }]
+  const targets = [{ id: 1, kind: 'drone', x: 0, y: 0, z: -60, vx: 0 }]
   const squad = SQUAD.map(id => member(id, targets))
   stepSquad(squad)
   squad[0].ai.modeT = 99
@@ -436,12 +436,16 @@ test('bison guards the player: a missile on the ship beats a nearer drone', () =
 
 test('bison stays close; heron hunts far and wide', () => {
   const ship = { x: 0 }
-  const far = { id: 1, kind: 'drone', x: 10, y: 1, z: -150, vx: 0 }
+  // Hunt windows reach the mid-field only (retuned 2026-09-25): heron
+  // deepest, then dingo, bison close; nobody reaches the far field.
+  const far = { id: 1, kind: 'drone', x: 7, y: 1, z: -90, vx: 0 }
   assert.equal(pickTarget([far], { x: 4.4, y: 0 }, null, { brain: brainOf('bison'), ship }), null)
   assert.equal(pickTarget([far], { x: -4.6, y: 1.8 }, null, { brain: brainOf('heron'), ship }).id, 1)
-  const deep = { id: 2, kind: 'drone', x: 0, y: 1, z: -190, vx: 0 }
+  const deep = { id: 2, kind: 'drone', x: 0, y: 1, z: -90, vx: 0 }
   assert.equal(inHuntZone(deep, brainOf('heron')), true)
   assert.equal(inHuntZone(deep, brainOf('dingo')), false)
+  const farField = { id: 3, kind: 'drone', x: 0, y: 1, z: -150, vx: 0 }
+  for (const id of SQUAD) assert.equal(inHuntZone(farField, brainOf(id)), false, `${id} leaves the far field alone`)
   // the leash clamps where bison flies even when its target drifts wide
   const b = member('bison', [{ id: 3, kind: 'kamikaze', x: 6.5, y: 1, z: -60, vx: 0 }])
   const step = stepWingman(b.ai, b.input)

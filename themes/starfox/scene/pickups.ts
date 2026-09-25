@@ -149,7 +149,7 @@ export function createPickups(ctx: Ctx): Pickups {
           const dx = p.x - c.x, dy = p.y - c.y
           if (dx * dx + dy * dy < PICK_R * PICK_R) { takeCapsule(c); continue }
         }
-        if (c.z > 12) { c.active = false; m.root.visible = false; count-- }
+        if (c.z > 3) { c.active = false; m.root.visible = false; count-- }
       }
       for (const r of rings) {
         if (!r.active) continue
@@ -165,7 +165,7 @@ export function createPickups(ctx: Ctx): Pickups {
           const dx = p.x - r.x, dy = p.y - r.y
           if (dx * dx + dy * dy < 2.2 * 2.2) takeRing(r)
         }
-        if (r.z > 12) { r.active = false; r.m.root.visible = false }
+        if (r.z > 3 && r.flash <= 0) { r.active = false; r.m.root.visible = false }
       }
     },
     clear() {

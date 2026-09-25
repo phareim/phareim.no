@@ -56,7 +56,9 @@ const LASER_OFFS = 3.1
 const NOSE_Z = -2.2
 /** Attract mode: the ship flies in the clear middle band, off the title and hint text. */
 const ATTRACT_Y = 1.6
-const ATTRACT_Y_PORTRAIT = -0.6
+const ATTRACT_Y_PORTRAIT = 0.6
+/** Phones: the attract ship flies further ahead, smaller, between the squad panel and the hint. */
+const ATTRACT_Z_PORTRAIT = -7
 
 export function createPlayer(ctx: Ctx): Player {
   const model = buildPlayerShip(readShipDef(), ctx.glowTex)
@@ -217,7 +219,7 @@ export function createPlayer(ctx: Ctx): Player {
         }
       }
       const t = ctx.now
-      root.position.set(x, y + Math.sin(t * 2.1) * 0.08, 0)
+      root.position.set(x, y + Math.sin(t * 2.1) * 0.08, demo && ctx.portrait ? ATTRACT_Z_PORTRAIT : 0)
       root.visible = t >= ctx.invulnUntil || Math.floor(t * 12) % 2 === 0
       const es = engineBase + Math.sin(t * 31) * 0.08 + ctx.worldSpeed * 0.002
       engine.scale.set(es, es, 1)
