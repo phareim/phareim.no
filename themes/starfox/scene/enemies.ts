@@ -315,7 +315,9 @@ export function createEnemies(ctx: Ctx): Enemies {
       }
     },
     hornet(side, yn, missiles, xn) {
-      const e = spawn('dasher', 0, laneY(yn), 16)
+      // Behind the camera: 16 on wide screens, further back on portrait,
+      // where the camera sits at z 18 (scene/env.ts).
+      const e = spawn('dasher', 0, laneY(yn), ctx.portrait ? 24 : 16)
       if (!e) return
       e.side = side
       e.missiles = missiles
@@ -411,7 +413,8 @@ export function createEnemies(ctx: Ctx): Enemies {
         if (!e.active) continue
         e.lat = dt > 0 ? (e.x - px) / dt : 0
         const past = e.z > PAST_Z && !(e.kind === 'dasher' && e.st === 0)
-        if (past || e.z > KILL_Z || e.y > 60 || e.z < SPAWN_Z - 120) { deactivate(e); continue }
+        const overtaking = e.kind === 'dasher' && e.st === 0
+        if (past || (e.z > KILL_Z && !overtaking) || e.y > 60 || e.z < SPAWN_Z - 120) { deactivate(e); continue }
         e.model.root.position.set(e.x, e.y, e.z)
         e.anim.bank = e.bank
         e.model.animate(ctx.now, dt, e.anim)

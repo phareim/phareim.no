@@ -205,15 +205,18 @@ export function createEnv(ctx: Ctx): Env {
   function updateCamera(dt: number) {
     const p = ctx.player
     const portrait = ctx.portrait
-    // A portrait screen is narrow for the lane: the camera follows the ship
-    // further across, so it stays on screen at the lane's edges.
-    const fx = portrait ? 0.75 : 0.5
+    // A portrait screen is narrow for the lane: the camera sits further back
+    // there, so the ship is smaller and can cross the screen (about 110 px
+    // from the middle to the lane's edge on a 390 px phone) without its
+    // wingtip leaving it. Following the ship harder instead made it look
+    // pinned to the middle, as if steering did nothing.
+    const fx = portrait ? 0.35 : 0.5
     const k = 1 - Math.exp(-4.5 * dt)
     const t = ctx.now
     tv.set(
       p.x * fx + Math.sin(t * 1.3) * 0.15,
-      (portrait ? 6.5 : 3.8) + p.y * 0.28 * fx + Math.sin(t * 1.7) * 0.12,
-      portrait ? 14 : 11.5,
+      (portrait ? 7 : 3.8) + p.y * 0.28 * fx + Math.sin(t * 1.7) * 0.12,
+      portrait ? 18 : 11.5,
     )
     camera.position.lerp(tv, k)
     if (ctx.shake > 0) {
@@ -224,7 +227,7 @@ export function createEnv(ctx: Ctx): Env {
         camera.position.y += rand(-s, s)
       }
     }
-    look.set(p.x * (portrait ? 0.85 : 0.75), 1.0 + p.y * 0.3 + (portrait && !ctx.started ? ATTRACT_LOOK_UP_PORTRAIT : 0), -40)
+    look.set(p.x * (portrait ? 0.55 : 0.75), 1.0 + p.y * 0.3 + (portrait && !ctx.started ? ATTRACT_LOOK_UP_PORTRAIT : 0), -40)
     camera.lookAt(look)
   }
 
