@@ -2,7 +2,9 @@
   <DefaultLanding>
     <template #background>
       <ClientOnly>
+        <ModelLab v-if="modelLab" />
         <Flight
+          v-else
           @score="(s: number) => score = s"
           @distance="(m: number) => distance = m"
           @health="(n: number, m: number) => { hp = n; hpMax = m }"
@@ -66,6 +68,9 @@ import SoundToggle from '~/themes/base/SoundToggle.vue'
 
 // three.js is ~170 KB gzipped: load it only when this theme is on screen.
 const Flight = defineAsyncComponent(() => import('./Flight.vue'))
+// The model lab (?lab=models) swaps in for the game: every model through the game's pipeline.
+const ModelLab = defineAsyncComponent(() => import('./ModelLab.vue'))
+const modelLab = useRoute().query.lab === 'models'
 
 const { navigationLocked } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()
