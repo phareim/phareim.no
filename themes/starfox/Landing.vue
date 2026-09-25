@@ -80,16 +80,20 @@
           </div>
         </Transition>
         <!-- In-game HUD: meters at the bottom, the squad bottom-left, the
-          arsenal bottom-right, so the corridor and the ship stay clear. -->
-        <div class="sfx-dock" :class="{ 'sfx-dock--touch': isTouch }">
-          <div v-if="bossActive" class="sfx-dock-boss">
-            <span class="sfx-boss-name px-hud">{{ bossName }}</span>
-            <span class="sfx-bar sfx-boss-bar" role="status" aria-label="Boss integrity">
-              <span class="sfx-bar-fill sfx-bar-boss" :style="{ width: `${bossMax > 0 ? Math.round(100 * bossHp / bossMax) : 0}%` }" />
-            </span>
+          arsenal bottom-right, so the corridor and the ship stay clear. On
+          phones the boss bar and banners move to the top, under the
+          intercom, and the dock keeps only the score and the hull. -->
+        <div class="sfx-dock">
+          <div v-if="bossActive || banner || msg.toast" class="sfx-alerts">
+            <div v-if="bossActive" class="sfx-dock-boss">
+              <span class="sfx-boss-name px-hud">{{ bossName }}</span>
+              <span class="sfx-bar sfx-boss-bar" role="status" aria-label="Boss integrity">
+                <span class="sfx-bar-fill sfx-bar-boss" :style="{ width: `${bossMax > 0 ? Math.round(100 * bossHp / bossMax) : 0}%` }" />
+              </span>
+            </div>
+            <p v-if="banner" class="px-hud px-blink sfx-gold sfx-banner">{{ banner }}</p>
+            <p v-else-if="msg.toast" class="px-hud sfx-gold sfx-banner">{{ msg.toast }}</p>
           </div>
-          <p v-if="banner" class="px-hud px-blink sfx-gold sfx-banner">{{ banner }}</p>
-          <p v-else-if="msg.toast" class="px-hud sfx-gold sfx-banner">{{ msg.toast }}</p>
           <p class="location px-hud sfx-line">S{{ pad(sector) }} · {{ score }}</p>
           <div class="sfx-bar" role="status" aria-label="Hull integrity">
             <div class="sfx-bar-fill" :class="hpClass" :style="{ width: `${Math.round(100 * hp / hpMax)}%` }" />
@@ -374,7 +378,7 @@ function onGameRestart() {
 .landing .sfx-card-kicker { --px-hud: #ffd23f; margin: 0; }
 .landing .px-title.sfx-card-name { margin: 4px 0 0; font-size: 48px; --px-title: #fff4ff; }
 @media (max-width: 640px) {
-  .sfx-card { top: calc(max(12px, env(safe-area-inset-top)) + 150px); }
+  .sfx-card { top: calc(max(12px, env(safe-area-inset-top)) + 204px); }
   .landing .px-title.sfx-card-name { font-size: 24px; text-shadow: 3px 3px 0 #0b0616; }
 }
 .sfx-card-enter-active { transition: opacity 0.2s steps(3); }
@@ -386,10 +390,13 @@ function onGameRestart() {
 /* All in-game text and meters sit low so the corridor stays clear, above
    the bottom band (--app-safe-bottom). The sound toggle keeps the
    bottom-left corner, the BOMB button (touch) the bottom-right. */
+/* Centred without a transform, so the phone's .sfx-alerts can be fixed to
+   the viewport from inside it. */
 .sfx-dock {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  margin: 0 auto;
   bottom: max(3rem, calc(2.2rem + var(--app-safe-bottom, 0px)));
   z-index: 3;
   width: min(420px, calc(100vw - 280px));
@@ -460,11 +467,23 @@ function onGameRestart() {
 .sfx-charge--ready i { background: #2ff3ff; }
 .sfx-k--t { color: var(--c); }
 
-/* Phones: 8 px text in the side blocks, the dock a little higher. */
+/* Phones: the ship flies where the desktop dock sits, so the dock drops to
+   the bottom edge between the sound toggle and the BOMB button (score over
+   hull), the boss bar and the banners go to the top under the intercom
+   (at most three lines, 130 px), and the side blocks take 8 px text. */
 @media (max-width: 640px) {
-  .sfx-dock { width: calc(100vw - 32px); bottom: calc(140px + var(--app-safe-bottom, 0px)); }
-  .sfx-dock--title { bottom: calc(60px + var(--app-safe-bottom, 0px)); }
-  .landing .sfx-dock .sfx-banner { font-size: 8px; line-height: 12px; }
+  .sfx-dock { width: 172px; bottom: calc(12px + var(--app-safe-bottom, 0px)); }
+  .sfx-dock .sfx-bar { width: 160px; height: 8px; }
+  .landing .sfx-dock .sfx-line { margin: 0; line-height: 1; }
+  .sfx-alerts {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    top: calc(max(12px, env(safe-area-inset-top)) + 136px);
+  }
+  .sfx-alerts .sfx-bar { width: min(288px, 70vw); }
+  .landing .sfx-alerts .sfx-banner { font-size: 16px; line-height: 20px; }
+  .sfx-dock--title { width: calc(100vw - 32px); bottom: calc(60px + var(--app-safe-bottom, 0px)); }
   .sfx-side { font-size: 8px; line-height: 12px; gap: 5px; text-shadow: 1px 1px 0 #0b0616; bottom: calc(60px + var(--app-safe-bottom, 0px)); }
   .sfx-side--touch { bottom: calc(86px + var(--app-safe-bottom, 0px)); }
   .sfx-chip { gap: 4px; }

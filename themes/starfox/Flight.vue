@@ -31,7 +31,7 @@
  *   shots      lasers, bolts, charge orbs, nova bombs
  *   pickups    capsules and rings
  *   fx         sparks, debris, rings, shockwaves, light flashes
- *   boss       the DREADNOUGHT (placeholder until the five sector bosses)
+ *   boss       the five sector bosses (scene/bosses/, rules in bosses.ts)
  *   encounter  the scripted travel (encounters.ts) → spawns and cues
  *   storyGlue  the intercom director on the game clock
  *   run        sectors, phases, arsenal timers, the end of a run
@@ -200,9 +200,10 @@ function resize() {
   pipeline.setSize(stage.vw, stage.vh)
   c.camera.aspect = stage.vw / stage.vh
   c.camera.fov = c.portrait ? 80 : 62
-  // Installed web app: render the view the bottom band higher so the ship
-  // lifts off the bottom edge; the canvas stays full-bleed.
-  const bandL = Math.round(safeBottom() / stage.k)
+  // Render the view higher (the canvas stays full-bleed): by the bottom
+  // band in the installed web app, and by 6 % more on portrait phones, so
+  // the ship at the lane floor stays clear of the squad row and the dock.
+  const bandL = Math.round(safeBottom() / stage.k) + (c.portrait ? Math.round(stage.vh * 0.06) : 0)
   if (bandL > 0) c.camera.setViewOffset(stage.vw, stage.vh, 0, bandL, stage.vw, stage.vh)
   else c.camera.clearViewOffset()
   c.camera.updateProjectionMatrix()
@@ -492,6 +493,11 @@ onBeforeUnmount(() => {
   height: 100%;
   display: block;
   z-index: 1;
+}
+/* The Escape pills (paused, hold to quit) would sit on the intercom box
+   at the top: here they go to the open sky under it. */
+.sfx-wrap .esc-hold-layer.esc-hold-layer {
+  top: 30vh;
 }
 /* Touch only, during a run: bottom-right, above the bottom band (the home
    chip is hidden while a run holds the navigation lock). */

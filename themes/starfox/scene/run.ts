@@ -34,8 +34,11 @@ interface SoundLike {
 }
 
 const WARP_LEAD = 1.0
-/** CLEAR after the first Crown: long enough for the ending exchange. */
+/** CLEAR after the first Crown: at least this long, and on until the
+ * Crown's last words and the ending exchange (14–22 s) are said, up to
+ * ENDING_CLEAR_MAX. */
 const ENDING_CLEAR_TIME = 11
+const ENDING_CLEAR_MAX = 26
 
 export function createRun(ctx: Ctx, sound: SoundLike): Run {
   const tick = { shieldDown: false, overdriveEnd: false, wingOdEnd: false }
@@ -43,6 +46,7 @@ export function createRun(ctx: Ctx, sound: SoundLike): Run {
   let dirty = true
   let lastKm = 0
   let warped = false
+  let warpAt = 0
   let deathAt = 0
   let deathEmitted = true
   let summary: DeathSummary | null = null
@@ -177,9 +181,12 @@ export function createRun(ctx: Ctx, sound: SoundLike): Run {
         ctx.out.sector(ctx.sector, 'boss')
       } else if (ctx.phase === 'clear') {
         // the first Crown kill holds CLEAR while the ending is said
-        const clearTime = ctx.sector === 5 ? ENDING_CLEAR_TIME : CLEAR_TIME
-        if (!warped && ctx.phaseT >= clearTime - WARP_LEAD) { warped = true; ctx.env.warpIn() }
-        if (ctx.phaseT >= clearTime) enterSector(ctx.sector + 1)
+        const ending = ctx.sector === 5
+        const clearTime = ending ? ENDING_CLEAR_TIME : CLEAR_TIME
+        const d = ctx.story.director
+        const talking = ending && (d.spoken !== null || d.queued > 0) && ctx.phaseT < ENDING_CLEAR_MAX - WARP_LEAD
+        if (!warped && ctx.phaseT >= clearTime - WARP_LEAD && !talking) { warped = true; warpAt = ctx.phaseT; ctx.env.warpIn() }
+        if (warped && ctx.phaseT >= warpAt + WARP_LEAD) enterSector(ctx.sector + 1)
       }
       ctx.distance += ctx.worldSpeed * dt
       const km = Math.floor(ctx.distance / 100)
@@ -214,11 +221,15 @@ export function createRun(ctx: Ctx, sound: SoundLike): Run {
       ctx.phaseT = 0
       warped = false
       ctx.out.sector(ctx.sector, 'clear')
+      // whatever the fight still had queued is moot now
+      ctx.story.hush()
       for (const k of bossDownCues(ctx.sector - 1)) ctx.story.cue(k, sectorVars(ctx.sector - 1))
     },
     jump(sector) {
       if (!live(ctx)) run.start()
       clearField()
+      // what the last sector queued would be said in the wrong place
+      ctx.story.hush()
       ctx.env.warpIn()
       enterSector(Math.max(1, Math.floor(sector)))
     },

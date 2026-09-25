@@ -312,13 +312,14 @@ const ZE = say('zebra')
 export const CUES: Record<string, CueDef> = {
   idle: { prio: 2, once: 'session', variants: [[C('claude, second seat. {start} and we go.')]] },
 
-  // --- run start (startRun)
+  // --- run start (startRun). Soft, so it usually lands a few seconds into
+  // the flight, after the sector line: Wombat talks to a ship already out.
   launch: {
     prio: 3, soft: true, variants: [
-      [W('wombat to nightlight. doors open. bring it back in one piece.')],
-      [W('the neon dreams sign is lit, so launch is on. go.')],
-      [W('doors open, {cs}. i just polished that canopy.')],
-      [W('clear to launch. new struts on that ship. be kind to them.')],
+      [W('wombat to nightlight. you are off the pad. bring it back in one piece.')],
+      [W('the neon dreams sign is lit behind you. go get the rest.')],
+      [W('wombat here, {cs}. i just polished that canopy.')],
+      [W('wombat here. new struts on that ship. be kind to them.')],
     ],
   },
   brief: {
