@@ -397,7 +397,7 @@ onMounted(() => {
     scene, camera, glowTex, rng: Math.random,
     reduced: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
     touch: isTouch.value, laneX: 11, portrait: false, now: 0,
-    started: false, over: false, god: false, runs: 0, score: 0, mult: 1, killCount: 0, streakT: 0,
+    started: false, over: false, god: false, holdWings: false, runs: 0, score: 0, mult: 1, killCount: 0, streakT: 0,
     hp: HP_MAX, invulnUntil: 0, sector: 1, phase: 'travel' as SectorPhase, phaseT: 0, worldSpeed: 26, elapsed: 0, distance: 0,
     arsenal: createArsenal(), shake: 0, flash: 0, flashColor: P.hot as string,
     squadIds: squadFor(callsignFrom(readStoredPlayer()?.name)), bestBefore: 0,

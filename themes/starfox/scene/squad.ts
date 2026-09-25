@@ -69,6 +69,7 @@ const CALLOUT_GAP = 2.6
 const WING_SCALE = 0.72
 const WING_Z_SHIFT = -3
 const WING_X_SCALE = 1.3
+const HUNT_Z = -16
 
 /** The formation slot in the scene: the WINGMEN slot spread a little wider and never behind the lead. */
 function slotX(p: WingProfile) { return p.slot.x * WING_X_SCALE }
@@ -83,6 +84,7 @@ export function createSquad(ctx: Ctx): Squad {
   const inputs: SquadMember[] = []
   const avoid = { x: 0, y: 0 }
   const ev = new THREE.Vector3()
+  const loc = { x: 0, y: 0, z: 0 }
   const hud: SquadHud[] = []
   let hudDirty = true
   let lastCallout = -10
@@ -232,7 +234,9 @@ export function createSquad(ctx: Ctx): Squad {
         let tx = step.tx
         let ty = step.ty
         let rate = turnRate(m.ai, step.mode)
+        // Hunting, a wingman pushes ahead: small on screen, not parked between the camera and its target.
         let tz = slotZ(m.prof)
+        if (step.mode === 'hunt' && m.ai.targetId !== null && ctx.enemies.locate(m.ai.targetId, loc)) tz = clamp(loc.z + 10, HUNT_Z, tz)
         if (m.trouble) {
           tx = m.tx
           ty = m.ty
@@ -259,7 +263,7 @@ export function createSquad(ctx: Ctx): Squad {
         ev.copy(m.model.engine)
         bank.localToWorld(ev)
         m.trail.update(dt, ev.x, ev.y, ev.z, ctx.worldSpeed * 0.6)
-        if (live(ctx) && !m.trouble) {
+        if (live(ctx) && !m.trouble && !ctx.holdWings) {
           m.fireT += dt
           const iv = m.prof.fireInterval / wingMul
           if (m.fireT >= iv) {

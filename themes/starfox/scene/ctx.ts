@@ -103,6 +103,8 @@ export interface Ctx {
   started: boolean
   over: boolean
   god: boolean
+  /** Debug: the wingmen hold their fire (screenshots of live enemies). */
+  holdWings: boolean
   /** Runs started this page load (1 on the first). */
   runs: number
   score: number

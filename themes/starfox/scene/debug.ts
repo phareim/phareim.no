@@ -2,11 +2,11 @@
  * `?theme=starfox&debug=starfox` puts levers on `window.__starfox` for
  * screenshots and checks (only with that query parameter):
  *   sector(n)   jump to absolute sector n (starts a run if needed; sets the biome)
- *   boss()      skip to the boss fight of this sector
+ *   boss()      skip to the boss fight of this sector; boss(true) finishes it
  *   give(type)  a capsule effect now: laser bomb shield wing overdrive, or gold / ring
  *   spawn(kind) one enemy of any kind a little ahead (formation for drone)
  *   setPiece(id) rings turrets carrier ambush dingo flyby duel final
- *   god(on)     no damage to the player
+ *   god(on)     no damage to the player;  hold(on)  the wingmen hold fire
  *   state()     phase, sector, hull, arsenal, squad, counts, fps and frame ms
  */
 import { ENEMY_KINDS, laneY, type EnemyKind } from '../balance'
@@ -18,7 +18,8 @@ export interface FrameStats { fps: number; frameMs: number; workMs: number }
 export function installDebug(ctx: Ctx, stats: FrameStats): () => void {
   const api = {
     sector(n: number) { ctx.run.jump(n); return api.state() },
-    boss() {
+    boss(finish = false) {
+      if (finish) { ctx.boss.finish(); return 'finish' }
       if (!live(ctx)) ctx.run.start()
       ctx.enemies.clear()
       ctx.phase = 'warning'
@@ -51,6 +52,7 @@ export function installDebug(ctx: Ctx, stats: FrameStats): () => void {
     },
     setPiece(id: string) { return ctx.enc.force(id) },
     god(on = true) { ctx.god = !!on; return ctx.god },
+    hold(on = true) { ctx.holdWings = !!on; return ctx.holdWings },
     state() {
       const sq = ctx.squad.members.map(m => ({ id: m.id, hp: Math.ceil(m.hp), alive: m.alive, trouble: m.trouble, x: +m.x.toFixed(1), y: +m.y.toFixed(1), z: +m.z.toFixed(1) }))
       const rival = ctx.enemies.list.find(e => e.active && e.kind === 'rival')

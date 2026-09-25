@@ -28,6 +28,8 @@ export interface DreadBoss {
   touching(x: number, y: number, z: number, r: number): boolean
   lights(add: (x: number, y: number, z: number, r: number, color: string, a: number) => void): void
   readonly name: string
+  /** Debug: the core takes whatever hull it has left. */
+  finish(): void
 }
 
 const BOSS_Z = -60
@@ -130,6 +132,7 @@ export function createBoss(ctx: Ctx): DreadBoss {
 
   const boss: DreadBoss = {
     name: BOSS_NAME,
+    finish() { damage(hp) },
     get active() { return active },
     get dying() { return deathT >= 0 },
     start() {
