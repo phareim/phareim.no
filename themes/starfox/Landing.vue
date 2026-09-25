@@ -274,7 +274,7 @@ function onGameRestart() {
   position: fixed;
   left: 0;
   right: 0;
-  top: max(128px, 15vh);
+  top: max(150px, 19vh); /* below the intercom box (Claude's hello on the title screen) */
   text-align: center;
   pointer-events: none;
   z-index: 3;
