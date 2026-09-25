@@ -1,32 +1,26 @@
 <template>
-  <!-- Owns the page: the world ranking over the Neon Dreams horizon. One
-       game at a time; up/down walks the games, left/right still walks the
-       themes, so nothing here locks the shell's navigation. -->
+  <!-- Owns the page: the world ranking in the shrine's hall of champions
+       (Neon Shrine's pixel look, 2026-09-25). One game at a time; up/down
+       walks the games, and nothing here locks the shell's navigation. -->
   <div ref="landing" class="lb-landing">
-    <Horizon />
+    <Hall />
 
-    <p class="lb-hud lb-hud--left">HALL OF FAME</p>
-    <p class="lb-hud lb-hud--right">PHAREIM.NO</p>
+    <p class="lb-hud px-text">HALL OF FAME</p>
 
-    <section ref="panel" class="lb-panel" aria-live="polite">
-      <span class="lb-tick lb-tick--tl" aria-hidden="true" />
-      <span class="lb-tick lb-tick--tr" aria-hidden="true" />
-      <span class="lb-tick lb-tick--bl" aria-hidden="true" />
-      <span class="lb-tick lb-tick--br" aria-hidden="true" />
-
+    <section ref="panel" class="lb-panel px-box" aria-live="polite">
       <header class="lb-head">
-        <p class="lb-over">WORLD RANKING · {{ pad(index + 1) }} / {{ pad(GAMES.length) }}</p>
+        <p class="lb-over"><span class="lb-over-wide">WORLD RANKING</span><span class="lb-over-narrow">HALL OF FAME</span> {{ pad(index + 1) }}/{{ pad(GAMES.length) }}</p>
         <div class="lb-title-row">
-          <button class="lb-step" aria-label="Previous game" @click="step(-1)">▲</button>
+          <button class="lb-step px-btn px-btn--pink" aria-label="Previous game" @click="step(-1)">▲</button>
           <Transition name="lb-fade" mode="out-in">
             <h1 :key="game.id" class="lb-title">{{ game.title }}</h1>
           </Transition>
-          <button class="lb-step" aria-label="Next game" @click="step(1)">▼</button>
+          <button class="lb-step px-btn px-btn--pink" aria-label="Next game" @click="step(1)">▼</button>
         </div>
         <p class="lb-tagline">{{ game.tagline }}</p>
       </header>
 
-      <Transition name="lb-fade" mode="out-in">
+      <Transition name="lb-fade" mode="out-in" @after-enter="fit">
         <div :key="game.id" ref="boardEl" class="lb-board">
           <ol v-if="visible.length" class="lb-rows">
             <li
@@ -36,29 +30,25 @@
               :class="{ 'lb-row--me': row.playerId === player?.id, 'lb-row--podium': row.rank <= 3 }"
             >
               <span class="lb-rank">{{ pad(row.rank) }}</span>
-              <span class="lb-avatar" aria-hidden="true">
-                <img v-if="row.avatar" :src="row.avatar" alt="" loading="lazy" decoding="async">
-              </span>
-              <span class="lb-name">{{ row.name.toUpperCase() }}</span>
+              <span class="lb-avatar"><PixelAvatar :src="row.avatar" /></span>
+              <span class="lb-name">{{ clip(row.name, row.playerId === player?.id ? meChars : nameChars) }}</span>
               <span class="lb-you" aria-hidden="true">◀ YOU</span>
               <span class="lb-score">{{ fmt(row.score) }}</span>
             </li>
             <li v-if="gapBeforeMe" class="lb-row lb-row--gap" aria-hidden="true">· · ·</li>
             <li v-if="meOutside" class="lb-row lb-row--me">
               <span class="lb-rank">{{ pad(meOutside.rank) }}</span>
-              <span class="lb-avatar" aria-hidden="true">
-                <img v-if="meOutside.avatar" :src="meOutside.avatar" alt="" loading="lazy" decoding="async">
-              </span>
-              <span class="lb-name">{{ meOutside.name.toUpperCase() }}</span>
+              <span class="lb-avatar"><PixelAvatar :src="meOutside.avatar" /></span>
+              <span class="lb-name">{{ clip(meOutside.name, meChars) }}</span>
               <span class="lb-you" aria-hidden="true">◀ YOU</span>
               <span class="lb-score">{{ fmt(meOutside.score) }}</span>
             </li>
           </ol>
-          <p v-else-if="status === 'loading'" class="lb-empty">SYNCING…</p>
+          <p v-else-if="status === 'loading'" class="lb-empty">SYNCING...</p>
           <p v-else-if="status === 'error'" class="lb-empty">OFFLINE<br><span>THE BOARD DID NOT ANSWER</span></p>
           <p v-else class="lb-empty">NO SCORES YET<br><span>BE THE FIRST</span></p>
           <p v-if="status === 'ready' && board && board.total > 0 && !board.me" class="lb-nudge">
-            NO RUN YET · PLAY {{ game.title.toUpperCase() }} TO ENTER
+            NO RUN YET · PLAY {{ game.title.toUpperCase() }}
           </p>
           <p v-else-if="board?.me" class="lb-nudge">
             RANK {{ board.me.rank }} OF {{ board.total }} · BEST {{ fmt(board.me.score) }}
@@ -71,10 +61,10 @@
       <footer class="lb-footer">
         <span class="lb-footer-label">YOU ARE</span>
         <span class="lb-footer-who">
-          <span class="lb-avatar lb-avatar--me" :class="{ 'lb-avatar--pending': player && !avatar }" aria-hidden="true">
-            <img v-if="avatar" :src="avatar" alt="" decoding="async">
+          <span class="lb-avatar lb-avatar--me" :class="{ 'lb-avatar--pending': player && !avatar }">
+            <PixelAvatar :src="avatar" :n="16" />
           </span>
-          <span class="lb-footer-name">{{ player ? player.name.toUpperCase() : '· · ·' }}</span>
+          <span ref="footName" class="lb-footer-name">{{ player ? clip(player.name, footChars) : '· · ·' }}</span>
         </span>
       </footer>
     </section>
@@ -83,7 +73,7 @@
       <button
         v-for="(g, i) in GAMES"
         :key="g.id"
-        class="lb-rail-dot"
+        class="lb-rail-pip"
         :class="{ active: i === index }"
         :title="g.title"
         :aria-label="g.title"
@@ -92,12 +82,13 @@
       />
     </nav>
 
-    <p class="lb-hint">{{ hint('↑ ↓ MORE GAMES · ESC PORTAL', 'SWIPE ↕ GAMES · ⌂ PORTAL') }}</p>
+    <p class="lb-hint px-text">{{ hint('↑↓ MORE GAMES · ESC PORTAL', 'SWIPE ↑↓ GAMES · ⌂ PORTAL') }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import Horizon from './Horizon.vue'
+import Hall from './Hall.vue'
+import PixelAvatar from './PixelAvatar.vue'
 import { GAMES, TOP_N, type BoardRow, type GameBoard } from './games'
 
 const { hint } = useInputMode()
@@ -106,6 +97,7 @@ const { player, avatar, fetchBoards } = useLeaderboard()
 const landing = ref<HTMLElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
 const boardEl = ref<HTMLElement | null>(null)
+const footName = ref<HTMLElement | null>(null)
 
 const index = ref(0)
 const game = computed(() => GAMES[index.value])
@@ -117,7 +109,7 @@ const board = computed(() => boards.value?.[game.value.id] ?? null)
 
 /** How many rows fit in the space the viewport leaves the board. */
 const rowsFit = ref(TOP_N)
-const ROW_PX = 30
+const ROW_PX = 32
 const MIN_ROWS = 3
 
 const meOutside = computed<BoardRow | null>(() => {
@@ -136,6 +128,26 @@ const visibleCount = computed(() => {
 
 const visible = computed(() => board.value?.top.slice(0, visibleCount.value) ?? [])
 const gapBeforeMe = computed(() => !!meOutside.value && meOutside.value.rank > visibleCount.value + 1)
+
+/**
+ * Names are up to 20 letters; the pixel font cannot ellipsize mid-glyph, so
+ * a name that does not fit its column is cut at a whole letter and ends in
+ * a dot. The column widths do not depend on the text (see fit()).
+ */
+const nameChars = ref(20)
+const meChars = ref(20)
+const footChars = ref(20)
+
+function clip(name: string, max: number): string {
+  const n = name.toUpperCase()
+  return n.length <= max ? n : n.slice(0, Math.max(1, max - 1)).trimEnd() + '.'
+}
+
+/** Whole pixel-font letters that fit an element's width (advance 0.75 em). */
+function charsIn(el: Element | null | undefined): number | null {
+  if (!(el instanceof HTMLElement) || !el.clientWidth) return null
+  return Math.max(4, Math.floor(el.clientWidth / (parseFloat(getComputedStyle(el).fontSize) * 0.75)))
+}
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -192,8 +204,13 @@ function fit(): void {
   const cs = getComputedStyle(l)
   const available = l.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
   const chrome = p.offsetHeight - b.offsetHeight
-  const nudge = 28 // the line under the rows
+  const nudge = 32 // the line under the rows
   rowsFit.value = Math.max(MIN_ROWS, Math.min(TOP_N, Math.floor((available - chrome - nudge) / ROW_PX)))
+  nextTick(() => {
+    nameChars.value = charsIn(boardEl.value?.querySelector('.lb-row:not(.lb-row--me):not(.lb-row--gap) .lb-name')) ?? nameChars.value
+    meChars.value = charsIn(boardEl.value?.querySelector('.lb-row--me .lb-name')) ?? meChars.value
+    footChars.value = charsIn(footName.value) ?? footChars.value
+  })
 }
 
 // --- input: up/down walks the games; left/right is the shell's -------------
@@ -263,6 +280,7 @@ watch(index, () => nextTick(fit))
 
 <style scoped>
 .lb-landing {
+  --lb-shadow: 2px 2px 0 #0b0616;
   position: relative;
   width: 100vw;
   height: var(--app-height, 100dvh);
@@ -274,123 +292,88 @@ watch(index, () => nextTick(fit))
   box-sizing: border-box;
 }
 
-/* The machine speaks: mono, uppercase, tracked. */
+/* Everything speaks in Neon Shrine's 5×7 letters, in 8 px steps. */
+.lb-panel,
 .lb-hud,
-.lb-over,
-.lb-title,
-.lb-tagline,
-.lb-rows,
-.lb-empty,
-.lb-nudge,
-.lb-footer,
-.lb-step,
 .lb-hint {
-  font-family: var(--font-machine);
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  letter-spacing: 0;
   text-transform: uppercase;
-  letter-spacing: .15em;
+  -webkit-font-smoothing: none;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .lb-hud {
   position: absolute;
   z-index: 2;
   top: 16px;
+  left: 16px;
   margin: 0;
-  font-size: 10.4px;
-  color: var(--lb-text-subtle);
+  color: var(--lb-gold);
+  text-shadow: var(--lb-shadow);
 }
 
-.lb-hud--left { left: 18px; }
-.lb-hud--right { right: 18px; }
-
-/* Blueprint panel, as in the Hangar. */
+/* Neon Shrine's dialog box (pixel.css .px-box). */
 .lb-panel {
-  position: relative;
   z-index: 2;
-  width: min(460px, 100%);
+  width: min(480px, 100%);
   max-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 20px 22px 16px;
+  padding: 18px 16px 14px;
   box-sizing: border-box;
-  background: var(--lb-card-bg);
-  border: 1px solid rgba(47, 243, 255, .28);
-  border-radius: 4px;
-  box-shadow: 0 0 24px var(--lb-card-shadow);
+  color: var(--lb-text);
 }
-
-.lb-tick {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  border: 0 solid var(--lb-accent);
-  opacity: .8;
-}
-
-.lb-tick--tl { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
-.lb-tick--tr { top: -1px; right: -1px; border-top-width: 2px; border-right-width: 2px; }
-.lb-tick--bl { bottom: -1px; left: -1px; border-bottom-width: 2px; border-left-width: 2px; }
-.lb-tick--br { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
 
 .lb-head { text-align: center; }
 
 .lb-over {
-  margin: 0 0 6px;
-  font-size: 10.4px;
+  margin: 0 0 8px;
   color: var(--lb-text-subtle);
 }
 
 .lb-title-row {
   display: grid;
-  grid-template-columns: 36px 1fr 36px;
+  grid-template-columns: 32px 1fr 32px;
   align-items: center;
+  column-gap: 8px;
 }
 
 .lb-title {
   margin: 0;
-  font-size: 26px;
+  font-size: 32px;
   font-weight: 400;
-  line-height: 1.15;
+  line-height: 1;
   color: var(--lb-accent);
-  text-shadow: 0 0 8px rgba(47, 243, 255, .65), 0 0 24px rgba(255, 47, 160, .35);
-  letter-spacing: .12em;
+  text-shadow: 4px 4px 0 #0b0616;
+  white-space: nowrap;
 }
 
 .lb-step {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   padding: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  color: var(--lb-pink);
-  font-size: 12px;
-  cursor: pointer;
-  text-shadow: 0 0 10px rgba(255, 47, 160, .6);
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color 120ms ease, background-color 120ms ease;
+  display: grid;
+  place-items: center;
 }
 
-.lb-step:hover,
-.lb-step:focus-visible {
-  border-color: rgba(255, 47, 160, .4);
-  background: rgba(255, 47, 160, .1);
-  outline: none;
-}
+.lb-over-narrow { display: none; }
 
 .lb-tagline {
-  margin: 4px 0 0;
-  font-size: 10.4px;
-  color: var(--lb-text-subtle);
-  letter-spacing: .12em;
+  margin: 10px 0 0;
+  line-height: 1.25;
+  color: var(--lb-text-muted);
 }
 
-/* The board: a rule above, rows in three columns, a rule below. */
+/* The board between two violet pixel rules. */
 .lb-board {
   min-height: 0;
-  margin: 12px 0 10px;
-  padding: 8px 0 0;
-  border-top: 1px solid rgba(255, 47, 160, .25);
-  border-bottom: 1px solid rgba(255, 47, 160, .25);
+  margin: 14px 0 12px;
+  padding: 6px 0 0;
+  border-top: 2px solid #54259e;
+  border-bottom: 2px solid #54259e;
 }
 
 .lb-rows {
@@ -401,124 +384,90 @@ watch(index, () => nextTick(fit))
 
 .lb-row {
   display: grid;
-  grid-template-columns: 30px 20px 1fr auto auto;
+  grid-template-columns: 32px 24px 1fr auto auto;
   align-items: center;
   column-gap: 10px;
-  height: 30px;
+  height: 32px;
   padding: 0 8px;
   box-sizing: border-box;
-  font-size: 12px;
-  border: 1px solid transparent;
-  border-radius: 3px;
   white-space: nowrap;
 }
 
-.lb-rank {
-  color: var(--lb-text-subtle);
-  font-variant-numeric: tabular-nums;
-}
+.lb-rank { color: var(--lb-text-subtle); }
 
 .lb-row--podium .lb-rank {
   color: var(--lb-gold);
-  text-shadow: 0 0 8px rgba(255, 210, 63, .6);
+  text-shadow: var(--lb-shadow);
 }
 
 .lb-name {
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   color: var(--lb-text);
+  text-shadow: var(--lb-shadow);
 }
 
-/* The pilot: a small dim disc beside the name — the row's colour, not its
-   subject. Full strength only on your own row and under the pointer. */
+/* The pilot on the pixel grid: 12×12 painting pixels at 2 CSS px each,
+   inside a one-pixel edge (2 CSS px, like the font's pixels). */
 .lb-avatar {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 1px solid rgba(47, 243, 255, .22);
-  background: rgba(47, 243, 255, .05);
-  overflow: hidden;
-  opacity: .55;
-  transition: opacity 160ms ease, box-shadow 160ms ease;
-}
-
-.lb-avatar img {
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: 24px;
+  height: 24px;
+  box-shadow: 0 0 0 2px #2a1f4a;
+  background: #140b26;
 }
 
-.lb-row:hover .lb-avatar { opacity: 1; }
-
-.lb-row--podium .lb-avatar { border-color: rgba(255, 210, 63, .45); }
+.lb-row--podium .lb-avatar { box-shadow: 0 0 0 2px #c4861c; }
 
 .lb-row--me .lb-avatar,
-.lb-avatar--me {
-  opacity: 1;
-  border-color: rgba(255, 47, 160, .7);
-  box-shadow: 0 0 10px rgba(255, 47, 160, .45);
-}
+.lb-avatar--me { box-shadow: 0 0 0 2px var(--lb-pink); }
 
 .lb-you {
   display: none;
-  font-size: 9.6px;
   color: var(--lb-pink);
-  letter-spacing: .12em;
 }
 
 .lb-score {
   color: var(--lb-accent);
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 8px rgba(47, 243, 255, .45);
+  text-shadow: var(--lb-shadow);
 }
 
-/* You: the pink row. */
+/* You: the pink row, a small dialog box of its own. */
 .lb-row--me {
-  border-color: rgba(255, 47, 160, .55);
-  background: rgba(255, 47, 160, .1);
-  box-shadow: 0 0 14px rgba(255, 47, 160, .25), inset 0 0 12px rgba(255, 47, 160, .08);
+  margin: 4px 2px;
+  background: rgba(255, 47, 160, .16);
+  box-shadow: 0 -2px 0 0 var(--lb-pink), 0 2px 0 0 var(--lb-pink), -2px 0 0 0 var(--lb-pink), 2px 0 0 0 var(--lb-pink);
+  height: 28px;
 }
 
-.lb-row--me .lb-name {
-  color: var(--lb-pink);
-  text-shadow: 0 0 8px rgba(255, 47, 160, .6);
-}
-
+.lb-row--me .lb-name { color: var(--lb-pink); }
 .lb-row--me .lb-you { display: inline; }
 
 .lb-row--gap {
-  justify-content: center;
   grid-template-columns: 1fr;
   text-align: center;
   color: var(--lb-text-subtle);
-  height: 30px;
 }
 
 .lb-empty {
   margin: 0;
-  min-height: 90px;
+  min-height: 96px;
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 12px;
   text-align: center;
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--lb-text-muted);
+  color: var(--lb-text);
+  text-shadow: var(--lb-shadow);
 }
 
-.lb-empty span {
-  font-size: 10.4px;
-  color: var(--lb-text-subtle);
-}
+.lb-empty span { color: var(--lb-pink); }
 
 .lb-nudge {
-  margin: 8px 0 6px;
+  margin: 8px 0 8px;
   text-align: center;
-  font-size: 9.6px;
-  line-height: 1.4;
+  line-height: 1.25;
   color: var(--lb-text-subtle);
-  letter-spacing: .12em;
 }
 
 /* Footer: who this browser is. */
@@ -526,8 +475,7 @@ watch(index, () => nextTick(fit))
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
-  column-gap: 12px;
-  font-size: 10.4px;
+  column-gap: 14px;
 }
 
 .lb-footer-label { color: var(--lb-text-subtle); }
@@ -535,22 +483,21 @@ watch(index, () => nextTick(fit))
 .lb-footer-who {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   min-width: 0;
 }
 
 .lb-avatar--me {
   flex: none;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
 }
 
-/* Painting in progress: a slow pink breath until the picture lands. */
-.lb-avatar--pending { animation: lb-breathe 2.4s ease-in-out infinite; }
+/* Painting in progress: the edge blinks, stepped, until the picture lands. */
+.lb-avatar--pending { animation: lb-blink 1.2s steps(1) infinite; }
 
-@keyframes lb-breathe {
-  0%, 100% { box-shadow: 0 0 4px rgba(255, 47, 160, .2); }
-  50% { box-shadow: 0 0 12px rgba(255, 47, 160, .6); }
+@keyframes lb-blink {
+  50% { box-shadow: 0 0 0 2px #54259e; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -558,55 +505,52 @@ watch(index, () => nextTick(fit))
 }
 
 .lb-footer-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
   color: var(--lb-pink);
-  text-shadow: 0 0 8px rgba(255, 47, 160, .6);
+  text-shadow: var(--lb-shadow);
 }
 
-/* The game rail: one dot per game, beside the panel. */
+/* The game rail: one square pip per game, beside the panel. */
 .lb-rail {
   position: absolute;
   z-index: 2;
-  right: 5.5rem;
+  right: 24px;
   top: 50%;
   transform: translateY(-50%);
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
-.lb-rail-dot {
-  width: 8px;
-  height: 8px;
+.lb-rail-pip {
+  width: 16px;
+  height: 16px;
   padding: 0;
-  border-radius: 50%;
-  border: 1px solid var(--lb-text-subtle);
-  background: transparent;
+  border: 0;
+  border-radius: 0;
+  background: #2a1f4a;
+  box-shadow: inset 0 0 0 2px #0b0616;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background-color 120ms ease, box-shadow 120ms ease;
 }
 
-.lb-rail-dot.active {
-  border-color: var(--lb-accent);
-  background: var(--lb-accent);
-  box-shadow: 0 0 8px rgba(47, 243, 255, .8);
-}
+.lb-rail-pip:hover,
+.lb-rail-pip:focus-visible { outline: none; background: #54259e; }
+
+.lb-rail-pip.active { background: var(--lb-accent); }
 
 .lb-hint {
   position: absolute;
   z-index: 2;
   left: 0;
   right: 0;
-  bottom: calc(42px + var(--app-safe-bottom, 0px));
+  bottom: calc(40px + var(--app-safe-bottom, 0px));
   margin: 0;
   text-align: center;
-  font-size: 11.2px;
-  letter-spacing: .12em;
-  color: var(--lb-text-subtle);
-  text-shadow: 0 0 10px rgba(255, 47, 160, .6);
+  color: var(--lb-pink);
+  text-shadow: var(--lb-shadow);
 }
 
 /* The switch between games is the site's 180 ms fade, nothing more. */
@@ -615,44 +559,44 @@ watch(index, () => nextTick(fit))
 .lb-fade-enter-from,
 .lb-fade-leave-to { opacity: 0; }
 
-/* Wide screens: the panel sits left of centre so the striped sun reads. */
+/* Wide screens: the panel sits left, the statue and its arch on the right. */
 @media (min-width: 900px) and (min-height: 620px) {
   .lb-landing {
     justify-items: start;
-    padding-left: clamp(48px, 10vw, 160px);
+    padding-left: clamp(48px, 9vw, 150px);
   }
-  .lb-rail { right: auto; left: calc(clamp(48px, 10vw, 160px) + min(460px, 100%) + 18px); }
+  .lb-rail { right: auto; left: calc(clamp(48px, 9vw, 150px) + min(480px, 100%) + 20px); }
 }
 
-/* Phones: the dots rail and hint go. */
+/* Phones and short screens: no rail, no hint; the title steps down. */
 @media (max-width: 640px), (max-height: 700px) {
-  .lb-landing { padding: 10px 46px calc(48px + var(--app-safe-bottom, 0px)); }
-  .lb-panel { padding: 14px 14px 12px; }
-  .lb-title { font-size: 22px; }
-  .lb-row { padding: 0 6px; column-gap: 8px; font-size: 11.2px; letter-spacing: .1em; grid-template-columns: 26px 18px 1fr auto auto; }
-  .lb-avatar { width: 18px; height: 18px; }
-  .lb-avatar--me { width: 22px; height: 22px; }
-  .lb-footer-name { letter-spacing: .1em; }
+  .lb-landing { padding: 56px 12px calc(56px + var(--app-safe-bottom, 0px)); }
+  .lb-panel { padding: 14px 12px 12px; }
+  .lb-hud { display: none; }
+  .lb-over-wide { display: none; }
+  .lb-over-narrow { display: inline; }
+  .lb-title-row { grid-template-columns: 24px 1fr 24px; }
+  .lb-step { width: 24px; height: 24px; }
+  .lb-title { font-size: 24px; text-shadow: 2px 2px 0 #0b0616; }
+  .lb-row { padding: 0 6px; column-gap: 8px; grid-template-columns: 24px 24px 1fr auto auto; }
   .lb-rail { display: none; }
   .lb-hint { display: none; }
 }
 
 @media (max-height: 560px) {
   .lb-hud { display: none; }
-  .lb-landing { padding: 8px 46px calc(26px + var(--app-safe-bottom, 0px)); }
-  .lb-panel { width: min(560px, 100%); }
+  /* Landscape phones: the panel keeps left of the radio (top-right). */
+  .lb-landing { justify-items: start; padding: 8px 12px calc(12px + var(--app-safe-bottom, 0px)); }
+  .lb-panel { width: min(560px, calc(100vw - 300px)); }
+  .lb-row .lb-you { display: none; }
   .lb-over, .lb-tagline { display: none; }
   .lb-board { margin: 8px 0 6px; padding-top: 4px; }
   .lb-nudge { margin: 4px 0 2px; }
 }
 
-/* Narrow phones: the pink row says "you" on its own. */
-@media (max-width: 420px) {
+/* Narrow phones: the pink row says "you" on its own; long titles step down. */
+@media (max-width: 460px) {
   .lb-row .lb-you { display: none; }
-  .lb-row { letter-spacing: .08em; }
 }
 
-@media (max-width: 380px) {
-  .lb-title { font-size: 19px; }
-}
 </style>

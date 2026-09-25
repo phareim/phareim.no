@@ -2,11 +2,30 @@
 
 `?theme=leaderboard` is a live theme, reached from the board in the portal's arcade: the
 world ranking of the seven score games (Galaga, Breakout, R-Type, Space
-Invaders, Star Fox, OutRun, Tetris; Another Shore has no score) in one blueprint
-panel over the shared horizon, sun pushed right. Up/down
-arrows, PageUp/Down, the mouse wheel, a vertical swipe, the ▲▼ buttons or
-the dot rail beside the panel walk the games; the switch is the site's
-180 ms fade. Escape or the ⌂ chip goes back to the portal.
+Invaders, Star Fox, OutRun, Tetris; Another Shore has no score) in one panel.
+Up/down arrows, PageUp/Down, the mouse wheel, a vertical swipe, the ▲▼
+buttons or the square pips beside the panel walk the games; the switch is
+the site's 180 ms fade. Escape or the ⌂ chip goes back to the portal.
+
+**Look (2026-09-25).** Neon Shrine's pixel look (`docs/games/pixel-look.md`).
+The backdrop (`Hall.vue`, scene in `themes/leaderboard/pixel.ts`) is the
+shrine's hall of champions at night on the pixel stage: a brick wall whose
+top sinks into the dark, tall arched windows onto the dusk, the striped sun
+low in the big arch, pillars with pink neon strips and torches, crown
+banners, trophies (cups, a crown, crystals) on pedestals, and under the
+big arch a stone statue of the hero raising a crystal blade between two
+crystal braziers, a rose carpet running from it to the viewer. Torches,
+braziers and trophies light the hall through the light map; flames,
+embers, the blade's shimmer and trophy glints move. The arch sits right of
+centre on wide screens (the panel is on the left) and in the middle on
+phones, where the statue stands on a low plinth under the panel. Reduced
+motion draws one frame.
+
+The panel is Neon Shrine's dialog box (`.px-box` in `pixel.css`); all text
+is the pixel font at 16 px (titles 32 px, 24 px on phones). Cyan is the
+interface, gold the podium, pink you. Names are cut at a whole letter and
+end in a dot when their column is too narrow (the widest name is 20
+letters). Landscape phones keep the panel left of the radio.
 
 **Players.** A player is a UUID plus a generated name kept in localStorage
 (`phareim.player`), so the same person on a phone, in Chrome and in Safari
@@ -49,9 +68,10 @@ or made for another name, so pre-avatar players catch up on their next
 visit. Guards in the store: `claimAvatar` takes one painting per name, at
 most `AVATAR_MAX_GENS` (6) per player, and not twice within three minutes;
 wave-jobs adds a daily cap. ≈$0.02–0.06 per painting, ~35–45 s. On the
-board the pilot is a 20 px disc between rank and name at 55 % opacity — full
-strength on your row, under the pointer, and beside YOU ARE in the footer,
-where it breathes pink while a painting is pending; the theme refetches the
+board the pilot is pixel art (`PixelAvatar.vue`): the painting shrunk into
+12×12 pixels (16×16 beside YOU ARE in the footer) and shown at 2 CSS px per
+pixel with a one-pixel edge, gold on the podium, pink on your row. The
+footer's edge blinks while a painting is pending; the theme refetches the
 board once or twice at 45 s while its own picture is missing. `nuxi dev`
 has no key, so avatars stay null there. **REROLL is gone from the footer
 since 2026-09-08** — a new name costs a painting; `useLeaderboard.reroll`

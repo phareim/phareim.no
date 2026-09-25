@@ -1,10 +1,10 @@
-/* Hall of Fame — the world ranking, on the Neon Dreams contract like
-   the Hangar: cyan is the interface, pink is you, gold is the podium. */
+/* Hall of Fame — the world ranking in Neon Shrine's pixel look: cyan is
+   the interface, pink is you, gold is the podium. */
 :root {
   --lb-bg: #0b0616;
   --lb-text: #f2e9ff;
   --lb-text-muted: #b9a8d9;
-  --lb-text-subtle: #7a6a9a;
+  --lb-text-subtle: #8f86b8;
   --lb-card-bg: rgba(11, 6, 22, .78);
   --lb-card-border: rgba(255, 47, 160, .35);
   --lb-card-shadow: rgba(47, 243, 255, .15);
@@ -23,7 +23,7 @@
   --theme-card-bg: var(--lb-card-bg);
   --theme-card-border: var(--lb-card-border);
   --theme-card-shadow: var(--lb-card-shadow);
-  --theme-card-radius: 12px;
+  --theme-card-radius: 0;
   --theme-accent: var(--lb-accent);
   --theme-font-body: var(--font-person);
 }
