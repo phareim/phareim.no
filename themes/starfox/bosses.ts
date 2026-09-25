@@ -18,7 +18,7 @@
 
 import type { BossId } from './ids.ts'
 import { loopOf } from './ids.ts'
-import { LANE, LANES, SHIP_RADIUS, WINGMEN, loopTempo, type EnemyKind, type WingId } from './balance.ts'
+import { LANE, LANES, SHIP_RADIUS, WINGMEN, laneOf, loopTempo, type EnemyKind, type WingId } from './balance.ts'
 
 export type BossPartRole = 'core' | 'claw' | 'panel' | 'knee' | 'twin' | 'turret' | 'eye' | 'heart'
 
@@ -153,7 +153,7 @@ export const BOSS_DEFS: Readonly<Record<BossId, BossDef>> = {
   // (use `twinsPhase`, the bar can't tell which twin fell).
   twins: {
     id: 'twins',
-    parkZ: -60,
+    parkZ: -52,
     entranceSpeed: 60,
     parts: [P('twin', 78, 2, true, true, 'lit', 1500)],
     phaseAt: [],
@@ -553,4 +553,161 @@ export const CROWN_CHASE = { fleeZ: -95, speedMul: 1.25, debrisEvery: 0.9, rearM
 /** The safe band above a stomp wave — exported for the tests' sake. */
 export function furnaceSafeBand(): number {
   return LANE.yHi - (FURNACE_WAVE.groundY + FURNACE_WAVE.height + SHIP_RADIUS)
+}
+
+// ---- the fight in play: the wheel clock, the bar, lane helpers ------------------
+// Pure pieces of scene/boss.ts, here so tests/starfox-bosses.test.mjs can
+// pin them (2026-09-25).
+
+export type WheelStage = 'telegraph' | 'active' | 'recover'
+export type ClockEvent = 'begin' | 'active' | 'recover' | null
+
+/** The attack wheel as a clock: telegraph → active → recover → next. */
+export interface BossClock {
+  /** wheel position for `nextBossAttack` */
+  step: number
+  /** the running attack; null before the first */
+  attack: BossAttackDef | null
+  stage: WheelStage
+  /** seconds into the current stage */
+  t: number
+  /** length of the current stage */
+  dur: number
+  /** seconds since the running attack's telegraph began */
+  atkT: number
+  /** seconds the wheel is frozen (the Furnace kneeling) */
+  stun: number
+  timing: { telegraph: number; active: number; recover: number }
+}
+
+/** A clock whose first attack begins after `firstDelay` s. */
+export function createBossClock(firstDelay = 1.2): BossClock {
+  return { step: 0, attack: null, stage: 'recover', t: 0, dur: firstDelay, atkT: 0, stun: 0, timing: { telegraph: 0, active: 0, recover: firstDelay } }
+}
+
+/** Advance the clock; returns the stage the wheel just entered, if any.
+ * The next attack is picked for the phase at the moment it begins. */
+export function tickBossClock(
+  c: BossClock, id: BossId, dt: number, phase: number, sector: number, enraged: boolean,
+): ClockEvent {
+  if (c.stun > 0) {
+    c.stun = Math.max(0, c.stun - dt)
+    return null
+  }
+  c.t += dt
+  if (c.attack) c.atkT += dt
+  if (c.t < c.dur) return null
+  c.t = Math.min(c.t - c.dur, 0.25)
+  if (c.attack && c.stage === 'telegraph') {
+    c.stage = 'active'
+    c.dur = c.timing.active
+    return 'active'
+  }
+  if (c.attack && c.stage === 'active') {
+    c.stage = 'recover'
+    c.dur = c.timing.recover
+    return 'recover'
+  }
+  const n = nextBossAttack(id, c.step, phase)
+  c.step = n.step
+  c.attack = n.attack
+  c.atkT = c.t
+  const tm = bossTiming(n.attack, sector, enraged, id)
+  c.timing.telegraph = tm.telegraph
+  c.timing.active = tm.active
+  c.timing.recover = tm.recover
+  c.stage = 'telegraph'
+  c.dur = tm.telegraph
+  return 'begin'
+}
+
+/** Freeze the wheel for `s` s and drop the running attack; the next one
+ * begins after the stun plus a short breath. */
+export function stunBossClock(c: BossClock, s: number): void {
+  c.stun = Math.max(c.stun, s)
+  c.attack = null
+  c.stage = 'recover'
+  c.t = 0
+  c.dur = 0.6
+  c.atkT = 0
+}
+
+/** One live part's bookkeeping, as far as the bar cares. */
+export interface BarPart { hp: number; inBar: boolean; fatal: boolean }
+
+/** The order parts give up HP when the bar is set by hand (the debug
+ * hook): the breakable in-bar parts first, then the fatal ones, each
+ * group in part order. Parts outside the bar never drain. */
+export function drainOrder(parts: readonly BarPart[]): number[] {
+  const out: number[] = []
+  for (let i = 0; i < parts.length; i++) if (parts[i]!.inBar && !parts[i]!.fatal) out.push(i)
+  for (let i = 0; i < parts.length; i++) if (parts[i]!.inBar && parts[i]!.fatal) out.push(i)
+  return out
+}
+
+/** New HP per part so the bar holds `target` (clamped to 0…current),
+ * drained in `drainOrder`. */
+export function drainTo(parts: readonly BarPart[], target: number): number[] {
+  const hp = parts.map(p => p.hp)
+  let bar = 0
+  for (const p of parts) if (p.inBar) bar += p.hp
+  let take = Math.max(0, bar - Math.max(0, target))
+  for (const i of drainOrder(parts)) {
+    if (take <= 0) break
+    const d = Math.min(hp[i]!, take)
+    hp[i]! -= d
+    take -= d
+  }
+  return hp
+}
+
+/** Lane (0–4) of a world x at a corridor half-width. */
+export function laneAt(x: number, halfWidth: number): number {
+  return laneOf(x / Math.max(1e-6, halfWidth))
+}
+
+/** Float lane position (0 = left edge's centre … 4) of a world x. */
+export function laneFloat(x: number, halfWidth: number): number {
+  const u = (Math.max(-1, Math.min(1, x / Math.max(1e-6, halfWidth))) + 1) / 2
+  return u * LANES - 0.5
+}
+
+/** World x of a lane's centre. */
+export function laneX(lane: number, halfWidth: number): number {
+  return (-1 + (2 * (lane + 0.5)) / LANES) * halfWidth
+}
+
+/** Does the eye beam (centre at float lane `beam`) touch a ship at float
+ * lane `ship`? The ship's radius is counted in lanes at that width. */
+export function crownBeamHits(beam: number, ship: number, halfWidth: number): boolean {
+  const shipLanes = SHIP_RADIUS / ((2 * halfWidth) / LANES)
+  return Math.abs(beam - ship) < CROWN_BEAM.width / 2 + shipLanes * 0.6
+}
+
+/** Which way the beam sweeps: it starts on the ship's side of the
+ * corridor, so the ship outruns it toward the far side. */
+export function crownBeamFromLeft(shipLane: number): boolean {
+  return shipLane < (LANES - 1) / 2
+}
+
+/** Phase-3 rear mines: `mines` mines in distinct lanes, never all five;
+ * the open lane walks with `step`. */
+export function crownRearMineLanes(step: number, mines = 4): boolean[] {
+  const n = Math.max(0, Math.min(LANES - 1, Math.floor(mines)))
+  const gap = ((Math.floor(step) * 3 + 2) % LANES + LANES) % LANES
+  const row = new Array<boolean>(LANES).fill(false)
+  for (let k = 1; k <= n; k++) row[(gap + k) % LANES] = true
+  return row
+}
+
+/** Twins' crossing wall: does it cover the ship at world x? A wall covers
+ * every lane but `gap`; the ship is safe while its hull is inside the gap
+ * lane (a little grace at the edges). */
+export function twinsWallHits(gap: number, x: number, halfWidth: number): boolean {
+  const w = (2 * halfWidth) / LANES
+  const cx = laneX(gap, halfWidth)
+  // the edge lanes run on past the corridor's edge
+  if (gap === 0 && x < cx) return false
+  if (gap === LANES - 1 && x > cx) return false
+  return Math.abs(x - cx) > w / 2 - SHIP_RADIUS * 0.35
 }

@@ -17,14 +17,10 @@
  * turret, missile), display names, per-kind behaviour as data, lane
  * helpers for fairness checks, per-sector pick tables with ECHO loops.
  * The five sector bosses live in bosses.ts, power-ups in arsenal.ts, the
- * scripted travel in encounters.ts. The DREADNOUGHT block below stays
- * until Flight.vue moves to bosses.ts.
+ * scripted travel in encounters.ts.
  */
 
 import { loopOf, sectorIndex } from './ids.ts'
-
-/** Display name of the sector boss. */
-export const BOSS_NAME = 'DREADNOUGHT'
 
 /** Full health. Damage and healing below are tuned against this. */
 export const HP_MAX = 100
@@ -86,51 +82,6 @@ export function advanceSector(phase: SectorPhase, phaseT: number): SectorPhase {
   if (phase === 'clear' && phaseT >= CLEAR_TIME) return 'travel'
   return phase
 }
-
-/** Boss core hits to kill: 55 on sector 1, +20 per sector after.
- * Retuned 2026-09-08 for the wingman (allied DPS ≈ +60 % of a level-1
- * player): the extra 15 base + 5/sector over the old 40 + 15 keeps
- * time-to-kill roughly flat while the fiercer wheel (below) makes the
- * fight itself harder. */
-export function bossMaxHp(sector: number): number {
-  return 55 + 20 * (Math.max(1, Math.floor(sector)) - 1)
-}
-
-/** Seconds between boss attacks: fiercer every sector. */
-export function bossAttackInterval(sector: number): number {
-  const s = Math.max(1, Math.floor(sector))
-  return s >= 3 ? 1.15 : s >= 2 ? 1.35 : 1.6
-}
-
-/** Enrage multiplier on the attack clock below 30 % core health. */
-export const BOSS_ENRAGE_RATE = 1.5
-
-/** Bolts in the boss spread fan per sector. */
-export function bossFanCount(sector: number): number {
-  const s = Math.max(1, Math.floor(sector))
-  return s >= 3 ? 9 : s >= 2 ? 7 : 5
-}
-
-/** Full width of the spread fan (lateral direction units). */
-export function bossFanSpread(sector: number): number {
-  const s = Math.max(1, Math.floor(sector))
-  return s >= 3 ? 1.0 : s >= 2 ? 0.85 : 0.7
-}
-
-/** Minion screen per sector: pairs of [kind, lateral offset]. */
-export function bossMinions(sector: number): { kind: EnemyKind; dx: number }[] {
-  const s = Math.max(1, Math.floor(sector))
-  const out: { kind: EnemyKind; dx: number }[] = [
-    { kind: 'drone', dx: -6 },
-    { kind: 'drone', dx: 6 },
-  ]
-  if (s >= 2) out.push({ kind: 'weaver', dx: -9 }, { kind: 'sniper', dx: 9 })
-  if (s >= 3) out.push({ kind: 'bulwark', dx: 0 }, { kind: 'kamikaze', dx: -3 })
-  return out
-}
-
-/** Steps in the boss attack wheel: aimed → fan → minions → mine-seed. */
-export const BOSS_WHEEL_LEN = 4
 
 /** Sector backdrop palette: mountains, grid and fog shift per sector. */
 export interface SectorPalette {

@@ -2,11 +2,10 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
-  HP_MAX, DMG, HEAL_RING, HEAL_CLEAR, BOSS_NAME,
+  HP_MAX, DMG, HEAL_RING, HEAL_CLEAR,
   TRAVEL_TIME, WARNING_TIME, CLEAR_TIME,
-  bossMaxHp, sectorClearBonus, enemyFireInterval, boltSpeedBonus,
-  bossAttackInterval, BOSS_ENRAGE_RATE, bossFanCount, bossFanSpread,
-  bossMinions, sectorPalette, BOSS_WHEEL_LEN,
+  sectorClearBonus, enemyFireInterval, boltSpeedBonus,
+  sectorPalette,
   enemyShootChance, formationSize, pickEnemyKind, worldSpeedFor,
   spawnPace, applyDamage, heal, advanceSector,
   ENEMY_STATS, BUDDY_HP, BUDDY_RESPAWN, BUDDY_INVULN, BUDDY_FIRE_INTERVAL, BUDDY_AGGRO,
@@ -112,41 +111,6 @@ describe('Star Fox enemies', () => {
     }
     assert.ok(ENEMY_STATS.bulwark.score > ENEMY_STATS.drone.score)
     assert.equal(ENEMY_STATS.mite.score, 50)
-  })
-})
-
-describe('Star Fox boss', () => {
-  it('has a name and 55 core hits, +20 per sector', () => {
-    assert.equal(BOSS_NAME, 'DREADNOUGHT')
-    assert.equal(bossMaxHp(1), 55)
-    assert.equal(bossMaxHp(2), 75)
-    assert.equal(bossMaxHp(4), 115)
-  })
-
-  it('runs a 4-step attack wheel', () => {
-    assert.equal(BOSS_WHEEL_LEN, 4)
-  })
-
-  it('attacks faster on later sectors, enraged below 30 %', () => {
-    assert.ok(bossAttackInterval(2) < bossAttackInterval(1))
-    assert.ok(bossAttackInterval(3) <= bossAttackInterval(2))
-    assert.ok(bossAttackInterval(1) <= 1.6)
-    assert.ok(BOSS_ENRAGE_RATE > 1)
-  })
-
-  it('throws wider fans on later sectors', () => {
-    assert.ok(bossFanCount(2) > bossFanCount(1))
-    assert.ok(bossFanCount(3) >= bossFanCount(2))
-    assert.ok(bossFanSpread(3) >= bossFanSpread(1))
-  })
-
-  it('brings deadlier minion screens on later sectors', () => {
-    assert.equal(bossMinions(1).length, 2)
-    assert.ok(bossMinions(2).length > 2)
-    assert.ok(bossMinions(2).some(m => m.kind === 'sniper'))
-    assert.ok(bossMinions(2).some(m => m.kind === 'weaver'))
-    assert.ok(bossMinions(3).some(m => m.kind === 'kamikaze'))
-    assert.ok(bossMinions(3).some(m => m.kind === 'bulwark'))
   })
 })
 

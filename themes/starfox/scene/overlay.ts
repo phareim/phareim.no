@@ -110,6 +110,8 @@ export function createOverlay(ctx: Ctx, stage: PixelStage): Overlay {
         if (e.role === 2) tag(p, 'COBRA', P.lime, pulse)
         else corners(g, p.x * kx, p.y * ky, p.r * kx + 1, P.hot)
       }
+      // Boss telegraphs and open weak points (scene/boss.ts).
+      ctx.boss.hud(stage)
       // The charge lock.
       const id = ctx.player.lockId
       if (id !== 0 && ctx.enemies.locate(id, loc) && projectTo(p, cam, stage.vw, stage.vh, loc.x, loc.y, loc.z, 1.6, 4, 40)) {

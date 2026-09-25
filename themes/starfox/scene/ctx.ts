@@ -31,7 +31,7 @@ import type { Player } from './player'
 import type { Squad } from './squad'
 import type { Enemies } from './enemies'
 import type { Pickups } from './pickups'
-import type { DreadBoss } from './boss'
+import type { Boss } from './boss'
 import type { StoryGlue } from './storyGlue'
 import type { Encounters } from './encounter'
 import type { SetPieces } from './setpieces'
@@ -137,7 +137,7 @@ export interface Ctx {
   squad: Squad
   enemies: Enemies
   pickups: Pickups
-  boss: DreadBoss
+  boss: Boss
   story: StoryGlue
   enc: Encounters
   sets: SetPieces

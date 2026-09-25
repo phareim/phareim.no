@@ -9,7 +9,7 @@ import {
 } from '../balance'
 import { createArsenal, newSector, shieldUp, tickArsenal } from '../arsenal'
 import { biomeOf, sectorIndex } from '../ids'
-import { callsignFrom, sectorFor, sectorVars, squadFor, survivorsText } from '../story'
+import { bossDownCues, callsignFrom, sectorFor, sectorVars, squadFor, survivorsText } from '../story'
 import { readStoredPlayer } from '~/composables/useLeaderboard'
 import { addScore, breakStreak, live, resetScoreSent, type ArsenalHud, type Ctx, type DeathSummary } from './ctx'
 
@@ -34,6 +34,8 @@ interface SoundLike {
 }
 
 const WARP_LEAD = 1.0
+/** CLEAR after the first Crown: long enough for the ending exchange. */
+const ENDING_CLEAR_TIME = 11
 
 export function createRun(ctx: Ctx, sound: SoundLike): Run {
   const tick = { shieldDown: false, overdriveEnd: false, wingOdEnd: false }
@@ -158,7 +160,7 @@ export function createRun(ctx: Ctx, sound: SoundLike): Run {
       const warpBoost = ctx.env.warp * 70
       if (ctx.over) ctx.worldSpeed += (14 - ctx.worldSpeed) * Math.min(1, dt * 2)
       else if (demo) ctx.worldSpeed += (26 - ctx.worldSpeed) * Math.min(1, dt * 2)
-      else if (ctx.phase === 'boss') ctx.worldSpeed += (16 - ctx.worldSpeed) * Math.min(1, dt * 2)
+      else if (ctx.phase === 'boss') ctx.worldSpeed += (16 * ctx.boss.speedMul - ctx.worldSpeed) * Math.min(1, dt * 2)
       else ctx.worldSpeed = worldSpeedFor(ctx.elapsed, ctx.sector) + warpBoost
       if (ctx.over && !deathEmitted && ctx.now >= deathAt && summary) {
         deathEmitted = true
@@ -173,8 +175,10 @@ export function createRun(ctx: Ctx, sound: SoundLike): Run {
         ctx.boss.start()
         ctx.out.sector(ctx.sector, 'boss')
       } else if (ctx.phase === 'clear') {
-        if (!warped && ctx.phaseT >= CLEAR_TIME - WARP_LEAD) { warped = true; ctx.env.warpIn() }
-        if (ctx.phaseT >= CLEAR_TIME) enterSector(ctx.sector + 1)
+        // the first Crown kill holds CLEAR while the ending is said
+        const clearTime = ctx.sector === 5 ? ENDING_CLEAR_TIME : CLEAR_TIME
+        if (!warped && ctx.phaseT >= clearTime - WARP_LEAD) { warped = true; ctx.env.warpIn() }
+        if (ctx.phaseT >= clearTime) enterSector(ctx.sector + 1)
       }
       ctx.distance += ctx.worldSpeed * dt
       const km = Math.floor(ctx.distance / 100)
@@ -197,6 +201,8 @@ export function createRun(ctx: Ctx, sound: SoundLike): Run {
       ctx.phase = 'warning'
       ctx.phaseT = 0
       ctx.out.sector(ctx.sector, 'warning')
+      // the banner names the boss that is coming
+      ctx.out.boss(0, 0, false, sectorFor(ctx.sector - 1).bossName)
     },
     bossDown() {
       if (!live(ctx)) return
@@ -207,7 +213,7 @@ export function createRun(ctx: Ctx, sound: SoundLike): Run {
       ctx.phaseT = 0
       warped = false
       ctx.out.sector(ctx.sector, 'clear')
-      ctx.story.cue(sectorIndex(ctx.sector) === 4 ? 'ending' : 'clear', sectorVars(ctx.sector - 1))
+      for (const k of bossDownCues(ctx.sector - 1)) ctx.story.cue(k, sectorVars(ctx.sector - 1))
     },
     jump(sector) {
       if (!live(ctx)) run.start()

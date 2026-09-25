@@ -2,7 +2,9 @@
  * `?theme=starfox&debug=starfox` puts levers on `window.__starfox` for
  * screenshots and checks (only with that query parameter):
  *   sector(n)   jump to absolute sector n (starts a run if needed; sets the biome)
- *   boss()      skip to the boss fight of this sector; boss(true) finishes it
+ *   boss(id?)   skip to the boss fight: this sector's, or pincer moth furnace
+ *               twins crown (jumps to that sector in this loop); boss(true) finishes it
+ *   bossPhase(n) drain the bar to phase n;  bossHp(frac)  drain it to a fraction
  *   give(type)  a capsule effect now: laser bomb shield wing overdrive, or gold / ring
  *   spawn(kind) one enemy of any kind a little ahead (formation for drone)
  *   setPiece(id) rings turrets carrier ambush dingo flyby duel final
@@ -11,6 +13,7 @@
  */
 import { ENEMY_KINDS, laneY, type EnemyKind } from '../balance'
 import { CAPSULE_TYPES, type CapsuleType } from '../arsenal'
+import { BOSSES, absoluteSector, bossOf, loopOf, type BossId } from '../ids'
 import { SPAWN_Z, live, type Ctx } from './ctx'
 
 export interface FrameStats {
@@ -27,14 +30,24 @@ export function installDebug(ctx: Ctx, stats: FrameStats): () => void {
     /** The scene context, for profiling in the console. */
     ctx,
     sector(n: number) { ctx.run.jump(n); return api.state() },
-    boss(finish = false) {
-      if (finish) { ctx.boss.finish(); return 'finish' }
+    boss(arg: boolean | string = false) {
+      if (arg === true) { ctx.boss.finish(); return 'finish' }
       if (!live(ctx)) ctx.run.start()
+      const id = typeof arg === 'string' ? arg as BossId : null
+      if (id && !BOSSES.includes(id)) return `unknown: ${BOSSES.join(' ')}`
+      if (id && bossOf(ctx.sector) !== id) ctx.run.jump(absoluteSector(BOSSES.indexOf(id), loopOf(ctx.sector)))
+      ctx.boss.clear()
+      ctx.sets.clear()
       ctx.enemies.clear()
-      ctx.phase = 'warning'
+      ctx.phase = 'travel'
+      ctx.run.warning()
       ctx.phaseT = 99
-      return 'boss'
+      return id ?? bossOf(ctx.sector)
     },
+    /** Drain the boss bar to the start of phase n. */
+    bossPhase(n: number) { return ctx.boss.setPhase(Math.floor(n)) },
+    /** Drain the boss bar to a fraction of its length. */
+    bossHp(frac: number) { return ctx.boss.setHp(frac) },
     give(type: string) {
       if (!live(ctx)) return 'no run'
       if ((CAPSULE_TYPES as readonly string[]).includes(type)) {
@@ -73,7 +86,7 @@ export function installDebug(ctx: Ctx, stats: FrameStats): () => void {
         hp: ctx.hp, score: ctx.score, bombs: ctx.arsenal.bombs, laser: ctx.arsenal.laser, shield: ctx.arsenal.shieldHp,
         overdrive: +ctx.arsenal.overdriveT.toFixed(1), wingOd: +ctx.arsenal.wingOdT.toFixed(1), charge: ctx.player.charge, lock: ctx.player.lockId,
         squad: sq, enemies: ctx.enemies.count, kinds, kills: { ...ctx.enemies.kills }, rival: rival ? { x: +rival.x.toFixed(1), y: +rival.y.toFixed(1), z: +rival.z.toFixed(1), hp: rival.hp } : null, bolts: ctx.shots.bolts, lasers: ctx.shots.lasers, pickups: ctx.pickups.count,
-        mines: ctx.obstacles.mines, boss: ctx.boss.active, speed: +ctx.worldSpeed.toFixed(1), warp: +ctx.env.warp.toFixed(2),
+        mines: ctx.obstacles.mines, boss: ctx.boss.state(), speed: +ctx.worldSpeed.toFixed(1), warp: +ctx.env.warp.toFixed(2),
         line: ctx.story.director.spoken?.text ?? null,
         fps: +stats.fps.toFixed(1), frameMs: +stats.frameMs.toFixed(1), workMs: +stats.workMs.toFixed(1),
         updateMs: +stats.updateMs.toFixed(1), renderMs: +stats.renderMs.toFixed(1), stageMs: +stats.stageMs.toFixed(1), readMs: +stats.readMs.toFixed(1), calls: stats.calls, tris: stats.tris, lights: stats.lights,

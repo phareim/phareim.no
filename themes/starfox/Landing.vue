@@ -120,7 +120,7 @@
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
 import SoundToggle from '~/themes/base/SoundToggle.vue'
-import { BOSS_NAME, sectorClearBonus, HEAL_CLEAR, type SectorPhase } from './balance'
+import { sectorClearBonus, HEAL_CLEAR, type SectorPhase } from './balance'
 import { laserName } from './arsenal'
 import { PILOTS, SECTORS, callsignFrom, rosterFor, type PilotId } from './story'
 import { readStoredPlayer } from '~/composables/useLeaderboard'
@@ -148,7 +148,7 @@ const phase = ref<SectorPhase>('travel')
 const bossHp = ref(0)
 const bossMax = ref(0)
 const bossActive = ref(false)
-const bossName = ref(BOSS_NAME)
+const bossName = ref('')
 const squad = ref<SquadHud[]>([])
 const kit = ref<ArsenalHud>({ laser: 1, bombs: 3, charge: 0, shield: 0, overdrive: 0, wingOd: 0 })
 const intercom = ref<IntercomView | null>(null)
@@ -206,7 +206,7 @@ const hpClass = computed(() => {
 const banner = computed(() => {
   if (!gameStarted.value || gameOver.value) return ''
   if (msg.alert) return msg.alert
-  if (phase.value === 'warning') return `! ${BOSS_NAME} APPROACHING !`
+  if (phase.value === 'warning') return bossName.value ? `! ${bossName.value} APPROACHING !` : '! WARNING !'
   if (phase.value === 'clear') return `SECTOR ${pad(sector.value)} CLEAR · +${sectorClearBonus(sector.value)} · +${HEAL_CLEAR} HULL`
   return ''
 })

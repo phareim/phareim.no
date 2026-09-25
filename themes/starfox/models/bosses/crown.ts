@@ -8,8 +8,10 @@
  * 16.4 tall with side blades to x ≈ ±13.4 (≈ 27 across), crown tips up to
  * y ≈ 14; face at z ≈ 2; turret ring radius 4.8 (turrets at 30° + k·60°,
  * spinning about Z); the eye at (0, 0, 2.4), hit radius 2.4.
- * Phase 3 loosens the plates and heats the engines; the chase itself
- * (turning the root, moving it away) is the integrator's.
+ * Phase 3 loosens the plates, heats the engines and bares the heart, a
+ * gold reactor between the engines at (0, 0, −5.6), hit radius 1.9 — it
+ * faces the player once the root turns round for the chase (the scene
+ * turns and moves the root).
  */
 import * as THREE from 'three'
 import { P, geo, glowMat, light, mesh, ringZ, type ModelLight } from '../core'
@@ -106,6 +108,15 @@ function hullGeos() {
       beam(g, [0, 0, 1.2], [0, 0, 2.9], 0.34, 0.3, 4)
     }),
     muzzle: geo('crown:muzzle', g => g.box(0, 0, 3.0, 0.62, 0.62, 0.3)),
+    heart: geo('crown:heart', (g) => {
+      g.add(new THREE.OctahedronGeometry(1.35), new THREE.Matrix4().makeScale(1, 1.25, 0.8))
+    }),
+    cage: geo('crown:cage', (g) => {
+      for (let i = 0; i < 4; i++) {
+        const a = Math.PI / 4 + (i * Math.PI) / 2
+        beam(g, [Math.cos(a) * 1.9, Math.sin(a) * 1.9, 0.8], [Math.cos(a) * 1.5, Math.sin(a) * 1.5, -1.2], 0.22, 0.18, 4)
+      }
+    }),
     lid: geo('crown:lid', (g) => {
       const half: P2[] = [[3.45, 0]]
       for (let i = 1; i < 8; i++) {
@@ -149,6 +160,16 @@ export function createCrown(): CrownModel {
   for (const x of [-6, 0, 6]) k.lights.push(light(body, x * 1.02, RY * Math.sqrt(1 - (x / RX) ** 2) + 0.5, 1.1, 0.8, P.hot, 0.55))
   const eyePart = k.add({ id: 'eye', kind: 'core', node: eyeNode, x: 0, y: 0, z: 2.4, r: 2.4, open: false, lights: [eyeLight] })
 
+  // The heart: a reactor between the engines, caged until phase 3.
+  const heartNode = new THREE.Group()
+  heartNode.position.set(0, 0, -5.6)
+  body.add(heartNode)
+  const heartMesh = mesh(g.heart, glowMat(P.gold), heartNode)
+  mesh(g.cage, bossMat(P.stoneDark, P.ink), heartNode)
+  const heartLight = light(heartNode, 0, 0, -0.6, 2.6, P.gold, 0.2)
+  k.lights.push(heartLight)
+  const heartPart = k.add({ id: 'heart', kind: 'core', node: heartNode, x: 0, y: 0, z: -0.4, r: 1.9, open: false, lights: [heartLight] })
+
   // The turret ring.
   const ring = new THREE.Group()
   ring.position.set(0, 0, 2.3)
@@ -184,6 +205,9 @@ export function createCrown(): CrownModel {
   function phase(n: 1 | 2 | 3) {
     phaseN = n
     engineLight.a = n === 3 ? 0.9 : 0.35
+    heartPart.open = heartPart.alive && n === 3
+    heartLight.a = n === 3 ? 0.9 : 0.2
+    heartMesh.scale.setScalar(n === 3 ? 1 : 0.6)
     if (n < 3) for (const p of plates) { p.node.position.copy(p.rest); p.node.rotation.set(0, 0, 0) }
   }
   function eye(open: number) {
@@ -218,6 +242,8 @@ export function createCrown(): CrownModel {
           p.node.rotation.set(Math.sin(t * 5 + p.seed) * 0.12, Math.cos(t * 4 + p.seed) * 0.12, 0)
         }
         engineLight.a = 0.8 + 0.2 * Math.sin(t * 20)
+        heartMesh.rotation.z = t * 2.2
+        heartMesh.scale.setScalar(1 + 0.1 * Math.sin(t * 9))
       }
       eyeNode.rotation.z = Math.sin(t * 0.9) * 0.15 * eyeOpen
     },

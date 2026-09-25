@@ -91,10 +91,10 @@ export interface TwinsModel extends BossModel {
   lit(which: 0 | 1 | null): void
 }
 
-/** THE HOLLOW CROWN — the mothership. Parts: 'turret-0'…'turret-5' (the ring), 'hull-0'…'hull-3' (plates shed in phase 3); core: 'eye'. */
+/** THE HOLLOW CROWN — the mothership. Parts: 'turret-0'…'turret-5' (the ring), 'hull-0'…'hull-3' (plates shed in phase 3); cores: 'eye' (phase 2), 'heart' (at the back, bared in phase 3). */
 export interface CrownModel extends BossModel {
   id: 'crown'
-  /** 1 turret ring, 2 eye fight, 3 the run (plates loose, engines hot). */
+  /** 1 turret ring, 2 eye fight, 3 the run (plates loose, engines hot, the heart open). */
   phase(n: 1 | 2 | 3): void
   /** The eye's lids: 0 shut, 1 open (the core's `open`). */
   eye(open: number): void
