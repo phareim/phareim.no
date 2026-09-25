@@ -6,9 +6,9 @@
     aria-label="Back to the portal"
     @click="goHome"
   >
-    <!-- ⌂ drawn as strokes, so it glows in any font. -->
-    <svg class="theme-home__glyph" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3.5 11.5 12 4l8.5 7.5M6.5 9.5V20h11V9.5M10 20v-5.5h4V20" />
+    <!-- ⌂ as a pixel sprite (a house with a door), crisp at any scale. -->
+    <svg class="theme-home__glyph" viewBox="0 0 9 8" shape-rendering="crispEdges" aria-hidden="true">
+      <path d="M4 0h1v1h1v1h1v1h1v1h1v1H8v3H5V5H4v3H1V5H0V4h1V3h1V2h1V1h1z" />
     </svg>
   </button>
 </template>
@@ -25,14 +25,15 @@ const { isHome, goHome, navigationBlocked } = useTheme()
 <style scoped>
 /* Bottom-right: the one corner no game uses (radio top-right, sound toggle
    bottom-left, titles and labels top-left; checked at 375×667 and 1280×800,
-   2026-09-24). Gone while a game owns the controls. */
+   2026-09-24). Gone while a game owns the controls. The house is a 9×8 pixel
+   sprite at 3 CSS px per pixel with the pixel look's hard shadow. */
 .theme-home {
   position: fixed;
   z-index: 50;
   right: max(0.5rem, env(safe-area-inset-right));
   bottom: calc(max(0.9rem, var(--app-safe-bottom, 0px)) - 0.45rem);
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
   display: grid;
   place-items: center;
   color: var(--theme-accent, currentColor);
@@ -45,29 +46,18 @@ const { isHome, goHome, navigationBlocked } = useTheme()
 }
 
 .theme-home__glyph {
-  width: 1.35rem;
-  height: 1.35rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  opacity: 0.7;
-  filter:
-    drop-shadow(0 0 3px color-mix(in srgb, var(--theme-accent, #fff) 90%, transparent))
-    drop-shadow(0 0 10px color-mix(in srgb, var(--theme-accent, #fff) 55%, transparent));
-  transition: opacity 0.25s ease, filter 0.25s ease, color 0.25s ease;
+  width: 27px;
+  height: 24px;
+  fill: currentColor;
+  opacity: 0.8;
+  filter: drop-shadow(3px 3px 0 #0b0616);
 }
 
 .theme-home:hover .theme-home__glyph,
 .theme-home:focus-visible .theme-home__glyph,
 .theme-home:active .theme-home__glyph {
   opacity: 1;
-  color: #fff;
-  filter:
-    drop-shadow(0 0 4px color-mix(in srgb, var(--theme-accent, #fff) 95%, transparent))
-    drop-shadow(0 0 14px color-mix(in srgb, var(--theme-accent, #fff) 80%, transparent))
-    drop-shadow(0 0 30px color-mix(in srgb, var(--theme-accent, #fff) 50%, transparent));
+  color: #f2e9ff;
 }
 
 .theme-home:focus-visible { outline: none; }

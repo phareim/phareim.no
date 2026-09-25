@@ -2,26 +2,18 @@
   <div :class="[themePageClass, 'error-root']">
     <component :is="theme.backdrop" v-if="theme.backdrop" />
 
-    <!-- The portal and every neon game without a block of its own: one terminal block.
-      A 404 has no ?theme, so it is usually the portal's. -->
-    <div v-if="terminal" class="error-container term-container-inner">
-      <p class="term-prompt">$ navigate --path {{ requestedPath }}</p>
-      <p class="term-err">
-        <span class="term-err-code">404</span>
-        <span class="term-err-msg">FILE_NOT_FOUND</span>
-      </p>
-      <p class="term-prompt term-dim">$ the requested page does not exist in this system</p>
-      <div class="term-prompt term-cmd-row">
-        <button class="term-cmd-btn" @click="goHome">$ return --home<span class="cursor">_</span></button>
+    <!-- The portal and every live game: the road out of town ends at a
+      signpost (LostScene, on the pixel stage) and Neon Shrine's dialog box
+      says so. A 404 has no ?theme, so it is usually the portal's. -->
+    <template v-if="pixel">
+      <LostScene />
+      <div class="error-container lost-box px-box" role="alert">
+        <h1 class="lost-title">404</h1>
+        <p class="lost-line">NO ROAD TO <span class="lost-path">{{ requestedPath }}</span></p>
+        <p class="lost-line lost-dim">THE PATH ENDS HERE.</p>
+        <button class="px-btn lost-btn" @click="goHome">▶ BACK TO TOWN</button>
       </div>
-    </div>
-
-    <div v-else-if="activeTheme === 'anotherworld'" class="error-container shore-error">
-      <p class="shore-coordinate">404 / BEYOND THE SHORE</p>
-      <h1>No path through here.</h1>
-      <p>This part of the coast is uncharted.</p>
-      <button @click="goHome">← Return to shore</button>
-    </div>
+    </template>
 
     <!-- Another Shore II: a frame with nothing in it -->
     <div v-else-if="activeTheme === 'shore'" class="error-container shore2-error">
@@ -54,26 +46,6 @@
       </div>
     </div>
 
-    <!-- Tetris theme -->
-    <div v-else-if="activeTheme === 'tetris'" class="error-container tetris-container-inner">
-      <p class="tetris-404-num">404</p>
-      <div class="tetris-cell-row" aria-hidden="true">
-        <span class="tetris-cell"></span>
-        <span class="tetris-cell"></span>
-        <span class="tetris-cell"></span>
-        <span class="tetris-cell"></span>
-        <span class="tetris-cell"></span>
-        <span class="tetris-cell"></span>
-        <span class="tetris-cell"></span>
-        <span class="tetris-cell tetris-cell-missing"></span>
-        <span class="tetris-cell"></span>
-        <span class="tetris-cell"></span>
-      </div>
-      <h1 class="tetris-title">GAME OVER</h1>
-      <p class="tetris-msg"><em>{{ requestedPath }}</em> never stacked here</p>
-      <button class="tetris-home-btn" @click="goHome">[ PRESS START ]</button>
-    </div>
-
     <!-- Scandinavian Glass (parked) -->
     <div v-else class="error-container scandi-container-inner">
       <p class="scandi-404-num">404</p>
@@ -92,9 +64,9 @@ const props = defineProps({
 
 const { theme, activeTheme, themePageClass } = useTheme()
 
-/** Themes with their own 404 block; everything else gets the terminal. */
-const OWN_BLOCK = ['anotherworld', 'shore', 'space', 'desk', 'tetris', 'scandi']
-const terminal = computed(() => !OWN_BLOCK.includes(activeTheme.value))
+/** The parked themes keep their own 404 blocks; everything else gets the pixel one. */
+const OWN_BLOCK = ['shore', 'space', 'desk', 'scandi']
+const pixel = computed(() => !OWN_BLOCK.includes(activeTheme.value))
 
 const requestedPath = computed(() => {
   if (props.error?.url) {
@@ -113,11 +85,6 @@ useHead({ title: '404 — phareim.no' })
 
 
 <style scoped>
-.shore-error { text-align: left; color: var(--theme-text); }
-.shore-coordinate { font: 0.75rem var(--font-machine); color: var(--theme-accent); }
-.shore-error h1 { font-weight: 300; font-size: clamp(2rem, 6vw, 3.5rem); }
-.shore-error button { background: transparent; color: var(--theme-accent); border: 0; border-bottom: 1px solid currentColor; padding: 0.75rem 0; font: inherit; cursor: pointer; }
-.shore-error button:focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 5px; }
 .shore2-error { text-align: left; color: var(--theme-text); }
 .shore2-chapter { font: 11px var(--font-machine); letter-spacing: 0.28em; text-transform: uppercase; color: var(--theme-accent); margin: 0 0 8px; }
 .shore2-error h1 { font-weight: 300; font-size: clamp(2rem, 6vw, 3.5rem); margin: 0 0 0.5rem; }
@@ -126,6 +93,7 @@ useHead({ title: '404 — phareim.no' })
 .shore2-error button:focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 5px; }
 /* ---- Root ---- */
 .error-root {
+  position: relative;
   min-height: 100vh;
   min-height: var(--app-height, 100dvh);
   display: flex;
@@ -217,100 +185,41 @@ useHead({ title: '404 — phareim.no' })
   50% { transform: translateY(-10px); }
 }
 
-/* ---- Terminal 404 (the portal and the neon games) ---- */
-.term-container-inner {
-  text-align: left;
-  font-family: var(--font-machine);
-  padding: 2rem;
+/* ---- Pixel 404 (the portal and the live games) ---- */
+/* The box sits in the sky, so the path and its sign show below it. */
+.error-root:has(.lost-box) {
+  align-items: flex-start;
+  padding-top: max(12vh, 64px);
+  box-sizing: border-box;
 }
 
-.term-prompt {
-  color: var(--theme-text, #00ff41);
-  font-family: var(--font-machine);
-  font-size: 0.9rem;
-  margin: 0.4rem 0;
-  letter-spacing: 0.05em;
-  animation: term-type-in 0.3s steps(20) forwards;
-  opacity: 0;
+.lost-box {
+  z-index: 1;
+  width: min(360px, calc(100vw - 40px));
+  box-sizing: border-box;
+  padding: 20px 20px 18px;
+  text-align: center;
+  color: #f2e9ff;
+  text-shadow: 2px 2px 0 #0b0616;
 }
 
-.term-prompt:nth-child(1) { animation-delay: 0.1s; }
-.term-prompt:nth-child(2) { animation-delay: 0.5s; }
-.term-prompt:nth-child(3) { animation-delay: 0.9s; }
-.term-prompt:nth-child(4) { animation-delay: 1.3s; }
-
-@keyframes term-type-in {
-  from { opacity: 0; transform: translateX(-8px); }
-  to   { opacity: 1; transform: translateX(0); }
+.lost-title {
+  margin: 0 0 12px;
+  font: 400 64px/1 var(--font-pixel);
+  color: #ff2fa0;
+  text-shadow: 8px 8px 0 #0b0616;
 }
 
-.term-err {
-  display: flex;
-  align-items: baseline;
-  gap: 1rem;
-  margin: 1rem 0;
-  animation: term-type-in 0.3s steps(20) forwards;
-  animation-delay: 0.5s;
-  opacity: 0;
+.lost-line {
+  margin: 0 0 8px;
+  font-size: 16px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
 }
 
-.term-err-code {
-  font-size: clamp(3rem, 10vw, 6rem);
-  font-family: var(--font-machine);
-  color: var(--theme-accent, #00ff41);
-  text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
-  line-height: 1;
-  font-weight: bold;
-}
-
-.term-err-msg {
-  font-family: var(--font-machine);
-  font-size: 1rem;
-  color: var(--galaga-accent, #ff0055);
-  text-shadow: 0 0 10px currentColor;
-  letter-spacing: 0.1em;
-}
-
-.term-dim {
-  color: var(--theme-text-muted, #008F11);
-}
-
-.term-cmd-row {
-  margin-top: 1.5rem;
-}
-
-.term-cmd-btn {
-  background: transparent;
-  border: none;
-  color: var(--theme-text, #00ff41);
-  font-family: var(--font-machine);
-  font-size: 0.9rem;
-  cursor: pointer;
-  padding: 0;
-  letter-spacing: 0.05em;
-  text-shadow: 0 0 8px currentColor;
-  animation: none;
-  transition: text-shadow 0.2s;
-}
-
-.term-cmd-btn:hover {
-  text-shadow: 0 0 16px currentColor, 0 0 32px currentColor;
-}
-
-.term-cmd-btn:focus-visible {
-  outline: 1px solid var(--theme-text, #00ff41);
-  outline-offset: 4px;
-}
-
-.cursor {
-  display: inline-block;
-  animation: blink 1s step-end infinite;
-}
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
-}
+.lost-path { color: #2ff3ff; }
+.lost-dim { color: #b9a8d9; }
+.lost-btn { margin-top: 12px; }
 
 /* ---- Tufte Desk ---- */
 .desk-container-inner {
@@ -434,85 +343,4 @@ useHead({ title: '404 — phareim.no' })
   outline-offset: 4px;
 }
 
-/* ---- Tetris ---- */
-.tetris-container-inner {
-  text-align: center;
-}
-
-.tetris-404-num {
-  font-family: var(--font-machine);
-  font-size: clamp(3rem, 12vw, 6rem);
-  font-weight: 400;
-  line-height: 1;
-  margin: 0;
-  color: var(--theme-text, #F4F1FF);
-  letter-spacing: 0.15em;
-  text-shadow: 0 0 24px var(--theme-card-border);
-}
-
-.tetris-cell-row {
-  display: flex;
-  gap: 4px;
-  justify-content: center;
-  margin: 2rem 0;
-  flex-wrap: wrap;
-}
-
-.tetris-cell {
-  display: inline-block;
-  width: 24px;
-  height: 24px;
-  background: #ff2fa022;
-  border: 1px solid var(--tetris-pink);
-  box-shadow: 0 0 8px #ff2fa044;
-}
-
-.tetris-cell-missing {
-  background: transparent;
-  box-shadow: none;
-  border: 1px dashed rgba(244, 241, 255, 0.2);
-}
-
-.tetris-title {
-  font-family: var(--font-machine);
-  font-size: 0.875rem;
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  margin: 1rem 0;
-  color: var(--tetris-pink);
-  text-shadow: none;
-}
-
-.tetris-msg {
-  font-family: var(--font-person);
-  color: var(--theme-text-muted, #B4ADD9);
-  font-size: 0.9rem;
-  margin: 0 0 2.5rem;
-  line-height: 1.6;
-}
-
-.tetris-home-btn {
-  background: transparent;
-  border: 2px solid var(--theme-accent, #FFD500);
-  color: var(--theme-accent, #FFD500);
-  font-family: var(--font-machine);
-  font-size: 0.6875rem;
-  font-weight: 400;
-  cursor: pointer;
-  padding: 0.75rem 1.25rem;
-  letter-spacing: 0.15em;
-  transition: background-color 120ms, color 120ms;
-}
-
-.tetris-home-btn:hover {
-  background: var(--theme-accent, #FFD500);
-  color: var(--theme-bg, #15123A);
-  box-shadow: 0 0 24px var(--theme-card-shadow);
-}
-
-.tetris-home-btn:focus-visible {
-  outline: 2px solid var(--theme-accent);
-  outline-offset: 4px;
-}
 </style>

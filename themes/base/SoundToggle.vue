@@ -3,13 +3,13 @@
     canvas but below the pager (z-50), never intercepting game input except
     on itself. -->
   <button
-    class="sound-toggle"
+    class="sound-toggle px-btn"
     type="button"
     :aria-label="muted ? 'Turn sound on' : 'Turn sound off'"
     :title="muted ? 'SOUND OFF' : 'SOUND ON'"
     @click="toggleMute"
   >
-    {{ muted ? '🔇 OFF' : '🔊 ON' }}
+    {{ muted ? '♪ OFF' : '♪ ON' }}
   </button>
 </template>
 
@@ -20,26 +20,15 @@ const { muted, toggleMute } = useSound()
 </script>
 
 <style>
-.sound-toggle {
+/* A .px-btn (themes/base/pixel/pixel.css) in the theme's muted colour. */
+.sound-toggle.px-btn {
   position: fixed;
-  left: 12px;
-  bottom: calc(12px + var(--app-safe-bottom, 0px));
+  left: 14px;
+  bottom: calc(14px + var(--app-safe-bottom, 0px));
   z-index: 40;
-  font-family: var(--font-machine, monospace);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: var(--theme-text-muted, #b9a8d9);
-  background: transparent;
-  border: 1px solid var(--theme-card-border, rgba(255, 255, 255, 0.2));
-  border-radius: 999px;
-  padding: 4px 10px;
-  cursor: pointer;
-  opacity: 0.7;
+  --px-edge: var(--theme-text-muted, #b9a8d9);
+  opacity: 0.8;
 }
-.sound-toggle:hover,
-.sound-toggle:focus-visible {
-  opacity: 1;
-  outline: none;
-  border-color: var(--theme-accent, #2ff3ff);
-}
+.sound-toggle.px-btn:hover,
+.sound-toggle.px-btn:focus-visible { opacity: 1; }
 </style>

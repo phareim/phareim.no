@@ -1,5 +1,5 @@
 <template>
-  <div class="radio-widget" role="status" aria-label="Music radio">
+  <div class="radio-widget px-box" role="status" aria-label="Music radio">
     <button
       class="radio-widget__btn"
       :aria-label="muted ? 'Unmute radio' : 'Mute radio'"
@@ -11,7 +11,7 @@
       title="NEXT STATION [M]"
       aria-label="Next station"
       @click="next"
-    ><span class="radio-widget__dot" :class="{ off: muted }" aria-hidden="true" />{{ muted ? 'MUTED' : trackName }}</button>
+    ><span class="radio-widget__dot" :class="{ off: muted }" aria-hidden="true" /><span class="radio-widget__track">{{ muted ? 'MUTED' : trackName }}</span><span class="radio-widget__note" aria-hidden="true">♪</span></button>
     <span class="radio-widget__pos" aria-hidden="true">{{ stationPos }}</span>
   </div>
 </template>
@@ -58,27 +58,26 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* Neon Shrine's dialog box (.px-box in themes/base/pixel/pixel.css) in the
+   theme's accent, pixel font at 16 px; the live pip blinks in steps. */
 .radio-widget {
   position: fixed;
-  top: max(0.6rem, env(safe-area-inset-top));
-  right: 0.6rem;
+  top: max(12px, env(safe-area-inset-top));
+  right: 12px;
   z-index: 60;
+  --px-edge: color-mix(in srgb, var(--theme-accent, #2ff3ff) 70%, #0b0616);
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  max-width: min(62vw, 340px);
-  padding: 0.32rem 0.55rem;
-  font-family: var(--font-machine, monospace);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  gap: 8px;
+  max-width: min(60vw, 340px);
+  padding: 4px 10px 4px 6px;
+  font-size: 16px;
+  line-height: 20px;
   color: var(--theme-accent, #2ff3ff);
-  background: rgba(11, 6, 22, 0.62);
-  border: 1px solid color-mix(in srgb, var(--theme-accent, #ff2fa0) 35%, transparent);
-  border-radius: 4px;
+  text-shadow: 2px 2px 0 #0b0616;
   pointer-events: auto;
-  opacity: 0.9;
 }
+.radio-widget::before { display: none; }
 
 .radio-widget__btn,
 .radio-widget__name {
@@ -86,66 +85,77 @@ onBeforeUnmount(() => {
   border: none;
   color: inherit;
   font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
+  text-shadow: inherit;
   cursor: pointer;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
 
 .radio-widget__btn {
-  min-width: 1.6rem;
-  min-height: 1.6rem;
+  flex: none;
+  min-width: 28px;
+  min-height: 28px;
   display: grid;
   place-items: center;
-  opacity: 0.85;
 }
 
 .radio-widget__btn:hover,
-.radio-widget__name:hover {
-  opacity: 1;
-  color: #fff;
+.radio-widget__name:hover,
+.radio-widget__btn:focus-visible,
+.radio-widget__name:focus-visible {
+  outline: none;
+  color: #f2e9ff;
 }
 
 .radio-widget__name {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 8px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-shadow: 0 0 8px color-mix(in srgb, currentColor 65%, transparent);
 }
 
 .radio-widget__dot {
   flex: none;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 6px currentColor;
-  animation: radio-pulse 1.6s ease-in-out infinite;
+  box-shadow: 2px 2px 0 #0b0616;
+  animation: radio-pulse 1.2s steps(1) infinite;
 }
 
 .radio-widget__dot.off {
   animation: none;
   opacity: 0.35;
-  box-shadow: none;
 }
 
 .radio-widget__pos {
   flex: none;
-  opacity: 0.55;
-  font-size: 9px;
+  color: var(--theme-text-muted, #b9a8d9);
 }
 
 @keyframes radio-pulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .radio-widget__dot { animation: none; }
+}
+
+.radio-widget__track {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radio-widget__note { display: none; }
+
+/* Phones: a note instead of the station's name, so the game's HUD row keeps
+   the top edge; tapping the note still changes station. */
+@media (max-width: 480px) {
+  .radio-widget__track,
+  .radio-widget__pos { display: none; }
+  .radio-widget__note { display: inline; }
 }
 </style>
