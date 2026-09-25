@@ -11,7 +11,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 ## Commands
 
 - `npm run dev` — dev server on port 3030 (host 0.0.0.0)
-- `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link, the coast road to the Keeper
+- `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link, the radio station, the coast road to the Keeper
 - `npm run test:zelda` — Neon Shrine: the first minute from the town, exits, saves, a full scripted run to the Sun Prism; the audio data; the Wildwood's rules and a full run from the town's thicket to the Gate shutting (2026-09-24)
 - `npm run test:eschold` — the shared Escape tap/hold state machine
 - `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); CI runs these before typecheck
@@ -29,7 +29,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 - **Hosting**: Cloudflare Pages, project `phareim-no`. SSR runs in the Pages worker (`_routes.json` sends everything except static assets to it), so the first paint is already the theme the URL names.
 - **Database / storage**: one D1, `phareim-leaderboard` (id `54e101f9-4026-4fd1-a78a-7a8976e1301e`, created 2026-09-08), bound as `LEADERBOARD_DB` in `wrangler.toml`, schema in `migrations/`, applied by CI before every deploy. It holds the player profiles: Hall of Fame scores, Hangar ships and, since 2026-09-23, the adventure save slots (Neon Shrine, Another Shore) — see `docs/games/hall-of-fame.md`. No R2 binding.
 - **External APIs**: one — wave-jobs on Sleeper (`POST https://sleeper.phareim.no/wave-jobs/avatar`, Bearer `WAVE_JOBS_KEY`) paints the Hall of Fame avatars (2026-09-08). `server/` came back 2026-09-08 with the Hall of Fame routes (`/api/leaderboard`, `/api/player`, `/api/score`, and `/api/avatar` for wave-jobs' callback) and nothing else.
-- **Dependencies of note**: `three` 0.185 (+ `@types/three`), used only by the Star Fox theme and loaded as an async chunk (2026-09-05); `@fontsource/space-grotesk` + `@fontsource/space-mono` (self-hosted fonts, 2026-09-06)
+- **Dependencies of note**: `three` 0.185 (+ `@types/three`), used only by the Star Fox theme and loaded as an async chunk (2026-09-05); `@fontsource/space-grotesk` + `@fontsource/space-mono` (self-hosted fonts, 2026-09-06); the radio engine in `themes/radio/station/` imports with `.ts` extensions, so `nuxt.config.ts` sets `allowImportingTsExtensions` (2026-09-25); it loads as its own chunk with the radio theme
 - **Fonts** (2026-09-06): two faces, the Neon Dreams split — `--font-person` (Space Grotesk at weight 300, the face's lightest, for body, name and page titles; 400/500 for emphasis: name, blurbs, prose) and `--font-machine` (Space Mono: HUD, hints, over-titles, canvas score pops, shas). Defined on `:root` in `themes/base/fonts.css` (imported first in `themes/index.ts`), latin subsets only; canvas code imports `MACHINE_FONT` from `themes/base/fonts.ts`. A third face since 2026-09-24: `--font-pixel` (Neon Pixel, Neon Shrine's 5×7 canvas font as a 3 KB webfont in `public/fonts/`, for the pixel games' HTML text; `docs/games/pixel-look.md`). Nothing loads from Google Fonts any more (Comfortaa and the preconnects are gone). The parked themes keep their own faces (desk: ET Book).
 - **Icons** (2026-09-08): `public/favicon.ico` (16/32/48) and `public/apple-touch-icon.png` (180) are pixel art (2026-09-25): the pixel look's dusk — striped sun, violet ridge, teal grass, the rose path — drawn on a 16/32/36-pixel grid and scaled up nearest-neighbour by `scripts/make-favicon.py` (Pillow). Linked from `nuxt.config.ts` `app.head.link`, along with `theme-color` `#0b0616`. `public/manifest.webmanifest` (2026-09-24) makes the site installable: `display: fullscreen` on Android (standalone on iOS, where `black-translucent` puts the page under the status bar), icons `icon-192.png`/`icon-512.png` from the same script. `html`/`body` carry `touch-action: manipulation`, which stops Safari's double-tap zoom (it ignores `user-scalable=no`).
 - **State**: the URL picks the theme (`/?theme=<id>`, no cookie since 2026-09-24); Nuxt `useState` for the navigation lock (no state library). sessionStorage `portal.return` puts the portal's hero back where they left. localStorage holds per-game high scores and, since 2026-09-08, the browser's Hall of Fame player (`phareim.player`).
@@ -61,7 +61,8 @@ themes/              — see the phareim-theme skill
   _template/         — starting point for a new theme
   portal/            — the home theme on `/`: the page (hint, hidden link index, ending panel) around the world shell
   zelda/             — the one world: engine, world data (town + Neon Shrine), renderer, audio, and the shell `Zelda.vue`
-  anotherworld/ shore/ scandi/ galaga/ breakout/ rtype/ invaders/ starfox/ outrun/ tetris/ leaderboard/ hangar/ ships/ radio/ space/ desk/
+  radio/             — two radios: engine.ts + catalog.ts (the widget's six game stations) and the radio theme (Landing, Station, Dial, Channels; 2026-09-25) with station/, vendored from phareim/radio by scripts/sync-radio.mjs, never edited by hand
+  anotherworld/ shore/ scandi/ galaga/ breakout/ rtype/ invaders/ starfox/ outrun/ tetris/ leaderboard/ hangar/ ships/ space/ desk/
 ```
 
 There is no menu and no page route but `/`. The only server code is the
@@ -72,7 +73,7 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 
 ## Theme System (short version — the skill has the rest)
 
-- Fifteen themes in `themes/index.ts` (verified 2026-09-24): the portal (`home: true`), ten live and four parked. Live: Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Tetris, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
+- Sixteen themes in `themes/index.ts` (verified 2026-09-25): the portal (`home: true`), eleven live and four parked. Live: Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Tetris, Hall of Fame, Hangar, Radio (the radio station's door in the town, not a cabinet). Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
 - **Nothing scrolls**: `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, and every landing is locked to the viewport. Full-screen heights use `var(--app-height, 100dvh)` (defined in `app.vue`), never bare `100dvh`: in the iOS home-screen app 100dvh comes up a status bar short and leaves a white strip at the bottom.
 - **Bottom band** (2026-09-24): `--app-safe-bottom` (defined in `app.vue`) is the strip along the bottom edge where nothing interactive or meaning-bearing may sit: buttons, text, hints, the player's ship or paddle. Backdrops may run through it. In a browser tab it equals `env(safe-area-inset-bottom)`; installed as a web app (`display-mode: standalone/fullscreen`) it is `max(48px, inset + 30px)`, clear of the home indicator and system swipes. Anchor bottom UI as `calc(<gap> + var(--app-safe-bottom, 0px))`, never on the bare inset; canvas games take it as a bottom inset.
 - The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal, `zelda` → portal), an unknown id shows the portal. No cookie, no random pick.
@@ -136,7 +137,9 @@ Full API shape, avatar painting, and player/name rules: `docs/games/hall-of-fame
 and `themes/radio/catalog.ts`. A game with its own soundtrack (Galaga, OutRun)
 suspends the radio while a run is active and resumes it on stop; every other
 game's one-shots and loops play over the radio untouched. Full wiring and the
-contract with each game's `audio.ts`: `docs/games/global-radio.md`.
+contract with each game's `audio.ts`: `docs/games/global-radio.md`. The radio
+theme (`ownRadio` in the registry) is a radio of its own: no widget there, and
+it holds this radio silent (`docs/games/radio.md`).
 
 ## Games → docs
 
@@ -153,7 +156,8 @@ contract with each game's `audio.ts`: `docs/games/global-radio.md`.
 | The Wildwood (Neon Shrine's second act) | `docs/games/wildwood.md` | `themes/zelda/world/wildwood.ts`, `lab1.ts`, `lab2.ts` |
 | Hall of Fame | `docs/games/hall-of-fame.md` | `themes/leaderboard/`, `server/api/` |
 | Galaga | `docs/games/galaga.md` | `themes/galaga/` |
-| Global radio | `docs/games/global-radio.md` | `themes/radio/`, `components/RadioWidget.vue` |
+| Global radio | `docs/games/global-radio.md` | `themes/radio/engine.ts`, `catalog.ts`, `components/RadioWidget.vue` |
+| Radio (the generative radio, vendored from phareim/radio) | `docs/games/radio.md` | `themes/radio/`, `themes/radio/station/`, `scripts/sync-radio.mjs` |
 | R-Type | `docs/games/r-type.md` | `themes/rtype/` |
 | Hangar | `docs/games/hangar.md` | `themes/ships/`, `themes/hangar/` |
 | Breakout | `docs/games/parked-and-classic.md` | `themes/breakout/` |

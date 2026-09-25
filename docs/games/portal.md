@@ -4,7 +4,8 @@
 of Neon Shrine's world. Petter's name is painted on the roof of his house.
 The buildings lead to everything else on the site: the arcade (a cabinet
 per game, the Hall of Fame board, the Hangar door), Petter's house (who he
-is, three terminals to his profiles), the PHAREIM.MD newsstand and the
+is, three terminals to his profiles), the PHAREIM.MD newsstand, the radio
+station (the generative radio, `docs/games/radio.md`; 2026-09-25) and the
 GAMES.PHAREIM.NO signpost. West, the shore road ends in a thicket: cut it
 with the blade and it leads into the Wildwood (`docs/games/wildwood.md`).
 The coast road runs east along the water into
@@ -17,7 +18,7 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 
 | File | Job |
 |---|---|
-| `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, newsstand, signpost, pier, the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
+| `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, newsstand, radio station, signpost, pier, the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
 | `themes/zelda/world/town.ts` | The arcade, 17×11 (eight cabinets, the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, no email on purpose, Petter at his desk) |
 | `themes/zelda/world/index.ts` | `WORLD` (the one world), `worldExits()`, `worldStartingAt()` |
 | `themes/zelda/Zelda.vue` | The shell: loop, input, touch deck, audio, saves, pause menu, exits, the way back |
@@ -37,8 +38,8 @@ walk the hero.
 silent, the clock still. The town has no enemies or hazards. Nothing is
 saved and no Hall of Fame player is created until the hero has the blade.
 
-**Leaving and coming back.** A cabinet, the board, the kiosk, the signpost
-and the terminals show their lines when you face them and press A; closing
+**Leaving and coming back.** A cabinet, the board, the kiosk, the radio
+station's door, the signpost and the terminals show their lines when you face them and press A; closing
 the lines fades out and leaves. The HANGAR door leaves as you step on it.
 On the engine's `exit` event the shell saves (with the blade), writes
 sessionStorage `portal.return` = `{ map, entry: <exit id> }`, then calls
@@ -70,7 +71,9 @@ while one of its links has keyboard focus.
 **Checks** (2026-09-24). `npm run test:portal` (in CI): the world
 validates; it starts on the plaza facing the name, and the town and its
 rooms have no enemies; the cabinets are exactly the eight arcade games,
-each ending on INSERT COIN? PRESS {A}.; every exit goes where it should and
+each ending on INSERT COIN? PRESS {A}.; the radio station's door sits in
+its wall under a RADIO sign and leads to `?theme=radio` (2026-09-25); every
+exit goes where it should and
 nothing carries an email address; at the start the name and at least two
 buildings are in view at phone and desktop view sizes; a path-finding
 walker reaches and uses every exit from the start without a scratch;
