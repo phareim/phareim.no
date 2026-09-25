@@ -365,6 +365,32 @@ function onGameRestart() {
   .landing p.px-hint.sfx-controls { font-size: 8px; line-height: 12px; }
 }
 
+/* Short landscape screens (a phone on its side): the title on one line
+   under the intercom, the two panels side by side, compact. */
+@media (max-height: 520px) and (min-width: 641px) {
+  .sfx-title { top: calc(max(10px, env(safe-area-inset-top)) + 84px); }
+  .landing .px-title.sfx-op { font-size: 32px; }
+  .sfx-op span { display: inline-block; }
+  .sfx-panel {
+    top: calc(max(10px, env(safe-area-inset-top)) + 136px);
+    transform: none;
+    width: 264px;
+    padding: 8px 10px 6px;
+  }
+  .sfx-route { left: 24px; right: auto; }
+  .sfx-roster { left: auto; right: 24px; }
+  .sfx-route li { font-size: 8px; line-height: 12px; }
+  .sfx-route ol { columns: 2; column-gap: 12px; }
+  .sfx-roster ul { display: flex; justify-content: space-between; }
+  .sfx-roster li { flex-direction: column; gap: 2px; margin: 0; }
+  .sfx-roster .sfx-lead { display: none; }
+  .sfx-pilot { align-items: center; }
+  .sfx-pilot b { font-size: 8px; line-height: 12px; }
+  .sfx-pilot i { display: none; }
+  .sfx-panel-h { font-size: 8px; margin-bottom: 4px; }
+  .landing p.px-hint.sfx-controls { font-size: 8px; line-height: 12px; }
+}
+
 /* ---- sector title card ------------------------------------------------ */
 .sfx-card {
   position: fixed;
@@ -467,11 +493,12 @@ function onGameRestart() {
 .sfx-charge--ready i { background: #2ff3ff; }
 .sfx-k--t { color: var(--c); }
 
-/* Phones: the ship flies where the desktop dock sits, so the dock drops to
-   the bottom edge between the sound toggle and the BOMB button (score over
-   hull), the boss bar and the banners go to the top under the intercom
-   (at most three lines, 130 px), and the side blocks take 8 px text. */
-@media (max-width: 640px) {
+/* Phones, upright or on their side: the ship flies where the desktop dock
+   sits, so the dock drops to the bottom edge between the sound toggle and
+   the BOMB button (score over hull) and the boss bar and the banners go to
+   the top, under the intercom (at most three lines: 130 px upright, 80 px
+   in the corner on a short landscape screen). */
+@media (max-width: 640px), (max-height: 520px) {
   .sfx-dock { width: 172px; bottom: calc(12px + var(--app-safe-bottom, 0px)); }
   .sfx-dock .sfx-bar { width: 160px; height: 8px; }
   .landing .sfx-dock .sfx-line { margin: 0; line-height: 1; }
@@ -483,6 +510,13 @@ function onGameRestart() {
   }
   .sfx-alerts .sfx-bar { width: min(288px, 70vw); }
   .landing .sfx-alerts .sfx-banner { font-size: 16px; line-height: 20px; }
+  .sfx-dock--title { width: min(820px, 94vw); bottom: calc(16px + var(--app-safe-bottom, 0px)); }
+}
+@media (max-height: 520px) and (min-width: 641px) {
+  .sfx-alerts { top: calc(max(10px, env(safe-area-inset-top)) + 84px); }
+}
+/* Upright phones: 8 px text in the side blocks. */
+@media (max-width: 640px) {
   .sfx-dock--title { width: calc(100vw - 32px); bottom: calc(60px + var(--app-safe-bottom, 0px)); }
   .sfx-side { font-size: 8px; line-height: 12px; gap: 5px; text-shadow: 1px 1px 0 #0b0616; bottom: calc(60px + var(--app-safe-bottom, 0px)); }
   .sfx-side--touch { bottom: calc(86px + var(--app-safe-bottom, 0px)); }
