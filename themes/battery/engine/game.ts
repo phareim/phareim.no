@@ -200,6 +200,8 @@ export class Game {
       const join = v === 'give' ? 'to' : 'with'
       return `${VERB_LABEL[v ?? 'use']} ${this.itemName(this.obj1)} ${join} ${hovName}`.trim()
     }
+    if (!v && hov?.kind === 'hero') return hov.id === this.hero ? hovName : `Switch to ${hovName}`
+    if (!v && hov?.kind === 'item') return `Use ${hovName}`
     const label = v ? VERB_LABEL[v] : 'Walk to'
     return hovName ? `${label} ${hovName}` : label
   }

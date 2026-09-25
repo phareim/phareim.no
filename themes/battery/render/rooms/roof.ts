@@ -482,6 +482,11 @@ export const painter: RoomPainter = {
       dot(g, CAR.x, CAR.y + 3, '#ffb060'); dot(g, CAR.x + 19, CAR.y + 3, '#ffb060')
       dot(g, CAR.x - 1, CAR.y + 3, '#ff8a3d'); dot(g, CAR.x + 20, CAR.y + 3, '#ff8a3d')
     }
+    // A failed midnight with the rod still flat: the strike finds the rooster instead.
+    if (s.flags['midnight.fail'] === 'rod' && v.flash > 0.3) {
+      bolt(g, 253, 0, 22, Math.floor(v.t * 4), '#ffffff')
+      for (let i = 0; i < 6; i++) dot(g, 253 + Math.cos(i) * (4 + i), 22 + Math.sin(i * 2) * 3, i % 2 ? '#ffd23f' : '#ffffff')
+    }
     // St Elmo's fire on the raised rod.
     if (s.flags[F.rodUp]) {
       const top = ROOF.rodTip.y

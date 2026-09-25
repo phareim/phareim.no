@@ -285,6 +285,8 @@ function ensureAudio() {
 
 function startGame(g: Game, fresh: boolean) {
   game = g
+  // The dev server exposes the running game for the lab's play-throughs.
+  if (import.meta.dev) (window as unknown as { __battery?: Game }).__battery = g
   renderer = createRenderer()
   acc = 0
   last = 0
