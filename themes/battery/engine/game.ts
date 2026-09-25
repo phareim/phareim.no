@@ -446,18 +446,20 @@ export class Game {
       const a = this.obj1
       const v = this.verb ?? 'use'
       this.resetSentence()
-      if (a === id) return
+      // USE X, then X again: the item on its own (open the jar, read the manual).
+      if (a === id) { this.run(def.useAlone ?? (() => this.failLine('use'))); return }
       if (v === 'give') { this.runLine(this.heroDef().failWith, a); return }
       const h = def.combine?.[a] ?? this.content.items[a].combine?.[id]
       this.run(h ?? (() => this.pickLine(this.heroDef().failWith)))
       return
     }
     const v: Verb = button === 2 ? 'look' : this.verb ?? 'use'
-    if (v === 'use' && !def.useAlone) { this.verb = 'use'; this.obj1 = id; return }
+    // USE and GIVE wait for a second object ("Use matches with …"); clicking
+    // the same item again uses it on its own.
+    if (v === 'use') { this.verb = 'use'; this.obj1 = id; return }
     if (v === 'give') { this.verb = 'give'; this.obj1 = id; return }
     this.resetSentence()
     if (v === 'look') { this.run(def.look); return }
-    if (v === 'use') { this.run(def.useAlone!); return }
     const h = def.verbs?.[v]
     this.run(h ?? (() => this.failLine(v)))
   }
