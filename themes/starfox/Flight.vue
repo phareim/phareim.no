@@ -53,7 +53,7 @@ import { P, disposeModelCaches } from './models/core'
 import { makeGlowTexture } from '~/themes/ships/three'
 import { readStoredPlayer } from '~/composables/useLeaderboard'
 import { useSound } from '~/composables/useSound'
-import { createSfx, live, type ArsenalHud, type Ctx, type DeathSummary, type IntercomView, type Out, type SquadHud } from './scene/ctx'
+import { LANE_Y_HI, LANE_Y_LO, createSfx, live, type ArsenalHud, type Ctx, type DeathSummary, type IntercomView, type Out, type SquadHud } from './scene/ctx'
 import { createEnv } from './scene/env'
 import { createFx } from './scene/fx'
 import { createObstacles } from './scene/obstacles'
@@ -351,8 +351,18 @@ function onTouchMove(e: TouchEvent) {
     e.preventDefault()
     const W = window.innerWidth
     const H = window.innerHeight
-    ctx.player.input.tx = steer.baseX + ((t.clientX - steer.startX) / Math.max(1, W)) * ctx.laneX * 3
-    ctx.player.input.ty = steer.baseY - ((t.clientY - steer.startY) / Math.max(1, H)) * 20
+    const sx = (ctx.laneX * 3) / Math.max(1, W)
+    const sy = 20 / Math.max(1, H)
+    const tx = steer.baseX + (t.clientX - steer.startX) * sx
+    const ty = steer.baseY - (t.clientY - steer.startY) * sy
+    const cx = Math.max(-ctx.laneX, Math.min(ctx.laneX, tx))
+    const cy = Math.max(LANE_Y_LO, Math.min(LANE_Y_HI, ty))
+    // Past the lane's edge, drag the anchor along, so the ship answers the
+    // moment the finger turns back instead of after a dead stretch.
+    if (cx !== tx) steer.startX += (tx - cx) / sx
+    if (cy !== ty) steer.startY -= (ty - cy) / sy
+    ctx.player.input.tx = cx
+    ctx.player.input.ty = cy
   }
 }
 

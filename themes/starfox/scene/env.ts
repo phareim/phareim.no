@@ -205,7 +205,9 @@ export function createEnv(ctx: Ctx): Env {
   function updateCamera(dt: number) {
     const p = ctx.player
     const portrait = ctx.portrait
-    const fx = portrait ? 0.45 : 0.5
+    // A portrait screen is narrow for the lane: the camera follows the ship
+    // further across, so it stays on screen at the lane's edges.
+    const fx = portrait ? 0.75 : 0.5
     const k = 1 - Math.exp(-4.5 * dt)
     const t = ctx.now
     tv.set(
@@ -222,7 +224,7 @@ export function createEnv(ctx: Ctx): Env {
         camera.position.y += rand(-s, s)
       }
     }
-    look.set(p.x * 0.75, 1.0 + p.y * 0.3 + (portrait && !ctx.started ? ATTRACT_LOOK_UP_PORTRAIT : 0), -40)
+    look.set(p.x * (portrait ? 0.85 : 0.75), 1.0 + p.y * 0.3 + (portrait && !ctx.started ? ATTRACT_LOOK_UP_PORTRAIT : 0), -40)
     camera.lookAt(look)
   }
 
