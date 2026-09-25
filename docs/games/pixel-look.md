@@ -40,7 +40,7 @@ treasure.
 canvas font as a TrueType/WOFF font, built by `node
 scripts/make-pixel-font.mjs` (fontTools). One font pixel is an eighth of
 the em, so it is crisp at font sizes that are multiples of 8 px. Lower case
-maps to the capitals; it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂.
+maps to the capitals; it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂ — … ❚ ◈ ■.
 
 **Status** (2026-09-24): all eight games are on the pixel look. Not yet: the Hall of Fame and Hangar pages, which still use the old vector `neonHorizon.js`.
 
