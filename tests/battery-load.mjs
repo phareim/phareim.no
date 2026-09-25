@@ -18,6 +18,7 @@ export async function load() {
         `export { F } from './content/flags'`,
         `export * from './progress'`,
         `export { SFX, MUSIC } from './content/sfx'`,
+        `export { glyphRows, wrapText } from '../zelda/render/font'`,
       ].join('; '),
       resolveDir: root,
       loader: 'ts',

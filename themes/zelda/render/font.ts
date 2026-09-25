@@ -78,7 +78,7 @@ const G: Record<string, string[]> = {
 }
 
 /** Glyph for a character; unknown characters draw as '?'. */
-const ALIAS: Record<string, string> = { '—': '-', '–': '-', '’': "'", '‘': "'", '“': '"', '”': '"', '…': '.' }
+const ALIAS: Record<string, string> = { '—': '-', '–': '-', '’': "'", '‘': "'", '“': '"', '”': '"', '…': '.', 'É': 'E', 'È': 'E', 'Ä': 'Æ', 'Ö': 'Ø', 'Ü': 'U' }
 
 function glyph(ch: string): string[] {
   return G[ch] ?? G[ALIAS[ch] ?? '?'] ?? G['?']!

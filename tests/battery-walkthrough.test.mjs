@@ -162,4 +162,51 @@ describe('the level', () => {
     for (const it of Object.values(B.CONTENT.items)) if (!it.look) missing.push(it.id)
     assert.deepEqual(missing, [])
   })
+
+  it('answers every verb on every hotspot without an error, in lines the font can draw', () => {
+    const floorHero = { ground: 'kjell', cellar: 'dag', attic: 'espen', outside: 'kjell' }
+    const verbs = ['look', 'pickup', 'use', 'open', 'close', 'push', 'pull', 'talk', 'give']
+    const unknown = new Set()
+    const tooLong = []
+    const errors = []
+    const origError = console.error
+    console.error = (...a) => errors.push(a.map(String).join(' ').slice(0, 200))
+    const q = B.glyphRows('?').join('')
+    try {
+      for (const r of Object.values(B.CONTENT.rooms)) {
+        for (const h of r.hotspots) {
+          if (h.exit) continue
+          for (const verb of verbs) {
+            const g = new B.Game(B.CONTENT)
+            g.resize(320, 200)
+            const hero = floorHero[r.floor]
+            g.s.hero = hero
+            const a = g.s.actors[hero]
+            a.room = r.id
+            const m = B.walkMap(r)
+            const [x, y] = B.nearestWalkable(m, r.w / 2, 124)
+            a.x = x; a.y = y
+            g.resume()
+            if (h.when && !h.when(g.s)) continue
+            g.act(verb, hs(h.id))
+            for (let i = 0; i < 60 * 120 && !(g.idle && !g.choice); i++) {
+              if (g.choice) { const o = g.shownChoices(); g.chooseId(o[o.length - 1].id) }
+              g.update(1 / 60)
+              for (const e of g.drain()) {
+                if (e.t !== 'speak') continue
+                for (const ch of e.text.toUpperCase()) if (ch !== '?' && B.glyphRows(ch).join('') === q) unknown.add(ch)
+                if (B.wrapText(e.text.toUpperCase(), 210).length > 4) tooLong.push(`${r.id}.${h.id} ${verb}: ${e.text.slice(0, 60)}…`)
+              }
+            }
+          }
+        }
+      }
+    } finally {
+      console.error = origError
+    }
+    assert.deepEqual(errors, [], 'no script errors')
+    assert.deepEqual([...unknown], [], 'characters the pixel font does not have')
+    assert.ok(tooLong.length <= 3, 'lines longer than four wrapped rows:\n' + tooLong.join('\n'))
+  })
 })
+

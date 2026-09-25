@@ -24,7 +24,8 @@ try {
   await shot('01-title')
   const btn = await b.eval(`(() => { const e = [...document.querySelectorAll('button')].find(x => /NEW GAME/.test(x.textContent)); if (!e) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2] })()`)
   if (!btn) throw new Error('no NEW GAME button')
-  if (w < 700) await tap(btn[0], btn[1]); else await click(btn[0], btn[1])
+  // Headless touch emulation doesn't turn a tap into a click on a button; press it directly there.
+  if (w < 700) await b.eval(`[...document.querySelectorAll('button')].find(x => /NEW GAME/.test(x.textContent)).click()`); else await click(btn[0], btn[1])
   await b.sleep(2500)
   await shot('02-intro-card')
   // Skip through the intro with clicks on the scene.
