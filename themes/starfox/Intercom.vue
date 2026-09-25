@@ -4,16 +4,20 @@
       v-if="line"
       :key="line.id"
       class="sf-intercom"
-      :class="[`sf-intercom--${line.who}`, { 'sf-intercom--talking': typing }]"
+      :class="[`sf-intercom--${line.who}`, { 'sf-intercom--talking': typing, 'sf-intercom--pilot': !!pilot }]"
+      :style="pilot ? { '--edge': pilot.trim } : undefined"
       role="status"
       aria-live="polite"
     >
       <div class="sf-intercom-portrait" aria-hidden="true">
-        <canvas :ref="el => paint(el, line?.who, 0)" class="sf-intercom-face sf-intercom-face--a" width="13" height="13" />
-        <canvas :ref="el => paint(el, line?.who, 1)" class="sf-intercom-face sf-intercom-face--b" width="13" height="13" />
+        <img v-if="pilot" class="sf-intercom-pic" :src="pilot.portrait" width="40" height="40" alt="">
+        <template v-else>
+          <canvas :ref="el => paint(el, line?.who, 0)" class="sf-intercom-face sf-intercom-face--a" width="13" height="13" />
+          <canvas :ref="el => paint(el, line?.who, 1)" class="sf-intercom-face sf-intercom-face--b" width="13" height="13" />
+        </template>
       </div>
       <div class="sf-intercom-body">
-        <p class="sf-intercom-who">{{ NAMES[line.who] }}</p>
+        <p class="sf-intercom-who">{{ line.name ?? nameLine(line.who) }}</p>
         <p class="sf-intercom-text">
           <span>{{ line.text.slice(0, shown) }}</span><span v-if="typing" class="sf-intercom-caret">▶</span><span class="sf-intercom-ghost">{{ line.text.slice(shown) }}</span>
         </p>
@@ -26,51 +30,57 @@
 /**
  * The Star Fox intercom (OPERATION NIGHTLIGHT, 2026-09-25): one line at a
  * time from the story director (story.ts), typed out in Neon Shrine's
- * dialog box, modelled on Galaga's Intercom.vue. Three voices, each with a
- * 13×13 pixel portrait that swaps between two frames while it talks:
- *   claude  gold edge, the gold spark (as in Galaga)
- *   hollow  pink edge, a dark ringed eye that glitches; the text jitters
- *   hangar  cyan edge, the town's radio mast with its red light and signal
+ * dialog box, modelled on Galaga's Intercom.vue.
+ *
+ * Portraits: the animal pilots (the squad, wombat, cobra) show their 40×40
+ * palette-snapped painting (public/starfox/pilots/<id>.png) at a whole
+ * scale, 2× on wide screens and 1× in the compact panel, bobbing one image
+ * pixel while they talk; the panel edge is their ship trim. Claude (gold
+ * spark, lavender edge) and the Hollow (a ringed eye that glitches, violet
+ * edge, jittering pink text) keep their drawn 13×13 portraits with a
+ * two-frame talking beat. The name line comes from the director
+ * ('HERON · WING 2', 'WOMBAT · HANGAR', 'COBRA · HOLLOW').
+ *
  * The untyped remainder is laid out invisibly, so the panel never resizes
- * while typing. Top-left on wide screens, just under the radio widget on
- * phones (full width, compact, no name line), never over the bottom dock.
- * Position is fixed; pointer-events none.
+ * while typing. Top-left on wide screens (clear of the radio widget
+ * top-right), full width just under the radio widget on phones (compact,
+ * no name line), never over the bottom dock. Fixed; pointer-events none.
  *
  * Usage (Landing.vue; the director lives where the game clock is):
  *
  *   <Intercom :line="intercom" :shown="intercomShown" />
  *
  *   const director = createDirector({ reduced: prefersReducedMotion })
- *   const intercom = ref<{ id: number; who: Speaker; text: string } | null>(null)
+ *   const intercom = ref<{ id: number; who: Speaker; name: string; text: string } | null>(null)
  *   const intercomShown = ref(0)
  *   // every frame, after director.tick(dt) (skip the tick while paused):
  *   const cur = director.current()
- *   if ((cur?.id ?? 0) !== (intercom.value?.id ?? 0)) intercom.value = cur && { id: cur.id, who: cur.who, text: cur.text }
+ *   if ((cur?.id ?? 0) !== (intercom.value?.id ?? 0)) intercom.value = cur && { id: cur.id, who: cur.who, name: cur.name, text: cur.text }
  *   if ((cur?.shown ?? 0) !== intercomShown.value) intercomShown.value = cur?.shown ?? 0
  */
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { PAL } from '~/themes/base/pixel/sprites'
-import type { Speaker } from './story'
+import { PILOTS, nameLine, type PilotId, type Speaker } from './story'
 
 const props = defineProps<{
-  line: { id: number; who: Speaker; text: string } | null
+  line: { id: number; who: Speaker; text: string; name?: string } | null
   /** Characters typed so far. */
   shown: number
 }>()
 
-const NAMES: Record<Speaker, string> = {
-  claude: 'CLAUDE · WING',
-  hollow: 'THE HOLLOW · INTERCEPT',
-  hangar: 'HANGAR · CONTROL',
-}
-
 const typing = computed(() => !!props.line && props.shown < props.line.text.length)
+const pilot = computed(() => (props.line ? PILOTS[props.line.who as PilotId] ?? null : null))
+
+// Warm the cache so a pilot's first line does not open on an empty frame.
+onMounted(() => {
+  for (const p of Object.values(PILOTS)) new Image().src = p.portrait
+})
 
 const N = 13
 const MID = 6
 
-/** A portrait as a 13×13 pixel map (PAL letters, '.' clear); frame 1 is the talking beat. */
-function face(who: Speaker, frame: number): string[] {
+/** A drawn portrait as a 13×13 pixel map (PAL letters, '.' clear); frame 1 is the talking beat. */
+function face(who: 'claude' | 'hollow', frame: number): string[] {
   const grid = Array.from({ length: N }, () => Array<string>(N).fill('.'))
   const set = (x: number, y: number, ch: string) => { if (x >= 0 && y >= 0 && x < N && y < N) grid[y]![x] = ch }
   if (who === 'claude') {
@@ -82,7 +92,7 @@ function face(who: Speaker, frame: number): string[] {
     })
     for (let y = -1; y <= 1; y++) for (let x = -1; x <= 1; x++) set(MID + x, MID + y, 'e')
     set(MID, MID, 'w')
-  } else if (who === 'hollow') {
+  } else {
     // A dark ringed eye: outer ring, an almond lid, a hollow iris.
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
       const d = Math.round(Math.hypot(x - MID, y - MID))
@@ -103,30 +113,10 @@ function face(who: Speaker, frame: number): string[] {
       // The glitch: three rows slip sideways, the lid tears.
       for (const [row, dx] of [[4, 2], [6, -1], [8, 1]] as const) {
         const r = grid[row]!
-        const moved = r.map((_, x) => r[(x - dx + N) % N]!)
-        grid[row] = moved
+        grid[row] = r.map((_, x) => r[(x - dx + N) % N]!)
       }
       set(1, MID - 2, 'c')
       set(11, MID + 2, 'c')
-    }
-  } else {
-    // The town's radio mast: a lattice tower, a red light on top, signal arcs.
-    for (let y = 2; y <= 11; y++) {
-      const w = y < 5 ? 0 : y < 9 ? 1 : 2
-      set(MID - w, y, 'C')
-      set(MID + w, y, 'C')
-      if (w && y % 2) for (let x = MID - w + 1; x < MID + w; x++) set(x, y, 'c')
-    }
-    set(MID, 1, 'c')
-    for (let x = MID - 4; x <= MID + 4; x++) set(x, 12, 'G')
-    set(MID, 0, frame ? 'r' : 'R')
-    const arcs = frame ? [2, 4] : [2]
-    for (const r of arcs) {
-      for (const s of [-1, 1]) {
-        set(MID + s * r, 1, 'c')
-        set(MID + s * (r - 1), 0, 't')
-        set(MID + s * (r - 1), 2, 't')
-      }
     }
   }
   return grid.map(r => r.join(''))
@@ -135,7 +125,7 @@ function face(who: Speaker, frame: number): string[] {
 // Called by Vue with the element on mount and null on unmount (when the
 // line may already be gone).
 function paint(el: unknown, who: Speaker | undefined, frame: number) {
-  if (!who || !(el instanceof HTMLCanvasElement) || el.dataset.who === who) return
+  if ((who !== 'claude' && who !== 'hollow') || !(el instanceof HTMLCanvasElement) || el.dataset.who === who) return
   el.dataset.who = who
   const g = el.getContext('2d')
   if (!g) return
@@ -153,16 +143,16 @@ function paint(el: unknown, who: Speaker | undefined, frame: number) {
    per pixel: four offset shadows draw a one-pixel border with notched
    corners; the ::before line is the faint rule inside the top edge.
    Text width in font pixels is pinned by tests/starfox-story.test.mjs
-   (desktop 171, a 375 px phone 151): change both together. */
+   (desktop 171 = 460 − 26 padding − 80 portrait − 12 gap, over 2; a 375 px
+   phone 144): change both together. */
 .sf-intercom {
-  --edge: #ffd23f;
-  --rule: rgba(255, 210, 63, 0.35);
+  --edge: #cfc6ff;
   position: fixed;
   z-index: 4;
   left: 18px;
   top: max(14px, env(safe-area-inset-top));
   /* Clear of the radio widget top-right (up to 340 px wide). */
-  width: clamp(260px, calc(100vw - 400px), 420px);
+  width: clamp(260px, calc(100vw - 400px), 460px);
   box-sizing: border-box;
   display: flex;
   gap: 12px;
@@ -181,65 +171,48 @@ function paint(el: unknown, who: Speaker | undefined, frame: number) {
   right: 4px;
   top: 4px;
   height: 2px;
-  background: var(--rule);
+  background: var(--edge);
+  opacity: 0.35;
 }
 
 .sf-intercom--hollow {
-  --edge: #ff2fa0;
-  --rule: rgba(255, 47, 160, 0.35);
-}
-.sf-intercom--hangar {
-  --edge: #2ff3ff;
-  --rule: rgba(47, 243, 255, 0.35);
-}
-
-/* Short landscape screens: a compact panel in the corner. */
-@media (min-width: 641px) and (max-height: 520px) {
-  .sf-intercom {
-    left: 12px;
-    top: max(10px, env(safe-area-inset-top));
-    width: clamp(240px, calc(100vw - 400px), 380px);
-    padding: 8px 10px 8px 8px;
-    gap: 8px;
-  }
-  .sf-intercom::before { display: none; }
-  .sf-intercom-portrait { width: 26px !important; height: 26px !important; }
-  .sf-intercom .sf-intercom-who { display: none; }
-  .sf-intercom .sf-intercom-text { line-height: 18px; }
-}
-
-/* Phones: full width just under the radio widget, the portrait and the
-   edge colour say who talks, the name line goes. */
-@media (max-width: 640px) {
-  .sf-intercom {
-    left: 10px;
-    right: 10px;
-    width: auto;
-    top: calc(max(12px, env(safe-area-inset-top)) + 48px);
-    padding: 8px 10px 8px 8px;
-    gap: 8px;
-    background: rgba(11, 6, 22, 0.78);
-  }
-  .sf-intercom::before { display: none; }
-  .sf-intercom-portrait { width: 26px !important; height: 26px !important; }
-  .sf-intercom .sf-intercom-who { display: none; }
-  .sf-intercom .sf-intercom-text { line-height: 18px; }
+  --edge: #9a4ff0;
 }
 
 .sf-intercom-portrait {
   position: relative;
   flex: none;
-  width: 39px;
-  height: 39px;
+  width: 80px;
+  height: 80px;
+  overflow: hidden;
   background: #0b0616;
   box-shadow: 0 0 0 2px #1c1030;
 }
 
+/* Paintings: 40×40 at 2×. */
+.sf-intercom-pic {
+  display: block;
+  width: 80px;
+  height: 80px;
+  image-rendering: pixelated;
+}
+.sf-intercom--talking .sf-intercom-pic {
+  animation: sf-bob 0.36s steps(1) infinite;
+}
+@keyframes sf-bob {
+  50% { transform: translateY(-2px); }
+}
+@keyframes sf-bob-1 {
+  50% { transform: translateY(-1px); }
+}
+
+/* Drawn portraits: 13×13 at 6×. */
 .sf-intercom-face {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  left: 1px;
+  top: 1px;
+  width: 78px;
+  height: 78px;
   image-rendering: pixelated;
 }
 .sf-intercom-face--b {
@@ -258,13 +231,6 @@ function paint(el: unknown, who: Speaker | undefined, frame: number) {
 .sf-intercom--hollow.sf-intercom--talking .sf-intercom-face--b {
   animation: sf-glitch-b 0.9s steps(1) infinite;
 }
-/* The mast's red light blinks slowly. */
-.sf-intercom--hangar.sf-intercom--talking .sf-intercom-face--a {
-  animation-duration: 0.6s;
-}
-.sf-intercom--hangar.sf-intercom--talking .sf-intercom-face--b {
-  animation-duration: 0.6s;
-}
 @keyframes sf-face-a {
   50% { visibility: hidden; }
 }
@@ -278,6 +244,44 @@ function paint(el: unknown, who: Speaker | undefined, frame: number) {
 @keyframes sf-glitch-b {
   20%, 30%, 70% { visibility: visible; }
   25%, 40%, 80% { visibility: hidden; }
+}
+
+/* Short landscape screens: a compact panel in the corner, portraits at 1×. */
+@media (min-width: 641px) and (max-height: 520px) {
+  .sf-intercom {
+    left: 12px;
+    top: max(10px, env(safe-area-inset-top));
+    width: clamp(240px, calc(100vw - 400px), 380px);
+    padding: 8px 10px 8px 8px;
+    gap: 8px;
+  }
+  .sf-intercom::before { display: none; }
+  .sf-intercom .sf-intercom-who { display: none; }
+  .sf-intercom .sf-intercom-text { line-height: 18px; }
+}
+
+/* Phones: full width just under the radio widget; the portrait and the
+   edge colour say who talks, the name line goes. */
+@media (max-width: 640px) {
+  .sf-intercom {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    top: calc(max(12px, env(safe-area-inset-top)) + 48px);
+    padding: 8px 10px 8px 8px;
+    gap: 8px;
+    background: rgba(11, 6, 22, 0.78);
+  }
+  .sf-intercom::before { display: none; }
+  .sf-intercom .sf-intercom-who { display: none; }
+  .sf-intercom .sf-intercom-text { line-height: 18px; }
+}
+
+@media (max-width: 640px), (min-width: 641px) and (max-height: 520px) {
+  .sf-intercom-portrait { width: 40px; height: 40px; }
+  .sf-intercom-pic { width: 40px; height: 40px; }
+  .sf-intercom-face { left: 0; top: 0; width: 39px; height: 39px; }
+  .sf-intercom--talking .sf-intercom-pic { animation-name: sf-bob-1; }
 }
 
 .sf-intercom-body {
@@ -340,6 +344,7 @@ function paint(el: unknown, who: Speaker | undefined, frame: number) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .sf-intercom--talking .sf-intercom-pic,
   .sf-intercom--talking .sf-intercom-face--a,
   .sf-intercom--talking .sf-intercom-face--b,
   .sf-intercom--hollow.sf-intercom--talking .sf-intercom-face--a,

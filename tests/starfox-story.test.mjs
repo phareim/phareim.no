@@ -1,12 +1,13 @@
 // Star Fox story (OPERATION NIGHTLIGHT): the sector table and the ECHO
-// loop, the callsign, the script's rules per voice, and the director with a
+// loop, the callsign, the squad, the script's rules per voice, and the director with a
 // fake game clock (tick(dt) in seconds).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   createDirector, createNudges, sectorFor, sectorVars, sectorCue, bossIntroCue, bossPhaseCue, bossDownCues,
   meetCue, pickCue, controlVars, callsignFrom, fill, lineDuration,
-  CUES, SECTORS, BOSS_PHASES, STORY_ENEMIES, STORY_CAPSULES, MAX_CHARS, GAP_MS, AMBIENT_GAP_MS, NUDGE_AFTER,
+  squadFor, rosterFor, survivorsText, nameLine, wingCue, deathCues, variantFits, isWing,
+  PILOTS, WINGS, RESERVES, CUES, SECTORS, BOSS_PHASES, STORY_ENEMIES, STORY_CAPSULES, MAX_CHARS, GAP_MS, AMBIENT_GAP_MS, NUDGE_AFTER,
 } from '../themes/starfox/story.ts'
 import { glyphRows, wrapText } from '../themes/zelda/render/font.ts'
 
@@ -97,7 +98,7 @@ test('cue helpers name cues that exist, for every sector, boss, enemy and capsul
   for (const k of STORY_ENEMIES) assert.ok(CUES[meetCue(k)], k)
   for (const k of STORY_CAPSULES) assert.ok(CUES[pickCue(k)], k)
   for (const k of ['launch', 'brief', 'retry', 'boss:warning', 'warn:behind', 'gold:all', 'teach:bomb', 'teach:charge',
-    'hull:low', 'shield:down', 'wing:down', 'wing:back', 'set:rings', 'set:turrets', 'set:carrier', 'set:ambush',
+    'hull:low', 'shield:down', 'wing:rally', 'teach:roll', 'death:alone', 'set:rings', 'set:turrets', 'set:carrier', 'set:ambush',
     'clear', 'ending', 'best', 'death', 'taunt']) assert.ok(CUES[k], k)
   assert.equal(SECTORS.length, 5)
   const v = sectorVars(5)
@@ -105,7 +106,7 @@ test('cue helpers name cues that exist, for every sector, boss, enemy and capsul
   assert.equal(v.name, 'coral coast')
 })
 
-test('the script follows the three voices', () => {
+test('the script follows the voices: persons lowercase, the Hollow in fragments', () => {
   const used = new Set()
   for (const [key, def] of Object.entries(CUES)) {
     assert.ok(def.variants.length >= 1, `${key}: has lines`)
@@ -115,7 +116,7 @@ test('the script follows the three voices', () => {
       for (const line of variant) {
         used.add(line.who)
         const t = line.text
-        assert.ok(['claude', 'hollow', 'hangar'].includes(line.who), `${key}: speaker`)
+        assert.ok(line.who in MAX_CHARS, `${key}: speaker ${line.who}`)
         assert.ok(!t.includes('!'), `${key}: no exclamation marks`)
         assert.ok(t.length <= MAX_CHARS[line.who], `${key}: "${t}" is ${t.length} chars`)
         assert.equal(t, t.trim(), `${key}: no stray spaces`)
@@ -127,12 +128,12 @@ test('the script follows the three voices', () => {
           assert.ok(!t.includes('·'), `${key}: ${line.who} is a person, no fragments`)
         }
         for (const [, name] of t.matchAll(/\{(\w+)\}/g)) {
-          assert.ok(['cs', 'run', 'n', 'name', 'loop', 'boss', 'start', 'bomb', 'charge'].includes(name), `${key}: unknown {${name}}`)
+          assert.ok(['cs', 'run', 'n', 'name', 'loop', 'boss', 'start', 'bomb', 'charge', 'roll'].includes(name), `${key}: unknown {${name}}`)
         }
       }
     }
   }
-  assert.deepEqual([...used].sort(), ['claude', 'hangar', 'hollow'])
+  assert.deepEqual([...used].sort(), ['bison', 'claude', 'cobra', 'dingo', 'heron', 'hollow', 'walrus', 'wombat', 'zebra'])
   // Filled with the longest real values, lines still fit.
   const vars = { cs: 'capybara', run: 12, n: 15, name: 'the hollow crown', loop: 'echo iii', boss: 'echo iii furnace',
     ...controlVars(true) }
@@ -144,15 +145,16 @@ test('the script follows the three voices', () => {
   }
 })
 
-test('a run opens with the hangar, then the briefing; later runs get a retry line', () => {
+test('a run opens with wombat, the briefing and the squad; later runs get a retry line', () => {
   const seen = new Set()
   const d = createDirector({ rng: () => 0, seen })
-  d.startRun({ cs: 'otter', run: 1 })
+  d.startRun({ cs: 'heron', run: 1, squad: squadFor('heron') })
   const first = d.current()
-  assert.equal(first.who, 'hangar')
+  assert.equal(first.who, 'wombat')
+  assert.equal(first.name, 'WOMBAT · HANGAR')
   assert.equal(first.shown, 0)
   const keys = drain(d)
-  assert.deepEqual(keys, ['launch', 'brief', 'brief', 'brief', 'brief'])
+  assert.deepEqual(keys, ['launch', 'brief', 'brief', 'brief', 'brief', 'hello:walrus', 'hello:bison', 'hello:dingo'])
   d.startRun({ run: 2 })
   const again = drain(d)
   assert.deepEqual(again, ['launch', 'retry'])
@@ -163,7 +165,7 @@ test('a line types out on the game clock, holds, then a gap before the next', ()
   d.setVars({ cs: 'otter' })
   assert.ok(d.cue('brief'))
   const l = d.current()
-  assert.equal(l.text, 'otter, claude here. i am on your right, in the gold ship.')
+  assert.equal(l.text, 'otter, claude here. second seat, same as always.')
   const dur = lineDuration(l.text)
   d.tick(0.26)
   assert.equal(d.current().shown, 10)
@@ -283,7 +285,7 @@ test('the queue stays short and keeps story beats', () => {
   assert.ok(d.queued <= 5)
   d.cue('ending')
   const keys = drain(d)
-  assert.equal(keys.filter(k => k === 'ending').length, 3)
+  assert.equal(keys.filter(k => k === 'ending').length, CUES.ending.variants[0].length)
 })
 
 test('nudges: bomb and charge shot, only while flying, never once used', () => {
@@ -307,9 +309,9 @@ test('nudges: bomb and charge shot, only while flying, never once used', () => {
 test('every line is in the pixel font and fits the intercom panel', () => {
   const unknown = glyphRows('?').join()
   // Text width in font pixels (the panel draws 2 CSS px per font pixel):
-  // 420 px desktop panel → 171; 375 px phone → 151 (see Intercom.vue).
+  // 460 px desktop panel, 80 px portrait → 171; 375 px phone → 144 (see Intercom.vue).
   const DESKTOP = 171
-  const PHONE = 151
+  const PHONE = 144
   const vars = { cs: 'capybara', run: 12, n: 15, name: 'the hollow crown', loop: 'echo iii', boss: 'echo iii furnace',
     ...controlVars(true) }
   for (const [key, def] of Object.entries(CUES)) {
@@ -318,6 +320,94 @@ test('every line is in the pixel font and fits the intercom panel', () => {
       for (const ch of t) if (ch !== ' ' && ch !== '?') assert.notEqual(glyphRows(ch).join(), unknown, `${key}: no glyph for "${ch}"`)
       assert.ok(wrapText(t, DESKTOP).length <= 3, `${key}: "${t}" wraps past three lines on desktop`)
       assert.ok(wrapText(t, PHONE).length <= 4, `${key}: "${t}" wraps past four lines on a phone`)
+    }
+  }
+})
+
+test('the squad: three wingmen, a reserve when the player shares an animal', () => {
+  assert.deepEqual(squadFor('otter'), ['heron', 'bison', 'dingo'])
+  assert.deepEqual(squadFor('pilot'), ['heron', 'bison', 'dingo'])
+  assert.deepEqual(squadFor('heron'), ['walrus', 'bison', 'dingo'])
+  assert.deepEqual(squadFor('bison'), ['heron', 'walrus', 'dingo'])
+  assert.deepEqual(squadFor('dingo'), ['heron', 'bison', 'walrus'])
+  assert.deepEqual(squadFor('walrus'), ['heron', 'bison', 'dingo'])
+  for (const id of Object.keys(PILOTS)) {
+    const p = PILOTS[id]
+    assert.equal(p.portrait, `/starfox/pilots/${id}.png`)
+    assert.equal(p.short, id.toUpperCase())
+    assert.match(p.trim, /^#[0-9a-f]{6}$/)
+    assert.ok(p.role.length <= 36, `${id}: role fits the title screen`)
+  }
+  assert.deepEqual(new Set(Object.values(PILOTS).map(p => p.trim)).size, 7) // trims tell them apart
+  const r = rosterFor('bison')
+  assert.deepEqual(r.map(p => [p.short, p.slot]), [['HERON', 'WING 2'], ['WALRUS', 'WING 3'], ['DINGO', 'WING 4']])
+  assert.equal(nameLine('heron', squadFor('otter')), 'HERON · WING 2')
+  assert.equal(nameLine('walrus', squadFor('dingo')), 'WALRUS · WING 4')
+  assert.equal(nameLine('cobra'), 'COBRA · HOLLOW')
+  assert.equal(nameLine('claude'), 'CLAUDE · CO-PILOT')
+})
+
+test('game over says who is still flying', () => {
+  const sq = squadFor('otter')
+  assert.equal(survivorsText(sq, [true, true, true]), 'HERON, BISON AND DINGO STILL FLYING')
+  assert.equal(survivorsText(sq, [false, true, true]), 'BISON AND DINGO STILL FLYING')
+  assert.equal(survivorsText(sq, [false, false, true]), 'DINGO STILL FLYING')
+  assert.equal(survivorsText(sq, [false, false, false]), 'NOBODY LEFT FLYING')
+  assert.deepEqual(deathCues(sq, [false, true, true]), ['death', 'wing:last:bison'])
+  assert.deepEqual(deathCues(sq, [false, false, false]), ['death', 'death:alone'])
+})
+
+test('every wingman has their lines; personal beats only with that pilot', () => {
+  for (const id of [...WINGS, ...RESERVES]) {
+    for (const ev of ['down', 'back', 'boss', 'last']) {
+      const c = CUES[wingCue(ev, id)]
+      assert.ok(c, `${id} ${ev}`)
+      for (const v of c.variants) assert.ok(v.every(l => l.who === id), `${id} ${ev}: said by ${id}`)
+    }
+    assert.ok(CUES[`hello:${id}`], `${id} hello`)
+  }
+  assert.ok(CUES['wing:kill:heron'] && CUES['wing:cover:bison'])
+  for (const k of ['dingo:trouble', 'dingo:saved', 'dingo:lost', 'cobra:flyby', 'cobra:arrive', 'cobra:hit', 'cobra:escape',
+    'cobra:duel', 'cobra:down']) assert.ok(CUES[k], k)
+  // Every cue that is not tied to one pilot can play with any squad.
+  const personal = k => /^(wing:\w+:|hello:|dingo:)/.test(k)
+  const squads = ['otter', 'heron', 'bison', 'dingo'].map(squadFor)
+  for (const [key, def] of Object.entries(CUES)) {
+    if (personal(key)) continue
+    for (const sq of squads) assert.ok(def.variants.some(v => variantFits(v, sq)), `${key}: nothing to say with ${sq}`)
+  }
+  // Dingo's trouble is all dingo.
+  for (const v of CUES['dingo:trouble'].variants) assert.ok(v.some(l => l.who === 'dingo'))
+  assert.ok(isWing('zebra') && !isWing('cobra') && !isWing('claude'))
+})
+
+test('the director only says lines of wingmen who are flying', () => {
+  const noDingo = createDirector({ rng: () => 0, seen: new Set(), squad: squadFor('dingo') })
+  assert.ok(!noDingo.cue('dingo:trouble'))
+  assert.ok(noDingo.wing('down', 2)) // slot 3 is walrus now
+  assert.equal(noDingo.current().who, 'walrus')
+  assert.equal(noDingo.current().name, 'WALRUS · WING 4')
+  const noHeron = createDirector({ rng: () => 0, seen: new Set(), squad: squadFor('heron') })
+  noHeron.setVars({ cs: 'heron' })
+  assert.ok(noHeron.cue('cobra:flyby'))
+  const said = []
+  let last = 0
+  for (let t = 0; t < 40; t += 0.05) {
+    noHeron.tick(0.05)
+    const l = noHeron.spoken
+    if (l && l.id !== last) { said.push(l.who); last = l.id }
+  }
+  assert.ok(said.includes('cobra') && !said.includes('heron'), said.join())
+  // Over many asks, chatter never picks a line for someone not flying.
+  const d = createDirector({ seen: new Set(), squad: squadFor('bison') })
+  for (let i = 0; i < 40; i++) {
+    d.tick(70)
+    if (d.cue('chatter')) {
+      for (let t = 0; t < 30; t += 0.1) {
+        d.tick(0.1)
+        const l = d.spoken
+        if (l) assert.ok(!isWing(l.who) || d.squad.includes(l.who), `${l.who} is not flying`)
+      }
     }
   }
 })

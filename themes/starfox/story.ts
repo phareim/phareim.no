@@ -1,62 +1,68 @@
 /**
- * Star Fox story — OPERATION NIGHTLIGHT (2026-09-25). Sectors, the intercom
- * script and the director that paces it. Pure: no Vue/DOM/three, so
- * tests/starfox-story.test.mjs runs it in plain node with a fake clock.
+ * Star Fox story — OPERATION NIGHTLIGHT (2026-09-25). Sectors, the cast,
+ * the intercom script and the director that paces it. Pure: no Vue/DOM/
+ * three, so tests/starfox-story.test.mjs runs it in plain node.
  *
  * The premise: the Hollow, an armada of dark machines that eat light, came
  * in over the sea and is putting out the coast's neon one beacon at a time.
- * The player flies out of the town's hangar with Claude on the right wing in
- * the gold ship. Five named sectors end at the Hollow's mothership, THE
- * CROWN; after that the run goes on as ECHO I, ECHO II, … over the same five.
+ * The player flies out of the town's hangar with Claude in the second seat
+ * and three wingmen, the Hall of Fame's animal pilots. Five named sectors
+ * end at the Hollow's mothership, THE CROWN; after that the run goes on as
+ * ECHO I, ECHO II, … over the same five.
  *
- * Three voices (Neon Dreams: person vs machine):
- *   claude  the wingman. Person voice, plain, short, a bit dry. Lowercase in
- *           the source (the pixel font shows capitals).
+ * The cast (speaker ids). Every person writes lowercase in the source (the
+ * pixel font shows capitals); only the Hollow is a machine.
+ *   claude  co-pilot in the player's second seat: teaching, weak points,
+ *           dry remarks. Drawn gold-spark portrait.
+ *   heron   MAGENTA HERON, wing: the ace. Cocky, counts kills, hunts ahead.
+ *   bison   ATOMIC BISON, wing: the veteran. Calm, few words, covers you.
+ *   dingo   MIXTAPE DINGO, wing: the youngest. Chatty, music, trouble.
+ *   walrus  BYTE WALRUS, reserve wing (when the player is one of the three).
+ *   zebra   NOVA ZEBRA, second reserve.
+ *   wombat  GLITCH WOMBAT, the mechanic in town who runs launch control.
+ *   cobra   MEGA COBRA, former squadmate, flies for the Hollow now.
  *   hollow  the armada. Machine voice, UPPERCASE, `·`-separated fragments.
- *   hangar  ground control in town. Short and procedural, lowercase, rare:
- *           launch, sector clears, the ending, one boss warning.
+ *
+ * The squad: squadFor(callsign) gives the three wingmen in slot order
+ * (wing 2, 3, 4); a wingman who shares the player's animal sits the run out
+ * for walrus, then zebra. Lines spoken by a wingman who is not flying are
+ * never said: the director only picks variants whose wing speakers are all
+ * in the squad, and refuses a cue with none (dingo's trouble, heron's
+ * grudge). Per-wingman cues go by id: wingCue('down', squad[slot]).
  *
  * ---------------------------------------------------------------- API
  *
- *   const director = createDirector({ reduced })   // rng, seen: for tests
- *   director.startRun({ cs: callsignFrom(name), run, ...controlVars(touch) })
- *       new run: forgets run-scoped cues, then queues `launch` and `brief`
- *       (first run of the page load) or `retry`.
- *   director.cue(key, vars?)  → boolean   ask for a line; false = refused
- *   director.tick(dt)                      advance the game clock, dt in
- *                                          SECONDS; do not tick while paused
- *                                          (that freezes the intercom too)
- *   director.current() → { id, who, text, shown } | null
- *       the line on screen; `shown` = characters typed so far (all of them
- *       when reduced motion is on). `id` changes when a new line starts.
- *   director.hush()                        drop the queue, cut the line short
- *                                          (quit, death)
- *   director.reset(run?)                   same as startRun without the cues
- *   director.setVars(vars) / setReduced(bool)
+ *   const squad = squadFor(callsignFrom(name))
+ *   const director = createDirector({ reduced })       // rng, seen: tests
+ *   director.startRun({ cs, run, squad, ...controlVars(touch) })
+ *       new run: forgets run-scoped cues, then queues `launch` (wombat) and,
+ *       on the first run of the page load, `brief` + one `hello:<id>` per
+ *       wingman; later runs get `retry`.
+ *   director.cue(key, vars?) → boolean   ask for a line; false = refused
+ *   director.wing(event, slot, vars?)    cue(wingCue(event, squad[slot]))
+ *   director.tick(dt)                     advance the game clock, dt in
+ *                                         SECONDS; skip while paused
+ *   director.current() → { id, who, name, text, shown } | null
+ *       the line on screen; `name` is the intercom's name line ('HERON ·
+ *       WING 2'); `shown` = characters typed (all with reduced motion).
+ *   director.hush()                       drop the queue, cut the line short
+ *   director.reset(run?), setVars(), setReduced(), setSquad(), squad
  *
- * Cue keys come from the helpers so the integrator never spells them:
- *   sectorCue(i) + sectorVars(i)   at every sector start (i = zero-based)
- *   bossIntroCue(i)                after the WARNING banner
- *   bossPhaseCue(i, phase)         when a boss enters phase 2 (3 for the Crown)
- *   bossDownCues(i)                on the kill: the kill line, then `clear`
- *                                  (hangar) or, after THE CROWN, `ending`
- *   meetCue(kind)                  first sighting of an enemy kind
- *   pickCue(type)                  capsule pickup (`gold` for a gold ring)
- * Plain keys: `boss:warning`, `warn:behind`, `set:rings|turrets|carrier|
- * ambush`, `gold:all`, `laser:hyper`, `hull:low`, `shield:down`,
- * `wing:down`, `wing:back`, `best`, `death`, `taunt`, `chatter`, `idle`,
- * `teach:bomb`, `teach:charge` (the last two from createNudges()).
+ * Text for the Landing: rosterFor(callsign) (title screen: names and roles),
+ * survivorsText(squad, alive) (game over: who is still flying).
  *
- * The director (the same model as Galaga's): priority 3 is story and
- * interrupts; 2 is teaching; 1 is ambient and lands only after 9 s of
- * silence. Cues can be once per page load (SESSION_SEEN, survives
- * remounts), once per run, or on a cooldown. A teaching line cut
- * mid-sentence by a story beat is said again afterwards. Variants never
- * repeat back to back.
+ * The director (Galaga's model): priority 3 is story and interrupts; 2 is
+ * teaching; 1 is ambient and lands only after 9 s of silence. Cues can be
+ * once per page load (SESSION_SEEN, survives remounts), once per run, or on
+ * a cooldown. A teaching line cut mid-sentence by a story beat is said
+ * again afterwards. Variants never repeat back to back.
  */
+import type { BiomeId, BossId } from './ids.ts'
 
-// Small helpers, the same rules as Galaga's story.ts (kept local so this
-// module has no imports and loads in plain node).
+export type { BiomeId, BossId }
+
+// Small helpers, the same rules as Galaga's story.ts (kept local so the
+// module loads in plain node).
 
 export type Vars = Record<string, string | number>
 
@@ -77,9 +83,6 @@ export function roman(n: number): string {
 }
 
 // ---------------------------------------------------------------- sectors
-
-import type { BiomeId, BossId } from './ids.ts'
-export type { BiomeId, BossId }
 
 export interface SectorDef {
   /** Zero-based sector index (= bosses killed so far). */
@@ -173,16 +176,97 @@ export function pickCue(type: string): string {
   return `pick:${type}`
 }
 
-/** How the controls read in Claude's lines, per input mode. */
+/** How the controls read in the lines, per input mode. */
 export function controlVars(touch: boolean): Vars {
   return touch
-    ? { start: 'tap', bomb: 'the bomb button', charge: 'holding a second finger' }
-    : { start: 'press enter', bomb: 'b or x', charge: 'holding space' }
+    ? { start: 'tap', bomb: 'the bomb button', charge: 'holding a second finger', roll: 'double-tap' }
+    : { start: 'press enter', bomb: 'b or x', charge: 'holding space', roll: 'shift' }
+}
+
+// ---------------------------------------------------------------- the cast
+
+export type WingId = 'heron' | 'bison' | 'dingo' | 'walrus' | 'zebra'
+export type PilotId = WingId | 'wombat' | 'cobra'
+export type Speaker = 'claude' | 'hollow' | PilotId
+
+export interface Pilot {
+  id: PilotId
+  /** Hall of Fame name: MAGENTA HERON. */
+  name: string
+  /** For the HUD and the name line: HERON. */
+  short: string
+  /** One line for the title screen roster. */
+  role: string
+  /** Ship trim and intercom edge. */
+  trim: string
+  /** 40×40 palette-snapped painting, public path. */
+  portrait: string
+  kind: 'wing' | 'reserve' | 'hangar' | 'rival'
+}
+
+const pilot = (id: PilotId, name: string, role: string, trim: string, kind: Pilot['kind']): Pilot => ({
+  id, name, short: name.split(' ').pop()!, role, trim, portrait: `/starfox/pilots/${id}.png`, kind,
+})
+
+export const PILOTS: Record<PilotId, Pilot> = {
+  heron: pilot('heron', 'MAGENTA HERON', 'THE ACE · HUNTS AHEAD, COUNTS KILLS', '#ff2fa0', 'wing'),
+  bison: pilot('bison', 'ATOMIC BISON', 'THE VETERAN · FLIES YOUR SIX', '#ffd23f', 'wing'),
+  dingo: pilot('dingo', 'MIXTAPE DINGO', 'THE ROOKIE · BRINGS THE MUSIC', '#2ff3ff', 'wing'),
+  walrus: pilot('walrus', 'BYTE WALRUS', 'RESERVE · READ THE MANUAL', '#ff8a3d', 'reserve'),
+  zebra: pilot('zebra', 'NOVA ZEBRA', 'RESERVE · BRIGHT AND QUICK', '#b6ff4a', 'reserve'),
+  wombat: pilot('wombat', 'GLITCH WOMBAT', 'HANGAR · LAUNCH CONTROL', '#3fd8b0', 'hangar'),
+  cobra: pilot('cobra', 'MEGA COBRA', 'DEFECTOR · FLIES FOR THE HOLLOW', '#ff3b5c', 'rival'),
+}
+
+export const WINGS: readonly WingId[] = ['heron', 'bison', 'dingo']
+export const RESERVES: readonly WingId[] = ['walrus', 'zebra']
+const WING_SET = new Set<string>([...WINGS, ...RESERVES])
+
+export function isWing(who: string): who is WingId {
+  return WING_SET.has(who)
+}
+
+/** The three wingmen in slot order; one who shares the player's animal sits out for a reserve. */
+export function squadFor(callsign: string): [WingId, WingId, WingId] {
+  const reserves = RESERVES.filter(r => r !== callsign)
+  return WINGS.map(w => (w === callsign ? reserves.shift()! : w)) as [WingId, WingId, WingId]
+}
+
+/** Title screen roster: the squad in slot order, wing 2 to 4. */
+export function rosterFor(callsign: string): (Pilot & { slot: string })[] {
+  return squadFor(callsign).map((id, i) => ({ ...PILOTS[id], slot: `WING ${i + 2}` }))
+}
+
+/** Game over: who is still flying (`alive` in slot order). */
+export function survivorsText(squad: readonly WingId[], alive: readonly boolean[]): string {
+  const up = squad.filter((_, i) => alive[i]).map(id => PILOTS[id].short)
+  if (!up.length) return 'NOBODY LEFT FLYING'
+  if (up.length === 1) return `${up[0]} STILL FLYING`
+  return `${up.slice(0, -1).join(', ')} AND ${up[up.length - 1]} STILL FLYING`
+}
+
+/** The intercom's name line for a speaker. */
+export function nameLine(who: Speaker, squad: readonly WingId[] = []): string {
+  if (who === 'claude') return 'CLAUDE · CO-PILOT'
+  if (who === 'hollow') return 'THE HOLLOW · INTERCEPT'
+  if (who === 'wombat') return 'WOMBAT · HANGAR'
+  if (who === 'cobra') return 'COBRA · HOLLOW'
+  const slot = squad.indexOf(who)
+  return slot >= 0 ? `${PILOTS[who].short} · WING ${slot + 2}` : `${PILOTS[who].short} · WING`
+}
+
+/** Per-wingman cue key: down, back, boss, last; kill (heron), cover (bison). */
+export function wingCue(event: string, id: WingId): string {
+  return `wing:${event}:${id}`
+}
+
+/** On the player's death: Claude's last word, then one wingman still up (or nobody). */
+export function deathCues(squad: readonly WingId[], alive: readonly boolean[]): string[] {
+  const up = squad.find((_, i) => alive[i])
+  return up ? ['death', wingCue('last', up)] : ['death', 'death:alone']
 }
 
 // ---------------------------------------------------------------- script
-
-export type Speaker = 'claude' | 'hollow' | 'hangar'
 
 export interface Line {
   who: Speaker
@@ -202,38 +286,54 @@ export interface CueDef {
 }
 
 /** Longest line per voice, in characters (three lines of the desktop panel). */
-export const MAX_CHARS: Record<Speaker, number> = { claude: 80, hollow: 44, hangar: 60 }
+export const MAX_CHARS: Record<Speaker, number> = {
+  claude: 80, hollow: 44, wombat: 72, cobra: 72,
+  heron: 72, bison: 72, dingo: 72, walrus: 72, zebra: 72,
+}
 
-const C = (text: string): Line => ({ who: 'claude', text })
-const H = (text: string): Line => ({ who: 'hollow', text })
-const G = (text: string): Line => ({ who: 'hangar', text })
+const say = (who: Speaker) => (text: string): Line => ({ who, text })
+const C = say('claude')
+const H = say('hollow')
+const W = say('wombat')
+const K = say('cobra')
+const HE = say('heron')
+const BI = say('bison')
+const DI = say('dingo')
+const WA = say('walrus')
+const ZE = say('zebra')
 
 export const CUES: Record<string, CueDef> = {
-  idle: { prio: 2, once: 'session', variants: [[C('claude, in the gold one. {start} and we go.')]] },
+  idle: { prio: 2, once: 'session', variants: [[C('claude, second seat. {start} and we go.')]] },
 
-  // --- run start
+  // --- run start (startRun)
   launch: {
     prio: 3, variants: [
-      [G('hangar to nightlight. doors open, sky is yours.')],
-      [G('nightlight, cleared out. mind the radio mast.')],
-      [G('hangar. runway lit, fuel full. go when ready.')],
-      [G('doors open, {cs}. bring the ship back this time.')],
+      [W('wombat to nightlight. doors open. bring it back in one piece.')],
+      [W('the neon dreams sign is lit, so launch is on. go.')],
+      [W('doors open, {cs}. i just polished that canopy.')],
+      [W('clear to launch. new struts on that ship. be kind to them.')],
     ],
   },
   brief: {
     prio: 3, once: 'session', variants: [[
-      C('{cs}, claude here. i am on your right, in the gold ship.'),
+      C('{cs}, claude here. second seat, same as always.'),
       C('the hollow came in over the sea. they eat light, one beacon at a time.'),
       H('LIGHT · DETECTED · DIM IT'),
-      C('operation nightlight. we turn the coast back on. shoot the dark things.'),
+      C('operation nightlight. we turn the coast back on. three wings with us.'),
     ]],
   },
+  'hello:heron': { prio: 3, once: 'session', variants: [[HE('heron, wing two. try to keep up, {cs}.')]] },
+  'hello:bison': { prio: 3, once: 'session', variants: [[BI('bison. i fly behind you. that is where i stay.')]] },
+  'hello:dingo': { prio: 3, once: 'session', variants: [[DI('dingo here. i made a mixtape for this. it is mostly synth.')]] },
+  'hello:walrus': { prio: 3, once: 'session', variants: [[WA('walrus, filling in. i read the manual on the way over.')]] },
+  'hello:zebra': { prio: 3, once: 'session', variants: [[ZE('zebra, from the reserve. nobody said it would be this dark.')]] },
   retry: {
     prio: 3, variants: [
       [C('new ship, same plan. lights on, dark things off.')],
-      [C('the hollow did not move while you were gone. rude of them.')],
       [C('round {run}. they have learned nothing. we have.')],
-      [C('back on your right. i kept the formation open.')],
+      [DI('you are back. i restarted the mixtape.')],
+      [HE('back already. i am three kills up on you.')],
+      [BI('back in formation. slower this time.')],
     ],
   },
 
@@ -242,18 +342,21 @@ export const CUES: Record<string, CueDef> = {
     prio: 3, variants: [
       [C('coral coast. every beacon is out from the pier to the stacks.')],
       [C('the coast again. the sea stacks do not move for anyone.')],
+      [DI('coast track is on. it has seagulls in it.'), C('it does not.')],
     ],
   },
   'sector:woods': {
     prio: 3, variants: [
       [C('whisper woods. the spores glow, the hollow does not. shoot what is dark.')],
       [C('into the woods. the trunks are closer than they look.')],
+      [HE('trees and a low ceiling. my favourite.')],
     ],
   },
   'sector:ember': {
     prio: 3, variants: [
       [C('ember fields. the ground is hot and the geysers do not warn you.')],
       [C('ember fields. the lava lights them from below. use it.')],
+      [BI('ember fields. never fly over the same vent twice.')],
     ],
   },
   'sector:lake': {
@@ -266,11 +369,13 @@ export const CUES: Record<string, CueDef> = {
     prio: 3, variants: [
       [C('that was the last beacon. the rest of the dark is above the sky.'), C('the hollow crown. their ship. going up.')],
       [C('above the sky. no ground to hit, plenty of everything else.')],
+      [BI('above the sky. nobody up here comes back for you. stay close.')],
     ],
   },
   'sector:echo': {
     prio: 3, variants: [
       [H('NIGHT · RETURNS · NIGHT ALWAYS RETURNS'), C('the coast is going dark again. {loop}. same route, faster guns.')],
+      [C('{loop}. they rebuilt everything we broke.'), HE('good. i was running out of things to shoot.')],
       [C('{loop}. they rebuilt everything we broke.'), C('fine. we have the practice.')],
     ],
   },
@@ -287,50 +392,76 @@ export const CUES: Record<string, CueDef> = {
   'meet:kamikaze': { prio: 2, once: 'session', variants: [[C('spike. when it blinks, it has picked you. roll or move.')]] },
   'meet:weaver': { prio: 2, once: 'session', variants: [[C('manta. it swings wide and leaves mines in its wake.')]] },
   'meet:sniper': { prio: 2, once: 'session', variants: [[C('lancer. the pink line is its aim. half a second, then it fires.')]] },
-  'meet:dasher': { prio: 2, once: 'session', variants: [[C('hornet, behind you. it overtakes, then turns. let it pass first.')]] },
+  'meet:dasher': { prio: 2, once: 'session', variants: [[C('hornet, behind us. it overtakes, then turns. let it pass first.')]] },
   'meet:bulwark': { prio: 2, once: 'session', variants: [[C('bulwark. the shield eats lasers. hit it while it fires, or charge a shot.')]] },
   'meet:splitter': { prio: 2, once: 'session', variants: [[C('pod. crack it and two mites fall out.')]] },
   'meet:mite': { prio: 2, once: 'session', variants: [[C('mites. tiny, fast, diving. anything kills them.')]] },
   'meet:carrier': { prio: 2, once: 'session', variants: [[C('carrier. it launches gnats until it stops. hit the glowing parts.')]] },
-  'meet:turret': { prio: 2, once: 'session', variants: [[C('ground guns. they only fire up. keep moving across them.')]] },
+  'meet:turret': {
+    prio: 2, once: 'session', variants: [
+      [BI('ground guns. they only fire up. keep sliding across them.')],
+      [C('ground guns. they only fire up. keep moving across them.')],
+    ],
+  },
   'meet:missile': { prio: 2, once: 'session', variants: [[C('missile on us. it turns slower than we do. or shoot it.')]] },
   'warn:behind': {
     prio: 2, cooldown: 25_000, variants: [
-      [C('behind you.')],
-      [C('six o\'clock. coming through.')],
-      [C('hornet on our tail.')],
+      [C('behind us.')],
+      [BI('six o\'clock, {cs}.')],
+      [HE('one on your tail. i will get it. probably.')],
     ],
   },
 
   // --- capsules, first pickup (pickCue)
   'pick:laser': { prio: 2, once: 'session', variants: [[C('l capsule. the guns step up: twin, twin plus, hyper. a hit takes one back.')]] },
   'pick:bomb': { prio: 2, once: 'session', variants: [[C('nova bomb. {bomb} throws it. anything small in the blast is gone.')]] },
-  'pick:shield': { prio: 2, once: 'session', variants: [[C('shield shell. it takes the next few hits. not forever.')]] },
-  'pick:wing': { prio: 2, once: 'session', variants: [[C('w capsule. that one was for me. full repair, and i fire double for a bit.')]] },
+  'pick:shield': {
+    prio: 2, once: 'session', variants: [
+      [BI('shield shell. it takes a few hits for you. do not get greedy.')],
+      [C('shield shell. it takes the next few hits. not forever.')],
+    ],
+  },
+  'pick:wing': { prio: 2, once: 'session', variants: [[C('w capsule. it calls the whole squad back up, patched.')]] },
   'pick:overdrive': { prio: 2, once: 'session', variants: [[C('overdrive. faster fire, and the beams go straight through.')]] },
   'pick:gold': { prio: 2, once: 'session', variants: [[C('gold ring. they sit off the easy line on purpose. three in a sector pays.')]] },
+  'wing:rally': {
+    prio: 2, cooldown: 20_000, variants: [
+      [HE('back. did anyone count my kills while i was gone.')],
+      [DI('i am back. i am fine. that was fine.')],
+      [BI('all three up. let us keep it that way.')],
+      [C('whole squad back up.')],
+    ],
+  },
   'gold:all': {
     prio: 2, cooldown: 30_000, variants: [
       [C('all gold. that is a bomb, on the house.')],
       [C('three for three. i am putting that in the report.')],
+      [HE('all three gold. fine. that was good.')],
     ],
   },
   'laser:hyper': {
     prio: 1, once: 'run', variants: [
       [C('hyper. try not to get hit, i like this setting.')],
-      [C('hyper laser. keep it.')],
+      [HE('hyper. finally a gun worth flying next to.')],
     ],
   },
 
-  // --- nudges (createNudges)
+  // --- teaching (createNudges; teach:roll on the first hit taken)
   'teach:bomb': { prio: 2, once: 'session', variants: [[C('you are carrying bombs. {bomb}. they refill.')]] },
   'teach:charge': { prio: 2, once: 'session', variants: [[C('try {charge}. it locks on, and it cracks shields.')]] },
+  'teach:roll': {
+    prio: 2, once: 'session', variants: [
+      [BI('roll into their fire, {cs}. {roll}. it has saved me more than once.')],
+      [C('{roll} to roll. bolts slide off while you spin.')],
+    ],
+  },
 
-  // --- hull, shield, wing
+  // --- hull, shield
   'hull:low': {
     prio: 3, once: 'run', variants: [
       [C('hull under a third, {cs}. rings patch it.')],
-      [C('you are leaking. any ring will do.')],
+      [C('we are leaking. any ring will do.')],
+      [BI('you are smoking, {cs}. find a ring. i have your back.')],
     ],
   },
   'shield:down': {
@@ -339,18 +470,60 @@ export const CUES: Record<string, CueDef> = {
       [C('shell popped. back to hull.')],
     ],
   },
-  'wing:down': {
-    prio: 2, cooldown: 20_000, variants: [
-      [C('i am out. back in a moment. do not do anything interesting.')],
-      [C('lost the gold one. rebuilding. keep them off you.')],
-      [C('down. my guns were the good ones, sorry.')],
+
+  // --- the wingmen, by id (wingCue)
+  'wing:down:heron': { prio: 2, cooldown: 20_000, variants: [[HE('i am hit. nobody touch my kills.')], [HE('out. that was not my fault.')]] },
+  'wing:down:bison': { prio: 2, cooldown: 20_000, variants: [[BI('bison down. i will be back. stay on course.')], [BI('lost my ship. keep moving, {cs}.')]] },
+  'wing:down:dingo': { prio: 2, cooldown: 20_000, variants: [[DI('i am out. it is fine. i am fine.')], [DI('ejected. the tape is okay.')]] },
+  'wing:down:walrus': { prio: 2, cooldown: 20_000, variants: [[WA('walrus down. the manual says that is bad.')], [WA('out. back soon.')]] },
+  'wing:down:zebra': { prio: 2, cooldown: 20_000, variants: [[ZE('zebra out. that was a lot of light.')], [ZE('hit. back soon.')]] },
+  'wing:back:heron': { prio: 1, cooldown: 20_000, variants: [[HE('back. what did i miss. nothing, i assume.')], [HE('heron up. let us go.')]] },
+  'wing:back:bison': { prio: 1, cooldown: 20_000, variants: [[BI('back behind you.')], [BI('new ship. same place.')]] },
+  'wing:back:dingo': { prio: 1, cooldown: 20_000, variants: [[DI('i am back. did you miss me. do not answer.')], [DI('dingo up. restarting the song.')]] },
+  'wing:back:walrus': { prio: 1, cooldown: 20_000, variants: [[WA('walrus, back in the slot.')], [WA('returning. steady.')]] },
+  'wing:back:zebra': { prio: 1, cooldown: 20_000, variants: [[ZE('back. still bright.')], [ZE('zebra up again.')]] },
+  'wing:boss:heron': { prio: 2, cooldown: 60_000, variants: [[HE('that is a big target. dibs.')], [HE('the core is mine.')]] },
+  'wing:boss:bison': { prio: 2, cooldown: 60_000, variants: [[BI('big ones are slow. use the time.')], [BI('stay out of its front. i will draw fire.')]] },
+  'wing:boss:dingo': { prio: 2, cooldown: 60_000, variants: [[DI('that is huge. that is so huge.')], [DI('boss music. finally.')]] },
+  'wing:boss:walrus': { prio: 2, cooldown: 60_000, variants: [[WA('large contact. the manual says shoot it.')], [WA('big one. slow and steady.')]] },
+  'wing:boss:zebra': { prio: 2, cooldown: 60_000, variants: [[ZE('oh, that is big. okay.')], [ZE('light it up.')]] },
+  'wing:last:heron': { prio: 3, variants: [[HE('i will finish it. go get a new ship.')], [HE('fine. more kills for me.')]] },
+  'wing:last:bison': { prio: 3, variants: [[BI('i have it from here. go home, {cs}.')], [BI('clean ejection. i will cover the drop.')]] },
+  'wing:last:dingo': { prio: 3, variants: [[DI('no no no. okay. i will hold the line. i think.')], [DI('pausing the mixtape until you are back.')]] },
+  'wing:last:walrus': { prio: 3, variants: [[WA('understood. i will hold here.')], [WA('i have your sector. go.')]] },
+  'wing:last:zebra': { prio: 3, variants: [[ZE('i will keep the lights on. go.')], [ZE('still up. still bright. see you soon.')]] },
+  'wing:kill:heron': {
+    prio: 1, cooldown: 40_000, variants: [
+      [HE('splash one. that is mine.')],
+      [HE('another one. keep up, {cs}.')],
+      [HE('are you counting. i am counting.')],
     ],
   },
-  'wing:back': {
-    prio: 1, cooldown: 20_000, variants: [
-      [C('back on your right.')],
-      [C('gold one again. what did i miss.')],
-      [C('reformed. where were we.')],
+  'wing:cover:bison': {
+    prio: 1, cooldown: 40_000, variants: [
+      [BI('i am on your six. breathe.')],
+      [BI('covering you. take your time.')],
+    ],
+  },
+
+  // --- dingo in trouble (a set piece: shoot the gnats on his tail)
+  'dingo:trouble': {
+    prio: 3, cooldown: 60_000, variants: [
+      [DI('uh. three gnats on me. they will not let go.'), DI('help. please. the mixtape is still playing.')],
+      [DI('dingo here. i have company. a lot of it.'), BI('break right, dingo. {cs}, clear his tail.')],
+      [DI('they are all over me. is this a lot. this feels like a lot.'), HE('again, dingo.')],
+    ],
+  },
+  'dingo:saved': {
+    prio: 2, cooldown: 30_000, variants: [
+      [DI('thanks, {cs}. i owe you a track.')],
+      [DI('clear. okay. heart rate normal. ish.'), HE('you are welcome.'), DI('heron, you did nothing.')],
+    ],
+  },
+  'dingo:lost': {
+    prio: 3, cooldown: 30_000, variants: [
+      [DI('i am hit. going down. save the mixtape.'), BI('he will be back. eyes front, {cs}.')],
+      [DI('ejecting. sorry, sorry.')],
     ],
   },
 
@@ -364,7 +537,7 @@ export const CUES: Record<string, CueDef> = {
   'set:turrets': {
     prio: 2, cooldown: 60_000, variants: [
       [C('gun line on the ground. keep sliding, they lead slowly.')],
-      [C('turrets below. they only look up.')],
+      [BI('turrets below. they only look up.')],
     ],
   },
   'set:carrier': {
@@ -376,14 +549,60 @@ export const CUES: Record<string, CueDef> = {
   'set:ambush': {
     prio: 2, cooldown: 60_000, variants: [
       [C('contacts behind us. they waited.')],
-      [C('ambush from the rear. slide aside, let them overshoot.')],
+      [BI('ambush from the rear. slide aside, let them overshoot.')],
+    ],
+  },
+
+  // --- mega cobra: flyby (sector 2), dogfight (sector 3), duel (sector 5)
+  'cobra:flyby': {
+    prio: 3, once: 'run', variants: [
+      [K('hello, heron. still flying second best.'), HE('cobra.'), C('mega cobra. he flew with this squad. then he flew for them.')],
+      [K('the old squad, and a new pilot in my seat. cute.'), C('mega cobra. he flew with this squad. then he flew for them.')],
+      [K('dingo. you still play that tape.'), DI('cobra. you went dark.'), C('mega cobra. he flew in this squad once. now he flies for them.')],
+    ],
+  },
+  'cobra:arrive': {
+    prio: 3, cooldown: 60_000, variants: [
+      [K('let us see what the town taught you, {cs}.'), HE('he is mine.'), BI('he is everyone\'s. stay together.')],
+      [K('bison. you look tired. retire.'), BI('i taught you better than this, cobra.')],
+      [K('i always liked this part.'), C('the red ship is cobra. hurt it enough and he runs.')],
+    ],
+  },
+  'cobra:hit': {
+    prio: 2, cooldown: 8_000, variants: [
+      [K('that scratched the paint.')],
+      [K('lucky.')],
+      [K('careful. i know how you roll.')],
+    ],
+  },
+  'cobra:escape': {
+    prio: 3, cooldown: 60_000, variants: [
+      [K('another time. the crown is waiting.'), HE('coward.')],
+      [K('you are not worth the fuel yet.'), DI('he used to be nice.')],
+      [K('later, squad.'), BI('he is running. let him.')],
+      [K('later, {cs}.'), C('he is gone. he will be back. they always are.')],
+    ],
+  },
+  'cobra:duel': {
+    prio: 3, cooldown: 60_000, variants: [
+      [K('last dance, {cs}. the crown does not need to see this.'), HE('i have waited for this.'), C('cobra, between us and the crown. he goes first.')],
+      [K('i taught dingo to roll. did he tell you.'), DI('you did. roll, {cs}.')],
+      [K('you are good. i was better.'), C('cobra, then the crown. in that order.')],
+    ],
+  },
+  'cobra:down': {
+    prio: 3, cooldown: 60_000, variants: [
+      [K('i should have stayed in the hangar.'), W('i kept your old ship, cobra. still polished.')],
+      [K('tell dingo i am sorry.'), DI('he heard.')],
+      [K('it was dark, where they took me.'), BI('rest, cobra.'), C('cobra is down. the crown is running.')],
+      [K('not like this.'), C('cobra is down. the crown is running.')],
     ],
   },
 
   // --- bosses
   'boss:warning': {
     prio: 3, variants: [
-      [G('hangar. heavy return on your scope. big one.')],
+      [W('wombat. big return on your scope. careful with my ship.')],
       [C('something large ahead. very large.')],
       [C('warning lights. i assume they mean it.')],
     ],
@@ -457,18 +676,21 @@ export const CUES: Record<string, CueDef> = {
   'boss:down:pincer': {
     prio: 3, variants: [
       [H('THE TIDE · GOES · OUT'), C('the pincer is sinking. nice flying, {cs}.')],
+      [C('crab down. the water can keep it.'), HE('i am counting that one as mine.')],
       [C('crab down. the water can keep it.')],
     ],
   },
   'boss:down:moth': {
     prio: 3, variants: [
       [H('DARK · FALLING'), C('moth down. it went toward the light in the end.')],
+      [C('moth down. no more spores.'), DI('that one is getting a song.')],
       [C('moth down. no more spores.')],
     ],
   },
   'boss:down:furnace': {
     prio: 3, variants: [
       [H('COLD · NOW'), C('furnace down. it cools fast for something that loud.')],
+      [C('the walker fell over. it is staying down.'), BI('good. my ears hurt.')],
       [C('the walker fell over. it is staying down.')],
     ],
   },
@@ -486,23 +708,29 @@ export const CUES: Record<string, CueDef> = {
   },
   clear: {
     prio: 3, variants: [
-      [G('hangar. {name} beacon is lit again.')],
-      [G('{name} is clear. we see your lights from here.')],
-      [G('beacon back on. good work, nightlight.')],
-      [G('hangar. lights on in {name}. next heading sent.')],
+      [W('wombat. {name} beacon is lit again. i can see it from the bench.')],
+      [W('{name} is clear. how is the ship. no, do not tell me.')],
+      [W('beacon back on. the neon dreams sign flickered. happy, i think.')],
+      [W('lights on in {name}. next heading sent. mind the paint.')],
     ],
   },
   ending: {
     prio: 3, once: 'run', variants: [
       [
         C('every beacon on the coast is lit.'),
-        G('hangar to nightlight. we can see the whole coast from here.'),
-        C('they will come back. so will we. keep flying, {cs}.'),
+        W('wombat here. the whole coast is lit. the sign too.'),
+        BI('they will be back. so will we.'),
+        C('keep flying, {cs}.'),
       ],
       [
         C('the lights are on from the pier to the mast.'),
-        G('hangar. town is lit. you can see it from up there.'),
-        C('something is still moving out there. we keep going.'),
+        DI('can we play the victory track now.'),
+        HE('no.'),
+        W('come home when you like. i will keep the doors open.'),
+      ],
+      [
+        C('that was the crown. the coast is lit.'),
+        W('wombat. i can see you from here. keep going, {cs}.'),
       ],
     ],
   },
@@ -511,14 +739,21 @@ export const CUES: Record<string, CueDef> = {
   best: {
     prio: 2, once: 'run', variants: [
       [C('further than you have ever flown. score noted.')],
-      [C('new best. i will tell the hangar. they will pretend to be calm.')],
+      [HE('new best. still not mine, but new.')],
+      [DI('personal best. that goes on the mixtape.')],
     ],
   },
   death: {
     prio: 3, variants: [
-      [C('you are down. i will bring the gold one home.')],
+      [C('hull breach. ejecting. i have the black box.')],
       [C('ship lost, {cs}. the score stands.')],
       [C('that is the run. the lights you lit stay lit.')],
+    ],
+  },
+  'death:alone': {
+    prio: 3, variants: [
+      [C('nobody left up there. wombat is prepping the next ship.')],
+      [W('wombat. all ships down. come home, i will fix them.')],
     ],
   },
   taunt: {
@@ -529,11 +764,19 @@ export const CUES: Record<string, CueDef> = {
       [H('DIM · DIMMER · GONE')],
     ],
   },
+  // Banter: only variants whose speakers are all flying get picked.
   chatter: {
-    prio: 1, cooldown: 70_000, variants: [
-      [C('the town kept its lights on all night. for us.')],
-      [C('if you see a gold ring, i saw it first.')],
+    prio: 1, cooldown: 60_000, variants: [
+      [DI('okay, track four. this one has a key change.'), HE('dingo. the channel.'), DI('sorry.')],
+      [HE('that is eleven for me. bison.'), BI('i was not counting.'), HE('nine, then.')],
+      [BI('{cs}. you fly well. do not tell heron i said so.')],
+      [DI('does anyone else miss cobra. a little.'), BI('eyes front, dingo.')],
+      [DI('wombat, can you hear the mixtape down there.'), W('i can. please stop.')],
+      [HE('{cs}, race you to the next beacon.')],
+      [WA('walrus here. the manual did not mention this many mines.')],
+      [ZE('is it always this pretty up here, or just tonight.'), BI('just tonight.')],
       [C('quiet stretch. i do not trust it.')],
+      [C('the town kept its lights on all night. for us.')],
     ],
   },
 }
@@ -555,6 +798,8 @@ export interface Spoken extends Line {
 export interface IntercomLine {
   id: number
   who: Speaker
+  /** The name line: 'HERON · WING 2', 'WOMBAT · HANGAR'. */
+  name: string
   text: string
   /** Characters typed so far. */
   shown: number
@@ -582,18 +827,24 @@ export function visibleChars(line: Spoken, now: number): number {
   return Math.max(0, Math.floor((now - line.start) / TYPE_MS_PER_CHAR))
 }
 
+/** Can every wing speaker in this exchange fly with `squad`? */
+export function variantFits(variant: readonly Line[], squad: readonly WingId[]): boolean {
+  return variant.every(l => !isWing(l.who) || squad.includes(l.who))
+}
+
 /** Remembers once-per-session cues across remounts within a page load. */
 export const SESSION_SEEN = new Set<string>()
 
 interface Pending { line: Line; key: string; prio: number; queuedAt: number }
 
-export function createDirector(opts: { rng?: () => number; seen?: Set<string>; reduced?: boolean } = {}) {
+export function createDirector(opts: { rng?: () => number; seen?: Set<string>; reduced?: boolean; squad?: readonly WingId[] } = {}) {
   const rng = opts.rng ?? Math.random
   const sessionSeen = opts.seen ?? SESSION_SEEN
   const runSeen = new Set<string>()
   const lastPlayed = new Map<string, number>()
   const lastVariant = new Map<string, number>()
   let reduced = !!opts.reduced
+  let squad: WingId[] = [...(opts.squad ?? WINGS)]
   let now = 0
   let queue: Pending[] = []
   let current: Spoken | null = null
@@ -607,6 +858,10 @@ export function createDirector(opts: { rng?: () => number; seen?: Set<string>; r
 
   function setReduced(on: boolean): void {
     reduced = on
+  }
+
+  function setSquad(s: readonly WingId[]): void {
+    squad = [...s]
   }
 
   /** Ask for a cue. Returns true when it was queued. */
@@ -623,9 +878,12 @@ export function createDirector(opts: { rng?: () => number; seen?: Set<string>; r
       // Ambient: only into silence, and not right after anything else.
       if (current || queue.length || now - lastEnd < AMBIENT_GAP_MS) return false
     }
-    const n = def.variants.length
-    let vi = Math.floor(rng() * n) % n
-    if (n > 1 && vi === lastVariant.get(key)) vi = (vi + 1) % n
+    // Only exchanges whose wingmen are flying; never the same one twice running.
+    const fits = def.variants.map((v, i) => (variantFits(v, squad) ? i : -1)).filter(i => i >= 0)
+    if (!fits.length) return false
+    let pick = Math.floor(rng() * fits.length) % fits.length
+    if (fits.length > 1 && fits[pick] === lastVariant.get(key)) pick = (pick + 1) % fits.length
+    const vi = fits[pick]!
     lastVariant.set(key, vi)
     // Once-cues are marked seen when they start playing (tick), so a line
     // dropped from the queue can still be said the next time it is asked for.
@@ -646,11 +904,19 @@ export function createDirector(opts: { rng?: () => number; seen?: Set<string>; r
     } else {
       queue.push(...entries)
     }
+    // Too much waiting: drop the oldest teaching/ambient lines (story stays).
     while (queue.length > QUEUE_MAX) {
       const i = queue.findIndex(p => p.prio < 3)
-      queue.splice(i >= 0 ? i : 0, 1)
+      if (i < 0) break
+      queue.splice(i, 1)
     }
     return true
+  }
+
+  /** A per-wingman cue for the wingman in `slot` (0–2). */
+  function wing(event: string, slot: number, extra: Vars = {}): boolean {
+    const id = squad[slot]
+    return id ? cue(wingCue(event, id), extra) : false
   }
 
   function advance(): void {
@@ -686,6 +952,7 @@ export function createDirector(opts: { rng?: () => number; seen?: Set<string>; r
     return {
       id: current.id,
       who: current.who,
+      name: nameLine(current.who, squad),
       text: current.text,
       shown: reduced ? current.text.length : visibleChars(current, now),
     }
@@ -700,12 +967,18 @@ export function createDirector(opts: { rng?: () => number; seen?: Set<string>; r
     if (run !== undefined) vars = { ...vars, run }
   }
 
-  /** New run plus its opening lines: launch, then the briefing or a retry line. */
-  function startRun(v: Vars = {}): void {
+  /**
+   * New run plus its opening: wombat's launch, then the briefing and the
+   * squad's hellos (first run of the page load) or a retry line.
+   */
+  function startRun(v: Vars & { squad?: readonly WingId[] } = {}): void {
+    const { squad: s, ...rest } = v
     reset()
-    setVars(v)
+    if (s) setSquad(s)
+    setVars(rest as Vars)
     cue('launch')
-    if (!cue('brief')) cue('retry')
+    if (cue('brief')) for (const id of squad) cue(`hello:${id}`)
+    else cue('retry')
   }
 
   /** Drop what is queued and cut the current line short (quit, death). */
@@ -719,7 +992,8 @@ export function createDirector(opts: { rng?: () => number; seen?: Set<string>; r
   }
 
   return {
-    cue, tick, current: currentLine, reset, startRun, hush, setVars, setReduced,
+    cue, wing, tick, current: currentLine, reset, startRun, hush, setVars, setReduced, setSquad,
+    get squad(): readonly WingId[] { return squad },
     /** The full line on screen, with key and timings (tests, debug). */
     get spoken() { return current },
     get queued() { return queue.length },
