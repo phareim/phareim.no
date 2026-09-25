@@ -18,7 +18,7 @@
 
 import type { BossId } from './ids.ts'
 import { loopOf } from './ids.ts'
-import { LANE, LANES, SHIP_RADIUS, loopTempo, type EnemyKind } from './balance.ts'
+import { LANE, LANES, SHIP_RADIUS, WINGMEN, loopTempo, type EnemyKind, type WingId } from './balance.ts'
 
 export type BossPartRole = 'core' | 'claw' | 'panel' | 'knee' | 'twin' | 'turret' | 'eye' | 'heart'
 
@@ -102,7 +102,7 @@ export const BOSS_DEFS: Readonly<Record<BossId, BossDef>> = {
     id: 'pincer',
     parkZ: -60,
     entranceSpeed: 55,
-    parts: [P('core', 40, 1, true, true, 'roar', 0), P('claw', 10, 2, false, false, 'always', 500)],
+    parts: [P('core', 80, 1, true, true, 'roar', 0), P('claw', 14, 2, false, false, 'always', 500)],
     phaseAt: [0.5],
     enrageAt: 0.3,
     enrageRate: 1.4,
@@ -119,7 +119,7 @@ export const BOSS_DEFS: Readonly<Record<BossId, BossDef>> = {
     id: 'moth',
     parkZ: -62,
     entranceSpeed: 50,
-    parts: [P('core', 34, 1, true, true, 'panelDown', 0), P('panel', 9, 4, false, true, 'always', 300)],
+    parts: [P('core', 96, 1, true, true, 'panelDown', 0), P('panel', 22, 4, false, true, 'always', 300)],
     phaseAt: [0.5],
     enrageAt: 0.3,
     enrageRate: 1.4,
@@ -137,7 +137,7 @@ export const BOSS_DEFS: Readonly<Record<BossId, BossDef>> = {
     id: 'furnace',
     parkZ: -64,
     entranceSpeed: 40,
-    parts: [P('core', 40, 1, true, true, 'kneel', 0), P('knee', 10, 3, false, true, 'always', 400)],
+    parts: [P('core', 120, 1, true, true, 'kneel', 0), P('knee', 24, 3, false, true, 'always', 400)],
     phaseAt: [0.5],
     enrageAt: 0.3,
     enrageRate: 1.4,
@@ -155,7 +155,7 @@ export const BOSS_DEFS: Readonly<Record<BossId, BossDef>> = {
     id: 'twins',
     parkZ: -60,
     entranceSpeed: 60,
-    parts: [P('twin', 36, 2, true, true, 'lit', 1500)],
+    parts: [P('twin', 78, 2, true, true, 'lit', 1500)],
     phaseAt: [],
     enrageAt: 0.3,
     enrageRate: 1.4,
@@ -174,12 +174,12 @@ export const BOSS_DEFS: Readonly<Record<BossId, BossDef>> = {
     parkZ: -70,
     entranceSpeed: 45,
     parts: [
-      P('turret', 6, 6, false, true, 'always', 250),
-      P('eye', 44, 1, false, true, 'phase2', 1000),
-      P('heart', 24, 1, true, true, 'phase3', 0),
+      P('turret', 14, 6, false, true, 'always', 250),
+      P('eye', 110, 1, false, true, 'phase2', 1000),
+      P('heart', 60, 1, true, true, 'phase3', 0),
     ],
     // derived from the parts in crownPhase(); kept here for the generic path
-    phaseAt: [68 / 104, 24 / 104],
+    phaseAt: [170 / 254, 60 / 254],
     enrageAt: 0.12,
     enrageRate: 1.3,
     wheel: [
@@ -259,6 +259,73 @@ export function nextBossAttack(id: BossId, step: number, phase: number): { attac
   }
   // no attack for this phase (should not happen): fall back to the first
   return { attack: wheel[0]!, step: start + 1 }
+}
+
+// ---- allied DPS and time-to-kill (retuned 2026-09-25 for three wingmen) --------
+// A model, not a measurement: effective damage per second on a boss weak
+// point while dodging. Calibrated so the old DREADNOUGHT (55 HP, core open
+// most of the fight, a level-1 player plus the single wingman) came out
+// near 20 s; not yet checked in play. HP above is set so a typical fight —
+// laser TWIN+, three wingmen flying — lands at ~35–60 s, and losing the
+// whole squad makes it ~1.5× longer, not a slog.
+
+/** Effective player DPS on a boss weak point by laser level (1–3). */
+export const PLAYER_BOSS_DPS = [0, 2.5, 5, 9] as const
+
+/** Share of a wingman's bolts that land during a boss fight. */
+export const WING_HIT_SHARE = 0.25
+
+/** Share of a fight each boss's weak points are open and in reach. */
+export const BOSS_UPTIME: Readonly<Record<BossId, number>> = {
+  pincer: 0.3,
+  moth: 0.6,
+  furnace: 0.55,
+  twins: 0.45,
+  crown: 0.55,
+}
+
+/** One wingman's effective boss DPS (× 2 under the wing overdrive). */
+export function wingmanDps(id: WingId, wingOd = false): number {
+  return (WING_HIT_SHARE / WINGMEN[id].fireInterval) * (wingOd ? 2 : 1)
+}
+
+/** Allied DPS on a boss: the player at a laser level plus the live wingmen. */
+export function alliedDps(laser: number, wingmen: readonly WingId[], wingOd = false): number {
+  const lv = Math.max(1, Math.min(3, Math.floor(laser)))
+  let d = PLAYER_BOSS_DPS[lv]!
+  for (const id of wingmen) d += wingmanDps(id, wingOd)
+  return d
+}
+
+/** HP the allies must chew through: the whole bar, except the Pincer,
+ * whose claws are optional (the bar is its core). */
+export function bossEffortHp(id: BossId, sector: number): number {
+  return bossBarMax(id, sector)
+}
+
+/** Estimated seconds to kill a boss at a given allied DPS. */
+export function bossTtk(id: BossId, sector: number, dps: number): number {
+  return bossEffortHp(id, sector) / (Math.max(1e-6, dps) * BOSS_UPTIME[id])
+}
+
+/** Seconds to kill when the listed wingmen are down at the start of the
+ * fight and fly again after their respawn time (the realistic "all
+ * three down" case); `squad` is who flies once everyone is back. */
+export function bossTtkRecovering(
+  id: BossId, sector: number, laser: number,
+  squad: readonly WingId[], downAtStart: readonly WingId[],
+): number {
+  let left = bossEffortHp(id, sector)
+  const up = BOSS_UPTIME[id]
+  const dt = 0.1
+  let t = 0
+  while (left > 0 && t < 3600) {
+    let d = PLAYER_BOSS_DPS[Math.max(1, Math.min(3, Math.floor(laser)))]!
+    for (const w of squad) if (!downAtStart.includes(w) || t >= WINGMEN[w].respawn) d += wingmanDps(w)
+    left -= d * up * dt
+    t += dt
+  }
+  return t
 }
 
 // ---- THE PINCER --------------------------------------------------------------

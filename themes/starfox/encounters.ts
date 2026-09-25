@@ -19,14 +19,23 @@
  */
 
 import {
-  TRAVEL_TIME, ENTRY_PATHS, HORNET, SIGNATURE_KINDS,
-  pickEnemyKind, formationSize, spawnPace, firesMissiles,
-  type EnemyKind, type EntryPath,
+  TRAVEL_TIME, ENTRY_PATHS, HORNET, SIGNATURE_KINDS, DINGO_TROUBLE, RIVAL, SQUAD,
+  pickEnemyKind, formationSize, spawnPace, firesMissiles, rivalHp,
+  type EnemyKind, type EntryPath, type WingId,
 } from './balance.ts'
 import { absoluteSector, BOSSES, type BossId } from './ids.ts'
 import type { CapsuleType } from './arsenal.ts'
 
-export type SetPieceId = 'rings' | 'turrets' | 'carrier' | 'ambush'
+export type SetPieceId = 'rings' | 'turrets' | 'carrier' | 'ambush' | 'dingoTrouble' | 'cobra' | 'rivalDuel'
+/** How a set piece ended: DINGO saved or lost, the rival escaped or
+ * went down, or it simply ran its course. */
+export type SetPieceOutcome = 'done' | 'saved' | 'lost' | 'escape' | 'down'
+
+/** Cue for a resolved set piece (story.ts keys). */
+export const OUTCOME_CUES: Readonly<Partial<Record<SetPieceId, Partial<Record<SetPieceOutcome, string>>>>> = {
+  dingoTrouble: { saved: 'dingo:saved', lost: 'dingo:lost' },
+  rivalDuel: { escape: 'cobra:escape', down: 'cobra:down' },
+}
 export type ObstacleKind = 'pillar' | 'rock' | 'mine' | 'arch'
 
 interface EvBase {
@@ -56,7 +65,14 @@ export type EncounterEvent = EvBase & (
   /** hornets are coming from behind: the warning; they follow as
    * `enemy` events with `behind: true` HORNET.warnLead s later */
   | { type: 'ambush'; count: number; side: -1 | 1 }
-  | { type: 'setPiece'; id: SetPieceId; phase: 'start' | 'end' }
+  | { type: 'setPiece'; id: SetPieceId; phase: 'start' | 'end'; outcome?: SetPieceOutcome }
+  /** DINGO breaks formation toward `side` with `chasers` gnats on his
+   * tail; save him within `time` s (balance.ts DINGO_TROUBLE, dingoWeave) */
+  | { type: 'dingoTrouble'; chasers: number; side: -1 | 1; time: number }
+  /** MEGA COBRA: `flyby` crosses the screen untouchable and silent (a
+   * taunt); `duel` fights and escapes (balance.ts rivalEscapes); `final`
+   * fights to the end. `hp` from rivalHp. */
+  | { type: 'rival'; mode: 'flyby' | 'duel' | 'final'; hp: number; side: -1 | 1 }
   | { type: 'warning'; boss: BossId }
 )
 
@@ -75,6 +91,9 @@ type Spec =
   | { type: 'obstacle'; obstacle: ObstacleKind; x: number | null }
   | { type: 'ambush'; count: number; side: -1 | 1 }
   | { type: 'setPiece'; id: SetPieceId; phase: 'start' | 'end' }
+  | { type: 'dingoTrouble' }
+  | { type: 'cobraFlyby' }
+  | { type: 'rivalDuel'; final: boolean }
 
 export interface Beat { at: number; spec: Spec; story?: string }
 
@@ -91,6 +110,13 @@ const A = (at: number, count: number, side: -1 | 1): Beat => ({ at, spec: { type
 const RG = (at: number, n: number): Beat => ({ at, spec: { type: 'ringGate', n } })
 const S = (at: number, id: SetPieceId, phase: 'start' | 'end'): Beat =>
   ({ at, spec: { type: 'setPiece', id, phase }, story: phase === 'start' ? `set:${id}` : undefined })
+/** DINGO in trouble — only if DINGO is flying at that moment. */
+const DT = (at: number): Beat => ({ at, spec: { type: 'dingoTrouble' }, story: 'dingo:trouble' })
+/** MEGA COBRA flies past: a taunt, no fight. */
+const CF = (at: number): Beat => ({ at, spec: { type: 'cobraFlyby' }, story: 'cobra:flyby' })
+/** MEGA COBRA duel: escapes in sector 3, fights to the end in sector 5. */
+const RD = (at: number, final: boolean): Beat =>
+  ({ at, spec: { type: 'rivalDuel', final }, story: final ? 'cobra:duel' : 'cobra:arrive' })
 
 /** Travel scripts per sector index. Gold rings sit off the easy line: at
  * the corridor's edges, its ceiling, or down low beside a hazard. */
@@ -122,7 +148,8 @@ export const SCRIPTS: readonly (readonly Beat[])[] = [
     F(70, 'drone', 3, 'dropTop', -0.5, 0.5),
     F(73, 'drone', 3, 'sweepRight', 0.5, 0.6),
   ],
-  // 1 WHISPER WOODS — mantas, a lancer, hornets from behind
+  // 1 WHISPER WOODS — mantas, a lancer, hornets from behind, DINGO in
+  // trouble, MEGA COBRA's first flyby
   [
     F(1.5, 'drone', 4, 'sweepLeft', 0, 0.55),
     F(5, 'weaver', 2, 'arc', 0, 0.6, 'meet:weaver'),
@@ -137,22 +164,24 @@ export const SCRIPTS: readonly (readonly Beat[])[] = [
     F(33, 'weaver', 3, 'sweepRight', 0, 0.5),
     S(36, 'ambush', 'end'),
     K(38, null, -0.3, 0.5),
-    F(41, 'drone', 4, 'dropTop', 0.2, 0.6),
-    O(45, 'mine', -0.62),
-    G(45.2, -0.9, 0.08),
-    F(49, 'weaver', 3, 'sweepLeft', 0, 0.45),
-    E(53, 'sniper', -0.7, 0.8),
-    E(53.4, 'sniper', 0.7, 0.8),
-    K(56, null, 0, 0.5),
-    A(59, 2, 1),
-    F(63, 'drone', 5, 'arc', 0, 0.6),
-    O(66, 'arch', null),
-    G(66.3, 0, 0.97),
-    K(69, null, 0.4, 0.5),
-    F(70, 'weaver', 2, 'hookLeft', -0.3, 0.5),
-    F(73, 'drone', 3, 'sweepRight', 0.3, 0.6),
+    F(40, 'drone', 3, 'dropTop', 0.2, 0.6),
+    DT(43),
+    O(46, 'mine', -0.62),
+    G(46.2, -0.9, 0.08),
+    K(49, null, 0, 0.5),
+    E(55.5, 'sniper', -0.7, 0.8),
+    E(55.9, 'sniper', 0.7, 0.8),
+    F(58, 'weaver', 3, 'sweepLeft', 0, 0.45),
+    K(60, null, 0.4, 0.5),
+    CF(62),
+    O(67, 'arch', null),
+    G(67.3, 0, 0.97),
+    K(70, null, -0.3, 0.5),
+    F(71, 'drone', 5, 'arc', 0, 0.6),
+    F(74, 'weaver', 2, 'hookLeft', -0.3, 0.5),
   ],
-  // 2 EMBER FIELDS — turrets on the basalt, bulwarks, pods; the gauntlet
+  // 2 EMBER FIELDS — turrets on the basalt, bulwarks, pods; the gauntlet;
+  // MEGA COBRA's first duel (he escapes)
   [
     F(1.5, 'drone', 4, 'dropTop', 0, 0.6),
     T(5, [-0.5, 0.5], 'meet:turret'),
@@ -172,21 +201,20 @@ export const SCRIPTS: readonly (readonly Beat[])[] = [
     S(39, 'turrets', 'end'),
     K(40, null, 0.3, 0.5),
     F(43, 'drone', 4, 'sweepRight', -0.2, 0.55),
-    E(47, 'bulwark', -0.5, 0.5),
-    E(47.5, 'bulwark', 0.5, 0.5),
-    E(51, 'splitter', -0.3, 0.55),
-    E(51.5, 'splitter', 0.3, 0.55),
+    E(46, 'bulwark', -0.5, 0.5),
+    E(46.5, 'bulwark', 0.5, 0.5),
+    RD(50, false),
     K(54, null, 0, 0.5),
     G(56, -0.9, 0.95),
-    F(58, 'kamikaze', 3, 'hookRight', 0, 0.5),
-    T(62, [-0.4, 0.4]),
+    F(60, 'kamikaze', 3, 'hookRight', 0, 0.5),
     F(64, 'weaver', 3, 'sweepLeft', 0, 0.5),
-    K(67, null, -0.4, 0.5),
+    K(66, null, -0.4, 0.5),
     F(69, 'drone', 5, 'arc', 0, 0.6),
     E(73, 'sniper', -0.6, 0.8),
     E(73.4, 'sniper', 0.6, 0.8),
   ],
-  // 3 MIRROR LAKE — lancers over the water, the first carrier
+  // 3 MIRROR LAKE — lancers over the water, the first carrier, DINGO in
+  // trouble again
   [
     F(1.5, 'drone', 4, 'sweepLeft', 0, 0.55),
     E(5, 'sniper', -0.6, 0.8),
@@ -203,6 +231,7 @@ export const SCRIPTS: readonly (readonly Beat[])[] = [
     S(42, 'carrier', 'end'),
     K(44, null, 0, 0.5),
     E(46, 'bulwark', 0, 0.5),
+    DT(47),
     F(49, 'drone', 4, 'hookLeft', -0.2, 0.55),
     O(51.8, 'pillar', 0.35),
     G(52, 0, 0.06),
@@ -216,7 +245,8 @@ export const SCRIPTS: readonly (readonly Beat[])[] = [
     F(70, 'drone', 5, 'arc', 0, 0.6),
     E(74, 'splitter', 0, 0.6),
   ],
-  // 4 THE HOLLOW CROWN — missiles, a carrier with teeth, a double ambush
+  // 4 THE HOLLOW CROWN — missiles, a carrier with teeth, a double ambush,
+  // then the final duel with MEGA COBRA; WARNING waits for it
   [
     F(1.5, 'drone', 5, 'dropTop', 0, 0.6),
     A(5, 2, -1),
@@ -243,10 +273,8 @@ export const SCRIPTS: readonly (readonly Beat[])[] = [
     E(59.4, 'sniper', 0.6, 0.8),
     O(62, 'arch', null),
     G(62.3, 0, 0.97),
+    RD(64, true),
     K(65, null, 0.3, 0.5),
-    F(66, 'kamikaze', 3, 'dropTop', 0, 0.5),
-    E(70, 'bulwark', 0, 0.5),
-    F(73, 'drone', 5, 'arc', 0, 0.6),
   ],
 ]
 
@@ -270,11 +298,21 @@ export const FILLER = {
 
 /** What filler does during each set piece: enemy rate multiplier,
  * obstacles on/off, silver rings on/off. */
-export const SET_PIECE_POLICY: Readonly<Record<SetPieceId, { enemies: number; obstacles: boolean; rings: boolean }>> = {
-  rings: { enemies: 0, obstacles: false, rings: false },
-  turrets: { enemies: 0, obstacles: false, rings: true },
-  carrier: { enemies: 0.4, obstacles: true, rings: true },
-  ambush: { enemies: 0, obstacles: true, rings: true },
+/** `holdScript`: scripted enemy beats that fall inside the set piece are
+ * dropped (DINGO's chase and the duels own the sky). */
+export const SET_PIECE_POLICY: Readonly<Record<SetPieceId, { enemies: number; obstacles: boolean; rings: boolean; holdScript: boolean }>> = {
+  rings: { enemies: 0, obstacles: false, rings: false, holdScript: false },
+  turrets: { enemies: 0, obstacles: false, rings: true, holdScript: false },
+  carrier: { enemies: 0.4, obstacles: true, rings: true, holdScript: false },
+  ambush: { enemies: 0, obstacles: true, rings: true, holdScript: false },
+  dingoTrouble: { enemies: 0, obstacles: false, rings: true, holdScript: true },
+  cobra: { enemies: 0, obstacles: true, rings: true, holdScript: false },
+  rivalDuel: { enemies: 0, obstacles: false, rings: true, holdScript: true },
+}
+
+/** DINGO's chasers: three the first time (woods, first pass), four after. */
+export function dingoChasers(index: number, loop: number): number {
+  return index === 1 && loop === 0 ? 3 : 4
 }
 
 /** Density: spawn weight inside any `window` s may not pass `cap`. */
@@ -292,6 +330,8 @@ export function eventWeight(ev: EncounterEvent): number {
     case 'enemy': return 1
     case 'carrier': return 4
     case 'turrets': return ev.xs.length
+    case 'dingoTrouble': return ev.chasers
+    case 'rival': return ev.mode === 'flyby' ? 0 : 4
     default: return 0
   }
 }
@@ -362,9 +402,22 @@ export interface EncounterRunner {
   readonly setPiece: SetPieceId | null
   /** advance; returns this step's events (the array is reused) */
   step(dt: number): EncounterEvent[]
+  /** the scene reports how a running set piece ended (DINGO saved or
+   * lost, the rival escaped or down); the end event, with its cue, comes
+   * on the next step. False if that set piece isn't running. Unresolved,
+   * DINGO is lost at his deadline and the sector-3 rival escapes. */
+  resolve(id: SetPieceId, outcome: SetPieceOutcome): boolean
 }
 
-export function createEncounterRunner(index: number, loop: number, rng: () => number = Math.random): EncounterRunner {
+export interface RunnerOpts {
+  /** who is flying right now (DINGO's set piece needs DINGO); default all three */
+  squad?: () => readonly WingId[]
+}
+
+export function createEncounterRunner(
+  index: number, loop: number, rng: () => number = Math.random, opts: RunnerOpts = {},
+): EncounterRunner {
+  const squad = opts.squad ?? (() => SQUAD)
   const idx = ((Math.floor(index) % SCRIPTS.length) + SCRIPTS.length) % SCRIPTS.length
   const lp = Math.max(0, Math.floor(loop))
   const sector = absoluteSector(idx, lp)
@@ -389,8 +442,13 @@ export function createEncounterRunner(index: number, loop: number, rng: () => nu
     if (b.spec.type === 'ambush') {
       const n = b.spec.count + (lp >= 2 ? 1 : 0)
       for (let i = 0; i < n; i++) planned.push({ at: b.at + HORNET.warnLead + i * HORNET_GAP, w: 1, done: false })
-    } else planned.push({ at: b.at, w, done: w === 0 })
+    } else if (b.spec.type === 'dingoTrouble') planned.push({ at: b.at, w: dingoChasers(idx, lp), done: false })
+    else if (b.spec.type === 'rivalDuel') planned.push({ at: b.at, w: 4, done: false })
+    else planned.push({ at: b.at, w, done: w === 0 })
   }
+  /** a set piece the runner ends itself: by `resolve` or at `until` */
+  let timed: { id: SetPieceId; until: number; fallback: SetPieceOutcome } | null = null
+  let resolution: SetPieceOutcome | null = null
   /** hornets waiting behind an ambush warning */
   const pending: { at: number; side: -1 | 1; i: number; plan: number; story?: string; filler?: boolean }[] = []
   let t = 0
@@ -451,11 +509,54 @@ export function createEncounterRunner(index: number, loop: number, rng: () => nu
     }
   }
 
+  /** Drop a beat: its planned weight no longer reserves room. */
+  function skipBeat(b: Beat, plan: number) {
+    const n = b.spec.type === 'ambush' ? b.spec.count + (lp >= 2 ? 1 : 0) : 1
+    for (let i = 0; i < n; i++) planned[plan + i]!.done = true
+  }
+
+  function startTimed(id: SetPieceId, story: string | undefined, length: number, fallback: SetPieceOutcome) {
+    setPiece = id
+    timed = { id, until: t + length, fallback }
+    resolution = null
+    push({ t, scripted: true, story, type: 'setPiece', id, phase: 'start' })
+  }
+
+  function endTimed(outcome: SetPieceOutcome) {
+    const id = timed!.id
+    timed = null
+    resolution = null
+    setPiece = null
+    push({ t, scripted: true, story: OUTCOME_CUES[id]?.[outcome], type: 'setPiece', id, phase: 'end', outcome })
+  }
+
   function emitBeat(b: Beat, plan: number) {
     const s = b.spec
+    const pol = setPiece ? SET_PIECE_POLICY[setPiece] : null
+    if (pol?.holdScript && (isEnemySpec(s) || s.type === 'cobraFlyby')) { skipBeat(b, plan); return }
+    if (s.type === 'dingoTrouble' && (setPiece !== null || !squad().includes('dingo'))) { skipBeat(b, plan); return }
+    if ((s.type === 'rivalDuel' || s.type === 'cobraFlyby') && setPiece !== null) { skipBeat(b, plan); return }
     const base = { t, scripted: true as const, story: b.story }
     if (s.type !== 'ambush') planned[plan]!.done = true
     switch (s.type) {
+      case 'dingoTrouble': {
+        const side: -1 | 1 = rng() < 0.5 ? -1 : 1
+        startTimed('dingoTrouble', b.story, DINGO_TROUBLE.time, 'lost')
+        push({ t, scripted: true, type: 'dingoTrouble', chasers: dingoChasers(idx, lp), side, time: DINGO_TROUBLE.time })
+        break
+      }
+      case 'cobraFlyby': {
+        const side: -1 | 1 = rng() < 0.5 ? -1 : 1
+        startTimed('cobra', b.story, RIVAL.flybyTime, 'done')
+        push({ t, scripted: true, type: 'rival', mode: 'flyby', hp: rivalHp(sector, false), side })
+        break
+      }
+      case 'rivalDuel': {
+        const side: -1 | 1 = rng() < 0.5 ? -1 : 1
+        startTimed('rivalDuel', b.story, s.final ? RIVAL.finalTime : RIVAL.duelTime, 'escape')
+        push({ t, scripted: true, type: 'rival', mode: s.final ? 'final' : 'duel', hp: rivalHp(sector, s.final), side })
+        break
+      }
       case 'formation': {
         const free = Math.max(0, Math.floor(room(t)) - s.count)
         const n = Math.min(6, s.count + Math.min(extra, free))
@@ -559,10 +660,16 @@ export function createEncounterRunner(index: number, loop: number, rng: () => nu
     get t() { return t },
     get done() { return done },
     get setPiece() { return setPiece },
+    resolve(id: SetPieceId, outcome: SetPieceOutcome): boolean {
+      if (!timed || timed.id !== id) return false
+      resolution = outcome
+      return true
+    },
     step(dt: number): EncounterEvent[] {
       out.length = 0
       if (done) return out
       t += Math.max(0, dt)
+      if (timed && (resolution || t >= timed.until)) endTimed(resolution ?? timed.fallback)
       while (cursor < script.length && script[cursor]!.at <= t) {
         emitBeat(script[cursor]!, beatPlan[cursor]!)
         cursor++
@@ -577,7 +684,9 @@ export function createEncounterRunner(index: number, loop: number, rng: () => nu
         } else k++
       }
       if (t < TRAVEL_TIME) filler(dt)
-      else {
+      else if (timed?.id === 'rivalDuel') {
+        // the final duel holds WARNING until it is decided
+      } else {
         done = true
         setPiece = null
         push({ t, scripted: true, type: 'warning', boss: BOSSES[idx]!, story: 'boss:warning' })
@@ -602,14 +711,24 @@ function specWeight(s: Spec): number {
 
 function isEnemySpec(s: Spec): boolean {
   return s.type === 'formation' || s.type === 'enemy' || s.type === 'carrier' || s.type === 'turrets' || s.type === 'ambush'
+    || s.type === 'dingoTrouble' || s.type === 'rivalDuel'
 }
 
-/** Run a whole sector's travel and collect every event (tests, debug). */
-export function runEncounter(index: number, loop: number, rng: () => number, dt = 1 / 30): EncounterEvent[] {
-  const run = createEncounterRunner(index, loop, rng)
+/** Run a whole sector's travel and collect every event (tests, debug).
+ * `onEvent` may play the scene's part, e.g. resolve a set piece. */
+export function runEncounter(
+  index: number, loop: number, rng: () => number, dt = 1 / 30,
+  opts: RunnerOpts & { onEvent?: (ev: EncounterEvent, run: EncounterRunner) => void } = {},
+): EncounterEvent[] {
+  const run = createEncounterRunner(index, loop, rng, opts)
   const all: EncounterEvent[] = []
   let guard = 0
-  while (!run.done && guard++ < 100000) for (const ev of run.step(dt)) all.push(ev)
+  while (!run.done && guard++ < 100000) {
+    for (const ev of run.step(dt)) {
+      all.push(ev)
+      opts.onEvent?.(ev, run)
+    }
+  }
   return all
 }
 

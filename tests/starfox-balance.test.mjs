@@ -239,8 +239,8 @@ describe('Star Fox ids and ECHO loops', () => {
 
 describe('Star Fox bestiary (redesign)', () => {
   it('names every kind and keeps stats sane', () => {
-    const names = { drone: 'GNAT', kamikaze: 'SPIKE', weaver: 'MANTA', sniper: 'LANCER', dasher: 'HORNET', bulwark: 'BULWARK', splitter: 'POD', mite: 'MITE', carrier: 'CARRIER', turret: 'TURRET', missile: 'MISSILE' }
-    assert.equal(ENEMY_KINDS.length, 11)
+    const names = { drone: 'GNAT', kamikaze: 'SPIKE', weaver: 'MANTA', sniper: 'LANCER', dasher: 'HORNET', bulwark: 'BULWARK', splitter: 'POD', mite: 'MITE', carrier: 'CARRIER', turret: 'TURRET', missile: 'MISSILE', rival: 'MEGA COBRA' }
+    assert.equal(ENEMY_KINDS.length, 12)
     for (const k of ENEMY_KINDS) assert.equal(ENEMY_STATS[k].name, names[k], k)
     assert.equal(ENEMY_STATS.carrier.hp, 14)
     assert.ok(ENEMY_STATS.carrier.score > ENEMY_STATS.bulwark.score)
@@ -543,5 +543,159 @@ describe('Star Fox bosses', () => {
     assert.equal(crownBeamLane(0, true), 0)
     assert.equal(crownBeamLane(99, true), LANES - 1)
     assert.equal(crownBeamLane(0, false), LANES - 1)
+  })
+})
+
+// ---- the squad, aggro, allied DPS, MEGA COBRA, DINGO (2026-09-25) ----------------
+
+import {
+  WINGMEN, SQUAD, RESERVES, WING_AGGRO_MAX, aggroShares, pickAggroTarget,
+  DINGO_TROUBLE, dingoWeave, dingoTroubleOutcome,
+  RIVAL, rivalHp, rivalEscapes, rivalShouldRoll, rivalHitCue,
+} from '../themes/starfox/balance.ts'
+import {
+  PLAYER_BOSS_DPS, alliedDps, wingmanDps, bossTtk, bossTtkRecovering, BOSS_UPTIME,
+} from '../themes/starfox/bosses.ts'
+
+describe('Star Fox squad profiles', () => {
+  it('flies three named pilots with two in reserve', () => {
+    assert.deepEqual([...SQUAD], ['heron', 'bison', 'dingo'])
+    assert.deepEqual([...RESERVES], ['walrus', 'zebra'])
+    assert.equal(WINGMEN.heron.role, 'ace')
+    assert.equal(WINGMEN.bison.role, 'veteran')
+    assert.equal(WINGMEN.dingo.role, 'rookie')
+  })
+
+  it('makes bison tanky, dingo fragile, heron the hunter, bison the guard', () => {
+    assert.ok(WINGMEN.bison.hp > WINGMEN.heron.hp && WINGMEN.heron.hp > WINGMEN.dingo.hp)
+    assert.ok(WINGMEN.heron.huntZ[0] < WINGMEN.dingo.huntZ[0] && WINGMEN.dingo.huntZ[0] < WINGMEN.bison.huntZ[0])
+    assert.ok(WINGMEN.heron.leash > WINGMEN.dingo.leash && WINGMEN.dingo.leash > WINGMEN.bison.leash)
+    assert.ok(WINGMEN.bison.guard > WINGMEN.dingo.guard && WINGMEN.heron.guard === 0)
+    assert.ok(WINGMEN.heron.steal > 0 && WINGMEN.bison.steal === 0)
+    assert.ok(WINGMEN.heron.fireInterval < WINGMEN.bison.fireInterval)
+    for (const id of [...SQUAD, ...RESERVES]) {
+      const p = WINGMEN[id]
+      assert.ok(p.respawn >= 8 && p.respawn <= 14, id)
+      assert.ok(p.fireInterval > 1 / 6, `${id} fires slower than the player`)
+    }
+  })
+
+  it('keeps formation slots clear of the lasers, the ship and each other', () => {
+    const LASER_X = 3.1 // Flight.vue LASER_OFFS
+    for (const id of SQUAD) {
+      const s = WINGMEN[id].slot
+      // lasers fly forward (−z) from x ±3.1: a slot beside them or behind the ship
+      assert.ok(Math.abs(Math.abs(s.x) - LASER_X) >= 0.3 || s.z >= 2, `${id} off the laser lines`)
+      assert.ok(s.z >= 0, `${id} not ahead of the ship`)
+      // camera sits behind and above (0, 3.6, 10.5): stay out of its line to the ship
+      assert.ok(Math.abs(s.x) >= 2.5, `${id} out of the camera's line to the ship`)
+    }
+    for (let i = 0; i < SQUAD.length; i++) for (let j = i + 1; j < SQUAD.length; j++) {
+      const a = WINGMEN[SQUAD[i]].slot, b = WINGMEN[SQUAD[j]].slot
+      assert.ok(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) >= 2.5, `${SQUAD[i]}/${SQUAD[j]} apart`)
+    }
+    const sides = SQUAD.map(id => Math.sign(WINGMEN[id].slot.x))
+    assert.ok(sides.includes(1) && sides.includes(-1), 'both sides covered')
+  })
+})
+
+describe('Star Fox aggro split', () => {
+  it('bounds the share of fire drawn by wingmen, fewer wingmen draw less', () => {
+    const all = aggroShares(SQUAD)
+    const sum = all.reduce((a, b) => a + b, 0)
+    assert.ok(sum <= WING_AGGRO_MAX + 1e-9 && sum > 0.3)
+    assert.ok(WING_AGGRO_MAX <= 0.45)
+    const two = aggroShares(['heron', 'dingo']).reduce((a, b) => a + b, 0)
+    assert.ok(two < sum)
+    assert.deepEqual(aggroShares([]), [])
+    // bison draws the most
+    assert.ok(all[1] > all[0] && all[0] > all[2])
+    // five pilots at once are still capped
+    const five = aggroShares([...SQUAD, ...RESERVES]).reduce((a, b) => a + b, 0)
+    assert.ok(Math.abs(five - WING_AGGRO_MAX) < 1e-9)
+  })
+
+  it('picks the player for the rest of the draws', () => {
+    const n = 1000
+    const counts = { player: 0, heron: 0, bison: 0, dingo: 0 }
+    for (let i = 0; i < n; i++) counts[pickAggroTarget(SQUAD, (i + 0.5) / n) ?? 'player']++
+    assert.ok(counts.player / n >= 1 - WING_AGGRO_MAX - 0.01)
+    assert.ok(counts.bison > counts.heron && counts.heron > counts.dingo)
+    assert.equal(pickAggroTarget([], 0.01), null)
+  })
+})
+
+describe('Star Fox allied DPS and time-to-kill', () => {
+  const s = (id) => BOSSES.indexOf(id) + 1
+
+  it('adds each wingman to the player and doubles them under the wing overdrive', () => {
+    assert.equal(alliedDps(2, []), PLAYER_BOSS_DPS[2])
+    const three = alliedDps(2, SQUAD)
+    assert.ok(Math.abs(three - PLAYER_BOSS_DPS[2] - SQUAD.reduce((a, id) => a + wingmanDps(id), 0)) < 1e-9)
+    assert.ok(alliedDps(2, SQUAD, true) > three)
+    assert.ok(three / alliedDps(2, []) < 1.8, 'the squad helps without replacing the player')
+    for (const id of SQUAD) assert.ok(wingmanDps(id) < PLAYER_BOSS_DPS[1])
+  })
+
+  it('keeps a typical fight (TWIN+, three wingmen) at 30–65 s', () => {
+    for (const id of BOSSES) {
+      const ttk = bossTtk(id, s(id), alliedDps(2, SQUAD))
+      assert.ok(ttk >= 30 && ttk <= 65, `${id}: ${ttk.toFixed(1)} s`)
+    }
+  })
+
+  it('never melts a boss, even at HYPER with the wing overdrive', () => {
+    for (const id of BOSSES) assert.ok(bossTtk(id, s(id), alliedDps(3, SQUAD, true)) >= 15, id)
+  })
+
+  it('stays fightable with the whole squad down', () => {
+    for (const id of BOSSES) {
+      // down for the whole fight at TWIN+
+      assert.ok(bossTtk(id, s(id), alliedDps(2, [])) <= 100, `${id} alone`)
+      // down at the start at TWIN, back after their respawn
+      assert.ok(bossTtkRecovering(id, s(id), 1, SQUAD, SQUAD) <= 100, `${id} recovering`)
+      assert.ok(bossTtkRecovering(id, s(id), 2, SQUAD, SQUAD) > bossTtk(id, s(id), alliedDps(2, SQUAD)))
+    }
+  })
+
+  it('gets longer in ECHO but not twice as long per loop', () => {
+    for (const id of BOSSES) {
+      const a = bossTtk(id, s(id), alliedDps(2, SQUAD))
+      const b = bossTtk(id, s(id) + 5, alliedDps(2, SQUAD))
+      assert.ok(b > a && b < a * 1.6, id)
+    }
+    for (const id of BOSSES) assert.ok(BOSS_UPTIME[id] > 0 && BOSS_UPTIME[id] <= 1)
+  })
+})
+
+describe('Star Fox DINGO in trouble and MEGA COBRA', () => {
+  it('weaves DINGO ahead of the player inside the corridor', () => {
+    for (const side of [-1, 1]) for (let t = 0; t <= DINGO_TROUBLE.time; t += 0.25) {
+      const p = dingoWeave(t, side)
+      assert.ok(Math.abs(p.x) <= 0.85 && p.y >= 0.2 && p.y <= 0.9)
+    }
+    assert.ok(DINGO_TROUBLE.z < -20 && DINGO_TROUBLE.time >= 10 && DINGO_TROUBLE.time <= 14)
+    assert.equal(dingoTroubleOutcome(0, 3), 'saved')
+    assert.equal(dingoTroubleOutcome(2, 3), 'running')
+    assert.equal(dingoTroubleOutcome(1, DINGO_TROUBLE.time), 'lost')
+  })
+
+  it('makes MEGA COBRA fast, evasive, ~40 HP, escaping at 60 % in sector 3 only', () => {
+    assert.equal(ENEMY_STATS.rival.name, 'MEGA COBRA')
+    assert.ok(!PICKABLE_KINDS.includes('rival'))
+    assert.ok(RIVAL.speed > SHIP_SPEED.x)
+    assert.equal(rivalHp(3, false), 40)
+    assert.ok(rivalHp(5, true) > rivalHp(3, false))
+    assert.ok(rivalHp(8, false) > rivalHp(3, false))
+    assert.equal(rivalEscapes(0.5, false, 5), false)
+    assert.equal(rivalEscapes(0.4, false, 5), true, 'escapes after taking 60 %')
+    assert.equal(rivalEscapes(0.9, false, RIVAL.duelTime), true, 'or when the duel runs out')
+    assert.equal(rivalEscapes(0.01, true, 999), false, 'the final is to the end')
+    assert.ok(rivalShouldRoll(RIVAL.dodgeAfter, RIVAL.rollCooldown))
+    assert.ok(!rivalShouldRoll(RIVAL.dodgeAfter - 0.1, 9))
+    assert.ok(!rivalShouldRoll(9, RIVAL.rollCooldown - 0.1))
+    assert.equal(rivalHitCue(0.8, 0.74), 'cobra:hit')
+    assert.equal(rivalHitCue(0.7, 0.6), null)
+    assert.ok(RIVAL.burst.telegraph >= TELEGRAPH_MIN * 0.75 && RIVAL.spread.telegraph >= TELEGRAPH_MIN)
   })
 })

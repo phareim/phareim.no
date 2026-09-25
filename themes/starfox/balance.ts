@@ -193,9 +193,10 @@ export function formationSize(sector: number, rng: () => number = Math.random): 
 /** Enemy kinds (ids stable: the wingman AI and story key on them).
  * Display names: drone GNAT, kamikaze SPIKE, weaver MANTA, sniper LANCER,
  * dasher HORNET, bulwark BULWARK, splitter POD, mite MITE, plus CARRIER,
- * TURRET and MISSILE. Mites spawn from pods, gnats from carriers, missiles
+ * TURRET, MISSILE and the rival, MEGA COBRA. Mites spawn from pods, gnats from carriers, missiles
  * from carriers and hornets; turrets and carriers come from the encounter
- * script. `pickEnemyKind` never returns mite, carrier, turret or missile. */
+ * script, and so does the rival. `pickEnemyKind` never returns mite,
+ * carrier, turret, missile or rival. */
 export type EnemyKind =
   | 'drone'
   | 'sniper'
@@ -208,9 +209,10 @@ export type EnemyKind =
   | 'carrier'
   | 'turret'
   | 'missile'
+  | 'rival'
 
 export const ENEMY_KINDS: readonly EnemyKind[] = [
-  'drone', 'sniper', 'kamikaze', 'weaver', 'dasher', 'bulwark', 'splitter', 'mite', 'carrier', 'turret', 'missile',
+  'drone', 'sniper', 'kamikaze', 'weaver', 'dasher', 'bulwark', 'splitter', 'mite', 'carrier', 'turret', 'missile', 'rival',
 ]
 
 /** Per-kind stats: hits to kill, score value, HUD/intercom name. */
@@ -226,6 +228,8 @@ export const ENEMY_STATS: Record<EnemyKind, { hp: number; score: number; name: s
   carrier: { hp: 14, score: 1200, name: 'CARRIER' },
   turret: { hp: 3, score: 250, name: 'TURRET' },
   missile: { hp: 1, score: 60, name: 'MISSILE' },
+  /** MEGA COBRA's fighter; HP per duel comes from `rivalHp` */
+  rival: { hp: 40, score: 5000, name: 'MEGA COBRA' },
 }
 
 /** Kinds the random pick may return; the rest are scripted or launched. */
@@ -600,6 +604,189 @@ export const BUDDY_INVULN = 2
 export const BUDDY_FIRE_INTERVAL = 0.28
 /** Share of aimed enemy fire drawn to the wingman while it is alive. */
 export const BUDDY_AGGRO = 0.35
+
+// ---- the squad: three wingmen at once (2026-09-25) -----------------------------
+// Animal pilots from the Hall of Fame. HERON the ace hunts far and steals
+// kills; BISON the veteran stays close, tanks, and shoots down whatever
+// threatens the player; DINGO the rookie is fragile and in between.
+// WALRUS and ZEBRA are reserves (a reserve takes the slot of the pilot it
+// replaces). The BUDDY_* constants above are the single-wingman tuning
+// Flight.vue still uses until the squad lands there.
+
+export type WingId = 'heron' | 'bison' | 'dingo' | 'walrus' | 'zebra'
+
+export const SQUAD: readonly WingId[] = ['heron', 'bison', 'dingo']
+export const RESERVES: readonly WingId[] = ['walrus', 'zebra']
+
+export interface WingProfile {
+  name: string
+  role: 'ace' | 'veteran' | 'rookie' | 'reserve'
+  /** formation offset from the ship (world units; +z is behind, toward
+   * the camera). Clear of the laser lines and the camera's view of the ship. */
+  slot: { x: number; y: number; z: number }
+  hp: number
+  /** seconds down before it flies again */
+  respawn: number
+  /** seconds between shots */
+  fireInterval: number
+  /** weight of enemy aimed fire it draws (see `aggroShares`) */
+  aggro: number
+  /** depth window it hunts in */
+  huntZ: readonly [number, number]
+  /** how far across from the ship it will go while hunting */
+  leash: number
+  /** extra threat for things coming at the player (missiles on the ship,
+   * dives near the ship) */
+  guard: number
+  /** pull toward targets in the player's own line (the ace steals kills) */
+  steal: number
+  /** cost margin a new target needs to steal its lock */
+  margin: number
+  /** player hull below which it drops everything and covers */
+  coverHp: number
+  /** multiplier on the hunt turn rate */
+  turn: number
+}
+
+export const WINGMEN: Readonly<Record<WingId, WingProfile>> = {
+  heron: {
+    name: 'HERON', role: 'ace', slot: { x: -4.6, y: 1.8, z: 0.8 },
+    hp: 40, respawn: 12, fireInterval: 0.24, aggro: 0.14,
+    huntZ: [-200, -10], leash: 11, guard: 0, steal: 1.5, margin: 1.5, coverHp: 20, turn: 1.25,
+  },
+  bison: {
+    name: 'BISON', role: 'veteran', slot: { x: 4.4, y: -0.4, z: 1.4 },
+    hp: 80, respawn: 10, fireInterval: 0.32, aggro: 0.2,
+    huntZ: [-120, -3], leash: 5, guard: 2.5, steal: 0, margin: 3, coverHp: 45, turn: 0.9,
+  },
+  dingo: {
+    name: 'DINGO', role: 'rookie', slot: { x: -3.4, y: -1.0, z: 4.2 },
+    hp: 30, respawn: 9, fireInterval: 0.3, aggro: 0.11,
+    huntZ: [-160, -10], leash: 8, guard: 0.5, steal: 0.5, margin: 2.5, coverHp: 30, turn: 1,
+  },
+  walrus: {
+    name: 'WALRUS', role: 'reserve', slot: { x: 4.4, y: -0.4, z: 1.4 },
+    hp: 70, respawn: 10, fireInterval: 0.34, aggro: 0.18,
+    huntZ: [-120, -3], leash: 5, guard: 2, steal: 0, margin: 3, coverHp: 40, turn: 0.9,
+  },
+  zebra: {
+    name: 'ZEBRA', role: 'reserve', slot: { x: -4.6, y: 1.8, z: 0.8 },
+    hp: 35, respawn: 11, fireInterval: 0.26, aggro: 0.13,
+    huntZ: [-180, -10], leash: 10, guard: 0, steal: 1, margin: 2, coverHp: 25, turn: 1.15,
+  },
+}
+
+/** Seconds of invulnerability after any wingman (re)spawns. */
+export const WING_INVULN = 2
+
+/** At most this share of enemy aimed fire goes to wingmen, however many fly. */
+export const WING_AGGRO_MAX = 0.45
+
+/** Share of enemy aimed fire each live wingman draws (aligned with
+ * `alive`); the rest goes to the player. The sum never passes
+ * WING_AGGRO_MAX, and fewer wingmen draw less. */
+export function aggroShares(alive: readonly WingId[]): number[] {
+  let sum = 0
+  for (const id of alive) sum += WINGMEN[id].aggro
+  const k = sum > WING_AGGRO_MAX ? WING_AGGRO_MAX / sum : 1
+  return alive.map(id => WINGMEN[id].aggro * k)
+}
+
+/** Who an aimed shot goes for: a wingman, or null for the player. `r` is
+ * one uniform draw in [0, 1). */
+export function pickAggroTarget(alive: readonly WingId[], r: number): WingId | null {
+  const shares = aggroShares(alive)
+  let acc = 0
+  for (let i = 0; i < alive.length; i++) {
+    acc += shares[i]!
+    if (r < acc) return alive[i]!
+  }
+  return null
+}
+
+// ---- set pieces with the squad and the rival -------------------------------------
+
+/** DINGO in trouble: he breaks formation with chasers on his tail; kill
+ * them all within `time` s and he is saved, else he is shot down. He
+ * weaves ahead of the player so the chasers can be shot. */
+export const DINGO_TROUBLE = {
+  time: 12,
+  /** chasers: gnats glued `gap` units behind him */
+  chaserKind: 'drone' as EnemyKind,
+  gap: 5,
+  /** his weave, normalised lane units */
+  weave: { amp: 0.45, rate: 0.9, y: 0.55, yAmp: 0.18 },
+  /** depth he flies at, ahead of the player */
+  z: -38,
+} as const
+
+/** DINGO's weave point `t` s into the set piece (normalised x, y), on the
+ * `side` he broke off to. */
+export function dingoWeave(t: number, side: -1 | 1): { x: number; y: number } {
+  const w = DINGO_TROUBLE.weave
+  return {
+    x: side * 0.35 + w.amp * Math.sin(t * w.rate * Math.PI),
+    y: w.y + w.yAmp * Math.sin(t * w.rate * 2.1),
+  }
+}
+
+export type DingoOutcome = 'running' | 'saved' | 'lost'
+
+export function dingoTroubleOutcome(chasersAlive: number, elapsed: number): DingoOutcome {
+  if (chasersAlive <= 0) return 'saved'
+  return elapsed >= DINGO_TROUBLE.time ? 'lost' : 'running'
+}
+
+/** MEGA COBRA's fighter: faster across than the player, keeps its range,
+ * rolls out of a steady aim, fires aimed bursts and a spread. In the
+ * sector-3 duel it escapes once it has lost `escapeAt` of its HP (or when
+ * the duel runs out); the sector-5 duel is to the end. */
+export const RIVAL = {
+  speed: 16,
+  z: [-70, -35] as const,
+  /** rolls when the player has held it in line this long */
+  dodgeAfter: 0.4,
+  /** lateral distance that counts as "in line" */
+  lineX: 1.4,
+  roll: 0.5,
+  rollCooldown: 1.6,
+  /** fraction of HP lost before it escapes (sector 3) */
+  escapeAt: 0.6,
+  /** the sector-3 duel ends by escape after this long regardless */
+  duelTime: 25,
+  /** the final duel's hard stop: it retreats into the Crown */
+  finalTime: 60,
+  /** flyby duration (sector 2, taunt only) */
+  flybyTime: 4,
+  burst: { telegraph: 0.35, bolts: 3, gap: 0.12, boltMul: 1.25 },
+  spread: { telegraph: 0.5, bolts: 5, spread: 0.7, boltMul: 1 },
+  /** seconds between attacks */
+  attackEvery: [1.2, 1.8] as const,
+  /** bar fraction below which the cue `cobra:hit` plays */
+  hitCueAt: 0.75,
+} as const
+
+/** Rival HP for a duel: 40 in sector 3, 60 in the final, × ECHO. */
+export function rivalHp(sector: number, final: boolean): number {
+  return Math.round(40 * (final ? 1.5 : 1) * echoMul(sector))
+}
+
+/** Does the rival leave now? Never in the final duel. */
+export function rivalEscapes(hpFrac: number, final: boolean, duelT: number): boolean {
+  if (final) return false
+  return hpFrac <= 1 - RIVAL.escapeAt || duelT >= RIVAL.duelTime
+}
+
+/** Should it roll? The player has held it in line `inLineT` s and the
+ * roll is off cooldown. */
+export function rivalShouldRoll(inLineT: number, sinceRoll: number): boolean {
+  return inLineT >= RIVAL.dodgeAfter && sinceRoll >= RIVAL.rollCooldown
+}
+
+/** `cobra:hit` the first time its HP crosses RIVAL.hitCueAt. */
+export function rivalHitCue(prevFrac: number, frac: number): string | null {
+  return prevFrac > RIVAL.hitCueAt && frac <= RIVAL.hitCueAt ? 'cobra:hit' : null
+}
 
 /** Mine tuning: drifting proximity-fused obstacles. */
 export const MINE_FUSE_RADIUS = 3.2

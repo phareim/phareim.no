@@ -1,4 +1,18 @@
-import type { EnemyKind } from './balance'
+/**
+ * Star Fox wingman brain — pure, no three.js, DOM or Vue
+ * (tests/starfox-wingman.test.mjs).
+ *
+ * One `WingAi` per wingman. `createWingAi()` with no id is the original
+ * single wingman (the WING_AI constants); `createWingAi('heron' | 'bison' |
+ * 'dingo' | …)` flies that pilot's profile from balance.ts `WINGMEN`: its
+ * own hunt window, leash, guard (threats to the player first), kill-steal
+ * pull, retarget margin and cover threshold. Three at once: step them with
+ * `stepSquad`, which passes each the targets the others have locked, so
+ * they spread out — except on a boss core, which all may share.
+ */
+
+import type { EnemyKind, WingId, WingProfile } from './balance'
+import { WINGMEN } from './balance.ts'
 
 export type WingMode = 'formation' | 'hunt' | 'regroup' | 'cover'
 /** Enemy kinds plus boss pieces: `part` = any breakable boss part (claw,
@@ -14,7 +28,7 @@ export interface WingTarget {
   y: number
   z: number
   vx: number
-  /** a missile homing on the player: Claude takes it first */
+  /** a missile homing on the player: guards take it first */
   onShip?: boolean
 }
 
@@ -27,9 +41,13 @@ export interface WingInput {
   lane: { xMax: number; yLo: number; yHi: number }
   targets: WingTarget[]
   demo: boolean
+  /** target ids other wingmen have locked (stepSquad fills this) */
+  claimed?: readonly number[]
 }
 
 export interface WingAi {
+  /** the pilot, or null for the original single wingman */
+  id: WingId | null
   mode: WingMode
   targetId: number | null
   modeT: number
@@ -43,6 +61,8 @@ export interface WingStep {
   ty: number
   fire: boolean
   say: string | null
+  /** which callout `say` came from, so the story can voice it per pilot */
+  sayKey: CalloutKey | null
   mode: WingMode
 }
 
@@ -75,6 +95,14 @@ export const WING_AI = {
   turretLineX: 2.5,
   /** extra threat for a missile homing on the player */
   onShipBonus: 1.5,
+  /** cost added to a target another wingman has locked */
+  claimPenalty: 12,
+  /** a dive counts as "at the player" inside this lateral distance… */
+  guardX: 3,
+  /** …and closer than this depth */
+  guardZ: -80,
+  /** "in the player's line" for the kill-steal pull */
+  stealX: 2.5,
   turnRate: {
     formation: 5,
     hunt: 7,
@@ -96,32 +124,85 @@ export const THREAT: Record<TargetKind, number> = {
   core: 1,
   missile: 4,
   carrier: 1.2,
-  part: 2.5
+  part: 2.5,
+  rival: 2
 }
 
-/** Inside the depth window Claude hunts and fires in (missiles closer). */
-export function inHuntZone(t: WingTarget): boolean {
-  const zMax = t.kind === 'missile' ? WING_AI.missileZ : WING_AI.huntZ[1]
-  return t.z > WING_AI.huntZ[0] && t.z < zMax
+/** A newcomer must beat the current target's cost by this much to steal the lock. */
+export const RETARGET_MARGIN = 3
+
+/** The knobs one wingman flies by. */
+export interface WingBrain {
+  huntZ: readonly [number, number]
+  leash: number
+  guard: number
+  steal: number
+  margin: number
+  coverHp: number
+  turn: number
 }
 
-/** Worth steering toward: in the zone, and a ground turret only when it
- * is already nearly in line (Claude doesn't dive at the ground). */
-export function isHuntable(t: WingTarget, buddy: { x: number; y: number }): boolean {
-  if (!inHuntZone(t)) return false
+/** The original single wingman: no leash, no guard, no steal. */
+export const DEFAULT_BRAIN: WingBrain = {
+  huntZ: WING_AI.huntZ,
+  leash: Infinity,
+  guard: 0,
+  steal: 0,
+  margin: RETARGET_MARGIN,
+  coverHp: WING_AI.coverHp,
+  turn: 1
+}
+
+export function brainOf(id: WingId | null | undefined): WingBrain {
+  if (!id) return DEFAULT_BRAIN
+  const p: WingProfile = WINGMEN[id]
+  return { huntZ: p.huntZ, leash: p.leash, guard: p.guard, steal: p.steal, margin: p.margin, coverHp: p.coverHp, turn: p.turn }
+}
+
+/** Turn rate for a mode, scaled by the pilot. */
+export function turnRate(ai: WingAi, mode: WingMode = ai.mode): number {
+  return WING_AI.turnRate[mode] * (mode === 'hunt' ? brainOf(ai.id).turn : 1)
+}
+
+/** Inside the depth window the pilot hunts and fires in (missiles closer). */
+export function inHuntZone(t: WingTarget, brain: WingBrain = DEFAULT_BRAIN): boolean {
+  const zMax = t.kind === 'missile' ? Math.max(WING_AI.missileZ, brain.huntZ[1]) : brain.huntZ[1]
+  return t.z > brain.huntZ[0] && t.z < zMax
+}
+
+/** Worth steering toward: in the zone, inside the leash, and a ground
+ * turret only when it is already nearly in line (no diving at the ground). */
+export function isHuntable(
+  t: WingTarget, buddy: { x: number; y: number },
+  brain: WingBrain = DEFAULT_BRAIN, ship?: { x: number },
+): boolean {
+  if (!inHuntZone(t, brain)) return false
   if (t.kind === 'turret' && Math.abs(t.x - buddy.x) > WING_AI.turretLineX) return false
+  if (ship && Math.abs(t.x - ship.x) > brain.leash + 2) return false
   return true
 }
 
-function threatOf(t: WingTarget): number {
-  return (THREAT[t.kind] ?? 1) + (t.onShip ? WING_AI.onShipBonus : 0)
+/** Coming at the player: a missile homing on the ship, or a dive close
+ * to the ship's line. */
+export function threatensShip(t: WingTarget, ship: { x: number }): boolean {
+  if (t.onShip) return true
+  const diver = t.kind === 'kamikaze' || t.kind === 'mite' || t.kind === 'missile' || t.kind === 'dasher'
+  return diver && t.z > WING_AI.guardZ && Math.abs(t.x - ship.x) < WING_AI.guardX
+}
+
+function threatOf(t: WingTarget, brain: WingBrain, ship?: { x: number }): number {
+  let th = (THREAT[t.kind] ?? 1) + (t.onShip ? WING_AI.onShipBonus : 0)
+  if (ship && brain.guard > 0 && threatensShip(t, ship)) th += brain.guard
+  if (ship && brain.steal > 0 && Math.abs(t.x - ship.x) < WING_AI.stealX) th += brain.steal
+  return th
 }
 
 /**
- * Create a new wingman AI state object, initialized to formation mode.
+ * Create a wingman AI state, in formation. No id = the original wingman.
  */
-export function createWingAi(): WingAi {
+export function createWingAi(id: WingId | null = null): WingAi {
   return {
+    id,
     mode: 'formation',
     targetId: null,
     modeT: 0,
@@ -137,54 +218,59 @@ export function createWingAi(): WingAi {
  */
 export function callout(ai: WingAi, key: CalloutKey): string {
   const list = CALLOUTS[key]
-  const str = list[ai.sayIdx % list.length]
+  const str = list[ai.sayIdx % list.length]!
   ai.sayIdx++
   return str
 }
 
-/** Score a candidate: lateral reach + depth, minus a threat bonus. Lower is better. */
-function targetCost(t: WingTarget, buddy: { x: number; y: number }): number {
-  const dx = t.x - buddy.x
-  const dy = t.y - buddy.y
-  return Math.sqrt(dx * dx + dy * dy) + 0.02 * Math.abs(t.z) - 4 * threatOf(t)
+export interface PickOpts {
+  brain?: WingBrain
+  ship?: { x: number }
+  /** ids other wingmen have locked: penalised unless a boss core */
+  claimed?: readonly number[]
 }
 
-/** A newcomer must beat the current target's cost by this much to steal the lock. */
-export const RETARGET_MARGIN = 3
+/** Score a candidate: lateral reach + depth, minus a threat bonus, plus a
+ * penalty when someone else has it. Lower is better. */
+function targetCost(t: WingTarget, buddy: { x: number; y: number }, o: PickOpts): number {
+  const dx = t.x - buddy.x
+  const dy = t.y - buddy.y
+  const claimed = t.kind !== 'core' && !!o.claimed && o.claimed.includes(t.id)
+  return Math.sqrt(dx * dx + dy * dy) + 0.02 * Math.abs(t.z)
+    - 4 * threatOf(t, o.brain ?? DEFAULT_BRAIN, o.ship)
+    + (claimed ? WING_AI.claimPenalty : 0)
+}
 
 /**
  * Pick the best target from the candidate list.
- * Candidates must be huntable: huntZ[0] < z < huntZ[1] (missiles up to
- * missileZ), ground turrets only when nearly in line.
- * Sticky: the current target is kept while it is in range, unless another
- * candidate beats its cost by RETARGET_MARGIN (a kamikaze diving in).
- * Cost: lateral distance + 0.02*|z| - 4*THREAT[kind]; lowest wins.
+ * Candidates must be huntable: inside the pilot's hunt window (missiles
+ * up to missileZ), inside its leash, ground turrets only when nearly in
+ * line. Sticky: the current target is kept unless another beats its cost
+ * by the pilot's margin (a kamikaze diving in). Cost: lateral distance +
+ * 0.02·|z| − 4·threat (+ guard/steal bonuses) + claimPenalty when another
+ * wingman has it; lowest wins.
  */
 export function pickTarget(
   targets: WingTarget[],
   buddy: { x: number; y: number },
-  current: number | null
+  current: number | null,
+  opts: PickOpts = {}
 ): WingTarget | null {
-  const candidates = targets.filter(t => isHuntable(t, buddy))
-
-  if (candidates.length === 0) return null
-
+  const brain = opts.brain ?? DEFAULT_BRAIN
   let best: WingTarget | null = null
   let bestScore = Infinity
-  for (const t of candidates) {
-    const score = targetCost(t, buddy)
+  let cur: WingTarget | null = null
+  for (const t of targets) {
+    if (!isHuntable(t, buddy, brain, opts.ship)) continue
+    if (t.id === current) cur = t
+    const score = targetCost(t, buddy, opts)
     if (score < bestScore) {
       bestScore = score
       best = t
     }
   }
-
   // Sticky: keep the current target unless the best is clearly better.
-  if (current !== null) {
-    const cur = candidates.find(t => t.id === current)
-    if (cur && targetCost(cur, buddy) - RETARGET_MARGIN <= bestScore) return cur
-  }
-
+  if (cur && targetCost(cur, buddy, opts) - brain.margin <= bestScore) return cur
   return best
 }
 
@@ -203,6 +289,7 @@ export function canFire(buddy: { x: number; y: number }, target: { x: number; y:
  */
 export function stepWingman(ai: WingAi, input: WingInput): WingStep {
   const { dt, buddy, ship, formation, lane, targets, demo } = input
+  const brain = brainOf(ai.id)
 
   // 1. Update timers
   ai.modeT += dt
@@ -212,32 +299,26 @@ export function stepWingman(ai: WingAi, input: WingInput): WingStep {
   if (demo) {
     ai.mode = 'formation'
     ai.targetId = null
-    return {
-      tx: formation.x,
-      ty: formation.y,
-      fire: false,
-      say: null,
-      mode: 'formation'
-    }
+    return { tx: formation.x, ty: formation.y, fire: false, say: null, sayKey: null, mode: 'formation' }
   }
 
+  let sayKey: CalloutKey | null = null
   let say: string | null = null
+  const speak = (k: CalloutKey) => { sayKey = k; say = callout(ai, k) }
 
   // 3. Cover mode if ship HP is critical
-  if (ship.hp < WING_AI.coverHp) {
+  if (ship.hp < brain.coverHp) {
     if (ai.mode !== 'cover') {
       ai.mode = 'cover'
       ai.modeT = 0
-      say = callout(ai, 'cover')
+      speak('cover')
     }
     ai.targetId = null
     const tx = clamp(formation.x, -lane.xMax, lane.xMax)
     const ty = clamp(formation.y, lane.yLo, lane.yHi)
-
     // Still fire if a target crosses the lane
-    const fire = targets.some(t => inHuntZone(t) && canFire(buddy, t))
-
-    return { tx, ty, fire, say, mode: ai.mode }
+    const fire = targets.some(t => inHuntZone(t, brain) && canFire(buddy, t))
+    return { tx, ty, fire, say, sayKey, mode: ai.mode }
   }
 
   // 4. Exit cover mode if HP recovered
@@ -247,7 +328,7 @@ export function stepWingman(ai: WingAi, input: WingInput): WingStep {
   }
 
   // 5. Target maintenance
-  let t = pickTarget(targets, buddy, ai.targetId)
+  const t = pickTarget(targets, buddy, ai.targetId, { brain, ship, claimed: input.claimed })
 
   if (t === null) {
     ai.targetId = null
@@ -256,7 +337,7 @@ export function stepWingman(ai: WingAi, input: WingInput): WingStep {
     if (ai.targetId === null || ai.retargetT <= 0) {
       ai.targetId = t.id
       ai.retargetT = WING_AI.retargetCooldown
-      say = callout(ai, 'lock')
+      speak('lock')
     }
   }
 
@@ -266,7 +347,7 @@ export function stepWingman(ai: WingAi, input: WingInput): WingStep {
     ai.modeT = 0
     if (!ai.leftSlot) {
       ai.leftSlot = true
-      say = callout(ai, 'breakOff') // breakOff overrides lock
+      speak('breakOff') // breakOff overrides lock
     }
   }
 
@@ -282,12 +363,11 @@ export function stepWingman(ai: WingAi, input: WingInput): WingStep {
   if (ai.mode === 'regroup') {
     const dx = buddy.x - formation.x
     const dy = buddy.y - formation.y
-    const dist = Math.sqrt(dx * dx + dy * dy)
-    if (dist < WING_AI.regroupRadius) {
+    if (Math.sqrt(dx * dx + dy * dy) < WING_AI.regroupRadius) {
       ai.mode = 'formation'
       ai.modeT = 0
       ai.leftSlot = false
-      say = callout(ai, 'regroup')
+      speak('regroup')
     }
   }
 
@@ -303,15 +383,42 @@ export function stepWingman(ai: WingAi, input: WingInput): WingStep {
     }
   }
 
-  // Clamp to lane bounds
+  // Leash to the ship, then the lane
+  tx = clamp(tx, ship.x - brain.leash, ship.x + brain.leash)
   tx = clamp(tx, -lane.xMax, lane.xMax)
   ty = clamp(ty, lane.yLo, lane.yHi)
 
-  // 9. Fire if any target in huntZ passes line-of-sight check
-  const fire = targets.some(tg => inHuntZone(tg) && canFire(buddy, tg))
+  // 9. Fire if any target in the zone passes the line-of-sight check
+  const fire = targets.some(tg => inHuntZone(tg, brain) && canFire(buddy, tg))
 
-  // 10. Return step
-  return { tx, ty, fire, say, mode: ai.mode }
+  return { tx, ty, fire, say, sayKey, mode: ai.mode }
+}
+
+export interface SquadMember {
+  ai: WingAi
+  input: WingInput
+}
+
+/**
+ * Step several wingmen for one frame. Each sees the targets the others
+ * hold (their locks before this frame, updated as the frame goes), so
+ * three wingmen spread over three enemies; a boss core is never claimed.
+ * Order matters a little: earlier members pick first. Writes each
+ * member's `input.claimed`.
+ */
+export function stepSquad(members: readonly SquadMember[]): WingStep[] {
+  const out: WingStep[] = []
+  for (let i = 0; i < members.length; i++) {
+    const claimed: number[] = []
+    for (let j = 0; j < members.length; j++) {
+      if (j === i) continue
+      const id = members[j]!.ai.targetId
+      if (id !== null) claimed.push(id)
+    }
+    members[i]!.input.claimed = claimed
+    out.push(stepWingman(members[i]!.ai, members[i]!.input))
+  }
+  return out
 }
 
 /**

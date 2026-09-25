@@ -37,7 +37,8 @@ export const MAXED_SCORE = 500
 
 export const SHIELD = { absorb: 40, time: 12 } as const
 export const OVERDRIVE = { time: 8, fireMul: 2, pierce: 2, cap: 12 } as const
-/** Claude back at full hull, then fires double for `time` s. */
+/** Every downed wingman back at full hull, then the whole squad fires
+ * double for `time` s. */
 export const WING_OD = { time: 10, fireMul: 2 } as const
 
 /** NOVA BOMB: flies forward, detonates at `range` or on contact; the blast
@@ -80,6 +81,8 @@ export function bombDamage(target: EnemyKind | 'core' | 'part'): number {
   if (target === 'core') return BOMB.bossDamage
   if (target === 'part') return BOMB.partDamage
   if (target === 'carrier') return BOMB.carrierDamage
+  // the rival is no ordinary enemy: a bomb hurts it like a boss part
+  if (target === 'rival') return BOMB.partDamage
   return BOMB.enemyDamage
 }
 
@@ -165,7 +168,8 @@ export interface PickupResult {
   /** HP to heal the ship */
   heal: number
   bombs: number
-  /** respawn Claude now at full hull (wing capsule) */
+  /** revive every downed wingman now at full hull (wing capsule); the
+   * wing overdrive covers the whole squad */
   respawnWing: boolean
   /** intercom cue (story.ts key) or null */
   cue: string | null
@@ -296,7 +300,7 @@ export function laserPierce(s: ArsenalState): number {
   return s.overdriveT > 0 ? OVERDRIVE.pierce : 0
 }
 
-/** Wingman fire-rate multiplier. */
+/** Wingman fire-rate multiplier (every wingman in the squad). */
 export function wingFireMul(s: ArsenalState): number {
   return s.wingOdT > 0 ? WING_OD.fireMul : 1
 }
@@ -311,12 +315,20 @@ export interface DropContext {
   hp: number
   bombs: number
   laser: number
-  wingDown: boolean
+  /** wingmen down right now (0–3) */
+  wingsDown?: number
+  /** the single-wingman form: true = one down */
+  wingDown?: boolean
   shieldOn: boolean
 }
 
+function downCount(ctx: DropContext): number {
+  return ctx.wingsDown ?? (ctx.wingDown ? 1 : 0)
+}
+
 /** Capsule weights by need: low hull favours shield, no bombs favours
- * bomb, a downed wingman favours wing; maxed things drop out. */
+ * bomb, downed wingmen favour wing (more the more are down); maxed
+ * things drop out. */
 export function capsuleWeights(ctx: DropContext): Record<CapsuleType, number> {
   const w: Record<CapsuleType, number> = { laser: 3, bomb: 2, shield: 1.5, wing: 0, overdrive: 1.5 }
   if (ctx.laser >= LASER_MAX) w.laser = 0.4
@@ -327,7 +339,8 @@ export function capsuleWeights(ctx: DropContext): Record<CapsuleType, number> {
   if (frac < 0.3) w.shield += 5
   else if (frac < 0.6) w.shield += 2.5
   if (ctx.shieldOn) w.shield *= 0.2
-  if (ctx.wingDown) w.wing = 4
+  const down = downCount(ctx)
+  if (down > 0) w.wing = 1.5 + 1.5 * down
   return w
 }
 

@@ -222,3 +222,24 @@ describe('Star Fox capsule drops', () => {
     assert.ok(dry.bomb > calm.bomb)
   })
 })
+
+describe('Star Fox wing capsule with a squad (2026-09-25)', () => {
+  it('revives every downed wingman and puts the whole squad in overdrive', () => {
+    const s = createArsenal()
+    const r = applyCapsule(s, 'wing')
+    assert.equal(r.respawnWing, true, 'the scene revives all downed wingmen at full hull')
+    assert.equal(wingFireMul(s), 2)
+  })
+
+  it('wants the wing capsule more the more wingmen are down', () => {
+    const w = (n) => capsuleWeights(ctx({ wingsDown: n })).wing
+    assert.equal(w(0), 0)
+    assert.ok(w(1) > 0 && w(2) > w(1) && w(3) > w(2))
+    assert.equal(capsuleWeights(ctx({ wingDown: true })).wing, w(1), 'the single-wingman form still works')
+  })
+
+  it('bombs hurt MEGA COBRA like a boss part, not an ordinary enemy', () => {
+    assert.equal(bombDamage('rival'), BOMB.partDamage)
+    assert.ok(bombDamage('rival') < ENEMY_STATS.rival.hp)
+  })
+})
