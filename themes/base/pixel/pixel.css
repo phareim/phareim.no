@@ -62,3 +62,77 @@
 @media (prefers-reduced-motion: reduce) {
   .landing .px-blink { animation: none; }
 }
+
+/*
+ * Panels and buttons for pages built from HTML (Hall of Fame, Hangar, the
+ * shell's radio and pills; 2026-09-25). Not scoped to .landing.
+ *   .px-text  the pixel font, no tracking, no smoothing; size in 8 px steps
+ *   .px-box   Neon Shrine's dialog box (themes/zelda/render/hud.ts box())
+ *             at --px-u CSS px per pixel: a one-pixel edge with notched
+ *             corners (four offset shadows, no border-radius) and the faint
+ *             cyan rule inside the top edge. --px-edge retints the edge.
+ *   .px-btn   a small box that lights up on hover and focus
+ */
+.px-text,
+.px-box,
+.px-btn {
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+.px-box {
+  --px-u: 2px;
+  --px-edge: #2ff3ff;
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: rgba(11, 6, 22, 0.88);
+  box-shadow:
+    0 calc(-1 * var(--px-u)) 0 0 var(--px-edge),
+    0 var(--px-u) 0 0 var(--px-edge),
+    calc(-1 * var(--px-u)) 0 0 0 var(--px-edge),
+    var(--px-u) 0 0 0 var(--px-edge);
+}
+.px-box::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--px-u) * 2);
+  right: calc(var(--px-u) * 2);
+  top: calc(var(--px-u) * 2);
+  height: var(--px-u);
+  background: rgba(47, 243, 255, 0.35);
+  pointer-events: none;
+}
+.px-box--pink { --px-edge: #ff2fa0; }
+.px-box--gold { --px-edge: #ffd23f; }
+.px-box--flat::before { display: none; }
+
+.px-btn {
+  --px-u: 2px;
+  --px-edge: #2ff3ff;
+  font-size: 16px;
+  line-height: 1;
+  padding: 6px 8px;
+  color: var(--px-edge);
+  background: rgba(11, 6, 22, 0.88);
+  border: 0;
+  border-radius: 0;
+  box-shadow:
+    0 calc(-1 * var(--px-u)) 0 0 var(--px-edge),
+    0 var(--px-u) 0 0 var(--px-edge),
+    calc(-1 * var(--px-u)) 0 0 0 var(--px-edge),
+    var(--px-u) 0 0 0 var(--px-edge);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.px-btn:hover,
+.px-btn:focus-visible {
+  outline: none;
+  color: #0b0616;
+  background: var(--px-edge);
+}
+.px-btn--pink { --px-edge: #ff2fa0; }
