@@ -20,6 +20,7 @@ import './leaderboard/theme.css'
 import './hangar/theme.css'
 import './portal/theme.css'
 import './radio/theme.css'
+import './battery/theme.css'
 
 // Static imports on purpose: a cabinet should not wait for a chunk, and the
 // whole set is small (the Galaga game is the only big one).
@@ -40,6 +41,7 @@ import LeaderboardLanding from './leaderboard/Landing.vue'
 import HangarLanding from './hangar/Landing.vue'
 import PortalLanding from './portal/Landing.vue'
 import RadioLanding from './radio/Landing.vue'
+import BatteryLanding from './battery/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the `?theme=` value. */
@@ -104,6 +106,16 @@ export const allThemes: ThemeDefinition[] = [
     themeColor: '#f5f5f3',
     themeColorDark: '#1a1c1e',
     landing: ScandiLanding,
+  },
+  {
+    // Night of the Dead Battery (2026-09-26): a DOTT-style point-and-click
+    // adventure. `ownRadio`: it plays its own score and holds the radio silent.
+    id: 'battery',
+    name: 'Night of the Dead Battery',
+    ownRadio: true,
+    themeColor: '#07040d',
+    themeColorDark: '#07040d',
+    landing: BatteryLanding,
   },
   {
     id: 'galaga',

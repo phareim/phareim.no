@@ -1,0 +1,40 @@
+/**
+ * Night of the Dead Battery (battery)
+ * ---------------------------
+ * A point-and-click adventure in a crooked house on a stormy night. The
+ * page is the canvas; the title menu, pause menu and ending are HTML in
+ * the pixel font over it.
+ */
+
+:root {
+  --battery-bg: #07040d;
+  --battery-text: #f4ecff;
+  --battery-text-muted: rgba(244, 236, 255, 0.7);
+  --battery-text-subtle: rgba(244, 236, 255, 0.42);
+  --battery-accent: #ffd23f;
+  --battery-card-bg: rgba(18, 10, 32, 0.94);
+  --battery-card-border: rgba(199, 166, 255, 0.4);
+  --battery-card-shadow: rgba(0, 0, 0, 0.5);
+  --battery-font: var(--font-pixel);
+}
+
+.battery-page {
+  height: var(--app-height, 100dvh);
+  overflow: hidden;
+  touch-action: none;
+  background: var(--battery-bg);
+  color: var(--battery-text);
+  font-family: var(--battery-font);
+  position: relative;
+
+  --theme-bg: var(--battery-bg);
+  --theme-text: var(--battery-text);
+  --theme-text-muted: var(--battery-text-muted);
+  --theme-text-subtle: var(--battery-text-subtle);
+  --theme-accent: var(--battery-accent);
+  --theme-card-bg: var(--battery-card-bg);
+  --theme-card-border: var(--battery-card-border);
+  --theme-card-shadow: var(--battery-card-shadow);
+  --theme-card-radius: 0px;
+  --theme-font-body: var(--battery-font);
+}
