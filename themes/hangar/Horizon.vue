@@ -1,59 +1,35 @@
 <template><canvas ref="canvas" class="hg-horizon" aria-hidden="true" /></template>
 <script setup>
-import { createHorizon } from '~/themes/base/neonHorizon.js'
+// The launch bay at dusk behind the profile, on Neon Shrine's pixel stage
+// (themes/base/pixel, scene in ./pixel.ts). Reduced motion draws it once.
+import { createPixelStage } from '~/themes/base/pixel/stage'
+import { createHangarScene } from './pixel'
 const canvas = ref(null)
-let horizon, ctx, observer, raf = 0, last = 0
+let stage, observer, raf = 0
+const scene = createHangarScene()
 let reduced = false
-function onPointerMove(event) {
-  if (reduced || !canvas.value) return
-  const rect = canvas.value.getBoundingClientRect()
-  if (!rect.width || !rect.height) return
-  horizon?.setView((event.clientX - rect.left) / rect.width * 2 - 1, (event.clientY - rect.top) / rect.height * 2 - 1)
-}
-function resetView() { horizon?.setView(0, 0) }
-function onPointerUp(event) { if (event.pointerType !== 'mouse') resetView() }
 function draw(time) {
-  if (!ctx) return
+  if (!stage) return
   if (!document.hidden) {
-    horizon.update(reduced ? 0 : Math.min((time - (last || time)) / 1000, .05))
-    horizon.draw(ctx, reduced ? 0 : time / 1000)
+    stage.begin()
+    scene.draw(stage, reduced ? 0 : time / 1000)
+    stage.present({ ambient: '#9d90cc' })
   }
-  last = time
   if (!reduced) raf = requestAnimationFrame(draw)
 }
 onMounted(() => {
   reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
-  ctx = canvas.value.getContext('2d')
-  if (!ctx) return
-  // Sun out to the right, so it balances the panel on the left instead of
-  // sitting behind it. Height is the module's default, jitter included.
-  horizon = createHorizon({ sunX: .72 })
+  stage = createPixelStage(canvas.value)
   observer = new ResizeObserver(([entry]) => {
     const { width, height } = entry.contentRect
-    const dpr = Math.min(devicePixelRatio || 1, 2)
-    canvas.value.width = Math.round(width * dpr)
-    canvas.value.height = Math.round(height * dpr)
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    horizon.resize(width, height, ctx)
+    stage.resize(width, height, devicePixelRatio || 1, width < 600 ? 160 : 240, 180)
+    scene.layout(stage.vw, stage.vh)
     if (reduced) draw(0)
   })
   observer.observe(canvas.value)
-  window.addEventListener('pointermove', onPointerMove, { passive: true })
-  window.addEventListener('pointerup', onPointerUp, { passive: true })
-  window.addEventListener('pointercancel', resetView, { passive: true })
-  window.addEventListener('blur', resetView)
-  document.documentElement.addEventListener('pointerleave', resetView)
   if (!reduced) raf = requestAnimationFrame(draw)
 })
-onBeforeUnmount(() => {
-  cancelAnimationFrame(raf)
-  observer?.disconnect()
-  window.removeEventListener('pointermove', onPointerMove)
-  window.removeEventListener('pointerup', onPointerUp)
-  window.removeEventListener('pointercancel', resetView)
-  window.removeEventListener('blur', resetView)
-  document.documentElement.removeEventListener('pointerleave', resetView)
-})
+onBeforeUnmount(() => { cancelAnimationFrame(raf); observer?.disconnect() })
 </script>
 <style scoped>
 .hg-horizon { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }

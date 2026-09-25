@@ -1,39 +1,35 @@
 <template>
   <!-- The Hangar: who you are, your bests, and the ship you fly in every
-       ship game. Left/right still walks the themes, so ship browsing is
-       buttons only — nothing here locks the shell's navigation. -->
+       ship game, in Neon Shrine's dialog box over the launch bay. Ship
+       browsing is buttons only; nothing here locks the shell's navigation. -->
   <div class="hg-landing">
     <Horizon />
 
-    <p class="hg-hud hg-hud--left">HANGAR</p>
-    <p class="hg-hud hg-hud--right">PHAREIM.NO</p>
+    <p class="hg-hud px-text">HANGAR</p>
 
-    <section class="hg-panel" aria-live="polite">
-      <span class="hg-tick hg-tick--tl" aria-hidden="true" />
-      <span class="hg-tick hg-tick--tr" aria-hidden="true" />
-      <span class="hg-tick hg-tick--bl" aria-hidden="true" />
-      <span class="hg-tick hg-tick--br" aria-hidden="true" />
-
-      <!-- Two frames on wide screens (pilot/scores · ship); one flow
+    <section class="hg-panel px-box" aria-live="polite">
+      <!-- Two columns on wide screens (pilot/scores · ship); one flow
            everywhere else — the cols dissolve via display:contents. -->
       <div class="hg-cols">
         <div class="hg-col hg-col--id">
-          <p class="hg-over">PILOT PROFILE</p>
           <div class="hg-who">
             <span class="hg-avatar" :class="{ 'hg-avatar--pending': player && !pic }" aria-hidden="true">
-              <img v-if="pic" :src="pic" alt="" decoding="async">
+              <PixelPortrait :src="pic" />
             </span>
-            <span class="hg-name">{{ player ? player.name.toUpperCase() : '· · ·' }}</span>
+            <span class="hg-who-text">
+              <span class="hg-label">PILOT</span>
+              <span class="hg-name">{{ player ? player.name.toUpperCase() : '· · ·' }}</span>
+            </span>
           </div>
 
-          <p class="hg-label">HIGH SCORES</p>
+          <p class="hg-label hg-label--rule">HIGH SCORES</p>
           <ol v-if="status === 'ready'" class="hg-scores">
             <li v-for="g in GAMES" :key="g.id" class="hg-score">
               <span class="hg-score-game">{{ g.title.toUpperCase() }}</span>
-              <span v-if="bests[g.id]" class="hg-score-line">BEST {{ fmt(bests[g.id]!.score) }} · #{{ bests[g.id]!.rank }}</span>
+              <span v-if="bests[g.id]" class="hg-score-line">{{ fmt(bests[g.id]!.score) }} #{{ bests[g.id]!.rank }}</span>
               <span v-else class="hg-score-line hg-score-line--none">NO RUN YET</span>
             </li>
-            <li v-for="g in SAVE_GAMES" :key="g.id" class="hg-score hg-score--quest">
+            <li v-for="(g, i) in SAVE_GAMES" :key="g.id" class="hg-score" :class="{ 'hg-score--quest': i === 0 }">
               <span class="hg-score-game">{{ g.title.toUpperCase() }}</span>
               <span class="hg-score-line" :class="{ 'hg-score-line--none': !saves[g.id] }">{{ questLine(g.id) }}</span>
             </li>
@@ -43,24 +39,24 @@
         </div>
 
         <div class="hg-col hg-col--ship">
-          <p class="hg-label">YOUR SHIP</p>
+          <p class="hg-label hg-label--rule hg-label--ship">YOUR SHIP</p>
           <div class="hg-viewer-box">
             <ShipViewer :ship-id="preview.id" />
           </div>
           <div class="hg-ship-row">
-            <button class="hg-step" aria-label="Previous ship" @click="stepShip(-1)">◀</button>
+            <button class="hg-step px-btn px-btn--pink" aria-label="Previous ship" @click="stepShip(-1)">◀</button>
             <Transition name="hg-fade" mode="out-in">
               <div :key="preview.id" class="hg-ship-name">
                 <strong>{{ preview.name.toUpperCase() }}</strong>
                 <span>{{ preview.tagline.toUpperCase() }}</span>
               </div>
             </Transition>
-            <button class="hg-step" aria-label="Next ship" @click="stepShip(1)">▶</button>
+            <button class="hg-step px-btn px-btn--pink" aria-label="Next ship" @click="stepShip(1)">▶</button>
           </div>
           <div class="hg-ship-cta">
             <button
               v-if="previewState?.unlocked && preview.id !== selected"
-              class="hg-fly"
+              class="hg-fly px-btn"
               @click="fly"
             >FLY THIS SHIP</button>
             <p v-else-if="preview.id === selected" class="hg-flying">◈ FLYING THIS SHIP</p>
@@ -72,12 +68,13 @@
       <p class="hg-nudge">{{ nudge }}</p>
     </section>
 
-    <p class="hg-hint">{{ hint('ESC · BACK TO THE PORTAL', '⌂ BACK TO THE PORTAL') }}</p>
+    <p class="hg-hint px-text">{{ hint('ESC · BACK TO THE PORTAL', '⌂ BACK TO THE PORTAL') }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
 import Horizon from './Horizon.vue'
+import PixelPortrait from './PixelPortrait.vue'
 import { GAMES, SAVE_GAMES } from '~/themes/leaderboard/games'
 import { QUEST_STEPS, formatPlayTime, summarizeRaw } from '~/themes/zelda/progress'
 import { CHAPTER_COUNT, summarizeShoreRaw } from '~/themes/anotherworld/progress'
@@ -107,18 +104,21 @@ const nudge = computed(() => {
   return `FLOWN IN ${distinctGames.value}/6 GAMES · BOTH SHIPS UNLOCKED`
 })
 
-/** The adventure row: the quest in progress, else the best finish, else nothing yet. */
+/**
+ * The adventure row: the quest in progress, else the best finish, else
+ * nothing yet. Short enough to sit beside the title on a 375 px phone.
+ */
 function questLine(game: string): string {
   const slot = saves.value[game]
   if (!slot) return 'NOT STARTED'
   if (game === 'anotherworld') {
     const c = slot.data ? summarizeShoreRaw(slot.data) : null
-    if (c) return `CHAPTER ${c.chapter}/${CHAPTER_COUNT} · ${formatPlayTime(c.elapsed)}`
+    if (c) return `CH ${c.chapter}/${CHAPTER_COUNT} ${formatPlayTime(c.elapsed)}`
   } else {
     const q = slot.data ? summarizeRaw(slot.data) : null
-    if (q) return `${q.step}/${QUEST_STEPS} · ${formatPlayTime(q.elapsed)}`
+    if (q) return `${q.step}/${QUEST_STEPS} ${formatPlayTime(q.elapsed)}`
   }
-  if (slot.best !== null) return `CLEARED · BEST ${formatPlayTime(slot.best)}`
+  if (slot.best !== null) return `BEST ${formatPlayTime(slot.best)}`
   return slot.clears > 0 ? 'CLEARED' : 'NEW QUEST'
 }
 
@@ -153,7 +153,11 @@ onMounted(async () => {
 })
 </script>
 
+
 <style scoped>
+/* Neon Shrine's pixel look (2026-09-25): the dialog box and the pixel font
+   from themes/base/pixel/pixel.css, text at 16 px (two CSS px per font
+   pixel), hard edges, no glow on HTML text — the bay behind does the glowing. */
 .hg-landing {
   position: relative;
   width: 100vw;
@@ -162,188 +166,158 @@ onMounted(async () => {
   touch-action: none;
   display: grid;
   place-items: center;
-  padding: 12px 12px calc(12px + var(--app-safe-bottom, 0px));
+  /* Top clears the radio (top-right), bottom the ⌂ chip. */
+  padding: 56px 12px calc(56px + var(--app-safe-bottom, 0px));
   box-sizing: border-box;
+  font-family: var(--font-pixel);
+  -webkit-font-smoothing: none;
 }
 
-.hg-hud,
-.hg-over,
-.hg-label,
-.hg-who,
-.hg-scores,
-.hg-empty,
-.hg-ship-name,
-.hg-ship-cta,
-.hg-nudge,
-.hg-step,
-.hg-fly,
-.hg-hint {
-  font-family: var(--font-machine);
-  text-transform: uppercase;
-  letter-spacing: .15em;
-}
+.hg-landing p { margin: 0; }
 
 .hg-hud {
   position: absolute;
   z-index: 2;
-  top: 16px;
-  margin: 0;
-  font-size: 10.4px;
-  color: var(--hg-text-subtle);
+  top: 18px;
+  left: 16px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--hg-accent);
+  text-shadow: 2px 2px 0 #0b0616;
 }
 
-.hg-hud--left { left: 18px; }
-.hg-hud--right { right: 18px; }
-
 .hg-panel {
-  position: relative;
   z-index: 2;
   width: min(480px, 100%);
   max-height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 18px 22px 14px;
+  padding: 14px 14px 12px;
   box-sizing: border-box;
-  background: var(--hg-card-bg);
-  border: 1px solid rgba(47, 243, 255, .28);
-  border-radius: 4px;
-  box-shadow: 0 0 24px var(--hg-card-shadow);
+  font-size: 16px;
+  line-height: 20px;
+  color: var(--hg-text);
 }
 
-.hg-tick {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  border: 0 solid var(--hg-accent);
-  opacity: .8;
-}
-
-.hg-tick--tl { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
-.hg-tick--tr { top: -1px; right: -1px; border-top-width: 2px; border-right-width: 2px; }
-.hg-tick--bl { bottom: -1px; left: -1px; border-bottom-width: 2px; border-left-width: 2px; }
-.hg-tick--br { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
-
-/* Narrow: the two frames dissolve — everything flows in the one panel. */
+/* Narrow: the two columns dissolve — everything flows in the one box. */
 .hg-cols,
 .hg-col { display: contents; }
 
-.hg-over {
-  margin: 0;
-  text-align: center;
-  font-size: 10.4px;
+/* Only the ship's bay gives way when a short screen runs out of room. */
+.hg-panel > *,
+.hg-col > * { flex: none; }
+
+.hg-label {
   color: var(--hg-text-subtle);
+}
+
+.hg-label--rule {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 2px dotted rgba(255, 47, 160, .45);
 }
 
 .hg-who {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: 8px 0 4px;
+  gap: 12px;
 }
 
+.hg-who-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hg-name {
+  font-size: 24px;
+  line-height: 28px;
+  color: var(--hg-pink);
+  overflow-wrap: anywhere;
+}
+
+/* The pilot: their painting as a 32×32 sprite, at 2× (4× on wide screens),
+   in a one-pixel pink frame with notched corners like the box. */
 .hg-avatar {
-  display: inline-block;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 47, 160, .7);
-  box-shadow: 0 0 10px rgba(255, 47, 160, .45);
-  background: rgba(255, 47, 160, .06);
-  overflow: hidden;
+  flex: none;
+  width: 64px;
+  height: 64px;
+  box-shadow: 0 -2px 0 0 var(--hg-pink), 0 2px 0 0 var(--hg-pink), -2px 0 0 0 var(--hg-pink), 2px 0 0 0 var(--hg-pink);
+  margin: 2px;
+  background: #1c1030;
 }
 
-.hg-avatar img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+.hg-avatar--pending { animation: hg-blink 1.1s steps(1) infinite; }
 
-.hg-avatar--pending { animation: hg-breathe 2.4s ease-in-out infinite; }
-
-@keyframes hg-breathe {
-  0%, 100% { box-shadow: 0 0 4px rgba(255, 47, 160, .2); }
-  50% { box-shadow: 0 0 12px rgba(255, 47, 160, .6); }
+@keyframes hg-blink {
+  50% { box-shadow: 0 -2px 0 0 var(--hg-text-subtle), 0 2px 0 0 var(--hg-text-subtle), -2px 0 0 0 var(--hg-text-subtle), 2px 0 0 0 var(--hg-text-subtle); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hg-avatar--pending { animation: none; }
 }
 
-.hg-name {
-  font-size: 17px;
-  color: var(--hg-pink);
-  text-shadow: 0 0 8px rgba(255, 47, 160, .6);
-}
-
-.hg-label {
-  margin: 10px 0 4px;
-  font-size: 10.4px;
-  color: var(--hg-text-subtle);
-  border-top: 1px solid rgba(255, 47, 160, .25);
-  padding-top: 10px;
-}
-
 .hg-scores {
   list-style: none;
-  margin: 0;
+  margin: 4px 0 0;
   padding: 0;
 }
 
 .hg-score {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
   gap: 12px;
-  min-height: 22px;
-  font-size: 11.2px;
   white-space: nowrap;
 }
 
 .hg-score-game { color: var(--hg-text); }
-.hg-score-line {
-  color: var(--hg-accent);
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 8px rgba(47, 243, 255, .45);
-}
-.hg-score-line--none { color: var(--hg-text-subtle); text-shadow: none; }
+.hg-score-line { color: var(--hg-accent); }
+.hg-score-line--none { color: var(--hg-text-subtle); }
 .hg-score--quest {
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px dashed rgba(47, 243, 255, .2);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 2px dotted rgba(47, 243, 255, .3);
 }
 
 .hg-empty {
-  margin: 0;
   min-height: 60px;
   display: grid;
   place-items: center;
   text-align: center;
-  font-size: 12px;
-  line-height: 1.8;
   color: var(--hg-text-muted);
 }
 
-.hg-empty span {
-  font-size: 10.4px;
-  color: var(--hg-text-subtle);
-}
+.hg-empty span { color: var(--hg-text-subtle); }
 
+/* The ship's bay: a dim-edged box round the pixel render. */
 .hg-viewer-box {
-  height: 190px;
-  border: 1px solid rgba(47, 243, 255, .18);
-  border-radius: 3px;
-  background: radial-gradient(ellipse at 50% 65%, rgba(47, 243, 255, .07), transparent 70%);
+  --px-u: 2px;
+  --px-edge: #4a3d88;
+  flex: 0 1 auto !important;
+  height: 112px;
+  min-height: 72px;
+  margin: 8px 2px 0;
+  background: #0b0616;
+  box-shadow: 0 -2px 0 0 var(--px-edge), 0 2px 0 0 var(--px-edge), -2px 0 0 0 var(--px-edge), 2px 0 0 0 var(--px-edge);
   overflow: hidden;
 }
 
 .hg-ship-row {
   display: grid;
-  grid-template-columns: 36px 1fr 36px;
+  grid-template-columns: 32px 1fr 32px;
   align-items: center;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.hg-step {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 2px;
+  display: grid;
+  place-items: center;
 }
 
 .hg-ship-name {
@@ -353,88 +327,34 @@ onMounted(async () => {
 }
 
 .hg-ship-name strong {
-  font-size: 14px;
   font-weight: 400;
   color: var(--hg-accent);
-  text-shadow: 0 0 8px rgba(47, 243, 255, .65);
 }
 
-.hg-ship-name span {
-  font-size: 9.6px;
-  color: var(--hg-text-subtle);
-}
-
-.hg-step {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  color: var(--hg-pink);
-  font-size: 12px;
-  cursor: pointer;
-  text-shadow: 0 0 10px rgba(255, 47, 160, .6);
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color 120ms ease, background-color 120ms ease;
-}
-
-.hg-step:hover,
-.hg-step:focus-visible {
-  border-color: rgba(255, 47, 160, .4);
-  background: rgba(255, 47, 160, .1);
-  outline: none;
-}
+.hg-ship-name span { color: var(--hg-text-subtle); }
 
 .hg-ship-cta {
   display: grid;
   place-items: center;
-  min-height: 30px;
-  margin-top: 2px;
+  min-height: 36px;
+  margin-top: 8px;
+  text-align: center;
 }
 
 .hg-fly {
-  font-family: var(--font-machine);
-  font-size: 11.2px;
-  letter-spacing: .15em;
-  color: var(--hg-gold);
-  background: rgba(255, 210, 63, .08);
-  border: 1px solid rgba(255, 210, 63, .5);
-  border-radius: 3px;
-  padding: 7px 18px;
-  cursor: pointer;
-  text-shadow: 0 0 8px rgba(255, 210, 63, .6);
-  -webkit-tap-highlight-color: transparent;
+  --px-edge: var(--hg-gold);
+  padding: 8px 12px;
 }
 
-.hg-fly:hover,
-.hg-fly:focus-visible {
-  background: rgba(255, 210, 63, .16);
-  outline: none;
-}
-
-.hg-flying {
-  margin: 0;
-  font-size: 11.2px;
-  color: var(--hg-accent);
-  text-shadow: 0 0 8px rgba(47, 243, 255, .6);
-}
-
-.hg-locked {
-  margin: 0;
-  font-size: 10.4px;
-  text-align: center;
-  line-height: 1.5;
-  color: var(--hg-text-subtle);
-}
+.hg-flying { color: var(--hg-accent); }
+.hg-locked { color: var(--hg-text-subtle); }
 
 .hg-nudge {
-  margin: 8px 0 0;
+  margin-top: 10px !important;
+  padding-top: 8px;
+  border-top: 2px dotted rgba(255, 47, 160, .45);
   text-align: center;
-  font-size: 9.6px;
-  line-height: 1.4;
-  color: var(--hg-text-subtle);
-  letter-spacing: .12em;
+  color: var(--hg-text-muted);
 }
 
 .hg-hint {
@@ -442,84 +362,72 @@ onMounted(async () => {
   z-index: 2;
   left: 0;
   right: 0;
-  bottom: calc(42px + var(--app-safe-bottom, 0px));
-  margin: 0;
+  bottom: calc(20px + var(--app-safe-bottom, 0px));
   text-align: center;
-  font-size: 11.2px;
-  letter-spacing: .12em;
-  color: var(--hg-text-subtle);
-  text-shadow: 0 0 10px rgba(255, 47, 160, .6);
+  font-size: 16px;
+  line-height: 1;
+  color: var(--hg-pink);
+  text-shadow: 2px 2px 0 #0b0616;
+  display: none;
 }
 
 .hg-fade-enter-active,
-.hg-fade-leave-active { transition: opacity 180ms ease; }
+.hg-fade-leave-active { transition: opacity 180ms steps(3); }
 .hg-fade-enter-from,
 .hg-fade-leave-to { opacity: 0; }
 
-@media (min-width: 900px) and (min-height: 620px) {
+/* Tall phones: room for a bigger bay. */
+@media (min-height: 760px) {
+  .hg-viewer-box { height: 176px; }
+}
+
+/* Short screens: the tagline and the nudge go. */
+@media (max-height: 700px) {
+  .hg-ship-name span,
+  .hg-nudge { display: none; }
+  .hg-label--rule { margin-top: 8px; padding-top: 6px; }
+}
+
+/* Landscape phones: the scores in two columns beside the ship. */
+@media (max-height: 520px) and (min-width: 600px) {
+  .hg-landing { padding: 48px 56px calc(12px + var(--app-safe-bottom, 0px)); }
+  .hg-panel { width: min(760px, 100%); }
+  .hg-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .hg-col { display: flex; flex-direction: column; min-width: 0; }
+  .hg-avatar { width: 32px; height: 32px; }
+  .hg-name { font-size: 16px; line-height: 20px; }
+  .hg-who-text .hg-label { display: none; }
+  .hg-label--ship { margin-top: 0; padding-top: 0; border-top: 0; }
+  .hg-viewer-box { height: 110px; }
+}
+
+/* Wide: two columns — pilot and scores left, the ship in a large bay right. */
+@media (min-width: 1024px) and (min-height: 700px) {
   .hg-landing {
     justify-items: start;
     padding-left: clamp(48px, 10vw, 160px);
   }
-}
-
-/* Wide: the panel spreads into two frames — pilot + scores left, the
-   ship in a larger bay right, portrait at full-painting size. */
-@media (min-width: 1024px) and (min-height: 700px) {
-  .hg-panel { width: min(920px, 100%); }
+  .hg-panel {
+    width: min(920px, 100%);
+    padding: 20px 22px 16px;
+  }
   .hg-cols {
     display: grid;
-    grid-template-columns: 330px 1fr;
-    gap: 16px;
-    align-items: stretch;
+    grid-template-columns: 340px 1fr;
+    gap: 28px;
+    align-items: start;
   }
-  .hg-col {
-    display: flex;
-    flex-direction: column;
-    border: 1px solid rgba(47, 243, 255, .16);
-    border-radius: 3px;
-    background: rgba(11, 6, 22, .45);
-    padding: 16px 18px 14px;
-    box-sizing: border-box;
-    min-width: 0;
-  }
-  .hg-label {
-    border-top: none;
-    padding-top: 0;
-  }
-  .hg-label:first-child { margin-top: 0; }
-  .hg-who {
-    justify-content: flex-start;
-    margin: 12px 0 6px;
-  }
-  .hg-avatar {
-    width: 88px;
-    height: 88px;
-    border-width: 2px;
-  }
-  .hg-name { font-size: 22px; }
-  .hg-score {
-    min-height: 27px;
-    font-size: 12px;
-  }
-  .hg-viewer-box { height: 330px; }
-  .hg-ship-name strong { font-size: 16px; }
-}
-
-@media (max-width: 640px), (max-height: 700px) {
-  .hg-landing { padding: 10px 46px calc(48px + var(--app-safe-bottom, 0px)); }
-  .hg-panel { padding: 12px 14px 10px; }
-  .hg-viewer-box { height: 150px; }
-  .hg-hint { display: none; }
-}
-
-@media (max-height: 560px) {
-  .hg-hud { display: none; }
-  .hg-landing { padding: 8px 46px calc(26px + var(--app-safe-bottom, 0px)); }
-  .hg-panel { width: min(560px, 100%); }
-  .hg-over { display: none; }
-  .hg-viewer-box { height: 110px; }
-  .hg-score { min-height: 19px; font-size: 10.4px; }
-  .hg-nudge { display: none; }
+  .hg-col { display: flex; flex-direction: column; min-width: 0; }
+  .hg-avatar { width: 128px; height: 128px; }
+  .hg-who { align-items: flex-end; gap: 16px; }
+  .hg-name { font-size: 32px; line-height: 36px; }
+  .hg-scores { line-height: 24px; }
+  .hg-label--ship { margin-top: 0; padding-top: 0; border-top: 0; }
+  .hg-viewer-box { height: 316px; }
+  .hg-hint { display: block; }
 }
 </style>

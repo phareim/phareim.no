@@ -1,4 +1,4 @@
-/* Hangar — the pilot profile, on the Neon Dreams contract like the Hall
+/* Hangar — the pilot profile in Neon Shrine's pixel look, like the Hall
    of Fame: cyan is the interface, pink is you, gold is the prize. */
 :root {
   --hg-bg: #0b0616;
@@ -23,7 +23,7 @@
   --theme-card-bg: var(--hg-card-bg);
   --theme-card-border: var(--hg-card-border);
   --theme-card-shadow: var(--hg-card-shadow);
-  --theme-card-radius: 12px;
+  --theme-card-radius: 0;
   --theme-accent: var(--hg-accent);
-  --theme-font-body: var(--font-person);
+  --theme-font-body: var(--font-pixel);
 }
