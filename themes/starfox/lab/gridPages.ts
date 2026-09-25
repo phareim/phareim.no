@@ -10,6 +10,7 @@ import { PROPS, createPropField, geyserJet, type PropField } from '../models/pro
 import { createDebris, createChargeOrb, createBombShell, createShockwave, createShieldBubble, createMuzzleFlash, createEngineTrail } from '../models/fx'
 import { buildPlayerShip, makeGlowTexture } from '../../ships/three'
 import { shipById, STARTER_SHIP } from '../../ships/ships'
+import { WING_PILOT_IDS, buildWingShip, buildRival, type WingShipModel } from '../models/allies'
 import type { Backdrop } from './backdrop'
 import type { LabLabel, LabPage, LabParams } from './pages'
 
@@ -336,3 +337,62 @@ function corridor(title: string, p: LabParams, scene: THREE.Scene, camera: THREE
     labels() { return [] },
   }
 }
+
+// ---------------------------------------------------------------- squad: the wing from behind, and Cobra
+
+export const squadPage: PageFn = (p, scene, camera, backdrop) => {
+  backdrop.setBiome(p.biome && p.biome !== 'all' ? p.biome : 'coast')
+  camera.position.set(0, 3.8, p.near ? 6 : 11.5)
+  camera.lookAt(0, 1, -40)
+  const player = buildPlayerShip(shipById(STARTER_SHIP)!, makeGlowTexture())
+  player.root.position.set(0, 0.5, 0)
+  scene.add(player.root)
+  const slots: [number, number, number][] = [[-4.2, 1.3, -3], [4.2, 1.3, -3], [0, 3.4, -6], [-8, 2.6, -10], [8, 2.6, -10]]
+  const wings: WingShipModel[] = WING_PILOT_IDS.map((id, i) => {
+    const w = buildWingShip(id)
+    w.root.position.set(...slots[i]!)
+    scene.add(w.root)
+    return w
+  })
+  const trails = wings.map(() => createEngineTrail(P_TRAIL, 7, 0.3))
+  for (const tr of trails) scene.add(tr.mesh)
+  const rival = buildRival()
+  rival.root.position.set(0, 2.6, -34)
+  scene.add(rival.root)
+  const v = new THREE.Vector3()
+  let offset = 0
+  return {
+    title: 'SQUAD · MEGA COBRA',
+    get offset() { return offset },
+    update(t, dt) {
+      offset += dt * 30
+      player.bank.rotation.z = Math.sin(t * 0.9) * 0.3
+      wings.forEach((w, i) => {
+        const [x, y, z] = slots[i]!
+        w.root.position.set(x + Math.sin(t * 0.9 + i) * 0.5, y + Math.sin(t * 1.3 + i * 2) * 0.3, z)
+        w.bank.rotation.z = -Math.cos(t * 0.9 + i) * 0.35
+        // Dingo goes down for a moment every few seconds, to show the damaged state.
+        w.down(i === 2 && t % 6 > 4)
+        w.animate(t, dt, i < 3 ? 0.3 : 0)
+        w.root.updateMatrixWorld()
+        v.copy(w.engine)
+        w.bank.localToWorld(v)
+        trails[i]!.update(dt, v.x, v.y, v.z, 30)
+      })
+      const k = (t * 0.25) % 1
+      rival.root.position.set(Math.sin(t * 1.1) * 5, 2.6 + Math.sin(t * 0.7) * 1.5, -60 + k * 50)
+      rival.hood(Math.min(1, Math.max(0, (k - 0.3) * 3)))
+      rival.animate(t, dt, { bank: -Math.cos(t * 1.1) * 0.5, boost: k > 0.6 ? 1 : 0 })
+    },
+    lights(add) {
+      add(player.root.position.x, player.root.position.y, 1.3, 2.4, '#2ff3ff', 0.75)
+      for (const w of wings) eachLight(w.lights, add)
+      eachLight(rival.lights, add)
+    },
+    labels() {
+      return wings.map((w, i) => ({ x: w.root.position.x, y: w.root.position.y + 1.9, z: w.root.position.z, text: WING_PILOT_IDS[i]!.toUpperCase() }))
+    },
+  }
+}
+
+const P_TRAIL = '#cfc6ff'

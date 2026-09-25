@@ -11,7 +11,7 @@
  * palette snap + Bayer dither, the 2D pixel stage with light map, bloom
  * and scanlines), so what you see here is what the game shows.
  *
- * ?theme=starfox&lab=models&page=enemies|bosses|capsules|props|fx|biomes
+ * ?theme=starfox&lab=models&page=enemies|bosses|capsules|props|fx|biomes|squad
  *   &biome=coast|woods|ember|lake|space   backdrop (props: which biome)
  *   &boss=pincer|moth|furnace|twins|crown (bosses page)
  *   &t=<s>&freeze=1   hold one moment     &spin=0&yaw=<rad>  stop the turntable

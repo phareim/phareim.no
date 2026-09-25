@@ -337,7 +337,7 @@ export interface EngineTrail {
 }
 
 /** A tapering ribbon of `n` segments behind an engine, facing up (seen from behind and above). */
-export function createEngineTrail(color: Hex = P.cyan, n = 9, width = 0.34): EngineTrail {
+export function createEngineTrail(color: Hex = P.cyan, n = 9, width = 0.34, maxLen = 3.2): EngineTrail {
   const pts = new Float32Array(n * 3)
   const pos = new Float32Array(n * 2 * 3)
   const g = new THREE.BufferGeometry()
@@ -352,12 +352,14 @@ export function createEngineTrail(color: Hex = P.cyan, n = 9, width = 0.34): Eng
   const me = new THREE.Mesh(g, m)
   me.frustumCulled = false
   let acc = 0
+  let fresh = true
   const trail: EngineTrail = {
     mesh: me,
     reset(x, y, z) {
       for (let i = 0; i < n; i++) { pts[i * 3] = x; pts[i * 3 + 1] = y; pts[i * 3 + 2] = z }
     },
     update(dt, x, y, z, worldVz) {
+      if (fresh) { trail.reset(x, y, z); fresh = false }
       acc += dt
       for (let i = 1; i < n; i++) pts[i * 3 + 2]! += worldVz * dt
       if (acc > 1 / 60) {
@@ -365,6 +367,11 @@ export function createEngineTrail(color: Hex = P.cyan, n = 9, width = 0.34): Eng
         for (let i = n - 1; i > 0; i--) { pts[i * 3] = pts[(i - 1) * 3]!; pts[i * 3 + 1] = pts[(i - 1) * 3 + 1]!; pts[i * 3 + 2] = pts[(i - 1) * 3 + 2]! }
       }
       pts[0] = x; pts[1] = y; pts[2] = z
+      // Cap the length (slow frames would otherwise stretch it into a streak).
+      for (let i = 1; i < n; i++) {
+        const lim = z + (maxLen * i) / (n - 1)
+        if (pts[i * 3 + 2]! > lim) pts[i * 3 + 2] = lim
+      }
       for (let i = 0; i < n; i++) {
         const w = width * (1 - i / n) * 0.5
         // Ribbon crosses both ways (an X in section) so it reads from behind and from the side.

@@ -18,13 +18,14 @@ import {
   type Model, type ModelLight, type V3, type Hex,
 } from './core'
 import { BIOMES, type BiomeId } from '../pixel'
+import { buildRival, RIVAL_RADIUS, type RivalModel } from './allies'
 
 export type EnemyModelId =
   | 'drone' | 'kamikaze' | 'weaver' | 'sniper' | 'dasher' | 'bulwark'
-  | 'splitter' | 'mite' | 'carrier' | 'turret' | 'missile'
+  | 'splitter' | 'mite' | 'carrier' | 'turret' | 'missile' | 'rival'
 
 export const ENEMY_MODEL_IDS: EnemyModelId[] = [
-  'drone', 'kamikaze', 'weaver', 'sniper', 'dasher', 'bulwark', 'splitter', 'mite', 'carrier', 'turret', 'missile',
+  'drone', 'kamikaze', 'weaver', 'sniper', 'dasher', 'bulwark', 'splitter', 'mite', 'carrier', 'turret', 'missile', 'rival',
 ]
 
 /** Display name, collision radius (world units) and the kind's glow colour (for its lights, trails, explosion). */
@@ -40,6 +41,7 @@ export const ENEMY_INFO: Record<EnemyModelId, { name: string; radius: number; ac
   carrier: { name: 'CARRIER', radius: 5.0, accent: P.purple },
   turret: { name: 'TURRET', radius: 1.6, accent: P.red },
   missile: { name: 'MISSILE', radius: 0.6, accent: P.orange },
+  rival: { name: 'MEGA COBRA', radius: RIVAL_RADIUS, accent: P.lime },
 }
 
 /** Per-frame animation inputs from game logic; everything optional. */
@@ -52,6 +54,8 @@ export interface EnemyState {
   hurt?: number
   /** Roll from the flight path, radians (added to the idle roll). */
   bank?: number
+  /** 0–1: engine boost (rival, hornet). */
+  boost?: number
 }
 
 export interface EnemyModel extends Model {
@@ -243,20 +247,25 @@ function buildSniper(): EnemyModel {
 
 function buildDasher(): EnemyModel {
   const { root, body, phase } = shell('dasher')
-  const wing: V3[] = [[0.35, 0, -0.95], [2.0, 0.08, 0.35], [1.95, 0.08, 0.8], [0.35, 0, -0.1]]
-  const tip: V3[] = [[1.82, 0.08, 0.3], [2.05, 0.08, 0.34], [2.0, 0.08, 0.95], [1.78, 0.08, 0.9]]
+  const wing: V3[] = [[0.35, 0, -0.95], [2.3, 0.12, 0.4], [2.25, 0.12, 0.9], [0.35, 0, -0.1]]
+  const tip: V3[] = [[2.1, 0.12, 0.35], [2.38, 0.12, 0.38], [2.32, 0.12, 1.05], [2.06, 0.12, 1.0]]
   const fin: V3[] = [[0.3, 0.3, -0.3], [0.62, 1.05, -1.25], [0.5, 0.3, -1.3]]
+  // A wasp: hot orange body with black bands, pale forward-swept wings, a stinger.
   build('dasher', body, {
-    [`hull:${P.greyDark}`]: g => {
+    [`hull:${P.clayHot}`]: g => {
       g.loft([[[0, -0.05, 1.8]], ringZ(6, 0.36, 0.3, 0.9, Math.PI / 6), ringZ(6, 0.52, 0.42, -0.5, Math.PI / 6), ringZ(6, 0.42, 0.32, -1.3, Math.PI / 6)])
     },
-    [`hull:${P.stoneLit}`]: g => { g.plate(wing, 0.12).plate(flipX(wing), 0.12) },
+    [`hull:${P.stoneDeep}`]: g => {
+      for (const z of [0.35, -0.35, -1.0]) g.loft([ringZ(6, 0.55, 0.45, z + 0.13, Math.PI / 6), ringZ(6, 0.55, 0.45, z - 0.13, Math.PI / 6)], false, false)
+      g.loft([ringZ(6, 0.3, 0.24, -1.3, Math.PI / 6), [[0, 0.05, -2.3]]], true, false) // stinger
+    },
+    [`hull:${P.lavender}`]: g => { g.plate(wing, 0.12).plate(flipX(wing), 0.12) },
     [`hull:${P.clay}`]: g => { g.fin(fin, 0.08).fin(flipX(fin), 0.08) },
     [`glow:${P.orange}`]: g => {
-      g.plate(tip, 0.16).plate(flipX(tip), 0.16)
-      g.box(0.22, 0, -1.34, 0.26, 0.26, 0.1).box(-0.22, 0, -1.34, 0.26, 0.26, 0.1)
-      g.box(0, 0.24, 0.85, 0.36, 0.1, 0.4) // visor
+      g.plate(tip, 0.18).plate(flipX(tip), 0.18)
+      g.box(0.3, -0.15, -1.2, 0.3, 0.3, 0.12).box(-0.3, -0.15, -1.2, 0.3, 0.3, 0.12)
     },
+    [`glow:${P.gold}`]: g => { g.box(0, 0.26, 0.9, 0.42, 0.12, 0.44) }, // visor
   })
   const lights = [light(body, 0, 0, -1.45, 0.8, P.orange, 0.6), light(body, 0, 0.24, 0.9, 0.5, P.orange, 0.5)]
   return finish('dasher', root, body, lights, (t, _dt, s) => {
@@ -420,10 +429,10 @@ function buildMite(): EnemyModel {
 function buildCarrier(): EnemyModel {
   const { root, body, phase } = shell('carrier')
   // Own panel material: its glow runs hotter as the carrier takes damage.
-  const panel = new THREE.MeshLambertMaterial({ color: P.stoneLit, emissive: P.ink, flatShading: true, side: THREE.DoubleSide })
+  const panel = new THREE.MeshLambertMaterial({ color: P.grey, emissive: P.ink, flatShading: true, side: THREE.DoubleSide })
   const hex = (rx: number, ry: number, z: number) => ringZ(6, rx, ry, z, Math.PI / 6)
   build('carrier', body, {
-    [`hull:${HULL}`]: g => {
+    [`hull:${P.stoneLit}`]: g => {
       g.loft([hex(2.3, 1.0, 5.6), hex(3.0, 1.45, 3.0), hex(3.0, 1.45, -3.2), hex(2.0, 0.95, -6.0)], false, true)
       // The bay mouth: the front ring stepping in to a recessed back wall.
       g.loft([hex(2.3, 1.0, 5.6), hex(1.7, 0.66, 5.6), hex(1.7, 0.66, 3.6)], false, false)
@@ -437,11 +446,17 @@ function buildCarrier(): EnemyModel {
       g.box(0, 1.4, 1.0, 0.5, 0.5, 4.5) // spine
     },
     [`glow:${P.purple}`]: g => {
-      for (const s of [1, -1]) g.poly(ringZ(6, 0.7, 0.7, -4.45, 0, s * 3.7, -0.3))
+      for (const s of [1, -1]) {
+        g.poly(ringZ(6, 0.7, 0.7, -4.45, 0, s * 3.7, -0.3))
+        // Intake rings at the nacelle mouths.
+        g.loft([ringZ(6, 0.84, 0.84, 2.7, 0, s * 3.7, -0.3), ringZ(6, 0.84, 0.84, 2.4, 0, s * 3.7, -0.3)], false, false)
+      }
       g.poly(hex(1.95, 0.9, -6.05))
     },
     [`glow:${P.gold}`]: g => {
       g.box(0, 2.0, -1.88, 1.0, 0.18, 0.06) // bridge windows
+      g.box(0, 2.0, -4.12, 1.0, 0.18, 0.06)
+      for (const s of [1, -1]) g.box(s * 0.66, 2.0, -3.0, 0.06, 0.18, 1.6)
       for (const s of [1, -1]) g.box(s * 3.02, 0.35, 0.8, 0.06, 0.14, 4.2) // flank stripes
       g.box(0, -0.66, 4.8, 3.0, 0.1, 0.14).box(0, 0.66, 4.8, 3.0, 0.1, 0.14) // bay lights
     },
@@ -460,7 +475,7 @@ function buildCarrier(): EnemyModel {
     const hinge = new THREE.Group()
     hinge.position.set(0, s * 0.7, 5.62)
     body.add(hinge)
-    build(`carrier-door${s}`, hinge, { [`hull:${HULL_LIT}`]: g => { g.box(0, -s * 0.34, -0.04, 3.2, 0.68, 0.14) } })
+    build(`carrier-door${s}`, hinge, { [`hull:${P.grey}`]: g => { g.box(0, -s * 0.34, -0.04, 3.2, 0.68, 0.14) } })
     doors.push(hinge)
   }
   const lights = [
@@ -497,8 +512,11 @@ function buildTurret(): EnemyModel {
   yawN.position.y = 1.1
   body.add(yawN)
   build('turret-head', yawN, {
-    [`hull:${HULL}`]: g => { g.add(new THREE.CylinderGeometry(0.65, 0.95, 0.7, 6), mat(0, 0.35, 0, 0, Math.PI / 6)) },
-    [`glow:${P.red}`]: g => { g.box(0, 0.45, 0.72, 0.4, 0.16, 0.16) },
+    [`hull:${P.grey}`]: g => { g.add(new THREE.CylinderGeometry(0.65, 0.95, 0.7, 6), mat(0, 0.35, 0, 0, Math.PI / 6)) },
+    [`glow:${P.red}`]: g => {
+      g.box(0, 0.45, 0.72, 0.4, 0.16, 0.16)
+      g.add(new THREE.CylinderGeometry(0.97, 0.97, 0.08, 6), mat(0, 0.05, 0, 0, Math.PI / 6))
+    },
   })
   const pitchN = new THREE.Group()
   pitchN.position.set(0, 0.35, 0.2)
@@ -547,11 +565,28 @@ function buildMissile(): EnemyModel {
   return finish('missile', root, body, lights, (_t, dt) => { body.rotation.z += dt * 5 })
 }
 
+// ---------------------------------------------------------------- MEGA COBRA (the rival ace)
+
+/** Cobra's fighter as an enemy kind: `open` flares the hood, `boost` the engine. The full model is `rival`. */
+export interface RivalEnemyModel extends EnemyModel { rival: RivalModel }
+
+function buildRivalEnemy(): RivalEnemyModel {
+  const r = buildRival()
+  return {
+    kind: 'rival', root: r.root, body: r.body, lights: r.lights, radius: r.radius, rival: r,
+    flash: r.flash,
+    animate(t, dt, s) {
+      if (s?.open !== undefined) r.hood(s.open)
+      r.animate(t, dt, { bank: s?.bank, boost: s?.boost ?? s?.charge })
+    },
+  }
+}
+
 // ---------------------------------------------------------------- factory + pool slot
 
 const BUILDERS: Record<EnemyModelId, () => EnemyModel> = {
   drone: buildDrone, kamikaze: buildKamikaze, weaver: buildWeaver, sniper: buildSniper, dasher: buildDasher,
-  bulwark: buildBulwark, splitter: buildSplitter, mite: buildMite, carrier: buildCarrier, turret: buildTurret, missile: buildMissile,
+  bulwark: buildBulwark, splitter: buildSplitter, mite: buildMite, carrier: buildCarrier, turret: buildTurret, missile: buildMissile, rival: buildRivalEnemy,
 }
 
 export function createEnemyModel(kind: EnemyModelId): EnemyModel {
@@ -600,6 +635,8 @@ export function demoEnemyState(kind: EnemyModelId, t: number): EnemyState {
       return { open: Math.min(1, wave * 1.4), hurt: kind === 'carrier' ? wave : 0 }
     case 'splitter':
       return { open: Math.max(0, wave * 1.6 - 0.8) }
+    case 'rival':
+      return { open: Math.min(1, wave * 1.5), boost: wave > 0.7 ? 1 : 0 }
     case 'kamikaze':
     case 'sniper':
     case 'dasher':

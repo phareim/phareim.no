@@ -7,7 +7,7 @@ import type { BiomeId } from '../pixel'
 import { eachLight } from '../models/core'
 import { BOSS_IDS, createBoss, type AnyBoss, type BossId } from '../models/bosses'
 import type { Backdrop } from './backdrop'
-import { enemiesPage, capsulesPage, propsPage, fxPage, biomesPage } from './gridPages'
+import { enemiesPage, capsulesPage, propsPage, fxPage, biomesPage, squadPage } from './gridPages'
 
 export interface LabParams {
   page: string
@@ -49,6 +49,7 @@ export function createPage(p: LabParams, scene: THREE.Scene, camera: THREE.Persp
     case 'props': return propsPage(p, scene, camera, backdrop)
     case 'fx': return fxPage(p, scene, camera, backdrop)
     case 'biomes': return biomesPage(p, scene, camera, backdrop)
+    case 'squad': return squadPage(p, scene, camera, backdrop)
     default: return enemiesPage(p, scene, camera, backdrop)
   }
 }
