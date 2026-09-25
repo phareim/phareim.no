@@ -258,10 +258,13 @@ export function createEnv(ctx: Ctx): Env {
   }
 }
 
-/** Flight's ridged height field: shoulders, gullies and subsidiary summits. */
+/** The ridged height field: shoulders, gullies and subsidiary summits. */
 function ridgeGeometry(): THREE.BufferGeometry {
-  const columns = 24
-  const rows = 18
+  // 14×10 cells: at the stage's ~320×200 pixels the old 24×18 grid (38k
+  // triangles for the 44 ridges) looked the same and cost a quarter of
+  // the frame in software GL.
+  const columns = 14
+  const rows = 10
   const positions: number[] = []
   const indices: number[] = []
   for (let z = 0; z <= rows; z++) {

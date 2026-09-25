@@ -306,6 +306,8 @@ export function createShots(ctx: Ctx): Shots {
     },
     clearBolts,
     update(dt) {
+      laserMesh.visible = lasersLive > 0
+      boltMesh.visible = boltsLive > 0
       updateLasers(dt)
       updateBolts(dt)
       updateOrbs(dt)

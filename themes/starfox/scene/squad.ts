@@ -7,12 +7,10 @@
  * and fire through the shared laser pool. The W capsule revives everyone.
  * Set pieces can take one over (Dingo's trouble).
  */
-import * as THREE from 'three'
 import { WINGMEN, WING_INVULN, pickAggroTarget, type WingId, type WingProfile } from '../balance'
 import { wingFireMul } from '../arsenal'
 import { createWingAi, stepSquad, turnRate, type SquadMember, type WingAi, type WingStep } from '../wingmanAi'
 import { buildWingShip, WING_TRIMS, type WingShipModel } from '../models/allies'
-import { createEngineTrail, type EngineTrail } from '../models/fx'
 import { eachLight } from '../models/core'
 import { LANE_Y_HI, LANE_Y_LO, clamp, live, type Ctx, type SquadHud } from './ctx'
 
@@ -21,7 +19,6 @@ export interface WingMember {
   slot: number
   prof: WingProfile
   model: WingShipModel
-  trail: EngineTrail
   ai: WingAi
   hp: number
   alive: boolean
@@ -83,7 +80,6 @@ export function createSquad(ctx: Ctx): Squad {
   const stepOf: WingMember[] = []
   const inputs: SquadMember[] = []
   const avoid = { x: 0, y: 0 }
-  const ev = new THREE.Vector3()
   const loc = { x: 0, y: 0, z: 0 }
   const hud: SquadHud[] = []
   let hudDirty = true
@@ -93,11 +89,9 @@ export function createSquad(ctx: Ctx): Squad {
     const model = buildWingShip(id)
     model.root.scale.setScalar(WING_SCALE)
     ctx.scene.add(model.root)
-    const trail = createEngineTrail(WING_TRIMS[id][0], 7, 0.26, 2.4)
-    ctx.scene.add(trail.mesh)
     const prof = WINGMEN[id]
     return {
-      id, slot, prof, model, trail, ai: createWingAi(id), hp: prof.hp, alive: true, respawnT: 0, invulnUntil: 0, fireT: 0,
+      id, slot, prof, model, ai: createWingAi(id), hp: prof.hp, alive: true, respawnT: 0, invulnUntil: 0, fireT: 0,
       x: slotX(prof), y: slotY(prof), z: slotZ(prof), trouble: false, tx: 0, ty: 0, tz: 0,
     }
   }
@@ -131,8 +125,6 @@ export function createSquad(ctx: Ctx): Squad {
     m.invulnUntil = ctx.now + invuln
     m.model.root.visible = true
     m.model.down(false)
-    m.trail.reset(m.x, m.y, m.z + 1.5)
-    m.trail.mesh.visible = true
     ctx.fx.sparks(m.x, m.y, m.z, WING_TRIMS[m.id][0], 24, 10)
   }
 
@@ -168,8 +160,6 @@ export function createSquad(ctx: Ctx): Squad {
       if (!same) {
         for (const m of members) {
           ctx.scene.remove(m.model.root)
-          ctx.scene.remove(m.trail.mesh)
-          m.trail.mesh.geometry.dispose()
         }
         members.length = 0
         inputs.length = 0
@@ -259,10 +249,6 @@ export function createSquad(ctx: Ctx): Squad {
         m.model.root.position.set(m.x, m.y + Math.sin(t * 2.1 + m.slot * 1.3) * 0.08, m.z)
         m.model.root.visible = t >= m.invulnUntil || Math.floor(t * 12) % 2 === 0
         m.model.animate(t, dt, wingMul > 1 ? 1 : 0)
-        m.model.root.updateMatrixWorld()
-        ev.copy(m.model.engine)
-        bank.localToWorld(ev)
-        m.trail.update(dt, ev.x, ev.y, ev.z, ctx.worldSpeed * 0.6)
         if (live(ctx) && !m.trouble && !ctx.holdWings) {
           m.fireT += dt
           const iv = m.prof.fireInterval / wingMul
@@ -301,7 +287,6 @@ export function createSquad(ctx: Ctx): Squad {
       m.trouble = false
       m.respawnT = m.prof.respawn
       m.model.root.visible = false
-      m.trail.mesh.visible = false
       ctx.fx.explode(m.x, m.y, m.z, WING_TRIMS[m.id][0], 1.6)
       ctx.shake = Math.max(ctx.shake, 0.6)
       ctx.sfx.boom(true)

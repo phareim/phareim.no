@@ -303,6 +303,8 @@ export interface PropField {
   commit(): void
   /** Glow anchors of the visible slots, in world space. */
   lights(add: (x: number, y: number, z: number, r: number, color: Hex, a: number) => void): void
+  /** The prop shown in slot i, or null (no allocation: the game's collision loop). */
+  defAt(i: number): PropDef | null
   /** Collision for slot i (what `set` gave it), or null when hidden. */
   slot(i: number): { def: PropDef; x: number; y: number; z: number; w: number; h: number } | null
   dispose(): void
@@ -374,12 +376,18 @@ export function createPropField(shape: PropShape, capacity: number): PropField {
       if (!dirty) return
       dirty = false
       for (const b of current) {
+        // Draw only up to the last slot in use, and not at all when none is:
+        // an idle batch would still cost a draw call and its vertices.
+        let top = 0
         for (let i = 0; i < capacity; i++) {
           const s = slots[i]
           if (!s || s.def !== b.def) { b.mesh.setMatrixAt(i, zero); continue }
           placeMatrix(b.part.place, s, m4)
           b.mesh.setMatrixAt(i, m4)
+          top = i + 1
         }
+        b.mesh.count = top
+        b.mesh.visible = top > 0
         b.mesh.instanceMatrix.needsUpdate = true
       }
     },
@@ -391,6 +399,9 @@ export function createPropField(shape: PropShape, capacity: number): PropField {
           add(pv.x, pv.y, pv.z, l.r * (l.at === 'stretch' ? s.w : s.w), l.color, l.a)
         }
       }
+    },
+    defAt(i) {
+      return slots[i]?.def ?? null
     },
     slot(i) {
       const s = slots[i]

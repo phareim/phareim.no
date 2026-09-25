@@ -13,10 +13,19 @@ import { ENEMY_KINDS, laneY, type EnemyKind } from '../balance'
 import { CAPSULE_TYPES, type CapsuleType } from '../arsenal'
 import { SPAWN_Z, live, type Ctx } from './ctx'
 
-export interface FrameStats { fps: number; frameMs: number; workMs: number }
+export interface FrameStats {
+  fps: number; frameMs: number; workMs: number
+  /** split of workMs: scene update, three.js + palette pass, the 2D stage */
+  updateMs: number; renderMs: number; stageMs: number
+  /** the part of stageMs spent waiting for the GL frame (drawImage of the WebGL canvas) */
+  readMs: number
+  calls: number; tris: number; lights: number
+}
 
 export function installDebug(ctx: Ctx, stats: FrameStats): () => void {
   const api = {
+    /** The scene context, for profiling in the console. */
+    ctx,
     sector(n: number) { ctx.run.jump(n); return api.state() },
     boss(finish = false) {
       if (finish) { ctx.boss.finish(); return 'finish' }
@@ -67,6 +76,7 @@ export function installDebug(ctx: Ctx, stats: FrameStats): () => void {
         mines: ctx.obstacles.mines, boss: ctx.boss.active, speed: +ctx.worldSpeed.toFixed(1), warp: +ctx.env.warp.toFixed(2),
         line: ctx.story.director.spoken?.text ?? null,
         fps: +stats.fps.toFixed(1), frameMs: +stats.frameMs.toFixed(1), workMs: +stats.workMs.toFixed(1),
+        updateMs: +stats.updateMs.toFixed(1), renderMs: +stats.renderMs.toFixed(1), stageMs: +stats.stageMs.toFixed(1), readMs: +stats.readMs.toFixed(1), calls: stats.calls, tris: stats.tris, lights: stats.lights,
       }
     },
   }

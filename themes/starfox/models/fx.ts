@@ -63,6 +63,7 @@ export function createDebris(capacity = 240): Debris {
       alive = capacity
     },
     update(dt, groundY = -5, worldVz = 0) {
+      m.visible = alive > 0
       if (alive === 0) return
       let any = 0
       for (let i = 0; i < capacity; i++) {

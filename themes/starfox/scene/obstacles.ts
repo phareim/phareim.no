@@ -199,12 +199,12 @@ export function createObstacles(ctx: Ctx): Obstacles {
 
   /** Does a flyer at (x, y, z) touch tall prop t? */
   function tallHits(t: Tall, i: number, x: number, y: number, z: number, pad: number): boolean {
-    const s = tallField.slot(i)
-    if (!s) return false
-    const R = s.def.collide.radius * t.w
+    const def = tallField.defAt(i)
+    if (!def) return false
+    const R = def.collide.radius * t.w
     if (Math.abs(z - t.z) > R + 0.6) return false
     if (Math.abs(x - t.x) < R + pad && y < GROUND_Y + t.h + pad) return true
-    const c = s.def.collide.capR
+    const c = def.collide.capR
     if (c) {
       const cr = c * t.w + pad
       const dx = x - t.x, dy = y - (GROUND_Y + t.h), dz = z - t.z
@@ -214,8 +214,8 @@ export function createObstacles(ctx: Ctx): Obstacles {
   }
 
   function floatRadius(f: Float, i: number): number {
-    const s = floatField.slot(i)
-    return (s ? s.def.collide.radius : 0.85) * f.r
+    const def = floatField.defAt(i)
+    return (def ? def.collide.radius : 0.85) * f.r
   }
 
   function breakFloat(f: Float, i: number) {
@@ -315,8 +315,7 @@ export function createObstacles(ctx: Ctx): Obstacles {
       // Geysers only exist in the ember set; re-read what each slot is now.
       for (let i = 0; i < MAX_TALL; i++) {
         const t = talls[i]!
-        const s = tallField.slot(i)
-        t.geyser = !!s && s.def.id === 'geyser'
+        t.geyser = tallField.defAt(i)?.id === 'geyser'
         if (!t.geyser) t.h = t.maxH
       }
     },
@@ -385,7 +384,7 @@ export function createObstacles(ctx: Ctx): Obstacles {
       for (let i = 0; i < MAX_TALL; i++) {
         const t = talls[i]!
         if (!t.active || t.z < -70 || t.z > -4) continue
-        const R = (tallField.slot(i)?.def.collide.radius ?? 0.5) * t.w
+        const R = (tallField.defAt(i)?.collide.radius ?? 0.5) * t.w
         if (Math.abs(t.x - tx) < R + 2.5 && ty < GROUND_Y + t.h + 1.2) tx = tx < t.x ? t.x - R - 3 : t.x + R + 3
       }
       for (let i = 0; i < MAX_FLOAT; i++) {

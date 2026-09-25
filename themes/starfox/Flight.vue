@@ -108,7 +108,7 @@ let raf = 0
 let last = 0
 let idleTimer: ReturnType<typeof setTimeout> | null = null
 let undebug: (() => void) | null = null
-const stats: FrameStats = { fps: 60, frameMs: 16.7, workMs: 0 }
+const stats: FrameStats = { fps: 60, frameMs: 16.7, workMs: 0, updateMs: 0, renderMs: 0, readMs: 0, stageMs: 0, calls: 0, tris: 0, lights: 0 }
 const flashOpt = { color: P.hot as string, a: 0 }
 const presentOpt = { ambient: '#c9bde6', flash: null as { color: string; a: number } | null }
 
@@ -162,9 +162,13 @@ function frame(nowMs: number) {
   const c = ctx
   if (!c || !pipeline || !stage || !glCanvas || !overlay) return
   if (!paused.value) update(c, dt)
+  const t1 = performance.now()
+  renderer!.info.reset()
   pipeline.render(c.scene, c.camera)
+  const t2 = performance.now()
   const g = stage.begin()
   g.drawImage(glCanvas, 0, 0)
+  stats.readMs += (performance.now() - t2 - stats.readMs) * 0.1
   overlay.lights()
   overlay.hud()
   if (c.flash > 0) {
@@ -173,7 +177,14 @@ function frame(nowMs: number) {
     presentOpt.flash = flashOpt
   } else presentOpt.flash = null
   stage.present(presentOpt)
-  stats.workMs += (performance.now() - t0 - stats.workMs) * 0.1
+  const t3 = performance.now()
+  stats.workMs += (t3 - t0 - stats.workMs) * 0.1
+  stats.updateMs += (t1 - t0 - stats.updateMs) * 0.1
+  stats.renderMs += (t2 - t1 - stats.renderMs) * 0.1
+  stats.stageMs += (t3 - t2 - stats.stageMs) * 0.1
+  stats.calls = renderer!.info.render.calls
+  stats.tris = renderer!.info.render.triangles
+  stats.lights = stage.lights.length
 }
 
 function resize() {
@@ -386,6 +397,7 @@ onMounted(() => {
     glCanvas = document.createElement('canvas')
     renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: false, powerPreference: 'low-power' })
   } catch { return }
+  renderer.info.autoReset = false
   stage = createPixelStage(canvas.value!)
   pipeline = createPixelPipeline(renderer)
   glowTex = makeGlowTexture()
