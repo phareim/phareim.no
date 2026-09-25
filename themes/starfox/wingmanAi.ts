@@ -17,8 +17,7 @@ import { WINGMEN } from './balance.ts'
 export type WingMode = 'formation' | 'hunt' | 'regroup' | 'cover'
 /** Enemy kinds plus boss pieces: `part` = any breakable boss part (claw,
  * panel, knee, Crown turret), `core` = the weak point. `turret` is the
- * ground emplacement (an EnemyKind since 2026-09-25); the old DREADNOUGHT
- * passes its hull turrets as `turret` too until Flight.vue moves to `part`. */
+ * ground emplacement (an EnemyKind since 2026-09-25). */
 export type TargetKind = EnemyKind | 'part' | 'core'
 
 export interface WingTarget {

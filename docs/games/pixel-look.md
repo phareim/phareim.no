@@ -51,7 +51,7 @@ maps to the capitals; it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂ — … ❚ �
 | Breakout | done | a shrine chamber seen from above: stone and crystal bricks, braziers, a pit under the paddle |
 | Tetris | done | a torchlit stone shaft in the shrine; carved bevelled blocks; the town at dusk behind the cabinet |
 | R-Type | done | the shrine caves: rock walls with glowing crystals that light the walls, a warm far cave behind; turned a quarter on portrait phones (`resize(…, rotate)`) |
-| Star Fox | done | the Super FX way: three.js at the stage's logical size, snapped to the palette with a Bayer dither in a shader; grass and the rose path below, dusk and the striped sun over violet ridges |
+| Star Fox | done | the Super FX way: three.js at the stage's logical size, snapped to the palette with a Bayer dither in a shader; a biome per sector (sea, woods, ember, mirror lake, space), each with its own ground mode, sky and props (`docs/games/star-fox.md`, 2026-09-25) |
 | OutRun | done | the coast road at dusk as a SNES-era sprite-scaler: Neon Shrine ground per biome, teal canopies, shrine-gate tunnels, pixelized cars |
 | Another Shore | done | flat Another World polygons scanline-filled on the pixel grid, snapped to the palette; dithered sky and sea; glowing things lit through an emissive layer; the prologue flies over the pixel dusk |
 | Hall of Fame | done | the shrine's hall of champions at night: arched windows on the dusk, banners, torches, trophies, a statue of the hero; the board is a `.px-box`, avatars shrunk to 12×12 pixels (`docs/games/hall-of-fame.md`) |

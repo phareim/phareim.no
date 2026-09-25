@@ -57,9 +57,9 @@ slots, see `docs/games/neon-shrine.md`); `POST /api/ship/select` →
 400 bad id/ship, 404 unknown player, 423 locked. Unlock is derived live
 from `COUNT(DISTINCT game)`, so no backfill. Games re-read the ship on
 every start: Galaga (hull + wide wings + trim cockpit), R-Type (hull,
-flame core, trim Force pod, vandal chin fin), Star Fox (`buildShip`
-delegates to the shared builder, engine flicker around the ship's base
-size), Invaders (same 1978 silhouette in hull colour, trim base row,
+flame core, trim Force pod, vandal chin fin), Star Fox
+(`scene/player.ts` builds it with the shared `buildPlayerShip` when the
+theme mounts), Invaders (same 1978 silhouette in hull colour, trim base row,
 hull-coloured bolts; glow cache keyed per colour).
 
 **Tests.** `npm run test:ships` (catalogue + unlock, in CI). The three

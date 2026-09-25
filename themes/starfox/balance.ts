@@ -565,8 +565,8 @@ export const BUDDY_AGGRO = 0.35
 // replaces). Retuned after the first playthrough (2026-09-25): the hunt
 // windows reach into the mid-field only (~−95 at most), leashes are
 // shorter and heron/dingo sturdier and less shot at, so the player gets
-// most kills and a wingman loss is an event (Dingo's trouble aside). The BUDDY_* constants above are the single-wingman tuning
-// Flight.vue still uses until the squad lands there.
+// most kills and a wingman loss is an event (Dingo's trouble aside). The BUDDY_* constants above are the old single
+// wingman's tuning; only tests/starfox-balance.test.mjs still reads them.
 
 export type WingId = 'heron' | 'bison' | 'dingo' | 'walrus' | 'zebra'
 

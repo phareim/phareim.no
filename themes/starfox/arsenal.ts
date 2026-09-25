@@ -148,7 +148,7 @@ export interface ArsenalState {
   shieldHp: number
   shieldT: number
   overdriveT: number
-  /** wing overdrive: Claude fires double */
+  /** wing overdrive: the squad fires double */
   wingOdT: number
   /** gold rings collected this sector */
   gold: number

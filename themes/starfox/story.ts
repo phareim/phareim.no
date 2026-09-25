@@ -1,7 +1,9 @@
 /**
  * Star Fox story — OPERATION NIGHTLIGHT (2026-09-25). Sectors, the cast,
  * the intercom script and the director that paces it. Pure: no Vue/DOM/
- * three, so tests/starfox-story.test.mjs runs it in plain node.
+ * three, so tests/starfox-story.test.mjs runs it in plain node. The
+ * sectors, the pilots and the squad rules live in cast.ts (re-exported
+ * here), so the landing can show them without loading the script.
  *
  * The premise: the Hollow, an armada of dark machines that eat light, came
  * in over the sea and is putting out the coast's neon one beacon at a time.

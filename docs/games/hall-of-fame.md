@@ -76,6 +76,8 @@ board once or twice at 45 s while its own picture is missing. `nuxi dev`
 has no key, so avatars stay null there. **REROLL is gone from the footer
 since 2026-09-08** — a new name costs a painting; `useLeaderboard.reroll`
 and the server's rename path remain for when it returns with a cap.
+Seven of these paintings, picked by Petter, are Star Fox's squadron and
+rival as 40×40 portraits (`docs/games/star-fox.md`, 2026-09-25).
 
 **Wiring.** The five arcade landings call `submitScore('<id>', score)` in
 `onGameOver`; Tetris does it in `Game.vue` on top-out and on the Escape
