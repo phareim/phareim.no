@@ -128,6 +128,8 @@ export interface Ctx {
   squadIds: [WingId, WingId, WingId]
   /** High score when the run began (for the `best` cue). */
   bestBefore: number
+  /** MEGA COBRA went down this run: he stays gone, ECHO loops included. */
+  rivalGone: boolean
   // ---- systems
   env: Env
   obstacles: Obstacles

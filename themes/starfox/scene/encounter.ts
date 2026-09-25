@@ -79,7 +79,10 @@ export function createEncounters(ctx: Ctx): Encounters {
   return {
     get runner() { return runner },
     start(sector) {
-      runner = createEncounterRunner(sectorIndex(sector), loopOf(sector), Math.random, { squad: () => ctx.squad.aliveIds })
+      runner = createEncounterRunner(sectorIndex(sector), loopOf(sector), Math.random, {
+        squad: () => ctx.squad.aliveIds,
+        rivalGone: () => ctx.rivalGone,
+      })
     },
     update(dt) {
       if (!ctx.started) { demo(dt); return }

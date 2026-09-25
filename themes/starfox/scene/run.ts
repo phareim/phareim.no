@@ -103,6 +103,7 @@ export function createRun(ctx: Ctx, sound: SoundLike): Run {
       ctx.started = true
       ctx.over = false
       ctx.score = 0
+      ctx.rivalGone = false
       breakStreak(ctx)
       ctx.hp = HP_MAX
       ctx.elapsed = 0

@@ -600,8 +600,8 @@ export const CUES: Record<string, CueDef> = {
     prio: 3, cooldown: 60_000, variants: [
       [K('i should have stayed in the hangar.'), W('i kept your old ship, cobra. still polished.')],
       [K('tell dingo i am sorry.'), DI('he heard.')],
-      [K('it was dark, where they took me.'), BI('rest, cobra.'), C('cobra is down. the crown is running.')],
-      [K('not like this.'), C('cobra is down. the crown is running.')],
+      [K('it was dark, where they took me.'), BI('rest, cobra.'), C('cobra is down. the crown is next.')],
+      [K('not like this.'), C('cobra is down. that leaves their ship.')],
     ],
   },
 

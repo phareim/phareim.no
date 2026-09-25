@@ -412,12 +412,16 @@ export interface EncounterRunner {
 export interface RunnerOpts {
   /** who is flying right now (DINGO's set piece needs DINGO); default all three */
   squad?: () => readonly WingId[]
+  /** MEGA COBRA was shot down earlier in this run: his flyby and duels
+   * are dropped for the rest of it (ECHO loops included) */
+  rivalGone?: () => boolean
 }
 
 export function createEncounterRunner(
   index: number, loop: number, rng: () => number = Math.random, opts: RunnerOpts = {},
 ): EncounterRunner {
   const squad = opts.squad ?? (() => SQUAD)
+  const rivalGone = opts.rivalGone ?? (() => false)
   const idx = ((Math.floor(index) % SCRIPTS.length) + SCRIPTS.length) % SCRIPTS.length
   const lp = Math.max(0, Math.floor(loop))
   const sector = absoluteSector(idx, lp)
@@ -535,7 +539,7 @@ export function createEncounterRunner(
     const pol = setPiece ? SET_PIECE_POLICY[setPiece] : null
     if (pol?.holdScript && (isEnemySpec(s) || s.type === 'cobraFlyby')) { skipBeat(b, plan); return }
     if (s.type === 'dingoTrouble' && (setPiece !== null || !squad().includes('dingo'))) { skipBeat(b, plan); return }
-    if ((s.type === 'rivalDuel' || s.type === 'cobraFlyby') && setPiece !== null) { skipBeat(b, plan); return }
+    if ((s.type === 'rivalDuel' || s.type === 'cobraFlyby') && (setPiece !== null || rivalGone())) { skipBeat(b, plan); return }
     const base = { t, scripted: true as const, story: b.story }
     if (s.type !== 'ambush') planned[plan]!.done = true
     switch (s.type) {

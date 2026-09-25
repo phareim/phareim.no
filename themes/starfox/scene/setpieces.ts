@@ -274,6 +274,7 @@ export function createSetPieces(ctx: Ctx): SetPieces {
     },
     rivalDown() {
       rival = null
+      ctx.rivalGone = true
       endRivalBar()
       ctx.enc.resolve('rivalDuel', 'down')
     },

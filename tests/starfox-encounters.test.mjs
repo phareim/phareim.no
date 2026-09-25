@@ -356,5 +356,18 @@ describe('Star Fox squad and rival set pieces', () => {
     assert.ok(warn.t >= sp5[1].t && warn.t > TRAVEL_TIME + 10)
     assert.ok(sp5[0].t < TRAVEL_TIME, 'the duel starts before the Crown')
   })
+
+  it('MEGA COBRA stays gone for the run once he is down (ECHO loops included)', () => {
+    for (const [idx, loop] of [[1, 1], [2, 1], [4, 1], [4, 2]]) {
+      const gone = runEncounter(idx, loop, mulberry32(11), 1 / 30, { rivalGone: () => true })
+      assert.ok(!gone.some(e => e.type === 'rival'), `no rival in sector index ${idx}, loop ${loop}`)
+      assert.ok(!gone.some(e => e.type === 'setPiece' && (e.id === 'rivalDuel' || e.id === 'cobra')), 'no rival set piece')
+      assert.equal(gone[gone.length - 1].type, 'warning')
+      assert.ok(gone[gone.length - 1].t < TRAVEL_TIME + 0.1, 'WARNING on time without the duel')
+    }
+    // still flying (he escaped): ECHO brings him back
+    const echo = runEncounter(2, 1, mulberry32(11), 1 / 30, { rivalGone: () => false })
+    assert.ok(echo.some(e => e.type === 'rival' && e.mode === 'duel'))
+  })
 })
 
