@@ -9,7 +9,9 @@ import {
   CALLOUTS,
   WING_AI,
   THREAT,
-  RETARGET_MARGIN
+  RETARGET_MARGIN,
+  inHuntZone,
+  isHuntable
 } from '../themes/starfox/wingmanAi.ts'
 
 /**
@@ -278,4 +280,68 @@ test('pickTarget lets a much better target steal the lock', () => {
   const drone2 = { id: 3, kind: 'drone', x: 7, y: 0, z: -100, vx: 0 }
   assert.equal(pickTarget([drone, drone2], buddy, 1).id, 1)
   assert.ok(RETARGET_MARGIN > 0)
+})
+
+// ---- redesign 2026-09-25: missiles, carriers, ground turrets, boss parts ----
+
+test('THREAT ranks the new kinds: missile first, carrier low, parts like turrets', () => {
+  assert.ok(THREAT.missile > THREAT.kamikaze)
+  assert.ok(THREAT.carrier < THREAT.drone * 1.5 && THREAT.carrier > THREAT.bulwark)
+  assert.equal(THREAT.part, 2.5)
+  assert.ok(THREAT.part > THREAT.core)
+})
+
+test('pickTarget shoots down a missile before a diving kamikaze', () => {
+  const targets = [
+    { id: 1, kind: 'kamikaze', x: 0, y: 0, z: -40, vx: 0 },
+    { id: 2, kind: 'missile', x: 0, y: 0, z: -40, vx: 0 }
+  ]
+  assert.equal(pickTarget(targets, { x: 0, y: 0 }, null).id, 2)
+})
+
+test('pickTarget prefers the missile homing on the player', () => {
+  const targets = [
+    { id: 1, kind: 'missile', x: 1, y: 0, z: -30, vx: 0 },
+    { id: 2, kind: 'missile', x: 1, y: 0, z: -30, vx: 0, onShip: true }
+  ]
+  assert.equal(pickTarget(targets, { x: 0, y: 0 }, null).id, 2)
+})
+
+test('missiles stay huntable closer in than the normal window', () => {
+  const missile = { id: 1, kind: 'missile', x: 0, y: 0, z: -5, vx: 0 }
+  const drone = { id: 2, kind: 'drone', x: 0, y: 0, z: -5, vx: 0 }
+  assert.equal(inHuntZone(missile), true)
+  assert.equal(inHuntZone(drone), false)
+  assert.ok(WING_AI.missileZ > WING_AI.huntZ[1])
+  assert.equal(pickTarget([missile, drone], { x: 0, y: 0 }, null).id, 1)
+  // and Claude fires at it when lined up
+  const step = stepWingman(createWingAi(), input({ buddy: { x: 0, y: 0 }, targets: [missile] }))
+  assert.equal(step.fire, true)
+})
+
+test('ground turrets are skipped unless nearly in line', () => {
+  const buddy = { x: 0, y: 0 }
+  const far = { id: 1, kind: 'turret', x: 6, y: -2.4, z: -80, vx: 0 }
+  const near = { id: 2, kind: 'turret', x: 1.5, y: -2.4, z: -80, vx: 0 }
+  assert.equal(isHuntable(far, buddy), false)
+  assert.equal(isHuntable(near, buddy), true)
+  assert.equal(pickTarget([far], buddy, null), null)
+  const drone = { id: 3, kind: 'drone', x: 8, y: 0, z: -80, vx: 0 }
+  assert.equal(pickTarget([far, drone], buddy, null).id, 3)
+})
+
+test('carriers come after the fast threats', () => {
+  const targets = [
+    { id: 1, kind: 'carrier', x: 0, y: 0, z: -80, vx: 0 },
+    { id: 2, kind: 'dasher', x: 0, y: 0, z: -80, vx: 0 }
+  ]
+  assert.equal(pickTarget(targets, { x: 0, y: 0 }, null).id, 2)
+})
+
+test('boss parts beat the core', () => {
+  const targets = [
+    { id: 1, kind: 'core', x: 0, y: 0, z: -60, vx: 0 },
+    { id: 2, kind: 'part', x: 0, y: 0, z: -60, vx: 0 }
+  ]
+  assert.equal(pickTarget(targets, { x: 0, y: 0 }, null).id, 2)
 })

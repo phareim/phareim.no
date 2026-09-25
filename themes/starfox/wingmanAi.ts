@@ -1,7 +1,11 @@
 import type { EnemyKind } from './balance'
 
 export type WingMode = 'formation' | 'hunt' | 'regroup' | 'cover'
-export type TargetKind = EnemyKind | 'turret' | 'core'
+/** Enemy kinds plus boss pieces: `part` = any breakable boss part (claw,
+ * panel, knee, Crown turret), `core` = the weak point. `turret` is the
+ * ground emplacement (an EnemyKind since 2026-09-25); the old DREADNOUGHT
+ * passes its hull turrets as `turret` too until Flight.vue moves to `part`. */
+export type TargetKind = EnemyKind | 'part' | 'core'
 
 export interface WingTarget {
   id: number
@@ -10,6 +14,8 @@ export interface WingTarget {
   y: number
   z: number
   vx: number
+  /** a missile homing on the player: Claude takes it first */
+  onShip?: boolean
 }
 
 export interface WingInput {
@@ -62,6 +68,13 @@ export const WING_AI = {
   coverHp: 30,
   calloutTime: 2.2,
   regroupRadius: 1.5,
+  /** missiles are chased until they are this close (z) — they come in
+   * past the normal hunt window */
+  missileZ: -3,
+  /** ground turrets are only worth chasing when this close across */
+  turretLineX: 2.5,
+  /** extra threat for a missile homing on the player */
+  onShipBonus: 1.5,
   turnRate: {
     formation: 5,
     hunt: 7,
@@ -80,7 +93,28 @@ export const THREAT: Record<TargetKind, number> = {
   drone: 1,
   bulwark: 0.5,
   turret: 2.5,
-  core: 1
+  core: 1,
+  missile: 4,
+  carrier: 1.2,
+  part: 2.5
+}
+
+/** Inside the depth window Claude hunts and fires in (missiles closer). */
+export function inHuntZone(t: WingTarget): boolean {
+  const zMax = t.kind === 'missile' ? WING_AI.missileZ : WING_AI.huntZ[1]
+  return t.z > WING_AI.huntZ[0] && t.z < zMax
+}
+
+/** Worth steering toward: in the zone, and a ground turret only when it
+ * is already nearly in line (Claude doesn't dive at the ground). */
+export function isHuntable(t: WingTarget, buddy: { x: number; y: number }): boolean {
+  if (!inHuntZone(t)) return false
+  if (t.kind === 'turret' && Math.abs(t.x - buddy.x) > WING_AI.turretLineX) return false
+  return true
+}
+
+function threatOf(t: WingTarget): number {
+  return (THREAT[t.kind] ?? 1) + (t.onShip ? WING_AI.onShipBonus : 0)
 }
 
 /**
@@ -112,7 +146,7 @@ export function callout(ai: WingAi, key: CalloutKey): string {
 function targetCost(t: WingTarget, buddy: { x: number; y: number }): number {
   const dx = t.x - buddy.x
   const dy = t.y - buddy.y
-  return Math.sqrt(dx * dx + dy * dy) + 0.02 * Math.abs(t.z) - 4 * (THREAT[t.kind] ?? 1)
+  return Math.sqrt(dx * dx + dy * dy) + 0.02 * Math.abs(t.z) - 4 * threatOf(t)
 }
 
 /** A newcomer must beat the current target's cost by this much to steal the lock. */
@@ -120,7 +154,8 @@ export const RETARGET_MARGIN = 3
 
 /**
  * Pick the best target from the candidate list.
- * Candidates must satisfy huntZ[0] < z < huntZ[1].
+ * Candidates must be huntable: huntZ[0] < z < huntZ[1] (missiles up to
+ * missileZ), ground turrets only when nearly in line.
  * Sticky: the current target is kept while it is in range, unless another
  * candidate beats its cost by RETARGET_MARGIN (a kamikaze diving in).
  * Cost: lateral distance + 0.02*|z| - 4*THREAT[kind]; lowest wins.
@@ -130,8 +165,7 @@ export function pickTarget(
   buddy: { x: number; y: number },
   current: number | null
 ): WingTarget | null {
-  const [zMin, zMax] = WING_AI.huntZ
-  const candidates = targets.filter(t => t.z > zMin && t.z < zMax)
+  const candidates = targets.filter(t => isHuntable(t, buddy))
 
   if (candidates.length === 0) return null
 
@@ -201,9 +235,7 @@ export function stepWingman(ai: WingAi, input: WingInput): WingStep {
     const ty = clamp(formation.y, lane.yLo, lane.yHi)
 
     // Still fire if a target crosses the lane
-    const [zMin, zMax] = WING_AI.huntZ
-    const fireTargets = targets.filter(t => t.z > zMin && t.z < zMax)
-    const fire = fireTargets.some(t => canFire(buddy, t))
+    const fire = targets.some(t => inHuntZone(t) && canFire(buddy, t))
 
     return { tx, ty, fire, say, mode: ai.mode }
   }
@@ -276,9 +308,7 @@ export function stepWingman(ai: WingAi, input: WingInput): WingStep {
   ty = clamp(ty, lane.yLo, lane.yHi)
 
   // 9. Fire if any target in huntZ passes line-of-sight check
-  const [zMin, zMax] = WING_AI.huntZ
-  const fireTargets = targets.filter(tg => tg.z > zMin && tg.z < zMax)
-  const fire = fireTargets.some(tg => canFire(buddy, tg))
+  const fire = targets.some(tg => inHuntZone(tg) && canFire(buddy, tg))
 
   // 10. Return step
   return { tx, ty, fire, say, mode: ai.mode }
