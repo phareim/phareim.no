@@ -20,6 +20,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 - `npm run test:wingman` — Star Fox wingman brain and the three-wingman squad (2026-09-25)
 - `npm run test:anotherworld` — Another Shore: physics, threats, a playtester that crosses all five chapters without dying, cuts, saves; plus the audio module against a fake Web Audio (rebuilt 2026-09-23)
 - `npm run test:outrun` — OutRun engine: road and forks, tunnels, driving model, traffic, close-pass chain and crashes, clock and stage times, goal, autopilot (rebuilt 2026-09-11, tunnels and chain 2026-09-23)
+- `npm run test:battery` — Night of the Dead Battery: the engine, each floor's puzzles, the story and finale, the audio, and a walkthrough from a new game to the credits (2026-09-26)
 - `npm run typecheck` — `nuxi typecheck` (vue-tsc); CI runs this before build
 - `npm run build` — production build; the `cloudflare-pages` preset is set in `nuxt.config.ts`, output goes to `dist/`
 - `npm run preview` — preview built site
@@ -28,7 +29,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 
 - **Framework**: Nuxt 3 + Vue 3 Composition API + TypeScript (`themes/scandi/Bubbles.vue` is Options API, moved verbatim)
 - **Hosting**: Cloudflare Pages, project `phareim-no`. SSR runs in the Pages worker (`_routes.json` sends everything except static assets to it), so the first paint is already the theme the URL names.
-- **Database / storage**: one D1, `phareim-leaderboard` (id `54e101f9-4026-4fd1-a78a-7a8976e1301e`, created 2026-09-08), bound as `LEADERBOARD_DB` in `wrangler.toml`, schema in `migrations/`, applied by CI before every deploy. It holds the player profiles: Hall of Fame scores, Hangar ships and, since 2026-09-23, the adventure save slots (Neon Shrine, Another Shore) — see `docs/games/hall-of-fame.md`. No R2 binding.
+- **Database / storage**: one D1, `phareim-leaderboard` (id `54e101f9-4026-4fd1-a78a-7a8976e1301e`, created 2026-09-08), bound as `LEADERBOARD_DB` in `wrangler.toml`, schema in `migrations/`, applied by CI before every deploy. It holds the player profiles: Hall of Fame scores, Hangar ships and, since 2026-09-23, the adventure save slots (Neon Shrine, Another Shore, Night of the Dead Battery) — see `docs/games/hall-of-fame.md`. No R2 binding.
 - **External APIs**: one — wave-jobs on Sleeper (`POST https://sleeper.phareim.no/wave-jobs/avatar`, Bearer `WAVE_JOBS_KEY`) paints the Hall of Fame avatars (2026-09-08). `server/` came back 2026-09-08 with the Hall of Fame routes (`/api/leaderboard`, `/api/player`, `/api/score`, and `/api/avatar` for wave-jobs' callback) and nothing else.
 - **Dependencies of note**: `three` 0.185 (+ `@types/three`), used by Star Fox and the Hangar and loaded only in their async chunks, never the entry (checked 2026-09-25); `@fontsource/space-grotesk` + `@fontsource/space-mono` (self-hosted fonts, 2026-09-06); the radio engine in `themes/radio/station/` imports with `.ts` extensions, so `nuxt.config.ts` sets `allowImportingTsExtensions` (2026-09-25); it loads as its own chunk with the radio theme
 - **Fonts** (2026-09-06): two faces, the Neon Dreams split — `--font-person` (Space Grotesk at weight 300, the face's lightest, for body, name and page titles; 400/500 for emphasis: name, blurbs, prose) and `--font-machine` (Space Mono: HUD, hints, over-titles, canvas score pops, shas). Defined on `:root` in `themes/base/fonts.css` (imported first in `themes/index.ts`), latin subsets only; canvas code imports `MACHINE_FONT` from `themes/base/fonts.ts`. A third face since 2026-09-24: `--font-pixel` (Neon Pixel, Neon Shrine's 5×7 canvas font as a 3 KB webfont in `public/fonts/`, for the pixel games' HTML text; `docs/games/pixel-look.md`). Nothing loads from Google Fonts any more (Comfortaa and the preconnects are gone). The parked themes keep their own faces (desk: ET Book).
@@ -45,7 +46,7 @@ error.vue            — 404: a terminal block for the portal and the neon games
 components/
   HomeChip.vue       — in games only: the ⌂ chip back to the portal (bottom-right), hidden while a game locks navigation; the only site chrome
 server/
-  api/               — leaderboard.get, player.post, score.post, avatar.post (the Hall of Fame API, 2026-09-08); profile.get, ship/select.post (Hangar); save.get/.post (profile save slots, Neon Shrine and Another Shore, 2026-09-23)
+  api/               — leaderboard.get, player.post, score.post, avatar.post (the Hall of Fame API, 2026-09-08); profile.get, ship/select.post (Hangar); save.get/.post (profile save slots: Neon Shrine, Another Shore, Night of the Dead Battery)
   utils/store.ts     — D1 store + in-memory dev store behind one interface, id validation
   utils/avatar.ts    — asks wave-jobs on Sleeper to paint a player's pilot (callback into avatar.post)
 migrations/          — D1 schema for phareim-leaderboard, numbered SQL, applied by CI
@@ -63,6 +64,7 @@ themes/              — see the phareim-theme skill
   portal/            — the home theme on `/`: the page (hint, hidden link index, ending panel) around the world shell
   zelda/             — the one world: engine, world data (town + Neon Shrine), renderer, audio, and the shell `Zelda.vue`
   radio/             — two radios: engine.ts + catalog.ts (the widget's six game stations) and the radio theme (Landing, Station, Dial, Channels; 2026-09-25) with station/, vendored from phareim/radio by scripts/sync-radio.mjs, never edited by hand
+  battery/          — Night of the Dead Battery: engine/, content/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
   anotherworld/ shore/ scandi/ galaga/ breakout/ rtype/ invaders/ starfox/ outrun/ tetris/ leaderboard/ hangar/ ships/ space/ desk/
 ```
 
@@ -74,7 +76,7 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 
 ## Theme System (short version — the skill has the rest)
 
-- Sixteen themes in `themes/index.ts` (verified 2026-09-25): the portal (`home: true`), eleven live and four parked. Live: Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Tetris, Hall of Fame, Hangar, Radio (the radio station's door in the town, not a cabinet). Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
+- Seventeen themes in `themes/index.ts` (verified 2026-09-26): the portal (`home: true`), twelve live and four parked. Live: Night of the Dead Battery, Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Tetris, Hall of Fame, Hangar, Radio (the radio station's door in the town, not a cabinet). Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
 - **Nothing scrolls**: `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, and every landing is locked to the viewport. Full-screen heights use `var(--app-height, 100dvh)` (defined in `app.vue`), never bare `100dvh`: in the iOS home-screen app 100dvh comes up a status bar short and leaves a white strip at the bottom.
 - **Bottom band** (2026-09-24): `--app-safe-bottom` (defined in `app.vue`) is the strip along the bottom edge where nothing interactive or meaning-bearing may sit: buttons, text, hints, the player's ship or paddle. Backdrops may run through it. In a browser tab it equals `env(safe-area-inset-bottom)`; installed as a web app (`display-mode: standalone/fullscreen`) it is `max(48px, inset + 30px)`, clear of the home indicator and system swipes. Anchor bottom UI as `calc(<gap> + var(--app-safe-bottom, 0px))`, never on the bare inset; canvas games take it as a bottom inset.
 - The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal, `zelda` → portal), an unknown id shows the portal. No cookie, no random pick.
@@ -148,6 +150,7 @@ it holds this radio silent (`docs/games/radio.md`).
 |---|---|---|
 | Portal (home, on `/`) | `docs/games/portal.md` | `themes/portal/`, `themes/zelda/world/` |
 | The pixel look (shared) | `docs/games/pixel-look.md` | `themes/base/pixel/` |
+| Night of the Dead Battery | `docs/games/night-of-the-dead-battery.md` | `themes/battery/` (DESIGN.md, BUILD.md), `scripts/battery-lab/` |
 | Another Shore | `docs/games/another-shore.md` | `themes/anotherworld/` |
 | Another Shore II | `docs/games/another-shore-ii.md` | `themes/shore/` (parked) |
 | Space Invaders | `docs/games/space-invaders.md` | `themes/invaders/` |
