@@ -73,6 +73,20 @@ const M = (...rows: string[]) => rows
 const bg7 = (c: string) => [c, c, c, c, c, c, c]
 
 const CABS: Record<string, CabStyle> = {
+  battery: {
+    body: '#3a1a3a', bodyL: '#5e2e5a', bodyD: '#1e0c20', trim: '#ffd23f', glow: '#ffd23f',
+    bg: ['#0b0616', '#120a24', '#1a0e30', '#1a0e30', '#1a0e30', '#120a24', '#0b0616'],
+    // A lightning bolt striking a car battery.
+    marquee: M(
+      '..y.........',
+      '.y....r...w.',
+      '.yy.kgggggg.',
+      '..y.kgRRggg.',
+      '.y..kgRRggg.',
+      'y...kgggggg.',
+      '............',
+    ),
+  },
   anotherworld: {
     body: '#2a1f4a', bodyL: '#43346e', bodyD: '#171030', trim: '#ff8a3d', glow: '#ff8a3d',
     bg: ['#1a0c3a', '#2a1450', '#56206a', '#9a3070', '#e0585a', '#ff9a4a', '#ffc070'],
@@ -323,6 +337,17 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       const fall = Math.floor(t * 3 + seed) % 6
       f('#2ff3ff', 3, fall, 3, 1); f('#2ff3ff', 4, fall - 1)
       f('#9a4ff0', 1, 7, 3, 1); f('#ffd23f', 4, 6, 2, 2); f('#b6ff4a', 6, 7, 3, 1); f('#ff3b5c', 7, 6, 2, 1)
+      return
+    }
+    case 'battery': {
+      // Villa Voltvik in the storm: a crooked house, one lit window, lightning.
+      const strike = (t + seed) % 3.2 < 0.12
+      f(strike ? '#8f86b8' : '#0b0616', 0, 0, W, H)
+      f('#2a1f4a', 2, 4, 5, 4); f('#2a1f4a', 3, 3, 3, 1); f('#2a1f4a', 4, 2, 1, 1); f('#2a1f4a', 6, 1, 1, 3)
+      if (Math.floor(t * 3 + seed) % 5 !== 0) f('#ffd23f', 3, 5)
+      f('#ff8a3d', 5, 6)
+      if (strike) { f('#fff4ff', 8, 0); f('#fff4ff', 7, 1); f('#fff4ff', 8, 2); f('#fff4ff', 7, 3) }
+      if (Math.floor(t * 2) % 2 === 0) f('#ff8a3d', 9, 7)
       return
     }
     case 'anotherworld': {

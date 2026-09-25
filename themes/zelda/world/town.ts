@@ -17,7 +17,8 @@ export const HIGH_SCORE_SIGN: string[] = [
 
 /**
  * The arcade hall: four cabinets along the back wall beside the Hall of Fame
- * board, four more on an island between two pillars, a carpet loop around
+ * board and a ninth past it (Night of the Dead Battery, 2026-09-26), four
+ * more on an island between two pillars, a carpet loop around
  * them with bar stools in front of every cabinet, the HANGAR door in the
  * back wall, the prize counter with its vendor, a snack table, potted
  * plants, the robot by the entrance, the HIGH SCORES sign and a chest.
@@ -41,7 +42,7 @@ export const ARCADE: MapDef = {
   track: 'indoor',
   rows: [
     '#############h###',
-    '#t1234ZZBZZ....t#',
+    '#t1234ZZBZZ.9..t#',
     '#,iiii,,,,,,,,,,#',
     '#.,...........,.#',
     '#.,..I5678I...,.#',
@@ -87,6 +88,10 @@ export const ARCADE: MapDef = {
     '8': cabinet('tetris', 'TETRIS', [
       'TETRIS. FOUR BLOCKS AT A TIME. CLEAR THE LINES BEFORE THEY REACH THE TOP.',
     ]),
+    '9': cabinet('battery', 'NIGHT OF THE DEAD BATTERY', [
+      'NIGHT OF THE DEAD BATTERY. THREE FRIENDS IN RABBIT SUITS, ONE DEAD CAR, ONE VERY CROOKED HOUSE.',
+      'A POINT-AND-CLICK ADVENTURE. PICK UP EVERYTHING. TALK TO THE CAT.',
+    ]),
     B: {
       tile: 'I',
       ent: {
@@ -112,7 +117,7 @@ export const ARCADE: MapDef = {
           {
             when: { notFlag: 'item:sword' },
             lines: [
-              'ROBOT: BEEP. WELCOME TO THE ARCADE. EIGHT CABINETS. FREE PLAY. BOOP.',
+              'ROBOT: BEEP. WELCOME TO THE ARCADE. NINE CABINETS. FREE PLAY. BOOP.',
               'FACE A CABINET AND PRESS {A}. SCORES GO UP ON THE BOARD AT THE BACK.',
               'THE HANGAR DOOR BACK THERE IS FOR PILOTS. YOUR SHIP AND YOUR RECORDS LIVE IN IT.',
             ],

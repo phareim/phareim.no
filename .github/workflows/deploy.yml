@@ -34,6 +34,7 @@ jobs:
       - run: npm run test:shore
       - run: npm run test:leaderboard
       - run: npm run test:ships
+      - run: npm run test:battery
 
       - run: npm run typecheck
 
