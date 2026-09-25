@@ -2,8 +2,9 @@
  * The overworld: one 104×48 map the camera scrolls over freely. The town
  * (PHAREIM.NO, phareim.no's front door) fills the west 40 columns: Petter's
  * house with his name on the roof, the arcade, the fountain, the coast with
- * the PHAREIM.MD newsstand and the pier. The coast road runs east along the
- * water into Home Glade and round to the Keeper's hut, where the quest begins.
+ * the PHAREIM.MD newsstand, the radio station and the pier. The coast road
+ * runs east along the water into Home Glade and round to the Keeper's hut,
+ * where the quest begins.
  * East of that the old Neon Coast: Whisper Woods (NW), Night Market (N),
  * Hollow Graves (NE, the Shrine's door), Home Glade (SW), the Crossroads and
  * Mirror Lake (SE).
@@ -48,9 +49,9 @@ export const OVERWORLD: MapDef = {
     'TT.............::..,,,0.::............TTTTTTTT..TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT,,TTTTTTTTTTT#TTT.....TT#',
     'TTTTTTTTTTTTTTTTTT.,,,.TTTTTTTTTTTTTTTTTTTTTT....TTTTTTTTTT:.:TTTTTTTTTTTT:....,,.....:...TT#TT;;..;;TT#',
     'TT......T.....HHH..........T.......T..TTTTTT:..,..:TTTTTT*......*TTTTTTTT..j...,,......*...T#T;;;...;TT#',
-    'TT..T:......T.HHH::,,,:.;;.....T......TTTTT....,.......................,,,,,,,,,,,..!......T#T;..q..;;T#',
-    'TT.*..;;.:*...HHH..,,,.......*..;;:.*.TTTT.....,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,..;.....;TT#',
-    'TTT.)........tnmnt.,,,..t.:s:.t......TTTTT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
+    'TT..T:......T.HHH::,,,:HHHH....T......TTTTT....,.......................,,,,,,,,,,,..!......T#T;..q..;;T#',
+    'TT.*..;;.:*...HHH..,,,.HHHH..*..;;:.*.TTTT.....,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,..;.....;TT#',
+    'TTT.)........tnmnt.,,,tHH]H:s.t......TTTTT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
     '<,**,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,HHHHHH.,..........;;;......TTT..*....,,..j...:TT#TTTTTTTTTT#',
     '<,**,,,,,,,,,,,,,,,,,,J,,,,,,,,,,,,,,,,,,,,,HHHHHH.,...t..e...;;;......TTTTTTTTTT,,TTTTTTTTT############',
     'TT.T...............t,t..............T.TTTT,,HHHhHH.,.......:...........TTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTTT',
@@ -87,12 +88,13 @@ export const OVERWORLD: MapDef = {
     { name: 'THE CROSSROADS', x: 72, y: 20, w: 20, h: 8, entry: 'crossroads' },
     { name: 'MIRROR LAKE', x: 72, y: 28, w: 32, h: 20, entry: 'lake' },
   ],
-  // The name on the roof of Petter's house, the arcade's marquee and the newsstand's sign.
+  // The name on the roof of Petter's house, the arcade's marquee, the newsstand's and the radio station's signs.
   decals: [
     { x: 20.5, y: 3.15, text: 'PETTER HAREIM', scale: 3, align: 'center', color: '#2ff3ff' },
     { x: 20.5, y: 4.75, text: 'PHAREIM.NO', scale: 2, align: 'center', color: '#ffd23f' },
     { x: 8.5, y: 10.55, text: 'ARCADE', scale: 2, align: 'center', color: '#ff5fd0' },
     { x: 15.5, y: 22.35, text: 'PHAREIM.MD', scale: 1, align: 'center', color: '#ffd23f' },
+    { x: 25, y: 23.35, text: 'RADIO', scale: 1, align: 'center', color: '#ff2fa0' },
   ],
   // Continue points per area (death puts you back at the last one visited),
   // the Keeper's hut door (stepping out of it), and where the town's doors put you back outside.
@@ -119,6 +121,14 @@ export const OVERWORLD: MapDef = {
         lines: ["PHAREIM.MD: PETTER'S WRITING. ESSAYS, NOTES AND THINGS HE WORKED OUT THE LONG WAY.", 'TAKE A COPY? PRESS {A}.'],
       },
     },
+    // The radio station: a little studio on the coast road, a mast with a red light on the roof.
+    ']': {
+      tile: 'H',
+      ent: {
+        t: 'exit', id: 'radio', to: { theme: 'radio' }, look: 'studio', label: 'RADIO', side: 'down',
+        lines: ['RADIO PHAREIM. TEN PLACES ON ONE DIAL, AND THE MUSIC IS MADE UP AS IT PLAYS.', 'TUNE IN? PRESS {A}.'],
+      },
+    },
     s: {
       tile: 'S',
       ent: {
@@ -143,11 +153,11 @@ export const OVERWORLD: MapDef = {
       },
     },
     '9': { ent: { t: 'npc', id: 'towncat', look: 'cat', wander: true, talk: [{ lines: ['MRRROW.', '(THE CAT WAS HERE FIRST.)'] }] } },
-    '0': { tile: 'S', ent: { t: 'sign', lines: ["↑ PETTER'S HOUSE   ← THE ARCADE   ↓ THE COAST ROAD AND THE KEEPER'S HUT"] } },
+    '0': { tile: 'S', ent: { t: 'sign', lines: ["↑ PETTER'S HOUSE   ← THE ARCADE   ↓ THE COAST ROAD, THE RADIO STATION AND THE KEEPER'S HUT"] } },
     // The west road: into the Wildwood, through a thicket only a blade gets through.
     '<': { tile: ',', ent: { t: 'warp', to: 'wildwood', entry: 'town' } },
     ')': { tile: 'S', ent: { t: 'sign', lines: ['← THE WILDWOOD', 'THE THICKET HAS GROWN OVER THE ROAD AGAIN. YOU WOULD NEED A BLADE.'] } },
-    J: { tile: 'S', ent: { t: 'sign', lines: ['THE NEON COAST.   ← PHAREIM.MD   GAMES.PHAREIM.NO →', "FOLLOW THE ROAD EAST TO THE KEEPER'S HUT."] } },
+    J: { tile: 'S', ent: { t: 'sign', lines: ['THE NEON COAST.   ← PHAREIM.MD   RADIO →   GAMES.PHAREIM.NO →', "FOLLOW THE ROAD EAST TO THE KEEPER'S HUT."] } },
     u: { tile: 'S', ent: { t: 'sign', lines: ['THE FOUNTAIN. MAKE A WISH.', 'NO COINS, PLEASE. THOSE ARE FOR THE ARCADE.'] } },
     v: { tile: 'S', ent: { t: 'sign', lines: ["THE KEEPER'S HUT: DOWN TO THE COAST, THEN EAST ALONG THE ROAD.", 'THE SUN WON\'T SET. THE KEEPER IS LOOKING FOR SOMEONE TO GO GET IT BACK.'] } },
     // ---- Home Glade ----

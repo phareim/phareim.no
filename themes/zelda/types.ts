@@ -235,7 +235,7 @@ export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 
 export type ExitTarget = { theme: string } | { home: true } | { url: string }
 
 /** How the renderer draws an exit. The engine ignores it. */
-export type ExitLook = 'door' | 'cabinet' | 'board' | 'kiosk' | 'terminal' | 'sign'
+export type ExitLook = 'door' | 'cabinet' | 'board' | 'kiosk' | 'terminal' | 'sign' | 'studio'
 
 /**
  * A way out of the game: the town's cabinets, doors, kiosk and terminals.

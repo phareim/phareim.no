@@ -1,6 +1,7 @@
 // The town — phareim.no's front door, the west end of Neon Shrine's one
 // world: the world validates, the start view shows the name and two
-// buildings on a phone and a desktop, the town has no enemies, every exit
+// buildings on a phone and a desktop, the town has no enemies, the radio
+// station's door leads to the radio theme, every exit
 // leads where it says, a path-finding walker reaches and uses each one from
 // the start without a scratch, coming back stands you in front of it, and
 // the coast road leads to the Keeper's hut.
@@ -22,6 +23,7 @@ const EXPECTED = {
   hangar: { map: 'arcade', to: { theme: 'hangar' }, look: 'door' },
   kiosk: { map: 'overworld', to: { url: 'https://phareim.md' }, look: 'kiosk' },
   games: { map: 'overworld', to: { url: 'https://games.phareim.no' }, look: 'sign' },
+  radio: { map: 'overworld', to: { theme: 'radio' }, look: 'studio' },
   linkedin: { map: 'home', to: { url: 'https://www.linkedin.com/in/phareim' }, look: 'terminal' },
   github: { map: 'home', to: { url: 'https://github.com/phareim' }, look: 'terminal' },
   bluesky: { map: 'home', to: { url: 'https://bsky.app/profile/phareim.no' }, look: 'terminal' },
@@ -286,6 +288,20 @@ describe('portal world', () => {
     assert.equal(P.worldStartingAt('arcade', 'nope'), null)
     assert.equal(P.worldStartingAt('arcade', '__proto__'), null)
     assert.equal(P.worldStartingAt(42, 'galaga'), null)
+  })
+
+  it('has a radio station in the town, whose door tunes in to the radio theme', () => {
+    const [st] = placedExits().filter(e => e.id === 'radio')
+    assert.equal(st.map, 'overworld')
+    assert.ok(st.x < TOWN_W, 'the station is outside the town')
+    // A door in the station's front wall: a building tile with building to the left or right, open ground below.
+    const def = W.maps.overworld
+    assert.equal(st.ent.look, 'studio')
+    assert.ok(isWall(def, st.x - 1, st.y) || isWall(def, st.x + 1, st.y), 'the door is not in a wall')
+    assert.ok(!P.TILE_INFO[P.createGame(W, { seed: 1 }).map.tiles[(st.y + 1) * def.rows[0].length + st.x]].solid, 'nothing to stand on in front of the door')
+    assert.equal(st.ent.label, 'RADIO')
+    assert.match(st.ent.lines.at(-1), /^TUNE IN\? PRESS \{A\}\.$/)
+    assert.ok(def.decals.some(d => d.text === 'RADIO' && Math.abs(d.x - (st.x + 0.5)) <= 1.5), 'no RADIO sign over the station')
   })
 
   it('talks: the kid explains, Petter introduces himself', () => {

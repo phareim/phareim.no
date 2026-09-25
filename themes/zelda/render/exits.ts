@@ -1,7 +1,8 @@
 /**
  * Exits as the renderer sees them (the portal's cabinets, the Hall of Fame
- * board, the kiosk, the terminals, neon signs) and the floating label that
- * names an exit while the hero stands next to it.
+ * board, the kiosk, the terminals, neon signs, the radio station's door and
+ * mast) and the floating label that names an exit while the hero stands next
+ * to it.
  *
  * Static parts are painted once per look/art into cached canvases; screens
  * and neon are drawn live over them. Positions come from `s.map.exits` (tile
@@ -356,6 +357,7 @@ const MINI: Record<string, string> = {
   A: '010101111101101', C: '011100100100011', E: '111100110100111', G: '011100101101011',
   H: '101101111101101', K: '101101110101101', N: '110101101101101', P: '110101110100100',
   R: '110101110101101', T: '111010010010010', Z: '111001010100111', S: '011100010001110',
+  I: '111010010010111', O: '010101101101010',
 }
 
 function mini(g: G, text: string, x: number, y: number, color: string) {
@@ -534,6 +536,68 @@ function drawTerminalScreen(g: G, art: string | undefined, x: number, y: number,
 const TERM_GLOW: Record<string, string> = { linkedin: '#2f8fff', github: '#cfc6ff', bluesky: '#3fa8ff' }
 
 // ---------------------------------------------------------------------------
+// Radio station (the studio door, its ON AIR sign and the mast on the roof)
+// ---------------------------------------------------------------------------
+
+/** The ON AIR sign's top edge above the door tile's bottom (the label sits over it). */
+const STUDIO_SIGN_TOP = 30
+/** The mast stands this far left of the door (px) on the roof, `MAST_BASE` px above the door's bottom. */
+const MAST_DX = -32
+const MAST_BASE = 38
+const MAST_H = 34
+/** The red light: slow and steady, on for half of every 2.4 s. */
+const MAST_PERIOD = 2.4
+
+/** The studio door on the wall tile: a steel door with a round window, a gold handle, a stone step. */
+function drawStudioDoor(g: G, left: number, bottom: number) {
+  const k = PAL.k!
+  r(g, k, left + 2, bottom - 14, 12, 14)
+  r(g, '#4f3c7e', left + 3, bottom - 13, 10, 13)
+  r(g, '#5f4c92', left + 3, bottom - 13, 10, 1)
+  r(g, '#271c46', left + 12, bottom - 13, 1, 13)
+  // Porthole with the studio's cyan light behind it.
+  r(g, '#0b0616', left + 6, bottom - 11, 4, 4)
+  r(g, '#0b0616', left + 5, bottom - 10, 6, 2)
+  r(g, '#2ff3ff', left + 6, bottom - 10, 4, 2)
+  r(g, '#b8fbff', left + 6, bottom - 10, 1, 1)
+  r(g, '#ffd23f', left + 10, bottom - 6, 1, 2)
+  r(g, '#6f6aa0', left + 1, bottom - 1, 14, 1)
+}
+
+/** ON AIR in two lit rows, a studio light box on the wall above the door. (cx, top) = the box's centre and top edge. */
+function drawOnAir(g: G, cx: number, top: number) {
+  const w = 15
+  const x = cx - Math.floor(w / 2)
+  r(g, PAL.k!, x, top, w, 14)
+  r(g, '#2a0612', x + 1, top + 1, w - 2, 12)
+  r(g, '#ff3b5c', x + 1, top + 1, w - 2, 1)
+  mini(g, 'ON', x + 4, top + 2, '#ff6a80')
+  mini(g, 'AIR', x + 2, top + 8, '#ff6a80')
+}
+
+/** A lattice mast, narrowing to the top, with a cross-arm and the red light. (x, base) = foot of the mast. */
+function drawMast(g: G, x: number, base: number, on: boolean) {
+  const k = PAL.k!
+  const top = base - MAST_H
+  // Feet on the roof.
+  r(g, k, x - 4, base - 1, 9, 2)
+  for (let i = 0; i < MAST_H; i++) {
+    const y = base - 1 - i
+    const half = Math.round(3 * (1 - i / MAST_H))
+    r(g, '#8f86b8', x - half, y)
+    r(g, '#5a5285', x + half, y)
+    if (half > 0 && i % 5 === 2) r(g, '#5a5285', x - half + 1, y, half * 2 - 1, 1)
+  }
+  // Cross-arm with two short dipoles, near the top.
+  r(g, '#8f86b8', x - 3, top + 6, 7, 1)
+  r(g, '#8f86b8', x - 3, top + 4, 1, 2); r(g, '#8f86b8', x + 3, top + 4, 1, 2)
+  // Cap and light.
+  r(g, k, x - 1, top - 1, 3, 3)
+  r(g, on ? '#ff3b5c' : '#5a1020', x, top, 1, 2)
+  if (on) r(g, '#ffd0d8', x, top, 1, 1)
+}
+
+// ---------------------------------------------------------------------------
 // Per-look geometry: sprite size and where its top edge sits (for the label).
 // ---------------------------------------------------------------------------
 
@@ -545,6 +609,7 @@ function lookTop(look: ExitLook): number {
     case 'kiosk': return KIOSK_H
     case 'terminal': return TERM_H
     case 'sign': return 14
+    case 'studio': return STUDIO_SIGN_TOP
     default: return T + 2
   }
 }
@@ -699,6 +764,28 @@ export function queueExits(
         })
         emit.push({ x: sx - 1, y: sy, w: 14, h: 8 })
         lights.push({ x: e.x, y: e.y - 0.4, r: 2.2, color: '#ff2fa0', a: 0.5 * a })
+        break
+      }
+      case 'studio': {
+        const left = px - 8
+        const on = reduced || (t % MAST_PERIOD) < MAST_PERIOD / 2
+        const mx = px + MAST_DX
+        const mBase = bottom - MAST_BASE
+        items.push({
+          y: e.y + 0.5,
+          draw: () => {
+            drawMast(g, mx, mBase, on)
+            drawOnAir(g, px, bottom - STUDIO_SIGN_TOP)
+            drawStudioDoor(g, left, bottom)
+          },
+        })
+        emit.push({ x: px - 6, y: bottom - STUDIO_SIGN_TOP + 1, w: 13, h: 12 }, { x: left + 6, y: bottom - 10, w: 4, h: 2 })
+        if (on) emit.push({ x: mx, y: mBase - MAST_H, w: 1, h: 2 })
+        lights.push(
+          { x: e.x, y: e.y - 1.4, r: 1.6, color: '#ff3b5c', a: 0.55 },
+          { x: e.x, y: e.y + 0.9, r: 2, color: '#ffb13f', a: 0.5 },
+          { x: e.x + MAST_DX / T, y: e.y + 0.5 - (MAST_BASE + MAST_H) / T, r: 1.3, color: '#ff3b5c', a: on ? 0.85 : 0.12 },
+        )
         break
       }
       default:
