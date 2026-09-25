@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Step timing inside one bar: tempo glide and swing. Pure math, no Web Audio,
  * so node tests cover it.

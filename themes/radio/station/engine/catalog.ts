@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Runtime lists of the ids in types.ts, for validation and for the Opus
  * compose prompt. The Record types make the compiler refuse a list that
@@ -55,4 +55,4 @@ export const SCENE_IDS = [
 export const INTENSITY_NAMES = ['STILL', 'DRIFT', 'CRUISE', 'DRIVE', 'SURGE'] as const
 
 /** Bumped when the composer or conductor changes in a way feedback should know about. */
-export const ENGINE_VERSION = '1.0.0'
+export const ENGINE_VERSION = '1.0.1'

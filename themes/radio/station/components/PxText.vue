@@ -1,4 +1,4 @@
-<!-- Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync. -->
+<!-- Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync. -->
 <template>
   <span class="pxt"><span aria-hidden="true"><template v-for="(part, i) in parts" :key="i"><svg
     v-if="part.glyph"

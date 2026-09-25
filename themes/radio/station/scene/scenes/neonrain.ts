@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Neon Rain — a rainy city street at night. Tall dark buildings with a few
  * lit windows, a vertical HOTEL sign, a BAR sign tinted by the chord root,

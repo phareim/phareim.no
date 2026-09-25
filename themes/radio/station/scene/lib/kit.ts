@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * What every painted place shares: the per-frame context the music feeds
  * (beat, intensity, mood, chord-root accent, fresh notes), the place

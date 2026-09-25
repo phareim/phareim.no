@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Seeded randomness. The composer draws everything from one of these, so a
  * seed reproduces a section exactly (Hold loops it; feedback records it).

@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 // Copied from phareim.no (github.com/phareim/phareim.no) themes/zelda/render/font.ts at commit 80ef19e.
 // Keep in step by hand; local changes: relative imports with .ts extensions.
 /**

@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Deep Space — the quiet one. Near-black, a faint dust lane, very sparse
  * stars drifting in two depths, a distant spiral galaxy, and one far star

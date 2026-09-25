@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Neon Coast — Neon Shrine's home. Dusk over the sea: the striped sun on the
  * horizon with cloud streaks drifting across it, a far headland, the sun's

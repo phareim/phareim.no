@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Mountain Top — above the clouds at dusk. Violet peaks rise from a sea of
  * cloud that drifts in two layers; their snow catches the pink light of a

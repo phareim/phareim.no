@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * The composer writes one bar of music at a time for the conductor: pads
  * with voice leading, a drone, a bass line from the landscape's patterns, an

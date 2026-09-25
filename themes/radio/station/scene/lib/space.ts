@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Space painters for Voyager and Deep Space: dithered nebulae, a ringed
  * planet lit from one side with a Bayer terminator, tumbling asteroids and

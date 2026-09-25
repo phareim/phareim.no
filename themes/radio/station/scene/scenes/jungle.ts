@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Jungle — deep in the green at dusk. A dense teal canopy frames the top
  * with vines hanging from it; through a gap the dusk sky sends pale shafts

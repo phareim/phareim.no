@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * The conductor steers the music toward the listener's Controls, one bar at
  * a time, and moves only where a musician would:
@@ -145,6 +145,8 @@ export function createConductor(opts: ConductorOptions): Conductor {
   let modeNote: { text: string; until: number } | null = null
   /** No entries before this bar (a new place settles first). */
   let settleUntil = 0
+  /** The pattern level the parts play at (bass pattern, groove, arp rate). */
+  let groove = 0
 
   // ---- sections ------------------------------------------------------------
 
@@ -500,8 +502,14 @@ export function createConductor(opts: ConductorOptions): Conductor {
     const fill = present.has('drums') && !inBridge && (drumsOffNext || (lastOfPhrase && (sectionEnds || rng.chance(0.3))))
     const crash = present.has('drums') && (entered.has('drums') || (sectionStart && !entered.size && b > 0))
 
-    const lvlNow = effectiveLevel()
-    const level = inBridge ? 1 : Math.min(controls.intensity, lvlNow + 1)
+    // Patterns climb one level at a time, with an entry or on a half-phrase,
+    // and come down only where the phrase turns, with the layers that leave.
+    const aim = inBridge ? 1 : Math.min(controls.intensity, effectiveLevel() + 1)
+    const onHalf = phraseBar % Math.max(1, phraseBars / 2) === 0
+    if (b === 0 || inBridge) groove = aim
+    else if (aim > groove && (onHalf || entered.size)) groove++
+    else if (aim < groove && phraseBar === 0) groove = aim
+    const level = groove
     const nextSpans = inBridge
       ? (bridgeBar < 3 ? move!.bridge![bridgeBar + 1]!.spans : tokensToSpans(['1'], { tonic: move!.to.tonic, mode: modeFor(move!.to, controls.mood) }))
       : sectionHarmony(section, b + 1, key)

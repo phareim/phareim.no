@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@61a86d4 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Frostwood — a deep cold forest at night. A pale moon, a faint green-violet
  * aurora rippling over the sky (tinted a little by the chord root), rows of
