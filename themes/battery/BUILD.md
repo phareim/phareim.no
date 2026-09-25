@@ -1,4 +1,4 @@
-# Building Night of the Dead Battery — the brief for every builder
+# Building on Night of the Dead Battery
 
 Read first: `DESIGN.md` (story, cast, rooms, puzzles), `types.ts` (every
 contract), `engine/game.ts` (how sentences, scripts and Ctx behave),
@@ -8,12 +8,16 @@ contract), `engine/game.ts` (how sentences, scripts and Ctx behave),
 
 ## Rules of the house
 
-- **Own your files only.** Several builders work in this worktree at once.
-  Edit only the files your task names. Never run git commands that change
-  state (no commit, stash, checkout, reset). If you need something in a
-  shared file (`types.ts`, `engine/*`, `content/items.ts`, `content/flags.ts`,
-  `content/heroes.ts`, `content/sfx.ts`, registries), don't edit it: work
-  round it and list the request at the end of your report.
+- **One file per room, per painter, per NPC.** A room's content is
+  `content/rooms/<id>.ts` (`export const room`), its art
+  `render/rooms/<id>.ts` (`export const painter`), an NPC's art
+  `render/npcs/<id>.ts` (`export const paint`); the registries
+  (`content/index.ts`, `render/rooms/index.ts`, `render/npcs.ts`) import
+  them. Shared contracts are `types.ts`, `content/flags.ts`,
+  `content/items.ts`, `content/heroes.ts` and `content/sfx.ts`.
+- **Import cycles.** story.ts and the rooms import each other (the clock
+  runs `midnight`, the finale reads the rooms' exported coordinates): never
+  read another module's export at module load, only inside handlers.
 - **Flags.** Cross-floor puzzle state uses the names in `content/flags.ts`
   (`F.furnaceLit` …). A room's own small state uses `<room>.<thing>` flags
   local to your file.
