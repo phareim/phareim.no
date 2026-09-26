@@ -423,7 +423,20 @@ function cliff(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx: num
       if (open(at(0, -1))) r(g, IN.wallL, px, py, T, 1)
     }
   }
-  if (t === '%') {
+  if (t === '%' && kind === 'overworld') {
+    // Outdoors the crack must read at a glance, even on a plateau top: a
+    // rough block with a wide split, lit on one lip, and rubble at its foot.
+    const face = open(below)
+    if (!face) {
+      r(g, OW.rock, px + 1, py + 1, T - 2, T - 2)
+      r(g, OW.rockL, px + 1, py + 1, T - 2, 1)
+      r(g, OW.rockD, px + 1, py + T - 3, T - 2, 2)
+    }
+    const split: Array<[number, number, number]> = [[7, 1, 3], [6, 4, 3], [8, 6, 2], [9, 8, 3], [7, 10, 2], [5, 12, 3]]
+    for (const [x, y, h] of split) { r(g, OW.rockDD, px + x, py + y, 2, h); r(g, OW.rockL, px + x + 2, py + y, 1, h) }
+    r(g, OW.rockDD, px + 3, py + 5, 3, 1); r(g, OW.rockDD, px + 10, py + 9, 3, 1)
+    r(g, OW.rockD, px + 2, py + T - 2, 2, 1); r(g, OW.rockL, px + 12, py + T - 3, 2, 1)
+  } else if (t === '%') {
     // Cracks give the secret away (to the observant).
     const c = kind === 'dungeon' ? '#140f2c' : OW.rockDD
     r(g, c, px + 7, py + 3, 1, 3); r(g, c, px + 6, py + 6, 1, 2); r(g, c, px + 8, py + 6, 2, 1)

@@ -105,6 +105,7 @@ switch (scene) {
   case 'w-grove': wild(true); go('wildwood', 39.5, 9.5, 'up'); run(30); break
   case 'w-brambles': wild(); go('wildwood', 37.5, 36.5, 'up'); run(30); break
   case 'w-ravine': wild(true); s.inv.hook = true; s.inv.selected = 'hook'; go('wildwood', 32.5, 37.5, 'left'); run(10); r.onEvents(stepGame(world, s, 1 / 60, inp({ bPress: true }))); run(12); break
+  case 'w-radio': wild(true); go('wildwood', 56.5, 9.5, 'right'); run(30); break
   case 'w-deep': wild(true); go('wildwood', 12.5, 20.5, 'up'); run(30); break
   case 'i-mossa': wild(); go('mossa', 5.5, 5.5, 'up'); run(20); break
   case 'i-radio': wild(); go('radio', 4.5, 5.5, 'up'); run(20); break
@@ -198,6 +199,7 @@ const SHOTS = [
   ['w-shore-1280', 'w-shore', 1280, 800, 1, 0],
   ['w-camp-1280', 'w-camp', 1280, 800, 1, 0],
   ['w-lab-1280', 'w-lab', 1280, 800, 1, 0],
+  ['w-radio-1280', 'w-radio', 1280, 800, 1, 0],
   ['w-grove-1280', 'w-grove', 1280, 800, 1, 0],
   ['w-brambles-1280', 'w-brambles', 1280, 800, 1, 0],
   ['w-ravine-1280', 'w-ravine', 1280, 800, 1, 0],

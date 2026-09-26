@@ -47,6 +47,19 @@ describe('the hook', () => {
   })
 })
 
+describe('Radio Hill', () => {
+  it('keeps its glowshroom behind cracked rock that a bomb opens', () => {
+    const s = at('wildwood', 'radioHill', { bombBag: true, bombs: 8 })
+    assert.equal(tile(s, 58, 9), '%')
+    P.walkTo(s, 57, 9)
+    P.useB(s, 'bombs', 'right')
+    assert.equal(tile(s, 58, 9), '.')
+    P.walkTo(s, 59, 9)
+    P.settle(s)
+    assert.equal(s.inv.shrooms, 1)
+  })
+})
+
 describe('Luna', () => {
   it('joins after a waffle, follows, and slides a psi block until it stops', () => {
     const s = at('wildwood', 'brambles', { bombBag: true }, [])
