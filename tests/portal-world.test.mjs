@@ -1,7 +1,7 @@
 // The town — phareim.no's front door, the west end of Neon Shrine's one
 // world: the world validates, the start view shows the name and two
-// buildings on a phone and a desktop, the town has no enemies, the beach
-// party's two DJs lead to Jam and the radio, every exit
+// buildings on a phone and a desktop, the town has no enemies, the two
+// DJs on the beach lead to Jam and the radio, every exit
 // leads where it says, a path-finding walker reaches and uses each one from
 // the start without a scratch, coming back stands you in front of it, and
 // the coast road leads to the Keeper's hut.
@@ -416,7 +416,7 @@ describe('portal world', () => {
     assert.equal(P.worldStartingAt(42, 'galaga'), null)
   })
 
-  it('has a beach party below the coast road: the mixing DJ leads to Jam, the one with the records to the radio', () => {
+  it('has a quiet beach east of the pier: the DJ building it live leads to Jam, the one with the records to the radio', () => {
     const def = W.maps.overworld
     const s = P.createGame(W, { seed: 1 })
     const tile = (x, y) => s.map.tiles[y * s.map.w + x]
@@ -439,10 +439,18 @@ describe('portal world', () => {
       assert.equal(tile(b.x, b.y - 2), '-', `${b.id}: no sand behind the DJ`)
       assert.ok([2, 3, 4, 5].some(d => tile(b.x, b.y + d) === '~'), `${b.id}: the sea is not in front`)
     }
-    // The crowd: at least five people on the sand, none of them wandering off.
-    const crowd = s.map.npcs.filter(n => ['dancer', 'surfer', 'raver'].includes(n.look))
-    assert.ok(crowd.length >= 5, `only ${crowd.length} at the party`)
-    for (const n of crowd) assert.equal(tile(Math.floor(n.x), Math.floor(n.y)), '-', `${n.id} is not on the sand`)
+    // The people on the sand, around a fire, none of them wandering off; one of them smoking.
+    const crowd = s.map.npcs.filter(n => ['hippie', 'smoker', 'guitar', 'sleeper', 'twirler', 'bonfire'].includes(n.look))
+    assert.ok(crowd.length >= 6, `only ${crowd.length} on the beach`)
+    for (const n of crowd) {
+      assert.equal(tile(Math.floor(n.x), Math.floor(n.y)), '-', `${n.id} is not on the sand`)
+      assert.ok(!n.wander, `${n.id} wanders`)
+    }
+    assert.deepEqual(['bonfire', 'smoker', 'guitar', 'sleeper'].filter(l => !crowd.some(n => n.look === l)), [])
+    // Only east of the pier: the west side is still the old shore and the sea.
+    const pier = def.rows[36].indexOf('=')
+    for (let y = 28; y < 34; y++) for (let x = 2; x < pier; x++) assert.notEqual(tile(x, y), '-', `sand west of the pier at ${x},${y}`)
+    for (const b of booths) assert.ok(b.x > pier, `${b.id} is west of the pier`)
     // The radio studio is gone: no RADIO sign on a roof.
     assert.ok(!def.decals.some(d => d.text === 'RADIO'))
   })

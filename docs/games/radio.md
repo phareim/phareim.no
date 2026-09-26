@@ -2,12 +2,12 @@
 
 `?theme=radio` is Petter's generative background-music radio from
 radio.phareim.no (repo `phareim/radio`), listen-only, in the town. The way
-in is the DJ with the records at the beach party below the coast road (since
+in is the old hippie with the records on the beach east of the pier (since
 2026-09-26; before that a studio with a mast stood by the road). Face the
-booth and press A: "DJ: RECORDS ALL NIGHT. RADIO PHAREIM: TEN STATIONS, AND
-THE MUSIC IS MADE UP AS IT PLAYS. / TUNE IN?", then YES / NO, the fade and
+booth and press A: "DJ: JUST RECORDS, FRIEND. RADIO PHAREIM: TEN STATIONS,
+AND THE MUSIC IS MADE UP AS IT PLAYS. / TUNE IN?", then YES / NO, the fade and
 the launch. Back in town you stand in front of the booth (`portal.return`).
-The other DJ, the one mixing live, leads to jam.phareim.no
+The other DJ, the one building loops live, leads to jam.phareim.no
 (`docs/games/portal.md`). It is not an arcade cabinet: the theme is live
 (in `liveThemes`, so the portal's hidden link index lists it) but no
 cabinet points at it.
@@ -51,8 +51,8 @@ phones).
 | `themes/radio/Channels.vue` | Show/hide channels, localStorage only (the app's `ChannelsDialog.vue` without compose, remove or member sync) |
 | `themes/radio/theme.css` | Tokens, and the app's palette names (`--bg`, `--ink`, `--cyan`, …) on `.radio-station` only |
 | `themes/radio/station/` | Vendored from `phareim/radio`, never edited by hand (below) |
-| `themes/zelda/world/overworld.ts` | The records booth: exit `radio` (mark `]`, look `booth`, art `records`) at column 25, row 30, between its `Z` tiles |
-| `themes/zelda/render/exits.ts` | Look `booth`: speakers, the table with two turntables, the DJ (sprites `dj_records_*` in `render/spritesBeach.ts`) |
+| `themes/zelda/world/overworld.ts` | The records booth: exit `radio` (mark `]`, look `booth`, art `records`) at column 33, row 30, between its `Z` tiles |
+| `themes/zelda/render/exits.ts` | Look `booth`: wooden speakers, fairy lights, the table with two turntables, the DJ (sprites `dj_records_*` in `render/spritesBeach.ts`) |
 
 `themes/radio/engine.ts` and `catalog.ts` are the other radio, the site
 widget's six game stations (`docs/games/global-radio.md`).

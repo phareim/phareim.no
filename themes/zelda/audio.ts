@@ -254,40 +254,44 @@ export const TRACKS: Record<TrackId, TrackDef> = {
     },
   },
 
-  // The beach party: A minor house at 120 bpm (the crowd's 2 Hz step), four on
-  // the floor, an off-beat bass, a plucked arp and a bell lead over the sea.
+  // The beach: slow Balearic chill-out at 92 bpm (the sand's sway, render/exits.ts
+  // BEACH_BEAT). Swelling major sevenths, a round bass, glassy arps, a hollow
+  // flute that takes its time, and tape wow like an old cassette.
   beach: {
-    bpm: 120, swing: 0.08, lead: 'bell', bass: 'saw', reverb: 0.32, delay: 0.38,
-    arpVoice: 'pluck',
+    bpm: 92, swing: 0.18, lead: 'hollow', bass: 'round', reverb: 0.5, delay: 0.45,
+    arpVoice: 'glass', padSwell: true, wow: 6, level: 0.9,
     form: ['I', 'A', 'B'], loopFrom: 1,
     sections: {
       I: {
-        chords: 'Am7 Fmaj7 Am7 Fmaj7',
-        bass: '..R-..R-..R-..R-',
-        drums: { k: 'x...x...x...x...', s: '................', h: '..x...x...x...x.' },
-        fill: { k: 'x...x...x...x...', s: '........x.x.xxxx', h: '..x...x...x...x.' },
-        arp: 'up', arpRate: 16, pad: true,
+        chords: 'Fmaj7 Em7 Fmaj7 Em7',
+        bass: 'R-------5-----.-',
+        drums: { k: 'x.........x.....', s: '................', h: '....x.......x...' },
+        arp: 'up', arpRate: 8, pad: true,
       },
       A: {
-        chords: 'Am7 Fmaj7 Cmaj7 G Am7 Fmaj7 Cmaj7 G',
+        chords: 'Fmaj7 Em7 Dm7 Cmaj7 Fmaj7 Em7 Dm7 E7',
         lead: [
-          'E5 - - C5 E5 - G5 -', 'A5 - - G5 E5 - C5 -', 'G5 - - E5 G5 - B5 -', 'A5 - G5 - D5 - - .',
-          'E5 - - C5 E5 - G5 -', 'A5 - - G5 E5 - C6 -', 'B5 - - G5 E5 - D5 -', 'E5 - - - . . . .',
+          'A5 - - - G5 - E5 -', 'G5 - - - - - . .', 'F5 - - - E5 - C5 -', 'E5 - - - - - . .',
+          'A5 - - - C6 - B5 -', 'G5 - - - E5 - . .', 'F5 - E5 - D5 - C5 -', 'B4 - - - G#4 - - -',
         ],
-        bass: '..R-..R-..R-..O-',
-        drums: { k: 'x...x...x...x...', s: '....x.......x...', h: '..x...x...x...xo' },
-        arp: 'updown', arpRate: 16, pad: true,
+        bass: 'R-----R-5---O---',
+        drums: { k: 'x.....x...x.....', s: '....g.......x...', h: '..x...x...x...x.' },
+        arp: 'updown', arpRate: 8, pad: true,
       },
       B: {
-        chords: 'Dm7 Em7 Fmaj7 G Dm7 Em7 Fmaj7 E',
+        chords: 'Dm7 Em7 Fmaj7 G Dm7 Em7 Am7 Am7',
         lead: [
-          'F5 - A5 - C6 - A5 -', 'G5 - B5 - E5 - - -', 'A5 - C6 - F5 - A5 -', 'B5 - - - G5 - D5 -',
-          'F5 - A5 - C6 - D6 -', 'E6 - - - B5 - G5 -', 'A5 - G5 - F5 - E5 -', 'G#5 - - - E5 - - -',
+          'F5 - - - A5 - - -', 'G5 - - - E5 - - -', 'A5 - - - C6 - - -', 'B5 - - - D6 - - -',
+          'C6 - - - A5 - F5 -', 'G5 - - - B5 - G5 -', 'E5 - - - - - . .', '. . . . . . . .',
         ],
-        bass: 'R...O.R...R.5.O.',
-        drums: { k: 'x...x...x...x...', s: '....x.......x..g', h: 'x.x.x.x.x.x.x.xo' },
-        fill: { k: 'x...x...x...x...', s: '....x...x.x.xxxx', h: 'x.x.x.x.........' },
-        arp: 'up', arpRate: 16, pad: true,
+        counter: [
+          'A4 - - - - - - -', 'B4 - - - - - - -', 'C5 - - - - - - -', 'D5 - - - - - - -',
+          'A4 - - - - - - -', 'G4 - - - - - - -', 'C5 - - - - - - -', 'E5 - - - - - - -',
+        ],
+        bass: 'R-----R-5---O---',
+        drums: { k: 'x.....x...x.....', s: '....g.......x...', h: '..x...x...x...x.' },
+        fill: { k: 'x.....x.........', s: '....g.....g.g.g.', h: '..x...x.........' },
+        arp: 'up', arpRate: 8, pad: true,
       },
     },
   },

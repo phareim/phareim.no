@@ -2,8 +2,8 @@
  * The overworld: one 104×48 map the camera scrolls over freely. The town
  * (PHAREIM.NO, phareim.no's front door) fills the west 40 columns: Petter's
  * house with his name on the roof, the arcade, the fountain, the coast with
- * the PHAREIM.MD newsstand, and below the road the beach party (two DJs and
- * a crowd) and the pier. The coast road
+ * the PHAREIM.MD newsstand, the pier, and east of it a quiet beach (two DJs,
+ * a bonfire, people lying about). The coast road
  * runs east along the water into Home Glade and round to the Keeper's hut,
  * where the quest begins.
  * East of that the old Neon Coast: Whisper Woods (NW), Night Market (N),
@@ -55,12 +55,12 @@ export const OVERWORLD: MapDef = {
     'TTT.)........tnmnt.,,,t:...:s.t......TTTTT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
     '<,**,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,HHHHHH.,..........;;;......TTT..*....,,..j...:TT#TTTTTTTTTT#',
     '<,**,,,,,,,,,,,,,,,,,,J,,,,,,,,,,,,,,,,,,,,,HHHHHH.,...t..e...;;;......TTTTTTTTTT,,TTTTTTTTT############',
-    'TT.T--------------------------------T.TTTT,,HHHhHH.,.......:...........TTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTTT',
-    'TT---t-----t--ZZZ-------ZZZ--t-----t--TTTT,,t.2.3..,.........*..*......TTT:.....,,...:.......:....TTTTTT',
-    'TT------------ZØZ-------Z]Z-----------TTTT,,,,1....,............e......TT.....,,,.......*...........:TTT',
-    'TT----------æ------ü--------Æ---------TTTT:?.o.....,.......:...........TT...,,...~~~~~~~~~~~~~~~~~.....T',
-    'TT------å--------------Å--------------TTTT....,,,,,,.....;;;;.....*....TT..,,..~~~~~~~~~~~~~~~~~~~~~...T',
-    'TT-----------ø-----t-t---------é------TTTTT..,.................;;......TT..,..~~~~~~~~~~~~~~~~~~~~~~~..T',
+    'TT.T...............t,t----------------TTTT,,HHHhHH.,.......:...........TTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTTT',
+    'TT~~~~~~~~~~~~~~~~~~=---ZZZ-----ZZZ---TTTT,,t.2.3..,.........*..*......TTT:.....,,...:.......:....TTTTTT',
+    'TT~~~~~~~~~~~~~~~~~~=---ZØZ--ü--Z]Z---TTTT,,,,1....,............e......TT.....,,,.......*...........:TTT',
+    'TT~~~~~~~~~~~~~~~~~~=-t--------------tTTTT:?.o.....,.......:...........TT...,,...~~~~~~~~~~~~~~~~~.....T',
+    'TT~~~~~~~~~~~~~~~~~~=------Æ-å-Å------TTTT....,,,,,,.....;;;;.....*....TT..,,..~~~~~~~~~~~~~~~~~~~~~...T',
+    'TT~~~~~~~~~~~~~~~~~~=--é----æ-ø-------TTTTT..,.................;;......TT..,..~~~~~~~~~~~~~~~~~~~~~~~..T',
     'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTTTT.,..:.....*.............:..TT..,.~~~~~~~~~~~~~~~~~~~~~~~~..T',
     'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTTT..,.....*..*..e.............TT..,.~~~~~~~~~...~~~~~~~~~~~~..T',
     'TT~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~~~~TTTT...,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,===========.6.~~~~~~~~~~~..T',
@@ -77,8 +77,8 @@ export const OVERWORLD: MapDef = {
     'TT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT################################',
   ],
   areas: [
-    // The beach party plays its own track while you are on the sand (first match wins).
-    { name: 'THE BEACH', x: 2, y: 28, w: 36, h: 6, track: 'beach', entry: 'start' },
+    // The beach plays its own slow track while you are on the sand (first match wins).
+    { name: 'THE BEACH', x: 21, y: 28, w: 17, h: 6, track: 'beach', entry: 'start' },
     { name: 'PHAREIM.NO', x: 0, y: 0, w: 40, h: 48, track: 'village', entry: 'start' },
     { name: 'WHISPER WOODS', x: 40, y: 0, w: 28, h: 20, entry: 'woods' },
     { name: 'NIGHT MARKET', x: 68, y: 0, w: 24, h: 20, track: 'village', entry: 'market' },
@@ -123,31 +123,40 @@ export const OVERWORLD: MapDef = {
         lines: ["PHAREIM.MD: PETTER'S WRITING. ESSAYS, NOTES AND THINGS HE WORKED OUT THE LONG WAY.", 'TAKE A COPY?'],
       },
     },
-    // The beach party: two DJ booths on the sand, each a table between two speakers with the DJ
-    // behind it (the Z tiles around the exit are the speakers and the DJ's spot). The one who mixes
-    // live leads to Jam, the one with the records to the radio.
+    // The beach, east of the pier: two DJ booths on the sand, each a table between two speakers
+    // with the DJ behind it (the Z tiles around the exit are the speakers and the DJ's spot). The one
+    // who builds it live leads to Jam, the one with the records to the radio.
     'Ø': {
       tile: 'Z',
       ent: {
         t: 'exit', id: 'jam', to: { url: 'https://jam.phareim.no' }, look: 'booth', art: 'mixer', label: 'JAM', side: 'down',
-        lines: ['DJ: NOTHING HERE IS A RECORD. I BUILD IT LOOP BY LOOP, RIGHT IN FRONT OF YOU.', 'THE DECKS ARE FREE. WANT A GO?'],
+        lines: ['DJ: NO HURRY. I LAY ONE LOOP ON ANOTHER AND SEE WHERE THE TIDE TAKES IT.', 'THERE IS ROOM FOR ONE MORE. WANT TO PLAY ALONG?'],
       },
     },
     ']': {
       tile: 'Z',
       ent: {
         t: 'exit', id: 'radio', to: { theme: 'radio' }, look: 'booth', art: 'records', label: 'RADIO', side: 'down',
-        lines: ['DJ: RECORDS ALL NIGHT. RADIO PHAREIM: TEN STATIONS, AND THE MUSIC IS MADE UP AS IT PLAYS.', 'TUNE IN?'],
+        lines: ['DJ: JUST RECORDS, FRIEND. RADIO PHAREIM: TEN STATIONS, AND THE MUSIC IS MADE UP AS IT PLAYS.', 'TUNE IN?'],
       },
     },
-    // The crowd (letters with marks, since the town has used up the plain ones).
-    'æ': { tile: '-', ent: { t: 'npc', id: 'beach1', look: 'dancer', dir: 'right', talk: [{ lines: ['DANCER: NOTHING AT THE LEFT BOOTH IS A RECORD. IT IS MADE RIGHT THERE, AND SOMETIMES YOU GET A GO.'] }] } },
-    'ø': { tile: '-', ent: { t: 'npc', id: 'beach2', look: 'raver', dir: 'left', talk: [{ lines: ['RAVER: THE SUN WON\'T SET, SO THE PARTY WON\'T END. FINE BY ME.'] }] } },
-    'å': { tile: '-', ent: { t: 'npc', id: 'beach3', look: 'surfer', dir: 'right', talk: [{ lines: ['SURFER: NO WAVES TONIGHT. JUST BASS.'] }] } },
-    'Æ': { tile: '-', ent: { t: 'npc', id: 'beach4', look: 'dancer', dir: 'left', talk: [{ lines: ['DANCER: THE ONE WITH THE RECORDS PLAYS THE RADIO. TEN STATIONS, AND NONE OF THEM REPEAT.'] }] } },
-    'Å': { tile: '-', ent: { t: 'npc', id: 'beach5', look: 'surfer', dir: 'right', talk: [{ lines: ['SURFER: I CAME FOR ONE SONG. THAT WAS THREE NIGHTS AGO.'] }] } },
-    'é': { tile: '-', ent: { t: 'npc', id: 'beach6', look: 'raver', dir: 'left', talk: [{ lines: ['RAVER: THE CAT DANCES TOO. YOU JUST HAVE TO CATCH IT.'] }] } },
-    'ü': { tile: '-', ent: { t: 'npc', id: 'beach7', look: 'dancer', dir: 'down', talk: [{ lines: ['DANCER: LEFT BOOTH, JAM. RIGHT BOOTH, RADIO. THE MIDDLE IS FOR DANCING.'] }] } },
+    // The people on the sand and their fire (letters with marks, since the town has used up the plain ones).
+    'å': { tile: '-', ent: { t: 'npc', id: 'bonfire', look: 'bonfire', talk: [{ lines: ['(THE FIRE CRACKLES. SOMEBODY HAS PUT A KETTLE ON IT.)'] }] } },
+    'æ': {
+      tile: '-',
+      ent: {
+        t: 'npc', id: 'beach.smoker', look: 'smoker', dir: 'right',
+        talk: [
+          { when: { notFlag: 'item:sword' }, lines: ['(A LONG, SLOW EXHALE.)', 'SMOKER: EASY, LITTLE ONE. WHATEVER IT IS, IT CAN WAIT UNTIL THE SONG IS OVER.'] },
+          { lines: ['(A LONG, SLOW EXHALE.)', 'SMOKER: A STATIC KING, YOU SAY? SIT DOWN A MINUTE. HE ISN\'T GOING ANYWHERE.'] },
+        ],
+      },
+    },
+    'ø': { tile: '-', ent: { t: 'npc', id: 'beach.guitar', look: 'guitar', dir: 'left', talk: [{ lines: ['GUITAR: I KNOW THREE CHORDS. THE SEA DOESN\'T MIND.'] }] } },
+    'Æ': { tile: '-', ent: { t: 'npc', id: 'beach.hippie1', look: 'hippie', dir: 'right', talk: [{ lines: ['HIPPIE: THE SUN HAS BEEN SETTING FOR THREE NIGHTS. BEST SUNSET I EVER SAW.'] }] } },
+    'Å': { tile: '-', ent: { t: 'npc', id: 'beach.hippie2', look: 'hippie', dir: 'left', talk: [{ lines: ['HIPPIE: THE ONE WITH THE RECORDS HAS PLAYED THE RADIO SINCE BEFORE THE SUN GOT STUCK. NOBODY HAS ASKED THEM TO STOP.'] }] } },
+    'ü': { tile: '-', ent: { t: 'npc', id: 'beach.twirler', look: 'twirler', talk: [{ lines: ['DANCER: YOU DON\'T DANCE TO THIS. YOU LET IT DANCE YOU.'] }] } },
+    'é': { tile: '-', ent: { t: 'npc', id: 'beach.sleeper', look: 'sleeper', talk: [{ lines: ['ZZZ…', '(SOMEBODY HAS BUILT A SANDCASTLE ON THEIR STOMACH.)'] }] } },
     s: {
       tile: 'S',
       ent: {
@@ -172,11 +181,11 @@ export const OVERWORLD: MapDef = {
       },
     },
     '9': { ent: { t: 'npc', id: 'towncat', look: 'cat', wander: true, talk: [{ lines: ['MRRROW.', '(THE CAT WAS HERE FIRST.)'] }] } },
-    '0': { tile: 'S', ent: { t: 'sign', lines: ["↑ PETTER'S HOUSE   ← THE ARCADE   ↓ THE COAST ROAD, THE BEACH PARTY AND THE KEEPER'S HUT"] } },
+    '0': { tile: 'S', ent: { t: 'sign', lines: ["↑ PETTER'S HOUSE   ← THE ARCADE   ↓ THE COAST ROAD, THE BEACH AND THE KEEPER'S HUT"] } },
     // The west road: into the Wildwood, through a thicket only a blade gets through.
     '<': { tile: ',', ent: { t: 'warp', to: 'wildwood', entry: 'town' } },
     ')': { tile: 'S', ent: { t: 'sign', lines: ['← THE WILDWOOD', 'THE THICKET HAS GROWN OVER THE ROAD AGAIN. YOU WOULD NEED A BLADE.'] } },
-    J: { tile: 'S', ent: { t: 'sign', lines: ['THE NEON COAST.   ← PHAREIM.MD   ↓ THE BEACH PARTY   GAMES.PHAREIM.NO →', "FOLLOW THE ROAD EAST TO THE KEEPER'S HUT."] } },
+    J: { tile: 'S', ent: { t: 'sign', lines: ['THE NEON COAST.   ← PHAREIM.MD   ↓ THE BEACH   GAMES.PHAREIM.NO →', "FOLLOW THE ROAD EAST TO THE KEEPER'S HUT."] } },
     u: { tile: 'S', ent: { t: 'sign', lines: ['THE FOUNTAIN. MAKE A WISH.', 'NO COINS, PLEASE. THOSE ARE FOR THE ARCADE.'] } },
     v: { tile: 'S', ent: { t: 'sign', lines: ["THE KEEPER'S HUT: DOWN TO THE COAST, THEN EAST ALONG THE ROAD.", 'THE SUN WON\'T SET. THE KEEPER IS LOOKING FOR SOMEONE TO GO GET IT BACK.'] } },
     // ---- Home Glade ----

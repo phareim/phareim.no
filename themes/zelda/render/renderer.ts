@@ -21,11 +21,14 @@ import { cameraFor, cellDef, cellIndex, cellIsDark, mapInfo, shardPos, swingAngl
 import { drawText, textWidth } from './font'
 import { drawBanner, drawDialog, drawHud, drawPause, type HudKeys } from './hud'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
-import { createLabels, drawExitLabels, queueExits, type Emit } from './exits'
+import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
 import { makeCanvas, silhouette, sprite, spriteT } from './sheet'
 import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
 import { drawPsiBlock } from './labTiles'
 import { drawHookChain, drawStaticMood, fireflies, queueLuna, queueProps } from './wild'
+
+/** NPC looks that live on the town's beach and move on its slow beat. */
+const BEACH_LOOKS: ReadonlySet<string> = new Set(['hippie', 'smoker', 'guitar', 'sleeper', 'twirler', 'bonfire'])
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -235,6 +238,19 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     g.fillRect(Math.round(x - w / 2) + 1, Math.round(y) - 1, w - 2, 1)
     g.fillRect(Math.round(x - w / 2), Math.round(y), w, 2)
     g.fillRect(Math.round(x - w / 2) + 1, Math.round(y) + 2, w - 2, 1)
+  }
+
+  /** A thin curl of smoke off the joint: a few grey puffs rising, drifting and fading. */
+  function smoke(g: G, x: number, y: number, time: number, reduced: boolean) {
+    for (let i = 0; i < 4; i++) {
+      const age = reduced ? i / 4 : ((time * 0.35 + i / 4) % 1)
+      const px = Math.round(x + Math.sin(age * 6 + i) * 2 + age * 3)
+      const py = Math.round(y - age * 14)
+      g.globalAlpha = 0.75 * (1 - age)
+      g.fillStyle = '#cfc6ff'
+      g.fillRect(px, py, age > 0.35 ? 2 : 1, age > 0.6 ? 2 : 1)
+    }
+    g.globalAlpha = 1
   }
 
   function put(g: G, name: string, x: number, y: number, flip = false, flash = false) {
@@ -617,8 +633,24 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       lights.push({ x: p.x, y: p.y - 0.3, r: p.item === 'prism' ? 4 : 1.8, color: p.item === 'prism' ? '#ffd23f' : p.item === 'heartContainer' || p.item === 'heartPiece' ? '#ff2fa0' : '#ffd23f', a: 0.8 })
     }
     for (const n of m.npcs) {
-      const f = Math.floor(time * 2 + n.home.x) % 2
-      items.push({ y: n.y, draw: () => { const x = n.x * T - cx; const y = n.y * T - cy + 6; shadow(g, x, y - 1, 10); put(g, `${n.look}_${f}`, x, y, n.dir === 'left') } })
+      // The beach's people move on its track's slow beat; everyone else steps at 2 Hz.
+      const chill = BEACH_LOOKS.has(n.look)
+      const f = Math.floor(time * (chill ? BEACH_BEAT : 2) + (chill ? 0 : n.home.x)) % 2
+      items.push({
+        y: n.y,
+        draw: () => {
+          const x = n.x * T - cx
+          const y = n.y * T - cy + 6
+          if (n.look !== 'bonfire') shadow(g, x, y - 1, 10)
+          put(g, `${n.look}_${f}`, x, y, n.dir === 'left')
+          if (n.look === 'smoker') smoke(g, x + (n.dir === 'left' ? -1 : 1) * (f ? 6 : 7), y - (f ? 9 : 5), time, ui.reducedMotion)
+        },
+      })
+      if (n.look === 'bonfire') {
+        const flick = ui.reducedMotion ? 1 : 0.8 + 0.2 * Math.sin(time * 7) * Math.sin(time * 2.3)
+        lights.push({ x: n.x, y: n.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.95 * flick }, { x: n.x, y: n.y - 0.6, r: 2, color: '#ffd23f', a: 0.8 * flick })
+      }
+      if (n.look === 'smoker') lights.push({ x: n.x + (n.dir === 'left' ? -0.3 : 0.3), y: n.y - 0.3, r: 0.6, color: '#ff8a3d', a: 0.7 })
       if (n.look === 'robot') lights.push({ x: n.x, y: n.y - 0.8, r: 1.2, color: '#ff2fa0', a: 0.7 })
       if (n.look === 'keeper') lights.push({ x: n.x + 0.3, y: n.y - 0.9, r: 1.6, color: '#2ff3ff', a: 0.7 })
       if (n.look === 'ghost') lights.push({ x: n.x, y: n.y, r: 2, color: '#cfc6ff', a: 0.4 })

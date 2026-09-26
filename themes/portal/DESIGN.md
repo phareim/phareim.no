@@ -76,22 +76,28 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   lines saying it is Petter's writing), a signpost for GAMES.PHAREIM.NO
   (exit `{ url: 'https://games.phareim.no' }`).
 - **The beach** (2026-09-26, Petter's wish; it replaced the radio studio
-  that stood by the road): rows 28–33 below the coast road are sand (tile
-  `-`), the sea starts at row 34 and the pier runs out from there between
-  two tiki torches. Two DJ booths stand on the sand at columns 15 and 25,
-  close enough to the pier that a phone sees both from the middle. Each is
-  exit look `booth`: two speaker stacks, a table, the DJ waist up behind
-  it (sprites in `render/spritesBeach.ts`); the table's tile is the exit,
-  the speakers and the DJ's spot are `Z` tiles. Left, the one mixing live
-  (art `mixer`, label JAM, exit `jam` → `https://jam.phareim.no`); right,
-  the one with the records (art `records`, label RADIO, exit `radio` →
-  `?theme=radio`, the id kept so old `portal.return` values land here).
-  Seven people dance, nod and wave glow sticks on the sand (NPC looks
-  `dancer`, `surfer`, `raver`, marks `æøåÆÅéü` since the plain letters
-  are used up), each with a line about the music. The area THE BEACH
-  covers the sand and plays the `beach` track (A minor house at 120 bpm,
-  the crowd's 2 Hz step); the road and town play `village`. The plaza sign
-  and the coast-road sign point down to THE BEACH PARTY.
+  that stood by the road): a slow chill-out, only east of the pier. Rows
+  28–33, columns 21–37 are sand (tile `-`); west of the pier the old shore
+  and the sea are unchanged, and the pier runs down the beach's west edge
+  and out to sea. Two DJ booths stand on the sand at columns 25 and 33, so
+  a phone sees both from the middle. Each is exit look `booth`: two wooden
+  speakers with woven grilles, fairy lights on bamboo poles, a driftwood
+  table with a striped cloth, the DJ waist up behind it (sprites in
+  `render/spritesBeach.ts`); the table's tile is the exit, the speakers and
+  the DJ's spot are `Z` tiles. Left, a long-haired DJ in tie-dye building
+  loops (art `mixer`, label JAM, exit `jam` → `https://jam.phareim.no`);
+  right, an old hippie with the records (art `records`, label RADIO, exit
+  `radio` → `?theme=radio`, the id kept so old `portal.return` values land
+  here). Between them a bonfire, and round it two hippies cross-legged on
+  blankets, someone with a guitar and someone smoking a joint (the smoke
+  is drawn live), a slow dancer, and someone asleep on a towel by the pier
+  with a straw hat over the face (NPC looks `hippie`, `smoker`, `guitar`,
+  `sleeper`, `twirler`, `bonfire`; marks `æøåÆÅéü`, since the plain
+  letters are used up). They sway on the beach track's beat, not the
+  town's 2 Hz step. The area THE BEACH covers the sand and plays the
+  `beach` track (Balearic chill-out at 92 bpm: swelling sevenths, a hollow
+  flute, glassy arps, tape wow); the road and town play `village`. The
+  plaza sign and the coast-road sign point down to THE BEACH.
   The coast path runs on east out of town as the coast road: into Home
   Glade, down beside the Keeper's hut and into its front yard, where the
   Keeper tells the story to anyone arriving without the blade.

@@ -11,7 +11,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 ## Commands
 
 - `npm run dev` — dev server on port 3030 (host 0.0.0.0)
-- `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link, the beach party's two DJ booths (Jam and the radio), the login console and its auth.phareim.no client (fake fetch), the coast road to the Keeper
+- `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link, the beach's two DJ booths (Jam and the radio), the login console and its auth.phareim.no client (fake fetch), the coast road to the Keeper
 - `npm run test:zelda` — Neon Shrine: the first minute from the town, exits, saves, a full scripted run to the Sun Prism; the audio data; the Wildwood's rules and a full run from the town's thicket to the Gate shutting (2026-09-24)
 - `npm run test:eschold` — the shared Escape tap/hold state machine
 - `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); CI runs these before typecheck

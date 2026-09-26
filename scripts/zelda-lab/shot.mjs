@@ -90,8 +90,8 @@ switch (scene) {
   case 'p-reduced': ui.reducedMotion = true; run(20); break
   case 'r-plaza': run(20); break
   case 'r-road': s.hero.x = 39.5; s.hero.y = 26.5; s.hero.dir = 'right'; run(20); break
-  case 'r-beach': s.hero.x = 20.5; s.hero.y = 31.5; s.hero.dir = 'up'; run(40); break
-  case 'r-jam': s.hero.x = 15.5; s.hero.y = 31.5; s.hero.dir = 'up'; run(40); break
+  case 'r-beach': s.hero.x = 29.5; s.hero.y = 28.5; s.hero.dir = 'down'; run(40); break
+  case 'r-jam': s.hero.x = 25.5; s.hero.y = 31.5; s.hero.dir = 'up'; run(40); break
   case 'r-sword': give(); run(20); break
   case 'r-rich': give(); s.inv.bits = 4321; run(20); break
   case 'r-arcade': place('arcade', 'door'); run(20); break

@@ -720,85 +720,107 @@ function drawConsoleLeds(g: G, x: number, y: number, t: number, reduced: boolean
 // ---------------------------------------------------------------------------
 
 /**
- * Three tiles wide: a speaker stack on each side tile, the table on the exit
- * tile with the DJ behind it, waist up. Everything moves on one beat, the
- * same 2 Hz the crowd dances to.
+ * Three tiles wide: a wooden speaker on each side tile, a driftwood table on
+ * the exit tile with the DJ behind it, waist up, and a string of fairy
+ * lights between the speakers. Everything moves on the beach track's slow
+ * beat, the one the people on the sand sway to (`BEACH_BEAT`).
  */
 const BOOTH_W = 48
-const SPK_H = 26
+const SPK_H = 22
 const TABLE_TOP = 14
-const BEAT = 2
+/** The beach track's tempo in beats a second (92 bpm, audio.ts `beach`). */
+export const BEACH_BEAT = 92 / 60
 
 interface BoothStyle { glow: string; alt: string; word: string; dj: string }
 const BOOTHS: Record<string, BoothStyle> = {
-  mixer: { glow: '#2ff3ff', alt: '#ff2fa0', word: 'JAM', dj: 'dj_mixer' },
-  records: { glow: '#ffd23f', alt: '#ff2fa0', word: 'RADIO', dj: 'dj_records' },
+  mixer: { glow: '#ff8a3d', alt: '#ff8ae0', word: 'JAM', dj: 'dj_mixer' },
+  records: { glow: '#ffd23f', alt: '#ff8a3d', word: 'RADIO', dj: 'dj_records' },
 }
 const boothStyle = (art?: string) => BOOTHS[art ?? ''] ?? BOOTHS.records!
 
 let speakerC: Canvas | null = null
 
-/** One speaker stack: a big cabinet with the woofer, a small one on top with the tweeter. */
+/** A wooden speaker box with a woven grille; the cone behind it breathes (live). */
 function speakerCanvas(): Canvas {
   if (speakerC) return speakerC
   const c = makeCanvas(12, SPK_H)
   const g = c.getContext('2d')!
-  const k = PAL.k!
-  r(g, k, 0, 0, 12, SPK_H)
-  r(g, '#2a1f4a', 1, 1, 10, 9)
-  r(g, '#2a1f4a', 1, 11, 10, 14)
-  r(g, '#3b2b62', 1, 1, 10, 1); r(g, '#3b2b62', 1, 11, 10, 1)
-  // Tweeter, woofer rims (the cones are live).
-  r(g, '#140a22', 4, 3, 4, 4)
-  r(g, '#140a22', 2, 14, 8, 8); r(g, '#140a22', 3, 13, 6, 10); r(g, '#140a22', 1, 15, 10, 6)
-  r(g, '#5a5285', 2, 23, 8, 1)
+  r(g, PAL.k!, 0, 0, 12, SPK_H)
+  r(g, '#8e5566', 1, 1, 10, SPK_H - 2)
+  r(g, '#b8768a', 1, 1, 10, 1)
+  r(g, '#6e3d4e', 10, 1, 1, SPK_H - 2)
+  // Cloth grille, a basket weave.
+  r(g, '#a8876a', 2, 3, 8, 16)
+  for (let y = 3; y < 19; y += 2) for (let x = 2 + (y % 4 === 3 ? 0 : 1); x < 10; x += 2) r(g, '#8a6a52', x, y, 1, 1)
+  r(g, '#472536', 2, SPK_H - 2, 8, 1)
   return (speakerC = c)
 }
 
-function drawSpeaker(g: G, x: number, bottom: number, pump: number, glow: string) {
+function drawSpeaker(g: G, x: number, bottom: number, pump: number) {
   const top = bottom - SPK_H
   g.drawImage(speakerCanvas(), x, top)
-  // The woofer punches out on the beat.
-  const rad = 2 + pump
-  r(g, '#3a2c66', x + 6 - rad, top + 18 - rad, rad * 2, rad * 2)
-  r(g, '#5b4b8e', x + 5, top + 17, 2, 2)
-  r(g, '#0b0616', x + 5, top + 18, 1, 1)
-  r(g, glow, x + 5, top + 4, 2, 2)
+  // The cone shows through the cloth, a little rounder on the beat.
+  g.globalAlpha = 0.35 + pump * 0.1
+  r(g, '#5b2a1c', x + 4, top + 9 - pump, 4, 4 + pump * 2)
+  r(g, '#5b2a1c', x + 3 - pump, top + 10, 6 + pump * 2, 2)
+  g.globalAlpha = 1
 }
 
-/** The table: a lit front panel with the booth's word, the kit on top. (left, bottom) = the table's corner. */
-function drawTable(g: G, st: BoothStyle, art: string | undefined, left: number, bottom: number, t: number, beat: number, reduced: boolean) {
+/** How high the fairy lights' poles reach above the booth's bottom edge. */
+const LIGHTS_TOP = 31
+
+/** Fairy lights on a wire between two bamboo poles on the speakers, sagging over the DJ's head; the bulbs twinkle slowly. */
+function drawFairyLights(g: G, left: number, bottom: number, t: number, reduced: boolean) {
+  const cols = ['#ffd23f', '#ff8a3d', '#ff8ae0', '#b6ff4a']
+  const top = bottom - LIGHTS_TOP
+  for (const x of [left + 1, left + 38]) { r(g, PAL.k!, x - 1, top, 3, LIGHTS_TOP - SPK_H + 1); r(g, '#b0843a', x, top + 1, 1, LIGHTS_TOP - SPK_H) }
+  for (let x = 0; x <= 38; x++) {
+    const sag = Math.round(Math.sin((x / 38) * Math.PI) * 3)
+    r(g, '#271c46', left + 1 + x, top + 1 + sag, 1, 1)
+    if (x % 5 === 3) {
+      const i = Math.floor(x / 5)
+      const on = reduced || Math.sin(t * 1.3 + i * 2.1) > -0.4
+      r(g, on ? cols[i % 4]! : '#5a3a3a', left + 1 + x, top + 2 + sag, 1, 2)
+    }
+  }
+}
+
+/** The table: driftwood planks, a woven cloth down the front with the booth's word, the kit on top. (left, bottom) = the table's corner. */
+function drawTable(g: G, st: BoothStyle, art: string | undefined, left: number, bottom: number, t: number, reduced: boolean) {
   const k = PAL.k!
   const w = 24
   const top = bottom - TABLE_TOP
-  // Top surface and front.
   r(g, k, left, top, w, TABLE_TOP)
-  r(g, '#4f3c7e', left + 1, top + 1, w - 2, 3)
-  r(g, '#271c46', left + 1, top + 4, w - 2, TABLE_TOP - 5)
-  r(g, st.glow, left + 1, top + 4, w - 2, 1)
+  r(g, '#b8a08a', left + 1, top + 1, w - 2, 3)
+  r(g, '#8f7a68', left + 1, top + 3, w - 2, 1)
+  // The cloth: warm stripes, the word in the middle.
+  r(g, '#8a2a3a', left + 1, top + 4, w - 2, TABLE_TOP - 5)
+  r(g, '#ff8a3d', left + 1, top + 5, w - 2, 1)
+  r(g, '#ffd23f', left + 1, top + TABLE_TOP - 3, w - 2, 1)
+  for (let x = 2; x < w - 1; x += 3) r(g, '#ff8ae0', left + x, top + TABLE_TOP - 2, 1, 1)
   const word = st.word
   const tw = word.length * 4 - 1
-  mini(g, word, left + Math.round((w - tw) / 2), top + 6, beat ? st.glow : st.alt)
+  mini(g, word, left + Math.round((w - tw) / 2), top + 6, '#fff1b0')
   if (art === 'mixer') {
-    // Two CD decks with a spinning mark, a mixer between them with bouncing levels.
+    // A little mixer between two CD decks, the levels drifting.
     for (const dx of [2, 16]) {
       r(g, '#140a22', left + dx, top + 1, 6, 3)
-      const a = reduced ? 0 : Math.floor(t * 8 + dx) % 4
+      const a = reduced ? 0 : Math.floor(t * 3 + dx) % 4
       r(g, '#cfc6ff', left + dx + 1 + (a % 2) * 3, top + 1 + (a >> 1), 1, 1)
     }
     r(g, '#140a22', left + 9, top + 1, 6, 3)
     for (let i = 0; i < 4; i++) {
-      const lv = reduced ? 1 : Math.floor((Math.sin(t * 9 + i * 1.7) + 1) * 1.5)
-      r(g, i % 2 ? st.alt : '#b6ff4a', left + 10 + i, top + 3 - Math.min(2, lv), 1, 1 + Math.min(2, lv))
+      const lv = reduced ? 1 : Math.floor((Math.sin(t * 2.5 + i * 1.7) + 1) * 1.5)
+      r(g, i % 2 ? st.alt : '#ffd23f', left + 10 + i, top + 3 - Math.min(2, lv), 1, 1 + Math.min(2, lv))
     }
   } else {
     // Two turntables: a black disc with a turning shine, a tonearm.
     for (const dx of [2, 13]) {
-      r(g, '#8f86b8', left + dx, top + 1, 9, 3)
+      r(g, '#6e3d4e', left + dx, top + 1, 9, 3)
       r(g, '#0b0616', left + dx + 1, top + 1, 6, 3)
-      const a = reduced ? 0 : Math.floor(t * 6 + dx) % 4
+      const a = reduced ? 0 : Math.floor(t * 3 + dx) % 4
       r(g, '#5a5285', left + dx + 2 + a, top + 2, 1, 1)
-      r(g, '#ff2fa0', left + dx + 3, top + 2, 2, 1)
+      r(g, '#ff8a3d', left + dx + 3, top + 2, 2, 1)
       r(g, '#cfc6ff', left + dx + 7, top + 1, 1, 2)
     }
   }
@@ -817,7 +839,7 @@ function lookTop(look: ExitLook): number {
     case 'terminal': return TERM_H
     case 'console': return CON_H
     case 'sign': return 14
-    case 'booth': return SPK_H
+    case 'booth': return LIGHTS_TOP
     default: return T + 2
   }
 }
@@ -998,8 +1020,9 @@ export function queueExits(
       case 'booth': {
         const st = boothStyle(e.art)
         const left = px - BOOTH_W / 2
-        const beat = reduced ? 0 : Math.floor(t * BEAT) % 2
-        const pump = reduced ? 1 : Math.max(0, 2 - Math.floor((t * BEAT % 1) * 6))
+        const beat = reduced ? 0 : Math.floor(t * BEACH_BEAT) % 2
+        const pump = reduced ? 0 : Math.max(0, 1 - Math.floor((t * BEACH_BEAT % 1) * 4))
+        const breathe = reduced ? 1 : 0.8 + 0.2 * Math.sin(t * 0.8 + e.x)
         items.push({
           y: e.y + 0.5,
           draw: () => {
@@ -1008,17 +1031,17 @@ export function queueExits(
             // The DJ stands behind the table, feet hidden by it.
             const dj = sprite(`${st.dj}_${beat}`)
             g.drawImage(dj, px - dj.width / 2, bottom - 8 - dj.height)
-            drawTable(g, st, e.art, px - 12, bottom, t, beat, reduced)
-            drawSpeaker(g, left + 1, bottom, pump, st.glow)
-            drawSpeaker(g, left + BOOTH_W - 13, bottom, pump, st.alt)
+            drawTable(g, st, e.art, px - 12, bottom, t, reduced)
+            drawSpeaker(g, left + 1, bottom, pump)
+            drawSpeaker(g, left + BOOTH_W - 13, bottom, pump)
+            drawFairyLights(g, left + 4, bottom, t, reduced)
           },
         })
-        emit.push({ x: px - 11, y: bottom - TABLE_TOP + 4, w: 22, h: 8 }, { x: left + 6, y: bottom - SPK_H + 4, w: 2, h: 2 }, { x: left + BOOTH_W - 7, y: bottom - SPK_H + 4, w: 2, h: 2 })
-        // Party lights: two pools on the sand that swap colour on the beat, a glow over the DJ.
+        emit.push({ x: left + 4, y: bottom - LIGHTS_TOP, w: 41, h: 7 }, { x: px - 7, y: bottom - TABLE_TOP + 6, w: 14, h: 5 })
+        // Warm light: a glow over the DJ and a soft pool on the sand that breathes.
         lights.push(
-          { x: e.x - 1.2, y: e.y + 1.3, r: 2.4, color: beat ? st.glow : st.alt, a: 0.55 },
-          { x: e.x + 1.2, y: e.y + 1.3, r: 2.4, color: beat ? st.alt : st.glow, a: 0.55 },
-          { x: e.x, y: e.y - 0.9, r: 2, color: st.glow, a: 0.5 },
+          { x: e.x, y: e.y - 1, r: 2.6, color: st.glow, a: 0.5 * breathe },
+          { x: e.x, y: e.y + 1.2, r: 2.8, color: st.alt, a: 0.35 * breathe },
         )
         break
       }
