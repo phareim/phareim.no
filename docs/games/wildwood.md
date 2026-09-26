@@ -50,7 +50,8 @@ warp). A little way in, two cracked boulders on the trail need a bomb
    lights blinks D-U-S-K; key 1) → the hall's letter floor: walk D, U, S, K → the vault: the **Arc Blade**
    → coolant room (hook over, hook down) → **DEEPSEEK** (key 2) → key 1 opens the chute: slide the block
    east, then north into the hole; it lands on a plate one floor down → crystal relay to cyan → cut the
-   vines over the stairs → deep2: the block has opened the cage round the **big key** → the static hall's
+   vines over the stairs → deep2: the block has opened the cage round the **big key** (a hero who
+   jumps down the chute after the block climbs the cage room's ladder back to the chute) → the static hall's
    pink blocks are down (cyan), key 2, big key → **GEMINI** → heart container, Luna shuts the Gate
    (`gateShut`) → the lift goes straight up to the Deep Woods.
 7. Back east: the vines in the Hollow Graves are gone; the Shrine as before.

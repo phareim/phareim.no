@@ -187,6 +187,56 @@ describe('the labs', () => {
     assert.equal(Z.keyCount(s), 2)
     assert.equal(Z.hasBigKey(s), false)
   })
+
+  it('every dungeon holds as many small keys as locked doors, and one big key per great lock', () => {
+    const rings = {}
+    for (const def of Object.values(Z.WORLD.maps)) {
+      const r = (rings[def.keyring ?? 'shrine'] ??= { keys: 0, doors: 0, big: 0, bigDoors: 0 })
+      const w = def.rows[0].length
+      const tileAtXY = (x, y) => { const ch = def.rows[y]?.[x]; const m = def.marks[ch]; return m ? m.tile : ch }
+      const seen = new Set()
+      def.rows.forEach((row, y) => {
+        for (let x = 0; x < w; x++) {
+          const e = def.marks[row[x]]?.ent
+          if (e?.t === 'chest' && e.item === 'smallKey') r.keys++
+          if (e?.t === 'enemy' && e.carries === 'smallKey') r.keys++
+          if (e?.t === 'chest' && e.item === 'bigKey') r.big++
+          const t = tileAtXY(x, y)
+          if ((t !== 'L' && t !== 'K') || seen.has(y * w + x)) continue
+          // One door is a run of touching lock tiles; a key opens the whole run.
+          for (const st = [[x, y]]; st.length;) {
+            const [a, b] = st.pop()
+            if (seen.has(b * w + a) || tileAtXY(a, b) !== t) continue
+            seen.add(b * w + a)
+            st.push([a + 1, b], [a - 1, b], [a, b + 1], [a, b - 1])
+          }
+          if (t === 'L') r.doors++
+          else r.bigDoors++
+        }
+      })
+    }
+    for (const [ring, r] of Object.entries(rings)) {
+      assert.equal(r.keys, r.doors, `${ring}: ${r.keys} small keys for ${r.doors} locked doors`)
+      assert.equal(r.big, r.bigDoors ? 1 : 0, `${ring}: ${r.big} big keys for ${r.bigDoors} great locks`)
+    }
+    assert.deepEqual(rings.deep, { keys: 2, doors: 2, big: 1, bigDoors: 1 })
+  })
+
+  it('a hero who follows the block down the Deep Lab chute climbs back up the ladder', () => {
+    const s = at('deep1', 'start', { hook: true }, ['mistral'])
+    s.inv.keyrings = { deep: 1 }
+    P.walkTo(s, 17, 18)
+    P.until(s, () => tile(s, 16, 18) === '.', P.inp({ move: { x: -1, y: 0 } }))
+    P.walkTo(s, 11, 16)
+    P.until(s, () => s.map.id === 'deep2', P.inp({ move: { x: 0, y: -1 } }))
+    P.frames(s, 40)
+    P.settle(s)
+    P.walkTo(s, 12, 14)
+    P.until(s, () => s.map.id === 'deep1', P.inp({ move: { x: 0, y: -1 } }))
+    P.frames(s, 40)
+    assert.deepEqual([Math.floor(s.hero.x), Math.floor(s.hero.y)], [12, 13], 'back in the chute room')
+    P.walkTo(s, 20, 18) // and out through the open door to the hall
+  })
 })
 
 describe('the bosses', () => {
@@ -480,6 +530,7 @@ describe('full run through the Wildwood', () => {
     P.walkTo(s, 23, 13)
     P.walkTo(s, 17, 18)
     P.until(s, () => tile(s, 16, 18) === '.', P.inp({ move: { x: -1, y: 0 } }))
+    assert.equal(Z.keyCount(s), 1, 'the chute door took one key')
     P.walkTo(s, 2, 20)
     P.face(s, 'right'); P.pressA(s)
     P.frames(s, 60)
@@ -519,6 +570,7 @@ describe('full run through the Wildwood', () => {
     // The static hall: the pink blocks are down (cyan), the locked door, the big-key door.
     P.walkTo(s, 23, 26)
     P.until(s, () => tile(s, 23, 24) === '.', P.inp({ move: { x: 0, y: -1 } }))
+    assert.equal(Z.keyCount(s), 0, 'the static hall door took the last key')
     P.walkTo(s, 23, 13)
     P.until(s, () => tile(s, 23, 12) === '.', P.inp({ move: { x: 0, y: -1 } }))
     P.walkTo(s, 23, 10)

@@ -9,7 +9,9 @@
  * slides a psi block into a hole so it lands on a plate one floor down;
  * the crystal switch; and the stairs down, overgrown with static vines only
  * the Arc Blade cuts.
- * Floor 2 (deep2): the block from the chute opens the cage round the big
+ * Floor 2 (deep2): a ladder in the cage room climbs back to the chute (a
+ * hero who follows the block down the hole is not stuck inside the vines);
+ * the block from the chute opens the cage round the big
  * key; the static hall's pink blocks drop only when the switch upstairs has
  * turned the lab cyan; GEMINI waits by the Gate.
  *
@@ -73,7 +75,7 @@ const COOLANT = [
 
 const CHUTE = [
   '################',
-  '#t............t#',
+  '#t..........e.t#',
   '#..............#',
   '#...I......O...#',
   '#..............#',
@@ -180,7 +182,7 @@ const GEMINI = [
 
 const CAGE = [
   '################',
-  '#t............t#',
+  '#t..........v.t#',
   '#..............#',
   '#..........j...#',
   '#..............#',
@@ -288,6 +290,7 @@ export const DEEP1: MapDef = {
     V: { tile: '>', ent: { t: 'warp', to: 'wildwood', entry: 'deepDoor' } },
     v: { tile: 'X', ent: { t: 'gate', open: { flag: 'deep.dusk' } } },
     E: { ent: { t: 'entry', id: 'up', dir: 'left' } },
+    e: { ent: { t: 'entry', id: 'ladder', dir: 'down' } },
     '>': { tile: '>', ent: { t: 'warp', to: 'deep2', entry: 'down' } },
     k: { ent: { t: 'chest', id: 'deep.key1', item: 'smallKey' } },
     q: { ent: { t: 'chest', id: 'deep.key2', item: 'smallKey', appear: { flag: 'deepseek' } } },
@@ -354,6 +357,9 @@ export const DEEP2: MapDef = {
   marks: {
     U: { ent: { t: 'entry', id: 'down', dir: 'down' } },
     u: { tile: '>', ent: { t: 'warp', to: 'deep1', entry: 'up' } },
+    // A hero who jumps down the chute before the Arc Blade would land inside
+    // the vines upstairs; the ladder takes them back up to the chute instead.
+    v: { tile: '>', ent: { t: 'warp', to: 'deep1', entry: 'ladder' } },
     j: { ent: { t: 'plate', id: 'deep.chute' } },
     g: { tile: 'X', ent: { t: 'gate', open: { plates: ['deep.chute'] } } },
     k: { ent: { t: 'chest', id: 'deep.bigkey', item: 'bigKey', big: true } },
