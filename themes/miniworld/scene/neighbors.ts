@@ -6,7 +6,9 @@
  * The sign by your own house says whose it is.
  *
  * Houses merge into one mesh, signs into one atlas; the people are real
- * avatars (buildAvatar), animated only when you are near.
+ * avatars (buildAvatar), animated only when you are near. A neighbour who
+ * is live in town right now (the shared world) walks there in person, so
+ * their waving figure steps aside (`setHidden`).
  */
 import * as THREE from 'three'
 import type { AvatarHandle, NeighborInfo } from './contracts'
@@ -45,6 +47,8 @@ export interface Neighbors {
   readonly zones: Zone[]
   /** Your own house's sign. */
   setHome(name: string, title: RoyalTitle | null): void
+  /** Public ids whose waving figure should not show (they are here live); their spot stops being solid. */
+  setHidden(pubs: ReadonlySet<string>): void
   update(dt: number, px: number, pz: number): void
   dispose(): void
 }
@@ -56,7 +60,7 @@ export function buildNeighbors(list: NeighborInfo[]): Neighbors {
   const glow = new Blocks()
   const boxes: Box[] = []
   const zones: Zone[] = []
-  const people: { a: AvatarHandle; x: number; z: number; ph: number }[] = []
+  const people: { a: AvatarHandle; x: number; z: number; ph: number; id: string; box: Box; hidden: boolean }[] = []
 
   // Signs: neighbours on one atlas, your home on its own (it changes with the player).
   const atlas = new SignAtlas(512, 256)
@@ -105,8 +109,9 @@ export function buildNeighbors(list: NeighborInfo[]): Neighbors {
       a.group.traverse(o => { o.castShadow = false })
       a.setTag(null, null)
       group.add(a.group)
-      people.push({ a, x: px, z: pz, ph: i * 0.7 })
-      boxes.push(box(px - 0.5, 0, pz - 0.35, px + 0.5, 2.6, pz + 0.35))
+      const b = box(px - 0.5, 0, pz - 0.35, px + 0.5, 2.6, pz + 0.35)
+      people.push({ a, x: px, z: pz, ph: i * 0.7, id: n.playerId, box: b, hidden: false })
+      boxes.push(b)
     }
   })
 
@@ -143,8 +148,20 @@ export function buildNeighbors(list: NeighborInfo[]): Neighbors {
       homeMesh = new THREE.Mesh(g, [homeMat, boardMat])
       group.add(homeMesh)
     },
+    setHidden(pubs) {
+      for (const p of people) {
+        const h = pubs.has(p.id)
+        if (h === p.hidden) continue
+        p.hidden = h
+        // The box stays in the physics grid; out of reach below the ground it blocks nobody.
+        p.box.minY = h ? -50 : 0
+        p.box.maxY = h ? -49 : 2.6
+        if (h) p.a.group.visible = false
+      }
+    },
     update(dt, px, pz) {
       for (const p of people) {
+        if (p.hidden) continue
         const dx = p.x - px, dz = p.z - pz
         const near = dx * dx + dz * dz < 45 * 45
         p.a.group.visible = near

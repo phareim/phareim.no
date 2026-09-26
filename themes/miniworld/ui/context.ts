@@ -2,10 +2,11 @@
  * What Game.vue hands every panel (provide/inject): the game state, the
  * neighbourhood, pictures, sound, the runtime, and the panel stack.
  */
-import { inject, type InjectionKey, type Ref, type ShallowRef } from 'vue'
+import { inject, type ComputedRef, type InjectionKey, type Ref, type ShallowRef } from 'vue'
 import type { MiniWorldApi } from '~/composables/useMiniWorld'
 import { socialText, type MiniWorldSocialApi, type SocialResult } from '~/composables/useMiniWorldSocial'
-import type { MiniAudio, MiniWorldRuntime, Place, Previews, MiniSfx, AvatarPose, TownSpot } from '../scene/contracts'
+import type { MiniAudio, MiniWorldRuntime, Place, Previews, MiniSfx, AvatarPose, TownSpot, LinkStatus } from '../scene/contracts'
+import type { PeerInfo } from '../net/protocol'
 import type { ContestId, ObbyLevel, PersonLook, ClothingDef, Weapon } from '../types'
 
 /** Every panel the shell can show. The top of the stack is the one you see. */
@@ -26,6 +27,8 @@ export type Panel =
   | { id: 'fashion' }
   | { id: 'memory'; pairs: 6 | 8 | 10 }
   | { id: 'surfaces' }
+  /** Another player in the shared world, tapped in the view (their session id). */
+  | { id: 'peer'; peer: string }
 
 export type PanelId = Panel['id']
 
@@ -50,6 +53,21 @@ export interface Pics {
   weapon(weapon: Weapon, size?: number): string
 }
 
+export type Emote = 'wave' | 'dance' | 'cheer' | 'heart'
+
+/** The shared world as the panels see it (Game.vue owns the link). */
+export interface MwWorld {
+  /** 'off' while there is no link (no person yet). */
+  status: Ref<LinkStatus | 'off'>
+  /** Other players in your place right now. */
+  here: Ref<number>
+  /** Everyone online now, by session id, as they last described themselves. */
+  peers: Map<string, PeerInfo>
+  /** Public ids of everyone online now (friends are marked with it). */
+  online: ComputedRef<Set<string>>
+  emote(e: Emote): void
+}
+
 export interface MwContext {
   game: MiniWorldApi
   social: MiniWorldSocialApi
@@ -58,6 +76,7 @@ export interface MwContext {
   audio: MiniAudio
   runtime: ShallowRef<MiniWorldRuntime | null>
   place: Ref<Place>
+  world: MwWorld
   open(panel: Panel): void
   /** Replace the top panel. */
   swap(panel: Panel): void

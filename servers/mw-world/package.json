@@ -1,0 +1,13 @@
+{
+  "name": "mw-world",
+  "private": true,
+  "description": "Mini World's shared world: the realtime relay on Sleeper (port 3034, PM2 mw-world).",
+  "type": "module",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "start": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON server.ts"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

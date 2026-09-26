@@ -89,16 +89,24 @@ const P_FRAG = /* glsl */ `
 
 // ---------------------------------------------------------------- particles
 
+/** Hit marks: your magic, or another player's (pops balloons, pays nothing). */
+export const HIT_OWN = 1
+export const HIT_PEER = 2
+
 export const enum Beh { Plain = 0, Float = 1, Twinkle = 2, Bloom = 3, Shrink = 4, Still = 5 }
 
 export interface Particles {
   readonly points: THREE.Points
-  /** Returns the index, or -1 when full (the oldest is not evicted). */
-  spawn(x: number, y: number, z: number, vx: number, vy: number, vz: number, color: THREE.Color | string, size: number, life: number, sprite: number, beh?: Beh, grav?: number, hits?: boolean): number
+  /**
+   * Returns the index, or -1 when full (the oldest is not evicted). `hits`:
+   * the particle can pop balloons; `HIT_PEER` marks another player's magic
+   * (it pops, but pays no bits).
+   */
+  spawn(x: number, y: number, z: number, vx: number, vy: number, vz: number, color: THREE.Color | string, size: number, life: number, sprite: number, beh?: Beh, grav?: number, hits?: boolean | number): number
   burst(x: number, y: number, z: number, n: number, colors: readonly string[], opts?: { speed?: number; size?: number; life?: number; sprite?: number; grav?: number; up?: number }): void
   update(dt: number, groundAt: (x: number, y: number, z: number) => number, camera: THREE.PerspectiveCamera, viewH: number): void
-  /** Visits live projectiles that can pop balloons; return true to consume one. */
-  forHits(fn: (x: number, y: number, z: number) => boolean): void
+  /** Visits live projectiles that can pop balloons (`own`: your magic, not a peer's); return true to consume one. */
+  forHits(fn: (x: number, y: number, z: number, own: boolean) => boolean): void
   clear(): void
   dispose(): void
 }
@@ -153,7 +161,7 @@ export function createParticles(cap = 700): Particles {
       base[i] = sz; size[i] = sz
       sprite[i] = spr
       life[i] = lf; maxLife[i] = lf
-      beh[i] = b; grav[i] = g; hit[i] = hits ? 1 : 0
+      beh[i] = b; grav[i] = g; hit[i] = hits === true ? HIT_OWN : hits ? hits : 0
       phase[i] = Math.random() * 6.28
       live++
       return i
@@ -238,7 +246,7 @@ export function createParticles(cap = 700): Particles {
       if (live === 0) return
       for (let i = 0; i < cap; i++) {
         if (!hit[i] || life[i]! <= 0) continue
-        if (fn(pos[i * 3]!, pos[i * 3 + 1]!, pos[i * 3 + 2]!)) { hit[i] = 0; if (beh[i] !== Beh.Bloom) life[i] = Math.min(life[i]!, 0.05) }
+        if (fn(pos[i * 3]!, pos[i * 3 + 1]!, pos[i * 3 + 2]!, hit[i] === HIT_OWN)) { hit[i] = 0; if (beh[i] !== Beh.Bloom) life[i] = Math.min(life[i]!, 0.05) }
       }
     },
     clear() {
@@ -264,9 +272,10 @@ export interface MagicTarget { x: number; y: number; z: number }
 
 /**
  * Fire a weapon's magic from `o` along the facing (fx, fz). `target`
- * (lightning): the nearest balloon ahead, if any.
+ * (lightning): the nearest balloon ahead, if any. `owner`: `HIT_PEER` for
+ * another player's magic (it pops balloons, pays no bits).
  */
-export function fireMagic(p: Particles, magic: WeaponMagicId, level: 1 | 2 | 3, o: THREE.Vector3, fx: number, fz: number, target: MagicTarget | null) {
+export function fireMagic(p: Particles, magic: WeaponMagicId, level: 1 | 2 | 3, o: THREE.Vector3, fx: number, fz: number, target: MagicTarget | null, owner: number = HIT_OWN) {
   const L = LEVEL[level - 1]!
   const cols = WEAPON_MAGIC.find(m => m.id === magic)?.colors ?? ['#ffffff']
   const pick = () => cols[Math.floor(Math.random() * cols.length)]!
@@ -278,31 +287,31 @@ export function fireMagic(p: Particles, magic: WeaponMagicId, level: 1 | 2 | 3, 
       for (let i = 0; i < n(7); i++) {
         const s = 4 + Math.random() * 3 * L.range
         const side = rnd(1.4)
-        p.spawn(o.x, o.y, o.z, fx * s + rx * side, 1 + Math.random(), fz * s + rz * side, pick(), 0.5 * L.size * (0.7 + Math.random() * 0.6), 1.6 + Math.random() * 1.2, SPR.bubble, Beh.Float, 0, true)
+        p.spawn(o.x, o.y, o.z, fx * s + rx * side, 1 + Math.random(), fz * s + rz * side, pick(), 0.5 * L.size * (0.7 + Math.random() * 0.6), 1.6 + Math.random() * 1.2, SPR.bubble, Beh.Float, 0, owner)
       }
       break
     case 'stars':
       for (let i = 0; i < n(8); i++) {
         const s = 12 * L.range * (0.7 + Math.random() * 0.4)
-        p.spawn(o.x, o.y, o.z, fx * s + rx * rnd(2), rnd(1.5) + 1, fz * s + rz * rnd(2), pick(), 0.42 * L.size, 0.9, SPR.star, Beh.Twinkle, 2, true)
+        p.spawn(o.x, o.y, o.z, fx * s + rx * rnd(2), rnd(1.5) + 1, fz * s + rz * rnd(2), pick(), 0.42 * L.size, 0.9, SPR.star, Beh.Twinkle, 2, owner)
       }
       break
     case 'hearts':
       for (let i = 0; i < n(6); i++) {
         const s = 6 * L.range * (0.7 + Math.random() * 0.4)
-        p.spawn(o.x, o.y, o.z, fx * s + rx * rnd(2.5), 2.5 + Math.random() * 2, fz * s + rz * rnd(2.5), pick(), 0.48 * L.size, 1.6, SPR.heart, Beh.Float, 0, true)
+        p.spawn(o.x, o.y, o.z, fx * s + rx * rnd(2.5), 2.5 + Math.random() * 2, fz * s + rz * rnd(2.5), pick(), 0.48 * L.size, 1.6, SPR.heart, Beh.Float, 0, owner)
       }
       break
     case 'flowers':
       for (let i = 0; i < n(6); i++) {
         const s = 6 * L.range * (0.6 + Math.random() * 0.6)
-        p.spawn(o.x, o.y, o.z, fx * s + rx * rnd(2.5), 5 + Math.random() * 2, fz * s + rz * rnd(2.5), pick(), 0.5 * L.size, 3, SPR.flower, Beh.Bloom, 16, true)
+        p.spawn(o.x, o.y, o.z, fx * s + rx * rnd(2.5), 5 + Math.random() * 2, fz * s + rz * rnd(2.5), pick(), 0.5 * L.size, 3, SPR.flower, Beh.Bloom, 16, owner)
       }
       break
     case 'snow':
       for (let i = 0; i < n(16); i++) {
         const s = 5 * L.range * Math.random()
-        p.spawn(o.x + rnd(0.5), o.y + 1 + Math.random() * 1.5, o.z + rnd(0.5), fx * s + rx * rnd(2.5), 1 + Math.random() * 2, fz * s + rz * rnd(2.5), pick(), 0.3 * L.size, 2 + Math.random(), SPR.snow, Beh.Plain, 2.2, true)
+        p.spawn(o.x + rnd(0.5), o.y + 1 + Math.random() * 1.5, o.z + rnd(0.5), fx * s + rx * rnd(2.5), 1 + Math.random() * 2, fz * s + rz * rnd(2.5), pick(), 0.3 * L.size, 2 + Math.random(), SPR.snow, Beh.Plain, 2.2, owner)
       }
       break
     case 'confetti': {
@@ -310,7 +319,7 @@ export function fireMagic(p: Particles, magic: WeaponMagicId, level: 1 | 2 | 3, 
       for (let i = 0; i < n(26); i++) {
         const a = Math.random() * Math.PI * 2
         const s = (3 + Math.random() * 6) * L.range
-        p.spawn(cx, o.y, cz, Math.cos(a) * s * 0.6 + fx * s * 0.8, 4 + Math.random() * 5, Math.sin(a) * s * 0.6 + fz * s * 0.8, pick(), 0.28 * L.size, 1.5 + Math.random(), SPR.square, Beh.Plain, 12, true)
+        p.spawn(cx, o.y, cz, Math.cos(a) * s * 0.6 + fx * s * 0.8, 4 + Math.random() * 5, Math.sin(a) * s * 0.6 + fz * s * 0.8, pick(), 0.28 * L.size, 1.5 + Math.random(), SPR.square, Beh.Plain, 12, owner)
       }
       break
     }
@@ -322,7 +331,7 @@ export function fireMagic(p: Particles, magic: WeaponMagicId, level: 1 | 2 | 3, 
           const t = i / steps
           const d = t * len
           const h = Math.sin(t * Math.PI) * len * 0.45 + b * 0.28
-          p.spawn(o.x + fx * d, o.y + h - 0.3, o.z + fz * d, 0, 0, 0, RAINBOW[b]!, 0.36 * L.size, 0.9 + t * 0.5, SPR.square, Beh.Still, 0, i % 3 === 0)
+          p.spawn(o.x + fx * d, o.y + h - 0.3, o.z + fz * d, 0, 0, 0, RAINBOW[b]!, 0.36 * L.size, 0.9 + t * 0.5, SPR.square, Beh.Still, 0, i % 3 === 0 ? owner : 0)
         }
       }
       break
@@ -340,7 +349,7 @@ export function fireMagic(p: Particles, magic: WeaponMagicId, level: 1 | 2 | 3, 
         const k = 5
         for (let j = 0; j < k; j++) {
           const u = j / k
-          p.spawn(px + (nx - px) * u, py + (ny - py) * u, pz + (nz - pz) * u, 0, 0, 0, j % 2 ? cols[1]! : cols[0]!, 0.24 * L.size, 0.22 + Math.random() * 0.1, SPR.square, Beh.Still, 0, s === segs && j === k - 1)
+          p.spawn(px + (nx - px) * u, py + (ny - py) * u, pz + (nz - pz) * u, 0, 0, 0, j % 2 ? cols[1]! : cols[0]!, 0.24 * L.size, 0.22 + Math.random() * 0.1, SPR.square, Beh.Still, 0, s === segs && j === k - 1 ? owner : 0)
         }
         px = nx; py = ny; pz = nz
       }
@@ -352,7 +361,7 @@ export function fireMagic(p: Particles, magic: WeaponMagicId, level: 1 | 2 | 3, 
         const s = (6 + Math.random() * 6) * L.range
         const k = Math.random()
         const c = k < 0.3 ? cols[2]! : k < 0.75 ? cols[0]! : cols[1]!
-        p.spawn(o.x, o.y, o.z, fx * s + rx * rnd(2.2), rnd(1) + 1.5, fz * s + rz * rnd(2.2), c, 0.55 * L.size * (0.6 + Math.random() * 0.6), 0.5 + Math.random() * 0.4, SPR.puff, Beh.Shrink, -2, true)
+        p.spawn(o.x, o.y, o.z, fx * s + rx * rnd(2.2), rnd(1) + 1.5, fz * s + rz * rnd(2.2), c, 0.55 * L.size * (0.6 + Math.random() * 0.6), 0.5 + Math.random() * 0.4, SPR.puff, Beh.Shrink, -2, owner)
       }
       break
   }
@@ -364,15 +373,15 @@ export interface BalloonPark {
   readonly group: THREE.Group
   /** Nearest live balloon ahead of (x, z) along (fx, fz), within range. */
   nearestAhead(x: number, y: number, z: number, fx: number, fz: number, range: number): MagicTarget | null
-  /** Pops a balloon near the point; returns true if one popped. */
-  tryPop(x: number, y: number, z: number): boolean
+  /** Pops a balloon near the point; returns true if one popped. `own` false: a peer's magic (onPop learns it). */
+  tryPop(x: number, y: number, z: number, own?: boolean): boolean
   update(dt: number, t: number): void
   dispose(): void
 }
 
 const BALLOON_COLORS = ['#ff4f6f', '#ffd84f', '#4fb8ff', '#7fe07f', '#b89aff', '#ff8ac8', '#ff9f3f']
 
-export function createBalloons(area: { minX: number; maxX: number; minZ: number; maxZ: number }, count: number, particles: Particles, onPop: (x: number, y: number, z: number, gold: boolean) => void): BalloonPark {
+export function createBalloons(area: { minX: number; maxX: number; minZ: number; maxZ: number }, count: number, particles: Particles, onPop: (x: number, y: number, z: number, gold: boolean, own: boolean) => void): BalloonPark {
   const group = new THREE.Group()
   const geo = new THREE.IcosahedronGeometry(0.7, 0)
   geo.scale(1, 1.2, 1)
@@ -425,7 +434,7 @@ export function createBalloons(area: { minX: number; maxX: number; minZ: number;
       }
       return best
     },
-    tryPop(x, y, z) {
+    tryPop(x, y, z, own = true) {
       if (x < area.minX - 2 || x > area.maxX + 2 || z < area.minZ - 2 || z > area.maxZ + 2) return false
       for (const b of st) {
         if (!b.alive) continue
@@ -435,7 +444,7 @@ export function createBalloons(area: { minX: number; maxX: number; minZ: number;
           b.alive = false
           b.wait = 4 + Math.random() * 4
           particles.burst(p.x, p.y, p.z, b.gold ? 30 : 18, b.gold ? ['#ffd23f', '#fff1b0', '#ffffff'] : ['#ff4f6f', '#ffd84f', '#4fb8ff', '#7fe07f', '#ff8ac8'], { speed: 7, size: 0.28, life: 1.2 })
-          onPop(p.x, p.y, p.z, b.gold)
+          onPop(p.x, p.y, p.z, b.gold, own)
           return true
         }
       }

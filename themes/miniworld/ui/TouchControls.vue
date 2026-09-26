@@ -1,7 +1,7 @@
 <template>
   <!-- Touch play: a floating stick where the left thumb lands, drag on the
-    right half to turn the camera, pinch to zoom; Hopp, the context action
-    and Magi bottom-right, clear of the home chip's corner and above the
+    right half to turn the camera, pinch to zoom; Hopp, the context action,
+    Magi and the four emotes (Vink, Dans, Heia, Hjerte) bottom-right, clear of the home chip's corner and above the
     bottom band. Each finger is tracked by its pointer id, so the stick and
     Hopp work at the same time. -->
   <div
@@ -25,6 +25,18 @@
     <p v-else-if="showHint" class="mw-touch-hint mw-t" aria-hidden="true">DRA HER FOR Å GÅ</p>
 
     <div class="mw-pads" @pointerdown.stop @contextmenu.prevent>
+      <div class="mw-emotes" role="group" aria-label="Vis de andre">
+        <button
+          v-for="e in EMOTES"
+          :key="e.id"
+          type="button"
+          class="px-btn mw-btn mw-btn--plain mw-emote"
+          :aria-label="e.label"
+          @pointerdown.prevent="pressEmote(e.id)"
+        >
+          <PxIcon :id="e.icon" :scale="3" />
+        </button>
+      </div>
       <button
         v-if="magic"
         type="button"
@@ -68,6 +80,8 @@
 import { ref, onBeforeUnmount } from 'vue'
 import PxIcon from './PxIcon.vue'
 import type { InputState } from '../scene/contracts'
+import type { Emote } from './context'
+import type { IconId } from './icons'
 
 const props = defineProps<{
   input: InputState
@@ -77,7 +91,15 @@ const props = defineProps<{
   magic: boolean
 }>()
 
-const emit = defineEmits<{ action: []; firstTouch: [] }>()
+const emit = defineEmits<{ action: []; firstTouch: []; emote: [Emote] }>()
+
+/** The shared world's four hellos (keys 1–4 on a keyboard). */
+const EMOTES: { id: Emote; icon: IconId; label: string }[] = [
+  { id: 'wave', icon: 'wave', label: 'Vink' },
+  { id: 'dance', icon: 'dance', label: 'Dans' },
+  { id: 'cheer', icon: 'cheer', label: 'Heia' },
+  { id: 'heart', icon: 'heart', label: 'Hjerte' },
+]
 
 /** Stick radius in CSS px: full speed at this distance. */
 const STICK_R = 52
@@ -179,6 +201,10 @@ function pressAction() {
   props.input.actionPressed = true
   emit('action')
 }
+function pressEmote(e: Emote) {
+  emit('firstTouch')
+  emit('emote', e)
+}
 function pressMagic() {
   emit('firstTouch')
   magicDown.value = true
@@ -254,6 +280,12 @@ defineExpose({ reset })
   align-items: flex-end;
   gap: 16px;
 }
+.mw-emotes {
+  display: grid;
+  grid-template-columns: repeat(2, 48px);
+  gap: 8px;
+}
+.mw-root .px-btn.mw-btn.mw-emote { width: 48px; height: 48px; padding: 0; }
 .mw-pads-row {
   display: flex;
   align-items: flex-end;
@@ -284,6 +316,7 @@ defineExpose({ reset })
 @media (max-height: 420px) {
   .mw-pads { bottom: calc(52px + var(--app-safe-bottom, 0px)); gap: 10px; }
   .mw-pads-row { gap: 12px; }
+  .mw-emotes { grid-template-columns: repeat(4, 48px); }
   .mw-root .px-btn.mw-btn.mw-pad--jump { width: 76px; height: 76px; }
 }
 </style>
