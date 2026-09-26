@@ -3,8 +3,8 @@
  * hair markers (common.ts HAIR) around a head ellipse: a `front` layer
  * over the face and a `back` layer behind the head and body. The style
  * colours, lights and outlines them. `gloss` adds Avatar World's shiny
- * streak and strands; without it the hair is flat with one soft
- * highlight, like Toca's.
+ * streak and strands; without it the hair is Toca's: bigger, flat, in two
+ * tones (the part behind the head a shade darker), no highlight.
  */
 import type { HairStyle, PixelBuffer } from '../types'
 import { HAIR } from './common'
@@ -41,18 +41,19 @@ const bumps = (b: PixelBuffer, pts: Array<[number, number]>, r: number, c: strin
 /** Paint `style` into the two layers. */
 export function paintRoundHair(front: PixelBuffer, back: PixelBuffer, style: HairStyle, g: HeadGeom, gloss: boolean): void {
   const { cx, cy, rx, ry } = g
+  const G = gloss ? 1.5 : 2.4 // how far the hair stands off the head
   const top = cy - ry
   const brow = cy - ry * 0.28 - (gloss ? 2 : 0) // where a straight fringe stops (higher in Avatar World: the brows show)
   switch (style) {
     case 'none':
       return
     case 'short':
-      cap(front, g, dx => brow - 2 + Math.abs(dx + 0.3) * 3 + (dx > 0.15 ? 1.5 : 0), cy + ry * 0.05)
+      cap(front, g, dx => brow - 2 + Math.abs(dx + 0.3) * 3 + (dx > 0.15 ? 1.5 : 0), cy + ry * 0.05, G)
       // A cowlick.
       fillEllipse(front, cx + rx * 0.2, top - 1, rx * 0.22, 2.2, HAIR.base)
       break
     case 'long': {
-      cap(front, g, dx => brow - 3 - (1 - Math.abs(dx)) * ry * 0.18 + Math.abs(dx) * 3, cy + ry * 0.2)
+      cap(front, g, dx => brow - 3 - (1 - Math.abs(dx)) * ry * 0.18 + Math.abs(dx) * 3, cy + ry * 0.2, G)
       fillRoundRect(back, Math.round(cx - rx - 2), Math.round(cy - ry * 0.4), Math.round(2 * rx + 4), Math.round(ry * 2.3), Math.round(rx * 0.45), HAIR.base)
       // Locks falling in front of the shoulders.
       for (const s of [-1, 1]) {
@@ -62,20 +63,20 @@ export function paintRoundHair(front: PixelBuffer, back: PixelBuffer, style: Hai
       break
     }
     case 'ponytail':
-      cap(front, g, dx => brow - 1 + (dx < -0.1 ? 1 : -(dx + 0.1) * 5), cy + ry * 0.05)
+      cap(front, g, dx => brow - 1 + (dx < -0.1 ? 1 : -(dx + 0.1) * 5), cy + ry * 0.05, G)
       fillEllipse(back, cx + rx * 0.9, cy + ry * 0.35, rx * 0.34, ry * 0.8, HAIR.base)
       fillEllipse(back, cx + rx * 0.62, cy - ry * 0.35, rx * 0.4, ry * 0.4, HAIR.base)
       fillEllipse(back, cx + rx * 0.8, cy - ry * 0.18, 2.2, 2.2, HAIR.tie)
       break
     case 'pigtails':
-      cap(front, g, dx => brow - 0.5 + Math.abs(dx) * 1.5, cy + ry * 0.1)
+      cap(front, g, dx => brow - 0.5 + Math.abs(dx) * 1.5, cy + ry * 0.1, G)
       for (const s of [-1, 1]) {
         fillEllipse(back, cx + s * (rx + 2.5), cy + ry * 0.55, rx * 0.3, ry * 0.62, HAIR.base)
         fillEllipse(front, cx + s * (rx + 0.5), cy + ry * 0.02, 2.4, 2.4, HAIR.tie)
       }
       break
     case 'curly': {
-      cap(front, g, dx => brow - 1 + Math.abs(dx) * 2, cy + ry * 0.35)
+      cap(front, g, dx => brow - 1 + Math.abs(dx) * 2, cy + ry * 0.35, G)
       const r = Math.max(2.5, rx * 0.2)
       const n = 7
       const edge: Array<[number, number]> = []
@@ -92,7 +93,7 @@ export function paintRoundHair(front: PixelBuffer, back: PixelBuffer, style: Hai
       break
     }
     case 'bun': {
-      cap(front, g, dx => cy - ry * 0.52 + Math.abs(dx) * 3.5, cy - ry * 0.05, 1)
+      cap(front, g, dx => cy - ry * 0.52 + Math.abs(dx) * 3.5, cy - ry * 0.05, G - 0.5)
       const r = rx * 0.4
       fillCircle(back, cx, top - r * 0.55, r, HAIR.base)
       fillCircle(front, cx, top - r * 0.55, r, HAIR.base)
@@ -101,7 +102,7 @@ export function paintRoundHair(front: PixelBuffer, back: PixelBuffer, style: Hai
     }
     case 'spiky': {
       const zig = (dx: number) => brow - 1 + ((Math.floor((dx + 1) * 4.5) % 2) ? 3 : 0)
-      cap(front, g, zig, cy - ry * 0.05)
+      cap(front, g, zig, cy - ry * 0.05, G)
       const n = 7
       for (let i = 0; i < n; i++) {
         const a = Math.PI * (1.08 + (0.84 * i) / (n - 1))
@@ -121,12 +122,17 @@ export function paintRoundHair(front: PixelBuffer, back: PixelBuffer, style: Hai
         ring.push([cx + Math.cos(a) * R, cy - ry * 0.18 + Math.sin(a) * R * 0.98])
       }
       bumps(back, ring, R * 0.24)
-      cap(front, g, dx => brow - 2 + Math.abs(dx) * 2.5, cy - ry * 0.1)
+      cap(front, g, dx => brow - 2 + Math.abs(dx) * 2.5, cy - ry * 0.1, G)
       break
     }
   }
-  highlight(front, g, style, gloss)
-  if (gloss) strands(front, g)
+  if (gloss) {
+    highlight(front, g, style)
+    strands(front, g)
+  } else {
+    // Two flat tones: what hangs behind the head is a shade darker.
+    for (let i = 0; i < back.px.length; i++) if (back.px[i] === HAIR.base) back.px[i] = HAIR.shade
+  }
 }
 
 /** A filled triangle-ish spike from a base point to a tip. */
@@ -138,10 +144,10 @@ function spike(b: PixelBuffer, bx: number, by: number, tx: number, ty: number, w
   }
 }
 
-/** One soft highlight band across the top of the hair (a glossy streak when `gloss`). */
-function highlight(b: PixelBuffer, g: HeadGeom, style: HairStyle, gloss: boolean): void {
-  const r0 = gloss ? 0.72 : 0.7, r1 = gloss ? 0.86 : 0.8
-  const a0 = gloss ? Math.PI * 1.12 : Math.PI * 1.2, a1 = gloss ? Math.PI * 1.62 : Math.PI * 1.45
+/** Avatar World's glossy streak across the top of the hair, and a short glint. */
+function highlight(b: PixelBuffer, g: HeadGeom, style: HairStyle): void {
+  const r0 = 0.72, r1 = 0.86
+  const a0 = Math.PI * 1.12, a1 = Math.PI * 1.62
   const cy = g.cy - 0.5 - (style === 'bun' ? 1 : 0)
   for (let y = Math.floor(cy - g.ry - 3); y <= cy; y++) {
     for (let x = Math.floor(g.cx - g.rx - 3); x <= g.cx + g.rx + 3; x++) {
@@ -153,7 +159,7 @@ function highlight(b: PixelBuffer, g: HeadGeom, style: HairStyle, gloss: boolean
       if (r >= r0 && r <= r1 && a >= a0 && a <= a1) set(b, x, y, HAIR.light)
     }
   }
-  if (gloss) {
+  {
     // A second, short glint to the right.
     for (let y = Math.floor(cy - g.ry - 3); y <= cy; y++) for (let x = Math.floor(g.cx); x <= g.cx + g.rx + 3; x++) {
       if (get(b, x, y) !== HAIR.base) continue

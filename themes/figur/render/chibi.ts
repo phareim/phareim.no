@@ -13,7 +13,7 @@ import {
   blit, fillCircle, fillEllipse, makeBuffer, mapTexture, outline, set, smoothResize, topLight,
   flipTexture, type LightOpts, type Rect, type SpanShape,
 } from './pixels'
-import { colourHair, figureKey, frameOrigin, hopOf, Lru, paintGlasses, skinOf, sparkles, withDefaults, type SparkleKind } from './common'
+import { colourHair, paintCape, figureKey, frameOrigin, hopOf, Lru, paintGlasses, skinOf, sparkles, withDefaults, type SparkleKind } from './common'
 import { paintRoundHair, type HeadGeom } from './roundhair'
 
 export interface ChibiSpec {
@@ -33,9 +33,9 @@ export interface ChibiSpec {
   flare: number
   /** A dress's skirt length. */
   skirtLen: number
-  /** Back pieces: how much wider than their texture. */
+  /** Wings: how much wider than their texture, and how much of their height rises above the shoulders (capes flare from past the arms to the skirt's flare). */
   wings: number
-  cape: number
+  wingsLift: number
   outline: 'silhouette' | 'parts'
   ink: (c: Hex) => Hex
   light: LightOpts | null
@@ -87,15 +87,19 @@ export function paintChibi(spec: ChibiSpec, f: Pick<FigureFrame, 'figure' | 'tex
   const headBottom = torsoTop - spec.neck.h + 2
   const g: HeadGeom = { cx: cxB, cy: headBottom - spec.head.ry, rx: spec.head.rx, ry: spec.head.ry }
   const legX = [cxB - spec.leg.gap / 2 - spec.leg.w, cxB + spec.leg.gap / 2]
-  const shoulderW = spec.torso[0]!
+  const shoulderW = Math.max(...spec.torso.slice(0, 4)) // arms hang beside the widest shoulder row
 
   // ------------------------------------------------ back piece
   const back = L()
-  if (worn.tex.back) {
-    const s = worn.kind.back === 'wings' ? spec.wings : spec.cape
+  const collar = L()
+  const armSpan = shoulderW + 2 * (spec.arm.gap + spec.arm.w + spec.arm.splay)
+  if (worn.tex.back && worn.kind.back === 'cape') {
+    paintCape(back, collar, worn.tex.back, cxB, torsoTop, floor - 3, armSpan + 4, armSpan + 4 + 2 * spec.flare, 2)
+  } else if (worn.tex.back) {
+    const s = spec.wings
     const bw = Math.round(20 * s), bh = Math.round(18 * s)
     const t = smoothResize(worn.tex.back, bw, bh)
-    blit(back, t, Math.round(cxB - bw / 2), worn.kind.back === 'wings' ? torsoTop - Math.round(bh * 0.5) : torsoTop - 1)
+    blit(back, t, Math.round(cxB - bw / 2), torsoTop - Math.round(bh * spec.wingsLift))
   }
 
   // ------------------------------------------------ hat (first: hair makes room for it)
@@ -225,7 +229,7 @@ export function paintChibi(spec: ChibiSpec, f: Pick<FigureFrame, 'figure' | 'tex
   const parts: Array<[PixelBuffer, boolean, boolean]> = [
     // layer, upper body (bobs), gets light
     [back, true, true], [hairB, true, true], [legs, false, true], [feet, false, true], [skirt, false, true],
-    [torso, true, true], [arms, true, true], [head, true, false], [hairF, true, true], [hat, true, true],
+    [torso, true, true], [arms, true, true], [collar, true, true], [head, true, false], [hairF, true, true], [hat, true, true],
   ]
   for (const [layer, upper, lit] of parts) {
     if (lit && spec.light) { const r = bbox(layer); if (r) topLight(layer, r, spec.light) }

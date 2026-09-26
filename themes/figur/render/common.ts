@@ -12,7 +12,7 @@ import { SKINS, RAINBOW, garment } from '../catalog'
 import { brightness, distance, mix, shade, tint } from '../core/color'
 import { garmentTexture } from '../core/garments'
 import { colorCounts } from '../core/textures'
-import { get, set, resample, type Px, type Rect } from './pixels'
+import { get, set, mapTexture, resample, type Px, type Rect } from './pixels'
 
 // ---------------------------------------------------------------- body colours
 
@@ -205,4 +205,38 @@ export function paintGlasses(b: PixelBuffer, tex: Texture, dst: Rect): void {
       set(b, dst.x + x, dst.y + y, lens && under ? mix(under, c, 0.4) : c)
     }
   }
+}
+
+// ---------------------------------------------------------------- capes
+
+/** Each row's first and last painted column of a texture (null for an empty row). */
+export function rowSpans(t: Texture): Array<[number, number] | null> {
+  const out: Array<[number, number] | null> = []
+  for (let y = 0; y < t.h; y++) {
+    let a = -1, z = -1
+    for (let x = 0; x < t.w; x++) if (t.px[y * t.w + x]) { if (a < 0) a = x; z = x }
+    out.push(a < 0 ? null : [a, z])
+  }
+  return out
+}
+
+/**
+ * A cape seen from the front: behind the body it flares from just past
+ * the arms (`wTop` wide at the shoulders) to `wBottom` at `bottom`, so
+ * its sides show beside the torso, arms and legs; in front, its collar
+ * lies across the shoulders. `cxB` is the body's centre line (a pixel
+ * boundary); widths are made even so both sides match.
+ */
+export function paintCape(back: PixelBuffer, front: PixelBuffer, tex: Texture, cxB: number, top: number, bottom: number, wTop: number, wBottom: number, collar: number): void {
+  const h = bottom - top + 1
+  const spans: Array<[number, number]> = []
+  for (let i = 0; i < h; i++) {
+    let w = Math.round(wTop + (wBottom - wTop) * Math.sqrt(i / Math.max(1, h - 1)))
+    if (w % 2) w++
+    spans.push([cxB - w / 2, cxB + w / 2 - 1])
+  }
+  mapTexture(back, tex, { x: 0, y: 0, w: tex.w, h: tex.h }, { y: top, spans }, { srcSpans: rowSpans(tex) })
+  // The collar: the cape's top two rows across the shoulders.
+  const cw = wTop - 2
+  mapTexture(front, tex, { x: 4, y: 0, w: 12, h: 2 }, { x: cxB - cw / 2, y: top, w: cw, h: collar }, { vote: true })
 }

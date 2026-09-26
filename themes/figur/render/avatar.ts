@@ -145,7 +145,7 @@ const spec: ChibiSpec = {
   flare: 6,
   skirtLen: 12,
   wings: 2.7,
-  cape: 1.8,
+  wingsLift: 0.5,
   outline: 'parts',
   ink: c => mix(shade(c, 0.5), '#4a2a5e', 0.45),
   light: { top: 1, topF: 0.22, bottom: 2, bottomF: 0.14, right: 1, rightF: 0.1 },

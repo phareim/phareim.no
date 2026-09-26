@@ -1,8 +1,9 @@
 /**
- * Toca Boca: flat pastel, a big round head (about half the figure) on a
- * small body, dot eyes far apart, a little nose, rosy cheeks, thin arms
- * with round hands, small oval feet, one thin soft outline around the
- * whole figure and no shading. Skirts and dresses flare. A pastel room:
+ * Toca Boca: stubby and chunky. A big round head a little wider than
+ * tall, a short wide body about one head tall, short thick limbs with
+ * round hands and feet, big flat two-tone hair, tiny dot eyes set wide, a
+ * small nose line, rosy cheeks. Flat colour, no shading, no dark outline:
+ * only a same-hue darker edge. Skirts and dresses flare. A pastel room:
  * a striped wall, a window with a cloud, a plant, a wooden floor and a
  * round rug under the figure.
  */
@@ -23,12 +24,12 @@ const STAR5 = ['..X..', '.XXX.', 'XXXXX', '.XXX.', '.X.X.']
 function face(b: PixelBuffer, body: FigureBody, g: HeadGeom, blink: boolean): void {
   const fc = faceColors(body)
   const cx = g.cx
-  const ey = Math.round(g.cy + 1)
+  const ey = Math.round(g.cy + 2)
   const dot = mix(body.eyeColor, '#140c1c', 0.62)
-  const eyes = [cx - 8, cx + 8] // boundaries: each eye covers the two pixels around it
+  const eyes = [cx - 10, cx + 10] // boundaries: each eye covers the two pixels around it
   const arcUp = (e: number, c: Hex) => { set(b, e - 2, ey + 1, c); set(b, e - 1, ey, c); set(b, e, ey, c); set(b, e + 1, ey + 1, c) }
   const arcDown = (e: number, c: Hex) => { set(b, e - 2, ey, c); set(b, e - 1, ey + 1, c); set(b, e, ey + 1, c); set(b, e + 1, ey, c) }
-  const round = (e: number) => fillEllipse(b, e, ey + 0.5, 1.2, 1.7, dot)
+  const round = (e: number) => fillEllipse(b, e, ey + 0.5, 1.1, 1.3, dot)
   eyes.forEach((e, i) => {
     if (blink) { arcDown(e, fc.ink); return }
     switch (body.eyes) {
@@ -53,12 +54,13 @@ function face(b: PixelBuffer, body: FigureBody, g: HeadGeom, blink: boolean): vo
     }
   })
   // A small nose.
-  const nose = shade(skinOf(body).s, 0.08)
-  set(b, cx - 1, ey + 4, nose); set(b, cx, ey + 4, nose); set(b, cx - 2, ey + 3, nose)
-  if (body.cheeks) for (const s of [-1, 1]) fillEllipse(b, cx + s * 11, ey + 4.5, 2.6, 1.6, fc.cheek)
-  if (body.freckles) for (const s of [-1, 1]) for (const [dx, dy] of [[5, 3], [7, 4], [5, 5], [9, 3]]) set(b, cx + s * dx! - (s < 0 ? 1 : 0), ey + dy!, fc.freckle)
+  // A small nose line.
+  const nose = shade(skinOf(body).s, 0.05)
+  set(b, cx - 1, ey + 3, nose); set(b, cx, ey + 3, nose)
+  if (body.cheeks) for (const s of [-1, 1]) fillEllipse(b, cx + s * 13, ey + 3.5, 3, 1.8, fc.cheek)
+  if (body.freckles) for (const s of [-1, 1]) for (const [dx, dy] of [[6, 2], [8, 3], [6, 4], [10, 2]]) set(b, cx + s * dx! - (s < 0 ? 1 : 0), ey + dy!, fc.freckle)
 
-  const my = ey + 7
+  const my = ey + 6
   const m = fc.mouth
   switch (body.mouth) {
     case 'smile':
@@ -91,23 +93,23 @@ function face(b: PixelBuffer, body: FigureBody, g: HeadGeom, blink: boolean): vo
 const spec: ChibiSpec = {
   size: SIZE,
   floor: FLOOR,
-  head: { rx: 16.5, ry: 14.5, chin: 0.1 },
-  neck: { w: 4, h: 3 },
-  torso: [12, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 12],
-  topRows: 12,
-  arm: { w: 3, len: 12, gap: 1, hand: 4, splay: 2 },
-  leg: { w: 4, len: 12, gap: 2 },
-  foot: { w: 6, h: 3, out: 1 },
-  flare: 5,
-  skirtLen: 11,
-  wings: 2.4,
-  cape: 1.7,
+  head: { rx: 19.5, ry: 17, chin: 0.04 },
+  neck: { w: 6, h: 1 },
+  torso: [16, 18, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18],
+  topRows: 13,
+  arm: { w: 5, len: 12, gap: 1, hand: 6, splay: 1 },
+  leg: { w: 6, len: 10, gap: 2 },
+  foot: { w: 8, h: 4, out: 1 },
+  flare: 6,
+  skirtLen: 10,
+  wings: 2.6,
+  wingsLift: 0.18,
   outline: 'silhouette',
-  ink: c => mix(shade(c, 0.35), '#5a3a6a', 0.35),
+  ink: c => shade(c, 0.22),
   light: null,
   gloss: false,
   face,
-  glasses: g => ({ x: Math.round(g.cx - 12), y: Math.round(g.cy - 2), w: 24, h: 7 }),
+  glasses: g => ({ x: Math.round(g.cx - 15), y: Math.round(g.cy - 1), w: 30, h: 7 }),
 }
 
 // ---------------------------------------------------------------- room

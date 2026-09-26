@@ -10,7 +10,7 @@
  */
 import { DRESS_SKIRT_ROW, type FigureBody, type FigureFrame, type FigureStyle, type Hex, type PixelBuffer, type Texture } from '../types'
 import { mix, shade, tint } from '../core/color'
-import { colourHair, faceColors, starColor, figureKey, frameOrigin, hopOf, Lru, paintGlasses, skinOf, sparkles, withDefaults } from './common'
+import { colourHair, paintCape, faceColors, starColor, figureKey, frameOrigin, hopOf, Lru, paintGlasses, skinOf, sparkles, withDefaults } from './common'
 import { blit, crop, fillEllipse, fillRect, fillRoundRect, flipTexture, makeBuffer, mapTexture, outline, set, smoothResize, topLight, type Rect } from './pixels'
 import { paintRobloxHair } from './roblox-hair'
 
@@ -112,17 +112,18 @@ function paint(f: Pick<FigureFrame, 'figure' | 'tex' | 'kind'>, bob: number, bli
 
   // Back piece behind everything.
   const back = L()
-  if (worn.tex.back) {
-    const wings = worn.kind.back === 'wings'
-    const bw = wings ? 46 : 36, bh = wings ? 38 : 32
-    blit(back, smoothResize(worn.tex.back, bw, bh), CX - bw / 2, wings ? TORSO.y - 12 : TORSO.y)
+  const collar = L()
+  if (worn.tex.back && worn.kind.back === 'cape') {
+    paintCape(back, collar, worn.tex.back, CX, TORSO.y, FLOOR - 4, 40, 48, 2)
+  } else if (worn.tex.back) {
+    blit(back, smoothResize(worn.tex.back, 46, 38), CX - 23, TORSO.y - 12)
   }
 
   // Hat first: hair keeps out of it.
   const hat = L()
   let covers = false
   if (worn.tex.hat) {
-    const s = (HEAD.w / 12) * 1.25
+    const s = (HEAD.w / 12) * 1.45
     const hw = Math.round(16 * s), hh = Math.round(10 * s)
     blit(hat, smoothResize(worn.tex.hat, hw, hh), Math.round(CX - hw / 2), HEAD.y + Math.round(4 * s) - hh)
     const t = worn.tex.hat
@@ -184,7 +185,7 @@ function paint(f: Pick<FigureFrame, 'figure' | 'tex' | 'kind'>, bob: number, bli
 
   const out = L()
   const layers: Array<[PixelBuffer, boolean]> = [
-    [back, true], [hairB, true], [legL, false], [legR, false], [torso, true], [armL, true], [armR, true], [head, true], [hairF, true], [hat, true],
+    [back, true], [hairB, true], [legL, false], [legR, false], [torso, true], [armL, true], [armR, true], [collar, true], [head, true], [hairF, true], [hat, true],
   ]
   for (const [layer, upper] of layers) {
     if (layer !== head) topLight(layer, { x: 0, y: 0, w: W, h: Hh }, LIGHT)

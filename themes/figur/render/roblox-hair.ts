@@ -46,22 +46,29 @@ export function paintRobloxHair(front: PixelBuffer, back: PixelBuffer, style: Ha
       }
       break
     case 'curly':
-      capTop()
-      for (let i = 0; i < 6; i++) fillCircle(front, x - 0.5 + i * 3, y - 1, 2.3, H)
-      for (let i = 0; i < 4; i++) fillCircle(front, x + 1.5 + i * 3.6, y + 3, 1.5, H)
-      for (const s of [-1, 1]) for (let k = 0; k < 3; k++) fillCircle(back, s < 0 ? x - 0.5 : x + w + 0.5, y + 2 + k * 3.2, 2.3, H)
+      // Big round curls all over the top, down the sides past the chin.
+      fillRoundRect(front, x - 2, y - 3, w + 4, 7, 3, H)
+      for (let i = 0; i < 6; i++) fillCircle(front, x - 1 + i * 3.2, y - 2.5, 3, H)
+      for (let i = 0; i < 5; i++) fillCircle(front, x + 0.5 + i * 3.25, y + 3, 1.6, H)
+      for (const s of [-1, 1]) for (let k = 0; k < 4; k++) fillCircle(back, s < 0 ? x - 1 : x + w + 1, y + 1 + k * 3.4, 3, H)
+      for (let i = 0; i < 6; i++) set(front, Math.round(x + i * 3.2), y - 3 + (i % 2), HAIR.light)
       break
     case 'bun':
       fillRoundRect(front, x - 1, y - 1, w + 2, 5, 2, H)
       fillRect(front, x - 1, y + 3, 2, 2, H); fillRect(front, x + w - 1, y + 3, 2, 2, H)
-      fillCircle(front, cx, y - 4, 3.8, H)
-      fillRect(front, cx - 3, y - 1, 6, 1, HAIR.tie)
+      // A big bun on top with a band round its base.
+      fillCircle(front, cx, y - 5.5, 5.2, H)
+      fillCircle(front, cx - 1.5, y - 7, 1.6, HAIR.light)
+      fillRect(front, cx - 4, y - 1, 8, 2, HAIR.tie)
       break
     case 'spiky':
       capTop()
+      // Five bold spikes, the middle ones tallest, fanning out.
       for (let i = 0; i < 5; i++) {
-        const sx = x - 1 + i * 3.6
-        for (let k = 0; k < 5; k++) fillRect(front, sx + k * 0.5, y - 2 - k, Math.max(1, 4 - k), 1, H)
+        const tall = [5, 7, 8, 7, 5][i]!
+        const sx = x - 2 + i * 3.6
+        const lean = (i - 2) * 0.35
+        for (let k = 0; k < tall; k++) fillRect(front, sx + lean * k + (k * 2.5) / tall, y - 1 - k, Math.max(1, Math.round(5 * (1 - k / tall))), 1, H)
       }
       fillRect(front, x - 1, y + 3, 2, 3, H); fillRect(front, x + w - 1, y + 3, 2, 3, H)
       for (let i = 0; i < 4; i++) set(front, x + 1 + i * 3, y + 3, H)
