@@ -9,6 +9,7 @@
 // the snap Chromium, e.g. ~/Pictures/battery):
 //   name=foyer&room=foyer&x=200&y=120&face=left&hero=kjell&flags=furnace.lit,jam.open
 //   &inv=poker,gloves&say=Hello there&who=kjell&w=1280&h=800&dpr=1&frames=60&title=1
+//   &act=talk:hedvig (runs the sentence to its first choice; &scroll=n pages it)
 //   &hover=300,80 (logical px: shows the sentence line) &verb=use &actors=cat:kitchen:200:100
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -66,6 +67,13 @@ window.__shot = (qs) => {
   if (q.get('pose')) A.pose = q.get('pose')
   g.resume()
   if (q.get('verb')) g.verb = q.get('verb')
+  // act=talk:hedvig runs a sentence and skips its lines until a choice is up (&scroll=n pages it).
+  if (q.get('act')) {
+    const [v, id] = q.get('act').split(':')
+    g.act(v, { kind: 'hotspot', id })
+    for (let i = 0; i < 60 * 60 && !g.choice; i++) { g.update(1 / 60); g.drain(); if (g.cmd?.t === 'say') g.key('.') }
+    for (let i = 0; i < +(q.get('scroll') || 0); i++) g.scrollChoices(1)
+  }
   if (q.get('say')) { g.run(function* (c) { yield c.sayAs(q.get('who') || hero, q.get('say')) }) }
   const r = createRenderer()
   const frames = +(q.get('frames') || 30)

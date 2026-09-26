@@ -16,6 +16,10 @@ function heroDef(id, floor, room) {
 function room(id, floor, extra = {}) {
   return { id, name: id, floor, w: 400, walk: [[[0, 100], [400, 100], [400, 140], [0, 140]]], hotspots: [], ...extra }
 }
+const LONG_MENU = Array.from({ length: 9 }, (_, i) => ({
+  id: 'o' + i,
+  text: i % 3 === 1 ? `Option ${i}, which goes on and on about teacups, chimneys, beards and the spirits of the living until it has to wrap.` : `Option ${i}.`,
+}))
 function content() {
   const rooms = {
     a: room('a', 'ground', {
@@ -25,6 +29,7 @@ function content() {
         { id: 'jar', name: 'jar', rect: [310, 70, 10, 10], at: [320, 120], z: 1, verbs: { look: 'A jar on the box.' } },
         { id: 'door', name: 'door', rect: [380, 40, 20, 60], at: [390, 120], exit: { to: 'b', x: 20, y: 120, face: 'right' } },
         { id: 'lock', name: 'lock', rect: [0, 40, 20, 60], at: [10, 120], exit: { to: 'b', x: 20, y: 120, open: s => !!s.flags.unlocked, locked: 'Locked.' } },
+        { id: 'crow', name: 'crow', rect: [100, 40, 20, 20], at: [110, 120], verbs: { talk: function* (c) { const r = yield c.choose(LONG_MENU); c.set('crow.said', r) } } },
         { id: 'owl', name: 'owl', rect: [60, 40, 20, 20], at: [70, 120], verbs: { talk: function* (c) { const r = yield c.choose([{ id: 'hi', text: 'Hi.' }, { id: 'secret', text: 'Secret.', when: c.is('knows') }]); c.set('owl.said', r) } } },
       ],
     }),
@@ -90,6 +95,33 @@ describe('sentences', () => {
     settle(g, { answers: ['hi'] })
     assert.equal(g.s.flags['owl.said'], 'hi')
   })
+  for (const [w, h] of [[320, 200], [390, 844]]) {
+    it(`keeps a long menu inside the panel and scrolls to every option (${w}×${h})`, () => {
+      const g = new B.Game(content())
+      g.resize(w, h)
+      g.act('talk', hs('crow'))
+      for (let i = 0; i < 600 && !g.choice; i++) g.update(1 / 60)
+      const L = g.lay
+      const seen = new Set()
+      for (let step = 0; step < 20; step++) {
+        const rows = g.choiceRows()
+        assert.ok(rows.length > 0)
+        for (const r of rows) {
+          assert.ok(r.y + r.h <= L.choices.y + L.choices.h, 'row ' + r.i + ' spills out of the panel')
+          assert.ok(r.lines.length >= 1 && r.lines.length <= 3)
+          seen.add(r.i)
+        }
+        if (!g.canScrollChoices(1)) break
+        g.pointerDown(L.choiceDown.x + 2, L.choiceDown.y + 2)
+      }
+      assert.equal(seen.size, LONG_MENU.length, 'every option can be reached')
+      assert.ok(g.canScrollChoices(-1))
+      const last = g.choiceRows().at(-1)
+      g.pointerDown(last.x + 4, last.y + 2)
+      settle(g, {})
+      assert.equal(g.s.flags['crow.said'], 'o8')
+    })
+  }
 })
 
 describe('the dumbwaiter', () => {

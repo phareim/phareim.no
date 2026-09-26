@@ -52,15 +52,15 @@ export function drawPanel(g: G, game: Game) {
   }
 
   if (game.choice) {
-    const shown = game.shownChoices()
-    shown.forEach((o, i) => {
-      const y = L.choices.y + i * L.choiceLineH
-      const box = { x: L.choices.x, y, w: L.choices.w, h: L.choiceLineH }
-      const on = p && hit(box, p.x, p.y)
-      const lines = wrapText(o.text, L.choices.w - 4)
-      const text = lines.length > 1 ? lines[0] + '…' : lines[0]!
-      drawText(g, text, box.x + 2, y + Math.floor((L.choiceLineH - 7) / 2), on ? '#ffffff' : hero.color)
-    })
+    const rows = game.choiceRows()
+    for (const r of rows) {
+      const on = p && hit(r, p.x, p.y)
+      const color = on ? '#ffffff' : hero.color
+      const top = r.y + Math.floor((L.choiceLineH - 7) / 2)
+      r.lines.forEach((line, k) => drawText(g, line, r.x + 2 + (k ? 6 : 0), top + k * L.choiceWrapH, color))
+    }
+    arrow(g, L.choiceUp, true, game.canScrollChoices(-1), p)
+    arrow(g, L.choiceDown, false, game.canScrollChoices(1), p)
     drawPortraits(g, game, true)
     return
   }
@@ -99,17 +99,18 @@ export function drawPanel(g: G, game: Game) {
     const k = L.tall && icon.width * 2 <= s.w - 2 && icon.height * 2 <= s.h - 2 ? 2 : 1
     g.drawImage(icon, Math.round(s.x + (s.w - icon.width * k) / 2), Math.round(s.y + (s.h - icon.height * k) / 2), icon.width * k, icon.height * k)
   }
-  const arrow = (b: Box, up: boolean, on: boolean) => {
-    if (!on) return
-    const cx = b.x + Math.floor(b.w / 2)
-    const cy = b.y + Math.floor(b.h / 2)
-    g.fillStyle = p && hit(b, p.x, p.y) ? '#ffffff' : UI.verb
-    for (let r = 0; r < 4; r++) g.fillRect(cx - r, up ? cy - 2 + r : cy + 2 - r, r * 2 + 1, 1)
-  }
-  arrow(L.invUp, true, game.canScroll(-1))
-  arrow(L.invDown, false, game.canScroll(1))
+  arrow(g, L.invUp, true, game.canScroll(-1), p)
+  arrow(g, L.invDown, false, game.canScroll(1), p)
 
   drawPortraits(g, game, busy)
+}
+
+function arrow(g: G, b: Box, up: boolean, on: boolean, p: { x: number; y: number } | null) {
+  if (!on) return
+  const cx = b.x + Math.floor(b.w / 2)
+  const cy = b.y + Math.floor(b.h / 2)
+  g.fillStyle = p && hit(b, p.x, p.y) ? '#ffffff' : UI.verb
+  for (let r = 0; r < 4; r++) g.fillRect(cx - r, up ? cy - 2 + r : cy + 2 - r, r * 2 + 1, 1)
 }
 
 function drawPortraits(g: G, game: Game, dim: boolean) {

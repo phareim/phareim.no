@@ -13,6 +13,7 @@
       @pointercancel="onPointerCancel"
       @pointerleave="onPointerLeave"
       @contextmenu.prevent
+      @wheel.prevent="onWheel"
     />
 
     <div v-if="phase === 'title'" class="nb-menu nb-menu--title">
@@ -173,6 +174,19 @@ function onPointerLeave(e: PointerEvent) {
   if (e.pointerType === 'mouse') game?.pointerLeave()
 }
 
+// The wheel scrolls the dialogue options, or else the inventory; a
+// trackpad's many small deltas add up to one step per 40.
+let wheelSum = 0
+function onWheel(e: WheelEvent) {
+  if (phase.value !== 'playing' || !game) return
+  wheelSum += e.deltaMode === 0 ? e.deltaY : e.deltaY * 40
+  if (Math.abs(wheelSum) < 40) return
+  const dir = wheelSum < 0 ? -1 : 1
+  wheelSum = 0
+  if (game.choice) game.scrollChoices(dir)
+  else if (!game.busy && game.canScroll(dir)) game.invScroll += dir
+}
+
 // ---- keys ----
 
 function onKey(e: KeyboardEvent) {
@@ -190,7 +204,7 @@ function onKey(e: KeyboardEvent) {
   if (phase.value !== 'playing' || !game) return
   if (e.key === ' ' || e.key === 'p' || e.key === 'P' || e.key === 'F5') { e.preventDefault(); pauseGame(); return }
   if (e.key === 'Escape') return
-  if (e.key.length === 1 || e.key === 'Enter') {
+  if (e.key.length === 1 || e.key === 'Enter' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
     e.preventDefault()
     game.key(e.key)
   }

@@ -27,8 +27,13 @@ export interface Layout {
   invUp: Box
   invDown: Box
   portraits: (Box & { hero: HeroId })[]
+  /** Dialogue options; the arrows sit in a column at its right edge. */
   choices: Box
+  /** Height of a one-line option; each wrapped line adds choiceWrapH. */
   choiceLineH: number
+  choiceWrapH: number
+  choiceUp: Box
+  choiceDown: Box
   /** Empty space above the scene on tall screens (the renderer puts a header there). */
   header: Box | null
 }
@@ -70,10 +75,13 @@ function wideLayout(vw: number, vh: number): Layout {
   const invUp = { x: invX - 11, y: ay, w: 10, h: cellH }
   const invDown = { x: invX - 11, y: ay + cellH, w: 10, h: cellH }
   const portraits = HERO_IDS.map((hero, i) => ({ hero, x: px + 320 - portraitW - 1, y: ay + i * 15, w: portraitW, h: 15 }))
-  const choices = { x: px + 4, y: ay, w: 320 - 8 - portraitW - 4, h: 45 }
+  const choices = { x: px + 4, y: ay, w: 320 - 8 - portraitW - 4 - 12, h: 45 }
+  const choiceUp = { x: choices.x + choices.w + 1, y: ay, w: 10, h: 22 }
+  const choiceDown = { x: choiceUp.x, y: ay + 23, w: 10, h: 22 }
   return {
     vw, vh, tall: false, scene, sentence, verbs, inv, cols, rows,
-    cell: { w: cellW, h: cellH }, invUp, invDown, portraits, choices, choiceLineH: 9, header: null,
+    cell: { w: cellW, h: cellH }, invUp, invDown, portraits,
+    choices, choiceLineH: 9, choiceWrapH: 8, choiceUp, choiceDown, header: null,
   }
 }
 
@@ -104,10 +112,15 @@ function tallLayout(vw: number, vh: number, safeBottom: number): Layout {
   const sentence = { x: 0, y: verbY - 14, w: vw, h: 11 }
   const sceneY = Math.max(4, sentence.y - 4 - ROOM_H)
   const scene = { x: 0, y: sceneY, w: vw, h: ROOM_H }
-  const choices = { x: m, y: verbY, w: vw - m * 2, h: invY + rows * cellH - verbY }
+  const choiceH = invY + rows * cellH - verbY
+  const choices = { x: m, y: verbY, w: vw - m * 2 - 22, h: choiceH }
+  const half = Math.floor(choiceH / 2)
+  const choiceUp = { x: choices.x + choices.w + 2, y: verbY, w: 20, h: half - 1 }
+  const choiceDown = { x: choiceUp.x, y: verbY + half, w: 20, h: choiceH - half }
   const header = sceneY > 24 ? { x: 0, y: 0, w: vw, h: sceneY } : null
   return {
     vw, vh, tall: true, scene, sentence, verbs, inv, cols, rows,
-    cell: { w: cellW, h: cellH }, invUp, invDown, portraits, choices, choiceLineH: 16, header,
+    cell: { w: cellW, h: cellH }, invUp, invDown, portraits,
+    choices, choiceLineH: 16, choiceWrapH: 9, choiceUp, choiceDown, header,
   }
 }

@@ -239,7 +239,9 @@ buttons.
 
 Dialogue: SCUMM style, text over the speaker's head in their colour, one line
 at a time, timed by length, skipped with a click. Dialogue choices replace
-the verb panel. Every hero has his own blips of "voice" (Animal Crossing
+the verb panel; a long option wraps (up to three lines), and when the options
+don't fit, arrows beside the portraits, the arrow keys or the wheel scroll
+them (the wide panel shows five one-line options). Every hero has his own blips of "voice" (Animal Crossing
 style), pitched by who speaks.
 
 ## Sound
