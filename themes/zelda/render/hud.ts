@@ -8,6 +8,7 @@ import { questHint, questStep } from '../progress'
 import { drawText, textWidth, wrapText, GLYPH_H } from './font'
 import { sprite } from './sheet'
 import { hasBigKey, keyCount } from '../engine/map'
+import { asksToLeave } from '../engine/game'
 
 type G = CanvasRenderingContext2D
 
@@ -95,7 +96,10 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
   const w = Math.min(vw - 12, 280)
   const inner = w - 16
   const wrapped = wrapText(line, inner)
-  const h = wrapped.length * (GLYPH_H + 4) + 14
+  // An exit's last line asks YES / NO on a row of its own, YES in the left half and NO in the right (touch taps a half).
+  const asks = asksToLeave(d)
+  const textH = wrapped.length * (GLYPH_H + 4)
+  const h = textH + 14 + (asks ? GLYPH_H + 8 : 0)
   const x = Math.round((vw - w) / 2)
   const y = heroScreenY > vh * 0.58 ? 8 : vh - h - 8
   box(g, x, y, w, h)
@@ -105,6 +109,18 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
     const shown = text.slice(0, Math.max(0, left))
     left -= text.length + 1
     drawText(g, shown, x + 8, y + 8 + i * (GLYPH_H + 4), '#fff4ff', '#3a1a4a')
+  }
+  if (asks) {
+    if (d.chars < line.length) return
+    const oy = y + 8 + textH + 4
+    ;(['YES', 'NO'] as const).forEach((label, i) => {
+      const on = (d.choice ?? 0) === i
+      const cx = x + Math.round(w * (i === 0 ? 0.3 : 0.7))
+      const tx = Math.round(cx - textWidth(label) / 2)
+      drawText(g, label, tx, oy, on ? '#2ff3ff' : '#6d5a8f', on ? '#0b0616' : undefined)
+      if (on) drawText(g, '>', tx - 8, oy, '#2ff3ff')
+    })
+    return
   }
   if (d.chars >= line.length && Math.floor(time * 3) % 2 === 0) {
     g.fillStyle = '#2ff3ff'

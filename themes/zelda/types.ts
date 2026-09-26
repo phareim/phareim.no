@@ -646,6 +646,10 @@ export interface Dialog {
   who: string | null
   /** Shop purchase awaiting the last line, applied on close; `exit` starts that exit's fade on close. */
   after: null | { give?: ItemId; set?: string[]; clear?: string[]; sourceId?: string; price?: number; exit?: { id: string; to: ExitTarget }; startOver?: true }
+  /** Exit dialogs: the answer picked on the last line, 0 = YES (go), 1 = NO (stay). */
+  choice?: 0 | 1
+  /** A direction was held last frame (the choice moves once per press). */
+  held?: boolean
 }
 
 export interface GameState {
@@ -699,6 +703,8 @@ export interface Input {
   cycle: boolean
   /** Touch: a swing at rest turns to the nearest enemy first. */
   autoFace: boolean
+  /** A tap this frame on the left (-1) or right (1) half of the screen; picks YES or NO. */
+  tapSide?: -1 | 1
 }
 
 export const NO_INPUT: Input = { move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false }
@@ -741,6 +747,8 @@ export type GameEvent =
   | { type: 'warp' }
   | { type: 'talk' }
   | { type: 'text' } // a character was typed (throttled by the shell)
+  | { type: 'choose' } // the YES/NO cursor moved
+  | { type: 'back' } // an exit's lines were closed without leaving
   | { type: 'buy'; ok: boolean }
   | { type: 'bossPhase'; phase: number }
   | { type: 'bossDown'; kind: EnemyKind }

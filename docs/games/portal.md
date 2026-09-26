@@ -41,8 +41,14 @@ silent, the clock still. The town has no enemies or hazards. Nothing is
 saved and no Hall of Fame player is created until the hero has the blade.
 
 **Leaving and coming back.** A cabinet, the board, the kiosk, the radio
-station's door, the signpost and the terminals show their lines when you face them and press A; closing
-the lines fades out and leaves. The HANGAR door leaves as you step on it.
+station's door, the signpost and the terminals show their lines when you
+face them and press A. The last line is a question (INSERT COIN?, OPEN
+IT?, TUNE IN? …) with YES and NO under it, YES picked: A answers, any
+arrow moves the cursor, a tap on the left half of the screen is YES and on
+the right half NO. YES fades out and leaves; NO closes the lines and the
+hero stays at the machine. B, Backspace or an Escape tap back out on any
+line (2026-09-26; before that every press led into the game). The HANGAR
+door leaves as you step on it.
 On the engine's `exit` event the shell saves (with the blade), writes
 sessionStorage `portal.return` = `{ map, entry: <exit id> }`, then calls
 `useTheme().launch(theme)` or `location.assign(url)`. On mount it starts at
@@ -153,6 +159,12 @@ The login console headless in the dev server on 2026-09-26 at 375×667
 LOG OUT, Escape closing it in the house, LOG IN leaving for the auth page
 and coming back at the console; no page errors. Not checked: the real
 auth.phareim.no (not live then), its cookie on a real phone, Safari.
+
+The YES / NO question at the Galaga cabinet headless in the dev server on
+2026-09-26 at 1280×800 and 390×844 (2×, touch)
+(`scripts/zelda-lab/exit-shot.mjs`): → then Space stays, an Escape tap
+stays, a tap on the right half stays. `test:portal` runs every exit with
+lines through B, NO, a NO tap and YES. Not checked: a real phone.
 
 **Known.** On a desktop, once the hero has the blade, the HUD (hearts,
 bits, item box) sits over the left end of PETTER HAREIM at the start, as

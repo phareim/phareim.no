@@ -30,7 +30,7 @@ export const HIGH_SCORE_SIGN: string[] = [
  * the renderer paints on its marquee). Face it and press A: the lines are
  * the pitch and the confirmation, and closing them starts the game.
  */
-const COIN = 'INSERT COIN? PRESS {A}.'
+const COIN = 'INSERT COIN?'
 
 /** A game cabinet, entered from the tile below it. */
 function cabinet(id: string, label: string, lines: string[]): { tile: 'M'; ent: ExitDef } {
@@ -106,7 +106,7 @@ export const ARCADE: MapDef = {
       tile: 'I',
       ent: {
         t: 'exit', id: 'leaderboard', to: { theme: 'leaderboard' }, look: 'board', label: 'HALL OF FAME', side: 'down',
-        lines: ['HALL OF FAME. THE BEST SCORE ON EVERY CABINET, FROM EVERYONE WHO PLAYS.', 'SEE THE BOARD? PRESS {A}.'],
+        lines: ['HALL OF FAME. THE BEST SCORE ON EVERY CABINET, FROM EVERYONE WHO PLAYS.', 'SEE THE BOARD?'],
       },
     },
     h: {
@@ -179,15 +179,15 @@ export const HOME: MapDef = {
     d: { tile: 'D', ent: { t: 'warp', to: 'overworld', entry: 'home' } },
     '1': terminal('linkedin', 'LINKEDIN', 'https://www.linkedin.com/in/phareim', [
       'LINKEDIN: PETTER HAREIM. THE WORK, PAST AND PRESENT.',
-      'OPEN IT? PRESS {A}.',
+      'OPEN IT?',
     ]),
     '2': terminal('github', 'GITHUB', 'https://github.com/phareim', [
       'GITHUB: PHAREIM. CODE, SIDE PROJECTS AND EXPERIMENTS.',
-      'OPEN IT? PRESS {A}.',
+      'OPEN IT?',
     ]),
     '3': terminal('bluesky', 'BLUESKY', 'https://bsky.app/profile/phareim.no', [
       'BLUESKY: PHAREIM.NO. SHORT POSTS, NOW AND THEN.',
-      'OPEN IT? PRESS {A}.',
+      'OPEN IT?',
     ]),
     // Its lines close into the shell's yes/no question (the engine's `startOver` event).
     '4': {

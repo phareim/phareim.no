@@ -207,7 +207,7 @@ describe('portal world', () => {
       assert.deepEqual(c.ent.to, { theme: c.ent.art })
       assert.ok(c.ent.label, `${c.id} has no label`)
       assert.ok(c.ent.lines.length >= 2 && c.ent.lines.length <= 3, `${c.id} has ${c.ent.lines.length} lines`)
-      assert.match(c.ent.lines.at(-1), /^INSERT COIN\? PRESS \{A\}\.$/)
+      assert.equal(c.ent.lines.at(-1), 'INSERT COIN?')
       assert.equal(P.mapInfo(W, 'arcade').base[c.y * P.mapInfo(W, 'arcade').w + c.x], 'M', `${c.id} is not on a machine tile`)
     }
   })
@@ -268,6 +268,67 @@ describe('portal world', () => {
       const ent = placedExits().find(e => e.id === id).ent
       if (ent.lines) assert.deepEqual(lines, ent.lines, `${id}: the lines are the confirmation`)
     }
+  })
+
+  it('asks YES or NO on the last line of every exit, and backs out without leaving', () => {
+    const asking = placedExits().filter(e => e.ent.lines && !('reset' in e.ent.to) && !('panel' in e.ent.to))
+    assert.ok(asking.length >= 16, `only ${asking.length} exits with lines`)
+    /** Stand at the exit, press A, and type out every line but the last. */
+    const open = (e) => {
+      const w = P.worldStartingAt(e.map, e.id)
+      const s = P.createGame(w, { seed: 1 })
+      const ev = []
+      const step = (i = inp(), dt = 1 / 60) => ev.push(...P.stepGame(w, s, dt, i))
+      step(inp({ aPress: true, a: true }))
+      assert.equal(s.mode, 'dialog', `${e.id}: A should open its lines`)
+      return { s, ev, step }
+    }
+    const toLast = ({ s, step }) => {
+      while (s.dialog.line < s.dialog.lines.length - 1) { step(inp(), 0.5); step(inp({ aPress: true, a: true })) }
+      while (s.dialog.chars < s.dialog.lines[s.dialog.line].length) step(inp(), 0.1)
+      assert.equal(P.asksToLeave(s.dialog), true)
+    }
+    const stays = ({ s, ev, step }, why) => {
+      for (let k = 0; k < 60; k++) step()
+      assert.equal(s.mode, 'play', why)
+      assert.ok(!ev.some(x => x.type === 'exit'), why)
+      assert.ok(ev.some(x => x.type === 'back'), why)
+    }
+    for (const e of asking) {
+      assert.doesNotMatch(e.ent.lines.at(-1), /PRESS/, `${e.id}: the question still says PRESS`)
+      // Nothing asked before the last line.
+      const first = open(e)
+      assert.equal(P.asksToLeave(first.s.dialog), e.ent.lines.length === 1)
+      // B on the first line backs out.
+      first.step(inp({ bPress: true }))
+      stays(first, `${e.id}: B on the first line`)
+      // B on the question backs out.
+      const b = open(e); toLast(b); b.step(inp({ bPress: true }))
+      stays(b, `${e.id}: B on the question`)
+      // Right, then A: NO.
+      const no = open(e); toLast(no)
+      no.step(inp({ move: { x: 1, y: 0 } }))
+      assert.equal(no.s.dialog.choice, 1)
+      no.step(); no.step(inp({ aPress: true, a: true }))
+      stays(no, `${e.id}: NO`)
+      // A tap on the right half: NO.
+      const tap = open(e); toLast(tap)
+      tap.step(inp({ aPress: true, a: true, tapSide: 1 }))
+      stays(tap, `${e.id}: a tap on NO`)
+      // Down, down (back to YES), then a tap on the left half: YES leaves.
+      const yes = open(e); toLast(yes)
+      yes.step(inp({ move: { x: 0, y: 1 } })); yes.step(); yes.step(inp({ move: { x: 0, y: 1 } })); yes.step()
+      assert.equal(yes.s.dialog.choice, 0)
+      yes.step(inp({ aPress: true, a: true, tapSide: -1 }))
+      for (let k = 0; k < 120 && yes.s.mode !== 'exit'; k++) yes.step()
+      assert.equal(yes.s.mode, 'exit', `${e.id}: YES should leave`)
+    }
+    // An arrow still held from walking up does not move the cursor to NO.
+    const held = open(asking[0])
+    while (held.s.dialog.line < held.s.dialog.lines.length - 1) { held.step(inp({ move: { x: 1, y: 0 } }), 0.5); held.step(inp({ move: { x: 1, y: 0 }, aPress: true, a: true })) }
+    while (held.s.dialog.chars < held.s.dialog.lines.at(-1).length) held.step(inp({ move: { x: 1, y: 0 } }), 0.1)
+    held.step(inp({ move: { x: 1, y: 0 } }))
+    assert.equal(held.s.dialog.choice, 0)
   })
 
   it('has a NEW GAME machine in Petter\'s house that asks, and leaves nothing, only once there is a quest', () => {
@@ -364,7 +425,7 @@ describe('portal world', () => {
     assert.ok(isWall(def, st.x - 1, st.y) || isWall(def, st.x + 1, st.y), 'the door is not in a wall')
     assert.ok(!P.TILE_INFO[P.createGame(W, { seed: 1 }).map.tiles[(st.y + 1) * def.rows[0].length + st.x]].solid, 'nothing to stand on in front of the door')
     assert.equal(st.ent.label, 'RADIO')
-    assert.match(st.ent.lines.at(-1), /^TUNE IN\? PRESS \{A\}\.$/)
+    assert.equal(st.ent.lines.at(-1), 'TUNE IN?')
     assert.ok(def.decals.some(d => d.text === 'RADIO' && Math.abs(d.x - (st.x + 0.5)) <= 1.5), 'no RADIO sign over the station')
   })
 

@@ -7,7 +7,7 @@
  * Keys: arrows / WASD move; Space / J / Z / Enter = A; K / X / Shift = B;
  * Q / Tab / C cycle. Touch: a floating stick starts under a finger on the
  * left 60 % of the screen; a tap on the right 40 % presses A; any tap moves a
- * dialog on. The mouse only moves dialogs on (the deck buttons call pressA …).
+ * dialog on, and on a YES / NO line the half it lands on is the answer. The mouse only moves dialogs on (the deck buttons call pressA …).
  */
 import type { Input } from './types'
 
@@ -68,6 +68,7 @@ export function createInput(hooks: InputHooks): GameInput {
   let aPress = false
   let bPress = false
   let cyclePress = false
+  let tapSide: -1 | 1 | undefined
   let stick: { id: number; ox: number; oy: number; dx: number; dy: number } | null = null
   let idleTap: { id: number; x: number; y: number } | null = null
 
@@ -93,7 +94,9 @@ export function createInput(hooks: InputHooks): GameInput {
       bPress,
       cycle: cyclePress,
       autoFace: hooks.touch(),
+      tapSide,
     }
+    tapSide = undefined
     aPress = false
     bPress = false
     cyclePress = false
@@ -107,6 +110,7 @@ export function createInput(hooks: InputHooks): GameInput {
     aPress = false
     bPress = false
     cyclePress = false
+    tapSide = undefined
     stick = null
     idleTap = null
   }
@@ -123,8 +127,8 @@ export function createInput(hooks: InputHooks): GameInput {
     const p = canvasPoint(e)
     if (hooks.idle()) { idleTap = { id: e.pointerId, x: p.x, y: p.y }; return }
     if (hooks.paused()) return
-    // Any tap moves a dialog on.
-    if (hooks.dialog()) { aPress = true; return }
+    // Any tap moves a dialog on; its side answers a YES / NO line.
+    if (hooks.dialog()) { aPress = true; tapSide = p.x < p.w / 2 ? -1 : 1; return }
     if (e.pointerType === 'mouse') return
     if (!stick && p.x < p.w * 0.6) {
       stick = { id: e.pointerId, ox: p.x, oy: p.y, dx: 0, dy: 0 }

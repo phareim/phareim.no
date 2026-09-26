@@ -6,7 +6,7 @@
  * get (item held up, then its text) / dying → respawn; won and exit (the
  * hero left through an exit, the shell navigates) are terminal.
  */
-import type { AreaIntro, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
+import type { AreaIntro, Dialog, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
 import { HERO_R, NO_INPUT, SAVE_VERSION, SCROLL_TIME, START_HP, STEP, WARP_TIME } from '../types'
 import { acquire, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
@@ -341,6 +341,21 @@ function dialog(c: Ctx, dt: number, inp: Input) {
     d.chars = Math.min(line.length, d.chars + dt * TYPE_SPEED)
     if (Math.floor(d.chars) > before && line[Math.floor(d.chars) - 1] !== ' ') c.ev.push({ type: 'text' })
   }
+  // Lines that lead out of the world (an exit, the NEW GAME machine): B backs out at any line.
+  if (inp.bPress && d.after && (d.after.exit || d.after.startOver)) { closeWithoutLeaving(c); return }
+  // Tracked on every line, so a direction still held from walking up never moves the cursor.
+  const dir = Math.abs(inp.move.x) > 0.5 || Math.abs(inp.move.y) > 0.5
+  const turned = dir && !d.held
+  d.held = dir
+  if (asksToLeave(d) && d.chars >= line.length) {
+    // The last line asks: YES goes, NO stays. Any direction moves the cursor, a tap picks a side.
+    if (turned) {
+      d.choice = inp.move.x < -0.5 ? 0 : inp.move.x > 0.5 ? 1 : d.choice === 1 ? 0 : 1
+      c.ev.push({ type: 'choose' })
+    }
+    if (inp.aPress && inp.tapSide) d.choice = inp.tapSide < 0 ? 0 : 1
+    if (inp.aPress && d.choice === 1) { closeWithoutLeaving(c); return }
+  }
   if (!inp.aPress && !inp.bPress) return
   if (d.chars < line.length) { d.chars = line.length; return }
   d.line++
@@ -367,6 +382,17 @@ function dialog(c: Ctx, dt: number, inp: Input) {
       c.ev.push({ type: 'won', elapsed: s.elapsed })
     }
   }
+}
+
+/** True on the last line of an exit's lines: the dialog box shows YES / NO. */
+export function asksToLeave(d: Dialog): boolean {
+  return !!d.after?.exit && d.line === d.lines.length - 1
+}
+
+function closeWithoutLeaving(c: Ctx) {
+  c.s.dialog = null
+  c.s.mode = 'play'
+  c.ev.push({ type: 'back' })
 }
 
 function getItem(c: Ctx, dt: number, _inp: Input) {

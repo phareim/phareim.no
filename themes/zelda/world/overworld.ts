@@ -118,7 +118,7 @@ export const OVERWORLD: MapDef = {
       tile: 'n',
       ent: {
         t: 'exit', id: 'kiosk', to: { url: 'https://phareim.md' }, look: 'kiosk', label: 'PHAREIM.MD', side: 'down',
-        lines: ["PHAREIM.MD: PETTER'S WRITING. ESSAYS, NOTES AND THINGS HE WORKED OUT THE LONG WAY.", 'TAKE A COPY? PRESS {A}.'],
+        lines: ["PHAREIM.MD: PETTER'S WRITING. ESSAYS, NOTES AND THINGS HE WORKED OUT THE LONG WAY.", 'TAKE A COPY?'],
       },
     },
     // The radio station: a little studio on the coast road, a mast with a red light on the roof.
@@ -126,14 +126,14 @@ export const OVERWORLD: MapDef = {
       tile: 'H',
       ent: {
         t: 'exit', id: 'radio', to: { theme: 'radio' }, look: 'studio', label: 'RADIO', side: 'down',
-        lines: ['RADIO PHAREIM. TEN PLACES ON ONE DIAL, AND THE MUSIC IS MADE UP AS IT PLAYS.', 'TUNE IN? PRESS {A}.'],
+        lines: ['RADIO PHAREIM. TEN PLACES ON ONE DIAL, AND THE MUSIC IS MADE UP AS IT PLAYS.', 'TUNE IN?'],
       },
     },
     s: {
       tile: 'S',
       ent: {
         t: 'exit', id: 'games', to: { url: 'https://games.phareim.no' }, look: 'sign', label: 'GAMES.PHAREIM.NO', side: 'down',
-        lines: ['GAMES.PHAREIM.NO: MORE GAMES, ON A SITE OF THEIR OWN.', 'FOLLOW THE SIGN? PRESS {A}.'],
+        lines: ['GAMES.PHAREIM.NO: MORE GAMES, ON A SITE OF THEIR OWN.', 'FOLLOW THE SIGN?'],
       },
     },
     '8': {

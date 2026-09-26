@@ -2,7 +2,7 @@
   <canvas ref="canvas" class="zelda-canvas" />
   <!-- Measures the notch and status-bar insets for the HUD (installed web app, landscape). -->
   <div ref="safeProbe" class="zelda-safe" aria-hidden="true" />
-  <EscHold :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="togglePause" @hold="toTown" />
+  <EscHold :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="escTap" @hold="toTown" />
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
@@ -218,10 +218,18 @@ function shellKey(e: KeyboardEvent): boolean {
       if (e.code === 'KeyN' || e.code === 'Backspace') { e.preventDefault(); cancelReset(); return true }
     } else if (e.code === 'KeyT') { e.preventDefault(); toTown(); return true }
   }
+  // Backspace backs out of lines that lead somewhere, like B.
+  if (e.code === 'Backspace' && !paused.value && backsOut()) { e.preventDefault(); if (!e.repeat) input.pressB(); return true }
   if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) togglePause(); return true }
   // Nothing to swap: Tab keeps its job and reaches the page's link index.
   if (e.code === 'Tab' && !hasItem.value) return true
   return false
+}
+
+/** The open lines lead out of the world (a cabinet, a door out, the NEW GAME machine): B, Backspace and an Escape tap back out. */
+function backsOut() {
+  const after = state.dialog?.after
+  return state.mode === 'dialog' && !!(after?.exit || after?.startOver)
 }
 
 function pressA() { input.pressA() }
@@ -417,6 +425,12 @@ function onFirstGesture() {
 
 // ---- pause menu -------------------------------------------------------------------
 
+/** An Escape tap: backs out of a cabinet's (or any exit's) lines, else pauses. */
+function escTap() {
+  if (phase.value === 'play' && !paused.value && backsOut()) { input.pressB(); return }
+  togglePause()
+}
+
 function togglePause() {
   if (phase.value !== 'play') return
   // P or an Escape tap while asking "start over?" means no.
@@ -499,6 +513,7 @@ const BIG_FOES = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gem
 const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
   swing: 'sword', spin: 'spin', charged: 'charge', clank: 'clank', hurt: 'hurt', shock: 'shock',
   cut: 'cut', shatter: 'shatter', lift: 'lift', throw: 'throw', unlock: 'unlock', gate: 'gate',
+  choose: 'select', back: 'menu',
   plate: 'plate', crystal: 'crystal', push: 'push', bombPlace: 'bombPlace', boom: 'boom', disc: 'disc',
   discHit: 'discHit', fall: 'fall', reflect: 'reflect', warp: 'stairs', text: 'text', talk: 'select',
   error: 'error', cycle: 'select', died: 'die', bossPhase: 'bossRoar',

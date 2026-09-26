@@ -387,7 +387,7 @@ function condFor(c: Ctx, cond: import('../types').Cond | undefined) {
 
 export function openDialog(c: Ctx, lines: string[], who: string | null, after: import('../types').Dialog['after'] = null) {
   const s = c.s
-  s.dialog = { lines, line: 0, chars: 0, who, after }
+  s.dialog = { lines, line: 0, chars: 0, who, after, choice: 0, held: true }
   s.mode = 'dialog'
   const h = s.hero
   h.swing = null
