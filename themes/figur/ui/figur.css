@@ -1,0 +1,278 @@
+/*
+ * Lag Din Figur's studio: the pixel look's dialog box and buttons
+ * (.px-box, .px-btn from themes/base/pixel/pixel.css) in lilac and pink
+ * daylight. Everything is scoped under .fg-root (Game.vue's shell); the
+ * page tokens (--figur-*) are theme.css's. Pixel font at 16, 24 or 32 px.
+ * Hard pixel edges only: no soft shadows, no gradients on buttons.
+ */
+.fg-root {
+  --fg-ink: var(--figur-ink, #2a1744);
+  --fg-ink-soft: #5a4680;
+  --fg-muted: #9a8cc0;
+  --fg-paper: #ffffff;
+  --fg-tile: #fbf2ff;
+  --fg-lilac: var(--figur-lilac, #f6d8ff);
+  --fg-lilac-deep: var(--figur-lilac-deep, #c9a2ff);
+  --fg-pink: var(--figur-pink, #ff7ac0);
+  --fg-pink-deep: var(--figur-pink-deep, #d9468f);
+  --fg-pink-soft: #ffe0f0;
+  --fg-sun: var(--figur-sun, #ffd84a);
+  --fg-sun-soft: #fff4c2;
+  --fg-mint: var(--figur-mint, #7fe0b0);
+  --fg-sky: var(--figur-sky, #6ecbff);
+  --fg-red: #ff4f6e;
+  --fg-grey: #ece6f6;
+  --fg-fast: 150ms;
+  font-family: var(--font-pixel);
+  color: var(--fg-ink);
+  -webkit-font-smoothing: none;
+}
+
+.fg-root .fg-t {
+  font-family: var(--font-pixel);
+  text-transform: uppercase;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+/* ---------------------------------------------------------------- box */
+
+.fg-root .px-box.fg-box {
+  --px-u: 3px;
+  --px-edge: var(--fg-ink);
+  background: var(--fg-paper);
+  color: var(--fg-ink);
+}
+.fg-root .px-box.fg-box::before {
+  background: var(--fg-pink);
+  opacity: 0.55;
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+.fg-root .px-btn.fg-btn {
+  --px-u: 3px;
+  --px-edge: var(--fg-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  min-width: 48px;
+  padding: 0 14px;
+  font-size: 16px;
+  line-height: 1.25;
+  color: var(--fg-ink);
+  background: var(--fg-sun);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: background-color var(--fg-fast) ease-out, color var(--fg-fast) ease-out, transform 80ms ease-out;
+}
+.fg-root .px-btn.fg-btn:focus-visible {
+  color: var(--fg-ink);
+  outline: 3px solid var(--fg-sky);
+  outline-offset: 5px;
+}
+@media (hover: hover) {
+  .fg-root .px-btn.fg-btn:hover:not(:disabled) {
+    color: #fff;
+    background: var(--fg-pink-deep);
+  }
+}
+.fg-root .px-btn.fg-btn:active:not(:disabled) { transform: translateY(2px); }
+.fg-root .px-btn.fg-btn--go { background: var(--fg-mint); }
+.fg-root .px-btn.fg-btn--pink { background: var(--fg-pink); color: var(--fg-ink); }
+.fg-root .px-btn.fg-btn--plain { background: var(--fg-paper); }
+.fg-root .px-btn.fg-btn--sky { background: var(--fg-sky); }
+.fg-root .px-btn.fg-btn--lilac { background: var(--fg-lilac-deep); }
+.fg-root .px-btn.fg-btn--danger { background: var(--fg-red); color: #fff; }
+.fg-root .px-btn.fg-btn--big { min-height: 56px; font-size: 24px; padding: 0 20px; }
+.fg-root .px-btn.fg-btn--wide { width: 100%; }
+.fg-root .px-btn.fg-btn--square { padding: 0; width: 48px; }
+.fg-root .px-btn.fg-btn--on { background: var(--fg-pink); color: var(--fg-ink); --px-edge: var(--fg-ink); }
+.fg-root .px-btn.fg-btn:disabled {
+  cursor: default;
+  color: var(--fg-muted);
+  background: var(--fg-grey);
+  --px-edge: var(--fg-muted);
+}
+
+/* ---------------------------------------------------------------- tiles (a picture, maybe a word) */
+
+.fg-root .fg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 12px;
+  padding: 4px;
+}
+.fg-root .fg-grid--swatch { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 10px; }
+
+.fg-root .fg-tile {
+  --u: 3px;
+  --edge: var(--fg-ink);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 52px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 0;
+  background: var(--fg-tile);
+  color: var(--fg-ink);
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  line-height: 1.25;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  box-shadow:
+    0 calc(-1 * var(--u)) 0 0 var(--edge),
+    0 var(--u) 0 0 var(--edge),
+    calc(-1 * var(--u)) 0 0 0 var(--edge),
+    var(--u) 0 0 0 var(--edge);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
+  transition: background-color var(--fg-fast) ease-out, transform 80ms ease-out;
+}
+.fg-root .fg-tile:active:not(:disabled) { transform: translateY(2px); }
+.fg-root .fg-tile:focus-visible { outline: 3px solid var(--fg-sky); outline-offset: 4px; }
+@media (hover: hover) {
+  .fg-root .fg-tile:hover:not(:disabled) { background: var(--fg-sun-soft); }
+}
+.fg-root .fg-tile--on {
+  --edge: var(--fg-pink-deep);
+  background: var(--fg-pink-soft);
+  box-shadow:
+    0 -5px 0 0 var(--fg-pink-deep),
+    0 5px 0 0 var(--fg-pink-deep),
+    -5px 0 0 0 var(--fg-pink-deep),
+    5px 0 0 0 var(--fg-pink-deep);
+}
+.fg-root .fg-tile:disabled { cursor: default; opacity: 0.55; }
+.fg-root .fg-tile img.fg-pic {
+  display: block;
+  width: 100%;
+  max-width: 64px;
+  height: 56px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.fg-root .fg-tile-name {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A colour swatch: the colour fills the tile. */
+.fg-root .fg-swatch {
+  padding: 0;
+  min-height: 48px;
+  min-width: 44px;
+}
+.fg-root .fg-swatch-fill {
+  display: block;
+  position: absolute;
+  inset: 5px;
+}
+
+/* ---------------------------------------------------------------- rows and words */
+
+.fg-root .fg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.fg-root .fg-row--end { justify-content: flex-end; }
+.fg-root .fg-row--center { justify-content: center; }
+.fg-root .fg-stack { display: flex; flex-direction: column; gap: 12px; }
+
+.fg-root .fg-h { margin: 0; font-size: 24px; line-height: 1.25; text-transform: uppercase; font-weight: 400; }
+.fg-root .fg-p { margin: 0; font-size: 16px; line-height: 1.5; text-transform: uppercase; }
+.fg-root .fg-dim { color: var(--fg-ink-soft); }
+.fg-root .fg-warn { color: #c0144f; }
+.fg-root .fg-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 8px;
+  font-size: 16px;
+  line-height: 1.25;
+  color: var(--fg-ink-soft);
+  text-transform: uppercase;
+}
+.fg-root .fg-label:first-child { margin-top: 2px; }
+
+/* A strip of swatches that scrolls sideways inside a panel. */
+.fg-root .fg-strip {
+  display: flex;
+  gap: 10px;
+  padding: 6px 6px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+.fg-root .fg-strip::-webkit-scrollbar { display: none; }
+.fg-root .fg-strip .fg-swatch { flex: none; width: 44px; }
+
+.fg-root .fg-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 56px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  font-family: var(--font-pixel);
+  font-size: 24px;
+  text-transform: uppercase;
+  color: var(--fg-ink);
+  background: var(--fg-tile);
+  box-shadow:
+    0 -3px 0 0 var(--fg-ink),
+    0 3px 0 0 var(--fg-ink),
+    -3px 0 0 0 var(--fg-ink),
+    3px 0 0 0 var(--fg-ink);
+  -webkit-appearance: none;
+  appearance: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.fg-root .fg-input:focus {
+  background: var(--fg-sun-soft);
+  box-shadow:
+    0 -3px 0 0 var(--fg-pink-deep),
+    0 3px 0 0 var(--fg-pink-deep),
+    -3px 0 0 0 var(--fg-pink-deep),
+    3px 0 0 0 var(--fg-pink-deep);
+}
+.fg-root .fg-input::placeholder { color: var(--fg-muted); }
+
+/* ---------------------------------------------------------------- motion */
+
+/* Panels arrive with a short rise and leave at once (no leave transitions: a
+   close must never wait on an animation). */
+@keyframes fg-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fg-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fg-root * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
