@@ -273,7 +273,7 @@ export const DEEP1: MapDef = {
     '0,0': { dark: true, events: [{ when: { flag: 'luna' }, lines: LUNA_ROOM, who: 'luna', set: 'room11' }] },
     '2,1': {
       track: 'boss',
-      events: [{ when: { notFlag: 'deepseek' }, lines: ['DEEPSEEK. IT HUNTS UNDER THE FLOOR, WHERE THE LIGHT DOES NOT GO.', 'IT HAS TO COME UP TO BITE. SOMETHING ON A CHAIN COULD HAUL IT UP SOONER.'], set: 'deepseek.met' }],
+      events: [{ when: { notFlag: 'deepseek' }, lines: ['DEEPSEEK. IT HUNTS UNDER THE FLOOR, WHERE THE LIGHT DOES NOT GO.'], set: 'deepseek.met' }],
     },
   },
   props: [{ kind: 'lights', x: 1.5, y: 1, w: 13, h: 1, text: 'DUSK' }],
@@ -303,7 +303,7 @@ export const DEEP1: MapDef = {
     r: NOTE(['A WALL OF CHRISTMAS LIGHTS, A LETTER PAINTED UNDER EACH BULB.', 'SOME OF THE BULBS STILL BLINK, ONE AT A TIME, OVER AND OVER.']),
     w: NOTE(['THE VAULT DOOR HAS NO KEYHOLE. A PLATE SAYS:', 'THE VAULT LISTENS FOR ONE WORD. SPEAK IT WITH YOUR FEET.']),
     s: NOTE(['DELIVERY CHUTE TO SUBLEVEL 2. DROP CRATES, NOT STAFF.']),
-    x: NOTE(['THE STAIRS DOWN ARE CHOKED WITH STATIC VINES.', 'A NOTE PINNED TO THEM: ONLY THE ARC PROTOTYPE CUTS THIS STUFF. IT IS IN THE VAULT.']),
+    x: NOTE(['THE STAIRS DOWN ARE CHOKED WITH STATIC VINES. THEY HUM.']),
     y: NOTE(['CRYSTAL RELAY. EVERY SWITCH IN THE DEEP LAB, BOTH FLOORS, SHARES ONE STATE.']),
   },
 }
@@ -321,7 +321,7 @@ export const DEEP2: MapDef = {
     '1,0': {
       track: 'boss', mood: 'static',
       events: [
-        { when: { notFlag: 'gemini' }, lines: ['GEMINI. TWO MINDS, ONE THOUGHT.', 'STRIKE ONE DOWN AND THE OTHER REMEMBERS FOR BOTH. BRING THEM DOWN TOGETHER.'], set: 'gemini.met' },
+        { when: { notFlag: 'gemini' }, lines: ['GEMINI. TWO MINDS, ONE THOUGHT.'], set: 'gemini.met' },
         {
           when: { flag: 'gemini' },
           who: 'luna',
@@ -365,6 +365,6 @@ export const DEEP2: MapDef = {
     h: { ent: { t: 'enemy', kind: 'hound' } },
     z: { ent: { t: 'enemy', kind: 'hound' } },
     s: NOTE(['THE AIR HERE TASTES OF BATTERIES. THE WALLS BREATHE.', 'SOMEONE HAS SCRATCHED: WE ARE UNDER THE LAB. WE ARE ALSO SOMEWHERE ELSE.']),
-    r: NOTE(['A SIGN, UPSIDE DOWN: GATE ANTECHAMBER. PINK RELAY HOLDS THE DOOR. CHANGE IT UPSTAIRS.']),
+    r: NOTE(['A SIGN, UPSIDE DOWN: GATE ANTECHAMBER. PINK RELAY HOLDS THE DOOR.']),
   },
 }

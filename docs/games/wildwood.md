@@ -27,7 +27,7 @@ warp). A little way in, two cracked boulders on the trail need a bomb
 | `lab1.ts` | HORIZON LAB, floors `lab1` and `lab1b` (3×3 rooms of 16×12 each), `keyring: 'lab1'`, crystal group `lab1` |
 | `lab2.ts` | THE DEEP LAB, floors `deep1` and `deep2` (THE OTHER SIDE), `keyring: 'deep'`, crystal group `deep` |
 | `interiors.ts` | `mossa` (Mossa's cottage) and `radio` (Dusty's tower) |
-| `luna.ts` | What Luna says when you face her and press A (a hint per quest step; only when no foe is near) |
+| `luna.ts` | What Luna says when you face her and press A (where the quest stands, no tactics; only when no foe is near) |
 | `cells.ts` | `joinCells`: dungeons written room by room |
 
 ### The route
@@ -61,7 +61,7 @@ warp). A little way in, two cracked boulders on the trail need a bomb
 |---|---|---|
 | Mossa | three glowshrooms: beach rock ring (lift a rock), behind Radio Hill's cracked rock (bomb), Deep Woods clearing (hook) | a waffle; a heart piece |
 | Toby | his walkie-talkie (Horizon dorms) | 50 bits |
-| Max | nothing | five bombs, hints |
+| Max | nothing | five bombs, chatter |
 | Dusty | a vacuum tube (Horizon B1) | a heart piece, and the numbers station's hint about the lights |
 | The troll | his hat (far rim of the ravine) | the big bomb bag (20) |
 | The owl | the answers ECHO and STEPS, walked on the letter stones | two heart pieces (chests appear) |

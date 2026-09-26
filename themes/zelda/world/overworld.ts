@@ -213,7 +213,7 @@ export const OVERWORLD: MapDef = {
         t: 'npc', id: 'kid', look: 'kid', wander: true,
         talk: [
           { when: { notFlag: 'item:bombBag' }, lines: ['KID: BUSHES AND POTS HIDE BITS. THE SHOP TAKES BITS. DO THE MATH.'] },
-          { lines: ['KID: BOMBS CRACK ANYTHING THAT LOOKS CRACKED. WALLS TOO. EVEN IN THE LAKE CLIFFS.'] },
+          { lines: ['KID: YOU GOT BOMBS? DON\'T TELL MY MOM WHERE YOU GOT THEM.'] },
         ],
       },
     },
@@ -228,7 +228,7 @@ export const OVERWORLD: MapDef = {
         talk: [
           { when: { notFlag: 'item:bombBag' }, lines: ['GHOST: BOO. SORRY. HABIT.', 'THE SHRINE IS SEALED BY RUBBLE. ONLY A BLAST WILL MOVE IT.'] },
           { when: { notFlag: 'gateShut' }, lines: ['GHOST: THE VINES CAME UP OUT OF THE GROUND, HUMMING LIKE A DEAD CHANNEL.', 'GHOST: THEY GROW FROM SOMEWHERE FAR WEST. SHUT THE DOOR THEY CAME THROUGH AND THEY WILL WITHER.'] },
-          { lines: ['GHOST: THE JELLIES SPARK WHEN STRUCK. A BLAST OR A THROWN POT DOES THE TRICK.'] },
+          { lines: ['GHOST: THE JELLIES SPARK WHEN STRUCK. ASK ME HOW I KNOW.'] },
         ],
       },
     },

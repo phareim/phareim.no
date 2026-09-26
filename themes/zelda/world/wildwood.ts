@@ -191,8 +191,8 @@ export const WILDWOOD: MapDef = {
         give: 'bombs5',
       },
       { when: { notFlag: 'luna' }, lines: ['MAX: THE GIRL IN THE BRAMBLES? SHE MOVED A ROCK BY LOOKING AT IT. I SAW IT.', 'MAX: CUT THROUGH THE BUSHES, THEN BE NICE. AND BRING FOOD.'] },
-      { when: { notFlag: 'item:hook' }, lines: ['MAX: HI, LUNA.', 'MAX: THE LAB DOOR HAS A HEAVY BLOCK IN FRONT OF IT. LUNA CAN MOVE IT. ASK HER. (FACE IT AND PRESS {A}.)'] },
-      { when: { notFlag: 'mistral' }, lines: ['MAX: A HOOK! NOW YOU CAN SWING OVER THE RAVINE LIKE THE LAB GUYS DID. POST TO POST.'] },
+      { when: { notFlag: 'item:hook' }, lines: ['MAX: HI, LUNA.', '(LUNA DOES NOT SAY HI BACK. MAX LOOKS DELIGHTED ANYWAY.)'] },
+      { when: { notFlag: 'mistral' }, lines: ['MAX: A HOOK! CAN I TRY IT? NO? OK.'] },
       { lines: ['MAX: THE DEEP LAB IS PAST THE RAVINE. TOBY SAYS IT GOES DOWN FOREVER.', 'MAX: I SAY IT GOES DOWN TWO FLOORS. WE\'LL SEE.'] },
     ]),
     q: npc('troll', 'troll', [
@@ -206,7 +206,7 @@ export const WILDWOOD: MapDef = {
         lines: [
           'TROLL: HRM. A VISITOR. DON\'T WORRY, I ONLY EAT BROWN CHEESE.',
           'TROLL: THE WIND BLEW MY HAT OVER THE RAVINE. I SEE IT FROM HERE, ON THE FAR RIM.',
-          'TROLL: THE LAB FOLK USED TO SWING ACROSS ON A HOOK AND CHAIN, FROM POST TO POST. MAYBE YOU COULD.',
+          'TROLL: I HAD A BRIDGE ONCE. NOBODY PAID THE TOLL, SO IT LEFT.',
         ],
       },
     ]),

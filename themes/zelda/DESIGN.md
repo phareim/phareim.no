@@ -62,7 +62,7 @@ west road warps there through a thicket you cut) and its labs (`lab1.ts`,
 **Interiors** (`interiors.ts`): the Keeper's hut (bed, table, lamps, pots,
 the Keeper's cat), shop (bombs 15, heart 10, heart piece 100 bits), lakeside
 cave (dark, heart piece). In `town.ts`: the arcade (eight cabinets, the Hall
-of Fame board, the HANGAR door, the robot's hints, the HIGH SCORES sign, a
+of Fame board, the HANGAR door, the robot's chatter, the HIGH SCORES sign, a
 chest) and Petter's house.
 
 **Exits** (`ExitDef` in `types.ts`) leave the game for somewhere else: the

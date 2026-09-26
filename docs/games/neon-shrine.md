@@ -14,6 +14,12 @@ sword, items, pause menu and saves work the same in the town and out on
 the coast. Design (story, maps, progression, enemies, look):
 `themes/zelda/DESIGN.md`.
 
+**Dialogue** (2026-09-26): people, signs and the pause screen's QUEST line
+say where to go and what is wrong, never how to win. No boss tactics, no
+"the item you just found works here", no secret spots. Boss cards are one
+line of character. Item pickups say what the item does, once. The rest is
+for the player to find out; the jokes stay.
+
 The 2026-09-16/21 version (two 15×11 rooms, Muse-built engine) was replaced
 wholesale on 2026-09-22; it is in git history up to `a110530`. The separate
 theme page (title screen, attract mode, the hut's back door THE WAY HOME)

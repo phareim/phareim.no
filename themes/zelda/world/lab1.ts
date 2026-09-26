@@ -216,7 +216,7 @@ export const LAB1: MapDef = {
     '1,0': {
       track: 'boss',
       events: [
-        { when: { notFlag: 'mistral' }, lines: ['MISTRAL, THE COLD WIND. IT BLOWS FROM THE NORTH AND NEVER STOPS TO LISTEN.', 'NO BLADE CAN CUT THE WIND. BUT WHEN IT STOPS TO BREATHE IN, SOMETHING ON A CHAIN COULD PULL IT DOWN.'], set: 'mistral.met' },
+        { when: { notFlag: 'mistral' }, lines: ['MISTRAL, THE COLD WIND. IT BLOWS FROM THE NORTH AND NEVER STOPS TO LISTEN.'], set: 'mistral.met' },
         {
           when: { flag: 'mistral' },
           who: 'luna',
@@ -227,7 +227,7 @@ export const LAB1: MapDef = {
     },
     '2,0': {
       track: 'boss',
-      events: [{ when: { notFlag: 'llama' }, lines: ['L.L.A.M.A.: LAB LLAMA, ACCESS MANAGEMENT ASSISTANT.', 'ITS WOOL TURNS ANY BLADE. IT HAS OPINIONS, AND IT SPITS THEM.'], set: 'llama.met' }],
+      events: [{ when: { notFlag: 'llama' }, lines: ['L.L.A.M.A.: LAB LLAMA, ACCESS MANAGEMENT ASSISTANT.', 'IT HAS OPINIONS, AND IT SPITS THEM.'], set: 'llama.met' }],
     },
     '0,1': { dark: true, lit: 'lab1.power' },
     '1,1': { dark: true, lit: 'lab1.power' },
@@ -265,7 +265,7 @@ export const LAB1: MapDef = {
       'PROJECT HORIZON. WE LISTEN TO THE STATIC BETWEEN THE STATIONS. IT IS NOT NOISE. IT IS A PLACE.',
       'POWER: OFFLINE. MAIN BREAKER: SUBLEVEL B1.',
     ]),
-    s: NOTE(['LAB NOTE: SUBJECT L MOVED A 40-KILO BLOCK TODAY. THEN ASKED FOR A WAFFLE.', 'THE BLOCKS ONLY STOP WHEN SOMETHING STOPS THEM. PLAN AHEAD.']),
+    s: NOTE(['LAB NOTE: SUBJECT L MOVED A 40-KILO BLOCK TODAY. THEN ASKED FOR A WAFFLE.']),
     S: NOTE(['LAB NOTE: THE PINK AND CYAN CRYSTALS ARE WIRED THROUGH THE WHOLE BUILDING.', 'FLIP ONE AND EVERY FLOOR CHANGES.']),
   },
 }
