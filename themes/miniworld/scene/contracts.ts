@@ -19,6 +19,7 @@ import type {
   PersonLook, HouseLayout, OwnedFurniture, Weapon, ObbyLevel, RoyalTitle,
   WeaponMagicId, ClothingDef, FurnitureDef,
 } from '../types'
+import type { PeerInfo, PeerState, PeerFx } from '../net/protocol'
 
 // ---------------------------------------------------------------- input
 
@@ -117,6 +118,10 @@ export type RuntimeEvent =
   | { type: 'using'; what: string | null }
   /** A sound the shell should play (audio.ts); the runtime has no audio of its own. */
   | { type: 'sfx'; name: MiniSfx; magic?: WeaponMagicId }
+  /** Shared world: your own magic or emote, for the link to send to the others. */
+  | { type: 'fx-out'; fx: PeerFx }
+  /** Shared world: another player was tapped or clicked (their session id). */
+  | { type: 'peer'; id: string }
 
 // ---------------------------------------------------------------- audio (themes/miniworld/audio.ts)
 
@@ -170,8 +175,60 @@ export interface MiniWorldRuntime {
     store(): void
   }
   on(handler: (e: RuntimeEvent) => void): () => void
+  /**
+   * The shared world (net/protocol.ts): other players drawn in your world.
+   * Only peers whose state has the same place key as yours are shown. A
+   * peer's motion is buffered and drawn about 120 ms behind, interpolated,
+   * so 10 updates a second look smooth.
+   */
+  peers: {
+    /** Adds a peer or changes how they look (name, title, look, weapon in hand). */
+    upsert(id: string, info: PeerInfo): void
+    /** A motion update; `at` is performance.now() when it arrived. */
+    state(id: string, state: PeerState, at: number): void
+    /** Plays their magic (the same effects as yours, no rewards) or emote. */
+    fx(id: string, fx: PeerFx): void
+    remove(id: string): void
+    clear(): void
+    /** Peers in your place right now (for a small "N her" count). */
+    readonly here: number
+  }
+  /** Your public id, so your house and catwalk have place keys others can share. '' until known. */
+  setSelfPub(pub: string): void
+  /** Your wire state this frame, or null while nothing is loaded. The shell sends it at SEND_HZ. */
+  selfState(): PeerState | null
+  /** Wave, dance, cheer, or a floating heart: your pose (or a heart over your head) plus an 'fx-out' event. */
+  emote(e: 'wave' | 'dance' | 'cheer' | 'heart'): void
   dispose(): void
 }
+
+// ---------------------------------------------------------------- the shared world's link (net/link.ts)
+
+export type LinkStatus = 'connecting' | 'online' | 'offline' | 'full'
+
+/**
+ * `createWorldLink(url)` in net/link.ts: one WebSocket to the world service,
+ * reconnecting with backoff (1 s → 30 s), pausing while the tab is hidden.
+ * The shell feeds it and routes what comes back into `runtime.peers`.
+ */
+export interface WorldLink {
+  readonly status: LinkStatus
+  /** Who you are to others; sent on connect (hello) and on change. */
+  setInfo(info: PeerInfo): void
+  /** Sends your state if it changed, at most SEND_HZ a second (call every frame). */
+  pushState(state: PeerState | null): void
+  sendFx(fx: PeerFx): void
+  onPeer(handler: (e:
+    | { t: 'join' | 'info'; id: string; info: PeerInfo; state?: PeerState }
+    | { t: 's'; id: string; state: PeerState }
+    | { t: 'fx'; id: string; fx: PeerFx }
+    | { t: 'leave'; id: string }
+    | { t: 'reset' } // reconnected: drop every peer, a fresh welcome follows
+  ) => void): () => void
+  onStatus(handler: (s: LinkStatus) => void): () => void
+  close(): void
+}
+
 
 export type CreateRuntime = (canvas: HTMLCanvasElement, opts: { reducedMotion: boolean; lowPower: boolean }) => MiniWorldRuntime
 
