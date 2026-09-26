@@ -18,6 +18,8 @@ import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
 const CORNER_ASSIST = 0.34
 /** Stepping out of a door: one tile in this long (a touch slower than a walk). */
 export const WALK_OUT_TIME = 0.22
+/** The NEW GAME machine before the hero has the blade: no quest, no save. */
+const NOTHING_TO_WIPE = 'NEW GAME. NOTHING TO WIPE YET: YOUR QUEST HAS NOT BEGUN.'
 
 export function stepHero(c: Ctx, inp: Input, dt: number) {
   const s = c.s
@@ -303,7 +305,12 @@ function interact(c: Ctx): boolean {
   const exit = c.info.exits.get(idx)
   if (exit && !exit.walk) {
     const lines = c.info.exitLines.get(idx)
-    if (lines) openDialog(c, lines, null, { exit: { id: exit.id, to: exit.to } })
+    if ('reset' in exit.to) {
+      // The NEW GAME machine: nothing to wipe before the blade.
+      if (!s.inv.sword) openDialog(c, [NOTHING_TO_WIPE], null)
+      else if (lines) openDialog(c, lines, null, { startOver: true })
+      else c.ev.push({ type: 'startOver' })
+    } else if (lines) openDialog(c, lines, null, { exit: { id: exit.id, to: exit.to } })
     else beginExit(c, exit)
     return true
   }

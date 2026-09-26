@@ -7,7 +7,7 @@ import { drawText, textWidth, wrapText } from '../../base/pixel/sprites'
 import type { Game } from '../engine/game'
 import type { Box } from '../engine/layout'
 import { hit } from '../engine/layout'
-import { VERB_LABEL } from '../types'
+import { HERO_IDS, VERB_LABEL } from '../types'
 import type { G } from './api'
 import { itemIcon } from './items'
 import { portrait } from './actors'
@@ -52,15 +52,15 @@ export function drawPanel(g: G, game: Game) {
   }
 
   if (game.choice) {
-    const shown = game.shownChoices()
-    shown.forEach((o, i) => {
-      const y = L.choices.y + i * L.choiceLineH
-      const box = { x: L.choices.x, y, w: L.choices.w, h: L.choiceLineH }
-      const on = p && hit(box, p.x, p.y)
-      const lines = wrapText(o.text, L.choices.w - 4)
-      const text = lines.length > 1 ? lines[0] + '…' : lines[0]!
-      drawText(g, text, box.x + 2, y + Math.floor((L.choiceLineH - 7) / 2), on ? '#ffffff' : hero.color)
-    })
+    const rows = game.choiceRows()
+    for (const r of rows) {
+      const on = p && hit(r, p.x, p.y)
+      const color = on ? '#ffffff' : hero.color
+      const top = r.y + Math.floor((L.choiceLineH - 7) / 2)
+      r.lines.forEach((line, k) => drawText(g, line, r.x + 2 + (k ? 6 : 0), top + k * L.choiceWrapH, color))
+    }
+    arrow(g, L.choiceUp, true, game.canScrollChoices(-1), p)
+    arrow(g, L.choiceDown, false, game.canScrollChoices(1), p)
     drawPortraits(g, game, true)
     return
   }
@@ -99,17 +99,18 @@ export function drawPanel(g: G, game: Game) {
     const k = L.tall && icon.width * 2 <= s.w - 2 && icon.height * 2 <= s.h - 2 ? 2 : 1
     g.drawImage(icon, Math.round(s.x + (s.w - icon.width * k) / 2), Math.round(s.y + (s.h - icon.height * k) / 2), icon.width * k, icon.height * k)
   }
-  const arrow = (b: Box, up: boolean, on: boolean) => {
-    if (!on) return
-    const cx = b.x + Math.floor(b.w / 2)
-    const cy = b.y + Math.floor(b.h / 2)
-    g.fillStyle = p && hit(b, p.x, p.y) ? '#ffffff' : UI.verb
-    for (let r = 0; r < 4; r++) g.fillRect(cx - r, up ? cy - 2 + r : cy + 2 - r, r * 2 + 1, 1)
-  }
-  arrow(L.invUp, true, game.canScroll(-1))
-  arrow(L.invDown, false, game.canScroll(1))
+  arrow(g, L.invUp, true, game.canScroll(-1), p)
+  arrow(g, L.invDown, false, game.canScroll(1), p)
 
   drawPortraits(g, game, busy)
+}
+
+function arrow(g: G, b: Box, up: boolean, on: boolean, p: { x: number; y: number } | null) {
+  if (!on) return
+  const cx = b.x + Math.floor(b.w / 2)
+  const cy = b.y + Math.floor(b.h / 2)
+  g.fillStyle = p && hit(b, p.x, p.y) ? '#ffffff' : UI.verb
+  for (let r = 0; r < 4; r++) g.fillRect(cx - r, up ? cy - 2 + r : cy + 2 - r, r * 2 + 1, 1)
 }
 
 function drawPortraits(g: G, game: Game, dim: boolean) {
@@ -130,11 +131,15 @@ function drawPortraits(g: G, game: Game, dim: boolean) {
       g.fillRect(b.x, b.y, 1, b.h)
       g.fillRect(b.x + b.w - 1, b.y, 1, b.h)
     }
-    const img = portrait(b.hero, L.tall ? 2 : 1, game.s)
+    let img = portrait(b.hero, L.tall ? 2 : 1, game.s)
+    if (img.height > b.h - 2 || img.width > b.w - 4) img = portrait(b.hero, 1, game.s)
     g.globalAlpha = dim && !on ? 0.5 : 1
-    if (L.tall) {
-      g.drawImage(img, b.x + 4, b.y + Math.floor((b.h - img.height) / 2))
-      drawText(g, def.name, b.x + img.width + 8, b.y + Math.floor((b.h - 7) / 2), on ? def.color : UI.verb)
+    // Names only when every face has room for its own, so the row matches.
+    const named = L.tall && HERO_IDS.every(h => img.width + 10 + textWidth(game.content.heroes[h].name) <= b.w)
+    if (named) {
+      const x = b.x + Math.floor((b.w - img.width - 4 - textWidth(def.name)) / 2)
+      g.drawImage(img, x, b.y + Math.floor((b.h - img.height) / 2))
+      drawText(g, def.name, x + img.width + 4, b.y + Math.floor((b.h - 7) / 2), on ? def.color : UI.verb)
     } else {
       g.drawImage(img, Math.round(b.x + (b.w - img.width) / 2), Math.round(b.y + (b.h - img.height) / 2))
     }
@@ -208,5 +213,5 @@ export function drawCursor(g: G, game: Game) {
 }
 
 export function drawHeader(g: G, game: Game, b: Box) {
-  drawHouseHeader(g, game, b)
+  drawHouseHeader(g, game, b, false)
 }

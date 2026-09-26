@@ -40,6 +40,7 @@ function badTarget(to: ExitTarget): string | null {
   if ('theme' in to) return typeof to.theme === 'string' && to.theme.trim() ? null : 'an empty theme'
   if ('url' in to) return typeof to.url === 'string' && to.url.startsWith('https://') ? null : `url ${String(to.url)} (want https://)`
   if ('home' in to) return to.home === true ? null : 'home not true'
+  if ('reset' in to) return to.reset === true ? null : 'reset not true'
   return 'no target'
 }
 

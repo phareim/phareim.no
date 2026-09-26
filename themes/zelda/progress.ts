@@ -43,7 +43,7 @@ export function questStep(inv: Inventory, flags: readonly string[], mapId: strin
 }
 
 export function questHint(step: number): string {
-  if (step >= QUEST_STEPS) return 'THE SUN HAS SET. WANDER WHERE YOU LIKE, OR START OVER FROM THIS MENU.'
+  if (step >= QUEST_STEPS) return 'THE SUN HAS SET. WANDER WHERE YOU LIKE, OR START OVER AT THE RED MACHINE IN PETTER\'S HOUSE.'
   return STEPS[Math.min(step, QUEST_STEPS - 1)]!.hint
 }
 

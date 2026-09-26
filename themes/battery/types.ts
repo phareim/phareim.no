@@ -184,6 +184,7 @@ export interface Ctx {
   place(who: ActorId, room: RoomId | null, x: number, y: number, face?: Dir): Cmd
   show(who: ActorId, visible: boolean): Cmd
   go(room: RoomId, x: number, y: number, face?: Dir): Cmd
+  /** camX: the left edge of a 320-wide view; other widths keep its centre. */
   view(room: RoomId | null, fade?: boolean, camX?: number): Cmd
   split(panes: { room: RoomId; x: number }[] | null): Cmd
   heroCmd(id: HeroId): Cmd

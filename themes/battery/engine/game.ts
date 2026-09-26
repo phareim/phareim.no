@@ -10,7 +10,8 @@ import type {
 } from '../types'
 import { HERO_IDS, ROOM_H, VERB_KEY, VERB_LABEL } from '../types'
 import { findPath } from './walk'
-import { hit, layout, type Layout } from './layout'
+import { hit, layout, type Box, type Layout } from './layout'
+import { wrapText } from '../../zelda/render/font'
 
 export interface Content {
   rooms: Record<RoomId, RoomDef>
@@ -37,6 +38,8 @@ type UiHit =
   | { kind: 'invUp' }
   | { kind: 'invDown' }
   | { kind: 'choice'; i: number }
+  | { kind: 'choiceUp' }
+  | { kind: 'choiceDown' }
   | { kind: 'scene'; x: number; y: number; hs: HotspotDef | null }
   | null
 
@@ -117,6 +120,8 @@ export class Game {
   // --- presentation ---
   speech: Speech | null = null
   choice: ChoiceOption[] | null = null
+  /** Index of the first dialogue option on screen. */
+  choiceScroll = 0
   card: { text: string; age: number; s: number } | null = null
   /** 0 = clear, 1 = black. */
   fade = 0
@@ -235,8 +240,8 @@ export class Game {
   // Layout and hit-testing
   // ------------------------------------------------------------------
 
-  resize(vw: number, vh: number, safeBottom = 0) {
-    this.lay = layout(vw, vh, safeBottom)
+  resize(vw: number, vh: number, safeBottom = 0, safeTop = 0) {
+    this.lay = layout(vw, vh, safeBottom, safeTop)
     this.clampScroll()
   }
 
@@ -274,11 +279,9 @@ export class Game {
   private hitTest(x: number, y: number): UiHit {
     const L = this.lay
     if (this.choice) {
-      if (hit(L.choices, x, y)) {
-        const i = Math.floor((y - L.choices.y) / L.choiceLineH)
-        const shown = this.shownChoices()
-        if (i >= 0 && i < shown.length) return { kind: 'choice', i }
-      }
+      for (const r of this.choiceRows()) if (hit(r, x, y)) return { kind: 'choice', i: r.i }
+      if (hit(L.choiceUp, x, y) && this.canScrollChoices(-1)) return { kind: 'choiceUp' }
+      if (hit(L.choiceDown, x, y) && this.canScrollChoices(1)) return { kind: 'choiceDown' }
       if (hit(L.scene, x, y)) return { kind: 'scene', x, y, hs: null }
       return null
     }
@@ -314,6 +317,42 @@ export class Game {
     return (this.choice ?? []).filter(o => o.when !== false)
   }
 
+  /** Wrapped lines of a dialogue option: at most three, the last cut with an ellipsis. */
+  private choiceLines(text: string): string[] {
+    const lines = wrapText(text, this.lay.choices.w - 4)
+    if (lines.length <= 3) return lines
+    return [lines[0]!, lines[1]!, lines[2]! + '…']
+  }
+
+  /** The dialogue options on screen, from choiceScroll down as far as they fit. */
+  choiceRows(): (Box & { i: number; lines: string[] })[] {
+    const L = this.lay
+    const shown = this.shownChoices()
+    const out: (Box & { i: number; lines: string[] })[] = []
+    let y = L.choices.y
+    for (let i = this.choiceScroll; i < shown.length; i++) {
+      const lines = this.choiceLines(shown[i]!.text)
+      const h = L.choiceLineH + (lines.length - 1) * L.choiceWrapH
+      // The first row always shows, even if it overflows.
+      if (out.length && y + h > L.choices.y + L.choices.h) break
+      out.push({ i, lines, x: L.choices.x, y, w: L.choices.w, h })
+      y += h
+    }
+    return out
+  }
+
+  canScrollChoices(dir: number): boolean {
+    if (!this.choice) return false
+    if (dir < 0) return this.choiceScroll > 0
+    const rows = this.choiceRows()
+    const last = rows[rows.length - 1]
+    return !!last && last.i < this.shownChoices().length - 1
+  }
+
+  scrollChoices(dir: number) {
+    if (this.canScrollChoices(dir)) this.choiceScroll += dir < 0 ? -1 : 1
+  }
+
   // ------------------------------------------------------------------
   // Input
   // ------------------------------------------------------------------
@@ -338,6 +377,8 @@ export class Game {
     if (this.card) { this.card.age = this.card.s; return }
     if (this.choice) {
       if (h?.kind === 'choice') this.pick(h.i)
+      else if (h?.kind === 'choiceUp') this.scrollChoices(-1)
+      else if (h?.kind === 'choiceDown') this.scrollChoices(1)
       return
     }
     if (this.cmd?.t === 'say' && this.stack.length && !this.soft) { this.skipLine(); return }
@@ -353,7 +394,7 @@ export class Game {
       case 'hero': return this.clickHero(h.id, button)
       case 'item': return this.clickItem(h.id, button)
       case 'scene': return this.clickScene(h.x, h.y, h.hs, button)
-      case 'choice': return
+      case 'choice': case 'choiceUp': case 'choiceDown': return
     }
   }
 
@@ -366,6 +407,7 @@ export class Game {
       return
     }
     if (this.choice) {
+      if (key === 'arrowup' || key === 'arrowdown') { this.scrollChoices(key === 'arrowup' ? -1 : 1); return }
       const n = Number(key)
       if (n >= 1 && n <= this.shownChoices().length) this.pick(n - 1)
       return
@@ -819,7 +861,9 @@ export class Game {
     const room = this.roomDef()
     const sw = this.lay.scene.w
     if (room.w <= sw) return Math.round((room.w - sw) / 2)
-    if (this.camFixed !== null) return Math.max(0, Math.min(room.w - sw, this.camFixed))
+    // A script's camX is the left edge of DOTT's 320 view; a narrower or
+    // wider view keeps the same centre.
+    if (this.camFixed !== null) return Math.max(0, Math.min(room.w - sw, Math.round(this.camFixed + 160 - sw / 2)))
     const a = this.actor(this.s.hero)
     const x = this.viewRoom ? room.w / 2 : a.x
     return Math.max(0, Math.min(room.w - sw, Math.round(x - sw / 2)))
@@ -930,6 +974,7 @@ export class Game {
       }
       case 'choose':
         this.choice = c.options
+        this.choiceScroll = 0
         this.cmd = null
         return
       case 'card': this.card = { text: c.text, age: 0, s: c.s }; return

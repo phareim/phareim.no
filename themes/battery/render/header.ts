@@ -8,7 +8,9 @@
  * and the room on screen named underneath.
  *
  * Drawn on the HUD layer in art pixels of k stage pixels (k = 2 on a
- * phone). A short box gets k = 1, a very short one only the name.
+ * phone). A short box gets k = 1, a very short one only the name. The
+ * phone layout zooms in on the scene since 2026-09-26 and asks for the
+ * name alone (house = false); the house waits here for a place to go.
  */
 import { drawText, textWidth } from '../../base/pixel/sprites'
 import type { Game } from '../engine/game'
@@ -65,16 +67,16 @@ const HEADS: Record<HeroId, string[]> = {
 const HEAD_FLOP = ['.......', '.......', 'w.....w', 'whhhhhw', 'wsssssw', 'wsksksw', 'wsssssw', '.wwwww.', '..www..']
 const HEAD_PAL: Record<string, string> = { w: '#f4f0ff', s: '#f5c3a8', k: K, c: '#8fe8ff', n: '#6a4432', b: '#8a5a30', h: '#3a2418' }
 
-export function drawHouseHeader(g: G, game: Game, b: Box) {
+export function drawHouseHeader(g: G, game: Game, b: Box, house = true) {
   const room = game.roomDef()
   const hero = game.content.heroes[game.hero]
   const label = room.name.toUpperCase()
   const who = hero.name.toUpperCase()
   const t = game.clock
-  if (b.h < 34) return
+  if (b.h < (house ? 34 : 11)) return
   // The name line sits just above the scene.
-  const ly = b.y + b.h - 12
-  const k = Math.max(0, Math.min(3, Math.floor(Math.min(b.w / ART_W, (b.h - 30) / ART_H))))
+  const ly = b.y + b.h - (house ? 12 : Math.min(12, Math.floor((b.h + 7) / 2)))
+  const k = house ? Math.max(0, Math.min(3, Math.floor(Math.min(b.w / ART_W, (b.h - 30) / ART_H)))) : 0
   if (k >= 1) {
     const ox = Math.round(b.x + (b.w - ART_W * k) / 2) + ART_L * k
     const oy = Math.round(ly - 10 - ART_H * k)
