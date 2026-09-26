@@ -2,7 +2,7 @@
  * Nabogata's people (2026-09-26): a house for each friend or neighbour on
  * the plots in town.ts, with a name sign (a crown on it for a title) and
  * their active person waving by the gate. Their door is a zone
- * `neighbor:<playerId>` ("Se på"). Empty plots get a "LEDIG TOMT" sign.
+ * `neighbor:<public id>` ("Se på"). Empty plots get a "LEDIG TOMT" sign.
  * The sign by your own house says whose it is.
  *
  * Houses merge into one mesh, signs into one atlas; the people are real

@@ -74,7 +74,8 @@
  * Bits are the site wallet (`composables/useWallet.ts`, shared with Mini
  * World): `wallet.ts` bridges the pure engine's `inv.bits` to it — a new
  * state starts on the wallet's balance, each frame's change becomes a wallet
- * op, and a change elsewhere (another tab, Mini World) lands in the purse.
+ * op (a chest's bits only the first time on this browser), and a change
+ * elsewhere (another tab, Mini World) lands in the purse.
  * Mini World's active person dresses the hero (`render/heroColors.ts`),
  * re-read on `storage` and when the tab comes back.
  */
@@ -88,7 +89,7 @@ import { readLocalSave, writeLocalSave, clearLocalSave, readLocalBest, writeLoca
 import { syncWithProfile } from './profileSync'
 import { createInput, type GameInput } from './input'
 import { loadHighScoreSign } from './hiscore'
-import { createBitsBridge, migrateSaveBits, type WalletApi } from './wallet'
+import { createBitsBridge, migrateSaveBits, bitRewards, paidFlagStore, type WalletApi } from './wallet'
 import { setHeroColors } from './render/sheet'
 import { parseHeroColors } from './render/heroColors'
 import { HERO_COLORS_KEY } from '../miniworld/types'
@@ -154,7 +155,8 @@ let stuckT = 0
 let leavingUrl = false
 let wonAt = 0
 const walletApi: WalletApi = { read: readWallet, add: addToWallet }
-const purse = createBitsBridge(walletApi)
+// A chest pays into the wallet once per browser, not once per run.
+const purse = createBitsBridge(walletApi, { rewards: bitRewards(WORLD), paid: paidFlagStore(() => localStorage) })
 
 const ui: FrameUI = {
   paused: false, confirmReset: false, reducedMotion: false, touch: false, stick: null, attract: false, cam: null, banner: null,
@@ -234,7 +236,7 @@ function begin(save: SaveData | null, at: Spot, banner = false) {
   loadedSave = save
   pendingPull = null
   state = createGame(WORLD, { save, at, seed: Date.now() >>> 0 })
-  purse.adopt(state.inv)
+  purse.adopt(state.inv, state.flags)
   input.clear()
   paused.value = false
   confirmReset.value = false
@@ -514,7 +516,7 @@ function frame(nowMs: number) {
   const inp = input.read()
   if (!moved && (inp.move.x !== 0 || inp.move.y !== 0)) { moved = true; emit('moved') }
   const events = stepGame(WORLD, state, dt, inp)
-  purse.step(state.inv)
+  purse.step(state.inv, state.flags)
   renderer.onEvents(events)
   handleEvents(events)
   if (ui.banner) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }

@@ -13,7 +13,11 @@ class Prepared {
     this.sql = sql
     this.params = params
   }
-  bind(...values) { return new Prepared(this.db, this.sql, values) }
+  bind(...values) {
+    // D1 refuses more than 100 bound values in one statement; SQLite alone allows far more.
+    if (values.length > 100) throw new Error(`D1: too many SQL variables (${values.length})`)
+    return new Prepared(this.db, this.sql, values)
+  }
   stmt() { return this.db.prepare(this.sql) }
   async first() { return this.stmt().get(...this.params) ?? null }
   async all() { return { results: this.stmt().all(...this.params) } }

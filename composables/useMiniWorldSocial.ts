@@ -67,7 +67,7 @@ export interface MiniWorldSocialApi {
   state: Ref<SocialState | null>
   /** True while a request runs. */
   busy: Ref<boolean>
-  /** My player id (for finding myself in the hood), or null. */
+  /** My public id (for finding myself in the hood), or null before the first refresh. Other players are public ids throughout. */
   me: ComputedRef<string | null>
   /** Unopened gifts in the mailbox. */
   inboxCount: ComputedRef<number>
@@ -84,25 +84,25 @@ export interface MiniWorldSocialApi {
   publish(profile: ProfileData): void
 
   addFriend(code: string): Promise<SocialResult>
-  removeFriend(playerId: string): Promise<SocialResult>
+  removeFriend(id: string): Promise<SocialResult>
 
   createHood(): Promise<SocialResult>
   joinHood(code: string): Promise<SocialResult>
   leaveHood(): Promise<SocialResult>
   /** One vote for who is ruler (yourself is allowed). */
-  vote(playerId: string): Promise<SocialResult>
+  vote(id: string): Promise<SocialResult>
   /** The ruler picks king or queen for themself. */
   crown(title: 'king' | 'queen'): Promise<SocialResult>
   /** The ruler gives (or, with null, takes back) a title. */
-  giveTitle(playerId: string, title: RoyalTitle | null): Promise<SocialResult>
+  giveTitle(id: string, title: RoyalTitle | null): Promise<SocialResult>
 
-  /** Sends a gift; clothing and furniture leave the save, bits the wallet. */
+  /** Sends a gift to a public id; clothing and furniture leave the save, bits the wallet. */
   sendGift(to: string, choice: GiftChoice): Promise<SocialResult>
   /** Opens a gift from the mailbox and takes it in. */
   openGift(id: string): Promise<{ result: SocialResult; gift: Gift | null }>
 
   /** A friend's or neighbour's house and person for a visit. */
-  fetchHouse(playerId: string): Promise<{ result: SocialResult; profile: PublicProfile | null }>
+  fetchHouse(id: string): Promise<{ result: SocialResult; profile: PublicProfile | null }>
 }
 
 /** Norwegian text for a result (empty for 'ok'). */
@@ -204,13 +204,10 @@ export function useMiniWorldSocial(): MiniWorldSocialApi {
 function build(): MiniWorldSocialApi {
   const state = ref<SocialState | null>(null)
   const busy = ref(false)
-  // Re-read with each state change: the player can appear after the first person is made.
-  const me = computed(() => {
-    void state.value
-    return readStoredPlayer()?.id ?? null
-  })
+  // The server tells me my public id; my private id never goes into anything shown or compared.
+  const me = computed(() => state.value?.me.id ?? null)
   const inboxCount = computed(() => state.value?.inbox.length ?? 0)
-  const myMember = computed(() => state.value?.hood?.members.find(m => m.playerId === me.value) ?? null)
+  const myMember = computed(() => state.value?.hood?.members.find(m => m.id === me.value) ?? null)
   const myTitle = computed(() => myMember.value?.title ?? null)
   const isRuler = computed(() => !!me.value && state.value?.hood?.ruler === me.value)
 
@@ -220,14 +217,14 @@ function build(): MiniWorldSocialApi {
     const out: NeighborInfo[] = []
     const seen = new Set<string>([me.value ?? ''])
     for (const m of s.hood?.members ?? []) {
-      if (seen.has(m.playerId)) continue
-      seen.add(m.playerId)
-      out.push({ playerId: m.playerId, label: m.person?.name ?? m.playerName, title: m.title, look: m.person?.look ?? null })
+      if (seen.has(m.id)) continue
+      seen.add(m.id)
+      out.push({ playerId: m.id, label: m.person?.name ?? m.playerName, title: m.title, look: m.person?.look ?? null })
     }
     for (const f of s.friends) {
-      if (seen.has(f.playerId)) continue
-      seen.add(f.playerId)
-      out.push({ playerId: f.playerId, label: f.person?.name ?? f.playerName, title: null, look: f.person?.look ?? null })
+      if (seen.has(f.id)) continue
+      seen.add(f.id)
+      out.push({ playerId: f.id, label: f.person?.name ?? f.playerName, title: null, look: f.person?.look ?? null })
     }
     return out.slice(0, MAX_NEIGHBORS)
   })
@@ -303,10 +300,10 @@ function build(): MiniWorldSocialApi {
     return { result: 'ok', gift: data.gift }
   }
 
-  async function fetchHouse(playerId: string): Promise<{ result: SocialResult; profile: PublicProfile | null }> {
+  async function fetchHouse(id: string): Promise<{ result: SocialResult; profile: PublicProfile | null }> {
     const viewer = readStoredPlayer()?.id
     if (!viewer) return { result: 'no-player', profile: null }
-    const q = `player=${encodeURIComponent(playerId)}&viewer=${encodeURIComponent(viewer)}`
+    const q = `player=${encodeURIComponent(id)}&viewer=${encodeURIComponent(viewer)}`
     const { result, data } = await busyCall<{ profile: PublicProfile }>(`/api/mw/house?${q}`)
     return { result, profile: data?.profile ?? null }
   }
@@ -327,15 +324,15 @@ function build(): MiniWorldSocialApi {
       if (!c) return 'bad-code'
       const { result, data } = await busyCall<{ friend: PublicProfile; already: boolean }>('/api/mw/friend', { code: c })
       if (!data) return result
-      if (state.value && !state.value.friends.some(f => f.playerId === data.friend.playerId)) {
+      if (state.value && !state.value.friends.some(f => f.id === data.friend.id)) {
         state.value = { ...state.value, friends: [...state.value.friends, data.friend] }
       }
       return data.already ? 'already' : 'ok'
     },
-    async removeFriend(playerId) {
-      const { result } = await busyCall('/api/mw/unfriend', { friendId: playerId })
+    async removeFriend(id) {
+      const { result } = await busyCall('/api/mw/unfriend', { friendId: id })
       if (result === 'ok' && state.value) {
-        state.value = { ...state.value, friends: state.value.friends.filter(f => f.playerId !== playerId) }
+        state.value = { ...state.value, friends: state.value.friends.filter(f => f.id !== id) }
       }
       return result
     },
@@ -347,9 +344,9 @@ function build(): MiniWorldSocialApi {
       return hoodAction({ action: 'join', code: c })
     },
     leaveHood: () => hoodAction({ action: 'leave' }),
-    vote: playerId => hoodAction({ action: 'vote', target: playerId }),
+    vote: id => hoodAction({ action: 'vote', target: id }),
     crown: title => hoodAction({ action: 'crown', title }),
-    giveTitle: (playerId, title) => hoodAction({ action: 'title', target: playerId, title }),
+    giveTitle: (id, title) => hoodAction({ action: 'title', target: id, title }),
 
     sendGift,
     openGift,

@@ -87,7 +87,12 @@ adds WORLD RANK #n · NAME. Failures are silent — the board is a bonus.
 **API** (`server/api/`, store in `server/utils/store.ts`):
 `GET /api/leaderboard?player=<id>` → `{ boards: { [game]: { top, total, me } }, player }`
 (rows and `player` carry `avatar`, the thumbnail URL or null;
-one window-function query plus a count, `Cache-Control: no-store`);
+one window-function query plus a count, `Cache-Control: no-store`).
+A row names its player by `key`, the public id (`players.pub_id`, 12
+random characters, filled on first need), and says `me: true` on the
+caller's own row. The private player id is the only credential: it stays
+in its own browser and no answer carries anyone else's
+(`tests/leaderboard-board.test.mjs`);
 `POST /api/player { id, name }` → 400 bad id/name, 409 name taken;
 `POST /api/avatar { playerId, name, file }` (Bearer `WAVE_JOBS_KEY`, called by wave-jobs) → 401/400/404, stores the painting;
 `POST /api/score { playerId, game, score }` → `{ best, rank }`, 400 for an

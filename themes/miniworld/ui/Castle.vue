@@ -34,7 +34,7 @@
 
       <p v-if="!state.friends.length" class="mw-p mw-dim mw-center">DU HAR INGEN VENNER HER ENNÅ.</p>
       <ul v-else class="mw-list">
-        <li v-for="f in state.friends" :key="f.playerId" class="mw-member">
+        <li v-for="f in state.friends" :key="f.id" class="mw-member">
           <div class="mw-member-pic">
             <img v-if="f.person && pic(f.person.look)" :src="pic(f.person.look)" alt="">
           </div>
@@ -42,8 +42,8 @@
             <p class="mw-p mw-member-name">{{ f.person?.name ?? f.playerName }}</p>
             <p class="mw-p mw-dim mw-small">{{ f.playerName }}</p>
             <div class="mw-row">
-              <button type="button" class="px-btn mw-btn mw-btn--sky" @click="ctx.visit(f.playerId)">BESØK</button>
-              <button type="button" class="px-btn mw-btn mw-btn--pink" @click="ctx.open({ id: 'gift', to: f.playerId })">
+              <button type="button" class="px-btn mw-btn mw-btn--sky" @click="ctx.visit(f.id)">BESØK</button>
+              <button type="button" class="px-btn mw-btn mw-btn--pink" @click="ctx.open({ id: 'gift', to: f.id })">
                 <PxIcon id="gift" :scale="2" />SEND GAVE
               </button>
             </div>
@@ -90,33 +90,33 @@
 
         <p class="mw-p mw-dim">ALLE HAR EN STEMME. DEN MED FLEST STEMMER FÅR KRONEN.</p>
         <ul class="mw-list">
-          <li v-for="m in members" :key="m.playerId" class="mw-member" :class="{ 'mw-member--ruler': m.playerId === hood.ruler }">
+          <li v-for="m in members" :key="m.id" class="mw-member" :class="{ 'mw-member--ruler': m.id === hood.ruler }">
             <div class="mw-member-pic">
               <img v-if="m.person && pic(m.person.look)" :src="pic(m.person.look)" alt="">
             </div>
             <div class="mw-member-main">
               <p class="mw-p mw-member-name">
-                <PxIcon v-if="m.playerId === hood.ruler" id="crown" :scale="2" />
-                {{ m.person?.name ?? m.playerName }}<template v-if="m.playerId === me"> (DEG)</template>
+                <PxIcon v-if="m.id === hood.ruler" id="crown" :scale="2" />
+                {{ m.person?.name ?? m.playerName }}<template v-if="m.id === me"> (DEG)</template>
               </p>
               <p class="mw-p mw-small">
                 <span v-if="m.title" class="mw-title">{{ TITLE_NAMES[m.title] }}</span>
                 <span class="mw-dim">{{ m.votes }} {{ m.votes === 1 ? 'STEMME' : 'STEMMER' }}</span>
               </p>
               <div class="mw-row">
-                <span v-if="hood.myVote === m.playerId" class="mw-p mw-voted"><PxIcon id="heart" :scale="2" />DIN STEMME</span>
-                <button v-else type="button" class="px-btn mw-btn mw-btn--plain" :disabled="busy" @click="vote(m.playerId)">STEM</button>
-                <template v-if="m.playerId !== me">
-                  <button type="button" class="px-btn mw-btn mw-btn--sky" @click="ctx.visit(m.playerId)">BESØK</button>
-                  <button type="button" class="px-btn mw-btn mw-btn--pink" aria-label="Send gave" @click="ctx.open({ id: 'gift', to: m.playerId })">
+                <span v-if="hood.myVote === m.id" class="mw-p mw-voted"><PxIcon id="heart" :scale="2" />DIN STEMME</span>
+                <button v-else type="button" class="px-btn mw-btn mw-btn--plain" :disabled="busy" @click="vote(m.id)">STEM</button>
+                <template v-if="m.id !== me">
+                  <button type="button" class="px-btn mw-btn mw-btn--sky" @click="ctx.visit(m.id)">BESØK</button>
+                  <button type="button" class="px-btn mw-btn mw-btn--pink" aria-label="Send gave" @click="ctx.open({ id: 'gift', to: m.id })">
                     <PxIcon id="gift" :scale="2" />
                   </button>
-                  <button v-if="social.isRuler.value" type="button" class="px-btn mw-btn mw-btn--plain" @click="titleFor = titleFor === m.playerId ? null : m.playerId">
+                  <button v-if="social.isRuler.value" type="button" class="px-btn mw-btn mw-btn--plain" @click="titleFor = titleFor === m.id ? null : m.id">
                     <PxIcon id="crown" :scale="2" />TITTEL
                   </button>
                 </template>
               </div>
-              <div v-if="titleFor === m.playerId" class="mw-row mw-titles">
+              <div v-if="titleFor === m.id" class="mw-row mw-titles">
                 <button
                   v-for="t in GIVABLE"
                   :key="t"
@@ -124,11 +124,11 @@
                   class="px-btn mw-btn"
                   :class="m.title === t ? 'mw-btn--pink' : 'mw-btn--plain'"
                   :disabled="busy"
-                  @click="giveTitle(m.playerId, t)"
+                  @click="giveTitle(m.id, t)"
                 >
                   {{ TITLE_NAMES[t] }}
                 </button>
-                <button v-if="m.title" type="button" class="px-btn mw-btn mw-btn--plain" :disabled="busy" @click="giveTitle(m.playerId, null)">INGEN</button>
+                <button v-if="m.title" type="button" class="px-btn mw-btn mw-btn--plain" :disabled="busy" @click="giveTitle(m.id, null)">INGEN</button>
               </div>
             </div>
           </li>
@@ -172,7 +172,7 @@ const busy = computed(() => social.busy.value)
 /** Members by votes; my own row shows my active person even before the profile publish lands. */
 const members = computed(() => [...(hood.value?.members ?? [])]
   .map((m) => {
-    const mine = m.playerId === me.value ? game.active.value : null
+    const mine = m.id === me.value ? game.active.value : null
     return mine ? { ...m, person: { name: mine.name, look: mine.look } } : m
   })
   .sort((a, b) => b.votes - a.votes))
@@ -242,8 +242,8 @@ async function joinHood() {
   }
 }
 
-async function vote(playerId: string) {
-  const r = await social.vote(playerId)
+async function vote(id: string) {
+  const r = await social.vote(id)
   if (answer(r, 'DU HAR STEMT!')) ctx.sfx('click')
 }
 
@@ -257,8 +257,8 @@ async function crown(title: 'king' | 'queen') {
   ctx.cheer(title === 'king' ? 'LENGE LEVE KONGEN!' : 'LENGE LEVE DRONNINGEN!', look ? pics.person(look, { full: true, size: 256, pose: 'cheer' }) : undefined)
 }
 
-async function giveTitle(playerId: string, title: RoyalTitle | null) {
-  const r = await social.giveTitle(playerId, title)
+async function giveTitle(id: string, title: RoyalTitle | null) {
+  const r = await social.giveTitle(id, title)
   if (answer(r, title ? `NÅ ER HEN ${TITLE_NAMES[title]}!` : 'TITTELEN ER TATT TILBAKE.')) {
     ctx.sfx(title ? 'crown' : 'click')
     titleFor.value = null

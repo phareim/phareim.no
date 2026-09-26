@@ -25,13 +25,13 @@
           <ol v-if="visible.length" class="lb-rows">
             <li
               v-for="row in visible"
-              :key="row.playerId"
+              :key="row.key"
               class="lb-row"
-              :class="{ 'lb-row--me': row.playerId === player?.id, 'lb-row--podium': row.rank <= 3 }"
+              :class="{ 'lb-row--me': row.me, 'lb-row--podium': row.rank <= 3 }"
             >
               <span class="lb-rank">{{ pad(row.rank) }}</span>
               <span class="lb-avatar"><PixelAvatar :src="row.avatar" /></span>
-              <span class="lb-name">{{ clip(row.name, row.playerId === player?.id ? meChars : nameChars) }}</span>
+              <span class="lb-name">{{ clip(row.name, row.me ? meChars : nameChars) }}</span>
               <span class="lb-you" aria-hidden="true">◀ YOU</span>
               <span class="lb-score">{{ fmt(row.score) }}</span>
             </li>

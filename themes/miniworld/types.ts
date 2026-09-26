@@ -208,8 +208,14 @@ export interface MiniWorldSave {
 export type RoyalTitle = 'king' | 'queen' | 'prince' | 'princess'
 
 /** What others may see of a player: their generated site name, friend code, active person and house. */
+/**
+ * Other players are named by their public id (`id`): stable, safe to show,
+ * unrelated to the private player id in localStorage, which is the only
+ * credential and never leaves its own browser.
+ */
 export interface PublicProfile {
-  playerId: string
+  /** Public id. */
+  id: string
   /** The Hall of Fame name (NEON OTTER); shown small under the person's name. */
   playerName: string
   code: string
@@ -222,7 +228,8 @@ export interface PublicProfile {
 }
 
 export interface HoodMember {
-  playerId: string
+  /** Public id. */
+  id: string
   playerName: string
   person: { name: string; look: PersonLook } | null
   title: RoyalTitle | null
@@ -237,9 +244,9 @@ export interface Hood {
   /** Six letters to join with. */
   code: string
   members: HoodMember[]
-  /** playerId of the crowned member (most votes), or null before any vote. */
+  /** Public id of the crowned member (most votes), or null before any vote. */
   ruler: string | null
-  /** Who I voted for. */
+  /** Who I voted for (public id). */
   myVote: string | null
 }
 
@@ -247,7 +254,8 @@ export type GiftKind = 'clothing' | 'furniture' | 'bits'
 
 export interface Gift {
   id: string
-  from: { playerId: string; playerName: string; personName: string | null }
+  /** `id`: the sender's public id. */
+  from: { id: string; playerName: string; personName: string | null }
   kind: GiftKind
   /** Catalog id for clothing/furniture; absent for bits. */
   item?: string
@@ -258,7 +266,8 @@ export interface Gift {
 }
 
 export interface SocialState {
-  me: { code: string }
+  /** My friend code and my public id (to find myself among the members). */
+  me: { code: string; id: string }
   friends: PublicProfile[]
   hood: Hood | null
   inbox: Gift[]

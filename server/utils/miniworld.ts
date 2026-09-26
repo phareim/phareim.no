@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import type { GiftKind, RoyalTitle } from '~/themes/miniworld/types'
-import { getStore, type D1Like } from './store'
+import { getStore, d1PublicIds, d1PrivateId, newPublicId, type D1Like } from './store'
 import { MwError } from './miniworldApi'
 
 /**
@@ -35,7 +35,13 @@ export interface MwGiftRow {
   openedAt: number | null
 }
 
-export interface MwStore {
+/** Public ids (players.pub_id): what one player may know of another. See Store.publicIds. */
+export interface PublicIdSource {
+  publicIds(ids: string[]): Promise<Map<string, string>>
+  privateId(pub: string): Promise<string | null>
+}
+
+export interface MwStore extends PublicIdSource {
   playerName(id: string): Promise<string | null>
   /** Balance, or null for an unknown player. */
   bits(id: string): Promise<number | null>
@@ -105,6 +111,9 @@ const asTitle = (t: unknown): RoyalTitle | null => (typeof t === 'string' && TIT
 export class D1MwStore implements MwStore {
   constructor(private db: D1Like) {}
 
+  publicIds(ids: string[]) { return d1PublicIds(this.db, ids) }
+  privateId(pub: string) { return d1PrivateId(this.db, pub) }
+
   async playerName(id: string) {
     const r = await this.db.prepare('SELECT name FROM players WHERE id = ?').bind(id).first<{ name: string }>()
     return r?.name ?? null
@@ -168,14 +177,19 @@ export class D1MwStore implements MwStore {
   }
 
   async profiles(ids: string[]) {
-    if (!ids.length) return []
-    const marks = ids.map(() => '?').join(', ')
-    const r = await this.db
-      .prepare(`SELECT m.player_id, p.name, m.code, m.data FROM mw_profiles m JOIN players p ON p.id = m.player_id
-                WHERE m.player_id IN (${marks})`)
-      .bind(...ids)
-      .all<{ player_id: string, name: string, code: string, data: string | null }>()
-    return r.results.map(x => ({ playerId: x.player_id, playerName: x.name, code: x.code, data: x.data }))
+    const out: MwProfileRow[] = []
+    // D1 binds at most 100 values per query; friends (30, more after a race) and gift senders (40) can pass that together.
+    for (let i = 0; i < ids.length; i += 90) {
+      const chunk = ids.slice(i, i + 90)
+      const marks = chunk.map(() => '?').join(', ')
+      const r = await this.db
+        .prepare(`SELECT m.player_id, p.name, m.code, m.data FROM mw_profiles m JOIN players p ON p.id = m.player_id
+                  WHERE m.player_id IN (${marks})`)
+        .bind(...chunk)
+        .all<{ player_id: string, name: string, code: string, data: string | null }>()
+      for (const x of r.results) out.push({ playerId: x.player_id, playerName: x.name, code: x.code, data: x.data })
+    }
+    return out
   }
 
   async playerByCode(code: string) {
@@ -314,7 +328,32 @@ export class MemoryMwStore implements MwStore {
   private memberBy = new Map<string, MwMemberRow & { hoodId: string }>()
   private gifts = new Map<string, MwGiftRow>()
 
-  constructor(private lookup: PlayerLookup) {}
+  private pubBy = new Map<string, string>()
+  private idByPub = new Map<string, string>()
+
+  /** `pub`: the main store's public ids (dev), so the Hall of Fame and Mini World agree; the tests go without. */
+  constructor(private lookup: PlayerLookup, private pub?: PublicIdSource) {}
+
+  async publicIds(ids: string[]) {
+    if (this.pub) return this.pub.publicIds(ids)
+    const out = new Map<string, string>()
+    for (const id of ids) {
+      if (!(await this.lookup(id))) continue
+      let p = this.pubBy.get(id)
+      if (!p) {
+        do p = newPublicId(); while (this.idByPub.has(p))
+        this.pubBy.set(id, p)
+        this.idByPub.set(p, id)
+      }
+      out.set(id, p)
+    }
+    return out
+  }
+
+  async privateId(pub: string) {
+    if (this.pub) return this.pub.privateId(pub)
+    return this.idByPub.get(pub) ?? null
+  }
 
   async playerName(id: string) {
     return (await this.lookup(id))?.name ?? null
@@ -326,8 +365,9 @@ export class MemoryMwStore implements MwStore {
   }
 
   async applyOps(id: string, ops: WalletOpIn[]) {
-    let b = await this.bits(id)
-    if (b === null) return null
+    if ((await this.bits(id)) === null) return null
+    // Read the balance after the await: two requests at once must not both start from the same one.
+    let b = this.bitsBy.get(id) ?? 0
 
     let seen = this.ops.get(id)
     if (!seen) this.ops.set(id, (seen = new Set()))
@@ -490,7 +530,7 @@ export function getMwStore(event: H3Event): MwStore {
   if (db) return new D1MwStore(db)
   // getStore throws in production without the binding; in dev it is the memory store.
   const main = getStore(event)
-  return (memory ??= new MemoryMwStore(id => main.getPlayer(id)))
+  return (memory ??= new MemoryMwStore(id => main.getPlayer(id), main))
 }
 
 /**

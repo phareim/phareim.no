@@ -170,7 +170,14 @@ Money goes through `useWallet`. See `core/save.ts` for the actions.
 - `POST /api/mw/hood { playerId, action: create|join|leave|vote|crown|title, code?, target?, title? }` → `{ hood }`
 - `POST /api/mw/gift { playerId, to, kind, item?, level?, amount? }` (to a friend or neighbour; bits are debited on send, credited on open)
 - `POST /api/mw/gift/open { playerId, id }` → `{ gift }`
-- `GET /api/mw/house?player=&viewer=` → `{ profile: PublicProfile }` (friends and neighbours only)
+- `GET /api/mw/house?player=<public id>&viewer=<my id>` → `{ profile: PublicProfile }` (friends and neighbours only)
+
+The caller is always named by the private `playerId` (the browser's
+UUID, the only credential). Every other player, in answers and in
+requests (`to`, `target`, `friendId`, the house's `player`), is their
+public id (`players.pub_id`; `SocialState.me.id` is my own). No answer
+carries another player's private id (`tests/miniworld-server.test.mjs`
+checks every one).
 
 No auth, like the rest of the site's profile API. Ids validated, catalog
 ids checked, sizes capped, at most 30 friends, 12 per neighbourhood, 40

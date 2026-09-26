@@ -4,7 +4,7 @@ import { cleanName, cleanCode, randomCode, hoodName } from '~/themes/miniworld/c
 import { parseLook, cleanPublicHouse, isGiftable } from '~/themes/miniworld/core/save'
 import { rulerOf, countVotes, crown, giveTitle, isTitle, type TitleError } from '~/themes/miniworld/core/royal'
 import { randomId } from '~/themes/miniworld/core/rng'
-import { isPlayerId } from './store'
+import { isPlayerId, isPublicId } from './store'
 import type { MwStore, MwGiftRow, MwProfileRow, WalletOpIn } from './miniworld'
 
 /**
@@ -13,7 +13,9 @@ import type { MwStore, MwGiftRow, MwProfileRow, WalletOpIn } from './miniworld'
  * function takes the parsed body or query and answers the response body,
  * or throws MwError (status + a short code the client maps to Norwegian).
  * No auth, like the rest of the profile API: ids are validated, catalog
- * ids checked, sizes capped.
+ * ids checked, sizes capped. The caller is named by their private
+ * `playerId` (the only credential, known only to its own browser); every
+ * other player, in requests and answers alike, by their public id.
  */
 
 export class MwError extends Error {
@@ -43,6 +45,22 @@ function playerOf(b: Body, key = 'playerId'): string {
   const id = b[key]
   if (!isPlayerId(id)) throw new MwError(400, 'bad-player')
   return id
+}
+
+/** Another player named by public id in `b[key]` → their private id (404 when nobody has it). */
+async function targetOf(store: MwStore, b: Body, key: string): Promise<string> {
+  const pub = b[key]
+  if (!isPublicId(pub)) throw new MwError(400, 'bad-player')
+  const id = await store.privateId(pub)
+  if (!id) throw new MwError(404, 'not-found')
+  return id
+}
+
+/** The public id of one player (made on first ask). */
+async function pubOf(store: MwStore, id: string): Promise<string> {
+  const pub = (await store.publicIds([id])).get(id)
+  if (!pub) throw new MwError(404, 'no-player')
+  return pub
 }
 
 async function known(store: MwStore, id: string): Promise<string> {
@@ -141,11 +159,11 @@ export async function profilePost(store: MwStore, body: unknown, now = Date.now(
   return { ok: true, code }
 }
 
-function toPublic(r: MwProfileRow): PublicProfile {
+function toPublic(r: MwProfileRow, pub: string): PublicProfile {
   let d: Partial<ProfileData> = {}
   try { d = r.data ? JSON.parse(r.data) as ProfileData : {} } catch { d = {} }
   return {
-    playerId: r.playerId,
+    id: pub,
     playerName: r.playerName,
     code: r.code,
     person: d.person ?? null,
@@ -155,9 +173,15 @@ function toPublic(r: MwProfileRow): PublicProfile {
   }
 }
 
+/** Profiles by private id (the key stays on the server; the profile itself carries only the public id). */
 async function publicProfiles(store: MwStore, ids: string[]): Promise<Map<string, PublicProfile>> {
-  const rows = await store.profiles(ids)
-  return new Map(rows.map(r => [r.playerId, toPublic(r)]))
+  const [rows, pubs] = await Promise.all([store.profiles(ids), store.publicIds(ids)])
+  const out = new Map<string, PublicProfile>()
+  for (const r of rows) {
+    const pub = pubs.get(r.playerId)
+    if (pub) out.set(r.playerId, toPublic(r, pub))
+  }
+  return out
 }
 
 // ---------------------------------------------------------------- relations
@@ -195,7 +219,7 @@ export async function friendPost(store: MwStore, body: unknown, now = Date.now()
 export async function unfriendPost(store: MwStore, body: unknown): Promise<{ ok: true }> {
   const b = obj(body)
   const id = playerOf(b)
-  const other = playerOf(b, 'friendId')
+  const other = await targetOf(store, b, 'friendId')
   await store.removeFriendPair(id, other)
   return { ok: true }
 }
@@ -208,19 +232,21 @@ async function hoodView(store: MwStore, me: string): Promise<Hood | null> {
   const rows = await store.members(h.id)
   const votes = countVotes(rows)
   const ruler = rulerOf(rows.map(r => ({ playerId: r.playerId, votes: votes.get(r.playerId) ?? 0, joinedAt: r.joinedAt })))
-  const profiles = await publicProfiles(store, rows.map(r => r.playerId))
+  const ids = rows.map(r => r.playerId)
+  const [profiles, pubs] = await Promise.all([publicProfiles(store, ids), store.publicIds(ids)])
+  const pubOfMember = (id: string | null | undefined) => (id ? pubs.get(id) ?? null : null)
   const members: HoodMember[] = []
   for (const r of rows) {
     const p = profiles.get(r.playerId)
     members.push({
-      playerId: r.playerId,
+      id: pubOfMember(r.playerId) ?? '',
       playerName: p?.playerName ?? (await store.playerName(r.playerId)) ?? '?',
       person: p?.person ?? null,
       title: r.title,
       votes: votes.get(r.playerId) ?? 0,
     })
   }
-  return { id: h.id, name: h.name, code: h.code, members, ruler, myVote: rows.find(r => r.playerId === me)?.voteFor ?? null }
+  return { id: h.id, name: h.name, code: h.code, members, ruler: pubOfMember(ruler), myVote: pubOfMember(rows.find(r => r.playerId === me)?.voteFor) }
 }
 
 export async function hoodPost(store: MwStore, body: unknown, now = Date.now()): Promise<{ hood: Hood | null }> {
@@ -268,7 +294,7 @@ export async function hoodPost(store: MwStore, body: unknown, now = Date.now()):
     next.filter(n => holders.find(h => h.playerId === n.playerId)?.title !== n.title)
 
   if (action === 'vote') {
-    const target = b.target === null ? null : playerOf(b, 'target')
+    const target = b.target === null ? null : await targetOf(store, b, 'target')
     if (target && !rows.some(r => r.playerId === target)) throw new MwError(409, 'not-member')
     await store.vote(id, target)
   } else if (action === 'crown') {
@@ -277,7 +303,7 @@ export async function hoodPost(store: MwStore, body: unknown, now = Date.now()):
     if (typeof next === 'string') throw titleError(next)
     await store.setTitles(changed(next))
   } else if (action === 'title') {
-    const target = playerOf(b, 'target')
+    const target = await targetOf(store, b, 'target')
     const title = b.title === null ? null : isTitle(b.title) ? b.title : undefined
     if (title === undefined) throw new MwError(400, 'bad-title')
     const next = giveTitle(holders, ruler, id, target, title)
@@ -298,7 +324,7 @@ async function giftView(store: MwStore, g: MwGiftRow, profiles?: Map<string, Pub
   const p = profiles?.get(g.fromId) ?? (await publicProfiles(store, [g.fromId])).get(g.fromId)
   const gift: Gift = {
     id: g.id,
-    from: { playerId: g.fromId, playerName: p?.playerName ?? (await store.playerName(g.fromId)) ?? '?', personName: p?.person?.name ?? null },
+    from: { id: p?.id ?? (await store.publicIds([g.fromId])).get(g.fromId) ?? '', playerName: p?.playerName ?? (await store.playerName(g.fromId)) ?? '?', personName: p?.person?.name ?? null },
     kind: g.kind,
     sentAt: g.sentAt,
   }
@@ -311,10 +337,9 @@ async function giftView(store: MwStore, g: MwGiftRow, profiles?: Map<string, Pub
 export async function giftPost(store: MwStore, body: unknown, now = Date.now()): Promise<{ gift: Gift; bits: number | null }> {
   const b = obj(body)
   const id = playerOf(b)
-  const to = playerOf(b, 'to')
-  if (to === id) throw new MwError(409, 'self')
   await known(store, id)
-  await known(store, to)
+  const to = await targetOf(store, b, 'to')
+  if (to === id) throw new MwError(409, 'self')
   const kind = b.kind as GiftKind
   const row: MwGiftRow = { id: randomId(14), fromId: id, toId: to, kind, item: null, level: null, amount: null, sentAt: now, openedAt: null }
   if (kind === 'clothing' || kind === 'furniture') {
@@ -361,12 +386,13 @@ export async function stateGet(store: MwStore, query: Body): Promise<SocialState
   const friends = friendIds.map(f => profiles.get(f)).filter((p): p is PublicProfile => !!p)
   const inbox: Gift[] = []
   for (const g of gifts) inbox.push(await giftView(store, g, profiles))
-  return { me: { code }, friends, hood, inbox }
+  return { me: { code, id: await pubOf(store, id) }, friends, hood, inbox }
 }
 
+/** `player`: whose house (public id); `viewer`: who asks (private id). */
 export async function houseGet(store: MwStore, query: Body): Promise<{ profile: PublicProfile }> {
-  const target = playerOf(query, 'player')
   const viewer = playerOf(query, 'viewer')
+  const target = await targetOf(store, query, 'player')
   if (viewer !== target && !(await related(store, viewer, target))) throw new MwError(403, 'not-allowed')
   const profile = (await publicProfiles(store, [target])).get(target)
   if (!profile) throw new MwError(404, 'not-found')

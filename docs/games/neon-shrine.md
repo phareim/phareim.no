@@ -97,7 +97,11 @@ hero carries at most `MAX_BITS` 9999 (the HUD counter grows to four
 digits); a bigger wallet shows 9999 here and stays exact in the wallet.
 The save still writes `bits`, but the wallet is the truth. Once per
 browser (flag `zelda.bitsInWallet`) the bits of a save from before the
-wallet move into it.
+wallet move into it. One-time bits (a chest, a floor item, an NPC's gift)
+pay once per browser, not once per run (localStorage `zelda.paidBits`,
+seeded from the flags of every save the shell loads): after START OVER, or
+on a visit before the sword when nothing is saved yet, the chest opens
+again but the wallet stays where it was. Enemy drops always pay.
 
 **Mini World's clothes** (2026-09-26). When localStorage
 `miniworld.heroColors` holds the active Mini World person's colours

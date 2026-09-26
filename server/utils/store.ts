@@ -72,6 +72,14 @@ export interface Store {
   /** Top rows per game, plus the given player's own row. */
   boards(playerId: string | null): Promise<Record<string, GameBoard>>
   /**
+   * Public ids for these players (made on first ask, then stable). The
+   * private id is the only credential and never leaves the owner's browser;
+   * anything that names another player uses the public id.
+   */
+  publicIds(ids: string[]): Promise<Map<string, string>>
+  /** The player behind a public id, or null. */
+  privateId(pub: string): Promise<string | null>
+  /**
    * Reserves one painting of `name` for the player: true when the caller
    * should go and paint. False when the current avatar already is `name`,
    * the player has hit the cap, or a painting started less than a few
@@ -100,6 +108,59 @@ export interface Store {
 }
 
 const AVATAR_CLAIM_MINUTES = 3
+
+// --- public ids ------------------------------------------------------------
+
+const PUBLIC_ID = /^[a-z0-9]{12}$/
+
+export function isPublicId(id: unknown): id is string {
+  return typeof id === 'string' && PUBLIC_ID.test(id)
+}
+
+/** 12 random base-36 characters: unrelated to the private id, so it gives nothing away. */
+export function newPublicId(): string {
+  const b = new Uint8Array(12)
+  crypto.getRandomValues(b)
+  return [...b].map(x => (x % 36).toString(36)).join('')
+}
+
+/**
+ * players.pub_id for these ids, filling the ones still NULL (players from
+ * before public ids, or new ones): no data migration needed. A fill only
+ * sets a NULL, so two requests at once agree on whichever landed first.
+ */
+export async function d1PublicIds(db: D1Like, ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  const known = new Set<string>()
+  const read = async (list: string[]) => {
+    for (let i = 0; i < list.length; i += 90) {
+      const chunk = list.slice(i, i + 90)
+      const r = await db.prepare(`SELECT id, pub_id FROM players WHERE id IN (${chunk.map(() => '?').join(', ')})`)
+        .bind(...chunk).all<{ id: string, pub_id: string | null }>()
+      for (const x of r.results) {
+        known.add(x.id)
+        if (x.pub_id) out.set(x.id, x.pub_id)
+      }
+    }
+  }
+  await read([...new Set(ids)])
+  let missing = [...known].filter(id => !out.has(id))
+  for (let attempt = 0; missing.length && attempt < 4; attempt++) {
+    try {
+      // A clash on the UNIQUE index fails the whole batch; the next attempt draws new ids.
+      await db.batch(missing.map(id => db.prepare('UPDATE players SET pub_id = ? WHERE id = ? AND pub_id IS NULL').bind(newPublicId(), id)))
+    } catch { /* draw again */ }
+    await read(missing)
+    missing = missing.filter(id => !out.has(id))
+  }
+  return out
+}
+
+export async function d1PrivateId(db: D1Like, pub: string): Promise<string | null> {
+  if (!isPublicId(pub)) return null
+  const r = await db.prepare('SELECT id FROM players WHERE pub_id = ?').bind(pub).first<{ id: string }>()
+  return r?.id ?? null
+}
 
 // --- D1 ------------------------------------------------------------------
 
@@ -168,7 +229,7 @@ function assembleShips(distinct: number, stored: { ship_id: string, xp: number, 
   })
 }
 
-class D1Store implements Store {
+export class D1Store implements Store {
   constructor(private db: D1Like) {}
 
   async getPlayer(id: string): Promise<Player | null> {
@@ -334,15 +395,18 @@ class D1Store implements Store {
     const [rankedRes, totalsRes] = await this.db.batch([ranked, totals])
     const rows = rankedRes.results as unknown as RankedRow[]
     const counts = new Map((totalsRes.results as unknown as { game: string, n: number }[]).map(r => [r.game, r.n]))
+    const keys = await this.publicIds(rows.map(r => r.player_id))
     return assemble(
       rows.map(r => ({
         game: r.game,
-        row: { rank: r.rank, name: r.name, score: r.score, playerId: r.player_id, avatar: avatarThumbUrl(r.avatar_file) },
+        row: { rank: r.rank, name: r.name, score: r.score, key: keys.get(r.player_id) ?? '', me: r.player_id === playerId, avatar: avatarThumbUrl(r.avatar_file) },
       })),
       counts,
-      playerId,
     )
   }
+
+  publicIds(ids: string[]) { return d1PublicIds(this.db, ids) }
+  privateId(pub: string) { return d1PrivateId(this.db, pub) }
 }
 
 // --- memory (dev) --------------------------------------------------------
@@ -353,7 +417,7 @@ interface MemScore {
   seq: number
 }
 
-class MemoryStore implements Store {
+export class MemoryStore implements Store {
   private players = new Map<string, Player & { avatarStartedAt: number | null }>()
   /** game → playerId → score */
   private scores = new Map<string, Map<string, MemScore>>()
@@ -480,21 +544,44 @@ class MemoryStore implements Store {
       for (const r of ranked) {
         if (r.rank > TOP_N && r.playerId !== playerId) continue
         const p = this.players.get(r.playerId)
-        rows.push({ game, row: { ...r, name: p?.name ?? '?', avatar: avatarThumbUrl(p?.avatarFile) } })
+        const keys = await this.publicIds([r.playerId])
+        rows.push({ game, row: { rank: r.rank, score: r.score, key: keys.get(r.playerId) ?? '', me: r.playerId === playerId, name: p?.name ?? '?', avatar: avatarThumbUrl(p?.avatarFile) } })
       }
     }
-    return assemble(rows, counts, playerId)
+    return assemble(rows, counts)
+  }
+
+  private pubBy = new Map<string, string>()
+  private idByPub = new Map<string, string>()
+
+  async publicIds(ids: string[]) {
+    const out = new Map<string, string>()
+    for (const id of ids) {
+      if (!this.players.has(id)) continue
+      let pub = this.pubBy.get(id)
+      if (!pub) {
+        do pub = newPublicId(); while (this.idByPub.has(pub))
+        this.pubBy.set(id, pub)
+        this.idByPub.set(pub, id)
+      }
+      out.set(id, pub)
+    }
+    return out
+  }
+
+  async privateId(pub: string) {
+    return this.idByPub.get(pub) ?? null
   }
 }
 
-function assemble(rows: { game: string, row: BoardRow }[], counts: Map<string, number>, playerId: string | null) {
+function assemble(rows: { game: string, row: BoardRow }[], counts: Map<string, number>) {
   const boards: Record<string, GameBoard> = {}
   for (const g of GAMES) boards[g.id] = { top: [], total: counts.get(g.id) ?? 0, me: null }
   for (const { game, row } of rows) {
     const board = boards[game]
     if (!board) continue
     if (row.rank <= TOP_N) board.top.push(row)
-    if (playerId && row.playerId === playerId) board.me = row
+    if (row.me) board.me = row
   }
   return boards
 }

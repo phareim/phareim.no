@@ -317,7 +317,7 @@ test('giving furniture away unplaces it and what stands on it', () => {
 
 test('receiving gifts: once per gift id, furniture keeps its level', () => {
   let s = m.newSave()
-  const from = { playerId: 'x', playerName: 'NEON OTTER', personName: 'Emma' }
+  const from = { id: 'x', playerName: 'NEON OTTER', personName: 'Emma' }
   s = ok(m.receiveGift(s, { id: 'gift0001', from, kind: 'clothing', item: 'tiara', sentAt: 1 }))
   assert.ok(s.closet.includes('tiara'))
   assert.equal(m.receiveGift(s, { id: 'gift0001', from, kind: 'clothing', item: 'tiara', sentAt: 1 }), 'opened')

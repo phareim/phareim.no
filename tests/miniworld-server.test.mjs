@@ -9,7 +9,32 @@ import { load } from './miniworld-load.mjs'
 const m = await load()
 // node:sqlite arrived in Node 22.5; without it only the memory store runs.
 const d1 = await import('./miniworld-d1.mjs').then(x => x.d1, () => null)
-const { api } = m
+
+/** Every private id made by world(); no answer may carry one but the caller's own. */
+const privateIds = new Set()
+let answers = 0
+
+/**
+ * The route rules, with every answer checked for leaks: the caller is
+ * named by private id (playerId, or viewer for a house, or player for
+ * their own state/wallet); any other private id in the JSON fails the test.
+ */
+const api = new Proxy(m.api, {
+  get(target, name) {
+    const fn = target[name]
+    if (typeof name !== 'string' || !/(Get|Post)$/.test(name)) return fn
+    return async (store, input, ...rest) => {
+      const out = await fn(store, input, ...rest)
+      const caller = input?.viewer ?? input?.playerId ?? input?.player
+      const json = JSON.stringify(out)
+      for (const id of privateIds) {
+        if (id !== caller) assert.ok(!json.includes(id), `${name} answered another player's private id`)
+      }
+      answers++
+      return out
+    }
+  },
+})
 
 /** A fresh memory store with `n` registered players. */
 function memoryWorld(n) {
@@ -19,6 +44,7 @@ function memoryWorld(n) {
     const id = randomUUID()
     players.set(id, { name: `PLAYER ${i}` })
     ids.push(id)
+    privateIds.add(id)
   }
   return { store: new m.MemoryMwStore(async id => players.get(id) ?? null), ids }
 }
@@ -31,6 +57,7 @@ function d1World(n) {
     const id = randomUUID()
     db.raw.prepare('INSERT INTO players (id, name) VALUES (?, ?)').run(id, `PLAYER ${i}`)
     ids.push(id)
+    privateIds.add(id)
   }
   return { store: new m.D1MwStore(db), ids }
 }
@@ -45,6 +72,8 @@ async function rejects(p, status, code) {
 }
 
 const op = (id, delta, reason = 'test') => ({ id, delta, reason })
+/** A player's public id, as other players know them. */
+const pub = async (store, id) => (await store.publicIds([id])).get(id)
 
 for (const [kind, world] of [['memory', memoryWorld], ...(d1 ? [['d1', d1World]] : [])]) {
 describe(kind, () => {
@@ -118,10 +147,15 @@ describe(kind, () => {
     await rejects(api.friendPost(store, { playerId: a, code: 'ABC' }), 400, 'bad-code')
     await rejects(api.friendPost(store, { playerId: a, code: 'ZZZZZZ' === codeB ? 'YYYYYY' : 'ZZZZZZ' }), 404, 'not-found')
     const r = await api.friendPost(store, { playerId: a, code: codeB.toLowerCase() })
-    assert.equal(r.friend.playerId, b)
+    const pubB = await pub(store, b)
+    assert.match(pubB, /^[a-z0-9]{12}$/)
+    assert.equal(r.friend.id, pubB)
+    assert.equal(await pub(store, b), pubB, 'stable')
     assert.equal(r.already, false)
     assert.equal((await api.friendPost(store, { playerId: a, code: codeB })).already, true)
-    assert.deepEqual((await api.stateGet(store, { player: b })).friends.map(f => f.playerId), [a])
+    const stateB = await api.stateGet(store, { player: b })
+    assert.deepEqual(stateB.friends.map(f => f.id), [await pub(store, a)])
+    assert.equal(stateB.me.id, pubB, 'I know my own public id')
     // 30 at most
     for (const other of ids.slice(2, 31)) {
       const code = (await api.stateGet(store, { player: other })).me.code
@@ -131,7 +165,8 @@ describe(kind, () => {
     const lastCode = (await api.stateGet(store, { player: ids[31] })).me.code
     await rejects(api.friendPost(store, { playerId: a, code: lastCode }), 409, 'friends-full')
     await rejects(api.friendPost(store, { playerId: ids[31], code: codeA }), 409, 'friends-full')
-    await api.unfriendPost(store, { playerId: b, friendId: a })
+    await rejects(api.unfriendPost(store, { playerId: b, friendId: a }), 400, 'bad-player')
+    await api.unfriendPost(store, { playerId: b, friendId: await pub(store, a) })
     assert.ok(!(await store.friendIds(a)).includes(b))
     assert.ok(!(await store.friendIds(b)).includes(a))
   })
@@ -141,6 +176,7 @@ describe(kind, () => {
   test('hood lifecycle: create, join by code, one hood each, votes, ruler, titles, leave', async () => {
     const { store, ids } = world(14)
     const [a, b, c, d] = ids
+    const [pa, pb, pc, pd] = await Promise.all([a, b, c, d].map(id => pub(store, id)))
     let t = 1000
     const { hood } = await api.hoodPost(store, { playerId: a, action: 'create' }, t++)
     assert.match(hood.name, /^[A-ZÆØÅ][a-zæøå]+$/)
@@ -157,29 +193,31 @@ describe(kind, () => {
     await rejects(api.hoodPost(store, { playerId: d, action: 'join', code: hood.code }, t++), 409, 'in-hood')
 
     // votes: a tie goes to who joined first
-    let h = (await api.hoodPost(store, { playerId: b, action: 'vote', target: c }, t++)).hood
-    assert.equal(h.ruler, c)
-    assert.equal(h.myVote, c)
-    h = (await api.hoodPost(store, { playerId: c, action: 'vote', target: b }, t++)).hood
-    assert.equal(h.ruler, b, 'b joined before c')
-    h = (await api.hoodPost(store, { playerId: a, action: 'vote', target: c }, t++)).hood
-    assert.equal(h.ruler, c)
-    assert.equal(h.members.find(x => x.playerId === c).votes, 2)
-    await rejects(api.hoodPost(store, { playerId: a, action: 'vote', target: d }, t++), 409, 'not-member')
+    await rejects(api.hoodPost(store, { playerId: b, action: 'vote', target: c }, t++), 400, 'bad-player')
+    let h = (await api.hoodPost(store, { playerId: b, action: 'vote', target: pc }, t++)).hood
+    assert.equal(h.ruler, pc)
+    assert.equal(h.myVote, pc)
+    h = (await api.hoodPost(store, { playerId: c, action: 'vote', target: pb }, t++)).hood
+    assert.equal(h.ruler, pb, 'b joined before c')
+    h = (await api.hoodPost(store, { playerId: a, action: 'vote', target: pc }, t++)).hood
+    assert.equal(h.ruler, pc)
+    assert.equal(h.members.find(x => x.id === pc).votes, 2)
+    await rejects(api.hoodPost(store, { playerId: a, action: 'vote', target: pd }, t++), 409, 'not-member')
+    await rejects(api.hoodPost(store, { playerId: a, action: 'vote', target: 'nobody000000' }, t++), 404, 'not-found')
 
     // titles
     await rejects(api.hoodPost(store, { playerId: a, action: 'crown', title: 'king' }, t++), 403, 'not-ruler')
     await rejects(api.hoodPost(store, { playerId: c, action: 'crown', title: 'prince' }, t++), 400, 'bad-title')
     h = (await api.hoodPost(store, { playerId: c, action: 'crown', title: 'queen' }, t++)).hood
-    assert.equal(h.members.find(x => x.playerId === c).title, 'queen')
-    await rejects(api.hoodPost(store, { playerId: c, action: 'title', target: a, title: 'queen' }, t++), 400, 'bad-title')
-    h = (await api.hoodPost(store, { playerId: c, action: 'title', target: a, title: 'king' }, t++)).hood
-    assert.equal(h.members.find(x => x.playerId === a).title, 'king')
-    await rejects(api.hoodPost(store, { playerId: c, action: 'title', target: b, title: 'king' }, t++), 409, 'title-taken')
-    h = (await api.hoodPost(store, { playerId: c, action: 'title', target: b, title: 'princess' }, t++)).hood
-    await rejects(api.hoodPost(store, { playerId: a, action: 'title', target: b, title: null }, t++), 403, 'not-ruler')
-    await rejects(api.hoodPost(store, { playerId: c, action: 'title', target: d, title: 'prince' }, t++), 409, 'not-member')
-    await rejects(api.hoodPost(store, { playerId: c, action: 'title', target: b, title: 'emperor' }, t++), 400, 'bad-title')
+    assert.equal(h.members.find(x => x.id === pc).title, 'queen')
+    await rejects(api.hoodPost(store, { playerId: c, action: 'title', target: pa, title: 'queen' }, t++), 400, 'bad-title')
+    h = (await api.hoodPost(store, { playerId: c, action: 'title', target: pa, title: 'king' }, t++)).hood
+    assert.equal(h.members.find(x => x.id === pa).title, 'king')
+    await rejects(api.hoodPost(store, { playerId: c, action: 'title', target: pb, title: 'king' }, t++), 409, 'title-taken')
+    h = (await api.hoodPost(store, { playerId: c, action: 'title', target: pb, title: 'princess' }, t++)).hood
+    await rejects(api.hoodPost(store, { playerId: a, action: 'title', target: pb, title: null }, t++), 403, 'not-ruler')
+    await rejects(api.hoodPost(store, { playerId: c, action: 'title', target: pd, title: 'prince' }, t++), 409, 'not-member')
+    await rejects(api.hoodPost(store, { playerId: c, action: 'title', target: pb, title: 'emperor' }, t++), 400, 'bad-title')
 
     // the ruler leaves: their votes go, the crown moves on, the hood lives
     await api.hoodPost(store, { playerId: c, action: 'leave' }, t++)
@@ -191,8 +229,14 @@ describe(kind, () => {
     await api.hoodPost(store, { playerId: a, action: 'leave' }, t++)
     await api.hoodPost(store, { playerId: b, action: 'leave' }, t++)
     await rejects(api.hoodPost(store, { playerId: d, action: 'join', code: hood.code }, t++), 404, 'not-found')
-    await rejects(api.hoodPost(store, { playerId: a, action: 'vote', target: b }, t++), 409, 'no-hood')
+    await rejects(api.hoodPost(store, { playerId: a, action: 'vote', target: pb }, t++), 409, 'no-hood')
     await rejects(api.hoodPost(store, { playerId: a, action: 'dance' }, t++), 409, 'no-hood')
+  })
+
+  test('profiles: more ids than D1 binds in one query', async () => {
+    const { store, ids } = world(105)
+    for (const id of ids) await api.ensureProfile(store, id)
+    assert.equal((await store.profiles(ids)).length, 105)
   })
 
   test('a hood holds 12', async () => {
@@ -214,13 +258,13 @@ describe(kind, () => {
   test('gifts: only to friends or neighbours, catalog-checked, into the mailbox', async () => {
     const { store, ids: [a, b, c] } = world(3)
     await profileOf(store, a, 'Emma')
-    await rejects(api.giftPost(store, { playerId: a, to: b, kind: 'clothing', item: 'tiara' }), 403, 'not-allowed')
+    await rejects(api.giftPost(store, { playerId: a, to: await pub(store, b), kind: 'clothing', item: 'tiara' }), 403, 'not-allowed')
     await friends(store, a, b)
-    await rejects(api.giftPost(store, { playerId: a, to: a, kind: 'clothing', item: 'tiara' }), 409, 'self')
-    await rejects(api.giftPost(store, { playerId: a, to: b, kind: 'clothing', item: 'crown-king' }), 400, 'not-giftable')
-    await rejects(api.giftPost(store, { playerId: a, to: b, kind: 'furniture', item: 'nope' }), 400, 'not-giftable')
-    await rejects(api.giftPost(store, { playerId: a, to: b, kind: 'rocket' }), 400, 'bad-kind')
-    const { gift } = await api.giftPost(store, { playerId: a, to: b, kind: 'furniture', item: 'piano', level: 3 }, 5000)
+    await rejects(api.giftPost(store, { playerId: a, to: await pub(store, a), kind: 'clothing', item: 'tiara' }), 409, 'self')
+    await rejects(api.giftPost(store, { playerId: a, to: await pub(store, b), kind: 'clothing', item: 'crown-king' }), 400, 'not-giftable')
+    await rejects(api.giftPost(store, { playerId: a, to: await pub(store, b), kind: 'furniture', item: 'nope' }), 400, 'not-giftable')
+    await rejects(api.giftPost(store, { playerId: a, to: await pub(store, b), kind: 'rocket' }), 400, 'bad-kind')
+    const { gift } = await api.giftPost(store, { playerId: a, to: await pub(store, b), kind: 'furniture', item: 'piano', level: 3 }, 5000)
     assert.equal(gift.item, 'piano')
     assert.equal(gift.level, 3)
     assert.equal(gift.from.personName, 'Emma')
@@ -236,17 +280,17 @@ describe(kind, () => {
     // neighbours may send too
     const { hood } = await api.hoodPost(store, { playerId: c, action: 'create' })
     await api.hoodPost(store, { playerId: a, action: 'join', code: hood.code })
-    await api.giftPost(store, { playerId: c, to: a, kind: 'clothing', item: 'cap-red' })
+    await api.giftPost(store, { playerId: c, to: await pub(store, a), kind: 'clothing', item: 'cap-red' })
   })
 
   test('bits gifts: taken from the sender on send (refused when short), given once on open', async () => {
     const { store, ids: [a, b] } = world(2)
     await friends(store, a, b)
     await api.walletPost(store, { playerId: a, ops: [op('gggggggg1', 100)] })
-    await rejects(api.giftPost(store, { playerId: a, to: b, kind: 'bits', amount: 101 }), 400, 'poor')
-    await rejects(api.giftPost(store, { playerId: a, to: b, kind: 'bits', amount: 0 }), 400, 'bad-amount')
-    await rejects(api.giftPost(store, { playerId: a, to: b, kind: 'bits', amount: 1001 }), 400, 'bad-amount')
-    const sent = await api.giftPost(store, { playerId: a, to: b, kind: 'bits', amount: 40 })
+    await rejects(api.giftPost(store, { playerId: a, to: await pub(store, b), kind: 'bits', amount: 101 }), 400, 'poor')
+    await rejects(api.giftPost(store, { playerId: a, to: await pub(store, b), kind: 'bits', amount: 0 }), 400, 'bad-amount')
+    await rejects(api.giftPost(store, { playerId: a, to: await pub(store, b), kind: 'bits', amount: 1001 }), 400, 'bad-amount')
+    const sent = await api.giftPost(store, { playerId: a, to: await pub(store, b), kind: 'bits', amount: 40 })
     assert.equal(sent.bits, 60)
     assert.deepEqual(await api.walletGet(store, { player: b }), { bits: 0 }, 'nothing until opened')
     const first = await api.giftOpenPost(store, { playerId: b, id: sent.gift.id })
@@ -259,8 +303,8 @@ describe(kind, () => {
   test('a mailbox holds 40 unopened gifts', async () => {
     const { store, ids: [a, b] } = world(2)
     await friends(store, a, b)
-    for (let i = 0; i < 40; i++) await api.giftPost(store, { playerId: a, to: b, kind: 'clothing', item: 'cap-red' }, 1000 + i)
-    await rejects(api.giftPost(store, { playerId: a, to: b, kind: 'clothing', item: 'cap-red' }), 409, 'inbox-full')
+    for (let i = 0; i < 40; i++) await api.giftPost(store, { playerId: a, to: await pub(store, b), kind: 'clothing', item: 'cap-red' }, 1000 + i)
+    await rejects(api.giftPost(store, { playerId: a, to: await pub(store, b), kind: 'clothing', item: 'cap-red' }), 409, 'inbox-full')
     const inbox = (await api.stateGet(store, { player: b })).inbox
     assert.equal(inbox.length, 40)
     assert.ok(inbox.every((g, i) => i === 0 || g.sentAt >= inbox[i - 1].sentAt), 'oldest first')
@@ -269,17 +313,17 @@ describe(kind, () => {
   test('houses: visible to yourself, friends and neighbours only', async () => {
     const { store, ids: [a, b, c] } = world(3)
     const save = await profileOf(store, a, 'Emma')
-    const own = await api.houseGet(store, { player: a, viewer: a })
+    const own = await api.houseGet(store, { player: await pub(store, a), viewer: a })
     assert.equal(own.profile.person.name, 'Emma')
     assert.equal(own.profile.house.items.length, save.house.items.length)
-    await rejects(api.houseGet(store, { player: a, viewer: b }), 403, 'not-allowed')
+    await rejects(api.houseGet(store, { player: await pub(store, a), viewer: b }), 403, 'not-allowed')
     await friends(store, b, a)
-    assert.equal((await api.houseGet(store, { player: a, viewer: b })).profile.playerId, a)
+    assert.equal((await api.houseGet(store, { player: await pub(store, a), viewer: b })).profile.id, await pub(store, a))
     const { hood } = await api.hoodPost(store, { playerId: a, action: 'create' })
     await api.hoodPost(store, { playerId: c, action: 'join', code: hood.code })
-    assert.equal((await api.houseGet(store, { player: a, viewer: c })).profile.code.length, 6)
+    assert.equal((await api.houseGet(store, { player: await pub(store, a), viewer: c })).profile.code.length, 6)
     // a neighbour who has published nothing yet: an empty lot
-    const empty = await api.houseGet(store, { player: c, viewer: a })
+    const empty = await api.houseGet(store, { player: await pub(store, c), viewer: a })
     assert.equal(empty.profile.person, null)
     assert.equal(empty.profile.house, null)
   })

@@ -14,7 +14,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'themes', 'zeld
 let W
 before(async () => {
   const out = esbuild.buildSync({
-    stdin: { contents: `export * from './wallet'; export { MAX_BITS } from './types'`, resolveDir: root, loader: 'ts' },
+    stdin: { contents: `export * from './wallet'; export { MAX_BITS } from './types'; export { WORLD } from './world/index'`, resolveDir: root, loader: 'ts' },
     bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
   })
   W = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
@@ -109,6 +109,85 @@ describe('bits bridge', () => {
     assert.equal(W.carried(-3), 0)
     assert.equal(W.carried(12.7), 12)
     assert.equal(W.MAX_BITS, 9999)
+  })
+})
+
+describe('one-time rewards', () => {
+  const paidSet = () => { const set = new Set(); return { set, has: f => set.has(f), add: f => set.add(f) } }
+  const rewards = new Map([['chest:arcade.chest', 20], ['took:coin', 5]])
+
+  it('a chest pays once per browser, not once per run (START OVER, or every visit before the sword)', () => {
+    const w = fakeWallet(0)
+    const paid = paidSet()
+    const b = W.createBitsBridge(w, { rewards, paid })
+    for (let run = 0; run < 3; run++) {
+      const i = inv()
+      const flags = {}
+      b.adopt(i, flags)
+      flags['chest:arcade.chest'] = true
+      i.bits += 20
+      b.step(i, flags)
+      assert.equal(i.bits, 20, `run ${run}: the purse shows the wallet`)
+    }
+    assert.equal(w.read(), 20)
+    assert.deepEqual(w.ops, [[20, 'shrine']])
+  })
+
+  it('drops and a new reward in the same frame still pay; an NPC gift pays once', () => {
+    const w = fakeWallet(0)
+    const paid = paidSet()
+    paid.add('chest:arcade.chest')
+    paid.add('got:toby:bits50')
+    const b = W.createBitsBridge(w, { rewards, paid })
+    const i = inv()
+    const flags = {}
+    b.adopt(i, flags)
+    flags['chest:arcade.chest'] = true
+    i.bits += 20 + 1 // the chest (paid before) and an enemy's bit
+    assert.equal(b.step(i, flags), 1)
+    flags['got:toby:bits50'] = true
+    i.bits += 50
+    assert.equal(b.step(i, flags), 0)
+    flags['took:coin'] = true
+    i.bits += 5
+    assert.equal(b.step(i, flags), 5)
+    assert.equal(w.read(), 6)
+    assert.equal(i.bits, 6)
+    assert.ok(paid.has('took:coin'))
+  })
+
+  it('a loaded save\'s opened chests count as paid', () => {
+    const w = fakeWallet(100)
+    const paid = paidSet()
+    const b = W.createBitsBridge(w, { rewards, paid })
+    b.adopt(inv(), { 'chest:arcade.chest': true, 'item:sword': true })
+    assert.deepEqual([...paid.set], ['chest:arcade.chest'])
+    const i = inv()
+    const flags = {}
+    b.adopt(i, flags)
+    flags['chest:arcade.chest'] = true
+    i.bits += 20
+    assert.equal(b.step(i, flags), 0)
+    assert.equal(w.read(), 100)
+  })
+
+  it('bitRewards finds the world\'s bit chests; the paid store survives a reload and bad storage', () => {
+    const world = { maps: { a: { marks: {
+      $: { ent: { t: 'chest', id: 'x', item: 'bits50' } },
+      k: { ent: { t: 'chest', id: 'y', item: 'smallKey' } },
+      c: { ent: { t: 'item', id: 'z', item: 'bits5' } },
+    } } } }
+    assert.deepEqual([...W.bitRewards(world)], [['chest:x', 50], ['took:z', 5]])
+    const real = W.bitRewards(W.WORLD)
+    assert.equal(real.get('chest:arcade.chest'), 20, 'the arcade chest, open before the sword')
+    assert.ok(real.size >= 8)
+    const m = new Map()
+    const kv = { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, v) }
+    W.paidFlagStore(() => kv).add('chest:x')
+    assert.ok(W.paidFlagStore(() => kv).has('chest:x'), 'a new page reads it back')
+    const bad = W.paidFlagStore(() => { throw new Error('private') })
+    bad.add('chest:y')
+    assert.ok(bad.has('chest:y'), 'without storage the page still remembers')
   })
 })
 

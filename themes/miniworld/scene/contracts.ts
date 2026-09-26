@@ -57,7 +57,7 @@ export type Place =
   | { kind: 'town'; at?: TownSpot }
   | { kind: 'house'; edit: boolean }
   /** A friend's or neighbour's house, read-only. */
-  | { kind: 'visit'; playerId: string }
+  | { kind: 'visit'; /** Public id. */ playerId: string }
   | { kind: 'obby'; level: ObbyLevel }
   | { kind: 'stars' }
   /** The fashion show's catwalk: the active person walks, three judges watch (score comes from the UI). */
@@ -84,6 +84,7 @@ export type ZoneId =
   | `use:${string}`   // a sofa, bed, trampoline… in a house (furniture uid); the runtime handles the action itself
 
 export interface NeighborInfo {
+  /** The neighbour's public id (never a private player id: that stays in its own browser). */
   playerId: string
   /** The person's name (or the player's site name when they have no person yet). */
   label: string

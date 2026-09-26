@@ -9,6 +9,7 @@ import { isSaveError, SAVE_ERROR_TEXT, type SaveError } from '~/themes/miniworld
 import { finishContest as scoreContest, type ContestResult, type ContestOutcome } from '~/themes/miniworld/core/contests'
 import { royalPrizes } from '~/themes/miniworld/core/royal'
 import { writeHeroColors } from '~/themes/miniworld/core/outfit'
+import { HERO_COLORS_KEY } from '~/themes/miniworld/types'
 import { useWallet, syncWallet } from '~/composables/useWallet'
 import { useGameSave } from '~/composables/useGameSave'
 import { useLeaderboard } from '~/composables/useLeaderboard'
@@ -104,6 +105,8 @@ const LOCAL_KEY = 'miniworld.save'
 const PUSH_DELAY_MS = 2000
 /** How long the first load waits for the profile before playing on the local save. */
 const PULL_TIMEOUT_MS = 3000
+/** A profile that has not answered by then is taken as offline (pushes may go). */
+const PULL_GIVE_UP_MS = 20_000
 const WELCOME_BITS = 50
 const POOR_TEXT = 'Du har ikke nok bits.'
 
@@ -178,7 +181,13 @@ function build(client: boolean): MiniWorldApi {
     // The first real save makes the player, so the wallet and the neighbourhood have one.
     if (!playerAsked && !profile.hasPlayer()) {
       playerAsked = true
-      void ensurePlayer().then(() => syncWallet()).catch(() => { playerAsked = false })
+      // With the player: pending bits go up, and others can see the person (the watcher below skipped it without a player).
+      void ensurePlayer()
+        .then(() => {
+          void syncWallet()
+          if (save.value.persons.length) publishProfile(core.publicData(save.value))
+        })
+        .catch(() => { playerAsked = false })
     }
     schedulePush()
   }
@@ -186,13 +195,22 @@ function build(client: boolean): MiniWorldApi {
   async function firstSync(): Promise<void> {
     try {
       if (!profile.hasPlayer()) return
-      const timeout = new Promise<'offline'>(resolve => setTimeout(() => resolve('offline'), PULL_TIMEOUT_MS))
-      const remote = await Promise.race([profile.pull(), timeout])
+      /** The local save as loaded: a slow profile answer is compared with this, not with play since. */
+      const base = save.value.savedAt
+      const pull = profile.pull()
+      const timeout = new Promise<'slow'>(resolve => setTimeout(() => resolve('slow'), PULL_TIMEOUT_MS))
+      let remote = await Promise.race([pull, timeout])
+      if (remote === 'slow') {
+        // Play on the local save meanwhile, but push nothing until the profile has answered:
+        // a fresh or broken local save must not overwrite the profile's copy.
+        ready.value = true
+        remote = await Promise.race([pull, new Promise<'offline'>(resolve => setTimeout(() => resolve('offline'), PULL_GIVE_UP_MS))])
+      }
       if (remote === 'offline') return
       const local = save.value
       const theirs = remote?.data ? core.parseSave(remote.data) : null
-      if (remote && theirs && remote.savedAt > local.savedAt) {
-        save.value = { ...theirs, savedAt: remote.savedAt }
+      if (remote && theirs && remote.savedAt > base) {
+        save.value = { ...theirs, savedAt: Math.max(remote.savedAt, local.savedAt) }
         writeLocal(save.value)
       } else if (local.persons.length && (!remote || remote.savedAt < local.savedAt)) {
         dirty = true
@@ -217,7 +235,11 @@ function build(client: boolean): MiniWorldApi {
         if (theirs && theirs.savedAt > save.value.savedAt) save.value = theirs
       } catch { /* a half-written value: the next write fixes it */ }
     })
-    watch(() => active.value?.look, (look) => { if (look) writeHeroColors(look) }, { immediate: true, deep: true })
+    // Neon Shrine's hero wears the active person; with nobody left it goes back to its own clothes.
+    watch(() => active.value?.look, (look) => {
+      if (look) writeHeroColors(look)
+      else try { localStorage.removeItem(HERO_COLORS_KEY) } catch { /* no storage */ }
+    }, { immediate: true, deep: true })
     // What others see: published when it changes (the social composable debounces).
     watch(
       () => (save.value.persons.length ? JSON.stringify(core.publicData(save.value)) : ''),

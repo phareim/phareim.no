@@ -7,6 +7,14 @@
 -- request newly inserted.
 ALTER TABLE players ADD COLUMN bits INTEGER NOT NULL DEFAULT 0;
 
+-- A player's public id: what other browsers see (Hall of Fame rows, Mini
+-- World friends, neighbours, gifts). The private id is the only credential
+-- and never leaves its own browser. NULL until the server first needs it,
+-- then filled once (only a NULL is overwritten), so older players need no
+-- data migration.
+ALTER TABLE players ADD COLUMN pub_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS players_pub_id ON players (pub_id);
+
 CREATE TABLE IF NOT EXISTS wallet_ops (
   player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
   op_id TEXT NOT NULL,

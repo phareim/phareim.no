@@ -5,7 +5,7 @@
       <p class="mw-label">HVEM SKAL FÅ GAVEN?</p>
       <p v-if="!people.length" class="mw-p mw-dim mw-center">DU HAR INGEN VENNER ELLER NABOER ENNÅ. FINN DEM PÅ SLOTTET!</p>
       <div v-else class="mw-grid">
-        <button v-for="p in people" :key="p.playerId" type="button" class="mw-tile" @click="pickWho(p.playerId)">
+        <button v-for="p in people" :key="p.id" type="button" class="mw-tile" @click="pickWho(p.id)">
           <img v-if="p.pic" class="mw-pic" :src="p.pic" alt="">
           <span v-else class="mw-pic--empty" />
           <span class="mw-tile-name">{{ shy(p.name) }}</span>
@@ -99,17 +99,17 @@ const people = computed(() => {
   const s = social.state.value
   const me = social.me.value
   const seen = new Set<string>()
-  const out: { playerId: string; name: string; pic: string }[] = []
+  const out: { id: string; name: string; pic: string }[] = []
   const add = (id: string, name: string, look: Parameters<typeof pics.person>[0] | null | undefined) => {
     if (id === me || seen.has(id)) return
     seen.add(id)
-    out.push({ playerId: id, name, pic: look ? pics.person(look, { size: 112 }) : '' })
+    out.push({ id, name, pic: look ? pics.person(look, { size: 112 }) : '' })
   }
-  for (const f of s?.friends ?? []) add(f.playerId, f.person?.name ?? f.playerName, f.person?.look)
-  for (const m of s?.hood?.members ?? []) add(m.playerId, m.person?.name ?? m.playerName, m.person?.look)
+  for (const f of s?.friends ?? []) add(f.id, f.person?.name ?? f.playerName, f.person?.look)
+  for (const m of s?.hood?.members ?? []) add(m.id, m.person?.name ?? m.playerName, m.person?.look)
   return out
 })
-const toName = computed(() => people.value.find(p => p.playerId === to.value)?.name ?? '')
+const toName = computed(() => people.value.find(p => p.id === to.value)?.name ?? '')
 
 onMounted(() => { if (!social.state.value) void social.refresh() })
 

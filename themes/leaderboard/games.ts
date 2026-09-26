@@ -38,7 +38,10 @@ export interface BoardRow {
   rank: number
   name: string
   score: number
-  playerId: string
+  /** The player's public id: stable, safe to show, says nothing of the private id (which never leaves its browser). */
+  key: string
+  /** True on the requesting player's own row. */
+  me: boolean
   /** Thumbnail URL of the player's painted pilot, once it exists. */
   avatar: string | null
 }

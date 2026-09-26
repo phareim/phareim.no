@@ -15,7 +15,7 @@
     "test:invaders": "node --test tests/invaders-mobile.test.mjs",
     "test:starfox": "node --test tests/starfox-balance.test.mjs tests/starfox-story.test.mjs tests/starfox-arsenal.test.mjs tests/starfox-encounters.test.mjs tests/starfox-bosses.test.mjs",
     "test:wingman": "node --test tests/starfox-wingman.test.mjs",
-    "test:leaderboard": "node --test tests/leaderboard-names.test.mjs",
+    "test:leaderboard": "node --test tests/leaderboard-names.test.mjs tests/leaderboard-board.test.mjs",
     "test:ships": "node --test tests/ships.test.mjs",
     "test:galaga": "node --test tests/galaga-game.test.mjs tests/galaga-balance.test.mjs tests/galaga-audio.test.mjs tests/galaga-weapons.test.mjs tests/galaga-story.test.mjs",
     "test:radio": "node --test tests/radio-catalog.test.mjs",
