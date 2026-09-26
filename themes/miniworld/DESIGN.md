@@ -32,7 +32,7 @@ reader is seven: one idea per line, big buttons, pictures before words).
     (+ something for a full outfit). 12+ stars once: Motepokal and Gullsko.
   - **Huskespill** (memory): pairs of item pictures, 6/8/10 pairs; bits
     by how few moves. First win on 10 pairs: Huskepokal + Stjernebriller.
-  Rewards live in `core/contests.ts`. Bits per play are small (5–60) so
+  Rewards live in `core/contests.ts`. Bits per play are small (5–70) so
   the shops take a while but never feel far.
 - **Your house.** Walk in at your door on Nabogata. One room of
   `HOUSE_W × HOUSE_D` cells. **Pynt** mode: pick things from storage, drag
