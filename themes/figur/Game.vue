@@ -141,10 +141,8 @@ const toast = ref<{ id: number; text: string } | null>(null)
 
 const sound = createSfx()
 const muted = ref(sound.muted)
-let unlocked = false
+/** Every gesture tries again until the browser lets the audio run (a failed first try is common on iOS). */
 function unlock() {
-  if (unlocked) return
-  unlocked = true
   sound.unlock()
 }
 const sfx = (name: Sfx) => sound.play(name)

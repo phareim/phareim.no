@@ -106,3 +106,45 @@ test('every icon is a rectangle of pixels', () => {
   assert.deepEqual(icons.iconProblems(), [])
   assert.deepEqual(icons.iconSize('pip'), { w: 16, h: 14 })
 })
+
+test('name fields drop what a name cannot hold, quietly', () => {
+  assert.equal(m.typedName('Mia!!', 16), 'Mia')
+  assert.equal(m.typedName('Ærlig Øy-2 🦄', 16), 'Ærlig Øy-2 ')
+  assert.equal(m.typedName('abcdefghijklmnopqrst', 16), 'abcdefghijklmnop')
+  assert.equal(m.typedName('Min kjole ♥', 20), 'Min kjole ')
+})
+
+test('the save must fit the 32 KB profile slot, counted in UTF-8 bytes', async () => {
+  const core = await bundle('themes/figur/core/save.ts')
+  const tex = await bundle('themes/figur/core/textures.ts')
+  assert.equal(m.saveBytes({ n: 'æøå' }), JSON.stringify({ n: 'æøå' }).length + 3)
+  // A worst case: eight figures and forty 16-colour dresses, every pixel noisy.
+  let save = core.newSave(() => 0.5)
+  for (let i = 1; i < 8; i++) save = core.addFigure(save)
+  const pal = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff', '#000000',
+    '#880000', '#008800', '#000088', '#888800', '#880088', '#008888', '#888888', '#444444']
+  const noisy = (seed) => {
+    const t = tex.blankTexture('dress')
+    return { ...t, px: t.px.map((_, i) => pal[(i * 7 + seed * 13 + ((i * i) % 11)) % pal.length]) }
+  }
+  const sizes = []
+  for (let i = 0; i < 40; i++) {
+    const next = core.saveDrawn(save, { id: core.newDrawnId(save), name: `Min kjole ${i + 1}`, kind: 'dress', tex: tex.packTexture(noisy(i)), createdAt: 1 })
+    assert.equal(typeof next, 'object')
+    if (!m.fitsSlot(next, save)) break
+    save = next
+    sizes.push(m.saveBytes(save))
+  }
+  assert.ok(sizes.every(n => n <= m.SAVE_MAX_BYTES), 'every accepted save fits')
+  // Near the limit, one more drawn dress is refused.
+  const nearly = { ...core.newSave(() => 0.5), pad: '' }
+  nearly.pad = 'æ'.repeat(Math.floor((m.SAVE_MAX_BYTES - m.saveBytes(nearly) - 200) / 2))
+  assert.ok(m.saveBytes(nearly) <= m.SAVE_MAX_BYTES && m.saveBytes(nearly) > m.SAVE_MAX_BYTES - 210)
+  const plusDress = core.saveDrawn(nearly, { id: core.newDrawnId(nearly), name: 'Min kjole', kind: 'dress', tex: tex.packTexture(noisy(1)), createdAt: 1 })
+  assert.ok(!m.fitsSlot({ ...plusDress, pad: nearly.pad }, nearly), 'a dress past the limit is refused')
+  // Deleting from a save is always allowed, even an over-full one.
+  const big = { ...save, pad: 'x'.repeat(m.SAVE_MAX_BYTES) }
+  const smaller = { ...big, closet: big.closet.slice(1) }
+  assert.ok(m.fitsSlot(smaller, big))
+  assert.ok(!m.fitsSlot(big, save))
+})

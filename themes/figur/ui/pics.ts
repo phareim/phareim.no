@@ -133,21 +133,47 @@ export function headPic(f: Figure, closet: readonly DrawnGarment[], style: Style
   })
 }
 
-/** Saves `canvas` as a PNG named `name` (an <a download> click). */
-export function downloadCanvas(canvas: HTMLCanvasElement, name: string): Promise<boolean> {
+/** How a picture left: shared (iOS puts it in Photos), downloaded, or not at all (cancelled, failed). */
+export type SaveOutcome = 'shared' | 'saved' | false
+
+/**
+ * Hands `canvas` over as a PNG named `name`: the share sheet where the
+ * device can share files (on iOS that is how a picture reaches Photos),
+ * else an <a download> click.
+ */
+export function downloadCanvas(canvas: HTMLCanvasElement, name: string): Promise<SaveOutcome> {
   return new Promise((resolve) => {
     canvas.toBlob((blob) => {
       if (!blob) { resolve(false); return }
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = name
-      a.rel = 'noopener'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      setTimeout(() => URL.revokeObjectURL(url), 4000)
-      resolve(true)
+      const file = typeof File === 'function' ? new File([blob], name, { type: 'image/png' }) : null
+      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
+      if (file && typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
+        nav.share({ files: [file] }).then(() => resolve('shared'), (err: unknown) => {
+          // Cancelled by the child: nothing went. Any other refusal: try the plain download.
+          if (err instanceof DOMException && err.name === 'AbortError') resolve(false)
+          else resolve(anchorDownload(blob, name))
+        })
+        return
+      }
+      resolve(anchorDownload(blob, name))
     }, 'image/png')
   })
+}
+
+function anchorDownload(blob: Blob, name: string): SaveOutcome {
+  try {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    a.rel = 'noopener'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    // Slow phones may start reading the file late: keep it for a minute.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    return 'saved'
+  } catch {
+    return false
+  }
 }

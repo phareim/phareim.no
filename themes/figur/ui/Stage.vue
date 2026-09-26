@@ -94,6 +94,8 @@ function measure() {
   if (!el) return
   area.w = el.clientWidth
   area.h = el.clientHeight
+  // A stage that measured 0×0 (hidden, not laid out yet) stopped its loop: start it again.
+  loop()
 }
 
 function onVisibility() {

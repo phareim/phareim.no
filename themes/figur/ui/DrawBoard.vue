@@ -125,7 +125,7 @@ import { useFigur } from '~/composables/useFigur'
 import FgIcon from './FgIcon.vue'
 import type { IconId } from './icons'
 import { bufferCanvas } from './pics'
-import { newUndo, pushUndo, popUndo, sameTexture, lineCells, cellAt, boardCell } from './board'
+import { newUndo, pushUndo, popUndo, sameTexture, lineCells, cellAt, boardCell, typedName } from './board'
 import { FG_CTX, type BoardStart } from './context'
 
 type Tool = 'pencil' | 'eraser' | 'fill'
@@ -141,6 +141,7 @@ const props = defineProps<{ start: BoardStart }>()
 const emit = defineEmits<{ close: [] }>()
 const game = useFigur()
 const ctx = inject(FG_CTX)!
+const { navigationLocked } = useTheme()
 
 const kind = props.start.kind
 const initial: Texture = props.start.tex && fitsKind(props.start.tex, kind) ? applyMask(props.start.tex, kind) : blankTexture(kind)
@@ -153,6 +154,8 @@ const undoCount = ref(0)
 const undoable = computed(() => undoCount.value > 0)
 const empty = computed(() => !tex.value.px.some(Boolean))
 const dirty = computed(() => !sameTexture(tex.value, initial))
+// Unsaved drawing: the ⌂ chip hides and the back button stays, as in a game run.
+watch(dirty, (d) => { navigationLocked.value = d }, { immediate: true })
 
 const kindName = DRAW_TEMPLATES.find(t => t.kind === kind)?.name
   ?? garment(game.active.value.outfit[KIND_SLOT[kind]]?.id ?? '')?.name
@@ -173,6 +176,68 @@ function measure() {
   cell.value = boardCell(el.clientWidth, el.clientHeight, tex.value.w, tex.value.h)
 }
 
+/**
+ * The grid is three layers: the static background (hatching where the
+ * piece cannot be painted, a pale checker where it can) and the static
+ * overlay (the body's outline as dots, the cell lines), both drawn once
+ * per cell size into offscreen canvases, and the painted cells between
+ * them. A stroke repaints only the cells that changed.
+ */
+interface Layers { key: string; back: HTMLCanvasElement; over: HTMLCanvasElement }
+let layers: Layers | null = null
+/** What the canvas shows now, to repaint only changed cells. */
+let shown: { key: string; px: Array<Hex | null>; mirror: boolean } | null = null
+
+function layersFor(s: number, dpr: number): Layers {
+  const t = tex.value
+  const key = `${s}x${dpr}`
+  if (layers?.key === key) return layers
+  const make = () => {
+    const c = document.createElement('canvas')
+    c.width = t.w * s * dpr
+    c.height = t.h * s * dpr
+    const g = c.getContext('2d')!
+    g.setTransform(dpr, 0, 0, dpr, 0, 0)
+    return { c, g }
+  }
+  const back = make()
+  const over = make()
+  const step = Math.max(3, Math.round(s / 4))
+  const dot = Math.max(2, Math.round(s / 5))
+  for (let y = 0; y < t.h; y++) {
+    for (let x = 0; x < t.w; x++) {
+      const i = y * t.w + x
+      const px = x * s
+      const py = y * s
+      if (!mask[i]) {
+        // Not paintable: lilac with hard diagonal hatching.
+        back.g.fillStyle = '#d9c4f2'
+        back.g.fillRect(px, py, s, s)
+        back.g.fillStyle = '#c3a6e6'
+        for (let k = -s; k < s; k += step) {
+          for (let d = 0; d < s; d++) {
+            const hx = k + d
+            if (hx >= 0 && hx < s) back.g.fillRect(px + hx, py + d, 1, 1)
+          }
+        }
+        continue
+      }
+      // Empty: a pale checker, so "see-through" reads as see-through.
+      back.g.fillStyle = (x + y) % 2 ? '#ffffff' : '#f4ecfb'
+      back.g.fillRect(px, py, s, s)
+      if (guide[i]) {
+        over.g.fillStyle = 'rgba(42, 23, 68, 0.28)'
+        over.g.fillRect(px + Math.floor((s - dot) / 2), py + Math.floor((s - dot) / 2), dot, dot)
+      }
+    }
+  }
+  over.g.fillStyle = 'rgba(42, 23, 68, 0.14)'
+  for (let x = 1; x < t.w; x++) over.g.fillRect(x * s, 0, 1, t.h * s)
+  for (let y = 1; y < t.h; y++) over.g.fillRect(0, y * s, t.w * s, 1)
+  layers = { key, back: back.c, over: over.c }
+  return layers
+}
+
 function paint() {
   const c = gridRef.value
   if (!c) return
@@ -181,55 +246,43 @@ function paint() {
   const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1))
   const W = t.w * s * dpr
   const H = t.h * s * dpr
-  if (c.width !== W || c.height !== H) { c.width = W; c.height = H }
   const g = c.getContext('2d')!
-  g.setTransform(dpr, 0, 0, dpr, 0, 0)
+  const L = layersFor(s, dpr)
+  let full = !shown || shown.key !== L.key || shown.mirror !== mirror.value
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; full = true }
+  g.setTransform(1, 0, 0, 1, 0, 0)
   g.imageSmoothingEnabled = false
-  for (let y = 0; y < t.h; y++) {
-    for (let x = 0; x < t.w; x++) {
-      const i = y * t.w + x
-      const px = x * s
-      const py = y * s
-      if (!mask[i]) {
-        // Not paintable: lilac with hard diagonal hatching.
-        g.fillStyle = '#d9c4f2'
-        g.fillRect(px, py, s, s)
-        g.fillStyle = '#c3a6e6'
-        const step = Math.max(3, Math.round(s / 4))
-        for (let k = -s; k < s; k += step) {
-          for (let d = 0; d < s; d++) {
-            const hx = k + d
-            if (hx >= 0 && hx < s) g.fillRect(px + hx, py + d, 1, 1)
-          }
-        }
-        continue
-      }
-      const col = t.px[i]
-      if (col) {
-        g.fillStyle = col
-        g.fillRect(px, py, s, s)
-      } else {
-        // Empty: a pale checker, so "see-through" reads as see-through.
-        g.fillStyle = (x + y) % 2 ? '#ffffff' : '#f4ecfb'
-        g.fillRect(px, py, s, s)
-      }
-      if (guide[i]) {
-        g.fillStyle = 'rgba(42, 23, 68, 0.28)'
-        const d = Math.max(2, Math.round(s / 5))
-        g.fillRect(px + Math.floor((s - d) / 2), py + Math.floor((s - d) / 2), d, d)
-      }
-    }
+  const mid = t.w / 2
+  /** One cell (device px) from the layers and its colour; the mirror line again where it crosses. */
+  const repaintCell = (x: number, y: number) => {
+    const sx = x * s * dpr
+    const sy = y * s * dpr
+    const sz = s * dpr
+    g.drawImage(L.back, sx, sy, sz, sz, sx, sy, sz, sz)
+    const col = mask[y * t.w + x] ? t.px[y * t.w + x] : null
+    if (col) { g.fillStyle = col; g.fillRect(sx, sy, sz, sz) }
+    g.drawImage(L.over, sx, sy, sz, sz, sx, sy, sz, sz)
   }
-  // Cell lines.
-  g.fillStyle = 'rgba(42, 23, 68, 0.14)'
-  for (let x = 1; x < t.w; x++) g.fillRect(x * s, 0, 1, t.h * s)
-  for (let y = 1; y < t.h; y++) g.fillRect(0, y * s, t.w * s, 1)
-  // The mirror's middle line.
+  if (full) {
+    g.drawImage(L.back, 0, 0)
+    for (let i = 0; i < t.px.length; i++) {
+      const col = mask[i] ? t.px[i] : null
+      if (!col) continue
+      g.fillStyle = col
+      g.fillRect((i % t.w) * s * dpr, Math.floor(i / t.w) * s * dpr, s * dpr, s * dpr)
+    }
+    g.drawImage(L.over, 0, 0)
+  } else {
+    const old = shown!.px
+    for (let i = 0; i < t.px.length; i++) if (old[i] !== t.px[i]) repaintCell(i % t.w, Math.floor(i / t.w))
+  }
+  // The mirror's middle line, redrawn over the two middle columns.
   if (mirror.value) {
     g.fillStyle = '#d9468f'
-    const mx = (t.w * s) / 2 - 1
-    for (let y = 0; y < t.h * s; y += 8) g.fillRect(mx, y, 2, 4)
+    const mx = Math.round((mid * s - 1) * dpr)
+    for (let y = 0; y < t.h * s; y += 8) g.fillRect(mx, y * dpr, 2 * dpr, 4 * dpr)
   }
+  shown = { key: L.key, px: t.px.slice(), mirror: mirror.value }
 }
 
 watch([tex, cell, mirror], () => { paint(); schedulePreview() }, { flush: 'post' })
@@ -251,6 +304,8 @@ function paintAt(x: number, y: number) {
 }
 
 function onDown(e: PointerEvent) {
+  // One stroke at a time: a second finger must not replace it (its undo step would be lost).
+  if (stroke) return
   if (e.button !== 0 && e.pointerType === 'mouse') return
   e.preventDefault()
   const at = cellOf(e)
@@ -351,6 +406,8 @@ watch(() => game.active.value.style, schedulePreview)
 const naming = ref(false)
 const name = ref('')
 const problem = ref('')
+// Letters, digits, space and hyphen only: anything else is dropped as it is typed.
+watch(name, (v) => { const t = typedName(v, MAX_DRAWN_NAME); if (t !== v) name.value = t })
 const nameRef = ref<HTMLInputElement | null>(null)
 
 async function startSave() {
@@ -385,12 +442,13 @@ function save() {
   game.wear(slot, { id })
   ctx.sfx('sparkle')
   ctx.say('Lagret! Du finner den i Mine klær.')
+  navigationLocked.value = false
   emit('close')
 }
 
 function requestClose() {
   if (!dirty.value) { emit('close'); return }
-  ctx.ask('Vil du slutte uten å lagre?', () => emit('close'))
+  ctx.ask('Vil du slutte uten å lagre?', () => { navigationLocked.value = false; emit('close') })
 }
 
 /** Escape: out of the name step first, then off the board (asking if there is unsaved drawing). */
@@ -410,6 +468,7 @@ onMounted(() => {
   schedulePreview()
 })
 onBeforeUnmount(() => {
+  navigationLocked.value = false
   ro?.disconnect()
   if (previewRaf) cancelAnimationFrame(previewRaf)
 })

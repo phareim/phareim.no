@@ -5,6 +5,7 @@ import * as core from '~/themes/figur/core/save'
 import { isSaveError, SAVE_ERROR_TEXT, type SaveError } from '~/themes/figur/core/save'
 import { cleanName, newFigure, setBody as bodyPatch, wear as wearOn } from '~/themes/figur/core/figure'
 import { writeHeroColors } from '~/themes/figur/core/hero'
+import { fitsSlot } from '~/themes/figur/ui/board'
 import { useGameSave } from '~/composables/useGameSave'
 import { useLeaderboard } from '~/composables/useLeaderboard'
 
@@ -21,7 +22,7 @@ import { useLeaderboard } from '~/composables/useLeaderboard'
 /** Every action answers this; `message` is Norwegian, ready to show the child. */
 export type FigurResult =
   | { ok: true }
-  | { ok: false; error: SaveError; message: string }
+  | { ok: false; error: SaveError | 'too-big'; message: string }
 
 export interface FigurApi {
   /** The save. Read it; change it only through the actions. */
@@ -71,6 +72,8 @@ const PULL_TIMEOUT_MS = 3000
 /** A profile that has not answered by then is taken as offline (pushes may go). */
 const PULL_GIVE_UP_MS = 20_000
 const FIGURE_NAME_TEXT = 'Navnet kan ha 1 til 16 bokstaver.'
+/** The profile slot is full (SAVE_MAX_BYTES). */
+const TOO_BIG_TEXT = 'Skapet er fullt. Slett noe du har tegnet først.'
 
 /** A save that has a figure to show: a parsed one with none left is replaced. */
 function usable(s: FigurSave | null): FigurSave | null {
@@ -94,7 +97,7 @@ function writeLocal(save: FigurSave): void {
   }
 }
 
-const fail = (error: SaveError, message = SAVE_ERROR_TEXT[error]): FigurResult => ({ ok: false, error, message })
+const fail = (error: SaveError | 'too-big', message = error === 'too-big' ? TOO_BIG_TEXT : SAVE_ERROR_TEXT[error]): FigurResult => ({ ok: false, error, message })
 
 let shared: FigurApi | null = null
 
@@ -207,6 +210,8 @@ function build(client: boolean): FigurApi {
   function run(r: FigurSave | SaveError, cheer = true, message?: string): FigurResult {
     if (isSaveError(r)) return fail(r, message)
     if (r === save.value) return { ok: true }
+    // The profile slot holds 32 KB: a change that would outgrow it is refused (shrinking is always fine).
+    if (!fitsSlot({ ...r, savedAt: Date.now() }, save.value)) return fail('too-big')
     commit(r)
     if (cheer) changes.value++
     return { ok: true }

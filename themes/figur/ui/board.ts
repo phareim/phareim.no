@@ -2,7 +2,7 @@
  * The studio's pure bits, kept out of the components so plain node can
  * test them (tests/figur-ui.test.mjs): the drawing board's undo stack and
  * stroke lines, the whole-number fits for the stage and the board, and
- * the download file names. No DOM.
+ * the download file names, name typing and the profile slot's size. No DOM.
  */
 import type { Texture } from '../types'
 
@@ -125,3 +125,36 @@ export const pictureFileName = (name: string, style: string): string => `figur-$
 
 /** `<navn>-skin.png` */
 export const skinFileName = (name: string): string => `${fileSlug(name)}-skin.png`
+
+// ---------------------------------------------------------------- names as typed
+
+/** Anything a name may not hold (core/figure.ts cleanName allows letters, digits, space, hyphen). */
+const NOT_IN_NAME = /[^A-Za-zÆØÅæøåÄÖÜäöüÉÈéè0-9\- ]/g
+
+/**
+ * A name field's value as the child types: characters a name cannot
+ * hold are dropped quietly (no message about length for a stray "!"),
+ * at most `max` characters.
+ */
+export function typedName(raw: string, max: number): string {
+  return [...raw.replace(NOT_IN_NAME, '')].slice(0, max).join('')
+}
+
+// ---------------------------------------------------------------- the profile slot
+
+/** The profile slot takes 32 768 bytes of JSON; keep a margin for the request around it. */
+export const SAVE_MAX_BYTES = 32_000
+
+/** The save's size as the profile stores it: UTF-8 bytes of its JSON (æøå are two). */
+export function saveBytes(save: unknown): number {
+  return new TextEncoder().encode(JSON.stringify(save)).length
+}
+
+/**
+ * Whether `next` may replace `prev` in the slot: under the limit, or at
+ * least not bigger than before (deleting from an over-full save is fine).
+ */
+export function fitsSlot(next: unknown, prev: unknown): boolean {
+  const n = saveBytes(next)
+  return n <= SAVE_MAX_BYTES || n <= saveBytes(prev)
+}

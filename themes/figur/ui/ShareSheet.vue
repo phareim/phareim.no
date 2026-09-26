@@ -17,6 +17,7 @@
         </div>
         <p class="fg-p fg-dim">Be en voksen hjelpe deg:</p>
         <p class="fg-p fg-dim">Minecraft → Skins → Ny skin → velg fila.</p>
+        <p class="fg-p fg-dim">Velg modellen «Classic» (brede armer).</p>
       </template>
     </div>
   </Sheet>
@@ -56,13 +57,13 @@ const skin = computed(() => (styleId.value === 'minecraft' ? bufferCanvas(skinTe
 async function savePicture() {
   const buf = frame()
   const ok = await downloadCanvas(scaledCanvas(buf, exportScale(buf.w, buf.h)), pictureFileName(game.active.value.name, styleId.value))
-  ctx.sfx(ok ? 'sparkle' : 'no')
+  if (ok) ctx.sfx('sparkle')
 }
 
 async function saveSkin() {
   // A skin is read pixel for pixel by the game: exactly 64×64, never scaled.
   const ok = await downloadCanvas(bufferCanvas(skinTexture()), skinFileName(game.active.value.name))
-  ctx.sfx(ok ? 'sparkle' : 'no')
+  if (ok) ctx.sfx('sparkle')
 }
 </script>
 

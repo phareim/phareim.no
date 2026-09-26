@@ -3,7 +3,13 @@
  * on save, a chirp for Pip, a soft tick while painting. Web Audio, made
  * on the first user gesture (browsers keep audio off until then), quiet,
  * and a mute that the page remembers (localStorage `figur.muted`).
+ *
+ * The site radio is held silent while the studio is open (the theme is
+ * `ownRadio`, so its widget is hidden and nothing else could stop it) and
+ * released in `dispose()`, like Mini World (docs/games/global-radio.md).
  */
+import { getRadioEngine } from '../../radio/engine'
+import { MUTE_KEY as RADIO_MUTE_KEY } from '../../radio/catalog'
 
 export type Sfx = 'pop' | 'sparkle' | 'chirp' | 'tick' | 'whoosh' | 'no'
 
@@ -11,7 +17,7 @@ const MUTE_KEY = 'figur.muted'
 const VOLUME = 0.12
 
 export interface FigurSfx {
-  /** Call from a user gesture: makes the audio context. */
+  /** Call from every user gesture: makes the audio context, or resumes it until it runs. */
   unlock(): void
   play(name: Sfx): void
   muted: boolean
@@ -28,6 +34,26 @@ export function createSfx(): FigurSfx {
   let out: GainNode | null = null
   let muted = readMuted()
   let lastTick = 0
+  let radioHeld = false
+
+  function holdRadio(): void {
+    if (radioHeld || typeof window === 'undefined') return
+    try { getRadioEngine().hold(true); radioHeld = true } catch { /* no radio */ }
+  }
+
+  function releaseRadio(): void {
+    if (!radioHeld) return
+    radioHeld = false
+    try {
+      const r = getRadioEngine()
+      r.hold(false)
+      let radioMuted = false
+      try { radioMuted = localStorage.getItem(RADIO_MUTE_KEY) === '1' } catch { /* none */ }
+      if (r.playing && !radioMuted) r.suspend(false)
+    } catch { /* ignore */ }
+  }
+
+  holdRadio()
 
   function tone(freq: number, at: number, dur: number, type: OscillatorType, gain = 1, slideTo?: number): void {
     if (!ctx || !out) return
@@ -94,6 +120,7 @@ export function createSfx(): FigurSfx {
       try { localStorage.setItem(MUTE_KEY, m ? '1' : '0') } catch { /* no storage */ }
     },
     dispose() {
+      releaseRadio()
       try { void ctx?.close() } catch { /* closed */ }
       ctx = null
       out = null
