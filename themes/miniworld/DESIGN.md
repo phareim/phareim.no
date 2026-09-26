@@ -117,29 +117,29 @@ pill buttons, soft glows, gradients on panels, a generic "kids' app" look.
 - Menu buttons along the top right: Personer, Garderobe, Sekk, Hjem, Kart
   (fast travel to Torget, Butikkgata, Tivoliet, Slottet, Nabogata).
 
-## Code map and owners (build phase)
+## Code map
 
 ```
 themes/miniworld/
-  DESIGN.md, types.ts, catalog.ts, scene/contracts.ts   contract (lead)
-  core/        pure logic, node-tested                   core agent
-    save.ts      new save, parse/validate, every action as a pure function
-    contests.ts  rewards, fashion scoring, memory decks
-    royal.ts     crown from votes, title rules, royal prizes
-    names.ts     neighbourhood names, codes, person-name rules, weapon names
-    outfit.ts    heroColorsFor(look) → HeroColors
-  scene/       three.js
-    runtime.ts, look.ts, camera.ts, input.ts, physics.ts, town.ts,
-    obby.ts, stars.ts, play.ts, neighbors.ts, …          world agent
-    avatar.ts, clothes.ts, furniture.ts, weapons.ts,
-    house.ts, preview.ts, textures.ts                    avatar/house agent
-  Landing.vue, Game.vue, ui/*.vue                        UI agent
-  audio.ts, theme.css                                    bridge agent
-composables/useWallet.ts, useMiniWorld.ts, useMiniWorldSocial.ts   core agent
-server/api/wallet.*, server/api/mw/*, server/utils/miniworld.ts,
-migrations/0006_miniworld.sql, tests/miniworld-*.test.mjs          core agent
-Neon Shrine wallet + hero colours, pixel font ÆØÅ, arcade cabinet,
-registry, test:portal, CI                                           bridge agent
+  DESIGN.md, types.ts, catalog.ts   design, data contract, every item and price
+  core/        pure logic, node-tested: save.ts (the save and every action),
+               contests.ts (rewards, fashion scoring, memory decks), royal.ts
+               (crown from votes, titles, royal prizes), names.ts, outfit.ts
+               (HeroColors for Neon Shrine), rng.ts
+  scene/       three.js: contracts.ts (the seams), runtime.ts, look.ts
+               (low-res render + outline), camera.ts, input.ts, physics.ts,
+               town.ts, blocks.ts, place.ts, home.ts, neighbors.ts,
+               obby.ts + obby-course.ts, stars.ts, catwalk.ts, play.ts
+               (magic, balloons); avatar.ts, clothes.ts, textures.ts,
+               meshkit.ts, furniture.ts, weapons.ts, house.ts, preview.ts
+  Landing.vue, Game.vue, ui/*.vue    the shell and every panel (ui/context.ts
+               is what panels share; ui/text.ts soft-hyphenates item names)
+  audio.ts, audioScore.ts, theme.css
+composables/useWallet.ts, useMiniWorld.ts, useMiniWorldSocial.ts
+server/api/wallet.*, server/api/mw/*, server/utils/miniworld.ts (stores),
+server/utils/miniworldApi.ts (route rules), migrations/0006_miniworld.sql
+scripts/miniworld-lab/   avatar-sheet.mjs, world-shot.mjs, world-play.mjs
+tests/miniworld-*.test.mjs   npm run test:miniworld
 ```
 
 ## Composables (the UI's API)
@@ -175,17 +175,3 @@ Money goes through `useWallet`. See `core/save.ts` for the actions.
 No auth, like the rest of the site's profile API. Ids validated, catalog
 ids checked, sizes capped, at most 30 friends, 12 per neighbourhood, 40
 unopened gifts per player.
-
-## Build rules for agents
-
-- Work only in your files (above). Do not commit: the lead commits.
-- Chromium: at most one browser on the server; run every Chromium command
-  as `flock /tmp/claude-1000/chrome.lock <cmd>` and close it over CDP
-  (`scripts/zelda-lab/cdp.mjs` does). Typecheck/build: `flock
-  /tmp/claude-1000/build.lock npx nuxi typecheck` and read only the errors
-  in your own files (others are mid-build).
-- Tests: `tests/miniworld-*.test.mjs`, run by `npm run test:miniworld`
-  (`node --test tests/miniworld-*.test.mjs`); bundle TS with esbuild like
-  `tests/battery-load.mjs`.
-- Comments and docs in English, like the rest of the repo; everything the
-  child sees in Norwegian.

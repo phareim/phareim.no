@@ -38,7 +38,7 @@
       >
         <img v-if="pic(def)" class="mw-pic" :src="pic(def)" alt="">
         <span v-else class="mw-pic--empty" />
-        <span class="mw-tile-name">{{ def.name }}</span>
+        <span class="mw-tile-name">{{ shy(def.name) }}</span>
         <span v-if="tag && def.tags.includes(tag)" class="mw-tag" aria-label="Passer til temaet">
           <PxIcon id="star" :scale="2" />
         </span>
@@ -49,6 +49,7 @@
 </template>
 
 <script setup lang="ts">
+import { shy } from './text'
 import { ref, computed } from 'vue'
 import PxIcon from './PxIcon.vue'
 import { useMw } from './context'

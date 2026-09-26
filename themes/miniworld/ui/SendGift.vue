@@ -8,7 +8,7 @@
         <button v-for="p in people" :key="p.playerId" type="button" class="mw-tile" @click="pickWho(p.playerId)">
           <img v-if="p.pic" class="mw-pic" :src="p.pic" alt="">
           <span v-else class="mw-pic--empty" />
-          <span class="mw-tile-name">{{ p.name }}</span>
+          <span class="mw-tile-name">{{ shy(p.name) }}</span>
         </button>
       </div>
     </template>
@@ -25,14 +25,14 @@
         <button v-for="c in clothesList" :key="c.id" type="button" class="mw-tile" :disabled="!c.ok" @click="choose({ kind: 'clothing', id: c.id })">
           <img v-if="c.pic" class="mw-pic" :src="c.pic" alt="">
           <span v-else class="mw-pic--empty" />
-          <span class="mw-tile-name">{{ c.name }}</span>
+          <span class="mw-tile-name">{{ shy(c.name) }}</span>
         </button>
       </div>
       <div v-else-if="kind === 'furniture'" class="mw-grid">
         <button v-for="f in furnitureList" :key="f.uid" type="button" class="mw-tile" :disabled="!f.ok" @click="choose({ kind: 'furniture', uid: f.uid })">
           <img v-if="f.pic" class="mw-pic" :src="f.pic" alt="">
           <span v-else class="mw-pic--empty" />
-          <span class="mw-tile-name">{{ f.name }}</span>
+          <span class="mw-tile-name">{{ shy(f.name) }}</span>
           <span v-if="f.placed" class="mw-p mw-dim">I HUSET</span>
         </button>
         <p v-if="!furnitureList.length" class="mw-p mw-dim">DU HAR INGEN MØBLER Å GI.</p>
@@ -72,6 +72,7 @@
 </template>
 
 <script setup lang="ts">
+import { shy } from './text'
 import { ref, computed, onMounted } from 'vue'
 import Sheet from './Sheet.vue'
 import PxIcon from './PxIcon.vue'

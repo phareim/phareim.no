@@ -35,7 +35,7 @@
         >
           <img v-if="w.pic" class="mw-pic" :src="w.pic" alt="">
           <span v-else class="mw-pic--empty" />
-          <span class="mw-tile-name">{{ w.name }}</span>
+          <span class="mw-tile-name">{{ shy(w.name) }}</span>
           <span v-if="w.owned > 0 && w.unique" class="mw-p mw-dim">DU HAR DEN</span>
           <span v-else class="mw-price mw-p"><PxIcon id="coin" :scale="2" />{{ w.price }}</span>
           <span v-if="w.owned > 0 && !w.unique" class="mw-tag mw-tag--mint">{{ w.owned }}</span>
@@ -76,6 +76,7 @@
 </template>
 
 <script setup lang="ts">
+import { shy } from './text'
 import { ref, computed } from 'vue'
 import Sheet from './Sheet.vue'
 import PxIcon from './PxIcon.vue'

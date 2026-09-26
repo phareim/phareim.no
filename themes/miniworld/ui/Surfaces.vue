@@ -11,7 +11,7 @@
         @click="lay('floor', f.id)"
       >
         <img class="mw-pic" :src="surfaceSwatch(f)" alt="">
-        <span class="mw-tile-name">{{ f.name }}</span>
+        <span class="mw-tile-name">{{ shy(f.name) }}</span>
       </button>
     </div>
     <p class="mw-label">TAPET</p>
@@ -25,7 +25,7 @@
         @click="lay('wall', w.id)"
       >
         <img class="mw-pic" :src="surfaceSwatch(w)" alt="">
-        <span class="mw-tile-name">{{ w.name }}</span>
+        <span class="mw-tile-name">{{ shy(w.name) }}</span>
       </button>
     </div>
     <template #footer>
@@ -38,6 +38,7 @@
 </template>
 
 <script setup lang="ts">
+import { shy } from './text'
 import { computed } from 'vue'
 import Sheet from './Sheet.vue'
 import PxIcon from './PxIcon.vue'

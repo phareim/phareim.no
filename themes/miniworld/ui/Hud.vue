@@ -156,7 +156,9 @@ watch(() => props.bits, (now, before) => {
   gap: 6px;
   font-size: 16px;
   color: #fff;
-  text-shadow: 2px 2px 0 var(--mw-ink);
+  /* A dark plate like the name tags in the world, readable over sky and castle. */
+  background: var(--mw-ink);
+  padding: 2px 6px;
   max-width: 34vw;
   white-space: nowrap;
   overflow: hidden;

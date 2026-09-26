@@ -169,11 +169,11 @@
   max-width: 100%;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   overflow-wrap: break-word;
-  -webkit-hyphens: auto;
-  hyphens: auto;
+  -webkit-hyphens: manual;
+  hyphens: manual;
 }
 .mw-root .mw-tag {
   position: absolute;

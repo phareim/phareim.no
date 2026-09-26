@@ -26,7 +26,7 @@
           >
             <img v-if="partPic(b.id, magic)" class="mw-pic" :src="partPic(b.id, magic)" alt="">
             <span v-else class="mw-pic--empty" />
-            <span class="mw-tile-name">{{ b.name }}</span>
+            <span class="mw-tile-name">{{ shy(b.name) }}</span>
           </button>
         </div>
         <p class="mw-label">2. HVILKEN MAGI?</p>
@@ -42,7 +42,7 @@
             <span class="mw-magic" aria-hidden="true">
               <span v-for="c in m.colors.slice(0, 3)" :key="c" :style="{ background: c }" />
             </span>
-            <span class="mw-tile-name">{{ m.name }}</span>
+            <span class="mw-tile-name">{{ shy(m.name) }}</span>
           </button>
         </div>
         <p class="mw-label">3. HVILKEN FARGE?</p>
@@ -69,7 +69,7 @@
         <div v-for="u in upList" :key="u.uid" class="mw-tile mw-tile--static">
           <img v-if="u.pic" class="mw-pic" :src="u.pic" alt="">
           <span v-else class="mw-pic--empty" />
-          <span class="mw-tile-name">{{ u.name }}</span>
+          <span class="mw-tile-name">{{ shy(u.name) }}</span>
           <span class="mw-stars" :aria-label="`Nivå ${u.level}`">
             <PxIcon v-for="n in 3" :key="n" id="star" :scale="2" :grey="n > u.level" />
           </span>
@@ -96,6 +96,7 @@
 </template>
 
 <script setup lang="ts">
+import { shy } from './text'
 import { ref, computed, watch } from 'vue'
 import Sheet from './Sheet.vue'
 import PxIcon from './PxIcon.vue'

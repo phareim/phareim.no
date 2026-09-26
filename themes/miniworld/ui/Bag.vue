@@ -20,7 +20,7 @@
         <div v-for="f in furnitureList" :key="f.uid" class="mw-tile mw-tile--static" :class="{ 'mw-tile--owned': f.placed }">
           <img v-if="f.pic" class="mw-pic" :src="f.pic" alt="">
           <span v-else class="mw-pic--empty" />
-          <span class="mw-tile-name">{{ f.name }}</span>
+          <span class="mw-tile-name">{{ shy(f.name) }}</span>
           <span class="mw-stars" :aria-label="`Nivå ${f.level}`">
             <PxIcon v-for="n in 3" :key="n" id="star" :scale="2" :grey="n > f.level" />
           </span>
@@ -35,7 +35,7 @@
         <div v-for="w in weapons" :key="w.uid" class="mw-tile mw-tile--static" :class="{ 'mw-tile--on': w.uid === equipped }">
           <img v-if="pics.weapon(w, 96)" class="mw-pic" :src="pics.weapon(w, 96)" alt="">
           <span v-else class="mw-pic--empty" />
-          <span class="mw-tile-name">{{ w.name }}</span>
+          <span class="mw-tile-name">{{ shy(w.name) }}</span>
           <span class="mw-stars" :aria-label="`Nivå ${w.level}`">
             <PxIcon v-for="n in 3" :key="n" id="star" :scale="2" :grey="n > w.level" />
           </span>
@@ -61,7 +61,7 @@
         <div v-for="p in prizes" :key="p.key" class="mw-tile mw-tile--static">
           <img v-if="p.pic" class="mw-pic" :src="p.pic" alt="">
           <span v-else class="mw-pic--empty" />
-          <span class="mw-tile-name">{{ p.name }}</span>
+          <span class="mw-tile-name">{{ shy(p.name) }}</span>
         </div>
       </div>
       <p v-else class="mw-p mw-dim mw-center">VINN PREMIER PÅ TIVOLIET!</p>
@@ -70,6 +70,7 @@
 </template>
 
 <script setup lang="ts">
+import { shy } from './text'
 import { ref, computed } from 'vue'
 import Sheet from './Sheet.vue'
 import PxIcon from './PxIcon.vue'

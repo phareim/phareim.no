@@ -96,7 +96,7 @@ unknown game or a score outside 1..`maxScore` (a per-game plausibility cap in
 and retries once). `GET /api/save?player=&game=` → `{ save: { data, savedAt, best, clears } | null }`
 and `POST /api/save { playerId, game, data?, savedAt, best?, won? }` are the
 adventure save slots (2026-09-23, migration `0005_game_saves.sql`, games in
-`SAVE_GAMES` — Neon Shrine and, since the rebuild the same day, Another Shore): opaque JSON up to the game's `maxBytes`, newest `savedAt`
+`SAVE_GAMES` — Neon Shrine, Another Shore, Night of the Dead Battery and Mini World): opaque JSON up to the game's `maxBytes`, newest `savedAt`
 wins, `data: null` clears, `best` keeps the lowest (60 s–100 h, else
 ignored), `won` counts a clear; 404 unknown player.
 There is no auth and no rate limit: a determined person
