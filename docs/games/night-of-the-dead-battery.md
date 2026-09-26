@@ -21,8 +21,11 @@ walks; a right-click (on touch: hold) does the thing's default verb. Click a
 face to switch hero; GIVE an item to a face to send it by dumbwaiter; TALK
 TO a face for a hint. Keys: G P U O L S C T Y for the verbs, 1 2 3 switch,
 `.` skips a line, Space or P pauses, an Escape tap pauses and a 3 s hold
-saves and quits to the title. A phone held upright gets a big thumb panel
-under the scene and a cross-section of the house above it.
+saves and quits to the title. A phone held upright zooms in (since
+2026-09-26): the view is about 160 pixels wide, so the scene fills the
+screen's width at a bigger scale and the camera scrolls more, over a thumb
+panel anchored to the bottom and under the room's name. The dollhouse
+cross-section that used to fill the top is parked in `render/header.ts`.
 
 **Code.** `themes/battery/`: `engine/` is pure TypeScript (the sentence,
 scripts as generators yielding commands, walking with A*, the layouts,

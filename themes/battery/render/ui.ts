@@ -7,7 +7,7 @@ import { drawText, textWidth, wrapText } from '../../base/pixel/sprites'
 import type { Game } from '../engine/game'
 import type { Box } from '../engine/layout'
 import { hit } from '../engine/layout'
-import { VERB_LABEL } from '../types'
+import { HERO_IDS, VERB_LABEL } from '../types'
 import type { G } from './api'
 import { itemIcon } from './items'
 import { portrait } from './actors'
@@ -131,11 +131,15 @@ function drawPortraits(g: G, game: Game, dim: boolean) {
       g.fillRect(b.x, b.y, 1, b.h)
       g.fillRect(b.x + b.w - 1, b.y, 1, b.h)
     }
-    const img = portrait(b.hero, L.tall ? 2 : 1, game.s)
+    let img = portrait(b.hero, L.tall ? 2 : 1, game.s)
+    if (img.height > b.h - 2 || img.width > b.w - 4) img = portrait(b.hero, 1, game.s)
     g.globalAlpha = dim && !on ? 0.5 : 1
-    if (L.tall) {
-      g.drawImage(img, b.x + 4, b.y + Math.floor((b.h - img.height) / 2))
-      drawText(g, def.name, b.x + img.width + 8, b.y + Math.floor((b.h - 7) / 2), on ? def.color : UI.verb)
+    // Names only when every face has room for its own, so the row matches.
+    const named = L.tall && HERO_IDS.every(h => img.width + 10 + textWidth(game.content.heroes[h].name) <= b.w)
+    if (named) {
+      const x = b.x + Math.floor((b.w - img.width - 4 - textWidth(def.name)) / 2)
+      g.drawImage(img, x, b.y + Math.floor((b.h - img.height) / 2))
+      drawText(g, def.name, x + img.width + 4, b.y + Math.floor((b.h - 7) / 2), on ? def.color : UI.verb)
     } else {
       g.drawImage(img, Math.round(b.x + (b.w - img.width) / 2), Math.round(b.y + (b.h - img.height) / 2))
     }
@@ -209,5 +213,5 @@ export function drawCursor(g: G, game: Game) {
 }
 
 export function drawHeader(g: G, game: Game, b: Box) {
-  drawHouseHeader(g, game, b)
+  drawHouseHeader(g, game, b, false)
 }

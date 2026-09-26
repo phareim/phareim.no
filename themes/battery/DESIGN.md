@@ -234,8 +234,10 @@ Mouse: left-click to walk or to do the sentence, right-click for the default
 verb. Keys: the verbs' initials (G P U O L S C T Y), 1/2/3 switch hero, `.`
 skips a line, Space pauses, Escape tap pauses and a 3 s hold quits to the
 title. Touch: tap a verb, tap a thing; tap a thing with no verb walks there
-(a door leaves). On a portrait phone the panel grows below the scene into big
-buttons.
+(a door leaves). On a portrait phone the view zooms in to
+about 160 pixels wide (`stageMin` and `tallLayout` in `engine/layout.ts`),
+so the scene fills the width, and the panel below it grows into big
+buttons with what height is left. Scripted camera views keep their centre.
 
 Dialogue: SCUMM style, text over the speaker's head in their colour, one line
 at a time, timed by length, skipped with a click. Dialogue choices replace

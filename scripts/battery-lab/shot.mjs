@@ -28,7 +28,7 @@ const B = p => JSON.stringify(join(repo, 'themes/battery', p))
 
 const entry = `
 import { createPixelStage } from ${JSON.stringify(join(repo, 'themes/base/pixel/stage.ts'))}
-import { Game } from ${B('engine/index.ts')}
+import { Game, stageMin } from ${B('engine/index.ts')}
 import { CONTENT } from ${B('content/index.ts')}
 import { createRenderer } from ${B('render/index.ts')}
 import { drawTitle } from ${B('render/title.ts')}
@@ -42,11 +42,11 @@ window.__shot = (qs) => {
   document.body.style.cssText = 'margin:0;background:#07040d;overflow:hidden'
   document.body.appendChild(canvas)
   const stage = createPixelStage(canvas, { bg: '#07040d' })
-  const tall = H > W * 1.3
-  stage.resize(W, H, dpr, 320, tall ? 400 : 200)
+  const [minW, minH] = stageMin(W, H, 0, +(q.get('safe') || 0))
+  stage.resize(W, H, dpr, minW, minH)
   if (q.get('title')) { for (let i = 0; i < 30; i++) drawTitle(stage, i / 60 + +(q.get('t') || 2)); return 'ok' }
   const g = new Game(CONTENT)
-  g.resize(stage.vw, stage.vh, 0)
+  g.resize(stage.vw, stage.vh, Math.ceil(+(q.get('safe') || 0) / stage.k))
   const hero = q.get('hero') || 'kjell'
   g.s.hero = hero
   for (const f of (q.get('flags') || '').split(',').filter(Boolean)) {

@@ -15,6 +15,7 @@
       @contextmenu.prevent
       @wheel.prevent="onWheel"
     />
+    <div ref="probeRef" class="nb-probe" aria-hidden="true" />
 
     <div v-if="phase === 'title'" class="nb-menu nb-menu--title">
       <h1 class="nb-sr">Night of the Dead Battery</h1>
@@ -61,7 +62,7 @@ import EscHold from '../base/EscHold.vue'
 import { useSound } from '~/composables/useSound'
 import { useGameSave } from '~/composables/useGameSave'
 import { createPixelStage, type PixelStage } from '../base/pixel/stage'
-import { Game, parseState } from './engine/index'
+import { Game, parseState, stageMin } from './engine/index'
 import { CONTENT } from './content/index'
 import { createRenderer } from './render/index'
 import { drawTitle } from './render/title'
@@ -87,6 +88,7 @@ const profileSave = useGameSave(GAME_ID)
 
 const shellRef = ref<HTMLElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
+const probeRef = ref<HTMLElement | null>(null)
 const phase = ref<Phase>('title')
 const saved = ref<BatterySave | null>(null)
 const best = ref<number | null>(null)
@@ -252,10 +254,14 @@ function resize() {
   const w = Math.max(1, Math.round(r.width))
   const h = Math.max(1, Math.round(r.height))
   if (!stage) stage = createPixelStage(canvas, { bg: '#07040d' })
-  const tall = h > w * 1.3
-  stage.resize(w, h, window.devicePixelRatio || 1, 320, tall ? 400 : 200)
-  const safe = parseFloat(getComputedStyle(shellRef.value ?? canvas).getPropertyValue('--nb-safe')) || 0
-  game?.resize(stage.vw, stage.vh, Math.round(safe / stage.k))
+  // The safe areas as px: a custom property reads back as its unresolved
+  // text (max(), env()), so a hidden probe carries them as padding.
+  const probe = probeRef.value ? getComputedStyle(probeRef.value) : null
+  const safe = parseFloat(probe?.paddingBottom ?? '') || 0
+  const safeTop = parseFloat(probe?.paddingTop ?? '') || 0
+  const [minW, minH] = stageMin(w, h, safeTop, safe)
+  stage.resize(w, h, window.devicePixelRatio || 1, minW, minH)
+  game?.resize(stage.vw, stage.vh, Math.ceil(safe / stage.k), Math.ceil(safeTop / stage.k))
 }
 
 // ---- saves ----
@@ -444,6 +450,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   background: #07040d;
   --nb-safe: var(--app-safe-bottom, 0px);
+  --nb-safe-top: env(safe-area-inset-top, 0px);
 }
 .nb-canvas {
   position: absolute;
@@ -455,6 +462,12 @@ onBeforeUnmount(() => {
   image-rendering: pixelated;
 }
 .nb-playing:not(.nb-touch) .nb-canvas { cursor: none; }
+.nb-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  padding: var(--nb-safe-top) 0 var(--nb-safe) 0;
+}
 .nb-sr {
   position: absolute;
   width: 1px;
@@ -535,7 +548,7 @@ onBeforeUnmount(() => {
 .nb-btn--main { --px-edge: #ffd23f; color: #ffd23f; }
 .nb-menu-btn {
   position: absolute;
-  top: 8px;
+  top: calc(8px + var(--nb-safe-top));
   left: 8px;
   z-index: 10;
   font-size: 8px;

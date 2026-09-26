@@ -240,8 +240,8 @@ export class Game {
   // Layout and hit-testing
   // ------------------------------------------------------------------
 
-  resize(vw: number, vh: number, safeBottom = 0) {
-    this.lay = layout(vw, vh, safeBottom)
+  resize(vw: number, vh: number, safeBottom = 0, safeTop = 0) {
+    this.lay = layout(vw, vh, safeBottom, safeTop)
     this.clampScroll()
   }
 
@@ -861,7 +861,9 @@ export class Game {
     const room = this.roomDef()
     const sw = this.lay.scene.w
     if (room.w <= sw) return Math.round((room.w - sw) / 2)
-    if (this.camFixed !== null) return Math.max(0, Math.min(room.w - sw, this.camFixed))
+    // A script's camX is the left edge of DOTT's 320 view; a narrower or
+    // wider view keeps the same centre.
+    if (this.camFixed !== null) return Math.max(0, Math.min(room.w - sw, Math.round(this.camFixed + 160 - sw / 2)))
     const a = this.actor(this.s.hero)
     const x = this.viewRoom ? room.w / 2 : a.x
     return Math.max(0, Math.min(room.w - sw, Math.round(x - sw / 2)))

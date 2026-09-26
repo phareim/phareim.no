@@ -95,7 +95,7 @@ describe('sentences', () => {
     settle(g, { answers: ['hi'] })
     assert.equal(g.s.flags['owl.said'], 'hi')
   })
-  for (const [w, h] of [[320, 200], [390, 844]]) {
+  for (const [w, h] of [[320, 200], [390, 844], [168, 362]]) {
     it(`keeps a long menu inside the panel and scrolls to every option (${w}×${h})`, () => {
       const g = new B.Game(content())
       g.resize(w, h)
@@ -155,6 +155,26 @@ describe('layout and saves', () => {
     for (const p of t.portraits) assert.ok(p.y + p.h <= 844 - 20, 'portraits stay out of the bottom band')
     assert.ok(t.scene.y + t.scene.h < t.sentence.y + 1)
     assert.ok(t.verbs[0].h >= 22, 'thumb-sized verbs')
+  })
+  it('zooms in on an upright phone: the scene fills the width at a bigger scale', () => {
+    // iPhone 14 (390×844 at dpr 3), iPhone SE in a tab and installed (48 px band), a Pixel.
+    for (const [cw, ch, dpr, top, bot] of [[390, 844, 3, 0, 0], [375, 667, 2, 0, 0], [375, 667, 2, 20, 48], [412, 915, 2.625, 0, 0]]) {
+      const [minW, minH] = B.stageMin(cw, ch, top, bot)
+      const W = Math.round(cw * dpr), H = Math.round(ch * dpr)
+      const scale = Math.max(1, Math.floor(Math.min(W / minW, H / minH)))
+      const vw = Math.ceil(W / scale), vh = Math.ceil(H / scale)
+      const k = scale / dpr
+      const L = B.layout(vw, vh, Math.ceil(bot / k), Math.ceil(top / k))
+      const tag = cw + '×' + ch + '@' + dpr + ' band ' + bot
+      assert.equal(L.tall, true, tag)
+      assert.ok(vw >= B.TALL_MIN_W && vw < 240, tag + ': view ' + vw + ' wide')
+      assert.ok(k >= 1.5, tag + ': the scene is zoomed in (' + k + ' css px per pixel)')
+      assert.ok(L.scene.y >= Math.ceil(top / k), tag + ': the scene clears the status bar')
+      assert.ok(L.scene.y + L.scene.h <= L.sentence.y, tag)
+      for (const p of L.portraits) assert.ok(p.y + p.h <= vh - Math.ceil(bot / k), tag + ': faces stay out of the bottom band')
+      for (const v of L.verbs) assert.ok(v.w >= 44 && v.h >= 15, tag + ': verbs keep their size')
+      assert.ok(L.cols >= 3, tag)
+    }
   })
   it('round-trips a save and drops what the content no longer has', () => {
     const g = new B.Game(content())
