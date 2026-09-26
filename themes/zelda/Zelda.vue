@@ -70,6 +70,13 @@
  *
  * Leaving: an engine `exit` saves, writes `portal.return` and launches the
  * theme or opens the URL.
+ *
+ * Bits are the site wallet (`composables/useWallet.ts`, shared with Mini
+ * World): `wallet.ts` bridges the pure engine's `inv.bits` to it — a new
+ * state starts on the wallet's balance, each frame's change becomes a wallet
+ * op, and a change elsewhere (another tab, Mini World) lands in the purse.
+ * Mini World's active person dresses the hero (`render/heroColors.ts`),
+ * re-read on `storage` and when the tab comes back.
  */
 import EscHold from '../base/EscHold.vue'
 import { createGame, resumeAfterWin, stepGame, toSave } from './engine/index'
@@ -81,6 +88,11 @@ import { readLocalSave, writeLocalSave, clearLocalSave, readLocalBest, writeLoca
 import { syncWithProfile } from './profileSync'
 import { createInput, type GameInput } from './input'
 import { loadHighScoreSign } from './hiscore'
+import { createBitsBridge, migrateSaveBits, type WalletApi } from './wallet'
+import { setHeroColors } from './render/sheet'
+import { parseHeroColors } from './render/heroColors'
+import { HERO_COLORS_KEY } from '../miniworld/types'
+import { readWallet, addToWallet, onWalletChange } from '../../composables/useWallet'
 import type { ExitTarget, GameState, GameEvent, SaveData, TrackId, UseItem, World } from './types'
 
 type Phase = 'play' | 'won'
@@ -141,6 +153,8 @@ let pendingPull: { save: SaveData | null } | null = null
 let stuckT = 0
 let leavingUrl = false
 let wonAt = 0
+const walletApi: WalletApi = { read: readWallet, add: addToWallet }
+const purse = createBitsBridge(walletApi)
 
 const ui: FrameUI = {
   paused: false, confirmReset: false, reducedMotion: false, touch: false, stick: null, attract: false, cam: null, banner: null,
@@ -215,11 +229,12 @@ function clearReturn() {
   try { sessionStorage.removeItem(RETURN_KEY) } catch { /* ignore */ }
 }
 
-/** A new state at `at` from `save` (items, hearts, flags, play time); the shell's per-run bits reset. */
+/** A new state at `at` from `save` (items, hearts, flags, play time); the bits are the wallet's. */
 function begin(save: SaveData | null, at: Spot, banner = false) {
   loadedSave = save
   pendingPull = null
   state = createGame(WORLD, { save, at, seed: Date.now() >>> 0 })
+  purse.adopt(state.inv)
   input.clear()
   paused.value = false
   confirmReset.value = false
@@ -499,6 +514,7 @@ function frame(nowMs: number) {
   const inp = input.read()
   if (!moved && (inp.move.x !== 0 || inp.move.y !== 0)) { moved = true; emit('moved') }
   const events = stepGame(WORLD, state, dt, inp)
+  purse.step(state.inv)
   renderer.onEvents(events)
   handleEvents(events)
   if (ui.banner) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }
@@ -515,7 +531,19 @@ function frame(nowMs: number) {
   if (state.mode === 'won') finishWon()
 }
 
+/** Mini World's active person's colours on the hero, or the drawn hero. */
+function dressHero() {
+  let raw: string | null = null
+  try { raw = localStorage.getItem(HERO_COLORS_KEY) } catch { /* private mode: as drawn */ }
+  setHeroColors(parseHeroColors(raw))
+}
+
+function onStorage(e: StorageEvent) {
+  if (e.key === HERO_COLORS_KEY || e.key === null) dressHero()
+}
+
 function onVisibility() {
+  if (!document.hidden) dressHero()
   if (document.hidden) {
     input.clear()
     if (phase.value === 'play') {
@@ -551,6 +579,7 @@ function safeInsets() {
 
 let observer: ResizeObserver | null = null
 let muteStop: (() => void) | null = null
+let walletStop: (() => void) | null = null
 
 onMounted(() => {
   if (!canvas.value) return
@@ -567,8 +596,13 @@ onMounted(() => {
   // The world plays its own music; the radio (and its hidden widget) stays quiet here.
   audio.holdRadio()
   muteStop = watch(sound.muted, (m: boolean) => audio?.setMuted(m), { immediate: true })
+  dressHero()
+  // Bits carried by a save from before the wallet move into it, once per browser.
+  const local = readLocalSave()
+  try { migrateSaveBits(local, localStorage, walletApi) } catch { /* no storage: nothing to move */ }
   // Start at once on this browser's save; the profile's copy may replace it in a moment.
-  begin(readLocalSave(), readReturn() ?? WORLD.start)
+  begin(local, readReturn() ?? WORLD.start)
+  walletStop = onWalletChange(b => purse.external(state.inv, b))
   void syncProfile()
   resize()
   observer = new ResizeObserver(resize)
@@ -579,6 +613,7 @@ onMounted(() => {
   window.addEventListener('pointerdown', onFirstGesture, true)
   document.addEventListener('visibilitychange', onVisibility)
   window.addEventListener('pageshow', onPageShow)
+  window.addEventListener('storage', onStorage)
   raf = requestAnimationFrame(frame)
   // Dev-only handle for the headless checks in scripts/zelda-lab (either name).
   if (import.meta.dev) {
@@ -594,6 +629,8 @@ onBeforeUnmount(() => {
   cancelAnimationFrame(raf)
   observer?.disconnect()
   muteStop?.()
+  walletStop?.()
+  window.removeEventListener('storage', onStorage)
   window.removeEventListener('resize', resize)
   input.detach()
   window.removeEventListener('keydown', onFirstGesture, true)

@@ -2,6 +2,11 @@
  * Neon Shrine — a 5×7 pixel font for the canvas, drawn with fillRect in
  * logical pixels. Uppercase only (drawText upper-cases its input). Glyphs
  * are 7 rows of '#'/'.'; the advance is the glyph's width + 1 px spacing.
+ *
+ * Å has one more row above the cap height (ABOVE), so its ring stands
+ * clear of the A: squeezed into seven rows it read as a plain A at 16 px
+ * (2026-09-26). drawText draws that row at y - 1; the webfont draws it in
+ * the em's top pixel. Code that only reads glyphRows gets the seven rows.
  */
 
 export const GLYPH_H = 7
@@ -35,7 +40,7 @@ const G: Record<string, string[]> = {
   Z: ['#####', '....#', '...#.', '..#..', '.#...', '#....', '#####'],
   'Æ': ['.####', '#.#..', '#.#..', '#####', '#.#..', '#.#..', '#.###'],
   'Ø': ['.###.', '#..##', '#.#.#', '#.#.#', '#.#.#', '##..#', '.###.'],
-  'Å': ['..#..', '.#.#.', '.###.', '#...#', '#####', '#...#', '#...#'],
+  'Å': ['.#.#.', '.###.', '.....', '.###.', '#...#', '#####', '#...#'],
   0: ['.###.', '#...#', '#..##', '#.#.#', '##..#', '#...#', '.###.'],
   1: ['.#.', '##.', '.#.', '.#.', '.#.', '.#.', '###'],
   2: ['.###.', '#...#', '....#', '...#.', '..#..', '.#...', '#####'],
@@ -77,6 +82,11 @@ const G: Record<string, string[]> = {
   '↓': ['.....', '..#..', '..#..', '..#..', '#.#.#', '.###.', '..#..'],
 }
 
+/** Rows above the cap height (drawn from y - 1 upward, nearest row last). */
+const ABOVE: Record<string, string[]> = {
+  'Å': ['.###.'],
+}
+
 /** Glyph for a character; unknown characters draw as '?'. */
 const ALIAS: Record<string, string> = { '—': '-', '–': '-', '’': "'", '‘': "'", '“': '"', '”': '"', '…': '.', 'É': 'E', 'È': 'E', 'Ä': 'Æ', 'Ö': 'Ø', 'Ü': 'U' }
 
@@ -87,6 +97,11 @@ function glyph(ch: string): string[] {
 /** A character's glyph rows ('#' = lit), after upper-casing. */
 export function glyphRows(ch: string): string[] {
   return glyph(ch.toUpperCase())
+}
+
+/** The rows a character draws above the cap height (usually none), after upper-casing. */
+export function glyphAbove(ch: string): string[] {
+  return ABOVE[ch.toUpperCase()] ?? []
 }
 
 function norm(text: string): string {
@@ -113,9 +128,10 @@ export function drawText(
     ctx.fillStyle = fill
     let cx = x + ox
     for (const ch of t) {
-      const g = glyph(ch)
+      const up = ABOVE[ch] ?? []
+      const g = up.length ? [...up, ...glyph(ch)] : glyph(ch)
       const w = g[0]!.length
-      for (let gy = 0; gy < GLYPH_H; gy++) {
+      for (let gy = 0; gy < g.length; gy++) {
         const row = g[gy]!
         // Merge horizontal runs into one rect.
         let gx = 0
@@ -123,7 +139,7 @@ export function drawText(
           if (row[gx] !== '#') { gx++; continue }
           const start = gx
           while (gx < w && row[gx] === '#') gx++
-          ctx.fillRect(cx + start, y + oy + gy, gx - start, 1)
+          ctx.fillRect(cx + start, y + oy + gy - up.length, gx - start, 1)
         }
       }
       cx += w + 1

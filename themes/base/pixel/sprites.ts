@@ -7,7 +7,7 @@
  * Canvases are built once per rows array and cached.
  */
 import { makeCanvas } from './stage'
-import { glyphRows as glyphRowsLocal } from '../../zelda/render/font'
+import { glyphRows as glyphRowsLocal, glyphAbove } from '../../zelda/render/font'
 
 export { drawText, textWidth, wrapText, GLYPH_H, glyphRows } from '../../zelda/render/font'
 
@@ -154,10 +154,12 @@ export function drawBigText(g: CanvasRenderingContext2D, text: string, x: number
     g.fillStyle = fill
     let cx = x + ox
     for (const ch of t) {
-      const rows = glyphRowsLocal(ch)
+      // Å's ring sits in a row above the cap height.
+      const up = glyphAbove(ch)
+      const rows = [...up, ...glyphRowsLocal(ch)]
       const w = rows[0]!.length
       for (let gy = 0; gy < rows.length; gy++) for (let gx = 0; gx < w; gx++) {
-        if (rows[gy]![gx] === '#') g.fillRect(cx + gx * n, y + oy + gy * n, n, n)
+        if (rows[gy]![gx] === '#') g.fillRect(cx + gx * n, y + oy + (gy - up.length) * n, n, n)
       }
       cx += (w + 1) * n
     }

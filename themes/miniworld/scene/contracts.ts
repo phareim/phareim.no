@@ -53,7 +53,8 @@ export function emptyInput(): InputState {
 
 /** Where the player is. */
 export type Place =
-  | { kind: 'town' }
+  /** `at`: arrive at a spot in town (the map's fast travel); omitted = where you left. */
+  | { kind: 'town'; at?: TownSpot }
   | { kind: 'house'; edit: boolean }
   /** A friend's or neighbour's house, read-only. */
   | { kind: 'visit'; playerId: string }
@@ -61,6 +62,9 @@ export type Place =
   | { kind: 'stars' }
   /** The fashion show's catwalk: the active person walks, three judges watch (score comes from the UI). */
   | { kind: 'catwalk' }
+
+/** Fast-travel spots in town (world agent, additive 2026-09-26). */
+export type TownSpot = 'torget' | 'butikkgata' | 'tivoliet' | 'slottet' | 'nabogata'
 
 /** Things in town the player can walk up to. `door` zones open a panel or a place. */
 export type ZoneId =
@@ -77,6 +81,7 @@ export type ZoneId =
   | 'wardrobe'        // the wardrobe inside your house → UI panel
   | `neighbor:${string}` // a neighbour's door on Nabogata (playerId) → Place visit
   | 'exit'            // a house or contest door back to town
+  | `use:${string}`   // a sofa, bed, trampoline… in a house (furniture uid); the runtime handles the action itself
 
 export interface NeighborInfo {
   playerId: string
@@ -109,6 +114,28 @@ export type RuntimeEvent =
   | { type: 'layout'; layout: HouseLayout }
   /** Sitting on a sofa, sleeping in a bed, bouncing… (for a small caption). */
   | { type: 'using'; what: string | null }
+  /** A sound the shell should play (audio.ts); the runtime has no audio of its own. */
+  | { type: 'sfx'; name: MiniSfx; magic?: WeaponMagicId }
+
+// ---------------------------------------------------------------- audio (themes/miniworld/audio.ts)
+
+export type MiniMusic = 'town' | 'house' | 'obby' | 'stars' | 'fashion' | 'memory' | 'shop' | 'castle' | 'off'
+export type MiniSfx =
+  | 'jump' | 'land' | 'bounce' | 'splash' | 'respawn' | 'checkpoint' | 'finish'
+  | 'star' | 'coin' | 'pop' | 'magic' | 'door' | 'sit'
+  | 'click' | 'open' | 'close' | 'buy' | 'poor' | 'equip' | 'dress'
+  | 'place' | 'pick' | 'rotate' | 'store' | 'upgrade'
+  | 'flip' | 'match' | 'win' | 'fanfare' | 'gift' | 'crown' | 'judge'
+
+/** `createMiniAudio()` in audio.ts. Silent until `unlock()` runs inside a user gesture (iOS). */
+export interface MiniAudio {
+  unlock(): void
+  setMusic(track: MiniMusic): void
+  sfx(name: MiniSfx, opts?: { magic?: WeaponMagicId }): void
+  setMuted(muted: boolean): void
+  readonly muted: boolean
+  dispose(): void
+}
 
 // ---------------------------------------------------------------- runtime
 

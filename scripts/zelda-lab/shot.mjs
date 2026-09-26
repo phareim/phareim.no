@@ -9,6 +9,9 @@
 // Scenes named p-* use the fixture world in fixture.ts (the town's looks:
 // cabinets, board, kiosk, terminals, decals, the petter NPC); r-* are the
 // real town in the one world.
+//
+// HERO_COLORS='<HeroColors JSON>' dresses the hero in Mini World's colours
+// (render/heroColors.ts); the PNGs then end in -dressed.
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -30,10 +33,13 @@ import { enterMap } from ${JSON.stringify(join(repo, 'themes/zelda/engine/game.t
 import { WORLD } from ${JSON.stringify(join(repo, 'themes/zelda/world/index.ts'))}
 import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
+import { setHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/sheet.ts'))}
+import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
 const W = +q.get("w"), H = +q.get("h"), dpr = +(q.get("dpr") || 1), top = +(q.get("top") || 0)
 const scene = q.get('scene')
+if (q.get('hero')) setHeroColors(parseHeroColors(q.get('hero')))
 const canvas = document.createElement('canvas')
 canvas.style.cssText = 'display:block;width:' + W + 'px;height:' + H + 'px'
 document.body.style.cssText = 'margin:0;background:#0b0616;overflow:hidden'
@@ -85,6 +91,7 @@ switch (scene) {
   case 'r-plaza': run(20); break
   case 'r-road': s.hero.x = 39.5; s.hero.y = 26.5; s.hero.dir = 'right'; run(20); break
   case 'r-sword': give(); run(20); break
+  case 'r-rich': give(); s.inv.bits = 4321; run(20); break
   case 'r-arcade': place('arcade', 'door'); run(20); break
   case 'r-home': place('home', 'door'); run(20); break
   case 'r-desk': place('home', 'door', -2, -4); s.hero.dir = 'left'; run(5); break
@@ -171,6 +178,8 @@ const SHOTS = [
   ['r-road-390', 'r-road', 390, 844, 3, 0],
   ['r-sword-1280', 'r-sword', 1280, 800, 1, 0],
   ['r-sword-390', 'r-sword', 390, 844, 3, 0],
+  ['r-rich-390', 'r-rich', 390, 844, 3, 0],
+  ['r-rich-1280', 'r-rich', 1280, 800, 1, 0],
   // Installed web app on an iPhone: the status bar over the top, the home bar under the bottom.
   ['r-sword-app-390', 'r-sword', 390, 844, 3, 47],
   ['intro-app-390', 'intro', 390, 844, 3, 47],
@@ -204,15 +213,16 @@ const SHOTS = [
   ['d-room11-390', 'd-room11', 390, 844, 3, 0],
 ]
 const want = only ? new Set(only.split(',')) : null
+const hero = process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : ''
 for (const [name, scene, w, h, dpr, top] of SHOTS) {
   if (want && !want.has(name) && !want.has(scene)) continue
-  const png = join(out, `${name}.png`)
+  const png = join(out, `${name}${hero ? '-dressed' : ''}.png`)
   try {
     execFileSync('chromium-browser', [
       '--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
       `--force-device-scale-factor=${dpr}`, `--window-size=${w},${h}`,
       '--virtual-time-budget=3000', `--screenshot=${png}`,
-      `file://${html}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}&top=${top}&touch=${w < 1000 ? 1 : 0}`,
+      `file://${html}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}&top=${top}&touch=${w < 1000 ? 1 : 0}${hero}`,
     ], { stdio: 'ignore', timeout: 60000 })
     console.log(png)
   } catch (e) {

@@ -85,6 +85,31 @@ times meet at the lower (`zeldaBest` locally, `best_seconds` on the slot,
 which also counts clears). The Hangar shows QUEST n/12 from the slot. A player is
 still one browser, so the save does not follow a person to another device.
 
+**Bits are the site wallet** (2026-09-26). The bits the hero finds and
+spends are the same bits Mini World uses (`composables/useWallet.ts`,
+localStorage `phareim.wallet` plus the player's server balance). The
+engine still just counts `inv.bits`; the shell bridges it
+(`themes/zelda/wallet.ts`, tested in `tests/zelda-wallet.test.mjs`): every
+new game state takes the wallet's balance, each frame's change in
+`inv.bits` becomes a wallet op (reason `shrine`), and a change from
+elsewhere (another tab, Mini World, the server) lands in the purse. The
+hero carries at most `MAX_BITS` 9999 (the HUD counter grows to four
+digits); a bigger wallet shows 9999 here and stays exact in the wallet.
+The save still writes `bits`, but the wallet is the truth. Once per
+browser (flag `zelda.bitsInWallet`) the bits of a save from before the
+wallet move into it.
+
+**Mini World's clothes** (2026-09-26). When localStorage
+`miniworld.heroColors` holds the active Mini World person's colours
+(`HeroColors`), the hero wears them: `render/heroColors.ts` maps them onto
+the hero's palette letters (hair, headband, skin, shirt and its stripe,
+belt, trousers; shoes are `E` and the open mouth `M`, so they recolour
+apart from the white and pink they share) and `setHeroColors` in
+`render/sheet.ts` rebuilds only the `hero_*` canvases. Re-read on the
+`storage` event and when the tab comes back. No colours: the hero as drawn.
+`HERO_COLORS='<json>' node scripts/zelda-lab/shot.mjs <dir> r-sword`
+renders a dressed hero.
+
 **Exits.** An `exit` marker (`ExitDef` in `types.ts`) is a way out of the
 game: walk onto a door exit, or press A at a solid one and read its lines,
 and the door fade runs; at full dark the engine emits `{ type: 'exit', id,

@@ -60,6 +60,9 @@ export const PAL: Record<string, string> = {
   q: '#c4fbff', // pale wind cyan (Mistral's bands)
   x: '#8a7c68', // troll skin, stone grey-brown
   X: '#574a3c', // troll skin shadow
+  // Hero-only twins, so Mini World's clothes can recolour them apart (render/heroColors.ts)
+  E: '#fff4ff', // the hero's shoes (w elsewhere on the hero is the shirt's stripe)
+  M: '#ff2fa0', // the hero's open mouth (p elsewhere on the hero is the headband)
 }
 
 // ---------------------------------------------------------------------------
@@ -205,13 +208,13 @@ const TORSO_DOWN: Rows = [
 const LEGS_DOWN: Rows = [
   '...kBBBBBBBBk...',
   '...kBBBkkBBBk...',
-  '...kwwk..kwwk...',
+  '...kEEk..kEEk...',
   '...kkkk..kkkk...',
 ]
 const LEGS_DOWN_W1: Rows = [
   '...kBBBBBBBBk...',
-  '...kBBBkkwwwk...',
-  '...kwwwk.kkkk...',
+  '...kBBBkkEEEk...',
+  '...kEEEk.kkkk...',
   '...kkkkk........',
 ]
 
@@ -263,19 +266,19 @@ const TORSO_SIDE: Rows = [
 const LEGS_SIDE: Rows = [
   '.....kBBBBk.....',
   '.....kBBBBk.....',
-  '.....kwwwwwk....',
+  '.....kEEEEEk....',
   '.....kkkkkkk....',
 ]
 const LEGS_SIDE_W1: Rows = [
   '.....kBBBBk.....',
   '....kBBkkBBk....',
-  '...kwwwk.kwwwk..',
+  '...kEEEk.kEEEk..',
   '...kkkkk.kkkkk..',
 ]
 const LEGS_SIDE_W2: Rows = [
   '.....kBBBBk.....',
   '.....kBBBk......',
-  '....kwwwwwk.....',
+  '....kEEEEEk.....',
   '....kkkkkkk.....',
 ]
 const heroSide0 = [...HEAD_SIDE, ...TORSO_SIDE, ...LEGS_SIDE]
@@ -346,7 +349,7 @@ const heroDownPush = rowsAt(shiftDown(heroDown0, 1), 11, [
   '..kCCcsssscCCk..',
   '..kkBsskssBkk...',
   '...kBBBkkBBBk...',
-  '..kwwwk..kwwwk..',
+  '..kEEEk..kEEEk..',
   '..kkkkk..kkkkk..',
 ])
 const heroUpPush = rowsAt(shiftDown(heroUp0, 1), 8, [
@@ -360,8 +363,8 @@ const heroSidePush = rowsAt(edit(shiftDown(heroSide0, 0), [13, 6, '.']), 8, [
   '....kCcCckkkk...',
   '....kBBBBk......',
   '...kBBBBk.......',
-  '..kwwwkBBk......',
-  '..kkkkkwwwk.....',
+  '..kEEEkBBk......',
+  '..kkkkkEEEk.....',
 ])
 
 const heroGet = [
@@ -372,14 +375,14 @@ const heroGet = [
   '..kckppppppkck..',
   '..kckhsssshkck..',
   '..kCkskssksCk...',
-  '...kkssppssk....',
+  '...kkssMMssk....',
   '...kkCcwwcCk....',
   '...kCcCwwCcCk...',
   '...kCcCwwCcCk...',
   '...kkccyycckk...',
   '...kBBBBBBBBk...',
   '...kBBBkkBBBk...',
-  '...kwwk..kwwk...',
+  '...kEEk..kEEk...',
   '...kkkk..kkkk...',
 ]
 

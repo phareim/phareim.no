@@ -118,12 +118,25 @@ function questLine(game: string): string {
   } else if (game === 'battery') {
     const b = slot.data ? summarizeBatteryRaw(slot.data) : null
     if (b) return `${b.solved}/${SOLVE_COUNT} ${formatPlayTime(b.elapsed)}`
+  } else if (game === 'miniworld') {
+    const m = slot.data ? summarizeMiniWorldRaw(slot.data) : null
+    if (m) return `${m.persons} ${m.persons === 1 ? 'PERSON' : 'PERSONER'} · ${m.things} TING`
+    return 'NY VERDEN'
   } else {
     const q = slot.data ? summarizeRaw(slot.data) : null
     if (q) return `${q.step}/${QUEST_STEPS} ${formatPlayTime(q.elapsed)}`
   }
   if (slot.best !== null) return `BEST ${formatPlayTime(slot.best)}`
   return slot.clears > 0 ? 'CLEARED' : 'NEW QUEST'
+}
+
+/** Mini World's slot, read defensively: people made, and things owned (clothes, furniture, magic weapons). */
+function summarizeMiniWorldRaw(raw: unknown): { persons: number; things: number } | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  const len = (v: unknown) => (Array.isArray(v) ? v.length : 0)
+  if (!Array.isArray(r.persons)) return null
+  return { persons: len(r.persons), things: len(r.closet) + len(r.furniture) + len(r.weapons) }
 }
 
 function fmt(score: number): string {

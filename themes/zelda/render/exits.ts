@@ -73,6 +73,21 @@ const M = (...rows: string[]) => rows
 const bg7 = (c: string) => [c, c, c, c, c, c, c]
 
 const CABS: Record<string, CabStyle> = {
+  miniworld: {
+    // Ulrikke's game: the only daylight cabinet in the hall.
+    body: '#2f8fe0', bodyL: '#6ac4ff', bodyD: '#1a5aa8', trim: '#ff7ac0', glow: '#7fe0ff',
+    bg: ['#4ab8ff', '#5ac0ff', '#6ac8ff', '#7ad0ff', '#8ad8ff', '#9ae0ff', '#5acc8a'],
+    // A blocky kid with yellow hair waving beside a little house with a pink roof.
+    marquee: M(
+      '..yyy...pp..',
+      's.yss..pppp.',
+      '.msss.pppppp',
+      '..mmms.wwww.',
+      '..mmm..wcwy.',
+      '..b.b..wwwy.',
+      '..w.w.......',
+    ),
+  },
   battery: {
     body: '#3a1a3a', bodyL: '#5e2e5a', bodyD: '#1e0c20', trim: '#ffd23f', glow: '#ffd23f',
     bg: ['#0b0616', '#120a24', '#1a0e30', '#1a0e30', '#1a0e30', '#120a24', '#0b0616'],
@@ -348,6 +363,17 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       f('#ff8a3d', 5, 6)
       if (strike) { f('#fff4ff', 8, 0); f('#fff4ff', 7, 1); f('#fff4ff', 8, 2); f('#fff4ff', 7, 3) }
       if (Math.floor(t * 2) % 2 === 0) f('#ff8a3d', 9, 7)
+      return
+    }
+    case 'miniworld': {
+      // Blue sky, a sun, mint grass; a little blocky kid hops onto a pink block and down again.
+      f('#5ac8ff', 0, 0, W, 6); f('#5acc8a', 0, 6, W, 2); f('#3fa86e', 0, 7, W, 1)
+      f('#ffd84a', 8, 0, 2, 2)
+      f('#ff7ac0', 6, 4, 3, 1)
+      const kx = Math.round(tri(t * 2 + seed, 6))
+      const hop = Math.round(Math.abs(Math.sin(t * 5 + seed)) * 2)
+      const feet = kx >= 5 ? 3 : 5
+      f('#ffd23f', kx, feet - 2 - hop); f('#ff2fa0', kx, feet - 1 - hop); f('#2f5fd0', kx, feet - hop)
       return
     }
     case 'anotherworld': {

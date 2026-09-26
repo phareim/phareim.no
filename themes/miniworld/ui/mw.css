@@ -1,0 +1,251 @@
+/*
+ * Mini World's panels: Neon Shrine's dialog box and buttons (.px-box,
+ * .px-btn from themes/base/pixel/pixel.css) in candy daylight. Everything
+ * here is scoped under .mw-root (Game.vue's shell); the page tokens on
+ * .miniworld-page are theme.css's. Pixel font sizes stay in 8 px steps.
+ */
+.mw-root {
+  --mw-ink: #2a1f4a;
+  --mw-ink-soft: #5a5285;
+  --mw-muted: #8f86b8;
+  --mw-paper: #ffffff;
+  --mw-tile: #eaf6ff;
+  --mw-sky: #8fd8ff;
+  --mw-pink: #ff4fae;
+  --mw-pink-soft: #ffd6ee;
+  --mw-yellow: #ffd23f;
+  --mw-yellow-soft: #fff3b8;
+  --mw-mint: #52d98a;
+  --mw-mint-soft: #d4f7e1;
+  --mw-blue: #4fb8ff;
+  --mw-violet: #9a4ff0;
+  --mw-red: #ff3b5c;
+  --mw-grey: #e6e2f2;
+  --mw-fast: 150ms;
+  font-family: var(--font-pixel);
+  color: var(--mw-ink);
+  -webkit-font-smoothing: none;
+}
+
+.mw-root .mw-t {
+  font-family: var(--font-pixel);
+  text-transform: uppercase;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+/* ---------------------------------------------------------------- box */
+
+.mw-root .px-box.mw-box {
+  --px-u: 3px;
+  --px-edge: var(--mw-ink);
+  background: var(--mw-paper);
+  color: var(--mw-ink);
+}
+.mw-root .px-box.mw-box::before {
+  background: var(--mw-pink);
+  opacity: 0.55;
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+.mw-root .px-btn.mw-btn {
+  --px-u: 3px;
+  --px-edge: var(--mw-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  min-width: 48px;
+  padding: 0 16px;
+  font-size: 16px;
+  line-height: 1.25;
+  color: var(--mw-ink);
+  background: var(--mw-yellow);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: background-color var(--mw-fast) ease-out, color var(--mw-fast) ease-out, transform 80ms ease-out;
+}
+.mw-root .px-btn.mw-btn:focus-visible {
+  color: var(--mw-ink);
+  background: var(--mw-yellow);
+  outline: 3px solid var(--mw-blue);
+  outline-offset: 5px;
+}
+@media (hover: hover) {
+  .mw-root .px-btn.mw-btn:hover:not(:disabled) {
+    color: #fff;
+    background: var(--mw-pink);
+  }
+}
+.mw-root .px-btn.mw-btn:active:not(:disabled) { transform: translateY(2px); }
+.mw-root .px-btn.mw-btn--go { background: var(--mw-mint); }
+.mw-root .px-btn.mw-btn--pink { background: var(--mw-pink); color: #fff; }
+.mw-root .px-btn.mw-btn--plain { background: var(--mw-paper); }
+.mw-root .px-btn.mw-btn--sky { background: var(--mw-sky); }
+.mw-root .px-btn.mw-btn--danger { background: var(--mw-red); color: #fff; }
+.mw-root .px-btn.mw-btn--big { min-height: 56px; font-size: 24px; padding: 0 24px; }
+.mw-root .px-btn.mw-btn--wide { width: 100%; }
+.mw-root .px-btn.mw-btn:disabled {
+  cursor: default;
+  color: var(--mw-muted);
+  background: var(--mw-grey);
+  --px-edge: var(--mw-muted);
+}
+
+/* ---------------------------------------------------------------- tiles (a picture and a word) */
+
+.mw-root .mw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 14px;
+  padding: 4px;
+}
+.mw-root .mw-grid--small { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 12px; }
+
+.mw-root .mw-tile {
+  --u: 2px;
+  --edge: var(--mw-ink);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 6px 4px 8px;
+  border: 0;
+  border-radius: 0;
+  background: var(--mw-tile);
+  color: var(--mw-ink);
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  line-height: 1.25;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  box-shadow:
+    0 calc(-1 * var(--u)) 0 0 var(--edge),
+    0 var(--u) 0 0 var(--edge),
+    calc(-1 * var(--u)) 0 0 0 var(--edge),
+    var(--u) 0 0 0 var(--edge);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  transition: background-color var(--mw-fast) ease-out, transform 80ms ease-out;
+}
+.mw-root .mw-tile:active:not(:disabled) { transform: translateY(2px); }
+.mw-root .mw-tile:focus-visible { outline: 3px solid var(--mw-blue); outline-offset: 4px; }
+@media (hover: hover) {
+  .mw-root .mw-tile:hover:not(:disabled) { background: var(--mw-yellow-soft); }
+}
+.mw-root .mw-tile--on {
+  --u: 4px;
+  --edge: var(--mw-pink);
+  background: var(--mw-pink-soft);
+}
+.mw-root .mw-tile--owned { background: var(--mw-mint-soft); }
+.mw-root .mw-tile:disabled { cursor: default; opacity: 0.55; }
+.mw-root .mw-tile img.mw-pic {
+  display: block;
+  width: 100%;
+  max-width: 96px;
+  aspect-ratio: 1;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.mw-root .mw-tile .mw-pic--empty {
+  width: 100%;
+  max-width: 96px;
+  aspect-ratio: 1;
+}
+.mw-root .mw-tile-name {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: break-word;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+}
+.mw-root .mw-tag {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 2px 4px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--mw-ink);
+  background: var(--mw-yellow);
+}
+.mw-root .mw-tag--mint { background: var(--mw-mint); }
+
+/* ---------------------------------------------------------------- tabs, rows, words */
+
+.mw-root .mw-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px 4px 10px;
+}
+.mw-root .mw-tabs::-webkit-scrollbar { display: none; }
+.mw-root .mw-tabs .mw-btn { flex: none; background: var(--mw-paper); }
+.mw-root .mw-tabs .mw-btn.mw-on { background: var(--mw-pink); color: #fff; }
+@media (max-height: 460px) {
+  .mw-root .mw-tabs { gap: 8px; padding-bottom: 8px; }
+  .mw-root .mw-tabs .px-btn.mw-btn { padding: 0 10px; }
+}
+
+.mw-root .mw-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.mw-root .mw-row--end { justify-content: flex-end; }
+.mw-root .mw-row--center { justify-content: center; }
+.mw-root .mw-stack { display: flex; flex-direction: column; gap: 12px; }
+
+.mw-root .mw-h { margin: 0; font-size: 24px; line-height: 1.25; text-transform: uppercase; }
+.mw-root .mw-p { margin: 0; font-size: 16px; line-height: 1.5; text-transform: uppercase; }
+.mw-root .mw-dim { color: var(--mw-ink-soft); }
+.mw-root .mw-warn { color: #d0205a; }
+.mw-root .mw-big { font-size: 32px; line-height: 1.25; }
+.mw-root .mw-center { text-align: center; }
+.mw-root .mw-label { margin: 8px 0 4px; font-size: 16px; color: var(--mw-ink-soft); text-transform: uppercase; }
+
+.mw-root .mw-price { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---------------------------------------------------------------- motion */
+
+.mw-pop-enter-active,
+.mw-pop-leave-active { transition: opacity 150ms ease-out, transform 150ms ease-out; }
+.mw-pop-enter-from,
+.mw-pop-leave-to { opacity: 0; transform: translateY(8px); }
+.mw-fade-enter-active,
+.mw-fade-leave-active { transition: opacity 150ms ease-out; }
+.mw-fade-enter-from,
+.mw-fade-leave-to { opacity: 0; }
+
+@keyframes mw-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+@keyframes mw-in {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mw-root *,
+  .mw-pop-enter-active,
+  .mw-pop-leave-active,
+  .mw-fade-enter-active,
+  .mw-fade-leave-active {
+    transition: none !important;
+    animation: none !important;
+  }
+}

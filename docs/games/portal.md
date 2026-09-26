@@ -19,7 +19,7 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 | File | Job |
 |---|---|
 | `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, newsstand, radio station, signpost, pier, the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
-| `themes/zelda/world/town.ts` | The arcade, 17×11 (nine cabinets, the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, no email on purpose, Petter at his desk) |
+| `themes/zelda/world/town.ts` | The arcade, 17×11 (ten cabinets, Mini World's the tenth by the HANGAR door, the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, no email on purpose, Petter at his desk) |
 | `themes/zelda/world/index.ts` | `WORLD` (the one world), `worldExits()`, `worldStartingAt()` |
 | `themes/zelda/Zelda.vue` | The shell: loop, input, touch deck, audio, saves, pause menu, exits, the way back |
 | `themes/portal/Landing.vue` | The page: the shell, the first-move hint, the ending panel, the hidden link index |
@@ -70,7 +70,7 @@ while one of its links has keyboard focus.
 
 **Checks** (2026-09-24). `npm run test:portal` (in CI): the world
 validates; it starts on the plaza facing the name, and the town and its
-rooms have no enemies; the cabinets are exactly the nine arcade games,
+rooms have no enemies; the cabinets are exactly the ten arcade games,
 each ending on INSERT COIN? PRESS {A}.; the radio station's door sits in
 its wall under a RADIO sign and leads to `?theme=radio` (2026-09-25); every
 exit goes where it should and

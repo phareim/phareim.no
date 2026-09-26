@@ -40,7 +40,10 @@ treasure.
 canvas font as a TrueType/WOFF font, built by `node
 scripts/make-pixel-font.mjs` (fontTools). One font pixel is an eighth of
 the em, so it is crisp at font sizes that are multiples of 8 px. Lower case
-maps to the capitals; it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂ — … ❚ ◈ ■.
+maps to the capitals; Æ Ø Å (and æ ø å) have their own glyphs (Å's ring takes one
+row above the cap height, the em's top pixel, so it reads at 16 px; `glyphAbove` in
+`font.ts`, drawn by `drawText` and `drawBigText`), and É È Ä Ö Ü
+draw as the canvas aliases them (E, E, Æ, Ø, U; 2026-09-26); it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂ — … ❚ ◈ ■.
 
 **Status** (2026-09-25): the whole site is on the pixel look — the eight games, the Hall of Fame and Hangar pages, the shell's chrome, the 404 and the icons. The old vector synthwave backdrop (`neonHorizon.js`, `mountainTerrain.js`) is gone.
 

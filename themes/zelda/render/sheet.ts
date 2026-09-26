@@ -1,10 +1,27 @@
 /** Sprite canvases built once from the pixel maps in sprites.ts (and mirrored on demand). */
 import { PAL, SPRITES } from './sprites'
+import { heroColorsKey, heroPalette } from './heroColors'
+import type { HeroColors } from '../../miniworld/types'
 
 type Canvas = HTMLCanvasElement
 
 const cache = new Map<string, Canvas>()
 const tinted = new Map<string, Canvas>()
+/** The hero's palette (Mini World's clothes), or null for the drawn one. */
+let heroPal: Record<string, string> | null = null
+let heroKey = ''
+
+/**
+ * Dress the hero in Mini World's colours (null: as drawn). Only `hero_*`
+ * canvases are rebuilt; everything else keeps its cache.
+ */
+export function setHeroColors(colors: HeroColors | null): void {
+  const key = heroColorsKey(colors)
+  if (key === heroKey) return
+  heroKey = key
+  heroPal = colors ? { ...PAL, ...heroPalette(colors) } : null
+  for (const m of [cache, tinted]) for (const k of [...m.keys()]) if (k.startsWith('hero_')) m.delete(k)
+}
 
 function makeCanvas(w: number, h: number): Canvas {
   const c = document.createElement('canvas')
@@ -20,10 +37,11 @@ function build(name: string): Canvas {
   const w = def.rows[0]!.length
   const c = makeCanvas(w, h)
   const g = c.getContext('2d')!
+  const pal = heroPal && name.startsWith('hero_') ? heroPal : PAL
   for (let y = 0; y < h; y++) {
     const row = def.rows[y]!
     for (let x = 0; x < w; x++) {
-      const col = PAL[row[x]!]
+      const col = pal[row[x]!]
       if (!col) continue
       g.fillStyle = col
       g.fillRect(x, y, 1, 1)

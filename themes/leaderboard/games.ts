@@ -95,6 +95,7 @@ export const SAVE_GAMES: readonly SaveGameEntry[] = [
   { id: 'zelda', title: 'Neon Shrine', maxBytes: 16_384 },
   { id: 'anotherworld', title: 'Another Shore', maxBytes: 1_024 },
   { id: 'battery', title: 'Night of the Dead Battery', maxBytes: 8_192 },
+  { id: 'miniworld', title: 'Mini World', maxBytes: 32_768 },
 ] as const
 
 export function saveGameById(id: unknown): SaveGameEntry | undefined {

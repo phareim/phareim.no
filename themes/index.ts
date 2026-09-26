@@ -21,6 +21,7 @@ import './hangar/theme.css'
 import './portal/theme.css'
 import './radio/theme.css'
 import './battery/theme.css'
+import './miniworld/theme.css'
 
 // Static imports on purpose: a cabinet should not wait for a chunk, and the
 // whole set is small (the Galaga game is the only big one).
@@ -42,6 +43,7 @@ import HangarLanding from './hangar/Landing.vue'
 import PortalLanding from './portal/Landing.vue'
 import RadioLanding from './radio/Landing.vue'
 import BatteryLanding from './battery/Landing.vue'
+import MiniworldLanding from './miniworld/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the `?theme=` value. */
@@ -116,6 +118,16 @@ export const allThemes: ThemeDefinition[] = [
     themeColor: '#07040d',
     themeColorDark: '#07040d',
     landing: BatteryLanding,
+  },
+  {
+    // Mini World (2026-09-26): Ulrikke's game, a sunny blocky 3D town (three.js,
+    // loaded in its own chunk by the landing). `ownRadio`: it plays its own music.
+    id: 'miniworld',
+    name: 'Mini World',
+    ownRadio: true,
+    themeColor: '#6ecbff',
+    themeColorDark: '#6ecbff',
+    landing: MiniworldLanding,
   },
   {
     id: 'galaga',

@@ -1,0 +1,54 @@
+/**
+ * Mini World (miniworld)
+ * ---------------------------
+ * Ulrikke's game: a sunny blocky town in 3D, the daylight side of the
+ * site's world. The page is the 3D canvas; panels are Neon Shrine's pixel
+ * dialog box (.px-box, .px-btn) in candy colours over it.
+ *
+ * One scheme on purpose: the town is always daytime, so dark mode keeps
+ * the daylight (a dark page around a sunny canvas would only frame it).
+ */
+
+:root {
+  --miniworld-sky: #6ecbff;
+  --miniworld-sky-deep: #2f8fe0;
+  --miniworld-mint: #7fe0b0;
+  --miniworld-grass: #4cc27f;
+  --miniworld-pink: #ff7ac0;
+  --miniworld-pink-deep: #d9468f;
+  --miniworld-sun: #ffd84a;
+  --miniworld-ink: #1b1740;
+  --miniworld-paper: #fffaf0;
+
+  --miniworld-bg: var(--miniworld-sky);
+  --miniworld-text: var(--miniworld-ink);
+  --miniworld-text-muted: rgba(27, 23, 64, 0.72);
+  --miniworld-text-subtle: rgba(27, 23, 64, 0.48);
+  --miniworld-accent: var(--miniworld-pink-deep);
+  --miniworld-card-bg: rgba(255, 255, 255, 0.94);
+  --miniworld-card-border: var(--miniworld-ink);
+  --miniworld-card-shadow: rgba(27, 23, 64, 0.28);
+  --miniworld-font: var(--font-pixel);
+}
+
+.miniworld-page {
+  height: var(--app-height, 100dvh);
+  overflow: hidden;
+  touch-action: none;
+  background: var(--miniworld-bg);
+  color: var(--miniworld-text);
+  font-family: var(--miniworld-font);
+  position: relative;
+  color-scheme: light;
+
+  --theme-bg: var(--miniworld-bg);
+  --theme-text: var(--miniworld-text);
+  --theme-text-muted: var(--miniworld-text-muted);
+  --theme-text-subtle: var(--miniworld-text-subtle);
+  --theme-accent: var(--miniworld-accent);
+  --theme-card-bg: var(--miniworld-card-bg);
+  --theme-card-border: var(--miniworld-card-border);
+  --theme-card-shadow: var(--miniworld-card-shadow);
+  --theme-card-radius: 0px;
+  --theme-font-body: var(--miniworld-font);
+}

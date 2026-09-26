@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Builds public/fonts/neon-pixel.woff from Neon Shrine's 5×7 canvas font
 // (themes/zelda/render/font.ts), so HTML text can wear the same letters as
-// the canvas. Node dumps the glyphs; scripts/make-pixel-font.py draws them.
+// the canvas (Æ Ø Å included; É È Ä Ö Ü draw as the canvas aliases them, and
+// lower case maps to upper case). Node dumps the glyphs; make-pixel-font.py draws them.
 //   node scripts/make-pixel-font.mjs
 import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
@@ -16,10 +17,11 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const out = esbuild.buildSync({ entryPoints: [join(repo, 'themes/zelda/render/font.ts')], bundle: true, format: 'cjs', write: false, platform: 'node' })
 const mod = { exports: {} }
 new Function('module', 'exports', out.outputFiles[0].text)(mod, mod.exports)
-const { glyphRows } = mod.exports
-const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ0123456789 .,!?\'":;-·+/()%&*#=<>_×♥→←↑↓'
+const { glyphRows, glyphAbove } = mod.exports
+const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅÉÈÄÖÜ0123456789 .,!?\'":;-·+/()%&*#=<>_×♥→←↑↓'
 const glyphs = {}
-for (const ch of chars) glyphs[ch] = glyphRows(ch)
+// Rows above the cap height (Å's ring) go first; the Python side puts the last seven rows on the baseline grid.
+for (const ch of chars) glyphs[ch] = [...glyphAbove(ch), ...glyphRows(ch)]
 // Stand-ins the canvas font lacks, drawn in the same grid.
 Object.assign(glyphs, {
   '▶': ['#....', '##...', '###..', '####.', '###..', '##...', '#....'],
