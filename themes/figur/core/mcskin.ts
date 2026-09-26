@@ -131,7 +131,8 @@ export function headFront(body: FigureBody, blink = false): Grid {
   if (blink) { closed(L); closed(R) } else { eye(L, true); eye(R, false) }
 
   if (body.cheeks) { p(1, 5, fc.cheek); p(6, 5, fc.cheek) }
-  if (body.freckles) { p(2, 5, fc.freckle); p(5, 5, fc.freckle); if (!body.cheeks) { p(1, 5, fc.freckle); p(6, 5, fc.freckle) } }
+  // Freckles stay clear of every mouth (they use columns 2–5 of rows 5–7).
+  if (body.freckles) { p(1, 6, fc.freckle); p(6, 6, fc.freckle); if (!body.cheeks) { p(1, 5, fc.freckle); p(6, 5, fc.freckle) } }
 
   switch (body.mouth) {
     case 'smile': p(2, 5, fc.mouth); p(3, 6, fc.mouth); p(4, 6, fc.mouth); p(5, 5, fc.mouth); break
