@@ -15,7 +15,7 @@ before(async () => { P = await load(); W = P.WORLD })
 /** The town is the overworld's first 40 columns. */
 const TOWN_W = 40
 
-const GAMES = ['anotherworld', 'galaga', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'tetris', 'battery', 'miniworld']
+const GAMES = ['anotherworld', 'galaga', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'tetris', 'battery', 'miniworld', 'figur']
 const EXPECTED = {
   // cabinets
   ...Object.fromEntries(GAMES.map(g => [g, { map: 'arcade', to: { theme: g }, look: 'cabinet' }])),

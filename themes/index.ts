@@ -22,6 +22,7 @@ import './portal/theme.css'
 import './radio/theme.css'
 import './battery/theme.css'
 import './miniworld/theme.css'
+import './figur/theme.css'
 
 // Static imports on purpose: a cabinet should not wait for a chunk, and the
 // whole set is small (the Galaga game is the only big one).
@@ -44,6 +45,7 @@ import PortalLanding from './portal/Landing.vue'
 import RadioLanding from './radio/Landing.vue'
 import BatteryLanding from './battery/Landing.vue'
 import MiniworldLanding from './miniworld/Landing.vue'
+import FigurLanding from './figur/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the `?theme=` value. */
@@ -128,6 +130,17 @@ export const allThemes: ThemeDefinition[] = [
     themeColor: '#6ecbff',
     themeColorDark: '#6ecbff',
     landing: MiniworldLanding,
+  },
+  {
+    // Lag Din Figur (2026-09-26): Ulrikke's figure maker, one figure in four
+    // games' looks (Game.vue is its own chunk). `ownRadio`: a quiet studio
+    // with its own small sounds; the synthwave radio stays off here.
+    id: 'figur',
+    name: 'Lag Din Figur',
+    ownRadio: true,
+    themeColor: '#f6d8ff',
+    themeColorDark: '#f6d8ff',
+    landing: FigurLanding,
   },
   {
     id: 'galaga',

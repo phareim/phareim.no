@@ -122,12 +122,24 @@ function questLine(game: string): string {
     const m = slot.data ? summarizeMiniWorldRaw(slot.data) : null
     if (m) return `${m.persons} ${m.persons === 1 ? 'PERSON' : 'PERSONER'} · ${m.things} TING`
     return 'NY VERDEN'
+  } else if (game === 'figur') {
+    const f = slot.data ? summarizeFigurRaw(slot.data) : null
+    if (f) return `${f.figures} ${f.figures === 1 ? 'FIGUR' : 'FIGURER'} · ${f.drawn} KLÆR`
+    return 'INGEN FIGUR'
   } else {
     const q = slot.data ? summarizeRaw(slot.data) : null
     if (q) return `${q.step}/${QUEST_STEPS} ${formatPlayTime(q.elapsed)}`
   }
   if (slot.best !== null) return `BEST ${formatPlayTime(slot.best)}`
   return slot.clears > 0 ? 'CLEARED' : 'NEW QUEST'
+}
+
+/** Lag Din Figur's slot, read defensively: figures made, and clothes drawn. */
+function summarizeFigurRaw(raw: unknown): { figures: number; drawn: number } | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  if (!Array.isArray(r.figures)) return null
+  return { figures: r.figures.length, drawn: Array.isArray(r.closet) ? r.closet.length : 0 }
 }
 
 /** Mini World's slot, read defensively: people made, and things owned (clothes, furniture, magic weapons). */

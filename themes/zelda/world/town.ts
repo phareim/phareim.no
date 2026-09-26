@@ -17,8 +17,9 @@ export const HIGH_SCORE_SIGN: string[] = [
 
 /**
  * The arcade hall: four cabinets along the back wall beside the Hall of Fame
- * board, a ninth past it (Night of the Dead Battery) and a tenth on the
- * other side of the HANGAR door (Mini World, Ulrikke's game; both 2026-09-26), four
+ * board, a ninth past it (Night of the Dead Battery), a tenth on the
+ * other side of the HANGAR door (Mini World, Ulrikke's game) and beside it
+ * an eleventh in the corner (Lag Din Figur, her second; all 2026-09-26), four
  * more on an island between two pillars, a carpet loop around
  * them with bar stools in front of every cabinet, the HANGAR door in the
  * back wall, the prize counter with its vendor, a snack table, potted
@@ -43,7 +44,7 @@ export const ARCADE: MapDef = {
   track: 'indoor',
   rows: [
     '#############h###',
-    '#t1234ZZBZZ.9.0t#',
+    '#t1234ZZBZZ.9.0A#',
     '#,iiii,,,,,,,,,,#',
     '#.,...........,.#',
     '#.,..I5678I...,.#',
@@ -97,6 +98,10 @@ export const ARCADE: MapDef = {
       'MINI WORLD. ULRIKKE, AGE SEVEN, DESIGNED IT: A SUNNY TOWN OF BLOCKS. MAKE YOUR PEOPLE, DRESS THEM UP, DO UP YOUR HOUSE.',
       'OBBY TOWER, STAR HUNT, FASHION SHOW. WIN BITS, THE SAME BITS YOU FIND OUT HERE. THE ONLY CABINET WITH NO MONSTERS IN IT.',
     ]),
+    A: cabinet('figur', 'LAG DIN FIGUR', [
+      'LAG DIN FIGUR. ULRIKKE MADE THIS ONE TOO: MAKE A FIGURE, THEN SEE IT AS MINECRAFT, ROBLOX, TOCA BOCA OR AVATAR WORLD WOULD DRAW IT.',
+      'DRAW YOUR OWN CLOTHES. ASK PIP FOR HELP. FREE, NO ADS. THE FIGURE YOU MAKE WALKS OUT HERE AS YOU.',
+    ]),
     B: {
       tile: 'I',
       ent: {
@@ -122,7 +127,7 @@ export const ARCADE: MapDef = {
           {
             when: { notFlag: 'item:sword' },
             lines: [
-              'ROBOT: BEEP. WELCOME TO THE ARCADE. TEN CABINETS. FREE PLAY. BOOP.',
+              'ROBOT: BEEP. WELCOME TO THE ARCADE. ELEVEN CABINETS. FREE PLAY. BOOP.',
               'FACE A CABINET AND PRESS {A}. SCORES GO UP ON THE BOARD AT THE BACK.',
               'THE HANGAR DOOR BACK THERE IS FOR PILOTS. YOUR SHIP AND YOUR RECORDS LIVE IN IT.',
             ],

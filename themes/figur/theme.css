@@ -1,0 +1,53 @@
+/**
+ * Lag Din Figur (figur)
+ * ---------------------------
+ * Ulrikke's figure maker: a bright lilac-and-pink studio. The stage in the
+ * middle takes each game's own backdrop; the panels are the pixel look's
+ * dialog box (.px-box, .px-btn) in these colours.
+ *
+ * One scheme on purpose, like Mini World: a studio for a seven-year-old is
+ * daylight, so dark mode keeps it.
+ */
+
+:root {
+  --figur-lilac: #f6d8ff;
+  --figur-lilac-deep: #c9a2ff;
+  --figur-pink: #ff7ac0;
+  --figur-pink-deep: #d9468f;
+  --figur-sun: #ffd84a;
+  --figur-mint: #7fe0b0;
+  --figur-sky: #6ecbff;
+  --figur-ink: #2a1744;
+  --figur-paper: #fffaf6;
+
+  --figur-bg: var(--figur-lilac);
+  --figur-text: var(--figur-ink);
+  --figur-text-muted: rgba(42, 23, 68, 0.72);
+  --figur-text-subtle: rgba(42, 23, 68, 0.48);
+  --figur-accent: var(--figur-pink-deep);
+  --figur-card-bg: rgba(255, 255, 255, 0.94);
+  --figur-card-border: var(--figur-ink);
+  --figur-card-shadow: rgba(42, 23, 68, 0.28);
+  --figur-font: var(--font-pixel);
+}
+
+.figur-page {
+  height: var(--app-height, 100dvh);
+  overflow: hidden;
+  background: var(--figur-bg);
+  color: var(--figur-text);
+  font-family: var(--figur-font);
+  position: relative;
+  color-scheme: light;
+
+  --theme-bg: var(--figur-bg);
+  --theme-text: var(--figur-text);
+  --theme-text-muted: var(--figur-text-muted);
+  --theme-text-subtle: var(--figur-text-subtle);
+  --theme-accent: var(--figur-accent);
+  --theme-card-bg: var(--figur-card-bg);
+  --theme-card-border: var(--figur-card-border);
+  --theme-card-shadow: var(--figur-card-shadow);
+  --theme-card-radius: 0px;
+  --theme-font-body: var(--figur-font);
+}

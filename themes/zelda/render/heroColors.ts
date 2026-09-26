@@ -1,7 +1,8 @@
 /**
- * Mini World's clothes on Neon Shrine's hero. Mini World writes the active
- * person's colours to localStorage `miniworld.heroColors` (`HeroColors`);
- * the shell reads them and hands them to `setHeroColors`, which swaps the
+ * A made figure's clothes on Neon Shrine's hero. Lag Din Figur writes its
+ * active figure's colours to localStorage `figur.heroColors`, Mini World its
+ * active person's to `miniworld.heroColors` (both `HeroColors`); the shell
+ * reads the figure's first and hands them to `setHeroColors`, which swaps the
  * palette of the `hero_*` sprites only (other sprites share the letters).
  * Without colours the hero is exactly as drawn.
  *

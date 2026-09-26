@@ -73,6 +73,20 @@ const M = (...rows: string[]) => rows
 const bg7 = (c: string) => [c, c, c, c, c, c, c]
 
 const CABS: Record<string, CabStyle> = {
+  figur: {
+    // Lag Din Figur, Ulrikke's second: lilac and pink, a figure beside a paint palette.
+    body: '#a04ad0', bodyL: '#d08aff', bodyD: '#5e2a86', trim: '#ffd23f', glow: '#ff9ae0',
+    bg: ['#c8a8ff', '#cfa8f8', '#d8a8f0', '#e0a8e8', '#e8a8e0', '#f0a8d8', '#f8a8d0'],
+    marquee: M(
+      '.hhhhh......',
+      '.hkskh...y..',
+      '.sssss..yyy.',
+      'smmmmms..y..',
+      '.mmmmm.r.c.l',
+      '.bb.bb......',
+      '.ww.ww......',
+    ),
+  },
   miniworld: {
     // Ulrikke's game: the only daylight cabinet in the hall.
     body: '#2f8fe0', bodyL: '#6ac4ff', bodyD: '#1a5aa8', trim: '#ff7ac0', glow: '#7fe0ff',
@@ -377,6 +391,26 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       f('#ff8a3d', 5, 6)
       if (strike) { f('#fff4ff', 8, 0); f('#fff4ff', 7, 1); f('#fff4ff', 8, 2); f('#fff4ff', 7, 3) }
       if (Math.floor(t * 2) % 2 === 0) f('#ff8a3d', 9, 7)
+      return
+    }
+    case 'figur': {
+      // One figure, drawn one way then another: the head goes square, round, square;
+      // the top changes colour with each look, and a sparkle marks the switch.
+      const look = Math.floor((t + seed) / 1.4) % 4
+      const tops = ['#ff7ac0', '#2f8fe0', '#b6ff4a', '#9a4ff0']
+      f('#ffe6f6', 0, 0, W, H)
+      f('#f4c6ec', 0, 7, W, 1)
+      const hx = 3
+      if (look % 2 === 0) {
+        f('#6a4432', hx, 0, 4, 1); f('#f5c3a8', hx, 1, 4, 2); f('#0b0616', hx + 1, 1); f('#0b0616', hx + 2, 1)
+      } else {
+        f('#ffd23f', hx, 0, 4, 1); f('#ffd23f', hx - 1, 1, 1, 2); f('#ffd23f', hx + 4, 1, 1, 2)
+        f('#f5c3a8', hx, 1, 4, 2); f('#0b0616', hx + 1, 1); f('#0b0616', hx + 2, 1); f('#ff8ae0', hx, 2); f('#ff8ae0', hx + 3, 2)
+      }
+      f(tops[look]!, hx, 3, 4, 2); f('#f5c3a8', hx - 1, 3, 1, 2); f('#f5c3a8', hx + 4, 3, 1, 2)
+      f('#2f5fd0', hx, 5, 1, 2); f('#2f5fd0', hx + 3, 5, 1, 2)
+      const since = ((t + seed) % 1.4)
+      if (since < 0.35) { f('#fff4ff', 8, 1); f('#ffd23f', 1, 4); f('#fff4ff', 8, 5) }
       return
     }
     case 'miniworld': {

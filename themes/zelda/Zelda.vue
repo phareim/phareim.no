@@ -84,8 +84,9 @@
  * state starts on the wallet's balance, each frame's change becomes a wallet
  * op (a chest's bits only the first time on this browser), and a change
  * elsewhere (another tab, Mini World) lands in the purse.
- * Mini World's active person dresses the hero (`render/heroColors.ts`),
- * re-read on `storage` and when the tab comes back.
+ * The figure from Lag Din Figur dresses the hero, or else Mini World's
+ * active person (`render/heroColors.ts`), re-read on `storage` and when
+ * the tab comes back.
  */
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
@@ -102,6 +103,7 @@ import { createBitsBridge, migrateSaveBits, bitRewards, paidFlagStore, type Wall
 import { setHeroColors } from './render/sheet'
 import { parseHeroColors } from './render/heroColors'
 import { HERO_COLORS_KEY } from '../miniworld/types'
+import { FIGUR_HERO_KEY } from '../figur/types'
 import { readWallet, addToWallet, onWalletChange } from '../../composables/useWallet'
 import type { ExitTarget, GameState, GameEvent, PanelId, SaveData, TrackId, UseItem, World } from './types'
 
@@ -589,15 +591,20 @@ function frame(nowMs: number) {
   if (state.mode === 'won') finishWon()
 }
 
-/** Mini World's active person's colours on the hero, or the drawn hero. */
+/**
+ * The hero wears the figure from Lag Din Figur, else Mini World's active
+ * person, else its own clothes.
+ */
 function dressHero() {
-  let raw: string | null = null
-  try { raw = localStorage.getItem(HERO_COLORS_KEY) } catch { /* private mode: as drawn */ }
-  setHeroColors(parseHeroColors(raw))
+  let colors = null
+  try {
+    colors = parseHeroColors(localStorage.getItem(FIGUR_HERO_KEY)) ?? parseHeroColors(localStorage.getItem(HERO_COLORS_KEY))
+  } catch { /* private mode: as drawn */ }
+  setHeroColors(colors)
 }
 
 function onStorage(e: StorageEvent) {
-  if (e.key === HERO_COLORS_KEY || e.key === null) dressHero()
+  if (e.key === FIGUR_HERO_KEY || e.key === HERO_COLORS_KEY || e.key === null) dressHero()
 }
 
 function onVisibility() {

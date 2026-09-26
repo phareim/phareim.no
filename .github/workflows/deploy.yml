@@ -36,6 +36,7 @@ jobs:
       - run: npm run test:ships
       - run: npm run test:battery
       - run: npm run test:miniworld
+      - run: npm run test:figur
 
       - run: npm run typecheck
 
