@@ -193,16 +193,30 @@ export async function related(store: MwStore, a: string, b: string): Promise<boo
   return !!ha && !!hb && ha.id === hb.id
 }
 
+/**
+ * Friends both ways at once, by their friend code or (since the shared
+ * world, 2026-09-26) by the public id of someone you met there.
+ */
 export async function friendPost(store: MwStore, body: unknown, now = Date.now()): Promise<{ friend: PublicProfile; already: boolean }> {
   const b = obj(body)
   const id = playerOf(b)
-  const code = cleanCode(b.code)
-  if (!code) throw new MwError(400, 'bad-code')
-  await known(store, id)
-  await ensureProfile(store, id)
-  const other = await store.playerByCode(code)
-  if (!other) throw new MwError(404, 'not-found')
-  if (other === id) throw new MwError(409, 'self')
+  let other: string | null
+  if (b.id !== undefined) {
+    other = await targetOf(store, b, 'id')
+    await known(store, id)
+    await ensureProfile(store, id)
+    if (other === id) throw new MwError(409, 'self')
+    await known(store, other)
+    await ensureProfile(store, other)
+  } else {
+    const code = cleanCode(b.code)
+    if (!code) throw new MwError(400, 'bad-code')
+    await known(store, id)
+    await ensureProfile(store, id)
+    other = await store.playerByCode(code)
+    if (!other) throw new MwError(404, 'not-found')
+    if (other === id) throw new MwError(409, 'self')
+  }
   const mine = await store.friendIds(id)
   const already = mine.includes(other)
   if (!already) {

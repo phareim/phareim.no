@@ -5,7 +5,8 @@
  * zone, the built-in wardrobe as the 'wardrobe' zone (own house only), and
  * the room's sofas, beds and trampolines as `use:<uid>` spots.
  *
- * A visit also puts the owner's person in the room, waving.
+ * A visit also puts the owner's person in the room, waving, unless the
+ * owner is home live (the shared world draws them then: `setHostHidden`).
  */
 import * as THREE from 'three'
 import type { AvatarHandle, HouseHandle } from './contracts'
@@ -37,6 +38,8 @@ export interface HomeScene extends PlaceScene {
   setEdit(on: boolean): void
   /** The fixed camera over the room for edit mode, far enough back to show the whole room at this fov/aspect. */
   editView(fov: number, aspect: number): { pos: THREE.Vector3; look: THREE.Vector3 }
+  /** A visit: hide the owner's waving figure while they are here in person. */
+  setHostHidden(hidden: boolean): void
 }
 
 const RW = HOUSE_W * CELL
@@ -107,9 +110,12 @@ export function buildHome(opts: { editable: boolean; layout: HouseLayout; owned:
     setEdit(on) {
       house.setEdit(on)
     },
+    setHostHidden(hidden) {
+      if (host) host.group.visible = !hidden
+    },
     update(dt, t, _body: Body) {
       house.update(dt, t)
-      if (host) host.animate('wave', dt, 0)
+      if (host?.group.visible) host.animate('wave', dt, 0)
     },
     dispose() {
       if (host) { group.remove(host.group); host.dispose() }

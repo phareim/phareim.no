@@ -12,10 +12,16 @@
     >
       <span class="mw-me-pic">
         <img v-if="portrait" :src="portrait" alt="" width="56" height="56">
+        <span v-if="netDown" class="mw-net-dot" :title="netDown === 'full' ? 'Verden er full' : 'Ikke på nett'" />
       </span>
-      <span class="mw-me-name mw-t">
-        <PxIcon v-if="title" id="crown" :scale="2" />
-        <span>{{ person.name }}</span>
+      <span class="mw-me-col">
+        <span class="mw-me-name mw-t">
+          <PxIcon v-if="title" id="crown" :scale="2" />
+          <span>{{ person.name }}</span>
+        </span>
+        <span v-if="here > 0" class="mw-here mw-t" :aria-label="`${here} andre her`">
+          <PxIcon id="people" :scale="2" />{{ here }} HER
+        </span>
       </span>
     </button>
 
@@ -82,6 +88,10 @@ const props = defineProps<{
   line: string
   caption: string
   keysHint: string
+  /** Other players in your place (the shared world). */
+  here: number
+  /** The shared world is out of reach or full: a quiet dot, the game plays on solo. */
+  netDown: '' | 'offline' | 'full'
 }>()
 
 defineEmits<{ open: ['persons' | 'wardrobe' | 'bag' | 'map' | 'mailbox']; home: []; mute: []; quit: [] }>()
@@ -139,6 +149,7 @@ watch(() => props.bits, (now, before) => {
 }
 .mw-me:disabled { cursor: default; }
 .mw-me-pic {
+  position: relative;
   width: 56px;
   height: 56px;
   flex: none;
@@ -150,6 +161,32 @@ watch(() => props.bits, (now, before) => {
     3px 0 0 0 var(--mw-ink);
 }
 .mw-me-pic img { display: block; width: 56px; height: 56px; image-rendering: pixelated; }
+.mw-me-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.mw-here {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  color: var(--mw-ink);
+  background: var(--mw-mint);
+  padding: 1px 6px 1px 4px;
+  white-space: nowrap;
+}
+.mw-net-dot {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 12px;
+  height: 12px;
+  background: var(--mw-muted);
+  box-shadow: 0 0 0 3px var(--mw-ink);
+}
 .mw-me-name {
   display: flex;
   align-items: center;

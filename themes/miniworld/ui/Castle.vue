@@ -39,7 +39,10 @@
             <img v-if="f.person && pic(f.person.look)" :src="pic(f.person.look)" alt="">
           </div>
           <div class="mw-member-main">
-            <p class="mw-p mw-member-name">{{ f.person?.name ?? f.playerName }}</p>
+            <p class="mw-p mw-member-name">
+              {{ f.person?.name ?? f.playerName }}
+              <span v-if="online.has(f.id)" class="mw-online mw-t"><span class="mw-online-dot" />HER NÅ</span>
+            </p>
             <p class="mw-p mw-dim mw-small">{{ f.playerName }}</p>
             <div class="mw-row">
               <button type="button" class="px-btn mw-btn mw-btn--sky" @click="ctx.visit(f.id)">BESØK</button>
@@ -98,6 +101,7 @@
               <p class="mw-p mw-member-name">
                 <PxIcon v-if="m.id === hood.ruler" id="crown" :scale="2" />
                 {{ m.person?.name ?? m.playerName }}<template v-if="m.id === me"> (DEG)</template>
+                <span v-if="m.id !== me && online.has(m.id)" class="mw-online mw-t"><span class="mw-online-dot" />HER NÅ</span>
               </p>
               <p class="mw-p mw-small">
                 <span v-if="m.title" class="mw-title">{{ TITLE_NAMES[m.title] }}</span>
@@ -169,6 +173,8 @@ const state = computed(() => social.state.value)
 const hood = computed(() => state.value?.hood ?? null)
 const me = computed(() => social.me.value)
 const busy = computed(() => social.busy.value)
+/** Public ids of everyone in the shared world right now. */
+const online = computed(() => ctx.world.online.value)
 /** Members by votes; my own row shows my active person even before the profile publish lands. */
 const members = computed(() => [...(hood.value?.members ?? [])]
   .map((m) => {
@@ -301,6 +307,16 @@ async function leave() {
 .mw-member-pic img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
 .mw-member-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
 .mw-member-name { display: flex; align-items: center; gap: 6px; font-size: 24px; }
+.mw-member-name { flex-wrap: wrap; }
+.mw-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 6px;
+  font-size: 16px;
+  background: var(--mw-mint);
+}
+.mw-online-dot { width: 8px; height: 8px; background: var(--mw-ink); }
 .mw-small { display: flex; gap: 12px; flex-wrap: wrap; }
 .mw-title { color: #c0187a; }
 .mw-voted { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; color: #c0187a; }

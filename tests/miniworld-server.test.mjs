@@ -171,6 +171,24 @@ describe(kind, () => {
     assert.ok(!(await store.friendIds(b)).includes(a))
   })
 
+  test('friends by public id (met in the shared world): no code, both ways, not yourself', async () => {
+    const { store, ids: [a, b, c] } = world(3)
+    await api.stateGet(store, { player: a })
+    const pubB = await pub(store, b) // b has never opened the neighbourhood: no profile row yet
+    await rejects(api.friendPost(store, { playerId: a, id: 'no such id!' }), 400, 'bad-player')
+    await rejects(api.friendPost(store, { playerId: a, id: 'zzzzzzzzzzzz' === pubB ? 'yyyyyyyyyyyy' : 'zzzzzzzzzzzz' }), 404, 'not-found')
+    await rejects(api.friendPost(store, { playerId: a, id: await pub(store, a) }), 409, 'self')
+    const r = await api.friendPost(store, { playerId: a, id: pubB })
+    assert.equal(r.friend.id, pubB)
+    assert.equal(r.already, false)
+    assert.ok(m.isCode(r.friend.code), 'b got a friend code on the way')
+    assert.deepEqual((await api.stateGet(store, { player: b })).friends.map(f => f.id), [await pub(store, a)])
+    assert.equal((await api.friendPost(store, { playerId: b, id: await pub(store, a) })).already, true)
+    // the code still works next to it
+    const codeC = (await api.stateGet(store, { player: c })).me.code
+    assert.equal((await api.friendPost(store, { playerId: a, code: codeC })).already, false)
+  })
+
   // ---------------------------------------------------------------- neighbourhood
 
   test('hood lifecycle: create, join by code, one hood each, votes, ruler, titles, leave', async () => {

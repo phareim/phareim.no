@@ -43,6 +43,30 @@ unopened gifts. Bits gifts are debited on send and credited on open.
 D1 binds at most 100 values per query, so the wallet applies up to 50
 ops in a handful of statements in one batch.
 
+**One shared world** (2026-09-26, Petter's call: anyone may meet anyone
+for now). Everyone who plays walks in the same town and sees the others
+live, in the same place only (town, one house, one obby course, the
+meadow). The wire format is `themes/miniworld/net/protocol.ts`; the
+browser side is `net/link.ts` (one WebSocket, reconnect with backoff,
+closed while the tab is hidden, 10 state updates a second at most); the
+runtime draws peers ~120 ms behind, interpolated (`scene/peers.ts`,
+`scene/peerMotion.ts`). The relay is `servers/mw-world/` on Sleeper:
+Node 22 running the TypeScript directly, only dependency `ws`, PM2
+`mw-world`, 127.0.0.1:3034, nginx `sleeper.phareim.no/mw-world/`
+(WebSocket upgrade), origins phareim.no, its Pages previews and local
+dev. It keeps nothing on disk: a restart drops everyone for a moment and
+they reconnect. At most 40 players, 30 messages a second each. A push
+that touches the service or `protocol.ts` restarts it (`deploy.sh`, run
+by the sleeper-deploy webhook). Peers are not solid. There is no chat:
+players wave, dance, cheer or send a heart (keys 1–4 or the buttons),
+and tapping another player opens their card: BLI VENNER (friend by
+public id, `POST /api/mw/friend { playerId, id }`), send a gift, visit
+their house. The HUD shows N HER; offline, the game plays solo. The
+names children type are visible to everyone playing. Identity on the
+wire is the public id the client says it has; the service cannot check
+it (a spoofed id only misdirects a friend tap).
+`scripts/miniworld-lab/live-two.mjs` plays two players in one browser.
+
 **Into Neon Shrine.** The active person's colours go to localStorage
 `miniworld.heroColors`; Neon Shrine's hero wears them.
 

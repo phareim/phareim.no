@@ -84,6 +84,10 @@ export interface MiniWorldSocialApi {
   publish(profile: ProfileData): void
 
   addFriend(code: string): Promise<SocialResult>
+  /** Friends with someone met in the shared world, by their public id (no code). */
+  addFriendById(pub: string): Promise<SocialResult>
+  /** True when this public id is among my friends. */
+  isFriend(pub: string): boolean
   removeFriend(id: string): Promise<SocialResult>
 
   createHood(): Promise<SocialResult>
@@ -300,6 +304,15 @@ function build(): MiniWorldSocialApi {
     return { result: 'ok', gift: data.gift }
   }
 
+  async function befriend(body: { code: string } | { id: string }): Promise<SocialResult> {
+    const { result, data } = await busyCall<{ friend: PublicProfile; already: boolean }>('/api/mw/friend', body)
+    if (!data) return result
+    if (state.value && !state.value.friends.some(f => f.id === data.friend.id)) {
+      state.value = { ...state.value, friends: [...state.value.friends, data.friend] }
+    }
+    return data.already ? 'already' : 'ok'
+  }
+
   async function fetchHouse(id: string): Promise<{ result: SocialResult; profile: PublicProfile | null }> {
     const viewer = readStoredPlayer()?.id
     if (!viewer) return { result: 'no-player', profile: null }
@@ -322,13 +335,14 @@ function build(): MiniWorldSocialApi {
     async addFriend(code) {
       const c = cleanCode(code)
       if (!c) return 'bad-code'
-      const { result, data } = await busyCall<{ friend: PublicProfile; already: boolean }>('/api/mw/friend', { code: c })
-      if (!data) return result
-      if (state.value && !state.value.friends.some(f => f.id === data.friend.id)) {
-        state.value = { ...state.value, friends: [...state.value.friends, data.friend] }
-      }
-      return data.already ? 'already' : 'ok'
+      return befriend({ code: c })
     },
+    async addFriendById(pub) {
+      if (!/^[A-Za-z0-9_-]{1,32}$/.test(pub)) return 'not-found'
+      if (pub === me.value) return 'self'
+      return befriend({ id: pub })
+    },
+    isFriend: pub => !!pub && !!state.value?.friends.some(f => f.id === pub),
     async removeFriend(id) {
       const { result } = await busyCall('/api/mw/unfriend', { friendId: id })
       if (result === 'ok' && state.value) {

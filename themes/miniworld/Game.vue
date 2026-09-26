@@ -22,6 +22,8 @@
       :line="hudLine"
       :caption="caption"
       :keys-hint="keysHint"
+      :here="peersHere"
+      :net-down="netDown"
       @open="(id) => open({ id } as Panel)"
       @home="goHome"
       @mute="toggleMute"
@@ -40,6 +42,7 @@
       :action-label="near.label"
       :magic="!!equipped && !isRun"
       @first-touch="unlockAudio"
+      @emote="emote"
     />
 
     <Transition name="mw-pop">
@@ -60,6 +63,7 @@
         <FashionShow v-else-if="top.id === 'fashion'" @finish="fashionDone" />
         <MemoryGame v-else-if="top.id === 'memory'" :pairs="top.pairs" @finish="memoryDone" />
         <Surfaces v-else-if="top.id === 'surfaces'" />
+        <PeerCard v-else-if="top.id === 'peer'" :peer="top.peer" />
       </div>
     </Transition>
 
@@ -92,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, reactive, shallowRef, provide, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, reactive, shallowRef, shallowReactive, provide, onMounted, onBeforeUnmount } from 'vue'
 import EscHold from '../base/EscHold.vue'
 import Hud from './ui/Hud.vue'
 import HomeBar from './ui/HomeBar.vue'
@@ -113,13 +117,16 @@ import ResultCard from './ui/ResultCard.vue'
 import FashionShow from './ui/FashionShow.vue'
 import MemoryGame from './ui/MemoryGame.vue'
 import Surfaces from './ui/Surfaces.vue'
+import PeerCard from './ui/PeerCard.vue'
 import './ui/mw.css'
-import { MW_CTX, socialLine, type MwContext, type Panel, type Pics, type ResultCard as ResultCardData, type TravelSpot } from './ui/context'
+import { MW_CTX, socialLine, type Emote, type MwContext, type MwWorld, type Panel, type Pics, type ResultCard as ResultCardData, type TravelSpot } from './ui/context'
+import { createWorldLink, worldUrl, type PeerEvent } from './net/link'
+import type { PeerInfo } from './net/protocol'
 import { useMiniWorld } from '~/composables/useMiniWorld'
 import { useMiniWorldSocial } from '~/composables/useMiniWorldSocial'
 import { createMiniAudio } from './audio'
 import type {
-  CreateRuntime, MiniAudio, MiniMusic, MiniSfx, MiniWorldRuntime, Place, Previews, RuntimeEvent, ZoneId,
+  CreateRuntime, LinkStatus, MiniAudio, MiniMusic, MiniSfx, MiniWorldRuntime, Place, Previews, RuntimeEvent, WorldLink, ZoneId,
 } from './scene/contracts'
 import type { FashionScore, MemorySize } from './core/contests'
 import type { ContestId, ObbyLevel, OwnedFurniture } from './types'
@@ -159,7 +166,7 @@ const editing = computed(() => place.value.kind === 'house' && place.value.edit)
 const isRun = computed(() => place.value.kind === 'obby' || place.value.kind === 'stars')
 const equipped = computed(() => game.save.value.weapons.find(w => w.uid === game.save.value.equipped) ?? null)
 const keysHint = computed(() => (keysHintOn.value && !isTouch.value && !stack.value.length && !editing.value
-  ? 'WASD: GÅ · MELLOMROM: HOPP · E: BRUK · DRA: SNU' + (equipped.value ? ' · F: MAGI' : '')
+  ? 'WASD: GÅ · MELLOMROM: HOPP · E: BRUK · DRA: SNU' + (equipped.value ? ' · F: MAGI' : '') + ' · 1-4: VINK'
   : ''))
 
 // ---------------------------------------------------------------- pictures and sound (safe before they load)
@@ -407,8 +414,136 @@ function onEvent(e: RuntimeEvent) {
     case 'sfx':
       audioProxy.sfx(e.name, e.magic ? { magic: e.magic } : undefined)
       break
+    case 'fx-out':
+      link?.sendFx(e.fx)
+      break
+    case 'peer':
+      if (!stack.value.length && !editing.value && peerInfo.has(e.id)) open({ id: 'peer', peer: e.id })
+      break
   }
 }
+
+// ---------------------------------------------------------------- the shared world
+
+/**
+ * Everyone who plays walks in the same world (2026-09-26). One link to the
+ * mw-world service on Sleeper while there is a person to be: it says who
+ * you are, sends where you are every frame (the link thins it to SEND_HZ),
+ * and hands the others to the runtime, which draws those in your place.
+ * Offline or full, the game plays on alone; only a quiet dot says so.
+ */
+const worldStatus = ref<LinkStatus | 'off'>('off')
+const peersHere = ref(0)
+/** Everyone online, by session id: their info as last sent (the peer card and the friends list read it). */
+const peerInfo = shallowReactive(new Map<string, PeerInfo>())
+const onlinePubs = computed(() => {
+  const out = new Set<string>()
+  for (const i of peerInfo.values()) if (i.pub) out.add(i.pub)
+  return out
+})
+const netDown = computed<'' | 'offline' | 'full'>(() =>
+  worldStatus.value === 'offline' || worldStatus.value === 'full' ? worldStatus.value : '')
+
+const myInfo = computed<PeerInfo | null>(() => {
+  const p = game.active.value
+  if (!p) return null
+  const w = equipped.value
+  return {
+    pub: social.me.value ?? '',
+    name: p.name,
+    title: social.myTitle.value,
+    look: p.look,
+    held: w ? { base: w.base, magic: w.magic, color: w.color, level: w.level } : null,
+  }
+})
+
+let link: WorldLink | null = null
+let linkOff: (() => void)[] = []
+let linkFrame = 0
+let hereTimer: ReturnType<typeof setInterval> | undefined
+
+function onPeer(e: PeerEvent) {
+  const rt = runtime.value
+  if (!rt) return
+  switch (e.t) {
+    case 'join':
+    case 'info':
+      rt.peers.upsert(e.id, e.info)
+      peerInfo.set(e.id, e.info)
+      if (e.state) rt.peers.state(e.id, e.state, performance.now())
+      break
+    case 's':
+      rt.peers.state(e.id, e.state, performance.now())
+      break
+    case 'fx':
+      rt.peers.fx(e.id, e.fx)
+      break
+    case 'leave':
+      rt.peers.remove(e.id)
+      peerInfo.delete(e.id)
+      break
+    case 'reset':
+      rt.peers.clear()
+      peerInfo.clear()
+      break
+  }
+}
+
+function openLink() {
+  const rt = runtime.value
+  const info = myInfo.value
+  if (link || !rt || !game.ready.value || !info) return
+  try {
+    link = createWorldLink(worldUrl())
+  } catch (err) {
+    console.warn('[miniworld] world link', err)
+    return
+  }
+  const l = link
+  l.setInfo(info)
+  linkOff = [l.onPeer(onPeer), l.onStatus((s) => { worldStatus.value = s })]
+  worldStatus.value = l.status
+  const tick = () => {
+    linkFrame = requestAnimationFrame(tick)
+    const r = runtime.value
+    if (r) l.pushState(r.selfState())
+  }
+  linkFrame = requestAnimationFrame(tick)
+  hereTimer = setInterval(() => { peersHere.value = runtime.value?.peers.here ?? 0 }, 300)
+}
+
+function closeLink() {
+  if (linkFrame) cancelAnimationFrame(linkFrame)
+  linkFrame = 0
+  if (hereTimer) clearInterval(hereTimer)
+  hereTimer = undefined
+  for (const off of linkOff) off()
+  linkOff = []
+  link?.close()
+  link = null
+  runtime.value?.peers.clear()
+  peerInfo.clear()
+  peersHere.value = 0
+  worldStatus.value = 'off'
+}
+
+watch([runtime, () => game.ready.value, () => !!game.active.value], ([rt, ready, has]) => {
+  if (rt && ready && has) openLink()
+  else closeLink()
+})
+watch(() => JSON.stringify(myInfo.value), () => { if (link && myInfo.value) link.setInfo(myInfo.value) })
+watch([runtime, () => social.me.value], ([rt, pub]) => { rt?.setSelfPub(pub ?? '') }, { immediate: true })
+
+/** One emote at a time, a beat apart: the others see every one. */
+let lastEmote = 0
+function emote(e: Emote) {
+  const now = performance.now()
+  if (now - lastEmote < 500) return
+  lastEmote = now
+  runtime.value?.emote(e)
+}
+
+const world: MwWorld = { status: worldStatus, here: peersHere, peers: peerInfo, online: onlinePubs, emote }
 
 // ---------------------------------------------------------------- save → runtime
 
@@ -476,12 +611,23 @@ function escTap() {
   runPaused.value = !runPaused.value
 }
 
+const EMOTE_KEYS: Record<string, Emote> = {
+  Digit1: 'wave', Digit2: 'dance', Digit3: 'cheer', Digit4: 'heart',
+  Numpad1: 'wave', Numpad2: 'dance', Numpad3: 'cheer', Numpad4: 'heart',
+}
+
 function onKeyDown(e: KeyboardEvent) {
   unlockAudio()
   // Enter on the welcome card starts the person maker, wherever the focus is.
   if (e.key === 'Enter' && !e.repeat && top.value?.id === 'welcome') {
     e.preventDefault()
     swap({ id: 'creator', personId: null })
+    return
+  }
+  const emoteKey = EMOTE_KEYS[e.code]
+  if (emoteKey && !e.repeat && !stack.value.length && !editing.value && !e.metaKey && !e.ctrlKey && !e.altKey
+    && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+    emote(emoteKey)
     return
   }
   if (e.key !== 'Escape' || e.repeat) {
@@ -508,7 +654,7 @@ function onKeyDown(e: KeyboardEvent) {
 // ---------------------------------------------------------------- the context for panels
 
 const ctx: MwContext = {
-  game, social, pics, previews, audio: audioProxy, runtime, place,
+  game, social, pics, previews, audio: audioProxy, runtime, place, world,
   open, swap, close, closeAll, say, cheer, sfx,
   setSeeThrough: (on) => { seeThrough.value = on },
   setBusy: (on) => { busy.value = on },
@@ -598,7 +744,7 @@ onMounted(() => {
     if (document.visibilityState === 'visible' && game.save.value.persons.length && !stack.value.length) void social.refresh()
   }, 90_000)
   void boot()
-  if (import.meta.dev) (window as unknown as { __mw?: unknown }).__mw = { get runtime() { return runtime.value }, game, social, ctx }
+  if (import.meta.dev) (window as unknown as { __mw?: unknown }).__mw = { get runtime() { return runtime.value }, get link() { return link }, game, social, ctx }
 })
 
 onBeforeUnmount(() => {
@@ -611,6 +757,7 @@ onBeforeUnmount(() => {
   if (socialTimer) clearInterval(socialTimer)
   if (toastTimer) clearTimeout(toastTimer)
   if (cheerTimer) clearTimeout(cheerTimer)
+  closeLink()
   offRuntime?.()
   runtime.value?.dispose()
   runtime.value = null

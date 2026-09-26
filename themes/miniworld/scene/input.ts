@@ -7,6 +7,10 @@
  * left half belongs to the UI's floating stick), turns the camera; two
  * touches pinch-zoom; the wheel zooms. In house edit mode every pointer on
  * the canvas goes to the room editor instead.
+ *
+ * Another player under a press (`peerAt`) makes it a tap candidate: the
+ * camera holds still until the pointer moves past a few pixels, and a
+ * release inside that slop taps the player (`tapPeer`) instead of turning.
  */
 import type { InputState } from './contracts'
 
@@ -15,6 +19,9 @@ export interface InputHooks {
   isEdit(): boolean
   /** CSS px relative to the canvas. */
   editPointer(kind: 'down' | 'move' | 'up', x: number, y: number): void
+  /** The shared world: the other player under this point (CSS px), or null. */
+  peerAt?(x: number, y: number): string | null
+  tapPeer?(id: string): void
 }
 
 export interface InputHandle {
@@ -80,7 +87,8 @@ export function attachInput(canvas: HTMLCanvasElement, input: InputState, hooks:
 
   // ---------------------------------------------------------------- pointers
 
-  interface P { x: number; y: number; cam: boolean }
+  /** sx/sy: where the press began; peer: a tap candidate until it moves past the slop. */
+  interface P { x: number; y: number; cam: boolean; sx: number; sy: number; peer: string | null; slop: number }
   const pointers = new Map<number, P>()
   let pinchDist = 0
 
@@ -98,7 +106,7 @@ export function attachInput(canvas: HTMLCanvasElement, input: InputState, hooks:
   const onDown = (e: PointerEvent) => {
     const l = local(e)
     if (hooks.isEdit()) {
-      pointers.set(e.pointerId, { x: l.x, y: l.y, cam: false })
+      pointers.set(e.pointerId, { x: l.x, y: l.y, cam: false, sx: l.x, sy: l.y, peer: null, slop: 0 })
       try { canvas.setPointerCapture(e.pointerId) } catch { /* ignore */ }
       hooks.editPointer('down', l.x, l.y)
       e.preventDefault()
@@ -109,7 +117,11 @@ export function attachInput(canvas: HTMLCanvasElement, input: InputState, hooks:
     const cam = !touch || l.x > l.w * 0.4 || camPointers().length > 0
     if (!cam) return
     if (!touch && e.button !== 0 && e.button !== 2) return
-    pointers.set(e.pointerId, { x: l.x, y: l.y, cam: true })
+    const first = camPointers().length === 0
+    // A second finger turns every press into a pinch.
+    if (!first) for (const q of pointers.values()) q.peer = null
+    const peer = first && (touch || e.button === 0) ? hooks.peerAt?.(l.x, l.y) ?? null : null
+    pointers.set(e.pointerId, { x: l.x, y: l.y, cam: true, sx: l.x, sy: l.y, peer, slop: touch ? 12 : 6 })
     try { canvas.setPointerCapture(e.pointerId) } catch { /* ignore */ }
     const cp = camPointers()
     if (cp.length === 2) pinchDist = Math.hypot(cp[0]!.x - cp[1]!.x, cp[0]!.y - cp[1]!.y)
@@ -124,6 +136,10 @@ export function attachInput(canvas: HTMLCanvasElement, input: InputState, hooks:
       p.x = l.x; p.y = l.y
       hooks.editPointer('move', l.x, l.y)
       return
+    }
+    if (p.peer) {
+      if (Math.hypot(l.x - p.sx, l.y - p.sy) < p.slop) return
+      p.peer = null // a drag after all: the view catches up from the press
     }
     const dx = l.x - p.x, dy = l.y - p.y
     p.x = l.x; p.y = l.y
@@ -146,6 +162,9 @@ export function attachInput(canvas: HTMLCanvasElement, input: InputState, hooks:
     if (!p.cam) {
       const l = local(e)
       hooks.editPointer('up', l.x, l.y)
+    } else if (p.peer && e.type === 'pointerup') {
+      const l = local(e)
+      hooks.tapPeer?.(hooks.peerAt?.(l.x, l.y) ?? p.peer)
     }
     const cp = camPointers()
     if (cp.length < 2) pinchDist = 0

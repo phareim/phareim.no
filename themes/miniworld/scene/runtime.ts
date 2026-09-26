@@ -13,6 +13,12 @@
  * action ('near'), pressing it sends 'zone', and the UI calls `go`.
  * Furniture in a house is the exception: sitting, sleeping and bouncing
  * happen here (`use:<uid>` zones, 'using' events).
+ *
+ * The shared world (2026-09-26): other players come in through `peers`
+ * and are drawn by peers.ts in whatever place has your place key
+ * (peerMotion.ts `placeKey`); `selfState` is what the shell sends of you,
+ * and your magic and emotes go out as 'fx-out'. A tap on another player
+ * sends 'peer'.
  */
 import * as THREE from 'three'
 import type {
@@ -39,6 +45,10 @@ import { buildStars } from './stars'
 import type { StarsScene } from './stars'
 import { buildCatwalk } from './catwalk'
 import { createParticles, createBalloons, fireMagic } from './play'
+import { createPeerLayer, floatHeart } from './peers'
+import { placeKey, localToken } from './peerMotion'
+import { packState } from '../net/protocol'
+import type { NetPose } from '../net/protocol'
 import { inZone } from './place'
 import type { PlaceScene, Spot, Zone } from './place'
 
@@ -70,12 +80,36 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
   const emit = (e: RuntimeEvent) => { for (const h of handlers) h(e) }
   const sfx = (name: Extract<RuntimeEvent, { type: 'sfx' }>['name']) => emit({ type: 'sfx', name })
 
+  // ------------------------------------------------ other players
+
+  const peerLayer = createPeerLayer(scene, particles, { lowPower: opts.lowPower, emit })
+  const livePubs = new Set<string>()
+  let peerVersion = -1
+  const myKey = () => placeKey(place, selfPub, token)
+  /** Neighbours and a visited host who are here live step aside for their live selves. */
+  const syncLive = () => {
+    peerVersion = peerLayer.version
+    peerLayer.pubsIn('town', livePubs)
+    neighbors.setHidden(livePubs)
+    if (place.kind === 'visit' && current !== town) {
+      const host = place.playerId
+      peerLayer.pubsIn(`house:${host}`, livePubs)
+      ;(current as HomeScene).setHostHidden(livePubs.has(host))
+    }
+  }
+
   // ------------------------------------------------ town
 
   const town: TownScene = buildTown(particles)
   scene.add(town.group)
   let popBits = 0
-  const balloons = createBalloons(BALLOON_AREA, opts.lowPower ? 12 : 18, particles, (_x, _y, _z, gold) => {
+  const balloons = createBalloons(BALLOON_AREA, opts.lowPower ? 12 : 18, particles, (x, _y, z, gold, own) => {
+    if (!own) {
+      // Another player's magic: the balloon pops for you too, but pays nothing.
+      const dx = x - body.x, dz = z - body.z
+      if (dx * dx + dz * dz < 20 * 20) sfx('pop')
+      return
+    }
     const want = gold ? 3 : 1
     const bits = Math.max(0, Math.min(want, POP_CAP - popBits))
     popBits += bits
@@ -135,7 +169,14 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
   let cheer = 0
   let swing = 0
   let magicCool = 0
+  let emoteT = 0
+  let emotePose: AvatarPose = 'wave'
+  let selfPose: AvatarPose = 'idle'
+  let selfSpeed = 0
+  let selfPub = ''
+  const token = localToken()
   let clock = 0
+  let peerClock: () => number = () => performance.now()
   let lastSafe: Spot = { ...town.spawn }
 
   const setNear = (z: { id: ZoneId; label: string } | null) => {
@@ -253,6 +294,8 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
       }
     }
     lastSafe = { x: body.x, y: body.y, z: body.z, yaw: facing }
+    emoteT = 0
+    peerVersion = -1
     sfx('door')
     emit({ type: 'place', place: p })
   }
@@ -273,6 +316,15 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
       if (out.select !== undefined) emit({ type: 'select', uid: out.select })
       if (out.layout) layoutChanged(out.layout)
     },
+    peerAt(x, y) {
+      if (!peerLayer.here) return null
+      const r = canvas.getBoundingClientRect()
+      if (!r.width || !r.height) return null
+      ndc.set((x / r.width) * 2 - 1, -(y / r.height) * 2 + 1)
+      raycaster.setFromCamera(ndc, cam.camera)
+      return peerLayer.pick(raycaster.ray)
+    },
+    tapPeer(id) { emit({ type: 'peer', id }) },
   })
 
   const layoutChanged = (l: HouseLayout | null) => {
@@ -425,17 +477,21 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
       const target = current === town ? balloons.nearestAhead(muzzle.x, muzzle.y, muzzle.z, fx, fz, 16) : null
       fireMagic(particles, weapon.magic, weapon.level, muzzle, fx, fz, target)
       emit({ type: 'sfx', name: 'magic', magic: weapon.magic })
+      emit({ type: 'fx-out', fx: { k: 'magic', magic: weapon.magic, level: weapon.level, dx: Math.round(fx * 1000) / 1000, dy: 0, dz: Math.round(fz * 1000) / 1000 } })
       swing = 0.35
+      emoteT = 0
     }
     swing -= dt
     cheer -= dt
+    emoteT -= dt
+    if (moving || jumped || editing) emoteT = 0
 
     // The place's own life (timers, checkpoints, stars).
     current.update(dt, t, body)
     if (home && current === home) (home.house as { setView?(p: THREE.Vector3): void }).setView?.(cam.camera.position)
     if (current === town) {
       balloons.update(dt, t)
-      particles.forHits((x, y, z) => balloons.tryPop(x, y, z))
+      particles.forHits((x, y, z, own) => balloons.tryPop(x, y, z, own))
       neighbors.update(dt, body.x, body.z)
       if (shopWeapon) shopWeapon.group.rotation.y = t * 1.2
     }
@@ -455,8 +511,11 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
       else if (!body.onGround && body.air > 0.12) pose = body.vy > 0 ? 'jump' : 'fall'
       else if (hs > 0.6) { speed = Math.min(1, hs / PHYS.walk); pose = speed > 0.75 ? 'run' : 'walk' }
       else if (cheer > 0) pose = 'cheer'
+      else if (emoteT > 0) pose = emotePose
       if (drive && !drive.pose) { speed = Math.min(1, hs / PHYS.walk); pose = hs > 0.6 ? 'walk' : 'idle' }
       avatar.animate(pose, dt, speed)
+      selfPose = pose
+      selfSpeed = speed
     }
 
     // Blob shadow.
@@ -475,6 +534,10 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
     cam.update(dt, body.x, body.y + 2.1, body.z, current.camCollide === false ? null : current.world, { moving: moving && !drive, facing, reducedMotion: opts.reducedMotion })
     lights.follow(body.x, body.y, body.z)
     sky.position.copy(cam.camera.position)
+
+    // Other players, drawn after the camera so the one it pushes into can step aside.
+    peerLayer.update(dt, peerClock(), { key: myKey(), camera: cam.camera, px: body.x, py: body.y, pz: body.z, world: current.world, balloons: current === town ? balloons : null })
+    if (peerLayer.version !== peerVersion) syncLive()
 
     input.jumpPressed = false
     input.actionPressed = false
@@ -568,6 +631,8 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
       neighbors = buildNeighbors(list.slice(0, 12))
       town.group.add(neighbors.group)
       if (playerName) neighbors.setHome(playerName, playerTitle)
+      peerLayer.pubsIn('town', livePubs)
+      neighbors.setHidden(livePubs)
       town.setExtraBoxes(neighbors.boxes)
       town.setExtraZones(neighbors.zones)
       if (current === town) setNear(null)
@@ -605,6 +670,32 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
       handlers.add(h)
       return () => handlers.delete(h)
     },
+    peers: {
+      upsert(id, info) { peerLayer.upsert(id, info) },
+      state(id, st, at) { peerLayer.state(id, st, at) },
+      fx(id, f) { peerLayer.fx(id, f) },
+      remove(id) { peerLayer.remove(id) },
+      clear() { peerLayer.clear() },
+      get here() { return peerLayer.here },
+    },
+    setSelfPub(pub) {
+      selfPub = typeof pub === 'string' ? pub : ''
+    },
+    selfState() {
+      if (!avatar || disposed) return null
+      return packState({ pl: myKey(), x: body.x, y: body.y, z: body.z, r: Math.atan2(Math.sin(facing), Math.cos(facing)), a: selfPose as NetPose, s: Math.max(0, Math.min(1, selfSpeed)) })
+    },
+    emote(e) {
+      if (e === 'heart') {
+        floatHeart(particles, body.x, body.y + 3.4, body.z)
+      } else if (e === 'wave' || e === 'dance' || e === 'cheer') {
+        if (place.kind === 'house' && place.edit) return
+        stopUsing()
+        emotePose = e
+        emoteT = 2
+      } else return
+      emit({ type: 'fx-out', fx: { k: 'emote', e } })
+    },
     dispose() {
       disposed = true
       running = false
@@ -617,6 +708,7 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
       neighbors.dispose()
       shopWeapon?.dispose()
       if (avatar) { scene.remove(avatar.group); avatar.dispose() }
+      peerLayer.dispose()
       particles.dispose()
       blobGeo.dispose(); blobMat.dispose()
       sky.geometry.dispose(); sky.material.dispose()
@@ -634,6 +726,9 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
       camera: cam,
       body,
       frame: (dt: number) => { frame(dt); draw() },
+      /** The clock peers are sampled on (ms); the lab steps a virtual one. */
+      setPeerClock(fn: () => number) { peerClock = fn },
+      peerPos: (id: string) => peerLayer.position(id),
     },
   })
   return rt
