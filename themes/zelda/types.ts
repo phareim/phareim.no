@@ -232,12 +232,17 @@ export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 
  * portal at `/`, or a page outside the site. The engine only reports it (the
  * `exit` event); the Vue shell does the navigating. `reset` is the NEW GAME
  * machine in Petter's house: it leaves nothing, its lines close into a
- * `startOver` event and the shell asks yes or no.
+ * `startOver` event and the shell asks yes or no. `panel` is the login
+ * console in Petter's house: it leaves nothing either, its A press becomes
+ * a `panel` event and the shell opens that HTML panel over the world.
  */
-export type ExitTarget = { theme: string } | { home: true } | { url: string } | { reset: true }
+export type ExitTarget = { theme: string } | { home: true } | { url: string } | { reset: true } | { panel: PanelId }
+
+/** The shell's HTML panels an exit can open: `account` is the login console (`AccountConsole.vue`). */
+export type PanelId = 'account'
 
 /** How the renderer draws an exit. The engine ignores it. */
-export type ExitLook = 'door' | 'cabinet' | 'board' | 'kiosk' | 'terminal' | 'sign' | 'studio'
+export type ExitLook = 'door' | 'cabinet' | 'board' | 'kiosk' | 'terminal' | 'console' | 'sign' | 'studio'
 
 /**
  * A way out of the game: the town's cabinets, doors, kiosk and terminals.
@@ -742,6 +747,7 @@ export type GameEvent =
   | { type: 'won'; elapsed: number }
   | { type: 'exit'; id: string; to: ExitTarget }
   | { type: 'startOver' } // the NEW GAME machine's lines closed: the shell asks yes or no
+  | { type: 'panel'; id: string; panel: PanelId } // the login console was used: the shell opens its panel
   | { type: 'hitStop'; ms: number }
   | { type: 'cycle'; item: UseItem | null }
   | { type: 'error' } // a buzz: no bombs, no key, can't afford

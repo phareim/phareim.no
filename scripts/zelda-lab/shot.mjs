@@ -95,6 +95,7 @@ switch (scene) {
   case 'r-arcade': place('arcade', 'door'); run(20); break
   case 'r-home': place('home', 'door'); run(20); break
   case 'r-desk': place('home', 'door', -2, -4); s.hero.dir = 'left'; run(5); break
+  case 'r-console': place('home', 'login'); run(5); break
   // The Wildwood and Project Horizon's labs (w-* outdoors, l-* Horizon Lab, d-* the Deep Lab, i-* rooms)
   case 'w-shore': wild(); go('wildwood', 76.5, 38.5, 'left'); run(30); break
   case 'w-camp': wild(true); go('wildwood', 50.5, 38.5, 'up'); run(60, inp({ move: { x: 0.01, y: 0 } })); run(30); break
@@ -187,6 +188,8 @@ const SHOTS = [
   ['r-arcade-390', 'r-arcade', 390, 844, 3, 0],
   ['r-home-1280', 'r-home', 1280, 800, 1, 0],
   ['r-home-390', 'r-home', 390, 844, 3, 0],
+  ['r-console-1280', 'r-console', 1280, 800, 1, 0],
+  ['r-console-375', 'r-console', 375, 667, 2, 0],
   ['w-shore-1280', 'w-shore', 1280, 800, 1, 0],
   ['w-camp-1280', 'w-camp', 1280, 800, 1, 0],
   ['w-lab-1280', 'w-lab', 1280, 800, 1, 0],

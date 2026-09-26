@@ -1,6 +1,6 @@
 /**
  * Exits as the renderer sees them (the portal's cabinets, the Hall of Fame
- * board, the kiosk, the terminals, neon signs, the radio station's door and
+ * board, the kiosk, the terminals, the login console, neon signs, the radio station's door and
  * mast) and the floating label that names an exit while the hero stands next
  * to it.
  *
@@ -35,7 +35,7 @@ function r(g: G, c: string, x: number, y: number, w = 1, h = 1) {
 // ---------------------------------------------------------------------------
 
 /** Looks that bring their own sprite and replace the tile's painted object. */
-const OWN_SPRITE: ReadonlySet<ExitLook> = new Set<ExitLook>(['cabinet', 'board', 'kiosk', 'terminal'])
+const OWN_SPRITE: ReadonlySet<ExitLook> = new Set<ExitLook>(['cabinet', 'board', 'kiosk', 'terminal', 'console'])
 const tileCache = new WeakMap<object, Map<number, ExitLook>>()
 
 /** Tile index → look, for exits whose sprite replaces the tile's object. */
@@ -613,6 +613,74 @@ function drawTerminalScreen(g: G, art: string | undefined, x: number, y: number,
 const TERM_GLOW: Record<string, string> = { linkedin: '#2f8fff', github: '#cfc6ff', bluesky: '#3fa8ff' }
 
 // ---------------------------------------------------------------------------
+// Login console (Sleeper, Petter's server, standing in his house)
+// ---------------------------------------------------------------------------
+
+const CON_W = 16
+const CON_H = 28
+/** The console's glass, relative to its top-left. */
+const CON_SCR = { x: 3, y: 4, w: 10, h: 8 }
+let conC: Canvas | null = null
+
+/** A tall violet tower: a screen in a deep bezel, a keyboard ledge, a vented rack with status lights, a pink neon cap. */
+function consoleCanvas(): Canvas {
+  if (conC) return conC
+  const c = makeCanvas(CON_W, CON_H)
+  const g = c.getContext('2d')!
+  const k = PAL.k!
+  // Tower
+  r(g, k, 1, 0, 14, 28)
+  r(g, '#4f3c7e', 2, 1, 12, 26)
+  r(g, '#5f4c92', 2, 1, 12, 1)
+  r(g, '#6f5ca6', 2, 2, 1, 24)
+  r(g, '#271c46', 13, 2, 1, 25)
+  // Neon cap
+  r(g, '#ff2fa0', 3, 1, 10, 1)
+  // Bezel around the glass
+  r(g, k, 2, 3, 12, 10)
+  r(g, '#1a1030', 3, 4, 10, 8)
+  // Keyboard ledge, sticking out a pixel each side
+  r(g, k, 0, 13, 16, 4)
+  r(g, '#8f86b8', 1, 14, 14, 1)
+  r(g, '#5a5285', 1, 15, 14, 1)
+  for (let i = 0; i < 6; i++) r(g, '#cfc6ff', 2 + i * 2, 14, 1, 1)
+  // Rack: vents and a drive slot
+  r(g, '#271c46', 3, 18, 7, 1)
+  r(g, '#0b0616', 3, 25, 7, 1)
+  r(g, '#271c46', 10, 18, 3, 8)
+  // A sleeper's Z on the front
+  r(g, '#b9a8d9', 4, 20, 4, 1); r(g, '#b9a8d9', 6, 21); r(g, '#b9a8d9', 5, 22); r(g, '#b9a8d9', 4, 23, 4, 1)
+  // Feet
+  r(g, k, 2, 27, 3, 1); r(g, k, 11, 27, 3, 1)
+  conC = c
+  return c
+}
+
+/** The console's live screen: a login prompt with a blinking block cursor. (x, y) = glass top-left. */
+function drawConsoleScreen(g: G, x: number, y: number, t: number, reduced: boolean) {
+  const { w, h } = CON_SCR
+  r(g, '#0a2a2a', x, y, w, h)
+  // Three lines of boot text, then the prompt.
+  r(g, '#2ff3ff', x + 1, y + 1, 6, 1)
+  r(g, '#1f9aa8', x + 1, y + 3, 4, 1); r(g, '#1f9aa8', x + 6, y + 3, 2, 1)
+  r(g, '#b6ff4a', x + 1, y + 5, 1, 1)
+  r(g, '#2ff3ff', x + 3, y + 5, 3, 1)
+  if (reduced || Math.floor(t * 1.8) % 2 === 0) r(g, '#fff4ff', x + 7, y + 5, 1, 2)
+  // Corners of the glass, a highlight.
+  r(g, '#1a1030', x, y); r(g, '#1a1030', x + w - 1, y); r(g, '#1a1030', x, y + h - 1); r(g, '#1a1030', x + w - 1, y + h - 1)
+  g.fillStyle = 'rgba(255,255,255,0.22)'
+  g.fillRect(x + 1, y, 3, 1)
+}
+
+/** Status lights on the rack, each on its own beat. (x, y) = the rack's light column top. */
+function drawConsoleLeds(g: G, x: number, y: number, t: number, reduced: boolean) {
+  const on = (rate: number, phase: number) => reduced || Math.sin(t * rate + phase) > -0.3
+  r(g, on(2.1, 0) ? '#b6ff4a' : '#2a4a1a', x, y)
+  r(g, on(5.3, 1) ? '#2ff3ff' : '#123a44', x, y + 2)
+  r(g, on(0.9, 2) ? '#ff2fa0' : '#4a1036', x, y + 4)
+}
+
+// ---------------------------------------------------------------------------
 // Radio station (the studio door, its ON AIR sign and the mast on the roof)
 // ---------------------------------------------------------------------------
 
@@ -685,6 +753,7 @@ function lookTop(look: ExitLook): number {
     case 'board': return BOARD_H
     case 'kiosk': return KIOSK_H
     case 'terminal': return TERM_H
+    case 'console': return CON_H
     case 'sign': return 14
     case 'studio': return STUDIO_SIGN_TOP
     default: return T + 2
@@ -820,6 +889,27 @@ export function queueExits(
         lights.push(
           { x: e.x, y: e.y - 0.6, r: 1.4, color: glow, a: 0.6 },
           { x: e.x, y: e.y + 0.8, r: 1.8, color: glow, a: 0.35 },
+        )
+        break
+      }
+      case 'console': {
+        const left = px - CON_W / 2
+        const top = bottom - CON_H
+        items.push({
+          y: e.y + 0.5,
+          draw: () => {
+            g.fillStyle = 'rgba(8,4,20,0.45)'
+            g.fillRect(left + 1, bottom - 1, CON_W - 2, 2)
+            g.drawImage(consoleCanvas(), left, top)
+            drawConsoleScreen(g, left + CON_SCR.x, top + CON_SCR.y, t, reduced)
+            drawConsoleLeds(g, left + 11, top + 19, t, reduced)
+          },
+        })
+        emit.push({ x: left + CON_SCR.x, y: top + CON_SCR.y, w: CON_SCR.w, h: CON_SCR.h }, { x: left + 3, y: top + 1, w: 10, h: 1 }, { x: left + 11, y: top + 19, w: 1, h: 5 })
+        lights.push(
+          { x: e.x, y: e.y - 0.7, r: 1.6, color: '#2ff3ff', a: 0.6 },
+          { x: e.x, y: e.y + 0.8, r: 1.9, color: '#2ff3ff', a: 0.35 },
+          { x: e.x, y: e.y - 1.3, r: 0.9, color: '#ff2fa0', a: 0.35 },
         )
         break
       }

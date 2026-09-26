@@ -119,6 +119,10 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   (https://www.linkedin.com/in/phareim), GITHUB
   (https://github.com/phareim), BLUESKY (https://bsky.app/profile/phareim.no).
   No email address, on purpose (decided 2026-09-07).
+- The red NEW GAME machine beside them, and the login console (exit look
+  `console`, target `{ panel: 'account' }`): Sleeper, Petter's server, a tall
+  violet tower by the aquarium against the east wall. It opens the account
+  panel for auth.phareim.no (`docs/games/portal.md`).
 
 ## Engine additions (Neon Shrine's `engine/`)
 
@@ -132,7 +136,7 @@ was its own world; both went with the merge.
 
 - Cabinets per `art`: a marquee with a tiny logo in the game's colours,
   a glowing screen that flickers, a light pool on the floor.
-- Board, kiosk, terminal and studio looks (the studio: door, ON AIR box,
+- Board, kiosk, terminal, console and studio looks (the studio: door, ON AIR box,
   mast with a slow red light).
 - Decals: neon lettering with bloom and a faint flicker.
 - The `petter` NPC.

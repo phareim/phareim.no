@@ -140,6 +140,8 @@ export const ARCADE: MapDef = {
  * Petter's house, half home and half workshop: three terminals on the back
  * wall that open his profiles, the red NEW GAME machine beside them (the only
  * way to start the quest over, moved here from the pause menu 2026-09-26),
+ * the login console by the aquarium (Sleeper, his server, standing in the
+ * corner: it opens the shell's account panel for auth.phareim.no),
  * Petter by his desk and its glowing monitor,
  * bookshelves in both back corners, a sofa facing the rug, an aquarium,
  * a patterned rug, potted plants, a framed print on the wall and a toy chest. No email
@@ -159,10 +161,10 @@ export const HOME: MapDef = {
     '###S###########',
     '#[[.1..2..3.4[#',
     '#.............#',
-    '#wwp..(((.~~..#',
+    '#wwp..(((.~~.5#',
+    '#....fffff....#',
     '#....fffff....#',
     '#Y...fffff...Y#',
-    '#....fffff....#',
     '#............$#',
     '#t.....@.....t#',
     '#######d#######',
@@ -193,6 +195,11 @@ export const HOME: MapDef = {
         ],
       },
     },
+    // The login console: A opens the account panel (the engine's `panel` event); it leaves nothing.
+    '5': {
+      tile: 'M',
+      ent: { t: 'exit', id: 'login', to: { panel: 'account' }, look: 'console', label: 'LOGIN', side: 'down' },
+    },
     S: { tile: '^', ent: { t: 'sign', lines: ['A FRAMED PRINT: THE NEON COAST AT NIGHT, THE SUN STUCK ON THE HORIZON.'] } },
     p: {
       ent: {
@@ -204,6 +211,7 @@ export const HOME: MapDef = {
             'HELP FOLKS. WRITE CODE. BUILD THINGS.',
             "I'M ON LINKEDIN, GITHUB AND BLUESKY. THE TERMINALS ON THE WALL WILL TAKE YOU THERE.",
             'THE RED MACHINE BY THE TERMINALS STARTS YOUR QUEST OVER. ONLY IF YOU MEAN IT.',
+            'THE TALL ONE BY THE FISH IS SLEEPER, MY SERVER. LOG IN THERE, IF YOU HAVE AN ACCOUNT.',
           ],
         }],
       },

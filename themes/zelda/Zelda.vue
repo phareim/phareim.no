@@ -2,13 +2,13 @@
   <canvas ref="canvas" class="zelda-canvas" />
   <!-- Measures the notch and status-bar insets for the HUD (installed web app, landscape). -->
   <div ref="safeProbe" class="zelda-safe" aria-hidden="true" />
-  <EscHold :is-active="() => phase === 'play'" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="togglePause" @hold="toTown" />
+  <EscHold :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="togglePause" @hold="toTown" />
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
     the left 60 % that isn't a button. -->
   <div
-    v-if="touchUI && phase === 'play' && (paused || !talking)"
+    v-if="touchUI && phase === 'play' && !panel && (paused || !talking)"
     class="zelda-deck"
     :class="{ 'zelda-deck--paused': paused }"
   >
@@ -44,6 +44,8 @@
       <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="toTown" @contextmenu.prevent>TO TOWN</button>
     </div>
   </div>
+  <!-- The login console in Petter's house: the world stands still behind it. -->
+  <AccountConsole v-if="panel === 'account'" :touch="touchUI" @close="closePanel" @leave="leaveForPanel" />
 </template>
 
 <script setup lang="ts">
@@ -72,6 +74,11 @@
  * Leaving: an engine `exit` saves, writes `portal.return` and launches the
  * theme or opens the URL.
  *
+ * The login console (Petter's house) sends a `panel` event instead: the
+ * shell opens `AccountConsole.vue` over the world, which stands still (the
+ * scene keeps animating). Its LOG IN / CREATE ACCOUNT save and write
+ * `portal.return` for the console the same way, then load the auth page.
+ *
  * Bits are the site wallet (`composables/useWallet.ts`, shared with Mini
  * World): `wallet.ts` bridges the pure engine's `inv.bits` to it — a new
  * state starts on the wallet's balance, each frame's change becomes a wallet
@@ -81,6 +88,7 @@
  * re-read on `storage` and when the tab comes back.
  */
 import EscHold from '../base/EscHold.vue'
+import AccountConsole from './AccountConsole.vue'
 import { createGame, resumeAfterWin, stepGame, toSave } from './engine/index'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer } from './render/renderer'
@@ -95,7 +103,7 @@ import { setHeroColors } from './render/sheet'
 import { parseHeroColors } from './render/heroColors'
 import { HERO_COLORS_KEY } from '../miniworld/types'
 import { readWallet, addToWallet, onWalletChange } from '../../composables/useWallet'
-import type { ExitTarget, GameState, GameEvent, SaveData, TrackId, UseItem, World } from './types'
+import type { ExitTarget, GameState, GameEvent, PanelId, SaveData, TrackId, UseItem, World } from './types'
 
 type Phase = 'play' | 'won'
 type Spot = World['start']
@@ -123,6 +131,10 @@ const safeProbe = ref<HTMLDivElement | null>(null)
 const paused = ref(false)
 /** The NEW GAME machine is asking whether to throw the run away (the game stands paused behind it). */
 const confirmReset = ref(false)
+/** An HTML panel over the world (the login console's); the hero stands still while it is open. */
+const panel = ref<PanelId | null>(null)
+/** The exit that opened the panel: coming back from the auth page stands the hero in front of it. */
+let panelExit = ''
 const phase = ref<Phase>('play')
 const touchUI = ref(false)
 const selected = ref<UseItem | null>(null)
@@ -185,7 +197,7 @@ const input: GameInput = createInput({
   touch: () => touchUI.value,
   onTouch: () => { touchUI.value = true; resize() },
   idle: () => phase.value !== 'play',
-  paused: () => paused.value,
+  paused: () => paused.value || panel.value !== null,
   dialog: () => state.mode === 'dialog',
   onIdleTap: () => { if (phase.value === 'won') keepExploring() },
   onKey: shellKey,
@@ -244,6 +256,7 @@ function begin(save: SaveData | null, at: Spot, banner = false) {
   input.clear()
   paused.value = false
   confirmReset.value = false
+  panel.value = null
   hitStopMs = 0
   lowHpT = 0
   stuckT = 0
@@ -328,11 +341,37 @@ function leave(id: string, to: ExitTarget) {
   persist()
   input.clear()
   // Nothing in the world leads `home` any more; if something does, it is the plaza.
-  // `reset` never gets here (the engine turns it into `startOver`).
-  if ('home' in to || 'reset' in to) { begin(toSave(state), WORLD.start, true); return }
+  // `reset` and `panel` never get here (the engine turns them into `startOver` and `panel`).
+  if ('home' in to || 'reset' in to || 'panel' in to) { begin(toSave(state), WORLD.start, true); return }
   writeReturn(state.map.id, id)
   if ('theme' in to) launch(to.theme)
   else { leavingUrl = true; window.location.assign(to.url) }
+}
+
+/** The login console was used: open its panel over the still world. */
+function openPanel(id: string, p: PanelId) {
+  if (phase.value !== 'play' || paused.value) return
+  panelExit = id
+  panel.value = p
+  input.clear()
+  audio?.sfx('menu')
+}
+
+function closePanel() {
+  if (!panel.value) return
+  panel.value = null
+  input.clear()
+  audio?.sfx('menu')
+}
+
+/** LOG IN / CREATE ACCOUNT: save, come back in front of the console, and load the auth page. */
+function leaveForPanel(url: string) {
+  persist()
+  input.clear()
+  if (panelExit) writeReturn(state.map.id, panelExit)
+  // Closed first, so a return through the page cache finds the town, not a stale panel.
+  panel.value = null
+  window.location.assign(url)
 }
 
 /** An exit that did not navigate: step back out in front of it, carrying everything. */
@@ -502,6 +541,7 @@ function handleEvents(events: GameEvent[]) {
       case 'hitStop': if (!reducedMotion) hitStopMs = Math.max(hitStopMs, e.ms); break
       case 'exit': leave(e.id, e.to); return
       case 'startOver': askReset(); break
+      case 'panel': openPanel(e.id, e.panel); break
     }
   }
   if (save) persist()
@@ -524,6 +564,8 @@ function frame(nowMs: number) {
   // The ending: the world stays put behind the page's panel.
   if (phase.value === 'won') { renderer.draw(state, ui, reducedMotion ? 0 : dt); return }
   if (paused.value) { renderer.draw(state, ui, 0); return }
+  // A panel is open: the world stands still but keeps glowing.
+  if (panel.value) { renderer.draw(state, ui, reducedMotion ? 0 : dt); return }
   if (hitStopMs > 0) { hitStopMs -= dt * 1000; renderer.draw(state, ui, 0); return }
   if (pendingPull && state.mode === 'play') applyPull(pendingPull.save)
 
@@ -566,7 +608,7 @@ function onVisibility() {
       // Phones kill background tabs: keep the play time up to now.
       persist()
       // With the blade there is danger about, so the run waits; before it the town just goes quiet.
-      if (state.inv.sword && !paused.value) togglePause()
+      if (state.inv.sword && !paused.value && !panel.value) togglePause()
     }
   }
   if (unlocked) audio?.pause(document.hidden || paused.value)

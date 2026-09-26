@@ -29,6 +29,8 @@ const EXPECTED = {
   bluesky: { map: 'home', to: { url: 'https://bsky.app/profile/phareim.no' }, look: 'terminal' },
   // Leaves nothing: its lines close into the shell's start-over question.
   newgame: { map: 'home', to: { reset: true }, look: 'cabinet' },
+  // Leaves nothing either: A opens the shell's account panel (auth.phareim.no).
+  login: { map: 'home', to: { panel: 'account' }, look: 'console' },
 }
 
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
@@ -259,7 +261,7 @@ describe('portal world', () => {
 
   it('reaches and uses every exit from the start', () => {
     for (const [id, want] of Object.entries(EXPECTED)) {
-      if ('reset' in want.to) continue
+      if ('reset' in want.to || 'panel' in want.to) continue
       const { event, lines } = useExit(id)
       assert.equal(event.id, id)
       assert.deepEqual(event.to, want.to, `${id} leads to the wrong place`)
@@ -295,6 +297,36 @@ describe('portal world', () => {
     const after = use(true)
     assert.deepEqual(after.lines, spot.ent.lines)
     assert.equal(after.asked, 1)
+  })
+
+  it('has a login console in Petter\'s house: A opens the account panel, and nothing leaves', () => {
+    const spot = placedExits().find(e => e.id === 'login')
+    const info = P.mapInfo(W, 'home')
+    assert.equal(spot.map, 'home')
+    assert.equal(info.base[spot.y * info.w + spot.x], 'M', 'the console is not a machine')
+    assert.equal(spot.ent.label, 'LOGIN')
+    assert.equal(spot.ent.lines, undefined, 'the panel is the console\'s text')
+    for (const sword of [false, true]) {
+      // Walked to from the plaza, blade or not.
+      const g = session()
+      g.s.inv.sword = sword
+      goToMap(g, 'home')
+      walkTo(g, spot.x, spot.y + 1)
+      g.s.hero.dir = 'up'
+      g.step(inp({ aPress: true, a: true }))
+      const opened = g.events.filter(e => e.type === 'panel')
+      assert.deepEqual(opened, [{ type: 'panel', id: 'login', panel: 'account' }])
+      for (let k = 0; k < 60; k++) g.step()
+      assert.equal(g.s.mode, 'play', 'the console left the game')
+      assert.equal(g.s.map.id, 'home')
+      assert.ok(!g.events.some(e => e.type === 'exit' || e.type === 'startOver'))
+      // Pressed again (after the panel closed), it opens again.
+      g.step(inp({ aPress: true, a: true }))
+      assert.equal(g.events.filter(e => e.type === 'panel').length, 2)
+    }
+    // Petter mentions it.
+    const petter = Object.values(W.maps.home.marks).find(m => m.ent.t === 'npc').ent.talk[0].lines.join(' ')
+    assert.match(petter, /SLEEPER/)
   })
 
   it('coming back stands you in front of the exit you used', () => {

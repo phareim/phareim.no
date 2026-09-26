@@ -54,9 +54,12 @@ export async function launch({ width = 1440, height = 900, dpr = 1, mobile = fal
   const pending = new Map()
   const errors = []
   const logs = []
+  /** CDP event listeners by method (b.on), e.g. Fetch.requestPaused to fake a server. */
+  const listeners = new Map()
   ws.addEventListener('message', ev => {
     const msg = JSON.parse(ev.data)
     if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id) }
+    if (msg.method) for (const fn of listeners.get(msg.method) ?? []) fn(msg.params)
     if (msg.method === 'Runtime.exceptionThrown') errors.push(msg.params.exceptionDetails.exception?.description ?? msg.params.exceptionDetails.text)
     if (msg.method === 'Runtime.consoleAPICalled') {
       const text = msg.params.args.map(a => a.value ?? a.description).join(' ')
@@ -78,6 +81,7 @@ export async function launch({ width = 1440, height = 900, dpr = 1, mobile = fal
     errors,
     logs,
     send,
+    on(method, fn) { listeners.set(method, [...(listeners.get(method) ?? []), fn]) },
     async goto(url) { await send('Page.navigate', { url }); await sleep(2500) },
     async eval(expr) { const r = await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }); return r.result.value },
     async keyDown(name) { const k = KEYS[name]; await send('Input.dispatchKeyEvent', { type: 'keyDown', key: k.key, code: k.code, windowsVirtualKeyCode: k.keyCode }) },
