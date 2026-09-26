@@ -109,9 +109,10 @@ seeded from the flags of every save the shell loads): after START OVER, or
 on a visit before the sword when nothing is saved yet, the chest opens
 again but the wallet stays where it was. Enemy drops always pay.
 
-**Mini World's clothes** (2026-09-26). When localStorage
-`miniworld.heroColors` holds the active Mini World person's colours
-(`HeroColors`), the hero wears them: `render/heroColors.ts` maps them onto
+**A made figure's clothes** (2026-09-26). When localStorage
+`figur.heroColors` holds Lag Din Figur's active figure, or else
+`miniworld.heroColors` the active Mini World person's colours (both
+`HeroColors`; the figure wins, Petter's call), the hero wears them: `render/heroColors.ts` maps them onto
 the hero's palette letters (hair, headband, skin, shirt and its stripe,
 belt, trousers; shoes are `E` and the open mouth `M`, so they recolour
 apart from the white and pink they share) and `setHeroColors` in
