@@ -371,7 +371,7 @@ const painterParlour: RoomPainter = {
     }
     if (s.flags[F.furnaceLit]) L(138, 90, 20, '#ff6a3d', 0.3)
   },
-  glow(g, s, v) {
+  glowBehind(g, _s, v) {
     fire(g, v)
     flame(g, 34, 41, v.t, 1)
     flame(g, 94, 41, v.t, 2)
@@ -379,6 +379,8 @@ const painterParlour: RoomPainter = {
     flame(g, 283, 29, v.t, 4)
     flame(g, 287, 31, v.t, 5)
     rect(g, 384, 34, 9, 1, '#fff1b0')
+  },
+  glow(g, s, v) {
     const h = s.actors['hedvig']
     if (h && h.room === 'parlour' && h.visible) hedvigGlow(g, h, v, s)
     if (s.flags['parlour.seanceLive'] && h) {

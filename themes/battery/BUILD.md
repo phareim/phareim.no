@@ -70,6 +70,9 @@ contract), `engine/game.ts` (how sentences, scripts and Ctx behave),
   adds warm pools for candles, lamps, the fire, the furnace, a screen;
   `glow()` draws emissive things at full brightness (ghost glow, neon,
   sparks, a window during a strike: `v.flash` is the storm light 0–1).
+  `glow()` lands on top of the actors; an emissive thing behind them (a
+  fire, a lit window) goes in `glowBehind()`, which the renderer cuts the
+  actors' silhouettes out of.
   Windows show the storm: dark sky, rain with `rainIn()`, a bolt with
   `bolt()` when `v.flash > 0.5`.
 - `paint()` is the static background, painted once and cached: put

@@ -451,7 +451,8 @@ export const painter: RoomPainter = {
     if (v.flash > 0.1) L(230, 30, 260, '#c8c0ff', v.flash * 0.9)
   },
 
-  glow(g, s, v) {
+  // Everything that glows up here is behind the walkway.
+  glowBehind(g, s, v) {
     // The lit dormer window: the study's lamp, warm, and a bat silhouette on a rafter.
     for (let y = 76; y < 100; y++) for (let x = 41; x < 67; x++) {
       const k = (y - 76) / 24

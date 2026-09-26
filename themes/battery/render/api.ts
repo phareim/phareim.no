@@ -38,6 +38,8 @@ export interface RoomPainter {
   lights?(L: LightFn, s: GameState, v: View): void
   /** Drawn after the light map at full brightness (ghost glow, sparks, lit windows during a strike). */
   glow?(g: G, s: GameState, v: View): void
+  /** Like glow(), but behind every actor in the room: their silhouettes are cut out of it (a fire, a lit window). */
+  glowBehind?(g: G, s: GameState, v: View): void
 }
 
 /** Draws a hero (or the Professor) standing with feet at (a.x, a.y). */

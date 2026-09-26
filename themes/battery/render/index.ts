@@ -27,6 +27,8 @@ export interface Renderer {
 
 export function createRenderer(): Renderer {
   const bgCache = new Map<RoomId, HTMLCanvasElement>()
+  // Scratch layer for glowBehind(): the glow, minus the actors' silhouettes.
+  let behind: HTMLCanvasElement | null = null
 
   function background(room: RoomId, w: number): HTMLCanvasElement {
     let c = bgCache.get(room)
@@ -69,15 +71,36 @@ export function createRenderer(): Renderer {
         if (a.room === room && a.visible && id !== 'narrator') here.push({ id, y: a.y })
       }
       here.sort((p, q) => p.y - q.y)
-      for (const { id } of here) {
-        const a = game.s.actors[id]!
-        if ((HERO_IDS as readonly string[]).includes(id) || id === 'professor') drawHero(g, id, a, v, game.walking(id as ActorId), game.s)
-        else NPC_PAINTERS[id]?.(g, a, v, game.s)
+      const drawActors = (c: G) => {
+        for (const { id } of here) {
+          const a = game.s.actors[id]!
+          if ((HERO_IDS as readonly string[]).includes(id) || id === 'professor') drawHero(c, id, a, v, game.walking(id as ActorId), game.s)
+          else NPC_PAINTERS[id]?.(c, a, v, game.s)
+        }
       }
+      drawActors(g)
       painter.front?.(g, game.s, v)
       drawRain(g, def.floor, v)
       g.restore()
       painter.lights?.((x, y, r, color, a = 1) => stage.light(x + ox, y + oy, r, color, a), game.s, v)
+      if (painter.glowBehind) {
+        glows.push(() => {
+          if (!behind || behind.width < box.w || behind.height < box.h) behind = makeCanvas(box.w, box.h)
+          const c = behind.getContext('2d')!
+          c.imageSmoothingEnabled = false
+          c.clearRect(0, 0, behind.width, behind.height)
+          c.save()
+          c.beginPath()
+          c.rect(0, 0, box.w, box.h)
+          c.clip()
+          c.translate(-camX, 0)
+          painter.glowBehind!(c, game.s, v)
+          c.globalCompositeOperation = 'destination-out'
+          drawActors(c)
+          c.restore()
+          g.drawImage(behind, 0, 0, box.w, box.h, box.x, box.y, box.w, box.h)
+        })
+      }
       if (painter.glow) {
         glows.push(() => {
           g.save()
