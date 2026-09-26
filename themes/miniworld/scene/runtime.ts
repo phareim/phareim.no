@@ -65,6 +65,15 @@ const TOWN_SPOTS: Record<TownSpot, Spot> = {
 
 type Using = { kind: Usable['use']; uid: string; at: THREE.Vector3; yaw: number; pose: AvatarPose; t: number }
 
+/**
+ * A spawn spot nudged sideways at random, so players who arrive at once
+ * (the world is shared) do not stand inside each other with their name
+ * tags on top of each other.
+ */
+function jitter(spot: Spot, dx: number, dz: number): Spot {
+  return { ...spot, x: spot.x + (Math.random() * 2 - 1) * dx, z: spot.z + Math.random() * dz }
+}
+
 export const createRuntime: CreateRuntime = (canvas, opts) => {
   const look = createLook(canvas, { lowPower: opts.lowPower })
   const scene = new THREE.Scene()
@@ -257,7 +266,7 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
               : from.kind === 'catwalk' ? 'booth-fashion'
                 : from.kind === 'visit' ? (`neighbor:${from.playerId}` as ZoneId)
                   : null
-        const spot = p.at ? TOWN_SPOTS[p.at] : from.kind === 'town' ? { x: body.x, y: body.y, z: body.z, yaw: facing } : town.arrival(back ?? lastTownZone ?? 'home')
+        const spot = p.at ? jitter(TOWN_SPOTS[p.at], 1.5, 1) : from.kind === 'town' ? { x: body.x, y: body.y, z: body.z, yaw: facing } : town.arrival(back ?? lastTownZone ?? 'home')
         put(spot)
         break
       }
@@ -271,19 +280,19 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
       case 'visit': {
         const h = buildHome({ editable: false, layout: visit?.layout ?? { floor: 'floor-wood', wall: 'wall-cream', items: [] }, owned: visit?.owned ?? [], host: visit ? { look: visit.look, name: visit.name } : undefined })
         enter(h)
-        put(h.spawn)
+        put(jitter(h.spawn, 0.8, 0))
         break
       }
       case 'obby': {
         const o = buildObby(p.level, particles, emit)
         enter(o)
-        put(o.spawn)
+        put(jitter(o.spawn, 1.5, 0))
         break
       }
       case 'stars': {
         const s = buildStars(particles, emit)
         enter(s)
-        put(s.spawn)
+        put(jitter(s.spawn, 2.5, 0))
         break
       }
       case 'catwalk': {
@@ -718,7 +727,7 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
     },
   }
   void lastLook
-  put(town.spawn)
+  put(jitter(town.spawn, 2.5, 1))
   // Lab hook (scripts/miniworld-lab/world-shot.mjs): not part of the contract.
   Object.defineProperty(rt, '__debug', {
     value: {
