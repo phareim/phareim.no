@@ -230,9 +230,11 @@ export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 
 /**
  * Where an exit leads: another theme on phareim.no (`?theme=<id>`), the
  * portal at `/`, or a page outside the site. The engine only reports it (the
- * `exit` event); the Vue shell does the navigating.
+ * `exit` event); the Vue shell does the navigating. `reset` is the NEW GAME
+ * machine in Petter's house: it leaves nothing, its lines close into a
+ * `startOver` event and the shell asks yes or no.
  */
-export type ExitTarget = { theme: string } | { home: true } | { url: string }
+export type ExitTarget = { theme: string } | { home: true } | { url: string } | { reset: true }
 
 /** How the renderer draws an exit. The engine ignores it. */
 export type ExitLook = 'door' | 'cabinet' | 'board' | 'kiosk' | 'terminal' | 'sign' | 'studio'
@@ -638,7 +640,7 @@ export interface Dialog {
   /** Speaker look, for a portrait-free name tag. */
   who: string | null
   /** Shop purchase awaiting the last line, applied on close; `exit` starts that exit's fade on close. */
-  after: null | { give?: ItemId; set?: string[]; clear?: string[]; sourceId?: string; price?: number; exit?: { id: string; to: ExitTarget } }
+  after: null | { give?: ItemId; set?: string[]; clear?: string[]; sourceId?: string; price?: number; exit?: { id: string; to: ExitTarget }; startOver?: true }
 }
 
 export interface GameState {
@@ -739,6 +741,7 @@ export type GameEvent =
   | { type: 'bossDown'; kind: EnemyKind }
   | { type: 'won'; elapsed: number }
   | { type: 'exit'; id: string; to: ExitTarget }
+  | { type: 'startOver' } // the NEW GAME machine's lines closed: the shell asks yes or no
   | { type: 'hitStop'; ms: number }
   | { type: 'cycle'; item: UseItem | null }
   | { type: 'error' } // a buzz: no bombs, no key, can't afford

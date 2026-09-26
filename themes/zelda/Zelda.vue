@@ -41,7 +41,6 @@
     </div>
     <div v-else class="zelda-deck-paused">
       <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>RESUME</button>
-      <button class="zelda-pad zelda-pad-wide zelda-pad-reset" @pointerdown.prevent.stop="askReset" @contextmenu.prevent>START OVER</button>
       <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="toTown" @contextmenu.prevent>TO TOWN</button>
     </div>
   </div>
@@ -54,7 +53,8 @@
  * the ways out. The game is `engine/` (pure), `world/` (data) and `render/`
  * (Canvas). Always in play: no title. Phases: play → won (the ending panel
  * is the page's, `portal/Landing.vue`) → play again: the run is kept and
- * the hero plays on; START OVER in the pause menu is the only reset.
+ * the hero plays on; the NEW GAME machine in Petter's house is the only
+ * reset (its lines close into `startOver`, and the shell asks yes or no).
  *
  * Start: in front of the exit last used (sessionStorage `portal.return`,
  * { map, entry }), else the plaza start; the save brings items, hearts and
@@ -64,7 +64,8 @@
  * Keys: arrows / WASD move; Space / J / Z / Enter = A (sword, talk, lift,
  * throw; hold then release for a spin); K / X / Shift = B (item); Q swaps
  * item, Tab too when there is one (else Tab reaches the page's link index);
- * P or an Escape tap pause; holding Escape saves and goes back to town.
+ * P or an Escape tap pause (T in the pause menu: to town); holding Escape
+ * saves and goes back to town.
  * Touch: floating stick on the left, A (and B with an item) on the right,
  * SWAP and pause chips. The input itself is `input.ts`.
  *
@@ -101,11 +102,13 @@ const STUCK_URL_S = 8
 /** The ending panel ignores keys and taps this long, so the press that took the prism does not skip it. */
 const WON_GRACE_MS = 1200
 const CONTINUE_KEYS = new Set(['Enter', 'Space', 'KeyJ', 'KeyZ'])
+/** The start-over question ignores YES this long, so a tap mashed through the machine's lines does not answer it. */
+const RESET_GRACE_MS = 600
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const safeProbe = ref<HTMLDivElement | null>(null)
 const paused = ref(false)
-/** The pause screen is asking whether to throw the run away. */
+/** The NEW GAME machine is asking whether to throw the run away (the game stands paused behind it). */
 const confirmReset = ref(false)
 const phase = ref<Phase>('play')
 const touchUI = ref(false)
@@ -141,6 +144,7 @@ let pendingPull: { save: SaveData | null } | null = null
 let stuckT = 0
 let leavingUrl = false
 let wonAt = 0
+let askedAt = 0
 
 const ui: FrameUI = {
   paused: false, confirmReset: false, reducedMotion: false, touch: false, stick: null, attract: false, cam: null, banner: null,
@@ -179,10 +183,10 @@ function shellKey(e: KeyboardEvent): boolean {
   }
   if (paused.value && !e.repeat) {
     if (confirmReset.value) {
-      if (e.code === 'Enter' || e.code === 'KeyY') { e.preventDefault(); resetRun(); return true }
+      // Y only: Enter and Space are A, and an A mashed through the machine's lines must not answer.
+      if (e.code === 'KeyY') { e.preventDefault(); resetRun(); return true }
       if (e.code === 'KeyN' || e.code === 'Backspace') { e.preventDefault(); cancelReset(); return true }
-    } else if (e.code === 'KeyR') { e.preventDefault(); askReset(); return true }
-    else if (e.code === 'KeyT') { e.preventDefault(); toTown(); return true }
+    } else if (e.code === 'KeyT') { e.preventDefault(); toTown(); return true }
   }
   if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) togglePause(); return true }
   // Nothing to swap: Tab keeps its job and reaches the page's link index.
@@ -307,7 +311,8 @@ function leave(id: string, to: ExitTarget) {
   persist()
   input.clear()
   // Nothing in the world leads `home` any more; if something does, it is the plaza.
-  if ('home' in to) { begin(toSave(state), WORLD.start, true); return }
+  // `reset` never gets here (the engine turns it into `startOver`).
+  if ('home' in to || 'reset' in to) { begin(toSave(state), WORLD.start, true); return }
   writeReturn(state.map.id, id)
   if ('theme' in to) launch(to.theme)
   else { leavingUrl = true; window.location.assign(to.url) }
@@ -356,7 +361,7 @@ function onFirstGesture() {
 
 function togglePause() {
   if (phase.value !== 'play') return
-  // P or an Escape tap while asking "start over?" means no, not resume.
+  // P or an Escape tap while asking "start over?" means no.
   if (confirmReset.value) { cancelReset(); return }
   paused.value = !paused.value
   input.clear()
@@ -364,20 +369,28 @@ function togglePause() {
   audio?.pause(paused.value)
 }
 
+/** The NEW GAME machine's lines closed: stop the world and ask. */
 function askReset() {
-  if (phase.value !== 'play' || !paused.value) return
+  if (phase.value !== 'play') return
+  paused.value = true
   confirmReset.value = true
-  audio?.sfx('menu')
+  askedAt = performance.now()
+  input.clear()
+  audio?.pause(true)
 }
 
+/** No: back to the world, standing at the machine. */
 function cancelReset() {
   confirmReset.value = false
+  paused.value = false
+  input.clear()
   audio?.sfx('menu')
+  audio?.pause(false)
 }
 
 /** Throws the run away — here and on the profile — and begins again on the plaza. Best time stays. */
 function resetRun() {
-  if (phase.value !== 'play' || !confirmReset.value) return
+  if (phase.value !== 'play' || !confirmReset.value || performance.now() - askedAt < RESET_GRACE_MS) return
   dropSave()
   clearReturn()
   begin(null, WORLD.start, true)
@@ -471,6 +484,7 @@ function handleEvents(events: GameEvent[]) {
       case 'died': a?.jingle('gameOver'); break
       case 'hitStop': if (!reducedMotion) hitStopMs = Math.max(hitStopMs, e.ms); break
       case 'exit': leave(e.id, e.to); return
+      case 'startOver': askReset(); break
     }
   }
   if (save) persist()
@@ -771,11 +785,7 @@ onBeforeUnmount(() => {
   --edge: #ff2fa0;
 }
 
-.zelda-pad-reset {
-  --edge: #ffd23f;
-}
-
-/* Three buttons across a 375 px phone. */
+/* Two wide buttons across a 375 px phone. */
 @media (max-width: 440px) {
   .zelda-deck-paused { gap: 8px; }
   .zelda-pad-wide { min-width: 0; padding: 0 12px; }

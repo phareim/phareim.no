@@ -27,6 +27,8 @@ const EXPECTED = {
   linkedin: { map: 'home', to: { url: 'https://www.linkedin.com/in/phareim' }, look: 'terminal' },
   github: { map: 'home', to: { url: 'https://github.com/phareim' }, look: 'terminal' },
   bluesky: { map: 'home', to: { url: 'https://bsky.app/profile/phareim.no' }, look: 'terminal' },
+  // Leaves nothing: its lines close into the shell's start-over question.
+  newgame: { map: 'home', to: { reset: true }, look: 'cabinet' },
 }
 
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
@@ -196,7 +198,7 @@ describe('portal world', () => {
   })
 
   it('has one cabinet per arcade game, each with a pitch that ends on the coin line', () => {
-    const cabinets = placedExits().filter(e => e.ent.look === 'cabinet')
+    const cabinets = placedExits().filter(e => e.ent.look === 'cabinet' && e.map === 'arcade')
     assert.deepEqual(cabinets.map(c => c.ent.art).sort(), [...GAMES].sort())
     for (const c of cabinets) {
       assert.equal(c.map, 'arcade')
@@ -257,12 +259,42 @@ describe('portal world', () => {
 
   it('reaches and uses every exit from the start', () => {
     for (const [id, want] of Object.entries(EXPECTED)) {
+      if ('reset' in want.to) continue
       const { event, lines } = useExit(id)
       assert.equal(event.id, id)
       assert.deepEqual(event.to, want.to, `${id} leads to the wrong place`)
       const ent = placedExits().find(e => e.id === id).ent
       if (ent.lines) assert.deepEqual(lines, ent.lines, `${id}: the lines are the confirmation`)
     }
+  })
+
+  it('has a NEW GAME machine in Petter\'s house that asks, and leaves nothing, only once there is a quest', () => {
+    const spot = placedExits().find(e => e.id === 'newgame')
+    assert.equal(P.mapInfo(W, 'home').base[spot.y * P.mapInfo(W, 'home').w + spot.x], 'M')
+    const use = (sword) => {
+      const g = session()
+      goToMap(g, 'home')
+      g.s.inv.sword = sword
+      walkTo(g, spot.x, spot.y + 1)
+      g.s.hero.dir = 'up'
+      g.step(inp({ aPress: true, a: true }))
+      assert.equal(g.s.mode, 'dialog')
+      const lines = g.s.dialog.lines
+      readThrough(g)
+      for (let k = 0; k < 30; k++) g.step()
+      assert.equal(g.s.mode, 'play', 'the machine left the game')
+      assert.equal(g.s.map.id, 'home')
+      assert.ok(!g.events.some(e => e.type === 'exit'))
+      return { lines, asked: g.events.filter(e => e.type === 'startOver').length }
+    }
+    // Before the blade: nothing to wipe, nothing asked.
+    const before = use(false)
+    assert.equal(before.asked, 0)
+    assert.match(before.lines[0], /NOTHING TO WIPE/)
+    // With the blade: its own lines, then the question, once.
+    const after = use(true)
+    assert.deepEqual(after.lines, spot.ent.lines)
+    assert.equal(after.asked, 1)
   })
 
   it('coming back stands you in front of the exit you used', () => {

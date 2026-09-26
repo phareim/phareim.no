@@ -133,7 +133,9 @@ export const ARCADE: MapDef = {
 
 /**
  * Petter's house, half home and half workshop: three terminals on the back
- * wall that open his profiles, Petter by his desk and its glowing monitor,
+ * wall that open his profiles, the red NEW GAME machine beside them (the only
+ * way to start the quest over, moved here from the pause menu 2026-09-26),
+ * Petter by his desk and its glowing monitor,
  * bookshelves in both back corners, a sofa facing the rug, an aquarium,
  * a patterned rug, potted plants, a framed print on the wall and a toy chest. No email
  * address, on purpose (decided 2026-09-07). 15×10.
@@ -149,8 +151,8 @@ export const HOME: MapDef = {
   kind: 'interior',
   track: 'indoor',
   rows: [
-    '############S##',
-    '#[[.1..2..3..[#',
+    '###S###########',
+    '#[[.1..2..3.4[#',
     '#.............#',
     '#wwp..(((.~~..#',
     '#....fffff....#',
@@ -175,6 +177,17 @@ export const HOME: MapDef = {
       'BLUESKY: PHAREIM.NO. SHORT POSTS, NOW AND THEN.',
       'OPEN IT? PRESS {A}.',
     ]),
+    // Its lines close into the shell's yes/no question (the engine's `startOver` event).
+    '4': {
+      tile: 'M',
+      ent: {
+        t: 'exit', id: 'newgame', to: { reset: true }, look: 'cabinet', art: 'newgame', label: 'NEW GAME', side: 'down',
+        lines: [
+          'NEW GAME. WIPES YOUR QUEST: ITEMS, HEARTS, BITS, FRIENDS. HERE AND ON YOUR PILOT. YOUR BEST TIME STAYS.',
+          'START OVER? PRESS {A}.',
+        ],
+      },
+    },
     S: { tile: '^', ent: { t: 'sign', lines: ['A FRAMED PRINT: THE NEON COAST AT NIGHT, THE SUN STUCK ON THE HORIZON.'] } },
     p: {
       ent: {
@@ -185,6 +198,7 @@ export const HOME: MapDef = {
             'FATHER, HUSBAND, GEEK, ASPIRING GOOD GUY.',
             'HELP FOLKS. WRITE CODE. BUILD THINGS.',
             "I'M ON LINKEDIN, GITHUB AND BLUESKY. THE TERMINALS ON THE WALL WILL TAKE YOU THERE.",
+            'THE RED MACHINE BY THE TERMINALS STARTS YOUR QUEST OVER. ONLY IF YOU MEAN IT.',
           ],
         }],
       },

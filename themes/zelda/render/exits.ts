@@ -191,6 +191,20 @@ const CABS: Record<string, CabStyle> = {
       'llll..rroooo',
     ),
   },
+  newgame: {
+    // Petter's house: the machine that wipes the quest. Red, with a restart arrow.
+    body: '#4a0f1e', bodyL: '#7a1a30', bodyD: '#2a0610', trim: '#ff3b5c', glow: '#ff3b5c',
+    bg: ['#1e0610', '#2a0816', '#3a0a1e', '#3a0a1e', '#3a0a1e', '#2a0816', '#1e0610'],
+    marquee: M(
+      '...wwwww....',
+      '..w.....w...',
+      '.w.......w..',
+      '.w.......w..',
+      '.w.....rrrrr',
+      '..w.....rrr.',
+      '...www...r..',
+    ),
+  },
   default: {
     body: '#3b2b62', bodyL: '#5a468e', bodyD: '#221640', trim: '#ff2fa0', glow: '#2ff3ff',
     bg: bg7('#12081e'),
@@ -357,6 +371,18 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       const wx = 2 + (Math.floor(t * 2 + seed) % 4)
       f('#0b0616', wx, 3, 1, 3)
       if (Math.floor(t * 7 + seed) % 23 === 0) f('#fff4ff', 5, 0, 1, 4)
+      return
+    }
+    case 'newgame': {
+      // Three hearts go out one by one, a flash, and they are full again.
+      const n = Math.floor((t + seed) * 1.5) % 5
+      f(n === 4 ? '#ff8ae0' : '#1e0610', 0, 0, W, H)
+      for (let i = 0; i < 3; i++) {
+        const c = i < 3 - n ? '#ff3b5c' : '#4a1a2a'
+        const hx = i * 3 + 1
+        f(c, hx, 2); f(c, hx + 2, 2); f(c, hx, 3, 3, 1); f(c, hx + 1, 4)
+      }
+      if (Math.floor(t * 2) % 2 === 0) f('#fff4ff', 3, 6, 4, 1)
       return
     }
     default: {

@@ -52,10 +52,10 @@ for death during a session.
 open, lift, throw, use an exit; hold after a swing, release to spin);
 K/X/Shift = B (item); Q, or Tab when there is an item, swaps; P or an
 Escape tap pauses (items, heart pieces, the current quest); on the pause
-screen R asks START OVER? (Enter/Y yes, Esc/P/N no) and T goes to town.
-Holding Escape saves and goes to town. Touch: floating stick on the left
-60 %, A always, B and SWAP once there is an item, a pause chip (paused:
-RESUME, START OVER with a yes/no step, TO TOWN); any tap moves a dialog on;
+screen T goes to town. Holding Escape saves and goes to town. Starting over
+is the NEW GAME machine in Petter's house (see "Saves" below). Touch:
+floating stick on the left 60 %, A always, B and SWAP once there is an
+item, a pause chip (paused: RESUME, TO TOWN); any tap moves a dialog on;
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status
@@ -80,7 +80,7 @@ session has not saved yet. A new game (a cleared slot, remembered locally
 as `zeldaClearedAt`) is not undone by an older copy. Winning keeps the run
 (since 2026-09-24): the save is written with the prism taken, the win is
 counted and the best time sent; after the ending the hero plays on where
-the prism was, and only START OVER in the pause menu clears the save. Best
+the prism was, and only the NEW GAME machine clears the save. Best
 times meet at the lower (`zeldaBest` locally, `best_seconds` on the slot,
 which also counts clears). The Hangar shows QUEST n/12 from the slot. A player is
 still one browser, so the save does not follow a person to another device.

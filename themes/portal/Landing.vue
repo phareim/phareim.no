@@ -13,7 +13,7 @@
         <p class="portal-end-time">{{ formatPlayTime(result?.elapsed ?? 0) }}</p>
         <p v-if="isNewBest" class="portal-end-best">NEW BEST!</p>
         <p class="portal-end-start">{{ hint('PRESS ENTER TO KEEP EXPLORING', 'TAP TO KEEP EXPLORING') }}</p>
-        <p class="portal-end-note">START OVER IS IN THE PAUSE MENU</p>
+        <p class="portal-end-note">A NEW GAME WAITS IN PETTER'S HOUSE</p>
       </div>
     </div>
 
