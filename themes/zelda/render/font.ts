@@ -3,7 +3,7 @@
  * logical pixels. Uppercase only (drawText upper-cases its input). Glyphs
  * are 7 rows of '#'/'.'; the advance is the glyph's width + 1 px spacing.
  *
- * Å has one more row above the cap height (ABOVE), so its ring stands
+ * Å and É have one more row above the cap height (ABOVE), so the ring and the accent stand
  * clear of the A: squeezed into seven rows it read as a plain A at 16 px
  * (2026-09-26). drawText draws that row at y - 1; the webfont draws it in
  * the em's top pixel. Code that only reads glyphRows gets the seven rows.
@@ -85,6 +85,8 @@ const G: Record<string, string[]> = {
 /** Rows above the cap height (drawn from y - 1 upward, nearest row last). */
 const ABOVE: Record<string, string[]> = {
   'Å': ['.###.'],
+  // É over E: Lag Din Figur's Pip says "IDÉ" (2026-09-26).
+  'É': ['..##.'],
 }
 
 /** Glyph for a character; unknown characters draw as '?'. */

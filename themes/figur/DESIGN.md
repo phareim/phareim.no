@@ -147,7 +147,8 @@ as `composables/useMiniWorld.ts`. The Hangar shows N FIGURER · M KLÆR.
 
 ## Into Neon Shrine
 
-`core/hero.ts` turns the active figure into Neon Shrine's `HeroColors`
+Once the child has changed anything (a visit that only looks at the
+starter figure writes nothing), `core/hero.ts` turns the active figure into Neon Shrine's `HeroColors`
 (skin, hair, the hat's colour on the headband row, the top's most used
 colour and its second as the stripe, the bottom or the dress's skirt,
 the shoes) and writes localStorage `figur.heroColors`. Neon Shrine reads
@@ -168,10 +169,14 @@ themes/figur/
   core/helper.ts              Pip: Norwegian words → changes, and its lines
   core/hero.ts                Figure → HeroColors for Neon Shrine
   core/mcskin.ts              Figure → 64×64 Minecraft skin
+  core/garments.ts accessories.ts pixelart.ts masks.ts color.ts   the texture generators and masks (textures.ts re-exports them)
+  core/words.ts reader.ts     Pip's vocabulary and parser (helper.ts is the entry)
   render/pixels.ts            PixelBuffer and drawing helpers (rect, ellipse, outline, texture mapping)
-  render/minecraft.ts roblox.ts toca.ts avatar.ts   the four styles
-  render/styles.ts            STYLES registry, drawFigure()
-  ui/…                        Stage, tabs, pickers, DrawBoard, Helper, figure list
+  render/minecraft.ts roblox.ts toca.ts avatar.ts   the four styles (+ chibi.ts, roundhair.ts, roblox-hair.ts, common.ts)
+  render/styles.ts            STYLES registry, frameFor(), minecraftSkinFor()
+  Game.vue                    the studio shell: header, style tabs, stage, tool panel and tabs, keys
+  ui/                         Stage, BodyPanel, HairPanel, ClothesPanel, DrawPanel + DrawBoard, Helper (Pip),
+                              FiguresSheet, RenameSheet, ShareSheet (downloads), Ask (JA/NEI), pixel icons, sfx
 composables/useFigur.ts       reactive save, actions, persistence, hero colours
 tests/figur-*.test.mjs        npm run test:figur
 scripts/figur-lab/            screenshots of every style × sample figures

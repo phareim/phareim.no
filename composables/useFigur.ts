@@ -192,10 +192,11 @@ function build(client: boolean): FigurApi {
       const theirs = usable(core.parseSave(e.newValue))
       if (theirs && theirs.savedAt > save.value.savedAt) save.value = theirs
     })
-    // Neon Shrine's hero wears the active figure.
+    // Neon Shrine's hero wears the active figure, once there is a made one:
+    // the starter figure of a visit that changed nothing leaves Mini World's dressing alone.
     watch(
-      () => JSON.stringify([active.value, save.value.closet.map(d => d.id + d.tex.data + d.tex.pal.join())]),
-      () => writeHeroColors(active.value, save.value.closet),
+      () => JSON.stringify([save.value.savedAt > 0, active.value, save.value.closet.map(d => d.id + d.tex.data + d.tex.pal.join())]),
+      () => { if (save.value.savedAt > 0) writeHeroColors(active.value, save.value.closet) },
       { immediate: true },
     )
   }
