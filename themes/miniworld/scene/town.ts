@@ -466,11 +466,14 @@ export function buildTown(particles: Particles): TownScene {
       props.box(x0, h - 1, z0, x1, h, z1, '#b89a78', { top: C.grass, bottom: false })
       solid(x0, -1, z0, x1, h, z1)
     }
-    // Stairs up the south face (0.5 risers: walkable).
+    // Stairs up the south face (0.5 risers: walkable). Every other step's
+    // tread and riser lie in a tier's top and front, so the drawn step
+    // stands a hair proud of them (no z-fighting); the solid stays exact.
+    const proud = 0.02
     for (let i = 1; i <= 6; i++) {
       const top = 0.5 * i
       const zf = -28 - (i - 1) * 2
-      props.box(-2.5, 0, -40, 2.5, top, zf, i & 1 ? C.stone : C.stone2, { top: C.stone, bottom: false })
+      props.box(-2.5, 0, -40, 2.5, top + proud, zf + proud, i & 1 ? C.stone : C.stone2, { top: C.stone, bottom: false })
       solid(-2.5, -1, -40, 2.5, top, zf)
     }
     // Flowers and hedges on the tiers.
