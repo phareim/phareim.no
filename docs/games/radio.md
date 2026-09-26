@@ -2,13 +2,13 @@
 
 `?theme=radio` is Petter's generative background-music radio from
 radio.phareim.no (repo `phareim/radio`), listen-only, in the town. The way
-in is the radio station on the coast road: a small studio with RADIO on the
-roof, ON AIR over a steel door and a lattice mast whose red light blinks
-slowly (on for half of every 2.4 s; it keeps no time with anything, since
-nothing plays in the world). Face the door and press A: "RADIO PHAREIM. TEN
-PLACES ON ONE DIAL, AND THE MUSIC IS MADE UP AS IT PLAYS. / TUNE IN? PRESS
-{A}.", then the fade and the launch. Back in town you stand in front of the
-door (`portal.return`). It is not an arcade cabinet: the theme is live
+in is the DJ with the records at the beach party below the coast road (since
+2026-09-26; before that a studio with a mast stood by the road). Face the
+booth and press A: "DJ: RECORDS ALL NIGHT. RADIO PHAREIM: TEN STATIONS, AND
+THE MUSIC IS MADE UP AS IT PLAYS. / TUNE IN?", then YES / NO, the fade and
+the launch. Back in town you stand in front of the booth (`portal.return`).
+The other DJ, the one mixing live, leads to jam.phareim.no
+(`docs/games/portal.md`). It is not an arcade cabinet: the theme is live
 (in `liveThemes`, so the portal's hidden link index lists it) but no
 cabinet points at it.
 
@@ -51,8 +51,8 @@ phones).
 | `themes/radio/Channels.vue` | Show/hide channels, localStorage only (the app's `ChannelsDialog.vue` without compose, remove or member sync) |
 | `themes/radio/theme.css` | Tokens, and the app's palette names (`--bg`, `--ink`, `--cyan`, …) on `.radio-station` only |
 | `themes/radio/station/` | Vendored from `phareim/radio`, never edited by hand (below) |
-| `themes/zelda/world/overworld.ts` | The station: `H` tiles at columns 23–26, rows 23–25; the door is exit `radio` (mark `]`), the RADIO decal on the roof |
-| `themes/zelda/render/exits.ts` | Look `studio`: the door, the ON AIR box and the mast with its light |
+| `themes/zelda/world/overworld.ts` | The records booth: exit `radio` (mark `]`, look `booth`, art `records`) at column 25, row 30, between its `Z` tiles |
+| `themes/zelda/render/exits.ts` | Look `booth`: speakers, the table with two turntables, the DJ (sprites `dj_records_*` in `render/spritesBeach.ts`) |
 
 `themes/radio/engine.ts` and `catalog.ts` are the other radio, the site
 widget's six game stations (`docs/games/global-radio.md`).
@@ -100,4 +100,4 @@ this theme is the listen-only copy. If the radio app itself moved into
 phareim.no, or Petter no longer wants the radio in the town, retire the
 theme (registry entry, `themes/radio/{Landing,Station,Dial,Channels}.vue`,
 `theme.css`, `station/`, `scripts/sync-radio.mjs`) and the station in the
-town (mark `]`, the `H` tiles, the decal, look `studio`).
+town (mark `]` and its booth; the Jam booth can stay on its own).

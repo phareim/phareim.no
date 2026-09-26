@@ -90,6 +90,8 @@ switch (scene) {
   case 'p-reduced': ui.reducedMotion = true; run(20); break
   case 'r-plaza': run(20); break
   case 'r-road': s.hero.x = 39.5; s.hero.y = 26.5; s.hero.dir = 'right'; run(20); break
+  case 'r-beach': s.hero.x = 20.5; s.hero.y = 31.5; s.hero.dir = 'up'; run(40); break
+  case 'r-jam': s.hero.x = 15.5; s.hero.y = 31.5; s.hero.dir = 'up'; run(40); break
   case 'r-sword': give(); run(20); break
   case 'r-rich': give(); s.inv.bits = 4321; run(20); break
   case 'r-arcade': place('arcade', 'door'); run(20); break
@@ -177,6 +179,9 @@ const SHOTS = [
   ['r-plaza-412', 'r-plaza', 412, 915, 2.625, 0],
   ['r-road-1280', 'r-road', 1280, 800, 1, 0],
   ['r-road-390', 'r-road', 390, 844, 3, 0],
+  ['r-beach-1280', 'r-beach', 1280, 800, 1, 0],
+  ['r-beach-390', 'r-beach', 390, 844, 3, 0],
+  ['r-jam-1280', 'r-jam', 1280, 800, 1, 0],
   ['r-sword-1280', 'r-sword', 1280, 800, 1, 0],
   ['r-sword-390', 'r-sword', 390, 844, 3, 0],
   ['r-rich-390', 'r-rich', 390, 844, 3, 0],

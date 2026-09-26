@@ -72,6 +72,7 @@ const blurbs = profile.blurbs.map(b => b.charAt(0).toUpperCase() + b.slice(1))
 const NAMES: Record<string, string> = {
   kiosk: "phareim.md — Petter's writing",
   games: 'games.phareim.no — more games',
+  jam: "jam.phareim.no — make music on the radio's engine",
   linkedin: 'LinkedIn',
   github: 'GitHub',
   bluesky: 'Bluesky',

@@ -74,15 +74,24 @@ the arcade. `tests/portal-world.test.mjs` checks both.
 - **South**: the coast path: a small newsstand building (PHAREIM.MD decal)
   with the kiosk counter in front (exit `{ url: 'https://phareim.md' }`,
   lines saying it is Petter's writing), a signpost for GAMES.PHAREIM.NO
-  (exit `{ url: 'https://games.phareim.no' }`), and a pier into the sea.
-  East of the path, facing the newsstand across it (2026-09-25): the radio
-  station, a 4×3 studio at columns 23–26, rows 23–25, with RADIO on the
-  roof, a lit ON AIR box over a steel door and a lattice mast whose red
-  light blinks slowly (look `studio`). The door (exit `radio`,
-  `{ theme: 'radio' }`) says "RADIO PHAREIM. TEN PLACES ON ONE DIAL, AND
-  THE MUSIC IS MADE UP AS IT PLAYS. / TUNE IN? PRESS {A}." A phone sees it
-  from the start; a desktop finds it walking south, where the plaza sign
-  and the coast-road sign point to it (`docs/games/radio.md`).
+  (exit `{ url: 'https://games.phareim.no' }`).
+- **The beach** (2026-09-26, Petter's wish; it replaced the radio studio
+  that stood by the road): rows 28–33 below the coast road are sand (tile
+  `-`), the sea starts at row 34 and the pier runs out from there between
+  two tiki torches. Two DJ booths stand on the sand at columns 15 and 25,
+  close enough to the pier that a phone sees both from the middle. Each is
+  exit look `booth`: two speaker stacks, a table, the DJ waist up behind
+  it (sprites in `render/spritesBeach.ts`); the table's tile is the exit,
+  the speakers and the DJ's spot are `Z` tiles. Left, the one mixing live
+  (art `mixer`, label JAM, exit `jam` → `https://jam.phareim.no`); right,
+  the one with the records (art `records`, label RADIO, exit `radio` →
+  `?theme=radio`, the id kept so old `portal.return` values land here).
+  Seven people dance, nod and wave glow sticks on the sand (NPC looks
+  `dancer`, `surfer`, `raver`, marks `æøåÆÅéü` since the plain letters
+  are used up), each with a line about the music. The area THE BEACH
+  covers the sand and plays the `beach` track (A minor house at 120 bpm,
+  the crowd's 2 Hz step); the road and town play `village`. The plaza sign
+  and the coast-road sign point down to THE BEACH PARTY.
   The coast path runs on east out of town as the coast road: into Home
   Glade, down beside the Keeper's hut and into its front yard, where the
   Keeper tells the story to anyone arriving without the blade.
@@ -136,8 +145,8 @@ was its own world; both went with the merge.
 
 - Cabinets per `art`: a marquee with a tiny logo in the game's colours,
   a glowing screen that flickers, a light pool on the floor.
-- Board, kiosk, terminal, console and studio looks (the studio: door, ON AIR box,
-  mast with a slow red light).
+- Board, kiosk, terminal, console and booth looks (the booth: two speaker
+  stacks, a table with CD decks or turntables, the DJ waist up behind it).
 - Decals: neon lettering with bloom and a faint flicker.
 - The `petter` NPC.
 - An exit's `label` floats over it while the hero is next to it, with the A

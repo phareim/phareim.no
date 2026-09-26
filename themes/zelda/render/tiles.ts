@@ -58,6 +58,7 @@ const OW = {
   roof: '#8c2e72', roofL: '#b8468f', roofD: '#5a1c4c', wall: '#3b2b62', wallL: '#4f3c7e', wallD: '#271c46', window: '#ffd23f',
   stone: '#6f6aa0', stoneL: '#9690c4', stoneD: '#443f72',
   bush: '#237a6c', bushL: '#46b595', bushD: '#12483f',
+  sand: '#a8846a', sandL: '#c29c7c', sandD: '#866651', sandW: '#5e4a56',
 }
 
 const DG = {
@@ -94,6 +95,9 @@ const isWater = (t: TileChar) => t === '~'
 const isTree = (t: TileChar) => t === 'T'
 const isBuilding = (t: TileChar) => t === 'H' || t === 'M'
 const isPath = (t: TileChar) => t === ',' || t === '=' || t === 'D' || t === '>'
+const isSand = (t: TileChar) => t === '-'
+/** An object tile standing on the beach: two or more sand neighbours (the DJ booths' blocked tiles count as sand). */
+const onSand = (at: At) => [at(1, 0), at(-1, 0), at(0, 1), at(0, -1)].filter(t => isSand(t) || t === 'Z').length >= 2
 
 // ---------------------------------------------------------------------------
 // Ground pass
@@ -133,7 +137,7 @@ function pathTile(g: G, px: number, py: number, tx: number, ty: number, at: At) 
   }
   r(g, OW.pebble, px + Math.floor(hash2(tx, ty, 7) * 14), py + Math.floor(hash2(tx, ty, 8) * 14), 1, 1)
   // Grass overhang where the path meets grass.
-  const grassy = (t: TileChar) => !isPath(t) && !isWater(t) && !isWall(t)
+  const grassy = (t: TileChar) => !isPath(t) && !isWater(t) && !isWall(t) && !isSand(t)
   const edge = (horiz: boolean, ox: number, oy: number, inward: number) => {
     for (let i = 0; i < T; i++) {
       const d = 1 + Math.floor(hash2(tx * 3 + i, ty * 5 + (horiz ? 1 : 2), ox + oy) * 2.2)
@@ -148,6 +152,34 @@ function pathTile(g: G, px: number, py: number, tx: number, ty: number, at: At) 
   if (grassy(at(1, 0))) edge(false, 1, 0, -1)
   const up = at(0, -1)
   if (isTree(up) || isWall(up) || isBuilding(up)) r(g, OW.pathD, px, py, T, 2)
+}
+
+/** The beach: warm sand in soft drifts, a few shells, darker and wet along the water. */
+function sandTile(g: G, px: number, py: number, tx: number, ty: number, at: At) {
+  r(g, OW.sand, px, py, T, T)
+  for (let by = 0; by < T; by += 4) {
+    for (let bx = 0; bx < T; bx += 4) {
+      const n = noise(tx * T + bx, ty * T + by, 40, 5)
+      if (n > 0.66) r(g, OW.sandL, px + bx, py + by, 4, 4)
+      else if (n < 0.28) r(g, OW.sandD, px + bx, py + by, 4, 4)
+    }
+  }
+  // Ripples the wind left, and now and then a shell.
+  for (let i = 0; i < 2; i++) {
+    const hx = Math.floor(hash2(tx, ty, 70 + i) * 11)
+    const hy = Math.floor(hash2(tx, ty, 80 + i) * 14)
+    r(g, OW.sandD, px + hx, py + hy, 4, 1)
+    r(g, OW.sandL, px + hx + 1, py + hy - 1, 2, 1)
+  }
+  if (hash2(tx, ty, 91) > 0.9) { r(g, '#ffd0e8', px + 6, py + 9, 2, 1); r(g, '#ff8ae0', px + 6, py + 10, 3, 1) }
+  else if (hash2(tx, ty, 92) > 0.92) { r(g, '#c4fbff', px + 9, py + 5, 1, 1); r(g, '#6fd2d6', px + 9, py + 6, 2, 1) }
+  // Wet sand along the water, grass tufts where the town's grass comes down to it.
+  if (isWater(at(0, 1))) { r(g, OW.sandW, px, py + T - 4, T, 4); r(g, OW.sandD, px, py + T - 5, T, 1) }
+  const up = at(0, -1)
+  if (up === '.' || up === ':' || up === ';' || up === '*' || isTree(up)) {
+    for (let i = 0; i < T; i++) r(g, OW.g0, px + i, py, 1, 1 + Math.floor(hash2(tx * 3 + i, ty, 12) * 2.5))
+  }
+  if (isTree(up) || isWall(up) || isBuilding(up)) r(g, OW.sandD, px, py, T, 2)
 }
 
 function water(g: G, px: number, py: number, tx: number, ty: number, at: At, deep: string, base: string) {
@@ -211,6 +243,9 @@ function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx:
     case 'f':
       rug(g, px, py, tx, ty, at)
       return
+    case '-':
+      sandTile(g, px, py, tx, ty, at)
+      return
     case 'O':
       if (kind === 'overworld') { chasm(g, px, py, tx, ty, at); return }
       r(g, '#05030c', px, py, T, T)
@@ -219,6 +254,7 @@ function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx:
     default: {
       if (kind === 'overworld' && (t === 'D' || t === '>')) { pathTile(g, px, py, tx, ty, at); return }
       if (kind === 'overworld' && t !== '.' && t !== ':' && t !== ';') {
+        if (onSand(at)) { sandTile(g, px, py, tx, ty, at); return }
         let n = 0
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) if (at(dx, dy) === ',') n++
         if (n >= 2) { pathTile(g, px, py, tx, ty, at); return }
@@ -539,6 +575,19 @@ function boulder(g: G, px: number, py: number) {
   r(g, OW.rockDD, px + 8, py + 3, 1, 4); r(g, OW.rockDD, px + 9, py + 7, 1, 3); r(g, OW.rockDD, px + 6, py + 9, 3, 1)
 }
 
+/** A tiki torch on the beach: a bamboo pole with two bindings; the flame is live. */
+function tikiPost(g: G, px: number, py: number) {
+  r(g, 'rgba(0,0,0,0.3)', px + 5, py + 13, 7, 3)
+  r(g, '#140a22', px + 6, py + 3, 4, 13)
+  r(g, '#b0843a', px + 7, py + 4, 2, 11)
+  r(g, '#e0b060', px + 7, py + 4, 1, 11)
+  r(g, '#5b2a1c', px + 6, py + 7, 4, 1)
+  r(g, '#5b2a1c', px + 6, py + 11, 4, 1)
+  // The cup the flame sits in.
+  r(g, '#140a22', px + 5, py + 1, 6, 4)
+  r(g, '#8e5566', px + 6, py + 2, 4, 2)
+}
+
 function lampPost(g: G, px: number, py: number, kind: MapKind) {
   if (kind === 'dungeon') {
     // Brazier bowl; the flame is live
@@ -630,7 +679,7 @@ function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, t
     case 'o': g.drawImage(sprite('pot'), px, py); break
     case 'r': g.drawImage(sprite('rock'), px, py); break
     case 'R': boulder(g, px, py); break
-    case 't': lampPost(g, px, py, kind); break
+    case 't': if (kind === 'overworld' && onSand(at)) tikiPost(g, px, py); else lampPost(g, px, py, kind); break
     case 'S': sign(g, px, py, kind, marquee); break
     case 'G': grave(g, px, py); break
     case 'F': fence(g, px, py, at); break
@@ -765,6 +814,18 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
         case 't': {
           const col = kind === 'dungeon' ? '#ff4fb8' : LAMP_COLORS[Math.floor(hash2(tx, ty, 11) * 2)]!
           const flick = reduced ? 1 : 0.85 + 0.15 * Math.sin(time * 9 + tx * 3.1 + ty)
+          const tiki = kind === 'overworld' && [m.tiles[ty * m.w + tx + 1], m.tiles[ty * m.w + tx - 1], m.tiles[(ty + 1) * m.w + tx], m.tiles[(ty - 1) * m.w + tx]].filter(c => c === '-').length >= 2
+          if (tiki) {
+            // A flame that licks up and leans with the breeze.
+            const lean = reduced ? 0 : Math.round(Math.sin(time * 5 + tx * 1.7))
+            const tall = Math.round(flick * 3)
+            g.fillStyle = '#ff3b5c'; g.fillRect(px + 6, py - 1 - tall, 4, 3 + tall)
+            g.fillStyle = '#ff8a3d'; g.fillRect(px + 6 + (lean > 0 ? 1 : 0), py - 2 - tall, 3, 3 + tall)
+            g.fillStyle = '#ffd23f'; g.fillRect(px + 7, py, 2, 2)
+            g.fillStyle = '#fff1b0'; g.fillRect(px + 7 + lean, py - 3 - tall, 1, 2)
+            lights.push({ x: wx, y: wy - 0.5, r: 4.2, color: '#ff8a3d', a: 0.85 * flick })
+            break
+          }
           if (kind === 'dungeon') {
             g.fillStyle = col; g.fillRect(px + 6, py + 4 - Math.round(flick), 4, 5)
             g.fillStyle = '#ffd0f0'; g.fillRect(px + 7, py + 6, 2, 3)

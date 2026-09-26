@@ -11,7 +11,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 ## Commands
 
 - `npm run dev` — dev server on port 3030 (host 0.0.0.0)
-- `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link, the radio station, the login console and its auth.phareim.no client (fake fetch), the coast road to the Keeper
+- `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link, the beach party's two DJ booths (Jam and the radio), the login console and its auth.phareim.no client (fake fetch), the coast road to the Keeper
 - `npm run test:zelda` — Neon Shrine: the first minute from the town, exits, saves, a full scripted run to the Sun Prism; the audio data; the Wildwood's rules and a full run from the town's thicket to the Gate shutting (2026-09-24)
 - `npm run test:eschold` — the shared Escape tap/hold state machine
 - `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); CI runs these before typecheck
@@ -86,7 +86,7 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 
 ## Theme System (short version — the skill has the rest)
 
-- Nineteen themes in `themes/index.ts` (verified 2026-09-26): the portal (`home: true`), fourteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Tetris, Hall of Fame, Hangar, Radio (the radio station's door in the town, not a cabinet). Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
+- Nineteen themes in `themes/index.ts` (verified 2026-09-26): the portal (`home: true`), fourteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Tetris, Hall of Fame, Hangar, Radio (the record DJ on the town's beach, not a cabinet). Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
 - **Nothing scrolls**: `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, and every landing is locked to the viewport. Full-screen heights use `var(--app-height, 100dvh)` (defined in `app.vue`), never bare `100dvh`: in the iOS home-screen app 100dvh comes up a status bar short and leaves a white strip at the bottom.
 - **Bottom band** (2026-09-24): `--app-safe-bottom` (defined in `app.vue`) is the strip along the bottom edge where nothing interactive or meaning-bearing may sit: buttons, text, hints, the player's ship or paddle. Backdrops may run through it. In a browser tab it equals `env(safe-area-inset-bottom)`; installed as a web app (`display-mode: standalone/fullscreen`) it is `max(48px, inset + 30px)`, clear of the home indicator and system swipes. Anchor bottom UI as `calc(<gap> + var(--app-safe-bottom, 0px))`, never on the bare inset; canvas games take it as a bottom inset.
 - The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal, `zelda` → portal), an unknown id shows the portal. No cookie, no random pick.

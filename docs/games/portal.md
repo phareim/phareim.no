@@ -4,9 +4,11 @@
 of Neon Shrine's world. Petter's name is painted on the roof of his house.
 The buildings lead to everything else on the site: the arcade (a cabinet
 per game, the Hall of Fame board, the Hangar door), Petter's house (who he
-is, three terminals to his profiles, the login console), the PHAREIM.MD newsstand, the radio
-station (the generative radio, `docs/games/radio.md`; 2026-09-25) and the
-GAMES.PHAREIM.NO signpost. West, the shore road ends in a thicket: cut it
+is, three terminals to his profiles, the login console), the PHAREIM.MD newsstand, the
+GAMES.PHAREIM.NO signpost, and below the coast road a beach party: two DJs
+(the one mixing live leads to jam.phareim.no, the one with the records to
+the generative radio, `docs/games/radio.md`) and a crowd dancing on the
+sand (2026-09-26; it replaced the radio studio by the road). West, the shore road ends in a thicket: cut it
 with the blade and it leads into the Wildwood (`docs/games/wildwood.md`).
 The coast road runs east along the water into
 Home Glade and round to the Keeper's hut, where the adventure begins
@@ -18,7 +20,7 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 
 | File | Job |
 |---|---|
-| `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, newsstand, radio station, signpost, pier, the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
+| `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, newsstand, signpost, the beach party (two DJ booths, the crowd, tiki torches), pier, the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
 | `themes/zelda/world/town.ts` | The arcade, 17×11 (eleven cabinets, Mini World's the tenth by the HANGAR door and Lag Din Figur's the eleventh in the corner beside it, the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
 | `themes/zelda/world/index.ts` | `WORLD` (the one world), `worldExits()`, `worldStartingAt()` |
 | `themes/zelda/Zelda.vue` | The shell: loop, input, touch deck, audio, saves, pause menu, exits, the way back, the account panel |
@@ -128,8 +130,11 @@ validates; it starts on the plaza facing the name, and the town and its
 rooms have no enemies; the cabinets are exactly the ten arcade games,
 each ending on INSERT COIN? PRESS {A}.; the NEW GAME machine
 says there is nothing to wipe before the blade, and after it asks once and
-never leaves the game; the radio station's door sits in
-its wall under a RADIO sign and leads to `?theme=radio` (2026-09-25); every
+never leaves the game; the beach has two DJ booths on the sand between the
+road and the sea, blocked behind and beside, open in front, Jam on the left
+to jam.phareim.no and the records on the right to `?theme=radio`, a crowd
+of at least five on the sand, and the sand plays the `beach` track while
+the road plays the town's (2026-09-26); every
 exit goes where it should and
 nothing carries an email address; at the start the name and at least two
 buildings are in view at phone and desktop view sizes; a path-finding

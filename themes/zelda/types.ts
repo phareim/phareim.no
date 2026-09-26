@@ -125,6 +125,8 @@ export type TileChar =
   | 'B' // psi block (solid; with Luna along, A slides it until it hits something)
   | '{' // letter stone (walkable; stepping on stones spells a word, see MapDef.codes)
   | '}' // lever / breaker (solid; a hit throws it for good and sets its flag)
+  // The town's beach
+  | '-' // sand (walkable)
 
 // ---------------------------------------------------------------------------
 // Items
@@ -161,7 +163,7 @@ export type UseItem = 'disc' | 'bombs' | 'hook'
 // ---------------------------------------------------------------------------
 
 export type MapKind = 'overworld' | 'dungeon' | 'interior'
-export type TrackId = 'title' | 'overworld' | 'village' | 'dungeon' | 'boss' | 'indoor' | 'ending' | 'forest' | 'lab' | 'static'
+export type TrackId = 'title' | 'overworld' | 'village' | 'beach' | 'dungeon' | 'boss' | 'indoor' | 'ending' | 'forest' | 'lab' | 'static'
 
 export type EnemyKind =
   | 'blob' // slow hopping slime
@@ -225,7 +227,7 @@ export type EntDef =
   | { t: 'lever'; flag: string } // a lever or breaker (tile '}'): a hit sets `flag` for good
   | ExitDef
 
-export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll'
+export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll' | 'dancer' | 'surfer' | 'raver'
 
 /**
  * Where an exit leads: another theme on phareim.no (`?theme=<id>`), the
@@ -242,7 +244,7 @@ export type ExitTarget = { theme: string } | { home: true } | { url: string } | 
 export type PanelId = 'account'
 
 /** How the renderer draws an exit. The engine ignores it. */
-export type ExitLook = 'door' | 'cabinet' | 'board' | 'kiosk' | 'terminal' | 'console' | 'sign' | 'studio'
+export type ExitLook = 'door' | 'cabinet' | 'board' | 'kiosk' | 'terminal' | 'console' | 'sign' | 'booth'
 
 /**
  * A way out of the game: the town's cabinets, doors, kiosk and terminals.
@@ -261,7 +263,7 @@ export interface ExitDef {
   to: ExitTarget
   side?: Dir
   look?: ExitLook
-  /** Renderer art key: a theme id for a cabinet's marquee ('galaga', 'outrun', …). */
+  /** Renderer art key: a theme id for a cabinet's marquee ('galaga', 'outrun', …); a DJ booth's kit ('mixer', 'records'). */
   art?: string
   /** Short name shown over the exit when the hero is next to it ('GALAGA'). */
   label?: string

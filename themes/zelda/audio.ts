@@ -254,6 +254,44 @@ export const TRACKS: Record<TrackId, TrackDef> = {
     },
   },
 
+  // The beach party: A minor house at 120 bpm (the crowd's 2 Hz step), four on
+  // the floor, an off-beat bass, a plucked arp and a bell lead over the sea.
+  beach: {
+    bpm: 120, swing: 0.08, lead: 'bell', bass: 'saw', reverb: 0.32, delay: 0.38,
+    arpVoice: 'pluck',
+    form: ['I', 'A', 'B'], loopFrom: 1,
+    sections: {
+      I: {
+        chords: 'Am7 Fmaj7 Am7 Fmaj7',
+        bass: '..R-..R-..R-..R-',
+        drums: { k: 'x...x...x...x...', s: '................', h: '..x...x...x...x.' },
+        fill: { k: 'x...x...x...x...', s: '........x.x.xxxx', h: '..x...x...x...x.' },
+        arp: 'up', arpRate: 16, pad: true,
+      },
+      A: {
+        chords: 'Am7 Fmaj7 Cmaj7 G Am7 Fmaj7 Cmaj7 G',
+        lead: [
+          'E5 - - C5 E5 - G5 -', 'A5 - - G5 E5 - C5 -', 'G5 - - E5 G5 - B5 -', 'A5 - G5 - D5 - - .',
+          'E5 - - C5 E5 - G5 -', 'A5 - - G5 E5 - C6 -', 'B5 - - G5 E5 - D5 -', 'E5 - - - . . . .',
+        ],
+        bass: '..R-..R-..R-..O-',
+        drums: { k: 'x...x...x...x...', s: '....x.......x...', h: '..x...x...x...xo' },
+        arp: 'updown', arpRate: 16, pad: true,
+      },
+      B: {
+        chords: 'Dm7 Em7 Fmaj7 G Dm7 Em7 Fmaj7 E',
+        lead: [
+          'F5 - A5 - C6 - A5 -', 'G5 - B5 - E5 - - -', 'A5 - C6 - F5 - A5 -', 'B5 - - - G5 - D5 -',
+          'F5 - A5 - C6 - D6 -', 'E6 - - - B5 - G5 -', 'A5 - G5 - F5 - E5 -', 'G#5 - - - E5 - - -',
+        ],
+        bass: 'R...O.R...R.5.O.',
+        drums: { k: 'x...x...x...x...', s: '....x.......x..g', h: 'x.x.x.x.x.x.x.xo' },
+        fill: { k: 'x...x...x...x...', s: '....x...x.x.xxxx', h: 'x.x.x.x.........' },
+        arp: 'up', arpRate: 16, pad: true,
+      },
+    },
+  },
+
   // The shrine: D minor, a low pulse, eerie arps, a lead that barely speaks.
   dungeon: {
     bpm: 96, swing: 0, lead: 'pulse', bass: 'square', reverb: 0.55, delay: 0.45,

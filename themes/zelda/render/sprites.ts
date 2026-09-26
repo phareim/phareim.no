@@ -13,6 +13,7 @@
  */
 
 import { WILD_RAW } from './spritesWild'
+import { BEACH_RAW } from './spritesBeach'
 
 export interface SpriteDef { rows: string[] }
 
@@ -1829,6 +1830,7 @@ const RAW: Record<string, Rows> = {
   hud_bit: hudBit, hud_bomb: hudBomb, hud_key: hudKey, hud_bigkey: hudBigkey,
 
   ...WILD_RAW,
+  ...BEACH_RAW,
 }
 
 

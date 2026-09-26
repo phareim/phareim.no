@@ -1,7 +1,7 @@
 // The town — phareim.no's front door, the west end of Neon Shrine's one
 // world: the world validates, the start view shows the name and two
-// buildings on a phone and a desktop, the town has no enemies, the radio
-// station's door leads to the radio theme, every exit
+// buildings on a phone and a desktop, the town has no enemies, the beach
+// party's two DJs lead to Jam and the radio, every exit
 // leads where it says, a path-finding walker reaches and uses each one from
 // the start without a scratch, coming back stands you in front of it, and
 // the coast road leads to the Keeper's hut.
@@ -23,7 +23,8 @@ const EXPECTED = {
   hangar: { map: 'arcade', to: { theme: 'hangar' }, look: 'door' },
   kiosk: { map: 'overworld', to: { url: 'https://phareim.md' }, look: 'kiosk' },
   games: { map: 'overworld', to: { url: 'https://games.phareim.no' }, look: 'sign' },
-  radio: { map: 'overworld', to: { theme: 'radio' }, look: 'studio' },
+  radio: { map: 'overworld', to: { theme: 'radio' }, look: 'booth' },
+  jam: { map: 'overworld', to: { url: 'https://jam.phareim.no' }, look: 'booth' },
   linkedin: { map: 'home', to: { url: 'https://www.linkedin.com/in/phareim' }, look: 'terminal' },
   github: { map: 'home', to: { url: 'https://github.com/phareim' }, look: 'terminal' },
   bluesky: { map: 'home', to: { url: 'https://bsky.app/profile/phareim.no' }, look: 'terminal' },
@@ -415,18 +416,48 @@ describe('portal world', () => {
     assert.equal(P.worldStartingAt(42, 'galaga'), null)
   })
 
-  it('has a radio station in the town, whose door tunes in to the radio theme', () => {
-    const [st] = placedExits().filter(e => e.id === 'radio')
-    assert.equal(st.map, 'overworld')
-    assert.ok(st.x < TOWN_W, 'the station is outside the town')
-    // A door in the station's front wall: a building tile with building to the left or right, open ground below.
+  it('has a beach party below the coast road: the mixing DJ leads to Jam, the one with the records to the radio', () => {
     const def = W.maps.overworld
-    assert.equal(st.ent.look, 'studio')
-    assert.ok(isWall(def, st.x - 1, st.y) || isWall(def, st.x + 1, st.y), 'the door is not in a wall')
-    assert.ok(!P.TILE_INFO[P.createGame(W, { seed: 1 }).map.tiles[(st.y + 1) * def.rows[0].length + st.x]].solid, 'nothing to stand on in front of the door')
-    assert.equal(st.ent.label, 'RADIO')
-    assert.equal(st.ent.lines.at(-1), 'TUNE IN?')
-    assert.ok(def.decals.some(d => d.text === 'RADIO' && Math.abs(d.x - (st.x + 0.5)) <= 1.5), 'no RADIO sign over the station')
+    const s = P.createGame(W, { seed: 1 })
+    const tile = (x, y) => s.map.tiles[y * s.map.w + x]
+    const booths = placedExits().filter(e => e.ent.look === 'booth')
+    assert.deepEqual(booths.map(b => [b.id, b.ent.art, b.ent.label]).sort(), [['jam', 'mixer', 'JAM'], ['radio', 'records', 'RADIO']])
+    assert.ok(booths.find(b => b.id === 'jam').x < booths.find(b => b.id === 'radio').x, 'Jam is the left booth')
+    for (const b of booths) {
+      assert.equal(b.map, 'overworld')
+      assert.ok(b.x < TOWN_W, `${b.id} is outside the town`)
+      // Speakers left and right, the DJ's spot behind: all blocked. Sand in front, open to stand on.
+      for (const [dx, dy] of [[-1, 0], [1, 0], [-1, -1], [0, -1], [1, -1]]) assert.equal(tile(b.x + dx, b.y + dy), 'Z', `${b.id}: ${dx},${dy} is not blocked`)
+      assert.equal(tile(b.x, b.y + 1), '-', `${b.id}: no sand in front`)
+      assert.ok(!P.TILE_INFO[tile(b.x, b.y + 1)].solid)
+      assert.ok(!s.map.npcs.some(n => Math.floor(n.x) === b.x && Math.floor(n.y) === b.y + 1), `${b.id}: someone stands in front`)
+      assert.ok(b.ent.lines.at(-1).endsWith('?'))
+    }
+    assert.equal(booths.find(b => b.id === 'radio').ent.lines.at(-1), 'TUNE IN?')
+    // On the beach: sand behind the DJ, the sea a few steps in front.
+    for (const b of booths) {
+      assert.equal(tile(b.x, b.y - 2), '-', `${b.id}: no sand behind the DJ`)
+      assert.ok([2, 3, 4, 5].some(d => tile(b.x, b.y + d) === '~'), `${b.id}: the sea is not in front`)
+    }
+    // The crowd: at least five people on the sand, none of them wandering off.
+    const crowd = s.map.npcs.filter(n => ['dancer', 'surfer', 'raver'].includes(n.look))
+    assert.ok(crowd.length >= 5, `only ${crowd.length} at the party`)
+    for (const n of crowd) assert.equal(tile(Math.floor(n.x), Math.floor(n.y)), '-', `${n.id} is not on the sand`)
+    // The radio studio is gone: no RADIO sign on a roof.
+    assert.ok(!def.decals.some(d => d.text === 'RADIO'))
+  })
+
+  it('plays the party on the sand and the town again on the road', () => {
+    const g = session()
+    const jam = placedExits().find(e => e.id === 'jam')
+    walkTo(g, jam.x, jam.y + 1)
+    const onSand = g.events.filter(e => e.type === 'area').at(-1)
+    assert.deepEqual([onSand.name, onSand.track], ['THE BEACH', 'beach'])
+    walkTo(g, jam.x, jam.y - 4)
+    const back = g.events.filter(e => e.type === 'area').at(-1)
+    assert.deepEqual([back.name, back.track], ['PHAREIM.NO', 'village'])
+    // Coming back from Jam or the radio starts the party track at once.
+    for (const id of ['jam', 'radio']) assert.equal(P.createGame(P.worldStartingAt('overworld', id), { seed: 1 }).area, 'THE BEACH', id)
   })
 
   it('talks: the kid explains, Petter introduces himself', () => {
