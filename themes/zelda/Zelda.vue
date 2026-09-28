@@ -144,7 +144,7 @@ const selected = ref<UseItem | null>(null)
 const hasItem = ref(false)
 /** A dialog is open (the floating buttons hide so they don't sit on the text). */
 const talking = ref(false)
-const { navigationLocked, launch } = useTheme()
+const { navigationLocked, launch, liveThemeColor } = useTheme()
 const sound = useSound()
 const profileSave = useGameSave('zelda')
 
@@ -564,11 +564,46 @@ function handleEvents(events: GameEvent[]) {
   if (save) persist()
 }
 
+// ---- browser bar ------------------------------------------------------------------
+
+/** How often the browser bar takes the colour of the scene's top edge. */
+const BAR_SAMPLE_MS = 400
+let barProbe: CanvasRenderingContext2D | null = null
+let barSampledAt = 0
+
+/**
+ * The average colour of the canvas's top few rows, handed to the page as the
+ * live theme colour: Safari's address bar then reads as the sky above the scene.
+ */
+function sampleBarColor(nowMs: number) {
+  if (nowMs - barSampledAt < BAR_SAMPLE_MS || !canvas.value) return
+  barSampledAt = nowMs
+  const c = canvas.value
+  if (!c.width || !c.height) return
+  if (!barProbe) {
+    const probe = document.createElement('canvas')
+    probe.width = 16
+    probe.height = 1
+    barProbe = probe.getContext('2d', { willReadFrequently: true })
+    if (!barProbe) return
+  }
+  try {
+    barProbe.drawImage(c, 0, 0, c.width, Math.min(8, c.height), 0, 0, 16, 1)
+    const d = barProbe.getImageData(0, 0, 16, 1).data
+    let r = 0, g = 0, b = 0
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2] }
+    const hex = (v: number) => Math.round(v / 16).toString(16).padStart(2, '0')
+    const color = `#${hex(r)}${hex(g)}${hex(b)}`
+    if (color !== liveThemeColor.value) liveThemeColor.value = color
+  } catch { /* a canvas we cannot read: the theme's own colour stays */ }
+}
+
 // ---- loop -------------------------------------------------------------------------
 
 function frame(nowMs: number) {
   raf = requestAnimationFrame(frame)
   if (!renderer) return
+  sampleBarColor(nowMs)
   const dt = lastT ? Math.min((nowMs - lastT) / 1000, 0.1) : 0
   lastT = nowMs
   ui.paused = paused.value
@@ -721,6 +756,8 @@ onBeforeUnmount(() => {
   audio?.dispose()
   audio = null
   renderer = null
+  barProbe = null
+  liveThemeColor.value = null
   navigationLocked.value = false
 })
 </script>

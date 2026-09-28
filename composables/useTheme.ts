@@ -37,7 +37,15 @@ export const useTheme = () => {
 
   const themePageClass = computed(() => `${activeTheme.value}-page`)
 
+  /**
+   * A colour the running landing picks from its own top edge (the portal
+   * samples its canvas), so the browser's bar reads as part of the scene.
+   * Null when no landing sets one; cleared when it unmounts.
+   */
+  const liveThemeColor = useState<string | null>('liveThemeColor', () => null)
+
   const themeColor = computed(() => {
+    if (liveThemeColor.value) return liveThemeColor.value
     const t = theme.value
     if (import.meta.client && t.themeColorDark && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       return t.themeColorDark
@@ -66,6 +74,7 @@ export const useTheme = () => {
     isHome,
     themePageClass,
     themeColor,
+    liveThemeColor,
     navigationLocked,
     navigationCoolingDown,
     navigationBlocked,

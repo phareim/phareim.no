@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-const { theme, isHome, themePageClass, themeColor } = useTheme()
+const { theme, isHome, themePageClass, themeColor, liveThemeColor } = useTheme()
 useThemeNavigation()
 
 // The portal carries the site's name; a game names itself, so history and
@@ -20,7 +20,12 @@ useHead({
   title: computed(() => isHome.value ? 'Petter Hareim — phareim.no' : `${theme.value.name} — phareim.no`),
   meta: [
     { name: 'theme-color', content: themeColor }
-  ]
+  ],
+  // Safari 26 ignores theme-color and tints its bar from the page's own
+  // background, so a live colour goes on <html> too.
+  htmlAttrs: {
+    style: computed(() => liveThemeColor.value ? `background-color: ${liveThemeColor.value}` : undefined)
+  }
 })
 
 </script>
