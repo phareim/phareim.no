@@ -16,7 +16,7 @@ cabinet points at it.
 `phareim/radio`) in the site's pixel look, which it already shared: the
 painted place (scene window with place, key, chord now → next, bpm and the
 phrase meter), the ten layers, PLAY and HOLD, the station dial, intensity
-(STILL … SURGE), MOOD, SPACE, GRIT, DENSITY, TEMPO, VOLUME and mute, and the
+(STILL … SURGE), MOOD, ERA (8-BIT … ANALOG, which also sets SPACE), DENSITY and TEMPO (no volume or mute: the device rules, 2026-09-28), and the
 AUTO / ▶▶ / DIM corner. DIM (`radio.calm`) leaves only the picture, with
 the corner fading after 3.5 s idle. CHANNELS (the last dial tile, or C)
 picks which places show on the dial, kept in this browser. A line under
@@ -25,7 +25,7 @@ phones).
 
 - Keys as in the radio app: Space play/pause, 1–9 and 0 places, ← →
   previous/next place, ↑ ↓ intensity, H hold, A auto, G glide on, D dim,
-  C channels, M mute. Escape closes CHANNELS or leaves DIM; otherwise the
+  C channels. Escape closes CHANNELS or leaves DIM; otherwise the
   shell takes it home. The shell uses no other key here.
 - The site radio (the six game stations) is held silent while the page is
   mounted (`getRadioEngine().hold(true)` in `Landing.vue`, released on

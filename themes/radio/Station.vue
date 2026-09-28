@@ -65,7 +65,7 @@
         <IntensityBar />
         <PxSlider :model-value="controls.mood" label="MOOD" left="BRIGHT" right="DARK" :compact="narrow" color="#cfc6ff" @update:model-value="set({ mood: $event })" />
         <PxSlider :model-value="controls.space" label="SPACE" left="DRY" right="VAST" :compact="narrow" @update:model-value="set({ space: $event })" />
-        <PxSlider :model-value="controls.grit" label="GRIT" left="CLEAN" right="TAPE" :compact="narrow" color="#ff8a3d" @update:model-value="set({ grit: $event })" />
+        <PxSlider :model-value="controls.era" label="ERA" left="8-BIT" right="ANALOG" bipolar :compact="narrow" color="#ff8a3d" @update:model-value="set({ era: $event })" />
         <PxSlider :model-value="controls.density" label="DENSITY" left="SPARSE" right="BUSY" :compact="narrow" color="#3fe0a0" @update:model-value="set({ density: $event })" />
         <PxSlider
           :model-value="controls.tempo"
@@ -82,25 +82,6 @@
           :format="(v: number) => (v > 0 ? `+${v}` : `${v}`)"
           @update:model-value="set({ tempo: $event })"
         />
-        <div class="deck__vol">
-          <PxSlider
-            :model-value="muted ? 0 : volume"
-            label="VOLUME"
-            :step="0.05"
-            :segments="10"
-            color="#ff2fa0"
-            compact
-            @update:model-value="setVolume($event)"
-          />
-          <button
-            type="button"
-            class="deck__mute"
-            :class="{ on: muted }"
-            :aria-label="muted ? 'Unmute' : 'Mute'"
-            title="MUTE [M]"
-            @click="toggleMute"
-          >{{ muted ? '×' : '♪' }}</button>
-        </div>
       </div>
     </div>
 
@@ -139,7 +120,7 @@ import Dial from './Dial.vue'
 import Channels from './Channels.vue'
 
 const radio = useRadio()
-const { controls, playing, volume, muted, set, setVolume, toggleMute, landscapeOf, hud } = radio
+const { controls, playing, set, landscapeOf, hud } = radio
 const { auto, toggleAuto, glideOn } = useAuto()
 /** Which channels show on the dial, in this browser only (never synced here). */
 const { visible } = useChannels()
@@ -306,7 +287,6 @@ function onKey(e: KeyboardEvent): void {
   else if (k === 'g' || k === 'G') { if (!e.repeat) glideOn() }
   else if (k === 'd' || k === 'D') { if (!e.repeat) setCalm(!calm.value) }
   else if (k === 'c' || k === 'C') { if (!e.repeat) channelsOpen.value = true }
-  else if (k === 'm' || k === 'M') { if (!e.repeat) toggleMute() }
   else handled = false
   if (handled) e.preventDefault()
 }
@@ -404,19 +384,6 @@ onBeforeUnmount(() => {
 .deck__hold { height: 36px; margin-left: auto; }
 .deck__hold.on, .deck__hold.on:hover { color: var(--bg); background: var(--gold); }
 
-.deck__vol { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; }
-.deck__mute {
-  width: 28px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--pink);
-  font-size: 16px;
-  cursor: pointer;
-}
-.deck__mute.on { color: var(--subtle); }
-
 .app__toast {
   --px-edge: var(--gold);
   position: absolute;
@@ -456,8 +423,6 @@ onBeforeUnmount(() => {
   .deck__hold { flex: none; padding: 0 8px; margin: 0; }
   .deck__side { gap: 8px; }
   .deck__knobs { gap: 4px; }
-  /* The volume row ends short of the ⌂ chip. */
-  .deck__vol { margin-right: 44px; }
   .deck__more { text-align: center; }
   .deck__more-wide { display: none; }
   .deck__more-narrow { display: inline; }

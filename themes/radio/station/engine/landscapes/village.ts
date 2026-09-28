@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 import type { Landscape } from '../types.ts'
 
 /** A small village at dusk: F major sevenths, a lazy swing, an electric piano. */
@@ -57,4 +57,5 @@ export const village: Landscape = {
   fx: { reverb: 0.3, delay: 0.2, reverbSize: 1.8, tone: 0.8, grit: 0.35 },
   ambience: { birds: 0.3, chimes: 0.25, 'bell.distant': 0.2, fire: 0.15 },
   accent: '#ffd23f',
+  alt: { lead: ['keys.piano', 'guitar.nylon', 'keys.felt'], arp: ['guitar.nylon', 'guitar.steel'], bass: ['bass.finger'], counter: ['keys.felt', 'counter.strings'] },
 }

@@ -1,19 +1,19 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * The master chain and the shared effects.
  *
- *   input ─ HP 24 Hz ─ tone LP ─ tape (drive → shaper → makeup) ─ wow ─ width ─ glue comp ─ trim ─ limiter ─ soft clip ─ output
- *                                   └ hiss (grit)
+ *   input ─ HP 24 Hz ─ tone LP ─ crush (dry + staircase wet) ─ tape (drive → shaper → makeup) ─ wow ─ width ─ glue comp ─ trim ─ limiter ─ soft clip ─ output
+ *                                                                └ hiss (grit)
  *   reverbIn ─ HP/LP ─ convolver A/B (crossfaded on size changes) ─┐
  *   gatedIn ─ gated convolver ──────────────────────────────────────┼─ input
  *   delayIn ─ HP/LP ─ ping-pong dotted eighth (filtered feedback) ──┘
  *
- * Returns join the master input, so tone, tape and width apply to the
+ * Returns join the master input, so tone, crush, tape and width apply to the
  * whole mix. Every parameter moves with setTargetAtTime (no zipper noise).
  */
 import type { FxState } from '../types.ts'
 import { dottedEighth } from './timing.ts'
-import { clamp } from './synth.ts'
+import { clamp, holdAt } from './synth.ts'
 
 export interface Fx {
   input: GainNode
@@ -25,6 +25,11 @@ export interface Fx {
   probe: AudioNode
   /** Glide to a bar's fx state starting at `t0`; `bar` is the bar length (s). */
   apply(s: FxState, t0: number, bar: number, bpm: number): void
+  /**
+   * Transport cut: drop every glide scheduled after `at` and hold the values
+   * there. A reverb crossfade still under way completes over 0.3 s instead.
+   */
+  hold(at: number): void
 }
 
 /** Master trim before the limiter; calibrated so a full mix peaks near -3 dBFS. */
@@ -105,6 +110,24 @@ function tapeCurve() {
   return c
 }
 
+/**
+ * Bit crush: a mid-tread staircase with `bits` of depth over the shaper's
+ * input range. Symmetric about zero, so it adds no DC; silence stays silent.
+ */
+export function crushCurve(bits: number) {
+  const n = 8192
+  const c = new Float32Array(n)
+  const q = 2 ** (bits - 1)
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1
+    c[i] = Math.round(x * q) / q
+  }
+  return c
+}
+
+/** The wet share of the crushed path at full crush: a console's grain over the mix, never a broken one. */
+export const CRUSH_WET = 0.45
+
 /** Soft clip: linear to 0.8, then eases to a 0.98 ceiling. The last line of defence. */
 function softClipCurve() {
   const n = 4096
@@ -133,6 +156,25 @@ export function createFx(ac: BaseAudioContext): Fx {
   const input = g(1)
   const hp = f('highpass', 24, 0.6)
   const tone = f('lowpass', 16000, 0.5)
+  // Crush: a parallel path through two staircases, the finer one fading into
+  // the coarser as crush rises. No oversampling: the aliasing is the sound. A
+  // low-pass takes the harshest folded highs off the wet path.
+  const tapeIn = g(1)
+  const crushDry = g(1)
+  const crushIn = g(1)
+  const fine = ac.createWaveShaper()
+  fine.curve = crushCurve(7)
+  fine.oversample = 'none'
+  const coarse = ac.createWaveShaper()
+  coarse.curve = crushCurve(5)
+  coarse.oversample = 'none'
+  const fineG = g(0)
+  const coarseG = g(0)
+  const crushLp = f('lowpass', 9000, 0.5)
+  const crushWet = g(0)
+  crushIn.connect(fine); fine.connect(fineG); fineG.connect(crushLp)
+  crushIn.connect(coarse); coarse.connect(coarseG); coarseG.connect(crushLp)
+  crushLp.connect(crushWet)
   // Tape: pre-gain sets how hard the curve is driven; post-gain undoes the small-signal gain.
   const drive = g(0.1)
   const shaper = ac.createWaveShaper()
@@ -194,7 +236,11 @@ export function createFx(ac: BaseAudioContext): Fx {
 
   input.connect(hp)
   hp.connect(tone)
-  tone.connect(drive)
+  tone.connect(crushDry)
+  tone.connect(crushIn)
+  crushDry.connect(tapeIn)
+  crushWet.connect(tapeIn)
+  tapeIn.connect(drive)
   drive.connect(shaper)
   shaper.connect(makeup)
   makeup.connect(dc)
@@ -265,9 +311,32 @@ export function createFx(ac: BaseAudioContext): Fx {
   delRet.connect(input)
 
   let first = true
+  /** When the first state was set (a cut before it makes the next bar the first again). */
+  let firstAt = -1
+  /** When the last reverb crossfade ends. */
+  let xfadeEnd = -1
+  const params: AudioParam[] = [
+    tone.frequency, crushDry.gain, crushWet.gain, fineG.gain, coarseG.gain, drive.gain, makeup.gain, wowDepth.gain, flutDepth.gain, hiss.gain,
+    ll.gain, rr.gain, lr.gain, rl.gain, reverbIn.gain, delayIn.gain, dl.delayTime, dr.delayTime,
+  ]
+
+  function hold(at: number): void {
+    for (const p of params) holdAt(p, at)
+    if (firstAt >= at) first = true
+    if (xfadeEnd > at) {
+      holdAt(verb.send.gain, at)
+      verb.send.gain.linearRampToValueAtTime(sizeComp(verb.size), at + 0.3)
+      if (retiring) {
+        holdAt(retiring.send.gain, at)
+        retiring.send.gain.linearRampToValueAtTime(0, at + 0.3)
+      }
+      xfadeEnd = at + 0.3
+    }
+  }
 
   function apply(s: FxState, t0: number, bar: number, bpm: number): void {
     const tau = Math.max(0.05, bar / 4)
+    if (first) firstAt = t0
     const set = (p: AudioParam, v: number) => {
       if (!Number.isFinite(v)) return
       if (first) p.setValueAtTime(v, t0)
@@ -276,6 +345,12 @@ export function createFx(ac: BaseAudioContext): Fx {
     const grit = clamp(s.grit ?? 0, 0, 1)
     const toneHz = 1000 * Math.pow(18, clamp(s.tone ?? 0.8, 0, 1)) * (1 - 0.3 * grit)
     set(tone.frequency, Math.min(toneHz, ac.sampleRate * 0.45))
+    // Crush: the wet path takes up to CRUSH_WET of the mix; dry + wet stays at unity.
+    const crush = clamp(s.crush ?? 0, 0, 1)
+    set(crushWet.gain, CRUSH_WET * crush)
+    set(crushDry.gain, 1 - CRUSH_WET * crush)
+    set(fineG.gain, 1 - crush)
+    set(coarseG.gain, crush)
     // Drive 0.1 (clean) .. 0.55 (warm); makeup keeps the small-signal gain at 1.
     const dv = 0.1 + 0.45 * grit
     set(drive.gain, dv)
@@ -308,6 +383,7 @@ export function createFx(ac: BaseAudioContext): Fx {
       verb = makeVerb(size, 0)
       verb.send.gain.setValueAtTime(0, t0)
       verb.send.gain.linearRampToValueAtTime(sizeComp(size), t0 + bar)
+      xfadeEnd = t0 + bar
       retiring = old
       // Free the old convolver once its tail has rung out.
       const ms = Math.max(0, (t0 + bar + old.size + 0.5 - ac.currentTime) * 1000)
@@ -321,7 +397,7 @@ export function createFx(ac: BaseAudioContext): Fx {
     first = false
   }
 
-  return { input, reverbIn, delayIn, gatedIn, output, probe: trim, apply }
+  return { input, reverbIn, delayIn, gatedIn, output, probe: trim, apply, hold }
 }
 
 function hissBuffer(ac: BaseAudioContext): AudioBuffer {

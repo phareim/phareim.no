@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Runtime lists of the ids in types.ts, for validation and for the Opus
  * compose prompt. The Record types make the compiler refuse a list that
@@ -15,12 +15,15 @@ const VOICES: Record<VoiceId, true> = {
   'bass.saw': true, 'bass.square': true, 'bass.round': true, 'bass.sub': true, 'bass.pluck': true, 'bass.fm': true,
   'bell.glass': true, 'bell.fm': true, 'bell.chime': true, 'counter.strings': true, 'counter.soft': true,
   'drone.sub': true, 'drone.organ': true, 'drone.shimmer': true,
+  'keys.piano': true, 'keys.felt': true, 'guitar.nylon': true, 'guitar.steel': true, 'guitar.mute': true, 'bass.finger': true,
+  'chip.lead': true, 'chip.bass': true, 'chip.pad': true, 'chip.bell': true,
+  'strings.ensemble': true, 'wind.flute': true, 'mallet.vibes': true, 'bass.upright': true,
 }
 export const VOICE_IDS = Object.keys(VOICES) as VoiceId[]
 
 const KITS: Record<KitId, true> = {
   'kit.synthwave': true, 'kit.soft': true, 'kit.tribal': true, 'kit.brush': true,
-  'kit.motorik': true, 'kit.heartbeat': true, 'kit.chip': true,
+  'kit.motorik': true, 'kit.heartbeat': true, 'kit.chip': true, 'kit.acoustic': true,
 }
 export const KIT_IDS = Object.keys(KITS) as KitId[]
 
@@ -47,12 +50,13 @@ const LAYER_SET: Record<Layer, true> = {
 }
 export const LAYER_IDS = Object.keys(LAYER_SET) as Layer[]
 
-/** The painted scenes (one per built-in landscape). */
+/** The painted scenes: one per built-in landscape, and one per composed channel that has been painted (named after its landscape id). */
 export const SCENE_IDS = [
   'coast', 'summit', 'jungle', 'frostwood', 'village', 'nightdrive', 'voyager', 'deepspace', 'neonrain', 'caverns',
+  'crossroads-cafe-5b44', 'autumn-harbour-4ce5', 'canopy-run-8d30',
 ] as const
 
 export const INTENSITY_NAMES = ['STILL', 'DRIFT', 'CRUISE', 'DRIVE', 'SURGE'] as const
 
 /** Bumped when the composer or conductor changes in a way feedback should know about. */
-export const ENGINE_VERSION = '1.0.1'
+export const ENGINE_VERSION = '1.3.2'

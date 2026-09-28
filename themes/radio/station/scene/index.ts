@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * The radio's painted places, in Neon Shrine's pixel look.
  *
@@ -26,6 +26,9 @@ import { createVoyager } from './scenes/voyager.ts'
 import { createDeepspace } from './scenes/deepspace.ts'
 import { createNeonrain } from './scenes/neonrain.ts'
 import { createCaverns } from './scenes/caverns.ts'
+import { createCrossroadsCafe } from './scenes/crossroads-cafe-5b44.ts'
+import { createAutumnHarbour4ce5 } from './scenes/autumn-harbour-4ce5.ts'
+import { createCanopyRun8d30 } from './scenes/canopy-run-8d30.ts'
 
 export interface Scene {
   resize(cssW: number, cssH: number, dpr: number): void
@@ -45,6 +48,9 @@ const FACTORIES: Record<string, () => Place> = {
   deepspace: createDeepspace,
   neonrain: createNeonrain,
   caverns: createCaverns,
+  'crossroads-cafe-5b44': createCrossroadsCafe,
+  'autumn-harbour-4ce5': createAutumnHarbour4ce5,
+  'canopy-run-8d30': createCanopyRun8d30,
 }
 
 export const SCENE_IDS: readonly string[] = Object.keys(FACTORIES)
@@ -108,7 +114,9 @@ export function createScene(canvas: HTMLCanvasElement): Scene {
 
   /** Update the shared frame context from the player's state. */
   function update(v: VisualState, now: number) {
-    const dt = last < 0 ? 1 / 60 : clamp((now - last) / 1000, 0, 0.1)
+    // The first frame takes the music's mood at once; after that it eases.
+    const first = last < 0
+    const dt = first ? 1 / 60 : clamp((now - last) / 1000, 0, 0.1)
     last = now
     ctx.dt = dt
     ctx.t += dt
@@ -116,15 +124,15 @@ export function createScene(canvas: HTMLCanvasElement): Scene {
     ctx.levels = v.levels ?? EMPTY_LEVELS
     const bar = v.bar
     const target = bar ? clamp(bar.meta.intensity, 0, 4) : 1
-    ctx.intensity += (target - ctx.intensity) * (1 - Math.exp(-dt / 2.5))
+    ctx.intensity += (target - ctx.intensity) * (first ? 1 : 1 - Math.exp(-dt / 2.5))
     ctx.energy = ctx.intensity / 4
     const dark = bar ? DARK[bar.key.mode] ?? 0.5 : 0.4
-    ctx.dark += (dark - ctx.dark) * (1 - Math.exp(-dt / 3))
+    ctx.dark += (dark - ctx.dark) * (first ? 1 : 1 - Math.exp(-dt / 3))
     if (bar && bar.chords.length) {
       const span = bar.chords.find(s => v.step >= s.from && v.step < s.from + s.len) ?? bar.chords[0]!
       const root = Number.isFinite(span.chord.root) ? span.chord.root : 0
       const want = rgb(ROOT_COLORS[((Math.round(root) % 12) + 12) % 12]!)
-      const k = 1 - Math.exp(-dt / 1.2)
+      const k = first ? 1 : 1 - Math.exp(-dt / 1.2)
       accent = [accent[0] + (want[0] - accent[0]) * k, accent[1] + (want[1] - accent[1]) * k, accent[2] + (want[2] - accent[2]) * k]
       ctx.accent = hex(accent)
     }

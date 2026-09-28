@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 import type { Landscape } from '../types.ts'
 
 /** Above the clouds: D lydian, open and slow, a flute over a choir. */
@@ -57,4 +57,5 @@ export const summit: Landscape = {
   fx: { reverb: 0.55, delay: 0.35, reverbSize: 5, tone: 0.75, grit: 0.15 },
   ambience: { 'wind.high': 0.45, wind: 0.3 },
   accent: '#cfc6ff',
+  alt: { lead: ['lead.whistle', 'guitar.nylon', 'keys.piano'], arp: ['pluck.harp', 'guitar.steel'] },
 }

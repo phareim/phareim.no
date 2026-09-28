@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 import type { Landscape } from '../types.ts'
 
 /** Dense green and water: A dorian, marimba and congas, a whistled tune. */
@@ -62,4 +62,5 @@ export const jungle: Landscape = {
   fx: { reverb: 0.3, delay: 0.25, reverbSize: 2.2, tone: 0.85, grit: 0.2 },
   ambience: { 'birds.jungle': 0.45, insects: 0.35, stream: 0.25 },
   accent: '#3fe0a0',
+  alt: { lead: ['mallet.marimba', 'guitar.nylon'], arp: ['guitar.nylon', 'mallet.kalimba'], counter: ['guitar.nylon', 'mallet.marimba'] },
 }

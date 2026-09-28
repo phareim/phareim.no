@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Night Drive — the coastal highway at night, seen from the side. Our car
  * cruises right toward the city on the horizon; streetlights sweep past and

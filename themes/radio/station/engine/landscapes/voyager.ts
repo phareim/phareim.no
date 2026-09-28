@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 import type { Landscape } from '../types.ts'
 
 /** Space exploration: C lydian, a Berlin-school sequence, motorik drums. */
@@ -60,4 +60,5 @@ export const voyager: Landscape = {
   fx: { reverb: 0.45, delay: 0.45, reverbSize: 4, tone: 0.9, grit: 0.2, pump: 0.15 },
   ambience: { radio: 0.35, shimmer: 0.3, 'space.hum': 0.2 },
   accent: '#9a4ff0',
+  alt: { lead: ['lead.saw', 'lead.glide'], arp: ['arp.pluck'], bass: ['bass.saw', 'bass.pluck'] },
 }

@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Which channels show on the dial. Signed out, the choice lives in this
  * browser; signed in as a member, it lives on radio-api under your email
@@ -26,6 +26,12 @@ function persist(): void {
   pushTimer = setTimeout(() => {
     $fetch('/api/settings', { method: 'PUT', body: { hidden: hidden.value } }).catch(() => { /* next change retries */ })
   }, 600)
+}
+
+/** Another member signed in on this browser: start from nothing. */
+function forget(): void {
+  hidden.value = []
+  synced = false
 }
 
 /** Members: take the server's copy, or seed it with this browser's. */
@@ -68,5 +74,5 @@ const visible = computed<Landscape[]>(() => {
 })
 
 export function useChannels() {
-  return { hidden, visible, isHidden, setShown, sync }
+  return { hidden, visible, isHidden, setShown, sync, forget }
 }

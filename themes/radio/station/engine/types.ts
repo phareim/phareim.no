@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * The radio's contracts. Everything the composer, the conductor, the audio
  * player, the scene painter and the backend agree on lives here.
@@ -110,6 +110,23 @@ export type VoiceId =
   | 'drone.sub'     // root and fifth, sine + soft triangle, very low
   | 'drone.organ'   // drawbar-ish root+fifth+octave, slow tremolo
   | 'drone.shimmer' // high overtone cluster, slow beating
+  // keys and strings (jam's instruments; any layer may use them)
+  | 'keys.piano'    // acoustic-ish piano: hammer thump, inharmonic partials, long decay
+  | 'keys.felt'     // felt piano: muted, soft attack, close and warm (lofi)
+  | 'guitar.nylon'  // plucked nylon string (Karplus-Strong), round and soft
+  | 'guitar.steel'  // plucked steel string, brighter, more ring
+  | 'guitar.mute'   // palm-muted pluck, short and percussive
+  | 'bass.finger'   // fingered electric bass (plucked string, warm low end)
+  // chip voices: the 8-bit end of the Era knob (any layer may use them)
+  | 'chip.lead'     // NES pulse lead: square/pulse duty, delayed stepped vibrato, no filter
+  | 'chip.bass'     // NES triangle: the 4-bit stepped triangle, no envelope but the gate
+  | 'chip.pad'      // a chord as a frame-rate arpeggio: each note of the chord takes its turn (`opts.chord`)
+  | 'chip.bell'     // 12.5 % pulse blip with a short decay and a soft echo
+  // acoustic voices: the analog end of the Era knob (modelled, no samples)
+  | 'strings.ensemble' // bowed string section: sustained, slow bow attack, body resonances
+  | 'wind.flute'    // flute: breath chiff, soft harmonics, vibrato that comes in late
+  | 'mallet.vibes'  // vibraphone: struck bar partials, long ring, slow motor tremolo
+  | 'bass.upright'  // upright bass: plucked gut string, woody thump, short ring
 
 /** Drum kits: each maps the hit names below to a different synthesis. */
 export type KitId =
@@ -120,6 +137,7 @@ export type KitId =
   | 'kit.motorik'   // tight dry kick, tight snare, closed 16th hats
   | 'kit.heartbeat' // muffled low double-thump kick, almost no highs
   | 'kit.chip'      // NES noise-channel drums
+  | 'kit.acoustic'  // a real kit in a room: beater kick, wired snare, cymbals, toms
 
 /**
  * Drum hit names (one char, used in groove strings):
@@ -266,10 +284,53 @@ export interface FxSpec {
   reverbSize: number
   /** Master low-pass tone 0 (dark) .. 1 (open). */
   tone: number
-  /** 0..1 tape saturation and wow at the default Grit setting. */
+  /** 0..1 tape saturation and wow with Era in the middle. */
   grit: number
   /** Kick ducks pads and drones this much (0..1): the synthwave pump. */
   pump?: number
+}
+
+/**
+ * One part of a written phrase: eight bars in jam's bar notation (see
+ * `engine/piece/types.ts`), one string per bar, '' for a silent bar.
+ *   note bars (`voice`): space-separated <step>:<pitches>:<len>[:<vel>],
+ *     step 0..15 in sixteenths, pitches like C4 or A3+C4+E4 (C4 = MIDI 60),
+ *     len in sixteenths, vel 1..9 (default 7). "0:A3+C4+E4:16 8:G4:4:5"
+ *   drum bars (`kit`, layer drums or perc): <hit>:<16 chars of . x X g ->,
+ *     "k:x.......x....... s:....X.......X..."
+ * Pitches are absolute, written in the landscape's tonic and the mode it
+ * has at mood 0.5; when the mood knob moves the mode, the conductor moves
+ * each note by scale degree (chromatic notes move with the degree below).
+ */
+export interface WrittenPart {
+  /** The layer it plays on (not ambience). It replaces the composer on that layer while quoted. */
+  layer: Layer
+  /** Exactly one of voice (note bars) and kit (drum bars; layer drums or perc). */
+  voice?: VoiceId
+  kit?: KitId
+  /** The part plays at this intensity and above (and only while `layer` is on the ladder). */
+  enter: 0 | 1 | 2 | 3 | 4
+  /** 0..1.5, scales velocity. Default 1. */
+  gain?: number
+  /** Exactly 8 bar strings. */
+  bars: string[]
+}
+
+/**
+ * A phrase written note for note (in jam, the radio's sister instrument),
+ * which the conductor quotes verbatim now and then between its own phrases.
+ */
+export interface WrittenPhrase {
+  /** Short label for the display, e.g. 'P1' or 'theme'. */
+  name?: string
+  /** The phrase's own progression (chord-token grammar, as Progression.chords); must last exactly 8 bars. */
+  chords: string
+  /** Default bars per chord token: 1 or 2 (default 2). */
+  chordBars?: 1 | 2
+  /** 1..10 parts. Layers without a part keep being composed over the phrase's chords. */
+  parts: WrittenPart[]
+  /** Relative pick weight (default 1). */
+  weight?: number
 }
 
 export interface Landscape {
@@ -313,6 +374,33 @@ export interface Landscape {
   ambience: Partial<Record<AmbienceId, number>>
   /** Accent colour for the UI (hex). */
   accent: string
+  /**
+   * Other instruments for the conductor to orchestrate with, section by
+   * section. Home sections (A) keep the landscape's own voices; the varied
+   * section (A2) may give the arp or counter another; the contrast section
+   * (B) may hand the lead, arp, bass or pad to one; when the home theme
+   * returns after a contrast at intensity 3 or 4, `double` plays the lead an
+   * octave below. Each list holds up to four voices of a character that fits
+   * the place (a lofi lead.ep → keys.felt, keys.piano; a nylon-guitar arp
+   * in a warm village). Left out, related voices are chosen for you; an empty
+   * list keeps that layer's voice, and `double: null` turns doubling off.
+   */
+  alt?: {
+    lead?: VoiceId[]
+    arp?: VoiceId[]
+    pad?: VoiceId[]
+    bass?: VoiceId[]
+    counter?: VoiceId[]
+    double?: VoiceId | null
+  }
+  /**
+   * Written phrases (at most 8) the conductor quotes between its generated
+   * sections: now and then a section becomes one of these, played for one
+   * 8-bar phrase over its own chords, then the music goes on generating.
+   */
+  written?: WrittenPhrase[]
+  /** 0..1: chance a new section quotes a written phrase (default 0.35). */
+  quote?: number
   /** Which painted scene shows it (a built-in landscape id); defaults to `id`. */
   scene?: string
   /** Where it came from: 'builtin' or 'opus' (composed on request). */
@@ -332,8 +420,13 @@ export interface Controls {
   mood: number
   /** 0 dry .. 1 vast: reverb and delay (glides). */
   space: number
-  /** 0 clean .. 1 worn tape (glides). */
-  grit: number
+  /**
+   * Era: 0 8-bit .. 0.5 the landscape as written .. 1 analog. Away from the
+   * middle the layers hand over, one by one at phrase starts, to chip voices
+   * (toward 0) or acoustic instruments (toward 1); the master chain crushes
+   * bits toward 0 and adds tape toward 1 (glides).
+   */
+  era: number
   /** 0 sparse .. 1 busy: note density, arp rate, ghost notes (phrase boundaries). */
   density: number
   /** Tempo nudge in bpm, -20..+20 (glides over a phrase). */
@@ -347,7 +440,7 @@ export const DEFAULT_CONTROLS: Controls = {
   intensity: 2,
   mood: 0.5,
   space: 0.5,
-  grit: 0.3,
+  era: 0.5,
   density: 0.5,
   tempo: 0,
   hold: false,
@@ -367,8 +460,8 @@ export interface NoteEvent {
   vel: number
   /** -1..1, default 0. */
   pan?: number
-  /** Voice-specific extras (e.g. arp.seq cutoff 0..1, lead.glide legato). */
-  opts?: { cutoff?: number; legato?: boolean }
+  /** Voice-specific extras (e.g. arp.seq cutoff 0..1, lead.glide legato, chip.pad's place in its chord). */
+  opts?: { cutoff?: number; legato?: boolean; chord?: [index: number, count: number] }
 }
 
 export interface DrumEvent {
@@ -393,7 +486,10 @@ export interface FxState {
   delay: number
   reverbSize: number
   tone: number
+  /** Tape saturation, wow and hiss 0..1. */
   grit: number
+  /** Bit crush 0..1 (the 8-bit side of Era). */
+  crush: number
   pump: number
   /** Stereo width 0..1. */
   width: number
@@ -452,6 +548,8 @@ export interface BarPlan {
     intensity: number
     /** The next bar's first chord, for 'next chord' in the display. */
     nextChord?: string
+    /** A piece's position in its loop, 0-based (piece conductor only). */
+    loopBar?: number
   }
 }
 
@@ -468,7 +566,7 @@ export interface ConductorLike {
 
 /** Cheap to read every animation frame. */
 export interface VisualState {
-  /** The bar sounding now (null before the first bar). */
+  /** The bar sounding now (null before the first bar, and from a cut until the next bar, e.g. while idle). */
   bar: BarPlan | null
   /** Position in the sounding bar, 0..16 (fractional). */
   step: number
@@ -486,11 +584,59 @@ export interface VisualState {
 }
 
 export interface RadioPlayer {
-  /** Create or resume the AudioContext (call from a user gesture) and start scheduling. */
-  start(): Promise<void>
-  /** Fade out over ~1 s, then suspend. The conductor keeps its state. */
+  /**
+   * Create or resume the AudioContext (call from a user gesture) and start
+   * scheduling. `idle` sets the idle transport (see `setIdle`) before
+   * anything is scheduled: `start({ idle: true })` gets the context running
+   * for live notes without planning a bar (and fades the volume in over
+   * 20 ms instead of 0.4 s). Without `idle` the setting is left as it is (the
+   * radio never idles, so `start()` behaves as it always has).
+   */
+  start(opts?: { idle?: boolean }): Promise<void>
+  /** Fade out over ~1 s, then suspend. The conductor keeps its state (and `idle` its setting). */
   stop(): void
+  /** The audio is running (true while idle too: the context runs and live notes play). */
   readonly playing: boolean
+  /**
+   * Transport cut (jam's STOP and SEEK; the radio never calls it). From `at`
+   * (default: now + ~10 ms, rounded up to a render quantum; clamped to
+   * [now, end of what is scheduled]):
+   * - every scheduled note, drum hit and ambience event starting at or after
+   *   `at` never sounds;
+   * - scheduled notes sounding at `at` fade out over `fade` s (default
+   *   0.08); percussive ones (drum hits other than risers, plucked and struck
+   *   voices, ambience events) ring out as they would have, unless `ring` is
+   *   false, when they fade over `fade` too;
+   * - the bar queue after `at` is dropped and the bar sounding at `at` ends
+   *   there; `visual()` and `positionAt()` forget the dropped bars
+   *   (positionAt is null from `at` until the next bar), `onBar` never fires
+   *   for them;
+   * - mix, pump, fx and ambience-level automation after `at` is cancelled and
+   *   held at its value at `at` (a reverb-size crossfade completes over 0.3 s);
+   * - the next bar is asked from the conductor in a microtask (after the
+   *   calling handler, before any timer) and starts at `at`, unless the
+   *   transport is idle by then. So `conductor.seek(n)` and `cut()` start
+   *   bar n almost at once, and `cut()` + `setIdle(true)` stops, in either
+   *   order within one handler. Its BarPlan.index is whatever the conductor
+   *   gives next: the indices of the dropped bars are not reused.
+   * Live notes are never cut. Echo and reverb tails ring on.
+   */
+  cut(opts?: CutOptions): void
+  /**
+   * The idle transport (jam's stopped state; not Controls.hold, which
+   * freezes the music's progression). `setIdle(true)`: no new bar is
+   * planned; whatever is already scheduled plays out (call `cut()` too to
+   * stop at once), then the ambience fades out over 0.5 s. The AudioContext
+   * keeps running, `live()` works, mix and effects stay where they were
+   * (live notes keep their reverb and delay). While idle and past the last
+   * scheduled bar, `visual().bar` is null (step 0), `positionAt` is null and
+   * `visual().playing` stays true. `setIdle(false)`: the next bar is planned
+   * right away and starts ~10 ms from now (or where the scheduled music
+   * ends, if it has not ended yet).
+   */
+  setIdle(on: boolean): void
+  /** The transport is idle (see `setIdle`). */
+  readonly idle: boolean
   /** Master volume 0..1. */
   setVolume(v: number): void
   visual(): VisualState
@@ -508,6 +654,45 @@ export interface RadioPlayer {
    * <audio> element), so the music is not heard twice.
    */
   setOutput(mode: 'speakers' | 'stream'): void
+  /**
+   * Play a note now, outside the bar plans (an instrument under the
+   * player's fingers). Needs a started player (idle or not); returns null
+   * otherwise. The note sounds on `layer`'s bus with that layer's effects
+   * sends. `cut()` does not touch live notes.
+   */
+  live(layer: Layer, sound: LiveSound, vel: number, pan?: number): LiveNote | null
+  /**
+   * Where in the music an audio-clock time falls: the absolute bar index
+   * (BarPlan.index) and the fractional step 0..16 in it, or null before the
+   * first bar or past what is scheduled (and from a cut until the next bar).
+   */
+  positionAt(time: number): { bar: number; step: number } | null
+  /** Seconds between scheduling a sound and hearing it (output + base latency), 0 when unknown. */
+  readonly latency: number
+}
+
+/** What a live note plays: a pitched voice or a drum hit. */
+export type LiveSound =
+  | { voice: VoiceId; midi: number }
+  | { kit: KitId; hit: DrumHit }
+
+export interface LiveNote {
+  /** Release a held note now (percussive sounds ring on regardless). */
+  release(): void
+}
+
+export interface CutOptions {
+  /** Audio-clock time of the cut; default now + ~10 ms. */
+  at?: number
+  /** Seconds a held note takes to fade out from `at`; default 0.08. */
+  fade?: number
+  /** Percussive sounds sounding at `at` ring out (default true); false fades them over `fade` too. */
+  ring?: boolean
+}
+
+export interface PlayerOptions {
+  /** 'playback' (default: the radio, battery friendly) or 'interactive' (jam: low latency for live playing). */
+  latencyHint?: 'playback' | 'interactive'
 }
 
 // ---- feedback (backend) --------------------------------------------------

@@ -1,20 +1,23 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Drum kits: `playDrum(v, kit, hit, at, vel, len?)`.
  *
- * Seven kits, each mapping all twelve hit names (k s c h o r p t m T x z) to
+ * Eight kits, each mapping all twelve hit names (k s c h o r p t m T x z) to
  * its own synthesis. The hits are built from a handful of primitives
  * (pitched body, filtered noise, metal cluster, NES noise) with per-kit
  * parameters, so every kit keeps one character: synthwave punchy and gated,
  * soft dusty lofi, tribal skins and wood, brushes, dry motorik, a muffled
- * heartbeat, NES noise-channel chip drums.
+ * heartbeat, NES noise-channel chip drums, and an acoustic kit in a room
+ * (the analog end of the Era knob).
  *
  * Every hit is one output gain (level × velocity) into the layer bus, and
- * optionally into the gated reverb. It is disconnected when its longest
- * source ends.
+ * optionally into the gated reverb or the acoustic kit's room. It is disconnected when its longest
+ * source ends. `playDrum` returns a Cuttable (synth.ts) for the transport
+ * cut: a hit that has not started stays silent; a sounding hit rings out,
+ * except a riser (z), which fades like a held note.
  */
 import type { KitId, DrumHit } from '../types.ts'
-import { type VoiceCtx, clamp, rand, safeHz } from './synth.ts'
+import { type VoiceCtx, type Cuttable, type GateHandle, clamp, rand, safeHz, gateHandle } from './synth.ts'
 
 interface Hit {
   ac: BaseAudioContext
@@ -25,13 +28,15 @@ interface Hit {
   taps: AudioNode[]
   last: AudioScheduledSourceNode | null
   end: number
+  /** Every source, for a transport cut. */
+  srcs: AudioScheduledSourceNode[]
 }
 
 type HitFn = (h: Hit, vel: number, len: number) => void
 
 // ---- the hit wrapper -------------------------------------------------------------
 
-function open(v: VoiceCtx, at: number, level: number, pan: number, gated: number): Hit {
+function open(v: VoiceCtx, at: number, level: number, pan: number, gated: number, roomSend = 0): Hit {
   const ac = v.ac
   const out = ac.createGain()
   out.gain.value = level
@@ -51,11 +56,19 @@ function open(v: VoiceCtx, at: number, level: number, pan: number, gated: number
     g.connect(v.out.gate)
     taps.push(g)
   }
-  return { ac, v, at, out, taps, last: null, end: at }
+  if (roomSend > 0) {
+    const g = ac.createGain()
+    g.gain.value = roomSend
+    tail.connect(g)
+    g.connect(room(v))
+    taps.push(g)
+  }
+  return { ac, v, at, out, taps, last: null, end: at, srcs: [] }
 }
 
 function track(h: Hit, src: AudioScheduledSourceNode, end: number): void {
   src.stop(end)
+  h.srcs.push(src)
   if (end >= h.end) { h.end = end; h.last = src }
 }
 
@@ -67,6 +80,51 @@ function close(h: Hit): void {
       try { t.disconnect() } catch { /* gone */ }
     }
   }
+}
+
+/**
+ * A small room for the acoustic kit (the room mics): a stereo impulse of
+ * early reflections (5-30 ms, different each side) and a dense tail that
+ * dies in about 0.45 s, darker as it decays, low-cut so the kick stays
+ * tight. One convolver per layer, built on first use; lives for the session.
+ */
+function room(v: VoiceCtx): AudioNode {
+  const hit = v.cache.get('drums.room')
+  if (hit) return hit
+  const ac = v.ac
+  const sr = ac.sampleRate
+  const len = Math.floor(sr * 0.5)
+  const ir = ac.createBuffer(2, len, sr)
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch)
+    let lp = 0
+    for (let i = 0; i < len; i++) {
+      const t = i / sr
+      // The tail: noise decaying (T60 ~0.45 s), low-passed harder as it goes.
+      const a = Math.min(0.95, 0.35 + t * 1.6)
+      lp = (1 - a) * (Math.random() * 2 - 1) + a * lp
+      d[i] = lp * Math.exp(-t / 0.065) * Math.min(1, t / 0.008) * 0.5
+    }
+    // Early reflections: walls, floor and ceiling.
+    const taps = ch ? [[0.0061, 0.55], [0.0113, -0.4], [0.0172, 0.33], [0.0241, -0.25], [0.029, 0.2]] : [[0.0049, 0.6], [0.0097, 0.42], [0.0149, -0.35], [0.0213, 0.27], [0.0305, -0.18]]
+    for (const [t, g] of taps) {
+      const i = Math.floor(t! * sr)
+      if (i < len) d[i] = d[i]! + g!
+    }
+  }
+  const conv = ac.createConvolver()
+  conv.normalize = false
+  conv.buffer = ir
+  const input = ac.createGain()
+  input.gain.value = 0.5
+  const hp = ac.createBiquadFilter()
+  hp.type = 'highpass'
+  hp.frequency.value = 220
+  input.connect(hp)
+  hp.connect(conv)
+  conv.connect(v.out.input)
+  v.cache.set('drums.room', input)
+  return input
 }
 
 // ---- primitives ------------------------------------------------------------------
@@ -274,6 +332,13 @@ const rim = (f = 1700): HitFn => h => {
   noiseHit(h, { filters: [['highpass', 3000, 0.7]], decay: 0.006, lvl: 0.4 })
 }
 
+/** An acoustic tom: the shell with a pitch drop, its second head mode (~1.6×), the stick. */
+const acousticTom = (f: number, decay: number): HitFn => (h, vel) => {
+  body(h, { f0: f * (1.25 + 0.15 * vel), f1: f, pTau: 0.045, decay, lvl: 1 })
+  body(h, { f0: f * 1.85, f1: f * 1.59, pTau: 0.03, decay: decay * 0.35, lvl: 0.22 })
+  noiseHit(h, { filters: [['bandpass', 1900, 0.9]], decay: 0.007, lvl: 0.3 + 0.3 * vel })
+}
+
 /** Two hits in one (heartbeat lub-dub, flams). */
 const both = (a: HitFn, b: HitFn): HitFn => (h, vel, len) => { a(h, vel, len); b(h, vel, len) }
 
@@ -289,7 +354,7 @@ const echo = (f: HitFn, delay: number, scale: number): HitFn => (h, vel, len) =>
 
 // ---- the kits --------------------------------------------------------------------------
 
-interface KitHit { fn: HitFn; lvl: number; pan?: number; gated?: number }
+interface KitHit { fn: HitFn; lvl: number; pan?: number; gated?: number; room?: number }
 type Kit = Record<DrumHit, KitHit>
 
 const KITS: Record<KitId, Kit> = {
@@ -444,24 +509,102 @@ const KITS: Record<KitId, Kit> = {
     x: { fn: h => noiseHit(h, { buf: h.v.res.nesLong, rate: 0.8, filters: [['highpass', 1500, 0.7], ['lowpass', 10000, 0.5]], decay: 0.3, lvl: 0.631 }), lvl: 0.16 },
     z: { fn: (h, _v, len) => riser(h, len, { buf: h.v.res.nesLong, from: 600, to: 8000, q: 1.2, lvl: 0.7, rate: 0.5 }), lvl: 0.2 },
   },
+  // A real kit in a room: beater kick, snare with wires, cross-stick, hats, a ride with a bell, crash, toms,
+  // tambourine, a reverse cymbal. Shells and heads are pitched bodies with a small pitch drop; cymbals are the
+  // metal cluster under white noise (res.cymbal) band-passed high, with real decay times. Shells send to the room.
+  'kit.acoustic': {
+    k: {
+      fn: (h, vel) => {
+        // The shell (~57 Hz, dropping from ~80), the head's overtone, the beater's click, the air in the drum.
+        body(h, { f0: 76 + 14 * vel, f1: 57, pTau: 0.03, decay: 0.17, lvl: 1 })
+        body(h, { f0: 128, f1: 96, pTau: 0.02, decay: 0.04, lvl: 0.25 })
+        noiseHit(h, { filters: [['bandpass', 3000, 0.8], ['highpass', 1200, 0.7]], decay: 0.004, lvl: 0.35 + 0.55 * vel })
+        noiseHit(h, { buf: h.v.res.brown, filters: [['lowpass', 260, 0.7]], decay: 0.05, lvl: 0.5 })
+      },
+      lvl: 0.78, room: 0.25,
+    },
+    s: {
+      fn: (h, vel) => {
+        // Two head modes (~185 and ~330 Hz), the wires (band-passed noise, a longer tail), the stick's crack
+        // (strong only when hit hard, so ghost notes are mostly wires).
+        body(h, { f0: 205, f1: 186, pTau: 0.012, decay: 0.07, lvl: 0.5 + 0.2 * vel })
+        body(h, { f0: 350, f1: 332, pTau: 0.012, decay: 0.045, lvl: 0.3 + 0.15 * vel })
+        noiseHit(h, { filters: [['highpass', 1700, 0.7], ['bandpass', 5200, 0.55]], decay: 0.1 + 0.06 * vel, lvl: 0.9 })
+        noiseHit(h, { filters: [['bandpass', 1500, 0.9]], decay: 0.01, lvl: 0.8 * vel * vel })
+      },
+      lvl: 0.36, room: 0.35,
+    },
+    c: {
+      fn: h => {
+        // Cross-stick: the stick laid across the rim, a woody knock with a ring of the rim above it.
+        body(h, { f0: 540, f1: 500, pTau: 0.008, decay: 0.022, lvl: 0.9, type: 'triangle' })
+        body(h, { f0: 1830, f1: 1790, pTau: 0.01, decay: 0.012, lvl: 0.35 })
+        noiseHit(h, { filters: [['bandpass', 2600, 1.4]], decay: 0.005, lvl: 1 })
+      },
+      lvl: 0.42, pan: -0.05, room: 0.3,
+    },
+    h: {
+      fn: (h, vel) => noiseHit(h, { buf: h.v.res.cymbal, rate: 1.1, filters: [['highpass', 7000, 0.7], ['bandpass', 10000, 0.5]], decay: 0.02 + 0.014 * vel, lvl: 1 }),
+      lvl: 0.6, pan: 0.22,
+    },
+    o: {
+      fn: (h, vel) => noiseHit(h, { buf: h.v.res.cymbal, rate: 1.1, filters: [['highpass', 6500, 0.7], ['bandpass', 9500, 0.5]], attack: 0.002, decay: 0.12 + 0.06 * vel, lvl: 0.9 }),
+      lvl: 0.42, pan: 0.22,
+    },
+    r: {
+      fn: (h, vel) => {
+        // Ride: the stick's ping, the wash under it, and the bell (two inharmonic partials) that rings through.
+        noiseHit(h, { buf: h.v.res.cymbal, filters: [['highpass', 4200, 0.7], ['bandpass', 6800, 0.6]], decay: 0.45, lvl: 0.55 })
+        noiseHit(h, { filters: [['bandpass', 5400, 2.2]], decay: 0.025, lvl: 0.35 + 0.3 * vel })
+        body(h, { f0: 745, f1: 745, pTau: 1, decay: 0.42, lvl: 0.1 + 0.06 * vel })
+        body(h, { f0: 1605, f1: 1605, pTau: 1, decay: 0.3, lvl: 0.06 + 0.04 * vel })
+      },
+      lvl: 0.36, pan: 0.35,
+    },
+    p: {
+      fn: h => {
+        // Tambourine: two clashes of the jingles a hair apart.
+        noiseHit(h, { buf: h.v.res.metal, rate: 1.4, filters: [['bandpass', 8400, 1.8], ['highpass', 5500, 0.7]], decay: 0.055, lvl: 1.6 })
+        noiseHit(h, { buf: h.v.res.metal, rate: 1.55, filters: [['bandpass', 9600, 1.8]], decay: 0.045, lvl: 1, delay: 0.013 })
+      },
+      lvl: 0.36, pan: -0.3,
+    },
+    t: { fn: acousticTom(84, 0.3), lvl: 0.5, pan: -0.28, room: 0.35 },
+    m: { fn: acousticTom(112, 0.25), lvl: 0.46, pan: -0.05, room: 0.35 },
+    T: { fn: acousticTom(148, 0.2), lvl: 0.34, pan: 0.18, room: 0.35 },
+    x: {
+      fn: h => {
+        // Crash: bright on the stick, a long wash that gets darker as it dies (8 s to silence).
+        noiseHit(h, { buf: h.v.res.cymbal, filters: [['lowpass', 12500, 0.6], ['highpass', 2600, 0.7]], sweepTo: 4800, sweep: 3, decay: 1.05, lvl: 0.8 })
+        noiseHit(h, { filters: [['bandpass', 3800, 0.8]], decay: 0.04, lvl: 0.5 })
+      },
+      lvl: 0.22, pan: -0.3,
+    },
+    z: { fn: (h, _v, len) => riser(h, len, { from: 2400, to: 9500, q: 0.6, lvl: 0.7 }), lvl: 0.2 },
+  },
 }
 
 /** Per-kit loudness (linear), calibrated so each kit's groove sits at about -24 LUFS through the drums layer. */
 const KIT_GAIN: Record<KitId, number> = {
   'kit.synthwave': 0.266, 'kit.soft': 0.209, 'kit.tribal': 0.199, 'kit.brush': 0.224,
   'kit.motorik': 0.316, 'kit.heartbeat': 0.178, 'kit.chip': 0.295,
+  'kit.acoustic': 0.2,
 }
 
 export const KIT_IDS = Object.keys(KITS) as KitId[]
 export const HITS: DrumHit[] = ['k', 's', 'c', 'h', 'o', 'r', 'p', 't', 'm', 'T', 'x', 'z']
 
 /** Play one drum hit. `len` (seconds) is only used by the riser 'z'. */
-export function playDrum(v: VoiceCtx, kit: KitId, hit: DrumHit, at: number, vel: number, len = 1): void {
+export function playDrum(v: VoiceCtx, kit: KitId, hit: DrumHit, at: number, vel: number, len = 1): Cuttable | null {
   const id = KITS[kit] ? kit : 'kit.synthwave'
   const k = KITS[id][hit]
-  if (!k || !Number.isFinite(at) || !(vel > 0)) return
+  if (!k || !Number.isFinite(at) || !(vel > 0)) return null
   const vv = clamp(vel, 0, 1)
-  const h = open(v, at, KIT_GAIN[id] * k.lvl * vv * (0.4 + 0.6 * vv), k.pan ?? 0, k.gated ?? 0)
+  const h = open(v, at, KIT_GAIN[id] * k.lvl * vv * (0.4 + 0.6 * vv), k.pan ?? 0, k.gated ?? 0, k.room ?? 0)
   k.fn(h, vv, len)
   close(h)
+  const c: GateHandle = gateHandle(v.ac, h.out, at, hit !== 'z')
+  c.srcs = h.srcs
+  c.gone = h.end
+  return c
 }

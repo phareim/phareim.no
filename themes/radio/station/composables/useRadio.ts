@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * The radio's session state, client-only (RadioApp is a .client component).
  *
@@ -44,7 +44,6 @@ function noteText(s: string): string {
 }
 
 const CONTROLS_KEY = 'radio.controls'
-const VOLUME_KEY = 'radio.volume'
 
 function restoreControls(): Controls {
   const saved = load<Partial<Controls>>(CONTROLS_KEY, {})
@@ -53,8 +52,9 @@ function restoreControls(): Controls {
   if (typeof saved.landscape === 'string') c.landscape = saved.landscape
   c.intensity = Math.round(n(saved.intensity, 0, 4, c.intensity)) as Controls['intensity']
   c.mood = n(saved.mood, 0, 1, c.mood)
-  c.space = n(saved.space, 0, 1, c.space)
-  c.grit = n(saved.grit, 0, 1, c.grit)
+  // An old saved `grit` (the knob Era replaced) is ignored: Era starts in the middle.
+  c.era = n(saved.era, 0, 1, c.era)
+  c.space = c.era
   c.density = n(saved.density, 0, 1, c.density)
   c.tempo = Math.round(n(saved.tempo, -20, 20, c.tempo))
   c.hold = saved.hold === true
@@ -62,8 +62,6 @@ function restoreControls(): Controls {
 }
 
 const controls = reactive<Controls>(restoreControls())
-const volume = ref<number>(Math.min(1, Math.max(0, Number(load<number>(VOLUME_KEY, 0.8)) || 0)))
-const muted = ref(false)
 const playing = ref(false)
 const started = ref(false)
 const composed = shallowRef<Landscape[]>([])
@@ -105,6 +103,8 @@ function landscapeOf(id: string): Landscape {
 }
 
 function set(patch: Partial<Controls>): void {
+  // Era carries Space: dry at 8-bit, vast at analog.
+  if (patch.era !== undefined) patch = { ...patch, space: patch.era }
   const clean: Partial<Controls> = {}
   for (const [k, v] of Object.entries(patch) as Array<[keyof Controls, never]>) {
     if (controls[k] !== v) (clean as Record<string, unknown>)[k] = v
@@ -115,22 +115,6 @@ function set(patch: Partial<Controls>): void {
   // The conductor may correct a value (clamping, an unknown landscape).
   if (conductor) Object.assign(controls, conductor.controls)
   save(CONTROLS_KEY, { ...controls })
-}
-
-function applyVolume(): void {
-  player?.setVolume(muted.value ? 0 : volume.value)
-}
-
-function setVolume(v: number): void {
-  volume.value = Math.min(1, Math.max(0, v))
-  if (volume.value > 0) muted.value = false
-  save(VOLUME_KEY, volume.value)
-  applyVolume()
-}
-
-function toggleMute(): void {
-  muted.value = !muted.value
-  applyVolume()
 }
 
 /** Start or resume. Call straight from a user gesture. Returns the player's stream, if any, for the <audio> element. */
@@ -145,7 +129,6 @@ function play(): Promise<void> {
     player = createPlayer(conductor)
     player.onBar(b => { for (const cb of barListeners) cb(b) })
   }
-  applyVolume()
   try {
     // Safari 17+: play as media (through the silent switch), not as a UI sound.
     const nav = navigator as Navigator & { audioSession?: { type: string } }
@@ -190,7 +173,7 @@ function idleVisual(now: number): VisualState {
     index: 0, bpmStart: L.bpm, bpmEnd: L.bpm, swing: 0,
     chords: [{ from: 0, len: 16, chord: { root: L.tonic, bass: L.tonic, tones: [0, 7], symbol: '', degree: '' } }],
     key, scale: [], notes: [], drums: [], mix: {},
-    fx: { reverb: 0, delay: 0, reverbSize: 2, tone: 1, grit: 0, pump: 0, width: 1 },
+    fx: { reverb: 0, delay: 0, reverbSize: 2, tone: 1, grit: 0, crush: 0, pump: 0, width: 1 },
     ambience: {}, ambienceFadeBars: 1,
     meta: {
       landscape: L.id,
@@ -283,8 +266,6 @@ function setComposed(list: Landscape[]): void {
 export function useRadio() {
   return {
     controls,
-    volume,
-    muted,
     playing,
     started,
     landscapes,
@@ -296,8 +277,6 @@ export function useRadio() {
     hasPlayer: !!createPlayer,
     intensityNames: INTENSITY_NAMES,
     set,
-    setVolume,
-    toggleMute,
     play,
     pause,
     tick,

@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Shared synthesis kit for voices, drums and ambience: generated buffers and
  * waves (built once per context), the per-layer voice context, and a small
@@ -21,13 +21,27 @@ export interface Resources {
   brown: AudioBuffer
   /** 1.5 s of six detuned square waves (the TR-808 cymbal cluster). */
   metal: AudioBuffer
+  /** 1.5 s of the metal cluster under dense white noise: a real cymbal's spectrum with a little ring (kit.acoustic). */
+  cymbal: AudioBuffer
   /** NES noise channel, long mode (hiss) and short mode (metallic buzz), 1 s each. */
   nesLong: AudioBuffer
   nesShort: AudioBuffer
   pulse25: PeriodicWave
   pulse12: PeriodicWave
+  /** 50 % square with the same 48 harmonics as the pulses (the chip voices' square). */
+  pulse50: PeriodicWave
+  /** The NES triangle channel: a 4-bit staircase, 32 steps a cycle (band-limited, 48 harmonics). */
+  tri4: PeriodicWave
+  /** A 10-step triangle for vibrato LFOs at 6 Hz: one step per 60 Hz frame, like a sound driver's pitch table. */
+  vibStep: PeriodicWave
+  /** Flute tone: the fundamental with weaker 2nd and 3rd harmonics and a trace of the 4th and 5th. */
+  flute: PeriodicWave
+  /** Waves built on demand and kept for the context (chip.pad's arpeggio gates), by key. */
+  wave(key: string, build: () => PeriodicWave): PeriodicWave
   /** Current grit 0..1; voices add a little random detune with it. */
   grit: number
+  /** Rendered note buffers (plucked strings, pianos), built on first use. */
+  bufs: BufferCache
 }
 
 export function createResources(ac: BaseAudioContext): Resources {
@@ -77,6 +91,11 @@ export function createResources(ac: BaseAudioContext): Resources {
       d[i] = s / 6
     }
   })
+  const cymbal = mono(1.5, d => {
+    const m = metal.getChannelData(0)
+    for (let i = 0; i < d.length; i++) d[i] = 0.45 * m[i]! + 0.75 * (Math.random() * 2 - 1)
+    normalise(d, 0.9)
+  })
   const lfsr = (short: boolean, clock: number) => mono(1, d => {
     let reg = 1
     let acc = 0
@@ -102,7 +121,111 @@ export function createResources(ac: BaseAudioContext): Resources {
     for (let k = 1; k < n; k++) imag[k] = ((2 / (k * Math.PI)) * Math.sin(k * Math.PI * duty)) * (k > 24 ? 0.6 : 1)
     return ac.createPeriodicWave(real, imag)
   }
-  return { ac, white, pink, brown, metal, nesLong, nesShort, pulse25: pulse(0.25), pulse12: pulse(0.125), grit: 0 }
+  // The NES triangle: 15, 14, .. 0, 0, 1, .. 15, each step held for 1/32 of the cycle, centred.
+  const tri4 = waveFrom(ac, x => {
+    const k = Math.floor(x * 32)
+    return ((k < 16 ? 15 - k : k - 16) - 7.5) / 7.5
+  }, 48)
+  // Vibrato table: a triangle sampled at ten points (0, .4, .8, .8, .4, 0, -.4, ...), held.
+  const vibStep = waveFrom(ac, x => {
+    const k = Math.floor(x * 10)
+    return [0, 0.4, 0.8, 0.8, 0.4, 0, -0.4, -0.8, -0.8, -0.4][k] ?? 0
+  }, 40, { smooth: true })
+  const flute = harmonicWave(ac, [1, 0.3, 0.12, 0.045, 0.018])
+  const waves = new Map<string, PeriodicWave>()
+  return {
+    ac, white, pink, brown, metal, cymbal, nesLong, nesShort,
+    pulse25: pulse(0.25), pulse12: pulse(0.125), pulse50: pulse(0.5), tri4, vibStep, flute,
+    wave(key, build) {
+      let w = waves.get(key)
+      if (!w) { w = build(); waves.set(key, w) }
+      return w
+    },
+    grit: 0,
+    bufs: createBufferCache(ac),
+  }
+}
+
+/**
+ * A PeriodicWave from one cycle of a shape (`shape(phase)`, phase 0..1),
+ * by its first `harmonics` Fourier terms (the DC term is dropped). `smooth`
+ * applies Lanczos sigma factors: the steps get ramps of a few milliseconds
+ * instead of ringing. `raw` keeps the amplitudes as computed (no
+ * normalisation to a peak of 1), for gates and offsets.
+ */
+export function waveFrom(
+  ac: BaseAudioContext, shape: (phase: number) => number, harmonics: number, o: { smooth?: boolean; raw?: boolean } = {},
+): PeriodicWave {
+  const M = 2048
+  const x = new Float64Array(M)
+  for (let i = 0; i < M; i++) x[i] = shape((i + 0.5) / M)
+  const real = new Float32Array(harmonics + 1)
+  const imag = new Float32Array(harmonics + 1)
+  for (let k = 1; k <= harmonics; k++) {
+    let a = 0, b = 0
+    const w = (2 * Math.PI * k) / M
+    for (let i = 0; i < M; i++) {
+      a += x[i]! * Math.cos(w * (i + 0.5))
+      b += x[i]! * Math.sin(w * (i + 0.5))
+    }
+    const u = (Math.PI * k) / (harmonics + 1)
+    const sigma = o.smooth ? Math.sin(u) / u : 1
+    real[k] = (2 * a / M) * sigma
+    imag[k] = (2 * b / M) * sigma
+  }
+  return ac.createPeriodicWave(real, imag, { disableNormalization: !!o.raw })
+}
+
+/** A PeriodicWave of sine harmonics at the given levels (index 0 = the fundamental), all in sine phase. */
+export function harmonicWave(ac: BaseAudioContext, levels: readonly number[]): PeriodicWave {
+  const real = new Float32Array(levels.length + 1)
+  const imag = new Float32Array(levels.length + 1)
+  levels.forEach((l, i) => { imag[i + 1] = l })
+  return ac.createPeriodicWave(real, imag)
+}
+
+// ---- rendered note buffers ----------------------------------------------------
+
+/**
+ * Note buffers rendered in JS (Karplus-Strong strings, additive pianos),
+ * keyed by voice, pitch and velocity bucket. Least recently used entries go
+ * first once the total passes `budget` samples (default 12 M: 48 MB, about
+ * 40 held piano notes or 80 guitar notes).
+ */
+export interface BufferCache {
+  get(key: string, render: () => Float32Array): AudioBuffer
+  /** Samples held, for leak checks. */
+  readonly samples: number
+  readonly size: number
+}
+
+export function createBufferCache(ac: BaseAudioContext, budget = 12_000_000): BufferCache {
+  const map = new Map<string, AudioBuffer>()
+  let samples = 0
+  return {
+    get(key, render) {
+      const hit = map.get(key)
+      if (hit) {
+        // Map order is insertion order: re-insert to mark it recently used.
+        map.delete(key)
+        map.set(key, hit)
+        return hit
+      }
+      const data = render()
+      const buf = ac.createBuffer(1, Math.max(1, data.length), ac.sampleRate)
+      buf.getChannelData(0).set(data)
+      map.set(key, buf)
+      samples += buf.length
+      for (const [k, b] of map) {
+        if (samples <= budget || map.size <= 1) break
+        map.delete(k)
+        samples -= b.length
+      }
+      return buf
+    },
+    get samples() { return samples },
+    get size() { return map.size },
+  }
 }
 
 function normalise(d: Float32Array, peak: number): void {
@@ -155,6 +278,20 @@ export const safeHz = (ac: BaseAudioContext, f: number): number => clamp(Number.
 
 export type Wave = OscillatorType | 'pulse25' | 'pulse12'
 
+/**
+ * An oscillator on a shared PeriodicWave, exactly in tune: no grit spread
+ * (the chip voices and the chip.pad gates want the pitch the chip would play).
+ * Low rates are allowed (LFOs and gates under 10 Hz).
+ */
+export function waveOsc(n: Note, wave: PeriodicWave, f: number, at = n.at): OscillatorNode {
+  const o = n.ac.createOscillator()
+  o.setPeriodicWave(wave)
+  o.frequency.value = clamp(Number.isFinite(f) ? f : 440, 0.01, n.ac.sampleRate * 0.45)
+  o.start(at)
+  n.srcs.push(o)
+  return o
+}
+
 export interface Note {
   ac: BaseAudioContext
   res: Resources
@@ -167,12 +304,92 @@ export interface Note {
   tail: AudioNode
 }
 
-/** Returned by voices; lets the player tie a repeated pad/drone note instead of re-attacking it. */
-export interface NoteHandle {
+/**
+ * A scheduled sound the transport can cut (RadioPlayer.cut): notes, drum hits
+ * and ambience events all return one.
+ */
+export interface Cuttable {
+  /** Audio time it starts sounding. */
+  readonly start: number
+  /** Audio time its sources stop (it is silent from here); moves when it is extended or cut. */
+  readonly gone: number
+  /**
+   * Cut at `at` (clamped to now). Starting at or after `at`: it never sounds.
+   * Sounding at `at`: it fades to silence over `fade` seconds, except that
+   * with `ring` a percussive sound (no held phase) rings out as scheduled.
+   */
+  cut(at: number, fade: number, ring: boolean): void
+}
+
+/**
+ * Freeze an AudioParam's automation at `t`: later events are dropped, the
+ * value at `t` holds. Where cancelAndHoldAtTime is missing (Firefox) events
+ * from `t` on are dropped and false is returned, so a caller that knows the
+ * value can land on it.
+ */
+export function holdAt(p: AudioParam, t: number): boolean {
+  const hold = (p as AudioParam & { cancelAndHoldAtTime?: (t: number) => AudioParam }).cancelAndHoldAtTime
+  if (typeof hold === 'function') { hold.call(p, t); return true }
+  p.cancelScheduledValues(t)
+  return false
+}
+
+/**
+ * A Cuttable for a one-shot sound whose output passes through `gate`, a gain
+ * with no automation of its own (a drum hit's output, an ambience event's
+ * input). The owner adds the sound's sources to `srcs` and
+ * moves `gone` to the time the last one stops.
+ */
+export interface GateHandle extends Cuttable {
+  gone: number
+  srcs: AudioScheduledSourceNode[]
+}
+
+export function gateHandle(ac: BaseAudioContext, gate: GainNode, start: number, percussive: boolean): GateHandle {
+  const h: GateHandle = {
+    start,
+    gone: start,
+    srcs: [],
+    cut(at, fade, ring) {
+      const t = Math.max(Number.isFinite(at) ? at : 0, ac.currentTime)
+      if (t >= h.gone) return
+      if (t <= h.start) {
+        gate.gain.setValueAtTime(0, t)
+        stopAll(h.srcs, h.start)
+        h.gone = h.start
+        return
+      }
+      if (ring && percussive) return
+      const f = Math.max(0.005, Number.isFinite(fade) ? fade : 0.08)
+      const stop = t + Math.max(0.01, f * 1.3)
+      if (stop >= h.gone) return
+      holdAt(gate.gain, t)
+      gate.gain.setTargetAtTime(0, t, f / 5)
+      stopAll(h.srcs, stop)
+      h.gone = stop
+    },
+  }
+  return h
+}
+
+function stopAll(srcs: AudioScheduledSourceNode[], t: number): void {
+  for (const s of srcs) {
+    try { s.stop(t) } catch { /* not started or gone */ }
+  }
+}
+
+/** Returned by voices; lets the player tie a repeated pad/drone note instead of re-attacking it, and cut it. */
+export interface NoteHandle extends Cuttable {
   /** Nominal end (at + dur), before the release. */
   end: number
   /** Move the release to `newEnd`. False if the note cannot be extended (percussive, already releasing). */
   extend(newEnd: number): boolean
+  /**
+   * Release the note at `at` (clamped to now): cancel the scheduled release
+   * and fade out over the envelope's release, then stop the sources. No-op
+   * once the note is already releasing or gone.
+   */
+  release(at: number): void
 }
 
 /** Start a note: a VCA (silent until an envelope is applied), panned if asked, into `dest`. */
@@ -191,15 +408,28 @@ export function begin(res: Resources, at: number, dest: AudioNode, pan = 0): Not
   return { ac, res, at, srcs: [], amp, tail }
 }
 
-/** An oscillator started at the note's time. `detune` in cents; grit adds a little random spread. */
+/**
+ * An oscillator started at the note's time. `detune` in cents; grit adds a
+ * little random spread. It also runs the voices' LFOs, so rates go down to
+ * 0.01 Hz (safeHz's 10 Hz floor is for filters).
+ */
 export function osc(n: Note, type: Wave, f: number, detune = 0, at = n.at): OscillatorNode {
   const o = n.ac.createOscillator()
   if (type === 'pulse25') o.setPeriodicWave(n.res.pulse25)
   else if (type === 'pulse12') o.setPeriodicWave(n.res.pulse12)
   else o.type = type
-  o.frequency.value = safeHz(n.ac, f)
+  o.frequency.value = clamp(Number.isFinite(f) ? f : 440, 0.01, n.ac.sampleRate * 0.45)
   const spread = n.res.grit * (Math.random() * 2 - 1) * 5
   if (detune || spread) o.detune.value = detune + spread
+  o.start(at)
+  n.srcs.push(o)
+  return o
+}
+
+/** A sine LFO at `rate` Hz (0.01–50), started at `at`, with no grit spread. */
+export function lfo(n: Note, rate: number, at = n.at): OscillatorNode {
+  const o = n.ac.createOscillator()
+  o.frequency.value = clamp(Number.isFinite(rate) ? rate : 5, 0.01, 50)
   o.start(at)
   n.srcs.push(o)
   return o
@@ -279,6 +509,7 @@ export function envelope(n: Note, dur: number, e: Env): { end: number; relAt: nu
 export function finish(n: Note, env: { end: number; relAt: number }, release: number, nominalEnd: number): NoteHandle {
   let end = env.end
   let relAt = env.relAt
+  let released = false
   for (const s of n.srcs) s.stop(end)
   const first = n.srcs[0]
   if (first) {
@@ -286,10 +517,11 @@ export function finish(n: Note, env: { end: number; relAt: number }, release: nu
       try { n.tail.disconnect() } catch { /* already gone */ }
     }
   }
+  const rel = Math.max(0.004, release / 5)
   const handle: NoteHandle = {
     end: nominalEnd,
     extend(newEnd: number): boolean {
-      if (relAt < 0 || newEnd <= relAt) return false
+      if (released || relAt < 0 || newEnd <= relAt) return false
       // Only while the release is still ahead of the audio clock.
       if (relAt < n.ac.currentTime + 0.02) return false
       const newStop = newEnd + Math.max(0.02, release * 1.3)
@@ -300,11 +532,65 @@ export function finish(n: Note, env: { end: number; relAt: number }, release: nu
       }
       const g = n.amp.gain
       g.cancelScheduledValues(relAt)
-      g.setTargetAtTime(0, newEnd, Math.max(0.004, release / 5))
+      g.setTargetAtTime(0, newEnd, rel)
       relAt = newEnd
       end = newStop
       handle.end = newEnd
       return true
+    },
+    release(at: number): void {
+      const t = Math.max(Number.isFinite(at) ? at : 0, n.ac.currentTime)
+      if (released || t >= end || (relAt >= 0 && t >= relAt)) return
+      released = true
+      const g = n.amp.gain
+      // Hold the curve where it is at t (mid-attack or mid-decay), then fall from there.
+      holdAt(g, t)
+      // Percussive notes (no gate) have a short release of zero: damp them like a quick hand.
+      const tau = relAt < 0 ? 0.02 : rel
+      g.setTargetAtTime(0, t, tau)
+      const stop = t + Math.max(0.03, tau * 6.5)
+      if (stop < end) {
+        try {
+          for (const s of n.srcs) s.stop(stop)
+        } catch { /* the sources end on their own schedule */ }
+      }
+      relAt = t
+      end = Math.min(end, stop)
+      handle.end = t
+    },
+    start: n.at,
+    get gone() { return end },
+    cut(at: number, fade: number, ring: boolean): void {
+      const t = Math.max(Number.isFinite(at) ? at : 0, n.ac.currentTime)
+      if (t >= end) return
+      const g = n.amp.gain
+      if (t <= n.at) {
+        // Not started: the VCA stays at 0 and the sources stop as they start.
+        g.cancelScheduledValues(t)
+        g.setValueAtTime(0, t)
+        const stop = Math.max(t, n.at)
+        try {
+          for (const s of n.srcs) s.stop(stop)
+        } catch { /* the sources end on their own schedule */ }
+        released = true
+        relAt = t
+        end = stop
+        handle.end = t
+        return
+      }
+      if (ring && relAt < 0) return
+      const f = Math.max(0.005, Number.isFinite(fade) ? fade : 0.08)
+      const stop = t + Math.max(0.01, f * 1.3)
+      if (stop >= end) return
+      holdAt(g, t)
+      g.setTargetAtTime(0, t, f / 5)
+      try {
+        for (const s of n.srcs) s.stop(stop)
+      } catch { /* the sources end on their own schedule */ }
+      released = true
+      relAt = t
+      end = stop
+      handle.end = Math.min(handle.end, t)
     },
   }
   return handle

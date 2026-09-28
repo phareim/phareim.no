@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 import type { Landscape } from '../types.ts'
 
 /** Deep cold forest: E aeolian, slow, a heartbeat under the snow. */
@@ -57,4 +57,5 @@ export const frostwood: Landscape = {
   fx: { reverb: 0.6, delay: 0.4, reverbSize: 6, tone: 0.55, grit: 0.35 },
   ambience: { wind: 0.35, snow: 0.3, owl: 0.25 },
   accent: '#9ad0ff',
+  alt: { lead: ['keys.piano', 'guitar.nylon'], arp: ['keys.felt', 'pluck.harp'], double: 'keys.piano' },
 }

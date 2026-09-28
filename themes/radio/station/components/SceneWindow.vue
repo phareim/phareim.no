@@ -1,4 +1,4 @@
-<!-- Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync. -->
+<!-- Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync. -->
 <template>
   <section ref="box" class="win" :style="{ '--acc': accent }">
     <canvas ref="canvas" class="win__canvas" aria-hidden="true" />
@@ -149,21 +149,21 @@ onBeforeUnmount(() => {
   text-shadow: 2px 2px 0 var(--bg);
   pointer-events: none;
 }
-.win__hud--tl { top: calc(12px + env(safe-area-inset-top, 0px)); left: 16px; right: 40%; }
-.win__hud--tr { top: calc(12px + env(safe-area-inset-top, 0px)); right: 16px; text-align: right; }
-.win__hud--bl { bottom: 12px; left: 16px; right: 232px; }
+.win__hud--tl { top: calc(12px + var(--safe-t)); left: calc(16px + var(--safe-l)); right: 40%; }
+.win__hud--tr { top: calc(12px + var(--safe-t)); right: calc(16px + var(--safe-r)); text-align: right; }
+.win__hud--bl { bottom: 12px; left: calc(16px + var(--safe-l)); right: calc(232px + var(--safe-r)); }
 
 /* AUTO, ▶▶ and DIM sit in the bottom-right corner; in the quiet view they are all there is. */
 .win__corner {
   position: absolute;
   z-index: 3;
-  right: 16px;
+  right: calc(16px + var(--safe-r));
   bottom: 12px;
   display: flex;
   gap: 10px;
   align-items: center;
 }
-.win__corner--quiet { bottom: calc(16px + var(--app-safe-bottom, 0px)); right: 20px; }
+.win__corner--quiet { bottom: calc(16px + var(--app-safe-bottom, 0px)); right: calc(20px + var(--safe-r)); }
 
 .win__name {
   font-size: 32px;
@@ -233,8 +233,8 @@ onBeforeUnmount(() => {
   .win__name { font-size: 24px; line-height: 28px; text-shadow: 2px 2px 0 var(--bg), 0 0 14px color-mix(in srgb, var(--acc) 55%, transparent); }
   .win__chord { font-size: 24px; line-height: 28px; text-shadow: 2px 2px 0 var(--bg); }
   .win__hud--tl { right: 34%; }
-  .win__hud--bl { right: 16px; }
-  .win__corner:not(.win__corner--quiet) { bottom: auto; top: calc(62px + env(safe-area-inset-top, 0px)); }
+  .win__hud--bl { right: calc(16px + var(--safe-r)); }
+  .win__corner:not(.win__corner--quiet) { bottom: auto; top: calc(62px + var(--safe-t)); }
   .win__block { width: 8px; height: 8px; }
   .win__meter { gap: 2px; }
 }

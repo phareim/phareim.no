@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * The scheduling core, independent of how it is clocked: takes BarPlans from
  * the conductor, turns steps into audio times, plays notes, drums, mix moves,
@@ -16,11 +16,27 @@
  *
  * Fades are scheduled one linear ramp per bar (see timing.ts `Fade`), so no
  * automation that is already sounding ever has to be cancelled.
+ *
+ * Live notes (`live()`, an instrument under the player's fingers) play on
+ * the same buses 5 ms after the call, with a 30 s nominal length that the
+ * returned handle's release() cuts short.
+ *
+ * Transport (jam): `cut(at)` takes back what is scheduled from `at` on. Every
+ * scheduled note, drum hit and ambience event keeps a Cuttable (synth.ts)
+ * until its sources stop; the cut silences those starting from `at`, fades
+ * or rings out those sounding, drops the bar and visual queues after `at`,
+ * holds mix, pump and fx automation at their values there, and makes `at`
+ * the start of the next bar. `tick(now, horizon, false)` is the idle
+ * transport: it plays out what is scheduled but plans no bars, and fades the
+ * ambience out once the scheduled music has ended. Live notes are never cut.
  */
-import type { BarPlan, ConductorLike, Layer, VisualState, NoteEvent, DrumEvent } from '../types.ts'
+import type { BarPlan, ConductorLike, Layer, VisualState, NoteEvent, DrumEvent, LiveSound, LiveNote } from '../types.ts'
 import { LAYERS } from '../types.ts'
-import { barTiming, type BarTiming, type Fade, fadeAtBarStart, fadeAtBarEnd } from './timing.ts'
-import { createResources, type Resources, type VoiceCtx, type NoteHandle, clamp } from './synth.ts'
+import {
+  barTiming, type BarTiming, type Fade, type PlacedBar, type Ramp, fadeAtBarStart, fadeAtBarEnd, positionIn,
+  rampAt, pruneRamps, cutBars, keepWhere,
+} from './timing.ts'
+import { createResources, type Resources, type VoiceCtx, type NoteHandle, type Cuttable, clamp, holdAt } from './synth.ts'
 import { createFx, type Fx } from './fx.ts'
 import { playVoice } from './voices.ts'
 import { playDrum } from './drums.ts'
@@ -51,8 +67,12 @@ interface Bus {
   fade: Fade
   vc: VoiceCtx
   /** Mix gain (untrimmed) over the last scheduled bar: [t0, v0, t1, v1]. */
-  ramp: [number, number, number, number]
+  ramp: Ramp
+  /** The recent ramps, to read the gain back at a cut. */
+  ramps: Ramp[]
   started: boolean
+  /** The glide state the last scheduled lead.glide note left (a cut forgets it). */
+  glide: VoiceCtx['glide']
 }
 
 interface ScheduledBar {
@@ -61,21 +81,42 @@ interface ScheduledBar {
   t1: number
   tm: BarTiming
   fired: boolean
+  /** The last bar before a cut: it shows in visual() only until its (cut) end. */
+  cut?: boolean
 }
 
 interface Pending { t: number; run: () => void }
-interface Sounding { layer: Layer; midi: number; t: number; end: number; vel: number }
+interface Sounding { layer: Layer; midi: number; t: number; end: number; vel: number; live?: boolean }
+interface Hit { layer: Layer; t: number; vel: number; live?: boolean }
+
+/** How long the ambience takes to fade out once an idle transport has run out of bars. */
+const IDLE_AMBIENCE_FADE = 0.5
 
 export interface Core {
   res: Resources
   fx: Fx
   /** The master output (connect to the destination). */
   output: AudioNode
-  /** Plan and schedule everything up to `horizon`; `now` is the audio clock. */
-  tick(now: number, horizon: number): void
+  /**
+   * Plan and schedule everything up to `horizon`; `now` is the audio clock.
+   * With `plan` false (an idle transport) no new bar is planned: what is
+   * scheduled plays out, then the ambience fades out.
+   */
+  tick(now: number, horizon: number, plan?: boolean): void
+  /**
+   * Take back everything scheduled from `at` on (RadioPlayer.cut). `at` is
+   * clamped to [now, end of the scheduled bars]; the next planned bar starts at it.
+   */
+  cut(at: number, fade: number, ring: boolean): void
+  /** If the scheduled bars end before `at`, the next bar starts at `at` (leaving idle). */
+  rearm(at: number): void
   /** Bars that have started sounding by `now` and were not reported yet. */
   due(now: number): BarPlan[]
   visual(now: number): Omit<VisualState, 'playing'>
+  /** Play a note now on `layer`'s bus (see RadioPlayer.live). */
+  live(layer: Layer, sound: LiveSound, vel: number, pan?: number): LiveNote
+  /** The bar and musical step at audio time `time`, or null outside the scheduled bars. */
+  positionAt(time: number): { bar: number; step: number } | null
   /** Audio time the first bar started (or -1). */
   readonly startTime: number
   /** Internal queue lengths, for leak checks. */
@@ -108,19 +149,27 @@ export function createCore(ac: BaseAudioContext, conductor: ConductorLike): Core
       gate.connect(fx.gatedIn)
     }
     const vc: VoiceCtx = { ac, res, layer, out: { input: fader, gate }, cache: new Map(), glide: null }
-    buses[layer] = { fader, pump, gate, fade: { from: 0, to: 0, start: 0, bars: 0 }, vc, ramp: [0, 0, 0, 0], started: false }
+    buses[layer] = {
+      fader, pump, gate, fade: { from: 0, to: 0, start: 0, bars: 0 }, vc, ramp: [0, 0, 0, 0], ramps: [], started: false, glide: null,
+    }
   }
   const ambience: Ambience = createAmbience(buses.ambience.vc)
 
   let nextStart = -1
   let startTime = -1
   const bars: ScheduledBar[] = []
+  /** Timing of the recent and scheduled bars, kept a few seconds longer than `bars` for positionAt. */
+  const placed: PlacedBar[] = []
   const pending: Pending[] = []
   let pendingAt = 0
   const sounding: Sounding[] = []
-  const hits: Array<{ layer: Layer; t: number; vel: number }> = []
+  const hits: Hit[] = []
   const kicks: number[] = []
   const ties = new Map<string, NoteHandle>()
+  /** Scheduled notes and drum hits that have not stopped yet, for a cut. */
+  const scheduled: Cuttable[] = []
+  /** The idle transport has faded the ambience out (reset when a bar is planned or cut). */
+  let idle = false
   let pumpDepth = 0
   let beatLen = 0.5
 
@@ -138,13 +187,16 @@ export function createCore(ac: BaseAudioContext, conductor: ConductorLike): Core
       const v1 = fadeAtBarEnd(b.fade, plan.index)
       const trim = LAYER_TRIM[layer]
       const params = b.gate ? [b.fader.gain, b.gate.gain] : [b.fader.gain]
+      const jump = b.fade.bars <= 0 && plan.index === b.fade.start
       for (const p of params) {
         if (!b.started) p.setValueAtTime(v0 * trim, t0)
-        if (b.fade.bars <= 0 && plan.index === b.fade.start) p.linearRampToValueAtTime(v1 * trim, Math.min(t1, t0 + 0.03))
+        if (jump) p.linearRampToValueAtTime(v1 * trim, Math.min(t1, t0 + 0.03))
         p.linearRampToValueAtTime(v1 * trim, t1)
       }
       b.started = true
       b.ramp = [t0, v0, t1, v1]
+      if (jump) b.ramps.push([t0, v0, Math.min(t1, t0 + 0.03), v1], [Math.min(t1, t0 + 0.03), v1, t1, v1])
+      else b.ramps.push(b.ramp)
     }
   }
 
@@ -156,17 +208,24 @@ export function createCore(ac: BaseAudioContext, conductor: ConductorLike): Core
       const prev = ties.get(key)
       if (prev && Math.abs(prev.end - t) < 0.03 && prev.extend(t + dur)) return
       const h = playVoice(b.vc, e.voice, e.midi, t, dur, e.vel, e.opts, pan)
-      if (h) ties.set(key, h)
+      if (h) { ties.set(key, h); scheduled.push(h) }
       return
     }
-    playVoice(b.vc, e.voice, e.midi, t, dur, e.vel, e.opts, pan)
+    const h = playVoice(b.vc, e.voice, e.midi, t, dur, e.vel, e.opts, pan)
+    if (h) scheduled.push(h)
+    if (e.voice === 'lead.glide') b.glide = b.vc.glide
   }
 
-  function drumEvent(e: DrumEvent, t: number, len: number): void {
+  /** A drum hit; scheduled ones (not `live`) are kept for a cut. */
+  function drumEvent(e: DrumEvent, t: number, len: number, live = false): void {
     const b = buses[e.layer] ?? buses.drums
-    playDrum(b.vc, e.kit, e.hit, t, e.vel, len)
+    const h = playDrum(b.vc, e.kit, e.hit, t, e.vel, len)
+    if (h && !live) scheduled.push(h)
     if (e.hit === 'k' && e.layer === 'drums') {
-      kicks.push(t)
+      // Sorted: a live kick can land before kicks already scheduled.
+      let i = kicks.length
+      while (i > 0 && kicks[i - 1]! > t) i--
+      kicks.splice(i, 0, t)
       // The pump: duck pads and drones on the kick, recover over about a quarter of a beat.
       const drumsLevel = b.ramp[3]
       const depth = clamp(pumpDepth * drumsLevel, 0, 1) * 0.6
@@ -210,20 +269,28 @@ export function createCore(ac: BaseAudioContext, conductor: ConductorLike): Core
     for (const ev of evs) pending.push(ev)
     sounding.sort((a, b) => a.t - b.t)
     bars.push({ plan, t0, t1, tm, fired: false })
+    placed.push({ index: plan.index, t0, t1, tm })
     return t1
   }
 
-  function tick(now: number, horizon: number): void {
-    if (nextStart < 0) {
-      nextStart = now + 0.08
-      startTime = nextStart
-    }
-    // After a stall (CPU starvation, a suspended tab), pick up from now instead of rushing.
-    if (nextStart < now) nextStart = now + 0.05
-    let guard = 0
-    while (nextStart <= horizon && guard++ < 64) {
-      const plan = conductor.nextBar()
-      nextStart = scheduleBar(plan, nextStart)
+  function tick(now: number, horizon: number, plan = true): void {
+    if (plan) {
+      if (nextStart < 0) {
+        nextStart = now + 0.08
+        startTime = nextStart
+      }
+      // After a stall (CPU starvation, a suspended tab), pick up from now instead of rushing.
+      if (nextStart < now) nextStart = now + 0.05
+      let guard = 0
+      while (nextStart <= horizon && guard++ < 64) {
+        const bar = conductor.nextBar()
+        nextStart = scheduleBar(bar, nextStart)
+        idle = false
+      }
+    } else if (!idle && (nextStart < 0 || now >= nextStart)) {
+      // Idle, and the scheduled music has ended: nothing will move the ambience again, so fade it out.
+      idle = true
+      if (nextStart >= 0) ambience.silence(now, IDLE_AMBIENCE_FADE)
     }
     // Create the nodes for everything due before the horizon; drop what is badly late.
     while (pendingAt < pending.length && pending[pendingAt]!.t < horizon) {
@@ -251,7 +318,67 @@ export function createCore(ac: BaseAudioContext, conductor: ConductorLike): Core
     while (k < kicks.length && kicks[k]! < old) k++
     if (k > 0) kicks.splice(0, k)
     while (bars.length > 2 && bars[1]!.t0 <= now && bars[0]!.fired && bars[1]!.fired) bars.shift()
+    while (placed.length > 1 && placed[0]!.t1 < now - 8) placed.shift()
     if (ties.size > 64) for (const [key, h] of ties) if (h.end < now - 1) ties.delete(key)
+    keepWhere(scheduled, h => h.gone >= now)
+    ambience.prune(now)
+    for (const l of LAYERS) pruneRamps(buses[l].ramps, now - 1)
+  }
+
+  // ---- the transport cut ----------------------------------------------------------------
+
+  function cut(at0: number, fade: number, ring: boolean): void {
+    if (!Number.isFinite(at0) || nextStart < 0) return
+    // Past the scheduled bars nothing is left to take back; never before now.
+    const at = Math.max(Math.min(at0, nextStart), ac.currentTime)
+    // Bars: nothing starts from `at`; the bar sounding there ends there.
+    cutBars(bars, at)
+    const last = bars[bars.length - 1]
+    if (last) last.cut = true
+    cutBars(placed, at)
+    // Events not built yet are dropped; built ones are cut through their handles.
+    const rest = pending.slice(pendingAt).filter(ev => ev.t < at)
+    pending.length = 0
+    pending.push(...rest)
+    pendingAt = 0
+    for (const h of scheduled) h.cut(at, fade, ring)
+    ambience.cut(at, fade, ring)
+    ties.clear()
+    // Visual queues: what starts from `at` never happened; scheduled notes sounding there end there.
+    keepWhere(sounding, n => n.live === true || n.t < at)
+    for (const n of sounding) if (!n.live && n.end > at) n.end = at
+    keepWhere(hits, h => h.live === true || h.t < at)
+    keepWhere(kicks, k => k < at)
+    // Mix and pump: hold the faders where they are at `at`; the pump recovers (its kicks are gone).
+    for (const l of LAYERS) {
+      const b = buses[l]
+      const lv = rampAt(b.ramps, at, b.ramp[3])
+      const trim = LAYER_TRIM[l]
+      for (const p of b.gate ? [b.fader.gain, b.gate.gain] : [b.fader.gain]) {
+        // Without cancelAndHoldAtTime the ramp is gone: land on the gain it had at `at`.
+        if (!holdAt(p, at)) p.linearRampToValueAtTime(lv * trim, at)
+      }
+      if (b.pump) {
+        holdAt(b.pump.gain, at)
+        b.pump.gain.setTargetAtTime(1, at, 0.03)
+      }
+      b.fade = { from: lv, to: lv, start: 0, bars: 0 }
+      b.ramp = [at, lv, at, lv]
+      b.ramps.length = 0
+      b.ramps.push(b.ramp)
+      // A glide note that was cut must not slide into the next bar's first note.
+      if (b.glide && b.vc.glide === b.glide && b.glide.end > at) b.vc.glide = null
+      b.glide = null
+    }
+    fx.hold(at)
+    nextStart = at
+    idle = false
+  }
+
+  function rearm(at: number): void {
+    if (!Number.isFinite(at) || nextStart >= at) return
+    nextStart = at
+    if (startTime < 0) startTime = at
   }
 
   function due(now: number): BarPlan[] {
@@ -270,6 +397,7 @@ export function createCore(ac: BaseAudioContext, conductor: ConductorLike): Core
   function visual(now: number): Omit<VisualState, 'playing'> {
     let cur: ScheduledBar | null = null
     for (const b of bars) if (b.t0 <= now) cur = b
+    if (cur?.cut && now >= cur.t1) cur = null
     const step = cur ? clamp(cur.tm.stepAt(now - cur.t0), 0, 16) : 0
     const sc = cur?.plan.meta?.scene
     const scene = sc
@@ -320,14 +448,69 @@ export function createCore(ac: BaseAudioContext, conductor: ConductorLike): Core
     }
   }
 
+  // ---- live notes ---------------------------------------------------------------------
+
+  const LIVE_DUR = 30
+
+  function live(layer: Layer, sound: LiveSound, vel: number, pan?: number): LiveNote {
+    const t = ac.currentTime + 0.005
+    const b = buses[layer] ?? buses.lead
+    const v = clamp(Number.isFinite(vel) ? vel : 0.7, 0, 1)
+    if ('kit' in sound) {
+      const l = b.vc.layer
+      // Drums and perc as scheduled hits (the kick pumps and drives the beat); any other layer just plays it.
+      if (l === 'drums' || l === 'perc') drumEvent({ layer: l, kit: sound.kit, hit: sound.hit, step: 0, vel: v }, t, beatLen, true)
+      else playDrum(b.vc, sound.kit, sound.hit, t, v, beatLen)
+      insertHit({ layer: l, t, vel: v, live: true })
+      return { release() {} }
+    }
+    const p = pan ?? DEFAULT_PAN[b.vc.layer] ?? 0
+    // Legato for the mono glide lead: it slides only while the previous live note is still held.
+    const h = playVoice(b.vc, sound.voice, sound.midi, t, LIVE_DUR, v, { legato: true }, p)
+    const s: Sounding = { layer: b.vc.layer, midi: sound.midi, t, end: t + LIVE_DUR, vel: v, live: true }
+    insertSounding(s)
+    let done = false
+    return {
+      release() {
+        if (done) return
+        done = true
+        const r = ac.currentTime
+        h?.release(r)
+        if (s.end > r) s.end = r
+        const g = b.vc.glide
+        if (g && g.midi === sound.midi && g.end > r) g.end = r
+      },
+    }
+  }
+
+  function insertSounding(s: Sounding): void {
+    let i = sounding.length
+    while (i > 0 && sounding[i - 1]!.t > s.t) i--
+    sounding.splice(i, 0, s)
+  }
+
+  function insertHit(h: Hit): void {
+    let i = hits.length
+    while (i > 0 && hits[i - 1]!.t > h.t) i--
+    hits.splice(i, 0, h)
+  }
+
   return {
     res,
     fx,
+    live,
+    positionAt: (time: number) => positionIn(placed, time),
     output: fx.output,
     tick,
+    cut,
+    rearm,
     due,
     visual,
     get startTime() { return startTime },
-    sizes: () => ({ bars: bars.length, pending: pending.length - pendingAt, sounding: sounding.length, hits: hits.length, kicks: kicks.length, ties: ties.size }),
+    sizes: () => ({
+      bars: bars.length, placed: placed.length, pending: pending.length - pendingAt, sounding: sounding.length,
+      hits: hits.length, kicks: kicks.length, ties: ties.size, bufs: res.bufs.size,
+      scheduled: scheduled.length, ambienceEvents: ambience.events,
+    }),
   }
 }

@@ -1,6 +1,6 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
- * The live player: `createPlayer(conductor)` → RadioPlayer (types.ts).
+ * The live player: `createPlayer(conductor, opts?)` → RadioPlayer (types.ts).
  *
  * Owns the AudioContext and the clock; everything musical happens in the
  * core (core.ts). The clock is a Web Worker posting ticks (a hidden tab
@@ -12,15 +12,28 @@
  * element: iOS lock screen, OS media controls) and, in 'speakers' mode (the
  * default), also → the context's destination. A page that plays `stream`
  * through an element calls setOutput('stream') so the music is not doubled.
+ *
+ * Latency: the radio asks for 'playback' (bigger buffers, the scheduler hides
+ * them). An instrument (jam) asks for 'interactive' and plays live notes with
+ * `live()`; `positionAt(ac.currentTime - latency)` places what was heard.
+ *
+ * Transport (jam; the radio never calls these): `cut()` takes back what is
+ * scheduled and starts a fresh bar at once; `setIdle(true)` idles the
+ * transport (no bars, the context and live notes keep running),
+ * `setIdle(false)` starts a fresh bar right away. See RadioPlayer in types.ts.
  */
-import type { ConductorLike, RadioPlayer, VisualState, BarPlan, Layer } from '../types.ts'
+import type { ConductorLike, RadioPlayer, VisualState, BarPlan, Layer, LiveSound, LiveNote, PlayerOptions, CutOptions } from '../types.ts'
 import { LAYERS } from '../types.ts'
 import { createCore, type Core } from './core.ts'
+import { quantumAfter } from './timing.ts'
 
 const LOOKAHEAD_VISIBLE = 0.2
 const LOOKAHEAD_HIDDEN = 2
 const TICK_VISIBLE_MS = 25
 const TICK_HIDDEN_MS = 250
+/** A cut or leaving idle starts the next bar this far ahead of the clock (then rounded up to a render quantum). */
+const CUT_LEAD = 0.01
+const CUT_FADE = 0.08
 
 const WORKER_SRC = `
 let timer = null
@@ -78,13 +91,16 @@ const EMPTY_LEVELS = (): Record<Layer, number> => {
   return l
 }
 
-export function createPlayer(conductor: ConductorLike): RadioPlayer {
+export function createPlayer(conductor: ConductorLike, opts: PlayerOptions = {}): RadioPlayer {
+  const latencyHint = opts.latencyHint === 'interactive' ? 'interactive' : 'playback'
   let ac: AudioContext | null = null
   let core: Core | null = null
   let volume: GainNode | null = null
   let streamDest: MediaStreamAudioDestinationNode | null = null
   let clock: Clock | null = null
   let playing = false
+  let idle = false
+  let tickQueued = false
   let level = 0.8
   let stopTimer: ReturnType<typeof setTimeout> | null = null
   let output: 'speakers' | 'stream' = 'speakers'
@@ -99,7 +115,7 @@ export function createPlayer(conductor: ConductorLike): RadioPlayer {
   function tick(): void {
     if (!ac || !core || !playing || ac.state !== 'running') return
     try {
-      core.tick(ac.currentTime, ac.currentTime + lookahead())
+      core.tick(ac.currentTime, ac.currentTime + lookahead(), !idle)
     } catch (err) {
       console.error('radio: tick failed', err)
     }
@@ -122,7 +138,8 @@ export function createPlayer(conductor: ConductorLike): RadioPlayer {
     const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
     if (!Ctor) throw new Error('Web Audio is not available')
     // 'playback' asks for larger buffers: fewer dropouts, less CPU; the scheduler hides the latency.
-    ac = new Ctor({ latencyHint: 'playback' })
+    // 'interactive' is for live playing, where the latency is what the player hears.
+    ac = new Ctor({ latencyHint })
     core = createCore(ac, conductor)
     volume = ac.createGain()
     volume.gain.value = 0
@@ -157,19 +174,54 @@ export function createPlayer(conductor: ConductorLike): RadioPlayer {
 
   const volGain = (v: number) => v * v
 
-  async function start(): Promise<void> {
+  async function start(opts: { idle?: boolean } = {}): Promise<void> {
     if (!ac) build()
     const c = ac!
     if (stopTimer) { clearTimeout(stopTimer); stopTimer = null }
+    const wasIdle = idle
+    if (typeof opts.idle === 'boolean') idle = opts.idle
     if (c.state !== 'running') await c.resume()
     playing = true
     const t = c.currentTime
     const g = volume!.gain
     g.cancelScheduledValues(t)
     g.setValueAtTime(g.value, t)
-    g.linearRampToValueAtTime(volGain(level), t + 0.4)
+    // The radio fades in; an idle start has nothing scheduled, so live notes get the full volume at once.
+    g.linearRampToValueAtTime(volGain(level), t + (idle ? 0.02 : 0.4))
     clock!.set(hidden() ? TICK_HIDDEN_MS : TICK_VISIBLE_MS)
+    // Out of idle: the next bar starts right away.
+    if (wasIdle && !idle) core!.rearm(nextBarAt())
     tick()
+  }
+
+  /** Where a fresh bar starts: a few ms ahead, on a render quantum. */
+  const nextBarAt = () => quantumAfter(ac!.currentTime + CUT_LEAD, ac!.sampleRate)
+
+  function cut(opts: CutOptions = {}): void {
+    if (!ac || !core) return
+    const at = Number.isFinite(opts.at) ? Math.max(opts.at!, ac.currentTime) : nextBarAt()
+    const fade = Number.isFinite(opts.fade) ? Math.max(0.005, opts.fade!) : CUT_FADE
+    try {
+      core.cut(at, fade, opts.ring !== false)
+    } catch (err) {
+      console.error('radio: cut failed', err)
+    }
+    // Plan the fresh bar in a microtask, not right here: a setIdle(true) or a
+    // conductor.seek() in the same handler (either order) still counts.
+    if (!tickQueued) {
+      tickQueued = true
+      Promise.resolve().then(() => { tickQueued = false; tick() }).catch(() => {})
+    }
+  }
+
+  function setIdle(on: boolean): void {
+    const was = idle
+    idle = !!on
+    if (!ac || !core || was === idle) return
+    if (!idle) {
+      core.rearm(nextBarAt())
+      tick()
+    }
   }
 
   function stop(): void {
@@ -202,6 +254,16 @@ export function createPlayer(conductor: ConductorLike): RadioPlayer {
     return { ...core.visual(heard()), playing: playing && !stopTimer }
   }
 
+  function live(layer: Layer, sound: LiveSound, vel: number, pan?: number): LiveNote | null {
+    if (!ac || !core || !playing || stopTimer || ac.state !== 'running') return null
+    try {
+      return core.live(layer, sound, vel, pan)
+    } catch (err) {
+      console.error('radio: live note failed', err)
+      return null
+    }
+  }
+
   function onBar(cb: (plan: BarPlan) => void): () => void {
     listeners.add(cb)
     return () => { listeners.delete(cb) }
@@ -211,11 +273,17 @@ export function createPlayer(conductor: ConductorLike): RadioPlayer {
     start,
     stop,
     get playing() { return playing && !stopTimer },
+    get idle() { return idle },
+    cut,
+    setIdle,
     setVolume,
     visual,
     onBar,
     get context() { return ac },
     get stream() { return streamDest ? streamDest.stream : null },
     setOutput,
+    live,
+    positionAt: (time: number) => (core ? core.positionAt(time) : null),
+    get latency() { return ac ? (ac.outputLatency || 0) + (ac.baseLatency || 0) : 0 },
   }
 }

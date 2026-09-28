@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Pitched voices: one synth patch per VoiceId in types.ts.
  *
@@ -10,24 +10,34 @@
  * counts stay small (4–12): this plays for hours on a laptop.
  *
  * Voices that want a shared effect (the string machine's ensemble chorus, the
- * choir's formant bank) build it once per layer in `v.cache` and play into it.
+ * choir's formant bank, the string section's body) build it once per layer in
+ * `v.cache` and play into it.
+ *
+ * The Era knob's ends: the chip voices (chip.*) are NES channels, exactly in
+ * tune, unfiltered, their volume and vibrato stepped at the 60 Hz frame
+ * rate; the acoustic voices (strings.ensemble, wind.flute here, bass.upright
+ * and mallet.vibes in instruments.ts) model the real instruments.
  *
  * Levels: LEVEL[id] scales each patch so they sit at a similar loudness for
  * the same velocity (calibrated with tests/audio-harness). The mix balance
  * between layers lives in the player, not here.
+ *
+ * The played instruments (pianos, guitars, finger bass) render their notes
+ * in JS instead and live in instruments.ts; they are dispatched from here.
  */
 import type { VoiceId, NoteEvent } from '../types.ts'
 import {
-  type VoiceCtx, type Note, type NoteHandle, type Env,
-  begin, osc, noise, filter, gain, chain, envelope, finish, vibrato, stereo,
+  type VoiceCtx, type Note, type NoteHandle, type Env, type Resources,
+  begin, osc, waveOsc, waveFrom, lfo, noise, filter, gain, chain, envelope, finish, vibrato, stereo,
   hz, clamp, rand, velAmp, keyTrack, safeHz,
 } from './synth.ts'
+import { INSTRUMENTS, type InstrumentId } from './instruments.ts'
 
 type Opts = NoteEvent['opts']
 type Patch = (v: VoiceCtx, midi: number, at: number, dur: number, vel: number, opts: Opts, pan: number) => NoteHandle
 
 /** Per-voice loudness trim (linear). Calibrated from the harness level table. */
-const LEVEL: Record<VoiceId, number> = {
+const LEVEL: Record<Exclude<VoiceId, InstrumentId>, number> = {
   'lead.square': 0.0935, 'lead.saw': 0.0817, 'lead.pulse': 0.176, 'lead.ep': 0.119, 'lead.hollow': 0.0874,
   'lead.fm': 0.104, 'lead.glide': 0.0772, 'lead.whistle': 0.0865,
   'mallet.kalimba': 0.117, 'mallet.marimba': 0.125, 'pluck.harp': 0.0817,
@@ -37,6 +47,8 @@ const LEVEL: Record<VoiceId, number> = {
   'bell.glass': 0.121, 'bell.fm': 0.108, 'bell.chime': 0.176,
   'counter.strings': 0.15, 'counter.soft': 0.107,
   'drone.sub': 0.0627, 'drone.organ': 0.0456, 'drone.shimmer': 0.0342,
+  'chip.lead': 0.198, 'chip.bass': 0.0687, 'chip.pad': 0.113, 'chip.bell': 0.7,
+  'strings.ensemble': 0.0412, 'wind.flute': 0.083,
 }
 
 // ---- helpers -----------------------------------------------------------------
@@ -592,23 +604,29 @@ const bassSub: Patch = (v, midi, at, dur, vel, _o, pan) => {
   return done(n, dur, { peak: LEVEL['bass.sub'] * velAmp(vel), a: 0.015, d: 0.4, s: 0.9, r: 0.09 })
 }
 
-/** Synthwave eighths: saw and square in unison, a sub underneath, a quick filter snap. */
+/** Synthwave eighths: two detuned saws and a square, a sine on the note and a sub under it, a quick filter snap. */
 const bassPluck: Patch = (v, midi, at, dur, vel, _o, pan) => {
   const n = begin(v.res, at, v.out.input, pan)
   const f = hz(midi)
-  const a = osc(n, 'sawtooth', f)
+  const a = osc(n, 'sawtooth', f, -7)
+  const a2 = osc(n, 'sawtooth', f, 7)
   const b = osc(n, 'square', f, 5)
-  const bg = gain(n.ac, 0.5)
+  const bg = gain(n.ac, 0.4)
   b.connect(bg)
-  const lp = filter(n.ac, 'lowpass', 2000, 3.5)
-  a.connect(lp); bg.connect(lp)
-  sweep(n, lp, 2400 * (0.55 + 0.55 * vel), 300, 0.07)
+  const lp = filter(n.ac, 'lowpass', 2000, 2.6)
+  a.connect(lp); a2.connect(lp); bg.connect(lp)
+  sweep(n, lp, 2200 * (0.55 + 0.55 * vel), 260, 0.09)
+  // The weight: a sine on the note itself (audible on small speakers) and a sub an octave down.
+  const body = osc(n, 'sine', f)
+  const bodyG = gain(n.ac, 0.7)
+  body.connect(bodyG)
+  bodyG.connect(n.amp)
   const sub = osc(n, 'sine', f / 2)
-  const subG = gain(n.ac, 0.4)
+  const subG = gain(n.ac, 0.6)
   sub.connect(subG)
   subG.connect(n.amp)
   lp.connect(n.amp)
-  return done(n, dur, { peak: LEVEL['bass.pluck'] * velAmp(vel), a: 0.002, d: 0.16, s: 0.5, r: 0.04 })
+  return done(n, dur, { peak: LEVEL['bass.pluck'] * 0.72 * velAmp(vel), a: 0.002, d: 0.2, s: 0.6, r: 0.05 })
 }
 
 /** DX bass: 1:1 FM with a fast-decaying index, plus a sine sub. */
@@ -761,6 +779,257 @@ const droneShimmer: Patch = (v, midi, at, dur, vel, _o, pan) => {
   return done(n, dur, { peak: LEVEL['drone.shimmer'] * velAmp(vel), a: Math.min(3, Math.max(0.4, dur * 0.4)), d: 0.5, s: 1, r: 3 })
 }
 
+// ---- chip voices (the 8-bit end of Era) ------------------------------------------------------
+
+/** One frame of the NES sound driver's 60 Hz clock: volume and pitch change on frames. */
+const FRAME = 1 / 60
+
+/** Velocity as a 4-bit channel volume, 1..15. */
+const vol4 = (vel: number): number => Math.max(1, Math.round(15 * velAmp(vel)))
+
+/**
+ * A chip VCA in 4-bit volume steps: `steps` are [frame, volume 0..15] from
+ * the note's start (the first lands in 1.5 ms, click-free); each later step
+ * glides over under a millisecond, so it lands on its frame without a click,
+ * one automation event a step. `gate` false: percussive, the steps are the
+ * whole sound. Otherwise the last step holds until the release at `dur`.
+ */
+function chipSteps(n: Note, dur: number, scale: number, steps: ReadonlyArray<readonly [number, number]>, r: number, gate = true): NoteHandle {
+  const g = n.amp.gain
+  const at = n.at
+  const relAt = at + Math.max(0.02, dur)
+  g.setValueAtTime(0, at)
+  g.linearRampToValueAtTime((scale * steps[0]![1]) / 15, at + 0.0015)
+  let last = at
+  let prev = steps[0]![1]
+  for (const [frame, q] of steps.slice(1)) {
+    const t = at + frame * FRAME
+    if (gate && t >= relAt - 0.004) break
+    if (q === prev) continue
+    g.setTargetAtTime((scale * q) / 15, t, 0.0006)
+    last = t
+    prev = q
+  }
+  if (!gate) {
+    g.setTargetAtTime(0, last + FRAME, 0.002)
+    return finish(n, { end: last + FRAME + 0.02, relAt: -1 }, 0, last + FRAME)
+  }
+  g.setTargetAtTime(0, relAt, Math.max(0.002, r / 5))
+  return finish(n, { end: relAt + Math.max(0.02, r * 1.3), relAt }, r, at + dur)
+}
+
+/**
+ * NES pulse lead: a 25 % pulse, a 50 % square on accents (vel ≥ 0.8), in
+ * tune and unfiltered. The volume lands on the note's 4-bit level and falls
+ * three steps to the sustain, a step every two frames; a stepped vibrato
+ * (the driver's pitch table, one step a frame, ±22 cents at 6 Hz) comes in
+ * after a quarter second on notes long enough to hear it.
+ */
+const chipLead: Patch = (v, midi, at, dur, vel, _o, pan) => {
+  const n = begin(v.res, at, v.out.input, pan)
+  const o = waveOsc(n, vel >= 0.8 ? v.res.pulse50 : v.res.pulse25, hz(midi))
+  o.connect(n.amp)
+  if (dur > 0.4) {
+    const lfo = waveOsc(n, v.res.vibStep, 6, at + 0.25)
+    const depth = gain(n.ac, 22)
+    lfo.connect(depth)
+    depth.connect(o.detune)
+  }
+  const q = vol4(vel)
+  const steps: Array<[number, number]> = [[0, q]]
+  for (let i = 1; i <= 3; i++) steps.push([i * 2, Math.max(1, q - i)])
+  return chipSteps(n, dur, LEVEL['chip.lead'], steps, 0.05)
+}
+
+/**
+ * NES triangle bass: the 4-bit staircase triangle (res.tri4), in tune. The
+ * channel has no volume control, so the note sounds at one level from start
+ * to end (velocity only nudges it) behind a gate a few milliseconds long.
+ * Three automation events, whatever the length: fine for drones.
+ */
+const chipBass: Patch = (v, midi, at, dur, vel, _o, pan) => {
+  const n = begin(v.res, at, v.out.input, pan)
+  waveOsc(n, v.res.tri4, hz(midi)).connect(n.amp)
+  return done(n, dur, { peak: LEVEL['chip.bass'] * (0.6 + 0.4 * vel), a: 0.003, d: 1, s: 1, r: 0.02 })
+}
+
+/** An arpeggio slot: two 60 Hz frames per chord note. */
+const ARP_SLOT = 2 / 60
+
+/**
+ * The gate of note `i` of `count` in a frame-rate arpeggio: one cycle is
+ * `count` slots, the wave is 1 in slot `i` and 0 elsewhere once the gain it
+ * drives adds its mean (1 / count); Lanczos-smoothed edges ramp in about 2
+ * ms, so the switching does not click. Built once per (i, count).
+ */
+function arpGate(res: Resources, i: number, count: number): PeriodicWave {
+  return res.wave(`arp.gate:${i}/${count}`, () =>
+    waveFrom(res.ac, x => (x >= i / count && x < (i + 1) / count ? 1 : 0), 32, { smooth: true, raw: true }))
+}
+
+/**
+ * Chip pad: a chord as a frame-rate arpeggio, the chiptune trick for chords
+ * on one channel. `opts.chord = [index, count]` is the note's place among
+ * the chord notes starting with it: slot k (two frames) belongs to note
+ * k % count, so the chord cycles through its notes 7.5 times a second (four
+ * notes) and is heard as one warbling chord. The slot gate is an oscillator
+ * (arpGate), not automation: no events however long the note. Each note
+ * plays √count louder, so the arpeggio is as loud as the chord held. A note
+ * without a chord is a plain sustained 12.5 % pulse. Arpeggiated notes are
+ * not tied into the next bar (a tie would keep its old slot under a new
+ * chord); they restart with the chord, as a sound driver does.
+ */
+const chipPad: Patch = (v, midi, at, dur, vel, opts, pan) => {
+  const n = begin(v.res, at, v.out.input, pan)
+  const o = waveOsc(n, v.res.pulse12, hz(midi))
+  const count = Math.round(clamp(opts?.chord?.[1] ?? 1, 1, 8))
+  const i = ((Math.round(opts?.chord?.[0] ?? 0) % count) + count) % count
+  let peak = LEVEL['chip.pad'] * velAmp(vel)
+  if (count > 1) {
+    const g = gain(n.ac, 1 / count)
+    waveOsc(n, arpGate(v.res, i, count), 1 / (count * ARP_SLOT)).connect(g.gain)
+    chain(o, g, n.amp)
+    peak *= Math.sqrt(count)
+  } else o.connect(n.amp)
+  const h = done(n, dur, { peak, a: 0.004, d: 1, s: 1, r: 0.03 })
+  if (count > 1) h.extend = () => false
+  return h
+}
+
+/**
+ * Chip bell: a 12.5 % pulse blip that falls to silence in 4-bit steps over
+ * ten frames, and the NES echo: the same blip again three frames short of a
+ * dotted eighth later (0.18 s), at a third of the level (the sound driver's
+ * way to fake a delay on one channel).
+ */
+const chipBell: Patch = (v, midi, at, _dur, vel, _o, pan) => {
+  const n = begin(v.res, at, v.out.input, pan)
+  waveOsc(n, v.res.pulse12, hz(midi)).connect(n.amp)
+  const q = vol4(vel)
+  const e = Math.max(1, Math.round(q / 3))
+  const echo = Math.round(0.18 / FRAME)
+  const steps: Array<[number, number]> = []
+  for (let i = 0; i <= 10; i++) steps.push([i, Math.round(q * (1 - i / 10))])
+  for (let i = 0; i <= 8; i++) steps.push([echo + i, Math.round(e * (1 - i / 8))])
+  return chipSteps(n, 0, LEVEL['chip.bell'], steps, 0, false)
+}
+
+// ---- acoustic voices (the analog end of Era) ---------------------------------------------------
+
+/**
+ * The string section's body: fixed resonances of the instruments' wood and
+ * air (air mode ~280 Hz, the top plate ~500, a lift at 1.1 kHz, the bridge
+ * hill ~2.8 kHz), a gentle low cut and the top rolled off above 5.5 kHz.
+ * Built once per layer; lives for the session.
+ */
+function stringBody(v: VoiceCtx): AudioNode {
+  const hit = v.cache.get('strings.body')
+  if (hit) return hit
+  const ac = v.ac
+  const input = gain(ac, 1)
+  const peak = (f: number, q: number, db: number) => {
+    const b = filter(ac, 'peaking', f, q)
+    b.gain.value = db
+    return b
+  }
+  chain(
+    input, filter(ac, 'highpass', 70, 0.7),
+    peak(280, 1.3, 4.5), peak(500, 1.6, 3), peak(1100, 2, 2), peak(2800, 1.4, 3.5),
+    filter(ac, 'lowpass', 5500, 0.6), v.out.input,
+  )
+  v.cache.set('strings.body', input)
+  return input
+}
+
+/** One player's vibrato: `cents` deep at `rate` Hz, swelling in over 0.6 s from `delay`; skipped on short notes. */
+function bowVibrato(n: Note, o: OscillatorNode, dur: number, rate: number, cents: number, delay: number): void {
+  if (dur < delay + 0.2) return
+  const depth = n.ac.createGain()
+  depth.gain.setValueAtTime(0, n.at + delay)
+  depth.gain.linearRampToValueAtTime(cents, n.at + delay + 0.6)
+  lfo(n, rate, n.at + delay).connect(depth)
+  depth.connect(o.detune)
+}
+
+/**
+ * Bowed string section (pads, counter lines, drones). A bowed string's
+ * Helmholtz motion is close to a sawtooth, so each note is two players:
+ * two sawtooths a few cents apart, left and right, each with its own slow
+ * vibrato that comes in late (about 5.3 Hz, independent rates and phases).
+ * The bow: a swell of 0.15-0.5 s (slower for soft and long notes) while the
+ * tone brightens as the bow bites, and a little band-passed bow noise, more
+ * of it on the attack. All of it into the shared body resonances. No chorus:
+ * the width and movement come from the players, not a string machine's
+ * ensemble (that is pad.strings). On the counter or lead layer it plays a
+ * single line, louder (LEVEL is set for four-note chords).
+ */
+const stringsEnsemble: Patch = (v, midi, at, dur, vel, _o, pan) => {
+  const n = begin(v.res, at, stringBody(v), pan)
+  const f = hz(midi)
+  const a = osc(n, 'sawtooth', f, rand(3, 7))
+  const b = osc(n, 'sawtooth', f, -rand(3, 7))
+  const atk = Math.min(dur * 0.45, clamp(0.5 - 0.35 * vel + 0.04 * dur, 0.15, 0.5))
+  const lp = filter(n.ac, 'lowpass', 2000, 0.5)
+  const top = keyTrack(3800, midi, 0.35) * (0.6 + 0.6 * vel)
+  lp.frequency.setValueAtTime(safeHz(n.ac, top * 0.4), at)
+  lp.frequency.linearRampToValueAtTime(safeHz(n.ac, top), at + atk * 1.2)
+  chain(stereo(n.ac, a, b), lp, n.amp)
+  const delay = Math.min(0.9, 0.35 + dur * 0.1)
+  bowVibrato(n, a, dur, rand(4.9, 5.4), rand(7, 10), delay)
+  bowVibrato(n, b, dur, rand(5.3, 5.8), rand(7, 10), delay + rand(0.05, 0.2))
+  const bow = noise(n, n.res.white)
+  const bp = filter(n.ac, 'bandpass', keyTrack(2600, midi, 0.3), 0.9)
+  const bg = n.ac.createGain()
+  bg.gain.setValueAtTime(0.1 + 0.08 * vel, at)
+  bg.gain.setTargetAtTime(0.035, at + atk * 0.6, 0.12)
+  chain(bow, bp, bg, n.amp)
+  // LEVEL is for a pad's four notes; a single line (counter, lead) plays about 5.5 dB louder to match.
+  const line = v.layer === 'counter' || v.layer === 'lead' ? 1.9 : 1
+  return done(n, dur, { peak: LEVEL['strings.ensemble'] * line * velAmp(vel), a: atk, d: 0.5, s: 1, r: clamp(0.3 + dur * 0.05, 0.3, 0.6) })
+}
+
+/**
+ * Flute: the tone is a sine with weaker 2nd and 3rd harmonics (res.flute),
+ * scooped up into pitch by a few cents. Breath: white noise band-passed
+ * around the note (the air column rings with it) and a little high hiss;
+ * the hiss path starts loud and short, the chiff of the tongued attack.
+ * The attack is soft (the air column takes 40-80 ms to speak). Vibrato comes
+ * in after 0.3 s, mostly breath pressure (level) with a little pitch.
+ * Unlike lead.whistle (an ocarina: pure sine, a narrow pitched breath) it
+ * has harmonics, a broad breath, a later vibrato that swells the level.
+ */
+const windFlute: Patch = (v, midi, at, dur, vel, _o, pan) => {
+  const n = begin(v.res, at, v.out.input, pan)
+  const f = hz(midi)
+  const o = waveOsc(n, v.res.flute, f)
+  o.detune.setValueAtTime(-22, at)
+  o.detune.setTargetAtTime(0, at, 0.03)
+  const trem = gain(n.ac, 1)
+  chain(o, trem, n.amp)
+  if (dur > 0.45) {
+    const vib = lfo(n, rand(4.8, 5.3), at + 0.3)
+    const cents = gain(n.ac, 0)
+    cents.gain.setValueAtTime(0, at + 0.3)
+    cents.gain.linearRampToValueAtTime(9, at + 0.8)
+    const depth = gain(n.ac, 0)
+    depth.gain.setValueAtTime(0, at + 0.3)
+    depth.gain.linearRampToValueAtTime(0.16, at + 0.8)
+    vib.connect(cents)
+    cents.connect(o.detune)
+    vib.connect(depth)
+    depth.connect(trem.gain)
+  }
+  const air = noise(n, n.res.white)
+  const bp = filter(n.ac, 'bandpass', f, 3)
+  chain(air, bp, gain(n.ac, 0.7 + 0.4 * vel), n.amp)
+  const hp = filter(n.ac, 'highpass', Math.min(9000, Math.max(2500, f * 3)), 0.7)
+  const hg = n.ac.createGain()
+  hg.gain.setValueAtTime(0.12 + 0.14 * vel, at)
+  hg.gain.setTargetAtTime(0.018, at + 0.012, 0.025)
+  chain(air, hp, hg, n.amp)
+  return done(n, dur, { peak: LEVEL['wind.flute'] * velAmp(vel), a: 0.08 - 0.04 * vel, d: 0.3, s: 0.92, r: 0.12 })
+}
+
 // ---- dispatch ------------------------------------------------------------------------------------
 
 const PATCHES: Record<VoiceId, Patch> = {
@@ -775,6 +1044,9 @@ const PATCHES: Record<VoiceId, Patch> = {
   'bell.glass': bellGlass, 'bell.fm': bellFm, 'bell.chime': bellChime,
   'counter.strings': counterStrings, 'counter.soft': counterSoft,
   'drone.sub': droneSub, 'drone.organ': droneOrgan, 'drone.shimmer': droneShimmer,
+  'chip.lead': chipLead, 'chip.bass': chipBass, 'chip.pad': chipPad, 'chip.bell': chipBell,
+  'strings.ensemble': stringsEnsemble, 'wind.flute': windFlute,
+  ...INSTRUMENTS,
 }
 
 export const VOICE_IDS = Object.keys(PATCHES) as VoiceId[]

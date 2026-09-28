@@ -1,4 +1,4 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * Ambience: background textures under the music.
  *
@@ -14,8 +14,8 @@
  * its nodes freed; nothing is scheduled for it until it comes back.
  */
 import type { AmbienceId, BarPlan, Key } from '../types.ts'
-import { type VoiceCtx, type Resources, clamp, rand, pick, hz, safeHz } from './synth.ts'
-import { type Fade, fadeAtBarStart, fadeAtBarEnd } from './timing.ts'
+import { type VoiceCtx, type Resources, type GateHandle, clamp, rand, pick, hz, safeHz, gateHandle, holdAt } from './synth.ts'
+import { type Fade, type Ramp, fadeAtBarStart, fadeAtBarEnd, rampAt, pruneRamps } from './timing.ts'
 
 // ---- texture plumbing ------------------------------------------------------------
 
@@ -26,6 +26,8 @@ interface Env {
   out: GainNode
   key(): Key
   scale(): number[]
+  /** Register an event for the transport cut. */
+  track(h: GateHandle): void
 }
 
 interface Tx {
@@ -103,10 +105,16 @@ class Bed {
   }
 }
 
-/** One event's output: gain → (low-pass for distance) → panner → texture out. Freed when its source ends. */
-function shot(e: Env, pan: number, lp = 0): { input: GainNode; done(src: AudioScheduledSourceNode, end: number): void } {
+/**
+ * One event starting at `at`: gain → (low-pass for distance) → panner →
+ * texture out. Freed when its source ends. The input gain doubles as the
+ * event's cut gate (its sources are the ones passed to `done`).
+ */
+function shot(e: Env, at: number, pan: number, lp = 0): { input: GainNode; done(src: AudioScheduledSourceNode, end: number): void } {
   const ac = e.ac
   const input = ac.createGain()
+  const h = gateHandle(ac, input, at, true)
+  e.track(h)
   let node: AudioNode = input
   if (lp > 0) {
     const f = ac.createBiquadFilter()
@@ -124,6 +132,8 @@ function shot(e: Env, pan: number, lp = 0): { input: GainNode; done(src: AudioSc
     input,
     done(src, end) {
       src.stop(end)
+      h.srcs.push(src)
+      if (end > h.gone) h.gone = end
       src.onended = () => { try { p.disconnect() } catch { /* gone */ } }
     },
   }
@@ -234,7 +244,7 @@ interface Bird { f: number; song: Syl[]; pan: number; dist: number; pace: number
 
 function sing(e: Env, bird: Bird, t: number, level: number): void {
   const ac = e.ac
-  const s = shot(e, bird.pan, 9000 - bird.dist * 5000)
+  const s = shot(e, t, bird.pan, 9000 - bird.dist * 5000)
   const o = ac.createOscillator()
   o.type = 'sine'
   const g = ac.createGain()
@@ -308,7 +318,7 @@ const birdsJungle: Factory = e => {
     const ac = e.ac
     const kind = pick(['whoop', 'gliss', 'parrot', 'twotone', 'whoop', 'gliss'] as const)
     const far = rand(0.2, 1)
-    const s = shot(e, rand(-0.9, 0.9), kind === 'parrot' ? 3200 : 8000 - far * 4000)
+    const s = shot(e, t, rand(-0.9, 0.9), kind === 'parrot' ? 3200 : 8000 - far * 4000)
     const o = ac.createOscillator()
     const g = ac.createGain()
     g.gain.value = 0
@@ -424,7 +434,7 @@ const insects: Factory = e => {
       every(tm, from, to, () => rand(2, 6), t => wander(swell.gain, t, 0.15, 1, rand(1.5, 4)))
       for (const c of crickets) {
         every(c.tm, from, to, () => c.period * rand(0.95, 1.05) * (Math.random() < 0.1 ? 3 : 1), t => {
-          const s = shot(e, c.pan)
+          const s = shot(e, t, c.pan)
           const o = e.ac.createOscillator()
           o.frequency.value = c.f
           const g = e.ac.createGain()
@@ -449,7 +459,7 @@ const insects: Factory = e => {
 /** A short water drop: a tick of band-passed noise, or a small pitched plink. */
 function drop(e: Env, t: number, lvl: number, lo: number, hi: number, pan: number, plink: boolean): void {
   const ac = e.ac
-  const s = shot(e, pan)
+  const s = shot(e, t, pan)
   const g = ac.createGain()
   g.connect(s.input)
   if (plink) {
@@ -566,7 +576,7 @@ const stream: Factory = e => {
       // Babble: small bubbles rising in pitch.
       every(tm, from, to, () => rand(0.04, 0.2) / (0.4 + level), t => {
         const ac = e.ac
-        const s = shot(e, rand(-0.7, 0.7))
+        const s = shot(e, t, rand(-0.7, 0.7))
         const o = ac.createOscillator()
         const f = rand(350, 1300)
         const len = rand(0.025, 0.07)
@@ -634,7 +644,7 @@ const gulls: Factory = e => {
       every(tm, from, to, () => rand(6, 18), t => {
         const ac = e.ac
         const far = rand(0.3, 1)
-        const s = shot(e, rand(-0.9, 0.9), 4200 - far * 1500)
+        const s = shot(e, t, rand(-0.9, 0.9), 4200 - far * 1500)
         const o = ac.createOscillator()
         o.type = 'sawtooth'
         const bp = ac.createBiquadFilter()
@@ -675,7 +685,7 @@ const owl: Factory = e => {
     run(from, to, level) {
       every(tm, from, to, () => rand(14, 35), t => {
         const ac = e.ac
-        const s = shot(e, rand(-0.7, 0.7), 1400)
+        const s = shot(e, t, rand(-0.7, 0.7), 1400)
         const p = hz(scaleNote(e, 63, 69))
         const o = ac.createOscillator()
         const g = ac.createGain()
@@ -740,7 +750,7 @@ const snow: Factory = e => {
         const ac = e.ac
         if (Math.random() < 0.35) {
           // Snow sliding off a branch: a soft puff.
-          const s = shot(e, rand(-0.8, 0.8), 1600)
+          const s = shot(e, t, rand(-0.8, 0.8), 1600)
           const n = ac.createBufferSource()
           n.buffer = e.res.pink
           const g = ac.createGain()
@@ -753,7 +763,7 @@ const snow: Factory = e => {
           return
         }
         // Creak: stick-slip pulses of a low saw through a woody band-pass.
-        const s = shot(e, rand(-0.8, 0.8))
+        const s = shot(e, t, rand(-0.8, 0.8))
         const o = ac.createOscillator()
         o.type = 'sawtooth'
         o.frequency.value = rand(70, 150)
@@ -849,7 +859,7 @@ const chimes: Factory = e => {
           // Each tube hangs in its own place.
           const pan = -0.7 + (1.4 * k) / Math.max(1, pcs.length - 1)
           const ac = e.ac
-          const s = shot(e, pan)
+          const s = shot(e, at, pan)
           const f = hz(midi)
           const amp = rand(0.08, 0.2) * (0.6 + 0.4 * level)
           const g = ac.createGain()
@@ -886,7 +896,7 @@ const bellDistant: Factory = e => {
         const pan = rand(-0.5, 0.5)
         for (let k = 0; k < strikes; k++) {
           const at = t + k * rand(2.2, 2.8)
-          const s = shot(e, pan, 1600)
+          const s = shot(e, at, pan, 1600)
           const sum = ac.createGain()
           sum.gain.value = 0.3 * (0.6 + 0.4 * level)
           sum.connect(s.input)
@@ -960,7 +970,7 @@ const road: Factory = e => {
       // Road seams: two soft thumps as the wheels cross.
       every(seam, from, to, () => rand(4, 12), t => {
         for (const off of [0, 0.11]) {
-          const s = shot(e, 0)
+          const s = shot(e, t + off, 0)
           const o = e.ac.createOscillator()
           o.frequency.setValueAtTime(70, t + off)
           o.frequency.exponentialRampToValueAtTime(45, t + off + 0.06)
@@ -990,13 +1000,18 @@ const passing: Factory = e => {
         const pan = ac.createStereoPanner()
         pan.pan.setValueAtTime(-0.9 * dir, t)
         pan.pan.linearRampToValueAtTime(0.9 * dir, t + len)
+        // A unity gain as the event's cut gate.
+        const gate = ac.createGain()
+        gate.connect(pan)
         pan.connect(e.out)
+        const h = gateHandle(ac, gate, t, true)
+        e.track(h)
         const g = ac.createGain()
         const peak = rand(0.35, 0.6) * (0.6 + 0.4 * level)
         g.gain.setValueAtTime(0.0001, t)
         g.gain.exponentialRampToValueAtTime(peak, mid)
         g.gain.exponentialRampToValueAtTime(0.0001, t + len)
-        g.connect(pan)
+        g.connect(gate)
         // Tyre/air whoosh: its band falls as the car passes (doppler).
         const n = ac.createBufferSource()
         n.buffer = e.res.pink
@@ -1022,6 +1037,8 @@ const passing: Factory = e => {
         n.stop(t + len + 0.05)
         o.start(t)
         o.stop(t + len + 0.05)
+        h.srcs.push(n, o)
+        h.gone = t + len + 0.05
         o.onended = () => { try { pan.disconnect() } catch { /* gone */ } }
       })
     },
@@ -1058,7 +1075,7 @@ const city: Factory = e => {
       every(mod, from, to, () => rand(3, 8), t => wander(hum.gain, t, 0.35, 0.65, 3))
       every(horn, from, to, () => rand(12, 40), t => {
         const ac = e.ac
-        const s = shot(e, rand(-0.9, 0.9), 1300)
+        const s = shot(e, t, rand(-0.9, 0.9), 1300)
         const g = ac.createGain()
         g.gain.value = 0
         g.connect(s.input)
@@ -1110,7 +1127,7 @@ const radio: Factory = e => {
       every(tm, from, to, () => rand(1.5, 5), t => {
         const ac = e.ac
         const kind = Math.random()
-        const s = shot(e, rand(-0.8, 0.8), 5000)
+        const s = shot(e, t, rand(-0.8, 0.8), 5000)
         const g = ac.createGain()
         g.gain.value = 0
         g.connect(s.input)
@@ -1217,7 +1234,7 @@ const shimmer: Factory = e => {
         const run = Math.random() < 0.15 ? 3 : 1
         for (let i = 0; i < run; i++) {
           const at = t + i * 0.09
-          const s = shot(e, rand(-0.9, 0.9))
+          const s = shot(e, at, rand(-0.9, 0.9))
           const o = ac.createOscillator()
           o.frequency.value = hz(scaleNote(e, 86, 100))
           const g = ac.createGain()
@@ -1258,6 +1275,18 @@ export interface Ambience {
   run(to: number): void
   /** The loudest texture level at time `t`, 0..1 (for the display). */
   level(t: number): number
+  /**
+   * Transport cut at `at`: events starting from `at` never sound, sounding
+   * ones ring out (or fade over `fade` without `ring`); every texture level
+   * holds its value at `at` until the next bar moves it.
+   */
+  cut(at: number, fade: number, ring: boolean): void
+  /** The transport went idle: fade every texture out over `fade` from `at` and stop its sources. */
+  silence(at: number, fade: number): void
+  /** Forget events and ramps that ended before `before`. */
+  prune(before: number): void
+  /** Events still tracked, for leak checks. */
+  readonly events: number
 }
 
 interface Slot {
@@ -1267,7 +1296,9 @@ interface Slot {
   /** Level at the end of the last scheduled bar. */
   last: number
   /** For the display: [t0, v0, t1, v1] of the last ramp. */
-  ramp: [number, number, number, number]
+  ramp: Ramp
+  /** The recent ramps (level, untrimmed), to read the level back at a cut. */
+  ramps: Ramp[]
 }
 
 export function createAmbience(v: VoiceCtx): Ambience {
@@ -1276,8 +1307,10 @@ export function createAmbience(v: VoiceCtx): Ambience {
   let scale: number[] = [0, 2, 4, 5, 7, 9, 11]
   const slots = new Map<AmbienceId, Slot>()
   let ranTo = 0
+  const events: GateHandle[] = []
+  const track = (h: GateHandle) => { events.push(h) }
 
-  const envFor = (out: GainNode): Env => ({ ac, res: v.res, out, key: () => key, scale: () => scale })
+  const envFor = (out: GainNode): Env => ({ ac, res: v.res, out, key: () => key, scale: () => scale, track })
 
   function slot(id: AmbienceId): Slot {
     let s = slots.get(id)
@@ -1285,7 +1318,7 @@ export function createAmbience(v: VoiceCtx): Ambience {
       const gain = ac.createGain()
       gain.gain.value = 0
       gain.connect(v.out.input)
-      s = { fade: { from: 0, to: 0, start: 0, bars: 0 }, gain, tx: null, last: 0, ramp: [0, 0, 0, 0] }
+      s = { fade: { from: 0, to: 0, start: 0, bars: 0 }, gain, tx: null, last: 0, ramp: [0, 0, 0, 0], ramps: [] }
       slots.set(id, s)
     }
     return s
@@ -1312,6 +1345,7 @@ export function createAmbience(v: VoiceCtx): Ambience {
         }
         s.last = 0
         s.ramp = [t0, 0, t1, 0]
+        s.ramps.push(s.ramp)
         continue
       }
       if (!s.tx) {
@@ -1319,10 +1353,13 @@ export function createAmbience(v: VoiceCtx): Ambience {
         s.gain.gain.setValueAtTime(0, t0)
         s.tx.start(t0)
       }
-      if (s.fade.bars <= 0 && idx === s.fade.start) s.gain.gain.linearRampToValueAtTime(v1 * trim, Math.min(t1, t0 + 0.05))
+      const jump = s.fade.bars <= 0 && idx === s.fade.start
+      if (jump) s.gain.gain.linearRampToValueAtTime(v1 * trim, Math.min(t1, t0 + 0.05))
       s.gain.gain.linearRampToValueAtTime(v1 * trim, t1)
       s.last = v1
       s.ramp = [t0, v0, t1, v1]
+      if (jump) s.ramps.push([t0, v0, Math.min(t1, t0 + 0.05), v1], [Math.min(t1, t0 + 0.05), v1, t1, v1])
+      else s.ramps.push(s.ramp)
     }
   }
 
@@ -1344,5 +1381,43 @@ export function createAmbience(v: VoiceCtx): Ambience {
     return m
   }
 
-  return { bar, run, level }
+  function cut(at: number, fade: number, ring: boolean): void {
+    for (const h of events) h.cut(at, fade, ring)
+    for (const [id, s] of slots) {
+      const lv = rampAt(s.ramps, at, s.last)
+      // Without cancelAndHoldAtTime the ramp is gone: land on the level it had at `at`.
+      if (!holdAt(s.gain.gain, at)) s.gain.gain.linearRampToValueAtTime(lv * TRIM[id], at)
+      s.fade = { from: lv, to: lv, start: 0, bars: 0 }
+      s.last = lv
+      s.ramp = [at, lv, at, lv]
+      s.ramps.length = 0
+      s.ramps.push(s.ramp)
+    }
+  }
+
+  function silence(at: number, fade: number): void {
+    for (const s of slots.values()) {
+      const lv = rampAt(s.ramps, at, s.last)
+      holdAt(s.gain.gain, at)
+      if (s.tx) {
+        s.gain.gain.setTargetAtTime(0, at, Math.max(0.01, fade / 5))
+        s.tx.stop(at + fade * 1.3 + 0.05)
+        s.tx = null
+      }
+      s.fade = { from: 0, to: 0, start: 0, bars: 0 }
+      s.last = 0
+      s.ramp = [at, lv, at + fade, 0]
+      s.ramps.length = 0
+      s.ramps.push(s.ramp)
+    }
+  }
+
+  function prune(before: number): void {
+    let j = 0
+    for (let i = 0; i < events.length; i++) if (events[i]!.gone >= before) events[j++] = events[i]!
+    events.length = j
+    for (const s of slots.values()) pruneRamps(s.ramps, before)
+  }
+
+  return { bar, run, level, cut, silence, prune, get events() { return events.length } }
 }

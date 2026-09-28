@@ -1,13 +1,15 @@
-// Vendored from phareim/radio@78b7024 by scripts/sync-radio.mjs — edit it there, then re-sync.
+// Vendored from phareim/radio@7530515 by scripts/sync-radio.mjs — edit it there, then re-sync.
 /**
  * validateLandscape: checks a Landscape from any source (built-in files,
  * Opus's JSON) and returns a normalised copy. Pure; the backend imports it
  * with Node's type stripping.
  */
-import type { Groove, Landscape, Layer } from './types.ts'
+import type { Groove, Landscape, Layer, WrittenPart } from './types.ts'
 import { AMBIENCE_IDS, DRUM_HITS, KIT_IDS, LAYER_IDS, MODE_IDS, SCENE_IDS, VOICE_IDS } from './catalog.ts'
 import { parseProgression } from './theory.ts'
 import { parseMotif } from './composer.ts'
+import { noteName, parseDrumBar, parseNoteBar } from './piece/notation.ts'
+import { MAX_BAR_CHARS } from './piece/validate.ts'
 
 export interface Validation {
   ok: boolean
@@ -17,6 +19,9 @@ export interface Validation {
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 const num = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
+
+export const MAX_WRITTEN = 8
+export const MAX_WRITTEN_PARTS = 10
 
 export function validateLandscape(input: unknown): Validation {
   const errors: string[] = []
@@ -156,9 +161,93 @@ export function validateLandscape(input: unknown): Validation {
     if (!num(v) || v < 0 || v > 1) err(`ambience.${k}: 0..1`)
   }
 
+  // Written phrases: eight bars each in jam's bar notation, quoted verbatim.
+  if (L.quote !== undefined && (!num(L.quote) || L.quote < 0 || L.quote > 1)) err('quote: 0..1 (the chance a section quotes a written phrase)')
+  if (L.written !== undefined) {
+    if (!Array.isArray(L.written)) err('written: a list of phrases { chords, parts, name?, chordBars?, weight? }')
+    else {
+      if (L.written.length > MAX_WRITTEN) err(`written: at most ${MAX_WRITTEN} phrases, got ${L.written.length}`)
+      const modes = Array.isArray(L.moods) ? L.moods.filter(m => MODE_IDS.includes(m)) : []
+      const ladder = Array.isArray(L.layers) && L.layers.length === 5 && L.layers.every(Array.isArray) ? L.layers : null
+      L.written.slice(0, MAX_WRITTEN).forEach((w, i) => {
+        if (!isObj(w)) { err(`written[${i}]: { chords, parts, name?, chordBars?, weight? }`); return }
+        const at = typeof w.name === 'string' && w.name.trim() ? `written[${i}] '${w.name}'` : `written[${i}]`
+        if (w.name !== undefined && (typeof w.name !== 'string' || !w.name.trim() || w.name.length > 24)) err(`${at}.name: 1–24 chars`)
+        if (w.chordBars !== undefined && w.chordBars !== 1 && w.chordBars !== 2) err(`${at}.chordBars: 1 or 2`)
+        if (w.weight !== undefined && (!num(w.weight) || w.weight <= 0 || w.weight > 10)) err(`${at}.weight: above 0, at most 10`)
+        const bpc = w.chordBars === 1 ? 1 : 2
+        if (typeof w.chords !== 'string') err(`${at}.chords: a progression string lasting 8 bars`)
+        else for (const mode of modes) {
+          const r = parseProgression(w.chords, { tonic: num(L.tonic) ? L.tonic : 0, mode }, bpc)
+          if ('error' in r) { err(`${at}.chords: ${r.error}`); break }
+          if (r.bars !== 8) { err(`${at}.chords: '${w.chords}' lasts ${r.bars} bars (needs exactly 8; tokens without ':n' last chordBars = ${bpc})`); break }
+        }
+        if (!Array.isArray(w.parts) || !w.parts.length || w.parts.length > MAX_WRITTEN_PARTS) {
+          err(`${at}.parts: 1 to ${MAX_WRITTEN_PARTS} parts`)
+          if (!Array.isArray(w.parts)) return
+        }
+        w.parts.slice(0, MAX_WRITTEN_PARTS).forEach((p, j) => writtenPart(p, `${at}.parts[${j}]`, ladder, err))
+      })
+    }
+  }
+
   if (typeof L.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(L.accent)) err('accent: #rrggbb')
+  if (L.alt !== undefined) {
+    if (!isObj(L.alt)) err('alt: { lead?, arp?, pad?, bass?, counter?: voice lists; double?: voice or null }')
+    else for (const [k, v] of Object.entries(L.alt)) {
+      if (k === 'double') { if (v !== null) voice(v, 'alt.double'); continue }
+      if (!['lead', 'arp', 'pad', 'bass', 'counter'].includes(k)) { err(`alt.${k}: not a layer the conductor re-voices (lead, arp, pad, bass, counter, double)`); continue }
+      if (!Array.isArray(v) || v.length > 4) { err(`alt.${k}: a list of at most 4 voices`); continue }
+      v.forEach((x, i) => voice(x, `alt.${k}[${i}]`))
+    }
+  }
   if (L.scene !== undefined && !(SCENE_IDS as readonly string[]).includes(L.scene)) err(`scene: one of ${SCENE_IDS.join('|')}`)
   if (L.scene === undefined && !(SCENE_IDS as readonly string[]).includes(L.id)) err(`scene: required, one of ${SCENE_IDS.join('|')}`)
 
   return errors.length ? { ok: false, errors } : { ok: true, errors: [], landscape: L }
+}
+
+/** One part of a written phrase: layer, one of voice/kit, enter on the ladder, 8 bars that parse. */
+function writtenPart(p: unknown, where: string, ladder: Landscape['layers'] | null, err: (m: string) => void): void {
+  if (!isObj(p)) { err(`${where}: { layer, voice | kit, enter, bars, gain? }`); return }
+  const part = p as unknown as WrittenPart
+  const layerOk = LAYER_IDS.includes(part.layer) && part.layer !== 'ambience'
+  const at = layerOk ? `${where} (${part.layer})` : where
+  if (!layerOk) err(`${at}.layer: one of ${LAYER_IDS.filter(l => l !== 'ambience').join('|')}`)
+  const hasVoice = part.voice !== undefined
+  const hasKit = part.kit !== undefined
+  const one = hasVoice !== hasKit
+  if (!one) err(`${at}: exactly one of voice (note bars) and kit (drum bars)`)
+  else if (hasVoice && !VOICE_IDS.includes(part.voice!)) err(`${at}.voice: unknown voice '${String(part.voice)}'`)
+  else if (hasKit) {
+    if (!KIT_IDS.includes(part.kit!)) err(`${at}.kit: one of ${KIT_IDS.join('|')}`)
+    if (layerOk && part.layer !== 'drums' && part.layer !== 'perc') err(`${at}: a kit part plays on layer 'drums' or 'perc'`)
+  }
+  const enterOk = num(part.enter) && Number.isInteger(part.enter) && part.enter >= 0 && part.enter <= 4
+  if (!enterOk) err(`${at}.enter: integer 0..4`)
+  else if (layerOk && ladder && !ladder[part.enter]!.includes(part.layer)) {
+    const first = ladder.findIndex(ls => ls.includes(part.layer))
+    err(`${at}: enters at ${part.enter} but layers[${part.enter}] has no '${part.layer}', so it could not sound there; ${first >= 0 ? `raise enter to ${first} or ` : ''}add '${part.layer}' to layers[${part.enter}] and up`)
+  }
+  if (part.gain !== undefined && (!num(part.gain) || part.gain < 0 || part.gain > 1.5)) err(`${at}.gain: 0..1.5`)
+  if (!Array.isArray(part.bars) || part.bars.length !== 8) {
+    err(`${at}.bars: 8 strings (one per bar of the phrase, '' for an empty bar), got ${Array.isArray(part.bars) ? part.bars.length : 'none'}`)
+    return
+  }
+  part.bars.forEach((b, k) => {
+    if (typeof b !== 'string') { err(`${at} bar ${k}: not a string`); return }
+    if (b.length > MAX_BAR_CHARS) { err(`${at} bar ${k}: ${b.length} chars (max ${MAX_BAR_CHARS})`); return }
+    if (!one) return
+    if (hasKit) {
+      const r = parseDrumBar(b)
+      if ('error' in r) err(`${at} bar ${k}: ${r.error}`)
+    } else {
+      const r = parseNoteBar(b)
+      if ('error' in r) err(`${at} bar ${k}: ${r.error}`)
+      else {
+        const off = r.notes.find(n => n.midi < 12 || n.midi > 120)
+        if (off) err(`${at} bar ${k}: note ${noteName(off.midi)} out of range C0..C9`)
+      }
+    }
+  })
 }
