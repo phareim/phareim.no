@@ -138,7 +138,9 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
     } catch { return null }
   })()
 
-  let neighbors: Neighbors = buildNeighbors([])
+  let neighborList: NeighborInfo[] = []
+  let homeStoreys = 1
+  let neighbors: Neighbors = buildNeighbors([], homeStoreys)
   town.group.add(neighbors.group)
   town.setExtraBoxes(neighbors.boxes)
   town.setExtraZones(neighbors.zones)
@@ -187,6 +189,27 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
   let clock = 0
   let peerClock: () => number = () => performance.now()
   let lastSafe: Spot = { ...town.spawn }
+
+  let storeyKey = ''
+  /** Tells the shell which storey you are on, when it changed. */
+  const storeyChanged = () => {
+    const h = home ?? (current !== town && (place.kind === 'visit') ? current as HomeScene : null)
+    if (!h) return
+    const k = `${h.storey}/${h.storeys}`
+    if (k === storeyKey) return
+    storeyKey = k
+    emit({ type: 'storey', index: h.storey, count: h.storeys })
+  }
+  /** Up or down the stairs in the house you are in. */
+  const takeStairs = (dir: 1 | -1) => {
+    const h = current !== town && (place.kind === 'house' || place.kind === 'visit') ? current as HomeScene : null
+    const spot = h?.move(dir)
+    if (!spot) return
+    stopUsing()
+    put(spot)
+    sfx('door')
+    storeyChanged()
+  }
 
   const setNear = (z: { id: ZoneId; label: string } | null) => {
     if ((z?.id ?? null) === (near?.id ?? null) && (z?.label ?? null) === (near?.label ?? null)) return
@@ -257,6 +280,7 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
     if (from.kind === 'town' && near) lastTownZone = near.id
     leave()
     place = p
+    storeyKey = ''
     switch (p.kind) {
       case 'town': {
         enter(town)
@@ -275,12 +299,14 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
         enter(home)
         if (p.edit) { home.setEdit(true); cam.fix(home.editView(cam.camera.fov, cam.camera.aspect)) }
         put(home.spawn)
+        storeyChanged()
         break
       }
       case 'visit': {
         const h = buildHome({ editable: false, layout: visit?.layout ?? { floor: 'floor-wood', wall: 'wall-cream', items: [] }, owned: visit?.owned ?? [], host: visit ? { look: visit.look, name: visit.name } : undefined })
         enter(h)
         put(jitter(h.spawn, 0.8, 0))
+        storeyChanged()
         break
       }
       case 'obby': {
@@ -323,7 +349,7 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
       const out = home.house.pointer(kind, raycaster.ray)
       if (!out) return
       if (out.select !== undefined) emit({ type: 'select', uid: out.select })
-      if (out.layout) layoutChanged(out.layout)
+      if (out.layout) layoutChanged(home.full(out.layout))
     },
     peerAt(x, y) {
       if (!peerLayer.here) return null
@@ -473,6 +499,7 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
     setNear(n)
     if (input.actionPressed && n && !drive) {
       if (n.id.startsWith('use:')) startUsing(n.id.slice(4))
+      else if (n.id === 'stair-up' || n.id === 'stair-down') takeStairs(n.id === 'stair-up' ? 1 : -1)
       else emit({ type: 'zone', zone: n.id })
     }
 
@@ -497,6 +524,11 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
 
     // The place's own life (timers, checkpoints, stars).
     current.update(dt, t, body)
+    // Up the stairs to the top step, or into the opening from above.
+    if (!editing && current !== town && (place.kind === 'house' || place.kind === 'visit')) {
+      const spot = (current as HomeScene).stairMove(body)
+      if (spot) { stopUsing(); put(spot); sfx('door'); storeyChanged() }
+    }
     if (home && current === home) (home.house as { setView?(p: THREE.Vector3): void }).setView?.(cam.camera.position)
     if (current === town) {
       balloons.update(dt, t)
@@ -582,6 +614,25 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
 
   // ------------------------------------------------ the handle
 
+  /** Nabogata again: the neighbours' houses and your own, as tall as their storeys. */
+  function rebuildNeighbors() {
+    town.group.remove(neighbors.group)
+    neighbors.dispose()
+    neighbors = buildNeighbors(neighborList, homeStoreys)
+    town.group.add(neighbors.group)
+    if (playerName) neighbors.setHome(playerName, playerTitle)
+    peerLayer.pubsIn('town', livePubs)
+    neighbors.setHidden(livePubs)
+    town.setExtraBoxes(neighbors.boxes)
+    town.setExtraZones(neighbors.zones)
+    if (current === town) setNear(null)
+  }
+  function setHomeStoreys(n: number) {
+    if (n === homeStoreys) return
+    homeStoreys = n
+    rebuildNeighbors()
+  }
+
   const rt: MiniWorldRuntime = {
     input,
     resize(w, h, dpr) {
@@ -632,26 +683,19 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
     setHouse(layout, owned) {
       houseLayout = layout
       houseOwned = owned
-      if (home) home.setLayout(layout, owned)
+      if (home) { home.setLayout(layout, owned); storeyChanged() }
+      setHomeStoreys(1 + (layout.up?.length ?? 0))
     },
     setNeighbors(list: NeighborInfo[]) {
-      town.group.remove(neighbors.group)
-      neighbors.dispose()
-      neighbors = buildNeighbors(list.slice(0, 12))
-      town.group.add(neighbors.group)
-      if (playerName) neighbors.setHome(playerName, playerTitle)
-      peerLayer.pubsIn('town', livePubs)
-      neighbors.setHidden(livePubs)
-      town.setExtraBoxes(neighbors.boxes)
-      town.setExtraZones(neighbors.zones)
-      if (current === town) setNear(null)
+      neighborList = list.slice(0, 12)
+      rebuildNeighbors()
     },
     go,
     get place() { return place },
     edit: {
       add(uid) {
         if (!home || !(place.kind === 'house' && place.edit)) return
-        const l = home.house.add(uid)
+        const l = home.full(home.house.add(uid))
         if (l) {
           layoutChanged(l)
           emit({ type: 'select', uid })
@@ -663,16 +707,25 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
         emit({ type: 'select', uid })
       },
       rotate() {
-        const l = home?.house.rotate() ?? null
+        const l = home ? home.full(home.house.rotate()) : null
         if (l) { layoutChanged(l); sfx('rotate') }
       },
       store() {
-        const l = home?.house.store() ?? null
+        const l = home ? home.full(home.house.store()) : null
         if (l) {
           layoutChanged(l)
           emit({ type: 'select', uid: null })
           sfx('store')
         }
+      },
+      storey(index) {
+        if (!home || !(place.kind === 'house' && place.edit)) return
+        home.house.select(null)
+        emit({ type: 'select', uid: null })
+        const spot = home.showStorey(index)
+        put(spot)
+        cam.fix(home.editView(cam.camera.fov, cam.camera.aspect))
+        storeyChanged()
       },
     },
     on(h) {

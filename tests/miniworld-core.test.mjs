@@ -545,3 +545,95 @@ test('hero colours follow the look: dress covers the legs, rainbow hair is pink 
   const bald = m.heroColorsFor({ ...look, hair: 'none' })
   assert.equal(bald.hair, bald.skin)
 })
+
+// ---------------------------------------------------------------- storeys (2026-09-28)
+
+const cellsOf = (c) => {
+  const out = []
+  for (let z = c.z; z < c.z + c.d; z++) for (let x = c.x; x < c.x + c.w; x++) out.push(`${x},${z}`)
+  return out
+}
+
+test('storeys: up to three, stairs clear of fixtures and of the opening below, what stood there goes to storage', () => {
+  let s = withPerson()
+  // Fill the room so the stairs must move something.
+  for (let i = 0; i < 12; i++) {
+    const [n, uid] = buyF(s, 'chair')
+    const spot = m.firstFreeSpot(n, uid)
+    s = spot ? ok(m.setLayout(n, { ...n.house, items: [...n.house.items, spot] })) : n
+  }
+  const before = m.stored(s).length
+  s = ok(m.addStorey(s))
+  assert.equal(m.storeyCount(s.house), 2)
+  const st = s.house.stair
+  assert.ok(st, 'the ground has stairs up')
+  const strip = new Set(cellsOf(m.stairCells(st)))
+  for (const f of m.GROUND_KEEP_FREE) for (const c of cellsOf(f)) assert.ok(!strip.has(c), 'stairs on a fixture')
+  for (const it of s.house.items) {
+    const def = catalog.furniture(s.furniture.find(o => o.uid === it.uid).id)
+    if (def.kind === 'wall' || it.on) continue
+    for (const c of cellsOf(m.footprint(def, it))) assert.ok(!strip.has(c), `${def.id} under the stairs`)
+  }
+  assert.ok(m.stored(s).length >= before, 'moved things are in storage, not lost')
+  assert.equal(s.house.up[0].floor, s.house.floor, 'the new storey starts with the floor below')
+  s = ok(m.addStorey(s))
+  assert.equal(m.storeyCount(s.house), 3)
+  const mid = s.house.up[0].stair
+  assert.ok(mid, 'storey two has stairs up')
+  for (const c of cellsOf(m.stairCells(mid))) assert.ok(!strip.has(c), 'stairs over the opening from below')
+  assert.equal(s.house.up[1].stair, undefined, 'the top storey has no stairs up')
+  assert.equal(m.addStorey(s), 'top-storey')
+})
+
+test('storeys: placing upstairs, one storey per item, the strips are blocked, surfaces per storey', () => {
+  let s = ok(m.addStorey(withPerson()))
+  let uid
+  ;[s, uid] = buyF(s, 'sofa')
+  const up = m.roomState(s, 1)
+  const spot = m.firstFreeSpot(up, uid)
+  assert.ok(spot)
+  const room = { ...s.house.up[0], items: [spot] }
+  s = ok(m.setLayout(s, m.withRoom(s.house, 1, room)))
+  assert.ok(m.placedUids(s.house).has(uid))
+  assert.equal(m.stored(s).some(o => o.uid === uid), false)
+  // The same uid on the ground too: refused.
+  const twice = m.withRoom(s.house, 0, { ...m.roomAt(s.house, 0), items: [...s.house.items, { ...spot }] })
+  assert.equal(m.setLayout(s, twice), 'bad-place')
+  // Onto the opening upstairs: refused.
+  const hole = m.stairCells(s.house.stair)
+  const onHole = { uid, x: hole.x, z: hole.z, rot: hole.w > 1 ? 0 : 1 }
+  assert.equal(m.canPlace(m.roomState(s, 1), uid, onHole), false)
+  // The editor cannot add or drop storeys through a layout.
+  assert.equal(m.setLayout(s, { ...m.roomAt(s.house, 0) }), 'bad-place')
+  // Wallpaper upstairs only.
+  s = ok(m.buyWall(s, 'wall-hearts'))
+  s = ok(m.setSurface(s, 'wall', 'wall-hearts', 1))
+  assert.equal(s.house.up[0].wall, 'wall-hearts')
+  assert.equal(s.house.wall, catalog.STARTER_WALL)
+})
+
+test('storeys: parse keeps them, repairs stairs, drops a uid placed twice; gifts and the public house see every storey', () => {
+  let s = ok(m.addStorey(withPerson()))
+  let uid
+  ;[s, uid] = buyF(s, 'armchair')
+  const spot = m.firstFreeSpot(m.roomState(s, 1), uid)
+  s = ok(m.setLayout(s, m.withRoom(s.house, 1, { ...s.house.up[0], items: [spot] })))
+  const back = m.parseSave(JSON.parse(JSON.stringify(s)))
+  assert.deepEqual(back.house, s.house)
+  // Broken stairs are laid again; a uid on both storeys stays on the lower one.
+  const raw = JSON.parse(JSON.stringify(s))
+  raw.house.stair = { x: 99, z: 0, rot: 0 }
+  raw.house.items.push({ ...spot })
+  const fixed = m.parseSave(raw)
+  assert.ok(fixed.house.stair && fixed.house.stair.x < 10)
+  assert.equal([...m.rooms(fixed.house)].flatMap(r => r.items).filter(i => i.uid === uid).length <= 1, true)
+  // Public data and the server's cleaning keep the upper storey.
+  const pub = m.publicData(s)
+  assert.equal(pub.kinds[uid], 'armchair')
+  const clean = m.cleanPublicHouse(JSON.parse(JSON.stringify(pub.house)), pub.kinds, pub.levels)
+  assert.equal(clean.up.length, 1)
+  assert.ok(clean.up[0].items.some(i => i.uid === uid))
+  // Giving it away takes it off the upper storey.
+  const gone = ok(m.giveAway(s, 'furniture', uid))
+  assert.ok(!m.placedUids(gone.house).has(uid))
+})

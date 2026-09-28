@@ -7,7 +7,7 @@
 //   await b.key('Enter'); await b.hold('ArrowUp', 400)
 //   await b.shot('/home/petter/zshots/x.png'); b.errors; await b.close()
 import { spawn } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 
@@ -32,9 +32,11 @@ const KEYS = {
 
 export async function launch({ width = 1440, height = 900, dpr = 1, mobile = false } = {}) {
   const port = 9300 + Math.floor(Math.random() * 500)
+  mkdirSync(join(homedir(), 'zshots'), { recursive: true })
   const profile = mkdtempSync(join(homedir(), 'zshots', 'prof-'))
-  const proc = spawn('chromium-browser', [
-    '--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars', '--mute-audio',
+  // CHROME_BIN: another browser (the Mac's Chrome, where the lab can use the GPU).
+  const proc = spawn(process.env.CHROME_BIN || 'chromium-browser', [
+    '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--hide-scrollbars', '--mute-audio',
     `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`, 'about:blank',
   ], { stdio: 'ignore' })
   let targets

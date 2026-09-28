@@ -18,6 +18,23 @@ contests on Tivoliet: the obby in three levels, Stjernejakt, Motevisning
 royal titles and their clothes, gifts to the postkasse, and visits to
 friends' houses. Kart fast-travels. A new player gets 50 bits once.
 
+**Storeys** (2026-09-28, Ulrikke's wish). A house has up to three
+(`MAX_STOREYS`); the save keeps the ground storey in `house` and the ones
+above in `house.up`, each with its own floor, wallpaper and items, and a
+`stair` (a 1 × 4 strip: three steps and a foot cell) on every storey with
+one above. The storey above has the opening over the same cells; both
+strips are blocked for furniture (`blockedCells` in `core/save.ts`). Pynt
+builds a storey (`addStorey`: 100 then 200 bits; the stairs go where they
+move the fewest things, off the front wall, clear of the door, the
+wardrobe and the windows; what stood there goes to storage). In the house
+(`scene/home.ts`) one `createHouse` handle per storey stacks 4 units apart;
+the storeys above yours hide. The top step or the Gå opp zone takes you up,
+the opening or Gå ned down; the runtime sends `storey` events and Pynt's
+▼/▲ picks the storey to decorate. Old saves and profiles without `up` are
+one storey. Visitors walk the stairs too. The house in town, yours and your
+friends', stands as tall as its storeys (`paintHouse` in `scene/town.ts`,
+drawn by `neighbors.ts`).
+
 **Money is the site wallet.** Bits are one balance for the whole site:
 `composables/useWallet.ts` keeps `phareim.wallet` in localStorage (the
 server's balance plus pending ops with random ids) and sends ops to

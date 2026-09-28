@@ -12,6 +12,13 @@
  * plus these fixtures, so every layout this file emits passes
  * `setLayout` in the save.
  *
+ * Storeys (2026-09-28): one handle is one storey. Door and wardrobe are on
+ * the ground only; every storey has the two windows. A storey with one
+ * above has a staircase (eight 0.5 steps over three cells, climbable), a
+ * storey with one below has the opening over those cells with a railing
+ * round three sides, open toward the landing. Both strips are blocked for
+ * furniture (`blocked` in the save's placement state).
+ *
  * Wall slots: `x` runs along +x on the back (0) and front (2) walls and
  * along +z on the right (1) and left (3) walls.
  *
@@ -26,36 +33,185 @@
 import * as THREE from 'three'
 import type { CreateHouse, HouseHandle } from './contracts'
 import { CELL } from './contracts'
-import type { HouseLayout, OwnedFurniture, PlacedItem, FurnitureDef } from '../types'
+import type { HouseLayout, OwnedFurniture, PlacedItem, FurnitureDef, StairSpot } from '../types'
 import { HOUSE_W, HOUSE_D } from '../types'
 import { furniture as furnitureDef, floorDef, wallDef, FLOORS, WALLS, STARTER_FLOOR, STARTER_WALL } from '../catalog'
-import { canPlace, placeItem, storeItem, footprint, wallLength, type HouseState } from '../core/save'
+import { canPlace, placeItem, storeItem, footprint, wallLength, stairCells, stairFoot, GROUND_KEEP_FREE, type HouseState, type Cells } from '../core/save'
 import { buildFurniture, type FurnitureModelHandle } from './furniture'
 import { Kit, basicMaterial, textureMaterial, disposeTree, darken } from './meshkit'
 import { floorTexture, wallTexture } from './textures'
 
 export const WALL_H = 3.6
+/** Floor to floor: the wall and the slab under the storey above. */
+export const STOREY_H = WALL_H + 0.4
 const RW = HOUSE_W * CELL
 const RD = HOUSE_D * CELL
 
-/** Fixture slots on each wall (wall rot → blocked slot indices). */
+/** Fixture slots on each wall (wall rot → blocked slot indices): ground storey, and the ones above (windows only). */
 const WALL_BLOCK: Record<number, number[]> = { 0: [], 1: [1, 2, 5, 6], 2: [1], 3: [3, 4] }
-/** Floor cells kept free in front of the door and the wardrobe. */
-const FLOOR_BLOCK = [[1, HOUSE_D - 1], [HOUSE_W - 1, 1], [HOUSE_W - 1, 2]] as const
+const WALL_BLOCK_UP: Record<number, number[]> = { 0: [], 1: [5, 6], 2: [], 3: [3, 4] }
+/** Floor cells kept free in front of the door and the wardrobe (ground storey). */
+const FLOOR_BLOCK: [number, number][] = GROUND_KEEP_FREE.flatMap(c => {
+  const out: [number, number][] = []
+  for (let z = c.z; z < c.z + c.d; z++) for (let x = c.x; x < c.x + c.w; x++) out.push([x, z])
+  return out
+})
 
 export const DOOR_SLOT = 1
 export const WARDROBE_SLOTS = [1, 2] as const
 
-/** True when a placement touches a fixture (the save's rules do not know them). */
-export function fixtureBlocked(def: FurnitureDef, p: PlacedItem): boolean {
+/** True when a placement touches a fixture (the save's rules do not know them). `storey` 0 is the ground. */
+export function fixtureBlocked(def: FurnitureDef, p: PlacedItem, storey = 0): boolean {
   const fp = footprint(def, p)
   if (def.kind === 'wall') {
-    for (const s of WALL_BLOCK[p.rot] ?? []) if (s >= fp.x && s < fp.x + fp.w) return true
+    for (const s of (storey ? WALL_BLOCK_UP : WALL_BLOCK)[p.rot] ?? []) if (s >= fp.x && s < fp.x + fp.w) return true
     return false
   }
-  if (def.kind === 'rug' || p.on) return false
+  if (storey || def.kind === 'rug' || p.on) return false
   for (const [x, z] of FLOOR_BLOCK) if (x >= fp.x && x < fp.x + fp.w && z >= fp.z && z < fp.z + fp.d) return true
   return false
+}
+
+/** Which storey a handle draws and what joins it to the others. */
+export interface StoreyInfo {
+  /** 0 = the ground. */
+  index: number
+  /** The staircase up from this storey, if one stands on it. */
+  stair: StairSpot | null
+  /** The staircase from the storey below (its opening here), if any. */
+  hole: StairSpot | null
+}
+
+/** Unit step of the climb for a staircase, and where the run starts (local units). */
+function climb(st: StairSpot): { dx: number; dz: number; x0: number; z0: number } {
+  switch (st.rot) {
+    case 0: return { dx: 0, dz: -1, x0: st.x * CELL, z0: (st.z + 3) * CELL }
+    case 1: return { dx: 1, dz: 0, x0: (st.x + 1) * CELL, z0: st.z * CELL }
+    case 2: return { dx: 0, dz: 1, x0: st.x * CELL, z0: (st.z + 1) * CELL }
+    default: return { dx: -1, dz: 0, x0: (st.x + 3) * CELL, z0: st.z * CELL }
+  }
+}
+
+const STEPS = 8
+const RUN = 3 * CELL
+
+/** Step `i` (0 at the foot) of a staircase as a box, local units; `inset` trims the sides. */
+export function stepBox(st: StairSpot, i: number, inset = 0.06): THREE.Box3 {
+  const c = climb(st)
+  const depth = RUN / STEPS
+  const a0 = i * depth, a1 = (i + 1) * depth
+  const top = (i + 1) * (STOREY_H / STEPS)
+  if (c.dx !== 0) {
+    const xa = c.x0 + c.dx * a0, xb = c.x0 + c.dx * a1
+    return new THREE.Box3(new THREE.Vector3(Math.min(xa, xb), 0, c.z0 + inset), new THREE.Vector3(Math.max(xa, xb), top, c.z0 + CELL - inset))
+  }
+  const za = c.z0 + c.dz * a0, zb = c.z0 + c.dz * a1
+  return new THREE.Box3(new THREE.Vector3(c.x0 + inset, 0, Math.min(za, zb)), new THREE.Vector3(c.x0 + CELL - inset, top, Math.max(za, zb)))
+}
+
+/** The cells a staircase's steps cover (the strip without its foot), local units. */
+function runBox(st: StairSpot): THREE.Box3 {
+  const u = stepBox(st, 0, 0).union(stepBox(st, STEPS - 1, 0))
+  u.min.y = 0
+  u.max.y = 0
+  return u
+}
+
+/** Centre of the foot cell (local units) and the yaw that faces away from the steps. */
+export function stairStand(st: StairSpot): { x: number; z: number; yaw: number } {
+  const f = stairFoot(st)
+  const c = climb(st)
+  return { x: (f.x + 0.5) * CELL, z: (f.z + 0.5) * CELL, yaw: Math.atan2(-c.dx, -c.dz) }
+}
+
+function buildStair(st: StairSpot): THREE.Group {
+  const g = new THREE.Group()
+  const k = new Kit()
+  const wood = '#e0a47a', edge = '#b97a50', rail = '#ffffff'
+  for (let i = 0; i < STEPS; i++) {
+    const b = stepBox(st, i)
+    const sz = b.getSize(new THREE.Vector3())
+    k.boxMin(b.min.x, 0, b.min.z, sz.x, sz.y - 0.08, sz.z, edge)
+    k.boxMin(b.min.x, sz.y - 0.08, b.min.z, sz.x, 0.08, sz.z, i % 2 ? wood : '#ecb88e')
+  }
+  // A banister of posts on both sides, one on every other step, and a cap on each.
+  const c = climb(st)
+  for (let i = 0; i < STEPS; i += 2) {
+    const b = stepBox(st, i, 0)
+    const top = b.max.y
+    const cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2
+    for (const side of [-1, 1]) {
+      const px = c.dx !== 0 ? cx : cx + side * (CELL / 2 - 0.06)
+      const pz = c.dx !== 0 ? cz + side * (CELL / 2 - 0.06) : cz
+      k.box(px, top + 0.45, pz, 0.08, 0.9, 0.08, rail)
+      k.box(px, top + 0.93, pz, 0.14, 0.08, 0.14, '#ff8ae0')
+    }
+  }
+  g.add(k.mesh()!)
+  return g
+}
+
+/** The opening over the staircase from below: a dark well with the top steps showing, and a railing round three sides. */
+function buildHole(st: StairSpot): THREE.Group {
+  const g = new THREE.Group()
+  const k = new Kit()
+  const r = runBox(st)
+  const sz = r.getSize(new THREE.Vector3())
+  k.boxMin(r.min.x, 0.004, r.min.z, sz.x, 0.02, sz.z, '#3a2c4a')
+  // The top three steps, seen from above, getting darker as they go down.
+  for (let i = STEPS - 1, n = 0; n < 3; i--, n++) {
+    const b = stepBox(st, i)
+    const bs = b.getSize(new THREE.Vector3())
+    k.boxMin(b.min.x, 0.026, b.min.z, bs.x, 0.01, bs.z, ['#e0a47a', '#a8785a', '#6a4a4a'][n]!)
+  }
+  const c = climb(st)
+  const h = 0.95, t = 0.1
+  const post = (x: number, z: number) => { k.box(x, h / 2, z, t, h, t, '#ffffff'); k.box(x, h + 0.04, z, 0.16, 0.08, 0.16, '#ff8ae0') }
+  // Long sides.
+  if (c.dx !== 0) {
+    for (const z of [r.min.z, r.max.z]) {
+      k.boxMin(r.min.x, h - 0.08, z - t / 2, sz.x, 0.08, t, '#ffffff')
+      for (let x = r.min.x; x <= r.max.x + 1e-3; x += sz.x / 3) post(x, z)
+    }
+  } else {
+    for (const x of [r.min.x, r.max.x]) {
+      k.boxMin(x - t / 2, h - 0.08, r.min.z, t, 0.08, sz.z, '#ffffff')
+      for (let z = r.min.z; z <= r.max.z + 1e-3; z += sz.z / 3) post(x, z)
+    }
+  }
+  // The far end (where the steps come up).
+  const endX = c.dx > 0 ? r.max.x : c.dx < 0 ? r.min.x : null
+  const endZ = c.dz > 0 ? r.max.z : c.dz < 0 ? r.min.z : null
+  if (endX !== null) k.boxMin(endX - t / 2, h - 0.08, r.min.z, t, 0.08, sz.z, '#ffffff')
+  if (endZ !== null) k.boxMin(r.min.x, h - 0.08, endZ - t / 2, sz.x, 0.08, t, '#ffffff')
+  g.add(k.mesh()!)
+  return g
+}
+
+/** The railing's colliders round an opening (three sides; the landing side stays open). */
+function holeRails(st: StairSpot): THREE.Box3[] {
+  const r = runBox(st)
+  const c = climb(st)
+  const t = 0.12, h = 1.1
+  const out: THREE.Box3[] = []
+  const B = (x0: number, z0: number, x1: number, z1: number) => out.push(new THREE.Box3(new THREE.Vector3(x0, 0, z0), new THREE.Vector3(x1, h, z1)))
+  if (c.dx !== 0) {
+    B(r.min.x, r.min.z - t / 2, r.max.x, r.min.z + t / 2)
+    B(r.min.x, r.max.z - t / 2, r.max.x, r.max.z + t / 2)
+    const ex = c.dx > 0 ? r.max.x : r.min.x
+    B(ex - t / 2, r.min.z, ex + t / 2, r.max.z)
+  } else {
+    B(r.min.x - t / 2, r.min.z, r.min.x + t / 2, r.max.z)
+    B(r.max.x - t / 2, r.min.z, r.max.x + t / 2, r.max.z)
+    const ez = c.dz > 0 ? r.max.z : r.min.z
+    B(r.min.x, ez - t / 2, r.max.x, ez + t / 2)
+  }
+  return out
+}
+
+/** The steps' own area, shrunk a little: walking into it on the storey above takes you down. */
+export function holeArea(st: StairSpot): THREE.Box3 {
+  return runBox(st).expandByVector(new THREE.Vector3(-0.2, 0, -0.2))
 }
 
 interface Item {
@@ -231,7 +387,10 @@ function mirrorX(g: THREE.Group, len: number) {
 
 // ---------------------------------------------------------------- the handle
 
-export const createHouse: CreateHouse = ({ editable }) => {
+export const createHouse: CreateHouse = ({ editable, storey }) => {
+  const info: StoreyInfo = storey ?? { index: 0, stair: null, hole: null }
+  const ground = info.index === 0
+  const blocked: Cells[] = [info.stair, info.hole].filter((x): x is StairSpot => !!x).map(stairCells)
   const group = new THREE.Group()
   group.name = 'miniworld-house'
   const room = new THREE.Group()
@@ -252,23 +411,30 @@ export const createHouse: CreateHouse = ({ editable }) => {
   floorGeo.translate(RW / 2, 0, RD / 2)
   const floorMesh = new THREE.Mesh(floorGeo, textureMaterial(floorTexture(floorDef(STARTER_FLOOR) ?? FLOORS[0]!)))
   room.add(floorMesh)
-  // A plinth under the floor so the room reads as a box from a low angle.
-  const base = new Kit().boxMin(-0.15, -0.52, -0.15, RW + 0.3, 0.5, RD + 0.3, '#c8b0e0').mesh()!
+  // A plinth under the floor so the room reads as a box from a low angle; above the ground, the slab on the walls below.
+  const base = ground
+    ? new Kit().boxMin(-0.15, -0.52, -0.15, RW + 0.3, 0.5, RD + 0.3, '#c8b0e0').mesh()!
+    : new Kit().boxMin(-0.15, -0.4, -0.15, RW + 0.3, 0.38, RD + 0.3, '#c8b0e0').mesh()!
   room.add(base)
 
   // Walls
   const paperMat = new THREE.MeshLambertMaterial({ map: wallTexture(wallDef(STARTER_WALL) ?? WALLS[0]!) })
   const walls = ([0, 1, 2, 3] as const).map(r => buildWall(r, paperMat))
   const fixtures: THREE.Object3D[][] = [[], [], [], []]
-  const wardrobeObj = buildWardrobe()
-  fixtures[1]!.push(wardrobeObj, buildWindow(1, 5))
+  fixtures[1]!.push(buildWindow(1, 5))
   fixtures[3]!.push(buildWindow(3, 3))
-  fixtures[2]!.push(buildDoor())
+  if (ground) {
+    fixtures[1]!.push(buildWardrobe())
+    fixtures[2]!.push(buildDoor())
+    room.add(buildDoorMat())
+  }
   for (const w of walls) room.add(w)
   for (const list of fixtures) for (const f of list) room.add(f)
-  room.add(buildDoorMat())
+  if (info.stair) room.add(buildStair(info.stair))
+  if (info.hole) room.add(buildHole(info.hole))
 
-  const spawn = new THREE.Vector3((DOOR_SLOT + 0.5) * CELL, 0, RD - 1.25)
+  const landing = info.hole ? stairStand(info.hole) : null
+  const spawn = landing ? new THREE.Vector3(landing.x, 0, landing.z) : new THREE.Vector3((DOOR_SLOT + 0.5) * CELL, 0, RD - 1.25)
   const door = new THREE.Box3(new THREE.Vector3(DOOR_SLOT * CELL + 0.1, 0, RD - 0.55), new THREE.Vector3((DOOR_SLOT + 1) * CELL - 0.1, 2.6, RD + 0.3))
   const wardrobe = new THREE.Box3(new THREE.Vector3(RW - 1.3, 0, WARDROBE_SLOTS[0] * CELL), new THREE.Vector3(RW, 2.6, (WARDROBE_SLOTS[1] + 1) * CELL))
 
@@ -300,9 +466,11 @@ export const createHouse: CreateHouse = ({ editable }) => {
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
     const lines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.55, depthWrite: false }))
-    const blocked = new Kit()
-    for (const [x, z] of FLOOR_BLOCK) blocked.boxMin(x * CELL + 0.1, 0.025, z * CELL + 0.1, CELL - 0.2, 0.01, CELL - 0.2, '#ffffff')
-    const bm = blocked.mesh(basicMaterial('#5a4a7a', { opacity: 0.35 }))!
+    const marks = new Kit()
+    const cells: [number, number][] = ground ? [...FLOOR_BLOCK] : []
+    for (const c of blocked) for (let z = c.z; z < c.z + c.d; z++) for (let x = c.x; x < c.x + c.w; x++) cells.push([x, z])
+    for (const [x, z] of cells) marks.boxMin(x * CELL + 0.1, 0.025, z * CELL + 0.1, CELL - 0.2, 0.01, CELL - 0.2, '#ffffff')
+    const bm = marks.mesh(basicMaterial('#5a4a7a', { opacity: 0.35 }))!
     const gg = new THREE.Group()
     gg.add(lines, bm)
     gg.visible = false
@@ -337,7 +505,7 @@ export const createHouse: CreateHouse = ({ editable }) => {
 
   // ---------------- items
 
-  const state = (): HouseState => ({ house: layout, furniture: owned })
+  const state = (): HouseState => ({ house: layout, furniture: owned, blocked })
   const ownedOf = (uid: string) => owned.find(o => o.uid === uid)
 
   const surfaceY = (p: PlacedItem): number => {
@@ -411,7 +579,7 @@ export const createHouse: CreateHouse = ({ editable }) => {
 
   const valid = (uid: string, p: PlacedItem): boolean => {
     const def = furnitureDef(ownedOf(uid)?.id)
-    return !!def && canPlace(state(), uid, p) && !fixtureBlocked(def, p)
+    return !!def && canPlace(state(), uid, p) && !fixtureBlocked(def, p, info.index)
   }
 
   const commit = (uid: string, p: PlacedItem): HouseLayout | null => {
@@ -426,8 +594,8 @@ export const createHouse: CreateHouse = ({ editable }) => {
   const freeSpot = (uid: string, near: { x: number; z: number }, rots?: (0 | 1 | 2 | 3)[]): PlacedItem | null => {
     const def = furnitureDef(ownedOf(uid)?.id)
     if (!def) return null
-    const without: HouseState = { house: { ...layout, items: layout.items.filter(i => i.uid !== uid && i.on !== uid) }, furniture: owned }
-    const ok = (c: PlacedItem) => canPlace(without, uid, c) && !fixtureBlocked(def, c)
+    const without: HouseState = { house: { ...layout, items: layout.items.filter(i => i.uid !== uid && i.on !== uid) }, furniture: owned, blocked }
+    const ok = (c: PlacedItem) => canPlace(without, uid, c) && !fixtureBlocked(def, c, info.index)
     if (def.kind === 'wall') {
       const order = rots ?? [0, 3, 1, 2]
       for (const rot of order) {
@@ -573,11 +741,12 @@ export const createHouse: CreateHouse = ({ editable }) => {
 
   // ---------------- handle
 
-  const handle: HouseHandle & { readonly wardrobe: THREE.Box3; setView(cameraWorld: THREE.Vector3): void } = {
+  const handle: StoreyHandle = {
     group,
     spawn,
     door,
-    wardrobe,
+    wardrobe: ground ? wardrobe : null,
+    storey: info,
     setView,
     colliders() {
       const out: THREE.Box3[] = [
@@ -585,8 +754,10 @@ export const createHouse: CreateHouse = ({ editable }) => {
         new THREE.Box3(new THREE.Vector3(-1, -1, RD), new THREE.Vector3(RW + 1, WALL_H + 2, RD + 1)),
         new THREE.Box3(new THREE.Vector3(-1, -1, -1), new THREE.Vector3(0, WALL_H + 2, RD + 1)),
         new THREE.Box3(new THREE.Vector3(RW, -1, -1), new THREE.Vector3(RW + 1, WALL_H + 2, RD + 1)),
-        new THREE.Box3(new THREE.Vector3(RW - 0.3, 0, WARDROBE_SLOTS[0] * CELL), new THREE.Vector3(RW, 3, (WARDROBE_SLOTS[1] + 1) * CELL)),
       ]
+      if (ground) out.push(new THREE.Box3(new THREE.Vector3(RW - 0.3, 0, WARDROBE_SLOTS[0] * CELL), new THREE.Vector3(RW, 3, (WARDROBE_SLOTS[1] + 1) * CELL)))
+      if (info.stair) for (let i = 0; i < STEPS; i++) out.push(stepBox(info.stair, i, 0.02))
+      if (info.hole) out.push(...holeRails(info.hole))
       for (const it of items.values()) {
         const k = it.def.kind
         if (k === 'wall' || k === 'rug' || it.placed.on) continue
@@ -760,6 +931,15 @@ export const createHouse: CreateHouse = ({ editable }) => {
   return handle
 }
 
+/** One storey's handle, with what home.ts needs beyond the contract. */
+export interface StoreyHandle extends HouseHandle {
+  /** The built-in wardrobe (ground storey only). */
+  readonly wardrobe: THREE.Box3 | null
+  readonly storey: StoreyInfo
+  setView(cameraWorld: THREE.Vector3): void
+}
+
+/** A storey's room: floor, wallpaper and items (the staircase is the house's, kept by the save). */
 function cloneLayout(l: HouseLayout): HouseLayout {
   return { floor: l.floor, wall: l.wall, items: l.items.map(i => ({ ...i })) }
 }

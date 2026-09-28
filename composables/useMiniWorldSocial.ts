@@ -220,15 +220,17 @@ function build(): MiniWorldSocialApi {
     if (!s) return []
     const out: NeighborInfo[] = []
     const seen = new Set<string>([me.value ?? ''])
+    // Storeys are known for friends (their profile carries the house); a neighbour who is no friend stands one storey tall.
+    const storeys = (id: string) => 1 + (s.friends.find(f => f.id === id)?.house?.up?.length ?? 0)
     for (const m of s.hood?.members ?? []) {
       if (seen.has(m.id)) continue
       seen.add(m.id)
-      out.push({ playerId: m.id, label: m.person?.name ?? m.playerName, title: m.title, look: m.person?.look ?? null })
+      out.push({ playerId: m.id, label: m.person?.name ?? m.playerName, title: m.title, look: m.person?.look ?? null, storeys: storeys(m.id) })
     }
     for (const f of s.friends) {
       if (seen.has(f.id)) continue
       seen.add(f.id)
-      out.push({ playerId: f.id, label: f.person?.name ?? f.playerName, title: null, look: f.person?.look ?? null })
+      out.push({ playerId: f.id, label: f.person?.name ?? f.playerName, title: null, look: f.person?.look ?? null, storeys: storeys(f.id) })
     }
     return out.slice(0, MAX_NEIGHBORS)
   })

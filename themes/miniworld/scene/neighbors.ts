@@ -3,7 +3,8 @@
  * the plots in town.ts, with a name sign (a crown on it for a title) and
  * their active person waving by the gate. Their door is a zone
  * `neighbor:<public id>` ("Se på"). Empty plots get a "LEDIG TOMT" sign.
- * The sign by your own house says whose it is.
+ * The sign by your own house says whose it is. Your house and theirs
+ * stand as tall as their storeys (2026-09-28).
  *
  * Houses merge into one mesh, signs into one atlas; the people are real
  * avatars (buildAvatar), animated only when you are near. A neighbour who
@@ -20,7 +21,7 @@ import { box } from './physics'
 import { blockMaterial, glowMaterial } from './look'
 import { zone } from './place'
 import type { Zone } from './place'
-import { NEIGHBOR_SLOTS, NEIGHBOR_HOUSE, HOME, paintHouse, shade } from './town'
+import { NEIGHBOR_SLOTS, NEIGHBOR_HOUSE, HOME, HOME_STYLE, paintHouse, shade } from './town'
 import type { HouseStyle } from './town'
 
 const WALLS = ['#ffd0e4', '#c4f0ff', '#fff1b0', '#d8c8ff', '#c8f5d8', '#ffe0c0', '#ffffff']
@@ -53,7 +54,7 @@ export interface Neighbors {
   dispose(): void
 }
 
-export function buildNeighbors(list: NeighborInfo[]): Neighbors {
+export function buildNeighbors(list: NeighborInfo[], homeStoreys = 1): Neighbors {
   const group = new THREE.Group()
   group.name = 'neighbors'
   const props = new Blocks()
@@ -93,7 +94,7 @@ export function buildNeighbors(list: NeighborInfo[]): Neighbors {
       for (let k = 0; k < 6; k++) props.block(slot.x + (hash2(i, k, 1) - 0.5) * 5, 0, slot.z + (hash2(i, k, 2) - 0.5) * 5, 0.3, 0.35, 0.3, ['#ff6fb0', '#ffd84f', '#ffffff'][k % 3]!)
       return
     }
-    const st = styleFor(n.playerId)
+    const st = { ...styleFor(n.playerId), storeys: n.storeys ?? 1 }
     paintHouse(props, glow, boxes, slot.x, slot.z, w, d, slot.face, st)
     post(signX, signZ)
     const label = n.label.toUpperCase().slice(0, 14)
@@ -114,6 +115,9 @@ export function buildNeighbors(list: NeighborInfo[]): Neighbors {
       boxes.push(b)
     }
   })
+
+  // Your own house, as tall as its storeys.
+  paintHouse(props, glow, boxes, HOME.x, HOME.z, HOME.w, HOME.d, 1, { ...HOME_STYLE, storeys: homeStoreys })
 
   // Your own house's sign by the gate.
   const homeSignX = HOME.x - HOME.w / 2 - 0.2, homeSignZ = HOME.doorZ + 2.9

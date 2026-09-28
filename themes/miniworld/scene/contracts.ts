@@ -17,7 +17,7 @@
 import type * as THREE from 'three'
 import type {
   PersonLook, HouseLayout, OwnedFurniture, Weapon, ObbyLevel, RoyalTitle,
-  WeaponMagicId, ClothingDef, FurnitureDef,
+  WeaponMagicId, ClothingDef, FurnitureDef, StairSpot,
 } from '../types'
 import type { PeerInfo, PeerState, PeerFx } from '../net/protocol'
 
@@ -80,6 +80,8 @@ export type ZoneId =
   | 'booth-fashion'   // → UI fashion show (+ Place catwalk)
   | 'booth-memory'    // → UI memory game
   | 'wardrobe'        // the wardrobe inside your house → UI panel
+  | 'stair-up'        // the foot of a staircase in a house; the runtime moves you up itself
+  | 'stair-down'      // the landing by an opening; the runtime moves you down itself
   | `neighbor:${string}` // a neighbour's door on Nabogata (playerId) → Place visit
   | 'exit'            // a house or contest door back to town
   | `use:${string}`   // a sofa, bed, trampoline… in a house (furniture uid); the runtime handles the action itself
@@ -91,6 +93,8 @@ export interface NeighborInfo {
   label: string
   title: RoyalTitle | null
   look: PersonLook | null
+  /** Storeys of their house (1 when unknown), so it stands as tall in town as it is. */
+  storeys?: number
 }
 
 // ---------------------------------------------------------------- events
@@ -114,6 +118,8 @@ export type RuntimeEvent =
   | { type: 'select'; uid: string | null }
   /** House edit: the layout after a move, rotate or store. */
   | { type: 'layout'; layout: HouseLayout }
+  /** In a house: the storey you are on (0 = the ground) and how many there are; fired on change. */
+  | { type: 'storey'; index: number; count: number }
   /** Sitting on a sofa, sleeping in a bed, bouncing… (for a small caption). */
   | { type: 'using'; what: string | null }
   /** A sound the shell should play (audio.ts); the runtime has no audio of its own. */
@@ -158,7 +164,7 @@ export interface MiniWorldRuntime {
   setPlayer(look: PersonLook, name: string, title: RoyalTitle | null): void
   /** The weapon in hand, or null. */
   setWeapon(weapon: Weapon | null): void
-  /** Your house as it is now, and what each owned uid is. */
+  /** Your house as it is now, and what each owned uid is (your house in town grows with its storeys). */
   setHouse(layout: HouseLayout, owned: OwnedFurniture[]): void
   /** Neighbours' houses on Nabogata (in order), with their people waving outside. */
   setNeighbors(list: NeighborInfo[]): void
@@ -173,6 +179,8 @@ export interface MiniWorldRuntime {
     rotate(): void
     /** Back to storage (the layout event follows). */
     store(): void
+    /** Show storey `index` to decorate (you go there too); a 'storey' event follows. */
+    storey(index: number): void
   }
   on(handler: (e: RuntimeEvent) => void): () => void
   /**
@@ -304,7 +312,8 @@ export interface HouseHandle {
   dispose(): void
 }
 
-export type CreateHouse = (opts: { editable: boolean }) => HouseHandle
+/** One handle is one storey (2026-09-28): 0 the ground; its staircase up and the opening of the one below. */
+export type CreateHouse = (opts: { editable: boolean; storey?: { index: number; stair: StairSpot | null; hole: StairSpot | null } }) => HouseHandle
 
 export const CELL = 1.5
 

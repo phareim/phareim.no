@@ -5,6 +5,8 @@ import { createRuntime } from '../../themes/miniworld/scene/runtime'
 import type { MiniWorldRuntime, Place, RuntimeEvent } from '../../themes/miniworld/scene/contracts'
 import type { PersonLook } from '../../themes/miniworld/types'
 import type { PeerInfo, PeerFx, NetPose } from '../../themes/miniworld/net/protocol'
+import { newSave, addStorey, buyFurniture, firstFreeSpot, roomState, withRoom, roomAt, setLayout } from '../../themes/miniworld/core/save'
+import type { MiniWorldSave } from '../../themes/miniworld/types'
 
 const canvas = document.createElement('canvas')
 canvas.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;display:block'
@@ -128,4 +130,29 @@ function tapPeer(id: string, pointerType = 'touch') {
   input: rt.input,
   crowd,
   tapPeer,
+  tall,
+}
+
+/** A three-storey house with things on every storey, and taller neighbours (storeys, 2026-09-28). */
+function tall() {
+  let s = addStorey(addStorey(newSave()) as MiniWorldSave) as MiniWorldSave
+  const put = (k: number, id: string) => {
+    const b = buyFurniture(s, id) as MiniWorldSave
+    const uid = b.furniture[b.furniture.length - 1]!.uid
+    const spot = firstFreeSpot(roomState(b, k), uid, { x: 5, z: 4 })
+    if (!spot) return
+    s = setLayout(b, withRoom(b.house, k, { ...roomAt(b.house, k), items: [...roomAt(b.house, k).items, spot] })) as MiniWorldSave
+  }
+  for (const id of ['sofa', 'rug-rainbow', 'tv', 'table-round']) put(0, id)
+  for (const id of ['bed-canopy', 'dresser', 'teddy', 'rug-star']) put(1, id)
+  for (const id of ['trampoline', 'disco', 'beanbag']) put(2, id)
+  s = { ...s, house: withRoom(s.house, 1, { ...roomAt(s.house, 1), wall: 'wall-hearts', floor: 'floor-pink' }) }
+  s = { ...s, house: withRoom(s.house, 2, { ...roomAt(s.house, 2), wall: 'wall-night', floor: 'floor-stars' }) }
+  rt.setHouse(s.house, s.furniture)
+  rt.setNeighbors([
+    { playerId: 'p1', label: 'Maja', title: 'queen', storeys: 2, look: look({ skin: 's4', hair: 'afro', hairColor: 'black', outfit: { top: 'dress-party', hat: 'tiara' } }) },
+    { playerId: 'p2', label: 'Øyvind', title: null, storeys: 3, look: look({ skin: 's1', hair: 'spiky', hairColor: 'ginger', outfit: { top: 'football-shirt' } }) },
+    { playerId: 'p3', label: 'Åse', title: null, look: look({ skin: 's3', hair: 'bob', hairColor: 'pink', outfit: { top: 'rainbow-sweater' } }) },
+  ])
+  return JSON.stringify(s.house)
 }

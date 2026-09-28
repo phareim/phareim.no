@@ -45,16 +45,19 @@ import PxIcon from './PxIcon.vue'
 import { useMw } from './context'
 import { surfaceSwatch } from './swatch'
 import { FLOORS, WALLS } from '../catalog'
+import { roomAt } from '../core/save'
 
 const ctx = useMw()
 const { game } = ctx
 
-const house = computed(() => game.save.value.house)
+/** The storey you stand on (the one Pynt shows). */
+const k = computed(() => (ctx.place.value.kind === 'house' ? ctx.storey.value.index : 0))
+const house = computed(() => roomAt(game.save.value.house, k.value))
 const floors = computed(() => FLOORS.filter(f => game.save.value.floors.includes(f.id)))
 const walls = computed(() => WALLS.filter(w => game.save.value.walls.includes(w.id)))
 
 function lay(kind: 'floor' | 'wall', id: string) {
-  const r = game.setSurface(kind, id)
+  const r = game.setSurface(kind, id, k.value)
   if (!r.ok) { ctx.say(r.message); return }
   ctx.sfx('place')
 }

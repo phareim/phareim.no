@@ -29,7 +29,7 @@ async function load() {
         `export { FURNITURE_MODELS, buildFurniture } from './scene/furniture'`,
         `export { WEAPON_BUILDERS, buildWeaponModel } from './scene/weapons'`,
         `export { createHouse, fixtureBlocked } from './scene/house'`,
-        `export { newSave, setLayout } from './core/save'`,
+        `export { newSave, setLayout, addStorey, roomAt, withRoom, stairCells } from './core/save'`,
         `export * as THREE from 'three'`,
       ].join('; '),
       resolveDir: root,
@@ -150,5 +150,35 @@ test('the house editor emits only layouts the save accepts, and keeps fixtures c
   const after = house.store()
   assert.ok(after && after.items.length < save.house.items.length)
   assert.ok(house.wardrobe.min.x > 0 && house.door.max.z > house.spawn.z)
+  house.dispose()
+})
+
+test('an upper storey: stairs are solid steps, the opening has rails, and its editor keeps off both strips', () => {
+  let save = M.addStorey(M.addStorey(M.newSave()))
+  const owned = [...save.furniture]
+  catalog.FURNITURE.forEach((f, i) => owned.push({ uid: `t${i}`, id: f.id, level: 1 }))
+  save = { ...save, furniture: owned }
+  const info = { index: 1, stair: save.house.up[0].stair, hole: save.house.stair }
+  const house = M.createHouse({ editable: true, storey: info })
+  house.setLayout(M.roomAt(save.house, 1), owned)
+  house.setEdit(true)
+  assert.equal(house.wardrobe, null, 'no wardrobe upstairs')
+  const strips = [info.stair, info.hole].map(M.stairCells)
+  let placed = 0
+  // Only what is in storage (the starter things stand on the ground storey).
+  for (const o of owned.filter(x => x.uid.startsWith('t'))) {
+    const room = house.add(o.uid)
+    if (!room) continue
+    placed++
+    const r = M.setLayout(save, M.withRoom(save.house, 1, room))
+    assert.equal(typeof r, 'object', `add ${o.id} upstairs gave a layout the save refused: ${r}`)
+    save = r
+  }
+  assert.ok(placed > 15, `placed ${placed}`)
+  // Eight steps climbing to the next floor, rails round the opening.
+  const cols = house.colliders()
+  const tops = cols.map(c => c.max.y).filter(y => y > 0.4 && y <= 4.01)
+  assert.ok(tops.some(y => Math.abs(y - 4) < 0.01), 'the top step reaches the next floor')
+  for (const c of strips) assert.ok(c.w * c.d === 4)
   house.dispose()
 })

@@ -7,7 +7,8 @@
 //   flock /tmp/claude-1000/chrome.lock node scripts/miniworld-lab/world-shot.mjs [outDir] [shots] [WxH@dpr]
 //
 // Shots (default all): torget, shops, nabogata, castle, tivoli, balloons,
-// aerial, obby-easy, obby-medium, obby-hard, stars, catwalk, house, pynt.
+// aerial, obby-easy, obby-medium, obby-hard, stars, catwalk, house, pynt,
+// tall-town, tall-stairs, tall-up, tall-pynt2 (a three-storey house).
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
@@ -42,6 +43,11 @@ const SHOTS = {
   catwalk: [`__world.go({ kind: 'catwalk' })`, 110],
   house: [`__world.go({ kind: 'house', edit: false })`, 40],
   pynt: [`__world.go({ kind: 'house', edit: false }); __world.go({ kind: 'house', edit: true })`, 60],
+  // Storeys (2026-09-28): a three-storey house.
+  'tall-town': [`__world.tall(); __world.at(-24, 0, 1, -Math.PI / 2, { yaw: Math.PI / 2 - 0.5, pitch: 0.4, dist: 22 })`, 40],
+  'tall-stairs': [`__world.tall(); __world.go({ kind: 'house', edit: false }); __world.at(3.75, 0, 2.2, Math.PI, { yaw: 0.5, pitch: 0.55, dist: 9 })`, 40],
+  'tall-up': [`__world.tall(); __world.go({ kind: 'house', edit: false }); __world.at(3.75, 0, 0.75, Math.PI / 2); __world.step(2); __world.input.actionPressed = true`, 40],
+  'tall-pynt2': [`__world.tall(); __world.go({ kind: 'house', edit: false }); __world.go({ kind: 'house', edit: true }); __world.rt.edit.storey(2)`, 60],
 }
 const names = shotArg && shotArg !== 'all' ? shotArg.split(',') : Object.keys(SHOTS)
 

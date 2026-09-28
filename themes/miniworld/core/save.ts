@@ -5,9 +5,9 @@
  * caller's business (useMiniWorld spends from the wallet first).
  */
 import {
-  MAX_PERSONS, HOUSE_W, HOUSE_D,
+  MAX_PERSONS, HOUSE_W, HOUSE_D, MAX_STOREYS,
   type MiniWorldSave, type Person, type PersonLook, type Outfit, type ClothingSlot,
-  type OwnedFurniture, type PlacedItem, type HouseLayout, type Weapon, type WeaponBaseId,
+  type OwnedFurniture, type PlacedItem, type HouseLayout, type RoomLayout, type StairSpot, type Weapon, type WeaponBaseId,
   type WeaponMagicId, type ContestRecord, type Gift, type FurnitureDef,
   type SkinId, type HairStyleId, type HairColorId, type EyesId, type MouthId,
 } from '../types'
@@ -42,6 +42,8 @@ export type SaveError =
   | 'not-giftable'
   | 'opened'
   | 'bad-look'
+  /** The house has all its storeys. */
+  | 'top-storey'
 
 export const isSaveError = (r: unknown): r is SaveError => typeof r === 'string'
 
@@ -62,6 +64,7 @@ export const SAVE_ERROR_TEXT: Record<SaveError, string> = {
   'not-giftable': 'Den kan du ikke gi bort.',
   'opened': 'Den gaven er allerede åpnet.',
   'bad-look': 'Det gikk ikke.',
+  'top-storey': 'Huset kan ikke bli høyere.',
 }
 
 export const MAX_FURNITURE = 150
@@ -270,23 +273,49 @@ export function parseSave(x: unknown): MiniWorldSave | null {
  * A layout kept to what the save owns and what fits: items are taken in
  * order and each one that breaks a rule goes back to storage (small items
  * after their surfaces, so a vase does not fall off because it came first).
+ * Storeys above the ground keep their order; a missing or broken staircase
+ * is laid again where it fits best; a uid placed on two storeys stays on
+ * the lower one.
  */
 function parseLayout(x: unknown, save: MiniWorldSave): HouseLayout {
   const src = isObj(x) ? x : {}
-  const floor = typeof src.floor === 'string' && save.floors.includes(src.floor) ? src.floor : STARTER_FLOOR
-  const wall = typeof src.wall === 'string' && save.walls.includes(src.wall) ? src.wall : STARTER_WALL
-  const raw = Array.isArray(src.items) ? src.items : []
-  const cand: PlacedItem[] = []
-  for (const it of raw) {
-    const p = parsePlaced(it)
-    if (p && !cand.some(q => q.uid === p.uid)) cand.push(p)
-  }
-  cand.sort((a, b) => (a.on ? 1 : 0) - (b.on ? 1 : 0))
-  let state: HouseState = { house: { floor, wall, items: [] }, furniture: save.furniture }
-  for (const p of cand) {
-    if (canPlace(state, p.uid, p)) state = { ...state, house: { ...state.house, items: [...state.house.items, p] } }
-  }
-  return state.house
+  const ups = (Array.isArray(src.up) ? src.up : []).slice(0, MAX_STOREYS - 1)
+  const raws = [src, ...ups.map(u => (isObj(u) ? u : {}))]
+  let house: HouseLayout = { floor: STARTER_FLOOR, wall: STARTER_WALL, items: [] }
+  if (raws.length > 1) house.up = raws.slice(1).map(() => ({ floor: STARTER_FLOOR, wall: STARTER_WALL, items: [] }))
+  // Surfaces and stairs first: they decide where things may stand.
+  raws.forEach((r, k) => {
+    const floor = typeof r.floor === 'string' && save.floors.includes(r.floor) ? r.floor : STARTER_FLOOR
+    const wall = typeof r.wall === 'string' && save.walls.includes(r.wall) ? r.wall : STARTER_WALL
+    house = withRoom(house, k, { ...roomAt(house, k), floor, wall })
+    if (k < raws.length - 1) {
+      const want = parseStair(r.stair)
+      const stair = want && stairFits(house, k, want) ? want : pickStair({ house, furniture: save.furniture }, k)
+      if (stair) house = withRoom(house, k, roomAt(house, k), stair)
+    }
+  })
+  const used = new Set<string>()
+  raws.forEach((r, k) => {
+    const cand: PlacedItem[] = []
+    for (const it of Array.isArray(r.items) ? r.items : []) {
+      const p = parsePlaced(it)
+      if (p && !used.has(p.uid) && !cand.some(q => q.uid === p.uid)) cand.push(p)
+    }
+    cand.sort((a, b) => (a.on ? 1 : 0) - (b.on ? 1 : 0))
+    let state = roomState({ house, furniture: save.furniture }, k)
+    for (const p of cand) {
+      if (canPlace(state, p.uid, p)) state = { ...state, house: { ...state.house, items: [...state.house.items, p] } }
+    }
+    for (const p of state.house.items) used.add(p.uid)
+    house = withRoom(house, k, { ...roomAt(house, k), items: state.house.items })
+  })
+  return house
+}
+
+function parseStair(x: unknown): StairSpot | null {
+  if (!isObj(x) || !Number.isInteger(x.x) || !Number.isInteger(x.z)) return null
+  const rot = x.rot === 0 || x.rot === 1 || x.rot === 2 || x.rot === 3 ? x.rot : null
+  return rot === null ? null : { x: x.x as number, z: x.z as number, rot }
 }
 
 function parsePlaced(x: unknown): PlacedItem | null {
@@ -305,6 +334,153 @@ function parsePlaced(x: unknown): PlacedItem | null {
 export interface HouseState {
   house: HouseLayout
   furniture: OwnedFurniture[]
+  /** Floor cells nothing may stand on (a staircase, the opening of the one below). */
+  blocked?: Cells[]
+}
+
+/** A rectangle of floor cells. */
+export interface Cells { x: number; z: number; w: number; d: number }
+
+// ---------------------------------------------------------------- storeys
+
+/** Every storey, ground first. */
+export function rooms(h: HouseLayout): RoomLayout[] {
+  return [h, ...(h.up ?? [])]
+}
+
+export const storeyCount = (h: HouseLayout): number => 1 + (h.up?.length ?? 0)
+
+/** Storey `k` on its own (no `up`). */
+export function roomAt(h: HouseLayout, k: number): RoomLayout {
+  const r = rooms(h)[k] ?? h
+  const out: RoomLayout = { floor: r.floor, wall: r.wall, items: r.items }
+  if (r.stair) out.stair = r.stair
+  return out
+}
+
+/**
+ * The house with storey `k` replaced by `room`. The staircase stays the
+ * house's (the room editor never moves it) unless `stair` is given.
+ */
+export function withRoom(h: HouseLayout, k: number, room: RoomLayout, stair?: StairSpot): HouseLayout {
+  const keep = stair ?? rooms(h)[k]?.stair
+  const r: RoomLayout = { floor: room.floor, wall: room.wall, items: room.items }
+  if (keep) r.stair = keep
+  if (k === 0) {
+    const g: HouseLayout = { ...r }
+    if (h.up?.length) g.up = h.up
+    return g
+  }
+  const up = [...(h.up ?? [])]
+  up[k - 1] = r
+  return { ...h, up }
+}
+
+/** Cells in front of the door and the wardrobe on the ground storey (house.ts draws them there). */
+export const GROUND_KEEP_FREE: readonly Cells[] = [
+  { x: 1, z: HOUSE_D - 1, w: 1, d: 1 },
+  { x: HOUSE_W - 1, z: 1, w: 1, d: 2 },
+]
+
+/** The staircase's whole strip: three steps and the foot. */
+export function stairCells(s: StairSpot): Cells {
+  return s.rot % 2 === 0 ? { x: s.x, z: s.z, w: 1, d: 4 } : { x: s.x, z: s.z, w: 4, d: 1 }
+}
+
+/** The foot cell, where you stand to go up (and arrive coming down). */
+export function stairFoot(s: StairSpot): { x: number; z: number } {
+  switch (s.rot) {
+    case 0: return { x: s.x, z: s.z + 3 }
+    case 1: return { x: s.x, z: s.z }
+    case 2: return { x: s.x, z: s.z }
+    default: return { x: s.x + 3, z: s.z }
+  }
+}
+
+/** Floor cells kept clear on storey `k`: its own staircase, and the opening of the one below. */
+export function blockedCells(h: HouseLayout, k: number): Cells[] {
+  const rs = rooms(h)
+  const out: Cells[] = []
+  const own = k < rs.length - 1 ? rs[k]?.stair : undefined
+  if (own) out.push(stairCells(own))
+  const below = k > 0 ? rs[k - 1]?.stair : undefined
+  if (below) out.push(stairCells(below))
+  return out
+}
+
+/** Storey `k` as a placement state (its room, what the save owns, the blocked cells). */
+export function roomState(s: HouseState, k: number): HouseState {
+  return { house: roomAt(s.house, k) as HouseLayout, furniture: s.furniture, blocked: blockedCells(s.house, k) }
+}
+
+/** True when a staircase may stand on storey `k`: inside the room, clear of fixtures and the opening below. */
+function stairFits(h: HouseLayout, k: number, st: StairSpot): boolean {
+  const c = stairCells(st)
+  if (c.x < 0 || c.z < 0 || c.x + c.w > HOUSE_W || c.z + c.d > HOUSE_D) return false
+  if (k === 0 && GROUND_KEEP_FREE.some(f => overlaps(c, f))) return false
+  const below = k > 0 ? rooms(h)[k - 1]?.stair : undefined
+  return !(below && overlaps(c, stairCells(below)))
+}
+
+/**
+ * Where the staircase up from storey `k` should go: the spot that moves the
+ * fewest things to storage, then along a wall (not the front one, which
+ * faces the camera), climbing toward a wall, and clear of the windows (left
+ * wall cells 3–4, right wall 5–6).
+ */
+export function pickStair(s: HouseState, k: number): StairSpot | null {
+  const room = roomAt(s.house, k)
+  let best: { st: StairSpot; score: number } | null = null
+  for (const rot of [0, 1, 2, 3] as const) {
+    const odd = rot % 2 === 1
+    for (let z = 0; z + (odd ? 1 : 4) <= HOUSE_D; z++) {
+      for (let x = 0; x + (odd ? 4 : 1) <= HOUSE_W; x++) {
+        const st: StairSpot = { x, z, rot }
+        if (!stairFits(s.house, k, st)) continue
+        const c = stairCells(st)
+        let score = 0
+        for (const it of room.items) {
+          const d = defOf(s, it.uid)
+          if (!d || d.kind === 'wall' || it.on) continue
+          if (overlaps(c, footprint(d, it))) score += 100
+        }
+        const alongWall = odd ? z === 0 || z === HOUSE_D - 1 : x === 0 || x === HOUSE_W - 1
+        if (!alongWall) score += 6
+        // Along the front wall the steps would stand between the camera and the room.
+        if (odd && z === HOUSE_D - 1) score += 4
+        const top = rot === 0 ? z === 0 : rot === 1 ? x + 4 === HOUSE_W : rot === 2 ? z + 4 === HOUSE_D : x === 0
+        if (!top) score += 2
+        if (!odd && x === 0 && overlaps(c, { x: 0, z: 3, w: 1, d: 2 })) score += 3
+        if (!odd && x === HOUSE_W - 1 && overlaps(c, { x: HOUSE_W - 1, z: 5, w: 1, d: 2 })) score += 3
+        if (!best || score < best.score) best = { st, score }
+      }
+    }
+  }
+  return best?.st ?? null
+}
+
+/**
+ * Builds a new storey on top (its floor and wallpaper like the one below)
+ * and a staircase up to it on the old top storey; what stood where the
+ * staircase goes is put in storage. Price is the caller's business.
+ */
+export function addStorey(save: MiniWorldSave): MiniWorldSave | SaveError {
+  const n = storeyCount(save.house)
+  if (n >= MAX_STOREYS) return 'top-storey'
+  const k = n - 1
+  const st = pickStair(save, k)
+  if (!st) return 'bad-place'
+  const c = stairCells(st)
+  let room: HouseState = roomState(save, k)
+  for (const it of room.house.items) {
+    const d = defOf(save, it.uid)
+    if (!d || d.kind === 'wall' || it.on) continue
+    if (overlaps(c, footprint(d, it))) room = storeItem(room, it.uid)
+  }
+  const top = roomAt(save.house, k)
+  let house = withRoom(save.house, k, { ...top, items: room.house.items }, st)
+  house = { ...house, up: [...(house.up ?? []), { floor: top.floor, wall: top.wall, items: [] }] }
+  return { ...save, house }
 }
 
 /**
@@ -358,6 +534,7 @@ export function canPlace(s: HouseState, uid: string, placed: PlacedItem): boolea
     if (fp.x < 0 || fp.x + fp.w > wallLength(placed.rot)) return false
   } else {
     if (fp.x < 0 || fp.z < 0 || fp.x + fp.w > HOUSE_W || fp.z + fp.d > HOUSE_D) return false
+    if (!placed.on && s.blocked?.some(b => overlaps(fp, b))) return false
     if (placed.on) {
       if (def.kind !== 'small') return false
       const base = s.house.items.find(i => i.uid === placed.on)
@@ -443,27 +620,51 @@ export function storeItem<S extends HouseState>(s: S, uid: string): S {
   return { ...s, house: { ...s.house, items: s.house.items.filter(i => i.uid !== uid && i.on !== uid) } }
 }
 
-/** Owned furniture not in the house. */
+/** Takes an item (and anything on it) back to storage from whichever storey it is on. */
+export function storeEverywhere<S extends HouseState>(s: S, uid: string): S {
+  let house = s.house
+  rooms(house).forEach((r, k) => {
+    house = withRoom(house, k, { ...roomAt(house, k), items: r.items.filter(i => i.uid !== uid && i.on !== uid) })
+  })
+  return { ...s, house }
+}
+
+/** Uids placed on any storey. */
+export function placedUids(h: HouseLayout): Set<string> {
+  return new Set(rooms(h).flatMap(r => r.items.map(i => i.uid)))
+}
+
+/** Owned furniture not in the house (on no storey). */
 export function stored(s: HouseState): OwnedFurniture[] {
-  const placed = new Set(s.house.items.map(i => i.uid))
+  const placed = placedUids(s.house)
   return s.furniture.filter(o => !placed.has(o.uid))
 }
 
-/** Checks a whole layout from the house editor: owned floor, wall and items, every rule. */
+/**
+ * Checks a whole layout from the house editor: owned floors, walls and
+ * items, every rule, on every storey. Storeys and staircases are the
+ * save's: the editor cannot add, remove or move them.
+ */
 export function setLayout(save: MiniWorldSave, layout: HouseLayout): MiniWorldSave | SaveError {
-  if (!save.floors.includes(layout.floor) || !save.walls.includes(layout.wall)) return 'not-owned'
+  const want = rooms(layout)
+  if (want.length !== storeyCount(save.house)) return 'bad-place'
   const seen = new Set<string>()
-  for (const it of layout.items) {
-    if (seen.has(it.uid)) return 'bad-place'
-    seen.add(it.uid)
-    if (!save.furniture.some(o => o.uid === it.uid)) return 'not-owned'
+  let house = save.house
+  for (const [k, r] of want.entries()) {
+    if (!save.floors.includes(r.floor) || !save.walls.includes(r.wall)) return 'not-owned'
+    for (const it of r.items) {
+      if (seen.has(it.uid)) return 'bad-place'
+      seen.add(it.uid)
+      if (!save.furniture.some(o => o.uid === it.uid)) return 'not-owned'
+    }
+    house = withRoom(house, k, { floor: r.floor, wall: r.wall, items: r.items.map(i => ({ ...i })) })
   }
-  const state: HouseState = { house: { floor: layout.floor, wall: layout.wall, items: layout.items.map(i => ({ ...i })) }, furniture: save.furniture }
-  for (const it of state.house.items) {
+  for (const k of want.keys()) {
+    const state = roomState({ house, furniture: save.furniture }, k)
     // Each item against all the others (canPlace skips itself and its riders).
-    if (!canPlace(state, it.uid, it)) return 'bad-place'
+    for (const it of state.house.items) if (!canPlace(state, it.uid, it)) return 'bad-place'
   }
-  return { ...save, house: state.house }
+  return { ...save, house }
 }
 
 // ---------------------------------------------------------------- persons
@@ -571,11 +772,13 @@ export function buyWall(save: MiniWorldSave, id: string): MiniWorldSave | SaveEr
   return { ...save, walls: [...save.walls, id] }
 }
 
-export function setSurface(save: MiniWorldSave, kind: 'floor' | 'wall', id: string): MiniWorldSave | SaveError {
+/** Lays a floor or wallpaper on storey `storey` (0 = the ground). */
+export function setSurface(save: MiniWorldSave, kind: 'floor' | 'wall', id: string, storey = 0): MiniWorldSave | SaveError {
   const owned = kind === 'floor' ? save.floors : save.walls
   if (!(kind === 'floor' ? floorDef(id) : wallDef(id))) return 'unknown'
   if (!owned.includes(id)) return 'not-owned'
-  return { ...save, house: { ...save.house, [kind]: id } }
+  const k = Math.max(0, Math.min(storeyCount(save.house) - 1, Math.floor(storey) || 0))
+  return { ...save, house: withRoom(save.house, k, { ...roomAt(save.house, k), [kind]: id }) }
 }
 
 // ---------------------------------------------------------------- workshop
@@ -629,7 +832,7 @@ export function giveAway(save: MiniWorldSave, kind: 'clothing' | 'furniture', id
     const o = save.furniture.find(f => f.uid === idOrUid)
     if (!o) return 'not-owned'
     if (!isGiftable('furniture', o.id)) return 'not-giftable'
-    const next = storeItem(save, idOrUid)
+    const next = storeEverywhere(save, idOrUid)
     return { ...next, furniture: next.furniture.filter(f => f.uid !== idOrUid) }
   }
   const def = clothing(idOrUid)
@@ -700,7 +903,7 @@ export function publicData(save: MiniWorldSave): {
   kinds: Record<string, string>
 } {
   const p = activePerson(save)
-  const placed = new Set(save.house.items.map(i => i.uid))
+  const placed = placedUids(save.house)
   const levels: Record<string, 1 | 2 | 3> = {}
   const kinds: Record<string, string> = {}
   for (const o of save.furniture) {
@@ -722,8 +925,9 @@ export function cleanPublicHouse(x: unknown, kinds: Record<string, string>, leve
     .filter(([uid, id]) => UID_RE.test(uid) && furniture(id))
     .slice(0, MAX_FURNITURE)
     .map(([uid, id]) => ({ uid, id, level: lvl(levels[uid]) ?? 1 }))
-  const floor = typeof x.floor === 'string' && floorDef(x.floor) ? x.floor : STARTER_FLOOR
-  const wall = typeof x.wall === 'string' && wallDef(x.wall) ? x.wall : STARTER_WALL
-  const pseudo = { ...newSave(), furniture: owned, floors: [floor], walls: [wall] }
-  return parseLayout({ ...x, floor, wall }, pseudo)
+  const all = [x, ...(Array.isArray(x.up) ? x.up.slice(0, MAX_STOREYS - 1) : [])].map(r => (isObj(r) ? r : {}))
+  const floors = [STARTER_FLOOR, ...all.map(r => r.floor).filter((f): f is string => typeof f === 'string' && !!floorDef(f))]
+  const walls = [STARTER_WALL, ...all.map(r => r.wall).filter((w): w is string => typeof w === 'string' && !!wallDef(w))]
+  const pseudo = { ...newSave(), furniture: owned, floors, walls }
+  return parseLayout(x, pseudo)
 }

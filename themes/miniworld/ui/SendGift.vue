@@ -78,6 +78,7 @@ import Sheet from './Sheet.vue'
 import PxIcon from './PxIcon.vue'
 import { useMw, socialLine } from './context'
 import { CLOTHES, clothing, furniture } from '../catalog'
+import { placedUids } from '../core/save'
 import type { GiftChoice } from '~/composables/useMiniWorldSocial'
 
 const props = defineProps<{ to: string | null }>()
@@ -129,7 +130,7 @@ const clothesList = computed(() => CLOTHES
   .map(d => ({ id: d.id, name: d.name, pic: pics.clothing(d, 96), ok: game.canGiveAway('clothing', d.id).ok })))
 
 const furnitureList = computed(() => {
-  const placed = new Set(game.save.value.house.items.map(i => i.uid))
+  const placed = placedUids(game.save.value.house)
   return game.save.value.furniture.map(f => ({
     uid: f.uid,
     name: furniture(f.id)?.name ?? f.id,
@@ -163,7 +164,7 @@ const choicePic = computed(() => {
 })
 const choicePlaced = computed(() => {
   const c = choice.value
-  return c?.kind === 'furniture' && game.save.value.house.items.some(i => i.uid === c.uid)
+  return c?.kind === 'furniture' && placedUids(game.save.value.house).has(c.uid)
 })
 
 async function send() {

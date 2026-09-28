@@ -154,6 +154,7 @@ const near = reactive<{ zone: ZoneId | null; label: string | null }>({ zone: nul
 const hudLine = ref('')
 const caption = ref('')
 const selected = ref<string | null>(null)
+const storey = ref({ index: 0, count: 1 })
 const seeThrough = ref(false)
 const busy = ref(false)
 const runPaused = ref(false)
@@ -401,6 +402,9 @@ function onEvent(e: RuntimeEvent) {
       break
     case 'select':
       selected.value = e.uid
+      break
+    case 'storey':
+      storey.value = { index: e.index, count: e.count }
       break
     case 'layout': {
       runtimeLayout = JSON.stringify(e.layout)
@@ -654,7 +658,7 @@ function onKeyDown(e: KeyboardEvent) {
 // ---------------------------------------------------------------- the context for panels
 
 const ctx: MwContext = {
-  game, social, pics, previews, audio: audioProxy, runtime, place, world,
+  game, social, pics, previews, audio: audioProxy, runtime, place, storey, world,
   open, swap, close, closeAll, say, cheer, sfx,
   setSeeThrough: (on) => { seeThrough.value = on },
   setBusy: (on) => { busy.value = on },

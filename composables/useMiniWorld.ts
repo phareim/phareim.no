@@ -9,7 +9,7 @@ import { isSaveError, SAVE_ERROR_TEXT, type SaveError } from '~/themes/miniworld
 import { finishContest as scoreContest, type ContestResult, type ContestOutcome } from '~/themes/miniworld/core/contests'
 import { royalPrizes } from '~/themes/miniworld/core/royal'
 import { writeHeroColors } from '~/themes/miniworld/core/outfit'
-import { HERO_COLORS_KEY } from '~/themes/miniworld/types'
+import { HERO_COLORS_KEY, STOREY_PRICES } from '~/themes/miniworld/types'
 import { useWallet, syncWallet } from '~/composables/useWallet'
 import { useGameSave } from '~/composables/useGameSave'
 import { useLeaderboard } from '~/composables/useLeaderboard'
@@ -63,7 +63,12 @@ export interface MiniWorldApi {
   buyFloor(id: string): ActionResult
   buyWall(id: string): ActionResult
   /** Lays an owned floor or wallpaper. */
-  setSurface(kind: 'floor' | 'wall', id: string): ActionResult
+  /** Lays a floor or wallpaper on a storey (0 = the ground, the default). */
+  setSurface(kind: 'floor' | 'wall', id: string, storey?: number): ActionResult
+  /** Bits for the next storey, or null when the house has them all. */
+  storeyPrice(): number | null
+  /** Builds a storey on top (pays for it); `moved`: things put in storage to make room for the stairs. */
+  buyStorey(): ActionResult & { moved?: number }
 
   // --- house
   /** Takes the house editor's layout after a move, turn or store (validated). */
@@ -317,7 +322,18 @@ function build(client: boolean): MiniWorldApi {
     },
     buyFloor: id => paid(floorDef(id)?.price ?? 0, 'mw:floor', core.buyFloor(save.value, id)),
     buyWall: id => paid(wallDef(id)?.price ?? 0, 'mw:wall', core.buyWall(save.value, id)),
-    setSurface: (kind, id) => run(core.setSurface(save.value, kind, id)),
+    setSurface: (kind, id, storey) => run(core.setSurface(save.value, kind, id, storey)),
+    storeyPrice() {
+      return STOREY_PRICES[core.storeyCount(save.value.house) - 1] ?? null
+    },
+    buyStorey() {
+      const price = STOREY_PRICES[core.storeyCount(save.value.house) - 1]
+      if (price === undefined) return fail('top-storey')
+      const before = core.stored(save.value).length
+      const r = core.addStorey(save.value)
+      const out = paid(price, 'mw:storey', r)
+      return out.ok ? { ...out, moved: core.stored(save.value).length - before } : out
+    },
 
     setLayout: layout => run(core.setLayout(save.value, layout)),
 

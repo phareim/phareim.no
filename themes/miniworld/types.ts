@@ -147,11 +147,36 @@ export interface PlacedItem {
 export const HOUSE_W = 10
 export const HOUSE_D = 8
 
-export interface HouseLayout {
+/**
+ * The staircase up from a storey (2026-09-28): a strip of 1 × 4 cells, three
+ * steps and a free foot cell to stand on. `rot` is the way the steps climb
+ * from the foot: 0 toward −z (foot at the strip's +z end), 1 toward +x
+ * (foot at the −x end), 2 toward +z, 3 toward −x. `x`, `z` is the strip's
+ * min corner. The storey above has its opening over the same cells.
+ */
+export interface StairSpot {
+  x: number
+  z: number
+  rot: 0 | 1 | 2 | 3
+}
+
+/** One storey: its floor, wallpaper and furniture, and its stairs up (if a storey stands on it). */
+export interface RoomLayout {
   floor: string
   wall: string
   items: PlacedItem[]
+  stair?: StairSpot
 }
+
+/** The house: the ground storey, and the storeys built on it (bottom to top). */
+export interface HouseLayout extends RoomLayout {
+  up?: RoomLayout[]
+}
+
+/** Storeys a house may have, the ground one included. */
+export const MAX_STOREYS = 3
+/** Bits for building storey 2 and storey 3. */
+export const STOREY_PRICES = [100, 200] as const
 
 export interface Weapon {
   uid: string

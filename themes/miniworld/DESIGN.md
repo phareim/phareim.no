@@ -34,11 +34,20 @@ reader is seven: one idea per line, big buttons, pictures before words).
     by how few moves. First win on 10 pairs: Huskepokal + Stjernebriller.
   Rewards live in `core/contests.ts`. Bits per play are small (5–70) so
   the shops take a while but never feel far.
-- **Your house.** Walk in at your door on Nabogata. One room of
-  `HOUSE_W × HOUSE_D` cells. **Pynt** mode: pick things from storage, drag
-  them on a grid, turn them, put them back; floors and wallpapers. Buy in
-  **Møbelbutikken**. Sit on sofas, sleep in the bed, bounce on the
-  trampoline, play the piano (small animations, a caption).
+- **Your house.** Walk in at your door on Nabogata. Each storey is one
+  room of `HOUSE_W × HOUSE_D` cells. **Pynt** mode: pick things from
+  storage, drag them on a grid, turn them, put them back; floors and
+  wallpapers per storey. Buy in **Møbelbutikken**. Sit on sofas, sleep in
+  the bed, bounce on the trampoline, play the piano (small animations, a
+  caption).
+- **Storeys** (Ulrikke's wish, 2026-09-28): in Pynt, **+ NY ETASJE** builds
+  one on top (100 bits for the second, 200 for the third; `STOREY_PRICES`,
+  `MAX_STOREYS` 3; a second tap confirms). A staircase goes on the old top
+  storey where it moves the fewest things (what stood there goes in the
+  bag); the new storey gets the opening over it. Walk up the steps or press
+  **Gå opp** at the foot; walk into the opening or press **Gå ned** on the
+  landing. ▼/▲ in Pynt picks the storey to decorate. The house in town
+  grows a row of windows per storey, and friends' houses too.
 - **Upgrade things** in **Verkstedet**: furniture and weapons have levels
   1–3 (1 plain, 2 Skinnende: gold trim and sparkle, 3 Magisk: glow and
   floating sparkles; weapons also get bigger, more magic). Cost:

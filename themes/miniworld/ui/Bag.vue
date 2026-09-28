@@ -76,6 +76,7 @@ import Sheet from './Sheet.vue'
 import PxIcon from './PxIcon.vue'
 import { useMw } from './context'
 import { CLOTHES, furniture } from '../catalog'
+import { placedUids } from '../core/save'
 
 const ctx = useMw()
 const { game, pics } = ctx
@@ -93,7 +94,7 @@ const equipped = computed(() => save.value.equipped)
 const weapons = computed(() => save.value.weapons)
 
 const furnitureList = computed(() => {
-  const placed = new Set(save.value.house.items.map(i => i.uid))
+  const placed = placedUids(save.value.house)
   return save.value.furniture
     .map((f) => {
       const def = furniture(f.id)

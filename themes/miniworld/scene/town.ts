@@ -434,7 +434,7 @@ export function buildTown(particles: Particles): TownScene {
   {
     const { x, z, w, d } = HOME
     const x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2
-    paintHouse(props, glow, boxes, x, z, w, d, 1, { wall: '#fff1b0', roof: '#ff6f9f', door: '#4fb8ff', trim: '#ffffff', h: 4.4 })
+    // The house itself is neighbors.ts's (it grows with its storeys): HOME_STYLE.
     // A white fence round the garden with a gap for the path.
     fence(x0 - 1, z1 + 1.6, x - 1.8, z1 + 1.6)
     fence(x + 1.8, z1 + 1.6, x1 + 1, z1 + 1.6)
@@ -845,29 +845,36 @@ const m4 = new THREE.Matrix4()
 
 // ---------------------------------------------------------------- houses (shared with neighbors.ts)
 
-export interface HouseStyle { wall: string; roof: string; door: string; trim: string; h: number }
+export interface HouseStyle { wall: string; roof: string; door: string; trim: string; h: number; /** 1–3; each storey above adds STOREY_UP. */ storeys?: number }
 
 /**
  * A little house with a stepped gable roof (you can walk up it), a door
  * facing the street (`face` +1: door on the south side, -1: north), two
  * windows and a chimney. Colliders go into `boxes`.
  */
+/** Your own house on Nabogata (painted by neighbors.ts, with its storeys). */
+export const HOME_STYLE: HouseStyle = { wall: '#fff1b0', roof: '#ff6f9f', door: '#4fb8ff', trim: '#ffffff', h: 4.4 }
+/** How much taller a house in town gets per storey built on it. */
+export const STOREY_UP = 3
+
 export function paintHouse(props: Blocks, glow: Blocks, boxes: Box[], cx: number, cz: number, w: number, d: number, face: 1 | -1, s: HouseStyle) {
   const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2
-  props.box(x0, 0, z0, x1, s.h, z1, s.wall, { bottom: false })
+  const storeys = Math.max(1, Math.min(3, Math.floor(s.storeys ?? 1)))
+  const H = s.h + (storeys - 1) * STOREY_UP
+  props.box(x0, 0, z0, x1, H, z1, s.wall, { bottom: false })
   props.box(x0 - 0.1, 0, z0 - 0.1, x1 + 0.1, 0.4, z1 + 0.1, s.trim)
-  boxes.push(box(x0, 0, z0, x1, s.h, z1))
+  boxes.push(box(x0, 0, z0, x1, H, z1))
   // Stepped roof along x: layers 0.5 high, each 0.6 narrower per side.
   let k = 0
   for (let half = d / 2 + 0.5; half > 0.3; half -= 0.6, k++) {
-    const y = s.h + k * 0.5
+    const y = H + k * 0.5
     const c = k & 1 ? s.roof : shade(s.roof, 0.9)
     props.box(x0 - 0.4, y, cz - half, x1 + 0.4, y + 0.5, cz + half, c, { top: shade(s.roof, 1.1) })
     boxes.push(box(x0 - 0.4, y, cz - half, x1 + 0.4, y + 0.5, cz + half))
   }
   // Chimney.
-  props.block(x0 + 1.4, s.h + 0.5, cz - face * d * 0.18, 0.9, 2.6, 0.9, '#d86a6a', { top: '#5a4a5a' })
-  boxes.push(box(x0 + 0.95, s.h, cz - face * d * 0.18 - 0.45, x0 + 1.85, s.h + 3.1, cz - face * d * 0.18 + 0.45))
+  props.block(x0 + 1.4, H + 0.5, cz - face * d * 0.18, 0.9, 2.6, 0.9, '#d86a6a', { top: '#5a4a5a' })
+  boxes.push(box(x0 + 0.95, H, cz - face * d * 0.18 - 0.45, x0 + 1.85, H + 3.1, cz - face * d * 0.18 + 0.45))
   // Door and windows on the street side.
   const fz = face > 0 ? z1 : z0
   const out = face
@@ -890,6 +897,21 @@ export function paintHouse(props: Blocks, glow: Blocks, boxes: Box[], cx: number
     const [fz0, fz1] = door(fz, 0.45)
     props.box(wx - 0.8, 1.0, fz0, wx + 0.8, 1.25, fz1, '#b0785a')
     for (let f = 0; f < 4; f++) props.box(wx - 0.6 + f * 0.4, 1.25, (fz0 + fz1) / 2 - 0.08, wx - 0.45 + f * 0.4, 1.45, (fz0 + fz1) / 2 + 0.08, ['#ff6fb0', '#ffd84f', '#ffffff', '#b89aff'][f]!)
+  }
+  // Each storey above: a trim band and a row of three windows.
+  for (let st = 1; st < storeys; st++) {
+    const yb = s.h + (st - 1) * STOREY_UP
+    const [tz0, tz1] = door(fz, 0.12)
+    props.box(x0 - 0.05, yb - 0.1, tz0, x1 + 0.05, yb + 0.1, tz1, s.trim)
+    for (const wx of [cx - w * 0.3, cx, cx + w * 0.3]) {
+      const y0 = yb + 0.7
+      const [wz0, wz1] = door(fz, 0.1)
+      props.box(wx - 0.8, y0, wz0, wx + 0.8, y0 + 1.5, wz1, s.trim)
+      const [gz0, gz1] = door(fz + 0.1 * out, 0.02)
+      glow.box(wx - 0.6, y0 + 0.2, gz0, wx + 0.6, y0 + 1.3, gz1, C.window)
+      const [bz0, bz1] = door(fz + 0.12 * out, 0.02)
+      props.box(wx - 0.6, y0 + 0.72, bz0, wx + 0.6, y0 + 0.78, bz1, s.trim)
+    }
   }
 }
 

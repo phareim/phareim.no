@@ -65,6 +65,29 @@ try {
   await b.eval(`${W}.events.length = 0; ${W}.go({ kind: 'house', edit: false }); ${W}.step(5)`)
   const hz = await b.eval(`JSON.stringify(${W}.events.filter(e => e.type === 'near'))`)
   ok('house: arriving at the door offers Gå ut', hz.includes('"exit"'), hz)
+  // Storeys: the action at the foot takes you up, the top step too, the opening down.
+  const house = JSON.parse(await b.eval(`${W}.tall()`))
+  await b.eval(`${W}.events.length = 0; ${W}.go({ kind: 'house', edit: false }); ${W}.step(3)`)
+  const st0 = house.stair
+  const foot = st0.rot === 1 ? [st0.x, st0.z] : st0.rot === 3 ? [st0.x + 3, st0.z] : st0.rot === 0 ? [st0.x, st0.z + 3] : [st0.x, st0.z]
+  await b.eval(`${W}.at(${(foot[0] + 0.5) * 1.5}, 0, ${(foot[1] + 0.5) * 1.5}, 0); ${W}.step(3); ${W}.input.actionPressed = true; ${W}.step(3)`)
+  const up1 = await b.eval(`JSON.stringify({ y: ${body}.y, ev: ${W}.events.filter(e => e.type === 'storey') })`)
+  ok('stairs: Gå opp at the foot takes you to storey 2', JSON.parse(up1).y > 3.9 && up1.includes('"index":1,"count":3'), up1)
+  await b.eval(`${W}.events.length = 0; ${W}.step(40)`)
+  const hole = house.stair
+  const holeX = hole.rot % 2 ? (hole.x + (hole.rot === 1 ? 2.5 : 1.5)) * 1.5 : (hole.x + 0.5) * 1.5
+  const holeZ = hole.rot % 2 ? (hole.z + 0.5) * 1.5 : (hole.z + (hole.rot === 0 ? 1.5 : 2.5)) * 1.5
+  await b.eval(`${W}.at(${holeX}, 4.05, ${holeZ}, 0); ${W}.step(10)`)
+  const down = await b.eval(`JSON.stringify({ y: ${body}.y, ev: ${W}.events.filter(e => e.type === 'storey') })`)
+  ok('stairs: walking into the opening takes you down', JSON.parse(down).y < 0.5 && down.includes('"index":0'), down)
+  await b.eval(`${W}.events.length = 0; ${W}.step(40)`)
+  // Stand on the top step: up again.
+  const topX = st0.rot === 1 ? (st0.x + 3.8) * 1.5 : st0.rot === 3 ? (st0.x + 0.2) * 1.5 : (st0.x + 0.5) * 1.5
+  const topZ = st0.rot === 0 ? (st0.z + 0.2) * 1.5 : st0.rot === 2 ? (st0.z + 3.8) * 1.5 : (st0.z + 0.5) * 1.5
+  await b.eval(`${W}.at(${topX}, 4.2, ${topZ}, 0); ${W}.step(20)`)
+  const up2 = await b.eval(`JSON.stringify({ y: ${body}.y, ev: ${W}.events.filter(e => e.type === 'storey') })`)
+  ok('stairs: the top step takes you up', JSON.parse(up2).y > 3.9 && up2.includes('"index":1'), up2)
+  await b.eval(`${W}.go({ kind: 'town' })`)
   if (b.errors.length) ok('no page errors', false, b.errors.slice(0, 5).join('\n'))
 } finally {
   await b.close()

@@ -1,7 +1,7 @@
 import type { SocialState, PublicProfile, Hood, HoodMember, Gift, GiftKind, PersonLook, HouseLayout, RoyalTitle } from '~/themes/miniworld/types'
 import { furniture } from '~/themes/miniworld/catalog'
 import { cleanName, cleanCode, randomCode, hoodName } from '~/themes/miniworld/core/names'
-import { parseLook, cleanPublicHouse, isGiftable } from '~/themes/miniworld/core/save'
+import { parseLook, cleanPublicHouse, isGiftable, placedUids } from '~/themes/miniworld/core/save'
 import { rulerOf, countVotes, crown, giveTitle, isTitle, type TitleError } from '~/themes/miniworld/core/royal'
 import { randomId } from '~/themes/miniworld/core/rng'
 import { isPlayerId, isPublicId } from './store'
@@ -133,7 +133,7 @@ export function cleanProfileData(b: Body): ProfileData {
   }
   const house = b.house == null ? null : cleanPublicHouse(b.house, kinds, levels)
   // Keep only what is placed: a visitor needs nothing else.
-  const placed = new Set(house?.items.map(i => i.uid) ?? [])
+  const placed = house ? placedUids(house) : new Set<string>()
   for (const uid of Object.keys(kinds)) {
     if (!placed.has(uid)) { delete kinds[uid]; delete levels[uid] }
   }

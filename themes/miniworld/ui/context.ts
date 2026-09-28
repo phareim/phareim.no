@@ -76,6 +76,8 @@ export interface MwContext {
   audio: MiniAudio
   runtime: ShallowRef<MiniWorldRuntime | null>
   place: Ref<Place>
+  /** In a house: the storey you are on (0 = the ground) and how many the house has. */
+  storey: Ref<{ index: number; count: number }>
   world: MwWorld
   open(panel: Panel): void
   /** Replace the top panel. */
