@@ -7,7 +7,7 @@ per game, the Hall of Fame board, the Hangar door), Petter's house (who he
 is, three terminals to his profiles, the login console), the PHAREIM.MD newsstand, the
 GAMES.PHAREIM.NO signpost, and east of the pier a quiet beach: two hippie
 DJs (the one building loops live leads to jam.phareim.no, the one with the
-records to the generative radio, `docs/games/radio.md`) and people lying
+records to the generative radio at radio.phareim.no, which shows a ⌂ TOWN chip back when the visit came from here) and people lying
 about round a bonfire (2026-09-26; it replaced the radio studio by the
 road). West, the shore road ends in a thicket: cut it
 with the blade and it leads into the Wildwood (`docs/games/wildwood.md`).
@@ -134,7 +134,7 @@ says there is nothing to wipe before the blade, and after it asks once and
 never leaves the game; the beach lies only east of the pier and has two DJ booths
 on the sand between the road and the sea, blocked behind and beside, open
 in front, Jam on the left to jam.phareim.no and the records on the right to
-`?theme=radio`, a bonfire, a smoker, a guitar and a sleeper among at least
+radio.phareim.no (`?from=phareim`), a bonfire, a smoker, a guitar and a sleeper among at least
 six who stay put, and the sand plays the `beach` track while the road plays
 the town's (2026-09-26); every
 exit goes where it should and

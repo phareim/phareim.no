@@ -73,6 +73,7 @@ const NAMES: Record<string, string> = {
   kiosk: "phareim.md — Petter's writing",
   games: 'games.phareim.no — more games',
   jam: "jam.phareim.no — make music on the radio's engine",
+  radio: 'radio.phareim.no — ten stations of music made up as it plays',
   linkedin: 'LinkedIn',
   github: 'GitHub',
   bluesky: 'Bluesky',

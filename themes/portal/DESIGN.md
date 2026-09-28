@@ -87,8 +87,8 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   the DJ's spot are `Z` tiles. Left, a long-haired DJ in tie-dye building
   loops (art `mixer`, label JAM, exit `jam` → `https://jam.phareim.no`);
   right, an old hippie with the records (art `records`, label RADIO, exit
-  `radio` → `?theme=radio`, the id kept so old `portal.return` values land
-  here). Between them a bonfire, and round it two hippies cross-legged on
+  `radio` → `https://radio.phareim.no/?from=phareim`, since 2026-09-28; the id
+  is kept so old `portal.return` values land here). Between them a bonfire, and round it two hippies cross-legged on
   blankets, someone with a guitar and someone smoking a joint (the smoke
   is drawn live), a slow dancer, and someone asleep on a towel by the pier
   with a straw hat over the face (NPC looks `hippie`, `smoker`, `guitar`,

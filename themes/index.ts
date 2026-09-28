@@ -19,7 +19,6 @@ import './shore/theme.css'
 import './leaderboard/theme.css'
 import './hangar/theme.css'
 import './portal/theme.css'
-import './radio/theme.css'
 import './battery/theme.css'
 import './miniworld/theme.css'
 import './figur/theme.css'
@@ -42,7 +41,6 @@ import ShoreLanding from './shore/Landing.vue'
 import LeaderboardLanding from './leaderboard/Landing.vue'
 import HangarLanding from './hangar/Landing.vue'
 import PortalLanding from './portal/Landing.vue'
-import RadioLanding from './radio/Landing.vue'
 import BatteryLanding from './battery/Landing.vue'
 import MiniworldLanding from './miniworld/Landing.vue'
 import FigurLanding from './figur/Landing.vue'
@@ -202,16 +200,6 @@ export const allThemes: ThemeDefinition[] = [
     themeColor: '#0b0616',
     themeColorDark: '#0b0616',
     landing: HangarLanding,
-  },
-  {
-    // Radio (2026-09-25): the generative radio from radio.phareim.no, reached
-    // through the radio station's door in the town, not an arcade cabinet.
-    id: 'radio',
-    name: 'Radio',
-    ownRadio: true,
-    themeColor: '#0b0616',
-    themeColorDark: '#0b0616',
-    landing: RadioLanding,
   },
   {
     id: 'space',

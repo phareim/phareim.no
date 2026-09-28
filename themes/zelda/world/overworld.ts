@@ -136,7 +136,7 @@ export const OVERWORLD: MapDef = {
     ']': {
       tile: 'Z',
       ent: {
-        t: 'exit', id: 'radio', to: { theme: 'radio' }, look: 'booth', art: 'records', label: 'RADIO', side: 'down',
+        t: 'exit', id: 'radio', to: { url: 'https://radio.phareim.no/?from=phareim' }, look: 'booth', art: 'records', label: 'RADIO', side: 'down',
         lines: ['DJ: JUST RECORDS, FRIEND. RADIO PHAREIM: TEN STATIONS, AND THE MUSIC IS MADE UP AS IT PLAYS.', 'TUNE IN?'],
       },
     },
