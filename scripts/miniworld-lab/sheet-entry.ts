@@ -272,7 +272,7 @@ const sections: Record<string, () => void> = {
       { top: 'glitter-hoodie', bottom: 'tutu-rainbow', shoes: 'ballet-shoes', hat: 'star-crown', face: null, back: null },
     ]
     const hairs = ['long', 'afro', 'ponytail', 'curly', 'bun', 'spiky', 'braids', 'pigtails'] as const
-    for (const [label, camZ, camX, pose] of [['front', 12, 0, 'idle'], ['back', -12, 0, 'walk'], ['side', 0.01, 13, 'jump']] as const) {
+    for (const [label, camZ, camX, pose] of [['front', 13, 0, 'idle'], ['back', -13, 0, 'walk'], ['side', 0.01, 13, 'jump']] as const) {
       row(label)
       const s = scene3d(420, 130, 3)
       costumes.forEach((outfit, i) => {
@@ -284,7 +284,7 @@ const sections: Record<string, () => void> = {
         s.scene.add(a.group)
       })
       s.cam.position.set(camX, 3.0, camZ)
-      s.cam.fov = 70
+      s.cam.fov = 30
       s.cam.updateProjectionMatrix()
       s.cam.lookAt(0, 1.4, 0)
       s.renderer.render(s.scene, s.cam)

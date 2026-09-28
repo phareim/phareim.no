@@ -477,7 +477,7 @@ export function torsoPieces(ps: PartSet, look: PersonLook) {
       k.box(0, 0.04, -0.54, 0.2, 0.18, 0.2, C.main)
       ps.vc.box(0, -0.02, -0.68, 0.11, 0.11, 0.14, C.second ?? darken(C.main))
       if ((!top.pattern || top.pattern === 'plain') && C.second) {
-        for (const y of [0.88, 0.64, 0.4]) ps.vc.cone(0, y, -0.32, 0.1, 0.18, C.second, 4, 0, { x: -Math.PI / 2 })
+        for (const y of [0.9, 0.62, 0.34]) ps.vc.cone(0, y, -0.31, 0.07, 0.22, C.second, 4, 0, { x: -0.7, y: Math.PI / 4 })
       }
     }
     if (shape === 'suit') {

@@ -64,8 +64,8 @@ const SHOPS: { id: ZoneId; x: number; face: 1 | -1; name: string; wall: string; 
   { id: 'clothes-shop', x: 22, face: 1, name: 'KLESBUTIKKEN', wall: '#ffb0d8', trim: '#ff5fa8', awning: ['#ff5fa8', '#fff8fc'] },
   { id: 'furniture-shop', x: 36, face: 1, name: 'MØBELBUTIKKEN', wall: '#9ff0cf', trim: '#2fb88a', awning: ['#2fb88a', '#fff8fc'] },
   { id: 'workshop', x: 50, face: 1, name: 'VERKSTEDET', wall: '#c9b0ff', trim: '#7a4fd0', awning: ['#ffb040', '#7a4fd0'] },
-  { id: 'glitter-shop', x: 34, face: -1, name: 'GLITTERBUTIKKEN', wall: '#e8dcff', trim: '#b04fd0', awning: ['#ffd23f', '#fff8fc'] },
-  { id: 'costume-shop', x: 48, face: -1, name: 'KOSTYMEBUTIKKEN', wall: '#c8f5a0', trim: '#2f9a4a', awning: ['#ffd23f', '#3a2c4a'] },
+  { id: 'glitter-shop', x: 32, face: -1, name: 'GLITTERBUTIKKEN', wall: '#e8dcff', trim: '#b04fd0', awning: ['#ffd23f', '#fff8fc'] },
+  { id: 'costume-shop', x: 46, face: -1, name: 'KOSTYMEBUTIKKEN', wall: '#c8f5a0', trim: '#2f9a4a', awning: ['#ffd23f', '#3a2c4a'] },
 ]
 /** `front`: the street face's z on the north side; the south side mirrors it (+5). */
 const SHOP = { w: 10, d: 10, h: 6, front: -5 }
@@ -468,7 +468,7 @@ export function buildTown(particles: Particles): TownScene {
   trampoline(43, -8.5, 2.6, 26)
   for (let x = 16; x <= 56; x += 10) lamp(x + 5, -4.6)
   // South side lamps stand between the shops, clear of their doors and windows.
-  for (const x of [16, 26, 41, 56]) lamp(x, 5)
+  for (const x of [16, 26, 39, 54]) lamp(x, 5)
   // South side of the street: a kiosk, then Glitterbutikken and Kostymebutikken; jumping pillars behind them.
   {
     const kx = 24, kz = 9
@@ -485,7 +485,7 @@ export function buildTown(particles: Particles): TownScene {
     props.box(x - 0.8, 0, PILLAR_Z - 0.8, x + 0.8, h, PILLAR_Z + 0.8, ['#ff8ac8', '#ffd84f', '#7fe0a0', '#8fd8ff', '#b89aff', '#ff9f3f'][h % 6]!, { top: '#ffffff' })
     solid(x - 0.8, 0, PILLAR_Z - 0.8, x + 0.8, h, PILLAR_Z + 0.8)
   }
-  bench(41, 10, false)
+  bench(39, 10, false)
 
   // ------------------------------------------------ Nabogata: your house
 
@@ -745,7 +745,7 @@ export function buildTown(particles: Particles): TownScene {
     if (inRect(x, z, [-46, 30, -30, 50], 1)) return true // Ferris wheel
     if (inRect(x, z, [16, 54, 24, 82], 1)) return true // pier
     if (inRect(x, z, [20, 5, 28, 13], 1)) return true // kiosk
-    if (inRect(x, z, [28, 4, 54, 16], 1)) return true // south-side shops
+    if (inRect(x, z, [26, 4, 52, 16], 1)) return true // south-side shops
     if (inRect(x, z, [36, PILLAR_Z - 2, 55, PILLAR_Z + 2], 1)) return true // pillars
     if (inRect(x, z, [-26, -16, -14, -2], 1.5)) return true // your garden
     for (const s of NEIGHBOR_SLOTS) if (Math.abs(x - s.x) < 5.5 && Math.abs(z - s.z) < 6.5) return true
