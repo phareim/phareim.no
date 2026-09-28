@@ -1,7 +1,7 @@
 <template>
   <Sheet
-    :title="kind === 'clothes' ? 'KLESBUTIKKEN' : 'MØBELBUTIKKEN'"
-    :icon="kind === 'clothes' ? 'shirt' : 'house'"
+    :title="SHOPS[kind].title"
+    :icon="SHOPS[kind].icon"
     :bits="bits"
     :back="!!chosen"
     wide
@@ -80,12 +80,24 @@ import { shy } from './text'
 import { ref, computed } from 'vue'
 import Sheet from './Sheet.vue'
 import PxIcon from './PxIcon.vue'
-import { useMw } from './context'
+import { useMw, type ShopKind } from './context'
 import { surfaceSwatch } from './swatch'
-import { CLOTHES, FURNITURE, FLOORS, WALLS, SLOT_NAMES, clothing } from '../catalog'
+import type { IconId } from './icons'
+import { FURNITURE, FLOORS, WALLS, SLOT_NAMES, clothing, shopClothes } from '../catalog'
 import type { ClothingSlot, FurnitureKind } from '../types'
 
-const props = defineProps<{ kind: 'clothes' | 'furniture' }>()
+const props = defineProps<{ kind: ShopKind }>()
+
+const SHOPS: Record<ShopKind, { title: string; icon: IconId }> = {
+  clothes: { title: 'KLESBUTIKKEN', icon: 'shirt' },
+  furniture: { title: 'MØBELBUTIKKEN', icon: 'house' },
+  glitter: { title: 'GLITTERBUTIKKEN', icon: 'sparkle' },
+  kostyme: { title: 'KOSTYMEBUTIKKEN', icon: 'cat' },
+}
+const SLOTS: ClothingSlot[] = ['top', 'bottom', 'shoes', 'hat', 'face', 'back']
+
+/** The clothes this shop sells (none in Møbelbutikken). */
+const shelf = computed(() => props.kind === 'furniture' ? [] : shopClothes(props.kind === 'clothes' ? 'klær' : props.kind))
 
 const ctx = useMw()
 const { game, pics } = ctx
@@ -105,8 +117,9 @@ interface Ware {
 }
 
 type TabId = ClothingSlot | FurnitureKind | 'floors' | 'walls'
-const tabs = computed<{ id: TabId; name: string }[]>(() => props.kind === 'clothes'
-  ? (['top', 'bottom', 'shoes', 'hat', 'face', 'back'] as ClothingSlot[]).map(s => ({ id: s, name: SLOT_NAMES[s] }))
+const tabs = computed<{ id: TabId; name: string }[]>(() => props.kind !== 'furniture'
+  // Only the slots this shop has wares for.
+  ? SLOTS.filter(s => shelf.value.some(d => d.slot === s)).map(s => ({ id: s, name: SLOT_NAMES[s] }))
   : [
       { id: 'floor', name: 'MØBLER' },
       { id: 'small', name: 'SMÅTING' },
@@ -115,7 +128,7 @@ const tabs = computed<{ id: TabId; name: string }[]>(() => props.kind === 'cloth
       { id: 'floors', name: 'GULV' },
       { id: 'walls', name: 'TAPET' },
     ])
-const tab = ref<TabId>(props.kind === 'clothes' ? 'top' : 'floor')
+const tab = ref<TabId>(tabs.value[0]?.id ?? 'floor')
 
 const save = computed(() => game.save.value)
 const bits = computed(() => game.bits.value)
@@ -124,8 +137,8 @@ const person = computed(() => game.active.value)
 const wares = computed<Ware[]>(() => {
   const t = tab.value
   const s = save.value
-  if (props.kind === 'clothes') {
-    return CLOTHES.filter(d => d.slot === t && d.rarity === 'shop' && d.price > 0).map(d => ({
+  if (props.kind !== 'furniture') {
+    return shelf.value.filter(d => d.slot === t).map(d => ({
       id: d.id, name: d.name, price: d.price, section: 'clothes' as const,
       pic: pics.clothing(d, 96), bigPic: '',
       owned: s.closet.includes(d.id) ? 1 : 0, unique: true,

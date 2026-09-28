@@ -11,9 +11,17 @@ reader is seven: one idea per line, big buttons, pictures before words).
   skin, hair style and colour, eyes, mouth, cheeks, and clothes from the
   closet. One is *active*: the one you walk around as. Switch any time.
 - **Clothes.** Everyone starts with the starter closet (two tees, jeans,
-  white sneakers). New clothes: buy in **Klesbutikken** with bits, or win
-  them (prizes) in contests. All persons dress from one shared closet. You
-  can dress anywhere from the menu (Garderobe) and at the wardrobe at home.
+  white sneakers). New clothes: buy them with bits in one of three shops,
+  or win them (prizes) in contests. **Klesbutikken** has everyday clothes;
+  **Glitterbutikken** has party and princess things (sequin and ice
+  dresses, tutus, ballet shoes, a star crown, headphones, pearls, a bow
+  tie, butterfly wings, a glitter cape); **Kostymebutikken** has dressing
+  up (a dinosaur suit with hood and feet, a bee suit with feelers and
+  wings, a superhero suit, a pirate hat, shirt and eye patch, a mermaid
+  tail, a witch's dress and hat, dragon wings, a turtle shell). Each
+  piece's `shop` in the catalog says where it is sold (none: Klesbutikken).
+  All persons dress from one shared closet. You can dress anywhere from
+  the menu (Garderobe) and at the wardrobe at home.
 - **Money is bits** — the same bits Neon Shrine's hero picks up. One wallet
   for the whole site (`composables/useWallet.ts`), on the player's profile.
   Bits found in Neon Shrine can be spent here and the other way round.
@@ -83,8 +91,11 @@ reader is seven: one idea per line, big buttons, pictures before words).
 
 - **Torget** in the middle: fountain, benches, lamps, the spawn point, a
   signpost pointing to everything.
-- **Butikkgata** (east): Klesbutikken, Møbelbutikken, Verkstedet —
-  shop fronts with big signs and something in the window.
+- **Butikkgata** (east): Klesbutikken, Møbelbutikken and Verkstedet on
+  the north side; the ice-cream kiosk, Glitterbutikken (a big star on the
+  roof) and Kostymebutikken (a dinosaur looking over the roof) on the
+  south side, doors onto the street. Shop fronts with big signs and
+  something in the window; jumping pillars behind the south side.
 - **Nabogata** (west): your house first (with its postkasse), then the
   neighbours' houses, up to 12, each with a name sign.
 - **Slottet** (north, on a small hill with stairs): the neighbourhood hall.

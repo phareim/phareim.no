@@ -72,6 +72,8 @@ export type ZoneId =
   | 'home'            // your house → Place house
   | 'clothes-shop'    // Klesbutikken → UI panel
   | 'furniture-shop'  // Møbelbutikken → UI panel
+  | 'glitter-shop'    // Glitterbutikken → UI panel
+  | 'costume-shop'    // Kostymebutikken → UI panel
   | 'workshop'        // Verkstedet (upgrades, weapons) → UI panel
   | 'castle'          // Slottet: the neighbourhood, friends, crown → UI panel
   | 'mailbox'         // Postkassa by your house → UI panel (gifts)

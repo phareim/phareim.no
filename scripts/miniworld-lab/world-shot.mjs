@@ -6,9 +6,9 @@
 //
 //   flock /tmp/claude-1000/chrome.lock node scripts/miniworld-lab/world-shot.mjs [outDir] [shots] [WxH@dpr]
 //
-// Shots (default all): torget, shops, nabogata, castle, tivoli, balloons,
-// aerial, obby-easy, obby-medium, obby-hard, stars, catwalk, house, pynt,
-// tall-town, tall-stairs, tall-up, tall-pynt2 (a three-storey house).
+// Shots (default all): torget, shops, shops-south, butikkgata-air, nabogata,
+// castle, tivoli, balloons, aerial, obby-easy, obby-medium, obby-hard, stars,
+// catwalk, house, pynt, tall-town, tall-stairs, tall-up, tall-pynt2 (a three-storey house).
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
@@ -30,6 +30,8 @@ const tag = `${W}x${H}`
 const SHOTS = {
   torget: [`__world.at(0, 0, 8.5, Math.PI, { pitch: 0.35, dist: 12 })`, 40],
   shops: [`__world.at(28, 0, 5, Math.PI * 0.85, { yaw: -0.35, pitch: 0.28, dist: 14 })`, 40],
+  'shops-south': [`__world.at(41, 0, -1, 0, { yaw: Math.PI + 0.3, pitch: 0.25, dist: 16 })`, 40],
+  'butikkgata-air': [`__world.at(38, 0, 2, 0, { yaw: 0.5, pitch: 0.95, dist: 30 })`, 40],
   nabogata: [`__world.at(-24, 0, 1, -Math.PI / 2, { yaw: Math.PI / 2 - 0.5, pitch: 0.3, dist: 13 })`, 40],
   castle: [`__world.at(0, 0, -24, Math.PI, { yaw: 0.15, pitch: 0.3, dist: 15 })`, 40],
   tivoli: [`__world.at(0, 0, 25, 0, { yaw: Math.PI, pitch: 0.35, dist: 15 })`, 40],

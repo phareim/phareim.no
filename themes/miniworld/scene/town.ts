@@ -3,7 +3,8 @@
  * DESIGN.md "The town" says. North is -z, east is +x.
  *
  *   Torget      (0, 0)        plaza, fountain, benches, lamps, signpost, spawn
- *   Butikkgata  x 12…58       Klesbutikken, Møbelbutikken, Verkstedet (north side)
+ *   Butikkgata  x 12…58       Klesbutikken, Møbelbutikken, Verkstedet (north side),
+ *                             a kiosk, Glitterbutikken, Kostymebutikken (south side)
  *   Nabogata    x -12…-76     your house (+ postkasse), twelve neighbour plots
  *   Slottet     z -30…-58     a hill in three tiers with stairs, the castle on top
  *   Tivoliet    z 26…50       four booths, a Ferris wheel, a bouncy castle
@@ -58,12 +59,18 @@ export const BALLOON_AREA = { minX: PARK[0] + 1, maxX: PARK[2] - 1, minZ: PARK[1
 
 const SPAWN: Spot = { x: 0, y: 0, z: 8.5, yaw: Math.PI }
 
-const SHOPS = [
-  { id: 'clothes-shop' as const, x: 22, name: 'KLESBUTIKKEN', wall: '#ffb0d8', trim: '#ff5fa8', awning: ['#ff5fa8', '#fff8fc'] },
-  { id: 'furniture-shop' as const, x: 36, name: 'MØBELBUTIKKEN', wall: '#9ff0cf', trim: '#2fb88a', awning: ['#2fb88a', '#fff8fc'] },
-  { id: 'workshop' as const, x: 50, name: 'VERKSTEDET', wall: '#c9b0ff', trim: '#7a4fd0', awning: ['#ffb040', '#7a4fd0'] },
+/** Shops on Butikkgata. `face` +1: the north side, door facing south onto the street; -1: the south side, door facing north. */
+const SHOPS: { id: ZoneId; x: number; face: 1 | -1; name: string; wall: string; trim: string; awning: [string, string] }[] = [
+  { id: 'clothes-shop', x: 22, face: 1, name: 'KLESBUTIKKEN', wall: '#ffb0d8', trim: '#ff5fa8', awning: ['#ff5fa8', '#fff8fc'] },
+  { id: 'furniture-shop', x: 36, face: 1, name: 'MØBELBUTIKKEN', wall: '#9ff0cf', trim: '#2fb88a', awning: ['#2fb88a', '#fff8fc'] },
+  { id: 'workshop', x: 50, face: 1, name: 'VERKSTEDET', wall: '#c9b0ff', trim: '#7a4fd0', awning: ['#ffb040', '#7a4fd0'] },
+  { id: 'glitter-shop', x: 34, face: -1, name: 'GLITTERBUTIKKEN', wall: '#e8dcff', trim: '#b04fd0', awning: ['#ffd23f', '#fff8fc'] },
+  { id: 'costume-shop', x: 48, face: -1, name: 'KOSTYMEBUTIKKEN', wall: '#c8f5a0', trim: '#2f9a4a', awning: ['#ffd23f', '#3a2c4a'] },
 ]
+/** `front`: the street face's z on the north side; the south side mirrors it (+5). */
 const SHOP = { w: 10, d: 10, h: 6, front: -5 }
+/** The jumping pillars behind the south-side shops. */
+const PILLAR_Z = 20
 
 const BOOTHS = [
   { id: 'booth-obby' as const, x: -18, name: 'OBBY', color: '#ff6f6f', color2: '#ffd84f' },
@@ -292,8 +299,10 @@ export function buildTown(particles: Particles): TownScene {
   }
 
   /** A sign on the atlas as a board facing +z (after transform), centred at (cx, cy, z). */
-  const sign = (lines: string[], cx: number, cy: number, z: number, height: number, style: SignStyle, rotY = 0, ox = 0, oz = 0) => {
+  const sign = (lines: string[], cx: number, cy: number, z: number, height: number, style: SignStyle, rotY = 0, ox = 0, oz = 0, maxW = Infinity) => {
     const s = atlas.add(lines, style)
+    // A long name shrinks to fit its board.
+    if (height * s.aspect > maxW) height = maxW / s.aspect
     const w = height * s.aspect
     signs.at(ox, 0, oz, rotY, () => signs.panel(cx, cy, z, w, height, '#ffffff', s.uv))
     return w
@@ -348,61 +357,108 @@ export function buildTown(particles: Particles): TownScene {
 
   const weaponSpot = new THREE.Vector3()
   for (const s of SHOPS) {
-    const x0 = s.x - SHOP.w / 2, x1 = s.x + SHOP.w / 2, z1 = SHOP.front, z0 = z1 - SHOP.d
-    props.box(x0, 0, z0, x1, SHOP.h, z1, s.wall, { bottom: false, top: '#e8dcf4' })
+    // Shop-local coordinates: lx along the street (mirrored on the south side), lz out of the front (0 at the front, −d at the back).
+    const f = s.face
+    const z1 = SHOP.front * f
+    const X = (lx: number) => s.x + f * lx
+    const Z = (lz: number) => z1 + f * lz
+    const lbox = (b: Blocks, lx0: number, y0: number, lz0: number, lx1: number, y1: number, lz1: number, c: string, o?: Parameters<Blocks['box']>[7]) =>
+      b.box(Math.min(X(lx0), X(lx1)), y0, Math.min(Z(lz0), Z(lz1)), Math.max(X(lx0), X(lx1)), y1, Math.max(Z(lz0), Z(lz1)), c, o)
+    const lsolid = (lx0: number, y0: number, lz0: number, lx1: number, y1: number, lz1: number) =>
+      solid(Math.min(X(lx0), X(lx1)), y0, Math.min(Z(lz0), Z(lz1)), Math.max(X(lx0), X(lx1)), y1, Math.max(Z(lz0), Z(lz1)))
+    const lblock = (b: Blocks, lx: number, y0: number, lz: number, sx: number, sy: number, sz: number, c: string, o?: Parameters<Blocks['block']>[7]) =>
+      b.block(X(lx), y0, Z(lz), sx, sy, sz, c, o)
+    const W = SHOP.w / 2, D = -SHOP.d, H = SHOP.h
+    lbox(props, -W, 0, D, W, H, 0, s.wall, { bottom: false, top: '#e8dcf4' })
     // Parapet round the flat roof (walkable).
-    props.box(x0, SHOP.h, z0, x1, SHOP.h + 0.5, z0 + 0.4, s.trim)
-    props.box(x0, SHOP.h, z1 - 0.4, x1, SHOP.h + 0.5, z1, s.trim)
-    props.box(x0, SHOP.h, z0, x0 + 0.4, SHOP.h + 0.5, z1, s.trim)
-    props.box(x1 - 0.4, SHOP.h, z0, x1, SHOP.h + 0.5, z1, s.trim)
-    solid(x0, 0, z0, x1, SHOP.h, z1)
-    solid(x0, SHOP.h, z0, x1, SHOP.h + 0.5, z0 + 0.4)
-    solid(x0, SHOP.h, z1 - 0.4, x1, SHOP.h + 0.5, z1)
-    solid(x0, SHOP.h, z0, x0 + 0.4, SHOP.h + 0.5, z1)
-    solid(x1 - 0.4, SHOP.h, z0, x1, SHOP.h + 0.5, z1)
+    for (const [a0, b0, a1, b1] of [[-W, D, W, D + 0.4], [-W, -0.4, W, 0], [-W, D, -W + 0.4, 0], [W - 0.4, D, W, 0]] as Rect[]) {
+      lbox(props, a0, H, b0, a1, H + 0.5, b1, s.trim)
+      lsolid(a0, H, b0, a1, H + 0.5, b1)
+    }
+    lsolid(-W, 0, D, W, H, 0)
     // Door.
-    props.box(s.x - 1.2, 0, z1, s.x + 1.2, 2.8, z1 + 0.12, s.trim)
-    props.box(s.x - 0.9, 0, z1 + 0.12, s.x + 0.9, 2.5, z1 + 0.18, '#5a3a6a')
-    glow.box(s.x - 0.7, 1.3, z1 + 0.18, s.x + 0.7, 2.3, z1 + 0.2, C.window)
-    // Display window left of the door: a lit niche with something in it.
-    const wx = s.x - 3.1
-    props.box(wx - 1.8, 0.8, z1, wx + 1.8, 3.4, z1 + 0.15, s.trim)
-    glow.box(wx - 1.5, 1.0, z1 + 0.15, wx + 1.5, 3.2, z1 + 0.16, '#fff4e0')
-    props.box(wx - 1.6, 0.8, z1 + 0.15, wx + 1.6, 1.0, z1 + 0.9, '#ffffff')
+    lbox(props, -1.2, 0, 0, 1.2, 2.8, 0.12, s.trim)
+    lbox(props, -0.9, 0, 0.12, 0.9, 2.5, 0.18, '#5a3a6a')
+    lbox(glow, -0.7, 1.3, 0.18, 0.7, 2.3, 0.2, C.window)
+    // Display window left of the door (seen from the street): a lit niche with something in it.
+    const wx = -3.1
+    lbox(props, wx - 1.8, 0.8, 0, wx + 1.8, 3.4, 0.15, s.trim)
+    lbox(glow, wx - 1.5, 1.0, 0.15, wx + 1.5, 3.2, 0.16, '#fff4e0')
+    lbox(props, wx - 1.6, 0.8, 0.15, wx + 1.6, 1.0, 0.9, '#ffffff')
     // Second window right of the door.
-    const wx2 = s.x + 3.1
-    props.box(wx2 - 1.3, 1.2, z1, wx2 + 1.3, 3.2, z1 + 0.12, s.trim)
-    glow.box(wx2 - 1.1, 1.4, z1 + 0.12, wx2 + 1.1, 3.0, z1 + 0.14, C.window)
+    const wx2 = 3.1
+    lbox(props, wx2 - 1.3, 1.2, 0, wx2 + 1.3, 3.2, 0.12, s.trim)
+    lbox(glow, wx2 - 1.1, 1.4, 0.12, wx2 + 1.1, 3.0, 0.14, C.window)
     // Striped awning.
     for (let k = 0; k < 10; k++) {
-      const ax0 = x0 + k * (SHOP.w / 10)
-      props.box(ax0, 3.6, z1, ax0 + SHOP.w / 10, 3.8, z1 + 1.4, s.awning[k & 1]!, { top: s.awning[k & 1]! })
+      const ax0 = -W + k * (SHOP.w / 10)
+      lbox(props, ax0, 3.6, 0, ax0 + SHOP.w / 10, 3.8, 1.4, s.awning[k & 1]!, { top: s.awning[k & 1]! })
     }
-    solid(x0, 3.6, z1, x1, 3.8, z1 + 1.4)
+    lsolid(-W, 3.6, 0, W, 3.8, 1.4)
     // Big sign above the awning.
-    props.box(s.x - 4.4, 4.1, z1, s.x + 4.4, 5.8, z1 + 0.2, s.trim)
-    sign([s.name], s.x, 4.95, z1 + 0.22, 1.4, { ...SIGN_BIG, bg: '#fff8fc', fg: s.trim, border: s.trim })
+    lbox(props, -4.4, 4.1, 0, 4.4, 5.8, 0.2, s.trim)
+    sign([s.name], 0, 4.95, 0.22, 1.4, { ...SIGN_BIG, bg: '#fff8fc', fg: s.trim, border: s.trim }, f > 0 ? 0 : Math.PI, s.x, z1, 8.4)
     // What is in the window.
-    const dz = z1 + 0.55
+    const dz = 0.55
     if (s.id === 'clothes-shop') {
       // A mannequin in a pink dress and a rack of tees.
-      props.block(wx - 0.6, 1.0, dz, 0.2, 0.9, 0.2, '#ffffff')
-      props.block(wx - 0.6, 1.9, dz, 0.9, 1.0, 0.5, '#ff5fa8')
-      props.block(wx - 0.6, 2.9, dz, 0.5, 0.5, 0.5, '#ffe0cc')
-      props.block(wx + 0.7, 2.6, dz, 1.4, 0.1, 0.1, '#8a5a3a')
-      for (const [k, c] of ['#4fb8ff', '#ffd84f', '#7fe07f'].entries()) props.block(wx + 0.25 + k * 0.45, 1.8, dz, 0.4, 0.8, 0.3, c)
+      lblock(props, wx - 0.6, 1.0, dz, 0.2, 0.9, 0.2, '#ffffff')
+      lblock(props, wx - 0.6, 1.9, dz, 0.9, 1.0, 0.5, '#ff5fa8')
+      lblock(props, wx - 0.6, 2.9, dz, 0.5, 0.5, 0.5, '#ffe0cc')
+      lblock(props, wx + 0.7, 2.6, dz, 1.4, 0.1, 0.1, '#8a5a3a')
+      for (const [k, c] of ['#4fb8ff', '#ffd84f', '#7fe07f'].entries()) lblock(props, wx + 0.25 + k * 0.45, 1.8, dz, 0.4, 0.8, 0.3, c)
     } else if (s.id === 'furniture-shop') {
-      props.block(wx - 0.3, 1.0, dz, 2.0, 0.45, 0.6, '#9a4ff0')
-      props.block(wx - 0.3, 1.45, dz - 0.25, 2.0, 0.55, 0.15, '#9a4ff0')
-      props.block(wx + 1.0, 1.0, dz, 0.15, 1.6, 0.15, '#3a2c4a')
-      glow.block(wx + 1.0, 2.6, dz, 0.55, 0.45, 0.55, C.lamp)
+      lblock(props, wx - 0.3, 1.0, dz, 2.0, 0.45, 0.6, '#9a4ff0')
+      lblock(props, wx - 0.3, 1.45, dz - 0.25, 2.0, 0.55, 0.15, '#9a4ff0')
+      lblock(props, wx + 1.0, 1.0, dz, 0.15, 1.6, 0.15, '#3a2c4a')
+      lblock(glow, wx + 1.0, 2.6, dz, 0.55, 0.45, 0.55, C.lamp)
+    } else if (s.id === 'glitter-shop') {
+      // A mannequin in a gold gown with a shining tiara, a disco ball, sparkles.
+      lblock(props, wx - 0.6, 1.0, dz, 1.1, 0.7, 0.6, '#ffd23f', { top: '#fff1b0' })
+      lblock(props, wx - 0.6, 1.7, dz, 0.7, 0.6, 0.45, '#ffd23f')
+      lblock(props, wx - 0.6, 2.3, dz, 0.45, 0.45, 0.45, '#ffe0cc')
+      lblock(glow, wx - 0.6, 2.75, dz, 0.35, 0.12, 0.12, '#ff8ae0')
+      lblock(props, wx + 0.8, 2.75, dz, 0.05, 0.4, 0.05, '#3a2c4a')
+      lblock(glow, wx + 0.8, 2.15, dz, 0.6, 0.6, 0.6, '#e8e0ff')
+      for (const [px, py, c] of [[wx + 0.2, 1.4, '#ff8ae0'], [wx + 1.3, 1.6, '#ffe14f'], [wx - 1.3, 2.6, '#2ff3ff'], [wx + 1.4, 2.9, '#ff8ae0']] as [number, number, string][]) lblock(glow, px, py, dz, 0.16, 0.16, 0.16, c)
+      // A big star on the roof, a landmark down the street.
+      lblock(props, 0, H, -2, 0.3, 1.8, 0.3, '#b04fd0')
+      lsolid(-0.15, H, -2.15, 0.15, H + 1.8, -1.85)
+      lblock(glow, 0, H + 1.6, -2, 0.5, 1.9, 0.3, '#ffe14f')
+      lblock(glow, 0, H + 2.3, -2, 1.9, 0.5, 0.3, '#ffe14f')
+      lblock(glow, 0, H + 1.95, -2, 1.1, 1.1, 0.34, '#fff1b0')
+    } else if (s.id === 'costume-shop') {
+      // A mannequin in a dinosaur suit and a pirate hat on a stand.
+      lblock(props, wx - 0.6, 1.0, dz, 0.8, 1.3, 0.5, '#5fcf6f')
+      lblock(props, wx - 0.6, 1.2, dz + 0.26, 0.5, 0.8, 0.02, '#c8f5a0')
+      lblock(props, wx - 0.6, 2.3, dz, 0.6, 0.55, 0.55, '#5fcf6f')
+      lblock(props, wx - 0.6, 2.36, dz + 0.28, 0.4, 0.34, 0.02, '#ffe0cc')
+      lblock(props, wx - 0.6, 2.85, dz, 0.14, 0.2, 0.3, '#ffd23f')
+      lblock(props, wx + 0.8, 1.0, dz, 0.12, 1.2, 0.12, '#3a2c4a')
+      lblock(props, wx + 0.8, 2.2, dz, 1.1, 0.25, 0.35, '#2a2230')
+      lblock(props, wx + 0.8, 2.45, dz, 0.7, 0.22, 0.35, '#2a2230')
+      lblock(props, wx + 0.8, 2.36, dz + 0.18, 0.2, 0.2, 0.02, '#ffffff')
+      lblock(props, wx + 0.8, 2.2, dz + 0.18, 1.1, 0.05, 0.02, '#ffd23f')
+      // A friendly dinosaur looks over the roof's edge.
+      const dx = 2.6
+      lblock(props, dx, H, -3.2, 1.3, 2.6, 1.3, '#5fcf6f')
+      lblock(props, dx, H + 2.4, -2.6, 1.7, 1.3, 2.6, '#5fcf6f', { top: '#7fe07f' })
+      lblock(props, dx, H + 2.4, -1.4, 1.5, 0.3, 0.3, '#ffffff')
+      for (const sx of [-0.5, 0.5]) {
+        lblock(props, dx + sx, H + 3.4, -2.0, 0.4, 0.4, 0.4, '#ffffff')
+        lblock(props, dx + sx, H + 3.5, -1.78, 0.2, 0.2, 0.05, '#2a2230')
+      }
+      // Spikes down its back.
+      for (const [lz, y] of [[-3.6, H + 3.7], [-3.95, H + 2.3], [-3.95, H + 1.2]] as [number, number][]) lblock(props, dx, y, lz, 0.3, 0.5, 0.4, '#ffd23f')
+      lsolid(dx - 0.65, H, -3.85, dx + 0.65, H + 2.4, -2.55)
+      lsolid(dx - 0.85, H + 2.4, -3.9, dx + 0.85, H + 3.7, -1.3)
     } else {
-      props.block(wx - 0.8, 1.0, dz, 0.2, 1.6, 0.2, '#8a5a3a')
-      props.block(wx - 0.8, 2.4, dz, 0.9, 0.5, 0.5, '#c8c0e0')
-      weaponSpot.set(wx + 0.6, 1.5, dz)
+      lblock(props, wx - 0.8, 1.0, dz, 0.2, 1.6, 0.2, '#8a5a3a')
+      lblock(props, wx - 0.8, 2.4, dz, 0.9, 0.5, 0.5, '#c8c0e0')
+      weaponSpot.set(X(wx + 0.6), 1.5, Z(dz))
     }
-    zones.push(zone(s.id, 'Handle', s.x, z1 + 1.6, 3.4, 3.2, -1, 4))
-    arrivals.set(s.id, { x: s.x, y: 0, z: z1 + 3.2, yaw: 0 })
+    zones.push(zone(s.id, 'Handle', s.x, Z(1.6), 3.4, 3.2, -1, 4))
+    arrivals.set(s.id, { x: s.x, y: 0, z: Z(3.2), yaw: f > 0 ? 0 : Math.PI })
   }
   // Crates up to the roof of Klesbutikken, a trampoline between the shops.
   crate(15.2, 0, -8, 1.6); crate(15.2, 0, -10, 1.6); crate(15.2, 1.6, -10, 1.6)
@@ -410,8 +466,10 @@ export function buildTown(particles: Particles): TownScene {
   crate(15.2, 0, -14, 1.6); crate(15.2, 1.6, -14, 1.6); crate(15.2, 3.2, -14, 1.6); crate(15.2, 4.8, -14, 1.6)
   trampoline(29, -8.5, 2.6, 26)
   trampoline(43, -8.5, 2.6, 26)
-  for (let x = 16; x <= 56; x += 10) { lamp(x, 5); lamp(x + 5, -4.6) }
-  // South side of the street: a little park with trees, a kiosk and jumping pillars.
+  for (let x = 16; x <= 56; x += 10) lamp(x + 5, -4.6)
+  // South side lamps stand between the shops, clear of their doors and windows.
+  for (const x of [16, 26, 41, 56]) lamp(x, 5)
+  // South side of the street: a kiosk, then Glitterbutikken and Kostymebutikken; jumping pillars behind them.
   {
     const kx = 24, kz = 9
     props.box(kx - 2, 0, kz - 1.5, kx + 2, 2.4, kz + 1.5, '#fff1b0')
@@ -424,10 +482,10 @@ export function buildTown(particles: Particles): TownScene {
     sign(['IS'], 0, 1.6, 0, 0.9, { bg: '#ff8ac8', fg: '#ffffff', border: '#ff5fa8', scale: 2, pad: 2 }, Math.PI, kx, kz - 1.52)
   }
   for (const [x, h] of [[38, 1], [41, 2], [44, 3], [47, 4], [50, 5], [53, 3]] as [number, number][]) {
-    props.box(x - 0.8, 0, 11 - 0.8, x + 0.8, h, 11 + 0.8, ['#ff8ac8', '#ffd84f', '#7fe0a0', '#8fd8ff', '#b89aff', '#ff9f3f'][h % 6]!, { top: '#ffffff' })
-    solid(x - 0.8, 0, 11 - 0.8, x + 0.8, h, 11 + 0.8)
+    props.box(x - 0.8, 0, PILLAR_Z - 0.8, x + 0.8, h, PILLAR_Z + 0.8, ['#ff8ac8', '#ffd84f', '#7fe0a0', '#8fd8ff', '#b89aff', '#ff9f3f'][h % 6]!, { top: '#ffffff' })
+    solid(x - 0.8, 0, PILLAR_Z - 0.8, x + 0.8, h, PILLAR_Z + 0.8)
   }
-  bench(31, 8, true)
+  bench(41, 10, false)
 
   // ------------------------------------------------ Nabogata: your house
 
@@ -687,7 +745,8 @@ export function buildTown(particles: Particles): TownScene {
     if (inRect(x, z, [-46, 30, -30, 50], 1)) return true // Ferris wheel
     if (inRect(x, z, [16, 54, 24, 82], 1)) return true // pier
     if (inRect(x, z, [20, 5, 28, 13], 1)) return true // kiosk
-    if (inRect(x, z, [36, 9, 55, 13], 1)) return true // pillars
+    if (inRect(x, z, [28, 4, 54, 16], 1)) return true // south-side shops
+    if (inRect(x, z, [36, PILLAR_Z - 2, 55, PILLAR_Z + 2], 1)) return true // pillars
     if (inRect(x, z, [-26, -16, -14, -2], 1.5)) return true // your garden
     for (const s of NEIGHBOR_SLOTS) if (Math.abs(x - s.x) < 5.5 && Math.abs(z - s.z) < 6.5) return true
     return false

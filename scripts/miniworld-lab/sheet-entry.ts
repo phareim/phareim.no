@@ -252,6 +252,44 @@ const sections: Record<string, () => void> = {
     s.cam.lookAt(0, 1.3, 0)
     s.renderer.render(s.scene, s.cam)
   },
+  costumes() {
+    page('Glitterbutikken and Kostymebutikken: each piece, worn, then whole costumes from the front, the back and the side')
+    for (const shop of ['glitter', 'kostyme'] as const) {
+      const list = CLOTHES.filter(c => c.shop === shop)
+      let r = row(shop)
+      for (const d of list) cell(r, P.clothing(d, 96), d.id, 1.5, 96)
+      r = row()
+      for (const d of list) cell(r, P.person(wear(d), { full: true, size: 96 }), d.id, 1.5, 96)
+    }
+    const costumes: PersonLook['outfit'][] = [
+      { top: 'dino-suit', bottom: 'jeans', shoes: 'dino-feet', hat: 'dino-hood', face: null, back: null },
+      { top: 'bee-suit', bottom: 'jeans', shoes: 'boots-pirate', hat: 'antennae', face: 'cat-nose', back: 'bee-wings' },
+      { top: 'pirate-shirt', bottom: 'pirate-pants', shoes: 'boots-pirate', hat: 'pirate-hat', face: 'eyepatch', back: null },
+      { top: 'tee-white', bottom: 'mermaid-tail', shoes: 'skates', hat: 'star-crown', face: 'pearl-necklace', back: 'turtle-shell' },
+      { top: 'witch-dress', bottom: 'jeans', shoes: 'ballet-shoes', hat: 'witch-hat', face: 'bowtie', back: 'dragon-wings' },
+      { top: 'hero-suit', bottom: 'pants-glitter', shoes: 'boots-glitter', hat: 'headphones', face: 'shades-pink', back: 'cape-glitter' },
+      { top: 'ice-gown', bottom: 'jeans', shoes: 'ballet-shoes', hat: 'bow-gold', face: null, back: 'butterfly-wings' },
+      { top: 'glitter-hoodie', bottom: 'tutu-rainbow', shoes: 'ballet-shoes', hat: 'star-crown', face: null, back: null },
+    ]
+    const hairs = ['long', 'afro', 'ponytail', 'curly', 'bun', 'spiky', 'braids', 'pigtails'] as const
+    for (const [label, camZ, camX, pose] of [['front', 12, 0, 'idle'], ['back', -12, 0, 'walk'], ['side', 0.01, 13, 'jump']] as const) {
+      row(label)
+      const s = scene3d(420, 130, 3)
+      costumes.forEach((outfit, i) => {
+        const a = buildAvatar({ ...base, hair: hairs[i]!, hairColor: i % 2 ? 'ginger' : 'blond', outfit })
+        if (camX) a.group.position.set(0, 0, (i - (costumes.length - 1) / 2) * 2.2)
+        else a.group.position.set((i - (costumes.length - 1) / 2) * 2.2, 0, 0)
+        a.animate(pose, 0)
+        for (let k = 0; k < 6; k++) a.animate(pose, 1 / 30, 1)
+        s.scene.add(a.group)
+      })
+      s.cam.position.set(camX, 3.0, camZ)
+      s.cam.fov = 70
+      s.cam.updateProjectionMatrix()
+      s.cam.lookAt(0, 1.4, 0)
+      s.renderer.render(s.scene, s.cam)
+    }
+  },
 }
 
 ;(window as unknown as { __sheet: (s: string) => void }).__sheet = (name: string) => {

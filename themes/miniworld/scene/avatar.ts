@@ -186,7 +186,7 @@ function buildRig(look: PersonLook): Rig {
     const g = new THREE.Group()
     g.position.set(side * 0.25, 1, 0)
     const lp = new PartSet()
-    const { toe } = legPieces(lp, look)
+    const { toe } = legPieces(lp, look, side)
     g.add(new THREE.Mesh(limbGeo('leg', toe), mat))
     lp.flush(g)
     body.add(g)
@@ -199,7 +199,9 @@ function buildRig(look: PersonLook): Rig {
   if (back) torso.add(back.group)
 
   const top = clothing(look.outfit.top)
-  const skirt = !!top && coversLegs(top.id) || ['skirt', 'tutu'].includes(clothing(look.outfit.bottom)?.shape ?? '')
+  // Short steps in a long dress, a skirt or a mermaid tail (a onesie walks freely).
+  const long = top?.shape === 'dress' || top?.shape === 'gown'
+  const skirt = long || (!coversLegs(look.outfit.top) && ['skirt', 'tutu', 'mermaid'].includes(clothing(look.outfit.bottom)?.shape ?? ''))
   return { body, torso, head, armL, armR, legL, legR, hand, faceMat, back, lift, skirt, headTop: 2 + headTop + lift }
 }
 
@@ -430,6 +432,13 @@ export const buildAvatar: BuildAvatar = (initial: PersonLook) => {
             const s = p.userData.side as number
             const rate = pose === 'jump' || pose === 'fall' ? 26 : 9
             p.rotation.y = s * (0.3 + Math.sin(t * rate) * 0.28)
+          } else if (b.kind === 'bat') {
+            const s = p.userData.side as number
+            const air = pose === 'jump' || pose === 'fall'
+            p.rotation.y = s * (0.4 + Math.sin(t * (air ? 11 : 3)) * (air ? 0.55 : 0.2))
+          } else if (b.kind === 'bee') {
+            const s = p.userData.side as number
+            p.rotation.y = s * (0.3 + Math.sin(t * 38) * 0.22)
           } else if (b.kind === 'tail') {
             p.rotation.y = Math.sin(t * (moving ? 9 : 3.5)) * 0.45
             p.rotation.x = -0.1 + Math.sin(t * 1.7) * 0.06
@@ -491,9 +500,18 @@ export function buildClothingModel(def: ClothingDef): THREE.Group {
       tp.vc.box(0, 1.1, 0, 0.05, 0.2, 0.05, '#8a80a8')
       tp.vc.box(0, 1.22, 0.0, 0.2, 0.05, 0.05, '#8a80a8')
       tp.vc.box(0.1, 1.18, 0, 0.05, 0.1, 0.05, '#8a80a8')
+      if (def.shape === 'onesie') {
+        // A onesie has legs too.
+        for (const side of [1, -1] as const) {
+          const leg = new THREE.Group()
+          leg.position.set(side * 0.25, 0, 0)
+          leg.add(new THREE.Mesh(limbGeo('leg', false), mat))
+          torso.add(leg)
+        }
+      }
       tp.flush(torso)
       root.add(torso)
-      const long = def.shape === 'gown' ? -0.95 : def.shape === 'dress' ? -0.55 : 0
+      const long = def.shape === 'gown' ? -0.95 : def.shape === 'onesie' ? -1.0 : def.shape === 'dress' ? -0.55 : 0
       frame.set(new THREE.Vector3(-1.1, long, -0.5), new THREE.Vector3(1.1, 1.3, 0.5))
       break
     }
@@ -513,6 +531,10 @@ export function buildClothingModel(def: ClothingDef): THREE.Group {
         const leg = new THREE.Group()
         leg.position.set(side * 0.25, 1, 0)
         leg.add(new THREE.Mesh(limbGeo('leg', false), mat))
+        // A mermaid tail's fins.
+        const lp = new PartSet()
+        legPieces(lp, look, side)
+        lp.flush(leg)
         root.add(leg)
       }
       const skirtish = def.shape === 'skirt' || def.shape === 'tutu'

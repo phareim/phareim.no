@@ -337,6 +337,8 @@ const USING: Record<string, string> = {
 const ZONE_PANELS: Partial<Record<ZoneId, Panel>> = {
   'clothes-shop': { id: 'shop', kind: 'clothes' },
   'furniture-shop': { id: 'shop', kind: 'furniture' },
+  'glitter-shop': { id: 'shop', kind: 'glitter' },
+  'costume-shop': { id: 'shop', kind: 'kostyme' },
   'workshop': { id: 'workshop' },
   'castle': { id: 'castle' },
   'mailbox': { id: 'mailbox' },

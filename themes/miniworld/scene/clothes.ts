@@ -7,15 +7,16 @@
  *   sleeves end above the elbow, shorts show the knees, boots climb the
  *   shin). `ghost` leaves skin transparent, for a shirt on its own.
  * - The 3D pieces: skirts and dress flares, hoods, collars, toe caps,
- *   skate wheels, the 13 hats, the 5 face items and the 5 back items,
- *   added to a `PartSet` that merges them by material.
+ *   skate wheels, a onesie's tail, mermaid fins, dino feet, the 19 hats,
+ *   the 9 face items and the 8 back items, added to a `PartSet` that
+ *   merges them by material.
  *
  * Every shape in `TopShape`…`BackShape` has a builder; `SHAPE_BUILDERS`
  * lists them so the node test can check the catalog against it.
  */
 import * as THREE from 'three'
 import type { ClothingDef, ClothingSlot, PersonLook, Pattern, HatShape, FaceShape, BackShape, TopShape, BottomShape, ShoeShape } from '../types'
-import { SKINS, clothing, coversLegs } from '../catalog'
+import { SKINS, clothing, coversLegs, coversFeet } from '../catalog'
 import { Kit, textureMaterial, lambertMaterial, basicMaterial, worldUV, darken, lighten } from './meshkit'
 import { cachedTexture, paintPattern, patternTile, patternDensity, type Colors } from './textures'
 
@@ -87,6 +88,8 @@ export function shoeTopRow(shape: string | undefined): number {
     case 'boots': return 12
     case 'skates': return 13
     case 'sandals': return 21
+    case 'ballet': return 20
+    case 'claws': return 17
     default: return 19
   }
 }
@@ -112,8 +115,10 @@ export function bodyAtlas(look: PersonLook, opts: AtlasOpts = {}): THREE.CanvasT
     const top = slots.includes('top') ? clothing(o.top) : undefined
     const legsCovered = !!top && coversLegs(top.id)
     const bottom = slots.includes('bottom') && !legsCovered ? clothing(o.bottom) : undefined
-    const shoes = slots.includes('shoes') ? clothing(o.shoes) : undefined
+    // A mermaid tail covers the feet: no shoes under it.
+    const shoes = slots.includes('shoes') && !coversFeet(o) ? clothing(o.shoes) : undefined
     if (bottom) paintBottom(g, bottom, !!top)
+    if (top?.shape === 'onesie') paintOnesieLegs(g, top)
     if (shoes) paintShoes(g, shoes, opts.ghost ? null : skin.color)
     if (top) paintTop(g, top, !!bottom, opts.ghost ? null : skin.color)
     // A soft one-pixel edge on every body face gives the blocks definition.
@@ -210,7 +215,38 @@ function paintTop(g: G, def: ClothingDef, bottomShown: boolean, skin: string | n
       rect(g, 'torsoFront', 0, 18, 24, 2, C.second ?? dark); rect(g, 'torsoBack', 0, 18, 24, 2, C.second ?? dark); rect(g, 'torsoSide', 0, 18, 12, 2, C.second ?? dark)
       break
     }
+    case 'onesie':
+      // A whole-body animal suit: long sleeves, a collar, a belly patch in the accent colour (legs: paintOnesieLegs).
+      sleeve(21, dark)
+      rect(g, 'torsoFront', 8, 0, 8, 2, dark)
+      if (C.accent) { rect(g, 'torsoFront', 7, 5, 10, 17, C.accent); rect(g, 'torsoFront', 6, 7, 12, 13, C.accent) }
+      break
+    case 'hero': {
+      // A superhero suit: tight long sleeves, gloves, a shield on the chest, a belt.
+      const glove = C.second ?? dark
+      sleeve(24)
+      rect(g, 'arm', 0, 17, 12, 7, glove)
+      rect(g, 'hand', 0, 0, 12, 12, glove)
+      rect(g, 'torsoFront', 9, 0, 6, 1, dark)
+      // The shield: rows of shrinking width, the accent inside, a bolt across.
+      const shield: [number, number][] = [[4, 12], [5, 12], [6, 12], [7, 12], [8, 10], [9, 8], [10, 6], [11, 4], [12, 2]]
+      for (const [y, w] of shield) rect(g, 'torsoFront', 12 - w / 2, y, w, 1, glove)
+      for (const [y, w] of shield.slice(1, -1)) rect(g, 'torsoFront', 12 - w / 2 + 1, y, w - 2, 1, C.accent ?? '#ffe14f')
+      for (const [x, y] of [[13, 5], [12, 6], [11, 7], [12, 7], [13, 7], [12, 8], [11, 9]] as [number, number][]) rect(g, 'torsoFront', x, y, 1, 1, glove)
+      const belt = C.accent ?? '#ffe14f'
+      rect(g, 'torsoFront', 0, 17, 24, 2, belt); rect(g, 'torsoBack', 0, 17, 24, 2, belt); rect(g, 'torsoSide', 0, 17, 12, 2, belt)
+      rect(g, 'torsoFront', 10, 16, 4, 4, glove)
+      break
+    }
   }
+}
+
+/** A onesie's legs, painted before the shoes so they stand on top. */
+function paintOnesieLegs(g: G, def: ClothingDef) {
+  const C = def.colors, P = def.pattern
+  rows(g, 'leg', 0, 24, P, C); rows(g, 'legFront', 0, 24, P, C); rows(g, 'legTop', 0, 12, P, C)
+  const cuff = darken(C.main, 0.22)
+  rect(g, 'leg', 0, 17, 12, 2, cuff); rect(g, 'legFront', 0, 17, 12, 2, cuff)
 }
 
 function paintBottom(g: G, def: ClothingDef, topShown: boolean) {
@@ -243,6 +279,14 @@ function paintBottom(g: G, def: ClothingDef, topShown: boolean) {
       // A little of the skirt's colour at the very top of the leg, under the flare.
       rows(g, 'leg', 0, 2, P, C); rows(g, 'legFront', 0, 2, P, C)
       break
+    case 'mermaid': {
+      // Scales down to the feet, the fin colour at the bottom (the fins are 3D: legPieces).
+      rows(g, 'leg', 0, 24, P, C); rows(g, 'legFront', 0, 24, P, C); rows(g, 'legTop', 0, 12, P, C)
+      const fin = C.accent ?? C.second ?? dark
+      for (const id of ['leg', 'legFront'] as RegionId[]) { rect(g, id, 0, 19, 12, 5, fin); rect(g, id, 0, 18, 12, 1, darken(fin, 0.2)) }
+      for (const id of ['sole', 'shoe', 'shoeTop'] as RegionId[]) rect(g, id, 0, 0, 12, 12, fin)
+      break
+    }
   }
 }
 
@@ -284,6 +328,22 @@ function paintShoes(g: G, def: ClothingDef, skin: string | null) {
     case 'party':
       for (const id of ['leg', 'legFront'] as RegionId[]) { rect(g, id, 0, r0, 12, 1, second); rect(g, id, 0, 23, 12, 1, darken(C.main, 0.35)) }
       rect(g, 'shoe', 0, 10, 12, 2, darken(C.main, 0.35))
+      break
+    case 'ballet':
+      // Satin slippers with ribbons crossing up the shin.
+      for (const id of ['leg', 'legFront'] as RegionId[]) {
+        rect(g, id, 0, 23, 12, 1, darken(C.main, 0.2))
+        for (let k = 0; k < 8; k++) { rect(g, id, 2 + k, 12 + k, 1, 1, second); rect(g, id, 9 - k, 12 + k, 1, 1, second) }
+      }
+      rect(g, 'shoe', 0, 11, 12, 1, darken(C.main, 0.2))
+      break
+    case 'claws':
+      // Scaly monster feet (the big foot and claws are 3D: legPieces).
+      for (const id of ['leg', 'legFront'] as RegionId[]) {
+        rect(g, id, 0, r0, 12, 1, darken(C.main, 0.2))
+        for (const [x, y] of [[2, 19], [7, 20], [4, 22], [9, 22]]) rect(g, id, x!, y!, 2, 1, darken(C.main, 0.15))
+      }
+      fill(g, REG.sole[0], REG.sole[1], 12, 12, darken(C.main, 0.3))
       break
   }
 }
@@ -410,6 +470,16 @@ export function torsoPieces(ps: PartSet, look: PersonLook) {
       ps.vc.box(-0.3, 1.0, 0.16, 0.2, 0.08, 0.22, darken(C.main, 0.1))
       ps.vc.box(0.3, 1.0, 0.16, 0.2, 0.08, 0.22, darken(C.main, 0.1))
     }
+    if (shape === 'onesie') {
+      // A stubby tail from the lower back (a stinger on a striped suit), spikes up the back on a plain one.
+      const k = ps.pat(top.pattern, C)
+      k.box(0, 0.14, -0.36, 0.3, 0.24, 0.24, C.main)
+      k.box(0, 0.04, -0.54, 0.2, 0.18, 0.2, C.main)
+      ps.vc.box(0, -0.02, -0.68, 0.11, 0.11, 0.14, C.second ?? darken(C.main))
+      if ((!top.pattern || top.pattern === 'plain') && C.second) {
+        for (const y of [0.88, 0.64, 0.4]) ps.vc.cone(0, y, -0.32, 0.1, 0.18, C.second, 4, 0, { x: -Math.PI / 2 })
+      }
+    }
     if (shape === 'suit') {
       ps.vc.box(0, 1.03, 0, 0.9, 0.1, 0.6, C.second ?? '#2ff3ff')
       ps.vc.box(0, 0.55, -0.32, 0.56, 0.6, 0.16, darken(C.main, 0.08))
@@ -446,8 +516,19 @@ export function armPieces(ps: PartSet, look: PersonLook, side: 1 | -1) {
   }
 }
 
-/** Toe caps, sandal soles and skate wheels (leg-local: y 0 at the hip, foot at −1). */
-export function legPieces(ps: PartSet, look: PersonLook): { toe: boolean } {
+/**
+ * Toe caps, sandal soles, skate wheels, dino feet and a mermaid's fins
+ * (leg-local: y 0 at the hip, foot at −1; `side` +1 is the leg on +x).
+ */
+export function legPieces(ps: PartSet, look: PersonLook, side: 1 | -1 = 1): { toe: boolean } {
+  if (coversFeet(look.outfit)) {
+    // Each leg carries half of the tail fin, flaring out and up.
+    const b = clothing(look.outfit.bottom)!
+    const fin = b.colors.accent ?? b.colors.second ?? darken(b.colors.main)
+    ps.vc.box(side * 0.14, -0.93, -0.04, 0.62, 0.07, 0.46, fin, { z: side * 0.38 })
+    ps.vc.box(side * 0.38, -0.82, -0.04, 0.2, 0.07, 0.4, lighten(fin, 0.25), { z: side * 0.38 })
+    return { toe: false }
+  }
   const s = clothing(look.outfit.shoes)
   if (!s) return { toe: false }
   const C = s.colors
@@ -464,14 +545,26 @@ export function legPieces(ps: PartSet, look: PersonLook): { toe: boolean } {
       ps.vc.box(0, -0.8, 0.39, 0.22, 0.08, 0.06, C.second ?? '#ff8ae0')
       ps.vc.box(0, -0.8, 0.4, 0.06, 0.06, 0.06, lighten(C.second ?? '#ff8ae0', 0.4))
       return { toe: true }
+    case 'ballet':
+      // A little bow on the toe.
+      ps.vc.box(0, -0.8, 0.42, 0.16, 0.07, 0.04, C.second ?? '#ff8ae0')
+      ps.vc.box(0, -0.8, 0.43, 0.05, 0.05, 0.04, lighten(C.second ?? '#ff8ae0', 0.3))
+      return { toe: true }
+    case 'claws': {
+      // A big blocky foot with three claws.
+      ps.vc.box(0, -0.9, 0.1, 0.6, 0.22, 0.78, C.main)
+      ps.vc.box(0, -0.78, 0.02, 0.56, 0.06, 0.5, darken(C.main, 0.12))
+      for (const x of [-0.18, 0, 0.18]) ps.vc.cone(x, -0.94, 0.56, 0.06, 0.16, C.second ?? '#fff4ff', 4, 0, { x: Math.PI / 2 })
+      return { toe: false }
+    }
     default:
       return { toe: true }
   }
 }
 
-/** Extra lift for the whole body (skates stand on wheels). */
+/** Extra lift for the whole body (skates stand on wheels; not under a mermaid tail). */
 export function bodyLift(look: PersonLook): number {
-  return clothing(look.outfit.shoes)?.shape === 'skates' ? 0.17 : 0
+  return clothing(look.outfit.shoes)?.shape === 'skates' && !coversFeet(look.outfit) ? 0.17 : 0
 }
 
 // ---------------------------------------------------------------- hats
@@ -480,8 +573,8 @@ export function bodyLift(look: PersonLook): number {
 export function hatHides(shape: HatShape | undefined): 'all' | 'top' | 'volume' | 'none' {
   switch (shape) {
     case 'helmet': return 'all'
-    case 'beanie': return 'top'
-    case 'cap': case 'sunhat': case 'wizard': return 'volume'
+    case 'beanie': case 'dino': return 'top'
+    case 'cap': case 'sunhat': case 'wizard': case 'pirate': case 'witch': case 'headphones': return 'volume'
     default: return 'none'
   }
 }
@@ -619,6 +712,79 @@ export const HAT_BUILDERS: Record<HatShape, HatBuilder> = {
     }
     ps.vc.box(-0.12, y + 0.08, 0.3, 0.06, 0.06, 0.04, C.second ?? '#ff8ae0')
   },
+  pirate(ps, d, top) {
+    // A captain's bicorne: a stepped half-moon across the head, gold trim, a skull.
+    const C = d.colors
+    const y = Math.max(top, 0.62) - 0.04
+    ps.vc.box(0, y + 0.05, -0.01, 0.7, 0.12, 0.68, C.main)
+    for (const [w, h, yy] of [[1.16, 0.14, 0.1], [0.96, 0.14, 0.24], [0.66, 0.12, 0.37]] as const) ps.vc.box(0, y + yy, 0, w, h, 0.34, C.main)
+    ps.vc.box(0, y + 0.04, 0.175, 1.16, 0.04, 0.02, C.second ?? '#ffd23f')
+    ps.vc.box(0, y + 0.04, -0.175, 1.16, 0.04, 0.02, C.second ?? '#ffd23f')
+    ps.vc.voxels(SKULL_PX, { '#': C.accent ?? '#ffffff' }, 0, y + 0.24, 0.18, 0.035, 0.02)
+  },
+  witch(ps, d, top) {
+    // A wide brim, a buckled band and a tall hat whose tip bends over.
+    const C = d.colors
+    const y = Math.max(0.62, top - 0.02)
+    ps.vc.cyl(0, y, 0, 0.74, 0.05, C.main, 12)
+    ps.vc.cyl(0, y + 0.08, 0, 0.35, 0.12, C.second ?? '#9fef5a', 8)
+    ps.vc.cone(0, y + 0.34, 0, 0.34, 0.56, C.main, 8, 0.45)
+    ps.vc.cone(-0.05, y + 0.7, -0.02, 0.17, 0.3, C.main, 8, 0.4, { z: 0.35 })
+    ps.vc.cone(-0.2, y + 0.86, -0.02, 0.08, 0.26, C.main, 6, 0, { z: 1.2 })
+    ps.vc.box(0, y + 0.08, 0.35, 0.16, 0.14, 0.03, C.accent ?? '#ffd23f')
+    ps.vc.box(0, y + 0.08, 0.36, 0.07, 0.06, 0.03, C.second ?? '#9fef5a')
+  },
+  dino(ps, d) {
+    // A dinosaur hood round the head, open at the face: jaw with teeth over the forehead, eyes on top, spikes down the back.
+    const C = d.colors
+    const k = ps.pat(d.pattern, C)
+    k.box(0, 0.71, -0.02, 0.8, 0.16, 0.78, C.main)
+    for (const s of [-1, 1]) k.box(s * 0.375, 0.36, -0.02, 0.06, 0.64, 0.78, C.main)
+    k.box(0, 0.36, -0.385, 0.8, 0.64, 0.06, C.main)
+    ps.vc.box(0, 0.64, 0.4, 0.8, 0.14, 0.2, C.main)
+    ps.vc.box(0, 0.58, 0.4, 0.74, 0.03, 0.18, '#ff8a9a')
+    for (const x of [-0.28, -0.14, 0, 0.14, 0.28]) ps.vc.cone(x, 0.52, 0.46, 0.045, 0.1, C.accent ?? '#ffffff', 4, 0, { x: Math.PI })
+    for (const s of [-1, 1]) {
+      ps.vc.box(s * 0.19, 0.83, 0.26, 0.15, 0.12, 0.14, '#ffffff')
+      ps.vc.box(s * 0.19, 0.84, 0.335, 0.06, 0.07, 0.02, '#2a2230')
+    }
+    const spike = C.second ?? darken(C.main)
+    for (const z of [0.08, -0.14, -0.34]) ps.vc.cone(0, 0.86, z, 0.08, 0.18, spike, 4)
+    for (const y of [0.56, 0.34, 0.12]) ps.vc.cone(0, y, -0.46, 0.08, 0.18, spike, 4, 0, { x: -Math.PI / 2 })
+  },
+  antennae(ps, d, top) {
+    // A headband with two feelers and a ball on each.
+    const C = d.colors
+    const y = Math.max(0.62, top - 0.02)
+    ps.vc.box(0, y + 0.02, 0.02, 0.7, 0.05, 0.08, C.main)
+    for (const s of [-1, 1]) {
+      ps.vc.box(s * 0.14, y + 0.22, 0.04, 0.04, 0.4, 0.04, C.main, { z: -s * 0.35 })
+      ps.vc.ball(s * 0.21, y + 0.44, 0.04, 0.08, C.second ?? '#ffd23f')
+    }
+  },
+  headphones(ps, d, top) {
+    // A band over the hair and two big cups with a light on each.
+    const C = d.colors
+    const y = top + 0.04
+    ps.vc.box(0, y, 0, 0.78, 0.06, 0.12, C.main)
+    for (const s of [-1, 1]) {
+      ps.vc.box(s * 0.39, (y + 0.36) / 2, 0, 0.06, y - 0.36, 0.12, C.main)
+      ps.vc.box(s * 0.4, 0.3, 0, 0.14, 0.26, 0.26, C.second ?? '#2a2230')
+      ps.vc.box(s * 0.44, 0.3, 0, 0.06, 0.2, 0.2, C.main)
+      ps.glowing.box(s * 0.475, 0.3, 0, 0.01, 0.08, 0.08, C.accent ?? '#2ff3ff')
+    }
+  },
+  starcrown(ps, d, top) {
+    // A thin gold band with five stars standing round it.
+    const C = d.colors
+    const y = Math.max(0.62, top - 0.04)
+    ps.vc.cyl(0, y + 0.03, 0, 0.37, 0.06, C.second ?? C.main, 10)
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2
+      ps.vc.voxels(STAR_PX, { '#': C.main }, Math.sin(a) * 0.34, y + 0.18, Math.cos(a) * 0.34, 0.05, 0.04, a)
+    }
+    ps.glowing.box(0, y + 0.18, 0.365, 0.05, 0.05, 0.01, C.accent ?? '#ff8ae0')
+  },
 }
 
 // ---------------------------------------------------------------- face items
@@ -627,6 +793,8 @@ const EYE_X = 0.13, EYE_Y = 0.31, FACE_Z = HEAD.d / 2
 
 const HEART_PX = ['##.##', '#####', '#####', '.###.', '..#..']
 const STAR_PX = ['..#..', '.###.', '#####', '.###.', '.#.#.']
+const SKULL_PX = ['.###.', '#.#.#', '#####', '.#.#.']
+const BOWTIE_PX = ['#.....#', '##...##', '###o###', '##...##', '#.....#']
 const MASK_PX = [
   '###############',
   '###..#####..###',
@@ -680,6 +848,37 @@ export const FACE_BUILDERS: Record<FaceShape, FaceBuilder> = {
     ps.vc.box(-0.08, EYE_Y - 0.12, -0.36, 0.06, 0.22, 0.04, c, { z: 0.3 })
     ps.vc.box(0.08, EYE_Y - 0.12, -0.36, 0.06, 0.22, 0.04, c, { z: -0.3 })
   },
+  eyepatch(ps, d) {
+    // A pirate's patch over the right eye (the person's right is −x) and a strap round the head.
+    const c = d.colors.main, z = FACE_Z + 0.02
+    ps.vc.box(-EYE_X, EYE_Y, z, 0.19, 0.17, 0.03, c)
+    ps.vc.box(0.08, EYE_Y + 0.09, z - 0.005, 0.5, 0.03, 0.02, c, { z: 0.22 })
+    for (const s of [-1, 1]) ps.vc.box(s * 0.335, EYE_Y + 0.12, 0, 0.03, 0.03, 0.64, c)
+    ps.vc.box(0, EYE_Y + 0.12, -0.325, 0.66, 0.03, 0.03, c)
+  },
+  bowtie(ps, d) {
+    // Under the chin, on the collar.
+    ps.vc.voxels(BOWTIE_PX, { '#': d.colors.main, o: d.colors.second ?? darken(d.colors.main) }, 0, -0.09, 0.28, 0.04, 0.05)
+  },
+  necklace(ps, d) {
+    // Pearls round the neck, hanging on the chest, a heart pendant.
+    const c = d.colors.main
+    for (let i = 0; i <= 8; i++) {
+      const x = -0.28 + i * 0.07
+      ps.vc.ball(x, -0.03 - 0.16 * (1 - (x / 0.3) ** 2), 0.275, 0.035, c)
+    }
+    for (const s of [-1, 1]) for (const z of [0.14, 0, -0.14]) ps.vc.ball(s * 0.3, 0.02, z, 0.035, c)
+    ps.vc.voxels(HEART_PX, { '#': d.colors.second ?? '#ff8ae0' }, 0, -0.26, 0.285, 0.026, 0.03)
+  },
+  nose(ps, d) {
+    // An animal nose and whiskers.
+    const z = FACE_Z + 0.02
+    ps.vc.box(0, 0.22, z + 0.01, 0.12, 0.07, 0.05, d.colors.main)
+    ps.vc.box(0, 0.19, z + 0.01, 0.06, 0.03, 0.05, d.colors.main)
+    for (const s of [-1, 1]) for (const k of [-1, 0, 1]) {
+      ps.vc.box(s * 0.2, 0.2 + k * 0.035, z, 0.2, 0.014, 0.01, d.colors.second ?? '#2a2230', { z: s * k * 0.18 })
+    }
+  },
 }
 
 // ---------------------------------------------------------------- back items
@@ -708,6 +907,20 @@ const WING_LOW = [
   '.#oooo#',
   '..####.',
 ]
+/** A dragon's wing, spine on the left: a bone along the top, the membrane scalloped below. */
+const BAT_PX = [
+  '.........###',
+  '......####oo',
+  '...####ooooo',
+  '####oooooooo',
+  '#ooooooooooo',
+  '#oooooo.oooo',
+  '.ooo....ooo.',
+  '..o......o..',
+]
+const BEE_UP = ['.####.', '#oooo#', '#oooo#', '#oooo#', '.####.']
+const BEE_LOW = ['.###.', '#ooo#', '.###.']
+const mirror = (rows: string[]) => rows.map(r => r.split('').reverse().join(''))
 
 /**
  * Back items in torso-local space (the back face at z −0.25). Each gets its
@@ -814,17 +1027,82 @@ export function buildBack(def: ClothingDef): BackRig {
       }
       break
     }
+    case 'bat': {
+      // Two dragon wings that flap slowly (avatar.ts), bones in the second colour.
+      const bone = C.second ?? darken(C.main, 0.3)
+      for (const s of [-1, 1]) {
+        const pivot = new THREE.Group()
+        pivot.position.set(s * 0.12, 0.74, -0.3)
+        const ps = new PartSet()
+        const map = s > 0 ? BAT_PX : mirror(BAT_PX)
+        ps.vc.voxels(map.map(r => r.replace(/#/g, '.')), { o: C.main }, s * 0.46, 0.08, 0, 0.075, 0.03)
+        ps.vc.voxels(map.map(r => r.replace(/o/g, '.')), { '#': bone }, s * 0.46, 0.08, 0.005, 0.075, 0.045)
+        ps.vc.box(s * 0.9, 0.42, 0, 0.06, 0.1, 0.05, C.accent ?? '#ffe14f')
+        add(ps, pivot)
+        pivot.rotation.y = s * 0.35
+        pivot.userData.side = s
+        group.add(pivot)
+        rig.pivots.push(pivot)
+      }
+      break
+    }
+    case 'bee': {
+      // Two pairs of small see-through wings that buzz (avatar.ts).
+      const edge = C.second ?? '#2a2230'
+      for (const s of [-1, 1]) {
+        const pivot = new THREE.Group()
+        pivot.position.set(s * 0.1, 0.7, -0.3)
+        const ps = new PartSet()
+        const k = ps.see(C.main, 0.6)
+        const up = s > 0 ? BEE_UP : mirror(BEE_UP)
+        const lo = s > 0 ? BEE_LOW : mirror(BEE_LOW)
+        k.voxels(up.map(r => r.replace(/#/g, '.')), { o: C.main }, s * 0.24, 0.16, 0, 0.07, 0.02)
+        ps.vc.voxels(up.map(r => r.replace(/o/g, '.')), { '#': edge }, s * 0.24, 0.16, 0, 0.07, 0.03)
+        k.voxels(lo.map(r => r.replace(/#/g, '.')), { o: C.main }, s * 0.2, -0.14, 0, 0.07, 0.02)
+        ps.vc.voxels(lo.map(r => r.replace(/o/g, '.')), { '#': edge }, s * 0.2, -0.14, 0, 0.07, 0.03)
+        add(ps, pivot)
+        pivot.rotation.y = s * 0.3
+        pivot.userData.side = s
+        group.add(pivot)
+        rig.pivots.push(pivot)
+      }
+      break
+    }
+    case 'shell': {
+      // A turtle's shell: a stepped dome, plates in the second colour, a rim and straps in the accent.
+      const ps = new PartSet()
+      const rim = C.accent ?? darken(C.main, 0.3)
+      ps.vc.box(0, 0.5, -0.36, 1.0, 0.96, 0.14, rim)
+      ps.vc.box(0, 0.5, -0.47, 0.9, 0.86, 0.1, C.main)
+      ps.vc.box(0, 0.5, -0.56, 0.7, 0.68, 0.1, C.main)
+      ps.vc.box(0, 0.5, -0.64, 0.44, 0.44, 0.08, C.main)
+      const plate = C.second ?? lighten(C.main, 0.3)
+      ps.vc.box(0, 0.5, -0.685, 0.28, 0.28, 0.02, plate)
+      for (const [x, y] of [[-0.25, 0.75], [0.25, 0.75], [-0.25, 0.25], [0.25, 0.25]]) ps.vc.box(x!, y!, -0.615, 0.18, 0.18, 0.02, plate)
+      for (const [x, y] of [[-0.4, 0.5], [0.4, 0.5], [0, 0.9], [0, 0.1]]) ps.vc.box(x!, y!, -0.525, x ? 0.04 : 0.2, x ? 0.2 : 0.04, 0.02, plate)
+      for (const s of [-1, 1]) {
+        ps.vc.box(s * 0.26, 0.97, -0.02, 0.12, 0.05, 0.54, rim)
+        ps.vc.box(s * 0.26, 0.72, 0.265, 0.12, 0.5, 0.04, rim)
+      }
+      add(ps, group)
+      break
+    }
   }
   return rig
 }
 
 /** Every shape a clothing def may name, per slot, has a builder (for the node test). */
+// Records, so a shape added to a type without a case here fails the typecheck.
+const TOPS: Record<TopShape, true> = { tee: true, tank: true, hoodie: true, sweater: true, jacket: true, dress: true, gown: true, suit: true, onesie: true, hero: true }
+const BOTTOMS: Record<BottomShape, true> = { pants: true, shorts: true, skirt: true, tutu: true, mermaid: true }
+const SHOES: Record<ShoeShape, true> = { sneakers: true, boots: true, sandals: true, skates: true, party: true, ballet: true, claws: true }
+const BACKS: Record<BackShape, true> = { backpack: true, cape: true, fairy: true, tail: true, jetpack: true, bat: true, bee: true, shell: true }
 export const SHAPE_BUILDERS: Record<ClothingSlot, readonly string[]> = {
-  top: ['tee', 'tank', 'hoodie', 'sweater', 'jacket', 'dress', 'gown', 'suit'] satisfies TopShape[],
-  bottom: ['pants', 'shorts', 'skirt', 'tutu'] satisfies BottomShape[],
-  shoes: ['sneakers', 'boots', 'sandals', 'skates', 'party'] satisfies ShoeShape[],
+  top: Object.keys(TOPS),
+  bottom: Object.keys(BOTTOMS),
+  shoes: Object.keys(SHOES),
   hat: Object.keys(HAT_BUILDERS),
   face: Object.keys(FACE_BUILDERS),
-  back: ['backpack', 'cape', 'fairy', 'tail', 'jetpack'] satisfies BackShape[],
+  back: Object.keys(BACKS),
 }
 

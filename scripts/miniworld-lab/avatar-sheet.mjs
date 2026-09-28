@@ -5,7 +5,7 @@
 //
 //   flock /tmp/claude-1000/chrome.lock node scripts/miniworld-lab/avatar-sheet.mjs [outDir] [sections]
 //
-// Sections: people, clothes, backs, furniture, weapons, house, lineup
+// Sections: people, clothes, backs, furniture, weapons, house, lineup, costumes
 // (default: all). Writes <outDir>/<section>.png (default ~/zshots/miniworld).
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -19,7 +19,7 @@ const esbuild = require('esbuild')
 const here = dirname(fileURLToPath(import.meta.url))
 const [outArg, secArg] = process.argv.slice(2)
 const out = resolve(outArg || join(homedir(), 'zshots', 'miniworld'))
-const sections = (secArg || 'people,clothes,backs,furniture,weapons,house,lineup').split(',')
+const sections = (secArg || 'people,clothes,backs,furniture,weapons,house,lineup,costumes').split(',')
 mkdirSync(out, { recursive: true })
 
 const built = esbuild.buildSync({

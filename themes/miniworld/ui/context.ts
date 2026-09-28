@@ -7,7 +7,10 @@ import type { MiniWorldApi } from '~/composables/useMiniWorld'
 import { socialText, type MiniWorldSocialApi, type SocialResult } from '~/composables/useMiniWorldSocial'
 import type { MiniAudio, MiniWorldRuntime, Place, Previews, MiniSfx, AvatarPose, TownSpot, LinkStatus } from '../scene/contracts'
 import type { PeerInfo } from '../net/protocol'
-import type { ContestId, ObbyLevel, PersonLook, ClothingDef, Weapon } from '../types'
+import type { ContestId, ObbyLevel, PersonLook, ClothingDef, Weapon, ClothesShopId } from '../types'
+
+/** The shops: Klesbutikken (`clothes`), Møbelbutikken (`furniture`), Glitterbutikken and Kostymebutikken. */
+export type ShopKind = 'clothes' | 'furniture' | ClothesShopId
 
 /** Every panel the shell can show. The top of the stack is the one you see. */
 export type Panel =
@@ -15,7 +18,7 @@ export type Panel =
   | { id: 'creator'; personId: string | null }
   | { id: 'persons' }
   | { id: 'wardrobe' }
-  | { id: 'shop'; kind: 'clothes' | 'furniture' }
+  | { id: 'shop'; kind: ShopKind }
   | { id: 'bag' }
   | { id: 'workshop' }
   | { id: 'castle' }

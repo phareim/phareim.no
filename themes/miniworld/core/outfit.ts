@@ -4,7 +4,7 @@
  * localStorage on load; Mini World writes them whenever the look changes.
  */
 import { HERO_COLORS_KEY, type HeroColors, type PersonLook } from '../types'
-import { SKINS, HAIR_COLORS, clothing, coversLegs } from '../catalog'
+import { SKINS, HAIR_COLORS, clothing, coversLegs, coversFeet } from '../catalog'
 
 /** A hex colour darkened by `f` (0..1), for the two-tone shades. */
 export function shade(hex: string, f = 0.28): string {
@@ -31,7 +31,10 @@ export function heroColorsFor(look: PersonLook): HeroColors {
   // A dress or gown is the trousers too: its lower half in its own darker tone.
   const bottomDef = coversLegs(look.outfit.top) ? null : clothing(look.outfit.bottom)
   const bottom = bottomDef ? bottomDef.colors.main : shade(topMain, 0.15)
-  const shoes = clothing(look.outfit.shoes)?.colors.main ?? '#f4f0ff'
+  // A mermaid tail has fins where the shoes would be.
+  const shoes = coversFeet(look.outfit)
+    ? (bottomDef?.colors.accent ?? bottomDef?.colors.second ?? bottom)
+    : clothing(look.outfit.shoes)?.colors.main ?? '#f4f0ff'
   const hat = clothing(look.outfit.hat)
 
   return {

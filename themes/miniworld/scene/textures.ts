@@ -60,6 +60,7 @@ const STAR = ['..#..', '.###.', '#####', '.###.', '.#.#.']
 const HEART = ['##.##', '#####', '#####', '.###.', '..#..']
 const FLOWER = ['.#.', '#o#', '.#.']
 const FLAKE = ['#.#.#', '.###.', '##o##', '.###.', '#.#.#']
+const SCALE = ['#..#', '.##.']
 
 function stamp(g: CanvasRenderingContext2D, rows: string[], x: number, y: number, c: string, o: string, clip: [number, number, number, number]) {
   for (let r = 0; r < rows.length; r++) {
@@ -153,6 +154,13 @@ export function paintPattern(g: CanvasRenderingContext2D, x: number, y: number, 
       for (let j = 5; j < h; j += 8) for (let i = 0; i < w; i += 8) {
         const ox = (j / 8) % 2 ? 0 : 4
         stamp(g, FLAKE, x + i + ox - 1, y + j, second, second, clip)
+      }
+      return
+    case 'scales':
+      // Fish scales: little cups in rows, every other row shifted half a scale.
+      for (let j = 0; j < h; j += 3) for (let i = -2; i < w; i += 4) {
+        const ox = (j / 3) % 2 ? 2 : 0
+        stamp(g, SCALE, x + i + ox, y + j, second, accent, clip)
       }
       return
   }

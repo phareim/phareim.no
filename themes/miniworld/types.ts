@@ -57,20 +57,25 @@ export const MAX_NAME = 12
 export type ClothingSlot = 'top' | 'bottom' | 'shoes' | 'hat' | 'face' | 'back'
 
 /** How the avatar builder draws a piece; each slot has its own shapes. */
-export type TopShape = 'tee' | 'tank' | 'hoodie' | 'sweater' | 'jacket' | 'dress' | 'gown' | 'suit'
-export type BottomShape = 'pants' | 'shorts' | 'skirt' | 'tutu'
-export type ShoeShape = 'sneakers' | 'boots' | 'sandals' | 'skates' | 'party'
+export type TopShape = 'tee' | 'tank' | 'hoodie' | 'sweater' | 'jacket' | 'dress' | 'gown' | 'suit' | 'onesie' | 'hero'
+/** `mermaid` is a fish tail: it covers the feet too, so no shoes show. */
+export type BottomShape = 'pants' | 'shorts' | 'skirt' | 'tutu' | 'mermaid'
+export type ShoeShape = 'sneakers' | 'boots' | 'sandals' | 'skates' | 'party' | 'ballet' | 'claws'
 export type HatShape =
   | 'cap' | 'beanie' | 'bow' | 'flowers' | 'tiara' | 'crown' | 'bunny' | 'cat'
   | 'wizard' | 'helmet' | 'party' | 'sunhat' | 'unicorn'
-export type FaceShape = 'round' | 'shades' | 'hearts' | 'stars' | 'mask'
-export type BackShape = 'backpack' | 'cape' | 'fairy' | 'tail' | 'jetpack'
-export type Pattern = 'plain' | 'stripes' | 'dots' | 'stars' | 'hearts' | 'checks' | 'rainbow' | 'sparkle' | 'flowers' | 'snow'
+  | 'pirate' | 'witch' | 'dino' | 'antennae' | 'headphones' | 'starcrown'
+export type FaceShape = 'round' | 'shades' | 'hearts' | 'stars' | 'mask' | 'eyepatch' | 'bowtie' | 'necklace' | 'nose'
+export type BackShape = 'backpack' | 'cape' | 'fairy' | 'tail' | 'jetpack' | 'bat' | 'bee' | 'shell'
+export type Pattern = 'plain' | 'stripes' | 'dots' | 'stars' | 'hearts' | 'checks' | 'rainbow' | 'sparkle' | 'flowers' | 'snow' | 'scales'
 
 /** Fashion-show themes; clothes carry the ones they suit. */
 export type FashionTag = 'sport' | 'fest' | 'strand' | 'vinter' | 'prinsesse' | 'verdensrom' | 'eventyr' | 'dyr' | 'regnbue'
 
 export type Rarity = 'basic' | 'shop' | 'prize' | 'royal'
+
+/** The two clothes shops beside Klesbutikken; a ClothingDef without `shop` is sold in Klesbutikken. */
+export type ClothesShopId = 'glitter' | 'kostyme'
 
 export interface ClothingDef {
   id: string
@@ -85,6 +90,8 @@ export interface ClothingDef {
   colors: { main: string; second?: string; accent?: string }
   pattern?: Pattern
   tags: FashionTag[]
+  /** Which shop sells it (absent: Klesbutikken). Only for rarity `shop`. */
+  shop?: ClothesShopId
 }
 
 export type FurnitureKind = 'floor' | 'rug' | 'small' | 'wall'

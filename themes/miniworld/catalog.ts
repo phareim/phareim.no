@@ -6,7 +6,7 @@
  */
 import type {
   ClothingDef, FurnitureDef, SurfaceDef, WeaponBaseDef, WeaponMagicDef,
-  SkinId, HairStyleId, HairColorId, EyesId, MouthId, ClothingSlot, FashionTag, Outfit,
+  SkinId, HairStyleId, HairColorId, EyesId, MouthId, ClothingSlot, FashionTag, Outfit, ClothesShopId,
 } from './types'
 
 // ---------------------------------------------------------------- body
@@ -146,6 +146,45 @@ export const CLOTHES: ClothingDef[] = [
   c({ id: 'fairy-wings', slot: 'back', name: 'Feevinger', price: 80, rarity: 'shop', shape: 'fairy', colors: { main: '#c4fbff', second: '#ff8ae0' }, pattern: 'sparkle', tags: ['eventyr', 'prinsesse', 'regnbue'] }),
   c({ id: 'jetpack', slot: 'back', name: 'Jetpakke', price: 100, rarity: 'shop', shape: 'jetpack', colors: { main: '#c8c0e0', second: '#ff3b5c', accent: '#ffd23f' }, tags: ['verdensrom'] }),
   c({ id: 'royal-cape', slot: 'back', name: 'Kongelig kappe', price: 0, rarity: 'royal', shape: 'cape', colors: { main: '#9a4ff0', second: '#fff4ff', accent: '#ffd23f' }, pattern: 'dots', tags: ['prinsesse', 'eventyr', 'fest'] }),
+
+  // --- Glitterbutikken: party, princess, sparkle, jewellery, wings
+  c({ id: 'sequin-dress', slot: 'top', name: 'Paljettkjole', price: 70, rarity: 'shop', shop: 'glitter', shape: 'dress', colors: { main: '#ffd23f', second: '#fff4ff', accent: '#ff5fb8' }, pattern: 'sparkle', tags: ['fest', 'prinsesse'] }),
+  c({ id: 'ice-gown', slot: 'top', name: 'Iskjole', price: 110, rarity: 'shop', shop: 'glitter', shape: 'gown', colors: { main: '#8fd8ff', second: '#ffffff', accent: '#c4fbff' }, pattern: 'snow', tags: ['prinsesse', 'vinter', 'fest'] }),
+  c({ id: 'ballet-top', slot: 'top', name: 'Ballettdrakt', price: 30, rarity: 'shop', shop: 'glitter', shape: 'tank', colors: { main: '#ffb0d8', second: '#ffffff' }, pattern: 'sparkle', tags: ['prinsesse', 'fest'] }),
+  c({ id: 'glitter-hoodie', slot: 'top', name: 'Glitterhettegenser', price: 40, rarity: 'shop', shop: 'glitter', shape: 'hoodie', colors: { main: '#b07aff', second: '#fff4ff' }, pattern: 'sparkle', tags: ['fest', 'sport'] }),
+  c({ id: 'skirt-gold', slot: 'bottom', name: 'Gullskjørt', price: 30, rarity: 'shop', shop: 'glitter', shape: 'skirt', colors: { main: '#ffd23f', second: '#fff1b0' }, pattern: 'sparkle', tags: ['fest', 'prinsesse'] }),
+  c({ id: 'tutu-rainbow', slot: 'bottom', name: 'Regnbuetyll', price: 45, rarity: 'shop', shop: 'glitter', shape: 'tutu', colors: { main: '#ff6fb0', second: '#fff4ff' }, pattern: 'rainbow', tags: ['regnbue', 'prinsesse', 'fest'] }),
+  c({ id: 'pants-glitter', slot: 'bottom', name: 'Glitterbukse', price: 35, rarity: 'shop', shop: 'glitter', shape: 'pants', colors: { main: '#c8c0e0', second: '#ff8ae0' }, pattern: 'sparkle', tags: ['fest'] }),
+  c({ id: 'ballet-shoes', slot: 'shoes', name: 'Ballettsko', price: 30, rarity: 'shop', shop: 'glitter', shape: 'ballet', colors: { main: '#ffb0d8', second: '#ff8ae0' }, tags: ['prinsesse', 'fest'] }),
+  c({ id: 'boots-glitter', slot: 'shoes', name: 'Glitterstøvler', price: 45, rarity: 'shop', shop: 'glitter', shape: 'boots', colors: { main: '#ff5fb8', second: '#fff4ff' }, pattern: 'sparkle', tags: ['fest', 'vinter'] }),
+  c({ id: 'star-crown', slot: 'hat', name: 'Stjernekrone', price: 60, rarity: 'shop', shop: 'glitter', shape: 'starcrown', colors: { main: '#ffe14f', second: '#fff1b0', accent: '#ff8ae0' }, tags: ['fest', 'prinsesse', 'verdensrom'] }),
+  c({ id: 'headphones', slot: 'hat', name: 'Hodetelefoner', price: 40, rarity: 'shop', shop: 'glitter', shape: 'headphones', colors: { main: '#ff8ae0', second: '#2a2230', accent: '#2ff3ff' }, tags: ['fest', 'sport'] }),
+  c({ id: 'bow-gold', slot: 'hat', name: 'Gullsløyfe', price: 20, rarity: 'shop', shop: 'glitter', shape: 'bow', colors: { main: '#ffd23f' }, tags: ['fest', 'prinsesse'] }),
+  c({ id: 'pearl-necklace', slot: 'face', name: 'Perlekjede', price: 35, rarity: 'shop', shop: 'glitter', shape: 'necklace', colors: { main: '#fff4ff', second: '#ff8ae0' }, tags: ['prinsesse', 'fest'] }),
+  c({ id: 'bowtie', slot: 'face', name: 'Butterfly', price: 25, rarity: 'shop', shop: 'glitter', shape: 'bowtie', colors: { main: '#ff3b8a', second: '#ffe14f' }, tags: ['fest'] }),
+  c({ id: 'shades-pink', slot: 'face', name: 'Rosa solbriller', price: 20, rarity: 'shop', shop: 'glitter', shape: 'shades', colors: { main: '#ff5fb8', second: '#ffe14f' }, tags: ['strand', 'fest'] }),
+  c({ id: 'butterfly-wings', slot: 'back', name: 'Sommerfuglvinger', price: 60, rarity: 'shop', shop: 'glitter', shape: 'fairy', colors: { main: '#ffb040', second: '#2a2230' }, tags: ['dyr', 'eventyr', 'regnbue'] }),
+  c({ id: 'cape-glitter', slot: 'back', name: 'Glitterkappe', price: 50, rarity: 'shop', shop: 'glitter', shape: 'cape', colors: { main: '#ff8ae0', second: '#ffd23f', accent: '#fff4ff' }, pattern: 'sparkle', tags: ['fest', 'prinsesse'] }),
+
+  // --- Kostymebutikken: dress up as a dinosaur, a bee, a pirate, a mermaid, a witch, a hero
+  c({ id: 'dino-suit', slot: 'top', name: 'Dinosaurdrakt', price: 70, rarity: 'shop', shop: 'kostyme', shape: 'onesie', colors: { main: '#5fcf6f', second: '#ffd23f', accent: '#c8f5a0' }, tags: ['dyr', 'eventyr'] }),
+  c({ id: 'bee-suit', slot: 'top', name: 'Biedrakt', price: 60, rarity: 'shop', shop: 'kostyme', shape: 'onesie', colors: { main: '#ffd23f', second: '#2a2230' }, pattern: 'stripes', tags: ['dyr'] }),
+  c({ id: 'hero-suit', slot: 'top', name: 'Superheltdrakt', price: 55, rarity: 'shop', shop: 'kostyme', shape: 'hero', colors: { main: '#2f6fd0', second: '#ff3b5c', accent: '#ffe14f' }, tags: ['eventyr', 'sport'] }),
+  c({ id: 'pirate-shirt', slot: 'top', name: 'Piratskjorte', price: 30, rarity: 'shop', shop: 'kostyme', shape: 'tee', colors: { main: '#f4f0ff', second: '#ff3b5c' }, pattern: 'stripes', tags: ['eventyr', 'strand'] }),
+  c({ id: 'witch-dress', slot: 'top', name: 'Heksekjole', price: 50, rarity: 'shop', shop: 'kostyme', shape: 'dress', colors: { main: '#3a2a5c', second: '#9fef5a', accent: '#ff9f3f' }, pattern: 'stars', tags: ['eventyr'] }),
+  c({ id: 'mermaid-tail', slot: 'bottom', name: 'Havfruehale', price: 80, rarity: 'shop', shop: 'kostyme', shape: 'mermaid', colors: { main: '#2fb8a8', second: '#7ff0c8', accent: '#b07aff' }, pattern: 'scales', tags: ['eventyr', 'strand', 'dyr'] }),
+  c({ id: 'pirate-pants', slot: 'bottom', name: 'Piratbukse', price: 25, rarity: 'shop', shop: 'kostyme', shape: 'shorts', colors: { main: '#3a2418', accent: '#ffd23f' }, tags: ['eventyr'] }),
+  c({ id: 'dino-feet', slot: 'shoes', name: 'Dinoføtter', price: 40, rarity: 'shop', shop: 'kostyme', shape: 'claws', colors: { main: '#5fcf6f', second: '#fff4ff' }, tags: ['dyr'] }),
+  c({ id: 'boots-pirate', slot: 'shoes', name: 'Piratstøvler', price: 35, rarity: 'shop', shop: 'kostyme', shape: 'boots', colors: { main: '#2a2230', second: '#ffd23f' }, tags: ['eventyr'] }),
+  c({ id: 'dino-hood', slot: 'hat', name: 'Dinohette', price: 50, rarity: 'shop', shop: 'kostyme', shape: 'dino', colors: { main: '#5fcf6f', second: '#ffd23f', accent: '#ffffff' }, tags: ['dyr', 'eventyr'] }),
+  c({ id: 'pirate-hat', slot: 'hat', name: 'Piratlue', price: 45, rarity: 'shop', shop: 'kostyme', shape: 'pirate', colors: { main: '#2a2230', second: '#ffd23f', accent: '#ffffff' }, tags: ['eventyr'] }),
+  c({ id: 'witch-hat', slot: 'hat', name: 'Heksehatt', price: 45, rarity: 'shop', shop: 'kostyme', shape: 'witch', colors: { main: '#3a2a5c', second: '#9fef5a', accent: '#ffd23f' }, tags: ['eventyr'] }),
+  c({ id: 'antennae', slot: 'hat', name: 'Følehorn', price: 25, rarity: 'shop', shop: 'kostyme', shape: 'antennae', colors: { main: '#2a2230', second: '#ffd23f' }, tags: ['dyr', 'verdensrom'] }),
+  c({ id: 'eyepatch', slot: 'face', name: 'Øyeklapp', price: 15, rarity: 'shop', shop: 'kostyme', shape: 'eyepatch', colors: { main: '#2a2230' }, tags: ['eventyr'] }),
+  c({ id: 'cat-nose', slot: 'face', name: 'Kattesnute', price: 20, rarity: 'shop', shop: 'kostyme', shape: 'nose', colors: { main: '#ff8ae0', second: '#2a2230' }, tags: ['dyr'] }),
+  c({ id: 'bee-wings', slot: 'back', name: 'Bievinger', price: 35, rarity: 'shop', shop: 'kostyme', shape: 'bee', colors: { main: '#e8f8ff', second: '#2a2230' }, tags: ['dyr'] }),
+  c({ id: 'dragon-wings', slot: 'back', name: 'Dragevinger', price: 70, rarity: 'shop', shop: 'kostyme', shape: 'bat', colors: { main: '#ff5f4f', second: '#ffb040', accent: '#ffe14f' }, tags: ['eventyr', 'dyr'] }),
+  c({ id: 'turtle-shell', slot: 'back', name: 'Skilpaddeskall', price: 45, rarity: 'shop', shop: 'kostyme', shape: 'shell', colors: { main: '#3fae5a', second: '#9fef5a', accent: '#8a5632' }, tags: ['dyr', 'strand'] }),
 ]
 
 /** What every new player owns, and what a new person wears. */
@@ -289,11 +328,19 @@ export const wallDef = (id: string): SurfaceDef | undefined => WALLS_BY_ID.get(i
 export const weaponBase = (id: string) => WEAPON_BASES.find(b => b.id === id)
 export const weaponMagic = (id: string) => WEAPON_MAGIC.find(m => m.id === id)
 
-/** A top that covers the legs, so the bottom is not drawn. */
+/** A top that covers the legs, so the bottom is not drawn (dresses, gowns, a whole-body onesie). */
 export const coversLegs = (topId: string): boolean => {
   const s = clothing(topId)?.shape
-  return s === 'dress' || s === 'gown'
+  return s === 'dress' || s === 'gown' || s === 'onesie'
 }
+
+/** A bottom that covers the feet (a mermaid tail): no shoes are drawn. */
+export const coversFeet = (outfit: { top: string; bottom: string }): boolean =>
+  !coversLegs(outfit.top) && clothing(outfit.bottom)?.shape === 'mermaid'
+
+/** The clothes a shop sells: Klesbutikken (`'klær'`) sells every shop piece without a `shop`. */
+export const shopClothes = (shop: ClothesShopId | 'klær'): ClothingDef[] =>
+  CLOTHES.filter(d => d.rarity === 'shop' && d.price > 0 && (d.shop ?? 'klær') === shop)
 
 export const FASHION_TAGS: { id: FashionTag; name: string }[] = [
   { id: 'sport', name: 'Sport' },

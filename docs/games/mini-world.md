@@ -8,7 +8,8 @@ the town's layout, the look and the code map are in
 
 **What is in it.** Up to three people (name, skin, hair, eyes, mouth,
 clothes); a shared closet that starts with two tees, jeans and sneakers;
-Klesbutikken and Møbelbutikken; your house on Nabogata with a Pynt mode
+three clothes shops (Klesbutikken, Glitterbutikken, Kostymebutikken) and
+Møbelbutikken; your house on Nabogata with a Pynt mode
 (drag on a grid, turn, put away, floors and wallpapers); Verkstedet for
 upgrades (levels 1–3 on furniture and weapons) and fantasy weapons
 (base × magic × colour) that pop balloons in Ballongparken; four
@@ -42,6 +43,16 @@ server's balance plus pending ops with random ids) and sends ops to
 server applies each op id once, clamps to 0..99 999 and answers the
 balance. Neon Shrine's hero picks up and spends the same bits (its bridge
 is described in `docs/games/neon-shrine.md`).
+
+**Shops.** Five doors on Butikkgata open a panel (`ui/Shop.vue`,
+`kind` `clothes`, `glitter`, `kostyme` or `furniture`). A clothes shop
+shows the pieces `shopClothes()` gives it (by `ClothingDef.shop`, none
+for Klesbutikken) and a tab only for slots it has wares for. The costume
+pieces brought their own shapes (a onesie with a tail, a superhero suit,
+a mermaid tail that hides the shoes, ballet shoes, dino feet, a pirate
+bicorne, a witch's hat, a dinosaur hood, feelers, headphones, a star
+crown, an eye patch, a bow tie, a necklace, a cat's nose, dragon, bee
+and turtle backs), drawn in `scene/clothes.ts`.
 
 **Saves.** `useMiniWorld()` keeps the save (`MiniWorldSave` in
 `types.ts`) in localStorage `miniworld.save` and on the profile slot
@@ -107,11 +118,14 @@ MAGI bottom-right above the bottom band.
 placement rules, contests, royal rules, names, hero colours, the server
 rules against the memory store and the real D1 SQL (node's SQLite with
 every migration), the character controller, every obby jump against the
-jump reach, the model tables, the audio against a fake Web Audio.
+jump reach, the model tables, the three clothes shops' wares and the
+costume shapes (`tests/miniworld-shops.test.mjs`), the audio against a
+fake Web Audio.
 `tests/zelda-wallet.test.mjs` (in `test:zelda`) covers Neon Shrine's
 wallet bridge. Lab scripts, all run as `flock /tmp/claude-1000/chrome.lock
 node …`: `scripts/miniworld-lab/avatar-sheet.mjs` (every hair style,
-clothing item, furniture model, weapon and the house),
+clothing item, furniture model, weapon and the house; `costumes` shows
+the two newer shops' pieces and whole costumes from three sides),
 `world-shot.mjs` + `world-play.mjs` (town, places and a scripted run of
 the runtime). In the dev server, `window.__mw` exposes the runtime, the
 game, the social API and the panel context.
