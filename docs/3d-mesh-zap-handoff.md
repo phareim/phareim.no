@@ -40,3 +40,13 @@ bear-knight, forest-witch, frog-prince, goblin-merchant, hare-ranger, old-fisher
 stone-giant-child, troll-guard) is in the same backlog, same night rule, outdir
 `~/3d-lab/out/batch1/`, run with `~/3d-lab/bin/batch <outdir> <images...>`. Ignore
 `inputs/*__matted.png` (Pixal3D intermediates). Batch 1 goes before the ad-* pairs.
+
+## Backlog: TRELLIS.2 vs Pixal3D (2026-09-29)
+
+Blocked until Petter's Meta review for `facebook/dinov3-vitl16-pretrain-lvd1689m` (HF account
+`phareim`) is approved. Check with a `hf_hub_download` of its `config.json`; 403 means wait. When
+open, in the 18:00-06:00 window and with the GPU lock: `~/3d-lab/bin/trellis <masked.png>
+~/3d-lab/out/trellis/` on fox-bard (mask already at `out/trellis/eventyrland-fox-bard.png`),
+princess-krea-1 and owl-wizard (masks: `inputs/*__matted.png`), then `~/3d-lab/bin/lowpoly`, then
+compare with Pixal3D and, if reachable, the WaveSpeed TRELLIS GLBs. Priority below Batch 1 and the
+ad-* pairs. First run downloads about 14 GB and takes 15-35 min per image.
