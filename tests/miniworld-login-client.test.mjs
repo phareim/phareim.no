@@ -214,8 +214,8 @@ test('a different account on this browser clears the local game copies first; th
   const b = browser({ session: BOB, storage: { ...copies, 'phareim.account': 'user-alice' } })
   const { api } = await account()
   await api.check()
-  for (const k of Object.keys(copies)) if (k !== 'zeldaSave' && k !== 'phareim.player') assert.equal(b.data.get(k), undefined, k)
-  assert.equal(b.data.get('zeldaSave'), '{"z":1}', 'Neon Shrine\'s save is not touched')
+  for (const k of Object.keys(copies)) if (k !== 'phareim.player') assert.equal(b.data.get(k), undefined, k)
+  assert.equal(b.data.get('zeldaSave'), undefined, 'Neon Shrine\'s save is Alice\'s too (2026-09-29: it follows the account)')
   assert.equal(JSON.parse(b.data.get('phareim.player')).id, P2, 'the player is Bob\'s now')
   assert.equal(b.data.get('phareim.account'), 'user-bob')
 
