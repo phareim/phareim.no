@@ -5,6 +5,7 @@
  */
 import type * as THREE from 'three'
 import type { ZoneId, AvatarPose } from './contracts'
+import type { FurnitureDef } from '../types'
 import type { PhysWorld, Body } from './physics'
 import type { SkyLook } from './look'
 
@@ -28,6 +29,9 @@ export function inZone(z: Zone, x: number, y: number, zz: number): boolean {
 
 export interface Spot { x: number; y: number; z: number; yaw: number }
 
+/** Something to sit on, sleep in, play… (`what` names a special one for the caption: the castle's throne). */
+export interface Usable { uid: string; use: NonNullable<FurnitureDef['use']>; at: THREE.Vector3; yaw: number; what?: string }
+
 /** What an autopilot (the catwalk) wants this frame instead of the player's input. */
 export interface Drive { mx: number; mz: number; pose?: AvatarPose; facing?: number }
 
@@ -47,6 +51,8 @@ export interface PlaceScene {
   respawn?(why: 'fell' | 'killed' | 'water', body: Body): Spot | null
   /** Drive the player (catwalk), or null for the player's own input. */
   autopilot?(dt: number, t: number, body: Body): Drive | null
+  /** Seats, beds, a piano… the runtime offers them by their `USE_LABEL` word (own house and the castle). */
+  usables?(): Usable[]
   /** Per frame, after physics. */
   update(dt: number, t: number, body: Body): void
   dispose(): void

@@ -63,6 +63,8 @@ export type Place =
   | { kind: 'stars' }
   /** The fashion show's catwalk: the active person walks, three judges watch (score comes from the UI). */
   | { kind: 'catwalk' }
+  /** Slottet's throne hall (shared: everyone in it sees each other). */
+  | { kind: 'castle' }
 
 /** Fast-travel spots in town (world agent, additive 2026-09-26). */
 export type TownSpot = 'torget' | 'butikkgata' | 'tivoliet' | 'slottet' | 'nabogata'
@@ -75,7 +77,8 @@ export type ZoneId =
   | 'glitter-shop'    // Glitterbutikken → UI panel
   | 'costume-shop'    // Kostymebutikken → UI panel
   | 'workshop'        // Verkstedet (upgrades, weapons) → UI panel
-  | 'castle'          // Slottet: the neighbourhood, friends, crown → UI panel
+  | 'castle'          // Slottet's gate → Place castle
+  | 'castle-book'     // Slottsboka inside: the neighbourhood, friends, crown → UI panel
   | 'mailbox'         // Postkassa by your house → UI panel (gifts)
   | 'booth-obby'      // → UI picks a level, then Place obby
   | 'booth-stars'     // → Place stars

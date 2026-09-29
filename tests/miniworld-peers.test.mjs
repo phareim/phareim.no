@@ -141,9 +141,10 @@ test('place keys', () => {
   assert.equal(M.placeKey({ kind: 'stars' }, 'PUB1', tok), 'stars')
   assert.equal(M.placeKey({ kind: 'catwalk' }, 'PUB1', tok), 'catwalk:PUB1')
   assert.equal(M.placeKey({ kind: 'catwalk' }, '', tok), `catwalk:${tok}`)
+  assert.equal(M.placeKey({ kind: 'castle' }, 'PUB1', tok), 'castle')
   // Every key passes the wire's place check.
-  const PLACE_RE = /^(town|stars|obby:(easy|medium|hard)|house:[A-Za-z0-9_-]{1,32}|catwalk:[A-Za-z0-9_-]{1,32})$/
-  for (const p of [{ kind: 'house', edit: false }, { kind: 'visit', playerId: 'bad id!' }, { kind: 'catwalk' }]) {
+  const PLACE_RE = /^(town|stars|castle|obby:(easy|medium|hard)|house:[A-Za-z0-9_-]{1,32}|catwalk:[A-Za-z0-9_-]{1,32})$/
+  for (const p of [{ kind: 'house', edit: false }, { kind: 'visit', playerId: 'bad id!' }, { kind: 'catwalk' }, { kind: 'castle' }]) {
     assert.match(M.placeKey(p, '', tok), PLACE_RE)
   }
 })

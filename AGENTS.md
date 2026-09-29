@@ -21,7 +21,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 - `npm run test:anotherworld` — Another Shore: physics, threats, a playtester that crosses all five chapters without dying, cuts, saves; plus the audio module against a fake Web Audio (rebuilt 2026-09-23)
 - `npm run test:outrun` — OutRun engine: road and forks, tunnels, driving model, traffic, close-pass chain and crashes, clock and stage times, goal, autopilot (rebuilt 2026-09-11, tunnels and chain 2026-09-23)
 - `npm run test:battery` — Night of the Dead Battery: the engine, each floor's puzzles, the story and finale, the audio, and a walkthrough from a new game to the credits (2026-09-26)
-- `npm run test:miniworld` — Mini World: the save and its actions, contests, crown and titles, the wallet and neighbourhood server rules (memory store and real D1 SQL), physics, every obby jump, models, audio (2026-09-26)
+- `npm run test:miniworld` — Mini World: the save and its actions, contests, crown and titles, the wallet and neighbourhood server rules (memory store and real D1 SQL), physics, every obby jump, the castle's throne hall, models, audio (2026-09-26, the hall 2026-09-29)
 - `npm run test:figur` — Lag Din Figur: every garment's texture, packing, the drawing ops, figures and the save, Pip's reading of Norwegian, the hero colours, the four renderers and the Minecraft skin (2026-09-26)
 - `npm run typecheck` — `nuxi typecheck` (vue-tsc); CI runs this before build
 - `npm run build` — production build; the `cloudflare-pages` preset is set in `nuxt.config.ts`, output goes to `dist/`

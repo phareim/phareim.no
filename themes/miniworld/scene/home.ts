@@ -27,7 +27,7 @@ import { buildAvatar } from './avatar'
 import { SKIES } from './look'
 import { createWorld, addStatic, box } from './physics'
 import type { Body } from './physics'
-import type { PlaceScene, Zone, Spot } from './place'
+import type { PlaceScene, Zone, Spot, Usable } from './place'
 
 export type UseKind = NonNullable<FurnitureDef['use']>
 
@@ -35,7 +35,7 @@ export const USE_LABEL: Record<UseKind, string> = {
   sit: 'Sitt', sleep: 'Sov', bounce: 'Hopp', music: 'Spill', slide: 'Skli', light: 'Skru på', swim: 'Plask',
 }
 
-export interface Usable { uid: string; use: UseKind; at: THREE.Vector3; yaw: number }
+export type { Usable }
 
 export interface HomeScene extends PlaceScene {
   /** The storey shown now: edits and the pointer go to it. */

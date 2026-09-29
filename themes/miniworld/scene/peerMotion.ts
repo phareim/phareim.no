@@ -163,5 +163,6 @@ export function placeKey(place: Place, selfPub: string, token: string): string {
     case 'obby': return `obby:${place.level}`
     case 'stars': return 'stars'
     case 'catwalk': return `catwalk:${me}`
+    case 'castle': return 'castle'
   }
 }

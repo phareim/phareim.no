@@ -67,7 +67,7 @@ reader is seven: one idea per line, big buttons, pictures before words).
   magic flies, sparkles and pops balloons floating in Ballongparken on
   Tivoliet (a bit now and then, capped per visit). Nobody gets hurt: no
   enemies, no damage; it is for play.
-- **Neighbourhood** at **Slottet** (the castle):
+- **Neighbourhood** at **Slottet** (the castle; Slottsboka inside the throne hall):
   - **Friends**: everyone has a six-letter friend code. Type a friend's
     code to become friends (both ways at once).
   - **Nabolag**: make one (a generated name like "Solsikkedalen" and a
@@ -99,6 +99,8 @@ reader is seven: one idea per line, big buttons, pictures before words).
 - **Nabogata** (west): your house first (with its postkasse), then the
   neighbours' houses, up to 12, each with a name sign.
 - **Slottet** (north, on a small hill with stairs): the neighbourhood hall.
+  The gate leads into the throne hall (`scene/castle.ts`), where
+  Slottsboka on a lectern opens friends and neighbourhood.
 - **Tivoliet** (south): four booths (Obby-tårnet, Stjernejakt,
   Motevisning's stage, Huskespill), Ballongparken with floating balloons.
 - Around: water, a beach, trees, flowers, fences, a few trampolines and
@@ -149,7 +151,7 @@ themes/miniworld/
   scene/       three.js: contracts.ts (the seams), runtime.ts, look.ts
                (low-res render + outline), camera.ts, input.ts, physics.ts,
                town.ts, blocks.ts, place.ts, home.ts, neighbors.ts,
-               obby.ts + obby-course.ts, stars.ts, catwalk.ts, play.ts
+               obby.ts + obby-course.ts, stars.ts, catwalk.ts, castle.ts, play.ts
                (magic, balloons); avatar.ts, clothes.ts, textures.ts,
                meshkit.ts, furniture.ts, weapons.ts, house.ts, preview.ts
   Landing.vue, Game.vue, ui/*.vue    the shell and every panel (ui/context.ts

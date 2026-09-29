@@ -11,8 +11,8 @@
  *
  * The runtime never navigates by itself: walking up to a door shows its
  * action ('near'), pressing it sends 'zone', and the UI calls `go`.
- * Furniture in a house is the exception: sitting, sleeping and bouncing
- * happen here (`use:<uid>` zones, 'using' events).
+ * Furniture in your house and in the castle is the exception: sitting,
+ * sleeping and bouncing happen here (`use:<uid>` zones, 'using' events).
  *
  * The shared world (2026-09-26): other players come in through `peers`
  * and are drawn by peers.ts in whatever place has your place key
@@ -38,19 +38,20 @@ import type { TownScene } from './town'
 import { buildNeighbors } from './neighbors'
 import type { Neighbors } from './neighbors'
 import { buildHome, USE_LABEL } from './home'
-import type { HomeScene, Usable } from './home'
+import type { HomeScene } from './home'
 import { buildObby } from './obby'
 import type { ObbyScene } from './obby'
 import { buildStars } from './stars'
 import type { StarsScene } from './stars'
 import { buildCatwalk } from './catwalk'
-import { createParticles, createBalloons, fireMagic } from './play'
+import { buildCastle } from './castle'
+import { createParticles, createBalloons, fireMagic, SPR } from './play'
 import { createPeerLayer, floatHeart } from './peers'
 import { placeKey, localToken } from './peerMotion'
 import { packState } from '../net/protocol'
 import type { NetPose } from '../net/protocol'
 import { inZone } from './place'
-import type { PlaceScene, Spot, Zone } from './place'
+import type { PlaceScene, Spot, Zone, Usable } from './place'
 
 /** Bits from popping balloons, at most this many per session. */
 export const POP_CAP = 30
@@ -64,6 +65,9 @@ const TOWN_SPOTS: Record<TownSpot, Spot> = {
 }
 
 type Using = { kind: Usable['use']; uid: string; at: THREE.Vector3; yaw: number; pose: AvatarPose; t: number }
+
+/** Where the place's seats and beds are on offer: your own house (not while decorating) and the castle. */
+const offersUse = (p: Place) => (p.kind === 'house' && !p.edit) || p.kind === 'castle'
 
 /**
  * A spawn spot nudged sideways at random, so players who arrive at once
@@ -288,6 +292,7 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
           : from.kind === 'obby' ? 'booth-obby'
             : from.kind === 'stars' ? 'booth-stars'
               : from.kind === 'catwalk' ? 'booth-fashion'
+                : from.kind === 'castle' ? 'castle'
                 : from.kind === 'visit' ? (`neighbor:${from.playerId}` as ZoneId)
                   : null
         const spot = p.at ? jitter(TOWN_SPOTS[p.at], 1.5, 1) : from.kind === 'town' ? { x: body.x, y: body.y, z: body.z, yaw: facing } : town.arrival(back ?? lastTownZone ?? 'home')
@@ -325,6 +330,12 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
         const c = buildCatwalk(particles)
         enter(c)
         put(c.spawn)
+        break
+      }
+      case 'castle': {
+        const c = buildCastle()
+        enter(c)
+        put(jitter(c.spawn, 1.5, 0.6))
         break
       }
     }
@@ -378,10 +389,10 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
     const zs: Zone[] = current.zones
     const px = body.x, py = body.y, pz = body.z
     for (const z of zs) if (inZone(z, px, py, pz)) return { id: z.id, label: z.label }
-    if (home && current === home && !(place.kind === 'house' && place.edit)) {
+    if (offersUse(place) && current.usables) {
       let best: Usable | null = null
       let bd = 1.7 * 1.7
-      for (const u of home.usables()) {
+      for (const u of current.usables()) {
         const dx = u.at.x - px, dz = u.at.z - pz
         const d = dx * dx + dz * dz
         if (d < bd && Math.abs(u.at.y - py) < 2.5) { bd = d; best = u }
@@ -392,9 +403,8 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
   }
 
   function startUsing(uid: string) {
-    if (!home) return
     if (using?.uid === uid) { stopUsing(); return }
-    const u = home.usables().find(x => x.uid === uid)
+    const u = offersUse(place) ? current.usables?.().find(x => x.uid === uid) : undefined
     if (!u) return
     const pose: AvatarPose = u.use === 'sit' ? 'sit' : u.use === 'sleep' ? 'sleep' : u.use === 'music' ? 'sit' : u.use === 'bounce' ? 'jump' : 'cheer'
     using = { kind: u.use, uid, at: u.at.clone(), yaw: u.yaw, pose, t: 0 }
@@ -403,7 +413,11 @@ export const createRuntime: CreateRuntime = (canvas, opts) => {
       facing = u.yaw
     }
     if (u.use === 'sit' || u.use === 'sleep' || u.use === 'music') sfx('sit')
-    emit({ type: 'using', what: u.use })
+    if (u.what === 'throne') {
+      sfx('fanfare')
+      particles.burst(u.at.x, u.at.y + 2.4, u.at.z, 30, ['#ffd84f', '#ffffff', '#ff8ac8'], { speed: 5, size: 0.3, life: 1.4, sprite: SPR.star, up: 3 })
+    }
+    emit({ type: 'using', what: u.what ?? u.use })
   }
 
   function frame(dt: number) {

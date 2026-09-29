@@ -8,7 +8,7 @@
 //
 // Shots (default all): torget, shops, shops-south, butikkgata-air, nabogata,
 // castle, tivoli, balloons, aerial, obby-easy, obby-medium, obby-hard, stars,
-// catwalk, house, pynt, tall-town, tall-stairs, tall-up, tall-pynt2 (a three-storey house).
+// catwalk, house, hall, hall-throne, hall-sit, hall-book, hall-air, pynt, tall-town, tall-stairs, tall-up, tall-pynt2 (a three-storey house).
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
@@ -44,6 +44,12 @@ const SHOTS = {
   stars: [`__world.go({ kind: 'stars' })`, 150],
   catwalk: [`__world.go({ kind: 'catwalk' })`, 110],
   house: [`__world.go({ kind: 'house', edit: false })`, 40],
+  // Slottet inside (2026-09-29): the gate view, the thrones, sitting on the big one, from above.
+  hall: [`__world.go({ kind: 'castle' })`, 40],
+  'hall-throne': [`__world.go({ kind: 'castle' }); __world.at(0, 0, -6, Math.PI, { yaw: 0, pitch: 0.3, dist: 11 })`, 40],
+  'hall-sit': [`__world.go({ kind: 'castle' }); __world.at(0, 0.8, -12, Math.PI, { yaw: 0.3, pitch: 0.35, dist: 9 }); __world.step(2); __world.input.actionPressed = true`, 40],
+  'hall-book': [`__world.go({ kind: 'castle' }); __world.at(-5, 0, 3.2, -Math.PI / 2, { yaw: -0.5, pitch: 0.45, dist: 8 })`, 40],
+  'hall-air': [`__world.go({ kind: 'castle' }); __world.at(0, 0, -5, Math.PI, { yaw: 0.6, pitch: 0.95, dist: 26 })`, 40],
   pynt: [`__world.go({ kind: 'house', edit: false }); __world.go({ kind: 'house', edit: true })`, 60],
   // Storeys (2026-09-28): a three-storey house.
   'tall-town': [`__world.tall(); __world.at(-24, 0, 1, -Math.PI / 2, { yaw: Math.PI / 2 - 0.5, pitch: 0.4, dist: 22 })`, 40],

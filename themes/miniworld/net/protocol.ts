@@ -24,7 +24,7 @@ export const MAX_MSG_BYTES = 4096
 /**
  * Where a peer is. Only peers in the same place are drawn:
  * 'town', 'house:<ownerPublicId>' (your own house or a visit),
- * 'obby:easy|medium|hard', 'stars', 'catwalk:<publicId>' (private).
+ * 'obby:easy|medium|hard', 'stars', 'castle', 'catwalk:<publicId>' (private).
  */
 export type PlaceKey = string
 
@@ -87,7 +87,7 @@ export type ServerMsg =
 
 const NAME_RE = /^[A-Za-zÆØÅæøåÉÈÄÖÜéèäöü \-]{1,12}$/
 const PUB_RE = /^[A-Za-z0-9_-]{0,32}$/
-const PLACE_RE = /^(town|stars|obby:(easy|medium|hard)|house:[A-Za-z0-9_-]{1,32}|catwalk:[A-Za-z0-9_-]{1,32})$/
+const PLACE_RE = /^(town|stars|castle|obby:(easy|medium|hard)|house:[A-Za-z0-9_-]{1,32}|catwalk:[A-Za-z0-9_-]{1,32})$/
 const TITLES = new Set(['king', 'queen', 'prince', 'princess'])
 const FX_MAGIC_RE = /^[a-z]{2,12}$/
 const EMOTES = new Set(['wave', 'dance', 'cheer', 'heart'])

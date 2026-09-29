@@ -14,10 +14,22 @@ Møbelbutikken; your house on Nabogata with a Pynt mode
 upgrades (levels 1–3 on furniture and weapons) and fantasy weapons
 (base × magic × colour) that pop balloons in Ballongparken; four
 contests on Tivoliet: the obby in three levels, Stjernejakt, Motevisning
-(dress to a theme, three judges) and Huskespill; Slottet for friends
+(dress to a theme, three judges) and Huskespill; Slottet, a throne hall to walk around in, for friends
 (six-letter codes), one neighbourhood per player, votes for the crown,
 royal titles and their clothes, gifts to the postkasse, and visits to
 friends' houses. Kart fast-travels. A new player gets 50 bits once.
+
+**Slottet inside** (2026-09-29, Petter's wish). The castle gate on the
+hill is a door into a throne hall (`scene/castle.ts`, place `castle`):
+a carpet up a two-step dais to the big throne and two small ones, pillars
+with lanterns, stained glass, a piano, a banquet table with a cake, and
+Slottsboka on a lectern by the gate, which opens the friends and
+neighbourhood panel (zone `castle-book`; the gate itself used to open it).
+Sitting on the big throne plays a fanfare with gold stars. The seats and
+the piano use the house's usables (`usables()` on a place, offered in your
+own house and here). The hall is shared: everyone in it has place key
+`castle` and sees each other. No ceiling and a low front wall, like the
+houses, so the camera never needs to dodge a wall.
 
 **Storeys** (2026-09-28, Ulrikke's wish). A house has up to three
 (`MAX_STOREYS`); the save keeps the ground storey in `house` and the ones
@@ -117,7 +129,9 @@ MAGI bottom-right above the bottom band.
 **Checks.** `npm run test:miniworld` (in CI): the save and every action,
 placement rules, contests, royal rules, names, hero colours, the server
 rules against the memory store and the real D1 SQL (node's SQLite with
-every migration), the character controller, every obby jump against the
+every migration), the character controller, the castle's throne hall (you
+arrive free, and can walk from the gate to the throne and to Slottsboka;
+`tests/miniworld-castle.test.mjs`), every obby jump against the
 jump reach, the model tables, the three clothes shops' wares and the
 costume shapes (`tests/miniworld-shops.test.mjs`), the audio against a
 fake Web Audio.
@@ -126,7 +140,7 @@ wallet bridge. Lab scripts, all run as `flock /tmp/claude-1000/chrome.lock
 node …`: `scripts/miniworld-lab/avatar-sheet.mjs` (every hair style,
 clothing item, furniture model, weapon and the house; `costumes` shows
 the two newer shops' pieces and whole costumes from three sides),
-`world-shot.mjs` + `world-play.mjs` (town, places and a scripted run of
+`world-shot.mjs` (`hall`, `hall-throne`, `hall-sit`, `hall-book`, `hall-air` are the castle inside) + `world-play.mjs` (town, places and a scripted run of
 the runtime). In the dev server, `window.__mw` exposes the runtime, the
 game, the social API and the panel context.
 

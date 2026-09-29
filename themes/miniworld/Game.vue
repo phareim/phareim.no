@@ -331,7 +331,7 @@ function memoryDone(moves: number) {
 // ---------------------------------------------------------------- runtime events
 
 const USING: Record<string, string> = {
-  sit: 'DU SITTER', sleep: 'SOV GODT …', bounce: 'HOPP HOPP!', music: 'LA LA LA ♪', slide: 'WIII!', light: 'LYS!', swim: 'PLASK!',
+  throne: 'DU SITTER PÅ TRONEN!', sit: 'DU SITTER', sleep: 'SOV GODT …', bounce: 'HOPP HOPP!', music: 'LA LA LA ♪', slide: 'WIII!', light: 'LYS!', swim: 'PLASK!',
 }
 
 const ZONE_PANELS: Partial<Record<ZoneId, Panel>> = {
@@ -340,7 +340,7 @@ const ZONE_PANELS: Partial<Record<ZoneId, Panel>> = {
   'glitter-shop': { id: 'shop', kind: 'glitter' },
   'costume-shop': { id: 'shop', kind: 'kostyme' },
   'workshop': { id: 'workshop' },
-  'castle': { id: 'castle' },
+  'castle-book': { id: 'castle' },
   'mailbox': { id: 'mailbox' },
   'wardrobe': { id: 'wardrobe' },
   'booth-obby': { id: 'booth', contest: 'obby' },
@@ -354,6 +354,7 @@ function onZone(zone: ZoneId) {
   const panel = ZONE_PANELS[zone]
   if (panel) { open(panel); return }
   if (zone === 'home') { if (place.value.kind !== 'house') go({ kind: 'house', edit: false }); return }
+  if (zone === 'castle') { if (place.value.kind === 'town') go({ kind: 'castle' }); return }
   if (zone === 'exit') { if (place.value.kind !== 'town') go({ kind: 'town' }); return }
   if (zone.startsWith('neighbor:')) void visit(zone.slice('neighbor:'.length))
 }
@@ -603,6 +604,7 @@ const music = computed<MiniMusic>(() => {
     case 'obby': return 'obby'
     case 'stars': return 'stars'
     case 'catwalk': return 'fashion'
+    case 'castle': return 'castle'
     default: return 'town'
   }
 })
