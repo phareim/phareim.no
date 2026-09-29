@@ -132,3 +132,27 @@ zap-mesh portrait.png          # → ~/zshots/zap-mesh/portrait/portrait.glb + -
 
 Check `-views.png` (front, sides, back) before using the GLB. ~1M triangles:
 decimate before it goes into a game.
+
+## Game-ready topology with Blender (2026-09-29, zap-Claude)
+
+Blender 5.2.2 is installed at `~/Applications/Blender.app` (brew cask, `--appdir`).
+Wrapper: `~/3d-lab/bin/lowpoly <in.glb> <out.glb> [faces=20000] [tex=2048]`, which runs the lab's
+`scripts/blender_retopo_bake.py` (voxel remesh, QuadriFlow, selected-to-active texture bake).
+
+| Fox, from the 964k-triangle Pixal3D GLB | Result |
+|---|---|
+| Blender Decimate modifier to 30k faces | Shape holds, **texture shatters** (white cracks, UV islands broken). Do not use. `docs/img/fox-naive-decimate-30k.png` |
+| Retopo + bake to 20k faces, 2048 px | **Clean.** 19,992 triangles, 6.4 MB (from 36 MB), texture intact, ~8 s on CPU. `docs/img/fox-retopo-20k.png` |
+
+The retopo GLB keeps the same look from all four sides. The lute drum and tail-tip spikes from the
+generator carry over, so fix those in the input image or by re-rolling the seed. Fur and foliage are
+the known weak spot of retopo (lab notes), so check hairy characters before batching.
+
+## TRELLIS.2 on zap: blocked on gated model access
+
+Installed (`vendor/trellis-space-mac`, after `xcodebuild -downloadComponent MetalToolchain` fixed
+the mtlbvh build). First run stops at 403 on `facebook/dinov3-vitl16-pretrain-lvd1689m`: the
+HuggingFace account `phareim` has to request access on that model page (Meta licence, needs a
+human). RMBG-2.0 is also gated but unused here, since TRELLIS wants a pre-masked PNG (use the
+`__matted.png` Pixal3D writes). Run wrapper: `~/3d-lab/bin/trellis <masked.png> <outdir>`.
+Pixal3D is unaffected (bundled DINOv3).
