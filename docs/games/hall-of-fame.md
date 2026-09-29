@@ -76,8 +76,17 @@ board once or twice at 45 s while its own picture is missing. `nuxi dev`
 has no key, so avatars stay null there. **REROLL is gone from the footer
 since 2026-09-08** — a new name costs a painting; `useLeaderboard.reroll`
 and the server's rename path remain for when it returns with a cap.
-Seven of these paintings, picked by Petter, are Star Fox's squadron and
-rival as 40×40 portraits (`docs/games/star-fox.md`, 2026-09-25).
+**Krea repaint (2026-09-28).** Petter preferred Krea 2 to gpt-image-2 for
+the same prompt, so every existing player was repainted once with Krea 2
+Turbo (mflux q4, 8 steps, 3:2) on his Mac — `wave --local --model krea`
+via `wave-mac`, prompt from `avatarPrompt()` in wave-jobs' `avatar.mjs`,
+uploads tagged `phareim-avatar,krea-avatar` — and the file set through
+`/api/avatar` like a normal callback. ~4.5 min per painting, one at a time,
+yielding to the Mac's GPU measure lock. The old gpt-image-2 paintings stay
+in the library. New players still get gpt-image-2 from wave-jobs.
+Seven of the gpt-image-2 paintings, picked by Petter, are Star Fox's
+squadron and rival as 40×40 portraits (`docs/games/star-fox.md`,
+2026-09-25); those were left as they are.
 
 **Wiring.** The five arcade landings call `submitScore('<id>', score)` in
 `onGameOver`; Tetris does it in `Game.vue` on top-out and on the Escape
