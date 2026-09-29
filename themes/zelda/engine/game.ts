@@ -32,7 +32,7 @@ function freshInv(): Inventory {
  */
 export function createGame(
   world: World,
-  opts: { seed?: number; save?: SaveData | null; demo?: boolean; at?: { map: string; entry: string } | null } = {},
+  opts: { seed?: number; save?: SaveData | null; demo?: boolean; at?: { map: string; entry: string } | null; session?: boolean } = {},
 ): GameState {
   const save = opts.save && validSave(world, opts.save) ? opts.save : null
   const at = opts.at && hasEntry(world, opts.at.map, opts.at.entry) ? opts.at : null
@@ -48,6 +48,7 @@ export function createGame(
     },
     inv: save ? { ...freshInv(), ...save.inv } : freshInv(),
     flags: {},
+    session: !!opts.session,
     entry: { map, entry },
     zone: { x: 0, y: 0, w: 1, h: 1 },
     zoneIndex: 0,
@@ -369,6 +370,7 @@ function dialog(c: Ctx, dt: number, inp: Input) {
     for (const f of d.after.clear ?? []) delete s.flags[f]
     if (d.after.exit) { beginExit(c, d.after.exit); return }
     if (d.after.startOver) { c.ev.push({ type: 'startOver' }); return }
+    if (d.after.panel) { c.ev.push({ type: 'panel', id: d.after.panel.id, panel: d.after.panel.panel }); return }
     refreshNpcs(c)
     if (d.after.give) { acquire(c, d.after.give); return }
   }

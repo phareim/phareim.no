@@ -17,10 +17,9 @@ export const HIGH_SCORE_SIGN: string[] = [
 
 /**
  * The arcade hall: four cabinets along the back wall beside the Hall of Fame
- * board, a ninth past it (Night of the Dead Battery), a tenth on the
- * other side of the HANGAR door (Mini World, Ulrikke's game) and beside it
- * an eleventh in the corner (Lag Din Figur, her second; all 2026-09-26), four
- * more on an island between two pillars, a carpet loop around
+ * board, a ninth past it (Night of the Dead Battery; Mini World and Lag Din
+ * Figur stood beyond the HANGAR door until 2026-09-29, when they moved to the
+ * VIP hall next door), four more on an island between two pillars, a carpet loop around
  * them with bar stools in front of every cabinet, the HANGAR door in the
  * back wall, the prize counter with its vendor, a snack table, potted
  * plants, the robot by the entrance, the HIGH SCORES sign and a chest.
@@ -44,7 +43,7 @@ export const ARCADE: MapDef = {
   track: 'indoor',
   rows: [
     '#############h###',
-    '#t1234ZZBZZ.9.0A#',
+    '#t1234ZZBZZ.9...#',
     '#,iiii,,,,,,,,,,#',
     '#.,...........,.#',
     '#.,..I5678I...,.#',
@@ -94,14 +93,6 @@ export const ARCADE: MapDef = {
       'NIGHT OF THE DEAD BATTERY. THREE FRIENDS IN RABBIT SUITS, ONE DEAD CAR, ONE VERY CROOKED HOUSE.',
       'A POINT-AND-CLICK ADVENTURE. PICK UP EVERYTHING. TALK TO THE CAT.',
     ]),
-    '0': cabinet('miniworld', 'MINI WORLD', [
-      'MINI WORLD. ULRIKKE, AGE SEVEN, DESIGNED IT: A SUNNY TOWN OF BLOCKS. MAKE YOUR PEOPLE, DRESS THEM UP, DO UP YOUR HOUSE.',
-      'OBBY TOWER, STAR HUNT, FASHION SHOW. WIN BITS, THE SAME BITS YOU FIND OUT HERE. THE ONLY CABINET WITH NO MONSTERS IN IT.',
-    ]),
-    A: cabinet('figur', 'LAG DIN FIGUR', [
-      'LAG DIN FIGUR. ULRIKKE MADE THIS ONE TOO: MAKE A FIGURE, THEN SEE IT AS MINECRAFT, ROBLOX, TOCA BOCA OR AVATAR WORLD WOULD DRAW IT.',
-      'DRAW YOUR OWN CLOTHES. ASK PIP FOR HELP. FREE, NO ADS. THE FIGURE YOU MAKE WALKS OUT HERE AS YOU.',
-    ]),
     B: {
       tile: 'I',
       ent: {
@@ -127,9 +118,10 @@ export const ARCADE: MapDef = {
           {
             when: { notFlag: 'item:sword' },
             lines: [
-              'ROBOT: BEEP. WELCOME TO THE ARCADE. ELEVEN CABINETS. FREE PLAY. BOOP.',
+              'ROBOT: BEEP. WELCOME TO THE ARCADE. NINE CABINETS. FREE PLAY. BOOP.',
               'FACE A CABINET AND PRESS {A}. SCORES GO UP ON THE BOARD AT THE BACK.',
               'THE HANGAR DOOR BACK THERE IS FOR PILOTS. YOUR SHIP AND YOUR RECORDS LIVE IN IT.',
+              'THE KIDS\' GAMES MOVED NEXT DOOR, TO THE VIP HALL. ACCOUNT HOLDERS ONLY.',
             ],
           },
           { when: { notFlag: 'item:disc' }, lines: ['ROBOT: BEEP. THE KING HAS NEVER PLAYED A SINGLE CABINET. SUSPICIOUS. BOOP.'] },
@@ -138,6 +130,42 @@ export const ARCADE: MapDef = {
         ],
       },
     },
+  },
+}
+
+/**
+ * The VIP hall, next door to the arcade on its north side: Ulrikke's two
+ * games, Mini World and Lag Din Figur (moved out of the arcade 2026-09-29).
+ * The door in the town is roped off until the visitor is logged in on
+ * auth.phareim.no; a guard stands beside it. 13×8.
+ */
+export const VIP: MapDef = {
+  id: 'vip',
+  name: 'THE VIP HALL',
+  kind: 'interior',
+  track: 'indoor',
+  rows: [
+    '#############',
+    '#t..1.S.2..t#',
+    '#,..i...i..,#',
+    '#,,,,,,,,,,,#',
+    '#Y..fffff..Y#',
+    '#,..fffff...#',
+    '#Y....@....Y#',
+    '######d######',
+  ],
+  marks: {
+    '@': { ent: { t: 'entry', id: 'door', dir: 'up' } },
+    d: { tile: 'D', ent: { t: 'warp', to: 'overworld', entry: 'vip' } },
+    S: { tile: 'S', ent: { t: 'sign', lines: ['THE VIP HALL. FOR PEOPLE WITH AN ACCOUNT.', 'THE GUARD OUTSIDE LET YOU IN, SO YOU ARE ON THE LIST.'] } },
+    '1': cabinet('miniworld', 'MINI WORLD', [
+      'MINI WORLD. ULRIKKE, AGE SEVEN, DESIGNED IT: A SUNNY TOWN OF BLOCKS. MAKE YOUR PEOPLE, DRESS THEM UP, DO UP YOUR HOUSE.',
+      'OBBY TOWER, STAR HUNT, FASHION SHOW. WIN BITS, THE SAME BITS YOU FIND OUT HERE. THE ONLY CABINET WITH NO MONSTERS IN IT.',
+    ]),
+    '2': cabinet('figur', 'LAG DIN FIGUR', [
+      'LAG DIN FIGUR. ULRIKKE MADE THIS ONE TOO: MAKE A FIGURE, THEN SEE IT AS MINECRAFT, ROBLOX, TOCA BOCA OR AVATAR WORLD WOULD DRAW IT.',
+      'DRAW YOUR OWN CLOTHES. ASK PIP FOR HELP. FREE, NO ADS. THE FIGURE YOU MAKE WALKS OUT HERE AS YOU.',
+    ]),
   },
 }
 

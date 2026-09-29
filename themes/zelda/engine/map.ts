@@ -201,6 +201,7 @@ export function condMet(s: GameState, world: World, c: Cond | undefined, cell: n
   if ('notFlag' in c) return !has(s, c.notFlag)
   if ('plates' in c) return c.plates.every(p => s.map.plates.includes(p))
   if ('item' in c) return has(s, `item:${c.item}`)
+  if ('session' in c) return s.session === c.session
   if ('flags' in c) return c.flags.every(f => has(s, f)) && !(c.not ?? []).some(f => has(s, f))
   // clear: the room's enemies are all dead (and it had some)
   const inCell = s.map.enemies.filter(e => e.cell === cell && e.kind !== 'eye' && e.kind !== 'blade')
@@ -220,6 +221,7 @@ export function loadMap(world: World, s: GameState, id: string): MapState {
     if ((t === 'R' || t === '%') && flag(`bomb:${id}:${i}`)) tiles[i] = '.'
     else if ((t === 'L' || t === 'K') && flag(`door:${id}:${i}`)) tiles[i] = '.'
   }
+  if (s.session) for (let i = 0; i < tiles.length; i++) if (tiles[i] === '¤') tiles[i] = '.'
   for (const g of info.gates) if (flag(`gate:${g.id}`)) for (const i of g.tiles) tiles[i] = '.'
   for (const c of info.chestList) if (c.appear) tiles[c.idx] = flag(`appear:${c.id}`) ? '$' : '.'
   // Psi blocks moved out in the open, and blocks dropped here from the floor above.
@@ -404,4 +406,25 @@ export function addKeys(s: GameState, n: number, ring = s.map.ring) {
 
 export function hasBigKey(s: GameState, ring = s.map.ring): boolean {
   return ring === 'shrine' ? s.inv.bigKey : has(s, `bigkey:${ring}`)
+}
+
+/**
+ * The shell's word on whether the visitor is logged in. Opens the velvet rope
+ * on the map they stand in (other maps read it when they load), or closes it
+ * again, unless the hero is standing on a rope tile: that one stays open until
+ * the map next loads.
+ */
+export function setSession(world: World, s: GameState, on: boolean) {
+  if (s.session === on) return
+  s.session = on
+  const info = mapInfo(world, s.map.id)
+  const m = s.map
+  let changed = false
+  for (let i = 0; i < info.base.length; i++) {
+    if (info.base[i] !== '¤') continue
+    if (!on && i === Math.floor(s.hero.y) * m.w + Math.floor(s.hero.x)) continue
+    const want = on ? '.' : '¤'
+    if (m.tiles[i] !== want) { m.tiles[i] = want; changed = true }
+  }
+  if (changed) m.version++
 }

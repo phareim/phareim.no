@@ -127,6 +127,8 @@ export type TileChar =
   | '}' // lever / breaker (solid; a hit throws it for good and sets its flag)
   // The town's beach
   | '-' // sand (walkable)
+  // The VIP hall's door
+  | '¤' // velvet rope (solid, projectiles pass; gone while `GameState.session` is true)
 
 // ---------------------------------------------------------------------------
 // Items
@@ -192,6 +194,7 @@ export type Cond =
   | { plates: string[] }
   | { item: ItemId }
   | { flags: string[]; not?: string[] } // all of `flags`, none of `not`
+  | { session: boolean } // logged in on auth.phareim.no (true) or not (false); never saved
 
 export interface TalkBranch {
   /** First branch whose condition holds is spoken. No condition = default. */
@@ -203,6 +206,8 @@ export interface TalkBranch {
   set?: string
   /** Flag cleared after speaking. */
   clear?: string
+  /** After the lines the shell opens this panel (the login console's), and the auth page brings the hero back to the entry named `<npc id>`. */
+  panel?: PanelId
 }
 
 /** Entity placed by a marker char in the rows. */
@@ -227,7 +232,7 @@ export type EntDef =
   | { t: 'lever'; flag: string } // a lever or breaker (tile '}'): a hit sets `flag` for good
   | ExitDef
 
-export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll' | 'hippie' | 'smoker' | 'guitar' | 'sleeper' | 'twirler' | 'bonfire'
+export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll' | 'hippie' | 'smoker' | 'guitar' | 'sleeper' | 'twirler' | 'bonfire' | 'guard'
 
 /**
  * Where an exit leads: another theme on phareim.no (`?theme=<id>`), the
@@ -647,7 +652,7 @@ export interface Dialog {
   /** Speaker look, for a portrait-free name tag. */
   who: string | null
   /** Shop purchase awaiting the last line, applied on close; `exit` starts that exit's fade on close. */
-  after: null | { give?: ItemId; set?: string[]; clear?: string[]; sourceId?: string; price?: number; exit?: { id: string; to: ExitTarget }; startOver?: true }
+  after: null | { panel?: { id: string; panel: PanelId }; give?: ItemId; set?: string[]; clear?: string[]; sourceId?: string; price?: number; exit?: { id: string; to: ExitTarget }; startOver?: true }
   /** Exit dialogs: the answer picked on the last line, 0 = YES (go), 1 = NO (stay). */
   choice?: 0 | 1
   /** A direction was held last frame (the choice moves once per press). */
@@ -661,6 +666,8 @@ export interface GameState {
   inv: Inventory
   /** Permanent progress. */
   flags: Record<string, true>
+  /** Logged in on auth.phareim.no right now (the shell tells the engine). Not progress: never saved. */
+  session: boolean
   /** Where death and Continue put you. */
   entry: { map: string; entry: string }
   /** Camera room (tiles) the camera is clamped to. */

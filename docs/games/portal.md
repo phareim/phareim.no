@@ -3,7 +3,8 @@
 `/` is the Portal: a small neon town you walk around in, and the west end
 of Neon Shrine's world. Petter's name is painted on the roof of his house.
 The buildings lead to everything else on the site: the arcade (a cabinet
-per game, the Hall of Fame board, the Hangar door), Petter's house (who he
+per game, the Hall of Fame board, the Hangar door), the VIP hall next door
+(the kids' games, for logged-in visitors), Petter's house (who he
 is, three terminals to his profiles, the login console), the PHAREIM.MD newsstand, the
 GAMES.PHAREIM.NO signpost, and east of the pier a quiet beach: two hippie
 DJs (the one building loops live leads to jam.phareim.no, the one with the
@@ -22,7 +23,8 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 | File | Job |
 |---|---|
 | `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, newsstand, signpost, pier, the beach east of it (two DJ booths, a bonfire and the people round it, tiki torches), the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
-| `themes/zelda/world/town.ts` | The arcade, 17×11 (eleven cabinets, Mini World's the tenth by the HANGAR door and Lag Din Figur's the eleventh in the corner beside it, the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
+| `themes/zelda/world/town.ts` | The arcade, 17×11 (nine cabinets, the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 13×8 (Mini World and Lag Din Figur, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
+| `themes/zelda/engine/map.ts` | `setSession`: the shell's word on the login; the rope tiles follow it |
 | `themes/zelda/world/index.ts` | `WORLD` (the one world), `worldExits()`, `worldStartingAt()` |
 | `themes/zelda/Zelda.vue` | The shell: loop, input, touch deck, audio, saves, pause menu, exits, the way back, the account panel |
 | `themes/zelda/AccountConsole.vue` | The login console's panel: session check, LOG IN / CREATE ACCOUNT / LOG OUT, its own keys |
@@ -62,6 +64,34 @@ background and replaces the run only if nothing has been saved this
 session. Back from a URL through the browser's page cache, `pageshow`
 restarts at the exit; a theme exit that has not navigated after 2.5 s
 comes back too. TO TOWN, NEW GAME and a new quest clear `portal.return`.
+
+**VIP hall** (2026-09-29). Ulrikke's two games, Mini World and Lag Din Figur,
+moved out of the arcade into a room of their own, a building north of the
+arcade (overworld cols 2–10, rows 3–7, VIP in gold on the roof, door `ß` at
+6,7; the room is `VIP` in `town.ts`, 13×8, back out to entry `vip`). Its
+door is open only to a visitor logged in on auth.phareim.no:
+
+- *Logged in:* the velvet rope in front of the door (tile `¤`, row 8, cols
+  5–7) is gone, and the guard beside it (NPC `vipguard`, look `guard`, 8,8)
+  only says the rope is down for you.
+- *Not logged in* (or the auth server unreachable): the rope is solid, the
+  door cannot be reached, and the guard asks for an account. When his lines
+  close, the login console's panel opens over the world (`TalkBranch.panel`,
+  the engine's `panel` event). LOG IN saves the spot as `{ overworld,
+  vipguard }` (a registered entry in front of him), so the auth page's
+  redirect brings the hero back to the guard.
+
+The engine holds the answer in `GameState.session` (not a flag, so never in
+a save); the shell sets it (`setSession` in `engine/map.ts`, `applySession`
+in `Zelda.vue`) from `fetchSession()` on mount and on a `pageshow` from the
+page cache, and from `AccountConsole.vue`'s `session` event (its own check
+on open, and LOG OUT). `setSession` opens or closes the rope on the map the
+hero is on, unless the hero stands on a rope tile (it stays open until the
+map loads again); every other map reads `session` in `loadMap`. Until the
+first answer arrives the rope is up. `Cond` has `{ session: boolean }` for
+NPC talk and hide. **The games themselves still open without a login**
+(`?theme=miniworld|figur` by URL; Norway-only stays as before): login on the
+games is the next round.
 
 **Pause menu.** RESUME · TO TOWN (T): saves and puts the hero on the plaza
 start, hearts full. Holding Escape for 3 s does the same (pill: HOLD ESC
@@ -128,7 +158,7 @@ while one of its links has keyboard focus.
 
 **Checks** (2026-09-24; NEW GAME machine 2026-09-26). `npm run test:portal` (in CI): the world
 validates; it starts on the plaza facing the name, and the town and its
-rooms have no enemies; the cabinets are exactly the ten arcade games,
+rooms have no enemies; the arcade's cabinets are exactly its nine games (the VIP hall's are Mini World and Lag Din Figur),
 each ending on INSERT COIN? PRESS {A}.; the NEW GAME machine
 says there is nothing to wipe before the blade, and after it asks once and
 never leaves the game; the beach lies only east of the pier and has two DJ booths
@@ -172,6 +202,18 @@ The YES / NO question at the Galaga cabinet headless in the dev server on
 (`scripts/zelda-lab/exit-shot.mjs`): → then Space stays, an Escape tap
 stays, a tap on the right half stays. `test:portal` runs every exit with
 lines through B, NO, a NO tap and YES. Not checked: a real phone.
+
+The VIP hall (2026-09-29): `tests/portal-world.test.mjs` checks the rope
+(three solid tiles in the row in front of the door, gone with a session, back
+without one, never closing on the hero), the guard's two branches (a
+`panel` event for `account` and no exit when not logged in, no panel and no
+exit when logged in), the return entry in front of him, that a save never
+holds the session, and that a path-finding walker reaches the door and the
+kids' cabinets only with a session. Headless in the dev server at 1280×800
+and 375×667 with auth faked over CDP (`scripts/zelda-lab/vip-shot.mjs`):
+the rope holds against walking into it, the guard's lines open the panel,
+and with a session the rope is gone and the hero walks in to both cabinets;
+no page errors. Not checked: the real auth.phareim.no, a real phone.
 
 **Known.** On a desktop, once the hero has the blade, the HUD (hearts,
 bits, item box) sits over the left end of PETTER HAREIM at the start, as

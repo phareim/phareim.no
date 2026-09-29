@@ -15,10 +15,13 @@ before(async () => { P = await load(); W = P.WORLD })
 /** The town is the overworld's first 40 columns. */
 const TOWN_W = 40
 
-const GAMES = ['anotherworld', 'galaga', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'tetris', 'battery', 'miniworld', 'figur']
+const GAMES = ['anotherworld', 'galaga', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'tetris', 'battery']
+/** Ulrikke's games, in the VIP hall next door (moved out of the arcade 2026-09-29). */
+const KIDS = ['miniworld', 'figur']
 const EXPECTED = {
   // cabinets
   ...Object.fromEntries(GAMES.map(g => [g, { map: 'arcade', to: { theme: g }, look: 'cabinet' }])),
+  ...Object.fromEntries(KIDS.map(g => [g, { map: 'vip', to: { theme: g }, look: 'cabinet' }])),
   leaderboard: { map: 'arcade', to: { theme: 'leaderboard' }, look: 'board' },
   hangar: { map: 'arcade', to: { theme: 'hangar' }, look: 'door' },
   kiosk: { map: 'overworld', to: { url: 'https://phareim.md' }, look: 'kiosk' },
@@ -56,8 +59,8 @@ function placedExits() {
  * A game plus everything it has said, and a hero that must never get hurt
  * (`step` checks it on every frame; `safe: false` for walks out of town).
  */
-function session(world = W, safe = true) {
-  const s = P.createGame(world, { seed: 7 })
+function session(world = W, safe = true, opts = {}) {
+  const s = P.createGame(world, { seed: 7, ...opts })
   const events = []
   const step = (i = inp(), dt = 1 / 60) => {
     const ev = P.stepGame(world, s, dt, i)
@@ -160,8 +163,9 @@ function readThrough(g) {
 
 /** From the start, go to exit `id` and use it; returns the `exit` event and the lines read on the way. */
 function useExit(id) {
-  const g = session()
   const spot = placedExits().find(e => e.id === id)
+  // The VIP hall's door is roped off until somebody is logged in.
+  const g = session(W, true, { session: spot.map === 'vip' })
   goToMap(g, spot.map)
   const walk = !P.TILE_INFO[g.s.map.tiles[spot.y * g.s.map.w + spot.x]].solid
   let lines = null
@@ -197,19 +201,20 @@ describe('portal world', () => {
     assert.equal(s.dialog, null)
     assert.equal(s.inv.sword, false)
     assert.ok(!s.map.enemies.some(e => e.x < TOWN_W), 'an enemy in the town')
-    for (const id of ['arcade', 'home']) assert.equal(P.createGame(W, { at: { map: id, entry: 'door' } }).map.enemies.length, 0, `an enemy in ${id}`)
+    for (const id of ['arcade', 'home', 'vip']) assert.equal(P.createGame(W, { at: { map: id, entry: 'door' } }).map.enemies.length, 0, `an enemy in ${id}`)
   })
 
-  it('has one cabinet per arcade game, each with a pitch that ends on the coin line', () => {
-    const cabinets = placedExits().filter(e => e.ent.look === 'cabinet' && e.map === 'arcade')
-    assert.deepEqual(cabinets.map(c => c.ent.art).sort(), [...GAMES].sort())
+  it('has one cabinet per arcade game, and Ulrikke\'s two in the VIP hall, each with a pitch that ends on the coin line', () => {
+    const cabinets = placedExits().filter(e => e.ent.look === 'cabinet' && (e.map === 'arcade' || e.map === 'vip'))
+    assert.deepEqual(cabinets.filter(c => c.map === 'arcade').map(c => c.ent.art).sort(), [...GAMES].sort())
+    assert.deepEqual(cabinets.filter(c => c.map === 'vip').map(c => c.ent.art).sort(), [...KIDS].sort())
     for (const c of cabinets) {
-      assert.equal(c.map, 'arcade')
+      assert.ok(c.map === 'arcade' || c.map === 'vip')
       assert.deepEqual(c.ent.to, { theme: c.ent.art })
       assert.ok(c.ent.label, `${c.id} has no label`)
       assert.ok(c.ent.lines.length >= 2 && c.ent.lines.length <= 3, `${c.id} has ${c.ent.lines.length} lines`)
       assert.equal(c.ent.lines.at(-1), 'INSERT COIN?')
-      assert.equal(P.mapInfo(W, 'arcade').base[c.y * P.mapInfo(W, 'arcade').w + c.x], 'M', `${c.id} is not on a machine tile`)
+      assert.equal(P.mapInfo(W, c.map).base[c.y * P.mapInfo(W, c.map).w + c.x], 'M', `${c.id} is not on a machine tile`)
     }
   })
 
@@ -475,6 +480,125 @@ describe('portal world', () => {
     assert.match(petter, /FATHER, HUSBAND, GEEK, ASPIRING GOOD GUY\./)
     assert.match(petter, /HELP FOLKS\. WRITE CODE\. BUILD THINGS\./)
     assert.equal(Object.values(W.maps.home.marks).find(m => m.ent.t === 'npc').ent.look, 'petter')
+  })
+})
+
+describe('the VIP hall', () => {
+  const def = () => W.maps.overworld
+  const ropeTiles = (s) => { const out = []; s.map.tiles.forEach((t, i) => { if (t === '¤') out.push([i % s.map.w, Math.floor(i / s.map.w)]) }); return out }
+  const door = () => P.mapInfo(W, 'overworld').warps.find(w => w.to === 'vip')
+  /** Press A facing the guard from the tile below them; returns the events once the lines are read. */
+  const talkToGuard = (g) => {
+    const guard = g.s.map.npcs.find(n => n.id === 'vipguard')
+    walkTo(g, Math.floor(guard.x), Math.floor(guard.y) + 1)
+    g.s.hero.dir = 'up'
+    g.step(inp({ aPress: true, a: true }))
+    assert.equal(g.s.mode, 'dialog', 'A should open the guard\'s lines')
+    const lines = g.s.dialog.lines
+    const before = g.events.length
+    readThrough(g)
+    for (let k = 0; k < 10; k++) g.step()
+    return { lines, events: g.events.slice(before) }
+  }
+
+  it('stands next to the arcade, with its door, a rope across it and a guard beside the rope', () => {
+    const d = door()
+    assert.ok(d, 'no door to the VIP hall')
+    const info = P.mapInfo(W, 'overworld')
+    const arcade = info.warps.find(w => w.to === 'arcade')
+    assert.ok(Math.abs(d.x - arcade.x) < 8 && d.y < arcade.y && arcade.y - d.y < 12, 'the VIP door is not by the arcade')
+    assert.ok(def().decals.some(x => x.text === 'VIP'), 'no VIP sign on the roof')
+    const s = P.createGame(W, { seed: 1 })
+    const rope = ropeTiles(s)
+    assert.ok(rope.length >= 3, 'the rope is too short')
+    assert.ok(rope.every(([x, y]) => y === d.y + 1), 'the rope is not in one row in front of the door')
+    assert.ok(rope.some(([x]) => x === d.x), 'the rope does not cover the door')
+    const guard = s.map.npcs.find(n => n.id === 'vipguard')
+    assert.equal(guard.look, 'guard')
+    assert.ok(!guard.wander)
+    assert.equal(Math.floor(guard.y), d.y + 1, 'the guard is not beside the rope')
+    assert.ok(rope.some(([x]) => Math.abs(x - Math.floor(guard.x)) === 1), 'the guard is not next to the rope')
+    for (const [x, y] of rope) assert.equal(P.TILE_INFO[s.map.tiles[y * s.map.w + x]].solid, true)
+  })
+
+  it('is closed to a visitor who is not logged in: the rope holds and the guard asks for the login', () => {
+    const g = session()
+    const d = door()
+    assert.equal(g.s.session, false)
+    assert.equal(path(g, d.x, d.y), null, 'a way to the door past the rope')
+    const { lines, events } = talkToGuard(g)
+    assert.match(lines.join(' '), /LOG IN/)
+    const panel = events.filter(e => e.type === 'panel')
+    assert.equal(panel.length, 1, 'the guard should open the login panel')
+    assert.deepEqual([panel[0].id, panel[0].panel], ['vipguard', 'account'])
+    assert.equal(g.s.mode, 'play', 'the panel leaves the hero standing')
+    assert.ok(!events.some(e => e.type === 'exit' || e.type === 'warp'))
+    // Coming back from the auth page stands the hero in front of the guard.
+    const back = P.worldStartingAt('overworld', 'vipguard')
+    assert.ok(back)
+    const h = P.createGame(back, { seed: 1 }).hero
+    assert.equal(Math.floor(h.x), Math.floor(g.s.map.npcs.find(n => n.id === 'vipguard').x))
+    assert.equal(Math.floor(h.y), Math.floor(g.s.map.npcs.find(n => n.id === 'vipguard').y) + 1)
+  })
+
+  it('is open to a visitor who is logged in: no rope, a guard who does nothing, and the kids\' cabinets inside', () => {
+    const g = session(W, true, { session: true })
+    const d = door()
+    assert.equal(ropeTiles(g.s).length, 0, 'the rope is still up')
+    const { lines, events } = talkToGuard(g)
+    assert.doesNotMatch(lines.join(' '), /LOG IN/)
+    assert.ok(!events.some(e => e.type === 'panel' || e.type === 'exit'), 'the guard did something')
+    assert.equal(g.s.hero.hp, g.s.hero.maxHp)
+    goToMap(g, 'vip')
+    assert.equal(g.s.map.id, 'vip')
+    const cabs = g.s.map.exits.filter(e => e.look === 'cabinet').map(e => e.art).sort()
+    assert.deepEqual(cabs, [...KIDS].sort())
+    // Back out through the door lands in front of the building, not on the rope's row.
+    goToMap(g, 'overworld')
+    assert.equal(Math.floor(g.s.hero.x), d.x)
+    assert.ok(g.s.hero.y > d.y + 1)
+  })
+
+  it('follows the login live: the rope drops when the shell says so and rises again on logout', () => {
+    const g = session()
+    const rope = ropeTiles(g.s)
+    const v0 = g.s.map.version
+    P.setSession(W, g.s, true)
+    assert.equal(g.s.session, true)
+    assert.equal(ropeTiles(g.s).length, 0)
+    assert.ok(g.s.map.version > v0, 'the tile layer is not told to repaint')
+    const d = door()
+    assert.ok(path(g, d.x, d.y), 'no way to the door once the rope is down')
+    P.setSession(W, g.s, true) // no change, no repaint
+    const v1 = g.s.map.version
+    P.setSession(W, g.s, true)
+    assert.equal(g.s.map.version, v1)
+    P.setSession(W, g.s, false)
+    assert.deepEqual(ropeTiles(g.s), rope)
+    // Maps load with the current answer: signed in inside the hall, out again, then back to the town.
+    const h = session(W, true, { session: true })
+    goToMap(h, 'vip')
+    P.setSession(W, h.s, false)
+    goToMap(h, 'overworld')
+    assert.deepEqual(ropeTiles(h.s), rope)
+  })
+
+  it('never puts the login into a save', () => {
+    const g = session(W, true, { session: true })
+    g.s.inv.sword = true
+    const save = P.toSave(g.s)
+    assert.ok(save.flags.every(f => !/session|vip/.test(f)), 'the login is in the save')
+    assert.equal(P.createGame(W, { save }).session, false)
+  })
+
+  it('leaves the hero where they stand when the rope goes back up under them', () => {
+    const g = session(W, true, { session: true })
+    const d = door()
+    g.s.hero.x = d.x + 0.5
+    g.s.hero.y = d.y + 1.5
+    P.setSession(W, g.s, false)
+    const i = (d.y + 1) * g.s.map.w + d.x
+    assert.notEqual(g.s.map.tiles[i], '¤', 'the rope closed on the hero')
   })
 })
 

@@ -74,6 +74,7 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   '{': OPEN,
   '}': LOW,
   '-': OPEN,
+  '¤': LOW,
 }
 
 export const TILE_CHARS = Object.keys(TILE_INFO) as TileChar[]

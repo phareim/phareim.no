@@ -1,7 +1,7 @@
 ## Mini World — Ulrikke's game (2026-09-26)
 
-`?theme=miniworld`, cabinet ten in the portal's arcade (right of the
-HANGAR door). Designed by Ulrikke (7): Roblox's blocky 3D world crossed
+`?theme=miniworld`, the left cabinet in the portal's VIP hall (next door to the arcade, for
+visitors who are logged in; moved there from the arcade 2026-09-29). Designed by Ulrikke (7): Roblox's blocky 3D world crossed
 with Toca World's people and houses. Norwegian throughout. The design,
 the town's layout, the look and the code map are in
 `themes/miniworld/DESIGN.md`; this file is how it works and how to check it.

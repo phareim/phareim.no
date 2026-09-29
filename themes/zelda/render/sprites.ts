@@ -1546,6 +1546,26 @@ const robot0: Rows = [
 ]
 const robot1 = edit(robot0, [7, 1, 'c'], [8, 1, 'c'], [6, 7, 'k'], [9, 7, 'k'], [5, 7, 'c'], [8, 7, 'c'], [7, 10, 'p'], [8, 10, 'y'])
 
+const guard0: Rows = [
+  '................',
+  '.....kkkkkk.....',
+  '....kssssssk....',
+  '...ksssssssSk...',
+  '...kkkkkkkkkk...',
+  '...ksssssssSk...',
+  '....kssKKssk....',
+  '.....kksSkk.....',
+  '...kkuuwpwuukk..',
+  '..kuuuuwpwuuuuk.',
+  '..kusuuuppuuusk.',
+  '..kuusssssssuuk.',
+  '...kuuuuuuuuuk..',
+  '...kuuKkkKuuk...',
+  '...kKKk..kKKk...',
+  '...kkkk..kkkk...',
+]
+const guard1 = edit(guard0, [3, 5, 'c'], [12, 5, 'c'])
+
 const cat0: Rows = [
   '................',
   '................',
@@ -1819,6 +1839,7 @@ const RAW: Record<string, Rows> = {
   cat_0: catRows0, cat_1: catRows1,
   ghost_0: ghost0, ghost_1: ghost1,
   petter_0: petter0, petter_1: petter1,
+  guard_0: guard0, guard_1: guard1,
 
   poof_0: poof[0]!, poof_1: poof[1]!, poof_2: poof[2]!, poof_3: poof[3]!,
   spark_0: spark0, spark_1: spark1,

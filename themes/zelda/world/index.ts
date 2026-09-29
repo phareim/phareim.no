@@ -7,7 +7,7 @@ import { hasEntry } from '../engine/game'
 import { OVERWORLD } from './overworld'
 import { SHRINE } from './shrine'
 import { HUT, SHOP, CAVE, MOSSA, RADIO } from './interiors'
-import { ARCADE, HOME } from './town'
+import { ARCADE, HOME, VIP } from './town'
 import { WILDWOOD } from './wildwood'
 import { LAB1, LAB1B } from './lab1'
 import { DEEP1, DEEP2 } from './lab2'
@@ -23,6 +23,7 @@ export const WORLD: World = {
     shop: SHOP,
     cave: CAVE,
     arcade: ARCADE,
+    vip: VIP,
     home: HOME,
     wildwood: WILDWOOD,
     mossa: MOSSA,

@@ -30,12 +30,12 @@ export const OVERWORLD: MapDef = {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT####################################',
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT#T:..................:T######II#####',
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT:..;;:TTTTTTTTTTTTTT.:.TT#..HHHHHHH.....:..:....#####IVVI####',
-    'TTTTTTTTTTTTTHHHHHHHHHHHHHHHTTTTTTTTTTTTTT..:....TTTTTTTTTTTTTT.5.TT#..HHHHHHH.....nn.nn...#####IW.I####',
-    'TTTT....:.T..HHHHHHHHHHHHHHH..T..:..TTTTTT:..4...:.....;;..TTTT...TT#t.HHHMHHH..t........t.######RR#####',
-    'TTT..::......HHHHHHHHHHHHHHH...:.....TTTTT..:...:.TTTTT;;;..TTTTRTTT#..HHHBHHH......:N.....##T:..X"..:T#',
-    'TT.......:.t.HHHHHHHHHHHHHHH.t....:...TTTTT:..a..TTTTTTT;;..TTTT.TTT#.....E....:...........##.G..G..G..#',
-    'TT..:..:.....HHHHHHHpHHHHHHH....:..:..TTTTTT....TTT;;TTTT...TTT;.;TT#.t,,,,,,,,,,,,,,,,,,t.##.....z....#',
-    'TTTT........,,,,,,,,@,,,,,,,,.......TTTTTTTTT..TTT;;;;TT..a..TT...TT#..,:,,,,,,,,,,,,,,:,..##.G..G..G.g#',
+    'TTHHHHHHHHHTTHHHHHHHHHHHHHHHTTTTTTTTTTTTTT..:....TTTTTTTTTTTTTT.5.TT#..HHHHHHH.....nn.nn...#####IW.I####',
+    'TTHHHHHHHHHTTHHHHHHHHHHHHHHH..T..:..TTTTTT:..4...:.....;;..TTTT...TT#t.HHHMHHH..t........t.######RR#####',
+    'TTHHHHHHHHHTTHHHHHHHHHHHHHHH...:.....TTTTT..:...:.TTTTT;;;..TTTTRTTT#..HHHBHHH......:N.....##T:..X"..:T#',
+    'TTHHHHHHHHHtTHHHHHHHHHHHHHHH.t....:...TTTTT:..a..TTTTTTT;;..TTTT.TTT#.....E....:...........##.G..G..G..#',
+    'TTHHHHßHHHH..HHHHHHHpHHHHHHH....:..:..TTTTTT....TTT;;TTTT...TTT;.;TT#.t,,,,,,,,,,,,,,,,,,t.##.....z....#',
+    'TTTT,¤¤¤Ð,,,,,,,,,,,@,,,,,,,,.......TTTTTTTTT..TTT;;;;TT..a..TT...TT#..,:,,,,,,,,,,,,,,:,..##.G..G..G.g#',
     'TTT..........::,,,,,,,,,,,::.........TTTTTTT...TTTT;;TTT.....TT.;.TT#..,,,,,t~~~~t,,,,,,,..##..........#',
     'TT..HHHHHHHHH:,,,,,,,,,,,,,:.T...:..T.TTTTT;..;..TTTTTTT..d.....;......,,,,,,~~~~,,,,y,,,..##.G..G..G..#',
     'TT..HHHHHHHHH,,,,,t~~~~t,,,t..:...T...TTTTT;;...;TTTTTTTT.......;......,,,,,,~~~~,,,,,,,,..##:....z....#',
@@ -96,6 +96,7 @@ export const OVERWORLD: MapDef = {
     { x: 20.5, y: 3.15, text: 'PETTER HAREIM', scale: 3, align: 'center', color: '#2ff3ff' },
     { x: 20.5, y: 4.75, text: 'PHAREIM.NO', scale: 2, align: 'center', color: '#ffd23f' },
     { x: 8.5, y: 10.55, text: 'ARCADE', scale: 2, align: 'center', color: '#ff5fd0' },
+    { x: 6.5, y: 3.55, text: 'VIP', scale: 3, align: 'center', color: '#ffd23f' },
     { x: 15.5, y: 22.35, text: 'PHAREIM.MD', scale: 1, align: 'center', color: '#ffd23f' },
   ],
   // Continue points per area (death puts you back at the last one visited),
@@ -110,12 +111,34 @@ export const OVERWORLD: MapDef = {
     home: { x: 20.5, y: 8.5, dir: 'down' },
     wildwood: { x: 1.5, y: 26.5, dir: 'right' },
     arcade: { x: 8.5, y: 15.5, dir: 'down' },
+    // The VIP hall's door is roped off while nobody is logged in; the rope is the row in front of it, so out is a row further.
+    vip: { x: 6.5, y: 9.5, dir: 'down' },
+    // Back from the auth page: in front of the guard, who asked for the login.
+    vipguard: { x: 8.5, y: 9.5, dir: 'up' },
   },
   marks: {
     // ---- The town ----
     '@': { ent: { t: 'entry', id: 'start', dir: 'up' } },
     p: { tile: 'D', ent: { t: 'warp', to: 'home', entry: 'door' } },
     U: { tile: 'D', ent: { t: 'warp', to: 'arcade', entry: 'door' } },
+    // The VIP hall, north of the arcade: the kids' games. The rope ('¤') across its door is down while logged in.
+    'ß': { tile: 'D', ent: { t: 'warp', to: 'vip', entry: 'door' } },
+    'Ð': {
+      tile: ',',
+      ent: {
+        t: 'npc', id: 'vipguard', look: 'guard', dir: 'left',
+        talk: [
+          {
+            when: { session: true },
+            lines: ['GUARD: EVENING. THE ROPE IS DOWN FOR YOU. GO RIGHT IN.', 'THE KIDS\' GAMES ARE INSIDE. NO TROUBLE FROM ME.'],
+          },
+          {
+            lines: ['GUARD: HOLD ON. THE VIP HALL IS FOR PEOPLE WITH AN ACCOUNT.', 'LOG IN AND THE ROPE COMES DOWN. THE CONSOLE IS RIGHT HERE.'],
+            panel: 'account',
+          },
+        ],
+      },
+    },
     m: {
       tile: 'n',
       ent: {
@@ -172,7 +195,7 @@ export const OVERWORLD: MapDef = {
             when: { notFlag: 'item:sword' },
             lines: [
               'KID: NEW HERE? WALK UP TO ANYTHING THAT GLOWS AND PRESS {A}.',
-              "THE ARCADE IS WEST, ONE CABINET PER GAME. THE COAST ROAD, DOWN BY THE WATER, GOES EAST TO THE KEEPER'S HUT. THERE'S A JOB WAITING THERE.",
+              "THE ARCADE IS WEST, ONE CABINET PER GAME. THE VIP HALL NEXT TO IT IS FOR PEOPLE WHO LOG IN. THE COAST ROAD, DOWN BY THE WATER, GOES EAST TO THE KEEPER'S HUT. THERE'S A JOB WAITING THERE.",
               'PETTER LIVES RIGHT THERE, UNDER HIS NAME. HE LIKES VISITORS.',
             ],
           },
@@ -181,7 +204,7 @@ export const OVERWORLD: MapDef = {
       },
     },
     '9': { ent: { t: 'npc', id: 'towncat', look: 'cat', wander: true, talk: [{ lines: ['MRRROW.', '(THE CAT WAS HERE FIRST.)'] }] } },
-    '0': { tile: 'S', ent: { t: 'sign', lines: ["↑ PETTER'S HOUSE   ← THE ARCADE   ↓ THE COAST ROAD, THE BEACH AND THE KEEPER'S HUT"] } },
+    '0': { tile: 'S', ent: { t: 'sign', lines: ["↑ PETTER'S HOUSE   ← THE ARCADE AND THE VIP HALL   ↓ THE COAST ROAD, THE BEACH AND THE KEEPER'S HUT"] } },
     // The west road: into the Wildwood, through a thicket only a blade gets through.
     '<': { tile: ',', ent: { t: 'warp', to: 'wildwood', entry: 'town' } },
     ')': { tile: 'S', ent: { t: 'sign', lines: ['← THE WILDWOOD', 'THE THICKET HAS GROWN OVER THE ROAD AGAIN. YOU WOULD NEED A BLADE.'] } },

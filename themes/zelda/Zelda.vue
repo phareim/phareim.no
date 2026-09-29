@@ -45,7 +45,7 @@
     </div>
   </div>
   <!-- The login console in Petter's house: the world stands still behind it. -->
-  <AccountConsole v-if="panel === 'account'" :touch="touchUI" @close="closePanel" @leave="leaveForPanel" />
+  <AccountConsole v-if="panel === 'account'" :touch="touchUI" @close="closePanel" @leave="leaveForPanel" @session="applySession" />
 </template>
 
 <script setup lang="ts">
@@ -90,7 +90,8 @@
  */
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
-import { createGame, resumeAfterWin, stepGame, toSave } from './engine/index'
+import { createGame, resumeAfterWin, setSession, stepGame, toSave } from './engine/index'
+import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer } from './render/renderer'
 import { sprite } from './render/sheet'
@@ -137,6 +138,8 @@ const confirmReset = ref(false)
 const panel = ref<PanelId | null>(null)
 /** The exit that opened the panel: coming back from the auth page stands the hero in front of it. */
 let panelExit = ''
+/** Logged in on auth.phareim.no, as last heard: the VIP hall's rope is down while it holds. Not saved. */
+let signedIn = false
 const phase = ref<Phase>('play')
 const touchUI = ref(false)
 const selected = ref<UseItem | null>(null)
@@ -261,7 +264,7 @@ function clearReturn() {
 function begin(save: SaveData | null, at: Spot, banner = false) {
   loadedSave = save
   pendingPull = null
-  state = createGame(WORLD, { save, at, seed: Date.now() >>> 0 })
+  state = createGame(WORLD, { save, at, seed: Date.now() >>> 0, session: signedIn })
   purse.adopt(state.inv, state.flags)
   input.clear()
   paused.value = false
@@ -356,6 +359,18 @@ function leave(id: string, to: ExitTarget) {
   writeReturn(state.map.id, id)
   if ('theme' in to) launch(to.theme)
   else { leavingUrl = true; window.location.assign(to.url) }
+}
+
+/** The visitor is (or is no longer) logged in: the VIP hall's rope goes down or up. */
+function applySession(on: boolean) {
+  signedIn = on
+  setSession(WORLD, state, on)
+}
+
+/** Asks auth.phareim.no who this browser is. Offline counts as nobody, and leaves the rope as it was. */
+async function checkSession() {
+  const s = await fetchSession()
+  if (alive && s.state !== 'offline') applySession(s.state === 'in')
 }
 
 /** The login console was used: open its panel over the still world. */
@@ -640,6 +655,8 @@ function onVisibility() {
 /** Back from a URL exit through the browser's page cache: the world is still dark, so step back out. */
 function onPageShow(e: PageTransitionEvent) {
   if (e.persisted && state.mode === 'exit') comeBack()
+  // Back from the auth page through the page cache: the login may have changed.
+  if (e.persisted) void checkSession()
   lastT = 0
 }
 
@@ -684,6 +701,7 @@ onMounted(() => {
   begin(local, readReturn() ?? WORLD.start)
   walletStop = onWalletChange(b => purse.external(state.inv, b))
   void syncProfile()
+  void checkSession()
   resize()
   observer = new ResizeObserver(resize)
   observer.observe(canvas.value)

@@ -96,6 +96,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
+  /** Who is logged in, as far as this panel has found out (on open, and after LOG OUT): the town's VIP rope follows it. */
+  session: [signedIn: boolean]
   /** Go to an auth page (a full page load): the shell saves the spot first. */
   leave: [url: string]
 }>()
@@ -192,6 +194,7 @@ async function load() {
   if (!alive) return
   if (s.state === 'in') user.value = s.user
   view.value = s.state
+  if (s.state !== 'offline') emit('session', s.state === 'in')
 }
 
 async function logout() {
@@ -202,6 +205,7 @@ async function logout() {
     user.value = null
     loggedOut.value = true
     view.value = 'out'
+    emit('session', false)
   } else {
     await load()
   }

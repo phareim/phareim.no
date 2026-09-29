@@ -1,7 +1,7 @@
 ## Lag Din Figur — Ulrikke's figure maker (2026-09-26)
 
-`?theme=figur`, cabinet eleven in the portal's arcade (the back corner,
-beside Mini World). Ulrikke (7) asked for it: make a figure for any game,
+`?theme=figur`, the right cabinet in the portal's VIP hall (beside Mini World; moved
+there from the arcade 2026-09-29). Ulrikke (7) asked for it: make a figure for any game,
 free, no ads; draw how it looks and ask for help; figures for Minecraft,
 Roblox, Toca Boca and Avatar World; make your own clothes and delete them
 if you don't like them; some clothes to choose from at the start. Petter

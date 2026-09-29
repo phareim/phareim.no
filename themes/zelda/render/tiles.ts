@@ -246,6 +246,10 @@ function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx:
     case '-':
       sandTile(g, px, py, tx, ty, at)
       return
+    case '¤':
+      if (kind === 'overworld') pathTile(g, px, py, tx, ty, at)
+      else ground(kind, g, px, py, tx, ty, at)
+      return
     case 'O':
       if (kind === 'overworld') { chasm(g, px, py, tx, ty, at); return }
       r(g, '#05030c', px, py, T, T)
@@ -579,6 +583,26 @@ function fence(g: G, px: number, py: number, at: At) {
   }
 }
 
+/** The VIP hall's velvet rope: brass posts at the ends of a run, a red rope between, sagging in the middle. */
+function velvetRope(g: G, px: number, py: number, at: At) {
+  const left = at(-1, 0) !== '¤'
+  const right = at(1, 0) !== '¤'
+  const y = left || right ? 6 : 8
+  r(g, '#140a22', px + (left ? 2 : 0), py + y + 2, T - (left ? 2 : 0) - (right ? 2 : 0), 1)
+  r(g, '#9e1638', px, py + y, T, 2)
+  r(g, '#ff3b5c', px, py + y, T, 1)
+  const post = (x: number) => {
+    r(g, '#140a22', x - 1, py + 3, 5, 12)
+    r(g, '#c4861c', x, py + 5, 3, 9)
+    r(g, '#ffd23f', x, py + 5, 1, 8)
+    r(g, '#fff1b0', x, py + 3, 3, 3)
+    r(g, '#ffd23f', x + 1, py + 4, 1, 1)
+    r(g, '#c4861c', x - 1, py + 13, 5, 2)
+  }
+  if (left) post(px + 1)
+  if (right) post(px + T - 4)
+}
+
 function boulder(g: G, px: number, py: number) {
   r(g, 'rgba(0,0,0,0.3)', px + 1, py + 12, 15, 4)
   disc(g, OW.rockDD, px + 8, py + 8, 7)
@@ -696,6 +720,7 @@ function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, t
     case 'S': sign(g, px, py, kind, marquee); break
     case 'G': grave(g, px, py); break
     case 'F': fence(g, px, py, at); break
+    case '¤': velvetRope(g, px, py, at); break
     case 'H': case 'M':
       if (kind === 'overworld') building(g, t, px, py, tx, ty, at, bare)
       else machine(kind, g, px, py)
