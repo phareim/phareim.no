@@ -123,7 +123,7 @@ test('every weapon base × magic × level builds with a muzzle ahead of the grip
 test('the house editor emits only layouts the save accepts, and keeps fixtures clear', () => {
   let save = M.newSave()
   const owned = [...save.furniture]
-  catalog.FURNITURE.forEach((f, i) => owned.push({ uid: `t${i}`, id: f.id, level: 1 + (i % 3) }))
+  catalog.FURNITURE.forEach((f, i) => owned.push({ uid: `t-${i}`, id: f.id, level: 1 + (i % 3) }))
   save = { ...save, furniture: owned }
   const house = M.createHouse({ editable: true })
   house.setLayout(save.house, owned)
@@ -138,7 +138,7 @@ test('the house editor emits only layouts the save accepts, and keeps fixtures c
     save = r
     for (const it of l.items) {
       const def = catalog.furniture(owned.find(x => x.uid === it.uid).id)
-      if (it.uid.startsWith('t')) assert.ok(!M.fixtureBlocked(def, it), `${def.id} on a fixture`)
+      if (it.uid.startsWith('t-')) assert.ok(!M.fixtureBlocked(def, it), `${def.id} on a fixture`)
     }
     const rot = house.rotate()
     if (rot) { const r2 = M.setLayout(save, rot); assert.equal(typeof r2, 'object', `rotate ${o.id}: ${r2}`); save = r2 }
@@ -156,7 +156,7 @@ test('the house editor emits only layouts the save accepts, and keeps fixtures c
 test('an upper storey: stairs are solid steps, the opening has rails, and its editor keeps off both strips', () => {
   let save = M.addStorey(M.addStorey(M.newSave()))
   const owned = [...save.furniture]
-  catalog.FURNITURE.forEach((f, i) => owned.push({ uid: `t${i}`, id: f.id, level: 1 }))
+  catalog.FURNITURE.forEach((f, i) => owned.push({ uid: `t-${i}`, id: f.id, level: 1 }))
   save = { ...save, furniture: owned }
   const info = { index: 1, stair: save.house.up[0].stair, hole: save.house.stair }
   const house = M.createHouse({ editable: true, storey: info })
@@ -166,7 +166,7 @@ test('an upper storey: stairs are solid steps, the opening has rails, and its ed
   const strips = [info.stair, info.hole].map(M.stairCells)
   let placed = 0
   // Only what is in storage (the starter things stand on the ground storey).
-  for (const o of owned.filter(x => x.uid.startsWith('t'))) {
+  for (const o of owned.filter(x => x.uid.startsWith('t-'))) {
     const room = house.add(o.uid)
     if (!room) continue
     placed++
