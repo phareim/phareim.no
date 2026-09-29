@@ -50,7 +50,9 @@ A push to `master` on `phareim/phareim.no` reaches `sleeper-deploy`
 `git pull --ff-only` in `~/github/phareim.no`, then `npm ci --omit=dev` and
 `pm2 restart mw-world` only if `servers/mw-world/` or
 `themes/miniworld/net/protocol.ts` changed. A restart drops everyone for a
-moment. The site itself deploys to Cloudflare from GitHub Actions.
+moment. A push made from `~/github/phareim.no` itself pulls nothing, so
+the hook sees no change: run `pm2 restart mw-world` by hand then (found
+2026-09-29). The site itself deploys to Cloudflare from GitHub Actions.
 
 ## What would make it redundant
 
