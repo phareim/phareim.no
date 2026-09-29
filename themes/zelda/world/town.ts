@@ -170,7 +170,7 @@ export const VIP: MapDef = {
     { kind: 'glow', x: 15.3, y: 9, w: 3.5, color: '#ffd23f' },
   ],
   decals: [
-    { x: 8.5, y: 0.3, text: 'VIP LOUNGE', color: '#ff2fa0', scale: 1, align: 'center' },
+    { x: 9.3, y: 0.3, text: 'VIP LOUNGE', color: '#ff2fa0', scale: 1, align: 'center' },
     { x: 13.5, y: 0.3, text: 'BAR', color: '#2ff3ff', scale: 1, align: 'center' },
   ],
   marks: {
