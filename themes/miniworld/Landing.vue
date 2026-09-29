@@ -3,7 +3,8 @@
     audio) is its own chunk, loaded on the client only, so the site's entry
     stays small. SSR paints the sky and the name. -->
   <div class="mw-page">
-    <ClientOnly>
+    <p v-if="!norwayOk" class="mw-loading mw-closed">BARE ÅPENT I NORGE</p>
+    <ClientOnly v-else>
       <MiniWorldGame />
       <template #fallback>
         <p class="mw-loading">MINI WORLD</p>
@@ -13,6 +14,8 @@
 </template>
 
 <script setup lang="ts">
+// Norway only (server/utils/norway.ts): outside it the game never loads.
+const norwayOk = useState<boolean>('norwayOk', () => true)
 const MiniWorldGame = defineAsyncComponent(() => import('./Game.vue'))
 </script>
 
@@ -40,4 +43,5 @@ const MiniWorldGame = defineAsyncComponent(() => import('./Game.vue'))
 @media (max-width: 420px) {
   .mw-loading { font-size: 32px; text-shadow: 4px 4px 0 #2a1f4a; }
 }
+.mw-closed { font-size: 28px; text-align: center; padding: 0 16px; }
 </style>

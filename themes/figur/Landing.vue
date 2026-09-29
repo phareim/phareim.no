@@ -3,7 +3,8 @@
     the drawing board) is its own chunk, loaded on the client only, so the
     site's entry stays small. SSR paints the lilac and the name. -->
   <div class="fg-page">
-    <ClientOnly>
+    <p v-if="!norwayOk" class="fg-loading fg-closed">BARE ÅPENT I NORGE</p>
+    <ClientOnly v-else>
       <FigurGame />
       <template #fallback>
         <p class="fg-loading">LAG DIN FIGUR</p>
@@ -13,6 +14,8 @@
 </template>
 
 <script setup lang="ts">
+// Norway only (server/utils/norway.ts): outside it the game never loads.
+const norwayOk = useState<boolean>('norwayOk', () => true)
 const FigurGame = defineAsyncComponent(() => import('./Game.vue'))
 </script>
 
@@ -41,4 +44,5 @@ const FigurGame = defineAsyncComponent(() => import('./Game.vue'))
 @media (max-width: 520px) {
   .fg-loading { font-size: 32px; text-shadow: 4px 4px 0 var(--figur-ink, #2a1744); }
 }
+.fg-closed { font-size: 28px; text-align: center; padding: 0 16px; }
 </style>

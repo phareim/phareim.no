@@ -100,6 +100,7 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 ## Key Patterns
 
 - No `runtimeConfig` (2026-09-07). The Hall of Fame routes read their D1 binding and the `WAVE_JOBS_KEY` secret from `event.context.cloudflare.env` (2026-09-08), which needs no config; background work goes through `event.context.cloudflare.context.waitUntil`. If `runtimeConfig` comes back: secrets are set on Cloudflare by `NUXT_`-prefixed env vars, and server code **must** call `useRuntimeConfig(event)` — without the event, Workers return a config frozen at module init, before env vars exist, so the value silently never applies (found 2026-09-03).
+- Norway only for Ulrikke's games (2026-09-29): `server/middleware/norway.ts` answers 403 outside Norway to `/?theme=miniworld|figur` and `/api/mw/*` (country from `request.cf`, none in dev = allowed, Sleeper's addresses always allowed; `server/utils/norway.ts`), and `plugins/norway.server.ts` hands the answer to the page so a cabinet opened from the portal shows "BARE ÅPENT I NORGE" instead of loading the game. `mw-world` has the same gate in nginx on Sleeper (`~/github/sleeper/geo/`).
 - No auth system of its own: the login console reads the session from auth.phareim.no in the browser; nothing on the site's server checks it.
 
 ## Deployment
