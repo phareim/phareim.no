@@ -173,3 +173,17 @@ use: Pixal3D for bulk, TRELLIS.2 (overnight) for hero characters with thin parts
 Pixal3D seeds first. Do not run TRELLIS on zap at the same time as anything else.
 
 Only one TRELLIS run took the GPU lock for almost 3 hours (15:11-18:05); Sleeper's queue waited on it.
+
+## Side by side in a scene, and Petter's pick (2026-09-29)
+
+Both foxes (each after `lowpoly`, 20k tris, same input image) stand on the island at
+https://test.phareim.no (repo `phareim/test`, wgpu/wasm; `web/models/fox-pixal3d.glb` and
+`fox-trellis.glb`, green and orange floating labels).
+
+**Petter prefers Pixal3D visually in the scene.** Read: the painterly, saturated single-pass texture
+matters more than TRELLIS.2's cleaner thin parts, and Pixal3D is 24x faster. Default for the
+backlog and for zap-mesh stays Pixal3D. TRELLIS.2 remains an exception (overnight, alone on the GPU)
+only for a hero character where a thin part comes out wrong and re-rolled Pixal3D seeds do not fix it.
+
+The stray `python -m http.server` processes left by the render script (`render/shot.py`) were
+harmless but should be killed after a run.
