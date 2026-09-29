@@ -18,10 +18,13 @@ const TOWN_W = 40
 const GAMES = ['anotherworld', 'galaga', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'tetris', 'battery']
 /** Ulrikke's games, in the VIP hall next door (moved out of the arcade 2026-09-29). */
 const KIDS = ['miniworld', 'figur']
+/** Eventyrland, Ulrikke's 3D storybook on its own page: a cabinet in the VIP hall that leaves for the URL. */
+const VIP_ARTS = [...KIDS, 'eventyrland']
 const EXPECTED = {
   // cabinets
   ...Object.fromEntries(GAMES.map(g => [g, { map: 'arcade', to: { theme: g }, look: 'cabinet' }])),
   ...Object.fromEntries(KIDS.map(g => [g, { map: 'vip', to: { theme: g }, look: 'cabinet' }])),
+  eventyrland: { map: 'vip', to: { url: 'https://eventyrland.phareim.no' }, look: 'cabinet' },
   leaderboard: { map: 'arcade', to: { theme: 'leaderboard' }, look: 'board' },
   hangar: { map: 'arcade', to: { theme: 'hangar' }, look: 'door' },
   kiosk: { map: 'overworld', to: { url: 'https://phareim.md' }, look: 'kiosk' },
@@ -204,13 +207,13 @@ describe('portal world', () => {
     for (const id of ['arcade', 'home', 'vip']) assert.equal(P.createGame(W, { at: { map: id, entry: 'door' } }).map.enemies.length, 0, `an enemy in ${id}`)
   })
 
-  it('has one cabinet per arcade game, and Ulrikke\'s two in the VIP hall, each with a pitch that ends on the coin line', () => {
+  it('has one cabinet per arcade game, and Ulrikke\'s three in the VIP hall, each with a pitch that ends on the coin line', () => {
     const cabinets = placedExits().filter(e => e.ent.look === 'cabinet' && (e.map === 'arcade' || e.map === 'vip'))
     assert.deepEqual(cabinets.filter(c => c.map === 'arcade').map(c => c.ent.art).sort(), [...GAMES].sort())
-    assert.deepEqual(cabinets.filter(c => c.map === 'vip').map(c => c.ent.art).sort(), [...KIDS].sort())
+    assert.deepEqual(cabinets.filter(c => c.map === 'vip').map(c => c.ent.art).sort(), [...VIP_ARTS].sort())
     for (const c of cabinets) {
       assert.ok(c.map === 'arcade' || c.map === 'vip')
-      assert.deepEqual(c.ent.to, { theme: c.ent.art })
+      assert.deepEqual(c.ent.to, c.ent.art === 'eventyrland' ? { url: 'https://eventyrland.phareim.no' } : { theme: c.ent.art })
       assert.ok(c.ent.label, `${c.id} has no label`)
       assert.ok(c.ent.lines.length >= 2 && c.ent.lines.length <= 3, `${c.id} has ${c.ent.lines.length} lines`)
       assert.equal(c.ent.lines.at(-1), 'INSERT COIN?')
@@ -552,7 +555,7 @@ describe('the VIP hall', () => {
     goToMap(g, 'vip')
     assert.equal(g.s.map.id, 'vip')
     const cabs = g.s.map.exits.filter(e => e.look === 'cabinet').map(e => e.art).sort()
-    assert.deepEqual(cabs, [...KIDS].sort())
+    assert.deepEqual(cabs, [...VIP_ARTS].sort())
     // Back out through the door lands in front of the building, not on the rope's row.
     goToMap(g, 'overworld')
     assert.equal(Math.floor(g.s.hero.x), d.x)
@@ -599,6 +602,26 @@ describe('the VIP hall', () => {
     P.setSession(W, g.s, false)
     const i = (d.y + 1) * g.s.map.w + d.x
     assert.notEqual(g.s.map.tiles[i], '¤', 'the rope closed on the hero')
+  })
+
+  it('has a bar: a bartender behind the counter who talks and serves, on a shelf of bottles, in a dim room', () => {
+    const g = session(W, true, { session: true })
+    goToMap(g, 'vip')
+    const def = P.mapInfo(W, 'vip').def
+    assert.ok(def.ambient, 'the hall is as bright as daylight')
+    assert.ok(def.props.some(p => p.kind === 'discoball'), 'no mirror ball')
+    const bt = g.s.map.npcs.find(n => n.id === 'bartender')
+    assert.ok(bt, 'no bartender')
+    assert.equal(bt.look, 'barmaid')
+    const m = g.s.map
+    assert.equal(m.tiles[(Math.floor(bt.y) + 1) * m.w + Math.floor(bt.x)], 'n', 'no counter in front of her')
+    assert.equal(m.tiles[(Math.floor(bt.y) - 1) * m.w + Math.floor(bt.x)], 'q', 'no shelf behind her')
+    walkTo(g, Math.floor(bt.x), Math.floor(bt.y) + 2)
+    g.s.hero.dir = 'up'
+    g.step(inp({ aPress: true, a: true }))
+    assert.equal(g.s.mode, 'dialog', 'she does not talk across the bar')
+    assert.match(g.s.dialog.lines.join(' '), /BARTENDER/)
+    assert.match(g.s.dialog.lines.join(' '), /ON THE HOUSE/)
   })
 })
 

@@ -651,6 +651,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         lights.push({ x: n.x, y: n.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.95 * flick }, { x: n.x, y: n.y - 0.6, r: 2, color: '#ffd23f', a: 0.8 * flick })
       }
       if (n.look === 'smoker') lights.push({ x: n.x + (n.dir === 'left' ? -0.3 : 0.3), y: n.y - 0.3, r: 0.6, color: '#ff8a3d', a: 0.7 })
+      if (n.look === 'barmaid') lights.push({ x: n.x, y: n.y - 0.6, r: 1.8, color: '#ffb070', a: 0.6 })
       if (n.look === 'robot') lights.push({ x: n.x, y: n.y - 0.8, r: 1.2, color: '#ff2fa0', a: 0.7 })
       if (n.look === 'keeper') lights.push({ x: n.x + 0.3, y: n.y - 0.9, r: 1.6, color: '#2ff3ff', a: 0.7 })
       if (n.look === 'ghost') lights.push({ x: n.x, y: n.y, r: 2, color: '#cfc6ff', a: 0.4 })
@@ -679,7 +680,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
     // --- light --------------------------------------------------------------------
     const dark = kind !== 'overworld' && cellIsDark(s, info, s.zoneIndex)
-    const amb = dark ? (kind === 'interior' ? AMBIENT.caveDark : AMBIENT.dark) : AMBIENT[kind]
+    const amb = dark ? (kind === 'interior' ? AMBIENT.caveDark : AMBIENT.dark) : info.def.ambient ?? AMBIENT[kind]
     lg.globalCompositeOperation = 'source-over'
     lg.fillStyle = amb
     lg.fillRect(0, 0, vw, vh)

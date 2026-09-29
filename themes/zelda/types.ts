@@ -128,6 +128,7 @@ export type TileChar =
   // The town's beach
   | '-' // sand (walkable)
   // The VIP hall's door
+  | 'q' // the bar's back shelf of bottles (solid, wall)
   | '¤' // velvet rope (solid, projectiles pass; gone while `GameState.session` is true)
 
 // ---------------------------------------------------------------------------
@@ -232,7 +233,7 @@ export type EntDef =
   | { t: 'lever'; flag: string } // a lever or breaker (tile '}'): a hit sets `flag` for good
   | ExitDef
 
-export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll' | 'hippie' | 'smoker' | 'guitar' | 'sleeper' | 'twirler' | 'bonfire' | 'guard'
+export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll' | 'hippie' | 'smoker' | 'guitar' | 'sleeper' | 'twirler' | 'bonfire' | 'guard' | 'barmaid'
 
 /**
  * Where an exit leads: another theme on phareim.no (`?theme=<id>`), the
@@ -320,12 +321,12 @@ export interface CellDef {
  * lights that spells a word, the Gate, specimen tanks.
  */
 export interface Prop {
-  kind: 'tent' | 'campfire' | 'mast' | 'lights' | 'rift' | 'tank' | 'van' | 'fort' | 'bike' | 'lift'
+  kind: 'tent' | 'campfire' | 'mast' | 'lights' | 'rift' | 'tank' | 'van' | 'fort' | 'bike' | 'lift' | 'discoball' | 'glow'
   x: number
   y: number
   w?: number
   h?: number
-  /** 'lights': the word the bulbs spell; 'stone'/'truck': a label. */
+  /** 'lights': the word the bulbs spell; 'stone'/'truck': a label. 'glow': w is the light's radius; 'discoball': w is the orbit of its four coloured spots, h how far below the ball their centre lies. */
   text?: string
   color?: string
   /** Drawn only while this holds (the Gate after it shuts). */
@@ -355,6 +356,8 @@ export interface MapDef {
   areas?: Array<Rect & { name: string; track?: TrackId; entry?: string; intro?: AreaIntro }>
   /** Painted lettering, drawn over the ground and under entities. */
   decals?: Decal[]
+  /** An interior's light-map base colour, instead of the daylight default: a dim room whose lights show. */
+  ambient?: string
   /**
    * Maps sharing a keyring share small keys and a big key (a dungeon's
    * floors). Default 'shrine': `Inventory.keys`/`bigKey`; any other ring

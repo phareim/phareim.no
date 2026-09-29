@@ -134,30 +134,70 @@ export const ARCADE: MapDef = {
 }
 
 /**
- * The VIP hall, next door to the arcade on its north side: Ulrikke's two
- * games, Mini World and Lag Din Figur (moved out of the arcade 2026-09-29).
- * The door in the town is roped off until the visitor is logged in on
- * auth.phareim.no; a guard stands beside it. 13×8.
+ * The VIP hall, next door to the arcade on its north side. Ulrikke's games
+ * stand along the back wall (Mini World and Lag Din Figur moved out of the
+ * arcade 2026-09-29, Eventyrland came in the same day) and a bar takes the
+ * right-hand corner, with a bartender behind it and a shelf of bottles. The
+ * room is dim on purpose: a mirror ball throws four coloured spots over the
+ * dance floor and neon glows on the walls. The door in the town is roped off
+ * until the visitor is logged in on auth.phareim.no; a guard stands beside
+ * it. 17×11, like the arcade.
  */
 export const VIP: MapDef = {
   id: 'vip',
   name: 'THE VIP HALL',
   kind: 'interior',
   track: 'indoor',
+  ambient: '#8a76b8',
   rows: [
-    '#############',
-    '#t..1.S.2..t#',
-    '#,..i...i..,#',
-    '#,,,,,,,,,,,#',
-    '#Y..fffff..Y#',
-    '#,..fffff...#',
-    '#Y....@....Y#',
-    '######d######',
+    '#################',
+    '#t1.2.3.S..qqqqq#',
+    '#.i.i.i...n..W..#',
+    '#.........nnnnnn#',
+    '#..........i.i.i#',
+    '#Y...fffffff...Y#',
+    '#....fffffff....#',
+    '#....fffffff....#',
+    '#Y...fffffff...Y#',
+    '#t......@......t#',
+    '########d########',
+  ],
+  props: [
+    { kind: 'discoball', x: 8.5, y: 4.2, w: 3, h: 2.3 },
+    { kind: 'glow', x: 13.5, y: 1.6, w: 4.5, color: '#ff2fa0' },
+    { kind: 'glow', x: 4, y: 1.5, w: 5, color: '#2ff3ff' },
+    { kind: 'glow', x: 1.2, y: 9, w: 3.5, color: '#9a4ff0' },
+    { kind: 'glow', x: 15.3, y: 9, w: 3.5, color: '#ffd23f' },
+  ],
+  decals: [
+    { x: 8.5, y: 0.3, text: 'VIP LOUNGE', color: '#ff2fa0', scale: 1, align: 'center' },
+    { x: 13.5, y: 0.3, text: 'BAR', color: '#2ff3ff', scale: 1, align: 'center' },
   ],
   marks: {
     '@': { ent: { t: 'entry', id: 'door', dir: 'up' } },
     d: { tile: 'D', ent: { t: 'warp', to: 'overworld', entry: 'vip' } },
-    S: { tile: 'S', ent: { t: 'sign', lines: ['THE VIP HALL. FOR PEOPLE WITH AN ACCOUNT.', 'THE GUARD OUTSIDE LET YOU IN, SO YOU ARE ON THE LIST.'] } },
+    S: { tile: 'S', ent: { t: 'sign', lines: ['THE VIP HALL. FOR PEOPLE WITH AN ACCOUNT.', 'THE GUARD OUTSIDE LET YOU IN, SO YOU ARE ON THE LIST.', 'ULRIKKE\'S GAMES ON THE LEFT. THE BAR IS ON THE RIGHT.'] } },
+    W: {
+      ent: {
+        t: 'npc', id: 'bartender', look: 'barmaid', dir: 'down',
+        talk: [
+          {
+            when: { flag: 'boss' },
+            lines: [
+              'BARTENDER: WELL, LOOK WHO IT IS. THE ONE WHO PUT THE KING IN HIS PLACE!',
+              'THE LAST HIT IS ON THE HOUSE: SUN IN A GLASS. IT IS WARM AND IT GLOWS. DO NOT ASK WHAT IS IN IT.',
+            ],
+          },
+          {
+            lines: [
+              'BARTENDER: WELCOME TO THE VIP BAR, HONEY! WHAT CAN I GET YOU?',
+              'TODAY: THE LASER SUNSET, THE GLITCHY MOJITO, THE LAG SPIKE (IT ARRIVES LATE), AND THE EXTRA LIFE. IT FIZZES AND TASTES LIKE MUSHROOM.',
+              'ALL ON THE HOUSE. THE COLOURS ARE NOT NATURAL. THEY ARE BETTER.',
+            ],
+          },
+        ],
+      },
+    },
     '1': cabinet('miniworld', 'MINI WORLD', [
       'MINI WORLD. ULRIKKE, AGE SEVEN, DESIGNED IT: A SUNNY TOWN OF BLOCKS. MAKE YOUR PEOPLE, DRESS THEM UP, DO UP YOUR HOUSE.',
       'OBBY TOWER, STAR HUNT, FASHION SHOW. WIN BITS, THE SAME BITS YOU FIND OUT HERE. THE ONLY CABINET WITH NO MONSTERS IN IT.',
@@ -166,6 +206,17 @@ export const VIP: MapDef = {
       'LAG DIN FIGUR. ULRIKKE MADE THIS ONE TOO: MAKE A FIGURE, THEN SEE IT AS MINECRAFT, ROBLOX, TOCA BOCA OR AVATAR WORLD WOULD DRAW IT.',
       'DRAW YOUR OWN CLOTHES. ASK PIP FOR HELP. FREE, NO ADS. THE FIGURE YOU MAKE WALKS OUT HERE AS YOU.',
     ]),
+    '3': {
+      tile: 'M',
+      ent: {
+        t: 'exit', id: 'eventyrland', to: { url: 'https://eventyrland.phareim.no' }, look: 'cabinet', art: 'eventyrland', label: 'EVENTYRLAND', side: 'down',
+        lines: [
+          'EVENTYRLAND. A FAIRY-TALE ADVENTURE IN 3D: A PRINCESS, A VILLAGE, A TRAIN THAT RUNS ON TIME, AND FRIENDS TO MEET IN ONE SHARED WORLD.',
+          'IT LIVES ON ITS OWN PAGE, SO THIS ONE OPENS A NEW WORLD. COME BACK ANY TIME.',
+          COIN,
+        ],
+      },
+    },
   },
 }
 

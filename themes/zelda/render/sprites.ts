@@ -1566,6 +1566,26 @@ const guard0: Rows = [
 ]
 const guard1 = edit(guard0, [3, 5, 'c'], [12, 5, 'c'])
 
+const barmaid0: Rows = [
+  '................',
+  '.....kkkkkk.....',
+  '....krrrrrrk....',
+  '...krrrrrrrrk...',
+  '..krrssssssrrk..',
+  '..krsskssksrrk..',
+  '..krrssSSssrrk..',
+  '..krrrksskrrk...',
+  '...kvvvwwvvvk...',
+  '..kvvvvwwvvvvk..',
+  '..ksvvvwwvvvsk..',
+  '..kssvvwwvvssk..',
+  '...kvvvwwvvvk...',
+  '...kvvvvvvvvk...',
+  '...kVVVkkVVVk...',
+  '...kkkk..kkkk...',
+]
+const barmaid1 = edit(barmaid0, [6, 5, 's'], [9, 5, 's'], [14, 9, 'c'], [14, 10, 'c'], [14, 8, 'y'], [13, 10, 'k'], [13, 11, 'k'])
+
 const cat0: Rows = [
   '................',
   '................',
@@ -1840,6 +1860,7 @@ const RAW: Record<string, Rows> = {
   ghost_0: ghost0, ghost_1: ghost1,
   petter_0: petter0, petter_1: petter1,
   guard_0: guard0, guard_1: guard1,
+  barmaid_0: barmaid0, barmaid_1: barmaid1,
 
   poof_0: poof[0]!, poof_1: poof[1]!, poof_2: poof[2]!, poof_3: poof[3]!,
   spark_0: spark0, spark_1: spark1,

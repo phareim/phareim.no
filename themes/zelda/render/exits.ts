@@ -102,6 +102,20 @@ const CABS: Record<string, CabStyle> = {
       '..w.w.......',
     ),
   },
+  eventyrland: {
+    // Eventyrland, Ulrikke's 3D storybook: a pale castle with pink roofs under a dusk sky.
+    body: '#2a7a6a', bodyL: '#5fd0b0', bodyD: '#124a40', trim: '#ffd23f', glow: '#ff9ae0',
+    bg: ['#3a2a8a', '#4a2f9a', '#6a3aa8', '#8a48b0', '#b058b8', '#d070b8', '#3fa86e'],
+    marquee: M(
+      '.....y......',
+      '.p...yy...p.',
+      'ppp.pppp.ppp',
+      '.w..WWWW..w.',
+      '.w..WWWW..w.',
+      'wwwwWWdWwwww',
+      'llllllllllll',
+    ),
+  },
   battery: {
     body: '#3a1a3a', bodyL: '#5e2e5a', bodyD: '#1e0c20', trim: '#ffd23f', glow: '#ffd23f',
     bg: ['#0b0616', '#120a24', '#1a0e30', '#1a0e30', '#1a0e30', '#120a24', '#0b0616'],
@@ -422,6 +436,18 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       const hop = Math.round(Math.abs(Math.sin(t * 5 + seed)) * 2)
       const feet = kx >= 5 ? 3 : 5
       f('#ffd23f', kx, feet - 2 - hop); f('#ff2fa0', kx, feet - 1 - hop); f('#2f5fd0', kx, feet - hop)
+      return
+    }
+    case 'eventyrland': {
+      // Dusk over the castle; a pink butterfly drifts across, wings going.
+      f('#3a2a8a', 0, 0, W, 3); f('#8a48b0', 0, 3, W, 2); f('#e890c0', 0, 5, W, 1); f('#3fa86e', 0, 6, W, 2)
+      if (Math.floor(t * 3 + seed) % 4 !== 0) f('#ffd23f', 4, 0)
+      f('#fff4ff', 1, 3, 2, 3); f('#fff4ff', 7, 3, 2, 3); f('#cfc6ff', 3, 4, 4, 2)
+      f('#ff2fa0', 1, 2, 2, 1); f('#ff2fa0', 7, 2, 2, 1); f('#54259e', 4, 5, 2, 1)
+      const bx = Math.round(tri(t * 3 + seed, 8))
+      const by = 1 + Math.round(Math.sin(t * 4 + seed))
+      f('#ff8ae0', bx, by)
+      f(Math.floor(t * 8) % 2 ? '#2ff3ff' : '#ff8ae0', bx + 1, by)
       return
     }
     case 'anotherworld': {

@@ -74,6 +74,7 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   '{': OPEN,
   '}': LOW,
   '-': OPEN,
+  q: S,
   '¤': LOW,
 }
 

@@ -22,6 +22,31 @@ function put(g: G, name: string, x: number, y: number, flip = false) {
   g.drawImage(c, Math.round(x - c.width / 2), Math.round(y - c.height))
 }
 
+const SPOTS = ['#ff2fa0', '#2ff3ff', '#ffd23f', '#b6ff4a']
+
+/** A mirror ball on a string, and four coloured spots that circle the floor below it. */
+function drawDiscoBall(g: G, p: Prop, x: number, y: number, tm: number, lights: Light[]) {
+  const cx = Math.round(x)
+  const by = Math.round(y)
+  g.fillStyle = '#8f86b8'
+  g.fillRect(cx, by - 24, 1, 15)
+  const widths = [4, 6, 8, 8, 8, 8, 6, 4]
+  const shift = Math.floor(tm * 4)
+  widths.forEach((w, i) => {
+    for (let k = 0; k < w; k++) {
+      g.fillStyle = (k + i + shift) % 3 === 0 ? '#fff4ff' : (k + i) % 2 ? '#8f86b8' : '#cfc6ff'
+      g.fillRect(cx - w / 2 + k, by - 9 + i, 1, 1)
+    }
+  })
+  g.fillStyle = '#0b0616'
+  g.fillRect(cx - 1, by - 10, 2, 1)
+  if (Math.floor(tm * 6) % 2 === 0) { g.fillStyle = '#fff4ff'; g.fillRect(cx + 5, by - 7, 1, 1); g.fillRect(cx - 6, by - 4, 1, 1) }
+  SPOTS.forEach((c, i) => {
+    const a = tm * 0.7 + (i * Math.PI) / 2
+    lights.push({ x: p.x + Math.cos(a) * (p.w ?? 3), y: p.y + (p.h ?? 2) + Math.sin(a) * 1.6, r: 2.3, color: c, a: 0.6 })
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
@@ -71,6 +96,10 @@ export function queueProps(
         lights.push({ x: p.x, y: p.y - 0.8, r: 2, color: '#3fd8b0', a: 0.6 })
         break
       }
+      case 'glow':
+        lights.push({ x: p.x, y: p.y, r: p.w ?? 3, color: p.color ?? '#ff2fa0', a: 0.5 + 0.1 * Math.sin(tm * 2 + p.x) })
+        break
+      case 'discoball': items.push({ y: p.y, draw: () => drawDiscoBall(g, p, x, y, tm, lights) }); break
       case 'lights': drawLightsWall(g, p, x, y, tm, lights); break
       case 'rift': drawRift(g, p, x, y, tm, lights); break
       case 'lift': {

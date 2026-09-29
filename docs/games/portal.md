@@ -4,7 +4,7 @@
 of Neon Shrine's world. Petter's name is painted on the roof of his house.
 The buildings lead to everything else on the site: the arcade (a cabinet
 per game, the Hall of Fame board, the Hangar door), the VIP hall next door
-(the kids' games, for logged-in visitors), Petter's house (who he
+(Ulrikke's games and a bar, for logged-in visitors), Petter's house (who he
 is, three terminals to his profiles, the login console), the PHAREIM.MD newsstand, the
 GAMES.PHAREIM.NO signpost, and east of the pier a quiet beach: two hippie
 DJs (the one building loops live leads to jam.phareim.no, the one with the
@@ -23,7 +23,7 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 | File | Job |
 |---|---|
 | `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, newsstand, signpost, pier, the beach east of it (two DJ booths, a bonfire and the people round it, tiki torches), the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
-| `themes/zelda/world/town.ts` | The arcade, 17×11 (nine cabinets, the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 13×8 (Mini World and Lag Din Figur, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
+| `themes/zelda/world/town.ts` | The arcade, 17×11 (nine cabinets, the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 17×11 (Mini World, Lag Din Figur and Eventyrland, a bar with its bartender, a mirror ball, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
 | `themes/zelda/engine/map.ts` | `setSession`: the shell's word on the login; the rope tiles follow it |
 | `themes/zelda/world/index.ts` | `WORLD` (the one world), `worldExits()`, `worldStartingAt()` |
 | `themes/zelda/Zelda.vue` | The shell: loop, input, touch deck, audio, saves, pause menu, exits, the way back, the account panel |
@@ -65,10 +65,11 @@ session. Back from a URL through the browser's page cache, `pageshow`
 restarts at the exit; a theme exit that has not navigated after 2.5 s
 comes back too. TO TOWN, NEW GAME and a new quest clear `portal.return`.
 
-**VIP hall** (2026-09-29). Ulrikke's two games, Mini World and Lag Din Figur,
-moved out of the arcade into a room of their own, a building north of the
+**VIP hall** (2026-09-29). Ulrikke's games, Mini World and Lag Din Figur
+(moved out of the arcade) and Eventyrland (a cabinet that leaves for
+`eventyrland.phareim.no`), have a room of their own, a building north of the
 arcade (overworld cols 2–10, rows 3–7, VIP in gold on the roof, door `ß` at
-6,7; the room is `VIP` in `town.ts`, 13×8, back out to entry `vip`). Its
+6,7; the room is `VIP` in `town.ts`, 17×11, back out to entry `vip`). Its
 door is open only to a visitor logged in on auth.phareim.no:
 
 - *Logged in:* the velvet rope in front of the door (tile `¤`, row 8, cols
@@ -80,6 +81,17 @@ door is open only to a visitor logged in on auth.phareim.no:
   the engine's `panel` event). LOG IN saves the spot as `{ overworld,
   vipguard }` (a registered entry in front of him), so the auth page's
   redirect brings the hero back to the guard.
+
+Inside (17×11): the three cabinets along the back wall with stools, the sign,
+and a bar in the right-hand corner: a shelf of bottles (tile `q`), a counter
+(`n`) with the bartender behind it (NPC `bartender`, look `barmaid`; she is
+talked to across the counter like the arcade's vendor; a different line
+once the King is beaten) and stools in front. It is a dim club, not
+daylight: `MapDef.ambient` sets the light map's base colour, and
+`MapDef.props` add a mirror ball (`discoball`, four coloured spots circling
+the dance floor rug) and neon glows (`glow`, radius in `w`); the neon
+lettering VIP LOUNGE and BAR are decals. Eventyrland's cabinet has its own
+marquee and screen (`CABS.eventyrland` and `drawScreen` in `render/exits.ts`).
 
 The engine holds the answer in `GameState.session` (not a flag, so never in
 a save); the shell sets it (`setSession` in `engine/map.ts`, `applySession`
@@ -158,7 +170,7 @@ while one of its links has keyboard focus.
 
 **Checks** (2026-09-24; NEW GAME machine 2026-09-26). `npm run test:portal` (in CI): the world
 validates; it starts on the plaza facing the name, and the town and its
-rooms have no enemies; the arcade's cabinets are exactly its nine games (the VIP hall's are Mini World and Lag Din Figur),
+rooms have no enemies; the arcade's cabinets are exactly its nine games (the VIP hall's are Mini World, Lag Din Figur and Eventyrland),
 each ending on INSERT COIN? PRESS {A}.; the NEW GAME machine
 says there is nothing to wipe before the blade, and after it asks once and
 never leaves the game; the beach lies only east of the pier and has two DJ booths
@@ -208,10 +220,10 @@ The VIP hall (2026-09-29): `tests/portal-world.test.mjs` checks the rope
 without one, never closing on the hero), the guard's two branches (a
 `panel` event for `account` and no exit when not logged in, no panel and no
 exit when logged in), the return entry in front of him, that a save never
-holds the session, and that a path-finding walker reaches the door and the
-kids' cabinets only with a session. Headless in the dev server at 1280×800
+holds the session, that the bar has its counter, shelf and a bartender who talks across it, and that a path-finding walker reaches the door and the
+cabinets only with a session. Headless in the dev server at 1280×800
 and 375×667 with auth faked over CDP (`scripts/zelda-lab/vip-shot.mjs`):
-the rope holds against walking into it, the guard's lines open the panel,
+the rope holds against walking into it (the inside of the hall: `scripts/zelda-lab/vip-inside-shot.mjs`), the guard's lines open the panel,
 and with a session the rope is gone and the hero walks in to both cabinets;
 no page errors. Not checked: the real auth.phareim.no, a real phone.
 

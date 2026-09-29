@@ -649,6 +649,25 @@ function counter(g: G, px: number, py: number, at: At) {
   if (at(1, 0) !== 'n') r(g, '#2a1426', px + T - 1, py + 2, 1, 14)
 }
 
+/** The bar's back shelf: two planks of bottles in every colour of the room. */
+function backBar(g: G, px: number, py: number, tx: number, ty: number) {
+  const cols = ['#ff2fa0', '#2ff3ff', '#ffd23f', '#b6ff4a', '#9a4ff0', '#ff8a3d']
+  r(g, '#1a0e26', px, py, T, T)
+  r(g, '#2a1426', px, py, T, 1)
+  for (const [top, plank] of [[2, 7], [9, 14]] as const) {
+    for (let i = 0; i < 3; i++) {
+      const bx = px + 1 + i * 5
+      const c = cols[Math.floor(hash2(tx * 3 + i, ty, top) * cols.length)]!
+      r(g, c, bx, py + top + 2, 3, 4)
+      r(g, c, bx + 1, py + top, 1, 2)
+      r(g, '#fff4ff', bx, py + top + 2, 1, 2)
+    }
+    r(g, '#6e3d4e', px, py + plank, T, 1)
+    r(g, '#8e5566', px, py + plank, T, 1)
+  }
+  r(g, '#2a1426', px, py + 15, T, 1)
+}
+
 function machine(kind: MapKind, g: G, px: number, py: number) {
   if (kind !== 'interior') return
   // Arcade cabinet
@@ -729,6 +748,7 @@ function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, t
     case '>': stairs(kind, g, px, py); break
     case 'I': pillar(kind, g, px, py); break
     case 'n': counter(g, px, py, at); break
+    case 'q': backBar(g, px, py, tx, ty); break
     case 'L': lockedDoor(g, px, py, false); break
     case 'K': lockedDoor(g, px, py, true); break
     case 'x': spikes(g, px, py); break
