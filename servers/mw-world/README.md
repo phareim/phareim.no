@@ -17,11 +17,12 @@ and the browsers reconnect by themselves within a few seconds.
 ```bash
 cd ~/github/phareim.no/servers/mw-world
 npm ci --omit=dev
-pm2 start server.ts --name mw-world --interpreter node --node-args="--disable-warning=MODULE_TYPELESS_PACKAGE_JSON"
-pm2 save
+pm2 start ecosystem.config.cjs && pm2 save
 ```
 
-The warning flag hides Node's note that the repo root's `package.json` has no
+`ecosystem.config.cjs` clears the environment of the shell that starts it, so the
+service holds no API keys; re-create with `pm2 delete mw-world` first. The warning
+flag (in `node_args`) hides Node's note that the repo root's `package.json` has no
 `"type"` (protocol.ts lives there).
 
 For local development: `npm start` (port 3034). In dev the game connects to
