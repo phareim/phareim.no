@@ -10,7 +10,7 @@
   >
     <template v-if="game.ready.value">
       <header class="fg-head">
-        <h1 class="fg-title fg-t">LAG DIN FIGUR</h1>
+        <h1 class="fg-title fg-t"><span class="fg-title-long">LAG DIN FIGUR</span><span class="fg-title-short" aria-hidden="true">FIGUR</span></h1>
         <div class="fg-head-btns">
           <button type="button" class="px-btn fg-btn fg-btn--plain fg-headbtn" aria-label="Mine figurer" @click="openSheet('figures')">
             <FgIcon id="figures" :scale="2" /><span class="fg-wide-word">MINE FIGURER</span>
@@ -20,6 +20,9 @@
           </button>
           <button type="button" class="px-btn fg-btn fg-btn--plain fg-headbtn" :aria-label="muted ? 'Lyd på' : 'Lyd av'" :aria-pressed="!muted" @click="toggleMute">
             <FgIcon :id="muted ? 'mute' : 'sound'" :scale="3" />
+          </button>
+          <button type="button" class="px-btn fg-btn fg-btn--plain fg-headbtn" aria-label="Innstillinger" @click="openSheet('settings')">
+            <FgIcon id="gear" :scale="3" />
           </button>
         </div>
       </header>
@@ -84,6 +87,7 @@
       <FiguresSheet v-if="sheet === 'figures'" @close="sheet = null" />
       <RenameSheet v-else-if="sheet === 'rename'" @close="sheet = null" />
       <ShareSheet v-else-if="sheet === 'share'" @close="sheet = null" />
+      <SettingsSheet v-else-if="sheet === 'settings'" @close="sheet = null" />
 
       <DrawBoard v-if="board" :key="boardKey" ref="boardRef" :start="board" @close="closeBoard" />
 
@@ -111,6 +115,7 @@ import Helper from './ui/Helper.vue'
 import FiguresSheet from './ui/FiguresSheet.vue'
 import RenameSheet from './ui/RenameSheet.vue'
 import ShareSheet from './ui/ShareSheet.vue'
+import SettingsSheet from './ui/SettingsSheet.vue'
 import DrawBoard from './ui/DrawBoard.vue'
 import Ask from './ui/Ask.vue'
 import type { IconId } from './ui/icons'
@@ -130,7 +135,7 @@ const figure = computed(() => game.active.value)
 
 const rootRef = ref<HTMLDivElement | null>(null)
 const tab = ref<ToolTab>('clothes')
-const sheet = ref<'figures' | 'rename' | 'share' | null>(null)
+const sheet = ref<'figures' | 'rename' | 'share' | 'settings' | null>(null)
 const board = ref<BoardStart | null>(null)
 const boardKey = ref(0)
 const boardRef = ref<{ escape(): void; undo(): void } | null>(null)
@@ -175,7 +180,7 @@ function onHop() {
   sfx('pop')
 }
 
-function openSheet(s: 'figures' | 'rename' | 'share') {
+function openSheet(s: 'figures' | 'rename' | 'share' | 'settings') {
   sheet.value = s
   sfx('pop')
 }
@@ -328,6 +333,13 @@ onBeforeUnmount(() => {
 .fg-head-btns { display: flex; gap: 10px; flex: none; }
 .fg-root .px-btn.fg-btn.fg-headbtn { padding: 0 10px; }
 .fg-wide-word { display: none; }
+/* Four buttons (settings came 2026-09-29) leave a phone no room for the long name. */
+.fg-title-short { display: none; }
+@media (max-width: 440px) {
+  .fg-title-long { display: none; }
+  .fg-title-short { display: inline; }
+  .fg-head-btns { gap: 6px; }
+}
 
 /* ---------------------------------------------------------------- the two halves */
 

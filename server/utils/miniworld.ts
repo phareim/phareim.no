@@ -536,9 +536,16 @@ export function getMwStore(event: H3Event): MwStore {
 /**
  * Runs a route's logic with the store and turns an MwError into the HTTP
  * error (statusMessage and data.code carry the short code the client reads).
+ * `caller` is the private player id the request names (playerId, player or
+ * viewer). First the sign-in gate (account.ts): a session that owns that
+ * profile ('account', every /api/mw/* route and Mini World's wallet), or,
+ * for the wallet without a game hint, the owner's session only when the
+ * profile has been linked ('linked').
  */
-export async function mwRoute<T>(event: H3Event, fn: (store: MwStore) => Promise<T>): Promise<T> {
+export async function mwRoute<T>(event: H3Event, caller: unknown, fn: (store: MwStore) => Promise<T>, gate: 'account' | 'linked' = 'account'): Promise<T> {
   setResponseHeader(event, 'Cache-Control', 'no-store')
+  if (gate === 'account') await requireAccountPlayer(event, caller)
+  else await guardLinkedPlayer(event, caller)
   try {
     return await fn(getMwStore(event))
   } catch (e) {

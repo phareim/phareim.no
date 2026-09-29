@@ -4,6 +4,12 @@
  * it as `https://sleeper.phareim.no/mw-world/`. The room logic is in
  * room.ts, the wire format in themes/miniworld/net/protocol.ts.
  *
+ * Who may connect (2026-09-29): a page on phareim.no (Origin) with a signed-in
+ * account. The browser sends its `session_token` cookie with the upgrade
+ * (sleeper.phareim.no is inside the cookie's `.phareim.no`); it is checked
+ * against auth.phareim.no (server/utils/sessionCheck.ts, cached, fail
+ * closed) and a missing or bad session gets 401 before the upgrade.
+ *
  * Run: `node server.ts` (Node 22 strips the types); it listens as soon as
  * it loads. MW_WORLD_PORT picks the port (0 = any, for tests). Logs go to stdout.
  */
@@ -13,6 +19,8 @@ import type { Duplex } from 'node:stream'
 import { createRequire } from 'node:module'
 import { networkInterfaces } from 'node:os'
 import { MAX_MSG_BYTES } from '../../themes/miniworld/net/protocol.ts'
+import { createSessionChecker } from '../../server/utils/sessionCheck.ts'
+import type { SessionChecker } from '../../server/utils/sessionCheck.ts'
 import { createRoom } from './room.ts'
 import type { Conn } from './room.ts'
 
@@ -63,7 +71,11 @@ function originAllowed(origin: string | undefined): boolean {
 
 // ---------------------------------------------------------------- server
 
-function startServer(port: number, host = '127.0.0.1'): Promise<{ port: number; close: () => Promise<void> }> {
+// MW_WORLD_AUTH_BASE points the session check at another auth server: the
+// tests' fake one. Unset in production, where it is https://auth.phareim.no.
+const sessions = createSessionChecker(process.env.MW_WORLD_AUTH_BASE ? { base: process.env.MW_WORLD_AUTH_BASE } : {})
+
+function startServer(port: number, host = '127.0.0.1', auth: SessionChecker = sessions): Promise<{ port: number; close: () => Promise<void> }> {
   const started = Date.now()
   const room = createRoom({ log: line => console.log(`[mw-world] ${line}`) })
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MSG_BYTES })
@@ -88,16 +100,25 @@ function startServer(port: number, host = '127.0.0.1'): Promise<{ port: number; 
       console.log(`[mw-world] refused origin ${JSON.stringify(String(req.headers.origin ?? '').slice(0, 80))}`)
       return refuse('403 Forbidden')
     }
-    wss.handleUpgrade(req, socket, head, ws => {
-      const conn: Conn = room.open({ send: t => ws.send(t), close: (code, reason) => ws.close(code, reason) })
-      alive.set(ws, true)
-      ws.on('pong', () => alive.set(ws, true))
-      ws.on('message', (data, isBinary) => {
-        if (isBinary) return
-        room.message(conn, Array.isArray(data) ? Buffer.concat(data).toString() : Buffer.from(data as ArrayBuffer).toString())
+    // The Cookie header is the credential; it goes to the checker and nowhere else (never logged).
+    socket.on('error', () => { /* the client left while auth was being asked */ })
+    void auth.check(req.headers.cookie).then((who) => {
+      if (socket.destroyed) return
+      if (who.state !== 'in') {
+        console.log(`[mw-world] refused: ${who.state === 'down' ? 'auth unreachable' : 'no session'}`)
+        return refuse('401 Unauthorized')
+      }
+      wss.handleUpgrade(req, socket, head, ws => {
+        const conn: Conn = room.open({ send: t => ws.send(t), close: (code, reason) => ws.close(code, reason) })
+        alive.set(ws, true)
+        ws.on('pong', () => alive.set(ws, true))
+        ws.on('message', (data, isBinary) => {
+          if (isBinary) return
+          room.message(conn, Array.isArray(data) ? Buffer.concat(data).toString() : Buffer.from(data as ArrayBuffer).toString())
+        })
+        ws.on('close', () => { alive.delete(ws); room.close(conn) })
+        ws.on('error', () => { /* 'close' follows */ })
       })
-      ws.on('close', () => { alive.delete(ws); room.close(conn) })
-      ws.on('error', () => { /* 'close' follows */ })
     })
   })
 

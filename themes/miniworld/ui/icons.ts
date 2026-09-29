@@ -123,6 +123,17 @@ const ROWS = {
     '.kCCCppCCCk.',
     '.kkkkkkkkkk.',
   ],
+  gear: [
+    '...kkk...',
+    '.k.kyk.k.',
+    'kykkyykyk',
+    '.kyywyyk.',
+    'kkywwwykk',
+    '.kyywyyk.',
+    'kykkyykyk',
+    '.k.kyk.k.',
+    '...kkk...',
+  ],
   close: [
     'kk......kk',
     'kwk....kwk',

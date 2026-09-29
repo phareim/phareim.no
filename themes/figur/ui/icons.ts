@@ -221,6 +221,17 @@ const ROWS = {
   ],
 
   // ------------------------------------------------ small buttons
+  gear: [
+    '...kkk...',
+    '.k.kyk.k.',
+    'kykkyykyk',
+    '.kyywyyk.',
+    'kkywwwykk',
+    '.kyywyyk.',
+    'kykkyykyk',
+    '.k.kyk.k.',
+    '...kkk...',
+  ],
   close: [
     'kk......kk',
     'kkk....kkk',

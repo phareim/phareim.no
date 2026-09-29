@@ -58,6 +58,9 @@
       <button type="button" class="px-btn mw-btn mw-btn--plain mw-menu-btn" :aria-label="muted ? 'Lyd på' : 'Lyd av'" @click="$emit('mute')">
         <span class="mw-t mw-note" :class="{ 'mw-note--off': muted }">♪</span>
       </button>
+      <button type="button" class="px-btn mw-btn mw-btn--plain mw-menu-btn" aria-label="Innstillinger" @click="$emit('open', 'settings')">
+        <PxIcon id="gear" :scale="3" />
+      </button>
     </nav>
 
     <button v-if="running" type="button" class="px-btn mw-btn mw-btn--plain mw-quit" @click="$emit('quit')">◀ AVSLUTT</button>
@@ -94,7 +97,7 @@ const props = defineProps<{
   netDown: '' | 'offline' | 'full'
 }>()
 
-defineEmits<{ open: ['persons' | 'wardrobe' | 'bag' | 'map' | 'mailbox']; home: []; mute: []; quit: [] }>()
+defineEmits<{ open: ['persons' | 'wardrobe' | 'bag' | 'map' | 'mailbox' | 'settings']; home: []; mute: []; quit: [] }>()
 
 const { pics } = useMw()
 const portrait = computed(() => (props.person ? pics.person(props.person.look, { size: 112 }) : ''))

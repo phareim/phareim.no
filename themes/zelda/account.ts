@@ -5,10 +5,14 @@
  *
  * Contract: the page `/` takes `redirect`, `theme` (neon | paper) and `mode`
  * (signin | signup); `GET /api/session` answers `{ user: { id, email, name,
- * image } | null }`; `POST /api/sign-out` ends the session. Both API calls go
+ * image } | null }`; `POST /api/sign-out` ends the session; `POST
+ * /api/sign-in { email, password }` answers `{ user }` and sets the cookie
+ * (429 after ten failed tries for an email in ten minutes). All calls go
  * cross-origin with the session cookie (`credentials: 'include'`); the server
  * reflects phareim.no and *.phareim.no origins. Anything else (localhost, the
- * server down) comes back as `offline`.
+ * server down) comes back as `offline`. The in-game sign-in windows of Mini
+ * World and Lag Din Figur (composables/useAccount.ts) use `signIn`; sign-up
+ * stays on the auth page (invite only).
  */
 
 /** The one place the auth server's address lives. */
@@ -76,6 +80,34 @@ export async function fetchSession(f: Fetch = fetch, base = AUTH_BASE, timeoutMs
 export async function signOut(f: Fetch = fetch, base = AUTH_BASE, timeoutMs = AUTH_TIMEOUT_MS): Promise<boolean> {
   const res = await call(f, `${base}/api/sign-out`, { method: 'POST' }, timeoutMs)
   return !!res?.ok
+}
+
+export type SignInResult =
+  | { ok: true; user: AuthUser }
+  /** wrong: email or password did not match; too-many: rate limited (429); offline: no answer; error: anything else. */
+  | { ok: false; reason: 'wrong' | 'too-many' | 'offline' | 'error' }
+
+/**
+ * Signs in with email and password. The cookie comes back on the response
+ * (auth sets it for `.phareim.no`); the password is sent once and kept
+ * nowhere. A success without a readable user is confirmed with a session
+ * call before it counts.
+ */
+export async function signIn(email: string, password: string, f: Fetch = fetch, base = AUTH_BASE, timeoutMs = AUTH_TIMEOUT_MS): Promise<SignInResult> {
+  const res = await call(
+    f,
+    `${base}/api/sign-in`,
+    { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ email: email.trim(), password }) },
+    timeoutMs,
+  )
+  if (!res) return { ok: false, reason: 'offline' }
+  if (res.status === 429) return { ok: false, reason: 'too-many' }
+  if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) return { ok: false, reason: 'wrong' }
+  if (!res.ok) return { ok: false, reason: 'error' }
+  let parsed: Session | null = null
+  try { parsed = parseSession(await res.json()) } catch { /* fall through to the session call */ }
+  if (!parsed || parsed.state !== 'in') parsed = await fetchSession(f, base, timeoutMs)
+  return parsed.state === 'in' ? { ok: true, user: parsed.user } : { ok: false, reason: 'error' }
 }
 
 /** The auth page in the neon theme, coming back to `back` afterwards. */

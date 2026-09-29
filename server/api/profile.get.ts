@@ -4,7 +4,9 @@ import { avatarImageUrl, avatarThumbUrl } from '~/themes/leaderboard/games'
  * GET /api/profile?player=<id>
  * The Hangar profile: identity + avatar, per-game bests, ship states,
  * the selected ship and the adventure save slots. Unknown player → { profile: null } (the client
- * registers through /api/player like the board does).
+ * registers through /api/player like the board does). The save slots of Mini
+ * World and Lag Din Figur are only in the answer for the account that owns
+ * the profile (account.ts); the Hangar shows their summaries only then.
  */
 export default defineEventHandler(async (event) => {
   const q = getQuery(event)
@@ -13,7 +15,11 @@ export default defineEventHandler(async (event) => {
   const profile = await getStore(event).getProfile(playerId)
   setResponseHeader(event, 'Cache-Control', 'no-store')
   if (!profile) return { profile: null, player: null } as const
-  const { player, bests, ships, selected, distinctGames, saves } = profile
+  const { player, bests, ships, selected, distinctGames } = profile
+  let saves = profile.saves
+  if (ACCOUNT_GAMES.some(g => saves[g]) && !(await ownsPlayer(event, playerId))) {
+    saves = Object.fromEntries(Object.entries(saves).filter(([g]) => !isAccountGame(g)))
+  }
   return {
     profile: { bests, ships, selected, distinctGames, saves },
     player: {

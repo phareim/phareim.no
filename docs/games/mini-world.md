@@ -77,7 +77,8 @@ before it arrives. The Hangar shows N PERSONER · M TING.
 tables in `migrations/0006_miniworld.sql`): state, profile (what others
 see: active person and house), friend/unfriend by code, hood
 (create/join/leave/vote/crown/title), gift and gift/open, house (friends
-and neighbours only). No auth, like the rest of the profile API; ids,
+and neighbours only). Every route needs a signed-in account that owns the
+player id it names (see **Sign-in** below); ids,
 catalog ids and sizes are validated, 30 friends, 12 per neighbourhood, 40
 unopened gifts. Bits gifts are debited on send and credited on open.
 D1 binds at most 100 values per query, so the wallet applies up to 50
@@ -104,8 +105,76 @@ public id, `POST /api/mw/friend { playerId, id }`), send a gift, visit
 their house. The HUD shows N HER; offline, the game plays solo. The
 names children type are visible to everyone playing. Identity on the
 wire is the public id the client says it has; the service cannot check
-it (a spoofed id only misdirects a friend tap).
+it (a spoofed id only misdirects a friend tap). Who may connect is
+checked (see **Sign-in**).
 `scripts/miniworld-lab/live-two.mjs` plays two players in one browser.
+
+**Sign-in** (2026-09-29, Petter: "vi legger på pålogging på alle tre").
+The account is the site-wide one at auth.phareim.no (Reader keeps users
+and sessions; the httpOnly cookie `session_token`, Domain `.phareim.no`).
+Mini World and Lag Din Figur work the same way; this is the whole story.
+
+- *The window* (`ui/SignIn.vue`, drawn in the game's look; Lag Din Figur
+  has its own): `Landing.vue` renders the game only when
+  `useAccount().state` is `in`, so before that not even the game's chunk
+  loads. States: checking, out (e-mail, password with VIS/SKJUL, LOGG INN;
+  "Feil e-post eller passord", "For mange forsøk, vent litt"), offline
+  (auth or our server out of reach: "Får ikke kontakt akkurat nå" with
+  PRØV IGJEN, never a blank page), in. Sign-up is invite-only and stays on
+  the auth page: the window has only "Har du ikke konto? Spør en voksen",
+  a link to `authPageUrl('signup', <this page>)`. No sign-up form and no
+  invite phrase anywhere in the code (a test greps for it). **Logg ut** is
+  the gear in the menu (Mini World, also on the welcome card as IKKE DEG?
+  LOGG UT) / the header (Lag Din Figur): two taps, the last save and the
+  wallet go up first, then the session ends and the page reloads. The tab
+  coming back to the front, and any 401 from the game's routes, re-ask
+  auth; an ended session brings the window back.
+- *The lock* (server, `server/utils/account.ts` over `sessionCheck.ts`
+  and `accountLinks.ts`): the request's `session_token` cookie (only that
+  cookie) is sent to `GET auth.phareim.no/api/session`; the answer is
+  cached per SHA-256 of the token, 5 minutes for yes, 30 s for no; the
+  token is never logged or stored; auth unreachable is 401 `auth-down`
+  (fail closed; the client shows the retry); no session is 401 `sign-in`.
+  The Norway gate and mw-world's Origin check run as before, first.
+  Enforced on: every `/api/mw/*` route and `POST /api/account/link`;
+  `/api/save` for the slots `miniworld` and `figur` (Neon Shrine, Another
+  Shore and the Battery stay open); `/api/wallet` when the client says
+  `game: 'miniworld'` (Mini World sends it) **or** the player id is linked
+  to an account (then only its owner's session; Neon Shrine's wallet for
+  a profile nobody linked stays open); `/api/profile` leaves the two
+  slots out unless the caller owns the profile; the mw-world WebSocket
+  upgrade (401 before upgrading, Origin first). Hall of Fame routes are
+  open as before. A signed-out browser is answered without asking auth.
+  `tests/miniworld-account.test.mjs` lists every file under
+  `server/api/mw/` and fails when one is not covered.
+- *Profiles and saves.* The game's identity is still the browser's player
+  id (`phareim.player`, a UUID); an account *owns* one such profile:
+  table `account_links (user_id, player_id)` (`migrations/0007`, one row
+  per account, one account per profile; the user id is auth's id, no
+  email). After sign-in `POST /api/account/link { playerId }` answers the
+  account's profile: its own if it has one (so a **new device gets the
+  same saves**; the browser adopts that id), else the browser's profile
+  is **claimed** (so a save made before logins is kept), else a fresh one
+  is made. Any game route also claims a free profile on first use, and
+  answers 403 `not-yours` for someone else's. The browser's local copies
+  (`miniworld.save`, `figur.save`, hero colours, wallet, player) are
+  cleared when a *different* account signs in on it than the last one
+  (`phareim.account` remembers who), so one child's save is never pushed
+  into another's profile; a browser from before logins keeps what it has,
+  and the first account to sign in there claims it. A stray profile the
+  browser had before is left on the server, untouched.
+- *Ulrikke's progress.* Have her sign in **first on the device she has
+  been playing on** (her iPad): that browser's profile, with her Mini
+  World and Lag Din Figur saves and her bits, becomes her account's.
+  Nothing to migrate by hand. If it was ever claimed by the wrong account:
+  `DELETE FROM account_links WHERE user_id = '<auth id>'` (wrangler d1
+  execute) frees it; to link by hand,
+  `INSERT INTO account_links (user_id, player_id, linked_at) VALUES ('<auth id>', '<player id>', strftime('%s','now')*1000)`.
+- *Dev.* Locally the cookie never reaches the dev server and auth refuses
+  localhost, so the game shows the retry window. `scripts/login-lab/shots.mjs`
+  fakes auth at both ends (Playwright route for the browser,
+  `PHAREIM_DEV_AUTH_BASE` for the dev server's own check, honoured under
+  `nuxi dev` only) and shoots both windows on iPad and iPhone sizes.
 
 **Into Neon Shrine.** The active person's colours go to localStorage
 `miniworld.heroColors`; Neon Shrine's hero wears them.

@@ -122,6 +122,17 @@ the machine. Yes drops the save here and on the profile (best time kept)
 and starts a fresh quest on the plaza. Petter mentions the machine when
 you talk to him.
 
+**Signed in: the save follows the account** (2026-09-29). Nobody has to sign in to walk the town, but when the session
+check finds an account (`Zelda.vue` `checkSession`, or the console just signed one in), `usePortalAccountLink`
+(`composables/useAccount.ts`) posts `/api/account/link` and the browser adopts the account's player profile, then
+`syncProfile` brings the profile's save in (newest `savedAt` wins, as before). One account, one profile on every
+device: Neon Shrine's save and best time, the bits wallet, the hero's colours and the Hall of Fame scores. A profile
+that belongs to an account answers `/api/save` only to its owner (401/403 otherwise); anonymous play is unchanged.
+A different account than the last one signing in on the browser clears the local copies (`zeldaSave`, `zeldaBest`,
+`zeldaClearedAt`, the wallet, the profile) and reloads. Signing out in the console keeps the local copy and does not
+reload, so writes fail (403) until someone signs in again. Outside Norway `/api/account/*` answers 403, so the link
+is skipped and the town plays anonymously. Tests: `tests/miniworld-account.test.mjs` ("Neon Shrine's slot").
+
 **Login console.** Sleeper, Petter's server, stands against the east wall
 of his house by the aquarium (tile 13,3 of `home`; exit id `login`, look
 `console`, target `{ panel: 'account' }`): a violet tower with a glowing

@@ -47,7 +47,7 @@
 
     <Transition name="mw-pop">
       <div v-if="top" :key="topKey" class="mw-panel">
-        <Welcome v-if="top.id === 'welcome'" @start="swap({ id: 'creator', personId: null })" />
+        <Welcome v-if="top.id === 'welcome'" @start="swap({ id: 'creator', personId: null })" @settings="open({ id: 'settings' })" />
         <PersonCreator v-else-if="top.id === 'creator'" :person-id="top.personId" />
         <PersonsPanel v-else-if="top.id === 'persons'" />
         <Wardrobe v-else-if="top.id === 'wardrobe'" />
@@ -58,6 +58,7 @@
         <Mailbox v-else-if="top.id === 'mailbox'" />
         <SendGift v-else-if="top.id === 'gift'" :to="top.to" />
         <MapPanel v-else-if="top.id === 'map'" />
+        <SettingsPanel v-else-if="top.id === 'settings'" />
         <BoothCard v-else-if="top.id === 'booth'" :contest="top.contest" />
         <ResultCard v-else-if="top.id === 'result'" :result="top.result" @done="resultDone" />
         <FashionShow v-else-if="top.id === 'fashion'" @finish="fashionDone" />
@@ -112,6 +113,7 @@ import Castle from './ui/Castle.vue'
 import Mailbox from './ui/Mailbox.vue'
 import SendGift from './ui/SendGift.vue'
 import MapPanel from './ui/MapPanel.vue'
+import SettingsPanel from './ui/SettingsPanel.vue'
 import BoothCard from './ui/BoothCard.vue'
 import ResultCard from './ui/ResultCard.vue'
 import FashionShow from './ui/FashionShow.vue'
@@ -124,6 +126,7 @@ import { createWorldLink, worldUrl, type PeerEvent } from './net/link'
 import type { PeerInfo } from './net/protocol'
 import { useMiniWorld } from '~/composables/useMiniWorld'
 import { useMiniWorldSocial } from '~/composables/useMiniWorldSocial'
+import { setWalletGame } from '~/composables/useWallet'
 import { createMiniAudio } from './audio'
 import type {
   CreateRuntime, LinkStatus, MiniAudio, MiniMusic, MiniSfx, MiniWorldRuntime, Place, Previews, RuntimeEvent, WorldLink, ZoneId,
@@ -738,6 +741,8 @@ function onVisibility() {
 }
 
 onMounted(() => {
+  // The wallet syncs as Mini World: the server then wants the account's session (server/utils/account.ts).
+  setWalletGame('miniworld')
   audio = createMiniAudio()
   muted.value = audio.muted
   audio.setMusic(music.value)
@@ -774,6 +779,7 @@ onBeforeUnmount(() => {
   audio?.dispose()
   audio = null
   game.flush()
+  setWalletGame(null)
   navigationLocked.value = false
 })
 

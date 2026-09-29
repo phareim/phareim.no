@@ -1,5 +1,6 @@
 import type { GameSave } from '~/themes/leaderboard/games'
 import { readStoredPlayer } from '~/composables/useLeaderboard'
+import { reportUnauthorized } from '~/composables/useAccount'
 
 /**
  * The browser's side of the profile saves (2026-09-23): an adventure
@@ -19,6 +20,17 @@ export interface SaveUpload {
 
 /** Writes per game: one request in flight, the newest waiting behind it. */
 const queues = new Map<string, { busy: boolean, next: SaveUpload | null }>()
+
+/**
+ * Resolves when no save write is in flight or waiting (or after `timeoutMs`),
+ * so signing out does not cut off the last save: it needs the cookie.
+ */
+export async function savesSettled(timeoutMs = 4000): Promise<void> {
+  const until = Date.now() + timeoutMs
+  while (Date.now() < until && [...queues.values()].some(q => q.busy || q.next)) {
+    await new Promise(resolve => setTimeout(resolve, 60))
+  }
+}
 
 function merge(a: SaveUpload | null, b: SaveUpload): SaveUpload {
   if (!a) return b
@@ -44,6 +56,7 @@ export const useGameSave = (game: string) => {
     if (!p) return null
     try {
       const res = await fetch(`/api/save?player=${encodeURIComponent(p.id)}&game=${encodeURIComponent(game)}`, { cache: 'no-store' })
+      if (res.status === 401) reportUnauthorized()
       if (!res.ok) return 'offline'
       return (await res.json() as { save: GameSave | null }).save
     } catch {
@@ -62,6 +75,7 @@ export const useGameSave = (game: string) => {
         keepalive: true,
       })
       const res = await post()
+      if (res.status === 401) reportUnauthorized()
       if (res.status === 404) {
         await reRegister(p)
         await post()

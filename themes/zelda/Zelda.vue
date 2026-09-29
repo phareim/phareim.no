@@ -98,6 +98,7 @@ import { sprite } from './render/sheet'
 import { createZeldaAudio, type SfxName, type ZeldaAudio } from './audio'
 import { readLocalSave, writeLocalSave, clearLocalSave, readLocalBest, writeLocalBest } from './localSave'
 import { syncWithProfile } from './profileSync'
+import { usePortalAccountLink } from '../../composables/useAccount'
 import { createInput, type GameInput } from './input'
 import { loadHighScoreSign } from './hiscore'
 import { createBitsBridge, migrateSaveBits, bitRewards, paidFlagStore, type WalletApi } from './wallet'
@@ -150,6 +151,9 @@ const talking = ref(false)
 const { navigationLocked, launch } = useTheme()
 const sound = useSound()
 const profileSave = useGameSave('zelda')
+/** Signed in: play under the account's profile, so the save follows it to every device (composables/useAccount.ts). */
+const linkAccount = usePortalAccountLink()
+let linkedUser = ''
 
 let renderer: Renderer | null = null
 let audio: ZeldaAudio | null = null
@@ -363,14 +367,22 @@ function leave(id: string, to: ExitTarget) {
 
 /** The visitor is (or is no longer) logged in: the VIP hall's rope goes down or up. */
 function applySession(on: boolean) {
+  const first = on && !signedIn
   signedIn = on
   setSession(WORLD, state, on)
+  // Signed in through the console just now: link the profile, then bring its save in.
+  if (first && !linkedUser) void checkSession().then(() => syncProfile())
 }
 
 /** Asks auth.phareim.no who this browser is. Offline counts as nobody, and leaves the rope as it was. */
 async function checkSession() {
   const s = await fetchSession()
+  const needLink = s.state === 'in' && linkedUser !== s.user.id
+  if (needLink) linkedUser = s.user.id // before applySession, which links a first sign-in itself
   if (alive && s.state !== 'offline') applySession(s.state === 'in')
+  // Signed in: this browser plays as the account from here on. Another account's local copies are gone then, and
+  // the page starts again on a clean slate.
+  if (alive && needLink && s.state === 'in' && (await linkAccount(s.user)) === 'switched') window.location.reload()
 }
 
 /** The login console was used: open its panel over the still world. */
@@ -700,8 +712,8 @@ onMounted(() => {
   // Start at once on this browser's save; the profile's copy may replace it in a moment.
   begin(local, readReturn() ?? WORLD.start)
   walletStop = onWalletChange(b => purse.external(state.inv, b))
-  void syncProfile()
-  void checkSession()
+  // The session first (a signed-in visitor plays under the account's profile), then the profile's save.
+  void checkSession().then(() => syncProfile())
   resize()
   observer = new ResizeObserver(resize)
   observer.observe(canvas.value)

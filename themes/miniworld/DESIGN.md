@@ -195,12 +195,14 @@ Money goes through `useWallet`. See `core/save.ts` for the actions.
 - `GET /api/mw/house?player=<public id>&viewer=<my id>` → `{ profile: PublicProfile }` (friends and neighbours only)
 
 The caller is always named by the private `playerId` (the browser's
-UUID, the only credential). Every other player, in answers and in
+UUID, which the account's session must own). Every other player, in answers and in
 requests (`to`, `target`, `friendId`, the house's `player`), is their
 public id (`players.pub_id`; `SocialState.me.id` is my own). No answer
 carries another player's private id (`tests/miniworld-server.test.mjs`
 checks every one).
 
-No auth, like the rest of the site's profile API. Ids validated, catalog
+Every route needs a signed-in account that owns the `playerId`
+(`docs/games/mini-world.md`, Sign-in; the settings gear has Logg ut).
+`POST /api/account/link` says which profile is the account's. Ids validated, catalog
 ids checked, sizes capped, at most 30 friends, 12 per neighbourhood, 40
 unopened gifts per player.

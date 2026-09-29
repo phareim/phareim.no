@@ -5,7 +5,8 @@
   <div class="mw-page">
     <p v-if="!norwayOk" class="mw-loading mw-closed">BARE ÅPENT I NORGE</p>
     <ClientOnly v-else>
-      <MiniWorldGame />
+      <MiniWorldGame v-if="account.state.value === 'in'" />
+      <MwSignIn v-else :account="account" />
       <template #fallback>
         <p class="mw-loading">MINI WORLD</p>
       </template>
@@ -14,8 +15,20 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, onBeforeUnmount } from 'vue'
+
 // Norway only (server/utils/norway.ts): outside it the game never loads.
 const norwayOk = useState<boolean>('norwayOk', () => true)
+// Signed in only (2026-09-29): until the account says `in` the window below is
+// all there is, and the game's chunk is not even loaded. The server checks the
+// session on every route as well (server/utils/account.ts).
+const account = useAccount()
+const MwSignIn = defineAsyncComponent(() => import('./ui/SignIn.vue'))
+function onVisible() {
+  if (document.visibilityState === 'visible') void account.recheck()
+}
+onMounted(() => document.addEventListener('visibilitychange', onVisible))
+onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisible))
 const MiniWorldGame = defineAsyncComponent(() => import('./Game.vue'))
 </script>
 

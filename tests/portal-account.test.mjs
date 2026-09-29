@@ -103,6 +103,37 @@ describe('account console: auth.phareim.no', () => {
     assert.equal(await A.signOut(fake(() => { throw new TypeError('offline') }).f), false)
   })
 
+  it('signs in with a POST of the email and password, the cookie coming back on auth\'s answer', async () => {
+    const { f, calls } = fake(() => json({ user: USER }))
+    assert.deepEqual(await A.signIn(' someone@example.com ', 'a long password 1', f), { ok: true, user: USER })
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].url, 'https://auth.phareim.no/api/sign-in')
+    assert.equal(calls[0].init.method, 'POST')
+    assert.equal(calls[0].init.credentials, 'include')
+    assert.equal(calls[0].init.headers['content-type'], 'application/json')
+    assert.deepEqual(JSON.parse(calls[0].init.body), { email: 'someone@example.com', password: 'a long password 1' })
+  })
+
+  it('tells a wrong password, too many tries, no contact and anything else apart', async () => {
+    const reason = async reply => (await A.signIn('a@example.com', 'x', fake(reply).f)).reason
+    assert.equal(await reason(() => json({ statusCode: 401 }, 401)), 'wrong')
+    assert.equal(await reason(() => json({ statusCode: 400 }, 400)), 'wrong')
+    assert.equal(await reason(() => json({ statusCode: 429 }, 429)), 'too-many')
+    assert.equal(await reason(() => { throw new TypeError('Failed to fetch') }), 'offline')
+    assert.equal(await reason(() => json({}, 500)), 'error')
+    assert.equal(await reason(() => json({}, 415)), 'error')
+    const hang = (url, init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted'))))
+    assert.deepEqual(await A.signIn('a@example.com', 'x', hang, A.AUTH_BASE, 30), { ok: false, reason: 'offline' })
+  })
+
+  it('a sign-in without a readable user is confirmed with the session, or fails', async () => {
+    const both = fake(url => (url.endsWith('/sign-in') ? new Response('ok', { status: 200 }) : json({ user: USER })))
+    assert.deepEqual(await A.signIn('a@example.com', 'x', both.f), { ok: true, user: USER })
+    assert.deepEqual(both.calls.map(c => c.url), ['https://auth.phareim.no/api/sign-in', 'https://auth.phareim.no/api/session'])
+    const none = fake(url => (url.endsWith('/sign-in') ? json({ success: true }) : json({ user: null })))
+    assert.deepEqual(await A.signIn('a@example.com', 'x', none.f), { ok: false, reason: 'error' })
+  })
+
   it('opens the panel in the shell on the engine\'s panel event, and the panel uses the fetch it is given', () => {
     // The shell and the panel are Vue files; these checks read their source.
     const shell = readFileSync(join(root, 'themes/zelda/Zelda.vue'), 'utf8')

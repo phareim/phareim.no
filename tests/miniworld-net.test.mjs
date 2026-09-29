@@ -5,6 +5,7 @@
 import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import http from 'node:http'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -199,9 +200,30 @@ test('room: idle and hello-less sockets are dropped by the sweep', () => {
 
 // ---------------------------------------------------------------- the real service
 
+/**
+ * A fake auth.phareim.no on a local port: `GET /api/session` knows the tokens
+ * `good` and `other`, and records the Cookie header it was sent. `mode` 'down'
+ * answers 500. The service is pointed at it with MW_WORLD_AUTH_BASE.
+ */
+async function fakeAuth() {
+  const users = { good: { id: 'user-alice', email: 'alice@example.com', name: 'Alice', image: null }, other: { id: 'user-bob', email: 'bob@example.com', name: 'Bob', image: null } }
+  const auth = { calls: [], mode: 'up' }
+  const server = http.createServer((req, res) => {
+    auth.calls.push({ path: req.url, cookie: req.headers.cookie })
+    if (auth.mode === 'down') { res.writeHead(500).end('{}'); return }
+    const token = /session_token=([^;]+)/.exec(req.headers.cookie ?? '')?.[1]
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ user: users[token] ?? null }))
+  })
+  await new Promise(r => server.listen(0, '127.0.0.1', r))
+  auth.base = `http://127.0.0.1:${server.address().port}`
+  auth.stop = () => new Promise(r => server.close(r))
+  return auth
+}
+
 async function startService() {
+  const auth = await fakeAuth()
   const child = spawn(process.execPath, ['--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', join(repo, 'servers/mw-world/server.ts')], {
-    env: { ...process.env, MW_WORLD_PORT: '0' }, stdio: ['ignore', 'pipe', 'inherit'],
+    env: { ...process.env, MW_WORLD_PORT: '0', MW_WORLD_AUTH_BASE: auth.base }, stdio: ['ignore', 'pipe', 'inherit'],
   })
   const port = await new Promise((resolve, reject) => {
     let buf = ''
@@ -212,12 +234,13 @@ async function startService() {
     })
     child.once('exit', code => reject(new Error(`service exited ${code}`)))
   })
-  return { port, stop: () => new Promise(r => { child.once('exit', r); child.kill('SIGTERM') }) }
+  return { port, auth, stop: async () => { await new Promise(r => { child.once('exit', r); child.kill('SIGTERM') }); await auth.stop() } }
 }
 
 const ORIGIN = 'http://localhost:3035'
-function wsClient(port, origin = ORIGIN) {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, { origin })
+const GOOD = 'theme=dark; session_token=good; other=1'
+function wsClient(port, origin = ORIGIN, cookie = GOOD) {
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, { origin, headers: cookie ? { cookie } : {} })
   const inbox = []
   const waiters = []
   ws.on('message', d => {
@@ -238,6 +261,47 @@ function wsClient(port, origin = ORIGIN) {
   const opened = new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); ws.once('unexpected-response', (_req, res) => reject(new Error(`HTTP ${res.statusCode}`))) })
   return { ws, next, opened, send: m => ws.send(JSON.stringify(m)) }
 }
+
+test('service: no session, a dead one or auth down is 401 before the upgrade; the origin is checked first', async () => {
+  const svc = await startService()
+  try {
+    // No cookie, no other cookie, a token auth does not know: 401, never an open socket.
+    await assert.rejects(wsClient(svc.port, ORIGIN, '').opened, /HTTP 401/)
+    assert.equal(svc.auth.calls.length, 0, 'no cookie is answered without asking auth')
+    await assert.rejects(wsClient(svc.port, ORIGIN, 'theme=dark').opened, /HTTP 401/)
+    assert.equal(svc.auth.calls.length, 0)
+    await assert.rejects(wsClient(svc.port, ORIGIN, 'session_token=dead').opened, /HTTP 401/)
+    assert.equal(svc.auth.calls.length, 1)
+
+    // A wrong origin is 403 even with a good session, and auth is not asked.
+    const before = svc.auth.calls.length
+    await assert.rejects(wsClient(svc.port, 'https://evil.example').opened, /HTTP 403/)
+    await assert.rejects(wsClient(svc.port, 'https://phareim.no.evil.example').opened, /HTTP 403/)
+    assert.equal(svc.auth.calls.length, before)
+
+    // A good session: the token alone was forwarded, and a second connection is answered from the cache.
+    const a = wsClient(svc.port)
+    await a.opened
+    assert.equal(svc.auth.calls.at(-1).path, '/api/session')
+    assert.equal(svc.auth.calls.at(-1).cookie, 'session_token=good')
+    const asked = svc.auth.calls.length
+    const b = wsClient(svc.port, 'https://phareim.no')
+    await b.opened
+    assert.equal(svc.auth.calls.length, asked)
+    a.ws.close(); b.ws.close()
+
+    // A signed-in other account is just as welcome: the room is not per account.
+    const c = wsClient(svc.port, ORIGIN, 'session_token=other')
+    await c.opened
+    c.ws.close()
+
+    // Auth down: fail closed, for a token it has not answered for yet.
+    svc.auth.mode = 'down'
+    await assert.rejects(wsClient(svc.port, ORIGIN, 'session_token=fresh').opened, /HTTP 401/)
+  } finally {
+    await svc.stop()
+  }
+})
 
 test('service: health, origins, two players see each other', async () => {
   const svc = await startService()
@@ -442,7 +506,7 @@ test('link: a WebSocket that throws never reaches the game', (t) => {
 
 test('link + service: two links see each other move', async () => {
   const svc = await startService()
-  class OriginWS extends WebSocket { constructor(url) { super(url, { origin: ORIGIN }) } }
+  class OriginWS extends WebSocket { constructor(url) { super(url, { origin: ORIGIN, headers: { cookie: GOOD } }) } }
   const url = `ws://127.0.0.1:${svc.port}/ws`
   const a = createWorldLink(url, { WebSocket: OriginWS, doc: null, win: null })
   const b = createWorldLink(url, { WebSocket: OriginWS, doc: null, win: null })

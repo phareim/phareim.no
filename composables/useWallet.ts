@@ -1,5 +1,6 @@
 import { ref, type Ref } from 'vue'
 import { readStoredPlayer } from '~/composables/useLeaderboard'
+import { reportUnauthorized } from '~/composables/useAccount'
 
 /**
  * The site-wide wallet (2026-09-26): the bits Neon Shrine's hero picks up
@@ -186,6 +187,16 @@ export function onWalletChange(cb: (bits: number) => void): () => void {
   return () => { listeners.delete(cb) }
 }
 
+/**
+ * The game that is using the wallet, sent along with each sync: Mini World
+ * says `miniworld`, and the server then asks for a signed-in account that
+ * owns the profile (server/utils/account.ts). Neon Shrine sets nothing.
+ */
+let walletGame: string | null = null
+export function setWalletGame(game: string | null): void {
+  walletGame = game
+}
+
 let timer: ReturnType<typeof setTimeout> | null = null
 function scheduleSync(): void {
   if (timer) clearTimeout(timer)
@@ -233,9 +244,10 @@ async function syncOnce(): Promise<void> {
     const res = await fetch('/api/wallet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerId: player.id, ops: batch.map(({ id, delta, reason }) => ({ id, delta, reason })) }),
+      body: JSON.stringify({ playerId: player.id, ops: batch.map(({ id, delta, reason }) => ({ id, delta, reason })), ...(walletGame ? { game: walletGame } : {}) }),
       keepalive: document.visibilityState === 'hidden',
     })
+    if (res.status === 401) reportUnauthorized()
     if (!res.ok) return
     const body = await res.json() as { bits?: unknown }
     if (typeof body.bits !== 'number') return

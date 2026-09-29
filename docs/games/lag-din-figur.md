@@ -59,8 +59,18 @@ and Neon Shrine's hero wears them (skin, hair, the hat on the headband
 row, the top's two most used colours, the trousers or the dress's skirt,
 the shoes). They win over Mini World's `miniworld.heroColors`.
 
-**Layout.** Phone portrait: title and three buttons (figures, save,
-sound), style tabs, the stage, the tool panel, the tool tabs at the
+**Sign-in** (2026-09-29). Same account, window, lock and profile linking
+as Mini World: the whole story is under **Sign-in** in
+`docs/games/mini-world.md`. Here: `ui/SignIn.vue` (lilac, Pip waving) is
+all there is until the account says `in`; **Logg ut** is the gear in the
+header (`ui/SettingsSheet.vue`, two taps, the last save goes first); the
+save slot `figur` on `/api/save` needs a session that owns the profile;
+Lag Din Figur has no wallet, no neighbourhood API and no shared world.
+Checks: `tests/figur-login.test.mjs` (the window and its gear),
+`tests/miniworld-account.test.mjs` (slot `figur`).
+
+**Layout.** Phone portrait: title (FIGUR on a phone) and four buttons
+(figures, save, sound, settings), style tabs, the stage, the tool panel, the tool tabs at the
 bottom above the bottom band; bottom-right stays clear for the ⌂ chip.
 From 800 px wide the stage is on the left and the tools on the right.
 Nothing scrolls but lists inside panels. The theme is `ownRadio`: a

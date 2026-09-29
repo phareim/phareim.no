@@ -11,6 +11,7 @@
       <button ref="goRef" type="button" class="px-btn mw-btn mw-btn--go mw-btn--big" @click="$emit('start')">
         LAG PERSON{{ hint(' — ENTER', '') }}
       </button>
+      <button type="button" class="px-btn mw-btn mw-btn--plain mw-welcome-out" @click="$emit('settings')">IKKE DEG? LOGG UT</button>
     </div>
   </div>
 </template>
@@ -21,7 +22,7 @@ import { useMw } from './context'
 import { STARTER_OUTFIT } from '../catalog'
 import type { PersonLook } from '../types'
 
-defineEmits<{ start: [] }>()
+defineEmits<{ start: []; settings: [] }>()
 
 const { pics } = useMw()
 const { hint } = useInputMode()
@@ -75,6 +76,7 @@ onMounted(() => goRef.value?.focus({ preventScroll: true }))
   min-height: 0;
   background: var(--mw-tile);
 }
+.mw-welcome-out { min-height: 48px; font-size: 16px; }
 .mw-welcome-pic img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display: block; }
 @media (min-width: 700px) and (min-height: 700px) {
   .mw-welcome-title { font-size: 64px; }

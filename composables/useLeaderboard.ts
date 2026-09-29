@@ -168,5 +168,16 @@ export const useLeaderboard = () => {
     return data
   }
 
-  return { player, avatar, lastSubmission, ensurePlayer, reRegister, reroll, submitScore, fetchBoards }
+  /**
+   * Makes `p` this browser's player: what /api/account/link answered, so a
+   * signed-in account plays on its own profile on every device. The old
+   * player's data stays on the server, untouched.
+   */
+  function adopt(p: LocalPlayer): void {
+    writeStored(p)
+    if (player.value?.id !== p.id) avatar.value = null
+    player.value = { id: p.id, name: p.name }
+  }
+
+  return { player, avatar, lastSubmission, ensurePlayer, reRegister, reroll, submitScore, fetchBoards, adopt }
 }

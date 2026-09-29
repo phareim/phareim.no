@@ -1,7 +1,8 @@
 import { NORWAY_ONLY_THEMES, norwayOk } from '../utils/norway'
 
 // The door for the children's games (server/utils/norway.ts): a direct link
-// to their theme and Mini World's neighbourhood API answer 403 outside Norway.
+// to their theme, Mini World's neighbourhood API and the account link answer
+// 403 outside Norway.
 // The page itself also learns the answer (plugins/norway.server.ts), so a
 // cabinet opened from the portal shows the same notice.
 export default defineEventHandler((event) => {
@@ -9,7 +10,7 @@ export default defineEventHandler((event) => {
   event.context.norwayOk = ok
   if (ok) return
   const path = event.path.split('?')[0]
-  if (path.startsWith('/api/mw/')) {
+  if (path.startsWith('/api/mw/') || path.startsWith('/api/account/')) {
     setResponseStatus(event, 403)
     return { error: 'only open in Norway' }
   }

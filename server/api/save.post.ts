@@ -10,7 +10,9 @@ const BEST_RANGE = [60, 360_000] as const
  * Writes the player's save slot. `data` is the game's save object, null to
  * clear it (new game, win), or absent to send only a best time. The newest
  * `savedAt` wins; `best` keeps the lowest; `won` counts a finish. 404 for
- * an unknown player (the client re-registers and retries).
+ * an unknown player (the client re-registers and retries). The slots of Mini
+ * World and Lag Din Figur need a session that owns the profile; any other
+ * game's slot needs it too once the profile is an account's (account.ts).
  */
 export default defineEventHandler(async (event) => {
   type Body = { playerId?: unknown, game?: unknown, data?: unknown, savedAt?: unknown, best?: unknown, won?: unknown }
@@ -18,6 +20,8 @@ export default defineEventHandler(async (event) => {
   if (!isPlayerId(body.playerId)) throw createError({ statusCode: 400, statusMessage: 'bad player id' })
   const game = saveGameById(body.game)
   if (!game) throw createError({ statusCode: 400, statusMessage: 'unknown game' })
+  if (isAccountGame(game.id)) await requireAccountPlayer(event, body.playerId)
+  else await guardLinkedPlayer(event, body.playerId)
 
   const savedAt = body.savedAt
   if (typeof savedAt !== 'number' || !Number.isInteger(savedAt) || savedAt < 1 || savedAt > Date.now() + MAX_FUTURE_MS) {

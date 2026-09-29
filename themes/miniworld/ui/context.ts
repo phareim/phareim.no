@@ -25,6 +25,7 @@ export type Panel =
   | { id: 'mailbox' }
   | { id: 'gift'; to: string | null }
   | { id: 'map' }
+  | { id: 'settings' }
   | { id: 'booth'; contest: ContestId }
   | { id: 'result'; result: ResultCard }
   | { id: 'fashion' }

@@ -15,7 +15,7 @@ main() {
   git pull --ff-only --quiet
   new=$(git rev-parse HEAD)
   if [ "$old" = "$new" ]; then echo "mw-world: nothing new"; return 0; fi
-  if git diff --quiet "$old" "$new" -- servers/mw-world themes/miniworld/net/protocol.ts; then
+  if git diff --quiet "$old" "$new" -- servers/mw-world themes/miniworld/net/protocol.ts server/utils/sessionCheck.ts themes/zelda/account.ts; then
     echo "mw-world: unchanged in ${old:0:7}..${new:0:7}"
     return 0
   fi

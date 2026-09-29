@@ -1,5 +1,6 @@
 import { ref, computed, type ComputedRef, type Ref } from 'vue'
 import { readStoredPlayer } from '~/composables/useLeaderboard'
+import { reportUnauthorized } from '~/composables/useAccount'
 import { readWallet, syncWallet } from '~/composables/useWallet'
 import { useMiniWorld } from '~/composables/useMiniWorld'
 import { cleanCode } from '~/themes/miniworld/core/names'
@@ -163,6 +164,7 @@ async function call<T>(path: string, body?: Record<string, unknown>): Promise<{ 
       })
       : await fetch(path, { cache: 'no-store' })
     if (res.ok) return { result: 'ok', data: await res.json() as T }
+    if (res.status === 401) reportUnauthorized()
     let code = ''
     try {
       const j = await res.json() as { data?: { code?: string }; statusMessage?: string }
