@@ -148,11 +148,28 @@ The retopo GLB keeps the same look from all four sides. The lute drum and tail-t
 generator carry over, so fix those in the input image or by re-rolling the seed. Fur and foliage are
 the known weak spot of retopo (lab notes), so check hairy characters before batching.
 
-## TRELLIS.2 on zap: blocked on gated model access
+## TRELLIS.2 vs Pixal3D on the fox (2026-09-29, zap-Claude)
 
-Installed (`vendor/trellis-space-mac`, after `xcodebuild -downloadComponent MetalToolchain` fixed
-the mtlbvh build). First run stops at 403 on `facebook/dinov3-vitl16-pretrain-lvd1689m`: the
-HuggingFace account `phareim` has to request access on that model page (Meta licence, needs a
-human). RMBG-2.0 is also gated but unused here, since TRELLIS wants a pre-masked PNG (use the
-`__matted.png` Pixal3D writes). Run wrapper: `~/3d-lab/bin/trellis <masked.png> <outdir>`.
-Pixal3D is unaffected (bundled DINOv3).
+DINOv3 access was approved; TRELLIS.2 (Metal/MPS port, 12 steps per stage, res 1024, seed 0) ran on the
+same pre-masked fox as Pixal3D. Wrapper: `~/3d-lab/bin/trellis <masked.png> <outdir>`.
+
+| | Pixal3D (Q8, seed 42) | TRELLIS.2 (seed 0) |
+|---|---|---|
+| Generation time | **430 s** | **10,470 s (2 h 55 m)**; sampling alone 10,070 s |
+| Raw mesh | 964k tris, 36 MB | 291k tris, 12 MB |
+| Lute | thick drum from the side (wrong) | thin disc (correct) |
+| Tail tip | floating spikes | clean |
+| Face and texture | crisp, saturated | slightly softer, raw render darker |
+| After `lowpoly` (20k faces) | 19,992 tris, 6.4 MB | 19,972 tris, 8 s |
+
+Images: `docs/img/fox-trellis-raw.png`, `docs/img/fox-trellis-retopo-20k.png`.
+
+Read: TRELLIS.2 gets the **geometry** right where Pixal3D thickens flat parts, and after retopo it
+is the nicer character. But at ~7 hours per 24 images versus Pixal3D's ~3 it does not work as a
+batch tool on this M5 as it stands. Caveats: this was one run, seed 0, and it shared a work laptop
+that was in use; the 15-35 min figure quoted for the lab was not reproduced (possible memory
+pressure on 32 GB, or first-run overhead; check with a second run before ruling it out). Suggested
+use: Pixal3D for bulk, TRELLIS.2 (overnight) for hero characters with thin parts, and re-roll
+Pixal3D seeds first. Do not run TRELLIS on zap at the same time as anything else.
+
+Only one TRELLIS run took the GPU lock for almost 3 hours (15:11-18:05); Sleeper's queue waited on it.
