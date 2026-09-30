@@ -36,6 +36,15 @@ export default defineNuxtConfig({
     tsConfig: { compilerOptions: { allowImportingTsExtensions: true, noEmit: true } },
   },
 
+  features: {
+    // Every theme's CSS is global and adds up to 82 KB, which Nuxt inlines into
+    // the HTML by default. The HTML here is never edge-cached (the Norway gate
+    // and the session cookie make it per-request), so inlined CSS is re-sent on
+    // every visit and can never be cached. As a stylesheet under /_nuxt/* it is
+    // fetched once and cached for a year (2026-09-30).
+    inlineStyles: false
+  },
+
   nitro: {
     preset: 'cloudflare-pages'
   }
