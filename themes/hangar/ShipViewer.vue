@@ -194,7 +194,7 @@ function backdropScale(dpr: number): number {
 
 function resize(w: number, h: number): void {
   if (!stage || !pipeline || !camera) return
-  const dpr = Math.max(1, Math.min(3, devicePixelRatio || 1))
+  const dpr = canvasPixelRatio(3)
   const S = backdropScale(dpr)
   // minW/minH chosen so the stage lands on exactly S.
   stage.resize(w, h, dpr, Math.round(w * dpr) / (S + 0.001), 1)

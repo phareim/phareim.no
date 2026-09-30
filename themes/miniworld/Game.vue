@@ -713,8 +713,7 @@ async function boot() {
     const mod: { createRuntime: CreateRuntime } = runtimeMod.value
     if (!canvasRef.value) return
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const nav = navigator as Navigator & { deviceMemory?: number }
-    const lowPower = (navigator.hardwareConcurrency ?? 8) <= 4 || (isTouch.value && (nav.deviceMemory ?? 8) <= 4)
+    const lowPower = isLowPowerDevice()
     const rt = mod.createRuntime(canvasRef.value, { reducedMotion, lowPower })
     runtime.value = rt
     offRuntime = rt.on(onEvent)

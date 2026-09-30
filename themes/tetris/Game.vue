@@ -651,7 +651,7 @@ function onBlur(): void {
 function setupCanvas(): void {
   const canvas = canvasRef.value
   if (!canvas) return
-  dprRef.value = Math.min(3, window.devicePixelRatio || 1)
+  dprRef.value = canvasPixelRatio(3)
   const { T, s: scale } = grid.value
   const lw = COLS * T + FRAME * 2
   const lh = ROWS * T + FRAME * 2

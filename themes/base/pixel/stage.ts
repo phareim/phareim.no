@@ -24,6 +24,8 @@
  * (`hw`×`hh`) stays upright in screen orientation.
  */
 
+import { canvasPixelRatio } from '../../../composables/useDeviceCapability'
+
 type G = CanvasRenderingContext2D
 
 export interface Light {
@@ -172,7 +174,13 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
   }
 
   function resize(w: number, h: number, ratio: number, minW = defW, minH = defH, rotate = false) {
-    dpr = Math.max(1, Math.min(3, ratio || 1))
+    // The ratio is a ceiling, not a fixed 3: this stage composites the whole
+    // device-pixel surface four or five times a frame, so on a phone that is
+    // ~3 Mpx per pass and the fill rate is the whole budget. A device short on
+    // cores or memory gets 2 or 1 instead (2026-09-30) — same logical buffer,
+    // same `k`, less sharpness. A caller asking for less than the ceiling
+    // (Shore II asks for 2) still gets what it asked for.
+    dpr = Math.max(1, Math.min(canvasPixelRatio(3), Math.min(3, ratio || 1)))
     cssW = Math.max(1, w)
     cssH = Math.max(1, h)
     W = Math.max(1, Math.round(cssW * dpr))

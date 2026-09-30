@@ -676,7 +676,7 @@ function resize() {
   if (!canvas.value || !renderer) return
   const w = canvas.value.clientWidth
   const h = canvas.value.clientHeight
-  renderer.resize(w, h, Math.min(devicePixelRatio || 1, 3), safeInsets())
+  renderer.resize(w, h, canvasPixelRatio(3), safeInsets())
 }
 
 /** The screen's safe-area insets in CSS px (all 0 in an ordinary browser tab). */
