@@ -13,18 +13,26 @@
  *   --font-pixel    Neon Pixel — Neon Shrine's 5×7 canvas font as a webfont
  *                   (2026-09-24, built by scripts/make-pixel-font.mjs, 3 KB),
  *                   for the pixel games' HTML text. Crisp at font-size 8n px.
+ *
+ * The @import lines must come first (2026-09-30). CSS requires @import to
+ * precede every other rule, and Vite drops late ones without a word — which is
+ * what had been happening here: the five @fontsource faces below were silently
+ * discarded, no woff2 was ever emitted, and the whole site rendered in
+ * system-ui / ui-monospace. Keep these at the top of the file.
  */
-@font-face {
-  font-family: "Neon Pixel";
-  src: url("/fonts/neon-pixel.woff") format("woff");
-  font-display: block;
-}
-
 @import "@fontsource/space-grotesk/latin-300.css";
 @import "@fontsource/space-grotesk/latin-400.css";
 @import "@fontsource/space-grotesk/latin-500.css";
 @import "@fontsource/space-mono/latin-400.css";
 @import "@fontsource/space-mono/latin-700.css";
+
+/* `block`, not `swap`: the 5×7 grid must never be smoothed by a fallback face
+   mid-repaint, and the file is 3 KB from the same origin. */
+@font-face {
+  font-family: "Neon Pixel";
+  src: url("/fonts/neon-pixel.woff") format("woff");
+  font-display: block;
+}
 
 :root {
   --font-person: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
