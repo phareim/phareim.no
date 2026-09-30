@@ -2,9 +2,9 @@
   <DefaultLanding>
     <template #background>
       <Shooter
-        @score="s => score = s"
-        @distance="m => distance = m"
-        @lives="n => lives = n"
+        @score="(s: number) => score = s"
+        @distance="(m: number) => distance = m"
+        @lives="(n: number) => lives = n"
         @death="onGameOver"
         @restart="onGameRestart"
         @started="onGameStarted"
@@ -37,8 +37,10 @@
 
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
-import Shooter from './Shooter.vue'
 import SoundToggle from '~/themes/base/SoundToggle.vue'
+
+/** The game is its own chunk (2026-09-30): the landing is the title screen. */
+const Shooter = defineAsyncComponent(() => import('./Shooter.vue'))
 
 const { navigationLocked } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()

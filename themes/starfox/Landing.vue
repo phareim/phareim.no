@@ -128,8 +128,10 @@ import { sectorClearBonus, HEAL_CLEAR, type SectorPhase } from './balance'
 import { laserName } from './arsenal'
 import { PILOTS, SECTORS, callsignFrom, rosterFor, type PilotId } from './cast'
 import { readStoredPlayer } from '~/composables/useLeaderboard'
-import Intercom from './Intercom.vue'
 import type { ArsenalHud, DeathSummary, IntercomView, SquadHud } from './scene/ctx'
+
+/** The radio chatter panel is its own chunk (2026-09-30). */
+const Intercom = defineAsyncComponent(() => import('./Intercom.vue'))
 
 // three.js is ~170 KB gzipped: load it only when this theme is on screen.
 const Flight = defineAsyncComponent(() => import('./Flight.vue'))

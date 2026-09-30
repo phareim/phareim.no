@@ -36,8 +36,10 @@
 
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
-import OutRun from './OutRun.vue'
 import type { OutrunResult } from './engine'
+
+/** The game is its own chunk (2026-09-30): the landing is the title screen. */
+const OutRun = defineAsyncComponent(() => import('./OutRun.vue'))
 
 const { navigationLocked } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()

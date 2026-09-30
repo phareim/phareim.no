@@ -4,9 +4,9 @@
   >
     <template #background>
       <Invaders
-        @score="s => score = s"
-        @wave="n => wave = n"
-        @lives="n => lives = n"
+        @score="(s: number) => score = s"
+        @wave="(n: number) => wave = n"
+        @lives="(n: number) => lives = n"
         @over="onGameEnded"
         @death="onGameOver"
         @restart="onGameRestart"
@@ -41,8 +41,10 @@
 
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
-import Invaders from './Invaders.vue'
 import SoundToggle from '~/themes/base/SoundToggle.vue'
+
+/** The game is its own chunk (2026-09-30): the landing is the title screen. */
+const Invaders = defineAsyncComponent(() => import('./Invaders.vue'))
 
 const { navigationLocked } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()

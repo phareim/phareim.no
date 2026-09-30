@@ -10,9 +10,11 @@
 </template>
 
 <script setup lang="ts">
-import Arcade from './Arcade.vue'
-import Horizon from './Horizon.vue'
 import SoundToggle from '~/themes/base/SoundToggle.vue'
+
+/** The cabinet and its marquee are their own chunks (2026-09-30). */
+const Arcade = defineAsyncComponent(() => import('./Arcade.vue'))
+const Horizon = defineAsyncComponent(() => import('./Horizon.vue'))
 const horizon = ref<InstanceType<typeof Horizon> | null>(null)
 // The game itself owns navigationLocked while a run is active; reset here too
 // so a mid-run theme switch never leaves the shell locked.

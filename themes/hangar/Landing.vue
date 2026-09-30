@@ -73,7 +73,6 @@
 </template>
 
 <script setup lang="ts">
-import Horizon from './Horizon.vue'
 import PixelPortrait from './PixelPortrait.vue'
 import { GAMES, SAVE_GAMES } from '~/themes/leaderboard/games'
 import { QUEST_STEPS, formatPlayTime, summarizeRaw } from '~/themes/zelda/progress'
@@ -82,6 +81,8 @@ import { SOLVE_COUNT, summarizeBatteryRaw } from '~/themes/battery/progress'
 import { SHIPS, unlockProgress } from '~/themes/ships/ships'
 
 const ShipViewer = defineAsyncComponent(() => import('./ShipViewer.vue'))
+/** The hangar's horizon backdrop is its own chunk (2026-09-30). */
+const Horizon = defineAsyncComponent(() => import('./Horizon.vue'))
 
 const { hint } = useInputMode()
 const { player, avatar, fetchBoards } = useLeaderboard()

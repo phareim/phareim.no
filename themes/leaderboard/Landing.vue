@@ -87,9 +87,11 @@
 </template>
 
 <script setup lang="ts">
-import Hall from './Hall.vue'
 import PixelAvatar from './PixelAvatar.vue'
 import { GAMES, TOP_N, type BoardRow, type GameBoard } from './games'
+
+/** The hall scene is its own chunk (2026-09-30). */
+const Hall = defineAsyncComponent(() => import('./Hall.vue'))
 
 const { hint } = useInputMode()
 const { player, avatar, fetchBoards } = useLeaderboard()

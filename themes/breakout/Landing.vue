@@ -2,9 +2,9 @@
   <DefaultLanding>
     <template #background>
       <Breakout
-        @score="s => score = s"
-        @lives="n => lives = n"
-        @level="n => level = n"
+        @score="(s: number) => score = s"
+        @lives="(n: number) => lives = n"
+        @level="(n: number) => level = n"
         @death="onGameOver"
         @restart="onGameRestart"
         @started="onGameStarted"
@@ -37,8 +37,10 @@
 
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
-import Breakout from './Breakout.vue'
 import SoundToggle from '~/themes/base/SoundToggle.vue'
+
+/** The game is its own chunk (2026-09-30): the landing is the title screen. */
+const Breakout = defineAsyncComponent(() => import('./Breakout.vue'))
 
 const { navigationLocked } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()

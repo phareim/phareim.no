@@ -2,7 +2,7 @@
   <DefaultLanding>
     <template #background>
       <Galaga
-        @score="s => score = s"
+        @score="(s: number) => score = s"
         @death="onGameOver"
         @restart="onGameRestart"
         @started="onGameStarted"
@@ -33,7 +33,9 @@
 
 <script setup lang="ts">
 import DefaultLanding from '~/themes/base/DefaultLanding.vue'
-import Galaga from './Galaga.vue'
+
+/** The game is its own chunk (2026-09-30): the landing is the title screen. */
+const Galaga = defineAsyncComponent(() => import('./Galaga.vue'))
 
 const { navigationLocked } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()
