@@ -41,6 +41,7 @@
     </div>
     <div v-else class="zelda-deck-paused">
       <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>RESUME</button>
+      <button class="zelda-pad zelda-pad-wide" :aria-pressed="!sound.muted.value" @pointerdown.prevent.stop="toggleSound" @contextmenu.prevent>{{ sound.muted.value ? 'SOUND OFF' : 'SOUND ON' }}</button>
       <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="toTown" @contextmenu.prevent>TO TOWN</button>
     </div>
   </div>
@@ -186,7 +187,7 @@ const purse = createBitsBridge(walletApi, { rewards: bitRewards(WORLD), paid: pa
 let askedAt = 0
 
 const ui: FrameUI = {
-  paused: false, confirmReset: false, reducedMotion: false, touch: false, stick: null, attract: false, cam: null, banner: null,
+  paused: false, confirmReset: false, muted: false, reducedMotion: false, touch: false, stick: null, attract: false, cam: null, banner: null,
   keys: { a: 'SPACE', b: 'K', cycle: 'Q' },
 }
 
@@ -226,6 +227,7 @@ function shellKey(e: KeyboardEvent): boolean {
       if (e.code === 'KeyY') { e.preventDefault(); resetRun(); return true }
       if (e.code === 'KeyN' || e.code === 'Backspace') { e.preventDefault(); cancelReset(); return true }
     } else if (e.code === 'KeyT') { e.preventDefault(); toTown(); return true }
+    else if (e.code === 'KeyM') { e.preventDefault(); toggleSound(); return true }
   }
   // Backspace backs out of lines that lead somewhere, like B.
   if (e.code === 'Backspace' && !paused.value && backsOut()) { e.preventDefault(); if (!e.repeat) input.pressB(); return true }
@@ -473,6 +475,12 @@ function togglePause() {
   audio?.pause(paused.value)
 }
 
+/** Pause menu: game sound on or off (the watcher on `sound.muted` tells the audio module). */
+function toggleSound() {
+  sound.toggleMute()
+  pausedDrawn = false
+}
+
 /** The NEW GAME machine's lines closed: stop the world and ask. */
 function askReset() {
   if (phase.value !== 'play') return
@@ -621,6 +629,7 @@ function frame(nowMs: number) {
 
   ui.paused = paused.value
   ui.confirmReset = confirmReset.value
+  ui.muted = sound.muted.value
   ui.reducedMotion = reducedMotion
   ui.touch = touchUI.value
   ui.keys = touchUI.value ? { a: 'A', b: 'B', cycle: 'SWAP' } : { a: 'SPACE', b: 'K', cycle: 'Q' }
@@ -947,7 +956,8 @@ onBeforeUnmount(() => {
 
 /* Two wide buttons across a 375 px phone. */
 @media (max-width: 440px) {
-  .zelda-deck-paused { gap: 8px; }
+  .zelda-deck-paused { gap: 6px; }
+  .zelda-pad-wide { min-width: 0; flex: 1 1 0; font-size: 13px; }
   .zelda-pad-wide { min-width: 0; padding: 0 12px; }
 }
 </style>

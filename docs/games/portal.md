@@ -105,7 +105,7 @@ NPC talk and hide. **The games themselves still open without a login**
 (`?theme=miniworld|figur` by URL; Norway-only stays as before): login on the
 games is the next round.
 
-**Pause menu.** RESUME · TO TOWN (T): saves and puts the hero on the plaza
+**Pause menu.** RESUME · SOUND ON/OFF (M; the game's sound, the same flag as the arcade ♪ toggle, 2026-09-30) · TO TOWN (T): saves and puts the hero on the plaza
 start, hearts full. Holding Escape for 3 s does the same (pill: HOLD ESC
 FOR TOWN). A hidden tab saves, and pauses once the hero has the blade.
 

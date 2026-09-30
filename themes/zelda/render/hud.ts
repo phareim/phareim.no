@@ -150,7 +150,7 @@ function drawConfirmReset(g: G, vw: number, vh: number, keys: HudKeys) {
   drawText(g, hint, Math.round((vw - textWidth(hint)) / 2), y + h + 8, '#b9a8d9')
 }
 
-export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudKeys, confirmReset = false) {
+export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudKeys, confirmReset = false, muted = false) {
   g.fillStyle = 'rgba(11,6,22,0.78)'
   g.fillRect(0, 0, vw, vh)
   if (confirmReset) { drawConfirmReset(g, vw, vh, keys); return }
@@ -207,4 +207,6 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
   lines.slice(0, 4).forEach((l, i) => drawText(g, l, x + 8, y + 74 + i * 10, '#fff4ff'))
   const hint = keys.a === 'A' ? 'TAP RESUME' : 'P RESUME   T TOWN'
   drawText(g, hint, Math.round((vw - textWidth(hint)) / 2), y + 126, '#b9a8d9')
+  const sound = `${keys.a === 'A' ? 'SOUND' : 'M SOUND'} ${muted ? 'OFF' : 'ON'}`
+  drawText(g, sound, Math.round((vw - textWidth(sound)) / 2), y + 138, muted ? '#ff2fa0' : '#2ff3ff')
 }

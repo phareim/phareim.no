@@ -37,6 +37,8 @@ export interface FrameUI {
   paused: boolean
   /** The pause screen is asking "start over?". */
   confirmReset: boolean
+  /** Game sound is off (shown on the pause screen). */
+  muted: boolean
   reducedMotion: boolean
   touch: boolean
   /** Touch stick in CSS px relative to the canvas. */
@@ -857,7 +859,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         drawDialog(hg, s, vw, vh - top - bottom, s.hero.y * T - cy - top, ui.keys, time)
         hg.restore()
       }
-      if (ui.paused) drawPause(hg, s, vw, vh, ui.keys, ui.confirmReset)
+      if (ui.paused) drawPause(hg, s, vw, vh, ui.keys, ui.confirmReset, ui.muted)
     }
     screen.drawImage(hud, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
 
