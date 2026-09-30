@@ -161,6 +161,8 @@ let state: GameState = createGame(WORLD, { at: WORLD.start })
 let raf = 0
 let lastT = 0
 let hitStopMs = 0
+/** A paused world is drawn once, then left alone until it resumes (2026-09-30). */
+let pausedDrawn = false
 let reducedMotion = false
 let lowHpT = 0
 let track: TrackId | null = null
@@ -390,6 +392,7 @@ function openPanel(id: string, p: PanelId) {
   if (phase.value !== 'play' || paused.value) return
   panelExit = id
   panel.value = p
+  slowT = 0
   input.clear()
   audio?.sfx('menu')
 }
@@ -463,6 +466,8 @@ function togglePause() {
   // P or an Escape tap while asking "start over?" means no.
   if (confirmReset.value) { cancelReset(); return }
   paused.value = !paused.value
+  pausedDrawn = false
+  slowT = 0
   input.clear()
   audio?.sfx('menu')
   audio?.pause(paused.value)
@@ -593,11 +598,27 @@ function handleEvents(events: GameEvent[]) {
 
 // ---- loop -------------------------------------------------------------------------
 
+/** Redraw at most this often for a picture that is only softly animating. */
+const SLOW_MS = 200
+let slowT = 0
+
+/** True when a soft-animation redraw is due this frame. */
+function slowTick(nowMs: number) {
+  if (nowMs - slowT < SLOW_MS) return false
+  slowT = nowMs
+  return true
+}
+
 function frame(nowMs: number) {
   raf = requestAnimationFrame(frame)
   if (!renderer) return
   const dt = lastT ? Math.min((nowMs - lastT) / 1000, 0.1) : 0
   lastT = nowMs
+
+  // Nothing is on screen to change while the tab is in the background, and a
+  // backgrounded phone may still be running this loop (2026-09-30).
+  if (document.hidden) return
+
   ui.paused = paused.value
   ui.confirmReset = confirmReset.value
   ui.reducedMotion = reducedMotion
@@ -605,11 +626,17 @@ function frame(nowMs: number) {
   ui.keys = touchUI.value ? { a: 'A', b: 'B', cycle: 'SWAP' } : { a: 'SPACE', b: 'K', cycle: 'Q' }
   ui.stick = input.stick
 
-  // The ending: the world stays put behind the page's panel.
-  if (phase.value === 'won') { renderer.draw(state, ui, reducedMotion ? 0 : dt); return }
-  if (paused.value) { renderer.draw(state, ui, 0); return }
-  // A panel is open: the world stands still but keeps glowing.
-  if (panel.value) { renderer.draw(state, ui, reducedMotion ? 0 : dt); return }
+  // The ending: the world stays put behind the page's panel. Nothing steps, so
+  // it is redrawn at a fifth of the rate rather than 60 times a second.
+  if (phase.value === 'won') { if (slowTick(nowMs)) renderer.draw(state, ui, reducedMotion ? 0 : dt); return }
+  // Paused: dt is 0, so the picture is already identical to last frame's. Draw
+  // it once more in case the pause was what changed it, then leave the pixels
+  // alone until something resumes.
+  if (paused.value) { if (!pausedDrawn) { pausedDrawn = true; renderer.draw(state, ui, 0) } return }
+  pausedDrawn = false
+  // A panel is open: the world stands still but keeps glowing. A soft glow at
+  // a fifth of the rate is the same glow.
+  if (panel.value) { if (slowTick(nowMs)) renderer.draw(state, ui, reducedMotion ? 0 : dt); return }
   if (hitStopMs > 0) { hitStopMs -= dt * 1000; renderer.draw(state, ui, 0); return }
   if (pendingPull && state.mode === 'play') applyPull(pendingPull.save)
 
