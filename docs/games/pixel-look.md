@@ -23,7 +23,12 @@ treasure.
   `present({ ambient, afterLight, flash, fade, shakeX, shakeY })` does the
   light map, scale, bloom, scanlines, vignette and the `hud` layer. `k` is
   CSS px per logical pixel and `px(v)` converts a CSS coordinate, so a game
-  keeps its rules in CSS px.
+  keeps its rules in CSS px. The `dpr` argument is a ceiling, not the value
+  used: the stage takes `min` of it and `canvasPixelRatio(3)`
+  (`composables/useDeviceCapability.ts`), so a device short on cores or memory
+  renders at 2 or 1. Only whole ratios are ever offered, because the
+  whole-number `scale` tracks the ratio — 1, 2 and 3 give the identical
+  logical buffer and `k` and differ only in sharpness.
 - `sprites.ts` — `PAL` (Neon Shrine's palette), `sprite(rows, palOverride)`,
   `silhouette()`, `shade()` (outline + highlight/shadow for a one-colour
   'X' map), `pixelize()` / `relight()` (turn vector-painted art into

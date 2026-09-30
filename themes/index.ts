@@ -23,8 +23,10 @@ import './battery/theme.css'
 import './miniworld/theme.css'
 import './figur/theme.css'
 
-// Static imports on purpose: a cabinet should not wait for a chunk, and the
-// whole set is small (the Galaga game is the only big one).
+// Static imports on purpose: a cabinet should not wait for a chunk, and a
+// landing is only a title screen. What a landing must NOT import is its game —
+// that goes through defineAsyncComponent, or the game lands in the entry
+// chunk and every visit to `/` pays for it (2026-09-30).
 import ScandiLanding from './scandi/Landing.vue'
 import GalagaLanding from './galaga/Landing.vue'
 import BreakoutLanding from './breakout/Landing.vue'

@@ -179,6 +179,14 @@ h1 name, the blurbs from `themes/content.ts`, a link to every live game,
 phareim.md, games.phareim.no and the three profiles. It shows as a panel
 while one of its links has keyboard focus.
 
+**The loop.** `frame()` runs on every animation frame, but most frames do
+nothing. Paused, the world is drawn with `dt` 0, so the output is the previous
+frame again: it is drawn once on the frame that changed the picture and then
+left alone. The ending and an open panel keep a soft glow going, which a
+redraw at a fifth of the rate cannot show. A hidden tab draws nothing. The
+rAF stays scheduled throughout, so no state has to remember to restart it —
+input and unpausing are handled by listeners, not the loop (2026-09-30).
+
 **Checks** (2026-09-24; NEW GAME machine 2026-09-26). `npm run test:portal` (in CI): the world
 validates; it starts on the plaza facing the name, and the town and its
 rooms have no enemies; the arcade's cabinets are exactly its nine games (the VIP hall's are Mini World, Lag Din Figur and Eventyrland),
