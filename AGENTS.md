@@ -102,7 +102,7 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 
 ## Key Patterns
 
-- **What `/` costs** (measured 2026-09-30, 4× CPU, 1.6 Mbps, 150 ms RTT, cold): 303 KB over the wire in 4 requests. Four rules keep it there, each of which was broken and is easy to break again:
+- **What `/` costs** (measured 2026-09-30, 4× CPU, 1.6 Mbps, 150 ms RTT, cold): 296 KB over the wire in 5 requests — the document plus 4 files. Four rules keep it there, each of which was broken and is easy to break again:
   - **A landing imports no game.** `themes/index.ts` imports every `Landing.vue` statically so a cabinet has no waiting, but a `Landing.vue` must reach its game through `defineAsyncComponent(() => import(...))`. Battery, Mini World, Lag Din Figur and Star Fox's views do. Importing `Galaga.vue` in `themes/galaga/Landing.vue` puts the whole game in the entry, which `/` pays for on every visit. The title screen still server-renders, so this costs the first paint nothing.
   - **No prefetch hints.** `server/plugins/no-prefetch.ts` strips the `<link rel=prefetch>` tags Vite emits (21 of them, 465 KB) from the rendered head. It rewrites the one-element `html.head` array as a string; filtering that array instead removes the entire head.
   - **Styles are a file, not inline.** `features.inlineStyles: false` in `nuxt.config.ts`. All 19 theme stylesheets are global and total 82 KB; the HTML here is `cf-cache-status DYNAMIC` (the Norway gate and the sign-in cookie), so anything inlined is re-sent every visit and can never be cached.
