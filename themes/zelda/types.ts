@@ -209,7 +209,11 @@ export interface TalkBranch {
   clear?: string
   /** After the lines the shell opens this panel (the login console's), and the auth page brings the hero back to the entry named `<npc id>`. */
   panel?: PanelId
+  /** After the lines a two-way choice (left, right); the pick answers with its own lines. */
+  ask?: TalkAsk
 }
+
+export interface TalkAsk { options: [string, string]; replies: [string[], string[]] }
 
 /** Entity placed by a marker char in the rows. */
 export type EntDef =
@@ -658,6 +662,8 @@ export interface Dialog {
   after: null | { panel?: { id: string; panel: PanelId }; give?: ItemId; set?: string[]; clear?: string[]; sourceId?: string; price?: number; exit?: { id: string; to: ExitTarget }; startOver?: true }
   /** Exit dialogs: the answer picked on the last line, 0 = YES (go), 1 = NO (stay). */
   choice?: 0 | 1
+  /** A talk's own two-way choice on the last line (the labels replace YES / NO; the pick opens its reply). */
+  ask?: TalkAsk
   /** A direction was held last frame (the choice moves once per press). */
   held?: boolean
 }

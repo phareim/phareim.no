@@ -203,7 +203,16 @@ export const OVERWORLD: MapDef = {
         ],
       },
     },
-    '9': { ent: { t: 'npc', id: 'towncat', look: 'cat', wander: true, talk: [{ lines: ['MRRROW.', '(THE CAT WAS HERE FIRST.)'] }] } },
+    '9': { ent: { t: 'npc', id: 'towncat', look: 'cat', wander: true, talk: [{
+      lines: ['A CAT SITS IN THE MIDDLE OF THE ROAD, AS IF IT OWNED IT.'],
+      ask: {
+        options: ['TALK', 'PET'],
+        replies: [
+          ['MRRROW.', '(THE CAT WAS HERE FIRST.)'],
+          ['YOU SCRATCH THE CAT BEHIND THE EARS.', 'THE CAT APPROVES.'],
+        ],
+      },
+    }] } },
     '0': { tile: 'S', ent: { t: 'sign', lines: ["↑ PETTER'S HOUSE   ← THE ARCADE AND THE VIP HALL   ↓ THE COAST ROAD, THE BEACH AND THE KEEPER'S HUT"] } },
     // The west road: into the Wildwood, through a thicket only a blade gets through.
     '<': { tile: ',', ent: { t: 'warp', to: 'wildwood', entry: 'town' } },

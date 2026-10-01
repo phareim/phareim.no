@@ -582,3 +582,30 @@ describe('full run', () => {
     assert.ok(back.flags.won)
   })
 })
+
+describe('a talk that asks', () => {
+  const ask = { options: ['TALK', 'PET'], replies: [['MRRROW.'], ['THE CAT APPROVES.']] }
+  const asking = () => {
+    const s = newGame()
+    s.mode = 'dialog'
+    s.dialog = { lines: ['A CAT.'], line: 0, chars: 99, who: 'cat', after: null, choice: 0, held: false, ask }
+    return s
+  }
+  it('the first answer opens its reply', () => {
+    const s = asking()
+    step(s, inp({ aPress: true, a: true }))
+    assert.deepEqual(s.dialog.lines, ask.replies[0])
+    assert.equal(s.dialog.ask, undefined)
+  })
+  it('a press right picks the second', () => {
+    const s = asking()
+    step(s, inp({ move: { x: 1, y: 0 } }))
+    step(s, inp({ aPress: true, a: true }))
+    assert.deepEqual(s.dialog.lines, ask.replies[1])
+  })
+  it('B closes it', () => {
+    const s = asking()
+    step(s, inp({ bPress: true }))
+    assert.equal(s.mode, 'play')
+  })
+})

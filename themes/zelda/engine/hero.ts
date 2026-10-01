@@ -375,6 +375,7 @@ function talkTo(c: Ctx, id: string) {
       if (!condFor(c, br.when)) continue
       const give = br.give && !has(s, `got:${id}:${br.give}`) ? br.give : undefined
       openDialog(c, br.lines, e.look, { give, set: [br.set, give ? `got:${id}:${give}` : undefined].filter((x): x is string => !!x), clear: br.clear ? [br.clear] : undefined, panel: br.panel ? { id, panel: br.panel } : undefined })
+      if (br.ask) s.dialog!.ask = br.ask
       c.ev.push({ type: 'talk' })
       return
     }

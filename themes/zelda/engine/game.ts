@@ -343,18 +343,19 @@ function dialog(c: Ctx, dt: number, inp: Input) {
     if (Math.floor(d.chars) > before && line[Math.floor(d.chars) - 1] !== ' ') c.ev.push({ type: 'text' })
   }
   // Lines that lead out of the world (an exit, the NEW GAME machine): B backs out at any line.
-  if (inp.bPress && d.after && (d.after.exit || d.after.startOver)) { closeWithoutLeaving(c); return }
+  if (inp.bPress && ((d.after && (d.after.exit || d.after.startOver)) || (d.ask && asksChoice(d)))) { closeWithoutLeaving(c); return }
   // Tracked on every line, so a direction still held from walking up never moves the cursor.
   const dir = Math.abs(inp.move.x) > 0.5 || Math.abs(inp.move.y) > 0.5
   const turned = dir && !d.held
   d.held = dir
-  if (asksToLeave(d) && d.chars >= line.length) {
-    // The last line asks: YES goes, NO stays. Any direction moves the cursor, a tap picks a side.
+  if (asksChoice(d) && d.chars >= line.length) {
+    // The last line asks: YES goes, NO stays (a talk's own ask names its two answers). Any direction moves the cursor, a tap picks a side.
     if (turned) {
       d.choice = inp.move.x < -0.5 ? 0 : inp.move.x > 0.5 ? 1 : d.choice === 1 ? 0 : 1
       c.ev.push({ type: 'choose' })
     }
     if (inp.aPress && inp.tapSide) d.choice = inp.tapSide < 0 ? 0 : 1
+    if (d.ask && inp.aPress) { openDialog(c, d.ask.replies[d.choice ?? 0], d.who); return }
     if (inp.aPress && d.choice === 1) { closeWithoutLeaving(c); return }
   }
   if (!inp.aPress && !inp.bPress) return
@@ -389,6 +390,11 @@ function dialog(c: Ctx, dt: number, inp: Input) {
 /** True on the last line of an exit's lines: the dialog box shows YES / NO. */
 export function asksToLeave(d: Dialog): boolean {
   return !!d.after?.exit && d.line === d.lines.length - 1
+}
+
+/** The last line asks something: YES / NO of an exit, or a talk's own two answers. */
+export function asksChoice(d: Dialog): boolean {
+  return (asksToLeave(d) || !!d.ask) && d.line === d.lines.length - 1
 }
 
 function closeWithoutLeaving(c: Ctx) {
