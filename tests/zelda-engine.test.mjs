@@ -431,6 +431,35 @@ describe('profile saves', () => {
   })
 })
 
+describe('the Shrine road is open from the start (2026-10-01)', () => {
+  const inv = o => ({ sword: true, bombBag: true, disc: false, bigKey: false, hook: false, arc: false, prism: false, ...o })
+
+  it('has no gate on the Graves road', () => {
+    const ow = Z.WORLD.maps.overworld
+    assert.ok(!Object.values(ow.marks).some(m => m.ent?.t === 'gate'), 'no gate left in the overworld')
+    assert.ok(!ow.rows.some(r => r.includes('X')), 'no shutter tile left in the overworld')
+  })
+
+  it('shows the prism only once the king is down and the Gate is shut', () => {
+    const prism = Z.WORLD.maps.shrine.marks.Y.ent
+    assert.deepEqual(prism.appear, { flags: ['boss', 'gateShut'] })
+    const warn = Z.WORLD.maps.shrine.cells['1,0'].events.find(e => e.set === 'king.warned')
+    assert.deepEqual(warn.when, { flags: ['boss'], not: ['gateShut'] })
+  })
+
+  it('points the quest at the road the player has started', () => {
+    const next = (i, flags, map = 'overworld') => Z.questNext(i, flags, map)
+    assert.equal(next(inv(), []), 2, 'default after the bombs: the Wildwood')
+    assert.equal(next(inv(), ['bomb:overworld:3,4']), 8, 'rubble blasted: the disc')
+    assert.equal(next(inv({ disc: true, bigKey: true }), ['bomb:overworld:3,4']), 10, 'the king')
+    // King down before the Gate: the Wildwood chain, then the prism.
+    assert.equal(next(inv({ disc: true, bigKey: true }), ['bomb:overworld:3,4', 'boss']), 2)
+    assert.equal(next(inv({ disc: true, bigKey: true, hook: true, arc: true }), ['bomb:overworld:3,4', 'boss', 'luna', 'mistral']), 6)
+    assert.equal(next(inv({ disc: true, bigKey: true, hook: true, arc: true }), ['bomb:overworld:3,4', 'boss', 'luna', 'mistral', 'gateShut']), 11, 'back for the prism')
+    assert.equal(Z.questStep(inv({ prism: true, disc: true, bigKey: true, hook: true, arc: true }), ['bomb:overworld:3,4', 'boss', 'luna', 'mistral', 'gateShut'], 'shrine'), Z.QUEST_STEPS)
+  })
+})
+
 describe('full run', () => {
   it('goes from the hut to the Sun Prism', () => {
     const s = newGame(11)

@@ -3,7 +3,7 @@
 Neon Shrine is a full A Link to the Past–style adventure in 80s neon paint:
 scrolling overworld, the Keeper's hut, shop, cave, a ten-room dungeon with
 keys, a block puzzle, crystal switches, a miniboss and a two-phase boss.
-Since 2026-09-24 the Wildwood west of town sits in the middle of the quest:
+Since 2026-09-24 the Wildwood west of town is the quest's other road (the Shrine and the Wildwood Gate can be done in either order since 2026-10-01):
 a second overworld and two two-floor labs with the hook, Luna, the Arc
 Blade and four bosses (`docs/games/wildwood.md`). An hour or more to
 finish. Since 2026-09-24 it is not a theme of its

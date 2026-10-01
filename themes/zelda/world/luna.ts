@@ -31,6 +31,6 @@ export const LUNA_TALK: TalkBranch[] = [
       'LUNA: GEMINI GUARDS THE GATE. THEY FINISH EACH OTHER\'S SENTENCES.',
     ],
   },
-  { when: { notFlag: 'boss' }, lines: ['LUNA: THE GATE IS SHUT. THE VINES IN THE GRAVES WILL BE DEAD.', 'LUNA: GO GET YOUR SUN. I AM COMING TOO.'] },
+  { when: { notFlag: 'boss' }, lines: ['LUNA: THE GATE IS SHUT. THE KING HAS NOTHING LEFT TO LEAN ON.', 'LUNA: GO GET YOUR SUN. I AM COMING TOO.'] },
   { lines: ['LUNA: FRIENDS DON\'T LIE. YOU DID IT.', 'LUNA: … CAN WE GET WAFFLES NOW?'] },
 ]

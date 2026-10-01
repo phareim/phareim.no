@@ -15,12 +15,13 @@ out of the old Neon Shrine and took the Sun Prism. The Keeper hands you a
 blade; you bring the prism back and the sun can finally set.
 
 The King came from somewhere: Project Horizon, a lab in the Wildwood west of
-town, opened a Gate to the static between stations. Static vines from it
-have grown over the Graves road to the Shrine. With Luna, the lab's escaped
-test subject, you go down through both labs and shut the Gate; then the
-vines wither and the Shrine is open. The Wildwood part: `docs/games/wildwood.md`.
+town, opened a Gate to the static between stations. With Luna, the lab's
+escaped test subject, you go down through both labs and shut the Gate. The
+Shrine road is open from the start (2026-10-01): king first or Gate first,
+and the Sun Prism appears once both are done. The Wildwood part:
+`docs/games/wildwood.md`.
 
-Quest (`progress.ts`, twelve steps): blade · bomb bag · Luna · hook ·
+Quest (`progress.ts`, twelve milestones, either road first; the hint follows the road the player has started): blade · bomb bag · Luna · hook ·
 Mistral · Arc Blade · Gemini (the Gate shut) · rubble · disc · big key ·
 Static King · Sun Prism.
 
@@ -51,7 +52,7 @@ with a banner, a music track and a continue point:
 | Home Glade | SW | the coast road arrives here; Keeper's hut (door → hut), Keeper, sword chest, pots, blobs, rock-ring chest |
 | Whisper Woods | NW | bats, dashers, **bomb bag** chest, heart piece behind a boulder |
 | Night Market | N | shop, kid, cat, fountain, market stalls and a sign where the old arcade stood (the arcade is in town since 2026-09-24); `village` music |
-| Hollow Graves | NE | zappers, sentry, ghost; static vines (a gate open on `gateShut`) and rubble seal the Shrine stairs |
+| Hollow Graves | NE | zappers, sentry, ghost; rubble seals the Shrine stairs |
 | Crossroads | centre | signpost, spitters, a sentry |
 | Mirror Lake | SE | the sun's reflection, island chest, bomb-able cliff → cave |
 

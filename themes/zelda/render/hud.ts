@@ -4,7 +4,7 @@
  * pause screen with the quest hint.
  */
 import type { GameState } from '../types'
-import { questHint, questStep } from '../progress'
+import { questHint, questNext } from '../progress'
 import { drawText, textWidth, wrapText, GLYPH_H } from './font'
 import { sprite } from './sheet'
 import { hasBigKey, keyCount } from '../engine/map'
@@ -131,7 +131,7 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
 }
 
 export function objective(s: GameState): string {
-  return questHint(questStep(s.inv, Object.keys(s.flags), s.map.id))
+  return questHint(questNext(s.inv, Object.keys(s.flags), s.map.id))
 }
 
 /** The NEW GAME machine's "start over?" question, over the stopped world until answered. */

@@ -6,16 +6,20 @@
  */
 import type { Inventory, SaveData } from './types'
 
-/** The quest as twelve steps; the index is how many are done. */
+/**
+ * The quest as twelve milestones, in the order the hints suggest. The Shrine
+ * road is open from the start (2026-10-01), so the Static King (steps 7–10)
+ * and the Gate in the Deep Lab (2–6) can be done in either order.
+ */
 const STEPS: Array<{ short: string; hint: string }> = [
   { short: 'THE BLADE', hint: "OPEN THE CHEST BY THE KEEPER'S HUT." },
   { short: 'THE BOMB BAG', hint: 'SEARCH WHISPER WOODS, NORTH OF HOME, FOR SOMETHING THAT GOES BOOM.' },
-  { short: 'THE WILDWOOD', hint: "CUT INTO THE WILDWOOD, WEST OF TOWN ALONG THE SHORE. SOMEONE HIDES IN THE BRAMBLES. MOSSA KNOWS WHAT SHE LIKES." },
+  { short: 'THE WILDWOOD', hint: "CUT INTO THE WILDWOOD, WEST OF TOWN ALONG THE SHORE. SOMEONE HIDES IN THE BRAMBLES. MOSSA KNOWS WHAT SHE LIKES. (OR GO FOR THE KING: THE SHRINE IS NORTH OF THE HOLLOW GRAVES.)" },
   { short: 'THE HOOK', hint: 'THE LAB IS NORTH OF THE CAMP. LUNA MOVES THE BLOCK; THE POWER IS DOWNSTAIRS; THE LLAMA HAS THE HOOK.' },
   { short: 'MISTRAL', hint: "THE BIG KEY IS IN THE LAB'S COOLANT VAULT. MISTRAL WAITS NORTH OF THE HUB." },
   { short: 'THE ARC BLADE', hint: 'CROSS THE RAVINE TO THE DEEP LAB. THE VAULT LISTENS FOR A WORD.' },
-  { short: 'GEMINI', hint: 'FIND THE STAIRS UNDER THE VINES. GEMINI GUARDS THE GATE.' },
-  { short: 'THE RUBBLE', hint: 'THE VINES IN THE GRAVES ARE DEAD. BLAST THE RUBBLE AT THE NORTH END OF THE HOLLOW GRAVES.' },
+  { short: 'GEMINI', hint: 'FIND THE STAIRS UNDER THE VINES. GEMINI GUARDS THE GATE. SHUT IT.' },
+  { short: 'THE RUBBLE', hint: 'BLAST THE RUBBLE AT THE NORTH END OF THE HOLLOW GRAVES. THE SHRINE IS BEHIND IT.' },
   { short: 'THE DISC', hint: "FIND THE SHRINE'S TREASURE. KEYS OPEN THE WAY WEST OF THE GREAT HALL." },
   { short: 'THE BIG KEY', hint: 'A KNIGHT GUARDS THE BIG KEY, NORTH OF THE CRYSTAL ROOM.' },
   { short: 'THE STATIC KING', hint: 'OPEN THE GREAT DOOR AND FACE THE STATIC KING.' },
@@ -24,27 +28,57 @@ const STEPS: Array<{ short: string; hint: string }> = [
 
 export const QUEST_STEPS = STEPS.length
 
-/** Steps done, 0..QUEST_STEPS (12 only once the prism is taken). */
-export function questStep(inv: Inventory, flags: readonly string[], mapId: string): number {
+const SHRINE_FIRST = 7
+const KING = 10
+const GATE = 6
+const PRISM = 11
+
+/** Which of the twelve are done. The prism needs the king down and the Gate shut. */
+function doneSteps(inv: Inventory, flags: readonly string[], mapId: string): boolean[] {
   const has = (f: string) => flags.includes(f)
-  if (!inv.sword) return 0
-  if (!inv.bombBag) return 1
-  if (!has('luna')) return 2
-  if (!inv.hook) return 3
-  if (!has('mistral')) return 4
-  if (!inv.arc) return 5
-  if (!has('gateShut')) return 6
-  // Being inside the shrine means the rubble is behind you.
-  if (!flags.some(f => f.startsWith('bomb:overworld:')) && mapId !== 'shrine') return 7
-  if (!inv.disc) return 8
-  if (!inv.bigKey) return 9
-  if (!has('boss')) return 10
-  return inv.prism ? QUEST_STEPS : 11
+  const king = has('boss')
+  const inShrine = mapId === 'shrine' || flags.some(f => f.startsWith('bomb:overworld:'))
+  return [
+    inv.sword,
+    inv.bombBag,
+    has('luna'),
+    inv.hook,
+    has('mistral'),
+    inv.arc,
+    has('gateShut'),
+    // Being inside the shrine means the rubble is behind you.
+    inShrine || inv.disc || inv.bigKey || king,
+    inv.disc || king,
+    inv.bigKey || king,
+    king,
+    inv.prism,
+  ]
 }
 
-export function questHint(step: number): string {
-  if (step >= QUEST_STEPS) return 'THE SUN HAS SET. WANDER WHERE YOU LIKE, OR START OVER AT THE RED MACHINE IN PETTER\'S HOUSE.'
-  return STEPS[Math.min(step, QUEST_STEPS - 1)]!.hint
+/** Steps done, 0..QUEST_STEPS (12 only once the prism is taken). */
+export function questStep(inv: Inventory, flags: readonly string[], mapId: string): number {
+  return doneSteps(inv, flags, mapId).filter(Boolean).length
+}
+
+/**
+ * What to do next, as an index into the twelve. The blade and bombs come first; after that, whichever of the
+ * two roads the player has started (the Shrine, once the rubble is blasted or the king is down) comes first.
+ */
+export function questNext(inv: Inventory, flags: readonly string[], mapId: string): number {
+  const done = doneSteps(inv, flags, mapId)
+  if (!done[0]) return 0
+  if (!done[1]) return 1
+  const shrineStarted = done[SHRINE_FIRST]
+  const order = shrineStarted
+    ? [SHRINE_FIRST, 8, 9, KING, 2, 3, 4, 5, GATE, PRISM]
+    : [2, 3, 4, 5, GATE, SHRINE_FIRST, 8, 9, KING, PRISM]
+  return order.find(i => !done[i]) ?? QUEST_STEPS
+}
+
+/** The hint for a `questNext` index. */
+export function questHint(next: number): string {
+  if (next >= QUEST_STEPS) return 'THE SUN HAS SET. WANDER WHERE YOU LIKE, OR START OVER AT THE RED MACHINE IN PETTER\'S HOUSE.'
+  return STEPS[next]!.hint
 }
 
 export interface QuestSummary {
@@ -57,9 +91,10 @@ export interface QuestSummary {
 
 export function summarizeSave(save: SaveData): QuestSummary {
   const step = questStep(save.inv, save.flags, save.map)
+  const next = questNext(save.inv, save.flags, save.map)
   return {
     step,
-    goal: STEPS[Math.min(step, QUEST_STEPS - 1)]!.short,
+    goal: STEPS[Math.min(next, QUEST_STEPS - 1)]!.short,
     hearts: Math.floor(save.maxHp / 2),
     elapsed: save.elapsed,
   }

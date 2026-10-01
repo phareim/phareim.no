@@ -32,7 +32,7 @@ export const OVERWORLD: MapDef = {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT:..;;:TTTTTTTTTTTTTT.:.TT#..HHHHHHH.....:..:....#####IVVI####',
     'TTHHHHHHHHHTTHHHHHHHHHHHHHHHTTTTTTTTTTTTTT..:....TTTTTTTTTTTTTT.5.TT#..HHHHHHH.....nn.nn...#####IW.I####',
     'TTHHHHHHHHHTTHHHHHHHHHHHHHHH..T..:..TTTTTT:..4...:.....;;..TTTT...TT#t.HHHMHHH..t........t.######RR#####',
-    'TTHHHHHHHHHTTHHHHHHHHHHHHHHH...:.....TTTTT..:...:.TTTTT;;;..TTTTRTTT#..HHHBHHH......:N.....##T:..X"..:T#',
+    'TTHHHHHHHHHTTHHHHHHHHHHHHHHH...:.....TTTTT..:...:.TTTTT;;;..TTTTRTTT#..HHHBHHH......:N.....##T:......:T#',
     'TTHHHHHHHHHtTHHHHHHHHHHHHHHH.t....:...TTTTT:..a..TTTTTTT;;..TTTT.TTT#.....E....:...........##.G..G..G..#',
     'TTHHHHßHHHH..HHHHHHHpHHHHHHH....:..:..TTTTTT....TTT;;TTTT...TTT;.;TT#.t,,,,,,,,,,,,,,,,,,t.##.....z....#',
     'TTTT,¤¤¤Ð,,,,,,,,,,,@,,,,,,,,.......TTTTTTTTT..TTT;;;;TT..a..TT...TT#..,:,,,,,,,,,,,,,,:,..##.G..G..G.g#',
@@ -234,16 +234,23 @@ export const OVERWORLD: MapDef = {
             ],
           },
           {
-            when: { notFlag: 'gateShut' },
+            when: { flags: ['item:bombBag'], not: ['boss', 'gateShut'] },
             lines: [
-              'KEEPER: BOMBS! GOOD. BUT THE GRAVES ARE WORSE SINCE YESTERDAY: STATIC VINES, ACROSS THE SHRINE ROAD. NO BLADE BITES THEM.',
+              'KEEPER: BOMBS! GOOD. THE SHRINE ROAD IS OPEN: THE HOLLOW GRAVES, THEN NORTH. BLAST THE RUBBLE AND FACE THE KING. MIND THE JELLIES. THEY BITE BACK.',
               "KEEPER: THE STATIC COMES FROM THE WEST. THE OLD LAB IN THE WILDWOOD, PAST THE TOWN. THEY OPENED SOMETHING THERE THEY COULDN'T SHUT.",
-              'KEEPER: GO WEST ALONG THE SHORE. FIND WHAT OPENED, AND SHUT IT.',
+              'KEEPER: SHUT IT AND THE SUN PRISM IS YOURS. KING FIRST OR DOOR FIRST, YOUR CALL.',
+            ],
+          },
+          {
+            when: { flags: ['boss'], not: ['gateShut'] },
+            lines: [
+              'KEEPER: THE KING IS DOWN, BUT THE SUN STAYS PUT. THE DOOR HE CAME THROUGH IS STILL OPEN.',
+              'KEEPER: GO WEST ALONG THE SHORE, TO THE LAB IN THE WILDWOOD. SHUT IT, THEN CLAIM THE PRISM IN THE SHRINE.',
             ],
           },
           {
             when: { notFlag: 'boss' },
-            lines: ['KEEPER: THE VINES ARE GONE! THE GRAVES ARE OPEN. NOW TO THE SHRINE, AND MIND THE JELLIES. THEY BITE BACK.'],
+            lines: ['KEEPER: THE DOOR IS SHUT! NOW TO THE SHRINE, NORTH OF THE HOLLOW GRAVES. MIND THE JELLIES. THEY BITE BACK.'],
           },
           { lines: ['KEEPER: LOOK AT THAT SKY. WELL DONE, KID.'] },
         ],
@@ -278,14 +285,12 @@ export const OVERWORLD: MapDef = {
         t: 'npc', id: 'ghost', look: 'ghost', dir: 'left',
         talk: [
           { when: { notFlag: 'item:bombBag' }, lines: ['GHOST: BOO. SORRY. HABIT.', 'THE SHRINE IS SEALED BY RUBBLE. ONLY A BLAST WILL MOVE IT.'] },
-          { when: { notFlag: 'gateShut' }, lines: ['GHOST: THE VINES CAME UP OUT OF THE GROUND, HUMMING LIKE A DEAD CHANNEL.', 'GHOST: THEY GROW FROM SOMEWHERE FAR WEST. SHUT THE DOOR THEY CAME THROUGH AND THEY WILL WITHER.'] },
+          { when: { notFlag: 'gateShut' }, lines: ['GHOST: THE STATIC HUMS IN THE GROUND HERE, LIKE A DEAD CHANNEL.', 'GHOST: IT COMES FROM SOMEWHERE FAR WEST. A DOOR THAT WON\'T SHUT. THE KING IS ONLY THE FIRST THING THROUGH IT.'] },
           { lines: ['GHOST: THE JELLIES SPARK WHEN STRUCK. ASK ME HOW I KNOW.'] },
         ],
       },
     },
     '+': { tile: 'S', ent: { t: 'sign', lines: ['HOLLOW GRAVES.   ↑ THE NEON SHRINE'] } },
-    // Static vines from the Other Side, until the Gate in the Deep Lab is shut.
-    '"': { tile: 'X', ent: { t: 'gate', open: { flag: 'gateShut' } } },
     // ---- Crossroads ----
     '!': { tile: 'S', ent: { t: 'sign', lines: ['↑ NIGHT MARKET   → HOLLOW GRAVES   ↓ MIRROR LAKE   ← HOME GLADE, PHAREIM.NO'] } },
     // ---- Mirror Lake ----

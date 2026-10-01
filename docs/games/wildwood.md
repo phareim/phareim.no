@@ -2,9 +2,11 @@
 
 West of the town, along the shore, lies the Wildwood: a deeper forest with
 Project Horizon's two labs underneath it (Zelda meets Stranger Things). It
-sits in the middle of the quest, between the bomb bag and the Shrine: static
-vines from the lab's Gate have grown over the Graves road to the Shrine, and
-they only wither once the Gate is shut. Story, world and engine rules for the
+sits beside the Shrine, not in front of it (since 2026-10-01): the Graves road
+to the Shrine is open once the player has bombs, and the Static King and the lab's
+Gate can be done in either order. The Sun Prism appears when both are done: a
+king killed first leaves a message to go and shut the Gate; the Gate shut first
+leaves the king as it was. Story, world and engine rules for the
 whole game: `themes/zelda/DESIGN.md`; the rest of the game:
 `docs/games/neon-shrine.md`.
 
@@ -54,7 +56,7 @@ warp). A little way in, two cracked boulders on the trail need a bomb
    jumps down the chute after the block climbs the cage room's ladder back to the chute) → the static hall's
    pink blocks are down (cyan), key 2, big key → **GEMINI** → heart container, Luna shuts the Gate
    (`gateShut`) → the lift goes straight up to the Deep Woods.
-7. Back east: the vines in the Hollow Graves are gone; the Shrine as before.
+7. Back east: the Shrine as before. If the king is already down, the Prism now appears on its pedestal.
 
 ### Residents: they ask, and they give
 

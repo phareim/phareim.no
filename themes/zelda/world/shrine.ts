@@ -16,7 +16,18 @@ export const SHRINE: MapDef = {
   track: 'dungeon',
   cell: { w: 16, h: 12 },
   cells: {
-    '1,0': { track: 'boss' },
+    '1,0': {
+      track: 'boss',
+      // He fell before the Gate in the Deep Lab was shut: the prism waits for it.
+      events: [{
+        when: { flags: ['boss'], not: ['gateShut'] },
+        lines: [
+          'THE STATIC KING FALLS. THE SUN PRISM FLICKERS ON ITS PEDESTAL, DARK.',
+          'THE DOOR HE CAME THROUGH IS STILL OPEN: THE DEEP LAB, WEST IN THE WILDWOOD. SHUT IT, THEN COME BACK FOR THE PRISM.',
+        ],
+        set: 'king.warned',
+      }],
+    },
     '2,1': { dark: true },
   },
   rows: [
@@ -83,7 +94,7 @@ export const SHRINE: MapDef = {
     'N': { ent: { t: 'enemy', kind: 'knight', once: 'miniboss', dir: 'down' } },
     'Q': { ent: { t: 'enemy', kind: 'king', once: 'boss' } },
     'h': { ent: { t: 'item', id: 'shrine.container', item: 'heartContainer', appear: { flag: 'boss' } } },
-    'Y': { ent: { t: 'item', id: 'shrine.prism', item: 'prism', appear: { flag: 'boss' } } },
+    'Y': { ent: { t: 'item', id: 'shrine.prism', item: 'prism', appear: { flags: ['boss', 'gateShut'] } } },
     'E': { tile: 'I', ent: { t: 'enemy', kind: 'eye' } },
     'e': { ent: { t: 'enemy', kind: 'blob' } },
     'a': { ent: { t: 'enemy', kind: 'bat' } },

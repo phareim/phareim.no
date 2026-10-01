@@ -295,17 +295,6 @@ export function drawLabLive(
       lights.push({ x: wx, y: wy - 0.2, r: 1.3, color: on ? '#b6ff4a' : '#ff3b5c', a: 0.7 })
       return true
     }
-    case 'X': {
-      const gate = info.gates.find(q => q.tiles.includes(ty * m.w + tx))
-      const cond = gate?.open
-      if (kind === 'overworld' && cond && 'flag' in cond && cond.flag === 'gateShut') {
-        // Static vines over the Graves road.
-        vines(g, px, py, tx, ty)
-        lights.push({ x: wx, y: wy, r: 1.8, color: '#ff3b8c', a: 0.4 + 0.2 * Math.sin(tm * 4 + tx) })
-        return true
-      }
-      return false
-    }
   }
   if (!lab) return false
   switch (t) {

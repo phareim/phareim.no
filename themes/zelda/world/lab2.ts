@@ -326,13 +326,24 @@ export const DEEP2: MapDef = {
       events: [
         { when: { notFlag: 'gemini' }, lines: ['GEMINI. TWO MINDS, ONE THOUGHT.'], set: 'gemini.met' },
         {
-          when: { flag: 'gemini' },
+          when: { flags: ['gemini'], not: ['boss'] },
           who: 'luna',
           lines: [
             'LUNA: NOW. MOVE.',
             '(LUNA STEPS UP TO THE GATE AND RAISES BOTH HANDS. HER NOSE BLEEDS. THE GATE SCREAMS, SHRINKS, AND FOLDS SHUT LIKE A WOUND HEALING.)',
             'LUNA: … IT IS SHUT. THE STATIC HAS NOWHERE TO COME FROM NOW.',
-            'LUNA: THE LIFT IN THE CORNER GOES STRAIGHT UP. THE VINES IN THE GRAVES WILL BE DEAD. GO GET YOUR SUN.',
+            'LUNA: THE LIFT IN THE CORNER GOES STRAIGHT UP. THE KING IS WAITING IN THE SHRINE. GO GET YOUR SUN.',
+          ],
+          set: 'gateShut',
+        },
+        {
+          when: { flags: ['gemini', 'boss'] },
+          who: 'luna',
+          lines: [
+            'LUNA: NOW. MOVE.',
+            '(LUNA STEPS UP TO THE GATE AND RAISES BOTH HANDS. HER NOSE BLEEDS. THE GATE SCREAMS, SHRINKS, AND FOLDS SHUT LIKE A WOUND HEALING.)',
+            'LUNA: … IT IS SHUT. THE STATIC HAS NOWHERE TO COME FROM NOW.',
+            'LUNA: THE LIFT IN THE CORNER GOES STRAIGHT UP. THE KING IS ALREADY DOWN, SO THE PRISM IS WAITING IN THE SHRINE. GO GET YOUR SUN.',
           ],
           set: 'gateShut',
         },
