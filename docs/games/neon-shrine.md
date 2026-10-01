@@ -62,6 +62,7 @@ screen M turns the sound on or off and T goes to town. Holding Escape saves and 
 is the NEW GAME machine in Petter's house (see "Saves" below). Touch:
 floating stick on the left 60 %, A always, B and SWAP once there is an
 item, a pause chip (paused: RESUME, SOUND ON/OFF, TO TOWN); any tap moves a dialog on;
+A talk branch can end in a two-way question (`ask` on `TalkBranch`: two labels, a reply each; left/right or a tap picks, B closes). The town cat uses it: TALK or PET (2026-10-01).
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status
