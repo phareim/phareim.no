@@ -1,7 +1,7 @@
 # phareim.no
 
-Personal website. Nuxt 3 on Cloudflare Pages, deployed by GitHub Actions on
-every push to `master`. One D1 database (`phareim-leaderboard`) holds the
+Personal website. Nuxt 3 on Cloudflare Pages, built and deployed from Sleeper on
+every push to `master` (2026-10-04). One D1 database (`phareim-leaderboard`) holds the
 Hall of Fame — the world ranking of the six score games — behind three
 small API routes; nothing else is stored.
 
@@ -40,3 +40,23 @@ npm run build      # cloudflare-pages preset → dist/
 ```
 
 See `AGENTS.md` for architecture and conventions.
+
+## Deployment
+
+GitHub Actions is disabled (2026-10-04). The signed GitHub webhook calls
+`sleeper-deploy` → `scripts/deploy.sh`: the existing Mini World server deploy,
+then `scripts/deploy-site.sh --auto`. Sites build from committed `origin/master`
+in an isolated worktree through `heavy`, keeping uncommitted work out of production.
+Every `test:*` script, typecheck and build must pass; then Wrangler applies the
+existing D1 migrations before publishing to the `phareim-no` Pages production branch.
+New test scripts automatically join the checks. Pull requests no longer run CI.
+
+Busy pushes merge in the webhook's queue. A file lock serializes manual and
+automatic site deploys; `~/.local/state/phareim-deploy/site` records the last
+successful revision so duplicate webhooks skip building. Failed builds leave
+the live site in place. Superseded automatic builds wait for the queued push.
+
+Manual: `bash scripts/deploy-site.sh [commit]`. Credentials are in
+`~/.config/phareim-deploy/env` (600; `CLOUDFLARE_API_TOKEN` with Pages and D1
+edit rights, `CLOUDFLARE_ACCOUNT_ID`), or the interactive environment.
+Logs: `pm2 logs sleeper-deploy`; queue: `https://sleeper.phareim.no/deploy/health`.

@@ -3,8 +3,8 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
 
-# Hall of Fame (2026-09-08): the site's one system of record. CI applies
-# migrations/ before every deploy (see .github/workflows/deploy.yml).
+# Hall of Fame: scripts/deploy-site.sh applies migrations/ before every
+# Pages deployment from Sleeper (2026-10-04).
 [[d1_databases]]
 binding = "LEADERBOARD_DB"
 database_name = "phareim-leaderboard"

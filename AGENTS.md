@@ -14,7 +14,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 - `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link, the beach's two DJ booths (Jam and the radio, both links out), the login console and its auth.phareim.no client (fake fetch), the coast road to the Keeper
 - `npm run test:zelda` — Neon Shrine: the first minute from the town, exits, saves, a full scripted run to the Sun Prism; the audio data; the Wildwood's rules and a full run from the town's thicket to the Gate shutting (2026-09-24)
 - `npm run test:eschold` — the shared Escape tap/hold state machine
-- `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); CI runs these before typecheck
+- `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); the Sleeper deploy runs these before typecheck
 - `npm run test:leaderboard` — Hall of Fame name generator/validator and game list (2026-09-08)
 - `npm run test:starfox` — Star Fox: balance, story and director, arsenal, encounter scripts, the five bosses' fairness (2026-09-25)
 - `npm run test:wingman` — Star Fox wingman brain and the three-wingman squad (2026-09-25)
@@ -23,7 +23,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 - `npm run test:battery` — Night of the Dead Battery: the engine, each floor's puzzles, the story and finale, the audio, and a walkthrough from a new game to the credits (2026-09-26)
 - `npm run test:miniworld` — Mini World: the save and its actions, contests, crown and titles, the wallet and neighbourhood server rules (memory store and real D1 SQL), physics, every obby jump, the castle's throne hall, models, audio (2026-09-26, the hall 2026-09-29); the sign-in gate (2026-09-29): session check with a fake auth, account links, every gated route on real D1 SQL, mw-world's 401, the browser composable and both windows
 - `npm run test:figur` — Lag Din Figur: every garment's texture, packing, the drawing ops, figures and the save, Pip's reading of Norwegian, the hero colours, the four renderers and the Minecraft skin (2026-09-26)
-- `npm run typecheck` — `nuxi typecheck` (vue-tsc); CI runs this before build
+- `npm run typecheck` — `nuxi typecheck` (vue-tsc); the Sleeper deploy runs this before build
 - `npm run build` — production build; the `cloudflare-pages` preset is set in `nuxt.config.ts`, output goes to `dist/`
 - `npm run preview` — preview built site
 
@@ -31,7 +31,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 
 - **Framework**: Nuxt 3 + Vue 3 Composition API + TypeScript (`themes/scandi/Bubbles.vue` is Options API, moved verbatim)
 - **Hosting**: Cloudflare Pages, project `phareim-no`. SSR runs in the Pages worker (`_routes.json` sends everything except static assets to it), so the first paint is already the theme the URL names.
-- **Database / storage**: one D1, `phareim-leaderboard` (id `54e101f9-4026-4fd1-a78a-7a8976e1301e`, created 2026-09-08), bound as `LEADERBOARD_DB` in `wrangler.toml`, schema in `migrations/`, applied by CI before every deploy. It holds the player profiles: Hall of Fame scores, Hangar ships and, since 2026-09-23, the adventure save slots (Neon Shrine, Another Shore, Night of the Dead Battery, Mini World, Lag Din Figur) — see `docs/games/hall-of-fame.md`. Since 2026-09-26 also the site-wide bits wallet (`players.bits`, `wallet_ops`) and Mini World's neighbourhood tables (`mw_*`) — see `docs/games/mini-world.md`. No R2 binding.
+- **Database / storage**: one D1, `phareim-leaderboard` (id `54e101f9-4026-4fd1-a78a-7a8976e1301e`, created 2026-09-08), bound as `LEADERBOARD_DB` in `wrangler.toml`, schema in `migrations/`, applied from Sleeper before every deploy. It holds the player profiles: Hall of Fame scores, Hangar ships and, since 2026-09-23, the adventure save slots (Neon Shrine, Another Shore, Night of the Dead Battery, Mini World, Lag Din Figur) — see `docs/games/hall-of-fame.md`. Since 2026-09-26 also the site-wide bits wallet (`players.bits`, `wallet_ops`) and Mini World's neighbourhood tables (`mw_*`) — see `docs/games/mini-world.md`. No R2 binding.
 - **External APIs**: three. auth.phareim.no, the site-wide account (2026-09-26): the login console in Petter's house asks `GET /api/session` and `POST /api/sign-out` cross-origin with the cookie and links to its sign-in page; the address is `AUTH_BASE` in `themes/zelda/account.ts` (`docs/games/portal.md`). Since 2026-09-29 Mini World and Lag Din Figur also sign in through it (`POST /api/sign-in` from their own windows, `composables/useAccount.ts`) and the site's server and `mw-world` ask `GET /api/session` with the request's `session_token` cookie to lock them (see Key Patterns). Two on Sleeper — wave-jobs (`POST https://sleeper.phareim.no/wave-jobs/avatar`, Bearer `WAVE_JOBS_KEY`) paints the Hall of Fame avatars (2026-09-08); and `mw-world` (`wss://sleeper.phareim.no/mw-world/ws`, PM2, port 3034, code in `servers/mw-world/`, deployed by the sleeper-deploy webhook's `deploy.sh`) relays Mini World's shared world (2026-09-26). Mini World plays solo when it is down. `server/` came back 2026-09-08 with the Hall of Fame routes (`/api/leaderboard`, `/api/player`, `/api/score`, and `/api/avatar` for wave-jobs' callback); since 2026-09-26 also `/api/wallet` and Mini World's `/api/mw/*`.
 - **Dependencies of note**: `three` 0.185 (+ `@types/three`), used by Star Fox, the Hangar and Mini World and loaded only in their async chunks, never the entry (checked 2026-09-25); `@fontsource/space-grotesk` + `@fontsource/space-mono` (self-hosted fonts, 2026-09-06)
 - **Fonts** (2026-09-06): two faces, the Neon Dreams split — `--font-person` (Space Grotesk at weight 300, the face's lightest, for body, name and page titles; 400/500 for emphasis: name, blurbs, prose) and `--font-machine` (Space Mono: HUD, hints, over-titles, canvas score pops, shas). Defined on `:root` in `themes/base/fonts.css` (imported first in `themes/index.ts`), latin subsets only; canvas code imports `MACHINE_FONT` from `themes/base/fonts.ts`. A third face since 2026-09-24: `--font-pixel` (Neon Pixel, Neon Shrine's 5×7 canvas font as a 3 KB webfont in `public/fonts/`, for the pixel games' HTML text; `docs/games/pixel-look.md`). Nothing loads from Google Fonts any more (Comfortaa and the preconnects are gone). The parked themes keep their own faces (desk: ET Book). The `@import` lines must stay **above** the `@font-face` rules: below them, Vite emits no woff2 at all and the site silently falls back to system fonts (fixed 2026-09-30).
@@ -55,7 +55,7 @@ server/
   utils/avatar.ts    — asks wave-jobs on Sleeper to paint a player's pilot (callback into avatar.post)
   utils/miniworld*.ts — the wallet and neighbourhood stores (D1 + memory) and route rules
   utils/account.ts, accountLinks.ts, sessionCheck.ts — the sign-in gate for Mini World and Lag Din Figur (2026-09-29); api/account/link.post
-migrations/          — D1 schema for phareim-leaderboard, numbered SQL, applied by CI
+migrations/          — D1 schema for phareim-leaderboard, numbered SQL, applied by the Sleeper deploy
 composables/
   useTheme.ts        — active theme from the URL, isHome, launch/goHome (router.push), navigationLocked
   useThemeNavigation.ts — Escape back to the portal, and the 3 s grace after a game lets go; called once from app.vue
@@ -114,8 +114,9 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 
 ## Deployment
 
-- **CI/CD**: `.github/workflows/deploy.yml` — `build` job (npm ci → every `test:*` suite → typecheck → build → artifact) on push and PR; `deploy` job (wrangler `pages deploy dist`) on push to `master` only, then notifies Sleeper. A new game test script must be added to that list.
-- `wrangler.toml` carries `pages_build_output_dir = "dist"`, `nodejs_compat` and the `LEADERBOARD_DB` D1 binding (2026-09-08). The deploy job runs `d1 migrations apply phareim-leaderboard --remote` before `pages deploy`, so the repo's `CLOUDFLARE_API_TOKEN` secret needs D1 edit rights (set to the host token 2026-09-08).
+- **Deploy** (2026-10-04): GitHub Actions is disabled; push to `master` → signed `sleeper-deploy` webhook → `scripts/deploy.sh` on Sleeper. It preserves the Mini World server deploy, then `scripts/deploy-site.sh --auto` builds committed `origin/master` in an isolated worktree through `heavy`. Every `test:*` script is discovered automatically, then typecheck and build run. Pull requests no longer run CI.
+- D1 migrations apply before publishing to Pages (`phareim-no`, production branch `master`). `wrangler.toml` carries the output dir, compatibility flags and `LEADERBOARD_DB` binding. Credentials: `~/.config/phareim-deploy/env` (600), with Pages and D1 edit rights.
+- Manual: `bash scripts/deploy-site.sh [commit]`. File lock and successful revision: `~/.local/state/phareim-deploy/`. Busy pushes coalesce in the webhook queue; duplicate revisions skip work. Logs: `pm2 logs sleeper-deploy`; status: `https://sleeper.phareim.no/deploy/health`.
 
 ## Keyboard
 
@@ -135,7 +136,7 @@ shell, which goes back to the portal (see Keyboard).
 
 Implementation: `themes/base/escHold.ts` holds the framework-free
 `EscHoldTracker` state machine (tap vs hold, `performance.now`-injected so
-`tests/esc-hold.test.mjs` covers it in plain node, in CI as `test:eschold`);
+`tests/esc-hold.test.mjs` covers it in plain node, on deploy as `test:eschold`);
 `themes/base/EscHold.vue` wraps it with the window listeners and the fixed
 progress pill (HOLD ESC TO QUIT with a filling bar) plus a PAUSED pill for
 games with no paused UI of their own (the five arcade games freeze their

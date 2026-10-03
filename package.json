@@ -25,7 +25,8 @@
     "test:portal": "node --test tests/portal-world.test.mjs tests/portal-account.test.mjs",
     "test:battery": "node --test tests/battery-engine.test.mjs tests/battery-ground.test.mjs tests/battery-cellar.test.mjs tests/battery-attic.test.mjs tests/battery-story.test.mjs tests/battery-audio.test.mjs tests/battery-walkthrough.test.mjs",
     "test:miniworld": "node --test tests/miniworld-*.test.mjs",
-    "test:figur": "node --test tests/figur-*.test.mjs"
+    "test:figur": "node --test tests/figur-*.test.mjs",
+    "test:deploy": "node --test tests/site-deploy.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.3",
