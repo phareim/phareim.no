@@ -19,7 +19,9 @@ export const HIGH_SCORE_SIGN: string[] = [
  * The arcade hall: four cabinets along the back wall beside the Hall of Fame
  * board, a ninth past it (Night of the Dead Battery; Mini World and Lag Din
  * Figur stood beyond the HANGAR door until 2026-09-29, when they moved to the
- * VIP hall next door), four more on an island between two pillars, a carpet loop around
+ * VIP hall next door), two beyond the HANGAR door that leave the site (Adventure, and in the
+ * corner Slop Fighter for fighter.phareim.no, both 2026-10-05), four
+ * more on an island between two pillars, a carpet loop around
  * them with bar stools in front of every cabinet, the HANGAR door in the
  * back wall, the prize counter with its vendor, a snack table, potted
  * plants, the robot by the entrance, the HIGH SCORES sign and a chest.
@@ -43,7 +45,7 @@ export const ARCADE: MapDef = {
   track: 'indoor',
   rows: [
     '#############h###',
-    '#t1234ZZBZZ.9.E.#',
+    '#t1234ZZBZZ.9.E0#',
     '#,iiii,,,,,,,,,,#',
     '#.,...........,.#',
     '#.,..I5678I...,.#',
@@ -105,6 +107,18 @@ export const ARCADE: MapDef = {
         ],
       },
     },
+    // Not a theme: Slop Fighter is its own site, so the cabinet leaves for the URL (`look=wasteland` opens its pixel look).
+    '0': {
+      tile: 'M',
+      ent: {
+        t: 'exit', id: 'slopfighter', to: { url: 'https://fighter.phareim.no/?look=wasteland' }, look: 'cabinet', art: 'slopfighter', label: 'SLOP FIGHTER', side: 'down',
+        lines: [
+          'SLOP FIGHTER. A RUINED STREET, A STRIPED SUN GOING DOWN, AND NOBODY ON IT WHO WANTS TO TALK.',
+          'TWO BUTTONS: A PUNCHES, B KICKS. IT LIVES ON ITS OWN PAGE, SO THIS ONE LEAVES TOWN.',
+          COIN,
+        ],
+      },
+    },
     B: {
       tile: 'I',
       ent: {
@@ -130,7 +144,7 @@ export const ARCADE: MapDef = {
           {
             when: { notFlag: 'item:sword' },
             lines: [
-              'ROBOT: BEEP. WELCOME TO THE ARCADE. TEN CABINETS. FREE PLAY. BOOP.',
+              'ROBOT: BEEP. WELCOME TO THE ARCADE. ELEVEN CABINETS. FREE PLAY. BOOP.',
               'FACE A CABINET AND PRESS {A}. SCORES GO UP ON THE BOARD AT THE BACK.',
               'THE HANGAR DOOR BACK THERE IS FOR PILOTS. YOUR SHIP AND YOUR RECORDS LIVE IN IT.',
               'THE KIDS\' GAMES MOVED NEXT DOOR, TO THE VIP HALL. ACCOUNT HOLDERS ONLY.',

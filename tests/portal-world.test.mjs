@@ -1,12 +1,14 @@
 // The town — phareim.no's front door, the west end of Neon Shrine's one
 // world: the world validates, the start view shows the name and two
-// buildings on a phone and a desktop, the town has no enemies, the two
+// buildings on a phone and a desktop, the town has no enemies, the arcade's
+// cabinets are its nine games plus Adventure's and Slop Fighter's links out, the two
 // DJs on the beach lead to Jam and the radio, every exit
 // leads where it says, a path-finding walker reaches and uses each one from
 // the start without a scratch, coming back stands you in front of it, and
 // the coast road leads to the Keeper's hut.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { load } from './portal-load.mjs'
 
 let P
@@ -20,14 +22,22 @@ const GAMES = ['anotherworld', 'galaga', 'breakout', 'rtype', 'invaders', 'starf
 const KIDS = ['miniworld', 'figur']
 /** Eventyrland, Ulrikke's 3D storybook on its own page: a cabinet in the VIP hall that leaves for the URL. */
 const VIP_ARTS = [...KIDS, 'eventyrland']
-/** Eventyrland's open instance (adventure.phareim.no, no account): a cabinet in the arcade that leaves for the URL. */
-const AWAY = { eventyrland: 'https://eventyrland.phareim.no', adventure: 'https://adventure.phareim.no' }
+/** The cabinets that are links out, not themes: art → where they leave for. Adventure is Eventyrland's open instance
+ * (no account); Slop Fighter is a side-scrolling fighter on its own page, opened in its pixel look. */
+const LINK_CABINETS = {
+  eventyrland: 'https://eventyrland.phareim.no',
+  adventure: 'https://adventure.phareim.no',
+  slopfighter: 'https://fighter.phareim.no/?look=wasteland',
+}
+const AWAY = LINK_CABINETS
+const ARCADE_ARTS = [...GAMES, 'adventure', 'slopfighter']
 const EXPECTED = {
   // cabinets
   ...Object.fromEntries(GAMES.map(g => [g, { map: 'arcade', to: { theme: g }, look: 'cabinet' }])),
   ...Object.fromEntries(KIDS.map(g => [g, { map: 'vip', to: { theme: g }, look: 'cabinet' }])),
-  eventyrland: { map: 'vip', to: { url: 'https://eventyrland.phareim.no' }, look: 'cabinet' },
-  adventure: { map: 'arcade', to: { url: 'https://adventure.phareim.no' }, look: 'cabinet' },
+  eventyrland: { map: 'vip', to: { url: LINK_CABINETS.eventyrland }, look: 'cabinet' },
+  adventure: { map: 'arcade', to: { url: LINK_CABINETS.adventure }, look: 'cabinet' },
+  slopfighter: { map: 'arcade', to: { url: LINK_CABINETS.slopfighter }, look: 'cabinet' },
   leaderboard: { map: 'arcade', to: { theme: 'leaderboard' }, look: 'board' },
   hangar: { map: 'arcade', to: { theme: 'hangar' }, look: 'door' },
   kiosk: { map: 'overworld', to: { url: 'https://phareim.md' }, look: 'kiosk' },
@@ -210,18 +220,60 @@ describe('portal world', () => {
     for (const id of ['arcade', 'home', 'vip']) assert.equal(P.createGame(W, { at: { map: id, entry: 'door' } }).map.enemies.length, 0, `an enemy in ${id}`)
   })
 
-  it('has one cabinet per arcade game and Adventure\'s, and Ulrikke\'s three in the VIP hall, each with a pitch that ends on the coin line', () => {
+  it('has one cabinet per arcade game plus Adventure\'s and Slop Fighter\'s, and Ulrikke\'s three in the VIP hall, each with a pitch that ends on the coin line', () => {
     const cabinets = placedExits().filter(e => e.ent.look === 'cabinet' && (e.map === 'arcade' || e.map === 'vip'))
-    assert.deepEqual(cabinets.filter(c => c.map === 'arcade').map(c => c.ent.art).sort(), [...GAMES, 'adventure'].sort())
+    assert.deepEqual(cabinets.filter(c => c.map === 'arcade').map(c => c.ent.art).sort(), [...ARCADE_ARTS].sort())
     assert.deepEqual(cabinets.filter(c => c.map === 'vip').map(c => c.ent.art).sort(), [...VIP_ARTS].sort())
     for (const c of cabinets) {
       assert.ok(c.map === 'arcade' || c.map === 'vip')
-      assert.deepEqual(c.ent.to, AWAY[c.ent.art] ? { url: AWAY[c.ent.art] } : { theme: c.ent.art })
+      assert.deepEqual(c.ent.to, c.ent.art in LINK_CABINETS ? { url: LINK_CABINETS[c.ent.art] } : { theme: c.ent.art })
       assert.ok(c.ent.label, `${c.id} has no label`)
       assert.ok(c.ent.lines.length >= 2 && c.ent.lines.length <= 3, `${c.id} has ${c.ent.lines.length} lines`)
       assert.equal(c.ent.lines.at(-1), 'INSERT COIN?')
       assert.equal(P.mapInfo(W, c.map).base[c.y * P.mapInfo(W, c.map).w + c.x], 'M', `${c.id} is not on a machine tile`)
     }
+  })
+
+  it('has a cabinet in the arcade for SLOP FIGHTER that leaves for fighter.phareim.no and is not a theme', () => {
+    const spot = placedExits().find(e => e.id === 'slopfighter')
+    assert.ok(spot, 'no Slop Fighter cabinet')
+    assert.equal(spot.map, 'arcade')
+    assert.equal(spot.ent.look, 'cabinet')
+    assert.equal(spot.ent.label, 'SLOP FIGHTER')
+    // A link, not a theme: the target is the address alone, and the registry knows no such id.
+    assert.deepEqual(spot.ent.to, { url: LINK_CABINETS.slopfighter })
+    assert.ok(!GAMES.includes(spot.ent.art) && !KIDS.includes(spot.ent.art))
+    assert.doesNotMatch(readFileSync(new URL('../themes/index.ts', import.meta.url), 'utf8'), /slopfighter|fighter\.phareim/i, 'Slop Fighter is in the theme registry')
+    // Its own marquee and screen, not the default cabinet's.
+    const paint = readFileSync(new URL('../themes/zelda/render/exits.ts', import.meta.url), 'utf8')
+    assert.match(paint, /^  slopfighter: \{/m, 'no cabinet style for Slop Fighter')
+    assert.match(paint, /case 'slopfighter':/, 'no screen for Slop Fighter')
+    // The pitch names the two buttons; the robot counts the hall's cabinets.
+    assert.match(spot.ent.lines[0], /^SLOP FIGHTER\./)
+    assert.match(spot.ent.lines.join(' '), /A PUNCHES, B KICKS/)
+    assert.equal(placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet').length, 11)
+    const robot = Object.values(W.maps.arcade.marks).find(m => m.ent.t === 'npc' && m.ent.id === 'robot').ent.talk[0].lines.join(' ')
+    assert.match(robot, /ELEVEN CABINETS/)
+    // It stands in nobody's way: every exit in the hall, the vendor's counter, the robot, the sign and the chest can still be walked up to.
+    const g = session()
+    goToMap(g, 'arcade')
+    const m = g.s.map
+    const free = (x, y) => !P.solidTile(W, m, x, y, 'hero') && !!path(g, x, y)
+    const beside = (x, y) => [[0, 1], [0, -1], [1, 0], [-1, 0]].some(([dx, dy]) => free(x + dx, y + dy))
+    for (const e of placedExits().filter(x => x.map === 'arcade')) {
+      const walk = !P.TILE_INFO[m.tiles[e.y * m.w + e.x]].solid
+      assert.ok(path(g, e.x, walk ? e.y : e.y + 1), `${e.id} cannot be reached`)
+    }
+    const vendor = m.npcs.find(n => n.id === 'vendor')
+    assert.ok(free(Math.floor(vendor.x), Math.floor(vendor.y) + 2), 'no way to the front of the prize counter')
+    const robotAt = m.npcs.find(n => n.id === 'robot')
+    assert.ok(beside(Math.floor(robotAt.x), Math.floor(robotAt.y)), 'the robot cannot be reached')
+    W.maps.arcade.rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if ('$QS'.includes(r[x])) assert.ok(beside(x, y), `${r[x]} at ${x},${y} cannot be reached`) })
+    // Using it leaves for the address; coming back stands the hero in front of it.
+    const { event } = useExit('slopfighter')
+    assert.deepEqual(event.to, { url: LINK_CABINETS.slopfighter })
+    const back = P.createGame(P.worldStartingAt('arcade', 'slopfighter'), { seed: 1 })
+    assert.deepEqual([back.map.id, Math.floor(back.hero.x), Math.floor(back.hero.y), back.hero.dir], ['arcade', spot.x, spot.y + 1, 'up'])
   })
 
   it('leads everywhere it should, and nowhere else', () => {

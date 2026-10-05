@@ -113,8 +113,12 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   Each is a solid `M` tile with an `exit` of look `cabinet`, `art` = theme
   id, `side: 'down'`, one per game: Another Shore
   (`anotherworld`), Galaga, Breakout, R-Type, Space Invaders, Star Fox,
-  OutRun, Tetris. Each has a label and two or three short lines: the game's
+  OutRun, Tetris, Night of the Dead Battery. Each has a label and two or three short lines: the game's
   pitch and "INSERT COIN? PRESS A." The lines are the only confirmation.
+- In the back wall's right-hand corner, beside Adventure, SLOP FIGHTER
+  (2026-10-05): not a theme but a link out, exit
+  `{ url: 'https://fighter.phareim.no/?look=wasteland' }`, like
+  Eventyrland's in the VIP hall (`docs/games/portal.md`).
 - The Hall of Fame board on the back wall: exit look `board` →
   `{ theme: 'leaderboard' }`.
 - A door at the back labelled HANGAR: walkable exit → `{ theme: 'hangar' }`.
