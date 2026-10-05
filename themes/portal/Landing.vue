@@ -74,6 +74,8 @@ const NAMES: Record<string, string> = {
   games: 'games.phareim.no — more games',
   jam: "jam.phareim.no — make music on the radio's engine",
   radio: 'radio.phareim.no — ten stations of music made up as it plays',
+  eventyrland: 'eventyrland.phareim.no — a fairy-tale world in 3D, for account holders',
+  adventure: 'adventure.phareim.no — the same world, open to everyone in Norway',
   linkedin: 'LinkedIn',
   github: 'GitHub',
   bluesky: 'Bluesky',

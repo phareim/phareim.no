@@ -263,6 +263,9 @@ const CABS: Record<string, CabStyle> = {
   },
 }
 
+// Adventure, Eventyrland's open instance in the arcade: the same castle on a warmer cabinet, so the two are told apart.
+CABS.adventure = { ...CABS.eventyrland!, body: '#a8542a', bodyL: '#f0a060', bodyD: '#5e2a12', trim: '#2ff3ff' }
+
 function cabStyle(art?: string): CabStyle {
   return (art && CABS[art]) || CABS.default!
 }
@@ -438,7 +441,8 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       f('#ffd23f', kx, feet - 2 - hop); f('#ff2fa0', kx, feet - 1 - hop); f('#2f5fd0', kx, feet - hop)
       return
     }
-    case 'eventyrland': {
+    case 'eventyrland':
+    case 'adventure': {
       // Dusk over the castle; a pink butterfly drifts across, wings going.
       f('#3a2a8a', 0, 0, W, 3); f('#8a48b0', 0, 3, W, 2); f('#e890c0', 0, 5, W, 1); f('#3fa86e', 0, 6, W, 2)
       if (Math.floor(t * 3 + seed) % 4 !== 0) f('#ffd23f', 4, 0)

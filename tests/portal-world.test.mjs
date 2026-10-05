@@ -20,11 +20,14 @@ const GAMES = ['anotherworld', 'galaga', 'breakout', 'rtype', 'invaders', 'starf
 const KIDS = ['miniworld', 'figur']
 /** Eventyrland, Ulrikke's 3D storybook on its own page: a cabinet in the VIP hall that leaves for the URL. */
 const VIP_ARTS = [...KIDS, 'eventyrland']
+/** Eventyrland's open instance (adventure.phareim.no, no account): a cabinet in the arcade that leaves for the URL. */
+const AWAY = { eventyrland: 'https://eventyrland.phareim.no', adventure: 'https://adventure.phareim.no' }
 const EXPECTED = {
   // cabinets
   ...Object.fromEntries(GAMES.map(g => [g, { map: 'arcade', to: { theme: g }, look: 'cabinet' }])),
   ...Object.fromEntries(KIDS.map(g => [g, { map: 'vip', to: { theme: g }, look: 'cabinet' }])),
   eventyrland: { map: 'vip', to: { url: 'https://eventyrland.phareim.no' }, look: 'cabinet' },
+  adventure: { map: 'arcade', to: { url: 'https://adventure.phareim.no' }, look: 'cabinet' },
   leaderboard: { map: 'arcade', to: { theme: 'leaderboard' }, look: 'board' },
   hangar: { map: 'arcade', to: { theme: 'hangar' }, look: 'door' },
   kiosk: { map: 'overworld', to: { url: 'https://phareim.md' }, look: 'kiosk' },
@@ -207,13 +210,13 @@ describe('portal world', () => {
     for (const id of ['arcade', 'home', 'vip']) assert.equal(P.createGame(W, { at: { map: id, entry: 'door' } }).map.enemies.length, 0, `an enemy in ${id}`)
   })
 
-  it('has one cabinet per arcade game, and Ulrikke\'s three in the VIP hall, each with a pitch that ends on the coin line', () => {
+  it('has one cabinet per arcade game and Adventure\'s, and Ulrikke\'s three in the VIP hall, each with a pitch that ends on the coin line', () => {
     const cabinets = placedExits().filter(e => e.ent.look === 'cabinet' && (e.map === 'arcade' || e.map === 'vip'))
-    assert.deepEqual(cabinets.filter(c => c.map === 'arcade').map(c => c.ent.art).sort(), [...GAMES].sort())
+    assert.deepEqual(cabinets.filter(c => c.map === 'arcade').map(c => c.ent.art).sort(), [...GAMES, 'adventure'].sort())
     assert.deepEqual(cabinets.filter(c => c.map === 'vip').map(c => c.ent.art).sort(), [...VIP_ARTS].sort())
     for (const c of cabinets) {
       assert.ok(c.map === 'arcade' || c.map === 'vip')
-      assert.deepEqual(c.ent.to, c.ent.art === 'eventyrland' ? { url: 'https://eventyrland.phareim.no' } : { theme: c.ent.art })
+      assert.deepEqual(c.ent.to, AWAY[c.ent.art] ? { url: AWAY[c.ent.art] } : { theme: c.ent.art })
       assert.ok(c.ent.label, `${c.id} has no label`)
       assert.ok(c.ent.lines.length >= 2 && c.ent.lines.length <= 3, `${c.id} has ${c.ent.lines.length} lines`)
       assert.equal(c.ent.lines.at(-1), 'INSERT COIN?')

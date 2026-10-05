@@ -43,7 +43,7 @@ export const ARCADE: MapDef = {
   track: 'indoor',
   rows: [
     '#############h###',
-    '#t1234ZZBZZ.9...#',
+    '#t1234ZZBZZ.9.E.#',
     '#,iiii,,,,,,,,,,#',
     '#.,...........,.#',
     '#.,..I5678I...,.#',
@@ -93,6 +93,18 @@ export const ARCADE: MapDef = {
       'NIGHT OF THE DEAD BATTERY. THREE FRIENDS IN RABBIT SUITS, ONE DEAD CAR, ONE VERY CROOKED HOUSE.',
       'A POINT-AND-CLICK ADVENTURE. PICK UP EVERYTHING. TALK TO THE CAT.',
     ]),
+    // Eventyrland's open instance (2026-10-05): the same game as the VIP hall's, on a page of its own, no account.
+    E: {
+      tile: 'M',
+      ent: {
+        t: 'exit', id: 'adventure', to: { url: 'https://adventure.phareim.no' }, look: 'cabinet', art: 'adventure', label: 'ADVENTURE', side: 'down',
+        lines: [
+          'ADVENTURE. EVENTYRLAND WITH THE DOOR OPEN: A FAIRY-TALE WORLD IN 3D, SHARED WITH WHOEVER ELSE WALKS IN. NO ACCOUNT. YOU DRAW A NAME AND GO.',
+          'IT LIVES ON ITS OWN PAGE AND IS OPEN IN NORWAY ONLY. COME BACK ANY TIME.',
+          COIN,
+        ],
+      },
+    },
     B: {
       tile: 'I',
       ent: {
@@ -118,7 +130,7 @@ export const ARCADE: MapDef = {
           {
             when: { notFlag: 'item:sword' },
             lines: [
-              'ROBOT: BEEP. WELCOME TO THE ARCADE. NINE CABINETS. FREE PLAY. BOOP.',
+              'ROBOT: BEEP. WELCOME TO THE ARCADE. TEN CABINETS. FREE PLAY. BOOP.',
               'FACE A CABINET AND PRESS {A}. SCORES GO UP ON THE BOARD AT THE BACK.',
               'THE HANGAR DOOR BACK THERE IS FOR PILOTS. YOUR SHIP AND YOUR RECORDS LIVE IN IT.',
               'THE KIDS\' GAMES MOVED NEXT DOOR, TO THE VIP HALL. ACCOUNT HOLDERS ONLY.',
