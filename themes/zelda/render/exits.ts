@@ -130,19 +130,19 @@ const CABS: Record<string, CabStyle> = {
       '............',
     ),
   },
-  slopfighter: {
-    // Slop Fighter (fighter.phareim.no), Wasteland '89: the only rust-orange machine in the hall,
-    // its initials in gold over a sky that goes from magenta down to orange.
+  pizzarescue: {
+    // Nova & Rex: The Pizza Rescue (fighter.phareim.no), Wasteland '89: the only rust-orange machine in the hall,
+    // N and R in white either side of a slice of pizza, over a dusk sky.
     body: '#9a3a14', bodyL: '#e06a24', bodyD: '#521a0c', trim: '#ffd23f', glow: '#ff5a4a',
-    bg: ['#4a0f5a', '#7a1470', '#b01874', '#e02f8a', '#f0486a', '#e8502a', '#c8381a'],
+    bg: ['#2a0f4a', '#3a1058', '#4a1266', '#5a1470', '#7a1470', '#9a1874', '#b01874'],
     marquee: M(
-      '..eee..eeeee',
-      '.y...y.y....',
-      '.y.....y....',
-      '..yyy..yyyy.',
-      '.....y.y....',
-      '.y...y.y....',
-      '..yyy..y....',
+      '...oooooo...',
+      'ww.yyyryyww.',
+      'w.w.yyyy.w.w',
+      'w.w.yryy.ww.',
+      'w.w..yy..w.w',
+      'w.w..yy..w.w',
+      '............',
     ),
   },
   anotherworld: {
@@ -469,8 +469,8 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       f(Math.floor(t * 8) % 2 ? '#2ff3ff' : '#ff8ae0', bx + 1, by)
       return
     }
-    case 'slopfighter': {
-      // Sunset over a ruined street: two fighters trade a punch and a kick under a striped sun.
+    case 'pizzarescue': {
+      // Sunset over a ruined street: Nova and a Dead Paddy trade a punch and a kick under a striped sun.
       f('#5a1470', 0, 0, W, 1); f('#a01878', 0, 1, W, 1); f('#e02f8a', 0, 2, W, 1); f('#ff5a6a', 0, 3, W, 1); f('#ff8a3d', 0, 4, W, 1)
       f('#ffd23f', 4, 1, 2, 1); f('#ff8a3d', 4, 2, 2, 1)
       f('#1e0c20', 0, 2, 1, 3); f('#1e0c20', 1, 4); f('#1e0c20', 9, 1, 1, 4); f('#1e0c20', 8, 3, 1, 2)
@@ -478,11 +478,11 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       const beat = Math.floor(t * 2.5 + seed) % 6
       const punch = beat === 1
       const kick = beat === 4
-      // Left, the blonde in the red jacket; right, the man with the red headband. Whoever is hit steps back.
+      // Left, the blonde in the red jacket; right, a green-faced Paddy in a pale flat cap. Whoever is hit steps back.
       const lx = kick ? 2 : 3
       const rx = punch ? 7 : 6
       f('#ffd23f', lx, 2); f('#f5c3a8', lx, 3); f('#ff3b5c', lx, 4); f('#2f5fd0', lx, 5)
-      f('#ff3b5c', rx, 2); f('#f5c3a8', rx, 3, 1, 2); f('#fff4ff', rx, 5)
+      f('#d8d0a8', rx, 2); f('#8fd060', rx, 3); f('#2f7a4a', rx, 4); f('#8a6a4a', rx, 5)
       if (punch) { f('#f5c3a8', lx + 1, 4, 2, 1); f('#fff4ff', rx - 1, 3) }
       if (kick) { f('#fff4ff', rx - 2, 5, 2, 1); f('#fff4ff', lx + 1, 4) }
       return

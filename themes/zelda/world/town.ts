@@ -16,16 +16,17 @@ export const HIGH_SCORE_SIGN: string[] = [
 ]
 
 /**
- * The arcade hall: four cabinets along the back wall beside the Hall of Fame
- * board, a ninth past it (Night of the Dead Battery; Mini World and Lag Din
- * Figur stood beyond the HANGAR door until 2026-09-29, when they moved to the
- * VIP hall next door), two beyond the HANGAR door that leave the site (Adventure, and in the
- * corner Slop Fighter for fighter.phareim.no, both 2026-10-05), four
- * more on an island between two pillars, a carpet loop around
- * them with bar stools in front of every cabinet, the HANGAR door in the
- * back wall, the prize counter with its vendor, a snack table, potted
- * plants, the robot by the entrance, the HIGH SCORES sign and a chest.
- * 17×11, so the whole hall fits one desktop screen (≈18×11 tiles).
+ * The arcade hall, 17×11, so the whole hall fits one desktop screen (≈18×11
+ * tiles). Three cabinets stand on an island between two pillars, straight
+ * ahead of the door: Adventure, Pizza Rescue in the door's own column, and
+ * Night of the Dead Battery (2026-10-06; they are the long games, and
+ * Petter wanted them where a visitor looks first). The other eight line the
+ * back wall, four each side of the Hall of Fame board, with the HANGAR door
+ * in the wall above the gap between the right-hand four. A carpet loop runs
+ * round the island with bar stools in front of every cabinet; then the prize
+ * counter with its vendor, a snack table, potted plants, the robot by the
+ * entrance, the HIGH SCORES sign and a chest. Mini World and Lag Din Figur
+ * moved to the VIP hall next door on 2026-09-29.
  *
  * A cabinet is a solid machine tile carrying an exit (`art` = the theme id
  * the renderer paints on its marquee). Face it and press A: the lines are
@@ -45,11 +46,11 @@ export const ARCADE: MapDef = {
   track: 'indoor',
   rows: [
     '#############h###',
-    '#t1234ZZBZZ.9.E0#',
-    '#,iiii,,,,,,,,,,#',
+    '#t1234ZZBZZ56.78#',
+    '#,iiii,,,,,ii,ii#',
     '#.,...........,.#',
-    '#.,..I5678I...,.#',
-    '#.,,,,iiii,,,,,.#',
+    '#.,...IE09I...,.#',
+    '#.,,,,,iii,,,,,.#',
     '#Y......,..v...S#',
     '#.nn....,.nnnn..#',
     '#Q......,......$#',
@@ -107,14 +108,15 @@ export const ARCADE: MapDef = {
         ],
       },
     },
-    // Not a theme: Slop Fighter is its own site, so the cabinet leaves for the URL (`look=wasteland` opens its pixel look).
+    // Not a theme: Nova & Rex: The Pizza Rescue is its own site, so the cabinet leaves for the URL (`look=wasteland`
+    // opens its pixel look; `from=phareim` makes its title and pause panel offer ARCADE, the way back here).
     '0': {
       tile: 'M',
       ent: {
-        t: 'exit', id: 'slopfighter', to: { url: 'https://fighter.phareim.no/?look=wasteland' }, look: 'cabinet', art: 'slopfighter', label: 'SLOP FIGHTER', side: 'down',
+        t: 'exit', id: 'pizzarescue', to: { url: 'https://fighter.phareim.no/?look=wasteland&from=phareim' }, look: 'cabinet', art: 'pizzarescue', label: 'PIZZA RESCUE', side: 'down',
         lines: [
-          'SLOP FIGHTER. A RUINED STREET, A STRIPED SUN GOING DOWN, AND NOBODY ON IT WHO WANTS TO TALK.',
-          'TWO BUTTONS: A PUNCHES, B KICKS. IT LIVES ON ITS OWN PAGE, SO THIS ONE LEAVES TOWN.',
+          'NOVA & REX: THE PIZZA RESCUE. THE GANGS OF NEO BOSTON WRECKED THE PIZZA SHOP AND TOOK THE COOK. SIX PARTS OF TOWN, A BOSS IN EACH.',
+          'TWO BUTTONS: A PUNCHES, B KICKS. IT LIVES ON ITS OWN PAGE. PAUSE THERE AND PICK ARCADE TO WALK BACK IN HERE.',
           COIN,
         ],
       },
@@ -145,6 +147,7 @@ export const ARCADE: MapDef = {
             when: { notFlag: 'item:sword' },
             lines: [
               'ROBOT: BEEP. WELCOME TO THE ARCADE. ELEVEN CABINETS. FREE PLAY. BOOP.',
+              'THE THREE IN THE MIDDLE ARE THE LONG ONES: ADVENTURE, PIZZA RESCUE, NIGHT OF THE DEAD BATTERY.',
               'FACE A CABINET AND PRESS {A}. SCORES GO UP ON THE BOARD AT THE BACK.',
               'THE HANGAR DOOR BACK THERE IS FOR PILOTS. YOUR SHIP AND YOUR RECORDS LIVE IN IT.',
               'THE KIDS\' GAMES MOVED NEXT DOOR, TO THE VIP HALL. ACCOUNT HOLDERS ONLY.',

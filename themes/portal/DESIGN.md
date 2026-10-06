@@ -107,18 +107,21 @@ the arcade. `tests/portal-world.test.mjs` checks both.
 
 ### `arcade` — interior, 17×11 (the whole hall fits one desktop screen)
 
-- Cabinets side by side: four along the back wall beside the board, four
-  on an island between two pillars, a carpet loop around them, a prize
-  counter with a vendor, a snack table, plants and a house-rules sign.
-  Each is a solid `M` tile with an `exit` of look `cabinet`, `art` = theme
-  id, `side: 'down'`, one per game: Another Shore
+- Cabinets side by side: three on an island between two pillars, straight
+  ahead of the door (Adventure, Pizza Rescue, Night of the Dead Battery,
+  2026-10-06: the long games get the place a visitor looks first), and four
+  each side of the board along the back wall; a carpet loop around the
+  island, a prize counter with a vendor, a snack table, plants and a
+  house-rules sign. Each is a solid `M` tile with an `exit` of look
+  `cabinet`, `art` = theme id, `side: 'down'`, one per game: Another Shore
   (`anotherworld`), Galaga, Breakout, R-Type, Space Invaders, Star Fox,
   OutRun, Tetris, Night of the Dead Battery. Each has a label and two or three short lines: the game's
   pitch and "INSERT COIN? PRESS A." The lines are the only confirmation.
-- In the back wall's right-hand corner, beside Adventure, SLOP FIGHTER
-  (2026-10-05): not a theme but a link out, exit
-  `{ url: 'https://fighter.phareim.no/?look=wasteland' }`, like
-  Eventyrland's in the VIP hall (`docs/games/portal.md`).
+- Two of the island's three are links out, not themes: ADVENTURE and, in
+  the middle, PIZZA RESCUE (Nova & Rex: The Pizza Rescue), exit
+  `{ url: 'https://fighter.phareim.no/?look=wasteland&from=phareim' }`, like
+  Eventyrland's in the VIP hall. `from=phareim` makes the game offer the
+  way back (`docs/games/portal.md`).
 - The Hall of Fame board on the back wall: exit look `board` →
   `{ theme: 'leaderboard' }`.
 - A door at the back labelled HANGAR: walkable exit → `{ theme: 'hangar' }`.

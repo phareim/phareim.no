@@ -95,7 +95,7 @@ switch (scene) {
   case 'r-sword': give(); run(20); break
   case 'r-rich': give(); s.inv.bits = 4321; run(20); break
   case 'r-arcade': place('arcade', 'door'); run(20); break
-  case 'r-fighter': place('arcade', 'slopfighter'); run(5); break
+  case 'r-fighter': place('arcade', 'pizzarescue'); run(5); break
   case 'r-home': place('home', 'door'); run(20); break
   case 'r-desk': place('home', 'door', -2, -4); s.hero.dir = 'left'; run(5); break
   case 'r-console': place('home', 'login'); run(5); break
