@@ -39,7 +39,10 @@ P or an Escape tap pauses. Touch: drag anywhere on the left 60 % for a
 floating stick. The world fills the whole screen and the buttons float
 half see-through over it, bottom right: A and a pause chip, with B and
 SWAP once there is an item. Any tap moves a dialog
-on. The page locks theme navigation while it is shown, so arrows and swipes
+on; a thumb that lands on the stick's side for that and stays down is the
+stick once the lines close. After lines close A rests for a third of a
+second before it talks again, and every press in that time starts the rest
+over, so a tap too many never starts the talk again (2026-10-06). The page locks theme navigation while it is shown, so arrows and swipes
 walk the hero.
 
 **Before the blade.** A visitor starts with nothing: no HUD, no swing, B

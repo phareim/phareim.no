@@ -609,3 +609,30 @@ describe('a talk that asks', () => {
     assert.equal(s.mode, 'play')
   })
 })
+
+describe('a tap too many at the end of the lines (2026-10-06)', () => {
+  it('mashing A does not start the talk over; a rested A talks again', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 3, at: Z.WORLD.start })
+    settle(s)
+    for (let k = 0; k < 40; k++) step(s)
+    const kid = s.map.npcs.find(n => n.id === 'townkid')
+    kid.wander = false
+    s.hero.x = kid.x; s.hero.y = kid.y + 0.8; s.hero.dir = 'up'
+    step(s, inp({ aPress: true, a: true }))
+    assert.equal(s.mode, 'dialog')
+    // A every 150 ms, long past the last line.
+    let opened = 1
+    let was = true
+    for (let f = 0; f < 600; f++) {
+      step(s, f % 9 === 0 ? inp({ aPress: true, a: true }) : inp())
+      const is = s.mode === 'dialog'
+      if (is && !was) opened++
+      was = is
+    }
+    assert.equal(opened, 1)
+    assert.equal(s.mode, 'play')
+    for (let f = 0; f < 30; f++) step(s)
+    step(s, inp({ aPress: true, a: true }))
+    assert.equal(s.mode, 'dialog', 'after a rest A talks again')
+  })
+})

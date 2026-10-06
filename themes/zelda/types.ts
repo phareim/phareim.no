@@ -33,6 +33,8 @@ export const CHARGE_SPEED = 2.8 // while holding a charged sword
 export const CARRY_SPEED = 4.2
 export const SWING_TIME = 0.2
 export const SWING_COOLDOWN = 0.06
+/** After lines close, A must rest this long before it talks, reads or opens again (s). */
+export const TALK_REST = 0.35
 export const SWORD_REACH = 1.2
 export const SWORD_ARC = Math.PI * 0.95
 export const CHARGE_TIME = 0.55 // hold this long for a spin
@@ -588,6 +590,8 @@ export interface Hero {
   /** Seconds the sword button has been held since the last swing (charge). */
   charge: number
   cooldown: number
+  /** Seconds left of A's rest after a dialog (see TALK_REST). */
+  talkRest: number
   carry: null | 'pot' | 'rock'
   push: number
   /** Where a pit fall returns the hero. */

@@ -7,7 +7,7 @@
  * hero left through an exit, the shell navigates) are terminal.
  */
 import type { AreaIntro, Dialog, GameEvent, GameState, Input, Inventory, SaveData, Spot, TrackId, Vec, World } from '../types'
-import { HERO_R, NO_INPUT, SAVE_VERSION, SCROLL_TIME, START_HP, STEP, WARP_TIME } from '../types'
+import { HERO_R, NO_INPUT, SAVE_VERSION, SCROLL_TIME, START_HP, STEP, TALK_REST, WARP_TIME } from '../types'
 import { acquire, ctx, type Ctx } from './combat'
 import { stepEnemies } from './enemies'
 import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
@@ -43,7 +43,7 @@ export function createGame(
     map: null as unknown as GameState['map'],
     hero: {
       x: 0, y: 0, dir: 'down', vx: 0, vy: 0, hp: save ? save.maxHp : START_HP, maxHp: save ? save.maxHp : START_HP,
-      act: 'idle', actT: 0, walkT: 0, invuln: 0, knock: null, swing: null, spin: null, charge: -1, cooldown: 0,
+      act: 'idle', actT: 0, walkT: 0, invuln: 0, knock: null, swing: null, spin: null, charge: -1, cooldown: 0, talkRest: 0,
       carry: null, push: 0, safe: { x: 0, y: 0 },
     },
     inv: save ? { ...freshInv(), ...save.inv } : freshInv(),
@@ -366,6 +366,7 @@ function dialog(c: Ctx, dt: number, inp: Input) {
   // Close
   s.dialog = null
   s.mode = 'play'
+  s.hero.talkRest = TALK_REST
   if (d.after) {
     for (const f of d.after.set ?? []) s.flags[f] = true
     for (const f of d.after.clear ?? []) delete s.flags[f]
@@ -400,6 +401,7 @@ export function asksChoice(d: Dialog): boolean {
 function closeWithoutLeaving(c: Ctx) {
   c.s.dialog = null
   c.s.mode = 'play'
+  c.s.hero.talkRest = TALK_REST
   c.ev.push({ type: 'back' })
 }
 

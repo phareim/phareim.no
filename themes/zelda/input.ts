@@ -7,7 +7,10 @@
  * Keys: arrows / WASD move; Space / J / Z / Enter = A; K / X / Shift = B;
  * Q / Tab / C cycle. Touch: a floating stick starts under a finger on the
  * left 60 % of the screen; a tap on the right 40 % presses A; any tap moves a
- * dialog on, and on a YES / NO line the half it lands on is the answer. The mouse only moves dialogs on (the deck buttons call pressA …).
+ * dialog on, and on a YES / NO line the half it lands on is the answer. A
+ * finger that lands on the stick's side during a dialog and stays down is the
+ * stick once the lines close. The mouse only moves dialogs on (the deck
+ * buttons call pressA …).
  */
 import type { Input } from './types'
 
@@ -71,6 +74,8 @@ export function createInput(hooks: InputHooks): GameInput {
   let tapSide: -1 | 1 | undefined
   let stick: { id: number; ox: number; oy: number; dx: number; dy: number } | null = null
   let idleTap: { id: number; x: number; y: number } | null = null
+  /** A finger that came down on the stick's side while a dialog was open: the stick, if it is still down when the lines close. */
+  let waiting: { id: number; x: number; y: number } | null = null
 
   const live = () => !hooks.idle() && !hooks.paused()
 
@@ -113,6 +118,7 @@ export function createInput(hooks: InputHooks): GameInput {
     tapSide = undefined
     stick = null
     idleTap = null
+    waiting = null
   }
 
   function canvasPoint(e: PointerEvent) {
@@ -128,7 +134,12 @@ export function createInput(hooks: InputHooks): GameInput {
     if (hooks.idle()) { idleTap = { id: e.pointerId, x: p.x, y: p.y }; return }
     if (hooks.paused()) return
     // Any tap moves a dialog on; its side answers a YES / NO line.
-    if (hooks.dialog()) { aPress = true; tapSide = p.x < p.w / 2 ? -1 : 1; return }
+    if (hooks.dialog()) {
+      aPress = true
+      tapSide = p.x < p.w / 2 ? -1 : 1
+      if (e.pointerType !== 'mouse' && p.x < p.w * 0.6) waiting = { id: e.pointerId, x: p.x, y: p.y }
+      return
+    }
     if (e.pointerType === 'mouse') return
     if (!stick && p.x < p.w * 0.6) {
       stick = { id: e.pointerId, ox: p.x, oy: p.y, dx: 0, dy: 0 }
@@ -139,6 +150,12 @@ export function createInput(hooks: InputHooks): GameInput {
   }
 
   function onPointerMove(e: PointerEvent) {
+    if (waiting?.id === e.pointerId) {
+      // The stick starts where the finger is when the lines close, not where it landed.
+      if (hooks.dialog()) { const p = canvasPoint(e); waiting.x = p.x; waiting.y = p.y; return }
+      if (!stick && live()) stick = { id: e.pointerId, ox: waiting.x, oy: waiting.y, dx: 0, dy: 0 }
+      waiting = null
+    }
     if (!stick || stick.id !== e.pointerId) return
     const p = canvasPoint(e)
     let dx = p.x - stick.ox
@@ -165,11 +182,13 @@ export function createInput(hooks: InputHooks): GameInput {
       return
     }
     if (stick?.id === e.pointerId) stick = null
+    if (waiting?.id === e.pointerId) waiting = null
   }
 
   function onPointerCancel(e: PointerEvent) {
     if (idleTap?.id === e.pointerId) idleTap = null
     if (stick?.id === e.pointerId) stick = null
+    if (waiting?.id === e.pointerId) waiting = null
   }
 
   function onKeyDown(e: KeyboardEvent) {

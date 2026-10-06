@@ -8,11 +8,12 @@ export function walker(Z, W = Z.WORLD) {
   const step = (s, i = inp(), dt = 1 / 60) => Z.stepGame(W, s, dt, i)
   const frames = (s, n, i) => { for (let k = 0; k < n; k++) { s.hero.invuln = Math.max(s.hero.invuln, 0.2); step(s, i) } }
 
-  /** Press A through any dialog / item-get in progress. */
+  /** Press A through any dialog / item-get in progress, then let A rest (TALK_REST) so the next press talks. */
   function settle(s, max = 900) {
     for (let i = 0; i < max && s.mode !== 'play' && s.mode !== 'won'; i++) {
       if (s.mode === 'dialog') { step(s, inp(), 0.3); step(s, inp({ aPress: true, a: true })) } else step(s)
     }
+    for (let i = 0; i < 60 && s.mode === 'play' && s.hero.talkRest > 0; i++) { s.hero.invuln = Math.max(s.hero.invuln, 0.2); step(s) }
   }
 
   /** BFS over tiles the hero can stand on. */

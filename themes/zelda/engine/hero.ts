@@ -6,7 +6,7 @@
 import type { Dir, ExitSpot, Input, TileChar } from '../types'
 import {
   ARC_REACH, BEAM_SPEED, CARRY_SPEED, CHARGE_SPEED, CHARGE_TIME, HERO_R, HERO_SPEED, LIFT_TIME, PSI_SPEED, PUSH_DELAY, SPIN_REACH,
-  SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, THROW_SPEED,
+  SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, TALK_REST, THROW_SPEED,
 } from '../types'
 import { TILE_INFO } from '../world/tiles'
 import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx } from './combat'
@@ -27,6 +27,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   h.actT += dt
   if (h.invuln > 0) h.invuln -= dt
   if (h.cooldown > 0) h.cooldown -= dt
+  if (h.talkRest > 0) h.talkRest -= dt
   if (h.auto) { walkOut(c, dt); return }
   // On the end of the hook's chain: stepHook moves him.
   if (s.hook) { h.act = 'hook'; return }
@@ -61,8 +62,12 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   // --- A button -------------------------------------------------------------
   if (inp.aPress) {
     if (h.carry) throwCarried(c)
-    else if (!h.swing && !h.spin && !interact(c)) {
-      if (s.inv.sword && h.cooldown <= 0) startSwing(c, inp)
+    else if (!h.swing && !h.spin) {
+      // A tap too many at the end of someone's lines must not start them over:
+      // until A has rested it only swings, and each press starts the rest again.
+      const mashing = h.talkRest > 0
+      if (mashing) h.talkRest = TALK_REST
+      if ((mashing || !interact(c)) && s.inv.sword && h.cooldown <= 0) startSwing(c, inp)
     }
     // Talking, reading or an item-get pose freezes the rest of the step.
     if (s.mode !== 'play') return

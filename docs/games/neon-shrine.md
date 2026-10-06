@@ -61,8 +61,7 @@ Escape tap pauses (items, heart pieces, the current quest); on the pause
 screen M turns the sound on or off and T goes to town. Holding Escape saves and goes to town. Starting over
 is the NEW GAME machine in Petter's house (see "Saves" below). Touch:
 floating stick on the left 60 %, A always, B and SWAP once there is an
-item, a pause chip (paused: RESUME, SOUND ON/OFF, TO TOWN); any tap moves a dialog on;
-A talk branch can end in a two-way question (`ask` on `TalkBranch`: two labels, a reply each; left/right or a tap picks, B closes). The town cat uses it: TALK or PET (2026-10-01).
+item, a pause chip (paused: RESUME, SOUND ON/OFF, TO TOWN); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status
@@ -70,6 +69,9 @@ bar: the shell measures the safe-area insets and the renderer keeps the HUD
 and the dialog box clear of them (`resize(w, h, dpr, safe)`). The bottom
 inset it measures is the site's bottom band, `--app-safe-bottom` (see
 AGENTS.md), so the dialog box and the button deck stay above it.
+
+A talk branch can end in a two-way question (`ask` on `TalkBranch`: two labels, a reply each; left/right or a tap picks, B closes). The town cat uses it: TALK or PET (2026-10-01).
+After lines close, A only swings until it has rested `TALK_REST` (0.35 s, restarted by each press), so mashing through someone's lines never starts them over (2026-10-06).
 
 **Saves (on the profile since 2026-09-23).** The save belongs to the
 browser's Hall of Fame player — the same pilot as the scores and the Hangar
