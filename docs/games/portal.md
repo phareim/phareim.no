@@ -281,9 +281,12 @@ look lab, without Nuxt (`node scripts/zelda-lab/shot.mjs <outDir> r-arcade,r-fig
 the hall from the door, and the hero at the cabinet with its label) at
 1280×800 and 390×844 (3×). The game's side of the way back (the ARCADE
 button with `from=phareim`, none without) is checked by its own
-`tools/check-live.mjs`. Not checked: the cabinet in a browser on the dev
-server, the walk from YES into the game and ARCADE back to the cabinet in
-one browser, a real phone.
+`tools/check-live.mjs`. The whole loop was walked on the live sites the same
+day in headless Chromium, at 1280×800 and at 844×390 with touch: standing at
+the cabinet, A through the pitch and YES, the game's title with ARCADE,
+into a game, pause, ARCADE, and the hero in front of the cabinet again with
+`portal.return` = `{ arcade, pizzarescue }`; no page errors. Not checked: a
+real phone, and the touch YES tap on this cabinet.
 
 **Known.** On a desktop, once the hero has the blade, the HUD (hearts,
 bits, item box) sits over the left end of PETTER HAREIM at the start, as
