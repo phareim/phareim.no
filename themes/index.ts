@@ -179,8 +179,8 @@ export const allThemes: ThemeDefinition[] = [
     landing: OutrunLanding,
   },
   {
-    id: 'tetris',
-    name: 'Tetris',
+    id: 'russian',
+    name: 'Russian Block Game',
     themeColor: '#0b0616',
     themeColorDark: '#0b0616',
     landing: TetrisLanding,
@@ -236,9 +236,10 @@ export function isAnyThemeId(id: unknown): id is string {
  * Ids a theme used to have. Old links keep working.
  * `hacker` was the Cyberpunk shmup, renamed to Galaga 2026-09-08;
  * `playerone` was the profile theme, retired for the portal 2026-09-24;
- * `zelda` was Neon Shrine, merged into the portal's world 2026-09-24.
+ * `zelda` was Neon Shrine, merged into the portal's world 2026-09-24;
+ * `tetris` became Russian Block Game (`russian`) 2026-10-06.
  */
-const LEGACY_THEME_IDS: Record<string, string> = { hacker: 'galaga', playerone: 'portal', zelda: 'portal' }
+const LEGACY_THEME_IDS: Record<string, string> = { hacker: 'galaga', playerone: 'portal', zelda: 'portal', tetris: 'russian' }
 
 /** Maps a legacy id onto its current one; anything else is returned as-is. */
 export function resolveThemeId(id: unknown): unknown {

@@ -13,7 +13,7 @@
         <div class="lb-title-row">
           <button class="lb-step px-btn px-btn--pink" aria-label="Previous game" @click="step(-1)">▲</button>
           <Transition name="lb-fade" mode="out-in">
-            <h1 :key="game.id" class="lb-title">{{ game.title }}</h1>
+            <h1 :key="game.id" class="lb-title" :class="{ 'lb-title-long': game.id === 'tetris' }">{{ game.title }}</h1>
           </Transition>
           <button class="lb-step px-btn px-btn--pink" aria-label="Next game" @click="step(1)">▼</button>
         </div>
@@ -352,6 +352,8 @@ watch(index, () => nextTick(fit))
   text-shadow: 4px 4px 0 #0b0616;
   white-space: nowrap;
 }
+
+.lb-title-long { font-size: 24px; white-space: normal; }
 
 .lb-step {
   width: 32px;

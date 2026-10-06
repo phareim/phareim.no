@@ -3,7 +3,7 @@
 //   node scripts/zelda-lab/games-shot.mjs <baseUrl> <outDir> [ids] [w] [h]
 import { launch } from './cdp.mjs'
 import { mkdirSync } from 'node:fs'
-const [base, out, ids = 'invaders,galaga,breakout,tetris,rtype,outrun,starfox,anotherworld', w = '1280', h = '800'] = process.argv.slice(2)
+const [base, out, ids = 'invaders,galaga,breakout,russian,rtype,outrun,starfox,anotherworld', w = '1280', h = '800'] = process.argv.slice(2)
 mkdirSync(out, { recursive: true })
 const mobile = +w < 600
 for (const id of ids.split(',')) {

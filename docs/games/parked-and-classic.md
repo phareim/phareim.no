@@ -1,6 +1,6 @@
 # Parked and classic themes
 
-Breakout and Tetris are live, older arcade themes that didn't have their own
+Breakout and Russian Block Game are live, older arcade themes that didn't have their own
 doc yet. Scandinavian Glass, Space and Tufte Desk are parked (`disabled:
 true` in `themes/index.ts`): no way in from the portal, still
 reachable with `?theme=<id>`.
@@ -27,9 +27,11 @@ on phones), about 3 CSS px per pixel on laptops and phones. Code:
 `themes/breakout/pixel.ts` (chamber, brick/paddle/orb/capsule painters)
 and the draw section of `Breakout.vue`. Rules unchanged.
 
-## Tetris
+## Russian Block Game
 
-`?theme=tetris` — playable Tetris, ported from `tetris-theme-legacy`. Drag
+`?theme=russian` — Russian Block Game (renamed 2026-10-06), ported from
+`tetris-theme-legacy`. The old `?theme=tetris` link still opens it; local high
+scores and Hall of Fame scores keep their existing storage keys. Drag
 sideways to move, tap to rotate, fast down flick to hard drop, slow down
 drag to lower, up swipe or HOLD to stash. ROTATE/DROP, pause/resume and
 exit buttons work on touch and mouse. A gesture stops controlling pieces

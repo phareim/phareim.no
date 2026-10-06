@@ -1,6 +1,6 @@
 ## OutRun — five stages and a fork in the road (rebuilt 2026-09-11, third pass 2026-09-23)
 
-`?theme=outrun` is the eighth live theme, between Star Fox and Tetris: the
+`?theme=outrun` is the eighth live theme, between Star Fox and Russian Block Game: the
 1986 cabinet as a pseudo-3D road racer. The first version (2026-09-10,
 commit `fde2e30`) was replaced from scratch the next day; see the lessons
 at the end of this section. The third pass (2026-09-23) added the

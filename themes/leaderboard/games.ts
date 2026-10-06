@@ -1,7 +1,8 @@
 /**
  * The score games that report to the Hall of Fame, in the order the
  * board scrolls through them (the swipe order of the arcade). The id is the
- * theme id, which is also the `game` column in D1. Shared by the theme,
+ * stable score id, which is also the `game` column in D1 (Russian Block
+ * Game keeps `tetris` after its theme became `russian`). Shared by the theme,
  * the composable and the server (validation).
  */
 export interface GameEntry {
@@ -21,7 +22,7 @@ export const GAMES: readonly GameEntry[] = [
   { id: 'invaders', title: 'Space Invaders', tagline: '5 × 11 formation · one shot', maxScore: 500_000 },
   { id: 'starfox', title: 'Star Fox', tagline: 'On rails · barrel roll', maxScore: 1_000_000 },
   { id: 'outrun', title: 'OutRun', tagline: 'Five stages · fork in the road', maxScore: 5_000_000 },
-  { id: 'tetris', title: 'Tetris', tagline: 'Endless · line clears', maxScore: 2_000_000 },
+  { id: 'tetris', title: 'Russian Block Game', tagline: 'Endless · line clears', maxScore: 2_000_000 },
 ] as const
 
 export const GAME_IDS = GAMES.map(g => g.id)

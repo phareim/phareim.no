@@ -72,7 +72,7 @@ Rescue (8,4, the door's own column) and Night of the Dead Battery (9,4). They
 are the long games, and Petter wanted them where a visitor looks first. The
 other eight line the back wall, four each side of the board: Another Shore,
 Galaga, Breakout, R-Type on the left; Space Invaders, Star Fox, OutRun and
-Tetris on the right, with the HANGAR door above the gap between the last two
+Russian Block Game on the right, with the HANGAR door above the gap between the last two
 pairs. Every cabinet has a stool in front of it. The robot's welcome names
 the three in the middle.
 

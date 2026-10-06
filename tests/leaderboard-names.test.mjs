@@ -56,7 +56,7 @@ describe('Hall of Fame games', () => {
   it('lists the seven score games, each with a plausibility cap', () => {
     assert.deepEqual(GAME_IDS, ['galaga', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'tetris'])
     for (const g of GAMES) assert.ok(Number.isInteger(g.maxScore) && g.maxScore > 0, g.id)
-    assert.equal(gameById('tetris')?.title, 'Tetris')
+    assert.equal(gameById('tetris')?.title, 'Russian Block Game')
     assert.equal(gameById('anotherworld'), undefined)
     assert.equal(gameById(7), undefined)
     assert.equal(TOP_N, 10)

@@ -1,5 +1,5 @@
 <template>
-  <!-- Owns the page: the Tetris cabinet over the Neon Dreams horizon. The
+  <!-- Owns the page: the Russian Block Game cabinet over the Neon Dreams horizon. The
     profile column was removed 2026-09-07 — the portal carries the person,
     this theme is only the game. -->
   <div class="tetris-landing">

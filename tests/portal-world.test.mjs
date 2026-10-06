@@ -17,7 +17,7 @@ before(async () => { P = await load(); W = P.WORLD })
 /** The town is the overworld's first 40 columns. */
 const TOWN_W = 40
 
-const GAMES = ['anotherworld', 'galaga', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'tetris', 'battery']
+const GAMES = ['anotherworld', 'galaga', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'russian', 'battery']
 /** Ulrikke's games, in the VIP hall next door (moved out of the arcade 2026-09-29). */
 const KIDS = ['miniworld', 'figur']
 /** Eventyrland, Ulrikke's 3D storybook on its own page: a cabinet in the VIP hall that leaves for the URL. */

@@ -236,7 +236,7 @@ const CABS: Record<string, CabStyle> = {
       '..ggggwggg..',
     ),
   },
-  tetris: {
+  russian: {
     body: '#2b1c40', bodyL: '#4a3470', bodyD: '#170e24', trim: '#9a4ff0', glow: '#9a4ff0',
     bg: bg7('#0b0616'),
     marquee: M(
@@ -406,7 +406,7 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       f('#ff3b5c', 4, 6 + (Math.floor(t * 2) % 2), 2, 1)
       return
     }
-    case 'tetris': {
+    case 'russian': {
       f('#0b0616', 0, 0, W, H)
       f('#4a3470', 0, 0, 1, H); f('#4a3470', W - 1, 0, 1, H)
       const fall = Math.floor(t * 3 + seed) % 6

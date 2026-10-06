@@ -11,7 +11,7 @@
   --tetris-pink: #ff2fa0;
   --tetris-gold: #ffd23f;
 }
-.tetris-page {
+.russian-page {
   background: var(--tetris-bg);
   color: var(--tetris-text);
   font-family: var(--font-person);

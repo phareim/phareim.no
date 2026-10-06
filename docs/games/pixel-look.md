@@ -57,7 +57,7 @@ draw as the canvas aliases them (E, E, Æ, Ø, U; 2026-09-26); it adds ▶ ◀ �
 | Space Invaders | done | the formation comes down over the town at dusk; bunkers are shrine stone |
 | Galaga | done | a dithered violet night with nebulae in the sector tints, a ringed planet, cratered rocks; the vector ships pixelized at run time; the intercom is Neon Shrine's dialog box |
 | Breakout | done | a shrine chamber seen from above: stone and crystal bricks, braziers, a pit under the paddle |
-| Tetris | done | a torchlit stone shaft in the shrine; carved bevelled blocks; the town at dusk behind the cabinet |
+| Russian Block Game | done | a torchlit stone shaft in the shrine; carved bevelled blocks; the town at dusk behind the cabinet |
 | R-Type | done | the shrine caves: rock walls with glowing crystals that light the walls, a warm far cave behind; turned a quarter on portrait phones (`resize(…, rotate)`) |
 | Star Fox | done | the Super FX way: three.js at the stage's logical size, snapped to the palette with a Bayer dither in a shader; a biome per sector (sea, woods, ember, mirror lake, space), each with its own ground mode, sky and props (`docs/games/star-fox.md`, 2026-09-25) |
 | OutRun | done | the coast road at dusk as a SNES-era sprite-scaler: Neon Shrine ground per biome, teal canopies, shrine-gate tunnels, pixelized cars |

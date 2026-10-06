@@ -89,10 +89,10 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 
 ## Theme System (short version — the skill has the rest)
 
-- Eighteen themes in `themes/index.ts` (verified 2026-09-28): the portal (`home: true`), thirteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Tetris, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
+- Eighteen themes in `themes/index.ts` (verified 2026-09-28): the portal (`home: true`), thirteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Russian Block Game, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
 - **Nothing scrolls**: `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, and every landing is locked to the viewport. Full-screen heights use `var(--app-height, 100dvh)` (defined in `app.vue`), never bare `100dvh`: in the iOS home-screen app 100dvh comes up a status bar short and leaves a white strip at the bottom.
 - **Bottom band** (2026-09-24): `--app-safe-bottom` (defined in `app.vue`) is the strip along the bottom edge where nothing interactive or meaning-bearing may sit: buttons, text, hints, the player's ship or paddle. Backdrops may run through it. In a browser tab it equals `env(safe-area-inset-bottom)`; installed as a web app (`display-mode: standalone/fullscreen`) it is `max(48px, inset + 30px)`, clear of the home indicator and system swipes. Anchor bottom UI as `calc(<gap> + var(--app-safe-bottom, 0px))`, never on the bare inset; canvas games take it as a bottom inset.
-- The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal, `zelda` → portal), an unknown id shows the portal. No cookie, no random pick.
+- The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal, `zelda` → portal, `tetris` → russian), an unknown id shows the portal. No cookie, no random pick.
 - No way from one game straight to another (2026-09-24: arrows, swipes, chevrons and dots removed on Petter's wish). You walk out to the portal and into the next cabinet.
 - History: the portal's `launch(id)` pushes and the home chip / Escape (`goHome()`) steps back to it, so the back button walks between portal and game; both ignore the navigation lock.
 - Each `themes/<id>/theme.css` defines the `--theme-*` contract on `.{id}-page` (ten tokens, listed in the skill). Pages read `var(--theme-*, fallback)` and never hardcode colours or branch on `prefers-color-scheme` — dark mode is each theme's own business.
@@ -121,7 +121,7 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 ## Keyboard
 
 - The shell does not use the arrow keys: they belong to the games, and on the portal they walk the hero.
-- `Esc` in a game goes back to the portal when the game is not using it: navigation not blocked, not a repeat, not in a form field, and no game listener called `preventDefault` (checked in a `setTimeout(0)` after the whole dispatch, since games listen on `window` too). A game that uses Escape outside a run must `preventDefault` (Tetris's GAME OVER dismiss, Another Shore's ending, Another Shore II's won screen do).
+- `Esc` in a game goes back to the portal when the game is not using it: navigation not blocked, not a repeat, not in a form field, and no game listener called `preventDefault` (checked in a `setTimeout(0)` after the whole dispatch, since games listen on `window` too). A game that uses Escape outside a run must `preventDefault` (Russian Block Game's GAME OVER dismiss, Another Shore's ending, Another Shore II's won screen do).
 - After a game releases navigation at game over or exit, Escape and the home chip stay blocked for 3 seconds (2026-09-08), so the Escape that ended a run does not also leave the game. The shared watcher in `useThemeNavigation` starts the grace period synchronously. Starting another run clears the grace timer and keeps the game lock. A lock released because the route changed (back button, home chip) starts no grace period, and arriving on a theme by URL clears one.
 
 ## Escape: tap pauses, 3 s hold quits (2026-09-08)
@@ -129,7 +129,7 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 Every game theme shares one Escape contract: a quick tap pauses or resumes
 the run, holding Escape for 3 seconds cancels the run into game over (the
 score games show their GAME OVER screen; Another Shore returns to its title with progress kept, Another Shore II to idle;
-Tetris shows its GAME OVER overlay, where a further Esc tap dismisses to
+Russian Block Game shows its GAME OVER overlay, where a further Esc tap dismisses to
 idle; the portal's world saves and puts you back in town, its pill reads
 HOLD ESC FOR TOWN). `P` pauses too, everywhere. Idle attract mode leaves Escape to the
 shell, which goes back to the portal (see Keyboard).
@@ -140,14 +140,14 @@ Implementation: `themes/base/escHold.ts` holds the framework-free
 `themes/base/EscHold.vue` wraps it with the window listeners and the fixed
 progress pill (HOLD ESC TO QUIT with a filling bar) plus a PAUSED pill for
 games with no paused UI of their own (the five arcade games freeze their
-loop behind it; Tetris and the Shores pass `show-paused=false` and keep
+loop behind it; Russian Block Game and the Shores pass `show-paused=false` and keep
 their native paused states). Each game's `quitToGameOver` reuses its natural
 death path so high-score persistence and the delayed `death`/`over` emits
 behave exactly like losing.
 
 ## Hall of Fame API (shared by every score game)
 
-Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun and Tetris all
+Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun and Russian Block Game all
 submit scores to the same D1-backed leaderboard: `server/api/leaderboard.get`,
 `player.post`, `score.post`, `avatar.post`, store in `server/utils/store.ts`.
 A run calls `submitScore('<id>', score)` on game over; a score of 0 is never
@@ -187,7 +187,7 @@ holds this radio silent.
 | R-Type | `docs/games/r-type.md` | `themes/rtype/` |
 | Hangar | `docs/games/hangar.md` | `themes/ships/`, `themes/hangar/` |
 | Breakout | `docs/games/parked-and-classic.md` | `themes/breakout/` |
-| Tetris | `docs/games/parked-and-classic.md` | `themes/tetris/` |
+| Russian Block Game | `docs/games/parked-and-classic.md` | `themes/tetris/` |
 | Scandinavian Glass (parked) | `docs/games/parked-and-classic.md` | `themes/scandi/` |
 | Space (parked) | `docs/games/parked-and-classic.md` | `themes/space/` |
 | Tufte Desk (parked) | `docs/games/parked-and-classic.md` | `themes/desk/` |

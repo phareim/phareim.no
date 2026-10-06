@@ -2,7 +2,7 @@
 
 `?theme=leaderboard` is a live theme, reached from the board in the portal's arcade: the
 world ranking of the seven score games (Galaga, Breakout, R-Type, Space
-Invaders, Star Fox, OutRun, Tetris; Another Shore has no score) in one panel.
+Invaders, Star Fox, OutRun, Russian Block Game; Another Shore has no score) in one panel.
 Up/down arrows, PageUp/Down, the mouse wheel, a vertical swipe, the ▲▼
 buttons or the square pips beside the panel walk the games; the switch is
 the site's 180 ms fade. Escape or the ⌂ chip goes back to the portal.
@@ -89,7 +89,7 @@ squadron and rival as 40×40 portraits (`docs/games/star-fox.md`,
 2026-09-25); those were left as they are.
 
 **Wiring.** The five arcade landings call `submitScore('<id>', score)` in
-`onGameOver`; Tetris does it in `Game.vue` on top-out and on the Escape
+`onGameOver`; Russian Block Game does it in `Game.vue` on top-out and on the Escape
 hold. A run of 0 is not sent. When the API answers, the game-over screen
 adds WORLD RANK #n · NAME. Failures are silent — the board is a bonus.
 

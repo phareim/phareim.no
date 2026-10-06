@@ -82,7 +82,7 @@ const ARCADE: MapDef = {
     '5': CAB('c5', 'invaders', 'SPACE INVADERS'),
     '6': CAB('c6', 'starfox', 'STAR FOX'),
     '7': CAB('c7', 'outrun', 'OUTRUN'),
-    '8': CAB('c8', 'tetris', 'TETRIS'),
+    '8': CAB('c8', 'russian', 'RUSSIAN BLOCK GAME'),
   },
 }
 

@@ -115,7 +115,7 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   house-rules sign. Each is a solid `M` tile with an `exit` of look
   `cabinet`, `art` = theme id, `side: 'down'`, one per game: Another Shore
   (`anotherworld`), Galaga, Breakout, R-Type, Space Invaders, Star Fox,
-  OutRun, Tetris, Night of the Dead Battery. Each has a label and two or three short lines: the game's
+  OutRun, Russian Block Game, Night of the Dead Battery. Each has a label and two or three short lines: the game's
   pitch and "INSERT COIN? PRESS A." The lines are the only confirmation.
 - Two of the island's three are links out, not themes: ADVENTURE and, in
   the middle, PIZZA RESCUE (Nova & Rex: The Pizza Rescue), exit

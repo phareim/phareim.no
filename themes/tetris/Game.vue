@@ -3,7 +3,7 @@
     ref="surfaceRef"
     class="tetris-game"
     role="group"
-    aria-label="Tetris board"
+    aria-label="Russian Block Game board"
     :style="{ width: boardW + 'px', height: boardH + 'px' }"
     @click="onTap"
   >
