@@ -10,9 +10,10 @@
     <canvas ref="canvasRef" class="tetris-board" />
     <div v-if="phase === 'idle'" class="tetris-overlay tetris-overlay-idle">
       <div class="tetris-box">
-        <span class="tetris-gameover">READY?</span>
+        <span class="overlay-hint">CRYSTAL GARDEN</span>
+        <span class="tetris-gameover">LET IT GROW</span>
         <button class="play-button" @click.stop="start">▶ {{ hint('PRESS ENTER', 'TAP TO PLAY') }} ◀</button>
-        <span class="overlay-hint">{{ hint('ARROWS MOVE · ↑ ROTATE', 'DRAG TO MOVE · TAP TO ROTATE') }}</span>
+        <span class="overlay-hint">COMPLETE A ROW<br>WATCH IT BLOOM</span>
       </div>
     </div>
     <div v-else-if="phase === 'over'" class="tetris-overlay tetris-overlay-over">
@@ -43,7 +44,7 @@ import { useSound } from '~/composables/useSound'
 import { TetrisGesture } from './gestures'
 import { PIECE_SHAPES, TetrisEngine, type EngineEvent, type PieceType } from './engine'
 import { createPixelStage, type PixelStage } from '../base/pixel/stage'
-import { FRAME, drawSparks, ghostTile, paintWell, rowSparks, stepSparks, tile, tones, type Spark } from './pixel'
+import { FRAME, bloom, drawSparks, ghostTile, paintWell, rowSparks, stepSparks, tile, tones, type Spark } from './pixel'
 
 const { navigationLocked } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()
@@ -87,7 +88,7 @@ const ROWS = 20
 const DAS_MS = 150
 const ARR_MS = 40
 const SOFT_MS = 40
-const CLEAR_FLASH_MS = 150
+const CLEAR_FLASH_MS = 280
 const IDLE_STEP_MS = 900
 const BEST_KEY = 'tetrisHighScore'
 
@@ -109,7 +110,7 @@ const canHoldRef = ref(true)
 const scoreText = computed(() => String(score.value).padStart(6, '0'))
 const bestText = computed(() => String(best.value).padStart(6, '0'))
 // The board is a pixel stage (themes/base/pixel): each cell is a T×T
-// carved tile scaled by a whole number s, so T·s device px is as close to
+// mineral cell scaled by a whole number s, so T·s device px is as close to
 // the layout's cell size as it gets. The stone rim adds FRAME px each side.
 const dprRef = ref(1)
 const grid = computed(() => {
@@ -147,6 +148,9 @@ let dasAcc = 0
 let arrAcc = 0
 let dasDone = false
 let idleAcc = 0
+let clearStarted = 0
+let lockStarted = 0
+let lockCells: { x: number; y: number; type: PieceType }[] = []
 let clearTimer: ReturnType<typeof setTimeout> | null = null
 let idleBoard: (PieceType | null)[][] = []
 let idlePiece: { type: PieceType, x: number, y: number } | null = null
@@ -228,6 +232,8 @@ function persistBest(): void {
 function handleEngineEvent(e: EngineEvent): void {
   if (!mounted) return
   if (e.type === 'lock') {
+    lockStarted = performance.now()
+    lockCells = engine?.cells() ?? []
     emit('beat', false)
     sound.sfx.lock()
   }
@@ -236,6 +242,7 @@ function handleEngineEvent(e: EngineEvent): void {
     return
   }
   if (e.type === 'clear') {
+    clearStarted = performance.now()
     emit('beat', true)
     if (engine && !reducedMotion) {
       const T = grid.value.T
@@ -336,6 +343,8 @@ function start(): void {
   }
   cancelGesture()
   engine.reset()
+  sparks.length = 0
+  lockCells = []
   phase.value = 'playing'
   newBest.value = false
   levelUpUntil.value = 0
@@ -673,20 +682,34 @@ function draw(): void {
   const lw = COLS * T + F * 2
   const lh = ROWS * T + F * 2
   const time = performance.now() / 1000
-  // Two torches above the shaft, and a cool glow from the floor.
-  const flick = reducedMotion ? 0 : Math.sin(time * 9) * 0.05 + Math.sin(time * 23.7) * 0.04
-  stage.light(F + 1, F + 1, lw * 0.95, '#ff8a3d', 0.6 + flick)
-  stage.light(lw - F - 1, F + 1, lw * 0.95, '#ff8a3d', 0.6 - flick)
-  stage.light(lw / 2, lh - F, lw * 0.8, '#3ff0ff', 0.3)
+  // Cool canopy above, rose roots below. The stack is lit by its own veins.
+  stage.light(lw / 2, F, lw, '#56c9b1', .45)
+  stage.light(lw / 2, lh - F, lw * .8, '#dd70c8', .35)
   const put = (img: HTMLCanvasElement, c: number, r: number) => g.drawImage(img, F + c * T, F + r * T)
   const board = phase.value === 'idle' ? idleBoard : engine.board as (PieceType | null)[][]
+  const linksAt = (c: number, r: number, type: PieceType) =>
+    (board[r - 1]?.[c] === type ? 1 : 0) | (board[r]?.[c + 1] === type ? 2 : 0) |
+    (board[r + 1]?.[c] === type ? 4 : 0) | (board[r]?.[c - 1] === type ? 8 : 0)
   for (let r = 0; r < ROWS; r++) {
-    const row = board[r]
-    if (!row) continue
     for (let c = 0; c < COLS; c++) {
-      const v = row[c]
-      if (v !== null && v !== undefined) put(tile(v, T), c, r)
+      const v = board[r]?.[c]
+      if (!v) continue
+      put(tile(v, T, linksAt(c, r, v)), c, r)
+      const x = F + (c + .5) * T, y = F + (r + .5) * T
+      // A traveling sap pulse; only the tiny core emits, leaving the footprint calm.
+      const pulse = reducedMotion ? .5 : .35 + .25 * Math.sin(time * 2 - r * .5 + c * .7)
+      g.globalAlpha = pulse
+      g.fillStyle = tones(v).hi
+      g.fillRect(Math.floor(x), Math.floor(y), 1, 1)
+      g.globalAlpha = 1
+      stage.emit(Math.floor(x), Math.floor(y), 1, 1)
     }
+  }
+  // On landing the light runs out through the newly rooted piece.
+  const rooted = (performance.now() - lockStarted) / 420
+  if (!reducedMotion && rooted >= 0 && rooted < 1) for (const cell of lockCells) {
+    const x = F + (cell.x + .5) * T, y = F + (cell.y + .5) * T
+    stage.light(x, y, T * (1 + rooted * 3), tones(cell.type).hi, (1 - rooted) * .55)
   }
   if (phase.value === 'idle') {
     if (idlePiece && !reducedMotion) {
@@ -697,11 +720,16 @@ function draw(): void {
     }
   } else {
     if (engine.pendingClear.length > 0) {
-      g.fillStyle = '#fff4ff'
-      for (const r of engine.pendingClear) {
-        g.fillRect(F, F + r * T, COLS * T, T)
-        stage.emit(F, F + r * T, COLS * T, T)
-        stage.light(lw / 2, F + r * T + T / 2, lw * 0.8, '#fff1b0', 0.8)
+      const age = Math.min(1, (performance.now() - clearStarted) / CLEAR_FLASH_MS)
+      for (const r of engine.pendingClear) for (let c = 0; c < COLS; c++) {
+        const type = board[r]?.[c]
+        if (!type) continue
+        const x = F + c * T, y = F + r * T
+        g.fillStyle = '#101923'
+        g.fillRect(x, y, T, T)
+        bloom(g, x, y, T, tones(type).hi, Math.min(1, age * 2))
+        stage.emit(x + 1, y + 1, T - 2, T - 2)
+        stage.light(x + T / 2, y + T / 2, T * 2, '#ffd23f', .4)
       }
     }
     const a = engine.active
@@ -715,16 +743,20 @@ function draw(): void {
       }
       // The falling piece glows: full brightness and a pool of its own colour.
       let lx = 0, ly = 0, n = 0
-      for (const cell of engine.cells()) {
+      const cells = engine.cells()
+      const has = (x: number, y: number) => cells.some(c => c.x === x && c.y === y)
+      for (const cell of cells) {
         if (cell.y < 0) continue
-        put(tile(cell.type, T), cell.x, cell.y)
+        const links = (has(cell.x, cell.y - 1) ? 1 : 0) | (has(cell.x + 1, cell.y) ? 2 : 0) |
+          (has(cell.x, cell.y + 1) ? 4 : 0) | (has(cell.x - 1, cell.y) ? 8 : 0)
+        put(tile(cell.type, T, links), cell.x, cell.y)
         stage.emit(F + cell.x * T, F + cell.y * T, T, T)
         lx += cell.x; ly += cell.y; n++
       }
       if (n) stage.light(F + (lx / n + 0.5) * T, F + (ly / n + 0.5) * T, T * 4, tones(a.type).body, 0.7)
     }
   }
-  stage.present({ ambient: '#b2a6dc', afterLight: g2 => drawSparks(g2, sparks) })
+  stage.present({ ambient: '#b2b9d5', afterLight: g2 => drawSparks(g2, sparks) })
 }
 
 function step(dt: number): void {
@@ -775,7 +807,7 @@ function frame(t: number): void {
   lastT = t
   step(dt)
   stepSparks(sparks, dt / 1000)
-  // The torches flicker and sparks fly, so the well redraws every frame.
+  // Sap and drifting seeds keep the garden alive between drops.
   draw()
   if (phase.value === 'playing' || dirty) {
     dirty = false

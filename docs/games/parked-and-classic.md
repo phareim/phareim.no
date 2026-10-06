@@ -39,26 +39,35 @@ once its original piece locks or swaps. The board sizes to its actual
 remaining container space with ResizeObserver; landscape phones use two
 columns. The cabinet is the whole theme; the portal carries the person.
 
-**Look (2026-09-24): Neon Shrine's pixels** (`docs/games/pixel-look.md`).
-The well is a stone shaft on its own pixel stage: a brick back wall with
-grout on the cell lines, a violet stone rim with a pink neon strip, lit
-from above by two flickering torches and from the floor by a cool glow
-through the light map. Pieces are carved bevelled tiles, one palette family
-each (I cyan, O gold, T violet, S lime, Z pink, J blue, L orange); the
-falling piece is at full brightness with a pool of its own colour, the
-ghost is a dotted outline, cleared rows flash white and throw pixel sparks.
-A cell is a T×T tile (T 6–10) scaled by a whole number, chosen in
-`Game.vue` so T·scale device px is as close as it gets to the layout's cell
-size; the rim adds 3 px each side, which `Arcade.vue` allows for. Behind
-the cabinet the town at dusk (`Horizon.vue`, its own full-screen stage):
-sky, stars, the striped sun, ridges, houses with lit windows, lamps, a
-cobbled plaza; a lock pulses the horizon, a clear flares the sun, and the
-near layers lean with the falling piece. The chrome (score strip, NEXT/HOLD,
-buttons, board overlays) is in the 5×7 font with Neon Shrine dialog boxes;
-NEXT/HOLD show the same carved tiles in CSS. Code: `themes/tetris/pixel.ts`.
+**Look (2026-10-07): Crystal Garden**, in Neon Shrine's pixels
+(`docs/games/pixel-look.md`). The well is an overgrown shrine trellis with
+quiet cell markers, teal vines, cool canopy light and rose roots. The seven
+piece tints belong to cyan, rose and gold mineral families. Same-colour
+neighbors join into one silhouette; their luminous veins meet at the cell
+edges. The active piece emits light, the dotted ghost marks its landing,
+and rooting a piece sends a short light pulse through it. Complete rows
+open four-petal crystal flowers over 280 ms, then dissolve into rising
+light seeds. Each harvested row plants another crystal flower around the
+cabinet, up to forty plants per run. Starting again resets the garden.
+Reduced motion keeps steady light and skips pulses, seeds and the clear
+animation.
 
-Tests: `npm run test:tetris` (gesture regression: tap, direction lock, drop,
-soft drop, hold); CI runs it before typecheck.
+Cells remain square for collision and placement; rendering changes no
+movement, rotation or scoring rules. A T×T cell (T 6–10) scales by a whole
+number selected in `Game.vue`; the rim adds 3 logical pixels on each side.
+NEXT/HOLD show the same connected mineral motif in CSS. The score strip,
+previews, buttons and overlays use the 5×7 font and shrine dialog boxes.
+The town at dusk remains behind the cabinet, with garden tendrils and
+luminous flowers among the cobbles; a lock pulses the horizon, a clear
+flares the sun, and near layers follow the falling piece.
+Code: `themes/tetris/pixel.ts`, `Game.vue`, `Horizon.vue`, `Arcade.vue`.
+
+Checks: `npm run test:tetris` covers gestures. The deploy runs it before
+typecheck. `heavy -x chrome -- node scripts/russian-lab/garden.mjs <devUrl>
+<outDir>` checks a real harvest, movement, hold, Escape pause/resume/quit,
+phone portrait and landscape bounds, reduced motion and browser errors;
+it captures idle, bloom and garden frames. Its arranged board uses Vue's
+dev-only component state, so run it against `npm run dev`.
 
 ## Scandinavian Glass
 

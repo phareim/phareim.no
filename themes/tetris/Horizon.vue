@@ -13,6 +13,7 @@ let view = 0
 let viewTarget = 0
 let beat = 0
 let flare = 0
+let garden = 0
 function draw(time) {
   if (!stage) return
   if (!document.hidden) {
@@ -21,7 +22,7 @@ function draw(time) {
     beat = Math.max(0, beat - dt * 2.5)
     flare = Math.max(0, flare - dt * 0.9)
     stage.begin()
-    scene.draw(stage, reduced ? 0 : time / 1000, view, beat, flare)
+    scene.draw(stage, reduced ? 0 : time / 1000, view, beat, flare, garden)
     stage.present({ ambient: '#a497d4' })
   }
   last = time
@@ -40,7 +41,7 @@ onMounted(() => {
   if (!reduced) raf = requestAnimationFrame(draw)
 })
 onBeforeUnmount(() => { cancelAnimationFrame(raf); observer?.disconnect() })
-defineExpose({ setView(x) { viewTarget = x }, beat(clear) { if (!reduced) { beat = 1; if (clear) flare = 1 } } })
+defineExpose({ setGarden(lines) { garden = lines; if (reduced) draw(0) }, setView(x) { viewTarget = x }, beat(clear) { if (!reduced) { beat = 1; if (clear) flare = 1 } } })
 </script>
 <style scoped>
 .tetris-horizon { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }

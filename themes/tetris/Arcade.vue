@@ -1,9 +1,9 @@
 <template>
   <section class="tetris-arcade" aria-label="Russian Block Game arcade">
     <header class="arcade-header">
-      <div><span class="eyebrow">NEON DREAMS</span><h2>RUSSIAN BLOCK GAME</h2></div>
+      <div><span class="eyebrow">NEON DREAMS · CRYSTAL GARDEN</span><h2>RUSSIAN BLOCK GAME</h2></div>
       <button v-if="inRun" class="arcade-button pause-button" @click="gameRef?.togglePause()">{{ paused ? 'RESUME' : 'PAUSE' }}</button>
-      <span v-else class="eyebrow">{{ tetrisState.phase === 'over' ? 'TRY AGAIN' : 'ENDLESS PLAY' }}</span>
+      <span v-else class="eyebrow">{{ tetrisState.phase === 'over' ? 'TRY AGAIN' : 'GROW · BLOOM' }}</span>
     </header>
     <div class="score-strip px-panel">
       <div><span>SCORE</span><strong>{{ String(tetrisState.score).padStart(6, '0') }}</strong></div>
@@ -53,7 +53,10 @@ function previewStyle(piece: PieceType | null, index: number) {
   const shape = PIECE_SHAPES[piece][0]
   const offset = Math.floor((4 - shape.length) / 2)
   if (shape[Math.floor(index / 4) - offset]?.[index % 4 - offset] !== 1) return {}
-  return previewCss(piece)
+  const y = Math.floor(index / 4) - offset, x = index % 4 - offset
+  const links = (shape[y - 1]?.[x] ? 1 : 0) | (shape[y]?.[x + 1] ? 2 : 0) |
+    (shape[y + 1]?.[x] ? 4 : 0) | (shape[y]?.[x - 1] ? 8 : 0)
+  return previewCss(piece, links)
 }
 let observer: ResizeObserver | undefined
 onMounted(() => {
@@ -73,9 +76,10 @@ onBeforeUnmount(() => observer?.disconnect())
    and dialog-box panels (dark fill, pink edge with cut corners, a cyan
    inner line), one box pixel = 2 CSS px. */
 .tetris-arcade { width: min(100%, 430px); min-height: 0; flex: 1; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; gap: 10px; color: var(--tetris-text); font: 16px/1.25 var(--font-pixel); -webkit-font-smoothing: none; text-shadow: 2px 2px 0 #0b0616; }
-.px-panel { background: rgba(11, 6, 22, .88); border: 2px solid var(--tetris-pink); box-shadow: inset 0 0 0 2px rgba(11, 6, 22, .88), inset 0 4px 0 0 rgba(47, 243, 255, .35), 4px 4px 0 #0b0616aa; clip-path: polygon(2px 0, calc(100% - 2px) 0, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 0 calc(100% - 2px), 0 2px); }
-.arcade-header { display: flex; justify-content: space-between; align-items: center; min-height: 44px; }
-h2 { max-width: 10ch; margin: 4px 0 0; font: 24px/1 var(--font-pixel); color: var(--tetris-pink); text-shadow: 4px 4px 0 #0b0616, 0 0 18px #ff2fa066; }
+.px-panel { background: rgba(11, 6, 22, .88); border: 2px solid #356b75; box-shadow: inset 0 0 0 2px rgba(11, 6, 22, .88), inset 0 4px 0 0 rgba(47, 243, 255, .35), 4px 4px 0 #0b0616aa; clip-path: polygon(2px 0, calc(100% - 2px) 0, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 0 calc(100% - 2px), 0 2px); }
+.arcade-header { display: flex; justify-content: space-between; align-items: flex-end; min-height: 44px; }
+h2 { max-width: 15ch; margin: 4px 0 0; font: 24px/1.15 var(--font-pixel); color: var(--tetris-pink); text-shadow: 4px 4px 0 #0b0616, 0 0 18px #ff2fa066; }
+.arcade-header > .eyebrow { max-width: 9ch; text-align: right; line-height: 1.6; }
 .eyebrow { font-size: 8px; color: var(--tetris-text-muted); text-shadow: 1px 1px 0 #0b0616; }
 .score-strip { display: flex; justify-content: space-between; padding: 10px 12px 8px; }
 .score-strip div { display: grid; gap: 4px; }
@@ -104,6 +108,7 @@ strong { font-size: 16px; font-weight: normal; color: var(--tetris-accent); font
 .drop-button { color: var(--tetris-pink); border-color: #ff2fa088; }
 .control-hint { background: rgba(11, 6, 22, .8); margin: 0; padding: 6px 4px; text-align: center; font-size: 8px; line-height: 2; color: var(--tetris-text-muted); text-shadow: 1px 1px 0 #0b0616; }
 .control-hint span { font-size: 8px; }
+@media (max-width: 600px) and (min-height: 481px) { .arcade-header { min-height: 88px; } }
 @media (min-width: 900px) { .tetris-arcade { height: min(780px, 100%); flex: 0 1 430px; } }
 @media (max-height: 480px) { .tetris-arcade { gap: 4px; } .side-rail { gap: 4px; } .preview-panel { padding: 4px; } .preview-grid { grid-template-columns: repeat(4, 8px); grid-template-rows: repeat(4, 8px); } .best-panel { display: none; } .score-strip { padding: 4px 10px; } .control-hint { font-size: 8px; } h2 { font-size: 24px; } }
 @media (max-height: 480px) and (min-width: 540px) {
