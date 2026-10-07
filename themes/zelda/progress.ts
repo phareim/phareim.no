@@ -4,7 +4,7 @@
  * the rule for merging this browser's save with the copy on the player's
  * profile. Pure: no DOM, no Vue.
  */
-import type { Inventory, SaveData } from './types'
+import type { GameState, Inventory, SaveData } from './types'
 
 /**
  * The quest as twelve milestones, in the order the hints suggest. The Shrine
@@ -161,4 +161,9 @@ export function reconcile(
   }
   if (localAt > remote.savedAt) return { kind: 'push', save: local, savedAt: localAt }
   return { kind: 'none' }
+}
+
+/** The pause screen's QUEST line for a live game: the hint for the next step. */
+export function objective(s: GameState): string {
+  return questHint(questNext(s.inv, Object.keys(s.flags), s.map.id))
 }

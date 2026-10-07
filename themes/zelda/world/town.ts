@@ -177,7 +177,7 @@ export const VIP: MapDef = {
   name: 'THE VIP HALL',
   kind: 'interior',
   track: 'indoor',
-  ambient: '#8a76b8',
+  ambient: 'dim',
   rows: [
     '#################',
     '#t1.2.3.S..qqqqq#',
@@ -193,14 +193,14 @@ export const VIP: MapDef = {
   ],
   props: [
     { kind: 'discoball', x: 8.5, y: 4.2, w: 3, h: 2.3 },
-    { kind: 'glow', x: 13.5, y: 1.6, w: 4.5, color: '#ff2fa0' },
-    { kind: 'glow', x: 4, y: 1.5, w: 5, color: '#2ff3ff' },
-    { kind: 'glow', x: 1.2, y: 9, w: 3.5, color: '#9a4ff0' },
-    { kind: 'glow', x: 15.3, y: 9, w: 3.5, color: '#ffd23f' },
+    { kind: 'glow', x: 13.5, y: 1.6, w: 4.5, tone: 'pink' },
+    { kind: 'glow', x: 4, y: 1.5, w: 5, tone: 'cyan' },
+    { kind: 'glow', x: 1.2, y: 9, w: 3.5, tone: 'violet' },
+    { kind: 'glow', x: 15.3, y: 9, w: 3.5, tone: 'gold' },
   ],
   decals: [
-    { x: 9.3, y: 0.3, text: 'VIP LOUNGE', color: '#ff2fa0', scale: 1, align: 'center' },
-    { x: 13.5, y: 0.3, text: 'BAR', color: '#2ff3ff', scale: 1, align: 'center' },
+    { x: 9.3, y: 0.3, text: 'VIP LOUNGE', tone: 'pink', scale: 1, align: 'center' },
+    { x: 13.5, y: 0.3, text: 'BAR', tone: 'cyan', scale: 1, align: 'center' },
   ],
   marks: {
     '@': { ent: { t: 'entry', id: 'door', dir: 'up' } },

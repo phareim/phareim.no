@@ -16,8 +16,9 @@
  */
 import type { Decal, MapDef } from '../types'
 import { TILE } from '../types'
-import { glyphRows, textWidth, GLYPH_H } from './font'
+import { glyphRows, textWidth, GLYPH_H } from '../../base/pixel/font'
 import { makeCanvas } from './sheet'
+import { TONES } from './tones'
 import { hash2, type Light } from './tiles'
 
 type G = CanvasRenderingContext2D
@@ -87,7 +88,7 @@ function rgba(hex: string, a: number): string {
 }
 
 function bake(d: Decal, scale: number): Baked {
-  const color = d.color ?? DECAL_COLOR
+  const color = d.tone ? TONES[d.tone] : DECAL_COLOR
   // 1-px font grid of the whole text.
   const text = d.text.toUpperCase()
   const glyphs = [...text].map(ch => glyphRows(ch))

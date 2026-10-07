@@ -93,11 +93,11 @@ export const OVERWORLD: MapDef = {
   ],
   // The name on the roof of Petter's house, the arcade's marquee, the newsstand's sign.
   decals: [
-    { x: 20.5, y: 3.15, text: 'PETTER HAREIM', scale: 3, align: 'center', color: '#2ff3ff' },
-    { x: 20.5, y: 4.75, text: 'PHAREIM.NO', scale: 2, align: 'center', color: '#ffd23f' },
-    { x: 8.5, y: 10.55, text: 'ARCADE', scale: 2, align: 'center', color: '#ff5fd0' },
-    { x: 6.5, y: 3.55, text: 'VIP', scale: 3, align: 'center', color: '#ffd23f' },
-    { x: 15.5, y: 22.35, text: 'PHAREIM.MD', scale: 1, align: 'center', color: '#ffd23f' },
+    { x: 20.5, y: 3.15, text: 'PETTER HAREIM', scale: 3, align: 'center', tone: 'cyan' },
+    { x: 20.5, y: 4.75, text: 'PHAREIM.NO', scale: 2, align: 'center', tone: 'gold' },
+    { x: 8.5, y: 10.55, text: 'ARCADE', scale: 2, align: 'center', tone: 'rose' },
+    { x: 6.5, y: 3.55, text: 'VIP', scale: 3, align: 'center', tone: 'gold' },
+    { x: 15.5, y: 22.35, text: 'PHAREIM.MD', scale: 1, align: 'center', tone: 'gold' },
   ],
   // Continue points per area (death puts you back at the last one visited),
   // the Keeper's hut door (stepping out of it), and where the town's doors put you back outside.

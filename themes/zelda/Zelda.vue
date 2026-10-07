@@ -103,7 +103,6 @@ import { usePortalAccountLink } from '../../composables/useAccount'
 import { createInput, type GameInput } from './input'
 import { loadHighScoreSign } from './hiscore'
 import { createBitsBridge, migrateSaveBits, bitRewards, paidFlagStore, type WalletApi } from './wallet'
-import { setHeroColors } from './render/sheet'
 import { parseHeroColors } from './render/heroColors'
 import { HERO_COLORS_KEY } from '../miniworld/types'
 import { FIGUR_HERO_KEY } from '../figur/types'
@@ -678,7 +677,7 @@ function dressHero() {
   try {
     colors = parseHeroColors(localStorage.getItem(FIGUR_HERO_KEY)) ?? parseHeroColors(localStorage.getItem(HERO_COLORS_KEY))
   } catch { /* private mode: as drawn */ }
-  setHeroColors(colors)
+  renderer?.setHeroColors(colors)
 }
 
 function onStorage(e: StorageEvent) {

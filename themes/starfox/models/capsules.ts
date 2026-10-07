@@ -7,7 +7,7 @@
  * under ~11 px tall).
  */
 import * as THREE from 'three'
-import { glyphRows } from '../../zelda/render/font'
+import { glyphRows } from '../../base/pixel/font'
 import { P, geo, hullMat, glowMat, mesh, flashTree, light, letterTexture, ringZ, ringY, mat, type Model, type Hex } from './core'
 
 export type CapsuleId = 'laser' | 'bomb' | 'shield' | 'wing' | 'overdrive'

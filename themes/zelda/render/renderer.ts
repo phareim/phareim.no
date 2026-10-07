@@ -18,11 +18,14 @@
 import type { Dir, Enemy, GameEvent, GameState, World } from '../types'
 import { BOMB_FUSE, SPIN_TIME, SWING_TIME, TILE, WARP_TIME } from '../types'
 import { cameraFor, cellDef, cellIndex, cellIsDark, mapInfo, shardPos, swingAngle } from '../engine/index'
-import { drawText, textWidth } from './font'
-import { drawBanner, drawDialog, drawHud, drawPause, type HudKeys } from './hud'
+import { drawText, textWidth } from '../../base/pixel/font'
+import { drawBanner, drawDialog, drawHud, drawPause } from './hud'
+import type { HudKeys } from '../keys'
+import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
-import { makeCanvas, silhouette, sprite, spriteT } from './sheet'
+import { makeCanvas, setHeroColors, silhouette, sprite, spriteT } from './sheet'
+import type { HeroColors } from '../../miniworld/types'
 import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
 import { drawPsiBlock } from './labTiles'
 import { drawHookChain, drawStaticMood, fireflies, queueLuna, queueProps } from './wild'
@@ -64,6 +67,8 @@ export interface Renderer {
   onEvents(ev: GameEvent[]): void
   /** View size in tiles (for the attract camera). */
   viewTiles(): { w: number; h: number }
+  /** Dress the hero in a made figure's colours (null: as drawn). */
+  setHeroColors(colors: HeroColors | null): void
 }
 
 export function createRenderer(canvas: HTMLCanvasElement, world: World): Renderer {
@@ -682,7 +687,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
     // --- light --------------------------------------------------------------------
     const dark = kind !== 'overworld' && cellIsDark(s, info, s.zoneIndex)
-    const amb = dark ? (kind === 'interior' ? AMBIENT.caveDark : AMBIENT.dark) : info.def.ambient ?? AMBIENT[kind]
+    const amb = dark ? (kind === 'interior' ? AMBIENT.caveDark : AMBIENT.dark) : info.def.ambient ? AMBIENCE[info.def.ambient] : AMBIENT[kind]
     lg.globalCompositeOperation = 'source-over'
     lg.fillStyle = amb
     lg.fillRect(0, 0, vw, vh)
@@ -960,5 +965,5 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   }
 
   void cellIndex
-  return { resize, draw, onEvents, viewTiles }
+  return { resize, draw, onEvents, viewTiles, setHeroColors }
 }

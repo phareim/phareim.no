@@ -8,8 +8,9 @@
 import type { Dir, GameState, Prop, World } from '../types'
 import { TILE } from '../types'
 import { condMet, mapInfo } from '../engine/index'
-import { drawText } from './font'
+import { drawText } from '../../base/pixel/font'
 import { sprite, spriteT } from './sheet'
+import { TONES } from './tones'
 import { hash2, type Light } from './tiles'
 
 type G = CanvasRenderingContext2D
@@ -97,7 +98,7 @@ export function queueProps(
         break
       }
       case 'glow':
-        lights.push({ x: p.x, y: p.y, r: p.w ?? 3, color: p.color ?? '#ff2fa0', a: 0.5 + 0.1 * Math.sin(tm * 2 + p.x) })
+        lights.push({ x: p.x, y: p.y, r: p.w ?? 3, color: TONES[p.tone ?? 'pink'], a: 0.5 + 0.1 * Math.sin(tm * 2 + p.x) })
         break
       case 'discoball': items.push({ y: p.y, draw: () => drawDiscoBall(g, p, x, y, tm, lights) }); break
       case 'lights': drawLightsWall(g, p, x, y, tm, lights); break

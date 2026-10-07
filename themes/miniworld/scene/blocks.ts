@@ -7,7 +7,7 @@
  * one canvas, so every sign in a place is one draw call.
  */
 import * as THREE from 'three'
-import { drawText, textWidth } from '../../zelda/render/font'
+import { drawText, textWidth } from '../../base/pixel/font'
 
 const tmpC = new THREE.Color()
 const tmpV = new THREE.Vector3()

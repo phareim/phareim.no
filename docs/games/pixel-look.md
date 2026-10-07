@@ -34,7 +34,7 @@ treasure.
   'X' map), `pixelize()` / `relight()` (turn vector-painted art into
   palette-snapped, outlined, top-lit pixel sprites; Galaga uses them),
   `bayer()`, `mix()`, `drawBigText()`, and the 5×7 font
-  (`drawText`, `textWidth`, re-exported from `themes/zelda/render/font.ts`).
+  (`drawText`, `textWidth`, re-exported from `themes/base/pixel/font.ts`).
 - `scenery.ts` — side-view painters in the terrain palette: dithered dusk
   sky, stars, striped sun, ridges with a rim, tree lines, houses with lit
   windows, lamps, grass.

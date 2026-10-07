@@ -42,7 +42,7 @@ const PLAZA: MapDef = {
   },
   decals: [
     { x: 16, y: 3.05, text: 'PETTER HAREIM', scale: 3, align: 'center' },
-    { x: 16, y: 4.55, text: 'PHAREIM.NO', scale: 1, align: 'center', color: '#2ff3ff' },
+    { x: 16, y: 4.55, text: 'PHAREIM.NO', scale: 1, align: 'center', tone: 'cyan' },
   ],
 }
 

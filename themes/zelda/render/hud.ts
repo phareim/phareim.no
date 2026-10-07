@@ -4,19 +4,14 @@
  * pause screen with the quest hint.
  */
 import type { GameState } from '../types'
-import { questHint, questNext } from '../progress'
-import { drawText, textWidth, wrapText, GLYPH_H } from './font'
+import { objective } from '../progress'
+import { subst, type HudKeys } from '../keys'
+import { drawText, textWidth, wrapText, GLYPH_H } from '../../base/pixel/font'
 import { sprite } from './sheet'
 import { hasBigKey, keyCount } from '../engine/map'
 import { asksChoice } from '../engine/game'
 
 type G = CanvasRenderingContext2D
-
-export interface HudKeys { a: string; b: string; cycle: string }
-
-export function subst(text: string, k: HudKeys): string {
-  return text.replace(/\{A\}/g, k.a).replace(/\{B\}/g, k.b).replace(/\{CYCLE\}/g, k.cycle)
-}
 
 function box(g: G, x: number, y: number, w: number, h: number, edge = '#ff2fa0', fill = 'rgba(11,6,22,0.86)') {
   g.fillStyle = fill
@@ -128,10 +123,6 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
     g.fillRect(x + w - 10, y + h - 6, 3, 1)
     g.fillRect(x + w - 9, y + h - 5, 1, 1)
   }
-}
-
-export function objective(s: GameState): string {
-  return questHint(questNext(s.inv, Object.keys(s.flags), s.map.id))
 }
 
 /** The NEW GAME machine's "start over?" question, over the stopped world until answered. */

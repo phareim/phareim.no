@@ -13,7 +13,7 @@
 import type { Dir, ExitLook, ExitSpot, GameState, World } from '../types'
 import { TILE } from '../types'
 import { mapInfo } from '../engine/index'
-import { drawText, textWidth, GLYPH_H } from './font'
+import { drawText, textWidth, GLYPH_H } from '../../base/pixel/font'
 import { makeCanvas, sprite } from './sheet'
 import { PAL } from './sprites'
 import type { Light } from './tiles'

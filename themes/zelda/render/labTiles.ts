@@ -9,7 +9,7 @@
 import type { GameState, MapKind, TileChar, World } from '../types'
 import { TILE } from '../types'
 import { condMet, has, mapInfo } from '../engine/index'
-import { drawText } from './font'
+import { drawText } from '../../base/pixel/font'
 import { sprite } from './sheet'
 import { hash2, type Light } from './tiles'
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds public/fonts/neon-pixel.woff from Neon Shrine's 5×7 canvas font
-// (themes/zelda/render/font.ts), so HTML text can wear the same letters as
+// (themes/base/pixel/font.ts), so HTML text can wear the same letters as
 // the canvas (Æ Ø Å included; É È Ä Ö Ü draw as the canvas aliases them, and
 // lower case maps to upper case). Node dumps the glyphs; make-pixel-font.py draws them.
 //   node scripts/make-pixel-font.mjs
@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os'
 const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const out = esbuild.buildSync({ entryPoints: [join(repo, 'themes/zelda/render/font.ts')], bundle: true, format: 'cjs', write: false, platform: 'node' })
+const out = esbuild.buildSync({ entryPoints: [join(repo, 'themes/base/pixel/font.ts')], bundle: true, format: 'cjs', write: false, platform: 'node' })
 const mod = { exports: {} }
 new Function('module', 'exports', out.outputFiles[0].text)(mod, mod.exports)
 const { glyphRows, glyphAbove } = mod.exports

@@ -12,48 +12,14 @@
  * designs are original.
  */
 
+import { PAL as BASE_PAL } from '../../base/pixel/palette'
 import { WILD_RAW } from './spritesWild'
 import { BEACH_RAW } from './spritesBeach'
 
 export interface SpriteDef { rows: string[] }
 
 export const PAL: Record<string, string> = {
-  k: '#0b0616', // outline
-  K: '#1c1030', // dark shade
-  w: '#fff4ff',
-  W: '#cfc6ff', // pale lavender
-  g: '#8f86b8',
-  G: '#5a5285',
-  c: '#2ff3ff', // cyan
-  C: '#1a9fc4',
-  b: '#2f5fd0',
-  B: '#1a2f78',
-  p: '#ff2fa0', // pink
-  P: '#b01874',
-  m: '#ff8ae0',
-  v: '#9a4ff0', // violet
-  V: '#54259e',
-  y: '#ffd23f', // gold
-  Y: '#c4861c',
-  o: '#ff8a3d',
-  r: '#ff3b5c',
-  R: '#9e1638',
-  s: '#f5c3a8', // skin
-  S: '#c98576',
-  h: '#3a1a4a', // hair
-  H: '#7a3a8a',
-  n: '#6a4432',
-  N: '#3a2418',
-  l: '#b6ff4a', // lime
-  L: '#4f9a2a',
-  t: '#3fd8b0', // teal
-  T: '#1f7a6e',
-  // additions
-  u: '#2a1f4a', // deep violet-grey (stone shadow, static)
-  e: '#fff1b0', // pale gold highlight
-  a: '#5b2a1c', // dark clay
-  i: '#b0543a', // clay
-  j: '#e07a4e', // clay light
+  ...BASE_PAL,
   // Wildwood additions (spritesWild*.ts)
   d: '#a8876a', // hide tan (troll belly, owl face, basket light)
   f: '#4e7a3c', // moss / felt green

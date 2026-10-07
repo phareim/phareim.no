@@ -16,7 +16,7 @@ export async function load() {
         `export * from './zelda/types'`,
         `export { validateWorld } from './zelda/world/validate'`,
         `export { TILE_INFO } from './zelda/world/tiles'`,
-        `export { textWidth } from './zelda/render/font'`,
+        `export { textWidth } from './base/pixel/font'`,
         `export { WORLD, INTRO, worldExits, worldStartingAt } from './zelda/world/index'`,
       ].join('; '),
       resolveDir: root,

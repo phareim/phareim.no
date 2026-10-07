@@ -106,7 +106,7 @@ export const WILDWOOD: MapDef = {
   },
   props: [
     { kind: 'tent', x: 47, y: 34 },
-    { kind: 'tent', x: 54, y: 34, color: '#2ff3ff' },
+    { kind: 'tent', x: 54, y: 34, tone: 'cyan' },
     { kind: 'campfire', x: 50.5, y: 36 },
     { kind: 'bike', x: 56.5, y: 37 },
     { kind: 'bike', x: 57.5, y: 37 },

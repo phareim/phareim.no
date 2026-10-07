@@ -8,7 +8,7 @@
 import * as THREE from 'three'
 import type { EyesId, MouthId, Pattern, SurfaceDef, RoyalTitle } from '../types'
 import { RAINBOW } from '../catalog'
-import { drawText, textWidth } from '../../zelda/render/font'
+import { drawText, textWidth } from '../../base/pixel/font'
 
 export type Colors = { main: string; second?: string; accent?: string }
 

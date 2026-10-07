@@ -19,7 +19,7 @@
  *   render, or after `root.updateMatrixWorld()`).
  */
 import * as THREE from 'three'
-import { glyphRows } from '../../zelda/render/font'
+import { glyphRows } from '../../base/pixel/font'
 
 // ---------------------------------------------------------------- palette
 

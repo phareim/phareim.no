@@ -128,7 +128,7 @@ scanlines. The view follows the screen: at least 13×11 tiles, taller on
 portrait phones. Palette: teal-indigo grass, rose paths, teal/violet
 canopies with magenta rim light, violet stone with neon strips; cyan hero,
 pink danger, gold treasure. Sprites and the 5×7 pixel font are code
-(`render/sprites.ts`, `render/font.ts`); terrain is painted procedurally
+(`render/sprites.ts`, `themes/base/pixel/font.ts`); terrain is painted procedurally
 (`render/tiles.ts`).
 
 ## Sound (`audio.ts`)

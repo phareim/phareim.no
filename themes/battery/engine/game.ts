@@ -11,7 +11,7 @@ import type {
 import { HERO_IDS, ROOM_H, VERB_KEY, VERB_LABEL } from '../types'
 import { findPath } from './walk'
 import { hit, layout, type Box, type Layout } from './layout'
-import { wrapText } from '../../zelda/render/font'
+import { wrapText } from '../../base/pixel/font'
 
 export interface Content {
   rooms: Record<RoomId, RoomDef>

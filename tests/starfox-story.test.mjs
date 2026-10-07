@@ -9,7 +9,7 @@ import {
   squadFor, rosterFor, survivorsText, nameLine, wingCue, deathCues, variantFits, isWing,
   PILOTS, WINGS, RESERVES, CUES, SECTORS, BOSS_PHASES, STORY_ENEMIES, STORY_CAPSULES, MAX_CHARS, GAP_MS, AMBIENT_GAP_MS, NUDGE_AFTER,
 } from '../themes/starfox/story.ts'
-import { glyphRows, wrapText } from '../themes/zelda/render/font.ts'
+import { glyphRows, wrapText } from '../themes/base/pixel/font.ts'
 
 const fresh = (o = {}) => createDirector({ rng: () => 0, seen: new Set(), ...o })
 /** Tick in small steps until `pred` holds or `max` seconds pass. */

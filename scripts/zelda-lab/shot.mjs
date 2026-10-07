@@ -33,13 +33,11 @@ import { enterMap } from ${JSON.stringify(join(repo, 'themes/zelda/engine/game.t
 import { WORLD } from ${JSON.stringify(join(repo, 'themes/zelda/world/index.ts'))}
 import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
-import { setHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/sheet.ts'))}
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
 const W = +q.get("w"), H = +q.get("h"), dpr = +(q.get("dpr") || 1), top = +(q.get("top") || 0)
 const scene = q.get('scene')
-if (q.get('hero')) setHeroColors(parseHeroColors(q.get('hero')))
 const canvas = document.createElement('canvas')
 canvas.style.cssText = 'display:block;width:' + W + 'px;height:' + H + 'px'
 document.body.style.cssText = 'margin:0;background:#0b0616;overflow:hidden'
@@ -48,6 +46,7 @@ const world = scene.startsWith('p-') ? LAB : WORLD
 const s = createGame(world, { seed: 7, at: ['start', 'intro', 'swing', 'pause', 'hutout'].includes(scene) ? { map: 'overworld', entry: 'hut' } : null })
 if (scene !== 'hutout') { s.dialog = null; s.mode = 'play'; s.hero.auto = null }
 const r = createRenderer(canvas, world)
+if (q.get('hero')) r.setHeroColors(parseHeroColors(q.get('hero')))
 r.resize(W, H, dpr, { top, right: 0, bottom: top ? 34 : 0, left: 0 })
 const inp = (o) => ({ ...NO_INPUT, ...o })
 const run = (n, i = inp({})) => { for (let k = 0; k < n; k++) r.onEvents(stepGame(world, s, 1 / 60, i)) }

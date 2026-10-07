@@ -282,14 +282,23 @@ export interface ExitDef {
   lines?: string[]
 }
 
+/**
+ * A named colour of the world. World data says which; each view decides the
+ * exact hue (`render/tones.ts`), so a map never carries a hex value.
+ */
+export type Tone = 'pink' | 'cyan' | 'violet' | 'gold' | 'rose'
+
+/** A named light level for a room, instead of its kind's default. 'dim': a lounge whose lamps show. */
+export type Ambience = 'dim'
+
 /** Neon lettering painted into the world (Petter's name over the town). */
 export interface Decal {
   /** Anchor in tile units: the text's top edge, and its left edge or centre (align). */
   x: number
   y: number
   text: string
-  color?: string
-  /** Whole-number pixel scale of the 5×7 font (default 2). */
+  tone?: Tone
+  /** Size step of the lettering: 1 small, 2 (default), 3 large. The classic view reads it as the 5×7 font's pixel scale. */
   scale?: 1 | 2 | 3
   align?: 'left' | 'center'
 }
@@ -334,7 +343,7 @@ export interface Prop {
   h?: number
   /** 'lights': the word the bulbs spell; 'stone'/'truck': a label. 'glow': w is the light's radius; 'discoball': w is the orbit of its four coloured spots, h how far below the ball their centre lies. */
   text?: string
-  color?: string
+  tone?: Tone
   /** Drawn only while this holds (the Gate after it shuts). */
   when?: Cond
 }
@@ -362,8 +371,8 @@ export interface MapDef {
   areas?: Array<Rect & { name: string; track?: TrackId; entry?: string; intro?: AreaIntro }>
   /** Painted lettering, drawn over the ground and under entities. */
   decals?: Decal[]
-  /** An interior's light-map base colour, instead of the daylight default: a dim room whose lights show. */
-  ambient?: string
+  /** An interior's light level, instead of the daylight default: a dim room whose lights show. */
+  ambient?: Ambience
   /**
    * Maps sharing a keyring share small keys and a big key (a dungeon's
    * floors). Default 'shrine': `Inventory.keys`/`bigKey`; any other ring
