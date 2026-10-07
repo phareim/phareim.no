@@ -49,7 +49,7 @@ deck, audio, saves, pause menu, exits, navigation lock), mounted by
 three on the arcade's HIGH SCORES sign (one Hall of Fame game at random,
 `/api/leaderboard` without a player id; offline it keeps the KNG joke).
 
-**Views** (2026-10-07, on the `beta` branch: beta.phareim.no). The game can
+**Views** (2026-10-07). The game can
 be shown in more than one way, and the player can change it in the middle of
 a room: V, the VIEW chip on a phone, or the pause screen. The state, the
 engine and the world are the same; a view is only how a frame is drawn.
