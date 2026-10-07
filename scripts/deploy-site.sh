@@ -29,7 +29,9 @@ done
 case "$branch" in *[!A-Za-z0-9._-]*) echo "bad branch name: $branch" >&2; exit 2 ;; esac
 if [ "$branch" = master ]; then site=phareim.no; mark="$state/site"; else site="phareim.no ($branch)"; mark="$state/site-$branch"; fi
 repo=$(git -C "$(dirname "$0")/.." rev-parse --show-toplevel)
-git -C "$repo" fetch origin "$branch"
+# Name the ref on both sides: a checkout that tracks only master would not get origin/<branch> otherwise.
+fetch_branch() { git -C "$repo" fetch origin "+refs/heads/$branch:refs/remotes/origin/$branch"; }
+fetch_branch
 revision=$(git -C "$repo" rev-parse "${1:-origin/$branch}^{commit}")
 if [ "$automatic" = 1 ] && [ -f "$mark" ] && [ "$(cat "$mark")" = "$revision" ]; then
   echo "$site already deployed from $revision"; exit 0
@@ -53,7 +55,7 @@ done <<< "$test_suites"
 heavy_run npm run typecheck
 heavy_run npm run build
 if [ "$automatic" = 1 ]; then
-  git -C "$repo" fetch origin "$branch"
+  fetch_branch
   if [ "$(git -C "$repo" rev-parse "origin/$branch")" != "$revision" ]; then
     echo "A newer $branch is available; leaving publication to the queued deploy"; exit 0
   fi
