@@ -23,7 +23,7 @@ type Canvas = HTMLCanvasElement
 const T = TILE
 
 /** A rectangle (view px) that glows by itself: the light map leaves it at full brightness. */
-export interface Emit { x: number; y: number; w: number; h: number }
+export interface Emit { x: number; y: number; w: number; h: number; /** The world point it stands on (tiles), for views that move things. */ ax?: number; ay?: number; wall?: boolean }
 
 function r(g: G, c: string, x: number, y: number, w = 1, h = 1) {
   g.fillStyle = c
@@ -911,7 +911,7 @@ function lookTop(look: ExitLook): number {
 // Drawing
 // ---------------------------------------------------------------------------
 
-interface SortItem { y: number; draw: () => void }
+interface SortItem { y: number; draw: () => void; x: number; foot?: number; ay?: number; wall?: boolean }
 
 /**
  * Queue every visible exit's sprite into the y-sorted list and collect its
@@ -927,6 +927,8 @@ export function queueExits(
     const bottom = Math.round((e.y + 0.5) * T - cy)
     if (px < -48 || px > vw + 48 || bottom < -8 || bottom > vh + 48) continue
     const seed = (e.x * 7 + e.y * 13) % 5
+    const item0 = items.length
+    const emit0 = emit.length
     switch (e.look) {
       case 'cabinet': {
         const st = cabStyle(e.art)
@@ -935,6 +937,7 @@ export function queueExits(
         // Soft CRT flicker: mostly steady, with a rare dip.
         const flick = reduced ? 1 : 0.9 + 0.06 * Math.sin(t * 13 + seed) + (Math.sin(t * 0.7 + seed * 2) > 0.985 ? -0.25 : 0.04)
         items.push({
+          x: e.x,
           y: e.y + 0.5,
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
@@ -974,6 +977,9 @@ export function queueExits(
         const top = bottom - BOARD_H
         // Wall-mounted: anything standing on its row passes in front of it.
         items.push({
+          x: e.x,
+          ay: e.y + 0.5,
+          wall: true,
           y: e.y - 0.5,
           draw: () => {
             g.drawImage(boardCanvas(), left, top)
@@ -1001,6 +1007,7 @@ export function queueExits(
         const top = bottom - KIOSK_H
         const on = reduced || Math.sin(t * 1.1 + seed) > -0.96
         items.push({
+          x: e.x,
           y: e.y + 0.5,
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
@@ -1022,6 +1029,7 @@ export function queueExits(
         const top = bottom - TERM_H
         const glow = (e.art && TERM_GLOW[e.art]) || '#2ff3ff'
         items.push({
+          x: e.x,
           y: e.y + 0.5,
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.4)'
@@ -1043,6 +1051,7 @@ export function queueExits(
         const left = px - CON_W / 2
         const top = bottom - CON_H
         items.push({
+          x: e.x,
           y: e.y + 0.5,
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
@@ -1066,6 +1075,9 @@ export function queueExits(
         const sx = px - 6
         const sy = bottom - 13
         items.push({
+          x: e.x,
+          ay: e.y + 0.5,
+          wall: true,
           y: e.y - 0.49,
           draw: () => {
             g.globalAlpha = a
@@ -1087,6 +1099,7 @@ export function queueExits(
         const pump = reduced ? 0 : Math.max(0, 1 - Math.floor((t * BEACH_BEAT % 1) * 4))
         const breathe = reduced ? 1 : 0.8 + 0.2 * Math.sin(t * 0.8 + e.x)
         items.push({
+          x: e.x,
           y: e.y + 0.5,
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
@@ -1111,6 +1124,10 @@ export function queueExits(
       default:
         break
     }
+    // What glows stands where its exit's drawing stands.
+    const it = items[item0]
+    const ay = it ? it.ay ?? it.y : e.y + 0.5
+    for (let k = emit0; k < emit.length; k++) { emit[k]!.ax = e.x; emit[k]!.ay = ay; emit[k]!.wall = it?.wall }
   }
 }
 
@@ -1124,7 +1141,7 @@ export interface LabelState { alpha: Map<string, number> }
 export function createLabels(): LabelState { return { alpha: new Map() } }
 
 /** The exit the hero is at, if any: next to a door, or facing a solid exit. */
-function nearExit(s: GameState): ExitSpot | null {
+export function nearExit(s: GameState): ExitSpot | null {
   const h = s.hero
   let best: ExitSpot | null = null
   let bestD = Infinity

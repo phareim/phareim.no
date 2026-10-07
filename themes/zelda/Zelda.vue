@@ -17,6 +17,9 @@
         <button v-if="hasItem" class="zelda-chip" @pointerdown.prevent.stop="cycle" @contextmenu.prevent>
           <span class="zelda-chip-label">SWAP</span>
         </button>
+        <button class="zelda-chip" aria-label="Change view" @pointerdown.prevent.stop="cycleView" @contextmenu.prevent>
+          <span class="zelda-chip-label">VIEW</span>
+        </button>
         <button class="zelda-chip" aria-label="Pause" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>II</button>
       </div>
       <div class="zelda-deck-btns" :class="{ 'zelda-deck-btns--solo': !hasItem }">
@@ -42,6 +45,7 @@
     <div v-else class="zelda-deck-paused">
       <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>RESUME</button>
       <button class="zelda-pad zelda-pad-wide" :aria-pressed="!sound.muted.value" @pointerdown.prevent.stop="toggleSound" @contextmenu.prevent>{{ sound.muted.value ? 'SOUND OFF' : 'SOUND ON' }}</button>
+      <button class="zelda-pad zelda-pad-wide" @pointerdown.prevent.stop="cycleView" @contextmenu.prevent>VIEW: {{ viewLabel }}</button>
       <button class="zelda-pad zelda-pad-wide zelda-pad-quit" @pointerdown.prevent.stop="toTown" @contextmenu.prevent>TO TOWN</button>
     </div>
   </div>
@@ -67,6 +71,7 @@
  * Keys: arrows / WASD move; Space / J / Z / Enter = A (sword, talk, lift,
  * throw; hold then release for a spin); K / X / Shift = B (item); Q swaps
  * item, Tab too when there is one (else Tab reaches the page's link index);
+ * V turns to the next view (`views.ts`: classic, isometric), mid-play;
  * P or an Escape tap pause (T in the pause menu: to town); holding Escape
  * saves and goes back to town.
  * Touch: floating stick on the left, A (and B with an item) on the right,
@@ -94,7 +99,9 @@ import AccountConsole from './AccountConsole.vue'
 import { createGame, resumeAfterWin, setSession, stepGame, toSave } from './engine/index'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
-import { createRenderer, type FrameUI, type Renderer } from './render/renderer'
+import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
+import { turnMove } from './render/iso/project'
+import { VIEWS, VIEW_KEY, nextView, startView, viewName, type ViewId } from './views'
 import { sprite } from './render/sheet'
 import { createZeldaAudio, type SfxName, type ZeldaAudio } from './audio'
 import { readLocalSave, writeLocalSave, clearLocalSave, readLocalBest, writeLocalBest } from './localSave'
@@ -214,6 +221,42 @@ const input: GameInput = createInput({
   onKey: shellKey,
 })
 
+// ---- views ---------------------------------------------------------------------
+
+/** The way the world is shown (`views.ts`); the game underneath is the same. */
+const viewId = ref<ViewId>('classic')
+const viewLabel = computed(() => viewName(viewId.value))
+let viewAsk = 0
+
+/** Turn to a view, fetching its code the first time. `instant`: no turn (the first frame, a paused game, reduced motion). */
+async function showView(id: ViewId, instant = false) {
+  if (!renderer) return
+  viewId.value = id
+  try { localStorage.setItem(VIEW_KEY, id) } catch { /* private mode: this visit only */ }
+  const ask = ++viewAsk
+  const load = VIEWS.find(v => v.id === id)?.load
+  if (load && !renderer.hasView(id)) {
+    try {
+      const mod = await load()
+      if (!alive || !renderer) return
+      renderer.addView(id, mod.default as ViewFactory)
+    } catch {
+      // The code did not arrive (offline, a deploy in between): stay where we were.
+      if (ask === viewAsk) viewId.value = renderer.viewState().id as ViewId
+      return
+    }
+  }
+  if (ask !== viewAsk) return
+  renderer.setView(id, instant || reducedMotion || paused.value)
+  pausedDrawn = false
+}
+
+function cycleView() {
+  if (phase.value !== 'play') return
+  audio?.sfx('menu')
+  void showView(nextView(viewId.value))
+}
+
 /** Ending, pause-screen and pause keys; the game keys are input.ts's. */
 function shellKey(e: KeyboardEvent): boolean {
   if (phase.value === 'won') {
@@ -230,6 +273,7 @@ function shellKey(e: KeyboardEvent): boolean {
   }
   // Backspace backs out of lines that lead somewhere, like B.
   if (e.code === 'Backspace' && !paused.value && backsOut()) { e.preventDefault(); if (!e.repeat) input.pressB(); return true }
+  if (e.code === 'KeyV' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) cycleView(); return true }
   if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) togglePause(); return true }
   // Nothing to swap: Tab keeps its job and reaches the page's link index.
   if (e.code === 'Tab' && !hasItem.value) return true
@@ -633,6 +677,7 @@ function frame(nowMs: number) {
   ui.touch = touchUI.value
   ui.keys = touchUI.value ? { a: 'A', b: 'B', cycle: 'SWAP' } : { a: 'SPACE', b: 'K', cycle: 'Q' }
   ui.stick = input.stick
+  ui.view = viewLabel.value
 
   // The ending: the world stays put behind the page's panel. Nothing steps, so
   // it is redrawn at a fifth of the rate rather than 60 times a second.
@@ -648,7 +693,10 @@ function frame(nowMs: number) {
   if (hitStopMs > 0) { hitStopMs -= dt * 1000; renderer.draw(state, ui, 0); return }
   if (pendingPull && state.mode === 'play') applyPull(pendingPull.save)
 
-  const inp = input.read()
+  // The controls turn with the picture: up on the stick is up on the screen in every view.
+  const raw = input.read()
+  const turn = renderer.viewState().turn
+  const inp = turn ? { ...raw, move: turnMove(raw.move, turn) } : raw
   if (!moved && (inp.move.x !== 0 || inp.move.y !== 0)) { moved = true; emit('moved') }
   const events = stepGame(WORLD, state, dt, inp)
   purse.step(state.inv, state.flags)
@@ -735,6 +783,11 @@ onMounted(() => {
   // The home page owns every key: arrows walk the hero, Escape pauses.
   navigationLocked.value = true
   renderer = createRenderer(canvas.value, WORLD)
+  // The view this browser used last, or the one the address asks for (?view=iso).
+  let lastView: string | null = null
+  try { lastView = localStorage.getItem(VIEW_KEY) } catch { /* private mode */ }
+  const firstView = startView(new URLSearchParams(location.search).get('view'), lastView)
+  if (firstView !== 'classic') void showView(firstView, true)
   void loadHighScoreSign()
   audio = createZeldaAudio()
   // The world plays its own music; the radio (and its hidden widget) stays quiet here.

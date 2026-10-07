@@ -141,7 +141,7 @@ function drawConfirmReset(g: G, vw: number, vh: number, keys: HudKeys) {
   drawText(g, hint, Math.round((vw - textWidth(hint)) / 2), y + h + 8, '#b9a8d9')
 }
 
-export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudKeys, confirmReset = false, muted = false) {
+export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudKeys, confirmReset = false, muted = false, view = '') {
   g.fillStyle = 'rgba(11,6,22,0.78)'
   g.fillRect(0, 0, vw, vh)
   if (confirmReset) { drawConfirmReset(g, vw, vh, keys); return }
@@ -199,5 +199,10 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
   const hint = keys.a === 'A' ? 'TAP RESUME' : 'P RESUME   T TOWN'
   drawText(g, hint, Math.round((vw - textWidth(hint)) / 2), y + 126, '#b9a8d9')
   const sound = `${keys.a === 'A' ? 'SOUND' : 'M SOUND'} ${muted ? 'OFF' : 'ON'}`
-  drawText(g, sound, Math.round((vw - textWidth(sound)) / 2), y + 138, muted ? '#ff2fa0' : '#2ff3ff')
+  // Sound and the view share the line: both are things to switch from here.
+  const look = view ? `${keys.a === 'A' ? 'VIEW' : 'V VIEW'} ${view}` : ''
+  const gap = look ? 12 : 0
+  const sx = Math.round((vw - textWidth(sound) - gap - textWidth(look)) / 2)
+  drawText(g, sound, sx, y + 138, muted ? '#ff2fa0' : '#2ff3ff')
+  if (look) drawText(g, look, sx + textWidth(sound) + gap, y + 138, '#ffd23f')
 }

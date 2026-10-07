@@ -10,6 +10,9 @@
 // cabinets, board, kiosk, terminals, decals, the petter NPC); r-* are the
 // real town in the one world.
 //
+// VIEW=iso renders the isometric view (PNGs end in -iso); with FRAMES=<n>
+// (under 36) the shot stops n frames into the turn from the classic view.
+//
 // HERO_COLORS='<HeroColors JSON>' dresses the hero in Mini World's colours
 // (render/heroColors.ts); the PNGs then end in -dressed.
 import { execFileSync } from 'node:child_process'
@@ -34,6 +37,7 @@ import { WORLD } from ${JSON.stringify(join(repo, 'themes/zelda/world/index.ts')
 import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
+import isoView from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
 const W = +q.get("w"), H = +q.get("h"), dpr = +(q.get("dpr") || 1), top = +(q.get("top") || 0)
@@ -47,6 +51,8 @@ const s = createGame(world, { seed: 7, at: ['start', 'intro', 'swing', 'pause', 
 if (scene !== 'hutout') { s.dialog = null; s.mode = 'play'; s.hero.auto = null }
 const r = createRenderer(canvas, world)
 if (q.get('hero')) r.setHeroColors(parseHeroColors(q.get('hero')))
+// VIEW=iso shows the isometric view; FRAMES below 36 stops in the middle of the turn into it.
+if (q.get('view') === 'iso') { r.addView('iso', isoView); r.setView('iso', q.get('frames') === null) }
 r.resize(W, H, dpr, { top, right: 0, bottom: top ? 34 : 0, left: 0 })
 const inp = (o) => ({ ...NO_INPUT, ...o })
 const run = (n, i = inp({})) => { for (let k = 0; k < n; k++) r.onEvents(stepGame(world, s, 1 / 60, i)) }
@@ -130,7 +136,7 @@ function wild(luna = false) {
 }
 function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.dir = dir; s.hero.auto = null; s.mode = 'play'; s.dialog = null }
 // Several frames so fades (exit labels) settle and the clock moves.
-for (let k = 0; k < 40; k++) r.draw(s, ui, 1 / 60)
+for (let k = 0; k < +(q.get('frames') || 40); k++) r.draw(s, ui, 1 / 60)
 document.title = 'ready'
 `
 const entryFile = join(out, '_entry.ts')
@@ -226,15 +232,17 @@ const SHOTS = [
 ]
 const want = only ? new Set(only.split(',')) : null
 const hero = process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : ''
+const view = (process.env.VIEW ? `&view=${process.env.VIEW}` : '') + (process.env.FRAMES ? `&frames=${process.env.FRAMES}` : '')
+const tag = (process.env.VIEW ? `-${process.env.VIEW}` : '') + (process.env.FRAMES ? `-f${process.env.FRAMES}` : '')
 for (const [name, scene, w, h, dpr, top] of SHOTS) {
   if (want && !want.has(name) && !want.has(scene)) continue
-  const png = join(out, `${name}${hero ? '-dressed' : ''}.png`)
+  const png = join(out, `${name}${tag}${hero ? '-dressed' : ''}.png`)
   try {
     execFileSync('chromium-browser', [
       '--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
       `--force-device-scale-factor=${dpr}`, `--window-size=${w},${h}`,
       '--virtual-time-budget=3000', `--screenshot=${png}`,
-      `file://${html}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}&top=${top}&touch=${w < 1000 ? 1 : 0}${hero}`,
+      `file://${html}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}&top=${top}&touch=${w < 1000 ? 1 : 0}${hero}${view}`,
     ], { stdio: 'ignore', timeout: 60000 })
     console.log(png)
   } catch (e) {

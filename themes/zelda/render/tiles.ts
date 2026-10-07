@@ -760,11 +760,19 @@ function paintObject(kind: MapKind, g: G, t: TileChar, px: number, py: number, t
 // The cached layer
 // ---------------------------------------------------------------------------
 
+/**
+ * Which half of the painting a layer holds. 'all' is the classic picture.
+ * 'base' is the ground under everything and 'objects' what stands on it, on
+ * a transparent canvas: a view that raises walls and trees needs them apart.
+ */
+export type LayerPass = 'all' | 'base' | 'objects'
+
 export interface TileLayer {
   mapId: string
   canvas: HTMLCanvasElement
   version: number
   painted: TileChar[]
+  pass: LayerPass
 }
 
 function atFor(m: MapState, tx: number, ty: number, kind: MapKind): At {
@@ -776,7 +784,7 @@ function atFor(m: MapState, tx: number, ty: number, kind: MapKind): At {
   }
 }
 
-function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1: number, y1: number) {
+function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1: number, y1: number, pass: LayerPass = 'all') {
   const kind = mapInfo(world, m.id).def.kind
   const look = mapInfo(world, m.id).def.look
   wild = look === 'wild'
@@ -794,25 +802,26 @@ function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1
   g.beginPath()
   g.rect(X0 * T, Y0 * T, (X1 - X0 + 1) * T, (Y1 - Y0 + 1) * T)
   g.clip()
-  for (let ty = Y0; ty <= Y1; ty++) for (let tx = X0; tx <= X1; tx++) {
+  if (pass !== 'all') g.clearRect(X0 * T, Y0 * T, (X1 - X0 + 1) * T, (Y1 - Y0 + 1) * T)
+  if (pass !== 'objects') for (let ty = Y0; ty <= Y1; ty++) for (let tx = X0; tx <= X1; tx++) {
     const t = m.tiles[ty * m.w + tx]!
     if (look === 'lab' && paintLabBase(g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind))) continue
     paintBase(kind, g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind))
   }
   // Objects from one tile further out so overhangs reach in.
-  for (let ty = Math.max(0, Y0 - 1); ty <= Math.min(m.h - 1, Y1 + 1); ty++) for (let tx = Math.max(0, X0 - 1); tx <= Math.min(m.w - 1, X1 + 1); tx++) {
+  if (pass !== 'base') for (let ty = Math.max(0, Y0 - 1); ty <= Math.min(m.h - 1, Y1 + 1); ty++) for (let tx = Math.max(0, X0 - 1); tx <= Math.min(m.w - 1, X1 + 1); tx++) {
     if (own.has(ty * m.w + tx)) continue
     paintObject(kind, g, m.tiles[ty * m.w + tx]!, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind), marquee, cover.has(ty * m.w + tx), look)
   }
   g.restore()
 }
 
-export function createTileLayer(world: World, m: MapState): TileLayer {
+export function createTileLayer(world: World, m: MapState, pass: LayerPass = 'all'): TileLayer {
   const canvas = makeCanvas(m.w * T, m.h * T)
   const g = canvas.getContext('2d')!
   g.imageSmoothingEnabled = false
-  paintRegion(world, m, g, 0, 0, m.w - 1, m.h - 1)
-  return { mapId: m.id, canvas, version: m.version, painted: m.tiles.slice() }
+  paintRegion(world, m, g, 0, 0, m.w - 1, m.h - 1, pass)
+  return { mapId: m.id, canvas, version: m.version, painted: m.tiles.slice(), pass }
 }
 
 /** Repaint the neighbourhood of every tile that changed since the last paint. */
@@ -824,7 +833,7 @@ export function updateTileLayer(layer: TileLayer, world: World, m: MapState) {
     if (m.tiles[i] === layer.painted[i]) continue
     const tx = i % m.w
     const ty = Math.floor(i / m.w)
-    paintRegion(world, m, g, tx - 1, ty - 1, tx + 1, ty + 1)
+    paintRegion(world, m, g, tx - 1, ty - 1, tx + 1, ty + 1, layer.pass)
   }
   layer.painted = m.tiles.slice()
 }

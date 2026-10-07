@@ -16,7 +16,13 @@ import { hash2, type Light } from './tiles'
 type G = CanvasRenderingContext2D
 const T = TILE
 
-export interface Item { y: number; draw: () => void }
+/**
+ * One thing in the depth sort. `y` is the row the classic view sorts by; `x`
+ * and `y` (+ `foot`, the part of a tile from there down to where it touches
+ * the ground; `ay` when the anchor is not the sort row) say where it stands,
+ * so a view with another projection can move the whole drawing there.
+ */
+export interface Item { y: number; draw: () => void; x: number; foot?: number; ay?: number; /** Hangs on a wall facing south (a board, a sign): a turned view leans it along the wall. */ wall?: boolean }
 
 function put(g: G, name: string, x: number, y: number, flip = false) {
   const c = sprite(name, flip)
@@ -55,12 +61,13 @@ function drawDiscoBall(g: G, p: Prop, x: number, y: number, tm: number, lights: 
 const BULBS = ['#ff3b5c', '#ffd23f', '#b6ff4a', '#2ff3ff', '#ff2fa0']
 
 /**
- * Queue the map's props for the depth sort (or draw the flat ones now).
+ * Queue the map's props for the depth sort (or draw the flat ones now, into
+ * `flat`: the ground a view projects, which is `g` itself in the classic one).
  * Anchors are in tiles: a prop stands with its bottom centre at (x, y).
  */
 export function queueProps(
   g: G, world: World, s: GameState, cx: number, cy: number, vw: number, vh: number,
-  time: number, reduced: boolean, items: Item[], lights: Light[],
+  time: number, reduced: boolean, items: Item[], lights: Light[], flat: G = g,
 ): void {
   const def = mapInfo(world, s.map.id).def
   const props = def.props
@@ -72,42 +79,42 @@ export function queueProps(
     const y = p.y * T - cy
     if (x < -80 || x > vw + 80 || y < -80 || y > vh + 120) continue
     switch (p.kind) {
-      case 'tent': items.push({ y: p.y, draw: () => put(g, 'prop_tent', x, y + 2) }); break
-      case 'bike': items.push({ y: p.y, draw: () => put(g, 'prop_bike', x, y) }); break
-      case 'van': items.push({ y: p.y, draw: () => put(g, 'prop_van', x, y) }); break
+      case 'tent': items.push({ x: p.x, y: p.y, draw: () => put(g, 'prop_tent', x, y + 2) }); break
+      case 'bike': items.push({ x: p.x, y: p.y, draw: () => put(g, 'prop_bike', x, y) }); break
+      case 'van': items.push({ x: p.x, y: p.y, draw: () => put(g, 'prop_van', x, y) }); break
       case 'fort':
-        items.push({ y: p.y, draw: () => put(g, 'prop_fort', x, y) })
+        items.push({ x: p.x, y: p.y, draw: () => put(g, 'prop_fort', x, y) })
         lights.push({ x: p.x, y: p.y - 1, r: 2.4, color: '#ffd23f', a: 0.45 + 0.1 * Math.sin(tm * 2) })
         break
       case 'campfire': {
         const f = Math.floor(tm * 8) % 3
-        items.push({ y: p.y, draw: () => put(g, `prop_campfire_${f}`, x, y) })
+        items.push({ x: p.x, y: p.y, draw: () => put(g, `prop_campfire_${f}`, x, y) })
         lights.push({ x: p.x, y: p.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.85 + 0.15 * Math.sin(tm * 13) })
         break
       }
       case 'mast': {
         const on = Math.floor(tm * 1.5) % 2 === 0
-        items.push({ y: p.y, draw: () => put(g, on ? 'prop_mast_on' : 'prop_mast', x, y) })
+        items.push({ x: p.x, y: p.y, draw: () => put(g, on ? 'prop_mast_on' : 'prop_mast', x, y) })
         if (on) lights.push({ x: p.x, y: p.y - 3.4, r: 1.6, color: '#ff3b5c', a: 1 })
         break
       }
       case 'tank': {
         const f = Math.floor(tm * 3 + p.x) % 2
-        items.push({ y: p.y, draw: () => put(g, `prop_tank_${f}`, x, y) })
+        items.push({ x: p.x, y: p.y, draw: () => put(g, `prop_tank_${f}`, x, y) })
         lights.push({ x: p.x, y: p.y - 0.8, r: 2, color: '#3fd8b0', a: 0.6 })
         break
       }
       case 'glow':
         lights.push({ x: p.x, y: p.y, r: p.w ?? 3, color: TONES[p.tone ?? 'pink'], a: 0.5 + 0.1 * Math.sin(tm * 2 + p.x) })
         break
-      case 'discoball': items.push({ y: p.y, draw: () => drawDiscoBall(g, p, x, y, tm, lights) }); break
-      case 'lights': drawLightsWall(g, p, x, y, tm, lights); break
-      case 'rift': drawRift(g, p, x, y, tm, lights); break
+      case 'discoball': items.push({ x: p.x, y: p.y, draw: () => drawDiscoBall(g, p, x, y, tm, lights) }); break
+      case 'lights': drawLightsWall(flat, p, x, y, tm, lights); break
+      case 'rift': drawRift(flat, p, x, y, tm, lights); break
       case 'lift': {
-        g.fillStyle = '#0b0616'
-        g.fillRect(Math.round(x - 8), Math.round(y - 8), 16, 16)
-        g.fillStyle = '#2ff3ff'
-        for (let i = 0; i < 3; i++) g.fillRect(Math.round(x - 6), Math.round(y - 6 + i * 5 - (Math.floor(tm * 6) % 5)), 12, 1)
+        flat.fillStyle = '#0b0616'
+        flat.fillRect(Math.round(x - 8), Math.round(y - 8), 16, 16)
+        flat.fillStyle = '#2ff3ff'
+        for (let i = 0; i < 3; i++) flat.fillRect(Math.round(x - 6), Math.round(y - 6 + i * 5 - (Math.floor(tm * 6) % 5)), 12, 1)
         lights.push({ x: p.x, y: p.y, r: 2.2, color: '#2ff3ff', a: 0.8 })
         break
       }
@@ -191,6 +198,8 @@ export function queueLuna(g: G, s: GameState, cx: number, cy: number, items: Ite
   const L = s.luna
   if (!L || s.hero.x < -10) return
   items.push({
+    x: L.x,
+    foot: 6 / T,
     y: L.y - 0.01,
     draw: () => {
       const x = L.x * T - cx
