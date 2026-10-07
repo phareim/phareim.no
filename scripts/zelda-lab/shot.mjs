@@ -61,7 +61,7 @@ const give = () => { s.inv.sword = true; s.inv.bombBag = true; s.inv.bombs = 8; 
 const at = (map, x, y, dir = 'down') => { enterMap(WORLD, s, map, Object.keys({}).length ? '' : 'x', ev); s.hero.x = x; s.hero.y = y; s.hero.dir = dir }
 function place(map, entryId, dx = 0, dy = 0) { enterMap(world, s, map, entryId, ev); s.hero.x += dx; s.hero.y += dy; s.hero.auto = null }
 const put = (map, x, y, dir) => { enterMap(world, s, map, Object.keys({}).length ? '' : 'door', ev); s.hero.x = x; s.hero.y = y; s.hero.dir = dir; s.hero.auto = null }
-const ui = { paused: false, reducedMotion: false, touch: q.get('touch') === '1', stick: null, attract: false, cam: null, banner: null, keys: q.get('touch') === '1' ? { a: 'A', b: 'B', cycle: 'B' } : { a: 'SPACE', b: 'K', cycle: 'Q' } }
+const ui = { paused: false, reducedMotion: false, touch: q.get('touch') === '1', stick: null, attract: false, cam: null, banner: null, keys: q.get('touch') === '1' ? { a: 'THE SWORD BUTTON', b: 'THE ITEM BUTTON', cycle: 'THE SWAP BUTTON', touch: true } : { a: 'SPACE', b: 'K', cycle: 'Q' } }
 switch (scene) {
   case 'start': run(30); break
   case 'intro': s.dialog = { lines: ['KEEPER: THE SUN HAS HUNG ON THE HORIZON FOR THREE NIGHTS. THE STATIC KING TOOK THE SUN PRISM INTO THE OLD NEON SHRINE.'], line: 0, chars: 80, who: 'keeper', after: null }; s.mode = 'dialog'; break

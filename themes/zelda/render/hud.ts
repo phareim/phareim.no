@@ -137,7 +137,7 @@ function drawConfirmReset(g: G, vw: number, vh: number, keys: HudKeys) {
   y += 14
   box(g, x, y, w, h, '#ff2fa0')
   lines.forEach((l, i) => drawText(g, l, x + 8, y + 10 + i * 10, '#fff4ff'))
-  const hint = keys.a === 'A' ? 'YES OR NO BELOW' : 'Y YES   N NO'
+  const hint = keys.touch ? 'YES OR NO BELOW' : 'Y YES   N NO'
   drawText(g, hint, Math.round((vw - textWidth(hint)) / 2), y + h + 8, '#b9a8d9')
 }
 
@@ -196,11 +196,11 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
   const lines = wrapText(objective(s), w - 16)
   drawText(g, 'QUEST', x + 8, y + 62, '#ffd23f')
   lines.slice(0, 4).forEach((l, i) => drawText(g, l, x + 8, y + 74 + i * 10, '#fff4ff'))
-  const hint = keys.a === 'A' ? 'TAP RESUME' : 'P RESUME   T TOWN'
+  const hint = keys.touch ? 'TAP RESUME' : 'P RESUME   T TOWN'
   drawText(g, hint, Math.round((vw - textWidth(hint)) / 2), y + 126, '#b9a8d9')
-  const sound = `${keys.a === 'A' ? 'SOUND' : 'M SOUND'} ${muted ? 'OFF' : 'ON'}`
+  const sound = `${keys.touch ? 'SOUND' : 'M SOUND'} ${muted ? 'OFF' : 'ON'}`
   // Sound and the view share the line: both are things to switch from here.
-  const look = view ? `${keys.a === 'A' ? 'VIEW' : 'V VIEW'} ${view}` : ''
+  const look = view ? `${keys.touch ? 'VIEW' : 'V VIEW'} ${view}` : ''
   const gap = look ? 12 : 0
   const sx = Math.round((vw - textWidth(sound) - gap - textWidth(look)) / 2)
   drawText(g, sound, sx, y + 138, muted ? '#ff2fa0' : '#2ff3ff')

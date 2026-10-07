@@ -37,8 +37,8 @@ use; with the blade, swing). K/X/Shift is B and Q swaps once there is an
 item; Tab swaps only then too, otherwise it reaches the page's link index.
 P or an Escape tap pauses. Touch: drag anywhere on the left 60 % for a
 floating stick. The world fills the whole screen and the buttons float
-half see-through over it, bottom right: A, with B and SWAP once there is
-an item; the VIEW and pause chips sit in the top-right corner. Any tap moves a dialog
+half see-through over it, bottom right: round, with pictures for letters:
+A (a sword), with B (the item) and swap once there is an item; the VIEW and pause chips sit in the top-right corner. Any tap moves a dialog
 on; a thumb that lands on the stick's side for that and stays down is the
 stick once the lines close. After lines close A rests for a third of a
 second before it talks again, and every press in that time starts the rest
@@ -202,7 +202,7 @@ LOG IN. Touch: tap a button; a tap beside the box closes it. The box is at
 most 360 px wide, centred above the bottom band.
 
 **Page.** The canvas fills the locked viewport. The hint ("ARROWS TO WALK ·
-SPACE TO TALK" / "DRAG TO WALK · A TO TALK") fades in and goes at the first
+SPACE TO TALK" / "DRAG TO WALK · TAP TO TALK") fades in and goes at the first
 step; it is skipped once `portal.return` exists. Winning shows the ending
 panel (THE SUN SETS AT LAST, play time, NEW BEST!); Enter or a tap after
 1.2 s closes it and play goes on where the prism was taken, the run kept

@@ -1770,6 +1770,26 @@ const hudBigkey: Rows = [
   '........',
 ].map(r => r.slice(0, 8))
 
+/** The touch deck's swap button: two arrows passing each other. */
+const hudSwap: Rows = [
+  '.........kk.....',
+  '.........kWk....',
+  '..kkkkkkkkWWk...',
+  '..kWWWWWWWWWWk..',
+  '..kWWWWWWWWWWk..',
+  '..kkkkkkkkWWk...',
+  '.........kWk....',
+  '.........kk.....',
+  '.....kk.........',
+  '....kWk.........',
+  '...kWWkkkkkkkk..',
+  '..kWWWWWWWWWWk..',
+  '..kWWWWWWWWWWk..',
+  '...kWWkkkkkkkk..',
+  '....kWk.........',
+  '.....kk.........',
+]
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -1835,7 +1855,7 @@ const RAW: Record<string, Rows> = {
   leaf_0: leaf0, leaf_1: leaf1,
 
   hud_heart_full: hudHeartFull, hud_heart_half: hudHeartHalf, hud_heart_empty: hudHeartEmpty,
-  hud_bit: hudBit, hud_bomb: hudBomb, hud_key: hudKey, hud_bigkey: hudBigkey,
+  hud_bit: hudBit, hud_bomb: hudBomb, hud_key: hudKey, hud_bigkey: hudBigkey, hud_swap: hudSwap,
 
   ...WILD_RAW,
   ...BEACH_RAW,

@@ -2,7 +2,7 @@
   <main class="portal-landing">
     <Zelda @moved="moved = true" @phase="p => phase = p" @result="onResult" />
     <p class="portal-hint" :class="{ 'portal-hint--gone': moved || phase !== 'play', 'portal-hint--touch': isTouch }" aria-hidden="true">
-      {{ hint('ARROWS TO WALK · SPACE TO TALK', 'DRAG TO WALK · A TO TALK') }}
+      {{ hint('ARROWS TO WALK · SPACE TO TALK', 'DRAG TO WALK · TAP TO TALK') }}
     </p>
 
     <!-- The ending: over the world, where the prism was taken. -->

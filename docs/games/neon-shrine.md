@@ -131,8 +131,10 @@ the next view (see "Views"); P or an
 Escape tap pauses (items, heart pieces, the current quest); on the pause
 screen M turns the sound on or off and T goes to town. Holding Escape saves and goes to town. Starting over
 is the NEW GAME machine in Petter's house (see "Saves" below). Touch:
-floating stick on the left 60 %, A always, B and SWAP once there is an
-item; VIEW and pause chips in the top-right corner (paused: RESUME, SOUND ON/OFF, VIEW, TO TOWN); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
+floating stick on the left 60 %; three round buttons with pictures and no
+letters: A always (a sword), B (the chosen item) and swap (two arrows) once
+there is an item, and the lines call them THE SWORD BUTTON, THE ITEM BUTTON
+and THE SWAP BUTTON (`keys.ts`); VIEW and pause chips in the top-right corner (paused: RESUME, SOUND ON/OFF, VIEW, TO TOWN); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status

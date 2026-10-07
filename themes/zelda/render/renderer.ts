@@ -899,7 +899,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         drawHud(hg, s, vw - left - right, time, ui.touch)
         hg.restore()
       }
-      drawExitLabels(hg, s, labels, cx, cy, vw, vh, ui.paused ? 0 : dt, ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top)
+      drawExitLabels(hg, s, labels, cx, cy, vw, vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top)
       if (ui.banner && s.mode !== 'dialog') drawBanner(hg, ui.banner.text, ui.banner.t, vw, vh)
       if (s.dialog) {
         hg.save()

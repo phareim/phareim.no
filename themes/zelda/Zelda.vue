@@ -20,25 +20,22 @@
     :class="{ 'zelda-deck--paused': paused }"
   >
     <template v-if="!paused">
-      <div v-if="hasItem" class="zelda-deck-small">
-        <button class="zelda-chip" @pointerdown.prevent.stop="cycle" @contextmenu.prevent>
-          <span class="zelda-chip-label">SWAP</span>
-        </button>
-      </div>
+      <button v-if="hasItem" class="zelda-pad zelda-pad-swap" aria-label="Swap item" @pointerdown.prevent.stop="cycle" @contextmenu.prevent>
+        <img v-if="swapIcon" :src="swapIcon" alt="" class="zelda-pad-icon">
+      </button>
       <div class="zelda-deck-btns" :class="{ 'zelda-deck-btns--solo': !hasItem }">
-        <button v-if="hasItem" class="zelda-pad zelda-pad-b" @pointerdown.prevent.stop="pressB" @contextmenu.prevent>
+        <button v-if="hasItem" class="zelda-pad zelda-pad-b" aria-label="Use item" @pointerdown.prevent.stop="pressB" @contextmenu.prevent>
           <img v-if="itemIcon" :src="itemIcon" alt="" class="zelda-pad-icon">
-          <span class="zelda-pad-letter">B</span>
         </button>
         <button
           class="zelda-pad zelda-pad-a"
-          aria-label="A: talk, read, use"
+          aria-label="Sword: talk, read, use"
           @pointerdown.prevent.stop="pressA"
           @pointerup.prevent.stop="releaseA"
           @pointercancel="releaseA"
           @pointerleave="releaseA"
           @contextmenu.prevent
-        ><span class="zelda-pad-letter">A</span></button>
+        ><img v-if="swordIcon" :src="swordIcon" alt="" class="zelda-pad-icon zelda-pad-icon--big"></button>
       </div>
     </template>
     <div v-else-if="confirmReset" class="zelda-deck-paused">
@@ -77,9 +74,10 @@
  * V turns to the next view (`views.ts`: classic, isometric), mid-play;
  * P or an Escape tap pause (T in the pause menu: to town); holding Escape
  * saves and goes back to town.
- * Touch: floating stick on the left, A (and B with an item) on the right
- * with the SWAP chip; VIEW and pause chips in the top-right corner. The input
- * itself is `input.ts`.
+ * Touch: floating stick on the left; on the right three round buttons with
+ * pictures, no letters: A (the sword), and with an item B (the item) and
+ * swap; VIEW and pause chips in the top-right corner. The input itself is
+ * `input.ts`.
  *
  * Leaving: an engine `exit` saves, writes `portal.return` and launches the
  * theme or opens the URL.
@@ -107,6 +105,7 @@ import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from '.
 import { turnMove } from './render/iso/project'
 import { VIEWS, VIEW_KEY, nextView, startView, viewName, type ViewId } from './views'
 import { sprite } from './render/sheet'
+import { KEYBOARD_KEYS, TOUCH_KEYS } from './keys'
 import { createZeldaAudio, type SfxName, type ZeldaAudio } from './audio'
 import { readLocalSave, writeLocalSave, clearLocalSave, readLocalBest, writeLocalBest } from './localSave'
 import { syncWithProfile } from './profileSync'
@@ -198,19 +197,24 @@ let askedAt = 0
 
 const ui: FrameUI = {
   paused: false, confirmReset: false, muted: false, reducedMotion: false, touch: false, stick: null, attract: false, cam: null, banner: null,
-  keys: { a: 'SPACE', b: 'K', cycle: 'Q' },
+  keys: KEYBOARD_KEYS,
 }
 
+// The deck's buttons carry pictures: the sprites, as data URLs (browser only).
 const iconCache = new Map<string, string>()
-const itemIcon = computed(() => {
-  const s = selected.value
-  if (!s) return ''
-  const name = s === 'disc' ? 'item_disc' : s === 'hook' ? 'item_hook' : 'item_bombbag'
+function iconUrl(name: string) {
   if (!import.meta.client) return ''
   let url = iconCache.get(name)
   if (!url) { url = sprite(name).toDataURL(); iconCache.set(name, url) }
   return url
+}
+const itemIcon = computed(() => {
+  const s = selected.value
+  if (!s) return ''
+  return iconUrl(s === 'disc' ? 'item_disc' : s === 'hook' ? 'item_hook' : 'item_bombbag')
 })
+const swordIcon = ref('')
+const swapIcon = ref('')
 
 // ---- input -------------------------------------------------------------------
 
@@ -687,7 +691,7 @@ function frame(nowMs: number) {
   ui.muted = sound.muted.value
   ui.reducedMotion = reducedMotion
   ui.touch = touchUI.value
-  ui.keys = touchUI.value ? { a: 'A', b: 'B', cycle: 'SWAP' } : { a: 'SPACE', b: 'K', cycle: 'Q' }
+  ui.keys = touchUI.value ? TOUCH_KEYS : KEYBOARD_KEYS
   ui.stick = input.stick
   ui.view = viewLabel.value
 
@@ -789,6 +793,8 @@ let walletStop: (() => void) | null = null
 onMounted(() => {
   if (!canvas.value) return
   alive = true
+  swordIcon.value = iconUrl('item_sword')
+  swapIcon.value = iconUrl('hud_swap')
   reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   try {
     touchUI.value = window.matchMedia('(hover: none) and (pointer: coarse)').matches
@@ -902,13 +908,6 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-.zelda-deck-small {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  pointer-events: auto;
-}
-
 /* VIEW and pause: top-right, clear of the notch and the status bar. */
 .zelda-deck-top {
   position: absolute;
@@ -986,11 +985,15 @@ onBeforeUnmount(() => {
   box-shadow: 4px 4px 0 #0b0616;
 }
 
-.zelda-pad-letter {
-  font-size: 32px;
-  font-weight: 400;
-  line-height: 1;
-  text-shadow: 2px 2px 0 #0b0616;
+/* Swap: the small third button, left of B. */
+.zelda-pad-swap {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 4px solid #b9a8d9;
+  box-shadow: 4px 4px 0 #0b0616;
+  pointer-events: auto;
 }
 
 .zelda-pad-icon {
@@ -1004,11 +1007,9 @@ onBeforeUnmount(() => {
   transform: translate(-50%, -50%);
 }
 
-.zelda-pad-b .zelda-pad-letter {
-  position: absolute;
-  right: 6px;
-  bottom: 4px;
-  font-size: 16px;
+.zelda-pad-icon--big {
+  width: 48px;
+  height: 48px;
 }
 
 .zelda-deck-paused {
