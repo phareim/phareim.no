@@ -4,7 +4,8 @@
 #   deploy-site.sh [--auto] [--branch <name>] [commit]
 #
 # master (the default) is production: phareim.no. Any other branch becomes a
-# Pages preview under <branch>.phareim-no.pages.dev; `beta` is also served at
+# Pages preview (Pages names it after the branch, a slash turned into a
+# dash: <branch>.phareim-no.pages.dev); `beta` is also served at
 # beta.phareim.no. A preview runs the same tests, typecheck and build, shares
 # production's database, and never applies migrations: a branch that needs a
 # new table waits for master to get it.
@@ -26,13 +27,15 @@ while [ $# -gt 0 ]; do
     *) break ;;
   esac
 done
-case "$branch" in *[!A-Za-z0-9._-]*) echo "bad branch name: $branch" >&2; exit 2 ;; esac
-if [ "$branch" = master ]; then site=phareim.no; mark="$state/site"; else site="phareim.no ($branch)"; mark="$state/site-$branch"; fi
+case "$branch" in *[!A-Za-z0-9._/-]*|*..*|/*|*/|-*) echo "bad branch name: $branch" >&2; exit 2 ;; esac
+if [ "$branch" = master ]; then site=phareim.no; mark="$state/site"; else site="phareim.no ($branch)"; mark="$state/site-${branch//\//-}"; fi
+# The full ref: a local branch or tag called origin/<branch> must never stand in for the remote one.
+remote_ref="refs/remotes/origin/$branch"
 repo=$(git -C "$(dirname "$0")/.." rev-parse --show-toplevel)
 # Name the ref on both sides: a checkout that tracks only master would not get origin/<branch> otherwise.
-fetch_branch() { git -C "$repo" fetch origin "+refs/heads/$branch:refs/remotes/origin/$branch"; }
+fetch_branch() { git -C "$repo" fetch origin "+refs/heads/$branch:$remote_ref"; }
 fetch_branch
-revision=$(git -C "$repo" rev-parse "${1:-origin/$branch}^{commit}")
+revision=$(git -C "$repo" rev-parse "${1:-$remote_ref}^{commit}")
 if [ "$automatic" = 1 ] && [ -f "$mark" ] && [ "$(cat "$mark")" = "$revision" ]; then
   echo "$site already deployed from $revision"; exit 0
 fi
@@ -56,7 +59,7 @@ heavy_run npm run typecheck
 heavy_run npm run build
 if [ "$automatic" = 1 ]; then
   fetch_branch
-  if [ "$(git -C "$repo" rev-parse "origin/$branch")" != "$revision" ]; then
+  if [ "$(git -C "$repo" rev-parse "$remote_ref")" != "$revision" ]; then
     echo "A newer $branch is available; leaving publication to the queued deploy"; exit 0
   fi
 fi

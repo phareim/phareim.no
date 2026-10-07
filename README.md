@@ -56,7 +56,13 @@ automatic site deploys; `~/.local/state/phareim-deploy/site` records the last
 successful revision so duplicate webhooks skip building. Failed builds leave
 the live site in place. Superseded automatic builds wait for the queued push.
 
-Manual: `bash scripts/deploy-site.sh [commit]`. Credentials are in
+A branch can be published as a Pages preview: `deploy-site.sh --branch <name>`
+runs the same checks, deploys to that Pages branch, shares production's D1 and
+applies no migrations; its last revision is in `site-<name>`. The `beta` branch
+does this on every push and is served at beta.phareim.no (2026-10-07;
+`AGENTS.md`, Deployment).
+
+Manual: `bash scripts/deploy-site.sh [--branch <name>] [commit]`. Credentials are in
 `~/.config/phareim-deploy/env` (600; `CLOUDFLARE_API_TOKEN` with Pages and D1
 edit rights, `CLOUDFLARE_ACCOUNT_ID`), or the interactive environment.
 Logs: `pm2 logs sleeper-deploy`; queue: `https://sleeper.phareim.no/deploy/health`.
