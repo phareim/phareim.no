@@ -1036,6 +1036,13 @@ onBeforeUnmount(() => {
   --edge: #ff2fa0;
 }
 
+/* A phone on its side: the screen is short, so the pads sit lower and more
+   side by side, still above the bottom band. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .zelda-deck:not(.zelda-deck--paused) { padding-bottom: calc(4px + var(--app-safe-bottom, 0px)); }
+  .zelda-deck-btns:not(.zelda-deck-btns--solo) { height: 104px; }
+}
+
 /* Two wide buttons across a 375 px phone. */
 @media (max-width: 440px) {
   .zelda-deck-paused { gap: 6px; }

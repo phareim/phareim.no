@@ -134,7 +134,7 @@ is the NEW GAME machine in Petter's house (see "Saves" below). Touch:
 floating stick on the left 60 %; three round buttons with pictures and no
 letters: A always (a sword), B (the chosen item) and swap (two arrows) once
 there is an item, and the lines call them THE SWORD BUTTON, THE ITEM BUTTON
-and THE SWAP BUTTON (`keys.ts`); VIEW and pause chips in the top-right corner (paused: RESUME, SOUND ON/OFF, VIEW, TO TOWN); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
+and THE SWAP BUTTON (`keys.ts`); on a phone lying on its side they sit lower and more side by side; VIEW and pause chips in the top-right corner (paused: RESUME, SOUND ON/OFF, VIEW, TO TOWN); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status
