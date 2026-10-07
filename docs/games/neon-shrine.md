@@ -34,16 +34,73 @@ and Petter's house, `HIGH_SCORE_SIGN`), `interiors.ts` (hut, shop, cave),
 and `worldStartingAt()`. `engine/` — pure simulation split by concern
 (`game.ts` modes/saves/camera/exits/area intros, `hero.ts`, `enemies.ts`,
 `objects.ts`, `combat.ts`, `map.ts`; the Wildwood's `hook.ts`, `luna.ts`,
-`bosses.ts`). `render/` — `renderer.ts`, `tiles.ts`, `sprites.ts` +
-`sheet.ts` (+ `spritesWild*.ts`), `font.ts`, `hud.ts`, `labTiles.ts` (the
-labs' look and the new tiles), `wild.ts` (props, Luna, the hook's chain,
-moods). `audio.ts` —
+`bosses.ts`). `render/` — `renderer.ts` (the frame's shared parts, the
+classic view, and the turn between views), `iso/` (the isometric view),
+`tiles.ts`, `sprites.ts` + `sheet.ts` (+ `spritesWild*.ts`), `tones.ts` (the
+world's named colours as hex), `hud.ts`, `labTiles.ts` (the labs' look and
+the new tiles), `wild.ts` (props, Luna, the hook's chain, moods). The 5×7
+font and the shared palette are `themes/base/pixel/font.ts` and
+`palette.ts`. `views.ts` — the list of views. `keys.ts` — the button names
+in dialog lines. `audio.ts` —
 music, jingles, SFX. `Zelda.vue` — the world shell (loop, input, touch
 deck, audio, saves, pause menu, exits, navigation lock), mounted by
 `themes/portal/Landing.vue`. `profileSync.ts` — the profile pull.
 `progress.ts` — quest steps and the save merge. `hiscore.ts` — a real top
 three on the arcade's HIGH SCORES sign (one Hall of Fame game at random,
 `/api/leaderboard` without a player id; offline it keeps the KNG joke).
+
+**Views** (2026-10-07, on the `beta` branch: beta.phareim.no). The game can
+be shown in more than one way, and the player can change it in the middle of
+a room: V, the VIEW chip on a phone, or the pause screen. The state, the
+engine and the world are the same; a view is only how a frame is drawn.
+`views.ts` lists them: `classic` (the picture described under "Look" in
+`themes/zelda/DESIGN.md`) and `iso`, an isometric one. The choice is kept in
+localStorage `zelda.view`; `/?view=iso` asks for one.
+
+- **Three layers, kept apart.** The engine and `world/` never import from
+  `render/`, and world data names tones (`Tone` in `types.ts`), never a hex
+  colour; `test:portal` fails on either. A second look for the same world
+  brings its own `tones.ts` and painters and touches nothing else.
+- **The frame in parts** (`render/renderer.ts`). `queue()` returns everything
+  that stands in the world as items that draw themselves the classic way and
+  say where they stand (`Item` in `wild.ts`: x, the sort row, `foot`, `ay`,
+  `wall`); `ambient()`, `projectiles()`, `fx`, `flashFade()`, `present()`
+  (upscale, bloom, scanlines, vignette) and `hudLayer()` are the rest. The
+  classic view is one way of putting them together, a `View` another: it gets
+  the parts as a `Kit` and draws `draw(state, ui, dt, k)`.
+- **The turn.** `k` runs from 0 to 1 over 0.6 s. A view must look like the
+  classic one at 0, so the renderer cuts to it there and lets it turn itself
+  in; going back it turns out and the classic view takes over. `View.turn`
+  is how far the picture is rotated at k = 1; the shell turns the stick by
+  the same angle (`turnMove`), so up on the stick is up on the screen in
+  every view. Reduced motion and a paused game switch at once.
+- **The isometric view** (`render/iso/`). No new art: each frame the classic
+  painters draw the map around the camera into hidden top-down buffers
+  (ground, and what stands on it, on a clear canvas: `createTileLayer(…,
+  'base' | 'objects')`), and the view rebuilds the picture with depth.
+  `shape.ts` says how a tile stands, reading the three-quarter art at its
+  word: a wall's top is lifted and belongs one row south of where it is
+  drawn, its southern row is a face standing on the south edge, a house has
+  two face rows under its roof, pots, lamps and lone trees are cards facing
+  the viewer, a row of fence along x stands up as a strip. Sides nobody drew
+  are the face picture again, in shadow. A wall with floor to its west stays
+  down so a room is never hidden behind its own wall. People, enemies,
+  cabinets and the hero are the classic drawings, moved to where their feet
+  land; a board on a wall leans along it. What stands between the viewer and
+  the hero thins out. `project.ts` is the geometry: `projection(k)` turns
+  the ground 45° and tips it back, 16 px per tile to a 32 × 16 diamond.
+- **Adding a view.** A module whose default export is a `ViewFactory`, one
+  line in `VIEWS` with its loader. A view's code is fetched on the first turn
+  to it and must stay out of the entry (`tests/zelda-views.test.mjs` checks
+  that nothing imports `iso/view` statically).
+- **Known rough edges of the isometric view** (2026-10-07): woods are blocks
+  of canopy; dungeon rooms are wider than the screen, so the camera follows
+  the hero instead of showing the whole room; furniture is flat cards; the
+  eight keyboard directions are the eight world directions, so walking along
+  a wall takes two keys.
+- **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>
+  [scenes]` renders the isometric view; `FRAMES=18` stops halfway through
+  the turn.
 
 **How it starts.** A visitor stands on the plaza with nothing. Walking
 into Home Glade without the blade, the Keeper tells the story once (the
@@ -56,7 +113,8 @@ for death during a session.
 
 **Controls.** Keys: arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
 open, lift, throw, use an exit; hold after a swing, release to spin);
-K/X/Shift = B (item); Q, or Tab when there is an item, swaps; P or an
+K/X/Shift = B (item); Q, or Tab when there is an item, swaps; V turns to
+the next view (see "Views"); P or an
 Escape tap pauses (items, heart pieces, the current quest); on the pause
 screen M turns the sound on or off and T goes to town. Holding Escape saves and goes to town. Starting over
 is the NEW GAME machine in Petter's house (see "Saves" below). Touch:

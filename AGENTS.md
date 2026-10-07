@@ -12,7 +12,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 
 - `npm run dev` — dev server on port 3030 (host 0.0.0.0)
 - `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link (the arcade's nine games and its two links out, Adventure and Pizza Rescue for fighter.phareim.no; those two and Night of the Dead Battery on the island by the door, 2026-10-06), the beach's two DJ booths (Jam and the radio, both links out), the login console and its auth.phareim.no client (fake fetch), the coast road to the Keeper
-- `npm run test:zelda` — Neon Shrine: the first minute from the town, exits, saves, a full scripted run to the Sun Prism; the audio data; the Wildwood's rules and a full run from the town's thicket to the Gate shutting (2026-09-24)
+- `npm run test:zelda` — Neon Shrine: the first minute from the town, exits, saves, a full scripted run to the Sun Prism; the audio data; the Wildwood's rules and a full run from the town's thicket to the Gate shutting (2026-09-24); the views: the registry, the isometric geometry, how tiles stand (2026-10-07)
 - `npm run test:eschold` — the shared Escape tap/hold state machine
 - `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); the Sleeper deploy runs these before typecheck
 - `npm run test:leaderboard` — Hall of Fame name generator/validator and game list (2026-09-08)
@@ -71,7 +71,7 @@ themes/              — see the phareim-theme skill
   base/              — DefaultLanding shell, SocialLink, EscHold (shared Escape tap/hold), fonts.css + fonts.ts (site fonts, 2026-09-06)
   _template/         — starting point for a new theme
   portal/            — the home theme on `/`: the page (hint, hidden link index, ending panel) around the world shell
-  zelda/             — the one world: engine, world data (town + Neon Shrine), renderer, audio, and the shell `Zelda.vue`
+  zelda/             — the one world: engine, world data (town + Neon Shrine), renderer (classic and isometric views, `views.ts`), audio, and the shell `Zelda.vue`
   radio/             — engine.ts + catalog.ts: the widget's six game stations (the generative radio is radio.phareim.no, a link out from the beach since 2026-09-28)
   battery/          — Night of the Dead Battery: engine/, content/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
   miniworld/        — Mini World (Ulrikke's game): core/ (pure rules), scene/ (three.js), ui/ (panels), Game.vue as its own chunk
@@ -116,7 +116,8 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 
 - **Deploy** (2026-10-04): GitHub Actions is disabled; push to `master` → signed `sleeper-deploy` webhook → `scripts/deploy.sh` on Sleeper. It preserves the Mini World server deploy, then `scripts/deploy-site.sh --auto` builds committed `origin/master` in an isolated worktree through `heavy`. Every `test:*` script is discovered automatically, then typecheck and build run. Pull requests no longer run CI.
 - D1 migrations apply before publishing to Pages (`phareim-no`, production branch `master`). `wrangler.toml` carries the output dir, compatibility flags and `LEADERBOARD_DB` binding. Credentials: `~/.config/phareim-deploy/env` (600), with Pages and D1 edit rights.
-- Manual: `bash scripts/deploy-site.sh [commit]`. File lock and successful revision: `~/.local/state/phareim-deploy/`. Busy pushes coalesce in the webhook queue; duplicate revisions skip work. Logs: `pm2 logs sleeper-deploy`; status: `https://sleeper.phareim.no/deploy/health`.
+- **Beta** (2026-10-07): the `beta` branch is published at **beta.phareim.no** on every push: the same webhook runs `deploy-site.sh --auto --branch beta`, which builds `origin/beta` with the same tests, typecheck and build and deploys it as the Pages preview `beta` (`beta.phareim-no.pages.dev`; the custom domain's CNAME points there). It shares production's D1 and never applies migrations, so saves and scores made on beta are real ones. It holds work too large to land on master in one go; what it holds now: `docs/games/neon-shrine.md`, "Views". Redundant when that is merged: delete the branch, the DNS record and the Pages domain, and the `phareim/phareim.no#beta` line in `~/github/sleeper/deploy-hook/server.mjs`.
+- Manual: `bash scripts/deploy-site.sh [--branch <name>] [commit]`. File lock and successful revision: `~/.local/state/phareim-deploy/`. Busy pushes coalesce in the webhook queue; duplicate revisions skip work. Logs: `pm2 logs sleeper-deploy`; status: `https://sleeper.phareim.no/deploy/health`.
 
 ## Keyboard
 

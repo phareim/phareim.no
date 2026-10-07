@@ -29,7 +29,10 @@ treasure.
   renders at 2 or 1. Only whole ratios are ever offered, because the
   whole-number `scale` tracks the ratio — 1, 2 and 3 give the identical
   logical buffer and `k` and differ only in sharpness.
-- `sprites.ts` — `PAL` (Neon Shrine's palette), `sprite(rows, palOverride)`,
+- `palette.ts` — `PAL`, one letter per colour, shared by every sprite map on
+  the site (Neon Shrine adds its own letters on top in
+  `themes/zelda/render/sprites.ts`). `font.ts` — the 5×7 font.
+- `sprites.ts` — `sprite(rows, palOverride)`,
   `silhouette()`, `shade()` (outline + highlight/shadow for a one-colour
   'X' map), `pixelize()` / `relight()` (turn vector-painted art into
   palette-snapped, outlined, top-lit pixel sprites; Galaga uses them),
