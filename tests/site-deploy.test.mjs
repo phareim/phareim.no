@@ -95,3 +95,15 @@ test('a branch name that could leave the state directory or pass for an option i
   }
   assert.equal(existsSync(f.log), false)
 })
+
+test('options after the commit are refused, never dropped', t => {
+  const f = fixture(t)
+  // `<commit> --branch beta` used to ignore the branch and publish the commit to production.
+  assert.equal(f.run({}, [f.revision, '--branch', 'beta']).status, 2)
+  assert.equal(f.run({}, ['--auto', f.revision, '--auto']).status, 2)
+  assert.equal(f.run({}, ['--brunch', 'beta']).status, 2)
+  assert.equal(existsSync(f.log), false)
+  // One commit after the options is still the manual way to deploy a given revision.
+  assert.equal(f.run({}, [f.revision]).status, 0)
+  assert.match(readFileSync(f.log, 'utf8'), /--branch=master/)
+})
