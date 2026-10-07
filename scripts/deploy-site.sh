@@ -24,9 +24,12 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --auto) automatic=1; shift ;;
     --branch) branch="${2:?--branch needs a name}"; shift 2 ;;
+    -*) echo "unknown option: $1" >&2; exit 2 ;;
     *) break ;;
   esac
 done
+# Options come first: one read after the commit would be dropped, and `<commit> --branch beta` would go to production.
+if [ $# -gt 1 ]; then echo "usage: deploy-site.sh [--auto] [--branch <name>] [commit]" >&2; exit 2; fi
 case "$branch" in *[!A-Za-z0-9._/-]*|*..*|/*|*/|-*) echo "bad branch name: $branch" >&2; exit 2 ;; esac
 if [ "$branch" = master ]; then site=phareim.no; mark="$state/site"; else site="phareim.no ($branch)"; mark="$state/site-${branch//\//-}"; fi
 # The full ref: a local branch or tag called origin/<branch> must never stand in for the remote one.
