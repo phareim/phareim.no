@@ -37,8 +37,8 @@ use; with the blade, swing). K/X/Shift is B and Q swaps once there is an
 item; Tab swaps only then too, otherwise it reaches the page's link index.
 P or an Escape tap pauses. Touch: drag anywhere on the left 60 % for a
 floating stick. The world fills the whole screen and the buttons float
-half see-through over it, bottom right: A and a pause chip, with B and
-SWAP once there is an item. Any tap moves a dialog
+half see-through over it, bottom right: A, with B and SWAP once there is
+an item; the VIEW and pause chips sit in the top-right corner. Any tap moves a dialog
 on; a thumb that lands on the stick's side for that and stays down is the
 stick once the lines close. After lines close A rests for a third of a
 second before it talks again, and every press in that time starts the rest

@@ -6,21 +6,24 @@
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
-    the left 60 % that isn't a button. -->
+    the left 60 % that isn't a button. VIEW and pause sit apart, in the
+    top-right corner, where no thumb rests. -->
+  <div v-if="touchUI && phase === 'play' && !panel && !paused && !talking" class="zelda-deck-top">
+    <button class="zelda-chip" aria-label="Change view" @pointerdown.prevent.stop="cycleView" @contextmenu.prevent>
+      <span class="zelda-chip-label">VIEW</span>
+    </button>
+    <button class="zelda-chip" aria-label="Pause" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>II</button>
+  </div>
   <div
     v-if="touchUI && phase === 'play' && !panel && (paused || !talking)"
     class="zelda-deck"
     :class="{ 'zelda-deck--paused': paused }"
   >
     <template v-if="!paused">
-      <div class="zelda-deck-small">
-        <button v-if="hasItem" class="zelda-chip" @pointerdown.prevent.stop="cycle" @contextmenu.prevent>
+      <div v-if="hasItem" class="zelda-deck-small">
+        <button class="zelda-chip" @pointerdown.prevent.stop="cycle" @contextmenu.prevent>
           <span class="zelda-chip-label">SWAP</span>
         </button>
-        <button class="zelda-chip" aria-label="Change view" @pointerdown.prevent.stop="cycleView" @contextmenu.prevent>
-          <span class="zelda-chip-label">VIEW</span>
-        </button>
-        <button class="zelda-chip" aria-label="Pause" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>II</button>
       </div>
       <div class="zelda-deck-btns" :class="{ 'zelda-deck-btns--solo': !hasItem }">
         <button v-if="hasItem" class="zelda-pad zelda-pad-b" @pointerdown.prevent.stop="pressB" @contextmenu.prevent>
@@ -74,8 +77,9 @@
  * V turns to the next view (`views.ts`: classic, isometric), mid-play;
  * P or an Escape tap pause (T in the pause menu: to town); holding Escape
  * saves and goes back to town.
- * Touch: floating stick on the left, A (and B with an item) on the right,
- * SWAP and pause chips. The input itself is `input.ts`.
+ * Touch: floating stick on the left, A (and B with an item) on the right
+ * with the SWAP chip; VIEW and pause chips in the top-right corner. The input
+ * itself is `input.ts`.
  *
  * Leaving: an engine `exit` saves, writes `portal.return` and launches the
  * theme or opens the URL.
@@ -903,6 +907,16 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 10px;
   pointer-events: auto;
+}
+
+/* VIEW and pause: top-right, clear of the notch and the status bar. */
+.zelda-deck-top {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: calc(14px + env(safe-area-inset-right, 0px));
+  z-index: 5;
+  display: flex;
+  gap: 10px;
 }
 
 .zelda-chip {

@@ -54,7 +54,7 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
   if (hasBigKey(s)) { g.drawImage(sprite('hud_bigkey'), cx, cy); cx += 12 }
 
   // B-item box right of the hearts (touch shows it on the B button instead;
-  // the site radio owns the top-right corner).
+  // its VIEW and pause chips own the top-right corner).
   if (!touch && inv.selected) {
     const bx = Math.max(4 + Math.min(hearts, 10) * 9, cx) + 4
     box(g, bx, 3, 22, 22, '#2ff3ff')
