@@ -30,6 +30,7 @@ import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type
 import { drawPsiBlock } from './labTiles'
 import { drawHookChain, drawStaticMood, fireflies, queueLuna, queueProps, type Item } from './wild'
 import { ease } from './iso/project'
+import { createTurn } from './turn'
 
 /** NPC looks that live on the town's beach and move on its slow beat. */
 const BEACH_LOOKS: ReadonlySet<string> = new Set(['hippie', 'smoker', 'guitar', 'sleeper', 'twirler', 'bonfire'])
@@ -82,8 +83,8 @@ export interface Renderer {
   hasView(id: string): boolean
   /** Turn to a view ('classic' or an added one). `instant` skips the turn. */
   setView(id: string, instant?: boolean): void
-  /** The view we are in or heading for, how far the turn has come (0 classic … 1), and the angle the controls turn by now (radians). */
-  viewState(): { id: string; k: number; turn: number }
+  /** The view we are in or heading for, how far the turn has come (0 classic … 1), the angle the controls turn by now (radians), and whether a turn is in flight. */
+  viewState(): { id: string; k: number; turn: number; turning: boolean }
 }
 
 /**
@@ -119,6 +120,8 @@ export interface Kit {
   staticMood(s: GameState): boolean
   /** How the view shows a world angle (blades swing by it); null: as it is. */
   setAim(fn: ((a: number) => number) | null): void
+  /** The scene step (px) from one world point to another, for a drawing that reaches from its own thing to a second one (the twins' tether, the king's shards); null: the classic step. */
+  setSpan(fn: ((x1: number, y1: number, x2: number, y2: number) => Vec) | null): void
   flashFade(g: G, s: GameState, ui: FrameUI, dt: number): number
   present(fade: number, glows: (bg: G) => void): void
   hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number): void
@@ -385,6 +388,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let arc = false
   /** A world angle as the view shows it (the classic view: as it is). */
   let aim: (a: number) => number = a => a
+  /** The scene step between two world points in a view that moves drawings (null: the classic view, where it is plain arithmetic). */
+  let span: ((x1: number, y1: number, x2: number, y2: number) => Vec) | null = null
   function bladeSprite(a: number): { name: string; fh: boolean; fv: boolean } {
     const b = bladeSprite1(a)
     return arc ? { ...b, name: b.name.replace('sword_', 'sword2_') } : b
@@ -532,8 +537,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       const other = this_map_twin(e)
       if (other && !other.dead && other.ai.mode !== 'down' && e.home.x > other.home.x) {
         // The tether between the twins.
-        const ox = other.x * T - cx
-        const oy = other.y * T - cy - 10
+        const to = span ? span(e.x, e.y, other.x, other.y) : null
+        const ox = to ? x + to.x : other.x * T - cx
+        const oy = to ? e.y * T - cy - 10 + to.y : other.y * T - cy - 10
         const flick = Math.floor(time * 20) % 2
         g.strokeStyle = flick ? '#ff2fa0' : '#2ff3ff'
         g.lineWidth = 2
@@ -566,8 +572,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         for (let i = 0; i < 4; i++) {
           if (!(bits & (1 << i))) continue
           const p = shardPos(e, i)
-          const sx = p.x * T - cx
-          const sy = p.y * T - cy
+          const to = span ? span(e.x, e.y, p.x, p.y) : null
+          const sx = to ? x + to.x : p.x * T - cx
+          const sy = to ? e.y * T - cy + to.y : p.y * T - cy
           shadow(g, sx, sy + 8, 6)
           put(g, 'shard', sx, sy + 4)
           lights.push({ x: p.x, y: p.y, r: 1.6, color: '#ff2fa0', a: 0.8 })
@@ -674,6 +681,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       items.push({
         x: p.x,
         foot: 5 / T,
+        tile: true,
         y: p.y,
         draw: () => {
           const px = p.x * T - cx
@@ -1119,38 +1127,27 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     lakeSun: drawLakeSun,
     staticMood: s => staticMood(s, mapInfo(world, s.map.id)),
     setAim(fn) { aim = fn ?? (a => a) },
+    setSpan(fn) { span = fn },
     flashFade,
     present,
     hudLayer,
   }
   const views = new Map<string, View>()
-  /** The added view on screen or on its way in or out ('': none). */
-  let shown = ''
-  /** The added view we are heading for ('': the classic one). */
-  let wanted = ''
-  /** 0: the classic view … 1: `shown`. */
-  let turnK = 0
-  const TURN_TIME = 0.6
+  const turn = createTurn(id => views.has(id))
 
   function draw(s: GameState, ui: FrameUI, dt: number) {
     begin(s, ui, dt)
-    const target = shown && shown === wanted ? 1 : 0
-    if (turnK !== target) turnK = target > turnK ? Math.min(1, turnK + dt / TURN_TIME) : Math.max(0, turnK - dt / TURN_TIME)
-    // Back on the classic view: the next one, if another was asked for, comes in from here.
-    if (turnK === 0) shown = wanted
-    const v = shown ? views.get(shown) : undefined
-    if (!v || turnK <= 0) { aim = a => a; drawClassic(s, ui, dt); return }
-    v.draw(s, ui, dt, ease(turnK))
+    const now = turn.step(dt)
+    const v = now.shown ? views.get(now.shown) : undefined
+    if (!v) { aim = a => a; span = null; drawClassic(s, ui, dt); return }
+    v.draw(s, ui, dt, ease(now.k))
   }
 
-  function setView(id: string, instant = false) {
-    wanted = views.has(id) ? id : ''
-    if (instant) { shown = wanted; turnK = wanted ? 1 : 0 } else if (!shown) shown = wanted
-  }
+  function setView(id: string, instant = false) { turn.set(id, instant) }
 
   function viewState() {
-    const v = shown ? views.get(shown) : undefined
-    return { id: wanted || 'classic', k: turnK, turn: v ? v.turn * ease(turnK) : 0 }
+    const v = turn.shown ? views.get(turn.shown) : undefined
+    return { id: turn.id, k: turn.k, turn: v ? v.turn * ease(turn.k) : 0, turning: turn.turning }
   }
 
   void cellIndex

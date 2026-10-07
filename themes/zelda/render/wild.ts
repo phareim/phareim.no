@@ -22,7 +22,7 @@ const T = TILE
  * the ground; `ay` when the anchor is not the sort row) say where it stands,
  * so a view with another projection can move the whole drawing there.
  */
-export interface Item { y: number; draw: () => void; x: number; foot?: number; ay?: number; /** Hangs on a wall facing south (a board, a sign): a turned view leans it along the wall. */ wall?: boolean }
+export interface Item { y: number; draw: () => void; x: number; foot?: number; ay?: number; /** Hangs on a wall facing south (a board): a turned view leans it along the wall. */ wall?: boolean; /** Is part of its tile's picture, or lies on it (a sign's neon frame, goods on a counter): a turned view keeps it on that picture and in front of it. */ tile?: boolean }
 
 function put(g: G, name: string, x: number, y: number, flip = false) {
   const c = sprite(name, flip)

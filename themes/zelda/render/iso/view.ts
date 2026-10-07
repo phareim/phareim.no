@@ -18,13 +18,11 @@
 import type { GameState, MapKind, TileChar } from '../../types'
 import { SCROLL_TIME, TILE } from '../../types'
 import { mapInfo, raised } from '../../engine/index'
-import { textWidth } from '../../../base/pixel/font'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { createTileLayer, drawLiveTiles, updateTileLayer, type Light, type TileLayer } from '../tiles'
-import { drawDecals } from '../decals'
+import { bloomDecals, decalCover, drawDecals, lightDecals } from '../decals'
 import { exitTiles, nearExit } from '../exits'
 import { makeCanvas } from '../sheet'
-import { TONES } from '../tones'
 import { drawHookChain, drawStaticMood, fireflies } from '../wild'
 import { centreIn, groundRect, project, projection, type Rect } from './project'
 import { FLAT, shapeOf, type Shape } from './shape'
@@ -51,16 +49,20 @@ export default function isoView(kit: Kit): View {
   let shapes: Shape[] = []
   let shapesKey = ''
   let shapeMap: GameState['map'] | null = null
-  let shapeKind: MapKind = 'overworld'
   /** The map's standing things around the camera, on a clear ground. */
   const objs = makeCanvas(1, 1)
   /** What lies on the ground: the base plus the objects that stay down. */
   const flat = makeCanvas(1, 1)
   /** Flat things drawn over the rest: the hook's chain, the sun in the lake. */
   const over = makeCanvas(1, 1)
-  /** One tile, for shading a picture without shading the air around it. */
-  const tile = makeCanvas(T, T)
-  const tg = tile.getContext('2d')!
+  /** The lettering's light and its bloom, top-down like `objs`: they go wherever the lettering's tiles go. */
+  const glowMask = makeCanvas(1, 1)
+  const glowBloom = makeCanvas(1, 1)
+  /** Tiles a decal's glow can reach (its lettering and the tiles around), per map. */
+  let glowTiles: Set<number> = new Set()
+  /** `objs` again, in the shade of an east side and of a south side (only the pictures darken, not the air around them). */
+  const shadeEast = makeCanvas(1, 1)
+  const shadeSouth = makeCanvas(1, 1)
 
   function fit(c: HTMLCanvasElement, w: number, h: number): G {
     if (c.width < w || c.height < h) { c.width = Math.max(c.width, w); c.height = Math.max(c.height, h) }
@@ -84,7 +86,14 @@ export default function isoView(kit: Kit): View {
       shapes[i] = shapeOf(t, kind, (dx, dy) => tileAt(m, kind, tx + dx, ty + dy), own.has(i), true)
     }
     shapeMap = m
-    shapeKind = kind
+    glowTiles = new Set()
+    for (const i of decalCover(mapInfo(world, m.id).def, m.w)) {
+      const tx = i % m.w
+      const ty = Math.floor(i / m.w)
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (tx + dx >= 0 && tx + dx < m.w && ty + dy >= 0 && ty + dy < m.h) glowTiles.add((ty + dy) * m.w + tx + dx)
+      }
+    }
   }
 
   /** The shape of a tile now (crystal blocks go up and down without the map changing). */
@@ -152,8 +161,10 @@ export default function isoView(kit: Kit): View {
 
     // The tiles in play: the hero's room in a dungeon, everything in sight elsewhere.
     const R: Rect = groundRect(P, c, vw, vh, RISE, 2, m.w, m.h)
-    const room = kind === 'dungeon' && !s.scroll ? s.zone : null
-    const inRoom = (x: number, y: number, pad = 0) => !room || (x >= room.x - pad && x < room.x + room.w + pad && y >= room.y - pad && y < room.y + room.h + pad)
+    // In a dungeon that is the hero's room, and during a scroll the two rooms it runs between: the rest stays dark.
+    const rooms: Rect[] = kind !== 'dungeon' ? [] : s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]
+    const within = (z: Rect, x: number, y: number, pad: number) => x >= z.x - pad && x < z.x + z.w + pad && y >= z.y - pad && y < z.y + z.h + pad
+    const inRoom = (x: number, y: number, pad = 0) => !rooms.length || rooms.some(z => within(z, x, y, pad))
     const bx = R.x * T
     const by = R.y * T
     const bw = R.w * T
@@ -178,6 +189,7 @@ export default function isoView(kit: Kit): View {
     drawLiveTiles(og, world, s, bx, by, bw, bh, time, lights, reduced)
     drawDecals(og, def.decals, bx, by, bw, bh, { t: time, reduced, maxW: decalMaxW }, lights)
     kit.setAim(a => Math.atan2(Math.cos(a) * P.ex.y + Math.sin(a) * P.ey.y, Math.cos(a) * P.ex.x + Math.sin(a) * P.ey.x))
+    kit.setSpan((x1, y1, x2, y2) => ({ x: (x2 - x1) * P.ex.x + (y2 - y1) * P.ey.x, y: (x2 - x1) * P.ex.y + (y2 - y1) * P.ey.y }))
     const items = kit.queue(g, s, ui, bx, by, bw, bh, lights, og)
 
     const fg = fit(flat, bw, bh)
@@ -194,20 +206,27 @@ export default function isoView(kit: Kit): View {
 
     // --- what stands ---------------------------------------------------------------
     const ops: Op[] = []
-    const SEAM = k > 0 ? 0.5 : 0
+    // Half a px of overlap hides the hairlines between turned tiles; none at the start of the turn, where tiles still sit on the px grid.
+    const SEAM = 0.5 * Math.min(1, k * 8)
     const cell = (tx: number, ty: number) => ({ x: (tx - R.x) * T, y: (ty - R.y) * T })
     /** A tile's picture on a plane: (a, b) is the scene step of one px to its right, (c, d) of one px down. */
-    const plane = (tx: number, ty: number, a: number, b: number, c2: number, d: number, e: number, f: number, shade = 0) => {
+    const plane = (tx: number, ty: number, a: number, b: number, c2: number, d: number, e: number, f: number, from: HTMLCanvasElement = objs) => {
       const src = cell(tx, ty)
       g.setTransform(a, b, c2, d, e, f)
-      if (!shade) { g.drawImage(objs, src.x, src.y, T, T, -SEAM, -SEAM, T + 2 * SEAM, T + 2 * SEAM); return }
-      tg.globalCompositeOperation = 'copy'
-      tg.drawImage(objs, src.x, src.y, T, T, 0, 0, T, T)
-      tg.globalCompositeOperation = 'source-atop'
-      tg.fillStyle = `rgba(6,3,16,${shade})`
-      tg.fillRect(0, 0, T, T)
-      g.drawImage(tile, 0, 0, T, T, -SEAM, -SEAM, T + 2 * SEAM, T + 2 * SEAM)
+      g.drawImage(from, src.x, src.y, T, T, -SEAM, -SEAM, T + 2 * SEAM, T + 2 * SEAM)
     }
+    // The shaded copies, made once a frame instead of once a side.
+    const shaded = (c: HTMLCanvasElement, alpha: number) => {
+      const cg = fit(c, bw, bh)
+      cg.globalCompositeOperation = 'copy'
+      cg.drawImage(objs, 0, 0, bw, bh, 0, 0, bw, bh)
+      cg.globalCompositeOperation = 'source-atop'
+      cg.fillStyle = `rgba(6,3,16,${alpha})`
+      cg.fillRect(0, 0, bw, bh)
+      cg.globalCompositeOperation = 'source-over'
+    }
+    shaded(shadeEast, EAST_SHADE)
+    shaded(shadeSouth, SOUTH_SHADE)
     // What stands between the viewer and the hero thins out, so the hero is never lost behind a roof or a crown.
     const heroAt = S(s.hero.x, s.hero.y + 6 / T)
     const heroDepth = s.hero.x + s.hero.y + 6 / T
@@ -230,10 +249,26 @@ export default function isoView(kit: Kit): View {
       return -1
     }
 
+    // The sides the classic art never drew come in with the turn, so its first frame is still the classic picture.
+    const sideIn = Math.min(1, k * 2.5)
+    /** The planes of raised tiles a decal's glow lies on: replayed with the glow buffers as the picture. */
+    const glowPlanes: Array<(ctx: G, src: HTMLCanvasElement) => void> = []
+    const glowAt = (tx: number, ty: number, a: number, b: number, c2: number, d: number, at: () => Vec) => {
+      if (!glowTiles.has(ty * m.w + tx)) return
+      const src = cell(tx, ty)
+      glowPlanes.push((ctx, from) => {
+        const p = at()
+        ctx.setTransform(a, b, c2, d, p.x, p.y)
+        ctx.drawImage(from, src.x, src.y, T, T, 0, 0, T, T)
+      })
+    }
     for (let ty = R.y; ty < R.y + R.h; ty++) for (let tx = R.x; tx < R.x + R.w; tx++) {
       if (!inRoom(tx, ty)) continue
       const sh = shapeAt(tx, ty)
       if (sh.k === 'flat') continue
+      // The ground rectangle is the box around a diamond: about half of it is off the screen.
+      const mid0 = S(tx + 0.5, ty + 0.5)
+      if (mid0.x < -48 || mid0.x > vw + 48 || mid0.y < -40 || mid0.y > vh + RISE + 24) continue
       if (sh.k === 'top') {
         lift(tx, ty)
         const fy = ty + sh.f
@@ -242,24 +277,26 @@ export default function isoView(kit: Kit): View {
         const east = sh.sides && !(shapeAt(tx + 1, ty).k === 'top' && shapeAt(tx + 1, ty).h >= sh.h && inRoom(tx + 1, ty))
         const below = shapeAt(tx, ty + 1)
         const south = sh.sides && (below.k === 'flat' || below.k === 'card' || !inRoom(tx, ty + 1))
+        glowAt(tx, ty, ga, gb, gc, gd, () => { const p = S(tx, fy); return { x: p.x, y: p.y - sh.h } })
         ops.push({
           d: depth,
           draw: () => {
             const p = S(tx, fy)
             const mid = S(tx + 0.5, fy + 0.5)
-            g.globalAlpha = veil(depth, mid.x, mid.y - sh.h)
+            const thin = veil(depth, mid.x, mid.y - sh.h)
+            g.globalAlpha = thin
             plane(tx, ty, ga, gb, gc, gd, p.x, p.y - sh.h)
-            if (k <= 0) { g.globalAlpha = 1; return }
+            g.globalAlpha = thin * sideIn
             if (south) {
               const q = S(tx, fy + 1)
-              for (let l = 0; l < levels; l++) plane(tx, ty, ga, gb, 0, 1, q.x, q.y - (l + 1) * T, SOUTH_SHADE)
+              for (let l = 0; l < levels; l++) plane(tx, ty, ga, gb, 0, 1, q.x, q.y - (l + 1) * T, shadeSouth)
             }
             if (east) {
               // The east side runs from the back corner to the front one: the picture's left edge is the far end.
               const q = S(tx + 1, fy)
               for (let l = 0; l < levels; l++) {
                 const fr = faceRow(tx, ty, l)
-                plane(tx, fr < 0 ? ty : fr, gc, gd, 0, 1, q.x, q.y - (l + 1) * T, EAST_SHADE)
+                plane(tx, fr < 0 ? ty : fr, gc, gd, 0, 1, q.x, q.y - (l + 1) * T, shadeEast)
               }
             }
             g.globalAlpha = 1
@@ -269,6 +306,7 @@ export default function isoView(kit: Kit): View {
       }
       if (sh.k === 'face') {
         lift(tx, ty)
+        glowAt(tx, ty, ga, gb, 0, 1, () => { const p = S(tx, ty + 1 + sh.d); return { x: p.x, y: p.y - (sh.d + 1) * T } })
         ops.push({
           d: tx + ty + sh.d + 1.49,
           draw: () => {
@@ -298,14 +336,21 @@ export default function isoView(kit: Kit): View {
     }
 
     // Everything outside the hero's room stays dark, as in the classic view.
-    if (room) {
-      const x0 = (room.x - R.x) * T
-      const y0 = (room.y - R.y) * T
-      fg.clearRect(0, 0, bw, y0)
-      fg.clearRect(0, y0 + room.h * T, bw, bh)
-      fg.clearRect(0, 0, x0, bh)
-      fg.clearRect(x0 + room.w * T, 0, bw, bh)
+    /** Clear a top-down buffer outside the rooms in play (two rooms in a scroll share a side: their box is the pair). */
+    const keepRooms = (ctx: G) => {
+      if (!rooms.length) return
+      const rx0 = Math.min(...rooms.map(z => z.x))
+      const ry0 = Math.min(...rooms.map(z => z.y))
+      const rx1 = Math.max(...rooms.map(z => z.x + z.w))
+      const ry1 = Math.max(...rooms.map(z => z.y + z.h))
+      const x0 = (rx0 - R.x) * T
+      const y0 = (ry0 - R.y) * T
+      ctx.clearRect(0, 0, bw, y0)
+      ctx.clearRect(0, (ry1 - R.y) * T, bw, bh)
+      ctx.clearRect(0, 0, x0, bh)
+      ctx.clearRect((rx1 - R.x) * T, 0, bw, bh)
     }
+    keepRooms(fg)
 
     /** How far an item's classic drawing moves to stand on its anchor. */
     const shift = (x: number, y: number): Vec => {
@@ -317,6 +362,24 @@ export default function isoView(kit: Kit): View {
       const ay = (it.ay ?? it.y) + (it.foot ?? 0)
       if (it.hero) heroItem = it
       else if (!inRoom(it.x, ay, 0.5)) continue
+      if (it.tile) {
+        // On its tile's picture, wherever that went, and in front of it: goods on a counter, a sign's neon frame.
+        const tx = Math.floor(it.x)
+        const ty = Math.floor(ay - 0.01)
+        const sh = shapeAt(tx, ty)
+        if (sh.k !== 'flat') {
+          const base = sh.k === 'top' ? tx + ty + sh.f + 1 : sh.k === 'face' ? tx + ty + sh.d + 1.49 : tx + 0.5 + ty + 1 - FOOT / T
+          ops.push({
+            d: base + 0.02,
+            draw: () => {
+              const p = screenOf(it.x, ay - 0.01)
+              g.setTransform(1, 0, 0, 1, Math.round(p.x - (it.x * T - bx)), Math.round(p.y - ((ay - 0.01) * T - by)))
+              it.draw()
+            },
+          })
+          continue
+        }
+      }
       ops.push({
         d: it.x + ay,
         draw: () => {
@@ -373,13 +436,30 @@ export default function isoView(kit: Kit): View {
       fireflies(vx, vy, vw, vh, reduced ? 0 : time, lights, g)
       for (const L of lights.splice(n)) loose.push({ ...L, x: L.x * T - vx, y: L.y * T - vy })
     }
-    // Painted lettering glows: a few lamps along each line.
-    for (const d of def.decals ?? []) {
-      const sc = d.scale ?? 2
-      const w = textWidth(d.text.toUpperCase()) * sc / T
-      const x0 = d.align === 'center' ? d.x - w / 2 : d.x
-      const n = Math.max(1, Math.round(w / 2.5))
-      for (let i = 0; i < n; i++) lights.push({ x: x0 + (w * (i + 0.5)) / n, y: d.y + (sc * 3.5) / T, r: 1.6 + sc * 0.5, color: TONES[d.tone ?? 'pink'], a: 0.55 })
+    // The lettering's own light and bloom, drawn top-down and sent after the tiles it lies on.
+    const decalFrame = { t: time, reduced, maxW: decalMaxW }
+    const mg = fit(glowMask, bw, bh)
+    const blg = fit(glowBloom, bw, bh)
+    const hasGlow = !!def.decals?.length
+    if (hasGlow) {
+      mg.clearRect(0, 0, glowMask.width, glowMask.height)
+      lightDecals(mg, def.decals, bx, by, bw, bh, decalFrame)
+      mg.globalAlpha = 1
+      keepRooms(mg)
+      blg.clearRect(0, 0, glowBloom.width, glowBloom.height)
+      bloomDecals(blg, def.decals, bx, by, bw, bh, decalFrame)
+      keepRooms(blg)
+    }
+    /** Add a glow buffer to a layer: first on the raised planes, then what is left of it on the ground. */
+    const addGlow = (ctx: G, from: HTMLCanvasElement, fromG: G) => {
+      if (!hasGlow) return
+      for (const put of glowPlanes) put(ctx, from)
+      for (let ty = R.y; ty < R.y + R.h; ty++) for (let tx = R.x; tx < R.x + R.w; tx++) {
+        if (glowTiles.has(ty * m.w + tx) && inRoom(tx, ty) && shapeAt(tx, ty).k !== 'flat') fromG.clearRect((tx - R.x) * T, (ty - R.y) * T, T, T)
+      }
+      ctx.setTransform(ga, gb, gc, gd, go.x, go.y)
+      ctx.drawImage(from, 0, 0, bw, bh, 0, 0, bw, bh)
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
     }
 
     // --- light ----------------------------------------------------------------------
@@ -392,8 +472,8 @@ export default function isoView(kit: Kit): View {
     // A pool of light on the ground is seen from the side: flatter than it is wide.
     const flatten = 1 - 0.3 * k
     const placed: Array<{ L: Light; x: number; y: number }> = []
+    // Every light counts, as in the classic view: a torch next door shines in through the doorway.
     for (const L of lights) {
-      if (!inRoom(L.x, L.y, 1)) continue
       const p = screenOf(L.x, L.y)
       placed.push({ L, x: p.x, y: p.y })
     }
@@ -405,9 +485,15 @@ export default function isoView(kit: Kit): View {
       lg.drawImage(kit.glow(L.color), x - rad, y - rad * flatten, rad * 2, rad * 2 * flatten)
     }
     lg.globalAlpha = 1
+    addGlow(lg, glowMask, mg)
     lg.fillStyle = '#ffffff'
     for (const e of kit.emit) {
       if (e.ax === undefined || e.ay === undefined) { lg.fillRect(e.x, e.y, e.w, e.h); continue }
+      if (e.tile && shapeAt(Math.floor(e.ax), Math.floor(e.ay - 0.01)).k !== 'flat') {
+        const p = screenOf(e.ax, e.ay - 0.01)
+        lg.fillRect(e.x + Math.round(p.x - (e.ax * T - bx)), e.y + Math.round(p.y - ((e.ay - 0.01) * T - by)), e.w, e.h)
+        continue
+      }
       if (e.wall) {
         const p = S(e.ax, e.ay)
         const ax = e.ax * T - bx
@@ -445,6 +531,8 @@ export default function isoView(kit: Kit): View {
         bg.globalAlpha = Math.min(1, L.a) * 0.32
         bg.drawImage(kit.glow(L.color), x - rad, y - rad * flatten, rad * 2, rad * 2 * flatten)
       }
+      bg.globalAlpha = 1
+      addGlow(bg, glowBloom, blg)
     })
     // Labels and the dialog box sit by the exit at hand and the hero, wherever the view put them.
     const near = nearExit(s)

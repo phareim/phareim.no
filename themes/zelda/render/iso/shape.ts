@@ -63,6 +63,11 @@ export function shapeOf(t: TileChar, kind: MapKind, at: At, own = false, raised 
     const below = at(0, 1)
     const face = !isWall(below) && !(kind === 'dungeon' && (below === 'L' || below === 'K'))
     if (face) return FACE0
+    // Over a door that lies flat (one in a side wall): a top here would stand on the door's other tile.
+    if (isDoor(below)) {
+      const under = at(0, 2)
+      if (kind === 'overworld' || isWall(under) || isDoor(under)) return FLAT
+    }
     // A wall with floor to its west would stand in front of that floor: leave it down, like a cut-away room.
     if (kind !== 'overworld') {
       const west = at(-1, 0)

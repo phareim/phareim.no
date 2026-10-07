@@ -64,16 +64,24 @@ localStorage `zelda.view`; `/?view=iso` asks for one.
 - **The frame in parts** (`render/renderer.ts`). `queue()` returns everything
   that stands in the world as items that draw themselves the classic way and
   say where they stand (`Item` in `wild.ts`: x, the sort row, `foot`, `ay`,
-  `wall`); `ambient()`, `projectiles()`, `fx`, `flashFade()`, `present()`
+  `wall` for what hangs on a wall, `tile` for what belongs to its tile's
+  picture, like goods on a counter); `ambient()`, `projectiles()`, `fx`, `flashFade()`, `present()`
   (upscale, bloom, scanlines, vignette) and `hudLayer()` are the rest. The
   classic view is one way of putting them together, a `View` another: it gets
   the parts as a `Kit` and draws `draw(state, ui, dt, k)`.
-- **The turn.** `k` runs from 0 to 1 over 0.6 s. A view must look like the
-  classic one at 0, so the renderer cuts to it there and lets it turn itself
-  in; going back it turns out and the classic view takes over. `View.turn`
-  is how far the picture is rotated at k = 1; the shell turns the stick by
-  the same angle (`turnMove`), so up on the stick is up on the screen in
-  every view. Reduced motion and a paused game switch at once.
+- **The turn** (`render/turn.ts`, pure). `k` runs from 0 to 1 over 0.6 s. A
+  view must look like the classic one as k nears 0, so the renderer cuts to
+  it there and lets it turn itself in; going back it turns out and the
+  classic view takes over. For the isometric view the first frame differs
+  from the classic one in under half a percent of the pixels (measured
+  2026-10-07, seven scenes): whatever the classic art never drew, like a
+  wall's side, fades in with k. `View.turn` is how far the picture is rotated
+  at k = 1; the shell turns the stick by the same angle (`turnMove`), so up
+  on the stick is up on the screen in every view. A dialog gets the stick
+  unturned: there a direction picks YES or NO by its sign. Reduced motion, a
+  paused game and an open panel switch at once, and a pause in the middle of
+  a turn finishes it. A browser that left in another view holds its first
+  frames until that view's code is there (1.5 s at most).
 - **The isometric view** (`render/iso/`). No new art: each frame the classic
   painters draw the map around the camera into hidden top-down buffers
   (ground, and what stands on it, on a clear canvas: `createTileLayer(…,
@@ -86,8 +94,11 @@ localStorage `zelda.view`; `/?view=iso` asks for one.
   are the face picture again, in shadow. A wall with floor to its west stays
   down so a room is never hidden behind its own wall. People, enemies,
   cabinets and the hero are the classic drawings, moved to where their feet
-  land; a board on a wall leans along it. What stands between the viewer and
-  the hero thins out. `project.ts` is the geometry: `projection(k)` turns
+  land; a board on a wall leans along it. Painted lettering's light and bloom
+  are drawn top-down too and follow the tiles they lie on, so a name on a
+  roof glows on the roof. In a dungeon only the hero's room is drawn, and
+  during a scroll the two rooms it runs between. What stands between the
+  viewer and the hero thins out. `project.ts` is the geometry: `projection(k)` turns
   the ground 45° and tips it back, 16 px per tile to a 32 × 16 diamond.
 - **Adding a view.** A module whose default export is a `ViewFactory`, one
   line in `VIEWS` with its loader. A view's code is fetched on the first turn
@@ -97,7 +108,9 @@ localStorage `zelda.view`; `/?view=iso` asks for one.
   of canopy; dungeon rooms are wider than the screen, so the camera follows
   the hero instead of showing the whole room; furniture is flat cards; the
   eight keyboard directions are the eight world directions, so walking along
-  a wall takes two keys.
+  a wall takes two keys; an exit's label can jump a few px while it fades
+  after the hero steps away. Outdoors a frame costs two to four times a
+  classic one in software rendering (not measured on a phone).
 - **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>
   [scenes]` renders the isometric view; `FRAMES=18` stops halfway through
   the turn.

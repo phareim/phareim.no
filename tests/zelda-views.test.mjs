@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 const require = createRequire(import.meta.url)
 const esbuild = require('esbuild')
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
+const site = resolve(root, '../..')
 
 async function load() {
   const out = esbuild.buildSync({
@@ -20,6 +21,9 @@ async function load() {
         `export { VIEWS, VIEW_KEY, isViewId, nextView, viewName, startView } from './views'`,
         `export { WORLD } from './world/index'`,
         `export { TILE_INFO } from './world/tiles'`,
+        `export { createTurn } from './render/turn'`,
+        `export { createGame } from './engine/index'`,
+        `export { enterMap } from './engine/game'`,
       ].join('; '),
       resolveDir: root,
       loader: 'ts',
@@ -58,13 +62,22 @@ describe('the view registry', () => {
     for (const v of M.VIEWS) assert.match(M.viewName(v.id), /^[A-Z0-9 ]+$/)
   })
   it('keeps the isometric code out of the page that loads first', () => {
-    // A static import of the view anywhere outside render/iso/ would put it in the entry.
-    const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? (e.name === 'iso' ? [] : walk(resolve(dir, e.name))) : [resolve(dir, e.name)])
-    for (const f of walk(root)) {
-      if (!/\.(ts|vue)$/.test(f)) continue
+    // Anything but a dynamic import() of the view, anywhere on the site, would put it in the entry:
+    // a static import, a side-effect import or a re-export, in either kind of quote.
+    const skip = new Set(['node_modules', '.nuxt', '.output', 'dist', 'iso'])
+    const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? (skip.has(e.name) ? [] : walk(resolve(dir, e.name))) : [resolve(dir, e.name)])
+    const files = ['themes', 'components', 'composables', 'pages', 'plugins', 'server'].flatMap(d => walk(resolve(site, d))).concat(resolve(site, 'app.vue'))
+    let dynamic = 0
+    for (const f of files) {
+      if (!/\.(ts|vue|mjs|js)$/.test(f)) continue
       const src = readFileSync(f, 'utf8')
-      assert.doesNotMatch(src, /^import (?!type)[^\n]*iso\/view'/m, `${f} imports the isometric view statically`)
+      for (const line of src.split('\n')) {
+        if (!/iso\/view['"]/.test(line) || /^\s*(\/\/|\*)/.test(line)) continue
+        assert.match(line, /import\(\s*['"][^'"]*iso\/view['"]\s*\)/, `${f} brings the isometric view in statically: ${line.trim()}`)
+        dynamic++
+      }
     }
+    assert.equal(dynamic, 1, 'the registry should hold the one dynamic import of the view')
   })
 })
 
@@ -190,19 +203,102 @@ describe('how tiles stand', () => {
     assert.equal(M.shapeOf('M', 'interior', at, true), M.FLAT)
   })
   it('never raises anything the hero can walk on above the ground', () => {
-    // A walkable tile that stood up as a wall top would hide the hero standing on it.
-    for (const def of Object.values(M.WORLD.maps)) {
-      const rows = def.rows
-      for (let y = 0; y < rows.length; y++) for (let x = 0; x < rows[y].length; x++) {
-        const ch = rows[y][x]
-        const info = M.TILE_INFO[ch]
-        if (!info || info.solid || def.marks[ch]) continue
-        const at = (dx, dy) => {
-          const c = rows[y + dy]?.[x + dx]
-          return c && M.TILE_INFO[c] && !def.marks[c] ? c : '.'
-        }
-        assert.notEqual(M.shapeOf(ch, def.kind, at).k, 'top', `${def.id} (${x},${y}) '${ch}' is walkable and raised`)
+    // On the maps as the engine builds them (markers resolved to their tiles, doors included):
+    // a walkable tile that stood up as a wall top would hide the hero standing on it.
+    const g = M.createGame(M.WORLD, { seed: 1, at: M.WORLD.start })
+    let seen = 0
+    for (const id of Object.keys(M.WORLD.maps)) {
+      M.enterMap(M.WORLD, g, id, '', [], { x: 1.5, y: 1.5 })
+      const m = g.map
+      const kind = M.WORLD.maps[id].kind
+      for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
+        const ch = m.tiles[y * m.w + x]
+        if (M.TILE_INFO[ch].solid) continue
+        const at = (dx, dy) => (x + dx < 0 || y + dy < 0 || x + dx >= m.w || y + dy >= m.h) ? (kind === 'overworld' ? 'T' : '#') : m.tiles[(y + dy) * m.w + x + dx]
+        assert.notEqual(M.shapeOf(ch, kind, at).k, 'top', `${id} (${x},${y}) '${ch}' is walkable and raised`)
+        seen++
       }
     }
+    assert.ok(seen > 5000, `only ${seen} walkable tiles were looked at`)
+  })
+  it('leaves a wall down over a door that lies flat in a side wall', () => {
+    // Two door tiles one above the other in a west wall: nothing may stand on the upper one.
+    const s = grid(['##...', '##...', 'L....', 'L....', '##...', '##...'], 'dungeon')
+    assert.equal(s(0, 1), M.FLAT)
+    assert.equal(s(0, 2), M.FLAT)
+    assert.equal(s(0, 3), M.FLAT)
+    // A door in a north wall stands, and so does the wall above it.
+    const n = grid(['###', '###', '#L#', '...'], 'dungeon')
+    assert.equal(n(1, 2), M.FACE0)
+    assert.equal(n(1, 1), M.WALL_TOP)
+  })
+})
+
+describe('the turn between views', () => {
+  const two = () => M.createTurn(id => id === 'iso' || id === 'other', 0.6)
+  const run = (t, seconds, dt = 1 / 60) => { let r; for (let i = 0; i < Math.round(seconds / dt); i++) r = t.step(dt); return r }
+  it('starts on the classic view and stays there', () => {
+    const t = two()
+    assert.deepEqual(t.step(1 / 60), { shown: '', k: 0 })
+    assert.equal(t.id, 'classic')
+    assert.equal(t.turning, false)
+  })
+  it('turns in over the given time, and never draws the view at k = 0', () => {
+    const t = two()
+    t.set('iso')
+    assert.equal(t.id, 'iso')
+    assert.equal(t.turning, true)
+    const first = t.step(1 / 60)
+    assert.equal(first.shown, 'iso')
+    assert.ok(first.k > 0 && first.k < 0.05)
+    assert.ok(run(t, 0.3).k < 1)
+    assert.deepEqual(run(t, 0.4), { shown: 'iso', k: 1 })
+    assert.equal(t.turning, false)
+  })
+  it('turns back out, and the classic view takes over at the end', () => {
+    const t = two()
+    t.set('iso', true)
+    assert.deepEqual(t.step(0), { shown: 'iso', k: 1 })
+    t.set('classic')
+    assert.equal(t.id, 'classic')
+    assert.equal(run(t, 0.3).shown, 'iso')
+    assert.deepEqual(run(t, 0.4), { shown: '', k: 0 })
+    assert.equal(t.turning, false)
+  })
+  it('reverses in the middle without a jump', () => {
+    const t = two()
+    t.set('iso')
+    const up = run(t, 0.3).k
+    t.set('classic')
+    const down = t.step(1 / 60).k
+    assert.ok(down < up && up - down < 0.05)
+  })
+  it('goes from one added view to another through the classic one', () => {
+    const t = two()
+    t.set('iso', true)
+    t.set('other')
+    assert.equal(t.id, 'other')
+    assert.equal(run(t, 0.3).shown, 'iso')
+    const seen = new Set()
+    for (let i = 0; i < 120; i++) seen.add(t.step(1 / 60).shown)
+    assert.deepEqual([...seen], ['iso', '', 'other'])
+    assert.equal(t.k, 1)
+  })
+  it('stands still while no time passes, and says a turn is in flight', () => {
+    const t = two()
+    t.set('iso')
+    run(t, 0.2)
+    const k = t.k
+    assert.equal(t.step(0).k, k)
+    assert.equal(t.turning, true)
+    t.set('iso', true)
+    assert.equal(t.turning, false)
+    assert.equal(t.k, 1)
+  })
+  it('treats a view it does not have as the classic one', () => {
+    const t = two()
+    t.set('hologram')
+    assert.equal(t.id, 'classic')
+    assert.deepEqual(t.step(1), { shown: '', k: 0 })
   })
 })

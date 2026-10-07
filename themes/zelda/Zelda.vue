@@ -227,6 +227,8 @@ const input: GameInput = createInput({
 const viewId = ref<ViewId>('classic')
 const viewLabel = computed(() => viewName(viewId.value))
 let viewAsk = 0
+/** The first frames wait for the view this browser left in, so an isometric player never sees the classic picture flash by. */
+let viewHold = false
 
 /** Turn to a view, fetching its code the first time. `instant`: no turn (the first frame, a paused game, reduced motion). */
 async function showView(id: ViewId, instant = false) {
@@ -241,13 +243,16 @@ async function showView(id: ViewId, instant = false) {
       if (!alive || !renderer) return
       renderer.addView(id, mod.default as ViewFactory)
     } catch {
-      // The code did not arrive (offline, a deploy in between): stay where we were.
-      if (ask === viewAsk) viewId.value = renderer.viewState().id as ViewId
+      // The code did not arrive (offline, a deploy in between): stay where we were, and say so to the next visit too.
+      if (ask !== viewAsk || !alive || !renderer) return
+      viewId.value = renderer.viewState().id as ViewId
+      try { localStorage.setItem(VIEW_KEY, viewId.value) } catch { /* private mode */ }
       return
     }
   }
   if (ask !== viewAsk) return
-  renderer.setView(id, instant || reducedMotion || paused.value)
+  // No turn where nothing would play it: the first frame, reduced motion, a paused game, an open panel.
+  renderer.setView(id, instant || reducedMotion || paused.value || panel.value !== null)
   pausedDrawn = false
 }
 
@@ -669,6 +674,9 @@ function frame(nowMs: number) {
   // Nothing is on screen to change while the tab is in the background, and a
   // backgrounded phone may still be running this loop (2026-09-30).
   if (document.hidden) return
+  if (viewHold) return
+  // A turn caught by a pause or a panel would hang half done (the world is drawn once, or five times a second): finish it.
+  if ((paused.value || panel.value) && renderer.viewState().turning) { renderer.setView(viewId.value, true); pausedDrawn = false }
 
   ui.paused = paused.value
   ui.confirmReset = confirmReset.value
@@ -695,7 +703,8 @@ function frame(nowMs: number) {
 
   // The controls turn with the picture: up on the stick is up on the screen in every view.
   const raw = input.read()
-  const turn = renderer.viewState().turn
+  // Not in a dialog: there a direction picks YES or NO by its sign, whichever way the picture faces.
+  const turn = state.mode === 'dialog' ? 0 : renderer.viewState().turn
   const inp = turn ? { ...raw, move: turnMove(raw.move, turn) } : raw
   if (!moved && (inp.move.x !== 0 || inp.move.y !== 0)) { moved = true; emit('moved') }
   const events = stepGame(WORLD, state, dt, inp)
@@ -787,7 +796,13 @@ onMounted(() => {
   let lastView: string | null = null
   try { lastView = localStorage.getItem(VIEW_KEY) } catch { /* private mode */ }
   const firstView = startView(new URLSearchParams(location.search).get('view'), lastView)
-  if (firstView !== 'classic') void showView(firstView, true)
+  if (firstView !== 'classic') {
+    viewHold = true
+    const release = () => { viewHold = false }
+    void showView(firstView, true).then(release, release)
+    // A slow network must not keep the page dark: after a moment the classic view plays until the code is here.
+    setTimeout(release, 1500)
+  }
   void loadHighScoreSign()
   audio = createZeldaAudio()
   // The world plays its own music; the radio (and its hidden widget) stays quiet here.

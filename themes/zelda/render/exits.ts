@@ -23,7 +23,7 @@ type Canvas = HTMLCanvasElement
 const T = TILE
 
 /** A rectangle (view px) that glows by itself: the light map leaves it at full brightness. */
-export interface Emit { x: number; y: number; w: number; h: number; /** The world point it stands on (tiles), for views that move things. */ ax?: number; ay?: number; wall?: boolean }
+export interface Emit { x: number; y: number; w: number; h: number; /** The world point it stands on (tiles), for views that move things. */ ax?: number; ay?: number; wall?: boolean; tile?: boolean }
 
 function r(g: G, c: string, x: number, y: number, w = 1, h = 1) {
   g.fillStyle = c
@@ -911,7 +911,7 @@ function lookTop(look: ExitLook): number {
 // Drawing
 // ---------------------------------------------------------------------------
 
-interface SortItem { y: number; draw: () => void; x: number; foot?: number; ay?: number; wall?: boolean }
+interface SortItem { y: number; draw: () => void; x: number; foot?: number; ay?: number; wall?: boolean; tile?: boolean }
 
 /**
  * Queue every visible exit's sprite into the y-sorted list and collect its
@@ -1077,7 +1077,7 @@ export function queueExits(
         items.push({
           x: e.x,
           ay: e.y + 0.5,
-          wall: true,
+          tile: true,
           y: e.y - 0.49,
           draw: () => {
             g.globalAlpha = a
@@ -1127,7 +1127,7 @@ export function queueExits(
     // What glows stands where its exit's drawing stands.
     const it = items[item0]
     const ay = it ? it.ay ?? it.y : e.y + 0.5
-    for (let k = emit0; k < emit.length; k++) { emit[k]!.ax = e.x; emit[k]!.ay = ay; emit[k]!.wall = it?.wall }
+    for (let k = emit0; k < emit.length; k++) { emit[k]!.ax = e.x; emit[k]!.ay = ay; emit[k]!.wall = it?.wall; emit[k]!.tile = it?.tile }
   }
 }
 
