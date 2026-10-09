@@ -53,6 +53,11 @@ export default function isoView(kit: Kit): View {
   const objs = makeCanvas(1, 1)
   /** What lies on the ground: the base plus the objects that stay down. */
   const flat = makeCanvas(1, 1)
+  /** Adjacent standing tiles share a ground cut-out; reuse the runs until visibility changes. */
+  let liftRects: number[] = []
+  let liftRuns: number[] = []
+  let liftW = 0
+  let liftH = 0
   /** Flat things drawn over the rest: the hook's chain, the sun in the lake. */
   const over = makeCanvas(1, 1)
   /** The lettering's light and its bloom, top-down like `objs`: they go wherever the lettering's tiles go. */
@@ -196,12 +201,12 @@ export default function isoView(kit: Kit): View {
     fg.clearRect(0, 0, flat.width, flat.height)
     fg.drawImage(base.canvas, bx, by, bw, bh, 0, 0, bw, bh)
     fg.drawImage(objs, 0, 0, bw, bh, 0, 0, bw, bh)
+    const nextLiftRects: number[] = []
     /** Take a standing tile's picture off the ground (the ground under it stays). */
     const lift = (tx: number, ty: number, up = 0) => {
       const x = (tx - R.x) * T
       const y = (ty - R.y) * T - up
-      fg.clearRect(x, y, T, T + up)
-      fg.drawImage(base!.canvas, tx * T, ty * T - up, T, T + up, x, y, T, T + up)
+      nextLiftRects.push(x, y, T + up)
     }
 
     // --- what stands ---------------------------------------------------------------
@@ -225,8 +230,8 @@ export default function isoView(kit: Kit): View {
       cg.fillRect(0, 0, bw, bh)
       cg.globalCompositeOperation = 'source-over'
     }
-    shaded(shadeEast, EAST_SHADE)
-    shaded(shadeSouth, SOUTH_SHADE)
+    let needsEast = false
+    let needsSouth = false
     // What stands between the viewer and the hero thins out, so the hero is never lost behind a roof or a crown.
     const heroAt = S(s.hero.x, s.hero.y + 6 / T)
     const heroDepth = s.hero.x + s.hero.y + 6 / T
@@ -277,6 +282,8 @@ export default function isoView(kit: Kit): View {
         const east = sh.sides && !(shapeAt(tx + 1, ty).k === 'top' && shapeAt(tx + 1, ty).h >= sh.h && inRoom(tx + 1, ty))
         const below = shapeAt(tx, ty + 1)
         const south = sh.sides && (below.k === 'flat' || below.k === 'card' || !inRoom(tx, ty + 1))
+        needsEast ||= east
+        needsSouth ||= south
         glowAt(tx, ty, ga, gb, gc, gd, () => { const p = S(tx, fy); return { x: p.x, y: p.y - sh.h } })
         ops.push({
           d: depth,
@@ -334,6 +341,42 @@ export default function isoView(kit: Kit): View {
         },
       })
     }
+
+    // Dynamic objects still repaint each frame. The cut-outs only change when
+    // the visible standing tiles do (including crystal switches and camera culling).
+    if (liftW !== bw || liftH !== bh || nextLiftRects.length !== liftRects.length || nextLiftRects.some((v, i) => v !== liftRects[i])) {
+      const rows = new Map<string, { y: number; h: number; xs: number[] }>()
+      for (let i = 0; i < nextLiftRects.length; i += 3) {
+        const x = nextLiftRects[i]!
+        const y = nextLiftRects[i + 1]!
+        const h = nextLiftRects[i + 2]!
+        const key = `${y}:${h}`
+        let row = rows.get(key)
+        if (!row) { row = { y, h, xs: [] }; rows.set(key, row) }
+        row.xs.push(x)
+      }
+      liftRuns = []
+      for (const { y, h, xs } of rows.values()) {
+        xs.sort((a, b) => a - b)
+        let start = xs[0]!
+        let end = start + T
+        for (const x of xs.slice(1)) {
+          if (x <= end) end = Math.max(end, x + T)
+          else { liftRuns.push(start, y, end - start, h); start = x; end = x + T }
+        }
+        liftRuns.push(start, y, end - start, h)
+      }
+      liftRects = nextLiftRects
+      liftW = bw
+      liftH = bh
+    }
+    for (let i = 0; i < liftRuns.length; i += 4) {
+      const x = liftRuns[i]!, y = liftRuns[i + 1]!, w = liftRuns[i + 2]!, h = liftRuns[i + 3]!
+      fg.clearRect(x, y, w, h)
+      fg.drawImage(base.canvas, bx + x, by + y, w, h, x, y, w, h)
+    }
+    if (needsEast) shaded(shadeEast, EAST_SHADE)
+    if (needsSouth) shaded(shadeSouth, SOUTH_SHADE)
 
     // Everything outside the hero's room stays dark, as in the classic view.
     /** Clear a top-down buffer outside the rooms in play (two rooms in a scroll share a side: their box is the pair). */
@@ -454,8 +497,17 @@ export default function isoView(kit: Kit): View {
     const addGlow = (ctx: G, from: HTMLCanvasElement, fromG: G) => {
       if (!hasGlow) return
       for (const put of glowPlanes) put(ctx, from)
-      for (let ty = R.y; ty < R.y + R.h; ty++) for (let tx = R.x; tx < R.x + R.w; tx++) {
-        if (glowTiles.has(ty * m.w + tx) && inRoom(tx, ty) && shapeAt(tx, ty).k !== 'flat') fromG.clearRect((tx - R.x) * T, (ty - R.y) * T, T, T)
+      for (let ty = R.y; ty < R.y + R.h; ty++) {
+        let start = -1
+        // The extra column flushes the last run without clearing outside R.
+        for (let tx = R.x; tx <= R.x + R.w; tx++) {
+          const cut = tx < R.x + R.w && glowTiles.has(ty * m.w + tx) && inRoom(tx, ty) && shapeAt(tx, ty).k !== 'flat'
+          if (cut) { if (start < 0) start = tx }
+          else if (start >= 0) {
+            fromG.clearRect((start - R.x) * T, (ty - R.y) * T, (tx - start) * T, T)
+            start = -1
+          }
+        }
       }
       ctx.setTransform(ga, gb, gc, gd, go.x, go.y)
       ctx.drawImage(from, 0, 0, bw, bh, 0, 0, bw, bh)

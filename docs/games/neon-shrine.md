@@ -100,6 +100,13 @@ localStorage `zelda.view`; `/?view=iso` asks for one.
   during a scroll the two rooms it runs between. What stands between the
   viewer and the hero thins out. `project.ts` is the geometry: `projection(k)` turns
   the ground 45° and tips it back, 16 px per tile to a 32 × 16 diamond.
+  Ground cut-outs for adjacent standing tiles are merged into horizontal
+  runs and reused while their visible rectangles stay the same; camera
+  culling, crystal switches and tile changes update them automatically.
+  Lettering's light and bloom also clear adjacent tiles as horizontal runs.
+  The east/south shaded buffers repaint only when a visible top uses that
+  side. This reduces per-frame canvas commands without caching animated art
+  (verified against the previous renderer on all 15 maps, 2026-10-09).
 - **Adding a view.** A module whose default export is a `ViewFactory`, one
   line in `VIEWS` with its loader. A view's code is fetched on the first turn
   to it and must stay out of the entry (`tests/zelda-views.test.mjs` checks
