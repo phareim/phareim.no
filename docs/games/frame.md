@@ -32,8 +32,8 @@ the frame in any browser, which is how to look at it on a desktop.
 
 | From | Message | Meaning |
 |---|---|---|
-| game | `phareim:hello` | The game listens: tell it about the screen |
-| game | `phareim:ready` | The game's own way home is on screen |
+| game | `phareim:hello` | The game listens and has no way home on screen: tell it about the screen, and keep (or bring back) the frame's ⌂ |
+| game | `phareim:ready` | The game's own way home is on screen: the frame's ⌂ goes |
 | game | `phareim:home` | Back to the town |
 | frame | `phareim:frame`, `insets: { top, right, bottom, left }`, `installed` | The screen's safe edges in CSS px and whether the page is an installed app; sent as the answer to any message and again on resize |
 
@@ -44,7 +44,14 @@ No message carries anything but its name and the four numbers.
 **The way home.** The frame shows a ⌂ in HomeChip's corner 2.5 s after it
 opens and keeps it until the game says `phareim:ready`. A page that never says
 it (blocked outside Norway, offline, an old cached build) therefore still has
-a way out. Escape leaves too while the game does not hold the keys.
+a way out. A game says `phareim:hello` again when something covers its way
+home: Eventyrland does when its sign-in window comes up over the game, and the
+⌂ returns. Escape leaves too while the game does not hold the keys.
+
+**What the game may use.** The iframe's `allow` list: `autoplay`,
+`fullscreen`, `gamepad`, `screen-wake-lock`, and `accelerometer`, `gyroscope`,
+`magnetometer` for Eventyrland's tilt steering. A feature a game adds later
+(the camera, sharing) needs its word there, or the frame refuses it.
 
 **The insets.** The frame measures `env(safe-area-inset-*)` itself and sends
 them, because a page in a frame may read them as 0. Each game takes the larger
@@ -54,7 +61,7 @@ of its own reading and the frame's.
 
 | Game | Framing allowed by | Hello / insets | Way home |
 |---|---|---|---|
-| Eventyrland, Adventure (one build) | `frame-ancestors https://phareim.no` in `public/_headers` and `public/_worker.js` | the script at the top of `index.html` (`--frame-*`) | "Tilbake til spillehallen" in the settings; `src/game/arcade.ts` |
+| Eventyrland, Adventure (one build) | `frame-ancestors https://phareim.no` in `public/_headers` and `public/_worker.js` | `joinArcade()` in `src/game/arcade.ts`, first thing at boot (sets the page's `--inset-*`) | "Tilbake til spillehallen" in the settings; `src/game/arcade.ts` |
 | Pizza Rescue | no header: any page may frame it | `src/main.ts` (`--frame-*` in `ui.css`, `data-edges` for the pixel look's own readouts) | ARCADE on the title and the pause panel |
 
 ## Adding a game
@@ -97,8 +104,11 @@ which is why the frame sends them.
 
 Not checked: a real iPhone or iPad with the site on the Home Screen. Open
 there: that no browser bar shows, that sound starts after the first tap
-inside the game, and that the HUD clears the notch and the home indicator in
-both games, standing and lying.
+inside the game, that the HUD clears the notch and the home indicator in
+both games, standing and lying, that signing in to Eventyrland works inside
+the frame (the window signs in with `fetch`; "Spør en voksen" loads
+auth.phareim.no in the frame and comes back), and that tilt steering gets its
+permission there.
 
 A Home Screen app keeps its own storage, apart from Safari's. A framed
 Eventyrland therefore starts without Safari's save: a signed-in player gets

@@ -27,7 +27,8 @@ export function framedGame(id: unknown): FramedGame | null {
 
 /**
  * What the frame and a game inside it say to each other (`postMessage`):
- *   game → frame  `{ type: 'phareim:hello' }`  the game listens: tell it about the screen
+ *   game → frame  `{ type: 'phareim:hello' }`  the game listens, and has no way home on screen: tell it about the
+ *                 screen, and the frame's house stays (or comes back)
  *   game → frame  `{ type: 'phareim:ready' }`  the game's own way home is on screen: the frame's house goes
  *   game → frame  `{ type: 'phareim:home' }`   back to the town
  *   frame → game  `{ type: 'phareim:frame', insets: { top, right, bottom, left }, installed }`  the screen's safe

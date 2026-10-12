@@ -298,6 +298,11 @@ describe('portal world', () => {
     // Only the three messages a game may send are read.
     for (const type of ['phareim:hello', 'phareim:ready', 'phareim:home']) assert.equal(P.frameMessage({ type }), type)
     for (const no of [{ type: 'phareim:frame' }, { type: 'home' }, 'phareim:home', null, 7]) assert.equal(P.frameMessage(no), null)
+    // The frame's house goes on ready and comes back on a later hello; the frame hands on what the games use.
+    const frame = readFileSync(new URL('../components/GameFrame.vue', import.meta.url), 'utf8')
+    assert.match(frame, /ready\.value = type === FRAME_READY/)
+    assert.match(frame, /e\.source !== view\.value\?\.contentWindow \|\| e\.origin !== new URL\(src\.value\)\.origin/)
+    for (const word of ['autoplay', 'fullscreen', 'gamepad', 'screen-wake-lock', 'accelerometer', 'gyroscope']) assert.match(frame, new RegExp(`allow="[^"]*\\b${word}\\b`), word)
   })
 
   it('stands Adventure, Pizza Rescue and Night of the Dead Battery on the island straight ahead of the door', () => {

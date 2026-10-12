@@ -95,7 +95,8 @@ async function framed(id, url, { profile, home }) {
     const told = () => b.inGame(`(() => { const s = getComputedStyle(document.documentElement); const v = n => s.getPropertyValue(n).trim()
       const probe = document.createElement('div'); probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)'
       document.body.append(probe); const own = [getComputedStyle(probe).paddingTop, getComputedStyle(probe).paddingBottom]; probe.remove()
-      return { frameTop: v('--frame-top') || v('--frame-t'), frameBottom: v('--frame-bottom') || v('--frame-b'), ownEnv: own, app: document.documentElement.className, edges: document.documentElement.dataset.edges ?? null } })()`)
+      const set = n => document.documentElement.style.getPropertyValue(n).trim()
+      return { frameTop: set('--inset-top') || v('--frame-t'), frameBottom: set('--inset-bottom') || v('--frame-b'), ownEnv: own, app: document.documentElement.className, edges: document.documentElement.dataset.edges ?? null } })()`)
     report.toldEarly = await b.until(async () => { const t = await told(); return t && t.frameTop ? t : null }, 15000)
     // Ready: the frame's house is gone from the page.
     report.ready = await b.until(async () => ((await b.page()).house === 'none' ? 'house gone' : null), 120000)

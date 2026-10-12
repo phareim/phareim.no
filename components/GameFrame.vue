@@ -7,12 +7,12 @@
       class="game-frame__view"
       :src="src"
       :title="game.name"
-      allow="autoplay; fullscreen; gamepad; screen-wake-lock"
+      allow="autoplay; fullscreen; gamepad; screen-wake-lock; accelerometer; gyroscope; magnetometer"
       @load="focusGame"
     />
     <!-- Measures the screen's safe edges for the game (it cannot be trusted to see them itself). -->
     <div ref="probe" class="game-frame__probe" aria-hidden="true" />
-    <!-- Until the game says it has a way home of its own (a page that failed to load never does). -->
+    <!-- While the game has no way home of its own on screen (a page that failed to load never has). -->
     <button
       v-if="!ready"
       class="game-frame__home"
@@ -73,8 +73,8 @@ function onMessage(e: MessageEvent) {
   if (!src.value || e.source !== view.value?.contentWindow || e.origin !== new URL(src.value).origin) return
   const type = frameMessage(e.data)
   if (type === FRAME_HOME) { leave(); return }
-  if (type === FRAME_READY) ready.value = true
-  if (type) { listening = true; sendScreen() }
+  // Hello after ready takes it back: something covers the game's way home (a sign-in window), so the house returns.
+  if (type) { ready.value = type === FRAME_READY; listening = true; sendScreen() }
 }
 
 /** Keys go to the game without a tap first. */
