@@ -280,6 +280,26 @@ describe('portal world', () => {
     assert.deepEqual([back.map.id, Math.floor(back.hero.x), Math.floor(back.hero.y), back.hero.dir], ['arcade', spot.x, spot.y + 1, 'up'])
   })
 
+  it('frames the three cabinets that leave the site when installed, by exit id, at the exit\'s own address', () => {
+    // docs/games/frame.md: `/?frame=<id>` shows the game inside the page. The table and the town must agree.
+    assert.deepEqual(Object.keys(P.FRAMED_GAMES).sort(), Object.keys(LINK_CABINETS).sort())
+    for (const [id, url] of Object.entries(LINK_CABINETS)) {
+      assert.deepEqual(placedExits().find(e => e.id === id)?.ent.to, { url }, `${id} is not an exit for ${url}`)
+      assert.equal(P.framedGame(id).url, url)
+      assert.ok(P.framedGame(id).name)
+    }
+    // Nothing else is framed: no address from the URL, no inherited key, none of the other links out.
+    for (const no of ['https://example.com', 'jam', 'radio', 'kiosk', 'constructor', '__proto__', '', undefined, null, ['adventure']]) {
+      assert.equal(P.framedGame(no), null, `${String(no)} is framed`)
+    }
+    // The shell asks the frame first and only then leaves for the address.
+    const shell = readFileSync(new URL('../themes/zelda/Zelda.vue', import.meta.url), 'utf8')
+    assert.match(shell, /else if \(enterFrame\(id\)\) return\n\s+else \{ leavingUrl = true; window\.location\.assign\(to\.url\) \}/)
+    // Only the three messages a game may send are read.
+    for (const type of ['phareim:hello', 'phareim:ready', 'phareim:home']) assert.equal(P.frameMessage({ type }), type)
+    for (const no of [{ type: 'phareim:frame' }, { type: 'home' }, 'phareim:home', null, 7]) assert.equal(P.frameMessage(no), null)
+  })
+
   it('stands Adventure, Pizza Rescue and Night of the Dead Battery on the island straight ahead of the door', () => {
     const at = id => placedExits().find(e => e.map === 'arcade' && e.id === id)
     const [adventure, pizza, battery] = ['adventure', 'pizzarescue', 'battery'].map(at)

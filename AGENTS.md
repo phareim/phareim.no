@@ -49,6 +49,7 @@ plugins/
   build-check.client.ts — a new deploy found when the app comes back to the foreground reloads on the next navigation
 components/
   HomeChip.vue       — in games only: the ⌂ chip back to the portal (bottom-right), hidden while a game locks navigation; the only site chrome
+  GameFrame.vue      — a game on another address in an iframe that fills the screen, for the installed app (`/?frame=<id>`, `composables/useFrame.ts`, `themes/frames.ts`; docs/games/frame.md, 2026-10-12)
 server/
   api/               — leaderboard.get, player.post, score.post, avatar.post (the Hall of Fame API, 2026-09-08); profile.get, ship/select.post (Hangar); save.get/.post (profile save slots: Neon Shrine, Another Shore, Night of the Dead Battery, Mini World); wallet.get/.post (site bits); mw/* (Mini World's neighbourhood)
   utils/store.ts     — D1 store + in-memory dev store behind one interface, id validation
@@ -172,6 +173,7 @@ holds this radio silent.
 |---|---|---|
 | Portal (home, on `/`) | `docs/games/portal.md` | `themes/portal/`, `themes/zelda/world/` |
 | The pixel look (shared) | `docs/games/pixel-look.md` | `themes/base/pixel/` |
+| The frame (installed app: Adventure, Pizza Rescue and Eventyrland without leaving the page) | `docs/games/frame.md` | `components/GameFrame.vue`, `composables/useFrame.ts`, `themes/frames.ts` |
 | Mini World (Ulrikke's game) | `docs/games/mini-world.md` | `themes/miniworld/` (DESIGN.md), `scripts/miniworld-lab/` |
 | Lag Din Figur (Ulrikke's second) | `docs/games/lag-din-figur.md` | `themes/figur/` (DESIGN.md), `scripts/figur-lab/` |
 | Night of the Dead Battery | `docs/games/night-of-the-dead-battery.md` | `themes/battery/` (DESIGN.md, BUILD.md), `scripts/battery-lab/` |

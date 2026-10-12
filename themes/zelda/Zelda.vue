@@ -80,7 +80,8 @@
  * `input.ts`.
  *
  * Leaving: an engine `exit` saves, writes `portal.return` and launches the
- * theme or opens the URL.
+ * theme or opens the URL. Installed as a web app, a game on another address
+ * is shown in a frame on this page instead (`useFrame`, docs/games/frame.md).
  *
  * The login console (Petter's house) sends a `panel` event instead: the
  * shell opens `AccountConsole.vue` over the world, which stands still (the
@@ -159,6 +160,7 @@ const hasItem = ref(false)
 /** A dialog is open (the floating buttons hide so they don't sit on the text). */
 const talking = ref(false)
 const { navigationLocked, launch } = useTheme()
+const { enter: enterFrame } = useFrame()
 const sound = useSound()
 const profileSave = useGameSave('zelda')
 /** Signed in: play under the account's profile, so the save follows it to every device (composables/useAccount.ts). */
@@ -422,6 +424,8 @@ function leave(id: string, to: ExitTarget) {
   if ('home' in to || 'reset' in to || 'panel' in to) { begin(toSave(state), WORLD.start, true); return }
   writeReturn(state.map.id, id)
   if ('theme' in to) launch(to.theme)
+  // Installed, a game on another address stays on this page, in a frame: no browser bar over it.
+  else if (enterFrame(id)) return
   else { leavingUrl = true; window.location.assign(to.url) }
 }
 

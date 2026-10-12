@@ -18,6 +18,7 @@ export async function load() {
         `export { TILE_INFO } from './zelda/world/tiles'`,
         `export { textWidth } from './base/pixel/font'`,
         `export { WORLD, INTRO, worldExits, worldStartingAt } from './zelda/world/index'`,
+        `export { FRAMED_GAMES, framedGame, frameMessage } from './frames'`,
       ].join('; '),
       resolveDir: root,
       loader: 'ts',

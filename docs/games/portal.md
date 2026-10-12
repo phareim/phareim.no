@@ -89,7 +89,10 @@ opens the game's pixel look, Wasteland '89. `from=phareim` tells the game
 where the visit came from: its title and its pause panel then show a third
 button, ARCADE, that loads `https://phareim.no/`, and `portal.return` stands
 the hero in front of the cabinet again. The cabinet's pitch says so (PAUSE
-THERE AND PICK ARCADE). It stands in the middle of the island (tile 8,4 of
+THERE AND PICK ARCADE). Installed as a web app, this cabinet, Adventure's and
+Eventyrland's do not load the address: the game is shown in a frame on this
+page, `/?frame=<id>`, so the phone's browser bar never comes up
+(`docs/games/frame.md`, 2026-10-12). It stands in the middle of the island (tile 8,4 of
 `arcade`, exit id and art `pizzarescue`, label PIZZA RESCUE, used from 8,5).
 It is the hall's only rust-orange machine: N and R in white either side of a
 slice of pizza on the marquee, and Nova and a Dead Paddy trading a punch and

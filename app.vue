@@ -1,17 +1,22 @@
 <template>
   <div :class="themePageClass">
-    <component :is="theme.backdrop" v-if="theme.backdrop" />
-    <NuxtPage />
-    <HomeChip />
-    <!-- The portal plays its own town music (it parks the radio) and its name
-      billboard sits where the widget would; the radio returns in the games.
-      The radio theme is a radio of its own (`ownRadio`). -->
-    <RadioWidget v-if="!isHome && !theme.ownRadio" />
+    <!-- A game from another address (`/?frame=<id>`, docs/games/frame.md) has the page to itself. -->
+    <GameFrame v-if="framed" :key="framed.id" :game="framed" />
+    <template v-else>
+      <component :is="theme.backdrop" v-if="theme.backdrop" />
+      <NuxtPage />
+      <HomeChip />
+      <!-- The portal plays its own town music (it parks the radio) and its name
+        billboard sits where the widget would; the radio returns in the games.
+        The radio theme is a radio of its own (`ownRadio`). -->
+      <RadioWidget v-if="!isHome && !theme.ownRadio" />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 const { theme, isHome, themePageClass, themeColor } = useTheme()
+const { framed } = useFrame()
 useThemeNavigation()
 
 // The portal carries the site's name; a game names itself, so history and
