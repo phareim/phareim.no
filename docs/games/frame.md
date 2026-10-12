@@ -97,7 +97,17 @@ to 47 px top and 34 px bottom) against dev servers of all three sites:
 - With `navigator.standalone` not set, the same YES loads the address, as
   before.
 
-In that run the live Pizza Rescue, on another site than the dev page, read its
+The same day against the live site, after all three had deployed
+(`frame-shot.mjs https://phareim.no/ <out> --live` from zap, in Norway):
+
+- YES at the cabinet stays on `https://phareim.no/?frame=pizzarescue`.
+- Pizza Rescue (live) in the frame: told the insets, says ready, ARCADE
+  returns to `/`.
+- Adventure (live, v1225) in the frame: `frame-ancestors https://phareim.no`
+  lets it load, it is told the insets, says ready at the first frame, and the
+  settings' way back returns to `/`.
+
+In the first run the live Pizza Rescue, on another site than the dev page, read its
 own `env()` insets as 0 inside the frame; the dev servers on localhost read
 the faked ones. That is Chrome. What iOS gives a framed page is not known,
 which is why the frame sends them.
