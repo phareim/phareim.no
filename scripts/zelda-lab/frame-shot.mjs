@@ -10,7 +10,11 @@
 //   --eventyr <url>  an Eventyrland dev server in the frame: hello and the
 //          insets before the world is up, ready after, the settings' way back
 //
-//   CHROME_BIN=… node scripts/zelda-lab/frame-shot.mjs <devUrl> <outDir> [--fighter <url>] [--eventyr <url>]
+//   --live  against the live site (<devUrl> is https://phareim.no/): both
+//          games as the frame loads them, no dev servers; the town's state
+//          is not read there (a build has no window.__portal)
+//
+//   CHROME_BIN=… node scripts/zelda-lab/frame-shot.mjs <devUrl> <outDir> [--fighter <url>] [--eventyr <url>] [--live]
 import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { launch } from './cdp.mjs'
@@ -19,6 +23,7 @@ const argv = process.argv.slice(2)
 const flag = name => { const i = argv.indexOf(name); return i < 0 ? null : argv.splice(i, 2)[1] }
 const fighter = flag('--fighter')
 const eventyr = flag('--eventyr')
+const live = argv.includes('--live') && argv.splice(argv.indexOf('--live'), 1).length > 0
 const [base = 'http://127.0.0.1:3030/', outArg] = argv
 if (!outArg) { console.error('usage: frame-shot.mjs <devUrl> <outDir> [--fighter <url>] [--eventyr <url>]'); process.exit(2) }
 const out = resolve(outArg)
@@ -86,11 +91,11 @@ async function framed(id, url, { profile, home }) {
   const { b, insetsFaked } = await open()
   const report = { insetsFaked }
   try {
-    if (profile) { await b.goto(url); await b.eval(profile); }
+    if (profile && url) { await b.goto(url); await b.eval(profile); }
     // The town first, so the way home has somewhere to stand the hero.
     await b.goto(base)
     await b.eval(`sessionStorage.setItem('portal.return', JSON.stringify({ map: ${JSON.stringify(id === 'eventyrland' ? 'vip' : 'arcade')}, entry: ${JSON.stringify(id)} }))`)
-    await b.goto(`${base}?frame=${id}&src=${encodeURIComponent(url)}`)
+    await b.goto(url ? `${base}?frame=${id}&src=${encodeURIComponent(url)}` : `${base}?frame=${id}`)
     report.opened = await b.page()
     const told = () => b.inGame(`(() => { const s = getComputedStyle(document.documentElement); const v = n => s.getPropertyValue(n).trim()
       const probe = document.createElement('div'); probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)'
@@ -119,21 +124,26 @@ if (fighter) {
     home: async b => click(b, '#back'),
   })
 }
+const eventyrHome = async b => {
+  const steps = []
+  steps.push(await click(b, '[aria-label^="Ryggsekken"]'))
+  await b.sleep(900)
+  steps.push(await click(b, '[role=tab][aria-label="Innstillinger"]'))
+  await b.sleep(900)
+  await b.shot(join(out, 'adventure-settings.png'))
+  steps.push(await click(b, 'button', 'Tilbake til spillehallen'))
+  await b.sleep(500)
+  steps.push(await click(b, 'button', 'Ja, ut av Eventyrland'))
+  return steps
+}
 if (eventyr) {
   result.eventyr = await framed('adventure', eventyr, {
     profile: `localStorage.setItem('eventyrland.profile', JSON.stringify({ id: 'frame0lab000001', name: 'Sølvi', variant: 'vanlig', pack: true }))`,
-    home: async b => {
-      const steps = []
-      steps.push(await click(b, '[aria-label^="Ryggsekken"]'))
-      await b.sleep(900)
-      steps.push(await click(b, '[role=tab][aria-label="Innstillinger"]'))
-      await b.sleep(900)
-      await b.shot(join(out, 'adventure-settings.png'))
-      steps.push(await click(b, 'button', 'Tilbake til spillehallen'))
-      await b.sleep(500)
-      steps.push(await click(b, 'button', 'Ja, ut av Eventyrland'))
-      return steps
-    },
+    home: eventyrHome,
   })
+}
+if (live) {
+  result.liveFighter = await framed('pizzarescue', null, { home: async b => click(b, '#back') })
+  result.liveEventyr = await framed('adventure', null, { home: eventyrHome })
 }
 console.log(JSON.stringify(result, null, 2))
