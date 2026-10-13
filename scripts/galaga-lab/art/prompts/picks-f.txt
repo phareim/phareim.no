@@ -1,0 +1,20 @@
+{dense} {style} {clusters} {key}
+{world}
+They are tiny icons of a 1997 arcade shooter, sixteen by sixteen pixels, twelve columns of
+them, every column the same thing all the way down, twelve rows: four things, each in three
+columns, in this order from left to right and then again and again: A, B, C, D. Each is
+drawn as its boldest shape only, bright against a dark sky, with a dark outline, so that it
+is known at a glance.
+A. a CB radio microphone: a chunky black hand microphone with a bright silver grille of
+three bars across its top half and one red button, tilted a little, and hanging from its
+lower end a long bright yellow coiled cord that curls away in three clear loops.
+B. a coin, an arcade quarter: a round bright silver coin with a raised rim one block wide,
+a white glint at the upper left, a darker grey shadow at the lower right, and one big bold
+five-pointed star stamped in its middle in dark grey. Tilted a little so that its ridged
+edge shows as a thick darker band along its lower side.
+C. a VHS video cassette seen from the front: a wide flat slate-blue box with pale edges,
+two big round white reel windows with dark hubs side by side in its lower half, and a
+bright white label strip with one red stripe across its upper half.
+D. smaller than the others, a mite: one glittering spark, a small round pale blue-white
+facet with four short sharp gold points, up, down, left and right.
+{leave}

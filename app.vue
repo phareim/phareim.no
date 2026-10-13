@@ -20,7 +20,7 @@ const { framed } = useFrame()
 useThemeNavigation()
 
 // The portal carries the site's name; a game names itself, so history and
-// tabs read "Galaga — phareim.no". Description and og tags: nuxt.config.ts.
+// tabs read "Breakout — phareim.no". Description and og tags: nuxt.config.ts.
 useHead({
   title: computed(() => isHome.value ? 'Petter Hareim — phareim.no' : `${theme.value.name} — phareim.no`),
   meta: [

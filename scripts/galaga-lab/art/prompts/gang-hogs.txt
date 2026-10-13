@@ -1,0 +1,26 @@
+{gang} {style} {clusters} {key}
+{world}
+They are one gang of enemies in a 1997 vertical-scrolling arcade shooter: THE ROAD HOGS,
+scrap bandits of the freight lane, who fly what they welded together in a junkyard. Their
+colours: rust brown, dark matt iron, dirty school-bus yellow, orange flame paint, chrome
+pipes. {above} {down}
+Top row, left to right: 1. the grunt: a pig-snouted chopper, a small rocket motorcycle whose
+front end, pointing down, is a round tan pig's snout with two dark nostrils, with tall
+ape-hanger handlebars spreading out to both sides like horns and a chrome exhaust pipe on
+each side. 2. the flanker: a spiked buggy, a low wide dune buggy with four fat black tyres
+at its corners, a roll cage, and a bumper of long iron spikes along its front edge, pointing
+down. 3. the tank, the largest and widest: half a school bus, the sawn-off front half of a
+dirty yellow school bus with rusty iron armour plates bolted over it, a wide iron plough
+blade across its front, pointing down, wide and heavy.
+Middle row, left to right: 4. the diver: a dart, a narrow rusty rocket bike that is mostly
+one long sharp iron ram spike pointing down, two short swept exhaust pipes at the top.
+5. the sniper: a small three-wheeled scrap cart with one very long thin drainpipe gun barrel
+pointing straight down, far longer than the cart. 6. the splitter: visibly two halves, a
+motorcycle and a round sidecar pod flying side by side, joined only by two thin iron bars,
+the bike rust brown and the sidecar dirty yellow.
+Bottom row, left to right: 7. the mite, the smallest, tiny: one spiked chrome hubcap, a
+small disc with short spikes all round. 8. the captor, large: a rusty tow truck whose crane
+boom reaches forward and holds one big round scrap-yard electromagnet, a wide dark disc
+with a yellow rim, at the front, pointing down. 9. the raider: a small buggy with two long
+harpoon arms reaching down and forward, each ending in a barbed iron hook.
+{leave}

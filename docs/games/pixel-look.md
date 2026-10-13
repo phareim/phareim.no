@@ -37,7 +37,7 @@ treasure.
 - `sprites.ts` — `sprite(rows, palOverride)`,
   `silhouette()`, `shade()` (outline + highlight/shadow for a one-colour
   'X' map), `pixelize()` / `relight()` (turn vector-painted art into
-  palette-snapped, outlined, top-lit pixel sprites; Galaga uses them),
+  palette-snapped, outlined, top-lit pixel sprites; the old Galaga used them),
   `bayer()`, `mix()`, `drawBigText()`, and the 5×7 font
   (`drawText`, `textWidth`, re-exported from `themes/base/pixel/font.ts`).
 - `scenery.ts` — side-view painters in the terrain palette: dithered dusk
@@ -60,7 +60,7 @@ draw as the canvas aliases them (E, E, Æ, Ø, U; 2026-09-26); it adds ▶ ◀ �
 | Game | Pixel look | Setting |
 |---|---|---|
 | Space Invaders | done | the formation comes down over the town at dusk; bunkers are shrine stone |
-| Galaga | done | a dithered violet night with nebulae in the sector tints, a ringed planet, cratered rocks; the vector ships pixelized at run time; the intercom is Neon Shrine's dialog box |
+| Rex & Nova: Space Voyagers I (`galaga`) | its own look | not this stage: bitmaps from `public/galaga/` and code-drawn hard pixels through its own frame (`themes/galaga/render/`), whole device pixels, no bloom, scanlines, vignette or light map; it shares only the 5×7 font. `docs/games/galaga.md` |
 | Breakout | done | a shrine chamber seen from above: stone and crystal bricks, braziers, a pit under the paddle |
 | Russian Block Game | done | a shrine crystal garden: connected mineral veins, rows bloom into light seeds; harvested rows plant flowers around the town cabinet (2026-10-07) |
 | R-Type | done | the shrine caves: rock walls with glowing crystals that light the walls, a warm far cave behind; turned a quarter on portrait phones (`resize(…, rotate)`) |

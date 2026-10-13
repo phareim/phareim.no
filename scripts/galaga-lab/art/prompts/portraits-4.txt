@@ -1,0 +1,23 @@
+{portraits} {style} {clusters}
+{world} {face}
+Three bosses, one to a row, the same head in all three squares of the row.
+Top row, DOCTOR DURANT DURANT, who plays an organ the size of a church: a thin, vain man of
+fifty with a long face, a pointed dark beard, slicked-back black hair with a grey streak,
+arched eyebrows, a high stiff collar and a mustard-yellow robe. Left: calm, a thin superior
+smile, eyes half closed. Middle: angry, teeth bared, eyes wide, one eyebrow twitching up.
+Right: calm again, stroking his beard.
+Middle row, CAL 9000, a machine that is a wall: there is no face, the portrait is a close
+view of the machine straight on: one big round glass lens glowing deep red with a small
+yellow point in its centre, set in a wide chrome ring in a panel of brushed blue-grey
+steel, with two glowing orange vacuum valves at each side of it and rivets. This one row
+is seen straight from the front, not three-quarter. Left: calm, the lens a steady deep red.
+Middle: angry, the lens bright orange-red and larger, with a white-hot centre, all the
+valves flaring yellow. Right: calm again.
+Bottom row, DARK FADER, the boss of the Empire of Noise: no face, only his helmet: a wide
+flared helmet of dark slate blue-grey with pale grey edge lights (dark, never black, no
+purple), with one vertical slot down the middle of its face in which a silver mixing-desk
+fader knob sits, and a small round grille at each side of the slot; armoured shoulders
+below. Left: calm, the fader knob at the middle of its slot. Middle: angry, the fader knob
+pushed to the very top of its slot, two small red lamps lit beside it. Right: calm again,
+the fader low.
+{leave}

@@ -1,0 +1,3 @@
+#!/bin/sh
+# nova's art tool, from this repo's root:  sh scripts/galaga-lab/art/art.sh <command> …
+exec "$HOME/.cache/nova-art-venv/bin/python" "$HOME/github/nova/tools/art/art.py" "$@"

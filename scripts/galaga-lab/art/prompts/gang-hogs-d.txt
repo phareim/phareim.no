@@ -1,0 +1,19 @@
+{dense} {style} {clusters} {key}
+{world}
+They are one gang of enemies in a 1997 vertical-scrolling arcade shooter: THE ROAD HOGS,
+scrap bandits. Rust brown, dark iron, dirty school-bus yellow, orange flame paint, chrome
+pipes. {above} Each has its nose or gun pointing straight DOWN. Each is twenty-four pixels
+across, two are thirty-two, one is fourteen. In order, repeating: 1. a pig-snouted chopper:
+a small rocket motorcycle with a round tan pig's snout with two nostrils at the bottom and
+tall ape-hanger handlebars spreading out like horns. 2. a spiked buggy: a wide dune buggy
+with four fat black tyres at its corners and a row of iron spikes along its front, pointing
+down. 3. the large one: the sawn-off front half of a dirty yellow school bus with rusty
+armour plates and a wide iron plough blade across its front, at the bottom. 4. a dart: one
+long sharp rusty iron ram spike pointing down with two short exhaust pipes at the top. 5. a
+small three-wheeled cart with one very long thin gun barrel pointing straight down. 6. two
+halves: a rust-brown motorcycle and a round yellow sidecar pod side by side, joined by two
+thin bars. 7. the tiny one: a round chrome hubcap with short spikes all round. 8. the other
+large one: a rusty tow truck whose crane boom holds one big round dark electromagnet disc
+with a yellow rim in front of it, at the bottom. 9. a small buggy with two long harpoon
+arms reaching down, each ending in a barbed iron hook.
+{leave}

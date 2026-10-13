@@ -1,0 +1,16 @@
+{dense} {style} {clusters} {key}
+{world}
+They are two bosses of a 1997 vertical-scrolling arcade shooter, each drawn three times, six
+figures in two rows of three. Keep each exactly as large as it is in the reference. {face}
+One is SATURDAY KNIGHT: a knight in a full suit of gleaming white plate armour cut like a
+1970s white three-piece suit, with wide pointed armoured lapels edged in gold, flared
+armoured trousers, a gold belt buckle and a closed white helmet with a dark visor slit and
+a gold plume, no face showing. He stands facing the viewer in a dance pose, one arm raised
+straight up with the finger pointing at the sky, the other hand on his hip. Directly above
+his head hangs a big silver mirror ball of square facets on a short chain.
+The other is THE EXCESS MACHINE, a pipe organ the size of a church, seen head-on: seven tall
+golden organ pipes in a fan, the tallest in the middle, on a wide console of dark wood grain
+with brass trim and rows of stop knobs, a long keyboard of white and dark keys along the
+bottom, and seated at the middle of the console, small, DOCTOR DURANT DURANT, a thin man
+with a pointed dark beard in a mustard-yellow robe, both hands on the keys.
+{leave}

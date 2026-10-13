@@ -1,0 +1,15 @@
+{dense} {style} {clusters} {key}
+{world}
+They are the power-ups that fall down the screen in a 1997 arcade shooter: tiny icons of
+sixteen by sixteen pixels. Each row holds, from left to right and carrying on in the next
+row: a glass vacuum tube with an orange filament on a brown base; a red and yellow toy ray
+gun; a silver LaserDisc with a rainbow wedge; a dark grey boom box with two round speakers
+and a handle; a slice of pepperoni pizza; a blue soap-bubble wand with a pale bubble in its
+ring; a black CB radio handset with a coiled cord; a silver mirror ball; a black VHS
+cassette with two white reel windows and a white label; a coral-red can of hairspray with a
+white cap; a red horseshoe magnet with silver tips; a silver coin with a ridged rim and no
+face on it; a taller vacuum valve on a brass socket, LIT, glowing orange and yellow inside;
+and the same valve UNLIT, the same outline, its glass dark blue-grey, the filament cold
+grey. The dark things (the handset, the cassette, the boom box) are drawn in blue-grey with
+light edges so that their shapes read, not as black blobs.
+{leave}

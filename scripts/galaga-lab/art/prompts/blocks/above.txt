@@ -1,0 +1,3 @@
+The point of view is that of a 1990s vertical-scrolling arcade shooter: every craft is seen
+from directly above, looking straight down on its roof, flat, with no perspective and no
+horizon: never from the side, never at three quarters.

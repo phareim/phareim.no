@@ -1,0 +1,19 @@
+{pair} {style} {clusters} {key}
+{world}
+{boss} {face}
+The upper subject, very wide: THE DEAF STAR, a moon that is a loudspeaker cabinet. Only its
+lower half shows, hanging down from the top: a huge grey half-disc, cut off flat and
+straight along its top edge and round along its bottom, built of riveted grey steel panels
+with seams and a few small lit windows. Set into it, left of the middle, is one enormous
+round loudspeaker cone: a dark woofer with a ribbed rim and a dark dust cap, like a crater.
+To the right of it, small, is the weak spot: one small round tweeter with a bright red
+dome in a chrome ring. Grey, slate blue, dark brown shadows, never black. Not symmetrical.
+The lower subject: THE EXCESS MACHINE, the boss of the Love Machines: a pipe organ the size
+of a church, seen head-on. Seven ranks of tall golden organ pipes in a fan, the tallest in
+the middle, standing on a wide console of dark wood grain with brass trim, three rows of
+stop knobs, and along the bottom edge a long keyboard of white and dark keys facing down.
+Seated at the middle of the console, small, is DOCTOR DURANT DURANT: a thin man seen from
+the front with a pointed dark beard and a high collar, in a mustard-yellow robe, both hands
+on the keys. Gold, wood brown, cream, tangerine orange and turquoise lamps. No pink, no
+purple.
+{leave}

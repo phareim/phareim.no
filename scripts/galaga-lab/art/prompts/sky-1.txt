@@ -1,0 +1,12 @@
+{skypair} {style} {clusters} {key}
+{world}
+{far}
+Sector one, low orbit over the Earth. The upper subject, wide and low: the limb of the blue
+Earth seen from orbit: the top slice of a huge globe, a long shallow arc curving up in the
+middle and cut off straight along the bottom, deep night blue ocean with darker land shapes
+and a few long flat bands of slate cloud, a thin paler line of air along the curved edge.
+The lower subject: a cluster of old parked satellites tethered together: four or five boxy
+satellites with folded solar panels, dish aerials and whip aerials, tied by cables to a
+central drum, like cars in a parking lot; slate blue-grey with dark brown panels and one
+small dull amber lamp.
+{leave}

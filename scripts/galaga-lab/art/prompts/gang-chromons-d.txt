@@ -1,0 +1,19 @@
+{dense} {style} {clusters} {key}
+{world}
+They are one gang of enemies in a 1997 vertical-scrolling arcade shooter: THE CHROMONS,
+kitchen machines of 1959 that eliminate. Polished chrome silver with pale blue lights and
+blue-grey shadows, gunmetal, brass studs, one glowing red light each. {above} Each has its
+nose, face or gun pointing straight DOWN. Each is twenty-four pixels across, two are
+thirty-two, one is fourteen. In order, repeating: 1. a flying toaster: a chrome two-slot
+toaster with two slices of brown toast in its slots and a small white feathered wing on
+each side. 2. a chrome toaster head: a rounded chrome helmet with one dark visor slot across
+it holding a red light, a swept chrome fin on each side. 3. the large one: a pepper-pot
+machine, a round dome with a red light above a wide skirt of gunmetal plates studded with
+rows of brass half-balls. 4. a dart: a slim sharp chrome rocket with two small fins at the
+top and a red tip pointing down. 5. a small chrome dome with one very long thin stalk barrel
+pointing straight down, a blue lens at its end. 6. two halves: a chrome waffle iron hinged
+open, two square grids side by side joined by a small brass hinge. 7. the tiny one: one
+small slice of brown toast. 8. the other large one: a chrome dome with a red light holding
+out below it one big dark blue-grey rubber plunger cup, wide open like a bell. 9. a chrome
+toaster with two long jointed chrome arms reaching down, each ending in a pair of tongs.
+{leave}

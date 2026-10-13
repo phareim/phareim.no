@@ -1,0 +1,11 @@
+{redraw} {style} {clusters} {key}
+{world}
+{far}
+Three backdrop pieces one above the other, each kept exactly as wide and as high as it is
+in the reference and no larger. At the top and again at the bottom: a grey hulk, the dead
+wreck of a huge old freighter drifting: a long broken hull of slate-grey plates with holes
+torn in it, bare ribs showing at its right end, a snapped mast, dark empty windows, not one
+light. In the middle: a field of five big radio dish aerials on lattice legs standing on a
+long strip of dark brown rock, every dish tilted the same way and pointing to the upper
+right, slate blue-grey, not one light.
+{leave}

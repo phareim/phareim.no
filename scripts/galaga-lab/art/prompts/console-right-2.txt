@@ -1,0 +1,17 @@
+{redraw-panel} {style} {clusters}
+{world}
+It is the right side of the dashboard of a pizza delivery rocket, the instrument panel, in
+brushed blue-grey steel plates with rivets and rust at the edges, dark brown bakelite, brass
+frames, wood-grain trim and chrome. From the top: a long narrow magenta window in a brass
+frame, the opening of a mechanical counter; under it a wide magenta window in a dark
+bakelite frame with five small brass sockets along its lower edge, a rack for valves; under
+that, at the left, a square magenta window inside a round chrome dial ring with tick marks,
+and at the right a VU meter: a cream-yellow meter face in a black bakelite housing with a
+curved scale of small black tick marks along the top of the face, the last ticks red, and no
+needle and no numbers on it; under those a long narrow magenta window in a steel frame, a
+row for lamps; under that a wide magenta window in a brass frame with a ribbed chrome roller
+at each end, a paper strip-chart recorder. Below the windows: a strip of wood-grain veneer
+with four chrome toggle switches and a small round needle gauge; then riveted steel with a
+worn round pizza-shop sticker (a slice of pepperoni pizza, no words) and a louvred vent.
+Below all that the panel is plain riveted steel.
+{leave}

@@ -1,0 +1,6 @@
+The first image is a layout in flat blocks: it shows what stands where on the panel and how
+large each part is. The second image shows the pixel-art style to draw in and the size of
+square pixel block to use. Draw the panel as finished pixel art in that style, filling the
+whole picture from edge to edge, keeping every block of the layout in its place and at its
+size: nothing moved, nothing resized. It is a flat control panel seen exactly straight on,
+with no perspective, like the dashboard art round the screen of a 1990s arcade cabinet.

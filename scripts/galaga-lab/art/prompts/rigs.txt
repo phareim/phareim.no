@@ -1,0 +1,26 @@
+The first image is a layout in flat blocks on a magenta background: three tall narrow
+subjects side by side; the blocks show where each stands and how large it and its parts are.
+The second image shows the pixel-art style to draw in, the size of square pixel block to use
+and the point of view. Draw the three subjects as finished pixel art in that style, keeping
+every block of the layout in its place and at its size: nothing moved, nothing widened,
+nothing enlarged to fill the picture, flat magenta between them and all round them.
+{style} {clusters} {key}
+{world}
+They are three space long-haul trucks of a 1997 vertical-scrolling arcade shooter: rigs that
+haul freight between the planets. {above} Each drives straight UP the picture: the cab is at
+the top, the cargo pods are coupled in a line behind it, below.
+Every rig is built the same way. At the top, the cab (the coloured block): a complete
+truck tractor seen from above, with a rounded bonnet at the very top, a dark windscreen, a
+roof with a row of small amber marker lamps, a tall chrome exhaust stack on each side of
+the cab (the two narrow grey blocks), a thin CB aerial, and its own rear end with two red
+tail lamps: the cab is a whole vehicle on its own and ends before the first pod. Below it,
+after a clear gap that only a short dark coupling bar crosses, the cargo pods, each a
+separate container with a short coupling bar between it and the next.
+On the left: BIG MARGE's rig, the TALL TALE: a teal cab with a white roof; two long cargo
+pods of dark wooden slats with iron bands and tarpaulin tops tied with rope.
+In the middle: RUBBER DUCKIE's rig: a bright yellow cab with a small yellow toy duck as its
+bonnet mascot; three round chrome tanker pods with ribs and a hatch on top of each.
+On the right: JACK BARTON's rig, the PORK RIND EXPRESS: a white cab with red stripes; two
+cream box-trailer pods with red stripes, each with a small painted sign of a pig's head on
+its roof, a blank name plate, a spare tyre.
+{leave}

@@ -1,0 +1,25 @@
+The first image is a rough collage: flat blocks and two small rockets on a dark blue field.
+It shows the composition: where everything stands and how large. The second image shows
+the pixel-art style to draw in and the size of square pixel block to use. The third image
+shows the two heroes' faces as they are drawn in this game: the woman on the left of it,
+the man on the right: match their hair, faces and clothes exactly. Draw the collage as one
+finished picture in that style, filling the whole picture from edge to edge, everything in
+its place and at its size.
+{style} {clusters}
+{world}
+The picture is the cover of a 1989 arcade game, a comic-book cover: two pizza delivery
+pilots and their two rockets. In the lower two thirds, large, the two heroes from the waist
+up, standing back to back and looking out at the viewer over their shoulders.
+On the left (the blonde and red blocks): {nova} Her arms are crossed.
+On the right (the brown and white blocks): {rex} He holds a flat white pizza box with a red
+band up on the palm of one hand, and grins.
+Between and above their heads their two rockets climb straight up the picture side by side,
+small, each on a short tail of flat orange flame: on the left a lean red dart of a rocket
+with a yellow headlamp at its nose; on the right a stubby white-and-red delivery rocket
+with wood-panel sides and a stack of pizza boxes on a roof rack.
+Along the bottom, behind the heroes, the curve of the blue Earth seen from orbit.
+The upper third of the picture is quiet: plain deep night-blue sky with a few small stars
+of two or three pixels and nothing else, left empty for a title. Deep blue and brown
+shadows, never black; warm rim light from the rockets on the heroes' hair and shoulders.
+No lettering, no logo, no title, no text anywhere in the picture.
+{leave}

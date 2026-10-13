@@ -1,0 +1,20 @@
+{pair} {style} {clusters} {key}
+{world}
+{boss} {face}
+The upper subject: SATURDAY KNIGHT, the boss of the disco raiders. A knight in a full suit of
+gleaming white plate armour cut like a 1970s white three-piece suit: wide pointed armoured
+lapels, a white breastplate over a dark shirt plate, flared armoured hips, a closed white
+helmet with a dark visor slit and a small gold plume, no face showing. He stands facing the
+viewer in a dance pose: one arm (the grey-white block at the left) raised straight up with
+the finger pointing at the sky, the other hand on his hip. Directly above his head, as wide
+as his shoulders, hangs a huge silver mirror ball of square facets (the chrome block) on a
+short chain. White, silver and gold, with blue-violet shadows on the white. Not symmetrical:
+the raised arm is on one side only.
+The lower subject: DARK FADER, the boss of the Empire of Noise. The head and shoulders of a
+towering figure in a wide flared helmet of dark slate blue-grey with pale grey edge lights
+(dark, but never black), seen head-on. Where a face would be, the helmet has one vertical
+slot down its middle with a silver mixing-desk fader knob sitting in it, and a small round
+grille at each side of the slot. Under the helmet, very wide armoured shoulders and a cape,
+and a chest panel with two round needle meters with yellow faces and a row of red and green
+lamps. No purple.
+{leave}

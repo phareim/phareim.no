@@ -174,16 +174,17 @@ const CABS: Record<string, CabStyle> = {
     ),
   },
   galaga: {
-    body: '#1a2f78', bodyL: '#2f4fb0', bodyD: '#0e1a48', trim: '#ffd23f', glow: '#2ff3ff',
-    bg: bg7('#07051a'),
+    // Rex & Nova: Space Voyagers I: the Scooter (a red dart) and the Wagon (white, red nose and fins) going up side by side.
+    body: '#1a2f78', bodyL: '#2f4fb0', bodyD: '#0e1a48', trim: '#ffd23f', glow: '#ffd23f',
+    bg: bg7('#141a33'),
     marquee: M(
-      '.......w....',
-      'b.y.b.....w.',
-      'bbybb.......',
-      '.ryr....w...',
-      '..y....rwr..',
-      '.w....wwwww.',
-      '......w.b.w.',
+      '..r.....r...',
+      '..r....www..',
+      '.rrr...wrw..',
+      '.rrr...www..',
+      'r.r.r.rwwwr.',
+      '..y....y.y..',
+      '..o....o.o..',
     ),
   },
   breakout: {
@@ -360,12 +361,14 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
   const tri = (v: number, n: number) => { const p = ((v % (2 * n)) + 2 * n) % (2 * n); return p < n ? p : 2 * n - p }
   switch (art) {
     case 'galaga': {
-      f('#05030c', 0, 0, W, H)
-      for (let i = 0; i < 5; i++) f(i % 2 ? '#cfc6ff' : '#5a5285', (i * 7 + 2) % W, Math.floor(t * 9 + i * 3.3) % H)
+      // Space Voyagers: a mirror-ball drone swaying over the two ships, the Wagon (white) and the Scooter (red).
+      f('#141a33', 0, 0, W, H)
+      for (let i = 0; i < 5; i++) f(i % 2 ? '#8f9fca' : '#4a5a8c', (i * 7 + 2) % W, Math.floor(t * 9 + i * 3.3) % H)
       const bx = 4 + Math.round(Math.sin(t * 2.4 + seed) * 3)
-      f('#ffd23f', bx, 1, 2, 1); f('#2f5fd0', bx - 1, 1); f('#2f5fd0', bx + 2, 1); f('#ff3b5c', bx, 2, 2, 1)
-      if (Math.floor(t * 4) % 3 === 0) f('#fff4ff', 4, 4)
-      f('#fff4ff', 4, 6, 2, 1); f('#fff4ff', 3, 7, 4, 1); f('#ff3b5c', 3, 6); f('#ff3b5c', 6, 6)
+      f('#c4d0d8', bx, 1, 2, 2); f('#fff6e0', bx, 1); f('#ffd23f', bx - 1, 0); f('#ffd23f', bx + 2, 0)
+      if (Math.floor(t * 4) % 3 === 0) f('#ffe27a', 4, 4)
+      f('#ff4f6e', 4, 5); f('#fff6e0', 3, 6, 3, 2); f('#ff4f6e', 2, 7); f('#ff4f6e', 6, 7)
+      f('#ff4f6e', 9, 6, 1, 2); f('#ffd23f', 9, 5)
       return
     }
     case 'breakout': {

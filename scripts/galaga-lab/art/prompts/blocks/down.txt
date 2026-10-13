@@ -1,0 +1,4 @@
+They are enemies that come down the screen at the player: every one has its nose, face or
+gun pointing straight DOWN the picture and its engine at the top. Each is symmetrical from
+left to right. Each has a silhouette of its own that reads at a glance in solid black, and
+no two on the sheet have the same outline.

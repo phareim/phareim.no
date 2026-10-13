@@ -1,0 +1,12 @@
+{redraw} {style} {clusters} {key}
+{world}
+{far}
+Three backdrop pieces one above the other, each kept exactly as wide and as high as it is
+in the reference and no larger. At the top and again at the bottom: the limb of the blue
+Earth seen from orbit, the top slice of a huge globe: a long shallow arc curving up in the
+middle and cut off straight along its bottom edge, deep night-blue ocean with darker land
+shapes and long flat bands of slate cloud, a thin paler line of air along the curve. In the
+middle: a line of six mile-marker buoys running up from the lower left to the upper right,
+each a small dark brown drum with a dull amber reflector and a short aerial on top, joined
+to the next by a thin sagging cable.
+{leave}

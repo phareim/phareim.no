@@ -1,0 +1,22 @@
+{resheet} {style} {clusters} {key}
+{world}
+They are the two player ships of a 1997 vertical-scrolling arcade shooter, each drawn twice,
+small: about thirty large pixel blocks wide. {above} Each has its nose pointing straight UP
+and its engine bells at the bottom. Keep each exactly as short and as wide as it is in the
+reference: do not make them taller.
+Top left: THE WAGON, flying straight: a stubby, fat white delivery rocket with a red nose
+cone, panels of brown wood grain along both flanks, a dark windscreen behind the nose, two
+short red fins, twin engine bells, and on its roof a rack with a strapped stack of flat tan
+pizza boxes. Exactly symmetrical from left to right.
+Top right: THE SCOOTER, flying straight: a lean narrow red dart of a rocket, a round yellow
+headlamp at the tip of the nose, a small yellow pizza slice painted behind it, a small dark
+blue cockpit bubble, two swept-back red fins with white tips, one engine bell. Exactly
+symmetrical from left to right.
+Bottom left: the same WAGON rolled to its left, as a plane banks, still seen from straight
+above with its nose straight up and its body upright in the picture, not turned: the left
+half of the ship is narrow and in shadow, with a short dark left fin; the right half is wide
+and lit, with a long bright right fin; the roof rack sits left of the middle.
+Bottom right: the same SCOOTER rolled to its left in the same way: nose straight up, body
+upright, left fin short and dark, right fin long and bright.
+The reds are warm brick red and scarlet, never pink. No pilots visible, no flames.
+{leave}

@@ -17,7 +17,7 @@
     "test:wingman": "node --test tests/starfox-wingman.test.mjs",
     "test:leaderboard": "node --test tests/leaderboard-names.test.mjs tests/leaderboard-board.test.mjs",
     "test:ships": "node --test tests/ships.test.mjs",
-    "test:galaga": "node --test tests/galaga-game.test.mjs tests/galaga-balance.test.mjs tests/galaga-audio.test.mjs tests/galaga-weapons.test.mjs tests/galaga-story.test.mjs",
+    "test:galaga": "node --test tests/galaga-audio.test.mjs tests/galaga-layout.test.mjs tests/galaga-look.test.mjs tests/galaga-engine.test.mjs tests/galaga-pickups.test.mjs tests/galaga-encounters.test.mjs tests/galaga-bosses.test.mjs tests/galaga-director.test.mjs tests/galaga-script.test.mjs tests/galaga-voyage.test.mjs",
     "test:radio": "node --test tests/radio-catalog.test.mjs",
     "test:rtype": "node --test tests/rtype-game.test.mjs",
     "test:outrun": "node --test tests/outrun-engine.test.mjs tests/outrun-banter.test.mjs tests/outrun-art.test.mjs",

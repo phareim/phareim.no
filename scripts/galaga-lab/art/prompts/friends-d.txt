@@ -1,0 +1,19 @@
+{dense} {style} {clusters} {key}
+{world}
+They are friendly ships of a 1997 vertical-scrolling arcade shooter, small: about forty
+pixels wide and forty-six tall. {above} Each has its nose pointing straight UP. Seven
+columns, every column the same thing all the way down, four rows. The columns, from left to
+right: 1. a plump, plush 1960s rocket of coral red and gold with a cream stripe, a thick
+collar of cream-white fur round its nose and fur along its fins, a round blue bubble window,
+a gold aerial with a ball on top. 2. a squat, square, grimy industrial space tug of dark
+olive-green steel with yellow-and-dark hazard stripes across it and on its bumpers, a winch
+and a hook in the middle, two folded crane arms at the top, four engine blocks at the
+bottom. 3. a slim white royal courier rocket with a gold nose, a blue stripe, a round blue
+window and two slender wings; its whole right side is scorched brown and black with a torn
+wing, its left side is clean. 4. a battered round grey saucer-freighter of patched plates
+with rust-brown patches, a small round cockpit pod stuck out at its lower right, two short
+striped prongs at the bottom, a small dish aerial at the upper right, and a flat white pizza
+box with a red band strapped to the middle of its roof. 5, 6 and 7, much smaller and
+pointing DOWN: a small rust-brown three-wheeled scrap cart, seen from above, with one very
+long thin grey gun barrel pointing straight down from it, far longer than the cart.
+{leave}

@@ -1,0 +1,6 @@
+The first image is a layout in flat blocks on a magenta background: it shows where the
+subject stands and how large it and its parts are. The second image shows the pixel-art
+style to draw in and the size of square pixel block to use. Draw the subject of the layout
+as finished pixel art in that style, keeping every block of the layout in its place and at
+its size: nothing moved, nothing enlarged to fill the picture, the magenta left flat and
+untouched right up to the subject.

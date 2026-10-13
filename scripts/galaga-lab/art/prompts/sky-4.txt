@@ -1,0 +1,11 @@
+{skypair} {style} {clusters} {key}
+{world}
+{far}
+Sector four, the Dead Band, where no station plays. The upper subject, wide: a grey hulk, the
+dead wreck of a huge old freighter drifting: a long broken hull of slate-grey plates with
+holes torn in it, bare ribs showing at one end, a snapped mast, dark empty windows, not one
+light on it.
+The lower subject, wide: a field of radio dishes, five big dish aerials standing on a long
+strip of rock, every one of them tilted the same way and pointing to the upper right, on
+lattice legs; slate blue-grey with dark brown rock, not one light.
+{leave}

@@ -1,0 +1,8 @@
+The first image is a layout in flat blocks on a magenta background: two subjects, one above
+the other; the blocks show where each stands and how large it and its parts are. The second
+image shows the pixel-art style to draw in and the size of square pixel block to use. Draw
+the two subjects as finished pixel art in that style, keeping every block of the layout in
+its place and at its size: nothing moved, nothing enlarged to fill the picture, the two kept
+well apart with flat magenta between them and all round them, right up to their outlines.
+Each is one solid connected shape with a dark outline. No shots, no beams, no flames, no
+shadows, no ground.

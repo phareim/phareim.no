@@ -1,0 +1,5 @@
+They are bosses of a 1997 vertical-scrolling arcade shooter: each fills the top of the
+screen and looms over the player's small ship below, facing straight DOWN the picture, drawn
+flat and head-on the way such bosses are, exactly symmetrical from left to right unless said
+otherwise, with a silhouette that reads at a glance. Large, bold shapes; the detail is in
+rivets, plates and lights.

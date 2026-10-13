@@ -1,0 +1,20 @@
+{portraits} {style} {clusters}
+{world} {woman} {face}
+Three long-haul space truckers on their CB radios, one to a row, the same face in all three
+squares of the row.
+Top row, BIG MARGE, who tells a ghost story about every place she drives through: a big,
+broad, friendly woman of fifty-five with a round weathered face, curly grey-red hair under a
+teal trucker's cap, a red plaid flannel shirt and a brown quilted vest, a CB microphone in
+her fist near her chin. Left: calm, a knowing smile. Middle: spooky, telling the ghost
+story: eyes very wide, brows up, mouth a small o, her face lit from below. Right: laughing.
+Middle row, RUBBER DUCKIE, the convoy leader, who talks only in CB slang: a lean man of
+forty-five with a big brown moustache, long sideburns, yellow-tinted aviator glasses, a
+yellow trucker's cap with a small yellow duck badge on it, a denim jacket with a sheepskin
+collar. Left: calm, a slight grin under the moustache. Middle: shouting into a CB
+microphone held to his mouth, mouth wide open. Right: calm, touching the peak of his cap.
+Bottom row, JACK BARTON, who talks about himself to nobody in particular: a burly man of
+thirty-five with feathered dark-blond hair to his collar, a square jaw with stubble, a
+grey sleeveless undershirt with a faded print, a toothpick in the corner of his mouth, very
+pleased with himself. Left: calm, a smug lopsided grin, one eyebrow up. Middle: shouting,
+mouth wide open, eyes wide. Right: squinting, the toothpick up.
+{leave}

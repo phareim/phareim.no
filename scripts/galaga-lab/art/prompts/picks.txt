@@ -1,0 +1,25 @@
+{sheet} {style} {clusters} {key}
+{world}
+They are the power-ups that fall down the screen in a 1997 arcade shooter, to be caught:
+things from the 1980s, each drawn as a bold, simple icon of very few large pixels that reads
+at a glance, with a dark outline, lit from the upper left, filling its square block. There
+are fourteen, in three rows.
+Top row, left to right: 1. a vacuum tube: a small glass radio valve standing upright on a
+brown bakelite base with pins, an orange glowing filament inside. 2. a toy ray gun: a red
+and yellow tin space pistol with rings round the barrel, seen from the side. 3. a LaserDisc:
+a large flat silver disc with a small hole, a rainbow wedge of blue and yellow across its
+shine. 4. a boom box: a wide dark grey portable stereo with two round speakers, a cassette
+door between them and a handle on top. 5. a slice of pepperoni pizza, the point down.
+Middle row, left to right: 6. a soap-bubble wand: a blue plastic ring on a short stick with
+one pale blue bubble in the ring. 7. a CB radio handset: a chunky black microphone with a
+coiled cord. 8. a mirror ball: a silver disco ball of small square facets with a few bright
+white ones. 9. a VHS video cassette: a flat black box with two white reel windows and a
+white label. 10. a can of hairspray: a tall coral-red aerosol can with a white cap and a
+white puff at the nozzle.
+Bottom row, left to right: 11. a horseshoe magnet: red with two silver tips, the tips up.
+12. a coin: a single silver arcade quarter seen flat, with a ridged rim. 13. a vacuum valve
+for an instrument panel, larger than the first: a tall glass tube with a rounded top on a
+brass and bakelite socket, LIT: the filament and the whole inside glowing bright orange and
+yellow. 14. exactly the same valve in the same place on its socket, UNLIT: the same outline,
+the glass dark blue-grey and empty, a cold grey filament.
+{leave}

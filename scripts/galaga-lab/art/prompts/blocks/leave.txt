@@ -1,0 +1,8 @@
+Leave out: Smooth gradients, soft glows, bloom, blur, transparency (a fade is a stipple, light
+is a lighter ramp); mirror reflections; anything that looks rendered from 3D; anti-aliased edges
+and in-between colours; pixels of more than one size in a still picture; a neon grid for a
+floor; palm trees; chrome lettering; the striped sunset sun; a picture that is all magenta and
+teal; pure black where a street should be; lens flares; scan lines or a CRT filter over the
+game; text in a picture that is not a sign in the world.
+Also no border or frame, no watermark, no signature, no user-interface elements, no lettering,
+no numbers, no logo of a real company.

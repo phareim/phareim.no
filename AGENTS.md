@@ -19,6 +19,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 - `npm run test:starfox` — Star Fox: balance, story and director, arsenal, encounter scripts, the five bosses' fairness (2026-09-25)
 - `npm run test:wingman` — Star Fox wingman brain and the three-wingman squad (2026-09-25)
 - `npm run test:anotherworld` — Another Shore: physics, threats, a playtester that crosses all five chapters without dying, cuts, saves; plus the audio module against a fake Web Audio (rebuilt 2026-09-23)
+- `npm run test:galaga` — Rex & Nova: Space Voyagers I (theme id `galaga`): the engine, power-ups, encounters, bosses, the radio director and every line, three autopilot profiles through whole voyages, the layout rule, what the look remembers between ticks, the audio (2026-10-13)
 - `npm run test:outrun` — Nova & Rex' Drive to the Mountains (the theme `outrun`, rewritten from OutRun 2026-10-13): the engine (road and forks, tunnels, driving model, traffic, close-pass chain and crashes, clock and stage times, goal, autopilot), what the two of them say (`banter.ts`), and that `public/outrun` holds exactly the pictures the game lists
 - `npm run test:battery` — Night of the Dead Battery: the engine, each floor's puzzles, the story and finale, the audio, and a walkthrough from a new game to the credits (2026-09-26)
 - `npm run test:miniworld` — Mini World: the save and its actions, contests, crown and titles, the wallet and neighbourhood server rules (memory store and real D1 SQL), physics, every obby jump, the castle's throne hall, models, audio (2026-09-26, the hall 2026-09-29); the sign-in gate (2026-09-29): session check with a fake auth, account links, every gated route on real D1 SQL, mw-world's 401, the browser composable and both windows
@@ -75,9 +76,10 @@ themes/              — see the phareim-theme skill
   zelda/             — the one world: engine, world data (town + Neon Shrine), renderer (classic and isometric views, `views.ts`), audio, and the shell `Zelda.vue`
   radio/             — engine.ts + catalog.ts: the widget's six game stations (the generative radio is radio.phareim.no, a link out from the beach since 2026-09-28)
   battery/          — Night of the Dead Battery: engine/, content/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
+  galaga/           — Rex & Nova: Space Voyagers I (the id stays `galaga`): engine/, story/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
   miniworld/        — Mini World (Ulrikke's game): core/ (pure rules), scene/ (three.js), ui/ (panels), Game.vue as its own chunk
   figur/            — Lag Din Figur (Ulrikke's second): core/ (garment textures, save, Pip), render/ (the four game looks), ui/, Game.vue as its own chunk
-  anotherworld/ shore/ scandi/ galaga/ breakout/ rtype/ invaders/ starfox/ outrun/ tetris/ leaderboard/ hangar/ ships/ space/ desk/
+  anotherworld/ shore/ scandi/ breakout/ rtype/ invaders/ starfox/ outrun/ tetris/ leaderboard/ hangar/ ships/ space/ desk/
 ```
 
 There is no menu and no page route but `/`. The site's own server code is
@@ -90,7 +92,7 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 
 ## Theme System (short version — the skill has the rest)
 
-- Eighteen themes in `themes/index.ts` (verified 2026-09-28): the portal (`home: true`), thirteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, Drive to the Mountains (`outrun`), Russian Block Game, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
+- Eighteen themes in `themes/index.ts` (verified 2026-09-28): the portal (`home: true`), thirteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Rex & Nova: Space Voyagers I (id `galaga`), Breakout, R-Type, Space Invaders, Star Fox, Drive to the Mountains (`outrun`), Russian Block Game, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
 - **Nothing scrolls**: `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, and every landing is locked to the viewport. Full-screen heights use `var(--app-height, 100dvh)` (defined in `app.vue`), never bare `100dvh`: in the iOS home-screen app 100dvh comes up a status bar short and leaves a white strip at the bottom.
 - **Bottom band** (2026-09-24): `--app-safe-bottom` (defined in `app.vue`) is the strip along the bottom edge where nothing interactive or meaning-bearing may sit: buttons, text, hints, the player's ship or paddle. Backdrops may run through it. In a browser tab it equals `env(safe-area-inset-bottom)`; installed as a web app (`display-mode: standalone/fullscreen`) it is `max(48px, inset + 30px)`, clear of the home indicator and system swipes. Anchor bottom UI as `calc(<gap> + var(--app-safe-bottom, 0px))`, never on the bare inset; canvas games take it as a bottom inset.
 - The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal, `zelda` → portal, `tetris` → russian), an unknown id shows the portal. No cookie, no random pick.
@@ -104,7 +106,7 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 ## Key Patterns
 
 - **What `/` costs** (measured 2026-09-30, 4× CPU, 1.6 Mbps, 150 ms RTT, cold): 296 KB over the wire in 5 requests — the document plus 4 files. Four rules keep it there, each of which was broken and is easy to break again:
-  - **A landing imports no game.** `themes/index.ts` imports every `Landing.vue` statically so a cabinet has no waiting, but a `Landing.vue` must reach its game through `defineAsyncComponent(() => import(...))`. Battery, Mini World, Lag Din Figur and Star Fox's views do. Importing `Galaga.vue` in `themes/galaga/Landing.vue` puts the whole game in the entry, which `/` pays for on every visit. The title screen still server-renders, so this costs the first paint nothing.
+  - **A landing imports no game.** `themes/index.ts` imports every `Landing.vue` statically so a cabinet has no waiting, but a `Landing.vue` must reach its game through `defineAsyncComponent(() => import(...))`. Battery, Mini World, Lag Din Figur, Space Voyagers and Star Fox's views do. Importing `Game.vue` in `themes/galaga/Landing.vue` puts the whole game in the entry, which `/` pays for on every visit. The title screen still server-renders, so this costs the first paint nothing.
   - **No prefetch hints.** `server/plugins/no-prefetch.ts` strips the `<link rel=prefetch>` tags Vite emits (21 of them, 465 KB) from the rendered head. It rewrites the one-element `html.head` array as a string; filtering that array instead removes the entire head.
   - **Styles are a file, not inline.** `features.inlineStyles: false` in `nuxt.config.ts`. All 19 theme stylesheets are global and total 82 KB; the HTML here is `cf-cache-status DYNAMIC` (the Norway gate and the sign-in cookie), so anything inlined is re-sent every visit and can never be cached.
   - **No dead assets in `public/`.** They are shipped, un-hashed and un-referenced.
@@ -149,18 +151,19 @@ behave exactly like losing.
 
 ## Hall of Fame API (shared by every score game)
 
-Galaga, Breakout, R-Type, Space Invaders, Star Fox, Drive to the Mountains (`outrun`) and Russian Block Game all
+Space Voyagers (id `galaga`), Breakout, R-Type, Space Invaders, Star Fox, Drive to the Mountains (`outrun`) and Russian Block Game all
 submit scores to the same D1-backed leaderboard: `server/api/leaderboard.get`,
 `player.post`, `score.post`, `avatar.post`, store in `server/utils/store.ts`.
 A run calls `submitScore('<id>', score)` on game over; a score of 0 is never
 sent, and API failures are silent — the board is a bonus, not a blocker.
 Full API shape, avatar painting, and player/name rules: `docs/games/hall-of-fame.md`.
 
-## Global radio (shared by Galaga and OutRun)
+## Global radio (shared by Space Voyagers and OutRun)
 
 `RadioWidget.vue` in `app.vue` is a persistent top-right music player
 (`♪ STASJON n/6` + mute) backed by the singleton engine `themes/radio/engine.ts`
-and `themes/radio/catalog.ts`. A game with its own soundtrack (Galaga, OutRun)
+and `themes/radio/catalog.ts`. Space Voyagers has no music of its own: the radio is its
+soundtrack (its three tracks are the first three stations) and follows the run. A game with its own soundtrack (OutRun)
 suspends the radio while a run is active and resumes it on stop; every other
 game's one-shots and loops play over the radio untouched. Full wiring and the
 contract with each game's `audio.ts`: `docs/games/global-radio.md`. A theme
@@ -185,7 +188,7 @@ holds this radio silent.
 | Neon Shrine (the portal's world) | `docs/games/neon-shrine.md` | `themes/zelda/` |
 | The Wildwood (Neon Shrine's second act) | `docs/games/wildwood.md` | `themes/zelda/world/wildwood.ts`, `lab1.ts`, `lab2.ts` |
 | Hall of Fame | `docs/games/hall-of-fame.md` | `themes/leaderboard/`, `server/api/` |
-| Galaga | `docs/games/galaga.md` | `themes/galaga/` |
+| Rex & Nova: Space Voyagers I (theme id `galaga`) | `docs/games/galaga.md` | `themes/galaga/` (DESIGN.md; engine/, story/, render/), `scripts/galaga-lab/`, `public/galaga/` |
 | Global radio | `docs/games/global-radio.md` | `themes/radio/engine.ts`, `catalog.ts`, `components/RadioWidget.vue` |
 | R-Type | `docs/games/r-type.md` | `themes/rtype/` |
 | Hangar | `docs/games/hangar.md` | `themes/ships/`, `themes/hangar/` |

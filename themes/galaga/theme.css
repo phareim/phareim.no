@@ -1,52 +1,225 @@
-/* Galaga: shared Neon Dreams cyan / pink / gold on violet-black. */
+/* Rex & Nova: Space Voyagers I (theme id `galaga`). A night-blue sky, cream
+   lettering, the gold and red of Slop's Pizza. Flat colours and hard edges:
+   no glow, no gradient, no blur (DESIGN.md, "The picture"). */
 
 :root {
-  /* Base colors */
-  --galaga-bg: #0b0616;
-  --galaga-bg-alt: #120826;
-
-  /* Text colors */
-  --galaga-text: #2ff3ff;
-  --galaga-text-dim: #b9a8d9;
-  --galaga-text-bright: #f2e9ff;
-
-  /* Accents */
-  --galaga-border: #432351;
-  --galaga-glow: rgba(47, 243, 255, 0.2);
-  --galaga-accent: #ff2fa0; /* Error/Alert color */
-  --galaga-danger: #ff2fa0;
-  --galaga-gold: #ffd23f; /* Neon Dreams reward colour — shows on powerups */
-
-  /* Card recipe (Neon Dreams structure, neon hues) */
-  --galaga-card-bg: rgba(11, 6, 22, 0.74);
-  --galaga-card-border: rgba(47, 243, 255, 0.35);
-  --galaga-card-shadow: rgba(47, 243, 255, 0.15);
-
-  /* Typography */
-  --font-mono: var(--font-machine);
+  --galaga-bg: #141a33;
+  --galaga-bg-alt: #1c1420;
+  --galaga-text: #fff6e0;
+  --galaga-text-dim: #a89cb4;
+  --galaga-gold: #ffd23f;
+  --galaga-red: #b0421e;
+  --galaga-ink: #120d18;
+  --galaga-wood: #8a4a1c;
+  --galaga-wood-lo: #5c2e14;
 }
 
 .galaga-page {
   min-height: 100vh;
   background-color: var(--galaga-bg);
   color: var(--galaga-text);
-  font-family: var(--font-mono);
+  font-family: var(--font-machine);
   overflow-x: hidden;
-
 
   /* The contract. All ten are read somewhere; add more only when a
      second theme needs the same token. */
   --theme-bg: var(--galaga-bg);
   --theme-text: var(--galaga-text);
   --theme-text-muted: var(--galaga-text-dim);
-  --theme-text-subtle: #7a6a9a;
+  --theme-text-subtle: #6c6480;
 
-  --theme-card-bg: var(--galaga-card-bg);
-  --theme-card-border: var(--galaga-card-border);
-  --theme-card-shadow: var(--galaga-card-shadow);
+  --theme-card-bg: var(--galaga-bg-alt);
+  --theme-card-border: var(--galaga-wood);
+  --theme-card-shadow: var(--galaga-ink);
   --theme-card-radius: 0px;
 
-  --theme-accent: var(--galaga-text);
+  --theme-accent: var(--galaga-gold);
 
-  --theme-font-body: var(--font-mono);
+  --theme-font-body: var(--font-machine);
 }
+
+/* ── The page (Landing.vue) ────────────────────────────────────────────── */
+
+.voyagers {
+  /* CSS pixels per pixel of the title card (--vk) and of a portrait (--vp).
+     Landing.vue sets both to a whole number of device pixels once it knows
+     the screen; these are the server's guesses. */
+  --vk: 1;
+  --vp: 1;
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: var(--app-height, 100dvh);
+  overflow: hidden;
+  touch-action: none;
+  background: var(--galaga-bg);
+  color: var(--galaga-text);
+  font-family: var(--font-pixel);
+  text-transform: uppercase;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  user-select: none;
+  -webkit-user-select: none;
+}
+@media (min-width: 360px) and (min-height: 640px) { .voyagers { --vk: 1.5; } }
+@media (min-width: 480px) and (min-height: 840px) { .voyagers { --vk: 2; } }
+@media (min-width: 720px) and (min-height: 1160px) { .voyagers { --vk: 3; } }
+
+.voyagers-screen {
+  position: absolute;
+  inset: 0;
+  /* Every button and hint stays above the site's bottom band. */
+  bottom: var(--app-safe-bottom, 0px);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.voyagers-card {
+  position: relative;
+  flex: none;
+  width: calc(240px * var(--vk));
+  height: calc(320px * var(--vk));
+  background: #13204e url('/galaga/card-title.png') 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+
+.voyagers-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(22px * var(--vk));
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(8px * var(--vk));
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+}
+/* One font pixel is three card pixels for the name and two for the line under it. */
+.voyagers-name__top {
+  font-size: calc(24px * var(--vk));
+  color: var(--galaga-gold);
+  text-shadow: calc(3px * var(--vk)) calc(3px * var(--vk)) 0 var(--galaga-red);
+}
+.voyagers-name__sub {
+  font-size: calc(16px * var(--vk));
+  color: var(--galaga-text);
+  text-shadow: calc(2px * var(--vk)) calc(2px * var(--vk)) 0 var(--galaga-ink);
+}
+
+.voyagers-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.voyagers-pilots {
+  display: flex;
+  gap: 16px;
+}
+.voyagers-pilot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 5px;
+  border: 0;
+  border-radius: 0;
+  background: var(--galaga-wood-lo);
+  box-shadow: 0 0 0 2px var(--galaga-ink);
+  color: var(--galaga-text-dim);
+  font: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.voyagers-pilot--on {
+  background: var(--galaga-wood);
+  box-shadow: 0 0 0 2px var(--galaga-gold);
+  color: var(--galaga-gold);
+}
+.voyagers-pilot:focus-visible {
+  outline: 2px solid var(--galaga-text);
+  outline-offset: 2px;
+}
+.voyagers-face {
+  display: block;
+  width: calc(64px * var(--vp));
+  height: calc(64px * var(--vp));
+  background: var(--galaga-ink) 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+.voyagers-pilot__name { font-size: 16px; line-height: 1; }
+.voyagers-pilot__ship { font-size: 8px; line-height: 1; }
+.voyagers-pilots--small .voyagers-pilot { padding: 6px 10px; }
+
+.voyagers-line,
+.voyagers-hint {
+  margin: 0;
+  font-size: 8px;
+  line-height: 10px;
+  text-align: center;
+  text-shadow: 1px 1px 0 var(--galaga-ink);
+}
+.voyagers-hint {
+  font-size: 16px;
+  line-height: 18px;
+  color: var(--galaga-gold);
+  text-shadow: 2px 2px 0 var(--galaga-ink);
+}
+.voyagers-dim { color: var(--galaga-text-dim); }
+.voyagers-gold { color: var(--galaga-gold); }
+.voyagers-copy { color: var(--galaga-text); }
+@media (min-width: 700px) and (min-height: 700px) {
+  .voyagers-line { font-size: 16px; line-height: 20px; text-shadow: 2px 2px 0 var(--galaga-ink); }
+}
+
+.voyagers-blink { animation: voyagers-blink 1.1s steps(1) infinite; }
+@keyframes voyagers-blink { 50% { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .voyagers-blink { animation: none; } }
+
+/* The card on the left and the rest beside it, when that lets the card be larger
+   (Landing.vue decides; the media query is the server's guess for a phone on its side). */
+.voyagers--side .voyagers-title { flex-direction: row; gap: 32px; }
+@media (orientation: landscape) and (max-height: 559px) {
+  .voyagers:not(.voyagers--under) .voyagers-title { flex-direction: row; gap: 24px; }
+}
+
+/* Game over: a panel over the field where the run stopped. */
+.voyagers-over { cursor: pointer; }
+.voyagers-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 24px);
+  padding: 14px 16px;
+  background: var(--galaga-bg-alt);
+  box-shadow: 0 0 0 2px var(--galaga-ink), 0 0 0 4px var(--galaga-wood), 0 0 0 6px var(--galaga-ink);
+}
+.voyagers-over__title {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 400;
+  color: var(--galaga-gold);
+  text-shadow: 4px 4px 0 var(--galaga-red);
+}
+.voyagers-panel .voyagers-line { font-size: 16px; line-height: 18px; text-shadow: 2px 2px 0 var(--galaga-ink); }
+.voyagers-ending {
+  width: calc(240px * var(--vp));
+  height: calc(200px * var(--vp));
+  max-width: 100%;
+  background: var(--galaga-ink) url('/galaga/card-ending.png') 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+@media (max-height: 620px) { .voyagers-ending { display: none; } }

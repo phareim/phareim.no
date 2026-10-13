@@ -1,0 +1,21 @@
+{dense} {style} {clusters} {key}
+{world}
+They are one gang of enemies in a 1997 vertical-scrolling arcade shooter: THE EMPIRE OF
+NOISE, the stage crew of an evil sound system. Slate blue-grey and charcoal with pale grey
+edges so that they show against a dark sky, off-white armour, signal red, green and yellow
+meter lights; no purple. {above} Each has its nose or gun pointing straight DOWN. Each is
+twenty-four pixels across, two are thirty-two, one is fourteen. In order, repeating: 1. a
+bow-tie fighter: a big bow tie, two flat triangular slate-blue wings with pale edges joined
+at a round knot with a red window. 2. a static trooper: an egg-shaped off-white armoured
+helmet pod with red stripes whose wide visor is a screen of black-and-white static. 3. the
+large one: a flying mixing desk, a wide dark slab with two round yellow meters, rows of
+knobs and a row of pale sliding faders, an off-white armour plate at each end. 4. a dart: a
+long chrome jack plug pointing straight down, an off-white handle with a red ring at the
+top. 5. a small dark pod with an orange lamp and one very long thin slotted microphone
+barrel pointing straight down. 6. two halves: a pair of big headphones, two round dark ear
+cups with red rings side by side, joined by a thin head band over the top. 7. the tiny one:
+a round dark knob with a white pointer line. 8. the other large one: a dark pod holding
+below it one big round off-white dish with a pickup on thin struts. 9. a square grey fader
+cap on two short rails with two long dark cable arms curving down, each ending in a red
+crocodile clip.
+{leave}
