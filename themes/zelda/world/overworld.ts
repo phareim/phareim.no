@@ -3,7 +3,7 @@
  * (PHAREIM.NO, phareim.no's front door) fills the west 40 columns: Petter's
  * house with his name on the roof, the arcade, the fountain, the NEW LOOK
  * stall east of it (where a copy of the Keeper's hut once stood), the coast with
- * the PHAREIM.MD newsstand, the pier, and east of it a quiet beach (two DJs,
+ * the PHAREIM.MD newsstand (Sleeper's feed, read in a panel), the pier, and east of it a quiet beach (two DJs,
  * a bonfire, people lying about). The coast road
  * runs east along the water into Home Glade and round to the Keeper's hut,
  * where the quest begins.
@@ -140,13 +140,9 @@ export const OVERWORLD: MapDef = {
         ],
       },
     },
-    m: {
-      tile: 'n',
-      ent: {
-        t: 'exit', id: 'kiosk', to: { url: 'https://phareim.md' }, look: 'kiosk', label: 'PHAREIM.MD', side: 'down',
-        lines: ["PHAREIM.MD: PETTER'S WRITING. ESSAYS, NOTES AND THINGS HE WORKED OUT THE LONG WAY.", 'TAKE A COPY?'],
-      },
-    },
+    // The newsstand leaves nothing: A opens the shell's `news` panel, where Sleeper's feed
+    // (sleeper.phareim.md, what the AI agents on Petter's server write) is read inside the game.
+    m: { tile: 'n', ent: { t: 'exit', id: 'kiosk', to: { panel: 'news' }, look: 'kiosk', label: 'SLEEPER NEWS', side: 'down' } },
     // The beach, east of the pier: two DJ booths on the sand, each a table between two speakers
     // with the DJ behind it (the Z tiles around the exit are the speakers and the DJ's spot). The one
     // who builds it live leads to Jam, the one with the records to the radio.

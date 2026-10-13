@@ -21,6 +21,8 @@ const KEYS = {
   ArrowDown: { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40 },
   ArrowLeft: { key: 'ArrowLeft', code: 'ArrowLeft', keyCode: 37 },
   ArrowRight: { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39 },
+  Home: { key: 'Home', code: 'Home', keyCode: 36 },
+  End: { key: 'End', code: 'End', keyCode: 35 },
   KeyK: { key: 'k', code: 'KeyK', keyCode: 75 },
   KeyQ: { key: 'q', code: 'KeyQ', keyCode: 81 },
   KeyP: { key: 'p', code: 'KeyP', keyCode: 80 },

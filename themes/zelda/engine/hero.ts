@@ -316,7 +316,7 @@ function interact(c: Ctx): boolean {
       else if (lines) openDialog(c, lines, null, { startOver: true })
       else c.ev.push({ type: 'startOver' })
     } else if ('panel' in exit.to) {
-      // The login console, the NEW LOOK stall: the shell opens its panel over the world, the hero stays put.
+      // The login console, the NEW LOOK stall, the newsstand: the shell opens its panel over the world, the hero stays put.
       c.ev.push({ type: 'panel', id: exit.id, panel: exit.to.panel })
     } else if (lines) openDialog(c, lines, null, { exit: { id: exit.id, to: exit.to } })
     else beginExit(c, exit)
