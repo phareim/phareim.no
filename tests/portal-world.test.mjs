@@ -45,7 +45,6 @@ const EXPECTED = {
   leaderboard: { map: 'arcade', to: { theme: 'leaderboard' }, look: 'board' },
   hangar: { map: 'arcade', to: { theme: 'hangar' }, look: 'door' },
   kiosk: { map: 'overworld', to: { url: 'https://phareim.md' }, look: 'kiosk' },
-  games: { map: 'overworld', to: { url: 'https://games.phareim.no' }, look: 'sign' },
   radio: { map: 'overworld', to: { url: 'https://radio.phareim.no/?from=phareim' }, look: 'booth' },
   jam: { map: 'overworld', to: { url: 'https://jam.phareim.no' }, look: 'booth' },
   linkedin: { map: 'home', to: { url: 'https://www.linkedin.com/in/phareim' }, look: 'terminal' },

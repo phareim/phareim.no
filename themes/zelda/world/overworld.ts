@@ -53,7 +53,7 @@ export const OVERWORLD: MapDef = {
     'TT......T.....HHH..........T.......T..TTTTTT:..,..:TTTTTT*......*TTTTTTTT..j...,,......*...T#T;;;...;TT#',
     'TT..T:......T.HHH::,,,:.:......T......TTTTT....,.......................,,,,,,,,,,,..!......T#T;..q..;;T#',
     'TT.*..;;.:*...HHH..,,,...*...*..;;:.*.TTTT.....,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,..;.....;TT#',
-    'TTT.)........tnmnt.,,,t:...:s.t......TTTTT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
+    'TTT.)........tnmnt.,,,t:...:..t......TTTTT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
     '<,**,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,HHHHHH.,..........;;;......TTT..*....,,..j...:TT#TTTTTTTTTT#',
     '<,**,,,,,,,,,,,,,,,,,,J,,,,,,,,,,,,,,,,,,,,,HHHHHH.,...t..e...;;;......TTTTTTTTTT,,TTTTTTTTT############',
     'TT.T...............t,t----------------TTTT,,HHHhHH.,.......:...........TTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTTT',
@@ -181,13 +181,6 @@ export const OVERWORLD: MapDef = {
     'Å': { tile: '-', ent: { t: 'npc', id: 'beach.hippie2', look: 'hippie', dir: 'left', talk: [{ lines: ['HIPPIE: THE ONE WITH THE RECORDS HAS PLAYED THE RADIO SINCE BEFORE THE SUN GOT STUCK. NOBODY HAS ASKED THEM TO STOP.'] }] } },
     'ü': { tile: '-', ent: { t: 'npc', id: 'beach.twirler', look: 'twirler', talk: [{ lines: ['DANCER: YOU DON\'T DANCE TO THIS. YOU LET IT DANCE YOU.'] }] } },
     'é': { tile: '-', ent: { t: 'npc', id: 'beach.sleeper', look: 'sleeper', talk: [{ lines: ['ZZZ…', '(SOMEBODY HAS BUILT A SANDCASTLE ON THEIR STOMACH.)'] }] } },
-    s: {
-      tile: 'S',
-      ent: {
-        t: 'exit', id: 'games', to: { url: 'https://games.phareim.no' }, look: 'sign', label: 'GAMES.PHAREIM.NO', side: 'down',
-        lines: ['GAMES.PHAREIM.NO: MORE GAMES, ON A SITE OF THEIR OWN.', 'FOLLOW THE SIGN?'],
-      },
-    },
     '8': {
       ent: {
         t: 'npc', id: 'townkid', look: 'kid', wander: true,
@@ -218,7 +211,7 @@ export const OVERWORLD: MapDef = {
     // The west road: into the Wildwood, through a thicket only a blade gets through.
     '<': { tile: ',', ent: { t: 'warp', to: 'wildwood', entry: 'town' } },
     ')': { tile: 'S', ent: { t: 'sign', lines: ['← THE WILDWOOD', 'THE THICKET HAS GROWN OVER THE ROAD AGAIN. YOU WOULD NEED A BLADE.'] } },
-    J: { tile: 'S', ent: { t: 'sign', lines: ['THE NEON COAST.   ← PHAREIM.MD   ↓ THE BEACH   GAMES.PHAREIM.NO →', "FOLLOW THE ROAD EAST TO THE KEEPER'S HUT."] } },
+    J: { tile: 'S', ent: { t: 'sign', lines: ['THE NEON COAST.   ← PHAREIM.MD   ↓ THE BEACH', "FOLLOW THE ROAD EAST TO THE KEEPER'S HUT."] } },
     u: { tile: 'S', ent: { t: 'sign', lines: ['THE FOUNTAIN. MAKE A WISH.', 'NO COINS, PLEASE. THOSE ARE FOR THE ARCADE.'] } },
     v: { tile: 'S', ent: { t: 'sign', lines: ["THE KEEPER'S HUT: DOWN TO THE COAST, THEN EAST ALONG THE ROAD.", 'THE SUN WON\'T SET. THE KEEPER IS LOOKING FOR SOMEONE TO GO GET IT BACK.'] } },
     // The NEW LOOK stall, where the town's copy of the Keeper's hut stood: A at the counter opens the mirror
