@@ -6,8 +6,8 @@
  * canvas per sprite once and places it with its bottom-centre pixel at the
  * entity's feet; 'side' sprites face right and are mirrored for left.
  *
- * Hand-drawn maps are written out below; a few families (hero frames,
- * directional variants, the boss's TV static, explosion rings) are composed
+ * Hand-drawn maps are written out below; a few families (directional
+ * variants, the boss's TV static, explosion rings) are composed
  * by small deterministic helpers so the variants stay consistent. All
  * designs are original.
  */
@@ -15,6 +15,7 @@
 import { PAL as BASE_PAL } from '../../base/pixel/palette'
 import { WILD_RAW } from './spritesWild'
 import { BEACH_RAW } from './spritesBeach'
+import { DRAWN_SHAPE, heroFrames } from './heroFrames'
 
 export interface SpriteDef { rows: string[] }
 
@@ -52,10 +53,6 @@ function rowsAt(src: Rows, y: number, rows: Rows): Rows {
   return out
 }
 
-function mirror(src: Rows): Rows {
-  return src.map(r => r.split('').reverse().join(''))
-}
-
 function swapChars(src: Rows, map: Record<string, string>): Rows {
   return src.map(r => r.split('').map(ch => map[ch] ?? ch).join(''))
 }
@@ -86,26 +83,6 @@ function blank(w: number, h: number): string[][] {
 
 function join(grid: string[][]): Rows {
   return grid.map(r => r.join(''))
-}
-
-/** Nearest-neighbour shrink of a sprite into a w×h frame, bottom-centred at `by`. */
-function shrink(src: Rows, scale: number, w: number, h: number, cy: number): Rows {
-  const sw = src[0]!.length
-  const sh = src.length
-  const dw = Math.max(1, Math.round(sw * scale))
-  const dh = Math.max(1, Math.round(sh * scale))
-  const g = blank(w, h)
-  const ox = Math.floor((w - dw) / 2)
-  const oy = Math.round(cy - dh / 2)
-  for (let y = 0; y < dh; y++) {
-    for (let x = 0; x < dw; x++) {
-      const ch = src[Math.floor((y + 0.5) / scale)]?.[Math.floor((x + 0.5) / scale)] ?? '.'
-      const gx = ox + x
-      const gy = oy + y
-      if (ch !== '.' && gx >= 0 && gx < w && gy >= 0 && gy < h) g[gy]![gx] = ch
-    }
-  }
-  return join(g)
 }
 
 /** Tiny deterministic hash for procedural texture (static, smoke). */
@@ -150,236 +127,6 @@ function outline(src: Rows, ch = 'k'): Rows {
   }
   return join(g)
 }
-
-// ---------------------------------------------------------------------------
-// Hero — composed from head / torso / legs bands so every frame shares
-// the same face and outfit.
-// ---------------------------------------------------------------------------
-
-const HEAD_DOWN: Rows = [
-  '................',
-  '.....kkkkkk.....',
-  '....kHHhhhhk....',
-  '...kHhhhhhhhk...',
-  '...kpppppppppk..',
-  '...khsssssshkpk.',
-  '...kssksskssk.pk',
-  '....ksSssSsk..k.',
-]
-const TORSO_DOWN: Rows = [
-  '...kkcCwwCckk...',
-  '..kCccCwwCccCk..',
-  '..kCccCwwCccCk..',
-  '..kskCcyycCksk..',
-]
-const LEGS_DOWN: Rows = [
-  '...kBBBBBBBBk...',
-  '...kBBBkkBBBk...',
-  '...kEEk..kEEk...',
-  '...kkkk..kkkk...',
-]
-const LEGS_DOWN_W1: Rows = [
-  '...kBBBBBBBBk...',
-  '...kBBBkkEEEk...',
-  '...kEEEk.kkkk...',
-  '...kkkkk........',
-]
-
-const heroDown0 = [...HEAD_DOWN, ...TORSO_DOWN, ...LEGS_DOWN]
-// Walk: one foot lifted, the opposite hand swings forward (up a row).
-const heroDown1 = edit([...HEAD_DOWN, ...TORSO_DOWN, ...LEGS_DOWN_W1],
-  [12, 10, 's'], [12, 11, 'k'], [13, 11, '.'], [13, 10, 'k'])
-const heroDown2 = edit([...HEAD_DOWN, ...TORSO_DOWN, ...mirror(LEGS_DOWN_W1)],
-  [3, 10, 's'], [3, 11, 'k'], [2, 11, '.'], [2, 10, 'k'])
-
-const HEAD_UP: Rows = [
-  '................',
-  '.....kkkkkk.....',
-  '....khHHhhhk....',
-  '...khHhhhhhhk...',
-  '...kppppppppk...',
-  '...khhhppHhhk...',
-  '...khhhphphhk...',
-  '....khhphphk....',
-]
-const TORSO_UP: Rows = [
-  '...kkccccccCk...',
-  '..kCccccccccCk..',
-  '..kCccccccCCCk..',
-  '..kskCCCCCCksk..',
-]
-const heroUp0 = [...HEAD_UP, ...TORSO_UP, ...LEGS_DOWN]
-const heroUp1 = edit([...HEAD_UP, ...TORSO_UP, ...LEGS_DOWN_W1],
-  [3, 10, 's'], [3, 11, 'k'], [2, 11, '.'], [2, 10, 'k'])
-const heroUp2 = edit([...HEAD_UP, ...TORSO_UP, ...mirror(LEGS_DOWN_W1)],
-  [12, 10, 's'], [12, 11, 'k'], [13, 11, '.'], [13, 10, 'k'])
-
-const HEAD_SIDE: Rows = [
-  '................',
-  '.....kkkkk......',
-  '....kHHhhhk.....',
-  '...kHhhhhhhk....',
-  '..kpppppppppk...',
-  '.kpkhhhsssssk...',
-  '.kp.khhssskssk..',
-  '..k..khsSssSk...',
-]
-const TORSO_SIDE: Rows = [
-  '.....kkCcckk....',
-  '....kCcccCcck...',
-  '....kCccCCck....',
-  '....kCcCsk......',
-]
-const LEGS_SIDE: Rows = [
-  '.....kBBBBk.....',
-  '.....kBBBBk.....',
-  '.....kEEEEEk....',
-  '.....kkkkkkk....',
-]
-const LEGS_SIDE_W1: Rows = [
-  '.....kBBBBk.....',
-  '....kBBkkBBk....',
-  '...kEEEk.kEEEk..',
-  '...kkkkk.kkkkk..',
-]
-const LEGS_SIDE_W2: Rows = [
-  '.....kBBBBk.....',
-  '.....kBBBk......',
-  '....kEEEEEk.....',
-  '....kkkkkkk.....',
-]
-const heroSide0 = [...HEAD_SIDE, ...TORSO_SIDE, ...LEGS_SIDE]
-// Arm swings back on one step, forward on the other.
-const heroSide1 = rowsAt([...HEAD_SIDE, ...TORSO_SIDE, ...LEGS_SIDE_W1], 10, [
-  '...kkCcCCck.....',
-  '...ksCcCck......',
-])
-const heroSide2 = rowsAt([...HEAD_SIDE, ...TORSO_SIDE, ...LEGS_SIDE_W2], 10, [
-  '....kCccCCCk....',
-  '....kCcCkcsk....',
-])
-
-// Attack poses: the arm reaches toward the blade.
-const heroDownAtk = rowsAt(heroDown0, 10, [
-  '..kCcCcwwcCcCk..',
-  '..kCCcsssscCCk..',
-  '...kBBkssskBk...',
-])
-const heroUpAtk = edit(rowsAt(heroUp0, 8, [
-  '...kkCccccCkkk..',
-  '..kCccccccccCsk.',
-  '..kCcCccccCcCk..',
-  '..kskccccccck...',
-]), [12, 5, 'k'], [13, 5, 'k'], [12, 6, 'C'], [13, 6, 's'], [14, 6, 'k'], [12, 7, 'C'], [13, 7, 'C'], [14, 7, 'k'])
-const heroSideAtk = rowsAt(heroSide0, 8, [
-  '.....kkCcckk....',
-  '....kCcccCCCCsk.',
-  '....kCccCkkkkk..',
-  '....kCcCck......',
-])
-
-// Carrying: both arms up beside the head, hands above it.
-function carryArms(src: Rows, wideBody: boolean): Rows {
-  let r = edit(src,
-    [2, 0, 'k'], [3, 0, 'k'], [12, 0, 'k'], [13, 0, 'k'],
-    [2, 1, 's'], [3, 1, 'k'], [12, 1, 'k'], [13, 1, 's'],
-    [1, 1, 'k'], [14, 1, 'k'],
-    [1, 2, 'k'], [2, 2, 'C'], [13, 2, 'C'], [14, 2, 'k'],
-    [1, 3, 'k'], [2, 3, 'c'], [13, 3, 'c'], [14, 3, 'k'],
-    [1, 4, 'k'], [2, 4, 'c'], [13, 4, 'c'], [14, 4, 'k'],
-    [1, 5, 'k'], [2, 5, 'C'], [13, 5, 'C'], [14, 5, 'k'],
-    [2, 6, 'k'], [13, 6, 'k'],
-  )
-  if (wideBody) {
-    r = edit(r, [2, 9, '.'], [2, 10, '.'], [2, 11, '.'], [13, 9, '.'], [13, 10, '.'], [13, 11, '.'],
-      [3, 9, 'k'], [3, 10, 'k'], [3, 11, 'k'], [12, 9, 'k'], [12, 10, 'k'], [12, 11, 'k'])
-  }
-  return r
-}
-const heroDownCarry0 = carryArms(heroDown0, true)
-const heroDownCarry1 = carryArms([...HEAD_DOWN, ...TORSO_DOWN, ...LEGS_DOWN_W1], true)
-const heroUpCarry0 = carryArms(heroUp0, true)
-const heroUpCarry1 = carryArms([...HEAD_UP, ...TORSO_UP, ...mirror(LEGS_DOWN_W1)], true)
-const SIDE_CARRY_TORSO: Rows = [
-  '.....kkCcckk....',
-  '....kCcccCck....',
-  '....kCcccCk.....',
-  '....kCcCCk......',
-]
-const sideCarryHead = edit(HEAD_SIDE, [9, 0, 'k'], [10, 0, 'k'], [9, 1, 's'], [10, 1, 's'], [11, 1, 'k'],
-  [11, 2, 'C'], [12, 2, 'k'], [12, 3, 'k'])
-const heroSideCarry0 = [...sideCarryHead, ...SIDE_CARRY_TORSO, ...LEGS_SIDE]
-const heroSideCarry1 = [...sideCarryHead, ...SIDE_CARRY_TORSO, ...LEGS_SIDE_W1]
-
-// Pushing: body lowered a pixel, hands flat against the block.
-const heroDownPush = rowsAt(shiftDown(heroDown0, 1), 11, [
-  '..kCCcsssscCCk..',
-  '..kkBsskssBkk...',
-  '...kBBBkkBBBk...',
-  '..kEEEk..kEEEk..',
-  '..kkkkk..kkkkk..',
-])
-const heroUpPush = rowsAt(shiftDown(heroUp0, 1), 8, [
-  '..ks.kkCcccCkk..',
-])
-const heroUpPushFixed = edit(heroUpPush, [2, 8, 'k'], [3, 8, 's'], [12, 8, 's'], [13, 8, 'k'])
-const heroSidePush = rowsAt(edit(shiftDown(heroSide0, 0), [13, 6, '.']), 8, [
-  '.....kkCcckk....',
-  '....kCcccCCCsk..',
-  '....kCccCCCCsk..',
-  '....kCcCckkkk...',
-  '....kBBBBk......',
-  '...kBBBBk.......',
-  '..kEEEkBBk......',
-  '..kkkkkEEEk.....',
-])
-
-const heroGet = [
-  '..ks........sk..',
-  '..kCk.kkkk.kCk..',
-  '..kCkkHhhhkkCk..',
-  '..kCkHhhhhhkCk..',
-  '..kckppppppkck..',
-  '..kckhsssshkck..',
-  '..kCkskssksCk...',
-  '...kkssMMssk....',
-  '...kkCcwwcCk....',
-  '...kCcCwwCcCk...',
-  '...kCcCwwCcCk...',
-  '...kkccyycckk...',
-  '...kBBBBBBBBk...',
-  '...kBBBkkBBBk...',
-  '...kEEk..kEEk...',
-  '...kkkk..kkkk...',
-]
-
-const heroHurt = rowsAt(edit(heroDown0, [6, 6, 'S'], [9, 6, 'S'], [5, 6, 'k'], [10, 6, 'k'],
-  [7, 7, 'k'], [8, 7, 'k']), 8, [
-  '.k.kkCcwwcCkk.k.',
-  '.skCccCwwCccCks.',
-  '..kkcCcwwcCckk..',
-  '...kkccyycckk...',
-])
-
-const heroDead = (() => {
-  // Lying on the ground: the stand pose turned on its side, pushed to the floor.
-  const r = rotCW(heroDown0)
-  // rotCW puts the head on the right; sit the body on the bottom row.
-  const g = blank(16, 16)
-  let bottom = -1
-  r.forEach((row, y) => { if (row.replace(/\./g, '').length) bottom = Math.max(bottom, y) })
-  const off = 15 - bottom
-  r.forEach((row, y) => {
-    const ty = y + off
-    if (ty < 0 || ty > 15) return
-    for (let x = 0; x < 16; x++) if (row[x] !== '.') g[ty]![x] = row[x]!
-  })
-  return join(g)
-})()
-
-const heroFall0 = shrink(heroDown0, 0.75, 16, 16, 10)
-const heroFall1 = shrink(heroDown0, 0.5, 16, 16, 11)
-const heroFall2 = shrink(heroDown0, 0.25, 16, 16, 12)
 
 // ---------------------------------------------------------------------------
 // Sword blades
@@ -1795,17 +1542,7 @@ const hudSwap: Rows = [
 // ---------------------------------------------------------------------------
 
 const RAW: Record<string, Rows> = {
-  hero_down_0: heroDown0, hero_down_1: heroDown1, hero_down_2: heroDown2,
-  hero_up_0: heroUp0, hero_up_1: heroUp1, hero_up_2: heroUp2,
-  hero_side_0: heroSide0, hero_side_1: heroSide1, hero_side_2: heroSide2,
-  hero_down_atk: heroDownAtk, hero_up_atk: heroUpAtk, hero_side_atk: heroSideAtk,
-  hero_down_carry_0: heroDownCarry0, hero_down_carry_1: heroDownCarry1,
-  hero_up_carry_0: heroUpCarry0, hero_up_carry_1: heroUpCarry1,
-  hero_side_carry_0: heroSideCarry0, hero_side_carry_1: heroSideCarry1,
-  hero_down_push: heroDownPush, hero_up_push: heroUpPushFixed, hero_side_push: heroSidePush,
-  hero_get: heroGet, hero_hurt: heroHurt,
-  hero_fall_0: heroFall0, hero_fall_1: heroFall1, hero_fall_2: heroFall2,
-  hero_dead: heroDead,
+  ...heroFrames(DRAWN_SHAPE),
 
   sword_v: swordV, sword_h: swordH, sword_d: swordD,
   sword2_v: sword2V, sword2_h: sword2H, sword2_d: sword2D,

@@ -15,6 +15,11 @@
 //
 // HERO_COLORS='<HeroColors JSON>' dresses the hero in Mini World's colours
 // (render/heroColors.ts); the PNGs then end in -dressed.
+//
+// HERO_LOOK=<look> gives the hero a look from the NEW LOOK stall
+// (render/heroLook.ts): `girl`, `drawn`, a shape as hair/head/bottom
+// (`pigtails/bow/dress`) or a HeroLook as JSON; the PNGs then end in -look.
+// hero-sheet.mjs draws every frame of a look without a browser.
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -37,6 +42,7 @@ import { WORLD } from ${JSON.stringify(join(repo, 'themes/zelda/world/index.ts')
 import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
+import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
@@ -51,6 +57,11 @@ const s = createGame(world, { seed: 7, at: ['start', 'intro', 'swing', 'pause', 
 if (scene !== 'hutout') { s.dialog = null; s.mode = 'play'; s.hero.auto = null }
 const r = createRenderer(canvas, world)
 if (q.get('hero')) r.setHeroColors(parseHeroColors(q.get('hero')))
+if (q.get('look')) {
+  const a = q.get('look')
+  const [hair, head, bottom] = a.split('/')
+  r.setHeroLook(a === 'girl' ? GIRL_LOOK : a === 'drawn' ? DRAWN_LOOK : a.startsWith('{') ? parseHeroLook({ ...DRAWN_LOOK, ...JSON.parse(a) }) : parseHeroLook({ ...DRAWN_LOOK, hair, head: head ?? 'band', bottom: bottom ?? 'trousers' }))
+}
 // VIEW=iso shows the isometric view; FRAMES below 36 stops in the middle of the turn into it.
 if (q.get('view') === 'iso') { r.addView('iso', isoView); r.setView('iso', q.get('frames') === null) }
 r.resize(W, H, dpr, { top, right: 0, bottom: top ? 34 : 0, left: 0 })
@@ -94,6 +105,9 @@ switch (scene) {
   case 'p-exit': put('parcade', 7.5, 5.5, 'up'); s.mode = 'exit'; s.warp = { t: WARP_TIME, to: '', entry: '', swapped: false }; break
   case 'p-reduced': ui.reducedMotion = true; run(20); break
   case 'r-plaza': run(20); break
+  // The NEW LOOK stall east of the fountain: at its counter, and walking up to it from the square.
+  case 'r-look': s.hero.x = 31.5; s.hero.y = 14.5; s.hero.dir = 'up'; run(5); break
+  case 'r-lookwalk': s.hero.x = 27.5; s.hero.y = 15.5; s.hero.dir = 'right'; run(8, inp({ move: { x: 1, y: 0 } })); break
   case 'r-road': s.hero.x = 39.5; s.hero.y = 26.5; s.hero.dir = 'right'; run(20); break
   case 'r-beach': s.hero.x = 29.5; s.hero.y = 28.5; s.hero.dir = 'down'; run(40); break
   case 'r-jam': s.hero.x = 25.5; s.hero.y = 31.5; s.hero.dir = 'up'; run(40); break
@@ -185,6 +199,9 @@ const SHOTS = [
   ['r-plaza-1280', 'r-plaza', 1280, 800, 1, 0],
   ['r-plaza-390', 'r-plaza', 390, 844, 3, 0],
   ['r-plaza-412', 'r-plaza', 412, 915, 2.625, 0],
+  ['r-look-1280', 'r-look', 1280, 800, 1, 0],
+  ['r-look-390', 'r-look', 390, 844, 3, 0],
+  ['r-lookwalk-1280', 'r-lookwalk', 1280, 800, 1, 0],
   ['r-road-1280', 'r-road', 1280, 800, 1, 0],
   ['r-road-390', 'r-road', 390, 844, 3, 0],
   ['r-beach-1280', 'r-beach', 1280, 800, 1, 0],
@@ -234,12 +251,12 @@ const SHOTS = [
   ['d-room11-390', 'd-room11', 390, 844, 3, 0],
 ]
 const want = only ? new Set(only.split(',')) : null
-const hero = process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : ''
+const hero = (process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : '') + (process.env.HERO_LOOK ? `&look=${encodeURIComponent(process.env.HERO_LOOK)}` : '')
 const view = (process.env.VIEW ? `&view=${process.env.VIEW}` : '') + (process.env.FRAMES ? `&frames=${process.env.FRAMES}` : '')
 const tag = (process.env.VIEW ? `-${process.env.VIEW}` : '') + (process.env.FRAMES ? `-f${process.env.FRAMES}` : '')
 for (const [name, scene, w, h, dpr, top] of SHOTS) {
   if (want && !want.has(name) && !want.has(scene)) continue
-  const png = join(out, `${name}${tag}${hero ? '-dressed' : ''}.png`)
+  const png = join(out, `${name}${tag}${process.env.HERO_COLORS ? '-dressed' : ''}${process.env.HERO_LOOK ? '-look' : ''}.png`)
   try {
     execFileSync('chromium-browser', [
       '--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
