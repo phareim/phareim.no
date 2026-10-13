@@ -1,0 +1,10 @@
+The first image is a layout in flat blocks on a magenta background: it shows how high the
+subject rises along the picture and where its tall parts stand. The second image shows the
+pixel-art style to draw in and the size of square pixel block to use. Draw the subject as
+finished pixel art in that style: a long horizontal band that stands on the bottom edge of
+the picture and runs from the left edge to the right edge without a gap, as high as the
+blocks and no higher. Everything above its outline is flat magenta, left untouched right up
+to the outline: no sky, no clouds, no stars, no moon, no haze, no glow. Its left end and its
+right end are low and alike, so that the band can repeat sideways. It is a distant backdrop
+layer for a road-racing game, seen straight on from the road: no road, no foreground, no
+people, no vehicles.

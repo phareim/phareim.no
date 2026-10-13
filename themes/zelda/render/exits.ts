@@ -1,7 +1,7 @@
 /**
  * Exits as the renderer sees them (the portal's cabinets, the Hall of Fame
  * board, the kiosk, the terminals, the login console, neon signs, the DJ
- * booths on the beach) and the floating label that names an exit while the hero stands next
+ * booths on the beach, the NEW LOOK stall on the square) and the floating label that names an exit while the hero stands next
  * to it.
  *
  * Static parts are painted once per look/art into cached canvases; screens
@@ -14,7 +14,8 @@ import type { Dir, ExitLook, ExitSpot, GameState, World } from '../types'
 import { TILE } from '../types'
 import { mapInfo } from '../engine/index'
 import { drawText, textWidth, GLYPH_H } from '../../base/pixel/font'
-import { makeCanvas, sprite } from './sheet'
+import { lookCanvases, makeCanvas, sprite } from './sheet'
+import { DRAWN_LOOK, GIRL_LOOK, type HeroLook } from './heroLook'
 import { PAL } from './sprites'
 import type { Light } from './tiles'
 
@@ -35,7 +36,7 @@ function r(g: G, c: string, x: number, y: number, w = 1, h = 1) {
 // ---------------------------------------------------------------------------
 
 /** Looks that bring their own sprite and replace the tile's painted object. */
-const OWN_SPRITE: ReadonlySet<ExitLook> = new Set<ExitLook>(['cabinet', 'board', 'kiosk', 'terminal', 'console'])
+const OWN_SPRITE: ReadonlySet<ExitLook> = new Set<ExitLook>(['cabinet', 'board', 'kiosk', 'terminal', 'console', 'stall'])
 const tileCache = new WeakMap<object, Map<number, ExitLook>>()
 
 /** Tile index → look, for exits whose sprite replaces the tile's object. */
@@ -240,16 +241,18 @@ const CABS: Record<string, CabStyle> = {
     ),
   },
   outrun: {
-    body: '#3a0f34', bodyL: '#6a1a5a', bodyD: '#1e0619', trim: '#ff2fa0', glow: '#ff2fa0',
-    bg: ['#2a0a3a', '#5a1a5a', '#9a2a6a', '#c43a6a', '#0b0616', '#0b0616', '#0b0616'],
+    // Nova & Rex' Drive to the Mountains: the convertible's red, with gold for trim. The range with snow on it
+    // under a sunrise, and the red car on the road towards it.
+    body: '#8a1c2a', bodyL: '#e2343f', bodyD: '#4a0c16', trim: '#ffe45c', glow: '#ffb83c',
+    bg: ['#2c3e8e', '#4c4e9e', '#8a5c9c', '#d07088', '#34374f', '#34374f', '#2f3249'],
     marquee: M(
-      '....eyye....',
-      '...yyyyyy...',
-      '...oooooo...',
-      '....pppp....',
-      'cccccccccccc',
-      '....gwgg....',
-      '..ggggwggg..',
+      '....w.......',
+      '...wvv...w..',
+      '..vvvVv.wvv.',
+      '.vvVVVVvvVVv',
+      '.....WW.....',
+      '....rrrr....',
+      '...rRyyRr...',
     ),
   },
   russian: {
@@ -414,14 +417,16 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       return
     }
     case 'outrun': {
-      f('#5a1a5a', 0, 0, W, 1); f('#9a2a6a', 0, 1, W, 1); f('#e0487a', 0, 2, W, 1); f('#ff8a3d', 0, 3, W, 1)
-      f('#ffd23f', 3, 1, 4, 2); f('#ff8a3d', 3, 2, 4, 1)
-      f('#0b0616', 0, 4, W, 4)
-      f('#3a2a5a', 4, 4, 2, 1); f('#3a2a5a', 3, 5, 4, 1); f('#3a2a5a', 2, 6, 6, 1); f('#3a2a5a', 1, 7, 8, 1)
+      // A sunrise over the range, the road running up to it, the red car with a blonde and a brown head in it.
+      f('#2c3e8e', 0, 0, W, 1); f('#8a5c9c', 0, 1, W, 1); f('#f49868', 0, 2, W, 1)
+      f('#6a5a9a', 1, 2, 3, 1); f('#6a5a9a', 2, 1, 1, 1); f('#fff4ff', 2, 0, 1, 1)
+      f('#6a5a9a', 6, 2, 3, 1); f('#fff4ff', 7, 1, 1, 1)
+      f('#42684c', 0, 3, W, 5)
+      f('#34374f', 4, 3, 2, 1); f('#34374f', 3, 4, 4, 1); f('#34374f', 2, 5, 6, 1); f('#34374f', 1, 6, 8, 2)
       const d = Math.floor(t * 8) % 2
-      f('#fff4ff', 4 + d, 5 + d, 1, 1); f('#fff4ff', 5 - d, 7 - d, 1, 1)
-      f('#ff2fa0', 0, 4, W, 1)
-      f('#ff3b5c', 4, 6 + (Math.floor(t * 2) % 2), 2, 1)
+      f('#d8d2c0', 4 + d, 4 + d, 1, 1)
+      const bob = Math.floor(t * 2) % 2
+      f('#e2343f', 4, 6 + bob, 2, 1); f('#ffd23f', 4, 5 + bob, 1, 1); f('#6a4432', 5, 5 + bob, 1, 1)
       return
     }
     case 'russian': {
@@ -688,6 +693,103 @@ function kioskCanvas(): Canvas {
 }
 
 // ---------------------------------------------------------------------------
+// The NEW LOOK stall on the square: a mirror, the stylist behind the counter
+// and a mannequin that shows what the booth can make of the hero
+// ---------------------------------------------------------------------------
+
+const STALL_W = 52
+const STALL_H = 42
+/** The counter's top edge, from the stall's top: the people behind it show from the waist up. */
+const STALL_COUNTER = 31
+let stallBackC: Canvas | null = null
+let stallFrontC: Canvas | null = null
+
+/** Everything behind the people: the header board, the awning, the back wall, the mirror. */
+function stallBack(): Canvas {
+  if (stallBackC) return stallBackC
+  const c = makeCanvas(STALL_W, STALL_H)
+  const g = c.getContext('2d')!
+  const k = PAL.k!
+  // Header board on the roof with a neon NEW LOOK (the letters are lit live).
+  r(g, k, 1, 0, 50, 11); r(g, '#12081e', 2, 1, 48, 9)
+  r(g, '#3b2b62', 2, 9, 48, 1)
+  // Striped awning, scalloped edge.
+  r(g, k, 0, 11, 52, 8)
+  for (let x = 1; x < 51; x++) {
+    const cyan = Math.floor((x - 1) / 5) % 2 === 0
+    r(g, cyan ? '#2ff3ff' : '#fff4ff', x, 12, 1, 5)
+    r(g, cyan ? '#1a9fc4' : '#cfc6ff', x, 12, 1, 1)
+  }
+  for (let x = 1; x < 51; x += 5) {
+    const cyan = Math.floor((x - 1) / 5) % 2 === 0
+    r(g, cyan ? '#2ff3ff' : '#fff4ff', x + 1, 17, 3, 1)
+    r(g, k, x, 17, 1, 1); r(g, k, x + 4, 17, 1, 1)
+  }
+  r(g, k, 1, 18, 50, 1)
+  // The booth: two posts and a dark back wall hung with a curtain.
+  r(g, k, 1, 18, 50, 24)
+  r(g, '#3b2b62', 2, 19, 48, 22)
+  r(g, '#1c1030', 4, 19, 44, 13)
+  for (let x = 17; x < 48; x += 3) r(g, '#271c46', x, 19, 1, 12)
+  r(g, '#8f86b8', 2, 19, 1, 22); r(g, '#8f86b8', 49, 19, 1, 22)
+  // The mirror: a gold frame with bulbs along the top, the glass a dusk blue.
+  r(g, k, 4, 19, 13, 13)
+  r(g, '#c4861c', 5, 20, 11, 11); r(g, '#ffd23f', 5, 20, 11, 1); r(g, '#ffd23f', 5, 20, 1, 11)
+  r(g, '#1a2f78', 6, 22, 9, 8); r(g, '#2f5fd0', 6, 22, 9, 3); r(g, '#54259e', 6, 28, 9, 2)
+  // The mannequin's pole behind the counter.
+  r(g, '#5a5285', 42, 29, 2, 3)
+  stallBackC = c
+  return c
+}
+
+/** The counter in front of them: a comb, a bottle, a pair of scissors. */
+function stallFront(): Canvas {
+  if (stallFrontC) return stallFrontC
+  const h = STALL_H - STALL_COUNTER
+  const c = makeCanvas(STALL_W, h)
+  const g = c.getContext('2d')!
+  const k = PAL.k!
+  r(g, k, 1, 0, 50, h)
+  r(g, '#b8768a', 2, 0, 48, 1); r(g, '#8e5566', 2, 1, 48, 2)
+  r(g, '#3b2b62', 2, 3, 48, h - 4)
+  r(g, '#271c46', 2, h - 2, 48, 1)
+  // Panels down the front, each with a star.
+  for (let i = 0; i < 3; i++) {
+    const x = 4 + i * 15
+    r(g, '#54259e', x, 4, 14, 5)
+    r(g, '#9a4ff0', x, 4, 14, 1)
+    r(g, i === 1 ? '#ffd23f' : '#ff2fa0', x + 6, 5, 2, 3); r(g, i === 1 ? '#ffd23f' : '#ff2fa0', x + 5, 6, 4, 1)
+  }
+  // On the counter: a comb, a bottle of something pink, scissors.
+  r(g, '#2ff3ff', 20, 0, 5, 1); r(g, '#2ff3ff', 20, 1, 1, 1); r(g, '#2ff3ff', 22, 1, 1, 1); r(g, '#2ff3ff', 24, 1, 1, 1)
+  r(g, '#ff8ae0', 29, 0, 2, 2); r(g, '#fff4ff', 29, 0, 2, 1)
+  r(g, '#cfc6ff', 33, 0, 1, 1); r(g, '#cfc6ff', 35, 0, 1, 1); r(g, '#cfc6ff', 34, 1, 1, 1)
+  stallFrontC = c
+  return c
+}
+
+/** The stylist, who never changes, and the looks the mannequin goes through. */
+const STYLIST: HeroLook = { ...GIRL_LOOK, hair: 'tail', hairColor: '#9a4ff0', head: 'none', top: '#ff2fa0', stripe: '#ffd23f', skin: '#cf8a5c' }
+const MODELS: HeroLook[] = [
+  GIRL_LOOK,
+  { ...DRAWN_LOOK, hairColor: '#ffd23f', headColor: '#2ff3ff', top: '#ff3b5c', stripe: '#ffd23f', skin: '#e6a57e' },
+  { ...GIRL_LOOK, hair: 'short', head: 'band', hairColor: '#2ff3ff', headColor: '#ffd23f', top: '#ff2fa0', stripe: '#fff4ff', skin: '#80492b' },
+  DRAWN_LOOK,
+  { ...GIRL_LOOK, hair: 'long', head: 'none', hairColor: '#ff8a3d', top: '#b6ff4a', stripe: '#1c1030', skin: '#ffe3d2' },
+  { ...DRAWN_LOOK, hair: 'tail', head: 'bow', hairColor: '#1c1030', headColor: '#ff3b5c', top: '#ffd23f', stripe: '#ff8a3d', skin: '#a9683f' },
+]
+const stallPeople = new Map<HeroLook, Canvas>()
+/** How long the mannequin wears each look, in seconds. */
+const MODEL_S = 2.4
+
+/** A look standing still, facing the square. */
+function stallPerson(look: HeroLook): Canvas {
+  let c = stallPeople.get(look)
+  if (!c) { c = lookCanvases(look).hero_down_0!; stallPeople.set(look, c) }
+  return c
+}
+
+// ---------------------------------------------------------------------------
 // Terminal (desk + CRT)
 // ---------------------------------------------------------------------------
 
@@ -947,6 +1049,7 @@ function lookTop(look: ExitLook): number {
     case 'console': return CON_H
     case 'sign': return 14
     case 'booth': return LIGHTS_TOP
+    case 'stall': return STALL_H
     default: return T + 2
   }
 }
@@ -1162,6 +1265,44 @@ export function queueExits(
         lights.push(
           { x: e.x, y: e.y - 1, r: 2.6, color: st.glow, a: 0.5 * breathe },
           { x: e.x, y: e.y + 1.2, r: 2.8, color: st.alt, a: 0.35 * breathe },
+        )
+        break
+      }
+      case 'stall': {
+        const left = px - STALL_W / 2
+        const top = bottom - STALL_H
+        const on = reduced || Math.sin(t * 1.3 + seed) > -0.96
+        const bob = reduced ? 0 : Math.floor(t * 1.6 + seed) % 2
+        const turn = reduced ? 0 : t / MODEL_S
+        const model = MODELS[Math.floor(turn) % MODELS.length]!
+        // A sparkle over the mannequin while its look is new.
+        const fresh = !reduced && turn % 1 < 0.18
+        const glint = reduced ? 3 : Math.floor(t * 5 + seed) % 22
+        items.push({
+          x: e.x,
+          y: e.y + 0.5,
+          draw: () => {
+            g.fillStyle = 'rgba(8,4,20,0.45)'
+            g.fillRect(left + 1, bottom - 1, STALL_W - 2, 2)
+            g.drawImage(stallBack(), left, top)
+            drawText(g, 'NEW LOOK', left + Math.round((STALL_W - textWidth('NEW LOOK')) / 2), top + 2, on ? '#ff2fa0' : '#5a1a4a')
+            // The mirror's bulbs, and a shine that crosses the glass now and then.
+            for (let i = 0; i < 4; i++) r(g, (Math.floor(t * 3) + i) % 4 === 0 && !reduced ? '#fff4ff' : '#ffd23f', left + 6 + i * 3, top + 21, 1, 1)
+            if (glint < 8) { r(g, '#cfc6ff', left + 6 + glint, top + 23, 1, 2); r(g, '#fff4ff', left + 7 + glint, top + 25, 1, 2) }
+            // Waist up behind the counter: the mannequin on its pole, the stylist in the middle.
+            const rows = STALL_COUNTER - 20
+            g.drawImage(stallPerson(model), 0, 0, 16, rows, left + 35, top + 20, 16, rows)
+            if (fresh) { r(g, '#fff4ff', left + 37, top + 21, 1, 1); r(g, '#fff4ff', left + 48, top + 24, 1, 1); r(g, '#ffd23f', left + 46, top + 20, 1, 1) }
+            g.drawImage(stallPerson(STYLIST), 0, 0, 16, rows - bob, left + 18, top + 20 + bob, 16, rows - bob)
+            g.drawImage(stallFront(), left, top + STALL_COUNTER)
+          },
+        })
+        emit.push({ x: left + 4, y: top + 1, w: STALL_W - 8, h: 9 }, { x: left + 5, y: top + 20, w: 11, h: 11 })
+        lights.push(
+          { x: e.x, y: e.y - 2.1, r: 2.4, color: '#ff2fa0', a: on ? 0.6 : 0.2 },
+          { x: e.x, y: e.y - 0.5, r: 3, color: '#ffb13f', a: 0.55 },
+          { x: e.x - 1.2, y: e.y - 1, r: 1.6, color: '#2ff3ff', a: 0.4 },
+          { x: e.x, y: e.y + 1, r: 2.2, color: '#ff2fa0', a: 0.3 },
         )
         break
       }

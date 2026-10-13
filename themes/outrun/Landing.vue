@@ -5,27 +5,31 @@
     </template>
 
     <template #body>
-      <div v-if="phase === 'attract'" class="outrun-title-block">
-        <h1 class="outrun-logo">OUTRUN</h1>
-        <p class="px-hud outrun-tag">FIFTEEN ROADS · FIVE ENDINGS · ONE CLOCK</p>
-        <div class="outrun-plate">
+      <div v-if="phase === 'attract'" class="drive-title-block">
+        <h1 class="drive-logo">
+          <span class="drive-logo-names">NOVA &amp; REX'</span>
+          <span class="drive-logo-road">DRIVE TO THE MOUNTAINS</span>
+        </h1>
+        <p class="px-hud drive-tag">FIFTEEN ROADS · FIVE MOUNTAINS · ONE NIGHT</p>
+        <div class="drive-plate">
           <p class="px-hint px-blink">▶ {{ hint('PRESS ENTER TO DRIVE', 'TAP TO DRIVE') }} ◀</p>
-          <p class="px-hint px-dim">{{ hint('↑ GAS · ↓ BRAKE · ← → STEER · M RADIO', 'DRAG TO STEER · 2ND FINGER BRAKES') }}</p>
+          <p class="px-hint px-dim">{{ hint('↑ GAS · ↓ BRAKE · ← → STEER · M TAPE', 'DRAG TO STEER · 2ND FINGER BRAKES') }}</p>
           <p v-if="highScore > 0" class="px-hud px-dim">HIGH SCORE {{ highScore }}</p>
+          <p class="px-hud drive-maker">(C) 1Q89 SLEEPY PRODUCTIONS</p>
         </div>
       </div>
-      <div v-else-if="phase === 'over' && result" class="outrun-over">
+      <div v-else-if="phase === 'over' && result" class="drive-over">
         <h1 class="px-title">{{ title }}</h1>
-        <p v-if="ending" class="px-hud outrun-ending">{{ ending }}</p>
+        <p v-if="ending" class="px-hud drive-ending">{{ ending }}</p>
         <p class="px-hud">SCORE {{ result.score }}</p>
-        <table class="outrun-splits">
+        <table class="drive-splits">
           <tr v-for="(name, i) in result.route" :key="i">
-            <td class="outrun-splits-n">{{ i + 1 }}</td>
+            <td class="drive-splits-n">{{ i + 1 }}</td>
             <td>{{ name }}</td>
-            <td class="outrun-splits-t">{{ i < result.splits.length ? lap(result.splits[i]) : '' }}</td>
+            <td class="drive-splits-t">{{ i < result.splits.length ? lap(result.splits[i]) : '' }}</td>
           </tr>
         </table>
-        <p v-if="isNewHigh" class="px-hud px-blink" style="--px-hud: #ffd23f">NEW HIGH SCORE!</p>
+        <p v-if="isNewHigh" class="px-hud px-blink" style="--px-hud: #ffe45c">NEW HIGH SCORE!</p>
         <p v-else class="px-hud px-dim">HIGH SCORE {{ highScore }}</p>
         <p v-if="rank" class="px-hud px-dim">WORLD RANK #{{ rank.rank }} · {{ rank.name.toUpperCase() }}</p>
         <p class="px-hint px-blink">▶ {{ hint('PRESS ENTER TO DRIVE AGAIN', 'TAP TO DRIVE AGAIN') }} ◀</p>
@@ -53,13 +57,13 @@ const isNewHigh = ref(false)
 /** This run's world rank, once the Hall of Fame has answered. */
 const rank = computed(() => lastSubmission.value?.game === 'outrun' && result.value && lastSubmission.value.score === result.value.score ? lastSubmission.value : null)
 
-/** One line of epilogue per road the goal can be reached on (the fifth column, easiest to hardest). */
+/** One line of epilogue per road the mountains can be reached on (the fifth column, easiest to hardest). */
 const ENDINGS = [
-  'THE BOULEVARD TURNS ITS LIGHTS ON FOR YOU, ONE BY ONE.',
-  'YOU PARK AT THE WATER AND WATCH THE SUN REFUSE TO SET.',
-  'A TROPHY IN THE SAND, AND NOBODY FOR A HUNDRED MILES.',
-  'ABOVE THE CLOUDS NOW. THE RADIO IS STILL PLAYING.',
-  'THE HARDEST ROAD. THE CROWD WAITED ALL NIGHT FOR YOU.',
+  'A VALLEY FULL OF RED TREES. REX FINDS THE ONLY DINER IN IT.',
+  'THE CABIN HAS A STOVE, A PORCH AND NO PHONE. PERFECT.',
+  'GRANITE ON BOTH SIDES. THE TAPE TURNS OVER TO SIDE B.',
+  'FIRST SNOW OF 1989. AGAIN. REX BUILDS A SNOW PIZZA.',
+  'TOP OF THE WORLD. NOVA SAYS IT IS A HILL. IT IS FINE.',
 ]
 const ending = computed(() => (result.value?.reason === 'goal' ? ENDINGS[result.value.node] ?? '' : ''))
 
@@ -73,8 +77,8 @@ function lap(t: number) {
 
 const title = computed(() => {
   if (!result.value) return ''
-  if (result.value.reason === 'goal') return 'GOAL'
-  if (result.value.reason === 'timeup') return 'TIME UP'
+  if (result.value.reason === 'goal') return 'THE MOUNTAINS'
+  if (result.value.reason === 'timeup') return 'OUT OF NIGHT'
   return 'GAME OVER'
 })
 
@@ -82,7 +86,7 @@ onMounted(() => {
   highScore.value = parseInt(localStorage.getItem('outrunHighScore') || '0', 10) || 0
 })
 
-// The game owns the arrows while the radio screen or a run is up.
+// The game owns the arrows while the tape screen or a run is up.
 onBeforeUnmount(() => { navigationLocked.value = false })
 
 function onPhase(p: typeof phase.value) {
@@ -103,71 +107,108 @@ function onOver(r: OutrunResult) {
 </script>
 
 <style>
-/* Text styles: themes/base/pixel/pixel.css (.px-*); Neon Shrine's dialog box for the plates. */
-.outrun-title-block,
-.outrun-over {
+/* Text styles: themes/base/pixel/pixel.css (.px-*). The panels are the talk box of
+   Nova's Solo Rescue: a flat night-blue field, a dark line, a cream line. No glow. */
+.drive-title-block,
+.drive-over {
   pointer-events: none;
   padding: 0 16px;
+  --px-hud: #ffe9c4;
+  --px-hint: #ffe45c;
+  --px-title: #ffe45c;
+  --px-dim: #8a90b8;
+}
+/* The shared text styles glow; this board's lettering has a hard shadow and nothing else. */
+.landing .drive-title-block .px-hud,
+.landing .drive-title-block .px-hint,
+.landing .drive-over .px-hud,
+.landing .drive-over .px-hint {
+  text-shadow: 2px 2px 0 #0a0c1e;
+}
+.landing .drive-over .px-title {
+  text-shadow: 6px 6px 0 #0a0c1e;
 }
 
-/* The logo sits in the sky, over the sun, like the cabinet's title screen;
-   the call to action gets a dialog box so the road does not eat it. */
-.outrun-title-block {
+/* The name sits in the sky over the road, like the cabinet's title screen; the
+   call to action gets a box so the road does not eat it. */
+.drive-title-block {
   position: absolute;
   left: 0;
   right: 0;
-  top: 9vh;
+  top: 7vh;
 }
-.outrun-plate,
-.outrun-over {
-  background: rgba(11, 6, 22, 0.86);
-  border: 2px solid #ff2fa0;
+.drive-plate,
+.drive-over {
+  background: #141a3c;
+  border: 2px solid #ffe9c4;
   border-radius: 0;
-  box-shadow: 0 0 0 2px #0b0616, inset 0 2px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 2px #0a0c1e;
 }
-.outrun-plate {
+.drive-plate {
   display: inline-block;
   margin-top: 16px;
   padding: 10px 18px 12px;
 }
-.outrun-plate .px-hint {
+.drive-plate .px-hint {
   margin-top: 0;
 }
-.outrun-over {
+.drive-over {
   padding: 16px 20px 18px;
   max-width: min(94vw, 560px);
   box-sizing: border-box;
 }
 @media (max-width: 600px) {
-  .outrun-over {
+  .drive-over {
     padding: 12px 8px 14px;
   }
 }
 
-.landing .outrun-logo {
+/* Two rows: who, in cream with an edge of jacket red, and where to, in gold. Hard
+   shadows only, a whole font pixel (an eighth of an em) at a time. */
+.landing .drive-logo {
   font-family: var(--font-pixel);
   font-weight: 400;
   -webkit-font-smoothing: none;
-  font-size: 64px;
   line-height: 1;
-  color: #ff2fa0;
-  text-shadow: 8px 8px 0 #0b0616, 0 0 32px rgba(255, 47, 160, 0.55);
-  margin: 0 0 0.15em;
-  transform: skewX(-10deg);
+  margin: 0 0 0.6em;
+  transform: skewX(-8deg);
+}
+.drive-logo span {
+  display: block;
+}
+.drive-logo-names {
+  font-size: 40px;
+  color: #ffe9c4;
+  text-shadow: 0.125em 0.125em 0 #e2343f, 0.25em 0.25em 0 #0a0c1e;
+  margin-bottom: 14px;
+}
+.drive-logo-road {
+  font-size: 16px;
+  color: #ffe45c;
+  text-shadow: 0.125em 0.125em 0 #0a0c1e;
 }
 @media (min-width: 800px) {
-  .landing .outrun-logo {
-    font-size: 96px;
-    text-shadow: 12px 12px 0 #0b0616, 0 0 40px rgba(255, 47, 160, 0.55);
+  .drive-logo-names {
+    font-size: 72px;
+    margin-bottom: 24px;
+  }
+  .drive-logo-road {
+    font-size: 40px;
   }
 }
 
-.landing .outrun-tag {
-  --px-hud: #ffd23f;
+.landing .drive-tag {
+  --px-hud: #ffe9c4;
 }
 
-.landing .outrun-ending {
-  --px-hud: #ffd23f;
+/* The maker's line, at the foot of the plate. */
+.landing .drive-plate .drive-maker {
+  --px-hud: #8a90b8;
+  margin: 10px 0 0;
+}
+
+.landing .drive-ending {
+  --px-hud: #ffe45c;
   line-height: 1.5;
   margin: 0 auto 0.8em;
   max-width: 34em;
@@ -175,25 +216,25 @@ function onOver(r: OutrunResult) {
 }
 
 /* The lap table: stage, road, time. */
-.outrun-splits {
+.drive-splits {
   margin: 0.6em auto 0.6em;
   border-collapse: collapse;
   font-family: var(--font-pixel);
   -webkit-font-smoothing: none;
   font-size: 16px;
-  color: #2ff3ff;
-  text-shadow: 2px 2px 0 #0b0616;
+  color: #ffe9c4;
+  text-shadow: 2px 2px 0 #0a0c1e;
 }
-.outrun-splits td {
+.drive-splits td {
   padding: 2px 8px;
   text-align: left;
   white-space: nowrap;
 }
-.outrun-splits .outrun-splits-n {
-  color: #ff2fa0;
+.drive-splits .drive-splits-n {
+  color: #e2343f;
 }
-.outrun-splits .outrun-splits-t {
+.drive-splits .drive-splits-t {
   text-align: right;
-  color: #f2e9ff;
+  color: #ffe45c;
 }
 </style>

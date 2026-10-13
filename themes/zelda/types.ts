@@ -248,15 +248,16 @@ export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 
  * machine in Petter's house: it leaves nothing, its lines close into a
  * `startOver` event and the shell asks yes or no. `panel` is the login
  * console in Petter's house: it leaves nothing either, its A press becomes
- * a `panel` event and the shell opens that HTML panel over the world.
+ * a `panel` event and the shell opens that HTML panel over the world. The
+ * NEW LOOK booth on the square opens its panel the same way.
  */
 export type ExitTarget = { theme: string } | { home: true } | { url: string } | { reset: true } | { panel: PanelId }
 
-/** The shell's HTML panels an exit can open: `account` is the login console (`AccountConsole.vue`). */
-export type PanelId = 'account'
+/** The shell's HTML panels an exit can open: `account` is the login console (`AccountConsole.vue`), `look` the NEW LOOK booth's mirror (`LookBooth.vue`). */
+export type PanelId = 'account' | 'look'
 
 /** How the renderer draws an exit. The engine ignores it. */
-export type ExitLook = 'door' | 'cabinet' | 'board' | 'kiosk' | 'terminal' | 'console' | 'sign' | 'booth'
+export type ExitLook = 'door' | 'cabinet' | 'board' | 'kiosk' | 'terminal' | 'console' | 'sign' | 'booth' | 'stall'
 
 /**
  * A way out of the game: the town's cabinets, doors, kiosk and terminals.

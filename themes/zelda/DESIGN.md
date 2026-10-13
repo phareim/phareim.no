@@ -48,7 +48,7 @@ with a banner, a music track and a continue point:
 
 | Area | Where | What |
 |---|---|---|
-| PHAREIM.NO | W, the start | the town: Petter's house, the arcade, fountain, newsstand, pier; no enemies; `village` music. Details: `themes/portal/DESIGN.md` |
+| PHAREIM.NO | W, the start | the town: Petter's house, the arcade, fountain, the NEW LOOK stall, newsstand, pier; no enemies; `village` music. Details: `themes/portal/DESIGN.md` |
 | Home Glade | SW | the coast road arrives here; Keeper's hut (door → hut), Keeper, sword chest, pots, blobs, rock-ring chest |
 | Whisper Woods | NW | bats, dashers, **bomb bag** chest, heart piece behind a boulder |
 | Night Market | N | shop, kid, cat, fountain, market stalls and a sign where the old arcade stood (the arcade is in town since 2026-09-24); `village` music |

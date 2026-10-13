@@ -97,7 +97,11 @@ const isBuilding = (t: TileChar) => t === 'H' || t === 'M'
 const isPath = (t: TileChar) => t === ',' || t === '=' || t === 'D' || t === '>'
 const isSand = (t: TileChar) => t === '-'
 /** An object tile standing on the beach: two or more sand neighbours (the DJ booths' blocked tiles count as sand). */
-const onSand = (at: At) => [at(1, 0), at(-1, 0), at(0, 1), at(0, -1)].filter(t => isSand(t) || t === 'Z').length >= 2
+const onSand = (at: At) => {
+  const near = [at(1, 0), at(-1, 0), at(0, 1), at(0, -1)]
+  // Blocked tiles only count beside real sand: the NEW LOOK stall's stand on the square's grass.
+  return near.some(isSand) && near.filter(t => isSand(t) || t === 'Z').length >= 2
+}
 
 // ---------------------------------------------------------------------------
 // Ground pass

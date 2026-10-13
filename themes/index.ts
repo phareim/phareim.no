@@ -174,8 +174,8 @@ export const allThemes: ThemeDefinition[] = [
   },
   {
     id: 'outrun',
-    name: 'OutRun',
-    themeColor: '#0b0616',
+    name: "Nova & Rex' Drive to the Mountains",
+    themeColor: '#0a0c1e',
     landing: OutrunLanding,
   },
   {

@@ -21,7 +21,9 @@ treasure.
   minH)` picks the largest whole scale that still shows `minW`×`minH`
   logical pixels; `begin()` → scene context `g`; `light()` / `emit()`;
   `present({ ambient, afterLight, flash, fade, shakeX, shakeY })` does the
-  light map, scale, bloom, scanlines, vignette and the `hud` layer. `k` is
+  light map, scale, bloom, scanlines, vignette and the `hud` layer
+  (`ambient: null`, `bloom: 0` and `overlay: false` leave each of them out;
+  Drive to the Mountains asks for bare pixels that way). `k` is
   CSS px per logical pixel and `px(v)` converts a CSS coordinate, so a game
   keeps its rules in CSS px. The `dpr` argument is a ceiling, not the value
   used: the stage takes `min` of it and `canvasPixelRatio(3)`
@@ -53,7 +55,7 @@ row above the cap height, the em's top pixel, so it reads at 16 px; `glyphAbove`
 `font.ts`, drawn by `drawText` and `drawBigText`), and É È Ä Ö Ü
 draw as the canvas aliases them (E, E, Æ, Ø, U; 2026-09-26); it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂ — … ❚ ◈ ■.
 
-**Status** (2026-09-25): the whole site is on the pixel look — the eight games, the Hall of Fame and Hangar pages, the shell's chrome, the 404 and the icons. The old vector synthwave backdrop (`neonHorizon.js`, `mountainTerrain.js`) is gone.
+**Status** (2026-09-25; one game left it 2026-10-13, see the table): the whole site is on the pixel look — the eight games, the Hall of Fame and Hangar pages, the shell's chrome, the 404 and the icons. The old vector synthwave backdrop (`neonHorizon.js`, `mountainTerrain.js`) is gone.
 
 | Game | Pixel look | Setting |
 |---|---|---|
@@ -63,7 +65,7 @@ draw as the canvas aliases them (E, E, Æ, Ø, U; 2026-09-26); it adds ▶ ◀ �
 | Russian Block Game | done | a shrine crystal garden: connected mineral veins, rows bloom into light seeds; harvested rows plant flowers around the town cabinet (2026-10-07) |
 | R-Type | done | the shrine caves: rock walls with glowing crystals that light the walls, a warm far cave behind; turned a quarter on portrait phones (`resize(…, rotate)`) |
 | Star Fox | done | the Super FX way: three.js at the stage's logical size, snapped to the palette with a Bayer dither in a shader; a biome per sector (sea, woods, ember, mirror lake, space), each with its own ground mode, sky and props (`docs/games/star-fox.md`, 2026-09-25) |
-| OutRun | done | the coast road at dusk as a SNES-era sprite-scaler: Neon Shrine ground per biome, teal canopies, shrine-gate tunnels, pixelized cars |
+| Drive to the Mountains (`outrun`) | its own look since 2026-10-13 | not Neon Shrine's paint: the look of Nova's Solo Rescue, on the shared stage with the light map, bloom and overlay off (`docs/games/outrun.md`) |
 | Another Shore | done | flat Another World polygons scanline-filled on the pixel grid, snapped to the palette; dithered sky and sea; glowing things lit through an emissive layer; the prologue flies over the pixel dusk |
 | Hall of Fame | done | the shrine's hall of champions at night: arched windows on the dusk, banners, torches, trophies, a statue of the hero; the board is a `.px-box`, avatars shrunk to 12×12 pixels (`docs/games/hall-of-fame.md`) |
 | Hangar | done | a shrine-stone launch bay open to the sea at dusk; the ship rendered the Star Fox way (low-res three.js, palette dither) on a pad with a neon ring (`docs/games/hangar.md`) |

@@ -1,0 +1,3 @@
+It fills the whole picture from edge to edge and top to bottom: no magenta anywhere. The
+left edge and the right edge are the same plain surface, so that the piece can repeat
+sideways. No people.

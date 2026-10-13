@@ -67,7 +67,8 @@ let audio: GalagaAudio | null = null
 const input: Input = makeInput()
 const keys = new Set<string>()
 let duetPressed = false
-let touchId = -1
+/** The finger that flies the ship, or null. Never read its sign: Safari on iOS hands out negative identifiers. */
+let touchId: number | null = null
 let touchX = 0
 let touchY = 0
 let raf = 0
@@ -141,7 +142,7 @@ function start(pilot: PilotId = props.pilot): void {
   renderer.reset(w)
   keys.clear()
   duetPressed = false
-  touchId = -1
+  touchId = null
   after = 0
   lastScore = 0
   bestBefore = readBest()
@@ -187,13 +188,13 @@ function readInput(w: World): Input {
   }
   input.dx = (keys.has('ArrowRight') || keys.has('KeyD') ? 1 : 0) - (keys.has('ArrowLeft') || keys.has('KeyA') ? 1 : 0)
   input.dy = (keys.has('ArrowDown') || keys.has('KeyS') ? 1 : 0) - (keys.has('ArrowUp') || keys.has('KeyW') ? 1 : 0)
-  input.hasTarget = touchId >= 0
+  input.hasTarget = touchId !== null
   if (input.hasTarget && renderer) {
     const p = renderer.toField(touchX, touchY)
     input.tx = p.x
     input.ty = p.y - TOUCH_ABOVE
   }
-  input.fire = keys.has('Space') || touchId >= 0
+  input.fire = keys.has('Space') || touchId !== null
   input.duet = duetPressed
   duetPressed = false
   return input
@@ -270,7 +271,7 @@ function togglePause(): void {
   if (!running) return
   paused.value = !paused.value
   keys.clear()
-  touchId = -1
+  touchId = null
   last = performance.now()
   acc = 0
   audio?.suspend(paused.value)
@@ -326,8 +327,10 @@ function onTouchStart(e: TouchEvent): void {
   if (!running || paused.value || isInteractive(e.target)) return
   audio?.start()
   e.preventDefault()
+  // A finger whose lift was never reported (a system gesture took it) must not hold the ship.
+  if (touchId !== null && !Array.from(e.touches).some(t => t.identifier === touchId)) touchId = null
   for (const t of Array.from(e.changedTouches)) {
-    if (touchId < 0) {
+    if (touchId === null) {
       touchId = t.identifier
       touchX = t.clientX
       touchY = t.clientY
@@ -336,7 +339,7 @@ function onTouchStart(e: TouchEvent): void {
 }
 
 function onTouchMove(e: TouchEvent): void {
-  if (touchId < 0) return
+  if (touchId === null) return
   e.preventDefault()
   for (const t of Array.from(e.changedTouches)) {
     if (t.identifier === touchId) { touchX = t.clientX; touchY = t.clientY }
@@ -344,7 +347,8 @@ function onTouchMove(e: TouchEvent): void {
 }
 
 function onTouchEnd(e: TouchEvent): void {
-  for (const t of Array.from(e.changedTouches)) if (t.identifier === touchId) touchId = -1
+  for (const t of Array.from(e.changedTouches)) if (t.identifier === touchId) touchId = null
+  if (e.touches.length === 0) touchId = null
 }
 
 function onVisibility(): void {

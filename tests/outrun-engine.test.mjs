@@ -87,7 +87,7 @@ describe('road', () => {
     for (const seg of s.segments) {
       if (seg.centers.length !== 1) continue
       for (const p of seg.props) {
-        if (p.kind === 'gantry' || p.kind === 'arch') continue
+        if (p.kind === 'gantry') continue
         assert.ok(Math.abs(p.rel) > 1.1, `${p.kind} at ${p.rel} on segment ${seg.index}`)
       }
     }
@@ -287,8 +287,8 @@ describe('close-pass chain', () => {
 })
 
 describe('tunnels', () => {
-  it('bore through city, canyon and peaks stages only, with nothing inside', () => {
-    for (const [col, node] of [[1, 1], [2, 1], [2, 2], [0, 0], [2, 0], [3, 1]]) {
+  it('bore through city, pass and peaks stages only, with nothing inside', () => {
+    for (const [col, node] of [[1, 1], [2, 1], [2, 2], [0, 0], [2, 0], [3, 1], [3, 3], [1, 0]]) {
       const s = createGame(5, { countdown: false, col, node })
       const biome = STAGES[col][node].biome
       let bores = 0
@@ -302,7 +302,7 @@ describe('tunnels', () => {
   })
 
   it('holds the car on the road and scrapes speed off it', () => {
-    const s = clean(6, { col: 2, node: 1 })
+    const s = clean(6, { col: 1, node: 1 })
     const i = s.segments.findIndex(g => g.tunnel) + 10
     s.position = i * SEG_LEN
     s.playerX = s.segments[i].centers[0]
@@ -341,7 +341,7 @@ describe('crashes', () => {
     const i = parkOnStraight(s, 200)
     const c = s.segments[i].centers[0]
     for (let k = i; k < i + 200; k++) s.segments[k].props = []
-    s.segments[i + 20].props.push({ kind: 'palm', side: 1, rel: 1.6, v: 0 })
+    s.segments[i + 20].props.push({ kind: 'tree', side: 1, rel: 1.6, v: 0 })
     s.playerX = c + 1.6
     s.speed = MAX_SPEED * 0.8
     const ev = run(s, 1)

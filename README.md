@@ -18,8 +18,8 @@ whole page — see `.claude/skills/phareim-theme/SKILL.md` for how to add one.
 `/` is the whole site: the portal, or the theme `?theme=<id>` names. The
 profile and the contact links live in the portal (Petter's house).
 
-Themes: Another Shore, Rex & Nova: Space Voyagers I, Breakout, R-Type, Space Invaders, Star Fox,
-OutRun, Tetris, Hall of Fame, Hangar — plus Another Shore II,
+Themes: Another Shore, Rex & Nova: Space Voyagers I (`galaga`), Breakout, R-Type, Space Invaders, Star Fox,
+Drive to the Mountains (`outrun`), Tetris, Hall of Fame, Hangar — plus Another Shore II,
 Scandinavian Glass, Space and Tufte Desk, parked but reachable. Open one
 with `/?theme=<id>`.
 

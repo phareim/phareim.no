@@ -1,0 +1,16 @@
+{things} {style} {clusters} {key}
+Top row, left to right:
+The red block: a big roadside billboard on a steel lattice frame with a row of small lamps
+along its top, hand-painted: a huge slice of pepperoni pizza and the words SLOP'S PIZZA.
+The dark block: a payphone on a post under a small steel hood, lit from inside.
+The yellow block: a gas station sign on a pole, a round lit globe with a red star.
+Bottom row, left to right:
+The brown block: a three-storey wooden Boston triple-decker house with stacked porches, bay
+windows, several lit windows in warm yellow.
+The grey block: a tall brick mill building with rows of arched windows, some lit, a wooden
+water tank on steel legs on its roof and a brick smoke stack.
+The blue block: a huge cathode-ray television screen in a wood-grain cabinet on steel legs,
+its curved glass glowing pale blue with a face on it, as on the towers in the second image.
+Night colours: deep blue and brown in the shadows, never black; lit windows are flat squares
+of warm yellow at least two blocks wide.
+{leave}

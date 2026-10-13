@@ -69,8 +69,10 @@ the arcade. `tests/portal-world.test.mjs` checks both.
 - **North**: Petter's house, 15 wide, under the name (door → `home` interior).
 - **West**: THE ARCADE, a big building with a neon marquee decal (door →
   `arcade` interior).
-- **East**: a small grove where the Keeper's hut copy used to stand, with a
-  sign pointing down to the coast road.
+- **East**: the NEW LOOK stall where the Keeper's hut copy used to stand (exit
+  `look`, look `stall`, target `{ panel: 'look' }`): the hero's hair, clothes
+  and colours are changed at its mirror (`docs/games/neon-shrine.md` → "The
+  hero's look"). Beside it a sign pointing down to the coast road.
 - **South**: the coast path: a small newsstand building (PHAREIM.MD decal)
   with the kiosk counter in front (exit `{ url: 'https://phareim.md' }`,
   lines saying it is Petter's writing), a signpost for GAMES.PHAREIM.NO
@@ -116,7 +118,7 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   house-rules sign. Each is a solid `M` tile with an `exit` of look
   `cabinet`, `art` = theme id, `side: 'down'`, one per game: Another Shore
   (`anotherworld`), Galaga, Breakout, R-Type, Space Invaders, Star Fox,
-  OutRun, Russian Block Game, Night of the Dead Battery. Each has a label and two or three short lines: the game's
+  Drive to the Mountains, Russian Block Game, Night of the Dead Battery. Each has a label and two or three short lines: the game's
   pitch and "INSERT COIN? PRESS A." The lines are the only confirmation.
 - Three of the island's four are links out, not themes: ADVENTURE,
   PIZZA RESCUE (Nova & Rex: The Pizza Rescue), exit
