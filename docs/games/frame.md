@@ -109,6 +109,13 @@ The same day against the live site, after all three had deployed
   lets it load, it is told the insets, says ready at the first frame, and the
   settings' way back returns to `/`.
 
+Solo Rescue, 2026-10-13, against the live site the same way
+(`frame-shot.mjs https://phareim.no/ <out> --live`, Chrome on the Mac):
+`/?frame=nova` shows `https://nova.phareim.no/?from=phareim`, the game is told
+the insets (47 and 34 px), says ready, and ARCADE returns to `/`. Not walked
+there: YES at its cabinet (the script walks Pizza Rescue's; the shell's code
+is the same for every framed exit).
+
 In the first run the live Pizza Rescue, on another site than the dev page, read its
 own `env()` insets as 0 inside the frame; the dev servers on localhost read
 the faked ones. That is Chrome. What iOS gives a framed page is not known,
