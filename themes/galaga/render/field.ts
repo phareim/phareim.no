@@ -34,6 +34,8 @@ export interface FieldView {
   hideShare?: number
   /** The lab's switch: the engine's boxes drawn over the picture. Never set by the game. */
   boxes?: boolean
+  /** The columns beside the field on a frame wider than it: the sky and its stars, none of the large things. */
+  beside?: boolean
 }
 
 const W = 240
@@ -60,6 +62,7 @@ export function drawBackdrop(g: G, sprites: SpriteStore, sector: number, tick: n
       if (layer === 2 && (k & 7) === 0) { g.fillRect(x - 1, y, 3, 1); g.fillRect(x, y - 1, 1, 3) }
     }
   }
+  if (v.beside) return
   // The sector's two large things, drifting by, far apart so that one is in view most of the time.
   // One that is cut straight along its bottom (a horizon) stands on the bottom edge instead.
   const names = [`bg-${sector}-a`, `bg-${sector}-b`]

@@ -70,23 +70,51 @@ and funny; they are stuck, not helpless.
 
 ## The picture
 
-One logical pixel is one sprite pixel, put on the screen at a whole number of device pixels,
-unsmoothed. No bloom, no glow, no scanlines, no vignette, no light map, no blending: a fade
-is a stipple, light is a lighter tone (`nova/docs/design.md`, "Leave out", binds every
-bitmap and every line of drawing code here too).
+One logical pixel is one sprite pixel. No bloom, no glow, no scanlines, no vignette, no light
+map, no blending: a fade is a stipple, light is a lighter tone (`nova/docs/design.md`, "Leave
+out", binds every bitmap and every line of drawing code here too).
 
 - **The field** is always **240 wide** and **320 to 432 tall** (set by the screen, fixed
-  for a run). The scale is the largest whole number of device pixels at which 240 × 320 fits.
+  for a run).
 - **The console** is everything round the field: the ship's dashboard.
-  - Wide screens (560 logical px across or more): the field in the middle, a panel on
-    either side. Left: **the monitor**, a wood-grain television set with a 64 × 64 portrait
-    of whoever is on the radio, a name plate, the channel (`CB 19`, `LOVE BAND 96.9`), and
-    under it the line being said. Right: the instruments: score on a mechanical counter,
-    hull as five valves, the weapon dial and its level, the DUET needle, timed power-ups
-    as lamps, the voyage as a strip chart with a pen at the sector.
-  - Narrow screens: a console band above the field with the same things, small: score,
-    valves, weapon, DUET, and the monitor as a strip (portrait cropped to the face,
-    40 × 40, three rows of text). Rows the field cannot use (a tall phone) go to the band.
+- **Wide screens** (560 logical px across or more at the largest whole number of device pixels
+  at which 240 × 320 fits): one logical pixel is that whole number of device pixels,
+  unsmoothed (`image-rendering: pixelated`). The field in the middle, a panel on either side.
+  Left: **the monitor**, a wood-grain television set with a 64 × 64 portrait of whoever is on
+  the radio, a name plate, the channel (`CB 19`, `LOVE BAND 96.9`), and under it the line
+  being said. Right: the instruments: score on a mechanical counter, hull as five valves, the
+  weapon dial and its level, the DUET needle, timed power-ups as lamps, the voyage as a strip
+  chart with a pen at the sector.
+- **Narrow screens** (2026-10-13; a phone held upright): the picture fills the screen's width.
+  - The frame is exactly **240 logical px wide** and its rows follow from the screen:
+    rows = round(CSS height × 240 / CSS width). Field and band run edge to edge.
+  - The frame goes onto the canvas's backing store at a whole number *n* of backing pixels a
+    logical pixel, nearest neighbour, *n* = ceil(device pixels across / frame width): the
+    backing store is 240*n* by rows × *n*. CSS sizes the canvas to the viewport, so the
+    browser fits the rest, uniformly, with its own smoothing: 2 to 10 % on a 3x phone, more
+    where the device's pixels are just over a whole number a pixel (24 % at 375 × 667 at 2x).
+    The canvas is **not** `pixelated` here: at a ratio that is not whole that makes pixels of
+    two sizes.
+  - Down the screen: the rows the site's radio widget lies over (bare wood, none when there is
+    no widget), **the console band** (96 rows: the portrait cropped to the face, 40 × 40,
+    three rows of text, score, valves, weapon, DUET), **the field**, the site's bottom band
+    (backdrop only).
+  - The name plate and the channel stand on the band's own bare steel, under the score, side
+    by side, each as wide as its words, while someone speaks. They cost no rows, and the band
+    is always under the radio widget's rows, so they are never under it.
+  - The field takes the rows that are left, 320 to 432. **A tall phone does not grow a tall
+    console**: rows a 432-row field leaves over stay under the field as backdrop, which keeps
+    the console small and lifts the ship off the bottom edge towards the thumb.
+  - The lit lamps stand in the field's top left corner; the voyage chart is not shown.
+  - **A screen too short** for those rows with a 320-row field (a small phone in a browser
+    with its bars showing): the frame is made wider than 240, two columns at a time, until
+    its rows are enough. Band and field stay 240 wide in its middle; the columns either side
+    carry the dashboard on (the band's own wood, rail and steel) and the sky (the backdrop
+    and its stars, none of the large things). Never black.
+  - A touch is mapped by the frame: field x = CSS x × frame width / CSS width − field left,
+    and the same down the screen with the frame's rows.
+- A run under way keeps its field's height: a wide screen takes the largest whole scale at
+  which it fits, a narrow one widens the frame as for a short screen.
 - Sizes of things in the field (bitmaps; hit boxes are smaller and belong to the engine):
   player and partner ship about 32 × 36; small enemies 24 × 24; heavy ones 32 × 32; bosses
   about 112 × 96; a trucker's rig about 36 × 150; a stranded ship about 40 × 48; a pick-up

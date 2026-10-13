@@ -1,7 +1,9 @@
 /**
  * Space Voyagers: the frame. Everything is drawn into one small buffer of
  * logical pixels (one logical pixel is one sprite pixel) and put on the
- * canvas once, at a whole number of device pixels, unsmoothed. There is no
+ * canvas's backing store once, at a whole number of its pixels, unsmoothed.
+ * Wide, those are device pixels. Narrow, the backing store is the frame and
+ * CSS fits it to the screen (DESIGN.md, "The picture"). There is no
  * bloom, glow, scanline, vignette, light map or blending anywhere in here:
  * a fade is a stipple, light is a lighter tone (DESIGN.md, "The picture").
  *
@@ -22,8 +24,8 @@ import type { ConsoleState } from './console'
 import { drawBackdrop, drawEnding, drawField, tearField } from './field'
 import { createFx, resetFx, stepFx, takeEvents } from './fx'
 import type { Fx } from './fx'
-import { computeLayout } from './layout'
-import type { Layout } from './layout'
+import { computeLayout, toField as fieldPoint, wholePx } from './layout'
+import type { Layout, Screen } from './layout'
 import { C } from './palette'
 import { hash } from './pix'
 import { createSpriteStore } from './sprites'
@@ -48,8 +50,8 @@ export interface DrawView {
 
 export interface Renderer {
   readonly layout: Layout
-  /** Device pixels per CSS pixel of the canvas's backing store. */
-  readonly ratio: number
+  /** CSS pixels per logical pixel, as a whole number of device pixels: for what is laid over the frame. */
+  readonly px: number
   readonly sprites: SpriteStore
   readonly fx: Fx
   /** `fieldH`: a run is under way and its field keeps this height (0: the screen decides). */
@@ -72,8 +74,9 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   const sprites = createSpriteStore()
   const fx = createFx()
   const consoleState: ConsoleState = createConsoleState()
-  let layout: Layout = computeLayout({ w: 240, h: 320 })
-  let dpr = 1
+  /** The canvas as it was last measured, in CSS pixels. */
+  let shape: Screen = { w: 240, h: 320 }
+  let layout: Layout = computeLayout(shape)
   let lastX = 0
   let lastQX = 0
   let bank = 0
@@ -92,17 +95,13 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   }
 
   function resize(cssW: number, cssH: number, ratio: number, chrome: Chrome, fieldH = 0): Layout {
-    dpr = ratio
-    const w = Math.max(1, Math.round(cssW * dpr))
-    const h = Math.max(1, Math.round(cssH * dpr))
-    if (canvas.width !== w) canvas.width = w
-    if (canvas.height !== h) canvas.height = h
-    layout = computeLayout({
-      w, h,
-      safeBottom: Math.round(chrome.safeBottom * dpr),
-      widgetLeft: Math.round(chrome.widgetLeft * dpr),
-      widgetBottom: Math.round(chrome.widgetBottom * dpr),
-    }, fieldH)
+    shape = { w: Math.max(1, cssW), h: Math.max(1, cssH), ratio, ...chrome }
+    layout = computeLayout(shape, fieldH)
+    if (canvas.width !== layout.cw) canvas.width = layout.cw
+    if (canvas.height !== layout.ch) canvas.height = layout.ch
+    // Wide, a logical pixel is whole device pixels and stays hard. Narrow, CSS fits the backing store to the
+    // screen by a few percent: `pixelated` there would make pixels of two sizes, the browser's own smoothing does not.
+    canvas.style.imageRendering = layout.mode === 'wide' ? 'pixelated' : 'auto'
     buf.width = layout.lw
     buf.height = layout.lh
     return layout
@@ -155,6 +154,19 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     const hideBg = star || (w.sector === 5 && (w.stage === 'clear' || w.stage === 'ending')) ? 'bg-5-a' : undefined
     const hideShare = star && b.state === 'enter' ? Math.max(0, Math.min(1, (b.y + b.hh + 10) / (b.homeY + b.hh + 10))) : 1
     const fv = { h: fh, under, reduced: view.reduced, bank, partnerBank, hideBg, hideShare, boxes: view.boxes }
+    // A frame wider than the field (a short narrow screen): the sky runs on either side of it.
+    if (L.mode === 'band' && L.lw > f.w) {
+      for (let x = (f.x % f.w) - f.w; x < L.lw; x += f.w) {
+        if (x === f.x) continue
+        g.save()
+        g.beginPath()
+        g.rect(x, f.y, f.w, fh + under)
+        g.clip()
+        g.translate(x, f.y)
+        drawBackdrop(g, sprites, w.sector, w.tick, { ...fv, beside: true })
+        g.restore()
+      }
+    }
     g.save()
     g.beginPath()
     g.rect(f.x, f.y, f.w, fh + under)
@@ -184,12 +196,12 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   }
 
   function toField(cssX: number, cssY: number): { x: number; y: number } {
-    return { x: (cssX * dpr) / layout.scale - layout.field.x, y: (cssY * dpr) / layout.scale - layout.field.y }
+    return fieldPoint(layout, shape, cssX, cssY)
   }
 
   return {
     get layout() { return layout },
-    get ratio() { return dpr },
+    get px() { return wholePx(layout, shape) },
     sprites, fx, resize, reset, tick, draw, toField,
   }
 }

@@ -6,10 +6,11 @@
 //
 //   npm run dev                                  # or any local build of the site
 //   node scripts/galaga-lab/shot.mjs [baseUrl] [scene,scene…] [outDir]
+//   node scripts/galaga-lab/shot.mjs '' phone-play,phone-boss,touch      # the narrow rule at every phone
 //
 // baseUrl defaults to http://localhost:3030, outDir to tmp/galaga-shots
 // (git-ignored). Scene names are listed by SCENES below; a name without a
-// size (`boss-cal`) takes both sizes. The browser is $CHROME_BIN, else the
+// size (`boss-cal`) takes the scene's sizes (both, unless it names its own); `boss-cal-p844` one. The browser is $CHROME_BIN, else the
 // Mac's Chrome, else chromium-browser (scripts/zelda-lab/cdp.mjs).
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -20,7 +21,8 @@ if (!process.env.CHROME_BIN && existsSync(MAC_CHROME)) process.env.CHROME_BIN = 
 const { launch } = await import('../zelda-lab/cdp.mjs')
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const [base = 'http://localhost:3030', only = '', outArg] = process.argv.slice(2)
+const [baseArg, only = '', outArg] = process.argv.slice(2)
+const base = baseArg || 'http://localhost:3030'
 const out = resolve(outArg ?? join(repo, 'tmp/galaga-shots'))
 mkdirSync(out, { recursive: true })
 
@@ -30,12 +32,24 @@ const SIZES = {
 }
 const SEED = 7
 // Extra screens a scene may name with `sizes`: an installed tall phone, a laptop whose panels are narrower than their bitmaps.
+// `installed`: the site's bottom band as a home-screen app has it, 48 CSS px. Headless Chrome will not pretend to be
+// `display-mode: standalone`, so the lab sets the token app.vue's rule would set (`--app-safe-bottom`).
 const EXTRA = {
   tall: { width: 390, height: 844, dpr: 3, mobile: true },
   laptop: { width: 1180, height: 700, dpr: 2, mobile: false },
   side: { width: 667, height: 375, dpr: 2, mobile: true },
   hd: { width: 1920, height: 1080, dpr: 1, mobile: false },
+  // The narrow rule's screens (REPORT-phone.md): iPhones installed and in Safari with its bars, small phones, a tablet upright.
+  p844: { width: 390, height: 844, dpr: 3, mobile: true, installed: true },
+  p664: { width: 390, height: 664, dpr: 3, mobile: true },
+  p932: { width: 430, height: 932, dpr: 3, mobile: true },
+  p852: { width: 393, height: 852, dpr: 3, mobile: true },
+  p553: { width: 375, height: 553, dpr: 2, mobile: true },
+  p740: { width: 360, height: 740, dpr: 3, mobile: true },
+  p568: { width: 320, height: 568, dpr: 2, mobile: true },
+  pad: { width: 768, height: 1024, dpr: 2, mobile: true },
 }
+const PHONES = ['p844', 'p664', 'p932', 'p852', 'phone', 'p553', 'p740', 'p568', 'pad']
 const ALL = { ...SIZES, ...EXTRA }
 const V = 'window.__voyagers'
 
@@ -66,6 +80,9 @@ async function settle(b) {
   await step(b, 0)
   await b.sleep(120)
 }
+
+/** The frame as the page has it: the layout, the canvas's backing store and its box, and how it is scaled. */
+const frameReport = b => b.eval(`JSON.stringify((() => { const L = ${V}.state().layout; const c = document.querySelector('.voyagers-canvas'); const r = c.getBoundingClientRect(); const w = document.querySelector('.radio-widget')?.getBoundingClientRect(); return { mode: L.mode, lw: L.lw, lh: L.lh, n: L.scale, strip: L.strip ? L.strip.h : 0, band: L.band ? L.band.y : null, field: L.field, under: L.under, backing: c.width + ' x ' + c.height, css: r.width + ' x ' + r.height, rendering: getComputedStyle(c).imageRendering, widget: w ? [Math.round(w.left), Math.round(w.top), Math.round(w.right), Math.round(w.bottom)] : null } })())`)
 
 const sector = n => async (b, size) => {
   await begin(b, size)
@@ -350,6 +367,74 @@ const SCENES = {
     },
   },
   'fallback-title': { block: true, still: true, run: async () => {} },
+  // The narrow rule at every phone (and wide, to show it did not change): sector 1 in play with someone on the monitor, and a boss.
+  'phone-play': {
+    sizes: [...PHONES, 'wide'],
+    run: async (b, size) => {
+      await begin(b, size)
+      await until(b, `s.stage === 'wave' && s.enemies > 6`, 1200, 5)
+      await step(b, 150)
+      await until(b, `s.monitor && s.monitor.speaking && s.monitor.chars > 20`, 2400, 5)
+      console.log('  frame:', await frameReport(b))
+    },
+  },
+  // The guns stop for the last ticks, so the boss is his bitmap and not the white of a hit.
+  'phone-boss': {
+    sizes: [...PHONES, 'wide'],
+    run: async (b, size) => {
+      await boss(1, 'knight', 480)(b, size)
+      await b.eval(`${V}.autopilot(false); 0`)
+      await step(b, 45)
+    },
+  },
+  // A finger with a negative identifier (Safari on iOS hands those out) put down, dragged, held: the ship must end under it, 42 field px above.
+  touch: {
+    sizes: PHONES,
+    run: async (b, size) => {
+      const z = ALL[size]
+      await begin(b, size, { autopilot: false })
+      await b.eval(`${V}.wave(1); window.__seen = []; addEventListener('touchstart', e => { for (const t of e.changedTouches) window.__seen.push(t.identifier) }, true); 0`)
+      await step(b, 30)
+      const id = -1073741822
+      // Down in the lower left of the field, dragged in six moves to the right and up.
+      const from = { x: z.width * 0.3, y: z.height * 0.86 }
+      const to = { x: z.width * 0.68, y: z.height * 0.72 }
+      await b.touch('touchStart', [{ ...from, id }])
+      await step(b, 20)
+      for (let i = 1; i <= 6; i++) {
+        await b.touch('touchMove', [{ x: from.x + ((to.x - from.x) * i) / 6, y: from.y + ((to.y - from.y) * i) / 6, id }])
+        await step(b, 10)
+      }
+      await step(b, 90)
+      const seen = await b.eval(`JSON.stringify(window.__seen)`)
+      const r = JSON.parse(await b.eval(`JSON.stringify((s => ({ player: s.player, layout: s.layout, hull: s.hull, over: s.over }))(${V}.state()))`))
+      const L = r.layout
+      // The same arithmetic as the page's: the canvas is the frame stretched over the screen.
+      const want = { x: (to.x * L.lw) / z.width - L.field.x, y: (to.y * L.lh) / z.height - L.field.y - 42 }
+      const off = { x: r.player.x - want.x, y: r.player.y - want.y }
+      const ok = seen === `[${id}]` && Math.abs(off.x) <= 1 && Math.abs(off.y) <= 1 && !r.over
+      console.log(`  touch ${size} ${z.width} x ${z.height}: identifier seen ${seen}, finger at CSS ${to.x.toFixed(1)}, ${to.y.toFixed(1)}; ship wanted at field ${want.x.toFixed(2)}, ${want.y.toFixed(2)}, is at ${r.player.x.toFixed(2)}, ${r.player.y.toFixed(2)} (off ${off.x.toFixed(2)}, ${off.y.toFixed(2)}) ${ok ? 'OK' : 'WRONG'}`)
+      await b.touch('touchEnd', [])
+      // For the eye: a ring where the finger was, over the picture.
+      await b.eval(`(() => { const d = document.createElement('div'); d.style.cssText = 'position:fixed;z-index:99;left:${to.x - 9}px;top:${to.y - 9}px;width:18px;height:18px;box-sizing:border-box;border:2px solid #fff;border-radius:50%;pointer-events:none'; document.body.appendChild(d) })(); 0`)
+      if (!ok) throw new Error(`the ship is not under the finger at ${size}`)
+    },
+  },
+  // Safari's bars come out in the middle of a run begun installed: the same field, whole, in a wider frame. Not a turn: no pause.
+  bars: {
+    sizes: ['p844'],
+    run: async (b, size) => {
+      await begin(b, size)
+      await b.eval(`${V}.wave(2); 0`)
+      await step(b, 400)
+      const before = await frameReport(b)
+      await b.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 664, deviceScaleFactor: 3, mobile: true })
+      await b.sleep(600)
+      await step(b, 1)
+      console.log('  bars: before', before)
+      console.log('  bars: after ', await frameReport(b), 'paused', await b.eval(`${V}.state().paused`), 'height', await b.eval(`${V}.state().height`))
+    },
+  },
   // The layouts the two standard sizes do not reach.
   layouts: { sizes: ['tall', 'laptop', 'side'], run: async (b, size) => { await begin(b, size); await b.eval(`${V}.wave(2); 0`); await step(b, 420); await b.eval(`${V}.give('quarter'); ${V}.give('magnet'); 0`); await step(b, 30) } },
   'title-more': { sizes: ['tall', 'laptop', 'side', 'hd'], still: true, run: async () => {} },
@@ -358,7 +443,7 @@ const SCENES = {
 const want = only ? only.split(',') : Object.keys(SCENES)
 let failed = 0
 for (const item of want) {
-  const m = /^(.*)-(phone|wide)$/.exec(item)
+  const m = new RegExp(`^(.*)-(${Object.keys(ALL).join('|')})$`).exec(item)
   const name = m && SCENES[m[1]] ? m[1] : item
   const scene = SCENES[name]
   if (!scene) { console.error(`no scene "${item}" (have: ${Object.keys(SCENES).join(', ')})`); failed++; continue }
@@ -369,11 +454,12 @@ for (const item of want) {
       if (scene.block) { await b.send('Network.enable'); await b.send('Network.setBlockedURLs', { urls: ['*/galaga/*.png'] }) }
       await b.goto(`${base}${scene.page ?? '/?theme=galaga&debug=galaga'}`)
       await b.sleep(600)
+      if (ALL[size].installed) await b.eval(`document.documentElement.style.setProperty('--app-safe-bottom', '48px'); 0`)
       await scene.run(b, size)
       if (!scene.still || scene.play) await settle(b)
       const file = join(out, `${name}-${size}.png`)
       await b.shot(file)
-      const state = scene.still && !scene.play ? null : await b.eval(`JSON.stringify((s => ({ tick: s.tick, stage: s.stage, sector: s.sector, wave: s.wave, score: s.score, hull: s.hull, partner: s.partner, wing: s.wing, boss: s.boss && s.boss.id, mode: s.layout.mode, scale: s.layout.scale, field: s.layout.field, missing: s.sprites.missing }))(${V}.state()))`)
+      const state = scene.still && !scene.play ? null : await b.eval(`JSON.stringify((s => ({ tick: s.tick, stage: s.stage, sector: s.sector, wave: s.wave, score: s.score, hull: s.hull, partner: s.partner, wing: s.wing, boss: s.boss && s.boss.id, mode: s.layout.mode, lw: s.layout.lw, lh: s.layout.lh, scale: s.layout.scale, field: s.layout.field, missing: s.sprites.missing }))(${V}.state()))`)
       console.log(`${name}-${size}.png`, state ?? '')
       if (b.errors.length) { failed++; console.log('  errors:', b.errors.slice(0, 4)) }
     } catch (err) {

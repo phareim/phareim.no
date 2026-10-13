@@ -11,8 +11,10 @@
  * itself uses the one-shots: `SFX_NAMES` lists them, `soundFor()` says
  * which one an engine event makes.
  *
- * Nothing starts before a user gesture (`start()` is called from the
- * Enter/tap that begins a run); a browser that refuses audio stays quiet.
+ * Nothing starts before a user gesture (`start()` is called when a run
+ * begins and again from every gesture in it: a context made after the tap
+ * that asked for the game stays suspended on iOS until the next one); a
+ * browser that refuses audio stays quiet.
  */
 
 interface Track {
@@ -185,10 +187,24 @@ export function createGalagaAudio() {
   let bossMode = false
   let lastShoot = 0
 
+  /**
+   * Ask a context that is not running to run. A browser grants it only from inside a gesture, and iOS
+   * has a state of its own, 'interrupted' (a call, the app switcher), so this is asked again from every
+   * gesture and must cost nothing and throw nothing when there is nothing to do.
+   */
+  function wake(): void {
+    if (!ac || ac.state === 'running' || ac.state === 'closed') return
+    try {
+      ac.resume().catch(() => {})
+    } catch {
+      // Not now: the next gesture asks again.
+    }
+  }
+
   function ensure(): boolean {
     if (!enabled) return false
     if (ac) {
-      if (ac.state === 'suspended') ac.resume().catch(() => {})
+      wake()
       return true
     }
     const Ctor = typeof window !== 'undefined'
@@ -236,7 +252,7 @@ export function createGalagaAudio() {
     fb.connect(delay)
     delay.connect(wet)
     wet.connect(musicBus)
-    if (ac.state === 'suspended') ac.resume().catch(() => {})
+    wake()
     return true
   }
 
@@ -404,8 +420,13 @@ export function createGalagaAudio() {
     }
   }
 
+  /** Make the context, or wake it. Safe to call from every gesture: it never throws and makes one context only. */
   function start(): boolean {
-    return ensure()
+    try {
+      return ensure()
+    } catch {
+      return false
+    }
   }
 
   function playTrack(i: number): void {

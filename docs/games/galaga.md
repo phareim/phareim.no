@@ -26,7 +26,7 @@ says what is built and where.
 | `themes/galaga/render/crops.ts` | Which 40 × 40 of each portrait the narrow band shows: one origin per speaker, per mood where the head sits elsewhere |
 | `themes/galaga/render/fx.ts` | What outlasts a tick: pops, floating words, banners, shake (fixed pools, the game clock) |
 | `themes/galaga/render/pix.ts`, `palette.ts` | Pixel verbs (line, ring, stipple, big text) and the flat colours |
-| `themes/galaga/render/index.ts` | The frame: one buffer of logical pixels, put on the canvas at a whole scale |
+| `themes/galaga/render/index.ts` | The frame: one buffer of logical pixels, put on the canvas's backing store at a whole scale |
 | `public/galaga/*.png` | The bitmaps (the art job: `scripts/galaga-lab/art/`, never edited by hand) |
 | `scripts/galaga-lab/shot.mjs` | The picture tool |
 | `scripts/galaga-lab/tune.mjs` | The tuning table: three autopilot profiles, 12 seeds, both heights |
@@ -45,9 +45,10 @@ Every number is in `engine/balance.ts`. What the page adds:
   the same ticks, so it freezes too.
 - **A run** starts from the title with Enter, Space or a tap (a click, so a swipe does not
   start one). The field takes the height the screen gives it then (320 to 432) and keeps it.
-  A window resized or a phone turned mid-run lays the frame out again round that same field,
-  at the largest whole scale at which all of it fits, with the console's colours round it; a
-  turn (wide becomes tall or the other way) also pauses.
+  A window resized or a phone turned mid-run lays the frame out again round that same field
+  (wide: the largest whole scale at which all of it fits; narrow: a frame as wide as it must
+  be for the rows), with the console's colours and the sky round it; a turn (wide becomes
+  tall or the other way) also pauses.
 - **Controls.** Arrows or WASD fly, Space fires while held, Shift is DUET, P or an Escape tap
   pauses, a 3 s Escape hold ends the run (`themes/base/EscHold.vue`). Touch: the ship flies to
   a point 42 field pixels above the finger and fires while touched; a second finger is DUET.
@@ -78,6 +79,11 @@ Every number is in `engine/balance.ts`. What the page adds:
 - **Sounds.** `soundFor()` maps an engine event to a one-shot; only the player's own guns
   are heard, pops at most every third tick. A new line on the monitor is a CB click and
   squelch (`radioOpen`), the end of talk its tail (`radioClose`), a boss a low chord (`cutIn`).
+  The one-shots' context is made when a run begins, which is after the tap that asked for the
+  game's chunk, so iOS may leave it suspended: every touchstart, touchend and keydown of the
+  run asks it to run again (`wake()` in `Game.vue`, `start()` in `audio.ts`, which makes one
+  context and never throws). A fault in the sound cannot stop the input handlers. Not heard
+  on a phone by anyone (2026-10-13).
 - **Page cues.** The page asks the director for `briefing` (else `retry`) at the start,
   `best` when the stored high score is passed, `ending` and `gameover`. After GAME OVER the
   director and the effects run on, on the page's own count of ticks.
@@ -86,11 +92,14 @@ Every number is in `engine/balance.ts`. What the page adds:
 
 ## The picture
 
-One buffer of logical pixels is drawn each frame and put on the canvas once, at a whole
-number of device pixels with `imageSmoothingEnabled` false. The canvas is backed at the
-real `devicePixelRatio` (capped at 4), not at `canvasPixelRatio()`: the rule is about device
-pixels, a lower backing ratio would put a logical pixel on one and a half of them, and the
-frame is one small buffer and one blit, not the pixel stage's four or five passes. Measured
+One buffer of logical pixels is drawn each frame and put on the canvas's backing store once,
+at a whole number of its pixels with `imageSmoothingEnabled` false. Wide, the backing store is
+the screen's device pixels (the real `devicePixelRatio`, capped at 4, not
+`canvasPixelRatio()`: the rule is about device pixels, and the frame is one small buffer and
+one blit, not the pixel stage's four or five passes) and the canvas is `pixelated`. Narrow
+(2026-10-13), the backing store is the frame itself, `lw × n` by `lh × n`, CSS fits it to the
+viewport and the renderer takes `pixelated` off the canvas (`resize` in `render/index.ts`).
+Measured (before the narrow rule: a 1170 × 2532 store; it is now 1200 × 2595)
 2026-10-13 on the built site (`perf.mjs`: 390 × 844, 4x CPU throttle, headless Chrome on the
 Mac): one draw takes 0.3 ms in the middle and 3.3 ms at the 95th percentile at ratio 3, and
 the same at ratio 2 and at ratio 1; a tick and a draw of a busy wave 2.3 and 5.9 ms. No bloom, glow, scanline, vignette, light map, gradient or alpha blending: a fade
@@ -99,19 +108,26 @@ The shared pixel stage (`themes/base/pixel/stage.ts`) is not used; the 5×7 font
 
 **Layout** (`render/layout.ts`, `tests/galaga-layout.test.mjs`):
 
-- The scale is the largest whole number of device pixels at which 240 × 320 fits above the
-  site's bottom band. It drops one step when that would leave the console band less than
-  its 96 rows.
-- From 560 logical pixels across: the field in the middle, `console-left` (the monitor) and
-  `console-right` (the instruments) either side, each 160 to 200 wide. A panel narrower than
-  its bitmap shows the columns its windows are in. The right panel starts under the site's
-  radio widget (measured from the DOM); the rows above it are flat metal.
-- Narrower: `console-band` (96 rows) above the field, and above that a strip of the rows
-  the field cannot use: the name plate and the channel beside the radio widget, then the
-  lamps and the voyage chart when there are rows for them. With no room, the lit lamps are
-  stacked in the field's top-left corner.
-- A run under way keeps its field's height: `computeLayout(screen, fieldH)` takes the largest
-  scale at which that whole field (and the band's 96 rows on a narrow screen) fits.
+- Wide or narrow: the largest whole number of device pixels at which 240 × 320 fits above the
+  site's bottom band is tried first; 560 logical pixels across there is wide; if not, and the
+  band's 96 rows would not fit above the field at that scale, the next scale down is tried.
+- Wide: the field in the middle, `console-left` (the monitor) and `console-right` (the
+  instruments) either side, each 160 to 200 wide. A panel narrower than its bitmap shows the
+  columns its windows are in. The right panel starts under the site's radio widget (measured
+  from the DOM); the rows above it are flat metal.
+- Narrow (`narrow()`; DESIGN.md has the rule): a frame 240 across, rows = round(CSS height ×
+  240 / CSS width), `scale` = ceil(device pixels across / frame width). Down it: `strip` (bare
+  wood: the radio widget's rows less the 8 of the band it may lie over), `band`
+  (`console-band`, 96 rows), `field`, `under` (the bottom band and any rows a 432-row field
+  leaves). The name plate and the channel are drawn on the band's steel (`BAND_PLATES`). A
+  screen without the rows gets a wider frame (`lw` > 240, even), band and field in its middle,
+  the band's edge columns and the sky's stars drawn on either side. The lit lamps are stacked
+  in the field's top-left corner.
+- The radio widget's left edge is taken at its CSS `max-width`, not as measured: it is as
+  wide as the track's name, and the layout must not move when the track changes.
+- A run under way keeps its field's height: `computeLayout(screen, fieldH)`.
+- `toField()` maps a touch: narrow by the frame (`lw / CSS width`, `lh / CSS height`), wide by
+  device pixels. `wholePx()` is the pixel GAME OVER's panel is drawn at: whole device pixels.
 - The field ends at the bottom band; the backdrop runs on through it.
 - A backdrop bitmap that is cut straight along its bottom (most of its last row is solid:
   the Earth's limb, the field of dishes) stands on the bottom edge; the others drift down.
@@ -201,6 +217,10 @@ Writes `tmp/galaga-shots/<scene>-<phone|wide>.png` (375 × 667 at 2x, 1280 × 80
 the hook with the clock held, seed 7: the title, each sector, the monitor, capture, hanging,
 dock, DUET, both convoys, a rescue, the third ship, the bonus run, TRACKING with every lamp
 lit, a called rig, each boss, GAME OVER, the ending, and `fallback` with every bitmap refused.
+`phone-play`, `phone-boss` and `touch` run at nine narrow screens (`p844` installed, `p664`,
+`p932`, `p852`, `phone`, `p553`, `p740`, `p568`, `pad`; `touch` flies the ship with a finger
+whose identifier is negative and fails if the ship does not end under it); `bars` shrinks an
+installed phone to Safari's height mid-run. A scene takes one size as a suffix (`boss-cal-p844`).
 `layouts` and `title-more` add a tall phone (390 × 844 at 3x), a laptop whose panels are
 narrower than their bitmaps (1180 × 700 at 2x), a phone on its side and 1920 × 1080. Also:
 `boxes-<boss>` (each boss with the boxes drawn), `tow`, `gameover-delivered`, `voyage-2`,
@@ -217,9 +237,9 @@ built site (`npm run build`, `npm run preview`, port 8788).
 |---|---|
 | `galaga-engine`, `-pickups`, `-encounters`, `-bosses`, `-voyage` | The simulation (see `REPORT-engine.md`) |
 | `galaga-director`, `-script` | The radio's rules and every line |
-| `galaga-layout` | The layout rule on a phone, an installed phone, a tall phone, wide, a phone on its side and a sweep of 5,000 screens; the windows against `windows.json`; panel crops |
+| `galaga-layout` | The layout rule: nine narrow screens (frame, scale, band, field, bottom band, radio widget, a run's field kept), every speaker's plates on the band, a touch mapped by the frame, wide as it was, a sweep of 11,000 screens; the windows against `windows.json`; panel crops |
 | `galaga-look` | Banners for every card, pops and shakes running out on the game clock, pick-up names, fixed pools over a played sector |
-| `galaga-audio` | The radio tracks; every one-shot exists and plays against a fake Web Audio; every engine event is silent or makes one |
+| `galaga-audio` | The radio tracks; every one-shot exists and plays against a fake Web Audio; every engine event is silent or makes one; `start()` again and again makes one context, wakes it when it is not running and never throws |
 
 `test:radio` holds the station names against `audio.ts`. Nothing tests the canvas drawing
 itself: that is what the pictures are for.
@@ -238,5 +258,9 @@ itself: that is what the pictures are for.
   the top right corner of the ending picture.
 - A panel narrower than 172 logical pixels cuts the monitor's caption to fewer than 28
   characters a row; the line is wrapped again and the last three rows are shown.
-- The narrow band has no lamps or chart of its own: at 375 × 667 the lit lamps stand in the
-  field's corner and the voyage chart is not shown.
+- The narrow band has no lamps or chart of its own: on every narrow screen the lit lamps
+  stand in the field's corner and the voyage chart is not shown.
+- Narrow, the canvas is smoothed by the browser over its last 2 to 24 % (measured at nine
+  screens; 375 × 667 at 2x is the 24: 3.02 device pixels a pixel, and ceil gives 4): at a pixel ratio of 1
+  (a narrow desktop window) that softening can be seen; on a phone's density it was not
+  looked at on a phone.

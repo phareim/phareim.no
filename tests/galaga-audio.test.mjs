@@ -137,3 +137,61 @@ test('every one-shot plays against a fake Web Audio and makes a sound source', (
     globalThis.window = before
   }
 })
+
+test('start() can be called from every gesture: one context, woken when it is not running, never a throw', () => {
+  const node = () => ({ gain: { value: 0 }, delayTime: { value: 0 }, buffer: null, connect() {} })
+  let made = 0
+  let resumed = 0
+  class FakeContext {
+    currentTime = 0
+    sampleRate = 8000
+    state = 'suspended'
+    destination = node()
+    constructor() { made++ }
+    createGain() { return node() }
+    createConvolver() { return node() }
+    createDelay() { return node() }
+    createBuffer(_c, len) { return { getChannelData: () => new Float32Array(len) } }
+    resume() { resumed++; if (this.faulty) throw new Error('not allowed'); return Promise.resolve() }
+    close() { return Promise.resolve() }
+  }
+  const before = globalThis.window
+  let ctx = null
+  globalThis.window = { AudioContext: class extends FakeContext { constructor() { super(); ctx = this } } }
+  try {
+    const audio = createGalagaAudio()
+    // Made outside a gesture (the game's chunk arrived after the tap): suspended, and asked to run.
+    assert.equal(audio.start(), true)
+    assert.equal(resumed, 1)
+    // The next gestures ask again, on the same context.
+    assert.equal(audio.start(), true)
+    assert.equal(audio.start(), true)
+    assert.equal(made, 1)
+    assert.equal(resumed, 3)
+    // iOS after a call or the app switcher.
+    ctx.state = 'interrupted'
+    audio.start()
+    assert.equal(resumed, 4)
+    // Running: nothing to do.
+    ctx.state = 'running'
+    for (let i = 0; i < 50; i++) audio.start()
+    assert.equal(resumed, 4)
+    // A browser that throws instead of rejecting.
+    ctx.state = 'suspended'
+    ctx.faulty = true
+    assert.doesNotThrow(() => audio.start())
+    audio.dispose()
+  } finally {
+    globalThis.window = before
+  }
+  // No Web Audio at all.
+  globalThis.window = {}
+  try {
+    const audio = createGalagaAudio()
+    assert.equal(audio.start(), false)
+    assert.equal(audio.start(), false)
+    assert.doesNotThrow(() => audio.play('shoot'))
+  } finally {
+    globalThis.window = before
+  }
+})

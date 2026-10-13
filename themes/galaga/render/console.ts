@@ -19,7 +19,7 @@ import type { Monitor } from '../story/director'
 import type { Fx } from './fx'
 import { roman } from './fx'
 import { bandCrop } from './crops'
-import { BAND_WINDOWS, LEFT_WINDOWS, RIGHT_WINDOWS } from './layout'
+import { BAND_PLATES, BAND_WINDOWS, LEFT_WINDOWS, PLATE_GAP, RIGHT_WINDOWS, plateWidth } from './layout'
 import type { Layout, Panel, Rect } from './layout'
 import { C, INK, WHITE } from './palette'
 import { clipTo, disc, frame, hash, line, rect, stipple, text, textC } from './pix'
@@ -28,6 +28,8 @@ import type { SpriteStore } from './sprites'
 import { textWidth } from '../../base/pixel/font'
 
 const DIGITS = 7
+/** console-band.png: its rows above this one are wood, from it down a rail and steel (measured in the bitmap). */
+const BAND_WOOD = 52
 
 export interface ConsoleState {
   /** The number the counter shows, on its way to the score. */
@@ -464,9 +466,19 @@ function rightPanel(a: ConsoleArgs, p: Panel): void {
   })
 }
 
+/** Who is speaking, on the band's bare steel: the name plate, and the channel beside it. Nothing when nobody is. */
+function bandPlates(g: G, x: number, y: number, m: Monitor): void {
+  if (!m.speaking) return
+  const name = { x: x + BAND_PLATES.x, y: y + BAND_PLATES.y, w: plateWidth(m.name.length), h: BAND_PLATES.h }
+  const channel = { x: name.x + name.w + (name.w ? PLATE_GAP : 0), y: name.y, w: plateWidth(m.channel.length), h: name.h }
+  for (const r of [name, channel]) if (r.w) rect(g, INK, r.x - 1, r.y - 1, r.w + 2, r.h + 2)
+  if (name.w) plate(g, name, m.name, true)
+  if (channel.w) plate(g, channel, m.channel, false)
+}
+
 function band(a: ConsoleArgs, p: Panel): void {
-  const { g, sprites, world: w, monitor: m, fx, state: s, view: v } = a
-  // When the band is cut short (a very low window) its lower rows are the ones shown.
+  const { g, layout: L, sprites, world: w, monitor: m, fx, state: s, view: v } = a
+  // Should the band ever be cut short, its lower rows are the ones shown.
   const cut = 96 - p.h
   const oy = p.y - cut
   const win = BAND_WINDOWS
@@ -482,8 +494,9 @@ function band(a: ConsoleArgs, p: Panel): void {
     weapon(g, sprites, r.weapon, w, fx, true)
     duetBar(g, r.duet, w, v.reduced)
   }
+  const painted = sprites.ready('console-band')
   clipTo(g, p, () => {
-    if (sprites.ready('console-band')) {
+    if (painted) {
       inside()
       sprites.blit(g, 'console-band', p.x, p.y, 0, cut, p.w, p.h)
     } else {
@@ -491,44 +504,37 @@ function band(a: ConsoleArgs, p: Panel): void {
       inside()
       text(g, 'DUET', r.duet.x - 27, r.duet.y, C.face)
     }
+    bandPlates(g, p.x, oy, m)
   })
+  // A frame wider than the band (a short screen): the dashboard runs on to both edges. The bitmap's
+  // rows are streaks of wood, then a rail and flat steel, so one column of it drawn again and again
+  // continues them: its last for the wood (its first is the portrait's frame), its first for the
+  // rail and the steel (its last is in a knob's shadow).
+  const right = p.x + p.w
+  if (!painted) {
+    for (const side of [{ x: 0, y: p.y, w: p.x, h: p.h }, { x: right, y: p.y, w: L.lw - right, h: p.h }]) {
+      if (side.w > 0) clipTo(g, side, () => chrome(g, side, true, []))
+    }
+    return
+  }
+  const wood = Math.max(0, BAND_WOOD - cut)
+  for (let x = 0; x < L.lw; x++) {
+    if (x === p.x) x = right
+    if (wood > 0) sprites.blit(g, 'console-band', x, p.y, p.w - 1, cut, 1, wood)
+    sprites.blit(g, 'console-band', x, p.y + wood, 0, cut + wood, 1, p.h - wood)
+  }
 }
 
-/**
- * The rows above the band, top to bottom: the name plate, the channel, the lamps, the voyage chart.
- * Each goes beside the radio widget when it is narrow enough to, else under it, and is left out
- * when the rows are used up.
- */
-function strip(a: ConsoleArgs, r: Rect): boolean {
-  const { g, layout: L, world: w, monitor: m } = a
-  let hasLamps = false
-  let y = r.y + 2
-  const clearY = r.y + L.stripClearY
-  const place = (width: number, height: number): Rect | null => {
-    let wd = width
-    if (y < clearY && wd > L.stripClearW - 6) {
-      // Too wide to stand beside the widget: the name plate may shrink, the rest goes under it.
-      if (width === 104 && L.stripClearW >= 76) wd = L.stripClearW - 6
-      else y = clearY + 2
-    }
-    if (y + height > r.y + r.h - 1) return null
-    const out = { x: y >= clearY ? r.x + ((r.w - wd) >> 1) : r.x + 3, y, w: wd, h: height }
-    rect(g, C.woodLo, out.x - 2, out.y - 2, out.w + 4, out.h + 4)
-    y += height + 3
-    return out
+/** Bare wood in console-band.png's own tones (measured in it), for the rows above the band: streaks, a row or two each. */
+const BAND_TONES = ['#803d1b', '#63321e', '#924318', '#71361b', '#803d1b'] as const
+
+function bandWood(g: G, r: Rect): void {
+  for (let y = 0; y < r.h; y++) {
+    const k = hash(y >> 1, 913)
+    rect(g, BAND_TONES[k % BAND_TONES.length]!, r.x, r.y + y, r.w, 1)
+    // A shorter streak of another tone on some rows.
+    if ((k & 6) === 0) rect(g, BAND_TONES[(k >>> 3) % BAND_TONES.length]!, r.x + ((k >>> 6) % r.w), r.y + y, 30 + ((k >>> 12) % 90), 1)
   }
-  clipTo(g, r, () => {
-    chrome(g, r, true, [])
-    const name = place(104, 9)
-    if (name) plate(g, name, m.speaking ? m.name : '', true)
-    const channel = name ? place(84, 9) : null
-    if (channel) plate(g, channel, m.speaking ? m.channel : '', false)
-    const lr = place(100, 12)
-    if (lr) { lampRow(g, lr, w); hasLamps = true }
-    const cr = lr ? place(150, 40) : null
-    if (cr) chart(g, cr, w)
-  })
-  return hasLamps
 }
 
 /** Draw the console. Returns false when the lamps found no room and belong in the field's corner. */
@@ -542,8 +548,8 @@ export function drawConsole(a: ConsoleArgs): boolean {
     }
     return true
   }
-  let hasLamps = false
-  if (L.strip) hasLamps = strip(a, L.strip)
+  // Narrow: the band has no row of lamps; the lit ones stand in the field's corner.
+  if (L.strip) clipTo(g, L.strip, () => (a.sprites.ready('console-band') ? bandWood(g, L.strip!) : chrome(g, L.strip!, true, [])))
   if (L.band && L.band.h > 0) band(a, L.band)
-  return hasLamps
+  return false
 }

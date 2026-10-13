@@ -38,7 +38,7 @@ export interface RunReport {
   wave: number
   stage: string
   friends: number
-  /** CSS pixels per pixel of the frame the run was drawn in, for the panel that goes over it. */
+  /** CSS pixels per pixel of the panel that goes over the frame: the frame's own pixel, as a whole number of device pixels. */
   px: number
 }
 
@@ -103,7 +103,7 @@ function readBest(): number {
 
 /**
  * Lay the frame out for the screen as it is now. `keep`: a run is under way and its field keeps
- * its height, so the frame is laid out round that field (a smaller scale if need be).
+ * its height, so the frame is laid out round that field (a smaller scale, or a wider frame).
  */
 function measure(keep = false): void {
   const c = canvas.value
@@ -111,7 +111,8 @@ function measure(keep = false): void {
   const widget = document.querySelector('.radio-widget')?.getBoundingClientRect()
   renderer.resize(c.clientWidth, c.clientHeight, Math.min(4, window.devicePixelRatio || 1), {
     safeBottom: safeBottom(),
-    widgetLeft: widget ? widget.left : 0,
+    // The widget is as wide as its track's name: reckon with the widest it gets (its max-width), so nothing moves when the track changes.
+    widgetLeft: widget ? Math.min(widget.left, widget.right - Math.min(window.innerWidth * 0.6, 340)) : 0,
     widgetBottom: widget ? widget.bottom : 0,
   }, keep && world ? world.h : 0)
 }
@@ -152,24 +153,51 @@ function start(pilot: PilotId = props.pilot): void {
   paused.value = false
   acc = 0
   running = true
-  // Sound starts on the gesture that begins the run; the site's radio is the music.
-  try {
-    if (!audio) audio = createGalagaAudio()
-    audio.start()
-  } catch {
-    audio = null
-  }
+  // The site's radio is the music; the one-shots have their own context. This runs when the game's chunk has
+  // arrived, which is after the tap that asked for it, so iOS may leave that context suspended: `wake` asks again.
+  wake()
   radio.ensurePlaying()
   radio.setIntensity(0, false)
   emit('started')
   emit('score', 0)
 }
 
+/**
+ * Make the one-shots' context, or resume it. Called at the start of a run and from every gesture after
+ * (iOS resumes a context only from inside one); safe to call again and again. A fault in the sound must
+ * never reach the caller: the caller is a finger flying the ship.
+ */
+function wake(): void {
+  try {
+    if (!audio) audio = createGalagaAudio()
+    audio.start()
+  } catch {
+    audio = null
+  }
+}
+
+/** A one-shot. Like `wake`, it swallows any fault of its own. */
+function sound(name: string): void {
+  try {
+    audio?.play(name)
+  } catch {
+    // The run goes on without the sound.
+  }
+}
+
+function hush(on: boolean): void {
+  try {
+    audio?.suspend(on)
+  } catch {
+    // As above.
+  }
+}
+
 function report(w: World): RunReport {
   return {
     score: w.score, voyage: w.voyage, sector: w.sector, sectorName: SECTORS[w.sector - 1]?.name ?? '',
     wave: w.wave, stage: w.stage, friends: w.friends.length,
-    px: renderer ? renderer.layout.scale / renderer.ratio : 1,
+    px: renderer ? renderer.px : 1,
   }
 }
 
@@ -225,15 +253,15 @@ function tick(): void {
     const e = w.events[i]!
     const s = soundFor(e.type, e.kind, e.n)
     if (s === 'kill') { if (w.tick - lastKill < 3) continue; lastKill = w.tick } else if (s === 'bossHit') { if (w.tick - lastBossHit < 6) continue; lastBossHit = w.tick }
-    if (s) audio?.play(s)
+    if (s) sound(s)
     if (e.type === 'card' || e.type === 'wave' || e.type === 'bossIn' || e.type === 'bossDown') setMusic(w)
     if (e.type === 'ending') director.cue('ending', w.tick)
   }
   // The radio keys up with each new line and lets go after the last.
   if (monitor.speaking && monitor.line !== lastLine) {
     lastLine = monitor.line
-    audio?.play(monitor.cutsIn ? 'cutIn' : 'radioOpen')
-  } else if (!monitor.speaking && wasSpeaking) audio?.play('radioClose')
+    sound(monitor.cutsIn ? 'cutIn' : 'radioOpen')
+  } else if (!monitor.speaking && wasSpeaking) sound('radioClose')
   wasSpeaking = monitor.speaking
   if (w.score !== lastScore) {
     lastScore = w.score
@@ -274,7 +302,7 @@ function togglePause(): void {
   touchId = null
   last = performance.now()
   acc = 0
-  audio?.suspend(paused.value)
+  hush(paused.value)
   radio.suspend(paused.value)
 }
 
@@ -284,12 +312,12 @@ function quitToGameOver(): void {
   if (!running || !w) return
   paused.value = false
   keys.clear()
-  audio?.suspend(false)
+  hush(false)
   radio.suspend(false)
   director?.hush(w.tick)
   w.over = true
   w.stage = 'over'
-  audio?.play('death')
+  sound('death')
   onGameOver(w)
 }
 
@@ -300,7 +328,7 @@ const FLY = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 
 function onKeyDown(e: KeyboardEvent): void {
   // Escape belongs to EscHold; M to the site's radio.
   if (e.code === 'Escape' || !running) return
-  audio?.start()
+  if (!paused.value) wake()
   if (e.code === 'KeyP') {
     if (!e.repeat) { e.preventDefault(); togglePause() }
     return
@@ -325,7 +353,7 @@ function isInteractive(el: EventTarget | null): boolean {
 
 function onTouchStart(e: TouchEvent): void {
   if (!running || paused.value || isInteractive(e.target)) return
-  audio?.start()
+  wake()
   e.preventDefault()
   // A finger whose lift was never reported (a system gesture took it) must not hold the ship.
   if (touchId !== null && !Array.from(e.touches).some(t => t.identifier === touchId)) touchId = null
@@ -347,6 +375,8 @@ function onTouchMove(e: TouchEvent): void {
 }
 
 function onTouchEnd(e: TouchEvent): void {
+  // iOS counts a lift as the gesture, not the touch that began it: ask for the sound here too.
+  if (running && !paused.value) wake()
   for (const t of Array.from(e.changedTouches)) if (t.identifier === touchId) touchId = null
   if (e.touches.length === 0) touchId = null
 }
@@ -354,9 +384,9 @@ function onTouchEnd(e: TouchEvent): void {
 function onVisibility(): void {
   if (document.hidden) {
     if (running && !paused.value) togglePause()
-    else { audio?.suspend(true); radio.suspend(true) }
+    else { hush(true); radio.suspend(true) }
   } else if (!paused.value) {
-    audio?.suspend(false)
+    hush(false)
     radio.suspend(false)
   }
 }
@@ -506,6 +536,7 @@ defineExpose({ start })
   height: var(--app-height, 100dvh);
   display: block;
   z-index: 1;
+  /* Wide: whole device pixels, hard. The frame takes this off on a narrow screen (render/index.ts, `resize`). */
   image-rendering: pixelated;
   touch-action: none;
 }
