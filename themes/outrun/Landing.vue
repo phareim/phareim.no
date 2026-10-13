@@ -15,8 +15,8 @@
           <p class="px-hint px-blink">▶ {{ hint('PRESS ENTER TO DRIVE', 'TAP TO DRIVE') }} ◀</p>
           <p class="px-hint px-dim">{{ hint('↑ GAS · ↓ BRAKE · ← → STEER · M TAPE', 'DRAG TO STEER · 2ND FINGER BRAKES') }}</p>
           <p v-if="highScore > 0" class="px-hud px-dim">HIGH SCORE {{ highScore }}</p>
+          <p class="px-hud drive-maker">(C) 1Q89 SLEEPY PRODUCTIONS</p>
         </div>
-        <p class="px-hud drive-maker">(C) 1Q89 SLEEPY PRODUCTIONS</p>
       </div>
       <div v-else-if="phase === 'over' && result" class="drive-over">
         <h1 class="px-title">{{ title }}</h1>
@@ -163,7 +163,8 @@ function onOver(r: OutrunResult) {
   }
 }
 
-/* Two rows: who, in jacket red, and where to, in gold. Hard shadows only. */
+/* Two rows: who, in jacket red, and where to, in gold. Hard shadows only, a
+   whole font pixel (an eighth of an em) at a time: cream under the red, the night under that. */
 .landing .drive-logo {
   font-family: var(--font-pixel);
   font-weight: 400;
@@ -178,23 +179,21 @@ function onOver(r: OutrunResult) {
 .drive-logo-names {
   font-size: 40px;
   color: #e2343f;
-  text-shadow: 3px 0 0 #ffe9c4, -3px 0 0 #ffe9c4, 0 3px 0 #ffe9c4, 0 -3px 0 #ffe9c4, 6px 6px 0 #0a0c1e;
-  margin-bottom: 10px;
+  text-shadow: 0.125em 0.125em 0 #ffe9c4, 0.25em 0.25em 0 #0a0c1e;
+  margin-bottom: 14px;
 }
 .drive-logo-road {
   font-size: 16px;
   color: #ffe45c;
-  text-shadow: 3px 3px 0 #0a0c1e;
+  text-shadow: 0.125em 0.125em 0 #0a0c1e;
 }
 @media (min-width: 800px) {
   .drive-logo-names {
     font-size: 72px;
-    text-shadow: 4px 0 0 #ffe9c4, -4px 0 0 #ffe9c4, 0 4px 0 #ffe9c4, 0 -4px 0 #ffe9c4, 10px 10px 0 #0a0c1e;
-    margin-bottom: 16px;
+    margin-bottom: 24px;
   }
   .drive-logo-road {
     font-size: 40px;
-    text-shadow: 5px 5px 0 #0a0c1e;
   }
 }
 
@@ -202,10 +201,10 @@ function onOver(r: OutrunResult) {
   --px-hud: #ffe9c4;
 }
 
-/* The maker's line, under the plate. */
-.landing .drive-maker {
+/* The maker's line, at the foot of the plate. */
+.landing .drive-plate .drive-maker {
   --px-hud: #8a90b8;
-  margin-top: 14px;
+  margin: 10px 0 0;
 }
 
 .landing .drive-ending {
