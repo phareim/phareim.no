@@ -163,8 +163,8 @@ function onOver(r: OutrunResult) {
   }
 }
 
-/* Two rows: who, in jacket red, and where to, in gold. Hard shadows only, a
-   whole font pixel (an eighth of an em) at a time: cream under the red, the night under that. */
+/* Two rows: who, in cream with an edge of jacket red, and where to, in gold. Hard
+   shadows only, a whole font pixel (an eighth of an em) at a time. */
 .landing .drive-logo {
   font-family: var(--font-pixel);
   font-weight: 400;
@@ -178,8 +178,8 @@ function onOver(r: OutrunResult) {
 }
 .drive-logo-names {
   font-size: 40px;
-  color: #e2343f;
-  text-shadow: 0.125em 0.125em 0 #ffe9c4, 0.25em 0.25em 0 #0a0c1e;
+  color: #ffe9c4;
+  text-shadow: 0.125em 0.125em 0 #e2343f, 0.25em 0.25em 0 #0a0c1e;
   margin-bottom: 14px;
 }
 .drive-logo-road {

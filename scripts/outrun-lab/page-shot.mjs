@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Nova & Rex' Drive to the Mountains on a real page (a dev server, beta or the live site):
-// the title, PICK A TAPE, a few seconds of driving and (at the monitor's size) the result
-// panel after an Escape hold, at a monitor's size and a phone's.
+// the title, PICK A TAPE, and a few seconds of driving, at a monitor's size and a phone's.
+// It never ends a run: a finished run posts its score to the Hall of Fame, and beta shares
+// the live site's database.
 // The lab (shot.mjs) draws the renderer alone; this is the page round it: the HTML title
 // and its font, the pictures fetched from /outrun/, the keys.
 //
@@ -35,13 +36,7 @@ for (const [name, width, height, mobile] of [['desk', 1280, 720, false], ['phone
   await b.shot(`${out}/${name}-3-go.png`)
   await b.sleep(5200)
   await b.shot(`${out}/${name}-4-drive.png`)
-  if (!mobile) {
-    await b.keyUp('ArrowUp')
-    // A three-second hold on Escape ends the run: the result panel with the lap table.
-    await b.hold('Escape', 3300)
-    await b.sleep(1200)
-    await b.shot(`${out}/${name}-5-over.png`)
-  }
+  if (!mobile) await b.keyUp('ArrowUp')
   const title = await b.eval('document.title')
   console.log(`${name}: ${pictures} pictures fetched, page title "${title}", ${b.errors.length} errors`)
   for (const e of b.errors.slice(0, 5)) console.log('  error:', String(e).slice(0, 300))
