@@ -1,0 +1,17 @@
+The reference image is a finished pixel-art sprite on a flat magenta background: the
+player's car in a 1997 arcade road-racing game, seen from directly behind and a little
+above, with two people in it. Draw the next frame of its steering animation: the same car
+with the same two people, the same size, the same size of square pixel blocks on the same
+grid, the same colours and the same detail, but steering to the left. The car has swung a
+little counter-clockwise, the way the car turns in a sprite-scaling arcade racer: its rear
+still faces the viewer, its nose now points a little to the left, and along the left-hand
+edge of the sprite a narrow strip of the car's left side has come into view, receding away
+from the viewer: the left rear wing, the driver's door with a wing mirror, and the left
+front wheel. Nothing of the right side shows. The driver, the blonde woman, is still on the
+left and the passenger, the man in the white sleeveless shirt, still on the right; they lean
+a little to the right against the turn; their hair and the ends of their red headbands
+still fly in the wind. The luggage rack with the duffel bag and the pizza box, the tail
+lamps, the bumper, the yellow number plate and the exhausts stay as they are. Keep
+everything exactly the size it has in the reference: do not enlarge it. The magenta
+background stays flat and untouched.
+{style} {clusters} {leave}

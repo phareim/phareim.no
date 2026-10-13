@@ -1,0 +1,8 @@
+The first image is a layout: each coloured block on the magenta background marks the place
+and the size of one thing. The second image shows the pixel-art style to draw in and the
+size of square pixel block to use. Draw one thing in each block, filling its block and no
+larger, each one separate with flat magenta all round it: nothing touching, no ground under
+it, no shadows on the ground, no labels, no numbers, no frames, no people. Each thing is a
+roadside sprite for a 1997 arcade road-racing game of the sprite-scaling kind, set at night
+in a 1989 that never ended: it stands upright, is seen straight on from the road with no
+perspective, and ends in a straight line at its foot.

@@ -1,0 +1,4 @@
+This is true low-resolution pixel art, drawn pixel by pixel on a coarse grid and shown
+enlarged: every pixel is a large, perfectly square block of one flat colour, all blocks
+exactly the same size and aligned to one grid, like a screenshot of an arcade game enlarged
+five times with no smoothing. No detail is smaller than one block.

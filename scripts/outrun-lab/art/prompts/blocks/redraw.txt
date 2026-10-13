@@ -1,0 +1,6 @@
+The reference image is a layout in coarse square pixel blocks on a flat magenta background.
+Redraw it as finished pixel art and keep the layout exactly: the same size, position and
+proportions of everything, the same size of square pixel blocks on the same grid, nothing
+moved, nothing enlarged to fill the picture, and the magenta background left flat and
+untouched right up to the subject. Every block is one flat colour. Tidy what is ragged or
+doubled in the layout: straight lines straight, brick in even courses, lettering clean.

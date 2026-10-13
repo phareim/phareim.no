@@ -1,0 +1,8 @@
+{band} {style} {clusters}
+The subject is the skyline of Neo Boston seen from a road leading out of town at nightfall,
+in a 1989 that never ended: a dense row of old brick and stone towers with stepped tops,
+water tanks, radio masts and smoke stacks, hundreds of small lit windows in warm sodium
+yellow, and on two of the towers a huge cathode-ray television screen glowing pale blue (the
+blue blocks). The walls are deep blue and brown, never black; the lit windows are flat
+squares of yellow at least two blocks wide.
+{leave}

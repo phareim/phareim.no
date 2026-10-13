@@ -1,0 +1,5 @@
+Leave out: smooth gradients, soft glows, bloom, haze, blur, depth of field, transparency,
+mirror reflections, anything that looks rendered in 3D, anti-aliased edges, a neon grid
+floor, palm trees, chrome lettering, a striped sunset sun, a picture that is all magenta and
+teal, pure black, lens flares, scan lines, a CRT filter, a border or frame, a watermark, a
+signature, user-interface elements, any text that is not a sign in the world.

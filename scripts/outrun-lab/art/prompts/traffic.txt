@@ -1,0 +1,20 @@
+The first image is a layout: each coloured block on the magenta background marks the place
+and the size of one vehicle. The second image shows the pixel-art style to draw in, the size
+of square pixel block to use and the point of view: a car seen from directly behind and a
+little above, driving away from the viewer. Draw one vehicle in each block, filling its block
+and no larger, each one separate with flat magenta all round it: nothing touching, no
+ground, no shadows on the ground, no labels, no numbers, no frames, no people visible.
+{style} {clusters} {key}
+They are the traffic of a 1997 arcade road-racing game set in a 1989 that never ended, all
+seen from directly behind and a little above, exactly like the car in the second image:
+The yellow block, top left: a yellow Checker taxi cab, a black-and-white chequer band across
+the boot, a lit roof sign, round tail lamps, a chrome bumper.
+The grey block, top right: a tall grey-brown removal truck, a roll-up rear door with a large
+orange figure 8 painted on it, mud flaps, small tail lamps low down, a dented steel bumper.
+The green block, bottom left: a small rounded economy car of the 1960s in faded green, an
+oval rear window, an engine lid with louvres, two small round tail lamps.
+The brown block, bottom right: a long 1980s station wagon with wood-grain panels, a roof
+rack with a strapped tent roll and a cooler box, a wide rear window, a chrome bumper.
+Each is exactly symmetrical from left to right. Rear windows are dark glass. Light from the
+upper left.
+{leave}

@@ -1,0 +1,19 @@
+{layout} {style} {clusters} {key}
+The subject is the player's car in a 1997 arcade road-racing game of the sprite-scaling kind,
+seen from directly behind and a little above, driving away from the viewer: a low, wide, red
+1980s sports convertible with the top down. It is one sprite: the whole car and the two
+people in it, nothing else.
+The red block is the rear of the car's body: wide tail lamps in a dark panel, a chrome
+bumper (the grey strip), a yellow number plate reading NOVA 89, twin exhaust pipes, a worn
+pizza-shop sticker; the two black blocks are the rear tyres under its corners. On the boot
+lid a small luggage rack with a strapped canvas duffel bag and a flat pizza box. The dark
+block is the open cockpit with two low seat backs; the blue-grey block is the windscreen
+frame seen beyond them.
+Two people sit in it, drawn from behind, their heads and shoulders well above the seat
+backs. They are the same two people who sit with their backs to the viewer in the second
+image, drawn the way that image draws them. The blonde block is the driver, on the left:
+{nova-back}
+The brown block is the passenger, on the right: {rex-back}
+The car is exactly symmetrical apart from the people and the luggage. Light from the upper
+left; the paint has four tones of red from a blue-violet shadow to a warm highlight.
+{leave}
