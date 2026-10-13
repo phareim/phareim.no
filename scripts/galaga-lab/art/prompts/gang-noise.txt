@@ -1,0 +1,25 @@
+{gang} {style} {clusters} {key}
+{world}
+They are one gang of enemies in a 1997 vertical-scrolling arcade shooter: THE EMPIRE OF
+NOISE, the stage crew of an evil sound system. Their colours: charcoal and slate blue-grey
+with pale grey edges so that they show against a dark sky, off-white armour, signal red,
+and the green and yellow of meter lights. No purple and no violet anywhere. {above} {down}
+Top row, left to right: 1. the grunt: a bow-tie fighter, which is simply a big bow tie: two
+flat triangular wings of slate blue-grey cloth with pale edges, joined at a round knot in
+the middle with a small red window. 2. the flanker: a static trooper, a rounded off-white
+armoured helmet pod whose wide visor is a screen of black-and-white television static, a
+short fin on each side. 3. the tank, the largest and widest: a flying mixing desk, a wide
+slab of a sound console with rows of knobs and sliding faders and two round meters, armour
+plates along its edges, wide and heavy.
+Middle row, left to right: 4. the diver: a dart, one long chrome jack plug pointing straight
+down, its tip with two dark rings, a short black cable stub at the top. 5. the sniper: a
+small dark pod with one very long thin slotted shotgun-microphone barrel pointing straight
+down, far longer than the pod. 6. the splitter: visibly two halves, a pair of big
+headphones seen flat: two round padded ear cups side by side, joined only by a thin curved
+head band.
+Bottom row, left to right: 7. the mite, the smallest, tiny: one round dark knob with a
+white pointer line. 8. the captor, large: a dark pod carrying one big round off-white
+parabolic dish with a pickup on three thin struts in its middle, the dish facing down.
+9. the raider: a fader drone, a square grey fader cap between two short rails, with two
+long cable arms reaching down, each ending in a red crocodile clip.
+{leave}

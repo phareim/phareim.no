@@ -1,0 +1,13 @@
+{skypair} {style} {clusters} {key}
+{world}
+{far}
+Sector two, the freight lane. The upper subject: a truck stop floating in space, seen from
+a distance and a little from above: a long flat platform of riveted plates with a low diner
+building with a row of dark windows, two fuel pumps, a tall mast, and standing on posts
+above it a big empty rectangular sign frame of unlit neon tubing with nothing written in it;
+slate blue-grey and dark brown, the sign frame a dull muted orange.
+The lower subject, wide and low: a line of six mile-marker buoys running up from the lower
+left to the upper right, each a small drum with a reflector on top and a short aerial,
+joined to the next by a thin sagging cable; dark brown and slate, each reflector a dull
+muted amber.
+{leave}

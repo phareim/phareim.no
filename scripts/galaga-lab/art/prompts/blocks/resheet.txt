@@ -1,0 +1,7 @@
+The reference image is a sheet of small things in square pixel blocks on a flat magenta
+background. Redraw it as finished pixel art and keep it exactly: every thing in its place
+and at exactly the size it has there, none of them enlarged, the same size of square pixel
+blocks on the same grid, the magenta left flat and untouched. Each thing is drawn again
+cleanly at that size, as a bold shape of few pixels with a dark outline that reads at a
+glance; tidy what is ragged or doubled. Every thing stays one solid connected shape, separate
+from the others.

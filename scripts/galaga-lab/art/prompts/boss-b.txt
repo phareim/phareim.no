@@ -1,0 +1,18 @@
+{pair} {style} {clusters} {key}
+{world}
+{boss} {above} {face}
+The upper subject: LORD HUMDINGER's war rig, the boss of the scrap bandits. A huge armoured
+V8 truck seen from directly above, its nose pointing DOWN: a rusty brown cab with a bare V8
+engine block and eight chrome exhaust stacks sticking out of its bonnet, four fat black
+tyres with spiked hubs at its corners, a short dark armoured trailer behind it at the top
+with a hatch, chains and scrap iron plates bolted everywhere. Bolted across the very front
+of the rig, at the bottom, is its figurehead: one big riveted chrome face plate, a blank
+mask with two dark eye slits and a grille of slots for a mouth. Rust brown, dark iron,
+chrome, orange flame paint.
+The lower subject: CAL 9000, the boss of the kitchen machines: a machine that is a wall. A
+wide flat upright panel of brushed steel and gunmetal seen head-on: racks of glowing orange
+vacuum valves in rows on the left and on the right, toggle switches and rivets between
+them, and in the exact middle one big round lens glowing deep red with a small yellow
+point in its centre, set in a wide chrome ring. Calm, square, exactly symmetrical. Steel
+blue-grey, chrome, orange valve light, one red lens.
+{leave}

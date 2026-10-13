@@ -1,0 +1,18 @@
+{dense} {style} {clusters} {key}
+{world}
+They are space long-haul trucks of a 1997 vertical-scrolling arcade shooter. {above} Each
+drives straight UP the picture. The sheet has three rows: a row of six truck cabs on their
+own at the top, a row of six whole rigs in the middle, and a row of six cabs on their own
+at the bottom. Six columns, each column one truck: teal, yellow, white, teal, yellow, white.
+A cab is a complete truck tractor seen from above: a rounded bonnet at the top, a dark blue
+windscreen, a row of small amber marker lamps on its roof, a tall chrome exhaust stack on
+each side, a thin CB aerial, two red tail lamps at its rear. A whole rig is such a cab at
+the top and, below it, after a clear gap of flat magenta that only a short thin dark coupling
+bar crosses, its cargo pods in a line, each pod separate from the next with a short coupling
+bar between them. The teal cab hauls two pods of dark wooden slats with olive tarpaulin tops
+tied with rope. The yellow cab, with a small yellow toy duck on its bonnet, hauls three
+round chrome tanker pods with a hatch on top of each. The white cab with red stripes hauls
+two cream box pods with red stripes, each with a small round sign of a pig's head and a
+spare tyre on its roof. Keep every rig exactly as narrow and as long as it is in the
+reference, and every cab as short.
+{leave}

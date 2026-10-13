@@ -1,0 +1,12 @@
+{redraw-panel} {style} {clusters}
+{world}
+It is the dashboard of a pizza delivery rocket in one low wide band: wood-grain veneer
+above, brushed blue-grey riveted steel below, a strip of chrome trim between them. In the
+wood: at the left a square magenta window, the screen of a small television set, in a
+rounded dark bakelite bezel; beside it a long magenta window in a thin brass frame, a blank
+caption board. In the steel, from left to right: a long narrow magenta window in a thin
+brass frame (a mechanical counter); a magenta window in a thin dark bakelite frame (a rack
+for valves); two small narrow magenta windows one above the other in thin steel frames; and
+one round chrome knob. The frames are thin: two or three blocks wide. Everything else is
+plain panel: wood grain in long streaks above, plain steel below, a few small screws.
+{leave}

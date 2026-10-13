@@ -1,0 +1,22 @@
+{portraits} {style} {clusters}
+{world} {woman} {face}
+Three women, one to a row, the same face in all three squares of her row.
+Top row, BABS ARELLA, the voice of a pirate radio station and a 1960s space-queen: a woman
+of forty with a grand manner, a huge teased bouffant of silver-white hair held by a wide
+orange band, long dark lashes, turquoise eye shadow, big round op-art earrings in black and
+white, a high stiff silver collar standing up round her neck above a quilted silver flight
+suit zipped to the throat, a slim chrome radio microphone on a stalk at her cheek. Camp,
+grand and kind. Left: purring, a slow warm smile, eyelids half lowered. Middle: winking, one
+eye shut, a broad grin. Right: alarmed, eyes wide, mouth open, one hand to her collar.
+Middle row, PRINCESS LENA ORGANZA, who is in charge from her first word: a young woman with
+dark brown hair wound at each side of her head round a small silver tape reel (the two
+reels of a reel-to-reel recorder, spokes showing), a plain white high-necked gown with a
+silver clasp at the shoulder, a level look. Left: calm, composed, one eyebrow slightly
+raised. Middle: stern, brows down, mouth a firm line. Right: calm again, a small dry smile.
+Bottom row, ELLEN RIDLEY, warrant officer of a space tug, who has seen worse: a woman of
+thirty-five with a loose mop of dark curly hair, tired dark eyes, no make-up, an olive-green
+work jumpsuit with a mission patch and a zip, a grease mark on her cheek; and on her
+shoulder, in every square, her cat: a big orange tabby looking straight out of the picture.
+Left: calm, flat, unimpressed. Middle: grim, jaw set, eyes narrowed, the cat's ears back.
+Right: calm again, a tired half smile, the cat yawning.
+{leave}

@@ -1,0 +1,24 @@
+{gang} {style} {clusters} {key}
+{world}
+They are one gang of enemies in a 1997 vertical-scrolling arcade shooter: THE GLITTERATI,
+disco raiders of 1978 who never left the dance floor. Their colours: mirror silver, gold,
+white, with touches of teal and warm orange. {above} {down}
+Top row, left to right: 1. the grunt: a mirror-ball drone, a small round silver disco ball
+of square facets with two stubby gold fins at the top and one teal lens at the bottom.
+2. the flanker: a gold medallion, a flat round gold disc with a star stamped on it, hung in
+the middle of a wide swept-back crescent wing like a boomerang, a gold chain along the wing.
+3. the tank, the largest and widest: a platform-boot stomper, two huge white platform boots
+side by side joined by silver armour plates and rivets, their thick striped soles and
+square toes pointing down, wide and heavy.
+Middle row, left to right: 4. the diver: a dart, a narrow sharp arrowhead made of a huge
+pointed white shirt collar, its two long lapel points swept back and up, a gold tip pointing
+down. 5. the sniper: a small round silver pod with one very long thin spotlight barrel
+pointing straight down, far longer than the pod, a teal lens at its end. 6. the splitter:
+visibly two halves, a saucer made of one silver half and one gold half bolted together
+along a dark seam down the middle, a pair of roller-skate wheels on each half.
+Bottom row, left to right: 7. the mite, the smallest, tiny: one glittering silver facet
+with four short points, a spark. 8. the captor, large: a silver saucer on roller-skate
+wheels carrying one big gold gramophone horn whose wide open mouth points straight down.
+9. the raider: a small gold saucer with two long jointed chrome arms reaching down and
+forward, each ending in an open white-gloved hand.
+{leave}

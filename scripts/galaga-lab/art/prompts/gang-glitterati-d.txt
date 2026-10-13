@@ -1,0 +1,18 @@
+{dense} {style} {clusters} {key}
+{world}
+They are one gang of enemies in a 1997 vertical-scrolling arcade shooter: THE GLITTERATI,
+disco raiders. Mirror silver, gold, white, touches of teal and warm orange. {above} Each has
+its face or gun pointing straight DOWN. Each is twenty-four pixels across, two are
+thirty-two, one is fourteen. In order, repeating: 1. a mirror-ball drone: a round silver
+disco ball of square facets, two stubby gold fins on top, one teal lens at the bottom. 2. a
+gold medallion with a star, in the middle of a wide swept crescent wing. 3. the large one: two
+huge white platform boots side by side joined by riveted silver plates, soles and toes
+down. 4. a dart: a narrow arrowhead made of a pointed white shirt collar with a gold tip
+pointing down. 5. a small round silver pod with one very long thin barrel pointing straight
+down, a teal lens at its end. 6. a round saucer of one silver half and one gold half with a
+dark seam down the middle and roller-skate wheels at its four corners. 7. the tiny one: one
+glittering facet with four short gold points. 8. the other large one: a silver saucer on
+roller-skate wheels with one big gold gramophone horn, its mouth pointing down. 9. a small
+gold saucer with two long jointed chrome arms reaching down, each ending in a white-gloved
+hand.
+{leave}

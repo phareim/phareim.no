@@ -1,0 +1,20 @@
+{dense} {style} {clusters} {key}
+{world}
+They are one gang of enemies in a 1997 vertical-scrolling arcade shooter: THE LOVE MACHINES,
+the toys of a 1968 bachelor pad gone wrong. Tangerine orange, mustard yellow, avocado green,
+turquoise, cream, chocolate brown, black-and-white op-art stripes; no pink, no purple.
+{above} Each has its nose, face or gun pointing straight DOWN. Each is twenty-four pixels
+across, two are thirty-two, one is fourteen. In order, repeating: 1. a lava lamp flying
+point down: orange blobs in yellow liquid, a chrome cap at the bottom and a chrome base at
+the top. 2. a feathered glider: two wide wings of turquoise and green feathers, a small
+cream body, a yellow beak pointing down. 3. the large one: an armoured flower, a round
+brown core ringed by six big riveted orange petal plates. 4. a dart: an arrow pointing
+straight down with a red heart for its head and cream feathers at the top. 5. an eyeball in
+a ring of black-and-white stripes with one very long thin striped tube barrel pointing
+straight down. 6. two halves: a set of wind-up chattering teeth held open, an upper and a
+lower jaw of white teeth in red gums with a brass key at the side. 7. the tiny one: a round
+orange blob with one turquoise eye. 8. the other large one: a big round hypnotic dish of
+black-and-white spiral rings with one turquoise eye in the middle, two short cream fins.
+9. a tin wind-up doll with a round cream head, a brass key on top and two long green
+jointed arms reaching down, each ending in an orange pincer.
+{leave}

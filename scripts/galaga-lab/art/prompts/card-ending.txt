@@ -1,0 +1,24 @@
+The first image is a rough layout in flat blocks: it shows the composition, where
+everything stands and how large. The second image shows the pixel-art style to draw in and
+the size of square pixel block to use. The third image shows the two heroes' faces as they
+are drawn in this game: the woman on the left of it, the man on the right: match their
+hair, faces and clothes exactly. Draw the layout as one finished picture in that style,
+filling the whole picture from edge to edge, everything in its place and at its size.
+{style} {clusters}
+{world}
+The picture is the ending card of a 1989 arcade game: the pizza is delivered, at the far end
+of space. Two pizza delivery pilots sit side by side on the riveted roof of their rocket
+(the grey block along the bottom), seen from the front, tired and pleased, their legs
+dangling. Between them lies an open flat pizza box (the cream block) with a large pepperoni
+pizza in it, one slice gone.
+On the left (the blonde block): {nova} She holds a slice of pizza and almost smiles.
+On the right (the brown block): {rex} He is eating a slice, cheeks full, eyes happy.
+Behind them, filling the sky: the far end of the Dial: the last stretch of a colossal radio
+tuning scale hanging in space, a long curved band of amber-lit glass with rows of tick
+marks and no numbers (the rust-brown band), running off both sides of the picture, and near
+its right end the red tuning needle (the red block), a thin upright red bar. Beyond it,
+black-violet space with a few stars and, small and far off, a round grey moon with a
+loudspeaker cone in its face, cracked in two. Deep violet-blue and brown shadows, never
+black; warm amber light from the Dial on their faces.
+No lettering, no numbers, no text anywhere in the picture.
+{leave}

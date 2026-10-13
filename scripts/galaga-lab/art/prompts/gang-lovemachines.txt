@@ -1,0 +1,26 @@
+{gang} {style} {clusters} {key}
+{world}
+They are one gang of enemies in a 1997 vertical-scrolling arcade shooter: THE LOVE MACHINES,
+the toys and furniture of a 1968 bachelor pad gone wrong. Their colours: tangerine orange,
+mustard yellow, avocado green, turquoise, cream and chocolate brown, with black-and-white
+op-art stripes. No pink and no purple anywhere. {above} {down}
+Top row, left to right: 1. the grunt: a lava-lamp blob, a small cone-shaped lava lamp flying
+with its chrome cap pointing down, round orange blobs floating in yellow liquid behind the
+glass, a chrome base at the top. 2. the flanker: a feathered glider, a wide flat glider
+whose two wings are fans of long turquoise and green feathers, a small cream body in the
+middle, a yellow beak pointing down. 3. the tank, the largest and widest: an armoured
+flower, a round chocolate-brown core ringed by six big riveted orange petal plates, wide and
+heavy.
+Middle row, left to right: 4. the diver: a dart, one long arrow pointing straight down with
+a red heart-shaped head at the bottom and cream feathers at the top. 5. the sniper: an
+eyeball in a ring of black-and-white op-art stripes, with one very long thin kaleidoscope
+tube barrel pointing straight down from it, far longer than the eye. 6. the splitter:
+visibly two halves, a set of wind-up chattering teeth held open: an upper jaw and a lower
+jaw of big white teeth in red gums, joined only by a small brass hinge, with a brass wind-up
+key at the side.
+Bottom row, left to right: 7. the mite, the smallest, tiny: one small round orange lava blob
+with a single eye. 8. the captor, large: a big round hypnotic dish of black-and-white op-art
+rings, a spiral, with one turquoise eye in its middle, on a small cream body with two short
+fins. 9. the raider: a tin wind-up doll with a round cream head, a brass key in its back at
+the top and two long jointed arms reaching down, each ending in an open pincer hand.
+{leave}

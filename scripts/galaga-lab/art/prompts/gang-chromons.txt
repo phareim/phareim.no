@@ -1,0 +1,25 @@
+{gang} {style} {clusters} {key}
+{world}
+They are one gang of enemies in a 1997 vertical-scrolling arcade shooter: THE CHROMONS,
+kitchen machines of 1959 that have decided to eliminate everybody. Their colours: polished
+chrome silver with pale blue lights and blue-grey shadows, gunmetal, brass studs, one
+glowing red light each. {above} {down}
+Top row, left to right: 1. the grunt: a flying toaster, a chrome two-slot toaster seen from
+above with two slices of brown toast in its slots and a small white feathered wing on each
+side. 2. the flanker: a chrome toaster head, a rounded chrome helmet with one dark
+horizontal visor slot across it in which a single red light sits, a swept chrome fin on
+each side. 3. the tank, the largest and widest: a pepper-pot machine, a round dome head
+above a wide skirt of gunmetal armour plates studded with rows of brass half-balls, wide
+and heavy, one red light on the dome.
+Middle row, left to right: 4. the diver: a dart, a slim sharp chrome tail fin of a 1959 car
+flying point down, a red tail lamp near its tip. 5. the sniper: a small domed pepper-pot
+head with one very long thin eye-stalk barrel pointing straight down, far longer than the
+head, a blue lens at its end. 6. the splitter: visibly two halves, a chrome waffle iron
+hinged wide open, two square halves side by side each with a grid of squares, joined only
+by a small hinge.
+Bottom row, left to right: 7. the mite, the smallest, tiny: one small slice of brown toast
+with a burnt corner. 8. the captor, large: a domed pepper-pot machine holding out in front
+of it, pointing down, one big dark rubber sink plunger whose round cup is wide open like a
+dish. 9. the raider: a chrome toaster head with two long jointed arms reaching down, each
+ending in a pair of kitchen tongs.
+{leave}

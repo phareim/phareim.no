@@ -1,0 +1,23 @@
+{sheet} {style} {clusters} {key}
+{world}
+They are four friendly ships of a 1997 vertical-scrolling arcade shooter, each stalled and
+drifting, waiting for a jump start. {above} Each has its nose pointing straight UP the
+picture and its engines, cold and dark, at the bottom.
+Top left: BABS ARELLA's rocket, the ship of a 1960s space-queen radio host: a plump, plush
+rocket of coral and gold with a cream stripe, a wide collar of thick cream-white fur round
+its nose and fur trim along its fins, a round bubble canopy, gold fins, a little gold aerial
+with a ball on it. Glamorous and soft. Coral and salmon, never hot pink or magenta.
+Top right: the tug NOSTALGIA, a grimy industrial space tug: squat, square and heavy, dark
+grey-green steel with yellow-and-dark hazard stripes across its front and along its
+bumpers, a big tow hook and a winch at the back, cranes folded on its roof, four square
+engine blocks, a small lit window, grease and scorch marks.
+Bottom left: a small white royal courier ship: slim, elegant, white with gold trim and a
+blue stripe, two slender wings, one round window. Its whole right side is scorched: black
+and brown burn marks and a torn panel down the right wing and flank; the left side is clean.
+Bottom right: THE CENTURY PIGEON, a battered round saucer-freighter: a fat grey disc of
+mismatched patched plates and rivets, a small round cockpit pod stuck out off-centre at its
+front right, two short loading prongs at the front, a dish aerial, rust and dents, and a
+flat white pizza box with a red band strapped to its roof with two belts. Exactly this
+description and no ship from any film.
+No pilots visible.
+{leave}

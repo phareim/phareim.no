@@ -1,0 +1,21 @@
+{portraits} {style} {clusters}
+{world} {face}
+Three speakers, one to a row, the same head in all three squares of the row.
+Top row, HANS DUO, a rival pizza delivery pilot who is sure of himself and wrong: a man of
+thirty with tousled dark brown hair, a red-and-white striped delivery cap worn backwards, a
+brown leather flying jacket with a wool collar over a striped shirt, a cocky look. Left: a
+wide confident grin, one eyebrow up. Middle: sweating, a nervous fixed smile, drops of sweat
+on his forehead, eyes sliding to the side. Right: the grin again, a thumb up.
+Middle row, SATURDAY KNIGHT, the boss of the disco raiders: no face, only his helmet: a
+closed helmet of gleaming white plate armour with a dark T-shaped visor slit and a gold
+plume on top, and below it the wide pointed white armoured lapels of a 1970s suit with gold
+edges; a few square flecks of mirror-ball light on the blue behind him. Left: calm, the
+visor dark, the head tilted back. Middle: angry, the visor slit glowing red, the plume
+bristling. Right: calm again, chin down.
+Bottom row, LORD HUMDINGER, the boss of the scrap bandits: no face, only his mask: a heavy
+riveted chrome face plate with two dark slanted eye slits and a grille of vertical slots
+where a mouth would be, bolted over a bald head on a bull neck with huge bare shoulders,
+leather straps and a spiked iron collar. Left: calm, the eye slits dark. Middle: angry, the
+eye slits glowing orange, the head thrust forward, steam from the grille drawn as flat white
+shapes. Right: calm again, head turned a little further.
+{leave}

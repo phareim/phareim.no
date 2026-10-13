@@ -1,0 +1,6 @@
+Every magenta rectangle in the layout is a WINDOW cut through the panel: it stays exactly
+where it is and exactly as large as it is, a perfect rectangle of flat solid magenta
+(#ff00ff) with sharp square corners and straight edges, completely empty. Nothing is drawn
+inside a window: no picture, no glass, no reflection, no shading, no needle, no digits, no
+text. The panel draws a frame or bezel round each window, outside it. No magenta, pink or
+purple anywhere else on the panel.

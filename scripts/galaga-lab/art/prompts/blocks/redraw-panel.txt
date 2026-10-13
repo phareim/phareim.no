@@ -1,0 +1,11 @@
+The reference image is a control panel in coarse square pixel blocks, seen exactly straight
+on. Redraw it as finished pixel art and keep it exactly: everything where it is and as large
+as it is, the same size of square pixel blocks on the same grid, nothing moved, nothing
+resized, nothing enlarged. Every magenta rectangle is a WINDOW cut through the panel: it
+stays exactly where it is and exactly as large as it is, a perfect rectangle of flat solid
+magenta (#ff00ff) with sharp square corners and straight edges, completely empty: no
+picture, no glass, no reflection, no shading inside it. Round each window, outside it, where
+the reference has a plain dark band, draw a proper frame or bezel. Tidy what is ragged,
+doubled or left over in the reference: straight lines straight, round things round, wood
+grain in long streaks. Where the reference is one plain flat colour, carry the panel on
+plainly. No magenta, pink or purple anywhere but in the windows.

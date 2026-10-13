@@ -1,0 +1,10 @@
+The first image is a layout: nine coloured blocks on a magenta background, in three rows of
+three; each block marks the place and the size of one small enemy craft. The second image
+shows the pixel-art style to draw in, the size of square pixel block to use, and the point of
+view: rockets seen from directly above. Draw one enemy in each block, filling its block and
+no larger, each one separate with flat magenta all round it: nothing touching, nothing
+overlapping, no shadows, no labels, no numbers, no frames, no beams, no shots, no flames.
+Every enemy is one solid connected shape with a dark outline: no loose parts floating beside
+it. They are small: twenty to thirty pixel blocks across, so each is drawn as a bold shape
+of few blocks with two or three details, not a detailed illustration. Most of the picture
+stays empty magenta.

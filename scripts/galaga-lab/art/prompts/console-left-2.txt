@@ -1,0 +1,16 @@
+{redraw-panel} {style} {clusters}
+{world}
+It is the left side of the dashboard of a pizza delivery rocket, the radio corner, in warm
+wood-grain veneer, dark brown bakelite, brushed metal and chrome. From the top: a 1970s
+wood-grain television set built into the panel, with a chrome-edged walnut cabinet; its
+screen is the square magenta window, in a rounded dark bakelite bezel; beside the screen a
+speaker grille of cream cloth behind wooden slats; under the screen two long narrow magenta
+windows in thin brass frames like name plates, and at the right two round chrome tuning
+knobs. Under the set, a wide magenta window in a dark bakelite frame with small rivets: a
+blank caption board. Below that a reel-to-reel tape deck: a brushed steel plate with two
+large open tape reels, brown tape between them over a head block, a row of chunky bakelite
+piano keys. At the bottom, on plain wood grain: a worn round pizza-shop sticker with a slice
+of pepperoni pizza and no words, two toggle switches, an orange pilot lamp, and a black CB
+radio handset on a chrome hook with its coiled cord. Below all that the panel is plain
+wood-grain veneer with a few screws.
+{leave}
