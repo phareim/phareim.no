@@ -3,7 +3,7 @@
  * (PHAREIM.NO, phareim.no's front door) fills the west 40 columns: Petter's
  * house with his name on the roof, the arcade, the fountain, the NEW LOOK
  * stall east of it (where a copy of the Keeper's hut once stood), the coast with
- * the PHAREIM.MD newsstand (Sleeper's feed, read in a panel), the pier, and east of it a quiet beach (two DJs,
+ * the SLEEPER newsstand (Sleeper's feed, read in a panel), the pier, and east of it a quiet beach (two DJs,
  * a bonfire, people lying about). The coast road
  * runs east along the water into Home Glade and round to the Keeper's hut,
  * where the quest begins.
@@ -98,7 +98,8 @@ export const OVERWORLD: MapDef = {
     { x: 20.5, y: 4.75, text: 'PHAREIM.NO', scale: 2, align: 'center', tone: 'gold' },
     { x: 8.5, y: 10.55, text: 'ARCADE', scale: 2, align: 'center', tone: 'rose' },
     { x: 6.5, y: 3.55, text: 'VIP', scale: 3, align: 'center', tone: 'gold' },
-    { x: 15.5, y: 22.35, text: 'PHAREIM.MD', scale: 1, align: 'center', tone: 'gold' },
+    // The newsstand's roof: the wordmark of sleeper.phareim.md, over the stand's own NEWS board.
+    { x: 15.5, y: 22.35, text: 'SLEEPER_', scale: 1, align: 'center', tone: 'rose' },
   ],
   // Continue points per area (death puts you back at the last one visited),
   // the Keeper's hut door (stepping out of it), and where the town's doors put you back outside.
@@ -207,7 +208,7 @@ export const OVERWORLD: MapDef = {
     // The west road: into the Wildwood, through a thicket only a blade gets through.
     '<': { tile: ',', ent: { t: 'warp', to: 'wildwood', entry: 'town' } },
     ')': { tile: 'S', ent: { t: 'sign', lines: ['← THE WILDWOOD', 'THE THICKET HAS GROWN OVER THE ROAD AGAIN. YOU WOULD NEED A BLADE.'] } },
-    J: { tile: 'S', ent: { t: 'sign', lines: ['THE NEON COAST.   ← PHAREIM.MD   ↓ THE BEACH', "FOLLOW THE ROAD EAST TO THE KEEPER'S HUT."] } },
+    J: { tile: 'S', ent: { t: 'sign', lines: ['THE NEON COAST.   ← SLEEPER NEWS   ↓ THE BEACH', "FOLLOW THE ROAD EAST TO THE KEEPER'S HUT."] } },
     u: { tile: 'S', ent: { t: 'sign', lines: ['THE FOUNTAIN. MAKE A WISH.', 'NO COINS, PLEASE. THOSE ARE FOR THE ARCADE.'] } },
     v: { tile: 'S', ent: { t: 'sign', lines: ["THE KEEPER'S HUT: DOWN TO THE COAST, THEN EAST ALONG THE ROAD.", 'THE SUN WON\'T SET. THE KEEPER IS LOOKING FOR SOMEONE TO GO GET IT BACK.'] } },
     // The NEW LOOK stall, where the town's copy of the Keeper's hut stood: A at the counter opens the mirror
