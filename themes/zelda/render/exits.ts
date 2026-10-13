@@ -145,6 +145,21 @@ const CABS: Record<string, CabStyle> = {
       '............',
     ),
   },
+  nova: {
+    // Nova's Solo Rescue (nova.phareim.no), the sequel, beside Pizza Rescue's rust orange: the midnight blue of Neo York
+    // with her red for trim. Nova's blonde mane and red headband, and the tower with the Ball over the skyline.
+    body: '#24306e', bodyL: '#4a5fc0', bodyD: '#10142c', trim: '#ff3b5c', glow: '#ffd23f',
+    bg: ['#10142c', '#141a3a', '#182048', '#1c2656', '#243068', '#2c3a7a', '#34448c'],
+    marquee: M(
+      '..yyyy......',
+      '.yyyyyy..w..',
+      'yrrrrrr..k..',
+      'yyysss..kkk.',
+      'yyysks..kek.',
+      'yy.sss.kkkkk',
+      'y.rrrr.kekek',
+    ),
+  },
   anotherworld: {
     body: '#2a1f4a', bodyL: '#43346e', bodyD: '#171030', trim: '#ff8a3d', glow: '#ff8a3d',
     bg: ['#1a0c3a', '#2a1450', '#56206a', '#9a3070', '#e0585a', '#ff9a4a', '#ffc070'],
@@ -485,6 +500,32 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       f('#d8d0a8', rx, 2); f('#8fd060', rx, 3); f('#2f7a4a', rx, 4); f('#8a6a4a', rx, 5)
       if (punch) { f('#f5c3a8', lx + 1, 4, 2, 1); f('#fff4ff', rx - 1, 3) }
       if (kick) { f('#fff4ff', rx - 2, 5, 2, 1); f('#fff4ff', lx + 1, 4) }
+      return
+    }
+    case 'nova': {
+      // Night in Neo York under the Ball: Nova, twice the size she was next door, between two gangsters. A punch,
+      // a kick, then the SOLO: the chord goes out both ways and both step back.
+      f('#10142c', 0, 0, W, 2); f('#1c2656', 0, 2, W, 2); f('#2c3a7a', 0, 4, W, 2)
+      f('#0b0616', 0, 1, 2, 5); f('#0b0616', 8, 2, 2, 4); f('#0b0616', 2, 3, 1, 3)
+      f('#ffd23f', 0, 2); f('#ffd23f', 1, 4); f('#ffd23f', 9, 3)
+      f('#3a3350', 0, 6, W, 1); f('#0b0616', 0, 7, W, 1)
+      const beat = Math.floor(t * 2.5 + seed) % 8
+      const punch = beat === 1
+      const kick = beat === 3
+      const chord = beat === 5
+      const solo = beat === 6
+      f(chord || solo ? '#ffd23f' : '#fff4ff', 5, 0)
+      const lx = kick || solo ? 1 : 2
+      const rx = punch || solo ? 8 : 7
+      f('#c98576', lx, 3); f('#9a4ff0', lx, 4); f('#5a5285', lx, 5)
+      f('#c98576', rx, 3); f('#3fd8b0', rx, 4); f('#5a5285', rx, 5)
+      // The mane, the face under the red headband, the red jacket, jeans.
+      f('#ffd23f', 3, 1, 3, 1); f('#ffd23f', 3, 2); f('#ff3b5c', 4, 2); f('#f5c3a8', 5, 2)
+      f('#ff3b5c', 4, 3, 2, 1); f('#2f5fd0', 4, 4, 2, 2)
+      if (punch) { f('#f5c3a8', 6, 3); f('#fff4ff', 7, 2) }
+      if (kick) { f('#fff4ff', 3, 5); f('#fff4ff', 2, 4) }
+      if (chord) { f('#f5c3a8', 3, 3); f('#f5c3a8', 6, 3); f('#ffd23f', 3, 4); f('#ffd23f', 6, 2) }
+      if (solo) { f('#f5c3a8', 3, 3); f('#f5c3a8', 6, 3); f('#fff4ff', 2, 2, 1, 3); f('#fff4ff', 7, 2, 1, 3) }
       return
     }
     case 'anotherworld': {

@@ -11,7 +11,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 ## Commands
 
 - `npm run dev` — dev server on port 3030 (host 0.0.0.0)
-- `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link (the arcade's nine games and its two links out, Adventure and Pizza Rescue for fighter.phareim.no; those two and Night of the Dead Battery on the island by the door, 2026-10-06), the beach's two DJ booths (Jam and the radio, both links out), the login console and its auth.phareim.no client (fake fetch), the coast road to the Keeper
+- `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link (the arcade's nine games and its three links out, Adventure, Pizza Rescue for fighter.phareim.no and its sequel Solo Rescue for nova.phareim.no; those three and Night of the Dead Battery on the island by the door, 2026-10-13), the beach's two DJ booths (Jam and the radio, both links out), the login console and its auth.phareim.no client (fake fetch), the coast road to the Keeper
 - `npm run test:zelda` — Neon Shrine: the first minute from the town, exits, saves, a full scripted run to the Sun Prism; the audio data; the Wildwood's rules and a full run from the town's thicket to the Gate shutting (2026-09-24); the views: the registry, the isometric geometry, how tiles stand (2026-10-07)
 - `npm run test:eschold` — the shared Escape tap/hold state machine
 - `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); the Sleeper deploy runs these before typecheck
@@ -173,7 +173,7 @@ holds this radio silent.
 |---|---|---|
 | Portal (home, on `/`) | `docs/games/portal.md` | `themes/portal/`, `themes/zelda/world/` |
 | The pixel look (shared) | `docs/games/pixel-look.md` | `themes/base/pixel/` |
-| The frame (installed app: Adventure, Pizza Rescue and Eventyrland without leaving the page) | `docs/games/frame.md` | `components/GameFrame.vue`, `composables/useFrame.ts`, `themes/frames.ts` |
+| The frame (installed app: Adventure, Pizza Rescue, Solo Rescue and Eventyrland without leaving the page) | `docs/games/frame.md` | `components/GameFrame.vue`, `composables/useFrame.ts`, `themes/frames.ts` |
 | Mini World (Ulrikke's game) | `docs/games/mini-world.md` | `themes/miniworld/` (DESIGN.md), `scripts/miniworld-lab/` |
 | Lag Din Figur (Ulrikke's second) | `docs/games/lag-din-figur.md` | `themes/figur/` (DESIGN.md), `scripts/figur-lab/` |
 | Night of the Dead Battery | `docs/games/night-of-the-dead-battery.md` | `themes/battery/` (DESIGN.md, BUILD.md), `scripts/battery-lab/` |

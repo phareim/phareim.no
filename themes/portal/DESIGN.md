@@ -107,9 +107,10 @@ the arcade. `tests/portal-world.test.mjs` checks both.
 
 ### `arcade` — interior, 17×11 (the whole hall fits one desktop screen)
 
-- Cabinets side by side: three on an island between two pillars, straight
-  ahead of the door (Adventure, Pizza Rescue, Night of the Dead Battery,
-  2026-10-06: the long games get the place a visitor looks first), and four
+- Cabinets side by side: four on an island between two pillars, straight
+  ahead of the door (Pizza Rescue and its sequel Solo Rescue, Adventure in
+  the door's column, Night of the Dead Battery,
+  2026-10-13: the long games get the place a visitor looks first), and four
   each side of the board along the back wall; a carpet loop around the
   island, a prize counter with a vendor, a snack table, plants and a
   house-rules sign. Each is a solid `M` tile with an `exit` of look
@@ -117,10 +118,12 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   (`anotherworld`), Galaga, Breakout, R-Type, Space Invaders, Star Fox,
   OutRun, Russian Block Game, Night of the Dead Battery. Each has a label and two or three short lines: the game's
   pitch and "INSERT COIN? PRESS A." The lines are the only confirmation.
-- Two of the island's three are links out, not themes: ADVENTURE and, in
-  the middle, PIZZA RESCUE (Nova & Rex: The Pizza Rescue), exit
-  `{ url: 'https://fighter.phareim.no/?look=wasteland&from=phareim' }`, like
-  Eventyrland's in the VIP hall. `from=phareim` makes the game offer the
+- Three of the island's four are links out, not themes: ADVENTURE,
+  PIZZA RESCUE (Nova & Rex: The Pizza Rescue), exit
+  `{ url: 'https://fighter.phareim.no/?look=wasteland&from=phareim' }`, and
+  beside it SOLO RESCUE (Nova's Solo Rescue, the sequel), exit
+  `{ url: 'https://nova.phareim.no/?from=phareim' }`, like
+  Eventyrland's in the VIP hall. `from=phareim` makes each game offer the
   way back (`docs/games/portal.md`).
 - The Hall of Fame board on the back wall: exit look `board` →
   `{ theme: 'leaderboard' }`.

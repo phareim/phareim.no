@@ -77,6 +77,7 @@ const NAMES: Record<string, string> = {
   eventyrland: 'eventyrland.phareim.no — a fairy-tale world in 3D, for account holders',
   adventure: 'adventure.phareim.no — the same world, open to everyone in Norway',
   pizzarescue: 'fighter.phareim.no — Nova & Rex: The Pizza Rescue, a side-scrolling fighter',
+  nova: "nova.phareim.no — Nova's Solo Rescue, the sequel",
   linkedin: 'LinkedIn',
   github: 'GitHub',
   bluesky: 'Bluesky',

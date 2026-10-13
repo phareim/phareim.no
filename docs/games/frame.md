@@ -1,7 +1,8 @@
 # The frame: a game on another address, inside this page
 
-Three cabinets lead to games on their own addresses: Adventure
-(`adventure.phareim.no`), Pizza Rescue (`fighter.phareim.no`) and Eventyrland
+Four cabinets lead to games on their own addresses: Adventure
+(`adventure.phareim.no`), Pizza Rescue (`fighter.phareim.no`), its sequel
+Solo Rescue (`nova.phareim.no`, since 2026-10-13) and Eventyrland
 (`eventyrland.phareim.no`). In a browser tab the cabinet loads the address, as
 before. Installed as a web app (Home Screen), leaving the app's own address
 makes the phone open its browser sheet over the game, with an address bar and
@@ -63,6 +64,7 @@ of its own reading and the frame's.
 |---|---|---|---|
 | Eventyrland, Adventure (one build) | `frame-ancestors https://phareim.no` in `public/_headers` and `public/_worker.js` | `joinArcade()` in `src/game/arcade.ts`, first thing at boot (sets the page's `--inset-*`) | "Tilbake til spillehallen" in the settings; `src/game/arcade.ts` |
 | Pizza Rescue | no header: any page may frame it | `src/main.ts` (`--frame-*` in `ui.css`, `data-edges` for the pixel look's own readouts) | ARCADE on the title and the pause panel |
+| Solo Rescue (`~/github/nova`, built on Pizza Rescue's engine) | no header: any page may frame it | the same code in its `src/main.ts` | ARCADE on the title and the pause panel |
 
 ## Adding a game
 

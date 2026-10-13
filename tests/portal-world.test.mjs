@@ -1,7 +1,7 @@
 // The town — phareim.no's front door, the west end of Neon Shrine's one
 // world: the world validates, the start view shows the name and two
 // buildings on a phone and a desktop, the town has no enemies, the arcade's
-// cabinets are its nine games plus Adventure's and Pizza Rescue's links out, the two
+// cabinets are its nine games plus Adventure's, Pizza Rescue's and Nova's Solo Rescue's links out, the two
 // DJs on the beach lead to Jam and the radio, every exit
 // leads where it says, a path-finding walker reaches and uses each one from
 // the start without a scratch, coming back stands you in front of it, and
@@ -24,14 +24,16 @@ const KIDS = ['miniworld', 'figur']
 const VIP_ARTS = [...KIDS, 'eventyrland']
 /** The cabinets that are links out, not themes: art → where they leave for. Adventure is Eventyrland's open instance
  * (no account); Pizza Rescue (Nova & Rex: The Pizza Rescue) is a side-scrolling fighter on its own page, opened in
- * its pixel look and told where the visit came from, so it can offer the way back. */
+ * its pixel look and told where the visit came from, so it can offer the way back; Nova's Solo Rescue is its sequel,
+ * on a page of its own too. */
 const LINK_CABINETS = {
   eventyrland: 'https://eventyrland.phareim.no',
   adventure: 'https://adventure.phareim.no',
   pizzarescue: 'https://fighter.phareim.no/?look=wasteland&from=phareim',
+  nova: 'https://nova.phareim.no/?from=phareim',
 }
 const AWAY = LINK_CABINETS
-const ARCADE_ARTS = [...GAMES, 'adventure', 'pizzarescue']
+const ARCADE_ARTS = [...GAMES, 'adventure', 'pizzarescue', 'nova']
 const EXPECTED = {
   // cabinets
   ...Object.fromEntries(GAMES.map(g => [g, { map: 'arcade', to: { theme: g }, look: 'cabinet' }])),
@@ -39,6 +41,7 @@ const EXPECTED = {
   eventyrland: { map: 'vip', to: { url: LINK_CABINETS.eventyrland }, look: 'cabinet' },
   adventure: { map: 'arcade', to: { url: LINK_CABINETS.adventure }, look: 'cabinet' },
   pizzarescue: { map: 'arcade', to: { url: LINK_CABINETS.pizzarescue }, look: 'cabinet' },
+  nova: { map: 'arcade', to: { url: LINK_CABINETS.nova }, look: 'cabinet' },
   leaderboard: { map: 'arcade', to: { theme: 'leaderboard' }, look: 'board' },
   hangar: { map: 'arcade', to: { theme: 'hangar' }, look: 'door' },
   kiosk: { map: 'overworld', to: { url: 'https://phareim.md' }, look: 'kiosk' },
@@ -221,7 +224,7 @@ describe('portal world', () => {
     for (const id of ['arcade', 'home', 'vip']) assert.equal(P.createGame(W, { at: { map: id, entry: 'door' } }).map.enemies.length, 0, `an enemy in ${id}`)
   })
 
-  it('has one cabinet per arcade game plus Adventure\'s and Pizza Rescue\'s, and Ulrikke\'s three in the VIP hall, each with a pitch that ends on the coin line', () => {
+  it('has one cabinet per arcade game plus Adventure\'s, Pizza Rescue\'s and Nova\'s Solo Rescue\'s, and Ulrikke\'s three in the VIP hall, each with a pitch that ends on the coin line', () => {
     const cabinets = placedExits().filter(e => e.ent.look === 'cabinet' && (e.map === 'arcade' || e.map === 'vip'))
     assert.deepEqual(cabinets.filter(c => c.map === 'arcade').map(c => c.ent.art).sort(), [...ARCADE_ARTS].sort())
     assert.deepEqual(cabinets.filter(c => c.map === 'vip').map(c => c.ent.art).sort(), [...VIP_ARTS].sort())
@@ -255,9 +258,9 @@ describe('portal world', () => {
     assert.match(spot.ent.lines[0], /^NOVA & REX: THE PIZZA RESCUE\./)
     assert.match(spot.ent.lines.join(' '), /A PUNCHES, B KICKS/)
     assert.match(spot.ent.lines.join(' '), /PAUSE THERE AND PICK ARCADE/)
-    assert.equal(placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet').length, 11)
+    assert.equal(placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet').length, 12)
     const robot = Object.values(W.maps.arcade.marks).find(m => m.ent.t === 'npc' && m.ent.id === 'robot').ent.talk[0].lines.join(' ')
-    assert.match(robot, /ELEVEN CABINETS/)
+    assert.match(robot, /TWELVE CABINETS/)
     // It stands in nobody's way: every exit in the hall, the vendor's counter, the robot, the sign and the chest can still be walked up to.
     const g = session()
     goToMap(g, 'arcade')
@@ -280,7 +283,33 @@ describe('portal world', () => {
     assert.deepEqual([back.map.id, Math.floor(back.hero.x), Math.floor(back.hero.y), back.hero.dir], ['arcade', spot.x, spot.y + 1, 'up'])
   })
 
-  it('frames the three cabinets that leave the site when installed, by exit id, at the exit\'s own address', () => {
+  it('has a cabinet beside it for SOLO RESCUE, the sequel, that leaves for nova.phareim.no and is not a theme', () => {
+    const spot = placedExits().find(e => e.id === 'nova')
+    assert.ok(spot, 'no Solo Rescue cabinet')
+    assert.equal(spot.map, 'arcade')
+    assert.equal(spot.ent.look, 'cabinet')
+    assert.equal(spot.ent.label, 'SOLO RESCUE')
+    // A link like Pizza Rescue's: the address alone, saying where the visit came from, and no id in the registry.
+    assert.deepEqual(spot.ent.to, { url: LINK_CABINETS.nova })
+    assert.match(spot.ent.to.url, /[?&]from=phareim(&|$)/)
+    assert.ok(!GAMES.includes(spot.ent.art) && !KIDS.includes(spot.ent.art))
+    assert.doesNotMatch(readFileSync(new URL('../themes/index.ts', import.meta.url), 'utf8'), /nova\.phareim|solorescue|solo rescue/i, 'Solo Rescue is in the theme registry')
+    // Its own marquee and screen, not Pizza Rescue's and not the default cabinet's.
+    const paint = readFileSync(new URL('../themes/zelda/render/exits.ts', import.meta.url), 'utf8')
+    assert.match(paint, /^  nova: \{/m, 'no cabinet style for Solo Rescue')
+    assert.match(paint, /case 'nova':/, 'no screen for Solo Rescue')
+    // The pitch opens on the game's name, says whose sequel it is, names the buttons and says how to come back.
+    assert.match(spot.ent.lines[0], /^NOVA'S SOLO RESCUE\. THE SEQUEL TO THE PIZZA RESCUE\./)
+    assert.match(spot.ent.lines.join(' '), /A PUNCHES, B KICKS/)
+    assert.match(spot.ent.lines.join(' '), /PAUSE THERE AND PICK ARCADE/)
+    // Using it leaves for the address; coming back stands the hero in front of it.
+    const { event } = useExit('nova')
+    assert.deepEqual(event.to, { url: LINK_CABINETS.nova })
+    const back = P.createGame(P.worldStartingAt('arcade', 'nova'), { seed: 1 })
+    assert.deepEqual([back.map.id, Math.floor(back.hero.x), Math.floor(back.hero.y), back.hero.dir], ['arcade', spot.x, spot.y + 1, 'up'])
+  })
+
+  it('frames the four cabinets that leave the site when installed, by exit id, at the exit\'s own address', () => {
     // docs/games/frame.md: `/?frame=<id>` shows the game inside the page. The table and the town must agree.
     assert.deepEqual(Object.keys(P.FRAMED_GAMES).sort(), Object.keys(LINK_CABINETS).sort())
     for (const [id, url] of Object.entries(LINK_CABINETS)) {
@@ -305,25 +334,29 @@ describe('portal world', () => {
     for (const word of ['autoplay', 'fullscreen', 'gamepad', 'screen-wake-lock', 'accelerometer', 'gyroscope']) assert.match(frame, new RegExp(`allow="[^"]*\\b${word}\\b`), word)
   })
 
-  it('stands Adventure, Pizza Rescue and Night of the Dead Battery on the island straight ahead of the door', () => {
+  it('stands Pizza Rescue, Solo Rescue, Adventure and Night of the Dead Battery on the island straight ahead of the door', () => {
+    const ISLAND = ['pizzarescue', 'nova', 'adventure', 'battery']
     const at = id => placedExits().find(e => e.map === 'arcade' && e.id === id)
-    const [adventure, pizza, battery] = ['adventure', 'pizzarescue', 'battery'].map(at)
+    const [pizza, nova, adventure, battery] = ISLAND.map(at)
     const door = P.createGame(W, { at: { map: 'arcade', entry: 'door' } }).hero
-    // Side by side in that order, the middle one in the door's own column, nearer the door than any other cabinet.
-    assert.deepEqual([adventure.x, battery.x], [pizza.x - 1, pizza.x + 1])
-    assert.ok(adventure.y === pizza.y && battery.y === pizza.y)
-    assert.equal(pizza.x, Math.floor(door.x))
+    // Side by side in that order: Pizza Rescue and its sequel left of the middle, Adventure in the door's own column,
+    // Night of the Dead Battery to its right; all nearer the door than any other cabinet.
+    assert.deepEqual([pizza.x, nova.x, battery.x], [adventure.x - 2, adventure.x - 1, adventure.x + 1])
+    for (const c of [pizza, nova, battery]) assert.equal(c.y, adventure.y)
+    assert.equal(adventure.x, Math.floor(door.x))
     assert.equal(door.dir, 'up')
-    const others = placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet' && !['adventure', 'pizzarescue', 'battery'].includes(e.id))
+    const others = placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet' && !ISLAND.includes(e.id))
     assert.equal(others.length, 8)
-    for (const c of others) assert.ok(c.y < pizza.y, `${c.id} stands nearer the door than the island`)
-    // A pillar at each end, and nothing but floor between the door and the middle cabinet's stool.
+    for (const c of others) assert.ok(c.y < adventure.y, `${c.id} stands nearer the door than the island`)
+    // A pillar at each end, a stool in front of each of the four, and nothing but floor between the door and the
+    // middle cabinet's stool.
     const rows = W.maps.arcade.rows
-    assert.equal(rows[pizza.y][adventure.x - 1] + rows[pizza.y][battery.x + 1], 'II')
-    for (let y = pizza.y + 1; y < Math.floor(door.y); y++) assert.match(rows[y][pizza.x], /[.,i]/, `row ${y} blocks the way from the door`)
+    assert.equal(rows[adventure.y][pizza.x - 1] + rows[adventure.y][battery.x + 1], 'II')
+    for (const c of [pizza, nova, adventure, battery]) assert.equal(rows[c.y + 1][c.x], 'i', `no stool in front of ${c.id}`)
+    for (let y = adventure.y + 1; y < Math.floor(door.y); y++) assert.match(rows[y][adventure.x], /[.,i]/, `row ${y} blocks the way from the door`)
     // The robot's welcome points at them.
     const robot = Object.values(W.maps.arcade.marks).find(m => m.ent.t === 'npc' && m.ent.id === 'robot').ent.talk[0].lines.join(' ')
-    assert.match(robot, /ADVENTURE, PIZZA RESCUE, NIGHT OF THE DEAD BATTERY/)
+    assert.match(robot, /THE FOUR IN THE MIDDLE ARE THE LONG ONES: PIZZA RESCUE, SOLO RESCUE, ADVENTURE, NIGHT OF THE DEAD BATTERY/)
   })
 
   it('leads everywhere it should, and nowhere else', () => {

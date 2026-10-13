@@ -16,6 +16,7 @@ export interface FramedGame {
 export const FRAMED_GAMES: Record<string, { name: string; url: string }> = {
   adventure: { name: 'Adventure', url: 'https://adventure.phareim.no' },
   pizzarescue: { name: 'Pizza Rescue', url: 'https://fighter.phareim.no/?look=wasteland&from=phareim' },
+  nova: { name: "Nova's Solo Rescue", url: 'https://nova.phareim.no/?from=phareim' },
   eventyrland: { name: 'Eventyrland', url: 'https://eventyrland.phareim.no' },
 }
 

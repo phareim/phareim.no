@@ -17,9 +17,10 @@ export const HIGH_SCORE_SIGN: string[] = [
 
 /**
  * The arcade hall, 17×11, so the whole hall fits one desktop screen (≈18×11
- * tiles). Three cabinets stand on an island between two pillars, straight
- * ahead of the door: Adventure, Pizza Rescue in the door's own column, and
- * Night of the Dead Battery (2026-10-06; they are the long games, and
+ * tiles). Four cabinets stand on an island between two pillars, straight
+ * ahead of the door: Pizza Rescue and its sequel Nova's Solo Rescue side by
+ * side on the left, Adventure in the door's own column, and Night of the
+ * Dead Battery on the right (2026-10-13; they are the long games, and
  * Petter wanted them where a visitor looks first). The other eight line the
  * back wall, four each side of the Hall of Fame board, with the HANGAR door
  * in the wall above the gap between the right-hand four. A carpet loop runs
@@ -49,8 +50,8 @@ export const ARCADE: MapDef = {
     '#t1234ZZBZZ56.78#',
     '#,iiii,,,,,ii,ii#',
     '#.,...........,.#',
-    '#.,...IE09I...,.#',
-    '#.,,,,,iii,,,,,.#',
+    '#.,..I0NE9I...,.#',
+    '#.,,,,iiii,,,,,.#',
     '#Y......,..v...S#',
     '#.nn....,.nnnn..#',
     '#Q......,......$#',
@@ -121,6 +122,19 @@ export const ARCADE: MapDef = {
         ],
       },
     },
+    // The sequel, on a site of its own too: Nova's Solo Rescue (2026-10-13). `from=phareim` puts ARCADE, the way back
+    // here, on its title and pause panel.
+    N: {
+      tile: 'M',
+      ent: {
+        t: 'exit', id: 'nova', to: { url: 'https://nova.phareim.no/?from=phareim' }, look: 'cabinet', art: 'nova', label: 'SOLO RESCUE', side: 'down',
+        lines: [
+          'NOVA\'S SOLO RESCUE. THE SEQUEL TO THE PIZZA RESCUE. GANGSTERS TOOK REX TO NEO YORK, AND NOVA GOES TO GET HIM BACK, ALONE. FOUR STAGES, A BOSS IN EACH.',
+          'A PUNCHES, B KICKS, AND ON A FULL METER BOTH TOGETHER PLAY THE SOLO. IT LIVES ON ITS OWN PAGE. PAUSE THERE AND PICK ARCADE TO WALK BACK IN HERE.',
+          COIN,
+        ],
+      },
+    },
     B: {
       tile: 'I',
       ent: {
@@ -146,8 +160,8 @@ export const ARCADE: MapDef = {
           {
             when: { notFlag: 'item:sword' },
             lines: [
-              'ROBOT: BEEP. WELCOME TO THE ARCADE. ELEVEN CABINETS. FREE PLAY. BOOP.',
-              'THE THREE IN THE MIDDLE ARE THE LONG ONES: ADVENTURE, PIZZA RESCUE, NIGHT OF THE DEAD BATTERY.',
+              'ROBOT: BEEP. WELCOME TO THE ARCADE. TWELVE CABINETS. FREE PLAY. BOOP.',
+              'THE FOUR IN THE MIDDLE ARE THE LONG ONES: PIZZA RESCUE, SOLO RESCUE, ADVENTURE, NIGHT OF THE DEAD BATTERY.',
               'FACE A CABINET AND PRESS {A}. SCORES GO UP ON THE BOARD AT THE BACK.',
               'THE HANGAR DOOR BACK THERE IS FOR PILOTS. YOUR SHIP AND YOUR RECORDS LIVE IN IT.',
               'THE KIDS\' GAMES MOVED NEXT DOOR, TO THE VIP HALL. ACCOUNT HOLDERS ONLY.',

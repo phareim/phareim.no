@@ -3,7 +3,8 @@
 `/` is the Portal: a small neon town you walk around in, and the west end
 of Neon Shrine's world. Petter's name is painted on the roof of his house.
 The buildings lead to everything else on the site: the arcade (a cabinet
-per game, one more that leaves for Nova & Rex: The Pizza Rescue on fighter.phareim.no, the
+per game, two more that leave for Nova & Rex: The Pizza Rescue on fighter.phareim.no and its
+sequel Nova's Solo Rescue on nova.phareim.no, the
 Hall of Fame board, the Hangar door), the VIP hall next door
 (Ulrikke's games and a bar, for logged-in visitors), Petter's house (who he
 is, three terminals to his profiles, the login console), the PHAREIM.MD newsstand, the
@@ -24,7 +25,7 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 | File | Job |
 |---|---|
 | `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, newsstand, signpost, pier, the beach east of it (two DJ booths, a bonfire and the people round it, tiki torches), the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
-| `themes/zelda/world/town.ts` | The arcade, 17×11 (eleven cabinets: nine games and two that leave the site, Adventure for `adventure.phareim.no`, Eventyrland's open instance, and Pizza Rescue for `fighter.phareim.no`; the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 17×11 (Mini World, Lag Din Figur and Eventyrland, a bar with its bartender, a mirror ball, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
+| `themes/zelda/world/town.ts` | The arcade, 17×11 (twelve cabinets: nine games and three that leave the site, Adventure for `adventure.phareim.no`, Eventyrland's open instance, Pizza Rescue for `fighter.phareim.no` and Solo Rescue for `nova.phareim.no`; the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 17×11 (Mini World, Lag Din Figur and Eventyrland, a bar with its bartender, a mirror ball, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
 | `themes/zelda/engine/map.ts` | `setSession`: the shell's word on the login; the rope tiles follow it |
 | `themes/zelda/world/index.ts` | `WORLD` (the one world), `worldExits()`, `worldStartingAt()` |
 | `themes/zelda/Zelda.vue` | The shell: loop, input, touch deck, audio, saves, pause menu, exits, the way back, the account panel |
@@ -69,15 +70,17 @@ session. Back from a URL through the browser's page cache, `pageshow`
 restarts at the exit; a theme exit that has not navigated after 2.5 s
 comes back too. TO TOWN, NEW GAME and a new quest clear `portal.return`.
 
-**The arcade's layout** (2026-10-06). Three cabinets stand on the island
-between the two pillars, straight ahead of the door: Adventure (7,4), Pizza
-Rescue (8,4, the door's own column) and Night of the Dead Battery (9,4). They
+**The arcade's layout** (2026-10-13). Four cabinets stand on the island
+between the two pillars (5,4 and 10,4), straight ahead of the door: Pizza
+Rescue (6,4) and its sequel Solo Rescue (7,4) side by side left of the
+middle, Adventure (8,4, the door's own column) and Night of the Dead Battery
+(9,4) to its right. They
 are the long games, and Petter wanted them where a visitor looks first. The
 other eight line the back wall, four each side of the board: Another Shore,
 Galaga, Breakout, R-Type on the left; Space Invaders, Star Fox, OutRun and
 Russian Block Game on the right, with the HANGAR door above the gap between the last two
 pairs. Every cabinet has a stool in front of it. The robot's welcome names
-the three in the middle.
+the four in the middle.
 
 **Pizza Rescue's cabinet** (2026-10-05; renamed and moved 2026-10-06). Like
 Adventure's beside it, this cabinet is not a theme: Nova & Rex: The Pizza
@@ -92,13 +95,26 @@ the hero in front of the cabinet again. The cabinet's pitch says so (PAUSE
 THERE AND PICK ARCADE). Installed as a web app, this cabinet, Adventure's and
 Eventyrland's do not load the address: the game is shown in a frame on this
 page, `/?frame=<id>`, so the phone's browser bar never comes up
-(`docs/games/frame.md`, 2026-10-12). It stands in the middle of the island (tile 8,4 of
-`arcade`, exit id and art `pizzarescue`, label PIZZA RESCUE, used from 8,5).
+(`docs/games/frame.md`, 2026-10-12). It stands at the left end of the island (tile 6,4 of
+`arcade`, exit id and art `pizzarescue`, label PIZZA RESCUE, used from 6,5).
 It is the hall's only rust-orange machine: N and R in white either side of a
 slice of pizza on the marquee, and Nova and a Dead Paddy trading a punch and
 a kick under a striped sun on the screen (`CABS.pizzarescue` and `drawScreen`
-in `render/exits.ts`). The robot counts eleven cabinets, and the hidden link
+in `render/exits.ts`). The robot counts twelve cabinets, and the hidden link
 index lists it under Writing and projects, as it does every exit with a URL.
+
+**Solo Rescue's cabinet** (2026-10-13). Nova's Solo Rescue, the sequel, is on
+a site of its own as well (`~/github/nova`), and its cabinet stands at Pizza
+Rescue's right hand (tile 7,4, exit id and art `nova`, label SOLO RESCUE,
+used from 7,5): the same kind of exit, `to: { url:
+'https://nova.phareim.no/?from=phareim' }`. The game has one look, so the
+address names none. `from=phareim` works there as in Pizza Rescue: ARCADE on
+the title and the pause panel, and in the installed app the game is framed on
+`/?frame=nova`. The machine is midnight blue with red trim, the colours of
+Neo York and of her jacket, so it is told apart from the orange one beside
+it: Nova's blonde mane and red headband on the marquee beside the tower with
+the Ball, and on the screen Nova, twice the size she is next door, between
+two gangsters: a punch, a kick, then the SOLO (`CABS.nova` and `drawScreen`).
 
 **VIP hall** (2026-09-29). Ulrikke's games, Mini World and Lag Din Figur
 (moved out of the arcade) and Eventyrland (a cabinet that leaves for
@@ -224,9 +240,9 @@ input and unpausing are handled by listeners, not the loop (2026-09-30).
 
 **Checks** (2026-09-24; NEW GAME machine 2026-09-26). `npm run test:portal` (in CI): the world
 validates; it starts on the plaza facing the name, and the town and its
-rooms have no enemies; the arcade's cabinets are exactly its nine games, Adventure and Pizza Rescue (the VIP hall's are Mini World, Lag Din Figur and Eventyrland),
+rooms have no enemies; the arcade's cabinets are exactly its nine games, Adventure, Pizza Rescue and Solo Rescue (the VIP hall's are Mini World, Lag Din Figur and Eventyrland),
 each ending on INSERT COIN? PRESS {A}.; PIZZA RESCUE leaves for `https://fighter.phareim.no/?look=wasteland&from=phareim`,
-is no id in the theme registry, has its own marquee and screen, and blocks nothing in the hall (every exit, the counter, the robot, the signs and the chest are still walked up to; 2026-10-05); Adventure, Pizza Rescue and Night of the Dead Battery stand side by side on the island, the middle one in the door's column and all three nearer the door than any other cabinet (2026-10-06); the NEW GAME machine
+is no id in the theme registry, has its own marquee and screen, and blocks nothing in the hall (every exit, the counter, the robot, the signs and the chest are still walked up to; 2026-10-05); SOLO RESCUE leaves for `https://nova.phareim.no/?from=phareim` with a marquee and a screen of its own; Pizza Rescue, Solo Rescue, Adventure and Night of the Dead Battery stand side by side on the island in that order, Adventure in the door's column, a stool in front of each and all four nearer the door than any other cabinet (2026-10-13); the NEW GAME machine
 says there is nothing to wipe before the blade, and after it asks once and
 never leaves the game; the beach lies only east of the pier and has two DJ booths
 on the sand between the road and the sea, blocked behind and beside, open
@@ -282,9 +298,9 @@ the rope holds against walking into it (the inside of the hall: `scripts/zelda-l
 and with a session the rope is gone and the hero walks in to both cabinets;
 no page errors. Not checked: the real auth.phareim.no, a real phone.
 
-The arcade's layout and Pizza Rescue's cabinet (2026-10-06): rendered by the
-look lab, without Nuxt (`node scripts/zelda-lab/shot.mjs <outDir> r-arcade,r-fighter`:
-the hall from the door, and the hero at the cabinet with its label) at
+The arcade's layout and the two fighters' cabinets (2026-10-13): rendered by the
+look lab, without Nuxt (`node scripts/zelda-lab/shot.mjs <outDir> r-arcade,r-fighter,r-nova`:
+the hall from the door, and the hero at each cabinet with its label) at
 1280×800 and 390×844 (3×). The game's side of the way back (the ARCADE
 button with `from=phareim`, none without) is checked by its own
 `tools/check-live.mjs`. The whole loop was walked on the live sites the same
