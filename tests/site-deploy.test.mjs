@@ -16,7 +16,7 @@ function fixture(t) {
   }
   git('init', '-b', 'master'); git('config', 'user.name', 'Deploy test'); git('config', 'user.email', 'deploy@example.invalid')
   writeFileSync(join(repo, 'scripts/deploy-site.sh'), readFileSync(new URL('../scripts/deploy-site.sh', import.meta.url)))
-  writeFileSync(join(repo, 'package.json'), JSON.stringify({ scripts: { 'test:new-game': 'mock', 'test:another': 'mock' } }))
+  writeFileSync(join(repo, 'package.json'), JSON.stringify({ scripts: { test: 'mock', 'test:new-game': 'mock' } }))
   git('add', '.'); git('commit', '-m', 'fixture'); git('remote', 'add', 'origin', repo)
   const revision = git('rev-parse', 'HEAD')
   // An uncommitted file must never appear in the build worktree.
@@ -34,12 +34,12 @@ function fixture(t) {
   return { run, log, state, revision, git, repo }
 }
 
-test('all discovered game tests and checks precede D1 migration and production publication', t => {
+test('the test run, typecheck and build precede D1 migration and production publication', t => {
   const f = fixture(t), result = f.run()
   assert.equal(result.status, 0, result.stderr)
   const log = readFileSync(f.log, 'utf8')
-  assert.match(log, /npm run test:new-game/)
-  assert.match(log, /npm run test:another/)
+  assert.equal(log.match(/npm test/g).length, 1, 'the whole test set runs once, not per suite')
+  assert.ok(log.indexOf('npm test') < log.indexOf('npm run typecheck'))
   assert.ok(log.indexOf('npm run typecheck') < log.indexOf('npm run build'))
   assert.ok(log.indexOf('npm run build') < log.indexOf('d1 migrations'))
   assert.ok(log.indexOf('d1 migrations') < log.indexOf('pages deploy'))

@@ -47,9 +47,10 @@ GitHub Actions is disabled (2026-10-04). The signed GitHub webhook calls
 `sleeper-deploy` → `scripts/deploy.sh`: the existing Mini World server deploy,
 then `scripts/deploy-site.sh --auto`. Sites build from committed `origin/master`
 in an isolated worktree through `heavy`, keeping uncommitted work out of production.
-Every `test:*` script, typecheck and build must pass; then Wrangler applies the
-existing D1 migrations before publishing to the `phareim-no` Pages production branch.
-New test scripts automatically join the checks. Pull requests no longer run CI.
+`npm test` (every `tests/*.test.mjs` file in one run), typecheck and build must pass;
+then Wrangler applies the existing D1 migrations before publishing to the `phareim-no`
+Pages production branch. A new test file in `tests/` joins the checks by itself. The
+per-game `test:*` scripts stay for local runs. Pull requests no longer run CI.
 
 Busy pushes merge in the webhook's queue. A file lock serializes manual and
 automatic site deploys; `~/.local/state/phareim-deploy/site` records the last
