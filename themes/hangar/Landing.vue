@@ -201,7 +201,8 @@ onMounted(async () => {
   color: var(--hg-text-subtle);
 }
 
-.hg-label--rule {
+/* Scoped under .hg-panel: `.hg-landing p` sets margin 0 at a lower specificity. */
+.hg-panel .hg-label--rule {
   margin-top: 10px;
   padding-top: 8px;
   border-top: 2px dotted rgba(255, 47, 160, .45);
@@ -254,16 +255,17 @@ onMounted(async () => {
   padding: 0;
 }
 
-/* One label and one value per line; the value sits at the right edge. */
+/* One label and one value per row; the label wraps onto a second line when
+   the column is narrow, the value stays at the right edge. */
 .hg-row {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 12px;
-  white-space: nowrap;
 }
 
-.hg-row-key { color: var(--hg-text); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.hg-row-val { color: var(--hg-accent); flex: none; }
+.hg-row-key { color: var(--hg-text); min-width: 0; overflow-wrap: anywhere; }
+.hg-row-val { color: var(--hg-accent); flex: none; white-space: nowrap; }
 .hg-row-val--none { color: var(--hg-text-subtle); }
 
 .hg-empty {
@@ -296,18 +298,22 @@ onMounted(async () => {
   .hg-panel { padding: 20px 22px 16px; }
   .hg-cols {
     display: grid;
-    grid-template-columns: minmax(240px, 340px) 1fr;
+    grid-template-columns: minmax(200px, 1fr) 2fr;
     gap: 28px;
     align-items: start;
   }
   .hg-col { display: flex; flex-direction: column; min-width: 0; }
   .hg-col > * { flex: none; }
   .hg-col--scores .hg-label--rule:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
-  .hg-avatar { width: 128px; height: 128px; }
-  .hg-who { align-items: flex-end; gap: 16px; }
-  .hg-name { font-size: 32px; line-height: 36px; }
   .hg-status,
   .hg-scores { line-height: 24px; }
+}
+
+/* Wide: room for the big portrait and name. */
+@media (min-width: 1024px) {
+  .hg-avatar { width: 128px; height: 128px; }
+  .hg-who { align-items: flex-end; gap: 16px; }
+  .hg-name { font-size: 24px; line-height: 28px; }
 }
 
 @media (min-width: 1024px) and (min-height: 700px) {
