@@ -1,31 +1,9 @@
 # Parked and classic themes
 
-Breakout and Russian Block Game are live, older arcade themes that didn't have their own
-doc yet. Scandinavian Glass, Space and Tufte Desk are parked (`disabled:
+Russian Block Game is a live, older arcade theme with no doc of its own yet. Breakout is
+now Space Paddle — The Odyssey (`docs/games/breakout.md`). Scandinavian Glass, Space and Tufte Desk are parked (`disabled:
 true` in `themes/index.ts`): no way in from the portal, still
 reachable with `?theme=<id>`.
-
-## Breakout
-
-`?theme=breakout` — the arcade classic, added 2026-09-04. A full-viewport canvas
-behind the landing's text (the pattern the old Galaga began); plays itself (autopilot) until
-Enter.
-
-**Look (2026-09-24): Neon Shrine's pixels** (`docs/games/pixel-look.md`).
-A shrine chamber seen from above, on the shared pixel stage: dungeon floor
-tiles with a faint inlaid sigil, thin walls with a pink neon strip,
-braziers on the side walls (orange and cyan fire) that light the room
-through the light map, and a dark pit under the paddle. Armoured bricks are
-shrine stone with a gold neon strip (pink for the 3-hit top row) that
-cracks with each hit; the rest are crystals, pink, violet and teal by row
-band. The ball is a glowing orb that lights what it passes, the paddle the
-hero's cyan shield bar with a gold gem; powerups are gold capsules with
-their letter in the 5×7 font. Braziers flare on paddle and brick hits and
-on a level clear; the LEVEL banner is in big pixel letters. The HTML text
-uses `.px-*`. The stage shows at least 360×225 logical pixels (128 across
-on phones), about 3 CSS px per pixel on laptops and phones. Code:
-`themes/breakout/pixel.ts` (chamber, brick/paddle/orb/capsule painters)
-and the draw section of `Breakout.vue`. Rules unchanged.
 
 ## Russian Block Game
 

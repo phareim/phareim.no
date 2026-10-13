@@ -24,6 +24,7 @@
     "test:outrun": "node --test tests/outrun-engine.test.mjs tests/outrun-banter.test.mjs tests/outrun-art.test.mjs",
     "test:zelda": "node --test tests/zelda-engine.test.mjs tests/zelda-input.test.mjs tests/zelda-audio.test.mjs tests/wildwood.test.mjs tests/zelda-wallet.test.mjs tests/zelda-views.test.mjs tests/zelda-look.test.mjs",
     "test:portal": "node --test tests/portal-world.test.mjs tests/portal-account.test.mjs tests/portal-news.test.mjs",
+    "test:breakout": "node --test tests/breakout-engine.test.mjs",
     "test:battery": "node --test tests/battery-engine.test.mjs tests/battery-ground.test.mjs tests/battery-cellar.test.mjs tests/battery-attic.test.mjs tests/battery-story.test.mjs tests/battery-audio.test.mjs tests/battery-walkthrough.test.mjs",
     "test:miniworld": "node --test tests/miniworld-*.test.mjs",
     "test:figur": "node --test tests/figur-*.test.mjs",
