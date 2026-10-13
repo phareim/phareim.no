@@ -239,16 +239,18 @@ const CABS: Record<string, CabStyle> = {
     ),
   },
   outrun: {
-    body: '#3a0f34', bodyL: '#6a1a5a', bodyD: '#1e0619', trim: '#ff2fa0', glow: '#ff2fa0',
-    bg: ['#2a0a3a', '#5a1a5a', '#9a2a6a', '#c43a6a', '#0b0616', '#0b0616', '#0b0616'],
+    // Nova & Rex' Drive to the Mountains: the convertible's red, with gold for trim. The range with snow on it
+    // under a sunrise, and the red car on the road towards it.
+    body: '#8a1c2a', bodyL: '#e2343f', bodyD: '#4a0c16', trim: '#ffe45c', glow: '#ffb83c',
+    bg: ['#2c3e8e', '#4c4e9e', '#8a5c9c', '#d07088', '#34374f', '#34374f', '#2f3249'],
     marquee: M(
-      '....eyye....',
-      '...yyyyyy...',
-      '...oooooo...',
-      '....pppp....',
-      'cccccccccccc',
-      '....gwgg....',
-      '..ggggwggg..',
+      '....w.......',
+      '...wvv...w..',
+      '..vvvVv.wvv.',
+      '.vvVVVVvvVVv',
+      '.....WW.....',
+      '....rrrr....',
+      '...rRyyRr...',
     ),
   },
   russian: {
@@ -411,14 +413,16 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       return
     }
     case 'outrun': {
-      f('#5a1a5a', 0, 0, W, 1); f('#9a2a6a', 0, 1, W, 1); f('#e0487a', 0, 2, W, 1); f('#ff8a3d', 0, 3, W, 1)
-      f('#ffd23f', 3, 1, 4, 2); f('#ff8a3d', 3, 2, 4, 1)
-      f('#0b0616', 0, 4, W, 4)
-      f('#3a2a5a', 4, 4, 2, 1); f('#3a2a5a', 3, 5, 4, 1); f('#3a2a5a', 2, 6, 6, 1); f('#3a2a5a', 1, 7, 8, 1)
+      // A sunrise over the range, the road running up to it, the red car with a blonde and a brown head in it.
+      f('#2c3e8e', 0, 0, W, 1); f('#8a5c9c', 0, 1, W, 1); f('#f49868', 0, 2, W, 1)
+      f('#6a5a9a', 1, 2, 3, 1); f('#6a5a9a', 2, 1, 1, 1); f('#fff4ff', 2, 0, 1, 1)
+      f('#6a5a9a', 6, 2, 3, 1); f('#fff4ff', 7, 1, 1, 1)
+      f('#42684c', 0, 3, W, 5)
+      f('#34374f', 4, 3, 2, 1); f('#34374f', 3, 4, 4, 1); f('#34374f', 2, 5, 6, 1); f('#34374f', 1, 6, 8, 2)
       const d = Math.floor(t * 8) % 2
-      f('#fff4ff', 4 + d, 5 + d, 1, 1); f('#fff4ff', 5 - d, 7 - d, 1, 1)
-      f('#ff2fa0', 0, 4, W, 1)
-      f('#ff3b5c', 4, 6 + (Math.floor(t * 2) % 2), 2, 1)
+      f('#d8d2c0', 4 + d, 4 + d, 1, 1)
+      const bob = Math.floor(t * 2) % 2
+      f('#e2343f', 4, 6 + bob, 2, 1); f('#ffd23f', 4, 5 + bob, 1, 1); f('#6a4432', 5, 5 + bob, 1, 1)
       return
     }
     case 'russian': {

@@ -51,6 +51,8 @@ export interface PresentOptions {
   shakeY?: number
   /** Bloom strength multiplier (0 = none). Default 1. */
   bloom?: number
+  /** The scanlines and the vignette over the picture. Default true; false leaves the pixels bare. */
+  overlay?: boolean
   /** Drawn into `g` after the light map, at full brightness (neon, shots, sparks). */
   afterLight?: (g: G) => void
 }
@@ -340,7 +342,7 @@ export function createPixelStage(canvas: HTMLCanvasElement, opts: StageOptions =
       screen.globalAlpha = 1
       screen.globalCompositeOperation = 'source-over'
     }
-    vignette()
+    if (o.overlay !== false) vignette()
     const hx = Math.floor((W - hw * scale) / 2)
     const hy = Math.floor((H - hh * scale) / 2)
     screen.drawImage(hudC, 0, 0, hw, hh, hx, hy, hw * scale, hh * scale)

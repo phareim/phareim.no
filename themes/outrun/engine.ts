@@ -1,14 +1,14 @@
 /**
- * OutRun engine — the whole game as pure, deterministic logic: no DOM,
- * canvas, audio or Vue imports, so `node --test` runs it and the renderer
- * only ever reads the state.
+ * Nova & Rex' Drive to the Mountains (the theme `outrun`): the engine. The
+ * whole game as pure, deterministic logic: no DOM, canvas, audio or Vue
+ * imports, so `node --test` runs it and the renderer only ever reads the state.
  *
- * The shape of a run (rebuilt 2026-09-11, second version): five stages
- * joined by forks, like the 1986 cabinet. Every stage ends in a Y; the left
- * branch leads to the easier stage, the right one to the harder. Fifteen
- * stages in a pyramid (1 + 2 + 3 + 4 + 5), five of them per run, and a goal
- * at the end of the fifth. The clock is the enemy: 75 s to start, extended
- * at each checkpoint.
+ * The shape of a run: five stages joined by forks, like the 1986 cabinet this
+ * began as. A night's drive from Neo Boston to the mountains: every stage ends
+ * in a Y; the left branch leads to the easier road, the right one to the
+ * higher and harder. Fifteen stages in a pyramid (1 + 2 + 3 + 4 + 5), five of
+ * them per run, and a goal at the end of the fifth. The clock is the enemy:
+ * 75 s to start, extended at each checkpoint.
  *
  * Coordinates. `position` is the world z of the player's car. Lateral
  * positions are in road half-widths in one global frame: the road centre
@@ -123,8 +123,10 @@ export const GOAL_TIME_SCORE = 20000
 
 // --------------------------------------------------------------- stages
 
-export type Biome = 'coast' | 'peaks' | 'mesa' | 'city' | 'canyon' | 'grid'
-export type Sky = 'dusk' | 'midnight' | 'ember' | 'teal' | 'rose'
+/** The land a stage drives through, from the streets of Neo Boston to the snow line. */
+export type Biome = 'city' | 'shore' | 'farms' | 'woods' | 'pass' | 'peaks'
+/** The hour: the drive leaves at dusk and reaches the mountains as the sun comes up. */
+export type Sky = 'dusk' | 'night' | 'midnight' | 'dawn' | 'sunrise'
 
 export interface StageDef {
   name: string
@@ -132,17 +134,26 @@ export interface StageDef {
   sky: Sky
 }
 
-/** The pyramid: column k has k + 1 stages. Left keeps the index, right adds one. */
+/**
+ * The pyramid: column k has k + 1 stages. Left keeps the index, right adds one.
+ * Every column is an hour of the night and a step nearer the mountains; within
+ * a column the roads to the right are higher and harder.
+ */
 export const STAGES: readonly (readonly StageDef[])[] = [
-  [{ name: 'NEON COAST', biome: 'coast', sky: 'dusk' }],
-  [{ name: 'PALM VEIL', biome: 'coast', sky: 'rose' }, { name: 'WIRE PEAKS', biome: 'peaks', sky: 'midnight' }],
-  [{ name: 'MIRAGE MESA', biome: 'mesa', sky: 'ember' }, { name: 'CHROME CITY', biome: 'city', sky: 'midnight' }, { name: 'GLASS CANYON', biome: 'canyon', sky: 'teal' }],
-  [{ name: 'STARLIGHT PIER', biome: 'coast', sky: 'midnight' }, { name: 'MIDNIGHT GRID', biome: 'grid', sky: 'rose' }, { name: 'EMBER DUNES', biome: 'mesa', sky: 'dusk' }, { name: 'AURORA PASS', biome: 'peaks', sky: 'teal' }],
-  [{ name: 'SUNSET BOULEVARD', biome: 'city', sky: 'dusk' }, { name: 'LASER LAGOON', biome: 'coast', sky: 'teal' }, { name: 'ELECTRIC DESERT', biome: 'mesa', sky: 'rose' }, { name: 'VAPOR HEIGHTS', biome: 'peaks', sky: 'ember' }, { name: 'AFTERBURN', biome: 'grid', sky: 'ember' }],
+  [{ name: 'NEO BOSTON', biome: 'city', sky: 'dusk' }],
+  [{ name: 'NORTH SHORE', biome: 'shore', sky: 'night' }, { name: 'MILL TOWNS', biome: 'city', sky: 'night' }],
+  [{ name: 'BARN COUNTRY', biome: 'farms', sky: 'midnight' }, { name: 'MOOSE WOODS', biome: 'woods', sky: 'midnight' }, { name: 'GRANITE NOTCH', biome: 'pass', sky: 'midnight' }],
+  [{ name: 'COVERED BRIDGE', biome: 'farms', sky: 'dawn' }, { name: 'LOON LAKE', biome: 'woods', sky: 'dawn' }, { name: 'LOGGING ROAD', biome: 'pass', sky: 'dawn' }, { name: 'FROST HOLLOW', biome: 'peaks', sky: 'dawn' }],
+  [{ name: 'MAPLE VALLEY', biome: 'farms', sky: 'sunrise' }, { name: 'CABIN ROAD', biome: 'woods', sky: 'sunrise' }, { name: 'THE NOTCH', biome: 'pass', sky: 'sunrise' }, { name: 'SNOW LINE', biome: 'peaks', sky: 'sunrise' }, { name: 'SUMMIT ROAD', biome: 'peaks', sky: 'sunrise' }],
 ]
 
 export function stageDef(col: number, node: number): StageDef {
   return STAGES[col][node]
+}
+
+/** Which side the sea lies on along a shore stage: -1 left, 1 right. */
+export function seaSide(node: number): -1 | 1 {
+  return node % 2 === 0 ? -1 : 1
 }
 
 /** 0 for the first stage, rising to the top of the far right: steers curves, traffic, clock. */
@@ -158,25 +169,27 @@ export const TUNNEL_H = 2300
 /** Speed lost per second while a wall is scraping the car. */
 export const SCRAPE_DECEL = 5200
 /** Tunnels per stage body by biome (none elsewhere). */
-export const TUNNELS: Partial<Record<Biome, number>> = { city: 2, canyon: 1, peaks: 1 }
+export const TUNNELS: Partial<Record<Biome, number>> = { city: 2, pass: 1, peaks: 1 }
 
 // ---------------------------------------------------------------- props
 
-/** Roadside prop kinds. The renderer draws them; `w` is the collision half-width. */
+/**
+ * Roadside prop kinds. The renderer picks the picture (a `house` is a
+ * triple-decker in town, a barn among the farms, a cabin in the woods); `w` is
+ * the collision half-width.
+ */
 export const PROP = {
-  palm: { w: 0.16, solid: true },
-  lamp: { w: 0.08, solid: true },
-  billboard: { w: 0.42, solid: true },
-  rock: { w: 0.34, solid: true },
+  tree: { w: 0.16, solid: true },
   pine: { w: 0.2, solid: true },
-  cactus: { w: 0.14, solid: true },
-  spire: { w: 0.22, solid: true },
-  pylon: { w: 0.08, solid: true },
-  tower: { w: 0.6, solid: true },
-  hut: { w: 0.36, solid: true },
+  bush: { w: 0.18, solid: true },
+  rock: { w: 0.3, solid: true },
+  lamp: { w: 0.08, solid: true },
+  pole: { w: 0.08, solid: true },
+  sign: { w: 0.08, solid: true },
+  billboard: { w: 0.42, solid: true },
+  house: { w: 0.6, solid: true },
   gore: { w: 0.4, solid: true },
   chevron: { w: 0.12, solid: true },
-  arch: { w: 0, solid: false },
   gantry: { w: 0, solid: false },
 } as const
 
@@ -217,10 +230,10 @@ export interface RoadSegment {
 // -------------------------------------------------------------- traffic
 
 export const TRAFFIC_KINDS = [
-  { name: 'sedan', halfW: 0.21, speed: [0.3, 0.46] },
-  { name: 'truck', halfW: 0.27, speed: [0.24, 0.36] },
+  { name: 'cab', halfW: 0.2, speed: [0.3, 0.46] },
+  { name: 'truck', halfW: 0.25, speed: [0.24, 0.36] },
   { name: 'bug', halfW: 0.17, speed: [0.32, 0.5] },
-  { name: 'coupe', halfW: 0.2, speed: [0.42, 0.58] },
+  { name: 'wagon', halfW: 0.22, speed: [0.42, 0.58] },
 ] as const
 
 export interface TrafficCar {
@@ -397,12 +410,12 @@ function addRoad(state: OutrunState, enter: number, hold: number, leave: number,
 
 /** Hill character per biome: [min, max] rise of one section. */
 const BIOME_HILLS: Record<Biome, [number, number]> = {
-  coast: [300, 1400],
-  peaks: [900, 3000],
-  mesa: [200, 1200],
   city: [0, 700],
-  canyon: [600, 2200],
-  grid: [400, 2600],
+  shore: [300, 1400],
+  farms: [200, 1200],
+  woods: [400, 2000],
+  pass: [600, 2400],
+  peaks: [900, 3000],
 }
 
 /**
@@ -497,41 +510,55 @@ function decorate(state: OutrunState, from: number, to: number, biome: Biome): v
     const s = sideOf(Math.floor(i / 7))
     const r = rand(state)
     switch (biome) {
-      case 'coast':
-        if (i % 9 === 0) put(i, 'palm', s * rand(state, 1.45, 2.1))
-        if (i % 13 === 0) put(i, 'palm', -s * rand(state, 1.7, 3))
-        if (i % 97 === 0) put(i, 'billboard', s * 2.1, pick(state, BILLBOARD_TEXT))
-        if (i % 61 === 0 && r < 0.6) put(i, 'hut', -s * rand(state, 2.2, 3))
+      case 'city':
+        // Lamps down both kerbs, houses and mills behind them, a billboard now and then.
+        if (i % 8 === 0) { put(i, 'lamp', -1.22); put(i, 'lamp', 1.22) }
+        if (i % 4 === 0) put(i, 'house', sideOf(i / 4) * rand(state, 2.3, 4.2))
+        if (i % 53 === 0) put(i, 'billboard', s * 2.1)
+        if (i % 37 === 0 && r < 0.6) put(i, 'tree', -s * rand(state, 1.5, 1.9))
+        break
+      case 'shore': {
+        // The sea side is kept clear but for a lighthouse on the sand; the land side has the trees.
+        const land = -seaSide(state.node)
+        if (i % 9 === 0) put(i, 'tree', land * rand(state, 1.45, 2.4))
+        if (i % 13 === 0) put(i, 'bush', land * rand(state, 1.5, 2.6))
+        if (i % 16 === 0) put(i, 'lamp', land * 1.22)
+        if (i % 97 === 0) put(i, 'billboard', land * 2.1)
+        if (i % 61 === 0 && r < 0.7) put(i, 'house', land * rand(state, 2.3, 3))
+        if (i % 131 === 0) put(i, 'house', -land * 2.1)
+        break
+      }
+      case 'farms':
+        // A line of telephone poles down one side, maples, barns back from the road.
+        if (i % 10 === 0) put(i, 'pole', 1.3)
+        if (i % 7 === 0) put(i, 'tree', -s * rand(state, 1.45, 2.8))
+        if (i % 11 === 0) put(i, 'bush', s * rand(state, 1.5, 2.6))
+        if (i % 43 === 0 && r < 0.8) put(i, 'house', -s * rand(state, 2.4, 3.6))
+        if (i % 67 === 0) put(i, 'sign', s * 1.3)
+        if (i % 89 === 0) put(i, 'billboard', s * 2.1)
+        break
+      case 'woods':
+        if (i % 4 === 0) put(i, 'pine', sideOf(i / 4) * rand(state, 1.35, 3.4))
+        if (i % 9 === 0) put(i, 'tree', s * rand(state, 1.5, 2.6))
+        if (i % 23 === 0 && r < 0.7) put(i, 'rock', -s * rand(state, 1.5, 2.6))
+        if (i % 59 === 0) put(i, 'sign', s * 1.3)
+        if (i % 83 === 0 && r < 0.7) put(i, 'house', -s * rand(state, 2.4, 3.2))
+        break
+      case 'pass':
+        if (i % 5 === 0) put(i, 'pine', sideOf(i / 5) * rand(state, 1.35, 3.2))
+        if (i % 7 === 0) put(i, 'rock', s * rand(state, 1.5, 2.8))
+        if (i % 12 === 0) put(i, 'pole', -1.3)
+        if (i % 71 === 0) put(i, 'sign', s * 1.3)
         break
       case 'peaks':
         if (i % 5 === 0) put(i, 'pine', sideOf(i) * rand(state, 1.35, 3.2))
-        if (i % 17 === 0 && r < 0.7) put(i, 'rock', s * rand(state, 1.5, 2.6))
-        if (i % 24 === 0) put(i, 'pylon', 1.25 * s)
-        break
-      case 'mesa':
-        if (i % 11 === 0) put(i, 'cactus', s * rand(state, 1.35, 2.6))
-        if (i % 23 === 0) put(i, 'rock', -s * rand(state, 1.5, 3))
-        if (i % 89 === 0) put(i, 'billboard', -s * 2.1, pick(state, BILLBOARD_TEXT))
-        break
-      case 'city':
-        if (i % 8 === 0) { put(i, 'lamp', -1.22); put(i, 'lamp', 1.22) }
-        if (i % 3 === 0) put(i, 'tower', sideOf(i / 3) * rand(state, 2.4, 4.5))
-        if (i % 53 === 0) put(i, 'billboard', s * 1.9, pick(state, BILLBOARD_TEXT))
-        break
-      case 'canyon':
-        if (i % 4 === 0) put(i, 'spire', sideOf(i / 4) * rand(state, 1.4, 3.4))
-        if (i % 19 === 0) put(i, 'rock', s * rand(state, 1.45, 2.2))
-        break
-      case 'grid':
-        if (i % 5 === 0) { put(i, 'pylon', -1.25); put(i, 'pylon', 1.25) }
-        if (i % 45 === 0) put(i, 'arch', 0)
-        if (i % 71 === 0) put(i, 'billboard', s * 2.1, pick(state, BILLBOARD_TEXT))
+        if (i % 13 === 0 && r < 0.8) put(i, 'rock', s * rand(state, 1.5, 2.6))
+        if (i % 24 === 0) put(i, 'pole', 1.3 * s)
+        if (i % 79 === 0 && r < 0.7) put(i, 'house', -s * rand(state, 2.4, 3.2))
         break
     }
   }
 }
-
-export const BILLBOARD_TEXT = ['NEON DREAMS', 'TURBO', 'NIGHT DRIVE', 'HIGH SCORE', 'INSERT COIN', 'SLIPSTREAM', 'MAGNETIC', 'PHAREIM.NO'] as const
 
 /** The Y at the end of a stage: two branches drift apart, then a shared run-in. */
 function buildFork(state: OutrunState): void {
@@ -594,9 +621,10 @@ function buildGoal(state: OutrunState): void {
       state.goalAt = seg.index
       seg.props.push({ kind: 'gantry', side: 1, rel: 0, v: 0, label: 'GOAL' })
     }
+    // An avenue of trees up to the overlook.
     if (n % 6 === 0) {
-      seg.props.push({ kind: 'palm', side: -1, rel: -1.4, v: rand(state) })
-      seg.props.push({ kind: 'palm', side: 1, rel: 1.4, v: rand(state) })
+      seg.props.push({ kind: 'pine', side: -1, rel: -1.4, v: rand(state) })
+      seg.props.push({ kind: 'pine', side: 1, rel: 1.4, v: rand(state) })
     }
   }
 }

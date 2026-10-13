@@ -26,7 +26,7 @@ export interface RadioStation {
  * so a retune fails loudly instead of drifting silently.
  */
 const GALAGA_NAMES = ['STARDUST RUN', 'VOID CHOIR', 'BULLET BALLET'] as const
-const OUTRUN_NAMES = ['MIDNIGHT SHOWER', 'PASSING NEON', 'SPLASH GRID'] as const
+const OUTRUN_NAMES = ['FOR NOVA', 'SOUTHIE NIGHTS', 'SIDE B SUNRISE'] as const
 
 function stationsFor(origin: RadioOrigin, names: readonly string[]): RadioStation[] {
   return names.map((name, track) => ({ name, origin, track }))
