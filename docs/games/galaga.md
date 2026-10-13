@@ -49,6 +49,12 @@ Every number is in `engine/balance.ts`. What the page adds:
   (wide: the largest whole scale at which all of it fits; narrow: a frame as wide as it must
   be for the rows), with the console's colours and the sky round it; a turn (wide becomes
   tall or the other way) also pauses.
+- **Pause.** The menu over the stopped field (`Game.vue`, `pausePx`, `pick()`): RESUME, BACK TO
+  ARCADE (`goHome()`, no score sent), END RUN. Up/Down or W/S and Enter/Space on a keyboard;
+  the key list shows on a keyboard, the touch list on a phone. Touch has a pause chip in the
+  bottom-right corner (2026-10-13). GAME OVER has BACK TO ARCADE too (`Landing.vue`).
+- **The opening** (2026-10-13): the title's CSS sequence in `theme.css` (the card drops, the
+  name flickers on, the pilots rise, the words come last). Steps only; reduced motion skips it.
 - **Controls.** Arrows or WASD fly, Space fires while held, Shift is DUET, P or an Escape tap
   pauses, a 3 s Escape hold ends the run (`themes/base/EscHold.vue`). Touch: the ship flies to
   a point 42 field pixels above the finger and fires while touched; a second finger is DUET.

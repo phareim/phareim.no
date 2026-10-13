@@ -1,6 +1,34 @@
 <template>
   <canvas ref="canvas" class="voyagers-canvas" />
-  <EscHold :is-active="escActive" :paused="paused" @tap="togglePause" @hold="quitToGameOver" />
+  <EscHold :is-active="escActive" :paused="paused" :show-paused="false" @tap="togglePause" @hold="quitToGameOver" />
+  <!-- Touch has no Escape: a pause chip in the corner the HOME chip leaves free mid-run. -->
+  <button v-if="isTouch && playing && !paused" type="button" class="voyagers-pause-chip" aria-label="Pause" @click="togglePause">II</button>
+  <!-- The pause menu: the field stays as it stopped. A tap outside the panel resumes. -->
+  <div v-if="paused" class="voyagers-pause" :style="{ '--vg': pausePx }" role="dialog" aria-label="Paused" @click.self="togglePause">
+    <div class="voyagers-panel">
+      <div class="voyagers-panel__words">
+        <h2 class="voyagers-over__title">PAUSED</h2>
+        <div class="voyagers-pause__menu" role="menu">
+          <div
+            v-for="(item, i) in PAUSE_ITEMS"
+            :key="item.id"
+            class="voyagers-btn"
+            :class="{ 'voyagers-btn--on': i === menuAt }"
+            role="menuitem"
+            @click="pick(item.id)"
+            @mouseenter="menuAt = i"
+          >{{ item.label }}</div>
+        </div>
+        <div v-if="isTouch" class="voyagers-pause__keys">
+          <p class="voyagers-line voyagers-dim">DRAG TO FLY</p>
+          <p class="voyagers-line voyagers-dim">TWO FINGERS DUET</p>
+        </div>
+        <div v-else class="voyagers-pause__keys">
+          <p v-for="[key, what] in KEY_HELP" :key="key" class="voyagers-line"><span class="voyagers-gold">{{ key }}</span> {{ what }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -51,7 +79,28 @@ const emit = defineEmits<{
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const paused = ref(false)
+/** `running`, as the template sees it: a run is under way (paused or not). */
+const playing = ref(false)
 const radio = useRadio()
+const { isTouch } = useInputMode()
+const { goHome } = useTheme()
+
+/** The pause menu: its items, the selected one (Up/Down or the mouse), and the game's pixel for its lettering. */
+const PAUSE_ITEMS = [
+  { id: 'resume', label: 'RESUME' },
+  { id: 'arcade', label: 'BACK TO ARCADE' },
+  { id: 'end', label: 'END RUN' },
+] as const
+const KEY_HELP: readonly (readonly [string, string])[] = [
+  ['ARROWS OR WASD', 'FLY'],
+  ['SPACE', 'FIRE'],
+  ['SHIFT', 'DUET'],
+  ['P OR ESC', 'PAUSE'],
+  ['HOLD ESC', 'END RUN'],
+  ['M', 'RADIO'],
+]
+const menuAt = ref(0)
+const pausePx = ref(1)
 
 const STEP_MS = 1000 / 60
 /** A long frame spends at most this many ticks; what is left of it is dropped. */
@@ -153,6 +202,7 @@ function start(pilot: PilotId = props.pilot): void {
   paused.value = false
   acc = 0
   running = true
+  playing.value = true
   // The site's radio is the music; the one-shots have their own context. This runs when the game's chunk has
   // arrived, which is after the tap that asked for it, so iOS may leave that context suspended: `wake` asks again.
   wake()
@@ -203,6 +253,7 @@ function report(w: World): RunReport {
 
 function onGameOver(w: World): void {
   running = false
+  playing.value = false
   director?.cue('gameover', w.tick)
   emit('score', w.score)
   emit('over', report(w))
@@ -304,6 +355,17 @@ function togglePause(): void {
   acc = 0
   hush(paused.value)
   radio.suspend(paused.value)
+  if (paused.value) {
+    menuAt.value = 0
+    pausePx.value = renderer?.px ?? 1
+  }
+}
+
+/** A pick in the pause menu. ARCADE leaves the page's run as a quit would: no score is sent, and the portal stands the hero at the cabinet. */
+function pick(id: (typeof PAUSE_ITEMS)[number]['id']): void {
+  if (id === 'resume') togglePause()
+  else if (id === 'end') quitToGameOver()
+  else { paused.value = false; goHome() }
 }
 
 /** A 3 s Escape hold ends the run where it stands: the same GAME OVER as losing. */
@@ -333,6 +395,11 @@ function onKeyDown(e: KeyboardEvent): void {
     if (!e.repeat) { e.preventDefault(); togglePause() }
     return
   }
+  if (paused.value) {
+    // The menu takes the arrows and Enter; flight keys stay out of it.
+    menuKey(e)
+    return
+  }
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
     if (!e.repeat) duetPressed = true
     return
@@ -341,6 +408,16 @@ function onKeyDown(e: KeyboardEvent): void {
     keys.add(e.code)
     e.preventDefault()
   }
+}
+
+/** Up and Down pick in the pause menu, Enter or Space picks. Each key is handled once: the menu's items are not buttons, so nothing clicks twice. */
+function menuKey(e: KeyboardEvent): void {
+  const n = PAUSE_ITEMS.length
+  if (e.code === 'ArrowUp' || e.code === 'KeyW') menuAt.value = (menuAt.value + n - 1) % n
+  else if (e.code === 'ArrowDown' || e.code === 'KeyS') menuAt.value = (menuAt.value + 1) % n
+  else if (e.code === 'Enter' || e.code === 'Space') { if (!e.repeat) pick(PAUSE_ITEMS[menuAt.value].id) }
+  else return
+  e.preventDefault()
 }
 
 function onKeyUp(e: KeyboardEvent): void {

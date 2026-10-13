@@ -149,7 +149,14 @@ that sways, then peel off and dive at the player, alone or in pairs, and loop ba
 
 **Controls.** Arrows or WASD move, Space fires (held), Shift is DUET, Esc tap or P pauses,
 a 3 s Esc hold quits. Touch: drag to fly (the ship sits above the finger and fires while
-touched), a second finger is DUET. M cycles the site's radio, which is the music.
+touched), a second finger is DUET, a pause chip in the bottom-right corner. M cycles the
+site's radio, which is the music.
+
+**The pause menu** (2026-10-13) is a panel over the field where it stopped: RESUME,
+BACK TO ARCADE (leaves for the portal, no score sent) and END RUN (the same GAME OVER as the
+hold). Up and Down or W and S pick, Enter or Space picks, a click or tap picks; a tap outside
+the panel resumes. On a keyboard it lists the keys; on touch, the touch controls. GAME OVER
+has the same BACK TO ARCADE button. The title keeps the HOME chip and Esc, which leave at once.
 
 ## Power-ups
 

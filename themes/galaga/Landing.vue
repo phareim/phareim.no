@@ -67,6 +67,8 @@
             </button>
           </div>
           <p class="voyagers-hint voyagers-blink">{{ hint('ENTER TO FLY AGAIN', 'TAP TO FLY AGAIN') }}</p>
+          <!-- Leaves for the portal; the tap that asks for it must not also fly again (.stop). -->
+          <div class="voyagers-btn voyagers-over__menu" role="button" @click.stop="goHome">BACK TO ARCADE</div>
         </div>
       </div>
     </div>
@@ -98,7 +100,7 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 const HIGH_SCORE_KEY = 'galagaHighScore'
 const PILOT_KEY = 'voyagers.pilot'
 
-const { navigationLocked } = useTheme()
+const { navigationLocked, goHome } = useTheme()
 const { submitScore, lastSubmission } = useLeaderboard()
 const { hint } = useInputMode()
 const radio = useRadio()

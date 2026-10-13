@@ -253,3 +253,101 @@
   background: var(--galaga-ink) url('/galaga/card-ending.png') 0 0 / 100% 100% no-repeat;
   image-rendering: pixelated;
 }
+
+/* Menu items, the arcade button on GAME OVER and the pause menu's: wood with an ink ring, gold when picked. Not
+   buttons (no focus, no native click), so a key picks once and a tap picks once. */
+.voyagers-btn {
+  padding: calc(5 * var(--u)) calc(10 * var(--u));
+  background: var(--galaga-wood-lo);
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--galaga-ink);
+  color: var(--galaga-text-dim);
+  font-size: calc(16 * var(--u));
+  line-height: calc(18 * var(--u));
+  text-align: center;
+  white-space: nowrap;
+  text-shadow: calc(2 * var(--u)) calc(2 * var(--u)) 0 var(--galaga-ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.voyagers-btn--on {
+  background: var(--galaga-wood);
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--galaga-gold);
+  color: var(--galaga-gold);
+}
+.voyagers-over__menu { margin-top: calc(6 * var(--u)); }
+
+/* The pause menu (Game.vue): the game's own panel over the field where it stopped, lettered in its pixel. */
+.voyagers-pause {
+  --u: calc(1px * var(--vg));
+  position: absolute;
+  inset: 0;
+  bottom: var(--app-safe-bottom, 0px);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.voyagers-pause .voyagers-panel { max-width: calc(100% - 8 * var(--u)); }
+.voyagers-pause__menu {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: calc(6 * var(--u));
+}
+.voyagers-pause__keys {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(4 * var(--u));
+  margin-top: calc(6 * var(--u));
+}
+.voyagers-pause__keys .voyagers-gold { display: inline-block; min-width: calc(100 * var(--u)); text-align: right; }
+
+/* Touch has no Escape: the pause chip in the corner the HOME chip leaves free mid-run (Game.vue). */
+.voyagers-pause-chip {
+  position: absolute;
+  right: max(0.5rem, env(safe-area-inset-right));
+  bottom: calc(max(0.9rem, var(--app-safe-bottom, 0px)) - 0.45rem);
+  z-index: 3;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--galaga-ink);
+  box-shadow: 0 0 0 2px var(--galaga-text);
+  color: var(--galaga-text);
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The opening (2026-10-13): the card drops in a pixel at a time, the name flickers on like a tube warming up,
+   the pilots rise and the words come last. Steps only, and the end state is the paint the server sends, so the
+   title is complete before any script runs. Reduced motion: none of it. */
+.voyagers-title .voyagers-card { animation: voyagers-drop 0.8s steps(8) both; }
+.voyagers-title .voyagers-name { animation: voyagers-warm 0.6s steps(1) 0.8s both; }
+.voyagers-title .voyagers-pilots { animation: voyagers-rise 0.5s steps(5) 1.2s both; }
+.voyagers-title .voyagers-side > .voyagers-line { animation: voyagers-appear 0.01s steps(1) 1.7s both; }
+@keyframes voyagers-drop { from { transform: translateY(calc(-96 * var(--u))); } }
+@keyframes voyagers-warm {
+  0% { visibility: hidden; }
+  20% { visibility: visible; }
+  30% { visibility: hidden; }
+  45%, 100% { visibility: visible; }
+}
+@keyframes voyagers-rise {
+  from { transform: translateY(calc(16 * var(--u))); visibility: hidden; }
+  40% { visibility: visible; }
+}
+@keyframes voyagers-appear { from { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) {
+  .voyagers-title .voyagers-card,
+  .voyagers-title .voyagers-name,
+  .voyagers-title .voyagers-pilots,
+  .voyagers-title .voyagers-side > .voyagers-line { animation: none; }
+}
