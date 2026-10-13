@@ -73,7 +73,7 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   `look`, look `stall`, target `{ panel: 'look' }`): the hero's hair, clothes
   and colours are changed at its mirror (`docs/games/neon-shrine.md` → "The
   hero's look"). Beside it a sign pointing down to the coast road.
-- **South**: the coast path: a small newsstand building (PHAREIM.MD decal)
+- **South**: the coast path: a small newsstand building (`SLEEPER_` decal; PHAREIM.MD until 2026-10-13)
   with the kiosk counter in front. Since 2026-10-13 it opens a panel (exit
   `{ panel: 'news' }`) where Sleeper's feed, sleeper.phareim.md, is read
   inside the game; phareim.md itself is a button in that panel

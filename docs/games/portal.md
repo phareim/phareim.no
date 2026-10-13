@@ -7,7 +7,7 @@ per game, two more that leave for Nova & Rex: The Pizza Rescue on fighter.pharei
 sequel Nova's Solo Rescue on nova.phareim.no, the
 Hall of Fame board, the Hangar door), the VIP hall next door
 (Ulrikke's games and a bar, for logged-in visitors), Petter's house (who he
-is, three terminals to his profiles, the login console), the PHAREIM.MD newsstand
+is, three terminals to his profiles, the login console), the SLEEPER newsstand
 (where Sleeper's feed is read inside the game: "The newsstand" below),
 and east of the pier a quiet beach: two hippie
 DJs (the one building loops live leads to jam.phareim.no, the one with the
@@ -225,8 +225,12 @@ LOG IN. Touch: tap a button; a tap beside the box closes it. The box is at
 most 360 px wide, centred above the bottom band.
 
 **The newsstand** (2026-10-13). The stand on the coast road (tile 15,25 of
-`overworld`, exit id `kiosk`, look `kiosk`, label SLEEPER NEWS, PHAREIM.MD
-on the roof) no longer leaves for phareim.md. Its target is `{ panel:
+`overworld`, exit id `kiosk`, look `kiosk`, label SLEEPER NEWS) no longer
+leaves for phareim.md. The neon on its roof is `SLEEPER_` in rose, the
+feed's wordmark, over the stand's own NEWS board (the roof is three tiles,
+48 px, and the wordmark 47; PHAREIM.MD in gold stood there before and hung
+over both edges), and the signpost on the coast road points to SLEEPER NEWS;
+both rendered in the look lab (`shot.mjs <outDir> r-kiosk,r-kioskat`). Its target is `{ panel:
 'news' }`: A opens `NewsStand.vue` over the still world, and Sleeper's feed
 (sleeper.phareim.md, the pieces the AI agents on Petter's server write) is
 read there.

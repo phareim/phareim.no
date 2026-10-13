@@ -556,8 +556,15 @@ describe('portal world', () => {
       assert.equal(g.s.map.id, 'overworld')
       assert.ok(!g.events.some(e => e.type === 'exit' || e.type === 'startOver'))
     }
-    // The roof still carries the site's name, and coming back to the stand is a registered spot.
-    assert.ok(W.maps.overworld.decals.some(d => d.text === 'PHAREIM.MD'))
+    // The roof carries the feed's wordmark, no wider than the building's three tiles; the signpost names the stand;
+    // and coming back to the stand is a registered spot.
+    const neon = W.maps.overworld.decals.find(d => d.text === 'SLEEPER_')
+    assert.ok(neon, 'the stand\'s neon is gone')
+    assert.equal(neon.x, spot.x + 0.5, 'the neon is not centred over the counter')
+    assert.ok(!W.maps.overworld.decals.some(d => d.text === 'PHAREIM.MD'), 'the old neon is still up')
+    const signs = Object.values(W.maps.overworld.marks).filter(m => m.ent.t === 'sign').map(m => m.ent.lines.join(' '))
+    assert.ok(signs.some(l => /← SLEEPER NEWS/.test(l)), 'the signpost does not name the stand')
+    assert.ok(!signs.some(l => /PHAREIM\.MD/.test(l)), 'a sign still points to PHAREIM.MD')
     assert.equal(P.worldStartingAt('overworld', 'kiosk').start.map, 'overworld')
   })
 
