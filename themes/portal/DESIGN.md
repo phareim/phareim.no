@@ -75,8 +75,7 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   hero's look"). Beside it a sign pointing down to the coast road.
 - **South**: the coast path: a small newsstand building (PHAREIM.MD decal)
   with the kiosk counter in front (exit `{ url: 'https://phareim.md' }`,
-  lines saying it is Petter's writing), a signpost for GAMES.PHAREIM.NO
-  (exit `{ url: 'https://games.phareim.no' }`).
+  lines saying it is Petter's writing).
 - **The beach** (2026-09-26, Petter's wish; it replaced the radio studio
   that stood by the road): a slow chill-out, only east of the pier. Rows
   28–33, columns 21–37 are sand (tile `-`); west of the pier the old shore

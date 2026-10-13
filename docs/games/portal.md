@@ -7,8 +7,8 @@ per game, two more that leave for Nova & Rex: The Pizza Rescue on fighter.pharei
 sequel Nova's Solo Rescue on nova.phareim.no, the
 Hall of Fame board, the Hangar door), the VIP hall next door
 (Ulrikke's games and a bar, for logged-in visitors), Petter's house (who he
-is, three terminals to his profiles, the login console), the PHAREIM.MD newsstand, the
-GAMES.PHAREIM.NO signpost, and east of the pier a quiet beach: two hippie
+is, three terminals to his profiles, the login console), the PHAREIM.MD newsstand,
+and east of the pier a quiet beach: two hippie
 DJs (the one building loops live leads to jam.phareim.no, the one with the
 records to the generative radio at radio.phareim.no, which shows a ⌂ TOWN chip back when the visit came from here) and people lying
 about round a bonfire (2026-09-26; it replaced the radio studio by the
@@ -227,7 +227,7 @@ panel (THE SUN SETS AT LAST, play time, NEW BEST!); Enter or a tap after
 1.2 s closes it and play goes on where the prism was taken, the run kept
 (the NEW GAME machine in Petter's house is the way to a fresh quest). A visually hidden `nav` holds the
 h1 name, the blurbs from `themes/content.ts`, a link to every live game,
-phareim.md, games.phareim.no and the three profiles. It shows as a panel
+phareim.md, the other links out and the three profiles. It shows as a panel
 while one of its links has keyboard focus.
 
 **The loop.** `frame()` runs on every animation frame, but most frames do
@@ -270,7 +270,7 @@ Galaga and the back button to the cabinet; no page errors. The NEW GAME
 machine headless at 1280×800 on 2026-09-26: A mashed through its lines
 leaves the question open, N plays on with the save kept, Y clears the save
 and `portal.return` and starts on the plaza. Not checked: the touch YES/NO
-buttons, a real phone, iOS audio wake-up, the phareim.md and games.phareim.no exits
+buttons, a real phone, iOS audio wake-up, the phareim.md exit
 leaving the site.
 
 The login console headless in the dev server on 2026-09-26 at 375×667
