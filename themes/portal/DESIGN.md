@@ -118,7 +118,7 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   island, a prize counter with a vendor, a snack table, plants and a
   house-rules sign. Each is a solid `M` tile with an `exit` of look
   `cabinet`, `art` = theme id, `side: 'down'`, one per game: Another Shore
-  (`anotherworld`), Galaga, Breakout, R-Type, Space Invaders, Star Fox,
+  (`anotherworld`), Galaga, Breakout, G-Type, Space Invaders, Star Fox,
   Drive to the Mountains, Russian Block Game, Night of the Dead Battery. Each has a label and two or three short lines: the game's
   pitch and "INSERT COIN? PRESS A." The lines are the only confirmation.
 - Three of the island's four are links out, not themes: ADVENTURE,

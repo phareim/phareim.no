@@ -1,10 +1,41 @@
-## R-Type overview (added 2026-09-05)
+## G-Type overview (2026-09-05; renamed from R-Type 2026-10-13)
 
-`?theme=rtype` is an endless side-scrolling shooter. Attract-mode
-autopilot flies the ship until Enter/tap; Shift or a double-tap fires the
-Force pod; holding Space charges a beam; procedural cave walls narrow with
-distance; kills chain into a streak multiplier. Cyan is the player, orange
-the danger hue, gold the reward (the multiplier from x4, capsules).
+`?theme=rtype` is an endless side-scrolling shooter. The id stays `rtype`
+(high scores, Hall of Fame and links depend on it); only the name changed.
+Attract-mode autopilot flies behind the title menu until START or a tap on
+START. Shift or a double-tap fires the Force pod; holding Space charges a
+beam; procedural cave walls narrow with distance; kills chain into a streak
+multiplier. Cyan is the player, orange the danger hue, gold the reward (the
+multiplier from x4, capsules).
+
+**Menus (2026-10-13).** Landing draws them; Shooter owns the cursor and the
+keys (`MENUS`, `setMenu`, `choose`, `handleMenuKey` in `Shooter.vue`).
+- Title: G-TYPE, the copyright line `(C) 2Q88, Sleepy Productions`, START and
+  HOW TO PLAY. Arrows or W/S move the cursor, Enter selects, a tap on the
+  button selects. A tap on empty space does not start the run.
+- HOW TO PLAY: the controls card, BACK (Enter or Esc returns to the title;
+  Esc is `preventDefault`ed so the theme's Escape-to-portal does not fire).
+- Pause menu: RESUME, RESTART, QUIT RUN. It opens on an Esc tap or P, or the
+  `II` button (top centre, left of the score line; phones: its row under the
+  power-up list). QUIT RUN goes to game over, like the 3 s Esc hold. EscHold
+  runs with `show-paused=false`, so there is one pause indicator.
+- Menu keys are consumed before the game's own keys while a menu is open.
+  `resetGame` and `togglePause` set the menu; the run has none.
+
+**Speed (2026-10-13).** Scroll `170 + min(190, m·0.4)` px/s (was 150 / 170)
+and `speedMul` starts at 1.05 (was 1). The demo scroll (90) and ship speed
+are unchanged.
+
+**Artwork (2026-10-13).** The ships (`DART`, `VANDAL` in `pixel.ts`) got a
+two-tone hull, a glint on the canopy and a trim stripe; the drone is a
+magenta-rimmed lozenge with a pulsing core, the gunship an armour hull
+with a magenta band, the weaver two neon blades (magenta and gold), the hex
+a magenta, orange, red and gold stack. The boss plates have a magenta rim.
+Sprites are within about a pixel of the old sizes, and the hitboxes did not
+change. The sheet
+is rendered with `scripts/pixel-lab/sheet.mjs`; the menus with
+`scripts/rtype-lab/menus.mjs <baseUrl> <outDir>` against a dev server
+(`heavy -x chrome --`).
 
 **Look (2026-09-24): Neon Shrine's pixels** (`docs/games/pixel-look.md`):
 a flight through the shrine caves. The walls are pixel rock in the cliff
@@ -32,7 +63,7 @@ the draw section of `Shooter.vue`.
 Built by Muse Spark via `/musecode` in three parallel variants; this one
 won. The other two are in `git log`.
 
-## R-Type cave walls and weapon pickups (2026-09-08)
+## G-Type cave walls and weapon pickups (2026-09-08)
 
 The cave rim uses world-anchored 64 px samples; ship collision uses the same
 linear interpolation the drawing samples, one logical pixel per column.
@@ -49,8 +80,9 @@ Capsules show their letter and variant upright in either orientation; the top
 left HUD lists active variants and remaining seconds (nothing while every
 weapon is standard). Controls are unchanged.
 
-`npm run test:rtype` runs five regression tests for pickup cycling/stacking/
-expiry, weapon behavior, reset/paused input and angular wall collision, in CI.
+`npm run test:rtype` runs seven regression tests in CI: pickup cycling/stacking/
+expiry, weapon behavior, reset/paused input, angular wall collision (all from
+2026-09-08) and the title, help and pause menus (2026-10-13).
 Verified 2026-09-08: all 93 tests, typecheck and an isolated production build pass; Chromium rendering at
 1440×900, 375×667 and 667×375 with keyboard fire and injected upgraded loadouts
 shows no page errors or document overflow. Emulated portrait touch holds fire

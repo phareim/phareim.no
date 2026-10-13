@@ -1,6 +1,6 @@
 <template>
   <canvas ref="canvas" class="rtype-canvas"></canvas>
-  <EscHold :is-active="escActive" :paused="paused" @tap="togglePause" @hold="quitToGameOver" />
+  <EscHold :is-active="escActive" :paused="paused" :show-paused="false" @tap="togglePause" @hold="quitToGameOver" />
 </template>
 
 <script setup>
@@ -43,7 +43,7 @@ function pewSfxEnemy() {
   sound.sfx.enemyShoot()
 }
 /**
- * R-Type — an endless R-Type (1987) style side-scrolling shooter, drawn in
+ * G-Type — an endless side-scrolling shooter in the mould of R-Type (1987), drawn in
  * Neon Shrine's pixel look (2026-09-24, ./pixel.ts): a flight through the
  * shrine caves on the shared pixel stage (themes/base/pixel/), lit by a
  * light map — crystals, the engine, shots and beams light the rock.
@@ -63,7 +63,7 @@ function pewSfxEnemy() {
  * the pixel stage turns the whole scene once (resize(…, rotate)). Only
  * input (keys, touch) and the upright HUD text need the orientation.
  */
-const emit = defineEmits(['score', 'distance', 'lives', 'death', 'restart', 'started'])
+const emit = defineEmits(['score', 'distance', 'lives', 'death', 'restart', 'started', 'menu'])
 
 const canvas = ref(null)
 let stage = null // Neon Shrine's pixel stage (themes/base/pixel/stage.ts)
@@ -135,6 +135,58 @@ let gameOver = false
 let gameStarted = false
 // Esc tap pauses (EscHold owns Escape); a 3 s hold quits into game over.
 const paused = ref(false)
+// The menus Landing draws: the title, the help card and the pause menu. This
+// file owns the cursor and the keys; Landing renders `menu` and calls choose().
+const MENUS = {
+  title: [{ id: 'start', label: 'START' }, { id: 'help', label: 'HOW TO PLAY' }],
+  help: [{ id: 'back', label: 'BACK' }],
+  pause: [{ id: 'resume', label: 'RESUME' }, { id: 'restart', label: 'RESTART' }, { id: 'quit', label: 'QUIT RUN' }],
+}
+let menu = null // 'title' | 'help' | 'pause' | null (the run's HUD)
+let menuIndex = 0
+function emitMenu() {
+  emit('menu', menu ? { kind: menu, items: MENUS[menu], index: menuIndex } : null)
+}
+function setMenu(name) {
+  menu = name
+  menuIndex = 0
+  emitMenu()
+}
+/** Runs a menu item (or the touch pause button) by id. */
+function choose(id) {
+  if (id === 'start' || id === 'restart') resetGame()
+  else if (id === 'help') setMenu('help')
+  else if (id === 'back') setMenu('title')
+  else if (id === 'pause') { if (gameStarted && !gameOver && !paused.value) togglePause() }
+  else if (id === 'resume') { if (paused.value) togglePause() }
+  else if (id === 'quit') quitToGameOver()
+}
+/** Menu keys: arrows or W/S move the cursor, Enter picks. True when the key was used. */
+function handleMenuKey(e) {
+  if (!menu) return false
+  if (e.code === 'Escape' && menu === 'help') {
+    // preventDefault keeps the theme's Escape-to-portal from firing too.
+    e.preventDefault()
+    choose('back')
+    return true
+  }
+  if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'ArrowDown' || e.code === 'KeyS') {
+    e.preventDefault()
+    if (e.repeat) return true
+    const n = MENUS[menu].length
+    const step = e.code === 'ArrowUp' || e.code === 'KeyW' ? -1 : 1
+    menuIndex = (menuIndex + step + n) % n
+    tickSfx()
+    emitMenu()
+    return true
+  }
+  if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+    e.preventDefault()
+    if (!e.repeat) choose(MENUS[menu][menuIndex].id)
+    return true
+  }
+  return false
+}
 let keys = {}
 let keyFire = false
 let touchFire = false
@@ -291,6 +343,7 @@ function resetGame() {
   gameOver = false
   gameStarted = true
   paused.value = false
+  setMenu(null)
   keys = {}
   keyFire = false
   ship.x = Math.max(shipMinX(), 40, W * 0.18)
@@ -359,15 +412,16 @@ function startDemo() {
   beamShakeT = 0
   resetTerrain()
   resetPowerups()
+  setMenu('title')
 }
 
 function difficulty() {
   const m = distPx / 50 // meters
   return {
     m,
-    world: 150 + Math.min(170, m * 0.4),
+    world: 170 + Math.min(190, m * 0.4),
     spawnEvery: Math.max(0.5, 1.5 - m * 0.0024),
-    speedMul: 1 + Math.min(0.9, m / 900),
+    speedMul: 1.05 + Math.min(0.9, m / 900),
     hpBonus: Math.floor(m / 400),
     eshot: 160 + Math.min(160, elapsed * (160 / 180)), // 160 -> 320 px/s over 3 min
   }
@@ -641,6 +695,7 @@ function togglePause() {
   paused.value = !paused.value
   keys = {}
   keyFire = false
+  setMenu(paused.value ? 'pause' : null)
   if (paused.value) sound.music.stop(false)
   else sound.music.start('rtype')
 }
@@ -651,6 +706,7 @@ function togglePause() {
 function quitToGameOver() {
   if (!gameStarted || gameOver) return
   paused.value = false
+  setMenu(null)
   keys = {}
   keyFire = false
   explode(ship.x, ship.y, true)
@@ -1384,8 +1440,9 @@ function drawBoss(g) {
     while (da < -Math.PI) da += Math.PI * 2
     return Math.abs(da) < gapHalf
   }
-  // The ring: ten plates with outline, orange face and a gold top edge.
-  for (const [w, col, rr] of [[4, '#0b0616', R], [2, '#ff8a3d', R], [1, '#ffd23f', R - 1]]) {
+  // The ring: ten plates with a dark outline, a magenta neon rim, orange
+  // faces and a gold top edge.
+  for (const [w, col, rr] of [[5, '#0b0616', R], [2, '#ff2fa0', R + 1], [2, '#ff8a3d', R - 1], [1, '#ffd23f', R - 2]]) {
     for (let i = 0; i < sides; i++) {
       const a0 = b.angle + (Math.PI * 2 / sides) * i
       const a1 = a0 + Math.PI * 2 / sides
@@ -1618,6 +1675,7 @@ function toggleForce() {
 }
 
 function handleKeyDown(e) {
+  if (handleMenuKey(e)) return
   // Escape belongs to EscHold (tap = pause, 3 s hold = quit); P pauses too.
   if (e.code === 'Escape') return
   if (e.code === 'KeyP' && !e.repeat) {
@@ -1710,7 +1768,8 @@ function handleTouchEnd(e) {
   const t = e.changedTouches[0]
   const isTap = t && Math.hypot(t.clientX - tapStartX, t.clientY - tapStartY) < 15 && performance.now() - tapStartTime < 400
   if (!gameStarted || gameOver) {
-    if (isTap) resetGame()
+    // Menus take their own taps: the title's START button, not the screen.
+    if (isTap && !menu) resetGame()
   } else if (isTap) {
     // Double-tap launches / returns the force pod.
     const now = performance.now()
@@ -1737,6 +1796,8 @@ onMounted(() => {
   window.addEventListener('touchmove', handleTouchMove, { passive: false })
   window.addEventListener('touchend', handleTouchEnd)
 })
+
+defineExpose({ choose })
 
 onBeforeUnmount(() => {
   gameRunning = false

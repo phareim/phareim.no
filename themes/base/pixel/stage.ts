@@ -17,7 +17,7 @@
  * `minW`×`minH` logical pixels, so a phone and a monitor both get chunky,
  * crisp pixels like the town on `/`.
  *
- * Rotated (R-Type on a portrait phone, 2026-09-24): `resize(…, rotate =
+ * Rotated (G-Type on a portrait phone, 2026-09-24): `resize(…, rotate =
  * true)` keeps the scene in the game's world orientation (vw along the
  * world's forward axis, which points up the screen) and turns it a quarter
  * at `present()`. `minW`/`minH` then measure the world, and the HUD layer
