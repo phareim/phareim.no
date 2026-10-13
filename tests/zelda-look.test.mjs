@@ -143,6 +143,28 @@ describe('the hero\'s look', () => {
     assert.equal(M.HERO_LOOK_KEY, 'zelda.heroLook')
   })
 
+  it('is worn until the made figure is changed after it: the newest choice wins', () => {
+    const figure = { skin: '#e6a57e', skinShade: '#b0704e', hair: '#ffd23f', hairShade: '#c4861c', band: '#2ff3ff', top: '#ff3b5c', topShade: '#9e1638', topAccent: '#fff4ff', bottom: '#2f5fd0', shoes: '#1c1030' }
+    const remade = { ...figure, top: '#b6ff4a' }
+    // Chosen with no figure about: worn; a figure made afterwards is the newer choice.
+    const alone = M.storeHeroLook(M.GIRL_LOOK, null)
+    assert.deepEqual(M.wornLook(alone, null), M.GIRL_LOOK)
+    assert.equal(M.wornLook(alone, figure), null)
+    // Chosen over a figure: worn while that figure stands, also in another tab or after a reload.
+    const over = M.storeHeroLook(M.GIRL_LOOK, figure)
+    assert.deepEqual(M.wornLook(over, figure), M.GIRL_LOOK)
+    assert.deepEqual(M.wornLook(over, { ...figure }), M.GIRL_LOOK)
+    // The figure made over: its clothes again. The figure gone: the look stays.
+    assert.equal(M.wornLook(over, remade), null)
+    assert.deepEqual(M.wornLook(over, null), M.GIRL_LOOK)
+    // What is stored is still a look, and junk is none.
+    assert.deepEqual(M.parseHeroLook(over), M.GIRL_LOOK)
+    for (const bad of [null, '', 'nope', '{}']) assert.equal(M.wornLook(bad, figure), null)
+    // A stored look that never noted a figure is older than any figure.
+    assert.equal(M.wornLook(M.serializeHeroLook(M.GIRL_LOOK), figure), null)
+    assert.deepEqual(M.wornLook(M.serializeHeroLook(M.GIRL_LOOK), null), M.GIRL_LOOK)
+  })
+
   it('lists every part of the hero, and every choice is a real one', () => {
     assert.deepEqual(M.LOOK_OPTIONS.map(o => o.key), ['hair', 'hairColor', 'head', 'headColor', 'skin', 'top', 'stripe', 'belt', 'bottom', 'bottomColor', 'shoes'])
     for (const o of M.LOOK_OPTIONS) {

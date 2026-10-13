@@ -3,7 +3,8 @@
 // at the counter, the mirror open, a row changed with the keys, GIRL, WEAR IT
 // (the look lands in localStorage `zelda.heroLook` and on the hero), the
 // mirror opened again on that look, and RANDOM left with NEVER MIND and with
-// Escape (nothing changes). On a phone the same with taps. One browser at a
+// Escape (nothing changes); last, a figure made in Lag Din Figur after the
+// look takes over again. On a phone the same with taps. One browser at a
 // time on Sleeper:
 //
 //   heavy -x chrome -- node scripts/zelda-lab/look-shot.mjs <devUrl> <outDir>
@@ -104,6 +105,23 @@ async function run(label, { width, height, dpr, mobile }) {
       await b.key('ArrowUp'); await b.key('Enter'); await b.sleep(500)
       report.boyByKeys = await stored()
       report.closedByKeys = !(await open())
+      // A figure made after the look is the newer choice: the next visit wears it and forgets the look.
+      await b.eval(`localStorage.setItem('figur.heroColors', JSON.stringify({ skin: '#e6a57e', skinShade: '#b0704e', hair: '#ffd23f', hairShade: '#c4861c', band: '#2ff3ff', top: '#ff3b5c', topShade: '#9e1638', topAccent: '#fff4ff', bottom: '#2f5fd0', shoes: '#1c1030' }))`)
+      await b.goto(base)
+      await b.sleep(800)
+      report.figureTookOver = (await stored()) === null
+      await shot('6-figure')
+      // And a look chosen over that figure is worn again, with MY FIGURE on offer.
+      await pressA()
+      await b.sleep(400)
+      report.figureOffered = await b.eval(`[...document.querySelectorAll('.look-btn')].some(e => e.innerText.trim() === 'MY FIGURE')`)
+      await hit(button('GIRL'))
+      await hit(button('WEAR IT'))
+      await b.sleep(400)
+      await b.goto(base)
+      await b.sleep(800)
+      report.lookOverFigureKept = girl({ stored: await stored() })
+      await b.eval(`localStorage.removeItem('figur.heroColors'); localStorage.removeItem('zelda.heroLook')`)
     }
   } catch (e) {
     report.error = String(e?.message ?? e)
@@ -113,17 +131,17 @@ async function run(label, { width, height, dpr, mobile }) {
   return report
 }
 
+const girl = r => { try { const l = JSON.parse(r.stored); return l.hair === 'long' && l.head === 'bow' && l.bottom === 'skirt' } catch { return false } }
 const reports = []
 reports.push(await run('desktop', { width: 1280, height: 800, dpr: 1, mobile: false }))
 reports.push(await run('phone', { width: 375, height: 667, dpr: 2, mobile: true }))
 reports.push(await run('phone-wide', { width: 667, height: 375, dpr: 2, mobile: true }))
 console.log(JSON.stringify(reports, null, 2))
 
-const girl = r => { try { const l = JSON.parse(r.stored); return l.hair === 'long' && l.head === 'bow' && l.bottom === 'skirt' } catch { return false } }
 const bad = []
 for (const r of reports) {
   const must = { opened: r.opened, fits: r.fits, hairStepped: r.hairStepped, nothingWornYet: r.nothingWornYet, closedByWear: r.closedByWear, girl: girl(r), play: r.mode === 'play', reopenedOnWorn: r.reopenedOnWorn, closedByNeverMind: r.closedByNeverMind, unchangedAfterNeverMind: r.unchangedAfterNeverMind }
-  if (r.label === 'desktop') Object.assign(must, { closedByEscape: r.closedByEscape, unchangedAfterEscape: r.unchangedAfterEscape, closedByKeys: r.closedByKeys, boyByKeys: (() => { try { return JSON.parse(r.boyByKeys).hair === 'short' } catch { return false } })() })
+  if (r.label === 'desktop') Object.assign(must, { closedByEscape: r.closedByEscape, unchangedAfterEscape: r.unchangedAfterEscape, closedByKeys: r.closedByKeys, figureTookOver: r.figureTookOver, figureOffered: r.figureOffered, lookOverFigureKept: r.lookOverFigureKept, boyByKeys: (() => { try { return JSON.parse(r.boyByKeys).hair === 'short' } catch { return false } })() })
   for (const [k, v] of Object.entries(must)) if (!v) bad.push(`${r.label}: ${k}`)
   if (r.error) bad.push(`${r.label}: ${r.error}`)
 }

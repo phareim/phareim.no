@@ -95,11 +95,11 @@
  * state starts on the wallet's balance, each frame's change becomes a wallet
  * op (a chest's bits only the first time on this browser), and a change
  * elsewhere (another tab, Mini World) lands in the purse.
- * The hero wears the look chosen at the NEW LOOK stall on the square
- * (`LookBooth.vue`, `render/heroLook.ts`, localStorage `zelda.heroLook`);
- * with none chosen the figure from Lag Din Figur dresses the hero, or else
- * Mini World's active person (`render/heroColors.ts`). Re-read on `storage`
- * and when the tab comes back.
+ * The hero wears the newest choice: the look from the NEW LOOK stall on the
+ * square (`LookBooth.vue`, `render/heroLook.ts`, localStorage
+ * `zelda.heroLook`), until the figure from Lag Din Figur, or else Mini
+ * World's active person (`render/heroColors.ts`), is changed after it.
+ * Re-read on `storage` and when the tab comes back.
  */
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
@@ -120,7 +120,7 @@ import { createInput, type GameInput } from './input'
 import { loadHighScoreSign } from './hiscore'
 import { createBitsBridge, migrateSaveBits, bitRewards, paidFlagStore, type WalletApi } from './wallet'
 import { parseHeroColors } from './render/heroColors'
-import { HERO_LOOK_KEY, parseHeroLook, serializeHeroLook, type HeroLook } from './render/heroLook'
+import { HERO_LOOK_KEY, storeHeroLook, wornLook, type HeroLook } from './render/heroLook'
 import { HERO_COLORS_KEY, type HeroColors } from '../miniworld/types'
 import { FIGUR_HERO_KEY } from '../figur/types'
 import { readWallet, addToWallet, onWalletChange } from '../../composables/useWallet'
@@ -747,16 +747,20 @@ function frame(nowMs: number) {
 }
 
 /**
- * The hero wears the look from the NEW LOOK stall; with none chosen the
- * figure from Lag Din Figur, else Mini World's active person, else its own
- * clothes.
+ * The hero wears the newest choice: the look from the NEW LOOK stall, until
+ * the made figure (Lag Din Figur's, else Mini World's active person) is
+ * changed after it; then the figure's colours, and the look is forgotten.
+ * With neither: its own clothes.
  */
 function dressHero() {
   let look = null
   let colors = null
   try {
-    look = parseHeroLook(localStorage.getItem(HERO_LOOK_KEY))
     colors = parseHeroColors(localStorage.getItem(FIGUR_HERO_KEY)) ?? parseHeroColors(localStorage.getItem(HERO_COLORS_KEY))
+    const raw = localStorage.getItem(HERO_LOOK_KEY)
+    look = wornLook(raw, colors)
+    // A figure made over since: the stall's look is the older choice now, for good.
+    if (raw !== null && !look) localStorage.removeItem(HERO_LOOK_KEY)
   } catch { /* private mode: as drawn */ }
   heroLook.value = look
   figureColors.value = colors
@@ -767,7 +771,7 @@ function dressHero() {
 /** WEAR IT at the stall: keep the look on this browser (null: back to the made figure's clothes) and put it on. */
 function wearLook(look: HeroLook | null) {
   try {
-    if (look) localStorage.setItem(HERO_LOOK_KEY, serializeHeroLook(look))
+    if (look) localStorage.setItem(HERO_LOOK_KEY, storeHeroLook(look, figureColors.value))
     else localStorage.removeItem(HERO_LOOK_KEY)
   } catch { /* private mode: worn until the page goes */ }
   dressHero()

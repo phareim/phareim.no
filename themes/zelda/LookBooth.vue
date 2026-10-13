@@ -150,6 +150,8 @@ const rows: Array<HTMLElement | null> = []
 let openedAt = 0
 let timer = 0
 let frame = 0
+/** The look's frames as canvases, painted once per look; a tick of the walk only copies them. */
+let frames: Record<string, HTMLCanvasElement> = {}
 
 const presets = computed(() => {
   const list: Array<{ id: PresetId; label: string }> = [
@@ -276,7 +278,7 @@ function paint() {
   const cv = mirror.value
   const g = cv?.getContext('2d')
   if (!cv || !g) return
-  const f = lookCanvases(look.value)
+  const f = frames
   const walk = [0, 1, 0, 2][frame % 4]!
   g.clearRect(0, 0, MIRROR_W, MIRROR_H)
   g.fillStyle = '#1a1030'
@@ -296,14 +298,19 @@ function paint() {
   })
 }
 
-watch(look, paint)
+function repaint() {
+  frames = lookCanvases(look.value)
+  paint()
+}
+
+watch(look, repaint)
 
 onMounted(() => {
   openedAt = performance.now()
   window.addEventListener('keydown', onKey, true)
   window.addEventListener('keyup', onKey, true)
   box.value?.focus({ preventScroll: true })
-  paint()
+  repaint()
   if (!props.reducedMotion) timer = window.setInterval(() => { frame++; paint() }, 170)
 })
 

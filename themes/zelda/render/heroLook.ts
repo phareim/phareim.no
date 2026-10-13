@@ -1,9 +1,10 @@
 /**
  * The hero's look, as the NEW LOOK booth in town sets it: a shape (hair, what
  * is on the head, what is worn below the belt; render/heroFrames.ts) and eight
- * colours. Kept in localStorage `zelda.heroLook`. While it is there it is what
- * the hero wears; without it the hero wears a made figure's colours
- * (render/heroColors.ts) or is as drawn.
+ * colours. Kept in localStorage `zelda.heroLook`, with the made figure's
+ * colours (render/heroColors.ts) it was chosen over. The newest choice is
+ * worn: the look, until the figure is changed after it (`wornLook`); then the
+ * figure's colours again. With neither the hero is as drawn.
  *
  * `DRAWN_LOOK` is the hero as first drawn, and its palette is the sprite
  * sheet's own: a colour left at the drawn one keeps the drawn shade beside
@@ -11,7 +12,7 @@
  */
 import type { HeroColors } from '../../miniworld/types'
 import { BOTTOMS, DRAWN_SHAPE, HAIR_STYLES, HEADWEAR, type Bottoms, type HairStyle, type Headwear, type HeroShape } from './heroFrames'
-import { mix } from './heroColors'
+import { heroColorsKey, mix } from './heroColors'
 
 export const HERO_LOOK_KEY = 'zelda.heroLook'
 
@@ -153,11 +154,30 @@ export function parseHeroLook(raw: unknown): HeroLook | null {
   return out
 }
 
-/** What goes into storage: the look's own fields, nothing else. */
+/** The look's own fields as JSON, nothing else. */
 export function serializeHeroLook(l: HeroLook): string {
   const out: Record<string, string> = { hair: l.hair, head: l.head, bottom: l.bottom }
   for (const k of COLOR_KEYS) out[k] = l[k]
   return JSON.stringify(out)
+}
+
+/** What goes into storage at WEAR IT: the look, and the made figure's colours it was chosen over (none: ''). */
+export function storeHeroLook(l: HeroLook, figure: HeroColors | null): string {
+  return JSON.stringify({ ...JSON.parse(serializeHeroLook(l)), over: heroColorsKey(figure) })
+}
+
+/**
+ * The stored look, if it is still the newest choice: a made figure that has
+ * changed since the look was chosen (or been made since) is worn instead.
+ * With no figure the look stays.
+ */
+export function wornLook(raw: unknown, figure: HeroColors | null): HeroLook | null {
+  const look = parseHeroLook(raw)
+  if (!look) return null
+  if (!figure) return look
+  let over: unknown = ''
+  try { over = (typeof raw === 'string' ? JSON.parse(raw) : raw as Record<string, unknown>)?.over ?? '' } catch { /* not JSON: parseHeroLook said no already */ }
+  return over === heroColorsKey(figure) ? look : null
 }
 
 /** A stable key for a look (null: none set). */

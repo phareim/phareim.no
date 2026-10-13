@@ -227,7 +227,8 @@ leave the hero as they were.
   never get a shade that does not belong to it. `LOOK_OPTIONS` is the list
   the booth shows (curated names, no free colour picker); a new hair style
   or garment is a new entry in `heroFrames.ts` and one name there.
-- **Where it is kept.** localStorage `zelda.heroLook`, on this browser only:
+- **Where it is kept.** localStorage `zelda.heroLook` (the look, and under
+  `over` the made figure's colours it was chosen over), on this browser only:
   it does not follow the account to another device (the save and the bits
   do). `render/sheet.ts` `setHeroLook` swaps the rows and the palette of the
   `hero_*` canvases and nothing else. Another account signing in on the
@@ -247,10 +248,12 @@ the hero wears a made figure's colours: when localStorage
 them onto the hero's palette letters (hair, headband, skin, shirt and its
 stripe, belt, trousers; shoes are `E` and the open mouth `M`, so they
 recolour apart from the white and pink they share) and `setHeroColors` in
-`render/sheet.ts` rebuilds only the `hero_*` canvases. A look from the stall
-is worn instead for as long as it is set (the newest and most explicit
-choice); the stall's MY FIGURE removes it. Both are re-read on the `storage`
-event and when the tab comes back. Neither: the hero as drawn.
+`render/sheet.ts` rebuilds only the `hero_*` canvases. The newest choice is
+worn (`wornLook` in `render/heroLook.ts`): a look from the stall, until the
+figure is changed or made after it; then the figure's colours again, and the
+shell forgets the look. The stall's MY FIGURE does the same by hand. Both are
+re-read on the `storage` event and when the tab comes back. Neither: the hero
+as drawn.
 `HERO_COLORS='<json>' node scripts/zelda-lab/shot.mjs <dir> r-sword`
 renders a hero in a figure's colours.
 
@@ -260,7 +263,7 @@ and the door fade runs; at full dark the engine emits `{ type: 'exit', id,
 to }` and stays in mode `exit`. All exits are in the town (cabinets, board,
 HANGAR door, kiosk, signpost, terminals); the shell saves and navigates.
 
-**Checks.** `npm run test:zelda` (run by the deploy; 113 tests with the audio,
+**Checks.** `npm run test:zelda` (run by the deploy; 114 tests with the audio,
 Wildwood, wallet, views and look suites, green 2026-10-13; the Wildwood's own checks are in
 `docs/games/wildwood.md`): world
 validation (everything reachable from the plaza), the first minute (the
