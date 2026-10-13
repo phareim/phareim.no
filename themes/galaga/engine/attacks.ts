@@ -4,6 +4,9 @@
  * lit patches of field that are shown before they hurt (zones), and lines
  * shown before a shot goes along them (aims). Nothing that is pointed at the
  * player comes without its warning. The numbers are ATTACK in balance.ts.
+ * What is thrown leaves from where it is painted: the Knight's rays and glints from his mirror
+ * ball, Humdinger's mines and hogs from the trailer, the organ's notes from its pipes, CAL's
+ * line from the lens, Fader's from his chest, the Deaf Star's rings from the woofer.
  *
  *   knight     ray, rays (two that leave a gap), floor, floor2, glint
  *   humdinger  ram, ram2, mines, hogs
@@ -13,6 +16,7 @@
  *   deafstar   rings, note, static, squeeze
  */
 import { ATTACK } from './balance.ts'
+import { bodyBottom } from './combat.ts'
 import { chance, rand, randInt, randRange } from './rng.ts'
 import type { Boss, World } from './types.ts'
 import { emit, playerTop, spawnAim, spawnBolt, spawnEnemy, spawnZone } from './world.ts'
@@ -89,21 +93,24 @@ function doStep(w: World, b: Boss, index: number): number {
   const W = w.w
   const H = w.h
   const top = b.y + b.hh + 2
+  /** Where its shots leave from. */
+  const mx = b.x + b.mx
+  const my = b.y + b.my
   const last = b.steps === 0
   switch (b.attack) {
     // ── Saturday Knight ──
     case 'ray': {
       const R = ATTACK.ray
       const left = chance(w.rng, 0.5)
-      spawnZone(w, 'ray', left ? 0 : W - R.w, top, R.w, H - top, R.warn, R.live, left ? R.speed : -R.speed, 0)
+      spawnZone(w, 'ray', left ? 0 : W - R.w, my, R.w, H - my, R.warn, R.live, left ? R.speed : -R.speed, 0)
       return R.warn + 40
     }
     case 'rays': {
       // Two rays from the edges that stop short of each other: the gap is where to stand.
       const R = ATTACK.rays
       const cx = W / 2 + randRange(w.rng, -R.shift, R.shift)
-      spawnZone(w, 'ray', 0, top, R.w, H - top, R.warn, R.live, (cx - R.gap / 2 - R.w) / R.live, 0)
-      spawnZone(w, 'ray', W - R.w, top, R.w, H - top, R.warn, R.live, -(W - cx - R.gap / 2 - R.w) / R.live, 0)
+      spawnZone(w, 'ray', 0, my, R.w, H - my, R.warn, R.live, (cx - R.gap / 2 - R.w) / R.live, 0)
+      spawnZone(w, 'ray', W - R.w, my, R.w, H - my, R.warn, R.live, -(W - cx - R.gap / 2 - R.w) / R.live, 0)
       return R.warn + R.live
     }
     case 'floor':
@@ -126,7 +133,7 @@ function doStep(w: World, b: Boss, index: number): number {
       const turn = randRange(w.rng, -0.2, 0.2)
       for (let i = 0; i < G.n; i++) {
         const a = (i / (G.n - 1) - 0.5) * G.fan + turn
-        spawnBolt(w, 'bolt', b.x, top, Math.sin(a) * G.speed, Math.cos(a) * G.speed)
+        spawnBolt(w, 'bolt', mx, my, Math.sin(a) * G.speed, Math.cos(a) * G.speed)
       }
       return 34
     }
@@ -142,18 +149,26 @@ function doStep(w: World, b: Boss, index: number): number {
     }
     case 'mines': {
       const M = ATTACK.mines
+      // Rolled off the trailer, to both sides: each slides out to its own place and sits there.
       for (let i = 0; i < M.n; i++) {
         const x = (i + 0.15 + 0.7 * rand(w.rng)) * W / M.n
-        const m = spawnBolt(w, 'mine', x, top, 0, M.fall, M.r)
+        const x0 = b.x + (x < b.x ? -1 : 1) * (b.hw - 6)
+        const m = spawnBolt(w, 'mine', x0, my, 0, M.fall, M.r)
         if (!m) break
         m.stopAt = randRange(w.rng, playerTop(w), H - 30)
-        m.life = (m.stopAt - top) / M.fall + M.sit
+        const fall = (m.stopAt - my) / M.fall
+        m.vx = (x - x0) / fall
+        m.life = fall + M.sit
       }
       return 70
     }
     case 'hogs': {
       const n = ATTACK.hogs.n + (b.phase >= 2 ? 1 : 0)
-      for (let i = 0; i < n; i++) helper(w, clamp(b.x + (i - (n - 1) / 2) * 26, 12, W - 12), top, randRange(w.rng, -0.5, 0.5), 1.7)
+      // Out of the trailer: one either side, the rest from under the rig, one behind the other.
+      for (let i = 0; i < n; i++) {
+        const side = i === 0 ? -1 : i === 1 ? 1 : 0
+        helper(w, clamp(b.x + side * (b.hw + 8), 12, W - 12), my - (i > 2 ? 34 : 0), randRange(w.rng, -0.5, 0.5), 1.7)
+      }
       return 70
     }
     // ── Doctor Durant Durant ──
@@ -187,8 +202,10 @@ function doStep(w: World, b: Boss, index: number): number {
     }
     case 'notes': {
       const N = ATTACK.notes
+      // Out of the pipes' mouths, spreading as they fall.
       for (let i = 0; i < N.n; i++) {
-        spawnBolt(w, 'note', (i + 0.5) * W / N.n, top, randRange(w.rng, -0.5, 0.5), N.speed, 3.5)
+        const k = i - (N.n - 1) / 2
+        spawnBolt(w, 'note', mx + k * 24, my, k * N.spread + randRange(w.rng, -0.3, 0.3), N.speed, 3.5)
       }
       return 50
     }
@@ -229,7 +246,7 @@ function doStep(w: World, b: Boss, index: number): number {
     }
     case 'choke': {
       const C = ATTACK.choke
-      spawnAim(w, 'boss', b.x, top, p.x, p.y, C.warn, C.speed, -1, C.burst - 1)
+      spawnAim(w, 'boss', mx, my, p.x, p.y, C.warn, C.speed, -1, C.burst - 1)
       return C.warn + 50
     }
     case 'treble': {
@@ -237,7 +254,7 @@ function doStep(w: World, b: Boss, index: number): number {
       const turn = rand(w.rng) * Math.PI * 2
       for (let i = 0; i < T.n; i++) {
         const a = turn + i * Math.PI * 2 / T.n
-        if (Math.sin(a) > -0.3) spawnBolt(w, 'ring', b.x, b.y, Math.cos(a) * T.speed, Math.sin(a) * T.speed)
+        if (Math.sin(a) > -0.3) spawnBolt(w, 'ring', b.x, b.y + T.dy, Math.cos(a) * T.speed, Math.sin(a) * T.speed)
       }
       return 70
     }
@@ -252,7 +269,7 @@ function doStep(w: World, b: Boss, index: number): number {
         if (Math.sin(a) < 0.05) continue
         let off = Math.abs(a - hole)
         if (off > Math.PI) off = Math.PI * 2 - off
-        if (off > half) spawnBolt(w, 'ring', b.x, b.y + 16, Math.cos(a) * R.speed, Math.sin(a) * R.speed)
+        if (off > half) spawnBolt(w, 'ring', mx, my, Math.cos(a) * R.speed, Math.sin(a) * R.speed)
       }
       return last ? 80 : R.between
     }
@@ -260,19 +277,23 @@ function doStep(w: World, b: Boss, index: number): number {
       // The one note: a column where the ship is, shown for more than a second first.
       const N = ATTACK.note
       const nw = b.phase >= 3 ? N.w3 : N.w
-      spawnZone(w, 'note', clamp(p.x - nw / 2, 0, W - nw), top, nw, H - top, N.warn, N.live)
+      // The moon is drawn over the column's top: it comes out from under the cabinet.
+      spawnZone(w, 'note', clamp(p.x - nw / 2, 0, W - nw), b.y, nw, H - b.y, N.warn, N.live)
       return N.warn + N.live
     }
     case 'static': {
       const n = ATTACK.static.n
-      for (let i = 0; i < n; i++) helper(w, (i + 0.5) * W / n + randRange(w.rng, -20, 20), top, 0, 1.5)
+      for (let i = 0; i < n; i++) {
+        const x = (i + 0.5) * W / n + randRange(w.rng, -20, 20)
+        helper(w, x, bodyBottom(b, x) + 2, 0, 1.5)
+      }
       return 80
     }
     case 'squeeze': {
       // The walls of the cabinet close in; the rings that follow have less room.
       const S = ATTACK.squeeze
-      spawnZone(w, 'squeeze', 0, top, S.w, H - top, S.warn, S.live)
-      spawnZone(w, 'squeeze', W - S.w, top, S.w, H - top, S.warn, S.live)
+      spawnZone(w, 'squeeze', 0, 0, S.w, H, S.warn, S.live)
+      spawnZone(w, 'squeeze', W - S.w, 0, S.w, H, S.warn, S.live)
       return 40
     }
   }

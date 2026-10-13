@@ -8,20 +8,21 @@
  *   DURANT DURANT     the organ's keys are columns; left alone it cools, so it must be overplayed
  *   CAL 9000          a wall; only the lens takes damage, and doors shut across the field to a gap
  *   DARK FADER        follows the ship; bars come down the field with one gap to thread
- *   THE DEAF STAR     fills the top; a tweeter 18 px wide; rings of bass, the one note, three phases
+ *   THE DEAF STAR     half a moon along the top; a tweeter 14 px wide; rings of bass from the woofer, the one note
+ *
+ * Where each one stands, how large its body is, which part takes damage and where its shots leave
+ * from are BOSSES in balance.ts, measured in the bitmaps.
  */
-import { ATTACK, BOSSES, BOSS_SOAK, SCORE, STAGE, TALK, bossHp } from './balance.ts'
+import { ATTACK, BOSSES, BOSS_SOAK, CAL_SLIDE, FADER_MARGIN, SCORE, STAGE, TALK, bossHp } from './balance.ts'
 import { addScore, popEnemy } from './combat.ts'
 import { BOSS_CUE } from './cuemap.ts'
 import { beginAttack, runAttack } from './attacks.ts'
 import { callCavalry } from './friends.ts'
 import { enemyTime } from './player.ts'
 import { chance, randRange } from './rng.ts'
+import type { CueId } from '../story/cues.ts'
 import type { Boss, BossKind, World } from './types.ts'
-import { clearDanger, cue, emit, spawnPickup } from './world.ts'
-
-/** Bosses that are a wall along the top sit against it; the others float below. */
-const WALLS: readonly BossKind[] = ['cal', 'deafstar']
+import { airCue, clearDanger, cue, emit, spawnPickup } from './world.ts'
 
 export function startBoss(w: World, id: BossKind): void {
   const def = BOSSES[id]
@@ -29,13 +30,15 @@ export function startBoss(w: World, id: BossKind): void {
   b.active = true
   b.id = id
   b.kind = `boss-${id}`
-  b.hw = def.hw; b.hh = def.hh
+  b.hw = def.hw; b.hh = def.hh; b.round = def.round === true
   b.wx = def.weak[0]; b.wy = def.weak[1]; b.whw = def.weak[2]; b.whh = def.weak[3]
+  b.mx = def.muzzle[0]; b.my = def.muzzle[1]
   b.hp = b.maxHp = bossHp(id, w.voyage)
   b.phase = 1
   b.state = 'enter'
   b.t = 0
-  b.homeY = def.hh + (WALLS.includes(id) ? 6 : 26) + (w.h - 320) * 0.1
+  // A wall hangs from the top of the field whatever its height; the others stand a little lower in a tall one.
+  b.homeY = def.hh + def.top + (def.hw * 2 >= w.w || def.round ? 0 : (w.h - 320) * 0.1)
   b.x = w.w / 2
   b.y = -def.hh - 10
   b.attack = ''
@@ -55,10 +58,17 @@ export function startBoss(w: World, id: BossKind): void {
     w.passQueue.length = 0
     for (let i = 0; i < w.friends.length; i++) w.passQueue.push(w.friends[i]!)
     w.passDue = 0
+    w.air = 0
   }
   emit(w, 'bossIn', b.x, b.y, id, b.maxHp)
-  cue(w, BOSS_CUE[id].enter)
+  say(w, BOSS_CUE[id].enter)
   if (id === 'deafstar') callCavalry(w, false)
+}
+
+/** A boss's own story line; in the last fight it is booked on the air, so the friends wait their turn. */
+function say(w: World, id: CueId): void {
+  if (w.sector === 5) airCue(w, id)
+  else cue(w, id)
 }
 
 function die(w: World, b: Boss): void {
@@ -77,7 +87,7 @@ function die(w: World, b: Boss): void {
   spawnPickup(w, 'pizza', b.x - 16, b.y + b.hh)
   spawnPickup(w, 'tube', b.x + 16, b.y + b.hh)
   emit(w, 'bossDown', b.x, b.y, b.id, w.sector)
-  cue(w, BOSS_CUE[b.id].dead)
+  say(w, BOSS_CUE[b.id].dead)
 }
 
 /** CAL's pod-bay doors: open, then shut to a gap that drifts, then open again. */
@@ -144,12 +154,13 @@ function move(w: World, b: Boss, dt: number): void {
       break
     }
     case 'cal':
-      // The lens slides along the wall.
-      b.wx = Math.sin(b.t * 0.012) * 70
+      // The lens (the whole unit it sits in) slides along the wall.
+      b.wx = BOSSES.cal.weak[0] + Math.sin(b.t * 0.012) * CAL_SLIDE
+      b.mx = b.wx
       stepDoors(w, b, dt)
       break
     case 'fader': {
-      const tx = Math.max(40, Math.min(w.w - 40, w.player.x))
+      const tx = Math.max(FADER_MARGIN, Math.min(w.w - FADER_MARGIN, w.player.x))
       b.x += Math.max(-0.5, Math.min(0.5, tx - b.x)) * dt
       b.y = b.homeY + Math.sin(b.t * 0.03) * 6
       break
@@ -192,7 +203,7 @@ export function stepBoss(w: World): void {
     b.phase = phase
     emit(w, 'bossPhase', b.x, b.y, b.id, phase)
     const half = BOSS_CUE[b.id].half
-    if (phase === 2 && half) cue(w, half)
+    if (phase === 2 && half) say(w, half)
     callCavalry(w, b.id === 'deafstar' && phase === 3)
   }
   move(w, b, dt)

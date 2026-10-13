@@ -19,7 +19,8 @@
 /**
  * The default landing shell. A theme can use it as-is (see tufte), wrap it
  * with a background and hook into its events (scandi, space), replace
- * individual slots (galaga), or skip it and render its own page entirely.
+ * individual slots (breakout, invaders), or skip it and render its own page
+ * entirely (galaga, battery).
  */
 import { profile, type LandingContent } from '~/themes/content'
 

@@ -12,7 +12,7 @@ import { stepRaider } from './encounters.ts'
 import { enemyTime } from './player.ts'
 import { rand } from './rng.ts'
 import type { Enemy, World } from './types.ts'
-import { slotX, slotY } from './waves.ts'
+import { launchDive, slotX, slotY } from './waves.ts'
 import { cue, emit, spawnAim, spawnBolt } from './world.ts'
 
 function bezier(e: Enemy, u: number, ex: number, ey: number): void {
@@ -101,6 +101,16 @@ export function stepEnemies(w: World): void {
         e.x += (slotX(w, e.col) - e.x) * 0.3
         e.y += (slotY(w, e.row) - e.y) * 0.3
         if (w.stage !== 'wave' && w.stage !== 'idle') break
+        if (e.shield) {
+          // A captor that has just arrived: a moment in its place, then down for the partner. With
+          // no partner to take (limping, hanging already, a tow under way) the shield simply drops.
+          e.fireT -= dt
+          if (e.fireT <= 0) {
+            if (q.state === 'fly' && p.towing === 0) launchDive(w, e, i)
+            else e.shield = false
+          }
+          break
+        }
         if (e.role === 'tank') {
           e.fireT -= dt
           if (e.fireT <= 0) {
@@ -141,6 +151,8 @@ export function stepEnemies(w: World): void {
           if (e.mode === 1) {
             e.state = 'hover'
             e.t = 0
+            // Settled over the partner: the shield drops as the beam begins to warm.
+            e.shield = false
             if (e.role === 'captor') { emit(w, 'beam', e.x, e.y, e.kind, CAPTOR.warn); cue(w, 'see.captor') }
           } else goHome(w, e, true)
         }

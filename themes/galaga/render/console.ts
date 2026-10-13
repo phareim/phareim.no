@@ -18,6 +18,7 @@ import { rows as wrapRows } from '../story/director'
 import type { Monitor } from '../story/director'
 import type { Fx } from './fx'
 import { roman } from './fx'
+import { bandCrop } from './crops'
 import { BAND_WINDOWS, LEFT_WINDOWS, RIGHT_WINDOWS } from './layout'
 import type { Layout, Panel, Rect } from './layout'
 import { C, INK, WHITE } from './palette'
@@ -134,8 +135,9 @@ function portrait(g: G, sprites: SpriteStore, r: Rect, w: World, m: Monitor, s: 
     if (m.speaking && m.who) {
       const name = `portrait-${m.who}-${m.mood}`
       const size = sprites.size(name)
-      // A narrow screen shows the middle of the portrait.
-      sprites.draw(g, name, r.x + r.w / 2, r.y + r.h / 2)
+      // A narrow screen's window is smaller than the portrait: it shows the face (crops.ts), not the middle.
+      const at = bandCrop(m.who, m.mood)
+      if (size.w <= r.w || !sprites.blit(g, name, r.x, r.y, at[0], at[1], r.w, r.h)) sprites.draw(g, name, r.x + r.w / 2, r.y + r.h / 2)
       if (size.w < r.w) frame(g, C.glassHi, r.x, r.y, r.w, r.h)
     } else if (v.idle || (s.t >> 9) % 3 === 2) testCard(g, r)
     else ident(g, r, w.sector, s.t, v.reduced)
@@ -232,10 +234,12 @@ function valves(g: G, sprites: SpriteStore, r: Rect, w: World, fx: Fx, small: bo
   }
   const pitch = Math.floor(r.w / PLAYER.hull)
   const painted = sprites.ready('valve-on') && sprites.ready('valve-off')
+  const valve = sprites.size('valve-on')
   for (let i = 0; i < PLAYER.hull; i++) {
     const on = i < hull && !(blink && i === hull - 1)
     const cx = r.x + pitch * i + (pitch >> 1)
-    if (painted) { sprites.draw(g, on ? 'valve-on' : 'valve-off', cx, r.y + r.h / 2); continue }
+    // Both bitmaps are one canvas (12 x 24): put on the same corner, the lit valve does not jump when it pops.
+    if (painted) { sprites.blit(g, on ? 'valve-on' : 'valve-off', cx - (valve.w >> 1), r.y + ((r.h - valve.h) >> 1)); continue }
     // No bitmap: a valve in four flat tones, lit or dark.
     rect(g, C.metalLo, cx - 5, r.y + r.h - 5, 10, 4)
     rect(g, on ? C.bass : C.metalLo, cx - 4, r.y + 4, 8, r.h - 9)

@@ -66,6 +66,8 @@ export interface World {
   /** Passes owed by the phase changes so far. */
   passDue: number
   noCavalrySaid: boolean
+  /** The last fight: the tick by which the radio will have said the story lines asked for so far (TALK.air). */
+  air: number
   /** Which of the sector's bosses is up. */
   bossIdx: number
 

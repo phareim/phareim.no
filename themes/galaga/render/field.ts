@@ -9,7 +9,9 @@
  * aim and every zone is shown, warning or live, because the game is only
  * fair if they are.
  */
-import { CAPTOR, DUET, SECTORS } from '../engine/balance'
+import { BOSSES, CAPTOR, DUET, PARTNER, PLAYER, SECTORS } from '../engine/balance'
+import { bodyBottom } from '../engine/combat'
+import { playerTop } from '../engine/world'
 import type { Bolt, Enemy, Shot, World, Zone } from '../engine/types'
 import type { Fx, Puff } from './fx'
 import { PICK_NAMES } from './fx'
@@ -27,6 +29,11 @@ export interface FieldView {
   /** Where the player's ship was a tick ago, for the bank. */
   bank: number
   partnerBank: number
+  /** A backdrop bitmap to leave out (the far moon while the Deaf Star itself is here), and how far gone it is, 0 to 1. */
+  hideBg?: string
+  hideShare?: number
+  /** The lab's switch: the engine's boxes drawn over the picture. Never set by the game. */
+  boxes?: boolean
 }
 
 const W = 240
@@ -65,10 +72,17 @@ export function drawBackdrop(g: G, sprites: SpriteStore, sector: number, tick: n
       sprites.blit(g, name, Math.round(room / 2), H - s.h)
       continue
     }
+    const gone = name === v.hideBg ? v.hideShare ?? 1 : 0
+    if (gone >= 1) continue
     const period = H + s.h + 260
     const y = ((Math.floor(t * (i === 0 ? 0.09 : 0.07)) + (i === 0 ? s.h + 40 : period / 2 + s.h)) % period) - s.h
     const x = room > 0 ? Math.round(room * (i === 0 ? 0.15 : 0.85)) : Math.round(room / 2)
     sprites.blit(g, name, x, y)
+    // Going: the sky comes through it, a quarter of its pixels, then half, then three quarters.
+    if (gone > 0) {
+      stipple(g, sky.base, x, y, s.w, s.h, gone < 0.34 ? 4 : 2)
+      if (gone >= 0.67) stipple(g, sky.base, x, y, s.w, s.h, 4, 1)
+    }
   }
 }
 
@@ -166,8 +180,61 @@ function drawBarriers(g: G, w: World): void {
 /** The tick the boss last began a hit flash. */
 let bossWhiteAt = -99
 
-/** Where in a boss's bitmap its target is painted, from the bitmap's centre. Only for a target that moves. */
-const BOSS_ANCHOR: Record<string, readonly [number, number]> = { cal: [0, -7] }
+/** How wide the valve bank at either end of CAL's bitmap is: the wall beside the unit is those banks again. */
+const CAL_BANK = 30
+
+/**
+ * CAL's wall either side of the unit with the lens (which spans `ux` to `ux + uw`): the bitmap's
+ * own valve banks, laid end to end. Without the bitmap: steel and rows of valves by code.
+ */
+function drawWall(g: G, sprites: SpriteStore, y0: number, h: number, ux: number, uw: number, tick: number): void {
+  rect(g, C.metalLo, 0, 0, W, y0 + h)
+  rect(g, INK, 0, y0 + h - 1, W, 1)
+  if (sprites.ready('boss-cal')) {
+    for (let x = ux - CAL_BANK; x > -CAL_BANK; x -= CAL_BANK) sprites.blit(g, 'boss-cal', x, y0, 0, 0, CAL_BANK, h)
+    for (let x = ux + uw; x < W; x += CAL_BANK) sprites.blit(g, 'boss-cal', x, y0, uw - CAL_BANK, 0, CAL_BANK, h)
+    return
+  }
+  rect(g, C.metal, 0, y0, W, 2)
+  for (let x = 4; x < W - 8; x += 13) {
+    for (let row = 0; row < 3; row++) {
+      const y = y0 + 9 + row * 21
+      rect(g, C.glass, x, y, 7, 15)
+      rect(g, (hash(x + row * 31, tick >> 4) & 3) === 0 ? C.bass : C.cableLo, x + 1, y + 2, 5, 11)
+    }
+  }
+}
+
+/** The lab's switch: what the engine tests against, drawn over what is painted. */
+function drawBoxes(g: G, w: World, H: number): void {
+  const b = w.boss
+  const body = '#39ff6a'
+  const weak = '#ff3df2'
+  const from = '#3df2ff'
+  if (b.active) {
+    if (b.round) {
+      for (let x = Math.round(b.x - b.hw); x <= b.x + b.hw; x++) rect(g, body, x, Math.round(bodyBottom(b, x)), 1, 1)
+      rect(g, body, Math.round(b.x - b.hw), Math.round(b.y - b.hh), Math.round(b.hw * 2), 1)
+    } else frame(g, body, Math.round(b.x - b.hw), Math.round(b.y - b.hh), Math.round(b.hw * 2), Math.round(b.hh * 2))
+    frame(g, weak, Math.round(b.x + b.wx - b.whw), Math.round(b.y + b.wy - b.whh), Math.round(b.whw * 2), Math.round(b.whh * 2))
+    // Where its shots leave from, and the line its columns begin on.
+    const mx = Math.round(b.x + b.mx)
+    const my = Math.round(b.y + b.my)
+    rect(g, from, mx - 4, my, 9, 1)
+    rect(g, from, mx, my - 4, 1, 9)
+    line(g, from, 0, Math.round(b.y + b.hh + 2), W - 1, Math.round(b.y + b.hh + 2), 2)
+  }
+  // How high the ship may fly, and the two ships' own boxes.
+  line(g, body, 0, playerTop(w), W - 1, playerTop(w), 1)
+  ring(g, weak, w.player.x, w.player.y, PLAYER.hitR)
+  ring(g, weak, w.partner.x, w.partner.y, PARTNER.hitR)
+  for (const e of w.enemies) {
+    if (e.active && e.state !== 'wait') frame(g, body, Math.round(e.x - e.hw), Math.round(e.y - e.hh), Math.round(e.hw * 2), Math.round(e.hh * 2))
+  }
+  for (const d of w.barriers) if (d.active) line(g, from, 0, Math.round(d.y), W - 1, Math.round(d.y), 4)
+  for (const r of w.rigs) if (r.active) frame(g, body, Math.round(r.x - r.hw), Math.round(r.y - r.hh), Math.round(r.hw * 2), Math.round(r.hh * 2))
+  void H
+}
 
 // ── Shots ────────────────────────────────────────────────────────────────
 
@@ -396,14 +463,15 @@ export function drawField(g: G, sprites: SpriteStore, w: World, fx: Fx, v: Field
   // The boss.
   const b = w.boss
   if (b.active) {
+    // CAL is a wall of valves across the field; the bitmap is the unit with the lens, which slides along it.
     if (b.id === 'cal') {
-      // A wall of valves across the field: the bitmap is its middle.
-      const y = Math.round(b.y - b.hh)
-      rect(g, C.metalLo, Math.round(b.x - b.hw), y, Math.round(b.hw * 2), Math.round(b.hh * 2))
-      rect(g, C.metal, Math.round(b.x - b.hw), y, Math.round(b.hw * 2), 2)
-      for (let x = Math.round(b.x - b.hw) + 5; x < b.x + b.hw - 4; x += 11) {
-        rect(g, C.glass, x, y + 6, 6, 12)
-        rect(g, (hash(x, tick >> 4) & 3) === 0 ? C.bass : C.cableLo, x + 1, y + 8, 4, 8)
+      const unit = sprites.size(b.kind)
+      drawWall(g, sprites, Math.round(b.y - unit.h / 2), unit.h, Math.round(b.x + b.wx - BOSSES.cal.weak[0] - unit.w / 2), unit.w, tick)
+    }
+    if (b.id === 'knight' && b.state !== 'dying') {
+      // His rays are the mirror ball's: a thread of light from it to the head of each.
+      for (const z of w.zones) {
+        if (z.active && z.kind === 'ray') line(g, z.warn > 0 ? C.warnLo : C.live, b.x + b.mx, b.y + b.my, z.x + z.w / 2, z.y, 2, tick >> 1)
       }
     }
     const dying = b.state === 'dying'
@@ -411,10 +479,9 @@ export function drawField(g: G, sprites: SpriteStore, w: World, fx: Fx, v: Field
     if (tick < bossWhiteAt) bossWhiteAt = -99
     if (b.flash < 2 && tick - bossWhiteAt >= 8 && !v.reduced) bossWhiteAt = tick
     const white = dying ? Math.floor(tick / (v.reduced ? 12 : 4)) % 2 === 0 : tick - bossWhiteAt < 2
-    // A boss whose target moves along its body (CAL's lens) is drawn with the target's point of the bitmap on it.
-    const anchor = BOSS_ANCHOR[b.id]
-    if (anchor) sprites.draw(g, b.kind, b.x + b.wx - anchor[0], b.y + b.wy - anchor[1], white ? { variant: 'white' } : undefined)
-    else sprites.draw(g, b.kind, b.x, b.y, white ? { variant: 'white' } : undefined)
+    // The bitmap is centred on the boss; where the target moves along the body (CAL's lens) the bitmap goes with it.
+    const weak = BOSSES[b.id].weak
+    sprites.draw(g, b.kind, b.x + b.wx - weak[0], b.y + b.wy - weak[1], white ? { variant: 'white' } : undefined)
     if (!dying && (b.whw < b.hw - 4 || b.whh < b.hh - 4) && (v.reduced || (tick >> 3) & 1)) {
       // The part that takes damage.
       frame(g, C.gold, Math.round(b.x + b.wx - b.whw) - 2, Math.round(b.y + b.wy - b.whh) - 2, Math.round(b.whw * 2) + 4, Math.round(b.whh * 2) + 4)
@@ -490,6 +557,7 @@ export function drawField(g: G, sprites: SpriteStore, w: World, fx: Fx, v: Field
   }
   if (w.chainMul > 1) textC(g, `X${w.chainMul}`, W - 12, b.active ? 10 : 4, C.pink, INK)
 
+  if (v.boxes) drawBoxes(g, w, H)
   drawBanner(g, sprites, w, fx, H)
   if (fx.blink > 0 && !v.reduced) stipple(g, WHITE, 0, 0, W, H, 2, fx.blink)
 }
@@ -500,17 +568,8 @@ function drawBanner(g: G, sprites: SpriteStore, w: World, fx: Fx, H: number): vo
   const left = b.life - b.t
   if (left < 12 && (left & 2)) return
   const color = C[b.color]
-  if (b.card) {
-    // The ending: the picture, and the words under it.
-    const s = sprites.size('card-ending')
-    const top = Math.max(0, Math.round((H - s.h - 60) / 2))
-    sprites.draw(g, 'card-ending', W / 2, top + s.h / 2)
-    rect(g, INK, 0, top + s.h, W, 58)
-    bigTextC(g, b.title, W / 2, top + s.h + 8, 2, color, C.warnLo)
-    textC(g, b.sub, W / 2, top + s.h + 28, C.text)
-    textC(g, `SCORE ${w.score}`, W / 2, top + s.h + 40, C.gold)
-    return
-  }
+  // The ending card is not a banner over the field: it owns the field (drawEnding).
+  if (b.card) return
   const y = Math.round(H * 0.3)
   // Type the title on over its first ticks.
   const shown = b.title.slice(0, Math.max(1, Math.ceil((b.t + 1) / 2)))
@@ -518,19 +577,63 @@ function drawBanner(g: G, sprites: SpriteStore, w: World, fx: Fx, H: number): vo
   if (b.sub && b.t > b.title.length * 2) textC(g, b.sub, W / 2, y + 20, C.text, INK)
 }
 
-/** TRACKING: the field tears in horizontal bands, as a worn tape does. Not near the ship. */
+/**
+ * The ending: the card owns the field while it shows. Nothing of the run is drawn under it
+ * (the two ships would stand in the picture): a flat field, the picture, the words.
+ */
+export function drawEnding(g: G, sprites: SpriteStore, w: World, fx: Fx, H: number): void {
+  const b = fx.banner
+  const s = sprites.size('card-ending')
+  const words = 58
+  const top = Math.max(0, Math.round((H - s.h - words) / 2))
+  rect(g, INK, 0, 0, W, H)
+  sprites.draw(g, 'card-ending', W / 2, top + s.h / 2)
+  rect(g, C.gold, 0, top + s.h, W, 1)
+  bigTextC(g, b.card ? b.title : 'DELIVERED', W / 2, top + s.h + 10, 2, C.gold, C.warnLo)
+  textC(g, b.card ? b.sub : 'ONE LARGE PEPPERONI', W / 2, top + s.h + 30, C.text)
+  textC(g, `SCORE ${w.score}`, W / 2, top + s.h + 42, C.gold)
+}
+
+/** TRACKING's tear: how many tear lines roll down the field, how fast, how far a band is pulled, how often the pull changes. */
+const TEAR = { lines: 4, roll: 0.55, pulls: [-5, -4, -3, -2, 2, 3, 4, 5], hold: 14, calm: 30 } as const
+
+/**
+ * TRACKING: the tape tears. A few tear lines roll slowly down the field; each band between two
+ * of them is pulled sideways as a whole by a few pixels, so an enemy or a shot that lies across
+ * a line is cut and offset, as a worn video tape shows it. A thin line of noise marks where a
+ * band ends. The rows round the player's ship are left alone: play is read there.
+ */
 export function tearField(g: G, buf: HTMLCanvasElement, fieldX: number, fieldY: number, w: World, H: number): void {
-  const step = w.tick >> 3
-  for (let i = 0; i < 5; i++) {
-    const k = hash(step, i * 13 + 1)
-    const h = 3 + (k % 10)
-    const y = (k >>> 6) % Math.max(1, H - h)
-    if (Math.abs(y + h / 2 - w.player.y) < 34) continue
-    const shift = ((k >>> 14) % 13) - 6
-    if (shift === 0) continue
-    g.drawImage(buf, fieldX, fieldY + y, W, h, fieldX + shift, fieldY + y, W, h)
-    // The edge of a tear: a line of snow.
-    stipple(g, WHITE, fieldX, fieldY + y, W, 1, 4, k & 3)
+  const tick = w.tick
+  const gap = H / TEAR.lines
+  const roll = (tick * TEAR.roll) % gap
+  const calm0 = Math.round(w.player.y - TEAR.calm)
+  const calm1 = Math.round(w.player.y + TEAR.calm)
+  // The pull of band n, held for a few ticks: the bands move with the lines, so n counts them from the top of the roll.
+  const turn = Math.floor((tick * TEAR.roll) / gap)
+  const pull = (n: number): number => TEAR.pulls[hash(n - turn, Math.floor(tick / TEAR.hold) + n * 7) % TEAR.pulls.length]!
+  const slide = (y0: number, y1: number, shift: number): void => {
+    const h = y1 - y0
+    if (h <= 0 || shift === 0) return
+    g.drawImage(buf, fieldX, fieldY + y0, W, h, fieldX + shift, fieldY + y0, W, h)
+    // What the pull uncovers at the edge is blank tape.
+    rect(g, INK, shift > 0 ? fieldX : fieldX + W + shift, fieldY + y0, Math.abs(shift), h)
+  }
+  for (let n = -1; n < TEAR.lines; n++) {
+    const y0 = Math.max(0, Math.round(roll + n * gap))
+    const y1 = Math.min(H, Math.round(roll + (n + 1) * gap))
+    if (y1 <= y0) continue
+    const shift = pull(n)
+    // The band, less the rows round the ship.
+    slide(y0, Math.min(y1, calm0), shift)
+    slide(Math.max(y0, calm1), y1, shift)
+  }
+  // Where a band ends: a line of snow, and a thinner one under it.
+  for (let n = 0; n < TEAR.lines; n++) {
+    const y = Math.round(roll + n * gap)
+    if (y < 1 || y >= H - 1 || (y >= calm0 && y < calm1)) continue
+    stipple(g, WHITE, fieldX, fieldY + y, W, 1, 2, tick + n)
+    stipple(g, C.frost, fieldX, fieldY + y + 1, W, 1, 4, tick * 3 + n)
   }
 }
 

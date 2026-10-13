@@ -5,7 +5,7 @@
  * allocates nothing.
  */
 import type { CueId, Faction, PickupId, PilotId } from '../story/cues.ts'
-import { FIELD, PLAYER, PARTNER, ROLES, clampHeight, enemyKind } from './balance.ts'
+import { BOSS_CLEAR, FIELD, PLAYER, PARTNER, ROLES, TALK, TPS, clampHeight, enemyKind } from './balance.ts'
 import { makeRng } from './rng.ts'
 import type {
   Aim, Barrier, Bolt, Enemy, EventType, GameEvent, Pickup, Rig, RigJob, Role, Shot, World, Zone, ZoneKind,
@@ -32,7 +32,7 @@ function fill<T>(n: number, make: () => T): T[] {
 const newEnemy = (): Enemy => ({
   active: false, id: 0, role: 'grunt', gang: 'glitterati', kind: '', x: 0, y: 0, px: 0, py: 0, hp: 1, maxHp: 1,
   hw: 9, hh: 9, score: 0, state: 'wait', t: 0, dur: 0, col: -1, row: -1, ax: 0, ay: 0, bx: 0, by: 0, cx: 0, cy: 0,
-  ex: 0, ey: 0, vx: 0, vy: 0, fireT: 0, flash: 99, frozen: 0, carrying: false, bonus: false, wraps: 0, mode: 0, ox: 0, oy: 0,
+  ex: 0, ey: 0, vx: 0, vy: 0, fireT: 0, flash: 99, frozen: 0, carrying: false, shield: false, bonus: false, wraps: 0, mode: 0, ox: 0, oy: 0,
 })
 const newShot = (): Shot => ({
   active: false, kind: 'bolt', owner: 0, x: 0, y: 0, vx: 0, vy: 0, dmg: 1, pierce: 0, hw: 2, hh: 4, grow: 0, life: 0,
@@ -66,16 +66,16 @@ export function createWorld(opts: WorldOptions): World {
     },
     wing: { state: 'off', id: 'babs', kind: 'stranded-babs', x: 0, y: 0, bar: 0, fireT: 0, t: 0 },
     convoy: { active: false, id: 'marge', cargo: 1, t: 0, done: false },
-    duo: { active: false, kind: 'duo', x: 0, y: 0, quota: 0, seen: false },
+    duo: { active: false, kind: 'duo', x: 0, y: 0, quota: 0, passed: 0, seen: false },
     boss: {
-      active: false, id: 'knight', kind: 'boss-knight', x: 0, y: 0, hw: 0, hh: 0, wx: 0, wy: 0, whw: 0, whh: 0, hp: 0,
+      active: false, id: 'knight', kind: 'boss-knight', x: 0, y: 0, hw: 0, hh: 0, round: false, wx: 0, wy: 0, whw: 0, whh: 0, mx: 0, my: 0, hp: 0,
       maxHp: 1, phase: 1, state: 'enter', t: 0, homeY: 0, attack: '', attackT: 0, steps: 0, stepT: 0, rest: 0, rot: 0,
       flash: 99, sinceHit: 0, soak: 0, force: '', a: 0, b: 0,
     },
     formation: { cols: 8, rows: 0, off: 0, dx: 26, dy: 24, top: 40, t: 0 },
     cloud: { active: false, x: 0, y: 0, r: 0, t: 0 },
-    pass: { active: false, id: 'marge', kind: '', x: 0, y: 0, vx: 0, t: 0 },
-    friends: [], passQueue: [], passDue: 0, noCavalrySaid: false, bossIdx: 0,
+    pass: { active: false, id: 'marge', kind: '', x: 0, y: 0, vx: 0, t: 0, wing: false },
+    friends: [], passQueue: [], passDue: 0, noCavalrySaid: false, air: 0, bossIdx: 0,
     enemies: fill(POOL.enemies, newEnemy), shots: fill(POOL.shots, newShot), bolts: fill(POOL.bolts, newBolt),
     aims: fill(POOL.aims, newAim), zones: fill(POOL.zones, newZone), barriers: fill(POOL.barriers, newBarrier),
     pickups: fill(POOL.pickups, newPickup), rigs: fill(POOL.rigs, newRig),
@@ -107,6 +107,17 @@ export function cue(w: World, id: CueId, alt?: CueId): void {
   emit(w, 'cue', 0, 0, id, 0, alt ?? '')
 }
 
+/**
+ * A story cue of the last fight: ask for it and book its time on the air. The engine cannot hear
+ * the radio (what a visitor has heard must not change the run), so it keeps its own count of how
+ * long the lines asked for will take: friends wait for a clear channel before they make their
+ * pass, and the boss is slower to hurt while the talk is behind (combat.ts).
+ */
+export function airCue(w: World, id: CueId): void {
+  cue(w, id)
+  w.air = Math.max(w.air, w.tick) + (TALK.air[id] ?? TALK.airOther) * TPS
+}
+
 export function freeSlot<T extends { active: boolean }>(pool: T[]): T | null {
   for (let i = 0; i < pool.length; i++) if (!pool[i]!.active) return pool[i]!
   return null
@@ -125,7 +136,7 @@ export function spawnEnemy(w: World, role: Role, gang: Faction, x: number, y: nu
   e.active = true; e.id = w.nextId++; e.role = role; e.gang = gang; e.kind = enemyKind(gang, role)
   e.x = e.px = x; e.y = e.py = y; e.hp = e.maxHp = r.hp; e.hw = r.hw; e.hh = r.hh; e.score = r.score
   e.state = 'wait'; e.t = 0; e.dur = 0; e.col = e.row = -1; e.vx = e.vy = 0; e.fireT = 0; e.flash = 99
-  e.frozen = 0; e.carrying = false; e.bonus = false; e.wraps = 0; e.mode = 0; e.ox = e.oy = 0
+  e.frozen = 0; e.carrying = false; e.shield = false; e.bonus = false; e.wraps = 0; e.mode = 0; e.ox = e.oy = 0
   return e
 }
 
@@ -204,9 +215,12 @@ export function clearDanger(w: World, points: number): number {
   return n
 }
 
-/** The player's ship may be anywhere in this box. */
+/** The player's ship may be anywhere in this box. A boss that stands in the field keeps the ship below its feet. */
 export function playerTop(w: World): number {
-  return Math.round(w.h * PLAYER.topShare)
+  const top = Math.round(w.h * PLAYER.topShare)
+  const b = w.boss
+  if (!b.active || b.hw * 2 >= w.w || b.round) return top
+  return Math.max(top, Math.round(b.homeY + b.hh + BOSS_CLEAR))
 }
 export function clampPlayer(w: World): void {
   const p = w.player

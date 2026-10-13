@@ -19,7 +19,7 @@ import type { World } from '../engine/types'
 import type { Monitor } from '../story/director'
 import { createConsoleState, drawConsole, lampStack, resetConsole, stepConsole } from './console'
 import type { ConsoleState } from './console'
-import { drawBackdrop, drawField, tearField } from './field'
+import { drawBackdrop, drawEnding, drawField, tearField } from './field'
 import { createFx, resetFx, stepFx, takeEvents } from './fx'
 import type { Fx } from './fx'
 import { computeLayout } from './layout'
@@ -42,13 +42,18 @@ export interface DrawView {
   reduced: boolean
   /** No run under way: the monitor shows the test card. */
   idle: boolean
+  /** The lab's switch: the engine's boxes over the picture. */
+  boxes?: boolean
 }
 
 export interface Renderer {
   readonly layout: Layout
+  /** Device pixels per CSS pixel of the canvas's backing store. */
+  readonly ratio: number
   readonly sprites: SpriteStore
   readonly fx: Fx
-  resize(cssW: number, cssH: number, dpr: number, chrome: Chrome): Layout
+  /** `fieldH`: a run is under way and its field keeps this height (0: the screen decides). */
+  resize(cssW: number, cssH: number, dpr: number, chrome: Chrome, fieldH?: number): Layout
   /** A new run: forget the last one's effects and counter. */
   reset(world: World): void
   /** After each `step(world)`: read its events, advance what outlasts a tick. */
@@ -86,7 +91,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     sprites.want(def.event.type === 'rescue' ? `stranded-${def.event.id}` : `rig-${def.event.id}`)
   }
 
-  function resize(cssW: number, cssH: number, ratio: number, chrome: Chrome): Layout {
+  function resize(cssW: number, cssH: number, ratio: number, chrome: Chrome, fieldH = 0): Layout {
     dpr = ratio
     const w = Math.max(1, Math.round(cssW * dpr))
     const h = Math.max(1, Math.round(cssH * dpr))
@@ -97,7 +102,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       safeBottom: Math.round(chrome.safeBottom * dpr),
       widgetLeft: Math.round(chrome.widgetLeft * dpr),
       widgetBottom: Math.round(chrome.widgetBottom * dpr),
-    })
+    }, fieldH)
     buf.width = layout.lw
     buf.height = layout.lh
     return layout
@@ -129,7 +134,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   function draw(w: World, m: Monitor, view: DrawView): void {
     const L = layout
     const f = L.field
-    // The run keeps the height it began with; a window resized mid-run shows what fits of it.
+    // The run keeps the height it began with; the frame was laid out for it (resize).
     const fh = w.h
     const under = Math.max(0, L.lh - f.y - fh)
     g.imageSmoothingEnabled = false
@@ -144,15 +149,23 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       sx = (k % (amp * 2 + 1)) - amp
       sy = ((k >>> 8) % (amp * 2 + 1)) - amp
     }
-    const fv = { h: fh, under, reduced: view.reduced, bank, partnerBank }
+    // The far moon of sector 5 is the Deaf Star: when the thing itself arrives, the far one goes, and stays gone.
+    const b = w.boss
+    const star = w.sector === 5 && b.active && b.id === 'deafstar'
+    const hideBg = star || (w.sector === 5 && (w.stage === 'clear' || w.stage === 'ending')) ? 'bg-5-a' : undefined
+    const hideShare = star && b.state === 'enter' ? Math.max(0, Math.min(1, (b.y + b.hh + 10) / (b.homeY + b.hh + 10))) : 1
+    const fv = { h: fh, under, reduced: view.reduced, bank, partnerBank, hideBg, hideShare, boxes: view.boxes }
     g.save()
     g.beginPath()
     g.rect(f.x, f.y, f.w, fh + under)
     g.clip()
     g.translate(f.x, f.y)
     drawBackdrop(g, sprites, w.sector, w.tick, fv)
-    g.translate(sx, sy)
-    drawField(g, sprites, w, fx, fv)
+    if (w.stage === 'ending') drawEnding(g, sprites, w, fx, fh)
+    else {
+      g.translate(sx, sy)
+      drawField(g, sprites, w, fx, fv)
+    }
     g.restore()
     if (w.slow > 0 && !view.reduced) {
       g.save()
@@ -176,6 +189,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
 
   return {
     get layout() { return layout },
+    get ratio() { return dpr },
     sprites, fx, resize, reset, tick, draw, toField,
   }
 }

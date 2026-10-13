@@ -111,3 +111,17 @@ test('a voyage on the radio: every cue asked for exists, and the monitor always 
   assert.ok(said.size >= 40, `${said.size} different cues heard`)
   for (const who of ['rex', 'nova', 'mei', 'babs', 'knight', 'humdinger', 'durant', 'cal', 'fader']) assert.ok(speakers.has(who), `${who} was on the air`)
 })
+
+test('the last fight: every story exchange fits the time the engine books for it on the air', async () => {
+  const { TALK } = await import('../themes/galaga/engine/balance.ts')
+  const { exchangeTicks } = await import('../themes/galaga/story/director.ts')
+  const { LINES } = await import('../themes/galaga/story/lines.ts')
+  for (const [id, seconds] of Object.entries(TALK.air)) {
+    assert.ok(LINES[id], `${id} has lines`)
+    for (const variant of LINES[id]) {
+      const took = exchangeTicks(variant) / 60
+      assert.ok(took <= seconds, `${id} takes ${took.toFixed(1)} s, booked ${seconds}`)
+      assert.ok(took >= seconds - 3, `${id} is booked ${seconds} s for ${took.toFixed(1)}`)
+    }
+  }
+})

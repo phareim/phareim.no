@@ -4,7 +4,7 @@
  * are field pixels, times are ticks (60 a second) unless a name says seconds.
  * DESIGN.md says what each rule is for.
  */
-import type { BossId, ConvoyId, Faction, PickupId, RescueId } from '../story/cues.ts'
+import type { BossId, ConvoyId, CueId, Faction, PickupId, RescueId } from '../story/cues.ts'
 import type { BossKind, Role, WeaponId } from './types.ts'
 
 export const TPS = 60
@@ -47,13 +47,16 @@ export const PARTNER = {
   limpTicks: 600,
   dockTicks: 720,
   dockOffset: 24,
+  /** It steps aside from what will reach its row within this many ticks, this far. */
+  dodgeTicks: 40,
+  dodge: 24,
 } as const
 
 export const DUET = {
   ticks: 360,
   /** Needle gained per kill, per hit point of the thing popped, and per boss hit. */
-  perKillHp: 0.014,
-  perBossHit: 0.0012,
+  perKillHp: 0.0085,
+  perBossHit: 0.0008,
   /** Both ships fire at this level, this much faster. */
   level: 5,
   fireMul: 0.5,
@@ -93,40 +96,45 @@ export const BOOMBOX_LEVELS: readonly { n: number; dmg: number; reach: number; w
 export function difficulty(sector: number, voyage: number): number {
   return Math.min(9, Math.max(0, sector - 1) + Math.max(0, voyage - 1) * 2.5)
 }
-export const diveEvery = (d: number): number => Math.max(40, Math.round(170 - 30 * d))
-export const maxDivers = (d: number): number => Math.min(7, 2 + Math.floor(d))
-export const pairChance = (d: number): number => Math.min(0.6, 0.08 + 0.1 * d)
-export const fireEvery = (d: number): number => Math.max(32, Math.round(130 - 25 * d))
-export const boltCap = (d: number): number => Math.min(14, 3 + Math.floor(2 * d))
+export const diveEvery = (d: number): number => Math.max(34, Math.round(170 - 36 * d))
+export const maxDivers = (d: number): number => Math.min(8, 2 + Math.floor(1.5 * d))
+export const pairChance = (d: number): number => Math.min(0.7, 0.08 + 0.13 * d)
+export const fireEvery = (d: number): number => Math.max(26, Math.round(130 - 28 * d))
+export const boltCap = (d: number): number => Math.min(16, 3 + Math.floor(2.5 * d))
 export const boltSpeed = (d: number): number => Math.min(3, 1.15 + 0.3 * d)
-export const diveTicks = (d: number): number => Math.max(95, Math.round(200 - 22 * d))
-export const enterTicks = (d: number): number => Math.max(80, Math.round(120 - 8 * d))
-export const diverSpeed = (d: number): number => Math.min(4.2, 2.3 + 0.3 * d)
+export const diveTicks = (d: number): number => Math.max(90, Math.round(200 - 26 * d))
+export const enterTicks = (d: number): number => Math.max(70, Math.round(120 - 12 * d))
+export const diverSpeed = (d: number): number => Math.min(4.4, 2.3 + 0.4 * d)
 export const tankHp = (d: number): number => Math.min(5, 3 + Math.floor((d + 1) / 2))
-/** From sector 3 the small ones take a second hit. */
-export const veteranHp = (d: number): number => (d >= 2 ? 1 : 0)
+/** From sector 3 the small ones take a second hit, from sector 4 a third. */
+export const veteranHp = (d: number): number => (d >= 3 ? 2 : d >= 2 ? 1 : 0)
 /** The chance that one flying in lets a shot go on the way (never in sector 1). */
-export const enterFire = (d: number): number => Math.min(0.5, 0.1 * d)
+export const enterFire = (d: number): number => Math.min(0.6, 0.15 * d)
 /** Dives begin once this many have formed up; in sector 1 the whole wave is let in first. */
-export const diveAfter = (d: number): number => (d < 1 ? 99 : 4)
+export const diveAfter = (d: number): number => (d < 1 ? 99 : d < 2 ? 4 : 2)
 export const SNIPER = { warn: 30, speed: 3.4, every: 200, max: 2 } as const
 export const DIVER_WARN = 30
 export const TANK = { every: 190, fan: 0.32 } as const
 
 // ── Roles and gangs ──────────────────────────────────────────────────────
 export const ROLES: Record<Role, { hp: number; score: number; hw: number; hh: number; drop: number }> = {
-  grunt: { hp: 1, score: 100, hw: 9, hh: 9, drop: 0.09 },
-  flanker: { hp: 1, score: 120, hw: 9, hh: 9, drop: 0.09 },
-  tank: { hp: 3, score: 300, hw: 13, hh: 13, drop: 0.4 },
-  diver: { hp: 1, score: 150, hw: 9, hh: 9, drop: 0.1 },
-  sniper: { hp: 1, score: 160, hw: 9, hh: 9, drop: 0.12 },
+  grunt: { hp: 1, score: 100, hw: 9, hh: 9, drop: 0.03 },
+  flanker: { hp: 1, score: 120, hw: 9, hh: 9, drop: 0.03 },
+  tank: { hp: 3, score: 300, hw: 13, hh: 13, drop: 0.15 },
+  diver: { hp: 1, score: 150, hw: 9, hh: 9, drop: 0.03 },
+  sniper: { hp: 1, score: 160, hw: 9, hh: 9, drop: 0.04 },
   splitter: { hp: 2, score: 200, hw: 10, hh: 10, drop: 0 },
-  mite: { hp: 1, score: 50, hw: 6, hh: 6, drop: 0.08 },
-  captor: { hp: 4, score: 400, hw: 13, hh: 13, drop: 0.5 },
-  raider: { hp: 2, score: 150, hw: 9, hh: 9, drop: 0.12 },
+  mite: { hp: 1, score: 50, hw: 6, hh: 6, drop: 0.02 },
+  captor: { hp: 7, score: 400, hw: 13, hh: 13, drop: 0.25 },
+  raider: { hp: 2, score: 150, hw: 9, hh: 9, drop: 0.04 },
 }
-/** A captor popped on the dive with the partner under it. */
-export const CAPTOR = { freedScore: 1000, hoverUp: 112, beamHalf: 22, warn: 45, beam: 100, pull: 0.9, lift: 1.6 } as const
+/**
+ * The captor. It arrives with its shield up, sits `settle` ticks in its place and comes down
+ * (`dive` ticks) to hover `hoverUp` above the partner; there the shield drops and the beam warms
+ * for `warn` ticks (the cone's dotted edges), then is on for `beam`. The partner in the cone is
+ * lifted at `lift` a tick. Popped with the partner hanging under it on a dive: `freedScore`.
+ */
+export const CAPTOR = { freedScore: 1000, settle: 50, dive: 80, hoverUp: 104, beamHalf: 22, warn: 30, beam: 100, pull: 0.9, lift: 3.4 } as const
 
 export type DiveStyle = 'arc' | 'charge' | 'wobble' | 'rail'
 export interface Gang {
@@ -148,10 +156,10 @@ export interface Gang {
 }
 export const GANGS: Record<Faction, Gang> = {
   glitterati: { dive: 'arc', sway: 'smooth', swayAmp: 12, speed: 0.9, fire: 0.8, bolt: 0.95, tankHp: 0, diveShots: 1, pair: 0 },
-  hogs: { dive: 'charge', sway: 'smooth', swayAmp: 8, speed: 1.15, fire: 0.7, bolt: 1, tankHp: 1, diveShots: 0, pair: 0.1 },
-  lovemachines: { dive: 'wobble', sway: 'smooth', swayAmp: 10, speed: 0.95, fire: 1, bolt: 0.9, tankHp: 0, diveShots: 1, pair: 0 },
-  chromons: { dive: 'arc', sway: 'step', swayAmp: 12, speed: 1, fire: 1.25, bolt: 1.15, tankHp: 0, diveShots: 1, pair: 0.05 },
-  noise: { dive: 'rail', sway: 'smooth', swayAmp: 10, speed: 1.1, fire: 1.2, bolt: 1.1, tankHp: 0, diveShots: 2, pair: 0.2 },
+  hogs: { dive: 'charge', sway: 'smooth', swayAmp: 8, speed: 1.1, fire: 0.8, bolt: 1, tankHp: 1, diveShots: 0, pair: 0.1 },
+  lovemachines: { dive: 'wobble', sway: 'smooth', swayAmp: 10, speed: 1.15, fire: 1.4, bolt: 1, tankHp: 0, diveShots: 2, pair: 0.25 },
+  chromons: { dive: 'charge', sway: 'step', swayAmp: 12, speed: 1.2, fire: 1.7, bolt: 1.2, tankHp: 0, diveShots: 2, pair: 0.3 },
+  noise: { dive: 'rail', sway: 'smooth', swayAmp: 10, speed: 1.25, fire: 2, bolt: 1.3, tankHp: 0, diveShots: 3, pair: 0.35 },
 }
 
 export const FORMATION = { cols: 8, dx: 25, dy: 24, top: 40, swayRate: 0.02, breathe: 0.06, stepPx: 6 } as const
@@ -235,7 +243,7 @@ export const PICKUP = {
   maxFalling: 3,
   fall: 0.75,
   /** A wave never goes this many kills without a drop. */
-  pityKills: 11,
+  pityKills: 24,
   /** Hull at 1 and no pizza for this long: the next pop drops one. */
   pizzaPity: 20 * TPS,
   magnetTicks: 10 * TPS,
@@ -256,7 +264,7 @@ export const PICKUP = {
 } as const
 /** The chance of each drop, before the rules in pickups.ts take some out. */
 export const PICKUP_WEIGHT: Record<PickupId, number> = {
-  tube: 30, blaster: 6, disc: 7, boombox: 6, pizza: 10, bubble: 6, cb: 5, mirrorball: 4,
+  tube: 16, blaster: 6, disc: 7, boombox: 6, pizza: 10, bubble: 6, cb: 5, mirrorball: 4,
   tracking: 5, hairspray: 5, magnet: 4, quarter: 6,
 }
 
@@ -272,6 +280,9 @@ export const SCORE = {
   rescue: 3000,
   sector: 1000,
   valve: 200,
+  /** Any pick-up, and a tube taken at the top level. */
+  pick: 50,
+  spareTube: 450,
 } as const
 export const chainMul = (chain: number): number => Math.min(SCORE.chainMax, 1 + Math.floor(chain / SCORE.chainStep))
 
@@ -310,17 +321,31 @@ export const WING_GUNS: Record<RescueId, { every: number; dmg: number; pierce: n
   ridley: { every: 26, dmg: 7, pierce: 2, hw: 8, speed: 4.5, dxs: [0] },
   lena: { every: 8, dmg: 2, pierce: 0, hw: 2, speed: 7.5, dxs: [-5, 5] },
 }
-export const DUO = { speed: 2.2, minWave: 6, share: 0.5 } as const
+/** Hans Duo: he arrives when `minWave` have formed up, or when only `late` of the wave is still to fly in, and pops `share` of what is left. */
+export const DUO = { speed: 2.2, minWave: 6, late: 0.5, share: 0.5, reach: 5 } as const
 /** A friend's pass in the last fight: the share of the boss's hull it takes. */
 export const PASS = { dmgShare: 0.07, rigSpeed: 3.6, flySpeed: 2.6 } as const
 
 // ── Bosses ───────────────────────────────────────────────────────────────
+/**
+ * A boss is drawn with its bitmap centred on `(x, y)`; every offset here is from that centre and
+ * was measured in the bitmap (`public/galaga/boss-<id>.png`; the lab's `boxes` switch draws them
+ * over it). Sizes of the bitmaps: knight 56 x 113, humdinger 97 x 117, durant 104 x 106,
+ * cal 120 x 77, fader 140 x 95, deafstar 193 x 96.
+ */
 export interface BossDef {
   hp: number
+  /** Half the body: what stops a shot (and what a rig rams). */
   hw: number
   hh: number
   /** The part that takes damage: offset from the centre, half its size. */
   weak: readonly [number, number, number, number]
+  /** Where its shots leave from: the mirror ball, the pipes, the chest, the woofer. */
+  muzzle: readonly [number, number]
+  /** The body is half a disc hanging from its flat top edge, not a box. */
+  round?: boolean
+  /** Rows between the top of the field and the top of the body. */
+  top: number
   /** Hull shares at which phase 2 and phase 3 begin. */
   phases: readonly [number, number]
   /** Ticks between attacks, phase 1 and the last phase. */
@@ -329,13 +354,25 @@ export interface BossDef {
   attacks: readonly (readonly string[])[]
 }
 export const BOSSES: Record<BossKind, BossDef> = {
-  knight: { hp: 600, hw: 34, hh: 30, weak: [0, 0, 34, 30], phases: [0.5, 0], rest: [150, 100], attacks: [['ray', 'floor', 'glint'], ['rays', 'floor2', 'ray', 'glint']] },
-  humdinger: { hp: 800, hw: 36, hh: 34, weak: [0, 0, 36, 34], phases: [0.5, 0], rest: [140, 95], attacks: [['mines', 'ram', 'hogs'], ['ram2', 'mines', 'hogs', 'ram']] },
-  durant: { hp: 900, hw: 52, hh: 26, weak: [0, 0, 52, 26], phases: [0.66, 0.33], rest: [120, 60], attacks: [['scale', 'chord'], ['trill', 'chord', 'scale'], ['chord', 'trill', 'notes', 'scale']] },
-  cal: { hp: 260, hw: 112, hh: 22, weak: [0, 14, 10, 10], phases: [0.5, 0], rest: [150, 110], attacks: [['eye', 'pods', 'eye'], ['eyes', 'pods', 'eyes']] },
-  fader: { hp: 700, hw: 30, hh: 30, weak: [0, 0, 30, 30], phases: [0.5, 0], rest: [150, 110], attacks: [['sliders', 'choke'], ['sliders', 'treble', 'choke']] },
-  deafstar: { hp: 300, hw: 120, hh: 44, weak: [0, 40, 9, 9], phases: [0.66, 0.33], rest: [170, 120], attacks: [['rings', 'note'], ['rings', 'static', 'note'], ['squeeze', 'rings', 'note', 'static']] },
+  // A standing figure, tall and narrow, under his mirror ball (13 px round, over his head).
+  knight: { hp: 600, hw: 24, hh: 55, weak: [0, 0, 24, 55], muzzle: [-1, -37], top: 9, phases: [0.5, 0], rest: [150, 100], attacks: [['ray', 'floor', 'glint'], ['rays', 'floor2', 'ray', 'glint']] },
+  // The war rig from above, nose down: the trailer is its top 40 rows, the mask its last 30.
+  humdinger: { hp: 800, hw: 44, hh: 56, weak: [0, 0, 44, 56], muzzle: [0, -38], top: 9, phases: [0.5, 0], rest: [170, 130], attacks: [['mines', 'hogs', 'ram'], ['mines', 'ram2', 'hogs']] },
+  // The organ: pipes over the console; their mouths are about a third of the way down.
+  durant: { hp: 900, hw: 50, hh: 51, weak: [0, 0, 50, 51], muzzle: [0, -12], top: 9, phases: [0.66, 0.33], rest: [120, 60], attacks: [['scale', 'chord'], ['trill', 'chord', 'scale'], ['chord', 'trill', 'notes', 'scale']] },
+  // A wall across the field; the bitmap is the unit with the lens, which slides along it.
+  cal: { hp: 260, hw: 120, hh: 38, weak: [1, -1, 10, 10], muzzle: [1, -1], top: 9, phases: [0.5, 0], rest: [150, 110], attacks: [['eye', 'pods', 'eye'], ['eyes', 'pods', 'eyes']] },
+  // Head and shoulders: the body is the helmet and the chest, the cape's hem is not.
+  fader: { hp: 700, hw: 46, hh: 46, weak: [0, 0, 46, 46], muzzle: [0, 28], top: 9, phases: [0.5, 0], rest: [150, 110], attacks: [['sliders', 'choke'], ['sliders', 'treble', 'choke']] },
+  // Half a moon, flat along the top of the field. The tweeter is the red dome right of the middle, the woofer left of it.
+  deafstar: { hp: 300, hw: 96, hh: 48, weak: [40, -11, 7, 7], muzzle: [-18, -10], round: true, top: 0, phases: [0.66, 0.33], rest: [170, 120], attacks: [['rings', 'note'], ['rings', 'static', 'note'], ['squeeze', 'rings', 'note', 'static']] },
 }
+/** How far CAL's lens slides either side of the middle: the unit (120 wide) stays in the field. */
+export const CAL_SLIDE = 60
+/** Dark Fader follows the ship, but his shoulders (140 wide) stay in the field. */
+export const FADER_MARGIN = 70
+/** The ship keeps this far below a boss's body. */
+export const BOSS_CLEAR = 24
 /** VOYAGE II and on: more hull. */
 export const bossHp = (id: BossKind, voyage: number): number => Math.round(BOSSES[id].hp * (1 + 0.35 * Math.max(0, voyage - 1)))
 /**
@@ -350,11 +387,11 @@ export const ATTACK = {
   rays: { w: 26, warn: 60, live: 90, gap: 34, shift: 40 },
   floor: { cols: 4, rows: 3, warn: 60, live: 30 },
   glint: { n: 5, fan: 0.9, speed: 1.3 },
-  ram: { w: 68, warn: 65, live: 55, speed: 6 },
+  ram: { w: 92, warn: 80, live: 55, speed: 6 },
   mines: { n: 5, fall: 0.85, sit: 240, r: 5 },
   hogs: { n: 3 },
   keys: { cols: 8, warn: 45, live: 12, stagger: 16, safe: 2, chordWarn: 60, chordLive: 22, trillGap: 34 },
-  notes: { n: 4, speed: 1.1 },
+  notes: { n: 4, speed: 1.1, spread: 0.28 },
   /** The Excess Machine cools when left alone: hull back per tick after `after` ticks, never past the phase. */
   cool: { after: 120, per: 0.12 },
   doors: { gap: 48, gap2: 38, shutTicks: 70, open: 200, shut: 420, drift: 0.35, below: 60 },
@@ -362,7 +399,7 @@ export const ATTACK = {
   pods: { n: 2 },
   sliders: { n: 3, between: 85, gap: 56, gap2: 46, speed: 1.25, speed2: 1.6, h: 10, shift: 100, warn: 30 },
   choke: { warn: 45, speed: 3.4, burst: 3 },
-  treble: { n: 12, speed: 1.2 },
+  treble: { n: 12, speed: 1.2, dy: -17 },
   rings: { n: 28, gap: 5, speed: 1.3, between: 55 },
   note: { w: 72, w3: 96, warn: 80, live: 50 },
   static: { n: 3 },
@@ -370,6 +407,22 @@ export const ATTACK = {
 } as const
 
 /** The radio's between-times, in ticks. */
-export const TALK = { idle: 600, chat: 480, taunt: 620, hanging: 420 } as const
+export const TALK = {
+  idle: 600, chat: 480, taunt: 620, hanging: 420,
+  /**
+   * The last fight is two bosses and up to five friends, and every one of them has something to
+   * say: about 95 s of talk. Seconds each story exchange takes on the air, the longest variant
+   * rounded up (`tests/galaga-script.test.mjs` holds the lines to these).
+   */
+  air: {
+    'boss.fader.enter': 14.5, 'boss.fader.half': 15, 'boss.fader.dead': 8, 'boss.deafstar.enter': 18.5, 'boss.deafstar.dead': 15,
+    'cavalry.marge': 6, 'cavalry.duckie': 7, 'cavalry.babs': 5, 'cavalry.ridley': 4.5, 'cavalry.lena': 4.5, 'cavalry.none': 7,
+  } as Partial<Record<CueId, number>>,
+  airOther: 8,
+  /** Gunfire on the last bosses counts in full while the talk is at most this far behind, and for `airFloor` of itself from `airSlow` on. */
+  airGrace: 4 * TPS,
+  airSlow: 16 * TPS,
+  airFloor: 0.15,
+} as const
 
 export const enemyKind = (gang: Faction, role: Role): string => `enemy-${gang}-${role}`

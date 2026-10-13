@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { createWorld, step, makeInput } from '../themes/galaga/engine/index.ts'
 import { jumpTo, arm, run } from '../themes/galaga/engine/debug.ts'
 import { createAutopilot, autopilot } from '../themes/galaga/engine/autopilot.ts'
-import { ATTACK, ATTACK as A, BOSSES, BOSS_SOAK, PLAYER, bossHp } from '../themes/galaga/engine/balance.ts'
+import { ATTACK, ATTACK as A, BOSSES, BOSS_SOAK, PLAYER, SCORE, bossHp } from '../themes/galaga/engine/balance.ts'
 import { ATTACK_NAMES } from '../themes/galaga/engine/attacks.ts'
 import { hurtBoss } from '../themes/galaga/engine/combat.ts'
 import { doorBlocks } from '../themes/galaga/engine/shots.ts'
@@ -79,10 +79,11 @@ for (const id of IDS) {
     assert.ok(t < 15000 && t > 600, `a fight, not a volley: ${t} ticks`)
     assert.equal(w.stats.bossesDown, 1)
     assert.ok(cues.includes(`boss.${id}.enter`) && cues.includes(`boss.${id}.dead`))
-    if (id !== 'deafstar') assert.ok(cues.includes(`boss.${id}.half`) && cues.includes(`boss.${id}.taunt`))
+    assert.ok(cues.includes(`boss.${id}.taunt`))
+    if (id !== 'deafstar') assert.ok(cues.includes(`boss.${id}.half`))
     assert.deepEqual(phases, BOSSES[id].phases[1] > 0 ? [2, 3] : [2])
     for (const name of new Set(BOSSES[id].attacks.flat())) assert.ok(attacks.has(name), `${id} used ${name}`)
-    assert.ok(w.score >= 5000 * SECTOR[id])
+    assert.ok(w.score >= SCORE.boss * SECTOR[id])
   })
 }
 
@@ -191,7 +192,7 @@ test('the Deaf Star: the tweeter is a small target in a wall that stops everythi
   const w = alone(fight('deafstar'))
   run(w, 200, idle)
   const b = w.boss
-  assert.ok(b.whw * 2 <= 20 && b.hw >= 100)
+  assert.ok(b.whw * 2 <= 20 && b.hw >= 90)
   w.player.x = 40
   const ev = []
   for (let i = 0; i < 90; i++) { step(w, { ...idle, fire: true }); for (const e of w.events) ev.push({ ...e }) }

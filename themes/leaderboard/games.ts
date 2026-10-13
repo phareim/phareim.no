@@ -16,7 +16,7 @@ export interface GameEntry {
 }
 
 export const GAMES: readonly GameEntry[] = [
-  { id: 'galaga', title: 'Space Voyagers I', tagline: 'Rex & Nova · five sectors · one large pepperoni', maxScore: 5_000_000 },
+  { id: 'galaga', title: 'Space Voyagers I', tagline: 'Rex & Nova · one large pepperoni', maxScore: 5_000_000 },
   { id: 'breakout', title: 'Breakout', tagline: 'Paddle · ball · pink bricks', maxScore: 500_000 },
   { id: 'rtype', title: 'R-Type', tagline: 'Side-scroller · charge beam', maxScore: 1_000_000 },
   { id: 'invaders', title: 'Space Invaders', tagline: '5 × 11 formation · one shot', maxScore: 500_000 },

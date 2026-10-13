@@ -70,6 +70,8 @@ export function stepPlayer(w: World, input: Input): void {
   p.y += my
   clampPlayer(w)
 
+  // The ending card has the field: the guns are quiet under it.
+  if (w.stage === 'ending') return
   if (input.duet) startDuet(w)
 
   if (input.fire && p.fireT <= 0) {
@@ -116,6 +118,42 @@ function leanTo(w: World, x: number, range: number): number {
   return best
 }
 
+/**
+ * Which way the partner should step to get out of the way of what is plainly coming at it: a
+ * shot that will cross its row within `PARTNER.dodgeTicks` close to where it is, or a body on
+ * its way down just above it. -1 left, 1 right, 0 nothing to dodge.
+ */
+function dodge(w: World, x: number, y: number): number {
+  let push = 0
+  let nearest = 1e9
+  for (let i = 0; i < w.bolts.length; i++) {
+    const b = w.bolts[i]!
+    if (!b.active || b.frozen > 0 || b.vy <= 0) continue
+    const t = (y - b.y) / b.vy
+    if (t < 0 || t > PARTNER.dodgeTicks) continue
+    const off = b.x + b.vx * t - x
+    if (Math.abs(off) > PARTNER.hitR + b.r + 4 || t >= nearest) continue
+    nearest = t
+    push = off > 0 ? -1 : off < 0 ? 1 : x < w.w / 2 ? 1 : -1
+  }
+  for (let i = 0; i < w.enemies.length; i++) {
+    const e = w.enemies[i]!
+    if (!e.active || e.bonus || e.frozen > 0 || e.state === 'form' || e.state === 'wait' || e.role === 'captor') continue
+    const vy = e.y - e.py
+    if (vy <= 0.3) continue
+    const t = (y - e.y) / vy
+    if (t < 0 || t > PARTNER.dodgeTicks) continue
+    const off = e.x + (e.x - e.px) * t - x
+    if (Math.abs(off) > PARTNER.hitR + e.hw + 4 || t >= nearest) continue
+    nearest = t
+    push = off > 0 ? -1 : off < 0 ? 1 : x < w.w / 2 ? 1 : -1
+  }
+  // Not into the wall: if there is no room that way, the other.
+  if (push < 0 && x < PLAYER.marginX + 8) push = 1
+  else if (push > 0 && x > w.w - PLAYER.marginX - 8) push = -1
+  return push
+}
+
 export function stepPartner(w: World): void {
   const q = w.partner
   const p = w.player
@@ -136,6 +174,9 @@ export function stepPartner(w: World): void {
         ty = p.y - 22
       } else {
         tx += Math.max(-20, Math.min(20, leanTo(w, tx, 40)))
+        // It steps out of the way of what is plainly coming at it; that comes before a target.
+        const away = dodge(w, q.x, q.y)
+        if (away !== 0) tx = q.x + away * PARTNER.dodge
       }
       tx = Math.max(PLAYER.marginX, Math.min(w.w - PLAYER.marginX, tx))
       q.x = approach(q.x, tx, PARTNER.speed)

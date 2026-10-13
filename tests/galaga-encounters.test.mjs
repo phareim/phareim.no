@@ -248,12 +248,13 @@ test('Hans Duo turns up in sectors 2 and 4, clears about half a wave for no poin
     w.partner.state = 'limp'
     w.partner.t = -1e6
     let before = 0
-    const ev = collect(w, 2500, x => { if (!x.duo.active && !x.duoDone) before = x.inForm; return autopilot(ap, x) }, x => x.duoDone && !x.duo.active)
+    const ev = collect(w, 2500, x => { if (!x.duo.active && !x.duoDone) before = x.waveLeft; return autopilot(ap, x) }, x => x.duoDone && !x.duo.active)
     assert.ok(has(ev, 'duoIn') && has(ev, 'duoOut'))
     assert.equal(w.duo.kind, 'duo')
     assert.ok(cues(ev).includes(`duo.arrive.${sector}`) && cues(ev).includes(`duo.leave.${sector}`))
     const popped = ev.filter(e => e.type === 'pop')
-    assert.ok(popped.length >= 2 && popped.length <= Math.ceil(before / 2), `popped ${popped.length} of ${before}`)
+    // Half of the wave he arrives in (formed up and still flying in), give or take two.
+    assert.ok(popped.length >= Math.floor(before / 2) - 2 && popped.length <= Math.ceil(before / 2), `popped ${popped.length} of ${before}`)
     assert.ok(popped.every(e => e.n === 0), 'he takes the credit')
     assert.equal(w.score, 0)
   }

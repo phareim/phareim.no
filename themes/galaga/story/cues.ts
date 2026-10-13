@@ -165,6 +165,8 @@ export const CUES = {
   /** During the fight, now and then. */
   'boss.knight.taunt': banter(16), 'boss.humdinger.taunt': banter(16), 'boss.durant.taunt': banter(16),
   'boss.cal.taunt': banter(16), 'boss.fader.taunt': banter(16),
+  /** The Deaf Star only plays notes: Mei and the two pilots talk over it. */
+  'boss.deafstar.taunt': banter(16),
 
   // The last fight: a friend's pass.
   'cavalry.marge': story('sector'), 'cavalry.duckie': story('sector'), 'cavalry.babs': story('sector'),

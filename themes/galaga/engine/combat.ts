@@ -3,10 +3,10 @@
  * boss, on the player (bubble, valves, tows, GAME OVER) and on the partner
  * (three and it limps off); the score, the kill chain and the DUET needle.
  */
-import { BONUS, BOSS_SOAK, CAPTOR, DUET, PARTNER, PLAYER, SCORE, chainMul } from './balance.ts'
+import { BONUS, BOSS_SOAK, CAPTOR, DUET, PARTNER, PLAYER, SCORE, TALK, chainMul } from './balance.ts'
 import { HIT_CUE, PARTNER_CUE } from './cuemap.ts'
 import { maybeDrop } from './pickups.ts'
-import type { Enemy, World } from './types.ts'
+import type { Boss, Enemy, World } from './types.ts'
 import { clearDanger, cue, emit, spawnEnemy } from './world.ts'
 
 /** Add points with the chain and the quarter applied; returns what was added. */
@@ -96,6 +96,11 @@ export function popEnemy(w: World, e: Enemy, credit: boolean): void {
 /** Returns true when it popped. */
 export function hurtEnemy(w: World, e: Enemy, dmg: number, credit: boolean): boolean {
   if (!e.active) return false
+  // A captor on its way to the partner has its shield up (enemies.ts): the shot glances off.
+  if (e.shield) {
+    emit(w, 'hit', e.x, e.y, 'armor')
+    return false
+  }
   e.hp -= dmg
   if (e.hp <= 0) {
     popEnemy(w, e, credit)
@@ -104,6 +109,23 @@ export function hurtEnemy(w: World, e: Enemy, dmg: number, credit: boolean): boo
   e.flash = 0
   emit(w, 'hit', e.x, e.y, 'enemy')
   return false
+}
+
+/** Is (x, y), grown by a shot's half sizes, inside the boss's body? */
+export function inBody(b: Boss, x: number, y: number, hw: number, hh: number): boolean {
+  if (Math.abs(x - b.x) >= hw + b.hw || Math.abs(y - b.y) >= hh + b.hh) return false
+  if (!b.round) return true
+  // Half an ellipse, flat side up: as wide as the body at its top edge, a point at its bottom.
+  const u = (Math.abs(x - b.x) - hw) / b.hw
+  const v = (y - hh - (b.y - b.hh)) / (b.hh * 2)
+  return u <= 0 ? v < 1 : v <= 0 ? u < 1 : u * u + v * v < 1
+}
+
+/** The y of the body's lower edge at column x (the bottom of its box; for a round body, of the half disc). */
+export function bodyBottom(b: Boss, x: number): number {
+  if (!b.round) return b.y + b.hh
+  const u = Math.min(1, Math.abs(x - b.x) / b.hw)
+  return b.y - b.hh + b.hh * 2 * Math.sqrt(1 - u * u)
 }
 
 /**
@@ -117,7 +139,14 @@ export function hurtBoss(w: World, dmg: number, raw = false): boolean {
     const full = Math.min(dmg, b.soak)
     b.soak -= full
     dmg = full + (dmg - full) * BOSS_SOAK.over
+    if (w.sector === 5) {
+      // The last fight is as long as its talk: gunfire counts for less while the radio is behind.
+      const behind = w.air - w.tick
+      if (behind > TALK.airGrace) dmg *= Math.max(TALK.airFloor, 1 - (behind - TALK.airGrace) / (TALK.airSlow - TALK.airGrace))
+    }
   }
+  // The Deaf Star does not go down while a friend is still owed a pass: the last of them finishes it.
+  if (b.id === 'deafstar' && w.sector === 5 && w.passDue > 0 && w.passQueue.length > 0) dmg = Math.min(dmg, Math.max(0, b.hp - 1))
   b.hp = Math.max(0, b.hp - dmg)
   b.flash = 0
   b.sinceHit = 0

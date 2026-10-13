@@ -40,7 +40,7 @@ const monitor = listen(radio, world.events, world.tick)
 | `stage`, `stageT`, `sector` (1..5), `wave` (1..4), `voyage`, `gang` | Where the run is. Stages: `card`, `wave`, `bonus`, `boss`, `clear`, `ending`, `over` (`idle` is the lab's) |
 | `player` | `x, y, hull` (0..5), `invuln` (blink ticks), `weapon`, `level`, `bubble` (hits left), `magnet`, `quarter` (ticks left), `tows` (left), `towing` (ticks of tow under way) |
 | `partner` | `state`: `fly`, `limp`, `beamed` (being lifted), `hanging`, `docking`, `docked`; `dock` ticks left; `hits` |
-| `enemies[]` | `kind` (`enemy-<gang>-<role>`), `x, y`, `px, py` (last tick), `hp/maxHp`, `state`, `flash` (ticks since hit), `frozen` (>0 in the hairspray), `carrying` (a captor with the partner), `bonus` |
+| `enemies[]` | `kind` (`enemy-<gang>-<role>`), `x, y`, `px, py` (last tick), `hp/maxHp`, `state`, `flash` (ticks since hit), `frozen` (>0 in the hairspray), `carrying` (a captor with the partner), `shield` (a captor on its way to the partner: nothing hurts it until its beam warms), `bonus` |
 | `shots[]` | Ours: `kind` `bolt`, `disc`, `bass` (half-width `hw` grows), `wing`; `owner` 0 player, 1 partner, 2 friend |
 | `bolts[]` | Theirs: `kind` `bolt`, `aimed`, `mine`, `note`, `ring`; `r`; `frozen` |
 | `aims[]` | A line shown before something goes along it: from `(x, y)` through `(tx, ty)`, `warn` ticks left; `kind` `sniper`, `diver`, `boss` |
@@ -50,8 +50,9 @@ const monitor = listen(radio, world.events, world.tick)
 | `rigs[]` | `kind` (`rig-marge`, `rig-duckie`, `rig-barton`), `job` `convoy`, `cb`, `pass`; centre and half sizes; `unhooked` |
 | `convoy` | `active`, `id`, `cargo` 1..0 (the bar) |
 | `wing` | The stranded ship, then the third ship: `state` `off`, `drift`, `stalled`, `flying`; `kind` `stranded-<id>`; `bar` 0..1 (the cables; draw them when `bar > 0` and she is `stalled`) |
-| `boss` | `kind` (`boss-<id>`), `x, y`, body `hw, hh`, weak spot at `(x + wx, y + wy)` half `whw, whh`, `hp/maxHp`, `phase`, `state` `enter`, `fight`, `ram`, `dying`, `attack` (name), `flash` |
-| `duo`, `pass` | Hans Duo (`kind` `duo`) crossing; a rescued friend's strafing run (`kind` `stranded-<id>`) |
+| `boss` | `kind` (`boss-<id>`), `x, y` (the bitmap's centre), body `hw, hh` (`round`: half a disc hanging from its top edge), weak spot at `(x + wx, y + wy)` half `whw, whh`, shots leave from `(x + mx, y + my)`, `hp/maxHp`, `phase`, `state` `enter`, `fight`, `ram`, `dying`, `attack` (name), `flash`. All of it measured in the bitmaps: `BOSSES` in `balance.ts` |
+| `duo`, `pass` | Hans Duo (`kind` `duo`) crossing; a rescued friend's strafing run (`kind` `stranded-<id>`; `wing`: she left the formation for it, so `wing.state` is `off` meanwhile) |
+| `air` | The last fight: the tick by which the radio will have said the story lines asked for so far (`TALK.air`). Friends wait for it; gunfire on the boss counts for less while it is far ahead |
 | `cloud` | The hairspray: `x, y, r`, `t` ticks left |
 | `duetMeter` 0..1, `duet` (ticks left), `slow` (TRACKING ticks left), `score`, `chain`, `chainMul`, `friends[]` | The console |
 | `formation` | `off`, `dx`, `dy`, `top`: where the slots are (`waves.ts`, `slotX/slotY`) |
@@ -116,7 +117,9 @@ its own, so what a visitor has already heard never changes the simulation.
   (bright sector 1 shots, the tear of TRACKING, a pop's puff) is the look's reading of state
   and events.
 - **Hit boxes are smaller than bitmaps.** The player's is a 3 px radius at `(x, y)`; draw the
-  ship centred there. Rigs and bosses are centre plus half sizes.
+  ship centred there. Rigs and bosses are centre plus half sizes; draw a boss's bitmap centred
+  on it (CAL's goes with its lens: `x + wx - BOSSES.cal.weak[0]`).
+- **The ending owns the field.** In stage `ending` draw the card, not the run.
 - **Things live off the field.** A convoy's rigs queue up to 600 px below it, strings wait at
   (-40, -40) with `state === 'wait'` (do not draw those), a limping partner sits below the
   bottom edge.

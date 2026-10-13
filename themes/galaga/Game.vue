@@ -38,6 +38,8 @@ export interface RunReport {
   wave: number
   stage: string
   friends: number
+  /** CSS pixels per pixel of the frame the run was drawn in, for the panel that goes over it. */
+  px: number
 }
 
 const props = defineProps<{ pilot: PilotId }>()
@@ -87,6 +89,8 @@ let nextSeed = 0
 /** The debug hook: the autopilot flies, or the clock is held and stepped by hand. */
 let pilotFn: ((w: World) => Input) | null = null
 let held = false
+/** The lab's switch: the engine's boxes drawn over the field. */
+let boxes = false
 
 function readBest(): number {
   try {
@@ -96,7 +100,11 @@ function readBest(): number {
   }
 }
 
-function measure(): void {
+/**
+ * Lay the frame out for the screen as it is now. `keep`: a run is under way and its field keeps
+ * its height, so the frame is laid out round that field (a smaller scale if need be).
+ */
+function measure(keep = false): void {
   const c = canvas.value
   if (!c || !renderer) return
   const widget = document.querySelector('.radio-widget')?.getBoundingClientRect()
@@ -104,12 +112,23 @@ function measure(): void {
     safeBottom: safeBottom(),
     widgetLeft: widget ? widget.left : 0,
     widgetBottom: widget ? widget.bottom : 0,
-  })
+  }, keep && world ? world.h : 0)
+}
+
+/** The window changed. A phone turned mid-run (wide became tall or the other way) also pauses: the hands have moved. */
+let wasWide = false
+function onResize(): void {
+  const wide = window.innerWidth > window.innerHeight
+  const turned = wide !== wasWide
+  wasWide = wide
+  measure(world !== null)
+  if (turned && running && !paused.value) togglePause()
 }
 
 /** Begin a run. The field takes the height the screen gives it now and keeps it. */
 function start(pilot: PilotId = props.pilot): void {
   if (!renderer) return
+  wasWide = window.innerWidth > window.innerHeight
   measure()
   const seed = nextSeed || ((Date.now() ^ (Math.random() * 0x7FFFFFFF)) >>> 0)
   nextSeed = 0
@@ -149,6 +168,7 @@ function report(w: World): RunReport {
   return {
     score: w.score, voyage: w.voyage, sector: w.sector, sectorName: SECTORS[w.sector - 1]?.name ?? '',
     wave: w.wave, stage: w.stage, friends: w.friends.length,
+    px: renderer ? renderer.layout.scale / renderer.ratio : 1,
   }
 }
 
@@ -237,7 +257,7 @@ function frame(now: number): void {
 }
 
 function draw(): void {
-  if (world && monitor && renderer) renderer.draw(world, monitor, { reduced, idle: !running })
+  if (world && monitor && renderer) renderer.draw(world, monitor, { reduced, idle: !running, boxes })
 }
 
 // ── Escape: a tap pauses, a 3 s hold quits (themes/base/EscHold.vue) ─────
@@ -421,6 +441,8 @@ async function installDebug(): Promise<void> {
     ending() { dbg.jumpTo(need(), { sector: 5, stage: 'ending' }) },
     hull(n: number) { need().player.hull = n },
     reduced(on = true) { reduced = on },
+    /** Draw the engine's boxes (bodies, weak spots, where shots leave from) over the field. */
+    boxes(on = true) { boxes = on },
     world: () => world,
   }
   ;(window as unknown as { __voyagers: typeof hook }).__voyagers = hook
@@ -435,7 +457,7 @@ onMounted(() => {
   motionQuery.addEventListener('change', onMotion)
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
-  window.addEventListener('resize', measure)
+  window.addEventListener('resize', onResize)
   window.addEventListener('touchstart', onTouchStart, { passive: false })
   window.addEventListener('touchmove', onTouchMove, { passive: false })
   window.addEventListener('touchend', onTouchEnd)
@@ -458,7 +480,7 @@ onBeforeUnmount(() => {
   motionQuery?.removeEventListener('change', onMotion)
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('keyup', onKeyUp)
-  window.removeEventListener('resize', measure)
+  window.removeEventListener('resize', onResize)
   window.removeEventListener('touchstart', onTouchStart)
   window.removeEventListener('touchmove', onTouchMove)
   window.removeEventListener('touchend', onTouchEnd)

@@ -7,7 +7,7 @@
 import EscHold from '../base/EscHold.vue'
 /**
  * Breakout, the arcade original: a paddle, a ball, rows of bricks.
- * Same contract as galaga/Galaga.vue — a full-viewport canvas behind
+ * Same contract as rtype/Shooter.vue — a full-viewport canvas behind
  * the landing overlay, Enter/tap to start, arrows/mouse/touch to move,
  * events up to Landing.vue for the HUD. Before the game starts the canvas
  * plays itself (attract mode) so the landing is alive behind the card.

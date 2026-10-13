@@ -156,7 +156,7 @@ export function takeEvents(fx: Fx, w: World): void {
         puff(fx, 'pop', e.x, e.y, big ? 22 : 16, tone, big ? 2 : 1)
         // The pilot drifts off in a bubble.
         if (tone !== 'boss' && e.n > 0 && !e.kind.endsWith('-mite')) puff(fx, 'bubble', e.x, e.y, 80, tone, 0, ((e.x * 7 + e.y * 3) % 5 - 2) * 0.12, -0.45)
-        if (e.n >= 300) word(fx, String(e.n), e.x, e.y - 8, 'gold', 40)
+        if (e.n >= 120) word(fx, String(e.n), e.x, e.y - 8, 'gold', 40)
         break
       }
       case 'hit':
@@ -246,7 +246,9 @@ export function takeEvents(fx: Fx, w: World): void {
         break
       case 'card': {
         const name = SECTORS[w.sector - 1]?.name ?? ''
-        if (e.kind === 'sector') banner(fx, `SECTOR ${e.n}`, name, 170, 'gold')
+        // A later voyage's first sector opens under the voyage's own card (the two events are a tick apart).
+        if (e.kind === 'sector' && e.n === 1 && w.voyage > 1) banner(fx, `VOYAGE ${roman(w.voyage)}`, 'SAME ORDER. HOTTER.', 170, 'pink')
+        else if (e.kind === 'sector') banner(fx, `SECTOR ${e.n}`, name, 170, 'gold')
         else if (e.kind === 'bonus') banner(fx, 'BONUS RUN', 'NOTHING SHOOTS', 110, 'pink')
         else if (e.kind === 'perfect') banner(fx, 'PERFECT', `+${e.n}`, 120, 'gold')
         else if (e.kind === 'boss') banner(fx, 'WARNING', BOSS_NAMES[SECTORS[w.sector - 1]?.bosses[0] ?? ''] ?? '', 130, 'red')

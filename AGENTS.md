@@ -62,7 +62,7 @@ composables/
   useTheme.ts        — active theme from the URL, isHome, launch/goHome (router.push), navigationLocked
   useThemeNavigation.ts — Escape back to the portal, and the 3 s grace after a game lets go; called once from app.vue
   useInputMode.ts    — keyboard vs touch, so game hints say PRESS ENTER or TAP, never both (2026-09-06). SSR guess from sec-ch-ua-mobile/UA, then `(hover: none) and (pointer: coarse)` at mount, then the first keydown/touch/mouse press wins. `hint(keyboardText, touchText)` in templates.
-  useDeviceCapability.ts — what the device can afford (2026-09-30): `isLowPowerDevice()` (few cores, or touch with little memory — Mini World's ladder, lifted out) and `canvasPixelRatio(max)`, which every canvas game's ratio runs through. Whole ratios only.
+  useDeviceCapability.ts — what the device can afford (2026-09-30): `isLowPowerDevice()` (few cores, or touch with little memory — Mini World's ladder, lifted out) and `canvasPixelRatio(max)`, which every canvas game's ratio runs through (Space Voyagers alone backs its canvas at the real ratio: one small buffer and one blit a frame, whole device pixels; `docs/games/galaga.md`). Whole ratios only.
   useLeaderboard.ts  — the browser's Hall of Fame player (localStorage), submitScore / fetchBoards / reroll (2026-09-08)
   useAccount.ts      — the site account inside Mini World and Lag Din Figur: session, sign-in, link to the player profile, Logg ut (2026-09-29)
   useWallet.ts       — the site's bits, one balance for Neon Shrine and Mini World (2026-09-26); useMiniWorld.ts / useMiniWorldSocial.ts — Mini World's save and neighbourhood

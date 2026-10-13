@@ -78,7 +78,7 @@ export const BOSS_CUE: Record<BossKind, { enter: CueId; half?: CueId; dead: CueI
   durant: { enter: 'boss.durant.enter', half: 'boss.durant.half', dead: 'boss.durant.dead', taunt: 'boss.durant.taunt' },
   cal: { enter: 'boss.cal.enter', half: 'boss.cal.half', dead: 'boss.cal.dead', taunt: 'boss.cal.taunt' },
   fader: { enter: 'boss.fader.enter', half: 'boss.fader.half', dead: 'boss.fader.dead', taunt: 'boss.fader.taunt' },
-  deafstar: { enter: 'boss.deafstar.enter', dead: 'boss.deafstar.dead' },
+  deafstar: { enter: 'boss.deafstar.enter', dead: 'boss.deafstar.dead', taunt: 'boss.deafstar.taunt' },
 }
 
 export const CAVALRY_CUE: Record<FriendId, CueId> = {

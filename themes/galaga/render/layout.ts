@@ -98,7 +98,7 @@ export function panelCrop(windows: Record<string, Rect>, w: number): number {
   return clamp(Math.round((lo + hi) / 2 - w / 2), 0, PANEL_W - w)
 }
 
-function at(s: Screen, scale: number): Layout {
+function at(s: Screen, scale: number, fixed = 0): Layout {
   const lw = Math.ceil(s.w / scale)
   const lh = Math.ceil(s.h / scale)
   const fullW = Math.floor(s.w / scale)
@@ -108,7 +108,7 @@ function at(s: Screen, scale: number): Layout {
   const widgetX = s.widgetBottom ? Math.floor((s.widgetLeft ?? 0) / scale) : fullW
   const fx = Math.floor((fullW - FIELD_W) / 2)
   if (fullW >= WIDE_FROM) {
-    const fh = clamp(rows, FIELD_MIN_H, FIELD_MAX_H)
+    const fh = fixed || clamp(rows, FIELD_MIN_H, FIELD_MAX_H)
     const fy = Math.max(0, Math.floor((rows - fh) / 2))
     const pw = Math.min(PANEL_W, fx)
     // The radio widget sits over the top of the right panel: start the panel under it.
@@ -126,7 +126,7 @@ function at(s: Screen, scale: number): Layout {
   }
   // The band's windows on the widget's side begin 10 rows down: the widget may cover the rows above them.
   const want = Math.max(0, widgetRows - 8)
-  const fh = clamp(rows - BAND_H - want, FIELD_MIN_H, FIELD_MAX_H)
+  const fh = fixed || clamp(rows - BAND_H - want, FIELD_MIN_H, FIELD_MAX_H)
   const top = Math.max(0, rows - fh)
   const bandH = Math.min(BAND_H, top)
   const stripH = top - bandH
@@ -146,11 +146,18 @@ function at(s: Screen, scale: number): Layout {
  * The layout for a canvas. The scale is the largest whole number of device
  * pixels at which 240 x 320 fits; it gives one up when that would leave the
  * console band less than its 96 rows.
+ *
+ * `fieldH` is a run under way: its field keeps the height it began with, so
+ * the scale is the largest at which that whole field (and the band's 96 rows,
+ * on a narrow screen) fits above the bottom band. A window made smaller or a
+ * phone turned shows the same field at a smaller scale, with the console's
+ * wood and steel round it; nothing of the field is cut unless even one device
+ * pixel a pixel is too many.
  */
-export function computeLayout(s: Screen): Layout {
+export function computeLayout(s: Screen, fieldH = 0): Layout {
   const usableH = s.h - (s.safeBottom ?? 0)
-  let scale = Math.max(1, Math.floor(Math.min(s.w / FIELD_W, usableH / FIELD_MIN_H)))
-  let l = at(s, scale)
-  while (scale > 1 && l.mode === 'band' && l.band!.h < BAND_H) l = at(s, --scale)
+  let scale = Math.max(1, Math.floor(Math.min(s.w / FIELD_W, usableH / (fieldH || FIELD_MIN_H))))
+  let l = at(s, scale, fieldH)
+  while (scale > 1 && l.mode === 'band' && l.band!.h < BAND_H) l = at(s, --scale, fieldH)
   return l
 }

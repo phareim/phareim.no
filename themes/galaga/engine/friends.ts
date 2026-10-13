@@ -10,7 +10,7 @@ import { CAVALRY_CUE, DUO_CUE, RESCUE_CUE } from './cuemap.ts'
 import { NOSE, targetAhead } from './player.ts'
 import type { World } from './types.ts'
 import { slotY } from './waves.ts'
-import { clearDanger, cue, emit, spawnRig, spawnShot } from './world.ts'
+import { airCue, clearDanger, cue, emit, spawnRig, spawnShot } from './world.ts'
 
 function approach(v: number, target: number, step: number): number {
   return v < target ? Math.min(target, v + step) : Math.max(target, v - step)
@@ -49,13 +49,17 @@ export function stepWing(w: World): void {
 /** Hans Duo drops by: wave 2 of his sectors, once the formation has settled. */
 export function maybeDuo(w: World): void {
   const cues = DUO_CUE[w.sector]
-  if (!cues || w.duoDone || w.duo.active || w.toEnter > 0 || w.inForm < DUO.minWave) return
+  // He comes once a good part of the wave has formed up, or half of it has flown in.
+  if (!cues || w.duoDone || w.duo.active || w.waveLeft === 0) return
+  if (w.inForm < DUO.minWave && w.toEnter > w.waveSize * DUO.late) return
   const o = w.duo
   w.duoDone = true
   o.active = true
   o.x = -30
   o.y = slotY(w, w.formation.rows - 1) + 34
-  o.quota = Math.floor(w.inForm * DUO.share)
+  // Half of the wave he arrives in: what has formed up and what is still flying in.
+  o.quota = Math.round(w.waveLeft * DUO.share)
+  o.passed = 0
   emit(w, 'duoIn', o.x, o.y, o.kind, o.quota)
   cue(w, cues.arrive)
 }
@@ -64,11 +68,12 @@ export function stepDuo(w: World): void {
   const o = w.duo
   if (!o.active) return
   o.x += DUO.speed
-  // He pops every other one he passes under, up to half the wave. No points: the credit is his.
+  // He pops what he passes under until he has had his half. No points: the credit is his.
   for (let i = 0; i < w.enemies.length && o.quota > 0; i++) {
     const e = w.enemies[i]!
-    if (!e.active || e.state !== 'form' || Math.abs(e.x - o.x) > 4 || (e.id + e.row) % 2 !== 0) continue
+    if (!e.active || e.bonus || e.shield || e.role === 'raider' || e.state === 'wait' || Math.abs(e.x - o.x) > DUO.reach) continue
     o.quota--
+    o.passed++
     popEnemy(w, e, false)
   }
   if (o.x > w.w + 30) {
@@ -85,7 +90,7 @@ export function callCavalry(w: World, all: boolean): void {
   if (w.friends.length === 0) {
     if (!w.noCavalrySaid) {
       w.noCavalrySaid = true
-      cue(w, 'cavalry.none')
+      airCue(w, 'cavalry.none')
     }
     return
   }
@@ -98,10 +103,12 @@ export function stepPass(w: World): void {
   if (!a.active) {
     const rigsOut = anyPassRig(w)
     if (w.passDue <= 0 || w.passQueue.length === 0 || rigsOut || !boss.active || boss.state === 'enter' || boss.state === 'dying') return
+    // One at a time on the radio: a friend waits until what has been asked for has been said.
+    if (w.tick < w.air) return
     const id = w.passQueue.shift()!
     w.passDue--
     emit(w, 'pass', 0, 0, id)
-    cue(w, CAVALRY_CUE[id])
+    airCue(w, CAVALRY_CUE[id])
     const lane = Math.max(CONVOY.rigHw + 4, Math.min(w.w - CONVOY.rigHw - 4, boss.x + boss.wx))
     if (id === 'marge') {
       // A rig through its guns.
@@ -116,8 +123,19 @@ export function stepPass(w: World): void {
       a.kind = `stranded-${id}`
       a.vx = w.passQueue.length % 2 === 0 ? PASS.flySpeed : -PASS.flySpeed
       a.x = a.vx > 0 ? -24 : w.w + 24
-      a.y = Math.min(w.h * 0.5, boss.y + boss.hh + 46)
+      a.y = passY(w)
       a.t = 0
+      a.wing = false
+      const g = w.wing
+      if (g.state === 'flying' && g.id === id) {
+        // She is flying along already: she leaves the formation for the run and comes back to it,
+        // so there is one of her in the field, not two.
+        g.state = 'off'
+        a.wing = true
+        a.x = g.x
+        a.y = g.y
+        a.vx = boss.x + boss.wx >= g.x ? PASS.flySpeed : -PASS.flySpeed
+      }
       clearDanger(w, 0)
     }
     return
@@ -125,6 +143,7 @@ export function stepPass(w: World): void {
   a.t++
   const before = a.x
   a.x += a.vx
+  a.y = approach(a.y, passY(w), PASS.flySpeed)
   const wx = boss.x + boss.wx
   if (a.t % 5 === 0 && a.x > 8 && a.x < w.w - 8) {
     const s = spawnShot(w)
@@ -135,7 +154,21 @@ export function stepPass(w: World): void {
   }
   // Passing under the weak spot she lands the big one.
   if ((before - wx) * (a.x - wx) <= 0) hurtBoss(w, boss.maxHp * PASS.dmgShare, true)
-  if (a.x < -30 || a.x > w.w + 30) a.active = false
+  if (a.x < -30 || a.x > w.w + 30) {
+    a.active = false
+    if (a.wing && w.wing.state === 'off' && boss.active) {
+      // Back to her place behind the player, from the side she left by.
+      const g = w.wing
+      g.state = 'flying'
+      g.x = a.x
+      g.y = a.y
+    }
+  }
+}
+
+/** The row a strafing run is flown on: under the boss, never below the middle of the field. */
+function passY(w: World): number {
+  return Math.min(w.h * 0.5, w.boss.y + w.boss.hh + 46)
 }
 
 function anyPassRig(w: World): boolean {

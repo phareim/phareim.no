@@ -47,7 +47,7 @@ function pewSfxEnemy() {
  * Neon Shrine's pixel look (2026-09-24, ./pixel.ts): a flight through the
  * shrine caves on the shared pixel stage (themes/base/pixel/), lit by a
  * light map — crystals, the engine, shots and beams light the rock.
- * Same contract as galaga/Galaga.vue and breakout/Breakout.vue: a
+ * Same contract as breakout/Breakout.vue and invaders/Invaders.vue: a
  * full-viewport canvas behind the landing overlay, Enter/tap to start,
  * events up to Landing.vue for the HUD. Before the game starts the canvas
  * plays itself (attract mode with a simple autopilot) so the page is alive.

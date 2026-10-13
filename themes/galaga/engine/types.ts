@@ -96,6 +96,8 @@ export interface Enemy {
   /** Time in the state, in enemy ticks (TRACKING slows them). */
   t: number
   dur: number
+  /** A captor on its way to the partner: nothing hurts it until its beam begins to warm. */
+  shield: boolean
   /** Its place in the formation, or -1. */
   col: number
   row: number
@@ -276,8 +278,9 @@ export interface Duo {
   kind: string
   x: number
   y: number
-  /** Enemies he still means to pop. */
+  /** Enemies he still means to pop, and how many he has passed under. */
   quota: number
+  passed: number
   seen: boolean
 }
 
@@ -290,11 +293,16 @@ export interface Boss {
   /** Half the body. */
   hw: number
   hh: number
+  /** The body is half a disc hanging from its top edge (the Deaf Star), not a box. */
+  round: boolean
   /** The part that takes damage: an offset and half its size. */
   wx: number
   wy: number
   whw: number
   whh: number
+  /** Where its shots leave from, an offset. */
+  mx: number
+  my: number
   hp: number
   maxHp: number
   /** 1, 2, 3. */
@@ -352,6 +360,8 @@ export interface Pass {
   y: number
   vx: number
   t: number
+  /** She was flying along as the third ship and left it for this pass: she goes back to it after. */
+  wing: boolean
 }
 
 export type * from './events.ts'

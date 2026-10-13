@@ -6,7 +6,7 @@
  * that fly through and never shoot.
  */
 import {
-  BONUS, DIVER_WARN, FORMATION, GANGS, ROLE_LETTER, SNIPER, STRING, TANK, boltCap, boltSpeed, difficulty, diveEvery,
+  BONUS, CAPTOR, DIVER_WARN, FORMATION, GANGS, ROLE_LETTER, SNIPER, STRING, TANK, boltCap, boltSpeed, difficulty, diveEvery,
   diveAfter, diveTicks, diverSpeed, enterTicks, fireEvery, maxDivers, pairChance, tankHp, veteranHp,
 } from './balance.ts'
 import { SEE_GANG } from './cuemap.ts'
@@ -74,6 +74,8 @@ export function startWave(w: World, rows: readonly string[]): void {
         else if (r % 2 === 0) curve(e, mid + s * 24, -20, mid + s * 130, H * 0.3, mid + s * 70, H * 0.62, 0, 0)
         else curve(e, mid + s * 140, H * 0.5, mid + s * 20, H * 0.62, mid - s * 30, 30, 0, 0)
         e.fireT = role === 'tank' ? TANK.every * (0.5 + rand(w.rng)) : SNIPER.every * (0.4 + rand(w.rng))
+        // The captor arrives with its shield up and goes for the partner as soon as it has settled.
+        if (role === 'captor') { e.shield = true; e.fireT = CAPTOR.settle }
         k++
         count++
       }
@@ -120,11 +122,12 @@ export function launchDive(w: World, e: Enemy, index: number): void {
     // Down to hover over the partner; the beam comes on there.
     const q = w.partner
     const hx = Math.max(20, Math.min(w.w - 20, q.x))
-    const hy = Math.max(sy + 30, q.y - 112)
+    const hy = Math.max(sy + 30, q.y - CAPTOR.hoverUp)
     curve(e, sx, sy, sx + side * 30, sy - 20, hx, hy - 50, hx, hy)
-    e.dur = 90
+    e.dur = CAPTOR.dive
     e.mode = 1
     e.fireT = 0
+    e.shield = true
   } else if (e.role === 'tank') {
     // Slow, straight down to mid-field for a three-way shot, and back.
     curve(e, sx, sy, sx, sy, sx, H * 0.46, sx, H * 0.46)
@@ -218,6 +221,8 @@ function captorReady(w: World): number {
 /** Can this one be sent diving now? */
 function mayDive(w: World, e: Enemy, all: boolean): boolean {
   if (!e.active || e.state !== 'form' || e.frozen > 0) return false
+  // A captor that has just arrived goes by itself, when it has settled (enemies.ts).
+  if (e.shield) return false
   if (all) return true
   if (e.role === 'sniper') return false
   // The captor comes for the partner only when there is one to take.

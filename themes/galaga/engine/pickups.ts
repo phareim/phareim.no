@@ -5,7 +5,7 @@
  * the hairspray cloud and the trucker's rig a CB handset calls.
  */
 import type { PickupId } from '../story/cues.ts'
-import { CONVOY, LEVEL_MAX, PASS, PICKUP, PICKUP_IDS, PICKUP_WEIGHT, PLAYER, ROLES } from './balance.ts'
+import { CONVOY, LEVEL_MAX, PASS, PICKUP, PICKUP_IDS, PICKUP_WEIGHT, PLAYER, ROLES, SCORE } from './balance.ts'
 import { addScore, hurtBoss, hurtEnemy } from './combat.ts'
 import { PICK_CUE } from './cuemap.ts'
 import { rand } from './rng.ts'
@@ -66,7 +66,7 @@ export function maybeDrop(w: World, e: Enemy): void {
 export function applyPickup(w: World, id: PickupId): void {
   const p = w.player
   w.stats.picks++
-  addScore(w, 50, false)
+  addScore(w, SCORE.pick, false)
   emit(w, 'pick', p.x, p.y, id)
   cue(w, PICK_CUE[id], id === 'pizza' ? 'pizza.again' : undefined)
   switch (id) {
@@ -74,7 +74,7 @@ export function applyPickup(w: World, id: PickupId): void {
     case 'blaster':
     case 'disc':
     case 'boombox': {
-      if (id === 'tube' && p.level >= LEVEL_MAX) addScore(w, 450, false)
+      if (id === 'tube' && p.level >= LEVEL_MAX) addScore(w, SCORE.spareTube, false)
       const next = applyWeaponPickup(p.weapon, p.level, id)
       p.weapon = next.weapon
       p.level = next.level

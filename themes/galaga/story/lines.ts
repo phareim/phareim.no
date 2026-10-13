@@ -510,6 +510,12 @@ export const LINES: Script = {
     [fader('ALL TOO EASY.')],
     [fader('I HAVE YOU NOW. ON TAPE.')],
   ],
+  'boss.deafstar.taunt': [
+    [mei("IT'S TUNING UP. STAY OUT OF THE LIT COLUMN."), nova("IT'S A SPEAKER. WE'VE BLOWN SPEAKERS.")],
+    [rex('IS IT ME, OR IS THAT ALL BASS?', 'worried'), nova('THE RED DOME IS THE TREBLE. HIT THE TREBLE.')],
+    [mei('THE RINGS HAVE A GAP. THEY ALWAYS HAVE A GAP.', 'excited'), rex('LIKE A DOUGHNUT!', 'eating')],
+    [nova('A MOON THAT HUMS. I HATE SPACE.', 'eyeroll'), rex('IT HUMS IN PEPPERONI.')],
+  ],
   'boss.deafstar.enter': [[
     mei("THAT'S THE DEAF STAR. ONE NOTE FROM IT AND THE WHOLE DIAL GOES QUIET.", 'excited'),
     nova('WEAK SPOT?'),

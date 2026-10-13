@@ -54,7 +54,7 @@ export interface Autopilot {
   /** When it starts to hurt and when it stops, in ticks from now. */
   t0: Float64Array
   t1: Float64Array
-  /** A mine sits at this y. */
+  /** A mine stops moving after this many ticks. */
   stop: Float64Array
 }
 
@@ -91,7 +91,7 @@ function look(ap: Autopilot, w: World): void {
     if (!s.active) continue
     if (s.frozen > 0) { circle(ap, s.x, s.y, 0, 0, s.r, 0, 0, s.frozen); continue }
     if (s.y > p.y + 40 && s.vy >= 0) continue
-    circle(ap, s.x, s.y, s.vx * dt, s.vy * dt, s.r, 0, 0, s.life / dt, s.kind === 'mine' && s.stopAt > 0 ? s.stopAt : 1e9)
+    circle(ap, s.x, s.y, s.vx * dt, s.vy * dt, s.r, 0, 0, s.life / dt, s.kind === 'mine' && s.stopAt > 0 && s.vy > 0 ? (s.stopAt - s.y) / (s.vy * dt) : 1e9)
   }
   for (let i = 0; i < w.aims.length; i++) {
     const a = w.aims[i]!
@@ -140,8 +140,9 @@ function firstHit(ap: Autopilot, x: number, y: number, gx: number, gy: number, m
     for (let i = 0; i < ap.n; i++) {
       if (t < ap.t0[i]! || t > ap.t1[i]!) continue
       if (ap.kind[i] === 0) {
-        const cx = ap.x[i]! + ap.vx[i]! * t
-        const cy = Math.min(ap.stop[i]!, ap.y[i]! + ap.vy[i]! * t)
+        const tm = Math.min(t, ap.stop[i]!)
+        const cx = ap.x[i]! + ap.vx[i]! * tm
+        const cy = ap.y[i]! + ap.vy[i]! * tm
         const r = ap.a[i]! + ap.b[i]! * t + pr
         if ((cx - x) * (cx - x) + (cy - y) * (cy - y) < r * r) return t
       } else {
@@ -185,6 +186,11 @@ function goal(ap: Autopilot, w: World): void {
     if (e.state === 'latch') cost -= 260
     else if (e.role === 'raider') cost -= 120
     else if (e.carrying && e.state !== 'form') cost -= 200
+    // Its shield is up on the way down; once the beam warms it is the thing to shoot.
+    else if (e.shield) cost += 400
+    // Hanging under it in formation: better left until it dives (a dock), unless the wave is nearly done.
+    else if (e.carrying && w.waveLeft > 3) cost += 300
+    else if (e.role === 'captor' && e.state === 'hover') cost -= 160
     else if (e.state !== 'form') cost -= 30
     if (cost < best) {
       best = cost

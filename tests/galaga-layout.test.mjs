@@ -118,3 +118,24 @@ test('every screen: a whole scale, the largest that fits, and a field inside the
   }
   assert.ok(seen > 5000)
 })
+
+test('a run keeps its field: a phone turned or a window made smaller shows all of it at a smaller scale', () => {
+  // A tall phone's run (432 rows) turned on its side: 844 x 390 at 3x.
+  const turned = computeLayout(screen(844, 390, 3), 432)
+  assert.equal(turned.field.h, 432)
+  assert.equal(turned.scale, 2)
+  assert.ok(turned.field.y >= 0 && turned.field.y + 432 <= Math.floor(1170 / turned.scale), 'the whole field is on the screen')
+  // A phone's 324 rows on its side, and a desktop window made small.
+  for (const [s, h] of [[screen(667, 375, 2), 324], [screen(700, 430, 1), 400], [screen(390, 844, 3), 320], [screen(1280, 800, 1), 320]]) {
+    const L = computeLayout(s, h)
+    const rows = Math.floor((s.h - s.safeBottom) / L.scale)
+    assert.equal(L.field.h, h)
+    assert.ok(L.field.y >= 0 && L.field.y + h <= rows, `${s.w} x ${s.h}: field ${L.field.y}..${L.field.y + h} of ${rows} rows at scale ${L.scale}`)
+    assert.ok(L.field.x >= 0 && L.field.x + 240 <= Math.ceil(s.w / L.scale))
+    if (L.mode === 'band') assert.equal(L.band.h, BAND_H)
+  }
+  // The scale is the largest at which it fits: the same screen gives a larger one to a shorter field.
+  assert.ok(computeLayout(screen(844, 390, 3), 320).scale >= turned.scale)
+  // With no run the screen decides, as before.
+  assert.deepEqual(computeLayout(screen(375, 667, 2), 0), computeLayout(screen(375, 667, 2)))
+})

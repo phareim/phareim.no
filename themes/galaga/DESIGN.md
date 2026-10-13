@@ -85,7 +85,7 @@ bitmap and every line of drawing code here too).
     hull as five valves, the weapon dial and its level, the DUET needle, timed power-ups
     as lamps, the voyage as a strip chart with a pen at the sector.
   - Narrow screens: a console band above the field with the same things, small: score,
-    valves, weapon, DUET, and the monitor as a strip (portrait cropped to its middle
+    valves, weapon, DUET, and the monitor as a strip (portrait cropped to the face,
     40 × 40, three rows of text). Rows the field cannot use (a tall phone) go to the band.
 - Sizes of things in the field (bitmaps; hit boxes are smaller and belong to the engine):
   player and partner ship about 32 × 36; small enemies 24 × 24; heavy ones 32 × 32; bosses

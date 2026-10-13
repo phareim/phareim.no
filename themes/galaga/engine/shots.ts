@@ -4,7 +4,7 @@
  * before an aimed shot, and the patches of field a boss lights up.
  */
 import { DISC_TURN_RANGE, PARTNER, PICKUP, PLAYER, WEAPONS } from './balance.ts'
-import { hurtBoss, hurtEnemy, hurtPartner, hurtPlayer } from './combat.ts'
+import { hurtBoss, hurtEnemy, hurtPartner, hurtPlayer, inBody } from './combat.ts'
 import { enemyTime } from './player.ts'
 import type { Barrier, Shot, World } from './types.ts'
 import { emit, spawnBolt } from './world.ts'
@@ -45,7 +45,8 @@ function turnDisc(w: World, s: Shot): void {
 export function stepShots(w: World): void {
   const boss = w.boss
   const bossUp = boss.active && (boss.state === 'fight' || boss.state === 'ram')
-  // A wall of a boss (CAL, the Deaf Star) stops what misses its weak spot.
+  // A wall of a boss (CAL, the Deaf Star) stops what misses its weak spot. The weak spot is on its
+  // face, so a shot coming up under it flies on over the body until it meets it.
   const armoured = bossUp && (boss.whw < boss.hw || boss.whh < boss.hh)
   for (let i = 0; i < w.shots.length; i++) {
     const s = w.shots[i]!
@@ -90,7 +91,7 @@ export function stepShots(w: World): void {
       if (seen(s, -1)) continue
       hurtBoss(w, s.dmg)
       if (s.pierce > 0) { s.pierce--; remember(s, -1) } else s.active = false
-    } else if (armoured && s.kind !== 'bass' && Math.abs(s.x - boss.x) < s.hw + boss.hw && Math.abs(s.y - boss.y) < s.hh + boss.hh) {
+    } else if (armoured && s.kind !== 'bass' && Math.abs(s.x - wx) >= s.hw + boss.whw && inBody(boss, s.x, s.y, s.hw, s.hh)) {
       s.active = false
       emit(w, 'hit', s.x, s.y, 'armor')
     }
