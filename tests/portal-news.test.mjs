@@ -43,10 +43,15 @@ describe('newsstand: sleeper.phareim.md', () => {
   it('keeps the feed\'s address in one constant', () => {
     assert.equal(N.NEWS_BASE, SITE)
     assert.equal(N.WRITING_URL, 'https://phareim.md/')
-    for (const file of ['themes/zelda/NewsStand.vue', 'themes/zelda/Zelda.vue', 'themes/portal/Landing.vue', 'themes/zelda/world/overworld.ts']) {
+    for (const file of ['themes/zelda/news.ts', 'themes/zelda/NewsStand.vue', 'themes/zelda/Zelda.vue', 'themes/portal/Landing.vue', 'themes/zelda/world/overworld.ts']) {
       const src = readFileSync(join(root, file), 'utf8')
       assert.doesNotMatch(src, /https:\/\/(sleeper\.)?phareim\.md/, `${file} has the address written out`)
     }
+    // The page that loads first takes the addresses alone, never the stand's fetch and cleaning code.
+    const page = readFileSync(join(root, 'themes/portal/Landing.vue'), 'utf8')
+    assert.match(page, /from '~\/themes\/zelda\/newsLinks'/)
+    assert.doesNotMatch(page, /themes\/zelda\/news'/)
+    assert.doesNotMatch(readFileSync(join(root, 'themes/zelda/Zelda.vue'), 'utf8'), /from '\.\/news'/)
   })
 
   it('asks for the rack without a cookie, and reads it newest first as it came', async () => {

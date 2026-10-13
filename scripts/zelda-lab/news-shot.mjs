@@ -38,6 +38,19 @@ async function run(label, { width, height, dpr, mobile }) {
     } else await b.key('Space')
     await b.sleep(2500)
   }
+  /** A finger dragged up through the reader, on the left of the screen, where the world's stick would start. */
+  const drag = async (dy = 300) => {
+    const r = await b.eval(`(() => { const s = document.querySelector('.nw-scroll'); const r = s.getBoundingClientRect(); return { x: r.x + r.width * 0.3, y: r.y + r.height * 0.75, top: s.scrollTop } })()`)
+    await b.touch('touchStart', [{ x: r.x, y: r.y }])
+    for (let k = 1; k <= 10; k++) { await b.touch('touchMove', [{ x: r.x, y: r.y - (dy * k) / 10 }]); await b.sleep(16) }
+    await b.touch('touchEnd', [])
+    await b.sleep(700)
+    const after = await b.eval(`document.querySelector('.nw-scroll').scrollTop`)
+    return { from: r.top, to: after, moved: after - r.top }
+  }
+  /** `touch-action` from the reader up to the page: one `none` on the way would stop a finger's scroll. */
+  const touchChain = () => b.eval(`(() => { const out = []; for (let e = document.querySelector('.nw-scroll'); e; e = e.parentElement) out.push((e.className && typeof e.className === 'string' ? '.' + e.className.split(' ')[0] : e.tagName.toLowerCase()) + ' ' + getComputedStyle(e).touchAction); return out })()`)
+  const hero = () => b.eval(`(() => { const h = window.__portal.state.hero; return h.x.toFixed(2) + ',' + h.y.toFixed(2) })()`)
   const atStand = async () => {
     await b.goto(base)
     await b.eval(`sessionStorage.setItem('portal.return', JSON.stringify({ map: 'overworld', entry: 'kiosk' }))`)
@@ -56,6 +69,14 @@ async function run(label, { width, height, dpr, mobile }) {
     report.box = await b.eval(`(() => { const r = document.querySelector('.nw-box').getBoundingClientRect(); return [r.x, r.y, r.width, r.height, innerWidth, innerHeight].map(Math.round).join(' ') })()`)
     await shot('rack')
     if (!mobile) { await b.key('ArrowDown'); await b.sleep(200); await shot('rack-second'); await b.key('ArrowUp') }
+    if (mobile) {
+      // A finger scrolls the rack, and the hero behind it does not walk.
+      const before = await hero()
+      report.touchAction = await touchChain()
+      report.rackDrag = await drag(200)
+      report.heroStill = before === (await hero())
+      await b.eval(`document.querySelector('.nw-scroll').scrollTop = 0`)
+    }
 
     report.pieces = {}
     const slugs = Object.keys(SIGHTS)
@@ -77,6 +98,13 @@ async function run(label, { width, height, dpr, mobile }) {
       const p = report.pieces[slug ?? title] = { view: await view() }
       p.measure = await b.eval(`(() => { const s = document.querySelector('.nw-scroll'); const p = document.querySelector('.nw-body > p:not([class])'); const cs = getComputedStyle(p); return { font: cs.fontFamily.split(',')[0] + ' ' + cs.fontSize + '/' + cs.lineHeight, columnPx: Math.round(p.getBoundingClientRect().width), scroll: s.scrollHeight + '/' + s.clientHeight, overflowX: s.scrollWidth > s.clientWidth } })()`)
       await shot(`${slug}-top`)
+      if (mobile && i === 0) {
+        // A finger scrolls the piece: twice, so the second starts from a scrolled place.
+        const before = await hero()
+        p.drag = [await drag(300), await drag(300)]
+        p.heroStill = before === (await hero())
+        await shot(`${slug}-dragged`)
+      }
       for (const [name, sel] of SIGHTS[slug] ?? []) {
         const found = await b.eval(`(() => { const s = document.querySelector('.nw-scroll'); const e = s.querySelector(${JSON.stringify(sel)}); if (!e) return false; s.scrollTop += e.getBoundingClientRect().top - s.getBoundingClientRect().top - 16; return true })()`)
         if (!found) { p[name] = 'missing'; continue }

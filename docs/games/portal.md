@@ -33,7 +33,8 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 | `themes/zelda/AccountConsole.vue` | The login console's panel: session check, LOG IN / CREATE ACCOUNT / LOG OUT, its own keys |
 | `themes/zelda/account.ts` | auth.phareim.no: `AUTH_BASE`, `fetchSession`, `signOut`, `authPageUrl`; `fetch` passed in |
 | `themes/zelda/NewsStand.vue` | The newsstand's panel: the rack and one piece at a time, its own keys; its own chunk, loaded when the stand is first used |
-| `themes/zelda/news.ts` | sleeper.phareim.md: `NEWS_BASE`, `fetchIndex`, `fetchArticle`, `cleanHtml` (the allowlist the feed's HTML goes through); `fetch` passed in |
+| `themes/zelda/news.ts` | sleeper.phareim.md: `fetchIndex`, `fetchArticle`, `cleanHtml` (the allowlist the feed's HTML goes through); `fetch` passed in. Only the panel's chunk imports it |
+| `themes/zelda/newsLinks.ts` | `NEWS_BASE` and `WRITING_URL`, apart, so the page's hidden index gets the addresses without the fetch code |
 | `themes/portal/Landing.vue` | The page: the shell, the first-move hint, the ending panel, the hidden link index |
 
 **Controls.** Arrows or WASD walk; Space, J, Z or Enter is A (talk, read,
@@ -272,7 +273,7 @@ itself; × or a tap beside the box closes. The box is at most 720 × 880 px
 and never taller than the screen above the bottom band.
 
 Redundant when Sleeper's feed is gone or the stand should lead somewhere
-else: give the exit a `url` again, delete `NewsStand.vue`, `news.ts` and
+else: give the exit a `url` again, delete `NewsStand.vue`, `news.ts`, `newsLinks.ts` and
 `tests/portal-news.test.mjs`, and take `news` out of `PanelId` and
 `validate.ts`.
 
@@ -342,8 +343,13 @@ async import. Headless in the dev server against the live feed
 375×667 (2×, touch): the rack, all four pieces from top to notes, the keys
 (a page, three lines, Home, End, left and right), back to the rack, Escape
 and × closing with the hero still at the stand, and the feed failed over
-CDP; no page errors, nothing wider than the box. Not checked: a real phone,
-a finger's scroll (the script sets the scroll position), Safari.
+CDP; no page errors, nothing wider than the box. At 375×667 a finger dragged
+up through the rack and through a piece (touch events, on the left of the
+screen where the world's stick starts) scrolls them and leaves the hero
+standing; `.portal-page` above the panel has `touch-action: none`, which
+does not reach into a scroll container. The built site has the reader as its
+own chunk (12.6 kB, 5.3 kB gzip, and 8 kB of CSS) and only the two addresses
+in the entry. Not checked: a real phone, Safari.
 
 The login console headless in the dev server on 2026-09-26 at 375×667
 (2×, touch) and 1280×800, with auth.phareim.no faked over CDP

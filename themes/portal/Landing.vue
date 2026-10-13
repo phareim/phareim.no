@@ -45,13 +45,13 @@
  * the ending panel shows when the quest is won, and a hidden index carries
  * the same places as real links. The links' addresses come from the world's
  * exits, so the town and the index cannot drift apart; the newsstand's two
- * come from `zelda/news.ts`, where the stand's own addresses live.
+ * come from `zelda/newsLinks.ts`, where the stand's own addresses live.
  */
 import { profile } from '~/themes/content'
 import { liveThemes } from '~/themes'
 import Zelda from '~/themes/zelda/Zelda.vue'
 import { worldExits } from '~/themes/zelda/world/index'
-import { NEWS_BASE, WRITING_URL } from '~/themes/zelda/news'
+import { NEWS_BASE, WRITING_URL } from '~/themes/zelda/newsLinks'
 import { formatPlayTime } from '~/themes/zelda/progress'
 
 const { hint, isTouch } = useInputMode()

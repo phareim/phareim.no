@@ -18,11 +18,9 @@
  * `cleanHtml` writes it out again from an allowlist of tags and attributes.
  */
 
-/** The one place the feed's address lives. */
-export const NEWS_BASE = 'https://sleeper.phareim.md'
+import { NEWS_BASE } from './newsLinks'
 
-/** Petter's own writing, which the stand's sign names: a link out from the panel and in the page's hidden index. */
-export const WRITING_URL = 'https://phareim.md/'
+export { NEWS_BASE, WRITING_URL } from './newsLinks'
 
 /** A call that has not answered in this long counts as no answer. */
 export const NEWS_TIMEOUT_MS = 8000
