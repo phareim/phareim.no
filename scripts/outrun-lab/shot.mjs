@@ -36,6 +36,9 @@ import { loadArt } from ${JSON.stringify(join(repo, 'themes/outrun/art.ts'))}
 import { createGame, stepGame, autopilot, SEG_LEN } from ${JSON.stringify(join(repo, 'themes/outrun/engine.ts'))}
 
 const PICTURES = ${JSON.stringify(pictures)}
+// Sleeper has four cores, which the site reads as a device short on power and renders at a
+// lower ratio. Shots are of what an ordinary phone or monitor shows.
+Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
 const q = new URLSearchParams(location.hash.slice(1))
 const W = +q.get('w'), H = +q.get('h'), dpr = +(q.get('dpr') || 1)
 const col = +(q.get('col') || 0), node = +(q.get('node') || 0), secs = +(q.get('t') || 6)

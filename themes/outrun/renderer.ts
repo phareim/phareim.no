@@ -28,6 +28,7 @@ import {
 } from './engine'
 import { CREAM, GOLD, ORANGE, RED, TEAL, DIM, NAVY, INK, mix, shadeHex, type Shade } from './color'
 import { createPixelStage, type PixelStage } from '../base/pixel/stage'
+import { canvasPixelRatio } from '../../composables/useDeviceCapability'
 import { bayer, bigTextWidth, drawBigText, drawText, textWidth, wrapText } from '../base/pixel/sprites'
 import { hash2 } from '../base/pixel/scenery'
 import { box, pdisc, pfill, pline, prect, rockTile, stipple } from './pixel'
@@ -192,7 +193,7 @@ function propArt(p: RoadProp, biome: Biome, seaward: boolean): [ArtName, number]
 const TRAFFIC_ART: Record<string, ArtName> = { cab: 'cab', truck: 'truck', bug: 'bug', wagon: 'wagon' }
 
 export function createRenderer(canvas: HTMLCanvasElement, art: Art) {
-  const stage: PixelStage = createPixelStage(canvas, { minW: 420, minH: 236, bg: INK })
+  const stage: PixelStage = createPixelStage(canvas, { minW: 440, minH: 240, bg: INK })
   /** Logical size (the stage buffer). */
   let SW = 0
   let SH = 0
@@ -240,11 +241,24 @@ export function createRenderer(canvas: HTMLCanvasElement, art: Art) {
     cssW = Math.max(300, w)
     cssH = Math.max(300, h)
     portrait = cssH > cssW * 1.05
-    // A monitor shows 427 to 512 logical pixels across, a portrait phone about
-    // 260: the car's bitmap is 131 wide on all of them. The backing store stops
-    // at 2x (the road is a lot of fill on a 3x phone); the canvas's CSS
-    // `image-rendering: pixelated` keeps the last step crisp.
-    stage.resize(cssW, cssH, Math.min(2, dprIn || 1), portrait ? 240 : 420, portrait ? 320 : 236)
+    // The car's bitmap is 131 wide whatever the screen, so the frame is sized
+    // round it: about 440 logical pixels across on a monitor (the car a little
+    // under a third of the width), about 260 on a portrait phone (half of it).
+    // The stage scales by whole device pixels; this picks the whole number that
+    // lands nearest, among those that leave the frame wide and tall enough.
+    // The backing store stops at 2x (the road is a lot of fill on a 3x phone);
+    // the canvas's CSS `image-rendering: pixelated` keeps the last step crisp.
+    const ratio = Math.max(1, Math.min(canvasPixelRatio(3), Math.min(2, dprIn || 1)))
+    const wd = Math.round(cssW * ratio)
+    const hd = Math.round(cssH * ratio)
+    const want = portrait ? 262 : 440
+    const least = portrait ? 236 : 300
+    let scale = 1
+    for (let n = 2; n <= 12; n++) {
+      if (wd / n < least || hd / n < (portrait ? 300 : 170)) break
+      if (Math.abs(wd / n - want) < Math.abs(wd / scale - want)) scale = n
+    }
+    stage.resize(cssW, cssH, Math.min(2, dprIn || 1), wd / (scale + 0.5), hd / (scale + 0.5))
     SW = stage.vw
     SH = stage.vh
     K = stage.k
@@ -752,7 +766,7 @@ export function createRenderer(canvas: HTMLCanvasElement, art: Art) {
       pts.push(m + faceW / 2, y, r, y, r, top, l, top, l, y)
       // Granite in courses that scale with distance in whole steps.
       const pat = g.createPattern(rockTile(hour.key, col), 'repeat')!
-      const k = Math.max(1, Math.round(ROAD_W * s * 0.1))
+      const k = Math.max(1, Math.round(ROAD_W * s * 0.035))
       pat.setTransform(new DOMMatrix([k, 0, 0, k, Math.round(m), Math.round(y)]))
       pfill(g, pts, pat)
       for (let i = 0; i < n; i++) pline(g, rim[i * 2]!, rim[i * 2 + 1]!, rim[i * 2 + 2]!, rim[i * 2 + 3]!, i < n / 2 ? litEdge : col('#383a50'))
