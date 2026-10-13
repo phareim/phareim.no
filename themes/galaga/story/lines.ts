@@ -2,7 +2,7 @@
  * Space Voyagers: every word on the radio. One entry per cue in `cues.ts`;
  * each is the exchanges the director chooses between. Capitals (the pixel
  * font has nothing else), 84 characters a line at most, three rows of 28.
- * The voices are in DESIGN.md, "Who talks"; `tests/galaga-story.test.mjs`
+ * The voices are in DESIGN.md, "Who talks"; `tests/galaga-script.test.mjs`
  * holds the rules.
  */
 import type { Line, Script, SpeakerId } from './cues'

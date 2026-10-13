@@ -16,7 +16,7 @@ theme-bytte. Katalogen `themes/radio/catalog.ts` (ren, testbar) samler alle
 seks sporene: Galaga 0–2 + OutRun 3–5. M sykler globalt (widgeten eier den),
 første pointerdown/keydown hvor som helst starter radioen.
 
-**Spillene:** Galaga og OutRun spiller musikk via `radio.*` og beholder kun
+**Spillene:** Galaga (fra 2026-10-13 Rex & Nova: Space Voyagers I, samme tema-id `galaga`) og OutRun spiller musikk via `radio.*` og beholder kun
 SFX/motorlyd lokalt (to AudioContexts). Død, TIME UP og GOAL fader ikke
 lenger musikken — radioen spiller videre. Galagas `M` og intensitets-
 styring (`setIntensity` per wave/boss) går mot radioen; OutRuns
@@ -29,8 +29,8 @@ suspender begge kontekster; resume overstyrer aldri mute.
 `tests/radio-catalog.test.mjs` feiler høyt ved avvik i stedet for å drive
 stille). `intensityVoices`/`transposeFor`/`hz` gjenbrukes fra
 `galaga/audio.ts`. Per-spill `playTrack/stopTrack/fadeMusic` er døde —
-ikke koble dem til igjen. `npm run test:radio` (5 tester) + én ny
-regressjon i `galaga-game` (reset driver radioen); CI-linje lagt til.
+ikke koble dem til igjen. `npm run test:radio` (5 tester); regresjonen i `galaga-game` (reset driver
+radioen) forsvant med det gamle spillet 2026-10-13, og `galaga-audio` tester nå one-shot-listen og `soundFor`.
 Verifisert: alle suiter grønne, typecheck, produksjonsbygg, SSR-widget på
 galaga/outrun/playerone (nå pensjonert)/tetris, headless Chromium uten JS-feil på fem
 themes. Fysisk telefon og reappl multi-context-batterikostnad er umålt.

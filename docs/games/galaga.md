@@ -1,175 +1,167 @@
-# Galaga
+# Rex & Nova: Space Voyagers I
 
-A vertical shooter in the Galaga mould, drawn since 2026-09-24 in Neon
-Shrine's pixel look (`docs/games/pixel-look.md`): cyan player and HUD, pink
-enemies, gold rewards, a dithered violet night. The title screen waits for
-Enter or a tap. Rules verified 2026-09-23, look 2026-09-24.
+The game in the Galaga cabinet, at `/?theme=galaga`. Written again from nothing on
+2026-10-13; the old Galaga (the Choir, Claude in the second seat, the Hangar ship) is gone.
+The theme id, the Hall of Fame board, the high-score key and the radio's `galaga` origin are
+the old ones: only the names changed.
+
+What the game is: `themes/galaga/DESIGN.md` (it wins where this file disagrees). This file
+says what is built and where.
 
 ## Files
 
 | File | Job |
 |---|---|
-| `themes/galaga/Galaga.vue` | Game loop, update, drawing, HUD, input |
-| `themes/galaga/balance.ts` | Pure tuning: hull, difficulty ramps, bestiary, capsules, boss, SYNC |
-| `themes/galaga/weapons.ts` | Pure volley patterns (SPREAD, LASER, SEEKER) and seeker steering |
-| `themes/galaga/story.ts` | Sectors, the intercom script and the director that paces it |
-| `themes/galaga/sprites.ts` | Source art: every enemy, the player ship and the Cantor as vector painters |
-| `themes/galaga/pixel.ts` | The pixel art: those painters pixelized per pixel size, rocks, nebulae, planet, night sky |
-| `themes/galaga/Intercom.vue` | The intercom panel (DOM, typewriter, Neon Shrine dialog box) |
-| `themes/galaga/audio.ts` | One-shot SFX; music comes from the global radio (`docs/games/global-radio.md`) |
-| `themes/galaga/Landing.vue` | Title, game over, Hall of Fame submit, high score |
+| `themes/galaga/DESIGN.md` | The design: world, pilots, picture, run, power-ups, sectors, who talks |
+| `themes/galaga/Landing.vue` | The title (HTML over `card-title.png`, server-rendered), the pilot choice, GAME OVER. Loads `Game.vue` with `defineAsyncComponent` on the first start |
+| `themes/galaga/Game.vue` | A run: canvas, the 60 Hz clock, input, EscHold, sounds, the radio, the debug hook |
+| `themes/galaga/theme.css` | The token contract and the landing's styles (`.voyagers-*`) |
+| `themes/galaga/audio.ts` | The three radio tracks (`TRACKS`, used by `themes/radio/engine.ts`) and the one-shots: `SFX_NAMES`, `soundFor(event)` |
+| `themes/galaga/engine/` | The simulation: pure, seeded, one `step()` a tick. Its own guide: `engine/README.md` |
+| `themes/galaga/story/` | `cues.ts` (who speaks, every cue), `lines.ts` (the words), `director.ts` (pacing, `listen()`) |
+| `themes/galaga/render/layout.ts` | Where everything sits: pure arithmetic, the window rectangles of the console bitmaps |
+| `themes/galaga/render/sprites.ts` | Bitmaps by name from `public/galaga/<name>.png`, loaded on first use, measured, with placeholders |
+| `themes/galaga/render/field.ts` | The field: backdrop, every entity, shots, warnings, effects, banners |
+| `themes/galaga/render/console.ts` | The monitor and the instruments, through the bitmaps' windows or drawn by code |
+| `themes/galaga/render/fx.ts` | What outlasts a tick: pops, floating words, banners, shake (fixed pools, the game clock) |
+| `themes/galaga/render/pix.ts`, `palette.ts` | Pixel verbs (line, ring, stipple, big text) and the flat colours |
+| `themes/galaga/render/index.ts` | The frame: one buffer of logical pixels, put on the canvas at a whole scale |
+| `public/galaga/*.png` | The bitmaps (the art job: `scripts/galaga-lab/art/`, never edited by hand) |
+| `scripts/galaga-lab/shot.mjs` | The picture tool |
+| `scripts/galaga-lab/REPORT-engine.md`, `REPORT-page.md` | What each job built, measured and left open |
 
-## Story and intercom
+## The rules as built
 
-Relay station Kestrel has lost every channel to a song. The Choir, a swarm,
-sings over the whole band, and each boss is a Cantor carrying one of its
-voices. Claude rides in the ship's second seat and talks over the intercom.
+The engine's rules are in `engine/README.md` and `scripts/galaga-lab/REPORT-engine.md`
+(five valves, two tows, the partner's capture and dock, DUET, twelve power-ups, eight roles,
+five gangs, five bosses and the Deaf Star, convoys, rescues, friends' passes, VOYAGE II).
+Every number is in `engine/balance.ts`. What the page adds:
 
-- **Sectors.** Each boss ends a sector: KESTREL APPROACH, THE SHOALS,
-  RINGFALL, CHOIR SPACE, CONDUCTOR'S NEST (boss: THE CONDUCTOR), then
-  DEEP CHOIR I, II, … A sector opens with a banner, a Claude line and new
-  nebula tints (`sectorFor` in `story.ts`).
-- **Who speaks.** Claude in the person voice (written lowercase; gold
-  pixel-spark portrait, cyan panel). The Choir in the machine voice (written
-  uppercase; ring-and-waveform portrait, pink panel, glitching while it
-  talks) when a Cantor arrives and in the odd taunt from sector 3. Both show
-  in the 5×7 pixel font, which has only capitals.
-  `tests/galaga-story.test.mjs` checks the script against those rules.
-- **What Claude says.** A briefing on the first run of a page load, a
-  shorter line on retries, a first look at each new enemy kind and capsule,
-  SYNC instructions, low-hull warnings, boss warnings and kills, sector
-  openings, wave 10 and 25, a new personal best and the last word at death.
-  The pilot is addressed by the Hall of Fame animal (`Neon Otter` → `otter`,
-  `pilot` without a profile).
-- **The director** (`createDirector`) queues lines by priority. 3 is story
-  and interrupts; 2 is teaching; 1 is ambient and only lands after 9 s of
-  silence. Cues can be once per page load (`SESSION_SEEN`, survives theme
-  switches), once per run, or on a cooldown. A teaching line cut by a story
-  beat is said again afterwards. Lines type at 26 ms per character and hold
-  for 1.5 s + 32 ms per character, all on the game clock, so pause freezes
-  the intercom too.
+- **The clock.** Real time is collected and spent in whole ticks of 1/60 s. A long frame
+  spends at most five ticks and drops the rest. Pause is not stepping; the director runs on
+  the same ticks, so it freezes too.
+- **A run** starts from the title with Enter, Space or a tap (a click, so a swipe does not
+  start one). The field takes the height the screen gives it then (320 to 432) and keeps it;
+  a window resized mid-run shows what fits of it until the next run.
+- **Controls.** Arrows or WASD fly, Space fires while held, Shift is DUET, P or an Escape tap
+  pauses, a 3 s Escape hold ends the run (`themes/base/EscHold.vue`). Touch: the ship flies to
+  a point 42 field pixels above the finger and fires while touched; a second finger is DUET.
+  M is the site's radio.
+- **Pilot.** Left/right or a tap on a portrait, on the title and on GAME OVER;
+  `voyagers.pilot` in localStorage, Rex the first time.
+- **Score.** `galagaHighScore` in localStorage (falls back once to `hackerHighScore`).
+  GAME OVER calls `submitScore('galaga', score)` unless the score is 0. The board's cap is
+  5,000,000 (the autopilot makes 430,000 to 600,000 a voyage and the score runs on).
+- **GAME OVER** shows the score, how far the run got (voyage, sector and its name, the wave or
+  the boss), PIZZA DELIVERED and the ending picture when a voyage was finished, the high
+  score and the world rank once the Hall of Fame has answered.
+- **The ending** is drawn in the field while the engine's `ending` stage runs (10 s):
+  `card-ending.png`, DELIVERED, the score. Then VOYAGE II begins by itself.
+- **The radio** (the music) is the site's: `ensurePlaying()` on the start gesture, the
+  intensity follows the run (a card: arp alone; waves 1 and 2: with bass; the bonus run and
+  waves 3 and 4: the full band; a boss: the lift), suspended while paused or hidden.
+- **Sounds.** `soundFor()` maps an engine event to a one-shot; only the player's own guns
+  are heard, pops at most every third tick. A new line on the monitor is a CB click and
+  squelch (`radioOpen`), the end of talk its tail (`radioClose`), a boss a low chord (`cutIn`).
+- **Page cues.** The page asks the director for `briefing` (else `retry`) at the start,
+  `best` when the stored high score is passed, `ending` and `gameover`. After GAME OVER the
+  director and the effects run on, on the page's own count of ticks.
+- **Reduced motion** (`prefers-reduced-motion`): no shake, no tearing (TRACKING, a boss
+  cutting in), a still backdrop, slower blinks.
 
-## Weapons and capsules
+## The picture
 
-One weapon level (1–5) is shared by three modules. A hit costs one level;
-it is never wiped.
+One buffer of logical pixels is drawn each frame and put on the canvas once, at a whole
+number of device pixels with `imageSmoothingEnabled` false (the canvas is backed at the
+real `devicePixelRatio`, not at `canvasPixelRatio()`, because the rule is about device
+pixels). No bloom, glow, scanline, vignette, light map, gradient or alpha blending: a fade
+is a stipple, a hit flash is the bitmap's silhouette in one tone, and no colour is black.
+The shared pixel stage (`themes/base/pixel/stage.ts`) is not used; the 5×7 font is.
 
-- **SPREAD** (start): a fan of bolts, one stream per level, up to 70°.
-- **LASER** (`L`): piercing lances, fastest fire rate; level adds lances.
-- **SEEKER** (`H`): a forward bolt plus seekers on every other volley that
-  pick the nearest on-screen target and turn at a capped rate.
+**Layout** (`render/layout.ts`, `tests/galaga-layout.test.mjs`):
 
-`P` raises the level of the current module; `L` and `H` switch module and
-keep the level (the same module raises it). Both appear from wave 3.
+- The scale is the largest whole number of device pixels at which 240 × 320 fits above the
+  site's bottom band. It drops one step when that would leave the console band less than
+  its 96 rows.
+- From 560 logical pixels across: the field in the middle, `console-left` (the monitor) and
+  `console-right` (the instruments) either side, each 160 to 200 wide. A panel narrower than
+  its bitmap shows the columns its windows are in. The right panel starts under the site's
+  radio widget (measured from the DOM); the rows above it are flat metal.
+- Narrower: `console-band` (96 rows) above the field, and above that a strip of the rows
+  the field cannot use: the name plate and the channel beside the radio widget, then the
+  lamps and the voyage chart when there are rows for them. With no room, the lit lamps are
+  stacked in the field's top-left corner.
+- The field ends at the bottom band; the backdrop runs on through it.
+- A backdrop bitmap that is cut straight along its bottom (most of its last row is solid:
+  the Earth's limb, the field of dishes) stands on the bottom edge; the others drift down.
 
-Other capsules, all gold hexes with a letter and a name tag: `S` heals a
-hull segment, else shields the nose, else feeds the gun; `A` double shield;
-`D` escort wingman that fires with you and takes the next hit; `R` rear gun;
-`T` slow motion for enemies and their fire; `N` nova screen bomb; `M` magnet
-for capsules and incoming fire; `C` double score. Timed capsules show as
-chips with a draining bar on the HUD's sector line. At most three fall at
-once; hull ≤ 1 with no `S` for 20 s forces one.
+**The console.** With a console bitmap the instruments are drawn first and the bitmap over
+them, so they show through its transparent windows; the window rectangles in `layout.ts` are
+copied from `scripts/galaga-lab/art/windows.json` and a test compares the two. Without the
+bitmap the panel is flat wood or metal with the same windows. Monitor: the speaker's
+portrait in the line's mood (the middle 40 × 40 on the band), name plate, channel, the line
+typing out in rows of 28; a boss tears the picture for 26 ticks; between lines the sector's
+station ident, every third stretch a test card. Instruments: the score on seven wheels that
+roll, five valves, the weapon with its level, the DUET needle over the painted VU face (a
+bar on the band), six lamps with the time left (`MG` magnet, `X2` quarter, `TR` tracking,
+`EH` extra hold, `DK` dock, `BB` bubble), the voyage as a strip chart with a pen, tows left.
 
-**SYNC** is the overdrive. Kills charge the meter (3.5 % per enemy HP, a
-little per boss hit). When it is full, Shift (keyboard) or a second finger
-(touch) hands the guns to Claude for 6 s: every enemy bolt on screen turns
-into 10 points, the module fires at level 5, twice as fast, with seekers on
-top.
+**Bitmaps** are looked up by name (`kind` in the engine is the name) and loaded when first
+asked for; a sector's are asked for while its card is up. Until a file has loaded, and for
+good when it is missing, a flat rectangle with the name's initials stands in at the size
+DESIGN.md gives that kind of thing. `shot.mjs fallback` shows the whole game with none.
 
-## Enemies and bosses
+## The debug hook
 
-Ten kinds (`ENEMY_STATS`): scout (bee), squadron (butterfly, side entry),
-heavy (armoured beetle, 3–5 HP), diver, weaver (manta), sniper (shows a pink
-sightline for the half second before it fires), splitter (pod that pops into
-two mites), mite, bulwark (hex fort, three-way gun, from wave 12) and
-stinger (wasp, flank run). At most two snipers are alive at once. Armour
-shows as pips above the sprite. Squadrons, stingers, divers and mites turn
-along their flight path.
+`/?theme=galaga&debug=galaga`, after a run has started, gives `window.__voyagers`. The
+engine's lab files (`engine/debug.ts`, `engine/autopilot.ts`) are loaded only then.
 
-Bosses are Cantors. The boss clock (25 s → 14 s) only runs while no boss is
-alive, so each sector ends with exactly one. A Cantor cannot be hurt until it
-has arrived on screen. It has `80 + 40·boss + 2·wave` HP (raised 2026-09-23
-for the new weapons), a fan that gains an aimed bolt from the fourth boss,
-a radial ring every 4th volley from the second (every 3rd from the fifth),
-and below half HP it enrages: faster guns, damage smoke, and from the third
-boss two mites at its side. Waves spawn at half rate during the fight. A
-kill pays `500 + 250·boss`, heals one segment and opens the next sector.
+| Call | Does |
+|---|---|
+| `state()` | Plain data: tick, seed, stage, sector, wave, voyage, score, hull, weapon, DUET, partner, wing, boss, the layout, which bitmaps loaded and which are missing, the monitor |
+| `seed(n)` | Start again with this seed |
+| `sector(n)`, `wave(n \| 'bonus')`, `boss(id?)`, `ending()` | Jump there |
+| `give(id)`, `give(weapon, level)` | Take a power-up; set the weapon |
+| `duet()`, `capture()`, `dock()`, `event()` | Play DUET; send a captor; dock the partner; start the sector's convoy or rescue |
+| `autopilot(on)` | The engine's autopilot flies |
+| `step(ticks)`, `run()` | Hold the clock and step it by hand; let it run again |
+| `quit()`, `hull(n)`, `reduced(on)`, `world()` | End the run; set the hull; reduced motion; the world itself |
 
-## Hull, score, difficulty
+## Pictures
 
-Five hull segments with 1.2 s of blink invulnerability after a hit. Kills
-within 1.5 s chain into a multiplier (up to x4 with `C`). Waves come every
-2.5 s → 1.1 s; enemy speed, fire rate and bolt speed ramp with the wave
-(`balance.ts`, pinned by `tests/galaga-balance.test.mjs`).
+    npm run dev
+    node scripts/galaga-lab/shot.mjs [baseUrl] [scene,scene…] [outDir]
 
-## Rendering and clock
-
-- The world steps at a fixed 60 Hz on a simulated clock (`simNow`), so a
-  120 Hz screen does not double the speed, and pause stops every timer.
-- Drawing is on the shared pixel stage (`themes/base/pixel/`): a logical
-  buffer at 3 CSS px per pixel on wide screens and ~2.3 on phones (about
-  2.5 on phones with a pixel ratio of 2), lit by a light map, bloomed and
-  scanlined. Game logic works in CSS pixels through `W()`/`H()`; `L()`
-  converts when drawing.
-- `pixel.ts` pixelizes the vector painters of `sprites.ts` at the current
-  pixel size (`pixelize()`: palette snap, outline, top light), so every
-  enemy keeps its silhouette at any screen size: two frames each, a white
-  silhouette for the hit flash, 16 headings for the kinds that turn along
-  their path (squadron, stinger, diver, mite). The player ship (five bank
-  steps, per Hangar look, plus a small escort copy), the Cantor (per
-  on-screen size) and the relay station the same way; all cached.
-- Bolts are pixel streaks along their velocity (white head, coloured
-  tail), enemy fire pink pixel discs and needles, shockwaves pixel rings,
-  sparks single pixels with a light, smoke dithered puffs. Capsules are
-  gold hexes with the letter in the 5×7 font and the name below. The engine
-  flame is two flickering pixel columns; the shield a one-pixel arc.
-- The deep field: a dithered violet night, per-sector nebulae as three
-  dithered tones of the sector tint, a ringed planet shaded like the
-  striped sun (pink rim on the lit side, the ring's back half behind the
-  globe), Kestrel station, six drifting cratered rocks at parallax depths,
-  twinkling one-pixel stars (they stay bright through the light map).
-  Reduced motion stops the backdrop, the shake and the intercom animations.
-- HUD (canvas, 5×7 font on the stage's HUD layer). Wide screens: score
-  top-centre, then hull, weapon module and level, SYNC meter, sector and
-  wave, capsule chips; the boss bar on the sector line. Phones and short
-  landscape screens: two lines, about 8 % of a phone's height. Line 1
-  (score, `S1 W2`) stays left of the radio widget; line 2 starts at the
-  radio's bottom edge with hull, weapon and level, the SYNC bar, the
-  multiplier and the chips. The boss bar is above the pager on phones and
-  on the right of line 2 on short landscape screens. The intercom panel is
-  Neon Shrine's dialog box: bottom-left on wide screens; in the corner
-  without its name line on short landscape screens; on phones just under
-  the HUD, where it sat before, clear of the ship and the thumb, with a
-  smaller portrait and no name line. Title and game over use `.px-*`.
-
-`?theme=galaga&debug=galaga` exposes `window.__galaga` (`boss()`,
-`give(type)`, `sync()`, `wave(n)`, `state()`) for screenshots and manual
-checks.
-
-## Controls
-
-Arrows or WASD move, Space fires, Shift triggers SYNC, Esc tap or P pauses,
-a 3 s Esc hold quits. Touch: drag to fly (the ship sits 80 px above the
-finger and fires while touching), a second finger triggers SYNC. M cycles
-the global radio.
+Writes `tmp/galaga-shots/<scene>-<phone|wide>.png` (375 × 667 at 2x, 1280 × 800) through
+the hook with the clock held, seed 7: the title, each sector, the monitor, capture, hanging,
+dock, DUET, both convoys, a rescue, the third ship, the bonus run, TRACKING with every lamp
+lit, a called rig, each boss, GAME OVER, the ending, and `fallback` with every bitmap refused.
+`layouts` and `title-more` add a tall phone (390 × 844 at 3x), a laptop whose panels are
+narrower than their bitmaps (1180 × 700 at 2x) and a phone on its side.
 
 ## Tests
 
-`npm run test:galaga` runs five files: `galaga-game` (the engine in a node
-vm: waves, armour, bosses and entry shield, sectors, hull, escort, capsules,
-weapon modules, seekers, SYNC, intercom, a three-minute soak),
-`galaga-balance`, `galaga-weapons`, `galaga-story` and `galaga-audio`.
+`npm run test:galaga` (108 tests, about 50 s):
 
-## Known gaps
+| File | Covers |
+|---|---|
+| `galaga-engine`, `-pickups`, `-encounters`, `-bosses`, `-voyage` | The simulation (see `REPORT-engine.md`) |
+| `galaga-director`, `-script` | The radio's rules and every line |
+| `galaga-layout` | The layout rule on a phone, an installed phone, a tall phone, wide, a phone on its side and a sweep of 5,000 screens; the windows against `windows.json`; panel crops |
+| `galaga-look` | Banners for every card, pops and shakes running out on the game clock, pick-up names, fixed pools over a played sector |
+| `galaga-audio` | The radio tracks; every one-shot exists and plays against a fake Web Audio; every engine event is silent or makes one |
 
-- Physical-phone performance has not been measured.
-- `audio.ts` still carries the old per-game chiptune sequencer, unused since
-  the music moved to the global radio.
+`test:radio` holds the station names against `audio.ts`. Nothing tests the canvas drawing
+itself: that is what the pictures are for.
 
-## History
+## Open
 
-The theme was called *Cyberpunk* under the id `hacker` until 2026-09-08.
-`LEGACY_THEME_IDS` in `themes/index.ts` still maps `hacker` onto `galaga`,
-migration `0003_rename_hacker_to_galaga.sql` moved the Hall of Fame rows, and
-the landing reads the old `hackerHighScore` key once. Earlier passes (the
-bestiary and hull on 2026-09-12, the radio move) are in `git log`.
+- Nobody has heard it, held it on a phone or judged how it feels. Difficulty is the engine
+  job's open question (the autopilot never needs a tow).
+- A panel narrower than 172 logical pixels cuts the monitor's caption to fewer than 28
+  characters a row; the line is wrapped again and the last three rows are shown.
+- A window resized mid-run keeps the run's field height; the console moves, the field may be cut.
+- Boss bitmaps are centred on the engine's body, whose half sizes they do not match
+  (`REPORT-page.md`, "What the art needs").
+- `themes/breakout/Breakout.vue` and `themes/rtype/Shooter.vue` still name `galaga/Galaga.vue`
+  in a comment.

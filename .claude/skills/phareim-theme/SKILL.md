@@ -83,7 +83,7 @@ composables/useThemeNavigation.ts  Escape → portal, 3 s grace after a game let
   landing) goes in the registry as `backdrop` instead — `space` does that
   with its starfield.
 - **Own the page.** Replace slots (`card`, `body`, `footer`) or skip
-  DefaultLanding entirely. `galaga`, `breakout`, `rtype`, `invaders` and `starfox` replace `body` with a game HUD
+  DefaultLanding entirely. `breakout`, `rtype`, `invaders` and `starfox` replace `body` with a game HUD; `galaga` (Rex & Nova: Space Voyagers I, 2026-10-13) skips the shell: its landing is the title over a bitmap and loads `Game.vue` as its own chunk
   (`starfox` is three.js, not 2D canvas — its `Flight.vue` is loaded with
   `defineAsyncComponent` inside `<ClientOnly>` so the three chunk only ships with that theme);
   `desk` skips the shell and lays a grained paper sheet (`.desk-sheet`,

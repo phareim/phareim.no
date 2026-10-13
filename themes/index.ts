@@ -144,8 +144,8 @@ export const allThemes: ThemeDefinition[] = [
   },
   {
     id: 'galaga',
-    name: 'Galaga',
-    themeColor: '#0b0616',
+    name: 'Rex & Nova: Space Voyagers I',
+    themeColor: '#141a33',
     landing: GalagaLanding,
   },
   {
@@ -234,7 +234,8 @@ export function isAnyThemeId(id: unknown): id is string {
 
 /**
  * Ids a theme used to have. Old links keep working.
- * `hacker` was the Cyberpunk shmup, renamed to Galaga 2026-09-08;
+ * `hacker` was the Cyberpunk shmup, renamed to Galaga 2026-09-08 (the id `galaga` is now
+ * Rex & Nova: Space Voyagers I, 2026-10-13);
  * `playerone` was the profile theme, retired for the portal 2026-09-24;
  * `zelda` was Neon Shrine, merged into the portal's world 2026-09-24;
  * `tetris` became Russian Block Game (`russian`) 2026-10-06.

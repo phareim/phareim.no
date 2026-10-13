@@ -85,7 +85,7 @@ and comes back in the loops. **Dingo's trouble** (sectors 2 and 4): he
 breaks formation with gnats on his tail; kill them within 12 s or he goes
 down.
 
-**The director** (Galaga's model) queues lines by priority: 3 story
+**The director** (the old Galaga's model; Space Voyagers' `story/director.ts` keeps the same rules) queues lines by priority: 3 story
 (interrupts), 2 teaching (dropped after 6 s in the queue), 1 ambient (only
 after 9 s of silence). The opening chatter (Wombat's launch, the briefing,
 the roll call) is soft: the sector line and first sightings go ahead of it.

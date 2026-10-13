@@ -1,13 +1,15 @@
 /**
- * Galaga audio — everything synthesised with Web Audio, no samples.
+ * Space Voyagers' audio (the theme id is still `galaga`): everything
+ * synthesised with Web Audio, no samples.
  *
  * A full radio sequencer after the OutRun template (buses, shared noise,
  * gated reverb, dotted-eighth delay, 25 ms / 0.14 s lookahead scheduler):
- * three original chip loops, M / tap cycles the station, the choice
- * persists in localStorage. Intensity follows the wave tier (arp thins
- * out on scouts, full band on armoured, boss transposes +2 and halves
- * the arp grid), plus one-shots for shots, kills, pickups, shields,
- * combos, wave starts, boss stingers and death.
+ * three original chip loops, which the site's radio plays as its first
+ * three stations (`themes/radio/engine.ts` imports TRACKS from here).
+ * Intensity follows the run (arp alone on a sector's card, the full band
+ * from wave 3, a boss transposes +2 and halves the arp grid). The game
+ * itself uses the one-shots: `SFX_NAMES` lists them, `soundFor()` says
+ * which one an engine event makes.
  *
  * Nothing starts before a user gesture (`start()` is called from the
  * Enter/tap that begins a run); a browser that refuses audio stays quiet.
@@ -117,6 +119,49 @@ export function parseLead(bars: string[]): number[] {
     }
   }
   return out
+}
+
+/** Every one-shot `play()` knows. */
+export const SFX_NAMES = [
+  'shoot', 'disc', 'bass', 'kill', 'armourTick', 'bossHit', 'bossKill', 'pickup', 'shield', 'mend', 'combo',
+  'mirrorball', 'death', 'waveStart', 'bossStinger', 'radioOpen', 'radioClose', 'cutIn', 'beam', 'capture', 'dock',
+  'tow', 'duetReady', 'duet', 'horn', 'warning', 'hullHit',
+] as const
+export type Sfx = typeof SFX_NAMES[number]
+
+/**
+ * The one-shot for an engine event (`themes/galaga/engine/README.md`,
+ * "Events"), or null when the event is silent. `n` is the event's number:
+ * for a shot the owner (only the player's own guns are heard), for a pop
+ * the points (a pop that is not the player's is silent).
+ */
+export function soundFor(type: string, kind: string, n: number): Sfx | null {
+  switch (type) {
+    case 'shot': return n !== 0 ? null : kind === 'disc' ? 'disc' : kind === 'boombox' ? 'bass' : 'shoot'
+    case 'pop': return n > 0 ? 'kill' : null
+    case 'hit': return kind === 'boss' ? 'bossHit' : kind === 'enemy' ? null : 'armourTick'
+    case 'partnerHit': return 'armourTick'
+    case 'pick': return 'pickup'
+    case 'power': return kind === 'mirrorball' ? 'mirrorball' : kind === 'bubble' ? 'shield' : null
+    case 'bubble': return 'shield'
+    case 'mend': return 'mend'
+    case 'valve': case 'limp': return 'hullHit'
+    case 'tow': return 'tow'
+    case 'gameover': return 'death'
+    case 'chain': return 'combo'
+    case 'wave': return 'waveStart'
+    case 'card': return kind === 'boss' ? 'warning' : null
+    case 'bossIn': case 'bossPhase': return 'bossStinger'
+    case 'bossDown': return 'bossKill'
+    case 'beamOn': return 'beam'
+    case 'capture': return 'capture'
+    case 'docked': return 'dock'
+    case 'duetReady': return 'duetReady'
+    case 'duetOn': return 'duet'
+    case 'convoyIn': case 'rig': return 'horn'
+    case 'pass': return kind === 'marge' || kind === 'duckie' ? 'horn' : null
+    default: return null
+  }
 }
 
 export type GalagaAudio = ReturnType<typeof createGalagaAudio>
@@ -447,95 +492,137 @@ export function createGalagaAudio() {
     ac = null
   }
 
+  const sounds: Record<Sfx, (now: number) => void> = {
+    shoot(now) {
+      if (now - lastShoot < 0.09) return
+      lastShoot = now
+      tone(880, 0.06, 'square', 0.04, 0, 440)
+    },
+    disc(now) {
+      if (now - lastShoot < 0.09) return
+      lastShoot = now
+      tone(1320, 0.07, 'sawtooth', 0.03, 0, 1760)
+    },
+    bass(now) {
+      // The boom box: a low thump with a short rattle on top.
+      if (now - lastShoot < 0.09) return
+      lastShoot = now
+      tone(130, 0.14, 'sine', 0.14, 0, 55)
+      burst(0.06, 0.05, 900, 300)
+    },
+    kill() {
+      burst(0.18, 0.25, 3000, 300)
+      tone(220, 0.16, 'square', 0.12, 0, 55)
+    },
+    armourTick() {
+      tone(1400, 0.05, 'square', 0.07)
+    },
+    bossHit() {
+      tone(180, 0.1, 'sawtooth', 0.1, 0, 90)
+    },
+    bossKill() {
+      burst(0.7, 0.4, 4000, 100)
+      tone(110, 0.7, 'sawtooth', 0.2, 0, 30)
+      tone(440, 0.5, 'square', 0.08, 0.05, 880)
+    },
+    pickup() {
+      tone(659, 0.09, 'square', 0.1)
+      tone(988, 0.12, 'square', 0.1, 0.09)
+    },
+    shield() {
+      tone(520, 0.12, 'triangle', 0.12, 0, 780)
+    },
+    mend() {
+      // A valve warming up.
+      tone(330, 0.1, 'triangle', 0.09, 0, 440)
+      tone(660, 0.16, 'triangle', 0.08, 0.1)
+    },
+    combo() {
+      tone(784, 0.08, 'square', 0.09)
+      tone(1047, 0.1, 'square', 0.09, 0.08)
+    },
+    mirrorball() {
+      burst(0.5, 0.4, 5000, 200)
+      tone(90, 0.5, 'sawtooth', 0.22, 0, 45)
+    },
+    death() {
+      tone(400, 1.0, 'sawtooth', 0.2, 0, 40)
+      burst(1.0, 0.35, 4000, 100)
+    },
+    waveStart() {
+      tone(660, 0.07, 'square', 0.06)
+    },
+    bossStinger() {
+      tone(220, 0.5, 'square', 0.12, 0, 880)
+      burst(0.4, 0.2, 6000, 1000, 'highpass')
+    },
+    radioOpen() {
+      // A CB keyed: the click, then the squelch opening.
+      tone(1900, 0.018, 'square', 0.05)
+      burst(0.09, 0.07, 2600, 1400, 'bandpass')
+    },
+    radioClose() {
+      // The squelch tail and the click as the key is let go.
+      burst(0.12, 0.06, 1800, 700, 'bandpass')
+      tone(1500, 0.016, 'square', 0.04, 0.11)
+    },
+    cutIn() {
+      // A boss on every band: a detuned low chord sliding down.
+      tone(147, 0.9, 'sawtooth', 0.05, 0, 110)
+      tone(156, 0.9, 'sawtooth', 0.04, 0, 116)
+      tone(220, 0.7, 'triangle', 0.05, 0.05, 165)
+      burst(0.5, 0.08, 1800, 300, 'bandpass')
+    },
+    beam() {
+      // The tractor beam: two tones a wobble apart, rising.
+      tone(196, 0.7, 'sine', 0.09, 0, 392)
+      tone(203, 0.7, 'sine', 0.08, 0, 406)
+      tone(784, 0.5, 'triangle', 0.025, 0.1, 1568)
+    },
+    capture() {
+      tone(523, 0.5, 'triangle', 0.1, 0, 131)
+      tone(392, 0.4, 'square', 0.04, 0.12, 98)
+    },
+    dock() {
+      // Two hulls meeting: a clunk and a rising pair.
+      tone(110, 0.08, 'square', 0.12, 0, 70)
+      tone(523, 0.1, 'triangle', 0.09, 0.08)
+      tone(784, 0.16, 'triangle', 0.09, 0.18)
+    },
+    tow() {
+      // The hook going on and the winch taking up.
+      tone(90, 0.1, 'square', 0.16, 0, 60)
+      burst(0.12, 0.2, 1200, 200)
+      tone(220, 0.6, 'sawtooth', 0.06, 0.14, 330)
+    },
+    duetReady() {
+      tone(988, 0.08, 'triangle', 0.07)
+      tone(1319, 0.12, 'triangle', 0.07, 0.08)
+    },
+    duet() {
+      tone(330, 0.5, 'sawtooth', 0.1, 0, 1320)
+      tone(660, 0.4, 'square', 0.05, 0.1, 1760)
+      burst(0.4, 0.2, 6000, 800, 'highpass')
+    },
+    horn() {
+      // A rig's air horn: two notes a minor third apart, twice.
+      for (let i = 0; i < 2; i++) {
+        tone(233, 0.28, 'sawtooth', 0.09, i * 0.34)
+        tone(277, 0.28, 'sawtooth', 0.08, i * 0.34)
+      }
+    },
+    warning() {
+      for (let i = 0; i < 3; i++) tone(440, 0.22, 'square', 0.06, i * 0.32, 330)
+    },
+    hullHit() {
+      tone(300, 0.25, 'sawtooth', 0.18, 0, 80)
+      burst(0.25, 0.3, 2500, 200)
+    },
+  }
+
   function play(name: string): void {
     if (!ensure()) return
-    const now = ac!.currentTime
-    switch (name) {
-      case 'shoot':
-        if (now - lastShoot < 0.09) return
-        lastShoot = now
-        tone(880, 0.06, 'square', 0.04, 0, 440)
-        break
-      case 'kill':
-        burst(0.18, 0.25, 3000, 300)
-        tone(220, 0.16, 'square', 0.12, 0, 55)
-        break
-      case 'armourTick':
-        tone(1400, 0.05, 'square', 0.07)
-        break
-      case 'bossHit':
-        tone(180, 0.1, 'sawtooth', 0.1, 0, 90)
-        break
-      case 'bossKill':
-        burst(0.7, 0.4, 4000, 100)
-        tone(110, 0.7, 'sawtooth', 0.2, 0, 30)
-        tone(440, 0.5, 'square', 0.08, 0.05, 880)
-        break
-      case 'pickup':
-        tone(659, 0.09, 'square', 0.1)
-        tone(988, 0.12, 'square', 0.1, 0.09)
-        break
-      case 'shield':
-        tone(520, 0.12, 'triangle', 0.12, 0, 780)
-        break
-      case 'combo':
-        tone(784, 0.08, 'square', 0.09)
-        tone(1047, 0.1, 'square', 0.09, 0.08)
-        break
-      case 'nova':
-        burst(0.5, 0.4, 5000, 200)
-        tone(90, 0.5, 'sawtooth', 0.22, 0, 45)
-        break
-      case 'death':
-        tone(400, 1.0, 'sawtooth', 0.2, 0, 40)
-        burst(1.0, 0.35, 4000, 100)
-        break
-      case 'waveStart':
-        tone(660, 0.07, 'square', 0.06)
-        break
-      case 'bossStinger':
-        tone(220, 0.5, 'square', 0.12, 0, 880)
-        burst(0.4, 0.2, 6000, 1000, 'highpass')
-        break
-      case 'laser':
-        if (now - lastShoot < 0.09) return
-        lastShoot = now
-        tone(1320, 0.07, 'sawtooth', 0.03, 0, 1760)
-        break
-      case 'seeker':
-        tone(520, 0.12, 'triangle', 0.05, 0, 1040)
-        break
-      case 'comms':
-        // Intercom chirp: Claude keys the mic.
-        tone(1250, 0.05, 'square', 0.035)
-        tone(1680, 0.07, 'square', 0.03, 0.055)
-        break
-      case 'choir':
-        // The Choir cuts in: a detuned low chord sliding down.
-        tone(147, 0.9, 'sawtooth', 0.05, 0, 110)
-        tone(156, 0.9, 'sawtooth', 0.04, 0, 116)
-        tone(220, 0.7, 'triangle', 0.05, 0.05, 165)
-        burst(0.5, 0.08, 1800, 300, 'bandpass')
-        break
-      case 'syncReady':
-        tone(988, 0.08, 'triangle', 0.07)
-        tone(1319, 0.12, 'triangle', 0.07, 0.08)
-        break
-      case 'sync':
-        tone(330, 0.5, 'sawtooth', 0.1, 0, 1320)
-        tone(660, 0.4, 'square', 0.05, 0.1, 1760)
-        burst(0.4, 0.2, 6000, 800, 'highpass')
-        break
-      case 'warning':
-        for (let i = 0; i < 3; i++) tone(440, 0.22, 'square', 0.06, i * 0.32, 330)
-        break
-      case 'hullHit':
-        tone(300, 0.25, 'sawtooth', 0.18, 0, 80)
-        burst(0.25, 0.3, 2500, 200)
-        break
-      default:
-        break
-    }
+    sounds[name as Sfx]?.(ac!.currentTime)
   }
 
   return {

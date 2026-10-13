@@ -56,14 +56,16 @@ bests + ships + selected + distinct count + `saves` (the adventure save
 slots, see `docs/games/neon-shrine.md`); `POST /api/ship/select` →
 400 bad id/ship, 404 unknown player, 423 locked. Unlock is derived live
 from `COUNT(DISTINCT game)`, so no backfill. Games re-read the ship on
-every start: Galaga (hull + wide wings + trim cockpit), R-Type (hull,
+every start: R-Type (hull,
 flame core, trim Force pod, vandal chin fin), Star Fox
 (`scene/player.ts` builds it with the shared `buildPlayerShip` when the
 theme mounts), Invaders (same 1978 silhouette in hull colour, trim base row,
-hull-coloured bolts; glow cache keyed per colour).
+hull-coloured bolts; glow cache keyed per colour). The Galaga cabinet no longer wears it
+(2026-10-13): Rex & Nova: Space Voyagers I flies Rex's Wagon and Nova's Scooter, which are
+bitmaps, and does not call `readShipDef`.
 
-**Tests.** `npm run test:ships` (catalogue + unlock, in CI). The three
-2D harnesses stub `readShipDef` (imports are stripped in the vm) and
+**Tests.** `npm run test:ships` (catalogue + unlock, in CI). The
+2D harnesses (R-Type, Invaders) stub `readShipDef` (imports are stripped in the vm) and
 assert reset/start re-reads the pick; R-Type also smoke-draws both
 variants against an absorbing ctx stub. Verified 2026-09-09: all suites
 green, typecheck, production build, headless-Chromium DOM + console

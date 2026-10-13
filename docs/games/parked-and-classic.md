@@ -7,8 +7,8 @@ reachable with `?theme=<id>`.
 
 ## Breakout
 
-`?theme=breakout` — the arcade classic, added 2026-09-04. Same
-canvas-behind-the-card pattern as Galaga; plays itself (autopilot) until
+`?theme=breakout` — the arcade classic, added 2026-09-04. A full-viewport canvas
+behind the landing's text (the pattern the old Galaga began); plays itself (autopilot) until
 Enter.
 
 **Look (2026-09-24): Neon Shrine's pixels** (`docs/games/pixel-look.md`).
