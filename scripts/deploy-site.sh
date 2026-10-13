@@ -53,11 +53,9 @@ cd "$workspace"
 heavy_run() { if command -v heavy >/dev/null 2>&1; then heavy -- "$@"; else "$@"; fi; }
 echo "Building $site from $revision"
 heavy_run npm ci --include=dev --no-audit --no-fund
-# Discover every test:* script so new games automatically join the deploy checks.
-test_suites=$(node -e 'const p=require("./package.json"); console.log(Object.keys(p.scripts).filter(s=>s.startsWith("test:")).sort().join("\n"))')
-while IFS= read -r suite; do
-  [ -z "$suite" ] || heavy_run env -u pm_id NODE_ENV=test npm run "$suite"
-done <<< "$test_suites"
+# One run of every tests/*.test.mjs, so a new test file joins the checks by itself. One pass also keeps small suites
+# from queuing for the heavy slot one at a time.
+heavy_run env -u pm_id NODE_ENV=test npm test
 heavy_run npm run typecheck
 heavy_run npm run build
 if [ "$automatic" = 1 ]; then
