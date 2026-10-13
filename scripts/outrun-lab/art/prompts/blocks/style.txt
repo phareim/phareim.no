@@ -1,0 +1,7 @@
+Pixel art for a late-1990s arcade fighting game at its most worked-over, the big-sprite
+boards of 1996 to 1998: dense hand-placed detail, every surface with wear and a story
+(rivets, stickers, dents, cables, grime where hands touch), strong readable silhouettes,
+light with a clear direction from the upper left, colour ramps that shift hue from shadow to
+light (shadows lean blue-violet, lights lean warm), four tones to a material and a dark
+outline, clusters of pixels and never noise. Crisp square pixels, all exactly one size, on one
+grid; hard edges; a small limited palette; no anti-aliasing.

@@ -1,0 +1,12 @@
+The first image is a layout: each pale block on the magenta background marks the place and
+the size of one cloud. The second image shows the pixel-art style to draw in and the size of
+square pixel block to use. Draw one cloud in each block, filling its block and no larger,
+each one separate with flat magenta all round it: nothing touching, nothing else in the
+picture.
+{style} {clusters} {key}
+They are the clouds of a night sky in a late-1990s arcade game: long, flat, layered banks of
+cloud with ragged ends, each in three flat tones, a dark slate-blue body, a lighter
+blue-grey top edge, and a warm underside lit orange-brown from below by the lights of a city,
+as the clouds are in the second image. Hard edges, flat patches, no soft shading, no
+dithering.
+{leave}

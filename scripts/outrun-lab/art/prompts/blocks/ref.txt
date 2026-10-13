@@ -1,0 +1,4 @@
+Draw a new picture in exactly the pixel-art style of the reference image: the same size of
+square pixel blocks on the same kind of grid, the same amount of wear and hand-placed detail,
+hard pixels, no smoothing, a small palette. Only the style comes from the reference: the
+subject is new.

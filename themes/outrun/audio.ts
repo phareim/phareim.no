@@ -1,5 +1,6 @@
 /**
- * OutRun audio — everything synthesised with Web Audio, no samples.
+ * The sound of Nova & Rex' Drive to the Mountains (the theme `outrun`):
+ * everything synthesised with Web Audio, no samples.
  *
  * - Engine: two detuned saws and a square sub through a soft clipper and a
  *   low-pass that opens with throttle and revs; a square LFO at half the
@@ -13,9 +14,9 @@
  * - One-shots for crashes, bumps, close passes (rising with the chain),
  *   cars whooshing past (panned to their side), exhaust pops, checkpoints,
  *   the countdown, the low-time warning, TIME UP and the goal.
- * - The radio: three original synthwave loops on a small step sequencer
+ * - The tapes: three original synth loops on a small step sequencer
  *   (bass, pad, arpeggio, lead with a dotted-eighth delay, drums through a
- *   short gated reverb). Chosen on the SELECT MUSIC screen, M cycles.
+ *   short gated reverb). Chosen on the PICK A TAPE screen, M cycles.
  *
  * Nothing starts before a user gesture (`start()` is called from the key or
  * tap that begins a run); a browser that refuses audio just stays quiet.
@@ -57,7 +58,7 @@ const hz = (m: number) => 440 * Math.pow(2, (m - 69) / 12)
 
 export const TRACKS: readonly Track[] = [
   {
-    name: 'MIDNIGHT SHOWER',
+    name: 'FOR NOVA',
     bpm: 124,
     bars: [
       { root: 41, chord: [53, 57, 60] }, { root: 43, chord: [55, 59, 62] }, { root: 40, chord: [52, 55, 59] }, { root: 45, chord: [57, 60, 64] },
@@ -75,7 +76,7 @@ export const TRACKS: readonly Track[] = [
     pad: true,
   },
   {
-    name: 'PASSING NEON',
+    name: 'SOUTHIE NIGHTS',
     bpm: 102,
     bars: [
       { root: 38, chord: [50, 53, 57] }, { root: 34, chord: [46, 50, 53] }, { root: 41, chord: [53, 57, 60] }, { root: 36, chord: [48, 52, 55] },
@@ -93,7 +94,7 @@ export const TRACKS: readonly Track[] = [
     pad: true,
   },
   {
-    name: 'SPLASH GRID',
+    name: 'SIDE B SUNRISE',
     bpm: 136,
     bars: [
       { root: 40, chord: [52, 55, 59] }, { root: 36, chord: [48, 52, 55] }, { root: 43, chord: [55, 59, 62] }, { root: 38, chord: [50, 54, 57] },

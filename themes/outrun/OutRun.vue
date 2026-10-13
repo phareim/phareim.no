@@ -5,9 +5,10 @@
 
 <script setup lang="ts">
 /**
- * OUTRUN — the loop, input and sound around engine.ts (rules) and
- * renderer.ts (pictures). Phases: `attract` (autopilot behind the title),
- * `radio` (SELECT MUSIC, the road keeps rolling behind it), `play`
+ * Nova & Rex' Drive to the Mountains: the loop, input and sound around
+ * engine.ts (rules), renderer.ts (pictures) and banter.ts (what the two of
+ * them say). Phases: `attract` (autopilot behind the title),
+ * `radio` (PICK A TAPE, the road keeps rolling behind it), `play`
  * (countdown, the run, TIME UP or GOAL) and `over` (the landing shows the
  * result; the car cruises on).
  *
@@ -23,6 +24,9 @@ import {
   type OutrunState, type OutrunEvent, type OutrunInput, type OutrunResult,
 } from './engine'
 import { createRenderer, type Message, type OutrunRenderer, type FrameUI } from './renderer'
+import { loadArt } from './art'
+import { createBanter, cueBanter, stepBanter, spokenLine, type Cue } from './banter'
+import { CREAM, GOLD, RED } from './color'
 import { createAudio, TRACK_NAMES, type OutrunAudio } from './audio'
 import { STATION_NAMES } from '~/themes/radio/catalog'
 
@@ -34,10 +38,9 @@ const emit = defineEmits<{
 const canvas = ref<HTMLCanvasElement | null>(null)
 const paused = ref(false)
 
-const CYAN = '#2ff3ff'
-const PINK = '#ff2fa0'
-const GOLD = '#ffd23f'
 const RADIO_TIME = 10
+/** Seconds the ending card stays up before the result panel comes over it. */
+const GOAL_HOLD = 8
 
 let renderer: OutrunRenderer | null = null
 let audio: OutrunAudio | null = null
@@ -47,7 +50,11 @@ let raf = 0
 let last = 0
 let messages: Message[] = []
 let shake = 0
-let flash = 0
+/** What Nova and Rex say on this run; a new one for every run. */
+let banter = createBanter(seed())
+/** Seconds at full speed (the two of them notice), and whether the last seconds have been spoken to. */
+let fastT = 0
+let lowCued = false
 let radioIndex = 0
 /** Select-screen memory (local 0–2 + OFF); the music itself is global. */
 const radio = useRadio()
@@ -125,7 +132,7 @@ function frame(nowMs: number) {
   for (const m of messages) m.t += dt
   messages = messages.filter(m => m.t < m.life)
   shake = Math.max(0, shake - dt * 2.6)
-  flash = Math.max(0, flash - dt * 4)
+  if (phase === 'play') stepBanter(banter, dt, state.status === 'countdown')
 
   const ui: FrameUI = {
     now,
@@ -135,13 +142,13 @@ function frame(nowMs: number) {
     touch: touchMode,
     braking: phase === 'play' && readInput().brake,
     messages,
+    talk: phase === 'play' ? spokenLine(banter) : null,
     // Select screen shows the local 3 + OFF; the in-run HUD shows the true
     // global station (M / taps can move it off the OutRun block mid-run).
     radioIndex: phase === 'radio' ? radioIndex : radio.station.value,
     radioNames: phase === 'radio' ? TRACK_NAMES : STATION_NAMES,
     radioTimer,
     shake,
-    flash,
     paused: paused.value,
   }
   const t0 = performance.now()
@@ -178,13 +185,21 @@ function tickRun(dt: number) {
   if (sinceGo >= 0 && phase === 'play') {
     sinceGo += dt
     if (sinceGo > 1.4) {
-      if (!touchMode && state.speed < MAX_SPEED * 0.03) say('HOLD ↑ FOR GAS', PINK, 2.2)
+      if (!touchMode && state.speed < MAX_SPEED * 0.03) say('HOLD ↑ FOR GAS', RED, 2.2)
       sinceGo = -1
     }
   }
+  // A long stretch flat out is worth a word.
+  if (phase === 'play' && state.status === 'run' && state.speed > MAX_SPEED * 0.93) {
+    fastT += dt
+    if (fastT > 6) {
+      talk('fast')
+      fastT = -30
+    }
+  } else if (fastT > 0) fastT = 0
   if (phase === 'play' && ended) {
     endT += dt
-    const done = state.status === 'goal' ? endT > 5 : (endT > 1.2 && state.speed < MAX_SPEED * 0.02) || endT > 4
+    const done = state.status === 'goal' ? endT > GOAL_HOLD : (endT > 1.2 && state.speed < MAX_SPEED * 0.02) || endT > 4
     if (done) finish(state.status === 'goal' ? 'goal' : 'timeup')
   }
 }
@@ -200,28 +215,35 @@ function readInput(): OutrunInput {
   return { steer: Math.max(-1, Math.min(1, steer)), gas, brake }
 }
 
+/** Hand the two of them something to talk about (banter.ts decides whether they do). */
+function talk(cue: Cue) {
+  if (phase === 'play') cueBanter(banter, cue)
+}
+
 function handleEvents(events: OutrunEvent[]) {
   for (const e of events) {
     switch (e.type) {
       case 'countdown':
-        say(String(e.n), CYAN, 0.9, undefined, true)
+        say(String(e.n), CREAM, 0.9, undefined, true)
         audio?.play('count')
         break
       case 'go':
         say('GO!', GOLD, 1.1, stageDef(state.col, state.node).name, true)
         audio?.play('go')
+        talk('go')
         sinceGo = 0
         break
       case 'crash':
         shake = e.kind === 'bump' ? 0.45 : 1
-        if (e.kind !== 'bump') flash = 0.35
         audio?.play(e.kind)
+        talk(e.kind)
         renderer?.sparksAtCar(e.kind === 'bump' ? 12 : 30)
-        if (e.kind === 'tumble') say('WIPEOUT', PINK, 1.8)
+        if (e.kind === 'tumble') say('WIPEOUT', RED, 1.8)
         break
       case 'close':
         say(e.chain > 1 ? `CLOSE ×${e.chain} +${e.points}` : `CLOSE +${e.points}`, GOLD, 1.1)
         audio?.play('close', e.chain)
+        talk(e.chain >= 4 ? 'chain' : 'close')
         break
       case 'pass':
         audio?.pass(e.dx, state.speed / MAX_SPEED)
@@ -229,27 +251,36 @@ function handleEvents(events: OutrunEvent[]) {
       case 'backfire':
         renderer?.backfire()
         audio?.play('backfire')
+        talk('backfire')
         break
       case 'scrape':
         shake = Math.max(shake, 0.3)
         audio?.play('scrape')
+        talk('scrape')
         break
       case 'tunnel':
+        if (e.on) talk('tunnel')
         break
       case 'fork':
-        say(`${e.side < 0 ? '◀' : ''} ${stageDef(e.col, e.node).name} ${e.side > 0 ? '▶' : ''}`.trim(), CYAN, 1.8)
+        say(`${e.side < 0 ? '◀' : ''} ${stageDef(e.col, e.node).name} ${e.side > 0 ? '▶' : ''}`.trim(), CREAM, 1.8)
+        talk(e.side < 0 ? 'fork-left' : 'fork-right')
         break
       case 'checkpoint':
         say('CHECKPOINT', GOLD, 2.6, `EXTENDED PLAY +${e.extend}S · STAGE ${e.col + 1}`)
         audio?.play('checkpoint')
-        flash = 0.25
+        talk(`stage:${stageDef(e.col, e.node).biome}`)
         break
       case 'warn':
         audio?.play('warn')
+        if (!lowCued) {
+          lowCued = true
+          talk('low')
+        }
         break
       case 'timeup':
-        say('TIME UP', PINK, 3.5, undefined, true)
+        say('TIME UP', RED, 3.5, undefined, true)
         audio?.play('timeup')
+        talk('timeup')
         // The shared radio keeps playing — no music lives on the local ctx.
         ended = true
         endT = 0
@@ -257,13 +288,14 @@ function handleEvents(events: OutrunEvent[]) {
       case 'goal':
         say('GOAL!', GOLD, 4.5, `TIME BONUS ${e.timeBonus}`, true)
         audio?.play('goal')
-        flash = 0.4
+        talk('goal')
         ended = true
         endT = 0
         break
       case 'shift':
         break
       case 'offroad':
+        if (e.on) talk('offroad')
         break
     }
   }
@@ -290,6 +322,9 @@ function beginRun() {
   if (phase !== 'radio') return
   try { localStorage.setItem('outrunRadio', String(radioIndex)) } catch { /* private mode */ }
   state = createGame(seed())
+  banter = createBanter(seed())
+  fastT = 0
+  lowCued = false
   renderer?.resetCamera()
   messages = []
   ended = false
@@ -502,7 +537,7 @@ onMounted(() => {
     radioIndex = Number.isFinite(r) && r >= -1 && r < TRACK_NAMES.length ? r : 0
   } catch { /* private mode */ }
   if (canvas.value) {
-    renderer = createRenderer(canvas.value)
+    renderer = createRenderer(canvas.value, loadArt())
     resize()
   }
   emit('phase', phase)

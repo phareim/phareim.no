@@ -1,0 +1,16 @@
+{things} {style} {clusters} {key}
+Top row, left to right:
+The red block: an old red New England barn with white trim, a gambrel roof and a tall grey
+silo at its side, one lit window in warm yellow.
+The grey block: a roadside diner like a railway car, stainless steel and chrome trim, a row
+of lit windows, a neon tube sign on its roof reading DINER in warm orange.
+Bottom row, left to right:
+The brown block: a log cabin with a stone chimney with a thread of smoke, a porch, two lit
+windows in warm yellow, a pair of skis leaning by the door.
+The white block: a white lighthouse with one red band, a railed gallery and a lit lantern
+room.
+The blue block: a tall motel sign on two steel posts, an arrow of light bulbs, neon tube
+lettering reading MOTEL in warm red, a small board under it reading VACANCY.
+Night colours: deep blue and brown in the shadows, never black; the lit windows and signs
+are the warm colours.
+{leave}

@@ -1,0 +1,12 @@
+{redraw} {style} {clusters}
+The subject is the player's car in a 1997 arcade road-racing game, seen from directly behind
+and a little above: a low, wide, red 1980s sports convertible with the top down, a luggage
+rack with a strapped canvas duffel bag and a flat pizza box on the boot lid, a yellow number
+plate reading NOVA 89, a pizza sticker on the chrome bumper, twin exhausts on each side. Two
+people sit in it with their backs to the viewer: on the left the driver, a woman with a huge
+blonde mane tied with a red headband whose ends fly in the wind, orange headphones round her
+neck, a red jacket; on the right the passenger, a man with tousled brown hair, a red
+headband with long flying ends, a white sleeveless shirt and a bare muscular arm on the
+door. Keep the car and the people exactly the size they have in the layout: do not enlarge
+them. Their heads and hair stay as large as they are.
+{leave}

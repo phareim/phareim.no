@@ -1,26 +1,21 @@
 /**
- * OutRun — NEON DREAMS.
- * The Neon Dreams look shared with the arcade: violet-black ground
- * (#0b0616), cyan car/interface (#2ff3ff), pink threat/call-to-action
- * (#ff2fa0), gold reward (#ffd23f). The canvas paints its own striped sun,
- * mountain ridges and segmented road; no CSS grid. One scheme — no dark
- * variant.
+ * Nova & Rex' Drive to the Mountains (the theme `outrun`).
+ * The inks of Nova's Solo Rescue: a night that is deep blue and never black
+ * (#0a0c1e, #141a3c), cream lettering (#ffe9c4), a warm gold (#ffe45c) and the
+ * jacket's red (#e2343f). The canvas paints everything else. One scheme: no
+ * dark variant.
  */
 
 :root {
-  --outrun-bg: #0b0616;
-  --outrun-bg-deep: #060310;
-  --outrun-text: #f2e9ff;
-  --outrun-text-muted: #b9a8d9;
-  --outrun-text-subtle: #7a6a9a;
-  --outrun-accent: #2ff3ff;
-  --outrun-pink: #ff2fa0;
-  --outrun-gold: #ffd23f;
-  --outrun-card-bg: rgba(11, 6, 22, 0.74);
-  --outrun-card-border: rgba(255, 47, 160, 0.35);
-  --outrun-card-shadow: rgba(47, 243, 255, 0.15);
+  --outrun-bg: #0a0c1e;
+  --outrun-text: #ffe9c4;
+  --outrun-text-muted: #b8b4c8;
+  --outrun-text-subtle: #8a90b8;
+  --outrun-accent: #ffe45c;
+  --outrun-card-bg: #141a3c;
+  --outrun-card-border: #ffe9c4;
+  --outrun-card-shadow: #0a0c1e;
   --outrun-font: var(--font-person);
-  --outrun-mono: var(--font-machine);
 }
 
 .outrun-page {
@@ -41,6 +36,6 @@
   --theme-card-bg: var(--outrun-card-bg);
   --theme-card-border: var(--outrun-card-border);
   --theme-card-shadow: var(--outrun-card-shadow);
-  --theme-card-radius: 12px;
+  --theme-card-radius: 0;
   --theme-font-body: var(--outrun-font);
 }

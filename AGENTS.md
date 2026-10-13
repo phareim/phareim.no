@@ -19,7 +19,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 - `npm run test:starfox` — Star Fox: balance, story and director, arsenal, encounter scripts, the five bosses' fairness (2026-09-25)
 - `npm run test:wingman` — Star Fox wingman brain and the three-wingman squad (2026-09-25)
 - `npm run test:anotherworld` — Another Shore: physics, threats, a playtester that crosses all five chapters without dying, cuts, saves; plus the audio module against a fake Web Audio (rebuilt 2026-09-23)
-- `npm run test:outrun` — OutRun engine: road and forks, tunnels, driving model, traffic, close-pass chain and crashes, clock and stage times, goal, autopilot (rebuilt 2026-09-11, tunnels and chain 2026-09-23)
+- `npm run test:outrun` — Nova & Rex' Drive to the Mountains (the theme `outrun`, rewritten from OutRun 2026-10-13): the engine (road and forks, tunnels, driving model, traffic, close-pass chain and crashes, clock and stage times, goal, autopilot), what the two of them say (`banter.ts`), and that `public/outrun` holds exactly the pictures the game lists
 - `npm run test:battery` — Night of the Dead Battery: the engine, each floor's puzzles, the story and finale, the audio, and a walkthrough from a new game to the credits (2026-09-26)
 - `npm run test:miniworld` — Mini World: the save and its actions, contests, crown and titles, the wallet and neighbourhood server rules (memory store and real D1 SQL), physics, every obby jump, the castle's throne hall, models, audio (2026-09-26, the hall 2026-09-29); the sign-in gate (2026-09-29): session check with a fake auth, account links, every gated route on real D1 SQL, mw-world's 401, the browser composable and both windows
 - `npm run test:figur` — Lag Din Figur: every garment's texture, packing, the drawing ops, figures and the save, Pip's reading of Norwegian, the hero colours, the four renderers and the Minecraft skin (2026-09-26)
@@ -90,7 +90,7 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
 
 ## Theme System (short version — the skill has the rest)
 
-- Eighteen themes in `themes/index.ts` (verified 2026-09-28): the portal (`home: true`), thirteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun, Russian Block Game, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
+- Eighteen themes in `themes/index.ts` (verified 2026-09-28): the portal (`home: true`), thirteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Galaga, Breakout, R-Type, Space Invaders, Star Fox, Drive to the Mountains (`outrun`), Russian Block Game, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
 - **Nothing scrolls**: `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, and every landing is locked to the viewport. Full-screen heights use `var(--app-height, 100dvh)` (defined in `app.vue`), never bare `100dvh`: in the iOS home-screen app 100dvh comes up a status bar short and leaves a white strip at the bottom.
 - **Bottom band** (2026-09-24): `--app-safe-bottom` (defined in `app.vue`) is the strip along the bottom edge where nothing interactive or meaning-bearing may sit: buttons, text, hints, the player's ship or paddle. Backdrops may run through it. In a browser tab it equals `env(safe-area-inset-bottom)`; installed as a web app (`display-mode: standalone/fullscreen`) it is `max(48px, inset + 30px)`, clear of the home indicator and system swipes. Anchor bottom UI as `calc(<gap> + var(--app-safe-bottom, 0px))`, never on the bare inset; canvas games take it as a bottom inset.
 - The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal, `zelda` → portal, `tetris` → russian), an unknown id shows the portal. No cookie, no random pick.
@@ -149,7 +149,7 @@ behave exactly like losing.
 
 ## Hall of Fame API (shared by every score game)
 
-Galaga, Breakout, R-Type, Space Invaders, Star Fox, OutRun and Russian Block Game all
+Galaga, Breakout, R-Type, Space Invaders, Star Fox, Drive to the Mountains (`outrun`) and Russian Block Game all
 submit scores to the same D1-backed leaderboard: `server/api/leaderboard.get`,
 `player.post`, `score.post`, `avatar.post`, store in `server/utils/store.ts`.
 A run calls `submitScore('<id>', score)` on game over; a score of 0 is never
@@ -181,7 +181,7 @@ holds this radio silent.
 | Another Shore II | `docs/games/another-shore-ii.md` | `themes/shore/` (parked) |
 | Space Invaders | `docs/games/space-invaders.md` | `themes/invaders/` |
 | Star Fox (Operation Nightlight) | `docs/games/star-fox.md` | `themes/starfox/` (scene/, models/, pure tuning in `*.ts`), `public/starfox/pilots/` |
-| OutRun | `docs/games/outrun.md` | `themes/outrun/` |
+| Nova & Rex' Drive to the Mountains (`outrun`) | `docs/games/outrun.md` | `themes/outrun/`, `public/outrun/` (its pictures), `scripts/outrun-lab/` (shots and how the pictures are made) |
 | Neon Shrine (the portal's world) | `docs/games/neon-shrine.md` | `themes/zelda/` |
 | The Wildwood (Neon Shrine's second act) | `docs/games/wildwood.md` | `themes/zelda/world/wildwood.ts`, `lab1.ts`, `lab2.ts` |
 | Hall of Fame | `docs/games/hall-of-fame.md` | `themes/leaderboard/`, `server/api/` |

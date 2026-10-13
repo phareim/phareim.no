@@ -21,7 +21,7 @@ export const GAMES: readonly GameEntry[] = [
   { id: 'rtype', title: 'R-Type', tagline: 'Side-scroller · charge beam', maxScore: 1_000_000 },
   { id: 'invaders', title: 'Space Invaders', tagline: '5 × 11 formation · one shot', maxScore: 500_000 },
   { id: 'starfox', title: 'Star Fox', tagline: 'On rails · barrel roll', maxScore: 1_000_000 },
-  { id: 'outrun', title: 'OutRun', tagline: 'Five stages · fork in the road', maxScore: 5_000_000 },
+  { id: 'outrun', title: 'Drive to the Mountains', tagline: 'Nova & Rex · five stages, a fork in every road', maxScore: 5_000_000 },
   { id: 'tetris', title: 'Russian Block Game', tagline: 'Endless · line clears', maxScore: 2_000_000 },
 ] as const
 

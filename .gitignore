@@ -26,5 +26,8 @@ tmp/
 tmp/*
 .playwright-mcp/
 
+# Python caches of the art scripts
+__pycache__/
+
 # wrangler pages dev local state
 .wrangler/

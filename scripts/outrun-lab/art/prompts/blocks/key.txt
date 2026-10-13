@@ -1,0 +1,3 @@
+The background is one flat solid magenta (#ff00ff) from edge to edge, with nothing else in
+it: no ground, no shadow on the ground, no sky, no glow round the subject. No magenta or pink
+anywhere on the subject itself.
