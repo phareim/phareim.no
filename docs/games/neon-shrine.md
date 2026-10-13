@@ -36,7 +36,9 @@ and `worldStartingAt()`. `engine/` — pure simulation split by concern
 `objects.ts`, `combat.ts`, `map.ts`; the Wildwood's `hook.ts`, `luna.ts`,
 `bosses.ts`). `render/` — `renderer.ts` (the frame's shared parts, the
 classic view, and the turn between views), `iso/` (the isometric view),
-`tiles.ts`, `sprites.ts` + `sheet.ts` (+ `spritesWild*.ts`), `tones.ts` (the
+`tiles.ts`, `sprites.ts` + `sheet.ts` (+ `spritesWild*.ts`), `heroFrames.ts` +
+`heroLook.ts` (the hero's frames per shape and the look from the NEW LOOK
+stall), `tones.ts` (the
 world's named colours as hex), `hud.ts`, `labTiles.ts` (the labs' look and
 the new tiles), `wild.ts` (props, Luna, the hook's chain, moods). The 5×7
 font and the shared palette are `themes/base/pixel/font.ts` and
@@ -44,7 +46,8 @@ font and the shared palette are `themes/base/pixel/font.ts` and
 in dialog lines. `audio.ts` —
 music, jingles, SFX. `Zelda.vue` — the world shell (loop, input, touch
 deck, audio, saves, pause menu, exits, navigation lock), mounted by
-`themes/portal/Landing.vue`. `profileSync.ts` — the profile pull.
+`themes/portal/Landing.vue`. `LookBooth.vue` — the NEW LOOK stall's mirror.
+`profileSync.ts` — the profile pull.
 `progress.ts` — quest steps and the save merge. `hiscore.ts` — a real top
 three on the arcade's HIGH SCORES sign (one Hall of Fame game at random,
 `/api/leaderboard` without a player id; offline it keeps the KNG joke).
@@ -192,17 +195,64 @@ seeded from the flags of every save the shell loads): after START OVER, or
 on a visit before the sword when nothing is saved yet, the chest opens
 again but the wallet stays where it was. Enemy drops always pay.
 
-**A made figure's clothes** (2026-09-26). When localStorage
+**The hero's look** (the NEW LOOK stall, 2026-10-13). East of the fountain,
+where the town's copy of the Keeper's hut stood until the one-world merge,
+is a stall: a mirror, a stylist behind the counter and a mannequin that goes
+through looks. A at the counter opens the mirror (`LookBooth.vue`, the
+shell's `look` panel, opened like the login console's). Every part of the
+hero is a row there: hair (short, long, ponytail, pigtails) and its colour,
+what is on the head (headband, bow, nothing) and its colour, skin, shirt,
+stripe, belt, what is worn below (trousers, shorts, skirt, dress) and its
+colour, shoes. BOY is the hero as first drawn, GIRL the same hero with long
+hair, a bow and a skirt, RANDOM rolls one, and MY FIGURE (only when a made
+figure dresses the hero, see below) goes back to wearing that. The mirror
+shows the real frames walking in three directions and holding a find up.
+Nothing is worn before WEAR IT; NEVER MIND, Escape or a tap beside the box
+leave the hero as they were.
+
+- **The shape** (`render/heroFrames.ts`). The hero's 27 frames are no longer
+  written out: `heroFrames(shape)` composes them from a head per direction
+  for the hair style, what is worn on the head drawn over it, a torso and the
+  legs for what is worn below. Hair that falls past the chin is laid over the
+  finished frame; the frames that redraw arms or legs (attack, carry, push,
+  hurt, the find held up) take the shape into account one by one. A dress is
+  the skirt's cut in the shirt's colour. `DRAWN_SHAPE` gives the hero as
+  first drawn, and `tests/zelda-look.test.mjs` holds those frames to
+  `tests/zelda-hero-drawn.json` pixel for pixel: change a drawn frame on
+  purpose and that file changes with it.
+- **The colours** (`render/heroLook.ts`). A `HeroLook` is the shape and eight
+  colours; `lookPalette` maps them onto the hero's palette letters (listed in
+  `render/heroColors.ts`). A colour left at the drawn one keeps the drawn
+  shade beside it, any other gets its shade mixed from it, so a choice can
+  never get a shade that does not belong to it. `LOOK_OPTIONS` is the list
+  the booth shows (curated names, no free colour picker); a new hair style
+  or garment is a new entry in `heroFrames.ts` and one name there.
+- **Where it is kept.** localStorage `zelda.heroLook`, on this browser only:
+  it does not follow the account to another device (the save and the bits
+  do). `render/sheet.ts` `setHeroLook` swaps the rows and the palette of the
+  `hero_*` canvases and nothing else. Another account signing in on the
+  browser clears it with the other local copies.
+- **Looking at it.** `node scripts/zelda-lab/hero-sheet.mjs <out.png>
+  [look …]` draws every frame of some looks without a browser;
+  `HERO_LOOK=girl node scripts/zelda-lab/shot.mjs <dir> r-look` renders the
+  stall with a dressed hero; `scripts/zelda-lab/look-shot.mjs <devUrl>
+  <outDir>` opens the mirror in the dev server on a desktop and a phone and
+  checks WEAR IT, NEVER MIND and Escape.
+
+**A made figure's clothes** (2026-09-26). With no look chosen at the stall,
+the hero wears a made figure's colours: when localStorage
 `figur.heroColors` holds Lag Din Figur's active figure, or else
 `miniworld.heroColors` the active Mini World person's colours (both
-`HeroColors`; the figure wins, Petter's call), the hero wears them: `render/heroColors.ts` maps them onto
-the hero's palette letters (hair, headband, skin, shirt and its stripe,
-belt, trousers; shoes are `E` and the open mouth `M`, so they recolour
-apart from the white and pink they share) and `setHeroColors` in
-`render/sheet.ts` rebuilds only the `hero_*` canvases. Re-read on the
-`storage` event and when the tab comes back. No colours: the hero as drawn.
+`HeroColors`; the figure wins, Petter's call), `render/heroColors.ts` maps
+them onto the hero's palette letters (hair, headband, skin, shirt and its
+stripe, belt, trousers; shoes are `E` and the open mouth `M`, so they
+recolour apart from the white and pink they share) and `setHeroColors` in
+`render/sheet.ts` rebuilds only the `hero_*` canvases. A look from the stall
+is worn instead for as long as it is set (the newest and most explicit
+choice); the stall's MY FIGURE removes it. Both are re-read on the `storage`
+event and when the tab comes back. Neither: the hero as drawn.
 `HERO_COLORS='<json>' node scripts/zelda-lab/shot.mjs <dir> r-sword`
-renders a dressed hero.
+renders a hero in a figure's colours.
 
 **Exits.** An `exit` marker (`ExitDef` in `types.ts`) is a way out of the
 game: walk onto a door exit, or press A at a solid one and read its lines,
@@ -210,8 +260,8 @@ and the door fade runs; at full dark the engine emits `{ type: 'exit', id,
 to }` and stays in mode `exit`. All exits are in the town (cabinets, board,
 HANGAR door, kiosk, signpost, terminals); the shell saves and navigates.
 
-**Checks.** `npm run test:zelda` (in CI, 40 tests with the audio and
-Wildwood suites, green 2026-09-24; the Wildwood's own checks are in
+**Checks.** `npm run test:zelda` (run by the deploy; 113 tests with the audio,
+Wildwood, wallet, views and look suites, green 2026-10-13; the Wildwood's own checks are in
 `docs/games/wildwood.md`): world
 validation (everything reachable from the plaza), the first minute (the
 coast road from the town, the Keeper's story once, no clock before the

@@ -55,6 +55,8 @@ const EXPECTED = {
   newgame: { map: 'home', to: { reset: true }, look: 'cabinet' },
   // Leaves nothing either: A opens the shell's account panel (auth.phareim.no).
   login: { map: 'home', to: { panel: 'account' }, look: 'console' },
+  // The NEW LOOK stall on the square: A opens the shell's look panel (the hero's hair, clothes and colours).
+  look: { map: 'overworld', to: { panel: 'look' }, look: 'stall' },
 }
 
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
@@ -535,6 +537,33 @@ describe('portal world', () => {
     // Petter mentions it.
     const petter = Object.values(W.maps.home.marks).find(m => m.ent.t === 'npc').ent.talk[0].lines.join(' ')
     assert.match(petter, /SLEEPER/)
+  })
+
+  it('has a NEW LOOK stall where the town\'s copy of the Keeper\'s hut stood: A opens the look panel, and nothing leaves', () => {
+    const spot = placedExits().find(e => e.id === 'look')
+    const info = P.mapInfo(W, 'overworld')
+    assert.equal(spot.map, 'overworld')
+    // The hut copy filled columns 28-33, rows 10-13 of the town, its door in row 13.
+    assert.ok(spot.x >= 28 && spot.x <= 33 && spot.y >= 10 && spot.y <= 13, `the stall stands at (${spot.x},${spot.y})`)
+    assert.equal(info.base[spot.y * info.w + spot.x], 'Z', 'the stall is its own sprite on a blocked tile')
+    assert.equal(spot.ent.label, 'NEW LOOK')
+    assert.equal(spot.ent.lines, undefined, 'the panel is the stall\'s text')
+    for (const sword of [false, true]) {
+      const g = session()
+      g.s.inv.sword = sword
+      walkTo(g, spot.x, spot.y + 1)
+      g.s.hero.dir = 'up'
+      g.step(inp({ aPress: true, a: true }))
+      assert.deepEqual(g.events.filter(e => e.type === 'panel'), [{ type: 'panel', id: 'look', panel: 'look' }])
+      for (let k = 0; k < 60; k++) g.step()
+      assert.equal(g.s.mode, 'play', 'the stall left the game')
+      assert.equal(g.s.map.id, 'overworld')
+      assert.ok(!g.events.some(e => e.type === 'exit' || e.type === 'startOver'))
+    }
+    // The sign that stood by the hut's door still points to the real hut, and the signpost names the stall.
+    const signs = Object.values(W.maps.overworld.marks).filter(m => m.ent.t === 'sign').map(m => m.ent.lines.join(' '))
+    assert.ok(signs.some(l => /KEEPER'S HUT: DOWN TO THE COAST/.test(l)), 'the sign to the Keeper\'s hut is gone')
+    assert.ok(signs.some(l => /→ NEW LOOK/.test(l)), 'the signpost does not name the stall')
   })
 
   it('coming back stands you in front of the exit you used', () => {

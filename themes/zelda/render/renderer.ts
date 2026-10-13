@@ -24,7 +24,8 @@ import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
-import { makeCanvas, setHeroColors, silhouette, sprite, spriteT } from './sheet'
+import { makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteT } from './sheet'
+import type { HeroLook } from './heroLook'
 import type { HeroColors } from '../../miniworld/types'
 import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
 import { drawPsiBlock } from './labTiles'
@@ -78,6 +79,8 @@ export interface Renderer {
   viewTiles(): { w: number; h: number }
   /** Dress the hero in a made figure's colours (null: as drawn). */
   setHeroColors(colors: HeroColors | null): void
+  /** The hero's look from the NEW LOOK booth (null: none chosen); it is worn instead of a figure's colours. */
+  setHeroLook(look: HeroLook | null): void
   /** Add another way of drawing the frame (`views.ts` lists them). The classic view is built in. */
   addView(id: string, make: ViewFactory): void
   hasView(id: string): boolean
@@ -1152,7 +1155,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   void cellIndex
   return {
-    resize, draw, onEvents, viewTiles, setHeroColors,
+    resize, draw, onEvents, viewTiles, setHeroColors, setHeroLook,
     addView(id, make) { views.set(id, make(kit)) },
     hasView: id => id === 'classic' || views.has(id),
     setView, viewState,

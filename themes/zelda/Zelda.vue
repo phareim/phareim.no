@@ -51,6 +51,8 @@
   </div>
   <!-- The login console in Petter's house: the world stands still behind it. -->
   <AccountConsole v-if="panel === 'account'" :touch="touchUI" @close="closePanel" @leave="leaveForPanel" @session="applySession" />
+  <!-- The NEW LOOK stall on the square: its mirror, where the hero's look is changed. -->
+  <LookBooth v-if="panel === 'look'" :touch="touchUI" :current="heroLook" :figure="figureColors" :reduced-motion="reducedMotion" @close="closePanel" @wear="wearLook" />
 </template>
 
 <script setup lang="ts">
@@ -93,12 +95,15 @@
  * state starts on the wallet's balance, each frame's change becomes a wallet
  * op (a chest's bits only the first time on this browser), and a change
  * elsewhere (another tab, Mini World) lands in the purse.
- * The figure from Lag Din Figur dresses the hero, or else Mini World's
- * active person (`render/heroColors.ts`), re-read on `storage` and when
- * the tab comes back.
+ * The hero wears the look chosen at the NEW LOOK stall on the square
+ * (`LookBooth.vue`, `render/heroLook.ts`, localStorage `zelda.heroLook`);
+ * with none chosen the figure from Lag Din Figur dresses the hero, or else
+ * Mini World's active person (`render/heroColors.ts`). Re-read on `storage`
+ * and when the tab comes back.
  */
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
+import LookBooth from './LookBooth.vue'
 import { createGame, resumeAfterWin, setSession, stepGame, toSave } from './engine/index'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
@@ -115,7 +120,8 @@ import { createInput, type GameInput } from './input'
 import { loadHighScoreSign } from './hiscore'
 import { createBitsBridge, migrateSaveBits, bitRewards, paidFlagStore, type WalletApi } from './wallet'
 import { parseHeroColors } from './render/heroColors'
-import { HERO_COLORS_KEY } from '../miniworld/types'
+import { HERO_LOOK_KEY, parseHeroLook, serializeHeroLook, type HeroLook } from './render/heroLook'
+import { HERO_COLORS_KEY, type HeroColors } from '../miniworld/types'
 import { FIGUR_HERO_KEY } from '../figur/types'
 import { readWallet, addToWallet, onWalletChange } from '../../composables/useWallet'
 import type { ExitTarget, GameState, GameEvent, PanelId, SaveData, TrackId, UseItem, World } from './types'
@@ -146,8 +152,11 @@ const safeProbe = ref<HTMLDivElement | null>(null)
 const paused = ref(false)
 /** The NEW GAME machine is asking whether to throw the run away (the game stands paused behind it). */
 const confirmReset = ref(false)
-/** An HTML panel over the world (the login console's); the hero stands still while it is open. */
+/** An HTML panel over the world (the login console's, the NEW LOOK stall's mirror); the hero stands still while it is open. */
 const panel = ref<PanelId | null>(null)
+/** The look chosen at the NEW LOOK stall (null: none), and a made figure's colours, as last read from storage. */
+const heroLook = ref<HeroLook | null>(null)
+const figureColors = ref<HeroColors | null>(null)
 /** The exit that opened the panel: coming back from the auth page stands the hero in front of it. */
 let panelExit = ''
 /** Logged in on auth.phareim.no, as last heard: the VIP hall's rope is down while it holds. Not saved. */
@@ -175,7 +184,7 @@ let lastT = 0
 let hitStopMs = 0
 /** A paused world is drawn once, then left alone until it resumes (2026-09-30). */
 let pausedDrawn = false
-let reducedMotion = false
+const reducedMotion = ref(false)
 let lowHpT = 0
 let track: TrackId | null = null
 /** Audio is awake (browsers keep it asleep until a key or tap). */
@@ -262,7 +271,7 @@ async function showView(id: ViewId, instant = false) {
   }
   if (ask !== viewAsk) return
   // No turn where nothing would play it: the first frame, reduced motion, a paused game, an open panel.
-  renderer.setView(id, instant || reducedMotion || paused.value || panel.value !== null)
+  renderer.setView(id, instant || reducedMotion.value || paused.value || panel.value !== null)
   pausedDrawn = false
 }
 
@@ -449,7 +458,7 @@ async function checkSession() {
   if (alive && needLink && s.state === 'in' && (await linkAccount(s.user)) === 'switched') window.location.reload()
 }
 
-/** The login console was used: open its panel over the still world. */
+/** The login console or the NEW LOOK stall was used: open its panel over the still world. */
 function openPanel(id: string, p: PanelId) {
   if (phase.value !== 'play' || paused.value) return
   panelExit = id
@@ -655,7 +664,7 @@ function handleEvents(events: GameEvent[]) {
       case 'scroll': break
       case 'respawn': save = true; break
       case 'died': a?.jingle('gameOver'); break
-      case 'hitStop': if (!reducedMotion) hitStopMs = Math.max(hitStopMs, e.ms); break
+      case 'hitStop': if (!reducedMotion.value) hitStopMs = Math.max(hitStopMs, e.ms); break
       case 'exit': leave(e.id, e.to); return
       case 'startOver': askReset(); break
       case 'panel': openPanel(e.id, e.panel); break
@@ -693,7 +702,7 @@ function frame(nowMs: number) {
   ui.paused = paused.value
   ui.confirmReset = confirmReset.value
   ui.muted = sound.muted.value
-  ui.reducedMotion = reducedMotion
+  ui.reducedMotion = reducedMotion.value
   ui.touch = touchUI.value
   ui.keys = touchUI.value ? TOUCH_KEYS : KEYBOARD_KEYS
   ui.stick = input.stick
@@ -701,7 +710,7 @@ function frame(nowMs: number) {
 
   // The ending: the world stays put behind the page's panel. Nothing steps, so
   // it is redrawn at a fifth of the rate rather than 60 times a second.
-  if (phase.value === 'won') { if (slowTick(nowMs)) renderer.draw(state, ui, reducedMotion ? 0 : dt); return }
+  if (phase.value === 'won') { if (slowTick(nowMs)) renderer.draw(state, ui, reducedMotion.value ? 0 : dt); return }
   // Paused: dt is 0, so the picture is already identical to last frame's. Draw
   // it once more in case the pause was what changed it, then leave the pixels
   // alone until something resumes.
@@ -709,7 +718,7 @@ function frame(nowMs: number) {
   pausedDrawn = false
   // A panel is open: the world stands still but keeps glowing. A soft glow at
   // a fifth of the rate is the same glow.
-  if (panel.value) { if (slowTick(nowMs)) renderer.draw(state, ui, reducedMotion ? 0 : dt); return }
+  if (panel.value) { if (slowTick(nowMs)) renderer.draw(state, ui, reducedMotion.value ? 0 : dt); return }
   if (hitStopMs > 0) { hitStopMs -= dt * 1000; renderer.draw(state, ui, 0); return }
   if (pendingPull && state.mode === 'play') applyPull(pendingPull.save)
 
@@ -738,19 +747,38 @@ function frame(nowMs: number) {
 }
 
 /**
- * The hero wears the figure from Lag Din Figur, else Mini World's active
- * person, else its own clothes.
+ * The hero wears the look from the NEW LOOK stall; with none chosen the
+ * figure from Lag Din Figur, else Mini World's active person, else its own
+ * clothes.
  */
 function dressHero() {
+  let look = null
   let colors = null
   try {
+    look = parseHeroLook(localStorage.getItem(HERO_LOOK_KEY))
     colors = parseHeroColors(localStorage.getItem(FIGUR_HERO_KEY)) ?? parseHeroColors(localStorage.getItem(HERO_COLORS_KEY))
   } catch { /* private mode: as drawn */ }
+  heroLook.value = look
+  figureColors.value = colors
   renderer?.setHeroColors(colors)
+  renderer?.setHeroLook(look)
+}
+
+/** WEAR IT at the stall: keep the look on this browser (null: back to the made figure's clothes) and put it on. */
+function wearLook(look: HeroLook | null) {
+  try {
+    if (look) localStorage.setItem(HERO_LOOK_KEY, serializeHeroLook(look))
+    else localStorage.removeItem(HERO_LOOK_KEY)
+  } catch { /* private mode: worn until the page goes */ }
+  dressHero()
+  // Storage refused the write: wear it anyway for as long as the page lives.
+  if (look && !heroLook.value) { heroLook.value = look; renderer?.setHeroLook(look) }
+  closePanel()
+  audio?.sfx('chest')
 }
 
 function onStorage(e: StorageEvent) {
-  if (e.key === FIGUR_HERO_KEY || e.key === HERO_COLORS_KEY || e.key === null) dressHero()
+  if (e.key === HERO_LOOK_KEY || e.key === FIGUR_HERO_KEY || e.key === HERO_COLORS_KEY || e.key === null) dressHero()
 }
 
 function onVisibility() {
@@ -799,7 +827,7 @@ onMounted(() => {
   alive = true
   swordIcon.value = iconUrl('item_sword')
   swapIcon.value = iconUrl('hud_swap')
-  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  reducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   try {
     touchUI.value = window.matchMedia('(hover: none) and (pointer: coarse)').matches
   } catch { touchUI.value = false }

@@ -30,8 +30,8 @@ const LAST_USER_KEY = 'phareim.account'
 /** Local copies of the two games' data and the profile that belongs to them. */
 const LOCAL_KEYS = [
   'miniworld.save', 'miniworld.heroColors', 'figur.save', 'figur.heroColors', 'phareim.wallet', 'phareim.player',
-  // Neon Shrine's (the portal's world): its save, best time and the mark of a cleared run.
-  'zeldaSave', 'zeldaBest', 'zeldaClearedAt',
+  // Neon Shrine's (the portal's world): its save, best time, the mark of a cleared run and the look from the NEW LOOK stall.
+  'zeldaSave', 'zeldaBest', 'zeldaClearedAt', 'zelda.heroLook',
 ]
 
 export const ACCOUNT_TEXT = {

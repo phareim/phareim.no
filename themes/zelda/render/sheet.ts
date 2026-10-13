@@ -1,26 +1,42 @@
 /** Sprite canvases built once from the pixel maps in sprites.ts (and mirrored on demand). */
 import { PAL, SPRITES } from './sprites'
 import { heroColorsKey, heroPalette } from './heroColors'
+import { heroFrames } from './heroFrames'
+import { heroLookKey, lookPalette, type HeroLook } from './heroLook'
 import type { HeroColors } from '../../miniworld/types'
 
 type Canvas = HTMLCanvasElement
 
 const cache = new Map<string, Canvas>()
 const tinted = new Map<string, Canvas>()
-/** The hero's palette (Mini World's clothes), or null for the drawn one. */
+/** What the hero wears: the booth's look, else a made figure's colours, else nothing (as drawn). */
+let heroLook: HeroLook | null = null
+let heroColors: HeroColors | null = null
+/** The hero's palette and frames for that, or null for the drawn ones. */
 let heroPal: Record<string, string> | null = null
+let heroRows: Record<string, string[]> | null = null
 let heroKey = ''
 
-/**
- * Dress the hero in Mini World's colours (null: as drawn). Only `hero_*`
- * canvases are rebuilt; everything else keeps its cache.
- */
-export function setHeroColors(colors: HeroColors | null): void {
-  const key = heroColorsKey(colors)
+/** Only `hero_*` canvases are rebuilt; everything else keeps its cache. */
+function dressHero(): void {
+  const key = heroLook ? 'look:' + heroLookKey(heroLook) : 'colors:' + heroColorsKey(heroColors)
   if (key === heroKey) return
   heroKey = key
-  heroPal = colors ? { ...PAL, ...heroPalette(colors) } : null
+  heroPal = heroLook ? { ...PAL, ...lookPalette(heroLook) } : heroColors ? { ...PAL, ...heroPalette(heroColors) } : null
+  heroRows = heroLook ? heroFrames(heroLook) : null
   for (const m of [cache, tinted]) for (const k of [...m.keys()]) if (k.startsWith('hero_')) m.delete(k)
+}
+
+/** Dress the hero in a made figure's colours (null: as drawn). The booth's look, when set, is worn instead. */
+export function setHeroColors(colors: HeroColors | null): void {
+  heroColors = colors
+  dressHero()
+}
+
+/** The hero's look from the NEW LOOK booth: shape and colours (null: none chosen). */
+export function setHeroLook(look: HeroLook | null): void {
+  heroLook = look
+  dressHero()
 }
 
 function makeCanvas(w: number, h: number): Canvas {
@@ -30,16 +46,14 @@ function makeCanvas(w: number, h: number): Canvas {
   return c
 }
 
-function build(name: string): Canvas {
-  const def = SPRITES[name]
-  if (!def) return makeCanvas(1, 1)
-  const h = def.rows.length
-  const w = def.rows[0]!.length
+/** Rows of palette letters as a canvas, one pixel per letter. */
+export function paintRows(rows: readonly string[], pal: Record<string, string>): Canvas {
+  const h = rows.length
+  const w = rows[0]?.length ?? 1
   const c = makeCanvas(w, h)
   const g = c.getContext('2d')!
-  const pal = heroPal && name.startsWith('hero_') ? heroPal : PAL
   for (let y = 0; y < h; y++) {
-    const row = def.rows[y]!
+    const row = rows[y]!
     for (let x = 0; x < w; x++) {
       const col = pal[row[x]!]
       if (!col) continue
@@ -48,6 +62,19 @@ function build(name: string): Canvas {
     }
   }
   return c
+}
+
+/** The hero's frames in a look, as canvases by frame name, without touching what the hero wears (the booth's mirror). */
+export function lookCanvases(look: HeroLook): Record<string, Canvas> {
+  const pal = { ...PAL, ...lookPalette(look) }
+  return Object.fromEntries(Object.entries(heroFrames(look)).map(([name, rows]) => [name, paintRows(rows, pal)]))
+}
+
+function build(name: string): Canvas {
+  const hero = name.startsWith('hero_')
+  const rows = (hero && heroRows?.[name]) || SPRITES[name]?.rows
+  if (!rows) return makeCanvas(1, 1)
+  return paintRows(rows, hero && heroPal ? heroPal : PAL)
 }
 
 /** The sprite canvas; `flip` mirrors it horizontally. */
