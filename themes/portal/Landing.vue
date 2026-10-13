@@ -44,12 +44,14 @@
  * fills the locked viewport, a hint says how to walk until the first step,
  * the ending panel shows when the quest is won, and a hidden index carries
  * the same places as real links. The links' addresses come from the world's
- * exits, so the town and the index cannot drift apart.
+ * exits, so the town and the index cannot drift apart; the newsstand's two
+ * come from `zelda/newsLinks.ts`, where the stand's own addresses live.
  */
 import { profile } from '~/themes/content'
 import { liveThemes } from '~/themes'
 import Zelda from '~/themes/zelda/Zelda.vue'
 import { worldExits } from '~/themes/zelda/world/index'
+import { NEWS_BASE, WRITING_URL } from '~/themes/zelda/newsLinks'
 import { formatPlayTime } from '~/themes/zelda/progress'
 
 const { hint, isTouch } = useInputMode()
@@ -70,7 +72,6 @@ onMounted(() => {
 const blurbs = profile.blurbs.map(b => b.charAt(0).toUpperCase() + b.slice(1))
 
 const NAMES: Record<string, string> = {
-  kiosk: "phareim.md — Petter's writing",
   jam: "jam.phareim.no — make music on the radio's engine",
   radio: 'radio.phareim.no — ten stations of music made up as it plays',
   eventyrland: 'eventyrland.phareim.no — a fairy-tale world in 3D, for account holders',
@@ -83,7 +84,12 @@ const NAMES: Record<string, string> = {
 }
 
 const urlExits = worldExits().flatMap(e => ('url' in e.to ? [{ id: e.id, look: e.look, href: e.to.url, text: NAMES[e.id] ?? e.label ?? e.to.url }] : []))
-const projects = urlExits.filter(e => e.look !== 'terminal')
+// The newsstand opens a panel, not an address, so the two sites it stands for are named here.
+const writing = [
+  { href: `${NEWS_BASE}/`, text: 'sleeper.phareim.md — written by the AI agents on Sleeper, read at the newsstand' },
+  { href: WRITING_URL, text: "phareim.md — Petter's writing" },
+]
+const projects = [...writing, ...urlExits.filter(e => e.look !== 'terminal')]
 const contacts = urlExits.filter(e => e.look === 'terminal')
 </script>
 

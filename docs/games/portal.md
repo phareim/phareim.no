@@ -7,7 +7,8 @@ per game, two more that leave for Nova & Rex: The Pizza Rescue on fighter.pharei
 sequel Nova's Solo Rescue on nova.phareim.no, the
 Hall of Fame board, the Hangar door), the VIP hall next door
 (Ulrikke's games and a bar, for logged-in visitors), Petter's house (who he
-is, three terminals to his profiles, the login console), the PHAREIM.MD newsstand,
+is, three terminals to his profiles, the login console), the PHAREIM.MD newsstand
+(where Sleeper's feed is read inside the game: "The newsstand" below),
 and east of the pier a quiet beach: two hippie
 DJs (the one building loops live leads to jam.phareim.no, the one with the
 records to the generative radio at radio.phareim.no, which shows a ⌂ TOWN chip back when the visit came from here) and people lying
@@ -31,6 +32,9 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 | `themes/zelda/Zelda.vue` | The shell: loop, input, touch deck, audio, saves, pause menu, exits, the way back, the account panel |
 | `themes/zelda/AccountConsole.vue` | The login console's panel: session check, LOG IN / CREATE ACCOUNT / LOG OUT, its own keys |
 | `themes/zelda/account.ts` | auth.phareim.no: `AUTH_BASE`, `fetchSession`, `signOut`, `authPageUrl`; `fetch` passed in |
+| `themes/zelda/NewsStand.vue` | The newsstand's panel: the rack and one piece at a time, its own keys; its own chunk, loaded when the stand is first used |
+| `themes/zelda/news.ts` | sleeper.phareim.md: `fetchIndex`, `fetchArticle`, `cleanHtml` (the allowlist the feed's HTML goes through); `fetch` passed in. Only the panel's chunk imports it |
+| `themes/zelda/newsLinks.ts` | `NEWS_BASE` and `WRITING_URL`, apart, so the page's hidden index gets the addresses without the fetch code |
 | `themes/portal/Landing.vue` | The page: the shell, the first-move hint, the ending panel, the hidden link index |
 
 **Controls.** Arrows or WASD walk; Space, J, Z or Enter is A (talk, read,
@@ -50,7 +54,7 @@ walk the hero.
 silent, the clock still. The town has no enemies or hazards. Nothing is
 saved and no Hall of Fame player is created until the hero has the blade.
 
-**Leaving and coming back.** A cabinet, the board, the kiosk, the DJ
+**Leaving and coming back.** A cabinet, the board, the DJ
 booths and the terminals show their lines when you
 face them and press A. The last line is a question (INSERT COIN?, OPEN
 IT?, TUNE IN? …) with YES and NO under it, YES picked: A answers, any
@@ -220,6 +224,59 @@ the first 350 ms are ignored, so the A that opened it does not also press
 LOG IN. Touch: tap a button; a tap beside the box closes it. The box is at
 most 360 px wide, centred above the bottom band.
 
+**The newsstand** (2026-10-13). The stand on the coast road (tile 15,25 of
+`overworld`, exit id `kiosk`, look `kiosk`, label SLEEPER NEWS, PHAREIM.MD
+on the roof) no longer leaves for phareim.md. Its target is `{ panel:
+'news' }`: A opens `NewsStand.vue` over the still world, and Sleeper's feed
+(sleeper.phareim.md, the pieces the AI agents on Petter's server write) is
+read there.
+
+- *The rack:* every piece, newest first: date, title, summary, byline.
+  Under it PETTER'S OWN: PHAREIM.MD (a new tab) and CLOSE.
+- *A piece:* date and byline, the headline, the summary, the body with its
+  pictures, quotes, code, tables and lists, and the footnotes as NOTES at the
+  end. Where the article runs a live cell (the radio piece) there is a line
+  with a link to the article. Under it ◀ BACK and OPEN IN BROWSER (a new
+  tab). A pixel bar on the right shows how far down the reader is. The place
+  in each piece and the piece read last are remembered until the page is
+  reloaded.
+- *No answer* (the site down, a body that is not the contract): NO CARRIER,
+  OPEN SLEEPER.PHAREIM.MD, TRY AGAIN, CLOSE.
+
+Readability against style, which Petter left to the builder: the box, the
+header, dates, headlines, section titles, buttons and hints are the game's
+5×7 pixel letters; the text itself is Space Mono, mixed case, 16 px on a
+desktop and 15 px on a phone with 26 px lines, at most 62 characters wide,
+in the game's ground and three neons (cyan links and code, pink quotes, gold
+numbers). The pixel font has no lower case and no «», and several thousand
+words in capitals is not reading. Pictures marked `pixel` in the article are
+scaled without smoothing.
+
+Data: `news.ts` fetches `https://sleeper.phareim.md/reader/index.json` when
+the panel opens and `/reader/<slug>.json` when a piece is opened (8 s
+timeout, no cookie; built by `~/github/phareim.md/build.js`, which also sets
+the cross-origin header). The rack is kept for ten minutes and a piece for
+the visit. The feed's HTML is another site's, so `cleanHtml` writes it out
+again from an allowlist: the tags an article uses, `href` to http(s) in a
+new tab, `src` over https, `class` with `n-` in front, nothing else; scripts,
+styles and frames go with their contents. A new kind of markup in an
+article shows only once its tag is on that list and `NewsStand.vue` styles
+it.
+
+Keys belong to the panel, as in the login console. On the rack: arrows /
+WASD choose, Enter / Space / J / Z open, Escape / Backspace / K / X close.
+In a piece: up and down scroll three lines, Space / Enter / J / Z / Page
+Down turn a page (Shift+Space and Page Up back), Home and End jump, left and
+right change piece, Escape / Backspace / K / X go back to the rack. Tab is
+the browser's and walks the buttons and the links. Touch scrolls the text
+itself; × or a tap beside the box closes. The box is at most 720 × 880 px
+and never taller than the screen above the bottom band.
+
+Redundant when Sleeper's feed is gone or the stand should lead somewhere
+else: give the exit a `url` again, delete `NewsStand.vue`, `news.ts`, `newsLinks.ts` and
+`tests/portal-news.test.mjs`, and take `news` out of `PanelId` and
+`validate.ts`.
+
 **Page.** The canvas fills the locked viewport. The hint ("ARROWS TO WALK ·
 SPACE TO TALK" / "DRAG TO WALK · TAP TO TALK") fades in and goes at the first
 step; it is skipped once `portal.return` exists. Winning shows the ending
@@ -227,7 +284,8 @@ panel (THE SUN SETS AT LAST, play time, NEW BEST!); Enter or a tap after
 1.2 s closes it and play goes on where the prism was taken, the run kept
 (the NEW GAME machine in Petter's house is the way to a fresh quest). A visually hidden `nav` holds the
 h1 name, the blurbs from `themes/content.ts`, a link to every live game,
-phareim.md, the other links out and the three profiles. It shows as a panel
+sleeper.phareim.md and phareim.md (named in the page, since the stand is no
+link), the other links out and the three profiles. It shows as a panel
 while one of its links has keyboard focus.
 
 **The loop.** `frame()` runs on every animation frame, but most frames do
@@ -270,8 +328,28 @@ Galaga and the back button to the cabinet; no page errors. The NEW GAME
 machine headless at 1280×800 on 2026-09-26: A mashed through its lines
 leaves the question open, N plays on with the save kept, Y clears the save
 and `portal.return` and starts on the plaza. Not checked: the touch YES/NO
-buttons, a real phone, iOS audio wake-up, the phareim.md exit
-leaving the site.
+buttons, a real phone, iOS audio wake-up.
+
+The newsstand (2026-10-13): `tests/portal-world.test.mjs` checks that A at
+the stand emits one `panel` event for `news`, with or without the blade, and
+never leaves; `tests/portal-news.test.mjs` runs `news.ts` against a fake
+fetch (the rack, a piece, entries that are not the contract, the site
+refusing, failing, lying or hanging, slugs that are no slugs), feeds
+`cleanHtml` the articles' own markup and what must not get through (scripts,
+handlers, `javascript:` addresses, pictures over http, this site's class
+names), and reads the shell's source for the event → panel wiring and the
+async import. Headless in the dev server against the live feed
+(`scripts/zelda-lab/news-shot.mjs`) at 1280×800, 390×844 (3×, touch) and
+375×667 (2×, touch): the rack, all four pieces from top to notes, the keys
+(a page, three lines, Home, End, left and right), back to the rack, Escape
+and × closing with the hero still at the stand, and the feed failed over
+CDP; no page errors, nothing wider than the box. At 375×667 a finger dragged
+up through the rack and through a piece (touch events, on the left of the
+screen where the world's stick starts) scrolls them and leaves the hero
+standing; `.portal-page` above the panel has `touch-action: none`, which
+does not reach into a scroll container. The built site has the reader as its
+own chunk (12.6 kB, 5.3 kB gzip, and 8 kB of CSS) and only the two addresses
+in the entry. Not checked: a real phone, Safari.
 
 The login console headless in the dev server on 2026-09-26 at 375×667
 (2×, touch) and 1280×800, with auth.phareim.no faked over CDP

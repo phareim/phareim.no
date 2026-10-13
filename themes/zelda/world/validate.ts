@@ -41,7 +41,7 @@ function badTarget(to: ExitTarget): string | null {
   if ('url' in to) return typeof to.url === 'string' && to.url.startsWith('https://') ? null : `url ${String(to.url)} (want https://)`
   if ('home' in to) return to.home === true ? null : 'home not true'
   if ('reset' in to) return to.reset === true ? null : 'reset not true'
-  if ('panel' in to) return to.panel === 'account' || to.panel === 'look' ? null : `panel ${String(to.panel)}`
+  if ('panel' in to) return to.panel === 'account' || to.panel === 'look' || to.panel === 'news' ? null : `panel ${String(to.panel)}`
   return 'no target'
 }
 

@@ -74,8 +74,10 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   and colours are changed at its mirror (`docs/games/neon-shrine.md` → "The
   hero's look"). Beside it a sign pointing down to the coast road.
 - **South**: the coast path: a small newsstand building (PHAREIM.MD decal)
-  with the kiosk counter in front (exit `{ url: 'https://phareim.md' }`,
-  lines saying it is Petter's writing).
+  with the kiosk counter in front. Since 2026-10-13 it opens a panel (exit
+  `{ panel: 'news' }`) where Sleeper's feed, sleeper.phareim.md, is read
+  inside the game; phareim.md itself is a button in that panel
+  (`docs/games/portal.md` → "The newsstand").
 - **The beach** (2026-09-26, Petter's wish; it replaced the radio studio
   that stood by the road): a slow chill-out, only east of the pier. Rows
   28–33, columns 21–37 are sand (tile `-`); west of the pier the old shore

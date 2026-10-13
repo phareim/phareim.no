@@ -44,7 +44,8 @@ const EXPECTED = {
   nova: { map: 'arcade', to: { url: LINK_CABINETS.nova }, look: 'cabinet' },
   leaderboard: { map: 'arcade', to: { theme: 'leaderboard' }, look: 'board' },
   hangar: { map: 'arcade', to: { theme: 'hangar' }, look: 'door' },
-  kiosk: { map: 'overworld', to: { url: 'https://phareim.md' }, look: 'kiosk' },
+  // The newsstand on the coast: A opens the shell's news panel (Sleeper's feed, read in the game).
+  kiosk: { map: 'overworld', to: { panel: 'news' }, look: 'kiosk' },
   radio: { map: 'overworld', to: { url: 'https://radio.phareim.no/?from=phareim' }, look: 'booth' },
   jam: { map: 'overworld', to: { url: 'https://jam.phareim.no' }, look: 'booth' },
   linkedin: { map: 'home', to: { url: 'https://www.linkedin.com/in/phareim' }, look: 'terminal' },
@@ -536,6 +537,28 @@ describe('portal world', () => {
     // Petter mentions it.
     const petter = Object.values(W.maps.home.marks).find(m => m.ent.t === 'npc').ent.talk[0].lines.join(' ')
     assert.match(petter, /SLEEPER/)
+  })
+
+  it('has a newsstand on the coast: A opens the news panel, and nothing leaves', () => {
+    const spot = placedExits().find(e => e.id === 'kiosk')
+    assert.equal(spot.map, 'overworld')
+    assert.equal(spot.ent.label, 'SLEEPER NEWS')
+    assert.equal(spot.ent.lines, undefined, 'the panel is the stand\'s text')
+    for (const sword of [false, true]) {
+      const g = session()
+      g.s.inv.sword = sword
+      walkTo(g, spot.x, spot.y + 1)
+      g.s.hero.dir = 'up'
+      g.step(inp({ aPress: true, a: true }))
+      assert.deepEqual(g.events.filter(e => e.type === 'panel'), [{ type: 'panel', id: 'kiosk', panel: 'news' }])
+      for (let k = 0; k < 60; k++) g.step()
+      assert.equal(g.s.mode, 'play', 'the stand left the game')
+      assert.equal(g.s.map.id, 'overworld')
+      assert.ok(!g.events.some(e => e.type === 'exit' || e.type === 'startOver'))
+    }
+    // The roof still carries the site's name, and coming back to the stand is a registered spot.
+    assert.ok(W.maps.overworld.decals.some(d => d.text === 'PHAREIM.MD'))
+    assert.equal(P.worldStartingAt('overworld', 'kiosk').start.map, 'overworld')
   })
 
   it('has a NEW LOOK stall where the town\'s copy of the Keeper\'s hut stood: A opens the look panel, and nothing leaves', () => {

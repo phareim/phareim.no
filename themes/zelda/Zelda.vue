@@ -53,6 +53,8 @@
   <AccountConsole v-if="panel === 'account'" :touch="touchUI" @close="closePanel" @leave="leaveForPanel" @session="applySession" />
   <!-- The NEW LOOK stall on the square: its mirror, where the hero's look is changed. -->
   <LookBooth v-if="panel === 'look'" :touch="touchUI" :current="heroLook" :figure="figureColors" :reduced-motion="reducedMotion" @close="closePanel" @wear="wearLook" />
+  <!-- The newsstand on the coast: Sleeper's feed, read here. Its own chunk, fetched when the stand is first used. -->
+  <NewsStand v-if="panel === 'news'" :touch="touchUI" @close="closePanel" />
 </template>
 
 <script setup lang="ts">
@@ -89,6 +91,8 @@
  * shell opens `AccountConsole.vue` over the world, which stands still (the
  * scene keeps animating). Its LOG IN / CREATE ACCOUNT save and write
  * `portal.return` for the console the same way, then load the auth page.
+ * The newsstand on the coast opens `NewsStand.vue` the same way: Sleeper's
+ * feed (sleeper.phareim.md) read inside the game; its links open new tabs.
  *
  * Bits are the site wallet (`composables/useWallet.ts`, shared with Mini
  * World): `wallet.ts` bridges the pure engine's `inv.bits` to it — a new
@@ -126,6 +130,9 @@ import { FIGUR_HERO_KEY } from '../figur/types'
 import { readWallet, addToWallet, onWalletChange } from '../../composables/useWallet'
 import type { ExitTarget, GameState, GameEvent, PanelId, SaveData, TrackId, UseItem, World } from './types'
 
+/** The newsstand's reader stays out of the entry (what `/` costs): nobody pays for it before using the stand. */
+const NewsStand = defineAsyncComponent(() => import('./NewsStand.vue'))
+
 type Phase = 'play' | 'won'
 type Spot = World['start']
 
@@ -152,7 +159,7 @@ const safeProbe = ref<HTMLDivElement | null>(null)
 const paused = ref(false)
 /** The NEW GAME machine is asking whether to throw the run away (the game stands paused behind it). */
 const confirmReset = ref(false)
-/** An HTML panel over the world (the login console's, the NEW LOOK stall's mirror); the hero stands still while it is open. */
+/** An HTML panel over the world (the login console's, the NEW LOOK stall's mirror, the newsstand's reader); the hero stands still while it is open. */
 const panel = ref<PanelId | null>(null)
 /** The look chosen at the NEW LOOK stall (null: none), and a made figure's colours, as last read from storage. */
 const heroLook = ref<HeroLook | null>(null)
@@ -458,7 +465,7 @@ async function checkSession() {
   if (alive && needLink && s.state === 'in' && (await linkAccount(s.user)) === 'switched') window.location.reload()
 }
 
-/** The login console or the NEW LOOK stall was used: open its panel over the still world. */
+/** The login console, the NEW LOOK stall or the newsstand was used: open its panel over the still world. */
 function openPanel(id: string, p: PanelId) {
   if (phase.value !== 'play' || paused.value) return
   panelExit = id

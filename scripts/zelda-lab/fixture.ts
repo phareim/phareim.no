@@ -36,7 +36,7 @@ const PLAZA: MapDef = {
     '@': { ent: { t: 'entry', id: 'start', dir: 'up' } },
     p: { ent: { t: 'npc', id: 'petter', look: 'petter', dir: 'down', talk: [{ lines: ['PETTER: HI!'] }] } },
     E: { tile: 'D', ent: { t: 'exit', id: 'home', to: { theme: 'x' }, look: 'door', label: "PETTER'S HOUSE" } },
-    K: { tile: 'M', ent: { t: 'exit', id: 'kiosk', to: { url: 'https://phareim.md' }, look: 'kiosk', label: 'PHAREIM.MD' } },
+    K: { tile: 'M', ent: { t: 'exit', id: 'kiosk', to: { panel: 'news' }, look: 'kiosk', label: 'SLEEPER NEWS' } },
     g: { tile: 'M', ent: { t: 'exit', id: 'gh', to: { url: 'https://github.com/phareim' }, look: 'terminal', art: 'github', label: 'GITHUB' } },
     s: { tile: 'S', ent: { t: 'exit', id: 'games', to: { url: 'https://games.phareim.no' }, look: 'sign', label: 'GAMES.PHAREIM.NO' } },
   },
