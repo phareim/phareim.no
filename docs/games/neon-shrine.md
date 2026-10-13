@@ -261,7 +261,7 @@ renders a hero in a figure's colours.
 game: walk onto a door exit, or press A at a solid one and read its lines,
 and the door fade runs; at full dark the engine emits `{ type: 'exit', id,
 to }` and stays in mode `exit`. All exits are in the town (cabinets, board,
-HANGAR door, kiosk, signpost, terminals); the shell saves and navigates.
+HANGAR door, kiosk, DJ booths, terminals); the shell saves and navigates.
 
 **Checks.** `npm run test:zelda` (run by the deploy; 114 tests with the audio,
 Wildwood, wallet, views and look suites, green 2026-10-13; the Wildwood's own checks are in

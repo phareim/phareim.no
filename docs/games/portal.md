@@ -54,8 +54,8 @@ walk the hero.
 silent, the clock still. The town has no enemies or hazards. Nothing is
 saved and no Hall of Fame player is created until the hero has the blade.
 
-**Leaving and coming back.** A cabinet, the board, the radio
-station's door and the terminals show their lines when you
+**Leaving and coming back.** A cabinet, the board, the DJ
+booths and the terminals show their lines when you
 face them and press A. The last line is a question (INSERT COIN?, OPEN
 IT?, TUNE IN? …) with YES and NO under it, YES picked: A answers, any
 arrow moves the cursor, a tap on the left half of the screen is YES and on
