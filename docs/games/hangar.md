@@ -1,13 +1,12 @@
-## Hangar — the pilot profile and cross-game ships
+## Hangar — the pilot profile, high scores and adventures
 
-`?theme=hangar` is a live theme, reached by the HANGAR door in the portal's arcade: the pilot
-profile — portrait + name, the seven high scores with ranks, the
-adventure rows (Neon Shrine: step n/N and play time; Another Shore:
-`CH n/5` and play time; or the best finish) — and a 3D viewer of the
-ship the player flies in every ship game. Ship browsing is ◀ ▶ buttons
-only; nothing locks navigation.
+`?theme=hangar` is a live theme, reached by the HANGAR door in the portal's arcade. The screen
+fills with the pilot: portrait and name, then a STATUS block (games with a score, adventures
+started), the HIGH SCORES (seven games, with rank) and the ADVENTURES rows (Neon Shrine: step n/N
+and play time; Another Shore: `CH n/5` and play time; one row per save slot, or the best finish). Nothing
+here is chosen: the ship bay and its ◀ ▶ picker went on 2026-10-13.
 
-**Look** (2026-09-25): Neon Shrine's pixel look, like the games
+**Look** (2026-09-25, layout 2026-10-13): Neon Shrine's pixel look, like the games
 (`docs/games/pixel-look.md`).
 
 - *Backdrop* (`Horizon.vue`, scene in `pixel.ts`): a shrine-stone launch
@@ -18,43 +17,31 @@ only; nothing locks navigation.
   rail of rose path between two rails carries running lights that chase
   out towards the sky. Reduced motion draws it once.
 - *Panel*: `.px-box` (Neon Shrine's dialog box) with all text in the
-  pixel font at 16 px (name 24/32 px), ◀ ▶ and FLY THIS SHIP as
-  `.px-btn`. The portrait (`PixelPortrait.vue`) is the pilot's painting
-  shrunk into a 32×32 canvas and shown at 2× (4× on wide screens) with
-  hard pixels; `avatarFull` from `/api/profile`, the thumbnail meanwhile.
-- *Ship viewer* (`ShipViewer.vue`, an async component so three.js stays
-  out of the initial bundle): Star Fox's Super FX pipeline. three.js
-  renders into an offscreen WebGL canvas at a small logical size, Star
-  Fox's quantize pass (`createPixelPipeline` in `themes/starfox/pixel.ts`)
-  snaps it to the palette with a Bayer dither, and a second pixel stage
-  scales it up with a light map (engine, wingtips, the pad's pink ring),
-  bloom and scanlines. Its whole-number scale is the backdrop's, so the
-  ship's pixels match the bay's. The hull colours are lifted towards the
-  palette's grey-violet (unlit dark metal would vanish), the edge lines
-  stay as the lit outline, the additive engine halo is off (the light map
-  does it). The ship stands on a stone pad and swings between its two
-  three-quarter views; mouse-drag turns it.
-- *Layout*: one stacked box on phones (fits 375×667 and 390×844 with no
-  scrolling: on short screens the tagline and nudge go, and the ship's bay
-  is the one element that gives way), two columns on landscape phones,
-  and two columns (pilot/scores · ship) from 1024×700. The top padding
-  clears the radio, the bottom the ⌂ chip.
+  pixel font at 16 px (name 24/32 px). The box fills the screen; on a
+  short phone its list scrolls inside it. The portrait (`PixelPortrait.vue`)
+  is the pilot's painting shrunk into a 32×32 canvas and shown at 2×
+  (4× on wide screens) with hard pixels; `avatarFull` from `/api/profile`,
+  the thumbnail meanwhile.
+- *Layout*: one flow on phones; two columns from 720 px (pilot and status
+  left, high scores and adventures right, with the scores' column top
+  aligned to the pilot). The top padding clears the radio, the bottom the
+  ⌂ chip.
 
-**Ships.** `themes/ships/ships.ts` is the catalogue both games read
-(colours + `dart`/`vandal` variant, plain TS shared client/server/tests).
-`dart` is the starter; `vandal` (gold hull, pink trim, wider striker
-silhouette) unlocks at scores in 4 distinct games. XP/level columns and
-`xpSlots`/`powerupSlots` are reserved for the next iteration — nothing
-reads them yet. `composables/useShip.ts` holds the pick: localStorage
-(`phareim.ship`) so canvases paint synchronously, `readShipDef()` for
-games, server sync with silent fail. `themes/ships/three.ts` builds the
-low-poly model both the viewer and Star Fox use — one builder, one ship.
+**Ships (no longer in the Hangar).** `themes/ships/ships.ts` is still the catalogue
+the games read (colours + `dart`/`vandal` variant, plain TS shared client/server/tests).
+`dart` is the starter; `vandal` unlocks at scores in 4 distinct games. The server still
+validates the unlock (`POST /api/ship/select`, 423 when locked), and the pick is still
+stored (`players.selected_ship`, localStorage `phareim.ship`), so a player who picked the
+Vandal before 2026-10-13 still flies it in the ship games. `composables/useShip.ts` keeps
+`readShipDef()` for the games and `loadProfile()` for the Hangar, but no longer exposes
+`selectShip` to a screen. `themes/ships/three.ts` builds the low-poly model Star Fox uses.
+Removing the Vandal and the server's ship columns is a separate change: it alters what
+the games fly.
 
 **Wiring.** Migration `0004_ships.sql` (`players.selected_ship`,
 `player_ships` with reserved xp/level). `GET /api/profile?player=` →
 bests + ships + selected + distinct count + `saves` (the adventure save
-slots, see `docs/games/neon-shrine.md`); `POST /api/ship/select` →
-400 bad id/ship, 404 unknown player, 423 locked. Unlock is derived live
+slots, see `docs/games/neon-shrine.md`). Unlock is derived live
 from `COUNT(DISTINCT game)`, so no backfill. Games re-read the ship on
 every start: R-Type (hull,
 flame core, trim Force pod, vandal chin fin), Star Fox
@@ -67,8 +54,4 @@ bitmaps, and does not call `readShipDef`.
 **Tests.** `npm run test:ships` (catalogue + unlock, in CI). The
 2D harnesses (R-Type, Invaders) stub `readShipDef` (imports are stripped in the vm) and
 assert reset/start re-reads the pick; R-Type also smoke-draws both
-variants against an absorbing ctx stub. Verified 2026-09-09: all suites
-green, typecheck, production build, headless-Chromium DOM + console
-checks on hangar/starfox/galaga/rtype/invaders (no JS errors), and a
-live API round-trip (423 locked → unlocked at 4 games → select sticks,
-400 on unknown ship).
+variants against an absorbing ctx stub. Verified 2026-09-09 (ship bay, since removed).
