@@ -32,6 +32,8 @@ import { drawPsiBlock } from './labTiles'
 import { drawHookChain, drawStaticMood, fireflies, queueLuna, queueProps, type Item } from './wild'
 import { ease } from './iso/project'
 import { createTurn } from './turn'
+import { PAL } from './sprites'
+import { treeNow } from './tree'
 
 /** NPC looks that live on the town's beach and move on its slow beat. */
 const BEACH_LOOKS: ReadonlySet<string> = new Set(['hippie', 'smoker', 'guitar', 'sleeper', 'twirler', 'bonfire'])
@@ -324,6 +326,17 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   function put(g: G, name: string, x: number, y: number, flip = false, flash = false) {
     const c = flash ? silhouette(name, '#ffffff', flip) : sprite(name, flip)
     g.drawImage(c, Math.round(x - c.width / 2), Math.round(y - c.height))
+  }
+
+  /** The beach tree: its crown for today's deploys, one fruit per visitor on top (render/tree.ts). */
+  function drawTree(g: G, x: number, y: number) {
+    const t = treeNow()
+    shadow(g, x, y - 1, 10)
+    const left = Math.round(x - 8)
+    const top = Math.round(y - 32)
+    put(g, `tree_${t.stage}`, x, y)
+    g.fillStyle = PAL.r!
+    for (const [fx, fy] of t.fruit) g.fillRect(left + fx, top + fy, 2, 2)
   }
 
   function drawHero(g: G, s: GameState, cx: number, cy: number, lights: Light[]) {
@@ -710,6 +723,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         draw: () => {
           const x = n.x * T - cx
           const y = n.y * T - cy + 6
+          if (n.look === 'tree') { drawTree(g, x, y); return }
           if (n.look !== 'bonfire') shadow(g, x, y - 1, 10)
           put(g, `${n.look}_${f}`, x, y, n.dir === 'left')
           if (n.look === 'smoker') smoke(g, x + (n.dir === 'left' ? -1 : 1) * (f ? 6 : 7), y - (f ? 9 : 5), time, ui.reducedMotion)
