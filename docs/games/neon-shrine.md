@@ -177,6 +177,12 @@ times meet at the lower (`zeldaBest` locally, `best_seconds` on the slot,
 which also counts clears). The Hangar shows QUEST n/12 from the slot. A player is
 still one browser, so the save does not follow a person to another device.
 
+**Never resize an existing map.** Bombed walls and opened doors are save
+flags keyed by tile index (`bomb:<map>:<idx>`, `door:<map>:<idx>`,
+`engine/map.ts`), so a map whose width or height changes opens the wrong
+tiles in every old save. New land goes in a new map behind a warp, the way
+the Wildwood did.
+
 **Bits are the site wallet** (2026-09-26). The bits the hero finds and
 spends are the same bits Mini World uses (`composables/useWallet.ts`,
 localStorage `phareim.wallet` plus the player's server balance). The
