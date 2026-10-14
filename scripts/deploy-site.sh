@@ -5,8 +5,7 @@
 #
 # master (the default) is production: phareim.no. Any other branch becomes a
 # Pages preview (Pages names it after the branch, a slash turned into a
-# dash: <branch>.phareim-no.pages.dev); `beta` is also served at
-# beta.phareim.no. A preview runs the same tests, typecheck and build, shares
+# dash: <branch>.phareim-no.pages.dev). A preview runs the same tests, typecheck and build, shares
 # production's database, and never applies migrations: a branch that needs a
 # new table waits for master to get it.
 set -euo pipefail
