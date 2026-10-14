@@ -1,5 +1,5 @@
 /**
- * R-Type in Neon Shrine's pixel look (2026-09-24): a flight through the
+ * G-Type in Neon Shrine's pixel look (2026-09-24): a flight through the
  * shrine caves. Rock walls in the cliff palette with a lit floor rim, moss,
  * stalactites and glowing crystals; parallax ridges and a warm glow at the
  * far end of the cave behind; the ship in the Hangar colours; enemies in
@@ -130,92 +130,111 @@ export function caveBack(w: number, h: number): C {
 
 // ---------------------------------------------------------------- sprites
 
-/** The Hangar ship side on, facing right. 'c' hull, 'C' hull shade, 'w' hull light, 'T' trim, 'e' cockpit. */
+/**
+ * 80s 16-bit: each hull has a dark outline (shade()), a lit top edge, a
+ * shaded belly, a trim stripe, a glass canopy with a white glint, and an
+ * engine pit. 'c' hull, 'C' hull shade, 'w' hull light, 'T' trim, 'e' canopy,
+ * 'K' engine dark, 'p' exhaust pink (kept off the hull so Hangar colours
+ * still apply).
+ */
 const DART = [
-  '...XX..........',
-  '...XXXX........',
-  '..TXXXXXX......',
-  '.XXXXXXXXXwe...',
-  'XXXXXXXXXXXXXXX',
-  '.XXXXXXXXXXX...',
-  '..TXXXXXX......',
-  '...XXXX........',
-  '...XX..........',
+  '.......XX.......',
+  '......XXXX......',
+  '..TTTTXXXXXX....',
+  '.XXXXXXXXXXXX...',
+  'XXXXXXXwwwwXXXXX',
+  'XXXXXXXXXeeeeXXX',
+  '.XXXXXXXXXXXXX..',
+  '..TTTTXXXXXX....',
+  '......XXXX......',
+  '.......XX.......',
 ]
 const VANDAL = [
   '..XXX...........',
   '..XXXXX.........',
   '.TTXXXXXX.......',
-  '..XXXXXXXXXwe...',
+  '.TXXXXXXXXwwe...',
+  'XXXXXXXXXXwwwee.',
   'XXXXXXXXXXXXXXXX',
-  '..XXXXXXXXXXXX..',
-  '.TTXXXXXXTT.....',
-  '..XXXXX..TT.....',
-  '..XXX...........',
+  '.TTXXXXXXXXXX...',
+  '..XXXXXXXXXXX...',
+  '..TTXXXXXX......',
+  '..XXXKKX........',
 ]
 export const SHIP_ROWS = { dart: shade(DART, 'c', 'w', 'C'), vandal: shade(VANDAL, 'c', 'w', 'C') }
 
-/** The Force pod: a trim-coloured orb with a white core. 'T' trim, 'U' trim shade. */
+/**
+ * The Force pod: a trim-coloured orb with a bright rim and a white core
+ * that flares. 'T' trim, 'U' trim shade.
+ */
 export const POD = shade([
   '..XXX..',
-  '.XXXXX.',
-  'XXXwXXX',
+  '.XXwXX.',
   'XXwwwXX',
-  'XXXwXXX',
+  'XwwewwX',
+  'XXwwwXX',
   '.XXXXX.',
   '..XXX..',
 ], 'T', 'w', 'U')
 
+/** Enemy shot: a hot orange bolt with a pale core. */
 export const ENEMY_SHOT = [
   '.kkk.',
-  'kooOk',
-  'kowok',
-  'kOOOk',
+  'koooK',
+  'kywyK',
+  'kyyYk',
   '.kkk.',
 ]
 
-/** Drone: an orange diamond with a lit core. */
+/**
+ * Drone: an orange lozenge with a gold top edge and a dark red belly, in a
+ * magenta neon ring; the core pulses between white and pale gold.
+ */
 export const DRONE = [
-  shade([
-    '....X....',
-    '...XXX...',
-    '..XXXXX..',
-    '.XXXwXXX.',
-    'XXXwewXXX',
-    '.XXXwXXX.',
-    '..XXXXX..',
-    '...XXX...',
-    '....X....',
-  ], 'o', 'y', 'r'),
-  shade([
-    '....X....',
-    '...XXX...',
-    '..XXXXX..',
-    '.XXXeXXX.',
-    'XXXewXXXX',
-    '.XXXeXXX.',
-    '..XXXXX..',
-    '...XXX...',
-    '....X....',
-  ], 'o', 'y', 'r'),
+  [
+    '..pppppp..',
+    '.pkkkkkkp.',
+    'pkoooooook',
+    'kyoowwoyok',
+    'kyoowwoyok',
+    'kroooooork',
+    'kRRrrrrRRk',
+    '.kRRRRRRk.',
+    '..kkkkkk..',
+  ],
+  [
+    '..pppppp..',
+    '.pkkkkkkp.',
+    'pkoooooook',
+    'kyoweewoyk',
+    'kyoweewoyk',
+    'kroooooork',
+    'kRRrrrrRRk',
+    '.kRRRRRRk.',
+    '..kkkkkk..',
+  ],
 ]
 
-/** Gunship: a slow armoured hull facing left, barrel forward. */
+/**
+ * Gunship: a slow armoured hull facing left, with a magenta trim band.
+ * Gold on the lit top edge, red on the belly.
+ */
 export const GUNSHIP = shade([
-  '....XXXXXXXXXXXX..',
-  '...XXXXXXXXXXXXXX.',
-  '..XXXeeXXXXXXXXXXX',
+  '..XXXXXXXXXXXXXX..',
+  '.XXXXXXXXXXXXXXXXX',
+  'XXXeeeXXXXXXXXXXXX',
+  'XXXeeeXXXXXXXXXXXX',
   'XXXXXXXXXXXXXXXXXX',
+  'XPPPPPPPPPPPPPPPPX',
   'XXXXXXXXXXXXXXXXXX',
-  '..XXXXXXXXXXXXXXXX',
-  '...XXXXXXXXXXXXXX.',
-  '....XXXXXXXXXXXX..',
+  '.XXXXXXXXXXXXXXXX.',
+  '..XXXXXXXXXXXXXX..',
 ], 'o', 'y', 'R')
 
 const FRAMES = 12
 function frameSet(n: number, size: number, paint: (g: G, a: number) => void): string[][] {
   const out: string[][] = []
-  for (let i = 0; i < n; i++) out.push(pixelize(g => paint(g, i / n), size, size, ['o', 'y', 'r', 'R', 'e', 'w', 'Y', 'P', 'p']))
+  for (let i = 0; i < n; i++) out.push(pixelize(g => paint(g, i / n), size, size, ['k', 'o', 'y', 'r', 'R', 'e', 'w', 'Y', 'P', 'p']))
   return out
 }
 
@@ -230,23 +249,36 @@ function tri(g: G, s: number, a: number) {
 }
 
 let weaverFrames: string[][] | null = null
-/** Weaver: two counter-turning triangles; `t` 0–1 over a third of a turn. */
+/**
+ * Weaver: two counter-turning neon blades, magenta and gold with a dark
+ * under-stroke for the outline; `t` 0–1 over a third of a turn.
+ */
 export function weaverFrame(t: number): string[] {
+  // 11 px like before: the visible blades stay inside the hitbox.
   if (!weaverFrames) weaverFrames = frameSet(FRAMES, 11, (g, f) => {
     const a = f * (Math.PI * 2 / 3)
+    g.lineWidth = 3
+    g.strokeStyle = '#0b0616'
+    tri(g, 4.8, a); g.stroke()
+    tri(g, 4.8, -a); g.stroke()
     g.lineWidth = 1.6
-    g.strokeStyle = '#ff8a3d'
+    g.strokeStyle = '#ff2fa0'
     tri(g, 4.8, a); g.stroke()
     g.strokeStyle = '#ffd23f'
     tri(g, 4.8, -a); g.stroke()
-    g.fillStyle = '#fff1b0'
+    g.fillStyle = '#0b0616'
+    g.fillRect(-1.5, -1.5, 3, 3)
+    g.fillStyle = '#fff4ff'
     g.fillRect(-0.5, -0.5, 1.5, 1.5)
   })
   return weaverFrames[((Math.floor(t * FRAMES) % FRAMES) + FRAMES) % FRAMES]!
 }
 
 let hexFrames: string[][] | null = null
-/** Hex: a turning armoured hexagon with a white ring core; `t` 0–1 over a sixth of a turn. */
+/**
+ * Hex: a turning armoured hexagon, magenta rim, orange plate, dark red
+ * inner plate and a white core; `t` 0–1 over a sixth of a turn.
+ */
 export function hexFrame(t: number): string[] {
   if (!hexFrames) hexFrames = frameSet(6, 15, (g, f) => {
     const a = Math.PI / 6 + f * (Math.PI / 3)
@@ -259,11 +291,12 @@ export function hexFrame(t: number): string[] {
       }
       g.closePath()
     }
-    hexPath(6.4); g.fillStyle = '#9e1638'; g.fill()
-    hexPath(5.2); g.fillStyle = '#ff8a3d'; g.fill()
-    hexPath(3.6); g.fillStyle = '#9e1638'; g.fill()
+    hexPath(6.8); g.fillStyle = '#ff2fa0'; g.fill()
+    hexPath(5.6); g.fillStyle = '#ff8a3d'; g.fill()
+    hexPath(4); g.fillStyle = '#9e1638'; g.fill()
+    hexPath(2.2); g.fillStyle = '#ffd23f'; g.fill()
     g.fillStyle = '#fff4ff'
-    g.beginPath(); g.arc(0, 0, 1.6, 0, Math.PI * 2); g.fill()
+    g.beginPath(); g.arc(0, 0, 1.1, 0, Math.PI * 2); g.fill()
   })
   return hexFrames[((Math.floor(t * 6) % 6) + 6) % 6]!
 }

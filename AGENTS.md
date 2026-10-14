@@ -10,21 +10,21 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 
 ## Commands
 
-- `npm run dev` — dev server on port 3030 (host 0.0.0.0)
-- `npm run test:portal` — the town: start view, no enemies, exits, every cabinet and link (the arcade's nine games and its three links out, Adventure, Pizza Rescue for fighter.phareim.no and its sequel Solo Rescue for nova.phareim.no; those three and Night of the Dead Battery on the island by the door, 2026-10-13), the beach's two DJ booths (Jam and the radio, both links out), the login console and its auth.phareim.no client (fake fetch), the NEW LOOK stall and its panel, the newsstand's panel and its sleeper.phareim.md client (fake fetch, and what the cleaner lets through of the feed's HTML; 2026-10-13), the coast road to the Keeper
-- `npm run test:zelda` — Neon Shrine: the first minute from the town, exits, saves, a full scripted run to the Sun Prism; the hero's look (every frame for all 48 shapes, the drawn hero pixel for pixel, the stall's choices and storage, 2026-10-13); the audio data; the Wildwood's rules and a full run from the town's thicket to the Gate shutting (2026-09-24); the views: the registry, the isometric geometry, how tiles stand (2026-10-07)
-- `npm run test:eschold` — the shared Escape tap/hold state machine
-- `npm run test:tetris` — gesture regression tests (tap, direction lock, drop, soft drop, hold); the Sleeper deploy runs these before typecheck
-- `npm run test:leaderboard` — Hall of Fame name generator/validator and game list (2026-09-08)
-- `npm run test:starfox` — Star Fox: balance, story and director, arsenal, encounter scripts, the five bosses' fairness (2026-09-25)
-- `npm run test:wingman` — Star Fox wingman brain and the three-wingman squad (2026-09-25)
-- `npm run test:anotherworld` — Another Shore: physics, threats, a playtester that crosses all five chapters without dying, cuts, saves; plus the audio module against a fake Web Audio (rebuilt 2026-09-23)
-- `npm run test:galaga` — Rex & Nova: Space Voyagers I (theme id `galaga`): the engine, power-ups, encounters, bosses, the radio director and every line, three autopilot profiles through whole voyages, the layout rule, what the look remembers between ticks, the audio (2026-10-13)
-- `npm run test:outrun` — Nova & Rex' Drive to the Mountains (the theme `outrun`, rewritten from OutRun 2026-10-13): the engine (road and forks, tunnels, driving model, traffic, close-pass chain and crashes, clock and stage times, goal, autopilot), what the two of them say (`banter.ts`), and that `public/outrun` holds exactly the pictures the game lists
-- `npm run test:breakout` — Space Paddle — The Odyssey (theme `breakout`, redesigned 2026-10-13): the rules in `themes/breakout/engine.ts` (speed, no tunnelling at top speed, boards, pulse bricks, the planet, capsules, lives, attract mode, a seeded autopilot run); `docs/games/breakout.md`
-- `npm run test:battery` — Night of the Dead Battery: the engine, each floor's puzzles, the story and finale, the audio, and a walkthrough from a new game to the credits (2026-09-26)
-- `npm run test:miniworld` — Mini World: the save and its actions, contests, crown and titles, the wallet and neighbourhood server rules (memory store and real D1 SQL), physics, every obby jump, the castle's throne hall, models, audio (2026-09-26, the hall 2026-09-29); the sign-in gate (2026-09-29): session check with a fake auth, account links, every gated route on real D1 SQL, mw-world's 401, the browser composable and both windows
-- `npm run test:figur` — Lag Din Figur: every garment's texture, packing, the drawing ops, figures and the save, Pip's reading of Norwegian, the hero colours, the four renderers and the Minecraft skin (2026-09-26)
+- `npm run dev` — dev server on port 3030 (host 0.0.0.0). On Sleeper llm-gateway already holds 127.0.0.1:3030, so Nuxt takes another port: pass that address to lab scripts (`scripts/zelda-lab/*-shot.mjs` default to `http://127.0.0.1:3030/`)
+- `npm test` — every `tests/*.test.mjs` in one pass (what the deploy runs). Per area:
+  - `test:portal` — the town, every cabinet and link, the login console, the NEW LOOK stall, the newsstand, the coast road
+  - `test:zelda` — Neon Shrine: exits, saves, a full run to the Sun Prism, the hero's look, audio, the Wildwood run, the views
+  - `test:eschold` — the shared Escape tap/hold state machine
+  - `test:tetris` — Russian Block Game gestures (tap, direction lock, drop, soft drop, hold)
+  - `test:leaderboard` — Hall of Fame names and game list
+  - `test:starfox`, `test:wingman` — Star Fox balance, story, arsenal, bosses; the wingman squad
+  - `test:anotherworld` — Another Shore: physics, threats, a playtester through all five chapters, saves, audio
+  - `test:galaga` — Space Voyagers: engine, encounters, bosses, the radio director, autopilot voyages, layout, audio
+  - `test:outrun` — Drive to the Mountains: road, driving, traffic, crashes, clock, banter, and that `public/outrun` holds exactly the listed pictures
+  - `test:breakout` — Space Paddle — The Odyssey: the rules in `themes/breakout/engine.ts` (speed, boards, pulse bricks, the planet, capsules, lives, attract mode, a seeded autopilot run); `docs/games/breakout.md`
+  - `test:battery` — Night of the Dead Battery: puzzles, story, audio, a walkthrough to the credits
+  - `test:miniworld` — Mini World: save, contests, wallet and neighbourhood rules (memory and real D1 SQL), physics, obby, the sign-in gate
+  - `test:figur` — Lag Din Figur: garments, packing, figures and save, Pip, the renderers, the Minecraft skin
 - `npm run typecheck` — `nuxi typecheck` (vue-tsc); the Sleeper deploy runs this before build
 - `npm run build` — production build; the `cloudflare-pages` preset is set in `nuxt.config.ts`, output goes to `dist/`
 - `npm run preview` — preview built site
@@ -36,7 +36,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
 - **Database / storage**: one D1, `phareim-leaderboard` (id `54e101f9-4026-4fd1-a78a-7a8976e1301e`, created 2026-09-08), bound as `LEADERBOARD_DB` in `wrangler.toml`, schema in `migrations/`, applied from Sleeper before every deploy. It holds the player profiles: Hall of Fame scores, Hangar ships and, since 2026-09-23, the adventure save slots (Neon Shrine, Another Shore, Night of the Dead Battery, Mini World, Lag Din Figur) — see `docs/games/hall-of-fame.md`. Since 2026-09-26 also the site-wide bits wallet (`players.bits`, `wallet_ops`) and Mini World's neighbourhood tables (`mw_*`) — see `docs/games/mini-world.md`. No R2 binding.
 - **External APIs**: four. sleeper.phareim.md (2026-10-13): the newsstand on the portal's coast fetches the feed's reader JSON (`/reader/index.json`, `/reader/<slug>.json`) from the browser, no cookie, and shows the pieces in a panel; the address is `NEWS_BASE` in `themes/zelda/newsLinks.ts` (`docs/games/portal.md` → "The newsstand"). auth.phareim.no, the site-wide account (2026-09-26): the login console in Petter's house asks `GET /api/session` and `POST /api/sign-out` cross-origin with the cookie and links to its sign-in page; the address is `AUTH_BASE` in `themes/zelda/account.ts` (`docs/games/portal.md`). Since 2026-09-29 Mini World and Lag Din Figur also sign in through it (`POST /api/sign-in` from their own windows, `composables/useAccount.ts`) and the site's server and `mw-world` ask `GET /api/session` with the request's `session_token` cookie to lock them (see Key Patterns). Two on Sleeper — wave-jobs (`POST https://sleeper.phareim.no/wave-jobs/avatar`, Bearer `WAVE_JOBS_KEY`) paints the Hall of Fame avatars (2026-09-08); and `mw-world` (`wss://sleeper.phareim.no/mw-world/ws`, PM2, port 3034, code in `servers/mw-world/`, deployed by the sleeper-deploy webhook's `deploy.sh`) relays Mini World's shared world (2026-09-26). Mini World plays solo when it is down. `server/` came back 2026-09-08 with the Hall of Fame routes (`/api/leaderboard`, `/api/player`, `/api/score`, and `/api/avatar` for wave-jobs' callback); since 2026-09-26 also `/api/wallet` and Mini World's `/api/mw/*`.
 - **Dependencies of note**: `three` 0.185 (+ `@types/three`), used by Star Fox, the Hangar and Mini World and loaded only in their async chunks, never the entry (checked 2026-09-25); `@fontsource/space-grotesk` + `@fontsource/space-mono` (self-hosted fonts, 2026-09-06)
-- **Fonts** (2026-09-06): two faces, the Neon Dreams split — `--font-person` (Space Grotesk at weight 300, the face's lightest, for body, name and page titles; 400/500 for emphasis: name, blurbs, prose) and `--font-machine` (Space Mono: HUD, hints, over-titles, canvas score pops, shas). Defined on `:root` in `themes/base/fonts.css` (imported first in `themes/index.ts`), latin subsets only; canvas code imports `MACHINE_FONT` from `themes/base/fonts.ts`. A third face since 2026-09-24: `--font-pixel` (Neon Pixel, Neon Shrine's 5×7 canvas font as a 3 KB webfont in `public/fonts/`, for the pixel games' HTML text; `docs/games/pixel-look.md`). Nothing loads from Google Fonts any more (Comfortaa and the preconnects are gone). The parked themes keep their own faces (desk: ET Book). The `@import` lines must stay **above** the `@font-face` rules: below them, Vite emits no woff2 at all and the site silently falls back to system fonts (fixed 2026-09-30).
+- **Fonts** (2026-09-06): two faces, the Neon Dreams split — `--font-person` (Space Grotesk at weight 300, the face's lightest, for body, name and page titles; 400/500 for emphasis: name, blurbs, prose) and `--font-machine` (Space Mono: HUD, hints, over-titles, canvas score pops, shas). Defined on `:root` in `themes/base/fonts.css` (imported first in `themes/index.ts`), latin subsets only; canvas code imports `MACHINE_FONT` from `themes/base/fonts.ts`. A third face since 2026-09-24: `--font-pixel` (Neon Pixel, Neon Shrine's 5×7 canvas font as a 3 KB webfont in `public/fonts/`, for the pixel games' HTML text; `docs/games/pixel-look.md`). Nothing loads from Google Fonts. The parked themes keep their own faces (desk: ET Book). The `@import` lines must stay **above** the `@font-face` rules: below them, Vite emits no woff2 at all and the site silently falls back to system fonts (fixed 2026-09-30).
 - **Icons** (2026-09-08): `public/favicon.ico` (16/32/48) and `public/apple-touch-icon.png` (180) are pixel art (2026-09-25): the pixel look's dusk — striped sun, violet ridge, teal grass, the rose path — drawn on a 16/32/36-pixel grid and scaled up nearest-neighbour by `scripts/make-favicon.py` (Pillow). Linked from `nuxt.config.ts` `app.head.link`, along with `theme-color` `#0b0616`. `public/manifest.webmanifest` (2026-09-24) makes the site installable: `display: fullscreen` on Android (standalone on iOS, where `black-translucent` puts the page under the status bar), icons `icon-192.png`/`icon-512.png` from the same script. `html`/`body` carry `touch-action: manipulation`, which stops Safari's double-tap zoom (it ignores `user-scalable=no`). No service worker, on purpose (2026-09-26): the installed app loads fresh HTML on every cold start. While it stays open, `plugins/build-check.client.ts` asks `/_nuxt/builds/latest.json` each time it comes back to the foreground (Nuxt itself asks once an hour); a new build makes the next navigation a full load, never a reload mid-run. A service worker would only earn its place for offline play.
 - **State**: the URL picks the theme (`/?theme=<id>`, no cookie since 2026-09-24); Nuxt `useState` for the navigation lock (no state library). sessionStorage `portal.return` puts the portal's hero back where they left. localStorage holds per-game high scores and, since 2026-09-08, the browser's Hall of Fame player (`phareim.player`); since 2026-09-26 the bits wallet (`phareim.wallet`, shared by Neon Shrine and Mini World). Neon Shrine's hero wears the newest choice (2026-10-13): the look chosen at the NEW LOOK stall on the square (`zelda.heroLook`, this browser only) until the made figure is changed after it, else the colours of Lag Din Figur's active figure (`figur.heroColors`), else Mini World's active person (`miniworld.heroColors`).
 
@@ -88,12 +88,11 @@ the profile API in `server/` (Hall of Fame, saves, wallet, Mini World's
 neighbourhood); `servers/mw-world/` is not part of the site build: it runs
 on Sleeper under PM2 (see its README). Who Petter is and how to reach him lives in the
 portal (his house, and a visually hidden HTML block for search engines and
-screen readers). Player One, the old profile theme, was retired 2026-09-24;
-`?theme=playerone` lands on the portal.
+screen readers).
 
 ## Theme System (short version — the skill has the rest)
 
-- Eighteen themes in `themes/index.ts` (verified 2026-09-28): the portal (`home: true`), thirteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Rex & Nova: Space Voyagers I (id `galaga`), Space Paddle — The Odyssey (`breakout`), R-Type, Space Invaders, Star Fox, Drive to the Mountains (`outrun`), Russian Block Game, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
+- Eighteen themes in `themes/index.ts` (verified 2026-09-28): the portal (`home: true`), thirteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Rex & Nova: Space Voyagers I (id `galaga`), Space Paddle — The Odyssey (`breakout`), G-Type, Space Invaders, Star Fox, Drive to the Mountains (`outrun`), Russian Block Game, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
 - **Nothing scrolls**: `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, and every landing is locked to the viewport. Full-screen heights use `var(--app-height, 100dvh)` (defined in `app.vue`), never bare `100dvh`: in the iOS home-screen app 100dvh comes up a status bar short and leaves a white strip at the bottom.
 - **Bottom band** (2026-09-24): `--app-safe-bottom` (defined in `app.vue`) is the strip along the bottom edge where nothing interactive or meaning-bearing may sit: buttons, text, hints, the player's ship or paddle. Backdrops may run through it. In a browser tab it equals `env(safe-area-inset-bottom)`; installed as a web app (`display-mode: standalone/fullscreen`) it is `max(48px, inset + 30px)`, clear of the home indicator and system swipes. Anchor bottom UI as `calc(<gap> + var(--app-safe-bottom, 0px))`, never on the bare inset; canvas games take it as a bottom inset.
 - The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal, `zelda` → portal, `tetris` → russian), an unknown id shows the portal. No cookie, no random pick.
@@ -111,65 +110,26 @@ screen readers). Player One, the old profile theme, was retired 2026-09-24;
   - **No prefetch hints.** `server/plugins/no-prefetch.ts` strips the `<link rel=prefetch>` tags Vite emits (21 of them, 465 KB) from the rendered head. It rewrites the one-element `html.head` array as a string; filtering that array instead removes the entire head.
   - **Styles are a file, not inline.** `features.inlineStyles: false` in `nuxt.config.ts`. All 19 theme stylesheets are global and total 82 KB; the HTML here is `cf-cache-status DYNAMIC` (the Norway gate and the sign-in cookie), so anything inlined is re-sent every visit and can never be cached.
   - **No dead assets in `public/`.** They are shipped, un-hashed and un-referenced.
-- No `runtimeConfig` (2026-09-07). The Hall of Fame routes read their D1 binding and the `WAVE_JOBS_KEY` secret from `event.context.cloudflare.env` (2026-09-08), which needs no config; background work goes through `event.context.cloudflare.context.waitUntil`. If `runtimeConfig` comes back: secrets are set on Cloudflare by `NUXT_`-prefixed env vars, and server code **must** call `useRuntimeConfig(event)` — without the event, Workers return a config frozen at module init, before env vars exist, so the value silently never applies (found 2026-09-03).
+- No `runtimeConfig` (2026-09-07). The Hall of Fame routes read their D1 binding and the `WAVE_JOBS_KEY` secret from `event.context.cloudflare.env` (2026-09-08), which needs no config; background work goes through `event.context.cloudflare.context.waitUntil`. If `runtimeConfig` comes back: secrets are set on Cloudflare by `NUXT_`-prefixed env vars, and server code **must** call `useRuntimeConfig(event)` — without the event, Workers return a config frozen at module init, before env vars exist, so the value silently never applies.
 - Norway only for Ulrikke's games (2026-09-29): `server/middleware/norway.ts` answers 403 outside Norway to `/?theme=miniworld|figur`, `/api/mw/*` and `/api/account/*` (country from `request.cf`, none in dev = allowed, Sleeper's addresses always allowed; `server/utils/norway.ts`), and `plugins/norway.server.ts` hands the answer to the page so a cabinet opened from the portal shows "BARE ÅPENT I NORGE" instead of loading the game. `mw-world` has the same gate in nginx on Sleeper (`~/github/sleeper/geo/`).
 - No auth system of its own; identity is auth.phareim.no's (Reader keeps users and sessions, cookie `session_token` on `.phareim.no`).
-- **The auth gate for Ulrikke's games** (2026-09-29): Mini World and Lag Din Figur need a signed-in account, in the browser and on the server. Browser: `themes/<game>/Landing.vue` renders the game only when `useAccount().state` is `in`, else the game's own window (`ui/SignIn.vue`); Logg ut is in each game's settings. Server (the actual lock): `server/utils/account.ts` (rules and route glue), `sessionCheck.ts` (forwards only the `session_token` cookie to `GET auth.phareim.no/api/session`; cached per token hash, 5 min yes / 30 s no; never logs the token; auth down = 401 `auth-down`, fail closed) and `accountLinks.ts` (table `account_links`, `migrations/0007`: which player profile an account owns; claimed on first use, 403 `not-yours` for another's). Covered: every `/api/mw/*` route, `/api/account/link`, `/api/save` for slots `miniworld` and `figur`, `/api/wallet` for `game: 'miniworld'` or a linked profile, the two slots inside `/api/profile`; and the `mw-world` WebSocket upgrade (401 before upgrading, Origin checked first; `server/utils/sessionCheck.ts` and `themes/zelda/account.ts` are shared with it, so `deploy.sh` restarts it when they change). Hall of Fame scores stay open. Neon Shrine (the portal) needs no login, but a signed-in visitor plays under the account's profile (2026-09-29, `usePortalAccountLink` in `composables/useAccount.ts`, called by `Zelda.vue`): `/api/account/link` after the session check, so the save, bits, hero colours and scores follow the account to every device; once a profile is an account's, `/api/save` for any other slot (zelda, anotherworld, battery) needs its owner's session (`guardLinkedPlayer`); another account signing in on the browser clears the local copies (`zeldaSave` too) and the page starts again. A new route for these games must call `requireAccountPlayer` (or go through `mwRoute`); `tests/miniworld-account.test.mjs` fails on an uncovered file under `server/api/mw/`. Existing saves survive because the browser's `phareim.player` is claimed by the first account that signs in on it. Details: `docs/games/mini-world.md` (Sign-in). Under `nuxi dev` the game shows the retry window (auth refuses localhost); `scripts/login-lab/shots.mjs` fakes auth (`PHAREIM_DEV_AUTH_BASE`, dev only).
+- **The auth gate for Ulrikke's games**: Mini World and Lag Din Figur need a signed-in auth.phareim.no account, in the browser (`Landing.vue` renders the game only when `useAccount().state` is `in`) and on the server, which is the actual lock (`server/utils/account.ts`, `sessionCheck.ts`, `accountLinks.ts`; fail closed when auth is down). A new route for these games must call `requireAccountPlayer` (or go through `mwRoute`); `tests/miniworld-account.test.mjs` fails on an uncovered file under `server/api/mw/`. `server/utils/sessionCheck.ts` and `themes/zelda/account.ts` are shared with `mw-world`, so `deploy.sh` restarts it when they change. Hall of Fame scores stay open. The portal needs no login, but a signed-in visitor plays under the account's profile (`usePortalAccountLink`), and once a profile is an account's, `/api/save` for every slot needs its owner's session (`guardLinkedPlayer`); another account signing in on the browser clears the local copies. Under `nuxi dev` the games show the retry window (auth refuses localhost); `scripts/login-lab/shots.mjs` fakes auth. Details: `docs/games/mini-world.md` (Sign-in), `docs/games/portal.md`.
 
 ## Deployment
 
-- **Deploy** (2026-10-04): GitHub Actions is disabled; push to `master` → signed `sleeper-deploy` webhook → `scripts/deploy.sh` on Sleeper. It preserves the Mini World server deploy, then `scripts/deploy-site.sh --auto` builds committed `origin/master` in an isolated worktree through `heavy`. `npm test` runs every `tests/*.test.mjs` file in one pass, then typecheck and build run. Pull requests no longer run CI.
+- **Deploy**: push to `master` → signed `sleeper-deploy` webhook → `scripts/deploy.sh` on Sleeper. It preserves the Mini World server deploy, then `scripts/deploy-site.sh --auto` builds committed `origin/master` in an isolated worktree through `heavy`. `npm test` runs every `tests/*.test.mjs` file in one pass, then typecheck and build run. GitHub Actions is off; pull requests run no CI.
 - D1 migrations apply before publishing to Pages (`phareim-no`, production branch `master`). `wrangler.toml` carries the output dir, compatibility flags and `LEADERBOARD_DB` binding. Credentials: `~/.config/phareim-deploy/env` (600), with Pages and D1 edit rights.
-- **Beta** (2026-10-07): the `beta` branch is published at **beta.phareim.no** on every push: the same webhook runs `deploy-site.sh --auto --branch beta`, which builds `origin/beta` with the same tests, typecheck and build and deploys it as the Pages preview `beta` (`beta.phareim-no.pages.dev`; the custom domain's CNAME points there). It shares production's D1 and never applies migrations, so saves and scores made on beta are real ones. It is for work too large to land on master in one go. It holds nothing of its own now: Neon Shrine's views were merged to master 2026-10-07 and the two branches are the same. Redundant when no such work is planned: delete the branch, the DNS record and the Pages domain, and the `phareim/phareim.no#beta` line in `~/github/sleeper/deploy-hook/server.mjs`.
+- **Beta** (2026-10-07): the `beta` branch is published at **beta.phareim.no** on every push: the same webhook runs `deploy-site.sh --auto --branch beta`, which builds `origin/beta` with the same tests, typecheck and build and deploys it as the Pages preview `beta` (`beta.phareim-no.pages.dev`; the custom domain's CNAME points there). It shares production's D1 and never applies migrations, so saves and scores made on beta are real ones. It is for work too large to land on master in one go. It holds nothing of its own now (checked 2026-10-14: nothing master lacks, 26 commits behind). Redundant when no such work is planned: delete the branch, the DNS record and the Pages domain, and the `phareim/phareim.no#beta` line in `~/github/sleeper/deploy-hook/server.mjs`.
 - Manual: `bash scripts/deploy-site.sh [--branch <name>] [commit]`. File lock and successful revision: `~/.local/state/phareim-deploy/`. Busy pushes coalesce in the webhook queue; duplicate revisions skip work. Logs: `pm2 logs sleeper-deploy`; status: `https://sleeper.phareim.no/deploy/health`.
 
-## Keyboard
+## Keyboard and Escape
 
-- The shell does not use the arrow keys: they belong to the games, and on the portal they walk the hero.
-- `Esc` in a game goes back to the portal when the game is not using it: navigation not blocked, not a repeat, not in a form field, and no game listener called `preventDefault` (checked in a `setTimeout(0)` after the whole dispatch, since games listen on `window` too). A game that uses Escape outside a run must `preventDefault` (Russian Block Game's GAME OVER dismiss, Another Shore's ending, Another Shore II's won screen do).
-- After a game releases navigation at game over or exit, Escape and the home chip stay blocked for 3 seconds (2026-09-08), so the Escape that ended a run does not also leave the game. The shared watcher in `useThemeNavigation` starts the grace period synchronously. Starting another run clears the grace timer and keeps the game lock. A lock released because the route changed (back button, home chip) starts no grace period, and arriving on a theme by URL clears one.
+The shell leaves the arrow keys to the games. In a game, an Escape tap pauses and a 3-second hold quits the run into game over; `P` pauses too. Escape goes back to the portal only when the game is not using it (no run, no `preventDefault`), and stays blocked for 3 s after a run ends. A game that uses Escape outside a run must `preventDefault`. Shared code: `themes/base/escHold.ts` and `EscHold.vue`. The full contract: `docs/games/escape.md`.
 
-## Escape: tap pauses, 3 s hold quits (2026-09-08)
+## Hall of Fame and the radio
 
-Every game theme shares one Escape contract: a quick tap pauses or resumes
-the run, holding Escape for 3 seconds cancels the run into game over (the
-score games show their GAME OVER screen; Another Shore returns to its title with progress kept, Another Shore II to idle;
-Russian Block Game shows its GAME OVER overlay, where a further Esc tap dismisses to
-idle; the portal's world saves and puts you back in town, its pill reads
-HOLD ESC FOR TOWN). `P` pauses too, everywhere. Idle attract mode leaves Escape to the
-shell, which goes back to the portal (see Keyboard).
-
-Implementation: `themes/base/escHold.ts` holds the framework-free
-`EscHoldTracker` state machine (tap vs hold, `performance.now`-injected so
-`tests/esc-hold.test.mjs` covers it in plain node, on deploy as `test:eschold`);
-`themes/base/EscHold.vue` wraps it with the window listeners and the fixed
-progress pill (HOLD ESC TO QUIT with a filling bar) plus a PAUSED pill for
-games with no paused UI of their own (the five arcade games freeze their
-loop behind it; Russian Block Game and the Shores pass `show-paused=false` and keep
-their native paused states). Each game's `quitToGameOver` reuses its natural
-death path so high-score persistence and the delayed `death`/`over` emits
-behave exactly like losing.
-
-## Hall of Fame API (shared by every score game)
-
-Space Voyagers (id `galaga`), Space Paddle (`breakout`), R-Type, Space Invaders, Star Fox, Drive to the Mountains (`outrun`) and Russian Block Game all
-submit scores to the same D1-backed leaderboard: `server/api/leaderboard.get`,
-`player.post`, `score.post`, `avatar.post`, store in `server/utils/store.ts`.
-A run calls `submitScore('<id>', score)` on game over; a score of 0 is never
-sent, and API failures are silent — the board is a bonus, not a blocker.
-Full API shape, avatar painting, and player/name rules: `docs/games/hall-of-fame.md`.
-
-## Global radio (shared by Space Voyagers and OutRun)
-
-`RadioWidget.vue` in `app.vue` is a persistent top-right music player
-(`♪ STASJON n/6` + mute) backed by the singleton engine `themes/radio/engine.ts`
-and `themes/radio/catalog.ts`. Space Voyagers has no music of its own: the radio is its
-soundtrack (its three tracks are the first three stations) and follows the run. A game with its own soundtrack (OutRun)
-suspends the radio while a run is active and resumes it on stop; every other
-game's one-shots and loops play over the radio untouched. Full wiring and the
-contract with each game's `audio.ts`: `docs/games/global-radio.md`. A theme
-with `ownRadio` in the registry plays its own music: no widget there, and it
-holds this radio silent.
+- Every score game calls `submitScore('<id>', score)` on game over (never a 0); the D1 board is a bonus, so API failures are silent. API, avatars and name rules: `docs/games/hall-of-fame.md`.
+- `RadioWidget.vue` in `app.vue` is the site-wide radio (`themes/radio/engine.ts`, `catalog.ts`). Space Voyagers uses it as its soundtrack; a game with its own music suspends it during a run, and a theme with `ownRadio` hides it. Wiring and the contract with each `audio.ts`: `docs/games/global-radio.md`.
 
 ## Games → docs
 
@@ -177,6 +137,7 @@ holds this radio silent.
 |---|---|---|
 | Portal (home, on `/`) | `docs/games/portal.md` | `themes/portal/`, `themes/zelda/world/` |
 | The pixel look (shared) | `docs/games/pixel-look.md` | `themes/base/pixel/` |
+| Escape and the keyboard (shared) | `docs/games/escape.md` | `themes/base/escHold.ts`, `EscHold.vue` |
 | The frame (installed app: Adventure, Pizza Rescue, Solo Rescue and Eventyrland without leaving the page) | `docs/games/frame.md` | `components/GameFrame.vue`, `composables/useFrame.ts`, `themes/frames.ts` |
 | Mini World (Ulrikke's game) | `docs/games/mini-world.md` | `themes/miniworld/` (DESIGN.md), `scripts/miniworld-lab/` |
 | Lag Din Figur (Ulrikke's second) | `docs/games/lag-din-figur.md` | `themes/figur/` (DESIGN.md), `scripts/figur-lab/` |
@@ -191,7 +152,7 @@ holds this radio silent.
 | Hall of Fame | `docs/games/hall-of-fame.md` | `themes/leaderboard/`, `server/api/` |
 | Rex & Nova: Space Voyagers I (theme id `galaga`) | `docs/games/galaga.md` | `themes/galaga/` (DESIGN.md; engine/, story/, render/), `scripts/galaga-lab/`, `public/galaga/` |
 | Global radio | `docs/games/global-radio.md` | `themes/radio/engine.ts`, `catalog.ts`, `components/RadioWidget.vue` |
-| R-Type | `docs/games/r-type.md` | `themes/rtype/` |
+| G-Type | `docs/games/r-type.md` | `themes/rtype/` |
 | Hangar | `docs/games/hangar.md` | `themes/ships/`, `themes/hangar/` |
 | Space Paddle — The Odyssey (`breakout`) | `docs/games/breakout.md` | `themes/breakout/` (engine.ts, pixel.ts, Breakout.vue, Landing.vue) |
 | Russian Block Game | `docs/games/parked-and-classic.md` | `themes/tetris/` |

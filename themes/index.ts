@@ -156,7 +156,7 @@ export const allThemes: ThemeDefinition[] = [
   },
   {
     id: 'rtype',
-    name: 'R-Type',
+    name: 'G-Type',
     themeColor: '#0b0616',
     landing: RtypeLanding,
   },

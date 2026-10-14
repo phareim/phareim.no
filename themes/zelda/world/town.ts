@@ -75,8 +75,8 @@ export const ARCADE: MapDef = {
     '3': cabinet('breakout', 'SPACE PADDLE', [
       'SPACE PADDLE: THE ODYSSEY. ONE PADDLE, ONE BALL, A SUNSET OF BRICKS AND A PLANET THAT PULLS.',
     ]),
-    '4': cabinet('rtype', 'R-TYPE', [
-      'R-TYPE. AN ENDLESS CAVE, A FORCE POD AND A BEAM YOU CHARGE BY HOLDING FIRE.',
+    '4': cabinet('rtype', 'G-TYPE', [
+      'G-TYPE. AN ENDLESS CAVE, A FORCE POD AND A BEAM YOU CHARGE BY HOLDING FIRE.',
       'THE WALLS CLOSE IN THE FURTHER YOU FLY.',
     ]),
     '5': cabinet('invaders', 'SPACE INVADERS', [
