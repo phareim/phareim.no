@@ -239,7 +239,7 @@ export type EntDef =
   | { t: 'lever'; flag: string } // a lever or breaker (tile '}'): a hit sets `flag` for good
   | ExitDef
 
-export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll' | 'hippie' | 'smoker' | 'guitar' | 'sleeper' | 'twirler' | 'bonfire' | 'guard' | 'barmaid'
+export type NpcLook = 'keeper' | 'vendor' | 'kid' | 'robot' | 'cat' | 'ghost' | 'petter' | 'luna' | 'mossa' | 'dusty' | 'toby' | 'max' | 'owl' | 'troll' | 'hippie' | 'smoker' | 'guitar' | 'sleeper' | 'twirler' | 'bonfire' | 'guard' | 'barmaid' | 'tree'
 
 /**
  * Where an exit leads: another theme on phareim.no (`?theme=<id>`), the

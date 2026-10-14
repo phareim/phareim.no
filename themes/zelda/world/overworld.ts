@@ -53,7 +53,7 @@ export const OVERWORLD: MapDef = {
     'TT......T.....HHH..........T.......T..TTTTTT:..,..:TTTTTT*......*TTTTTTTT..j...,,......*...T#T;;;...;TT#',
     'TT..T:......T.HHH::,,,:.:......T......TTTTT....,.......................,,,,,,,,,,,..!......T#T;..q..;;T#',
     'TT.*..;;.:*...HHH..,,,...*...*..;;:.*.TTTT.....,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,..;.....;TT#',
-    'TTT.)........tnmnt.,,,t:...:..t......TTTTT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
+    'TTT.)........tnmnt.,,,t:ë..:..t......TTTTT..HHHHHH.,.:........;;;...t..TT.....q..,,,,,,,,,,,...;..;..TT#',
     '<,**,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,HHHHHH.,..........;;;......TTT..*....,,..j...:TT#TTTTTTTTTT#',
     '<,**,,,,,,,,,,,,,,,,,,J,,,,,,,,,,,,,,,,,,,,,HHHHHH.,...t..e...;;;......TTTTTTTTTT,,TTTTTTTTT############',
     'TT.T...............t,t----------------TTTT,,HHHhHH.,.......:...........TTTTTTTTTT,,TTTTTTTTTTTTTTTTTTTTT',
@@ -161,6 +161,8 @@ export const OVERWORLD: MapDef = {
         lines: ['DJ: JUST RECORDS, FRIEND. RADIO PHAREIM: TEN STATIONS, AND THE MUSIC IS MADE UP AS IT PLAYS.', 'TUNE IN?'],
       },
     },
+    // The tree above the coast road, across from the beach (its crown is drawn by render/tree.ts from the day's counts).
+    'ë': { tile: '.', ent: { t: 'npc', id: 'coast.tree', look: 'tree', talk: [{ lines: ['(A TREE ON THE COAST ROAD. THE LEAVES TURN TOWARD THE SEA.)'] }] } },
     // The people on the sand and their fire (letters with marks, since the town has used up the plain ones).
     'å': { tile: '-', ent: { t: 'npc', id: 'bonfire', look: 'bonfire', talk: [{ lines: ['(THE FIRE CRACKLES. SOMEBODY HAS PUT A KETTLE ON IT.)'] }] } },
     'æ': {

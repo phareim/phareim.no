@@ -185,6 +185,28 @@ from the world's exits). Tab reaches it (the shell leaves Tab alone until
 the hero has an item to swap), and
 it shows as a panel while a link has focus.
 
+## The tree on the beach (2026-10-13)
+
+A tree stands on the coast road, north of the beach, as an NPC (look `tree`,
+mark `ë` in `overworld.ts`, id `coast.tree`). It blocks only its own tile.
+Its look is drawn by `themes/zelda/render/tree.ts` from today's counts:
+
+- **Crown = deploys.** Sleeper's successful deploy runs today (`GET
+  sleeper.phareim.no/deploy/today`, counted by `sleeper-deploy` per Oslo day).
+  0 bare, 1–2 small, 3–5 medium, 6–9 full, 10 or more the fullest.
+- **Fruit = visitors.** Different visitors to phareim.no today (`tree_visits`
+  in D1, one row per random browser id and day, written by
+  `POST /api/tree-visit` from the live host only). One fruit each, up to 12
+  and up to what the crown holds. A bare tree has no fruit.
+- **Fail soft.** `GET /api/tree` returns `{ day, deploys, visitors }`, with
+  `null` for a count it could not get. Unknown deploys draw a small tree; no
+  count shows no fruit. The page never waits on it: the tree is drawn plain
+  until the counts arrive.
+- **Quiet.** No numbers on screen. Talking to it says one line about the tree.
+
+The tree stays out of the miniworld relay and out of accounts: nothing about
+it needs a sign-in.
+
 ## What would make it redundant
 
 A different front door for phareim.no. If the portal is replaced, point `/`

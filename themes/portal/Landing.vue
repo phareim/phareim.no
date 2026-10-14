@@ -53,6 +53,7 @@ import Zelda from '~/themes/zelda/Zelda.vue'
 import { worldExits } from '~/themes/zelda/world/index'
 import { NEWS_BASE, WRITING_URL } from '~/themes/zelda/newsLinks'
 import { formatPlayTime } from '~/themes/zelda/progress'
+import { setTreeCounts } from '~/themes/zelda/render/tree'
 
 const { hint, isTouch } = useInputMode()
 const moved = ref(false)
@@ -67,7 +68,39 @@ function onResult(r: { elapsed: number; best: number | null }) {
 // Back from a game or a page: the visitor has walked here before, so no hint.
 onMounted(() => {
   try { if (sessionStorage.getItem('portal.return')) moved.value = true } catch { /* keep the hint */ }
+  void loadTree()
+  countVisit()
 })
+
+// The tree on the beach: today's deploys and visitors (server/api/tree.get.ts). Until they arrive it has its plain look.
+async function loadTree() {
+  try {
+    const res = await fetch('/api/tree')
+    if (!res.ok) return
+    const t = await res.json() as { deploys: number | null; visitors: number | null }
+    setTreeCounts({ deploys: t.deploys, visitors: t.visitors })
+  } catch { /* the plain tree */ }
+}
+
+// One visit per browser for today's count: the id stays in localStorage, the server keeps one row per id and day.
+function countVisit() {
+  try {
+    if (sessionStorage.getItem('tree.counted')) return
+    let visitor = localStorage.getItem('tree.visitor')
+    if (!visitor) {
+      if (!crypto.randomUUID) return
+      visitor = crypto.randomUUID()
+      localStorage.setItem('tree.visitor', visitor)
+    }
+    sessionStorage.setItem('tree.counted', '1')
+    void fetch('/api/tree-visit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ visitor }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch { /* storage closed: the tree just doesn't count this one */ }
+}
 
 const blurbs = profile.blurbs.map(b => b.charAt(0).toUpperCase() + b.slice(1))
 
