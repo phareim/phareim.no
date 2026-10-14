@@ -77,7 +77,7 @@ const ARCADE: MapDef = {
     u: { ent: { t: 'npc', id: 'robot', look: 'robot', dir: 'right', talk: [{ lines: ['BEEP.'] }] } },
     '1': CAB('c1', 'anotherworld', 'ANOTHER SHORE'),
     '2': CAB('c2', 'galaga', 'GALAGA'),
-    '3': CAB('c3', 'breakout', 'BREAKOUT'),
+    '3': CAB('c3', 'breakout', 'SPACE PADDLE'),
     '4': CAB('c4', 'rtype', 'G-TYPE'),
     '5': CAB('c5', 'invaders', 'SPACE INVADERS'),
     '6': CAB('c6', 'starfox', 'STAR FOX'),

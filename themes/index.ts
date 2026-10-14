@@ -150,7 +150,7 @@ export const allThemes: ThemeDefinition[] = [
   },
   {
     id: 'breakout',
-    name: 'Breakout',
+    name: 'Space Paddle — The Odyssey',
     themeColor: '#0b0616',
     landing: BreakoutLanding,
   },
