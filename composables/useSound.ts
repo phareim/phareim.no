@@ -333,7 +333,7 @@ const PATTERNS: Record<MusicStyle, MusicPattern> = {
     bass: [40, 40, 0, 40, 0, 40, 43, 0, 40, 40, 0, 40, 45, 0, 43, 42],
     lead: [64, 0, 0, 67, 0, 0, 64, 0, 62, 0, 64, 0, 0, 69, 67, 0],
   },
-  // Forward-driving minor for R-Type.
+  // Forward-driving minor for G-Type.
   rtype: {
     bpm: 148, bassType: 'sawtooth', leadType: 'square', leadVol: 0.12,
     bass: [38, 0, 38, 38, 0, 38, 0, 41, 36, 0, 36, 36, 0, 43, 41, 39],

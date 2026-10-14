@@ -1,10 +1,10 @@
 /**
- * R-Type — NEON VECTOR on NEON DREAMS ground.
- * R-Type keeps the neon-vector world (stroked-outline ships, procedural cave,
+ * G-Type — NEON VECTOR on NEON DREAMS ground.
+ * G-Type keeps the neon-vector world (stroked-outline ships, procedural cave,
  * orange enemies), but the palette comes from the Neon Dreams design system
  * (tokens/colors.css, tokens/effects.css, tokens/typography.css): violet-black
  * ground (#0b0616), cyan player/interface (#2ff3ff), lavender-white ink,
- * gold reward (#ffd23f). R-Type's own danger hue is orange (#ff7a1a), which
+ * gold reward (#ffd23f). G-Type's own danger hue is orange (#ff7a1a), which
  * takes pink's jobs (card border, hints, over-titles). The canvas covers the
  * page; no CSS grid. One scheme — no dark variant.
  */

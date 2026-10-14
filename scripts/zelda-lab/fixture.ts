@@ -78,7 +78,7 @@ const ARCADE: MapDef = {
     '1': CAB('c1', 'anotherworld', 'ANOTHER SHORE'),
     '2': CAB('c2', 'galaga', 'GALAGA'),
     '3': CAB('c3', 'breakout', 'BREAKOUT'),
-    '4': CAB('c4', 'rtype', 'R-TYPE'),
+    '4': CAB('c4', 'rtype', 'G-TYPE'),
     '5': CAB('c5', 'invaders', 'SPACE INVADERS'),
     '6': CAB('c6', 'starfox', 'STAR FOX'),
     '7': CAB('c7', 'outrun', 'OUTRUN'),
