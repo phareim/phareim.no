@@ -1,0 +1,25 @@
+The first image is a picture in coarse square pixel blocks, put together from parts: some
+of it was shrunk, so lines are ragged and doubled in places. Redraw it as one finished
+picture of pixel art and keep it exactly: everything where it is and as large as it is,
+the same size of square pixel blocks on the same grid, nothing moved, nothing resized,
+nothing enlarged to fill the picture. Tidy what is ragged, doubled or left over: straight
+lines straight, round things round, every face clean and readable. The second image shows
+the two heroes' faces as they are drawn in this game: the woman on the left of it, the man
+on the right: match their hair, faces and clothes exactly.
+{style} {clusters}
+{world} {woman} {face}
+It is the cover of a 1989 arcade space-combat game: the CALZONE, a fat two-seat pizza
+delivery fighter (a white-and-red wood-panelled delivery rocket welded nose to tail with a
+lean red dart, a slice of pizza painted on its nose), coming at the viewer. In the open front
+cockpit REX at the stick, grinning: {rex} Above and behind him in the clear bubble turret,
+at its twin guns, NOVA, deadpan: {nova} Behind them, at the upper right, the DEEP DISH, a huge
+round pan-shaped carrier of riveted grey steel with a brick oven chimney on top and an arched
+oven door in its side whose inside is a bright orange ramp, no glow round it; it is behind
+the ship's red tail fin. At the upper left, small and far, two enemy fighters peeling in:
+stubby brown riveted craft with two round mascot ears and a yellow cockpit. A short flat
+orange flame behind the ship's tail, drawn as flat clusters.
+The upper quarter of the picture stays exactly as it is: one flat plain deep night blue with
+nothing in it at all, no stars, left empty for a title. Below it, a few small stars of one
+pixel. Deep blue and brown shadows, never black.
+No lettering, no logo, no title, no text anywhere in the picture.
+{leave}

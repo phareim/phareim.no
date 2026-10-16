@@ -20,6 +20,7 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
   - `test:starfox`, `test:wingman` — Star Fox balance, story, arsenal, bosses; the wingman squad
   - `test:anotherworld` — Another Shore: physics, threats, a playtester through all five chapters, saves, audio
   - `test:galaga` — Space Voyagers: engine, encounters, bosses, the radio director, autopilot voyages, layout, audio
+  - `test:voyagers2` — Space Voyagers II (the Wing Commander one, parked): flight, damage, missiles and decoys, the two seats, a sortie, the bot table, the words, the layout; `docs/games/voyagers2.md`
   - `test:outrun` — Drive to the Mountains: road, driving, traffic, crashes, clock, banter, and that `public/outrun` holds exactly the listed pictures
   - `test:breakout` — Space Paddle — The Odyssey: the rules in `themes/breakout/engine.ts` (speed, boards, pulse bricks, the planet, capsules, lives, attract mode, a seeded autopilot run); `docs/games/breakout.md`
   - `test:battery` — Night of the Dead Battery: puzzles, story, audio, a walkthrough to the credits
@@ -78,6 +79,7 @@ themes/              — see the phareim-theme skill
   radio/             — engine.ts + catalog.ts: the widget's six game stations (the generative radio is radio.phareim.no, a link out from the beach since 2026-09-28)
   battery/          — Night of the Dead Battery: engine/, content/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
   galaga/           — Rex & Nova: Space Voyagers I (the id stays `galaga`): engine/, story/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
+  voyagers2/        — Rex & Nova: Space Voyagers II, a cockpit space-combat game in three.js (parked 2026-10-16): engine/, story/, render/, audio.ts; Game.vue its own chunk
   miniworld/        — Mini World (Ulrikke's game): core/ (pure rules), scene/ (three.js), ui/ (panels), Game.vue as its own chunk
   figur/            — Lag Din Figur (Ulrikke's second): core/ (garment textures, save, Pip), render/ (the four game looks), ui/, Game.vue as its own chunk
   anotherworld/ shore/ scandi/ breakout/ rtype/ invaders/ starfox/ outrun/ tetris/ leaderboard/ hangar/ ships/ space/ desk/

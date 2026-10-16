@@ -1,0 +1,10 @@
+The reference image is a packed sprite sheet from a 1997 arcade game, in square pixel blocks
+on a flat magenta background: rows of very small sprites, the same few things repeated in
+every row. Redraw it as finished pixel art and keep it exactly: every sprite in its place
+and at exactly the size it has there, none enlarged, none merged with its neighbour, the same
+number of rows and columns, the same size of square pixel blocks on the same grid, flat
+magenta between them. One block of the reference is one pixel of the finished sprite: never
+draw a detail smaller than a block, never subdivide a block. Each sprite is drawn again
+cleanly as a bold shape of few pixels with a dark outline one block thick, two or three
+tones of each colour, so that it reads at a glance; tidy what is ragged, doubled or muddy in
+the reference. The copies of a thing may differ a little.

@@ -1,0 +1,24 @@
+{portraits} {style} {clusters}
+{world} {mascot} {face}
+Three robot mascots, one to a row, the same mascot in all three squares of its row, each a
+head-and-shoulders talk portrait like the people in the second image, its glass eyes and
+hinged jaw large and readable. Each wears an old brown leather flight helmet with round
+flying goggles on the brow and the collar of a flight jacket.
+Top row, a GORILLA pilot: a worn animatronic gorilla, dark grey-brown fabric fur with
+stitched seams and a rubbed patch on the crown, a heavy brow of moulded rubber over small
+round glass eyes, a broad pale grey face with flared nostrils, a big lower jaw on a hinge
+with a bolt at each corner, a red bow tie at its throat over the jacket's collar, the flight
+helmet stretched over its big head. Left: singing, jaw dropped wide open. Middle: calm, a
+slow proud look. Right: angry, teeth bared, brow down.
+Middle row, a HOUND pilot: a worn animatronic basset hound, tan and white fabric fur with
+stitched seams, two long droopy dark brown ears hanging out from under the flight helmet,
+a big black rubber nose, droopy jowls on a hinged jaw, round black sunglasses over its glass
+eyes (the goggles pushed up above them). Cool and lazy. Left: singing, jaw dropped open.
+Middle: calm, a lazy smile. Right: angry, lip curled.
+Bottom row, a BEAR pilot again, drawn differently from any famous mascot bear: a worn
+animatronic bear of faded honey-gold fabric fur with stitched seams and a patched ear, small
+round ears, a pale cream muzzle with a big dark brown nose, small round black glass eyes, a
+hinged jaw with a bolt at each corner, a battered black bowler hat worn on top of the flight
+helmet, and a striped red-and-white scarf at its neck. Left: singing, jaw dropped open.
+Middle: calm, a dopey smile. Right: angry, brows down.
+{leave}

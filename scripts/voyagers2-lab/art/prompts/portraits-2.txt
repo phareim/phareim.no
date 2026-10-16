@@ -1,0 +1,26 @@
+{portraits} {style} {clusters}
+{world} {mascot} {face}
+Three robot mascots, one to a row, the same mascot in all three squares of its row, each a
+head-and-shoulders talk portrait like the people in the second image, its glass eyes and
+hinged jaw large and readable.
+Top row, PRINCE PARMESAN, heir of the restaurant chain: a golden animatronic lion. A big
+golden mane of stiff sculpted fibreglass curls with the gold paint chipped at the tips, a
+small gold crown with three red glass jewels sitting a little crooked on his head, a red
+velvet cape collar standing up round his neck with a white fur trim, a golden muzzle, round
+amber glass eyes, a lower jaw on a hinge with a bolt at each corner of the mouth, a seam
+running down the middle of his face with a line of rivets along it. Grand, vain and tinny.
+Left: calm, chin up, eyelids half lowered, smug, jaw shut. Middle: angry, jaw dropped wide
+open on its hinge showing a round speaker grille inside the mouth, brows of metal plate
+slanted down. Right: calm again, one eyelid lowered further.
+Middle row, a RAT pilot: a worn animatronic rat, grey fabric fur with stitched seams, big
+round ears of tan felt, a long snout with a dark brown rubber nose, two big buck teeth, round
+glass eyes, an old brown leather flight helmet with holes for the ears and round flying
+goggles pushed up on its brow, and a red drummer's sweatband tied round the helmet. No pink
+anywhere: ears tan, nose dark brown. Left: singing, jaw dropped open. Middle: calm, a sly
+grin. Right: angry, teeth bared.
+Bottom row, a BEAR pilot: a worn animatronic bear, brown fabric fur with stitched seams and a
+rubbed patch on one cheek, small round ears, a cream muzzle with a big black nose, round
+glass eyes, a brown leather flight helmet with flying goggles on the brow and a battered
+black bowler hat worn on top of the helmet, the collar of a flight jacket. Left: singing,
+jaw dropped open. Middle: calm, a dopey smile. Right: angry, brows down.
+{leave}

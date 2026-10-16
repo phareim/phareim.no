@@ -1,0 +1,9 @@
+The first image is a layout: a sheet of nine squares in three rows of three. The second
+image shows the pixel-art style, the size of square pixel block and the framing to use: it
+is a sheet of nine finished talk portraits from the same game. Draw one new talk portrait in
+each square of the layout, filling the square to its edges: head and shoulders, the head
+filling most of the square with the whole face well inside the middle of the square,
+three-quarter view facing left, a flat dark blue background, a dark outline, big readable
+features made of few pixels, exactly as large and as coarse as the faces in the second image.
+The people are new: nobody from the second image appears. No lines between the squares, no
+labels, no lettering.

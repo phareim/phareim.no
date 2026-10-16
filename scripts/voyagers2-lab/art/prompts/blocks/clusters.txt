@@ -1,0 +1,4 @@
+Shade in clusters: flat patches of one colour with clean edges, a few pixels wide or more.
+No speckle, no single stray pixels of a nearly equal colour, no noise texture, no dither
+except where a ramp runs out. Wear is drawn as shapes (a chip, a streak, a stain), not as
+grain.

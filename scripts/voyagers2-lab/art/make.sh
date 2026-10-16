@@ -1,0 +1,99 @@
+#!/bin/sh
+# From the raw generations (tmp/voyagers2-art/raw, git-ignored) to the bitmaps the game ships
+# (public/voyagers2). Run from the repo root:   sh scripts/voyagers2-lab/art/make.sh [set ...]
+# sets: portraits card sky sprites   (none: all of them)
+# Needs nova's tools/art and its Python environment (README.md here).
+set -e
+PY="$HOME/.cache/nova-art-venv/bin/python"
+A="$PY $HOME/github/nova/tools/art/art.py"
+L=scripts/voyagers2-lab/art
+R=tmp/voyagers2-art/raw
+S=tmp/voyagers2-art/snap
+P=tmp/voyagers2-art/parts
+ST=tmp/voyagers2-art/stage
+PAL=tmp/voyagers2-art/pal
+mkdir -p $S $P $ST $PAL public/voyagers2
+SETS="${*:-portraits card sky sprites}"
+want() { case " $SETS " in *" $1 "*) return 0;; esac; return 1; }
+quiet() { grep -v "^      " || true; }
+
+# The portraits: sheets of nine, a person to a row. Every sheet comes back 256 cells across
+# (4 px a cell); portraits.py cuts a 64 x 64 window out of each 85 px tile.
+if want portraits; then
+  for s in portraits-1a portraits-2a portraits-3a; do
+    $A snap $R/$s.png -o $S/$s.png --cell 4.0 --colors 200 | quiet
+  done
+  $PY $L/portraits.py
+fi
+
+# The title card: the second pass (card-title-b), 240 cells across as its canvas (243 x 329;
+# at 3.48 px, the cell the model drew in, it is 260 x 347 and its middle 240 cuts a fighter in
+# half: the purity of the two is the same). card-title-a is snapped at 3.48 px:
+# layouts.py builds the second pass's collage from it (card-c348).
+if want card; then
+  $A snap $R/card-title-a.png -o $S/card-c348.png --cell 3.48 --colors 64 | quiet
+  $A snap $R/card-title-b.png -o $S/card-title-b.png --across 240 --colors 64 | quiet
+fi
+
+# The sky: two pieces to a picture, all on green (rust, brown and violet are too near
+# magenta to cut cleanly), at the canvas's 4 px cells. The Hut and the moon ship from the
+# first pictures. The first planet, galaxy and nebula were drawn in cells of 8 px and the
+# first billboard was 166 x 116: those go to parts/sky-first, the canvases of the second
+# passes (sky-fix-a, -b, -c: layouts.py), and the second passes ship (the first of each pair).
+if want sky; then
+  mkdir -p $P/sky $P/sky-first
+  KG="--key green --key-tol 0.12 --fringe 3"
+  for s in sky-a sky-b sky-c sky-fix-a sky-fix-b sky-fix-c; do
+    $A snap $R/$s.png -o $S/$s.png --across 256 $KG --colors 200 | quiet
+  done
+  $A split $S/sky-a.png -o $P/sky-first --dir --names sky-planet,sky-galaxy | quiet
+  $A split $S/sky-c.png -o $P/sky-first --dir --names sky-nebula,sky-billboard | quiet
+  $A split $S/sky-b.png -o $P/sky --dir --names sky-hut,sky-moon | quiet
+  $A split $S/sky-fix-a.png -o $P/sky --dir --names sky-planet,sky-galaxy | quiet
+  mkdir -p $P/sky-second      # sky-fix-a's galaxy: the canvas of sky-fix-d
+  $A split $S/sky-fix-a.png -o $P/sky-second --dir --names=-,sky-galaxy | quiet
+  $A split $S/sky-fix-b.png -o $P/sky --dir --names=sky-nebula,- | quiet
+  $A split $S/sky-fix-c.png -o $P/sky --dir --names=sky-billboard,- | quiet
+  # the galaxy a third time (sky-fix-a's failed `doubled` once darkened): the first of three
+  $A snap $R/sky-fix-d.png -o $S/sky-fix-d.png --across 256 $KG --colors 200 | quiet
+  $A split $S/sky-fix-d.png -o $P/sky --dir --names=sky-galaxy,-,- | quiet
+fi
+
+# The small sprites: the first sheet (what each thing is, about 45 px) split; the packed
+# sheet (ten columns, eight rows, 4 px cells) cut by its slots. choose.py picks a copy.
+if want sprites; then
+  K="--key magenta --key-tol 0.12 --fringe 3"
+  $A snap $R/sprites-a.png -o $S/sprites-a.png --across 256 $K --colors 64 | quiet
+  $A split $S/sprites-a.png -o $P/sprites-a --dir --names face-rat,face-bear,face-gorilla,face-hound,face-lion,face-slice,head-rat,head-bear,head-gorilla,head-hound | quiet
+  $A snap $R/sprites-d.png -o $S/sprites-d.png --across 256 $K --colors 48 | quiet
+  $PY $L/cut.py $S/sprites-d.png -o $P/sprites-d --slots 10,8,25,30,3,8 --by-col --names face-rat,face-bear,face-gorilla,face-hound,face-lion,face-slice,head-rat,head-bear,head-gorilla,head-hound | cut -c1-90
+  # the second packed sheet: the same ten laid smaller (they came back a third large);
+  # the faces ship from it (finish.py SPRITE_DIR)
+  $A snap $R/sprites-e.png -o $S/sprites-e.png --across 256 $K --colors 48 | quiet
+  $PY $L/cut.py $S/sprites-e.png -o $P/sprites-e --slots 10,10,21,24,23,8 --by-col --names face-rat,face-bear,face-gorilla,face-hound,face-lion,face-slice,head-rat,head-bear,head-gorilla,head-hound | cut -c1-90
+  $PY $L/choose.py
+fi
+
+$PY $L/finish.py $SETS
+
+# Each portrait is reduced once, to its own 32 colours.
+figure() {
+  $A palette build $ST/$1.png -o $PAL/$1.json --colors 32 --min-sep 0.034 > /dev/null
+  $A palette apply $ST/$1.png --palette $PAL/$1.json --out-dir $PAL | cut -c1-110
+  cp $PAL/$1.png public/voyagers2/$1.png
+}
+if want portraits; then
+  for n in nonna-calm nonna-stern tiny-calm tiny-grin dougie-eager dougie-scared parmesan-calm parmesan-angry \
+           mascot-rat mascot-bear mascot-gorilla mascot-hound; do
+    figure portrait-$n
+  done
+fi
+# The sky pieces: one palette of 24 for all six, no two colours close (they were darkened in
+# finish.py, and close tones would band).
+if want sky; then
+  $A palette build $ST/sky-*.png -o $PAL/sky.json --colors 24 --min-sep 0.034 | cut -c1-110
+  for n in planet galaxy hut moon nebula billboard; do
+    $A palette apply $ST/sky-$n.png --palette $PAL/sky.json --out-dir $PAL | cut -c1-110
+    cp $PAL/sky-$n.png public/voyagers2/sky-$n.png
+  done
+fi

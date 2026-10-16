@@ -1,0 +1,7 @@
+The first image is a layout: each coloured block on the magenta background marks the place
+and the size of one thing. The second image shows the pixel-art style to draw in and the
+size of square pixel block to use: draw in square pixel blocks exactly as large as the ones
+in the second image, large and few. Draw one thing in each block of the layout, filling its
+block and no larger, each one separate with flat magenta all round it: nothing touching,
+nothing overlapping, no ground, no shadows, no labels, no numbers, no frames. Every thing is
+one solid connected shape with a dark outline: no loose parts floating beside it.

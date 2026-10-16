@@ -1,0 +1,23 @@
+{portraits} {style} {clusters}
+{world} {woman} {face}
+Three people, one to a row, the same face in all three squares of their row.
+Top row, NONNA ROSA, captain of an orbital pizza oven-ship: a small, tough Italian-American
+grandmother of about seventy-five with a round lined face, olive skin, sharp dark eyes and
+thick grey eyebrows, her grey hair in a tight bun at the back of her head, a pair of reading
+glasses hanging on a thin gold chain round her neck, a navy-blue captain's jacket with brass
+buttons and gold braid on the shoulders, worn open over a white apron, and flour dusted on
+her forearms and on one cheek. Left: calm, a small knowing smile, chin up. Middle: stern,
+brows down, eyes narrowed, mouth a hard line, one floury finger raised. Right: calm again,
+a little warmer.
+Middle row, TINY, the ship's mechanic, who used to wash the dishes: a huge, gentle man of
+about forty, so broad that his shoulders fill the square, dark brown skin, a shaved head, a
+broad kind face, a pair of brass welding goggles pushed up on his forehead, yellow rubber
+dishwashing gloves pushed up to the elbows, a grease-stained grey-blue work coverall. Left:
+calm, a slow gentle look. Middle: a huge wide grin, eyes creased. Right: calm again.
+Bottom row, DOUGIE, the delivery boy, a skinny rookie pilot of nineteen: a thin pale face
+covered in freckles, big ears, a mop of ginger hair, a red baseball cap with a small white
+pizza-slice badge worn backwards, an olive-green nylon bomber jacket with an orange lining,
+far too big for him, the collar up round his thin neck. Left: eager, a big keen open grin,
+eyes wide and shining. Middle: scared, eyes huge, eyebrows up, mouth a wobbling line, a drop
+of sweat on his brow. Right: eager again.
+{leave}

@@ -1,0 +1,6 @@
+The first image is a layout in flat blocks on a flat background: two subjects, one above the
+other; the blocks show where each is and how large. The second image shows the pixel-art
+style to draw in and the size of square pixel block to use. Draw the two subjects as
+finished pixel art in that style, each at the size of its blocks and no larger, well apart,
+with the flat background colour between them and all round them right up to their outlines.
+Each is one solid connected shape. No stars, no space, no glow, no labels.

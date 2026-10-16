@@ -6,6 +6,7 @@ import './base/fonts.css'
 import './base/pixel/pixel.css'
 import './scandi/theme.css'
 import './galaga/theme.css'
+import './voyagers2/theme.css'
 import './breakout/theme.css'
 import './space/theme.css'
 import './desk/theme.css'
@@ -29,6 +30,7 @@ import './figur/theme.css'
 // chunk and every visit to `/` pays for it (2026-09-30).
 import ScandiLanding from './scandi/Landing.vue'
 import GalagaLanding from './galaga/Landing.vue'
+import Voyagers2Landing from './voyagers2/Landing.vue'
 import BreakoutLanding from './breakout/Landing.vue'
 import SpaceLanding from './space/Landing.vue'
 import SpaceStarfield from './space/Starfield.vue'
@@ -147,6 +149,14 @@ export const allThemes: ThemeDefinition[] = [
     name: 'Rex & Nova: Space Voyagers I',
     themeColor: '#141a33',
     landing: GalagaLanding,
+  },
+  {
+    id: 'voyagers2',
+    // Parked while the first sortie is tried on a phone (2026-10-16); reachable with ?theme=voyagers2.
+    disabled: true,
+    name: 'Rex & Nova: Space Voyagers II',
+    themeColor: '#141a33',
+    landing: Voyagers2Landing,
   },
   {
     id: 'breakout',

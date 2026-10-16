@@ -1,0 +1,13 @@
+{skypair} {style} {clusters} {keyg}
+{world}
+{far}
+They are seen far away from a fighter's cockpit in space. The upper subject: a long, low
+band of nebula gas lying across the picture: soft-edged clouds drawn as flat clusters of
+dark brown, rust and dull night blue, a few denser knots, ragged at both ends, never smooth
+gradients, no stars in it. The lower subject: a giant roadside billboard floating in space:
+a wide flat board in a riveted steel frame on two short struts, with a catwalk and four small
+lamps along its bottom edge, the board cream with a broad red band. On it, in big bold blocky
+red and dark letters, two lines, spelled exactly: on the top line "PIZZA THE HUT", on the
+second line, smaller, "NOW ON EVERY ORBIT". Each letter a few pixels wide, all of them
+readable.
+{leave-sign}
