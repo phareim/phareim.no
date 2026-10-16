@@ -1,7 +1,7 @@
 #!/bin/sh
 # From the raw generations (tmp/voyagers2-art/raw, git-ignored) to the bitmaps the game ships
 # (public/voyagers2). Run from the repo root:   sh scripts/voyagers2-lab/art/make.sh [set ...]
-# sets: portraits card sky sprites   (none: all of them)
+# sets: portraits card sky sprites (batch 1), rooms endings acts sky2 (batch 2)   (none: all)
 # Needs nova's tools/art and its Python environment (README.md here).
 set -e
 PY="$HOME/.cache/nova-art-venv/bin/python"
@@ -13,7 +13,7 @@ P=tmp/voyagers2-art/parts
 ST=tmp/voyagers2-art/stage
 PAL=tmp/voyagers2-art/pal
 mkdir -p $S $P $ST $PAL public/voyagers2
-SETS="${*:-portraits card sky sprites}"
+SETS="${*:-portraits card sky sprites rooms endings acts sky2}"
 want() { case " $SETS " in *" $1 "*) return 0;; esac; return 1; }
 quiet() { grep -v "^      " || true; }
 
@@ -74,6 +74,40 @@ if want sprites; then
   $PY $L/choose.py
 fi
 
+# ---- batch 2 ----
+# The rooms of the Deep Dish: 4:3 over a canvas of 240 x 180 cells; the model draws finer
+# (about 4.7 px for the canvas's 4.93), so each comes back about 253 x 186 and finish.py takes
+# a 240 x 180 window (ROOMS) and paints the boards and the television screen flat.
+if want rooms; then
+  for s in room-kitchen-a room-hangar-a room-breakroom-a; do
+    $A snap $R/$s.png -o $S/$s.png --across 240 --colors 64 | quiet
+  done
+fi
+# The endings: 1:1 at 256 cells, a 240 x 200 window each (finish.py ENDINGS). The lost one
+# ships from its second pass (b: the costume's head made this game's bear, the costume closed);
+# the first is the canvas of that pass.
+if want endings; then
+  for s in card-ending-won-a card-ending-lost-a card-ending-lost-b; do
+    $A snap $R/$s.png -o $S/$s.png --across 256 --colors 64 | quiet
+  done
+fi
+# The act cards: 16:9 at 256 x 144 cells, a 240 x 120 window each (finish.py ACTS); act 2 ships
+# from its second pass (b: the first squeezed into the window and redrawn); colours
+# no closer than 0.034 (act 3's sky failed `banding` at the default 0.022).
+if want acts; then
+  for s in card-act-1-a card-act-2-a card-act-2-b card-act-3-a; do
+    $A snap $R/$s.png -o $S/$s.png --across 256 --colors 64 --min-sep 0.034 | quiet
+  done
+fi
+# The sky pieces of acts 2 and 3: three on green, cut by region (finish.py SKY2: the four mile
+# markers stand apart and ship as one piece). make.sh endings acts sky2 must run before
+# batches/b08 is run again: its canvases read these snaps.
+if want sky2; then
+  $A snap $R/sky-b2-a.png -o $S/sky-b2-a.png --across 256 --key green --key-tol 0.12 --fringe 3 --colors 200 | quiet
+  # the large buoy again, shrunk and redrawn (it came back 63 x 92): the first of two copies
+  $A snap $R/sky-b2-fix.png -o $S/sky-b2-fix.png --across 256 --key green --key-tol 0.12 --fringe 3 --colors 200 | quiet
+fi
+
 $PY $L/finish.py $SETS
 
 # Each portrait is reduced once, to its own 32 colours.
@@ -94,6 +128,14 @@ if want sky; then
   $A palette build $ST/sky-*.png -o $PAL/sky.json --colors 24 --min-sep 0.034 | cut -c1-110
   for n in planet galaxy hut moon nebula billboard; do
     $A palette apply $ST/sky-$n.png --palette $PAL/sky.json --out-dir $PAL | cut -c1-110
+    cp $PAL/sky-$n.png public/voyagers2/sky-$n.png
+  done
+fi
+# The sky pieces of batch 2: their own palette of 24 (batch 1's six keep theirs untouched).
+if want sky2; then
+  $A palette build $ST/sky-truckstop.png $ST/sky-markers.png $ST/sky-buoy.png -o $PAL/sky2.json --colors 24 --min-sep 0.034 | cut -c1-110
+  for n in truckstop markers buoy; do
+    $A palette apply $ST/sky-$n.png --palette $PAL/sky2.json --out-dir $PAL | cut -c1-110
     cp $PAL/sky-$n.png public/voyagers2/sky-$n.png
   done
 fi

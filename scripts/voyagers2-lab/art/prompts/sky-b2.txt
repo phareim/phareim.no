@@ -1,0 +1,21 @@
+The first image is a layout in flat blocks on a flat background: three subjects, one above the
+other; the blocks show where each is and how large. The second image shows the pixel-art style
+to draw in and the size of square pixel block to use. Draw the three subjects as finished pixel
+art in that style, each at the size of its blocks and no larger, well apart, with the flat
+background colour between them and all round them right up to their outlines. No stars, no
+space, no glow, no labels. Draw them in fine detail at the small block size.
+{style} {clusters} {keyg}
+{world}
+{far}
+They are seen far away from a fighter's cockpit in space, along a freight lane. The upper
+subject: a floating truck stop: a low diner with a row of small windows and a chrome trim on a
+riveted steel platform, fuel pumps at its edge, girders and tanks under it, and above it on a
+pylon a neon sign: a picture of a coffee cup with an arrow pointing down, drawn in thin tube
+lines of the one muted amber accent, no letters on it. It is one solid connected shape. The
+middle subject: a row of four mile-marker buoys receding along the lane from left to right, each
+smaller than the one before: a riveted steel post with a reflector band and a small lamp on top,
+the lamps the muted amber accent; they stand apart, each one solid. The lower subject: one large
+lane buoy close up: a fat riveted steel drum on end with a cage of struts, two small lamps on
+arms either side of it, a short aerial on top and three small fins at its foot; one solid
+connected shape.
+{leave}

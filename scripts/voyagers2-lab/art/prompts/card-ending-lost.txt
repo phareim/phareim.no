@@ -1,0 +1,29 @@
+The first image is a rough layout in flat blocks: it shows the composition, where everything
+stands and how large. The second image shows the pixel-art style to draw in and the size of
+square pixel block to use: it is the ending card of the first game. The third image shows, from
+left to right, REX and NOVA as they are drawn in this game's talk portraits (match their hair,
+faces and clothes exactly), and the Franchise's bear mascot whose costume Rex wears (match its
+fur, its round glass eyes and its black bowler hat). Draw the layout as one finished picture in
+that style, filling the whole picture from edge to edge, everything in its place and at its
+size.
+{style} {clusters}
+{world} {woman} {face}
+The picture is the losing ending card of a 1990s space-combat game, comic and warm, nobody hurt:
+the two pizza delivery pilots now work at the counter of a Franchise restaurant. The restaurant
+is garish and cheap: walls of mustard-yellow tiles, a chocolate-brown ceiling with a long
+flickering tube lamp drawn as a flat pale bar, menu boards above the counter that show only
+pictures of pizzas and drinks, an orange plastic counter with a brown trim (the orange block),
+a chrome cash register with big push keys and a crank. The restaurant is an original place
+invented for this game: not the red roof shape, the logo or the colours of any real restaurant
+chain.
+On the left, in front of the counter (the brown blocks): REX, wearing a big shabby brown bear
+mascot costume of fabric fur with stitched seams, standing slumped, the costume's bear head
+(round glass eyes, a black bowler hat, a mouth on a hinge) held under his arm, his own face
+showing out of the costume's neck: {rex} Here he looks sheepish and sad, his headband still on,
+his hair messy.
+Behind the counter at the cash register, on the right: NOVA, a paper Franchise hat on her head (a
+small folded paper cap, cream with a brown stripe), a name badge with no writing on it: {nova}
+Here she leans on the register with her chin in her hand, deeply unimpressed.
+Every face is large enough to read. Shadows deep blue and brown, never black. No lettering, no
+numbers, no text anywhere in the picture.
+{leave}

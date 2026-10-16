@@ -55,7 +55,49 @@ async function until(b, cond, max = 6000, chunk = 30) {
   return state(b)
 }
 
+/** Start a campaign from a clean browser and stand on its act card (or in the hub with `hub`). */
+async function campaign(b, size, { hub = true, save = null } = {}) {
+  await b.goto(`${base}/?theme=voyagers2&debug=voyagers2`)
+  await b.eval(`(() => { localStorage.removeItem('voyagers2.save'); ${save ? `localStorage.setItem('voyagers2.save', ${JSON.stringify(JSON.stringify(save))});` : ''} return 1 })()`)
+  await b.goto(`${base}/?theme=voyagers2&debug=voyagers2`)
+  const press = async () => { if (SIZES[size].mobile) await b.tap(SIZES[size].width / 2, SIZES[size].height * 0.25); else await b.key('Enter') }
+  await press()
+  for (let i = 0; i < 60 && !(await b.eval(`!!document.querySelector('.vg2-act, .vg2-hub')`)); i++) await b.sleep(100)
+  await b.sleep(500)
+  if (hub && await b.eval(`!!document.querySelector('.vg2-act')`)) { await press(); await b.sleep(400) }
+}
+
 const SCENES = {
+  async act(b, size) {
+    await campaign(b, size, { hub: false })
+  },
+  async hub(b, size) {
+    await campaign(b, size)
+  },
+  async talk(b, size) {
+    await campaign(b, size)
+    await b.eval(`document.querySelectorAll('.vg2-tab')[2].click()`)
+    await b.sleep(200)
+    await b.eval(`document.querySelectorAll('.vg2-person')[0].click()`)
+    await b.sleep(300)
+  },
+  async debrief(b, size) {
+    await campaign(b, size)
+    await b.eval(`document.querySelector('.vg2-btn--gold').click()`)
+    for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
+    await b.eval(`${V}.end(true)`)
+    await b.sleep(600)
+  },
+  async strike(b, size) {
+    await campaign(b, size, { save: { version: 1, pilot: 'nova', next: 'takeout', score: 12000, kills: 20, morale: 0.6, mood: 0.6, flags: {}, history: [{ id: 'firstshift', result: 'won', score: 6000, kills: 10 }, { id: 'convoy', result: 'won', score: 6000, kills: 10 }, { id: 'siege', result: 'won', score: 6000, kills: 10 }] } })
+    await b.eval(`document.querySelector('.vg2-btn--gold').click()`)
+    for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
+    await b.eval(`${V}.hold()`)
+    await b.eval(`${V}.bot('sharp')`)
+    await until(b, s => s.stage === 'fly' && s.nav === 0 && s.enemies > 0, 30000, 60)
+    await until(b, s => s.ships > 0 && s.me && s.me.target >= 0 && s.enemies <= 3, 20000, 60)
+    await step(b, 120)
+  },
   async title(b, size) {
     await b.goto(`${base}/?theme=voyagers2&debug=voyagers2`)
     await b.sleep(800)

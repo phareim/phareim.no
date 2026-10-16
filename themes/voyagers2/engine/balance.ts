@@ -47,6 +47,14 @@ export interface ShipClass {
   trate?: number
   /** Big ships: they do not dogfight. */
   capital?: boolean
+  /** Guns do not hurt its hull (Wing Commander's capital shields): missiles and torpedoes do. */
+  gunproof?: boolean
+  /** A big ship's turrets: each a small ship of its own (kind `turret`), fixed to the hull, that can be shot off. */
+  mounts?: { at: [number, number, number]; dir: [number, number, number] }[]
+  /** Fixed to another ship (a turret, the Hut's vent): it never flies. */
+  fixed?: boolean
+  /** Scenery with guns (the Hut): nobody targets it; its guns and its vent are the targets. */
+  scenery?: boolean
 }
 
 export const SHIPS: Record<ShipKind, ShipClass> = {
@@ -55,7 +63,7 @@ export const SHIPS: Record<ShipKind, ShipClass> = {
     pitch: 78 * DEG, yaw: 70 * DEG, roll: 170 * DEG, fuel: 6, refuel: 14,
     shield: 160, armour: 140, core: 100,
     gunDmg: 8, gunRate: 8, gunCost: 0.032, gunRecharge: 0.2, gunSpread: 3,
-    missiles: 6, decoys: 6, points: 0,
+    missiles: 6, decoys: 12, points: 0,
     turrets: [{ at: [0, 3.9, 10.1], dir: [0, 0, 1], cone: 105 * DEG }],
   },
   moped: {
@@ -76,7 +84,7 @@ export const SHIPS: Record<ShipKind, ShipClass> = {
   tug: {
     label: 'NOSTALGIA', r: 12, cruise: 250, max: 400, burn: 850, min: 90, accel: 220,
     pitch: 70 * DEG, yaw: 64 * DEG, roll: 150 * DEG, fuel: 6, refuel: 14,
-    shield: 110, armour: 100, core: 80,
+    shield: 200, armour: 220, core: 160,
     gunDmg: 10, gunRate: 7, gunCost: 0.035, gunRecharge: 0.2, gunSpread: 3,
     missiles: 4, decoys: 4, points: 0,
   },
@@ -92,18 +100,18 @@ export const SHIPS: Record<ShipKind, ShipClass> = {
     pitch: 2 * DEG, yaw: 2 * DEG, roll: 2 * DEG, fuel: 1, refuel: 1,
     shield: 1500, armour: 2500, core: 2000,
     gunDmg: 0, gunRate: 0, gunCost: 0, gunRecharge: 0, gunSpread: 0,
-    missiles: 0, decoys: 0, points: 0, capital: true,
-    turrets: [
-      { at: [0, 40, -150], dir: [0, 0.4, -1], cone: 80 * DEG },
-      { at: [0, 40, 150], dir: [0, 0.4, 1], cone: 80 * DEG },
-      { at: [-150, 10, 0], dir: [-1, 0.3, 0], cone: 80 * DEG },
-      { at: [150, 10, 0], dir: [1, 0.3, 0], cone: 80 * DEG },
+    missiles: 0, decoys: 0, points: 0, capital: true, gunproof: true,
+    mounts: [
+      { at: [0, 34, -158], dir: [0, 0.5, -1] },
+      { at: [0, 34, 158], dir: [0, 0.5, 1] },
+      { at: [-158, 34, 0], dir: [-1, 0.5, 0] },
+      { at: [158, 34, 0], dir: [1, 0.5, 0] },
     ],
   },
   hauler: {
     label: 'FREIGHTER', r: 40, cruise: 120, max: 160, burn: 160, min: 0, accel: 20,
     pitch: 10 * DEG, yaw: 10 * DEG, roll: 10 * DEG, fuel: 1, refuel: 1,
-    shield: 200, armour: 400, core: 300,
+    shield: 300, armour: 700, core: 500,
     gunDmg: 0, gunRate: 0, gunCost: 0, gunRecharge: 0, gunSpread: 0,
     missiles: 0, decoys: 0, points: 0, capital: true,
   },
@@ -147,26 +155,58 @@ export const SHIPS: Record<ShipKind, ShipClass> = {
   buffet: {
     label: 'THE BUFFET', r: 220, cruise: 30, max: 40, burn: 40, min: 0, accel: 5,
     pitch: 2 * DEG, yaw: 2 * DEG, roll: 2 * DEG, fuel: 1, refuel: 1,
-    shield: 3000, armour: 3500, core: 2500,
+    shield: 400, armour: 700, core: 600,
     gunDmg: 0, gunRate: 0, gunCost: 0, gunRecharge: 0, gunSpread: 0,
-    missiles: 0, decoys: 0, points: 10000, capital: true,
-    turrets: [
-      { at: [0, 50, -180], dir: [0, 0.5, -1], cone: 80 * DEG },
-      { at: [0, 50, 180], dir: [0, 0.5, 1], cone: 80 * DEG },
-      { at: [-120, 20, 0], dir: [-1, 0.3, 0], cone: 80 * DEG },
-      { at: [120, 20, 0], dir: [1, 0.3, 0], cone: 80 * DEG },
+    missiles: 0, decoys: 0, points: 10000, capital: true, gunproof: true,
+    mounts: [
+      { at: [0, 66, -170], dir: [0, 0.6, -1] },
+      { at: [0, 66, 170], dir: [0, 0.6, 1] },
+      { at: [-58, 40, -80], dir: [-1, 0.4, 0] },
+      { at: [58, 40, -80], dir: [1, 0.4, 0] },
+      { at: [-58, 40, 80], dir: [-1, 0.4, 0] },
+      { at: [58, 40, 80], dir: [1, 0.4, 0] },
     ],
   },
   outlet: {
     label: 'OUTLET', r: 70, cruise: 40, max: 60, burn: 60, min: 0, accel: 8,
     pitch: 4 * DEG, yaw: 4 * DEG, roll: 4 * DEG, fuel: 1, refuel: 1,
-    shield: 900, armour: 900, core: 700,
+    shield: 200, armour: 400, core: 450,
     gunDmg: 0, gunRate: 0, gunCost: 0, gunRecharge: 0, gunSpread: 0,
-    missiles: 0, decoys: 0, points: 2500, capital: true,
-    turrets: [
-      { at: [0, 18, -50], dir: [0, 0.4, -1], cone: 85 * DEG },
-      { at: [0, 18, 50], dir: [0, 0.4, 1], cone: 85 * DEG },
+    missiles: 0, decoys: 0, points: 2500, capital: true, gunproof: true,
+    mounts: [
+      { at: [0, 34, -50], dir: [0, 0.5, -1] },
+      { at: [0, 34, 50], dir: [0, 0.5, 1] },
     ],
+  },
+  turret: {
+    label: 'TURRET', r: 7, cruise: 0, max: 0, burn: 0, min: 0, accel: 0,
+    pitch: 0, yaw: 0, roll: 0, fuel: 1, refuel: 1,
+    shield: 0, armour: 45, core: 35,
+    gunDmg: 0, gunRate: 0, gunCost: 0, gunRecharge: 0, gunSpread: 0,
+    missiles: 0, decoys: 0, points: 150, fixed: true, tdmg: 5, trate: 5,
+    turrets: [{ at: [0, 0, 0], dir: [0, 0, -1], cone: 85 * DEG }],
+  },
+  hut: {
+    label: 'THE HUT', r: 520, cruise: 0, max: 0, burn: 0, min: 0, accel: 0,
+    pitch: 0, yaw: 0, roll: 0, fuel: 1, refuel: 1,
+    shield: 99999, armour: 99999, core: 99999,
+    gunDmg: 0, gunRate: 0, gunCost: 0, gunRecharge: 0, gunSpread: 0,
+    missiles: 0, decoys: 0, points: 0, capital: true, gunproof: true, scenery: true,
+    mounts: [
+      { at: [0, 330, -380], dir: [0, 0.6, -1] },
+      { at: [0, 330, 380], dir: [0, 0.6, 1] },
+      { at: [-380, 330, 0], dir: [-1, 0.6, 0] },
+      { at: [380, 330, 0], dir: [1, 0.6, 0] },
+      { at: [-200, 470, -200], dir: [-0.5, 1, -0.5] },
+      { at: [200, 470, 200], dir: [0.5, 1, 0.5] },
+    ],
+  },
+  vent: {
+    label: 'THE VENT', r: 30, cruise: 0, max: 0, burn: 0, min: 0, accel: 0,
+    pitch: 0, yaw: 0, roll: 0, fuel: 1, refuel: 1,
+    shield: 0, armour: 300, core: 250,
+    gunDmg: 0, gunRate: 0, gunCost: 0, gunRecharge: 0, gunSpread: 0,
+    missiles: 0, decoys: 0, points: 20000, capital: true, gunproof: true, fixed: true,
   },
 }
 
@@ -216,6 +256,9 @@ export const MISSILE = {
   decoyLife: 3,
   torpedoSpeed: 260,
   torpedoDmg: 600,
+  /** The Calzone's own torpedoes (strike sorties): a long lock on a big ship, then a slow, heavy shot. */
+  calzoneTorpLock: 5,
+  calzoneTorpRange: 3200,
 }
 
 export const TURRET = {

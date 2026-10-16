@@ -324,6 +324,31 @@ export const ENDINGS = {
   ],
 }
 
+/** What someone says when they have nothing new for this sortie. */
+export const GENERIC: Partial<Record<SpeakerId, Say[]>> = {
+  nonna: [n('EAT SOMETHING. YOU LOOK THIN. BOTH OF YOU.')],
+  mei: [m('I AM LISTENING TO EVERY BAND AT ONCE. IT IS A GIFT AND A CURSE.')],
+  tiny: [{ who: 'tiny', text: 'SHE IS READY.' }],
+  dougie: [{ who: 'dougie', mood: 'eager', text: 'I AM PRACTISING MY BARREL ROLL. ON THE STAIRS.' }],
+  marge: [{ who: 'marge', text: 'KEEP YOUR SHINY SIDE UP, SWEETIE.' }],
+  ridley: [{ who: 'ridley', text: 'THE CAT IS ASLEEP. DO NOT WAKE THE CAT.' }],
+  duo: [{ who: 'duo', mood: 'grin', text: 'ASK ME ABOUT THE KESSEL DELIVERY. TWELVE MINUTES. NOBODY BELIEVES ME.' }],
+}
+
+/** Babs Arella's horoscope on the break room's television, before each sortie. */
+export const HOROSCOPE: Record<SortieId, string> = {
+  firstshift: 'GEMINI: A NEW JOB, A NEW SHIP, A NEW SMELL. ENJOY ALL THREE. LUCKY NUMBER: THREE NAV POINTS.',
+  convoy: 'TAURUS: CHEESE IS IN YOUR STARS. GUARD IT WITH YOUR LIFE. OR AT LEAST WITH YOUR GUNS.',
+  siege: 'CANCER: HOME IS WHERE THE OVEN IS. DEFEND IT, DARLING.',
+  takeout: 'LEO: A DRIVE-THROUGH HAS WRONGED YOU. ORDER SOMETHING EXPLOSIVE.',
+  spilled: 'VIRGO: A WOMAN WITH A CAT HOLDS THE KEY. DO WHAT THE CAT SAYS.',
+  hansshot: 'LIBRA: A FRIEND COUNTS HIS TIPS TWICE. WATCH YOUR SIX, AND YOUR WALLET.',
+  dare: 'SAGITTARIUS: A STRANGER IN A GOLD HAT WANTS TO MEET YOU. EVERYBODY SAYS DO NOT GO. YOU WILL GO.',
+  buffet: 'SCORPIO: ALL YOU CAN EAT. ALL YOU CAN BLOW UP. PACE YOURSELF.',
+  lastslice: 'CAPRICORN: HOLD ON. HELP IS COMING. IT DRIVES A TRUCK.',
+  finale: 'ALL SIGNS: TONIGHT THE HEAVENS SMELL OF OREGANO. DELIVER, DARLINGS. BABS LOVES YOU.',
+}
+
 /** Fill `you` and `partner` with the pilots. */
 export function speaker(s: Say, you: 'rex' | 'nova'): SpeakerId {
   if (s.who === 'you') return you

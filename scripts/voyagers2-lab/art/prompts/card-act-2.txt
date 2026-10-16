@@ -1,0 +1,26 @@
+The first image is a rough layout in flat blocks: it shows the composition, where everything
+stands and how large. The second image shows the pixel-art style to draw in and the size of
+square pixel block to use: at its left the cover of this game, at its right a far building as
+this game draws it. Draw the layout as one finished picture in that style, filling the whole
+picture from edge to edge, everything in its place and at its size, in fine detail at that
+small block size.
+{style} {clusters}
+{world}
+The picture is a wide establishing shot that opens the second act of a 1990s space-combat game:
+THE LONG HAUL, a freight lane through deep space where the space truckers drive. Dark night-blue
+space with a few one-pixel stars and a long low band of brown and rust nebula drawn as flat
+clusters across the top. Along the lane, from the lower left into the distance at the upper
+middle (the small grey blocks with orange tops): a row of mile-marker buoys getting smaller as
+they recede, each a riveted steel post with a reflector band and an amber lamp on top, the lamps
+drawn as flat amber pixels, no glow.
+On the right (the cream, red and grey blocks): a floating truck stop: a chrome-trimmed diner with
+a row of lit windows on a riveted steel platform, fuel pumps with hoses at its edge, parked rigs,
+girders and tanks underneath. Above it on a tall pylon (the orange block), its big sign in the
+world: a huge neon picture of a steaming coffee cup with an arrow pointing down at the diner,
+drawn in flat tube lines of amber and red, no glow round it, no letters on it.
+In the lane (the red and grey blocks, and smaller ones further off): space trucks: a big
+1980s cab-over rig with rocket nozzles and chrome stacks hauling a long riveted trailer in the
+foreground, and smaller rigs further down the lane, their headlamps flat pale pixels.
+Deep blue and brown shadows, never black; warm light from the diner. No people, no lettering,
+no numbers, no text anywhere in the picture.
+{leave}

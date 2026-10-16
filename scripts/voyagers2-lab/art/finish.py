@@ -248,7 +248,96 @@ def sky(log):
         log.append(f"{name:28} {a.shape[1]:4} x {a.shape[0]:<4} {os.path.getsize(out):6} bytes  key {k} fringe {f}  (staged)")
 
 
-SETS = {"portraits": portraits, "card": card, "sky": sky, "sprites": sprites}
+# ---- batch 2 ---------------------------------------------------------------------------------
+# A picture that ships whole (a room, an ending, an act card) is a window of its snapped picture:
+# (snapped picture, (x, y) of the window's upper left corner or None for the middle, boxes to
+# paint flat). A box is (x, y, w, h) in the shipped picture; it takes the commonest colour
+# inside it: the chalkboards and the television screen, so they are blank where code draws.
+ROOMS = {
+    "room-kitchen": ("room-kitchen-a", None, []),
+    "room-hangar": ("room-hangar-a", None, []),
+    "room-breakroom": ("room-breakroom-a", None, []),
+}
+ENDINGS = {
+    # won: moved up from the middle (9, 27) so Tiny's goggles are whole; the counter's front
+    # pizzas lose their lower rows
+    "card-ending-won": ("card-ending-won-a", (9, 20), []),
+    "card-ending-lost": ("card-ending-lost-b", None, []),
+}
+ACTS = {
+    # act 1 (257 x 142): two rows from the top, so the Deep Dish's chimney is whole
+    "card-act-1": ("card-act-1-a", (8, 2), []),
+    # act 2 (258 x 142): the sign at the top right whole; the rig's wheels lose a few rows
+    "card-act-2": ("card-act-2-b", (10, 4), []),
+    # act 3 (251 x 138): the sign's top rows whole
+    "card-act-3": ("card-act-3-a", (5, 5), []),
+}
+
+
+def whole(table, size, log):
+    tw, th = size
+    for name, (src_name, at, paint) in table.items():
+        src = os.path.join(S, src_name + ".png")
+        if not os.path.exists(src):
+            log.append(f"MISSING {name}  ({os.path.relpath(src, ROOT)})")
+            continue
+        im = Image.open(src)
+        if im.mode != "P":
+            im = im.convert("RGB").quantize(colors=64, method=Image.MEDIANCUT, dither=Image.NONE)
+        x, y = at if at else ((im.width - tw) // 2, (im.height - th) // 2)
+        part = im.crop((x, y, x + tw, y + th))
+        a = np.array(part)
+        for px, py, pw, ph in paint:
+            box = a[py:py + ph, px:px + pw]
+            vals, counts = np.unique(box, return_counts=True)
+            box[...] = vals[counts.argmax()]
+        out = Image.fromarray(a, "P")
+        out.putpalette(part.getpalette())
+        dst = os.path.join(S, name + "-final.png")
+        out.save(dst)
+        opaque(dst, name, log, size)
+
+
+def rooms(log):
+    whole(ROOMS, (240, 180), log)
+
+
+def endings(log):
+    whole(ENDINGS, (240, 200), log)
+
+
+def acts(log):
+    whole(ACTS, (240, 120), log)
+
+
+# The sky pieces of acts 2 and 3: three on one green picture (snap/sky-b2-a.png), each cut by
+# the box it stands in (x, y, w, h in the snapped picture), so that the four mile markers,
+# which stand apart, ship as one piece.
+SKY2 = {
+    "sky-truckstop": ("sky-b2-a", (0, 0, 256, 92)),
+    "sky-markers": ("sky-b2-a", (0, 92, 256, 62)),
+    "sky-buoy": ("sky-b2-fix", (0, 0, 140, 128)),
+}
+
+
+def sky2(log):
+    os.makedirs(STAGE, exist_ok=True)
+    for name, (src_name, (x, y, w, h)) in SKY2.items():
+        src = os.path.join(S, src_name + ".png")
+        if not os.path.exists(src):
+            log.append(f"MISSING {name}  ({os.path.relpath(src, ROOT)})")
+            continue
+        a = load(src)[y:y + h, x:x + w].copy()
+        k = clean_key(a, green=True)
+        a, f = defringe(a, green=True)
+        a = night(trim(a), 0.34, (14, 18, 38))
+        out = os.path.join(STAGE, name + ".png")
+        save_indexed(Image.fromarray(a, "RGBA"), out)
+        log.append(f"{name:28} {a.shape[1]:4} x {a.shape[0]:<4} {os.path.getsize(out):6} bytes  key {k} fringe {f}  (staged)")
+
+
+SETS = {"portraits": portraits, "card": card, "sky": sky, "sprites": sprites,
+        "rooms": rooms, "endings": endings, "acts": acts, "sky2": sky2}
 
 
 def main():

@@ -14,6 +14,10 @@ const mei = (text: string, mood?: string) => ({ who: 'mei' as const, text, mood 
 const nonna = (text: string, mood?: string) => ({ who: 'nonna' as const, text, mood })
 const dougie = (text: string, mood?: string) => ({ who: 'dougie' as const, text, mood })
 const mascot = (text: string, mood = 'rat') => ({ who: 'mascot' as const, text, mood })
+const marge = (text: string, mood?: string) => ({ who: 'marge' as const, text, mood })
+const ridley = (text: string, mood?: string) => ({ who: 'ridley' as const, text, mood })
+const duo = (text: string, mood?: string) => ({ who: 'duo' as const, text, mood })
+const parm = (text: string, mood?: string) => ({ who: 'parmesan' as const, text, mood })
 
 export const LINES: Record<CueId, readonly Exchange[]> = {
   launch: [
@@ -142,13 +146,95 @@ export const LINES: Record<CueId, readonly Exchange[]> = {
     [mascot('YOU TAKE THAT BACK! I AM COMING OVER THERE!', 'bear')],
     [mascot('THAT IS IT! NO MORE BIRTHDAY SONG FOR YOU!', 'rat')],
   ],
-  wingKill: [
+  'wingKill-dougie': [
     [dougie('I GOT ONE! MOM IS GONNA FREAK!', 'eager')],
     [dougie('DID YOU SEE THAT? TELL NONNA!', 'eager')],
   ],
-  wingHit: [
+  'wingHit-dougie': [
     [dougie('THEY ARE ON ME! THEY ARE ON ME!', 'scared')],
     [dougie('I AM HIT! IS THAT BAD? THAT SOUNDED BAD!', 'scared')],
+  ],
+  'wingKill-marge': [
+    [marge('SCRATCH ONE. TEN-FOUR.')],
+    [marge('THAT ONE WILL HAUNT THE PARKING BELT NOW, SWEETIE.', 'spooky')],
+  ],
+  'wingHit-marge': [
+    [marge('THEY DENTED MY RIG. NOW I AM ANGRY.')],
+  ],
+  'wingKill-ridley': [
+    [ridley('ONE DOWN. THE CAT SAW IT.')],
+    [ridley('GOT HIM.', 'grim')],
+  ],
+  'wingHit-ridley': [
+    [ridley('TAKING FIRE. NOTHING I HAVE NOT HAD BEFORE.', 'grim')],
+  ],
+  'wingKill-duo': [
+    [duo('THAT ONE WAS MINE. PUT IT ON MY TAB.', 'grin')],
+    [duo('SAW HIM FIRST. HIT HIM FIRST. CLASSIC DUO.', 'grin')],
+  ],
+  'wingHit-duo': [
+    [duo('HEY! THIS PAINT IS ORIGINAL!', 'sweat')],
+  ],
+  convoyHit: [
+    [mei('A HAULER IS TAKING FIRE! GET THEM OFF IT!', 'excited')],
+    [mei('THE MOZZARELLA IS UNDER ATTACK. REPEAT, THE MOZZARELLA.', 'excited')],
+  ],
+  homeFight: [
+    [mei('THEY ARE HERE! BOMBERS ON THE TUBES! EVERYBODY OUT!', 'excited'), nonna('NOBODY TOUCHES MY OVEN.', 'stern')],
+  ],
+  ambush: [
+    [mei('THE AUTOPILOT DROPPED YOU SHORT! THAT IS NOT A NAV POINT, IT IS AN AMBUSH!', 'excited')],
+  ],
+  defect: [
+    [duo('SORRY, KIDS. IT IS NOT PERSONAL. IT IS A FRANCHISE.', 'grin'), nova('HANS.', 'angry'), duo('THEY HAVE DENTAL.', 'sweat')],
+  ],
+  duoFlees: [
+    [duo('OKAY! OKAY! I AM OUT! NO HARD FEELINGS! SOME HARD FEELINGS!', 'sweat')],
+  ],
+  hansBack: [
+    [duo('YOU ARE ALL CLEAR, KIDS! NOW LET US DELIVER THIS THING AND GO HOME!', 'grin'), rex('HANS!', 'cheerful'), nova('LATE.', 'smirk')],
+  ],
+  'spawn-parmesan': [
+    [parm('AH. THE HEART OF THE OVEN. I HAVE HEARD SO MUCH. NONE OF IT IMPRESSIVE.'), nova('NICE GRATER.', 'smirk')],
+  ],
+  dareLeave: [
+    [parm('LEAVE US. THIS IS BETWEEN A PRINCE AND HIS DINNER.'), rex('WE ARE NOT DINNER. WE DELIVER DINNER.', 'worried')],
+  ],
+  parmesanFlees: [
+    [parm('THIS IS NOT OVER! MY FATHER OWNS EIGHT THOUSAND OUTLETS!', 'angry'), nova('RUN, LION. RUN.', 'smirk')],
+  ],
+  aceFlees: [
+    [mei('HE IS RUNNING. LET HIM GO.')],
+  ],
+  help: [
+    [marge('BREAKER BREAKER, THIS IS THE TALL TALE, AND I BROUGHT EVERY RIG ON THE LONG HAUL!', 'spooky'), mei('THEY ARE RUNNING! THEY ARE ALL RUNNING!', 'excited')],
+  ],
+  targetDown: [
+    [mei('IT IS GOING DOWN! IT IS GOING DOWN!', 'excited'), rex('DELIVERED!', 'cheerful')],
+    [nova('TARGET DOWN. THAT IS A TIP.', 'smirk')],
+  ],
+  'spawn-outlet': [
+    [mei('THERE IS THE OUTLET. GUNS FRONT AND BACK. TAKE OUT THE TURRETS, THEN TORPEDO THE HULL.')],
+  ],
+  'spawn-buffet': [
+    [mei('THE BUFFET. SIX TURRETS AND A HANGAR FULL OF RATS. TURRETS FIRST. THREE TORPEDOES.', 'excited')],
+  ],
+  'spawn-hut': [
+    [mei('THAT IS THE HUT. THE VENT IS ON TOP. ONE LOCK, ONE VOLCANO. DO NOT MISS.', 'excited'), parm('YOU WOULD NOT DARE.', 'angry'), nova('WE DELIVER.', 'smirk')],
+  ],
+  'launch-fighters': [
+    [mei('IT IS LAUNCHING FIGHTERS! MORE RATS!', 'excited')],
+  ],
+  torpLock: [
+    [mei('TORPEDO LOCK TAKES FIVE SECONDS. KEEP IT IN THE NOSE. DO NOT FLINCH.')],
+  ],
+  torpAway: [
+    [rex('TORPEDO AWAY! GO, LITTLE GUY!', 'cheerful')],
+    [nova('TORPEDO AWAY.')],
+  ],
+  scrape: [
+    [rex('WE ARE SCRAPING THE HULL! I CAN HEAR IT IN MY TEETH!', 'worried')],
+    [nova('THAT IS A WALL. DO NOT FLY INTO THE WALL.', 'angry')],
   ],
   enemyFlees: [
     [mei('ONE OF THEM IS RUNNING. LET HIM GO.')],

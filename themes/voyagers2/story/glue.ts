@@ -43,7 +43,10 @@ export function cuesFor(g: Glue, w: Voyage): CueId[] {
         if (me && e.b === me.id) {
           if (e.seat === 'back') out.push(playerSeat === 'back' ? 'playerTurretKill' : 'turretKill')
           else out.push('kill')
-        } else if (w.ships.some(s => s.id === e.b && s.side === 'us' && s.pilot === 'dougie')) out.push('wingKill')
+        } else {
+          const by = w.ships.find(s => s.id === e.b && s.side === 'us')
+          if (by && has('wingKill-' + by.pilot)) out.push(('wingKill-' + by.pilot) as CueId)
+        }
         break
       }
       case 'missileIn':
@@ -54,9 +57,19 @@ export function cuesFor(g: Glue, w: Voyage): CueId[] {
         break
       case 'armourHit': {
         const s = w.ships.find(x => x.id === e.a)
-        if (s && s.side === 'us' && s.pilot === 'dougie') out.push('wingHit')
+        if (s && s.side === 'us' && has('wingHit-' + s.pilot)) out.push(('wingHit-' + s.pilot) as CueId)
+        if (s && s.side === 'us' && s.pilot === 'hauler') out.push('convoyHit')
         break
       }
+      case 'lockOn':
+        if (me && e.a === me.id && me.torps > 0 && w.ships.some(s => s.id === e.b && (s.kind === 'outlet' || s.kind === 'buffet' || s.kind === 'vent'))) out.push('torpLock')
+        break
+      case 'missile':
+        if (me && e.a === me.id && e.kind === 'torpedo') out.push('torpAway')
+        break
+      case 'scrape':
+        if (me && e.a === me.id) out.push('scrape')
+        break
       case 'swap':
         out.push('swap')
         break

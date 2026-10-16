@@ -54,12 +54,14 @@ export interface Bot {
   jinkDir: { x: number; y: number; z: number }
   held: Controls
   input: Input
+  /** Ticks left of flying out from a big ship before turning in for the torpedo. */
+  extend: number
 }
 
 export function createBot(profile: BotProfile, seed = 1): Bot {
   return {
     profile: BOT_PROFILES[profile], rng: makeRng(seed ^ 0xb07), t: 0, err: v3(), jink: 0, jinkDir: v3(),
-    held: { pitch: 0, yaw: 0, roll: 0, burn: false, brake: false, fire: false, missile: false }, input: makeInput(),
+    held: { pitch: 0, yaw: 0, roll: 0, burn: false, brake: false, fire: false, missile: false }, input: makeInput(), extend: 0,
   }
 }
 
@@ -110,6 +112,11 @@ export function botInput(b: Bot, w: Voyage): Input {
     b.err.x = Math.cos(a) * m; b.err.y = Math.sin(a) * m; b.err.z = 0
     // Nothing targeted that is near: ask for the next.
     if (!live(o) || dist(o.pos, me.pos) > 6000) inp.nextTarget = true
+    // A bomber on the Deep Dish comes first (Mei says so in the briefing); then whatever the mission is for.
+    if (!o || o.kind !== 'hound') {
+      const hound = w.ships.find(s => live(s) && s.side === 'them' && s.kind === 'hound' && dist(s.pos, me.pos) < 7000)
+      if (hound) inp.pick = hound.id
+    }
   }
   const c = b.held
   if (b.jink > 0) {
@@ -120,6 +127,17 @@ export function botInput(b: Bot, w: Voyage): Input {
     steerTo(c, me, TMP, 1)
     c.burn = me.fuel > 0.2
     c.fire = false
+  } else if (live(o) && SHIPS[o.kind].capital && me.torps > 0 && (b.extend > 0 || dist(o.pos, me.pos) < 1300)) {
+    // A torpedo run: too close to lock, so fly out to two kilometres and turn in again.
+    if (b.extend <= 0) b.extend = 200
+    b.extend--
+    if (dist(o.pos, me.pos) > 2300) b.extend = 0
+    subTo(TMP, me.pos, o.pos)
+    normTo(TMP, TMP)
+    steerTo(c, me, TMP, 0.5)
+    c.burn = me.fuel > 0.4
+    c.fire = false
+    c.brake = false
   } else if (live(o)) {
     if (!leadDir(LEAD, me.pos, me, o, GUN.speed)) subTo(LEAD, o.pos, me.pos)
     LEAD.x += b.err.x; LEAD.y += b.err.y
@@ -134,6 +152,8 @@ export function botInput(b: Bot, w: Voyage): Input {
     c.brake = (d < 400 && off < 0.4 && me.speed > o.speed) || (off > 0.6 && d < 900)
     c.fire = off < p.trigger && d < 2000 && !SHIPS[o.kind].capital ? true : off < p.trigger && d < 1500
     if (p.missiles && me.lock >= 1 && look && me.missiles > 0 && SHIPS[o.kind].points >= 200) inp.missile = true
+    // Everyone fires a torpedo when it has locked a big ship.
+    if (me.torps > 0 && me.lock >= 1 && SHIPS[o.kind].capital) inp.missile = true
   } else {
     c.pitch = 0; c.yaw = 0; c.roll = 0; c.fire = false; c.burn = false; c.brake = false
   }

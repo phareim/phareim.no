@@ -1,0 +1,38 @@
+The first image is a rough layout in flat blocks: it shows the composition, where everything
+stands and how large. The second image shows the pixel-art style to draw in and the size of
+square pixel block to use: it is a finished picture from the first game. The third image shows
+the three people of this room as they are drawn in this game's talk portraits, from left to
+right BIG MARGE, ELLEN RIDLEY and HANS DUO: match their hair, faces and clothes exactly. Draw the
+layout as one finished picture in that style, filling the whole picture from edge to edge,
+everything in its place and at its size.
+{style} {clusters}
+{world} {woman} {face}
+The picture is a room of a 1990s space-combat game, shown between missions as a still scene,
+like the ship's rooms of Wing Commander III drawn as 80s arcade pixel art: the BREAK ROOM of the
+DEEP DISH, a pizza oven-ship in orbit, where the pilots wait, seen from the front at standing
+eye level. Warm lamp light, wood panelling on the walls, an orange shag carpet.
+On the back wall, high in the middle (the cream block): a long painted wooden sign, and under it
+(the dark green block in its wooden frame) a big chalkboard. On the sign, in bold blocky red
+painted letters, in two lines, spelled exactly: on the top line "EMPLOYEE", on the second line
+"OF THE MONTH". Every letter whole and readable, each stroke at least one block wide. The
+chalkboard itself is blank: plain flat dark green from edge to edge, nothing written or drawn on
+it, no chalk marks.
+At the left edge (the dark block): an old upright arcade cabinet with a dark screen and a
+scuffed control panel. At the right edge (the red block): a red vending machine for soda cans
+with a lit glass front. On the right (the wood block on legs): a wood-grain television set on a
+low wooden cabinet, its screen a plain dark rectangle with nothing on it, two rabbit-ear aerials
+on top. In the middle (the brown blocks): a worn couch with a patched seat and a sagging
+cushion.
+On the left, standing in front of the arcade cabinet and leaning on it, seen from the thighs
+up (the red block under a teal cap): BIG MARGE, a long-haul space trucker: a big, broad,
+friendly woman of fifty-five with a round weathered face, curly grey-red hair under a teal
+trucker's cap, a red plaid flannel shirt and a brown quilted vest, a coffee mug in her fist.
+On the couch, at its left end (the olive block): ELLEN RIDLEY, a space tug pilot, sitting
+upright, flat and tired: a woman of thirty-five with a loose mop of dark curly hair, tired dark
+eyes, an olive-green work jumpsuit with a zip, and on her shoulder her big orange tabby cat.
+On the couch, at its right end (the brown block): HANS DUO, a hotshot courier pilot, lounging
+and sure of himself: a man of thirty with tousled dark brown hair, a red-and-white striped
+delivery cap worn backwards, a brown leather flying jacket with a wool collar, one arm along
+the back of the couch, his boots up on its arm, a cocky grin.
+Every face is large enough to read. Shadows deep blue and brown, never black.
+{leave-sign}

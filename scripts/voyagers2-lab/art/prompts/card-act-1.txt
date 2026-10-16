@@ -1,0 +1,22 @@
+The first image is a rough layout in flat blocks: it shows the composition, where everything
+stands and how large. The second image shows the pixel-art style to draw in and the size of
+square pixel block to use: at its left the cover of this game, at its right a far building as
+this game draws it. Draw the layout as one finished picture in that style, filling the whole
+picture from edge to edge, everything in its place and at its size, in fine detail at that
+small block size.
+{style} {clusters}
+{world}
+The picture is a wide establishing shot that opens the first act of a 1990s space-combat game:
+THE PARKING BELT, low orbit over the Earth, where everybody parks what they no longer fly.
+Across the bottom (the blue blocks): the curve of the Earth seen from low orbit, deep blue seas,
+brown and olive land, a few long flat cloud bands, a thin pale line of air along its rim drawn as
+a flat lighter band, no glow. Above it, in dark night-blue space with a few one-pixel stars:
+junk and parked satellites drifting at every distance (the grey blocks), all analog: old
+boxy satellites with dish aerials and folded solar wings of copper foil, a rusty fuel tank, a
+broken space station ring, a drifting tape reel the size of a house, a dead billboard frame,
+cables trailing. Small in the distance (the small grey and brick block, upper middle): the DEEP
+DISH, a huge round pan-shaped carrier of riveted grey steel with a brick oven chimney in its
+middle, far off, a warm orange dot of light at its oven door.
+Deep blue and brown shadows, never black; warm light from the left. No people, no lettering,
+no numbers, no text anywhere in the picture.
+{leave}

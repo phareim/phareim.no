@@ -48,6 +48,7 @@ import type { Director, Monitor } from './story/director'
 import { createGlue, cuesFor } from './story/glue'
 import type { Glue } from './story/glue'
 import { createRenderer } from './render/index'
+import type { SkyPiece } from './render/scene'
 import type { Renderer } from './render/index'
 import { menuRect } from './render/dash'
 import { project } from './render/hud'
@@ -55,6 +56,7 @@ import type { HudState } from './render/hud'
 import { inside } from './render/layout'
 
 export interface SortieReport {
+  id: string
   result: 'won' | 'lost'
   why: string
   score: number
@@ -64,7 +66,7 @@ export interface SortieReport {
   pilot: PilotId
 }
 
-const props = defineProps<{ pilot: PilotId; mission?: string }>()
+const props = defineProps<{ pilot: PilotId; mission?: string; morale?: number }>()
 const emit = defineEmits<{ started: []; over: [report: SortieReport] }>()
 
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -72,6 +74,35 @@ const paused = ref(false)
 const radio = useRadio()
 
 const MAX_STEPS = 5
+
+/** Each act's sky: pictures far away in fixed directions (a missing one leaves the sky bare there). */
+const SKIES: Record<number, SkyPiece[]> = {
+  // The Parking Belt: the Earth below, a ringed planet of parked junk, the Franchise's billboard.
+  1: [
+    { src: '/galaga/bg-1-a.png', dir: [0.2, -0.45, -1] },
+    { src: '/voyagers2/sky-planet.png', dir: [1, 0.35, -0.4] },
+    { src: '/voyagers2/sky-moon.png', dir: [-0.8, 0.6, -0.5] },
+    { src: '/voyagers2/sky-billboard.png', dir: [-1, 0.05, 0.4] },
+    { src: '/voyagers2/sky-nebula.png', dir: [0.1, 0.25, 1] },
+    { src: '/voyagers2/sky-galaxy.png', dir: [0.4, 0.9, 0.3] },
+  ],
+  // The Long Haul: the freight lane's buoys and mile markers, a truck stop, the dust of the road.
+  2: [
+    { src: '/voyagers2/sky-truckstop.png', dir: [0.9, 0.2, -0.6] },
+    { src: '/voyagers2/sky-markers.png', dir: [-0.3, -0.1, -1] },
+    { src: '/voyagers2/sky-buoy.png', dir: [-1, 0.3, 0.2] },
+    { src: '/voyagers2/sky-billboard.png', dir: [0.5, 0.1, 1] },
+    { src: '/voyagers2/sky-nebula.png', dir: [-0.4, 0.6, 0.8] },
+    { src: '/voyagers2/sky-moon.png', dir: [0.3, -0.7, 0.6] },
+  ],
+  // The Delivery: the Hut's moon far off, the galaxy, the dark at the end of the Dial.
+  3: [
+    { src: '/voyagers2/sky-hut.png', dir: [-0.5, 0.15, -1] },
+    { src: '/voyagers2/sky-galaxy.png', dir: [0.8, 0.5, -0.3] },
+    { src: '/voyagers2/sky-nebula.png', dir: [0.2, -0.3, 1] },
+    { src: '/voyagers2/sky-moon.png', dir: [-1, 0.6, 0.4] },
+  ],
+}
 const STICK_R = 22
 
 let renderer: Renderer | null = null
@@ -145,12 +176,12 @@ function sound(s: Sfx, gain = 1): void {
 }
 
 /** Begin a sortie. */
-function start(pilot: PilotId = props.pilot): void {
+function start(pilot: PilotId = props.pilot, missionId: string = props.mission ?? 'firstshift'): void {
   if (!renderer) return
-  const def = MISSIONS[props.mission ?? 'firstshift'] ?? MISSIONS.firstshift!
+  const def = MISSIONS[missionId] ?? MISSIONS.firstshift!
   const seed = nextSeed || ((Date.now() ^ (Math.random() * 0x7FFFFFFF)) >>> 0)
   nextSeed = 0
-  world = createWorld({ seed, mission: def, pilot })
+  world = createWorld({ seed, mission: def, pilot, morale: props.morale })
   const w = world
   glue = createGlue()
   director = createDirector({
@@ -159,15 +190,7 @@ function start(pilot: PilotId = props.pilot): void {
   })
   director.resetRun()
   monitor = director.monitor
-  // The Parking Belt: the Earth below, a ringed planet of parked junk, the Franchise's billboard.
-  renderer.setSky([
-    { src: '/galaga/bg-1-a.png', dir: [0.2, -0.45, -1] },
-    { src: '/voyagers2/sky-planet.png', dir: [1, 0.35, -0.4] },
-    { src: '/voyagers2/sky-moon.png', dir: [-0.8, 0.6, -0.5] },
-    { src: '/voyagers2/sky-billboard.png', dir: [-1, 0.05, 0.4] },
-    { src: '/voyagers2/sky-nebula.png', dir: [0.1, 0.25, 1] },
-    { src: '/voyagers2/sky-galaxy.png', dir: [0.4, 0.9, 0.3] },
-  ], 0)
+  renderer.setSky(SKIES[def.act] ?? SKIES[1]!, def.act - 1)
   keys.clear()
   pressed.clear()
   stickId = fireId = burnId = null
@@ -192,6 +215,7 @@ function report(w: Voyage): SortieReport {
     why: w.mission.why,
     score: w.score,
     kills: w.mission.kills,
+    id: w.def.id,
     mission: w.def.title,
     secs: Math.round(w.tick / 60),
     pilot: props.pilot,
@@ -517,6 +541,16 @@ function installDebug(): void {
     menu: (on: boolean) => { ui.menu = on },
     touch: (on: boolean) => { usingTouch = on; measure() },
     invert: (on: boolean) => { invert = on },
+    /** End the sortie now, won or lost (the lab's way to the debrief; it posts nothing). */
+    end: (won: boolean) => {
+      const w = world
+      if (!w || !running) return
+      w.mission.result = won ? 'won' : 'lost'
+      w.mission.why = won ? 'landed' : 'eject'
+      w.mission.stage = 'done'
+      running = false
+      emit('over', report(w))
+    },
   }
 }
 
