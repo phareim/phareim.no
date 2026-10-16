@@ -1,0 +1,12 @@
+{skypair} {style} {clusters} {keyg}
+{world}
+{far}
+They are seen far away from a fighter's cockpit in space. The upper subject: THE HUT, the
+pizza chain's flagship restaurant: a grey cratered moon with, sitting on its top, a colossal
+dome-shaped restaurant building of riveted grey steel plates, a ring of small square
+windows lit dull amber round its base and a little lantern on its crown; beside it, on a tall
+pylon, a big blank sign board, dull red with an amber rim. The dome is an original building
+invented for this game: not the red roof shape, the logo or the colours of any real
+restaurant chain. The lower subject: a small grey moon, round, with three or four craters,
+lit from the upper left, its lower right in shadow.
+{leave}

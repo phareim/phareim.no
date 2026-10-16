@@ -87,7 +87,8 @@ function pickRear(w: World, s: Ship, t: Turret): number {
   for (const o of w.ships) {
     if (!live(o) || o.side === s.side || SHIPS[o.kind].capital) continue
     if (!inTurretArc(s, t, o, TURRET.range)) continue
-    const d = dist(o.pos, s.pos) - (o.target === s.id ? 500 : 0)
+    // Whatever is on our tail first: it is chasing us and it is near.
+    const d = dist(o.pos, s.pos) - (o.target === s.id ? 700 : 0)
     if (d < bestScore) { bestScore = d; best = o.id }
   }
   return best
@@ -125,7 +126,7 @@ export function partnerTurret(w: World, crew: Crew, s: Ship, who: PilotId, dt: n
   // Bursts: fire for `burst` seconds, rest for `rest`.
   if (crew.burst > 0) {
     crew.burst--
-    if (left < 0.06) fireTurret(w, s, t, 'back', 0.01)
+    if (left < 0.06 && dist(o.pos, s.pos) < 1100) fireTurret(w, s, t, 'back', 0.01, TURRET.dmg, true)
     if (crew.burst <= 0) crew.rest = Math.round(p.rest * 60)
   } else if (crew.rest > 0) {
     crew.rest--
@@ -169,10 +170,10 @@ export function playerTurret(w: World, crew: Crew, s: Ship, input: Input, dt: nu
     if (live(o) && leadDir(WANT, AT, s, o, GUN.turretSpeed) && angleBetween(AIM, WANT) < cone) {
       const keep = copyTo(v3(), t.aim)
       unrotateTo(t.aim, s.q, WANT)
-      fireTurret(w, s, t, 'back', 0)
+      fireTurret(w, s, t, 'back', 0, TURRET.dmg, true)
       copyTo(t.aim, keep)
     } else {
-      fireTurret(w, s, t, 'back', 0)
+      fireTurret(w, s, t, 'back', 0, TURRET.dmg, true)
     }
   }
 }

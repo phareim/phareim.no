@@ -117,7 +117,7 @@ function steerToPoint(c: Controls, s: Ship, p: V3, bank = 0.5): void {
 }
 
 /** A point `range` out from `s`, off to one side of the line to `away` and a little above or below. */
-function breakPoint(w: World, s: Ship, away: V3, out: V3, range = 1400): void {
+function breakPoint(w: World, s: Ship, away: V3, out: V3, range = 800): void {
   subTo(TMP, s.pos, away)
   normTo(TMP, TMP)
   rightTo(TMP2, s.q)
@@ -208,11 +208,12 @@ function think(w: World, s: Ship, ai: Ai): void {
     }
     // The joust: a light or medium fighter runs a pass for a few seconds, then breaks off.
     const passTicks = 60 * (3 + ai.skill * 4)
-    if (ai.t > passTicks && d < 1500 && k.pitch > 1.1 && chance(w.rng, 0.3)) {
+    if (ai.t > passTicks && d < 900 && k.pitch > 1.1 && chance(w.rng, 0.3)) {
       setMode(ai, 'break'); breakPoint(w, s, o.pos, ai.aim); return
     }
   }
-  if (ai.mode === 'break' && ai.t > 60 * (1.3 + (1 - ai.skill) * 1.6)) setMode(ai, 'attack')
+  // A break extends: long enough that whoever it passed can turn onto its tail.
+  if (ai.mode === 'break' && ai.t > 60 * (1.6 + (1 - ai.skill) * 1.2)) setMode(ai, 'attack')
   if (ai.mode === 'evade') {
     if (ai.t > 60 * (1.4 + ai.nerve)) setMode(ai, 'attack')
     else jinkPoint(w, s, ai.aim)
@@ -266,7 +267,7 @@ function act(w: World, s: Ship, ai: Ai, dt: number): Controls {
     }
     case 'break': {
       steerToPoint(c, s, ai.aim, 0.9)
-      if (s.fuel > 0.3 && ai.t < 70) c.burn = true
+      if (s.fuel > 0.3 && ai.t < 50) c.burn = true
       break
     }
     case 'evade': {

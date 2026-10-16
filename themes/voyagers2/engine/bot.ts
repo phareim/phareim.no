@@ -42,7 +42,7 @@ const DEG = Math.PI / 180
 export const BOT_PROFILES: Record<BotProfile, Profile> = {
   clumsy: { look: 24, error: 2.2 * DEG, keys: true, trigger: 4 * DEG, evades: false, missiles: false, swapsAfter: 0 },
   casual: { look: 15, error: 1.1 * DEG, keys: false, trigger: 3 * DEG, evades: true, missiles: true, swapsAfter: 0 },
-  sharp: { look: 9, error: 0.4 * DEG, keys: false, trigger: 2 * DEG, evades: true, missiles: true, swapsAfter: 0 },
+  sharp: { look: 9, error: 0.4 * DEG, keys: false, trigger: 3.5 * DEG, evades: true, missiles: true, swapsAfter: 0 },
 }
 
 export interface Bot {
@@ -130,7 +130,8 @@ export function botInput(b: Bot, w: Voyage): Input {
     const off = angleBetween(FWD, LEAD)
     const d = dist(o.pos, me.pos)
     c.burn = d > 2500 && me.fuel > 0.5
-    c.brake = d < 400 && off < 0.4 && me.speed > o.speed
+    // Brake to turn inside it when it is well off the nose and near (people learn this fast).
+    c.brake = (d < 400 && off < 0.4 && me.speed > o.speed) || (off > 0.6 && d < 900)
     c.fire = off < p.trigger && d < 2000 && !SHIPS[o.kind].capital ? true : off < p.trigger && d < 1500
     if (p.missiles && me.lock >= 1 && look && me.missiles > 0 && SHIPS[o.kind].points >= 200) inp.missile = true
   } else {

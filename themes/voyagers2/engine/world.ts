@@ -11,7 +11,7 @@
 import { GUN, SCORE, SHIPS, SHIELD, SPACE, TICK } from './balance.ts'
 import { aiWeapons, attackersOf, formOn, setMode, stepAi, stepEscapes } from './ai.ts'
 import { clearControls, fly, makeControls, steerTo } from './flight.ts'
-import { fireGuns, leadDir, stepAutoTurrets, stepGunCharge, stepShots } from './guns.ts'
+import { fireGuns, leadDir, stepAutoTurrets, stepGunCharge, stepShots, turretWorld } from './guns.ts'
 import {
   angleBetween, copyTo, dist, forwardTo, maddTo, normTo, q4, qLookTo, rightTo, setTo, subTo, upTo, v3,
 } from './math.ts'
@@ -355,10 +355,8 @@ function stepMission(w: Voyage): void {
     m.t++
     if (m.t > EJECT_TICKS) endMission(w, 'lost', 'eject')
   }
-  const home = shipAt(w, w.carrier)
-  if (!live(home) && w.carrier >= 0 && m.stage !== 'done' && !w.ejected) {
-    if (home && home.dead > 60) endMission(w, 'lost', 'carrier')
-  }
+  const home: Ship | null = shipAt(w, w.carrier)
+  if (home !== null && home.dead > 60 && m.stage !== 'done' && !w.ejected) endMission(w, 'lost', 'carrier')
 }
 
 /** Score the kills of this tick: ours fully (either seat), the wing's at half. */
@@ -501,4 +499,29 @@ function killDone(w: Voyage): boolean {
 export function destroyCalzone(w: Voyage): void {
   const me = calzone(w)
   if (me) kill(w, me, -1)
+}
+
+const ALIGN = v3()
+const ALIGN_FROM = v3()
+/**
+ * Are the guns of the seat the player is in on the target's lead, within
+ * `cone` (radians) and in range? Touch fires by itself when they are (DESIGN.md,
+ * "Guns"): the page asks this each tick.
+ */
+export function onTarget(w: Voyage, cone: number): boolean {
+  const me = calzone(w)
+  if (!live(me) || w.mission.stage !== 'fly' || w.crew.swapping > 0) return false
+  if (w.seat === 'front') {
+    const t = shipAt(w, me.target)
+    if (!live(t) || t.side === me.side || dist(t.pos, me.pos) > 2200) return false
+    if (!leadDir(ALIGN, me.pos, me, t, GUN.speed)) return false
+    forwardTo(FWD, me.q)
+    return angleBetween(FWD, ALIGN) < cone
+  }
+  const tur = calzoneTurret(me)
+  const t = shipAt(w, w.crew.target)
+  if (!tur || !live(t) || dist(t.pos, me.pos) > 1600) return false
+  turretWorld(me, tur, ALIGN_FROM, FWD)
+  if (!leadDir(ALIGN, ALIGN_FROM, me, t, GUN.turretSpeed)) return false
+  return angleBetween(FWD, ALIGN) < cone
 }

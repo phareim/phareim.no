@@ -1,0 +1,11 @@
+{skypair} {style} {clusters} {keyg}
+{world}
+{far}
+They are seen far away from a fighter's cockpit in space. The upper subject: a big gas
+planet, round, banded in broad wavy stripes of dark rust and dull night blue with a few
+darker swirls, lit from the upper left with its lower right side in deep shadow; round it,
+tilted a little, a thin flat ring of parked junk: a narrow band made of tiny scraps, old
+satellites and drifting crates, which passes in front of the planet's middle and behind it
+at the sides. The lower subject: a small far spiral galaxy seen at a slant, a flattened oval
+with two curling arms of slate blue and a small dull cream core.
+{leave}

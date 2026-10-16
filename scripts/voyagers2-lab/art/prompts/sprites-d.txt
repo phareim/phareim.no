@@ -1,0 +1,17 @@
+{dense} {style} {clusters} {key}
+{world} {mascot}
+They are tiny decals and pop-off heads of a 1997 arcade space-combat game, ten columns of
+them, every column the same thing all the way down, eight rows. Each is drawn as its boldest
+shape only, with a dark outline, so that it is known at a glance. From left to right:
+1. a rat's face from the front: grey, two big round tan ears, a dark brown nose, two white
+buck teeth, a red sweatband across its brow. 2. a bear's face: brown, small round ears, a
+cream muzzle, a black nose, a black bowler hat on top. 3. a gorilla's face: dark grey-brown
+fur, a pale grey face, a heavy brow, a red bow tie under the chin. 4. a hound's face: tan,
+two long dark brown ears hanging down its sides, a black nose, round black sunglasses.
+5. a lion's face: golden, in a round orange mane, a small gold crown on top. 6. a slice of
+pepperoni pizza, point down, a brown crust along the top with a round bite out of one corner,
+yellow cheese, red pepperoni. 7 to 10: the heads of the rat, the bear, the gorilla and the
+hound popped off their robot bodies, each tilted a little with its jaw open, on top of a
+silver-grey coiled spring of three coils, a stub of red and yellow wire at its lower end.
+No pink anywhere: the rat's ears are tan, its nose dark brown.
+{leave}

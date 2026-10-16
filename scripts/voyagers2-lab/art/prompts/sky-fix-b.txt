@@ -1,0 +1,7 @@
+{finer-sky} {style} {clusters} {keyg}
+{world}
+{far}
+Both pieces are the same thing: a long, low band of nebula gas lying across the picture,
+drawn as flat clusters of dark brown, rust and dull night blue with a few denser knots,
+ragged at both ends, never smooth gradients, no stars in it.
+{leave}

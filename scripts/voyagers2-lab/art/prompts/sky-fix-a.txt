@@ -1,0 +1,9 @@
+{finer-sky} {style} {clusters} {keyg}
+{world}
+{far}
+The upper piece: a big gas planet, round, banded in wavy stripes of rust and dull night blue
+with two swirling storms, lit from the upper left, its lower right in shadow, and round it a
+thin flat ring of parked junk (small scraps, old satellites, crates) passing in front of its
+middle. The lower piece: a small far spiral galaxy seen at a slant, two curling arms of slate
+blue round a small dull cream core.
+{leave}

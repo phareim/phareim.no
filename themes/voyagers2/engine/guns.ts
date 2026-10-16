@@ -118,15 +118,22 @@ export function slewTurret(s: Ship, t: Turret, worldDir: V3, dt: number): number
 }
 
 /** Fire one turret along its aim, with `spread` radians of scatter. */
-export function fireTurret(w: World, s: Ship, t: Turret, seat: Seat | '', spread: number, dmg = TURRET.dmg): boolean {
+export function fireTurret(w: World, s: Ship, t: Turret, seat: Seat | '', spread: number, dmg = TURRET.dmg, twin = false, rate = TURRET.rate): boolean {
   if (t.cool > 0 || t.hp <= 0) return false
-  t.cool = 1 / TURRET.rate
+  t.cool = 1 / rate
   turretWorld(s, t, TAT, TAIM)
   if (spread > 0) {
     TAIM.x += (rand(w.rng) - 0.5) * 2 * spread
     TAIM.y += (rand(w.rng) - 0.5) * 2 * spread
     TAIM.z += (rand(w.rng) - 0.5) * 2 * spread
     normTo(TAIM, TAIM)
+  }
+  if (twin) {
+    // Two barrels side by side, fired together (the Calzone's bubble).
+    rightTo(MUZ, s.q)
+    TAT.x -= MUZ.x * 0.6; TAT.y -= MUZ.y * 0.6; TAT.z -= MUZ.z * 0.6
+    spawnShot(w, 'turret', s, seat, TAT, TAIM, GUN.turretSpeed, GUN.turretLife, dmg)
+    TAT.x += MUZ.x * 1.2; TAT.y += MUZ.y * 1.2; TAT.z += MUZ.z * 1.2
   }
   spawnShot(w, 'turret', s, seat, TAT, TAIM, GUN.turretSpeed, GUN.turretLife, dmg)
   w.events.push({ type: 'shot', a: s.id, seat: seat || undefined, kind: 'turret' })
@@ -151,7 +158,8 @@ export function leadDir(out: V3, from: V3, shooter: Ship, o: Ship, speed: number
 export function stepAutoTurrets(w: World, dt: number, skip: Turret | null): void {
   for (const s of w.ships) {
     if (!live(s) || s.turrets.length === 0) continue
-    const capital = SHIPS[s.kind].capital === true
+    const k = SHIPS[s.kind]
+    const capital = k.capital === true
     for (const t of s.turrets) {
       t.cool = Math.max(0, t.cool - dt)
       if (t === skip || t.hp <= 0) continue
@@ -173,7 +181,7 @@ export function stepAutoTurrets(w: World, dt: number, skip: Turret | null): void
       if (!leadDir(TDIR, TAT, s, o, GUN.turretSpeed)) continue
       const left = slewTurret(s, t, TDIR, dt)
       // Big ships' guns are flak-steady; a fighter's tail gun is shakier.
-      if (left < 0.05) fireTurret(w, s, t, '', capital ? 0.03 : 0.045)
+      if (left < 0.05) fireTurret(w, s, t, '', capital ? 0.03 : 0.045, k.tdmg ?? TURRET.dmg, false, k.trate ?? TURRET.rate)
     }
   }
 }

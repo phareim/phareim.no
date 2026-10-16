@@ -42,43 +42,46 @@ export interface ShipClass {
   points: number
   /** Turrets: count and where they point (ship frame). */
   turrets?: { at: [number, number, number]; dir: [number, number, number]; cone: number }[]
+  /** A fighter's tail gun is lighter than a big ship's battery: points a bolt and bolts a second (default `TURRET`). */
+  tdmg?: number
+  trate?: number
   /** Big ships: they do not dogfight. */
   capital?: boolean
 }
 
 export const SHIPS: Record<ShipKind, ShipClass> = {
   calzone: {
-    label: 'CALZONE', r: 9, cruise: 260, max: 420, burn: 900, min: 90, accel: 260,
+    label: 'CALZONE', r: 10, cruise: 260, max: 420, burn: 900, min: 90, accel: 260,
     pitch: 78 * DEG, yaw: 70 * DEG, roll: 170 * DEG, fuel: 6, refuel: 14,
     shield: 160, armour: 140, core: 100,
     gunDmg: 8, gunRate: 8, gunCost: 0.032, gunRecharge: 0.2, gunSpread: 3,
     missiles: 6, decoys: 6, points: 0,
-    turrets: [{ at: [0, 1.6, 5.5], dir: [0, 0, 1], cone: 105 * DEG }],
+    turrets: [{ at: [0, 3.9, 10.1], dir: [0, 0, 1], cone: 105 * DEG }],
   },
   moped: {
-    label: 'MOPED', r: 6, cruise: 300, max: 480, burn: 1000, min: 120, accel: 320,
+    label: 'MOPED', r: 8, cruise: 300, max: 480, burn: 1000, min: 120, accel: 320,
     pitch: 92 * DEG, yaw: 84 * DEG, roll: 200 * DEG, fuel: 5, refuel: 12,
     shield: 80, armour: 70, core: 50,
     gunDmg: 6, gunRate: 7, gunCost: 0.04, gunRecharge: 0.22, gunSpread: 2,
     missiles: 2, decoys: 2, points: 0,
   },
   rig: {
-    label: 'TALL TALE', r: 14, cruise: 220, max: 340, burn: 700, min: 80, accel: 160,
+    label: 'TALL TALE', r: 16, cruise: 220, max: 340, burn: 700, min: 80, accel: 160,
     pitch: 52 * DEG, yaw: 46 * DEG, roll: 110 * DEG, fuel: 6, refuel: 16,
     shield: 160, armour: 160, core: 120,
     gunDmg: 12, gunRate: 6, gunCost: 0.04, gunRecharge: 0.2, gunSpread: 5,
-    missiles: 4, decoys: 4, points: 0,
+    missiles: 4, decoys: 4, points: 0, tdmg: 5, trate: 5,
     turrets: [{ at: [0, 3, 8], dir: [0, 0, 1], cone: 100 * DEG }],
   },
   tug: {
-    label: 'NOSTALGIA', r: 10, cruise: 250, max: 400, burn: 850, min: 90, accel: 220,
+    label: 'NOSTALGIA', r: 12, cruise: 250, max: 400, burn: 850, min: 90, accel: 220,
     pitch: 70 * DEG, yaw: 64 * DEG, roll: 150 * DEG, fuel: 6, refuel: 14,
     shield: 110, armour: 100, core: 80,
     gunDmg: 10, gunRate: 7, gunCost: 0.035, gunRecharge: 0.2, gunSpread: 3,
     missiles: 4, decoys: 4, points: 0,
   },
   pigeon: {
-    label: 'CENTURY PIGEON', r: 10, cruise: 290, max: 470, burn: 1050, min: 110, accel: 300,
+    label: 'CENTURY PIGEON', r: 12, cruise: 290, max: 470, burn: 1050, min: 110, accel: 300,
     pitch: 88 * DEG, yaw: 80 * DEG, roll: 190 * DEG, fuel: 7, refuel: 12,
     shield: 120, armour: 90, core: 70,
     gunDmg: 10, gunRate: 9, gunCost: 0.035, gunRecharge: 0.22, gunSpread: 3,
@@ -105,37 +108,37 @@ export const SHIPS: Record<ShipKind, ShipClass> = {
     missiles: 0, decoys: 0, points: 0, capital: true,
   },
   rat: {
-    label: 'RAT', r: 6, cruise: 300, max: 460, burn: 950, min: 120, accel: 300,
+    label: 'RAT', r: 8, cruise: 300, max: 460, burn: 950, min: 120, accel: 300,
     pitch: 96 * DEG, yaw: 88 * DEG, roll: 210 * DEG, fuel: 4, refuel: 14,
     shield: 30, armour: 40, core: 25,
     gunDmg: 4, gunRate: 5, gunCost: 0.05, gunRecharge: 0.2, gunSpread: 2,
     missiles: 0, decoys: 0, points: 100,
   },
   bear: {
-    label: 'BEAR', r: 8, cruise: 260, max: 400, burn: 850, min: 100, accel: 240,
+    label: 'BEAR', r: 10, cruise: 260, max: 400, burn: 850, min: 100, accel: 240,
     pitch: 80 * DEG, yaw: 72 * DEG, roll: 160 * DEG, fuel: 5, refuel: 14,
     shield: 60, armour: 80, core: 50,
     gunDmg: 6, gunRate: 5, gunCost: 0.05, gunRecharge: 0.2, gunSpread: 3,
     missiles: 2, decoys: 1, points: 200,
   },
   gorilla: {
-    label: 'GORILLA', r: 11, cruise: 220, max: 340, burn: 700, min: 80, accel: 180,
+    label: 'GORILLA', r: 13, cruise: 220, max: 340, burn: 700, min: 80, accel: 180,
     pitch: 56 * DEG, yaw: 50 * DEG, roll: 120 * DEG, fuel: 5, refuel: 16,
     shield: 100, armour: 140, core: 80,
     gunDmg: 8, gunRate: 4, gunCost: 0.05, gunRecharge: 0.2, gunSpread: 4,
-    missiles: 2, decoys: 2, points: 350,
+    missiles: 2, decoys: 2, points: 350, tdmg: 4, trate: 4,
     turrets: [{ at: [0, 2, 6], dir: [0, 0, 1], cone: 80 * DEG }],
   },
   hound: {
-    label: 'HOUND', r: 12, cruise: 200, max: 300, burn: 600, min: 80, accel: 150,
+    label: 'HOUND', r: 14, cruise: 200, max: 300, burn: 600, min: 80, accel: 150,
     pitch: 46 * DEG, yaw: 42 * DEG, roll: 100 * DEG, fuel: 4, refuel: 16,
     shield: 80, armour: 150, core: 80,
     gunDmg: 6, gunRate: 4, gunCost: 0.05, gunRecharge: 0.2, gunSpread: 4,
-    missiles: 1, decoys: 0, points: 300,
+    missiles: 1, decoys: 0, points: 300, tdmg: 4, trate: 3,
     turrets: [{ at: [0, 2, 7], dir: [0, 0, 1], cone: 85 * DEG }],
   },
   parmesan: {
-    label: 'GOLDEN GRATER', r: 9, cruise: 300, max: 480, burn: 1100, min: 110, accel: 320,
+    label: 'GOLDEN GRATER', r: 11, cruise: 300, max: 480, burn: 1100, min: 110, accel: 320,
     pitch: 98 * DEG, yaw: 90 * DEG, roll: 220 * DEG, fuel: 8, refuel: 10,
     shield: 180, armour: 140, core: 90,
     gunDmg: 10, gunRate: 9, gunCost: 0.035, gunRecharge: 0.24, gunSpread: 3,
@@ -174,8 +177,8 @@ export const TURN_LAG = 0.12
 
 export const SHIELD = {
   /** Seconds after a hit before a shield comes back, and points a second it then comes back by (fraction of full). */
-  wait: 2.5,
-  regen: 0.12,
+  wait: 3,
+  regen: 0.06,
 }
 
 export const GUN = {
@@ -187,10 +190,10 @@ export const GUN = {
   /** Shots carry the shooter's velocity, so a bolt from a fast ship still goes straight. */
   inherit: 1,
   /** An AI fires when its nose is within its own aim error plus this of the lead point. */
-  aiCone: 1.2 * DEG,
+  aiCone: 2 * DEG,
   /** The gun lead the player is helped with: bolts bend toward the lead point inside this cone (radians), keys and touch. */
-  assistKeys: 1.5 * DEG,
-  assistTouch: 4 * DEG,
+  assistKeys: 2.5 * DEG,
+  assistTouch: 6 * DEG,
 }
 
 export const MISSILE = {
@@ -216,8 +219,8 @@ export const MISSILE = {
 }
 
 export const TURRET = {
-  rate: 5,
-  dmg: 5,
+  rate: 7,
+  dmg: 7,
   /** Range the turrets open fire at. */
   range: 1300,
   /** How fast a turret swings (rad/s). */
@@ -226,8 +229,8 @@ export const TURRET = {
 
 /** The back seat when it runs on its own: how well the partner shoots and how soon a decoy goes. */
 export const PARTNER = {
-  rex: { aimError: 1.1 * DEG, react: 0.55, burst: 1.4, rest: 0.7, decoyDelay: 0.9 },
-  nova: { aimError: 0.6 * DEG, react: 0.4, burst: 0.9, rest: 0.9, decoyDelay: 0.6 },
+  rex: { aimError: 0.8 * DEG, react: 0.5, burst: 1.6, rest: 0.5, decoyDelay: 0.9 },
+  nova: { aimError: 0.45 * DEG, react: 0.35, burst: 1.2, rest: 0.6, decoyDelay: 0.6 },
 }
 
 export const SPACE = {

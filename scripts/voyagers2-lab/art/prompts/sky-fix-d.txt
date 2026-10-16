@@ -1,0 +1,10 @@
+{finer-sky} {style} {clusters} {keyg}
+{world}
+{far}
+All three pieces are the same thing: a small far spiral galaxy seen at a slant, a flattened
+oval. Draw it in fine detail at the small block size: two thin curling arms of slate blue and
+dull night blue, each arm a strand of dust two or three blocks wide with gaps of the
+background-dark blue between the turns, small knots along the arms, a small dull cream core
+with a ring of rust round it. No broad flat patches: the texture is in small clusters of two
+to four blocks. Its outer edge ragged.
+{leave}

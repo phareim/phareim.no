@@ -140,10 +140,12 @@ export function stepMissiles(w: World, dt: number): void {
     scaleTo(m.vel, F, nsp)
     const px = m.pos.x, py = m.pos.y, pz = m.pos.z
     maddTo(m.pos, m.pos, m.vel, dt)
-    // Hit: the target, or anything of the other side it flies into.
+    // Hit: a seeker or a torpedo only what it chases (one pulled onto a decoy flies past the ship
+    // that dropped it); a dart anything of the other side it flies into.
     let hit: Ship | null = null
     for (const s of w.ships) {
       if (!live(s) || s.side === m.side) continue
+      if (m.kind !== 'dart' && s.id !== m.target) continue
       const r = s.r + FUSE + (SHIPS[s.kind].capital ? 0 : 0)
       // Swept: the closest point of this step to the ship.
       const sx = m.pos.x - px, sy = m.pos.y - py, sz = m.pos.z - pz
@@ -159,6 +161,9 @@ export function stepMissiles(w: World, dt: number): void {
       const dmg = torp ? MISSILE.torpedoDmg : m.kind === 'seeker' ? MISSILE.dmg : MISSILE.dartDmg
       hurt(w, hit, dmg, from, m.from, copyTo(v3(), m.pos))
       w.events.push({ type: 'hit', a: hit.id, b: m.from, kind: m.kind, pos: copyTo(v3(), m.pos) })
+      gone = true
+    } else if (m.target >= DECOY && tpos && Math.hypot(tpos.x - m.pos.x, tpos.y - m.pos.y, tpos.z - m.pos.z) < 12) {
+      // It found its decoy: both go up.
       gone = true
     } else if (m.target >= DECOY && !tpos) {
       // Its decoy burnt out: the missile flies on blind.

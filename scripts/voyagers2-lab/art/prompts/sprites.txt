@@ -1,0 +1,23 @@
+{sheet} {style} {clusters} {key}
+{world} {mascot}
+They are small decals and pop-off heads for a 1997 arcade space-combat game, each a bold,
+simple icon of very few large pixels that reads at a glance, with a dark outline, lit from
+the upper left, filling its block. Ten things in two rows.
+Top row, left to right, five mascot faces seen straight from the front, flat and
+symmetrical, like a decal painted on a fighter's nose: the face alone, no neck, no body,
+filling its square. 1. a rat: grey fur, two big round tan ears, a long snout, a dark brown
+nose, two white buck teeth, a red sweatband across the forehead. 2. a bear: brown fur, two
+small round ears, a cream muzzle, a black nose, a black bowler hat. 3. a gorilla: dark
+grey-brown fur, a heavy brow, a pale grey face, a red bow tie under the chin. 4. a hound:
+tan fur, two long droopy dark brown ears hanging down the sides, a black nose, round black
+sunglasses. 5. a lion: a golden face in a big round orange-gold mane, a small gold crown on
+top.
+Bottom row, left to right: 6. the logo of a small pizza shop: one slice of pepperoni pizza,
+point down, yellow cheese, red pepperoni discs, a brown crust along the top with a round
+bite taken out of one corner; no lettering. 7 to 10: the heads of the same four mascots
+(the rat, the bear, the gorilla, the hound), each popped off its robot body: the head seen
+from the front and tilted a little, its jaw dropped open as if singing, sitting on top of a
+silver-grey coiled steel spring of three or four coils that hangs below it, a short stub of
+torn red and yellow wire at the spring's lower end.
+No pink anywhere: the rat's ears are tan and its nose dark brown.
+{leave}

@@ -54,12 +54,16 @@ export const FIRST_SHIFT: MissionDef = {
       groups: [
         g('hound', 1, 'far', 5200, { goFor: 'carrier', delay: 4, skill: 0.4 }),
         g('rat', 2, 'far', 4800, { delay: 4, skill: 0.35 }),
+        g('rat', 2, 'far', 4400, { delay: 18, skill: 0.4 }),
       ],
     },
     {
       name: 'NAV 1',
       at: [6, 1, -28],
-      groups: [g('rat', 3, 'ahead', 2600, { skill: 0.3 })],
+      groups: [
+        g('rat', 3, 'ahead', 2600, { skill: 0.3 }),
+        g('rat', 2, 'left', 2400, { delay: 14, skill: 0.3 }),
+      ],
     },
     {
       name: 'NAV 2',
@@ -68,6 +72,7 @@ export const FIRST_SHIFT: MissionDef = {
         g('rat', 2, 'ahead', 2800, { skill: 0.4 }),
         g('bear', 1, 'ahead', 3200, { skill: 0.45 }),
         g('rat', 2, 'behind', 1600, { delay: 9, skill: 0.4 }),
+        g('bear', 1, 'right', 3000, { delay: 24, skill: 0.45 }),
       ],
     },
   ],
