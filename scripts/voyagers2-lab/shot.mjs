@@ -105,6 +105,29 @@ const SCENES = {
     const ok = debrief && hub && save?.next === 'convoy' && save.history.length === 1
     console.log(`${ok ? 'PASS' : 'FAIL'} loop ${size}: debrief ${debrief}, hub for CONVOY ${hub}, save next ${save?.next}, flown ${save?.history.length}`)
   },
+  /**
+   * The ending, on a dev server only (it calls the Hall of Fame; dev keeps scores in memory): a save at the finale,
+   * the sortie ended won, the debrief read, the ending's card and the submit. PASS or FAIL.
+   */
+  async ending(b, size) {
+    if (!/localhost|127\.0\.0\.1/.test(base)) { console.log('SKIP ending: not a dev server'); return }
+    const flown = ['firstshift', 'convoy', 'siege', 'takeout', 'hansshot', 'dare', 'buffet'].map(id => ({ id, result: 'won', score: 7000, kills: 10 }))
+    await campaign(b, size, { save: { version: 1, pilot: 'rex', next: 'finale', score: 49000, kills: 70, morale: 0.7, mood: 0.6, flags: {}, history: flown } })
+    await b.eval(`document.querySelector('.vg2-btn--gold').click()`)
+    for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
+    await b.eval(`${V}.end(true)`)
+    await b.sleep(700)
+    for (let i = 0; i < 8 && !(await b.eval(`document.body.innerText.includes('CAMPAIGN SCORE')`)); i++) {
+      await b.eval(`document.querySelector('.vg2-screen').click()`)
+      await b.sleep(600)
+    }
+    await b.sleep(1500)
+    const text = await b.eval(`document.body.innerText`)
+    const save = JSON.parse(await b.eval(`localStorage.getItem('voyagers2.save')`))
+    const card = await b.eval(`(() => { const el = document.querySelector('.vg2-ending'); return el ? getComputedStyle(el).backgroundImage : '' })()`)
+    const ok = text.includes('DELIVERED') && save.next === 'end-won' && save.flags.submitted === true && /card-ending-won/.test(card) && !b.errors.length
+    console.log(`${ok ? 'PASS' : 'FAIL'} ending ${size}: delivered ${text.includes('DELIVERED')}, next ${save.next}, submitted ${save.flags.submitted}, card ${/card-ending-won/.test(card)}, rank shown ${text.includes('WORLD RANK')}, errors ${b.errors.length}`)
+  },
   async strike(b, size) {
     await campaign(b, size, { save: { version: 1, pilot: 'nova', next: 'takeout', score: 12000, kills: 20, morale: 0.6, mood: 0.6, flags: {}, history: [{ id: 'firstshift', result: 'won', score: 6000, kills: 10 }, { id: 'convoy', result: 'won', score: 6000, kills: 10 }, { id: 'siege', result: 'won', score: 6000, kills: 10 }] } })
     await b.eval(`document.querySelector('.vg2-btn--gold').click()`)

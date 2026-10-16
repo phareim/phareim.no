@@ -274,6 +274,14 @@ def second_passes():
         can.save(os.path.join(out, "card-ending-lost-2.png"))
         lay("card-ending-lost-2", (259, 259, 1036), [], back=MUSTARD,
             parts=[(os.path.join(out, "card-ending-lost-2.png"), (0, 0, 0, 0))])
+    # the third pass over the second, with the `rex` and `nova` blocks the second lacked
+    lostb = from_snap("card-ending-lost-b")
+    if lostb:
+        can = Image.new("RGBA", (261, 261), lostb.getpixel((10, lostb.height - 1)))
+        can.paste(lostb, (0, 0))
+        can.save(os.path.join(out, "card-ending-lost-3.png"))
+        lay("card-ending-lost-3", (261, 261, 1044), [], back=MUSTARD,
+            parts=[(os.path.join(out, "card-ending-lost-3.png"), (0, 0, 0, 0))])
     act2 = from_snap("card-act-2-a")
     if act2:
         sx, sy = 240 / 252, 120 / 134

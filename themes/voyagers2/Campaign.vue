@@ -165,6 +165,12 @@ function onStarted(): void {
 
 function onOver(r: SortieReport): void {
   navigationLocked.value = false
+  // Turning back (the Escape hold) is not a sortie flown: back to the hub, nothing recorded, the same sortie waits.
+  if (r.why === 'quit') {
+    phase.value = 'hub'
+    lastTap = performance.now()
+    return
+  }
   result.value = r
   store(afterSortie(save.value, r.id as SortieId, r.result, r.score, r.kills))
   debriefLines.value = DEBRIEFS[r.id as SortieId]?.[r.result] ?? []

@@ -258,6 +258,9 @@ function rightScreen(g: G, l: Layout, w: Voyage): void {
     } else {
       const nav = w.mission.navs[w.mission.nav]
       text(g, 'NAV', r.x + 2, r.y + 2, C.phosphorLo)
+      // Nothing targeted: the screen shows the shop's own slice beside the way to go.
+      const slice = picture('/voyagers2/face-slice.png')
+      if (slice && r.w > 60) g.drawImage(slice, r.x + r.w - slice.width - 3, r.y + 3)
       if (nav && me) {
         text(g, nav.name.slice(0, Math.floor((r.w - 4) / 6)), r.x + 2, r.y + 11, C.phosphor)
         const d = Math.hypot(nav.pos.x - me.pos.x, nav.pos.y - me.pos.y, nav.pos.z - me.pos.z)

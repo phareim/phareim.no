@@ -1,0 +1,24 @@
+The first image is a finished picture in square pixel blocks. Redraw it as one finished picture
+of pixel art and keep it exactly: everything where it is and as large as it is, the same size of
+square pixel blocks on the same grid, nothing moved, nothing resized, both faces as they are,
+the bear head under the man's arm as it is (its flight helmet, goggles and bowler), the costume
+as it is. The second image shows, from left to right, REX and NOVA as they are drawn in this
+game's talk portraits, and the Franchise's bear: keep them matching.
+{style} {clusters}
+{world} {woman} {face}
+It is the losing ending card of a 1990s space-combat game, comic and warm, nobody hurt: the two
+pizza delivery pilots now work at the counter of a garish Franchise restaurant. Mustard tiles,
+an orange plastic counter, menu boards that show only pictures, a chrome cash register. The
+restaurant is an original place invented for this game: not the red roof shape, the logo or the
+colours of any real restaurant chain.
+On the left, in front of the counter: REX: {rex} Here he wears a shabby brown bear mascot
+costume of fabric fur, closed up to his neck, his white cook's apron tied over it, and he holds
+the costume's head under his arm, sheepish and sad. The head is the Franchise's own bear: an
+original character invented for this game that resembles no real restaurant chain's mascot, no
+real animatronic and no character of a video game or a film.
+Behind the counter at the cash register: NOVA: {nova} Here she wears a small folded paper
+Franchise hat, cream with a brown stripe, and a blank name badge, leans on the register with her
+chin in her hand, deeply unimpressed. Her white t-shirt is a plain crew neck that comes right up
+to the base of her neck: no skin below the neck, no neckline dipping down.
+No lettering, no numbers, no text anywhere in the picture.
+{leave}
