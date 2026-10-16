@@ -231,6 +231,11 @@ function radar(g: G, l: Layout, w: Voyage, frameNo: number): void {
 
 // ---------------------------------------------------------------- the right screen
 
+const FACES: Partial<Record<string, string>> = {
+  rat: '/voyagers2/face-rat.png', bear: '/voyagers2/face-bear.png', gorilla: '/voyagers2/face-gorilla.png',
+  hound: '/voyagers2/face-hound.png', parmesan: '/voyagers2/face-lion.png',
+}
+
 function rightScreen(g: G, l: Layout, w: Voyage): void {
   const r = l.right
   bezel(g, r)
@@ -239,6 +244,10 @@ function rightScreen(g: G, l: Layout, w: Voyage): void {
     const t = me ? shipAt(w, w.seat === 'front' ? me.target : w.crew.target) : null
     if (me && live(t)) {
       const c = t.side === 'us' ? C.friend : SHIPS[t.kind].capital ? C.big : C.enemy
+      // The pilot's face, for the Franchise's mascots: Wing Commander showed who you were fighting.
+      const face = FACES[t.kind]
+      const img = face ? picture(face) : null
+      if (img && r.w > 60) g.drawImage(img, r.x + r.w - img.width - 3, r.y + 3)
       text(g, t.name.slice(0, Math.floor((r.w - 4) / 6)), r.x + 2, r.y + 2, c)
       const d = Math.hypot(t.pos.x - me.pos.x, t.pos.y - me.pos.y, t.pos.z - me.pos.z)
       text(g, d >= 1000 ? (d / 1000).toFixed(1) + ' KM' : Math.round(d) + ' M', r.x + 2, r.y + 11, C.phosphor)

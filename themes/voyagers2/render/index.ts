@@ -23,6 +23,10 @@ import { rect, textC } from './pix'
 import { createScene } from './scene'
 import type { Scene3D, SkyPiece } from './scene'
 
+const HEADS: Partial<Record<string, string>> = {
+  rat: '/voyagers2/head-rat.png', bear: '/voyagers2/head-bear.png', gorilla: '/voyagers2/head-gorilla.png', hound: '/voyagers2/head-hound.png',
+}
+
 export interface Renderer {
   layout: Layout
   scene: Scene3D
@@ -71,6 +75,9 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
           const big = SHIPS[kind]?.capital === true
           addFx({ kind: 'boom', x: e.pos.x, y: e.pos.y, z: e.pos.z, life: big ? 60 : 30, r: (SHIPS[kind]?.r ?? 8) * (big ? 0.6 : 2.2) })
           if (e.value && e.b === w.player) addFx({ kind: 'word', x: e.pos.x, y: e.pos.y, z: e.pos.z, life: 50, r: 0, text: '+' + e.value })
+          // The Franchise's pilots are mascots: the head comes off on its spring and floats away.
+          const head = HEADS[kind]
+          if (head) addFx({ kind: 'head', x: e.pos.x, y: e.pos.y, z: e.pos.z, life: 100, r: 0, text: head })
         } else if ((e.type === 'armourHit' || e.type === 'shieldHit') && e.pos && e.a !== undefined) {
           scene.hit(e.a)
           const s = shipAt(w, e.a)

@@ -159,10 +159,14 @@ function start(pilot: PilotId = props.pilot): void {
   })
   director.resetRun()
   monitor = director.monitor
+  // The Parking Belt: the Earth below, a ringed planet of parked junk, the Franchise's billboard.
   renderer.setSky([
-    { src: '/galaga/bg-1-a.png', dir: [0.2, -0.35, -1] },
-    { src: '/galaga/bg-3-b.png', dir: [-1, 0.25, -0.2] },
-    { src: '/galaga/bg-1-b.png', dir: [0.9, 0.3, 0.6] },
+    { src: '/galaga/bg-1-a.png', dir: [0.2, -0.45, -1] },
+    { src: '/voyagers2/sky-planet.png', dir: [1, 0.35, -0.4] },
+    { src: '/voyagers2/sky-moon.png', dir: [-0.8, 0.6, -0.5] },
+    { src: '/voyagers2/sky-billboard.png', dir: [-1, 0.05, 0.4] },
+    { src: '/voyagers2/sky-nebula.png', dir: [0.1, 0.25, 1] },
+    { src: '/voyagers2/sky-galaxy.png', dir: [0.4, 0.9, 0.3] },
   ], 0)
   keys.clear()
   pressed.clear()

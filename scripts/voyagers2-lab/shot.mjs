@@ -98,6 +98,39 @@ const SCENES = {
     await b.eval(`${V}.auto()`)
     await step(b, 90)
   },
+  /**
+   * A finger with a negative identifier (Safari hands those out) lands on the left of the view and
+   * drags up: the stick must show, the nose must come up, and FIRE must fire. Prints PASS or FAIL.
+   */
+  async touch(b, size) {
+    if (!SIZES[size].mobile) return
+    await begin(b, size)
+    await step(b, 200)
+    const fwd = () => b.eval(`(() => { const w = ${V}.world(); const s = w.ships.find(x => x.id === w.player); const q = s.q; return JSON.stringify({ y: 2 * (q.w * q.x - q.y * q.z), shots: w.shots.filter(x => x.from === w.player).length }) })()`).then(JSON.parse)
+    const before = await fwd()
+    const x = SIZES[size].width * 0.25, y = SIZES[size].height * 0.45
+    await b.touch('touchStart', [{ x, y, id: -7 }])
+    await b.touch('touchMove', [{ x, y: y - 40, id: -7 }])
+    await step(b, 40)
+    const s = await state(b)
+    const after = await fwd()
+    const stickOk = s.stick !== null && s.input.pitch > 0.3
+    const noseOk = after.y > before.y + 0.2
+    // FIRE: the button's middle, from the layout, with a second negative finger.
+    const l = s.layout
+    const f = l.buttons.fire
+    const fx = (f.x + f.w / 2) * l.css, fy = (f.y + f.h / 2) * l.css
+    await b.touch('touchMove', [{ x, y: y - 40, id: -7 }, { x: fx, y: fy, id: -9 }])
+    await b.touch('touchStart', [{ x, y: y - 40, id: -7 }, { x: fx, y: fy, id: -9 }])
+    await step(b, 20)
+    const fired = (await fwd()).shots > 0 || (await state(b)).input.fire
+    await b.shot(join(out, `touch-held-${size}.png`))
+    await b.touch('touchEnd', [])
+    await step(b, 2)
+    const released = (await state(b)).stick === null
+    const ok = stickOk && noseOk && fired && released
+    console.log(`${ok ? 'PASS' : 'FAIL'} touch ${size}: stick ${stickOk} (pitch ${s.input.pitch.toFixed(2)}), nose ${noseOk} (${before.y.toFixed(2)} -> ${after.y.toFixed(2)}), fire ${fired}, released ${released}`)
+  },
   async home(b, size) {
     await begin(b, size)
     await b.eval(`${V}.bot('sharp')`)

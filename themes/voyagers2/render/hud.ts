@@ -18,6 +18,7 @@ import type { Voyage } from '../engine/world'
 import type { Monitor } from '../story/director'
 import { rows } from '../story/director'
 import type { Layout, Rect } from './layout'
+import { picture } from './dash'
 import { visScale } from './models'
 import { C } from './palette'
 import { disc, frame, line, rect, ring, text, textC } from './pix'
@@ -52,7 +53,7 @@ export function pxPerMetre(l: Layout, cam: THREE.PerspectiveCamera, dist: number
 
 // ---------------------------------------------------------------- effects
 
-interface Fx { kind: 'spark' | 'shield' | 'boom' | 'word'; x: number; y: number; z: number; age: number; life: number; r: number; text?: string; colour?: string }
+interface Fx { kind: 'spark' | 'shield' | 'boom' | 'word' | 'head'; x: number; y: number; z: number; age: number; life: number; r: number; text?: string; colour?: string }
 const fxs: Fx[] = []
 export function addFx(f: Omit<Fx, 'age'>): void {
   // One shield ring a ship at a time: a new hit starts it again.
@@ -204,6 +205,13 @@ export function drawHud(g: G, l: Layout, w: Voyage, cam: THREE.PerspectiveCamera
       if (f.age < 3) burst(g, pr.x, pr.y, r * (0.5 + f.age * 0.2), f.x + f.z, C.text, C.gold)
       else if (f.age < 12) burst(g, pr.x, pr.y, r * (0.7 + f.age * 0.03), f.x + f.z + f.age, f.age < 7 ? C.gold : C.orange, f.age < 7 ? C.orange : C.red)
       if (f.age > 2) ring(g, t < 0.5 ? C.gold : C.orange, pr.x, pr.y, Math.round(r * (0.8 + t * 1.4)), t < 0.4 ? 0 : 2, f.age)
+    } else if (f.kind === 'head' && f.text) {
+      // A mascot's head on its spring, popped off: it rises and bobs, drawn 1:1.
+      const img = picture(f.text)
+      if (img && pr.dist < 1800) {
+        const bob = Math.round(Math.sin(f.age / 4) * 3 * (1 - t))
+        g.drawImage(img, Math.round(pr.x - img.width / 2 + bob), Math.round(pr.y - img.height / 2 - f.age / 3))
+      }
     } else if (f.kind === 'word' && f.text) {
       textC(g, f.text, pr.x, pr.y - 10 - f.age / 4, f.colour ?? C.gold, '#120d18')
     }
