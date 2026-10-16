@@ -19,8 +19,8 @@ add a theme live in the project skill `.claude/skills/phareim-theme/SKILL.md`
   - `test:leaderboard` — Hall of Fame names and game list
   - `test:starfox`, `test:wingman` — Star Fox balance, story, arsenal, bosses; the wingman squad
   - `test:anotherworld` — Another Shore: physics, threats, a playtester through all five chapters, saves, audio
-  - `test:galaga` — Space Voyagers: engine, encounters, bosses, the radio director, autopilot voyages, layout, audio
-  - `test:voyagers2` — Space Voyagers II (the Wing Commander one, parked): flight, damage, missiles and decoys, the two seats, a sortie, the bot table, the words, the layout; `docs/games/voyagers2.md`
+  - `test:galaga` — Space Voyagers I (parked): engine, encounters, bosses, the radio director, autopilot voyages, layout, audio
+  - `test:voyagers2` — Space Voyagers II (the Wing Commander one): flight, damage, missiles and decoys, the two seats, sorties, the campaign tree and save, the bot table, the words, the layout; `docs/games/voyagers2.md`
   - `test:outrun` — Drive to the Mountains: road, driving, traffic, crashes, clock, banter, and that `public/outrun` holds exactly the listed pictures
   - `test:breakout` — Space Paddle — The Odyssey: the rules in `themes/breakout/engine.ts` (speed, boards, pulse bricks, the planet, capsules, lives, attract mode, a seeded autopilot run); `docs/games/breakout.md`
   - `test:battery` — Night of the Dead Battery: puzzles, story, audio, a walkthrough to the credits
@@ -78,8 +78,8 @@ themes/              — see the phareim-theme skill
   zelda/             — the one world: engine, world data (town + Neon Shrine), renderer (classic and isometric views, `views.ts`), audio, and the shell `Zelda.vue`
   radio/             — engine.ts + catalog.ts: the widget's six game stations (the generative radio is radio.phareim.no, a link out from the beach since 2026-09-28)
   battery/          — Night of the Dead Battery: engine/, content/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
-  galaga/           — Rex & Nova: Space Voyagers I (the id stays `galaga`): engine/, story/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
-  voyagers2/        — Rex & Nova: Space Voyagers II, a cockpit space-combat game in three.js (parked 2026-10-16): engine/, story/, render/, audio.ts; Game.vue its own chunk
+  galaga/           — Rex & Nova: Space Voyagers I (parked 2026-10-16; the id stays `galaga`): engine/, story/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
+  voyagers2/        — Rex & Nova: Space Voyagers II, a cockpit space-combat campaign in three.js (the SPACE VOYAGERS cabinet since 2026-10-16): engine/, story/, render/, audio.ts; Campaign.vue and Game.vue their own chunks
   miniworld/        — Mini World (Ulrikke's game): core/ (pure rules), scene/ (three.js), ui/ (panels), Game.vue as its own chunk
   figur/            — Lag Din Figur (Ulrikke's second): core/ (garment textures, save, Pip), render/ (the four game looks), ui/, Game.vue as its own chunk
   anotherworld/ shore/ scandi/ breakout/ rtype/ invaders/ starfox/ outrun/ tetris/ leaderboard/ hangar/ ships/ space/ desk/
@@ -94,7 +94,7 @@ screen readers).
 
 ## Theme System (short version — the skill has the rest)
 
-- Eighteen themes in `themes/index.ts` (verified 2026-09-28): the portal (`home: true`), thirteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Rex & Nova: Space Voyagers I (id `galaga`), Space Paddle — The Odyssey (`breakout`), G-Type, Space Invaders, Star Fox, Drive to the Mountains (`outrun`), Russian Block Game, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
+- Eighteen themes in `themes/index.ts` (verified 2026-09-28): the portal (`home: true`), thirteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Rex & Nova: Space Voyagers II (id `voyagers2`, since 2026-10-16), Space Paddle — The Odyssey (`breakout`), G-Type, Space Invaders, Star Fox, Drive to the Mountains (`outrun`), Russian Block Game, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Rex & Nova: Space Voyagers I (`galaga`, 2026-10-16), Another Shore II, Scandinavian Glass, Space, Tufte Desk. Per-game detail: the table under "Games → docs".
 - **Nothing scrolls**: `html`/`body`/`#__nuxt` are `overflow: hidden` with `overscroll-behavior: none`, and every landing is locked to the viewport. Full-screen heights use `var(--app-height, 100dvh)` (defined in `app.vue`), never bare `100dvh`: in the iOS home-screen app 100dvh comes up a status bar short and leaves a white strip at the bottom.
 - **Bottom band** (2026-09-24): `--app-safe-bottom` (defined in `app.vue`) is the strip along the bottom edge where nothing interactive or meaning-bearing may sit: buttons, text, hints, the player's ship or paddle. Backdrops may run through it. In a browser tab it equals `env(safe-area-inset-bottom)`; installed as a web app (`display-mode: standalone/fullscreen`) it is `max(48px, inset + 30px)`, clear of the home indicator and system swipes. Anchor bottom UI as `calc(<gap> + var(--app-safe-bottom, 0px))`, never on the bare inset; canvas games take it as a bottom inset.
 - The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal, `zelda` → portal, `tetris` → russian), an unknown id shows the portal. No cookie, no random pick.
@@ -152,7 +152,8 @@ The shell leaves the arrow keys to the games. In a game, an Escape tap pauses an
 | Neon Shrine (the portal's world) | `docs/games/neon-shrine.md` | `themes/zelda/` |
 | The Wildwood (Neon Shrine's second act) | `docs/games/wildwood.md` | `themes/zelda/world/wildwood.ts`, `lab1.ts`, `lab2.ts` |
 | Hall of Fame | `docs/games/hall-of-fame.md` | `themes/leaderboard/`, `server/api/` |
-| Rex & Nova: Space Voyagers I (theme id `galaga`) | `docs/games/galaga.md` | `themes/galaga/` (DESIGN.md; engine/, story/, render/), `scripts/galaga-lab/`, `public/galaga/` |
+| Rex & Nova: Space Voyagers II (theme id `voyagers2`) | `docs/games/voyagers2.md` | `themes/voyagers2/` (DESIGN.md; engine/, story/, render/), `scripts/voyagers2-lab/`, `public/voyagers2/` |
+| Rex & Nova: Space Voyagers I (theme id `galaga`, parked) | `docs/games/galaga.md` | `themes/galaga/` (DESIGN.md; engine/, story/, render/), `scripts/galaga-lab/`, `public/galaga/` |
 | Global radio | `docs/games/global-radio.md` | `themes/radio/engine.ts`, `catalog.ts`, `components/RadioWidget.vue` |
 | G-Type | `docs/games/r-type.md` | `themes/rtype/` |
 | Hangar | `docs/games/hangar.md` | `themes/ships/`, `themes/hangar/` |

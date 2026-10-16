@@ -39,7 +39,8 @@ export function stepLock(w: World, s: Ship, dt: number): void {
   forwardTo(F, s.q)
   const torp = s.kind === 'hound'
   const cone = torp ? MISSILE.lockCone * 1.4 : MISSILE.lockCone
-  const time = calTorp ? MISSILE.calzoneTorpLock : torp ? MISSILE.lockTime * 2.5 : MISSILE.lockTime
+  // A bomber's lock is long (Wing Commander's was twelve seconds): the window to catch it.
+  const time = calTorp ? MISSILE.calzoneTorpLock : torp ? MISSILE.houndLock : MISSILE.lockTime
   const range = calTorp ? MISSILE.calzoneTorpRange : torp ? 3200 : LOCK_RANGE
   const before = s.lock
   if (d < range && angleBetween(F, D) < cone) {

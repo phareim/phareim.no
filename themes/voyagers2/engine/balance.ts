@@ -258,6 +258,8 @@ export const MISSILE = {
   torpedoDmg: 600,
   /** The Calzone's own torpedoes (strike sorties): a long lock on a big ship, then a slow, heavy shot. */
   calzoneTorpLock: 5,
+  /** A hound's torpedo lock on a big ship. */
+  houndLock: 7,
   calzoneTorpRange: 3200,
 }
 

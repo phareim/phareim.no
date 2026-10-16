@@ -399,7 +399,9 @@ export function judge(w: Voyage): { won: boolean; why: string } {
       return saved >= goal.min ? { won: true, why: 'landed' } : { won: false, why: 'convoy' }
     }
     case 'defend': return home && live(home) && wholeness(home) >= 1 - goal.maxLoss ? { won: true, why: 'landed' } : { won: false, why: 'oven' }
-    case 'survive': return m.flags.helped ? { won: true, why: 'landed' } : { won: false, why: 'carrier' }
+    case 'survive':
+      if (!m.flags.helped) return { won: false, why: 'carrier' }
+      return home && live(home) && wholeness(home) >= 1 - goal.maxLoss ? { won: true, why: 'landed' } : { won: false, why: 'oven' }
     case 'duel': return m.flags.duel ? { won: true, why: 'landed' } : { won: false, why: 'duel' }
   }
 }

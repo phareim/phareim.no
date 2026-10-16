@@ -290,7 +290,9 @@ export function drawHud(g: G, l: Layout, w: Voyage, cam: THREE.PerspectiveCamera
           const k = me.lock >= 1 ? 1 : 2.2 - me.lock * 1.2
           const lc = me.lock >= 1 ? C.lock : (frameNo >> 2) % 2 ? C.lock : C.redLo
           brackets(g, lc, pr.x, pr.y, half * k + 2, 2)
-          if (me.lock >= 1) textC(g, 'LOCK', pr.x, pr.y - half - 11, C.lock, '#120d18')
+          const torp = me.torps > 0 && SHIPS[tgt.kind].capital === true
+          if (me.lock >= 1) textC(g, torp ? 'TORPEDO' : 'LOCK', pr.x, pr.y - half - 11, C.lock, '#120d18')
+          else if (torp) textC(g, 'HOLD ' + Math.ceil((1 - me.lock) * 5), pr.x, pr.y - half - 11, C.gold, '#120d18')
         }
       }
     } else {
@@ -392,6 +394,9 @@ function drawButtons(g: G, l: Layout, w: Voyage, ui: HudState): void {
   const b = l.buttons!
   const me = calzone(w)
   button(g, b.fire, w.seat === 'back' ? 'FIRE' : 'FIRE', ui.fire)
-  button(g, b.msl, me && me.lock >= 1 ? 'MSL!' : 'MSL', false, w.seat === 'front' && !!me && me.missiles > 0)
+  const tg = me ? shipAt(w, me.target) : null
+  const torp = !!me && me.torps > 0 && live(tg) && SHIPS[tg.kind].capital === true
+  const label = torp ? (me!.lock >= 1 ? 'TRP!' : 'TRP') : me && me.lock >= 1 ? 'MSL!' : 'MSL'
+  button(g, b.msl, label, false, w.seat === 'front' && !!me && (torp || me.missiles > 0))
   button(g, b.burn, 'BURN', ui.burn, w.seat === 'front')
 }

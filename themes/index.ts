@@ -146,14 +146,14 @@ export const allThemes: ThemeDefinition[] = [
   },
   {
     id: 'galaga',
+    // Parked 2026-10-16: Space Voyagers II took its cabinet; still reachable with ?theme=galaga.
+    disabled: true,
     name: 'Rex & Nova: Space Voyagers I',
     themeColor: '#141a33',
     landing: GalagaLanding,
   },
   {
     id: 'voyagers2',
-    // Parked while the first sortie is tried on a phone (2026-10-16); reachable with ?theme=voyagers2.
-    disabled: true,
     name: 'Rex & Nova: Space Voyagers II',
     themeColor: '#141a33',
     landing: Voyagers2Landing,

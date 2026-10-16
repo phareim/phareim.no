@@ -331,7 +331,12 @@ function gauges(g: G, l: Layout, w: Voyage, frameNo: number): void {
   {
     const r = gs.msl
     const c = me && me.lock >= 1 ? C.red : C.amber
-    if (row(r)) { label(g, 'MSL', r.x, r.y + 2); nixies(g, String(me ? me.missiles : 0), r.x + 22, r.y, c) } else { label(g, 'MSL', r.x, r.y); nixies(g, String(me ? me.missiles : 0), r.x, r.y + 9, c) }
+    // A big ship targeted with torpedoes on the rack: the gauge counts the torpedoes.
+    const tg = me ? shipAt(w, me.target) : null
+    const torp = !!me && me.torps > 0 && live(tg) && SHIPS[tg.kind].capital === true
+    const name = torp ? 'TRP' : 'MSL'
+    const n = String(me ? (torp ? me.torps : me.missiles) : 0)
+    if (row(r)) { label(g, name, r.x, r.y + 2); nixies(g, n, r.x + 22, r.y, c) } else { label(g, name, r.x, r.y); nixies(g, n, r.x, r.y + 9, c) }
   }
   // The lamps.
   const goal = autoGoal(w)

@@ -1,6 +1,10 @@
 # Rex & Nova: Space Voyagers I
 
-The game in the Galaga cabinet, at `/?theme=galaga`. Written again from nothing on
+**Parked since 2026-10-16**: Rex & Nova: Space Voyagers II (`docs/games/voyagers2.md`) took
+the SPACE VOYAGERS cabinet after Petter found this one short on gameplay. It is still at
+`/?theme=galaga`, its Hall of Fame board is kept (last in the list), and its tests still run.
+
+The game that was in the Galaga cabinet, at `/?theme=galaga`. Written again from nothing on
 2026-10-13; the old Galaga (the Choir, Claude in the second seat, the Hangar ship) is gone.
 The theme id, the Hall of Fame board, the high-score key and the radio's `galaga` origin are
 the old ones: only the names changed.

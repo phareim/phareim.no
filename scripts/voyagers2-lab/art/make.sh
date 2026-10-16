@@ -125,7 +125,9 @@ fi
 # The sky pieces: one palette of 24 for all six, no two colours close (they were darkened in
 # finish.py, and close tones would band).
 if want sky; then
-  $A palette build $ST/sky-*.png -o $PAL/sky.json --colors 24 --min-sep 0.034 | cut -c1-110
+  # the six by name: stage/ also holds batch 2's sky pieces, which have their own palette
+  $A palette build $ST/sky-planet.png $ST/sky-galaxy.png $ST/sky-hut.png $ST/sky-moon.png \
+    $ST/sky-nebula.png $ST/sky-billboard.png -o $PAL/sky.json --colors 24 --min-sep 0.034 | cut -c1-110
   for n in planet galaxy hut moon nebula billboard; do
     $A palette apply $ST/sky-$n.png --palette $PAL/sky.json --out-dir $PAL | cut -c1-110
     cp $PAL/sky-$n.png public/voyagers2/sky-$n.png

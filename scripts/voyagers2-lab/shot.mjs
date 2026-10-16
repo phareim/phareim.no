@@ -32,10 +32,10 @@ const SIZES = {
 }
 const V = 'window.__voyagers2'
 
+/** A clean campaign, straight from the hub into the first sortie, the clock held, the seed set. */
 async function begin(b, size, seed = 7) {
-  await b.goto(`${base}/?theme=voyagers2&debug=voyagers2`)
-  if (SIZES[size].mobile) await b.tap(SIZES[size].width / 2, SIZES[size].height * 0.3)
-  else await b.key('Enter')
+  await campaign(b, size)
+  await b.eval(`document.querySelector('.vg2-btn--gold').click()`)
   for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
   await b.eval(`${V}.hold()`)
   await b.eval(`${V}.seed(${seed})`)
@@ -87,6 +87,23 @@ const SCENES = {
     for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
     await b.eval(`${V}.end(true)`)
     await b.sleep(600)
+  },
+  /** The loop: launch the first sortie, end it won, read the debrief to its end, and stand in the hub for the second. PASS or FAIL. */
+  async loop(b, size) {
+    await campaign(b, size)
+    await b.eval(`document.querySelector('.vg2-btn--gold').click()`)
+    for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
+    await b.eval(`${V}.end(true)`)
+    await b.sleep(700)
+    const debrief = await b.eval(`!!document.querySelector('.vg2-panel') && document.body.innerText.includes('SORTIE WON')`)
+    for (let i = 0; i < 6 && !(await b.eval(`!!document.querySelector('.vg2-hub, .vg2-act')`)); i++) {
+      await b.eval(`document.querySelector('.vg2-screen').click()`)
+      await b.sleep(600)
+    }
+    const hub = await b.eval(`!!document.querySelector('.vg2-hub') && document.body.innerText.includes('CONVOY')`)
+    const save = JSON.parse(await b.eval(`localStorage.getItem('voyagers2.save')`))
+    const ok = debrief && hub && save?.next === 'convoy' && save.history.length === 1
+    console.log(`${ok ? 'PASS' : 'FAIL'} loop ${size}: debrief ${debrief}, hub for CONVOY ${hub}, save next ${save?.next}, flown ${save?.history.length}`)
   },
   async strike(b, size) {
     await campaign(b, size, { save: { version: 1, pilot: 'nova', next: 'takeout', score: 12000, kills: 20, morale: 0.6, mood: 0.6, flags: {}, history: [{ id: 'firstshift', result: 'won', score: 6000, kills: 10 }, { id: 'convoy', result: 'won', score: 6000, kills: 10 }, { id: 'siege', result: 'won', score: 6000, kills: 10 }] } })

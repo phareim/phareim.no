@@ -95,7 +95,7 @@ const emit = defineEmits<{ launch: []; update: [save: Save] }>()
 const { hint } = useInputMode()
 
 type Box = [number, number, number, number]
-const SPOTS = ROOM_SPOTS as Record<string, Record<string, Box>>
+const SPOTS = ROOM_SPOTS as unknown as Record<string, Record<string, Box>>
 
 const room = ref<RoomId>('kitchen')
 const lines = ref<Say[]>([])

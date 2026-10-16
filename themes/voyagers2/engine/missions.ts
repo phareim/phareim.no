@@ -37,7 +37,7 @@ export type Goal =
   | { type: 'kill'; kind: ShipKind; endOnKill?: boolean }
   | { type: 'protect'; min: number }
   | { type: 'defend'; maxLoss: number }
-  | { type: 'survive'; secs: number }
+  | { type: 'survive'; secs: number; maxLoss: number }
   | { type: 'duel' }
 
 export type ScriptDo = 'defect' | 'hansBack' | 'dareLeave' | 'help'
@@ -67,7 +67,7 @@ const g = (kind: ShipKind, count: number, from: SpawnGroup['from'], range: numbe
 })
 const raid = (kind: ShipKind, count: number, from: SpawnGroup['from'], range: number, extra: Partial<SpawnGroup> = {}): SpawnGroup =>
   g(kind, count, from, range, { goFor: 'protect', ...extra })
-const bomb = (count: number, delay: number, skill = 0.45): SpawnGroup => g('hound', count, 'far', 5200, { goFor: 'carrier', delay, skill })
+const bomb = (count: number, delay: number, skill = 0.45): SpawnGroup => g('hound', count, 'far', 6200, { goFor: 'carrier', delay, skill })
 
 export const FIRST_SHIFT: MissionDef = {
   id: 'firstshift', title: 'FIRST SHIFT', act: 1,
@@ -107,7 +107,7 @@ export const CONVOY: MissionDef = {
     },
     {
       name: 'MILE 40', at: [-6, 2, -55],
-      groups: [raid('bear', 2, 'ahead', 3000, { skill: 0.45 }), g('rat', 2, 'ahead', 2800, { skill: 0.45 }), raid('rat', 3, 'behind', 2200, { delay: 15, skill: 0.45 })],
+      groups: [raid('bear', 2, 'ahead', 3000, { skill: 0.5 }), g('rat', 2, 'ahead', 2800, { skill: 0.5 }), raid('rat', 3, 'behind', 2200, { delay: 15, skill: 0.5 }), raid('gorilla', 1, 'left', 3000, { delay: 28, skill: 0.5 })],
     },
   ],
 }
@@ -117,7 +117,7 @@ export const SIEGE: MissionDef = {
   tagline: 'THE FRANCHISE IS COMING FOR THE DEEP DISH. KEEP THE BOMBERS OFF THE OVEN.',
   wing: ['dougie', 'ridley'],
   startHome: true,
-  goal: { type: 'defend', maxLoss: 0.3 },
+  goal: { type: 'defend', maxLoss: 0.45 },
   navs: [
     {
       name: 'DEEP DISH', at: [0, 0, 0],
@@ -142,7 +142,7 @@ export const TAKEOUT: MissionDef = {
     { name: 'NAV 1', at: [10, 1, -32], groups: [g('rat', 3, 'ahead', 2600, { skill: 0.5 }), g('bear', 1, 'ahead', 3000, { skill: 0.5 })] },
     {
       name: 'THE OUTLET', at: [20, -1, -60],
-      groups: [g('bear', 2, 'ahead', 2400, { skill: 0.5 }), g('rat', 2, 'ahead', 2000, { skill: 0.5 }), g('rat', 2, 'behind', 1800, { delay: 25, skill: 0.5 })],
+      groups: [g('bear', 2, 'ahead', 2400, { skill: 0.55 }), g('rat', 2, 'ahead', 2000, { skill: 0.55 }), g('gorilla', 1, 'right', 2600, { delay: 12, skill: 0.55 }), g('rat', 2, 'behind', 1800, { delay: 25, skill: 0.55 })],
     },
   ],
 }
@@ -155,7 +155,7 @@ export const SPILLED: MissionDef = {
   goal: { type: 'protect', min: 1 },
   navs: [
     { name: 'DEEP DISH', at: [0, 0, 0], groups: [bomb(1, 4, 0.45), raid('rat', 2, 'far', 4200, { delay: 4, skill: 0.45 })] },
-    { name: 'THE DEPOT', at: [12, 0, -40], groups: [g('rat', 2, 'ahead', 2800, { skill: 0.45 }), raid('rat', 2, 'left', 2600, { delay: 12, skill: 0.45 })] },
+    { name: 'THE DEPOT', at: [12, 0, -40], groups: [g('rat', 2, 'ahead', 2800, { skill: 0.5 }), raid('bear', 1, 'ahead', 3000, { skill: 0.5 }), raid('rat', 2, 'left', 2600, { delay: 12, skill: 0.5 })] },
     {
       name: '???', at: [4, 3, -18], ambush: true,
       groups: [raid('bear', 2, 'behind', 1600, { skill: 0.5 }), g('rat', 3, 'right', 1800, { skill: 0.5 }), raid('rat', 2, 'ahead', 2400, { delay: 14, skill: 0.5 })],
@@ -215,7 +215,7 @@ export const LAST_SLICE: MissionDef = {
   tagline: 'THE FRANCHISE FOUND US. HOLD THE DEEP DISH UNTIL HELP COMES.',
   wing: ['dougie', 'ridley'],
   startHome: true,
-  goal: { type: 'survive', secs: 180 },
+  goal: { type: 'survive', secs: 180, maxLoss: 0.5 },
   events: [{ nav: 0, delay: 180, do: 'help' }],
   navs: [
     {
@@ -237,7 +237,7 @@ export const FINALE: MissionDef = {
   wing: ['marge', 'ridley'],
   torps: 1,
   goal: { type: 'kill', kind: 'vent', endOnKill: true },
-  events: [{ nav: 2, delay: 40, do: 'hansBack' }],
+  events: [{ nav: 2, delay: 25, do: 'hansBack' }],
   placed: [{ kind: 'hut', nav: 2, at: [0, -700, -2600], name: 'THE HUT', vent: [0, 318, 0] }],
   navs: [
     { name: 'DEEP DISH', at: [0, 0, 0], groups: [] },
@@ -245,8 +245,8 @@ export const FINALE: MissionDef = {
     {
       name: 'THE HUT', at: [-25, -5, -80],
       groups: [
-        g('parmesan', 1, 'ahead', 2400, { skill: 0.85, ace: 'parmesan' }), g('rat', 4, 'ahead', 2600, { skill: 0.6 }),
-        g('bear', 2, 'left', 2600, { delay: 20, skill: 0.6 }), g('rat', 3, 'behind', 2200, { delay: 35, skill: 0.6 }),
+        g('parmesan', 1, 'ahead', 2400, { skill: 0.75, ace: 'parmesan' }), g('rat', 3, 'ahead', 2600, { skill: 0.6 }),
+        g('bear', 2, 'left', 2600, { delay: 30, skill: 0.6 }), g('rat', 3, 'behind', 2200, { delay: 55, skill: 0.6 }),
       ],
     },
   ],

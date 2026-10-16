@@ -113,7 +113,11 @@ export function botInput(b: Bot, w: Voyage): Input {
     // Nothing targeted that is near: ask for the next.
     if (!live(o) || dist(o.pos, me.pos) > 6000) inp.nextTarget = true
     // A bomber on the Deep Dish comes first (Mei says so in the briefing); then whatever the mission is for.
-    if (!o || o.kind !== 'hound') {
+    // A hound that still carries its torpedo matters most, the one nearest a lock first; one that has fired can wait.
+    const armed = w.ships.filter(s => live(s) && s.side === 'them' && s.kind === 'hound' && s.missiles > 0 && dist(s.pos, me.pos) < 9000)
+    armed.sort((a, z) => z.lock - a.lock)
+    if (armed.length && (!o || o.kind !== 'hound' || o.missiles === 0)) inp.pick = armed[0]!.id
+    else if (!o || o.kind !== 'hound') {
       const hound = w.ships.find(s => live(s) && s.side === 'them' && s.kind === 'hound' && dist(s.pos, me.pos) < 7000)
       if (hound) inp.pick = hound.id
     }

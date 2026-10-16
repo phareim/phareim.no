@@ -305,8 +305,9 @@ SHARP. The bot never sees more than a person would and is never perfect. Targets
 - From sortie 3 on: CLUMSY loses one sortie in three, CASUAL one in six, SHARP rarely.
 - A nav point's fight lasts 30 to 90 seconds; a sortie three to five minutes of flying.
 
-Nobody building this can feel it. The first version goes live as a parked theme and Petter
-plays it on his phone before the campaign is built round it.
+Nobody building this can feel it. The first sortie went live as a parked theme on
+2026-10-16 so Petter could play it on his phone while the campaign was built round it; the
+campaign took the cabinet the same day. Petter's hands are the real tuning table.
 
 ## Sound
 

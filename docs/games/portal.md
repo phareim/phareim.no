@@ -81,7 +81,7 @@ middle, Adventure (8,4, the door's own column) and Night of the Dead Battery
 (9,4) to its right. They
 are the long games, and Petter wanted them where a visitor looks first. The
 other eight line the back wall, four each side of the board: Another Shore,
-Space Voyagers (the Galaga cabinet's game since 2026-10-13), Space Paddle — The Odyssey (`breakout`), G-Type on the left; Space Invaders, Star Fox, Drive to the Mountains (`outrun`) and
+Space Voyagers (the Galaga cabinet: Space Voyagers II, `voyagers2`, since 2026-10-16; Space Voyagers I is parked), Space Paddle — The Odyssey (`breakout`), G-Type on the left; Space Invaders, Star Fox, Drive to the Mountains (`outrun`) and
 Russian Block Game on the right, with the HANGAR door above the gap between the last two
 pairs. Every cabinet has a stool in front of it. The robot's welcome names
 the four in the middle.
