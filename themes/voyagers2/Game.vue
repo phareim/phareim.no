@@ -66,7 +66,7 @@ export interface SortieReport {
   pilot: PilotId
 }
 
-const props = defineProps<{ pilot: PilotId; mission?: string; morale?: number }>()
+const props = defineProps<{ pilot: PilotId; mission?: string; morale?: number; mood?: number }>()
 const emit = defineEmits<{ started: []; over: [report: SortieReport] }>()
 
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -181,7 +181,7 @@ function start(pilot: PilotId = props.pilot, missionId: string = props.mission ?
   const def = MISSIONS[missionId] ?? MISSIONS.firstshift!
   const seed = nextSeed || ((Date.now() ^ (Math.random() * 0x7FFFFFFF)) >>> 0)
   nextSeed = 0
-  world = createWorld({ seed, mission: def, pilot, morale: props.morale })
+  world = createWorld({ seed, mission: def, pilot, morale: props.morale, mood: props.mood })
   const w = world
   glue = createGlue()
   director = createDirector({

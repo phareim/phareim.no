@@ -5,6 +5,7 @@
       :pilot="save.pilot"
       :mission="sortie"
       :morale="save.morale"
+      :mood="save.mood"
       @started="onStarted"
       @over="onOver"
     />

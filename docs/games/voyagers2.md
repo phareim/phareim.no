@@ -58,8 +58,8 @@ file says what is built and where.
 | 3 | HEART OF THE OVEN | kill the VENT, the sortie ends with it | the Hut, its guns, the prince; Hans comes back at 25 s |
 
 Between sorties: the hub (Nonna's briefing first), talk choices that move the crew's morale
-(the wing's skill, a quarter of the difference from 0.6) and the partner's mood (kept, not
-yet used in flight), the debrief, an act card when an act begins, the ending (won: DELIVERED;
+(the wing's skill, a quarter of the difference from 0.6) and the partner's mood (how steady
+their aim is on the turret: a third better or worse at the ends), the debrief, an act card when an act begins, the ending (won: DELIVERED;
 lost: FRANCHISED) and the Hall of Fame.
 
 ## The picture
@@ -124,7 +124,8 @@ finale ending on the vent with the Hut never a target, help arriving).
 
 - Nobody has played it with hands, heard it, or held it on a phone (2026-10-16). The first
   sortie has been live since the afternoon of 2026-10-16 for that.
-- The partner's mood is kept but changes nothing in flight yet; the SUGAR CRASH, the systems
-  damage list and the slide of DESIGN.md are not built.
+- The SUGAR CRASH, the systems damage list and the slide of DESIGN.md are not built.
+- Hans Duo is painted into the break room, so he stays on its couch after he defects (only his
+  face and his tap go).
 - The mascot bear and rat may sit too close to Freddy Fazbear and Chuck E. Cheese
   (`scripts/voyagers2-lab/REPORT-art.md`): Petter's call.

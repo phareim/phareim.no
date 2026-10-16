@@ -59,6 +59,8 @@ export interface WorldOpts {
   pilot: PilotId
   /** The crew's morale 0..1 (the hub's talk): the wing and the back seat fly a little better or worse. */
   morale?: number
+  /** The partner's mood 0..1: how steady their hands are on the turret. */
+  mood?: number
 }
 
 export function makeInput(): Input {
@@ -102,6 +104,7 @@ export function createWorld(o: WorldOpts): Voyage {
     ctl: makeControls(),
   }
   const morale = o.morale ?? 0.6
+  w.crew.mood = o.mood ?? 0.6
   // The Deep Dish, nose to -z, still.
   const home = spawnShip(w, 'deepdish', 'us', v3(0, 0, 0), q4(), { name: 'DEEP DISH', pilot: 'mei', role: 'protect', speed: 0 })
   home.cruise = 0
