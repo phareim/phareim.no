@@ -3,9 +3,10 @@
 neighbour on night blue, each file's name and size under it, in rows by kind. Adapted from
 scripts/galaga-lab/art/proof.py.
 
-    ~/.cache/nova-art-venv/bin/python scripts/voyagers2-lab/art/proof.py [scale]
+    ~/.cache/nova-art-venv/bin/python scripts/voyagers2-lab/art/proof.py [scale] [batch]
 
-writes tmp/voyagers2-art/proof/batch1.png (git-ignored).
+writes tmp/voyagers2-art/proof/batch1.png (git-ignored), or with batch 2, batch2.png: the
+rooms, the endings, the act cards and the sky pieces of acts 2 and 3.
 """
 import os
 import sys
@@ -16,7 +17,7 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 PUB = os.path.join(ROOT, "public", "voyagers2")
-OUT = os.path.join(ROOT, "tmp", "voyagers2-art", "proof", "batch1.png")
+PROOF = os.path.join(ROOT, "tmp", "voyagers2-art", "proof")
 BACK = (22, 28, 58)
 INK = (170, 180, 210)
 
@@ -30,14 +31,24 @@ ROWS = [
     ["card-title", "sky-hut", "sky-planet"],
     ["sky-nebula", "sky-billboard", "sky-galaxy", "sky-moon"],
 ]
+ROWS2 = [
+    ["room-kitchen", "room-hangar"],
+    ["room-breakroom", "card-ending-won"],
+    ["card-ending-lost", "card-act-1"],
+    ["card-act-2", "card-act-3"],
+    ["sky-truckstop", "sky-markers", "sky-buoy"],
+]
 
 
 def main():
     k = int(sys.argv[1]) if len(sys.argv) > 1 else 3
+    batch = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+    rows = ROWS2 if batch == 2 else ROWS
+    OUT = os.path.join(PROOF, f"batch{batch}.png")
     font = ImageFont.load_default()
     pad, label = 12, 26
     placed, y, width = [], pad, 0
-    for row in ROWS:
+    for row in rows:
         x, row_h, items = pad, 0, []
         for n in row:
             path = os.path.join(PUB, n + ".png")

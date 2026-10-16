@@ -38,10 +38,12 @@ export interface Crew {
   decoyAt: number[]
   /** For the radio: the last enemy called out behind. */
   calledBehind: number
+  /** The partner's mood 0..1 (the hub's talk): steadier hands on the turret, or shakier. */
+  mood: number
 }
 
 export function makeCrew(): Crew {
-  return { swapping: 0, target: -1, burst: 0, rest: 0, look: 0, err: v3(), decoyAt: [], calledBehind: -1 }
+  return { swapping: 0, target: -1, burst: 0, rest: 0, look: 0, err: v3(), decoyAt: [], calledBehind: -1, mood: 0.6 }
 }
 
 export function calzoneTurret(s: Ship): Turret | null {
@@ -109,9 +111,11 @@ export function partnerTurret(w: World, crew: Crew, s: Ship, who: PilotId, dt: n
     crew.target = pickRear(w, s, t)
     o = shipAt(w, crew.target)
     // A fresh aim error each look.
-    crew.err.x = (rand(w.rng) - 0.5) * 2 * p.aimError
-    crew.err.y = (rand(w.rng) - 0.5) * 2 * p.aimError
-    crew.err.z = (rand(w.rng) - 0.5) * 2 * p.aimError
+    // A happy partner shoots straighter: a third better at best, a third worse at worst.
+    const e = p.aimError * (1.3 - crew.mood * 0.6)
+    crew.err.x = (rand(w.rng) - 0.5) * 2 * e
+    crew.err.y = (rand(w.rng) - 0.5) * 2 * e
+    crew.err.z = (rand(w.rng) - 0.5) * 2 * e
     if (live(o) && o.id !== crew.calledBehind && dist(o.pos, s.pos) < 1100) {
       crew.calledBehind = o.id
       w.events.push({ type: 'cue', cue: 'behind', a: o.id })

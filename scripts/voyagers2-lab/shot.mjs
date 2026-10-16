@@ -32,10 +32,10 @@ const SIZES = {
 }
 const V = 'window.__voyagers2'
 
+/** A clean campaign, straight from the hub into the first sortie, the clock held, the seed set. */
 async function begin(b, size, seed = 7) {
-  await b.goto(`${base}/?theme=voyagers2&debug=voyagers2`)
-  if (SIZES[size].mobile) await b.tap(SIZES[size].width / 2, SIZES[size].height * 0.3)
-  else await b.key('Enter')
+  await campaign(b, size)
+  await b.eval(`document.querySelector('.vg2-btn--gold').click()`)
   for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
   await b.eval(`${V}.hold()`)
   await b.eval(`${V}.seed(${seed})`)
@@ -55,7 +55,126 @@ async function until(b, cond, max = 6000, chunk = 30) {
   return state(b)
 }
 
+/** Start a campaign from a clean browser and stand on its act card (or in the hub with `hub`). */
+async function campaign(b, size, { hub = true, save = null } = {}) {
+  await b.goto(`${base}/?theme=voyagers2&debug=voyagers2`)
+  await b.eval(`(() => { localStorage.removeItem('voyagers2.save'); ${save ? `localStorage.setItem('voyagers2.save', ${JSON.stringify(JSON.stringify(save))});` : ''} return 1 })()`)
+  await b.goto(`${base}/?theme=voyagers2&debug=voyagers2`)
+  const press = async () => { if (SIZES[size].mobile) await b.tap(SIZES[size].width / 2, SIZES[size].height * 0.25); else await b.key('Enter') }
+  await press()
+  for (let i = 0; i < 60 && !(await b.eval(`!!document.querySelector('.vg2-act, .vg2-hub')`)); i++) await b.sleep(100)
+  await b.sleep(500)
+  if (hub && await b.eval(`!!document.querySelector('.vg2-act')`)) { await press(); await b.sleep(400) }
+}
+
+async function bigShip(b, size, sortie, kind, after) {
+  const order = ['firstshift', 'convoy', 'siege', 'takeout', 'hansshot', 'dare', 'buffet', 'finale']
+  const flown = order.slice(0, order.indexOf(sortie)).map(id => ({ id, result: 'won', score: 6000, kills: 10 }))
+  await campaign(b, size, { save: { version: 1, pilot: 'nova', next: sortie, score: 40000, kills: 60, morale: 0.6, mood: 0.6, flags: {}, history: flown } })
+  await b.eval(`document.querySelector('.vg2-btn--gold').click()`)
+  for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
+  await b.eval(`${V}.hold()`)
+  await b.eval(`${V}.bot('sharp')`)
+  await until(b, s => (s.kinds ?? []).includes(kind), 40000, 60)
+  await step(b, after)
+  // Look at it: the bot off, the nose turned to the big ship, a few ticks for the picture.
+  await b.eval(`${V}.bot(null)`)
+  await b.eval(`${V}.face('${kind === 'hut' ? 'vent' : kind}')`)
+  await step(b, 3)
+}
+
 const SCENES = {
+  async act(b, size) {
+    await campaign(b, size, { hub: false })
+  },
+  async hub(b, size) {
+    await campaign(b, size)
+  },
+  async talk(b, size) {
+    await campaign(b, size)
+    await b.eval(`document.querySelectorAll('.vg2-tab')[2].click()`)
+    await b.sleep(200)
+    await b.eval(`document.querySelectorAll('.vg2-person')[0].click()`)
+    await b.sleep(300)
+  },
+  async debrief(b, size) {
+    await campaign(b, size)
+    await b.eval(`document.querySelector('.vg2-btn--gold').click()`)
+    for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
+    await b.eval(`${V}.end(true)`)
+    await b.sleep(600)
+  },
+  /** The loop: launch the first sortie, end it won, read the debrief to its end, and stand in the hub for the second. PASS or FAIL. */
+  async loop(b, size) {
+    await campaign(b, size)
+    await b.eval(`document.querySelector('.vg2-btn--gold').click()`)
+    for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
+    await b.eval(`${V}.end(true)`)
+    await b.sleep(700)
+    const debrief = await b.eval(`!!document.querySelector('.vg2-panel') && document.body.innerText.includes('SORTIE WON')`)
+    for (let i = 0; i < 6 && !(await b.eval(`!!document.querySelector('.vg2-hub, .vg2-act')`)); i++) {
+      await b.eval(`document.querySelector('.vg2-screen').click()`)
+      await b.sleep(600)
+    }
+    const hub = await b.eval(`!!document.querySelector('.vg2-hub') && document.body.innerText.includes('CONVOY')`)
+    const save = JSON.parse(await b.eval(`localStorage.getItem('voyagers2.save')`))
+    const ok = debrief && hub && save?.next === 'convoy' && save.history.length === 1
+    console.log(`${ok ? 'PASS' : 'FAIL'} loop ${size}: debrief ${debrief}, hub for CONVOY ${hub}, save next ${save?.next}, flown ${save?.history.length}`)
+  },
+  /**
+   * The ending, on a dev server only (it calls the Hall of Fame; dev keeps scores in memory): a save at the finale,
+   * the sortie ended won, the debrief read, the ending's card and the submit. PASS or FAIL.
+   */
+  async ending(b, size) {
+    if (!/localhost|127\.0\.0\.1/.test(base)) { console.log('SKIP ending: not a dev server'); return }
+    const flown = ['firstshift', 'convoy', 'siege', 'takeout', 'hansshot', 'dare', 'buffet'].map(id => ({ id, result: 'won', score: 7000, kills: 10 }))
+    await campaign(b, size, { save: { version: 1, pilot: 'rex', next: 'finale', score: 49000, kills: 70, morale: 0.7, mood: 0.6, flags: {}, history: flown } })
+    await b.eval(`document.querySelector('.vg2-btn--gold').click()`)
+    for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
+    await b.eval(`${V}.end(true)`)
+    await b.sleep(700)
+    for (let i = 0; i < 8 && !(await b.eval(`document.body.innerText.includes('CAMPAIGN SCORE')`)); i++) {
+      await b.eval(`document.querySelector('.vg2-screen').click()`)
+      await b.sleep(600)
+    }
+    await b.sleep(1500)
+    const text = await b.eval(`document.body.innerText`)
+    const save = JSON.parse(await b.eval(`localStorage.getItem('voyagers2.save')`))
+    const card = await b.eval(`(() => { const el = document.querySelector('.vg2-ending'); return el ? getComputedStyle(el).backgroundImage : '' })()`)
+    const ok = text.includes('DELIVERED') && save.next === 'end-won' && save.flags.submitted === true && /card-ending-won/.test(card) && !b.errors.length
+    console.log(`${ok ? 'PASS' : 'FAIL'} ending ${size}: delivered ${text.includes('DELIVERED')}, next ${save.next}, submitted ${save.flags.submitted}, card ${/card-ending-won/.test(card)}, rank shown ${text.includes('WORLD RANK')}, errors ${b.errors.length}`)
+  },
+  /** A sortie with a big ship in it, flown by the bot until the big ship is in the fight: `hut` (the finale), `buffet`. */
+  async hut(b, size) { await bigShip(b, size, 'finale', 'hut', 40) },
+  async buffet(b, size) { await bigShip(b, size, 'buffet', 'buffet', 240) },
+  /** Touch: the pause chip pauses, TURN BACK goes home to the hub, nothing recorded. PASS or FAIL. */
+  async turnback(b, size) {
+    if (!SIZES[size].mobile) return
+    await begin(b, size)
+    await b.eval(`${V}.run()`)
+    await b.sleep(400)
+    const s = await state(b)
+    const l = s.layout
+    await b.tap((l.pause.x + l.pause.w / 2) * l.css, (l.pause.y + l.pause.h / 2) * l.css)
+    await b.sleep(300)
+    await b.shot(join(out, `paused-${size}.png`))
+    await b.tap((l.turnBack.x + l.turnBack.w / 2) * l.css, (l.turnBack.y + l.turnBack.h / 2) * l.css)
+    await b.sleep(800)
+    const hub = await b.eval(`!!document.querySelector('.vg2-hub')`)
+    const save = JSON.parse(await b.eval(`localStorage.getItem('voyagers2.save')`))
+    const ok = hub && save.history.length === 0 && save.next === 'firstshift'
+    console.log(`${ok ? 'PASS' : 'FAIL'} turnback ${size}: hub ${hub}, flown ${save.history.length}, next ${save.next}`)
+  },
+  async strike(b, size) {
+    await campaign(b, size, { save: { version: 1, pilot: 'nova', next: 'takeout', score: 12000, kills: 20, morale: 0.6, mood: 0.6, flags: {}, history: [{ id: 'firstshift', result: 'won', score: 6000, kills: 10 }, { id: 'convoy', result: 'won', score: 6000, kills: 10 }, { id: 'siege', result: 'won', score: 6000, kills: 10 }] } })
+    await b.eval(`document.querySelector('.vg2-btn--gold').click()`)
+    for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
+    await b.eval(`${V}.hold()`)
+    await b.eval(`${V}.bot('sharp')`)
+    await until(b, s => s.stage === 'fly' && s.nav === 0 && s.enemies > 0, 30000, 60)
+    await until(b, s => s.ships > 0 && s.me && s.me.target >= 0 && s.enemies <= 3, 20000, 60)
+    await step(b, 120)
+  },
   async title(b, size) {
     await b.goto(`${base}/?theme=voyagers2&debug=voyagers2`)
     await b.sleep(800)

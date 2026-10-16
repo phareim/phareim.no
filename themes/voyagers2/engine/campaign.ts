@@ -98,3 +98,9 @@ export function readSave(raw: string | null): Save | null {
 export function progress(s: Save): { flown: number; total: number } {
   return { flown: s.history.length, total: 8 }
 }
+
+/** Each sortie's name, for the title's CONTINUE line (the briefing's words are in `story/hub.ts`). */
+export const SORTIE_TITLES: Record<SortieId, string> = {
+  firstshift: 'FIRST SHIFT', convoy: 'CONVOY', siege: 'OVEN UNDER SIEGE', takeout: 'TAKE-OUT', spilled: 'SPILLED SAUCE',
+  hansshot: 'HANS SHOT FIRST', dare: 'THE DARE', buffet: 'THE BUFFET', lastslice: 'LAST SLICE', finale: 'HEART OF THE OVEN',
+}

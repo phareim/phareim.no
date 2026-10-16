@@ -1,11 +1,11 @@
 <template>
   <div class="vg2" :style="{ '--vk': k }">
     <ClientOnly>
-      <Game v-if="loaded" ref="game" :pilot="pilot" @started="onStarted" @over="onOver" />
+      <Campaign v-if="campaign" :initial="campaign" :best="best" @title="backToTitle" @best="onBest" @ready="loading = false" />
     </ClientOnly>
 
-    <!-- The title: server-rendered. A tap anywhere launches; a tap on a face chooses who you are. -->
-    <div v-if="phase === 'title' || phase === 'loading'" class="vg2-screen vg2-title" @click="launch">
+    <!-- The title: server-rendered, so the first paint is already this. -->
+    <div v-if="!campaign || loading" class="vg2-screen vg2-title" @click="primary">
       <div class="vg2-card">
         <h1 class="vg2-name">
           <span class="vg2-name__top">REX &amp; NOVA</span>
@@ -14,56 +14,37 @@
         </h1>
       </div>
       <div class="vg2-side">
-        <p class="vg2-line vg2-dim">WHO ARE YOU?</p>
-        <div class="vg2-pilots" role="radiogroup" aria-label="Choose who you are">
-          <button
-            v-for="p in PILOTS"
-            :key="p.id"
-            type="button"
-            class="vg2-pilot"
-            :class="{ 'vg2-pilot--on': pilot === p.id }"
-            role="radio"
-            :aria-checked="pilot === p.id"
-            @click.stop="choose(p.id)"
-          >
-            <span class="vg2-face" :style="{ backgroundImage: `url(/galaga/${p.face}.png)` }" aria-hidden="true" />
-            <span class="vg2-pilot__name">{{ p.name }}</span>
-          </button>
-        </div>
-        <p class="vg2-line vg2-dim">ONE SHIP, TWO SEATS. YOU FLY, {{ other }} HAS THE TURRET.</p>
-        <p class="vg2-hint vg2-blink">{{ phase === 'loading' ? 'WARMING THE TUBES' : hint('PRESS ENTER TO LAUNCH', 'TAP TO LAUNCH') }}</p>
-        <p v-if="best > 0" class="vg2-line">BEST {{ best }}</p>
+        <template v-if="saved && !isEnd(saved.next)">
+          <p class="vg2-line vg2-dim">SORTIE {{ saved.history.length + 1 }} OF 8 · {{ titleOf(saved.next) }}</p>
+          <p class="vg2-line vg2-dim">YOU ARE {{ saved.pilot.toUpperCase() }} · SCORE {{ saved.score }}</p>
+          <p class="vg2-hint vg2-blink">{{ loading ? 'WARMING THE TUBES' : hint('PRESS ENTER TO CONTINUE', 'TAP TO CONTINUE') }}</p>
+          <button type="button" class="vg2-btn" @click.stop="newCampaign">NEW CAMPAIGN</button>
+        </template>
+        <template v-else>
+          <p class="vg2-line vg2-dim">WHO ARE YOU?</p>
+          <div class="vg2-pilots" role="radiogroup" aria-label="Choose who you are">
+            <button
+              v-for="p in PILOTS"
+              :key="p.id"
+              type="button"
+              class="vg2-pilot"
+              :class="{ 'vg2-pilot--on': pilot === p.id }"
+              role="radio"
+              :aria-checked="pilot === p.id"
+              @click.stop="choose(p.id)"
+            >
+              <span class="vg2-face" :style="{ backgroundImage: `url(/galaga/${p.face}.png)` }" aria-hidden="true" />
+              <span class="vg2-pilot__name">{{ p.name }}</span>
+            </button>
+          </div>
+          <p class="vg2-line vg2-dim">ONE SHIP, TWO SEATS. YOU FLY, {{ other }} HAS THE TURRET.</p>
+          <p class="vg2-hint vg2-blink">{{ loading ? 'WARMING THE TUBES' : hint('PRESS ENTER TO START', 'TAP TO START') }}</p>
+        </template>
+        <p v-if="best > 0" class="vg2-line">BEST CAMPAIGN {{ best }}</p>
         <p class="vg2-line vg2-dim vg2-keys">
           <span v-for="c in hint(KEYS, TOUCH).split('|')" :key="c">{{ c }}</span>
         </p>
         <p class="vg2-line vg2-copy">(C) Sleepy Productions, 3Q89</p>
-      </div>
-    </div>
-
-    <!-- The debrief. -->
-    <div v-else-if="phase === 'over' && result" class="vg2-screen vg2-over" @click="launch">
-      <div class="vg2-panel">
-        <p class="vg2-line vg2-dim">DEBRIEF · {{ result.mission }}</p>
-        <h2 class="vg2-over__title" :class="result.result === 'won' ? 'vg2-gold' : 'vg2-red'">{{ result.result === 'won' ? 'SORTIE WON' : 'SORTIE LOST' }}</h2>
-        <p class="vg2-line">{{ WHY[result.why] ?? '' }}</p>
-        <p class="vg2-line">KILLS {{ result.kills }} · {{ Math.floor(result.secs / 60) }}:{{ String(result.secs % 60).padStart(2, '0') }}</p>
-        <p class="vg2-line">SCORE {{ result.score }}</p>
-        <p v-if="isBest" class="vg2-line vg2-gold vg2-blink">NEW BEST</p>
-        <div class="vg2-pilots vg2-pilots--small" role="radiogroup" aria-label="Choose who you are">
-          <button
-            v-for="p in PILOTS"
-            :key="p.id"
-            type="button"
-            class="vg2-pilot"
-            :class="{ 'vg2-pilot--on': pilot === p.id }"
-            role="radio"
-            :aria-checked="pilot === p.id"
-            @click.stop="choose(p.id)"
-          >
-            <span class="vg2-pilot__name">{{ p.name }}</span>
-          </button>
-        </div>
-        <p class="vg2-hint vg2-blink">{{ hint('ENTER TO FLY AGAIN', 'TAP TO FLY AGAIN') }}</p>
       </div>
     </div>
   </div>
@@ -71,15 +52,16 @@
 
 <script setup lang="ts">
 /**
- * Rex & Nova: Space Voyagers II, the title and the debrief. The game itself
- * is `Game.vue`, its own chunk, asked for by the tap or key that launches
- * the first sortie, so `/` never pays for it or for three.js (AGENTS.md,
- * "What `/` costs").
+ * Rex & Nova: Space Voyagers II, the title: new campaign or go on with the
+ * saved one, who you are. Everything after it is `Campaign.vue`, its own
+ * chunk, asked for by the tap or key that leaves the title, so `/` pays for
+ * the title alone (AGENTS.md, "What `/` costs").
  */
-import type { SortieReport } from './Game.vue'
+import { isEnd, newSave, readSave, SORTIE_TITLES } from './engine/campaign'
+import type { Next, Save } from './engine/campaign'
 import type { PilotId } from './engine/types'
 
-const Game = defineAsyncComponent(() => import('./Game.vue'))
+const Campaign = defineAsyncComponent(() => import('./Campaign.vue'))
 
 const PILOTS: readonly { id: PilotId; name: string; face: string }[] = [
   { id: 'nova', name: 'NOVA', face: 'portrait-nova-calm' },
@@ -87,77 +69,72 @@ const PILOTS: readonly { id: PilotId; name: string; face: string }[] = [
 ]
 const KEYS = 'ARROWS FLY|SPACE GUNS|ENTER MISSILE|TAB BURN|T TARGET|X SWAP SEATS|C COMMS|N AUTOPILOT'
 const TOUCH = 'LEFT THUMB FLIES|GUNS FIRE ON THE DIAMOND|TAP A SCREEN|TAP THE SEATS TO SWAP'
-const WHY: Record<string, string> = {
-  landed: 'HOME THROUGH THE OVEN DOOR.',
-  eject: 'THE CALZONE IS LOST. YOU BOTH GOT OUT.',
-  carrier: 'THE DEEP DISH IS LOST.',
-  target: 'THE TARGET GOT AWAY.',
-  quit: 'YOU TURNED BACK.',
-}
+const SAVE_KEY = 'voyagers2.save'
 const BEST_KEY = 'voyagers2.best'
 const PILOT_KEY = 'voyagers2.pilot'
 
-const { navigationLocked } = useTheme()
 const { hint } = useInputMode()
 const radio = useRadio()
 
-const phase = ref<'title' | 'loading' | 'playing' | 'over'>('title')
-const loaded = ref(false)
-const game = ref<{ start: (pilot: PilotId) => void } | null>(null)
 const pilot = ref<PilotId>('rex')
+const saved = ref<Save | null>(null)
+const campaign = ref<Save | null>(null)
 const best = ref(0)
-const isBest = ref(false)
-const result = ref<SortieReport | null>(null)
+const loading = ref(false)
 const k = ref<number | undefined>(undefined)
-let overAt = 0
+let lastTap = 0
 
 const other = computed(() => (pilot.value === 'rex' ? 'NOVA' : 'REX'))
+
+function titleOf(n: Next): string {
+  return isEnd(n) ? '' : SORTIE_TITLES[n]
+}
+
+function onBest(b: number): void {
+  best.value = b
+}
 
 function choose(id: PilotId): void {
   pilot.value = id
   try { localStorage.setItem(PILOT_KEY, id) } catch { /* private mode */ }
 }
 
-function launch(): void {
-  if (phase.value === 'playing' || phase.value === 'loading') return
-  if (phase.value === 'over' && performance.now() - overAt < 700) return
+function primary(): void {
+  if (campaign.value) return
+  const now = performance.now()
+  if (now - lastTap < 450) return
+  lastTap = now
+  if (saved.value && !isEnd(saved.value.next)) open(saved.value)
+  else newCampaign()
+}
+
+function newCampaign(): void {
+  lastTap = performance.now()
+  const s = newSave(pilot.value)
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)) } catch { /* private mode */ }
+  open(s)
+}
+
+function open(s: Save): void {
+  // The site's radio is the music: start it inside this gesture.
   radio.ensurePlaying()
-  navigationLocked.value = true
-  if (game.value) {
-    game.value.start(pilot.value)
-    return
-  }
-  phase.value = 'loading'
-  loaded.value = true
+  loading.value = true
+  campaign.value = s
 }
 
-function onStarted(): void {
-  phase.value = 'playing'
-  navigationLocked.value = true
-}
-
-function onOver(r: SortieReport): void {
-  result.value = r
-  phase.value = 'over'
-  overAt = performance.now()
-  navigationLocked.value = false
-  isBest.value = r.score > 0 && r.score > best.value
-  if (r.score > best.value) {
-    best.value = r.score
-    try { localStorage.setItem(BEST_KEY, String(r.score)) } catch { /* private mode */ }
-  }
+function backToTitle(s: Save): void {
+  saved.value = s
+  campaign.value = null
+  loading.value = false
+  lastTap = performance.now()
 }
 
 function onKeyDown(e: KeyboardEvent): void {
-  if (phase.value !== 'title' && phase.value !== 'over') return
-  if (e.code === 'ArrowLeft' || e.code === 'KeyA') { choose('nova'); e.preventDefault() } else if (e.code === 'ArrowRight' || e.code === 'KeyD') { choose('rex'); e.preventDefault() } else if (e.code === 'Enter' || (e.code === 'Space' && phase.value === 'title')) {
-    if (e.repeat) return
-    e.preventDefault()
-    launch()
-  }
+  if (campaign.value || e.repeat) return
+  if (e.code === 'ArrowLeft' || e.code === 'KeyA') { choose('nova'); e.preventDefault() } else if (e.code === 'ArrowRight' || e.code === 'KeyD') { choose('rex'); e.preventDefault() } else if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); primary() }
 }
 
-/** One pixel size for the title: the card (240 × 320) and the column under or beside it, whole device pixels. */
+/** One pixel size for every screen of the game's HTML: the card (240 × 320) and a column, whole device pixels. */
 function fit(): void {
   const dpr = window.devicePixelRatio || 1
   const w = window.innerWidth
@@ -170,7 +147,9 @@ function fit(): void {
 onMounted(() => {
   try {
     best.value = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0
-    if (localStorage.getItem(PILOT_KEY) === 'nova') pilot.value = 'nova'
+    saved.value = readSave(localStorage.getItem(SAVE_KEY))
+    if (saved.value) pilot.value = saved.value.pilot
+    else if (localStorage.getItem(PILOT_KEY) === 'nova') pilot.value = 'nova'
   } catch { /* storage unavailable */ }
   fit()
   window.addEventListener('resize', fit)
@@ -178,7 +157,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  navigationLocked.value = false
   window.removeEventListener('resize', fit)
   window.removeEventListener('keydown', onKeyDown)
 })

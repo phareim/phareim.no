@@ -42,12 +42,14 @@ import { rand } from './engine/rng'
 import { live, shipAt } from './engine/ships'
 import type { Input, PilotId, WingOrder } from './engine/types'
 import { autoGoal, calzone, createWorld, makeInput, onTarget, step } from './engine/world'
+import { qLookTo } from './engine/math'
 import type { Voyage } from './engine/world'
 import { createDirector } from './story/director'
 import type { Director, Monitor } from './story/director'
 import { createGlue, cuesFor } from './story/glue'
 import type { Glue } from './story/glue'
 import { createRenderer } from './render/index'
+import type { SkyPiece } from './render/scene'
 import type { Renderer } from './render/index'
 import { menuRect } from './render/dash'
 import { project } from './render/hud'
@@ -55,6 +57,7 @@ import type { HudState } from './render/hud'
 import { inside } from './render/layout'
 
 export interface SortieReport {
+  id: string
   result: 'won' | 'lost'
   why: string
   score: number
@@ -64,7 +67,7 @@ export interface SortieReport {
   pilot: PilotId
 }
 
-const props = defineProps<{ pilot: PilotId; mission?: string }>()
+const props = defineProps<{ pilot: PilotId; mission?: string; morale?: number; mood?: number }>()
 const emit = defineEmits<{ started: []; over: [report: SortieReport] }>()
 
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -72,6 +75,35 @@ const paused = ref(false)
 const radio = useRadio()
 
 const MAX_STEPS = 5
+
+/** Each act's sky: pictures far away in fixed directions (a missing one leaves the sky bare there). */
+const SKIES: Record<number, SkyPiece[]> = {
+  // The Parking Belt: the Earth below, a ringed planet of parked junk, the Franchise's billboard.
+  1: [
+    { src: '/galaga/bg-1-a.png', dir: [0.2, -0.45, -1] },
+    { src: '/voyagers2/sky-planet.png', dir: [1, 0.35, -0.4] },
+    { src: '/voyagers2/sky-moon.png', dir: [-0.8, 0.6, -0.5] },
+    { src: '/voyagers2/sky-billboard.png', dir: [-1, 0.05, 0.4] },
+    { src: '/voyagers2/sky-nebula.png', dir: [0.1, 0.25, 1] },
+    { src: '/voyagers2/sky-galaxy.png', dir: [0.4, 0.9, 0.3] },
+  ],
+  // The Long Haul: the freight lane's buoys and mile markers, a truck stop, the dust of the road.
+  2: [
+    { src: '/voyagers2/sky-truckstop.png', dir: [0.9, 0.2, -0.6] },
+    { src: '/voyagers2/sky-markers.png', dir: [-0.3, -0.1, -1] },
+    { src: '/voyagers2/sky-buoy.png', dir: [-1, 0.3, 0.2] },
+    { src: '/voyagers2/sky-billboard.png', dir: [0.5, 0.1, 1] },
+    { src: '/voyagers2/sky-nebula.png', dir: [-0.4, 0.6, 0.8] },
+    { src: '/voyagers2/sky-moon.png', dir: [0.3, -0.7, 0.6] },
+  ],
+  // The Delivery: the Hut's moon far off, the galaxy, the dark at the end of the Dial.
+  3: [
+    { src: '/voyagers2/sky-hut.png', dir: [-0.5, 0.15, -1] },
+    { src: '/voyagers2/sky-galaxy.png', dir: [0.8, 0.5, -0.3] },
+    { src: '/voyagers2/sky-nebula.png', dir: [0.2, -0.3, 1] },
+    { src: '/voyagers2/sky-moon.png', dir: [-1, 0.6, 0.4] },
+  ],
+}
 const STICK_R = 22
 
 let renderer: Renderer | null = null
@@ -145,12 +177,12 @@ function sound(s: Sfx, gain = 1): void {
 }
 
 /** Begin a sortie. */
-function start(pilot: PilotId = props.pilot): void {
+function start(pilot: PilotId = props.pilot, missionId: string = props.mission ?? 'firstshift'): void {
   if (!renderer) return
-  const def = MISSIONS[props.mission ?? 'firstshift'] ?? MISSIONS.firstshift!
+  const def = MISSIONS[missionId] ?? MISSIONS.firstshift!
   const seed = nextSeed || ((Date.now() ^ (Math.random() * 0x7FFFFFFF)) >>> 0)
   nextSeed = 0
-  world = createWorld({ seed, mission: def, pilot })
+  world = createWorld({ seed, mission: def, pilot, morale: props.morale, mood: props.mood })
   const w = world
   glue = createGlue()
   director = createDirector({
@@ -159,15 +191,7 @@ function start(pilot: PilotId = props.pilot): void {
   })
   director.resetRun()
   monitor = director.monitor
-  // The Parking Belt: the Earth below, a ringed planet of parked junk, the Franchise's billboard.
-  renderer.setSky([
-    { src: '/galaga/bg-1-a.png', dir: [0.2, -0.45, -1] },
-    { src: '/voyagers2/sky-planet.png', dir: [1, 0.35, -0.4] },
-    { src: '/voyagers2/sky-moon.png', dir: [-0.8, 0.6, -0.5] },
-    { src: '/voyagers2/sky-billboard.png', dir: [-1, 0.05, 0.4] },
-    { src: '/voyagers2/sky-nebula.png', dir: [0.1, 0.25, 1] },
-    { src: '/voyagers2/sky-galaxy.png', dir: [0.4, 0.9, 0.3] },
-  ], 0)
+  renderer.setSky(SKIES[def.act] ?? SKIES[1]!, def.act - 1)
   keys.clear()
   pressed.clear()
   stickId = fireId = burnId = null
@@ -192,6 +216,7 @@ function report(w: Voyage): SortieReport {
     why: w.mission.why,
     score: w.score,
     kills: w.mission.kills,
+    id: w.def.id,
     mission: w.def.title,
     secs: Math.round(w.tick / 60),
     pilot: props.pilot,
@@ -273,6 +298,7 @@ function listen(w: Voyage): void {
       case 'decoy': if (me && e.a === me.id) sound('decoy'); break
       case 'auto': sound('auto'); break
       case 'swap': sound('swap'); break
+      case 'scrape': if (me && e.a === me.id) sound('armourHit', 0.7); break
     }
   }
   // The lock's rising tone, while it builds.
@@ -372,12 +398,18 @@ function onTouchStart(e: TouchEvent): void {
   if (!usingTouch) { usingTouch = true; measure() }
   wake()
   if (!running) return
-  if (paused.value) { togglePause(); return }
+  if (paused.value) {
+    // Paused: TURN BACK leaves the sortie for the hub; anywhere else goes on.
+    const t = e.changedTouches[0]
+    if (t && inside(renderer.layout.turnBack, logical(t).x, logical(t).y)) { quit(); return }
+    togglePause()
+    return
+  }
   const l = renderer.layout
   for (const t of Array.from(e.changedTouches)) {
     const p = logical(t)
     // The pause chip in the view's top-left corner.
-    if (p.x < 22 && p.y < 22) { togglePause(); continue }
+    if (inside(l.pause, p.x, p.y)) { togglePause(); continue }
     const b = l.buttons
     if (b && inside(b.fire, p.x, p.y)) { fireId = t.identifier; ui.fire = true; continue }
     if (b && inside(b.msl, p.x, p.y)) { missileTap = true; continue }
@@ -460,6 +492,7 @@ function togglePause(): void {
 function quit(): void {
   const w = world
   if (!w || !running) return
+  if (paused.value) radio.suspend(false)
   paused.value = false
   w.mission.result = 'lost'
   w.mission.why = 'quit'
@@ -502,6 +535,7 @@ function installDebug(): void {
         layout: renderer?.layout, monitor: monitor ? { speaking: monitor.speaking, who: monitor.who, text: monitor.text } : null,
         input: { pitch: input.pitch, yaw: input.yaw, fire: input.fire },
         stick: ui.stick,
+        kinds: w.ships.filter(s => live(s)).map(s => s.kind),
       }
     },
     seed: (n: number) => { nextSeed = n; start() },
@@ -517,6 +551,28 @@ function installDebug(): void {
     menu: (on: boolean) => { ui.menu = on },
     touch: (on: boolean) => { usingTouch = on; measure() },
     invert: (on: boolean) => { invert = on },
+    /** Turn the Calzone's nose to the first ship of a kind (the lab's pictures of big ships). */
+    face: (kind: string) => {
+      const w = world
+      const me = w ? calzone(w) : null
+      const o = w?.ships.find(s => s.kind === kind && live(s))
+      if (!w || !me || !o) return false
+      const d = { x: o.pos.x - me.pos.x, y: o.pos.y - me.pos.y, z: o.pos.z - me.pos.z }
+      const l = Math.hypot(d.x, d.y, d.z) || 1
+      qLookTo(me.q, { x: d.x / l, y: d.y / l, z: d.z / l })
+      me.rate.x = me.rate.y = me.rate.z = 0
+      return true
+    },
+    /** End the sortie now, won or lost (the lab's way to the debrief; it posts nothing). */
+    end: (won: boolean) => {
+      const w = world
+      if (!w || !running) return
+      w.mission.result = won ? 'won' : 'lost'
+      w.mission.why = won ? 'landed' : 'eject'
+      w.mission.stage = 'done'
+      running = false
+      emit('over', report(w))
+    },
   }
 }
 

@@ -248,7 +248,128 @@ def sky(log):
         log.append(f"{name:28} {a.shape[1]:4} x {a.shape[0]:<4} {os.path.getsize(out):6} bytes  key {k} fringe {f}  (staged)")
 
 
-SETS = {"portraits": portraits, "card": card, "sky": sky, "sprites": sprites}
+# ---- batch 2 ---------------------------------------------------------------------------------
+# A picture that ships whole (a room, an ending, an act card) is a window of its snapped picture:
+# (snapped picture, (x, y) of the window's upper left corner or None for the middle, boxes to
+# paint flat). A box is (x, y, w, h) in the shipped picture; it takes the commonest colour
+# inside it: the chalkboards and the television screen, so they are blank where code draws.
+# The rooms come back 243 to 253 wide (cells of 4.7 to 4.9 px for the canvas's 4.93): the middle
+# 240 x 180. The boards are the part of each chalkboard clear of heads (Nonna's bun, Ridley's
+# hair and Duo's cap reach into the boards' lower edges); rooms.py has the same boxes.
+ROOMS = {
+    "room-kitchen": ("room-kitchen-a", None, [(52, 12, 75, 34)]),
+    "room-hangar": ("room-hangar-a", None, []),
+    "room-breakroom": ("room-breakroom-a", None, [(81, 28, 81, 33), (180, 68, 24, 21)]),
+}
+ENDINGS = {
+    # won: moved up from the middle (9, 27) so Tiny's goggles are whole; the counter's front
+    # pizzas lose their lower rows
+    "card-ending-won": ("card-ending-won-a", (9, 20), []),
+    # lost: the third pass (c, over the second; the same picture, its prompt with every block)
+    "card-ending-lost": ("card-ending-lost-c", None, []),
+}
+ACTS = {
+    # act 1 (257 x 142): two rows from the top, so the Deep Dish's chimney is whole
+    "card-act-1": ("card-act-1-a", (8, 2), []),
+    # act 2 (258 x 142): the sign at the top right whole; the rig's wheels lose a few rows
+    "card-act-2": ("card-act-2-b", (10, 4), []),
+    # act 3 (251 x 138): the sign's top rows whole
+    "card-act-3": ("card-act-3-a", (5, 5), []),
+}
+
+
+# Mends by hand, after the window is taken: (x, y, w, h, colours replaced, top row's colour,
+# the rest's colour), every colour as hex and already in the picture. Nova's t-shirt is a crew
+# neck by the rule (prompt block `nova`: "no cleavage"); in both endings it came back as a
+# scoop three to four rows deep with a darker pixel or two in its middle (the lost one three
+# times over, the third time with the crew neck asked for outright). The skin in the box under
+# her neck becomes the shirt's collar shade (top row) and its cream (below).
+MEND = {
+    "card-ending-won": [(78, 144, 16, 5, ("f5a260", "d87330", "e5843f", "bc5633", "bc7b4c"), "c4a4ae", "f4ddc5")],
+    "card-ending-lost": [(173, 83, 16, 4, ("f09a63", "d96d27", "ca6323", "f48528", "dd5814", "bb4d16"), "ab9197", "efd6b6")],
+}
+
+
+def mend(a, pal, name, log):
+    cols = {"%02x%02x%02x" % tuple(pal[i * 3:i * 3 + 3]): i for i in range(len(pal) // 3)}
+    for x, y, w, h, skin, top, fill in MEND.get(name, []):
+        if top not in cols or fill not in cols:
+            log.append(f"WRONG MEND {name}: {top} or {fill} not in its palette")
+            continue
+        hit = [cols[c] for c in skin if c in cols]
+        box = a[y:y + h, x:x + w]
+        m = np.isin(box, hit)
+        n = int(m.sum())
+        box[0][m[0]] = cols[top]
+        box[1:][m[1:]] = cols[fill]
+        log.append(f"    {name}: mended {n} px in ({x}, {y}, {w}, {h})")
+
+
+def whole(table, size, log):
+    tw, th = size
+    for name, (src_name, at, paint) in table.items():
+        src = os.path.join(S, src_name + ".png")
+        if not os.path.exists(src):
+            log.append(f"MISSING {name}  ({os.path.relpath(src, ROOT)})")
+            continue
+        im = Image.open(src)
+        if im.mode != "P":
+            im = im.convert("RGB").quantize(colors=64, method=Image.MEDIANCUT, dither=Image.NONE)
+        x, y = at if at else ((im.width - tw) // 2, (im.height - th) // 2)
+        part = im.crop((x, y, x + tw, y + th))
+        a = np.array(part)
+        for px, py, pw, ph in paint:
+            box = a[py:py + ph, px:px + pw]
+            vals, counts = np.unique(box, return_counts=True)
+            box[...] = vals[counts.argmax()]
+        mend(a, part.getpalette(), name, log)
+        out = Image.fromarray(a, "P")
+        out.putpalette(part.getpalette())
+        dst = os.path.join(S, name + "-final.png")
+        out.save(dst)
+        opaque(dst, name, log, size)
+
+
+def rooms(log):
+    whole(ROOMS, (240, 180), log)
+
+
+def endings(log):
+    whole(ENDINGS, (240, 200), log)
+
+
+def acts(log):
+    whole(ACTS, (240, 120), log)
+
+
+# The sky pieces of acts 2 and 3: three on one green picture (snap/sky-b2-a.png), each cut by
+# the box it stands in (x, y, w, h in the snapped picture), so that the four mile markers,
+# which stand apart, ship as one piece.
+SKY2 = {
+    "sky-truckstop": ("sky-b2-a", (0, 0, 256, 92)),
+    "sky-markers": ("sky-b2-a", (0, 92, 256, 62)),
+    "sky-buoy": ("sky-b2-fix", (0, 0, 140, 128)),
+}
+
+
+def sky2(log):
+    os.makedirs(STAGE, exist_ok=True)
+    for name, (src_name, (x, y, w, h)) in SKY2.items():
+        src = os.path.join(S, src_name + ".png")
+        if not os.path.exists(src):
+            log.append(f"MISSING {name}  ({os.path.relpath(src, ROOT)})")
+            continue
+        a = load(src)[y:y + h, x:x + w].copy()
+        k = clean_key(a, green=True)
+        a, f = defringe(a, green=True)
+        a = night(trim(a), 0.34, (14, 18, 38))
+        out = os.path.join(STAGE, name + ".png")
+        save_indexed(Image.fromarray(a, "RGBA"), out)
+        log.append(f"{name:28} {a.shape[1]:4} x {a.shape[0]:<4} {os.path.getsize(out):6} bytes  key {k} fringe {f}  (staged)")
+
+
+SETS = {"portraits": portraits, "card": card, "sky": sky, "sprites": sprites,
+        "rooms": rooms, "endings": endings, "acts": acts, "sky2": sky2}
 
 
 def main():

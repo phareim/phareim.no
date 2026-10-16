@@ -28,7 +28,8 @@ export function turnScale(s: Ship): number {
 /** One tick of flight for one ship under its controls. */
 export function fly(s: Ship, c: Controls, dt: number): void {
   const k = SHIPS[s.kind]
-  if (k.capital) {
+  if (k.fixed) return
+  if (k.capital && !s.ai) {
     // Big ships cruise straight; their turrets do the fighting.
     s.speed = approach(s.speed, s.cruise, k.accel * dt)
     forwardTo(s.vel, s.q)

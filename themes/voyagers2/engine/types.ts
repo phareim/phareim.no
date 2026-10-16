@@ -29,7 +29,10 @@ export type ShipKind =
   | 'hound' // torpedo bomber
   | 'parmesan' // the prince's own fighter
   | 'buffet' // the Franchise's carrier
-  | 'outlet' // a corvette: turrets and a shield generator
+  | 'outlet' // a corvette: a drive-through with turrets
+  | 'turret' // a big ship's gun, fixed to its hull
+  | 'hut' // THE HUT, the Franchise's moon-sized restaurant
+  | 'vent' // the Hut's oven vent: the finale's target
 
 /** What a pilot asks for this tick: the same for the player, the back seat, an AI. */
 export interface Controls {
@@ -169,6 +172,11 @@ export interface Ship {
   r: number
   /** Kills scored by this ship (wingmen and the Calzone's two seats). */
   kills: number
+  /** A fixed part (a turret, the vent): the ship it is fixed to and where (in that ship's frame), or -1. */
+  parent: number
+  mount: V3
+  /** Torpedoes on the rack (the Calzone on a strike). */
+  torps: number
 }
 
 export type ShotKind = 'tube' | 'turret' | 'flak' | 'ion'
@@ -239,7 +247,7 @@ export type EventType =
   | 'shot' | 'hit' | 'shieldHit' | 'armourHit' | 'kill' | 'eject' | 'explode'
   | 'missile' | 'missileIn' | 'lockOn' | 'locked' | 'decoy' | 'missileMiss'
   | 'burn' | 'swap' | 'autoReady' | 'auto' | 'arrive' | 'navClear' | 'spawn'
-  | 'objective' | 'land' | 'lost' | 'cue' | 'order' | 'warn'
+  | 'objective' | 'land' | 'lost' | 'cue' | 'order' | 'warn' | 'scrape'
 
 export interface GameEvent {
   type: EventType
@@ -273,6 +281,16 @@ export interface MissionState {
   kills: number
   /** Seconds the autopilot skipped (time and space between navs). */
   skipped: number
+  /** Scripted things still to happen: [tick, what]. */
+  script: { at: number; do: string }[]
+  /** What has happened: the duel won, help come, the target down. */
+  flags: Record<string, boolean>
+  /** Ticks since the fight at home began (a sortie that holds the Deep Dish). */
+  homeT: number
+  /** Big ships that launch fighters: id, ticks to the next launch, launches left. */
+  launchers: { id: number; next: number; left: number; every: number; group: SpawnGroup }[]
+  /** The tick the target went down on a sortie that ends with it (-1: not yet). */
+  endAt: number
 }
 
 export interface World {

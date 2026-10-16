@@ -198,10 +198,11 @@ export function drawHud(g: G, l: Layout, w: Voyage, cam: THREE.PerspectiveCamera
       rect(g, c, pr.x - s, pr.y, s * 2 + 1, 1)
       rect(g, c, pr.x, pr.y - s, 1, s * 2 + 1)
     } else if (f.kind === 'shield') {
-      const r = Math.max(4, f.r * k * 1.15)
+      // Capped: a ship passing close must not draw a circle the size of the view.
+      const r = Math.min(34, Math.max(4, f.r * k * 1.15))
       ring(g, f.age < 4 ? C.shield : C.shieldLo, pr.x, pr.y, r, f.age < 4 ? 0 : 2, f.age)
     } else if (f.kind === 'boom') {
-      const r = Math.max(3, f.r * k)
+      const r = Math.min(30, Math.max(3, f.r * k))
       if (f.age < 3) burst(g, pr.x, pr.y, r * (0.5 + f.age * 0.2), f.x + f.z, C.text, C.gold)
       else if (f.age < 12) burst(g, pr.x, pr.y, r * (0.7 + f.age * 0.03), f.x + f.z + f.age, f.age < 7 ? C.gold : C.orange, f.age < 7 ? C.orange : C.red)
       if (f.age > 2) ring(g, t < 0.5 ? C.gold : C.orange, pr.x, pr.y, Math.round(r * (0.8 + t * 1.4)), t < 0.4 ? 0 : 2, f.age)
@@ -290,7 +291,9 @@ export function drawHud(g: G, l: Layout, w: Voyage, cam: THREE.PerspectiveCamera
           const k = me.lock >= 1 ? 1 : 2.2 - me.lock * 1.2
           const lc = me.lock >= 1 ? C.lock : (frameNo >> 2) % 2 ? C.lock : C.redLo
           brackets(g, lc, pr.x, pr.y, half * k + 2, 2)
-          if (me.lock >= 1) textC(g, 'LOCK', pr.x, pr.y - half - 11, C.lock, '#120d18')
+          const torp = me.torps > 0 && SHIPS[tgt.kind].capital === true
+          if (me.lock >= 1) textC(g, torp ? 'TORPEDO' : 'LOCK', pr.x, pr.y - half - 11, C.lock, '#120d18')
+          else if (torp) textC(g, 'HOLD ' + Math.ceil((1 - me.lock) * 5), pr.x, pr.y - half - 11, C.gold, '#120d18')
         }
       }
     } else {
@@ -309,7 +312,7 @@ export function drawHud(g: G, l: Layout, w: Voyage, cam: THREE.PerspectiveCamera
     ring(g, sc, cx, cy, 7)
     ring(g, C.textLo, cx, cy, 14, 3)
     rect(g, sc, cx, cy, 1, 1)
-    text(g, 'TURRET', v.x + 24, v.y + 4, C.textDim, '#120d18')
+    text(g, 'TURRET', v.x + 26, v.y + 7, C.textDim, '#120d18')
   }
 
   // Incoming: a missile on its way to us.
@@ -392,6 +395,9 @@ function drawButtons(g: G, l: Layout, w: Voyage, ui: HudState): void {
   const b = l.buttons!
   const me = calzone(w)
   button(g, b.fire, w.seat === 'back' ? 'FIRE' : 'FIRE', ui.fire)
-  button(g, b.msl, me && me.lock >= 1 ? 'MSL!' : 'MSL', false, w.seat === 'front' && !!me && me.missiles > 0)
+  const tg = me ? shipAt(w, me.target) : null
+  const torp = !!me && me.torps > 0 && live(tg) && SHIPS[tg.kind].capital === true
+  const label = torp ? (me!.lock >= 1 ? 'TRP!' : 'TRP') : me && me.lock >= 1 ? 'MSL!' : 'MSL'
+  button(g, b.msl, label, false, w.seat === 'front' && !!me && (torp || me.missiles > 0))
   button(g, b.burn, 'BURN', ui.burn, w.seat === 'front')
 }

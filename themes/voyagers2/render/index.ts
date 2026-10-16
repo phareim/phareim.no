@@ -19,7 +19,9 @@ import type { HudState } from './hud'
 import { computeLayout } from './layout'
 import type { Layout, Screen } from './layout'
 import { C, SPACE } from './palette'
-import { rect, textC } from './pix'
+import { frame as border, rect, textC } from './pix'
+
+const running = (w: Voyage): boolean => w.mission.stage === 'fly' || w.mission.stage === 'launch' || w.mission.stage === 'auto'
 import { createScene } from './scene'
 import type { Scene3D, SkyPiece } from './scene'
 
@@ -98,7 +100,21 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       if (ui.paused) {
         rect(g, C.bakelite, 0, Math.floor(l.view.h / 2) - 14, l.W, 26)
         textC(g, 'PAUSED', l.W / 2, Math.floor(l.view.h / 2) - 9, C.gold)
-        textC(g, l.touch ? 'TAP TO GO ON' : 'P TO GO ON', l.W / 2, Math.floor(l.view.h / 2) + 2, C.textDim)
+        textC(g, l.touch ? 'TAP TO GO ON' : 'P TO GO ON · HOLD ESC TO TURN BACK', l.W / 2, Math.floor(l.view.h / 2) + 2, C.textDim)
+        if (l.touch) {
+          // Turning back: home to the Deep Dish, the sortie not flown.
+          const b = l.turnBack
+          rect(g, C.bakelite, b.x, b.y, b.w, b.h)
+          border(g, C.bezelHi, b.x, b.y, b.w, b.h)
+          textC(g, 'TURN BACK', b.x + b.w / 2, b.y + 6, C.text)
+        }
+      } else if (l.touch && running(w)) {
+        // The pause chip: two bars in the view's top-left corner.
+        const p = l.pause
+        rect(g, C.bakelite, p.x, p.y, p.w, p.h)
+        border(g, C.bezel, p.x, p.y, p.w, p.h)
+        rect(g, C.textDim, p.x + 6, p.y + 4, 2, 8)
+        rect(g, C.textDim, p.x + 10, p.y + 4, 2, 8)
       }
       out.drawImage(buffer, 0, 0, l.W * l.n, l.H * l.n)
     },

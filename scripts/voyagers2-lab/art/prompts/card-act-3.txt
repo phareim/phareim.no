@@ -1,0 +1,26 @@
+The first image is a rough layout in flat blocks: it shows the composition, where everything
+stands and how large. The second image shows the pixel-art style to draw in and the size of
+square pixel block to use: at its left the cover of this game, at its right THE HUT as this game
+draws it far away. Draw the layout as one finished picture in that style, filling the whole
+picture from edge to edge, everything in its place and at its size, in fine detail at that
+small block size.
+{style} {clusters}
+{world}
+The picture is a wide establishing shot that opens the last act of a 1990s space-combat game:
+THE DELIVERY. On the right (the large grey block): a grey cratered moon, and sitting on its top
+(the steel blocks) THE HUT, the pizza chain's flagship: a colossal dome-shaped restaurant
+building of riveted grey steel plates with a ring of small square windows lit amber round its
+base and a little lantern on its crown. Beside it, on a tall pylon (the red block), its big lit
+sign: a board ringed with rows of round yellow bulbs drawn as flat pale pixels, no glow, showing
+a picture of a pizza slice under a dome, no letters on it. The dome is an original building
+invented for this game: not the red roof shape, the logo or the colours of any real restaurant
+chain.
+Swarming round the dome, at every distance (the small brown blocks): the Franchise's fighters,
+stubby brown riveted craft with two round mascot ears on top and a yellow cockpit.
+In the lower left foreground, small, seen from behind and heading in (the white and red block):
+the CALZONE, a fat white-and-red pizza delivery rocket with wood-panel sides and a red tail fin, a
+short flat orange flame behind it.
+Dark night-blue space with a few one-pixel stars. Deep blue and brown shadows, never black; warm
+amber light from the Hut's windows. No people, no lettering, no numbers, no text anywhere in the
+picture.
+{leave}

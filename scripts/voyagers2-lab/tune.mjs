@@ -6,14 +6,14 @@ import { MISSIONS } from '../../themes/voyagers2/engine/missions.ts'
 import { createBot, botInput, BOT_PROFILES } from '../../themes/voyagers2/engine/bot.ts'
 import { condition } from '../../themes/voyagers2/engine/ships.ts'
 
-const missionId = process.argv[2] ?? 'firstshift'
+const arg = process.argv[2] ?? 'firstshift'
 const seeds = Number(process.argv[3] ?? 8)
-const mission = MISSIONS[missionId]
-if (!mission) { console.error('no mission', missionId); process.exit(1) }
+const ids = arg === 'all' ? Object.keys(MISSIONS) : arg.split(',')
+for (const id of ids) if (!MISSIONS[id]) { console.error('no mission', id); process.exit(1) }
 
 const LIMIT = 60 * 60 * 8
 
-function fly(profile, seed) {
+function fly(mission, profile, seed) {
   const w = createWorld({ seed, mission, pilot: seed % 2 ? 'rex' : 'nova' })
   const bot = createBot(profile, seed)
   let hitsTaken = 0, front = 0, back = 0, wing = 0, shots = 0, fights = 0, inFight = 0
@@ -39,13 +39,16 @@ function fly(profile, seed) {
   }
 }
 
+for (const missionId of ids) {
+const mission = MISSIONS[missionId]
 console.log(`mission ${missionId}, ${seeds} seeds`)
 for (const profile of Object.keys(BOT_PROFILES)) {
   const runs = []
-  for (let s = 1; s <= seeds; s++) runs.push(fly(profile, s))
+  for (let s = 1; s <= seeds; s++) runs.push(fly(mission, profile, s))
   const won = runs.filter(r => r.result === 'won').length
   const avg = k => (runs.reduce((a, r) => a + r[k], 0) / runs.length).toFixed(1)
   console.log(`${profile.padEnd(7)} won ${won}/${seeds}  secs ${avg('secs')} (fighting ${avg('fightSecs')})  hits taken ${avg('hitsTaken')}  kills front ${avg('front')} back ${avg('back')} wing ${avg('wing')}  shots ${avg('shots')}  hull left ${avg('whole')}%  score ${avg('score')}`)
   const lost = runs.filter(r => r.result !== 'won').map(r => `${r.result}:${r.why}`)
   if (lost.length) console.log('        not won:', lost.join(' '))
+}
 }

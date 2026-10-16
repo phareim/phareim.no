@@ -188,6 +188,20 @@ const CABS: Record<string, CabStyle> = {
       '..o....o.o..',
     ),
   },
+  voyagers2: {
+    // Rex & Nova: Space Voyagers II: the Calzone (white, red nose and fins, the bubble) flying right at a mascot's slice.
+    body: '#1a2f78', bodyL: '#2f4fb0', bodyD: '#0e1a48', trim: '#ffd23f', glow: '#ffd23f',
+    bg: bg7('#141a33'),
+    marquee: M(
+      '.........y.y',
+      '........yyyy',
+      '.r.ww....yy.',
+      'orwwwwwrr...',
+      '.r..........',
+      '.....y......',
+      '............',
+    ),
+  },
   breakout: {
     body: '#4a1440', bodyL: '#7a2a68', bodyD: '#2a0a24', trim: '#ff3b5c', glow: '#ff5f7a',
     bg: bg7('#0b0616'),
@@ -370,6 +384,18 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       if (Math.floor(t * 4) % 3 === 0) f('#ffe27a', 4, 4)
       f('#ff4f6e', 4, 5); f('#fff6e0', 3, 6, 3, 2); f('#ff4f6e', 2, 7); f('#ff4f6e', 6, 7)
       f('#ff4f6e', 9, 6, 1, 2); f('#ffd23f', 9, 5)
+      return
+    }
+    case 'voyagers2': {
+      // Space Voyagers II: stars streaming past, the Calzone bobbing, a slice-shaped mascot fighter, a bolt between.
+      f('#141a33', 0, 0, W, H)
+      for (let i = 0; i < 6; i++) f(i % 2 ? '#8f9fca' : '#4a5a8c', W - 1 - (Math.floor(t * 12 + i * 4.1) % W), (i * 5 + 1) % H)
+      const cy = 4 + Math.round(Math.sin(t * 2 + seed) * 1)
+      f('#ff8a3d', 0, cy); f('#cc3a36', 1, cy - 1); f('#cc3a36', 1, cy + 1)
+      f('#fff6e0', 1, cy, 4, 1); f('#9fc4dc', 3, cy - 1); f('#cc3a36', 5, cy)
+      const ry = 2 + Math.round(Math.sin(t * 2.6 + seed + 1) * 1)
+      f('#f2ca52', 8, ry, 2, 1); f('#f2ca52', 8, ry + 1); f('#784a30', 7, ry - 1); f('#784a30', 10, ry - 1)
+      if (Math.floor(t * 5) % 2 === 0) f('#ffe27a', 6 + (Math.floor(t * 10) % 2), cy)
       return
     }
     case 'breakout': {

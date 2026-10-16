@@ -6,7 +6,7 @@
  */
 import { SHIPS } from './balance.ts'
 import { makeControls } from './flight.ts'
-import { q4, qCopyTo, unrotateTo, subTo, v3, copyTo, normTo } from './math.ts'
+import { q4, qCopyTo, unrotateTo, subTo, v3, copyTo, normTo, rotateTo, addTo } from './math.ts'
 import type { Q4, V3 } from './math.ts'
 import type { Ai, AiMode, GameEvent, Ship, ShipKind, Side, Turret, World } from './types.ts'
 
@@ -82,9 +82,36 @@ export function spawnShip(w: World, kind: ShipKind, side: Side, pos: V3, q: Q4 =
     role: o.role ?? '',
     r: k.r,
     kills: 0,
+    parent: -1,
+    mount: v3(),
+    torps: 0,
   }
   w.ships.push(s)
+  // A big ship's guns are ships of their own, fixed to its hull: they can be targeted and shot off.
+  for (const m of k.mounts ?? []) {
+    const at = v3(m.at[0], m.at[1], m.at[2])
+    const t = spawnShip(w, 'turret', side, addTo(v3(), s.pos, rotateTo(v3(), s.q, at)), s.q, { name: s.name + ' GUN' })
+    t.parent = s.id
+    copyTo(t.mount, at)
+    const dir = normTo(v3(), v3(m.dir[0], m.dir[1], m.dir[2]))
+    copyTo(t.turrets[0]!.dir, dir)
+    copyTo(t.turrets[0]!.aim, dir)
+  }
   return s
+}
+
+/** Fix a ship to another at a point of its hull (the Hut's vent). */
+export function attach(s: Ship, parent: Ship, at: V3): void {
+  s.parent = parent.id
+  copyTo(s.mount, at)
+  placeAttached(s, parent)
+}
+
+export function placeAttached(s: Ship, parent: Ship): void {
+  rotateTo(s.pos, parent.q, s.mount)
+  addTo(s.pos, s.pos, parent.pos)
+  qCopyTo(s.q, parent.q)
+  copyTo(s.vel, parent.vel)
 }
 
 const LOCAL = v3()
@@ -116,16 +143,21 @@ export interface HitResult {
  * ship `by`. Returns what was taken where; emits the hit and, when it is
  * the last, the kill. A ship that is already dead takes nothing.
  */
-export function hurt(w: World, s: Ship, dmg: number, from: V3, by: number, at: V3 = s.pos): HitResult {
+export function hurt(w: World, s: Ship, dmg: number, from: V3, by: number, at: V3 = s.pos, pierce = false): HitResult {
   const res: HitResult = { shield: 0, armour: 0, core: 0, side: 'f', killed: false }
   if (!live(s) || dmg <= 0) return res
-  const side = sideOf(s, from)
+  const k = SHIPS[s.kind]
+  // A big ship takes damage as one pool (the front shield, the front armour, the core): a strike is
+  // counted in torpedoes, wherever they land.
+  const side = k.capital || k.fixed ? 'f' : sideOf(s, from)
   res.side = side
   let left = dmg
   const front = side !== 'b'
   // The shield on the side the hit comes from; left and right hits share the front shield's
   // half that faces them: half on each.
-  if (side === 'f' || side === 'b') {
+  if (pierce) {
+    // A torpedo goes through the shield.
+  } else if (side === 'f' || side === 'b') {
     const take = Math.min(left, front ? s.shieldF : s.shieldB)
     if (front) s.shieldF -= take; else s.shieldB -= take
     left -= take; res.shield = take
@@ -183,5 +215,7 @@ export function condition(s: Ship): { sf: number; sb: number; af: number; ab: nu
 export function wholeness(s: Ship): number {
   const k = SHIPS[s.kind]
   const a = s.armour
+  // A big ship's damage is one pool: its front armour and its core.
+  if (k.capital || k.fixed) return (a.f + s.core) / (k.armour + k.core)
   return (a.f + a.b + a.l + a.r + s.core) / (k.armour * 4 + k.core)
 }

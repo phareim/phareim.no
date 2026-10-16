@@ -1,0 +1,28 @@
+The first image is a finished picture in square pixel blocks. Redraw it as one finished picture
+of pixel art and keep it exactly: everything where it is and as large as it is, the same size of
+square pixel blocks on the same grid, nothing moved, nothing resized, both faces as they are.
+Change only two things.
+First, the bear mascot head that the man holds under his arm becomes the Franchise's own bear,
+as the second image shows it at its right: a worn bear head of brown fabric fur with stitched
+seams and a rubbed bald patch on one cheek, small round ears, a cream muzzle with a big black
+nose, round glass eyes with a hard shine of one pale pixel, a brown leather flight helmet with
+flying goggles on its brow and a battered black bowler hat worn on top of the helmet, its lower
+jaw hanging open on two visible bolts. It is an original character invented for this game: it
+resembles no real restaurant chain's mascot, no real animatronic and no character of a video
+game or a film.
+Second, the bear costume he wears is closed up to his neck: a round shabby body suit of brown
+fabric fur with stitched seams and a cream belly patch, no bare chest; his white cook's apron
+stays tied over it, and his own head, with its red headband, sticks out of the costume's neck.
+The second image also shows, at its left, the faces of REX and NOVA as they are drawn in this
+game: keep them matching.
+{style} {clusters}
+{world} {woman} {face}
+It is the losing ending card of a 1990s space-combat game, comic and warm, nobody hurt: REX, a
+pizza cook and pilot, slumped in a bear mascot costume at the counter of a garish Franchise
+restaurant, sheepish and sad, holding the costume's head under his arm; NOVA behind the counter
+at the cash register in a paper Franchise hat, her chin in her hand, deeply unimpressed. Mustard
+tiles, an orange plastic counter, menu boards that show only pictures. The restaurant is an
+original place invented for this game: not the red roof shape, the logo or the colours of any
+real restaurant chain.
+No lettering, no numbers, no text anywhere in the picture.
+{leave}

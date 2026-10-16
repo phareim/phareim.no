@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Order a picture from `wave` for Rex & Nova: Space Voyagers II (the art lab's batch 1).
+"""Order a picture from `wave` for Rex & Nova: Space Voyagers II (the art lab's batches).
 
     python3 scripts/voyagers2-lab/art/gen.py NAME --prompt-file scripts/voyagers2-lab/art/prompts/x.txt
                                            [--format 1:1] [--images canvas.png style.png]
@@ -14,9 +14,11 @@ edit model `flare-edit`), paid, about $0.04 a picture. The key is read from the 
 words for the style and for what to leave out. The recipe is the one of Nova's Solo Rescue
 (~/github/nova/tools/art/README.md).
 
-Every order is logged, also one that failed (`"failed": true`). The cap counts every order logged
-plus orders still out, so four orders at once cannot run past it. A failed order counts
-too (it may have been billed): the cap is on orders, not on pictures.
+Every order is logged, also one that failed (`"failed": true`), with the batch it belongs to
+(`"batch"`; lines without one are batch 1). The cap is per batch (CAPS: 45 for batch 1, 40 for
+batch 2) and counts every order of the batch logged plus orders still out, so four orders at
+once cannot run past it. A failed order counts too (it may have been billed): the cap is on
+orders, not on pictures. ART_BATCH in the environment picks the batch (default 2).
 """
 from __future__ import annotations
 
@@ -39,17 +41,19 @@ LOG = os.path.join(HERE, "log.jsonl")
 LOCK = os.path.join(ROOT, "tmp", "voyagers2-art", "gen.lock")
 OUT_FILE = os.path.join(ROOT, "tmp", "voyagers2-art", "out.json")
 BLOCKS = os.path.join(HERE, "prompts", "blocks")
-CAP = 45
+BATCH = int(os.environ.get("ART_BATCH", "2"))
+CAPS = {1: 45, 2: 40}
+CAP = CAPS.get(BATCH, 40)
 
 
 def ordered() -> int:
-    """Orders made, failed ones too."""
+    """Orders made in this batch, failed ones too."""
     if not os.path.exists(LOG):
         return 0
     n = 0
     with open(LOG) as f:
         for line in f:
-            if line.strip():
+            if line.strip() and json.loads(line).get("batch", 1) == BATCH:
                 n += 1
     return n
 
@@ -148,7 +152,7 @@ def main() -> int:
             shutil.copyfile(src, out_png)
         size = list(Image.open(out_png).size)
     rec = {
-        "name": a.name, "model": model, "format": a.format, "quality": a.quality,
+        "name": a.name, "batch": BATCH, "model": model, "format": a.format, "quality": a.quality,
         "resolution": a.resolution, "size": size, "failed": (not ok) or None,
         "images": [os.path.relpath(os.path.abspath(i), ROOT) for i in (a.images or [])] or None,
         "prompt_file": os.path.relpath(os.path.abspath(a.prompt_file), ROOT),
@@ -168,7 +172,7 @@ def main() -> int:
             tail = tail.replace(key, "***")
         print(f"gen: {a.name} failed after {secs}s\n{tail}")
         return 1
-    print(f"gen: {a.name} {size} {model} in {secs}s (order {n} of {CAP})")
+    print(f"gen: {a.name} {size} {model} in {secs}s (batch {BATCH}: order {n} of {CAP})")
     return 0
 
 

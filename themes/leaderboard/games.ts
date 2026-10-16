@@ -16,13 +16,15 @@ export interface GameEntry {
 }
 
 export const GAMES: readonly GameEntry[] = [
-  { id: 'galaga', title: 'Space Voyagers I', tagline: 'Rex & Nova · one large pepperoni', maxScore: 5_000_000 },
+  { id: 'voyagers2', title: 'Space Voyagers II', tagline: 'Rex & Nova · one ship, two seats, eight sorties', maxScore: 1_000_000 },
   { id: 'breakout', title: 'Space Paddle — The Odyssey', tagline: 'Paddle · ball · neon sunset', maxScore: 500_000 },
   { id: 'rtype', title: 'G-Type', tagline: 'Side-scroller · charge beam', maxScore: 1_000_000 },
   { id: 'invaders', title: 'Space Invaders', tagline: '5 × 11 formation · one shot', maxScore: 500_000 },
   { id: 'starfox', title: 'Star Fox', tagline: 'On rails · barrel roll', maxScore: 1_000_000 },
   { id: 'outrun', title: 'Drive to the Mountains', tagline: 'Nova & Rex · five stages, a fork in every road', maxScore: 5_000_000 },
   { id: 'tetris', title: 'Russian Block Game', tagline: 'Endless · line clears', maxScore: 2_000_000 },
+  // Parked 2026-10-16 (Space Voyagers II took its cabinet): its board and scores stay.
+  { id: 'galaga', title: 'Space Voyagers I', tagline: 'Rex & Nova · one large pepperoni', maxScore: 5_000_000 },
 ] as const
 
 export const GAME_IDS = GAMES.map(g => g.id)

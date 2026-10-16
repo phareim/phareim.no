@@ -1,0 +1,36 @@
+The first image is a rough layout in flat blocks: it shows the composition, where everything
+stands and how large. The second image shows the pixel-art style to draw in and the size of
+square pixel block to use: it is the ending card of the first game. The third image shows the
+nine people of this picture as they are drawn in this game's talk portraits, three rows of
+three: top row, from left to right, NONNA ROSA, MEI, TINY; middle row DOUGIE, BIG MARGE, ELLEN
+RIDLEY; bottom row HANS DUO, REX, NOVA: match their hair, faces and clothes exactly. Draw the
+layout as one finished picture in that style, filling the whole picture from edge to edge,
+everything in its place and at its size.
+{style} {clusters}
+{world} {woman} {face}
+The picture is the happy ending card of a 1990s space-combat game: the Franchise is beaten and
+the crew of the DEEP DISH, a pizza oven-ship in orbit, has a feast at dawn in the ship's
+kitchen. Everyone is at the long steel kitchen counter in the foreground (the grey block),
+which is covered with pizzas in open boxes and on wooden peels, bottles of soda and a big bowl
+of salad. Behind them a wide window (the blue block) shows the Earth's curve below and the first
+light of dawn along its rim: a thin flat line of gold and pale orange, the sky above it a few
+flat bands of lighter blue; no sun disc. At the right edge the warm brick of the pizza oven.
+Warm light on every face. Comic and warm: they laugh, eat, raise slices and bottles.
+Behind the counter, standing, from left to right (the back row of blocks): MEI, the dispatcher,
+a young woman with a dark purple bob and a pencil in it, an orange radio headset round her neck,
+a purple zipped jacket; BIG MARGE, a big friendly trucker of fifty-five, curly grey-red hair
+under a teal trucker's cap, a red plaid flannel shirt and a brown quilted vest; NONNA ROSA, the
+small grey-haired captain of about seventy-five, olive skin, hair in a tight bun, a navy
+captain's jacket with gold braid over a white apron, proud; TINY, the huge gentle mechanic,
+dark brown skin, a shaved head, brass welding goggles pushed up on his forehead, a grey-blue
+coverall, grinning hugely; ELLEN RIDLEY, a tired woman of thirty-five with dark curly hair and
+an olive-green jumpsuit, her orange tabby cat on her shoulder, almost smiling.
+In front of them, leaning on the counter, from left to right (the front row of blocks): DOUGIE,
+a skinny freckled ginger boy of nineteen, a red cap worn backwards, an olive bomber jacket far
+too big for him; NOVA: {nova} She holds a slice of pizza and almost smiles. REX: {rex} He has a
+whole slice in his mouth, cheeks full. HANS DUO, a cocky courier of thirty with tousled dark
+brown hair, a red-and-white striped cap worn backwards and a brown leather flying jacket, a
+thumb up.
+Every face is large enough to read. Shadows deep blue and brown, never black. No lettering, no
+numbers, no text anywhere in the picture.
+{leave}

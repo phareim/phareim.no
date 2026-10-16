@@ -92,10 +92,10 @@ export function chooseTarget(w: World, s: Ship, prefer = -1): number {
   if (live(p) && p.side !== s.side) return p.id
   let best = -1, bestScore = Infinity
   for (const o of w.ships) {
-    if (!live(o) || o.side === s.side) continue
+    if (!live(o) || o.side === s.side || SHIPS[o.kind].scenery) continue
     const big = SHIPS[o.kind].capital
-    // Big ships are only chosen when nothing small is left (bombers go for them on purpose).
-    const d = dist(o.pos, s.pos) + (big ? 20000 : 0) - (o.target === s.id ? 600 : 0)
+    // Big ships and their guns are only chosen when nothing that flies is left (bombers go for them on purpose).
+    const d = dist(o.pos, s.pos) + (big ? 20000 : SHIPS[o.kind].fixed ? 12000 : 0) - (o.target === s.id ? 600 : 0)
     if (d < bestScore) { bestScore = d; best = o.id }
   }
   return best
@@ -160,7 +160,15 @@ function think(w: World, s: Ship, ai: Ai): void {
     w.events.push({ type: 'cue', cue: 'enemyFlees', a: s.id })
     return
   }
-  if (ai.mode === 'flee' || ai.mode === 'idle' || ai.mode === 'turret') return
+  // An ace runs when the ship is wrecked: the prince lives to talk another day, and so does Hans.
+  if (s.role === 'ace' && ai.mode !== 'flee' && wholeness(s) < 0.35) {
+    setMode(ai, 'flee')
+    w.events.push({ type: 'cue', cue: 'aceFlees', a: s.id })
+    return
+  }
+  if (ai.mode === 'flee' || ai.mode === 'idle' || ai.mode === 'turret' || ai.mode === 'nav') return
+  // A freighter with no guns stays where it is told.
+  if (s.role === 'protect' && SHIPS[s.kind].gunRate === 0) return
   // Under fire from behind: jink.
   if (ai.mode !== 'evade' && hunted(w, s) && rand(w.rng) < 0.35 + (1 - ai.nerve) * 0.4) {
     setMode(ai, 'evade')
@@ -218,7 +226,6 @@ function think(w: World, s: Ship, ai: Ai): void {
     if (ai.t > 60 * (1.4 + ai.nerve)) setMode(ai, 'attack')
     else jinkPoint(w, s, ai.aim)
   }
-  if (ai.mode === 'nav' && dist(ai.aim, s.pos) < 400) setMode(ai, ai.leader >= 0 ? 'form' : 'idle')
 }
 
 /** Each tick: turn, set the throttle, decide to fire. Writes `ai.out`. */
@@ -403,10 +410,7 @@ export function stepAi(w: World, s: Ship, dt: number): Controls {
     think(w, s, ai)
     ai.think = reaction(w, ai)
   }
-  const c = act(w, s, ai, dt)
-  // Big ships fly straight on; their turrets work alone.
-  if (SHIPS[s.kind].capital) { clearControls(c); return c }
-  return c
+  return act(w, s, ai, dt)
 }
 
 /** Fire what the AI asked for: guns (no aim help) and missiles. */

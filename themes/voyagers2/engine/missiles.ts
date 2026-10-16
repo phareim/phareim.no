@@ -30,15 +30,18 @@ const F = v3()
 export function stepLock(w: World, s: Ship, dt: number): void {
   const o = shipAt(w, s.target)
   const k = SHIPS[s.kind]
-  if (!live(o) || s.missiles <= 0 || k.capital) { s.lock = 0; return }
+  // The Calzone with torpedoes on the rack locks a big ship for a torpedo: longer, from further.
+  const calTorp = live(o) && s.torps > 0 && SHIPS[o.kind].capital === true
+  if (!live(o) || (s.missiles <= 0 && !calTorp) || k.capital || k.fixed) { s.lock = 0; return }
   subTo(D, o.pos, s.pos)
   const d = Math.sqrt(D.x * D.x + D.y * D.y + D.z * D.z)
   normTo(D, D)
   forwardTo(F, s.q)
   const torp = s.kind === 'hound'
   const cone = torp ? MISSILE.lockCone * 1.4 : MISSILE.lockCone
-  const time = torp ? MISSILE.lockTime * 2.5 : MISSILE.lockTime
-  const range = torp ? 3200 : LOCK_RANGE
+  // A bomber's lock is long (Wing Commander's was twelve seconds): the window to catch it.
+  const time = calTorp ? MISSILE.calzoneTorpLock : torp ? MISSILE.houndLock : MISSILE.lockTime
+  const range = calTorp ? MISSILE.calzoneTorpRange : torp ? 3200 : LOCK_RANGE
   const before = s.lock
   if (d < range && angleBetween(F, D) < cone) {
     s.lock = Math.min(1, s.lock + dt / time)
@@ -50,8 +53,13 @@ export function stepLock(w: World, s: Ship, dt: number): void {
 }
 
 export function launchMissile(w: World, s: Ship): Missile | null {
-  if (s.missiles <= 0 || s.missileCool > 0 || !live(s)) return null
-  const torp = s.kind === 'hound'
+  if (s.missileCool > 0 || !live(s)) return null
+  const tgt = shipAt(w, s.target)
+  // A torpedo from the Calzone: only at a big ship, only locked.
+  const calTorp = s.torps > 0 && live(tgt) && SHIPS[tgt.kind].capital === true
+  if (calTorp && s.lock < 1) return null
+  if (!calTorp && s.missiles <= 0) return null
+  const torp = s.kind === 'hound' || calTorp
   const kind: MissileKind = torp ? 'torpedo' : s.lock >= 1 ? 'seeker' : 'dart'
   if (torp && s.lock < 1) return null
   forwardTo(F, s.q)
@@ -69,7 +77,8 @@ export function launchMissile(w: World, s: Ship): Missile | null {
     hp: MISSILE_HP[kind],
   }
   w.missiles.push(m)
-  s.missiles--
+  if (calTorp) s.torps--
+  else s.missiles--
   s.missileCool = MISSILE.cool
   s.lock = 0
   w.events.push({ type: 'missile', a: s.id, b: m.target, kind })
@@ -159,7 +168,7 @@ export function stepMissiles(w: World, dt: number): void {
     if (hit) {
       const from = maddTo(v3(), hit.pos, normTo(v3(), m.vel), -200)
       const dmg = torp ? MISSILE.torpedoDmg : m.kind === 'seeker' ? MISSILE.dmg : MISSILE.dartDmg
-      hurt(w, hit, dmg, from, m.from, copyTo(v3(), m.pos))
+      hurt(w, hit, dmg, from, m.from, copyTo(v3(), m.pos), torp)
       w.events.push({ type: 'hit', a: hit.id, b: m.from, kind: m.kind, pos: copyTo(v3(), m.pos) })
       gone = true
     } else if (m.target >= DECOY && tpos && Math.hypot(tpos.x - m.pos.x, tpos.y - m.pos.y, tpos.z - m.pos.z) < 12) {

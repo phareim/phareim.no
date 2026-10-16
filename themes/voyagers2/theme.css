@@ -208,3 +208,149 @@
   font-weight: 400;
   text-shadow: calc(3 * var(--u)) calc(3 * var(--u)) 0 var(--voyagers2-ink);
 }
+
+/* ── The campaign (Campaign.vue, Hub.vue) ────────────────────────────── */
+
+.vg2-campaign { position: absolute; inset: 0; }
+/* The hub: in the middle of the screen, clear of the site's radio widget along the top (about 40 CSS px). */
+.vg2-screen--top { justify-content: center; padding-top: 44px; box-sizing: border-box; cursor: default; }
+
+.vg2-btn {
+  margin: 0;
+  padding: calc(4 * var(--u)) calc(8 * var(--u));
+  border: 0;
+  border-radius: 0;
+  background: var(--voyagers2-wood-lo);
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-ink), inset 0 calc(-2 * var(--u)) 0 var(--voyagers2-ink);
+  color: var(--voyagers2-text);
+  font: inherit;
+  font-size: calc(8 * var(--u));
+  line-height: calc(10 * var(--u));
+  text-transform: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vg2-btn:hover, .vg2-btn:focus-visible { background: var(--voyagers2-wood); color: var(--voyagers2-gold); outline: none; }
+.vg2-btn--gold { color: var(--voyagers2-gold); font-size: calc(16 * var(--u)); line-height: calc(18 * var(--u)); padding: calc(5 * var(--u)) calc(10 * var(--u)); }
+
+/* An act's card: 240 x 120. */
+.vg2-act { gap: calc(6 * var(--u)); }
+.vg2-actcard {
+  width: calc(240 * var(--u));
+  height: calc(120 * var(--u));
+  background: var(--voyagers2-bg-alt) 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-ink), 0 0 0 calc(4 * var(--u)) var(--voyagers2-wood);
+}
+
+/* The ending's picture: 240 x 200. */
+.vg2-ending {
+  width: calc(240 * var(--u));
+  height: calc(200 * var(--u));
+  max-width: 100%;
+  background: var(--voyagers2-bg-alt) 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+
+/* The hub: tabs, the room's picture (240 x 180), the faces, the talk, LAUNCH. */
+.vg2-hub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(4 * var(--u));
+  width: calc(240 * var(--u));
+  max-width: 100%;
+}
+.vg2-tabs { display: flex; gap: calc(2 * var(--u)); width: 100%; }
+.vg2-tab {
+  flex: 1;
+  padding: calc(3 * var(--u)) 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--voyagers2-ink);
+  color: var(--voyagers2-text-dim);
+  font: inherit;
+  font-size: calc(8 * var(--u));
+  line-height: calc(10 * var(--u));
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vg2-tab--on { background: var(--voyagers2-wood); color: var(--voyagers2-gold); }
+.vg2-room { width: 100%; display: flex; flex-direction: column; gap: calc(4 * var(--u)); }
+.vg2-room__pic {
+  position: relative;
+  width: calc(240 * var(--u));
+  height: calc(180 * var(--u));
+  background: var(--voyagers2-bg-alt) 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-ink);
+}
+.vg2-spot {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vg2-spot:hover, .vg2-spot:focus-visible { outline: var(--u) dashed var(--voyagers2-gold); outline-offset: 0; }
+.vg2-board {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: calc(2 * var(--u));
+  padding: calc(2 * var(--u));
+  box-sizing: border-box;
+  overflow: hidden;
+  color: #e8e4d8;
+  font-size: calc(8 * var(--u));
+  line-height: calc(9 * var(--u));
+  pointer-events: none;
+}
+.vg2-board__title { color: var(--voyagers2-gold); }
+.vg2-people { display: flex; flex-wrap: wrap; gap: calc(4 * var(--u)); justify-content: center; }
+.vg2-person {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(2 * var(--u));
+  padding: calc(2 * var(--u));
+  border: 0;
+  border-radius: 0;
+  background: var(--voyagers2-wood-lo);
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-ink);
+  color: var(--voyagers2-text-dim);
+  font: inherit;
+  font-size: calc(8 * var(--u));
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vg2-person--new { color: var(--voyagers2-gold); box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-gold); }
+/* A face in the row is the portrait's middle, cropped (never scaled: one pixel size). */
+.vg2-face--small {
+  width: calc(32 * var(--u));
+  height: calc(32 * var(--u));
+  background-size: calc(64 * var(--u)) calc(64 * var(--u));
+  background-position: calc(-14 * var(--u)) calc(-8 * var(--u));
+}
+.vg2-talk {
+  display: flex;
+  gap: calc(6 * var(--u));
+  align-items: flex-start;
+  width: 100%;
+  min-height: calc(68 * var(--u));
+  padding: calc(4 * var(--u));
+  box-sizing: border-box;
+  background: var(--voyagers2-bg-alt);
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-ink), 0 0 0 calc(4 * var(--u)) var(--voyagers2-wood);
+  cursor: pointer;
+}
+.vg2-talk--panel { width: calc(232 * var(--u)); }
+.vg2-talk .vg2-face { flex: none; }
+.vg2-talk__words { flex: 1; display: flex; flex-direction: column; gap: calc(3 * var(--u)); min-width: 0; }
+.vg2-talk__name { margin: 0; color: var(--voyagers2-gold); font-size: calc(8 * var(--u)); line-height: calc(9 * var(--u)); }
+.vg2-talk__text { margin: 0; color: var(--voyagers2-text); font-size: calc(8 * var(--u)); line-height: calc(10 * var(--u)); text-align: left; }
+.vg2-talk__more, .vg2-talk__hint { margin: 0; color: var(--voyagers2-text-dim); font-size: calc(8 * var(--u)); line-height: calc(10 * var(--u)); }
+.vg2-choices { display: flex; flex-wrap: wrap; gap: calc(4 * var(--u)); margin-top: calc(2 * var(--u)); }
+.vg2-hub__foot { display: flex; justify-content: center; width: 100%; padding-bottom: calc(4 * var(--u)); }

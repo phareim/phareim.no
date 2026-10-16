@@ -21,6 +21,7 @@ export const HULLS: Partial<Record<string, [number, number, number]>> = {
   buffet: [70, 60, 230],
   outlet: [30, 25, 75],
   hauler: [18, 16, 45],
+  hut: [470, 300, 470],
 }
 
 const FWD = v3()
@@ -181,7 +182,7 @@ export function stepAutoTurrets(w: World, dt: number, skip: Turret | null): void
       if (!leadDir(TDIR, TAT, s, o, GUN.turretSpeed)) continue
       const left = slewTurret(s, t, TDIR, dt)
       // Big ships' guns are flak-steady; a fighter's tail gun is shakier.
-      if (left < 0.05) fireTurret(w, s, t, '', capital ? 0.03 : 0.045, k.tdmg ?? TURRET.dmg, false, k.trate ?? TURRET.rate)
+      if (left < 0.05) fireTurret(w, s, t, '', capital || k.fixed ? 0.03 : 0.045, k.tdmg ?? TURRET.dmg, false, k.trate ?? TURRET.rate)
     }
   }
 }
@@ -229,9 +230,28 @@ export function stepShots(w: World, dt: number): void {
       const mx = (b.pos.x + b.prev.x) / 2 - s.pos.x, my = (b.pos.y + b.prev.y) / 2 - s.pos.y, mz = (b.pos.z + b.prev.z) / 2 - s.pos.z
       const reach = (hull ? Math.max(hull[0], hull[1], hull[2]) : s.r) + 40
       if (mx * mx + my * my + mz * mz > reach * reach) continue
-      if (hull ? segHitsHull(b.prev, b.pos, s, hull) : segHitsSphere(b.prev, b.pos, s.pos, s.r)) { hit = s; break }
+      if (hull ? segHitsHull(b.prev, b.pos, s, hull) : segHitsSphere(b.prev, b.pos, s.pos, s.r)) {
+        // A turret on a hull is hit before the hull it stands on.
+        if (!hit || (SHIPS[hit.kind].gunproof && !SHIPS[s.kind].gunproof)) hit = s
+        if (!SHIPS[hit.kind].gunproof) break
+      }
     }
-    if (hit) {
+    // A torpedo can be shot down.
+    if (!hit) {
+      for (const m of w.missiles) {
+        if (m.side === b.side || m.kind !== 'torpedo') continue
+        if (segHitsSphere(b.prev, b.pos, m.pos, 5)) {
+          m.hp -= b.dmg
+          w.events.push({ type: 'hit', a: -1, b: b.from, seat: b.seat || undefined, kind: 'torpedo', pos: copyTo(v3(), b.pos) })
+          b.life = 0
+          break
+        }
+      }
+    }
+    if (hit && SHIPS[hit.kind].gunproof) {
+      // Guns do not hurt it: a spark on the shield and nothing more.
+      w.events.push({ type: 'shieldHit', a: hit.id, b: b.from, pos: copyTo(v3(), b.pos), value: 0, kind: 'deflect' })
+    } else if (hit) {
       // The side it lands on is the side it came from: a point back along its path.
       normTo(FROM, b.vel)
       maddTo(FROM, hit.pos, FROM, -200)
@@ -254,5 +274,6 @@ export function stepGunCharge(w: World, dt: number): void {
     const k = SHIPS[s.kind]
     s.gunCool = Math.max(0, s.gunCool - dt)
     s.energy = Math.min(1, s.energy + k.gunRecharge * dt)
+    void k
   }
 }

@@ -222,8 +222,38 @@ function buffet(s: Shape): void {
   for (const x of [-35, 35]) s.cyl(26, 20, 30, 10, M.glow, { at: [x, 0, 222] })
 }
 
+function turret(s: Shape): void {
+  // A gun dome with twin barrels, looking down its mount's -z.
+  s.cyl(5, 5.5, 2.5, 8, M.steel, { rot: [Math.PI / 2, 0, 0] })
+  s.ball(4, 8, 2, M.steel, { at: [0, 1.2, 0] }, true)
+  for (const x of [-1.2, 1.2]) s.box(0.8, 0.8, 7, M.dark, { at: [x, 2, -4] })
+}
+
+function hut(s: Shape): void {
+  // THE HUT: a dome the size of a moon, a band of windows round its middle, a sign on a pylon.
+  s.ball(470, 18, 6, M.cream, { at: [0, 0, 0] }, true, 0.64)
+  s.cyl(480, 476, 40, 24, M.orange, { at: [0, 0, 0], rot: [Math.PI / 2, 0, 0] })
+  s.cyl(486, 480, 12, 24, M.mustard, { at: [0, 24, 0], rot: [Math.PI / 2, 0, 0] })
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2
+    s.box(40, 18, 6, M.glass, { at: [Math.cos(a) * 452, 70, Math.sin(a) * 452], rot: [0, -a + Math.PI / 2, 0] })
+  }
+  s.box(16, 260, 16, M.steel, { at: [300, 260, 0] })
+  s.box(180, 70, 10, M.mred, { at: [300, 420, 0] })
+  s.box(160, 50, 12, M.mustard, { at: [300, 420, 0] })
+  // The underside: the moon it sits on.
+  s.ball(470, 18, 4, M.pan, { at: [0, 0, 0], rot: [Math.PI, 0, 0] }, true, 0.4)
+}
+
+function vent(s: Shape): void {
+  // The Hut's oven vent: a brick chimney stack with the fire in its mouth.
+  s.box(56, 70, 56, M.brick, { at: [0, 35, 0] })
+  s.box(64, 10, 64, M.dark, { at: [0, 74, 0] })
+  s.box(40, 4, 40, M.glow, { at: [0, 80, 0] })
+}
+
 const BUILDERS: Record<ShipKind, (s: Shape) => void> = {
-  calzone, moped, rig, tug, pigeon, deepdish, hauler, rat, bear, gorilla, hound, parmesan, buffet, outlet,
+  calzone, moped, rig, tug, pigeon, deepdish, hauler, rat, bear, gorilla, hound, parmesan, buffet, outlet, turret, hut, vent,
 }
 
 export interface ModelData { pos: Float32Array; nor: Float32Array; mat: Float32Array }
@@ -260,4 +290,5 @@ export function chunkData(mat: number, size: number): ModelData {
 export const BODY: Record<ShipKind, number> = {
   calzone: M.white, moped: M.cream, rig: M.red, tug: M.steel, pigeon: M.steel, deepdish: M.pan, hauler: M.cream,
   rat: M.mustard, bear: M.brown, gorilla: M.brown, hound: M.orange, parmesan: M.gold, buffet: M.cream, outlet: M.cream,
+  turret: M.steel, hut: M.cream, vent: M.brick,
 }
