@@ -298,6 +298,7 @@ function listen(w: Voyage): void {
       case 'decoy': if (me && e.a === me.id) sound('decoy'); break
       case 'auto': sound('auto'); break
       case 'swap': sound('swap'); break
+      case 'scrape': if (me && e.a === me.id) sound('armourHit', 0.7); break
     }
   }
   // The lock's rising tone, while it builds.
