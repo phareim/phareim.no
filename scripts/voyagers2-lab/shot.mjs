@@ -67,6 +67,22 @@ async function campaign(b, size, { hub = true, save = null } = {}) {
   if (hub && await b.eval(`!!document.querySelector('.vg2-act')`)) { await press(); await b.sleep(400) }
 }
 
+async function bigShip(b, size, sortie, kind, after) {
+  const order = ['firstshift', 'convoy', 'siege', 'takeout', 'hansshot', 'dare', 'buffet', 'finale']
+  const flown = order.slice(0, order.indexOf(sortie)).map(id => ({ id, result: 'won', score: 6000, kills: 10 }))
+  await campaign(b, size, { save: { version: 1, pilot: 'nova', next: sortie, score: 40000, kills: 60, morale: 0.6, mood: 0.6, flags: {}, history: flown } })
+  await b.eval(`document.querySelector('.vg2-btn--gold').click()`)
+  for (let i = 0; i < 150 && !(await b.eval(`!!${V} && !!${V}.state()`)); i++) await b.sleep(100)
+  await b.eval(`${V}.hold()`)
+  await b.eval(`${V}.bot('sharp')`)
+  await until(b, s => (s.kinds ?? []).includes(kind), 40000, 60)
+  await step(b, after)
+  // Look at it: the bot off, the nose turned to the big ship, a few ticks for the picture.
+  await b.eval(`${V}.bot(null)`)
+  await b.eval(`${V}.face('${kind === 'hut' ? 'vent' : kind}')`)
+  await step(b, 3)
+}
+
 const SCENES = {
   async act(b, size) {
     await campaign(b, size, { hub: false })
@@ -128,6 +144,9 @@ const SCENES = {
     const ok = text.includes('DELIVERED') && save.next === 'end-won' && save.flags.submitted === true && /card-ending-won/.test(card) && !b.errors.length
     console.log(`${ok ? 'PASS' : 'FAIL'} ending ${size}: delivered ${text.includes('DELIVERED')}, next ${save.next}, submitted ${save.flags.submitted}, card ${/card-ending-won/.test(card)}, rank shown ${text.includes('WORLD RANK')}, errors ${b.errors.length}`)
   },
+  /** A sortie with a big ship in it, flown by the bot until the big ship is in the fight: `hut` (the finale), `buffet`. */
+  async hut(b, size) { await bigShip(b, size, 'finale', 'hut', 40) },
+  async buffet(b, size) { await bigShip(b, size, 'buffet', 'buffet', 240) },
   async strike(b, size) {
     await campaign(b, size, { save: { version: 1, pilot: 'nova', next: 'takeout', score: 12000, kills: 20, morale: 0.6, mood: 0.6, flags: {}, history: [{ id: 'firstshift', result: 'won', score: 6000, kills: 10 }, { id: 'convoy', result: 'won', score: 6000, kills: 10 }, { id: 'siege', result: 'won', score: 6000, kills: 10 }] } })
     await b.eval(`document.querySelector('.vg2-btn--gold').click()`)

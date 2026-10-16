@@ -198,10 +198,11 @@ export function drawHud(g: G, l: Layout, w: Voyage, cam: THREE.PerspectiveCamera
       rect(g, c, pr.x - s, pr.y, s * 2 + 1, 1)
       rect(g, c, pr.x, pr.y - s, 1, s * 2 + 1)
     } else if (f.kind === 'shield') {
-      const r = Math.max(4, f.r * k * 1.15)
+      // Capped: a ship passing close must not draw a circle the size of the view.
+      const r = Math.min(34, Math.max(4, f.r * k * 1.15))
       ring(g, f.age < 4 ? C.shield : C.shieldLo, pr.x, pr.y, r, f.age < 4 ? 0 : 2, f.age)
     } else if (f.kind === 'boom') {
-      const r = Math.max(3, f.r * k)
+      const r = Math.min(30, Math.max(3, f.r * k))
       if (f.age < 3) burst(g, pr.x, pr.y, r * (0.5 + f.age * 0.2), f.x + f.z, C.text, C.gold)
       else if (f.age < 12) burst(g, pr.x, pr.y, r * (0.7 + f.age * 0.03), f.x + f.z + f.age, f.age < 7 ? C.gold : C.orange, f.age < 7 ? C.orange : C.red)
       if (f.age > 2) ring(g, t < 0.5 ? C.gold : C.orange, pr.x, pr.y, Math.round(r * (0.8 + t * 1.4)), t < 0.4 ? 0 : 2, f.age)

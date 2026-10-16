@@ -42,6 +42,7 @@ import { rand } from './engine/rng'
 import { live, shipAt } from './engine/ships'
 import type { Input, PilotId, WingOrder } from './engine/types'
 import { autoGoal, calzone, createWorld, makeInput, onTarget, step } from './engine/world'
+import { qLookTo } from './engine/math'
 import type { Voyage } from './engine/world'
 import { createDirector } from './story/director'
 import type { Director, Monitor } from './story/director'
@@ -526,6 +527,7 @@ function installDebug(): void {
         layout: renderer?.layout, monitor: monitor ? { speaking: monitor.speaking, who: monitor.who, text: monitor.text } : null,
         input: { pitch: input.pitch, yaw: input.yaw, fire: input.fire },
         stick: ui.stick,
+        kinds: w.ships.filter(s => live(s)).map(s => s.kind),
       }
     },
     seed: (n: number) => { nextSeed = n; start() },
@@ -541,6 +543,18 @@ function installDebug(): void {
     menu: (on: boolean) => { ui.menu = on },
     touch: (on: boolean) => { usingTouch = on; measure() },
     invert: (on: boolean) => { invert = on },
+    /** Turn the Calzone's nose to the first ship of a kind (the lab's pictures of big ships). */
+    face: (kind: string) => {
+      const w = world
+      const me = w ? calzone(w) : null
+      const o = w?.ships.find(s => s.kind === kind && live(s))
+      if (!w || !me || !o) return false
+      const d = { x: o.pos.x - me.pos.x, y: o.pos.y - me.pos.y, z: o.pos.z - me.pos.z }
+      const l = Math.hypot(d.x, d.y, d.z) || 1
+      qLookTo(me.q, { x: d.x / l, y: d.y / l, z: d.z / l })
+      me.rate.x = me.rate.y = me.rate.z = 0
+      return true
+    },
     /** End the sortie now, won or lost (the lab's way to the debrief; it posts nothing). */
     end: (won: boolean) => {
       const w = world
