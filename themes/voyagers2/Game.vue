@@ -398,12 +398,18 @@ function onTouchStart(e: TouchEvent): void {
   if (!usingTouch) { usingTouch = true; measure() }
   wake()
   if (!running) return
-  if (paused.value) { togglePause(); return }
+  if (paused.value) {
+    // Paused: TURN BACK leaves the sortie for the hub; anywhere else goes on.
+    const t = e.changedTouches[0]
+    if (t && inside(renderer.layout.turnBack, logical(t).x, logical(t).y)) { quit(); return }
+    togglePause()
+    return
+  }
   const l = renderer.layout
   for (const t of Array.from(e.changedTouches)) {
     const p = logical(t)
     // The pause chip in the view's top-left corner.
-    if (p.x < 22 && p.y < 22) { togglePause(); continue }
+    if (inside(l.pause, p.x, p.y)) { togglePause(); continue }
     const b = l.buttons
     if (b && inside(b.fire, p.x, p.y)) { fireId = t.identifier; ui.fire = true; continue }
     if (b && inside(b.msl, p.x, p.y)) { missileTap = true; continue }
@@ -486,6 +492,7 @@ function togglePause(): void {
 function quit(): void {
   const w = world
   if (!w || !running) return
+  if (paused.value) radio.suspend(false)
   paused.value = false
   w.mission.result = 'lost'
   w.mission.why = 'quit'

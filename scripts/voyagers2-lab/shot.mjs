@@ -147,6 +147,24 @@ const SCENES = {
   /** A sortie with a big ship in it, flown by the bot until the big ship is in the fight: `hut` (the finale), `buffet`. */
   async hut(b, size) { await bigShip(b, size, 'finale', 'hut', 40) },
   async buffet(b, size) { await bigShip(b, size, 'buffet', 'buffet', 240) },
+  /** Touch: the pause chip pauses, TURN BACK goes home to the hub, nothing recorded. PASS or FAIL. */
+  async turnback(b, size) {
+    if (!SIZES[size].mobile) return
+    await begin(b, size)
+    await b.eval(`${V}.run()`)
+    await b.sleep(400)
+    const s = await state(b)
+    const l = s.layout
+    await b.tap((l.pause.x + l.pause.w / 2) * l.css, (l.pause.y + l.pause.h / 2) * l.css)
+    await b.sleep(300)
+    await b.shot(join(out, `paused-${size}.png`))
+    await b.tap((l.turnBack.x + l.turnBack.w / 2) * l.css, (l.turnBack.y + l.turnBack.h / 2) * l.css)
+    await b.sleep(800)
+    const hub = await b.eval(`!!document.querySelector('.vg2-hub')`)
+    const save = JSON.parse(await b.eval(`localStorage.getItem('voyagers2.save')`))
+    const ok = hub && save.history.length === 0 && save.next === 'firstshift'
+    console.log(`${ok ? 'PASS' : 'FAIL'} turnback ${size}: hub ${hub}, flown ${save.history.length}, next ${save.next}`)
+  },
   async strike(b, size) {
     await campaign(b, size, { save: { version: 1, pilot: 'nova', next: 'takeout', score: 12000, kills: 20, morale: 0.6, mood: 0.6, flags: {}, history: [{ id: 'firstshift', result: 'won', score: 6000, kills: 10 }, { id: 'convoy', result: 'won', score: 6000, kills: 10 }, { id: 'siege', result: 'won', score: 6000, kills: 10 }] } })
     await b.eval(`document.querySelector('.vg2-btn--gold').click()`)

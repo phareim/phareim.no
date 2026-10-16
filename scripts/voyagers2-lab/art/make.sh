@@ -84,10 +84,10 @@ if want rooms; then
   done
 fi
 # The endings: 1:1 at 256 cells, a 240 x 200 window each (finish.py ENDINGS). The lost one
-# ships from its second pass (b: the costume's head made this game's bear, the costume closed);
-# the first is the canvas of that pass.
+# ships from its third pass (c); the second (b: the costume's head made this game's bear, the
+# costume closed) is the canvas of the third, the first the canvas of the second.
 if want endings; then
-  for s in card-ending-won-a card-ending-lost-a card-ending-lost-b; do
+  for s in card-ending-won-a card-ending-lost-a card-ending-lost-b card-ending-lost-c; do
     $A snap $R/$s.png -o $S/$s.png --across 256 --colors 64 | quiet
   done
 fi

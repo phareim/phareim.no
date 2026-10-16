@@ -312,7 +312,7 @@ export function drawHud(g: G, l: Layout, w: Voyage, cam: THREE.PerspectiveCamera
     ring(g, sc, cx, cy, 7)
     ring(g, C.textLo, cx, cy, 14, 3)
     rect(g, sc, cx, cy, 1, 1)
-    text(g, 'TURRET', v.x + 24, v.y + 4, C.textDim, '#120d18')
+    text(g, 'TURRET', v.x + 26, v.y + 7, C.textDim, '#120d18')
   }
 
   // Incoming: a missile on its way to us.

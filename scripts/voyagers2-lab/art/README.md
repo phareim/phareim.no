@@ -1,6 +1,6 @@
 # voyagers2-lab/art: the bitmaps of Space Voyagers II
 
-The lab that makes the pixel art in `public/voyagers2/` (40 files, 151 KB as of 2026-10-16):
+The lab that makes the pixel art in `public/voyagers2/` (40 files, 143 KB as of 2026-10-16):
 talk portraits, the title card, sky pieces for the 3D backdrop, mascot decals and heads on
 springs (batch 1); the three rooms of the Deep Dish, the two endings and the three act cards
 (batch 2). It is Space Voyagers I's lab (`scripts/galaga-lab/art/README.md`) cut down to these
@@ -19,7 +19,7 @@ gate, then look. What the game is: `themes/voyagers2/DESIGN.md`.
 
 The raw generations are in `tmp/voyagers2-art/raw` (git-ignored). Without them a picture has
 to be ordered again: `log.jsonl` has every order with its full prompt and inputs, `batches/`
-the scripts that ran them, in order (b01 to b05 batch 1, b06 to b08 batch 2). The style images
+the scripts that ran them, in order (b01 to b05 batch 1, b06 to b09 batch 2). The style images
 are built by `layouts.py` from Space Voyagers I's shipped bitmaps in `public/galaga/`; batch 2's
 canvases by `layouts2.py`, which reuses its helpers.
 
@@ -68,7 +68,7 @@ Change one, change both, and run `rooms.py` to look at them.
   to 18 x 27). Pasted at 12 the faces came back 13 to 16 and still read; the heads on springs
   turned to mush at 15 x 20, so the larger ones ship.
 
-Batch 2 (12 orders, none failed):
+Batch 2 (13 orders, none failed):
 
 - **Scenes with people** hold in one order with three images: a block canvas, a style image
   at the canvas's cell size (Space Voyagers I's ending card) and a cast strip of the people's
@@ -88,9 +88,14 @@ Batch 2 (12 orders, none failed):
 - **The lost ending's costume head** came back as a brown bear with a black hat and blue eyes
   and no flight helmet, too close to a famous animatronic bear; a second pass over the
   picture gave it this game's bear (flight helmet and goggles under the bowler, a rubbed
-  patch, the jaw on bolts) and closed the costume over Rex's chest.
-- **Nova's t-shirt** came back as a low scoop in both endings; `finish.py` `MEND` raises it to
-  a crew neck (skin in an exact box under her neck becomes the shirt's colours).
+  patch, the jaw on bolts) and closed the costume over Rex's chest. Its prompt lacked the
+  `rex` and `nova` blocks; a third pass over it with them (and the crew neck asked for
+  outright) came back the same picture, and ships.
+- **Nova's t-shirt** came back as a low scoop in both endings, also when a crew neck was asked
+  for outright; `finish.py` `MEND` raises it to a crew neck (skin in an exact box under her
+  neck becomes the shirt's colours).
+- `make.sh endings` must run before `batches/b09` is run again (its canvas is the second
+  pass's snap).
 - **Sky pieces of acts 2 and 3**: three on green, cut by region (the four mile markers stand
   apart and ship as one piece). The large buoy came back 63 x 92 for about 48 x 64; shrunk
   to 42 x 61 and redrawn, it came back 53 x 80. Their own palette (`pal/sky2.json`): the

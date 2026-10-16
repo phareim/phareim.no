@@ -265,7 +265,8 @@ ENDINGS = {
     # won: moved up from the middle (9, 27) so Tiny's goggles are whole; the counter's front
     # pizzas lose their lower rows
     "card-ending-won": ("card-ending-won-a", (9, 20), []),
-    "card-ending-lost": ("card-ending-lost-b", None, []),
+    # lost: the third pass (c, over the second; the same picture, its prompt with every block)
+    "card-ending-lost": ("card-ending-lost-c", None, []),
 }
 ACTS = {
     # act 1 (257 x 142): two rows from the top, so the Deep Dish's chimney is whole
@@ -280,11 +281,12 @@ ACTS = {
 # Mends by hand, after the window is taken: (x, y, w, h, colours replaced, top row's colour,
 # the rest's colour), every colour as hex and already in the picture. Nova's t-shirt is a crew
 # neck by the rule (prompt block `nova`: "no cleavage"); in both endings it came back as a
-# scoop three to four rows deep with a darker pixel or two in its middle. The skin in the box
-# under her neck becomes the shirt's collar shade (top row) and its cream (below).
+# scoop three to four rows deep with a darker pixel or two in its middle (the lost one three
+# times over, the third time with the crew neck asked for outright). The skin in the box under
+# her neck becomes the shirt's collar shade (top row) and its cream (below).
 MEND = {
     "card-ending-won": [(78, 144, 16, 5, ("f5a260", "d87330", "e5843f", "bc5633", "bc7b4c"), "c4a4ae", "f4ddc5")],
-    "card-ending-lost": [(173, 84, 17, 4, ("ed9a61", "d86f2f", "c65e1d", "8d3820"), "ba948e", "f1d9bb")],
+    "card-ending-lost": [(173, 83, 16, 4, ("f09a63", "d96d27", "ca6323", "f48528", "dd5814", "bb4d16"), "ab9197", "efd6b6")],
 }
 
 

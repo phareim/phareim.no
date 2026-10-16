@@ -42,6 +42,9 @@ export interface Layout {
   buttons: { fire: Rect; msl: Rect; burn: Rect } | null
   /** The site's radio widget over the view, in logical pixels: draw nothing there. */
   widget: Rect | null
+  /** Touch: the pause chip in the view's top-left corner, and the pause screen's TURN BACK button. */
+  pause: Rect
+  turnBack: Rect
 }
 
 export interface Screen {
@@ -144,9 +147,11 @@ export function computeLayout(s: Screen): Layout {
     }
   }
 
+  const pause: Rect = { x: 3, y: 3, w: 18, h: 16 }
+  const turnBack: Rect = { x: Math.floor(W / 2) - 36, y: Math.floor(view.h / 2) + 20, w: 72, h: 18 }
   return {
     W, H, n, cssW: (W * n) / dpr, cssH: (H * n) / dpr, css, wide, touch: s.touch,
-    view, dash, under, left, right, radar, gauges, sub, buttons, widget,
+    view, dash, under, left, right, radar, gauges, sub, buttons, widget, pause, turnBack,
   }
 }
 
