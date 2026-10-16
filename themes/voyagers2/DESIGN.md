@@ -293,7 +293,7 @@ radar between them (Wing Commander III's Hellcat layout), drawn by code over a p
 | Change seats | X | tap the partner's face |
 | Comms | C, then 1–5 | tap the left screen: five buttons |
 | Autopilot / land | N | tap the AUTO lamp |
-| Pause, quit | P or an Escape tap; a 3 s Escape hold ends the run | the ⏸ chip |
+| Pause, turn back | P or an Escape tap; a 3 s Escape hold turns back to the Deep Dish (the sortie is not counted, it waits in the hub) | the ⏸ chip in the view's top-left corner; TURN BACK on the pause screen |
 
 ## Tuning
 
