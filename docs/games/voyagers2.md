@@ -57,6 +57,9 @@ file says what is built and where.
 | 3 | LAST SLICE (lost) | survive 3 min, the Deep Dish keeps half | then Marge's rigs come and the Franchise runs |
 | 3 | HEART OF THE OVEN | kill the VENT, the sortie ends with it | the Hut, its guns, the prince; Hans comes back at 25 s |
 
+Turning back (a 3 s Escape hold, or TURN BACK on the touch pause screen behind the ⏸ chip in
+the view's top-left corner) returns to the hub with nothing recorded: the same sortie waits.
+
 Between sorties: the hub (Nonna's briefing first), talk choices that move the crew's morale
 (the wing's skill, a quarter of the difference from 0.6) and the partner's mood (how steady
 their aim is on the turret: a third better or worse at the ends), the debrief, an act card when an act begins, the ending (won: DELIVERED;
