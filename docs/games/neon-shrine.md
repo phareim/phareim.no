@@ -263,6 +263,32 @@ as drawn.
 `HERO_COLORS='<json>' node scripts/zelda-lab/shot.mjs <dir> r-sword`
 renders a hero in a figure's colours.
 
+**Live art from the studio** (2026-10-20). Sprites can be redrawn at
+studio.phareim.no (repo `phareim/studio-web`) and published without a deploy.
+- **What the studio edits.** `scripts/export-sprites.mjs` runs first in
+  `npm run build` and writes `public/studio/neon-shrine.json` (gitignored):
+  the palette and every sprite in `SPRITES` as rows, plus the commit. The
+  studio fetches it from the live site, so it always edits against what is
+  deployed.
+- **How the game takes it.** `render/live.ts` (`startLiveSprites`, called first
+  in `Zelda.vue`'s `onMounted`) applies the copy kept in localStorage
+  `studio.live.neon-shrine` before the first frame. It then asks
+  `https://studio.phareim.no/live/neon-shrine.json` (public, no cookie, 4 s
+  timeout), and again when the page comes back to the foreground, at most once
+  a minute. The rows go through `setSpriteOverrides()` in `render/sheet.ts`,
+  the one place sprites are built: registry names at their drawn size only,
+  and only the changed names' canvases are rebuilt. The deck's button icons
+  are made again when new art arrives. Any failure keeps the drawn art.
+- **Drafts in the game.** `?sprites=draft` asks the studio for the unpublished
+  drafts with the Reader cookie instead (only Petter gets them), and never
+  keeps that copy.
+- **What it does not reach.** The hero's frames while a look or a made figure
+  is worn: those come from `heroFrames()` (the studio keeps the hero
+  read-only). Canvases other modules build from sprites and cache themselves.
+  New sprite names: the renderer chooses names in code.
+- **Checks.** `tests/zelda-live.test.mjs` (in `test:zelda`): the format check,
+  the size rule, the kept copy before the fetch, draft mode, a dead studio.
+
 **Exits.** An `exit` marker (`ExitDef` in `types.ts`) is a way out of the
 game: walk onto a door exit, or press A at a solid one and read its lines,
 and the door fade runs; at full dark the engine emits `{ type: 'exit', id,
