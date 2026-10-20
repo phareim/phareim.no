@@ -115,6 +115,7 @@ import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from '.
 import { turnMove } from './render/iso/project'
 import { VIEWS, VIEW_KEY, nextView, startView, viewName, type ViewId } from './views'
 import { sprite } from './render/sheet'
+import { startLiveSprites } from './render/live'
 import { KEYBOARD_KEYS, TOUCH_KEYS } from './keys'
 import { createZeldaAudio, type SfxName, type ZeldaAudio } from './audio'
 import { readLocalSave, writeLocalSave, clearLocalSave, readLocalBest, writeLocalBest } from './localSave'
@@ -218,10 +219,13 @@ const ui: FrameUI = {
   keys: KEYBOARD_KEYS,
 }
 
-// The deck's buttons carry pictures: the sprites, as data URLs (browser only).
+// The deck's buttons carry pictures: the sprites, as data URLs (browser only). `artVersion`
+// moves when the studio's live art arrives (render/live.ts), so the pictures are made again.
 const iconCache = new Map<string, string>()
+const artVersion = ref(0)
 function iconUrl(name: string) {
   if (!import.meta.client) return ''
+  void artVersion.value
   let url = iconCache.get(name)
   if (!url) { url = sprite(name).toDataURL(); iconCache.set(name, url) }
   return url
@@ -831,11 +835,23 @@ function safeInsets() {
 
 let observer: ResizeObserver | null = null
 let muteStop: (() => void) | null = null
+let liveStop: (() => void) | null = null
 let walletStop: (() => void) | null = null
 
 onMounted(() => {
   if (!canvas.value) return
   alive = true
+  // The studio's published art over the drawn sprites, before the first frame (render/live.ts).
+  liveStop = startLiveSprites({
+    search: location.search,
+    storage: (() => { try { return localStorage } catch { return null } })(),
+    onApplied: () => {
+      iconCache.clear()
+      artVersion.value++
+      swordIcon.value = iconUrl('item_sword')
+      swapIcon.value = iconUrl('hud_swap')
+    },
+  })
   swordIcon.value = iconUrl('item_sword')
   swapIcon.value = iconUrl('hud_swap')
   reducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -892,6 +908,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   alive = false
+  liveStop?.()
+  liveStop = null
   cancelAnimationFrame(raf)
   observer?.disconnect()
   muteStop?.()
