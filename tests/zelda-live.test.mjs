@@ -18,7 +18,7 @@ before(async () => {
     stdin: {
       contents: [
         `export * from './render/live'`,
-        `export { setSpriteOverrides } from './render/sheet'`,
+        `export { frameCount, setSpriteOverrides } from './render/sheet'`,
         `export { SPRITES } from './render/sprites'`,
       ].join('; '),
       resolveDir: root,
@@ -69,6 +69,24 @@ describe('setSpriteOverrides', () => {
     })
     assert.deepEqual(applied, ['blob_0'])
     assert.deepEqual(m.setSpriteOverrides({}), [])
+  })
+  it('takes frames the studio added after the drawn ones, as an unbroken run, and counts them', () => {
+    const drawn = m.SPRITES.blob_0.rows
+    const w = drawn[0].length
+    const h = drawn.length
+    assert.equal(m.frameCount('blob', 2), 2)
+    const applied = m.setSpriteOverrides({
+      blob_3: blank(w, h, 'k'),
+      blob_2: blank(w, h, 'k'),
+      blob_5: blank(w, h, 'k'),
+      bat_2: blank(w + 3, h),
+      blob_9: blank(w, h, 'k'),
+    })
+    assert.deepEqual(applied.sort(), ['blob_2', 'blob_3'], 'a broken run, another size and past the limit are skipped')
+    assert.equal(m.frameCount('blob', 2), 4)
+    assert.equal(m.frameCount('bat', 2), 2)
+    m.setSpriteOverrides({})
+    assert.equal(m.frameCount('blob', 2), 2, 'gone again when the studio takes them out')
   })
 })
 

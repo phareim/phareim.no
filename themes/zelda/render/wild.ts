@@ -9,7 +9,7 @@ import type { Dir, GameState, Prop, World } from '../types'
 import { TILE } from '../types'
 import { condMet, mapInfo } from '../engine/index'
 import { drawText } from '../../base/pixel/font'
-import { sprite, spriteT } from './sheet'
+import { frameCount, sprite, spriteT } from './sheet'
 import { TONES } from './tones'
 import { hash2, type Light } from './tiles'
 
@@ -87,7 +87,7 @@ export function queueProps(
         lights.push({ x: p.x, y: p.y - 1, r: 2.4, color: '#ffd23f', a: 0.45 + 0.1 * Math.sin(tm * 2) })
         break
       case 'campfire': {
-        const f = Math.floor(tm * 8) % 3
+        const f = Math.floor(tm * 8) % frameCount('prop_campfire', 3)
         items.push({ x: p.x, y: p.y, draw: () => put(g, `prop_campfire_${f}`, x, y) })
         lights.push({ x: p.x, y: p.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.85 + 0.15 * Math.sin(tm * 13) })
         break
@@ -99,7 +99,7 @@ export function queueProps(
         break
       }
       case 'tank': {
-        const f = Math.floor(tm * 3 + p.x) % 2
+        const f = Math.floor(tm * 3 + p.x) % frameCount('prop_tank', 2)
         items.push({ x: p.x, y: p.y, draw: () => put(g, `prop_tank_${f}`, x, y) })
         lights.push({ x: p.x, y: p.y - 0.8, r: 2, color: '#3fd8b0', a: 0.6 })
         break

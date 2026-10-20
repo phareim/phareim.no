@@ -24,7 +24,7 @@ import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
-import { makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteT } from './sheet'
+import { frameCount, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteT } from './sheet'
 import type { HeroLook } from './heroLook'
 import type { HeroColors } from '../../miniworld/types'
 import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
@@ -236,6 +236,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   // Events → effects
   // ---------------------------------------------------------------------------
 
+  /** A four-frame effect over `life` seconds; frames the studio added keep the time per frame. */
+  function fxSprite(name: string, life: number, x: number, y: number, t = 0): Fx {
+    const frames = frameCount(name, 4)
+    return { kind: 'sprite', name, frames, x, y, vx: 0, vy: 0, t, life: (life * frames) / 4, color: '', size: 1 }
+  }
+
   function spark(x: number, y: number, n: number, color: string, speed = 5, life = 0.35) {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2
@@ -251,10 +257,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           spark(e.x, e.y, e.killed ? 10 : 6, e.kind === 'king' ? '#ff2fa0' : '#fff4ff', 6)
           break
         case 'kill':
-          fx.push({ kind: 'sprite', name: 'poof', frames: 4, x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.36, color: '', size: 1 })
+          fx.push(fxSprite('poof', 0.36, e.x, e.y))
           spark(e.x, e.y, 8, '#ff2fa0', 4, 0.5)
           if (e.kind === 'king' || e.kind === 'knight') {
-            for (let i = 0; i < 6; i++) fx.push({ kind: 'sprite', name: 'boom', frames: 4, x: e.x + (Math.random() - 0.5) * 2.5, y: e.y + (Math.random() - 0.5) * 2, vx: 0, vy: 0, t: -i * 0.18, life: 0.5, color: '', size: 1 })
+            for (let i = 0; i < 6; i++) fx.push(fxSprite('boom', 0.5, e.x + (Math.random() - 0.5) * 2.5, e.y + (Math.random() - 0.5) * 2, -i * 0.18))
             flashT = 0.5
             flashColor = '#ffffff'
           }
@@ -267,7 +273,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
           for (let i = 0; i < 7; i++) fx.push({ kind: 'leaf', x: e.x, y: e.y, vx: (Math.random() - 0.5) * 6, vy: -Math.random() * 4, t: 0, life: 0.45, color: e.kind === 'pot' ? '#e07a4e' : '#8f86b8', size: 2 })
           break
         case 'boom':
-          fx.push({ kind: 'sprite', name: 'boom', frames: 4, x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.5, color: '', size: 1 })
+          fx.push(fxSprite('boom', 0.5, e.x, e.y))
           spark(e.x, e.y, 12, '#ff8a3d', 7, 0.45)
           break
         case 'hurt': flashT = 0.12; flashColor = '#ff3b5c'; break
@@ -503,29 +509,33 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   }
 
   function enemySprite(e: Enemy): { name: string; flip: boolean } {
-    const f = Math.floor(time * (e.kind === 'bat' ? 8 : 4) + hash2(e.home.x, e.home.y) * 4) % 2
+    // Each figure steps through its own number of frames (two as drawn; more when the studio
+    // added some, render/sheet.ts frameCount). Poses that hold one frame keep it.
+    const tick = Math.floor(time * (e.kind === 'bat' ? 8 : 4) + hash2(e.home.x, e.home.y) * 4)
+    const f = (prefix: string) => tick % frameCount(prefix, 2)
+    const fast = (prefix: string) => Math.floor(time * 10) % frameCount(prefix, 2)
     const { key, flip } = dirKey(e.dir)
     switch (e.kind) {
-      case 'blob': return { name: `blob_${e.ai.mode === 'hop' ? 1 : f}`, flip: false }
-      case 'spitter': return { name: `spitter_${key}_${e.ai.tell > 0 ? 1 : f}`, flip }
-      case 'sentry': return { name: `sentry_${key}_${f}`, flip }
-      case 'bat': return { name: `bat_${e.ai.mode === 'rest' ? 1 : f}`, flip: false }
-      case 'dasher': return { name: `dasher_${key}_${f}`, flip }
-      case 'zapper': return { name: `zapper_${e.stun > 0 ? 0 : f}`, flip: false }
-      case 'skull': return { name: e.ai.mode === 'hop' || e.ai.mode === 'dodge' ? 'skull_jump' : `skull_${f}`, flip: false }
+      case 'blob': return { name: `blob_${e.ai.mode === 'hop' ? 1 : f('blob')}`, flip: false }
+      case 'spitter': return { name: `spitter_${key}_${e.ai.tell > 0 ? 1 : f(`spitter_${key}`)}`, flip }
+      case 'sentry': return { name: `sentry_${key}_${f(`sentry_${key}`)}`, flip }
+      case 'bat': return { name: `bat_${e.ai.mode === 'rest' ? 1 : f('bat')}`, flip: false }
+      case 'dasher': return { name: `dasher_${key}_${f(`dasher_${key}`)}`, flip }
+      case 'zapper': return { name: `zapper_${e.stun > 0 ? 0 : f('zapper')}`, flip: false }
+      case 'skull': return { name: e.ai.mode === 'hop' || e.ai.mode === 'dodge' ? 'skull_jump' : `skull_${f('skull')}`, flip: false }
       case 'eye': return { name: 'eye', flip: false }
       case 'blade': return { name: 'blade', flip: false }
-      case 'knight': return { name: `knight_${key}_${e.ai.mode === 'charge' ? Math.floor(time * 10) % 2 : f}`, flip }
-      case 'king': return { name: e.flash > 0 || e.ai.mode === 'down' ? 'king_hurt' : `king_${f}`, flip: false }
-      case 'hound': return { name: e.ai.mode === 'tell' ? 'hound_open' : `hound_${key}_${e.ai.mode === 'lunge' ? 1 : f}`, flip }
-      case 'drone': return { name: `drone_${Math.floor(time * 10) % 2}`, flip: false }
-      case 'llama': return { name: e.ai.mode === 'aim' ? 'llama_spit' : `llama_${key}_${e.ai.mode === 'charge' ? Math.floor(time * 10) % 2 : f}`, flip }
-      case 'mistral': return { name: e.ai.mode === 'down' ? 'mistral_down' : `mistral_${Math.floor(time * (e.ai.mode === 'blow' ? 14 : 7)) % 4}`, flip: false }
-      case 'deepseek': return { name: e.ai.tell > 0 && e.ai.mode === 'up' ? 'deepseek_bite' : `deepseek_${f}`, flip: e.dir === 'left' }
+      case 'knight': return { name: `knight_${key}_${e.ai.mode === 'charge' ? fast(`knight_${key}`) : f(`knight_${key}`)}`, flip }
+      case 'king': return { name: e.flash > 0 || e.ai.mode === 'down' ? 'king_hurt' : `king_${f('king')}`, flip: false }
+      case 'hound': return { name: e.ai.mode === 'tell' ? 'hound_open' : `hound_${key}_${e.ai.mode === 'lunge' ? 1 : f(`hound_${key}`)}`, flip }
+      case 'drone': return { name: `drone_${fast('drone')}`, flip: false }
+      case 'llama': return { name: e.ai.mode === 'aim' ? 'llama_spit' : `llama_${key}_${e.ai.mode === 'charge' ? fast(`llama_${key}`) : f(`llama_${key}`)}`, flip }
+      case 'mistral': return { name: e.ai.mode === 'down' ? 'mistral_down' : `mistral_${Math.floor(time * (e.ai.mode === 'blow' ? 14 : 7)) % frameCount('mistral', 4)}`, flip: false }
+      case 'deepseek': return { name: e.ai.tell > 0 && e.ai.mode === 'up' ? 'deepseek_bite' : `deepseek_${f('deepseek')}`, flip: e.dir === 'left' }
       case 'gemini': {
         const other = this_map_twin(e)
         const t = !other || e.home.x < other.home.x ? 'a' : 'b'
-        return { name: e.ai.mode === 'down' ? `gemini_${t}_down` : `gemini_${t}_${f}`, flip: false }
+        return { name: e.ai.mode === 'down' ? `gemini_${t}_down` : `gemini_${t}_${f(`gemini_${t}`)}`, flip: false }
       }
     }
   }
@@ -715,7 +725,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     for (const n of m.npcs) {
       // The beach's people move on its track's slow beat; everyone else steps at 2 Hz.
       const chill = BEACH_LOOKS.has(n.look)
-      const f = Math.floor(time * (chill ? BEACH_BEAT : 2) + (chill ? 0 : n.home.x)) % 2
+      const f = Math.floor(time * (chill ? BEACH_BEAT : 2) + (chill ? 0 : n.home.x)) % frameCount(n.look, 2)
       items.push({
         x: n.x,
         foot: 6 / T,
@@ -748,7 +758,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
     for (const b of m.bombs) {
       const fast = b.t > BOMB_FUSE - 0.6
-      const f = Math.floor(time * (fast ? 16 : 5)) % 2
+      const f = Math.floor(time * (fast ? 16 : 5)) % frameCount('bomb', 2)
       items.push({ x: b.x, foot: 5 / T, y: b.y, draw: () => { shadow(g, b.x * T - cx, b.y * T - cy + 4, 8); put(g, `bomb_${f}`, b.x * T - cx, b.y * T - cy + 5) } })
       lights.push({ x: b.x, y: b.y - 0.5, r: 1, color: '#ff8a3d', a: 0.7 })
     }
@@ -826,7 +836,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       }
     }
     if (s.disc) {
-      const f = Math.floor(time * 20) % 2
+      const f = Math.floor(time * 20) % frameCount('disc', 2)
       const at = place(s.disc.x, s.disc.y)
       put(g, `disc_${f}`, at.x, at.y + 6)
     }
