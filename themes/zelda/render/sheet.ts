@@ -16,6 +16,8 @@ let heroColors: HeroColors | null = null
 let heroPal: Record<string, string> | null = null
 let heroRows: Record<string, string[]> | null = null
 let heroKey = ''
+/** Rows the studio (studio.phareim.no) drew instead of the registry's, by sprite name (render/live.ts). */
+let overrides: Record<string, readonly string[]> = {}
 
 /** Only `hero_*` canvases are rebuilt; everything else keeps its cache. */
 function dressHero(): void {
@@ -72,7 +74,7 @@ export function lookCanvases(look: HeroLook): Record<string, Canvas> {
 
 function build(name: string): Canvas {
   const hero = name.startsWith('hero_')
-  const rows = (hero && heroRows?.[name]) || SPRITES[name]?.rows
+  const rows = (hero && heroRows?.[name]) || overrides[name] || SPRITES[name]?.rows
   if (!rows) return makeCanvas(1, 1)
   return paintRows(rows, hero && heroPal ? heroPal : PAL)
 }
@@ -139,6 +141,33 @@ export function drawSprite(g: CanvasRenderingContext2D, name: string, x: number,
 export function drawCentered(g: CanvasRenderingContext2D, name: string, x: number, y: number, flip = false) {
   const c = sprite(name, flip)
   g.drawImage(c, Math.round(x - c.width / 2), Math.round(y - c.height / 2))
+}
+
+/** Same width and height, every row as wide as the first. */
+function sameSize(a: readonly string[], b: readonly string[]): boolean {
+  const w = a[0]?.length ?? 0
+  return a.length === b.length && b.every(r => typeof r === 'string' && r.length === w)
+}
+
+/**
+ * Draw these rows instead of the registry's (the studio's live art, render/live.ts). Replaces
+ * the whole set: a name left out goes back to the drawn rows. Names not in the registry and
+ * frames of another size are skipped, because the renderer places sprites by their size. Only
+ * the canvases of names that changed are rebuilt. Returns the names applied.
+ */
+export function setSpriteOverrides(next: Record<string, readonly string[]>): string[] {
+  const applied: Record<string, readonly string[]> = {}
+  for (const [name, rows] of Object.entries(next)) {
+    const drawn = SPRITES[name]?.rows
+    if (drawn && Array.isArray(rows) && sameSize(drawn, rows)) applied[name] = rows
+  }
+  const touched = new Set<string>()
+  for (const name of new Set([...Object.keys(overrides), ...Object.keys(applied)])) {
+    if (overrides[name]?.join('\n') !== applied[name]?.join('\n')) touched.add(name)
+  }
+  overrides = applied
+  for (const m of [cache, tinted]) for (const k of [...m.keys()]) if (touched.has(k.split('|')[0]!)) m.delete(k)
+  return Object.keys(applied)
 }
 
 export function hasSprite(name: string) {
