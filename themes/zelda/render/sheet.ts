@@ -143,6 +143,43 @@ export function drawCentered(g: CanvasRenderingContext2D, name: string, x: numbe
   g.drawImage(c, Math.round(x - c.width / 2), Math.round(y - c.height / 2))
 }
 
+/** How many frames the studio may add to an animation it lets grow (studio-web packs/neonShrine.ts `grow`). */
+const GROW_MAX = 8
+const FRAME = /^(.*)_(\d+)$/
+
+/**
+ * A frame the studio added after the drawn ones (`blob_2` after `blob_0`, `blob_1`): the rows of
+ * the animation's first frame, whose size it must have; null when the name is no such frame or
+ * the run is broken (the frame before it is neither drawn nor added).
+ */
+function addedFrame(name: string, accepted: Record<string, readonly string[]>): readonly string[] | null {
+  const m = FRAME.exec(name)
+  if (!m || SPRITES[name]) return null
+  const first = SPRITES[`${m[1]}_0`]?.rows
+  const i = Number(m[2])
+  const prev = `${m[1]}_${i - 1}`
+  if (!first || i >= GROW_MAX || !(SPRITES[prev] || accepted[prev])) return null
+  return first
+}
+
+const counts = new Map<string, number>()
+
+/**
+ * How many frames `<prefix>_0 … _n` there are: `own` as drawn, or more when the studio added
+ * frames. Animations step through `frameCount(prefix, own)` instead of a fixed number, so an
+ * added frame plays like the drawn ones (the studio decides which animations may grow).
+ */
+export function frameCount(prefix: string, own: number): number {
+  const key = `${prefix}|${own}`
+  let n = counts.get(key)
+  if (n === undefined) {
+    n = own
+    while (n < GROW_MAX && overrides[`${prefix}_${n}`] && !SPRITES[`${prefix}_${n}`]) n++
+    counts.set(key, n)
+  }
+  return n
+}
+
 /** Same width and height, every row as wide as the first. */
 function sameSize(a: readonly string[], b: readonly string[]): boolean {
   const w = a[0]?.length ?? 0
@@ -151,16 +188,20 @@ function sameSize(a: readonly string[], b: readonly string[]): boolean {
 
 /**
  * Draw these rows instead of the registry's (the studio's live art, render/live.ts). Replaces
- * the whole set: a name left out goes back to the drawn rows. Names not in the registry and
- * frames of another size are skipped, because the renderer places sprites by their size. Only
- * the canvases of names that changed are rebuilt. Returns the names applied.
+ * the whole set: a name left out goes back to the drawn rows. Frames of another size are
+ * skipped, because the renderer places sprites by their size; so are names not in the
+ * registry, except frames added after an animation's drawn ones (see addedFrame), which then
+ * count in frameCount. Only the canvases of names that changed are rebuilt. Returns the names
+ * applied.
  */
 export function setSpriteOverrides(next: Record<string, readonly string[]>): string[] {
   const applied: Record<string, readonly string[]> = {}
-  for (const [name, rows] of Object.entries(next)) {
-    const drawn = SPRITES[name]?.rows
+  const index = (n: string) => Number(FRAME.exec(n)?.[2] ?? 0)
+  for (const [name, rows] of Object.entries(next).sort(([a], [b]) => index(a) - index(b))) {
+    const drawn = SPRITES[name]?.rows ?? addedFrame(name, applied)
     if (drawn && Array.isArray(rows) && sameSize(drawn, rows)) applied[name] = rows
   }
+  counts.clear()
   const touched = new Set<string>()
   for (const name of new Set([...Object.keys(overrides), ...Object.keys(applied)])) {
     if (overrides[name]?.join('\n') !== applied[name]?.join('\n')) touched.add(name)
@@ -171,7 +212,7 @@ export function setSpriteOverrides(next: Record<string, readonly string[]>): str
 }
 
 export function hasSprite(name: string) {
-  return !!SPRITES[name]
+  return !!SPRITES[name] || !!overrides[name]
 }
 
 export { makeCanvas }

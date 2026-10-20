@@ -282,10 +282,21 @@ studio.phareim.no (repo `phareim/studio-web`) and published without a deploy.
 - **Drafts in the game.** `?sprites=draft` asks the studio for the unpublished
   drafts with the Reader cookie instead (only Petter gets them), and never
   keeps that copy.
+- **Added frames** (2026-10-20). The studio may give an animation more frames
+  than were drawn (`blob_2` after `blob_0`, `blob_1`; up to 8). The renderer
+  steps through `frameCount(prefix, own)` from `render/sheet.ts` instead of a
+  fixed `% 2`: the foes, the folk and beach people, the bomb, the disc, the
+  poof and boom effects, the campfire and the tank. An added frame needs the
+  size of the animation's frame 0 and an unbroken run; anything else is
+  skipped. Each frame plays as long as before, so the loop gets longer (the
+  effects' lifetime grows with their frames). Poses that hold one frame (a
+  blob's hop, a bat at rest, a knight's charge speed) keep theirs. The studio
+  lists the animations that may grow in its adapter (`packs/neonShrine.ts`
+  `grow`); a call site added here needs a line there too.
 - **What it does not reach.** The hero's frames while a look or a made figure
   is worn: those come from `heroFrames()` (the studio keeps the hero
   read-only). Canvases other modules build from sprites and cache themselves.
-  New sprite names: the renderer chooses names in code.
+  Other new sprite names: the renderer chooses names in code.
 - **Checks.** `tests/zelda-live.test.mjs` (in `test:zelda`): the format check,
   the size rule, the kept copy before the fetch, draft mode, a dead studio.
 
