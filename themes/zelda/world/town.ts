@@ -194,8 +194,8 @@ export const VIP: MapDef = {
   ambient: 'dim',
   rows: [
     '#################',
-    '#t1.2.3.S..qqqqq#',
-    '#.i.i.i...n..W..#',
+    '#t1.2.3.4.Sqqqqq#',
+    '#.i.i.i.i.n..W..#',
     '#.........nnnnnn#',
     '#..........i.i.i#',
     '#Y...fffffff...Y#',
@@ -213,8 +213,8 @@ export const VIP: MapDef = {
     { kind: 'glow', x: 15.3, y: 9, w: 3.5, tone: 'gold' },
   ],
   decals: [
-    { x: 9.3, y: 0.3, text: 'VIP LOUNGE', tone: 'pink', scale: 1, align: 'center' },
-    { x: 13.5, y: 0.3, text: 'BAR', tone: 'cyan', scale: 1, align: 'center' },
+    { x: 10.9, y: 0.3, text: 'VIP LOUNGE', tone: 'pink', scale: 1, align: 'center' },
+    { x: 14.4, y: 0.3, text: 'BAR', tone: 'cyan', scale: 1, align: 'center' },
   ],
   marks: {
     '@': { ent: { t: 'entry', id: 'door', dir: 'up' } },
@@ -256,6 +256,19 @@ export const VIP: MapDef = {
         lines: [
           'EVENTYRLAND. A FAIRY-TALE ADVENTURE IN 3D: A PRINCESS, A VILLAGE, A TRAIN THAT RUNS ON TIME, AND FRIENDS TO MEET IN ONE SHARED WORLD.',
           'IT LIVES ON ITS OWN PAGE, SO THIS ONE OPENS A NEW WORLD. COME BACK ANY TIME.',
+          COIN,
+        ],
+      },
+    },
+    // Supermusene (2026-10-21): Tilda and Teo, two mice in capes, rescue their parents from a spoilt cat, in a paper
+    // and matchbox world, on a page of its own.
+    '4': {
+      tile: 'M',
+      ent: {
+        t: 'exit', id: 'maileg', to: { url: 'https://maileg.phareim.no/?from=phareim' }, look: 'cabinet', art: 'maileg', label: 'SUPERMUSENE', side: 'down',
+        lines: [
+          'SUPERMUSENE. TWO LITTLE MICE IN CAPES, A BIG SISTER AND HER LITTLE BROTHER, SET OUT TO SAVE MAMMA AND PAPPA FROM A SPOILT CAT.',
+          'SHE LIFTS THINGS WITH HER MIND AND GROWS FLOWERS. HE IS SUPER STRONG AND SUPER FAST. A WORLD OF PAPER AND MATCHBOXES ON ITS OWN PAGE.',
           COIN,
         ],
       },

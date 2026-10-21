@@ -311,6 +311,22 @@ const CABS: Record<string, CabStyle> = {
   },
 }
 
+// Supermusene (maileg.phareim.no, 2026-10-21): a rose cabinet the colour of Tilda's gingham, the two mice on the
+// marquee, Tilda with pink ears and a rose cape, Teo beside her in blue, on the cream of a matchbox label.
+CABS.maileg = {
+  body: '#c96f74', bodyL: '#f0a8a4', bodyD: '#6e3438', trim: '#ffd23f', glow: '#ff9ae0',
+  bg: ['#ffe0d0', '#ffe0d0', '#ffd0c4', '#ffd0c4', '#f7c0b8', '#f7c0b8', '#3fa86e'],
+  marquee: M(
+    'gg..gggg..gg',
+    'mgggmmgggggm',
+    '.gggg..gggg.',
+    '.kgkg..kgkg.',
+    '..gp....gp..',
+    '.pppp..cccc.',
+    '.p..p..c..c.',
+  ),
+}
+
 // Adventure, Eventyrland's open instance in the arcade: the same castle on a warmer cabinet, so the two are told apart.
 CABS.adventure = { ...CABS.eventyrland!, body: '#a8542a', bodyL: '#f0a060', bodyD: '#5e2a12', trim: '#2ff3ff' }
 
@@ -503,6 +519,22 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       const hop = Math.round(Math.abs(Math.sin(t * 5 + seed)) * 2)
       const feet = kx >= 5 ? 3 : 5
       f('#ffd23f', kx, feet - 2 - hop); f('#ff2fa0', kx, feet - 1 - hop); f('#2f5fd0', kx, feet - hop)
+      return
+    }
+    case 'maileg': {
+      // A cream morning over sage grass: a little grey mouse in a rose cape walks across, and behind her, now and
+      // then, a pink flower pops up out of the grass and wilts again.
+      f('#ffd8b8', 0, 0, W, 6); f('#3fa86e', 0, 6, W, 1); f('#1f7a6e', 0, 7, W, 1)
+      f('#ffd23f', 8, 1, 1, 1)
+      const mx = Math.round(tri(t * 1.6 + seed, 8))
+      const bob = Math.floor(t * 6) % 2
+      f('#ff8ae0', mx, 2 - bob); f('#ff8ae0', mx + 1, 2 - bob)
+      f('#5a5285', mx, 3 - bob); f('#5a5285', mx + 1, 3 - bob)
+      f('#ff2fa0', mx - 1, 4); f('#ff2fa0', mx, 4); f('#5a5285', mx + 1, 4)
+      f('#5a5285', mx, 5); f('#5a5285', mx + 1, 5)
+      const bloom = Math.floor(t * 0.8 + seed) % 3
+      const fx = (Math.floor(t * 0.8 + seed) * 3) % W
+      if (bloom > 0 && Math.abs(fx - mx) > 1) { f('#1f7a6e', fx, 5); f(bloom === 1 ? '#ffd23f' : '#ff2fa0', fx, 4) }
       return
     }
     case 'eventyrland':

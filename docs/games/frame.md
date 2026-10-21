@@ -1,9 +1,10 @@
 # The frame: a game on another address, inside this page
 
-Four cabinets lead to games on their own addresses: Adventure
+Five cabinets lead to games on their own addresses: Adventure
 (`adventure.phareim.no`), Pizza Rescue (`fighter.phareim.no`), its sequel
-Solo Rescue (`nova.phareim.no`, since 2026-10-13) and Eventyrland
-(`eventyrland.phareim.no`). In a browser tab the cabinet loads the address, as
+Solo Rescue (`nova.phareim.no`, since 2026-10-13), Eventyrland
+(`eventyrland.phareim.no`) and Supermusene (`maileg.phareim.no`, since
+2026-10-21). In a browser tab the cabinet loads the address, as
 before. Installed as a web app (Home Screen), leaving the app's own address
 makes the phone open its browser sheet over the game, with an address bar and
 a Done button. No manifest setting avoids that on iOS: an app's scope is one
@@ -65,6 +66,7 @@ of its own reading and the frame's.
 | Eventyrland, Adventure (one build) | `frame-ancestors https://phareim.no` in `public/_headers` and `public/_worker.js` | `joinArcade()` in `src/game/arcade.ts`, first thing at boot (sets the page's `--inset-*`) | "Tilbake til spillehallen" in the settings; `src/game/arcade.ts` |
 | Pizza Rescue | no header: any page may frame it | `src/main.ts` (`--frame-*` in `ui.css`, `data-edges` for the pixel look's own readouts) | ARCADE on the title and the pause panel |
 | Solo Rescue (`~/github/nova`, built on Pizza Rescue's engine) | no header: any page may frame it | the same code in its `src/main.ts` | ARCADE on the title and the pause panel |
+| Supermusene (`~/github/maileg`) | no header: any page may frame it | `src/game/arcade.ts`, at boot when the address says `from=phareim` | "Til arkaden" on the title and in the pause menu |
 
 ## Adding a game
 

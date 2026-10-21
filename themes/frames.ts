@@ -18,6 +18,7 @@ export const FRAMED_GAMES: Record<string, { name: string; url: string }> = {
   pizzarescue: { name: 'Pizza Rescue', url: 'https://fighter.phareim.no/?look=wasteland&from=phareim' },
   nova: { name: "Nova's Solo Rescue", url: 'https://nova.phareim.no/?from=phareim' },
   eventyrland: { name: 'Eventyrland', url: 'https://eventyrland.phareim.no' },
+  maileg: { name: 'Supermusene', url: 'https://maileg.phareim.no/?from=phareim' },
 }
 
 /** The framed game `/?frame=<id>` names, or null for anything else. */

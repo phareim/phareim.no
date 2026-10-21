@@ -20,14 +20,16 @@ const TOWN_W = 40
 const GAMES = ['anotherworld', 'voyagers2', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'russian', 'battery']
 /** Ulrikke's games, in the VIP hall next door (moved out of the arcade 2026-09-29). */
 const KIDS = ['miniworld', 'figur']
-/** Eventyrland, Ulrikke's 3D storybook on its own page: a cabinet in the VIP hall that leaves for the URL. */
-const VIP_ARTS = [...KIDS, 'eventyrland']
+/** Eventyrland, Ulrikke's 3D storybook on its own page, and Supermusene (2026-10-21), the paper-mouse adventure on
+ * its own page: cabinets in the VIP hall that leave for their URLs. */
+const VIP_ARTS = [...KIDS, 'eventyrland', 'maileg']
 /** The cabinets that are links out, not themes: art → where they leave for. Adventure is Eventyrland's open instance
  * (no account); Pizza Rescue (Nova & Rex: The Pizza Rescue) is a side-scrolling fighter on its own page, opened in
  * its pixel look and told where the visit came from, so it can offer the way back; Nova's Solo Rescue is its sequel,
  * on a page of its own too. */
 const LINK_CABINETS = {
   eventyrland: 'https://eventyrland.phareim.no',
+  maileg: 'https://maileg.phareim.no/?from=phareim',
   adventure: 'https://adventure.phareim.no',
   pizzarescue: 'https://fighter.phareim.no/?look=wasteland&from=phareim',
   nova: 'https://nova.phareim.no/?from=phareim',
@@ -39,6 +41,7 @@ const EXPECTED = {
   ...Object.fromEntries(GAMES.map(g => [g, { map: 'arcade', to: { theme: g }, look: 'cabinet' }])),
   ...Object.fromEntries(KIDS.map(g => [g, { map: 'vip', to: { theme: g }, look: 'cabinet' }])),
   eventyrland: { map: 'vip', to: { url: LINK_CABINETS.eventyrland }, look: 'cabinet' },
+  maileg: { map: 'vip', to: { url: LINK_CABINETS.maileg }, look: 'cabinet' },
   adventure: { map: 'arcade', to: { url: LINK_CABINETS.adventure }, look: 'cabinet' },
   pizzarescue: { map: 'arcade', to: { url: LINK_CABINETS.pizzarescue }, look: 'cabinet' },
   nova: { map: 'arcade', to: { url: LINK_CABINETS.nova }, look: 'cabinet' },
@@ -226,7 +229,7 @@ describe('portal world', () => {
     for (const id of ['arcade', 'home', 'vip']) assert.equal(P.createGame(W, { at: { map: id, entry: 'door' } }).map.enemies.length, 0, `an enemy in ${id}`)
   })
 
-  it('has one cabinet per arcade game plus Adventure\'s, Pizza Rescue\'s and Nova\'s Solo Rescue\'s, and Ulrikke\'s three in the VIP hall, each with a pitch that ends on the coin line', () => {
+  it('has one cabinet per arcade game plus Adventure\'s, Pizza Rescue\'s and Nova\'s Solo Rescue\'s, and Ulrikke\'s four in the VIP hall, each with a pitch that ends on the coin line', () => {
     const cabinets = placedExits().filter(e => e.ent.look === 'cabinet' && (e.map === 'arcade' || e.map === 'vip'))
     assert.deepEqual(cabinets.filter(c => c.map === 'arcade').map(c => c.ent.art).sort(), [...ARCADE_ARTS].sort())
     assert.deepEqual(cabinets.filter(c => c.map === 'vip').map(c => c.ent.art).sort(), [...VIP_ARTS].sort())
@@ -311,7 +314,7 @@ describe('portal world', () => {
     assert.deepEqual([back.map.id, Math.floor(back.hero.x), Math.floor(back.hero.y), back.hero.dir], ['arcade', spot.x, spot.y + 1, 'up'])
   })
 
-  it('frames the four cabinets that leave the site when installed, by exit id, at the exit\'s own address', () => {
+  it('frames the five cabinets that leave the site when installed, by exit id, at the exit\'s own address', () => {
     // docs/games/frame.md: `/?frame=<id>` shows the game inside the page. The table and the town must agree.
     assert.deepEqual(Object.keys(P.FRAMED_GAMES).sort(), Object.keys(LINK_CABINETS).sort())
     for (const [id, url] of Object.entries(LINK_CABINETS)) {

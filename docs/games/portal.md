@@ -26,7 +26,7 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 | File | Job |
 |---|---|
 | `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, the NEW LOOK stall east of it (where the hero's hair, clothes and colours are changed: `docs/games/neon-shrine.md` → "The hero's look"), newsstand, signpost, pier, the beach east of it (two DJ booths, a bonfire and the people round it, tiki torches), the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
-| `themes/zelda/world/town.ts` | The arcade, 17×11 (twelve cabinets: nine games and three that leave the site, Adventure for `adventure.phareim.no`, Eventyrland's open instance, Pizza Rescue for `fighter.phareim.no` and Solo Rescue for `nova.phareim.no`; the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 17×11 (Mini World, Lag Din Figur and Eventyrland, a bar with its bartender, a mirror ball, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
+| `themes/zelda/world/town.ts` | The arcade, 17×11 (twelve cabinets: nine games and three that leave the site, Adventure for `adventure.phareim.no`, Eventyrland's open instance, Pizza Rescue for `fighter.phareim.no` and Solo Rescue for `nova.phareim.no`; the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 17×11 (Mini World, Lag Din Figur, Eventyrland and Supermusene, a bar with its bartender, a mirror ball, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
 | `themes/zelda/engine/map.ts` | `setSession`: the shell's word on the login; the rope tiles follow it |
 | `themes/zelda/world/index.ts` | `WORLD` (the one world), `worldExits()`, `worldStartingAt()` |
 | `themes/zelda/Zelda.vue` | The shell: loop, input, touch deck, audio, saves, pause menu, exits, the way back, the account panel |
@@ -137,7 +137,7 @@ door is open only to a visitor logged in on auth.phareim.no:
   vipguard }` (a registered entry in front of him), so the auth page's
   redirect brings the hero back to the guard.
 
-Inside (17×11): the three cabinets along the back wall with stools, the sign,
+Inside (17×11): the four cabinets along the back wall with stools, the sign,
 and a bar in the right-hand corner: a shelf of bottles (tile `q`), a counter
 (`n`) with the bartender behind it (NPC `bartender`, look `barmaid`; she is
 talked to across the counter like the arcade's vendor; a different line
@@ -147,6 +147,15 @@ daylight: `MapDef.ambient` sets the light map's base colour, and
 the dance floor rug) and neon glows (`glow`, radius in `w`); the neon
 lettering VIP LOUNGE and BAR are decals. Eventyrland's cabinet has its own
 marquee and screen (`CABS.eventyrland` and `drawScreen` in `render/exits.ts`).
+
+**Supermusene's cabinet** (2026-10-21). The fourth on the VIP hall's back wall
+(tile 8,1, exit id and art `maileg`, label SUPERMUSENE, used from 8,2; the sign
+moved one step right to 10,1): a link out to `https://maileg.phareim.no/?from=phareim`,
+Ulrikke's paper-and-matchbox mouse adventure (`~/github/maileg`). A rose machine
+the colour of Tilda's gingham, the two mice on a cream marquee (Tilda with a rose
+cape, Teo in blue), and on the screen a little mouse in a cape walking over sage
+grass while flowers pop up behind her (`CABS.maileg` and `drawScreen`). Installed
+as an app it opens in the frame like the other links out (`docs/games/frame.md`).
 
 The engine holds the answer in `GameState.session` (not a flag, so never in
 a save); the shell sets it (`setSession` in `engine/map.ts`, `applySession`
@@ -302,7 +311,7 @@ input and unpausing are handled by listeners, not the loop (2026-09-30).
 
 **Checks** (2026-09-24; NEW GAME machine 2026-09-26). `npm run test:portal` (in CI): the world
 validates; it starts on the plaza facing the name, and the town and its
-rooms have no enemies; the arcade's cabinets are exactly its nine games, Adventure, Pizza Rescue and Solo Rescue (the VIP hall's are Mini World, Lag Din Figur and Eventyrland),
+rooms have no enemies; the arcade's cabinets are exactly its nine games, Adventure, Pizza Rescue and Solo Rescue (the VIP hall's are Mini World, Lag Din Figur, Eventyrland and Supermusene),
 each ending on INSERT COIN? PRESS {A}.; PIZZA RESCUE leaves for `https://fighter.phareim.no/?look=wasteland&from=phareim`,
 is no id in the theme registry, has its own marquee and screen, and blocks nothing in the hall (every exit, the counter, the robot, the signs and the chest are still walked up to; 2026-10-05); SOLO RESCUE leaves for `https://nova.phareim.no/?from=phareim` with a marquee and a screen of its own; Pizza Rescue, Solo Rescue, Adventure and Night of the Dead Battery stand side by side on the island in that order, Adventure in the door's column, a stool in front of each and all four nearer the door than any other cabinet (2026-10-13); the NEW GAME machine
 says there is nothing to wipe before the blade, and after it asks once and
