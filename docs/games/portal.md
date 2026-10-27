@@ -237,7 +237,7 @@ most 360 px wide, centred above the bottom band.
 **The Koding Kata stand** (2026-10-27). East of Petter's house, in the open
 ground north of the square (exit id `kata` at tile 33,6 of `overworld`, mark
 `ķ`, used from 33,7), a stall leads to `https://kata.phareim.no/?from=phareim`:
-Kodekata, small JavaScript tasks with pixel monsters, in Norwegian. It has the
+Kodekata, small JavaScript and Java tasks with pixel monsters, in Norwegian. It has the
 NEW LOOK stall's look with `art: 'kata'`, which `queueKata` in
 `render/exits.ts` draws as its own: a KODING KATA board in lime over a lime
 and white awning, Linus (white glasses) and Ada (ginger pigtails, pink

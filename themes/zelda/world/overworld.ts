@@ -218,7 +218,7 @@ export const OVERWORLD: MapDef = {
     // (the shell's `look` panel), where every part of the hero can be changed. The Z tiles are the rest of the stall.
     'Þ': { tile: 'Z', ent: { t: 'exit', id: 'look', to: { panel: 'look' }, look: 'stall', label: 'NEW LOOK', side: 'down' } },
     // The KODING KATA stand east of Petter's house (2026-10-27): two nerds at a desk, old computers piled round it,
-    // and kata.phareim.no behind it, small JavaScript tasks with pixel monsters. `from=phareim` gives kata its
+    // and kata.phareim.no behind it, small JavaScript and Java tasks with pixel monsters. `from=phareim` gives kata its
     // «Til byen» button back here. A stall like NEW LOOK, drawn as its own (`art: 'kata'`); the Z tiles are the rest.
     'ķ': {
       tile: 'Z',
@@ -226,7 +226,7 @@ export const OVERWORLD: MapDef = {
         t: 'exit', id: 'kata', to: { url: 'https://kata.phareim.no/?from=phareim' }, look: 'stall', art: 'kata', label: 'KODING KATA', side: 'down',
         lines: [
           'ADA: PSST. YOU LOOK LIKE SOMEONE WHO CAN WRITE A LOOP.',
-          'LINUS: SMALL PUZZLES IN JAVASCRIPT. PIXEL MONSTERS WANT TO BE SORTED, TIDIED AND MOVED, AND YOUR CODE DOES IT. THE TASKS ARE IN NORWEGIAN.',
+          'LINUS: SMALL PUZZLES IN JAVASCRIPT OR JAVA. PIXEL MONSTERS WANT TO BE SORTED, TIDIED AND MOVED, AND YOUR CODE DOES IT. THE TASKS ARE IN NORWEGIAN.',
           '(THE COMPUTERS LOOK OLDER THAN THE TOWN. NONE OF THEM IS PLUGGED IN. ALL OF THEM ARE ON.)',
           'PULL UP A CHAIR?',
         ],
