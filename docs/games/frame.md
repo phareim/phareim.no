@@ -79,7 +79,8 @@ of its own reading and the frame's.
    from it when `window.parent !== window`. A link to `https://phareim.no/`
    would load the town inside the frame.
 
-The beach's two booths (Jam, the radio) still leave the app. The radio needs
+The beach's two booths (Jam, the radio) and the KODING KATA stand
+(kata.phareim.no, 2026-10-27) still leave the app. The radio needs
 step 3 in `components/TownChip.client.vue`; Jam sits behind Reader's login,
 whose page must be seen to work in a frame first.
 

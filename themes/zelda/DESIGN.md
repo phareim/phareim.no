@@ -48,7 +48,7 @@ with a banner, a music track and a continue point:
 
 | Area | Where | What |
 |---|---|---|
-| PHAREIM.NO | W, the start | the town: Petter's house, the arcade, fountain, the NEW LOOK stall, newsstand, pier; no enemies; `village` music. Details: `themes/portal/DESIGN.md` |
+| PHAREIM.NO | W, the start | the town: Petter's house, the arcade, fountain, the NEW LOOK stall, the KODING KATA stand, newsstand, pier; no enemies; `village` music. Details: `themes/portal/DESIGN.md` |
 | Home Glade | SW | the coast road arrives here; Keeper's hut (door → hut), Keeper, sword chest, pots, blobs, rock-ring chest |
 | Whisper Woods | NW | bats, dashers, **bomb bag** chest, heart piece behind a boulder |
 | Night Market | N | shop, kid, cat, fountain, market stalls and a sign where the old arcade stood (the arcade is in town since 2026-09-24); `village` music |
@@ -68,7 +68,7 @@ chest), the VIP hall (Ulrikke's four games and a bar, behind a velvet rope that 
 only while logged in: `docs/games/portal.md`) and Petter's house.
 
 **Exits** (`ExitDef` in `types.ts`) leave the game for somewhere else: the
-town's cabinets (five of them, Eventyrland's, Supermusene's, Adventure's, Pizza Rescue's and Solo Rescue's, for another site), board, HANGAR door, kiosk, signpost and terminals. The
+town's cabinets (five of them, Eventyrland's, Supermusene's, Adventure's, Pizza Rescue's and Solo Rescue's, for another site), board, HANGAR door, kiosk, the KODING KATA stand (kata.phareim.no), signpost and terminals. The
 hut has no exit any more; `{ home: true }` is still a valid target but
 nothing uses it.
 

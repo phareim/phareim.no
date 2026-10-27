@@ -2,7 +2,8 @@
  * The overworld: one 104×48 map the camera scrolls over freely. The town
  * (PHAREIM.NO, phareim.no's front door) fills the west 40 columns: Petter's
  * house with his name on the roof, the arcade, the fountain, the NEW LOOK
- * stall east of it (where a copy of the Keeper's hut once stood), the coast with
+ * stall east of it (where a copy of the Keeper's hut once stood), the KODING KATA stand east of
+ * Petter's house (two nerds and their old computers; kata.phareim.no), the coast with
  * the SLEEPER newsstand (Sleeper's feed, read in a panel), the pier, and east of it a quiet beach (two DJs,
  * a bonfire, people lying about). The coast road
  * runs east along the water into Home Glade and round to the Keeper's hut,
@@ -33,8 +34,8 @@ export const OVERWORLD: MapDef = {
     'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT:..;;:TTTTTTTTTTTTTT.:.TT#..HHHHHHH.....:..:....#####IVVI####',
     'TTHHHHHHHHHTTHHHHHHHHHHHHHHHTTTTTTTTTTTTTT..:....TTTTTTTTTTTTTT.5.TT#..HHHHHHH.....nn.nn...#####IW.I####',
     'TTHHHHHHHHHTTHHHHHHHHHHHHHHH..T..:..TTTTTT:..4...:.....;;..TTTT...TT#t.HHHMHHH..t........t.######RR#####',
-    'TTHHHHHHHHHTTHHHHHHHHHHHHHHH...:.....TTTTT..:...:.TTTTT;;;..TTTTRTTT#..HHHBHHH......:N.....##T:......:T#',
-    'TTHHHHHHHHHtTHHHHHHHHHHHHHHH.t....:...TTTTT:..a..TTTTTTT;;..TTTT.TTT#.....E....:...........##.G..G..G..#',
+    'TTHHHHHHHHHTTHHHHHHHHHHHHHHH...:ZZZ..TTTTT..:...:.TTTTT;;;..TTTTRTTT#..HHHBHHH......:N.....##T:......:T#',
+    'TTHHHHHHHHHtTHHHHHHHHHHHHHHH.t.ZZķZZ..TTTTT:..a..TTTTTTT;;..TTTT.TTT#.....E....:...........##.G..G..G..#',
     'TTHHHHßHHHH..HHHHHHHpHHHHHHH....:..:..TTTTTT....TTT;;TTTT...TTT;.;TT#.t,,,,,,,,,,,,,,,,,,t.##.....z....#',
     'TTTT,¤¤¤Ð,,,,,,,,,,,@,,,,,,,,.......TTTTTTTTT..TTT;;;;TT..a..TT...TT#..,:,,,,,,,,,,,,,,:,..##.G..G..G.g#',
     'TTT..........::,,,,,,,,,,,::.........TTTTTTT...TTTT;;TTT.....TT.;.TT#..,,,,,t~~~~t,,,,,,,..##..........#',
@@ -206,7 +207,7 @@ export const OVERWORLD: MapDef = {
         ],
       },
     }] } },
-    '0': { tile: 'S', ent: { t: 'sign', lines: ["↑ PETTER'S HOUSE   ← THE ARCADE AND THE VIP HALL   → NEW LOOK   ↓ THE COAST ROAD, THE BEACH AND THE KEEPER'S HUT"] } },
+    '0': { tile: 'S', ent: { t: 'sign', lines: ["↑ PETTER'S HOUSE AND KODING KATA   ← THE ARCADE AND THE VIP HALL   → NEW LOOK   ↓ THE COAST ROAD, THE BEACH AND THE KEEPER'S HUT"] } },
     // The west road: into the Wildwood, through a thicket only a blade gets through.
     '<': { tile: ',', ent: { t: 'warp', to: 'wildwood', entry: 'town' } },
     ')': { tile: 'S', ent: { t: 'sign', lines: ['← THE WILDWOOD', 'THE THICKET HAS GROWN OVER THE ROAD AGAIN. YOU WOULD NEED A BLADE.'] } },
@@ -216,6 +217,21 @@ export const OVERWORLD: MapDef = {
     // The NEW LOOK stall, where the town's copy of the Keeper's hut stood: A at the counter opens the mirror
     // (the shell's `look` panel), where every part of the hero can be changed. The Z tiles are the rest of the stall.
     'Þ': { tile: 'Z', ent: { t: 'exit', id: 'look', to: { panel: 'look' }, look: 'stall', label: 'NEW LOOK', side: 'down' } },
+    // The KODING KATA stand east of Petter's house (2026-10-27): two nerds at a desk, old computers piled round it,
+    // and kata.phareim.no behind it, small JavaScript tasks with pixel monsters. `from=phareim` gives kata its
+    // «Til byen» button back here. A stall like NEW LOOK, drawn as its own (`art: 'kata'`); the Z tiles are the rest.
+    'ķ': {
+      tile: 'Z',
+      ent: {
+        t: 'exit', id: 'kata', to: { url: 'https://kata.phareim.no/?from=phareim' }, look: 'stall', art: 'kata', label: 'KODING KATA', side: 'down',
+        lines: [
+          'ADA: PSST. YOU LOOK LIKE SOMEONE WHO CAN WRITE A LOOP.',
+          'LINUS: SMALL PUZZLES IN JAVASCRIPT. PIXEL MONSTERS WANT TO BE SORTED, TIDIED AND MOVED, AND YOUR CODE DOES IT. THE TASKS ARE IN NORWEGIAN.',
+          '(THE COMPUTERS LOOK OLDER THAN THE TOWN. NONE OF THEM IS PLUGGED IN. ALL OF THEM ARE ON.)',
+          'PULL UP A CHAIR?',
+        ],
+      },
+    },
     // ---- Home Glade ----
     '1': { ent: { t: 'entry', id: 'glade', dir: 'up' } },
     '2': { ent: { t: 'chest', id: 'ow.sword', item: 'sword' } },

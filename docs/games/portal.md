@@ -7,7 +7,8 @@ per game, two more that leave for Nova & Rex: The Pizza Rescue on fighter.pharei
 sequel Nova's Solo Rescue on nova.phareim.no, the
 Hall of Fame board, the Hangar door), the VIP hall next door
 (Ulrikke's games and a bar, for logged-in visitors), Petter's house (who he
-is, three terminals to his profiles, the login console), the SLEEPER newsstand
+is, three terminals to his profiles, the login console), the KODING KATA stand
+next to it (two nerds and their old computers, in front of kata.phareim.no), the SLEEPER newsstand
 (where Sleeper's feed is read inside the game: "The newsstand" below),
 and east of the pier a quiet beach: two hippie
 DJs (the one building loops live leads to jam.phareim.no, the one with the
@@ -25,7 +26,7 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 
 | File | Job |
 |---|---|
-| `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, the NEW LOOK stall east of it (where the hero's hair, clothes and colours are changed: `docs/games/neon-shrine.md` → "The hero's look"), newsstand, signpost, pier, the beach east of it (two DJ booths, a bonfire and the people round it, tiki torches), the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
+| `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, the NEW LOOK stall east of it (where the hero's hair, clothes and colours are changed: `docs/games/neon-shrine.md` → "The hero's look"), the KODING KATA stand east of the house ("The Koding Kata stand" below), newsstand, signpost, pier, the beach east of it (two DJ booths, a bonfire and the people round it, tiki torches), the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
 | `themes/zelda/world/town.ts` | The arcade, 17×11 (twelve cabinets: nine games and three that leave the site, Adventure for `adventure.phareim.no`, Eventyrland's open instance, Pizza Rescue for `fighter.phareim.no` and Solo Rescue for `nova.phareim.no`; the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 17×11 (Mini World, Lag Din Figur, Eventyrland and Supermusene, a bar with its bartender, a mirror ball, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
 | `themes/zelda/engine/map.ts` | `setSession`: the shell's word on the login; the rope tiles follow it |
 | `themes/zelda/world/index.ts` | `WORLD` (the one world), `worldExits()`, `worldStartingAt()` |
@@ -232,6 +233,26 @@ Escape / Backspace / K / X close (the hero stays in the house). Presses in
 the first 350 ms are ignored, so the A that opened it does not also press
 LOG IN. Touch: tap a button; a tap beside the box closes it. The box is at
 most 360 px wide, centred above the bottom band.
+
+**The Koding Kata stand** (2026-10-27). East of Petter's house, in the open
+ground north of the square (exit id `kata` at tile 33,6 of `overworld`, mark
+`ķ`, used from 33,7), a stall leads to `https://kata.phareim.no/?from=phareim`:
+Kodekata, small JavaScript tasks with pixel monsters, in Norwegian. It has the
+NEW LOOK stall's look with `art: 'kata'`, which `queueKata` in
+`render/exits.ts` draws as its own: a KODING KATA board in lime over a lime
+and white awning, Linus (white glasses) and Ada (ginger pigtails, pink
+frames) at a desk with a beige computer between them, typing in turns; the
+code on its screen types out, goes lime and both hop, and it starts over. The
+suspiciously old computers stand on the Z tiles either side: a PC on its side
+with an amber monitor that shows a prompt with its cable hanging loose, and a
+breadbin computer with a tape deck and a joystick. The lines (Ada, Linus, a
+look at the computers) end on PULL UP A CHAIR?. `from=phareim` makes kata show
+⌂ Til byen in its header, back to `https://phareim.no/`, where
+`portal.return` stands the hero at the desk again (kata's `src/app/town.ts`).
+It is not framed in the installed app, like the beach's booths. The signpost
+on the square says ↑ PETTER'S HOUSE AND KODING KATA. Look lab:
+`shot.mjs <outDir> r-kata` (with `FRAMES=270` for the board lit and the code
+green: at the default 40 frames the board is in its rare flicker).
 
 **The newsstand** (2026-10-13). The stand on the coast road (tile 15,25 of
 `overworld`, exit id `kiosk`, look `kiosk`, label SLEEPER NEWS) no longer

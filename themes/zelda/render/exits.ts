@@ -1,7 +1,7 @@
 /**
  * Exits as the renderer sees them (the portal's cabinets, the Hall of Fame
  * board, the kiosk, the terminals, the login console, neon signs, the DJ
- * booths on the beach, the NEW LOOK stall on the square) and the floating label that names an exit while the hero stands next
+ * booths on the beach, the NEW LOOK stall on the square, the KODING KATA stand) and the floating label that names an exit while the hero stands next
  * to it.
  *
  * Static parts are painted once per look/art into cached canvases; screens
@@ -848,6 +848,196 @@ function stallPerson(look: HeroLook): Canvas {
 }
 
 // ---------------------------------------------------------------------------
+// The KODING KATA stand east of Petter's house (2026-10-27): a stall (`art: 'kata'`)
+// with Linus and Ada at a desk, a beige computer typing code between them, and
+// older machines piled round the stand, none of them plugged in
+// ---------------------------------------------------------------------------
+
+/** The whole stand, junk piles included; the booth is x 10–69 and the board over it is wider. */
+const KATA_W = 80
+const BEIGE = '#d8cba0'
+const BEIGE_L = '#efe4c0'
+const BEIGE_D = '#a8986a'
+/** The desk computer's screen, from the stand's top left. */
+const KATA_SCR = { x: 36, y: 22, w: 9, h: 7 }
+/** Lines of code on that screen: indent and length in pixels, one every other row. */
+const KATA_CODE: readonly (readonly [number, number])[] = [[0, 6], [2, 5], [0, 2]]
+const KATA_CODE_LEN = KATA_CODE.reduce((n, [, len]) => n + len, 0)
+/** Typed pixels a second, and the whole round: typing, a look at it, the lines going lime (solved). */
+const KATA_TYPE = 5
+const KATA_ROUND = KATA_CODE_LEN / KATA_TYPE + 2.6
+let kataBackC: Canvas | null = null
+let kataFrontC: Canvas | null = null
+
+/** Everything behind the nerds and the static parts beside them: board, awning, shelf, the desk computer's case, the junk. */
+function kataBack(): Canvas {
+  if (kataBackC) return kataBackC
+  const c = makeCanvas(KATA_W, STALL_H)
+  const g = c.getContext('2d')!
+  const k = PAL.k!
+  // Header board on the roof, wider than the booth, with a neon KODING KATA (the letters are lit live).
+  r(g, k, 5, 0, 70, 11); r(g, '#12081e', 6, 1, 68, 9)
+  r(g, '#3b2b62', 6, 9, 68, 1)
+  // Striped awning, lime and white, scalloped edge.
+  r(g, k, 9, 11, 62, 8)
+  for (let x = 10; x < 70; x++) {
+    const lime = Math.floor((x - 10) / 5) % 2 === 0
+    r(g, lime ? '#b6ff4a' : '#fff4ff', x, 12, 1, 5)
+    r(g, lime ? '#6fae2a' : '#cfc6ff', x, 12, 1, 1)
+  }
+  for (let x = 10; x < 70; x += 5) {
+    const lime = Math.floor((x - 10) / 5) % 2 === 0
+    r(g, lime ? '#b6ff4a' : '#fff4ff', x + 1, 17, 3, 1)
+    r(g, k, x, 17, 1, 1); r(g, k, x + 4, 17, 1, 1)
+  }
+  // The booth: two posts and a dark back wall with a shelf of floppies, a tape and a little gold cup.
+  r(g, k, 10, 18, 60, 24)
+  r(g, '#3b2b62', 11, 19, 58, 22)
+  r(g, '#1c1030', 13, 19, 54, 13)
+  r(g, '#8f86b8', 11, 19, 1, 22); r(g, '#8f86b8', 68, 19, 1, 22)
+  r(g, '#8a5a2a', 13, 23, 54, 1); r(g, '#4a2a12', 13, 24, 54, 1)
+  const floppy = (x: number, col: string) => { r(g, col, x, 20, 3, 3); r(g, '#fff4ff', x, 20, 3, 1); r(g, '#0b0616', x + 1, 22, 1, 1) }
+  floppy(13, '#2f5fd0'); floppy(16, '#ff2fa0'); floppy(61, '#ffd23f')
+  r(g, '#1c1030', 64, 20, 3, 3); r(g, '#5a5285', 64, 20, 3, 1); r(g, '#cfc6ff', 64, 21, 1, 1); r(g, '#cfc6ff', 66, 21, 1, 1)
+  r(g, '#ffd23f', 31, 20, 2, 1); r(g, '#c4861c', 31, 21, 2, 1); r(g, '#ffd23f', 31, 22, 2, 1)
+  // The desk computer: a beige box between them, its screen drawn live.
+  r(g, k, 34, 20, 13, 11)
+  r(g, BEIGE, 35, 21, 11, 9)
+  r(g, BEIGE_L, 35, 21, 11, 1); r(g, BEIGE_L, 35, 21, 1, 8)
+  r(g, BEIGE_D, 35, 29, 11, 1); r(g, BEIGE_D, 45, 22, 1, 7)
+  r(g, '#0b1a10', KATA_SCR.x, KATA_SCR.y, KATA_SCR.w, KATA_SCR.h)
+  // Left of the booth: a PC lying on its side, a little amber monitor on it, its cable hanging loose.
+  r(g, k, 0, 33, 11, 9)
+  r(g, BEIGE, 1, 34, 9, 7); r(g, BEIGE_L, 1, 34, 9, 1); r(g, BEIGE_D, 1, 40, 9, 1)
+  r(g, '#1c1030', 2, 36, 5, 1); r(g, '#1c1030', 2, 38, 5, 1); r(g, BEIGE_D, 8, 38, 1, 1)
+  r(g, k, 1, 25, 9, 9)
+  r(g, BEIGE_D, 2, 26, 7, 7); r(g, BEIGE, 2, 26, 7, 1)
+  r(g, '#1a1206', 3, 27, 5, 4)
+  r(g, '#5a5285', 0, 28, 1, 4); r(g, '#cfc6ff', 0, 32, 1, 1)
+  // Right of it: a breadbin computer on the ground, a tape deck on top, and a joystick.
+  r(g, k, 70, 35, 10, 7)
+  r(g, '#8a7a6a', 71, 36, 8, 5); r(g, '#b0a08a', 71, 36, 8, 1)
+  for (let x = 72; x < 78; x += 2) { r(g, '#4a3a2a', x, 38, 1, 1); r(g, '#4a3a2a', x + 1, 39, 1, 1) }
+  r(g, '#c4861c', 77, 37, 1, 1)
+  r(g, k, 71, 30, 6, 5)
+  r(g, '#5a5285', 72, 31, 4, 3); r(g, '#1c1030', 72, 31, 4, 1); r(g, '#cfc6ff', 72, 32, 1, 1); r(g, '#cfc6ff', 75, 32, 1, 1)
+  r(g, k, 77, 32, 2, 3); r(g, '#3b2b62', 78, 32, 1, 3); r(g, '#ff3b5c', 77, 31, 2, 1)
+  kataBackC = c
+  return c
+}
+
+/** The desk in front of them: two keyboards, a floppy and a mug on top, a lime </> on the front. */
+function kataFront(): Canvas {
+  if (kataFrontC) return kataFrontC
+  const h = STALL_H - STALL_COUNTER
+  const c = makeCanvas(KATA_W, h)
+  const g = c.getContext('2d')!
+  const k = PAL.k!
+  r(g, k, 10, 0, 60, h)
+  r(g, '#cfc6ff', 11, 0, 58, 1); r(g, '#8f86b8', 11, 1, 58, 2)
+  r(g, '#3b2b62', 11, 3, 58, h - 4)
+  r(g, '#271c46', 11, h - 2, 58, 1)
+  for (let i = 0; i < 3; i++) {
+    const x = 13 + i * 19
+    r(g, '#54259e', x, 4, 16, 5)
+    r(g, '#9a4ff0', x, 4, 16, 1)
+  }
+  // </> on the middle panel.
+  const gx = 32 + 4
+  r(g, '#b6ff4a', gx + 1, 5); r(g, '#b6ff4a', gx, 6); r(g, '#b6ff4a', gx + 1, 7)
+  r(g, '#b6ff4a', gx + 5, 5); r(g, '#b6ff4a', gx + 4, 6); r(g, '#b6ff4a', gx + 3, 7)
+  r(g, '#b6ff4a', gx + 7, 5); r(g, '#b6ff4a', gx + 8, 6); r(g, '#b6ff4a', gx + 7, 7)
+  // On the desk: a keyboard in front of each of them, a floppy, a mug.
+  for (const x of [19, 49]) {
+    r(g, BEIGE, x, 0, 11, 2)
+    for (let i = 1; i < 10; i += 2) r(g, BEIGE_D, x + i, 1, 1, 1)
+  }
+  r(g, '#2f5fd0', 31, 0, 3, 2); r(g, '#fff4ff', 32, 0, 1, 1)
+  r(g, '#fff4ff', 63, 0, 2, 2); r(g, '#ff2fa0', 63, 1, 2, 1); r(g, '#fff4ff', 65, 1, 1, 1)
+  kataFrontC = c
+  return c
+}
+
+/** Linus (brown hair, white glasses that catch the light) and Ada (ginger pigtails, pink frames). */
+const LINUS: HeroLook = { ...DRAWN_LOOK, hair: 'short', head: 'none', hairColor: '#6a3a1a', top: '#2f5fd0', stripe: '#ffd23f', skin: '#e6a57e' }
+const ADA: HeroLook = { ...GIRL_LOOK, hair: 'pigtails', head: 'none', hairColor: '#ff8a3d', top: '#b6ff4a', stripe: '#1f7a6e', skin: '#ffe3d2' }
+/** Glasses over a facing-down hero's eyes (row 6, eyes at 6 and 9): rims, lenses and the bridge. */
+function kataGlasses(g: G, x: number, y: number, rim: string, lens: string | null) {
+  r(g, rim, x + 5, y + 6); r(g, rim, x + 7, y + 6, 2, 1); r(g, rim, x + 10, y + 6)
+  if (lens) { r(g, lens, x + 6, y + 6); r(g, lens, x + 9, y + 6) }
+}
+
+function queueKata(
+  g: G, e: ExitSpot, px: number, bottom: number, t: number, seed: number, reduced: boolean,
+  items: SortItem[], lights: Light[], emit: Emit[],
+) {
+  const left = px - KATA_W / 2
+  const top = bottom - STALL_H
+  const on = reduced || Math.sin(t * 1.2 + seed) > -0.96
+  // The desk computer's round: code types out, sits a moment, goes lime (solved), starts over.
+  const ph = reduced ? KATA_ROUND - 1 : (t + seed) % KATA_ROUND
+  const typed = Math.min(KATA_CODE_LEN, Math.floor(ph * KATA_TYPE))
+  const solved = ph > KATA_ROUND - 0.7
+  // They type in turns, and both hop when the lines go lime.
+  const burst = Math.floor(t * 0.5 + seed) % 2
+  const tap = Math.floor(t * 4) % 2
+  const dyL = reduced ? 0 : solved ? -1 : burst ? 0 : tap
+  const dyA = reduced ? 0 : solved ? -1 : burst ? tap : 0
+  const glint = !reduced && (t * 0.9 + seed) % 3 < 0.15
+  const amber = reduced || Math.sin(t * 0.9 + seed) > -0.9
+  const disk = !reduced && Math.sin(t * 9 + seed * 3) > 0.4
+  items.push({
+    x: e.x,
+    y: e.y + 0.5,
+    draw: () => {
+      g.fillStyle = 'rgba(8,4,20,0.45)'
+      g.fillRect(left + 1, bottom - 1, KATA_W - 2, 2)
+      g.drawImage(kataBack(), left, top)
+      drawText(g, 'KODING KATA', left + Math.round((KATA_W - textWidth('KODING KATA')) / 2), top + 2, on ? '#b6ff4a' : '#2a4a1a')
+      // The desk computer's code, and a cursor after it (blinking once it is all there).
+      const sx = left + KATA_SCR.x + 1
+      const sy = top + KATA_SCR.y + 1
+      let n = typed
+      let cur: [number, number] = [sx, sy]
+      KATA_CODE.forEach(([ind, len], i) => {
+        const w = Math.min(len, n)
+        n -= w
+        if (w > 0) { r(g, solved ? '#b6ff4a' : '#3fe86a', sx + ind, sy + i * 2, w, 1); cur = [sx + ind + w, sy + i * 2] }
+      })
+      if (typed < KATA_CODE_LEN || reduced || Math.floor(t * 3) % 2 === 0) r(g, '#fff4ff', cur[0], cur[1])
+      // The amber monitor on the pile: a prompt and a cursor, though nothing feeds it. The PC under it reads a disk.
+      if (amber) {
+        r(g, '#3a2408', left + 3, top + 27, 5, 4)
+        r(g, '#ffb13f', left + 3, top + 28); r(g, '#ffb13f', left + 4, top + 29); r(g, '#ffb13f', left + 3, top + 30)
+        if (reduced || Math.floor(t * 2) % 2 === 0) r(g, '#ffb13f', left + 5, top + 30, 2, 1)
+      }
+      r(g, disk ? '#ff3b5c' : '#5a1a2a', left + 8, top + 36)
+      // Waist up behind the desk: Linus on the left, Ada on the right; the counter hides the rest.
+      const rows = STALL_COUNTER - 20
+      const person = (look: HeroLook, x: number, dy: number) =>
+        g.drawImage(stallPerson(look), 0, 0, 16, rows - dy, left + x, top + 20 + dy, 16, rows - dy)
+      person(LINUS, 17, dyL)
+      kataGlasses(g, left + 17, top + 20 + dyL, '#0b0616', glint ? '#2ff3ff' : '#fff4ff')
+      person(ADA, 47, dyA)
+      kataGlasses(g, left + 47, top + 20 + dyA, '#ff2fa0', null)
+      g.drawImage(kataFront(), left, top + STALL_COUNTER)
+    },
+  })
+  emit.push(
+    { x: left + 6, y: top + 1, w: 68, h: 9 },
+    { x: left + KATA_SCR.x, y: top + KATA_SCR.y, w: KATA_SCR.w, h: KATA_SCR.h },
+    { x: left + 3, y: top + 27, w: 5, h: 4 },
+  )
+  lights.push(
+    { x: e.x, y: e.y - 2.1, r: 2.8, color: '#b6ff4a', a: on ? 0.55 : 0.2 },
+    { x: e.x, y: e.y - 0.8, r: 2.2, color: solved ? '#b6ff4a' : '#3fe86a', a: 0.45 },
+    { x: e.x, y: e.y - 0.4, r: 3, color: '#ffb13f', a: 0.45 },
+    { x: e.x - 2.2, y: e.y - 0.3, r: 1.3, color: '#ffb13f', a: amber ? 0.4 : 0.1 },
+    { x: e.x, y: e.y + 1, r: 2.2, color: '#b6ff4a', a: 0.25 },
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Terminal (desk + CRT)
 // ---------------------------------------------------------------------------
 
@@ -1327,6 +1517,7 @@ export function queueExits(
         break
       }
       case 'stall': {
+        if (e.art === 'kata') { queueKata(g, e, px, bottom, t, seed, reduced, items, lights, emit); break }
         const left = px - STALL_W / 2
         const top = bottom - STALL_H
         const on = reduced || Math.sin(t * 1.3 + seed) > -0.96

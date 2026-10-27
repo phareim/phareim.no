@@ -60,6 +60,9 @@ const EXPECTED = {
   login: { map: 'home', to: { panel: 'account' }, look: 'console' },
   // The NEW LOOK stall on the square: A opens the shell's look panel (the hero's hair, clothes and colours).
   look: { map: 'overworld', to: { panel: 'look' }, look: 'stall' },
+  // The KODING KATA stand east of Petter's house: a stall of its own look that leaves for kata.phareim.no, which
+  // shows «Til byen» back here when the address says where the visit came from.
+  kata: { map: 'overworld', to: { url: 'https://kata.phareim.no/?from=phareim' }, look: 'stall' },
 }
 
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
@@ -323,7 +326,7 @@ describe('portal world', () => {
       assert.ok(P.framedGame(id).name)
     }
     // Nothing else is framed: no address from the URL, no inherited key, none of the other links out.
-    for (const no of ['https://example.com', 'jam', 'radio', 'kiosk', 'constructor', '__proto__', '', undefined, null, ['adventure']]) {
+    for (const no of ['https://example.com', 'jam', 'radio', 'kiosk', 'kata', 'constructor', '__proto__', '', undefined, null, ['adventure']]) {
       assert.equal(P.framedGame(no), null, `${String(no)} is framed`)
     }
     // The shell asks the frame first and only then leaves for the address.
@@ -596,6 +599,31 @@ describe('portal world', () => {
     const signs = Object.values(W.maps.overworld.marks).filter(m => m.ent.t === 'sign').map(m => m.ent.lines.join(' '))
     assert.ok(signs.some(l => /KEEPER'S HUT: DOWN TO THE COAST/.test(l)), 'the sign to the Keeper\'s hut is gone')
     assert.ok(signs.some(l => /→ NEW LOOK/.test(l)), 'the signpost does not name the stall')
+  })
+
+  it('has a KODING KATA stand east of Petter\'s house that asks before it leaves for kata.phareim.no, and comes back to it', () => {
+    const spot = placedExits().find(e => e.id === 'kata')
+    const info = P.mapInfo(W, 'overworld')
+    assert.equal(spot.map, 'overworld')
+    // In the open ground east of the house, north of the square, inside the town.
+    assert.ok(spot.x >= 28 && spot.x < TOWN_W - 3 && spot.y >= 4 && spot.y <= 8, `the stand stands at (${spot.x},${spot.y})`)
+    assert.equal(info.base[spot.y * info.w + spot.x], 'Z', 'the stand is its own sprite on a blocked tile')
+    // Its piles of old computers stand on blocked tiles either side; the hero uses it from the open tile below.
+    for (const dx of [-2, -1, 1, 2]) assert.equal(info.base[spot.y * info.w + spot.x + dx], 'Z', `nothing blocks (${spot.x + dx},${spot.y})`)
+    assert.equal(P.TILE_INFO[info.base[(spot.y + 1) * info.w + spot.x]].solid, false, 'the tile in front of the desk is blocked')
+    assert.equal(spot.ent.label, 'KODING KATA')
+    assert.equal(spot.ent.art, 'kata')
+    assert.equal(spot.ent.side, 'down')
+    assert.match(spot.ent.lines.at(-1), /\?$/)
+    assert.match(spot.ent.lines.join(' '), /JAVASCRIPT/)
+    assert.match(spot.ent.lines.join(' '), /NORWEGIAN/, 'the lines do not say the tasks are in Norwegian')
+    const signs = Object.values(W.maps.overworld.marks).filter(m => m.ent.t === 'sign').map(m => m.ent.lines.join(' '))
+    assert.ok(signs.some(l => /↑ PETTER'S HOUSE AND KODING KATA/.test(l)), 'the signpost does not name the stand')
+    // Back from kata.phareim.no, portal.return stands the hero in front of the desk, facing it.
+    const back = P.worldStartingAt('overworld', 'kata')
+    assert.equal(back.start.map, 'overworld')
+    const s = P.createGame(back, { seed: 1 })
+    assert.deepEqual([Math.floor(s.hero.x), Math.floor(s.hero.y), s.hero.dir], [spot.x, spot.y + 1, 'up'])
   })
 
   it('coming back stands you in front of the exit you used', () => {
