@@ -1,10 +1,11 @@
 # The frame: a game on another address, inside this page
 
-Five cabinets lead to games on their own addresses: Adventure
+Six cabinets lead to games on their own addresses: Adventure
 (`adventure.phareim.no`), Pizza Rescue (`fighter.phareim.no`), its sequel
 Solo Rescue (`nova.phareim.no`, since 2026-10-13), Eventyrland
-(`eventyrland.phareim.no`) and Supermusene (`maileg.phareim.no`, since
-2026-10-21). In a browser tab the cabinet loads the address, as
+(`eventyrland.phareim.no`), Supermusene (`maileg.phareim.no`, since
+2026-10-21) and Vector Horizon (`space.phareim.no`, since 2026-10-28, the
+arcade's machine under test). In a browser tab the cabinet loads the address, as
 before. Installed as a web app (Home Screen), leaving the app's own address
 makes the phone open its browser sheet over the game, with an address bar and
 a Done button. No manifest setting avoids that on iOS: an app's scope is one
@@ -67,6 +68,7 @@ of its own reading and the frame's.
 | Pizza Rescue | no header: any page may frame it | `src/main.ts` (`--frame-*` in `ui.css`, `data-edges` for the pixel look's own readouts) | ARCADE on the title and the pause panel |
 | Solo Rescue (`~/github/nova`, built on Pizza Rescue's engine) | no header: any page may frame it | the same code in its `src/main.ts` | ARCADE on the title and the pause panel |
 | Supermusene (`~/github/maileg`) | no header: any page may frame it | `src/game/arcade.ts`, at boot when the address says `from=phareim` | "Til arkaden" on the title and in the pause menu |
+| Vector Horizon (`space.phareim.no`, 2026-10-28) | not known here: the game's own repo decides | not known here | ARCADE back to `https://phareim.no/` when the address says `from=phareim` |
 
 ## Adding a game
 
@@ -118,6 +120,14 @@ Solo Rescue, 2026-10-13, against the live site the same way
 the insets (47 and 34 px), says ready, and ARCADE returns to `/`. Not walked
 there: YES at its cabinet (the script walks Pizza Rescue's; the shell's code
 is the same for every framed exit).
+
+Vector Horizon, 2026-10-28: only `npm run test:portal` (the table against
+the town's exit, `/?frame=horizon`). `frame-shot.mjs --live` has a
+`liveHorizon` step (it clicks the game's ARCADE), but it was not run: the
+cabinet was not on phareim.no yet, and space.phareim.no still served an older
+page that morning. Open: whether the game allows the frame, says hello and
+ready, and takes the insets; until it says ready the frame's ⌂ is the way
+home.
 
 In the first run the live Pizza Rescue, on another site than the dev page, read its
 own `env()` insets as 0 inside the frame; the dev servers on localhost read

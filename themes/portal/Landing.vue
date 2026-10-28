@@ -111,6 +111,7 @@ const NAMES: Record<string, string> = {
   adventure: 'adventure.phareim.no — the same world, open to everyone in Norway',
   pizzarescue: 'fighter.phareim.no — Nova & Rex: The Pizza Rescue, a side-scrolling fighter',
   nova: "nova.phareim.no — Nova's Solo Rescue, the sequel",
+  horizon: 'space.phareim.no — Vector Horizon, Nova & Max in a twin-stick space shooter (being tested)',
   kata: 'kata.phareim.no — Kodekata, small JavaScript and Java tasks with pixel monsters (in Norwegian)',
   linkedin: 'LinkedIn',
   github: 'GitHub',

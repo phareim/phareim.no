@@ -327,6 +327,23 @@ CABS.maileg = {
   ),
 }
 
+// Vector Horizon (space.phareim.no, 2026-10-28): Nova & Max's twin-stick shooter in vector neon. A navy-black cabinet
+// with hot magenta trim and a cyan glow; on the marquee a wireframe fighter over a magenta horizon and its grid.
+// It is still being tested: `testingCanvas()` puts tape, a TEST card and a cone on it.
+CABS.horizon = {
+  body: '#161848', bodyL: '#2e3290', bodyD: '#080a22', trim: '#ff2fa0', glow: '#2ff3ff',
+  bg: ['#05061a', '#070924', '#0a0c2e', '#0e1038', '#140e3e', '#05061a', '#1a0830'],
+  marquee: M(
+    'w....cc...w.',
+    '....c..c....',
+    '.w.c.pp.c...',
+    '..c......c..',
+    '.cccc..cccc.',
+    'pppppppppppp',
+    'P.p.p..p.p.P',
+  ),
+}
+
 // Adventure, Eventyrland's open instance in the arcade: the same castle on a warmer cabinet, so the two are told apart.
 CABS.adventure = { ...CABS.eventyrland!, body: '#a8542a', bodyL: '#f0a060', bodyD: '#5e2a12', trim: '#2ff3ff' }
 
@@ -376,6 +393,44 @@ function cabinetCanvas(art?: string): Canvas {
   // Side-art stripe down the lit side.
   r(g, st.trim, 1, 10, 1, 3)
   cabCache.set(key, c)
+  return c
+}
+
+/** How far the testing dressing reaches left of and above the cabinet (the card's edge, the card). */
+const TEST_L = 2
+const TEST_T = 7
+let testC: Canvas | null = null
+
+/**
+ * A machine still being tested (Vector Horizon, 2026-10-28), drawn over its cabinet at (left - TEST_L, top - TEST_T):
+ * a hand-written TEST card taped to the top, yellow-and-black hazard tape slapped across the front, and a traffic cone
+ * in front of its left foot (inside the cabinet's own width: the isometric view crops a machine to its tile).
+ */
+function testingCanvas(): Canvas {
+  if (testC) return testC
+  const c = makeCanvas(TEST_L + CAB_W + 1, TEST_T + CAB_H)
+  const g = c.getContext('2d')!
+  const X = TEST_L
+  const Y = TEST_T
+  const k = PAL.k!
+  // The card: cream paper with a dark edge and a folded corner, TEST in red marker, tape over the cabinet's top edge.
+  r(g, k, X - 2, Y - 7, 19, 8)
+  r(g, '#fff1d0', X - 1, Y - 6, 17, 6)
+  r(g, '#e8d4a8', X - 1, Y - 1, 17, 1)
+  r(g, k, X + 15, Y - 7); r(g, '#c8b488', X + 15, Y - 6)
+  mini(g, 'TEST', X, Y - 6, '#d81e3c')
+  r(g, '#d81e3c', X + 1, Y - 1, 12, 1)
+  r(g, '#cfc6ff', X - 1, Y, 3, 2); r(g, '#cfc6ff', X + 13, Y, 3, 2)
+  // Hazard tape across the front under the control panel, a pixel past each side: diagonal yellow and black stripes.
+  r(g, k, X - 1, Y + 20, CAB_W + 2, 1); r(g, k, X - 1, Y + 24, CAB_W + 2, 1)
+  for (let x = -1; x <= CAB_W; x++) {
+    for (let d = 0; d < 3; d++) r(g, Math.floor((x + d + 40) / 2) % 2 ? '#1c1030' : '#ffd23f', X + x, Y + 21 + d)
+  }
+  // The cone in front of its left foot.
+  const cone = ['...k...', '..kok..', '..kwk..', '.kooOk.', '.kwwwk.', 'kooooOk', 'kkkkkkk']
+  const col: Record<string, string> = { k, o: '#ff8a3d', O: '#c4501c', w: '#fff4ff' }
+  cone.forEach((row, y) => { for (let x = 0; x < 7; x++) if (row[x] !== '.') r(g, col[row[x]!]!, X + x, Y + CAB_H - 7 + y) })
+  testC = c
   return c
 }
 
@@ -592,6 +647,22 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       if (kick) { f('#fff4ff', 3, 5); f('#fff4ff', 2, 4) }
       if (chord) { f('#f5c3a8', 3, 3); f('#f5c3a8', 6, 3); f('#ffd23f', 3, 4); f('#ffd23f', 6, 2) }
       if (solo) { f('#f5c3a8', 3, 3); f('#f5c3a8', 6, 3); f('#fff4ff', 2, 2, 1, 3); f('#fff4ff', 7, 2, 1, 3) }
+      return
+    }
+    case 'horizon': {
+      // Deep space in vector neon: stars stream past, a cyan wireframe fighter slides from side to side and fires
+      // magenta bolts up at a gold diamond that drifts across the top.
+      f('#05061a', 0, 0, W, H)
+      for (let i = 0; i < 6; i++) f(i % 2 ? '#8f86b8' : '#fff4ff', (i * 7 + 3) % W, Math.floor(t * 6 + i * 2.7 + seed) % H)
+      const fx = 2 + Math.round(tri(t * 2 + seed, 3))
+      f('#2ff3ff', fx + 2, 5); f('#2ff3ff', fx + 1, 6); f('#2ff3ff', fx + 3, 6); f('#ff2fa0', fx + 2, 6)
+      f('#2ff3ff', fx, 7, 2, 1); f('#2ff3ff', fx + 3, 7, 2, 1)
+      for (let i = 0; i < 2; i++) {
+        const by = 4 - (Math.floor(t * 10 + i * 3 + seed) % 6)
+        f('#ff2fa0', fx + 2, by, 1, 2)
+      }
+      const ex = Math.round(tri(t * 1.3 + seed, 8))
+      f('#ffd23f', ex + 1, 0); f('#ffd23f', ex, 1); f('#ffd23f', ex + 2, 1); f('#ffd23f', ex + 1, 2)
       return
     }
     case 'anotherworld': {
@@ -1357,6 +1428,7 @@ export function queueExits(
               g.fillRect(sx, sy, SCR.w, SCR.h)
               g.globalAlpha = 1
             }
+            if (e.art === 'horizon') g.drawImage(testingCanvas(), left - TEST_L, top - TEST_T)
           },
         })
         emit.push({ x: left + 2, y: top + 1, w: 12, h: 7 }, { x: left + SCR.x, y: top + SCR.y, w: SCR.w, h: SCR.h })
@@ -1621,7 +1693,7 @@ export function drawExitLabels(
     const w = 4 + tw + 3 + 2 + 3 + kw + 4
     const h = GLYPH_H + 6
     const ax = Math.round(e.x * T - cx)
-    const topPx = e.walk ? (e.y - 0.5) * T - 2 : (e.y + 0.5) * T - lookTop(e.look)
+    const topPx = e.walk ? (e.y - 0.5) * T - 2 : (e.y + 0.5) * T - lookTop(e.look) - (e.art === 'horizon' ? TEST_T : 0)
     const lift = reduced ? 0 : Math.round((1 - next) * 3)
     let y = Math.round(topPx - cy) - h - 5 + lift
     // No room above (a tall look at the top of the view, or the HUD there): show it under the hero instead.

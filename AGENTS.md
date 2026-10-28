@@ -141,7 +141,7 @@ The shell leaves the arrow keys to the games. In a game, an Escape tap pauses an
 | Portal (home, on `/`) | `docs/games/portal.md` | `themes/portal/`, `themes/zelda/world/` |
 | The pixel look (shared) | `docs/games/pixel-look.md` | `themes/base/pixel/` |
 | Escape and the keyboard (shared) | `docs/games/escape.md` | `themes/base/escHold.ts`, `EscHold.vue` |
-| The frame (installed app: Adventure, Pizza Rescue, Solo Rescue and Eventyrland without leaving the page) | `docs/games/frame.md` | `components/GameFrame.vue`, `composables/useFrame.ts`, `themes/frames.ts` |
+| The frame (installed app: Adventure, Pizza Rescue, Solo Rescue, Vector Horizon, Eventyrland and Supermusene without leaving the page) | `docs/games/frame.md` | `components/GameFrame.vue`, `composables/useFrame.ts`, `themes/frames.ts` |
 | Mini World (Ulrikke's game) | `docs/games/mini-world.md` | `themes/miniworld/` (DESIGN.md), `scripts/miniworld-lab/` |
 | Lag Din Figur (Ulrikke's second) | `docs/games/lag-din-figur.md` | `themes/figur/` (DESIGN.md), `scripts/figur-lab/` |
 | Night of the Dead Battery | `docs/games/night-of-the-dead-battery.md` | `themes/battery/` (DESIGN.md, BUILD.md), `scripts/battery-lab/` |

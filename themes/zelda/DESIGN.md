@@ -62,13 +62,13 @@ west road warps there through a thicket you cut) and its labs (`lab1.ts`,
 
 **Interiors** (`interiors.ts`): the Keeper's hut (bed, table, lamps, pots,
 the Keeper's cat), shop (bombs 15, heart 10, heart piece 100 bits), lakeside
-cave (dark, heart piece). In `town.ts`: the arcade (twelve cabinets: nine games and three that leave the site, Adventure, Pizza Rescue and Solo Rescue; the Hall
+cave (dark, heart piece). In `town.ts`: the arcade (thirteen cabinets: nine games and four that leave the site, Adventure, Pizza Rescue, Solo Rescue and Vector Horizon, the last by the door and taped off as under test; the Hall
 of Fame board, the HANGAR door, the robot's chatter, the HIGH SCORES sign, a
 chest), the VIP hall (Ulrikke's four games and a bar, behind a velvet rope that is down
 only while logged in: `docs/games/portal.md`) and Petter's house.
 
 **Exits** (`ExitDef` in `types.ts`) leave the game for somewhere else: the
-town's cabinets (five of them, Eventyrland's, Supermusene's, Adventure's, Pizza Rescue's and Solo Rescue's, for another site), board, HANGAR door, kiosk, the KODING KATA stand (kata.phareim.no), signpost and terminals. The
+town's cabinets (six of them, Eventyrland's, Supermusene's, Adventure's, Pizza Rescue's, Solo Rescue's and Vector Horizon's, for another site), board, HANGAR door, kiosk, the KODING KATA stand (kata.phareim.no), signpost and terminals. The
 hut has no exit any more; `{ home: true }` is still a valid target but
 nothing uses it.
 

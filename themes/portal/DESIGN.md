@@ -128,6 +128,12 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   `{ url: 'https://nova.phareim.no/?from=phareim' }`, like
   Eventyrland's in the VIP hall. `from=phareim` makes each game offer the
   way back (`docs/games/portal.md`).
+- A thirteenth just inside the door on the left (2026-10-28): VECTOR
+  HORIZON, exit `{ url: 'https://space.phareim.no/?from=phareim' }`, a link
+  out still being tested. It wears that on the machine (a TEST card taped to
+  the top, hazard tape across the front, a cone in front of it) and in its
+  pitch (STILL BEING TESTED: EXPECT BUGS). Off the door's column, so the
+  island stays what the door looks at.
 - The Hall of Fame board on the back wall: exit look `board` →
   `{ theme: 'leaderboard' }`.
 - A door at the back labelled HANGAR: walkable exit → `{ theme: 'hangar' }`.

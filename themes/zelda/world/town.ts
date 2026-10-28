@@ -27,7 +27,9 @@ export const HIGH_SCORE_SIGN: string[] = [
  * round the island with bar stools in front of every cabinet; then the prize
  * counter with its vendor, a snack table, potted plants, the robot by the
  * entrance, the HIGH SCORES sign and a chest. Mini World and Lag Din Figur
- * moved to the VIP hall next door on 2026-09-29.
+ * moved to the VIP hall next door on 2026-09-29. Since 2026-10-28 a
+ * thirteenth stands just inside the door on the left, Vector Horizon, taped
+ * off and coned as a machine still being tested.
  *
  * A cabinet is a solid machine tile carrying an exit (`art` = the theme id
  * the renderer paints on its marquee). Face it and press A: the lines are
@@ -54,8 +56,8 @@ export const ARCADE: MapDef = {
     '#.,,,,iiii,,,,,.#',
     '#Y......,..v...S#',
     '#.nn....,.nnnn..#',
-    '#Q......,......$#',
-    '#.....u.@.....Y.#',
+    '#Q..V...,......$#',
+    '#...i.u.@.....Y.#',
     '########d########',
   ],
   // Z: the board is five tiles wide; its wings stay solid.
@@ -135,6 +137,20 @@ export const ARCADE: MapDef = {
         ],
       },
     },
+    // Vector Horizon (2026-10-28): Nova & Max in a DuranDuran Class fighter, a twin-stick shooter in vector neon, on a
+    // site of its own and still being tested, so the machine stands by the door in hazard tape with a TEST card and a
+    // cone (`CABS.horizon` in render/exits.ts). `from=phareim` puts ARCADE, the way back here, on the game.
+    V: {
+      tile: 'M',
+      ent: {
+        t: 'exit', id: 'horizon', to: { url: 'https://space.phareim.no/?from=phareim' }, look: 'cabinet', art: 'horizon', label: 'VECTOR HORIZON', side: 'down',
+        lines: [
+          'VECTOR HORIZON. NOVA & MAX IN SPACE, IN A DURANDURAN CLASS FIGHTER. ONE STICK FLIES, THE OTHER AIMS, AND EVERYTHING GLOWS.',
+          'STILL BEING TESTED: EXPECT BUGS. IT LIVES ON ITS OWN PAGE. PICK ARCADE THERE TO WALK BACK IN HERE.',
+          COIN,
+        ],
+      },
+    },
     B: {
       tile: 'I',
       ent: {
@@ -160,8 +176,9 @@ export const ARCADE: MapDef = {
           {
             when: { notFlag: 'item:sword' },
             lines: [
-              'ROBOT: BEEP. WELCOME TO THE ARCADE. TWELVE CABINETS. FREE PLAY. BOOP.',
+              'ROBOT: BEEP. WELCOME TO THE ARCADE. THIRTEEN CABINETS. FREE PLAY. BOOP.',
               'THE FOUR IN THE MIDDLE ARE THE LONG ONES: PIZZA RESCUE, SOLO RESCUE, ADVENTURE, NIGHT OF THE DEAD BATTERY.',
+              'THE TAPED-OFF ONE BY THE DOOR IS VECTOR HORIZON. STILL BEING TESTED. IF IT CRASHES, IT WAS NOT ME. BOOP.',
               'FACE A CABINET AND PRESS {A}. SCORES GO UP ON THE BOARD AT THE BACK.',
               'THE HANGAR DOOR BACK THERE IS FOR PILOTS. YOUR SHIP AND YOUR RECORDS LIVE IN IT.',
               'THE KIDS\' GAMES MOVED NEXT DOOR, TO THE VIP HALL. ACCOUNT HOLDERS ONLY.',
