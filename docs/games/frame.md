@@ -68,7 +68,7 @@ of its own reading and the frame's.
 | Pizza Rescue | no header: any page may frame it | `src/main.ts` (`--frame-*` in `ui.css`, `data-edges` for the pixel look's own readouts) | ARCADE on the title and the pause panel |
 | Solo Rescue (`~/github/nova`, built on Pizza Rescue's engine) | no header: any page may frame it | the same code in its `src/main.ts` | ARCADE on the title and the pause panel |
 | Supermusene (`~/github/maileg`) | no header: any page may frame it | `src/game/arcade.ts`, at boot when the address says `from=phareim` | "Til arkaden" on the title and in the pause menu |
-| Vector Horizon (`space.phareim.no`, 2026-10-28) | not known here: the game's own repo decides | not known here | ARCADE back to `https://phareim.no/` when the address says `from=phareim` |
+| Vector Horizon (`~/github/space`, 2026-10-28) | no header: any page may frame it | `src/main.ts`: `phareim:ready` at boot, the insets into `--safe-top`/`--safe-bottom` | ARCADE on the title and the pause panel, through the frame when framed |
 
 ## Adding a game
 
