@@ -121,13 +121,13 @@ the insets (47 and 34 px), says ready, and ARCADE returns to `/`. Not walked
 there: YES at its cabinet (the script walks Pizza Rescue's; the shell's code
 is the same for every framed exit).
 
-Vector Horizon, 2026-10-28: only `npm run test:portal` (the table against
-the town's exit, `/?frame=horizon`). `frame-shot.mjs --live` has a
-`liveHorizon` step (it clicks the game's ARCADE), but it was not run: the
-cabinet was not on phareim.no yet, and space.phareim.no still served an older
-page that morning. Open: whether the game allows the frame, says hello and
-ready, and takes the insets; until it says ready the frame's ⌂ is the way
-home.
+Vector Horizon, 2026-10-28, live (`frame-shot.mjs https://phareim.no/ <out>
+--live`, Chrome for Testing on Sleeper): `/?frame=horizon` shows
+`https://space.phareim.no/?from=phareim`, the game says ready (the frame's ⌂
+goes), and ARCADE returns to `/`. The game keeps the insets in `--safe-top` and
+`--safe-bottom`, not Pizza Rescue's `--frame-*`, so the script's `toldReady`
+reads empty for it; the picture (`horizon-framed.png`) shows the title moved
+down by the 47 px it was told.
 
 In the first run the live Pizza Rescue, on another site than the dev page, read its
 own `env()` insets as 0 inside the frame; the dev servers on localhost read
