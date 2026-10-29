@@ -3,7 +3,7 @@
   "extends": "./.nuxt/tsconfig.json",
   "compilerOptions": {
     "types": ["node"],
-    "lib": ["ES2020", "DOM"],
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "moduleResolution": "node"
   }
 }
