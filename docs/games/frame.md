@@ -68,7 +68,7 @@ of its own reading and the frame's.
 | Pizza Rescue | no header: any page may frame it | `src/main.ts` (`--frame-*` in `ui.css`, `data-edges` for the pixel look's own readouts) | ARCADE on the title and the pause panel |
 | Solo Rescue (`~/github/nova`, built on Pizza Rescue's engine) | no header: any page may frame it | the same code in its `src/main.ts` | ARCADE on the title and the pause panel |
 | Supermusene (`~/github/maileg`) | no header: any page may frame it | `src/game/arcade.ts`, at boot when the address says `from=phareim` | "Til arkaden" on the title and in the pause menu |
-| Vector Horizon (`~/github/space`, 2026-10-28) | no header: any page may frame it | `src/main.ts`: `phareim:ready` at boot, the insets into `--safe-top`/`--safe-bottom` | ARCADE on the title and the pause panel, through the frame when framed |
+| Vector Horizon (`~/github/space`, 2026-10-28) | no header: any page may frame it | `src/main.ts`: `phareim:ready` at boot, the four insets into `--safe-top`/`-bottom`/`-left`/`-right` (left and right since 2026-10-29, for a phone on its side) | ARCADE on the title and the pause panel, through the frame when framed |
 
 ## Adding a game
 
@@ -124,8 +124,8 @@ is the same for every framed exit).
 Vector Horizon, 2026-10-28, live (`frame-shot.mjs https://phareim.no/ <out>
 --live`, Chrome for Testing on Sleeper): `/?frame=horizon` shows
 `https://space.phareim.no/?from=phareim`, the game says ready (the frame's ⌂
-goes), and ARCADE returns to `/`. The game keeps the insets in `--safe-top` and
-`--safe-bottom`, not Pizza Rescue's `--frame-*`, so the script's `toldReady`
+goes), and ARCADE returns to `/`. The game keeps the insets in `--safe-*`,
+not Pizza Rescue's `--frame-*`, so the script's `toldReady`
 reads empty for it; the picture (`horizon-framed.png`) shows the title moved
 down by the 47 px it was told.
 
