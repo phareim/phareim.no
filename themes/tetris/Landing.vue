@@ -4,7 +4,7 @@
     this theme is only the game. -->
   <div class="tetris-landing">
     <Horizon ref="horizon" />
-    <Arcade @state="horizon?.setGarden($event.lines)" @beat="horizon?.beat($event)" @view="horizon?.setView($event.x, $event.y)" />
+    <Arcade @state="horizon?.setGarden($event.lines)" @beat="horizon?.beat($event)" @view="horizon?.setView($event.x)" />
     <SoundToggle />
   </div>
 </template>

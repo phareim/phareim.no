@@ -32,8 +32,10 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
 
   // Vue-tsc needs leave to read imports that carry a `.ts` extension.
+  // Nuxt 4 turns on noUncheckedIndexedAccess; the games index arrays freely,
+  // so it stays off as under Nuxt 3 (2026-10-29).
   typescript: {
-    tsConfig: { compilerOptions: { allowImportingTsExtensions: true, noEmit: true } },
+    tsConfig: { compilerOptions: { allowImportingTsExtensions: true, noEmit: true, noUncheckedIndexedAccess: false } },
   },
 
   features: {

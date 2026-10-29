@@ -1,6 +1,6 @@
 # phareim.no
 
-Personal website. Nuxt 3 on Cloudflare Pages, built and deployed from Sleeper on
+Personal website. Nuxt 4 (since 2026-10-29) on Cloudflare Pages, built and deployed from Sleeper on
 every push to `master` (2026-10-04). One D1 database (`phareim-leaderboard`) holds the
 Hall of Fame — the world ranking of the six score games — behind three
 small API routes; nothing else is stored.

@@ -69,7 +69,7 @@ const { submitScore, lastSubmission } = useLeaderboard()
 const rank = computed(() => lastSubmission.value?.game === 'breakout' && lastSubmission.value.score === score.value ? lastSubmission.value : null)
 const { hint } = useInputMode()
 
-const game = ref(null)
+const game = ref<{ togglePause(): void, quitToGameOver(): void } | null>(null)
 const score = ref(0)
 const lives = ref(3)
 const level = ref(1)
