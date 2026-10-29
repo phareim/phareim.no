@@ -1,7 +1,7 @@
 # Star Fox — Operation Nightlight
 
 An on-rails 3D shooter in three.js, drawn the Super FX way in Neon
-Shrine's pixel look (`docs/games/pixel-look.md`). You fly the Hangar ship
+Shrine's pixel look (`docs/games/pixel-look.md`). You fly your ship pick
 out of the town with Claude in the second seat and three animal wingmen
 from the Hall of Fame, through five sectors with a boss each, then on
 through ECHO loops. The title screen waits for Enter or a tap. Rebuilt
@@ -210,7 +210,8 @@ portrait and hull pips; callouts (`HERON ▸ GOING HUNTING`) show above it.
 - **Models**: flat-shaded low-poly builders, geometry cached per kind,
   materials per colour, pooled up front. The Hollow is dark violet with one
   accent glow per kind; friends are pale with their pilot's trim. The
-  player flies the ship chosen in the Hangar (`themes/ships/three.ts`).
+  player flies their stored ship pick (`readShipDef`, the Dart unless they
+  picked the Vandal in the Hangar before 2026-10-13; `themes/ships/three.ts`).
 - **Model lab**: `?theme=starfox&lab=models` renders every model through
   the game's pipeline. `page=enemies|bosses|capsules|props|fx|biomes|squad`,
   `biome=`, `boss=pincer|moth|furnace|twins|crown`, `t=<s>&freeze=1`,
