@@ -1,0 +1,3 @@
+The background is one flat solid bright green (#00ff00) from edge to edge, with nothing else
+in it: no stars, no space, no glow round the subject. No green anywhere on the subject
+itself.

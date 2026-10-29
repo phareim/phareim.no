@@ -118,7 +118,7 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   island, a prize counter with a vendor, a snack table, plants and a
   house-rules sign. Each is a solid `M` tile with an `exit` of look
   `cabinet`, `art` = theme id, `side: 'down'`, one per game: Another Shore
-  (`anotherworld`), Galaga, Breakout, R-Type, Space Invaders, Star Fox,
+  (`anotherworld`), Galaga, Breakout, G-Type, Space Invaders, Star Fox,
   Drive to the Mountains, Russian Block Game, Night of the Dead Battery. Each has a label and two or three short lines: the game's
   pitch and "INSERT COIN? PRESS A." The lines are the only confirmation.
 - Three of the island's four are links out, not themes: ADVENTURE,
@@ -128,6 +128,12 @@ the arcade. `tests/portal-world.test.mjs` checks both.
   `{ url: 'https://nova.phareim.no/?from=phareim' }`, like
   Eventyrland's in the VIP hall. `from=phareim` makes each game offer the
   way back (`docs/games/portal.md`).
+- A thirteenth just inside the door on the left (2026-10-28): VECTOR
+  HORIZON, exit `{ url: 'https://space.phareim.no/?from=phareim' }`, a link
+  out still being tested. It wears that on the machine (a TEST card taped to
+  the top, hazard tape across the front, a cone in front of it) and in its
+  pitch (STILL BEING TESTED: EXPECT BUGS). Off the door's column, so the
+  island stays what the door looks at.
 - The Hall of Fame board on the back wall: exit look `board` →
   `{ theme: 'leaderboard' }`.
 - A door at the back labelled HANGAR: walkable exit → `{ theme: 'hangar' }`.
@@ -184,6 +190,28 @@ screen readers: the h1 name, the blurbs, links to every live game
 from the world's exits). Tab reaches it (the shell leaves Tab alone until
 the hero has an item to swap), and
 it shows as a panel while a link has focus.
+
+## The tree on the beach (2026-10-13)
+
+A tree stands on the coast road, north of the beach, as an NPC (look `tree`,
+mark `ë` in `overworld.ts`, id `coast.tree`). It blocks only its own tile.
+Its look is drawn by `themes/zelda/render/tree.ts` from today's counts:
+
+- **Crown = deploys.** Sleeper's successful deploy runs today (`GET
+  sleeper.phareim.no/deploy/today`, counted by `sleeper-deploy` per Oslo day).
+  0 bare, 1–2 small, 3–5 medium, 6–9 full, 10 or more the fullest.
+- **Fruit = visitors.** Different visitors to phareim.no today (`tree_visits`
+  in D1, one row per random browser id and day, written by
+  `POST /api/tree-visit` from the live host only). One fruit each, up to 12
+  and up to what the crown holds. A bare tree has no fruit.
+- **Fail soft.** `GET /api/tree` returns `{ day, deploys, visitors }`, with
+  `null` for a count it could not get. Unknown deploys draw a small tree; no
+  count shows no fruit. The page never waits on it: the tree is drawn plain
+  until the counts arrive.
+- **Quiet.** No numbers on screen. Talking to it says one line about the tree.
+
+The tree stays out of the miniworld relay and out of accounts: nothing about
+it needs a sign-in.
 
 ## What would make it redundant
 

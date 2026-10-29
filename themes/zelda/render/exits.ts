@@ -1,7 +1,7 @@
 /**
  * Exits as the renderer sees them (the portal's cabinets, the Hall of Fame
  * board, the kiosk, the terminals, the login console, neon signs, the DJ
- * booths on the beach, the NEW LOOK stall on the square) and the floating label that names an exit while the hero stands next
+ * booths on the beach, the NEW LOOK stall on the square, the KODING KATA stand) and the floating label that names an exit while the hero stands next
  * to it.
  *
  * Static parts are painted once per look/art into cached canvases; screens
@@ -188,6 +188,20 @@ const CABS: Record<string, CabStyle> = {
       '..o....o.o..',
     ),
   },
+  voyagers2: {
+    // Rex & Nova: Space Voyagers II: the Calzone (white, red nose and fins, the bubble) flying right at a mascot's slice.
+    body: '#1a2f78', bodyL: '#2f4fb0', bodyD: '#0e1a48', trim: '#ffd23f', glow: '#ffd23f',
+    bg: bg7('#141a33'),
+    marquee: M(
+      '.........y.y',
+      '........yyyy',
+      '.r.ww....yy.',
+      'orwwwwwrr...',
+      '.r..........',
+      '.....y......',
+      '............',
+    ),
+  },
   breakout: {
     body: '#4a1440', bodyL: '#7a2a68', bodyD: '#2a0a24', trim: '#ff3b5c', glow: '#ff5f7a',
     bg: bg7('#0b0616'),
@@ -297,6 +311,39 @@ const CABS: Record<string, CabStyle> = {
   },
 }
 
+// Supermusene (maileg.phareim.no, 2026-10-21): a rose cabinet the colour of Tilda's gingham, the two mice on the
+// marquee, Tilda with pink ears and a rose cape, Teo beside her in blue, on the cream of a matchbox label.
+CABS.maileg = {
+  body: '#c96f74', bodyL: '#f0a8a4', bodyD: '#6e3438', trim: '#ffd23f', glow: '#ff9ae0',
+  bg: ['#ffe0d0', '#ffe0d0', '#ffd0c4', '#ffd0c4', '#f7c0b8', '#f7c0b8', '#3fa86e'],
+  marquee: M(
+    'gg..gggg..gg',
+    'mgggmmgggggm',
+    '.gggg..gggg.',
+    '.kgkg..kgkg.',
+    '..gp....gp..',
+    '.pppp..cccc.',
+    '.p..p..c..c.',
+  ),
+}
+
+// Vector Horizon (space.phareim.no, 2026-10-28): Nova & Max's twin-stick shooter in vector neon. A navy-black cabinet
+// with hot magenta trim and a cyan glow; on the marquee a wireframe fighter over a magenta horizon and its grid.
+// It is still being tested: `testingCanvas()` puts tape, a TEST card and a cone on it.
+CABS.horizon = {
+  body: '#161848', bodyL: '#2e3290', bodyD: '#080a22', trim: '#ff2fa0', glow: '#2ff3ff',
+  bg: ['#05061a', '#070924', '#0a0c2e', '#0e1038', '#140e3e', '#05061a', '#1a0830'],
+  marquee: M(
+    'w....cc...w.',
+    '....c..c....',
+    '.w.c.pp.c...',
+    '..c......c..',
+    '.cccc..cccc.',
+    'pppppppppppp',
+    'P.p.p..p.p.P',
+  ),
+}
+
 // Adventure, Eventyrland's open instance in the arcade: the same castle on a warmer cabinet, so the two are told apart.
 CABS.adventure = { ...CABS.eventyrland!, body: '#a8542a', bodyL: '#f0a060', bodyD: '#5e2a12', trim: '#2ff3ff' }
 
@@ -349,6 +396,44 @@ function cabinetCanvas(art?: string): Canvas {
   return c
 }
 
+/** How far the testing dressing reaches left of and above the cabinet (the card's edge, the card). */
+const TEST_L = 2
+const TEST_T = 7
+let testC: Canvas | null = null
+
+/**
+ * A machine still being tested (Vector Horizon, 2026-10-28), drawn over its cabinet at (left - TEST_L, top - TEST_T):
+ * a hand-written TEST card taped to the top, yellow-and-black hazard tape slapped across the front, and a traffic cone
+ * in front of its left foot (inside the cabinet's own width: the isometric view crops a machine to its tile).
+ */
+function testingCanvas(): Canvas {
+  if (testC) return testC
+  const c = makeCanvas(TEST_L + CAB_W + 1, TEST_T + CAB_H)
+  const g = c.getContext('2d')!
+  const X = TEST_L
+  const Y = TEST_T
+  const k = PAL.k!
+  // The card: cream paper with a dark edge and a folded corner, TEST in red marker, tape over the cabinet's top edge.
+  r(g, k, X - 2, Y - 7, 19, 8)
+  r(g, '#fff1d0', X - 1, Y - 6, 17, 6)
+  r(g, '#e8d4a8', X - 1, Y - 1, 17, 1)
+  r(g, k, X + 15, Y - 7); r(g, '#c8b488', X + 15, Y - 6)
+  mini(g, 'TEST', X, Y - 6, '#d81e3c')
+  r(g, '#d81e3c', X + 1, Y - 1, 12, 1)
+  r(g, '#cfc6ff', X - 1, Y, 3, 2); r(g, '#cfc6ff', X + 13, Y, 3, 2)
+  // Hazard tape across the front under the control panel, a pixel past each side: diagonal yellow and black stripes.
+  r(g, k, X - 1, Y + 20, CAB_W + 2, 1); r(g, k, X - 1, Y + 24, CAB_W + 2, 1)
+  for (let x = -1; x <= CAB_W; x++) {
+    for (let d = 0; d < 3; d++) r(g, Math.floor((x + d + 40) / 2) % 2 ? '#1c1030' : '#ffd23f', X + x, Y + 21 + d)
+  }
+  // The cone in front of its left foot.
+  const cone = ['...k...', '..kok..', '..kwk..', '.kooOk.', '.kwwwk.', 'kooooOk', 'kkkkkkk']
+  const col: Record<string, string> = { k, o: '#ff8a3d', O: '#c4501c', w: '#fff4ff' }
+  cone.forEach((row, y) => { for (let x = 0; x < 7; x++) if (row[x] !== '.') r(g, col[row[x]!]!, X + x, Y + CAB_H - 7 + y) })
+  testC = c
+  return c
+}
+
 /** Tiny attract-mode loop on a cabinet screen. (x, y) is the glass's top-left in view px. */
 function drawScreen(g: G, art: string | undefined, x: number, y: number, t: number, seed: number) {
   const W = SCR.w
@@ -370,6 +455,18 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       if (Math.floor(t * 4) % 3 === 0) f('#ffe27a', 4, 4)
       f('#ff4f6e', 4, 5); f('#fff6e0', 3, 6, 3, 2); f('#ff4f6e', 2, 7); f('#ff4f6e', 6, 7)
       f('#ff4f6e', 9, 6, 1, 2); f('#ffd23f', 9, 5)
+      return
+    }
+    case 'voyagers2': {
+      // Space Voyagers II: stars streaming past, the Calzone bobbing, a slice-shaped mascot fighter, a bolt between.
+      f('#141a33', 0, 0, W, H)
+      for (let i = 0; i < 6; i++) f(i % 2 ? '#8f9fca' : '#4a5a8c', W - 1 - (Math.floor(t * 12 + i * 4.1) % W), (i * 5 + 1) % H)
+      const cy = 4 + Math.round(Math.sin(t * 2 + seed) * 1)
+      f('#ff8a3d', 0, cy); f('#cc3a36', 1, cy - 1); f('#cc3a36', 1, cy + 1)
+      f('#fff6e0', 1, cy, 4, 1); f('#9fc4dc', 3, cy - 1); f('#cc3a36', 5, cy)
+      const ry = 2 + Math.round(Math.sin(t * 2.6 + seed + 1) * 1)
+      f('#f2ca52', 8, ry, 2, 1); f('#f2ca52', 8, ry + 1); f('#784a30', 7, ry - 1); f('#784a30', 10, ry - 1)
+      if (Math.floor(t * 5) % 2 === 0) f('#ffe27a', 6 + (Math.floor(t * 10) % 2), cy)
       return
     }
     case 'breakout': {
@@ -479,6 +576,22 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       f('#ffd23f', kx, feet - 2 - hop); f('#ff2fa0', kx, feet - 1 - hop); f('#2f5fd0', kx, feet - hop)
       return
     }
+    case 'maileg': {
+      // A cream morning over sage grass: a little grey mouse in a rose cape walks across, and behind her, now and
+      // then, a pink flower pops up out of the grass and wilts again.
+      f('#ffd8b8', 0, 0, W, 6); f('#3fa86e', 0, 6, W, 1); f('#1f7a6e', 0, 7, W, 1)
+      f('#ffd23f', 8, 1, 1, 1)
+      const mx = Math.round(tri(t * 1.6 + seed, 8))
+      const bob = Math.floor(t * 6) % 2
+      f('#ff8ae0', mx, 2 - bob); f('#ff8ae0', mx + 1, 2 - bob)
+      f('#5a5285', mx, 3 - bob); f('#5a5285', mx + 1, 3 - bob)
+      f('#ff2fa0', mx - 1, 4); f('#ff2fa0', mx, 4); f('#5a5285', mx + 1, 4)
+      f('#5a5285', mx, 5); f('#5a5285', mx + 1, 5)
+      const bloom = Math.floor(t * 0.8 + seed) % 3
+      const fx = (Math.floor(t * 0.8 + seed) * 3) % W
+      if (bloom > 0 && Math.abs(fx - mx) > 1) { f('#1f7a6e', fx, 5); f(bloom === 1 ? '#ffd23f' : '#ff2fa0', fx, 4) }
+      return
+    }
     case 'eventyrland':
     case 'adventure': {
       // Dusk over the castle; a pink butterfly drifts across, wings going.
@@ -534,6 +647,22 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       if (kick) { f('#fff4ff', 3, 5); f('#fff4ff', 2, 4) }
       if (chord) { f('#f5c3a8', 3, 3); f('#f5c3a8', 6, 3); f('#ffd23f', 3, 4); f('#ffd23f', 6, 2) }
       if (solo) { f('#f5c3a8', 3, 3); f('#f5c3a8', 6, 3); f('#fff4ff', 2, 2, 1, 3); f('#fff4ff', 7, 2, 1, 3) }
+      return
+    }
+    case 'horizon': {
+      // Deep space in vector neon: stars stream past, a cyan wireframe fighter slides from side to side and fires
+      // magenta bolts up at a gold diamond that drifts across the top.
+      f('#05061a', 0, 0, W, H)
+      for (let i = 0; i < 6; i++) f(i % 2 ? '#8f86b8' : '#fff4ff', (i * 7 + 3) % W, Math.floor(t * 6 + i * 2.7 + seed) % H)
+      const fx = 2 + Math.round(tri(t * 2 + seed, 3))
+      f('#2ff3ff', fx + 2, 5); f('#2ff3ff', fx + 1, 6); f('#2ff3ff', fx + 3, 6); f('#ff2fa0', fx + 2, 6)
+      f('#2ff3ff', fx, 7, 2, 1); f('#2ff3ff', fx + 3, 7, 2, 1)
+      for (let i = 0; i < 2; i++) {
+        const by = 4 - (Math.floor(t * 10 + i * 3 + seed) % 6)
+        f('#ff2fa0', fx + 2, by, 1, 2)
+      }
+      const ex = Math.round(tri(t * 1.3 + seed, 8))
+      f('#ffd23f', ex + 1, 0); f('#ffd23f', ex, 1); f('#ffd23f', ex + 2, 1); f('#ffd23f', ex + 1, 2)
       return
     }
     case 'anotherworld': {
@@ -787,6 +916,196 @@ function stallPerson(look: HeroLook): Canvas {
   let c = stallPeople.get(look)
   if (!c) { c = lookCanvases(look).hero_down_0!; stallPeople.set(look, c) }
   return c
+}
+
+// ---------------------------------------------------------------------------
+// The KODING KATA stand east of Petter's house (2026-10-27): a stall (`art: 'kata'`)
+// with Linus and Ada at a desk, a beige computer typing code between them, and
+// older machines piled round the stand, none of them plugged in
+// ---------------------------------------------------------------------------
+
+/** The whole stand, junk piles included; the booth is x 10–69 and the board over it is wider. */
+const KATA_W = 80
+const BEIGE = '#d8cba0'
+const BEIGE_L = '#efe4c0'
+const BEIGE_D = '#a8986a'
+/** The desk computer's screen, from the stand's top left. */
+const KATA_SCR = { x: 36, y: 22, w: 9, h: 7 }
+/** Lines of code on that screen: indent and length in pixels, one every other row. */
+const KATA_CODE: readonly (readonly [number, number])[] = [[0, 6], [2, 5], [0, 2]]
+const KATA_CODE_LEN = KATA_CODE.reduce((n, [, len]) => n + len, 0)
+/** Typed pixels a second, and the whole round: typing, a look at it, the lines going lime (solved). */
+const KATA_TYPE = 5
+const KATA_ROUND = KATA_CODE_LEN / KATA_TYPE + 2.6
+let kataBackC: Canvas | null = null
+let kataFrontC: Canvas | null = null
+
+/** Everything behind the nerds and the static parts beside them: board, awning, shelf, the desk computer's case, the junk. */
+function kataBack(): Canvas {
+  if (kataBackC) return kataBackC
+  const c = makeCanvas(KATA_W, STALL_H)
+  const g = c.getContext('2d')!
+  const k = PAL.k!
+  // Header board on the roof, wider than the booth, with a neon KODING KATA (the letters are lit live).
+  r(g, k, 5, 0, 70, 11); r(g, '#12081e', 6, 1, 68, 9)
+  r(g, '#3b2b62', 6, 9, 68, 1)
+  // Striped awning, lime and white, scalloped edge.
+  r(g, k, 9, 11, 62, 8)
+  for (let x = 10; x < 70; x++) {
+    const lime = Math.floor((x - 10) / 5) % 2 === 0
+    r(g, lime ? '#b6ff4a' : '#fff4ff', x, 12, 1, 5)
+    r(g, lime ? '#6fae2a' : '#cfc6ff', x, 12, 1, 1)
+  }
+  for (let x = 10; x < 70; x += 5) {
+    const lime = Math.floor((x - 10) / 5) % 2 === 0
+    r(g, lime ? '#b6ff4a' : '#fff4ff', x + 1, 17, 3, 1)
+    r(g, k, x, 17, 1, 1); r(g, k, x + 4, 17, 1, 1)
+  }
+  // The booth: two posts and a dark back wall with a shelf of floppies, a tape and a little gold cup.
+  r(g, k, 10, 18, 60, 24)
+  r(g, '#3b2b62', 11, 19, 58, 22)
+  r(g, '#1c1030', 13, 19, 54, 13)
+  r(g, '#8f86b8', 11, 19, 1, 22); r(g, '#8f86b8', 68, 19, 1, 22)
+  r(g, '#8a5a2a', 13, 23, 54, 1); r(g, '#4a2a12', 13, 24, 54, 1)
+  const floppy = (x: number, col: string) => { r(g, col, x, 20, 3, 3); r(g, '#fff4ff', x, 20, 3, 1); r(g, '#0b0616', x + 1, 22, 1, 1) }
+  floppy(13, '#2f5fd0'); floppy(16, '#ff2fa0'); floppy(61, '#ffd23f')
+  r(g, '#1c1030', 64, 20, 3, 3); r(g, '#5a5285', 64, 20, 3, 1); r(g, '#cfc6ff', 64, 21, 1, 1); r(g, '#cfc6ff', 66, 21, 1, 1)
+  r(g, '#ffd23f', 31, 20, 2, 1); r(g, '#c4861c', 31, 21, 2, 1); r(g, '#ffd23f', 31, 22, 2, 1)
+  // The desk computer: a beige box between them, its screen drawn live.
+  r(g, k, 34, 20, 13, 11)
+  r(g, BEIGE, 35, 21, 11, 9)
+  r(g, BEIGE_L, 35, 21, 11, 1); r(g, BEIGE_L, 35, 21, 1, 8)
+  r(g, BEIGE_D, 35, 29, 11, 1); r(g, BEIGE_D, 45, 22, 1, 7)
+  r(g, '#0b1a10', KATA_SCR.x, KATA_SCR.y, KATA_SCR.w, KATA_SCR.h)
+  // Left of the booth: a PC lying on its side, a little amber monitor on it, its cable hanging loose.
+  r(g, k, 0, 33, 11, 9)
+  r(g, BEIGE, 1, 34, 9, 7); r(g, BEIGE_L, 1, 34, 9, 1); r(g, BEIGE_D, 1, 40, 9, 1)
+  r(g, '#1c1030', 2, 36, 5, 1); r(g, '#1c1030', 2, 38, 5, 1); r(g, BEIGE_D, 8, 38, 1, 1)
+  r(g, k, 1, 25, 9, 9)
+  r(g, BEIGE_D, 2, 26, 7, 7); r(g, BEIGE, 2, 26, 7, 1)
+  r(g, '#1a1206', 3, 27, 5, 4)
+  r(g, '#5a5285', 0, 28, 1, 4); r(g, '#cfc6ff', 0, 32, 1, 1)
+  // Right of it: a breadbin computer on the ground, a tape deck on top, and a joystick.
+  r(g, k, 70, 35, 10, 7)
+  r(g, '#8a7a6a', 71, 36, 8, 5); r(g, '#b0a08a', 71, 36, 8, 1)
+  for (let x = 72; x < 78; x += 2) { r(g, '#4a3a2a', x, 38, 1, 1); r(g, '#4a3a2a', x + 1, 39, 1, 1) }
+  r(g, '#c4861c', 77, 37, 1, 1)
+  r(g, k, 71, 30, 6, 5)
+  r(g, '#5a5285', 72, 31, 4, 3); r(g, '#1c1030', 72, 31, 4, 1); r(g, '#cfc6ff', 72, 32, 1, 1); r(g, '#cfc6ff', 75, 32, 1, 1)
+  r(g, k, 77, 32, 2, 3); r(g, '#3b2b62', 78, 32, 1, 3); r(g, '#ff3b5c', 77, 31, 2, 1)
+  kataBackC = c
+  return c
+}
+
+/** The desk in front of them: two keyboards, a floppy and a mug on top, a lime </> on the front. */
+function kataFront(): Canvas {
+  if (kataFrontC) return kataFrontC
+  const h = STALL_H - STALL_COUNTER
+  const c = makeCanvas(KATA_W, h)
+  const g = c.getContext('2d')!
+  const k = PAL.k!
+  r(g, k, 10, 0, 60, h)
+  r(g, '#cfc6ff', 11, 0, 58, 1); r(g, '#8f86b8', 11, 1, 58, 2)
+  r(g, '#3b2b62', 11, 3, 58, h - 4)
+  r(g, '#271c46', 11, h - 2, 58, 1)
+  for (let i = 0; i < 3; i++) {
+    const x = 13 + i * 19
+    r(g, '#54259e', x, 4, 16, 5)
+    r(g, '#9a4ff0', x, 4, 16, 1)
+  }
+  // </> on the middle panel.
+  const gx = 32 + 4
+  r(g, '#b6ff4a', gx + 1, 5); r(g, '#b6ff4a', gx, 6); r(g, '#b6ff4a', gx + 1, 7)
+  r(g, '#b6ff4a', gx + 5, 5); r(g, '#b6ff4a', gx + 4, 6); r(g, '#b6ff4a', gx + 3, 7)
+  r(g, '#b6ff4a', gx + 7, 5); r(g, '#b6ff4a', gx + 8, 6); r(g, '#b6ff4a', gx + 7, 7)
+  // On the desk: a keyboard in front of each of them, a floppy, a mug.
+  for (const x of [19, 49]) {
+    r(g, BEIGE, x, 0, 11, 2)
+    for (let i = 1; i < 10; i += 2) r(g, BEIGE_D, x + i, 1, 1, 1)
+  }
+  r(g, '#2f5fd0', 31, 0, 3, 2); r(g, '#fff4ff', 32, 0, 1, 1)
+  r(g, '#fff4ff', 63, 0, 2, 2); r(g, '#ff2fa0', 63, 1, 2, 1); r(g, '#fff4ff', 65, 1, 1, 1)
+  kataFrontC = c
+  return c
+}
+
+/** Linus (brown hair, white glasses that catch the light) and Ada (ginger pigtails, pink frames). */
+const LINUS: HeroLook = { ...DRAWN_LOOK, hair: 'short', head: 'none', hairColor: '#6a3a1a', top: '#2f5fd0', stripe: '#ffd23f', skin: '#e6a57e' }
+const ADA: HeroLook = { ...GIRL_LOOK, hair: 'pigtails', head: 'none', hairColor: '#ff8a3d', top: '#b6ff4a', stripe: '#1f7a6e', skin: '#ffe3d2' }
+/** Glasses over a facing-down hero's eyes (row 6, eyes at 6 and 9): rims, lenses and the bridge. */
+function kataGlasses(g: G, x: number, y: number, rim: string, lens: string | null) {
+  r(g, rim, x + 5, y + 6); r(g, rim, x + 7, y + 6, 2, 1); r(g, rim, x + 10, y + 6)
+  if (lens) { r(g, lens, x + 6, y + 6); r(g, lens, x + 9, y + 6) }
+}
+
+function queueKata(
+  g: G, e: ExitSpot, px: number, bottom: number, t: number, seed: number, reduced: boolean,
+  items: SortItem[], lights: Light[], emit: Emit[],
+) {
+  const left = px - KATA_W / 2
+  const top = bottom - STALL_H
+  const on = reduced || Math.sin(t * 1.2 + seed) > -0.96
+  // The desk computer's round: code types out, sits a moment, goes lime (solved), starts over.
+  const ph = reduced ? KATA_ROUND - 1 : (t + seed) % KATA_ROUND
+  const typed = Math.min(KATA_CODE_LEN, Math.floor(ph * KATA_TYPE))
+  const solved = ph > KATA_ROUND - 0.7
+  // They type in turns, and both hop when the lines go lime.
+  const burst = Math.floor(t * 0.5 + seed) % 2
+  const tap = Math.floor(t * 4) % 2
+  const dyL = reduced ? 0 : solved ? -1 : burst ? 0 : tap
+  const dyA = reduced ? 0 : solved ? -1 : burst ? tap : 0
+  const glint = !reduced && (t * 0.9 + seed) % 3 < 0.15
+  const amber = reduced || Math.sin(t * 0.9 + seed) > -0.9
+  const disk = !reduced && Math.sin(t * 9 + seed * 3) > 0.4
+  items.push({
+    x: e.x,
+    y: e.y + 0.5,
+    draw: () => {
+      g.fillStyle = 'rgba(8,4,20,0.45)'
+      g.fillRect(left + 1, bottom - 1, KATA_W - 2, 2)
+      g.drawImage(kataBack(), left, top)
+      drawText(g, 'KODING KATA', left + Math.round((KATA_W - textWidth('KODING KATA')) / 2), top + 2, on ? '#b6ff4a' : '#2a4a1a')
+      // The desk computer's code, and a cursor after it (blinking once it is all there).
+      const sx = left + KATA_SCR.x + 1
+      const sy = top + KATA_SCR.y + 1
+      let n = typed
+      let cur: [number, number] = [sx, sy]
+      KATA_CODE.forEach(([ind, len], i) => {
+        const w = Math.min(len, n)
+        n -= w
+        if (w > 0) { r(g, solved ? '#b6ff4a' : '#3fe86a', sx + ind, sy + i * 2, w, 1); cur = [sx + ind + w, sy + i * 2] }
+      })
+      if (typed < KATA_CODE_LEN || reduced || Math.floor(t * 3) % 2 === 0) r(g, '#fff4ff', cur[0], cur[1])
+      // The amber monitor on the pile: a prompt and a cursor, though nothing feeds it. The PC under it reads a disk.
+      if (amber) {
+        r(g, '#3a2408', left + 3, top + 27, 5, 4)
+        r(g, '#ffb13f', left + 3, top + 28); r(g, '#ffb13f', left + 4, top + 29); r(g, '#ffb13f', left + 3, top + 30)
+        if (reduced || Math.floor(t * 2) % 2 === 0) r(g, '#ffb13f', left + 5, top + 30, 2, 1)
+      }
+      r(g, disk ? '#ff3b5c' : '#5a1a2a', left + 8, top + 36)
+      // Waist up behind the desk: Linus on the left, Ada on the right; the counter hides the rest.
+      const rows = STALL_COUNTER - 20
+      const person = (look: HeroLook, x: number, dy: number) =>
+        g.drawImage(stallPerson(look), 0, 0, 16, rows - dy, left + x, top + 20 + dy, 16, rows - dy)
+      person(LINUS, 17, dyL)
+      kataGlasses(g, left + 17, top + 20 + dyL, '#0b0616', glint ? '#2ff3ff' : '#fff4ff')
+      person(ADA, 47, dyA)
+      kataGlasses(g, left + 47, top + 20 + dyA, '#ff2fa0', null)
+      g.drawImage(kataFront(), left, top + STALL_COUNTER)
+    },
+  })
+  emit.push(
+    { x: left + 6, y: top + 1, w: 68, h: 9 },
+    { x: left + KATA_SCR.x, y: top + KATA_SCR.y, w: KATA_SCR.w, h: KATA_SCR.h },
+    { x: left + 3, y: top + 27, w: 5, h: 4 },
+  )
+  lights.push(
+    { x: e.x, y: e.y - 2.1, r: 2.8, color: '#b6ff4a', a: on ? 0.55 : 0.2 },
+    { x: e.x, y: e.y - 0.8, r: 2.2, color: solved ? '#b6ff4a' : '#3fe86a', a: 0.45 },
+    { x: e.x, y: e.y - 0.4, r: 3, color: '#ffb13f', a: 0.45 },
+    { x: e.x - 2.2, y: e.y - 0.3, r: 1.3, color: '#ffb13f', a: amber ? 0.4 : 0.1 },
+    { x: e.x, y: e.y + 1, r: 2.2, color: '#b6ff4a', a: 0.25 },
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -1109,6 +1428,7 @@ export function queueExits(
               g.fillRect(sx, sy, SCR.w, SCR.h)
               g.globalAlpha = 1
             }
+            if (e.art === 'horizon') g.drawImage(testingCanvas(), left - TEST_L, top - TEST_T)
           },
         })
         emit.push({ x: left + 2, y: top + 1, w: 12, h: 7 }, { x: left + SCR.x, y: top + SCR.y, w: SCR.w, h: SCR.h })
@@ -1269,6 +1589,7 @@ export function queueExits(
         break
       }
       case 'stall': {
+        if (e.art === 'kata') { queueKata(g, e, px, bottom, t, seed, reduced, items, lights, emit); break }
         const left = px - STALL_W / 2
         const top = bottom - STALL_H
         const on = reduced || Math.sin(t * 1.3 + seed) > -0.96
@@ -1372,7 +1693,7 @@ export function drawExitLabels(
     const w = 4 + tw + 3 + 2 + 3 + kw + 4
     const h = GLYPH_H + 6
     const ax = Math.round(e.x * T - cx)
-    const topPx = e.walk ? (e.y - 0.5) * T - 2 : (e.y + 0.5) * T - lookTop(e.look)
+    const topPx = e.walk ? (e.y - 0.5) * T - 2 : (e.y + 0.5) * T - lookTop(e.look) - (e.art === 'horizon' ? TEST_T : 0)
     const lift = reduced ? 0 : Math.round((1 - next) * 3)
     let y = Math.round(topPx - cy) - h - 5 + lift
     // No room above (a tall look at the top of the view, or the HUD there): show it under the hero instead.

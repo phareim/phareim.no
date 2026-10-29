@@ -1,0 +1,11 @@
+Late-90s arcade pixel art at its most worked-over: dense, hand-placed detail, every surface
+with wear and a story (rivets, stickers, dents, cables, grime where hands touch), strong
+readable silhouettes, light with a direction, colour ramps that shift hue from shadow to light
+(shadows lean blue-violet, lights lean warm), dithering only where a ramp runs out, clusters of
+pixels and never noise. Night scenes are dark blue and brown, never black; one or two warm light
+sources and one cold one per screen. The decade is in the things: split-flap boards, wood-grain
+television sets, vacuum tubes, tape reels, payphones, neon tube lettering, chrome diner trim,
+checker cabs, boom boxes.
+The light comes from the upper left; four tones to a material and a dark outline. Crisp square
+pixels, all exactly one size, on one grid; hard edges; a small limited palette; no
+anti-aliasing.

@@ -1,0 +1,7 @@
+The reference image shows pieces on a flat green background, enlarged: each is drawn in
+coarse blocks twice the size they should be. Redraw them as finished pixel art at twice the
+fineness: the same shapes with everything exactly where it is and as large as it is, but
+drawn in small square pixel blocks half the size of the reference's coarse ones, with the
+detail that the finer blocks allow: edges cleaned, bands, swirls, knots and scraps drawn
+properly. Nothing is moved, added at a new place or enlarged. The green background stays
+flat and untouched right up to the outlines. Every piece stays one solid connected shape.

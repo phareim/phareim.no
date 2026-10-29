@@ -111,6 +111,7 @@ switch (scene) {
   // The newsstand on the coast road: from beside it (the roof's neon in the clear) and at its counter (the label up).
   case 'r-kiosk': s.hero.x = 18.5; s.hero.y = 26.5; s.hero.dir = 'left'; run(20); break
   case 'r-kioskat': s.hero.x = 15.5; s.hero.y = 26.5; s.hero.dir = 'up'; run(5); break
+  case 'r-kata': s.hero.x = 33.5; s.hero.y = 7.5; s.hero.dir = 'up'; run(5); break
   case 'r-road': s.hero.x = 39.5; s.hero.y = 26.5; s.hero.dir = 'right'; run(20); break
   case 'r-beach': s.hero.x = 29.5; s.hero.y = 28.5; s.hero.dir = 'down'; run(40); break
   case 'r-jam': s.hero.x = 25.5; s.hero.y = 31.5; s.hero.dir = 'up'; run(40); break
@@ -119,6 +120,7 @@ switch (scene) {
   case 'r-arcade': place('arcade', 'door'); run(20); break
   case 'r-fighter': place('arcade', 'pizzarescue'); run(5); break
   case 'r-nova': place('arcade', 'nova'); run(5); break
+  case 'r-horizon': place('arcade', 'horizon'); run(5); break
   case 'r-home': place('home', 'door'); run(20); break
   case 'r-desk': place('home', 'door', -2, -4); s.hero.dir = 'left'; run(5); break
   case 'r-console': place('home', 'login'); run(5); break
@@ -208,6 +210,8 @@ const SHOTS = [
   ['r-kiosk-1280', 'r-kiosk', 1280, 800, 1, 0],
   ['r-kiosk-390', 'r-kiosk', 390, 844, 3, 0],
   ['r-kioskat-1280', 'r-kioskat', 1280, 800, 1, 0],
+  ['r-kata-1280', 'r-kata', 1280, 800, 1, 0],
+  ['r-kata-390', 'r-kata', 390, 844, 3, 0],
   ['r-road-1280', 'r-road', 1280, 800, 1, 0],
   ['r-road-390', 'r-road', 390, 844, 3, 0],
   ['r-beach-1280', 'r-beach', 1280, 800, 1, 0],
@@ -226,6 +230,8 @@ const SHOTS = [
   ['r-fighter-390', 'r-fighter', 390, 844, 3, 0],
   ['r-nova-1280', 'r-nova', 1280, 800, 1, 0],
   ['r-nova-390', 'r-nova', 390, 844, 3, 0],
+  ['r-horizon-1280', 'r-horizon', 1280, 800, 1, 0],
+  ['r-horizon-390', 'r-horizon', 390, 844, 3, 0],
   ['r-home-1280', 'r-home', 1280, 800, 1, 0],
   ['r-home-390', 'r-home', 390, 844, 3, 0],
   ['r-console-1280', 'r-console', 1280, 800, 1, 0],

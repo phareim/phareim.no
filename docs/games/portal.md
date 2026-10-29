@@ -3,11 +3,12 @@
 `/` is the Portal: a small neon town you walk around in, and the west end
 of Neon Shrine's world. Petter's name is painted on the roof of his house.
 The buildings lead to everything else on the site: the arcade (a cabinet
-per game, two more that leave for Nova & Rex: The Pizza Rescue on fighter.phareim.no and its
-sequel Nova's Solo Rescue on nova.phareim.no, the
+per game, three more that leave for Nova & Rex: The Pizza Rescue on fighter.phareim.no, its
+sequel Nova's Solo Rescue on nova.phareim.no and Vector Horizon on space.phareim.no, the
 Hall of Fame board, the Hangar door), the VIP hall next door
 (Ulrikke's games and a bar, for logged-in visitors), Petter's house (who he
-is, three terminals to his profiles, the login console), the SLEEPER newsstand
+is, three terminals to his profiles, the login console), the KODING KATA stand
+next to it (two nerds and their old computers, in front of kata.phareim.no), the SLEEPER newsstand
 (where Sleeper's feed is read inside the game: "The newsstand" below),
 and east of the pier a quiet beach: two hippie
 DJs (the one building loops live leads to jam.phareim.no, the one with the
@@ -25,8 +26,8 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 
 | File | Job |
 |---|---|
-| `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, the NEW LOOK stall east of it (where the hero's hair, clothes and colours are changed: `docs/games/neon-shrine.md` → "The hero's look"), newsstand, signpost, pier, the beach east of it (two DJ booths, a bonfire and the people round it, tiki torches), the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
-| `themes/zelda/world/town.ts` | The arcade, 17×11 (twelve cabinets: nine games and three that leave the site, Adventure for `adventure.phareim.no`, Eventyrland's open instance, Pizza Rescue for `fighter.phareim.no` and Solo Rescue for `nova.phareim.no`; the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 17×11 (Mini World, Lag Din Figur and Eventyrland, a bar with its bartender, a mirror ball, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
+| `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, the NEW LOOK stall east of it (where the hero's hair, clothes and colours are changed: `docs/games/neon-shrine.md` → "The hero's look"), the KODING KATA stand east of the house ("The Koding Kata stand" below), newsstand, signpost, pier, the beach east of it (two DJ booths, a bonfire and the people round it, tiki torches), the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
+| `themes/zelda/world/town.ts` | The arcade, 17×11 (thirteen cabinets: nine games and four that leave the site, Adventure for `adventure.phareim.no`, Eventyrland's open instance, Pizza Rescue for `fighter.phareim.no`, Solo Rescue for `nova.phareim.no` and Vector Horizon for `space.phareim.no`; the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 17×11 (Mini World, Lag Din Figur, Eventyrland and Supermusene, a bar with its bartender, a mirror ball, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
 | `themes/zelda/engine/map.ts` | `setSession`: the shell's word on the login; the rope tiles follow it |
 | `themes/zelda/world/index.ts` | `WORLD` (the one world), `worldExits()`, `worldStartingAt()` |
 | `themes/zelda/Zelda.vue` | The shell: loop, input, touch deck, audio, saves, pause menu, exits, the way back, the account panel |
@@ -81,10 +82,13 @@ middle, Adventure (8,4, the door's own column) and Night of the Dead Battery
 (9,4) to its right. They
 are the long games, and Petter wanted them where a visitor looks first. The
 other eight line the back wall, four each side of the board: Another Shore,
-Space Voyagers (the Galaga cabinet's game since 2026-10-13), Breakout, R-Type on the left; Space Invaders, Star Fox, Drive to the Mountains (`outrun`) and
+Space Voyagers (the Galaga cabinet: Space Voyagers II, `voyagers2`, since 2026-10-16; Space Voyagers I is parked), Space Paddle — The Odyssey (`breakout`), G-Type on the left; Space Invaders, Star Fox, Drive to the Mountains (`outrun`) and
 Russian Block Game on the right, with the HANGAR door above the gap between the last two
 pairs. Every cabinet has a stool in front of it. The robot's welcome names
-the four in the middle.
+the four in the middle. Since 2026-10-28 a thirteenth, Vector Horizon, stands
+just inside the door on the left (4,8), under test; it is the one cabinet
+nearer the door than the island, and off the door's column, so the island is
+still what a visitor walks straight at.
 
 **Pizza Rescue's cabinet** (2026-10-05; renamed and moved 2026-10-06). Like
 Adventure's beside it, this cabinet is not a theme: Nova & Rex: The Pizza
@@ -104,7 +108,7 @@ page, `/?frame=<id>`, so the phone's browser bar never comes up
 It is the hall's only rust-orange machine: N and R in white either side of a
 slice of pizza on the marquee, and Nova and a Dead Paddy trading a punch and
 a kick under a striped sun on the screen (`CABS.pizzarescue` and `drawScreen`
-in `render/exits.ts`). The robot counts twelve cabinets, and the hidden link
+in `render/exits.ts`). The robot counts the hall's cabinets (thirteen since 2026-10-28), and the hidden link
 index lists it under Writing and projects, as it does every exit with a URL.
 
 **Solo Rescue's cabinet** (2026-10-13). Nova's Solo Rescue, the sequel, is on
@@ -119,6 +123,27 @@ Neo York and of her jacket, so it is told apart from the orange one beside
 it: Nova's blonde mane and red headband on the marquee beside the tower with
 the Ball, and on the screen Nova, twice the size she is next door, between
 two gangsters: a punch, a kick, then the SOLO (`CABS.nova` and `drawScreen`).
+
+**Vector Horizon's cabinet** (2026-10-28). Vector Horizon is Nova & Max in a
+DuranDuran Class fighter, a twin-stick space shooter in vector neon, on its
+own site, and it went live that day as a demo. Petter wanted a machine that
+plainly shows it is still being tested, so it stands by the door, not on the
+island: tile 4,8 of `arcade`, exit id and art `horizon` (not `space`, which is
+a parked theme id), label VECTOR HORIZON, used from the stool at 4,9. The
+same kind of exit as Solo Rescue's, `to: { url:
+'https://space.phareim.no/?from=phareim' }`: the game shows ARCADE back to
+`https://phareim.no/`, and in the installed app it is framed on
+`/?frame=horizon`. A navy-black machine with hot magenta trim and a cyan
+glow, a wireframe fighter over a magenta horizon and its grid on the marquee,
+and on the screen the fighter sliding under streaming stars, firing magenta
+bolts at a gold diamond (`CABS.horizon` and `drawScreen`). Over it,
+`testingCanvas()` draws the testing: a cream card taped to the top with TEST
+in red marker, yellow-and-black hazard tape across the front under the
+control panel, and a traffic cone in front of its left foot; the label plate sits
+above the card. The pitch says STILL BEING TESTED: EXPECT BUGS, and the
+robot points it out (THE TAPED-OFF ONE BY THE DOOR). When the game is done,
+the dressing comes off by dropping the `e.art === 'horizon'` line in
+`queueExits` (and the card's lift in `drawExitLabels`).
 
 **VIP hall** (2026-09-29). Ulrikke's games, Mini World and Lag Din Figur
 (moved out of the arcade) and Eventyrland (a cabinet that leaves for
@@ -137,7 +162,7 @@ door is open only to a visitor logged in on auth.phareim.no:
   vipguard }` (a registered entry in front of him), so the auth page's
   redirect brings the hero back to the guard.
 
-Inside (17×11): the three cabinets along the back wall with stools, the sign,
+Inside (17×11): the four cabinets along the back wall with stools, the sign,
 and a bar in the right-hand corner: a shelf of bottles (tile `q`), a counter
 (`n`) with the bartender behind it (NPC `bartender`, look `barmaid`; she is
 talked to across the counter like the arcade's vendor; a different line
@@ -147,6 +172,15 @@ daylight: `MapDef.ambient` sets the light map's base colour, and
 the dance floor rug) and neon glows (`glow`, radius in `w`); the neon
 lettering VIP LOUNGE and BAR are decals. Eventyrland's cabinet has its own
 marquee and screen (`CABS.eventyrland` and `drawScreen` in `render/exits.ts`).
+
+**Supermusene's cabinet** (2026-10-21). The fourth on the VIP hall's back wall
+(tile 8,1, exit id and art `maileg`, label SUPERMUSENE, used from 8,2; the sign
+moved one step right to 10,1): a link out to `https://maileg.phareim.no/?from=phareim`,
+Ulrikke's paper-and-matchbox mouse adventure (`~/github/maileg`). A rose machine
+the colour of Tilda's gingham, the two mice on a cream marquee (Tilda with a rose
+cape, Teo in blue), and on the screen a little mouse in a cape walking over sage
+grass while flowers pop up behind her (`CABS.maileg` and `drawScreen`). Installed
+as an app it opens in the frame like the other links out (`docs/games/frame.md`).
 
 The engine holds the answer in `GameState.session` (not a flag, so never in
 a save); the shell sets it (`setSession` in `engine/map.ts`, `applySession`
@@ -223,6 +257,26 @@ Escape / Backspace / K / X close (the hero stays in the house). Presses in
 the first 350 ms are ignored, so the A that opened it does not also press
 LOG IN. Touch: tap a button; a tap beside the box closes it. The box is at
 most 360 px wide, centred above the bottom band.
+
+**The Koding Kata stand** (2026-10-27). East of Petter's house, in the open
+ground north of the square (exit id `kata` at tile 33,6 of `overworld`, mark
+`ķ`, used from 33,7), a stall leads to `https://kata.phareim.no/?from=phareim`:
+Kodekata, small JavaScript and Java tasks with pixel monsters, in Norwegian. It has the
+NEW LOOK stall's look with `art: 'kata'`, which `queueKata` in
+`render/exits.ts` draws as its own: a KODING KATA board in lime over a lime
+and white awning, Linus (white glasses) and Ada (ginger pigtails, pink
+frames) at a desk with a beige computer between them, typing in turns; the
+code on its screen types out, goes lime and both hop, and it starts over. The
+suspiciously old computers stand on the Z tiles either side: a PC on its side
+with an amber monitor that shows a prompt with its cable hanging loose, and a
+breadbin computer with a tape deck and a joystick. The lines (Ada, Linus, a
+look at the computers) end on PULL UP A CHAIR?. `from=phareim` makes kata show
+⌂ Til byen in its header, back to `https://phareim.no/`, where
+`portal.return` stands the hero at the desk again (kata's `src/app/town.ts`).
+It is not framed in the installed app, like the beach's booths. The signpost
+on the square says ↑ PETTER'S HOUSE AND KODING KATA. Look lab:
+`shot.mjs <outDir> r-kata` (with `FRAMES=270` for the board lit and the code
+green: at the default 40 frames the board is in its rare flicker).
 
 **The newsstand** (2026-10-13). The stand on the coast road (tile 15,25 of
 `overworld`, exit id `kiosk`, look `kiosk`, label SLEEPER NEWS) no longer
@@ -302,9 +356,9 @@ input and unpausing are handled by listeners, not the loop (2026-09-30).
 
 **Checks** (2026-09-24; NEW GAME machine 2026-09-26). `npm run test:portal` (in CI): the world
 validates; it starts on the plaza facing the name, and the town and its
-rooms have no enemies; the arcade's cabinets are exactly its nine games, Adventure, Pizza Rescue and Solo Rescue (the VIP hall's are Mini World, Lag Din Figur and Eventyrland),
+rooms have no enemies; the arcade's cabinets are exactly its nine games, Adventure, Pizza Rescue, Solo Rescue and Vector Horizon (the VIP hall's are Mini World, Lag Din Figur, Eventyrland and Supermusene),
 each ending on INSERT COIN? PRESS {A}.; PIZZA RESCUE leaves for `https://fighter.phareim.no/?look=wasteland&from=phareim`,
-is no id in the theme registry, has its own marquee and screen, and blocks nothing in the hall (every exit, the counter, the robot, the signs and the chest are still walked up to; 2026-10-05); SOLO RESCUE leaves for `https://nova.phareim.no/?from=phareim` with a marquee and a screen of its own; Pizza Rescue, Solo Rescue, Adventure and Night of the Dead Battery stand side by side on the island in that order, Adventure in the door's column, a stool in front of each and all four nearer the door than any other cabinet (2026-10-13); the NEW GAME machine
+is no id in the theme registry, has its own marquee and screen, and blocks nothing in the hall (every exit, the counter, the robot, the signs and the chest are still walked up to; 2026-10-05); SOLO RESCUE leaves for `https://nova.phareim.no/?from=phareim` with a marquee and a screen of its own; Pizza Rescue, Solo Rescue, Adventure and Night of the Dead Battery stand side by side on the island in that order, Adventure in the door's column, a stool in front of each and all four nearer the door than any other cabinet but Vector Horizon's (2026-10-13); VECTOR HORIZON leaves for `https://space.phareim.no/?from=phareim`, has a marquee, a screen and the testing dressing of its own, says it is being tested, and stands by the door with a stool in front, off the door's column (2026-10-28); the NEW GAME machine
 says there is nothing to wipe before the blade, and after it asks once and
 never leaves the game; the beach lies only east of the pier and has two DJ booths
 on the sand between the road and the sea, blocked behind and beside, open

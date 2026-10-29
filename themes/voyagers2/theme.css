@@ -1,0 +1,356 @@
+/* Rex & Nova: Space Voyagers II (theme id `voyagers2`). Night blue-brown,
+   cream lettering, Slop's gold and red, the dashboard's wood. Flat colours
+   and hard edges: no glow, no gradient, no blur (DESIGN.md, "The picture"). */
+
+:root {
+  --voyagers2-bg: #141a33;
+  --voyagers2-bg-alt: #1c1420;
+  --voyagers2-text: #fff6e0;
+  --voyagers2-text-dim: #a89cb4;
+  --voyagers2-gold: #ffd23f;
+  --voyagers2-red: #b0421e;
+  --voyagers2-alarm: #ff4f6e;
+  --voyagers2-ink: #120d18;
+  --voyagers2-wood: #7a4018;
+  --voyagers2-wood-lo: #4e2812;
+}
+
+.voyagers2-page {
+  min-height: 100vh;
+  background-color: var(--voyagers2-bg);
+  color: var(--voyagers2-text);
+  font-family: var(--font-machine);
+  overflow-x: hidden;
+
+  --theme-bg: var(--voyagers2-bg);
+  --theme-text: var(--voyagers2-text);
+  --theme-text-muted: var(--voyagers2-text-dim);
+  --theme-text-subtle: #6c6480;
+
+  --theme-card-bg: var(--voyagers2-bg-alt);
+  --theme-card-border: var(--voyagers2-wood);
+  --theme-card-shadow: var(--voyagers2-ink);
+  --theme-card-radius: 0px;
+
+  --theme-accent: var(--voyagers2-gold);
+
+  --theme-font-body: var(--font-machine);
+}
+
+/* ── The page (Landing.vue) ──────────────────────────────────────────── */
+
+.vg2 {
+  /* One pixel size on the title: `--u` is a pixel of it in CSS pixels, a whole number of device
+     pixels (Landing.vue's fit(); the values here are the server's guesses). Lettering is the 5x7
+     font at one, two or three pixels a dot (8, 16, 24 `--u` an em). */
+  --vk: 1;
+  --u: calc(1px * var(--vk));
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: var(--app-height, 100dvh);
+  overflow: hidden;
+  touch-action: none;
+  background: var(--voyagers2-bg);
+  color: var(--voyagers2-text);
+  font-family: var(--font-pixel);
+  text-transform: uppercase;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  user-select: none;
+  -webkit-user-select: none;
+}
+@media (min-width: 1040px) and (min-height: 690px) { .vg2 { --vk: 2; } }
+
+.vg2-screen {
+  position: absolute;
+  inset: 0;
+  bottom: var(--app-safe-bottom, 0px);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(8 * var(--u));
+  cursor: pointer;
+}
+@media (orientation: landscape) and (min-width: 560px) {
+  .vg2-title { flex-direction: row; gap: calc(24 * var(--u)); }
+  .vg2-title .vg2-side { width: calc(260 * var(--u)); }
+}
+
+.vg2-card {
+  position: relative;
+  flex: none;
+  width: calc(240 * var(--u));
+  height: calc(320 * var(--u));
+  /* The sequel's own card when it is there, the first game's under it until then. */
+  background:
+    url('/voyagers2/card-title.png') 0 0 / 100% 100% no-repeat,
+    #13204e url('/galaga/card-title.png') 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+
+.vg2-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(18 * var(--u));
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(6 * var(--u));
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+}
+.vg2-name__top {
+  font-size: calc(24 * var(--u));
+  color: var(--voyagers2-gold);
+  text-shadow: calc(3 * var(--u)) calc(3 * var(--u)) 0 var(--voyagers2-red);
+}
+.vg2-name__sub {
+  font-size: calc(16 * var(--u));
+  color: var(--voyagers2-text);
+  text-shadow: calc(2 * var(--u)) calc(2 * var(--u)) 0 var(--voyagers2-ink);
+}
+.vg2-name__tag {
+  font-size: calc(8 * var(--u));
+  color: var(--voyagers2-gold);
+  text-shadow: var(--u) var(--u) 0 var(--voyagers2-ink);
+}
+
+.vg2-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(6 * var(--u));
+  max-width: 100%;
+}
+
+.vg2-pilots { display: flex; gap: calc(12 * var(--u)); }
+.vg2-pilot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(4 * var(--u));
+  padding: calc(4 * var(--u)) calc(6 * var(--u)) calc(5 * var(--u));
+  border: 0;
+  border-radius: 0;
+  background: var(--voyagers2-wood-lo);
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-ink);
+  color: var(--voyagers2-text-dim);
+  font: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vg2-pilot--on {
+  background: var(--voyagers2-wood);
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-gold);
+  color: var(--voyagers2-gold);
+}
+.vg2-pilot:focus-visible { outline: calc(2 * var(--u)) solid var(--voyagers2-text); outline-offset: calc(2 * var(--u)); }
+.vg2-face {
+  display: block;
+  width: calc(64 * var(--u));
+  height: calc(64 * var(--u));
+  background: var(--voyagers2-ink) 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+.vg2-pilot__name { font-size: calc(16 * var(--u)); line-height: 1; }
+.vg2-pilots--small .vg2-pilot { padding: calc(5 * var(--u)) calc(10 * var(--u)); }
+
+.vg2-line,
+.vg2-hint {
+  margin: 0;
+  font-size: calc(8 * var(--u));
+  line-height: calc(10 * var(--u));
+  text-align: center;
+  text-shadow: var(--u) var(--u) 0 var(--voyagers2-ink);
+  max-width: calc(100vw - 16 * var(--u));
+}
+.vg2-hint {
+  font-size: calc(16 * var(--u));
+  line-height: calc(18 * var(--u));
+  color: var(--voyagers2-gold);
+  text-shadow: calc(2 * var(--u)) calc(2 * var(--u)) 0 var(--voyagers2-ink);
+}
+.vg2-keys { display: flex; flex-wrap: wrap; justify-content: center; column-gap: calc(12 * var(--u)); }
+.vg2-keys span { white-space: nowrap; }
+.vg2-dim { color: var(--voyagers2-text-dim); }
+.vg2-gold { color: var(--voyagers2-gold); }
+.vg2-red { color: var(--voyagers2-alarm); }
+.vg2-copy { color: var(--voyagers2-text); }
+.vg2-blink { animation: vg2-blink 1.1s steps(1) infinite; }
+@keyframes vg2-blink { 50% { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .vg2-blink { animation: none; } }
+
+/* The debrief: a panel over the sky where the sortie ended. */
+.vg2-over { cursor: pointer; }
+.vg2-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(6 * var(--u));
+  min-width: calc(220 * var(--u));
+  max-width: calc(100% - 8 * var(--u));
+  padding: calc(10 * var(--u)) calc(8 * var(--u));
+  box-sizing: border-box;
+  background: var(--voyagers2-bg-alt);
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-ink), 0 0 0 calc(4 * var(--u)) var(--voyagers2-wood);
+}
+.vg2-over__title {
+  margin: 0;
+  font-size: calc(24 * var(--u));
+  line-height: 1;
+  font-weight: 400;
+  text-shadow: calc(3 * var(--u)) calc(3 * var(--u)) 0 var(--voyagers2-ink);
+}
+
+/* ── The campaign (Campaign.vue, Hub.vue) ────────────────────────────── */
+
+.vg2-campaign { position: absolute; inset: 0; }
+/* The hub: in the middle of the screen, clear of the site's radio widget along the top (about 40 CSS px). */
+.vg2-screen--top { justify-content: center; padding-top: 44px; box-sizing: border-box; cursor: default; }
+
+.vg2-btn {
+  margin: 0;
+  padding: calc(4 * var(--u)) calc(8 * var(--u));
+  border: 0;
+  border-radius: 0;
+  background: var(--voyagers2-wood-lo);
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-ink), inset 0 calc(-2 * var(--u)) 0 var(--voyagers2-ink);
+  color: var(--voyagers2-text);
+  font: inherit;
+  font-size: calc(8 * var(--u));
+  line-height: calc(10 * var(--u));
+  text-transform: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vg2-btn:hover, .vg2-btn:focus-visible { background: var(--voyagers2-wood); color: var(--voyagers2-gold); outline: none; }
+.vg2-btn--gold { color: var(--voyagers2-gold); font-size: calc(16 * var(--u)); line-height: calc(18 * var(--u)); padding: calc(5 * var(--u)) calc(10 * var(--u)); }
+
+/* An act's card: 240 x 120. */
+.vg2-act { gap: calc(6 * var(--u)); }
+.vg2-actcard {
+  width: calc(240 * var(--u));
+  height: calc(120 * var(--u));
+  background: var(--voyagers2-bg-alt) 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-ink), 0 0 0 calc(4 * var(--u)) var(--voyagers2-wood);
+}
+
+/* The ending's picture: 240 x 200. */
+.vg2-ending {
+  width: calc(240 * var(--u));
+  height: calc(200 * var(--u));
+  max-width: 100%;
+  background: var(--voyagers2-bg-alt) 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+
+/* The hub: tabs, the room's picture (240 x 180), the faces, the talk, LAUNCH. */
+.vg2-hub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(4 * var(--u));
+  width: calc(240 * var(--u));
+  max-width: 100%;
+}
+.vg2-tabs { display: flex; gap: calc(2 * var(--u)); width: 100%; }
+.vg2-tab {
+  flex: 1;
+  padding: calc(3 * var(--u)) 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--voyagers2-ink);
+  color: var(--voyagers2-text-dim);
+  font: inherit;
+  font-size: calc(8 * var(--u));
+  line-height: calc(10 * var(--u));
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vg2-tab--on { background: var(--voyagers2-wood); color: var(--voyagers2-gold); }
+.vg2-room { width: 100%; display: flex; flex-direction: column; gap: calc(4 * var(--u)); }
+.vg2-room__pic {
+  position: relative;
+  width: calc(240 * var(--u));
+  height: calc(180 * var(--u));
+  background: var(--voyagers2-bg-alt) 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-ink);
+}
+.vg2-spot {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vg2-spot:hover, .vg2-spot:focus-visible { outline: var(--u) dashed var(--voyagers2-gold); outline-offset: 0; }
+.vg2-board {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: calc(2 * var(--u));
+  padding: calc(2 * var(--u));
+  box-sizing: border-box;
+  overflow: hidden;
+  color: #e8e4d8;
+  font-size: calc(8 * var(--u));
+  line-height: calc(9 * var(--u));
+  pointer-events: none;
+}
+.vg2-board__title { color: var(--voyagers2-gold); }
+.vg2-people { display: flex; flex-wrap: wrap; gap: calc(4 * var(--u)); justify-content: center; }
+.vg2-person {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(2 * var(--u));
+  padding: calc(2 * var(--u));
+  border: 0;
+  border-radius: 0;
+  background: var(--voyagers2-wood-lo);
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-ink);
+  color: var(--voyagers2-text-dim);
+  font: inherit;
+  font-size: calc(8 * var(--u));
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vg2-person--new { color: var(--voyagers2-gold); box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-gold); }
+/* A face in the row is the portrait's middle, cropped (never scaled: one pixel size). */
+.vg2-face--small {
+  width: calc(32 * var(--u));
+  height: calc(32 * var(--u));
+  background-size: calc(64 * var(--u)) calc(64 * var(--u));
+  background-position: calc(-14 * var(--u)) calc(-8 * var(--u));
+}
+.vg2-talk {
+  display: flex;
+  gap: calc(6 * var(--u));
+  align-items: flex-start;
+  width: 100%;
+  min-height: calc(68 * var(--u));
+  padding: calc(4 * var(--u));
+  box-sizing: border-box;
+  background: var(--voyagers2-bg-alt);
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--voyagers2-ink), 0 0 0 calc(4 * var(--u)) var(--voyagers2-wood);
+  cursor: pointer;
+}
+.vg2-talk--panel { width: calc(232 * var(--u)); }
+.vg2-talk .vg2-face { flex: none; }
+.vg2-talk__words { flex: 1; display: flex; flex-direction: column; gap: calc(3 * var(--u)); min-width: 0; }
+.vg2-talk__name { margin: 0; color: var(--voyagers2-gold); font-size: calc(8 * var(--u)); line-height: calc(9 * var(--u)); }
+.vg2-talk__text { margin: 0; color: var(--voyagers2-text); font-size: calc(8 * var(--u)); line-height: calc(10 * var(--u)); text-align: left; }
+.vg2-talk__more, .vg2-talk__hint { margin: 0; color: var(--voyagers2-text-dim); font-size: calc(8 * var(--u)); line-height: calc(10 * var(--u)); }
+.vg2-choices { display: flex; flex-wrap: wrap; gap: calc(4 * var(--u)); margin-top: calc(2 * var(--u)); }
+.vg2-hub__foot { display: flex; justify-content: center; width: 100%; padding-bottom: calc(4 * var(--u)); }

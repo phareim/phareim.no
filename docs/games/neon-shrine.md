@@ -177,6 +177,12 @@ times meet at the lower (`zeldaBest` locally, `best_seconds` on the slot,
 which also counts clears). The Hangar shows QUEST n/12 from the slot. A player is
 still one browser, so the save does not follow a person to another device.
 
+**Never resize an existing map.** Bombed walls and opened doors are save
+flags keyed by tile index (`bomb:<map>:<idx>`, `door:<map>:<idx>`,
+`engine/map.ts`), so a map whose width or height changes opens the wrong
+tiles in every old save. New land goes in a new map behind a warp, the way
+the Wildwood did.
+
 **Bits are the site wallet** (2026-09-26). The bits the hero finds and
 spends are the same bits Mini World uses (`composables/useWallet.ts`,
 localStorage `phareim.wallet` plus the player's server balance). The
@@ -256,6 +262,43 @@ re-read on the `storage` event and when the tab comes back. Neither: the hero
 as drawn.
 `HERO_COLORS='<json>' node scripts/zelda-lab/shot.mjs <dir> r-sword`
 renders a hero in a figure's colours.
+
+**Live art from the studio** (2026-10-20). Sprites can be redrawn at
+studio.phareim.no (repo `phareim/studio-web`) and published without a deploy.
+- **What the studio edits.** `scripts/export-sprites.mjs` runs first in
+  `npm run build` and writes `public/studio/neon-shrine.json` (gitignored):
+  the palette and every sprite in `SPRITES` as rows, plus the commit. The
+  studio fetches it from the live site, so it always edits against what is
+  deployed.
+- **How the game takes it.** `render/live.ts` (`startLiveSprites`, called first
+  in `Zelda.vue`'s `onMounted`) applies the copy kept in localStorage
+  `studio.live.neon-shrine` before the first frame. It then asks
+  `https://studio.phareim.no/live/neon-shrine.json` (public, no cookie, 4 s
+  timeout), and again when the page comes back to the foreground, at most once
+  a minute. The rows go through `setSpriteOverrides()` in `render/sheet.ts`,
+  the one place sprites are built: registry names at their drawn size only,
+  and only the changed names' canvases are rebuilt. The deck's button icons
+  are made again when new art arrives. Any failure keeps the drawn art.
+- **Drafts in the game.** `?sprites=draft` asks the studio for the unpublished
+  drafts with the Reader cookie instead (only Petter gets them), and never
+  keeps that copy.
+- **Added frames** (2026-10-20). The studio may give an animation more frames
+  than were drawn (`blob_2` after `blob_0`, `blob_1`; up to 8). The renderer
+  steps through `frameCount(prefix, own)` from `render/sheet.ts` instead of a
+  fixed `% 2`: the foes, the folk and beach people, the bomb, the disc, the
+  poof and boom effects, the campfire and the tank. An added frame needs the
+  size of the animation's frame 0 and an unbroken run; anything else is
+  skipped. Each frame plays as long as before, so the loop gets longer (the
+  effects' lifetime grows with their frames). Poses that hold one frame (a
+  blob's hop, a bat at rest, a knight's charge speed) keep theirs. The studio
+  lists the animations that may grow in its adapter (`packs/neonShrine.ts`
+  `grow`); a call site added here needs a line there too.
+- **What it does not reach.** The hero's frames while a look or a made figure
+  is worn: those come from `heroFrames()` (the studio keeps the hero
+  read-only). Canvases other modules build from sprites and cache themselves.
+  Other new sprite names: the renderer chooses names in code.
+- **Checks.** `tests/zelda-live.test.mjs` (in `test:zelda`): the format check,
+  the size rule, the kept copy before the fetch, draft mode, a dead studio.
 
 **Exits.** An `exit` marker (`ExitDef` in `types.ts`) is a way out of the
 game: walk onto a door exit, or press A at a solid one and read its lines,

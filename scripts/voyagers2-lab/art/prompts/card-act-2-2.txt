@@ -1,0 +1,20 @@
+The first image is a picture in square pixel blocks that was shrunk to fit a frame, so its
+lines are ragged and doubled in places. Redraw it as one finished picture of pixel art and keep
+it exactly: everything where it is and as large as it is, the same size of square pixel blocks
+on the same grid, nothing moved, nothing resized, nothing enlarged to fill the picture. Tidy
+what is ragged or doubled: straight lines straight, round things round, the trucks, the diner
+and the sign clean. Along the edges of the picture, where the shrunk picture ends, carry the
+dark blue space, the stars and the nebula on; add nothing new there. The second image is the
+same picture as it was first drawn, larger: keep its details and its colours.
+{style} {clusters}
+{world}
+It is a wide establishing shot that opens the second act of a 1990s space-combat game: THE LONG
+HAUL, a freight lane through deep space. A long low band of brown and rust nebula across the
+top; a row of mile-marker buoys with amber lamps receding along the lane; on the right a
+floating truck stop, a chrome-trimmed diner with lit windows and fuel pumps on a riveted steel
+platform, and above it on a pylon its big sign, a neon picture of a coffee cup with an arrow
+pointing down, no letters on it; in the lower left foreground a big 1980s cab-over space rig
+with rocket nozzles hauling a long riveted trailer, and smaller rigs further down the lane.
+Deep blue and brown shadows, never black. No people, no lettering, no numbers, no text
+anywhere in the picture.
+{leave}

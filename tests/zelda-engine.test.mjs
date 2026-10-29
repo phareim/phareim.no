@@ -158,7 +158,7 @@ describe('the first minute', () => {
     // …or at the town's start, or in front of a cabinet.
     s = Z.createGame(Z.WORLD, { save, at: Z.WORLD.start })
     assert.deepEqual([s.map.id, s.area, s.inv.sword, s.inv.bits], ['overworld', 'PHAREIM.NO', true, 12])
-    s = Z.createGame(Z.WORLD, { save, at: { map: 'arcade', entry: 'galaga' } })
+    s = Z.createGame(Z.WORLD, { save, at: { map: 'arcade', entry: 'voyagers2' } })
     assert.equal(s.map.id, 'arcade')
     assert.equal(s.hero.dir, 'up')
     // An unknown spot falls back to the start.

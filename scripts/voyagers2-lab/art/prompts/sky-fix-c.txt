@@ -1,0 +1,17 @@
+The reference image shows a piece twice on a flat green background, in square pixel blocks;
+it was shrunk, so lines are ragged and doubled in places. Redraw it as finished pixel art and
+keep it exactly: every part where it is and as large as it is, the same size of square pixel
+blocks on the same grid, nothing moved, nothing enlarged, the green background left flat and
+untouched right up to the outlines. Tidy what is ragged or doubled: straight lines straight,
+lettering clean.
+{style} {clusters} {keyg}
+{world}
+{far}
+Both are the same thing: a giant roadside billboard floating in space: a wide board in a
+riveted steel frame with a short aerial on its top corner, four small lamps hanging under its
+bottom edge and two short struts. The board is cream with a broad red band. On it, in bold
+blocky letters, two lines, spelled exactly: on the red band "PIZZA THE HUT" in cream, under
+it, smaller, in dark blue, "NOW ON EVERY ORBIT". Every letter whole and readable, each stroke
+at least one block wide, the gaps between letters clear; rust and stains only on the frame
+and round the edges of the board, never over a letter.
+{leave-sign}

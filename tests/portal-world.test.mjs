@@ -1,7 +1,7 @@
 // The town — phareim.no's front door, the west end of Neon Shrine's one
 // world: the world validates, the start view shows the name and two
 // buildings on a phone and a desktop, the town has no enemies, the arcade's
-// cabinets are its nine games plus Adventure's, Pizza Rescue's and Nova's Solo Rescue's links out, the two
+// cabinets are its nine games plus Adventure's, Pizza Rescue's, Nova's Solo Rescue's and Vector Horizon's links out, the two
 // DJs on the beach lead to Jam and the radio, every exit
 // leads where it says, a path-finding walker reaches and uses each one from
 // the start without a scratch, coming back stands you in front of it, and
@@ -17,31 +17,36 @@ before(async () => { P = await load(); W = P.WORLD })
 /** The town is the overworld's first 40 columns. */
 const TOWN_W = 40
 
-const GAMES = ['anotherworld', 'galaga', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'russian', 'battery']
+const GAMES = ['anotherworld', 'voyagers2', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'russian', 'battery']
 /** Ulrikke's games, in the VIP hall next door (moved out of the arcade 2026-09-29). */
 const KIDS = ['miniworld', 'figur']
-/** Eventyrland, Ulrikke's 3D storybook on its own page: a cabinet in the VIP hall that leaves for the URL. */
-const VIP_ARTS = [...KIDS, 'eventyrland']
+/** Eventyrland, Ulrikke's 3D storybook on its own page, and Supermusene (2026-10-21), the paper-mouse adventure on
+ * its own page: cabinets in the VIP hall that leave for their URLs. */
+const VIP_ARTS = [...KIDS, 'eventyrland', 'maileg']
 /** The cabinets that are links out, not themes: art → where they leave for. Adventure is Eventyrland's open instance
  * (no account); Pizza Rescue (Nova & Rex: The Pizza Rescue) is a side-scrolling fighter on its own page, opened in
  * its pixel look and told where the visit came from, so it can offer the way back; Nova's Solo Rescue is its sequel,
- * on a page of its own too. */
+ * on a page of its own too; Vector Horizon (2026-10-28), Nova & Max's twin-stick shooter, still being tested. */
 const LINK_CABINETS = {
   eventyrland: 'https://eventyrland.phareim.no',
+  maileg: 'https://maileg.phareim.no/?from=phareim',
   adventure: 'https://adventure.phareim.no',
   pizzarescue: 'https://fighter.phareim.no/?look=wasteland&from=phareim',
   nova: 'https://nova.phareim.no/?from=phareim',
+  horizon: 'https://space.phareim.no/?from=phareim',
 }
 const AWAY = LINK_CABINETS
-const ARCADE_ARTS = [...GAMES, 'adventure', 'pizzarescue', 'nova']
+const ARCADE_ARTS = [...GAMES, 'adventure', 'pizzarescue', 'nova', 'horizon']
 const EXPECTED = {
   // cabinets
   ...Object.fromEntries(GAMES.map(g => [g, { map: 'arcade', to: { theme: g }, look: 'cabinet' }])),
   ...Object.fromEntries(KIDS.map(g => [g, { map: 'vip', to: { theme: g }, look: 'cabinet' }])),
   eventyrland: { map: 'vip', to: { url: LINK_CABINETS.eventyrland }, look: 'cabinet' },
+  maileg: { map: 'vip', to: { url: LINK_CABINETS.maileg }, look: 'cabinet' },
   adventure: { map: 'arcade', to: { url: LINK_CABINETS.adventure }, look: 'cabinet' },
   pizzarescue: { map: 'arcade', to: { url: LINK_CABINETS.pizzarescue }, look: 'cabinet' },
   nova: { map: 'arcade', to: { url: LINK_CABINETS.nova }, look: 'cabinet' },
+  horizon: { map: 'arcade', to: { url: LINK_CABINETS.horizon }, look: 'cabinet' },
   leaderboard: { map: 'arcade', to: { theme: 'leaderboard' }, look: 'board' },
   hangar: { map: 'arcade', to: { theme: 'hangar' }, look: 'door' },
   // The newsstand on the coast: A opens the shell's news panel (Sleeper's feed, read in the game).
@@ -57,6 +62,9 @@ const EXPECTED = {
   login: { map: 'home', to: { panel: 'account' }, look: 'console' },
   // The NEW LOOK stall on the square: A opens the shell's look panel (the hero's hair, clothes and colours).
   look: { map: 'overworld', to: { panel: 'look' }, look: 'stall' },
+  // The KODING KATA stand east of Petter's house: a stall of its own look that leaves for kata.phareim.no, which
+  // shows «Til byen» back here when the address says where the visit came from.
+  kata: { map: 'overworld', to: { url: 'https://kata.phareim.no/?from=phareim' }, look: 'stall' },
 }
 
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
@@ -226,7 +234,7 @@ describe('portal world', () => {
     for (const id of ['arcade', 'home', 'vip']) assert.equal(P.createGame(W, { at: { map: id, entry: 'door' } }).map.enemies.length, 0, `an enemy in ${id}`)
   })
 
-  it('has one cabinet per arcade game plus Adventure\'s, Pizza Rescue\'s and Nova\'s Solo Rescue\'s, and Ulrikke\'s three in the VIP hall, each with a pitch that ends on the coin line', () => {
+  it('has one cabinet per arcade game plus Adventure\'s, Pizza Rescue\'s, Nova\'s Solo Rescue\'s and Vector Horizon\'s, and Ulrikke\'s four in the VIP hall, each with a pitch that ends on the coin line', () => {
     const cabinets = placedExits().filter(e => e.ent.look === 'cabinet' && (e.map === 'arcade' || e.map === 'vip'))
     assert.deepEqual(cabinets.filter(c => c.map === 'arcade').map(c => c.ent.art).sort(), [...ARCADE_ARTS].sort())
     assert.deepEqual(cabinets.filter(c => c.map === 'vip').map(c => c.ent.art).sort(), [...VIP_ARTS].sort())
@@ -260,9 +268,9 @@ describe('portal world', () => {
     assert.match(spot.ent.lines[0], /^NOVA & REX: THE PIZZA RESCUE\./)
     assert.match(spot.ent.lines.join(' '), /A PUNCHES, B KICKS/)
     assert.match(spot.ent.lines.join(' '), /PAUSE THERE AND PICK ARCADE/)
-    assert.equal(placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet').length, 12)
+    assert.equal(placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet').length, 13)
     const robot = Object.values(W.maps.arcade.marks).find(m => m.ent.t === 'npc' && m.ent.id === 'robot').ent.talk[0].lines.join(' ')
-    assert.match(robot, /TWELVE CABINETS/)
+    assert.match(robot, /THIRTEEN CABINETS/)
     // It stands in nobody's way: every exit in the hall, the vendor's counter, the robot, the sign and the chest can still be walked up to.
     const g = session()
     goToMap(g, 'arcade')
@@ -311,7 +319,45 @@ describe('portal world', () => {
     assert.deepEqual([back.map.id, Math.floor(back.hero.x), Math.floor(back.hero.y), back.hero.dir], ['arcade', spot.x, spot.y + 1, 'up'])
   })
 
-  it('frames the four cabinets that leave the site when installed, by exit id, at the exit\'s own address', () => {
+  it('has a cabinet by the door for VECTOR HORIZON, still being tested, that leaves for space.phareim.no and is not a theme', () => {
+    const spot = placedExits().find(e => e.id === 'horizon')
+    assert.ok(spot, 'no Vector Horizon cabinet')
+    assert.equal(spot.map, 'arcade')
+    assert.equal(spot.ent.look, 'cabinet')
+    assert.equal(spot.ent.art, 'horizon')
+    assert.equal(spot.ent.label, 'VECTOR HORIZON')
+    // A link like Solo Rescue's: the address alone, saying where the visit came from, and no id in the registry (the
+    // parked theme `space` is another thing).
+    assert.deepEqual(spot.ent.to, { url: LINK_CABINETS.horizon })
+    assert.match(spot.ent.to.url, /[?&]from=phareim(&|$)/)
+    assert.ok(!GAMES.includes(spot.ent.art) && !KIDS.includes(spot.ent.art))
+    assert.doesNotMatch(readFileSync(new URL('../themes/index.ts', import.meta.url), 'utf8'), /horizon|space\.phareim/i, 'Vector Horizon is in the theme registry')
+    // Its own marquee and screen, and the dressing of a machine under test drawn over it (tape, a TEST card, a cone).
+    const paint = readFileSync(new URL('../themes/zelda/render/exits.ts', import.meta.url), 'utf8')
+    assert.match(paint, /^CABS\.horizon = \{/m, 'no cabinet style for Vector Horizon')
+    assert.match(paint, /case 'horizon':/, 'no screen for Vector Horizon')
+    assert.match(paint, /mini\(g, 'TEST'/, 'no TEST card')
+    assert.match(paint, /e\.art === 'horizon'\) g\.drawImage\(testingCanvas\(\)/, 'the testing dressing is not drawn on it')
+    // The pitch opens on the game's name, says it is still being tested and how to come back.
+    assert.match(spot.ent.lines[0], /^VECTOR HORIZON\. NOVA & MAX IN SPACE/)
+    assert.match(spot.ent.lines.join(' '), /STILL BEING TESTED: EXPECT BUGS/)
+    assert.match(spot.ent.lines.join(' '), /PICK ARCADE THERE TO WALK BACK IN HERE/)
+    // Just inside the door, a stool in front, off the door's own column; the robot points it out.
+    const rows = W.maps.arcade.rows
+    const door = P.createGame(W, { at: { map: 'arcade', entry: 'door' } }).hero
+    assert.equal(rows[spot.y + 1][spot.x], 'i', 'no stool in front of it')
+    assert.ok(spot.y + 1 === Math.floor(door.y) && Math.abs(spot.x - Math.floor(door.x)) <= 4, 'it does not stand by the door')
+    assert.notEqual(spot.x, Math.floor(door.x))
+    const robot = Object.values(W.maps.arcade.marks).find(m => m.ent.t === 'npc' && m.ent.id === 'robot').ent.talk[0].lines.join(' ')
+    assert.match(robot, /THE TAPED-OFF ONE BY THE DOOR IS VECTOR HORIZON\. STILL BEING TESTED/)
+    // Using it leaves for the address; coming back stands the hero in front of it.
+    const { event } = useExit('horizon')
+    assert.deepEqual(event.to, { url: LINK_CABINETS.horizon })
+    const back = P.createGame(P.worldStartingAt('arcade', 'horizon'), { seed: 1 })
+    assert.deepEqual([back.map.id, Math.floor(back.hero.x), Math.floor(back.hero.y), back.hero.dir], ['arcade', spot.x, spot.y + 1, 'up'])
+  })
+
+  it('frames the six cabinets that leave the site when installed, by exit id, at the exit\'s own address', () => {
     // docs/games/frame.md: `/?frame=<id>` shows the game inside the page. The table and the town must agree.
     assert.deepEqual(Object.keys(P.FRAMED_GAMES).sort(), Object.keys(LINK_CABINETS).sort())
     for (const [id, url] of Object.entries(LINK_CABINETS)) {
@@ -320,7 +366,7 @@ describe('portal world', () => {
       assert.ok(P.framedGame(id).name)
     }
     // Nothing else is framed: no address from the URL, no inherited key, none of the other links out.
-    for (const no of ['https://example.com', 'jam', 'radio', 'kiosk', 'constructor', '__proto__', '', undefined, null, ['adventure']]) {
+    for (const no of ['https://example.com', 'jam', 'radio', 'kiosk', 'kata', 'constructor', '__proto__', '', undefined, null, ['adventure']]) {
       assert.equal(P.framedGame(no), null, `${String(no)} is framed`)
     }
     // The shell asks the frame first and only then leaves for the address.
@@ -347,7 +393,9 @@ describe('portal world', () => {
     for (const c of [pizza, nova, battery]) assert.equal(c.y, adventure.y)
     assert.equal(adventure.x, Math.floor(door.x))
     assert.equal(door.dir, 'up')
-    const others = placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet' && !ISLAND.includes(e.id))
+    // Vector Horizon, by the door while it is being tested (2026-10-28), stands outside this rule: off the door's column
+    // and the island's line, so the island is still what a visitor walks straight at.
+    const others = placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet' && !ISLAND.includes(e.id) && e.id !== 'horizon')
     assert.equal(others.length, 8)
     for (const c of others) assert.ok(c.y < adventure.y, `${c.id} stands nearer the door than the island`)
     // A pillar at each end, a stool in front of each of the four, and nothing but floor between the door and the
@@ -593,6 +641,31 @@ describe('portal world', () => {
     const signs = Object.values(W.maps.overworld.marks).filter(m => m.ent.t === 'sign').map(m => m.ent.lines.join(' '))
     assert.ok(signs.some(l => /KEEPER'S HUT: DOWN TO THE COAST/.test(l)), 'the sign to the Keeper\'s hut is gone')
     assert.ok(signs.some(l => /→ NEW LOOK/.test(l)), 'the signpost does not name the stall')
+  })
+
+  it('has a KODING KATA stand east of Petter\'s house that asks before it leaves for kata.phareim.no, and comes back to it', () => {
+    const spot = placedExits().find(e => e.id === 'kata')
+    const info = P.mapInfo(W, 'overworld')
+    assert.equal(spot.map, 'overworld')
+    // In the open ground east of the house, north of the square, inside the town.
+    assert.ok(spot.x >= 28 && spot.x < TOWN_W - 3 && spot.y >= 4 && spot.y <= 8, `the stand stands at (${spot.x},${spot.y})`)
+    assert.equal(info.base[spot.y * info.w + spot.x], 'Z', 'the stand is its own sprite on a blocked tile')
+    // Its piles of old computers stand on blocked tiles either side; the hero uses it from the open tile below.
+    for (const dx of [-2, -1, 1, 2]) assert.equal(info.base[spot.y * info.w + spot.x + dx], 'Z', `nothing blocks (${spot.x + dx},${spot.y})`)
+    assert.equal(P.TILE_INFO[info.base[(spot.y + 1) * info.w + spot.x]].solid, false, 'the tile in front of the desk is blocked')
+    assert.equal(spot.ent.label, 'KODING KATA')
+    assert.equal(spot.ent.art, 'kata')
+    assert.equal(spot.ent.side, 'down')
+    assert.match(spot.ent.lines.at(-1), /\?$/)
+    assert.match(spot.ent.lines.join(' '), /JAVASCRIPT/)
+    assert.match(spot.ent.lines.join(' '), /NORWEGIAN/, 'the lines do not say the tasks are in Norwegian')
+    const signs = Object.values(W.maps.overworld.marks).filter(m => m.ent.t === 'sign').map(m => m.ent.lines.join(' '))
+    assert.ok(signs.some(l => /↑ PETTER'S HOUSE AND KODING KATA/.test(l)), 'the signpost does not name the stand')
+    // Back from kata.phareim.no, portal.return stands the hero in front of the desk, facing it.
+    const back = P.worldStartingAt('overworld', 'kata')
+    assert.equal(back.start.map, 'overworld')
+    const s = P.createGame(back, { seed: 1 })
+    assert.deepEqual([Math.floor(s.hero.x), Math.floor(s.hero.y), s.hero.dir], [spot.x, spot.y + 1, 'up'])
   })
 
   it('coming back stands you in front of the exit you used', () => {

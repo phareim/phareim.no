@@ -61,9 +61,9 @@ draw as the canvas aliases them (E, E, Æ, Ø, U; 2026-09-26); it adds ▶ ◀ �
 |---|---|---|
 | Space Invaders | done | the formation comes down over the town at dusk; bunkers are shrine stone |
 | Rex & Nova: Space Voyagers I (`galaga`) | its own look | not this stage: bitmaps from `public/galaga/` and code-drawn hard pixels through its own frame (`themes/galaga/render/`), whole device pixels, no bloom, scanlines, vignette or light map; it shares only the 5×7 font. `docs/games/galaga.md` |
-| Breakout | done | a shrine chamber seen from above: stone and crystal bricks, braziers, a pit under the paddle |
+| Space Paddle — The Odyssey (`breakout`) | done (redrawn 2026-10-13) | 1980s synthwave in space: a striped sun, a scrolling perspective grid, a planet; `docs/games/breakout.md` |
 | Russian Block Game | done | a shrine crystal garden: connected mineral veins, rows bloom into light seeds; harvested rows plant flowers around the town cabinet (2026-10-07) |
-| R-Type | done | the shrine caves: rock walls with glowing crystals that light the walls, a warm far cave behind; turned a quarter on portrait phones (`resize(…, rotate)`) |
+| G-Type | done | the shrine caves: rock walls with glowing crystals that light the walls, a warm far cave behind; turned a quarter on portrait phones (`resize(…, rotate)`) |
 | Star Fox | done | the Super FX way: three.js at the stage's logical size, snapped to the palette with a Bayer dither in a shader; a biome per sector (sea, woods, ember, mirror lake, space), each with its own ground mode, sky and props (`docs/games/star-fox.md`, 2026-09-25) |
 | Drive to the Mountains (`outrun`) | its own look since 2026-10-13 | not Neon Shrine's paint: the look of Nova's Solo Rescue, on the shared stage with the light map, bloom and overlay off (`docs/games/outrun.md`) |
 | Another Shore | done | flat Another World polygons scanline-filled on the pixel grid, snapped to the palette; dithered sky and sea; glowing things lit through an emissive layer; the prologue flies over the pixel dusk |

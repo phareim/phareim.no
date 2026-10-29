@@ -1,0 +1,42 @@
+The first image is a rough layout in flat blocks: it shows the composition, where everything
+stands and how large. The second image shows the pixel-art style to draw in and the size of
+square pixel block to use: it is a finished picture from the first game. The third image shows,
+at its left, the two people of this room as they are drawn in this game's talk portraits, TINY
+at the top and DOUGIE under him: match their hair, faces and clothes exactly; and at its right
+the CALZONE as it is drawn on this game's cover (there with its two pilots in it): match its
+shape and colours. Draw the layout as one finished picture in that style, filling the whole
+picture from edge to edge, everything in its place and at its size.
+{style} {clusters}
+{world} {face}
+The picture is a room of a 1990s space-combat game, shown between missions as a still scene,
+like the ship's rooms of Wing Commander III drawn as 80s arcade pixel art: the HANGAR of the
+DEEP DISH, a pizza oven-ship in orbit, seen from inside at standing eye level. Warm interior
+light from lamps in the ceiling, cold blue from space.
+In the back wall (the arched brick block): the flight deck's mouth, a huge arched oven door of
+riveted brick and steel standing open, and through it dark blue space with a few one-pixel
+stars; a yellow and black striped edge where the deck meets it.
+The deck (the grey floor): riveted steel plates with scuffs and oil stains, cables snaking
+across it, a fat fuel hose running from the wall to the ship.
+In the middle of the deck (the white, red and wood blocks), seen from the side and a little
+from the front, its nose toward the left: the CALZONE, standing empty on its landing struts: a
+fat two-seat pizza delivery rocket, two old rockets welded nose to tail: in front a stubby
+white-and-red delivery wagon rocket with wood-panel sides, a red nose cone and chrome trim, the
+Slop's slice of pepperoni pizza painted on its nose, an open chrome canopy over the front seat;
+behind it a lean red dart with swept red fins and, on top at the back, a round clear plexiglass
+bubble turret with two short gun barrels.
+At the back right (the cream and wood blocks): crates and tall stacks of flat cardboard pizza
+boxes, tied with string.
+In the right foreground (the large blue-grey block), seen from the hips up and turned toward
+the viewer: TINY, the ship's mechanic: a huge, gentle man of about forty, dark brown skin, a
+shaved head, a broad kind face, brass welding goggles pushed up on his forehead, yellow rubber
+dishwashing gloves to the elbows, a grease-stained grey-blue work coverall, a big wrench in one
+hand.
+In the left foreground (the olive block), standing by his little ship: DOUGIE, the delivery
+boy, a skinny rookie pilot of nineteen: a thin pale freckled face, big ears, ginger hair, a red
+baseball cap with a small white pizza-slice badge worn backwards, an olive-green nylon bomber
+jacket with an orange lining far too big for him, a keen grin. In front of him (the red block):
+his little red scooter-fighter, a one-seat rocket the size of a moped, with a small windscreen,
+a single fin and a pizza box strapped on the back.
+Every face is large enough to read. Shadows deep blue and brown, never black. No lettering, no
+numbers, no text anywhere in the picture.
+{leave}

@@ -1,0 +1,35 @@
+The first image is a rough collage: flat blocks on a dark blue field. It shows the
+composition: where everything stands and how large. The second image shows the pixel-art
+style to draw in and the size of square pixel block to use: it is the cover of the first
+game. The third image shows the two heroes' faces as they are drawn in this game: the woman
+on the left of it, the man on the right: match their hair, faces and clothes exactly. Draw
+the collage as one finished picture in that style, filling the whole picture from edge to
+edge, everything in its place and at its size.
+{style} {clusters}
+{world} {woman} {face}
+The picture is the cover of the sequel, a comic-book box cover of a 1989 arcade space-combat
+game: two pizza delivery pilots in one ship, flying into a fight.
+In the lower two thirds, large, filling the width: the CALZONE, a fat two-seat pizza
+delivery fighter, coming straight at the viewer in a three-quarter view from the front and
+a little above, its nose low at the lower left, its tail up at the right. It is two old
+rockets welded nose to tail: in front a stubby white-and-red delivery wagon rocket with
+wood-panel sides, a red nose cone and chrome trim; behind it, welded on, a lean red dart of
+a rocket with swept red fins; a rough weld seam with rivets runs round the hull where the
+two meet. On the nose a big painted slice of pepperoni pizza with a bite out of its crust.
+The front cockpit is an open chrome canopy frame with the windscreen glass clear, over a
+wood-grain dashboard, and in it, big and readable, REX at the stick: {rex} He grins.
+Behind and above him, on top of the rear hull, a round clear plexiglass bubble turret with
+two short gun barrels, and in it, big and readable, NOVA at the turret's handles: {nova}
+She looks out past the viewer, deadpan. Both faces are clearly seen through clear glass,
+each as large as in the collage.
+Behind the ship, upper right, half out of the picture: the DEEP DISH, a huge round
+pan-shaped carrier ship of riveted grey steel seen a little from above, with a brick oven
+chimney tower in its middle and a wide arched oven door in its side whose inside is a bright
+orange ramp, no glow round it. Upper left, small and far, two enemy fighters peeling in
+towards the ship: stubby brown riveted craft with two round mascot ears on top and a yellow
+cockpit.
+The upper quarter of the picture is quiet: plain deep night-blue sky with a few small stars
+of one or two pixels and nothing else, left empty for a title. Deep blue and brown
+shadows, never black; warm light from the left on the heroes and the hull.
+No lettering, no logo, no title, no text anywhere in the picture.
+{leave}

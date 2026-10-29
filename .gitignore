@@ -31,3 +31,6 @@ __pycache__/
 
 # wrangler pages dev local state
 .wrangler/
+
+# The studio's copy of the sprites, written by scripts/export-sprites.mjs before each build
+public/studio/

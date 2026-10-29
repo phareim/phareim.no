@@ -1,0 +1,37 @@
+The first image is a rough layout in flat blocks: it shows the composition, where everything
+stands and how large. The second image shows the pixel-art style to draw in and the size of
+square pixel block to use: it is a finished picture from the first game. The third image shows
+the two people of this room as they are drawn in this game's talk portraits, NONNA ROSA on the
+left of it and MEI on the right: match their hair, faces and clothes exactly. Draw the layout
+as one finished picture in that style, filling the whole picture from edge to edge, everything
+in its place and at its size.
+{style} {clusters}
+{world} {woman} {face}
+The picture is a room of a 1990s space-combat game, shown between missions as a still scene,
+like the ship's rooms of Wing Commander III drawn as 80s arcade pixel art: the KITCHEN of the
+DEEP DISH, a pizza oven-ship in orbit, the ship's heart, seen from the front at standing eye
+level. Warm interior light.
+On the right (the brick-red block): a huge domed brick pizza oven, its flue going up through
+the ceiling, its arched mouth full of bright orange and yellow fire drawn as flat clusters, no
+glow round it; its warm light falls on the room as a lighter ramp on what is near it.
+In the upper middle (the dark green block in its wooden frame): a big chalkboard on the wall,
+the board blank: plain flat dark green from edge to edge, nothing written or drawn on it, no
+chalk marks. Between the chalkboard and the oven, a few iron and copper pans hanging from hooks
+on a rail. In the upper left, a round riveted porthole with dark blue space and a few one-pixel
+stars outside.
+Across the foreground (the grey block): a long steel kitchen counter with a riveted front, where
+the briefing happens; on it a pizza on a wooden peel, a bag of flour, a few tomatoes, a ladle.
+Behind the counter in the middle (the navy block), seen from the waist up, facing the viewer:
+NONNA ROSA, the captain: a small, tough Italian-American grandmother of about seventy-five,
+olive skin, a round lined face, grey hair in a tight bun, a navy-blue captain's jacket with brass
+buttons and gold braid on the shoulders over a white apron, flour on her forearms, both hands on
+the counter, a small knowing smile.
+In the left corner (the wood and purple blocks): the dispatch radio: a big wooden radio set on a
+desk against the wall, with dials, needle gauges and a row of vacuum valves glowing orange, a
+tape reel and a microphone on a stand; at it, on a swivel stool, turned half toward the viewer:
+MEI, the dispatcher: a young woman with a dark purple bob with a pencil stuck in it, an orange
+radio headset with a boom microphone over her hair, a purple zipped jacket, dark trousers, one
+hand on a dial.
+Every face is large enough to read. Shadows deep blue and brown, never black. No lettering, no
+numbers, no text anywhere in the picture.
+{leave}

@@ -1,9 +1,11 @@
 # The frame: a game on another address, inside this page
 
-Four cabinets lead to games on their own addresses: Adventure
+Six cabinets lead to games on their own addresses: Adventure
 (`adventure.phareim.no`), Pizza Rescue (`fighter.phareim.no`), its sequel
-Solo Rescue (`nova.phareim.no`, since 2026-10-13) and Eventyrland
-(`eventyrland.phareim.no`). In a browser tab the cabinet loads the address, as
+Solo Rescue (`nova.phareim.no`, since 2026-10-13), Eventyrland
+(`eventyrland.phareim.no`), Supermusene (`maileg.phareim.no`, since
+2026-10-21) and Vector Horizon (`space.phareim.no`, since 2026-10-28, the
+arcade's machine under test). In a browser tab the cabinet loads the address, as
 before. Installed as a web app (Home Screen), leaving the app's own address
 makes the phone open its browser sheet over the game, with an address bar and
 a Done button. No manifest setting avoids that on iOS: an app's scope is one
@@ -65,6 +67,8 @@ of its own reading and the frame's.
 | Eventyrland, Adventure (one build) | `frame-ancestors https://phareim.no` in `public/_headers` and `public/_worker.js` | `joinArcade()` in `src/game/arcade.ts`, first thing at boot (sets the page's `--inset-*`) | "Tilbake til spillehallen" in the settings; `src/game/arcade.ts` |
 | Pizza Rescue | no header: any page may frame it | `src/main.ts` (`--frame-*` in `ui.css`, `data-edges` for the pixel look's own readouts) | ARCADE on the title and the pause panel |
 | Solo Rescue (`~/github/nova`, built on Pizza Rescue's engine) | no header: any page may frame it | the same code in its `src/main.ts` | ARCADE on the title and the pause panel |
+| Supermusene (`~/github/maileg`) | no header: any page may frame it | `src/game/arcade.ts`, at boot when the address says `from=phareim` | "Til arkaden" on the title and in the pause menu |
+| Vector Horizon (`~/github/space`, 2026-10-28) | no header: any page may frame it | `src/main.ts`: `phareim:ready` at boot, the four insets into `--safe-top`/`-bottom`/`-left`/`-right` (left and right since 2026-10-29, for a phone on its side) | ARCADE on the title and the pause panel, through the frame when framed |
 
 ## Adding a game
 
@@ -77,7 +81,8 @@ of its own reading and the frame's.
    from it when `window.parent !== window`. A link to `https://phareim.no/`
    would load the town inside the frame.
 
-The beach's two booths (Jam, the radio) still leave the app. The radio needs
+The beach's two booths (Jam, the radio) and the KODING KATA stand
+(kata.phareim.no, 2026-10-27) still leave the app. The radio needs
 step 3 in `components/TownChip.client.vue`; Jam sits behind Reader's login,
 whose page must be seen to work in a frame first.
 
@@ -115,6 +120,14 @@ Solo Rescue, 2026-10-13, against the live site the same way
 the insets (47 and 34 px), says ready, and ARCADE returns to `/`. Not walked
 there: YES at its cabinet (the script walks Pizza Rescue's; the shell's code
 is the same for every framed exit).
+
+Vector Horizon, 2026-10-28, live (`frame-shot.mjs https://phareim.no/ <out>
+--live`, Chrome for Testing on Sleeper): `/?frame=horizon` shows
+`https://space.phareim.no/?from=phareim`, the game says ready (the frame's ⌂
+goes), and ARCADE returns to `/`. The game keeps the insets in `--safe-*`,
+not Pizza Rescue's `--frame-*`, so the script's `toldReady`
+reads empty for it; the picture (`horizon-framed.png`) shows the title moved
+down by the 47 px it was told.
 
 In the first run the live Pizza Rescue, on another site than the dev page, read its
 own `env()` insets as 0 inside the frame; the dev servers on localhost read

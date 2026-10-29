@@ -33,8 +33,8 @@ the games read (colours + `dart`/`vandal` variant, plain TS shared client/server
 validates the unlock (`POST /api/ship/select`, 423 when locked), and the pick is still
 stored (`players.selected_ship`, localStorage `phareim.ship`), so a player who picked the
 Vandal before 2026-10-13 still flies it in the ship games. `composables/useShip.ts` keeps
-`readShipDef()` for the games and `loadProfile()` for the Hangar, but no longer exposes
-`selectShip` to a screen. `themes/ships/three.ts` builds the low-poly model Star Fox uses.
+`readShipDef()` for the games and `loadProfile()` for the Hangar; `selectShip` is still
+there, but no screen calls it. `themes/ships/three.ts` builds the low-poly model Star Fox uses.
 Removing the Vandal and the server's ship columns is a separate change: it alters what
 the games fly.
 
@@ -43,7 +43,7 @@ the games fly.
 bests + ships + selected + distinct count + `saves` (the adventure save
 slots, see `docs/games/neon-shrine.md`). Unlock is derived live
 from `COUNT(DISTINCT game)`, so no backfill. Games re-read the ship on
-every start: R-Type (hull,
+every start: G-Type (hull,
 flame core, trim Force pod, vandal chin fin), Star Fox
 (`scene/player.ts` builds it with the shared `buildPlayerShip` when the
 theme mounts), Invaders (same 1978 silhouette in hull colour, trim base row,
@@ -52,6 +52,6 @@ hull-coloured bolts; glow cache keyed per colour). The Galaga cabinet no longer 
 bitmaps, and does not call `readShipDef`.
 
 **Tests.** `npm run test:ships` (catalogue + unlock, in CI). The
-2D harnesses (R-Type, Invaders) stub `readShipDef` (imports are stripped in the vm) and
-assert reset/start re-reads the pick; R-Type also smoke-draws both
+2D harnesses (G-Type, Invaders) stub `readShipDef` (imports are stripped in the vm) and
+assert reset/start re-reads the pick; G-Type also smoke-draws both
 variants against an absorbing ctx stub. Verified 2026-09-09 (ship bay, since removed).

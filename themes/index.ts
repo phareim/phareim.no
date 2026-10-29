@@ -6,6 +6,7 @@ import './base/fonts.css'
 import './base/pixel/pixel.css'
 import './scandi/theme.css'
 import './galaga/theme.css'
+import './voyagers2/theme.css'
 import './breakout/theme.css'
 import './space/theme.css'
 import './desk/theme.css'
@@ -29,6 +30,7 @@ import './figur/theme.css'
 // chunk and every visit to `/` pays for it (2026-09-30).
 import ScandiLanding from './scandi/Landing.vue'
 import GalagaLanding from './galaga/Landing.vue'
+import Voyagers2Landing from './voyagers2/Landing.vue'
 import BreakoutLanding from './breakout/Landing.vue'
 import SpaceLanding from './space/Landing.vue'
 import SpaceStarfield from './space/Starfield.vue'
@@ -144,19 +146,27 @@ export const allThemes: ThemeDefinition[] = [
   },
   {
     id: 'galaga',
+    // Parked 2026-10-16: Space Voyagers II took its cabinet; still reachable with ?theme=galaga.
+    disabled: true,
     name: 'Rex & Nova: Space Voyagers I',
     themeColor: '#141a33',
     landing: GalagaLanding,
   },
   {
+    id: 'voyagers2',
+    name: 'Rex & Nova: Space Voyagers II',
+    themeColor: '#141a33',
+    landing: Voyagers2Landing,
+  },
+  {
     id: 'breakout',
-    name: 'Breakout',
+    name: 'Space Paddle — The Odyssey',
     themeColor: '#0b0616',
     landing: BreakoutLanding,
   },
   {
     id: 'rtype',
-    name: 'R-Type',
+    name: 'G-Type',
     themeColor: '#0b0616',
     landing: RtypeLanding,
   },

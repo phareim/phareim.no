@@ -32,7 +32,7 @@ const stubSound = () => ({
   music: { start: noop, stop: noop, playing: false },
 })
 function game() {
-  const context = vm.createContext({ ref: value => ({ value }), defineEmits: () => () => {}, onMounted() {}, onBeforeUnmount() {}, performance: { now: () => 1000 },
+  const context = vm.createContext({ ref: value => ({ value }), defineEmits: () => () => {}, defineExpose() {}, onMounted() {}, onBeforeUnmount() {}, performance: { now: () => 1000 },
     readShipDef: () => { shipCalls.n++; return dartDef() }, __absorbCtx: absorbCtx, useSound: stubSound,
     // The pixel look's imports (stripped above): enough to run drawShip/drawForce.
     sprite: () => ({ width: 15, height: 11 }), silhouette: () => ({ width: 15, height: 11 }), mix: a => a,
@@ -106,4 +106,41 @@ test('angular wall collision matches interpolated edges across viewport sizes an
       assert.ok(run(`!insideTerrain(${x}, (ceilYAt(${x}) + floorYAt(${x})) / 2, 9)`))
     }
   }
+})
+test('title, help and pause menus: keys and choose() move the cursor and run the actions', () => {
+  const run = game()
+  const key = code => run(`handleKeyDown({ code: '${code}', repeat: false, preventDefault() {} })`)
+  // Attract mode shows the title; the cursor starts on START.
+  run('startDemo()')
+  assert.equal(run('menu'), 'title')
+  assert.equal(run('gameStarted'), false)
+  key('ArrowDown') // HOW TO PLAY
+  key('ArrowDown') // wraps back to START
+  assert.equal(run('menuIndex'), 0)
+  key('KeyS')
+  key('Enter')
+  assert.equal(run('menu'), 'help')
+  key('Escape') // back to the title, not the portal
+  assert.equal(run('menu'), 'title')
+  run("choose('start')")
+  assert.equal(run('gameStarted'), true)
+  assert.equal(run('menu'), null)
+  // P opens the pause menu; the cursor wraps upwards to QUIT RUN.
+  key('KeyP')
+  assert.equal(run('paused.value'), true)
+  assert.equal(run('menu'), 'pause')
+  key('ArrowUp')
+  assert.equal(run('menuIndex'), 2)
+  // Choosing RESUME from the pause menu clears the pause and the menu.
+  run("choose('resume')")
+  assert.equal(run('paused.value'), false)
+  assert.equal(run('menu'), null)
+  // RESTART starts a fresh run with the score reset.
+  run("elapsed = 50; choose('pause'); choose('restart')")
+  assert.equal(run('paused.value'), false)
+  assert.equal(run('elapsed'), 0)
+  // QUIT RUN ends the run into game over.
+  run("choose('pause'); choose('quit')")
+  assert.equal(run('gameOver'), true)
+  assert.equal(run('menu'), null)
 })

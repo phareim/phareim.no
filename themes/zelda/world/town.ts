@@ -27,7 +27,9 @@ export const HIGH_SCORE_SIGN: string[] = [
  * round the island with bar stools in front of every cabinet; then the prize
  * counter with its vendor, a snack table, potted plants, the robot by the
  * entrance, the HIGH SCORES sign and a chest. Mini World and Lag Din Figur
- * moved to the VIP hall next door on 2026-09-29.
+ * moved to the VIP hall next door on 2026-09-29. Since 2026-10-28 a
+ * thirteenth stands just inside the door on the left, Vector Horizon, taped
+ * off and coned as a machine still being tested.
  *
  * A cabinet is a solid machine tile carrying an exit (`art` = the theme id
  * the renderer paints on its marquee). Face it and press A: the lines are
@@ -54,8 +56,8 @@ export const ARCADE: MapDef = {
     '#.,,,,iiii,,,,,.#',
     '#Y......,..v...S#',
     '#.nn....,.nnnn..#',
-    '#Q......,......$#',
-    '#.....u.@.....Y.#',
+    '#Q..V...,......$#',
+    '#...i.u.@.....Y.#',
     '########d########',
   ],
   // Z: the board is five tiles wide; its wings stay solid.
@@ -68,15 +70,15 @@ export const ARCADE: MapDef = {
       'ANOTHER SHORE. A STRANGER WAKES ON AN ALIEN COAST. FIVE CHAPTERS TO GET HOME.',
       'RUN, SWIM, HIDE. THE BEAST IS NEVER FAR BEHIND.',
     ]),
-    '2': cabinet('galaga', 'SPACE VOYAGERS', [
-      "REX & NOVA: SPACE VOYAGERS I. ONE LARGE PEPPERONI, FIVE SECTORS OUT. THIRTY MINUTES OR IT'S FREE.",
-      'FLY REX OR NOVA. THE OTHER FLIES BESIDE YOU AND TALKS THE WHOLE WAY.',
+    '2': cabinet('voyagers2', 'SPACE VOYAGERS', [
+      'REX & NOVA: SPACE VOYAGERS II. HEART OF THE OVEN. ONE SHIP, TWO SEATS, EIGHT SORTIES.',
+      'FLY IT, OR TAKE THE TURRET AND LET THE OTHER ONE FLY. THE FRANCHISE IS COMING FOR THE OVEN.',
     ]),
-    '3': cabinet('breakout', 'BREAKOUT', [
-      'BREAKOUT. ONE PADDLE, ONE BALL, A WALL OF NEON BRICKS.',
+    '3': cabinet('breakout', 'SPACE PADDLE', [
+      'SPACE PADDLE: THE ODYSSEY. ONE PADDLE, ONE BALL, A SUNSET OF BRICKS AND A PLANET THAT PULLS.',
     ]),
-    '4': cabinet('rtype', 'R-TYPE', [
-      'R-TYPE. AN ENDLESS CAVE, A FORCE POD AND A BEAM YOU CHARGE BY HOLDING FIRE.',
+    '4': cabinet('rtype', 'G-TYPE', [
+      'G-TYPE. AN ENDLESS CAVE, A FORCE POD AND A BEAM YOU CHARGE BY HOLDING FIRE.',
       'THE WALLS CLOSE IN THE FURTHER YOU FLY.',
     ]),
     '5': cabinet('invaders', 'SPACE INVADERS', [
@@ -135,6 +137,20 @@ export const ARCADE: MapDef = {
         ],
       },
     },
+    // Vector Horizon (2026-10-28): Nova & Max in a DuranDuran Class fighter, a twin-stick shooter in vector neon, on a
+    // site of its own and still being tested, so the machine stands by the door in hazard tape with a TEST card and a
+    // cone (`CABS.horizon` in render/exits.ts). `from=phareim` puts ARCADE, the way back here, on the game.
+    V: {
+      tile: 'M',
+      ent: {
+        t: 'exit', id: 'horizon', to: { url: 'https://space.phareim.no/?from=phareim' }, look: 'cabinet', art: 'horizon', label: 'VECTOR HORIZON', side: 'down',
+        lines: [
+          'VECTOR HORIZON. NOVA & MAX IN SPACE, IN A DURANDURAN CLASS FIGHTER. ONE STICK FLIES, THE OTHER AIMS, AND EVERYTHING GLOWS.',
+          'STILL BEING TESTED: EXPECT BUGS. IT LIVES ON ITS OWN PAGE. PICK ARCADE THERE TO WALK BACK IN HERE.',
+          COIN,
+        ],
+      },
+    },
     B: {
       tile: 'I',
       ent: {
@@ -160,8 +176,9 @@ export const ARCADE: MapDef = {
           {
             when: { notFlag: 'item:sword' },
             lines: [
-              'ROBOT: BEEP. WELCOME TO THE ARCADE. TWELVE CABINETS. FREE PLAY. BOOP.',
+              'ROBOT: BEEP. WELCOME TO THE ARCADE. THIRTEEN CABINETS. FREE PLAY. BOOP.',
               'THE FOUR IN THE MIDDLE ARE THE LONG ONES: PIZZA RESCUE, SOLO RESCUE, ADVENTURE, NIGHT OF THE DEAD BATTERY.',
+              'THE TAPED-OFF ONE BY THE DOOR IS VECTOR HORIZON. STILL BEING TESTED. IF IT CRASHES, IT WAS NOT ME. BOOP.',
               'FACE A CABINET AND PRESS {A}. SCORES GO UP ON THE BOARD AT THE BACK.',
               'THE HANGAR DOOR BACK THERE IS FOR PILOTS. YOUR SHIP AND YOUR RECORDS LIVE IN IT.',
               'THE KIDS\' GAMES MOVED NEXT DOOR, TO THE VIP HALL. ACCOUNT HOLDERS ONLY.',
@@ -194,8 +211,8 @@ export const VIP: MapDef = {
   ambient: 'dim',
   rows: [
     '#################',
-    '#t1.2.3.S..qqqqq#',
-    '#.i.i.i...n..W..#',
+    '#t1.2.3.4.Sqqqqq#',
+    '#.i.i.i.i.n..W..#',
     '#.........nnnnnn#',
     '#..........i.i.i#',
     '#Y...fffffff...Y#',
@@ -213,8 +230,8 @@ export const VIP: MapDef = {
     { kind: 'glow', x: 15.3, y: 9, w: 3.5, tone: 'gold' },
   ],
   decals: [
-    { x: 9.3, y: 0.3, text: 'VIP LOUNGE', tone: 'pink', scale: 1, align: 'center' },
-    { x: 13.5, y: 0.3, text: 'BAR', tone: 'cyan', scale: 1, align: 'center' },
+    { x: 10.9, y: 0.3, text: 'VIP LOUNGE', tone: 'pink', scale: 1, align: 'center' },
+    { x: 14.4, y: 0.3, text: 'BAR', tone: 'cyan', scale: 1, align: 'center' },
   ],
   marks: {
     '@': { ent: { t: 'entry', id: 'door', dir: 'up' } },
@@ -256,6 +273,19 @@ export const VIP: MapDef = {
         lines: [
           'EVENTYRLAND. A FAIRY-TALE ADVENTURE IN 3D: A PRINCESS, A VILLAGE, A TRAIN THAT RUNS ON TIME, AND FRIENDS TO MEET IN ONE SHARED WORLD.',
           'IT LIVES ON ITS OWN PAGE, SO THIS ONE OPENS A NEW WORLD. COME BACK ANY TIME.',
+          COIN,
+        ],
+      },
+    },
+    // Supermusene (2026-10-21): Tilda and Teo, two mice in capes, rescue their parents from a spoilt cat, in a paper
+    // and matchbox world, on a page of its own.
+    '4': {
+      tile: 'M',
+      ent: {
+        t: 'exit', id: 'maileg', to: { url: 'https://maileg.phareim.no/?from=phareim' }, look: 'cabinet', art: 'maileg', label: 'SUPERMUSENE', side: 'down',
+        lines: [
+          'SUPERMUSENE. TWO LITTLE MICE IN CAPES, A BIG SISTER AND HER LITTLE BROTHER, SET OUT TO SAVE MAMMA AND PAPPA FROM A SPOILT CAT.',
+          'SHE LIFTS THINGS WITH HER MIND AND GROWS FLOWERS. HE IS SUPER STRONG AND SUPER FAST. A WORLD OF PAPER AND MATCHBOXES ON ITS OWN PAGE.',
           COIN,
         ],
       },

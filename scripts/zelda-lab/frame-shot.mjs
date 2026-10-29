@@ -11,7 +11,7 @@
 //          insets before the world is up, ready after, the settings' way back
 //
 //   --live  against the live site (<devUrl> is https://phareim.no/): Pizza
-//          Rescue, Solo Rescue and Adventure as the frame loads them, no dev servers; the town's state
+//          Rescue, Solo Rescue, Vector Horizon and Adventure as the frame loads them, no dev servers; the town's state
 //          is not read there (a build has no window.__portal)
 //
 //   CHROME_BIN=… node scripts/zelda-lab/frame-shot.mjs <devUrl> <outDir> [--fighter <url>] [--eventyr <url>] [--live]
@@ -145,6 +145,7 @@ if (eventyr) {
 if (live) {
   result.liveFighter = await framed('pizzarescue', null, { home: async b => click(b, '#back') })
   result.liveNova = await framed('nova', null, { home: async b => click(b, '#back') })
+  result.liveHorizon = await framed('horizon', null, { home: async b => click(b, 'button, a', 'ARCADE') })
   result.liveEventyr = await framed('adventure', null, { home: eventyrHome })
 }
 console.log(JSON.stringify(result, null, 2))

@@ -1,0 +1,13 @@
+The reference image shows a piece twice on a flat green background, in square pixel blocks;
+it was shrunk, so lines are ragged and doubled in places. Redraw it as finished pixel art and
+keep it exactly: every part where it is and as large as it is, the same size of square pixel
+blocks on the same grid, nothing moved, nothing enlarged, the green background left flat and
+untouched right up to the outlines. Tidy what is ragged or doubled: straight lines straight,
+the drum round, the struts clean, each strut at least one block wide.
+{style} {clusters} {keyg}
+{world}
+{far}
+Both are the same thing: one large lane buoy of a freight lane in space: a fat riveted steel
+drum on end with a cage of struts over it, two small lamps on arms either side of its top, a
+short aerial on top and three small fins at its foot. One solid connected shape.
+{leave}

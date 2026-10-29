@@ -1,7 +1,7 @@
 ## Hall of Fame — the global leaderboard (2026-09-08)
 
 `?theme=leaderboard` is a live theme, reached from the board in the portal's arcade: the
-world ranking of the seven score games (Rex & Nova: Space Voyagers I under the id `galaga`, Breakout, R-Type, Space
+world ranking of the score games (Rex & Nova: Space Voyagers II under `voyagers2`, a campaign's score, since 2026-10-16; Space Voyagers I under `galaga`, parked, its board kept last; Space Paddle — The Odyssey under `breakout`, G-Type, Space
 Invaders, Star Fox, Drive to the Mountains (`outrun`), Russian Block Game; Another Shore has no score) in one panel.
 Up/down arrows, PageUp/Down, the mouse wheel, a vertical swipe, the ▲▼
 buttons or the square pips beside the panel walk the games; the switch is
