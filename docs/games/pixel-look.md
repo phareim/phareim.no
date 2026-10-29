@@ -68,7 +68,7 @@ draw as the canvas aliases them (E, E, Æ, Ø, U; 2026-09-26); it adds ▶ ◀ �
 | Drive to the Mountains (`outrun`) | its own look since 2026-10-13 | not Neon Shrine's paint: the look of Nova's Solo Rescue, on the shared stage with the light map, bloom and overlay off (`docs/games/outrun.md`) |
 | Another Shore | done | flat Another World polygons scanline-filled on the pixel grid, snapped to the palette; dithered sky and sea; glowing things lit through an emissive layer; the prologue flies over the pixel dusk |
 | Hall of Fame | done | the shrine's hall of champions at night: arched windows on the dusk, banners, torches, trophies, a statue of the hero; the board is a `.px-box`, avatars shrunk to 12×12 pixels (`docs/games/hall-of-fame.md`) |
-| Hangar | done | a shrine-stone launch bay open to the sea at dusk; the ship rendered the Star Fox way (low-res three.js, palette dither) on a pad with a neon ring (`docs/games/hangar.md`) |
+| Hangar | done | a shrine-stone launch bay open to the sea at dusk behind the pilot's status, high scores and adventures in Neon Shrine's dialog box (`docs/games/hangar.md`) |
 
 **Outside the games** (2026-09-25), all in the pixel font and Neon Shrine's dialog box:
 

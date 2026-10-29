@@ -2,11 +2,9 @@ import * as THREE from 'three'
 import type { ShipDef } from './ships'
 
 /**
- * Shared low-poly player ships. The Hangar viewer and Star Fox build the
- * exact same model from the same def — so the ship a player picks in the
- * profile is visibly the ship they fly. Only ever imported from async
- * components (Star Fox Flight, Hangar ShipViewer), never from the theme
- * registry path, so three.js stays out of the initial bundle.
+ * Shared low-poly player ships, built from a ship def. Only ever imported
+ * from async components (Star Fox Flight), never from the theme registry
+ * path, so three.js stays out of the initial bundle.
  */
 
 export interface PlayerShipModel {
