@@ -319,7 +319,7 @@ describe('portal world', () => {
     assert.deepEqual([back.map.id, Math.floor(back.hero.x), Math.floor(back.hero.y), back.hero.dir], ['arcade', spot.x, spot.y + 1, 'up'])
   })
 
-  it('has a cabinet by the door for VECTOR HORIZON, still being tested, that leaves for space.phareim.no and is not a theme', () => {
+  it('has a cabinet by the door for VECTOR HORIZON, out of testing, that leaves for space.phareim.no and is not a theme', () => {
     const spot = placedExits().find(e => e.id === 'horizon')
     assert.ok(spot, 'no Vector Horizon cabinet')
     assert.equal(spot.map, 'arcade')
@@ -332,12 +332,12 @@ describe('portal world', () => {
     assert.match(spot.ent.to.url, /[?&]from=phareim(&|$)/)
     assert.ok(!GAMES.includes(spot.ent.art) && !KIDS.includes(spot.ent.art))
     assert.doesNotMatch(readFileSync(new URL('../themes/index.ts', import.meta.url), 'utf8'), /horizon|space\.phareim/i, 'Vector Horizon is in the theme registry')
-    // Its own marquee and screen, and the dressing of a machine under test drawn over it (tape, a TEST card, a cone).
+    // Its own marquee and screen; the dressing of a machine under test (tape, a TEST card, a cone) came off on
+    // 2026-10-30, when the game left testing.
     const paint = readFileSync(new URL('../themes/zelda/render/exits.ts', import.meta.url), 'utf8')
     assert.match(paint, /^CABS\.horizon = \{/m, 'no cabinet style for Vector Horizon')
     assert.match(paint, /case 'horizon':/, 'no screen for Vector Horizon')
-    assert.match(paint, /mini\(g, 'TEST'/, 'no TEST card')
-    assert.match(paint, /e\.art === 'horizon'\) g\.drawImage\(testingCanvas\(\)/, 'the testing dressing is not drawn on it')
+    assert.doesNotMatch(paint, /testingCanvas|mini\(g, 'TEST'/, 'the testing dressing is still drawn')
     // The pitch opens on the game's name, says it is still being tested and how to come back.
     assert.match(spot.ent.lines[0], /^VECTOR HORIZON\. NOVA & MAX IN SPACE/)
     assert.match(spot.ent.lines.join(' '), /STILL BEING TESTED: EXPECT BUGS/)

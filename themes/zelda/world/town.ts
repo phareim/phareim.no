@@ -28,8 +28,8 @@ export const HIGH_SCORE_SIGN: string[] = [
  * counter with its vendor, a snack table, potted plants, the robot by the
  * entrance, the HIGH SCORES sign and a chest. Mini World and Lag Din Figur
  * moved to the VIP hall next door on 2026-09-29. Since 2026-10-28 a
- * thirteenth stands just inside the door on the left, Vector Horizon, taped
- * off and coned as a machine still being tested.
+ * thirteenth stands just inside the door on the left, Vector Horizon (out of
+ * testing since 2026-10-30: no tape, no TEST card, no cone).
  *
  * A cabinet is a solid machine tile carrying an exit (`art` = the theme id
  * the renderer paints on its marquee). Face it and press A: the lines are
@@ -137,9 +137,9 @@ export const ARCADE: MapDef = {
         ],
       },
     },
-    // Vector Horizon (2026-10-28): Nova & Max in a DuranDuran Class fighter, a twin-stick shooter in vector neon, on a
-    // site of its own and still being tested, so the machine stands by the door in hazard tape with a TEST card and a
-    // cone (`CABS.horizon` in render/exits.ts). `from=phareim` puts ARCADE, the way back here, on the game.
+    // Vector Horizon (2026-10-28): Nova & Max in a DuranDuran Class fighter, a space shooter with a story, on a site of
+    // its own; the machine stands by the door (`CABS.horizon` in render/exits.ts). Its testing dressing (tape, a TEST
+    // card, a cone) came off on 2026-10-30. `from=phareim` puts ARCADE, the way back here, on the game.
     V: {
       tile: 'M',
       ent: {
