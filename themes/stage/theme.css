@@ -1,0 +1,29 @@
+/**
+ * The view stage
+ * ---------------------------
+ * Neon Shrine's world with nothing around it, for the studio's frame
+ * (studio.phareim.no, `docs/games/neon-shrine.md`, "The studio's stage").
+ * The canvas is the page; the colours are the night's.
+ */
+
+:root {
+  --stage-bg: #0b0616;
+  --stage-text: #fff4ff;
+  --stage-muted: #b9a8d9;
+  --stage-accent: #2ff3ff;
+}
+
+.stage-page {
+  --theme-bg: var(--stage-bg);
+  --theme-text: var(--stage-text);
+  --theme-text-muted: var(--stage-muted);
+  --theme-text-subtle: var(--stage-muted);
+  --theme-accent: var(--stage-accent);
+  --theme-card-bg: rgba(11, 6, 22, 0.86);
+  --theme-card-border: var(--stage-accent);
+  --theme-card-shadow: transparent;
+  --theme-card-radius: 0;
+  --theme-font-body: var(--font-person);
+  background: var(--stage-bg);
+  color: var(--stage-text);
+}

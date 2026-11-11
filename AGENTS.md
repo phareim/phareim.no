@@ -29,7 +29,7 @@ There is no menu and no page route but `/`. `servers/mw-world/` is not part of t
 
 ## Theme System (short version — the skill has the rest)
 
-- Nineteen themes in `themes/index.ts`: the portal (`home: true`), fourteen live, four parked (`disabled: true`, reachable with `?theme=<id>`). Neon Shrine is not a theme: it is the portal's world. The list: `docs/site.md` → "Themes"; per game: the table under "Games → docs".
+- Twenty-one themes in `themes/index.ts`: the portal (`home: true`), fourteen live, six parked (`disabled: true`, reachable with `?theme=<id>`; one of them is the studio's view stage, `stage`). Neon Shrine is not a theme: it is the portal's world. The list: `docs/site.md` → "Themes"; per game: the table under "Games → docs".
 - **Nothing scrolls**: `html`/`body`/`#__nuxt` are `overflow: hidden`, every landing is locked to the viewport and fits a phone (checked at 375×667). Full-screen heights use `var(--app-height, 100dvh)` (defined in `app.vue`), never bare `100dvh`.
 - **Bottom band**: `--app-safe-bottom` (defined in `app.vue`) is the strip along the bottom edge where nothing interactive or meaning-bearing may sit; backdrops may run through it. Anchor bottom UI as `calc(<gap> + var(--app-safe-bottom, 0px))`, never on the bare inset; canvas games take it as a bottom inset.
 - The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first, an unknown id shows the portal. No cookie, no random pick. No way from one game straight to another.
