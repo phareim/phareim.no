@@ -24,6 +24,7 @@ import './portal/theme.css'
 import './battery/theme.css'
 import './miniworld/theme.css'
 import './figur/theme.css'
+import './stage/theme.css'
 
 // Static imports on purpose: a cabinet should not wait for a chunk, and a
 // landing is only a title screen. What a landing must NOT import is its game —
@@ -50,6 +51,7 @@ import PortalLanding from './portal/Landing.vue'
 import BatteryLanding from './battery/Landing.vue'
 import MiniworldLanding from './miniworld/Landing.vue'
 import FigurLanding from './figur/Landing.vue'
+import StageLanding from './stage/Landing.vue'
 
 export interface ThemeDefinition {
   /** Short id. Doubles as the CSS root class (`${id}-page`) and the `?theme=` value. */
@@ -238,6 +240,18 @@ export const allThemes: ThemeDefinition[] = [
     themeColor: '#7a7062',
     themeColorDark: '#2a2622',
     landing: DeskLanding,
+  },
+  {
+    // The view stage (2026-11-11): Neon Shrine's world with nothing around it, shown in a frame by the
+    // studio (studio.phareim.no) and driven from there: a view, a place, the HUD. No way in from the
+    // portal, nothing is kept. `ownRadio`: silent.
+    id: 'stage',
+    disabled: true,
+    ownRadio: true,
+    name: 'View stage',
+    themeColor: '#0b0616',
+    themeColorDark: '#0b0616',
+    landing: StageLanding,
   },
 ]
 

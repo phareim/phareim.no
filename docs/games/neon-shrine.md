@@ -160,6 +160,20 @@ localStorage `zelda.view`; `/?view=<id>` asks for one.
   mixes the sketch in over the classic picture in patches, so the turn needs
   no cut. The HUD is notes on the same paper (`paperSkin`). Without WebGL the
   picture is laid lightly on the sheet.
+- **The studio's stage** (`themes/stage/`, `/?theme=stage`, 2026-11-11). The
+  world with nothing around it, for the studio's frame: `ViewStage.vue` runs
+  the engine and the renderer on a fresh state and takes messages from
+  studio.phareim.no (and a local dev studio) only, after the studio's
+  `docs/stage-protocol.md`: `hello` → `ready { scenes, engines }`; `show {
+  view: { engine, params, name }, scene, gear, hud: play | dialog | pause |
+  strip, reduced, turn }` → `shown`; `replay` plays the turn from the classic
+  picture; `shot` answers with a PNG. `scenes.ts` lists the places (twenty,
+  from the square to Horizon Lab; a test stands the hero on open ground in
+  each). Nothing is kept there: no save, profile, wallet, score or sound, and
+  the hero cannot die. Arrows and Space work once the frame has the focus.
+  `scripts/export-sprites.mjs` writes `views` into the base the studio reads
+  (`/studio/neon-shrine.json`): the engines with their values' bounds, the
+  built-in views, the cap on the round and the scenes.
 - **HUD skins** (`HudSkin` in `hud.ts`). The layout is one; a view may dress
   it: `NEON_SKIN` (classic), `WINDOW_SKIN` (16-bit gradient windows),
   `paperSkin(...)`. `kit.hudLayer(..., skin)`.

@@ -25,6 +25,7 @@ async function load() {
         `export { createTurn } from './render/turn'`,
         `export { createGame } from './engine/index'`,
         `export { enterMap } from './engine/game'`,
+        `export { STAGE_SCENES, stageScene } from '../stage/scenes'`,
       ].join('; '),
       resolveDir: root,
       loader: 'ts',
@@ -399,5 +400,37 @@ describe('the turn between views', () => {
     t.set('hologram')
     assert.equal(t.id, 'classic')
     assert.deepEqual(t.step(1), { shown: '', k: 0 })
+  })
+})
+
+describe('the studio\'s stage', () => {
+  it('puts the hero on open ground in every scene, and names each for the studio\'s list', () => {
+    const ids = new Set()
+    for (const sc of M.STAGE_SCENES) {
+      assert.match(sc.id, /^[a-z][a-z0-9-]*$/)
+      assert.ok(sc.label && sc.group, `${sc.id} has no label or group`)
+      assert.ok(!ids.has(sc.id), `two scenes are called ${sc.id}`)
+      ids.add(sc.id)
+      const s = M.createGame(M.WORLD, { seed: 7 })
+      sc.set(M.WORLD, s)
+      const m = s.map
+      const tx = Math.floor(s.hero.x)
+      const ty = Math.floor(s.hero.y)
+      assert.ok(tx >= 0 && ty >= 0 && tx < m.w && ty < m.h, `${sc.id} is off the map`)
+      const t = m.tiles[ty * m.w + tx]
+      assert.ok(!M.TILE_INFO[t].solid, `${sc.id} stands the hero in a wall (${t} at ${tx},${ty} of ${m.id})`)
+    }
+  })
+  it('falls back to the first scene for a place it does not know', () => {
+    assert.equal(M.stageScene('nowhere').id, M.STAGE_SCENES[0].id)
+    assert.equal(M.stageScene('beach').id, 'beach')
+  })
+  it('is a theme with no way in from the portal, and keeps its world out of the entry', () => {
+    const reg = readFileSync(resolve(site, 'themes/index.ts'), 'utf8')
+    assert.match(reg, /id: 'stage',\s+disabled: true/)
+    const landing = readFileSync(resolve(site, 'themes/stage/Landing.vue'), 'utf8')
+    assert.match(landing, /defineAsyncComponent\(\(\) => import\('\.\/ViewStage\.vue'\)\)/)
+    const stage = readFileSync(resolve(site, 'themes/stage/ViewStage.vue'), 'utf8')
+    for (const word of ['localStorage', 'sessionStorage', 'submitScore', 'createZeldaAudio', 'fetch(']) assert.ok(!stage.includes(word), `the stage must keep nothing and call nobody (${word})`)
   })
 })
