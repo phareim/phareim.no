@@ -20,6 +20,7 @@ Per area:
 - `test:voyagers2` — Space Voyagers II (the Wing Commander one): flight, damage, missiles and decoys, the two seats, sorties, the campaign tree and save, the bot table, the words, the layout; `docs/games/voyagers2.md`
 - `test:outrun` — Drive to the Mountains: road, driving, traffic, crashes, clock, banter, and that `public/outrun` holds exactly the listed pictures
 - `test:breakout` — Space Paddle — The Odyssey: the rules in `themes/breakout/engine.ts` (speed, boards, pulse bricks, the planet, capsules, lives, attract mode, a seeded autopilot run); `docs/games/breakout.md`
+- `test:invasive` — Invasive (Invaders Mk II): the rules in `themes/invasive/engine.ts` (cuts and what they sever, the lance and the hearts, roots and windows, an unplayed run, autopilot runs on a phone and a desk field); `docs/games/invasive.md`
 - `test:battery` — Night of the Dead Battery: puzzles, story, audio, a walkthrough to the credits
 - `test:miniworld` — Mini World: save, contests, wallet and neighbourhood rules (memory and real D1 SQL), physics, obby, the sign-in gate
 - `test:figur` — Lag Din Figur: garments, packing, figures and save, Pip, the renderers, the Minecraft skin
@@ -102,13 +103,13 @@ The URL picks the theme (`/?theme=<id>`, no cookie); Nuxt `useState` holds the n
 - `themes/voyagers2/` — Rex & Nova: Space Voyagers II, a cockpit space-combat campaign in three.js (the SPACE VOYAGERS cabinet): engine/, story/, render/, audio.ts; Campaign.vue and Game.vue their own chunks
 - `themes/miniworld/` — Mini World (Ulrikke's game): core/ (pure rules), scene/ (three.js), ui/ (panels), Game.vue as its own chunk
 - `themes/figur/` — Lag Din Figur (Ulrikke's second): core/ (garment textures, save, Pip), render/ (the four game looks), ui/, Game.vue as its own chunk
-- Other themes: `anotherworld/ shore/ scandi/ breakout/ rtype/ invaders/ starfox/ outrun/ tetris/ leaderboard/ hangar/ ships/ space/ desk/`
+- Other themes: `anotherworld/ shore/ scandi/ breakout/ rtype/ invaders/ invasive/ starfox/ outrun/ tetris/ leaderboard/ hangar/ ships/ space/ desk/`
 
 There is no menu and no page route but `/`. The site's own server code is the profile API in `server/`; `servers/mw-world/` is not part of the site build: it runs on Sleeper under PM2 (see its README). Who Petter is and how to reach him lives in the portal (his house, and a visually hidden HTML block for search engines and screen readers).
 
 ## Themes
 
-Eighteen themes in `themes/index.ts` (verified 2026-09-28): the portal (`home: true`), thirteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Rex & Nova: Space Voyagers II (id `voyagers2`), Space Paddle — The Odyssey (`breakout`), G-Type, Space Invaders, Star Fox, Drive to the Mountains (`outrun`), Russian Block Game, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Rex & Nova: Space Voyagers I (`galaga`), Another Shore II, Scandinavian Glass, Space, Tufte Desk.
+Nineteen themes in `themes/index.ts` (verified 2026-11-11): the portal (`home: true`), fourteen live and four parked. Live: Lag Din Figur, Mini World, Night of the Dead Battery, Another Shore, Rex & Nova: Space Voyagers II (id `voyagers2`), Space Paddle — The Odyssey (`breakout`), G-Type, Space Invaders, Invasive (Invaders Mk II), Star Fox, Drive to the Mountains (`outrun`), Russian Block Game, Hall of Fame, Hangar. Neon Shrine is not a theme: it is the portal's world. Parked (`disabled: true`: no way in from the portal; still reachable with `?theme=<id>`): Rex & Nova: Space Voyagers I (`galaga`), Another Shore II, Scandinavian Glass, Space, Tufte Desk.
 
 - The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first (`hacker` → galaga, `playerone` → portal, `zelda` → portal, `tetris` → russian), an unknown id shows the portal. No cookie, no random pick.
 - No way from one game straight to another (arrows, swipes, chevrons and dots were removed on Petter's wish). You walk out to the portal and into the next cabinet.

@@ -29,7 +29,9 @@ export const HIGH_SCORE_SIGN: string[] = [
  * entrance, the HIGH SCORES sign and a chest. Mini World and Lag Din Figur
  * moved to the VIP hall next door on 2026-09-29. Since 2026-10-28 a
  * thirteenth stands just inside the door on the left, Vector Horizon (out of
- * testing since 2026-10-30: no tape, no TEST card, no cone).
+ * testing since 2026-10-30: no tape, no TEST card, no cone). The fourteenth,
+ * Invasive (Invaders Mk II, 2026-11-11), took the torch's place at the left
+ * end of the back wall, so five stand left of the board.
  *
  * A cabinet is a solid machine tile carrying an exit (`art` = the theme id
  * the renderer paints on its marquee). Face it and press A: the lines are
@@ -49,8 +51,8 @@ export const ARCADE: MapDef = {
   track: 'indoor',
   rows: [
     '#############h###',
-    '#t1234ZZBZZ56.78#',
-    '#,iiii,,,,,ii,ii#',
+    '#A1234ZZBZZ56.78#',
+    '#iiiii,,,,,ii,ii#',
     '#.,...........,.#',
     '#.,..I0NE9I...,.#',
     '#.,,,,iiii,,,,,.#',
@@ -83,6 +85,11 @@ export const ARCADE: MapDef = {
     ]),
     '5': cabinet('invaders', 'SPACE INVADERS', [
       'SPACE INVADERS. FIFTY-FIVE OF THEM, MARCHING DOWN, FASTER WITH EVERY ONE YOU HIT.',
+    ]),
+    // Invaders Mk II (2026-11-11), at the left end of the back wall where the torch hung.
+    A: cabinet('invasive', 'INVASIVE', [
+      'INVASIVE. INVADERS, MARK II. THEY STOPPED COMING IN ROWS. NOW THE SKY IS ONE OF THEM, AND IT HAS A HEART.',
+      'CUT A TENDRIL AND ALL THAT HANGS BELOW IT DIES. KEEP THE WINDOWS LIT.',
     ]),
     '6': cabinet('starfox', 'STAR FOX', [
       'STAR FOX. ON RAILS THROUGH RINGS, PILLARS AND A GUNSHIP AT THE END OF EVERY SECTOR.',
@@ -176,7 +183,7 @@ export const ARCADE: MapDef = {
           {
             when: { notFlag: 'item:sword' },
             lines: [
-              'ROBOT: BEEP. WELCOME TO THE ARCADE. THIRTEEN CABINETS. FREE PLAY. BOOP.',
+              'ROBOT: BEEP. WELCOME TO THE ARCADE. FOURTEEN CABINETS. FREE PLAY. BOOP.',
               'THE FOUR IN THE MIDDLE ARE THE LONG ONES: PIZZA RESCUE, SOLO RESCUE, ADVENTURE, NIGHT OF THE DEAD BATTERY.',
               'THE TAPED-OFF ONE BY THE DOOR IS VECTOR HORIZON. STILL BEING TESTED. IF IT CRASHES, IT WAS NOT ME. BOOP.',
               'FACE A CABINET AND PRESS {A}. SCORES GO UP ON THE BOARD AT THE BACK.',

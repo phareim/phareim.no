@@ -27,7 +27,7 @@ Design and the reasoning behind the layout: `themes/portal/DESIGN.md`.
 | File | Job |
 |---|---|
 | `themes/zelda/world/overworld.ts` | The overworld, 104×48. The town is columns 0–39 (`TOWN_W`): house and name, arcade, fountain, the NEW LOOK stall east of it (where the hero's hair, clothes and colours are changed: `docs/games/neon-shrine.md` → "The hero's look"), the KODING KATA stand east of the house ("The Koding Kata stand" below), newsstand, signpost, pier, the beach east of it (two DJ booths, a bonfire and the people round it, tiki torches), the kid and the cat, the coast road east, the thicket and warp west into the Wildwood |
-| `themes/zelda/world/town.ts` | The arcade, 17×11 (thirteen cabinets: nine games and four that leave the site, Adventure for `adventure.phareim.no`, Eventyrland's open instance, Pizza Rescue for `fighter.phareim.no`, Solo Rescue for `nova.phareim.no` and Vector Horizon for `space.phareim.no`; the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 17×11 (Mini World, Lag Din Figur, Eventyrland and Supermusene, a bar with its bartender, a mirror ball, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
+| `themes/zelda/world/town.ts` | The arcade, 17×11 (fourteen cabinets: ten games and four that leave the site, Adventure for `adventure.phareim.no`, Eventyrland's open instance, Pizza Rescue for `fighter.phareim.no`, Solo Rescue for `nova.phareim.no` and Vector Horizon for `space.phareim.no`; the board, HANGAR door, prize counter and vendor, the robot, the HIGH SCORES sign, a chest), the VIP hall, 17×11 (Mini World, Lag Din Figur, Eventyrland and Supermusene, a bar with its bartender, a mirror ball, a sign) and Petter's house, 15×10 (LinkedIn, GitHub and Bluesky terminals, the red NEW GAME machine, the login console, no email on purpose, Petter at his desk) |
 | `themes/zelda/engine/map.ts` | `setSession`: the shell's word on the login; the rope tiles follow it |
 | `themes/zelda/world/index.ts` | `WORLD` (the one world), `worldExits()`, `worldStartingAt()` |
 | `themes/zelda/Zelda.vue` | The shell: loop, input, touch deck, audio, saves, pause menu, exits, the way back, the account panel |
@@ -81,7 +81,7 @@ Rescue (6,4) and its sequel Solo Rescue (7,4) side by side left of the
 middle, Adventure (8,4, the door's own column) and Night of the Dead Battery
 (9,4) to its right. They
 are the long games, and Petter wanted them where a visitor looks first. The
-other eight line the back wall, four each side of the board: Another Shore,
+other nine line the back wall, five left of the board and four right of it: Invasive (Invaders Mk II, 2026-11-11, where the torch hung), Another Shore,
 Space Voyagers (the Galaga cabinet: Space Voyagers II, `voyagers2`, since 2026-10-16; Space Voyagers I is parked), Space Paddle — The Odyssey (`breakout`), G-Type on the left; Space Invaders, Star Fox, Drive to the Mountains (`outrun`) and
 Russian Block Game on the right, with the HANGAR door above the gap between the last two
 pairs. Every cabinet has a stool in front of it. The robot's welcome names
@@ -108,7 +108,7 @@ page, `/?frame=<id>`, so the phone's browser bar never comes up
 It is the hall's only rust-orange machine: N and R in white either side of a
 slice of pizza on the marquee, and Nova and a Dead Paddy trading a punch and
 a kick under a striped sun on the screen (`CABS.pizzarescue` and `drawScreen`
-in `render/exits.ts`). The robot counts the hall's cabinets (thirteen since 2026-10-28), and the hidden link
+in `render/exits.ts`). The robot counts the hall's cabinets (fourteen since 2026-11-11), and the hidden link
 index lists it under Writing and projects, as it does every exit with a URL.
 
 **Solo Rescue's cabinet** (2026-10-13). Nova's Solo Rescue, the sequel, is on

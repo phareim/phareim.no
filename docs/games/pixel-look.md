@@ -59,6 +59,7 @@ draw as the canvas aliases them (E, E, Æ, Ø, U; 2026-09-26); it adds ▶ ◀ �
 
 | Game | Pixel look | Setting |
 |---|---|---|
+| Invasive (Invaders Mk II) | done (new 2026-11-11) | the sky is one organism of four-pixel invaders over the town at night; the town's lit windows set the light map's ambient (`docs/games/invasive.md`) |
 | Space Invaders | done | the formation comes down over the town at dusk; bunkers are shrine stone |
 | Rex & Nova: Space Voyagers I (`galaga`) | its own look | not this stage: bitmaps from `public/galaga/` and code-drawn hard pixels through its own frame (`themes/galaga/render/`), whole device pixels, no bloom, scanlines, vignette or light map; it shares only the 5×7 font. `docs/games/galaga.md` |
 | Space Paddle — The Odyssey (`breakout`) | done (redrawn 2026-10-13) | 1980s synthwave in space: a striped sun, a scrolling perspective grid, a planet; `docs/games/breakout.md` |

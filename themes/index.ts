@@ -12,6 +12,7 @@ import './space/theme.css'
 import './desk/theme.css'
 import './rtype/theme.css'
 import './invaders/theme.css'
+import './invasive/theme.css'
 import './starfox/theme.css'
 import './outrun/theme.css'
 import './tetris/theme.css'
@@ -37,6 +38,7 @@ import SpaceStarfield from './space/Starfield.vue'
 import DeskLanding from './desk/Landing.vue'
 import RtypeLanding from './rtype/Landing.vue'
 import InvadersLanding from './invaders/Landing.vue'
+import InvasiveLanding from './invasive/Landing.vue'
 import StarfoxLanding from './starfox/Landing.vue'
 import OutrunLanding from './outrun/Landing.vue'
 import TetrisLanding from './tetris/Landing.vue'
@@ -175,6 +177,14 @@ export const allThemes: ThemeDefinition[] = [
     name: 'Space Invaders',
     themeColor: '#0b0616',
     landing: InvadersLanding,
+  },
+  {
+    // Invasive (2026-11-11): Invaders Mk II. No rows: the sky is one organism
+    // with a heart, and what is cut loose from the heart dies.
+    id: 'invasive',
+    name: 'Invasive',
+    themeColor: '#0b0616',
+    landing: InvasiveLanding,
   },
   {
     id: 'starfox',
