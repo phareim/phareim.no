@@ -18,6 +18,7 @@ import { lookCanvases, makeCanvas, sprite } from './sheet'
 import { DRAWN_LOOK, GIRL_LOOK, type HeroLook } from './heroLook'
 import { PAL } from './sprites'
 import type { Light } from './tiles'
+import { NEON_SKIN, type HudSkin } from './hud'
 
 type G = CanvasRenderingContext2D
 type Canvas = HTMLCanvasElement
@@ -1104,6 +1105,47 @@ function queueKata(
 
 const TERM_W = 16
 const TERM_H = 24
+
+// The viewfinder on the square: a coin telescope on a post. Its two lenses
+// shine in the colours of the views it turns between.
+const SCOPE_W = 14
+const SCOPE_H = 24
+const SCOPE_LENS = ['#2ff3ff', '#ff2fa0', '#ffd23f']
+let scopeC: Canvas | null = null
+
+function scopeCanvas(): Canvas {
+  if (scopeC) return scopeC
+  const c = makeCanvas(SCOPE_W, SCOPE_H)
+  const g = c.getContext('2d')!
+  const r = (col: string, x: number, y: number, w: number, h: number) => { g.fillStyle = col; g.fillRect(x, y, w, h) }
+  // Foot and post.
+  r('#1a1030', 2, 21, 10, 3)
+  r('#54259e', 3, 21, 8, 2)
+  r('#7a4cc8', 4, 21, 6, 1)
+  r('#1a1030', 5, 10, 4, 11)
+  r('#6d5a8f', 6, 10, 2, 11)
+  r('#b9a8d9', 6, 11, 1, 9)
+  // The coin box under the head, with its slot.
+  r('#1a1030', 4, 12, 6, 5)
+  r('#3a2a5a', 5, 13, 4, 3)
+  r('#ffd23f', 6, 14, 2, 1)
+  // The head: a casing with two barrels toward the viewer.
+  r('#1a1030', 0, 1, 14, 10)
+  r('#54259e', 1, 2, 12, 8)
+  r('#7a4cc8', 1, 2, 12, 1)
+  r('#3a1a7a', 1, 9, 12, 1)
+  r('#1a1030', 1, 3, 6, 6)
+  r('#1a1030', 7, 3, 6, 6)
+  r('#0b0616', 2, 4, 4, 4)
+  r('#0b0616', 8, 4, 4, 4)
+  // Eye cups on top.
+  r('#1a1030', 2, 0, 3, 2)
+  r('#1a1030', 9, 0, 3, 2)
+  r('#6d5a8f', 3, 0, 1, 1)
+  r('#6d5a8f', 10, 0, 1, 1)
+  scopeC = c
+  return c
+}
 let termC: Canvas | null = null
 
 function terminalCanvas(): Canvas {
@@ -1359,6 +1401,7 @@ function lookTop(look: ExitLook): number {
     case 'sign': return 14
     case 'booth': return LIGHTS_TOP
     case 'stall': return STALL_H
+    case 'scope': return SCOPE_H
     default: return T + 2
   }
 }
@@ -1500,6 +1543,37 @@ export function queueExits(
         lights.push(
           { x: e.x, y: e.y - 0.6, r: 1.4, color: glow, a: 0.6 },
           { x: e.x, y: e.y + 0.8, r: 1.8, color: glow, a: 0.35 },
+        )
+        break
+      }
+      case 'scope': {
+        const left = px - SCOPE_W / 2
+        const top = bottom - SCOPE_H
+        // One lens a step ahead of the other, so the pair shows two of the views at a time.
+        const step = reduced ? 0 : Math.floor(t * 0.8)
+        const a = SCOPE_LENS[step % 3]!
+        const b = SCOPE_LENS[(step + 1) % 3]!
+        items.push({
+          x: e.x,
+          y: e.y + 0.5,
+          draw: () => {
+            g.fillStyle = 'rgba(8,4,20,0.4)'
+            g.fillRect(left + 2, bottom - 1, SCOPE_W - 4, 2)
+            g.drawImage(scopeCanvas(), left, top)
+            g.fillStyle = a
+            g.fillRect(left + 2, top + 4, 4, 4)
+            g.fillStyle = b
+            g.fillRect(left + 8, top + 4, 4, 4)
+            g.fillStyle = 'rgba(255,255,255,0.7)'
+            g.fillRect(left + 2, top + 4, 2, 1)
+            g.fillRect(left + 8, top + 4, 2, 1)
+          },
+        })
+        emit.push({ x: left + 2, y: top + 4, w: 4, h: 4 }, { x: left + 8, y: top + 4, w: 4, h: 4 })
+        lights.push(
+          { x: e.x - 0.2, y: e.y - 0.7, r: 1.3, color: a, a: 0.6 },
+          { x: e.x + 0.2, y: e.y - 0.7, r: 1.3, color: b, a: 0.6 },
+          { x: e.x, y: e.y + 0.8, r: 1.6, color: a, a: 0.3 },
         )
         break
       }
@@ -1663,7 +1737,7 @@ export function nearExit(s: GameState): ExitSpot | null {
  */
 export function drawExitLabels(
   g: G, s: GameState, st: LabelState, cx: number, cy: number, vw: number, vh: number,
-  dt: number, keyA: string, reduced: boolean, show: boolean, minY = 2,
+  dt: number, keyA: string, reduced: boolean, show: boolean, minY = 2, skin?: HudSkin,
 ) {
   const near = show && s.mode === 'play' ? nearExit(s) : null
   const exits = s.map.exits ?? []
@@ -1692,6 +1766,18 @@ export function drawExitLabels(
     x = Math.max(2, Math.min(vw - w - 2, x))
     y = Math.max(2, Math.min(vh - h - 2, y))
     g.globalAlpha = next
+    if (skin && skin !== NEON_SKIN) {
+      // Another view's dress: its own panel, the name and the key in its colours.
+      skin.panel(g, x, y, w, h + 1, 'hot')
+      let sx = x + 4
+      drawText(g, text, sx, y + 3, skin.text, skin.shadow)
+      sx += tw + 3
+      drawText(g, '·', sx, y + 3, skin.hot)
+      sx += 2 + 3
+      drawText(g, key, sx, y + 3, skin.cool, skin.shadow)
+      g.globalAlpha = 1
+      continue
+    }
     // Plate with a pink underline and a pointer notch.
     g.fillStyle = 'rgba(11,6,22,0.86)'
     g.fillRect(x, y, w, h)

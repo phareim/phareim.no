@@ -7,12 +7,18 @@
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
     the left 60 % that isn't a button. VIEW and pause sit apart, in the
-    top-right corner, where no thumb rests. -->
-  <div v-if="touchUI && phase === 'play' && !panel && !paused && !talking" class="zelda-deck-top">
-    <button class="zelda-chip" aria-label="Change view" @pointerdown.prevent.stop="cycleView" @contextmenu.prevent>
+    top-right corner, where no thumb rests. The VIEW chip is there with a
+    keyboard too (it names its key), so the views are found without a manual. -->
+  <div v-if="phase === 'play' && !panel && !paused && !talking" class="zelda-deck-top" :class="{ 'zelda-deck-top--keys': !touchUI }">
+    <button class="zelda-chip" tabindex="-1" :aria-label="`Change view (now ${viewLabel})`" @pointerdown.prevent.stop="cycleView" @contextmenu.prevent>
+      <span v-if="!touchUI" class="zelda-chip-key">V</span>
+      <!-- The picture of the view that is on: a tile grid, a diamond, a pencil. -->
+      <svg class="zelda-chip-icon" viewBox="0 0 9 9" aria-hidden="true" shape-rendering="crispEdges">
+        <rect v-for="(r, i) in viewIcon" :key="i" :x="r.x" :y="r.y" :width="r.w" height="1" />
+      </svg>
       <span class="zelda-chip-label">VIEW</span>
     </button>
-    <button class="zelda-chip" aria-label="Pause" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>II</button>
+    <button v-if="touchUI" class="zelda-chip" aria-label="Pause" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>II</button>
   </div>
   <div
     v-if="touchUI && phase === 'play' && !panel && (paused || !talking)"
@@ -75,7 +81,7 @@
  * Keys: arrows / WASD move; Space / J / Z / Enter = A (sword, talk, lift,
  * throw; hold then release for a spin); K / X / Shift = B (item); Q swaps
  * item, Tab too when there is one (else Tab reaches the page's link index);
- * V turns to the next view (`views.ts`: classic, isometric), mid-play;
+ * V turns to the next view (`views.ts`: classic, isometric, pencil, and the studio's own), mid-play;
  * P or an Escape tap pause (T in the pause menu: to town); holding Escape
  * saves and goes back to town.
  * Touch: floating stick on the left; on the right three round buttons with
@@ -113,7 +119,9 @@ import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
 import { turnMove } from './render/iso/project'
-import { VIEWS, VIEW_KEY, nextView, startView, viewName, type ViewId } from './views'
+import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
+import { STRIP_TIME } from './render/hud'
+import type { EngineId } from './viewParams'
 import { sprite } from './render/sheet'
 import { startLiveSprites } from './render/live'
 import { KEYBOARD_KEYS, TOUCH_KEYS } from './keys'
@@ -255,41 +263,85 @@ const input: GameInput = createInput({
 
 /** The way the world is shown (`views.ts`); the game underneath is the same. */
 const viewId = ref<ViewId>('classic')
-const viewLabel = computed(() => viewName(viewId.value))
+/** Counts the studio's changes to the round, so a renamed view shows its new name. */
+const viewRound = ref(0)
+const viewLabel = computed(() => (void viewRound.value, viewName(viewId.value)))
+/** The VIEW chip's picture, 9 × 9 pixels per engine: the top-down tile grid, the isometric diamond, the pencil. */
+const VIEW_ICONS: Record<EngineId, readonly string[]> = {
+  classic: ['#########', '#...#...#', '#...#...#', '#...#...#', '#########', '#...#...#', '#...#...#', '#...#...#', '#########'],
+  iso: ['....#....', '..##.##..', '##.....##', '#.##.##.#', '#...#...#', '#...#...#', '#...#...#', '.##.#.##.', '...###...'],
+  blyant: ['......##.', '.....#.##', '....#.###', '...#.###.', '..#.###..', '.#.###...', '#.###....', '#.##.....', '###......'],
+}
+/** The icon as runs of pixels, one rect each. */
+const viewIcon = computed(() => {
+  void viewRound.value
+  const rows = VIEW_ICONS[viewDef(viewId.value)?.engine ?? 'classic']
+  const out: Array<{ x: number; y: number; w: number }> = []
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] !== '#') continue
+      const start = x
+      while (x + 1 < row.length && row[x + 1] === '#') x++
+      out.push({ x: start, y, w: x - start + 1 })
+    }
+  })
+  return out
+})
 let viewAsk = 0
+/** The view the renderer was last handed: where a failed switch falls back to. */
+let viewShown: ViewId = 'classic'
 /** The first frames wait for the view this browser left in, so an isometric player never sees the classic picture flash by. */
 let viewHold = false
 
 /** Turn to a view, fetching its code the first time. `instant`: no turn (the first frame, a paused game, reduced motion). */
 async function showView(id: ViewId, instant = false) {
   if (!renderer) return
-  viewId.value = id
-  try { localStorage.setItem(VIEW_KEY, id) } catch { /* private mode: this visit only */ }
+  // A view is an engine with its own values (`views.ts`); one the round no longer holds is the classic one.
+  const def = viewDef(id) ?? viewDef('classic')!
+  viewId.value = def.id
+  try { localStorage.setItem(VIEW_KEY, def.id) } catch { /* private mode: this visit only */ }
   const ask = ++viewAsk
-  const load = VIEWS.find(v => v.id === id)?.load
-  if (load && !renderer.hasView(id)) {
+  const load = ENGINE_LOADERS[def.engine]
+  if (load && !renderer.hasView(def.engine)) {
     try {
       const mod = await load()
       if (!alive || !renderer) return
-      renderer.addView(id, mod.default as ViewFactory)
+      renderer.addView(def.engine, mod.default as ViewFactory)
     } catch {
       // The code did not arrive (offline, a deploy in between): stay where we were, and say so to the next visit too.
       if (ask !== viewAsk || !alive || !renderer) return
-      viewId.value = renderer.viewState().id as ViewId
+      viewId.value = viewShown
       try { localStorage.setItem(VIEW_KEY, viewId.value) } catch { /* private mode */ }
       return
     }
   }
   if (ask !== viewAsk) return
+  renderer.setParams(def.engine, def.params)
   // No turn where nothing would play it: the first frame, reduced motion, a paused game, an open panel.
-  renderer.setView(id, instant || reducedMotion.value || paused.value || panel.value !== null)
+  renderer.setView(def.engine, instant || reducedMotion.value || paused.value || panel.value !== null)
+  viewShown = def.id
   pausedDrawn = false
 }
 
 function cycleView() {
   if (phase.value !== 'play') return
   audio?.sfx('menu')
-  void showView(nextView(viewId.value))
+  const next = nextView(viewId.value)
+  void showView(next)
+  // The whole round, for a moment: there is more than one view to turn to.
+  const round = viewList()
+  ui.strip = { views: round.map(v => ({ name: v.name, tag: v.tag })), at: Math.max(0, round.findIndex(v => v.id === next)), t: 0 }
+}
+
+/** The studio published views (or took them back): the round changes, and the view on screen takes its new values at once. */
+function applyLiveViews(live: LiveViews | null) {
+  setLiveViews(live)
+  viewRound.value++
+  if (!renderer) return
+  const def = viewDef(viewId.value)
+  if (!def) { void showView('classic', true); return }
+  renderer.setParams(def.engine, def.params)
+  pausedDrawn = false
 }
 
 /** Ending, pause-screen and pause keys; the game keys are input.ts's. */
@@ -472,6 +524,8 @@ async function checkSession() {
 /** The login console, the NEW LOOK stall or the newsstand was used: open its panel over the still world. */
 function openPanel(id: string, p: PanelId) {
   if (phase.value !== 'play' || paused.value) return
+  // The viewfinder on the square opens nothing: it turns the world to its next view.
+  if (p === 'view') { cycleView(); return }
   panelExit = id
   panel.value = p
   slowT = 0
@@ -708,7 +762,7 @@ function frame(nowMs: number) {
   if (document.hidden) return
   if (viewHold) return
   // A turn caught by a pause or a panel would hang half done (the world is drawn once, or five times a second): finish it.
-  if ((paused.value || panel.value) && renderer.viewState().turning) { renderer.setView(viewId.value, true); pausedDrawn = false }
+  if ((paused.value || panel.value) && renderer.viewState().turning) { renderer.setView(viewDef(viewId.value)?.engine ?? 'classic', true); pausedDrawn = false }
 
   ui.paused = paused.value
   ui.confirmReset = confirmReset.value
@@ -744,6 +798,7 @@ function frame(nowMs: number) {
   renderer.onEvents(events)
   handleEvents(events)
   if (ui.banner) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }
+  if (ui.strip) { ui.strip.t += dt; if (ui.strip.t > STRIP_TIME) ui.strip = null }
   syncDeck()
   if (state.hero.hp > 0 && state.hero.hp <= 2 && state.mode === 'play') {
     lowHpT -= dt
@@ -845,11 +900,12 @@ onMounted(() => {
   liveStop = startLiveSprites({
     search: location.search,
     storage: (() => { try { return localStorage } catch { return null } })(),
-    onApplied: () => {
+    onApplied: (art) => {
       iconCache.clear()
       artVersion.value++
       swordIcon.value = iconUrl('item_sword')
       swapIcon.value = iconUrl('hud_swap')
+      applyLiveViews(art.views)
     },
   })
   swordIcon.value = iconUrl('item_sword')
@@ -969,6 +1025,26 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
+/* With a keyboard the VIEW chip is a quiet note in the corner: its key, its word. */
+.zelda-deck-top--keys .zelda-chip {
+  min-width: 0;
+  min-height: 0;
+  padding: 6px 8px;
+  font-size: 8px;
+  opacity: 0.72;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.zelda-deck-top--keys .zelda-chip:hover { opacity: 1; color: #2ff3ff; }
+.zelda-chip-key {
+  padding: 2px 3px 1px;
+  background: #b9a8d9;
+  color: #0b0616;
+}
+.zelda-deck-top--keys .zelda-chip:hover .zelda-chip-key { background: #2ff3ff; }
+
 /* VIEW and pause: top-right, clear of the notch and the status bar. */
 .zelda-deck-top {
   position: absolute;
@@ -994,6 +1070,21 @@ onBeforeUnmount(() => {
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* The chip's picture of the view that is on: 9 × 9 game pixels, two screen px each. */
+.zelda-chip-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: currentColor;
+}
+.zelda-deck-top .zelda-chip:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+}
+.zelda-deck-top--keys .zelda-chip:first-child { padding: 5px 8px; gap: 6px; }
 
 .zelda-deck-btns {
   position: relative;

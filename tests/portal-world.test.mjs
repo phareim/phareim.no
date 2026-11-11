@@ -62,6 +62,8 @@ const EXPECTED = {
   login: { map: 'home', to: { panel: 'account' }, look: 'console' },
   // The NEW LOOK stall on the square: A opens the shell's look panel (the hero's hair, clothes and colours).
   look: { map: 'overworld', to: { panel: 'look' }, look: 'stall' },
+  // The viewfinder on the square: A turns the world to its next view (the shell's `view` panel opens nothing).
+  view: { map: 'overworld', to: { panel: 'view' }, look: 'scope' },
   // The KODING KATA stand east of Petter's house: a stall of its own look that leaves for kata.phareim.no, which
   // shows «Til byen» back here when the address says where the visit came from.
   kata: { map: 'overworld', to: { url: 'https://kata.phareim.no/?from=phareim' }, look: 'stall' },
@@ -641,6 +643,26 @@ describe('portal world', () => {
     const signs = Object.values(W.maps.overworld.marks).filter(m => m.ent.t === 'sign').map(m => m.ent.lines.join(' '))
     assert.ok(signs.some(l => /KEEPER'S HUT: DOWN TO THE COAST/.test(l)), 'the sign to the Keeper\'s hut is gone')
     assert.ok(signs.some(l => /→ NEW LOOK/.test(l)), 'the signpost does not name the stall')
+  })
+
+  it('has a viewfinder on the square by the fountain: A asks the shell for the next view, and nothing leaves', () => {
+    const spot = placedExits().find(e => e.id === 'view')
+    assert.equal(spot.map, 'overworld')
+    // East of the fountain (columns 19-22, rows 9-14), in sight of the plaza start on a phone and a desktop.
+    assert.ok(spot.x >= 23 && spot.x <= 27 && spot.y >= 9 && spot.y <= 14, `the viewfinder stands at (${spot.x},${spot.y})`)
+    assert.equal(spot.ent.label, 'VIEWFINDER')
+    assert.equal(spot.ent.lines, undefined, 'the view strip is the viewfinder\'s text')
+    for (const sword of [false, true]) {
+      const g = session()
+      g.s.inv.sword = sword
+      walkTo(g, spot.x, spot.y + 1)
+      g.s.hero.dir = 'up'
+      g.step(inp({ aPress: true, a: true }))
+      assert.deepEqual(g.events.filter(e => e.type === 'panel'), [{ type: 'panel', id: 'view', panel: 'view' }])
+      for (let k = 0; k < 60; k++) g.step()
+      assert.equal(g.s.mode, 'play', 'the viewfinder left the game')
+      assert.ok(!g.events.some(e => e.type === 'exit' || e.type === 'startOver'))
+    }
   })
 
   it('has a KODING KATA stand east of Petter\'s house that asks before it leaves for kata.phareim.no, and comes back to it', () => {

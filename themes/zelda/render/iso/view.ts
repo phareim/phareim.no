@@ -585,7 +585,7 @@ export default function isoView(kit: Kit): View {
       }
       bg.globalAlpha = 1
       addGlow(bg, glowBloom, blg)
-    })
+    }, kit.finish('iso'))
     // Labels and the dialog box sit by the exit at hand and the hero, wherever the view put them.
     const near = nearExit(s)
     const ref = near ? shift(near.x, near.y) : shift(s.hero.x, s.hero.y)
