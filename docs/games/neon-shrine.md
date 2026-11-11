@@ -134,6 +134,20 @@ localStorage `zelda.view`; `/?view=<id>` asks for one.
   The east/south shaded buffers repaint only when a visible top uses that
   side. This reduces per-frame canvas commands without caching animated art
   (verified against the previous renderer on all 15 maps, 2026-10-09).
+- **What makes it 16-bit** (2026-11-11). The classic view is an 8-bit
+  cabinet; this one spends what the next machine had, every amount a value
+  of engine `iso` in `viewParams.ts`: a low sun (`sunAngle`) throws shadows
+  off everything that stands (one top-down shadow picture per map, sun and
+  tile change, `buildShadows`: a mass's footprint swept by its height, plus
+  a soft band where it meets the ground; lone things and whoever moves get a
+  blot each frame; indoors the shadows are short); the sides nobody drew
+  darken toward the ground in dithered steps (`sideRamp`) and edges facing
+  the sun get a warm rim; haze takes the far end of the picture in bands;
+  cloud shadows drift over the coast (still under reduced motion); water
+  mirrors lone things and people standing by it; beyond the map's edge is a
+  banded dusk sky with the striped sun; the finish has no scanlines; and the
+  HUD wears gradient windows (`WINDOW_SKIN`). All of it scales with k, so
+  the turn still starts on the classic picture.
 - **The pencil view** (`render/blyant/view.ts`). The classic picture, unlit
   and top-down (`kit.classic`: `world`, `light`, `glows`, `rooms`, the classic
   view in parts), handed to Blyant's pencil, `Blyant.Sketch2D` (npm `blyant`,
