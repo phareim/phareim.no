@@ -12,7 +12,7 @@ external APIs, fonts, icons, state, source layout, themes, cost of `/`, auth):
 ## Commands
 
 - `npm run dev` — dev server on port 3030 (on Sleeper llm-gateway holds it, so Nuxt takes another port; see `docs/site.md`)
-- `npm test` — every `tests/*.test.mjs` in one pass (what the deploy runs). Per area: `test:portal`, `test:zelda`, `test:eschold`, `test:tetris`, `test:leaderboard`, `test:starfox`, `test:wingman`, `test:anotherworld`, `test:galaga`, `test:voyagers2`, `test:outrun`, `test:breakout`, `test:battery`, `test:miniworld`, `test:figur`; what each covers: `docs/site.md` → "Test areas"
+- `npm test` — every `tests/*.test.mjs` in one pass (what the deploy runs). Per area: `test:portal`, `test:zelda`, `test:eschold`, `test:tetris`, `test:leaderboard`, `test:starfox`, `test:wingman`, `test:anotherworld`, `test:galaga`, `test:voyagers2`, `test:outrun`, `test:breakout`, `test:invasive`, `test:battery`, `test:miniworld`, `test:figur`; what each covers: `docs/site.md` → "Test areas"
 - `npm run typecheck` — `nuxi typecheck` (vue-tsc); the Sleeper deploy runs this before build
 - `npm run build` — production build (`cloudflare-pages` preset in `nuxt.config.ts`, output `dist/`)
 - `npm run preview` — preview built site
@@ -29,7 +29,7 @@ There is no menu and no page route but `/`. `servers/mw-world/` is not part of t
 
 ## Theme System (short version — the skill has the rest)
 
-- Eighteen themes in `themes/index.ts`: the portal (`home: true`), thirteen live, four parked (`disabled: true`, reachable with `?theme=<id>`). Neon Shrine is not a theme: it is the portal's world. The list: `docs/site.md` → "Themes"; per game: the table under "Games → docs".
+- Nineteen themes in `themes/index.ts`: the portal (`home: true`), fourteen live, four parked (`disabled: true`, reachable with `?theme=<id>`). Neon Shrine is not a theme: it is the portal's world. The list: `docs/site.md` → "Themes"; per game: the table under "Games → docs".
 - **Nothing scrolls**: `html`/`body`/`#__nuxt` are `overflow: hidden`, every landing is locked to the viewport and fits a phone (checked at 375×667). Full-screen heights use `var(--app-height, 100dvh)` (defined in `app.vue`), never bare `100dvh`.
 - **Bottom band**: `--app-safe-bottom` (defined in `app.vue`) is the strip along the bottom edge where nothing interactive or meaning-bearing may sit; backdrops may run through it. Anchor bottom UI as `calc(<gap> + var(--app-safe-bottom, 0px))`, never on the bare inset; canvas games take it as a bottom inset.
 - The URL is the only source: `/` is the portal, `/?theme=<id>` that theme; legacy ids map first, an unknown id shows the portal. No cookie, no random pick. No way from one game straight to another.
@@ -76,6 +76,7 @@ The shell leaves the arrow keys to the games. In a game, an Escape tap pauses an
 | Another Shore | `docs/games/another-shore.md` | `themes/anotherworld/` |
 | Another Shore II | `docs/games/another-shore-ii.md` | `themes/shore/` (parked) |
 | Space Invaders | `docs/games/space-invaders.md` | `themes/invaders/` |
+| Invasive (Invaders Mk II) | `docs/games/invasive.md` | `themes/invasive/` (engine.ts, pixel.ts, audio.ts, Game.vue, Landing.vue), `scripts/invasive-lab/` |
 | Star Fox (Operation Nightlight) | `docs/games/star-fox.md` | `themes/starfox/` (scene/, models/, pure tuning in `*.ts`), `public/starfox/pilots/` |
 | Nova & Rex' Drive to the Mountains (`outrun`) | `docs/games/outrun.md` | `themes/outrun/`, `public/outrun/` (its pictures), `scripts/outrun-lab/` (shots and how the pictures are made) |
 | Neon Shrine (the portal's world) | `docs/games/neon-shrine.md` | `themes/zelda/` |

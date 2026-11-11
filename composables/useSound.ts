@@ -100,7 +100,7 @@ function loadMuted(): boolean {
 
 type OscType = OscillatorType
 
-interface ToneOpts {
+export interface ToneOpts {
   /** MIDI note number (69 = A4). */
   note?: number
   /** Raw frequency in Hz (overrides note). */
@@ -141,7 +141,7 @@ function tone(o: ToneOpts, when = 0): void {
   osc.stop(t0 + dur + 0.05)
 }
 
-interface NoiseOpts {
+export interface NoiseOpts {
   dur?: number
   vol?: number
   delay?: number
@@ -183,6 +183,14 @@ function noise(o: NoiseOpts, when = 0): void {
   src.start(t0)
   src.stop(t0 + dur + 0.05)
 }
+
+/**
+ * The two primitive voices, for a game that composes its own sounds from
+ * what happens in it (Invasive: every cell that dies is a note). They share
+ * this module's context, buses and mute.
+ */
+export function playTone(o: ToneOpts): void { tone(o) }
+export function playNoise(o: NoiseOpts): void { noise(o) }
 
 // ---------------------------------------------------------------------------
 // One-shot sound effects
@@ -473,7 +481,7 @@ function readStorage(key: string): string | null {
 }
 
 /** Park a playing radio while a game soundtrack takes over. Idempotent. */
-function parkRadio(): void {
+export function parkRadio(): void {
   if (import.meta.server || typeof window === 'undefined' || radioParked) return
   try {
     if (mutedState.value) return // game sound off: leave the radio alone
@@ -489,7 +497,7 @@ function parkRadio(): void {
 }
 
 /** Resume a radio parked by parkRadio(). Never overrides an explicit mute. */
-function unparkRadio(): void {
+export function unparkRadio(): void {
   if (!radioParked) return
   radioParked = false
   if (import.meta.server || typeof window === 'undefined') return

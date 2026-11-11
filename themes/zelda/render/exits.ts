@@ -241,6 +241,19 @@ const CABS: Record<string, CabStyle> = {
       '.l.l.....l.l',
     ),
   },
+  invasive: {
+    body: '#3a0f2c', bodyL: '#6a1c4e', bodyD: '#1c0616', trim: '#ff2fa0', glow: '#ff2fa0',
+    bg: bg7('#0b0616'),
+    marquee: M(
+      '..p......p..',
+      '...pppppp...',
+      '..pppppppp..',
+      '..pyppppyp..',
+      '..pppppppp..',
+      '...p.pp.p...',
+      '..p..pp..p..',
+    ),
+  },
   starfox: {
     body: '#1a2f78', bodyL: '#2f4fb0', bodyD: '#0e1a48', trim: '#fff4ff', glow: '#2f8fff',
     bg: ['#060c30', '#0a1440', '#10205a', '#183078', '#204090', '#1a3070', '#10204a'],
@@ -463,6 +476,22 @@ function drawScreen(g: G, art: string | undefined, x: number, y: number, t: numb
       const cx = Math.round(tri(t * 3 + seed, 7))
       f('#b6ff4a', cx + 1, 6); f('#b6ff4a', cx, 7, 3, 1)
       if (Math.floor(t * 5) % 3 === 0) f('#fff4ff', cx + 1, 4)
+      return
+    }
+    case 'invasive': {
+      // A ceiling that beats, two tendrils reaching for the lit windows, the cannon under them.
+      f('#0b0616', 0, 0, W, H)
+      const beat = Math.floor(t * 2 + seed) % 2
+      f(beat ? '#ff2fa0' : '#b01874', 0, 0, W, 2)
+      f('#fff4ff', 4, 0, 2, 1)
+      const a = 1 + Math.floor(tri(t * 1.3 + seed, 4))
+      const b = 1 + Math.floor(tri(t * 0.9 + seed + 2, 4))
+      f('#ff2fa0', 2, 2, 1, a); f('#ff8ae0', 2, 1 + a)
+      f('#ff2fa0', 7, 2, 1, b); f('#ff8ae0', 7, 1 + b)
+      f('#ffd23f', 1, 7); f('#ffd23f', 4, 7); f('#ffd23f', 8, 7)
+      const cx = Math.round(tri(t * 3 + seed, 8))
+      f('#2ff3ff', cx, 6, 2, 1)
+      if (beat) f('#2ff3ff', cx, 3, 1, 2)
       return
     }
     case 'starfox': {

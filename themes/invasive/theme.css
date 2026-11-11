@@ -1,0 +1,40 @@
+/**
+ * INVASIVE (Invaders Mk II)
+ * ---------------------------
+ * Night over the town, and the sky is alive: near-black violet, the pink of
+ * the first species for danger and titles, cyan for the cannon, gold for
+ * the windows and the lance. One scheme, no light variant.
+ */
+
+:root {
+  --invasive-bg: #0b0616;
+  --invasive-text: #f2e9ff;
+  --invasive-text-muted: #b9a8d9;
+  --invasive-text-subtle: #7a6a9a;
+  --invasive-accent: #ff2fa0;
+  --invasive-card-bg: rgba(11, 6, 22, 0.78);
+  --invasive-card-border: rgba(255, 47, 160, 0.3);
+  --invasive-card-shadow: rgba(255, 210, 63, 0.14);
+  --invasive-font: var(--font-person);
+}
+
+.invasive-page {
+  min-height: 100vh;
+  background: var(--invasive-bg);
+  color: var(--invasive-text);
+  font-family: var(--invasive-font);
+  position: relative;
+  overflow-x: hidden;
+
+  /* The contract. */
+  --theme-bg: var(--invasive-bg);
+  --theme-text: var(--invasive-text);
+  --theme-text-muted: var(--invasive-text-muted);
+  --theme-text-subtle: var(--invasive-text-subtle);
+  --theme-accent: var(--invasive-accent);
+  --theme-card-bg: var(--invasive-card-bg);
+  --theme-card-border: var(--invasive-card-border);
+  --theme-card-shadow: var(--invasive-card-shadow);
+  --theme-card-radius: 0;
+  --theme-font-body: var(--invasive-font);
+}

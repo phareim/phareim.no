@@ -1,7 +1,7 @@
 // The town — phareim.no's front door, the west end of Neon Shrine's one
 // world: the world validates, the start view shows the name and two
 // buildings on a phone and a desktop, the town has no enemies, the arcade's
-// cabinets are its nine games plus Adventure's, Pizza Rescue's, Nova's Solo Rescue's and Vector Horizon's links out, the two
+// cabinets are its ten games plus Adventure's, Pizza Rescue's, Nova's Solo Rescue's and Vector Horizon's links out, the two
 // DJs on the beach lead to Jam and the radio, every exit
 // leads where it says, a path-finding walker reaches and uses each one from
 // the start without a scratch, coming back stands you in front of it, and
@@ -17,7 +17,7 @@ before(async () => { P = await load(); W = P.WORLD })
 /** The town is the overworld's first 40 columns. */
 const TOWN_W = 40
 
-const GAMES = ['anotherworld', 'voyagers2', 'breakout', 'rtype', 'invaders', 'starfox', 'outrun', 'russian', 'battery']
+const GAMES = ['anotherworld', 'voyagers2', 'breakout', 'rtype', 'invaders', 'invasive', 'starfox', 'outrun', 'russian', 'battery']
 /** Ulrikke's games, in the VIP hall next door (moved out of the arcade 2026-09-29). */
 const KIDS = ['miniworld', 'figur']
 /** Eventyrland, Ulrikke's 3D storybook on its own page, and Supermusene (2026-10-21), the paper-mouse adventure on
@@ -268,9 +268,9 @@ describe('portal world', () => {
     assert.match(spot.ent.lines[0], /^NOVA & REX: THE PIZZA RESCUE\./)
     assert.match(spot.ent.lines.join(' '), /A PUNCHES, B KICKS/)
     assert.match(spot.ent.lines.join(' '), /PAUSE THERE AND PICK ARCADE/)
-    assert.equal(placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet').length, 13)
+    assert.equal(placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet').length, 14)
     const robot = Object.values(W.maps.arcade.marks).find(m => m.ent.t === 'npc' && m.ent.id === 'robot').ent.talk[0].lines.join(' ')
-    assert.match(robot, /THIRTEEN CABINETS/)
+    assert.match(robot, /FOURTEEN CABINETS/)
     // It stands in nobody's way: every exit in the hall, the vendor's counter, the robot, the sign and the chest can still be walked up to.
     const g = session()
     goToMap(g, 'arcade')
@@ -396,7 +396,7 @@ describe('portal world', () => {
     // Vector Horizon, by the door while it is being tested (2026-10-28), stands outside this rule: off the door's column
     // and the island's line, so the island is still what a visitor walks straight at.
     const others = placedExits().filter(e => e.map === 'arcade' && e.ent.look === 'cabinet' && !ISLAND.includes(e.id) && e.id !== 'horizon')
-    assert.equal(others.length, 8)
+    assert.equal(others.length, 9)
     for (const c of others) assert.ok(c.y < adventure.y, `${c.id} stands nearer the door than the island`)
     // A pillar at each end, a stool in front of each of the four, and nothing but floor between the door and the
     // middle cabinet's stool.
