@@ -137,6 +137,7 @@ describe('the studio\'s views', () => {
       classic: { params: { scanlines: 0 } },
       noir: { engine: 'blyant', name: 'NOIR', params: { paper: 'kull', colour: 0 } },
     })
+    assert.equal(M.parseViews({ lofi: { engine: 'classic', name: 'LOFI', tag: '4-BIT' } }).lofi.tag, '4-BIT')
     const round = M.mergeViews(live)
     assert.deepEqual(round.map(v => v.id), ['classic', 'iso', 'blyant', 'noir'])
     assert.deepEqual(round[0].params, { scanlines: 0 })

@@ -54,6 +54,8 @@ export const MAX_VIEWS = 8
 
 const ID = /^[a-z][a-z0-9-]{0,23}$/
 const NAME = /^[A-Z0-9][A-Z0-9 ]{0,13}$/
+/** The word under the name: a hyphen too (8-BIT). */
+const TAG = /^[A-Z0-9][A-Z0-9 -]{0,13}$/
 
 /** What the studio published: values for built-in views, and views of its own. */
 export interface LiveView {
@@ -83,7 +85,7 @@ export function parseViews(raw: unknown): LiveViews {
     const view: LiveView = { params: paramDiff(engine, r.params) }
     if (!builtin) view.engine = engine
     if (name) view.name = name
-    if (typeof r.tag === 'string' && NAME.test(r.tag.trim())) view.tag = r.tag.trim()
+    if (typeof r.tag === 'string' && TAG.test(r.tag.trim())) view.tag = r.tag.trim()
     if (typeof r.order === 'number' && Number.isFinite(r.order)) view.order = r.order
     if (r.hidden === true && id !== 'classic') view.hidden = true
     out[id] = view
