@@ -1,6 +1,8 @@
 /**
  * The studio's live art. Sprites redrawn in the studio (studio.phareim.no, repo
  * phareim/studio-web) and published there replace the registry's rows without a deploy.
+ * The same file carries the studio's views (`views.ts`): new values for the built-in
+ * ways of drawing the world, and views of the studio's own.
  *
  * The last copy this browser saw is applied at once, so the first frame already wears it; then
  * the studio is asked for the current one after mount, and again when the page comes back to
@@ -9,6 +11,7 @@
  * sign-in on auth.phareim.no; that copy is never kept.
  */
 import { setSpriteOverrides } from './sheet'
+import { parseViews, type LiveViews } from '../views'
 
 export const STUDIO_BASE = 'https://studio.phareim.no'
 export const LIVE_PACK = 'neon-shrine'
@@ -21,6 +24,8 @@ export interface LiveArt {
   /** The release number, or 'draft'. */
   release: number | string
   sprites: Record<string, string[]>
+  /** The studio's views; null when the file has none (the built-in ones stand as they are). */
+  views: LiveViews | null
 }
 
 /** The studio's answer, or null if it is not one (wrong pack, wrong format, ragged rows). */
@@ -34,7 +39,8 @@ export function parseLive(data: unknown): LiveArt | null {
     const w = typeof rows[0] === 'string' ? rows[0].length : 0
     if (w && rows.every(r => typeof r === 'string' && r.length === w)) sprites[name] = rows as string[]
   }
-  return { pack: LIVE_PACK, release: typeof d.release === 'number' || typeof d.release === 'string' ? d.release : 0, sprites }
+  const views = d.views && typeof d.views === 'object' ? parseViews(d.views) : null
+  return { pack: LIVE_PACK, release: typeof d.release === 'number' || typeof d.release === 'string' ? d.release : 0, sprites, views }
 }
 
 export interface LiveOptions {

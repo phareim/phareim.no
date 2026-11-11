@@ -44,6 +44,7 @@ import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
+import blyantView from ${JSON.stringify(join(repo, 'themes/zelda/render/blyant/view.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
 const W = +q.get("w"), H = +q.get("h"), dpr = +(q.get("dpr") || 1), top = +(q.get("top") || 0)
@@ -64,6 +65,9 @@ if (q.get('look')) {
 }
 // VIEW=iso shows the isometric view; FRAMES below 36 stops in the middle of the turn into it.
 if (q.get('view') === 'iso') { r.addView('iso', isoView); r.setView('iso', q.get('frames') === null) }
+// VIEW=blyant shows the pencil view; PARAMS='{"paper":"kull"}' sets an engine's values (viewParams.ts).
+if (q.get('view') === 'blyant') { r.addView('blyant', blyantView); r.setView('blyant', q.get('frames') === null) }
+if (q.get('params')) r.setParams(q.get('view') || 'classic', JSON.parse(q.get('params')))
 r.resize(W, H, dpr, { top, right: 0, bottom: top ? 34 : 0, left: 0 })
 const inp = (o) => ({ ...NO_INPUT, ...o })
 const run = (n, i = inp({})) => { for (let k = 0; k < n; k++) r.onEvents(stepGame(world, s, 1 / 60, i)) }
@@ -264,8 +268,8 @@ const SHOTS = [
 ]
 const want = only ? new Set(only.split(',')) : null
 const hero = (process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : '') + (process.env.HERO_LOOK ? `&look=${encodeURIComponent(process.env.HERO_LOOK)}` : '')
-const view = (process.env.VIEW ? `&view=${process.env.VIEW}` : '') + (process.env.FRAMES ? `&frames=${process.env.FRAMES}` : '')
-const tag = (process.env.VIEW ? `-${process.env.VIEW}` : '') + (process.env.FRAMES ? `-f${process.env.FRAMES}` : '')
+const view = (process.env.VIEW ? `&view=${process.env.VIEW}` : '') + (process.env.FRAMES ? `&frames=${process.env.FRAMES}` : '') + (process.env.PARAMS ? `&params=${encodeURIComponent(process.env.PARAMS)}` : '')
+const tag = (process.env.VIEW ? `-${process.env.VIEW}` : '') + (process.env.FRAMES ? `-f${process.env.FRAMES}` : '') + (process.env.TAG ? `-${process.env.TAG}` : '')
 for (const [name, scene, w, h, dpr, top] of SHOTS) {
   if (want && !want.has(name) && !want.has(scene)) continue
   const png = join(out, `${name}${tag}${process.env.HERO_COLORS ? '-dressed' : ''}${process.env.HERO_LOOK ? '-look' : ''}.png`)

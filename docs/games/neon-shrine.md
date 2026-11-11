@@ -52,13 +52,37 @@ deck, audio, saves, pause menu, exits, navigation lock), mounted by
 three on the arcade's HIGH SCORES sign (one Hall of Fame game at random,
 `/api/leaderboard` without a player id; offline it keeps the KNG joke).
 
-**Views** (2026-10-07). The game can
+**Views** (2026-10-07; engines, values and the pencil view 2026-11-11). The game can
 be shown in more than one way, and the player can change it in the middle of
-a room: V, the VIEW chip on a phone, or the pause screen. The state, the
-engine and the world are the same; a view is only how a frame is drawn.
-`views.ts` lists them: `classic` (the picture described under "Look" in
-`themes/zelda/DESIGN.md`) and `iso`, an isometric one. The choice is kept in
-localStorage `zelda.view`; `/?view=iso` asks for one.
+a room. The state, the engine and the world are the same; a view is only how
+a frame is drawn. A view is a drawing **engine** with a name and its own
+values. `viewParams.ts` (pure) lists the engines and what can be turned on
+each (`ENGINES`: numbers with bounds, colours, choices, toggles): `classic`
+(the picture described under "Look" in `themes/zelda/DESIGN.md`), `iso`, an
+isometric one, and `blyant`, a pencil sketch. `views.ts` holds the round: one
+built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT, PENCIL ·
+SKETCH), and whatever the studio published (below). The choice is kept in
+localStorage `zelda.view`; `/?view=<id>` asks for one.
+
+- **Finding them.** V turns to the next view. The VIEW chip sits in the
+  top-right corner on every device (with a keyboard it shows its key; its
+  9 × 9 picture is the engine in use: a tile grid, a cube, a pencil). Every
+  change brings up the **view strip** (`drawViewStrip` in `hud.ts`): the whole
+  round side by side for 2.6 s, the one in use lit. The **viewfinder** east of
+  the fountain (exit `view`, look `scope`, panel `view`, which opens nothing)
+  turns to the next view on A, and the page's first hint names the key. The
+  pause screen has the same switch.
+- **Values** (`viewParams.ts`). `renderer.setParams(engine, values)` hands an
+  engine a view's values; `kit.params(id)` reads them, `kit.finish(id)` is the
+  part every engine has (scanlines, neon bloom, vignette; `present` takes it).
+  `resolveParams` clamps and drops what it does not know, `paramDiff` keeps
+  only what differs from the engine's own.
+- **The studio's views** (`render/live.ts`, `parseViews` / `mergeViews` in
+  `views.ts`). The live file may carry `views: { <id>: { engine?, name?, tag?,
+  params?, order?, hidden? } }`: new values for a built-in view, or a view of
+  the studio's own (an engine, a name in the pixel font's letters, values).
+  They join the round at once, eight at most; the classic view cannot be
+  hidden; a stored view the round no longer has falls back to the classic one.
 
 - **Three layers, kept apart.** The engine and `world/` never import from
   `render/`, and world data names tones (`Tone` in `types.ts`), never a hex
@@ -110,10 +134,28 @@ localStorage `zelda.view`; `/?view=iso` asks for one.
   The east/south shaded buffers repaint only when a visible top uses that
   side. This reduces per-frame canvas commands without caching animated art
   (verified against the previous renderer on all 15 maps, 2026-10-09).
-- **Adding a view.** A module whose default export is a `ViewFactory`, one
-  line in `VIEWS` with its loader. A view's code is fetched on the first turn
-  to it and must stay out of the entry (`tests/zelda-views.test.mjs` checks
-  that nothing imports `iso/view` statically).
+- **The pencil view** (`render/blyant/view.ts`). The classic picture, unlit
+  and top-down (`kit.classic`: `world`, `light`, `glows`, `rooms`, the classic
+  view in parts), handed to Blyant's pencil, `Blyant.Sketch2D` (npm `blyant`,
+  pinned; a WebGL pass, the only place the site imports Blyant): the edge
+  between two colours is a contour drawn twice, the light map is hatching,
+  colour is coloured pencil, every tile a square on squared paper, and the
+  hand follows the world (`origin` is the camera) so lines stand still while
+  the view scrolls. `paper`: Papir (pencil on a light sheet), Kull (chalk on a
+  dark one) or `auto`, which follows the visitor's light or dark mode. `k`
+  mixes the sketch in over the classic picture in patches, so the turn needs
+  no cut. The HUD is notes on the same paper (`paperSkin`). Without WebGL the
+  picture is laid lightly on the sheet.
+- **HUD skins** (`HudSkin` in `hud.ts`). The layout is one; a view may dress
+  it: `NEON_SKIN` (classic), `WINDOW_SKIN` (16-bit gradient windows),
+  `paperSkin(...)`. `kit.hudLayer(..., skin)`.
+- **Adding an engine.** A module whose default export is a `ViewFactory`, a
+  loader in `ENGINE_LOADERS`, its values in `viewParams.ts`, a built-in view
+  in `VIEWS`. An engine's code is fetched on the first turn to it and must
+  stay out of the entry (`tests/zelda-views.test.mjs` checks that nothing
+  imports `iso/view` or `blyant/view` statically, and that only the pencil
+  view imports Blyant). A view of an engine that exists needs no code: the
+  studio publishes it.
 - **Known rough edges of the isometric view** (2026-10-07): woods are blocks
   of canopy; dungeon rooms are wider than the screen, so the camera follows
   the hero instead of showing the whole room; furniture is flat cards; the
@@ -122,8 +164,9 @@ localStorage `zelda.view`; `/?view=iso` asks for one.
   after the hero steps away. Outdoors a frame costs two to four times a
   classic one in software rendering (not measured on a phone).
 - **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>
-  [scenes]` renders the isometric view; `FRAMES=18` stops halfway through
-  the turn.
+  [scenes]` renders the isometric view, `VIEW=blyant` the pencil one;
+  `FRAMES=18` stops halfway through the turn, `PARAMS='{"paper":"kull"}'`
+  sets the engine's values and `TAG=kull` names the pictures.
 
 **How it starts.** A visitor stands on the plaza with nothing. Walking
 into Home Glade without the blade, the Keeper tells the story once (the
@@ -137,7 +180,7 @@ for death during a session.
 **Controls.** Keys: arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
 open, lift, throw, use an exit; hold after a swing, release to spin);
 K/X/Shift = B (item); Q, or Tab when there is an item, swaps; V turns to
-the next view (see "Views"); P or an
+the next view (see "Views"; the VIEW chip in the corner does the same with a click); P or an
 Escape tap pauses (items, heart pieces, the current quest); on the pause
 screen M turns the sound on or off and T goes to town. Holding Escape saves and goes to town. Starting over
 is the NEW GAME machine in Petter's house (see "Saves" below). Touch:

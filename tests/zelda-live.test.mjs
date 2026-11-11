@@ -50,6 +50,11 @@ describe('parseLive', () => {
     assert.equal(art.release, 3)
     assert.deepEqual(Object.keys(art.sprites), ['blob_0'])
   })
+  it('carries the studio\'s views when the file has them, and none when it does not', () => {
+    assert.equal(m.parseLive({ format: 1, pack: 'neon-shrine', release: 3, sprites: {} }).views, null)
+    const art = m.parseLive({ format: 1, pack: 'neon-shrine', release: 4, sprites: {}, views: { iso: { params: { bloom: 0.2 } }, bad: { engine: 'x' } } })
+    assert.deepEqual(art.views, { iso: { params: { bloom: 0.2 } } })
+  })
   it('refuses another pack or format', () => {
     assert.equal(m.parseLive({ format: 2, pack: 'neon-shrine', sprites: {} }), null)
     assert.equal(m.parseLive({ format: 1, pack: 'nova', sprites: {} }), null)

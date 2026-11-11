@@ -41,7 +41,7 @@ export const OVERWORLD: MapDef = {
     'TTT..........::,,,,,,,,,,,::.........TTTTTTT...TTTT;;TTT.....TT.;.TT#..,,,,,t~~~~t,,,,,,,..##..........#',
     'TT..HHHHHHHHH:,,,,,,,,,,,,,:.T...:..T.TTTTT;..;..TTTTTTT..d.....;......,,,,,,~~~~,,,,y,,,..##.G..G..G..#',
     'TT..HHHHHHHHH,,,,,t~~~~t,,,t..:...T...TTTTT;;...;TTTTTTTT.......;......,,,,,,~~~~,,,,,,,,..##:....z....#',
-    'TT..HHHHHHHHH,,,,,,~~~~,,,,,..ZZZ...:.TTTTTT;...;;TTTTTTTTTTT;;TTTTT#..,,,,,t~~~~t,,,,,,,..............#',
+    'TT..HHHHHHHHH,,,,,,~~~~,,Ω,,..ZZZ...:.TTTTTT;...;;TTTTTTTTTTT;;TTTTT#..,,,,,t~~~~t,,,,,,,..............#',
     'TT.tHHHHHHHHHt,,8,,~~~~,,,,,.tZÞZt....TTTTTTT..;;;;TTTTTTTTT;;;;TTTT#..,:,,,,,,,,,,,,,,:,.......+......#',
     'TT..HHHHUHHHH,,,,,t~~~~tu,,,,,,,.v:...TTTTTTT...d..;TTTTTT;;*;;TTTTT#.t,,,,,,,k,,,,,,,,,,t.##.G..G..G..#',
     'TT..,,,,,,,,,,,,,,,,,,,,,,,,.........TTTTTTTTT.....;;TTTT;;*;*;TTTTT#T..:....,,,,....:...T.##..........#',
@@ -214,6 +214,9 @@ export const OVERWORLD: MapDef = {
     J: { tile: 'S', ent: { t: 'sign', lines: ['THE NEON COAST.   ← SLEEPER NEWS   ↓ THE BEACH', "FOLLOW THE ROAD EAST TO THE KEEPER'S HUT."] } },
     u: { tile: 'S', ent: { t: 'sign', lines: ['THE FOUNTAIN. MAKE A WISH.', 'NO COINS, PLEASE. THOSE ARE FOR THE ARCADE.'] } },
     v: { tile: 'S', ent: { t: 'sign', lines: ["THE KEEPER'S HUT: DOWN TO THE COAST, THEN EAST ALONG THE ROAD.", 'THE SUN WON\'T SET. THE KEEPER IS LOOKING FOR SOMEONE TO GO GET IT BACK.'] } },
+    // The viewfinder on the square, east of the fountain: a coin telescope that takes no coins. A turns the
+    // world to its next view (`views.ts`: the shell's `view` panel opens nothing), so the views are found on foot too.
+    'Ω': { tile: 'Z', ent: { t: 'exit', id: 'view', to: { panel: 'view' }, look: 'scope', label: 'VIEWFINDER', side: 'down' } },
     // The NEW LOOK stall, where the town's copy of the Keeper's hut stood: A at the counter opens the mirror
     // (the shell's `look` panel), where every part of the hero can be changed. The Z tiles are the rest of the stall.
     'Þ': { tile: 'Z', ent: { t: 'exit', id: 'look', to: { panel: 'look' }, look: 'stall', label: 'NEW LOOK', side: 'down' } },

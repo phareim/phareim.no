@@ -44,7 +44,7 @@ item; Tab swaps only then too, otherwise it reaches the page's link index.
 P or an Escape tap pauses. Touch: drag anywhere on the left 60 % for a
 floating stick. The world fills the whole screen and the buttons float
 half see-through over it, bottom right: round, with pictures for letters:
-A (a sword), with B (the item) and swap once there is an item; the VIEW and pause chips sit in the top-right corner. Any tap moves a dialog
+A (a sword), with B (the item) and swap once there is an item; the VIEW and pause chips sit in the top-right corner (the VIEW chip is there with a keyboard too, and the viewfinder east of the fountain turns the view on A: `docs/games/neon-shrine.md`, "Views"). Any tap moves a dialog
 on; a thumb that lands on the stick's side for that and stays down is the
 stick once the lines close. After lines close A rests for a third of a
 second before it talks again, and every press in that time starts the rest

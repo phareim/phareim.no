@@ -19,7 +19,7 @@ import type { Dir, Enemy, GameEvent, GameState, World } from '../types'
 import { BOMB_FUSE, SPIN_TIME, SWING_TIME, TILE, WARP_TIME } from '../types'
 import { cameraFor, cellDef, cellIndex, cellIsDark, mapInfo, shardPos, swingAngle } from '../engine/index'
 import { drawText, textWidth } from '../../base/pixel/font'
-import { drawBanner, drawDialog, drawHud, drawPause } from './hud'
+import { drawBanner, drawDialog, drawHud, drawPause, drawViewStrip, NEON_SKIN, type HudSkin } from './hud'
 import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
@@ -34,6 +34,7 @@ import { ease } from './iso/project'
 import { createTurn } from './turn'
 import { PAL } from './sprites'
 import { treeNow } from './tree'
+import { resolveParams, type EngineId, type ParamValues } from '../viewParams'
 
 /** NPC looks that live on the town's beach and move on its slow beat. */
 const BEACH_LOOKS: ReadonlySet<string> = new Set(['hippie', 'smoker', 'guitar', 'sleeper', 'twirler', 'bonfire'])
@@ -57,6 +58,8 @@ export interface FrameUI {
   keys: HudKeys
   /** The current view's name, for the pause screen. */
   view?: string
+  /** The view strip: every view in the round and which one is on, shown for a moment after a change. */
+  strip?: { views: ReadonlyArray<{ name: string; tag: string }>; at: number; t: number } | null
 }
 
 /** Puts a world point (tiles) on the scene (logical px). */
@@ -83,11 +86,13 @@ export interface Renderer {
   setHeroColors(colors: HeroColors | null): void
   /** The hero's look from the NEW LOOK booth (null: none chosen); it is worn instead of a figure's colours. */
   setHeroLook(look: HeroLook | null): void
-  /** Add another way of drawing the frame (`views.ts` lists them). The classic view is built in. */
+  /** Add another engine for drawing the frame (`viewParams.ts` lists them). The classic one is built in. */
   addView(id: string, make: ViewFactory): void
   hasView(id: string): boolean
-  /** Turn to a view ('classic' or an added one). `instant` skips the turn. */
+  /** Turn to an engine ('classic' or an added one). `instant` skips the turn. */
   setView(id: string, instant?: boolean): void
+  /** The values an engine draws with from now on (`viewParams.ts`); what is left out is the engine's own. */
+  setParams(id: EngineId, values?: ParamValues): void
   /** The view we are in or heading for, how far the turn has come (0 classic … 1), the angle the controls turn by now (radians), and whether a turn is in flight. */
   viewState(): { id: string; k: number; turn: number; turning: boolean }
 }
@@ -104,10 +109,42 @@ export interface View {
 }
 export type ViewFactory = (kit: Kit) => View
 
+/** What happens to the finished picture on its way to the screen; 1 is the classic amount of each. */
+export interface Finish { scanlines: number; bloom: number; vignette: number }
+
+/** The top-down picture before the light falls on it, as `Kit.classic` paints it. */
+export interface Picture {
+  /** The camera, px. */
+  cx: number
+  cy: number
+  lights: Light[]
+}
+
 /** The frame's parts, as the renderer hands them to a view. Sizes are logical px. */
 export interface Kit {
   world: World
   size(): { vw: number; vh: number; decalMaxW: number }
+  /** The screen itself, for a view that finishes its own picture: device px, the whole-number scale and where the scene lands. */
+  screen(): { g: G; W: number; H: number; scale: number; ox: number; oy: number; dpr: number }
+  sceneCanvas(): HTMLCanvasElement
+  /** The values this engine draws with now (`viewParams.ts`), and the finish among them. */
+  params(id: EngineId): ParamValues
+  finish(id: EngineId): Finish
+  /**
+   * The classic picture in parts, for a view that keeps the top-down camera and
+   * changes what is done with it: `world` paints tiles and everything standing
+   * (unlit) on the scene, `light` fills the light map and returns the ambient
+   * colour, `glows` draws what shines by itself, `rooms` covers what lies
+   * outside the hero's dungeon room.
+   */
+  classic: {
+    world(s: GameState, ui: FrameUI, ground?: string): Picture
+    light(s: GameState, ui: FrameUI, pic: Picture): string
+    glows(g: G, s: GameState, ui: FrameUI, dt: number, pic: Picture, still?: boolean): void
+    rooms(g: G, s: GameState, pic: Picture, color: string): void
+    /** The picture's lights on the bloom layer, for `present`. */
+    bloom(bg: G, s: GameState, ui: FrameUI, pic: Picture): void
+  }
   /** The scene the view draws on, and the light map multiplied onto it. Both change when the scale does: ask each frame. */
   scene(): G
   lightMap(): { g: G; canvas: HTMLCanvasElement }
@@ -127,9 +164,10 @@ export interface Kit {
   setAim(fn: ((a: number) => number) | null): void
   /** The scene step (px) from one world point to another, for a drawing that reaches from its own thing to a second one (the twins' tether, the king's shards); null: the classic step. */
   setSpan(fn: ((x1: number, y1: number, x2: number, y2: number) => Vec) | null): void
-  flashFade(g: G, s: GameState, ui: FrameUI, dt: number): number
-  present(fade: number, glows: (bg: G) => void): void
-  hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number): void
+  /** `into`: the colour a fade ends in (the classic night, or a view's own sheet). */
+  flashFade(g: G, s: GameState, ui: FrameUI, dt: number, into?: string): number
+  present(fade: number, glows: (bg: G) => void, finish?: Finish): void
+  hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin?: HudSkin): void
 }
 
 type G = CanvasRenderingContext2D
@@ -843,7 +881,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   }
 
   /** The screen flash and the warp, death and exit fades over the scene; returns the fade (0..1). */
-  function flashFade(g: G, s: GameState, ui: FrameUI, dt: number): number {
+  function flashFade(g: G, s: GameState, ui: FrameUI, dt: number, into = '#0b0616'): number {
     // Screen flash
     if (flashT > 0) {
       g.globalAlpha = Math.min(0.55, flashT * 2.2)
@@ -860,7 +898,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (s.mode === 'exit') fade = 1
     if (fade > 0) {
       g.globalAlpha = Math.min(1, fade)
-      g.fillStyle = '#0b0616'
+      g.fillStyle = into
       g.fillRect(0, 0, vw, vh)
       g.globalAlpha = 1
     }
@@ -871,7 +909,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * The finished scene to the screen: whole-number upscale, the neon bloom
    * (`glows` adds the frame's lights to the bloom layer), scanlines, vignette.
    */
-  function present(fade: number, glows: (bg: G) => void) {
+  function present(fade: number, glows: (bg: G) => void, finish: Finish = finishOf('classic')) {
     screen.setTransform(1, 0, 0, 1, 0, 0)
     screen.globalCompositeOperation = 'source-over'
     screen.fillStyle = '#0b0616'
@@ -882,25 +920,32 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     screen.drawImage(scene, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
     // Neon bloom: glows gathered at logical resolution, then one smooth
     // upscale added onto the screen (cheap on phones, soft on big screens).
-    if (fade < 1) {
+    if (fade < 1 && finish.bloom > 0) {
       bg.globalCompositeOperation = 'source-over'
       bg.clearRect(0, 0, vw, vh)
       bg.globalCompositeOperation = 'lighter'
       glows(bg)
       bg.globalAlpha = 1
       screen.globalCompositeOperation = 'lighter'
-      screen.globalAlpha = 1 - fade
       screen.imageSmoothingEnabled = true
-      screen.drawImage(bloom, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+      // More than the classic amount is the same glow laid on again.
+      for (let b = finish.bloom; b > 0; b -= 1) {
+        screen.globalAlpha = (1 - fade) * Math.min(1, b)
+        screen.drawImage(bloom, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+      }
       screen.imageSmoothingEnabled = false
       screen.globalAlpha = 1
       screen.globalCompositeOperation = 'source-over'
     }
-    if (scan && scale >= 3) {
+    if (scan && scale >= 3 && finish.scanlines > 0) {
       screen.fillStyle = scan
-      screen.fillRect(0, 0, W, H)
+      for (let n = finish.scanlines; n > 0; n -= 1) {
+        screen.globalAlpha = Math.min(1, n)
+        screen.fillRect(0, 0, W, H)
+      }
+      screen.globalAlpha = 1
     }
-    vignette(screen)
+    if (finish.vignette > 0) vignette(screen, finish.vignette)
   }
 
   /**
@@ -908,7 +953,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * are placed by (px), `heroY` the hero's row on the scene (the dialog box
    * keeps clear of it).
    */
-  function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number) {
+  function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN) {
     const ox = Math.floor((W - vw * scale) / 2)
     const oy = Math.floor((H - vh * scale) / 2)
     hg.clearRect(0, 0, vw, vh)
@@ -923,18 +968,20 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (hud) {
         hg.save()
         hg.translate(left, top)
-        drawHud(hg, s, vw - left - right, time, ui.touch)
+        drawHud(hg, s, vw - left - right, time, ui.touch, skin)
         hg.restore()
       }
-      drawExitLabels(hg, s, labels, cx, cy, vw, vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top)
-      if (ui.banner && s.mode !== 'dialog') drawBanner(hg, ui.banner.text, ui.banner.t, vw, vh)
+      drawExitLabels(hg, s, labels, cx, cy, vw, vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top, skin)
+      // The view strip has the banner's place while it is up.
+      if (ui.banner && s.mode !== 'dialog' && !(ui.strip && !ui.paused)) drawBanner(hg, ui.banner.text, ui.banner.t, vw, vh, skin)
       if (s.dialog) {
         hg.save()
         hg.translate(0, top)
-        drawDialog(hg, s, vw, vh - top - bottom, heroY - top, ui.keys, time)
+        drawDialog(hg, s, vw, vh - top - bottom, heroY - top, ui.keys, time, skin)
         hg.restore()
       }
-      if (ui.paused) drawPause(hg, s, vw, vh, ui.keys, ui.confirmReset, ui.muted, ui.view)
+      if (ui.paused) drawPause(hg, s, vw, vh, ui.keys, ui.confirmReset, ui.muted, ui.view, skin)
+      else if (ui.strip && !s.dialog) drawViewStrip(hg, ui.strip, vw, vh - bottom, !!ui.keys.touch, skin)
     }
     screen.drawImage(hud, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
 
@@ -954,7 +1001,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   // The classic view
   // ---------------------------------------------------------------------------
 
-  function drawClassic(s: GameState, ui: FrameUI, dt: number) {
+  /** The top-down world, unlit, on the scene: tiles, lettering, everything standing, the hook's chain, fireflies. */
+  function classicWorld(s: GameState, ui: FrameUI, ground?: string): Picture {
     const info = mapInfo(world, s.map.id)
     const kind = info.def.kind
     if (!layer || layer.mapId !== s.map.id) layer = createTileLayer(world, s.map)
@@ -969,23 +1017,25 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       cy += Math.round((Math.random() - 0.5) * 4 * Math.min(1, s.shake * 4))
     }
     const lights: Light[] = []
-
-    // --- world -----------------------------------------------------------------
     const g = sg
-    g.fillStyle = kind === 'overworld' ? '#0e2a3c' : '#07040f'
+    g.fillStyle = ground ?? (kind === 'overworld' ? '#0e2a3c' : '#07040f')
     g.fillRect(0, 0, vw, vh)
     g.drawImage(layer.canvas, -cx, -cy)
     drawLiveTiles(g, world, s, cx, cy, vw, vh, time, lights, ui.reducedMotion)
-    const decalFrame = { t: time, reduced: ui.reducedMotion, maxW: decalMaxW }
-    drawDecals(g, info.def.decals, cx, cy, vw, vh, decalFrame, lights)
+    drawDecals(g, info.def.decals, cx, cy, vw, vh, { t: time, reduced: ui.reducedMotion, maxW: decalMaxW }, lights)
 
     const items = queue(g, s, ui, cx, cy, vw, vh, lights)
     items.sort((a, b) => a.y - b.y)
     for (const it of items) it.draw()
     drawHookChain(g, s, cx, cy, lights)
     if (info.def.look === 'wild' && !ui.attract) fireflies(cx, cy, vw, vh, ui.reducedMotion ? 0 : time, lights, g)
+    return { cx, cy, lights }
+  }
 
-    // --- light --------------------------------------------------------------------
+  /** The light map for that picture; returns the ambient colour it starts from. */
+  function classicLight(s: GameState, ui: FrameUI, pic: Picture): string {
+    const info = mapInfo(world, s.map.id)
+    const { cx, cy, lights } = pic
     const amb = ambient(s, ui, lights)
     lg.globalCompositeOperation = 'source-over'
     lg.fillStyle = amb
@@ -1002,47 +1052,64 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     lg.globalAlpha = 1
     lg.fillStyle = '#ffffff'
     for (const e of emit) lg.fillRect(e.x, e.y, e.w, e.h)
-    lightDecals(lg, info.def.decals, cx, cy, vw, vh, decalFrame)
+    lightDecals(lg, info.def.decals, cx, cy, vw, vh, { t: time, reduced: ui.reducedMotion, maxW: decalMaxW })
+    lg.globalCompositeOperation = 'source-over'
+    return amb
+  }
+
+  /** What shines by itself, drawn after the light: the sun in the lake, the Other Side's static, shots, effects. `still` draws the effects without moving them on. */
+  function classicGlows(g: G, s: GameState, ui: FrameUI, dt: number, pic: Picture, still = false) {
+    const { cx, cy } = pic
+    if (s.map.id === 'overworld') drawLakeSun(g, s, cx, cy, ui.reducedMotion)
+    if (staticMood(s, mapInfo(world, s.map.id))) drawStaticMood(g, vw, vh, cx, cy, time, ui.reducedMotion)
+    projectiles(g, s, (x, y) => ({ x: x * T - cx, y: y * T - cy }))
+    drawFx(g, s, dt, (x, y) => ({ x: x * T - cx, y: y * T - cy }), ui.paused || still)
+  }
+
+  /** Cover the world outside the current dungeon room. */
+  function classicRooms(g: G, s: GameState, pic: Picture, color: string) {
+    if (mapInfo(world, s.map.id).def.kind !== 'dungeon' || s.scroll) return
+    const z = s.zone
+    g.fillStyle = color
+    const zx = z.x * T - pic.cx
+    const zy = z.y * T - pic.cy
+    g.fillRect(0, 0, vw, Math.max(0, zy))
+    g.fillRect(0, zy + z.h * T, vw, vh)
+    g.fillRect(0, 0, Math.max(0, zx), vh)
+    g.fillRect(zx + z.w * T, 0, vw, vh)
+  }
+
+  function classicBloom(bg: G, s: GameState, ui: FrameUI, pic: Picture) {
+    const { cx, cy, lights } = pic
+    for (const L of lights) {
+      if (L.a < 0.3) continue
+      const rad = L.r * T * 0.9
+      const px = L.x * T - cx
+      const py = L.y * T - cy
+      if (px < -rad || py < -rad || px > vw + rad || py > vh + rad) continue
+      bg.globalAlpha = Math.min(1, L.a) * 0.32
+      bg.drawImage(glow(L.color), px - rad, py - rad, rad * 2, rad * 2)
+    }
+    bg.globalAlpha = 1
+    bloomDecals(bg, mapInfo(world, s.map.id).def.decals, cx, cy, vw, vh, { t: time, reduced: ui.reducedMotion, maxW: decalMaxW })
+  }
+
+  function drawClassic(s: GameState, ui: FrameUI, dt: number) {
+    const g = sg
+    const pic = classicWorld(s, ui)
+    classicLight(s, ui, pic)
     g.globalCompositeOperation = 'multiply'
     g.drawImage(light, 0, 0)
     g.globalCompositeOperation = 'source-over'
-
-    // --- emissive things after light ----------------------------------------------
-    if (s.map.id === 'overworld') drawLakeSun(g, s, cx, cy, ui.reducedMotion)
-    if (staticMood(s, info)) drawStaticMood(g, vw, vh, cx, cy, time, ui.reducedMotion)
-    projectiles(g, s, (x, y) => ({ x: x * T - cx, y: y * T - cy }))
-    drawFx(g, s, dt, (x, y) => ({ x: x * T - cx, y: y * T - cy }), ui.paused)
-
-    // Dim the world outside the current dungeon room.
-    if (kind === 'dungeon' && !s.scroll) {
-      const z = s.zone
-      g.fillStyle = '#05030c'
-      const zx = z.x * T - cx
-      const zy = z.y * T - cy
-      g.fillRect(0, 0, vw, Math.max(0, zy))
-      g.fillRect(0, zy + z.h * T, vw, vh)
-      g.fillRect(0, 0, Math.max(0, zx), vh)
-      g.fillRect(zx + z.w * T, 0, vw, vh)
-    }
+    classicGlows(g, s, ui, dt, pic)
+    classicRooms(g, s, pic, '#05030c')
     const fade = flashFade(g, s, ui, dt)
-    present(fade, bg => {
-      for (const L of lights) {
-        if (L.a < 0.3) continue
-        const rad = L.r * T * 0.9
-        const px = L.x * T - cx
-        const py = L.y * T - cy
-        if (px < -rad || py < -rad || px > vw + rad || py > vh + rad) continue
-        bg.globalAlpha = Math.min(1, L.a) * 0.32
-        bg.drawImage(glow(L.color), px - rad, py - rad, rad * 2, rad * 2)
-      }
-      bg.globalAlpha = 1
-      bloomDecals(bg, info.def.decals, cx, cy, vw, vh, decalFrame)
-    })
-    hudLayer(s, ui, dt, cx, cy, s.hero.y * T - cy)
+    present(fade, bg => classicBloom(bg, s, ui, pic))
+    hudLayer(s, ui, dt, pic.cx, pic.cy, s.hero.y * T - pic.cy)
   }
 
   let vig: HTMLCanvasElement | null = null
-  function vignette(g: G) {
+  function vignette(g: G, strength = 1) {
     if (!vig || vig.width !== W || vig.height !== H) {
       vig = makeCanvas(W, H)
       const vg = vig.getContext('2d')!
@@ -1052,7 +1119,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       vg.fillStyle = grad
       vg.fillRect(0, 0, W, H)
     }
-    g.drawImage(vig, 0, 0)
+    for (let n = strength; n > 0; n -= 1) {
+      g.globalAlpha = Math.min(1, n)
+      g.drawImage(vig, 0, 0)
+    }
+    g.globalAlpha = 1
   }
 
   /** The striped synthwave sun, reflected in Mirror Lake. */
@@ -1135,9 +1206,26 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   // Views
   // ---------------------------------------------------------------------------
 
+  // The values each engine draws with: its own, until the shell hands it a view's.
+  const params = new Map<EngineId, ParamValues>()
+  const paramsOf = (id: EngineId): ParamValues => {
+    let p = params.get(id)
+    if (!p) { p = resolveParams(id); params.set(id, p) }
+    return p
+  }
+  function finishOf(id: EngineId): Finish {
+    const p = paramsOf(id)
+    return { scanlines: p.scanlines as number ?? 1, bloom: p.bloom as number ?? 1, vignette: p.vignette as number ?? 1 }
+  }
+
   const kit: Kit = {
     world,
     size: () => ({ vw, vh, decalMaxW }),
+    screen: () => ({ g: screen, W, H, scale, ox: Math.floor((W - vw * scale) / 2), oy: Math.floor((H - vh * scale) / 2), dpr }),
+    sceneCanvas: () => scene,
+    params: paramsOf,
+    finish: finishOf,
+    classic: { world: classicWorld, light: classicLight, glows: classicGlows, rooms: classicRooms, bloom: classicBloom },
     scene: () => sg,
     lightMap: () => ({ g: lg, canvas: light }),
     time: () => time,
@@ -1183,5 +1271,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     addView(id, make) { views.set(id, make(kit)) },
     hasView: id => id === 'classic' || views.has(id),
     setView, viewState,
+    setParams(id, values) { params.set(id, resolveParams(id, values)) },
   }
 }

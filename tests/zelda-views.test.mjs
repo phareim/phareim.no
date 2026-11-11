@@ -18,7 +18,8 @@ async function load() {
       contents: [
         `export * from './render/iso/project'`,
         `export * from './render/iso/shape'`,
-        `export { VIEWS, VIEW_KEY, isViewId, nextView, viewName, startView } from './views'`,
+        `export { VIEWS, VIEW_KEY, MAX_VIEWS, ENGINE_LOADERS, isViewId, nextView, viewName, startView, parseViews, mergeViews, setLiveViews, viewList, viewDef } from './views'`,
+        `export { ENGINES, resolveParams, paramDiff, cleanParam, isEngineId } from './viewParams'`,
         `export { WORLD } from './world/index'`,
         `export { TILE_INFO } from './world/tiles'`,
         `export { createTurn } from './render/turn'`,
@@ -29,7 +30,7 @@ async function load() {
       loader: 'ts',
     },
     // The view modules themselves draw on a canvas: leave them out of the bundle.
-    bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error', external: ['./render/iso/view'],
+    bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error', external: ['./render/iso/view', './render/blyant/view'],
   })
   return import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
 }
@@ -59,25 +60,123 @@ describe('the view registry', () => {
     assert.equal(M.startView(null, null), 'classic')
   })
   it('names every view for the pause screen in the pixel font', () => {
-    for (const v of M.VIEWS) assert.match(M.viewName(v.id), /^[A-Z0-9 ]+$/)
+    for (const v of M.VIEWS) {
+      assert.match(M.viewName(v.id), /^[A-Z0-9 ]+$/)
+      assert.match(v.tag, /^[A-Z0-9 -]+$/)
+    }
   })
-  it('keeps the isometric code out of the page that loads first', () => {
-    // Anything but a dynamic import() of the view, anywhere on the site, would put it in the entry:
+  it('has one built-in view per engine, drawn with the engine\'s own values', () => {
+    assert.deepEqual(M.VIEWS.map(v => v.engine).sort(), Object.keys(M.ENGINES).sort())
+    for (const v of M.VIEWS) {
+      assert.equal(v.load, M.ENGINE_LOADERS[v.engine])
+      assert.equal(v.params, undefined)
+    }
+  })
+  it('keeps every view\'s code out of the page that loads first', () => {
+    // Anything but a dynamic import() of a view, anywhere on the site, would put it in the entry:
     // a static import, a side-effect import or a re-export, in either kind of quote.
-    const skip = new Set(['node_modules', '.nuxt', '.output', 'dist', 'iso'])
+    const skip = new Set(['node_modules', '.nuxt', '.output', 'dist', 'iso', 'blyant'])
     const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? (skip.has(e.name) ? [] : walk(resolve(dir, e.name))) : [resolve(dir, e.name)])
     const files = ['themes', 'components', 'composables', 'pages', 'plugins', 'server'].flatMap(d => walk(resolve(site, d))).concat(resolve(site, 'app.vue'))
-    let dynamic = 0
+    const dynamic = { iso: 0, blyant: 0 }
     for (const f of files) {
       if (!/\.(ts|vue|mjs|js)$/.test(f)) continue
       const src = readFileSync(f, 'utf8')
       for (const line of src.split('\n')) {
-        if (!/iso\/view['"]/.test(line) || /^\s*(\/\/|\*)/.test(line)) continue
-        assert.match(line, /import\(\s*['"][^'"]*iso\/view['"]\s*\)/, `${f} brings the isometric view in statically: ${line.trim()}`)
-        dynamic++
+        const m = /(iso|blyant)\/view['"]/.exec(line)
+        if (!m || /^\s*(\/\/|\*)/.test(line)) continue
+        assert.match(line, /import\(\s*['"][^'"]*(iso|blyant)\/view['"]\s*\)/, `${f} brings the ${m[1]} view in statically: ${line.trim()}`)
+        dynamic[m[1]]++
       }
     }
-    assert.equal(dynamic, 1, 'the registry should hold the one dynamic import of the view')
+    assert.deepEqual(dynamic, { iso: 1, blyant: 1 }, 'the registry should hold the one dynamic import of each view')
+  })
+  it('keeps Blyant itself out of the entry: only the pencil view brings it', () => {
+    const skip = new Set(['node_modules', '.nuxt', '.output', 'dist'])
+    const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? (skip.has(e.name) ? [] : walk(resolve(dir, e.name))) : [resolve(dir, e.name)])
+    const files = ['themes', 'components', 'composables', 'pages', 'plugins', 'server'].flatMap(d => walk(resolve(site, d))).concat(resolve(site, 'app.vue'))
+    const users = files.filter(f => /\.(ts|vue|mjs|js)$/.test(f) && /from ['"]blyant|import ['"]blyant/.test(readFileSync(f, 'utf8')))
+    assert.deepEqual(users.map(f => f.slice(site.length + 1)), ['themes/zelda/render/blyant/view.ts'])
+  })
+})
+
+describe('an engine\'s values', () => {
+  it('gives every engine the finish it needs, inside its own bounds', () => {
+    for (const [id, e] of Object.entries(M.ENGINES)) {
+      assert.ok(e.title && e.blurb, `${id} has no words for the studio`)
+      for (const [name, spec] of Object.entries(e.params)) {
+        assert.ok(spec.label, `${id}.${name} has no label`)
+        if (spec.t === 'number') assert.ok(spec.min <= spec.value && spec.value <= spec.max, `${id}.${name} starts outside its bounds`)
+        if (spec.t === 'choice') assert.ok(spec.options.includes(spec.value), `${id}.${name} starts on a choice it does not offer`)
+      }
+    }
+    for (const name of ['scanlines', 'bloom', 'vignette']) {
+      assert.ok(M.ENGINES.classic.params[name], `the classic view has no ${name}`)
+      assert.ok(M.ENGINES.iso.params[name], `the isometric view has no ${name}`)
+    }
+  })
+  it('clamps a number, refuses a colour that is not one, and keeps to the choices', () => {
+    const p = M.resolveParams('blyant', { wobble: 99, paper: 'vellum', paperColor: 'red', inkColor: '#ABCDEF', hatch: 'yes', nonsense: 1 })
+    assert.equal(p.wobble, M.ENGINES.blyant.params.wobble.max)
+    assert.equal(p.paper, 'auto')
+    assert.equal(p.paperColor, '')
+    assert.equal(p.inkColor, '#abcdef')
+    assert.equal(p.hatch, true)
+    assert.equal('nonsense' in p, false)
+  })
+  it('keeps only what differs from the engine\'s own', () => {
+    assert.deepEqual(M.paramDiff('classic', { scanlines: 1, bloom: 0.5 }), { bloom: 0.5 })
+    assert.deepEqual(M.paramDiff('classic', null), {})
+  })
+})
+
+describe('the studio\'s views', () => {
+  it('lays the studio\'s values on a built-in view and adds its own after them', () => {
+    const live = M.parseViews({
+      classic: { params: { scanlines: 0 } },
+      noir: { engine: 'blyant', name: 'NOIR', params: { paper: 'kull', colour: 0 } },
+    })
+    const round = M.mergeViews(live)
+    assert.deepEqual(round.map(v => v.id), ['classic', 'iso', 'blyant', 'noir'])
+    assert.deepEqual(round[0].params, { scanlines: 0 })
+    assert.deepEqual(round[3], { id: 'noir', name: 'NOIR', tag: 'PENCIL', engine: 'blyant', params: { paper: 'kull', colour: 0 } })
+  })
+  it('drops what the game cannot draw or spell', () => {
+    const live = M.parseViews({
+      'Bad Id': { engine: 'iso', name: 'X' },
+      hologram: { engine: '3d', name: 'HOLO' },
+      quiet: { engine: 'iso', name: 'lower case' },
+      nameless: { engine: 'iso' },
+      ok: { engine: 'blyant', name: 'DAWN', tag: 'no', params: { paper: 'vellum', shade: 9 } },
+      list: [],
+    })
+    assert.deepEqual(Object.keys(live), ['ok'])
+    assert.deepEqual(live.ok, { engine: 'blyant', name: 'DAWN', params: { shade: M.ENGINES.blyant.params.shade.max } })
+    assert.deepEqual(M.parseViews('nope'), {})
+    assert.deepEqual(M.parseViews(null), {})
+  })
+  it('orders the round, hides a built-in view on request, and never the classic one', () => {
+    const live = M.parseViews({
+      classic: { hidden: true },
+      iso: { hidden: true },
+      first: { engine: 'blyant', name: 'FIRST', order: -1 },
+    })
+    assert.deepEqual(M.mergeViews(live).map(v => v.id), ['first', 'classic', 'blyant'])
+  })
+  it('never lets the round grow past what V can go round', () => {
+    const many = {}
+    for (let i = 0; i < 20; i++) many['v' + i] = { engine: 'classic', name: 'V' + i }
+    assert.equal(M.mergeViews(M.parseViews(many)).length, M.MAX_VIEWS)
+  })
+  it('takes a published view into the round, and falls back to classic when it is gone', () => {
+    M.setLiveViews(M.parseViews({ noir: { engine: 'blyant', name: 'NOIR' } }))
+    assert.equal(M.startView('noir', null), 'noir')
+    assert.equal(M.nextView('blyant'), 'noir')
+    assert.equal(M.nextView('noir'), 'classic')
+    assert.equal(M.viewName('noir'), 'NOIR')
+    M.setLiveViews(null)
+    assert.equal(M.startView(null, 'noir'), 'classic')
+    assert.equal(M.viewList().length, M.VIEWS.length)
   })
 })
 
