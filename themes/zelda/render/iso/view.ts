@@ -122,6 +122,8 @@ export default function isoView(kit: Kit): View {
   let stepT = 0
   let flora: FloraAtlas | null = null
   let floraLook = ''
+  /** The atlas rows in use last frame: what must be cleared, and what is sent to the GPU. */
+  let atlasUsed = ATLAS
   let quality = 2
   let lastDraw = 0
   let pace = 16
@@ -395,7 +397,7 @@ export default function isoView(kit: Kit): View {
     kit.setAim(a => Math.atan2(Math.cos(a) * P.ex.y + Math.sin(a) * P.ey.y, Math.cos(a) * P.ex.x + Math.sin(a) * P.ey.x))
     kit.setSpan((x1, y1, x2, y2) => ({ x: (x2 - x1) * P.ex.x + (y2 - y1) * P.ey.x, y: (x2 - x1) * P.ex.y + (y2 - y1) * P.ey.y }))
     ag.setTransform(1, 0, 0, 1, 0, 0)
-    ag.clearRect(0, 0, ATLAS, ATLAS)
+    ag.clearRect(0, 0, ATLAS, Math.max(atlasUsed, 1))
     const items = kit.queue(ag, s, ui, bx, by, bw, bh, lights, og)
 
     const fg = fit(flat, bw, bh)
@@ -526,6 +528,7 @@ export default function isoView(kit: Kit): View {
     const bigRows = Math.ceil(bigN / Math.floor(ATLAS / BIG.w))
     let bi = 0
     let si = 0
+    let used = 1
     const smallTop = bigRows * BIG.h
     const smallPerRow = Math.floor(ATLAS / SMALL.w)
     const bigPerRow = Math.floor(ATLAS / BIG.w)
@@ -543,6 +546,7 @@ export default function isoView(kit: Kit): View {
         si++
       }
       if (cell.y + cell.h > ATLAS) continue
+      used = Math.max(used, cell.y + cell.h)
       // The item draws itself the classic way; its anchor lands on the cell's.
       ag.save()
       ag.beginPath()
@@ -579,6 +583,7 @@ export default function isoView(kit: Kit): View {
       if (it.hero && k > 0.5) ghost = { start: nv - 6, count: 6 }
     }
 
+    atlasUsed = used
     // --- the ground picture's last layers ------------------------------------------------
     if (rooms.length) {
       // Everything outside the hero's room stays dark, as in the classic view.
@@ -689,6 +694,15 @@ export default function isoView(kit: Kit): View {
     const placed: Array<{ x: number; y: number; z: number; r: number; c: [number, number, number]; a: number }> = []
     for (const L of lights) {
       const p = world3(L.x, L.y)
+      if (p[2] === 0) {
+        // The classic picture puts a carried light up the screen from its bearer's feet: a lantern in a hand,
+        // a cabinet's screen, a fire's heart. Here that is height, over the feet it belongs to.
+        let best = 2
+        for (const it of standing) {
+          const up = it.y - L.y
+          if (Math.abs(it.x - L.x) < 0.4 && up > 0.05 && up < best) { best = up; p[0] = it.x; p[1] = it.y; p[2] = up }
+        }
+      }
       placed.push({ x: p[0], y: p[1], z: p[2], r: L.r, c: rgb(L.color), a: Math.max(0, Math.min(1, L.a)) })
     }
     for (const L of loose) {
@@ -755,9 +769,9 @@ export default function isoView(kit: Kit): View {
 
     // --- to the GPU -----------------------------------------------------------------------
     paintSky(outdoors ? (def.look === 'wild' ? 'wild' : 'coast') : 'void', sw, sh, par.skyTop as string, par.skyHorizon as string, c.x * DENSITY, reduced ? 0 : time)
-    engine.flat(flat)
-    engine.objs(objs)
-    engine.atlas(atlas)
+    engine.flat(flat, bw, bh)
+    engine.objs(objs, bw, bh)
+    engine.atlas(atlas, atlasUsed)
     engine.fx(fx)
     // The finish turns with the picture too: the classic view's scanlines thin out as this one comes in.
     const f0 = kit.finish('classic')
@@ -806,7 +820,8 @@ export default function isoView(kit: Kit): View {
       iris = [offX + hp.x * hs, offY + hp.y * hs, (1 - t * t) * Math.hypot(scr.W, scr.H)]
     }
     engine.draw({
-      cam, R, mapW: m.w, mapH: m.h, rooms, time, outdoors,
+      // Under reduced motion the water, the mist and the shafts stand still.
+      cam, R, mapW: m.w, mapH: m.h, rooms, time: reduced ? 0 : time, outdoors,
       ambient: rgb(amb),
       voidColor: rgb(outdoors ? '#0e2a3c' : '#07040f'),
       hero: { x: s.hero.x, y: s.hero.y },
@@ -818,7 +833,7 @@ export default function isoView(kit: Kit): View {
       mosaic: s.warp && !reduced && k > 0.5 ? 1 + Math.round(fade * 7) * 2 : 1,
       wave: !reduced && moody ? 1.6 * k : 0,
       iris,
-      veil: ui.attract ? [0, 0, 0, 0] : [heroAt.x, heroAt.y - 14 * zoom, s.hero.x * cam.dv[0] + (s.hero.y + 6 / T) * cam.dv[1], 46 * zoom * k],
+      veil: ui.attract ? [0, 0, 0, 0] : [heroAt.x, heroAt.y - 14 * zoom, s.hero.x * cam.dv[0] + (s.hero.y + 6 / T) * cam.dv[1], 38 * zoom * k],
       cast: moody ? [1 - 0.153 * 1, 1 - 0.459 * 1, 1 - 0.278 * 1] : [1, 1, 1],
       W: scr.W, H: scr.H, hs, offX, offY, scanStep: scr.scale,
     })

@@ -455,15 +455,28 @@ function canopy(ht: Int16Array, cx: number, foot: number, r: number) {
     if (top > ht[x]!) ht[x] = top
   }
 }
-/** Raises a profile by a fir: tiers that step in toward the tip. */
+/** Raises a profile by a fir: three tiers, each a slope that ends in a step. */
 function fir(ht: Int16Array, cx: number, foot: number, half: number, tall: number) {
   const W = ht.length
   for (let dx = -half; dx <= half; dx++) {
     const x = (((cx + dx) % W) + W) % W
-    const f = 1 - Math.abs(dx) / (half + 1)
-    const top = foot + Math.round(tall * (Math.floor(f * 4) / 4 + f * 0.25) * 0.8)
+    const t = Math.min(2.999, (1 - Math.abs(dx) / (half + 1)) * 3)
+    const tier = Math.floor(t)
+    const top = foot + Math.round((tall * (tier + (t - tier) * 0.55 + 0.45)) / 3)
     if (top > ht[x]!) ht[x] = top
   }
+}
+
+/** A radio mast standing at (x, foot): a thin lattice. Returns the row of its tip. */
+function paintMast(p: Pix, x: number, foot: number, tall: number, step: number, half: number, iron: number, dark: number): number {
+  for (let i = 0; i < tall; i++) {
+    const hw = Math.round((1 - i / tall) * half)
+    put(p, x, foot - 1 - i, iron)
+    if (i % step === 0) box(p, x - hw, foot - 1 - i, hw * 2 + 1, 1, iron)
+    if (hw > 0) { put(p, x - hw, foot - 1 - i, dark); put(p, x + hw, foot - 1 - i, dark) }
+  }
+  box(p, x, foot - tall - step, 1, step, iron)
+  return foot - tall - step
 }
 
 // --- the coast ---------------------------------------------------------------------
@@ -483,8 +496,8 @@ function paintIsles(sc: Scene): { p: Pix; top: number } {
     const ht = new Int16Array(W)
     for (let x = 0; x < W; x++) {
       // Broad swells that carry sharp peaks; the sea is left open under the sun.
-      const peak = 1 - Math.abs(2 * wave(x, W, 12, salt + 1, false) - 1)
-      const n = wave(x, W, 5, salt) * 0.56 + peak * 0.3 + wave(x, W, 41, salt + 2, false) * 0.14
+      const peak = 1 - Math.abs(2 * wave(x, W, 17, salt + 1, false) - 1)
+      const n = wave(x, W, 5, salt) * 0.5 + wave(x, W, 9, salt + 3, false) * 0.28 + peak * 0.12 + wave(x, W, 41, salt + 2, false) * 0.1
       const m = ((x % W) + W) % W
       const fromSun = Math.min(Math.abs(m - sc.sun.x), Math.abs(m - sc.sun.x - W))
       const open = clamp((fromSun - sc.sun.r * 1.15) / (sc.sun.r * 1.5), 0, 1)
@@ -650,21 +663,19 @@ function paintCoast(sc: Scene): { land: Pix; lights: Pix; top: number } {
   box(land, lx - Math.floor(tw / 2), gy - room, tw, room, roof)
   for (let k = 0; k < Math.ceil(tw / 2) + 1; k++) box(land, lx - Math.floor(tw / 2) - 1 + k, gy - room - 1 - k, tw + 2 - 2 * k, 1, roof)
   box(land, lx, gy - room - Math.ceil(tw / 2) - n(3), 1, n(3), roof)
-  // Its lamp, and two beams that thin out over the sea.
+  // Its lamp, and two beams over the sea.
   box(lights, lx - Math.floor(tw / 2) + 1, gy - room + 1, tw - 2, room - 2, gold)
   box(lights, lx - Math.floor(tw / 2) + 2, gy - room + 1, Math.max(1, tw - 4), Math.max(1, room - 3), white)
   const ly = gy - room + Math.floor(room / 2)
   const beam = ink('#ffe9a0')
-  for (const [dir, reach, rise] of [[1, n(70), -0.08], [-1, n(40), 0.05]] as const) {
+  for (const [dir, reach, rise] of [[1, n(60), -0.06], [-1, n(34), 0.04]] as const) {
+    // A wedge with hard edges: whole near the lamp, then every other row, then those rows in staggered dashes.
     for (let k = tw; k < reach; k++) {
-      // A wedge with hard edges that thins in three even steps: a checker, every fourth pixel, every eighth.
-      const spread = Math.floor(k * 0.09)
-      const mid = ly + Math.round(k * rise)
       const far = k / reach
+      const spread = Math.floor(k * 0.07)
+      const mid = ly + Math.round(k * rise)
       for (let y = mid - spread; y <= mid + spread; y++) {
-        const x = lx + dir * k
-        const on = far < 0.34 ? ((x + y) & 1) === 0 : far < 0.68 ? (x & 1) === 0 && (y & 1) === 0 : ((x + (y & 2)) & 3) === 0 && (y & 1) === 0
-        if (on) put(lights, x, y, beam)
+        if (far < 0.3 || (((y - ly) & 1) === 0 && (far < 0.62 || ((k + y - ly) & 3) < 2))) put(lights, lx + dir * k, y, beam)
       }
     }
   }
@@ -673,16 +684,9 @@ function paintCoast(sc: Scene): { land: Pix; lights: Pix; top: number } {
 
   // The radio mast on the skerry: a thin lattice with a red lamp on top.
   const mx = Math.round(1.1 * sc.w)
-  const mfoot = base - ht[mx % W]! + 1
-  const mh = n(36)
-  for (let i = 0; i < mh; i++) {
-    const half = Math.round((1 - i / mh) * n(3))
-    put(land, mx, mfoot - 1 - i, wallLit)
-    if (i % n(5) === 0) box(land, mx - half, mfoot - 1 - i, half * 2 + 1, 1, wallLit)
-    if (half > 0) { put(land, mx - half, mfoot - 1 - i, wall); put(land, mx + half, mfoot - 1 - i, wall) }
-  }
-  box(lights, mx - 1, mfoot - mh - 2, 2, 2, ink('#ff3b5c'))
-  put(lights, mx, mfoot - Math.round(mh * 0.55), ink('#ff3b5c'))
+  const tip = paintMast(land, mx, base - ht[mx % W]! + 1, n(36), n(5), n(3), wallLit, wall)
+  box(lights, mx - 1, tip - 2, 2, 2, ink('#ff3b5c'))
+  put(lights, mx, tip + n(18), ink('#ff3b5c'))
   return { land, lights, top: sc.line - base }
 }
 
@@ -724,9 +728,9 @@ function buildCoast(w: number, h: number, top: RGB, horizon: RGB): Backdrop {
   layers.push(layerOf(sc, isles.p, isles.top, 0.04))
   // Two strips of cloud: thin bright ones low over the glow, heavier ones higher up that move faster.
   const r = sc.ramp
-  const low = paintClouds(sc, 300, 5, 5 * sc.u, 150 * sc.u, [scale(r(0.44), 0.95), r(0.7), mix(r(0.92), [255, 220, 200], 0.2), r(1)])
+  const low = paintClouds(sc, 300, 4, 5 * sc.u, 170 * sc.u, [r(0.42), mix(r(0.6), [150, 70, 150], 0.3), mix(r(0.93), [255, 220, 200], 0.25), r(1)])
   layers.push(layerOf(sc, low, Math.round(sc.line * 0.8) - low.h, 0.06, false, 1.2))
-  const high = paintClouds(sc, 400, 4, 9 * sc.u, 210 * sc.u, [mix(r(0.5), [60, 40, 120], 0.35), r(0.72), mix(r(0.9), [255, 200, 190], 0.15), mix(r(0.98), [255, 230, 170], 0.3)])
+  const high = paintClouds(sc, 400, 4, 10 * sc.u, 220 * sc.u, [mix(r(0.5), [92, 70, 168], 0.5), mix(r(0.7), [190, 96, 180], 0.3), mix(r(0.9), [255, 200, 190], 0.15), mix(r(0.98), [255, 230, 170], 0.3)])
   layers.push(layerOf(sc, high, Math.round(sc.line * 0.52) - high.h, 0.08, false, 2.6))
   const coast = paintCoast(sc)
   layers.push(layerOf(sc, coast.land, coast.top, 0.15))
@@ -738,130 +742,174 @@ function buildCoast(w: number, h: number, top: RGB, horizon: RGB): Backdrop {
 
 // --- the Wildwood ------------------------------------------------------------------
 
-/** One depth of forested hills: rolling ground with treetops along its back. */
+/** One depth of hills: rolling ground, with treetops along its back when it is near enough to tell them apart. */
 function paintHills(sc: Scene, o: {
-  salt: number; tall: number; lift: number; under: number; cells: number
+  salt: number
+  /** the crest's highest and lowest, and how far the body runs below the foot (all in units) */
+  tall: number; lift: number; under: number
+  /** swells per picture width */
+  cells: number
+  /** trees along the crest: how many, their crown's radius (units), the share that are firs */
   trees: number; crown: number; firs: number
-  paint: LandPaint; leaf: number; mast?: boolean
+  paint: LandPaint
+  /** the colour of the lit arc on a crown (0 for none) */
+  leaf: number
+  /** sinks into a valley where the sun stands */
+  dip?: boolean
+  mast?: boolean
 }): { p: Pix; lights: Pix | null; top: number } {
   const W = sc.wide
   const n = (v: number) => Math.max(1, Math.round(v * sc.u))
   const tall = n(o.tall)
-  const over = n(o.crown * 2.4 + (o.mast ? 40 : 0)) + 2
+  const over = n(o.crown * 3.4 + (o.mast ? 44 : 0)) + 2
   const base = tall + over
   const p = pix(W, base + n(o.under), true)
   const ht = new Int16Array(W)
   for (let x = 0; x < W; x++) {
-    const v = wave(x, W, o.cells, o.salt) * 0.7 + wave(x, W, o.cells * 3, o.salt + 1) * 0.3
-    ht[x] = n(o.lift) + Math.round(v * (tall - n(o.lift)))
+    const v = wave(x, W, o.cells, o.salt) * 0.72 + wave(x, W, o.cells * 3, o.salt + 1) * 0.28
+    const fromSun = Math.min(Math.abs(x - sc.sun.x), Math.abs(x - sc.sun.x - W))
+    const open = o.dip ? clamp((fromSun - sc.sun.r * 0.8) / (sc.sun.r * 1.8), 0, 1) : 1
+    ht[x] = Math.round(n(o.lift) * (0.55 + 0.45 * open) + v * (tall - n(o.lift)) * open * open * (3 - 2 * open))
   }
   const ground = Int16Array.from(ht)
-  const crowns: [number, number, number][] = []
-  for (let i = 0; i < o.trees; i++) {
-    const x = Math.round(((i + hash2(i, 1, o.salt) * 0.9) / o.trees) * W)
-    const r = n(o.crown * (0.6 + hash2(i, 2, o.salt) * 0.7))
-    const foot = ground[x % W]! - Math.round(r * 0.5)
-    if (hash2(i, 3, o.salt) < o.firs) fir(ht, x, foot, Math.max(2, Math.round(r * 0.8)), Math.round(r * 3))
-    else { canopy(ht, x, foot, r); crowns.push([x, foot, r]) }
-  }
+  const crowns = plant(sc, ht, ground, o.trees, o.crown, o.firs, o.salt)
   paintLand(p, sc, ht, base, p.h, o.paint)
-  // A lighter arc under each crown's top, on the side the sun is on.
-  if (o.leaf) for (const [cx, foot, r] of crowns) {
-    if (r < 4) continue
-    const dir = sunward(sc, cx, W)
-    for (let k = -Math.round(r * 0.2); k <= Math.round(r * 0.75); k++) {
-      const x = cx + dir * k
-      const y = base - (foot + Math.round(Math.sqrt(r * r - k * k + r * 0.8))) + 2 + Math.round(r * 0.18)
-      if (get(p, x, y - 2) !== 0) put(p, x, y, o.leaf)
-    }
-  }
+  if (o.leaf) leaves(p, sc, crowns, base, o.leaf)
   let lights: Pix | null = null
   if (o.mast) {
-    // The radio mast on the highest hill near the middle of the picture, and its lamp.
-    let mx = Math.round(sc.w * 0.72)
-    for (let x = Math.round(sc.w * 0.6); x < Math.round(sc.w * 0.9); x++) if (ground[x]! > ground[mx]!) mx = x
-    const foot = base - ground[mx]!
-    const mh = n(34)
-    const iron = pack(scale(hex('#3a2c6a'), 0.9))
-    for (let i = 0; i < mh; i++) {
-      const half = Math.round((1 - i / mh) * n(3))
-      put(p, mx, foot - 1 - i, iron)
-      if (i % n(5) === 0) box(p, mx - half, foot - 1 - i, half * 2 + 1, 1, iron)
-      if (half > 0 && i % 2 === 0) { put(p, mx - half, foot - 1 - i, iron); put(p, mx + half, foot - 1 - i, iron) }
-    }
-    box(p, mx, foot - mh - n(4), 1, n(4), iron)
+    // The radio mast on the highest hill right of the sun, and its lamp on a layer of its own so it can blink.
+    let mx = Math.round(sc.w * 0.66)
+    for (let x = mx; x < Math.round(sc.w * 0.92); x++) if (ground[x]! > ground[mx]!) mx = x
+    const iron = pack(scale(hex('#3a2c6a'), 0.95))
+    const tip = paintMast(p, mx, base - ground[mx]! + 1, n(34), n(5), n(3), iron, iron)
     lights = pix(W, p.h, true)
     const red = ink('#ff3b5c')
-    box(lights, mx - 1, foot - mh - n(4) - 2, 3, 1, red)
-    box(lights, mx - 1, foot - mh - n(4) - 1, 3, 1, red)
-    put(lights, mx, foot - mh - n(4) - 3, ink('#ff9aa8'))
-    put(lights, mx, foot - mh - n(4), red)
+    box(lights, mx - 1, tip - 2, 3, 2, red)
+    put(lights, mx, tip - 3, ink('#ff9aa8'))
   }
   return { p, lights, top: sc.line - base }
 }
 
-/** A low band of mist: rows that are thickest in the middle and thin out up and down, with a slow swell along x. */
+/** Stands trees along a profile and returns the round ones (x, foot, radius) for their highlights. */
+function plant(sc: Scene, ht: Int16Array, ground: Int16Array, count: number, crown: number, firs: number, salt: number): [number, number, number][] {
+  const W = ht.length
+  const crowns: [number, number, number][] = []
+  for (let i = 0; i < count; i++) {
+    const x = Math.round(((i + hash2(i, 1, salt) * 0.9) / count) * W) % W
+    const r = Math.max(1, Math.round(crown * sc.u * (0.62 + hash2(i, 2, salt) * 0.7)))
+    const foot = ground[x]! - Math.round(r * 0.4)
+    if (hash2(i, 3, salt) < firs) fir(ht, x, foot, Math.max(2, Math.round(r * 0.8)), Math.round(r * 2.7))
+    else { canopy(ht, x, foot, r); crowns.push([x, foot, r]) }
+  }
+  return crowns
+}
+
+/** A lighter arc under each crown's top, on the side the sun is on, where the crown is not hidden by its neighbours. */
+function leaves(p: Pix, sc: Scene, crowns: [number, number, number][], base: number, leaf: number) {
+  for (const [cx, foot, r] of crowns) {
+    if (r < 4) continue
+    const dir = sunward(sc, cx, p.w)
+    const inset = 2 + Math.round(r * 0.16)
+    for (let k = -Math.round(r * 0.25); k <= Math.round(r * 0.7); k++) {
+      const x = cx + dir * k
+      const y = base - (foot + Math.round(Math.sqrt(r * r - k * k + r * 0.8))) + inset
+      // Only where this crown is the outline: a little sky above, the crown below.
+      if (get(p, x, y - inset - 1) === 0 && get(p, x, y - inset + 1) !== 0) put(p, x, y, leaf)
+    }
+  }
+}
+
+/**
+ * The wood itself, from the nearest hill's back down to the bottom of the
+ * screen: row after row of treetops, each row bigger, lower and darker than
+ * the one behind it, the way a forest looks from a height.
+ */
+function paintForest(sc: Scene): { p: Pix; top: number } {
+  const W = sc.wide
+  const u = sc.u
+  const over = Math.round(40 * u)
+  const p = pix(W, over + sc.h - sc.line, true)
+  const rows = Math.ceil(Math.log(1 + ((sc.h - sc.line) / u) * 0.2 / 9) / Math.log(1.2)) + 1
+  let foot = over + Math.round(6 * u)
+  for (let k = 0; k < rows; k++) {
+    const t = k / Math.max(1, rows - 1)
+    const crown = Math.min(30, 7 * 1.17 ** k)
+    const ht = new Int16Array(W)
+    const swell = Math.round(9 * u * (1 - t * 0.5))
+    for (let x = 0; x < W; x++) ht[x] = 1 + Math.round(wave(x, W, 6 + k, 140 + k * 7) * swell)
+    const ground = Int16Array.from(ht)
+    const crowns = plant(sc, ht, ground, Math.round(W / (crown * u * 1.25)), crown, k < 3 ? 0.2 : 0.1, 150 + k * 13)
+    const body = mix([17, 60, 76], [9, 27, 42], Math.pow(t, 0.6))
+    paintLand(p, sc, ht, foot, p.h, {
+      crest: pack(mix(body, [42, 133, 121], 0.42 * (1 - t * 0.7))), body: pack(body), crestRows: Math.max(3, Math.round(crown * u * 0.5)),
+      // Only the first rows stand against the sky and take the sun's pink on their edge.
+      rim: pack(k === 0 ? hex('#c0589a') : mix(body, k < 3 ? [176, 80, 150] : [60, 170, 150], 0.5 * (1 - t))), shadeRim: pack(mix(body, [42, 133, 121], 0.5 * (1 - t))),
+      haze: 0, hazeRows: 0,
+    })
+    leaves(p, sc, crowns, foot, pack(mix(body, [95, 214, 184], 0.4 * (1 - t * 0.75))))
+    foot += Math.round(9 * u * 1.2 ** k)
+  }
+  return { p, top: sc.line - over }
+}
+
+/** A low band of mist: long streaks one over the other with clear rows between, longest and palest in the middle of the band. */
 function paintMist(sc: Scene, tone: RGB, salt: number): Pix {
   const W = sc.wide
-  const H = Math.round(26 * sc.u)
-  const p = pix(W, H, true)
-  const c = pack(tone), pale = pack(mix(tone, [255, 230, 240], 0.3))
-  for (let x = 0; x < W; x++) {
-    const swell = wave(x, W, 7, salt) * 0.65 + wave(x, W, 19, salt + 1) * 0.35
-    const mid = H * (0.42 + 0.2 * wave(x, W, 5, salt + 2))
-    const half = H * (0.2 + 0.32 * swell)
-    for (let y = 0; y < H; y++) {
-      const d = Math.abs(y - mid) / half
-      if (d >= 1) continue
-      // Whole rows two at a time, so the mist lies in streaks.
-      const yy = y & ~1
-      const amount = (1 - d) ** 1.2 * (0.35 + 0.6 * swell)
-      if (amount > 0.72) p.d[y * W + x] = d < 0.25 && swell > 0.6 ? pale : c
-      else if (dither(x >> 1, yy >> 1, amount * 1.25)) p.d[y * W + x] = c
+  const rows = 7
+  const pitch = Math.max(3, Math.round(3.4 * sc.u))
+  const p = pix(W, rows * pitch, true)
+  const c = pack(tone), pale = pack(mix(tone, [255, 232, 240], 0.4))
+  for (let k = 0; k < rows; k++) {
+    const edge = Math.abs(k - (rows - 1) / 2) / ((rows - 1) / 2)
+    const thick = Math.max(1, Math.round((pitch - 1) * (1 - edge * 0.6)))
+    // How thick the mist must be at a place before this row shows there.
+    const need = 0.34 + 0.34 * edge
+    for (let x = 0; x < W; x++) {
+      const v = wave(x + k * 37, W, 5, salt) * 0.62 + wave(x - k * 53, W, 14, salt + 1 + k) * 0.38
+      if (v < need) continue
+      // A streak's ends are one row thin.
+      box(p, x, k * pitch, 1, v - need < 0.035 ? 1 : thick, v - need > 0.16 && edge < 0.4 ? pale : c)
     }
   }
   return p
 }
 
 function buildWild(w: number, h: number, top: RGB, horizon: RGB): Backdrop {
-  const sc = sceneOf(w, h, top, horizon, 0.36)
+  const sc = sceneOf(w, h, top, horizon, 0.34)
   const layers: BackdropLayer[] = []
   const r = sc.ramp
+  const u = sc.u
   const forest = hex('#0f3445')
   const sky = pix(w, h)
   paintSky(sky, sc, 2)
   paintGround(sky, sc, forest)
   layers.push(layerOf(sc, sky, 0, 0))
   layers.push(layerOf(sc, paintStars(sc, 0.6, 0.5), 0, 0, true))
-  const sun = paintSun(sc, 0.38, false)
+  const sun = paintSun(sc, 0.22, false)
   layers.push(layerOf(sc, sun.p, sun.top, 0, true))
   // Thin haze clouds high up.
-  const haze = paintClouds(sc, 500, 4, 6 * sc.u, 190 * sc.u, [mix(r(0.5), [70, 60, 130], 0.4), r(0.7), mix(r(0.88), [240, 200, 210], 0.2), r(0.97)])
-  layers.push(layerOf(sc, haze, Math.round(sc.line * 0.6) - haze.h, 0.05, false, 1.6))
-  // Three depths of hills, each darker and greener than the one behind, the far one almost the sky's colour.
-  const far = mix(r(0.8), [96, 84, 168], 0.6)
+  const haze = paintClouds(sc, 500, 4, 6 * u, 190 * u, [mix(r(0.5), [96, 84, 160], 0.5), mix(r(0.7), [150, 110, 180], 0.3), mix(r(0.88), [240, 200, 210], 0.2), r(0.97)])
+  layers.push(layerOf(sc, haze, Math.round(sc.line * 0.5) - haze.h, 0.05, false, 1.6))
+  // Two depths of hills behind the wood, the far one almost the sky's colour, with the mast on it.
+  const far = mix(r(0.78), [112, 100, 190], 0.62)
   const a = paintHills(sc, {
-    salt: 110, tall: 40, lift: 12, under: 4, cells: 5, trees: 0, crown: 0, firs: 0, mast: true,
-    paint: { crest: pack(mix(far, r(0.93), 0.3)), body: pack(far), crestRows: Math.round(6 * sc.u), rim: pack(mix(far, [255, 190, 200], 0.5)), shadeRim: 0, haze: pack(mix(far, r(0.9), 0.45)), hazeRows: Math.round(10 * sc.u) },
+    salt: 110, tall: 54, lift: 22, under: 2, cells: 4, trees: 0, crown: 0, firs: 0, dip: true, mast: true,
+    paint: { crest: pack(mix(far, r(0.93), 0.28)), body: pack(far), crestRows: Math.round(7 * u), rim: pack(mix(far, [255, 200, 214], 0.55)), shadeRim: 0, haze: pack(mix(far, r(0.9), 0.5)), hazeRows: Math.round(12 * u) },
     leaf: 0,
   })
   layers.push(layerOf(sc, a.p, a.top, 0.04))
   if (a.lights) layers.push({ ...layerOf(sc, a.lights, a.top, 0.04, true), blink: 1.6 })
-  const midTone = mix(far, forest, 0.5)
+  const mid = mix(far, forest, 0.52)
   const b = paintHills(sc, {
-    salt: 120, tall: 30, lift: 8, under: 10, cells: 7, trees: Math.round(sc.wide / (7 * sc.u)), crown: 4, firs: 0.3,
-    paint: { crest: pack(mix(midTone, [150, 120, 190], 0.22)), body: pack(midTone), crestRows: Math.round(5 * sc.u), rim: pack(mix(midTone, [220, 150, 200], 0.45)), shadeRim: 0, haze: 0, hazeRows: 0 },
+    salt: 120, tall: 36, lift: 12, under: 12, cells: 6, trees: Math.round(sc.wide / (7 * u)), crown: 4.2, firs: 0.34,
+    paint: { crest: pack(mix(mid, [150, 126, 200], 0.24)), body: pack(mid), crestRows: Math.round(6 * u), rim: pack(mix(mid, [232, 150, 200], 0.5)), shadeRim: 0, haze: pack(mix(mid, r(0.86), 0.4)), hazeRows: Math.round(8 * u) },
     leaf: 0,
   })
-  layers.push(layerOf(sc, b.p, b.top, 0.08))
-  const mist = paintMist(sc, mix(r(0.86), [190, 170, 220], 0.55), 130)
-  layers.push(layerOf(sc, mist, sc.line - Math.round(mist.h * 0.8), 0.11, false, 1.4))
-  const c = paintHills(sc, {
-    salt: 140, tall: 26, lift: 6, under: 46, cells: 6, trees: Math.round(sc.wide / (11 * sc.u)), crown: 8, firs: 0.22,
-    paint: { crest: pack(mix(forest, [27, 87, 99], 0.75)), body: pack(forest), crestRows: Math.round(7 * sc.u), rim: ink('#b0508e'), shadeRim: ink('#1b5763'), haze: 0, hazeRows: 0 },
-    leaf: ink('#2a8579'),
-  })
-  layers.push(layerOf(sc, c.p, c.top + Math.round(8 * sc.u), 0.15))
+  layers.push(layerOf(sc, b.p, b.top + Math.round(2 * u), 0.08))
+  const mist = paintMist(sc, mix(r(0.86), [196, 176, 226], 0.6), 130)
+  layers.push(layerOf(sc, mist, sc.line - Math.round(mist.h * 0.7), 0.11, false, 1.4))
+  const wood = paintForest(sc)
+  layers.push(layerOf(sc, wood.p, wood.top, 0.15))
   return { horizon: sc.line / h, layers }
 }
 

@@ -8,7 +8,7 @@
  */
 import type { Cam } from './camera'
 import type { Rect } from './project'
-import { bindTarget, bindTex, program, resizeTarget, target, targetOk, texture, upload, type GL, type Program, type Target, type Tex } from './gl'
+import { bindTarget, bindTex, program, resizeTarget, target, targetOk, texture, upload, uploadPart, type GL, type Program, type Target, type Tex } from './gl'
 import * as S from './shaders'
 
 /** Floats per vertex of the world's geometry: position 3, screen offset 2, picture px 2, meta 4. */
@@ -96,12 +96,12 @@ export interface FrameIn {
 
 export interface Engine {
   canvas: HTMLCanvasElement
-  /** The picture the ground quad shows (16 px to the tile, covering R). */
-  flat(c: HTMLCanvasElement): void
+  /** The picture the ground quad shows (16 px to the tile, covering R): the top-left w × h px of the canvas are in use. */
+  flat(c: HTMLCanvasElement, w: number, h: number): void
   /** Everything standing, top-down, same size. */
-  objs(c: HTMLCanvasElement): void
-  /** The frame's people and things, one cell each. */
-  atlas(c: HTMLCanvasElement): void
+  objs(c: HTMLCanvasElement, w: number, h: number): void
+  /** The frame's people and things, one cell each, in the canvas's top h rows. */
+  atlas(c: HTMLCanvasElement, h: number): void
   /** Shots, sparks and the flash, scene-sized. */
   fx(c: HTMLCanvasElement): void
   /** The backdrop behind the map's edge, scene-sized. */
@@ -453,9 +453,9 @@ export function createEngine(): Engine {
   return {
     canvas,
     directional,
-    flat: c => upload(gl, flatT, c),
-    objs: c => upload(gl, objsT, c),
-    atlas: c => upload(gl, atlasT, c),
+    flat: (c, w, h) => uploadPart(gl, flatT, c, w, h),
+    objs: (c, w, h) => uploadPart(gl, objsT, c, w, h),
+    atlas: (c, h) => uploadPart(gl, atlasT, c, c.width, h),
     fx: c => upload(gl, fxT, c),
     sky: c => upload(gl, skyT, c),
     flora(albedo, normal) { upload(gl, floraT, albedo); upload(gl, floraNT, normal) },

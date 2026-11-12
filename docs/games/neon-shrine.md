@@ -167,7 +167,9 @@ classic picture. `/?view=<id>` asks for one.
      falls on (the classic view's glow, lying down).
   4. *Composite*: water (crests running across the screen, the dusk lying
      on it, what stands by it mirrored from the picture itself, lamps
-     glittering on the crests, foam where it meets land), haze in bands, low
+     glittering on the crests, foam where it meets land), wet pavement and
+     polished floors that show the lamps and signs above them as streaks,
+     haze in bands, low
      mist and shafts of the sun in the Wildwood, a mood's colour cast, the
      effects layer (shots, sparks, dust, leaves, the flash) at full
      brightness, and the machine's colours: five bits a channel with an
@@ -189,7 +191,8 @@ classic picture. `/?view=<id>` asks for one.
   smoothing, relief, roundness, side light, lamp shadows, light in the air,
   the sun's direction and shadow length, shadow strength and colour, corner
   shade, side shading, rim, haze, mist, sun shafts, sky colours, clouds,
-  wind, standing plants, things in the air, the water's mirror, 15-bit or
+  wind, standing plants, things in the air, the water's mirror, wet ground,
+  15-bit or
   full colour, the sound (below), the windows, and the finish. Every effect
   scales with k, and at k = 0 the camera is the classic one, so the turn
   still starts on the classic picture.
@@ -199,6 +202,9 @@ classic picture. `/?view=<id>` asks for one.
 - **What it needs, and what happens without.** WebGL2. Without it, or when
   the context is lost, the canvas view this one replaced draws instead
   (`legacy.ts`, fetched only then; the classic picture until it is here).
+  One hi-res px is a whole number of device px: half the classic px where
+  that is whole; where it is not (an odd screen scale), a phone gets the
+  larger px and a wide screen the smaller.
   Without float render targets the lamps light flat. A device that keeps
   missing frames is stepped down while it plays and stays there (`govern`
   in `view.ts`: first the costly extras go, then the pixels get larger);
@@ -250,8 +256,7 @@ classic picture. `/?view=<id>` asks for one.
   figure with a 16-bit finish, not a redrawn one; dungeon rooms are wider
   than the screen, so the camera follows the hero instead of showing the
   whole room; furniture is flat cards; the eight keyboard directions are the
-  eight world directions, so walking along a wall takes two keys; a light a
-  person carries lies on the ground beside them, not at their hand. Not
+  eight world directions, so walking along a wall takes two keys. Not
   measured on a phone: the lab's GPU is software.
 - **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>
   [scenes]` renders the isometric view, `VIEW=blyant` the pencil one;

@@ -16,13 +16,17 @@
  * px is (gl_FragCoord.x, height - gl_FragCoord.y).
  */
 
+// Samplers are lowp unless told otherwise: on a phone that would crush the half-float light buffer.
 const HEAD = `#version 300 es
 precision highp float;
 precision highp int;
+precision highp sampler2D;
 `
 
 const COMMON = `
 float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+/** A texel by its px, held inside the picture: past the edge is the edge. */
+vec4 px(sampler2D t, ivec2 p) { return texelFetch(t, clamp(p, ivec2(0), textureSize(t, 0) - 1), 0); }
 /** The 4 x 4 ordered dither, 0..1. */
 const float BAYER[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
 float bayer(vec2 p) {
@@ -81,11 +85,11 @@ float near(vec4 a, vec4 b) {
 vec4 art(sampler2D t, vec2 uv, float soft, out vec2 grad, out vec2 edge) {
   ivec2 i = ivec2(floor(uv));
   vec2 f = uv - vec2(i);
-  vec4 E = texelFetch(t, i, 0);
-  vec4 B = texelFetch(t, i + ivec2(0, -1), 0);
-  vec4 D = texelFetch(t, i + ivec2(-1, 0), 0);
-  vec4 F = texelFetch(t, i + ivec2(1, 0), 0);
-  vec4 H = texelFetch(t, i + ivec2(0, 1), 0);
+  vec4 E = px(t, i);
+  vec4 B = px(t, i + ivec2(0, -1));
+  vec4 D = px(t, i + ivec2(-1, 0));
+  vec4 F = px(t, i + ivec2(1, 0));
+  vec4 H = px(t, i + ivec2(0, 1));
   vec4 c = E;
   bool l = f.x < 0.5;
   bool u = f.y < 0.5;
@@ -195,7 +199,7 @@ void main() {
   vec4 c;
   if (pic == 0) c = art(uObjs, vUV, uSoft, grad, edge);
   else if (pic == 1) c = art(uAtlas, vUV, uSoft, grad, edge);
-  else { c = texelFetch(uFlora, ivec2(floor(vUV)), 0); grad = vec2(0.0); edge = vec2(0.0); }
+  else { c = px(uFlora, ivec2(floor(vUV))); grad = vec2(0.0); edge = vec2(0.0); }
   if (kind == 7 && uVeil.w > 0.0 && vFoot > uVeil.z + 0.15) {
     // A crown between the viewer and the hero thins out round them, so nobody is lost in the woods.
     vec2 q = (vec2(gl_FragCoord.x, uSceneH - gl_FragCoord.y) - uVeil.xy) * vec2(1.0, 1.25);
@@ -215,7 +219,7 @@ void main() {
     float bl = 0.0;
     for (int j = 0; j < 4; j++) {
       ivec2 o = j == 0 ? ivec2(1, 0) : j == 1 ? ivec2(-1, 0) : j == 2 ? ivec2(0, 1) : ivec2(0, -1);
-      vec4 q = pic == 0 ? texelFetch(uObjs, i + o, 0) : texelFetch(uAtlas, i + o, 0);
+      vec4 q = pic == 0 ? px(uObjs, i + o) : px(uAtlas, i + o);
       float l = luma(q.rgb);
       if (q.a > 0.5 && l > bl) { bl = l; best = q.rgb; }
     }
@@ -230,7 +234,7 @@ void main() {
   vec3 n;
   if (pic == 2) {
     // A plant brings its own normals, in its own space: right, up, toward the viewer.
-    vec3 m = texelFetch(uFloraN, ivec2(floor(vUV)), 0).rgb * 2.0 - 1.0;
+    vec3 m = px(uFloraN, ivec2(floor(vUV))).rgb * 2.0 - 1.0;
     n = normalize(m.x * Tu + m.y * vec3(0, 0, 1) + m.z * N);
     mat = 4.0;
   } else {
@@ -245,11 +249,11 @@ void main() {
       for (int r = 2; r <= 6; r += 2) {
         float w = r == 2 ? 0.6 : r == 4 ? 0.45 : 0.3;
         if (pic == 0) {
-          far.x += w * (step(0.5, texelFetch(uObjs, i + ivec2(r, 0), 0).a) - step(0.5, texelFetch(uObjs, i - ivec2(r, 0), 0).a));
-          far.y += w * (step(0.5, texelFetch(uObjs, i + ivec2(0, r), 0).a) - step(0.5, texelFetch(uObjs, i - ivec2(0, r), 0).a));
+          far.x += w * (step(0.5, px(uObjs, i + ivec2(r, 0)).a) - step(0.5, px(uObjs, i - ivec2(r, 0)).a));
+          far.y += w * (step(0.5, px(uObjs, i + ivec2(0, r)).a) - step(0.5, px(uObjs, i - ivec2(0, r)).a));
         } else {
-          far.x += w * (step(0.5, texelFetch(uAtlas, i + ivec2(r, 0), 0).a) - step(0.5, texelFetch(uAtlas, i - ivec2(r, 0), 0).a));
-          far.y += w * (step(0.5, texelFetch(uAtlas, i + ivec2(0, r), 0).a) - step(0.5, texelFetch(uAtlas, i - ivec2(0, r), 0).a));
+          far.x += w * (step(0.5, px(uAtlas, i + ivec2(r, 0)).a) - step(0.5, px(uAtlas, i - ivec2(r, 0)).a));
+          far.y += w * (step(0.5, px(uAtlas, i + ivec2(0, r)).a) - step(0.5, px(uAtlas, i - ivec2(0, r)).a));
         }
       }
       vec2 e = edge * 0.7 + far;
@@ -316,7 +320,7 @@ void main() {
   if (c.a < 0.5) discard;
   vec2 g = clamp(grad, -0.35, 0.35) * uBump;
   vec3 n = normalize(vec3(-g.x, -g.y, 1.0));
-  vec4 td = texelFetch(uTiles, ivec2(floor(vW)), 0);
+  vec4 td = px(uTiles, ivec2(floor(vW)));
   float mat = td.g > 0.5 ? 1.0 : 0.0;
   o0 = vec4(c.rgb, 1.0);
   o1 = vec4(n * 0.5 + 0.5, 0.0);
@@ -701,7 +705,7 @@ void main() {
   // A mood's colour cast over the whole picture (the Other Side's red-violet).
   c *= uCast;
   // Shots, sparks and the screen's flash lie over everything, at full brightness.
-  vec4 fx = texelFetch(uFx, ivec2(s), 0);
+  vec4 fx = px(uFx, ivec2(s));
   c = mix(c, fx.rgb, fx.a);
   em = max(em * (1.0 - fx.a), fx.a * step(0.25, luma(fx.rgb)) * 0.8);
   // The machine's colours: five bits a channel, the rest is a dither.

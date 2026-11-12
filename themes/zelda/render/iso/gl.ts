@@ -88,6 +88,25 @@ export function upload(gl: GL, tex: Tex, src: HTMLCanvasElement | OffscreenCanva
   } else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, src)
 }
 
+/**
+ * Put only the top-left w × h px of a canvas into a texture as large as the
+ * canvas: a picture that fills part of its canvas (an atlas with empty rows)
+ * costs what it uses.
+ */
+export function uploadPart(gl: GL, tex: Tex, src: HTMLCanvasElement, w: number, h: number): void {
+  gl.bindTexture(gl.TEXTURE_2D, tex.t)
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+  if (tex.w !== src.width || tex.h !== src.height) {
+    tex.w = src.width
+    tex.h = src.height
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, src.width, src.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+  }
+  w = Math.max(1, Math.min(src.width, Math.ceil(w)))
+  h = Math.max(1, Math.min(src.height, Math.ceil(h)))
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, src)
+}
+
 export interface Target { fb: WebGLFramebuffer; tex: Tex[]; depth: WebGLRenderbuffer | null; w: number; h: number; opts: TexOptions[]; withDepth: boolean }
 
 /** A render target with one or more colour textures and, if asked, a depth buffer. */
