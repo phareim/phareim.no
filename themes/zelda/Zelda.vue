@@ -8,19 +8,12 @@
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
-    the left 60 % that isn't a button. VIEW and pause sit apart, in the
-    top-right corner, where no thumb rests. The VIEW chip is there with a
-    keyboard too (it names its key), so the views are found without a manual. -->
-  <div v-if="phase === 'play' && !panel && !paused && !talking" class="zelda-deck-top" :class="{ 'zelda-deck-top--keys': !touchUI, px16: dress16 }">
-    <button class="zelda-chip" tabindex="-1" :aria-label="`Change view (now ${viewLabel})`" @pointerdown.prevent.stop="cycleView" @contextmenu.prevent>
-      <span v-if="!touchUI" class="zelda-chip-key">V</span>
-      <!-- The picture of the view that is on: a tile grid, a diamond, a pencil. -->
-      <svg class="zelda-chip-icon" :viewBox="`0 0 ${viewIcon.size} ${viewIcon.size}`" aria-hidden="true" shape-rendering="crispEdges">
-        <rect v-for="(r, i) in viewIcon.runs" :key="i" :x="r.x" :y="r.y" :width="r.w" height="1" />
-      </svg>
-      <span class="zelda-chip-label">VIEW</span>
-    </button>
-    <button v-if="touchUI" class="zelda-chip" aria-label="Pause" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>II</button>
+    the left 60 % that isn't a button. Pause sits apart, in the top-right
+    corner, where no thumb rests; a keyboard has P and Escape. The views are
+    on the pause screen (V there, or its VIEW button): the world starts in
+    the 16-bit one, and the others are a choice, not a control. -->
+  <div v-if="touchUI && phase === 'play' && !panel && !paused && !talking" class="zelda-deck-top" :class="{ px16: dress16 }">
+    <button class="zelda-chip" aria-label="Pause" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>II</button>
   </div>
   <div
     v-if="touchUI && phase === 'play' && !panel && (paused || !talking)"
@@ -83,12 +76,13 @@
  * Keys: arrows / WASD move; Space / J / Z / Enter = A (sword, talk, lift,
  * throw; hold then release for a spin); K / X / Shift = B (item); Q swaps
  * item, Tab too when there is one (else Tab reaches the page's link index);
- * V turns to the next view (`views.ts`: classic, isometric, pencil, and the studio's own), mid-play;
- * P or an Escape tap pause (T in the pause menu: to town); holding Escape
+ * P or an Escape tap pause; on the pause screen T goes to town, M turns the
+ * sound on or off and V turns to the next view (`views.ts`: the 16-bit one a
+ * visit starts in, classic, pencil, and the studio's own); holding Escape
  * saves and goes back to town.
  * Touch: floating stick on the left; on the right three round buttons with
  * pictures, no letters: A (the sword), and with an item B (the item) and
- * swap; VIEW and pause chips in the top-right corner. The input itself is
+ * swap; a pause chip in the top-right corner. The input itself is
  * `input.ts`.
  *
  * Leaving: an engine `exit` saves, writes `portal.return` and launches the
@@ -123,8 +117,7 @@ import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from '.
 import { turnMove } from './render/iso/project'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
 import { HIRES_WINDOW_SKIN, STRIP_TIME } from './render/hud'
-import { epx } from '../base/pixel/epx'
-import { resolveParams, type EngineId } from './viewParams'
+import { resolveParams } from './viewParams'
 import { sprite } from './render/sheet'
 import { startLiveSprites } from './render/live'
 import { KEYBOARD_KEYS, TOUCH_KEYS } from './keys'
@@ -330,33 +323,6 @@ const viewId = ref<ViewId>('classic')
 /** Counts the studio's changes to the round, so a renamed view shows its new name. */
 const viewRound = ref(0)
 const viewLabel = computed(() => (void viewRound.value, viewName(viewId.value)))
-/** The VIEW chip's picture, 9 × 9 pixels per engine: the top-down tile grid, the isometric diamond, the pencil. */
-const VIEW_ICONS: Record<EngineId, readonly string[]> = {
-  classic: ['#########', '#...#...#', '#...#...#', '#...#...#', '#########', '#...#...#', '#...#...#', '#...#...#', '#########'],
-  iso: ['....#....', '..##.##..', '##.....##', '#.##.##.#', '#...#...#', '#...#...#', '#...#...#', '.##.#.##.', '...###...'],
-  blyant: ['......##.', '.....#.##', '....#.###', '...#.###.', '..#.###..', '.#.###...', '#.###....', '#.##.....', '###......'],
-}
-/** The icon as runs of pixels, one rect each, and how many pixels it is across. */
-const viewIcon = computed(() => {
-  void viewRound.value
-  let rows = VIEW_ICONS[viewDef(viewId.value)?.engine ?? 'classic']
-  // The 16-bit dress shows it at twice the pixels with its stairs smoothed (EPX), like the HUD's own icons.
-  if (dress16.value) {
-    const n = rows.length
-    const big = epx(rows.flatMap(r => [...r].map(c => (c === '#' ? 1 : 0))), n, n)
-    rows = Array.from({ length: n * 2 }, (_, y) => Array.from(big.subarray(y * n * 2, (y + 1) * n * 2), v => (v ? '#' : '.')).join(''))
-  }
-  const runs: Array<{ x: number; y: number; w: number }> = []
-  rows.forEach((row, y) => {
-    for (let x = 0; x < row.length; x++) {
-      if (row[x] !== '#') continue
-      const start = x
-      while (x + 1 < row.length && row[x + 1] === '#') x++
-      runs.push({ x: start, y, w: x - start + 1 })
-    }
-  })
-  return { size: rows.length, runs }
-})
 let viewAsk = 0
 /** The view the renderer was last handed: where a failed switch falls back to. */
 let viewShown: ViewId = 'classic'
@@ -411,7 +377,8 @@ function cycleView() {
   audio?.sfx('menu')
   const next = nextView(viewId.value)
   void showView(next)
-  // The whole round, for a moment: there is more than one view to turn to.
+  // The pause screen names the view itself; the viewfinder shows the whole round for a moment.
+  if (paused.value) return
   const round = viewList()
   ui.strip = { views: round.map(v => ({ name: v.name, tag: v.tag })), at: Math.max(0, round.findIndex(v => v.id === next)), t: 0 }
 }
@@ -442,10 +409,11 @@ function shellKey(e: KeyboardEvent): boolean {
       if (e.code === 'KeyN' || e.code === 'Backspace') { e.preventDefault(); cancelReset(); return true }
     } else if (e.code === 'KeyT') { e.preventDefault(); toTown(); return true }
     else if (e.code === 'KeyM') { e.preventDefault(); toggleSound(); return true }
+    // The views live here, behind the pause: in play V does nothing.
+    else if (e.code === 'KeyV') { e.preventDefault(); cycleView(); return true }
   }
   // Backspace backs out of lines that lead somewhere, like B.
   if (e.code === 'Backspace' && !paused.value && backsOut()) { e.preventDefault(); if (!e.repeat) input.pressB(); return true }
-  if (e.code === 'KeyV' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) cycleView(); return true }
   if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) togglePause(); return true }
   // Nothing to swap: Tab keeps its job and reaches the page's link index.
   if (e.code === 'Tab' && !hasItem.value) return true
@@ -1126,27 +1094,7 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-/* With a keyboard the VIEW chip is a quiet note in the corner: its key, its word. */
-.zelda-deck-top--keys .zelda-chip {
-  min-width: 0;
-  min-height: 0;
-  padding: 6px 8px;
-  font-size: 8px;
-  opacity: 0.72;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.zelda-deck-top--keys .zelda-chip:hover { opacity: 1; color: #2ff3ff; }
-.zelda-chip-key {
-  padding: 2px 3px 1px;
-  background: #b9a8d9;
-  color: #0b0616;
-}
-.zelda-deck-top--keys .zelda-chip:hover .zelda-chip-key { background: #2ff3ff; }
-
-/* VIEW and pause: top-right, clear of the notch and the status bar. */
+/* Pause: top-right, clear of the notch and the status bar. */
 .zelda-deck-top {
   position: absolute;
   top: calc(14px + env(safe-area-inset-top, 0px));
@@ -1171,21 +1119,6 @@ onBeforeUnmount(() => {
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-
-/* The chip's picture of the view that is on: 9 × 9 game pixels, two screen px each. */
-.zelda-chip-icon {
-  width: 18px;
-  height: 18px;
-  flex: none;
-  fill: currentColor;
-}
-.zelda-deck-top .zelda-chip:first-child {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 10px;
-}
-.zelda-deck-top--keys .zelda-chip:first-child { padding: 5px 8px; gap: 6px; }
 
 .zelda-deck-btns {
   position: relative;
@@ -1324,7 +1257,7 @@ onBeforeUnmount(() => {
   --px16-u: var(--px16-fine, 1px);
 }
 
-/* VIEW and pause: plates in the sea green of the item box and the pause screen. Never smaller than a thumb. */
+/* Pause: a plate in the sea green of the item box and the pause screen. Never smaller than a thumb. */
 .px16 .zelda-chip {
   min-width: max(52px, calc(40 * var(--px16-u)));
   min-height: max(44px, calc(28 * var(--px16-u)));
@@ -1338,40 +1271,10 @@ onBeforeUnmount(() => {
   font-size: calc(16 * var(--px16-u));
   line-height: calc(16 * var(--px16-u));
 }
-.px16.zelda-deck-top .zelda-chip:first-child {
-  padding: 0 calc(8 * var(--px16-u));
-  gap: calc(6 * var(--px16-u));
-}
 .px16 .zelda-chip:active {
   border-image: var(--px16-frame-cool-in) var(--px16-cut);
   box-shadow: var(--px16-inner);
 }
-/* The view's picture at twice the pixels (one unit each), with the letters' shadow. */
-.px16 .zelda-chip-icon {
-  width: calc(18 * var(--px16-u));
-  height: calc(18 * var(--px16-u));
-  filter: drop-shadow(var(--px16-u) var(--px16-u) 0 var(--px16-shadow));
-}
-/* With a keyboard: the same plate, as small as its letters allow (this font has no size under sixteen units). */
-.px16.zelda-deck-top--keys .zelda-chip,
-.px16.zelda-deck-top--keys .zelda-chip:first-child {
-  min-width: 0;
-  min-height: 0;
-  padding: calc(2 * var(--px16-u)) calc(6 * var(--px16-u)) calc(2 * var(--px16-u)) calc(4 * var(--px16-u));
-  gap: calc(6 * var(--px16-u));
-  font-size: calc(16 * var(--px16-u));
-  opacity: 1;
-}
-.px16.zelda-deck-top--keys .zelda-chip:hover { color: var(--px16-prize); }
-.px16 .zelda-chip-key {
-  padding: var(--px16-u) calc(3 * var(--px16-u));
-  background: var(--px16-fill-lit);
-  box-shadow: 0 0 0 var(--px16-u) #070a2c;
-  color: var(--px16-shadow);
-  text-shadow: none;
-}
-.px16.zelda-deck-top--keys .zelda-chip:hover .zelda-chip-key { background: var(--px16-prize); }
-
 /* The round pads keep their rings and their size; their pictures are the HUD's own, at twice the pixels: one CSS px each, two on A. */
 .px16 .zelda-pad-icon { opacity: 1; }
 .px16 .zelda-pad-icon--big {

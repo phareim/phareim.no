@@ -238,7 +238,7 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
   if (hasBigKey(s)) { icon(g, skin, 'hud_bigkey', cx, cy); cx += 12 }
 
   // B-item box right of the hearts (touch shows it on the B button instead;
-  // its VIEW and pause chips own the top-right corner).
+  // its pause chip owns the top-right corner).
   if (!touch && inv.selected) {
     const bx = Math.max(4 + Math.min(hearts, 10) * 9, cx) + 4
     skin.panel(g, bx, 3, 22, 22, 'cool')
@@ -468,8 +468,9 @@ export const STRIP_TIME = 2.6
 
 /**
  * The view strip: every way the world can be shown, side by side, the one in
- * use lit. It comes up when the view changes and goes again, so a visitor who
- * presses V once sees that there is a round to go.
+ * use lit. It comes up when the viewfinder on the square turns the view and
+ * goes again, so a visitor sees that there is a round to go. (The pause
+ * screen, where the views are chosen, names the view itself.)
  */
 export function drawViewStrip(g: G, strip: { views: ReadonlyArray<{ name: string; tag: string }>; at: number; t: number }, vw: number, vh: number, touch: boolean, skin: HudSkin = NEON_SKIN) {
   const n = strip.views.length
@@ -485,7 +486,6 @@ export function drawViewStrip(g: G, strip: { views: ReadonlyArray<{ name: string
   const w = rowW(shown)
   const h = GLYPH_H * 2 + 11
   let x = Math.round((vw - w) / 2)
-  const hint = touch ? 'VIEW' : 'V  NEXT VIEW'
   // Under the HUD's rows, in the top third: the bottom of the screen is the dialog box's and the page's own hint.
   const y = Math.max(40, Math.round(vh * 0.14))
   for (const { v, i } of shown) {
@@ -497,6 +497,7 @@ export function drawViewStrip(g: G, strip: { views: ReadonlyArray<{ name: string
     F.draw(g, v.tag, x + Math.round((cw - F.width(v.tag)) / 2), y + 6 + GLYPH_H, on ? skin.prize : skin.faint)
     x += cw + gap
   }
-  const count = `${hint}   ${strip.at + 1}/${n}`
+  void touch
+  const count = `${strip.at + 1}/${n}`
   F.draw(g, count, Math.round((vw - F.width(count)) / 2), y + h + 4, skin.dim, skin.outline)
 }

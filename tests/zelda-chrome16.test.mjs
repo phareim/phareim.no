@@ -185,7 +185,7 @@ describe('the shell in the 16-bit dress', () => {
     for (const root of [
       /<canvas ref="canvas" class="zelda-canvas" :class="\{ px16: dress16, 'zelda-canvas--paused': paused \}"/,
       /<EscHold :class="\{ px16: dress16 \}"/,
-      /class="zelda-deck-top" :class="\{ 'zelda-deck-top--keys': !touchUI, px16: dress16 \}"/,
+      /class="zelda-deck-top" :class="\{ px16: dress16 \}"/,
       /:class="\{ 'zelda-deck--paused': paused, px16: dress16 \}"/,
       /<AccountConsole v-if="panel === 'account'" :class="\{ px16: dress16 \}"/,
       /<LookBooth v-if="panel === 'look'" :class="\{ px16: dress16 \}"/,

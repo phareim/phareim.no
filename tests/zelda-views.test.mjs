@@ -111,6 +111,25 @@ describe('the view registry', () => {
   })
 })
 
+describe('where the views are found', () => {
+  const shell = readFileSync(resolve(root, 'Zelda.vue'), 'utf8')
+  it('keeps them on the pause screen: no view button beside the world, and V only while paused', () => {
+    // The corner holds the pause chip alone, on touch; nothing there turns the view.
+    const corner = shell.slice(shell.indexOf('class="zelda-deck-top"'), shell.indexOf('class="zelda-deck"'))
+    assert.match(corner, /togglePause/)
+    assert.doesNotMatch(corner, /cycleView/)
+    // The pause screen's own button, and V inside the paused branch of the keys.
+    assert.match(shell, /class="zelda-pad zelda-pad-wide" @pointerdown\.prevent\.stop="cycleView"/)
+    const keys = shell.slice(shell.indexOf('function shellKey'), shell.indexOf('function backsOut'))
+    const paused = keys.slice(keys.indexOf('if (paused.value && !e.repeat)'), keys.indexOf("if (e.code === 'Backspace'"))
+    assert.match(paused, /e\.code === 'KeyV'[^\n]*cycleView\(\)/)
+    assert.equal(keys.split("'KeyV'").length - 1, 1, 'V has one meaning, and it is on the pause screen')
+  })
+  it('does not name a view key in the page\'s first hint', () => {
+    assert.doesNotMatch(readFileSync(resolve(site, 'themes/portal/Landing.vue'), 'utf8'), /ANOTHER VIEW/)
+  })
+})
+
 describe('an engine\'s values', () => {
   it('gives every engine the finish it needs, inside its own bounds', () => {
     for (const [id, e] of Object.entries(M.ENGINES)) {
