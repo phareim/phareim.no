@@ -12,6 +12,12 @@
  * - Jingles: short one-shots (item get, secret, fanfare, heart piece, game
  *   over) over a ducked loop.
  * - SFX: one function per game event, all small oscillator/noise recipes.
+ * - Two flavours of all of it (`setFlavor`). '8-bit' is the above. '16-bit'
+ *   plays the same notes on another chip, for the isometric view: wavetable
+ *   "samples" (flute, pan pipes, reed, strings, choir, fretless and slap
+ *   bass, harp), FM brass, keys and bells, a drum kit rendered at 32 kHz, a
+ *   soft top, and a stereo echo with a lowpass in its loop. A change of
+ *   flavour crossfades the playing track; the song goes on where it was.
  *
  * All melodies are original. Nothing plays before `unlock()` (call it from
  * the key/tap that starts a run). While a track plays, the site radio is
@@ -40,6 +46,8 @@ export interface ZeldaAudio {
   jingle(name: JingleName): void
   pause(on: boolean): void
   setMuted(muted: boolean): void
+  /** Which sound chip plays: '8-bit' (the default) or '16-bit'. The songs are the same; a playing track crossfades, it does not start over. */
+  setFlavor(flavor: AudioFlavor): void
   /** Silence the site radio now, before any track plays (the portal on arrival). Released by dispose. */
   holdRadio(): void
   dispose(): void
@@ -800,8 +808,233 @@ export const JINGLES: Record<JingleName, JingleDef> = {
 }
 
 // ---------------------------------------------------------------------------
+// The 16-bit flavour (pure data): the same songs through another sound chip
+// ---------------------------------------------------------------------------
+//
+// The isometric view is the next machine, and the next machine had a sample
+// chip with an echo unit (the SNES's SPC700). Nothing in a song changes: the
+// same notes, tempo and form go to other instruments. Wavetables stand in for
+// the chip's looped samples, small FM pairs for brass, keys and bells, the
+// drum kit is rendered once at the chip's 32 kHz and played back as samples,
+// and everything passes a soft top (the chip's gaussian interpolation) and a
+// stereo echo with a lowpass in its loop.
+
+export type AudioFlavor = '8-bit' | '16-bit'
+
+/** The flavour a view plays in: the isometric engine brings the 16-bit chip, unless its values say `sound: '8-bit'`. */
+export function flavorForView(engine: string, params?: Record<string, unknown> | null): AudioFlavor {
+  return engine === 'iso' && params?.sound !== '8-bit' ? '16-bit' : '8-bit'
+}
+
+const partials = (n: number, amp: (k: number) => number): number[] => Array.from({ length: n }, (_, i) => amp(i + 1))
+
+export type SpcWave = 'flute' | 'pan' | 'reed' | 'strings' | 'choir' | 'fretless' | 'slap' | 'harp' | 'softSquare' | 'softSaw'
+
+/** One cycle of each "sample", as harmonic amplitudes from the fundamental up. Few partials: the chip's samples were short and dull on top. */
+export const SPC_WAVES: Record<SpcWave, readonly number[]> = {
+  // A flute is nearly a sine with a little octave in it.
+  flute: [1, 0.42, 0.14, 0.07, 0.03, 0.015],
+  // Pan pipes are stopped tubes: the odd harmonics carry the tone.
+  pan: [1, 0.16, 0.34, 0.05, 0.11, 0.02, 0.04],
+  // An oboe-ish reed: nasal, odd-heavy, a bump around the fifth harmonic.
+  reed: [1, 0.2, 0.5, 0.1, 0.2, 0.04, 0.08, 0.02],
+  strings: partials(20, k => 1 / Math.pow(k, 1.15)),
+  // The choir's vowel comes from formant filters; this is only the throat.
+  choir: partials(14, k => 1 / Math.pow(k, 1.4)),
+  fretless: [1, 0.35, 0.14, 0.07, 0.03],
+  slap: partials(14, k => 1 / Math.pow(k, 0.9)),
+  harp: partials(12, k => (k % 2 ? 1 : 0.7) / Math.pow(k, 1.3)),
+  // What a square and a saw are after the chip's interpolation (the SFX use them).
+  softSquare: partials(15, k => (k % 2 ? 1 / Math.pow(k, 1.5) : 0)),
+  softSaw: partials(16, k => 1 / Math.pow(k, 1.4)),
+}
+
+export type SpcLead = 'flute' | 'pan' | 'brass' | 'reed' | 'keys' | 'chime'
+export type SpcBass = 'fretless' | 'slap'
+export type SpcArp = 'harp' | 'glass' | 'mallet'
+export type SpcPad = 'strings' | 'choir'
+export type SpcDrum = 'kick' | 'snare' | 'hat' | 'openHat' | 'tom'
+
+export interface SpcPatch {
+  lead: SpcLead
+  bass: SpcBass
+  arp: SpcArp
+  pad: SpcPad
+  /** Send into the echo, and how much of each repeat comes round again. */
+  echo: number
+  feedback: number
+  /** Send into the room. */
+  room: number
+  /** Level against the 8-bit mix of the same track (1 = as loud; set from scripts/zelda-lab/audio-render.mjs). */
+  level: number
+  /** This track's bass and lead against the instrument's own gain (default 1), where a song wants one of them further back. */
+  bassLevel?: number
+  leadLevel?: number
+}
+
+/** Who plays each track on the 16-bit chip. */
+export const SPC_PATCHES: Record<TrackId, SpcPatch> = {
+  // A lone flute over strings and a harp.
+  title: { lead: 'flute', bass: 'fretless', arp: 'harp', pad: 'strings', echo: 0.5, feedback: 0.5, room: 0.35, level: 1 },
+  // The hero's tune goes to the brass, the bass gets a thumb.
+  overworld: { lead: 'brass', bass: 'slap', arp: 'harp', pad: 'strings', echo: 0.32, feedback: 0.42, room: 0.2, level: 1 },
+  village: { lead: 'keys', bass: 'fretless', arp: 'harp', pad: 'strings', echo: 0.3, feedback: 0.4, room: 0.25, level: 1, bassLevel: 0.85 },
+  beach: { lead: 'pan', bass: 'fretless', arp: 'glass', pad: 'strings', echo: 0.5, feedback: 0.55, room: 0.4, level: 1.06 },
+  // The shrine sings: a reed under a choir, the echo long.
+  dungeon: { lead: 'reed', bass: 'fretless', arp: 'harp', pad: 'choir', echo: 0.55, feedback: 0.6, room: 0.45, level: 1, bassLevel: 0.75, leadLevel: 0.6 },
+  boss: { lead: 'brass', bass: 'slap', arp: 'harp', pad: 'strings', echo: 0.25, feedback: 0.35, room: 0.15, level: 1, leadLevel: 0.7 },
+  indoor: { lead: 'keys', bass: 'fretless', arp: 'harp', pad: 'strings', echo: 0.32, feedback: 0.4, room: 0.3, level: 1 },
+  ending: { lead: 'brass', bass: 'slap', arp: 'harp', pad: 'strings', echo: 0.4, feedback: 0.45, room: 0.3, level: 1.05 },
+  forest: { lead: 'flute', bass: 'fretless', arp: 'harp', pad: 'strings', echo: 0.45, feedback: 0.5, room: 0.35, level: 1, leadLevel: 1.25 },
+  // The lab's sequencer becomes a mallet line, its cold lead a reed.
+  lab: { lead: 'reed', bass: 'slap', arp: 'mallet', pad: 'strings', echo: 0.4, feedback: 0.5, room: 0.25, level: 1.12, leadLevel: 0.8 },
+  static: { lead: 'chime', bass: 'fretless', arp: 'glass', pad: 'choir', echo: 0.6, feedback: 0.62, room: 0.5, level: 1.1 },
+}
+
+/** Who plays a jingle's lead line on the 16-bit chip. */
+export const SPC_JINGLE_LEAD: Record<JingleName, SpcLead> = {
+  item: 'brass', secret: 'chime', fanfare: 'brass', heartPiece: 'chime', gameOver: 'reed', friend: 'flute',
+}
+
+/** Peak gain per 16-bit instrument. A lead's is times the note's own volume; the rest are absolute. */
+export const SPC_GAIN = {
+  lead: { flute: 0.95, pan: 1.15, brass: 0.75, reed: 0.7, keys: 1.5, chime: 1.3 } as Record<SpcLead, number>,
+  bass: { fretless: 0.56, slap: 0.6 } as Record<SpcBass, number>,
+  arp: { harp: 0.13, glass: 0.07, mallet: 0.26 } as Record<SpcArp, number>,
+  pad: { strings: 0.05, choir: 0.09 } as Record<SpcPad, number>,
+  counter: 0.09,
+  drums: { kick: 0.55, snare: 0.5, hat: 0.2, openHat: 0.18, tom: 0.55 } as Record<SpcDrum, number>,
+}
+
+/** The chip's sample rate: the drum kit is rendered at it and the browser plays it back resampled. */
+export const SPC_RATE = 32000
+
+/** The echo's delay for a tempo: a dotted sixteenth on the chip's 16 ms grid, inside what its echo buffer held (64 to 240 ms). */
+export function spcEchoTime(bpm: number): number {
+  const want = (60 / bpm / 4) * 1.5
+  return Math.max(4, Math.min(15, Math.round(want / 0.016))) * 0.016
+}
+
+const SPC_DRUM_SECONDS: Record<SpcDrum, number> = { kick: 0.26, snare: 0.3, hat: 0.07, openHat: 0.34, tom: 0.36 }
+
+/**
+ * One drum of the 16-bit kit as a mono sample, peak 0.9, ending on silence.
+ * The same every time (its noise is seeded), so the kit is data, not chance.
+ */
+export function renderSpcDrum(name: SpcDrum, rate = SPC_RATE): Float32Array {
+  const n = Math.max(8, Math.floor(rate * SPC_DRUM_SECONDS[name]))
+  const out = new Float32Array(n)
+  let seed = 0x2f6e2b1 + name.length * 7919
+  const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2147483648 - 1 }
+  const TAU = Math.PI * 2
+  // One-pole lowpass states; a highpass is the input minus its lowpass.
+  let lpA = 0
+  let lpB = 0
+  let ph = 0
+  let ph2 = 0
+  const pole = (hzCut: number) => 1 - Math.exp(-TAU * hzCut / rate)
+  // The six squares of a drum machine's cymbal, pushed up into the hat's range.
+  const metal = [205.3, 304.4, 369.6, 522.7, 540, 800].map(f => f * 11.5)
+  for (let i = 0; i < n; i++) {
+    const t = i / rate
+    let v = 0
+    if (name === 'kick') {
+      // The beater's click, then a body that falls from 150 Hz to under 50.
+      ph += TAU * (46 + 108 * Math.exp(-t / 0.032)) / rate
+      lpA += pole(2600) * (rnd() - lpA)
+      v = Math.tanh(1.5 * (Math.sin(ph) * Math.exp(-t / 0.05) + lpA * 0.5 * Math.exp(-t / 0.004)))
+    } else if (name === 'snare') {
+      // A shell (two detuned modes) under the wires (noise with the bottom taken out).
+      ph += TAU * (176 + 70 * Math.exp(-t / 0.018)) / rate
+      ph2 += TAU * 331 / rate
+      const x = rnd()
+      lpA += pole(900) * (x - lpA)
+      lpB += pole(7200) * (x - lpA - lpB)
+      const wires = lpB * (0.75 * Math.exp(-t / 0.07) + 0.4 * Math.exp(-t / 0.014))
+      v = Math.sin(ph) * 0.62 * Math.exp(-t / 0.05) + Math.sin(ph2) * 0.22 * Math.exp(-t / 0.03) + wires * 1.5
+    } else if (name === 'tom') {
+      ph += TAU * (112 + 74 * Math.exp(-t / 0.045)) / rate
+      lpA += pole(1800) * (rnd() - lpA)
+      v = Math.sin(ph) * Math.exp(-t / 0.11) + lpA * 0.4 * Math.exp(-t / 0.008)
+    } else {
+      let m = 0
+      for (const f of metal) m += Math.sin(TAU * f * t) >= 0 ? 1 : -1
+      const x = m / 6 * 0.65 + rnd() * 0.45
+      lpA += pole(6500) * (x - lpA)
+      const hp = x - lpA
+      lpB += pole(5000) * (hp - lpB)
+      v = (hp - lpB) * (name === 'hat' ? Math.exp(-t / 0.011) : 0.8 * Math.exp(-t / 0.085) + 0.2 * Math.exp(-t / 0.012))
+    }
+    out[i] = v
+  }
+  // End on silence, and bring the peak to 0.9.
+  const fade = Math.min(n, Math.floor(rate * 0.004))
+  for (let i = 0; i < fade; i++) out[n - 1 - i] = out[n - 1 - i]! * (i / fade)
+  let peak = 0
+  for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(out[i]!))
+  if (peak > 0) for (let i = 0; i < n; i++) out[i] = out[i]! * (0.9 / peak)
+  return out
+}
+
+/** What is wrong with the 16-bit tables (empty = fine). Pure; used by tests. */
+export function validateSpc(): string[] {
+  const out: string[] = []
+  const sane = (what: string, v: number, max: number) => { if (!Number.isFinite(v) || v <= 0 || v > max) out.push(`${what}: ${v}`) }
+  for (const [name, amps] of Object.entries(SPC_WAVES)) {
+    if (amps.length < 2 || amps.length > 32) out.push(`wave ${name}: ${amps.length} partials`)
+    if (amps[0] !== 1) out.push(`wave ${name}: fundamental ${amps[0]}`)
+    for (const a of amps) if (!Number.isFinite(a) || a < 0 || a > 1) out.push(`wave ${name}: partial ${a}`)
+  }
+  for (const id of Object.keys(TRACKS) as TrackId[]) {
+    const p = SPC_PATCHES[id]
+    if (!p) { out.push(`${id}: no 16-bit patch`); continue }
+    if (!(p.lead in SPC_GAIN.lead)) out.push(`${id}: lead ${p.lead}`)
+    if (!(p.bass in SPC_GAIN.bass)) out.push(`${id}: bass ${p.bass}`)
+    if (!(p.arp in SPC_GAIN.arp)) out.push(`${id}: arp ${p.arp}`)
+    if (!(p.pad in SPC_GAIN.pad)) out.push(`${id}: pad ${p.pad}`)
+    sane(`${id}: echo`, p.echo, 0.8)
+    // The echo must die away: each repeat quieter than the last.
+    sane(`${id}: feedback`, p.feedback, 0.7)
+    sane(`${id}: room`, p.room, 0.8)
+    sane(`${id}: level`, p.level, 2)
+    sane(`${id}: bassLevel`, p.bassLevel ?? 1, 2)
+    sane(`${id}: leadLevel`, p.leadLevel ?? 1, 2)
+  }
+  for (const id of Object.keys(SPC_PATCHES)) if (!(id in TRACKS)) out.push(`patch for no track: ${id}`)
+  for (const id of Object.keys(JINGLES) as JingleName[]) {
+    if (!(SPC_JINGLE_LEAD[id] in SPC_GAIN.lead)) out.push(`jingle ${id}: no 16-bit lead`)
+  }
+  for (const [kind, table] of Object.entries(SPC_GAIN)) {
+    if (typeof table === 'number') sane(`gain ${kind}`, table, 2)
+    else for (const [name, g] of Object.entries(table)) sane(`gain ${kind}.${name}`, g, 2)
+  }
+  for (const name of Object.keys(SPC_GAIN.drums) as SpcDrum[]) {
+    const d = renderSpcDrum(name)
+    let peak = 0
+    for (const v of d) { if (!Number.isFinite(v)) { out.push(`drum ${name}: not a number`); break } peak = Math.max(peak, Math.abs(v)) }
+    if (peak < 0.5 || peak > 0.95) out.push(`drum ${name}: peak ${peak}`)
+    if (Math.abs(d[d.length - 1]!) > 0.001) out.push(`drum ${name}: does not end on silence`)
+  }
+  return out
+}
+
+// ---------------------------------------------------------------------------
 // Live engine
 // ---------------------------------------------------------------------------
+
+/** A player's sends on the 16-bit chip: straight out, into the echo, into the room. */
+interface SpcOut { dry: AudioNode; echo: AudioNode; room: AudioNode }
+interface SpcBuses { dry: GainNode; echo: GainNode; room: GainNode }
+
+/** Something a player has scheduled: kept until it has sounded, so a change of flavour can voice it again on the other chip. */
+interface Held {
+  at: number
+  dur: number
+  play: (at: number, dur: number) => void
+  /** The chips it has been voiced on. */
+  chip: boolean
+  spc: boolean
+}
 
 interface Player {
   id: TrackId
@@ -815,6 +1048,9 @@ interface Player {
   del: GainNode
   rev: GainNode
   gated: GainNode
+  /** The 16-bit sends; made the first time this player sounds in that flavour. */
+  spc: SpcBuses | null
+  held: Held[]
   alive: boolean
 }
 
@@ -827,7 +1063,23 @@ function readMuted(): boolean {
 }
 
 export function createZeldaAudio(): ZeldaAudio {
-  let ac: AudioContext | null = null
+  return buildAudio(null)
+}
+
+/**
+ * The lab's seam (scripts/zelda-lab/audio-render.mjs): the same engine on a
+ * context someone else owns and clocks, an OfflineAudioContext there. It
+ * starts no timer and leaves the radio alone; `tick()` schedules the next
+ * 150 ms of music from the context's clock.
+ */
+export function createZeldaAudioOn(context: BaseAudioContext): ZeldaAudio & { tick(): void } {
+  return buildAudio(context)
+}
+
+function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void } {
+  let ac: BaseAudioContext | null = null
+  /** The context when it is our own: only that one is suspended, resumed and closed. */
+  let live: AudioContext | null = null
   let master!: GainNode
   let sfxBus!: GainNode
   let musicBus!: GainNode
@@ -847,6 +1099,8 @@ export function createZeldaAudio(): ZeldaAudio {
   let lastGlyph = 0
   let grit: WaveShaperNode | null = null
   let duckUntil = 0
+  let flavor: AudioFlavor = '8-bit'
+  let spc: Spc | null = null
 
   const client = () => typeof window !== 'undefined'
 
@@ -864,12 +1118,15 @@ export function createZeldaAudio(): ZeldaAudio {
   function ensure(): boolean {
     if (!client()) return false
     if (ac) {
-      if (ac.state === 'suspended') ac.resume().catch(() => {})
+      if (live && live.state === 'suspended') live.resume().catch(() => {})
       return true
     }
-    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!Ctor) return false
-    try { ac = new Ctor() } catch { ac = null; return false }
+    if (host) ac = host
+    else {
+      const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+      if (!Ctor) return false
+      try { ac = live = new Ctor() } catch { ac = live = null; return false }
+    }
     const c = ac
     const comp = c.createDynamicsCompressor()
     comp.threshold.value = -14
@@ -925,14 +1182,14 @@ export function createZeldaAudio(): ZeldaAudio {
     for (let k = 1; k < n; k++) imag[k] = (2 / (k * Math.PI)) * Math.sin(k * Math.PI * 0.25)
     try { pulseWave = c.createPeriodicWave(real, imag) } catch { pulseWave = null }
 
-    if (c.state === 'suspended') c.resume().catch(() => {})
+    if (live && live.state === 'suspended') live.resume().catch(() => {})
     return true
   }
 
   // ---- radio --------------------------------------------------------------
 
   function parkRadio(): void {
-    if (radioParked) return
+    if (radioParked || host) return
     try {
       getRadioEngine().hold(true)
       radioParked = true
@@ -1221,6 +1478,563 @@ export function createZeldaAudio(): ZeldaAudio {
     g.connect(p.dry)
   }
 
+  // ---- the 16-bit chip --------------------------------------------------------
+
+  /** The 16-bit chip's shared nodes; built the first time that flavour sounds. */
+  interface Spc {
+    /** Where its music goes in: the chip's voice (soft top, a little warmth), then the music bus. */
+    in: GainNode
+    echo: Echo
+    room: ConvolverNode
+    /** The same three sends for SFX and jingles. */
+    sfx: SpcOut
+    kit: Record<SpcDrum, AudioBuffer>
+    waves: Partial<Record<SpcWave, PeriodicWave | null>>
+  }
+
+  interface Echo { in: GainNode; set(time: number, feedback: number): void }
+
+  /** Left or right of the middle (-1..1); a plain gain where the browser has no panner. */
+  function panner(v: number): AudioNode {
+    const c = ac!
+    if (typeof c.createStereoPanner !== 'function') return c.createGain()
+    const p = c.createStereoPanner()
+    p.pan.value = v
+    return p
+  }
+
+  function biquad(type: BiquadFilterType, freq: number, q = 0.7, gain = 0): BiquadFilterNode {
+    const f = ac!.createBiquadFilter()
+    f.type = type
+    f.frequency.value = freq
+    f.Q.value = q
+    if (gain) f.gain.value = gain
+    return f
+  }
+
+  /** The chip's echo: one repeat left, the next right, each duller than the last (a lowpass sits in the loop). */
+  function makeEcho(out: AudioNode, time: number, feedback: number, tone: number): Echo {
+    const c = ac!
+    const input = c.createGain()
+    // The send is summed to mono, so the repeats land hard left and hard right whatever came in.
+    input.channelCount = 1
+    input.channelCountMode = 'explicit'
+    const dl = c.createDelay(1)
+    const dr = c.createDelay(1)
+    const fl = biquad('lowpass', tone)
+    const fr = biquad('lowpass', tone)
+    const backL = c.createGain()
+    const backR = c.createGain()
+    const pl = panner(-0.8)
+    const pr = panner(0.8)
+    input.connect(dl)
+    dl.connect(fl)
+    fl.connect(pl)
+    fl.connect(backL)
+    backL.connect(dr)
+    dr.connect(fr)
+    fr.connect(pr)
+    fr.connect(backR)
+    backR.connect(dl)
+    pl.connect(out)
+    pr.connect(out)
+    const set = (t: number, fb: number) => {
+      const now = c.currentTime
+      dl.delayTime.setTargetAtTime(t, now, 0.05)
+      dr.delayTime.setTargetAtTime(t, now, 0.05)
+      backL.gain.setTargetAtTime(fb, now, 0.05)
+      backR.gain.setTargetAtTime(fb, now, 0.05)
+    }
+    dl.delayTime.value = time
+    dr.delayTime.value = time
+    backL.gain.value = feedback
+    backR.gain.value = feedback
+    return { in: input, set }
+  }
+
+  function ensure16(): Spc {
+    if (spc) return spc
+    const c = ac!
+    // The chip's voice: its interpolation rolled the top off, and the samples were warm below.
+    const voice = (dest: AudioNode, top: number): GainNode => {
+      const input = c.createGain()
+      const shelf = biquad('highshelf', 5500, 0.7, -3.5)
+      const lp = biquad('lowpass', top, 0.6)
+      const warm = biquad('lowshelf', 170, 0.7, 1.5)
+      input.connect(shelf)
+      shelf.connect(lp)
+      lp.connect(warm)
+      warm.connect(dest)
+      return input
+    }
+    const input = voice(musicBus, 12500)
+    const echo = makeEcho(input, 0.176, 0.45, 3800)
+    // The big room: a dark, even tail under the echo.
+    const room = c.createConvolver()
+    room.buffer = impulse(1.7, t => Math.pow(1 - t, 2.4) * 0.5)
+    const roomTone = biquad('lowpass', 4200)
+    room.connect(roomTone)
+    roomTone.connect(input)
+
+    const sfxIn = voice(sfxBus, 11000)
+    // The echo and the warmth add a little; this keeps an effect as loud as its 8-bit self.
+    sfxIn.gain.value = 0.9
+    const sfxEcho = makeEcho(sfxIn, 0.112, 0.3, 3200)
+    const sfxSend = c.createGain()
+    sfxSend.gain.value = 0.22
+    sfxSend.connect(sfxEcho.in)
+
+    const kit = {} as Record<SpcDrum, AudioBuffer>
+    for (const name of Object.keys(SPC_GAIN.drums) as SpcDrum[]) {
+      let buf: AudioBuffer
+      let data = renderSpcDrum(name)
+      try {
+        buf = c.createBuffer(1, data.length, SPC_RATE)
+      } catch {
+        // A browser that will not hold a 32 kHz buffer gets the kit at its own rate.
+        data = renderSpcDrum(name, c.sampleRate)
+        buf = c.createBuffer(1, data.length, c.sampleRate)
+      }
+      buf.getChannelData(0).set(data)
+      kit[name] = buf
+    }
+    spc = { in: input, echo, room, sfx: { dry: sfxIn, echo: sfxSend, room: sfxVerb }, kit, waves: {} }
+    return spc
+  }
+
+  /** One of the chip's "samples" as a wavetable; null where the browser will not make one. */
+  function table(name: SpcWave): PeriodicWave | null {
+    const s = ensure16()
+    let w = s.waves[name]
+    if (w === undefined) {
+      const amps = SPC_WAVES[name]
+      const real = new Float32Array(amps.length + 1)
+      const imag = new Float32Array(amps.length + 1)
+      amps.forEach((a, i) => { imag[i + 1] = a })
+      try { w = ac!.createPeriodicWave(real, imag) } catch { w = null }
+      s.waves[name] = w
+    }
+    return w
+  }
+
+  /** A wavetable oscillator: one of the chip's "samples" at a pitch. */
+  function wave(name: SpcWave, freq: number, at: number, stop: number, detune = 0): OscillatorNode {
+    const c = ac!
+    const w = table(name)
+    const o = c.createOscillator()
+    if (w) o.setPeriodicWave(w)
+    else o.type = 'triangle'
+    o.frequency.setValueAtTime(freq, at)
+    if (detune) o.detune.setValueAtTime(detune, at)
+    o.start(at)
+    o.stop(stop)
+    return o
+  }
+
+  /** Send a voice out: dry, and as much of it into the echo and the room as asked (0 = none, 1 = all). */
+  function send16(src: AudioNode, o: SpcOut, echo: number, room: number): void {
+    const c = ac!
+    src.connect(o.dry)
+    for (const [dest, amount] of [[o.echo, echo], [o.room, room]] as const) {
+      if (amount >= 1) src.connect(dest)
+      else if (amount > 0) {
+        const g = c.createGain()
+        g.gain.value = amount
+        src.connect(g)
+        g.connect(dest)
+      }
+    }
+  }
+
+  /** A struck or plucked envelope: up fast, down to `sustain` of the peak over `decay`, held to the note's end, released. */
+  function struck(g: GainNode, at: number, peak: number, attack: number, sustain: number, decay: number, dur: number, release: number): void {
+    const hold = Math.max(attack + 0.005, dur)
+    g.gain.setValueAtTime(0, at)
+    g.gain.linearRampToValueAtTime(peak, at + attack)
+    if (hold > attack + decay) {
+      g.gain.exponentialRampToValueAtTime(peak * sustain, at + attack + decay)
+      g.gain.setValueAtTime(peak * sustain, at + hold)
+    } else {
+      // A short note leaves in the middle of its decay.
+      g.gain.exponentialRampToValueAtTime(peak * Math.pow(sustain, (hold - attack) / decay), at + hold)
+    }
+    g.gain.exponentialRampToValueAtTime(0.0001, at + hold + release)
+  }
+
+  /** Vibrato that waits: nothing for a moment, then `cents` either way. */
+  function vibrato(oscs: OscillatorNode[], at: number, end: number, cents: number, rate = 5.2, wait = 0.2): void {
+    const c = ac!
+    const lfo = osc('sine', rate, at, end)
+    const depth = c.createGain()
+    depth.gain.setValueAtTime(0, at)
+    depth.gain.linearRampToValueAtTime(0, at + wait)
+    depth.gain.linearRampToValueAtTime(cents, at + wait + 0.3)
+    lfo.connect(depth)
+    for (const o of oscs) depth.connect(o.detune)
+  }
+
+  /** An FM pair at 1:1 leaves a standing offset that thumps with the envelope: take it out below the note. */
+  function fmOut(car: OscillatorNode, f: number): AudioNode {
+    const hp = biquad('highpass', Math.max(40, f * 0.5))
+    car.connect(hp)
+    return hp
+  }
+
+  function lead16(o: SpcOut, inst: SpcLead, midi: number, at: number, dur: number, vol: number, wow?: number): void {
+    const c = ac!
+    const f = hz(midi)
+    const peak = vol * SPC_GAIN.lead[inst]
+    const end = at + dur + 0.35
+    const g = c.createGain()
+    const lp = biquad('lowpass', 6000)
+    const mix = c.createGain()
+    /** What carries the pitch (vibrato and tape wow bend these). */
+    const tuned: OscillatorNode[] = []
+    if (inst === 'flute' || inst === 'pan') {
+      const pipes = inst === 'pan'
+      const o1 = wave(inst, f, at, end)
+      // The lip finds the note from just below.
+      o1.detune.setValueAtTime(pipes ? -42 : -16, at)
+      o1.detune.linearRampToValueAtTime(0, at + (pipes ? 0.07 : 0.045))
+      o1.connect(lp)
+      tuned.push(o1)
+      lp.frequency.setValueAtTime(Math.min(7000, f * 2.5), at)
+      lp.frequency.linearRampToValueAtTime(Math.min(9000, f * 5), at + Math.min(0.12, dur))
+      env(g, at, peak, Math.min(pipes ? 0.028 : 0.045, dur * 0.4), dur, 0.16)
+      // Breath: a chiff of air on the attack, a thread of it under the note.
+      const air = noiseSrc(at, dur + 0.2)
+      air.loop = true
+      const band = biquad('bandpass', Math.max(1400, Math.min(5200, f * 2.2)), 1.1)
+      const ag = c.createGain()
+      const breath = peak * (pipes ? 0.9 : 0.55)
+      const hold = Math.max(0.11, dur)
+      ag.gain.setValueAtTime(0, at)
+      ag.gain.linearRampToValueAtTime(breath, at + 0.012)
+      ag.gain.exponentialRampToValueAtTime(breath * 0.16, at + 0.1)
+      ag.gain.setValueAtTime(breath * 0.16, at + hold)
+      ag.gain.exponentialRampToValueAtTime(0.0001, at + hold + 0.12)
+      air.connect(band)
+      band.connect(ag)
+      ag.connect(mix)
+    } else if (inst === 'brass') {
+      // An FM pair: the modulator opens with the breath and settles, a lip buzzing into a horn. A soft saw beside it is the section.
+      const car = osc('sine', f, at, end)
+      const mod = osc('sine', f, at, end)
+      const index = c.createGain()
+      index.gain.setValueAtTime(f * 0.3, at)
+      index.gain.linearRampToValueAtTime(f * 2, at + 0.05)
+      index.gain.exponentialRampToValueAtTime(f * 1.1, at + 0.3)
+      mod.connect(index)
+      index.connect(car.frequency)
+      const body = wave('softSaw', f, at, end, -7)
+      const bg = c.createGain()
+      bg.gain.value = 0.4
+      body.connect(bg)
+      bg.connect(lp)
+      fmOut(car, f).connect(lp)
+      tuned.push(car, mod, body)
+      lp.frequency.setValueAtTime(1400, at)
+      lp.frequency.linearRampToValueAtTime(3000, at + 0.06)
+      lp.frequency.exponentialRampToValueAtTime(2000, at + Math.max(0.1, dur))
+      env(g, at, peak, Math.min(0.03, dur * 0.4), dur, 0.11)
+    } else if (inst === 'reed') {
+      const o1 = wave('reed', f, at, end)
+      o1.connect(lp)
+      tuned.push(o1)
+      lp.frequency.setValueAtTime(Math.min(3200, f * 4), at)
+      env(g, at, peak, Math.min(0.022, dur * 0.4), dur, 0.12)
+    } else if (inst === 'keys') {
+      // An electric piano: an FM pair whose bite dies away, and the tine's ping on top.
+      const car = osc('sine', f, at, end)
+      const mod = osc('sine', f, at, end)
+      const index = c.createGain()
+      index.gain.setValueAtTime(f * 1.8, at)
+      index.gain.exponentialRampToValueAtTime(f * 0.3, at + 0.4)
+      mod.connect(index)
+      index.connect(car.frequency)
+      fmOut(car, f).connect(lp)
+      const tine = osc('sine', f * 4, at, at + 0.2)
+      const tg = c.createGain()
+      tg.gain.setValueAtTime(0.22, at)
+      tg.gain.exponentialRampToValueAtTime(0.0001, at + 0.14)
+      tine.connect(tg)
+      tg.connect(lp)
+      tuned.push(car, mod)
+      struck(g, at, peak, 0.006, 0.38, 0.3, dur, 0.22)
+    } else {
+      // A chime: an FM pair at a ratio no string has, ringing out.
+      const ring = at + Math.max(0.5, dur) + 0.6
+      const car = osc('sine', f, at, ring)
+      const mod = osc('sine', f * 3.5, at, ring)
+      const index = c.createGain()
+      index.gain.setValueAtTime(f * 2, at)
+      index.gain.exponentialRampToValueAtTime(f * 0.08, at + 0.8)
+      mod.connect(index)
+      index.connect(car.frequency)
+      car.connect(lp)
+      tuned.push(car, mod)
+      lp.frequency.setValueAtTime(9000, at)
+      g.gain.setValueAtTime(0, at)
+      g.gain.linearRampToValueAtTime(peak, at + 0.004)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + Math.max(0.5, dur) + 0.5)
+    }
+    if (dur > 0.3 && inst !== 'chime' && inst !== 'keys') vibrato(tuned, at, end, inst === 'brass' ? 11 : 15)
+    wobble(tuned, wow, at, end)
+    lp.connect(g)
+    g.connect(mix)
+    send16(mix, o, 1, 1)
+  }
+
+  function bass16(o: SpcOut, inst: SpcBass, midi: number, at: number, dur: number, vol = 1): void {
+    const c = ac!
+    const f = hz(midi)
+    const end = at + dur + 0.12
+    const g = c.createGain()
+    const peak = SPC_GAIN.bass[inst] * vol
+    // The finger damps the string a little before the next note, as the 8-bit bass's envelope does.
+    const gate = Math.max(0.03, dur - 0.04)
+    if (inst === 'fretless') {
+      // The finger slides up into the note; long ones get the fretless singing.
+      const o1 = wave('fretless', f, at, end)
+      o1.detune.setValueAtTime(-30, at)
+      o1.detune.linearRampToValueAtTime(0, at + 0.05)
+      const lp = biquad('lowpass', 1000, 1)
+      lp.frequency.setValueAtTime(1000, at)
+      lp.frequency.exponentialRampToValueAtTime(480, at + Math.min(dur, 0.35) + 0.02)
+      o1.connect(lp)
+      lp.connect(g)
+      if (dur > 0.8) vibrato([o1], at, end, 8, 4.6, 0.4)
+      struck(g, at, peak, 0.012, 0.72, 0.3, gate, 0.07)
+    } else {
+      // A thumb on the string: bright for a moment, then round, with the pop of the slap.
+      const o1 = wave('slap', f, at, end)
+      const lp = biquad('lowpass', 2000, 2.5)
+      lp.frequency.setValueAtTime(2000, at)
+      lp.frequency.exponentialRampToValueAtTime(400, at + 0.14)
+      o1.connect(lp)
+      lp.connect(g)
+      struck(g, at, peak, 0.003, 0.55, 0.16, gate, 0.04)
+      const pop = noiseSrc(at, 0.02)
+      const band = biquad('bandpass', 2000, 2)
+      const pg = c.createGain()
+      pg.gain.setValueAtTime(peak * 0.3, at)
+      pg.gain.exponentialRampToValueAtTime(0.0001, at + 0.014)
+      pop.connect(band)
+      band.connect(pg)
+      pg.connect(o.dry)
+    }
+    g.connect(o.dry)
+  }
+
+  function arp16(o: SpcOut, inst: SpcArp, midi: number, at: number, dur: number, pan: number): void {
+    const c = ac!
+    const f = hz(midi)
+    const g = c.createGain()
+    const peak = SPC_GAIN.arp[inst]
+    const mix = panner(pan)
+    if (inst === 'harp') {
+      // A plucked string: bright at the finger, duller as it rings, and it rings past its step.
+      const ring = Math.max(dur, 0.2) + 0.7
+      const o1 = wave('harp', f, at, at + ring + 0.05)
+      const lp = biquad('lowpass', 6000, 0.8)
+      lp.frequency.setValueAtTime(Math.min(9000, f * 6), at)
+      lp.frequency.exponentialRampToValueAtTime(Math.max(500, f * 1.4), at + 0.3)
+      o1.connect(lp)
+      lp.connect(g)
+      g.gain.setValueAtTime(0, at)
+      g.gain.linearRampToValueAtTime(peak, at + 0.003)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + ring)
+    } else if (inst === 'glass') {
+      const ring = dur + 0.9
+      const car = osc('sine', f, at, at + ring + 0.05)
+      const mod = osc('sine', f * 3, at, at + ring + 0.05, 6)
+      const index = c.createGain()
+      index.gain.setValueAtTime(f * 1.3, at)
+      index.gain.exponentialRampToValueAtTime(f * 0.05, at + 0.5)
+      mod.connect(index)
+      index.connect(car.frequency)
+      car.connect(g)
+      g.gain.setValueAtTime(0, at)
+      g.gain.linearRampToValueAtTime(peak, at + 0.004)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + ring)
+    } else {
+      // A mallet on wood: the bar's note and, for a moment, the knock two octaves up.
+      const ring = Math.max(0.12, dur * 0.9) + 0.22
+      osc('sine', f, at, at + ring + 0.05).connect(g)
+      const knock = osc('sine', f * 4, at, at + 0.08)
+      const kg = c.createGain()
+      kg.gain.setValueAtTime(0.3, at)
+      kg.gain.exponentialRampToValueAtTime(0.0001, at + 0.05)
+      knock.connect(kg)
+      kg.connect(g)
+      g.gain.setValueAtTime(0, at)
+      g.gain.linearRampToValueAtTime(peak, at + 0.002)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + ring)
+    }
+    g.connect(mix)
+    send16(mix, o, 1, 0)
+  }
+
+  /** One bowed line (the counter melody, a jingle's chord tones): two strings a few cents apart, a slow bow. */
+  function string16(o: SpcOut, midi: number, at: number, dur: number, peak: number, pan: number, attack: number, wow?: number): void {
+    const c = ac!
+    const end = at + dur + 0.4
+    const g = c.createGain()
+    const lp = biquad('lowpass', 1500)
+    lp.frequency.setValueAtTime(1500, at)
+    lp.frequency.linearRampToValueAtTime(2300, at + Math.min(0.4, dur))
+    const pair = [wave('strings', hz(midi), at, end, 6), wave('strings', hz(midi), at, end, -6)]
+    for (const s of pair) s.connect(lp)
+    if (dur > 0.4) vibrato(pair, at, end, 9, 5, 0.25)
+    wobble(pair, wow, at, end)
+    const a = Math.min(attack, dur * 0.5)
+    g.gain.setValueAtTime(0, at)
+    g.gain.linearRampToValueAtTime(peak, at + a)
+    g.gain.setValueAtTime(peak, at + Math.max(a + 0.01, dur - 0.05))
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 0.28)
+    lp.connect(g)
+    const mix = panner(pan)
+    g.connect(mix)
+    send16(mix, o, 0.6, 1)
+  }
+
+  /** The pad: a string section or a choir, one player of each pair to the left and one to the right, bowed in slowly. */
+  function pad16(o: SpcOut, inst: SpcPad, notes: number[], at: number, dur: number, def: TrackDef): void {
+    const c = ac!
+    const tail = def.padSwell ? 1.1 : 0.6
+    const end = at + dur + tail + 0.1
+    const det = def.padDetune ?? 9
+    const left = panner(-0.75)
+    const right = panner(0.75)
+    const oscs: OscillatorNode[] = []
+    for (const m of notes) {
+      const a = wave(inst, hz(m), at, end, det)
+      const b = wave(inst, hz(m), at, end, -det)
+      a.connect(left)
+      b.connect(right)
+      oscs.push(a, b)
+    }
+    wobble(oscs, def.wow, at, end)
+    const g = c.createGain()
+    const peak = SPC_GAIN.pad[inst]
+    if (inst === 'choir') {
+      // "Aah": the throat through three formants, and a little chest under them. The singers waver.
+      vibrato(oscs, at, end, 7, 4.8, 0.3)
+      const chest = biquad('lowpass', 480)
+      const chestGain = c.createGain()
+      chestGain.gain.value = 0.5
+      for (const side of [left, right]) side.connect(chest)
+      chest.connect(chestGain)
+      chestGain.connect(g)
+      for (const [freq, q, amount] of [[620, 3.5, 1], [1080, 4.5, 0.7], [2700, 6, 0.25]] as const) {
+        const formant = biquad('bandpass', freq, q)
+        const fg = c.createGain()
+        fg.gain.value = amount
+        for (const side of [left, right]) side.connect(formant)
+        formant.connect(fg)
+        fg.connect(g)
+      }
+    } else {
+      const lp = biquad('lowpass', 1200)
+      lp.frequency.setValueAtTime(1200, at)
+      lp.frequency.linearRampToValueAtTime(2400, at + dur * 0.5)
+      lp.frequency.linearRampToValueAtTime(1500, at + dur)
+      for (const side of [left, right]) side.connect(lp)
+      lp.connect(g)
+    }
+    const swell = def.padSwell ? dur * 0.45 : Math.min(0.5, dur * 0.35)
+    g.gain.setValueAtTime(0, at)
+    g.gain.linearRampToValueAtTime(peak, at + swell)
+    g.gain.setValueAtTime(peak, at + Math.max(swell + 0.01, dur - 0.05))
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur + tail)
+    send16(g, o, 0.5, 1)
+  }
+
+  /** One hit of the sampled kit. `step` places the toms: a fill falls in pitch and crosses from left to right. */
+  function drum16(o: SpcOut, lane: 'k' | 's' | 'h', ch: string, at: number, step: number): void {
+    const c = ac!
+    const s = ensure16()
+    const hit = (name: SpcDrum, vol: number, rate: number, pan: number, echo: number, room: number) => {
+      const src = c.createBufferSource()
+      src.buffer = s.kit[name]
+      src.playbackRate.value = rate
+      const g = c.createGain()
+      g.gain.value = vol * SPC_GAIN.drums[name]
+      src.connect(g)
+      const mix = pan ? panner(pan) : g
+      if (mix !== g) g.connect(mix)
+      send16(mix, o, echo, room)
+      src.start(at)
+    }
+    if (lane === 'k') hit('kick', ch === 'X' ? 1.15 : 1, 1, 0, 0, 0)
+    else if (lane === 's') {
+      if (ch === 't') hit('tom', 1, [1.5, 1.26, 1.06, 0.84][step % 4]!, [-0.5, -0.17, 0.17, 0.5][step % 4]!, 0.5, 0.5)
+      else if (ch === 'g') hit('snare', 0.3, 1.08, 0.1, 0.3, 0.3)
+      else hit('snare', 1, 1, 0.1, 0.5, 0.6)
+    } else {
+      // A drummer leans on the beat: the hats between are lighter.
+      const lean = step % 4 === 0 ? 1 : step % 2 === 0 ? 0.8 : 0.6
+      hit(ch === 'o' ? 'openHat' : 'hat', lean, 1, 0.3, 0, 0)
+    }
+  }
+
+  /** A player's sends on the 16-bit chip, at `start` of their level (0 = silent, to be faded in). */
+  function spcBuses(def: TrackDef, id: TrackId, start: number): SpcBuses {
+    const c = ac!
+    const s = ensure16()
+    const lv = spcLevels(def, id)
+    const mk = (dest: AudioNode, v: number) => {
+      const g = c.createGain()
+      g.gain.setValueAtTime(0, c.currentTime)
+      if (start > 0) g.gain.linearRampToValueAtTime(v * start, c.currentTime + 0.4)
+      g.connect(dest)
+      return g
+    }
+    return { dry: mk(s.in, lv.dry), echo: mk(s.echo.in, lv.echo), room: mk(s.room, lv.room) }
+  }
+
+  function spcLevels(def: TrackDef, id: TrackId): { dry: number; echo: number; room: number } {
+    const patch = SPC_PATCHES[id]
+    const level = (def.level ?? 1) * patch.level
+    return { dry: level, echo: patch.echo * level, room: patch.room * level }
+  }
+
+  function spcOut(p: Player): SpcBuses {
+    return p.spc ?? (p.spc = spcBuses(p.def, p.id, 1))
+  }
+
+  /** How long one chip takes to hand a playing track to the other. */
+  const XFADE = 0.4
+
+  /** Hand a playing track to the other chip: its sends crossfade, and whatever is still sounding or already scheduled is voiced again there. */
+  function crossFlavor(p: Player): void {
+    const c = ac!
+    const t = c.currentTime
+    const sixteen = flavor === '16-bit'
+    const ramp = (g: GainNode, v: number, secs: number) => {
+      g.gain.cancelScheduledValues(t)
+      g.gain.setValueAtTime(g.gain.value, t)
+      g.gain.linearRampToValueAtTime(v, t + secs)
+    }
+    // The chip that takes over comes up fast (its notes bring their own attacks); the one that leaves fades.
+    const level = p.def.level ?? 1
+    const chip: Array<[GainNode, number]> = [[p.dry, level], [p.del, p.def.delay * level], [p.rev, p.def.reverb * level], [p.gated, 0.6 * level]]
+    for (const [g, v] of chip) ramp(g, sixteen ? 0 : v, sixteen ? XFADE : XFADE * 0.3)
+    if (sixteen && !p.spc) p.spc = spcBuses(p.def, p.id, 0)
+    if (p.spc) {
+      const lv = spcLevels(p.def, p.id)
+      for (const k of ['dry', 'echo', 'room'] as const) ramp(p.spc[k], sixteen ? lv[k] : 0, sixteen ? XFADE * 0.3 : XFADE)
+    }
+    for (const h of p.held) {
+      if (sixteen ? h.spc : h.chip) continue
+      if (h.at > t + 0.005) h.play(h.at, h.dur)
+      else if (h.at + h.dur - t > 0.12) h.play(t + 0.02, h.at + h.dur - t - 0.02)
+      else continue
+      if (sixteen) h.spc = true
+      else h.chip = true
+    }
+  }
+
   // ---- scheduler ------------------------------------------------------------
 
   function scheduleStep(p: Player): void {
@@ -1229,16 +2043,35 @@ export function createZeldaAudio(): ZeldaAudio {
     const s = p.step
     const sixteenth = 60 / def.bpm / 4
     const at = p.nextTime + (s % 4 === 2 ? def.swing * sixteenth : 0)
+    const patch = SPC_PATCHES[p.id]
+    // What has sounded is forgotten; the rest is what a change of flavour voices again.
+    const now = ac!.currentTime
+    if (p.held.length) p.held = p.held.filter(h => h.at + h.dur > now)
+    /** Play something on the chip of the moment, and remember it. */
+    const sound = (dur: number, play: Held['play']) => {
+      play(at, dur)
+      p.held.push({ at, dur, play, chip: flavor === '8-bit', spc: flavor === '16-bit' })
+    }
+    const sixteen = () => flavor === '16-bit'
 
     for (const lane of ['k', 's', 'h'] as const) {
       const ch = bar.drums[lane][s]
-      if (ch && ch !== '.') drumHit(p, lane, ch, at)
+      if (ch && ch !== '.') sound(0, t => (sixteen() ? drum16(spcOut(p), lane, ch, t, s) : drumHit(p, lane, ch, t)))
     }
-    for (const e of bar.bass) if (e.step === s) bassNote(p, def.bass, e.midi, at, e.len * sixteenth * 0.92)
-    for (const e of bar.lead) if (e.step === s) leadNote(p, def.lead, e.midi, at, e.len * sixteenth * 0.95, 0.2)
-    for (const e of bar.counter) if (e.step === s) counterNote(p, e.midi, at, e.len * sixteenth)
+    for (const e of bar.bass) {
+      if (e.step === s) sound(e.len * sixteenth * 0.92, (t, d) => (sixteen() ? bass16(spcOut(p), patch.bass, e.midi, t, d, patch.bassLevel ?? 1) : bassNote(p, def.bass, e.midi, t, d)))
+    }
+    for (const e of bar.lead) {
+      if (e.step === s) sound(e.len * sixteenth * 0.95, (t, d) => (sixteen() ? lead16(spcOut(p), patch.lead, e.midi, t, d, 0.2 * (patch.leadLevel ?? 1), def.wow) : leadNote(p, def.lead, e.midi, t, d, 0.2)))
+    }
+    for (const e of bar.counter) {
+      if (e.step === s) sound(e.len * sixteenth, (t, d) => (sixteen() ? string16(spcOut(p), e.midi, t, d, SPC_GAIN.counter, -0.3, 0.1, def.wow) : counterNote(p, e.midi, t, d)))
+    }
     for (const ch of bar.chords) {
-      if (ch.from === s && bar.pad) padChord(p, padVoicing(ch.c), at, ch.len * sixteenth)
+      if (ch.from === s && bar.pad) {
+        const notes = padVoicing(ch.c)
+        sound(ch.len * sixteenth, (t, d) => (sixteen() ? pad16(spcOut(p), patch.pad, notes, t, d, def) : padChord(p, notes, t, d)))
+      }
     }
     if (bar.arp && (bar.arpRate === 16 || s % 2 === 0)) {
       const tones = arpTones(chordAt(bar, s))
@@ -1251,8 +2084,11 @@ export function createZeldaAudio(): ZeldaAudio {
         const k = p.arpI % cyc
         idx = k < n ? k : cyc - k
       }
+      // On the 16-bit chip the harp's notes fall left and right in turn.
+      const side = p.arpI % 2 ? 0.4 : -0.4
       p.arpI++
-      arpNote(p, tones[idx]!, at, sixteenth * (bar.arpRate === 16 ? 1 : 2))
+      const midi = tones[idx]!
+      sound(sixteenth * (bar.arpRate === 16 ? 1 : 2), (t, d) => (sixteen() ? arp16(spcOut(p), patch.arp, midi, t, d, side) : arpNote(p, midi, t, d)))
     }
 
     p.nextTime += sixteenth
@@ -1286,13 +2122,16 @@ export function createZeldaAudio(): ZeldaAudio {
   }
 
   function ensureTimer(): void {
-    if (!timer) timer = setInterval(tick, 25)
+    // A context someone else clocks is ticked by them.
+    if (!timer && !host) timer = setInterval(tick, 25)
   }
 
   function makePlayer(id: TrackId): Player {
     const c = ac!
     const def = TRACKS[id]
-    const level = def.level ?? 1
+    const sixteen = flavor === '16-bit'
+    // A track that starts on the 16-bit chip keeps its 8-bit sends silent until a change of flavour asks for them.
+    const level = sixteen ? 0 : def.level ?? 1
     const mk = (dest: AudioNode, v: number) => {
       const g = c.createGain()
       g.gain.setValueAtTime(0, c.currentTime)
@@ -1312,6 +2151,8 @@ export function createZeldaAudio(): ZeldaAudio {
       del: mk(delay, def.delay * level),
       rev: mk(hall, def.reverb * level),
       gated: mk(gatedVerb, 0.6 * level),
+      spc: sixteen ? spcBuses(def, id, 1) : null,
+      held: [],
       alive: true,
     }
   }
@@ -1319,21 +2160,38 @@ export function createZeldaAudio(): ZeldaAudio {
   function fadeOut(p: Player, secs: number): void {
     const c = ac!
     p.alive = false
+    p.held.length = 0
     const t = c.currentTime
-    for (const g of [p.dry, p.del, p.rev, p.gated]) {
+    const sends = [p.dry, p.del, p.rev, p.gated, ...(p.spc ? [p.spc.dry, p.spc.echo, p.spc.room] : [])]
+    for (const g of sends) {
       g.gain.cancelScheduledValues(t)
       g.gain.setValueAtTime(g.gain.value, t)
       g.gain.linearRampToValueAtTime(0, t + secs)
     }
     fading.push(p)
     setTimeout(() => {
-      for (const g of [p.dry, p.del, p.rev, p.gated]) { try { g.disconnect() } catch { /* gone */ } }
+      for (const g of sends) { try { g.disconnect() } catch { /* gone */ } }
       const i = fading.indexOf(p)
       if (i >= 0) fading.splice(i, 1)
     }, secs * 1000 + 600)
   }
 
   // ---- sfx primitives ---------------------------------------------------------
+
+  /** Where an effect goes out. 8-bit: the SFX bus (and its reverb when asked). 16-bit: through the chip's voice, with a touch of its echo. */
+  function sfxOut(g: AudioNode, verb: boolean): void {
+    if (flavor === '16-bit') {
+      const s = ensure16()
+      g.connect(s.sfx.dry)
+      g.connect(s.sfx.echo)
+    } else g.connect(sfxBus)
+    if (verb) g.connect(sfxVerb)
+  }
+
+  /** The 16-bit chip's attack for an effect: a few milliseconds softer, never more than a third of a short sound. */
+  function softAttack(attack: number, dur: number): number {
+    return Math.max(attack, Math.min(0.007, dur * 0.33))
+  }
 
   interface ToneOpts { f: number; to?: number; dur: number; type?: OscillatorType; vol: number; at?: number; attack?: number; verb?: boolean; lp?: number }
 
@@ -1342,11 +2200,15 @@ export function createZeldaAudio(): ZeldaAudio {
     const at = c.currentTime + (o.at ?? 0)
     const osc1 = c.createOscillator()
     osc1.type = o.type ?? 'square'
+    // On the 16-bit chip the hard waves are its soft "samples" of them, and nothing starts quite so sharply.
+    const soft = flavor === '16-bit'
+    const softWave = soft && osc1.type !== 'sine' && osc1.type !== 'triangle' ? table(osc1.type === 'square' ? 'softSquare' : 'softSaw') : null
+    if (softWave) osc1.setPeriodicWave(softWave)
     osc1.frequency.setValueAtTime(Math.max(20, o.f), at)
     if (o.to) osc1.frequency.exponentialRampToValueAtTime(Math.max(20, o.to), at + o.dur)
     const g = c.createGain()
     g.gain.setValueAtTime(0, at)
-    g.gain.linearRampToValueAtTime(o.vol, at + (o.attack ?? 0.004))
+    g.gain.linearRampToValueAtTime(o.vol, at + (soft ? softAttack(o.attack ?? 0.004, o.dur) : o.attack ?? 0.004))
     g.gain.exponentialRampToValueAtTime(0.0001, at + o.dur)
     let node: AudioNode = osc1
     if (o.lp) {
@@ -1357,8 +2219,7 @@ export function createZeldaAudio(): ZeldaAudio {
       node = f
     }
     node.connect(g)
-    g.connect(sfxBus)
-    if (o.verb) g.connect(sfxVerb)
+    sfxOut(g, !!o.verb)
     osc1.start(at)
     osc1.stop(at + o.dur + 0.05)
   }
@@ -1377,12 +2238,11 @@ export function createZeldaAudio(): ZeldaAudio {
     f.Q.value = o.q ?? 1
     const g = c.createGain()
     g.gain.setValueAtTime(0, at)
-    g.gain.linearRampToValueAtTime(o.vol, at + (o.attack ?? 0.003))
+    g.gain.linearRampToValueAtTime(o.vol, at + (flavor === '16-bit' ? softAttack(o.attack ?? 0.003, o.dur) : o.attack ?? 0.003))
     g.gain.exponentialRampToValueAtTime(0.0001, at + o.dur)
     src.connect(f)
     f.connect(g)
-    g.connect(sfxBus)
-    if (o.verb) g.connect(sfxVerb)
+    sfxOut(g, !!o.verb)
     src.start(at, Math.random() * 1.5)
     src.stop(at + o.dur + 0.05)
   }
@@ -1510,7 +2370,7 @@ export function createZeldaAudio(): ZeldaAudio {
       g.gain.exponentialRampToValueAtTime(0.0001, at + 0.32)
       o.connect(bp)
       bp.connect(g)
-      g.connect(sfxBus)
+      sfxOut(g, false)
       o.start(at)
       lfo.start(at)
       o.stop(at + 0.35)
@@ -1577,8 +2437,7 @@ export function createZeldaAudio(): ZeldaAudio {
       lp.frequency.value = 900
       o.connect(lp)
       lp.connect(g)
-      g.connect(sfxBus)
-      g.connect(sfxVerb)
+      sfxOut(g, true)
       o.start(at)
       trem.start(at)
       o.stop(at + 1.1)
@@ -1647,8 +2506,7 @@ export function createZeldaAudio(): ZeldaAudio {
       }
       lfo.start(at)
       lfo.stop(at + 0.85)
-      g.connect(sfxBus)
-      g.connect(sfxVerb)
+      sfxOut(g, true)
       // The shimmer above it.
       ;[2637, 3520, 4186, 5274].forEach((f, i) => tone({ f, dur: 0.55, type: 'sine', vol: 0.04, attack: 0.18, at: 0.08 + i * 0.05, verb: true }))
       nz({ dur: 0.6, vol: 0.05, type: 'highpass', f: 7000, attack: 0.2, at: 0.1 })
@@ -1732,7 +2590,7 @@ export function createZeldaAudio(): ZeldaAudio {
     },
   }
 
-  function playJingle(j: JingleDef): number {
+  function playJingle(j: JingleDef, lead: SpcLead): number {
     const c = ac!
     const beat = 60 / j.bpm
     const t0 = c.currentTime + 0.03
@@ -1741,6 +2599,16 @@ export function createZeldaAudio(): ZeldaAudio {
       const at = t0 + b * beat
       const dur = len * beat
       end = Math.max(end, b * beat + dur)
+      if (flavor === '16-bit') {
+        // The same notes on the other chip: the lead to its own instrument, a flute under it, chimes, strings, a fretless bass.
+        const o = ensure16().sfx
+        if (v === 'lead') lead16(o, lead, m, at, dur * 0.95, 0.15)
+        else if (v === 'harm') lead16(o, 'flute', m, at, dur * 0.95, 0.09)
+        else if (v === 'bell') lead16(o, 'chime', m, at, dur, 0.09)
+        else if (v === 'pad') string16(o, m, at, dur, 0.055, 0, 0.08)
+        else bass16(o, 'fretless', m, at, dur * 0.95, 0.46)
+        continue
+      }
       const g = c.createGain()
       const lp = c.createBiquadFilter()
       lp.type = 'lowpass'
@@ -1797,6 +2665,9 @@ export function createZeldaAudio(): ZeldaAudio {
       const def = TRACKS[track]
       if (!def) return
       delay.delayTime.setTargetAtTime((60 / def.bpm) * 0.75, ac.currentTime, 0.05)
+      // The 16-bit echo follows the track too, once that chip exists (a change of flavour sets it otherwise).
+      if (flavor === '16-bit') ensure16()
+      spc?.echo.set(spcEchoTime(def.bpm), SPC_PATCHES[track].feedback)
       current = makePlayer(track)
       parkRadio()
       ensureTimer()
@@ -1812,7 +2683,7 @@ export function createZeldaAudio(): ZeldaAudio {
       const j = JINGLES[name]
       if (!j) return
       try {
-        const len = playJingle(j)
+        const len = playJingle(j, SPC_JINGLE_LEAD[name])
         const t = ac.currentTime
         musicBus.gain.cancelScheduledValues(t)
         musicBus.gain.setValueAtTime(musicBus.gain.value, t)
@@ -1823,9 +2694,9 @@ export function createZeldaAudio(): ZeldaAudio {
     },
 
     pause(on) {
-      if (!ac) return
-      if (on) ac.suspend().catch(() => {})
-      else ac.resume().catch(() => {})
+      if (!live) return
+      if (on) live.suspend().catch(() => {})
+      else live.resume().catch(() => {})
     },
 
     setMuted(m) {
@@ -1834,18 +2705,31 @@ export function createZeldaAudio(): ZeldaAudio {
       master.gain.setTargetAtTime(m ? 0 : MASTER_LEVEL, ac.currentTime, 0.02)
     },
 
+    setFlavor(f) {
+      if (f === flavor) return
+      flavor = f
+      if (!ac) return
+      try {
+        if (f === '16-bit' && current) ensure16().echo.set(spcEchoTime(current.def.bpm), SPC_PATCHES[current.id].feedback)
+        if (current) crossFlavor(current)
+      } catch { /* context closed */ }
+    },
+
     holdRadio() {
       parkRadio()
     },
+
+    tick,
 
     dispose() {
       if (timer) { clearInterval(timer); timer = null }
       current = null
       fading.length = 0
       unparkRadio()
-      if (ac) ac.close().catch(() => {})
-      ac = null
+      if (live) live.close().catch(() => {})
+      ac = live = null
       grit = null
+      spc = null
     },
   }
 }

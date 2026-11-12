@@ -18,7 +18,8 @@ async function load() {
       contents: [
         `export * from './render/iso/project'`,
         `export * from './render/iso/shape'`,
-        `export { VIEWS, VIEW_KEY, MAX_VIEWS, ENGINE_LOADERS, isViewId, nextView, viewName, startView, parseViews, mergeViews, setLiveViews, viewList, viewDef } from './views'`,
+        `export { DENSITY, Z_MAX, makeCam, fitDepth, toScene, toGround, depthOf } from './render/iso/camera'`,
+        `export { VIEWS, VIEW_KEY, DEFAULT_VIEW, MAX_VIEWS, ENGINE_LOADERS, isViewId, nextView, viewName, startView, parseViews, mergeViews, setLiveViews, viewList, viewDef } from './views'`,
         `export { ENGINES, resolveParams, paramDiff, cleanParam, isEngineId } from './viewParams'`,
         `export { WORLD } from './world/index'`,
         `export { TILE_INFO } from './world/tiles'`,
@@ -57,8 +58,17 @@ describe('the view registry', () => {
     assert.equal(M.startView('iso', 'classic'), 'iso')
     assert.equal(M.startView(null, 'iso'), 'iso')
     assert.equal(M.startView('3d', 'iso'), 'iso')
-    assert.equal(M.startView('3d', 'hologram'), 'classic')
+    assert.equal(M.startView('classic', 'iso'), 'classic')
+    assert.equal(M.startView(null, 'classic'), 'classic')
+  })
+  it('starts a browser that has never chosen in the 16-bit view', () => {
+    assert.equal(M.DEFAULT_VIEW, 'iso')
+    assert.equal(M.startView(null, null), 'iso')
+    assert.equal(M.startView('3d', 'hologram'), 'iso')
+    // The studio took the 16-bit view out of the round: the classic one, which cannot be taken out.
+    M.setLiveViews(M.parseViews({ iso: { hidden: true } }))
     assert.equal(M.startView(null, null), 'classic')
+    M.setLiveViews(null)
   })
   it('names every view for the pause screen in the pixel font', () => {
     for (const v of M.VIEWS) {
@@ -170,14 +180,14 @@ describe('the studio\'s views', () => {
     for (let i = 0; i < 20; i++) many['v' + i] = { engine: 'classic', name: 'V' + i }
     assert.equal(M.mergeViews(M.parseViews(many)).length, M.MAX_VIEWS)
   })
-  it('takes a published view into the round, and falls back to classic when it is gone', () => {
+  it('takes a published view into the round, and falls back to the first view when it is gone', () => {
     M.setLiveViews(M.parseViews({ noir: { engine: 'blyant', name: 'NOIR' } }))
     assert.equal(M.startView('noir', null), 'noir')
     assert.equal(M.nextView('blyant'), 'noir')
     assert.equal(M.nextView('noir'), 'classic')
     assert.equal(M.viewName('noir'), 'NOIR')
     M.setLiveViews(null)
-    assert.equal(M.startView(null, 'noir'), 'classic')
+    assert.equal(M.startView(null, 'noir'), M.DEFAULT_VIEW)
     assert.equal(M.viewList().length, M.VIEWS.length)
   })
 })
@@ -229,6 +239,69 @@ describe('the projection', () => {
     const mid = M.centreIn(p, { x: 10, y: 10 }, small, 320, 200, 0)
     const sb = M.projectedBox(p, small, 0)
     near(mid.x, (sb.x0 + sb.x1) / 2); near(mid.y, (sb.y0 + sb.y1) / 2)
+  })
+})
+
+describe('the 16-bit view\'s camera', () => {
+  const rect = { x: 0, y: 0, w: 40, h: 30 }
+  const cam = (k, zoom0 = 2) => { const c = M.makeCam(k, 640, 400, zoom0, { x: 0, y: 0 }); M.fitDepth(c, rect); return c }
+  it('draws two px for every px of the classic art', () => {
+    assert.equal(M.DENSITY, 2)
+    const c = cam(1)
+    near(c.zoom, 2)
+    // One tile east is a 2:1 step of 32 by 16; one tile up is 32 px.
+    assert.deepEqual([c.ex.x, c.ex.y, c.ey.x, c.ey.y, c.zs], [32, 16, -32, 16, 32])
+  })
+  it('is the classic picture where the turn starts, whatever size that has', () => {
+    for (const zoom0 of [2, 2.5, 1.5]) {
+      const c = cam(0, zoom0)
+      near(c.zoom, zoom0)
+      // A wall's top one tile up, standing one row south of where the art draws it, lands where the art drew it.
+      const top = M.toScene(c, 3, 5, 1)
+      const drawn = M.toScene(c, 3, 4, 0)
+      near(top.x, drawn.x); near(top.y, drawn.y)
+    }
+  })
+  it('never foreshortens height: one tile up is one tile of px at every k', () => {
+    for (const k of [0, 0.3, 0.7, 1]) {
+      const c = cam(k)
+      const a = M.toScene(c, 7, 9, 0)
+      const b = M.toScene(c, 7, 9, 1)
+      near(a.x, b.x); near(a.y - b.y, 16 * c.zoom)
+    }
+  })
+  it('finds the ground under a scene px again, at any height', () => {
+    for (const k of [0, 0.5, 1]) {
+      const c = cam(k)
+      for (const [x, y, z] of [[3.25, 8.5, 0], [12, 2.75, 1], [30.5, 20.125, 2]]) {
+        const s = M.toScene(c, x, y, z)
+        const g = M.toGround(c, s.x, s.y, z)
+        near(g.x, x, 1e-6); near(g.y, y, 1e-6)
+      }
+    }
+  })
+  it('puts what is nearer the viewer in front: further south-east, and higher', () => {
+    const c = cam(1)
+    assert.ok(M.depthOf(c, 10, 10) > M.depthOf(c, 9, 10))
+    assert.ok(M.depthOf(c, 10, 10) > M.depthOf(c, 10, 9))
+    assert.ok(M.depthOf(c, 10, 10, 1) > M.depthOf(c, 10, 10, 0))
+    // A point straight behind another on the screen (one tile north-west, as far up as that puts it) is further away.
+    const front = M.toScene(c, 10, 10, 0)
+    const behind = M.toScene(c, 9, 9, -1)
+    near(front.x, behind.x); near(front.y, behind.y)
+    assert.ok(M.depthOf(c, 10, 10, 0) > M.depthOf(c, 9, 9, -1))
+    // The classic view looks from the south: the same holds along its own line of sight.
+    const c0 = cam(0)
+    assert.ok(M.depthOf(c0, 5, 6) > M.depthOf(c0, 5, 5))
+  })
+  it('keeps every depth in play between 0 and 1', () => {
+    for (const k of [0, 0.5, 1]) {
+      const c = cam(k)
+      for (const x of [rect.x, rect.x + rect.w]) for (const y of [rect.y, rect.y + rect.h]) for (const z of [0, M.Z_MAX]) {
+        const d = M.depthOf(c, x, y, z)
+        assert.ok(d > 0 && d < 1, `depth ${d} at ${x},${y},${z} for k=${k}`)
+      }
+    }
   })
 })
 

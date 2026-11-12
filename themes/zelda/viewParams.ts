@@ -10,11 +10,12 @@
  */
 export type EngineId = 'classic' | 'iso' | 'blyant'
 
+/** `group`: the heading the studio files a value under, where an engine has many. */
 export type ParamSpec =
-  | { t: 'number'; label: string; value: number; min: number; max: number; step?: number; note?: string }
-  | { t: 'color'; label: string; value: string; note?: string }
-  | { t: 'choice'; label: string; value: string; options: readonly string[]; note?: string }
-  | { t: 'toggle'; label: string; value: boolean; note?: string }
+  | { t: 'number'; label: string; value: number; min: number; max: number; step?: number; note?: string; group?: string }
+  | { t: 'color'; label: string; value: string; note?: string; group?: string }
+  | { t: 'choice'; label: string; value: string; options: readonly string[]; note?: string; group?: string }
+  | { t: 'toggle'; label: string; value: boolean; note?: string; group?: string }
 
 export type ParamValue = number | string | boolean
 export type ParamValues = Record<string, ParamValue>
@@ -31,6 +32,10 @@ const color = (label: string, value: string, note?: string): ParamSpec => ({ t: 
 const toggle = (label: string, value: boolean, note?: string): ParamSpec => ({ t: 'toggle', label, value, ...(note ? { note } : {}) })
 const choice = (label: string, value: string, options: readonly string[], note?: string): ParamSpec => ({ t: 'choice', label, value, options, ...(note ? { note } : {}) })
 
+/** File some values under a heading. */
+const group = (title: string, specs: Record<string, ParamSpec>): Record<string, ParamSpec> =>
+  Object.fromEntries(Object.entries(specs).map(([name, spec]) => [name, { ...spec, group: title }]))
+
 /** The finish every engine shares: what happens to the picture on its way to the glass. */
 const FINISH = (scan: number, bloom: number, vignette: number): Record<string, ParamSpec> => ({
   scanlines: num('Scanlines', scan, 0, 2, 0.05, 'The dark line across every pixel row.'),
@@ -46,25 +51,53 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
   },
   iso: {
     title: 'Isometric',
-    blurb: 'The same world turned 45° and given what a 16-bit machine had to spend: long shadows from a low sun, a banded dusk sky, haze with distance, cloud shadows, water that mirrors, gradient windows.',
+    blurb: 'The same world turned 45° at twice the pixels, the way a 16-bit machine dreamt: real depth, the art smoothed on its way up, every lamp lighting what it can see from the side it is on, long shadows from a low sun, water that mirrors, neon that blooms, a dusk sky in bands behind it all.',
     params: {
-      ...FINISH(0, 0.85, 0.6),
-      sunAngle: num('Sun direction', 205, 0, 360, 5, 'Where the low sun stands, in degrees on the ground (0 east, 90 south, 180 west). Shadows fall the other way.'),
-      shadowLength: num('Shadow length', 1.5, 0, 4, 0.1, 'How far a thing one tile tall throws its shadow, in tiles.'),
-      shadow: num('Shadow strength', 0.42, 0, 0.9),
-      shadowColor: color('Shadow colour', '#140a3c'),
-      occlusion: num('Corner shade', 0.5, 0, 1, 0.05, 'Soft darkness where a wall meets the ground.'),
-      shading: num('Side shading', 0.6, 0, 1, 0.05, 'How much the sides away from the sun darken, in dithered steps.'),
-      rim: num('Sun rim', 0.5, 0, 1, 0.05, 'A warm edge on tops facing the sun.'),
-      haze: num('Distance haze', 0.4, 0, 1),
-      hazeColor: color('Haze colour', '#ff6fb0'),
-      sky: toggle('Dusk sky', true, 'A banded sky and the stuck sun beyond the edge of the map.'),
-      skyTop: color('Sky, top', '#1a0f4a'),
-      skyHorizon: color('Sky, horizon', '#ff5f9e'),
-      clouds: num('Cloud shadows', 0.3, 0, 1),
-      cloudSpeed: num('Cloud speed', 1, 0, 4, 0.1),
-      reflections: num('Water mirror', 0.45, 0, 1, 0.05, 'How clearly what stands by water shows in it.'),
-      windows: choice('Windows', '16-bit', ['16-bit', 'neon'], 'The dialog box and panels: gradient windows, or the neon boxes of the classic view.'),
+      ...group('The glass', {
+        ...FINISH(0, 0.9, 0.5),
+        colors: choice('Colours', '15-bit', ['15-bit', 'full'], 'The machine’s 32 768 colours with a dither between them, or every colour the screen has.'),
+      }),
+      ...group('The art', {
+        smoothing: num('Art smoothing', 1, 0, 1, 0.05, 'How far the classic art is smoothed on its way up to two pixels a texel: stairs get their half-steps, shades of one material run together, black outlines take a colour. 0 leaves the pixels square.'),
+        relief: num('Relief', 0.9, 0, 3, 0.05, 'How much the art’s own light and dark stands up for the lamps to catch.'),
+        roundness: num('Roundness', 0.7, 0, 2, 0.05, 'How round people and things are to the light.'),
+        plants: toggle('Standing plants', true, 'Trees with crowns, bushes, tall grass and flowers that stand and sway, in place of the classic tiles.'),
+      }),
+      ...group('Lamps', {
+        sideLight: num('Side light', 0.85, 0, 1, 0.05, 'How much a lamp lights only what faces it. 0 is the flat glow of the classic view.'),
+        lightShadows: num('Lamp shadows', 0.85, 0, 1, 0.05, 'How much walls and roofs stop a lamp’s light.'),
+        glow: num('Light in the air', 1, 0, 2, 0.05, 'How much of a lamp’s light hangs over the ground it falls on.'),
+      }),
+      ...group('The sun', {
+        sunAngle: num('Sun direction', 205, 0, 360, 5, 'Where the low sun stands, in degrees on the ground (0 east, 90 south, 180 west). Shadows fall the other way.'),
+        shadowLength: num('Shadow length', 1.5, 0, 4, 0.1, 'How far a thing one tile tall throws its shadow, in tiles.'),
+        shadow: num('Shadow strength', 0.55, 0, 0.9),
+        shadowColor: color('Shadow colour', '#140a3c'),
+        occlusion: num('Corner shade', 0.5, 0, 1, 0.05, 'Soft darkness where a wall meets the ground.'),
+        shading: num('Side shading', 0.6, 0, 1, 0.05, 'How much the sides away from the sun darken, in dithered steps.'),
+        rim: num('Sun rim', 0.5, 0, 1, 0.05, 'A warm edge on what the low sun catches.'),
+        rays: num('Sun shafts', 0.6, 0, 1, 0.05, 'The low sun coming through in slanting shafts.'),
+        clouds: num('Cloud shadows', 0.3, 0, 1),
+        cloudSpeed: num('Cloud speed', 1, 0, 4, 0.1),
+      }),
+      ...group('The air', {
+        haze: num('Distance haze', 0.35, 0, 1),
+        hazeColor: color('Haze colour', '#ff6fb0'),
+        mist: num('Mist', 0.6, 0, 1, 0.05, 'Low mist drifting over the ground: thick in the Wildwood, a breath on the coast.'),
+        wind: num('Wind', 1, 0, 3, 0.1, 'How much the plants sway, and how fast the leaves go by.'),
+        air: toggle('Things in the air', true, 'Dust at the hero’s heels, sparks rising in the lamplight, leaves on the wind.'),
+      }),
+      ...group('Sky and water', {
+        sky: toggle('Dusk sky', true, 'A dusk in sliding layers beyond the edge of the map: banded sky, the stuck sun, ridges, clouds, the sea.'),
+        skyTop: color('Sky, top', '#1a0f4a'),
+        skyHorizon: color('Sky, horizon', '#ff5f9e'),
+        wet: num('Wet ground', 0.6, 0, 1, 0.05, 'Pavement after rain and polished floors: how much neon shows in them.'),
+        reflections: num('Water mirror', 0.6, 0, 1, 0.05, 'How clearly what stands by water shows in it.'),
+      }),
+      ...group('The machine', {
+        sound: choice('Sound', '16-bit', ['16-bit', '8-bit'], 'The music through the 16-bit machine’s sampled instruments and echo, or the classic chip.'),
+        windows: choice('Windows', '16-bit', ['16-bit', 'neon'], 'The dialog box and panels: gradient windows in the 16-bit font, or the neon boxes of the classic view.'),
+      }),
     },
   },
   blyant: {

@@ -19,7 +19,7 @@ import type { Dir, Enemy, GameEvent, GameState, World } from '../types'
 import { BOMB_FUSE, SPIN_TIME, SWING_TIME, TILE, WARP_TIME } from '../types'
 import { cameraFor, cellDef, cellIndex, cellIsDark, mapInfo, shardPos, swingAngle } from '../engine/index'
 import { drawText, textWidth } from '../../base/pixel/font'
-import { drawBanner, drawDialog, drawHud, drawPause, drawViewStrip, NEON_SKIN, type HudSkin } from './hud'
+import { drawBanner, drawDialog, drawHud, drawPause, drawViewStrip, hudScale, NEON_SKIN, type HudSkin } from './hud'
 import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
@@ -38,6 +38,9 @@ import { resolveParams, type EngineId, type ParamValues } from '../viewParams'
 
 /** NPC looks that live on the town's beach and move on its slow beat. */
 const BEACH_LOOKS: ReadonlySet<string> = new Set(['hippie', 'smoker', 'guitar', 'sleeper', 'twirler', 'bonfire'])
+
+/** Foes drawn larger than a person. */
+const BIG_FOES: ReadonlySet<string> = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
 
 const T = TILE
 
@@ -168,6 +171,14 @@ export interface Kit {
   flashFade(g: G, s: GameState, ui: FrameUI, dt: number, into?: string): number
   present(fade: number, glows: (bg: G) => void, finish?: Finish): void
   hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin?: HudSkin): void
+  /**
+   * Where a skin's HUD lies on the screen: device px per HUD logical px, where
+   * its logical origin lands (device px) and its logical size. The classic HUD
+   * shares the scene's grid; a skin at density 2 has its own scale when the
+   * screen's is odd, and then its area is not the scene's. For a view that
+   * places something of its own by the HUD: (device − ox) / scale.
+   */
+  hudSpace(skin?: HudSkin): { scale: number; ox: number; oy: number; vw: number; vh: number }
 }
 
 type G = CanvasRenderingContext2D
@@ -180,6 +191,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let lg = light.getContext('2d')!
   let hud = makeCanvas(1, 1)
   let hg = hud.getContext('2d')!
+  /** The HUD canvas of a skin with finer pixels than the scene's (`fineHud`); none until one is worn. */
+  let hudFine: HTMLCanvasElement | null = null
+  let hgFine: G | null = null
   let bloom = makeCanvas(1, 1)
   let bg = bloom.getContext('2d')!
   let W = 1
@@ -713,6 +727,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     arc = s.inv.arc
     twinList = m.enemies
     queueProps(g, world, s, cx, cy, qw, qh, time, ui.reducedMotion, items, lights, flat)
+    for (const it of items) it.big = true
     if (!ui.attract) queueLuna(g, s, cx, cy, items, lights)
     for (const b of m.moving) {
       const p = Math.min(1, b.t / (b.dur ?? 0.28))
@@ -768,6 +783,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         x: n.x,
         foot: 6 / T,
         y: n.y,
+        big: n.look === 'tree',
         draw: () => {
           const x = n.x * T - cx
           const y = n.y * T - cy + 6
@@ -788,11 +804,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (n.look === 'ghost') lights.push({ x: n.x, y: n.y, r: 2, color: '#cfc6ff', a: 0.4 })
     }
     emit.length = 0
+    const beforeExits = items.length
     queueExits(g, m.exits ?? [], cx, cy, qw, qh, ui.reducedMotion ? 0 : time, ui.reducedMotion, items, lights, emit)
+    for (let i = beforeExits; i < items.length; i++) items[i]!.big = true
     for (const e of m.enemies) {
       if (e.dead) continue
       if (kind === 'dungeon' && e.cell !== s.zoneIndex && !(s.scroll && e.cell === s.scroll.index)) continue
-      items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.kind === 'eye' ? e.y + 0.4 : e.y, draw: () => drawEnemy(g, s, e, cx, cy, lights) })
+      items.push({ x: e.x, foot: e.r + 1 / T, ay: e.y, y: e.kind === 'eye' ? e.y + 0.4 : e.y, big: BIG_FOES.has(e.kind), draw: () => drawEnemy(g, s, e, cx, cy, lights) })
     }
     for (const b of m.bombs) {
       const fast = b.t > BOMB_FUSE - 0.6
@@ -948,42 +966,70 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (finish.vignette > 0) vignette(screen, finish.vignette)
   }
 
+  /** Where a skin's HUD lies on the screen (`Kit.hudSpace`). */
+  function hudSpace(skin: HudSkin = NEON_SKIN): { scale: number; ox: number; oy: number; vw: number; vh: number } {
+    const hs = hudScale(scale, W, H, skin.density)
+    const w = hs === scale ? vw : Math.ceil(W / hs)
+    const h = hs === scale ? vh : Math.ceil(H / hs)
+    return { scale: hs, ox: Math.floor((W - w * hs) / 2), oy: Math.floor((H - h * hs) / 2), vw: w, vh: h }
+  }
+
+  /** The canvas for a skin at `density` pixels per logical px, its context scaled so the layout stays in logical px. */
+  function fineHud(w: number, h: number, density: number): G {
+    if (!hudFine || !hgFine || hudFine.width !== w || hudFine.height !== h) {
+      hudFine = makeCanvas(w, h)
+      hgFine = hudFine.getContext('2d')!
+      hgFine.imageSmoothingEnabled = false
+    }
+    hgFine.setTransform(density, 0, 0, density, 0, 0)
+    return hgFine
+  }
+
   /**
    * The HUD layer and the touch stick. (cx, cy) is the camera the exit labels
    * are placed by (px), `heroY` the hero's row on the scene (the dialog box
-   * keeps clear of it).
+   * keeps clear of it): both in scene px, whatever grid the skin's HUD is on.
    */
   function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN) {
     const ox = Math.floor((W - vw * scale) / 2)
     const oy = Math.floor((H - vh * scale) / 2)
-    hg.clearRect(0, 0, vw, vh)
+    // The skin's own grid: the scene's for the classic HUD; at density 2 twice as fine, and of another size when the screen's scale is odd.
+    const sp = hudSpace(skin)
+    const density = skin.density ?? 1
+    const g = density > 1 ? fineHud(sp.vw * density, sp.vh * density, density) : hg
+    g.clearRect(0, 0, sp.vw, sp.vh)
+    // The camera and the hero's row arrive in scene px; on a HUD grid of another scale they are these.
+    const zoom = scale / sp.scale
+    const lx = cx - (ox - sp.ox) / scale
+    const ly = cy - (oy - sp.oy) / scale
+    const heroRow = (oy - sp.oy + heroY * scale) / sp.scale
     if (!ui.attract && s.mode !== 'exit') {
       // Hearts, bits and items appear with the blade; before that the town is just a town.
       const hud = s.inv.sword
       // Clear of the notch and the status bar when the page fills the whole screen.
-      const top = Math.ceil(insets.top * dpr / scale)
-      const left = Math.ceil(insets.left * dpr / scale)
-      const right = Math.ceil(insets.right * dpr / scale)
-      const bottom = Math.ceil(insets.bottom * dpr / scale)
+      const top = Math.ceil(insets.top * dpr / sp.scale)
+      const left = Math.ceil(insets.left * dpr / sp.scale)
+      const right = Math.ceil(insets.right * dpr / sp.scale)
+      const bottom = Math.ceil(insets.bottom * dpr / sp.scale)
       if (hud) {
-        hg.save()
-        hg.translate(left, top)
-        drawHud(hg, s, vw - left - right, time, ui.touch, skin)
-        hg.restore()
+        g.save()
+        g.translate(left, top)
+        drawHud(g, s, sp.vw - left - right, time, ui.touch, skin)
+        g.restore()
       }
-      drawExitLabels(hg, s, labels, cx, cy, vw, vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top, skin)
+      drawExitLabels(g, s, labels, lx, ly, sp.vw, sp.vh, ui.paused ? 0 : dt, ui.keys.touch ? 'TAP' : ui.keys.a, ui.reducedMotion, !ui.paused, (hud ? 30 : 2) + top, skin, zoom)
       // The view strip has the banner's place while it is up.
-      if (ui.banner && s.mode !== 'dialog' && !(ui.strip && !ui.paused)) drawBanner(hg, ui.banner.text, ui.banner.t, vw, vh, skin)
+      if (ui.banner && s.mode !== 'dialog' && !(ui.strip && !ui.paused)) drawBanner(g, ui.banner.text, ui.banner.t, sp.vw, sp.vh, skin)
       if (s.dialog) {
-        hg.save()
-        hg.translate(0, top)
-        drawDialog(hg, s, vw, vh - top - bottom, heroY - top, ui.keys, time, skin)
-        hg.restore()
+        g.save()
+        g.translate(0, top)
+        drawDialog(g, s, sp.vw, sp.vh - top - bottom, heroRow - top, ui.keys, time, skin)
+        g.restore()
       }
-      if (ui.paused) drawPause(hg, s, vw, vh, ui.keys, ui.confirmReset, ui.muted, ui.view, skin)
-      else if (ui.strip && !s.dialog) drawViewStrip(hg, ui.strip, vw, vh - bottom, !!ui.keys.touch, skin)
+      if (ui.paused) drawPause(g, s, sp.vw, sp.vh, ui.keys, ui.confirmReset, ui.muted, ui.view, skin)
+      else if (ui.strip && !s.dialog) drawViewStrip(g, ui.strip, sp.vw, sp.vh - bottom, !!ui.keys.touch, skin)
     }
-    screen.drawImage(hud, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+    screen.drawImage(density > 1 ? hudFine! : hud, 0, 0, sp.vw * density, sp.vh * density, sp.ox, sp.oy, sp.vw * sp.scale, sp.vh * sp.scale)
 
     // Touch stick
     if (ui.stick) {
@@ -1246,6 +1292,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     flashFade,
     present,
     hudLayer,
+    hudSpace,
   }
   const views = new Map<string, View>()
   const turn = createTurn(id => views.has(id))

@@ -121,11 +121,11 @@ import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from '.
 import { turnMove } from './render/iso/project'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
 import { STRIP_TIME } from './render/hud'
-import type { EngineId } from './viewParams'
+import { resolveParams, type EngineId } from './viewParams'
 import { sprite } from './render/sheet'
 import { startLiveSprites } from './render/live'
 import { KEYBOARD_KEYS, TOUCH_KEYS } from './keys'
-import { createZeldaAudio, type SfxName, type ZeldaAudio } from './audio'
+import { createZeldaAudio, flavorForView, type SfxName, type ZeldaAudio } from './audio'
 import { readLocalSave, writeLocalSave, clearLocalSave, readLocalBest, writeLocalBest } from './localSave'
 import { syncWithProfile } from './profileSync'
 import { usePortalAccountLink } from '../../composables/useAccount'
@@ -290,16 +290,20 @@ const viewIcon = computed(() => {
 let viewAsk = 0
 /** The view the renderer was last handed: where a failed switch falls back to. */
 let viewShown: ViewId = 'classic'
-/** The first frames wait for the view this browser left in, so an isometric player never sees the classic picture flash by. */
+/** The first frames wait for the view the visit starts in (the 16-bit one, unless this browser chose another), so the classic picture never flashes by. */
 let viewHold = false
 
-/** Turn to a view, fetching its code the first time. `instant`: no turn (the first frame, a paused game, reduced motion). */
-async function showView(id: ViewId, instant = false) {
+/**
+ * Turn to a view, fetching its code the first time. `instant`: no turn (the first frame, a paused game, reduced motion).
+ * `remember`: this is the visitor's own choice, kept for the next visit; the view a visit starts in is not one
+ * (a browser that never chose keeps following the site's first view, and one bad fetch does not pin it to the classic one).
+ */
+async function showView(id: ViewId, instant = false, remember = true) {
   if (!renderer) return
   // A view is an engine with its own values (`views.ts`); one the round no longer holds is the classic one.
   const def = viewDef(id) ?? viewDef('classic')!
   viewId.value = def.id
-  try { localStorage.setItem(VIEW_KEY, def.id) } catch { /* private mode: this visit only */ }
+  if (remember) try { localStorage.setItem(VIEW_KEY, def.id) } catch { /* private mode: this visit only */ }
   const ask = ++viewAsk
   const load = ENGINE_LOADERS[def.engine]
   if (load && !renderer.hasView(def.engine)) {
@@ -311,7 +315,7 @@ async function showView(id: ViewId, instant = false) {
       // The code did not arrive (offline, a deploy in between): stay where we were, and say so to the next visit too.
       if (ask !== viewAsk || !alive || !renderer) return
       viewId.value = viewShown
-      try { localStorage.setItem(VIEW_KEY, viewId.value) } catch { /* private mode */ }
+      if (remember) try { localStorage.setItem(VIEW_KEY, viewId.value) } catch { /* private mode */ }
       return
     }
   }
@@ -321,6 +325,13 @@ async function showView(id: ViewId, instant = false) {
   renderer.setView(def.engine, instant || reducedMotion.value || paused.value || panel.value !== null)
   viewShown = def.id
   pausedDrawn = false
+  syncSound()
+}
+
+/** The sound follows the picture: the isometric view plays on the 16-bit chip, unless its values ask for the 8-bit one (`flavorForView` in audio.ts). */
+function syncSound() {
+  const def = viewDef(viewShown) ?? viewDef('classic')!
+  audio?.setFlavor(flavorForView(def.engine, resolveParams(def.engine, def.params)))
 }
 
 function cycleView() {
@@ -342,6 +353,7 @@ function applyLiveViews(live: LiveViews | null) {
   if (!def) { void showView('classic', true); return }
   renderer.setParams(def.engine, def.params)
   pausedDrawn = false
+  syncSound()
 }
 
 /** Ending, pause-screen and pause keys; the game keys are input.ts's. */
@@ -917,19 +929,21 @@ onMounted(() => {
   // The home page owns every key: arrows walk the hero, Escape pauses.
   navigationLocked.value = true
   renderer = createRenderer(canvas.value, WORLD)
-  // The view this browser used last, or the one the address asks for (?view=iso).
+  // The view the address asks for (?view=classic), the one this browser chose last, or the site's first: the 16-bit one.
   let lastView: string | null = null
   try { lastView = localStorage.getItem(VIEW_KEY) } catch { /* private mode */ }
   const firstView = startView(new URLSearchParams(location.search).get('view'), lastView)
   if (firstView !== 'classic') {
     viewHold = true
     const release = () => { viewHold = false }
-    void showView(firstView, true).then(release, release)
+    void showView(firstView, true, false).then(release, release)
     // A slow network must not keep the page dark: after a moment the classic view plays until the code is here.
     setTimeout(release, 1500)
   }
   void loadHighScoreSign()
   audio = createZeldaAudio()
+  // A view that was shown before the sound existed still gets its chip.
+  syncSound()
   // The world plays its own music; the radio (and its hidden widget) stays quiet here.
   audio.holdRadio()
   muteStop = watch(sound.muted, (m: boolean) => audio?.setMuted(m), { immediate: true })

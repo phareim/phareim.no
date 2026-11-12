@@ -43,7 +43,7 @@ import { NO_INPUT, WARP_TIME } from ${JSON.stringify(join(repo, 'themes/zelda/ty
 import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))}
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
-import isoView from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
+import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
 import blyantView from ${JSON.stringify(join(repo, 'themes/zelda/render/blyant/view.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
@@ -53,6 +53,8 @@ const canvas = document.createElement('canvas')
 canvas.style.cssText = 'display:block;width:' + W + 'px;height:' + H + 'px'
 document.body.style.cssText = 'margin:0;background:#0b0616;overflow:hidden'
 document.body.appendChild(canvas)
+// The lab draws as fast as it can on a software GPU: the 16-bit view must not take that for a slow phone.
+pinQuality(q.get('quality') === null ? 2 : +q.get('quality'))
 const world = scene.startsWith('p-') ? LAB : WORLD
 const s = createGame(world, { seed: 7, at: ['start', 'intro', 'swing', 'pause', 'hutout'].includes(scene) ? { map: 'overworld', entry: 'hut' } : null })
 if (scene !== 'hutout') { s.dialog = null; s.mode = 'play'; s.hero.auto = null }
@@ -161,6 +163,8 @@ function wild(luna = false) {
 function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.dir = dir; s.hero.auto = null; s.mode = 'play'; s.dialog = null }
 // Several frames so fades (exit labels) settle and the clock moves.
 for (let k = 0; k < +(q.get('frames') || 40); k++) r.draw(s, ui, 1 / 60)
+// For a lab page that wants to go on drawing (timing a view, filming a turn).
+window.__lab = { r, s, ui, world, step: (n = 1, i = inp({})) => run(n, i) }
 document.title = 'ready'
 `
 const entryFile = join(out, '_entry.ts')
@@ -275,7 +279,7 @@ for (const [name, scene, w, h, dpr, top] of SHOTS) {
   const png = join(out, `${name}${tag}${process.env.HERO_COLORS ? '-dressed' : ''}${process.env.HERO_LOOK ? '-look' : ''}.png`)
   try {
     execFileSync('chromium-browser', [
-      '--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
+      '--headless=new', '--no-sandbox', '--disable-gpu', '--enable-unsafe-swiftshader', '--hide-scrollbars',
       `--force-device-scale-factor=${dpr}`, `--window-size=${w},${h}`,
       '--virtual-time-budget=3000', `--screenshot=${png}`,
       `file://${html}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}&top=${top}&touch=${w < 1000 ? 1 : 0}${hero}${view}`,
