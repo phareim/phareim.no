@@ -59,7 +59,7 @@ for i, (ch, g) in enumerate(glyphs.items()):
     if ch.isalpha() and ch.lower() != ch:
         cmap[ord(ch.lower())] = name
 # What font16.ts's ALIAS draws an unknown character as (É, — and … have glyphs of their own here), and two the pages use.
-for alias, to in {'–': '-', '’': "'", '‘': "'", '“': '"', '”': '"', 'È': 'E', 'Ä': 'Æ', 'Ö': 'Ø', 'Ü': 'U', ' ': ' ', '•': '·'}.items():
+for alias, to in {'’': "'", '‘': "'", '“': '"', '”': '"', 'È': 'E', 'Ä': 'Æ', 'Ö': 'Ø', 'Ü': 'U', ' ': ' ', '•': '·'}.items():
     if to in glyphs:
         cmap[ord(alias)] = cmap[ord(to)]
         if alias.isalpha() and alias.lower() != alias: cmap[ord(alias.lower())] = cmap[ord(to)]
