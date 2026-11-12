@@ -13,8 +13,11 @@
  * How a layer is placed: its top edge at `top` × screen height, its left
  * edge at screen x = −(camera x × `parallax` + seconds × `drift`), wrapped
  * when `repeatX`. A layer that does not repeat is as wide as the screen and
- * stands still. The pictures are composed for an offset near zero: the sun
- * is in the middle of the screen and rims on ridges face it.
+ * stands still. A layer with `blink` is shown for the first half of each
+ * cycle of that many seconds and hidden for the second. The pictures are
+ * composed for an offset near zero: rims on ridges face the sun, which
+ * stands in the middle of a wide screen and to the right on a tall one,
+ * where the map hides the middle.
  */
 import { hash2 } from '../../../base/pixel/scenery'
 
@@ -30,7 +33,7 @@ export interface BackdropLayer {
   emissive: boolean
   /** drift in hi-res px per second along x (clouds) */
   drift: number
-  /** seconds per blink: shown for the first half of each cycle, hidden for the second (a mast's lamp); absent on a layer that is always shown */
+  /** seconds per blink: shown for the first half of each cycle, hidden for the second (a mast's lamp, a lighthouse's flash, a star's twinkle); absent on a layer that is always shown */
   blink?: number
 }
 export interface Backdrop {
@@ -55,6 +58,7 @@ const scale = (a: RGB, k: number): RGB => [a[0] * k, a[1] * k, a[2] * k]
 /** A colour as one 32-bit pixel (little-endian RGBA). */
 const pack = (c: RGB, a = 255) => ((a << 24) | (clamp(Math.round(c[2]), 0, 255) << 16) | (clamp(Math.round(c[1]), 0, 255) << 8) | clamp(Math.round(c[0]), 0, 255)) >>> 0
 const ink = (s: string) => pack(hex(s))
+const unpack = (c: number): RGB => [c & 255, (c >> 8) & 255, (c >> 16) & 255]
 
 function toHsl(c: RGB): [number, number, number] {
   const r = c[0] / 255, g = c[1] / 255, b = c[2] / 255
@@ -94,21 +98,34 @@ function rampOf(stops: [number, RGB][]): Ramp {
   }
 }
 /**
- * The sky from zenith (0) to the horizon (1): deep indigo, the given top
- * colour, violet, magenta, the given horizon colour, then a thin line of
- * orange and gold. `haze` greys it toward a mist colour (the Wildwood).
+ * The coast's sky from zenith (0) to the horizon (1): deep indigo, the given
+ * top colour, violet, magenta, the given horizon colour, then a thin line of
+ * orange and gold.
  */
-function skyRamp(top: RGB, horizon: RGB, haze = 0): Ramp {
-  const mist: RGB = [104, 84, 150]
-  const h = (c: RGB, k = 1) => mix(c, mist, haze * k)
+function skyRamp(top: RGB, horizon: RGB): Ramp {
   return rampOf([
-    [0, h(scale(top, 0.42), 0.4)],
-    [0.3, h(top, 0.6)],
-    [0.55, h(hueMix(top, horizon, 0.4))],
-    [0.76, h(hueMix(top, horizon, 0.72))],
-    [0.91, h(horizon)],
-    [0.97, h(mix(horizon, [255, 150, 70], 0.8), 1.2)],
-    [1, h([255, 214, 110], 1.4)],
+    [0, scale(top, 0.42)],
+    [0.3, top],
+    [0.55, hueMix(top, horizon, 0.4)],
+    [0.76, hueMix(top, horizon, 0.72)],
+    [0.91, horizon],
+    [0.97, mix(horizon, [255, 150, 70], 0.8)],
+    [1, [255, 214, 110]],
+  ])
+}
+/**
+ * The Wildwood's sky: the same dusk seen through haze. Darker and greyer
+ * all the way down, a dusty rose at the horizon, and only a breath of the
+ * gold line.
+ */
+function wildRamp(top: RGB, horizon: RGB): Ramp {
+  const low = mix(horizon, [150, 62, 110], 0.6)
+  return rampOf([
+    [0, mix(scale(top, 0.42), [13, 10, 36], 0.6)],
+    [0.34, mix(top, [42, 23, 72], 0.6)],
+    [0.62, mix(hueMix(top, horizon, 0.45), [90, 42, 106], 0.6)],
+    [0.9, low],
+    [1, mix(low, [255, 170, 110], 0.3)],
   ])
 }
 
@@ -145,10 +162,8 @@ function toCanvas(p: Pix): HTMLCanvasElement {
   return c
 }
 
+/** Ordered dither, 2 × 2: the order in which a cell's four pixels turn on. */
 const B2 = [0, 2, 3, 1]
-const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
-/** Ordered dither, 4 × 4: true for `amount` (0 to 1) of the pixels, in a fixed pattern. */
-const dither = (x: number, y: number, amount: number) => (B4[(y & 3) * 4 + (x & 3)]! + 0.5) / 16 < amount
 /**
  * Which band a pixel belongs to. `v` is the place in band units; the last
  * `seam` of each band (a share of the band) knits into the next in three
@@ -199,6 +214,8 @@ interface Scene {
   u: number
   /** the width of a layer that repeats */
   wide: number
+  /** a screen taller than it is wide (a phone held upright): the map hides the middle, so the sun stands off to the right */
+  tall: boolean
   /** the sun: centre, radius, and how far under its centre the horizon cuts it */
   sun: { x: number; y: number; r: number; cut: number }
   ramp: Ramp
@@ -208,17 +225,18 @@ interface Scene {
   deep: number
 }
 
-function sceneOf(w: number, h: number, top: RGB, horizon: RGB, haze: number): Scene {
+function sceneOf(w: number, h: number, ramp: Ramp, sunCut: number): Scene {
   // A tall screen shows the map's far edge high up, so its horizon sits higher.
-  const line = Math.round(h * clamp(0.42 - 0.06 * (h / w), 0.28, 0.38))
+  const tall = h / w > 1.3
+  const line = Math.round(h * clamp(0.42 - 0.08 * (h / w), 0.25, 0.38))
   const r = Math.round(Math.min(w * 0.15, h * 0.14, line * 0.5))
-  const cut = Math.round(r * 0.38)
+  const cut = Math.round(r * sunCut)
   return {
-    w, h, line,
+    w, h, line, tall,
     u: clamp(Math.min(w, h) / 400, 0.75, 3),
     wide: w * 2,
-    sun: { x: Math.round(w * 0.5), y: line - cut, r, cut },
-    ramp: skyRamp(top, horizon, haze),
+    sun: { x: Math.round(w * (tall ? 0.68 : 0.5)), y: line - cut, r, cut },
+    ramp,
     bands: 24,
     deep: Math.min(h - line, Math.round(h * 0.5)),
   }
@@ -227,11 +245,13 @@ function sceneOf(w: number, h: number, top: RGB, horizon: RGB, haze: number): Sc
 /** Where the sun stands as a layer sees it: +1 when it is to the right of x, −1 to the left. */
 function sunward(sc: Scene, x: number, wide: number): number {
   const m = ((x % wide) + wide) % wide
-  return m < sc.w * 0.5 || m >= sc.w * 0.5 + wide / 2 ? 1 : -1
+  return m < sc.sun.x || m >= sc.sun.x + wide / 2 ? 1 : -1
 }
 
-function layerOf(sc: Scene, p: Pix, topRow: number, parallax: number, emissive = false, drift = 0): BackdropLayer {
-  return { canvas: toCanvas(p), parallax, top: topRow / sc.h, repeatX: p.wrap, emissive, drift }
+function layerOf(sc: Scene, p: Pix, topRow: number, parallax: number, emissive = false, drift = 0, blink = 0): BackdropLayer {
+  const layer: BackdropLayer = { canvas: toCanvas(p), parallax, top: topRow / sc.h, repeatX: p.wrap, emissive, drift }
+  if (blink) layer.blink = blink
+  return layer
 }
 
 // --- the sky -----------------------------------------------------------------------
@@ -262,7 +282,11 @@ function paintSky(p: Pix, sc: Scene, pull: number) {
   }
 }
 
-/** The sea below the horizon: darker bands that widen toward the viewer, the sky's colours faintly mirrored in the far ones. */
+/**
+ * The sea below the horizon: darker bands that widen toward the viewer, the
+ * sky's colours faintly mirrored in the far ones, and further down, where
+ * the bands have run out, lines of swell that stand further and further apart.
+ */
 function paintSea(p: Pix, sc: Scene) {
   const m = 16
   const cols: number[] = []
@@ -279,27 +303,56 @@ function paintSea(p: Pix, sc: Scene) {
     const seam = clamp((at(dy + 1) - v) * 3, 0.1, 0.5)
     for (let x = 0; x < sc.w; x++) p.d[y * p.w + x] = cols[Math.min(m - 1, weave(v, seam, x, y))]!
   }
-}
-
-/** The ground below the horizon where there is no sea: haze sinking into the dark of the wood. */
-function paintGround(p: Pix, sc: Scene, forest: RGB) {
-  const m = 9
-  const cols: number[] = []
-  const r = rampOf([[0, mix(sc.ramp(0.8), forest, 0.55)], [0.3, forest], [0.7, [14, 42, 60]], [1, [9, 26, 40]]])
-  for (let j = 0; j < m; j++) cols.push(pack(r(j / (m - 1))))
-  const at = (dy: number) => Math.min(m - 0.001, m * Math.pow(dy / sc.deep, 1 / 1.4))
-  for (let y = sc.line; y < sc.h; y++) {
-    const dy = y - sc.line
-    const v = at(dy)
-    const seam = clamp((at(dy + 1) - v) * 3, 0.08, 0.5)
-    for (let x = 0; x < sc.w; x++) p.d[y * p.w + x] = cols[Math.min(m - 1, band(v, seam, x, y))]!
+  // The swell: a paler dash and its shadow one row under it, a little to the side. Rows 6, 9, 13, 19… apart.
+  const crest: RGB = [70, 150, 196]
+  let gap = Math.max(4, Math.round(6 * sc.u))
+  let y = sc.line + Math.round(sc.deep * 0.36)
+  for (let k = 0; y < sc.h - 1; k++) {
+    const depth = (y - sc.line) / (sc.h - sc.line)
+    const len0 = Math.max(3, Math.round((4 + depth * 15) * sc.u))
+    let x = Math.floor(hash2(k, 1, 83) * len0 * 3) - len0
+    for (let i = 0; x < sc.w; i++) {
+      const len = len0 + Math.floor(hash2(k, 10 + i, 83) * len0)
+      for (let j = 0; j < len; j++) {
+        const a = get(p, x + j, y), b = get(p, x + j + 2, y + 1)
+        if (a) put(p, x + j, y, pack(mix(unpack(a), crest, 0.1 + 0.12 * depth)))
+        if (b) put(p, x + j + 2, y + 1, pack(scale(unpack(b), 0.8)))
+      }
+      x += len + Math.round(len0 * (1.4 + hash2(k, 60 + i, 83) * 4.2))
+    }
+    y += gap
+    gap = Math.min(Math.round(30 * sc.u), Math.round(gap * 1.45))
   }
 }
 
-/** Stars: sparse, denser toward the zenith, none in the horizon's glow or near the sun; three in the game's neon. */
-function paintStars(sc: Scene, amount: number, reach: number): Pix {
+/**
+ * The ground below the horizon where there is no sea: the wood's nearest
+ * colour down to the row where the wood's own layer ends, then a few bands
+ * sinking to almost black (the map covers most of it).
+ */
+function paintGround(p: Pix, sc: Scene, wood: RGB, from: number) {
+  const m = 5
+  const cols: number[] = []
+  const r = rampOf([[0, wood], [0.5, mix(wood, [8, 18, 26], 0.6)], [1, [8, 18, 26]]])
+  for (let j = 0; j < m; j++) cols.push(pack(r(j / (m - 1))))
+  const span = Math.max(8, Math.min(sc.h - from, Math.round(sc.h * 0.26)))
+  const rows = span / m
+  for (let y = sc.line; y < sc.h; y++) {
+    const v = y < from ? 0 : Math.min(m - 0.001, ((y - from) / span) * m + 0.5)
+    for (let x = 0; x < sc.w; x++) p.d[y * p.w + x] = cols[Math.min(m - 1, band(v, clamp(6 / rows, 0.1, 0.5), x, y))]!
+  }
+}
+
+/**
+ * Stars: sparse, far more of them toward the zenith, none in the horizon's
+ * glow or near the sun; three in the game's neon. The bigger ones twinkle:
+ * their heart stands still and their arms are on one of two layers that
+ * blink out of step.
+ */
+function paintStars(sc: Scene, amount: number, reach: number): { still: Pix; twinkle: [Pix, Pix] } {
   const limit = Math.round(sc.line * reach)
   const p = pix(sc.w, limit + 4)
+  const twinkle: [Pix, Pix] = [pix(sc.w, limit + 4), pix(sc.w, limit + 4)]
   const dim = ink('#5a4f96'), mid = ink('#8f86c8'), pale = ink('#cfc6ff'), white = ink('#fff4ff')
   const taken: [number, number][] = []
   const free = (x: number, y: number, gap: number) => {
@@ -307,87 +360,103 @@ function paintStars(sc: Scene, amount: number, reach: number): Pix {
     for (const t of taken) if (Math.abs(t[0] - x) < gap && Math.abs(t[1] - y) < gap) return false
     return true
   }
-  const cross = (x: number, y: number, arm: number, centre: number) => {
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) put(p, x + dx, y + dy, arm)
-    put(p, x, y, centre)
+  const arms = (q: Pix, x: number, y: number, d: number, c: number) => {
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) put(q, x + dx * d, y + dy * d, c)
   }
   // The three neon ones first, so the rest keep their distance.
   const neon: [number, number, string][] = [[0.17, 0.2, '#ff2fa0'], [0.79, 0.33, '#2ff3ff'], [0.61, 0.1, '#ffd23f']]
-  for (const [fx, fy, c] of neon) {
+  neon.forEach(([fx, fy, c], i) => {
     const x = Math.round(sc.w * fx), y = Math.round(limit * fy)
-    cross(x, y, ink(c), white)
-    for (const [dx, dy] of [[2, 0], [-2, 0], [0, 2], [0, -2]] as const) put(p, x + dx, y + dy, pack(scale(hex(c), 0.55)))
+    if (!free(x, y, 1)) return
+    put(p, x, y, white)
+    arms(p, x, y, 1, ink(c))
+    arms(twinkle[i & 1]!, x, y, 2, pack(scale(hex(c), 0.55)))
     taken.push([x, y])
-  }
-  const n = Math.round(((sc.w * limit) / 620) * amount)
+  })
+  const n = Math.round(((sc.w * limit) / 520) * amount)
   for (let i = 0; i < n; i++) {
     const x = 2 + Math.floor(hash2(i, 1, 41) * (sc.w - 4))
-    const fy = Math.pow(hash2(i, 2, 41), 1.9)
+    // Thick at the zenith, thinning with the square of the way down.
+    const fy = 1 - Math.cbrt(1 - hash2(i, 2, 41))
     const y = 2 + Math.floor(fy * (limit - 2))
     const kind = hash2(i, 3, 41)
     // Only faint ones low down, where the sky is bright.
     const low = fy > 0.55
     if (!free(x, y, kind > 0.9 ? 9 : 5)) continue
     taken.push([x, y])
+    const tw = twinkle[i & 1]!
     if (kind < 0.5 || low) put(p, x, y, kind < 0.25 ? dim : mid)
-    else if (kind < 0.8) put(p, x, y, pale)
-    else if (kind < 0.9) { put(p, x, y, white); put(p, x + 1, y, pale); put(p, x, y + 1, pale); put(p, x + 1, y + 1, mid) }
-    else if (kind < 0.97) cross(x, y, mid, white)
-    else {
-      // A sparkle: four arms that fade.
-      cross(x, y, pale, white)
-      for (const [dx, dy] of [[2, 0], [-2, 0], [0, 2], [0, -2]] as const) put(p, x + dx, y + dy, mid)
-      for (const [dx, dy] of [[3, 0], [-3, 0], [0, 3], [0, -3]] as const) put(p, x + dx, y + dy, dim)
+    else if (kind < 0.76) put(p, x, y, pale)
+    else if (kind < 0.82) {
+      // A small one that comes and goes whole.
+      put(p, x, y, dim)
+      put(tw, x, y, pale)
+    } else if (kind < 0.9) { put(p, x, y, white); put(p, x + 1, y, pale); put(p, x, y + 1, pale); put(p, x + 1, y + 1, mid) }
+    else if (kind < 0.97) {
+      put(p, x, y, white)
+      arms(tw, x, y, 1, mid)
+    } else {
+      // A sparkle: four arms that fade, the outer half of them twinkling.
+      put(p, x, y, white)
+      arms(p, x, y, 1, pale)
+      arms(tw, x, y, 2, mid)
+      arms(tw, x, y, 3, dim)
     }
   }
-  return p
+  return { still: p, twinkle }
 }
 
 /**
- * The stuck sun: striped gold to pink, its lower part cut by slits that
- * widen, a dithered glow round it, and (over a sea) its broken column of
- * light on the water. `veil` dims it toward the haze.
+ * The stuck sun: striped gold to pink, its lower part cut by dark slits that
+ * widen, a halo of dithered rings round it, and (over a sea) its broken
+ * column of light on the water. `veil` dims it toward the haze; `glow` is
+ * the halo's reach in radii; `slit` is what shows in the slits.
  */
-function paintSun(sc: Scene, veil: number, sea: boolean): { p: Pix; top: number } {
+function paintSun(sc: Scene, o: { veil: number; sea: boolean; glow: number; slit: RGB }): { p: Pix; top: number } {
   const { x: cx, y: cy, r, cut } = sc.sun
-  const glow = Math.round(r * 0.6)
+  const veil = o.veil
+  const glow = Math.round(r * o.glow)
   const top = cy - r - glow
-  const fall = sea ? Math.min(sc.deep, Math.round(r * 2.6)) : 0
+  const fall = o.sea ? Math.min(sc.deep, Math.round(r * 3.1)) : 0
   const p = pix(sc.w, sc.line - top + fall)
-  const mist: RGB = [178, 112, 150]
+  const mist: RGB = [160, 90, 128]
   const tones = ['#fff1b0', '#ffd23f', '#ffb13f', '#ff8a3d', '#ff5f7a', '#ff2fa0'].map(c => pack(mix(hex(c), mist, veil)))
-  // The slits: every `period` rows from a little above the middle, each one row thicker than the last.
-  const period = Math.max(5, Math.round(r / 6.5))
+  const dark = pack(o.slit)
+  // The slits: every `period` rows from a little above the middle, each a row thicker than the last, none thinner than three rows of a 640 screen.
+  const period = Math.max(6, Math.round(r / 6.2))
+  const thin = Math.max(2, Math.round(r / 22))
   const slit = (yy: number) => {
     const from = yy + Math.round(r * 0.14)
     if (from < 0) return false
     const k = Math.floor(from / period)
-    return from % period < Math.min(period - 2, 2 + Math.round(k * period * 0.12))
+    return from % period < Math.min(period - 2, thin + Math.round(k * period * 0.1))
   }
   for (let yy = -r; yy < cut; yy++) {
-    if (slit(yy)) continue
     const half = Math.floor(Math.sqrt(r * r - yy * yy))
+    const cutRow = slit(yy)
     const v = ((yy + r) / (r + cut)) * tones.length
-    for (let x = cx - half; x <= cx + half; x++) put(p, x, cy + yy - top, tones[Math.min(tones.length - 1, band(v, Math.min(0.5, (3 * tones.length) / (r + cut)), x, yy))]!)
+    for (let x = cx - half; x <= cx + half; x++) put(p, x, cy + yy - top, cutRow ? dark : tones[Math.min(tones.length - 1, band(v, Math.min(0.5, (3 * tones.length) / (r + cut)), x, yy))]!)
   }
-  // The glow: the sky's own colours a few bands warmer, thinning out with distance.
+  // The halo: the sky's own colours a few bands warmer, in four rings, each thinner in ink than the one inside it.
   for (let y = top; y < sc.line; y++) {
     for (let x = cx - r - glow; x <= cx + r + glow; x++) {
       const d = Math.hypot(x - cx, y - cy)
       if (d <= r + 0.5 || d > r + glow) continue
-      if (!dither(x, y, 0.55 * (1 - veil * 0.5) * (1 - (d - r) / glow) ** 1.6)) continue
+      const g = (d - r) / glow
+      const on = g < 0.2 ? B2[(y & 1) * 2 + (x & 1)]! < 3 : g < 0.45 ? ((x + y) & 1) === 0 : g < 0.74 ? B2[(y & 1) * 2 + (x & 1)]! < 1 : (x & 3) === (y & 2) && (y & 1) === 0
+      if (!on) continue
       put(p, x, y - top, pack(mix(sc.ramp(Math.min(1, skyRow(sc, y) / sc.bands + 0.2)), mist, veil * 0.6)))
     }
   }
-  if (!sea) return { p, top }
-  // The column on the water: bars that shorten, break up and cool with distance from the horizon.
-  const light = rampOf([[0, hex('#ffe9a0')], [0.15, hex('#ffc24f')], [0.35, hex('#ff8a3d')], [0.6, hex('#ff5f8a')], [0.85, hex('#b8409a')], [1, hex('#6a3aa0')]])
+  if (!o.sea) return { p, top }
+  // The column on the water: bars that shorten, break up and cool with distance from the horizon; its last stretch is a scatter.
+  const light = rampOf([[0, hex('#ffe9a0')], [0.13, hex('#ffc24f')], [0.3, hex('#ff8a3d')], [0.5, hex('#ff5f8a')], [0.72, hex('#b8409a')], [1, hex('#5a3a9a')]])
   const base = sc.line - top
   let y = 1
   for (let k = 0; y < fall; k++) {
     const depth = y / fall
-    const thick = depth > 0.45 ? 2 : 1
-    const half = Math.round(r * (0.95 - 0.6 * depth) * (0.72 + 0.5 * hash2(k, 1, 77)))
+    const thick = depth > 0.38 ? 2 : 1
+    const half = Math.round(r * (0.95 - 0.62 * depth) * (0.72 + 0.5 * hash2(k, 1, 77)))
     const off = Math.round((hash2(k, 2, 77) - 0.5) * r * 0.5 * depth)
     const c = pack(light(depth))
     // Each bar is a few pieces with gaps that grow.
@@ -395,7 +464,7 @@ function paintSun(sc: Scene, veil: number, sea: boolean): { p: Pix; top: number 
     for (let i = 0; x < cx + off + half; i++) {
       const piece = 3 + Math.floor(hash2(k, 10 + i, 77) * (half * (0.9 - 0.6 * depth)))
       const end = Math.min(cx + off + half, x + piece)
-      box(p, x, base + y, end - x, thick, c)
+      if (depth < 0.82 || hash2(k, 70 + i, 77) < 0.4) box(p, x, base + y, end - x, thick, c)
       x = end + 2 + Math.floor(hash2(k, 40 + i, 77) * (2 + depth * 10))
     }
     y += thick + 1 + Math.floor(depth * 4 + hash2(k, 3, 77) * 1.6)
@@ -426,6 +495,8 @@ interface LandPaint {
   /** haze knitted into the lowest rows above the base (0 for none), and how many rows */
   haze: number
   hazeRows: number
+  /** the colour of the faces that look away from the sun (0 for none): each peak throws a slanting edge between light and shade */
+  flank?: number
 }
 
 /**
@@ -435,17 +506,23 @@ interface LandPaint {
  */
 function paintLand(p: Pix, sc: Scene, ht: Int16Array, base: number, bottom: number, c: LandPaint) {
   const W = p.w
+  const at = (x: number) => ht[((x % W) + W) % W]!
   for (let x = 0; x < W; x++) {
     const hgt = ht[x]!
     if (hgt <= 0) continue
     const y0 = base - hgt
+    const dir = sunward(sc, x, W)
     for (let y = y0; y < bottom; y++) {
       let col = band((y - y0) / c.crestRows, 0.5, x, y) < 1 ? c.crest : c.body
+      if (c.flank) {
+        // The ground here looks away from the sun when it climbs toward it; the edge leans under the peak as it goes down.
+        const xs = x - dir * Math.round((y - y0) * 0.55)
+        if (at(xs + dir * 3) > at(xs - dir * 3) + 1) col = c.flank
+      }
       if (c.haze && y >= base - c.hazeRows && y < base && B2[(y & 1) * 2 + (x & 1)]! < Math.floor(((y - (base - c.hazeRows) + 1) / c.hazeRows) * 4)) col = c.haze
       p.d[y * W + x] = col
     }
     // The rim: on flats and on slopes that face the sun, and down the step where the slope is steep.
-    const dir = sunward(sc, x, W)
     const toward = ht[(x + dir + W) % W]!
     const lit = toward <= hgt
     const rim = lit ? c.rim : c.shadeRim
@@ -488,37 +565,58 @@ function paintMast(p: Pix, x: number, foot: number, tall: number, step: number, 
   return foot - tall - step
 }
 
+/**
+ * Broken bands of haze between y0 and y1: each a few rows of checker, longest
+ * a little under its middle, its top row paler. Nothing in them is solid, so
+ * what stands behind shows through.
+ */
+function streaks(p: Pix, sc: Scene, y0: number, y1: number, count: number, tone: number, pale: number, salt: number) {
+  for (let i = 0; i < count; i++) {
+    const len = Math.round(sc.w * (0.2 + hash2(i, 1, salt) * 0.4))
+    const x0 = Math.round(((i + hash2(i, 2, salt) * 0.8) / count) * p.w)
+    const th = Math.max(3, Math.round((3 + hash2(i, 3, salt) * 3) * sc.u))
+    const y = y0 + Math.floor(hash2(i, 4, salt) * Math.max(1, y1 - y0 - th))
+    for (let j = 0; j < th; j++) {
+      const inset = Math.round(Math.abs(j - (th - 1) * 0.6) * len * 0.07)
+      for (let x = x0 + inset; x < x0 + len - inset; x++) if (((x + y + j) & 1) === 0) put(p, x, y + j, j === 0 ? pale : tone)
+    }
+  }
+}
+
 // --- the coast ---------------------------------------------------------------------
 
-/** Far islands: two hazy violet ranges that rise out of the sea and leave gaps of open water. */
+/** Far islands: two ranges that rise out of the sea, darker than the sky behind them, and leave gaps of open water. */
 function paintIsles(sc: Scene): { p: Pix; top: number } {
   const W = sc.wide
   const tall = Math.round(34 * sc.u)
   const p = pix(W, tall + 4, true)
   const base = tall + 1
-  const ranges: [number, number, number, RGB, RGB][] = [
-    // salt, height, how much of it is under water, body, rim
-    [5, tall, 0.47, mix(sc.ramp(0.8), [120, 92, 200], 0.62), mix(sc.ramp(0.93), [255, 214, 220], 0.45)],
-    [9, Math.round(tall * 0.62), 0.5, mix(sc.ramp(0.6), [62, 50, 156], 0.72), mix(sc.ramp(0.9), [255, 170, 210], 0.3)],
+  const dusk = sc.ramp(0.91)
+  const rim = pack(mix(sc.ramp(0.98), [255, 179, 107], 0.7))
+  const ranges: [number, number, number, number][] = [
+    // salt, height, how much of it is under water, how far its colour has gone from the horizon's toward the dark
+    [5, tall, 0.44, 0.34],
+    [9, Math.round(tall * 0.6), 0.45, 0.56],
   ]
-  for (const [salt, top, sunk, body, rim] of ranges) {
+  for (const [salt, top, sunk, deepen] of ranges) {
+    const body = mix(dusk, [58, 32, 96], deepen)
     const ht = new Int16Array(W)
     for (let x = 0; x < W; x++) {
-      // Broad swells that carry sharp peaks; the sea is left open under the sun.
+      // Broad swells that carry sharp peaks and a rough back; the sea is left open under the sun.
       const peak = 1 - Math.abs(2 * wave(x, W, 17, salt + 1, false) - 1)
-      const n = wave(x, W, 5, salt) * 0.5 + wave(x, W, 9, salt + 3, false) * 0.28 + peak * 0.12 + wave(x, W, 41, salt + 2, false) * 0.1
+      const n = wave(x, W, 5, salt) * 0.46 + wave(x, W, 9, salt + 3) * 0.2 + peak * 0.2 + wave(x, W, 41, salt + 2, false) * 0.09 + wave(x, W, 97, salt + 4, false) * 0.05
       const m = ((x % W) + W) % W
       const fromSun = Math.min(Math.abs(m - sc.sun.x), Math.abs(m - sc.sun.x - W))
       const open = clamp((fromSun - sc.sun.r * 1.15) / (sc.sun.r * 1.5), 0, 1)
-      ht[x] = Math.max(0, Math.round(((n - sunk) / (1 - sunk)) * top * 1.7 * open))
+      ht[x] = Math.max(0, Math.round(((n - sunk) / (1 - sunk)) * top * 1.8 * open))
     }
     paintLand(p, sc, ht, base, base, {
-      crest: pack(mix(body, rim, 0.22)), body: pack(body), crestRows: Math.max(3, Math.round(5 * sc.u)),
-      rim: pack(rim), shadeRim: 0,
-      haze: pack(mix(body, sc.ramp(0.95), 0.5)), hazeRows: Math.max(3, Math.round(6 * sc.u)),
+      crest: pack(body), body: pack(body), crestRows: 1,
+      rim, shadeRim: 0, flank: pack(mix(body, [40, 22, 84], 0.42)),
+      haze: pack(mix(body, sc.ramp(0.95), 0.45)), hazeRows: Math.max(3, Math.round(5 * sc.u)),
     })
     // A dark line where each island meets the water, and its broken shadow under it.
-    const dark = pack(scale(body, 0.62))
+    const dark = pack(scale(body, 0.5))
     for (let x = 0; x < W; x++) {
       if (ht[x]! <= 0) continue
       put(p, x, base, dark)
@@ -529,42 +627,93 @@ function paintIsles(sc: Scene): { p: Pix; top: number } {
   return { p, top: sc.line - base }
 }
 
-/** A strip of long flat dusk clouds, dark on top and lit pink and gold from below. */
+/**
+ * A strip of dusk clouds: each a long flat-bottomed heap of puffs in three
+ * tiers, dark on top, violet in the body, lit pink from below with a gold
+ * line along its foot where it is thick. The top edge frays into the sky.
+ */
 function paintClouds(sc: Scene, salt: number, count: number, thick: number, long: number, tones: RGB[]): Pix {
   const W = sc.wide
-  const H = Math.round(thick * 3.2) + 6
+  const H = Math.round(thick * 1.5) + 6
   const p = pix(W, H, true)
-  const [shade, mid, lit, gold] = tones.map(t => pack(t)) as [number, number, number, number]
+  const [top, body, lit, rim] = tones.map(t => pack(t)) as [number, number, number, number]
   for (let i = 0; i < count; i++) {
     const len = Math.round(long * (0.55 + hash2(i, 1, salt) * 0.9))
     const x0 = Math.round(((i + 0.15 + hash2(i, 2, salt) * 0.7) / count) * W)
-    const tk = thick * (0.6 + hash2(i, 3, salt) * 0.7)
-    const foot = Math.round(H - 4 - hash2(i, 4, salt) * (H - 6 - tk * 1.4))
+    const tk = thick * (0.6 + hash2(i, 3, salt) * 0.55)
+    const foot = H - 4 - Math.floor(hash2(i, 4, salt) * Math.max(0, H - 6 - tk * 1.1))
+    // The puffs: flat ellipses along the foot, the big ones in the middle.
+    const n = Math.max(3, Math.round(len / (tk * 2)))
+    const puffs: [number, number, number][] = []
+    for (let j = 0; j < n; j++) {
+      const a = (j + 0.5 + (hash2(i * 31 + j, 5, salt) - 0.5) * 0.7) / n
+      const env = Math.sin(Math.PI * a) ** 0.8
+      const ry = tk * (0.35 + 0.65 * hash2(i * 31 + j, 6, salt)) * (0.25 + 0.75 * env)
+      puffs.push([a * len, ry * (1.5 + hash2(i * 31 + j, 7, salt) * 1.7), ry])
+    }
+    const rise = (k: number) => {
+      let v = 0
+      for (const [cx, rx, ry] of puffs) {
+        const q = (k - cx) / rx
+        if (q > -1 && q < 1) v = Math.max(v, ry * Math.sqrt(1 - q * q))
+      }
+      return v
+    }
+    const lean = Math.round(tk * 0.5)
     for (let k = 0; k < len; k++) {
       const a = (k + 0.5) / len
-      // Long tapering ends, a body that swells in lumps on top and stays flat underneath.
-      const env = Math.min(1, a * 4.5, (1 - a) * 4.5) ** 0.8
-      const lump = wave(x0 + k, W, Math.round(W / (tk * 3.2)), salt + i) * 0.7 + wave(x0 + k, W, Math.round(W / (tk * 1.1)), salt + i + 50) * 0.3
-      const up = Math.round((tk * env * (0.3 + 0.9 * lump)) / 2) * 2
-      const down = Math.round(tk * 0.22 * env * wave(x0 + k, W, Math.round(W / (tk * 5)), salt + i + 90))
+      // A thin sheet under the puffs, tapering to nothing at both ends.
+      const sheet = tk * 0.2 * Math.min(1, a * 5, (1 - a) * 5)
+      const up = Math.round(Math.max(rise(k), sheet))
       const x = x0 + k
-      if (up + down < 1) {
-        // The ends break into dashes.
-        if (env > 0.08 && ((x >> 1) & 3) < 2) put(p, x, foot, mid)
-        continue
-      }
-      const y0 = foot - up, y1 = foot + down
-      const th = y1 - y0 + 1
-      for (let y = y0; y <= y1; y++) {
-        const fromFoot = y1 - y
-        const knit = (x + y) & 1
-        let c = shade
-        if (th >= 4 && fromFoot === 0) c = gold
-        else if (fromFoot < Math.max(1, th * 0.2) + (th > 5 ? knit : 0)) c = lit
-        else if (fromFoot < th * 0.52 + (th > 5 ? knit : 0)) c = mid
+      if (up < 1) { if (sheet > 0.25) put(p, x, foot, lit); continue }
+      const sag = up > 3 ? Math.round(wave(x, W, Math.round(W / (tk * 6)), salt + i + 90) * 2) : 0
+      // Where the tiers part: each follows the puffs, the middle one leaning over to one side.
+      const t2 = Math.max(rise(k - lean) * 0.56, up * 0.4)
+      const t3 = Math.max(rise(k + lean) * 0.2, 1)
+      const y0 = foot - up
+      for (let y = y0; y <= foot + sag; y++) {
+        const d = foot - y
+        const knit = up > 6 ? (x + y) & 1 : 0
+        let c = top
+        if (up >= 4 && y === foot + sag) c = rim
+        else if (d < t3 + knit) c = lit
+        else if (d < t2 + knit) c = body
+        if (y === y0 && up >= 3 && B2[(y & 1) * 2 + (x & 1)]! === 3) continue
         put(p, x, y, c)
       }
+      if (up >= 4 && B2[((y0 - 1) & 1) * 2 + (x & 1)]! < 1) put(p, x, y0 - 1, top)
     }
+  }
+  return p
+}
+
+/**
+ * Long thin bars of cloud low over the glow, the kind that cross the sun:
+ * each a few rows, dark on top, lit underneath, the lowest row the longest.
+ */
+function paintBars(sc: Scene, salt: number, count: number, tones: RGB[]): Pix {
+  const W = sc.wide
+  const u = sc.u
+  const H = Math.round(18 * u)
+  const p = pix(W, H, true)
+  const [dark, body, lit] = tones.map(t => pack(t)) as [number, number, number]
+  const bar = (x0: number, y0: number, len: number, th: number, salt2: number) => {
+    const l = Math.max(2, Math.round(len * (0.03 + hash2(salt2, 5, salt) * 0.04)))
+    const r = Math.max(2, Math.round(len * (0.03 + hash2(salt2, 6, salt) * 0.04)))
+    for (let j = 0; j < th; j++) {
+      const up = th - 1 - j
+      box(p, x0 + up * l, y0 + j, len - up * (l + r), 1, j === th - 1 ? lit : j === 0 ? dark : body)
+    }
+  }
+  for (let i = 0; i < count; i++) {
+    const len = Math.round(sc.w * (0.2 + hash2(i, 1, salt) * 0.3))
+    const x0 = Math.round(((i + 0.1 + hash2(i, 2, salt) * 0.6) / count) * W)
+    const th = Math.max(3, Math.round((3 + Math.floor(hash2(i, 3, salt) * 3)) * u))
+    const y0 = 1 + Math.floor(hash2(i, 4, salt) * (H - th - Math.round(6 * u)))
+    bar(x0, y0, len, th, i)
+    // Often a shorter one hangs under one end of it.
+    if (hash2(i, 7, salt) < 0.7) bar(x0 + Math.round(len * (hash2(i, 8, salt) < 0.5 ? -0.12 : 0.62)), y0 + th + Math.max(1, Math.round(2 * u)), Math.round(len * 0.5), Math.max(2, th - 2), i + 20)
   }
   return p
 }
@@ -572,9 +721,10 @@ function paintClouds(sc: Scene, salt: number, count: number, thick: number, long
 /**
  * The near coast: a dark headland whose tip carries a lighthouse and a few
  * houses, a low skerry with a radio mast, and the line where they meet the
- * sea. Returns the land and, the same size, what is lit on it.
+ * sea. Returns the land and, the same size, what is lit on it, and what
+ * comes and goes with the lighthouse's flash.
  */
-function paintCoast(sc: Scene): { land: Pix; lights: Pix; top: number } {
+function paintCoast(sc: Scene): { land: Pix; lights: Pix; flash: Pix; top: number } {
   const W = sc.wide
   const u = sc.u
   const n = (v: number) => Math.max(1, Math.round(v * u))
@@ -584,6 +734,7 @@ function paintCoast(sc: Scene): { land: Pix; lights: Pix; top: number } {
   const base = tall + over
   const land = pix(W, base + under, true)
   const lights = pix(W, base + under, true)
+  const flash = pix(W, base + under, true)
   const ht = new Int16Array(W)
   const rock = (x: number, salt: number) => wave(x, W, 60, salt, false) * 0.6 + wave(x, W, 150, salt + 1, false) * 0.4
   // The headland runs off the left of the picture and round its seam; its tip points at the sun.
@@ -672,31 +823,38 @@ function paintCoast(sc: Scene): { land: Pix; lights: Pix; top: number } {
   box(land, lx - Math.floor(tw / 2), gy - room, tw, room, roof)
   for (let k = 0; k < Math.ceil(tw / 2) + 1; k++) box(land, lx - Math.floor(tw / 2) - 1 + k, gy - room - 1 - k, tw + 2 - 2 * k, 1, roof)
   box(land, lx, gy - room - Math.ceil(tw / 2) - n(3), 1, n(3), roof)
-  // Its lamp, and two beams over the sea.
-  box(lights, lx - Math.floor(tw / 2) + 1, gy - room + 1, tw - 2, room - 2, gold)
-  box(lights, lx - Math.floor(tw / 2) + 2, gy - room + 1, Math.max(1, tw - 4), Math.max(1, room - 3), white)
+  // Its lamp room glows all the time; the lamp itself and its beams come with the flash.
+  box(lights, lx - Math.floor(tw / 2) + 1, gy - room + 1, tw - 2, room - 2, amber)
+  box(flash, lx - Math.floor(tw / 2) + 1, gy - room + 1, tw - 2, room - 2, gold)
+  box(flash, lx - Math.floor(tw / 2) + 2, gy - room + 1, Math.max(1, tw - 4), Math.max(1, room - 3), white)
   const ly = gy - room + Math.floor(room / 2)
-  const beam = ink('#ffe9a0')
-  for (const [dir, reach, rise] of [[1, n(60), -0.06], [-1, n(34), 0.04]] as const) {
-    // A wedge with hard edges: whole near the lamp, then every other row, then those rows in staggered dashes.
+  const core = ink('#fff1b0'), edge = ink('#ff8a3d')
+  for (const [dir, reach, rise] of [[1, Math.round(sc.w * 0.12), -0.05], [-1, Math.round(sc.w * 0.055), 0.04]] as const) {
+    // A wedge: one whole row down its middle, a checker of gold round that, a thin scatter of orange at its edges; all of it a step thinner toward its end.
     for (let k = tw; k < reach; k++) {
-      const far = k / reach
-      const spread = Math.floor(k * 0.07)
+      const spread = Math.floor(k * 0.085)
       const mid = ly + Math.round(k * rise)
-      for (let y = mid - spread; y <= mid + spread; y++) {
-        if (far < 0.3 || (((y - ly) & 1) === 0 && (far < 0.62 || ((k + y - ly) & 3) < 2))) put(lights, lx + dir * k, y, beam)
+      const x = lx + dir * k
+      const far = k / reach > 0.7 ? 1 : 0
+      for (let dy = -spread; dy <= spread; dy++) {
+        const a = Math.abs(dy)
+        const lvl = (a === 0 ? 0 : a <= spread * 0.5 ? 1 : 2) + far
+        const y = mid + dy
+        if (lvl === 0) put(flash, x, y, core)
+        else if (lvl === 1) { if (((x + y) & 1) === 0) put(flash, x, y, a === 0 ? core : gold) }
+        else if (lvl === 2 && (x & 1) === 0 && (y & 1) === 0) put(flash, x, y, a <= spread * 0.5 ? gold : edge)
       }
     }
   }
   // The lamp's light on the water under it.
-  for (let d = 2; d < under; d += 2 + Math.floor(d / 4)) box(lights, lx - 2 + ((d * 3) % 3), base + d, 4 - Math.floor(d / 6), 1, amber)
+  for (let d = 2; d < under; d += 2 + Math.floor(d / 4)) box(flash, lx - 2 + ((d * 3) % 3), base + d, 4 - Math.floor(d / 6), 1, amber)
 
   // The radio mast on the skerry: a thin lattice with a red lamp on top.
   const mx = Math.round(1.1 * sc.w)
   const tip = paintMast(land, mx, base - ht[mx % W]! + 1, n(36), n(5), n(3), wallLit, wall)
   box(lights, mx - 1, tip - 2, 2, 2, ink('#ff3b5c'))
   put(lights, mx, tip + n(18), ink('#ff3b5c'))
-  return { land, lights, top: sc.line - base }
+  return { land, lights, flash, top: sc.line - base }
 }
 
 /** Short glints lying on the sea, row by row, longer and fewer toward the viewer. */
@@ -724,26 +882,34 @@ function paintGlints(sc: Scene): { p: Pix; top: number } {
 }
 
 function buildCoast(w: number, h: number, top: RGB, horizon: RGB): Backdrop {
-  const sc = sceneOf(w, h, top, horizon, 0)
+  const sc = sceneOf(w, h, skyRamp(top, horizon), 0.38)
   const layers: BackdropLayer[] = []
+  const r = sc.ramp
+  const u = sc.u
   const sky = pix(w, h)
   paintSky(sky, sc, 3.2)
   paintSea(sky, sc)
   layers.push(layerOf(sc, sky, 0, 0))
-  layers.push(layerOf(sc, paintStars(sc, 1, 0.6), 0, 0, true))
-  const sun = paintSun(sc, 0, true)
+  const stars = paintStars(sc, 1, 0.6)
+  layers.push(layerOf(sc, stars.still, 0, 0, true))
+  layers.push(layerOf(sc, stars.twinkle[0], 0, 0, true, 0, 2.3))
+  layers.push(layerOf(sc, stars.twinkle[1], 0, 0, true, 0, 3.7))
+  const sun = paintSun(sc, { veil: 0, sea: true, glow: 0.6, slit: mix(r(0.66), [52, 14, 92], 0.6) })
   layers.push(layerOf(sc, sun.p, sun.top, 0, true))
   const isles = paintIsles(sc)
   layers.push(layerOf(sc, isles.p, isles.top, 0.04))
-  // Two strips of cloud: thin bright ones low over the glow, heavier ones higher up that move faster.
-  const r = sc.ramp
-  const low = paintClouds(sc, 300, 4, 5 * sc.u, 170 * sc.u, [r(0.42), mix(r(0.6), [150, 70, 150], 0.3), mix(r(0.93), [255, 220, 200], 0.25), r(1)])
-  layers.push(layerOf(sc, low, Math.round(sc.line * 0.8) - low.h, 0.06, false, 1.2))
-  const high = paintClouds(sc, 400, 4, 10 * sc.u, 220 * sc.u, [mix(r(0.5), [92, 70, 168], 0.5), mix(r(0.7), [190, 96, 180], 0.3), mix(r(0.9), [255, 200, 190], 0.15), mix(r(0.98), [255, 230, 170], 0.3)])
-  layers.push(layerOf(sc, high, Math.round(sc.line * 0.52) - high.h, 0.08, false, 2.6))
+  // Three strips of cloud. Lowest, thin bars that cross the sun's upper third; over them small far heaps; highest, the big ones, which move fastest.
+  const bars = paintBars(sc, 300, 5, [mix(r(0.5), [74, 31, 110], 0.6), mix(r(0.68), [122, 47, 143], 0.6), mix(r(0.93), [255, 138, 106], 0.6)])
+  layers.push(layerOf(sc, bars, Math.round(sc.sun.y - sc.sun.r * 0.35 - bars.h * 0.35), 0.06, false, 0.8))
+  const heap: RGB[] = [mix(r(0.3), [42, 26, 90], 0.6), mix(r(0.6), [106, 42, 138], 0.55), mix(r(0.91), [255, 95, 158], 0.5), mix(r(0.98), [255, 179, 107], 0.6)]
+  const far = paintClouds(sc, 350, 5, 7 * u, 120 * u, [mix(heap[0]!, heap[1]!, 0.5), mix(heap[1]!, heap[2]!, 0.35), heap[2]!, heap[3]!])
+  layers.push(layerOf(sc, far, Math.round(sc.line * 0.7) - far.h, 0.05, false, 0.8))
+  const high = paintClouds(sc, 400, 4, 13 * u, 230 * u, heap)
+  layers.push(layerOf(sc, high, Math.round(sc.line * 0.5) - high.h, 0.08, false, 1.6))
   const coast = paintCoast(sc)
   layers.push(layerOf(sc, coast.land, coast.top, 0.15))
   layers.push(layerOf(sc, coast.lights, coast.top, 0.15, true))
+  layers.push(layerOf(sc, coast.flash, coast.top, 0.15, true, 0, 3.2))
   const glints = paintGlints(sc)
   layers.push(layerOf(sc, glints.p, glints.top, 0.1, true))
   return { horizon: sc.line / h, layers }
@@ -761,11 +927,12 @@ function paintHills(sc: Scene, o: {
   /** trees along the crest: how many, their crown's radius (units), the share that are firs */
   trees: number; crown: number; firs: number
   paint: LandPaint
-  /** the colour of the lit arc on a crown (0 for none) */
-  leaf: number
-  /** sinks into a valley where the sun stands */
-  dip?: boolean
-  mast?: boolean
+  /** how far it sinks into a valley where the sun stands: 0 not at all, 1 down to its foot */
+  dip: number
+  /** haze lying behind it, seen over its back: tone and paler top row */
+  veil?: [number, number]
+  /** carries the radio mast, in this colour */
+  mast?: number
 }): { p: Pix; lights: Pix | null; top: number } {
   const W = sc.wide
   const n = (v: number) => Math.max(1, Math.round(v * sc.u))
@@ -775,31 +942,31 @@ function paintHills(sc: Scene, o: {
   const p = pix(W, base + n(o.under), true)
   const ht = new Int16Array(W)
   for (let x = 0; x < W; x++) {
-    const v = wave(x, W, o.cells, o.salt) * 0.6 + wave(x, W, o.cells * 2.5, o.salt + 1) * 0.28 + wave(x, W, o.cells * 6, o.salt + 2) * 0.12
+    // Long swells, and shorter and shorter ones on their backs, the shortest straight-sided like rock.
+    const v = wave(x, W, o.cells, o.salt) * 0.5 + wave(x, W, o.cells * 2.5, o.salt + 1) * 0.25 + wave(x, W, o.cells * 6, o.salt + 2) * 0.13 + wave(x, W, o.cells * 15, o.salt + 3, false) * 0.08 + wave(x, W, o.cells * 34, o.salt + 4, false) * 0.04
     const fromSun = Math.min(Math.abs(x - sc.sun.x), Math.abs(x - sc.sun.x - W))
-    const open = o.dip ? clamp((fromSun - sc.sun.r * 0.8) / (sc.sun.r * 1.8), 0, 1) : 1
+    const open = 1 - o.dip * (1 - clamp((fromSun - sc.sun.r * 0.8) / (sc.sun.r * 1.8), 0, 1))
     ht[x] = Math.round(n(o.lift) * (0.55 + 0.45 * open) + v * (tall - n(o.lift)) * open * open * (3 - 2 * open))
   }
   const ground = Int16Array.from(ht)
-  const crowns = plant(sc, ht, ground, o.trees, o.crown, o.firs, o.salt)
+  if (o.trees) plant(sc, ht, ground, o.trees, o.crown, o.firs, o.salt)
+  if (o.veil) streaks(p, sc, base - tall - n(4), base - n(o.lift * 0.5), 5, o.veil[0], o.veil[1], o.salt + 7)
   paintLand(p, sc, ht, base, p.h, o.paint)
-  if (o.leaf) leaves(p, sc, crowns, base, o.leaf)
   let lights: Pix | null = null
   if (o.mast) {
-    // The radio mast on the highest hill right of the sun, and its lamp on a layer of its own so it can blink.
-    let mx = Math.round(sc.w * 0.66)
-    for (let x = mx; x < Math.round(sc.w * 0.92); x++) if (ground[x]! > ground[mx]!) mx = x
-    const iron = pack(scale(hex('#3a2c6a'), 0.95))
-    const tip = paintMast(p, mx, base - ground[mx]! + 1, n(34), n(5), n(3), iron, iron)
+    // The radio mast on the highest hill to one side of the sun, and its lamp on a layer of its own so it can blink.
+    const [m0, m1] = sc.tall ? [0.1, 0.42] : [0.66, 0.92]
+    let mx = Math.round(sc.w * m0)
+    for (let x = mx; x < Math.round(sc.w * m1); x++) if (ground[x]! > ground[mx]!) mx = x
+    const tip = paintMast(p, mx, base - ground[mx]! + 1, n(34), n(5), n(3), o.mast, o.mast)
     lights = pix(W, p.h, true)
-    const red = ink('#ff3b5c')
-    box(lights, mx - 1, tip - 2, 3, 2, red)
+    box(lights, mx - 1, tip - 2, 3, 2, ink('#ff3b5c'))
     put(lights, mx, tip - 3, ink('#ff9aa8'))
   }
   return { p, lights, top: sc.line - base }
 }
 
-/** Stands trees along a profile and returns the round ones (x, foot, radius) for their highlights. */
+/** Stands trees evenly along a profile and returns the round ones (x, foot, radius) for their highlights. */
 function plant(sc: Scene, ht: Int16Array, ground: Int16Array, count: number, crown: number, firs: number, salt: number): [number, number, number][] {
   const W = ht.length
   const crowns: [number, number, number][] = []
@@ -809,6 +976,25 @@ function plant(sc: Scene, ht: Int16Array, ground: Int16Array, count: number, cro
     const foot = ground[x]! - Math.round(r * 0.4)
     if (hash2(i, 3, salt) < firs) fir(ht, x, foot, Math.max(2, Math.round(r * 0.8)), Math.round(r * 2.7))
     else { canopy(ht, x, foot, r); crowns.push([x, foot, r]) }
+  }
+  return crowns
+}
+
+/**
+ * Stands a thicket along a profile: crowns of very different sizes, crowded
+ * here and parted there, so no row of them marches. Returns the round ones.
+ */
+function thicket(sc: Scene, ht: Int16Array, ground: Int16Array, crown: number, firs: number, salt: number): [number, number, number][] {
+  const W = ht.length
+  const crowns: [number, number, number][] = []
+  let x = Math.floor(hash2(0, 9, salt) * crown * sc.u)
+  for (let i = 0; x < W; i++) {
+    const r = Math.max(2, Math.round(crown * sc.u * (0.6 + hash2(i, 2, salt) * 0.8)))
+    const foot = ground[x]! - Math.round(r * 0.4)
+    if (hash2(i, 3, salt) < firs) fir(ht, x, foot, Math.max(2, Math.round(r * 0.75)), Math.round(r * (2.3 + hash2(i, 6, salt) * 1.3)))
+    else { canopy(ht, x, foot, r); crowns.push([x, foot, r]) }
+    // Now and then a gap.
+    x += Math.max(2, Math.round(r * (0.6 + hash2(i, 4, salt) * 1.3) + (hash2(i, 5, salt) < 0.16 ? r * 2.2 : 0)))
   }
   return crowns
 }
@@ -829,119 +1015,121 @@ function leaves(p: Pix, sc: Scene, crowns: [number, number, number][], base: num
 }
 
 /**
- * The wood itself, from the nearest hill's back down to the bottom of the
- * screen: row after row of treetops, each row bigger, lower and darker than
- * the one behind it, the way a forest looks from a height.
+ * The wood's near edge, under the nearest hill: a few rows of treetops, each
+ * bigger, lower and darker than the one behind it. Only its first stretch
+ * is drawn tree by tree; its last rows are one colour, `floor`, which the
+ * ground under this layer carries on down the screen.
  */
-function paintForest(sc: Scene): { p: Pix; top: number } {
+function paintForest(sc: Scene, sky: RGB, floor: RGB): { p: Pix; top: number } {
   const W = sc.wide
   const u = sc.u
-  const over = Math.round(40 * u)
-  const p = pix(W, over + sc.h - sc.line, true)
-  const rows = Math.ceil(Math.log(1 + ((sc.h - sc.line) / u) * 0.2 / 9) / Math.log(1.2)) + 1
-  let foot = over + Math.round(6 * u)
+  const over = Math.round(34 * u)
+  const deep = Math.round(sc.h * 0.12 + 12 * u)
+  const p = pix(W, over + deep, true)
+  const rows = 4
+  const first = over + Math.round(6 * u)
+  const feet: number[] = []
+  for (let k = 0; k <= rows; k++) feet.push(first + Math.round((deep - 14 * u) * Math.pow(k / rows, 1.25)))
   for (let k = 0; k < rows; k++) {
-    const t = k / Math.max(1, rows - 1)
-    const crown = Math.min(30, 7 * 1.17 ** k)
+    const t = k / (rows - 1)
+    const crown = 6.5 * 1.3 ** k * (0.85 + 0.3 * hash2(k, 1, 150))
     const ht = new Int16Array(W)
-    const swell = Math.round(9 * u * (1 - t * 0.5))
-    for (let x = 0; x < W; x++) ht[x] = 1 + Math.round(wave(x, W, 6 + k, 140 + k * 7) * swell)
+    const swell = Math.round(10 * u * (1 - t * 0.4))
+    for (let x = 0; x < W; x++) ht[x] = 1 + Math.round((wave(x, W, 5 + k * 2, 140 + k * 7) * 0.7 + wave(x, W, 17 + k * 5, 141 + k * 7) * 0.3) * swell)
     const ground = Int16Array.from(ht)
-    const crowns = plant(sc, ht, ground, Math.round(W / (crown * u * 1.25)), crown, k < 3 ? 0.2 : 0.1, 150 + k * 13)
-    const body = mix([17, 60, 76], [9, 27, 42], Math.pow(t, 0.6))
-    // The next row stands everywhere, so this one is only seen down to that row's foot.
-    const next = foot + Math.round(9 * u * 1.2 ** k)
-    paintLand(p, sc, ht, foot, k === rows - 1 ? p.h : Math.min(p.h, next), {
-      crest: pack(mix(body, [42, 133, 121], 0.42 * (1 - t * 0.7))), body: pack(body), crestRows: Math.max(3, Math.round(crown * u * 0.5)),
-      // Only the first rows stand against the sky and take the sun's pink on their edge.
-      rim: pack(k === 0 ? hex('#c0589a') : mix(body, k < 3 ? [176, 80, 150] : [60, 170, 150], 0.5 * (1 - t))), shadeRim: pack(mix(body, [42, 133, 121], 0.5 * (1 - t))),
+    const crowns = thicket(sc, ht, ground, crown, k < 2 ? 0.26 : 0.12, 150 + k * 13)
+    // The far rows take the sky's colour through the haze; the nearest is the floor's own.
+    const body = k === rows - 1 ? floor : mix(mix([18, 58, 72], floor, Math.pow(t, 0.8)), sky, 0.26 * (1 - t) ** 1.5)
+    const foot = feet[k]!
+    paintLand(p, sc, ht, foot, k === rows - 1 ? p.h : Math.min(p.h, feet[k + 1]!), {
+      crest: pack(mix(body, [52, 140, 130], 0.3 * (1 - t * 0.6))), body: pack(body), crestRows: Math.max(3, Math.round(crown * u * 0.45)),
+      // Only the first rows stand against the sky and take the sun's pink, and only on the side that faces it.
+      rim: pack(k < 2 ? mix(hex('#c04a8a'), body, k * 0.35) : mix(body, [60, 170, 150], 0.3 * (1 - t))), shadeRim: 0,
       haze: 0, hazeRows: 0,
     })
-    leaves(p, sc, crowns, foot, pack(mix(body, [95, 214, 184], 0.4 * (1 - t * 0.75))))
-    foot = next
+    leaves(p, sc, crowns, foot, pack(mix(body, [95, 214, 184], 0.3 * (1 - t * 0.7))))
   }
+  // The last rows are the floor's colour and nothing else, so the ground below joins on without an edge.
+  box(p, 0, p.h - Math.max(2, Math.round(3 * u)), W, Math.max(2, Math.round(3 * u)), pack(floor))
   return { p, top: sc.line - over }
 }
 
-/** A low band of mist: long streaks one over the other with clear rows between, longest and palest in the middle of the band. */
-function paintMist(sc: Scene, tone: RGB, salt: number): Pix {
-  const W = sc.wide
-  const rows = 7
-  const pitch = Math.max(3, Math.round(3.4 * sc.u))
-  const p = pix(W, rows * pitch, true)
-  const c = pack(tone), pale = pack(mix(tone, [255, 232, 240], 0.4))
-  for (let k = 0; k < rows; k++) {
-    const edge = Math.abs(k - (rows - 1) / 2) / ((rows - 1) / 2)
-    const thick = Math.max(1, Math.round((pitch - 1) * (1 - edge * 0.6)))
-    // How thick the mist must be at a place before this row shows there.
-    const need = 0.34 + 0.34 * edge
-    for (let x = 0; x < W; x++) {
-      const v = wave(x + k * 37, W, 5, salt) * 0.62 + wave(x - k * 53, W, 14, salt + 1 + k) * 0.38
-      if (v < need) continue
-      // A streak's ends are one row thin.
-      box(p, x, k * pitch, 1, v - need < 0.035 ? 1 : thick, v - need > 0.16 && edge < 0.4 ? pale : c)
-    }
-  }
+/** A low band of mist over the wood's edge: broken checkered bands, none of them solid and none of them white. */
+function paintMist(sc: Scene, tone: RGB, pale: RGB, salt: number): Pix {
+  const p = pix(sc.wide, Math.round(30 * sc.u), true)
+  streaks(p, sc, 0, p.h, 9, pack(tone), pack(pale), salt)
   return p
 }
 
 function buildWild(w: number, h: number, top: RGB, horizon: RGB): Backdrop {
-  const sc = sceneOf(w, h, top, horizon, 0.34)
+  const sc = sceneOf(w, h, wildRamp(top, horizon), 0.24)
   const layers: BackdropLayer[] = []
   const r = sc.ramp
   const u = sc.u
-  const forest = hex('#0f3445')
+  const low = r(0.9)
+  const floor: RGB = [11, 33, 44]
+  const wood = paintForest(sc, low, floor)
   const sky = pix(w, h)
-  paintSky(sky, sc, 2)
-  paintGround(sky, sc, forest)
+  paintSky(sky, sc, 1.4)
+  paintGround(sky, sc, floor, wood.top + wood.p.h)
   layers.push(layerOf(sc, sky, 0, 0))
-  layers.push(layerOf(sc, paintStars(sc, 0.6, 0.5), 0, 0, true))
-  const sun = paintSun(sc, 0.22, false)
+  const stars = paintStars(sc, 0.45, 0.5)
+  layers.push(layerOf(sc, stars.still, 0, 0, true))
+  layers.push(layerOf(sc, stars.twinkle[0], 0, 0, true, 0, 2.3))
+  layers.push(layerOf(sc, stars.twinkle[1], 0, 0, true, 0, 3.7))
+  // The same sun, lower, behind haze: its slits are the haze's own colour.
+  const sun = paintSun(sc, { veil: 0.45, sea: false, glow: 0.4, slit: mix(r(0.78), [86, 44, 108], 0.5) })
   layers.push(layerOf(sc, sun.p, sun.top, 0, true))
-  // Thin haze clouds high up.
-  const haze = paintClouds(sc, 500, 4, 6 * u, 190 * u, [mix(r(0.5), [96, 84, 160], 0.5), mix(r(0.7), [150, 110, 180], 0.3), mix(r(0.88), [240, 200, 210], 0.2), r(0.97)])
-  layers.push(layerOf(sc, haze, Math.round(sc.line * 0.5) - haze.h, 0.05, false, 1.6))
-  // Two depths of hills behind the wood, the far one almost the sky's colour, with the mast on it.
-  const far = mix(r(0.78), [112, 100, 190], 0.62)
+  // Thin bars of haze high up.
+  const bars = paintBars(sc, 500, 4, [mix(r(0.4), [40, 26, 76], 0.5), mix(r(0.6), [84, 44, 110], 0.5), mix(r(0.86), [200, 110, 140], 0.4)])
+  layers.push(layerOf(sc, bars, Math.round(sc.line * 0.56) - bars.h, 0.05, false, 0.8))
+  // Three depths of hills behind the wood, each darker than the sky and than the one behind it; the mast stands on the second.
+  const dark: RGB = [42, 26, 74]
+  const hazeTone = pack(mix(low, [58, 36, 88], 0.4)), hazePale = pack(mix(low, [240, 170, 170], 0.3))
+  const farA = mix(low, dark, 0.22)
   const a = paintHills(sc, {
-    salt: 110, tall: 54, lift: 22, under: 2, cells: 4, trees: 0, crown: 0, firs: 0, dip: true, mast: true,
-    paint: { crest: pack(mix(far, r(0.93), 0.28)), body: pack(far), crestRows: Math.round(7 * u), rim: pack(mix(far, [255, 200, 214], 0.55)), shadeRim: 0, haze: pack(mix(far, r(0.9), 0.5)), hazeRows: Math.round(12 * u) },
-    leaf: 0,
+    salt: 110, tall: 58, lift: 24, under: 2, cells: 4, trees: 0, crown: 0, firs: 0, dip: 1,
+    paint: { crest: pack(farA), body: pack(farA), crestRows: 1, rim: pack(mix(farA, [240, 150, 180], 0.5)), shadeRim: 0, flank: pack(mix(farA, dark, 0.2)), haze: pack(mix(farA, r(0.96), 0.55)), hazeRows: Math.round(14 * u) },
   })
-  layers.push(layerOf(sc, a.p, a.top, 0.04))
-  if (a.lights) layers.push({ ...layerOf(sc, a.lights, a.top, 0.04, true), blink: 1.6 })
-  const mid = mix(far, forest, 0.52)
+  layers.push(layerOf(sc, a.p, a.top, 0.03))
+  const farB = mix(low, dark, 0.46)
   const b = paintHills(sc, {
-    salt: 120, tall: 36, lift: 12, under: 12, cells: 6, trees: Math.round(sc.wide / (7 * u)), crown: 4.2, firs: 0.34,
-    paint: { crest: pack(mix(mid, [150, 126, 200], 0.24)), body: pack(mid), crestRows: Math.round(6 * u), rim: pack(mix(mid, [232, 150, 200], 0.5)), shadeRim: 0, haze: pack(mix(mid, r(0.86), 0.4)), hazeRows: Math.round(8 * u) },
-    leaf: 0,
+    salt: 170, tall: 44, lift: 16, under: 2, cells: 5, trees: 0, crown: 0, firs: 0, dip: 0.9, veil: [hazeTone, hazePale], mast: pack(mix(farB, [16, 10, 36], 0.6)),
+    paint: { crest: pack(farB), body: pack(farB), crestRows: 1, rim: ink('#e07ab0'), shadeRim: 0, flank: pack(mix(farB, dark, 0.3)), haze: pack(mix(farB, r(0.9), 0.45)), hazeRows: Math.round(10 * u) },
   })
-  layers.push(layerOf(sc, b.p, b.top + Math.round(2 * u), 0.08))
-  const mist = paintMist(sc, mix(r(0.86), [196, 176, 226], 0.6), 130)
-  layers.push(layerOf(sc, mist, sc.line - Math.round(mist.h * 0.7), 0.11, false, 1.4))
-  const wood = paintForest(sc)
+  layers.push(layerOf(sc, b.p, b.top, 0.05))
+  if (b.lights) layers.push(layerOf(sc, b.lights, b.top, 0.05, true, 0, 1.6))
+  const mid = mix(low, [28, 22, 62], 0.68)
+  const c = paintHills(sc, {
+    salt: 120, tall: 34, lift: 12, under: 12, cells: 6, trees: Math.round(sc.wide / (7 * u)), crown: 4.2, firs: 0.4, dip: 0.7, veil: [hazeTone, hazePale],
+    paint: { crest: pack(mix(mid, low, 0.16)), body: pack(mid), crestRows: Math.round(6 * u), rim: pack(mix(mid, [232, 122, 176], 0.55)), shadeRim: 0, haze: pack(mix(mid, low, 0.3)), hazeRows: Math.round(8 * u) },
+  })
+  layers.push(layerOf(sc, c.p, c.top + Math.round(2 * u), 0.08))
+  const mist = paintMist(sc, mix(hex('#6a4a8a'), low, 0.2), mix(hex('#9a6ab0'), low, 0.2), 130)
+  layers.push(layerOf(sc, mist, sc.line - Math.round(mist.h * 0.72), 0.11, false, 1.2))
   layers.push(layerOf(sc, wood.p, wood.top, 0.15))
   return { horizon: sc.line / h, layers }
 }
 
 // --- rooms -------------------------------------------------------------------------
 
-/** Indoors: a very dark glow that falls off toward the corners, and dust that drifts through it. */
+/** Indoors: very dark bands across the screen, lightest a little above the middle and bowed a little, and dust that drifts through them. */
 function buildVoid(w: number, h: number): Backdrop {
   const u = clamp(Math.min(w, h) / 400, 0.75, 3)
   const glow = pix(w, h)
   const tones = rampOf([[0, hex('#07040f')], [0.5, hex('#0d0720')], [1, hex('#1a0f36')]])
-  const m = 7
+  const m = 8
   const cols: number[] = []
   for (let i = 0; i < m; i++) cols.push(pack(tones(i / (m - 1))))
+  // A band is this many rows; its seam about six of them.
+  const rows = (h * 0.55) / m
+  const seam = clamp(6 / rows, 0.08, 0.5)
   for (let y = 0; y < h; y++) {
+    const dy = (y - h * 0.45) / (h * 0.55)
     for (let x = 0; x < w; x++) {
-      // Rings, wide and low like a lit floor seen from above.
-      const d = Math.hypot((x - w / 2) / (w * 0.62), (y - h * 0.48) / (h * 0.58))
-      const v = clamp((1 - d) * m, 0, m - 0.001)
-      const i = Math.floor(v)
-      // Wide bands take a wide seam: sixteen steps instead of three.
-      glow.d[y * w + x] = cols[v - i > 0.6 && dither(x >> 1, y >> 1, (v - i - 0.6) / 0.4) ? Math.min(m - 1, i + 1) : i]!
+      const dx = (x - w / 2) / (w * 2.6)
+      const v = clamp((1 - Math.hypot(dy, dx)) * m, 0, m - 0.001)
+      glow.d[y * w + x] = cols[Math.min(m - 1, band(v, seam, x, y))]!
     }
   }
   const sc = { h } as Scene
@@ -957,8 +1145,8 @@ function buildVoid(w: number, h: number): Backdrop {
     }
     return p
   }
-  layers.push(layerOf(sc, dust(201, '#2a1c52', 1, 0), 0, 0.05, false, 2.5))
-  layers.push(layerOf(sc, dust(202, '#3d2a72', 0.45, 0.3), 0, 0.12, false, -4))
+  layers.push(layerOf(sc, dust(201, '#2a1c52', 1, 0), 0, 0.05, false, 1.2))
+  layers.push(layerOf(sc, dust(202, '#3d2a72', 0.45, 0.3), 0, 0.12, false, -2))
   return { horizon: 0.5, layers }
 }
 

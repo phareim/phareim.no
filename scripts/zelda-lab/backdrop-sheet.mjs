@@ -17,6 +17,9 @@
 //                             engine's bloom on the emissive layers
 //   <look>-<WxH>-layers.png   each layer alone at 1×, on a checker, with its
 //                             values
+//   <look>-<WxH>-seams.png    where each repeating layer meets itself: its
+//                             last and first 160 px side by side at 2×, the
+//                             seam under the tick
 //
 // COLORS='{"top":"#102a4a","horizon":"#ffb060"}' tries another sky.
 import { execFileSync } from 'node:child_process'
@@ -96,6 +99,7 @@ const sizes = {
   all: wide ? [W * ZOOM, (H * ZOOM + GAP) * CAMS.length - GAP] : [(W * ZOOM + GAP) * CAMS.length - GAP, H * ZOOM],
   one: [W * ZOOM, H * ZOOM],
   layers: [Math.max(...bd.layers.map(L => L.canvas.width)) + 16, bd.layers.reduce((s, L) => s + L.canvas.height + 30, 8)],
+  seams: [320 * ZOOM + 16, bd.layers.reduce((s, L) => s + (L.repeatX ? L.canvas.height * ZOOM + 30 : 0), 8)],
 }
 if (mode === 'sizes') {
   document.title = JSON.stringify({ sizes, took: Math.round(took), layers: bd.layers.length, horizon: bd.horizon })
@@ -117,6 +121,24 @@ if (mode === 'sizes') {
     }
     g.drawImage(L.canvas, 8, y)
     y += L.canvas.height + 12
+  })
+} else if (mode === 'seams') {
+  const g = sheet(...sizes.seams)
+  let y = 8
+  g.font = '12px monospace'
+  g.textBaseline = 'top'
+  bd.layers.forEach((L, i) => {
+    if (!L.repeatX) return
+    g.fillStyle = '#c8c8d8'
+    g.fillText('layer ' + i, 8, y)
+    g.fillRect(8 + 160 * ZOOM, y + 4, 1, 12)
+    y += 18
+    const w = L.canvas.width, h = L.canvas.height
+    g.fillStyle = '#22222a'
+    g.fillRect(8, y, 320 * ZOOM, h * ZOOM)
+    g.drawImage(L.canvas, w - 160, 0, 160, h, 8, y, 160 * ZOOM, h * ZOOM)
+    g.drawImage(L.canvas, 0, 0, 160, h, 8 + 160 * ZOOM, y, 160 * ZOOM, h * ZOOM)
+    y += h * ZOOM + 12
   })
 } else {
   const [cam, t] = CAMS[+q.get('cam') || 0]
@@ -154,6 +176,7 @@ for (const look of looks) {
       ...CAMS.map((_, i) => [`-cam${i}`, `one&cam=${i}`, info.sizes.one]),
       ['-bloom', 'bloom', info.sizes.one],
       ['-layers', 'layers', info.sizes.layers],
+      ['-seams', 'seams', info.sizes.seams],
     ]
     for (const [tag, mode, [sw, sh]] of shots) {
       const png = join(out, `${look}-${w}x${h}${tag}.png`)

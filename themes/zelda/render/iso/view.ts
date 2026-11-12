@@ -512,8 +512,9 @@ export default function isoView(kit: Kit): View {
           // The classic crown comes off the ground; a tree stands in its place, a little off the grid.
           const lone = shp.k === 'card'
           const up = ty > 0 && shapeAt(tx, ty - 1).k === 'flat' ? UP : 0
-          fg.clearRect(sx, sy - up, T, T + up)
-          fg.drawImage(base.canvas, bx + sx, by + sy - up, T, T + up, sx, sy - up, T, T + up)
+          // (The classic crown is a little wider than its tile: two px round it go too.)
+          fg.clearRect(sx - 2, sy - Math.max(up, 2), T + 4, T + Math.max(up, 2) + 2)
+          fg.drawImage(base.canvas, bx + sx - 2, by + sy - Math.max(up, 2), T + 4, T + Math.max(up, 2) + 2, sx - 2, sy - Math.max(up, 2), T + 4, T + Math.max(up, 2) + 2)
           const fy = shp.k === 'top' ? ty + shp.f : ty
           const sand = tileOf(tx - 1, ty) === '-' || tileOf(tx + 1, ty) === '-' || tileOf(tx, ty + 1) === '-' || tileOf(tx, ty - 1) === '-'
           plant(sand ? 'palm' : lone ? 'tree' : 'canopy', tx + 0.5 + (h1 - 0.5) * 0.4, fy + 0.62 + (h2 - 0.5) * 0.3, h3, 0.22, px)
