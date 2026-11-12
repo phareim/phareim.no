@@ -61,6 +61,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
         smoothing: num('Art smoothing', 1, 0, 1, 0.05, 'How far the classic art is smoothed on its way up to two pixels a texel: stairs get their half-steps, shades of one material run together, black outlines take a colour. 0 leaves the pixels square.'),
         relief: num('Relief', 0.9, 0, 3, 0.05, 'How much the art’s own light and dark stands up for the lamps to catch.'),
         roundness: num('Roundness', 0.7, 0, 2, 0.05, 'How round people and things are to the light.'),
+        figure: choice('The hero', 'modelled', ['modelled', 'classic'], 'Modelled: the hero is a small figure built in the round and drawn pixel by pixel each frame, so it turns smoothly, walks with its whole body and swings a blade that sweeps a true arc. Classic: the four-way sprite of the classic view, smoothed.'),
         plants: toggle('Standing plants', true, 'Trees with crowns, bushes, tall grass and flowers that stand and sway, in place of the classic tiles.'),
       }),
       ...group('Lamps', {

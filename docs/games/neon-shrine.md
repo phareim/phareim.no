@@ -185,15 +185,35 @@ classic picture. `/?view=<id>` asks for one.
   in the wind, part round the hero, and thin out between the viewer and the
   hero so nobody is lost in the woods. Cutting a bush or grass changes the
   tile, and the plant is gone with it.
-- **The backdrop** (`backdrop.ts`). Beyond the map's edge is a dusk in
-  layers that slide at different speeds: banded sky, stars, the striped sun,
-  ridges, clouds, the sea.
+- **The land beyond the edge** (`render/beyond.ts`, `iso/lands.ts`,
+  2026-11-12). A turned map is a diamond, and outdoors the world goes on
+  round it for 24 tiles (`BEYOND`), so the land is never a board on a table.
+  `beyondTile` is the rule, pure: sea stays sea out to the horizon, a road
+  that leaves the map runs straight on, rock behind the map (north and west
+  of it, as the view sees the land) is a massif that rises in wooded steps
+  up to three tiles (`massifHeight`), rock in front of it ends in a cliff
+  with the sea under it (a tabletop there would stand between the viewer
+  and the walking), and everything else is woods; the borders between them
+  wander more the further out they lie. `lands.ts` paints it with the
+  classic painters (`paintField` in `tiles.ts`) a block of 16 × 16 tiles at
+  a time, the first time a block is seen, and keeps the 28 last seen. The
+  map's own layers ask the same rule for a neighbour across the edge, so
+  the last row is drawn for what lies next to it (the classic view never
+  shows more than that row). The field the view works on (`outer`, the
+  shapes, the tile data the light reads) is the map with that margin round
+  it, and what lies outside the map sinks into the backdrop in dithered
+  steps the further out it is (`uFar`). Value `beyond` turns it off: the
+  map is then the board it was, with the backdrop round it. Interiors and
+  dungeons have none; they stand in the dark as before.
+- **The backdrop** (`backdrop.ts`). Where the land ends or fades is a dusk
+  in layers that slide at different speeds: banded sky, stars, the striped
+  sun, ridges, clouds, the sea.
 - **Values** are engine `iso` in `viewParams.ts`, all the studio's to turn:
   smoothing, relief, roundness, side light, lamp shadows, light in the air,
   the sun's direction and shadow length, shadow strength and colour, corner
   shade, side shading, rim, haze, mist, sun shafts, sky colours, clouds,
-  wind, standing plants, things in the air, the water's mirror, wet ground,
-  15-bit or
+  wind, standing plants, the modelled hero, things in the air, the land
+  beyond the edge, the water's mirror, wet ground, 15-bit or
   full colour, the sound (below), the windows, and the finish. Every effect
   scales with k, and at k = 0 the camera is the classic one, so the turn
   still starts on the classic picture.

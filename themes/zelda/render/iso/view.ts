@@ -19,8 +19,9 @@
  * (`legacy.ts`).
  */
 import type { GameState, MapKind, TileChar } from '../../types'
-import { SCROLL_TIME, TILE } from '../../types'
-import { mapInfo, raised } from '../../engine/index'
+import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
+import { aimOf, mapInfo, raised, swingAngle } from '../../engine/index'
+import { dirAngle } from '../../engine/util'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { createTileLayer, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
 import { drawDecals } from '../decals'
@@ -38,6 +39,7 @@ import { buildFlora, type FloraAtlas, type FloraKind, type FloraLook } from './f
 import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
 import { BEYOND, beyondTile, massifHeight } from '../beyond'
 import { createLands, type Lands } from './lands'
+import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from './figure'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -153,6 +155,10 @@ export default function isoView(kit: Kit): View {
   const motes: Array<{ x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; life: number; color: string }> = []
   let stepT = 0
   let flora: FloraAtlas | null = null
+  /** The hero's figure: this frame's picture, and the way the body faces on screen (it turns, it does not snap). */
+  let fig: FigureSprite | null = null
+  let yawShown: number | null = null
+  let yawMap = ''
   let floraLook = ''
   /** The atlas rows in use last frame: what must be cleared, and what is sent to the GPU. */
   let atlasUsed = ATLAS
@@ -374,6 +380,68 @@ export default function isoView(kit: Kit): View {
     quad(x, y, top, l, x, y, top, r, x, y, foot, r, x, y, foot, l, sp.x, sp.y, sp.x + sp.w, sp.y + sp.h, 7, 2, sway)
   }
 
+  /**
+   * The hero's pose this frame, from what the game says they are doing. The body turns toward where they are
+   * headed at a pace (a quarter turn in a tenth of a second; faster into a swing), so a change of direction
+   * is a turn and not a cut.
+   */
+  function heroPose(s: GameState, time: number, dt: number): FigurePose {
+    const h = s.hero
+    const arc = s.inv.arc
+    const stride = ((h.walkT * 7) / 4) % 1
+    let act: FigureAct = 'idle'
+    let t = time
+    let moving = false
+    let target = aimOf(h)
+    let turnRate = 15
+    let blade: FigureBlade | undefined
+    if (h.act === 'dead') {
+      const d = s.dying ? s.dying.t : 0
+      act = 'dead'
+      t = d < 0.8 ? (d / 0.8) * 0.5 : Math.min(1, 0.5 + ((d - 0.8) / 0.6) * 0.5)
+    } else if (h.act === 'fall') { act = 'fall'; t = Math.min(1, h.actT / 0.54) }
+    else {
+      switch (h.act) {
+        case 'walk': act = 'walk'; t = stride; break
+        case 'swing': act = 'swing'; t = h.swing ? Math.min(1, h.swing.t / SWING_TIME) : 1; break
+        case 'throw': case 'use': case 'hook': act = 'use'; t = Math.min(1, h.actT / 0.2); break
+        case 'spin': act = 'spin'; t = h.spin ? Math.min(1, h.spin.t / SPIN_TIME) : 1; break
+        case 'lift': act = 'lift'; t = Math.min(1, h.actT / 0.18); break
+        case 'carry': act = 'carry'; t = stride; moving = !!(h.vx || h.vy); break
+        case 'push': act = 'push'; t = stride; break
+        case 'hurt': act = 'hurt'; t = Math.min(1, h.actT / 0.3); break
+        case 'get': act = 'get'; t = Math.min(1, h.actT / 0.3); break
+      }
+      const kind = arc ? 'arc' : 'sword'
+      if (h.swing) {
+        const p = Math.min(1, h.swing.t / SWING_TIME)
+        const trail: number[] = []
+        for (let i = 1; i <= 6; i++) { const q = p - i * 0.07; if (q < 0) break; trail.push(swingAngle(h.swing, q)) }
+        blade = { a: swingAngle(h.swing, p), reach: arc ? ARC_REACH : SWORD_REACH, trail, kind, charge: 0, flash: false }
+        target = h.swing.a ?? dirAngle(h.swing.dir)
+        turnRate = 40
+      } else if (h.spin) {
+        const p = Math.min(1, h.spin.t / SPIN_TIME)
+        const base = dirAngle(h.dir)
+        const a = base + p * Math.PI * 2
+        const trail: number[] = []
+        for (let i = 1; i <= 10; i++) { const q = a - i * 0.22; if (q < base) break; trail.push(q) }
+        blade = { a, reach: SPIN_REACH + (arc ? 0.2 : 0), trail, kind, charge: 0, flash: false }
+        // The figure turns the circle itself, from where the spin began.
+        yawShown = base
+        target = base
+      } else if (h.charge > 0.12 && s.inv.sword && !h.carry) {
+        blade = { a: target, reach: (arc ? ARC_REACH : SWORD_REACH) * 0.82, trail: [], kind, charge: Math.min(1, h.charge), flash: h.charge >= 0.55 && Math.floor(time * 12) % 2 === 0 }
+      }
+    }
+    if (yawShown === null || yawMap !== s.map.id) yawShown = target
+    yawMap = s.map.id
+    const d = Math.atan2(Math.sin(target - yawShown), Math.cos(target - yawShown))
+    const step = turnRate * dt
+    yawShown += Math.abs(d) <= step ? d : Math.sign(d) * step
+    return { yaw: yawShown, act, t, moving, blade }
+  }
+
   function draw(s: GameState, ui: FrameUI, dt: number, k: number) {
     if (fallback) { fallback.draw(s, ui, dt, k); return }
     if (engine.lost()) {
@@ -519,6 +587,10 @@ export default function isoView(kit: Kit): View {
     kit.setSpan((x1, y1, x2, y2) => ({ x: (x2 - x1) * P.ex.x + (y2 - y1) * P.ey.x, y: (x2 - x1) * P.ex.y + (y2 - y1) * P.ey.y }))
     ag.setTransform(1, 0, 0, 1, 0, 0)
     ag.clearRect(0, 0, ATLAS, Math.max(atlasUsed, 1))
+    // The hero's body and blade are this view's own once the turn is under way (`figure.ts`); the classic
+    // painter then draws only what the hero holds up.
+    const modelled = k > 0.5 && par.figure === 'modelled'
+    kit.setHeroBare(modelled)
     const items = kit.queue(ag, s, ui, bx, by, bw, bh, lights, og)
 
     const fg = fit(flat, bw, bh)
@@ -719,7 +791,25 @@ export default function isoView(kit: Kit): View {
       const l = -C.ax * zoom
       const r = (C.w - C.ax) * zoom
       quad(fx0, fy0, z0 + top, l, fx0, fy0, z0 + top, r, fx0, fy0, z0 + foot, r, fx0, fy0, z0 + foot, l, cellX, cellY, u1, v1, 3, 1, 0, 0, 0, z0 > 0 ? 0.04 * cam.zs : 0)
-      if (it.hero && k > 0.5) ghost = { start: nv - 6, count: 6 }
+      if (it.hero && modelled) {
+        const h = s.hero
+        // Hit, the hero blinks; in the classic picture too.
+        const blink = h.act !== 'dead' && h.act !== 'fall' && h.act !== 'get' && h.invuln > 0 && Math.floor(time * 20) % 2 === 0
+        if (!blink) {
+          fig = renderFigure(heroPose(s, time, ui.paused ? 0 : dt), kit.heroLook(), fig ?? undefined)
+          engine.figure(fig.albedo, fig.normal, fig.w, fig.h)
+          // A pixel of the figure is a pixel of the scene. It stands a hair behind what it holds up.
+          const fp = zoom / DENSITY
+          const ft = FIG.ay / (T * DENSITY)
+          const ff = -(FIG.h - FIG.ay) / (T * DENSITY)
+          const fl = -FIG.ax * fp
+          const fr = (FIG.w - FIG.ax) * fp
+          const gx = fx0 - 0.02
+          const gy = fy0 - 0.02
+          quad(gx, gy, ft, fl, gx, gy, ft, fr, gx, gy, ff, fr, gx, gy, ff, fl, 0, 0, FIG.w, FIG.h, 3, 3)
+          ghost = { start: nv - 6, count: 6 }
+        }
+      } else if (it.hero && k > 0.5) ghost = { start: nv - 6, count: 6 }
     }
 
     atlasUsed = used
