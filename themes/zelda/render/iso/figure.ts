@@ -77,10 +77,10 @@ export interface FigureSprite {
 // The camera and the bench
 // ---------------------------------------------------------------------------
 
-const W = FIG.w
-const H = FIG.h
-const AX = FIG.ax
-const AY = FIG.ay
+const W: number = FIG.w
+const H: number = FIG.h
+const AX: number = FIG.ax
+const AY: number = FIG.ay
 const N = W * H
 const S2 = Math.SQRT1_2
 /** cos and sin of the camera's 30° tilt. */
@@ -215,7 +215,7 @@ function usePalette(l: HeroLook, arc: boolean) {
     shadeAt[BAND] = 0.05
     shadeAt[TOP] = 0.16
     shadeAt[STRIPE] = -0.25
-    shadeAt[BELT] = 0
+    shadeAt[BELT] = -1
     shadeAt[BOTTOM] = 0.2
     shadeAt[SHOES] = 0.12
     shadeAt[GUARD] = -1
@@ -323,7 +323,7 @@ const K_HAIR = 2
 /** A skirt: only what is above the hem. */
 const K_DOME = 3
 
-/** What the hair and the torso are cut by, set by `build`. */
+/** Whether the hair wears the band, and where a skirt's hem is: set by `build`. */
 let bandOn = false
 let hemZ = 0
 
@@ -384,7 +384,7 @@ function ell(fr: Frame, f: number, r: number, z: number, rf: number, rr: number,
         } else if (kind === K_HAIR) {
           // The face looks out under the fringe; the hair comes down beside it.
           // The hair comes down beside the face to the jaw, then draws back to the nape.
-          if (lz < 3 && lf > (0.42 - 0.3 * clamp((-4.5 - lz) / 2.5, 0, 1)) * Math.abs(lr)) continue
+          if (lz < 3 && lf > (0.53 - 0.4 * clamp((-4.5 - lz) / 2.5, 0, 1)) * Math.abs(lr)) continue
           if (bandOn && lz >= 3 && lz < 5) m = BAND
         } else if (lz < hemZ) continue
       }
@@ -541,7 +541,7 @@ const P = {
   lean: 0, roll: 0, nod: 0,
   /** The body above the legs lifted (a breath, a bob, a crouch), in whole px. */
   rise: 0,
-  /** The whole figure tipped on its back, lifted off the ground and moved along it. */
+  /** The whole figure tipped over on its left side, lifted off the ground and moved along it. */
   lie: 0, ox: 0, oy: 0, oz: 0,
   /** Feet: forward of the hips, and off the ground. */
   lf: 0, lz: 0, rf: 0, rz: 0,
@@ -724,20 +724,22 @@ function solve(pose: FigurePose) {
       break
     }
     case 'dead': {
-      // Round twice and down on the back, the head to the right of the screen, where the classic figure lies.
+      // Round twice to face the viewer, then over on its side, the head to the right of the screen, where the classic figure lies.
       const k = clamp(t / 0.5, 0, 1)
-      const turn = wrap(Math.PI * 0.75 - pose.yaw) + 2 * TAU
+      const turn = wrap(Math.PI / 4 - pose.yaw) + 2 * TAU
       const e = ease((k - 0.55) / 0.45)
       P.yaw = pose.yaw + turn * ease(k / 0.7)
       P.lie = e * Math.PI / 2
-      P.ox = Math.cos(P.yaw) * 15 * e
-      P.oy = Math.sin(P.yaw) * 15 * e
-      P.oz = 4.6 * e
-      handsUp(0.5, 8.5 + 3.4 * e, 1.2 + 6.5 * e + 3 * (1 - e) * Math.sin(k * Math.PI))
-      P.lf = 0.8 * e; P.rf = 0.8 * e
+      P.ox = -Math.sin(P.yaw) * 15 * e
+      P.oy = Math.cos(P.yaw) * 15 * e
+      P.oz = 7.5 * e
+      const up = 3 * (1 - e) * Math.sin(k * Math.PI)
+      P.lhf = REST_F + 4 * e; P.lhr = -REST_R + 3.5 * e; P.lhz = REST_Z + up + 3 * e
+      P.rhf = REST_F + 2 * e; P.rhr = REST_R + 1.5 * e; P.rhz = REST_Z + up + 1.5 * e
+      P.lf = 1.5 * e; P.rf = -1 * e
       P.fly = 1 - e
-      P.eyes = k > 0.4 ? 1 : 2
-      P.mouth = k < 0.6 ? 1 : 0
+      P.eyes = k < 0.55 ? 2 : 0
+      P.mouth = k < 0.55 ? 1 : 0
       break
     }
   }
@@ -785,11 +787,11 @@ function arm(side: number, hu: number, hv: number, hd: number, grp: number) {
 function build(look: HeroLook, b: FigureBlade | undefined) {
   // The legs stand in the root frame; the torso turns and leans on the hips; the head sits on the torso.
   ground(P.ox, P.oy, P.oz)
-  setFrame(fRoot, P.yaw, -P.lie, 0, pu, pv, pd)
+  setFrame(fRoot, P.yaw, 0, -P.lie, pu, pv, pd)
   pt(fRoot, 0, 0, HIP + P.rise * PX)
-  setFrame(fTorso, P.yaw + P.twist, P.lean - P.lie, P.roll, pu, pv, pd)
+  setFrame(fTorso, P.yaw + P.twist, P.lean, P.roll - P.lie, pu, pv, pd)
   pt(fTorso, 0.4, 0, 16.6)
-  setFrame(fHead, P.yaw + P.twist + P.turn, P.lean * 0.5 + P.nod - P.lie, P.roll * 0.5, pu, pv, pd)
+  setFrame(fHead, P.yaw + P.twist + P.turn, P.lean * 0.5 + P.nod, P.roll * 0.5 - P.lie, pu, pv, pd)
 
   leg(-1, P.lf, P.lz, look, G_LEG_L)
   leg(1, P.rf, P.rz, look, G_LEG_R)
@@ -830,14 +832,15 @@ function build(look: HeroLook, b: FigureBlade | undefined) {
       cap(u, v, d, pu, pv, pd, 2.5, HAIR, HAIR, 2, G_TAIL)
     }
   }
-  if (look.head === 'band' && look.hair === 'short' && P.lie < 0.6) {
+  if (look.head === 'band' && look.hair === 'short') {
     // The knot behind the left ear and its two tails, so the band flies to one side from the front.
     streamer(fHead, -4.4, -8.7, 4, -0.45, -0.89, 3.4, 3.4, 1.15, hang, lag, BAND, G_TAIL)
     streamer(fHead, -5.6, -8, 3.6, -0.8, -0.6, 2.4, 2.8, 1.15, hang + 0.5, lag + 0.2, BAND, G_TAIL)
   } else if (look.head === 'bow') {
-    ell(fHead, 1.2, -3.8, 8.7, 2, 3.4, 2.5, BAND, G_HEAD)
-    ell(fHead, 1.2, 3.8, 8.7, 2, 3.4, 2.5, BAND, G_HEAD)
-    ell(fHead, 1.6, 0, 8.4, 1.8, 1.6, 1.8, BAND, G_HEAD)
+    // Two loops standing on the crown with the knot low between them, so the bow keeps its notch.
+    ell(fHead, 0.4, -4.4, 9.3, 1.8, 3.2, 3.1, BAND, G_HEAD)
+    ell(fHead, 0.4, 4.4, 9.3, 1.8, 3.2, 3.1, BAND, G_HEAD)
+    ell(fHead, 0.8, 0, 8.3, 1.7, 1.6, 1.6, BAND, G_HEAD)
   }
 
   if (P.blade && b) sword(b)
@@ -943,7 +946,7 @@ function face() {
   if (SC < 0.6) return
   const er = 3.3
   const ef = 8.4
-  const ez = -2
+  const ez = -0.5
   if (P.eyes === 0) {
     mark(ef, -er, ez, 2, 2, EYE, 2)
     mark(ef, er, ez, 2, 2, EYE, 2)
@@ -954,8 +957,8 @@ function face() {
     mark(ef, -er, ez, 2, 1, EYE, 3)
     mark(ef, er, ez, 2, 1, EYE, 3)
   }
-  if (P.mouth === 1) mark(8.4, 0, -5, 2, 2, MOUTH, 0)
-  else if (P.mouth === 2) mark(8.4, 0, -5.2, 2, 1, MOUTH, 2)
+  if (P.mouth === 1) mark(8.6, 0, -3.9, 2, 2, MOUTH, 0)
+  else if (P.mouth === 2) mark(8.6, 0, -4, 2, 1, MOUTH, 2)
 }
 
 /** The trail: a crescent in the blade's plane from the oldest angle to the blade, thinning and fading toward its tail. */
@@ -1009,7 +1012,7 @@ function trail(o: FigureSprite, b: FigureBlade) {
       const q = back / span
       const wd = w0 * (1 - q) ** 0.75
       const rad = Math.sqrt(rr)
-      if (rad < ro - wd) continue
+      if (wd < 3.2 || rad < ro - wd) continue
       const i = y * W + x
       if (depth < zb[i]) continue
       // Where in the crescent: 1 on the outer rim, 0 on the inner edge.
@@ -1044,7 +1047,7 @@ function spark(o: FigureSprite, b: FigureBlade) {
   ground(Math.cos(b.a) * reach, Math.sin(b.a) * reach, HAND_Z)
   const cx = Math.floor(AX + pu)
   const cy = Math.floor(AY - pv)
-  for (let k = -3; k <= 3; k++) {
+  for (let k = -4; k <= 4; k++) {
     for (let e = 0; e < 2; e++) {
       const x = e ? cx : cx + k
       const y = e ? cy + k : cy
@@ -1052,7 +1055,7 @@ function spark(o: FigureSprite, b: FigureBlade) {
       const i = y * W + x
       if (pd + 1 < zb[i]) continue
       nx[i] = 0; ny[i] = 0; nz[i] = 1
-      put(o, i, SPARK, Math.abs(k) <= 1 ? 3 : Math.abs(k) === 2 ? 2 : 1)
+      put(o, i, SPARK, Math.abs(k) <= 1 ? 3 : Math.abs(k) <= 3 ? 2 : 1)
       grow(x, y, x + 1, y + 1)
     }
   }

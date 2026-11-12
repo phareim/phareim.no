@@ -152,7 +152,7 @@ export function spinPose(base, p, kind = 'sword') {
 
 /** The window of the cell a standing figure needs, and the whole cell. */
 const BODY = [52, 20, 56, 60]
-const WIDE = [38, 10, 84, 76]
+const WIDE = [30, 8, 100, 80]
 
 function sheetTurn(M, zoom) {
   const [, , cw, ch] = BODY
@@ -215,6 +215,8 @@ function sheetSwing(M, zoom) {
   for (let k = 0; k < 8; k++) s.cell(...at(k % 4, r + (k >> 2)), M.renderFigure(spinPose(Math.PI / 2, (k + 0.5) / 8), look), full, zoom)
   s.cell(...at(4, r), M.renderFigure(spinPose(0, 0.5, 'arc'), look), full, zoom)
   s.cell(...at(5, r), M.renderFigure(spinPose(Math.PI, 0.9, 'arc'), look), full, zoom)
+  s.cell(...at(4, r + 1), M.renderFigure(spinPose(-Math.PI / 2, 0.25, 'arc'), look), full, zoom)
+  s.cell(...at(5, r + 1), M.renderFigure(spinPose(Math.PI / 2, 0.7, 'arc'), look), full, zoom)
   r += 2
   const held = (yaw, act, t, kind, charge, flash) => ({ yaw, act, t, blade: { a: yaw, reach: kind === 'arc' ? 1.4 : 1.2, trail: [], kind, charge, flash } })
   const charged = [
@@ -258,7 +260,7 @@ function sheetLit(M, zoom) {
   const gap = 2
   const poses = [
     { yaw: Math.PI / 4, act: 'idle', t: 0 }, { yaw: Math.PI * 1.25, act: 'idle', t: 0 }, { yaw: -Math.PI / 4, act: 'walk', t: 0.25 },
-    swingPose(Math.PI / 2, 0.56), { yaw: Math.PI * 0.75, act: 'carry', t: 0 }, { yaw: Math.PI / 4, act: 'hurt', t: 0 },
+    swingPose(Math.PI / 4, 0.4), { yaw: Math.PI * 0.75, act: 'carry', t: 0 }, { yaw: Math.PI / 4, act: 'hurt', t: 0 },
   ]
   const s = new Sheet(poses.length * (cw * zoom + gap) + gap, 3 * (ch * zoom + gap) + gap)
   poses.forEach((p, c) => {
