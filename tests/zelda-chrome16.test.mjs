@@ -171,7 +171,7 @@ describe('the shell in the 16-bit dress', () => {
   it('wears it exactly when the view is the isometric engine with 16-bit windows', () => {
     assert.match(shell, /function wears16\(id: ViewId\): boolean \{\s*const def = viewDef\(id\) \?\? viewDef\('classic'\)!\s*return def\.engine === 'iso' && resolveParams\(def\.engine, def\.params\)\.windows === '16-bit'\s*\}/)
     // The canvas HUD makes the same choice from the same value.
-    assert.match(read('themes/zelda/render/iso/view.ts'), /par\.windows === '16-bit' && k > 0\.5 \? HIRES_WINDOW_SKIN : NEON_SKIN/)
+    assert.match(read('themes/zelda/render/iso/view.ts'), /par\.windows === '16-bit' \? HIRES_WINDOW_SKIN : NEON_SKIN/)
   })
 
   it('follows the view: after a turn to it, after the studio\'s values, and at the first frame', () => {
