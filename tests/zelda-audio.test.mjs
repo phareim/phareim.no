@@ -76,17 +76,17 @@ class Src extends Node {
   stop(t = 0) { finite(t, 'stop'); if (!this.started) bad('stop before start') }
 }
 class Ctx {
-  constructor() { this.currentTime = 0; this.sampleRate = 8000; this.state = 'running'; this.destination = new Node(this); this.panners = 0; this.sources = 0 }
+  constructor() { this.currentTime = 0; this.sampleRate = 8000; this.state = 'running'; this.destination = new Node(this); this.panners = 0; this.sources = 0; this.oscs = 0; this.buffers = 0; this.filters = [] }
   createGain() { const n = new Node(this); n.gain = new Param(1); return n }
-  createBiquadFilter() { const n = new Node(this); n.frequency = new Param(350); n.Q = new Param(1); n.gain = new Param(0); return n }
+  createBiquadFilter() { const n = new Node(this); n.frequency = new Param(350); n.Q = new Param(1); n.gain = new Param(0); this.filters.push(n); return n }
   createStereoPanner() { const n = new Node(this); n.pan = new Param(0); this.panners++; return n }
   createDynamicsCompressor() { const n = new Node(this); for (const k of ['threshold', 'knee', 'ratio', 'attack', 'release']) n[k] = new Param(0); return n }
   createConvolver() { return new Node(this) }
   createWaveShaper() { return new Node(this) }
   createDelay() { const n = new Node(this); n.delayTime = new Param(0); return n }
-  createOscillator() { const o = new Src(this); o.frequency = new Param(440); o.detune = new Param(0); o.setPeriodicWave = () => {}; return o }
+  createOscillator() { const o = new Src(this); this.oscs++; o.frequency = new Param(440); o.detune = new Param(0); o.setPeriodicWave = () => {}; return o }
   createBufferSource() { const s = new Src(this); this.sources++; s.playbackRate = new Param(1); s.start = function (t = 0, off = 0) { finite(off, 'offset'); if (!this.buffer) bad('no buffer'); Src.prototype.start.call(this, t) }; return s }
-  createBuffer(ch, len, rate) { if (len < 1) bad('empty buffer'); finite(rate, 'rate'); const d = Array.from({ length: ch }, () => new Float32Array(len)); return { getChannelData: i => d[i], length: len, sampleRate: rate } }
+  createBuffer(ch, len, rate) { this.buffers++; if (len < 1) bad('empty buffer'); finite(rate, 'rate'); const d = Array.from({ length: ch }, () => new Float32Array(len)); return { getChannelData: i => d[i], length: len, sampleRate: rate } }
   createPeriodicWave() { return {} }
   resume() { return Promise.resolve() }
   suspend() { return Promise.resolve() }
@@ -151,8 +151,99 @@ test('every 8-bit voice a track uses has a 16-bit one', () => {
     assert.ok(p.level >= 0.5 && p.level <= 1.6, `${id}: level ${p.level}`)
   }
   for (const [kind, table] of Object.entries(A.SPC_GAIN)) {
-    for (const [name, g] of typeof table === 'number' ? [[kind, table]] : Object.entries(table)) assert.ok(g > 0 && g <= 2, `${kind}.${name}: ${g}`)
+    // A lead's gain is times a note volume of 0.2 or less, so it may be larger than the rest.
+    for (const [name, g] of typeof table === 'number' ? [[kind, table]] : Object.entries(table)) assert.ok(g > 0 && g <= (kind === 'lead' ? 4 : 2), `${kind}.${name}: ${g}`)
   }
+})
+
+test('every 16-bit instrument has its recordings: the same every time, peak 0.9, a loop that closes on itself', () => {
+  const voices = [...Object.keys(A.SPC_GAIN.lead), ...Object.keys(A.SPC_GAIN.bass), ...Object.keys(A.SPC_GAIN.arp), ...Object.keys(A.SPC_GAIN.pad)]
+  assert.deepEqual(Object.keys(A.SPC_SAMPLES).sort(), voices.sort())
+  for (const [name, spec] of Object.entries(A.SPC_SAMPLES)) {
+    for (const root of spec.roots) {
+      const a = A.renderSpcSample(name, root)
+      assert.deepEqual(Array.from(A.renderSpcSample(name, root).data.subarray(0, 2000)), Array.from(a.data.subarray(0, 2000)), `${name} ${root}`)
+      let peak = 0, step = 0
+      for (const v of a.data) peak = Math.max(peak, Math.abs(v))
+      assert.ok(Math.abs(peak - 0.9) < 0.001, `${name} ${root}: peak ${peak}`)
+      assert.equal(a.data.length - a.loop, 1 << spec.size, `${name} ${root}`)
+      assert.equal(a.loop, Math.round(spec.attack * A.SPC_RATE / 16) * 16, `${name} ${root}`)
+      // Where the loop comes round, the jump is no larger than between two samples inside it.
+      for (let i = a.loop + 1; i < a.data.length; i++) step = Math.max(step, Math.abs(a.data[i] - a.data[i - 1]))
+      assert.ok(Math.abs(a.data[a.data.length - 1] - a.data[a.loop]) <= step, `${name} ${root}: the loop does not close`)
+      // The pitch is the note's, to the loop's grid.
+      assert.ok(Math.abs(12 * Math.log2(a.hz / A.hz(root))) < 0.5, `${name} ${root}: ${a.hz} Hz`)
+    }
+  }
+})
+
+test('a recording speaks before it sustains: breath before a flute\'s tone, a harp brightest at the pluck', () => {
+  const rms = (x, a, b) => { let s = 0; for (let i = a; i < b; i++) s += x[i] * x[i]; return Math.sqrt(s / (b - a)) }
+  // How much of a stretch is above the tone: the sample-to-sample difference against the level.
+  const bright = (x, a, b) => { let s = 0; for (let i = a + 1; i < b; i++) s += (x[i] - x[i - 1]) ** 2; return Math.sqrt(s / (b - a)) / rms(x, a, b) }
+  const ms = t => Math.floor(t * A.SPC_RATE / 1000)
+  const flute = A.renderSpcSample('flute')
+  assert.ok(rms(flute.data, 0, ms(10)) < rms(flute.data, flute.loop, flute.data.length) * 0.5, 'the flute starts under its tone')
+  assert.ok(bright(flute.data, 0, ms(10)) > bright(flute.data, flute.loop, flute.data.length) * 2, 'the flute starts with air')
+  for (const name of ['harp', 'keys', 'slap', 'chime', 'glass', 'mallet']) {
+    const s = A.renderSpcSample(name)
+    assert.ok(bright(s.data, 0, ms(40)) > bright(s.data, s.loop, s.data.length) * 1.3, `${name} is brightest as it is struck`)
+  }
+  // Bowed and sung instruments are all loop: the bow is the player's envelope.
+  assert.equal(A.renderSpcSample('strings').loop, 0)
+  assert.equal(A.renderSpcSample('choir').loop, 0)
+})
+
+test('the nearest recording plays a note, and nothing any track or jingle plays is bent out of shape', () => {
+  const [low, high] = A.SPC_SAMPLES.flute.roots
+  assert.equal(A.spcRoot('flute', low - 5), low)
+  assert.equal(A.spcRoot('flute', high), high)
+  // Between two recordings a note takes the one above sooner than the one below: slower is kinder than faster.
+  assert.equal(A.spcRoot('flute', low + 3), low)
+  assert.equal(A.spcRoot('flute', (low + high) / 2), high)
+  // A pad's chord (G3 to F#4) comes off one recording, so its notes are one section.
+  for (const pad of Object.keys(A.SPC_GAIN.pad)) {
+    assert.equal(new Set(Array.from({ length: 12 }, (_, i) => A.spcRoot(pad, 55 + i))).size, 1, pad)
+  }
+  assert.ok(A.SPC_REACH <= 9)
+  // validateSpc walks every note of every track and jingle against SPC_REACH.
+  assert.deepEqual(A.validateSpc().filter(e => e.includes('no recording')), [])
+})
+
+test('the chip\'s codec leaves its grain and takes the top off, and no more than that', () => {
+  const db = v => 20 * Math.log10(v)
+  const rms = x => Math.sqrt(x.reduce((s, v) => s + v * v, 0) / x.length)
+  const blur = x => x.map((v, i) => 0.18 * (x[i - 1] ?? x[0]) + 0.64 * v + 0.18 * (x[i + 1] ?? 0))
+  const snr = x => { const want = blur(x); const got = A.spcCodec(x); return db(rms(want)) - db(rms(want.map((v, i) => got[i] - v))) }
+  const sine = f => Float32Array.from({ length: 8000 }, (_, i) => 0.8 * Math.sin(2 * Math.PI * f * i / A.SPC_RATE))
+  let seed = 7
+  const noise = Float32Array.from({ length: 8000 }, () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296 - 0.5 })
+  // A low tone comes through nearly clean, a bright one grainier, noise grainiest: the codec predicts, and noise cannot be predicted.
+  assert.ok(snr(sine(440)) > 45, `440 Hz: ${snr(sine(440))}`)
+  assert.ok(snr(sine(4000)) > 25 && snr(sine(4000)) < snr(sine(440)))
+  assert.ok(snr(noise) > 15 && snr(noise) < 30, `noise: ${snr(noise)}`)
+  // The grain is there: the codec is not a copy.
+  const got = A.spcCodec(sine(440))
+  assert.ok(blur(sine(440)).some((v, i) => Math.abs(got[i] - v) > 1e-5))
+  // The blur: a tone near the top of the chip's range loses several dB, a low one nothing to speak of.
+  assert.ok(db(rms(A.spcCodec(sine(12000))) / rms(sine(12000))) < -6)
+  assert.ok(Math.abs(db(rms(A.spcCodec(sine(440))) / rms(sine(440)))) < 0.2)
+  // The same length out as in, whatever the length, and silence stays silence.
+  assert.equal(A.spcCodec(new Float32Array(1000)).length, 1000)
+  assert.ok(A.spcCodec(new Float32Array(1000)).every(v => v === 0))
+  // Every recording keeps its grain well under its tone.
+  for (const name of Object.keys(A.SPC_SAMPLES)) {
+    const s = A.renderSpcSample(name)
+    const want = s.data.map((v, i) => 0.18 * (s.data[i - 1] ?? s.data[0]) + 0.64 * v + 0.18 * (s.data[i + 1] ?? s.data[s.loop]))
+    const c = A.spcCodec(s.data, s.loop)
+    assert.ok(db(rms(want)) - db(rms(want.map((v, i) => c[i] - v))) > 28, name)
+  }
+})
+
+test('the effects kept out of the 16-bit echo are real effects', () => {
+  assert.ok(A.SPC_DRY_SFX.length > 0)
+  for (const n of A.SPC_DRY_SFX) assert.ok(SFX_NAMES.includes(n), n)
+  assert.equal(new Set(A.SPC_DRY_SFX).size, A.SPC_DRY_SFX.length)
 })
 
 test('the 16-bit wavetables are short, start on their fundamental and never get brighter going up', () => {
@@ -250,14 +341,28 @@ test('every track, every SFX and every jingle runs in the 16-bit flavour', () =>
     // Asked for before the first key: remembered, and the first track starts on that chip.
     audio.setFlavor('16-bit')
     audio.unlock()
+    // What unlock builds belongs to both chips (the 8-bit delay's filter among it).
+    const shared = ctx().filters.length
     for (const id of Object.keys(A.TRACKS)) {
       audio.music(id)
       play(40)
     }
     assert.ok(ctx().panners > 0)
+    // The instruments are recordings, not oscillators: what oscillators there are bend them (vibrato, tape wow).
+    assert.ok(ctx().sources > ctx().oscs * 2, `${ctx().sources} buffer sources, ${ctx().oscs} oscillators`)
+    // No filter on this chip has a peak at its corner (Q is in dB for a lowpass: 0 and under is none).
+    // One in the echo's loop would ring louder with every repeat.
+    const lows = ctx().filters.slice(shared).filter(f => f.type === 'lowpass' || f.type === 'highpass')
+    assert.ok(lows.length > 0)
+    for (const f of lows) assert.ok(f.Q.value <= 0, `a ${f.type} at ${f.frequency.value} Hz with a ${f.Q.value} dB peak`)
     for (const n of SFX_NAMES) { audio.sfx(n); audio.sfx(n) }
     for (const j of Object.keys(A.JINGLES)) audio.jingle(j)
     play(4)
+    // A track that ends leaves its echo to ring out, and the next one brings its own.
+    audio.music(null)
+    play(6)
+    audio.music('title')
+    play(2)
   })
 })
 
@@ -288,6 +393,38 @@ test('a change of flavour in the middle of a track neither restarts it nor leave
     play(1)
     assert.equal(ctx().panners, settle)
   })
+})
+
+test('the 16-bit chip records itself in the background once it is unlocked, one recording at a time', () => {
+  const later = []
+  const realTimeout = globalThis.setTimeout
+  globalThis.setTimeout = fn => { later.push(fn); return 0 }
+  try {
+    // 8-bit: nothing is recorded, nothing is queued.
+    onFake(audio => { audio.unlock(); audio.music('title') })
+    assert.equal(later.length, 0)
+    onFake((audio, ctx) => {
+      audio.setFlavor('16-bit')
+      audio.unlock()
+      const before = ctx().buffers
+      let most = 0
+      for (let guard = 0; later.length && guard < 500; guard++) {
+        const had = ctx().buffers
+        later.shift()()
+        most = Math.max(most, ctx().buffers - had)
+      }
+      const all = Object.values(A.SPC_SAMPLES).reduce((n, spec) => n + spec.roots.length, 0) + Object.keys(A.SPC_GAIN.drums).length
+      assert.equal(ctx().buffers - before, all)
+      assert.equal(most, 1)
+      // Everything is there: a track and its jingles record nothing more.
+      const made = ctx().buffers
+      for (const id of Object.keys(A.TRACKS)) { audio.music(id); for (let i = 0; i < 400; i++) { ctx().currentTime += 0.05; audio.tick?.() } }
+      for (const j of Object.keys(A.JINGLES)) audio.jingle(j)
+      assert.equal(ctx().buffers, made)
+    })
+  } finally {
+    globalThis.setTimeout = realTimeout
+  }
 })
 
 test('the lab seam runs the engine on a context it is given, with no timer of its own', () => {

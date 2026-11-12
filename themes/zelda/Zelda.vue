@@ -1370,12 +1370,9 @@ onBeforeUnmount(() => {
 /* The page's first hint (portal/Landing.vue) comes after the canvas: a line of dialog, so the dialog box's blue window. */
 .zelda-canvas.px16 ~ .portal-hint {
   --font-pixel: var(--font-pixel16);
-  /* Centred by its margins, not by half its own width: on an odd width that half pixel would blur these letters. */
-  left: 0;
-  right: 0;
-  width: max-content;
-  margin: 0 auto;
-  transform: none;
+  /* Centred on whole pixels: half of an odd width would blur these letters. (Where round() is not known the page's own centring stays.) */
+  left: round(down, 50%, 1px);
+  transform: translateX(round(down, -50%, 1px));
   padding: 8px 14px;
   border: calc(3 * var(--px16-u)) solid transparent;
   border-radius: calc(3 * var(--px16-u));
@@ -1385,6 +1382,23 @@ onBeforeUnmount(() => {
   color: var(--px16-text);
   text-shadow: var(--px16-drop);
 }
+
+/* The page's ending panel, the same way: the dialog's window, the HUD's colours, its hard shadow under every line. */
+.zelda-canvas.px16 ~ .portal-end { --font-pixel: var(--font-pixel16); }
+.zelda-canvas.px16 ~ .portal-end .portal-end-panel {
+  padding: 22px 28px 24px;
+  border: calc(3 * var(--px16-u)) solid transparent;
+  border-radius: calc(3 * var(--px16-u));
+  border-image: var(--px16-frame-hot) var(--px16-cut);
+  background: var(--px16-fill-hot) padding-box;
+  box-shadow: var(--px16-shade);
+  text-shadow: var(--px16-drop);
+}
+.zelda-canvas.px16 ~ .portal-end .portal-end-title { line-height: 36px; color: var(--px16-prize); text-shadow: var(--px16-drop); }
+.zelda-canvas.px16 ~ .portal-end .portal-end-time { color: var(--px16-cool); text-shadow: var(--px16-drop); }
+.zelda-canvas.px16 ~ .portal-end .portal-end-best { color: var(--px16-prize); }
+.zelda-canvas.px16 ~ .portal-end .portal-end-start { color: var(--px16-hot); }
+.zelda-canvas.px16 ~ .portal-end .portal-end-note { color: var(--px16-dim); }
 
 /* The Escape pill (base/EscHold.vue): its own colours are scoped to it and would win a tie with .px-box, so the window is said again, one class stronger. */
 .px16.esc-hold-layer .esc-hold-pill {

@@ -58,6 +58,10 @@ export interface HudSkin {
   pieces?(g: G, x: number, y: number, have: number): void
   /** A known speaker's name ("KEEPER: …") goes on a plate on the dialog box's edge instead of in front of the line. */
   plate?: boolean
+  /** A dialog box at the top of the screen starts under the hearts and the counters instead of on them, when the hero leaves it the room. */
+  underHud?: boolean
+  /** The skin worn in its place on a screen too coarse for its density (a screen scale of 1), where it has no finer pixel to draw with. */
+  coarse?: () => HudSkin
   /** Body text and the shadow under it (none: no shadow). */
   text: string
   shadow?: string
@@ -268,8 +272,42 @@ export function drawBanner(g: G, text: string, t: number, vw: number, vh: number
   g.globalAlpha = 1
 }
 
-/** A line that opens with its speaker's name: "KEEPER: …". */
+/** A line that opens with a name: "KEEPER: …". */
 const SPEAKER = /^([A-ZÆØÅ0-9][A-ZÆØÅ0-9 .'-]{1,15}):\s+(?=\S)/
+
+/**
+ * The name a spoken line opens with and the line without it, when the name
+ * is the speaker's: `who` is who is talking (an NPC's look, null for a sign
+ * or a thought), `first` the line their talk opened with. The name counts
+ * when it is the speaker's own or the one the talk opened with (a barmaid's
+ * lines say BARTENDER); a heading further in ("TODAY: …") is not a name.
+ */
+export function speakerOf(line: string, who: string | null | undefined, first = line): { name: string; body: string } | null {
+  if (!who) return null
+  const m = SPEAKER.exec(line)
+  if (!m) return null
+  const name = m[1]!
+  if (name !== who.toUpperCase() && SPEAKER.exec(first)?.[1] !== name) return null
+  return { name, body: line.slice(m[0].length) }
+}
+
+/** The most rows of text any line of a talk wraps to in a box, per talk (its lines are one array for as long as it lasts), font and width. */
+const tallest = new WeakMap<readonly string[], { font: HudFont; inner: number; keys: string; rows: number }>()
+
+function tallestRows(lines: readonly string[], who: string | null | undefined, plate: boolean, F: HudFont, inner: number, keys: HudKeys): number {
+  const hit = tallest.get(lines)
+  // The key names are part of the lines ("PRESS {A}").
+  const named = keys.a + keys.b + keys.cycle
+  if (hit && hit.font === F && hit.inner === inner && hit.keys === named) return hit.rows
+  let rows = 1
+  for (const raw of lines) {
+    const line = subst(raw, keys)
+    const said = plate ? speakerOf(line, who, lines[0]) : null
+    rows = Math.max(rows, F.wrap(said ? said.body : line, inner).length)
+  }
+  tallest.set(lines, { font: F, inner, keys: named, rows })
+  return rows
+}
 
 /** Dialog box: typed text, wrapped, bottom or top depending on the hero. */
 export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScreenY: number, keys: HudKeys, time: number, skin: HudSkin = NEON_SKIN) {
@@ -280,8 +318,8 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
   const w = Math.min(vw - 12, 280)
   const inner = w - 16
   // A skin with name plates lifts "KEEPER: " off the front of a known speaker's line; the letters still take their time to type.
-  const named = skin.plate && d.who ? SPEAKER.exec(line) : null
-  const body = named ? line.slice(named[0].length) : line
+  const named = skin.plate ? speakerOf(line, d.who, d.lines[0]) : null
+  const body = named ? named.body : line
   const wrapped = F.wrap(body, inner)
   // An exit's last line asks YES / NO on a row of its own, YES in the left half and NO in the right (touch taps a half).
   const asks = asksChoice(d)
@@ -289,17 +327,24 @@ export function drawDialog(g: G, s: GameState, vw: number, vh: number, heroScree
   const h = textH + 14 + (asks ? GLYPH_H + 8 : 0)
   const x = Math.round((vw - w) / 2)
   const top = heroScreenY > vh * 0.58
-  const y = top ? 8 : vh - h - 8
+  let y = top ? 8 : vh - h - 8
+  if (top && skin.underHud && s.inv.sword) {
+    // Under the hearts, the counters and the item box, if the tallest box this talk will show (its plate and a question's row with it) still ends well over the hero's head: the box then stays where it is from line to line.
+    const under = 4 + Math.ceil(Math.ceil(s.hero.maxHp / 2) / 10) * 9 + 2 + 9 + 6
+    const reach = tallestRows(d.lines, d.who, !!skin.plate, F, inner, keys) * (GLYPH_H + 4) + 14 + GLYPH_H + 8 + (skin.plate ? 10 : 0)
+    if (under + Math.max(h, reach) <= heroScreenY - 26) y = under
+  }
   skin.panel(g, x, y, w, h, 'hot')
   if (named) {
     // The plate rides the box's edge on the side away from the screen's: over a box at the bottom, under one at the top.
-    const name = named[1]!
+    const name = named.name
     const pw = F.width(name) + 12
     const py = top ? y + h - 4 : y - 9
     skin.panel(g, x + 6, py, pw, GLYPH_H + 6, 'cool')
     F.draw(g, name, x + 12, py + 3, skin.prize, skin.shadow)
   }
-  let left = Math.floor(d.chars) - (named ? named[0].length : 0)
+  // The line is typed at the pace of the whole of it, name and all, so the body starts at once and ends when the line does.
+  let left = Math.floor(named ? d.chars * body.length / line.length : d.chars)
   for (let i = 0; i < wrapped.length; i++) {
     const text = wrapped[i]!
     const shown = text.slice(0, Math.max(0, left))
@@ -396,12 +441,12 @@ export function drawPause(g: G, s: GameState, vw: number, vh: number, keys: HudK
   if (f('item:tube') && !f('got:dusty:heartPiece')) errands.push('item_tube')
   if (f('item:walkie') && !f('got:toby:bits50')) errands.push('item_walkie')
   if (f('item:hat') && !f('got:troll:bigBag')) errands.push('item_hat')
+  // A skin with finer pixels shows each at its full sixteen, as it shows the items; the classic box shrinks them to twelve.
+  const fine = (skin.density ?? 1) > 1
   errands.forEach((name, i) => {
-    const spr = sprite(name)
-    const ex = x + w - 8 - (errands.length - i) * 14
-    // A skin with finer pixels shows the drawing whole, a pixel of its own to each of the sprite's; the classic box shrinks it to twelve.
-    if ((skin.density ?? 1) > 1) g.drawImage(spr, ex + 6 - spr.width / 4, py + 1 - spr.height / 4, spr.width / 2, spr.height / 2)
-    else g.drawImage(spr, ex, py - 5, 12, 12)
+    const ex = x + w - 8 - (errands.length - i) * (fine ? 17 : 14)
+    if (fine) icon(g, skin, name, ex, py - 5)
+    else g.drawImage(sprite(name), ex, py - 5, 12, 12)
   })
   // Objective
   const lines = F.wrap(objective(s), w - 16)

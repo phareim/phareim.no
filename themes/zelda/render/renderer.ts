@@ -100,6 +100,11 @@ export interface Renderer {
   viewState(): { id: string; k: number; turn: number; turning: boolean }
   /** The page is done with the renderer: every view lets go of what it holds. */
   dispose(): void
+  /**
+   * CSS px to one pixel of a fine HUD (a skin at two px to the classic px), on this screen and in this map.
+   * The shell's HTML sizes its 16-bit dress by it, so its letters are as large as the canvas's.
+   */
+  fineUnit(): number
 }
 
 /**
@@ -174,7 +179,14 @@ export interface Kit {
   /** `into`: the colour a fade ends in (the classic night, or a view's own sheet). */
   flashFade(g: G, s: GameState, ui: FrameUI, dt: number, into?: string): number
   present(fade: number, glows: (bg: G) => void, finish?: Finish): void
-  hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin?: HudSkin): void
+  /**
+   * The HUD in a skin (none: the classic neon one). `from`: the skin this one
+   * is taking over from and how far it has (0–1), for a view that turns in
+   * from another dress: the old one fades out over the first half and this
+   * one in over the second, instead of one giving way to the other in a
+   * single frame. Their letters are never on top of each other.
+   */
+  hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin?: HudSkin, from?: { skin: HudSkin; mix: number }): void
   /**
    * Where a skin's HUD lies on the screen: device px per HUD logical px, where
    * its logical origin lands (device px) and its logical size. The classic HUD
@@ -970,8 +982,14 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (finish.vignette > 0) vignette(screen, finish.vignette)
   }
 
+  /** The skin this screen can show: one with finer pixels gives way to its coarse stand-in where a logical px is a single device px. */
+  function wearable(skin: HudSkin): HudSkin {
+    return (skin.density ?? 1) > 1 && scale < 2 && skin.coarse ? skin.coarse() : skin
+  }
+
   /** Where a skin's HUD lies on the screen (`Kit.hudSpace`). */
   function hudSpace(skin: HudSkin = NEON_SKIN): { scale: number; ox: number; oy: number; vw: number; vh: number } {
+    skin = wearable(skin)
     const hs = hudScale(scale, W, H, skin.density)
     const w = hs === scale ? vw : Math.ceil(W / hs)
     const h = hs === scale ? vh : Math.ceil(H / hs)
@@ -993,8 +1011,30 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * The HUD layer and the touch stick. (cx, cy) is the camera the exit labels
    * are placed by (px), `heroY` the hero's row on the scene (the dialog box
    * keeps clear of it): both in scene px, whatever grid the skin's HUD is on.
+   * `from`: see `Kit.hudLayer`.
    */
-  function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN) {
+  function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN, from?: { skin: HudSkin; mix: number }) {
+    const to = wearable(skin)
+    const old = from ? wearable(from.skin) : to
+    const mix = old === to ? 1 : Math.max(0, Math.min(1, from!.mix))
+    // One skin a frame: the one being left on its way out, then this one on its way in.
+    if (mix < 0.5) hudPaint(s, ui, dt, cx, cy, heroY, old, 1 - mix * 2)
+    else hudPaint(s, ui, dt, cx, cy, heroY, to, mix * 2 - 1)
+
+    // Touch stick
+    if (ui.stick) {
+      const sx = ui.stick.ox * dpr
+      const sy = ui.stick.oy * dpr
+      screen.strokeStyle = 'rgba(47,243,255,0.45)'
+      screen.lineWidth = 2 * dpr
+      screen.beginPath(); screen.arc(sx, sy, 40 * dpr, 0, Math.PI * 2); screen.stroke()
+      screen.fillStyle = 'rgba(47,243,255,0.35)'
+      screen.beginPath(); screen.arc(sx + ui.stick.dx * dpr, sy + ui.stick.dy * dpr, 16 * dpr, 0, Math.PI * 2); screen.fill()
+    }
+  }
+
+  /** One skin's HUD, painted on its own grid and laid on the screen at `alpha`. */
+  function hudPaint(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin, alpha: number) {
     const ox = Math.floor((W - vw * scale) / 2)
     const oy = Math.floor((H - vh * scale) / 2)
     // The skin's own grid: the scene's for the classic HUD; at density 2 twice as fine, and of another size when the screen's scale is odd.
@@ -1033,18 +1073,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (ui.paused) drawPause(g, s, sp.vw, sp.vh, ui.keys, ui.confirmReset, ui.muted, ui.view, skin)
       else if (ui.strip && !s.dialog) drawViewStrip(g, ui.strip, sp.vw, sp.vh - bottom, !!ui.keys.touch, skin)
     }
+    if (alpha < 1) screen.globalAlpha = alpha
     screen.drawImage(density > 1 ? hudFine! : hud, 0, 0, sp.vw * density, sp.vh * density, sp.ox, sp.oy, sp.vw * sp.scale, sp.vh * sp.scale)
-
-    // Touch stick
-    if (ui.stick) {
-      const sx = ui.stick.ox * dpr
-      const sy = ui.stick.oy * dpr
-      screen.strokeStyle = 'rgba(47,243,255,0.45)'
-      screen.lineWidth = 2 * dpr
-      screen.beginPath(); screen.arc(sx, sy, 40 * dpr, 0, Math.PI * 2); screen.stroke()
-      screen.fillStyle = 'rgba(47,243,255,0.35)'
-      screen.beginPath(); screen.arc(sx + ui.stick.dx * dpr, sy + ui.stick.dy * dpr, 16 * dpr, 0, Math.PI * 2); screen.fill()
-    }
+    if (alpha < 1) screen.globalAlpha = 1
   }
 
   // ---------------------------------------------------------------------------
@@ -1336,5 +1367,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       for (const v of views.values()) try { v.dispose?.() } catch { /* nothing to be done */ }
       views.clear()
     },
+    fineUnit: () => hudScale(scale, W, H, 2) / 2 / dpr,
   }
 }

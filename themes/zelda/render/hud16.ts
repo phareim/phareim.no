@@ -3,15 +3,18 @@
  * layout is two pixels here (`hudLayer` scales the canvas 2×, so half a unit
  * is one pixel). The window is the console RPG's: a gradient that changes a
  * little on every scanline, in the steps the machine's fifteen-bit colour
- * allowed, behind a two-pixel bevelled border with round corners, an inner
- * dark line and a soft shadow on the world. The lettering is font16.ts, the
- * hearts and the pointing hand are drawn here, and the few other icons are
- * the classic sprites through EPX.
+ * allowed, behind a bevelled border (two pixels of white and a softer one
+ * inside) with round corners, an inner dark line and a soft shadow on the
+ * world. The lettering is font16.ts, the
+ * hearts, the counters' icons and the pointing hand are drawn here, and the
+ * few other icons are the classic sprites through EPX; so is one of these the
+ * studio has redrawn.
  */
 import { drawText16, textWidth16, wrapText16 } from '../../base/pixel/font16'
 import { epxCanvas } from '../../base/pixel/epx'
 import { makeCanvas, paintRows, sprite } from './sheet'
-import type { HudFont, HudSkin } from './hud'
+import { PAL, SPRITES } from './sprites'
+import { WINDOW_SKIN, type HudFont, type HudSkin } from './hud'
 
 type G = CanvasRenderingContext2D
 type Canvas = HTMLCanvasElement
@@ -68,35 +71,36 @@ function paintWindow(w: number, h: number, tone: Tone): Canvas {
   box(g, 2, 3, w + 2, h + 2, round, 'rgba(4,4,30,0.2)')
   box(g, 1, 2, w + 2, h + 2, round, 'rgba(4,4,30,0.22)')
   box(g, 0, 0, w + 2, h + 2, round, '#070a2c')
-  // Two rings of light, each darker along the bottom and the right.
+  // The border, three pixels of light: two of the brightest and a softer one inside, each darker along the bottom and the right.
   box(g, 1, 1, w, h, [2, 1], tone.lo)
-  box(g, 1, 1, w - 1, h - 1, [2, 1], tone.hi)
-  box(g, 2, 2, w - 2, h - 2, [1], tone.lo2)
-  box(g, 2, 2, w - 3, h - 3, [1], tone.hi2)
+  box(g, 1, 1, w - 2, h - 2, [2, 1], tone.hi)
+  box(g, 3, 3, w - 4, h - 4, [1], tone.lo2)
+  box(g, 3, 3, w - 5, h - 5, [1], tone.hi2)
   // The gradient: a new colour wherever the five-bit value of a channel changes.
-  const rows = h - 4
+  const rows = h - 6
   for (let r = 0; r < rows; r++) {
     const f = rows > 1 ? r / (rows - 1) : 0
     const ch = (i: number) => five(tone.top[i]! + (tone.bottom[i]! - tone.top[i]!) * f)
     g.fillStyle = `rgb(${ch(0)},${ch(1)},${ch(2)})`
-    g.fillRect(3, 3 + r, w - 4, 1)
+    g.fillRect(4, 4 + r, w - 6, 1)
   }
   // The dark line inside the border, heavier under the top and the left edge where the border's own shadow falls.
   g.fillStyle = 'rgba(6,8,44,0.62)'
-  g.fillRect(3, 3, w - 4, 1)
-  g.fillRect(3, 4, 1, h - 5)
+  g.fillRect(4, 4, w - 6, 1)
+  g.fillRect(4, 5, 1, h - 7)
   g.fillStyle = 'rgba(6,8,44,0.36)'
-  g.fillRect(4, h - 2, w - 5, 1)
-  g.fillRect(w - 2, 4, 1, h - 6)
+  g.fillRect(5, h - 3, w - 7, 1)
+  g.fillRect(w - 3, 5, 1, h - 8)
   return c
 }
 
-const windows = new Map<string, Canvas>()
+/** The windows painted so far, by size and tone (a number made of the three in `panel`). */
+const windows = new Map<number, Canvas>()
 
 function panel(g: G, x: number, y: number, w: number, h: number, tone: 'hot' | 'cool' = 'hot') {
   const pw = Math.max(8, Math.round(w * 2))
   const ph = Math.max(8, Math.round(h * 2))
-  const key = `${pw}x${ph}${tone}`
+  const key = (pw * 8192 + ph) * 2 + (tone === 'hot' ? 0 : 1)
   let c = windows.get(key)
   if (!c) {
     // Sizes come and go with what is said; the few on screen are painted again when the store is emptied.
@@ -118,8 +122,8 @@ const INK: Record<string, string> = {
   p: '#ff3aa8',
   P: '#c2187c', // the heart's shaded side
   D: '#7c0e58',
-  K: '#2a1a4a', // an empty heart
-  u: '#463672',
+  K: '#2c1e58', // an empty heart, and the lighter line inside its rim that shows it against a dark sky
+  u: '#7462b8',
   g: '#c8cef4', // the glove's shade
   e: '#eaffb4', // the bit: a cut stone, lit from the upper left
   l: '#b6ff4a',
@@ -157,16 +161,16 @@ const HEART_FULL = [
 const HEART_HALF = [
   '..kkkk...kkkk...',
   '.kmmppk.kuuuuk..',
-  'kmwwpppkKKKKKuk.',
-  'kmwppppkKKKKKKk.',
-  'kmpppppkKKKKKKk.',
-  'kppppppkKKKKKKk.',
-  'kppppppkKKKKKKk.',
-  '.kpppppkKKKKKk..',
-  '..kppppkKKKKk...',
-  '...kpppkKKKk....',
-  '....kppkKKk.....',
-  '.....kpkKk......',
+  'kmwwpppkuKKKKuk.',
+  'kmwppppkKKKKKuk.',
+  'kmpppppkKKKKKuk.',
+  'kppppppkKKKKKuk.',
+  'kppppppkKKKKKuk.',
+  '.kpppppkKKKKuk..',
+  '..kppppkKKKuk...',
+  '...kpppkKKuk....',
+  '....kppkKuk.....',
+  '.....kpkuk......',
   '......kkk.......',
   '.......k........',
   '................',
@@ -175,17 +179,17 @@ const HEART_HALF = [
 const HEART_EMPTY = [
   '..kkkk...kkkk...',
   '.kuuuuk.kuuuuk..',
-  'kuuKKKKkKKKKKuk.',
-  'kuKKKKKKKKKKKKk.',
-  'kuKKKKKKKKKKKKk.',
-  'kKKKKKKKKKKKKKk.',
-  'kKKKKKKKKKKKKKk.',
-  '.kKKKKKKKKKKKk..',
-  '..kKKKKKKKKKk...',
-  '...kKKKKKKKk....',
-  '....kKKKKKk.....',
-  '.....kKKKk......',
-  '......kKk.......',
+  'kuKKKKukuKKKKuk.',
+  'kuKKKKKuKKKKKuk.',
+  'kuKKKKKKKKKKKuk.',
+  'kuKKKKKKKKKKKuk.',
+  'kuKKKKKKKKKKKuk.',
+  '.kuKKKKKKKKKuk..',
+  '..kuKKKKKKKuk...',
+  '...kuKKKKKuk....',
+  '....kuKKKuk.....',
+  '.....kuKuk......',
+  '......kuk.......',
   '.......k........',
   '................',
   '................',
@@ -262,7 +266,8 @@ const HAND = [
 ]
 
 const drawn = new Map<string, Canvas>()
-const scaled = new WeakMap<Canvas, Canvas>()
+/** What each classic sprite canvas is shown as. A sprite the studio redraws is a new canvas, so it is looked at again. */
+const shown = new WeakMap<Canvas, Canvas>()
 
 function art(name: string, rows: string[]): Canvas {
   let c = drawn.get(name)
@@ -270,29 +275,66 @@ function art(name: string, rows: string[]): Canvas {
   return c
 }
 
-/** A sprite at twice its pixels: drawn here when it is, else the classic one through EPX (kept per canvas, so a sprite the studio redraws is scaled again). */
+/** Whether a sprite's canvas still holds the registry's own drawing (the studio may have put its own there: render/live.ts). */
+function asDrawn(name: string, spr: Canvas): boolean {
+  const rows = SPRITES[name]?.rows
+  if (!rows) return false
+  const own = paintRows(rows, PAL)
+  if (own.width !== spr.width || own.height !== spr.height) return false
+  const a = own.getContext('2d')!.getImageData(0, 0, own.width, own.height).data
+  const b = spr.getContext('2d')!.getImageData(0, 0, spr.width, spr.height).data
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+}
+
+/**
+ * A sprite at twice its pixels: the drawing here when there is one and the
+ * classic sprite is still the registry's, else the classic one (or the
+ * studio's) through EPX.
+ */
 function icon(name: string): Canvas {
-  const rows = DRAWN[name]
-  if (rows) return art(name, rows)
   const spr = sprite(name)
-  let big = scaled.get(spr)
-  if (!big) { big = epxCanvas(spr); scaled.set(spr, big) }
+  let big = shown.get(spr)
+  if (!big) {
+    const rows = DRAWN[name]
+    big = rows && asDrawn(name, spr) ? art(name, rows) : epxCanvas(spr)
+    shown.set(spr, big)
+  }
   return big
 }
 
-/** The heart pieces found, as quarters of one heart: top left, top right, bottom left, bottom right. */
+/** The heart pieces as one heart in four parts, for each count found, and the two hearts they were cut from. */
+let quartered: { full: Canvas; empty: Canvas; by: Array<Canvas | undefined> } | null = null
+
+/**
+ * The heart pieces found, as quarters of one heart (top left, top right,
+ * bottom left, bottom right), as large as the items over it: the HUD's heart
+ * cut in four on its own pixels, then through EPX like the item pictures.
+ */
 function pieces(g: G, x: number, y: number, have: number) {
-  g.drawImage(art('hud_heart_empty', HEART_EMPTY), x, y, 8, 8)
-  const full = art('hud_heart_full', HEART_FULL)
-  for (let i = 0; i < Math.min(4, have); i++) {
-    const sx = i % 2 ? 8 : 0
-    const sy = i > 1 ? 6 : 0
-    g.drawImage(full, sx, sy, 8, i > 1 ? 10 : 6, x + sx / 2, y + sy / 2, 4, i > 1 ? 5 : 3)
+  const full = icon('hud_heart_full')
+  const empty = icon('hud_heart_empty')
+  if (!quartered || quartered.full !== full || quartered.empty !== empty) quartered = { full, empty, by: [] }
+  const n = Math.max(0, Math.min(4, Math.floor(have)))
+  let c = quartered.by[n]
+  if (!c) {
+    const cut = makeCanvas(16, 16)
+    const cg = cut.getContext('2d')!
+    cg.drawImage(empty, 0, 0)
+    for (let i = 0; i < n; i++) {
+      const sx = i % 2 ? 8 : 0
+      const sy = i > 1 ? 7 : 0
+      cg.drawImage(full, sx, sy, 8, i > 1 ? 9 : 7, sx, sy, 8, i > 1 ? 9 : 7)
+    }
+    // The cuts between the quarters.
+    cg.fillStyle = INK.k!
+    cg.fillRect(7, 2, 1, 11)
+    cg.fillRect(1, 6, 13, 1)
+    c = epxCanvas(cut)
+    quartered.by[n] = c
   }
-  // The cuts between the quarters.
-  g.fillStyle = INK.k!
-  g.fillRect(x + 3.5, y + 1, 0.5, 5.5)
-  g.fillRect(x + 0.5, y + 3, 6.5, 0.5)
+  // Sixteen logical px, centred on the label's line like the things carried at the row's other end.
+  g.drawImage(c, x, y - 4, 16, 16)
 }
 
 /** The "more" mark: a small arrow that dips and comes back, and is gone for a moment in between. */
@@ -328,6 +370,8 @@ export const HIRES_WINDOW_SKIN: HudSkin = {
   pointer,
   pieces,
   plate: true,
+  underHud: true,
+  coarse: () => WINDOW_SKIN,
   text: '#ffffff', shadow: SHADOW, dim: '#b8c6fa', faint: '#7482cc',
   hot: '#ff8fd4', cool: '#8cecff', prize: '#ffe070', ok: '#aaf472',
   outline: RIM, veil: 'rgba(8,10,44,0.72)', slot: 'rgba(170,196,255,0.16)', off: '#262c7c',

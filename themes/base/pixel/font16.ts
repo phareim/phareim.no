@@ -65,9 +65,10 @@ const G: Record<string, string[]> = {
   X: ['##....##', '##....##', '.##..##.', '.##..##.', '..####..', '...##...', '...##...', '..####..', '.##..##.', '.##..##.', '##....##', '##....##'],
   Y: ['##....##', '##....##', '.##..##.', '.##..##.', '..####..', '..####..', ...x(6, '...##...')],
   Z: ['########', '......##', '.....##.', '.....##.', '....##..', '...##...', '...##...', '..##....', '.##.....', '.##.....', '##......', '########'],
-  'Æ': ['...#######', '..####....', '..####....', '..####....', '.##.##....', '.##.#####.', '.##.##....', '.##.##....', '######....', '##..##....', '##..##....', '##..######'],
+  'Æ': ['...#######', '...###....', '..####....', '..####....', '.##.##....', '.##.#####.', '.##.##....', '##..##....', '######....', '##..##....', '##..##....', '##..######'],
   'Ø': ['..####.#', '.##..##.', '##...###', '##...###', '##..#.##', '##..#.##', '##.#..##', '##.#..##', '###...##', '###...##', '.##..##.', '#.####..'],
-  'Å': ['...##...', '...##...', '..####..', '..####..', '.##..##.', '.##..##.', '.##..##.', '##....##', '########', '##....##', '##....##', '##....##'],
+  // The A under the ring starts a row down, so the ring stands clear of its point.
+  'Å': ['........', '...##...', '..####..', '..####..', '.##..##.', '.##..##.', '.##..##.', '##....##', '########', '##....##', '##....##', '##....##'],
   0: ['..###..', '.##.##.', ...x(8, '##...##'), '.##.##.', '..###..'],
   1: ['..##..', '.###..', '####..', ...x(8, '..##..'), '######'],
   2: ['..###..', '.##.##.', '##...##', '.....##', '.....##', '....##.', '...##..', '..##...', '.##....', '##.....', '##.....', '#######'],
@@ -88,13 +89,17 @@ const G: Record<string, string[]> = {
   ':': at(3, ['##', '##', '..', '..', '..', '..', '..', '##', '##']),
   ';': at(3, ['.##', '.##', '...', '...', '...', '...', '...', '.##', '.##']),
   '-': at(5, ['#####', '#####']),
+  // The long dashes and the three dots are their own drawings here (the 5×7 font shows a hyphen and one dot).
+  '–': at(5, ['#######', '#######']),
+  '—': at(5, ['##########', '##########']),
+  '…': at(10, ['##..##..##', '##..##..##']),
   '·': at(4, ['.##.', '####', '####', '.##.']),
   '+': at(3, ['..##..', '..##..', '######', '######', '..##..', '..##..']),
   '/': ['....##', '....##', '...##.', '...##.', '...##.', '..##..', '..##..', '.##...', '.##...', '.##...', '##....', '##....'],
   '(': ['..##', '.##.', '.##.', ...x(6, '##..'), '.##.', '.##.', '..##'],
   ')': ['##..', '.##.', '.##.', ...x(6, '..##'), '.##.', '.##.', '##..'],
-  '%': ['.##...##', '#..#..##', '#..#.##.', '.##..##.', '....##..', '....##..', '...##...', '...##...', '.##..##.', '.##.#..#', '##..#..#', '##...##.'],
-  '&': ['..###....', '.##.##...', '.##.##...', '.##.##...', '..###....', '.###.....', '##.##..##', '##..##.##', '##...###.', '##...###.', '.##.##.##', '..###..##'],
+  '%': ['.##....##.', '#..#...##.', '#..#..##..', '.##...##..', '.....##...', '.....##...', '....##....', '....##....', '...##..##.', '...##.#..#', '..##..#..#', '..##...##.'],
+  '&': ['..####...', '.##..##..', '.##..##..', '.##..##..', '..####...', '..###....', '.####..##', '##..##.##', '##...###.', '##...###.', '.##.####.', '..###..##'],
   '*': at(2, ['...##...', '##.##.##', '.######.', '..####..', '.######.', '##.##.##', '...##...']),
   '#': at(1, ['.##..##.', '.##..##.', '########', '.##..##.', '.##..##.', '.##..##.', '########', '.##..##.', '.##..##.']),
   '=': at(3, ['######', '######', '......', '......', '######', '######']),
@@ -111,7 +116,7 @@ const G: Record<string, string[]> = {
 
 /** Rows above the cap height, top row first; the last one sits right over the capital. */
 const ABOVE: Record<string, string[]> = {
-  'Å': ['...##...', '..#..#..', '...##...'],
+  'Å': ['..####..', '.##..##.', '..####..'],
   'É': ['....##.', '...##..', '.......'],
 }
 
@@ -125,8 +130,8 @@ const BELOW: Record<string, string[]> = {
 export const ABOVE16 = 3
 export const BELOW16 = 2
 
-/** As font.ts: what an unknown character draws as. É keeps its accent here. */
-const ALIAS: Record<string, string> = { '—': '-', '–': '-', '’': "'", '‘': "'", '“': '"', '”': '"', '…': '.', 'É': 'E', 'È': 'E', 'Ä': 'Æ', 'Ö': 'Ø', 'Ü': 'U' }
+/** As font.ts: what an unknown character draws as. É keeps its accent here, and the long dashes and the ellipsis have glyphs of their own. */
+const ALIAS: Record<string, string> = { '’': "'", '‘': "'", '“': '"', '”': '"', 'É': 'E', 'È': 'E', 'Ä': 'Æ', 'Ö': 'Ø', 'Ü': 'U' }
 
 function glyph(ch: string): string[] {
   return G[ch] ?? G[ALIAS[ch] ?? '?'] ?? G['?']!
@@ -146,10 +151,16 @@ export function glyphExtra16(ch: string): { above: string[]; below: string[] } {
   return { above: ABOVE[c] ?? [], below: BELOW[c] ?? [] }
 }
 
+/** A line that holds only characters upper-casing leaves alone: most of them, since the game's lines are stored in capitals. */
+const PLAIN = /^[\x20-\x5f]*$/
+function upper(text: string): string {
+  return PLAIN.test(text) ? text : text.toUpperCase()
+}
+
 /** Width of a line in font pixels (the last glyph's shadow not counted). */
 export function textWidth16(text: string): number {
   let w = 0
-  for (const ch of text.toUpperCase()) w += glyph(ch)[0]!.length + GAP
+  for (const ch of upper(text)) w += glyph(ch)[0]!.length + GAP
   return Math.max(0, w - GAP)
 }
 
@@ -175,25 +186,28 @@ export function wrapText16(text: string, maxWidth: number): string[] {
 
 /**
  * How the dark under the letters lies: 'drop' is the text box's shadow (right,
- * below and the corner between), 'rim' a line all the way round and the drop
- * outside it, for text that lies straight on the world.
+ * below and the corner between), 'rim' a one-pixel line all the way round,
+ * like the rim of the HUD's icons, for text that lies straight on the world.
  */
 export type Edge16 = 'drop' | 'rim'
 
-/** A glyph's cell on a strip: one pixel of margin for the rim, two more to the right and below for the drop. */
+/** A glyph's cell on a strip: one pixel of margin all round for the rim or the drop, and one to spare on the right and below. */
 const PAD_L = 1
 const PAD_T = 1 + ABOVE16
 const CELL_H = PAD_T + CAP16 + BELOW16 + 2
 
 interface Strip { canvas: HTMLCanvasElement; at: Map<string, { x: number; w: number }> }
-const strips = new Map<string, Strip>()
 
-/** Every glyph in one colour over one shadow, drawn once: a letter is then a single drawImage, and it fades as one piece. */
-function strip(color: string, shadow: string | undefined, edge: Edge16): Strip {
-  const key = `${color}|${shadow ?? ''}|${edge}`
-  const hit = strips.get(key)
-  if (hit) return hit
-  if (strips.size > 48) strips.clear()
+/** Where the dark lies round a letter, as offsets of the letter itself. */
+const OFFSETS: Record<Edge16, ReadonlyArray<readonly [number, number]>> = {
+  drop: [[1, 0], [0, 1], [1, 1]],
+  rim: [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]],
+}
+
+/** Every glyph once, opaque, each in its cell: what the coloured strips are made from. */
+let mask: Strip | null = null
+function glyphMask(): Strip {
+  if (mask) return mask
   const chars = [...Object.keys(G), ...Object.keys(ABOVE).filter(c => !G[c])]
   const at = new Map<string, { x: number; w: number }>()
   let width = 0
@@ -206,43 +220,76 @@ function strip(color: string, shadow: string | undefined, edge: Edge16): Strip {
   canvas.width = width
   canvas.height = CELL_H
   const g = canvas.getContext('2d')!
-  const offsets = !shadow ? [] : edge === 'rim'
-    ? [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1], [2, 1], [1, 2], [2, 2], [0, 2], [2, 0]]
-    : [[1, 0], [0, 1], [1, 1]]
+  g.fillStyle = '#000'
   for (const ch of chars) {
     const { x: cx } = at.get(ch)!
     const rows = [...(ABOVE[ch] ?? []), ...glyph(ch), ...(BELOW[ch] ?? [])]
     const top = PAD_T - (ABOVE[ch]?.length ?? 0)
-    const pass = (ox: number, oy: number, fill: string) => {
-      g.fillStyle = fill
-      rows.forEach((row, r) => {
-        let c = 0
-        while (c < row.length) {
-          if (row[c] !== '#') { c++; continue }
-          const start = c
-          while (c < row.length && row[c] === '#') c++
-          g.fillRect(cx + PAD_L + start + ox, top + r + oy, c - start, 1)
-        }
-      })
-    }
-    if (shadow) {
-      // The shadow is laid down solid and the letter cut out of it, so a see-through shadow colour does not add up where passes overlap.
-      const cw = rows[0]!.length + PAD_L + 2
-      for (const [ox, oy] of offsets) pass(ox!, oy!, '#000')
-      g.save()
-      g.beginPath()
-      g.rect(cx, 0, cw, CELL_H)
-      g.clip()
-      g.globalCompositeOperation = 'source-in'
-      g.fillStyle = shadow
-      g.fillRect(cx, 0, cw, CELL_H)
-      g.restore()
-    }
-    pass(0, 0, color)
+    rows.forEach((row, r) => {
+      let c = 0
+      while (c < row.length) {
+        if (row[c] !== '#') { c++; continue }
+        const start = c
+        while (c < row.length && row[c] === '#') c++
+        g.fillRect(cx + PAD_L + start, top + r, c - start, 1)
+      }
+    })
   }
-  const made = { canvas, at }
-  strips.set(key, made)
-  return made
+  mask = { canvas, at }
+  return mask
+}
+
+/** The strips made so far, by edge, colour and shadow, and how many there are. */
+const strips: Record<Edge16, Map<string, Map<string, Strip>>> = { drop: new Map(), rim: new Map() }
+let made = 0
+let tint: HTMLCanvasElement | null = null
+
+/**
+ * Every glyph in one colour over one shadow, drawn once: a letter is then a
+ * single drawImage, and it fades as one piece. A strip is the mask laid down
+ * at each of the shadow's offsets and filled with the shadow colour (solid
+ * first, so a see-through shadow does not add up where the offsets overlap),
+ * and the mask in the letter's colour on top: a handful of canvas calls, so a
+ * colour seen for the first time costs the frame nothing to speak of.
+ */
+function strip(color: string, shadow: string | undefined, edge: Edge16): Strip {
+  let byShadow = strips[edge].get(color)
+  if (!byShadow) { byShadow = new Map(); strips[edge].set(color, byShadow) }
+  const hit = byShadow.get(shadow ?? '')
+  if (hit) return hit
+  if (made > 48) {
+    strips.drop.clear()
+    strips.rim.clear()
+    made = 0
+    byShadow = new Map()
+    strips[edge].set(color, byShadow)
+  }
+  const m = glyphMask()
+  const w = m.canvas.width
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = CELL_H
+  const g = canvas.getContext('2d')!
+  if (shadow) {
+    for (const [ox, oy] of OFFSETS[edge]) g.drawImage(m.canvas, ox, oy)
+    g.globalCompositeOperation = 'source-in'
+    g.fillStyle = shadow
+    g.fillRect(0, 0, w, CELL_H)
+    g.globalCompositeOperation = 'source-over'
+  }
+  if (!tint) tint = document.createElement('canvas')
+  tint.width = w
+  tint.height = CELL_H
+  const tg = tint.getContext('2d')!
+  tg.drawImage(m.canvas, 0, 0)
+  tg.globalCompositeOperation = 'source-in'
+  tg.fillStyle = color
+  tg.fillRect(0, 0, w, CELL_H)
+  g.drawImage(tint, 0, 0)
+  const out = { canvas, at: m.at }
+  byShadow.set(shadow ?? '', out)
+  made++
+  return out
 }
 
 /**
@@ -263,7 +310,7 @@ export function drawText16(
   const s = strip(color, shadow, edge)
   let cx = Math.round(x / unit) * unit
   const top = Math.round(y / unit) * unit
-  for (const raw of text.toUpperCase()) {
+  for (const raw of upper(text)) {
     const ch = s.at.has(raw) ? raw : s.at.has(ALIAS[raw] ?? '') ? ALIAS[raw]! : '?'
     const cell = s.at.get(ch)!
     const w = cell.w + PAD_L + 2

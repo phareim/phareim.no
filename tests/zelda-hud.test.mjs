@@ -18,7 +18,7 @@ async function load() {
         `export { glyphRows, textWidth, wrapText } from '../base/pixel/font'`,
         `export { CAP16, LINE16, ABOVE16, BELOW16, GLYPHS16, glyphRows16, glyphExtra16, textWidth16, wrapText16 } from '../base/pixel/font16'`,
         `export { epx } from '../base/pixel/epx'`,
-        `export { hudScale, hudFont, NEON_SKIN, WINDOW_SKIN, HIRES_WINDOW_SKIN } from './render/hud'`,
+        `export { hudScale, hudFont, speakerOf, NEON_SKIN, WINDOW_SKIN, HIRES_WINDOW_SKIN } from './render/hud'`,
       ].join('; '),
       resolveDir: root,
       loader: 'ts',
@@ -32,6 +32,8 @@ let M
 before(async () => { M = await load() })
 
 // Everything a line may hold: ASCII, and the letters and signs the 5×7 font adds.
+// Drawn wider here than their stand-ins in the 5×7 font.
+const WIDER = ['…', '—', '–']
 const CANDIDATES = [...Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)), ...'ÆØÅÉÈÄÖÜ·×♥→←↑↓—–’‘“”…']
 
 describe('the 16-bit dialog font', () => {
@@ -61,12 +63,31 @@ describe('the 16-bit dialog font', () => {
 
   it('never advances further than the 5×7 glyph does at twice the size', () => {
     for (const ch of CANDIDATES) {
+      // The long dashes and the ellipsis are a hyphen and one dot in the 5×7 font and drawn in full here: they stand in talk, which is wrapped in the font it is shown in.
+      if (WIDER.includes(ch)) continue
       const wide = M.glyphRows16(ch)[0].length + 2
       const classic = (M.glyphRows(ch)[0].length + 1) * 2
       assert.ok(wide <= classic, `${JSON.stringify(ch)}: ${wide} > ${classic}`)
     }
     const line = 'KEEPER: THE SUN HAS HUNG ON THE HORIZON FOR 3 NIGHTS, 11:11. "ÆØÅ" (50% + 1/4)!'
     assert.ok(M.textWidth16(line) <= M.textWidth(line) * 2)
+  })
+
+  it('draws the long dashes and the ellipsis in full', () => {
+    assert.equal(M.textWidth16('…'), 10)
+    assert.deepEqual(M.glyphRows16('…').slice(10), ['##..##..##', '##..##..##'])
+    assert.ok(M.textWidth16('—') > M.textWidth16('–') && M.textWidth16('–') > M.textWidth16('-'))
+    for (const ch of WIDER) assert.notEqual(M.glyphRows16(ch), M.glyphRows16('.'), ch)
+    assert.ok(M.textWidth16('ZZZ…') > M.textWidth16('ZZZ.'))
+  })
+
+  it('keeps Å\'s ring clear of the letter under it', () => {
+    const { above } = M.glyphExtra16('Å')
+    assert.equal(above.length, 3)
+    // A ring with a hole in it, then a clear row, then the A.
+    assert.match(above[1], /#\.+#/)
+    assert.match(M.glyphRows16('Å')[0], /^\.+$/)
+    assert.deepEqual(M.glyphRows16('Å').slice(1), M.glyphRows16('A').slice(1))
   })
 
   it('measures and wraps', () => {
@@ -81,6 +102,25 @@ describe('the 16-bit dialog font', () => {
     for (const l of lines) assert.ok(M.textWidth16(l) <= 300, l)
     assert.equal(lines.join(' '), text)
     assert.deepEqual(M.wrapText16('ONE\nTWO', 300), ['ONE', 'TWO'])
+  })
+})
+
+describe('the name on a dialog box', () => {
+  it('is the speaker\'s own, or the one their talk opened with', () => {
+    assert.deepEqual(M.speakerOf('KEEPER: THE SUN HAS HUNG.', 'keeper'), { name: 'KEEPER', body: 'THE SUN HAS HUNG.' })
+    // The barmaid's lines say BARTENDER: the first line of the talk names her.
+    assert.deepEqual(M.speakerOf('BARTENDER: BACK AGAIN?', 'barmaid', 'BARTENDER: WHAT WILL IT BE?'), { name: 'BARTENDER', body: 'BACK AGAIN?' })
+    assert.deepEqual(M.speakerOf('BARTENDER: WHAT WILL IT BE?', 'barmaid'), { name: 'BARTENDER', body: 'WHAT WILL IT BE?' })
+    assert.deepEqual(M.speakerOf('L.L.A.M.A.: HM.', 'llama', 'L.L.A.M.A.: HM.'), { name: 'L.L.A.M.A.', body: 'HM.' })
+  })
+
+  it('is not a heading in the middle of a talk, a sign, or a line with no name', () => {
+    assert.equal(M.speakerOf('TODAY: THE LASER SUNSET.', 'barmaid', 'BARTENDER: WHAT WILL IT BE?'), null)
+    assert.equal(M.speakerOf('LAB NOTE: SUBJECT L MOVED A BLOCK.', null), null)
+    assert.equal(M.speakerOf('LAB NOTE: SUBJECT L MOVED A BLOCK.', undefined), null)
+    assert.equal(M.speakerOf('YOU GOT THE BLADE!', 'keeper', 'KEEPER: TAKE IT.'), null)
+    assert.equal(M.speakerOf('KEEPER:', 'keeper'), null)
+    assert.equal(M.speakerOf('11:11 IS THE TIME.', 'keeper'), null)
   })
 })
 
@@ -135,5 +175,10 @@ describe('the HUD scale of a skin', () => {
     assert.equal(M.hudFont(M.WINDOW_SKIN), classic)
     for (const t of ['P RESUME   T TOWN', 'M SOUND OFF', 'BIG KEY', 'HEART PIECES', 'YES OR NO BELOW']) assert.ok(fine.width(t) <= classic.width(t), t)
     for (const l of fine.wrap('YOUR QUEST, ITEMS AND HEARTS WILL BE GONE, HERE AND ON YOUR PILOT. YOUR BEST TIME STAYS.', 160)) assert.ok(fine.width(l) <= 160)
+  })
+
+  it('names the coarse skin worn in its place where the screen has no finer pixel', () => {
+    assert.equal(M.HIRES_WINDOW_SKIN.coarse(), M.WINDOW_SKIN)
+    assert.equal(M.WINDOW_SKIN.coarse, undefined)
   })
 })
