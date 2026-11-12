@@ -409,11 +409,11 @@ function shellKey(e: KeyboardEvent): boolean {
       if (e.code === 'KeyN' || e.code === 'Backspace') { e.preventDefault(); cancelReset(); return true }
     } else if (e.code === 'KeyT') { e.preventDefault(); toTown(); return true }
     else if (e.code === 'KeyM') { e.preventDefault(); toggleSound(); return true }
-    // The views live here, behind the pause: in play V does nothing.
-    else if (e.code === 'KeyV') { e.preventDefault(); cycleView(); return true }
   }
   // Backspace backs out of lines that lead somewhere, like B.
   if (e.code === 'Backspace' && !paused.value && backsOut()) { e.preventDefault(); if (!e.repeat) input.pressB(); return true }
+  // V is the quick way to the next view, in play and on the pause screen (which also has it as a button).
+  if (e.code === 'KeyV' && !confirmReset.value) { e.preventDefault(); if (!e.repeat) cycleView(); return true }
   if (e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) togglePause(); return true }
   // Nothing to swap: Tab keeps its job and reaches the page's link index.
   if (e.code === 'Tab' && !hasItem.value) return true

@@ -61,6 +61,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
         smoothing: num('Art smoothing', 1, 0, 1, 0.05, 'How far the classic art is smoothed on its way up to two pixels a texel: stairs get their half-steps, shades of one material run together, black outlines take a colour. 0 leaves the pixels square.'),
         relief: num('Relief', 0.9, 0, 3, 0.05, 'How much the art’s own light and dark stands up for the lamps to catch.'),
         roundness: num('Roundness', 0.7, 0, 2, 0.05, 'How round people and things are to the light.'),
+        figure: choice('The hero', 'modelled', ['modelled', 'classic'], 'Modelled: the hero is a small figure built in the round and drawn pixel by pixel each frame, so it turns smoothly, walks with its whole body and swings a blade that sweeps a true arc. Classic: the four-way sprite of the classic view, smoothed.'),
         plants: toggle('Standing plants', true, 'Trees with crowns, bushes, tall grass and flowers that stand and sway, in place of the classic tiles.'),
       }),
       ...group('Lamps', {
@@ -88,7 +89,8 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
         air: toggle('Things in the air', true, 'Dust at the hero’s heels, sparks rising in the lamplight, leaves on the wind.'),
       }),
       ...group('Sky and water', {
-        sky: toggle('Dusk sky', true, 'A dusk in sliding layers beyond the edge of the map: banded sky, the stuck sun, ridges, clouds, the sea.'),
+        beyond: toggle('Land beyond the edge', true, 'Outdoors the world goes on past the map’s edge: the woods, the open sea, rock rising behind the map and a cliff over the sea in front of it, sinking into the dusk further out. Off, the map is a board and the dusk sky stands round it.'),
+        sky: toggle('Dusk sky', true, 'A dusk in sliding layers where the land ends or fades: banded sky, the stuck sun, ridges, clouds, the sea.'),
         skyTop: color('Sky, top', '#1a0f4a'),
         skyHorizon: color('Sky, horizon', '#ff5f9e'),
         wet: num('Wet ground', 0.6, 0, 1, 0.05, 'Pavement after rain and polished floors: how much neon shows in them.'),

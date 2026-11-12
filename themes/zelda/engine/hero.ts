@@ -103,7 +103,7 @@ export function stepHero(c: Ctx, inp: Input, dt: number) {
   const mag = Math.hypot(mx, my)
   if (mag > 1) { mx /= mag; my /= mag }
   const moving = mag > 0.08
-  if (moving && !h.swing && !h.spin && !charging) h.dir = faceFor(h.dir, mx, my)
+  if (moving && !h.swing && !h.spin && !charging) { h.dir = faceFor(h.dir, mx, my); h.aim = Math.atan2(my, mx) }
 
   let blockedAhead = false
   if (moving && speed > 0) {
@@ -464,30 +464,42 @@ function startSwing(c: Ctx, inp: Input) {
   const s = c.s
   const h = s.hero
   if (inp.autoFace && Math.hypot(inp.move.x, inp.move.y) < 0.1) {
-    let best: { d: number; dir: Dir } | null = null
+    let best: { d: number; dir: Dir; a: number } | null = null
     for (const e of s.map.enemies) {
       if (!enemyActive(c, e)) continue
       const d = Math.hypot(e.x - h.x, e.y - h.y)
-      if (d < SWORD_REACH + e.r + 0.6 && (!best || d < best.d)) best = { d, dir: toDir(e.x - h.x, e.y - h.y, h.dir) }
+      if (d < SWORD_REACH + e.r + 0.6 && (!best || d < best.d)) best = { d, dir: toDir(e.x - h.x, e.y - h.y, h.dir), a: Math.atan2(e.y - h.y, e.x - h.x) }
     }
-    if (best) h.dir = best.dir
+    if (best) { h.dir = best.dir; h.aim = best.a }
   }
-  h.swing = { t: 0, dir: h.dir, hit: [] }
+  const aim = aimOf(h)
+  h.swing = { t: 0, dir: h.dir, a: aim, hit: [] }
   h.act = 'swing'
   h.actT = 0
   h.charge = 0
   c.ev.push({ type: 'swing' })
   // The Arc Blade throws a beam while the hero's hearts are full.
   if (s.inv.arc && h.hp >= h.maxHp && !s.map.projectiles.some(p => p.kind === 'beam')) {
-    const v = dirVec(h.dir)
+    const v = { x: Math.cos(aim), y: Math.sin(aim) }
     s.map.projectiles.push({ id: nextId(s), kind: 'beam', x: h.x + v.x * 0.7, y: h.y + v.y * 0.7, vx: v.x * BEAM_SPEED, vy: v.y * BEAM_SPEED, r: 0.32, t: 0, life: 0.55, friendly: true })
     c.ev.push({ type: 'beam' })
   }
 }
 
-/** Angle of the blade at swing progress p (0..1): sweeps across the facing. */
-export function swingAngle(dir: Dir, p: number): number {
-  const base = dirAngle(dir)
+/**
+ * Where the hero is headed, exactly: `aim` while it still agrees with the way they face (within a quarter
+ * turn of `dir`), and the facing itself once something else has turned them (a door, a talk, a shove).
+ */
+export function aimOf(h: { dir: Dir; aim?: number }): number {
+  const base = dirAngle(h.dir)
+  if (h.aim === undefined) return base
+  const d = Math.atan2(Math.sin(h.aim - base), Math.cos(h.aim - base))
+  return Math.abs(d) < Math.PI / 2 - 0.01 ? h.aim : base
+}
+
+/** Angle of the blade at swing progress p (0..1): sweeps across the way the swing was aimed. */
+export function swingAngle(sw: { dir: Dir; a?: number }, p: number): number {
+  const base = sw.a ?? dirAngle(sw.dir)
   const e = 1 - (1 - Math.min(1, p)) ** 2
   return base - SWORD_ARC / 2 + SWORD_ARC * e
 }
@@ -500,7 +512,7 @@ function stepSwing(c: Ctx, dt: number) {
   const p1 = Math.min(1, sw.t / SWING_TIME)
   // Sample the sweep between the last and this step.
   for (let k = 0; k <= 2; k++) {
-    const a = swingAngle(sw.dir, p0 + ((p1 - p0) * k) / 2)
+    const a = swingAngle(sw, p0 + ((p1 - p0) * k) / 2)
     const arc = c.s.inv.arc
     bladeHits(c, a, arc ? ARC_REACH : SWORD_REACH, arc ? 2 : 1, 'sword', sw.hit)
   }

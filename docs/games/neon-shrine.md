@@ -69,15 +69,14 @@ starts in is not written, so a browser that never chose follows the site's
 first view, and one failed fetch of a view's code does not pin it to the
 classic picture. `/?view=<id>` asks for one.
 
-- **Finding them** (2026-11-12). The views are behind the pause: on the
-  pause screen V turns to the next view (the screen names the one that is
-  on), and on touch the pause buttons have VIEW beside RESUME, SOUND and TO
-  TOWN. Nothing beside the world turns the view: there is no view button in
-  the corner, V does nothing in play, and the page's first hint names no
-  view key (`tests/zelda-views.test.mjs` holds it to that). The one thing in
-  the world that does is the **viewfinder** east of the fountain (exit
+- **Finding them** (2026-11-12). V turns to the next view, in play and on
+  the pause screen alike (the pause screen names the one that is on), and on
+  touch the pause buttons have VIEW beside RESUME, SOUND and TO TOWN. There
+  is no view button in the corner beside the world, and the page's first
+  hint names no view key (`tests/zelda-views.test.mjs` holds it to that).
+  In the world itself there is the **viewfinder** east of the fountain (exit
   `view`, look `scope`, panel `view`, which opens nothing): A turns to the
-  next view and brings up the **view strip** (`drawViewStrip` in `hud.ts`),
+  next view. Outside the pause screen a turn brings up the **view strip** (`drawViewStrip` in `hud.ts`),
   the whole round side by side for 2.6 s, the one in use lit.
 - **Values** (`viewParams.ts`). `renderer.setParams(engine, values)` hands an
   engine a view's values; `kit.params(id)` reads them, `kit.finish(id)` is the
@@ -186,15 +185,72 @@ classic picture. `/?view=<id>` asks for one.
   in the wind, part round the hero, and thin out between the viewer and the
   hero so nobody is lost in the woods. Cutting a bush or grass changes the
   tile, and the plant is gone with it.
-- **The backdrop** (`backdrop.ts`). Beyond the map's edge is a dusk in
-  layers that slide at different speeds: banded sky, stars, the striped sun,
-  ridges, clouds, the sea.
+- **The hero** (`figure.ts`, 2026-11-12). In this view the hero is not a
+  sprite but a small figure built in the round (ellipsoids and capsules:
+  head, hair, band, torso, arms, legs) and drawn in software every frame
+  into a 160 × 96 px cell, a pixel to the scene's pixel, with a normal and a
+  glow for every pixel (`renderFigure(pose, look)`; pure, no canvas). So it
+  faces any way, and `heroPose` in `view.ts` turns the body toward where the
+  hero is headed at a pace (15 rad/s, 40 into a swing): a change of
+  direction is a turn, not a cut between four frames. The walk is a cycle
+  of sixteen phases with the whole body in it; lift, carry, push, hurt, get,
+  use, fall and dead are poses of the same figure. The blade is part of the
+  figure: held in the hand, it sweeps the engine's own arc on the ground
+  plane (so it lands where the hits do: 1.2 tiles for the sword, 1.4 for the
+  Arc Blade, 1.55 in a spin), passes behind the body where it is behind it,
+  and drags a crescent that fades in dithered steps; charged, it glows and
+  sparks at the tip. It reads as pixel art because it is made as such: no
+  soft edges, an outline in each part's own darkest shade, two or three
+  baked steps a colour, eyes that are placed and turn with the head. The
+  engine lights it from its normals in steps like any figure (picture 3 in
+  the geometry pass; material 3). It wears the hero's look (`kit.heroLook()`:
+  the booth's shape and colours, a made figure's colours, or the drawn
+  hero), every hair, headwear and bottom. The classic painter still draws
+  what the hero holds up (a pot, a found thing) and the blade's light
+  (`kit.setHeroBare`). Value `figure: 'classic'` brings the smoothed sprite
+  back; during the turn from another view the sprite stands until the turn
+  is half done. `node scripts/zelda-lab/figure-sheet.mjs <outDir>` draws
+  the figure's sheets (every yaw, the walk, the acts, the swings, the looks,
+  lit, and beside the classic frames) without a browser;
+  `tests/zelda-figure.test.mjs` holds it to its cell, its projection and its
+  looks.
+- **Where a swing is aimed** (`aimOf` in `engine/hero.ts`, every view). The
+  hero keeps the exact way the stick last pushed (`hero.aim`; on touch with
+  the stick at rest, the way to the foe the blade turned to). A swing
+  sweeps its 171° across that and the Arc Blade's beam flies along it, so
+  walking on a diagonal (which is every single key in the turned view)
+  strikes along the diagonal. `dir`, the nearest of the four ways, is still
+  what everything else goes by; once something else turns the hero (a
+  door, a talk) the old aim no longer counts.
+- **The land beyond the edge** (`render/beyond.ts`, `iso/lands.ts`,
+  2026-11-12). A turned map is a diamond, and outdoors the world goes on
+  round it for 24 tiles (`BEYOND`), so the land is never a board on a table.
+  `beyondTile` is the rule, pure: sea stays sea out to the horizon, a road
+  that leaves the map runs straight on, rock behind the map (north and west
+  of it, as the view sees the land) is a massif that rises in wooded steps
+  up to three tiles (`massifHeight`), rock in front of it ends in a cliff
+  with the sea under it (a tabletop there would stand between the viewer
+  and the walking), and everything else is woods; the borders between them
+  wander more the further out they lie. `lands.ts` paints it with the
+  classic painters (`paintField` in `tiles.ts`) a block of 16 × 16 tiles at
+  a time, the first time a block is seen, and keeps the 28 last seen. The
+  map's own layers ask the same rule for a neighbour across the edge, so
+  the last row is drawn for what lies next to it (the classic view never
+  shows more than that row). The field the view works on (`outer`, the
+  shapes, the tile data the light reads) is the map with that margin round
+  it, and what lies outside the map sinks into the backdrop in dithered
+  steps the further out it is (`uFar`). Value `beyond` turns it off: the
+  map is then the board it was, with the backdrop round it. Interiors and
+  dungeons have none; they stand in the dark as before.
+- **The backdrop** (`backdrop.ts`). Where the land ends or fades is a dusk
+  in layers that slide at different speeds: banded sky, stars, the striped
+  sun, ridges, clouds, the sea.
 - **Values** are engine `iso` in `viewParams.ts`, all the studio's to turn:
   smoothing, relief, roundness, side light, lamp shadows, light in the air,
   the sun's direction and shadow length, shadow strength and colour, corner
   shade, side shading, rim, haze, mist, sun shafts, sky colours, clouds,
-  wind, standing plants, things in the air, the water's mirror, wet ground,
-  15-bit or
+  wind, standing plants, the modelled hero, things in the air, the land
+  beyond the edge, the water's mirror, wet ground, 15-bit or
   full colour, the sound (below), the windows, and the finish. Every effect
   scales with k, and at k = 0 the camera is the classic one, so the turn
   still starts on the classic picture.
@@ -294,8 +350,11 @@ classic picture. `/?view=<id>` asks for one.
   view imports Blyant). A view of an engine that exists needs no code: the
   studio publishes it.
 - **Known rough edges of the isometric view** (2026-11-12): the art under
-  it is still the 16 px art, treated on its way up, so a figure is a classic
-  figure with a 16-bit finish, not a redrawn one; dungeon rooms are wider
+  it is still the 16 px art, treated on its way up, so everyone but the hero
+  is a classic figure with a 16-bit finish, not a redrawn one, and the hero
+  stands out beside them; the studio's live sprites do not reach the
+  modelled hero; its sword arm has no elbow and its tails no memory;
+  dungeon rooms are wider
   than the screen, so the camera follows the hero instead of showing the
   whole room; furniture is flat cards; the eight keyboard directions are the
   eight world directions, so walking along a wall takes two keys. Not

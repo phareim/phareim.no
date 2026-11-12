@@ -2,7 +2,7 @@
 export { createGame, stepGame, respawn, resumeAfterWin, toSave, parseSave, cameraFor, enterMap, hasEntry, asksToLeave, asksChoice } from './game'
 export { mapInfo, cellIndex, cellRect, cellDef, tileAt, raised, crystalAt, has, keyCount, addKeys, hasBigKey, cellIsDark, condMet, setSession } from './map'
 export { shardPos, SHARD_R, enemyActive } from './enemies'
-export { swingAngle } from './hero'
+export { aimOf, swingAngle } from './hero'
 export { STATS } from './spawn'
 // Test hooks: the play-through test kills bosses directly.
 export { ctx, killEnemy, hitEnemy } from './combat'

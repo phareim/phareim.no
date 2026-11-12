@@ -15,6 +15,7 @@ import { exitTiles } from './exits'
 import { decalCover } from './decals'
 import { bookshelf, desk, drawFurnitureLive, picture, plant, rug, sofa, stool } from './furniture'
 import { drawLabLive, paintLabBase, paintLabObject, paintNewObject } from './labTiles'
+import { beyondTile } from './beyond'
 
 /** The Wildwood's deeper night: darker grass, more moonlit violet crowns. Set per paint. */
 let wild = false
@@ -783,8 +784,26 @@ function atFor(m: MapState, tx: number, ty: number, kind: MapKind): At {
   return (dx, dy) => {
     const x = tx + dx
     const y = ty + dy
-    if (x < 0 || y < 0 || x >= m.w || y >= m.h) return kind === 'overworld' ? 'T' : '#'
+    // Past an outdoor map's edge the land goes on (`beyond.ts`): the sea stays sea, rock stays rock.
+    if (x < 0 || y < 0 || x >= m.w || y >= m.h) return kind === 'overworld' ? beyondTile(m.tiles, m.w, m.h, x, y) : '#'
     return m.tiles[y * m.w + x]!
+  }
+}
+
+/**
+ * Paint tiles of a field that is not a map: `tile` says what is where (the
+ * land beyond a map's edge, `beyond.ts`). The tiles (x0, y0)–(x1, y1) for
+ * which `want` holds are painted, the tile (ox, oy) at the canvas's origin;
+ * objects one tile further out too, so what overhangs reaches in.
+ */
+export function paintField(kind: MapKind, look: string | undefined, g: G, tile: (x: number, y: number) => TileChar, want: (x: number, y: number) => boolean, x0: number, y0: number, x1: number, y1: number, ox: number, oy: number, pass: LayerPass) {
+  wild = look === 'wild'
+  const at = (tx: number, ty: number): At => (dx, dy) => tile(tx + dx, ty + dy)
+  if (pass !== 'objects') for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+    if (want(tx, ty)) paintBase(kind, g, tile(tx, ty), (tx - ox) * T, (ty - oy) * T, tx, ty, at(tx, ty))
+  }
+  if (pass !== 'base') for (let ty = y0 - 1; ty <= y1 + 1; ty++) for (let tx = x0 - 1; tx <= x1 + 1; tx++) {
+    if (want(tx, ty)) paintObject(kind, g, tile(tx, ty), (tx - ox) * T, (ty - oy) * T, tx, ty, at(tx, ty), false, false, look)
   }
 }
 

@@ -169,6 +169,7 @@ void main() {
  * aMeta: x = kind, y = which picture, z = shade (0 as painted .. 1 dark), w = how far down a side (0 top .. 1 foot).
  * Kinds: 0 lies flat (a roof, a wall's top), 1 faces south, 2 faces east,
  * 3 a billboard facing the viewer, 4 a thing on a south wall, 7 a plant.
+ * Pictures: 0 the map's standing things, 1 the atlas of people and things, 2 the plants, 3 the hero's figure.
  */
 export const GEOM_FS = HEAD + COMMON + ART + NEON + `
 in vec2 vUV;
@@ -181,6 +182,8 @@ uniform sampler2D uObjs;
 uniform sampler2D uAtlas;
 uniform sampler2D uFlora;
 uniform sampler2D uFloraN;
+uniform sampler2D uFig;
+uniform sampler2D uFigN;
 uniform float uSoft;
 uniform float uBump;
 uniform float uRound;
@@ -199,7 +202,11 @@ void main() {
   vec4 c;
   if (pic == 0) c = art(uObjs, vUV, uSoft, grad, edge);
   else if (pic == 1) c = art(uAtlas, vUV, uSoft, grad, edge);
-  else { c = px(uFlora, ivec2(floor(vUV))); grad = vec2(0.0); edge = vec2(0.0); }
+  else if (pic == 2) { c = px(uFlora, ivec2(floor(vUV))); grad = vec2(0.0); edge = vec2(0.0); }
+  else {
+    // The hero's own picture (figure.ts), a pixel to the pixel; its colour comes without its alpha in it.
+    c = px(uFig, ivec2(floor(vUV))); c.rgb *= c.a; grad = vec2(0.0); edge = vec2(0.0);
+  }
   if (kind == 7 && uVeil.w > 0.0 && vFoot > uVeil.z + 0.15) {
     // A crown between the viewer and the hero thins out round them, so nobody is lost in the woods.
     vec2 q = (vec2(gl_FragCoord.x, uSceneH - gl_FragCoord.y) - uVeil.xy) * vec2(1.0, 1.25);
@@ -213,7 +220,7 @@ void main() {
     if (c.a < 0.7 && luma(c.rgb) < 0.12) discard;
     if (c.a < bayer(gl_FragCoord.xy) * 0.9 + 0.05) discard;
   }
-  if (kind == 3 && uSoft > 0.0 && luma(c.rgb) < 0.11) {
+  if (kind == 3 && pic < 2 && uSoft > 0.0 && luma(c.rgb) < 0.11) {
     // The 8-bit outline is one black for everything. A 16-bit one takes the colour of what it goes
     // round: the darkest shade of the hair, the coat, the leaf.
     ivec2 i = ivec2(floor(vUV));
@@ -229,6 +236,7 @@ void main() {
   }
   vec3 N; vec3 Tu; vec3 Tv;
   float mat = 2.0;
+  float glow = 0.0;
   if (kind == 0) { N = vec3(0, 0, 1); Tu = vec3(1, 0, 0); Tv = vec3(0, 1, 0); }
   else if (kind == 1 || kind == 4) { N = vec3(0, 1, 0); Tu = vec3(1, 0, 0); Tv = vec3(0, 0, -1); }
   else if (kind == 2) { N = vec3(1, 0, 0); Tu = vec3(0, 1, 0); Tv = vec3(0, 0, -1); }
@@ -239,6 +247,12 @@ void main() {
     vec3 m = px(uFloraN, ivec2(floor(vUV))).rgb * 2.0 - 1.0;
     n = normalize(m.x * Tu + m.y * vec3(0, 0, 1) + m.z * N);
     mat = 4.0;
+  } else if (pic == 3) {
+    // The hero is modelled: every pixel knows which way it faces, and how much it glows by itself.
+    vec4 m = px(uFigN, ivec2(floor(vUV)));
+    vec3 q = m.rgb * 2.0 - 1.0;
+    n = normalize(q.x * Tu + q.y * vec3(0, 0, 1) + q.z * N);
+    glow = m.a;
   } else {
     // A figure's colours are its clothes, not its relief: only its outline shapes it.
     vec2 g = clamp(grad, -0.35, 0.35) * uBump * (mat == 3.0 ? 0.12 : 1.0);
@@ -264,7 +278,7 @@ void main() {
     n = normalize(n);
   }
   // People wear neon too, but only signs and screens are lamps.
-  float em = neon(c.rgb) * uEmit * (pic == 1 ? 0.55 : 1.0);
+  float em = pic == 3 ? glow * uEmit : neon(c.rgb) * uEmit * (pic == 1 ? 0.55 : 1.0);
   if (uGhost > 0.5) {
     // The hero behind a wall or a crown: every other px of them, the 16-bit way to see through.
     if (mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y), 2.0) < 1.0) discard;
@@ -297,6 +311,7 @@ export const GROUND_FS = HEAD + COMMON + ART + NEON + `
 in vec2 vW;
 uniform sampler2D uFlat;
 uniform sampler2D uTiles;
+uniform vec2 uOrg;
 uniform vec4 uRect;
 uniform float uSoft;
 uniform float uBump;
@@ -322,7 +337,7 @@ void main() {
   if (c.a < 0.5) discard;
   vec2 g = clamp(grad, -0.35, 0.35) * uBump;
   vec3 n = normalize(vec3(-g.x, -g.y, 1.0));
-  vec4 td = px(uTiles, ivec2(floor(vW)));
+  vec4 td = px(uTiles, ivec2(floor(vW - uOrg)));
   float mat = td.g > 0.5 ? 1.0 : 0.0;
   o0 = vec4(c.rgb, 1.0);
   o1 = vec4(n * 0.5 + 0.5, 0.0);
@@ -365,13 +380,15 @@ in vec4 vLight;
 in vec3 vColor;
 uniform sampler2D uTiles;
 uniform vec2 uMap;
+uniform vec2 uOrg;
 uniform float uOcclude;
 layout(location = 0) out vec4 o0;
 layout(location = 1) out vec4 o1;
 layout(location = 2) out vec4 o2;
 float heightAt(vec2 w) {
-  if (w.x < 0.0 || w.y < 0.0 || w.x >= uMap.x || w.y >= uMap.y) return 0.0;
-  return texelFetch(uTiles, ivec2(floor(w)), 0).r * 4.0;
+  vec2 q = w - uOrg;
+  if (q.x < 0.0 || q.y < 0.0 || q.x >= uMap.x || q.y >= uMap.y) return 0.0;
+  return texelFetch(uTiles, ivec2(floor(q)), 0).r * 4.0;
 }
 void main() {
   vec2 d = vLight.xy - vP;
@@ -458,6 +475,7 @@ uniform sampler2D uBlob;
 uniform sampler2D uTiles;
 uniform sampler2D uTilesLin;
 uniform vec2 uMap;
+uniform vec2 uOrg;
 uniform vec4 uRect;
 uniform vec2 uLScale;
 uniform vec3 uAmbient;
@@ -477,8 +495,9 @@ uniform float uClouds;
 uniform float uCloudDrift;
 out vec4 o0;
 float heightAt(vec2 w) {
-  if (w.x < 0.0 || w.y < 0.0 || w.x >= uMap.x || w.y >= uMap.y) return 0.0;
-  return texelFetch(uTiles, ivec2(floor(w)), 0).r * 4.0;
+  vec2 q = w - uOrg;
+  if (q.x < 0.0 || q.y < 0.0 || q.x >= uMap.x || q.y >= uMap.y) return 0.0;
+  return texelFetch(uTiles, ivec2(floor(q)), 0).r * 4.0;
 }
 /** 1 where something stands between this point and the low sun. */
 float sunShadow(vec2 w, float z, float jit) {
@@ -550,7 +569,7 @@ void main() {
   // Corner shade: darker where a wall meets the floor.
   float occ = 0.0;
   if (uAo > 0.0 && mat <= 2) {
-    float hl = texture(uTilesLin, (w + n.xy * 0.2) / uMap).r * 4.0;
+    float hl = texture(uTilesLin, (w + n.xy * 0.2 - uOrg) / uMap).r * 4.0;
     occ = smoothstep(z + 0.05, z + 0.85, hl) * (1.0 - smoothstep(z + 0.9, z + 1.0, heightAt(w)));
     occ *= uAo * 0.6;
   }
@@ -576,6 +595,9 @@ uniform sampler2D uTilesLin;
 uniform sampler2D uFx;
 uniform sampler2D uSky;
 uniform vec2 uMap;
+uniform vec2 uOrg;
+uniform vec4 uInner;
+uniform float uFar;
 uniform vec4 uRect;
 uniform vec2 uLScale;
 uniform float uTime;
@@ -626,7 +648,7 @@ void main() {
     float crest = smoothstep(0.86, 0.95, line) * smoothstep(0.48, 0.6, gate);
     float trough = 1.0 - smoothstep(-0.97, -0.8, line);
     // The shore: how far in from the land we are.
-    float wet = texture(uTilesLin, w / uMap).g;
+    float wet = texture(uTilesLin, (w - uOrg) / uMap).g;
     float deep = smoothstep(0.5, 1.0, wet);
     // The dusk lies on the water: its horizon in the shallows, its top out where it is deep.
     vec3 skyc = mix(uSkyHorizon, uSkyTop, 0.35 + 0.65 * deep);
@@ -676,6 +698,18 @@ void main() {
       if (hz > 2.0 && fit > 0.0) acc += l.rgb * fit * (1.0 - float(i) / 21.0);
     }
     c += acc * g2.b * uWet * 0.11;
+  }
+  if (uFar > 0.0 && g2.a >= 0.5) {
+    // The land beyond the map's edge sinks into the dusk the further out it lies, in dithered steps:
+    // the world goes on, and the eye stays where the walking is.
+    vec2 w = groundOf(s, texelFetch(uG1, pix, 0).a * 4.0);
+    float d = length(max(max(uInner.xy - w, w - uInner.xy - uInner.zw), vec2(0.0)));
+    if (d > 0.0) {
+      float f = smoothstep(1.5, 19.0, d);
+      f = floor(f * 10.0 + bayer(s) * 0.99) / 10.0 * uFar;
+      c = mix(c, skyColor(s), f);
+      em *= 1.0 - f;
+    }
   }
   // Haze: what is far away takes the colour of the dusk, in bands.
   if (uHaze > 0.0 && g2.a >= 0.5) {

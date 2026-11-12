@@ -596,7 +596,14 @@ export interface Hero {
   walkT: number
   invuln: number
   knock: null | { vx: number; vy: number; t: number }
-  swing: null | { t: number; dir: Dir; hit: string[] }
+  /**
+   * Where the hero is headed, exactly (radians; 0 east, π/2 south): the way the stick last pushed, or the foe a
+   * touch player's blade turned to. `dir` is the nearest of the four ways and what everything else goes by;
+   * this is what a swing sweeps across (`aimOf`), so a hero walking on the diagonal strikes along it.
+   */
+  aim?: number
+  /** `a`: the angle the sweep is centred on. */
+  swing: null | { t: number; dir: Dir; a?: number; hit: string[] }
   spin: null | { t: number; hit: string[] }
   /** Seconds the sword button has been held since the last swing (charge). */
   charge: number

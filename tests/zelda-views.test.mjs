@@ -19,6 +19,10 @@ async function load() {
         `export * from './render/iso/project'`,
         `export * from './render/iso/shape'`,
         `export { DENSITY, Z_MAX, makeCam, fitDepth, toScene, toGround, depthOf } from './render/iso/camera'`,
+        `export { BEYOND, beyondTile, massifHeight } from './render/beyond'`,
+        `export { aimOf, swingAngle } from './engine/hero'`,
+        `export { stepGame } from './engine/index'`,
+        `export { NO_INPUT, SWORD_ARC } from './types'`,
         `export { VIEWS, VIEW_KEY, DEFAULT_VIEW, MAX_VIEWS, ENGINE_LOADERS, isViewId, nextView, viewName, startView, parseViews, mergeViews, setLiveViews, viewList, viewDef } from './views'`,
         `export { ENGINES, resolveParams, paramDiff, cleanParam, isEngineId } from './viewParams'`,
         `export { WORLD } from './world/index'`,
@@ -113,17 +117,19 @@ describe('the view registry', () => {
 
 describe('where the views are found', () => {
   const shell = readFileSync(resolve(root, 'Zelda.vue'), 'utf8')
-  it('keeps them on the pause screen: no view button beside the world, and V only while paused', () => {
+  it('keeps the button on the pause screen and V as the quick key: no view button beside the world', () => {
     // The corner holds the pause chip alone, on touch; nothing there turns the view.
     const corner = shell.slice(shell.indexOf('class="zelda-deck-top"'), shell.indexOf('class="zelda-deck"'))
     assert.match(corner, /togglePause/)
     assert.doesNotMatch(corner, /cycleView/)
-    // The pause screen's own button, and V inside the paused branch of the keys.
+    // The pause screen's own button.
     assert.match(shell, /class="zelda-pad zelda-pad-wide" @pointerdown\.prevent\.stop="cycleView"/)
+    // V turns the view in play and on the pause screen alike: one line, outside the paused branch, and not while the reset is being asked about.
     const keys = shell.slice(shell.indexOf('function shellKey'), shell.indexOf('function backsOut'))
     const paused = keys.slice(keys.indexOf('if (paused.value && !e.repeat)'), keys.indexOf("if (e.code === 'Backspace'"))
-    assert.match(paused, /e\.code === 'KeyV'[^\n]*cycleView\(\)/)
-    assert.equal(keys.split("'KeyV'").length - 1, 1, 'V has one meaning, and it is on the pause screen')
+    assert.doesNotMatch(paused, /KeyV/)
+    assert.match(keys, /e\.code === 'KeyV' && !confirmReset\.value\)[^\n]*if \(!e\.repeat\) cycleView\(\)/)
+    assert.equal(keys.split("'KeyV'").length - 1, 1, 'V has one meaning')
   })
   it('does not name a view key in the page\'s first hint', () => {
     assert.doesNotMatch(readFileSync(resolve(site, 'themes/portal/Landing.vue'), 'utf8'), /ANOTHER VIEW/)
@@ -321,6 +327,103 @@ describe('the 16-bit view\'s camera', () => {
         assert.ok(d > 0 && d < 1, `depth ${d} at ${x},${y},${z} for k=${k}`)
       }
     }
+  })
+})
+
+describe('the land beyond the map\'s edge', () => {
+  // A small map: sea along the south-west, rock along the north-east and the south-east, a road out to the west, woods elsewhere.
+  const rows = [
+    'TTTT####',
+    ',......#',
+    'T......T',
+    '~~~~..##',
+  ]
+  const w = 8
+  const h = 4
+  const tiles = rows.join('').split('')
+  const at = (x, y) => M.beyondTile(tiles, w, h, x, y)
+  it('is the map itself inside the edge', () => {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) assert.equal(at(x, y), rows[y][x])
+  })
+  it('goes on as sea, woods, a road and rock, and only those', () => {
+    const seen = new Set()
+    for (let y = -M.BEYOND; y < h + M.BEYOND; y++) for (let x = -M.BEYOND; x < w + M.BEYOND; x++) {
+      if (x >= 0 && y >= 0 && x < w && y < h) continue
+      seen.add(at(x, y))
+    }
+    assert.deepEqual([...seen].sort(), ['#', ',', 'T', '~'])
+  })
+  it('gives the tile next to the map its edge tile\'s kind', () => {
+    assert.equal(at(1, 4), '~')
+    assert.equal(at(-1, 3), '~')
+    assert.equal(at(-1, 2), 'T')
+    assert.equal(at(5, -1), '#')
+    assert.equal(at(2, -1), 'T')
+  })
+  it('lets a road run straight on, and only straight', () => {
+    for (let d = 1; d <= M.BEYOND; d++) assert.equal(at(-d, 1), ',')
+  })
+  it('ends rock in front of the map in the sea, and raises it behind the map', () => {
+    // South and east of the map (in front, as the turned view sees it): no rock at all.
+    for (let y = -M.BEYOND; y < h + M.BEYOND; y++) for (let x = -M.BEYOND; x < w + M.BEYOND; x++) {
+      if (x >= w || y >= h) assert.notEqual(at(x, y), '#', `rock in front of the map at ${x},${y}`)
+    }
+    assert.equal(at(7, 4), '~')
+    assert.equal(at(8, 0), '~')
+    // Behind it the rock stands one tile tall beside the map and up to three further out, never more.
+    assert.equal(M.massifHeight(w, h, 5, -1), 1)
+    let top = 0
+    for (let d = 1; d <= M.BEYOND; d++) { const n = M.massifHeight(w, h, 5, -d); assert.ok(n >= 1 && n <= 3); top = Math.max(top, n) }
+    assert.equal(top, 3)
+  })
+  it('is the same every time', () => {
+    for (const [x, y] of [[-7, -9], [12, 3], [3, 15], [-20, 20]]) assert.equal(at(x, y), at(x, y))
+  })
+  it('reaches as far as a view can see past the edge', () => {
+    // The widest look past the edge: a tall phone, the hero in the map's corner. Half the scene in tiles.
+    for (const [sw, sh] of [[390, 844], [960, 540], [860, 360]]) {
+      const reach = sw / 2 / 64 + (sh / 2 + 2 * 56) / 32
+      assert.ok(reach < M.BEYOND, `${sw}×${sh} sees ${reach.toFixed(1)} tiles past the edge`)
+    }
+  })
+  it('keeps the view\'s tiles inside the map and that much land round it', () => {
+    const P = M.projection(1)
+    const far = M.groundRect(P, M.project(P, 0, 0), 600, 400, 56, 2, 40, 30, M.BEYOND)
+    assert.ok(far.x >= -M.BEYOND && far.y >= -M.BEYOND)
+    assert.ok(far.x < 0 && far.y < 0, 'the land beyond the corner is in the rectangle')
+    const none = M.groundRect(P, M.project(P, 0, 0), 600, 400, 56, 2, 40, 30)
+    assert.ok(none.x === 0 && none.y === 0)
+  })
+})
+
+describe('where a swing is aimed', () => {
+  it('follows the stick exactly while it agrees with the facing, and the facing otherwise', () => {
+    assert.equal(M.aimOf({ dir: 'up' }), -Math.PI / 2)
+    assert.equal(M.aimOf({ dir: 'up', aim: -Math.PI * 0.75 }), -Math.PI * 0.75)
+    assert.equal(M.aimOf({ dir: 'right', aim: Math.PI / 4 }), Math.PI / 4)
+    // Something else turned the hero (a door, a talk): the old aim no longer counts.
+    assert.equal(M.aimOf({ dir: 'down', aim: -Math.PI * 0.75 }), Math.PI / 2)
+    assert.equal(M.aimOf({ dir: 'left', aim: 0 }), Math.PI)
+  })
+  it('centres the sweep on the aim, as wide as ever', () => {
+    const a0 = M.swingAngle({ dir: 'up', a: -Math.PI * 0.75 }, 0)
+    const a1 = M.swingAngle({ dir: 'up', a: -Math.PI * 0.75 }, 1)
+    assert.ok(Math.abs((a0 + a1) / 2 - -Math.PI * 0.75) < 1e-9)
+    assert.ok(Math.abs(a1 - a0 - M.SWORD_ARC) < 1e-9)
+    // Without an aim: across the facing, as before.
+    assert.ok(Math.abs((M.swingAngle({ dir: 'down' }, 0) + M.swingAngle({ dir: 'down' }, 1)) / 2 - Math.PI / 2) < 1e-9)
+  })
+  it('swings along the diagonal the hero walks', () => {
+    const s = M.createGame(M.WORLD, { seed: 3 })
+    s.dialog = null; s.mode = 'play'; s.hero.auto = null; s.inv.sword = true
+    // Out on the open square, away from doors and people.
+    s.hero.x = 20.5; s.hero.y = 17.5
+    const d = Math.SQRT1_2
+    for (let i = 0; i < 6; i++) M.stepGame(M.WORLD, s, 1 / 60, { ...M.NO_INPUT, move: { x: d, y: d } })
+    M.stepGame(M.WORLD, s, 1 / 60, { ...M.NO_INPUT, move: { x: d, y: d }, a: true, aPress: true })
+    assert.ok(s.hero.swing, 'the swing began')
+    assert.ok(Math.abs(s.hero.swing.a - Math.PI / 4) < 1e-9)
+    assert.ok(['down', 'right'].includes(s.hero.swing.dir))
   })
 })
 
