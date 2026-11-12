@@ -106,9 +106,21 @@ describe('the 16-bit dress for HTML', () => {
     const rules = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@media[^{]+\{/g, '').replace(/@keyframes[^{]+\{(?:[^{}]*\{[^{}]*\})*\s*\}/g, '')
     for (const m of rules.matchAll(/(^|\})\s*([^{}@]+)\{/g)) {
       const selectors = m[2].trim()
-      if (!selectors || selectors === ':root') continue
-      for (const s of selectors.split(/,(?![^(]*\))/)) assert.match(s, /\.px16\b/, `"${s.trim()}" would dress the classic look too`)
+      if (!selectors) continue
+      // :root carries custom properties only; they dress nothing by themselves.
+      for (const s of selectors.split(/,(?![^(]*\))/)) if (s.trim() !== ':root') assert.match(s, /\.px16\b/, `"${s.trim()}" would dress the classic look too`)
     }
+  })
+
+  it('works the frame\'s cut and the shade out again wherever the unit may be set', () => {
+    // A custom property is computed where it is declared: on :root alone, an element with its own --px16-u would keep the 1px frame.
+    const m = css.match(/:root,\s*\.px16,\s*\.px16 \*,\s*\.px16 ~ \* \{([^}]*)\}/)
+    assert.ok(m, 'the unit\'s values are declared in the scope and beside it')
+    for (const name of ['--px16-cut', '--px16-inner', '--px16-shade']) {
+      assert.match(m[1], new RegExp(`${name}:[^;]*var\\(--px16-(u|inner)\\)`), `${name} follows the unit`)
+      assert.doesNotMatch(css.slice(0, css.indexOf(m[0])).replace(/\/\*[\s\S]*?\*\//g, ''), new RegExp(`${name}:`), `${name} must not be fixed on :root alone`)
+    }
+    assert.equal(prop('--px16-u'), '1px')
   })
 
   it('moves nothing but in steps, and stops under reduced motion', () => {
@@ -171,7 +183,7 @@ describe('the shell in the 16-bit dress', () => {
 
   it('puts the class on every root, the panels included', () => {
     for (const root of [
-      /<canvas ref="canvas" class="zelda-canvas" :class="\{ px16: dress16 \}"/,
+      /<canvas ref="canvas" class="zelda-canvas" :class="\{ px16: dress16, 'zelda-canvas--paused': paused \}"/,
       /<EscHold :class="\{ px16: dress16 \}"/,
       /class="zelda-deck-top" :class="\{ 'zelda-deck-top--keys': !touchUI, px16: dress16 \}"/,
       /:class="\{ 'zelda-deck--paused': paused, px16: dress16 \}"/,
@@ -179,6 +191,34 @@ describe('the shell in the 16-bit dress', () => {
       /<LookBooth v-if="panel === 'look'" :class="\{ px16: dress16 \}"/,
       /<NewsStand v-if="panel === 'news'" :class="\{ px16: dress16 \}"/,
     ]) assert.match(shell, root)
+  })
+
+  it('sizes what stands beside the canvas HUD by that HUD\'s pixel', () => {
+    // The renderer says the unit; the shell snaps it to whole device px and writes it only when it changed.
+    assert.match(read('themes/zelda/render/renderer.ts'), /fineUnit\(\): number/)
+    assert.match(shell, /const unit = Math\.max\(1, Math\.round\(renderer\.fineUnit\(\) \* dpr\)\) \/ dpr\s*if \(unit === fineUnit\) return\s*fineUnit = unit\s*host\.style\.setProperty\('--px16-fine', `\$\{unit\}px`\)/)
+    assert.match(shell, /renderer\.resize\(w, h, canvasPixelRatio\(3\), safeInsets\(\)\)\s*syncUnit\(\)/, 'after a resize')
+    assert.match(shell, /stepDress\(renderer\.viewState\(\)\)\s*syncUnit\(\)/, 'each frame: a map may change the scale')
+    assert.match(shell, /style\.removeProperty\('--px16-fine'\)/, 'taken back when the shell goes')
+    // The chips, the pause buttons, the Escape pill and the page's hint take it as their unit, 1px until it is known.
+    assert.match(shell, /\.px16\.zelda-deck-top,\s*\.px16\.zelda-deck,\s*\.px16\.esc-hold-layer,\s*\.zelda-canvas\.px16 ~ \.portal-hint \{\s*--px16-u: var\(--px16-fine, 1px\);/)
+    // A selector's own rule: the one where it stands alone, right after another rule or a comment.
+    const rule = sel => {
+      const at = Math.max(shell.indexOf(`}\n${sel} {`), shell.indexOf(`*/\n${sel} {`))
+      assert.ok(at > 0, `${sel} has a rule`)
+      return shell.slice(at + 2, shell.indexOf('\n}', at + 2))
+    }
+    for (const sel of ['.px16 .zelda-chip', '.px16 .zelda-pad-wide', '.zelda-canvas.px16 ~ .portal-hint', '.px16.esc-hold-layer .esc-hold-pill']) {
+      assert.match(rule(sel), /font-size: calc\(16 \* var\(--px16-u\)\);/, `${sel}: sixteen units to the em, the canvas font's size`)
+      // Its letters, its padding and its frame are so many units, never a fixed number of px.
+      for (const line of rule(sel).split('\n').filter(l => /^\s*(font-size|line-height|padding|gap|border|border-radius):/.test(l))) assert.doesNotMatch(line, /\dpx/, `${sel}: ${line.trim()}`)
+    }
+    // The panels stay at one CSS px: they set no unit of their own.
+    for (const f of ['themes/zelda/LookBooth.vue', 'themes/zelda/AccountConsole.vue', 'themes/zelda/NewsStand.vue']) assert.doesNotMatch(read(f), /--px16-(u|fine)\s*:/, f)
+  })
+
+  it('takes the page\'s hint away while the game is paused, in every view', () => {
+    assert.match(shell, /\.zelda-canvas--paused ~ \.portal-hint \{\s*visibility: hidden;\s*\}/)
   })
 
   it('dresses nothing of its own outside the scope', () => {

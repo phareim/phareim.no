@@ -881,7 +881,7 @@ export const SPC_PATCHES: Record<TrackId, SpcPatch> = {
   // A lone flute over strings and a harp.
   title: { lead: 'flute', bass: 'fretless', arp: 'harp', pad: 'strings', echo: 0.5, feedback: 0.5, room: 0.35, level: 1 },
   // The hero's tune goes to the brass, the bass gets a thumb.
-  overworld: { lead: 'brass', bass: 'slap', arp: 'harp', pad: 'strings', echo: 0.32, feedback: 0.42, room: 0.2, level: 1 },
+  overworld: { lead: 'brass', bass: 'slap', arp: 'harp', pad: 'strings', echo: 0.32, feedback: 0.42, room: 0.2, level: 1.06, leadLevel: 0.8 },
   village: { lead: 'keys', bass: 'fretless', arp: 'harp', pad: 'strings', echo: 0.3, feedback: 0.4, room: 0.25, level: 1, bassLevel: 0.85 },
   beach: { lead: 'pan', bass: 'fretless', arp: 'glass', pad: 'strings', echo: 0.5, feedback: 0.55, room: 0.4, level: 1.06 },
   // The shrine sings: a reed under a choir, the echo long.
@@ -891,8 +891,8 @@ export const SPC_PATCHES: Record<TrackId, SpcPatch> = {
   ending: { lead: 'brass', bass: 'slap', arp: 'harp', pad: 'strings', echo: 0.4, feedback: 0.45, room: 0.3, level: 1.05 },
   forest: { lead: 'flute', bass: 'fretless', arp: 'harp', pad: 'strings', echo: 0.45, feedback: 0.5, room: 0.35, level: 1, leadLevel: 1.5 },
   // The lab's sequencer becomes a mallet line, its cold lead a reed.
-  lab: { lead: 'reed', bass: 'slap', arp: 'mallet', pad: 'strings', echo: 0.4, feedback: 0.5, room: 0.25, level: 1.12, leadLevel: 0.8 },
-  static: { lead: 'chime', bass: 'fretless', arp: 'glass', pad: 'choir', echo: 0.6, feedback: 0.62, room: 0.5, level: 1.05, bassLevel: 1.2 },
+  lab: { lead: 'reed', bass: 'slap', arp: 'mallet', pad: 'strings', echo: 0.4, feedback: 0.5, room: 0.25, level: 1.2, leadLevel: 0.8 },
+  static: { lead: 'chime', bass: 'fretless', arp: 'glass', pad: 'choir', echo: 0.6, feedback: 0.62, room: 0.5, level: 1.1, bassLevel: 1.2 },
 }
 
 /**
@@ -913,10 +913,10 @@ export const SPC_JINGLE_LEAD: Record<JingleName, SpcLead> = {
  * rest are absolute. Set from scripts/zelda-lab/audio-render.mjs (PARTS=1).
  */
 export const SPC_GAIN = {
-  lead: { flute: 1.42, pan: 2.6, brass: 2.7, reed: 1.06, keys: 3, chime: 2.9 } as Record<SpcLead, number>,
-  bass: { fretless: 0.84, slap: 0.75 } as Record<SpcBass, number>,
-  arp: { harp: 0.205, glass: 0.146, mallet: 0.457 } as Record<SpcArp, number>,
-  pad: { strings: 0.124, choir: 0.136 } as Record<SpcPad, number>,
+  lead: { flute: 1.42, pan: 3, brass: 2.7, reed: 1.06, keys: 3, chime: 3.1 } as Record<SpcLead, number>,
+  bass: { fretless: 0.95, slap: 0.85 } as Record<SpcBass, number>,
+  arp: { harp: 0.205, glass: 0.146, mallet: 0.52 } as Record<SpcArp, number>,
+  pad: { strings: 0.112, choir: 0.12 } as Record<SpcPad, number>,
   counter: 0.3,
   drums: { kick: 0.48, snare: 0.5, hat: 0.2, openHat: 0.18, tom: 0.55 } as Record<SpcDrum, number>,
 }
@@ -1211,8 +1211,8 @@ export function renderSpcSample(name: SpcVoice, root: number = SPC_SAMPLES[name]
     }
     case 'brass': {
       // Horns: dark as the lips start, a blare as the note fills, then settled.
-      each(28, (_, kf) => rest.tone(kf, roll(kf, 900, 2.6) * (1 + 0.5 * bump(kf, 1150, 450)), 5))
-      each(28, (_, kf) => bite.tone(kf, roll(kf, 2400, 2.2) * (1 + 0.5 * bump(kf, 1150, 450)), 5))
+      each(28, (_, kf) => rest.tone(kf, roll(kf, 800, 2.6) * (1 + 0.5 * bump(kf, 1150, 450)), 5))
+      each(28, (_, kf) => bite.tone(kf, roll(kf, 1900, 2.3) * (1 + 0.5 * bump(kf, 1150, 450)), 5))
       fade = t => (t < 0.045 ? 0.25 + 0.75 * t / 0.045 : Math.exp(-(t - 0.045) / 0.085))
       scoop = [-22, 0.04]
       chiff = [0.08, 2400, 0.015]
@@ -1223,8 +1223,8 @@ export function renderSpcSample(name: SpcVoice, root: number = SPC_SAMPLES[name]
       // An electric piano: the tine rings bright against the bar, then only the bar hums.
       table(rest, [1, 0.3, 0.1, 0.05, 0.02])
       table(bite, [1, 0.85, 0.5, 0.36, 0.2, 0.12, 0.07])
-      bite.tone(f * 7, 0.16)
-      bite.tone(f * 10, 0.08)
+      bite.tone(f * 7, 0.1)
+      bite.tone(f * 10, 0.03)
       fade = t => Math.exp(-t / 0.1)
       chiff = [0.07, 1200, 0.006]
       break
@@ -1236,7 +1236,7 @@ export function renderSpcSample(name: SpcVoice, root: number = SPC_SAMPLES[name]
       for (const [ratio, a] of [[2.5, 0.3], [4.5, 0.12], [6, 0.05]] as const) rest.tone(f * ratio, a)
       bite.tone(f, 1)
       bite.tone(f + bin, 0.35)
-      for (const [ratio, a] of [[2.5, 0.9], [4.5, 0.7], [6, 0.5], [8, 0.22], [10.5, 0.1]] as const) bite.tone(f * ratio, a)
+      for (const [ratio, a] of [[2.5, 0.9], [4.5, 0.7], [6, 0.4], [8, 0.16], [10.5, 0.06]] as const) bite.tone(f * ratio, a)
       fade = t => Math.exp(-t / 0.2)
       chiff = [0.1, 6000, 0.004]
       break
@@ -1386,7 +1386,8 @@ export function spcCodec(data: Float32Array, loop = -1): Float32Array {
         let h1 = p1
         let h2 = p2
         let err = 0
-        for (let i = 0; i < 16; i++) {
+        // A try that is already worse than the best so far is dropped where it stands.
+        for (let i = 0; i < 16 && err < bestErr; i++) {
           const pred = c1 * h1 + c2 * h2
           const want = xs[i + 2]!
           const nib = Math.max(-8, Math.min(7, Math.round((want - pred) / step)))
@@ -2160,6 +2161,32 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
     setTimeout(next, 60)
   }
 
+  /**
+   * Make sure the recordings a bar plays from are there (and with `next`,
+   * the bar after it), before anything is put on the clock: so the time it
+   * takes to make one the background has not reached yet is not taken out
+   * of the first notes.
+   */
+  function prime16(id: TrackId, comp: CompiledTrack, from: number, next: boolean): void {
+    const patch = SPC_PATCHES[id]
+    for (const i of next ? [from, from + 1 < comp.bars.length ? from + 1 : comp.loopBar] : [from]) {
+      const bar = comp.bars[i]
+      if (!bar) continue
+      for (const e of bar.lead) zone(patch.lead, e.midi)
+      for (const e of bar.bass) zone(patch.bass, e.midi)
+      for (const e of bar.counter) zone('strings', e.midi)
+      for (const ch of bar.chords) {
+        if (bar.pad) for (const m of padVoicing(ch.c)) zone(patch.pad, m)
+        if (bar.arp) for (const m of arpTones(ch.c)) zone(patch.arp, m)
+      }
+      if (/[^.]/.test(bar.drums.k)) drum('kick')
+      if (/[^.t]/.test(bar.drums.s)) drum('snare')
+      if (bar.drums.s.includes('t')) drum('tom')
+      if (/[^.o]/.test(bar.drums.h)) drum('hat')
+      if (bar.drums.h.includes('o')) drum('openHat')
+    }
+  }
+
   /** One of the chip's soft waves as a wavetable (the SFX play these); null where the browser will not make one. */
   function table(name: SpcWave): PeriodicWave | null {
     const s = ensure16()
@@ -2453,8 +2480,9 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
   /** Hand a playing track to the other chip: its sends crossfade, and whatever is still sounding or already scheduled is voiced again there. */
   function crossFlavor(p: Player): void {
     const c = ac!
-    const t = c.currentTime
     const sixteen = flavor === '16-bit'
+    if (sixteen) prime16(p.id, p.comp, p.bar, true)
+    const t = c.currentTime
     const ramp = (g: GainNode, v: number, secs: number) => {
       g.gain.cancelScheduledValues(t)
       g.gain.setValueAtTime(g.gain.value, t)
@@ -2578,6 +2606,9 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
     const c = ac!
     const def = TRACKS[id]
     const sixteen = flavor === '16-bit'
+    const comp = compileTrack(def).track
+    // The first bar only: the background has the rest long before the second comes.
+    if (sixteen) prime16(id, comp, 0, false)
     // A track that starts on the 16-bit chip keeps its 8-bit sends silent until a change of flavour asks for them.
     const level = sixteen ? 0 : def.level ?? 1
     const mk = (dest: AudioNode, v: number) => {
@@ -2590,7 +2621,7 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
     return {
       id,
       def,
-      comp: compileTrack(def).track,
+      comp,
       bar: 0,
       step: 0,
       nextTime: c.currentTime + 0.08,
@@ -3057,9 +3088,10 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
       if (flavor === '16-bit') {
         // The same notes on the other chip: the lead to its own instrument, a flute under it, chimes, strings, a fretless bass.
         const o = ensure16().sfx
-        if (v === 'lead') lead16(o, lead, m, at, dur * 0.95, 0.15)
+        // A chime up where the jingles ring it has little but its fundamental left: it is played a little louder for that.
+        if (v === 'lead') lead16(o, lead, m, at, dur * 0.95, lead === 'chime' ? 0.22 : 0.15)
         else if (v === 'harm') lead16(o, 'flute', m, at, dur * 0.95, 0.09)
-        else if (v === 'bell') lead16(o, 'chime', m, at, dur, 0.09)
+        else if (v === 'bell') lead16(o, 'chime', m, at, dur, 0.14)
         else if (v === 'pad') string16(o, m, at, dur, 0.055, 0, 0.08)
         else bass16(o, 'fretless', m, at, dur * 0.95, 0.46)
         continue

@@ -14,7 +14,9 @@
 // lone trees, bushes, tufts and flowers in front (-scene-albedo is the same
 // scene unlit). The panels are also written one by one (flora-<look>-albedo.png,
 // -normal, -lit, -scene) and the two atlas pictures as they are
-// (flora-<look>-atlas.png, -atlas-normal.png). ZOOM=<n> changes the 4.
+// (flora-<look>-atlas.png on the ground colour, -atlas-raw.png with its alpha,
+// -atlas-normal.png), with the sprite rects in flora-<look>.json. ZOOM=<n>
+// changes the 4.
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -247,10 +249,11 @@ try {
     res.files['flora-' + look + '-scene.png'] = sc.toDataURL('image/png')
     res.files['flora-' + look + '-scene-albedo.png'] = sa.toDataURL('image/png')
     res.files['flora-' + look + '-atlas.png'] = onGround(atlas.albedo).toDataURL('image/png')
+    res.files['flora-' + look + '-atlas-raw.png'] = atlas.albedo.toDataURL('image/png')
     res.files['flora-' + look + '-atlas-normal.png'] = atlas.normal.toDataURL('image/png')
     const count = {}
     for (const kind of KINDS) count[kind] = atlas.sprites[kind].map(s => s.w + 'x' + s.h)
-    res.info[look] = { ms: Math.round(ms), atlas: atlas.albedo.width + 'x' + atlas.albedo.height, sprites: count, cached: buildFlora(look) === atlas }
+    res.info[look] = { ms: Math.round(ms), atlas: atlas.albedo.width + 'x' + atlas.albedo.height, sprites: count, rects: atlas.sprites, cached: buildFlora(look) === atlas }
   }
 } catch (e) {
   res.error = String(e && e.stack || e)
@@ -277,9 +280,10 @@ if (res.error) { console.error(res.error); process.exit(1) }
 for (const [name, url] of Object.entries(res.files)) {
   const png = join(out, name)
   writeFileSync(png, Buffer.from(url.slice(url.indexOf(',') + 1), 'base64'))
-  if (!/-(albedo|normal|lit|scene|scene-albedo|atlas|atlas-normal)\.png$/.test(name)) console.log(png)
+  if (!/-(albedo|normal|lit|scene|scene-albedo|atlas|atlas-raw|atlas-normal)\.png$/.test(name)) console.log(png)
 }
 for (const [look, info] of Object.entries(res.info)) {
+  writeFileSync(join(out, `flora-${look}.json`), JSON.stringify(info.rects))
   console.log(`${look}: atlas ${info.atlas}, built in ${info.ms} ms, cached ${info.cached}`)
   for (const [kind, sizes] of Object.entries(info.sprites)) console.log(`  ${kind}: ${sizes.join(' ')}`)
 }

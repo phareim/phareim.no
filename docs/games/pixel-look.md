@@ -55,6 +55,25 @@ row above the cap height, the em's top pixel, so it reads at 16 px; `glyphAbove`
 `font.ts`, drawn by `drawText` and `drawBigText`), and É È Ä Ö Ü
 draw as the canvas aliases them (E, E, Æ, Ø, U; 2026-09-26); it adds ▶ ◀ ▲ ▼ | [ ] @ ♪ ↻ ⌂ — … ❚ ◈ ■.
 
+**The 16-bit dress for HTML** (2026-11-12). `themes/base/pixel/pixel16.css`
+is a second dress for the same classes, worn inside the scope class `.px16`:
+`.px-box` becomes the 16-bit view's window (a gradient in hard bands, a
+two-pixel bevel frame with round corners as a border picture, an inner dark
+line, a stepped shadow), `.px-btn` a small window that lights up pale with
+dark letters on hover, focus and `.is-sel` and turns its bevel inward when
+pressed, and every `var(--font-pixel)` inside the scope becomes
+`--font-pixel16`: `public/fonts/neon-pixel-16.woff2` (2 KB), the 16-bit
+view's dialog font (`font16.ts`) built by `node scripts/make-pixel-font16.mjs`
+(fontTools with brotli). That font has sixteen pixels to the em, so it is
+crisp at font sizes of 16n px (16 px is one CSS px per font pixel on every
+whole-number screen; 24 px only at 2×), and it adds ▶ ◀ ▲ ▼ ■ @ | [ ] — … ❚ ♪
+to the canvas font's letters; a glyph it lacks falls back to Neon Pixel.
+`.px-more` is the "more" arrow, in steps. Every length is so many `--px16-u`
+(1 px unless an element sets its own; its letters are then
+`calc(16 * var(--px16-u))`). Without `.px16` nothing in the file applies;
+Neon Shrine's shell is the one page that wears it
+(`docs/games/neon-shrine.md`, "The shell's HTML in the 16-bit dress").
+
 **Status** (2026-09-25; one game left it 2026-10-13, see the table): the whole site is on the pixel look — the eight games, the Hall of Fame and Hangar pages, the shell's chrome, the 404 and the icons. The old vector synthwave backdrop (`neonHorizon.js`, `mountainTerrain.js`) is gone.
 
 | Game | Pixel look | Setting |

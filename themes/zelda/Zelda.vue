@@ -1,6 +1,7 @@
 <template>
-  <!-- `px16` on every root (and on the canvas, for the page's hint beside it): the HTML wears the 16-bit dress while the canvas HUD does. -->
-  <canvas ref="canvas" class="zelda-canvas" :class="{ px16: dress16 }" />
+  <!-- `px16` on every root (and on the canvas, for the page's hint beside it): the HTML wears the 16-bit dress while the canvas HUD does.
+    The canvas also says when the game is paused, so that hint can step aside. -->
+  <canvas ref="canvas" class="zelda-canvas" :class="{ px16: dress16, 'zelda-canvas--paused': paused }" />
   <!-- Measures the notch and status-bar insets for the HUD (installed web app, landscape). -->
   <div ref="safeProbe" class="zelda-safe" aria-hidden="true" />
   <EscHold :class="{ px16: dress16 }" :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="escTap" @hold="toTown" />
@@ -256,9 +257,31 @@ function syncDress() {
  * through a turn (`k` past 0.5, as in iso/view.ts): on the way in while `k` rises, on the way out when it has fallen.
  */
 function stepDress(vs: { k: number; turning: boolean }) {
-  const on = !vs.turning ? dressWanted : dress16.value ? vs.k > 0.5 : dressWanted && vs.k > 0.5 && vs.k > dressK
+  // Where the canvas cannot show its fine HUD (a screen with one device px to the classic px), the HTML keeps the classic dress with it.
+  const fine = !renderer || renderer.fineUnit() > 0
+  const on = fine && (!vs.turning ? dressWanted : dress16.value ? vs.k > 0.5 : dressWanted && vs.k > 0.5 && vs.k > dressK)
   dressK = vs.k
   if (on !== dress16.value) dress16.value = on
+}
+
+/** CSS px to one pixel of the canvas's 16-bit HUD, as last written to the page (0: not yet). */
+let fineUnit = 0
+
+/**
+ * What stands beside the canvas HUD in the 16-bit dress (chips, pause buttons, the Escape pill, the page's hint) is
+ * sized by that HUD's own pixel, so its letters are the canvas's size: `Renderer.fineUnit()`, which follows the screen
+ * and the map, as `--px16-fine` on the element the shell sits in (the hint is beside the canvas, not inside a root of
+ * ours, so the property goes where both inherit it). Snapped to whole device px, so the letters stay sharp. Called
+ * after a resize and each frame; it writes only when the number changed. Before the first call the CSS falls back to 1px.
+ */
+function syncUnit() {
+  const host = canvas.value?.parentElement
+  if (!renderer || !host) return
+  const dpr = window.devicePixelRatio || 1
+  const unit = Math.max(1, Math.round(renderer.fineUnit() * dpr)) / dpr
+  if (unit === fineUnit) return
+  fineUnit = unit
+  host.style.setProperty('--px16-fine', `${unit}px`)
 }
 
 // The deck's buttons carry pictures: the sprites, as data URLs (browser only). `artVersion`
@@ -826,6 +849,7 @@ function frame(nowMs: number) {
   // A turn caught by a pause or a panel would hang half done (the world is drawn once, or five times a second): finish it.
   if ((paused.value || panel.value) && renderer.viewState().turning) { renderer.setView(viewDef(viewId.value)?.engine ?? 'classic', true); pausedDrawn = false }
   stepDress(renderer.viewState())
+  syncUnit()
 
   ui.paused = paused.value
   ui.confirmReset = confirmReset.value
@@ -942,6 +966,7 @@ function resize() {
   const w = canvas.value.clientWidth
   const h = canvas.value.clientHeight
   renderer.resize(w, h, canvasPixelRatio(3), safeInsets())
+  syncUnit()
 }
 
 /** The screen's safe-area insets in CSS px (all 0 in an ordinary browser tab). */
@@ -1032,6 +1057,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   alive = false
+  canvas.value?.parentElement?.style.removeProperty('--px16-fine')
   liveStop?.()
   liveStop = null
   cancelAnimationFrame(raf)
@@ -1063,6 +1089,11 @@ onBeforeUnmount(() => {
   background: #0b0616;
   touch-action: none;
   image-rendering: pixelated;
+}
+
+/* Paused before the first step: the page's hint (portal/Landing.vue, after the canvas) would lie on the pause screen's key line. */
+.zelda-canvas--paused ~ .portal-hint {
+  visibility: hidden;
 }
 
 .zelda-safe {
@@ -1279,12 +1310,24 @@ onBeforeUnmount(() => {
  * frames, shade, the letters' colours) and where they come from are in
  * themes/base/pixel/pixel16.css, which also dresses .px-box and .px-btn in
  * the panels. Without the class nothing below applies.
+ *
+ * What stands beside the canvas HUD takes that HUD's pixel as its unit
+ * (`--px16-fine`, kept by `syncUnit`; 1px until it is known), so the letters
+ * here and on the canvas are one size on every screen: every length below is
+ * so many units. The panels and the ending keep 1 CSS px: they are pages of
+ * their own over a dimmed world and must fit a phone.
  */
+.px16.zelda-deck-top,
+.px16.zelda-deck,
+.px16.esc-hold-layer,
+.zelda-canvas.px16 ~ .portal-hint {
+  --px16-u: var(--px16-fine, 1px);
+}
 
-/* VIEW and pause: plates in the sea green of the item box and the pause screen. */
+/* VIEW and pause: plates in the sea green of the item box and the pause screen. Never smaller than a thumb. */
 .px16 .zelda-chip {
-  min-width: 52px;
-  min-height: 44px;
+  min-width: max(52px, calc(40 * var(--px16-u)));
+  min-height: max(44px, calc(28 * var(--px16-u)));
   border: calc(3 * var(--px16-u)) solid transparent;
   border-radius: calc(3 * var(--px16-u));
   border-image: var(--px16-frame-cool) var(--px16-cut);
@@ -1292,47 +1335,69 @@ onBeforeUnmount(() => {
   box-shadow: var(--px16-shade);
   color: var(--px16-text);
   text-shadow: var(--px16-drop);
-  font-size: 16px;
-  line-height: 16px;
+  font-size: calc(16 * var(--px16-u));
+  line-height: calc(16 * var(--px16-u));
+}
+.px16.zelda-deck-top .zelda-chip:first-child {
+  padding: 0 calc(8 * var(--px16-u));
+  gap: calc(6 * var(--px16-u));
 }
 .px16 .zelda-chip:active {
   border-image: var(--px16-frame-cool-in) var(--px16-cut);
   box-shadow: var(--px16-inner);
 }
-/* The view's picture at twice the pixels (one screen px each), with the letters' shadow. */
+/* The view's picture at twice the pixels (one unit each), with the letters' shadow. */
 .px16 .zelda-chip-icon {
-  filter: drop-shadow(1px 1px 0 var(--px16-shadow));
+  width: calc(18 * var(--px16-u));
+  height: calc(18 * var(--px16-u));
+  filter: drop-shadow(var(--px16-u) var(--px16-u) 0 var(--px16-shadow));
 }
-/* With a keyboard: the same plate, small. This font has no size under 16 px. */
-.px16.zelda-deck-top--keys .zelda-chip {
+/* With a keyboard: the same plate, as small as its letters allow (this font has no size under sixteen units). */
+.px16.zelda-deck-top--keys .zelda-chip,
+.px16.zelda-deck-top--keys .zelda-chip:first-child {
   min-width: 0;
   min-height: 0;
-  padding: 2px 6px 2px 4px;
-  font-size: 16px;
+  padding: calc(2 * var(--px16-u)) calc(6 * var(--px16-u)) calc(2 * var(--px16-u)) calc(4 * var(--px16-u));
+  gap: calc(6 * var(--px16-u));
+  font-size: calc(16 * var(--px16-u));
   opacity: 1;
 }
 .px16.zelda-deck-top--keys .zelda-chip:hover { color: var(--px16-prize); }
 .px16 .zelda-chip-key {
-  padding: 1px 3px;
+  padding: var(--px16-u) calc(3 * var(--px16-u));
   background: var(--px16-fill-lit);
-  box-shadow: 0 0 0 1px #070a2c;
+  box-shadow: 0 0 0 var(--px16-u) #070a2c;
   color: var(--px16-shadow);
   text-shadow: none;
 }
 .px16.zelda-deck-top--keys .zelda-chip:hover .zelda-chip-key { background: var(--px16-prize); }
 
-/* The round pads keep their rings; their pictures are the HUD's own, at twice the pixels: one screen px each, two on A. */
+/* The round pads keep their rings and their size; their pictures are the HUD's own, at twice the pixels: one CSS px each, two on A. */
 .px16 .zelda-pad-icon { opacity: 1; }
 .px16 .zelda-pad-icon--big {
   width: 64px;
   height: 64px;
 }
 
-/* The pause buttons: windows like the pause screen's; the way out in the dialog's blue with pink letters. */
+/*
+ * The pause buttons: windows like the pause screen's; the way out in the dialog's blue with pink letters.
+ * Four in a row where four fit at this unit, else two rows of two, never three and one: the narrowest a column
+ * may be flips from a quarter of the row to half of it when four of the least width no longer fit.
+ */
+.px16 .zelda-deck-paused {
+  --zelda-pad-gap: calc(8 * var(--px16-u));
+  --zelda-pad-least: calc(140 * var(--px16-u));
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(clamp(25% - var(--zelda-pad-gap), (var(--zelda-pad-least) * 4 + var(--zelda-pad-gap) * 3 - 100%) * 9999, 50% - var(--zelda-pad-gap)), 1fr));
+  gap: var(--zelda-pad-gap);
+  width: 100%;
+  max-width: calc(760 * var(--px16-u));
+}
 .px16 .zelda-pad-wide {
   box-sizing: border-box;
-  min-height: 48px;
-  padding: 0 6px;
+  min-width: 0;
+  min-height: max(44px, calc(44 * var(--px16-u)));
+  padding: 0 calc(6 * var(--px16-u));
   border: calc(3 * var(--px16-u)) solid transparent;
   border-radius: calc(3 * var(--px16-u));
   border-image: var(--px16-frame-cool) var(--px16-cut);
@@ -1340,8 +1405,8 @@ onBeforeUnmount(() => {
   box-shadow: var(--px16-shade);
   color: var(--px16-text);
   text-shadow: var(--px16-drop);
-  font-size: 16px;
-  line-height: 16px;
+  font-size: calc(16 * var(--px16-u));
+  line-height: calc(16 * var(--px16-u));
 }
 .px16 .zelda-pad-quit {
   border-image: var(--px16-frame-hot) var(--px16-cut);
@@ -1356,16 +1421,6 @@ onBeforeUnmount(() => {
   box-shadow: var(--px16-inner);
 }
 .px16 .zelda-pad-quit:active { border-image: var(--px16-frame-hot-in) var(--px16-cut); }
-/* Four across a phone would need letters smaller than this font has: two rows of two. */
-@media (max-width: 440px) {
-  .px16 .zelda-deck-paused {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    width: 100%;
-  }
-  .px16 .zelda-pad-wide { font-size: 16px; padding: 0 6px; min-height: 44px; }
-}
 
 /* The page's first hint (portal/Landing.vue) comes after the canvas: a line of dialog, so the dialog box's blue window. */
 .zelda-canvas.px16 ~ .portal-hint {
@@ -1373,7 +1428,14 @@ onBeforeUnmount(() => {
   /* Centred on whole pixels: half of an odd width would blur these letters. (Where round() is not known the page's own centring stays.) */
   left: round(down, 50%, 1px);
   transform: translateX(round(down, -50%, 1px));
-  padding: 8px 14px;
+  /* As wide as its line, and on two lines where the screen is narrower than that at this unit. */
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  white-space: normal;
+  text-align: center;
+  text-wrap: balance;
+  padding: calc(8 * var(--px16-u)) calc(14 * var(--px16-u));
   border: calc(3 * var(--px16-u)) solid transparent;
   border-radius: calc(3 * var(--px16-u));
   border-image: var(--px16-frame-hot) var(--px16-cut);
@@ -1381,6 +1443,8 @@ onBeforeUnmount(() => {
   box-shadow: var(--px16-shade);
   color: var(--px16-text);
   text-shadow: var(--px16-drop);
+  font-size: calc(16 * var(--px16-u));
+  line-height: calc(20 * var(--px16-u));
 }
 
 /* The page's ending panel, the same way: the dialog's window, the HUD's colours, its hard shadow under every line. */
@@ -1400,17 +1464,23 @@ onBeforeUnmount(() => {
 .zelda-canvas.px16 ~ .portal-end .portal-end-start { color: var(--px16-hot); }
 .zelda-canvas.px16 ~ .portal-end .portal-end-note { color: var(--px16-dim); }
 
-/* The Escape pill (base/EscHold.vue): its own colours are scoped to it and would win a tie with .px-box, so the window is said again, one class stronger. */
+/* The Escape pill (base/EscHold.vue): its own sizes and colours are scoped to it and would win a tie with .px-box, so they are said again, one class stronger. */
 .px16.esc-hold-layer .esc-hold-pill {
+  gap: calc(12 * var(--px16-u));
+  padding: calc(5 * var(--px16-u)) calc(9 * var(--px16-u));
   background: var(--px16-fill-hot) padding-box;
   color: var(--px16-text);
   text-shadow: var(--px16-drop);
+  font-size: calc(16 * var(--px16-u));
+  line-height: calc(20 * var(--px16-u));
 }
 .px16.esc-hold-layer .esc-hold-track {
+  width: calc(96 * var(--px16-u));
+  height: calc(8 * var(--px16-u));
   background: rgba(6, 8, 44, 0.62);
-  box-shadow: 0 0 0 1px #070a2c;
+  box-shadow: 0 0 0 var(--px16-u) #070a2c;
 }
 .px16.esc-hold-layer .esc-hold-fill {
-  background: repeating-linear-gradient(90deg, var(--px16-hot) 0 6px, transparent 6px 8px);
+  background: repeating-linear-gradient(90deg, var(--px16-hot) 0 calc(6 * var(--px16-u)), transparent calc(6 * var(--px16-u)) calc(8 * var(--px16-u)));
 }
 </style>

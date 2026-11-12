@@ -102,7 +102,9 @@ export interface Renderer {
   dispose(): void
   /**
    * CSS px to one pixel of a fine HUD (a skin at two px to the classic px), on this screen and in this map.
-   * The shell's HTML sizes its 16-bit dress by it, so its letters are as large as the canvas's.
+   * The shell's HTML sizes its 16-bit dress by it, so its letters are as large as the canvas's. 0 where a
+   * classic px is a single device px: there a fine skin gives way to its coarse stand-in, and the shell's
+   * HTML keeps the classic dress too.
    */
   fineUnit(): number
 }
@@ -1367,6 +1369,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       for (const v of views.values()) try { v.dispose?.() } catch { /* nothing to be done */ }
       views.clear()
     },
-    fineUnit: () => hudScale(scale, W, H, 2) / 2 / dpr,
+    fineUnit: () => scale < 2 ? 0 : hudScale(scale, W, H, 2) / 2 / dpr,
   }
 }

@@ -244,6 +244,30 @@ classic picture. `/?view=<id>` asks for one.
   `kit.hudSpace(skin)` says where a skin's grid lies on the screen (an odd
   screen scale gives the hi-res HUD an even scale of its own).
   `scripts/zelda-lab/hud-sheet.mjs` renders every skin in every state.
+- **The shell's HTML in the 16-bit dress** (2026-11-12). What the shell
+  draws in the DOM (the VIEW and pause chips, the touch deck's pictures, the
+  pause buttons, the Escape pill, the three panels, and the page's first
+  hint and ending panel) wears the same dress as the canvas HUD while that
+  HUD is `HIRES_WINDOW_SKIN`: the class `px16` on every root of `Zelda.vue`
+  (the canvas too, so the page's hint beside it can be reached). `wears16`
+  decides it from the view, exactly as `iso/view.ts` picks its skin: the
+  `iso` engine with its `windows` value at `'16-bit'`; it follows V, the
+  studio's live values and the first frame, and changes halfway through a
+  turn, when the canvas does (`stepDress`). The dress itself is
+  `themes/base/pixel/pixel16.css` (banded windows, bevel frames and letter
+  colours copied from `hud16.ts`; `tests/zelda-chrome16.test.mjs` holds the
+  two together) in the font `--font-pixel16`, `font16.ts` as a webfont
+  (`docs/games/pixel-look.md`). What stands beside the canvas HUD is sized by
+  that HUD's own pixel: `Renderer.fineUnit()` (CSS px to one fine HUD pixel
+  on this screen and in this map), snapped to whole device px and written as
+  `--px16-fine` on the element the shell sits in by `syncUnit` (after a
+  resize, and on the frame it changes), so letters in the HTML and on the
+  canvas are one size; the panels and the ending keep 1 CSS px, because they
+  must fit a phone. The deck's pictures are the skin's own icons
+  (`HIRES_WINDOW_SKIN.icon`, EPX). The canvas also carries
+  `zelda-canvas--paused`, which takes the page's hint away while the game is
+  paused, in every view. Classic and pencil views are untouched: without the
+  class none of it applies.
 - **Adding an engine.** A module whose default export is a `ViewFactory`, a
   loader in `ENGINE_LOADERS`, its values in `viewParams.ts`, a built-in view
   in `VIEWS`. An engine's code is fetched on the first turn to it and must

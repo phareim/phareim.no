@@ -19,10 +19,13 @@
  *                no ring besides. Pressed, the bevel turns inward.
  *   .px-more     the "more" arrow: dips, comes back, is gone for a moment
  *
- * One 16-bit pixel is --px16-u CSS px: 1 px, so that at font-size 16 px the
- * font's pixels are the bevel's (and, on a phone, the canvas HUD's). It is
- * set once, on :root, where the frame's cut and the shade are worked out
- * from it: one size for the whole page, not a value to change per element.
+ * One 16-bit pixel is --px16-u CSS px, and every length here is so many of
+ * them. It is 1 px (at font-size 16 px the font's pixels are then the
+ * bevel's) unless an element sets its own; its letters are then
+ * `font-size: calc(16 * var(--px16-u))`. Neon Shrine's shell does, for what
+ * stands beside the canvas HUD: the unit there is that HUD's own pixel on
+ * this screen (`--px16-fine`, a whole number of device px), so the letters in
+ * the HTML and on the canvas are one size. Its panels keep 1 px.
  *
  * Sizes. The font has sixteen pixels to the em and stays sharp only where one
  * font pixel is a whole number of device px:
@@ -73,11 +76,22 @@
   --px16-frame-hot-in: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8' shape-rendering='crispEdges'><path fill='%23070a2c' d='M3 0h2v1h-2zM2 1h1v1h-1zM5 1h1v1h-1zM1 2h1v1h-1zM6 2h1v1h-1zM0 3h1v2h-1zM7 3h1v2h-1zM1 5h1v1h-1zM6 5h1v1h-1zM2 6h1v1h-1zM5 6h1v1h-1zM3 7h2v1h-2z'/><path fill='%236c74c4' d='M3 1h1v1h-1zM2 2h1v1h-1zM1 3h1v1h-1z'/><path fill='%23c8d0ff' d='M4 1h1v1h-1zM5 2h1v1h-1zM6 3h1v2h-1zM1 4h1v1h-1zM2 5h1v1h-1zM5 5h1v1h-1zM3 6h2v1h-2z'/><path fill='%23aab2ea' d='M3 2h1v1h-1zM2 3h1v1h-1z'/><path fill='%23fff' d='M4 2h1v1h-1zM5 3h1v2h-1zM2 4h1v1h-1zM3 5h2v1h-2z'/></svg>");
   --px16-frame-cool: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8' shape-rendering='crispEdges'><path fill='%23070a2c' d='M3 0h2v1h-2zM2 1h1v1h-1zM5 1h1v1h-1zM1 2h1v1h-1zM6 2h1v1h-1zM0 3h1v2h-1zM7 3h1v2h-1zM1 5h1v1h-1zM6 5h1v1h-1zM2 6h1v1h-1zM5 6h1v1h-1zM3 7h2v1h-2z'/><path fill='%23fff' d='M3 1h1v1h-1zM2 2h1v1h-1zM1 3h1v1h-1z'/><path fill='%23a4c8e4' d='M4 1h1v1h-1zM5 2h1v1h-1zM6 3h1v2h-1zM1 4h1v1h-1zM2 5h1v1h-1zM5 5h1v1h-1zM3 6h2v1h-2z'/><path fill='%23c4ecff' d='M3 2h1v1h-1zM2 3h1v1h-1z'/><path fill='%235c98c0' d='M4 2h1v1h-1zM5 3h1v2h-1zM2 4h1v1h-1zM3 5h2v1h-2z'/></svg>");
   --px16-frame-cool-in: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8' shape-rendering='crispEdges'><path fill='%23070a2c' d='M3 0h2v1h-2zM2 1h1v1h-1zM5 1h1v1h-1zM1 2h1v1h-1zM6 2h1v1h-1zM0 3h1v2h-1zM7 3h1v2h-1zM1 5h1v1h-1zM6 5h1v1h-1zM2 6h1v1h-1zM5 6h1v1h-1zM3 7h2v1h-2z'/><path fill='%235c98c0' d='M3 1h1v1h-1zM2 2h1v1h-1zM1 3h1v1h-1z'/><path fill='%23c4ecff' d='M4 1h1v1h-1zM5 2h1v1h-1zM6 3h1v2h-1zM1 4h1v1h-1zM2 5h1v1h-1zM5 5h1v1h-1zM3 6h2v1h-2z'/><path fill='%23a4c8e4' d='M3 2h1v1h-1zM2 3h1v1h-1z'/><path fill='%23fff' d='M4 2h1v1h-1zM5 3h1v2h-1zM2 4h1v1h-1zM3 5h2v1h-2z'/></svg>");
-  /* How a frame is cut and laid: the right and bottom pieces are four pixels, one of them over the fill. */
+  --px16-more: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='6' shape-rendering='crispEdges'><path fill='%23e4fbff' d='M0 0h10v1h-10z'/><path fill='%238cecff' d='M1 1h8v1h-8zM2 2h6v1h-6zM3 3h4v1h-4zM4 4h2v1h-2z'/><path fill='%230a0c38' d='M9 1h2v1h-2zM8 2h2v1h-2zM7 3h2v1h-2zM6 4h2v1h-2zM5 5h2v1h-2z'/></svg>");
+}
+
+/*
+ * What follows from the unit: how a frame is cut and laid, and the shade. A custom property is worked out where it
+ * is declared, not where it is used, so these are declared on every element in the scope and beside it: one that
+ * sets its own --px16-u (the shell's chips, by the canvas HUD's pixel) then gets its own cut and shade.
+ */
+:root,
+.px16,
+.px16 *,
+.px16 ~ * {
+  /* The right and bottom pieces of a frame are four pixels, one of them over the fill. */
   --px16-cut: 3 4 4 3 / calc(3 * var(--px16-u)) calc(4 * var(--px16-u)) calc(4 * var(--px16-u)) calc(3 * var(--px16-u));
   --px16-inner: inset var(--px16-u) var(--px16-u) 0 rgba(6, 8, 44, 0.62), inset calc(-1 * var(--px16-u)) calc(-1 * var(--px16-u)) 0 rgba(6, 8, 44, 0.36);
   --px16-shade: var(--px16-inner), var(--px16-u) calc(2 * var(--px16-u)) 0 rgba(4, 4, 30, 0.22), calc(2 * var(--px16-u)) calc(3 * var(--px16-u)) 0 rgba(4, 4, 30, 0.2), calc(3 * var(--px16-u)) calc(4 * var(--px16-u)) 0 rgba(4, 4, 30, 0.14);
-  --px16-more: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='6' shape-rendering='crispEdges'><path fill='%23e4fbff' d='M0 0h10v1h-10z'/><path fill='%238cecff' d='M1 1h8v1h-8zM2 2h6v1h-6zM3 3h4v1h-4zM4 4h2v1h-2z'/><path fill='%230a0c38' d='M9 1h2v1h-2zM8 2h2v1h-2zM7 3h2v1h-2zM6 4h2v1h-2zM5 5h2v1h-2z'/></svg>");
 }
 
 .px16 {
