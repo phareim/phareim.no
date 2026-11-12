@@ -390,4 +390,29 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .acct-cursor { animation: none; }
 }
+
+/*
+ * The 16-bit dress (`px16` on the root, from the shell, while the isometric
+ * view shows its 16-bit windows): base/pixel/pixel16.css turns the box into
+ * the dialog's blue window and the buttons into small ones, in the 16-bit
+ * font; these are the terminal's own lines in that HUD's colours, with its
+ * hard shadow where the classic ones glow.
+ */
+.px16.acct { background: rgba(8, 10, 44, 0.55); }
+.px16 .acct-head { border-bottom-color: var(--px16-line); }
+.px16 .acct-title { color: var(--px16-prize); text-shadow: var(--px16-drop); }
+.px16 .acct-host { color: var(--px16-dim); }
+.px16 .acct-screen { color: var(--px16-cool); text-shadow: var(--px16-drop); }
+.px16 .acct-name { color: var(--px16-text); text-shadow: var(--px16-drop); }
+.px16 .acct-dim { color: var(--px16-dim); text-shadow: var(--px16-drop); }
+.px16 .acct-warn { color: var(--px16-prize); text-shadow: var(--px16-drop); }
+/* The cursor on this font's grid: a capital high, standing on the baseline. */
+.px16 .acct-cursor {
+  width: 8px;
+  height: 12px;
+  vertical-align: 0;
+  box-shadow: 1px 1px 0 var(--px16-shadow);
+}
+.px16 .acct-note { color: var(--px16-prize); }
+.px16 .acct-keys { color: var(--px16-dim); }
 </style>

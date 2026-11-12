@@ -98,6 +98,8 @@ export interface Renderer {
   setParams(id: EngineId, values?: ParamValues): void
   /** The view we are in or heading for, how far the turn has come (0 classic … 1), the angle the controls turn by now (radians), and whether a turn is in flight. */
   viewState(): { id: string; k: number; turn: number; turning: boolean }
+  /** The page is done with the renderer: every view lets go of what it holds. */
+  dispose(): void
 }
 
 /**
@@ -109,6 +111,8 @@ export interface Renderer {
 export interface View {
   draw(s: GameState, ui: FrameUI, dt: number, k: number): void
   turn: number
+  /** Let go of what the view holds outside the page's own memory (a GPU context). */
+  dispose?(): void
 }
 export type ViewFactory = (kit: Kit) => View
 
@@ -1302,7 +1306,16 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const now = turn.step(dt)
     const v = now.shown ? views.get(now.shown) : undefined
     if (!v) { aim = a => a; span = null; drawClassic(s, ui, dt); return }
-    v.draw(s, ui, dt, ease(now.k))
+    try { v.draw(s, ui, dt, ease(now.k)) } catch (e) {
+      // A view that throws would throw again every frame, with the game running on unseen behind a still
+      // picture. It is put away for this visit, and the classic view draws from here on.
+      console.error(`view ${now.shown} failed; the classic view takes over`, e)
+      try { v.dispose?.() } catch { /* it is going anyway */ }
+      views.delete(now.shown!)
+      aim = a => a
+      span = null
+      drawClassic(s, ui, dt)
+    }
   }
 
   function setView(id: string, instant = false) { turn.set(id, instant) }
@@ -1319,5 +1332,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     hasView: id => id === 'classic' || views.has(id),
     setView, viewState,
     setParams(id, values) { params.set(id, resolveParams(id, values)) },
+    dispose() {
+      for (const v of views.values()) try { v.dispose?.() } catch { /* nothing to be done */ }
+      views.clear()
+    },
   }
 }

@@ -9,9 +9,10 @@
 // it writes flora-<look>.png, four panels at 4× on a dusk ground colour:
 // every sprite's own colours with its name, its normal map, a lit preview
 // (colours × (ambient #8e82c4 + a magenta point light from the left + a cyan
-// one from the right), from the normals), and a small scene: a forest edge of
-// overlapping canopy trees with lone trees, bushes, tufts and flowers in
-// front. The panels are also written one by one (flora-<look>-albedo.png,
+// one from the right), from the normals), and a small scene lit the same way
+// by two lamps standing in it: a forest edge of overlapping canopy trees with
+// lone trees, bushes, tufts and flowers in front (-scene-albedo is the same
+// scene unlit). The panels are also written one by one (flora-<look>-albedo.png,
 // -normal, -lit, -scene) and the two atlas pictures as they are
 // (flora-<look>-atlas.png, -atlas-normal.png). ZOOM=<n> changes the 4.
 import { execFileSync } from 'node:child_process'
@@ -122,21 +123,28 @@ function panel(atlas, src, title, names) {
   return c
 }
 
-/** A flat teal-indigo clearing with a forest edge behind it, drawn back to front. */
-function scene(atlas, src) {
+/**
+ * A flat teal-indigo clearing with a forest edge behind it, drawn back to
+ * front. With \`lit\` the whole picture, ground and plants, is lit from the
+ * normals by the dusk ambient and two lamps standing in it: magenta on the
+ * left, cyan on the right.
+ */
+function scene(atlas, lit) {
   const W = 300, H = 190
-  const c = canvas(W * Z, H * Z)
-  const g = c.getContext('2d')
-  g.imageSmoothingEnabled = false
-  g.fillStyle = '#1b4260'
-  g.fillRect(0, 0, c.width, c.height)
+  const col = canvas(W, H), nor = canvas(W, H)
+  const g = col.getContext('2d'), ng = nor.getContext('2d')
+  g.fillStyle = '#1f4a68'
+  g.fillRect(0, 0, W, H)
+  // The ground faces up and a little toward the viewer.
+  ng.fillStyle = 'rgb(128, 217, 217)'
+  ng.fillRect(0, 0, W, H)
   // Ground patches in 8-px blocks, like the classic grass at twice the density.
   let s = 9
   const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 }
   for (let y = 0; y < H; y += 8) for (let x = 0; x < W; x += 8) {
     const n = Math.sin(x * 0.045 + y * 0.03) + Math.sin(x * 0.02 - y * 0.06) + rnd() * 0.5
-    g.fillStyle = n > 0.9 ? '#245573' : n < -0.7 ? '#163a52' : '#1f4a68'
-    g.fillRect(x * Z, y * Z, 8 * Z, 8 * Z)
+    g.fillStyle = n > 0.9 ? '#2d6682' : n < -0.7 ? '#1b4560' : '#245573'
+    g.fillRect(x, y, 8, 8)
   }
   const items = []
   const put = (kind, x, y, pick) => { const l = atlas.sprites[kind]; items.push({ sp: l[Math.floor(pick * l.length) % l.length], x: Math.round(x), y: Math.round(y) }) }
@@ -144,29 +152,58 @@ function scene(atlas, src) {
   let k = 0
   for (let row = 0; row < 3; row++) for (let i = 0; i < (row === 2 ? 4 : 5); i++) {
     const x = 26 + i * 33 + (row % 2) * 16 + (rnd() - 0.5) * 8 + (row === 2 ? -4 : 0)
-    put('canopy', x, 80 + row * 20 + (rnd() - 0.5) * 5, (k++ % 4) / 4)
+    put('canopy', x, 80 + row * 20 + (rnd() - 0.5) * 5, ((k++ * 7) % 4) / 4)
   }
-  put('tree', 214, 104, 0); put('tree', 262, 126, 0.25); put('tree', 196, 160, 0.5); put('tree', 44, 172, 0.75)
+  put('tree', 214, 104, 0); put('tree', 258, 124, 0.25); put('tree', 196, 162, 0.5); put('tree', 44, 172, 0.75)
   put('bush', 150, 148, 0); put('bush', 232, 164, 0.4); put('bush', 96, 168, 0.8)
-  put('palm', 278, 182, 0)
+  put('palm', 262, 184, 0)
   for (let i = 0; i < 4; i++) put('tall', 112 + i * 9 + rnd() * 4, 150 + (i % 2) * 7 + rnd() * 3, rnd())
-  for (let i = 0; i < 12; i++) put('tuft', 20 + rnd() * 260, 132 + rnd() * 52, rnd())
-  for (let i = 0; i < 5; i++) put('flowerPink', 150 + rnd() * 70, 166 + rnd() * 18, rnd())
+  for (let i = 0; i < 14; i++) put('tuft', 20 + rnd() * 260, 132 + rnd() * 52, rnd())
+  for (let i = 0; i < 5; i++) put('flowerPink', 150 + rnd() * 70, 168 + rnd() * 18, rnd())
   for (let i = 0; i < 5; i++) put('flowerCyan', 60 + rnd() * 60, 136 + rnd() * 22, rnd())
   for (let i = 0; i < 3; i++) put('reed', 12 + i * 7 + rnd() * 3, 150 + rnd() * 8, rnd())
   items.sort((a, b) => a.y - b.y)
   for (const it of items) {
-    const sp = it.sp
     // A soft foot shadow, so the plants sit on the ground as they will under the engine's light.
     g.fillStyle = 'rgba(8, 14, 40, 0.35)'
-    const sw = Math.max(4, Math.round(sp.w * 0.45))
-    g.fillRect((it.x - (sw >> 1)) * Z, (it.y - 1) * Z, sw * Z, 3 * Z)
-    g.fillRect((it.x - (sw >> 1) + 2) * Z, (it.y - 2) * Z, (sw - 4) * Z, 5 * Z)
+    const sw = Math.max(4, Math.round(it.sp.w * 0.45))
+    g.fillRect(it.x - (sw >> 1), it.y - 1, sw, 3)
+    g.fillRect(it.x - (sw >> 1) + 2, it.y - 2, sw - 4, 5)
   }
   for (const it of items) {
     const sp = it.sp
-    g.drawImage(src, sp.x, sp.y, sp.w, sp.h, (it.x - sp.ax) * Z, (it.y - sp.ay) * Z, sp.w * Z, sp.h * Z)
+    g.drawImage(atlas.albedo, sp.x, sp.y, sp.w, sp.h, it.x - sp.ax, it.y - sp.ay, sp.w, sp.h)
+    ng.drawImage(atlas.normal, sp.x, sp.y, sp.w, sp.h, it.x - sp.ax, it.y - sp.ay, sp.w, sp.h)
   }
+  if (lit) {
+    const a = g.getImageData(0, 0, W, H), n = ng.getImageData(0, 0, W, H)
+    const amb = [0x8e / 255, 0x82 / 255, 0xc4 / 255]
+    const lamps = [[52, 128, 34, [1.0, 0.25, 0.75]], [236, 136, 34, [0.2, 0.95, 1.0]]]
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4
+      let nx = n.data[i] / 127.5 - 1, ny = n.data[i + 1] / 127.5 - 1, nz = n.data[i + 2] / 127.5 - 1
+      const nl = Math.hypot(nx, ny, nz) || 1
+      nx /= nl; ny /= nl; nz /= nl
+      let r = amb[0], gg = amb[1], b = amb[2]
+      for (const [lx, ly, lz, c] of lamps) {
+        let dx = lx - x, dy = -(ly - y), dz = lz
+        const d = Math.hypot(dx, dy, dz)
+        dx /= d; dy /= d; dz /= d
+        const q = Math.max(0, nx * dx + ny * dy + nz * dz) / (1 + (d / 80) * (d / 80)) * 1.5
+        r += c[0] * q; gg += c[1] * q; b += c[2] * q
+      }
+      // Neon keeps its own light.
+      const neon = Math.max(a.data[i], a.data[i + 1], a.data[i + 2]) > 235 ? 1 : 0
+      a.data[i] = Math.min(255, a.data[i] * Math.max(r, neon))
+      a.data[i + 1] = Math.min(255, a.data[i + 1] * Math.max(gg, neon))
+      a.data[i + 2] = Math.min(255, a.data[i + 2] * Math.max(b, neon))
+    }
+    g.putImageData(a, 0, 0)
+  }
+  const c = canvas(W * Z, H * Z)
+  const cg = c.getContext('2d')
+  cg.imageSmoothingEnabled = false
+  cg.drawImage(col, 0, 0, W * Z, H * Z)
   return c
 }
 
@@ -201,8 +238,8 @@ try {
     const a = panel(atlas, atlas.albedo, look + ' · albedo', true)
     const n = panel(atlas, atlas.normal, look + ' · normal', false)
     const l = panel(atlas, lit, look + ' · lit: ambient #8e82c4 + magenta from the left + cyan from the right', false)
-    const sc = scene(atlas, lit)
-    const sa = scene(atlas, atlas.albedo)
+    const sc = scene(atlas, true)
+    const sa = scene(atlas, false)
     res.files['flora-' + look + '.png'] = stack([a, n, l, sc]).toDataURL('image/png')
     res.files['flora-' + look + '-albedo.png'] = a.toDataURL('image/png')
     res.files['flora-' + look + '-normal.png'] = n.toDataURL('image/png')

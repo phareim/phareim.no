@@ -34,7 +34,7 @@ const out = resolve(outArg)
 mkdirSync(out, { recursive: true })
 
 // Where the camera stands (hi-res px along x) and when (seconds), for the three pictures.
-const CAMS = [[0, 0], [700, 12], [1500, 30.5]]
+const CAMS = [[0, 0], [700, 12.5], [1500, 30.5]]
 const ZOOM = 2
 const GAP = 16
 

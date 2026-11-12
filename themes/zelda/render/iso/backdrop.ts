@@ -73,9 +73,11 @@ function fromHsl(h: number, s: number, l: number): RGB {
 /** Between two colours the short way round the colour wheel, so indigo reaches pink through violet and magenta and never through grey. */
 function hueMix(a: RGB, b: RGB, t: number): RGB {
   const x = toHsl(a), y = toHsl(b)
-  let dh = y[0] - x[0]
-  if (dh > 180) dh -= 360
-  if (dh < -180) dh += 360
+  const up = (y[0] - x[0] + 360) % 360
+  let dh = up > 180 ? up - 360 : up
+  // A dusk is not green: when the short way passes through green, take the other way round, unless that is most of the wheel.
+  const green = dh > 0 ? (120 - x[0] + 360) % 360 < dh : (x[0] - 120 + 360) % 360 < -dh
+  if (green && Math.abs(dh) > 120) dh = dh > 0 ? dh - 360 : dh + 360
   return fromHsl((x[0] + dh * t + 360) % 360, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t)
 }
 
@@ -168,6 +170,7 @@ function weave(v: number, seam: number, x: number, y: number): number {
 
 /** Smooth noise along x that comes round after `period`: `cells` random values, eased (or straight lines, for rock). */
 function wave(x: number, period: number, cells: number, salt: number, eased = true): number {
+  cells = Math.max(1, Math.round(cells))
   const f0 = ((((x % period) + period) % period) / period) * cells
   const i = Math.floor(f0)
   const f = f0 - i
@@ -233,15 +236,13 @@ function layerOf(sc: Scene, p: Pix, topRow: number, parallax: number, emissive =
 
 // --- the sky -----------------------------------------------------------------------
 
-/** The sky's place in band units at a pixel: rows grow thinner toward the horizon and bend upward round the sun. */
-function skyAt(sc: Scene, x: number, y: number, pull: number): number {
-  let v = Math.pow(Math.max(0, y) / sc.line, 1.7) * sc.bands
-  if (pull > 0) {
-    const reach = sc.sun.r * 2.7
-    const d = Math.hypot((x - sc.sun.x) / 1.7, y - sc.sun.y)
-    if (d < reach) v += pull * (1 - d / reach) ** 2
-  }
-  return Math.min(v, sc.bands - 0.001)
+/** A sky row's place in band units: the bands grow thinner toward the horizon. */
+const skyRow = (sc: Scene, y: number) => Math.pow(Math.max(0, y) / sc.line, 1.7) * sc.bands
+/** How many bands warmer the sky is at a pixel for standing near the sun: the bands bend upward round it. */
+function sunWarmth(sc: Scene, x: number, y: number, pull: number): number {
+  const reach = sc.sun.r * 2.7
+  const d = Math.hypot((x - sc.sun.x) / 1.7, y - sc.sun.y)
+  return d < reach ? pull * (1 - d / reach) ** 2 : 0
 }
 
 /** The sky above the horizon, in bands. `pull` is how many bands the sun warms the sky next to it. */
@@ -250,9 +251,14 @@ function paintSky(p: Pix, sc: Scene, pull: number) {
   const cols: number[] = []
   for (let i = 0; i < n; i++) cols.push(pack(sc.ramp(i / (n - 1))))
   for (let y = 0; y < sc.line; y++) {
+    const row = skyRow(sc, y)
     // The seam is about three rows whatever the band's height.
-    const seam = clamp((skyAt(sc, -1e6, y + 1, 0) - skyAt(sc, -1e6, y, 0)) * 3, 0.1, 0.5)
-    for (let x = 0; x < sc.w; x++) p.d[y * p.w + x] = cols[Math.min(n - 1, band(skyAt(sc, x, y, pull), seam, x, y))]!
+    const seam = clamp((skyRow(sc, y + 1) - row) * 3, 0.1, 0.5)
+    const near = pull > 0 && Math.abs(y - sc.sun.y) < sc.sun.r * 2.7
+    for (let x = 0; x < sc.w; x++) {
+      const v = Math.min(n - 0.001, near ? row + sunWarmth(sc, x, y, pull) : row)
+      p.d[y * p.w + x] = cols[Math.min(n - 1, band(v, seam, x, y))]!
+    }
   }
 }
 
@@ -263,13 +269,15 @@ function paintSea(p: Pix, sc: Scene) {
   for (let j = 0; j < m; j++) {
     const q = j / (m - 1)
     const water = mix([34, 40, 112], [14, 42, 60], Math.pow(q, 0.7))
-    cols.push(pack(scale(mix(water, sc.ramp(0.92 - 0.8 * q), 0.46 * (1 - q) ** 1.4 + 0.05), 0.94)))
+    // The nearest band is the colour the engine clears to outdoors, so the sea runs on under the map without an edge.
+    cols.push(pack(scale(mix(water, sc.ramp(0.92 - 0.8 * q), 0.46 * (1 - q) ** 1.4 + 0.05 * (1 - q)), 0.94 + 0.06 * q)))
   }
   const at = (dy: number) => Math.min(m - 0.001, m * Math.pow(dy / sc.deep, 1 / 1.6))
   for (let y = sc.line; y < sc.h; y++) {
     const dy = y - sc.line
-    const seam = clamp((at(dy + 1) - at(dy)) * 3, 0.1, 0.5)
-    for (let x = 0; x < sc.w; x++) p.d[y * p.w + x] = cols[Math.min(m - 1, weave(at(dy), seam, x, y))]!
+    const v = at(dy)
+    const seam = clamp((at(dy + 1) - v) * 3, 0.1, 0.5)
+    for (let x = 0; x < sc.w; x++) p.d[y * p.w + x] = cols[Math.min(m - 1, weave(v, seam, x, y))]!
   }
 }
 
@@ -282,8 +290,9 @@ function paintGround(p: Pix, sc: Scene, forest: RGB) {
   const at = (dy: number) => Math.min(m - 0.001, m * Math.pow(dy / sc.deep, 1 / 1.4))
   for (let y = sc.line; y < sc.h; y++) {
     const dy = y - sc.line
-    const seam = clamp((at(dy + 1) - at(dy)) * 3, 0.08, 0.5)
-    for (let x = 0; x < sc.w; x++) p.d[y * p.w + x] = cols[Math.min(m - 1, band(at(dy), seam, x, y))]!
+    const v = at(dy)
+    const seam = clamp((at(dy + 1) - v) * 3, 0.08, 0.5)
+    for (let x = 0; x < sc.w; x++) p.d[y * p.w + x] = cols[Math.min(m - 1, band(v, seam, x, y))]!
   }
 }
 
@@ -367,7 +376,7 @@ function paintSun(sc: Scene, veil: number, sea: boolean): { p: Pix; top: number 
       const d = Math.hypot(x - cx, y - cy)
       if (d <= r + 0.5 || d > r + glow) continue
       if (!dither(x, y, 0.55 * (1 - veil * 0.5) * (1 - (d - r) / glow) ** 1.6)) continue
-      put(p, x, y - top, pack(mix(sc.ramp(Math.min(1, skyAt(sc, x, y, 0) / sc.bands + 0.2)), mist, veil * 0.6)))
+      put(p, x, y - top, pack(mix(sc.ramp(Math.min(1, skyRow(sc, y) / sc.bands + 0.2)), mist, veil * 0.6)))
     }
   }
   if (!sea) return { p, top }
@@ -766,7 +775,7 @@ function paintHills(sc: Scene, o: {
   const p = pix(W, base + n(o.under), true)
   const ht = new Int16Array(W)
   for (let x = 0; x < W; x++) {
-    const v = wave(x, W, o.cells, o.salt) * 0.72 + wave(x, W, o.cells * 3, o.salt + 1) * 0.28
+    const v = wave(x, W, o.cells, o.salt) * 0.6 + wave(x, W, o.cells * 2.5, o.salt + 1) * 0.28 + wave(x, W, o.cells * 6, o.salt + 2) * 0.12
     const fromSun = Math.min(Math.abs(x - sc.sun.x), Math.abs(x - sc.sun.x - W))
     const open = o.dip ? clamp((fromSun - sc.sun.r * 0.8) / (sc.sun.r * 1.8), 0, 1) : 1
     ht[x] = Math.round(n(o.lift) * (0.55 + 0.45 * open) + v * (tall - n(o.lift)) * open * open * (3 - 2 * open))
@@ -840,14 +849,16 @@ function paintForest(sc: Scene): { p: Pix; top: number } {
     const ground = Int16Array.from(ht)
     const crowns = plant(sc, ht, ground, Math.round(W / (crown * u * 1.25)), crown, k < 3 ? 0.2 : 0.1, 150 + k * 13)
     const body = mix([17, 60, 76], [9, 27, 42], Math.pow(t, 0.6))
-    paintLand(p, sc, ht, foot, p.h, {
+    // The next row stands everywhere, so this one is only seen down to that row's foot.
+    const next = foot + Math.round(9 * u * 1.2 ** k)
+    paintLand(p, sc, ht, foot, k === rows - 1 ? p.h : Math.min(p.h, next), {
       crest: pack(mix(body, [42, 133, 121], 0.42 * (1 - t * 0.7))), body: pack(body), crestRows: Math.max(3, Math.round(crown * u * 0.5)),
       // Only the first rows stand against the sky and take the sun's pink on their edge.
       rim: pack(k === 0 ? hex('#c0589a') : mix(body, k < 3 ? [176, 80, 150] : [60, 170, 150], 0.5 * (1 - t))), shadeRim: pack(mix(body, [42, 133, 121], 0.5 * (1 - t))),
       haze: 0, hazeRows: 0,
     })
     leaves(p, sc, crowns, foot, pack(mix(body, [95, 214, 184], 0.4 * (1 - t * 0.75))))
-    foot += Math.round(9 * u * 1.2 ** k)
+    foot = next
   }
   return { p, top: sc.line - over }
 }

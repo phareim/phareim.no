@@ -555,4 +555,46 @@ onBeforeUnmount(() => {
   .look-row { min-height: 22px; }
   .look-keys { display: none; }
 }
+
+/*
+ * The 16-bit dress (`px16` on the root, from the shell, while the isometric
+ * view shows its 16-bit windows): base/pixel/pixel16.css turns the box into
+ * the dialog's blue window and the buttons into small ones, in the 16-bit
+ * font; these are the mirror's own parts in that HUD's colours.
+ */
+.px16.look { background: rgba(8, 10, 44, 0.55); }
+.px16 .look-head { border-bottom-color: var(--px16-line); }
+.px16 .look-title { color: var(--px16-prize); text-shadow: var(--px16-drop); }
+.px16 .look-say { color: var(--px16-cool); text-shadow: var(--px16-drop); }
+.px16 .look-mirror { box-shadow: 0 0 0 1px #070a2c, 0 0 0 2px var(--px16-prize), 0 0 0 3px #070a2c; }
+.px16 .look-row { border-bottom-color: var(--px16-line); }
+.px16 .look-row.is-sel { background: var(--px16-slot); }
+.px16 .look-row.is-off { color: var(--px16-faint); }
+.px16 .look-arrow { color: var(--px16-dim); }
+.px16 .look-row.is-sel .look-arrow { color: var(--px16-prize); }
+.px16 .look-label { color: var(--px16-dim); }
+.px16 .look-row.is-sel .look-label { color: var(--px16-text); }
+.px16 .look-chip { box-shadow: 0 0 0 1px #070a2c, 0 0 0 2px #c8d0ff; }
+.px16 .look-keys { color: var(--px16-dim); }
+/* A finger: nothing stands chosen beforehand, as above. */
+.px16.look--touch .look-btn,
+.px16.look--touch .look-btn.is-sel {
+  color: var(--px16-text);
+  background: var(--px16-fill-cool) padding-box;
+  text-shadow: var(--px16-drop);
+}
+.px16.look--touch .px-btn--pink,
+.px16.look--touch .px-btn--pink.is-sel {
+  color: var(--px16-hot);
+  background: var(--px16-fill-hot) padding-box;
+}
+.px16.look--touch .look-btn:active {
+  color: var(--px16-shadow);
+  background: var(--px16-fill-lit) padding-box;
+  text-shadow: none;
+}
+.px16.look--touch .px-btn--pink:active { background: var(--px16-fill-lit-hot) padding-box; }
+.px16.look--touch .look-row.is-sel { background: none; }
+.px16.look--touch .look-row.is-sel .look-arrow,
+.px16.look--touch .look-arrow { color: var(--px16-prize); }
 </style>

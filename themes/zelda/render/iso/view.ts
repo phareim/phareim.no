@@ -52,7 +52,6 @@ const ATLAS = 1024
 const SMALL = { w: 64, h: 80, ax: 32, ay: 62 }
 const BIG = { w: 200, h: 160, ax: 100, ay: 132 }
 
-interface Cell { x: number; y: number; w: number; h: number; ax: number; ay: number }
 
 /**
  * How much the view spends: 2 everything, 1 without the costly extras (the
@@ -70,10 +69,18 @@ export function pinQuality(q: number | null): void { pinned = q }
  */
 function legacyView(kit: Kit): View {
   let v: View | null = null
+  const classic = legacyStandIn(kit)
   void import('./legacy').then(m => { v = m.default(kit) }, () => { /* offline: the classic picture stays */ })
   return {
-    draw(s, ui, dt, k) {
-      if (v) { v.draw(s, ui, dt, k); return }
+    draw(s, ui, dt, k) { (v ?? classic).draw(s, ui, dt, k) },
+    get turn() { return v ? v.turn : 0 },
+  }
+}
+
+/** The classic picture, drawn from the kit's parts: what shows while another way of drawing is not ready. */
+function legacyStandIn(kit: Kit): View {
+  return {
+    draw(s, ui, dt) {
       const g = kit.scene()
       const pic = kit.classic.world(s, ui)
       kit.classic.light(s, ui, pic)
@@ -86,7 +93,7 @@ function legacyView(kit: Kit): View {
       kit.present(fade, bg => kit.classic.bloom(bg, s, ui, pic))
       kit.hudLayer(s, ui, dt, pic.cx, pic.cy, s.hero.y * T - pic.cy)
     },
-    get turn() { return v ? v.turn : 0 },
+    turn: 0,
   }
 }
 
@@ -94,6 +101,11 @@ export default function isoView(kit: Kit): View {
   let engine: Engine
   try { engine = createEngine() } catch { return legacyView(kit) }
   let fallback: View | null = null
+  let waiting: View | null = null
+  /** When the view was made: its shaders may still be compiling for a moment after. */
+  const born = performance.now()
+  /** Contexts made after a loss: a GPU that keeps losing them is left alone. */
+  let revived = 0
 
   const world = kit.world
   let base: TileLayer | null = null
@@ -117,6 +129,10 @@ export default function isoView(kit: Kit): View {
   let nv = 0
   let lightVerts = new Float32Array(LVERT * 6 * 256)
   let blobVerts = new Float32Array(BVERT * 6 * 128)
+  /** This frame's people and things, small and large, and where those who stand have their feet (x, y pairs). */
+  const small: SceneItem[] = []
+  const large: SceneItem[] = []
+  const standing: number[] = []
   /** Small things in the air: the dust a step kicks up. World points (tiles), a height, a life. */
   const motes: Array<{ x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; life: number; color: string }> = []
   let stepT = 0
@@ -126,21 +142,37 @@ export default function isoView(kit: Kit): View {
   let atlasUsed = ATLAS
   let quality = 2
   let lastDraw = 0
-  let pace = 16
-  let paced = 0
-  /** Watch the time between frames; step down when the device keeps missing them. */
+  /** The gaps between the last frames that count, ms. */
+  const gaps = new Float32Array(120)
+  let gapN = 0
+  /** Frames to leave out of the count: the first ones, and those after a map change (painting a map is not a slow GPU). */
+  let settle = 90
+  /** One way back up is allowed: a device that fails it again stays down. */
+  let climbed = false
+  let good = 0
+  /**
+   * Watch the time between frames, and step down when the device keeps
+   * missing them. A window of frames is judged by its median, so one hitch
+   * (a map being painted, a collection) decides nothing; a gap longer than
+   * a few frames is a hidden tab, a pause or the shell's slow tick behind a
+   * panel, and is not counted at all.
+   */
   function govern(paused: boolean) {
     const now = performance.now()
     const gap = now - lastDraw
     lastDraw = now
     if (pinned !== null) { quality = pinned; return }
-    // A long gap is a hidden tab or a pause, not a slow frame.
-    if (paused || gap > 250 || gap <= 0) return
-    pace += (gap - pace) * 0.04
-    if (++paced < 150) return
+    if (paused || gap > 120 || gap <= 0) return
+    if (settle > 0) { settle--; return }
+    gaps[gapN++] = gap
+    if (gapN < gaps.length) return
+    gapN = 0
+    const sorted = Array.from(gaps).sort((a, b) => a - b)
+    const median = sorted[sorted.length >> 1]!
     // 30 a second can be a display holding back (low power mode): give up the extras, keep the pixels.
-    if (quality === 2 && pace > 24) { quality = 1; paced = 0 }
-    else if (quality === 1 && pace > 42) { quality = 0; paced = 0 }
+    if (quality === 2 && median > 24) { quality = 1; good = 0 }
+    else if (quality === 1 && median > 42) { quality = 0; good = 0 }
+    else if (quality < 2 && !climbed && median < 18.5 && ++good >= 4) { quality++; climbed = true; good = 0 }
   }
 
   /** Grow a top-down picture in steps, so walking does not reallocate it. */
@@ -200,6 +232,8 @@ export default function isoView(kit: Kit): View {
 
   let backdrop: Backdrop | null = null
   let backdropKey = ''
+  /** Where each layer was laid last (px), to know when one has moved. */
+  let skyAt = new Int32Array(0)
   /**
    * What lies beyond the map's edge (`backdrop.ts`): layers that slide at
    * their own speeds as the camera moves, and clouds that drift. They are
@@ -215,23 +249,28 @@ export default function isoView(kit: Kit): View {
       if (sky.width !== w || sky.height !== h) { sky.width = w; sky.height = h }
     }
     const layers = backdrop!.layers
-    const offs = layers.map(L => Math.round(camX * L.parallax + time * L.drift))
-    // A layer that blinks (a mast's lamp) is shown for the first half of each cycle.
-    const lit = layers.map(L => !L.blink || (time % L.blink) < L.blink / 2)
-    const at = offs.join(',') + lit.join('')
-    if (at === skyKey) return
-    skyKey = at
+    if (skyAt.length !== layers.length) skyAt = new Int32Array(layers.length).fill(-0x7fffffff)
+    let moved = skyKey === ''
+    for (let i = 0; i < layers.length; i++) {
+      const L = layers[i]!
+      // A layer that blinks (a mast's lamp) is shown for the first half of each cycle: hidden is no place at all.
+      const at = L.blink && (time % L.blink) >= L.blink / 2 ? 0x7fffffff : Math.round(camX * L.parallax + time * L.drift)
+      if (at !== skyAt[i]) { skyAt[i] = at; moved = true }
+    }
+    if (!moved) return
+    skyKey = 'drawn'
     const sg = sky.getContext('2d')!
     sg.imageSmoothingEnabled = false
     sg.clearRect(0, 0, w, h)
-    layers.forEach((L, i) => {
-      if (!lit[i]) return
+    for (let i = 0; i < layers.length; i++) {
+      const L = layers[i]!
+      const at = skyAt[i]!
+      if (at === 0x7fffffff) continue
       const y = Math.round(L.top * h)
       const cw = L.canvas.width
-      if (!L.repeatX) { sg.drawImage(L.canvas, Math.round((w - cw) / 2) - offs[i]!, y); return }
-      const x0 = -(((offs[i]! % cw) + cw) % cw)
-      for (let x = x0; x < w; x += cw) sg.drawImage(L.canvas, x, y)
-    })
+      if (!L.repeatX) { sg.drawImage(L.canvas, Math.round((w - cw) / 2) - at, y); continue }
+      for (let x = -(((at % cw) + cw) % cw); x < w; x += cw) sg.drawImage(L.canvas, x, y)
+    }
     engine.sky(sky)
   }
 
@@ -253,22 +292,26 @@ export default function isoView(kit: Kit): View {
     nv++
   }
   /**
-   * A picture on a plane. The four corners are world points (with a screen
-   * offset in hi-res px for billboards), in the order top-left, top-right,
-   * bottom-right, bottom-left of the picture's rectangle (u0, v0)–(u1, v1).
+   * A picture on a plane. The four corners are world points, each with a
+   * sideways screen offset in hi-res px (billboards), in the order top-left,
+   * top-right, bottom-right, bottom-left of the picture's rectangle
+   * (u0, v0)–(u1, v1). `oy` shifts the whole quad down the screen.
    */
   function quad(
-    a: number[], b: number[], c: number[], d: number[],
+    x0: number, y0: number, z0: number, o0: number,
+    x1: number, y1: number, z1: number, o1: number,
+    x2: number, y2: number, z2: number, o2: number,
+    x3: number, y3: number, z3: number, o3: number,
     u0: number, v0: number, u1: number, v1: number,
-    kind: number, pic: number, shade = 0, rampTop = 0, rampFoot = 0,
+    kind: number, pic: number, shade = 0, rampTop = 0, rampFoot = 0, oy = 0,
   ) {
     room(0)
-    vert(a[0]!, a[1]!, a[2]!, a[3] ?? 0, a[4] ?? 0, u0, v0, kind, pic, shade, rampTop)
-    vert(b[0]!, b[1]!, b[2]!, b[3] ?? 0, b[4] ?? 0, u1, v0, kind, pic, shade, rampTop)
-    vert(c[0]!, c[1]!, c[2]!, c[3] ?? 0, c[4] ?? 0, u1, v1, kind, pic, shade, rampFoot)
-    vert(a[0]!, a[1]!, a[2]!, a[3] ?? 0, a[4] ?? 0, u0, v0, kind, pic, shade, rampTop)
-    vert(c[0]!, c[1]!, c[2]!, c[3] ?? 0, c[4] ?? 0, u1, v1, kind, pic, shade, rampFoot)
-    vert(d[0]!, d[1]!, d[2]!, d[3] ?? 0, d[4] ?? 0, u0, v1, kind, pic, shade, rampFoot)
+    vert(x0, y0, z0, o0, oy, u0, v0, kind, pic, shade, rampTop)
+    vert(x1, y1, z1, o1, oy, u1, v0, kind, pic, shade, rampTop)
+    vert(x2, y2, z2, o2, oy, u1, v1, kind, pic, shade, rampFoot)
+    vert(x0, y0, z0, o0, oy, u0, v0, kind, pic, shade, rampTop)
+    vert(x2, y2, z2, o2, oy, u1, v1, kind, pic, shade, rampFoot)
+    vert(x3, y3, z3, o3, oy, u0, v1, kind, pic, shade, rampFoot)
   }
 
   /**
@@ -284,15 +327,33 @@ export default function isoView(kit: Kit): View {
     const foot = -(sp.h - sp.ay) / (T * DENSITY)
     const l = -sp.ax * px
     const r = (sp.w - sp.ax) * px
-    room(0)
-    const put = (z: number, ox: number, u: number, v: number) => vert(x, y, z, ox, 0, u, v, 7, 2, sway, 0)
-    put(top, l, sp.x, sp.y); put(top, r, sp.x + sp.w, sp.y); put(foot, r, sp.x + sp.w, sp.y + sp.h)
-    put(top, l, sp.x, sp.y); put(foot, r, sp.x + sp.w, sp.y + sp.h); put(foot, l, sp.x, sp.y + sp.h)
+    quad(x, y, top, l, x, y, top, r, x, y, foot, r, x, y, foot, l, sp.x, sp.y, sp.x + sp.w, sp.y + sp.h, 7, 2, sway)
   }
 
   function draw(s: GameState, ui: FrameUI, dt: number, k: number) {
     if (fallback) { fallback.draw(s, ui, dt, k); return }
-    if (engine.lost()) { fallback = legacyView(kit); fallback.draw(s, ui, dt, k); return }
+    if (engine.lost()) {
+      // The browser took the context (a tab left in the background, a driver reset): make another, and send
+      // everything the old one held again. A GPU that will not give one gets the canvas view.
+      engine.dispose()
+      try {
+        if (++revived > 3) throw new Error('context lost again')
+        engine = createEngine()
+        tilesKey = ''; floraLook = ''; backdropKey = ''; atlasUsed = ATLAS; settle = 90
+      } catch { fallback = legacyView(kit); fallback.draw(s, ui, dt, k); return }
+    }
+    const built = engine.ready(pinned !== null)
+    if (built === 'failed') { engine.dispose(); fallback = legacyView(kit); fallback.draw(s, ui, dt, k); return }
+    if (built === 'wait') {
+      // The driver is still compiling the shaders, off the main thread. Night for a moment, so the classic
+      // picture does not flash by; if it takes long, the classic picture after all.
+      if (performance.now() - born > 1200) { waiting ??= legacyStandIn(kit); waiting.draw(s, ui, dt, 0); return }
+      const g0 = kit.screen()
+      g0.g.setTransform(1, 0, 0, 1, 0, 0)
+      g0.g.fillStyle = '#0b0616'
+      g0.g.fillRect(0, 0, g0.W, g0.H)
+      return
+    }
     govern(ui.paused)
     const scr = kit.screen()
     const { decalMaxW } = kit.size()
@@ -308,6 +369,9 @@ export default function isoView(kit: Kit): View {
       base = createTileLayer(world, m, 'base')
       objects = createTileLayer(world, m, 'objects')
       shapesKey = ''
+      // Painting a map is a long frame or two that says nothing of the GPU.
+      settle = Math.max(settle, 20)
+      gapN = 0
     } else {
       updateTileLayer(base, world, m)
       updateTileLayer(objects, world, m)
@@ -411,7 +475,6 @@ export default function isoView(kit: Kit): View {
     const shading = par.shading as number
     const eastShade = (0.16 + 0.5 * shading) * k
     const southShade = (0.06 + 0.3 * shading) * k
-    const cellOf = (tx: number, ty: number) => ({ x: (tx - R.x) * T, y: (ty - R.y) * T })
     const cards: Array<{ x: number; y: number; tall: number; wide?: number; dark?: number }> = []
     /** The row of the face tile with `d` face rows under it, in column tx below row ty; -1 if the art has none. */
     const faceRow = (tx: number, ty: number, d: number): number => {
@@ -435,9 +498,12 @@ export default function isoView(kit: Kit): View {
       const t = m.tiles[ty * m.w + tx]!
       if (shp.k === 'flat' && !(green && (t === '.' || t === ';' || t === ':'))) continue
       // The ground rectangle is the box round a diamond: about half of it is off the screen.
-      const mid = toScene(cam, tx + 0.5, ty + 0.5)
-      if (mid.x < -96 || mid.x > sw + 96 || mid.y < -80 || mid.y > sh + (RISE + 24) * zoom) continue
-      const src = cellOf(tx, ty)
+      const midX = cam.ox + (tx + 0.5) * cam.ex.x + (ty + 0.5) * cam.ey.x
+      const midY = cam.oy + (tx + 0.5) * cam.ex.y + (ty + 0.5) * cam.ey.y
+      if (midX < -96 || midX > sw + 96 || midY < -80 || midY > sh + (RISE + 24) * zoom) continue
+      // Where the tile's picture is in the top-down pictures.
+      const sx = (tx - R.x) * T
+      const sy = (ty - R.y) * T
       if (green) {
         const h1 = hash2(tx, ty, 21)
         const h2 = hash2(tx, ty, 22)
@@ -446,8 +512,8 @@ export default function isoView(kit: Kit): View {
           // The classic crown comes off the ground; a tree stands in its place, a little off the grid.
           const lone = shp.k === 'card'
           const up = ty > 0 && shapeAt(tx, ty - 1).k === 'flat' ? UP : 0
-          fg.clearRect(src.x, src.y - up, T, T + up)
-          fg.drawImage(base.canvas, bx + src.x, by + src.y - up, T, T + up, src.x, src.y - up, T, T + up)
+          fg.clearRect(sx, sy - up, T, T + up)
+          fg.drawImage(base.canvas, bx + sx, by + sy - up, T, T + up, sx, sy - up, T, T + up)
           const fy = shp.k === 'top' ? ty + shp.f : ty
           const sand = tileOf(tx - 1, ty) === '-' || tileOf(tx + 1, ty) === '-' || tileOf(tx, ty + 1) === '-' || tileOf(tx, ty - 1) === '-'
           plant(sand ? 'palm' : lone ? 'tree' : 'canopy', tx + 0.5 + (h1 - 0.5) * 0.4, fy + 0.62 + (h2 - 0.5) * 0.3, h3, 0.22, px)
@@ -456,8 +522,8 @@ export default function isoView(kit: Kit): View {
           continue
         }
         if (t === '*' && shp.k === 'card') {
-          fg.clearRect(src.x, src.y, T, T)
-          fg.drawImage(base.canvas, bx + src.x, by + src.y, T, T, src.x, src.y, T, T)
+          fg.clearRect(sx, sy, T, T)
+          fg.drawImage(base.canvas, bx + sx, by + sy, T, T, sx, sy, T, T)
           plant('bush', tx + 0.5, ty + 0.78, h3, 0.3, px)
           cards.push({ x: tx + 0.5, y: ty + 0.8, tall: 0.7 })
           continue
@@ -480,11 +546,11 @@ export default function isoView(kit: Kit): View {
       }
       if (shp.k === 'flat') continue
       if (shp.k === 'top') {
-        fg.clearRect(src.x, src.y, T, T)
-        fg.drawImage(base.canvas, bx + src.x, by + src.y, T, T, src.x, src.y, T, T)
+        fg.clearRect(sx, sy, T, T)
+        fg.drawImage(base.canvas, bx + sx, by + sy, T, T, sx, sy, T, T)
         const fy = ty + shp.f
         const hz = shp.h / T
-        quad([tx, fy, hz], [tx + 1, fy, hz], [tx + 1, fy + 1, hz], [tx, fy + 1, hz], src.x, src.y, src.x + T, src.y + T, 0, 0)
+        quad(tx, fy, hz, 0, tx + 1, fy, hz, 0, tx + 1, fy + 1, hz, 0, tx, fy + 1, hz, 0, sx, sy, sx + T, sy + T, 0, 0)
         const levels = Math.round(hz)
         const below = shapeAt(tx, ty + 1)
         const south = shp.sides && (below.k === 'flat' || below.k === 'card' || !inRoom(tx, ty + 1))
@@ -492,80 +558,87 @@ export default function isoView(kit: Kit): View {
         for (let l = 0; l < levels; l++) {
           const r0 = 1 - (l + 1) / levels
           const r1 = 1 - l / levels
-          if (south) quad([tx, fy + 1, l + 1], [tx + 1, fy + 1, l + 1], [tx + 1, fy + 1, l], [tx, fy + 1, l], src.x, src.y, src.x + T, src.y + T, 1, 0, southShade, r0, r1)
+          if (south) quad(tx, fy + 1, l + 1, 0, tx + 1, fy + 1, l + 1, 0, tx + 1, fy + 1, l, 0, tx, fy + 1, l, 0, sx, sy, sx + T, sy + T, 1, 0, southShade, r0, r1)
           if (east) {
             // The east side runs from the back corner to the front one: the picture's left edge is the far end.
             const fr = faceRow(tx, ty, l)
-            const es = cellOf(tx, fr < 0 ? ty : fr)
-            quad([tx + 1, fy, l + 1], [tx + 1, fy + 1, l + 1], [tx + 1, fy + 1, l], [tx + 1, fy, l], es.x, es.y, es.x + T, es.y + T, 2, 0, eastShade, r0, r1)
+            const ey = ((fr < 0 ? ty : fr) - R.y) * T
+            quad(tx + 1, fy, l + 1, 0, tx + 1, fy + 1, l + 1, 0, tx + 1, fy + 1, l, 0, tx + 1, fy, l, 0, sx, ey, sx + T, ey + T, 2, 0, eastShade, r0, r1)
           }
         }
         continue
       }
       if (shp.k === 'face') {
-        fg.clearRect(src.x, src.y, T, T)
-        fg.drawImage(base.canvas, bx + src.x, by + src.y, T, T, src.x, src.y, T, T)
+        fg.clearRect(sx, sy, T, T)
+        fg.drawImage(base.canvas, bx + sx, by + sy, T, T, sx, sy, T, T)
         const y = ty + 1 + shp.d
-        quad([tx, y, shp.d + 1], [tx + 1, y, shp.d + 1], [tx + 1, y, shp.d], [tx, y, shp.d], src.x, src.y, src.x + T, src.y + T, 1, 0)
+        quad(tx, y, shp.d + 1, 0, tx + 1, y, shp.d + 1, 0, tx + 1, y, shp.d, 0, tx, y, shp.d, 0, sx, sy, sx + T, sy + T, 1, 0)
         continue
       }
       // A card: the tile's picture upright, with what reaches above it when nothing stands there.
       const up = ty > 0 && shapeAt(tx, ty - 1).k === 'flat' ? UP : 0
-      fg.clearRect(src.x, src.y - up, T, T + up)
-      fg.drawImage(base.canvas, bx + src.x, by + src.y - up, T, T + up, src.x, src.y - up, T, T + up)
+      fg.clearRect(sx, sy - up, T, T + up)
+      fg.drawImage(base.canvas, bx + sx, by + sy - up, T, T + up, sx, sy - up, T, T + up)
       const fx0 = tx + 0.5
       const fy0 = ty + 1 - FOOT / T
       const top = (T + up - FOOT) / T
       const foot = -FOOT / T
       const half = (T / 2) * zoom
-      quad([fx0, fy0, top, -half], [fx0, fy0, top, half], [fx0, fy0, foot, half], [fx0, fy0, foot, -half], src.x, src.y - up, src.x + T, src.y + T, 3, 0)
+      quad(fx0, fy0, top, -half, fx0, fy0, top, half, fx0, fy0, foot, half, fx0, fy0, foot, -half, sx, sy - up, sx + T, sy + T, 3, 0)
       cards.push({ x: fx0, y: fy0, tall: 0.9 + up / T })
     }
 
     // --- people and things, a cell each -------------------------------------------------
-    let bigN = 0
-    for (const it of items) if (it.big) bigN++
-    const bigRows = Math.ceil(bigN / Math.floor(ATLAS / BIG.w))
-    let bi = 0
-    let si = 0
-    let used = 1
-    const smallTop = bigRows * BIG.h
+    // Small cells fill the atlas from the top, the hero's first; large ones follow below, the nearest to the
+    // hero first, so when a room has more than the atlas holds it is the far cabinets that go without.
     const smallPerRow = Math.floor(ATLAS / SMALL.w)
     const bigPerRow = Math.floor(ATLAS / BIG.w)
-    const standing: Array<{ x: number; y: number }> = []
-    let ghost: { start: number; count: number } | null = null
+    small.length = 0
+    large.length = 0
     for (const it of items) {
       const ay = (it.ay ?? it.y) + (it.foot ?? 0)
-      if (!it.hero && !inRoom(it.x, ay, 0.5)) continue
-      let cell: Cell
-      if (it.big) {
-        cell = { x: (bi % bigPerRow) * BIG.w, y: Math.floor(bi / bigPerRow) * BIG.h, ...BIG, w: BIG.w, h: BIG.h }
-        bi++
-      } else {
-        cell = { x: (si % smallPerRow) * SMALL.w, y: smallTop + Math.floor(si / smallPerRow) * SMALL.h, ...SMALL, w: SMALL.w, h: SMALL.h }
-        si++
-      }
-      if (cell.y + cell.h > ATLAS) continue
-      used = Math.max(used, cell.y + cell.h)
+      if (it.hero) small.unshift(it)
+      else if (!inRoom(it.x, ay, 0.5)) continue
+      else if (it.big) large.push(it)
+      else small.push(it)
+    }
+    const bigTop = Math.ceil(small.length / smallPerRow) * SMALL.h
+    if (bigTop + Math.ceil(large.length / bigPerRow) * BIG.h > ATLAS) {
+      const hx = s.hero.x
+      const hy = s.hero.y
+      large.sort((a, b) => Math.hypot(a.x - hx, a.y - hy) - Math.hypot(b.x - hx, b.y - hy))
+    }
+    let used = 1
+    standing.length = 0
+    let ghost: { start: number; count: number } | null = null
+    for (let n = 0; n < small.length + large.length; n++) {
+      const big = n >= small.length
+      const it = big ? large[n - small.length]! : small[n]!
+      const i = big ? n - small.length : n
+      const C = big ? BIG : SMALL
+      const cellX = (i % (big ? bigPerRow : smallPerRow)) * C.w
+      const cellY = (big ? bigTop : 0) + Math.floor(i / (big ? bigPerRow : smallPerRow)) * C.h
+      if (cellY + C.h > ATLAS) continue
+      used = Math.max(used, cellY + C.h)
+      const ay = (it.ay ?? it.y) + (it.foot ?? 0)
       // The item draws itself the classic way; its anchor lands on the cell's.
       ag.save()
       ag.beginPath()
-      ag.rect(cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2)
+      ag.rect(cellX + 1, cellY + 1, C.w - 2, C.h - 2)
       ag.clip()
-      ag.setTransform(1, 0, 0, 1, Math.round(cell.x + cell.ax - (it.x * T - bx)), Math.round(cell.y + cell.ay - (ay * T - by)))
+      ag.setTransform(1, 0, 0, 1, Math.round(cellX + C.ax - (it.x * T - bx)), Math.round(cellY + C.ay - (ay * T - by)))
       it.draw()
       ag.restore()
-      const u0 = cell.x
-      const v0 = cell.y
-      const u1 = cell.x + cell.w
-      const v1 = cell.y + cell.h
-      const top = cell.ay / T
-      const foot = -(cell.h - cell.ay) / T
+      const u1 = cellX + C.w
+      const v1 = cellY + C.h
+      const top = C.ay / T
+      const foot = -(C.h - C.ay) / T
       if (it.wall) {
         // On the wall behind it: one px to the right runs along the wall, one px up is up.
-        const x0 = it.x - cell.ax / T
-        const x1 = it.x + (cell.w - cell.ax) / T
-        quad([x0, ay + 0.03, top], [x1, ay + 0.03, top], [x1, ay + 0.03, foot], [x0, ay + 0.03, foot], u0, v0, u1, v1, 4, 1)
+        const x0 = it.x - C.ax / T
+        const x1 = it.x + (C.w - C.ax) / T
+        const wy = ay + 0.03
+        quad(x0, wy, top, 0, x1, wy, top, 0, x1, wy, foot, 0, x0, wy, foot, 0, cellX, cellY, u1, v1, 4, 1)
         continue
       }
       let fx0 = it.x
@@ -575,11 +648,10 @@ export default function isoView(kit: Kit): View {
         // On its tile's picture, wherever that went, and in front of it: goods on a counter, a sign's neon frame.
         const p = world3(it.x, ay - 0.01)
         if (p[2] > 0 || shapeAt(Math.floor(it.x), Math.floor(ay - 0.01)).k !== 'flat') { fx0 = p[0]; fy0 = p[1]; z0 = p[2] + 0.04 }
-      } else if (!it.hero || s.hero.act !== 'fall') standing.push({ x: it.x, y: ay })
-      const l = -cell.ax * zoom
-      const r = (cell.w - cell.ax) * zoom
-      const lift = z0 > 0 ? 0.04 * cam.zs : 0
-      quad([fx0, fy0, z0 + top, l, lift], [fx0, fy0, z0 + top, r, lift], [fx0, fy0, z0 + foot, r, lift], [fx0, fy0, z0 + foot, l, lift], u0, v0, u1, v1, 3, 1)
+      } else if (!it.hero || s.hero.act !== 'fall') standing.push(it.x, ay)
+      const l = -C.ax * zoom
+      const r = (C.w - C.ax) * zoom
+      quad(fx0, fy0, z0 + top, l, fx0, fy0, z0 + top, r, fx0, fy0, z0 + foot, r, fx0, fy0, z0 + foot, l, cellX, cellY, u1, v1, 3, 1, 0, 0, 0, z0 > 0 ? 0.04 * cam.zs : 0)
       if (it.hero && k > 0.5) ghost = { start: nv - 6, count: 6 }
     }
 
@@ -698,9 +770,9 @@ export default function isoView(kit: Kit): View {
         // The classic picture puts a carried light up the screen from its bearer's feet: a lantern in a hand,
         // a cabinet's screen, a fire's heart. Here that is height, over the feet it belongs to.
         let best = 2
-        for (const it of standing) {
-          const up = it.y - L.y
-          if (Math.abs(it.x - L.x) < 0.4 && up > 0.05 && up < best) { best = up; p[0] = it.x; p[1] = it.y; p[2] = up }
+        for (let i = 0; i < standing.length; i += 2) {
+          const up = standing[i + 1]! - L.y
+          if (Math.abs(standing[i]! - L.x) < 0.4 && up > 0.05 && up < best) { best = up; p[0] = standing[i]!; p[1] = standing[i + 1]!; p[2] = up }
         }
       }
       placed.push({ x: p[0], y: p[1], z: p[2], r: L.r, c: rgb(L.color), a: Math.max(0, Math.min(1, L.a)) })
@@ -764,13 +836,13 @@ export default function isoView(kit: Kit): View {
     }
     if ((par.shadow as number) > 0) {
       for (const cd of cards) blob(cd.x, cd.y, cd.tall, cd.wide ?? 0.22, cd.dark ?? 1)
-      for (const it of standing) blob(it.x, it.y - 0.1, 0.85, 0.26)
+      for (let i = 0; i < standing.length; i += 2) blob(standing[i]!, standing[i + 1]! - 0.1, 0.85, 0.26)
     }
 
     // --- to the GPU -----------------------------------------------------------------------
     paintSky(outdoors ? (def.look === 'wild' ? 'wild' : 'coast') : 'void', sw, sh, par.skyTop as string, par.skyHorizon as string, c.x * DENSITY, reduced ? 0 : time)
-    engine.flat(flat, bw, bh)
-    engine.objs(objs, bw, bh)
+    engine.flat(flat)
+    engine.objs(objs)
     engine.atlas(atlas, atlasUsed)
     engine.fx(fx)
     // The finish turns with the picture too: the classic view's scanlines thin out as this one comes in.
@@ -828,7 +900,8 @@ export default function isoView(kit: Kit): View {
       verts, vertCount: nv,
       lights: lightVerts, lightCount: nl / 6,
       blobs: blobVerts, blobCount: nb / 6,
-      look, fade, ghost,
+      // The fade itself is already on the effects layer (`flashFade` painted it there).
+      look, fade: 0, ghost,
       // A door is a mosaic on the way out and on the way in; the Other Side waves down its scanlines; death closes the iris.
       mosaic: s.warp && !reduced && k > 0.5 ? 1 + Math.round(fade * 7) * 2 : 1,
       wave: !reduced && moody ? 1.6 * k : 0,
@@ -856,7 +929,12 @@ export default function isoView(kit: Kit): View {
     kit.hudLayer(s, ui, dt, Math.round(ref.x * T - at.x), Math.round(ref.y * T - at.y), hudOf(s.hero.x, s.hero.y).y, par.windows === '16-bit' && k > 0.5 ? HIRES_WINDOW_SKIN : NEON_SKIN)
   }
 
-  return { draw, get turn() { return fallback ? fallback.turn : Math.PI / 4 } }
+  return {
+    draw,
+    // The controls turn with the picture: not while the classic one stands in for it.
+    get turn() { return fallback ? fallback.turn : engine.ready() === 'yes' ? Math.PI / 4 : 0 },
+    dispose() { engine.dispose() },
+  }
 }
 
 /** The mist's colour: the haze, cooled toward the night. */

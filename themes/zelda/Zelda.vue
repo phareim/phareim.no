@@ -1,20 +1,21 @@
 <template>
-  <canvas ref="canvas" class="zelda-canvas" />
+  <!-- `px16` on every root (and on the canvas, for the page's hint beside it): the HTML wears the 16-bit dress while the canvas HUD does. -->
+  <canvas ref="canvas" class="zelda-canvas" :class="{ px16: dress16 }" />
   <!-- Measures the notch and status-bar insets for the HUD (installed web app, landscape). -->
   <div ref="safeProbe" class="zelda-safe" aria-hidden="true" />
-  <EscHold :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="escTap" @hold="toTown" />
+  <EscHold :class="{ px16: dress16 }" :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="escTap" @hold="toTown" />
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
     the left 60 % that isn't a button. VIEW and pause sit apart, in the
     top-right corner, where no thumb rests. The VIEW chip is there with a
     keyboard too (it names its key), so the views are found without a manual. -->
-  <div v-if="phase === 'play' && !panel && !paused && !talking" class="zelda-deck-top" :class="{ 'zelda-deck-top--keys': !touchUI }">
+  <div v-if="phase === 'play' && !panel && !paused && !talking" class="zelda-deck-top" :class="{ 'zelda-deck-top--keys': !touchUI, px16: dress16 }">
     <button class="zelda-chip" tabindex="-1" :aria-label="`Change view (now ${viewLabel})`" @pointerdown.prevent.stop="cycleView" @contextmenu.prevent>
       <span v-if="!touchUI" class="zelda-chip-key">V</span>
       <!-- The picture of the view that is on: a tile grid, a diamond, a pencil. -->
-      <svg class="zelda-chip-icon" viewBox="0 0 9 9" aria-hidden="true" shape-rendering="crispEdges">
-        <rect v-for="(r, i) in viewIcon" :key="i" :x="r.x" :y="r.y" :width="r.w" height="1" />
+      <svg class="zelda-chip-icon" :viewBox="`0 0 ${viewIcon.size} ${viewIcon.size}`" aria-hidden="true" shape-rendering="crispEdges">
+        <rect v-for="(r, i) in viewIcon.runs" :key="i" :x="r.x" :y="r.y" :width="r.w" height="1" />
       </svg>
       <span class="zelda-chip-label">VIEW</span>
     </button>
@@ -23,7 +24,7 @@
   <div
     v-if="touchUI && phase === 'play' && !panel && (paused || !talking)"
     class="zelda-deck"
-    :class="{ 'zelda-deck--paused': paused }"
+    :class="{ 'zelda-deck--paused': paused, px16: dress16 }"
   >
     <template v-if="!paused">
       <button v-if="hasItem" class="zelda-pad zelda-pad-swap" aria-label="Swap item" @pointerdown.prevent.stop="cycle" @contextmenu.prevent>
@@ -56,11 +57,11 @@
     </div>
   </div>
   <!-- The login console in Petter's house: the world stands still behind it. -->
-  <AccountConsole v-if="panel === 'account'" :touch="touchUI" @close="closePanel" @leave="leaveForPanel" @session="applySession" />
+  <AccountConsole v-if="panel === 'account'" :class="{ px16: dress16 }" :touch="touchUI" @close="closePanel" @leave="leaveForPanel" @session="applySession" />
   <!-- The NEW LOOK stall on the square: its mirror, where the hero's look is changed. -->
-  <LookBooth v-if="panel === 'look'" :touch="touchUI" :current="heroLook" :figure="figureColors" :reduced-motion="reducedMotion" @close="closePanel" @wear="wearLook" />
+  <LookBooth v-if="panel === 'look'" :class="{ px16: dress16 }" :touch="touchUI" :current="heroLook" :figure="figureColors" :reduced-motion="reducedMotion" @close="closePanel" @wear="wearLook" />
   <!-- The newsstand on the coast: Sleeper's feed, read here. Its own chunk, fetched when the stand is first used. -->
-  <NewsStand v-if="panel === 'news'" :touch="touchUI" @close="closePanel" />
+  <NewsStand v-if="panel === 'news'" :class="{ px16: dress16 }" :touch="touchUI" @close="closePanel" />
 </template>
 
 <script setup lang="ts">
@@ -120,7 +121,8 @@ import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
 import { turnMove } from './render/iso/project'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
-import { STRIP_TIME } from './render/hud'
+import { HIRES_WINDOW_SKIN, STRIP_TIME } from './render/hud'
+import { epx } from '../base/pixel/epx'
 import { resolveParams, type EngineId } from './viewParams'
 import { sprite } from './render/sheet'
 import { startLiveSprites } from './render/live'
@@ -227,15 +229,50 @@ const ui: FrameUI = {
   keys: KEYBOARD_KEYS,
 }
 
+// ---- the 16-bit dress ----------------------------------------------------------
+
+/**
+ * A view whose canvas HUD is the 16-bit one (`hud16.ts`): the isometric engine with its `windows` value at '16-bit'.
+ * While it is on, the shell's HTML (chips, deck, pause buttons, panels, the page's hint) wears the same dress:
+ * the class `px16` (base/pixel/pixel16.css).
+ */
+function wears16(id: ViewId): boolean {
+  const def = viewDef(id) ?? viewDef('classic')!
+  return def.engine === 'iso' && resolveParams(def.engine, def.params).windows === '16-bit'
+}
+/** The dress is on. The first paint guesses from the address alone (the server knows no more); mounting corrects it. */
+const dress16 = ref(wears16(startView(useRoute().query.view, null)))
+/** What the view on screen (or the one a turn is heading for) asks for, and the turn's `k` at the last frame. */
+let dressWanted = dress16.value
+let dressK = 0
+
+/** After the view or its values changed. */
+function syncDress() {
+  dressWanted = wears16(viewShown)
+}
+
+/**
+ * Each frame: the HTML changes dress when the canvas HUD does. That is at once when nothing turns, and halfway
+ * through a turn (`k` past 0.5, as in iso/view.ts): on the way in while `k` rises, on the way out when it has fallen.
+ */
+function stepDress(vs: { k: number; turning: boolean }) {
+  const on = !vs.turning ? dressWanted : dress16.value ? vs.k > 0.5 : dressWanted && vs.k > 0.5 && vs.k > dressK
+  dressK = vs.k
+  if (on !== dress16.value) dress16.value = on
+}
+
 // The deck's buttons carry pictures: the sprites, as data URLs (browser only). `artVersion`
 // moves when the studio's live art arrives (render/live.ts), so the pictures are made again.
+// In the 16-bit dress they are the canvas HUD's: the sprite at twice the pixels (EPX, `hud16.ts`).
 const iconCache = new Map<string, string>()
 const artVersion = ref(0)
 function iconUrl(name: string) {
   if (!import.meta.client) return ''
   void artVersion.value
-  let url = iconCache.get(name)
-  if (!url) { url = sprite(name).toDataURL(); iconCache.set(name, url) }
+  const fine = dress16.value
+  const key = fine ? `16:${name}` : name
+  let url = iconCache.get(key)
+  if (!url) { url = (fine ? HIRES_WINDOW_SKIN.icon!(name) : sprite(name)).toDataURL(); iconCache.set(key, url) }
   return url
 }
 const itemIcon = computed(() => {
@@ -245,6 +282,10 @@ const itemIcon = computed(() => {
 })
 const swordIcon = ref('')
 const swapIcon = ref('')
+watch(dress16, () => {
+  swordIcon.value = iconUrl('item_sword')
+  swapIcon.value = iconUrl('hud_swap')
+})
 
 // ---- input -------------------------------------------------------------------
 
@@ -272,20 +313,26 @@ const VIEW_ICONS: Record<EngineId, readonly string[]> = {
   iso: ['....#....', '..##.##..', '##.....##', '#.##.##.#', '#...#...#', '#...#...#', '#...#...#', '.##.#.##.', '...###...'],
   blyant: ['......##.', '.....#.##', '....#.###', '...#.###.', '..#.###..', '.#.###...', '#.###....', '#.##.....', '###......'],
 }
-/** The icon as runs of pixels, one rect each. */
+/** The icon as runs of pixels, one rect each, and how many pixels it is across. */
 const viewIcon = computed(() => {
   void viewRound.value
-  const rows = VIEW_ICONS[viewDef(viewId.value)?.engine ?? 'classic']
-  const out: Array<{ x: number; y: number; w: number }> = []
+  let rows = VIEW_ICONS[viewDef(viewId.value)?.engine ?? 'classic']
+  // The 16-bit dress shows it at twice the pixels with its stairs smoothed (EPX), like the HUD's own icons.
+  if (dress16.value) {
+    const n = rows.length
+    const big = epx(rows.flatMap(r => [...r].map(c => (c === '#' ? 1 : 0))), n, n)
+    rows = Array.from({ length: n * 2 }, (_, y) => Array.from(big.subarray(y * n * 2, (y + 1) * n * 2), v => (v ? '#' : '.')).join(''))
+  }
+  const runs: Array<{ x: number; y: number; w: number }> = []
   rows.forEach((row, y) => {
     for (let x = 0; x < row.length; x++) {
       if (row[x] !== '#') continue
       const start = x
       while (x + 1 < row.length && row[x + 1] === '#') x++
-      out.push({ x: start, y, w: x - start + 1 })
+      runs.push({ x: start, y, w: x - start + 1 })
     }
   })
-  return out
+  return { size: rows.length, runs }
 })
 let viewAsk = 0
 /** The view the renderer was last handed: where a failed switch falls back to. */
@@ -315,6 +362,7 @@ async function showView(id: ViewId, instant = false, remember = true) {
       // The code did not arrive (offline, a deploy in between): stay where we were, and say so to the next visit too.
       if (ask !== viewAsk || !alive || !renderer) return
       viewId.value = viewShown
+      syncDress()
       if (remember) try { localStorage.setItem(VIEW_KEY, viewId.value) } catch { /* private mode */ }
       return
     }
@@ -326,6 +374,7 @@ async function showView(id: ViewId, instant = false, remember = true) {
   viewShown = def.id
   pausedDrawn = false
   syncSound()
+  syncDress()
 }
 
 /** The sound follows the picture: the isometric view plays on the 16-bit chip, unless its values ask for the 8-bit one (`flavorForView` in audio.ts). */
@@ -354,6 +403,7 @@ function applyLiveViews(live: LiveViews | null) {
   renderer.setParams(def.engine, def.params)
   pausedDrawn = false
   syncSound()
+  syncDress()
 }
 
 /** Ending, pause-screen and pause keys; the game keys are input.ts's. */
@@ -775,6 +825,7 @@ function frame(nowMs: number) {
   if (viewHold) return
   // A turn caught by a pause or a panel would hang half done (the world is drawn once, or five times a second): finish it.
   if ((paused.value || panel.value) && renderer.viewState().turning) { renderer.setView(viewDef(viewId.value)?.engine ?? 'classic', true); pausedDrawn = false }
+  stepDress(renderer.viewState())
 
   ui.paused = paused.value
   ui.confirmReset = confirmReset.value
@@ -933,12 +984,15 @@ onMounted(() => {
   let lastView: string | null = null
   try { lastView = localStorage.getItem(VIEW_KEY) } catch { /* private mode */ }
   const firstView = startView(new URLSearchParams(location.search).get('view'), lastView)
+  // The dress of the view the visit starts in, before its first frame: nothing of the classic look flashes by either.
+  dressWanted = wears16(firstView)
+  dress16.value = dressWanted
   if (firstView !== 'classic') {
     viewHold = true
     const release = () => { viewHold = false }
     void showView(firstView, true, false).then(release, release)
     // A slow network must not keep the page dark: after a moment the classic view plays until the code is here.
-    setTimeout(release, 1500)
+    setTimeout(() => { release(); syncDress() }, 1500)
   }
   void loadHighScoreSign()
   audio = createZeldaAudio()
@@ -994,6 +1048,8 @@ onBeforeUnmount(() => {
   if (phase.value === 'play') persist()
   audio?.dispose()
   audio = null
+  // The 16-bit view holds a GPU context: give it back now, not when the collector gets round to it.
+  renderer?.dispose()
   renderer = null
   navigationLocked.value = false
 })
@@ -1214,5 +1270,133 @@ onBeforeUnmount(() => {
   .zelda-deck-paused { gap: 6px; }
   .zelda-pad-wide { min-width: 0; flex: 1 1 0; font-size: 13px; }
   .zelda-pad-wide { min-width: 0; padding: 0 12px; }
+}
+
+/*
+ * The 16-bit dress: `px16` is on every root above while the isometric view
+ * shows its 16-bit windows (`wears16`), and the shell's HTML then speaks the
+ * canvas HUD's language: its windows, its font, its icons. The pieces (fills,
+ * frames, shade, the letters' colours) and where they come from are in
+ * themes/base/pixel/pixel16.css, which also dresses .px-box and .px-btn in
+ * the panels. Without the class nothing below applies.
+ */
+
+/* VIEW and pause: plates in the sea green of the item box and the pause screen. */
+.px16 .zelda-chip {
+  min-width: 52px;
+  min-height: 44px;
+  border: calc(3 * var(--px16-u)) solid transparent;
+  border-radius: calc(3 * var(--px16-u));
+  border-image: var(--px16-frame-cool) var(--px16-cut);
+  background: var(--px16-fill-cool) padding-box;
+  box-shadow: var(--px16-shade);
+  color: var(--px16-text);
+  text-shadow: var(--px16-drop);
+  font-size: 16px;
+  line-height: 16px;
+}
+.px16 .zelda-chip:active {
+  border-image: var(--px16-frame-cool-in) var(--px16-cut);
+  box-shadow: var(--px16-inner);
+}
+/* The view's picture at twice the pixels (one screen px each), with the letters' shadow. */
+.px16 .zelda-chip-icon {
+  filter: drop-shadow(1px 1px 0 var(--px16-shadow));
+}
+/* With a keyboard: the same plate, small. This font has no size under 16 px. */
+.px16.zelda-deck-top--keys .zelda-chip {
+  min-width: 0;
+  min-height: 0;
+  padding: 2px 6px 2px 4px;
+  font-size: 16px;
+  opacity: 1;
+}
+.px16.zelda-deck-top--keys .zelda-chip:hover { color: var(--px16-prize); }
+.px16 .zelda-chip-key {
+  padding: 1px 3px;
+  background: var(--px16-fill-lit);
+  box-shadow: 0 0 0 1px #070a2c;
+  color: var(--px16-shadow);
+  text-shadow: none;
+}
+.px16.zelda-deck-top--keys .zelda-chip:hover .zelda-chip-key { background: var(--px16-prize); }
+
+/* The round pads keep their rings; their pictures are the HUD's own, at twice the pixels: one screen px each, two on A. */
+.px16 .zelda-pad-icon { opacity: 1; }
+.px16 .zelda-pad-icon--big {
+  width: 64px;
+  height: 64px;
+}
+
+/* The pause buttons: windows like the pause screen's; the way out in the dialog's blue with pink letters. */
+.px16 .zelda-pad-wide {
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 0 6px;
+  border: calc(3 * var(--px16-u)) solid transparent;
+  border-radius: calc(3 * var(--px16-u));
+  border-image: var(--px16-frame-cool) var(--px16-cut);
+  background: var(--px16-fill-cool) padding-box;
+  box-shadow: var(--px16-shade);
+  color: var(--px16-text);
+  text-shadow: var(--px16-drop);
+  font-size: 16px;
+  line-height: 16px;
+}
+.px16 .zelda-pad-quit {
+  border-image: var(--px16-frame-hot) var(--px16-cut);
+  background: var(--px16-fill-hot) padding-box;
+  color: var(--px16-hot);
+}
+/* Pressed: the bevel turns inward and the shadow goes; a window is not scaled or brightened (its pixels would smear). */
+.px16 .zelda-pad-wide:active {
+  filter: none;
+  transform: none;
+  border-image: var(--px16-frame-cool-in) var(--px16-cut);
+  box-shadow: var(--px16-inner);
+}
+.px16 .zelda-pad-quit:active { border-image: var(--px16-frame-hot-in) var(--px16-cut); }
+/* Four across a phone would need letters smaller than this font has: two rows of two. */
+@media (max-width: 440px) {
+  .px16 .zelda-deck-paused {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  .px16 .zelda-pad-wide { font-size: 16px; padding: 0 6px; min-height: 44px; }
+}
+
+/* The page's first hint (portal/Landing.vue) comes after the canvas: a line of dialog, so the dialog box's blue window. */
+.zelda-canvas.px16 ~ .portal-hint {
+  --font-pixel: var(--font-pixel16);
+  /* Centred by its margins, not by half its own width: on an odd width that half pixel would blur these letters. */
+  left: 0;
+  right: 0;
+  width: max-content;
+  margin: 0 auto;
+  transform: none;
+  padding: 8px 14px;
+  border: calc(3 * var(--px16-u)) solid transparent;
+  border-radius: calc(3 * var(--px16-u));
+  border-image: var(--px16-frame-hot) var(--px16-cut);
+  background: var(--px16-fill-hot) padding-box;
+  box-shadow: var(--px16-shade);
+  color: var(--px16-text);
+  text-shadow: var(--px16-drop);
+}
+
+/* The Escape pill (base/EscHold.vue): its own colours are scoped to it and would win a tie with .px-box, so the window is said again, one class stronger. */
+.px16.esc-hold-layer .esc-hold-pill {
+  background: var(--px16-fill-hot) padding-box;
+  color: var(--px16-text);
+  text-shadow: var(--px16-drop);
+}
+.px16.esc-hold-layer .esc-hold-track {
+  background: rgba(6, 8, 44, 0.62);
+  box-shadow: 0 0 0 1px #070a2c;
+}
+.px16.esc-hold-layer .esc-hold-fill {
+  background: repeating-linear-gradient(90deg, var(--px16-hot) 0 6px, transparent 6px 8px);
 }
 </style>

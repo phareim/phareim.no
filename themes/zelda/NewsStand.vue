@@ -889,4 +889,51 @@ onBeforeUnmount(() => {
   .nw-blink,
   .nw-cursor { animation: none; }
 }
+
+/*
+ * The 16-bit dress (`px16` on the root, from the shell, while the isometric
+ * view shows its 16-bit windows): base/pixel/pixel16.css turns the box into
+ * the dialog's blue window and the buttons into small ones, in the 16-bit
+ * font. The stand's colours become that HUD's; the piece itself is still set
+ * to be read, in the light of the window's bevel.
+ */
+.px16.nw { background: var(--px16-veil); }
+.px16 .nw-box {
+  --nw-ink: var(--px16-text);
+  --nw-text: #c8d0ff;
+  --nw-muted: var(--px16-dim);
+  --nw-dim: var(--px16-dim);
+  --nw-line: var(--px16-line);
+  --nw-surface: rgba(6, 8, 44, 0.36);
+  --nw-cyan: var(--px16-cool);
+  --nw-pink: var(--px16-hot);
+  --nw-gold: var(--px16-prize);
+}
+/* Pink at the top of the blue window is too weak for small letters: the title is gold. */
+.px16 .nw-title { color: var(--px16-prize); text-shadow: var(--px16-drop); }
+.px16 .nw-x { line-height: 26px; }
+.px16 .nw-x--touch { line-height: 34px; }
+.px16 .nw-item.is-sel { background: var(--px16-slot); }
+.px16 .nw-item-title,
+.px16 .nw-screen,
+.px16 .nw-ink,
+.px16 .nw-warn { text-shadow: var(--px16-drop); }
+.px16 .nw-dim { color: var(--px16-dim); text-shadow: var(--px16-drop); }
+.px16 .nw-cursor {
+  width: 8px;
+  height: 12px;
+  vertical-align: 0;
+  box-shadow: 1px 1px 0 var(--px16-shadow);
+}
+/* The headline at two screen px per font pixel on every screen: this font has no sharp step between 16 and 32 px. */
+.px16 .nw-headline {
+  font-size: 32px;
+  line-height: 40px;
+  text-shadow: var(--px16-drop);
+}
+.px16 .nw-prose a:hover,
+.px16 .nw-prose a:focus-visible {
+  color: var(--px16-shadow);
+  text-shadow: none;
+}
 </style>

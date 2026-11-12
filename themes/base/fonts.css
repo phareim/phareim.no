@@ -13,6 +13,13 @@
  *   --font-pixel    Neon Pixel — Neon Shrine's 5×7 canvas font as a webfont
  *                   (2026-09-24, built by scripts/make-pixel-font.mjs, 3 KB),
  *                   for the pixel games' HTML text. Crisp at font-size 8n px.
+ *   --font-pixel16  Neon Pixel 16 — the 16-bit view's dialog font
+ *                   (themes/base/pixel/font16.ts) as a webfont (2026-11-12,
+ *                   built by scripts/make-pixel-font16.mjs, 2 KB), for the
+ *                   HTML over that view (base/pixel/pixel16.css, `.px16`).
+ *                   Sixteen font pixels to the em: crisp at font-size 16n px
+ *                   (16 px is one CSS px per font pixel; 24 px only on 2×
+ *                   screens). A glyph it lacks falls back to Neon Pixel.
  *
  * The @import lines must come first (2026-09-30). CSS requires @import to
  * precede every other rule, and Vite drops late ones without a word — which is
@@ -33,9 +40,15 @@
   src: url("/fonts/neon-pixel.woff") format("woff");
   font-display: block;
 }
+@font-face {
+  font-family: "Neon Pixel 16";
+  src: url("/fonts/neon-pixel-16.woff2") format("woff2");
+  font-display: block;
+}
 
 :root {
   --font-person: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-machine: "Space Mono", ui-monospace, "Courier New", monospace;
   --font-pixel: "Neon Pixel", "Space Mono", ui-monospace, monospace;
+  --font-pixel16: "Neon Pixel 16", "Neon Pixel", "Space Mono", ui-monospace, monospace;
 }

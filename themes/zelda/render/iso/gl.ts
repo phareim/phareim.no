@@ -10,16 +10,16 @@ export interface Program {
   u(name: string): WebGLUniformLocation | null
 }
 
+/**
+ * A program, asked for but not waited for: nothing here reads a status back,
+ * so the driver may compile it on another thread while the page goes on
+ * (`programsReady` says when, and whether it worked).
+ */
 export function program(gl: GL, vs: string, fs: string, attribs: readonly string[] = []): Program {
   const make = (type: number, src: string) => {
     const s = gl.createShader(type)!
     gl.shaderSource(s, src)
     gl.compileShader(s)
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-      const log = gl.getShaderInfoLog(s) ?? ''
-      gl.deleteShader(s)
-      throw new Error(`shader: ${log}\n${src.split('\n').map((l, i) => `${i + 1}: ${l}`).join('\n')}`)
-    }
     return s
   }
   const p = gl.createProgram()!
@@ -29,9 +29,6 @@ export function program(gl: GL, vs: string, fs: string, attribs: readonly string
   gl.attachShader(p, f)
   attribs.forEach((a, i) => gl.bindAttribLocation(p, i, a))
   gl.linkProgram(p)
-  gl.deleteShader(v)
-  gl.deleteShader(f)
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(`program: ${gl.getProgramInfoLog(p)}`)
   const locs = new Map<string, WebGLUniformLocation | null>()
   return {
     p,
@@ -41,6 +38,22 @@ export function program(gl: GL, vs: string, fs: string, attribs: readonly string
       return l
     },
   }
+}
+
+/**
+ * Are the programs built? 'wait' while the driver is still at it (only where
+ * it can say so without stopping to finish: KHR_parallel_shader_compile),
+ * 'failed' when one did not link.
+ */
+export function programsReady(gl: GL, programs: readonly Program[], block = false): 'yes' | 'wait' | 'failed' {
+  const par = block ? null : gl.getExtension('KHR_parallel_shader_compile') as { COMPLETION_STATUS_KHR: number } | null
+  if (par) for (const p of programs) if (!gl.getProgramParameter(p.p, par.COMPLETION_STATUS_KHR)) return 'wait'
+  for (const p of programs) {
+    if (gl.getProgramParameter(p.p, gl.LINK_STATUS)) continue
+    console.warn(`16-bit view: ${gl.getProgramInfoLog(p.p) ?? 'a program did not link'}`)
+    return 'failed'
+  }
+  return 'yes'
 }
 
 export interface Tex { t: WebGLTexture; w: number; h: number }
@@ -76,11 +89,14 @@ export function resizeTexture(gl: GL, tex: Tex, w: number, h: number, o: TexOpti
   gl.texImage2D(gl.TEXTURE_2D, 0, o.internal ?? gl.RGBA8, w, h, 0, o.format ?? gl.RGBA, o.type ?? gl.UNSIGNED_BYTE, null)
 }
 
-/** Put a canvas (or raw bytes) into a texture, as it is: row 0 at the top. */
+/**
+ * Put a canvas into a texture: row 0 at the top, colour multiplied by alpha as the canvas itself keeps it
+ * (no conversion on the way, which is the path a browser can take on the GPU).
+ */
 export function upload(gl: GL, tex: Tex, src: HTMLCanvasElement | OffscreenCanvas): void {
   gl.bindTexture(gl.TEXTURE_2D, tex.t)
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
-  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
   if (tex.w !== src.width || tex.h !== src.height) {
     tex.w = src.width
     tex.h = src.height
@@ -96,7 +112,7 @@ export function upload(gl: GL, tex: Tex, src: HTMLCanvasElement | OffscreenCanva
 export function uploadPart(gl: GL, tex: Tex, src: HTMLCanvasElement, w: number, h: number): void {
   gl.bindTexture(gl.TEXTURE_2D, tex.t)
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
-  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
   if (tex.w !== src.width || tex.h !== src.height) {
     tex.w = src.width
     tex.h = src.height

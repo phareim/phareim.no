@@ -154,7 +154,7 @@ void main() {
     float bend = (sin(uTime * 1.6 + ph) + 0.5 * sin(uTime * 3.1 + ph * 1.7)) * min(w.z, 1.2) * 2.2 * uHero.z * aMeta.z;
     vec2 away = w.xy - uHero.xy;
     float d = length(away);
-    bend += sign(away.x - away.y) * smoothstep(0.9, 0.15, d) * 5.0 * min(1.0, w.z * 2.0) * step(0.5, aMeta.z);
+    bend += sign(away.x - away.y) * (1.0 - smoothstep(0.15, 0.9, d)) * 5.0 * min(1.0, w.z * 2.0) * step(0.5, aMeta.z);
     off.x += floor(bend + 0.5);
   }
   gl_Position = place(w, off);
@@ -203,11 +203,13 @@ void main() {
   if (kind == 7 && uVeil.w > 0.0 && vFoot > uVeil.z + 0.15) {
     // A crown between the viewer and the hero thins out round them, so nobody is lost in the woods.
     vec2 q = (vec2(gl_FragCoord.x, uSceneH - gl_FragCoord.y) - uVeil.xy) * vec2(1.0, 1.25);
-    float open = smoothstep(uVeil.w, uVeil.w * 0.5, length(q)) * 0.82;
+    float open = (1.0 - smoothstep(uVeil.w * 0.5, uVeil.w, length(q))) * 0.82;
     if (open > bayer(gl_FragCoord.xy)) discard;
   }
   // Glass and smoke are a dither; the classic art's own drop shadows go (the light throws real ones).
+  // (The pictures arrive with their colour already multiplied by their alpha: undo that first.)
   if (c.a < 0.999) {
+    c.rgb /= max(c.a, 0.004);
     if (c.a < 0.7 && luma(c.rgb) < 0.12) discard;
     if (c.a < bayer(gl_FragCoord.xy) * 0.9 + 0.05) discard;
   }
@@ -381,11 +383,13 @@ void main() {
     // Walk toward the lamp; the last stretch is the lamp's own tile.
     float vis = 1.0;
     float reach = dist - 0.7;
+    // What the light falls on here may be a roof or a wall's top: the walk starts at that height.
+    float h0 = heightAt(vP);
     for (int i = 1; i <= 8; i++) {
       float s = float(i) / 8.5;
       vec2 p = vP + d / dist * reach * s;
-      float rz = mix(0.05, vLight.z, s * reach / dist);
-      if (heightAt(p) > rz + 0.3) { vis = 0.0; break; }
+      float rz = mix(h0 + 0.05, max(vLight.z, h0), s * reach / dist);
+      if (heightAt(p) > max(rz, h0) + 0.3) { vis = 0.0; break; }
     }
     f *= mix(1.0, vis, uOcclude);
   }
@@ -416,7 +420,7 @@ in vec3 vLocal;
 out vec4 o0;
 void main() {
   float d = length(vLocal.xy);
-  float a = smoothstep(1.0, 0.45, d) * vLocal.z;
+  float a = (1.0 - smoothstep(0.45, 1.0, d)) * vLocal.z;
   o0 = vec4(a, 0.0, 0.0, a);
 }
 `
@@ -620,7 +624,7 @@ void main() {
     float line = sin(v * 9.0 + wob * 5.0 + t * 0.9);
     float gate = vnoise(vec2(u * 2.3 - t * 0.25, v * 6.0 + 3.0));
     float crest = smoothstep(0.86, 0.95, line) * smoothstep(0.48, 0.6, gate);
-    float trough = smoothstep(-0.8, -0.97, line);
+    float trough = 1.0 - smoothstep(-0.97, -0.8, line);
     // The shore: how far in from the land we are.
     float wet = texture(uTilesLin, w / uMap).g;
     float deep = smoothstep(0.5, 1.0, wet);
@@ -653,7 +657,7 @@ void main() {
     wcol += irr * crest * 1.1 * uWater;
     // Foam where it meets the land, coming and going.
     float lap = 0.56 + 0.035 * sin(t * 1.3 + u * 3.0) + 0.03 * (gate - 0.5);
-    float foam = smoothstep(lap + 0.03, lap, wet) * smoothstep(lap - 0.07, lap - 0.03, wet) * step(0.32, gate);
+    float foam = (1.0 - smoothstep(lap, lap + 0.03, wet)) * smoothstep(lap - 0.07, lap - 0.03, wet) * step(0.32, gate);
     wcol = mix(wcol, vec3(0.62, 0.86, 0.98) * (0.55 + luma(skyc) * 0.6) + irr * 0.5, foam * 0.7 * uWater);
     c = wcol;
     em = max(em, crest * luma(irr) * 0.8 * uWater);
@@ -706,8 +710,8 @@ void main() {
   c *= uCast;
   // Shots, sparks and the screen's flash lie over everything, at full brightness.
   vec4 fx = px(uFx, ivec2(s));
-  c = mix(c, fx.rgb, fx.a);
-  em = max(em * (1.0 - fx.a), fx.a * step(0.25, luma(fx.rgb)) * 0.8);
+  c = c * (1.0 - fx.a) + fx.rgb;
+  em = max(em * (1.0 - fx.a), fx.a * step(0.25, luma(fx.rgb / max(fx.a, 0.004))) * 0.8);
   // The machine's colours: five bits a channel, the rest is a dither.
   if (uColorBits > 0.0) {
     float lv = exp2(uColorBits) - 1.0;
@@ -728,7 +732,7 @@ void main() {
   for (int y = 0; y < 2; y++) for (int x = 0; x < 2; x++) {
     vec4 c = texture(uSrc, uv + (vec2(x, y) - 0.5) * 2.0 * uTexel);
     float mx = max(c.r, max(c.g, c.b));
-    sum += c.rgb * (c.a * 1.0 + smoothstep(0.85, 1.0, mx) * 0.25);
+    sum += c.rgb * (c.a * 1.0 + smoothstep(0.88, 1.0, mx) * 0.1);
   }
   o0 = vec4(sum * 0.25, 1.0);
 }
@@ -737,9 +741,11 @@ void main() {
 export const BLUR_FS = HEAD + `
 uniform sampler2D uSrc;
 uniform vec2 uStep;
+uniform vec2 uDst;
 out vec4 o0;
 void main() {
-  vec2 uv = gl_FragCoord.xy / vec2(textureSize(uSrc, 0));
+  // Where this px lies in the picture being written (the source may be larger: the blur also halves).
+  vec2 uv = gl_FragCoord.xy / uDst;
   vec3 c = texture(uSrc, uv).rgb * 0.227;
   c += (texture(uSrc, uv + uStep * 1.385).rgb + texture(uSrc, uv - uStep * 1.385).rgb) * 0.316;
   c += (texture(uSrc, uv + uStep * 3.231).rgb + texture(uSrc, uv - uStep * 3.231).rgb) * 0.070;
@@ -776,7 +782,7 @@ void main() {
   ivec2 pix = ivec2(int(floor(sp.x)), int(uSize.y) - 1 - int(floor(sp.y)));
   vec3 c = texelFetch(uScene, clamp(pix, ivec2(0), ivec2(uSize) - 1), 0).rgb;
   vec2 uv = vec2(sp.x / uSize.x, 1.0 - sp.y / uSize.y);
-  vec3 glow = texture(uBloomA, uv).rgb * 0.6 + texture(uBloomB, uv).rgb * 0.8;
+  vec3 glow = texture(uBloomA, uv).rgb * 0.6 + texture(uBloomB, uv).rgb * 0.5;
   c += glow * uBloom;
   if (uScan > 0.0) {
     float row = mod(d.y, uScanStep);

@@ -8,7 +8,7 @@
  */
 import type { Cam } from './camera'
 import type { Rect } from './project'
-import { bindTarget, bindTex, program, resizeTarget, target, targetOk, texture, upload, uploadPart, type GL, type Program, type Target, type Tex } from './gl'
+import { bindTarget, bindTex, program, programsReady, resizeTarget, target, targetOk, texture, upload, uploadPart, type GL, type Program, type Target, type Tex } from './gl'
 import * as S from './shaders'
 
 /** Floats per vertex of the world's geometry: position 3, screen offset 2, picture px 2, meta 4. */
@@ -96,10 +96,10 @@ export interface FrameIn {
 
 export interface Engine {
   canvas: HTMLCanvasElement
-  /** The picture the ground quad shows (16 px to the tile, covering R): the top-left w × h px of the canvas are in use. */
-  flat(c: HTMLCanvasElement, w: number, h: number): void
+  /** The picture the ground quad shows (16 px to the tile, covering R). */
+  flat(c: HTMLCanvasElement): void
   /** Everything standing, top-down, same size. */
-  objs(c: HTMLCanvasElement, w: number, h: number): void
+  objs(c: HTMLCanvasElement): void
   /** The frame's people and things, one cell each, in the canvas's top h rows. */
   atlas(c: HTMLCanvasElement, h: number): void
   /** Shots, sparks and the flash, scene-sized. */
@@ -111,6 +111,11 @@ export interface Engine {
   /** Per tile: r = height of what stands there / 4, g = 1 for water, b = how wet the ground is. */
   tiles(data: Uint8Array, w: number, h: number): void
   draw(f: FrameIn): void
+  /**
+   * Are the shaders built? 'wait' while the driver compiles them off the main thread; 'failed' when this GPU
+   * would not take them. `block`: stop and wait for them here (the lab, which draws in one go).
+   */
+  ready(block?: boolean): 'yes' | 'wait' | 'failed'
   /** True when lamps can light things from the side (needs float render targets). */
   directional: boolean
   lost(): boolean
@@ -123,10 +128,19 @@ const LB_PER_TILE = 8
 
 export function createEngine(): Engine {
   const canvas = document.createElement('canvas')
-  const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' }) as GL | null
+  // The scene is small: the laptop's quiet GPU is enough, and waking the other one costs battery.
+  const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'default' }) as GL | null
   if (!gl) throw new Error('no WebGL2')
+  try { return build(canvas, gl) } catch (e) {
+    // What was made so far goes with the context: nothing of a failed engine stays behind.
+    gl.getExtension('WEBGL_lose_context')?.loseContext()
+    throw e
+  }
+}
+
+function build(canvas: HTMLCanvasElement, gl: GL): Engine {
   let contextLost = false
-  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); contextLost = true })
+  canvas.addEventListener('webglcontextlost', () => { contextLost = true })
 
   const float = !!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float')
 
@@ -139,6 +153,8 @@ export function createEngine(): Engine {
   const brightP = program(gl, S.QUAD_VS, S.BRIGHT_FS, ['aPos'])
   const blurP = program(gl, S.QUAD_VS, S.BLUR_FS, ['aPos'])
   const finishP = program(gl, S.QUAD_VS, S.FINISH_FS, ['aPos'])
+  const programs = [geom, ground, lightP, blobP, litP, compP, brightP, blurP, finishP]
+  let built: 'yes' | 'wait' | 'failed' = 'wait'
 
   // --- buffers ---------------------------------------------------------------
   const quadVao = gl.createVertexArray()!
@@ -150,15 +166,15 @@ export function createEngine(): Engine {
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
 
   function dynamic(layout: number[]): { vao: WebGLVertexArrayObject; buf: WebGLBuffer; cap: number } {
-    const vao = gl!.createVertexArray()!
-    gl!.bindVertexArray(vao)
-    const buf = gl!.createBuffer()!
-    gl!.bindBuffer(gl!.ARRAY_BUFFER, buf)
+    const vao = gl.createVertexArray()!
+    gl.bindVertexArray(vao)
+    const buf = gl.createBuffer()!
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf)
     const stride = layout.reduce((a, b) => a + b, 0) * 4
     let off = 0
     layout.forEach((n, i) => {
-      gl!.enableVertexAttribArray(i)
-      gl!.vertexAttribPointer(i, n, gl!.FLOAT, false, stride, off)
+      gl.enableVertexAttribArray(i)
+      gl.vertexAttribPointer(i, n, gl.FLOAT, false, stride, off)
       off += n * 4
     })
     return { vao, buf, cap: 0 }
@@ -170,12 +186,12 @@ export function createEngine(): Engine {
   gl.bindVertexArray(null)
 
   function fill(b: { buf: WebGLBuffer; cap: number }, data: Float32Array, floats: number) {
-    gl!.bindBuffer(gl!.ARRAY_BUFFER, b.buf)
+    gl.bindBuffer(gl.ARRAY_BUFFER, b.buf)
     if (floats > b.cap) {
       b.cap = Math.max(floats, b.cap * 2, 4096)
-      gl!.bufferData(gl!.ARRAY_BUFFER, b.cap * 4, gl!.DYNAMIC_DRAW)
+      gl.bufferData(gl.ARRAY_BUFFER, b.cap * 4, gl.DYNAMIC_DRAW)
     }
-    gl!.bufferSubData(gl!.ARRAY_BUFFER, 0, data, 0, floats)
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data, 0, floats)
   }
 
   // --- pictures ----------------------------------------------------------------
@@ -192,9 +208,15 @@ export function createEngine(): Engine {
   // --- render targets ----------------------------------------------------------
   const rgba8 = {}
   const gbuf = target(gl, 1, 1, [rgba8, rgba8, rgba8], true)
-  const lf = float ? { internal: gl.RGBA16F, format: gl.RGBA, type: gl.HALF_FLOAT, linear: true } : { linear: true }
-  const lbuf = target(gl, LB, LB, [lf, lf, lf])
-  const directional = float && targetOk(gl, lbuf)
+  const lf = { internal: gl.RGBA16F, format: gl.RGBA, type: gl.HALF_FLOAT, linear: true }
+  let lbuf = float ? target(gl, LB, LB, [lf, lf, lf]) : null
+  // A GPU that will not draw into half-floats still gets its lamps, lit flat, in eight bits.
+  const directional = !!lbuf && targetOk(gl, lbuf)
+  if (!directional) {
+    if (lbuf) { gl.deleteFramebuffer(lbuf.fb); lbuf.tex.forEach(t => gl.deleteTexture(t.t)) }
+    lbuf = target(gl, LB, LB, [{ linear: true }, { linear: true }, { linear: true }])
+  }
+  const lights = lbuf!
   const blob = target(gl, LB, LB, [{ linear: true }])
   const lit = target(gl, 1, 1, [rgba8])
   const comp = target(gl, 1, 1, [{ linear: true }])
@@ -205,27 +227,31 @@ export function createEngine(): Engine {
   if (!targetOk(gl, gbuf)) throw new Error('no G-buffer')
 
   function camera(p: Program, cam: Cam) {
-    gl!.uniform2f(p.u('uEx'), cam.ex.x, cam.ex.y)
-    gl!.uniform2f(p.u('uEy'), cam.ey.x, cam.ey.y)
-    gl!.uniform1f(p.u('uZs'), cam.zs)
-    gl!.uniform2f(p.u('uOrigin'), cam.ox, cam.oy)
-    gl!.uniform2f(p.u('uSize'), cam.sw, cam.sh)
-    gl!.uniform4f(p.u('uDepth'), cam.dv[0], cam.dv[1], cam.dv[2], cam.d0)
-    gl!.uniform1f(p.u('uDepthInv'), cam.dInv)
+    gl.uniform2f(p.u('uEx'), cam.ex.x, cam.ex.y)
+    gl.uniform2f(p.u('uEy'), cam.ey.x, cam.ey.y)
+    gl.uniform1f(p.u('uZs'), cam.zs)
+    gl.uniform2f(p.u('uOrigin'), cam.ox, cam.oy)
+    gl.uniform2f(p.u('uSize'), cam.sw, cam.sh)
+    gl.uniform4f(p.u('uDepth'), cam.dv[0], cam.dv[1], cam.dv[2], cam.d0)
+    gl.uniform1f(p.u('uDepthInv'), cam.dInv)
   }
   function ground2(p: Program, cam: Cam) {
-    gl!.uniform2f(p.u('uSize'), cam.sw, cam.sh)
-    gl!.uniform2f(p.u('uOrigin'), cam.ox, cam.oy)
-    gl!.uniform4f(p.u('uInv'), cam.inv[0], cam.inv[1], cam.inv[2], cam.inv[3])
-    gl!.uniform1f(p.u('uZs'), cam.zs)
+    gl.uniform2f(p.u('uSize'), cam.sw, cam.sh)
+    gl.uniform2f(p.u('uOrigin'), cam.ox, cam.oy)
+    gl.uniform4f(p.u('uInv'), cam.inv[0], cam.inv[1], cam.inv[2], cam.inv[3])
+    gl.uniform1f(p.u('uZs'), cam.zs)
   }
+  const roomRects = new Float32Array(8)
   function rooms(p: Program, f: FrameIn) {
-    const r = new Float32Array(8)
-    f.rooms.slice(0, 2).forEach((z, i) => r.set([z.x, z.y, z.w, z.h], i * 4))
-    gl!.uniform4fv(p.u('uRooms'), r)
-    gl!.uniform1i(p.u('uRoomCount'), Math.min(2, f.rooms.length))
+    const n = Math.min(2, f.rooms.length)
+    for (let i = 0; i < n; i++) {
+      const z = f.rooms[i]!
+      roomRects[i * 4] = z.x; roomRects[i * 4 + 1] = z.y; roomRects[i * 4 + 2] = z.w; roomRects[i * 4 + 3] = z.h
+    }
+    gl.uniform4fv(p.u('uRooms'), roomRects)
+    gl.uniform1i(p.u('uRoomCount'), n)
   }
-  const fullscreen = () => { gl!.bindVertexArray(quadVao); gl!.drawArrays(gl!.TRIANGLE_STRIP, 0, 4) }
+  const fullscreen = () => { gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4) }
   const groundVerts = new Float32Array(8)
 
   function draw(f: FrameIn) {
@@ -306,7 +332,7 @@ export function createEngine(): Engine {
     g.disable(g.DEPTH_TEST)
 
     // --- 2. lamps and blob shadows, top-down ---------------------------------------
-    g.bindFramebuffer(g.FRAMEBUFFER, lbuf.fb)
+    g.bindFramebuffer(g.FRAMEBUFFER, lights.fb)
     g.viewport(0, 0, LB, LB)
     g.clearColor(0, 0, 0, 0)
     g.clear(g.COLOR_BUFFER_BIT)
@@ -348,9 +374,9 @@ export function createEngine(): Engine {
     bindTex(g, 0, gbuf.tex[0]!, litP.u('uG0'))
     bindTex(g, 1, gbuf.tex[1]!, litP.u('uG1'))
     bindTex(g, 2, gbuf.tex[2]!, litP.u('uG2'))
-    bindTex(g, 3, lbuf.tex[0]!, litP.u('uL0'))
-    bindTex(g, 4, lbuf.tex[1]!, litP.u('uL1'))
-    bindTex(g, 5, lbuf.tex[2]!, litP.u('uL2'))
+    bindTex(g, 3, lights.tex[0]!, litP.u('uL0'))
+    bindTex(g, 4, lights.tex[1]!, litP.u('uL1'))
+    bindTex(g, 5, lights.tex[2]!, litP.u('uL2'))
     bindTex(g, 6, blob.tex[0]!, litP.u('uBlob'))
     bindTex(g, 7, tilesT, litP.u('uTiles'))
     bindTex(g, 8, tilesLinT, litP.u('uTilesLin'))
@@ -381,7 +407,7 @@ export function createEngine(): Engine {
     bindTex(g, 0, lit.tex[0]!, compP.u('uLit'))
     bindTex(g, 1, gbuf.tex[1]!, compP.u('uG1'))
     bindTex(g, 2, gbuf.tex[2]!, compP.u('uG2'))
-    bindTex(g, 3, lbuf.tex[0]!, compP.u('uL0'))
+    bindTex(g, 3, lights.tex[0]!, compP.u('uL0'))
     bindTex(g, 4, tilesLinT, compP.u('uTilesLin'))
     bindTex(g, 5, fxT, compP.u('uFx'))
     bindTex(g, 6, skyT, compP.u('uSky'))
@@ -418,6 +444,7 @@ export function createEngine(): Engine {
         bindTarget(g, dst)
         bindTex(g, 0, src.tex[0]!, blurP.u('uSrc'))
         g.uniform2f(blurP.u('uStep'), dx / src.w, dy / src.h)
+        g.uniform2f(blurP.u('uDst'), dst.w, dst.h)
         fullscreen()
       }
       blur(bloomA, bloomA2, 1, 0)
@@ -453,8 +480,8 @@ export function createEngine(): Engine {
   return {
     canvas,
     directional,
-    flat: (c, w, h) => uploadPart(gl, flatT, c, w, h),
-    objs: (c, w, h) => uploadPart(gl, objsT, c, w, h),
+    flat: c => upload(gl, flatT, c),
+    objs: c => upload(gl, objsT, c),
     atlas: (c, h) => uploadPart(gl, atlasT, c, c.width, h),
     fx: c => upload(gl, fxT, c),
     sky: c => upload(gl, skyT, c),
@@ -463,12 +490,18 @@ export function createEngine(): Engine {
       for (const t of [tilesT, tilesLinT] as Tex[]) {
         gl.bindTexture(gl.TEXTURE_2D, t.t)
         gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+        // These are numbers, not a picture: nothing is multiplied into them.
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
         t.w = w
         t.h = h
       }
     },
     draw,
+    ready(block = false) {
+      if (built === 'wait') built = programsReady(gl, programs, block)
+      return built
+    },
     lost: () => contextLost || gl.isContextLost(),
     dispose() { gl.getExtension('WEBGL_lose_context')?.loseContext() },
   }

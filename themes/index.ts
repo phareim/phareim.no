@@ -4,6 +4,7 @@ import type { Component } from 'vue'
 // carries the --theme-* tokens for all routes, not just the landing page.
 import './base/fonts.css'
 import './base/pixel/pixel.css'
+import './base/pixel/pixel16.css'
 import './scandi/theme.css'
 import './galaga/theme.css'
 import './voyagers2/theme.css'

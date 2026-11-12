@@ -1,0 +1,171 @@
+/**
+ * The 16-bit dress for HTML (2026-11-12): what the pixel classes of pixel.css
+ * wear inside `.px16`, so the HTML a game lays over a 16-bit canvas speaks
+ * the canvas HUD's language (themes/zelda/render/hud16.ts): a window whose
+ * gradient comes in bands, behind a two-pixel bevel with round corners, a
+ * dark line inside it and a soft shadow on the world; light letters with a
+ * one-pixel dark shadow, in that HUD's own font (--font-pixel16).
+ *
+ *   .px16        the scope. Put it on a root (or on the box itself): every
+ *                `var(--font-pixel)` inside becomes the 16-bit font, and
+ *                .px-box / .px-btn / .px-* change dress. Without it nothing
+ *                here applies. Neon Shrine's shell sets it while the
+ *                isometric view shows its 16-bit windows (zelda/Zelda.vue).
+ *   .px-box      a window in the deep blue of the dialog box
+ *                (.px-box--cool: the sea green of the pause screen)
+ *   .px-btn      a small sea-green window; .px-btn--pink a blue one with pink
+ *                letters. Hover (under a mouse), keyboard focus and .is-sel
+ *                light it: a pale fill and dark letters, 9:1 or better, and
+ *                no ring besides. Pressed, the bevel turns inward.
+ *   .px-more     the "more" arrow: dips, comes back, is gone for a moment
+ *
+ * One 16-bit pixel is --px16-u CSS px (1 px: at font-size 16 px the font's
+ * pixels are the bevel's). The font stays sharp only where one font pixel is
+ * a whole number of device px: font-size 16 px (and 32, 48 … px) on every
+ * whole-number screen; 24 px (1.5 px per pixel) only at 2× and 4×, so it is
+ * not used. No size from pixel.css's 8 px steps other than 16n px carries over.
+ *
+ * Where the numbers come from (hud16.ts, so the two can be held together;
+ * tests/zelda-chrome16.test.mjs does):
+ *   fills    TONES.hot / TONES.cool, top to bottom, each channel rounded to
+ *            the machine's five bits (`five`): a new band wherever one changes
+ *   frames   paintWindow: the outline #070a2c with corners cut 3-2-1, the
+ *            rings hi / lo and hi2 / lo2 of each tone, as an 8 × 8 picture
+ *            cut 3 | 1 | 4 (the lower right corner is a pixel larger: the
+ *            light rings stop one short there). `-in` swaps light and dark.
+ *   shade    the inner line rgba(6,8,44,.62 / .36) and the three steps of
+ *            shadow rgba(4,4,30,.22 / .2 / .14)
+ *   letters  HIRES_WINDOW_SKIN: text, shadow (SHADOW), dim, faint, hot, cool,
+ *            prize, ok, slot, veil; the lit fills are the cool tone's hi2 → lo
+ *            and the heart's light (INK.m) → hot
+ *   more     the arrow of `more()`: #e4fbff over #8cecff, its beat 0.625 s
+ */
+:root {
+  --px16-u: 1px;
+  --px16-text: #ffffff;
+  --px16-shadow: #0a0c38;
+  --px16-dim: #b8c6fa;
+  --px16-faint: #7482cc;
+  --px16-hot: #ff8fd4;
+  --px16-cool: #8cecff;
+  --px16-prize: #ffe070;
+  --px16-ok: #aaf472;
+  --px16-slot: rgba(170, 196, 255, 0.16);
+  --px16-line: rgba(6, 8, 44, 0.36);
+  --px16-veil: rgba(8, 10, 44, 0.72);
+  /* Under the letters: right, below and the corner between, one font pixel each (an em is sixteen). */
+  --px16-drop: 0.0625em 0 0 var(--px16-shadow), 0 0.0625em 0 var(--px16-shadow), 0.0625em 0.0625em 0 var(--px16-shadow);
+  /* The bands. `colour 0 p%`: from where the last one ended to p, with a hard edge. */
+  --px16-fill-hot: linear-gradient(#3848c8 8%, #3848c0 0 10%, #3840c0 0 16%, #3840b8 0 23.33%, #3838b8 0 24%, #3838b0 0 27.27%, #3038b0 0 32%, #3038a8 0 36.67%, #3030a8 0 40%, #3030a0 0 48%, #303098 0 50%, #302898 0 56%, #302890 0 63.33%, #302090 0 63.64%, #282090 0 64%, #282088 0 72%, #282080 0 76.67%, #281880 0 80%, #281878 0 88%, #281870 0 90%, #281070 0 96%, #281068 0);
+  --px16-fill-cool: linear-gradient(#2080a0 9.09%, #2078a0 0 11.11%, #207898 0 18.18%, #207098 0 22.22%, #207090 0 27.27%, #186890 0 33.33%, #186888 0 36.36%, #186088 0 44.44%, #186080 0 45.45%, #185880 0 54.55%, #185080 0 55.56%, #185078 0 63.64%, #104878 0 66.67%, #104870 0 72.73%, #104070 0 77.78%, #104068 0 81.82%, #103868 0 88.89%, #103860 0 90.91%, #103060 0);
+  --px16-fill-lit: linear-gradient(#c4ecff 50%, #a4c8e4 0);
+  --px16-fill-lit-hot: linear-gradient(#ffa0e4 50%, #ff8fd4 0);
+  --px16-frame-hot: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8' shape-rendering='crispEdges'><path fill='%23070a2c' d='M3 0h2v1h-2zM2 1h1v1h-1zM5 1h1v1h-1zM1 2h1v1h-1zM6 2h1v1h-1zM0 3h1v2h-1zM7 3h1v2h-1zM1 5h1v1h-1zM6 5h1v1h-1zM2 6h1v1h-1zM5 6h1v1h-1zM3 7h2v1h-2z'/><path fill='%23fff' d='M3 1h1v1h-1zM2 2h1v1h-1zM1 3h1v1h-1z'/><path fill='%23aab2ea' d='M4 1h1v1h-1zM5 2h1v1h-1zM6 3h1v2h-1zM1 4h1v1h-1zM2 5h1v1h-1zM5 5h1v1h-1zM3 6h2v1h-2z'/><path fill='%23c8d0ff' d='M3 2h1v1h-1zM2 3h1v1h-1z'/><path fill='%236c74c4' d='M4 2h1v1h-1zM5 3h1v2h-1zM2 4h1v1h-1zM3 5h2v1h-2z'/></svg>");
+  --px16-frame-hot-in: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8' shape-rendering='crispEdges'><path fill='%23070a2c' d='M3 0h2v1h-2zM2 1h1v1h-1zM5 1h1v1h-1zM1 2h1v1h-1zM6 2h1v1h-1zM0 3h1v2h-1zM7 3h1v2h-1zM1 5h1v1h-1zM6 5h1v1h-1zM2 6h1v1h-1zM5 6h1v1h-1zM3 7h2v1h-2z'/><path fill='%236c74c4' d='M3 1h1v1h-1zM2 2h1v1h-1zM1 3h1v1h-1z'/><path fill='%23c8d0ff' d='M4 1h1v1h-1zM5 2h1v1h-1zM6 3h1v2h-1zM1 4h1v1h-1zM2 5h1v1h-1zM5 5h1v1h-1zM3 6h2v1h-2z'/><path fill='%23aab2ea' d='M3 2h1v1h-1zM2 3h1v1h-1z'/><path fill='%23fff' d='M4 2h1v1h-1zM5 3h1v2h-1zM2 4h1v1h-1zM3 5h2v1h-2z'/></svg>");
+  --px16-frame-cool: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8' shape-rendering='crispEdges'><path fill='%23070a2c' d='M3 0h2v1h-2zM2 1h1v1h-1zM5 1h1v1h-1zM1 2h1v1h-1zM6 2h1v1h-1zM0 3h1v2h-1zM7 3h1v2h-1zM1 5h1v1h-1zM6 5h1v1h-1zM2 6h1v1h-1zM5 6h1v1h-1zM3 7h2v1h-2z'/><path fill='%23fff' d='M3 1h1v1h-1zM2 2h1v1h-1zM1 3h1v1h-1z'/><path fill='%23a4c8e4' d='M4 1h1v1h-1zM5 2h1v1h-1zM6 3h1v2h-1zM1 4h1v1h-1zM2 5h1v1h-1zM5 5h1v1h-1zM3 6h2v1h-2z'/><path fill='%23c4ecff' d='M3 2h1v1h-1zM2 3h1v1h-1z'/><path fill='%235c98c0' d='M4 2h1v1h-1zM5 3h1v2h-1zM2 4h1v1h-1zM3 5h2v1h-2z'/></svg>");
+  --px16-frame-cool-in: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8' shape-rendering='crispEdges'><path fill='%23070a2c' d='M3 0h2v1h-2zM2 1h1v1h-1zM5 1h1v1h-1zM1 2h1v1h-1zM6 2h1v1h-1zM0 3h1v2h-1zM7 3h1v2h-1zM1 5h1v1h-1zM6 5h1v1h-1zM2 6h1v1h-1zM5 6h1v1h-1zM3 7h2v1h-2z'/><path fill='%235c98c0' d='M3 1h1v1h-1zM2 2h1v1h-1zM1 3h1v1h-1z'/><path fill='%23c4ecff' d='M4 1h1v1h-1zM5 2h1v1h-1zM6 3h1v2h-1zM1 4h1v1h-1zM2 5h1v1h-1zM5 5h1v1h-1zM3 6h2v1h-2z'/><path fill='%23a4c8e4' d='M3 2h1v1h-1zM2 3h1v1h-1z'/><path fill='%23fff' d='M4 2h1v1h-1zM5 3h1v2h-1zM2 4h1v1h-1zM3 5h2v1h-2z'/></svg>");
+  /* How a frame is cut and laid: the right and bottom pieces are four pixels, one of them over the fill. */
+  --px16-cut: 3 4 4 3 / calc(3 * var(--px16-u)) calc(4 * var(--px16-u)) calc(4 * var(--px16-u)) calc(3 * var(--px16-u));
+  --px16-inner: inset var(--px16-u) var(--px16-u) 0 rgba(6, 8, 44, 0.62), inset calc(-1 * var(--px16-u)) calc(-1 * var(--px16-u)) 0 rgba(6, 8, 44, 0.36);
+  --px16-shade: var(--px16-inner), var(--px16-u) calc(2 * var(--px16-u)) 0 rgba(4, 4, 30, 0.22), calc(2 * var(--px16-u)) calc(3 * var(--px16-u)) 0 rgba(4, 4, 30, 0.2), calc(3 * var(--px16-u)) calc(4 * var(--px16-u)) 0 rgba(4, 4, 30, 0.14);
+  --px16-more: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='6' shape-rendering='crispEdges'><path fill='%23e4fbff' d='M0 0h10v1h-10z'/><path fill='%238cecff' d='M1 1h8v1h-8zM2 2h6v1h-6zM3 3h4v1h-4zM4 4h2v1h-2z'/><path fill='%230a0c38' d='M9 1h2v1h-2zM8 2h2v1h-2zM7 3h2v1h-2zM6 4h2v1h-2zM5 5h2v1h-2z'/></svg>");
+}
+
+.px16 {
+  --font-pixel: var(--font-pixel16);
+}
+
+/*
+ * A window. The frame is a border picture three pixels wide; the bands fill
+ * the box inside it; the radius only rounds the shadow. To dress anything
+ * else as a window (a chip, a hint), give it these same seven lines.
+ */
+.px16 .px-box,
+.px16.px-box,
+.px16 .px-btn {
+  border: calc(3 * var(--px16-u)) solid transparent;
+  border-radius: calc(3 * var(--px16-u));
+  border-image: var(--px16-frame-hot) var(--px16-cut);
+  background: var(--px16-fill-hot) padding-box;
+  box-shadow: var(--px16-shade);
+  color: var(--px16-text);
+  text-shadow: var(--px16-drop);
+}
+.px16 .px-box--cool,
+.px16.px-box--cool,
+.px16 .px-btn {
+  border-image: var(--px16-frame-cool) var(--px16-cut);
+  background: var(--px16-fill-cool) padding-box;
+}
+/* The classic box's cyan rule under its top edge: the bevel is this one's edge. */
+.px16 .px-box::before,
+.px16.px-box::before {
+  display: none;
+}
+
+/* The call to action: pink letters, on the blue window (on the green one they would not be readable). */
+.px16 .px-btn--pink {
+  border-image: var(--px16-frame-hot) var(--px16-cut);
+  background: var(--px16-fill-hot) padding-box;
+  color: var(--px16-hot);
+}
+.px16 .px-btn:focus-visible,
+.px16 .px-btn.is-sel {
+  outline: none;
+  background: var(--px16-fill-lit) padding-box;
+  color: var(--px16-shadow);
+  text-shadow: none;
+}
+.px16 .px-btn--pink:focus-visible,
+.px16 .px-btn--pink.is-sel {
+  background: var(--px16-fill-lit-hot) padding-box;
+}
+/* Under a mouse only: a finger's tap would leave the button lit. */
+@media (hover: hover) {
+  .px16 .px-btn:hover {
+    background: var(--px16-fill-lit) padding-box;
+    color: var(--px16-shadow);
+    text-shadow: none;
+  }
+  .px16 .px-btn--pink:hover {
+    background: var(--px16-fill-lit-hot) padding-box;
+  }
+}
+.px16 .px-btn:active {
+  border-image: var(--px16-frame-cool-in) var(--px16-cut);
+  box-shadow: var(--px16-inner);
+}
+.px16 .px-btn--pink:active {
+  border-image: var(--px16-frame-hot-in) var(--px16-cut);
+}
+.px16 .px-btn:disabled {
+  background: var(--px16-fill-cool) padding-box;
+  color: var(--px16-faint);
+  text-shadow: none;
+  cursor: default;
+}
+
+/* The landing text of pixel.css: the same sizes (48, 64 and 16 px are whole steps of this font too), a hard shadow and no glow. */
+:is(.px16 .landing, .px16.landing) :is(.px-title, .px-hud, .px-hint, .px-dim) {
+  text-shadow: var(--px16-drop);
+}
+:is(.px16 .landing, .px16.landing) .px-title { color: var(--px16-prize); }
+:is(.px16 .landing, .px16.landing) .px-hud { color: var(--px16-cool); }
+:is(.px16 .landing, .px16.landing) .px-hint { color: var(--px16-hot); }
+:is(.px16 .landing, .px16.landing) .px-dim { color: var(--px16-dim); }
+
+/* The "more" mark at the end of a line that has more after it: in steps, as the canvas draws it. */
+.px16 .px-more {
+  display: inline-block;
+  width: calc(11 * var(--px16-u));
+  height: calc(6 * var(--px16-u));
+  background: var(--px16-more) 0 0 / 100% 100% no-repeat;
+  animation: px16-more 0.625s steps(1) infinite;
+}
+@keyframes px16-more {
+  36% { transform: translateY(var(--px16-u)); }
+  72% { transform: translateY(var(--px16-u)); visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .px16 .px-more { animation: none; }
+}
