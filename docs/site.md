@@ -131,6 +131,8 @@ Measured 2026-09-30 (4× CPU, 1.6 Mbps, 150 ms RTT, cold): 296 KB over the wire 
 
 The portal makes one more request after mount, to studio.phareim.no for the live art (`render/live.ts`): small, never awaited, and not in the 296 KB above.
 
+Since 2026-11-12 a visit starts in the world's 16-bit view, which adds to that number (not measured again over the wire; gzip sizes of the built files): the view's own chunk, fetched before the first frame (the GPU engine with its shaders, the plants and the backdrop, 42 KB), about 14 KB more in the world's chunks (the second sound chip, the hi-res HUD and its font, the HTML dress) and the second pixel font (2 KB). The view's chunk stays out of the entry (`tests/zelda-views.test.mjs`); a browser that chose the classic view does not fetch it.
+
 ## Config, geo and auth
 
 - No `runtimeConfig`. The Hall of Fame routes read their D1 binding and the `WAVE_JOBS_KEY` secret from `event.context.cloudflare.env`, which needs no config; background work goes through `event.context.cloudflare.context.waitUntil`. If `runtimeConfig` comes back: secrets are set on Cloudflare by `NUXT_`-prefixed env vars, and server code **must** call `useRuntimeConfig(event)` — without the event, Workers return a config frozen at module init, before env vars exist, so the value silently never applies.

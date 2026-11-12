@@ -41,6 +41,8 @@ themes/
                         sprites.ts (palette, string-map sprites, 5×7 font), scenery.ts (dusk sky,
                         sun, ridges, trees, houses), pixel.css (.px-* HTML text in --font-pixel, .px-box/.px-btn
                         for HTML panels and buttons).
+                        pixel16.css is the same in the 16-bit dress (scope class .px16: banded windows,
+                        --font-pixel16), worn by the world on `/` while its 16-bit view is on.
                         New games use it; see docs/games/pixel-look.md
   _template/          copy this to start a theme
   <id>/

@@ -5,21 +5,25 @@
  * and palms. The engine stands them up as cards, lights them per pixel from
  * the normal picture and lets the wind move them.
  *
- * The blossoms, the clover and the nuts are placed pixel by pixel; the rest
+ * The blossoms, the berries and the nuts are placed pixel by pixel; the rest
  * is built the way a 16-bit forest was drawn. A height field first: a crown
  * is a handful of boughs, each a flat cloud of leaves, the lower ones in
- * front of the upper ones; a trunk is a cylinder; grass is bent blades. Then
- * the light, big forms first: the whole crown is one ball lit from the upper
- * west with a belly in shade, every bough is light on top and dark under, and
- * a leaf clump is one flat shade with a lit arc on its shoulder, lying on the
- * clump above it like a scale, so the borders between shades run along
- * leaves. The colours are a ramp of seven whose shadows drift to indigo and
- * whose lights drift to mint; small specks are merged into their neighbours,
- * a dark line goes round the shaded side only, and a broken line of magenta
- * lies inside the lower west edge where the low sun catches it. The colours are
- * the classic view's (`tiles.ts`: teal crowns, moonlit violet ones, plum
- * trunks), with more steps between them. The same height field gives the
- * normal picture.
+ * front of the upper ones; a trunk is a cylinder that swells into its roots;
+ * grass is bent blades. Then the light, big forms first: the whole crown is
+ * one ball lit from the upper west with a belly in shade, every bough is
+ * light on top and dark under, and a leaf clump (a round arc over a flatter
+ * underside) is one flat shade with a lit crescent on its upper west
+ * shoulder, lying on the clump above it like a scale, so the borders between
+ * shades run along leaves, with a leaf tip jutting across here and there.
+ * The colours are a ramp of seven whose shadows drift to indigo and whose
+ * lights drift to mint; small specks are merged into their neighbours, a
+ * dark line goes round the shaded side only, and a short run or two of dim
+ * magenta lies inside the lower west edge where the low sun catches it (the
+ * engine's own light does the rest). The colours are the classic view's
+ * (`tiles.ts`: teal crowns, moonlit violet ones, plum trunks), with more
+ * steps between them; grass is greener than the crowns, or the violet dusk
+ * turns it grey. The same height field gives the normal picture: mostly the
+ * boughs' roundness, so what the light models is what is painted.
  *
  * Of the four trees of a look, three share one ramp and differ in form; the
  * fourth is the look's other mood (on the coast the classic moonlit violet).
@@ -68,7 +72,10 @@ const LIME = ramp('#0f1a2e', '#123040', '#16504c', '#22745a', '#3f9c64', '#7cc86
 const SHRUB = ramp('#0b1f30', '#0f3540', '#145049', '#1f7468', '#359c84', '#5cc7a0', '#8ce4bc')
 const BARK = ramp('#140a1e', '#24142c', '#3a2240', '#573058', '#7a4a6e', '#a86c84', '#d49a9c')
 const HUSK = ramp('#1a0e1c', '#30192a', '#4f2a38', '#74414a', '#9c6058', '#c88a6c', '#ecba8c')
-const GRASS = ramp('#102a48', '#15465a', '#1f6c80', '#35969e', '#5cc8be', '#a4f2dc')
+// Grass is green in its body, so the violet dusk does not turn it grey; only its last step, for a tip pixel, is the cyan of the lamps.
+const GRASS = ramp('#0e2a44', '#124e4c', '#1c7860', '#2f9c74', '#5cd096', '#b0f6e0')
+/** The beach's other mood: a crown the low sun has turned yellow-green. */
+const SUNNY = ramp('#101c2c', '#14343c', '#1c5846', '#33804e', '#5fa858', '#9cd470', '#d0ec8c')
 const DUNE = ramp('#14203a', '#1f4a52', '#3a7460', '#6a9c6c', '#a8c47c', '#e4e8a4')
 const HEAD = ramp('#1c0d24', '#3a1c3a', '#6e3552', '#a8566e', '#e08a8a')
 
@@ -104,18 +111,18 @@ const LOOKS: Record<FloraLook, Look> = {
   coast: {
     leaf: [TEAL, TEAL, TEAL, MOON],
     shrub: SHRUB, bark: BARK, grass: GRASS, frond: blend(TEAL, LIME, 0.5), stem: blend(BARK, HUSK, 0.25), husk: HUSK, barkTop: 4, stemTop: 4,
-    rim: rgb('#d0509e'), hot: rgb('#ff8a5a'), dense: 1, glow: null,
+    rim: rgb('#a8407e'), hot: rgb('#ff8a5a'), dense: 1, glow: null,
   },
   wild: {
     leaf: [WILD, WILD, WILD, dusk(blend(MOON, VIOLET, 0.75), 0.92)],
-    shrub: dusk(blend(SHRUB, MOON, 0.35), 0.9), bark: dusk(BARK, 0.86), grass: dusk(blend(GRASS, MOON.slice(0, 6), 0.25), 0.92),
-    frond: dusk(blend(TEAL, MOON, 0.3), 0.9), stem: dusk(BARK, 0.86), husk: dusk(HUSK, 0.85), barkTop: 4, stemTop: 4,
-    rim: rgb('#b04fc8'), hot: rgb('#ff7ad0'), dense: 1.25, glow: { deep: rgb('#1f9c8c'), main: rgb('#3fd8b0'), light: rgb('#8ffce0'), core: rgb('#e0fff4') },
+    shrub: dusk(blend(SHRUB, MOON, 0.15), 0.94), bark: dusk(BARK, 0.86), grass: blend(GRASS, MOON.slice(0, 6), 0.15),
+    frond: dusk(blend(TEAL, MOON, 0.15), 0.96), stem: dusk(BARK, 0.86), husk: dusk(HUSK, 0.85), barkTop: 4, stemTop: 4,
+    rim: rgb('#8c44a8'), hot: rgb('#ff7ad0'), dense: 1.25, glow: { deep: rgb('#1f9c8c'), main: rgb('#3fd8b0'), light: rgb('#8ffce0'), core: rgb('#e0fff4') },
   },
   beach: {
-    leaf: [blend(TEAL, LIME, 0.65), blend(TEAL, LIME, 0.65), blend(TEAL, LIME, 0.65), blend(TEAL, LIME, 0.95)],
+    leaf: [blend(TEAL, LIME, 0.65), blend(TEAL, LIME, 0.65), blend(TEAL, LIME, 0.65), SUNNY],
     shrub: blend(SHRUB, LIME, 0.6), bark: blend(BARK, HUSK, 0.6), grass: blend(GRASS, DUNE, 0.7), frond: LIME, stem: HUSK, husk: HUSK, barkTop: 4, stemTop: 5,
-    rim: rgb('#ff6f9a'), hot: rgb('#ffb05a'), dense: 0.95, glow: null,
+    rim: rgb('#c8527c'), hot: rgb('#ffb05a'), dense: 0.95, glow: null,
   },
 }
 
@@ -139,7 +146,7 @@ interface Plot {
   part: Uint16Array
   /** Which bough a leaf pixel belongs to: a fold is drawn where one bough hangs over another, not between a bough's own clumps. */
   group: Uint16Array
-  /** Where no leaf may be painted: under a crown's flat underside (1), and the holes the sky shows through (2). */
+  /** Where no leaf may be painted: under a crown's flat underside. */
   hole: Uint8Array
   /** Lighter or darker than the form says, as a share of the ramp. */
   bias: Float32Array
@@ -225,54 +232,75 @@ const SUN = [-0.503, 0.704, 0.503]
 /** The same light as a trunk takes it: lower, so an upright cylinder has a lit west side. */
 const LOW = [-0.756, 0.252, 0.605]
 
-/** How a crown takes the light: the step at its middle, and how much the crown and a bough each add. */
-interface Shade { mid: number; mass: number; bough: number }
+/** How a crown takes the light: the step at its middle, how much the crown and a bough each add, and how far the belly is lifted. */
+interface Shade { mid: number; mass: number; bough: number; belly: number; /** How deep a leaf clump's underside is, against the arc over it: under 1 it is flatter. */ under: number; /** How far down the crown the belly starts (1 is its lowest row). */ bellyAt: number }
+
+/** Where on the crown a leaf sits: the lightest step it may take there, and whether it is in the belly, the lower third that never comes out of the shade. */
+function crownLight(mass: Lobe, x: number, y: number, top: number, sh: Shade): { most: number; belly: boolean } {
+  const ex = (x - mass.cx) / mass.rx
+  const ey = (y - mass.cy) / mass.ry
+  const belly = ey > sh.bellyAt
+  // The brightest step belongs to the crown's upper west.
+  return { belly, most: belly ? 2 : -0.55 * ex - 0.83 * ey > 0.12 ? top : top - 1 }
+}
 
 /**
- * A leaf clump on a bough. The whole clump is one shade, taken from the big
- * forms at its middle: where it sits on the crown (a ball lit from the upper
- * west, its lower third a belly in shade) and on its bough (light on top,
- * dark under). So the borders between shades run along leaves. Clumps lie
- * like scales, the lower over the upper, each showing its upper arc; with
- * `cap` under the share the light allows, that arc is one step lighter (in
- * the light nearly every clump has one, in the shade few), and in the light
- * its east lip is one darker. Its normal is its own roundness on the
- * bough's on the crown's.
+ * A leaf clump on a bough: a round arc on top and a flatter underside. The
+ * whole clump is one shade, taken from the big forms at its middle: where it
+ * sits on the crown (a ball lit from the upper west, its lower third a belly
+ * in shade) and on its bough (light on top, dark under). So the borders
+ * between shades run along leaves. Clumps lie like scales, the lower over
+ * the upper, each showing its upper arc; with `cap` under the share the
+ * light allows, a crescent along its upper west shoulder is one step lighter
+ * (broad in the light, thin in the shade; in the belly one clump in three
+ * has one, the light the ground throws back), and in the light a thin
+ * crescent on its lower east is one darker. Its normal is mostly its bough's
+ * on the crown's, with a little roundness of its own, so the lit form is the
+ * painted one.
  */
 function leafClump(p: Plot, cx: number, cy: number, r: number, rampId: number, lift: number, cap: number, bough: Lobe, mass: Lobe, group: number, sh: Shade): void {
   const id = ++p.parts
   const top = p.ramps[rampId].length - 1
-  const rx = r * 1.1
-  const ry = r * 0.9
+  const rx = r * 1.15
+  const up = r * 0.95
+  const dn = up * sh.under
   const cb = lobeNormal(bough, cx, cy)
   const cm = lobeNormal(mass, cx, cy)
   const tm = cm[0] * SUN[0] + cm[1] * SUN[1] + cm[2] * SUN[2]
   const tb = cb[0] * SUN[0] + cb[1] * SUN[1] + cb[2] * SUN[2]
   const big = sh.mid + sh.mass * (tm - 0.5) + sh.bough * (tb - 0.35) + lift
-  // The brightest step belongs to the crown's upper west, and the lower third never comes out of the shade.
-  const ex = (cx - mass.cx) / mass.rx
-  const ey = (cy - mass.cy) / mass.ry
-  const most = ey > 0.8 ? 1 : ey > 0.42 ? 2 : -0.55 * ex - 0.83 * ey > 0.12 ? top : top - 1
-  const base = clamp(Math.floor(big), 1, most)
-  const lit = cap < (big >= 3.6 ? 0.92 : big >= 2.6 ? 0.6 : 0.3) ? Math.min(base + 1, most) : base
+  const { most, belly } = crownLight(mass, cx, cy, top, sh)
+  // The belly is lifted off the outline: its boughs' tops reach its cap, only their undersides are the darkest leaf.
+  const base = clamp(Math.floor(big + (belly ? sh.belly : 0)), 1, most)
+  const share = belly ? 0.34 : big >= 3.6 ? 0.92 : big >= 2.6 ? 0.6 : 0.3
+  const lit = cap < share ? Math.min(base + 1, belly ? 3 : most) : base
   const lip = big >= 2.6 && base > 1 ? base - 1 : base
+  // How far the clump would have to slide down and east to uncover its lit crescent.
+  const k = big >= 3.6 ? 0.5 : big >= 2.6 ? 0.42 : 0.36
+  const sx = Math.max(1, r * k * 0.7)
+  const sy = Math.max(1.2, r * k)
+  const inside = (ox: number, oy: number) => {
+    const ex = ox / rx
+    const ey = oy / (oy < 0 ? up : dn)
+    return ex * ex + ey * ey
+  }
   const z0 = lobeDepth(bough, cx, cy) + (cy - bough.cy) * 0.45
-  for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+  for (let y = Math.floor(cy - up); y <= Math.ceil(cy + dn); y++) for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
     if (x < 0 || y < 0 || x >= p.w || y >= p.h || p.hole[y * p.w + x]) continue
-    const dx = (x + 0.5 - cx) / rx
-    const dy = (y + 0.5 - cy) / ry
-    const d2 = dx * dx + dy * dy
+    const ox = x + 0.5 - cx
+    const oy = y + 0.5 - cy
+    const d2 = inside(ox, oy)
     if (d2 > 1) continue
     const s = Math.sqrt(1 - d2)
+    const dx = ox / rx
+    const dy = oy / (oy < 0 ? up : dn)
     const b = lobeNormal(bough, x + 0.5, y + 0.5)
     const m = lobeNormal(mass, x + 0.5, y + 0.5)
-    // How far the pixel is up the clump's west shoulder (1) or down its east lip (-1).
-    const tc = -dx * 0.55 - dy * 0.8
-    const step = tc > 0.4 ? lit : tc < -0.66 ? lip : base
+    const step = inside(ox - sx, oy - sy) > 1 ? lit : inside(ox + 1.1, oy + 0.9) > 1 ? lip : base
     const i = y * p.w + x
     if (put(
       p, x, y, z0 + r * 0.3 * s, rampId,
-      dx * 0.5 + b[0] * 0.5 + m[0] * 0.38, -dy * 0.5 + b[1] * 0.5 + m[1] * 0.38, Math.max(0.15, s) * 0.5 + b[2] * 0.5 + m[2] * 0.38,
+      dx * 0.3 + b[0] * 0.56 + m[0] * 0.42, -dy * 0.3 + b[1] * 0.56 + m[1] * 0.42, Math.max(0.15, s) * 0.3 + b[2] * 0.56 + m[2] * 0.42,
       id, 0, 0, step + 0.5,
     )) p.group[i] = group
   }
@@ -349,11 +377,12 @@ function limb(
  * `lo`: the sky's light, painted on. With `root` its lowest share stands in
  * the dark of the tussock (the ramp's two darkest steps); `tip` is the step
  * of its last `tipRows` rows (0: no light on the tip; left out: one above
- * `hi` for the top fifth).
+ * `hi` for the top fifth). With `full` it keeps its width most of the way
+ * up and narrows only toward the tip.
  */
 function blade(
   p: Plot, x0: number, y0: number, x1: number, y1: number, bend: number, w0: number, z0: number, rampId: number, lo: number, hi: number,
-  o: { root?: number; tip?: number; tipRows?: number } = {},
+  o: { root?: number; tip?: number; tipRows?: number; full?: boolean } = {},
 ): number {
   const id = ++p.parts
   const rows = Math.max(1, Math.round(y0 - y1))
@@ -363,7 +392,7 @@ function blade(
     const t = k / rows
     const x = (1 - t) * (1 - t) * x0 + 2 * t * (1 - t) * ((x0 + x1) / 2 + bend) + t * t * x1
     const y = Math.round(y0 - 0.5) - k
-    const w = Math.max(1, Math.round(w0 * (1 - t * 0.9)))
+    const w = Math.max(1, Math.round(w0 * (1 - (o.full ? t * t : t) * 0.9)))
     let a = Math.round(x - w / 2)
     let b = a + w - 1
     // A blade that leans far in one row is joined to the row under it.
@@ -469,11 +498,11 @@ function ink(p: Plot, o: Ink): void {
     s += p.bias[i] * top
     p.ix[i] = clamp(Math.floor(s), 1, top)
   }
-  // The pixels on the plant's own edge. A gap in the leaves is not an edge: the line goes round the plant, not round its holes.
+  // The pixels on the plant's own edge.
   const edge: number[] = []
   const onEdge = new Uint8Array(w * h)
   if (o.outline === 'in') {
-    const open = (x: number, y: number) => at(x, y) === NONE && !(x >= 0 && y >= 0 && x < w && y < h && p.hole[y * w + x] === 2)
+    const open = (x: number, y: number) => at(x, y) === NONE
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const i = y * w + x
       if (p.z[i] === NONE || p.pin[i]) continue
@@ -553,9 +582,10 @@ function ink(p: Plot, o: Ink): void {
 }
 
 /**
- * The low sun on the west edge: a broken line of magenta one pixel inside
- * the outline, along the lower west side of a few boughs, and one hot pixel
- * where the crown is nearest the sun.
+ * The low sun on the west edge: one or two short runs of dim magenta one
+ * pixel inside the outline, low on the west side, and one hot pixel in the
+ * first of them. The engine lights the west edges itself, so this is only a
+ * hint.
  */
 function rimLight(p: Plot, L: Look, rampId: number, mass: Lobe, runs: number): void {
   const { w, h } = p
@@ -567,11 +597,12 @@ function rimLight(p: Plot, L: Look, rampId: number, mass: Lobe, runs: number): v
     if (none(x - 1, y) || none(x + 1, y) || none(x, y - 1) || none(x, y + 1)) continue
     const ex = (x + 0.5 - mass.cx) / mass.rx
     const ey = (y + 0.5 - mass.cy) / mass.ry
-    if (ex > -0.15 || ey < -0.5) continue
+    // Only the lowest two fifths of the west side: higher up, the engine's own light does this.
+    if (ex > -0.15 || ey < 0.2) continue
     // The outline is the pixel west of it (and nothing but sky west of that), or the pixel under it.
     let sky = none(x - 2, y)
     for (let q = x - 3; sky && q >= 0; q--) if (!none(q, y)) sky = false
-    if (sky || (none(x, y + 2) && p.hole[(y + 2) * w + x] !== 2 && ex < -0.3)) cand[i] = 1
+    if (sky || (none(x, y + 2) && ex < -0.3)) cand[i] = 1
   }
   // The candidates in runs along the contour, top to bottom.
   const list: number[][] = []
@@ -589,13 +620,17 @@ function rimLight(p: Plot, L: Look, rampId: number, mass: Lobe, runs: number): v
   const n = Math.min(runs, list.length)
   for (let k = 0; k < n; k++) {
     const run = list[Math.round((k + 0.5) * list.length / n - 0.5)]
-    const len = Math.min(run.length, 7)
-    const a = (run.length - len) >> 1
-    for (let q = 0; q < len; q++) {
-      // Broken: a long run has a gap in it.
-      if (len >= 6 && q === 3) continue
-      p.fix[run[a + q]] = packed(k === 0 && q === 1 ? L.hot : L.rim)
+    // Five pixels of it at most, in one piece: from its middle outward along the contour.
+    const got = [run[run.length >> 1]]
+    for (let q = 0; q < got.length && got.length < 5; q++) {
+      for (const d of [-1, 1, -w, w, -w - 1, -w + 1, w - 1, w + 1]) {
+        const j = got[q] + d
+        if (got.length < 5 && run.includes(j) && !got.includes(j)) got.push(j)
+      }
     }
+    if (got.length < 3) continue
+    got.sort((a, b) => a - b)
+    got.forEach((i, q) => { p.fix[i] = packed(k === 0 && q === 1 ? L.hot : L.rim) })
   }
 }
 
@@ -634,7 +669,14 @@ function cut(p: Plot, ax: number, ay: number): Cut {
     norm[o + 2] = Math.round((p.nz[i] * 0.5 + 0.5) * 255)
     norm[o + 3] = 255
   }
-  return { w, h, ax: clamp(ax - x0, 0, w - 1), ay: clamp(ay - y0, 0, h - 1), rgba, norm }
+  // The plant stands on one of its own pixels: the one on its foot row nearest the point asked for.
+  const fy = clamp(ay - y0, 0, h - 1)
+  let fx = clamp(ax - x0, 0, w - 1)
+  for (let d = 0; d < w; d++) {
+    if (fx - d >= 0 && rgba[(fy * w + fx - d) * 4 + 3]) { fx -= d; break }
+    if (fx + d < w && rgba[(fy * w + fx + d) * 4 + 3]) { fx += d; break }
+  }
+  return { w, h, ax: fx, ay: fy, rgba, norm }
 }
 
 // ---------------------------------------------------------------------------
@@ -644,10 +686,10 @@ function cut(p: Plot, ax: number, ay: number): Cut {
 /** A bough as it is placed by hand: where its middle is from the crown's middle, and its half width and half height. */
 type BoughAt = readonly [number, number, number, number]
 
-/** The crowns of the four lone trees: a round oak, a tall one in tiers, a broad lopsided one, a small one with a heavy head. */
+/** The crowns of the four lone trees: a round oak, a tall one of uneven boughs, a broad lopsided one, a small one with a heavy head. */
 const TREES: ReadonlyArray<readonly BoughAt[]> = [
   [[-2, -13, 12, 8.5], [-11, -5, 10, 7.5], [10, -6, 10.5, 8], [1, 2, 13, 8], [-10, 8, 10, 7], [10, 9, 10, 7], [0, 14, 9, 5.5]],
-  [[2, -18, 9, 6.5], [-5, -10, 11, 7], [7, -4, 10.5, 6.5], [-5, 3, 12.5, 7.5], [7, 10, 11, 6.5], [-5, 15, 10, 6]],
+  [[1, -18, 8.5, 6.5], [-6, -11, 10, 7], [6, -10, 8.5, 6], [3, -2, 12, 7.5], [-9, 2, 8, 6.5], [-3, 9, 12, 7], [8, 7, 8.5, 6.5], [2, 15, 9, 5.5]],
   [[-7, -9, 13.5, 8.5], [9, -8, 11, 7], [-15, 1, 9, 6.5], [1, 0, 12, 7.5], [15, 2, 9.5, 6.5], [-7, 9, 11, 6.5], [8, 10, 11, 6]],
   [[0, -10, 13, 9], [-10, -1, 10, 7.5], [10, -2, 10.5, 7.5], [0, 6, 13, 7.5], [-8, 12, 8.5, 5.5], [8, 12, 8.5, 5.5]],
 ]
@@ -660,11 +702,11 @@ const CANOPIES: ReadonlyArray<readonly BoughAt[]> = [
   [[0, -23, 11, 7.5], [-11, -15, 12, 8], [11, -14, 12.5, 8], [-19, -4, 10.5, 8], [0, -5, 14, 9], [19, -3, 10.5, 8], [-11, 6, 13.5, 8.5], [10, 7, 14, 8.5], [-19, 15, 9.5, 6.5], [0, 16, 12.5, 7], [18, 16, 10, 6.5]],
 ]
 
-/** The three bushes: low domes of small boughs. */
+/** The three bushes: low domes of small boughs, the lower ones wide enough that the outline has no waist. */
 const BUSHES: ReadonlyArray<readonly BoughAt[]> = [
-  [[0, -7, 8, 5.5], [-8, -2.5, 6.5, 5], [8, -2, 6.5, 5], [0, 0.5, 8.5, 5.5], [-6.5, 5, 7.5, 5], [6, 5.5, 8, 5]],
-  [[-2, -7, 7.5, 5.5], [-8, -1, 6.5, 5.5], [7.5, -3.5, 7, 5], [1, 0.5, 8.5, 5.5], [-5.5, 5.5, 8, 5], [6.5, 5, 7.5, 5]],
-  [[-5, -6, 7, 5], [5, -7, 7, 5.5], [-9.5, 0.5, 5.5, 5], [9.5, 0, 5.5, 5], [0, -0.5, 8, 5.5], [-5.5, 5.5, 8, 5], [5.5, 5.5, 8, 5]],
+  [[-1, -6.5, 9, 6], [-8, -1.5, 7.5, 6], [8, -1, 7.5, 6], [0, 1, 9, 6], [-7.5, 5, 7.5, 5.5], [7.5, 5.5, 7.5, 5], [0, 6.5, 8.5, 4.5]],
+  [[-3, -6, 8.5, 6], [6, -4, 8, 5.5], [-8.5, 0, 6.5, 6], [1, 1, 9, 6], [9, 2, 5.5, 5.5], [-6, 5.5, 8.5, 5], [6, 6, 8, 4.5], [0.5, 6.5, 8, 4.5]],
+  [[-5, -5.5, 8, 5.5], [5, -7, 8, 6], [-10, 1, 5.5, 5.5], [10, 0.5, 5.5, 5.5], [0, 0.5, 9, 6], [-6, 5.5, 8.5, 5], [6, 5.5, 8.5, 5], [-0.5, 6.5, 8, 4.5]],
 ]
 
 /** A crown ready to paint: the ball its boughs make together, and the boughs, each a flat cloud of leaves. */
@@ -698,23 +740,14 @@ function underside(p: Plot, mass: Lobe, bottom: number, rise: number): void {
   }
 }
 
-/** Where the leaves part and the sky shows through: a few small gaps close together, not one round hole. */
-function skyHole(p: Plot, x: number, y: number, r: number): void {
-  for (const [ox, oy, q] of [[0, 0, r * 0.62], [r * 1.5, -r * 0.75, r * 0.5], [-r * 1.3, r * 0.9, r * 0.45]]) {
-    for (let yy = Math.floor(y + oy - q); yy <= Math.ceil(y + oy + q); yy++) for (let xx = Math.floor(x + ox - q); xx <= Math.ceil(x + ox + q); xx++) {
-      if (xx < 0 || yy < 0 || xx >= p.w || yy >= p.h) continue
-      if ((xx + 0.5 - x - ox) ** 2 + ((yy + 0.5 - y - oy) * 1.15) ** 2 <= q * q) p.hole[yy * p.w + xx] = 2
-    }
-  }
-}
-
 /**
  * Paint a crown: leaf clumps along every bough's edge (its scalloped
  * outline) and across its face. The clumps on the edge stand a little
  * proud of it, so the silhouette is leaves on boughs and not a row of
- * discs.
+ * discs. The face of the first `big` boughs is one big leaf with its lit
+ * arc instead (a bush's lit top is two or three of those, not many facets).
  */
-function crown(p: Plot, R: () => number, c: Crown, leaf: number, rampId: number, sh: Shade): void {
+function crown(p: Plot, R: () => number, c: Crown, leaf: number, rampId: number, sh: Shade, big = 0): void {
   c.boughs.forEach((b, k) => {
     const one = (x: number, y: number, r: number) => leafClump(p, x, y, r, rampId, (R() - 0.5) * 0.3, R(), b, c.mass, k + 1, sh)
     const n = Math.max(6, Math.round((Math.PI * (b.rx + b.ry)) / (leaf * 1.7)))
@@ -725,6 +758,7 @@ function crown(p: Plot, R: () => number, c: Crown, leaf: number, rampId: number,
       const out = r * (0.35 + R() * 0.45)
       one(b.cx + Math.cos(a) * (b.rx - out), b.cy + Math.sin(a) * (b.ry - out), r)
     }
+    if (k < big) { leafClump(p, b.cx, b.cy + b.ry * 0.12, b.rx * 0.74, rampId, 0.2, 0, { ...b, z: b.z + 1.5 }, c.mass, k + 1, sh); return }
     const m = Math.round(((b.rx * b.ry) / (leaf * leaf)) * 1.1)
     for (let q = 0; q < m; q++) {
       const d = Math.sqrt((q + 0.5) / m) * 0.7
@@ -732,6 +766,29 @@ function crown(p: Plot, R: () => number, c: Crown, leaf: number, rampId: number,
       one(b.cx + Math.cos(a) * d * b.rx + (R() - 0.5) * 1.5, b.cy + Math.sin(a) * d * b.ry + (R() - 0.5) * 1.5, leaf * (0.9 + R() * 0.4))
     }
   })
+}
+
+/**
+ * Close the chinks in a painted crown: above the row `above`, a pixel the
+ * leaves left open (the sky, or a limb behind them) that has leaves on
+ * three sides becomes part of the leaf beside it. A crown has no pinholes.
+ */
+function plug(p: Plot, rampId: number, above: number): void {
+  const { w } = p
+  for (let pass = 0; pass < 4; pass++) {
+    let changed = false
+    for (let y = 1; y < above; y++) for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x
+      if (p.z[i] > NONE && p.ramp[i] === rampId) continue
+      const near = [i - w, i - 1, i + 1, i + w].filter(j => p.z[j] > NONE && p.ramp[j] === rampId)
+      if (near.length < 3) continue
+      const j = near[0]
+      put(p, x, y, p.z[j], rampId, p.nx[j], p.ny[j], p.nz[j], p.part[j], 0, 0, p.tone[j])
+      p.group[i] = p.group[j]
+      changed = true
+    }
+    if (!changed) break
+  }
 }
 
 /** Leaves picked out of a flat shade, as the classic crowns have them: a small arc of the next lighter step with the next darker under it. */
@@ -746,7 +803,7 @@ const LEAVES: ReadonlyArray<readonly string[]> = [
  * so they are spread and never touch: only where the whole leaf lies in one
  * shade, lighter ones only up to the step the place may have.
  */
-function leafMarks(p: Plot, R: () => number, mass: Lobe, rampId: number, gap: number): void {
+function leafMarks(p: Plot, R: () => number, mass: Lobe, rampId: number, gap: number, sh: Shade): void {
   const { w, h } = p
   const top = p.ramps[rampId].length - 1
   let row = 0
@@ -768,9 +825,7 @@ function leafMarks(p: Plot, R: () => number, mass: Lobe, rampId: number, gap: nu
         else if (p.ix[q] !== step) ok = false
       }
       if (!ok || step < 1) continue
-      const ex = (x0 + 2.5 - mass.cx) / mass.rx
-      const ey = (y0 + 1 - mass.cy) / mass.ry
-      const most = ey > 0.8 ? 1 : ey > 0.42 ? 2 : -0.55 * ex - 0.83 * ey > 0.12 ? top : top - 1
+      const { most } = crownLight(mass, x0 + 2.5, y0 + 1, top, sh)
       for (let j = 0; j < g.length; j++) for (let i = 0; i < g[j].length; i++) {
         const q = (y0 + j) * w + x0 + i
         if (g[j][i] === 'h' && step < most) p.ix[q] = step + 1
@@ -780,27 +835,87 @@ function leafMarks(p: Plot, R: () => number, mass: Lobe, rampId: number, gap: nu
   }
 }
 
-/** A root: how far it reaches to the side (in trunk radii, negative west), how far its toe drops under the foot row (px), how thick its toe is (in trunk radii). */
-type Root = readonly [number, number, number]
+/**
+ * Leaf tips: where a darker shade lies over a lighter one along a level
+ * border (the lit top of a clump under the shade of the one behind it), one
+ * pixel of the dark juts down into the light here and there, so the border
+ * is a row of leaves and not a drawn arc. Never through a lit arc, and never
+ * two close together.
+ */
+function leafTips(p: Plot, R: () => number, rampId: number): void {
+  const { w, h } = p
+  const flat = (i: number) => p.z[i] > NONE && p.ramp[i] === rampId && p.fix[i] < 0 && !p.pin[i]
+  const done: number[] = []
+  for (let y = 2; y < h - 3; y++) for (let x = 3; x < w - 3; x++) {
+    const i = y * w + x
+    if (!flat(i) || !flat(i - w) || !flat(i + w) || !flat(i + 2 * w)) continue
+    const lo = p.ix[i]
+    const hi = p.ix[i - w]
+    // A level stretch of the border, three wide, with the light two deep under it.
+    if (hi >= lo || lo < 3 || p.ix[i + w] < lo) continue
+    let level = true
+    for (const d of [-1, 1]) if (!flat(i + d) || p.ix[i + d] !== lo || !flat(i + d - w) || p.ix[i + d - w] !== hi || !flat(i + d + w) || p.ix[i + d + w] < lo) level = false
+    if (!level || R() > 0.3) continue
+    if (done.some(j => Math.abs((j % w) - x) < 5 && Math.abs(((j / w) | 0) - y) < 4)) continue
+    p.ix[i] = hi
+    done.push(i)
+  }
+}
 
-/** Four ways to grip the ground, none of them even. */
+/** Round off the small bumps in the normals of everything painted so far, over `r` px, keeping the big form. */
+function soften(p: Plot, r: number): void {
+  const { w, h } = p
+  const out = [new Float32Array(w * h), new Float32Array(w * h), new Float32Array(w * h)]
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x
+    if (p.z[i] === NONE) continue
+    let nx = 0
+    let ny = 0
+    let nz = 0
+    for (let oy = -r; oy <= r; oy++) for (let ox = -r; ox <= r; ox++) {
+      const xx = x + ox
+      const yy = y + oy
+      if (xx < 0 || yy < 0 || xx >= w || yy >= h || ox * ox + oy * oy > r * r + 1) continue
+      const j = yy * w + xx
+      if (p.z[j] === NONE) continue
+      nx += p.nx[j]
+      ny += p.ny[j]
+      nz += p.nz[j]
+    }
+    const l = Math.hypot(nx, ny, nz) || 1
+    out[0][i] = nx / l
+    out[1][i] = ny / l
+    out[2][i] = nz / l
+  }
+  for (let i = 0; i < w * h; i++) if (p.z[i] > NONE) { p.nx[i] = out[0][i]; p.ny[i] = out[1][i]; p.nz[i] = out[2][i] }
+}
+
+/**
+ * A root: the side it leaves the trunk on (-1 west, 1 east, or a share of
+ * the radius for one that goes down under the trunk), how many px its toe
+ * stands out past the trunk's side (never more than three), how far it drops
+ * under the foot row (px), and its toe's radius (px; from 1.5 it is a stub,
+ * as thick at its end as where it leaves the trunk).
+ */
+type Root = readonly [number, number, number, number]
+
+/** Four ways to grip the ground, none of them even: two of them have one side of the trunk go straight into the ground. */
 const ROOTS: ReadonlyArray<readonly Root[]> = [
-  [[-1.6, 0, 0.36], [1.35, 0.2, 0.34], [0.35, 1, 0.42]],
-  [[-2, 0.2, 0.34], [1, 0.6, 0.42]],
-  [[-1.15, 0.3, 0.38], [1.95, -0.2, 0.32], [-0.45, 1.1, 0.4], [0.75, 0.8, 0.36]],
-  [[-1.3, 0.6, 0.42], [1.7, 0, 0.34], [-0.15, 1.1, 0.4]],
+  [[-1, 3, 0.2, 1.4], [1, 2, 0.6, 2], [0.3, 0, 1.2, 1.6]],
+  [[-1, 3, 0.5, 1.9], [-0.1, 0, 1.2, 1.6]],
+  [[1, 3, 0, 1.4], [-1, 2, 0.8, 2.1], [0.4, 0, 1.3, 1.5]],
+  [[1, 2.6, 0.5, 2], [-0.35, 0, 1.1, 1.7]],
 ]
 
 /**
  * A trunk from the foot up into the crown, with a lean, a fork and roots.
- * Above the row `shade` it stands in the crown's shadow. Returns the two
- * points half way up the fork's limbs, where a hole in the crown would show
- * them.
+ * Above the row `shade` it stands in the crown's shadow. Returns the tops of
+ * the toes that point at the sun.
  */
 function trunk(
   p: Plot, x: number, foot: number, top: number, r0: number, r1: number, lean: number, rampId: number, z: number,
   shade: number, cap: number, roots: readonly Root[], fork: number,
-): { forks: Array<[number, number]>; toes: Array<[number, number]> } {
+): Array<[number, number]> {
   const mid = (foot + top) / 2
   const xm = x + lean * 0.35
   const xt = x + lean
@@ -811,19 +926,22 @@ function trunk(
   const f = r1 * fork
   const a: [number, number] = [xt - f * 0.95, top - f]
   const b: [number, number] = [xt + f * 1.05, top - f * 0.8]
-  const toes: Array<[number, number]> = []
   limb(p, xt, top + 2, r1 * 0.7, (xt + a[0]) / 2, (top + 2 + a[1]) / 2, 1.2, z - 0.6, rampId, { cap: 3, shade, lift: -0.2 })
   limb(p, (xt + a[0]) / 2, (top + 2 + a[1]) / 2, 1.2, a[0], a[1], 0.9, z - 0.6, rampId, { cap: 3, shade, lift: -0.2 })
   limb(p, xt, top + 3, r1 * 0.7, (xt + b[0]) / 2, (top + 3 + b[1]) / 2, 1.2, z - 0.4, rampId, { cap: 3, shade, lift: -0.5 })
   limb(p, (xt + b[0]) / 2, (top + 3 + b[1]) / 2, 1.2, b[0], b[1], 0.9, z - 0.4, rampId, { cap: 3, shade, lift: -0.5 })
-  for (const [reach, drop, thick] of roots) {
-    const s = Math.sign(reach)
-    const tx = x + reach * r0
-    const ty = foot - 0.5 + drop
-    limb(p, x + s * r0 * 0.35, foot - r0 * 1.25, r0 * 0.7, tx, ty, r0 * thick, z + 0.3 + drop * 0.5, rampId, { cap, lift: reach > 0 ? -0.5 : 0 })
-    if (reach < 0 || drop > 0.9) toes.push([tx, ty - r0 * thick])
+  const toes: Array<[number, number]> = []
+  for (const [side, out, drop, thick] of roots) {
+    const flank = Math.abs(side) === 1
+    // The toe's middle: its outer edge is `out` px past the trunk's side.
+    const tx = flank ? x + side * (r0 + out - thick) : x + side * r0
+    const ty = foot - thick + 0.6 + drop
+    // A flank root leaves the trunk well up, so the foot swells into it; the toe itself is short.
+    const from = flank ? foot - r0 * 1.7 : foot - r0 * 0.5
+    limb(p, x + side * r0 * 0.42, from, flank ? Math.max(thick, r0 * 0.6) : thick, tx, ty, thick, z + 0.3 + drop * 0.5, rampId, { cap, lift: side > 0 ? -0.5 : 0 })
+    if (side < 0 || drop > 0.9) toes.push([tx, ty - thick])
   }
-  return { forks: [[xt + (a[0] - xt) * 0.6, top + 2 + (a[1] - top - 2) * 0.6], [xt + (b[0] - xt) * 0.6, top + 3 + (b[1] - top - 3) * 0.6]], toes }
+  return toes
 }
 
 /** The one light a trunk has above its own shade: a pixel on top of every toe that points at the sun, just inside the line. */
@@ -842,40 +960,57 @@ function toeLights(p: Plot, toes: Array<[number, number]>, rampId: number, step:
 const BERRY = ['lm', 'd.']
 const GLOW = ['.m.', 'mcm', '.m.']
 
-/** Neon among the leaves: a few berries or blossoms, never on the crown's edge. */
-function blossoms(p: Plot, R: () => number, mass: Lobe, n: number, c: Neon, rows: readonly string[] = BERRY): void {
-  for (let k = 0; k < n; k++) {
-    const a = (k / n) * 6.283 + R() * 1.2
-    const q = 0.3 + R() * 0.38
-    const x = Math.round(mass.cx + Math.cos(a) * q * mass.rx)
-    const y = Math.round(mass.cy + Math.sin(a) * q * mass.ry)
-    if (p.z[y * p.w + x] === NONE || p.z[(y + 2) * p.w + x + 1] === NONE || p.z[(y - 1) * p.w + x - 1] === NONE) continue
-    if (rows === BERRY) {
-      stamp(p, x, y, rows, c)
+/**
+ * Berries in bunches, as they grow: two or three bunches of two or three,
+ * all in the bush's lower or east half, never on its edge. `sizes` is how
+ * many berries each bunch has.
+ */
+function berries(p: Plot, R: () => number, mass: Lobe, sizes: readonly number[], c: Neon): void {
+  const spots = [[0.5, 0.05], [-0.3, 0.42], [0.2, 0.5]]
+  const hang = [[0, 0], [3, 1], [-1, 3]]
+  sizes.forEach((n, b) => {
+    const bx = Math.round(mass.cx + (spots[b][0] + (R() - 0.5) * 0.16) * mass.rx)
+    const by = Math.round(mass.cy + (spots[b][1] + (R() - 0.5) * 0.12) * mass.ry)
+    for (let k = 0; k < n; k++) {
+      const x = bx + hang[k][0]
+      const y = by + hang[k][1]
+      let ok = true
+      for (let oy = -1; oy <= 2 && ok; oy++) for (let ox = -1; ox <= 2 && ok; ox++) {
+        const i = (y + oy) * p.w + x + ox
+        if (x + ox < 1 || y + oy < 1 || x + ox >= p.w - 1 || y + oy >= p.h - 1 || p.z[i] === NONE || p.fix[i] >= 0) ok = false
+      }
+      if (!ok) continue
+      stamp(p, x, y, BERRY, c)
       // A berry sits in the leaves: a step of shade under it.
       for (const [ox, oy] of [[1, 1], [0, 2]]) { const i = (y + oy) * p.w + x + ox; if (p.fix[i] < 0 && p.ix[i] > 1) p.ix[i]-- }
-    } else stamp(p, x - 1, y - 1, rows, c)
-  }
+    }
+  })
 }
 
-/** The Wildwood's lights: small glowing plus signs in two huddles down in the crown's shade, never on a lit leaf. */
-function glows(p: Plot, R: () => number, mass: Lobe, n: number, c: Neon): void {
+/**
+ * Small lights among the leaves in two huddles, clear of the edge and of
+ * each other: the Wildwood's glowing plus signs down in the crown's shade
+ * (`dim`: never on a leaf lighter than that step), or blossoms up where the
+ * crown is lit. `at` is where the huddles are on the crown, in shares of
+ * its radii: how far out to each side, and how far down the west one and
+ * the east one are.
+ */
+function huddles(p: Plot, R: () => number, mass: Lobe, n: number, c: Neon, rows: readonly string[], dim: number, at: readonly [number, number, number]): void {
   let left = n
   for (const side of [-1, 1]) {
-    const hx = mass.cx + side * mass.rx * (0.3 + R() * 0.2)
-    const hy = mass.cy + mass.ry * (0.25 + R() * 0.25)
+    const hx = mass.cx + side * mass.rx * (at[0] + R() * 0.2)
+    const hy = mass.cy + mass.ry * (at[side < 0 ? 1 : 2] + R() * 0.25)
     let here = side < 0 ? Math.ceil(n / 2) : left
     for (let tries = 0; tries < 24 && here > 0; tries++) {
       const x = Math.round(hx + (R() - 0.5) * 12)
       const y = Math.round(hy + (R() - 0.5) * 8)
       let ok = true
-      // In the leaves, in the shade, and clear of the edge and of the other lights.
       for (let oy = -2; oy <= 2 && ok; oy++) for (let ox = -2; ox <= 2 && ok; ox++) {
         const i = (y + oy) * p.w + x + ox
-        if (x + ox < 0 || y + oy < 0 || x + ox >= p.w || y + oy >= p.h || p.z[i] === NONE || p.ramp[i] !== 0 || p.fix[i] >= 0 || p.ix[i] > 3) ok = false
+        if (x + ox < 0 || y + oy < 0 || x + ox >= p.w || y + oy >= p.h || p.z[i] === NONE || p.ramp[i] !== 0 || p.fix[i] >= 0 || p.ix[i] > dim) ok = false
       }
       if (!ok) continue
-      stamp(p, x - 1, y - 1, GLOW, c)
+      stamp(p, x - 1, y - 1, rows, c)
       here--
       left--
     }
@@ -883,8 +1018,8 @@ function glows(p: Plot, R: () => number, mass: Lobe, n: number, c: Neon): void {
 }
 
 /** The big plants take the light the same way; a bush is all crown, so its belly is the ground's shade. */
-const CROWN_SHADE: Shade = { mid: 3.2, mass: 2, bough: 1.95 }
-const BUSH_SHADE: Shade = { mid: 3.45, mass: 1.9, bough: 1.5 }
+const CROWN_SHADE: Shade = { mid: 3.2, mass: 2, bough: 1.95, belly: 0.55, under: 0.58, bellyAt: 0.42 }
+const BUSH_SHADE: Shade = { mid: 3.8, mass: 2, bough: 1.5, belly: 0.4, under: 0.95, bellyAt: 0.66 }
 
 function paintTree(L: Look, v: number, seed: number): Cut {
   const R = seeded(seed)
@@ -899,14 +1034,16 @@ function paintTree(L: Look, v: number, seed: number): Cut {
   const bottom = foot - bare
   const c = crownForm(TREES[v], R, cx + lean, bottom, 0.94)
   underside(p, c.mass, bottom, 2.5)
-  const t = trunk(p, cx, foot, bottom - 4, [4.3, 3.9, 4.6, 4][v], [3.1, 2.8, 3.2, 2.9][v], lean, 1, 15, bottom + bare * 0.4, L.barkTop, ROOTS[v], 2.7)
+  const toes = trunk(p, cx, foot, bottom - 4, [4.3, 3.4, 5, 3.8][v], [3.1, 2.5, 3.5, 2.8][v], lean, 1, 15, bottom + bare * 0.4, L.barkTop, ROOTS[v], 2.7)
   crown(p, R, c, 3.3 / Math.sqrt(L.dense), 0, CROWN_SHADE)
+  plug(p, 0, bottom - 3)
   ink(p, { outline: 'in', shadow: 3, gamma: 1.25, crease: 1.7, merge: [0] })
-  toeLights(p, t.toes, 1, L.barkTop + 1)
-  leafMarks(p, R, c.mass, 0, 8)
-  rimLight(p, L, 0, c.mass, 3)
-  if (v === 3 && !L.glow) blossoms(p, R, c.mass, 6, PINK, CROSS)
-  if (L.glow && v % 2 === 1) glows(p, R, c.mass, 4, L.glow)
+  toeLights(p, toes, 1, L.barkTop + 1)
+  leafMarks(p, R, c.mass, 0, 8, CROWN_SHADE)
+  leafTips(p, R, 0)
+  rimLight(p, L, 0, c.mass, 2)
+  if (v === 3 && !L.glow) huddles(p, R, c.mass, 6, PINK, CROSS, 6, [0.25, -0.45, 0.05])
+  if (L.glow && v % 2 === 1) huddles(p, R, c.mass, 4, L.glow, GLOW, 3, [0.3, 0.25, 0.25])
   return cut(p, cx, foot)
 }
 
@@ -919,19 +1056,21 @@ function paintCanopy(L: Look, v: number, seed: number): Cut {
   const foot = H - 4
   const lean = [0, 1.5, -2, 1][v]
   // Forest trees stand shoulder to shoulder: broad heads on long trunks the row in front hides.
-  const bare = [26, 25, 32, 25][v]
+  const bare = [26, 23, 32, 25][v]
   const bottom = foot - bare
-  const c = crownForm(CANOPIES[v], R, cx + lean, bottom, 0.93)
+  // The twin-headed one is the broadest and the lowest, so a row of them has no two alike.
+  const c = crownForm(CANOPIES[v], R, cx + lean, bottom, v === 1 ? 1 : 0.93, v === 1 ? 0.95 : 1)
   underside(p, c.mass, bottom, 3)
-  const t = trunk(p, cx, foot, bottom - 5, [5.6, 5.2, 6, 5.4][v], [4.3, 4, 4.5, 4.1][v], lean, 1, 17, bottom + bare * 0.4, L.barkTop, ROOTS[(v + 2) % 4], 3.4)
-  // Where the leaves part, the sky and the fork's limbs show.
-  if (v !== 1) skyHole(p, t.forks[v % 2][0], t.forks[v % 2][1], 3.3)
+  // No two of them have the same girth, so a row of them is not a fence.
+  const toes = trunk(p, cx, foot, bottom - 5, [5.4, 4.5, 6.4, 5][v], [4.2, 3.5, 4.9, 3.8][v], lean, 1, 17, bottom + bare * 0.4, L.barkTop, ROOTS[(v + 2) % 4], 3.4)
   crown(p, R, c, 3.7 / Math.sqrt(L.dense), 0, CROWN_SHADE)
+  plug(p, 0, bottom - 4)
   ink(p, { outline: 'in', shadow: 3, gamma: 1.25, crease: 1.7, merge: [0] })
-  toeLights(p, t.toes, 1, L.barkTop + 1)
-  leafMarks(p, R, c.mass, 0, 8)
-  rimLight(p, L, 0, c.mass, 3)
-  if (L.glow && v % 2 === 0) glows(p, R, c.mass, 5, L.glow)
+  toeLights(p, toes, 1, L.barkTop + 1)
+  leafMarks(p, R, c.mass, 0, 8, CROWN_SHADE)
+  leafTips(p, R, 0)
+  rimLight(p, L, 0, c.mass, 2)
+  if (L.glow && v % 2 === 0) huddles(p, R, c.mass, 5, L.glow, GLOW, 3, [0.3, 0.25, 0.25])
   return cut(p, cx, foot)
 }
 
@@ -943,14 +1082,16 @@ function paintBush(L: Look, v: number, seed: number): Cut {
   const cx = 20
   const foot = H - 4
   // Round and friendly, wider than tall, flat where it sits; its leaves are smaller than a tree's.
-  const c = crownForm(BUSHES[v], R, cx, foot + 1, 0.97, 1.22)
+  const c = crownForm(BUSHES[v], R, cx, foot + 1, 0.91, 1.2)
   underside(p, c.mass, foot + 1, 1.5)
-  crown(p, R, c, 2.35 / Math.sqrt(L.dense), 0, BUSH_SHADE)
+  crown(p, R, c, 2.35 / Math.sqrt(L.dense), 0, BUSH_SHADE, v === 2 ? 3 : 2)
+  // One mound: its leaves are painted, not modelled.
+  soften(p, 2)
   ink(p, { outline: 'in', shadow: 0, gamma: 1.2, crease: 1.5, merge: [0] })
-  leafMarks(p, R, c.mass, 0, 7)
-  rimLight(p, L, 0, c.mass, 1)
+  leafMarks(p, R, c.mass, 0, 7, BUSH_SHADE)
+  leafTips(p, R, 0)
   // Berries, as on the classic bush.
-  blossoms(p, R, { ...c.mass, cy: c.mass.cy + 1 }, 3 + (v === 1 ? 1 : 0), L.glow ?? PINK)
+  berries(p, R, c.mass, [[2, 3], [3], [3, 2]][v], L.glow ?? PINK)
   return cut(p, cx, foot)
 }
 
@@ -958,14 +1099,20 @@ function paintBush(L: Look, v: number, seed: number): Cut {
 // Grass, tufts, flowers, reeds
 // ---------------------------------------------------------------------------
 
-/** The four tussocks of tall grass: how many blades, how wide, how tall, which way the wind has bent them, how many blades cross the others. */
+/** The four tussocks of tall grass: how many blades stand in front, half the fan's width, how tall, which way the wind has bent them. */
 const TALL = [
-  { n: 7, span: 6.5, tall: 19, wind: 0.2, cross: 1 },
-  { n: 5, span: 5.5, tall: 21, wind: -0.3, cross: 2 },
-  { n: 9, span: 7.5, tall: 17, wind: 0.1, cross: 1 },
-  { n: 6, span: 6, tall: 19, wind: 0.4, cross: 2 },
+  { n: 9, span: 9, tall: 19, wind: 0.15 },
+  { n: 8, span: 7.5, tall: 20, wind: -0.25 },
+  { n: 11, span: 10.5, tall: 16, wind: 0.1 },
+  { n: 9, span: 8.5, tall: 19, wind: 0.3 },
 ]
 
+/**
+ * Tall grass: a clump, thick in its lower half, on a root no wider than
+ * half of it. Broad dark blades behind make the mass, the outer ones lying
+ * low and out; green blades stand in front of them, lighter to the west;
+ * and a few of those have caught the lamps on their last pixel.
+ */
 function paintTall(L: Look, v: number, seed: number): Cut {
   const R = seeded(seed)
   const W = 36
@@ -974,28 +1121,25 @@ function paintTall(L: Look, v: number, seed: number): Cut {
   const cx = 18
   const foot = H - 2
   const S = TALL[v]
-  // A blade goes up and then out: the further from the middle it is rooted, the more its tip leans away.
-  const fan = (x0: number, len: number, f: number, w0: number, z: number, lo: number, hi: number, o: { root?: number; tip?: number; tipRows?: number }) => {
-    const out = f * S.span * 0.95 + S.wind * len * 0.3
-    blade(p, x0, foot, x0 + out, foot - len, -out * 0.42, w0, z, 0, lo, hi, o)
+  // A blade is rooted near the middle and its tip leans away from it, never further out than it is tall.
+  const fan = (f: number, len: number, w0: number, z: number, lo: number, hi: number, tip: number) => {
+    const x0 = cx + f * S.span * 0.34
+    const a = Math.abs(f)
+    const out = clamp(f * S.span * 0.78 + S.wind * len * 0.3, -len * 0.85, len * 0.85)
+    blade(p, x0, foot, x0 + out, foot - len, -out * (0.45 - 0.3 * a), w0, z, 0, lo, hi, { root: a < 0.5 ? 1.6 / len : 0, tip, tipRows: 1, full: true })
   }
-  // The thick of it: broad blades in the dark behind the others.
-  const m = Math.max(3, Math.round(S.span * 0.6))
+  // The thick of it: broad blades in the darker green (dark enough to be a mass, light enough to stand off the ground at dusk), the outer ones low.
+  const m = Math.round(S.span * 0.8)
   for (let k = 0; k <= m; k++) {
     const f = k / m * 2 - 1
-    fan(cx + f * S.span * 0.5, S.tall * (0.8 - 0.2 * f * f) * (0.9 + R() * 0.2), f, 5, 9.5 + k * 0.01, 1, 2, { root: 0.3 + R() * 0.2, tip: 3, tipRows: 2 })
+    fan(f, S.tall * (0.76 - 0.3 * f * f) * (0.92 + R() * 0.16), 4, 9.5 + k * 0.01, k % 2 ? 1 : 2, 2, 0)
   }
-  // The blades: dark where they rise out of the tussock, and only every third one has caught the light on its tip.
+  // The blades in front, in the body's green; every third is a step lighter and has caught a lamp on its tip.
   for (let k = 0; k < S.n; k++) {
     const f = (k + (R() - 0.5) * 0.4) / (S.n - 1) * 2 - 1
     const lit = k % 3 === v % 3
-    const len = S.tall * (1 - 0.34 * f * f) * (lit ? 0.9 + R() * 0.1 : 0.6 + R() * 0.3)
-    fan(cx + f * S.span * 0.55, len, f, lit ? 4 : 3, 10 + k * 0.01 + (lit ? 1 : 0), 2, 3, { root: 0.1 + R() * 0.25, tip: lit ? 5 : 0, tipRows: 2 })
-  }
-  // And one or two that lie bent across the others.
-  for (let k = 0; k < S.cross; k++) {
-    const side = (k % 2 ? -1 : 1) * (S.wind < 0 ? -1 : 1)
-    blade(p, cx - side * S.span * 0.35, foot, cx + side * S.span * (1 + R() * 0.3), foot - S.tall * (0.5 + R() * 0.15), -side * S.span * 0.55, 2, 12 + k, 0, 2, 3, { root: 0.2, tip: 4, tipRows: 1 })
+    const len = S.tall * (1 - 0.4 * f * f) * (lit ? 0.92 + R() * 0.08 : 0.66 + R() * 0.24)
+    fan(f, len, 2, 10.5 + k * 0.01 + (lit ? 1 : 0), lit ? 4 : 2, lit ? 4 : 3, lit ? 5 : 0)
   }
   // The foot is round, not a sill: its two corners go.
   const row = Math.round(foot - 0.5)
@@ -1004,52 +1148,46 @@ function paintTall(L: Look, v: number, seed: number): Cut {
   return cut(p, cx, foot)
 }
 
-/** The ground tufts made of blades: where each is rooted, how far its tip leans, how tall, the step of its last pixel (0: none), how wide. */
-const TUFTS: ReadonlyArray<ReadonlyArray<readonly [number, number, number, number, number]>> = [
-  [[-2, -2.5, 6, 2, 2], [0, 0.5, 9, 4, 2], [2, 3, 6, 0, 2]],
-  [[-1.5, -3.5, 8, 4, 2], [1, 1.5, 7, 2, 2], [0.5, 4, 4, 0, 2]],
-  [[-3, -4, 5, 0, 2], [-1, -1, 7, 4, 2], [1, 1.5, 6, 2, 2], [3, 4, 4.5, 0, 2]],
+/** The ground tufts made of blades: where each is rooted, how far its tip leans, how tall, the step of its last pixel (0: none), how wide, the step of its lit side (its other side is one darker). */
+const TUFTS: ReadonlyArray<ReadonlyArray<readonly [number, number, number, number, number, number]>> = [
+  [[-2, -2.5, 6, 0, 2, 4], [0, 0.5, 9, 5, 2, 3], [2, 3, 6, 0, 2, 3]],
+  [[-1.5, -3.5, 8, 5, 2, 4], [1, 1.5, 7, 0, 2, 3], [0.5, 4, 4, 0, 2, 3]],
+  [[-3, -4, 5, 0, 2, 4], [-1, -1, 7, 5, 2, 3], [1, 1.5, 6, 0, 2, 3], [3, 4, 4.5, 0, 2, 3]],
   // A fern: short broad leaves in a rosette.
-  [[-1, -5.5, 5, 3, 3], [0, -1, 7, 4, 3], [1, 5, 5.5, 3, 3]],
+  [[-1, -5.5, 5, 0, 3, 4], [0, -1, 7, 5, 3, 3], [1, 5, 5.5, 0, 3, 3]],
+  // A spray of five thin blades.
+  [[-2, -4.5, 4, 0, 1, 4], [-1, -2.5, 7, 5, 1, 4], [0, 0, 8, 0, 2, 3], [1, 2.5, 6, 0, 1, 3], [2, 4.5, 3.5, 0, 1, 3]],
 ]
 
+/** A tuft is a few blades of the grass's body greens, the western one a step lighter, one of them with a lit pixel on its tip; only its root pixel is dark. A dark tuft is lost on the ground at dusk. */
 function paintTuft(L: Look, v: number, _seed: number): Cut {
   const W = 22
   const H = 18
-  const p = plot(W, H, [L.grass, L.shrub, L.bark])
+  const p = plot(W, H, [L.grass, L.bark])
   const cx = 11
   const foot = H - 2
-  // A tuft reads by being dark on the ground: two dark steps and one pixel of light.
-  if (v < 4) for (const [x0, dx, tall, tip, w0] of TUFTS[v]) blade(p, cx + x0, foot, cx + x0 + dx, foot - tall, dx * 0.3, w0, 10, 0, v === 3 ? 1 : 0, v === 3 ? 2 : 1, { root: 0.3, tip, tipRows: 1 })
-  else if (v === 4) {
-    // Clover: three leaves on one stem.
-    draw(p, cx - 5, foot - 6, CLOVER, 1)
-  } else if (L.glow) {
-    // The Wildwood's own: two small lit caps.
-    limb(p, cx - 2, foot, 1, cx - 2, foot - 5, 0.9, 9, 2, { lift: 1 })
-    limb(p, cx + 3, foot, 0.8, cx + 3, foot - 3, 0.7, 9, 2, { lift: 1 })
+  if (v < 5) {
+    for (const [x0, dx, tall, tip, w0, hi] of TUFTS[v]) blade(p, cx + x0, foot, cx + x0 + dx, foot - tall, dx * 0.3, w0, 10, 0, hi - 1, hi, { root: 1.2 / tall, tip, tipRows: 1, full: true })
+    ink(p, { outline: 'none', shadow: 0, gamma: 1 })
+    return cut(p, cx, foot)
+  }
+  if (L.glow) {
+    // The Wildwood's own: two small lit caps. It stands on the stem of the bigger one.
+    limb(p, cx - 2, foot, 1, cx - 2, foot - 5, 0.9, 9, 1, { lift: 1 })
+    limb(p, cx + 3, foot, 0.8, cx + 3, foot - 3, 0.7, 9, 1, { lift: 1 })
     stamp(p, cx - 5, foot - 8, ['.mll.', 'mllcl', 'dmmmm'], L.glow, 12)
     stamp(p, cx + 1, foot - 5, ['.ml.', 'dmlm'], L.glow, 12)
-  } else {
-    // A seedling: two leaves and a pale bud.
-    blade(p, cx, foot, cx, foot - 6, 0, 1, 9, 0, 1, 2, { root: 0.3, tip: 0 })
-    blade(p, cx, foot - 2, cx - 4, foot - 5, -1, 2, 10, 0, 1, 2, { tip: 3, tipRows: 1 })
-    blade(p, cx, foot - 2, cx + 4, foot - 6, 1, 2, 10, 0, 1, 2, { tip: 0 })
-    draw(p, cx - 1, foot - 8, ['45', '34'], 0, 11)
+    ink(p, { outline: 'none', shadow: 0, gamma: 1 })
+    return cut(p, cx - 2, foot)
   }
+  // A seedling: two leaves and a pale bud.
+  blade(p, cx, foot, cx, foot - 6, 0, 1, 9, 0, 2, 3, { root: 0.2, tip: 0 })
+  blade(p, cx, foot - 2, cx - 4, foot - 5, -1, 2, 10, 0, 2, 3, { tip: 4, tipRows: 1 })
+  blade(p, cx, foot - 2, cx + 4, foot - 6, 1, 2, 10, 0, 2, 2, { tip: 0 })
+  draw(p, cx - 1, foot - 8, ['45', '34'], 0, 11)
   ink(p, { outline: 'none', shadow: 0, gamma: 1 })
   return cut(p, cx, foot)
 }
-
-const CLOVER = [
-  '....34.....',
-  '...3443....',
-  '.34.232.34.',
-  '3443.1.3443',
-  '2332.1.2332',
-  '.21..0..12.',
-  '.....0.....',
-]
 
 /** The three blossoms, as placed pixels: a daisy, a bell, and the classic view's small cross. */
 const DAISY = ['.lll.', 'lmmmm', 'lmcmd', 'mmmmd', '.mdd.']
@@ -1114,11 +1252,13 @@ function paintReed(L: Look, v: number, _seed: number): Cut {
   for (const [x0, tall, lean] of S.stalks) {
     const id = ++p.parts
     const head = ++p.parts
+    // The head is straight, whatever the stalk under it does.
+    const from = tall - 7
     for (let k = 0; k < tall; k++) {
-      const t = k / (tall - 1)
+      const t = Math.min(k, from) / (tall - 1)
       const x = Math.round(cx + x0 + lean * t * t - 0.5)
       const y = Math.round(foot - 0.5) - k
-      put(p, x, y, 11, 0, 0, 0.3, 0.9, id, (t < 0.14 ? 0 : t < 0.3 ? 1 : k >= tall - 2 ? 3 : 2) + 1)
+      put(p, x, y, 11, 0, 0, 0.3, 0.9, id, (k < tall * 0.14 ? 0 : k < tall * 0.3 ? 1 : k >= tall - 2 ? 3 : 2) + 1)
       // The head: five rows of velvet two wide under the bare spike, lit from the west.
       const q = tall - 3 - k
       if (q < 0 || q > 4) continue
@@ -1143,7 +1283,8 @@ function paintReed(L: Look, v: number, _seed: number): Cut {
  * positive) and sinks under its own weight, with leaflets out to both sides
  * that hang the more the more they point down. The leaflets go in uneven
  * bands, light and dark and shorter, so the frond is striped and its edge is
- * toothed.
+ * toothed. Its normal faces the viewer at the crown and turns out along the
+ * spine toward the tip, so the light sees it arc.
  */
 function frond(p: Plot, x0: number, y0: number, ang: number, len: number, droop: number, leaf: number, z0: number, rampId: number, tone: number, phase: number): void {
   const id = ++p.parts
@@ -1160,6 +1301,8 @@ function frond(p: Plot, x0: number, y0: number, ang: number, len: number, droop:
     const tl = Math.hypot(tx, ty) || 1
     tx /= tl
     ty /= tl
+    const curl = 0.1 + 0.85 * t
+    const face = 1 - 0.7 * t
     // Bands of three light, two dark, two light, two dark px along the spine.
     const q = (t * len + phase) % 9
     const dark = (q >= 3 && q < 5) || q >= 7
@@ -1173,10 +1316,10 @@ function frond(p: Plot, x0: number, y0: number, ang: number, len: number, droop:
       const reach = lf * (0.4 + 0.6 * clamp(uy, 0, 1))
       const step = clamp(tone - (dark ? 1 : 0) + (uy < 0.25 ? 1 : 0), 1, top)
       for (let s = 0.5; s <= reach; s += 0.5) {
-        put(p, Math.round(x + ux * s - 0.5), Math.round(y + uy * s - 0.5), z0 - s * 0.08 + t * 0.4, rampId, ux * 0.45 + tx * 0.15, 0.35 - uy * 0.3, 0.8, id, step + 1)
+        put(p, Math.round(x + ux * s - 0.5), Math.round(y + uy * s - 0.5), z0 - s * 0.08 + t * 0.4, rampId, ux * 0.35 + tx * curl, 0.3 - uy * 0.3 - ty * curl, face, id, step + 1)
       }
     }
-    put(p, Math.round(x - 0.5), Math.round(y - 0.5), z0 + 0.5 + t * 0.4, rampId, tx * 0.2, 0.6, 0.75, id, clamp(tone + (t < 0.7 ? 2 : 1), 1, top) + 1)
+    put(p, Math.round(x - 0.5), Math.round(y - 0.5), z0 + 0.5 + t * 0.4, rampId, tx * curl, 0.5 - ty * curl, face, id, clamp(tone + (t < 0.7 ? 2 : 1), 1, top) + 1)
   }
 }
 

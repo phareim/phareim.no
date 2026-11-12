@@ -695,7 +695,8 @@ void main() {
       float m = vnoise(mw) * 0.62 + vnoise(mw * 2.7 + 5.0) * 0.38;
       m = smoothstep(0.42, 0.78, m) * (1.0 - smoothstep(0.15, 1.5, z));
       float band = floor(m * 4.0 + bayer(s) * 0.99) / 4.0;
-      c = mix(c, c * 0.55 + uMistColor, band * uMist * 0.55);
+      // It lies on the ground: what stands in it (a figure, a clump of grass) keeps most of its colour.
+      c = mix(c, c * 0.62 + uMistColor, band * uMist * (mat >= 3 ? 0.14 : 0.42));
     }
     if (uRays > 0.0) {
       // The low sun comes through in shafts, slanting down from the west.
