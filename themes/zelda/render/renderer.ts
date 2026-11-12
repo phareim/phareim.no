@@ -24,7 +24,7 @@ import type { HudKeys } from '../keys'
 import { AMBIENCE } from './tones'
 import { bloomDecals, drawDecals, lightDecals } from './decals'
 import { BEACH_BEAT, createLabels, drawExitLabels, queueExits, type Emit } from './exits'
-import { frameCount, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteT } from './sheet'
+import { frameCount, heroStyle, makeCanvas, setHeroColors, setHeroLook, silhouette, sprite, spriteT } from './sheet'
 import type { HeroLook } from './heroLook'
 import type { HeroColors } from '../../miniworld/types'
 import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
@@ -176,6 +176,13 @@ export interface Kit {
   staticMood(s: GameState): boolean
   /** How the view shows a world angle (blades swing by it); null: as it is. */
   setAim(fn: ((a: number) => number) | null): void
+  /**
+   * A view that draws the hero's body and blade itself says so here: `queue`'s hero item then draws only
+   * what the hero holds up (a pot, a found thing) and still adds the blade's light.
+   */
+  setHeroBare(on: boolean): void
+  /** What the hero wears: the booth's look, a made figure's colours on the drawn shape, or the drawn hero. */
+  heroLook(): HeroLook
   /** The scene step (px) from one world point to another, for a drawing that reaches from its own thing to a second one (the twins' tether, the king's shards); null: the classic step. */
   setSpan(fn: ((x1: number, y1: number, x2: number, y2: number) => Vec) | null): void
   /** `into`: the colour a fade ends in (the classic night, or a view's own sheet). */
@@ -420,6 +427,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const x = h.x * T - cx
     const feet = h.y * T - cy + 6
     const { key, flip } = dirKey(h.dir)
+    if (heroBare && (h.act === 'dead' || h.act === 'fall')) return
     if (h.act === 'dead') {
       const d = s.dying ? s.dying.t : 0
       if (d < 0.8) {
@@ -435,7 +443,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       return
     }
     if (h.invuln > 0 && h.act !== 'get' && Math.floor(time * 20) % 2 === 0) return
-    shadow(g, x, feet - 1, 10)
+    if (!heroBare) shadow(g, x, feet - 1, 10)
     let name = `hero_${key}_0`
     const step = Math.floor(h.walkT * 7) % 4
     const walkFrame = [1, 0, 2, 0][step]!
@@ -449,7 +457,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         const start = seq.indexOf(order[0]!)
         const dd = dirKey(seq[(start + Math.floor(p * 4)) % 4]!)
         name = `hero_${dd.key}_atk`
-        put(g, name, x, feet, dd.flip)
+        if (!heroBare) put(g, name, x, feet, dd.flip)
         drawSpinBlade(g, s, x, feet - 7, lights)
         return
       }
@@ -462,7 +470,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const blade = h.swing || (h.charge > 0.12 && s.inv.sword && !h.carry)
     // Blade behind the body when facing up.
     if (blade && h.dir === 'up') drawBlade(g, s, x, feet - 7, lights)
-    put(g, name, x, feet, flip && h.act !== 'hurt' && h.act !== 'get')
+    if (!heroBare) put(g, name, x, feet, flip && h.act !== 'hurt' && h.act !== 'get')
     if (blade && h.dir !== 'up') drawBlade(g, s, x, feet - 7, lights)
     if (h.carry || h.act === 'lift') {
       const lift = h.act === 'lift' ? Math.min(1, h.actT / 0.18) : 1
@@ -478,6 +486,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   }
 
   let arc = false
+  /** The view draws the hero's body and blade itself (`setHeroBare`). */
+  let heroBare = false
   /** A world angle as the view shows it (the classic view: as it is). */
   let aim: (a: number) => number = a => a
   /** The scene step between two world points in a view that moves drawings (null: the classic view, where it is plain arithmetic). */
@@ -511,12 +521,15 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const h = s.hero
     let a: number
     let reach = 11
-    if (h.swing) a = swingAngle(h.swing.dir, h.swing.t / SWING_TIME)
+    if (h.swing) a = swingAngle(h.swing, h.swing.t / SWING_TIME)
     else {
       a = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 }[h.dir]
       reach = 9
     }
     a = aim(a)
+    const charged = !h.swing && h.charge >= 0.55
+    lights.push({ x: (x + Math.cos(a) * 16) / T + camX / T, y: (y + Math.sin(a) * 16) / T + camY / T, r: charged ? 2.6 : 1.8, color: arc ? '#ffd23f' : '#2ff3ff', a: charged ? (Math.floor(time * 12) % 2 ? 1 : 0.5) : 0.7 })
+    if (heroBare) return
     const bs = bladeSprite(a)
     const bx = x + Math.cos(a) * reach
     const by = y + Math.sin(a) * reach
@@ -524,13 +537,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (h.swing) {
       g.fillStyle = arc ? 'rgba(255,210,63,0.4)' : 'rgba(47,243,255,0.35)'
       for (let k = 1; k <= 3; k++) {
-        const pa = aim(swingAngle(h.swing.dir, Math.max(0, h.swing.t / SWING_TIME - k * 0.12)))
+        const pa = aim(swingAngle(h.swing, Math.max(0, h.swing.t / SWING_TIME - k * 0.12)))
         g.fillRect(Math.round(x + Math.cos(pa) * 13) - 1, Math.round(y + Math.sin(pa) * 13) - 1, 3, 3)
       }
     }
     blit(g, bs.name, bs.fh, bs.fv, bx, by)
-    const charged = !h.swing && h.charge >= 0.55
-    lights.push({ x: (x + Math.cos(a) * 16) / T + camX / T, y: (y + Math.sin(a) * 16) / T + camY / T, r: charged ? 2.6 : 1.8, color: arc ? '#ffd23f' : '#2ff3ff', a: charged ? (Math.floor(time * 12) % 2 ? 1 : 0.5) : 0.7 })
     if (charged && Math.floor(time * 12) % 2 === 0) {
       g.fillStyle = '#ffffff'
       const tx = Math.round(x + Math.cos(a) * 17)
@@ -545,6 +556,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const p = h.spin ? h.spin.t / SPIN_TIME : 0
     const base = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 }[h.dir]
     const a = aim(base) + p * Math.PI * 2
+    lights.push({ x: h.x, y: h.y, r: 3.2, color: '#2ff3ff', a: 0.8 })
+    if (heroBare) return
     g.fillStyle = 'rgba(47,243,255,0.45)'
     for (let k = 0; k < 10; k++) {
       const pa = a - k * 0.22
@@ -552,7 +565,6 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     }
     const bs = bladeSprite(a)
     blit(g, bs.name, bs.fh, bs.fv, x + Math.cos(a) * 12, y + Math.sin(a) * 11)
-    lights.push({ x: h.x, y: h.y, r: 3.2, color: '#2ff3ff', a: 0.8 })
   }
 
   function itemIcon(item: string): string {
@@ -1325,6 +1337,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     lakeSun: drawLakeSun,
     staticMood: s => staticMood(s, mapInfo(world, s.map.id)),
     setAim(fn) { aim = fn ?? (a => a) },
+    setHeroBare(on) { heroBare = on },
+    heroLook: heroStyle,
     setSpan(fn) { span = fn },
     flashFade,
     present,
@@ -1336,6 +1350,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   function draw(s: GameState, ui: FrameUI, dt: number) {
     begin(s, ui, dt)
+    // A view that draws the hero itself says so again each frame.
+    heroBare = false
     const now = turn.step(dt)
     const v = now.shown ? views.get(now.shown) : undefined
     if (!v) { aim = a => a; span = null; drawClassic(s, ui, dt); return }

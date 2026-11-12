@@ -69,15 +69,14 @@ starts in is not written, so a browser that never chose follows the site's
 first view, and one failed fetch of a view's code does not pin it to the
 classic picture. `/?view=<id>` asks for one.
 
-- **Finding them** (2026-11-12). The views are behind the pause: on the
-  pause screen V turns to the next view (the screen names the one that is
-  on), and on touch the pause buttons have VIEW beside RESUME, SOUND and TO
-  TOWN. Nothing beside the world turns the view: there is no view button in
-  the corner, V does nothing in play, and the page's first hint names no
-  view key (`tests/zelda-views.test.mjs` holds it to that). The one thing in
-  the world that does is the **viewfinder** east of the fountain (exit
+- **Finding them** (2026-11-12). V turns to the next view, in play and on
+  the pause screen alike (the pause screen names the one that is on), and on
+  touch the pause buttons have VIEW beside RESUME, SOUND and TO TOWN. There
+  is no view button in the corner beside the world, and the page's first
+  hint names no view key (`tests/zelda-views.test.mjs` holds it to that).
+  In the world itself there is the **viewfinder** east of the fountain (exit
   `view`, look `scope`, panel `view`, which opens nothing): A turns to the
-  next view and brings up the **view strip** (`drawViewStrip` in `hud.ts`),
+  next view. Outside the pause screen a turn brings up the **view strip** (`drawViewStrip` in `hud.ts`),
   the whole round side by side for 2.6 s, the one in use lit.
 - **Values** (`viewParams.ts`). `renderer.setParams(engine, values)` hands an
   engine a view's values; `kit.params(id)` reads them, `kit.finish(id)` is the

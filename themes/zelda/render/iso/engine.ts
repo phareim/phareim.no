@@ -59,8 +59,14 @@ export interface Look {
 export interface FrameIn {
   cam: Cam
   R: Rect
+  /** The tile data's extent: its corner tile (the land beyond the edge reaches below zero) and its size. */
+  mapX: number
+  mapY: number
   mapW: number
   mapH: number
+  /** The map itself, and how much what lies outside it sinks into the dusk (0: not at all). */
+  inner: Rect
+  far: number
   rooms: Rect[]
   time: number
   outdoors: boolean
@@ -108,6 +114,8 @@ export interface Engine {
   sky(c: HTMLCanvasElement): void
   /** Plants: colour and normals. */
   flora(albedo: HTMLCanvasElement, normal: HTMLCanvasElement): void
+  /** The hero's figure (`figure.ts`), w × h px: its colours with a straight alpha, and its normals with its glow in their alpha. */
+  figure(albedo: Uint8ClampedArray, normal: Uint8ClampedArray, w: number, h: number): void
   /** Per tile: r = height of what stands there / 4, g = 1 for water, b = how wet the ground is. */
   tiles(data: Uint8Array, w: number, h: number): void
   draw(f: FrameIn): void
@@ -202,6 +210,8 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
   const skyT = texture(gl, 1, 1, { linear: false })
   const floraT = texture(gl, 1, 1)
   const floraNT = texture(gl, 1, 1)
+  const figT = texture(gl, 1, 1)
+  const figNT = texture(gl, 1, 1)
   const tilesT = texture(gl, 1, 1)
   const tilesLinT = texture(gl, 1, 1, { linear: true })
 
@@ -286,6 +296,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     camera(ground, cam)
     rooms(ground, f)
     g.uniform4f(ground.u('uRect'), R.x, R.y, R.w, R.h)
+    g.uniform2f(ground.u('uOrg'), f.mapX, f.mapY)
     g.uniform1f(ground.u('uSoft'), look.soft)
     g.uniform1f(ground.u('uBump'), look.bump)
     g.uniform1f(ground.u('uEmit'), look.emit)
@@ -314,6 +325,8 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
       bindTex(g, 1, atlasT, geom.u('uAtlas'))
       bindTex(g, 2, floraT, geom.u('uFlora'))
       bindTex(g, 3, floraNT, geom.u('uFloraN'))
+      bindTex(g, 4, figT, geom.u('uFig'))
+      bindTex(g, 5, figNT, geom.u('uFigN'))
       g.bindVertexArray(geomB.vao)
       fill(geomB, f.verts, f.vertCount * VERT)
       g.uniform1f(geom.u('uGhost'), 0)
@@ -344,6 +357,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
       g.uniform4f(lightP.u('uRect'), R.x, R.y, R.w, R.h)
       g.uniform2f(lightP.u('uScale'), lscale, lscale)
       g.uniform2f(lightP.u('uMap'), f.mapW, f.mapH)
+      g.uniform2f(lightP.u('uOrg'), f.mapX, f.mapY)
       g.uniform1f(lightP.u('uOcclude'), look.occlude)
       bindTex(g, 0, tilesT, lightP.u('uTiles'))
       g.bindVertexArray(lightB.vao)
@@ -381,6 +395,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     bindTex(g, 7, tilesT, litP.u('uTiles'))
     bindTex(g, 8, tilesLinT, litP.u('uTilesLin'))
     g.uniform2f(litP.u('uMap'), f.mapW, f.mapH)
+    g.uniform2f(litP.u('uOrg'), f.mapX, f.mapY)
     g.uniform4f(litP.u('uRect'), R.x, R.y, R.w, R.h)
     g.uniform2f(litP.u('uLScale'), lscale, lscale)
     g.uniform3f(litP.u('uAmbient'), f.ambient[0], f.ambient[1], f.ambient[2])
@@ -412,6 +427,9 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     bindTex(g, 5, fxT, compP.u('uFx'))
     bindTex(g, 6, skyT, compP.u('uSky'))
     g.uniform2f(compP.u('uMap'), f.mapW, f.mapH)
+    g.uniform2f(compP.u('uOrg'), f.mapX, f.mapY)
+    g.uniform4f(compP.u('uInner'), f.inner.x, f.inner.y, f.inner.w, f.inner.h)
+    g.uniform1f(compP.u('uFar'), f.far)
     g.uniform4f(compP.u('uRect'), R.x, R.y, R.w, R.h)
     g.uniform2f(compP.u('uLScale'), lscale, lscale)
     g.uniform1f(compP.u('uTime'), f.time)
@@ -486,6 +504,20 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     fx: c => upload(gl, fxT, c),
     sky: c => upload(gl, skyT, c),
     flora(albedo, normal) { upload(gl, floraT, albedo); upload(gl, floraNT, normal) },
+    figure(albedo, normal, w, h) {
+      for (const [t, data] of [[figT, albedo], [figNT, normal]] as const) {
+        gl.bindTexture(gl.TEXTURE_2D, t.t)
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+        // Colour and alpha as they are: the shader multiplies, and a normal's alpha is its glow.
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+        if (t.w !== w || t.h !== h) {
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
+          t.w = w
+          t.h = h
+        } else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data)
+      }
+    },
     tiles(data, w, h) {
       for (const t of [tilesT, tilesLinT] as Tex[]) {
         gl.bindTexture(gl.TEXTURE_2D, t.t)

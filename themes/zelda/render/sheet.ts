@@ -2,7 +2,7 @@
 import { PAL, SPRITES } from './sprites'
 import { heroColorsKey, heroPalette } from './heroColors'
 import { heroFrames } from './heroFrames'
-import { heroLookKey, lookPalette, type HeroLook } from './heroLook'
+import { DRAWN_LOOK, heroLookKey, lookFromColors, lookPalette, type HeroLook } from './heroLook'
 import type { HeroColors } from '../../miniworld/types'
 
 type Canvas = HTMLCanvasElement
@@ -39,6 +39,11 @@ export function setHeroColors(colors: HeroColors | null): void {
 export function setHeroLook(look: HeroLook | null): void {
   heroLook = look
   dressHero()
+}
+
+/** What the hero wears, as a look: the booth's, else a made figure's colours on the drawn shape, else the drawn hero. */
+export function heroStyle(): HeroLook {
+  return heroLook ?? (heroColors ? lookFromColors(heroColors) : DRAWN_LOOK)
 }
 
 function makeCanvas(w: number, h: number): Canvas {

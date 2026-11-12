@@ -43,9 +43,10 @@ export interface Rect { x: number; y: number; w: number; h: number }
 /**
  * The tiles a view can show: the ground under a screen rectangle of vw × vh
  * px centred on projected point c, reaching `rise` px further down (tall
- * things standing below the edge still show), padded and cut to the map.
+ * things standing below the edge still show), padded and cut to the map and
+ * `beyond` tiles of land round it.
  */
-export function groundRect(p: Proj, c: Vec2, vw: number, vh: number, rise: number, pad: number, mapW: number, mapH: number): Rect {
+export function groundRect(p: Proj, c: Vec2, vw: number, vh: number, rise: number, pad: number, mapW: number, mapH: number, beyond = 0): Rect {
   let x0 = Infinity
   let y0 = Infinity
   let x1 = -Infinity
@@ -55,10 +56,10 @@ export function groundRect(p: Proj, c: Vec2, vw: number, vh: number, rise: numbe
     x0 = Math.min(x0, w.x); x1 = Math.max(x1, w.x)
     y0 = Math.min(y0, w.y); y1 = Math.max(y1, w.y)
   }
-  const X0 = Math.max(0, Math.floor(x0) - pad)
-  const Y0 = Math.max(0, Math.floor(y0) - pad)
-  const X1 = Math.min(mapW, Math.ceil(x1) + pad)
-  const Y1 = Math.min(mapH, Math.ceil(y1) + pad)
+  const X0 = Math.max(-beyond, Math.floor(x0) - pad)
+  const Y0 = Math.max(-beyond, Math.floor(y0) - pad)
+  const X1 = Math.min(mapW + beyond, Math.ceil(x1) + pad)
+  const Y1 = Math.min(mapH + beyond, Math.ceil(y1) + pad)
   return { x: X0, y: Y0, w: Math.max(1, X1 - X0), h: Math.max(1, Y1 - Y0) }
 }
 
