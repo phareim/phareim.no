@@ -196,9 +196,25 @@ classic picture. `/?view=<id>` asks for one.
   full colour, the sound (below), the windows, and the finish. Every effect
   scales with k, and at k = 0 the camera is the classic one, so the turn
   still starts on the classic picture.
-- **The 16-bit sound.** While this view is on the same compositions play
-  through a second "chip" (`setFlavor('16-bit')` in `audio.ts`: sampled-style
-  instruments and the echo); its `sound` value can ask for the 8-bit one.
+- **The 16-bit sound** (`audio.ts`, `setFlavor('16-bit')`). While this view
+  is on, the same compositions (not a note, tempo or form changed) play
+  through a second chip, in the manner of the SNES's: every melodic
+  instrument is a short looped recording made in code at 32 kHz (flute, pan
+  pipes, reed, brass, strings, choir, fretless and slap bass, harp, electric
+  piano, chime, glass, mallet; `renderSpcSample`), put through a real BRR
+  encoder and the chip's gaussian kernel (`spcCodec`), and repitched by at
+  most eight semitones (`spcRoot`); a sampled kit; a ping-pong echo with a
+  lowpass in its loop and a dark room; a wider stereo picture. Each track has
+  its patch (`SPC_PATCHES`). The effects take the same voice, softly, the
+  short ones dry. A change of flavour crossfades in 0.4 s and never restarts
+  the song; the recordings are made in idle slices after `unlock()`, the
+  playing track's first. `flavorForView(engine, params)` is what the shell
+  asks: the `iso` engine, unless its `sound` value says `8-bit`. The 8-bit
+  path is as it was. Nobody has listened to it yet: it is tuned by
+  measurement (`scripts/zelda-lab/audio-render.mjs <outDir> [tracks]
+  [seconds]` renders both flavours and a switch to WAV with spectrograms,
+  and checks peak, loudness, brightness, width, the echo's tail and the
+  compressor; `SFX=1` adds every effect and jingle).
 - **What it needs, and what happens without.** WebGL2. Without it, or when
   the context is lost, the canvas view this one replaced draws instead
   (`legacy.ts`, fetched only then; the classic picture until it is here).

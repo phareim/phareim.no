@@ -926,7 +926,9 @@ export default function isoView(kit: Kit): View {
     const near = nearExit(s)
     const ref = near ? { x: near.x, y: near.y } : { x: s.hero.x, y: s.hero.y }
     const at = hudOf(ref.x, ref.y)
-    kit.hudLayer(s, ui, dt, Math.round(ref.x * T - at.x), Math.round(ref.y * T - at.y), hudOf(s.hero.x, s.hero.y).y, par.windows === '16-bit' && k > 0.5 ? HIRES_WINDOW_SKIN : NEON_SKIN)
+    kit.hudLayer(s, ui, dt, Math.round(ref.x * T - at.x), Math.round(ref.y * T - at.y), hudOf(s.hero.x, s.hero.y).y,
+      // The windows change dress in the middle of the turn: the classic ones fade out, these fade in.
+      par.windows === '16-bit' ? HIRES_WINDOW_SKIN : NEON_SKIN, k < 1 ? { skin: NEON_SKIN, mix: (k - 0.3) / 0.4 } : undefined)
   }
 
   return {
