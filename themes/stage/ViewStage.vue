@@ -228,6 +228,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keyup', onKeyUp)
   window.removeEventListener('blur', onBlur)
   navigationLocked.value = false
+  renderer?.dispose()
   renderer = null
 })
 </script>

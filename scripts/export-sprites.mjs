@@ -20,7 +20,7 @@ const out = esbuild.buildSync({
     contents: [
       `export { SPRITES, PAL } from './render/sprites'`,
       `export { ENGINES } from './viewParams'`,
-      `export { VIEWS, MAX_VIEWS } from './views'`,
+      `export { VIEWS, MAX_VIEWS, DEFAULT_VIEW } from './views'`,
       `export { STAGE_SCENES } from '../stage/scenes'`,
     ].join('; '),
     resolveDir: resolve(root, 'themes/zelda'), loader: 'ts',
@@ -28,7 +28,7 @@ const out = esbuild.buildSync({
   // The views' own code draws on a canvas: only the registry is read here.
   bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error', external: ['./render/iso/view', './render/blyant/view'],
 })
-const { SPRITES, PAL, ENGINES, VIEWS, MAX_VIEWS, STAGE_SCENES } = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
+const { SPRITES, PAL, ENGINES, VIEWS, MAX_VIEWS, DEFAULT_VIEW, STAGE_SCENES } = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
 
 let sourceRev = 'unknown'
 try { sourceRev = execSync('git rev-parse HEAD', { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch {}
@@ -45,6 +45,8 @@ const pack = {
     engines: ENGINES,
     builtin: VIEWS.map(v => ({ id: v.id, name: v.name, tag: v.tag, engine: v.engine })),
     max: MAX_VIEWS,
+    // The view a visit starts in; the first of `builtin` is the picture the others turn from.
+    first: DEFAULT_VIEW,
     scenes: STAGE_SCENES.map(s => ({ id: s.id, label: s.label, group: s.group })),
   },
 }

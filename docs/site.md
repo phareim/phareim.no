@@ -10,7 +10,7 @@ here; per-game detail lives in `docs/games/`.
 Per area:
 
 - `test:portal` — the town, every cabinet and link, the login console, the NEW LOOK stall, the newsstand, the coast road
-- `test:zelda` — Neon Shrine: exits, saves, a full run to the Sun Prism, the hero's look, audio, the Wildwood run, the views
+- `test:zelda` — Neon Shrine: exits, saves, a full run to the Sun Prism, the hero's look, audio (both chips), the Wildwood run, the views (the registry, the 16-bit view's camera, how tiles stand, the turn), the HUD skins
 - `test:eschold` — the shared Escape tap/hold state machine
 - `test:tetris` — Russian Block Game gestures (tap, direction lock, drop, soft drop, hold)
 - `test:leaderboard` — Hall of Fame names and game list
@@ -96,7 +96,7 @@ The URL picks the theme (`/?theme=<id>`, no cookie); Nuxt `useState` holds the n
 - `themes/base/` — DefaultLanding shell, SocialLink, EscHold (shared Escape tap/hold), fonts.css + fonts.ts (site fonts)
 - `themes/_template/` — starting point for a new theme
 - `themes/portal/` — the home theme on `/`: the page (hint, hidden link index, ending panel) around the world shell
-- `themes/zelda/` — the one world: engine, world data (town + Neon Shrine), renderer (classic and isometric views, `views.ts`), audio, and the shell `Zelda.vue`
+- `themes/zelda/` — the one world: engine, world data (town + Neon Shrine), renderer (the classic view, the 16-bit isometric one a visit starts in, the pencil one; `views.ts`), audio, and the shell `Zelda.vue`
 - `themes/radio/` — engine.ts + catalog.ts: the widget's six game stations (the generative radio is radio.phareim.no, a link out from the beach)
 - `themes/battery/` — Night of the Dead Battery: engine/, content/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
 - `themes/galaga/` — Rex & Nova: Space Voyagers I (parked; the id stays `galaga`): engine/, story/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
@@ -130,6 +130,8 @@ Measured 2026-09-30 (4× CPU, 1.6 Mbps, 150 ms RTT, cold): 296 KB over the wire 
 - **No dead assets in `public/`.** They are shipped, un-hashed and un-referenced.
 
 The portal makes one more request after mount, to studio.phareim.no for the live art (`render/live.ts`): small, never awaited, and not in the 296 KB above.
+
+Since 2026-11-12 a visit starts in the world's 16-bit view, which adds to that number (not measured again over the wire; gzip sizes of the built files): the view's own chunk, fetched before the first frame (the GPU engine with its shaders, the plants and the backdrop, 42 KB), about 14 KB more in the world's chunks (the second sound chip, the hi-res HUD and its font, the HTML dress) and the second pixel font (2 KB). The view's chunk stays out of the entry (`tests/zelda-views.test.mjs`); a browser that chose the classic view does not fetch it.
 
 ## Config, geo and auth
 

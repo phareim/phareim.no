@@ -61,8 +61,13 @@ each (`ENGINES`: numbers with bounds, colours, choices, toggles): `classic`
 (the picture described under "Look" in `themes/zelda/DESIGN.md`), `iso`, an
 isometric one, and `blyant`, a pencil sketch. `views.ts` holds the round: one
 built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT, PENCIL ·
-SKETCH), and whatever the studio published (below). The choice is kept in
-localStorage `zelda.view`; `/?view=<id>` asks for one.
+SKETCH), and whatever the studio published (below). **A visit starts in the
+16-bit view** (`DEFAULT_VIEW` in `views.ts`, since 2026-11-12): the classic
+one is a press of V away. A view the visitor turns to is kept in localStorage
+`zelda.view` and is where their next visit starts; the view a visit merely
+starts in is not written, so a browser that never chose follows the site's
+first view, and one failed fetch of a view's code does not pin it to the
+classic picture. `/?view=<id>` asks for one.
 
 - **Finding them.** V turns to the next view. The VIEW chip sits in the
   top-right corner on every device (with a keyboard it shows its key; its
@@ -99,55 +104,127 @@ localStorage `zelda.view`; `/?view=<id>` asks for one.
 - **The turn** (`render/turn.ts`, pure). `k` runs from 0 to 1 over 0.6 s. A
   view must look like the classic one as k nears 0, so the renderer cuts to
   it there and lets it turn itself in; going back it turns out and the
-  classic view takes over. For the isometric view the first frame differs
-  from the classic one in under half a percent of the pixels (measured
-  2026-10-07, seven scenes): whatever the classic art never drew, like a
-  wall's side, fades in with k. `View.turn` is how far the picture is rotated
+  classic view takes over. The isometric view's first frame has the classic
+  picture's geometry to the pixel (`camera.ts`; a test holds it) and its
+  effects at nothing; the light is near the classic one but not the same
+  (its glow lies on the ground instead of hanging on the screen), a small
+  step in brightness at the cut. Whatever the classic art never drew, like a
+  wall's side or a tree's crown, comes in with k. `View.turn` is how far the picture is rotated
   at k = 1; the shell turns the stick by the same angle (`turnMove`), so up
   on the stick is up on the screen in every view. A dialog gets the stick
   unturned: there a direction picks YES or NO by its sign. Reduced motion, a
   paused game and an open panel switch at once, and a pause in the middle of
   a turn finishes it. A browser that left in another view holds its first
   frames until that view's code is there (1.5 s at most).
-- **The isometric view** (`render/iso/`). No new art: each frame the classic
-  painters draw the map around the camera into hidden top-down buffers
-  (ground, and what stands on it, on a clear canvas: `createTileLayer(…,
-  'base' | 'objects')`), and the view rebuilds the picture with depth.
-  `shape.ts` says how a tile stands, reading the three-quarter art at its
-  word: a wall's top is lifted and belongs one row south of where it is
-  drawn, its southern row is a face standing on the south edge, a house has
-  two face rows under its roof, pots, lamps and lone trees are cards facing
-  the viewer, a row of fence along x stands up as a strip. Sides nobody drew
-  are the face picture again, in shadow. A wall with floor to its west stays
-  down so a room is never hidden behind its own wall. People, enemies,
-  cabinets and the hero are the classic drawings, moved to where their feet
-  land; a board on a wall leans along it. Painted lettering's light and bloom
-  are drawn top-down too and follow the tiles they lie on, so a name on a
-  roof glows on the roof. In a dungeon only the hero's room is drawn, and
-  during a scroll the two rooms it runs between. What stands between the
-  viewer and the hero thins out. `project.ts` is the geometry: `projection(k)` turns
-  the ground 45° and tips it back, 16 px per tile to a 32 × 16 diamond.
-  Ground cut-outs for adjacent standing tiles are merged into horizontal
-  runs and reused while their visible rectangles stay the same; camera
-  culling, crystal switches and tile changes update them automatically.
-  Lettering's light and bloom also clear adjacent tiles as horizontal runs.
-  The east/south shaded buffers repaint only when a visible top uses that
-  side. This reduces per-frame canvas commands without caching animated art
-  (verified against the previous renderer on all 15 maps, 2026-10-09).
-- **What makes it 16-bit** (2026-11-11). The classic view is an 8-bit
-  cabinet; this one spends what the next machine had, every amount a value
-  of engine `iso` in `viewParams.ts`: a low sun (`sunAngle`) throws shadows
-  off everything that stands (one top-down shadow picture per map, sun and
-  tile change, `buildShadows`: a mass's footprint swept by its height, plus
-  a soft band where it meets the ground; lone things and whoever moves get a
-  blot each frame; indoors the shadows are short); the sides nobody drew
-  darken toward the ground in dithered steps (`sideRamp`) and edges facing
-  the sun get a warm rim; haze takes the far end of the picture in bands;
-  cloud shadows drift over the coast (still under reduced motion); water
-  mirrors lone things and people standing by it; beyond the map's edge is a
-  banded dusk sky with the striped sun; the finish has no scanlines; and the
-  HUD wears gradient windows (`WINDOW_SKIN`). All of it scales with k, so
-  the turn still starts on the classic picture.
+- **The isometric view** (`render/iso/`, rebuilt 2026-11-12): the world
+  turned 45° and tipped back, at **twice the pixel density** (two px for
+  every px of the classic art, so a tile is 32 px on the ground), drawn by
+  the GPU. The art is still the classic painters': each frame they draw the
+  map round the camera into top-down pictures (ground, and what stands on it,
+  on a clear canvas: `createTileLayer(…, 'base' | 'objects')`), every person
+  and thing draws itself into its own cell of an atlas (`Item.big` asks for a
+  large cell: cabinets, tents, bosses), and `view.ts` hands all of it to
+  `engine.ts` as geometry. `shape.ts` says how a tile stands, reading the
+  three-quarter art at its word: a wall's top is lifted and belongs one row
+  south of where it is drawn, its southern row is a face standing on the
+  south edge, a house has two face rows under its roof, pots, lamps and lone
+  trees are billboards facing the viewer, a row of fence along x stands up as
+  a strip. Sides nobody drew are the face picture again, darker toward the
+  ground in dithered steps. A wall with floor to its west stays down so a
+  room is never hidden behind its own wall. People, enemies, cabinets and the
+  hero are billboards on their feet; a board on a wall lies on the wall. In a
+  dungeon only the hero's room is drawn, and during a scroll the two rooms it
+  runs between. `camera.ts` (pure, tested) is the geometry: `projection(k)`
+  from `project.ts` turns the ground, height is never foreshortened, and
+  depth is the distance along the line of sight, so a z-buffer sorts
+  everything and nothing is sorted by hand.
+- **The passes** (`shaders.ts`, in the order `engine.ts` runs them).
+  1. *Geometry* into a G-buffer (colour; normal and height; material and
+     how much it shines by itself) with a z-buffer. The art is treated on its
+     way up to two px a texel (`ART`): Scale2x gives a staircase its
+     half-steps, texels of one material (colours close to each other) run
+     into each other so a three-shade ramp becomes a gradient while an
+     outline stays a line, the slope of the art's own brightness becomes
+     relief for the lamps to catch, a figure's outline says how round it is,
+     and a black outline takes the darkened colour of what it surrounds.
+     Bright saturated colours are neon: they shine by themselves and feed
+     the bloom. Translucent art is a dither. The hero behind a wall or a
+     crown is drawn once more through it, every other px.
+  2. *Lamps* top-down into a light buffer (half-float where the browser has
+     it): for each px of ground how much light of each colour arrives, and
+     for each colour channel from which side. A lamp's light stops at walls
+     and roofs (a march through the tile heights). Then *blob shadows*: what
+     walks, and what stands alone, throws a soft blob away from whatever
+     lights it most (the sun outdoors, the nearest lamps indoors), so a
+     shadow swings round as the hero passes a lamp.
+  3. *Lit*: the G-buffer shaded. A surface takes a lamp's light by how it
+     faces it, per colour, so a figure between a pink and a cyan lamp has a
+     pink side and a cyan side; on figures the light falls in steps, the way
+     a pixel artist shades. Outdoors the low sun adds side shading, long
+     shadows (marched through the tile heights, with a dithered edge), a warm
+     rim, drifting cloud shadows; corner shade where a wall meets the floor;
+     and a little of every lamp's light hangs in the air over the ground it
+     falls on (the classic view's glow, lying down).
+  4. *Composite*: water (crests running across the screen, the dusk lying
+     on it, what stands by it mirrored from the picture itself, lamps
+     glittering on the crests, foam where it meets land), wet pavement and
+     polished floors that show the lamps and signs above them as streaks,
+     haze in bands, low
+     mist and shafts of the sun in the Wildwood, a mood's colour cast, the
+     effects layer (shots, sparks, dust, leaves, the flash) at full
+     brightness, and the machine's colours: five bits a channel with an
+     ordered dither between them.
+  5. *Bloom and the finish* at the screen's own resolution: the whole-number
+     upscale, the glow, vignette, scanlines if a view asks for them, and the
+     machine's own tricks: a door is a mosaic on the way out and in, death
+     closes an iris on the hero, the Other Side waves down its scanlines.
+- **Plants** (`flora.ts`). Trees, bushes, tall grass, flowers, reeds and
+  tufts are painted at the hi-res size with normals of their own and stand as
+  billboards where the classic tiles had them (a little off the grid), sway
+  in the wind, part round the hero, and thin out between the viewer and the
+  hero so nobody is lost in the woods. Cutting a bush or grass changes the
+  tile, and the plant is gone with it.
+- **The backdrop** (`backdrop.ts`). Beyond the map's edge is a dusk in
+  layers that slide at different speeds: banded sky, stars, the striped sun,
+  ridges, clouds, the sea.
+- **Values** are engine `iso` in `viewParams.ts`, all the studio's to turn:
+  smoothing, relief, roundness, side light, lamp shadows, light in the air,
+  the sun's direction and shadow length, shadow strength and colour, corner
+  shade, side shading, rim, haze, mist, sun shafts, sky colours, clouds,
+  wind, standing plants, things in the air, the water's mirror, wet ground,
+  15-bit or
+  full colour, the sound (below), the windows, and the finish. Every effect
+  scales with k, and at k = 0 the camera is the classic one, so the turn
+  still starts on the classic picture.
+- **The 16-bit sound** (`audio.ts`, `setFlavor('16-bit')`). While this view
+  is on, the same compositions (not a note, tempo or form changed) play
+  through a second chip, in the manner of the SNES's: every melodic
+  instrument is a short looped recording made in code at 32 kHz (flute, pan
+  pipes, reed, brass, strings, choir, fretless and slap bass, harp, electric
+  piano, chime, glass, mallet; `renderSpcSample`), put through a real BRR
+  encoder and the chip's gaussian kernel (`spcCodec`), and repitched by at
+  most eight semitones (`spcRoot`); a sampled kit; a ping-pong echo with a
+  lowpass in its loop and a dark room; a wider stereo picture. Each track has
+  its patch (`SPC_PATCHES`). The effects take the same voice, softly, the
+  short ones dry. A change of flavour crossfades in 0.4 s and never restarts
+  the song; the recordings are made in idle slices after `unlock()`, the
+  playing track's first. `flavorForView(engine, params)` is what the shell
+  asks: the `iso` engine, unless its `sound` value says `8-bit`. The 8-bit
+  path is as it was. Nobody has listened to it yet: it is tuned by
+  measurement (`scripts/zelda-lab/audio-render.mjs <outDir> [tracks]
+  [seconds]` renders both flavours and a switch to WAV with spectrograms,
+  and checks peak, loudness, brightness, width, the echo's tail and the
+  compressor; `SFX=1` adds every effect and jingle).
+- **What it needs, and what happens without.** WebGL2. Without it, or when
+  the context is lost, the canvas view this one replaced draws instead
+  (`legacy.ts`, fetched only then; the classic picture until it is here).
+  One hi-res px is a whole number of device px: half the classic px where
+  that is whole; where it is not (an odd screen scale), a phone gets the
+  larger px and a wide screen the smaller.
+  Without float render targets the lamps light flat. A device that keeps
+  missing frames is stepped down while it plays and stays there (`govern`
+  in `view.ts`: first the costly extras go, then the pixels get larger);
+  `pinQuality` holds it still for the lab.
 - **The pencil view** (`render/blyant/view.ts`). The classic picture, unlit
   and top-down (`kit.classic`: `world`, `light`, `glows`, `rooms`, the classic
   view in parts), handed to Blyant's pencil, `Blyant.Sketch2D` (npm `blyant`,
@@ -175,8 +252,38 @@ localStorage `zelda.view`; `/?view=<id>` asks for one.
   (`/studio/neon-shrine.json`): the engines with their values' bounds, the
   built-in views, the cap on the round and the scenes.
 - **HUD skins** (`HudSkin` in `hud.ts`). The layout is one; a view may dress
-  it: `NEON_SKIN` (classic), `WINDOW_SKIN` (16-bit gradient windows),
-  `paperSkin(...)`. `kit.hudLayer(..., skin)`.
+  it: `NEON_SKIN` (classic), `WINDOW_SKIN` (gradient windows at the classic
+  size), `HIRES_WINDOW_SKIN` (`hud16.ts`: the 16-bit view's, drawn at two px
+  to the classic px, with its own proportional font `base/pixel/font16.ts`,
+  banded SNES windows with a bevel, redrawn hearts and icons, a name plate
+  on the dialog box), `paperSkin(...)`. `kit.hudLayer(..., skin)`;
+  `kit.hudSpace(skin)` says where a skin's grid lies on the screen (an odd
+  screen scale gives the hi-res HUD an even scale of its own).
+  `scripts/zelda-lab/hud-sheet.mjs` renders every skin in every state.
+- **The shell's HTML in the 16-bit dress** (2026-11-12). What the shell
+  draws in the DOM (the VIEW and pause chips, the touch deck's pictures, the
+  pause buttons, the Escape pill, the three panels, and the page's first
+  hint and ending panel) wears the same dress as the canvas HUD while that
+  HUD is `HIRES_WINDOW_SKIN`: the class `px16` on every root of `Zelda.vue`
+  (the canvas too, so the page's hint beside it can be reached). `wears16`
+  decides it from the view, exactly as `iso/view.ts` picks its skin: the
+  `iso` engine with its `windows` value at `'16-bit'`; it follows V, the
+  studio's live values and the first frame, and changes halfway through a
+  turn, when the canvas does (`stepDress`). The dress itself is
+  `themes/base/pixel/pixel16.css` (banded windows, bevel frames and letter
+  colours copied from `hud16.ts`; `tests/zelda-chrome16.test.mjs` holds the
+  two together) in the font `--font-pixel16`, `font16.ts` as a webfont
+  (`docs/games/pixel-look.md`). What stands beside the canvas HUD is sized by
+  that HUD's own pixel: `Renderer.fineUnit()` (CSS px to one fine HUD pixel
+  on this screen and in this map), snapped to whole device px and written as
+  `--px16-fine` on the element the shell sits in by `syncUnit` (after a
+  resize, and on the frame it changes), so letters in the HTML and on the
+  canvas are one size; the panels and the ending keep 1 CSS px, because they
+  must fit a phone. The deck's pictures are the skin's own icons
+  (`HIRES_WINDOW_SKIN.icon`, EPX). The canvas also carries
+  `zelda-canvas--paused`, which takes the page's hint away while the game is
+  paused, in every view. Classic and pencil views are untouched: without the
+  class none of it applies.
 - **Adding an engine.** A module whose default export is a `ViewFactory`, a
   loader in `ENGINE_LOADERS`, its values in `viewParams.ts`, a built-in view
   in `VIEWS`. An engine's code is fetched on the first turn to it and must
@@ -184,17 +291,20 @@ localStorage `zelda.view`; `/?view=<id>` asks for one.
   imports `iso/view` or `blyant/view` statically, and that only the pencil
   view imports Blyant). A view of an engine that exists needs no code: the
   studio publishes it.
-- **Known rough edges of the isometric view** (2026-10-07): woods are blocks
-  of canopy; dungeon rooms are wider than the screen, so the camera follows
-  the hero instead of showing the whole room; furniture is flat cards; the
-  eight keyboard directions are the eight world directions, so walking along
-  a wall takes two keys; an exit's label can jump a few px while it fades
-  after the hero steps away. Outdoors a frame costs two to four times a
-  classic one in software rendering (not measured on a phone).
+- **Known rough edges of the isometric view** (2026-11-12): the art under
+  it is still the 16 px art, treated on its way up, so a figure is a classic
+  figure with a 16-bit finish, not a redrawn one; dungeon rooms are wider
+  than the screen, so the camera follows the hero instead of showing the
+  whole room; furniture is flat cards; the eight keyboard directions are the
+  eight world directions, so walking along a wall takes two keys. Not
+  measured on a phone: the lab's GPU is software.
 - **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>
   [scenes]` renders the isometric view, `VIEW=blyant` the pencil one;
   `FRAMES=18` stops halfway through the turn, `PARAMS='{"paper":"kull"}'`
-  sets the engine's values and `TAG=kull` names the pictures.
+  sets the engine's values and `TAG=kull` names the pictures. The page keeps
+  `window.__lab` (`{ r, s, ui, world, step }`) for a script that wants to go
+  on drawing. `scripts/zelda-lab/flora-sheet.mjs` and `backdrop-sheet.mjs`
+  render the plants and the backdrop alone.
 
 **How it starts.** A visitor stands on the plaza with nothing. Walking
 into Home Glade without the blade, the Keeper tells the story once (the

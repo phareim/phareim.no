@@ -4,7 +4,8 @@
  * a room. Pure: the loaders are the only thing that touches the bundle.
  *
  * A view is a drawing engine (`viewParams.ts`: classic, iso, blyant) with a
- * name and its own values. Three are built in, one per engine. The studio
+ * name and its own values. Three are built in, one per engine; a visitor who
+ * has not chosen starts in the 16-bit one (`DEFAULT_VIEW`). The studio
  * (studio.phareim.no) may change a built-in view's values and publish more
  * views of its own; they arrive with the live file (`render/live.ts`) and
  * join the round on the V key, the view strip and `?view=<id>`.
@@ -139,9 +140,16 @@ export function viewName(id: ViewId): string {
   return viewDef(id)?.name ?? id.toUpperCase()
 }
 
-/** The view to start in: the address (`?view=iso`) wins over what this browser used last. */
+/** The view a visitor meets first: the 16-bit one. */
+export const DEFAULT_VIEW: ViewId = 'iso'
+
+/**
+ * The view to start in: the address (`?view=iso`) wins over what this browser
+ * used last, and a browser that has never chosen gets the 16-bit view (the
+ * classic one if the studio has taken that out of the round).
+ */
 export function startView(query: unknown, stored: unknown): ViewId {
   if (isViewId(query)) return query
   if (isViewId(stored)) return stored
-  return 'classic'
+  return isViewId(DEFAULT_VIEW) ? DEFAULT_VIEW : 'classic'
 }

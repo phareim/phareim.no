@@ -18,7 +18,7 @@ import { lookCanvases, makeCanvas, sprite } from './sheet'
 import { DRAWN_LOOK, GIRL_LOOK, type HeroLook } from './heroLook'
 import { PAL } from './sprites'
 import type { Light } from './tiles'
-import { NEON_SKIN, type HudSkin } from './hud'
+import { hudFont, NEON_SKIN, type HudSkin } from './hud'
 
 type G = CanvasRenderingContext2D
 type Canvas = HTMLCanvasElement
@@ -1733,12 +1733,15 @@ export function nearExit(s: GameState): ExitSpot | null {
 
 /**
  * Fade labels in and out and draw them on the HUD layer (logical px): the
- * exit's name and the A key, on a small plate above the exit.
+ * exit's name and the A key, on a small plate above the exit. `zoom`: scene
+ * px in HUD px, for a HUD on a grid of its own scale (the camera is then in
+ * scene px on that grid, see `hudLayer`).
  */
 export function drawExitLabels(
   g: G, s: GameState, st: LabelState, cx: number, cy: number, vw: number, vh: number,
-  dt: number, keyA: string, reduced: boolean, show: boolean, minY = 2, skin?: HudSkin,
+  dt: number, keyA: string, reduced: boolean, show: boolean, minY = 2, skin?: HudSkin, zoom = 1,
 ) {
+  const F = hudFont(skin)
   const near = show && s.mode === 'play' ? nearExit(s) : null
   const exits = s.map.exits ?? []
   for (const e of exits) {
@@ -1751,17 +1754,17 @@ export function drawExitLabels(
     if (next <= 0) continue
     const text = e.label.toUpperCase()
     const key = keyA.toUpperCase()
-    const tw = textWidth(text)
-    const kw = textWidth(key)
+    const tw = Math.ceil(F.width(text))
+    const kw = Math.ceil(F.width(key))
     const w = 4 + tw + 3 + 2 + 3 + kw + 4
     const h = GLYPH_H + 6
-    const ax = Math.round(e.x * T - cx)
+    const ax = Math.round((e.x * T - cx) * zoom)
     const topPx = e.walk ? (e.y - 0.5) * T - 2 : (e.y + 0.5) * T - lookTop(e.look)
     const lift = reduced ? 0 : Math.round((1 - next) * 3)
-    let y = Math.round(topPx - cy) - h - 5 + lift
+    let y = Math.round((topPx - cy) * zoom) - h - 5 + lift
     // No room above (a tall look at the top of the view, or the HUD there): show it under the hero instead.
     const below = y < minY
-    if (below) y = Math.round((s.hero.y + 0.5) * T - cy) + 4 - lift
+    if (below) y = Math.round(((s.hero.y + 0.5) * T - cy) * zoom) + 4 - lift
     let x = ax - Math.round(w / 2)
     x = Math.max(2, Math.min(vw - w - 2, x))
     y = Math.max(2, Math.min(vh - h - 2, y))
@@ -1770,11 +1773,11 @@ export function drawExitLabels(
       // Another view's dress: its own panel, the name and the key in its colours.
       skin.panel(g, x, y, w, h + 1, 'hot')
       let sx = x + 4
-      drawText(g, text, sx, y + 3, skin.text, skin.shadow)
+      F.draw(g, text, sx, y + 3, skin.text, skin.shadow)
       sx += tw + 3
-      drawText(g, '·', sx, y + 3, skin.hot)
+      F.draw(g, '·', sx, y + 3, skin.hot)
       sx += 2 + 3
-      drawText(g, key, sx, y + 3, skin.cool, skin.shadow)
+      F.draw(g, key, sx, y + 3, skin.cool, skin.shadow)
       g.globalAlpha = 1
       continue
     }
