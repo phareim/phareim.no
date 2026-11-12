@@ -62,21 +62,23 @@ each (`ENGINES`: numbers with bounds, colours, choices, toggles): `classic`
 isometric one, and `blyant`, a pencil sketch. `views.ts` holds the round: one
 built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT, PENCIL ·
 SKETCH), and whatever the studio published (below). **A visit starts in the
-16-bit view** (`DEFAULT_VIEW` in `views.ts`, since 2026-11-12): the classic
-one is a press of V away. A view the visitor turns to is kept in localStorage
+16-bit view** (`DEFAULT_VIEW` in `views.ts`, since 2026-11-12): it is the
+world's look, and the other views are a choice on the pause screen. A view the visitor turns to is kept in localStorage
 `zelda.view` and is where their next visit starts; the view a visit merely
 starts in is not written, so a browser that never chose follows the site's
 first view, and one failed fetch of a view's code does not pin it to the
 classic picture. `/?view=<id>` asks for one.
 
-- **Finding them.** V turns to the next view. The VIEW chip sits in the
-  top-right corner on every device (with a keyboard it shows its key; its
-  9 × 9 picture is the engine in use: a tile grid, a cube, a pencil). Every
-  change brings up the **view strip** (`drawViewStrip` in `hud.ts`): the whole
-  round side by side for 2.6 s, the one in use lit. The **viewfinder** east of
-  the fountain (exit `view`, look `scope`, panel `view`, which opens nothing)
-  turns to the next view on A, and the page's first hint names the key. The
-  pause screen has the same switch.
+- **Finding them** (2026-11-12). The views are behind the pause: on the
+  pause screen V turns to the next view (the screen names the one that is
+  on), and on touch the pause buttons have VIEW beside RESUME, SOUND and TO
+  TOWN. Nothing beside the world turns the view: there is no view button in
+  the corner, V does nothing in play, and the page's first hint names no
+  view key (`tests/zelda-views.test.mjs` holds it to that). The one thing in
+  the world that does is the **viewfinder** east of the fountain (exit
+  `view`, look `scope`, panel `view`, which opens nothing): A turns to the
+  next view and brings up the **view strip** (`drawViewStrip` in `hud.ts`),
+  the whole round side by side for 2.6 s, the one in use lit.
 - **Values** (`viewParams.ts`). `renderer.setParams(engine, values)` hands an
   engine a view's values; `kit.params(id)` reads them, `kit.finish(id)` is the
   part every engine has (scanlines, neon bloom, vignette; `present` takes it).
@@ -261,7 +263,7 @@ classic picture. `/?view=<id>` asks for one.
   screen scale gives the hi-res HUD an even scale of its own).
   `scripts/zelda-lab/hud-sheet.mjs` renders every skin in every state.
 - **The shell's HTML in the 16-bit dress** (2026-11-12). What the shell
-  draws in the DOM (the VIEW and pause chips, the touch deck's pictures, the
+  draws in the DOM (the pause chip, the touch deck's pictures, the
   pause buttons, the Escape pill, the three panels, and the page's first
   hint and ending panel) wears the same dress as the canvas HUD while that
   HUD is `HIRES_WINDOW_SKIN`: the class `px16` on every root of `Zelda.vue`
@@ -317,15 +319,15 @@ for death during a session.
 
 **Controls.** Keys: arrows/WASD move; Space/J/Z/Enter = A (sword, talk,
 open, lift, throw, use an exit; hold after a swing, release to spin);
-K/X/Shift = B (item); Q, or Tab when there is an item, swaps; V turns to
-the next view (see "Views"; the VIEW chip in the corner does the same with a click); P or an
+K/X/Shift = B (item); Q, or Tab when there is an item, swaps; P or an
 Escape tap pauses (items, heart pieces, the current quest); on the pause
-screen M turns the sound on or off and T goes to town. Holding Escape saves and goes to town. Starting over
+screen M turns the sound on or off, T goes to town and V turns to the next
+view (see "Views"). Holding Escape saves and goes to town. Starting over
 is the NEW GAME machine in Petter's house (see "Saves" below). Touch:
 floating stick on the left 60 %; three round buttons with pictures and no
 letters: A always (a sword), B (the chosen item) and swap (two arrows) once
 there is an item, and the lines call them THE SWORD BUTTON, THE ITEM BUTTON
-and THE SWAP BUTTON (`keys.ts`); on a phone lying on its side they sit lower and more side by side; VIEW and pause chips in the top-right corner (paused: RESUME, SOUND ON/OFF, VIEW, TO TOWN); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
+and THE SWAP BUTTON (`keys.ts`); on a phone lying on its side they sit lower and more side by side; a pause chip in the top-right corner (paused: RESUME, SOUND ON/OFF, VIEW, TO TOWN); any tap moves a dialog on (a thumb that lands on the stick's side and stays down is the stick once the lines close);
 a tap on the right of the world also swings. The world fills the whole
 screen in portrait and landscape; the buttons float half see-through over
 it. Installed as a web app the page runs under the notch and the status
