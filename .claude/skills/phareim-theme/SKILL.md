@@ -6,15 +6,14 @@ description: Add, change, or debug a theme on phareim.no — the portal on `/` a
 # Themes on phareim.no
 
 A theme is a folder in `themes/` that owns the whole landing page. The URL
-picks it (2026-09-24): `/` is the **portal** (`themes/portal/`, the one
+picks it: `/` is the **portal** (`themes/portal/`, the one
 theme with `home: true`), a neon town whose buildings launch everything
-else. The town is the west end of Neon Shrine's world (one world since
-2026-09-24: the adventure is no longer a theme of its own, `?theme=zelda`
+else. The town is the west end of Neon Shrine's world (one world: the adventure is not a theme of its own, `?theme=zelda`
 is a legacy id for the portal); `/?theme=<id>` is that theme. The route is read during SSR, so the
 first paint is already correct, and client navigation (back/forward
 included) switches theme with no extra state. No cookie, no random pick.
 
-There is no way from one game straight to another (removed 2026-09-24):
+There is no way from one game straight to another:
 visitors walk out to the portal and into the next cabinet. The ⌂ chip
 (`components/HomeChip.vue`, bottom-right), Escape when the game is not using
 it, and the back button return to the portal.
@@ -34,9 +33,9 @@ themes/
     EscHold.vue         shared Escape tap (pause) / 3 s hold (quit) with its pill; escHold.ts is the state machine
     SocialLink.vue      icon links
     fonts.css           :root --font-person (Space Grotesk) and --font-machine (Space Mono), self-hosted
-                        via @fontsource; imported first in index.ts (2026-09-06). fonts.ts exports
+                        via @fontsource; imported first in index.ts. fonts.ts exports
                         MACHINE_FONT for canvas ctx.font strings
-    pixel/              Neon Shrine's pixel look for any canvas game (2026-09-24): stage.ts
+    pixel/              Neon Shrine's pixel look for any canvas game: stage.ts
                         (logical buffer, whole-number scale, light map, bloom, scanlines, HUD layer),
                         sprites.ts (palette, string-map sprites, 5×7 font), scenery.ts (dusk sky,
                         sun, ridges, trees, houses), pixel.css (.px-* HTML text in --font-pixel, .px-box/.px-btn
@@ -62,7 +61,7 @@ composables/useThemeNavigation.ts  Escape → portal, 3 s grace after a game let
    A game also needs a way in from the portal: a cabinet in the town's
    arcade, `themes/zelda/world/town.ts` (there is no other way to reach it).
    `npm run test:portal` lists the cabinets it expects.
-3. Preview with `npm run dev` and `http://localhost:3030/?theme=<id>`.
+3. Preview with `npm run dev` and `http://localhost:<port>/?theme=<id>` (the port `npm run dev` prints; 3030 is taken on Sleeper).
    Check a phone viewport too (headless chromium at 375×667 works on Sleeper;
    write the screenshot under `~/Pictures`, the snap cannot write to dotdirs
    or /tmp): the document never scrolls, so the landing must fit.
@@ -71,7 +70,7 @@ composables/useThemeNavigation.ts  Escape → portal, 3 s grace after a game let
    one terminal block and a few themes their own; add one if the terminal
    looks wrong in the theme. Every block leads back to `/`. (`/` is the only
    route.)
-5. `npm run typecheck`, commit, push. CI deploys `master`.
+5. `npm run typecheck`, commit, push to `master`; Sleeper's `sleeper-deploy` webhook runs `scripts/deploy.sh`.
 
 ## Three levels of ambition
 
@@ -85,17 +84,16 @@ composables/useThemeNavigation.ts  Escape → portal, 3 s grace after a game let
   landing) goes in the registry as `backdrop` instead — `space` does that
   with its starfield.
 - **Own the page.** Replace slots (`card`, `body`, `footer`) or skip
-  DefaultLanding entirely. `breakout`, `rtype`, `invaders`, `invasive` and `starfox` replace `body` with a game HUD; `galaga` (Rex & Nova: Space Voyagers I, 2026-10-13) skips the shell: its landing is the title over a bitmap and loads `Game.vue` as its own chunk
+  DefaultLanding entirely. `breakout`, `rtype`, `invaders`, `invasive` and `starfox` replace `body` with a game HUD; `galaga` (Rex & Nova: Space Voyagers I) skips the shell: its landing is the title over a bitmap and loads `Game.vue` as its own chunk
   (`starfox` is three.js, not 2D canvas — its `Flight.vue` is loaded with
   `defineAsyncComponent` inside `<ClientOnly>` so the three chunk only ships with that theme);
   `desk` skips the shell and lays a grained paper sheet (`.desk-sheet`,
   `.desk-stamp`, `.desk-rule` are global classes from its theme.css) on the
-  desk; `tetris` skips the shell and fills the page with its pixel-look cabinet; `leaderboard` (Hall of Fame, 2026-09-08) skips it and shows the D1-backed world ranking, one game at a time, up/down to change game — its data comes from `composables/useLeaderboard.ts` and `server/api/`, see `docs/games/hall-of-fame.md`; `portal` skips it and runs the one world, Neon Shrine's engine and shell (`docs/games/portal.md`). In Tetris, ResizeObserver fits the board to remaining space and landscape phones use a two-column layout. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception since 2026-09-05: the root fills the viewport
+  desk; `tetris` skips the shell and fills the page with its pixel-look cabinet; `leaderboard` (Hall of Fame) skips it and shows the D1-backed world ranking, one game at a time, up/down to change game — its data comes from `composables/useLeaderboard.ts` and `server/api/`, see `docs/games/hall-of-fame.md`; `portal` skips it and runs the one world, Neon Shrine's engine and shell (`docs/games/portal.md`). In Tetris, ResizeObserver fits the board to remaining space and landscape phones use a two-column layout. `tetris/gestures.ts` maps tap/drag/flick to rotate/move/drop/hold; one gesture owns one piece. `npm run test:tetris` covers gesture classification. Rule without exception: the root fills the viewport
   (`height: var(--app-height, 100dvh); overflow: hidden`) and the page does not scroll —
-  `html`, `body` and `#__nuxt` are locked in `app.vue`. The old `scrollable`
-  registry flag is gone with the Almanac theme that needed it. Since
-  2026-09-07 `/` is the only route, so nothing scrolls anywhere and the
-  `.page-scroll` container is gone with about/projects/meta.
+  `html`, `body` and `#__nuxt` are locked in `app.vue`. There is no `scrollable`
+  registry flag. `/` is the only route, so nothing scrolls anywhere and there
+  is no `.page-scroll` container.
   Bottom-anchored UI (buttons, hints, HUD text, the player's ship or paddle)
   stays above the bottom band `var(--app-safe-bottom, 0px)` from `app.vue`
   (browser tab: the safe-area inset; installed web app: `max(48px, inset + 30px)`);
@@ -121,12 +119,11 @@ Rules that keep the themes from fighting:
   `--theme-*` never goes on `:root`, only on `.{id}-page`. The two site-wide
   exceptions are `--font-person` / `--font-machine` / `--font-pixel` from `base/fonts.css`;
   a theme sets its `--<id>-font` / `--<id>-mono` to those, never to a
-  literal family (2026-09-06). Pixel-look pages use `--font-pixel` at
+  literal family. Pixel-look pages use `--font-pixel` at
   multiples of 8 px and `.px-box`/`.px-btn` for panels and buttons.
 - Dark mode is the theme's business: a `@media (prefers-color-scheme: dark)`
   block that overrides its own `:root` palette. Pages never branch on it.
-- Add a token only when a second theme needs it. Unused tokens were the
-  main dead weight cleaned out in September 2026.
+- Add a token only when a second theme needs it; unused tokens are dead weight.
 - Theme-only styling on shared pages goes in that page as
   `:global(.<id>-page) .selector`, not in `theme.css`.
 
@@ -139,12 +136,12 @@ game that uses Escape outside a run calls `preventDefault` on it. A game sets
 on game over and in `onBeforeUnmount`. `galaga/Landing.vue`,
 `breakout/Landing.vue`, `rtype/Landing.vue`, `invaders/Landing.vue`, `starfox/Landing.vue` and `tetris/Game.vue` show the pattern; all six games
 also start on *tap*, not on touchstart, so a stray swipe does not start a run. `invaders` also emits `over` the moment a run ends (before the delayed
-`death`) so Escape unlocks while the cannon is still exploding (2026-09-05). `rtype/Shooter.vue` simulates in world space (ship flies +x) and
+`death`) so Escape unlocks while the cannon is still exploding. `rtype/Shooter.vue` simulates in world space (ship flies +x) and
 rotates the canvas 90° when the screen is taller than wide, so the ship flies
 up on phones and sideways on desktop; keys, touch and upright text go through
-the same mapping (2026-09-05).
+the same mapping.
 
-A score game reports a finished run to the Hall of Fame: `const { submitScore } = useLeaderboard()` and `submitScore('<theme id>', score)` in the game-over handler, plus the theme id in `themes/leaderboard/games.ts` (2026-09-08).
+A score game reports a finished run to the Hall of Fame: `const { submitScore } = useLeaderboard()` and `submitScore('<theme id>', score)` in the game-over handler, plus the theme id in `themes/leaderboard/games.ts`.
 
 ## Taste
 
