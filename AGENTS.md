@@ -11,7 +11,7 @@ external APIs, fonts, icons, state, source layout, themes, cost of `/`, auth):
 
 ## Commands
 
-- `npm run dev` — dev server on port 3030 (on Sleeper llm-gateway holds it, so Nuxt takes another port; see `docs/site.md`)
+- `npm run dev` — dev server on port 3030 (`docs/site.md`)
 - `npm test` — every `tests/*.test.mjs` in one pass (what the deploy runs). Per area: `test:portal`, `test:zelda`, `test:eschold`, `test:tetris`, `test:leaderboard`, `test:starfox`, `test:wingman`, `test:anotherworld`, `test:galaga`, `test:voyagers2`, `test:outrun`, `test:breakout`, `test:invasive`, `test:battery`, `test:miniworld`, `test:figur`; what each covers: `docs/site.md` → "Test areas"
 - `npm run typecheck` — `nuxi typecheck` (vue-tsc); the Sleeper deploy runs this before build
 - `npm run build` — production build (`cloudflare-pages` preset in `nuxt.config.ts`, output `dist/`)

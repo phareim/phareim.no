@@ -25,10 +25,8 @@ Per area:
 - `test:miniworld` — Mini World: save, contests, wallet and neighbourhood rules (memory and real D1 SQL), physics, obby, the sign-in gate
 - `test:figur` — Lag Din Figur: garments, packing, figures and save, Pip, the renderers, the Minecraft skin
 
-`npm run dev` listens on port 3030 (host 0.0.0.0). On Sleeper llm-gateway
-already holds 127.0.0.1:3030, so Nuxt takes another port: pass that address
-to lab scripts (`scripts/zelda-lab/*-shot.mjs` default to
-`http://127.0.0.1:3030/`). `npm run build` uses the `cloudflare-pages` preset
+`npm run dev` listens on port 3030 (host 0.0.0.0); the lab scripts
+(`scripts/zelda-lab/*-shot.mjs`) default to `http://127.0.0.1:3030/`. `npm run build` uses the `cloudflare-pages` preset
 set in `nuxt.config.ts`; output goes to `dist/`.
 
 ## Stack
