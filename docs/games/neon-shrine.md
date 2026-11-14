@@ -62,8 +62,8 @@ each (`ENGINES`: numbers with bounds, colours, choices, toggles): `classic`
 isometric one, and `blyant`, a pencil sketch. `views.ts` holds the round: one
 built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT, PENCIL ·
 SKETCH), and whatever the studio published (below). **A visit starts in the
-16-bit view** (`DEFAULT_VIEW` in `views.ts`, since 2026-11-12): it is the
-world's look, and the other views are a choice on the pause screen. A view the visitor turns to is kept in localStorage
+classic 8-bit view** (`DEFAULT_VIEW` in `views.ts`), and the other views
+are a choice on the pause screen. A view the visitor turns to is kept in localStorage
 `zelda.view` and is where their next visit starts; the view a visit merely
 starts in is not written, so a browser that never chose follows the site's
 first view, and one failed fetch of a view's code does not pin it to the
@@ -185,8 +185,9 @@ classic picture. `/?view=<id>` asks for one.
   in the wind, part round the hero, and thin out between the viewer and the
   hero so nobody is lost in the woods. Cutting a bush or grass changes the
   tile, and the plant is gone with it.
-- **The hero** (`figure.ts`, 2026-11-12). In this view the hero is not a
-  sprite but a small figure built in the round (ellipsoids and capsules:
+- **The hero** (`figure.ts`). In this view the hero is the classic
+  four-way sprite, smoothed (value `figure: 'classic'`, the default). Value
+  `figure: 'modelled'` swaps it for a small figure built in the round (ellipsoids and capsules:
   head, hair, band, torso, arms, legs) and drawn in software every frame
   into a 160 × 96 px cell, a pixel to the scene's pixel, with a normal and a
   glow for every pixel (`renderFigure(pose, look)`; pure, no canvas). So it
@@ -207,9 +208,8 @@ classic picture. `/?view=<id>` asks for one.
   the booth's shape and colours, a made figure's colours, or the drawn
   hero), every hair, headwear and bottom. The classic painter still draws
   what the hero holds up (a pot, a found thing) and the blade's light
-  (`kit.setHeroBare`). Value `figure: 'classic'` brings the smoothed sprite
-  back; during the turn from another view the sprite stands until the turn
-  is half done. `node scripts/zelda-lab/figure-sheet.mjs <outDir>` draws
+  (`kit.setHeroBare`). During the turn from another view the sprite stands
+  until the turn is half done. `node scripts/zelda-lab/figure-sheet.mjs <outDir>` draws
   the figure's sheets (every yaw, the walk, the acts, the swings, the looks,
   lit, and beside the classic frames) without a browser;
   `tests/zelda-figure.test.mjs` holds it to its cell, its projection and its
@@ -351,9 +351,9 @@ classic picture. `/?view=<id>` asks for one.
   studio publishes it.
 - **Known rough edges of the isometric view** (2026-11-12): the art under
   it is still the 16 px art, treated on its way up, so everyone but the hero
-  is a classic figure with a 16-bit finish, not a redrawn one, and the hero
-  stands out beside them; the studio's live sprites do not reach the
-  modelled hero; its sword arm has no elbow and its tails no memory;
+  is a classic figure with a 16-bit finish, not a redrawn one; the modelled
+  hero (off by default) stands out beside them, the studio's live sprites
+  do not reach it, and its sword arm has no elbow and its tails no memory;
   dungeon rooms are wider
   than the screen, so the camera follows the hero instead of showing the
   whole room; furniture is flat cards; the eight keyboard directions are the

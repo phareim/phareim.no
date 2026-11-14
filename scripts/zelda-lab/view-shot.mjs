@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Neon Shrine's views on a running site, with pictures: a visit starts in the
-// 16-bit view; V does nothing in play; on the pause screen V turns to the next
+// classic view; V does nothing in play; on the pause screen V turns to the next
 // view and the browser remembers it. Then a phone: no view button beside the
 // world, and the pause screen's VIEW button turns the view.
 //   node scripts/zelda-lab/view-shot.mjs <baseUrl> <outDir>
@@ -27,15 +27,15 @@ const stored = b => b.eval(`localStorage.getItem('zelda.view')`)
   await b.hold('ArrowDown', 700)
   await b.hold('ArrowRight', 500)
   await b.sleep(200)
-  await b.shot(`${out}/2-iso-walked.png`)
+  await b.shot(`${out}/2-first-walked.png`)
   await b.key('KeyP')
   await b.sleep(300)
-  await b.shot(`${out}/3-iso-paused.png`)
+  await b.shot(`${out}/3-first-paused.png`)
   await b.key('KeyV')
   await b.sleep(400)
   await b.shot(`${out}/4-next-paused.png`)
   const next = await stored(b)
-  check(!!next && next !== 'iso', `V on the pause screen turns to the next view (${next})`)
+  check(!!next && next !== 'classic', `V on the pause screen turns to the next view (${next})`)
   await b.key('KeyP')
   await b.sleep(400)
   await b.shot(`${out}/5-next.png`)

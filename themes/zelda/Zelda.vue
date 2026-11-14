@@ -11,7 +11,7 @@
     the left 60 % that isn't a button. Pause sits apart, in the top-right
     corner, where no thumb rests; a keyboard has P and Escape. The views are
     on the pause screen (V there, or its VIEW button): the world starts in
-    the 16-bit one, and the others are a choice, not a control. -->
+    the classic 8-bit one, and the others are a choice, not a control. -->
   <div v-if="touchUI && phase === 'play' && !panel && !paused && !talking" class="zelda-deck-top" :class="{ px16: dress16 }">
     <button class="zelda-chip" aria-label="Pause" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>II</button>
   </div>
@@ -77,8 +77,8 @@
  * throw; hold then release for a spin); K / X / Shift = B (item); Q swaps
  * item, Tab too when there is one (else Tab reaches the page's link index);
  * P or an Escape tap pause; on the pause screen T goes to town, M turns the
- * sound on or off and V turns to the next view (`views.ts`: the 16-bit one a
- * visit starts in, classic, pencil, and the studio's own); holding Escape
+ * sound on or off and V turns to the next view (`views.ts`: the classic one a
+ * visit starts in, the 16-bit one, pencil, and the studio's own); holding Escape
  * saves and goes back to town.
  * Touch: floating stick on the left; on the right three round buttons with
  * pictures, no letters: A (the sword), and with an item B (the item) and
@@ -326,7 +326,7 @@ const viewLabel = computed(() => (void viewRound.value, viewName(viewId.value)))
 let viewAsk = 0
 /** The view the renderer was last handed: where a failed switch falls back to. */
 let viewShown: ViewId = 'classic'
-/** The first frames wait for the view the visit starts in (the 16-bit one, unless this browser chose another), so the classic picture never flashes by. */
+/** The first frames wait for the view the visit starts in (the classic one, unless this browser chose another), so no other picture flashes by. */
 let viewHold = false
 
 /**
@@ -973,7 +973,7 @@ onMounted(() => {
   // The home page owns every key: arrows walk the hero, Escape pauses.
   navigationLocked.value = true
   renderer = createRenderer(canvas.value, WORLD)
-  // The view the address asks for (?view=classic), the one this browser chose last, or the site's first: the 16-bit one.
+  // The view the address asks for (?view=classic), the one this browser chose last, or the site's first: the classic one.
   let lastView: string | null = null
   try { lastView = localStorage.getItem(VIEW_KEY) } catch { /* private mode */ }
   const firstView = startView(new URLSearchParams(location.search).get('view'), lastView)

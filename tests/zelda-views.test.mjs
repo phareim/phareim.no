@@ -65,14 +65,10 @@ describe('the view registry', () => {
     assert.equal(M.startView('classic', 'iso'), 'classic')
     assert.equal(M.startView(null, 'classic'), 'classic')
   })
-  it('starts a browser that has never chosen in the 16-bit view', () => {
-    assert.equal(M.DEFAULT_VIEW, 'iso')
-    assert.equal(M.startView(null, null), 'iso')
-    assert.equal(M.startView('3d', 'hologram'), 'iso')
-    // The studio took the 16-bit view out of the round: the classic one, which cannot be taken out.
-    M.setLiveViews(M.parseViews({ iso: { hidden: true } }))
+  it('starts a browser that has never chosen in the classic 8-bit view', () => {
+    assert.equal(M.DEFAULT_VIEW, 'classic')
     assert.equal(M.startView(null, null), 'classic')
-    M.setLiveViews(null)
+    assert.equal(M.startView('3d', 'hologram'), 'classic')
   })
   it('names every view for the pause screen in the pixel font', () => {
     for (const v of M.VIEWS) {
