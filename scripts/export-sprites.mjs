@@ -26,7 +26,7 @@ const out = esbuild.buildSync({
     resolveDir: resolve(root, 'themes/zelda'), loader: 'ts',
   },
   // The views' own code draws on a canvas: only the registry is read here.
-  bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error', external: ['./render/iso/view', './render/blyant/view'],
+  bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error', external: ['./render/iso/view'],
 })
 const { SPRITES, PAL, ENGINES, VIEWS, MAX_VIEWS, DEFAULT_VIEW, STAGE_SCENES } = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
 

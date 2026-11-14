@@ -4,11 +4,11 @@
  * them as sliders and swatches, and `scripts/export-sprites.mjs` writes them
  * into the base the studio reads, so the two never disagree about a bound.
  *
- * An engine is the code that draws (`classic`, `iso`, `blyant`); a view
- * (`views.ts`) is an engine with a name and its own values. Three views are
+ * An engine is the code that draws (`classic`, `iso`); a view
+ * (`views.ts`) is an engine with a name and its own values. Two views are
  * built in, one per engine with the values below; the studio may publish more.
  */
-export type EngineId = 'classic' | 'iso' | 'blyant'
+export type EngineId = 'classic' | 'iso'
 
 /** `group`: the heading the studio files a value under, where an engine has many. */
 export type ParamSpec =
@@ -102,31 +102,10 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
       }),
     },
   },
-  blyant: {
-    title: 'Pencil',
-    blurb: 'The world as it was sketched before the pixels: Blyant’s pencil on squared paper. Contours drawn twice, light as hatching, colour as coloured pencil.',
-    params: {
-      paper: choice('Sheet', 'auto', ['auto', 'papir', 'kull'], 'Papir is pencil on a light sheet, Kull chalk on a dark one. Auto follows the visitor’s light or dark mode.'),
-      wobble: num('Wobble', 1.2, 0, 3, 0.1, 'How much the hand shakes. 0 draws with a ruler.'),
-      lineWidth: num('Line weight', 1.15, 0.5, 3, 0.05),
-      detail: num('Detail', 0.5, 0, 1, 0.05, 'How small a difference between two colours still gets a line.'),
-      hatch: toggle('Hatching', true),
-      hatchGap: num('Hatch spacing', 5.5, 3, 12, 0.5),
-      exposure: num('Lift', 2, 0.5, 4, 0.1, 'How far the night art is lifted before the pencil reads it: higher leaves more bare paper.'),
-      shade: num('Shade', 1, 0, 2, 0.05, 'How hard the pencil presses on dark things.'),
-      colour: num('Coloured pencil', 0.9, 0, 1),
-      grain: toggle('Paper grain', true),
-      grid: toggle('Squared paper', true, 'A faint square per tile.'),
-      boil: toggle('Boiling lines', false, 'Redraw the lines six times a second, like hand-drawn film.'),
-      paperColor: color('Sheet colour', '', 'Empty: Blyant’s own paper.'),
-      inkColor: color('Pencil colour', '', 'Empty: Blyant’s own graphite.'),
-      windows: choice('Windows', 'paper', ['paper', 'neon'], 'The dialog box and panels: notes on paper, or the neon boxes of the classic view.'),
-    },
-  },
 }
 
 export function isEngineId(v: unknown): v is EngineId {
-  return v === 'classic' || v === 'iso' || v === 'blyant'
+  return v === 'classic' || v === 'iso'
 }
 
 const HEX = /^#[0-9a-f]{6}$/i

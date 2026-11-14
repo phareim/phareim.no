@@ -52,16 +52,15 @@ deck, audio, saves, pause menu, exits, navigation lock), mounted by
 three on the arcade's HIGH SCORES sign (one Hall of Fame game at random,
 `/api/leaderboard` without a player id; offline it keeps the KNG joke).
 
-**Views** (2026-10-07; engines, values and the pencil view 2026-11-11). The game can
+**Views** (2026-10-07; engines and values 2026-11-11). The game can
 be shown in more than one way, and the player can change it in the middle of
 a room. The state, the engine and the world are the same; a view is only how
 a frame is drawn. A view is a drawing **engine** with a name and its own
 values. `viewParams.ts` (pure) lists the engines and what can be turned on
 each (`ENGINES`: numbers with bounds, colours, choices, toggles): `classic`
-(the picture described under "Look" in `themes/zelda/DESIGN.md`), `iso`, an
-isometric one, and `blyant`, a pencil sketch. `views.ts` holds the round: one
-built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT, PENCIL ·
-SKETCH), and whatever the studio published (below). **A visit starts in the
+(the picture described under "Look" in `themes/zelda/DESIGN.md`) and `iso`, an
+isometric one. `views.ts` holds the round: one
+built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT), and whatever the studio published (below). **A visit starts in the
 classic 8-bit view** (`DEFAULT_VIEW` in `views.ts`), and the other views
 are a choice on the pause screen. A view the visitor turns to is kept in localStorage
 `zelda.view` and is where their next visit starts; the view a visit merely
@@ -283,18 +282,6 @@ classic picture. `/?view=<id>` asks for one.
   missing frames is stepped down while it plays and stays there (`govern`
   in `view.ts`: first the costly extras go, then the pixels get larger);
   `pinQuality` holds it still for the lab.
-- **The pencil view** (`render/blyant/view.ts`). The classic picture, unlit
-  and top-down (`kit.classic`: `world`, `light`, `glows`, `rooms`, the classic
-  view in parts), handed to Blyant's pencil, `Blyant.Sketch2D` (npm `blyant`,
-  pinned; a WebGL pass, the only place the site imports Blyant): the edge
-  between two colours is a contour drawn twice, the light map is hatching,
-  colour is coloured pencil, every tile a square on squared paper, and the
-  hand follows the world (`origin` is the camera) so lines stand still while
-  the view scrolls. `paper`: Papir (pencil on a light sheet), Kull (chalk on a
-  dark one) or `auto`, which follows the visitor's light or dark mode. `k`
-  mixes the sketch in over the classic picture in patches, so the turn needs
-  no cut. The HUD is notes on the same paper (`paperSkin`). Without WebGL the
-  picture is laid lightly on the sheet.
 - **The studio's stage** (`themes/stage/`, `/?theme=stage`, 2026-11-11). The
   world with nothing around it, for the studio's frame: `ViewStage.vue` runs
   the engine and the renderer on a fresh state and takes messages from
@@ -314,7 +301,7 @@ classic picture. `/?view=<id>` asks for one.
   size), `HIRES_WINDOW_SKIN` (`hud16.ts`: the 16-bit view's, drawn at two px
   to the classic px, with its own proportional font `base/pixel/font16.ts`,
   banded SNES windows with a bevel, redrawn hearts and icons, a name plate
-  on the dialog box), `paperSkin(...)`. `kit.hudLayer(..., skin)`;
+  on the dialog box). `kit.hudLayer(..., skin)`;
   `kit.hudSpace(skin)` says where a skin's grid lies on the screen (an odd
   screen scale gives the hi-res HUD an even scale of its own).
   `scripts/zelda-lab/hud-sheet.mjs` renders every skin in every state.
@@ -340,14 +327,13 @@ classic picture. `/?view=<id>` asks for one.
   must fit a phone. The deck's pictures are the skin's own icons
   (`HIRES_WINDOW_SKIN.icon`, EPX). The canvas also carries
   `zelda-canvas--paused`, which takes the page's hint away while the game is
-  paused, in every view. Classic and pencil views are untouched: without the
+  paused, in every view. The classic view is untouched: without the
   class none of it applies.
 - **Adding an engine.** A module whose default export is a `ViewFactory`, a
   loader in `ENGINE_LOADERS`, its values in `viewParams.ts`, a built-in view
   in `VIEWS`. An engine's code is fetched on the first turn to it and must
   stay out of the entry (`tests/zelda-views.test.mjs` checks that nothing
-  imports `iso/view` or `blyant/view` statically, and that only the pencil
-  view imports Blyant). A view of an engine that exists needs no code: the
+  imports `iso/view` statically). A view of an engine that exists needs no code: the
   studio publishes it.
 - **Known rough edges of the isometric view** (2026-11-12): the art under
   it is still the 16 px art, treated on its way up, so everyone but the hero
@@ -360,9 +346,9 @@ classic picture. `/?view=<id>` asks for one.
   eight world directions, so walking along a wall takes two keys. Not
   measured on a phone: the lab's GPU is software.
 - **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>
-  [scenes]` renders the isometric view, `VIEW=blyant` the pencil one;
-  `FRAMES=18` stops halfway through the turn, `PARAMS='{"paper":"kull"}'`
-  sets the engine's values and `TAG=kull` names the pictures. The page keeps
+  [scenes]` renders the isometric view;
+  `FRAMES=18` stops halfway through the turn, `PARAMS='{"bloom":0.5}'`
+  sets the engine's values and `TAG=dim` names the pictures. The page keeps
   `window.__lab` (`{ r, s, ui, world, step }`) for a script that wants to go
   on drawing. `scripts/zelda-lab/flora-sheet.mjs` and `backdrop-sheet.mjs`
   render the plants and the backdrop alone.

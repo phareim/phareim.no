@@ -122,7 +122,7 @@ switch (state) {
   case 'banner': ui.banner = { text: 'THE NEON COAST', t: 1 }; break
   case 'pause': ui.paused = true; break
   case 'reset': ui.paused = true; ui.confirmReset = true; break
-  case 'strip': ui.strip = { views: [{ name: 'CLASSIC', tag: '8-BIT' }, { name: 'ISOMETRIC', tag: '16-BIT' }, { name: 'PENCIL', tag: 'SKETCH' }], at: 1, t: 0.5 }; break
+  case 'strip': ui.strip = { views: [{ name: 'CLASSIC', tag: '8-BIT' }, { name: 'ISOMETRIC', tag: '16-BIT' }], at: 1, t: 0.5 }; break
   // At the newsstand's counter on the coast road: its label is up.
   case 'low': s.hero.maxHp = 26; s.hero.hp = 1; say([LONG, 'NEXT'], 'keeper'); frame.heroY = size.h * TILE * 0.8; break
   case 'typing': say([LONG, 'NEXT'], 'keeper', { chars: 60 }); break

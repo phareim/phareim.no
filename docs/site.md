@@ -94,7 +94,7 @@ The URL picks the theme (`/?theme=<id>`, no cookie); Nuxt `useState` holds the n
 - `themes/base/` — DefaultLanding shell, SocialLink, EscHold (shared Escape tap/hold), fonts.css + fonts.ts (site fonts)
 - `themes/_template/` — starting point for a new theme
 - `themes/portal/` — the home theme on `/`: the page (hint, hidden link index, ending panel) around the world shell
-- `themes/zelda/` — the one world: engine, world data (town + Neon Shrine), renderer (the classic view a visit starts in, the 16-bit isometric one, the pencil one; `views.ts`), audio, and the shell `Zelda.vue`
+- `themes/zelda/` — the one world: engine, world data (town + Neon Shrine), renderer (the classic view a visit starts in and the 16-bit isometric one; `views.ts`), audio, and the shell `Zelda.vue`
 - `themes/radio/` — engine.ts + catalog.ts: the widget's six game stations (the generative radio is radio.phareim.no, a link out from the beach)
 - `themes/battery/` — Night of the Dead Battery: engine/, content/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
 - `themes/galaga/` — Rex & Nova: Space Voyagers I (parked; the id stays `galaga`): engine/, story/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk

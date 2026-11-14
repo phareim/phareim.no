@@ -290,7 +290,7 @@ test('the 16-bit echo sits on the chip’s 16 ms grid and follows the tempo', ()
 
 test('a view picks the flavour: the isometric engine is 16-bit unless it says otherwise', () => {
   assert.equal(A.flavorForView('classic'), '8-bit')
-  assert.equal(A.flavorForView('blyant', { sound: '16-bit' }), '8-bit')
+  assert.equal(A.flavorForView('classic', { sound: '16-bit' }), '8-bit')
   assert.equal(A.flavorForView('iso'), '16-bit')
   assert.equal(A.flavorForView('iso', {}), '16-bit')
   assert.equal(A.flavorForView('iso', null), '16-bit')

@@ -78,7 +78,7 @@
  * item, Tab too when there is one (else Tab reaches the page's link index);
  * P or an Escape tap pause; on the pause screen T goes to town, M turns the
  * sound on or off and V turns to the next view (`views.ts`: the classic one a
- * visit starts in, the 16-bit one, pencil, and the studio's own); holding Escape
+ * visit starts in, the 16-bit one, and the studio's own); holding Escape
  * saves and goes back to town.
  * Touch: floating stick on the left; on the right three round buttons with
  * pictures, no letters: A (the sword), and with an item B (the item) and

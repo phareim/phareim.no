@@ -44,7 +44,6 @@ import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
-import blyantView from ${JSON.stringify(join(repo, 'themes/zelda/render/blyant/view.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
 const W = +q.get("w"), H = +q.get("h"), dpr = +(q.get("dpr") || 1), top = +(q.get("top") || 0)
@@ -67,8 +66,7 @@ if (q.get('look')) {
 }
 // VIEW=iso shows the isometric view; FRAMES below 36 stops in the middle of the turn into it.
 if (q.get('view') === 'iso') { r.addView('iso', isoView); r.setView('iso', q.get('frames') === null) }
-// VIEW=blyant shows the pencil view; PARAMS='{"paper":"kull"}' sets an engine's values (viewParams.ts).
-if (q.get('view') === 'blyant') { r.addView('blyant', blyantView); r.setView('blyant', q.get('frames') === null) }
+// PARAMS='{"bloom":0.5}' sets an engine's values (viewParams.ts).
 if (q.get('params')) r.setParams(q.get('view') || 'classic', JSON.parse(q.get('params')))
 r.resize(W, H, dpr, { top, right: 0, bottom: top ? 34 : 0, left: 0 })
 const inp = (o) => ({ ...NO_INPUT, ...o })

@@ -34,8 +34,7 @@ export function hudFont(skin?: HudSkin): HudFont {
 
 /**
  * How the HUD is dressed. Each view may bring its own: the classic neon
- * boxes, the 16-bit gradient windows of the isometric view, notes on paper
- * for the pencil view. The layout is the same in all of them.
+ * boxes, the 16-bit gradient windows of the isometric view. The layout is the same in all of them.
  */
 export interface HudSkin {
   /** A panel: the dialog box, the pause screen's box, the item box, a label's plate. `tone`: the edge is the hot colour or the cool one. */
@@ -146,42 +145,6 @@ export const WINDOW_SKIN: HudSkin = {
 
 /** The same windows for a view at twice the pixel density: finer bands, a real dialog font, hearts with a light on them (hud16.ts). */
 export { HIRES_WINDOW_SKIN } from './hud16'
-
-/**
- * Notes on paper for the pencil view: a sheet lying on the sheet, its edge a
- * pencil line that never quite keeps to the ruler. `sheet`, `line`, `ink` and
- * the rest are Blyant's tokens for the paper in use (Papir or Kull).
- */
-export function paperSkin(c: { sheet: string; sheet2: string; line: string; ink: string; soft: string; faint: string; red: string; blue: string; yellow: string; green: string; veil: string }): HudSkin {
-  const panel = (g: G, x: number, y: number, w: number, h: number) => {
-    g.fillStyle = c.sheet2
-    g.fillRect(x, y, w, h)
-    g.fillStyle = c.line
-    // Each side drawn in a few strokes that sit a pixel off each other, like a line gone over by hand.
-    const seg = (x0: number, y0: number, len: number, horiz: boolean, salt: number) => {
-      let at = 0
-      let i = 0
-      while (at < len) {
-        const n = Math.min(len - at, 9 + ((salt * 7 + i * 13) % 11))
-        const off = ((salt + i * 5) % 3 === 0 ? 1 : 0)
-        if (horiz) g.fillRect(x0 + at, y0 + off, n, 1)
-        else g.fillRect(x0 + off, y0 + at, 1, n)
-        at += n
-        i++
-      }
-    }
-    seg(x, y - 1, w, true, x + y)
-    seg(x, y + h - 1, w, true, x + y + 3)
-    seg(x - 1, y, h, false, x + y + 5)
-    seg(x + w - 1, y, h, false, x + y + 8)
-  }
-  return {
-    panel,
-    text: c.ink, dim: c.soft, faint: c.faint,
-    hot: c.red, cool: c.blue, prize: c.yellow, ok: c.green,
-    outline: c.sheet, veil: c.veil, slot: c.faint + '55', off: c.faint,
-  }
-}
 
 /**
  * The HUD's whole-number scale (device px per logical px) for a skin. A skin
