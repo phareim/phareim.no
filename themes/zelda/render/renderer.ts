@@ -32,6 +32,7 @@ import { drawPsiBlock } from './labTiles'
 import { drawHookChain, drawStaticMood, fireflies, queueLuna, queueProps, type Item } from './wild'
 import { ease } from './iso/project'
 import { createTurn } from './turn'
+import { createShade } from './shade'
 import { PAL } from './sprites'
 import { treeNow } from './tree'
 import { resolveParams, type EngineId, type ParamValues } from '../viewParams'
@@ -132,6 +133,8 @@ export interface Picture {
   cx: number
   cy: number
   lights: Light[]
+  /** The people and things in it, for their shadows. */
+  items?: SceneItem[]
 }
 
 /** The frame's parts, as the renderer hands them to a view. Sizes are logical px. */
@@ -241,6 +244,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   const glowCache = new Map<string, HTMLCanvasElement>()
   let scan: CanvasPattern | null = null
   const labels = createLabels()
+  const shade = createShade(world)
   const emit: Emit[] = []
 
   function glow(color: string): HTMLCanvasElement {
@@ -1124,7 +1128,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     for (const it of items) it.draw()
     drawHookChain(g, s, cx, cy, lights)
     if (info.def.look === 'wild' && !ui.attract) fireflies(cx, cy, vw, vh, ui.reducedMotion ? 0 : time, lights, g)
-    return { cx, cy, lights }
+    return { cx, cy, lights, items }
   }
 
   /** The light map for that picture; returns the ambient colour it starts from. */
@@ -1135,6 +1139,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     lg.globalCompositeOperation = 'source-over'
     lg.fillStyle = amb
     lg.fillRect(0, 0, vw, vh)
+    // Shadows take from the dusk's light only: the lamps are added after, and shine into them.
+    const par = paramsOf('classic')
+    const shadows = pic.items ? shade.frame(s, { angle: ((par.sunAngle as number) * Math.PI) / 180, length: par.shadowLength as number, strength: par.shadow as number, color: par.shadowColor as string }, pic.items, lights, cx, cy, vw, vh) : null
+    if (shadows) {
+      lg.globalCompositeOperation = 'multiply'
+      lg.drawImage(shadows, 0, 0)
+    }
     lg.globalCompositeOperation = 'lighter'
     for (const L of lights) {
       const rad = L.r * T

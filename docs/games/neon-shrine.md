@@ -89,6 +89,18 @@ classic picture. `/?view=<id>` asks for one.
   They join the round at once, eight at most; the classic view cannot be
   hidden; a stored view the round no longer has falls back to the classic one.
 
+- **The classic view's shadows** (`render/shade.ts`, 2026-11-18): the
+  isometric view's shadows, flat and in hard pixels. Outdoors the low sun
+  sweeps the footprint of every mass (the heights of `iso/shape.ts`, the
+  same ones the isometric view marches through) along the ground, drawn once
+  per map; what stands or walks throws a blob away from whatever lights it
+  most, long when lit from one side, so it swings round as the hero passes a
+  lamp. One mask, multiplied onto the light map's ambient colour before the
+  lamps are added, so a lamp shines into a shadow; a mass's own picture
+  takes none. Values on the `classic` engine: `sunAngle`, `shadowLength`,
+  `shadow` (0 turns them off), `shadowColor`. The isometric view still
+  fades its own shadows in over the turn, so they are gone for a moment at
+  the cut from the classic picture.
 - **Three layers, kept apart.** The engine and `world/` never import from
   `render/`, and world data names tones (`Tone` in `types.ts`), never a hex
   colour; `test:portal` fails on either. A second look for the same world

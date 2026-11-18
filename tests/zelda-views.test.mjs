@@ -28,6 +28,7 @@ async function load() {
         `export { WORLD } from './world/index'`,
         `export { TILE_INFO } from './world/tiles'`,
         `export { createTurn } from './render/turn'`,
+        `export { massesOf, blobOf, shadeTint } from './render/shade'`,
         `export { createGame } from './engine/index'`,
         `export { enterMap } from './engine/game'`,
         `export { STAGE_SCENES, stageScene } from '../stage/scenes'`,
@@ -618,5 +619,52 @@ describe('the studio\'s stage', () => {
     assert.match(landing, /defineAsyncComponent\(\(\) => import\('\.\/ViewStage\.vue'\)\)/)
     const stage = readFileSync(resolve(site, 'themes/stage/ViewStage.vue'), 'utf8')
     for (const word of ['localStorage', 'sessionStorage', 'submitScore', 'createZeldaAudio', 'fetch(']) assert.ok(!stage.includes(word), `the stage must keep nothing and call nobody (${word})`)
+  })
+})
+
+describe('the classic view\'s shadows', () => {
+  const grid = rows => (x, y) => (rows[y]?.[x] ?? '.')
+  it('has the values the studio turns, and is on from the start', () => {
+    const p = M.resolveParams('classic')
+    assert.ok(p.shadow > 0)
+    for (const name of ['sunAngle', 'shadowLength', 'shadow', 'shadowColor']) assert.equal(M.ENGINES.classic.params[name].t, M.ENGINES.iso.params[name].t, name)
+    assert.equal(M.resolveParams('classic', { shadow: 0 }).shadow, 0)
+  })
+  it('stands a house on its two southern rows, two tiles tall, and shades none of its own picture', () => {
+    const rows = ['.....', '.HH..', '.HH..', '.HH..', '.HH..', '.....']
+    const f = M.massesOf(5, 6, 'overworld', grid(rows))
+    const at = (x, y) => f.height[y * 5 + x]
+    assert.equal(at(1, 3), 2); assert.equal(at(2, 4), 2)
+    assert.equal(at(1, 1), 0); assert.equal(at(1, 2), 0); assert.equal(at(3, 3), 0)
+    for (let y = 1; y <= 4; y++) assert.equal(f.kind[y * 5 + 1], 1)
+    assert.equal(f.kind[0], 0)
+  })
+  it('lets a lone tree stand alone and a wood be a mass', () => {
+    const f = M.massesOf(3, 4, 'overworld', grid(['.T.', '.T.', '...', 'T..']))
+    assert.equal(f.kind[0 * 3 + 1], 1)
+    assert.equal(f.kind[1 * 3 + 1], 2)
+    assert.equal(f.height[1 * 3 + 1], 1)
+    assert.equal(f.kind[3 * 3 + 0], 2)
+    assert.equal(f.height[3 * 3 + 0], 0)
+  })
+  it('throws a shadow away from the sun, and round to the far side of a lamp', () => {
+    const sun = { x: -1, y: 0 }
+    const b = M.blobOf(5, 5, 1, 0.25, [], sun, 1.5)
+    assert.ok(b.ux > 0.99 && b.x > 5)
+    const lamp = [{ x: 7, y: 5, r: 4, color: '#ffffff', a: 1 }]
+    const c = M.blobOf(5, 5, 1, 0.25, lamp, null, 0.6)
+    assert.ok(c.ux < -0.99 && c.x < 5)
+    // Lit from both sides alike, the shadow is a pool under the feet.
+    const both = M.blobOf(5, 5, 1, 0.25, [...lamp, { x: 3, y: 5, r: 4, color: '#ffffff', a: 1 }], null, 0.6)
+    assert.ok(both.long < c.long)
+    // A light the thing carries itself pulls nothing.
+    const own = M.blobOf(5, 5, 1, 0.25, [{ x: 5, y: 4.6, r: 3, color: '#ffffff', a: 1 }], sun, 1.5)
+    near(own.ux, b.ux); near(own.long, b.long)
+  })
+  it('darkens toward the shadow colour, never to black, and not at all at strength 0', () => {
+    assert.equal(M.shadeTint('#140a3c', 0), '#ffffff')
+    const t = M.shadeTint('#000000', 0.9)
+    assert.match(t, /^#[0-9a-f]{6}$/)
+    assert.ok(parseInt(t.slice(1, 3), 16) > 60)
   })
 })
