@@ -123,7 +123,9 @@ of a rule (`World.peaceful` was removed 2026-09-24).
 
 The world is drawn at 16 px per tile into a logical-resolution buffer, lit
 by a multiply light map (dusk ambient, lamp pools, dark rooms where only the
-hero glows), scaled by a whole number, then given soft neon bloom and faint
+hero glows) with hard-pixel shadows in it (`render/shade.ts`: outdoors a
+low sun lays the shadow of every house, wall and wood along the ground, and
+whoever walks throws one away from the nearest light), scaled by a whole number, then given soft neon bloom and faint
 scanlines. The view follows the screen: at least 13×11 tiles, taller on
 portrait phones. Palette: teal-indigo grass, rose paths, teal/violet
 canopies with magenta rim light, violet stone with neon strips; cyan hero,

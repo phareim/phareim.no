@@ -46,8 +46,14 @@ const FINISH = (scan: number, bloom: number, vignette: number): Record<string, P
 export const ENGINES: Record<EngineId, EngineInfo> = {
   classic: {
     title: 'Classic',
-    blurb: 'The top-down picture: an 8-bit cabinet with the lights off. Hard scanlines, neon that bleeds.',
-    params: { ...FINISH(1, 1, 1) },
+    blurb: 'The top-down picture: an 8-bit cabinet with the lights off. Hard scanlines, neon that bleeds, and a low sun that lays hard-edged shadows along the ground.',
+    params: {
+      ...FINISH(1, 1, 1),
+      sunAngle: num('Sun direction', 205, 0, 360, 5, 'Where the low sun stands, in degrees on the ground (0 east, 90 south, 180 west). Shadows fall the other way.'),
+      shadowLength: num('Shadow length', 1.5, 0, 4, 0.1, 'How far a thing one tile tall throws its shadow, in tiles.'),
+      shadow: num('Shadow strength', 0.7, 0, 0.9, 0.05, 'How dark the shadows of houses, walls, woods and of everyone who walks are. 0 turns them off.'),
+      shadowColor: color('Shadow colour', '#140a3c'),
+    },
   },
   iso: {
     title: 'Isometric',
