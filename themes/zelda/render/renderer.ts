@@ -17,7 +17,8 @@
  */
 import type { Dir, Enemy, GameEvent, GameState, World } from '../types'
 import { BOMB_FUSE, SPIN_TIME, SWING_TIME, TILE, WARP_TIME } from '../types'
-import { cameraFor, cellDef, cellIndex, cellIsDark, mapInfo, shardPos, swingAngle } from '../engine/index'
+import { cameraFor, cellDef, cellIndex, cellIsDark, HOURS, mapInfo, shardPos, swingAngle } from '../engine/index'
+import { dayLook, type DayLook } from './daylight'
 import { drawText, textWidth } from '../../base/pixel/font'
 import { drawBanner, drawDialog, drawHud, drawPause, drawViewStrip, hudScale, NEON_SKIN, type HudSkin } from './hud'
 import type { HudKeys } from '../keys'
@@ -35,7 +36,7 @@ import { createTurn } from './turn'
 import { createShade } from './shade'
 import { PAL } from './sprites'
 import { treeNow } from './tree'
-import { resolveParams, type EngineId, type ParamValues } from '../viewParams'
+import { isEngineId, resolveParams, type EngineId, type ParamValues } from '../viewParams'
 
 /** NPC looks that live on the town's beach and move on its slow beat. */
 const BEACH_LOOKS: ReadonlySet<string> = new Set(['hippie', 'smoker', 'guitar', 'sleeper', 'twirler', 'bonfire'])
@@ -144,8 +145,14 @@ export interface Kit {
   /** The screen itself, for a view that finishes its own picture: device px, the whole-number scale and where the scene lands. */
   screen(): { g: G; W: number; H: number; scale: number; ox: number; oy: number; dpr: number }
   sceneCanvas(): HTMLCanvasElement
-  /** The values this engine draws with now (`viewParams.ts`), and the finish among them. */
-  params(id: EngineId): ParamValues
+  /**
+   * The values this engine draws with now (`viewParams.ts`), and the finish
+   * among them. Outdoors after the prism the sun, shadow and sky values are
+   * the hour's (`render/daylight.ts`); `own` gives the view's own.
+   */
+  params(id: EngineId, own?: boolean): ParamValues
+  /** The hour's light outdoors for this engine (null: no day here, the view's own dusk). */
+  day(id: EngineId): DayLook | null
   finish(id: EngineId): Finish
   /**
    * The classic picture in parts, for a view that keeps the top-down camera and
@@ -865,7 +872,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const kind = info.def.kind
     const m = s.map
     const dark = kind !== 'overworld' && cellIsDark(s, info, s.zoneIndex)
-    const amb = dark ? (kind === 'interior' ? AMBIENT.caveDark : AMBIENT.dark) : info.def.ambient ? AMBIENCE[info.def.ambient] : AMBIENT[kind]
+    const day = kind === 'overworld' ? dayOf(drawing) : null
+    const amb = dark ? (kind === 'interior' ? AMBIENT.caveDark : AMBIENT.dark) : info.def.ambient ? AMBIENCE[info.def.ambient] : day ? day.ambient : AMBIENT[kind]
     const h = s.hero
     if (!ui.attract && h.x > -10) lights.push({ x: h.x, y: h.y - 0.2, r: dark ? 5.2 : 2.6, color: dark ? '#b8a8e8' : '#8a7ab8', a: dark ? 1 : 0.35 })
     if (s.disc) lights.push({ x: s.disc.x, y: s.disc.y, r: 2.2, color: '#2ff3ff', a: 0.9 })
@@ -1127,7 +1135,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     items.sort((a, b) => a.y - b.y)
     for (const it of items) it.draw()
     drawHookChain(g, s, cx, cy, lights)
-    if (info.def.look === 'wild' && !ui.attract) fireflies(cx, cy, vw, vh, ui.reducedMotion ? 0 : time, lights, g)
+    if (info.def.look === 'wild' && !ui.attract) fireflies(cx, cy, vw, vh, ui.reducedMotion ? 0 : time, lights, g, dayOf('classic')?.fireflies ?? 1)
     return { cx, cy, lights, items }
   }
 
@@ -1140,8 +1148,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     lg.fillStyle = amb
     lg.fillRect(0, 0, vw, vh)
     // Shadows take from the dusk's light only: the lamps are added after, and shine into them.
-    const par = paramsOf('classic')
-    const shadows = pic.items ? shade.frame(s, { angle: ((par.sunAngle as number) * Math.PI) / 180, length: par.shadowLength as number, strength: par.shadow as number, color: par.shadowColor as string }, pic.items, lights, cx, cy, vw, vh) : null
+    const par = dayParams('classic')
+    // The sun's shadows over the whole map are cast again whenever it moves: by the hour it moves in steps of 3° and a tenth of a tile, a hard-pixel tick every few seconds.
+    const own = paramsOf('classic')
+    const turned = ((((par.sunAngle as number) - (own.sunAngle as number)) % 360) + 540) % 360 - 180
+    const sunDeg = (own.sunAngle as number) + Math.round(turned / 3) * 3
+    const sunLen = par.shadowLength === own.shadowLength ? own.shadowLength as number : Math.round((par.shadowLength as number) * 10) / 10
+    const shadows = pic.items ? shade.frame(s, { angle: (sunDeg * Math.PI) / 180, length: sunLen, strength: par.shadow as number, color: par.shadowColor as string, moving: !!dayOf('classic') }, pic.items, lights, cx, cy, vw, vh) : null
     if (shadows) {
       lg.globalCompositeOperation = 'multiply'
       lg.drawImage(shadows, 0, 0)
@@ -1206,12 +1219,28 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     classicLight(s, ui, pic)
     g.globalCompositeOperation = 'multiply'
     g.drawImage(light, 0, 0)
+    exposeDay(g)
     g.globalCompositeOperation = 'source-over'
     classicGlows(g, s, ui, dt, pic)
     classicRooms(g, s, pic, '#05030c')
     const fade = flashFade(g, s, ui, dt)
     present(fade, bg => classicBloom(bg, s, ui, pic))
     hudLayer(s, ui, dt, pic.cx, pic.cy, s.hero.y * T - pic.cy)
+  }
+
+  let lit: HTMLCanvasElement | null = null
+  /** By day the lit picture is brightened past the art's own (the art is painted for the dusk): added onto itself, in part. */
+  function exposeDay(g: G) {
+    const x = dayOf(drawing)?.exposure ?? 0
+    if (x <= 0.01) return
+    if (!lit || lit.width !== vw || lit.height !== vh) lit = makeCanvas(vw, vh)
+    const cg = lit.getContext('2d')!
+    cg.globalCompositeOperation = 'copy'
+    cg.drawImage(scene, 0, 0)
+    g.globalCompositeOperation = 'lighter'
+    g.globalAlpha = Math.min(1, x)
+    g.drawImage(lit, 0, 0)
+    g.globalAlpha = 1
   }
 
   let vig: HTMLCanvasElement | null = null
@@ -1237,6 +1266,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const sx = 55 * T - cx
     const sy = 33 * T - cy
     if (sx < -120 || sx > qw + 120 || sy < -80 || sy > qh + 80) return
+    const glare = dayOf(drawing)?.glare ?? 1
+    if (glare <= 0.02) return
     const m = s.map
     const cols = ['#ffd23f', '#ffb13f', '#ff8a3d', '#ff5f7a', '#ff2fa0', '#c42a9a']
     for (let i = 0; i < 14; i++) {
@@ -1248,7 +1279,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         const tx = Math.floor((sx + x + cx) / T)
         const ty = Math.floor((y + cy) / T)
         if (m.tiles[ty * m.w + tx] !== '~') continue
-        g.globalAlpha = 0.8 - i * 0.04
+        g.globalAlpha = (0.8 - i * 0.04) * glare
         g.fillRect(Math.round(sx + x + wob), Math.round(y), 2, 1)
       }
     }
@@ -1319,6 +1350,47 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     if (!p) { p = resolveParams(id); params.set(id, p) }
     return p
   }
+  /** The state being drawn and the engine drawing it, for the hour's light. */
+  let frameState: GameState | null = null
+  let drawing: EngineId = 'classic'
+  const dayCache = new Map<EngineId, { t: number; own: ParamValues; look: DayLook; params: ParamValues }>()
+  const str = (v: unknown, d: string) => typeof v === 'string' && v ? v : d
+  /** Seconds into the day outdoors for this engine, or null: before the prism, under a roof, or no state yet. */
+  function hourOf(id: EngineId): number | null {
+    const s = frameState
+    if (!s || mapInfo(world, s.map.id).def.kind !== 'overworld') return null
+    const hold = paramsOf(id).daytime
+    return typeof hold === 'string' && hold in HOURS ? HOURS[hold as keyof typeof HOURS] : s.daytime
+  }
+  function dayEntry(id: EngineId) {
+    const t = hourOf(id)
+    if (t === null) return null
+    const own = paramsOf(id)
+    const at = Math.round(t * 10) / 10
+    const had = dayCache.get(id)
+    if (had && had.t === at && had.own === own) return had
+    const look = dayLook(at, {
+      ambient: AMBIENT.overworld,
+      sunAngle: own.sunAngle as number, shadowLength: own.shadowLength as number, shadow: own.shadow as number,
+      skyTop: str(own.skyTop, '#1a0f4a'), skyHorizon: str(own.skyHorizon, '#ff5f9e'), haze: str(own.hazeColor, '#ff6fb0'),
+      nightLight: str(own.nightLight, '#3a3878'), dawnLight: str(own.dawnLight, '#f0a4b0'), noonLight: str(own.noonLight, '#f4efe8'),
+      nightSky: str(own.nightSky, '#070722'), nightHorizon: str(own.nightHorizon, '#2c2466'),
+      dawnSky: str(own.dawnSky, '#2a2c78'), dawnHorizon: str(own.dawnHorizon, '#ffa26b'),
+      noonSky: str(own.noonSky, '#2a7fd4'), noonHorizon: str(own.noonHorizon, '#a8e4ff'),
+      noonBright: typeof own.noonBright === 'number' ? own.noonBright : 0.55,
+    })
+    const params: ParamValues = { ...own, sunAngle: look.sunAngle, shadowLength: look.shadowLength, shadow: look.shadow }
+    if ('skyTop' in own) { params.skyTop = look.skyTop; params.skyHorizon = look.skyHorizon; params.hazeColor = look.haze }
+    // The low sun's warmth goes with the low sun.
+    if (typeof own.rim === 'number') params.rim = own.rim * look.low
+    if (typeof own.rays === 'number') params.rays = own.rays * look.low
+    const e = { t: at, own, look, params }
+    dayCache.set(id, e)
+    return e
+  }
+  const dayOf = (id: EngineId): DayLook | null => dayEntry(id)?.look ?? null
+  const dayParams = (id: EngineId): ParamValues => dayEntry(id)?.params ?? paramsOf(id)
+
   function finishOf(id: EngineId): Finish {
     const p = paramsOf(id)
     return { scanlines: p.scanlines as number ?? 1, bloom: p.bloom as number ?? 1, vignette: p.vignette as number ?? 1 }
@@ -1329,7 +1401,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     size: () => ({ vw, vh, decalMaxW }),
     screen: () => ({ g: screen, W, H, scale, ox: Math.floor((W - vw * scale) / 2), oy: Math.floor((H - vh * scale) / 2), dpr }),
     sceneCanvas: () => scene,
-    params: paramsOf,
+    params: (id, own) => own ? paramsOf(id) : dayParams(id),
+    day: dayOf,
     finish: finishOf,
     classic: { world: classicWorld, light: classicLight, glows: classicGlows, rooms: classicRooms, bloom: classicBloom },
     scene: () => sg,
@@ -1360,16 +1433,19 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   const turn = createTurn(id => views.has(id))
 
   function draw(s: GameState, ui: FrameUI, dt: number) {
+    frameState = s
     begin(s, ui, dt)
     // A view that draws the hero itself says so again each frame.
     heroBare = false
     const now = turn.step(dt)
     const v = now.shown ? views.get(now.shown) : undefined
+    drawing = v && isEngineId(now.shown) ? now.shown : 'classic'
     if (!v) { aim = a => a; span = null; drawClassic(s, ui, dt); return }
     try { v.draw(s, ui, dt, ease(now.k)) } catch (e) {
       // A view that throws would throw again every frame, with the game running on unseen behind a still
       // picture. It is put away for this visit, and the classic view draws from here on.
       console.error(`view ${now.shown} failed; the classic view takes over`, e)
+      drawing = 'classic'
       try { v.dispose?.() } catch { /* it is going anyway */ }
       views.delete(now.shown!)
       aim = a => a

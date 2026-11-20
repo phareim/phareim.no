@@ -436,6 +436,12 @@ export interface Enemy {
   dead: boolean
   /** Hit flash for the renderer (seconds left). */
   flash: number
+  /** Day and night (`engine/day.ts`): the foe level (0–2) from which it is out; absent before the prism and for foes the clock leaves alone. */
+  rank?: number
+  /** Out of the world for this part of the day (it is also `dead`). */
+  away?: boolean
+  /** Walking in to its home from past the screen's edge, or out past it. */
+  trek?: { x: number; y: number; out: boolean; stuck: number }
 }
 
 export interface Projectile {
@@ -725,6 +731,13 @@ export interface GameState {
   disc: Disc | null
   hook: Hook | null
   luna: Follower | null
+  /**
+   * Seconds into the day (`engine/day.ts`, 0 … 720), or null while the sun is
+   * stuck on the horizon (before the Sun Prism).
+   */
+  daytime: number | null
+  /** What the screen shows, in tiles (the shell says, each frame): the woods' foes walk in from past it. Never saved. */
+  sight?: Vec
 }
 
 // ---------------------------------------------------------------------------
@@ -828,4 +841,6 @@ export interface SaveData {
   elapsed: number
   /** Wall-clock ms of the write, set by the shell; newest wins against the profile copy. */
   savedAt?: number
+  /** Seconds into the day, once the prism is home (`GameState.daytime`). */
+  day?: number
 }

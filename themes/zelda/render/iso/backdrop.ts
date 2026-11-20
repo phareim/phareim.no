@@ -34,6 +34,8 @@ export interface BackdropLayer {
   drift: number
   /** seconds per blink: shown for the first half of each cycle, hidden for the second (a mast's lamp, a lighthouse's flash, a star's twinkle); absent on a layer that is always shown */
   blink?: number
+  /** The sun or the stars: the hour moves the sun and dims the stars (`view.ts` `paintSky`). */
+  role?: 'sun' | 'stars'
 }
 export interface Backdrop {
   /** the horizon as a fraction of the screen height */
@@ -935,11 +937,11 @@ function buildCoast(w: number, h: number, top: RGB, horizon: RGB): Backdrop {
   paintSea(sky, sc)
   layers.push(layerOf(sc, sky, 0, 0))
   const stars = paintStars(sc, 1, 0.6)
-  layers.push(layerOf(sc, stars.still, 0, 0, true))
-  layers.push(layerOf(sc, stars.twinkle[0], 0, 0, true, 0, 2.3))
-  layers.push(layerOf(sc, stars.twinkle[1], 0, 0, true, 0, 3.7))
+  layers.push({ ...layerOf(sc, stars.still, 0, 0, true), role: 'stars' })
+  layers.push({ ...layerOf(sc, stars.twinkle[0], 0, 0, true, 0, 2.3), role: 'stars' })
+  layers.push({ ...layerOf(sc, stars.twinkle[1], 0, 0, true, 0, 3.7), role: 'stars' })
   const sun = paintSun(sc, { tones: ['#fff1b0', '#ffd23f', '#ffb13f', '#ff8a3d', '#ff5f7a', '#ff2fa0'], veil: 0, sea: true, glow: 0.6, slit: mix(r(0.66), [52, 14, 92], 0.6), slitFrom: 0.14 })
-  layers.push(layerOf(sc, sun.p, sun.top, 0, true))
+  layers.push({ ...layerOf(sc, sun.p, sun.top, 0, true), role: 'sun' })
   const isles = paintIsles(sc)
   layers.push(layerOf(sc, isles.p, isles.top, 0.04))
   // Three strips of cloud. Lowest, thin bars that cross the sun's upper third; highest, the big ones, which move fastest; behind those, small far heaps whose feet stay just clear of the sun's top, so no heap ever bites into the disc.
@@ -1119,12 +1121,12 @@ function buildWild(w: number, h: number, top: RGB, horizon: RGB): Backdrop {
   paintGround(sky, sc, floor, wood.top + wood.p.h)
   layers.push(layerOf(sc, sky, 0, 0))
   const stars = paintStars(sc, 0.45, 0.5)
-  layers.push(layerOf(sc, stars.still, 0, 0, true))
-  layers.push(layerOf(sc, stars.twinkle[0], 0, 0, true, 0, 2.3))
-  layers.push(layerOf(sc, stars.twinkle[1], 0, 0, true, 0, 3.7))
+  layers.push({ ...layerOf(sc, stars.still, 0, 0, true), role: 'stars' })
+  layers.push({ ...layerOf(sc, stars.twinkle[0], 0, 0, true, 0, 2.3), role: 'stars' })
+  layers.push({ ...layerOf(sc, stars.twinkle[1], 0, 0, true, 0, 3.7), role: 'stars' })
   // The same sun, lower, behind haze: warm and whole in colour (the mood is the darker sky's), striped from well above its middle so the slits show over the hills.
   const sun = paintSun(sc, { tones: ['#f8bc6a', '#f2a35a', '#ee8c58', '#e9785a', '#d8606c', '#c8507a'], veil: 0.45, sea: false, glow: 0.4, slit: mix(r(0.7), [48, 20, 78], 0.7), slitFrom: 0.5 })
-  layers.push(layerOf(sc, sun.p, sun.top, 0, true))
+  layers.push({ ...layerOf(sc, sun.p, sun.top, 0, true), role: 'sun' })
   // Bars of haze high up, a few rows each.
   const bars = paintBars(sc, 500, 4, 5, [mix(r(0.4), [40, 26, 76], 0.5), mix(r(0.6), [84, 44, 110], 0.5), mix(r(0.8), [170, 90, 140], 0.4)])
   layers.push(layerOf(sc, bars, Math.round(sc.line * 0.56) - bars.h, 0.05, false, 0.8))

@@ -37,6 +37,7 @@ import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engi
 import { rgb } from './gl'
 import { buildFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
 import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
+import { skyGrade, type DayLook } from '../daylight'
 import { BEYOND, beyondTile, massifHeight } from '../beyond'
 import { createLands, type Lands } from './lands'
 import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from './figure'
@@ -283,13 +284,15 @@ export default function isoView(kit: Kit): View {
   let backdropKey = ''
   /** Where each layer was laid last (px), to know when one has moved. */
   let skyAt = new Int32Array(0)
+  /** The hour the sky was last laid for (the sun's sink and fade, the stars'). */
+  let skyHour = ''
   /**
    * What lies beyond the map's edge (`backdrop.ts`): layers that slide at
    * their own speeds as the camera moves, and clouds that drift. They are
    * laid on one scene-sized picture, again only when one of them has moved a
    * whole px.
    */
-  function paintSky(look: BackdropLook, w: number, h: number, top: string, horizon: string, camX: number, time: number) {
+  function paintSky(look: BackdropLook, w: number, h: number, top: string, horizon: string, camX: number, time: number, day: DayLook | null = null) {
     const key = `${look}:${w}:${h}:${top}:${horizon}`
     if (key !== backdropKey) {
       backdrop = buildBackdrop(look, w, h, { top, horizon })
@@ -298,6 +301,13 @@ export default function isoView(kit: Kit): View {
       if (sky.width !== w || sky.height !== h) { sky.width = w; sky.height = h }
     }
     const layers = backdrop!.layers
+    // The hour: the sun sinks under the horizon at nightfall and fades as it climbs to noon; the stars go out by day.
+    // Both in whole steps, so the picture is laid again only when one of them shows.
+    const sinkPx = day ? Math.round(Math.max(0, 0.12 - day.sun) * h * 0.32) : 0
+    const sunA = day ? Math.round(Math.max(0, Math.min(1, 1 - (day.sun - 0.25) / 0.4)) * 10) / 10 : 1
+    const starA = day ? Math.round(Math.max(0, Math.min(1, day.stars)) * 10) / 10 : 1
+    const hourKey = `${sinkPx}:${sunA}:${starA}`
+    if (hourKey !== skyHour) { skyHour = hourKey; skyKey = '' }
     if (skyAt.length !== layers.length) skyAt = new Int32Array(layers.length).fill(-0x7fffffff)
     let moved = skyKey === ''
     for (let i = 0; i < layers.length; i++) {
@@ -311,14 +321,28 @@ export default function isoView(kit: Kit): View {
     const sg = sky.getContext('2d')!
     sg.imageSmoothingEnabled = false
     sg.clearRect(0, 0, w, h)
+    const line = Math.round(backdrop!.horizon * h)
     for (let i = 0; i < layers.length; i++) {
       const L = layers[i]!
       const at = skyAt[i]!
       if (at === 0x7fffffff) continue
-      const y = Math.round(L.top * h)
+      const alpha = L.role === 'sun' ? sunA : L.role === 'stars' ? starA : 1
+      if (alpha <= 0) continue
+      let y = Math.round(L.top * h)
+      sg.globalAlpha = alpha
+      if (L.role === 'sun' && sinkPx > 0) {
+        // Under the horizon it is gone: only what stands above the line shows.
+        y += sinkPx
+        sg.save()
+        sg.beginPath()
+        sg.rect(0, 0, w, line)
+        sg.clip()
+      }
       const cw = L.canvas.width
-      if (!L.repeatX) { sg.drawImage(L.canvas, Math.round((w - cw) / 2) - at, y); continue }
-      for (let x = -(((at % cw) + cw) % cw); x < w; x += cw) sg.drawImage(L.canvas, x, y)
+      if (!L.repeatX) sg.drawImage(L.canvas, Math.round((w - cw) / 2) - at, y)
+      else for (let x = -(((at % cw) + cw) % cw); x < w; x += cw) sg.drawImage(L.canvas, x, y)
+      if (L.role === 'sun' && sinkPx > 0) sg.restore()
+      sg.globalAlpha = 1
     }
     engine.sky(sky)
   }
@@ -842,7 +866,7 @@ export default function isoView(kit: Kit): View {
     const loose: Light[] = []
     if (def.look === 'wild' && !ui.attract) {
       const n = lights.length
-      fireflies(vx, vy, Math.ceil(vw), Math.ceil(vh), reduced ? 0 : time, lights, xg)
+      fireflies(vx, vy, Math.ceil(vw), Math.ceil(vh), reduced ? 0 : time, lights, xg, kit.day('iso')?.fireflies ?? 1)
       for (const L of lights.splice(n)) loose.push({ ...L, x: L.x * T - vx, y: L.y * T - vy })
     }
     const moody = kit.staticMood(s)
@@ -997,7 +1021,11 @@ export default function isoView(kit: Kit): View {
     }
 
     // --- to the GPU -----------------------------------------------------------------------
-    paintSky(outdoors ? (def.look === 'wild' ? 'wild' : 'coast') : 'void', sw, sh, par.skyTop as string, par.skyHorizon as string, c.x * DENSITY, reduced ? 0 : time)
+    // The backdrop is painted in the view's own dusk; the hour moves its sun and stars and grades the rest.
+    const own = kit.params('iso', true)
+    const day = kit.day('iso')
+    paintSky(outdoors ? (def.look === 'wild' ? 'wild' : 'coast') : 'void', sw, sh, own.skyTop as string, own.skyHorizon as string, c.x * DENSITY, reduced ? 0 : time, day)
+    const grade = day ? skyGrade(own.skyTop as string, own.skyHorizon as string, par.skyTop as string, par.skyHorizon as string) : null
     engine.flat(flat)
     engine.objs(objs)
     engine.atlas(atlas, atlasUsed)
@@ -1030,6 +1058,8 @@ export default function isoView(kit: Kit): View {
       hazeColor: rgb(par.hazeColor as string),
       skyTop: rgb(par.skyTop as string),
       skyHorizon: rgb(par.skyHorizon as string),
+      skyMul: grade ? grade.mul : [1, 1, 1],
+      skyAdd: grade ? grade.add : [0, 0, 0],
       sky: !!par.sky,
       // The Wildwood stands in mist and shafts of the low sun; the coast has a breath of both.
       mist: outdoors ? (par.mist as number) * k * (def.look === 'wild' ? 1 : 0.3) : 0,
@@ -1051,7 +1081,8 @@ export default function isoView(kit: Kit): View {
     engine.draw({
       // Under reduced motion the water, the mist and the shafts stand still.
       cam, R, mapX: -M, mapY: -M, mapW: ew, mapH: eh, inner: { x: 0, y: 0, w: m.w, h: m.h }, far: M ? k : 0, rooms, time: reduced ? 0 : time, outdoors,
-      ambient: rgb(amb),
+      // By day the light is more than the art's own (the art is painted for the dusk).
+      ambient: rgb(amb).map(q => q * (1 + (kit.day('iso')?.exposure ?? 0) * k)) as [number, number, number],
       voidColor: rgb(outdoors ? '#0e2a3c' : '#07040f'),
       hero: { x: s.hero.x, y: s.hero.y },
       verts, vertCount: nv,

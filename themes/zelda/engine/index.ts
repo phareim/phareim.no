@@ -7,3 +7,4 @@ export { STATS } from './spawn'
 // Test hooks: the play-through test kills bosses directly.
 export { ctx, killEnemy, hitEnemy } from './combat'
 export { solidTile } from './map'
+export { DAY, DAY_LENGTH, HOURS, foeLevel, setDaytime, wayOut } from './day'

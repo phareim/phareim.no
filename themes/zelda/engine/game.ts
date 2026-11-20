@@ -14,6 +14,7 @@ import { beginExit, openDialog, stepHero, WALK_OUT_TIME } from './hero'
 import { cellDef, cellIndex, cellRect, circleBlocked, condMet, has, loadMap, mapInfo, moveCircle, tileAt } from './map'
 import { stepObjects } from './objects'
 import { resetEnemy } from './spawn'
+import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
 import { stepHook } from './hook'
 import { dirVec } from './util'
@@ -66,6 +67,7 @@ export function createGame(
     disc: null,
     hook: null,
     luna: null,
+    daytime: save?.inv.prism ? (typeof save.day === 'number' ? save.day : 0) : null,
   }
   if (save) for (const f of save.flags) s.flags[f] = true
   const ev: GameEvent[] = []
@@ -108,6 +110,7 @@ export function enterMap(world: World, s: GameState, mapId: string, entryId: str
   if (!at) s.entry = { map: mapId, entry: entryId }
   placeLuna(s)
   setZone(world, s, cellIndex(info, h.x, h.y))
+  settleFoes(world, s)
   const area = areaAt(world, s)
   s.area = area.name
   ev.push({ type: 'enter', map: mapId, area: area.name, track: area.track })
@@ -213,6 +216,11 @@ function play(c: Ctx, dt: number, inp: Input) {
   if (!s.demo) {
     // The quest clock starts with the blade: strolling round the town is free.
     if (s.inv.sword) s.elapsed += dt
+    // The sun moves once the prism is home.
+    if (s.daytime !== null) {
+      s.daytime = (s.daytime + dt) % DAY_LENGTH
+      stepFoes(c.w, s)
+    }
     stepHero(c, inp, dt)
   }
   if (s.mode !== 'play') return
@@ -383,6 +391,8 @@ function dialog(c: Ctx, dt: number, inp: Input) {
     if (item === 'prism') {
       s.mode = 'won'
       s.flags.won = true
+      // The sun can set at last: the day starts at the dusk it was stuck in.
+      if (s.daytime === null) s.daytime = 0
       c.ev.push({ type: 'won', elapsed: s.elapsed })
     }
   }
@@ -456,6 +466,7 @@ export function toSave(s: GameState): SaveData | null {
     flags: Object.keys(s.flags),
     rng: s.rng,
     elapsed: s.elapsed,
+    ...(s.daytime !== null ? { day: Math.round(s.daytime * 10) / 10 } : {}),
   }
 }
 
@@ -495,6 +506,7 @@ export function parseSave(raw: unknown): SaveData | null {
     v: SAVE_VERSION, map: r.map, entry: r.entry, hp: maxHp, maxHp,
     inv: { ...base, ...(inv as unknown as Inventory), keyrings: cleanRings(inv.keyrings) }, flags: r.flags as string[], rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
     ...(num(r.savedAt) && (r.savedAt as number) > 0 ? { savedAt: Math.floor(r.savedAt as number) } : {}),
+    ...(num(r.day) && (r.day as number) >= 0 ? { day: (r.day as number) % DAY_LENGTH } : {}),
   }
 }
 

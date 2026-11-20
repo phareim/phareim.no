@@ -365,6 +365,56 @@ classic picture. `/?view=<id>` asks for one.
   on drawing. `scripts/zelda-lab/flora-sheet.mjs` and `backdrop-sheet.mjs`
   render the plants and the backdrop alone.
 
+**Day and night** (after the Sun Prism). Until the prism is home the sun
+hangs on the horizon and `GameState.daytime` is null. Taking it starts a
+12-minute day at that same dusk (the first frame after the win is the
+dusk before it, to the pixel), so the first thing the sun does is set.
+The day is mostly dusk and dawn: dusk 0–170 s (blue hour from 100), night
+170–290, the blue morning and dawn 290–480, noon 520–640 and the golden
+afternoon back to dusk at 720 (`DAY` in `engine/day.ts`). It runs only in
+play, is saved as `day` (old saves of a winner start at dusk) and covers
+every outdoor map; interiors and dungeons keep their own light.
+
+- **The light** (`render/daylight.ts`, pure). A view's own values stay the
+  dusk, and the studio turns them as before; the other hours are keyframes
+  laid over them. The sun rises in the east, stands in the south at noon and
+  sets at the view's own `sunAngle`; shadows grow long at dawn and dusk and
+  short at noon; at night the moon throws faint ones along the same path,
+  and the two hand over in the blue hours, when nothing throws a shadow, so
+  shadows never swing round in sight. The light outdoors and the sky blend
+  the view's dusk with its night, dawn and noon colours, the haze follows
+  the horizon, and by day the lit picture is brightened past the art
+  (`noonBright`: the art is painted for the dusk). The 16-bit view keeps its
+  backdrop painted in the dusk and grades it in the shader (`skyGrade`), so
+  no hour repaints it; its sun sinks under the horizon at nightfall, rises
+  at dawn and fades out towards noon, and the stars go out by day. Fireflies
+  thicken at night and are gone at noon; the sun's glitter on Mirror Lake
+  shows at dusk and dawn. The classic view casts the sun's shadows only
+  round the view while the sun moves (`shade.ts`, `moving`; a whole map is
+  about 25 ms) and turns them in steps of 3°.
+- **Values** (both engines, the iso view's under "Day and night"):
+  `daytime` (`cycle`, or hold the light at `dusk`, `night`, `dawn`, `noon`
+  for trying a look; it holds the light only, not the woods), `nightLight`,
+  `dawnLight`, `noonLight`, `noonBright`, and on the iso view the top and
+  horizon of the night, dawn and noon skies.
+- **The woods by the hour** (`engine/day.ts`). At dusk and dawn the woods
+  hold the foes placed in them, at midnight about twice as many (each
+  placed foe gets a night twin a tile or two off), and the two noon minutes
+  none (`foeLevel`). Each foe has its own point on that level (`rank`, from
+  a hash of where it stands: no randomness is drawn, so seeded runs stay
+  the same), so they come and go one at a time. None appears in sight: a
+  foe whose home is on screen walks in from past the screen's edge
+  (`trek`, `wayOut`), turning to fight when the hero comes within 3.5
+  tiles, and one that leaves in view walks out of it. The shell tells the
+  engine what the screen shows (`GameState.sight`, wider in the turned
+  view). A foe killed stays down until it has left for the day; next
+  evening it comes back fresh. Only outdoor maps and only placed foes: the
+  town has none, dungeons, bosses and key carriers are untouched.
+- **Trying it.** `/?daytime=dusk|night|dawn|noon|<seconds>` starts the
+  clock at that hour, prism or not (light and woods). In the lab,
+  `PARAMS='{"daytime":"noon"}'` holds the light. `tests/zelda-day.test.mjs`
+  covers the clock, its save, the woods by the hour and the light.
+
 **How it starts.** A visitor stands on the plaza with nothing. Walking
 into Home Glade without the blade, the Keeper tells the story once (the
 area's `intro`, flag `intro`); the blade's chest is beside the hut door.

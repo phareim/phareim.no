@@ -5,6 +5,7 @@
 import type { Enemy, Projectile } from '../types'
 import { HERO_R } from '../types'
 import { STATS, spawnEnemy } from './spawn'
+import { stepTrek } from './day'
 import { deepseek, gemini, llama, mistral } from './bosses'
 import { type Ctx, hurtHero, hitEnemy } from './combat'
 import { cellRect, lineClear, moveCircle, type MoveMode } from './map'
@@ -21,6 +22,8 @@ export function shardPos(e: Enemy, i: number) {
 
 export function enemyActive(c: Ctx, e: Enemy): boolean {
   if (e.dead) return false
+  // Walking in from past the screen's edge, or out of it: further off than the hero's neighbourhood.
+  if (e.trek) return true
   const s = c.s
   if (c.info.def.kind === 'overworld') {
     const f = s.demo ? { x: s.zone.x + s.zone.w / 2, y: s.zone.y + s.zone.h / 2 } : s.hero
@@ -95,6 +98,8 @@ export function stepEnemy(c: Ctx, e: Enemy, dt: number) {
     ai.tell = 0
     return
   }
+  if (e.trek && stepTrek(c.w, c.s, e, dt)) { contact(c, e); return }
+  if (e.dead) return
   ai.t -= dt
   if (ai.tell > 0) ai.tell = Math.max(0, ai.tell - dt)
   switch (e.kind) {

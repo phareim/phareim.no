@@ -110,7 +110,7 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { createGame, resumeAfterWin, setSession, stepGame, toSave } from './engine/index'
+import { createGame, HOURS, resumeAfterWin, setDaytime, setSession, stepGame, toSave } from './engine/index'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
@@ -236,6 +236,15 @@ function wears16(id: ViewId): boolean {
 }
 /** The dress is on. The first paint guesses from the address alone (the server knows no more); mounting corrects it. */
 const dress16 = ref(wears16(startView(useRoute().query.view, null)))
+/** `?daytime=dusk|night|dawn|noon|<seconds>`: start the day at that hour, prism or not (for trying the light and the woods). */
+const askedHour = ((): number | null => {
+  const q = useRoute().query.daytime
+  const v = Array.isArray(q) ? q[0] : q
+  if (typeof v !== 'string' || !v) return null
+  if (v in HOURS) return HOURS[v as keyof typeof HOURS]
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+})()
 /** What the view on screen (or the one a turn is heading for) asks for, and the turn's `k` at the last frame. */
 let dressWanted = dress16.value
 let dressK = 0
@@ -456,6 +465,7 @@ function begin(save: SaveData | null, at: Spot, banner = false) {
   loadedSave = save
   pendingPull = null
   state = createGame(WORLD, { save, at, seed: Date.now() >>> 0, session: signedIn })
+  if (askedHour !== null) setDaytime(WORLD, state, askedHour)
   purse.adopt(state.inv, state.flags)
   input.clear()
   paused.value = false
@@ -848,6 +858,10 @@ function frame(nowMs: number) {
   const turn = state.mode === 'dialog' ? 0 : renderer.viewState().turn
   const inp = turn ? { ...raw, move: turnMove(raw.move, turn) } : raw
   if (!moved && (inp.move.x !== 0 || inp.move.y !== 0)) { moved = true; emit('moved') }
+  // What the screen shows, so the woods' foes come and go past its edge (the turned view sees further on the diagonal).
+  const vt = renderer.viewTiles()
+  const side = (vt.w + vt.h) * 0.9
+  state.sight = turn ? { x: side, y: side } : { x: vt.w, y: vt.h }
   const events = stepGame(WORLD, state, dt, inp)
   purse.step(state.inv, state.flags)
   renderer.onEvents(events)

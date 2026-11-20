@@ -45,6 +45,9 @@ export interface Look {
   hazeColor: [number, number, number]
   skyTop: [number, number, number]
   skyHorizon: [number, number, number]
+  /** The hour's grade on the backdrop, painted in the dusk's colours: c · mul + add (`daylight.ts` `skyGrade`). */
+  skyMul: [number, number, number]
+  skyAdd: [number, number, number]
   sky: boolean
   mist: number
   mistColor: [number, number, number]
@@ -439,6 +442,8 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.uniform3f(compP.u('uHazeColor'), look.hazeColor[0], look.hazeColor[1], look.hazeColor[2])
     g.uniform3f(compP.u('uSkyTop'), look.skyTop[0], look.skyTop[1], look.skyTop[2])
     g.uniform3f(compP.u('uSkyHorizon'), look.skyHorizon[0], look.skyHorizon[1], look.skyHorizon[2])
+    g.uniform3f(compP.u('uSkyMul'), look.skyMul[0], look.skyMul[1], look.skyMul[2])
+    g.uniform3f(compP.u('uSkyAdd'), look.skyAdd[0], look.skyAdd[1], look.skyAdd[2])
     g.uniform1f(compP.u('uSkyOn'), look.sky ? 1 : 0)
     g.uniform3f(compP.u('uVoid'), f.voidColor[0], f.voidColor[1], f.voidColor[2])
     g.uniform1f(compP.u('uColorBits'), look.colorBits)

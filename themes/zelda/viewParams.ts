@@ -43,6 +43,28 @@ const FINISH = (scan: number, bloom: number, vignette: number): Record<string, P
   vignette: num('Vignette', vignette, 0, 2, 0.05, 'Darkness in the corners.'),
 })
 
+/**
+ * Day and night (`render/daylight.ts`): once the Sun Prism is home, a
+ * 12-minute day runs from the dusk these values draw, through night, dawn and
+ * noon. The sun, shadows and sky values above are the dusk's; these are the
+ * other hours' colours. `daytime` holds the light at one hour, to try a look.
+ */
+const DAY_PARAMS = (sky: boolean): Record<string, ParamSpec> => ({
+  daytime: choice('Time of day', 'cycle', ['cycle', 'dusk', 'night', 'dawn', 'noon'], 'Cycle: the stuck dusk until the Sun Prism is home, then a 12-minute day (mostly dusk and dawn, two minutes of night, two of noon). The others hold the light outdoors at that hour, whatever the game has got to.'),
+  nightLight: color('Night light', '#3a3878', 'The light outdoors at midnight; dusk is the view’s own.'),
+  dawnLight: color('Dawn light', '#f0a4b0', 'The light outdoors as the sun comes up.'),
+  noonLight: color('Noon light', '#f4efe8', 'The light outdoors at noon.'),
+  noonBright: num('Noon brightness', 0.55, 0, 1.5, 0.05, 'How much brighter than the art itself the world is at noon: the art is painted for the dusk, and full light alone only shows it as painted.'),
+  ...(sky ? {
+    nightSky: color('Night sky, top', '#070722'),
+    nightHorizon: color('Night sky, horizon', '#2c2466'),
+    dawnSky: color('Dawn sky, top', '#2a2c78'),
+    dawnHorizon: color('Dawn sky, horizon', '#ffa26b'),
+    noonSky: color('Noon sky, top', '#2a7fd4'),
+    noonHorizon: color('Noon sky, horizon', '#a8e4ff'),
+  } : {}),
+})
+
 export const ENGINES: Record<EngineId, EngineInfo> = {
   classic: {
     title: 'Classic',
@@ -53,6 +75,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
       shadowLength: num('Shadow length', 1.5, 0, 4, 0.1, 'How far a thing one tile tall throws its shadow, in tiles.'),
       shadow: num('Shadow strength', 0.7, 0, 0.9, 0.05, 'How dark the shadows of houses, walls, woods and of everyone who walks are. 0 turns them off.'),
       shadowColor: color('Shadow colour', '#140a3c'),
+      ...DAY_PARAMS(false),
     },
   },
   iso: {
@@ -106,6 +129,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
         sound: choice('Sound', '16-bit', ['16-bit', '8-bit'], 'The music through the 16-bit machine’s sampled instruments and echo, or the classic chip.'),
         windows: choice('Windows', '16-bit', ['16-bit', 'neon'], 'The dialog box and panels: gradient windows in the 16-bit font, or the neon boxes of the classic view.'),
       }),
+      ...group('Day and night', DAY_PARAMS(true)),
     },
   },
 }

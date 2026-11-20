@@ -604,8 +604,12 @@ export default function isoView(kit: Kit): View {
 
     // --- shadows on the ground -----------------------------------------------------
     if (shadowA > 0.01 && reach > 0) {
-      const sk = `${shapesKey}:${shadowV.x.toFixed(3)}:${shadowV.y.toFixed(3)}:${shadowColor}:${par.occlusion}`
-      if (sk !== shadowsKey || !shadows) { buildShadows(m, shadowV.x, shadowV.y, shadowColor, par.occlusion as number); shadowsKey = sk }
+      // By the hour the sun moves all the time: the shadows are cast again in steps of a tenth.
+      const q = (v: number) => kit.day('iso') ? Math.round(v * 10) / 10 : v
+      const sx = q(shadowV.x)
+      const sy = q(shadowV.y)
+      const sk = `${shapesKey}:${sx.toFixed(3)}:${sy.toFixed(3)}:${shadowColor}:${par.occlusion}`
+      if (sk !== shadowsKey || !shadows) { buildShadows(m, sx, sy, shadowColor, par.occlusion as number); shadowsKey = sk }
       fg.globalAlpha = shadowA
       fg.drawImage(shadows!, bx, by, bw, bh, 0, 0, bw, bh)
       // What moves, and what stands alone on its tile, throws its own: a long blot away from the sun.
@@ -799,7 +803,7 @@ export default function isoView(kit: Kit): View {
     const loose: Light[] = []
     if (def.look === 'wild' && !ui.attract) {
       const n = lights.length
-      fireflies(vx, vy, vw, vh, reduced ? 0 : time, lights, g)
+      fireflies(vx, vy, vw, vh, reduced ? 0 : time, lights, g, kit.day('iso')?.fireflies ?? 1)
       for (const L of lights.splice(n)) loose.push({ ...L, x: L.x * T - vx, y: L.y * T - vy })
     }
     // The lettering's own light and bloom, drawn top-down and sent after the tiles it lies on.

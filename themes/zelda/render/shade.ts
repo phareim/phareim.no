@@ -42,6 +42,12 @@ export interface ShadeLook {
   strength: number
   /** '#rrggbb'. */
   color: string
+  /**
+   * The sun is on the move (day and night): cast only round the view, again
+   * as it moves on, instead of the whole map once. A full map costs tens of
+   * ms, too much every few seconds.
+   */
+  moving?: boolean
 }
 
 /** What a tile is for the shadows: 0 open ground, 1 a mass's own picture (no shadow is drawn on it), 2 a thing standing alone. */
@@ -147,6 +153,9 @@ export function createShade(world: World): Shade {
   let fg = frame.getContext('2d')!
   let cast: HTMLCanvasElement | null = null
   let castKey = ''
+  /** The tiles the cast covers: the whole map, or a window round the view while the sun moves. */
+  let castWin = { x: 0, y: 0, w: 0, h: 0 }
+  let castWhole = false
   let masses: Masses | null = null
   let massMap: MapState | null = null
   let massVersion = -1
@@ -163,27 +172,47 @@ export function createShade(world: World): Shade {
     return masses
   }
 
-  /** The sun's shadows over the whole map, in hard pixels: black where a mass shades open ground. */
-  function sunCast(f: Masses, look: ShadeLook): HTMLCanvasElement {
+  /**
+   * The sun's shadows in hard pixels, black where a mass shades open ground:
+   * over the whole map, or (`view`, tiles) over a window round the view.
+   */
+  function sunCast(f: Masses, look: ShadeLook, view: { x0: number; y0: number; x1: number; y1: number } | null): HTMLCanvasElement {
     const key = `${look.angle.toFixed(4)}:${look.length.toFixed(3)}`
-    if (cast && castKey === key) return cast
+    const inside = !view || (view.x0 >= castWin.x && view.y0 >= castWin.y && view.x1 <= castWin.x + castWin.w && view.y1 <= castWin.y + castWin.h)
+    if (cast && castKey === key && (view ? inside : castWhole)) return cast
     castKey = key
-    const W = f.w * T
-    const H = f.h * T
+    castWhole = !view
+    // A window reaches 8 tiles past the view, so walking on recasts it only now and then.
+    const PAD = 8
+    castWin = view
+      ? { x: Math.max(0, view.x0 - PAD), y: Math.max(0, view.y0 - PAD), w: 0, h: 0 }
+      : { x: 0, y: 0, w: f.w, h: f.h }
+    if (view) {
+      castWin.w = Math.min(f.w, view.x1 + PAD) - castWin.x
+      castWin.h = Math.min(f.h, view.y1 + PAD) - castWin.y
+    }
+    const W = castWin.w * T
+    const H = castWin.h * T
     if (!cast || cast.width !== W || cast.height !== H) cast = makeCanvas(W, H)
     const g = cast.getContext('2d')!
     g.clearRect(0, 0, W, H)
     g.fillStyle = '#000'
     const vx = -Math.cos(look.angle) * look.length * T
     const vy = -Math.sin(look.angle) * look.length * T
-    for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) {
+    // A mass outside the window may throw its shadow into it: as far as the tallest one reaches.
+    const reach = view ? Math.ceil(look.length * 4) + 1 : 0
+    const tx0 = Math.max(0, castWin.x - reach)
+    const ty0 = Math.max(0, castWin.y - reach)
+    const tx1 = Math.min(f.w, castWin.x + castWin.w + reach)
+    const ty1 = Math.min(f.h, castWin.y + castWin.h + reach)
+    for (let y = ty0; y < ty1; y++) for (let x = tx0; x < tx1; x++) {
       const h = f.height[y * f.w + x]!
       if (h <= 0) continue
       // The tile's square swept along the shadow: the two squares and the band between their corners.
       const ox = vx * h
       const oy = vy * h
-      const x0 = x * T
-      const y0 = y * T
+      const x0 = (x - castWin.x) * T
+      const y0 = (y - castWin.y) * T
       g.beginPath()
       for (const [ax, ay, bx, by] of [[0, 0, T, 0], [T, 0, T, T], [T, T, 0, T], [0, T, 0, 0]] as const) {
         g.moveTo(x0 + ax, y0 + ay)
@@ -243,7 +272,11 @@ export function createShade(world: World): Shade {
       g.clearRect(0, 0, vw, vh)
       g.fillStyle = '#000'
       const f = field(m, kind)
-      if (outdoors && look.length > 0) g.drawImage(sunCast(f, look), -cx, -cy)
+      if (outdoors && look.length > 0) {
+        const view = look.moving ? { x0: Math.floor(cx / T), y0: Math.floor(cy / T), x1: Math.ceil((cx + vw) / T), y1: Math.ceil((cy + vh) / T) } : null
+        const c = sunCast(f, look, view)
+        g.drawImage(c, castWin.x * T - cx, castWin.y * T - cy)
+      }
       const sun = outdoors ? { x: Math.cos(look.angle), y: Math.sin(look.angle) } : null
       const reach = look.length * (outdoors ? 1 : 0.4)
       // What stands alone on its tile: a lone tree, a lamp post, a pot.

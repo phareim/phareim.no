@@ -571,6 +571,8 @@ describe('full run', () => {
     walkTo(s, 25, 8)
     settle(s)
     assert.equal(s.mode, 'won')
+    // The sun can set at last: the day starts at the dusk the world was stuck in.
+    assert.equal(s.daytime, 0)
     // The run goes on after the ending, with the prism, and survives a save.
     Z.resumeAfterWin(s)
     assert.equal(s.mode, 'play')
@@ -578,6 +580,8 @@ describe('full run', () => {
     assert.equal(s.mode, 'play')
     const back = Z.createGame(Z.WORLD, { save: Z.parseSave(JSON.parse(JSON.stringify(Z.toSave(s)))) })
     assert.equal(back.mode, 'play')
+    assert.ok(s.daytime > 0, 'the clock runs after the ending')
+    assert.equal(back.daytime, Math.round(s.daytime * 10) / 10, 'and the hour survives the save')
     assert.equal(back.inv.prism, true)
     assert.ok(back.flags.won)
   })

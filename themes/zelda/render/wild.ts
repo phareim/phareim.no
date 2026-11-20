@@ -263,8 +263,8 @@ export function drawStaticMood(g: G, vw: number, vh: number, cx: number, cy: num
 }
 
 /** Fireflies over the Wildwood at night: small lights that wander. */
-export function fireflies(cx: number, cy: number, vw: number, vh: number, time: number, lights: Light[], g: G) {
-  const n = 18
+export function fireflies(cx: number, cy: number, vw: number, vh: number, time: number, lights: Light[], g: G, amount = 1) {
+  const n = Math.round(18 * amount)
   for (let i = 0; i < n; i++) {
     const bx = (hash2(i, 3, 17) * (vw + 64)) + cx - 32
     const by = (hash2(i, 4, 17) * (vh + 64)) + cy - 32

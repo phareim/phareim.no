@@ -607,6 +607,8 @@ uniform float uHaze;
 uniform vec3 uHazeColor;
 uniform vec3 uSkyTop;
 uniform vec3 uSkyHorizon;
+uniform vec3 uSkyMul;
+uniform vec3 uSkyAdd;
 uniform float uSkyOn;
 uniform vec3 uVoid;
 uniform float uColorBits;
@@ -621,7 +623,8 @@ out vec4 o0;
 vec3 skyColor(vec2 s) {
   if (uSkyOn < 0.5) return uVoid;
   vec4 k = texture(uSky, vec2(s.x / uSize.x, s.y / uSize.y));
-  return mix(uVoid, k.rgb, uK);
+  // The backdrop is painted in the dusk's colours; the hour grades it.
+  return mix(uVoid, clamp(k.rgb * uSkyMul + uSkyAdd, 0.0, 1.0), uK);
 }
 
 void main() {

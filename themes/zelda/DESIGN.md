@@ -108,6 +108,10 @@ the hut door, or the Shrine entrance); progress, keys and opened doors stay.
 Dungeon rooms respawn their enemies and reset unsolved blocks on re-entry,
 like LTTP.
 
+After the Sun Prism the woods follow a 12-minute day (`engine/day.ts`): the
+placed foes at dusk and dawn, twice as many at midnight, none at noon, and
+they walk in and out past the screen's edge instead of appearing.
+
 Exits: walking onto a door exit, or pressing A at a solid one (after its
 lines, if it has any), starts the usual door fade; at full dark the engine
 emits `exit` and enters mode `exit`, which is terminal like `won`. The shell
@@ -122,7 +126,9 @@ of a rule (`World.peaceful` was removed 2026-09-24).
 ## Look (`render/`)
 
 The world is drawn at 16 px per tile into a logical-resolution buffer, lit
-by a multiply light map (dusk ambient, lamp pools, dark rooms where only the
+by a multiply light map (dusk ambient until the Sun Prism is home, then the
+hour's light of a 12-minute day: `docs/games/neon-shrine.md`, "Day and
+night"; lamp pools, dark rooms where only the
 hero glows) with hard-pixel shadows in it (`render/shade.ts`: outdoors a
 low sun lays the shadow of every house, wall and wood along the ground, and
 whoever walks throws one away from the nearest light), scaled by a whole number, then given soft neon bloom and faint
