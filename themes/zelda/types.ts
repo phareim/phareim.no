@@ -736,8 +736,13 @@ export interface GameState {
    * stuck on the horizon (before the Sun Prism).
    */
   daytime: number | null
-  /** What the screen shows, in tiles (the shell says, each frame): the woods' foes walk in from past it. Never saved. */
-  sight?: Vec
+  /**
+   * What the screen shows (the shell says, each frame): the classic view's
+   * size in tiles, and whether the picture is turned (the 16-bit view, which
+   * shows a diamond of the ground). The woods' foes walk in from past it.
+   * Never saved.
+   */
+  sight?: { x: number; y: number; turned?: boolean }
 }
 
 // ---------------------------------------------------------------------------

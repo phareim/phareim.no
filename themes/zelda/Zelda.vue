@@ -236,7 +236,7 @@ function wears16(id: ViewId): boolean {
 }
 /** The dress is on. The first paint guesses from the address alone (the server knows no more); mounting corrects it. */
 const dress16 = ref(wears16(startView(useRoute().query.view, null)))
-/** `?daytime=dusk|night|dawn|noon|<seconds>`: start the day at that hour, prism or not (for trying the light and the woods). */
+/** `?daytime=dusk|night|dawn|noon|<seconds>`: start the day at that hour (after the prism; before it in development too). */
 const askedHour = ((): number | null => {
   const q = useRoute().query.daytime
   const v = Array.isArray(q) ? q[0] : q
@@ -465,7 +465,8 @@ function begin(save: SaveData | null, at: Spot, banner = false) {
   loadedSave = save
   pendingPull = null
   state = createGame(WORLD, { save, at, seed: Date.now() >>> 0, session: signedIn })
-  if (askedHour !== null) setDaytime(WORLD, state, askedHour)
+  // Before the prism only in development: out there it would empty the woods at noon for anyone.
+  if (askedHour !== null && (import.meta.dev || state.inv.prism)) setDaytime(WORLD, state, askedHour)
   purse.adopt(state.inv, state.flags)
   input.clear()
   paused.value = false
@@ -858,10 +859,9 @@ function frame(nowMs: number) {
   const turn = state.mode === 'dialog' ? 0 : renderer.viewState().turn
   const inp = turn ? { ...raw, move: turnMove(raw.move, turn) } : raw
   if (!moved && (inp.move.x !== 0 || inp.move.y !== 0)) { moved = true; emit('moved') }
-  // What the screen shows, so the woods' foes come and go past its edge (the turned view sees further on the diagonal).
+  // What the screen shows, so the woods' foes come and go past its edge (the turned view shows a diamond of the ground).
   const vt = renderer.viewTiles()
-  const side = (vt.w + vt.h) * 0.9
-  state.sight = turn ? { x: side, y: side } : { x: vt.w, y: vt.h }
+  state.sight = { x: vt.w, y: vt.h, turned: turn !== 0 }
   const events = stepGame(WORLD, state, dt, inp)
   purse.step(state.inv, state.flags)
   renderer.onEvents(events)

@@ -406,12 +406,14 @@ every outdoor map; interiors and dungeons keep their own light.
   foe whose home is on screen walks in from past the screen's edge
   (`trek`, `wayOut`), turning to fight when the hero comes within 3.5
   tiles, and one that leaves in view walks out of it. The shell tells the
-  engine what the screen shows (`GameState.sight`, wider in the turned
-  view). A foe killed stays down until it has left for the day; next
+  engine what the screen shows (`GameState.sight`: the classic view's
+  rectangle, or the turned view's diamond of ground round the hero). A foe killed stays down until it has left for the day; next
   evening it comes back fresh. Only outdoor maps and only placed foes: the
   town has none, dungeons, bosses and key carriers are untouched.
 - **Trying it.** `/?daytime=dusk|night|dawn|noon|<seconds>` starts the
-  clock at that hour, prism or not (light and woods). In the lab,
+  clock at that hour (light and woods): after the prism, and before it only
+  in development. Lab and live checks used `scripts/zelda-lab/cdp.mjs` on the
+  dev server with `__zelda.state.daytime` set by hand. In the lab,
   `PARAMS='{"daytime":"noon"}'` holds the light. `tests/zelda-day.test.mjs`
   covers the clock, its save, the woods by the hour and the light.
 

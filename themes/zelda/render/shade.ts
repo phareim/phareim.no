@@ -273,7 +273,8 @@ export function createShade(world: World): Shade {
       g.fillStyle = '#000'
       const f = field(m, kind)
       if (outdoors && look.length > 0) {
-        const view = look.moving ? { x0: Math.floor(cx / T), y0: Math.floor(cy / T), x1: Math.ceil((cx + vw) / T), y1: Math.ceil((cy + vh) / T) } : null
+        // Clamped to the map: past its edge there is nothing to cast, and a view that shakes over the edge would otherwise never be inside.
+        const view = look.moving ? { x0: Math.max(0, Math.floor(cx / T)), y0: Math.max(0, Math.floor(cy / T)), x1: Math.min(f.w, Math.ceil((cx + vw) / T)), y1: Math.min(f.h, Math.ceil((cy + vh) / T)) } : null
         const c = sunCast(f, look, view)
         g.drawImage(c, castWin.x * T - cx, castWin.y * T - cy)
       }

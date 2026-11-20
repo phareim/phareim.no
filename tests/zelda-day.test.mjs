@@ -96,29 +96,46 @@ describe('the woods by the hour', () => {
     assert.ok(s.map.enemies.every(e => e.rank === undefined && !e.away))
   })
 
-  it('walks foes in from past the screen as the evening comes, never out of thin air', () => {
-    let walked = 0
-    for (const [map, entry] of [['wildwood', 'camp'], ['overworld', 'woods'], ['overworld', 'graves']]) {
-      const s = won(map, entry)
-      s.sight = { x: 13, y: 11 }
-      Z.setDaytime(Z.WORLD, s, Z.DAY.noon + 50)
-      const out = new Set(live(s).map(e => e.id))
-      for (let k = 0; k < 60 * 140; k++) {
-        s.hero.invuln = 10
-        s.hero.hp = s.hero.maxHp
-        Z.stepGame(Z.WORLD, s, 1 / 60, NO())
-        for (const e of live(s)) {
-          if (out.has(e.id)) continue
-          out.add(e.id)
-          const seen = Math.abs(e.x - s.hero.x) < 7 && Math.abs(e.y - s.hero.y) < 6
-          assert.ok(!seen, `${e.id} appeared in sight at ${e.x.toFixed(1)},${e.y.toFixed(1)} (hero ${s.hero.x.toFixed(1)},${s.hero.y.toFixed(1)})`)
-          if (e.trek) walked++
+  // What each screen shows: a small phone, a tall phone and a desktop, in the classic view and turned (the 16-bit view's diamond).
+  const SIGHTS = [
+    { x: 13, y: 11 }, { x: 13, y: 28 }, { x: 26, y: 16 },
+    { x: 13, y: 28, turned: true }, { x: 26, y: 16, turned: true },
+  ]
+  /** On the screen as the player sees it (the camera on the hero, clamped in the classic view). */
+  const visible = (s, v, x, y) => {
+    if (v.turned) { const dx = x - s.hero.x; const dy = y - s.hero.y; return Math.abs(dx - dy) < v.x / 2 && Math.abs(dx + dy) < v.y }
+    const cx = v.x >= s.map.w ? s.map.w / 2 : Math.max(v.x / 2, Math.min(s.map.w - v.x / 2, s.hero.x))
+    const cy = v.y >= s.map.h ? s.map.h / 2 : Math.max(v.y / 2, Math.min(s.map.h - v.y / 2, s.hero.y))
+    return Math.abs(x - cx) < v.x / 2 && Math.abs(y - cy) < v.y / 2
+  }
+
+  for (const v of SIGHTS) {
+    it(`walks foes in from past the screen as the evening comes, never out of thin air (${v.x}×${v.y}${v.turned ? ' turned' : ''})`, () => {
+      let walked = 0
+      let came = 0
+      for (const [map, entry] of [['wildwood', 'camp'], ['wildwood', 'deep'], ['overworld', 'woods'], ['overworld', 'graves'], ['overworld', 'glade']]) {
+        const s = won(map, entry)
+        s.sight = v
+        Z.setDaytime(Z.WORLD, s, Z.DAY.noon + 50)
+        const out = new Set(live(s).map(e => e.id))
+        for (let k = 0; k < 60 * 140; k++) {
+          s.hero.invuln = 10
+          s.hero.hp = s.hero.maxHp
+          Z.stepGame(Z.WORLD, s, 1 / 60, NO())
+          for (const e of live(s)) {
+            if (out.has(e.id)) continue
+            out.add(e.id)
+            came++
+            assert.ok(!visible(s, v, e.x, e.y), `${e.id} appeared in sight at ${e.x.toFixed(1)},${e.y.toFixed(1)} (hero ${s.hero.x.toFixed(1)},${s.hero.y.toFixed(1)})`)
+            if (e.trek) walked++
+          }
         }
+        assert.ok(s.daytime > Z.DAY.noonEnd + 60, 'evening came')
       }
-      assert.ok(s.daytime > Z.DAY.noonEnd + 60, 'evening came')
-    }
-    assert.ok(walked > 0, 'some walked in')
-  })
+      // Those whose home is on screen walk in; the rest are home before anyone sees them.
+      assert.ok(walked > 0, `some walked in (${walked} of ${came})`)
+    })
+  }
 
   it('lets them leave in the morning, out of sight, and brings them back fresh', () => {
     const s = won('wildwood', 'camp')

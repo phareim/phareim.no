@@ -66,7 +66,7 @@ const TREK_NOTICE = 3.5
 /** Past the screen's edge, tiles, where a foe starts walking in and stops walking out. */
 const MARGIN = 1.5
 /** What the screen shows when the shell has not said: the classic view's least. */
-const SIGHT: Vec = { x: 13, y: 11 }
+const SIGHT: NonNullable<GameState['sight']> = { x: 13, y: 11 }
 
 function hash(a: number, b: number, salt: number): number {
   let h = Math.imul(Math.floor(a * 16) ^ 0x9e3779b1, 0x85ebca6b) ^ Math.imul(Math.floor(b * 16) + salt, 0xc2b2ae35)
@@ -80,18 +80,30 @@ export function dayHere(world: World, s: GameState): boolean {
   return s.daytime !== null && !s.demo && mapInfo(world, s.map.id).def.kind === 'overworld'
 }
 
-/** The rectangle the screen shows (tiles), as the camera places it, grown by `grow`. */
-function sight(s: GameState, grow: number): { x0: number; y0: number; x1: number; y1: number } {
+/**
+ * Is (x, y) on the screen, grown by `grow` tiles? The classic view shows a
+ * rectangle of the ground round its camera (clamped to the map, as
+ * `cameraFor` does); the turned 16-bit view a diamond round the hero, the
+ * ground turned 45° and tipped back to half its height
+ * (`render/iso/project.ts`): |dx − dy| < w/2 across, |dx + dy| < h down.
+ */
+function onScreen(s: GameState, x: number, y: number, grow: number): boolean {
   const m = s.map
   const v = s.sight ?? SIGHT
+  if (v.turned) {
+    const dx = x - s.hero.x
+    const dy = y - s.hero.y
+    // What stands up just past the bottom edge still reaches into the picture: a little more there.
+    const down = dx + dy
+    return Math.abs(dx - dy) < v.x / 2 + grow * 1.5 && down > -v.y - grow * 1.5 && down < v.y + grow * 1.5 + 1.5
+  }
   const cx = v.x >= m.w ? m.w / 2 : Math.max(v.x / 2, Math.min(m.w - v.x / 2, s.hero.x))
   const cy = v.y >= m.h ? m.h / 2 : Math.max(v.y / 2, Math.min(m.h - v.y / 2, s.hero.y))
-  return { x0: cx - v.x / 2 - grow, y0: cy - v.y / 2 - grow, x1: cx + v.x / 2 + grow, y1: cy + v.y / 2 + grow }
+  return Math.abs(x - cx) < v.x / 2 + grow && Math.abs(y - cy) < v.y / 2 + grow
 }
 
 function inSight(s: GameState, x: number, y: number, grow = 0.6): boolean {
-  const r = sight(s, grow)
-  return x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1
+  return onScreen(s, x, y, grow)
 }
 
 const flies = (e: Enemy) => !!STATS[e.kind].flying
@@ -103,7 +115,6 @@ const flies = (e: Enemy) => !!STATS[e.kind].flying
  */
 export function wayOut(world: World, s: GameState, e: Enemy, x: number, y: number): Vec | null {
   const m = s.map
-  const out = sight(s, MARGIN)
   const mode = flies(e) ? 'fly' : 'enemy'
   const hx = x - s.hero.x
   const hy = y - s.hero.y
@@ -119,13 +130,13 @@ export function wayOut(world: World, s: GameState, e: Enemy, x: number, y: numbe
     if (away < -0.2) continue
     let d = 0
     let ok = false
-    while (d < 40) {
+    while (d < 48) {
       d += 0.5
       const px = x + ux * d
       const py = y + uy * d
       if (px < e.r || py < e.r || px > m.w - e.r || py > m.h - e.r) break
       if (circleBlocked(world, m, px, py, e.r, mode)) break
-      if (px < out.x0 || px > out.x1 || py < out.y0 || py > out.y1) { ok = true; break }
+      if (!onScreen(s, px, py, MARGIN)) { ok = true; break }
     }
     if (!ok) continue
     const score = d - away * 3
