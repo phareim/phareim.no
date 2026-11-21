@@ -80,7 +80,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
   },
   iso: {
     title: 'Isometric',
-    blurb: 'The same world turned 45° at twice the pixels, the way a 16-bit machine dreamt: real depth, the art smoothed on its way up, every lamp lighting what it can see from the side it is on, long shadows from a low sun, water that mirrors, neon that blooms, a dusk sky in bands behind it all.',
+    blurb: 'The same world turned 45° at twice the pixels, the way a 16-bit machine dreamt: real depth, the ground, the walls and the roofs in materials of its own, a low sun with a warm light and long shadows, every lamp lighting what it can see from the side it is on, water that mirrors, neon that blooms, a dusk sky in bands behind it all.',
     params: {
       ...group('The glass', {
         ...FINISH(0, 0.9, 0.5),

@@ -3,7 +3,10 @@
  * same world turned 45° and tipped back, at twice the pixel density, with
  * real depth and real light.
  *
- * The art is still the classic painters'. Each frame they draw the map round
+ * People, things and everything with a meaning of its own are still the
+ * classic painters' art; the ground, the walls and the roofs are this view's
+ * own materials (`materials.ts`), laid where the classic art has that
+ * surface's colours. Each frame the painters draw the map round
  * the camera into top-down pictures (ground, and what stands on it), every
  * person and thing draws itself into its own cell of an atlas, and this view
  * hands all of it to the GPU (`engine.ts`) as geometry: the ground as one
@@ -11,7 +14,7 @@
  * and lamps and people as billboards (`shape.ts` says how each tile stands).
  * There a z-buffer sorts it, the art is smoothed on its way up to two px a
  * texel, every lamp lights what it can see from the side it is on, the low
- * sun throws shadows, water mirrors, neon blooms.
+ * sun lights what faces it and throws shadows, water mirrors, neon blooms.
  *
  * At k = 0 the camera is the classic one and every effect is off, so the
  * renderer can turn one view into the other (`renderer.ts`, `project.ts`).

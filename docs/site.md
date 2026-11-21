@@ -10,7 +10,7 @@ here; per-game detail lives in `docs/games/`.
 Per area:
 
 - `test:portal` — the town, every cabinet and link, the login console, the NEW LOOK stall, the newsstand, the coast road
-- `test:zelda` — Neon Shrine: exits, saves, a full run to the Sun Prism, the hero's look, audio (both chips), the Wildwood run, the views (the registry, the 16-bit view's camera, how tiles stand, the turn), the HUD skins
+- `test:zelda` — Neon Shrine: exits, saves, a full run to the Sun Prism, the hero's look, audio (both chips), the Wildwood run, the views (the registry, the 16-bit view's camera, how tiles stand, the turn, its materials), the HUD skins
 - `test:eschold` — the shared Escape tap/hold state machine
 - `test:tetris` — Russian Block Game gestures (tap, direction lock, drop, soft drop, hold)
 - `test:leaderboard` — Hall of Fame names and game list

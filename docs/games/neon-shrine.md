@@ -172,7 +172,8 @@ classic picture. `/?view=<id>` asks for one.
   3. *Lit*: the G-buffer shaded. A surface takes a lamp's light by how it
      faces it, per colour, so a figure between a pink and a cyan lamp has a
      pink side and a cyan side; on figures the light falls in steps, the way
-     a pixel artist shades. Outdoors the low sun adds side shading, long
+     a pixel artist shades. Outdoors the low sun has a light of its own (below)
+     and adds side shading, long
      shadows (marched through the tile heights, with a dithered edge), a warm
      rim, drifting cloud shadows; corner shade where a wall meets the floor;
      and a little of every lamp's light hangs in the air over the ground it
@@ -190,6 +191,50 @@ classic picture. `/?view=<id>` asks for one.
      upscale, the glow, vignette, scanlines if a view asks for them, and the
      machine's own tricks: a door is a mosaic on the way out and in, death
      closes an iris on the hero, the Other Side waves down its scanlines.
+- **Its own picture, not the classic one turned** (2026-11-21). Three
+  things the classic view does not have, each a value the studio can turn
+  down to nothing:
+  - *The sun's own light* (`sunLight`, `sunStrength`; `LIT_FS`). The classic
+    view lights everything outdoors with one colour. Here what faces the low
+    sun and stands in no shade takes the sun's warm light on top (a little
+    of it comes back off any colour, so a lawn in the sun is gold on top and
+    not grey), what the sun does not reach is lit by the sky, cooler and
+    dimmer (`skyFill` in `view.ts`), and while the sun is up the lamps are
+    only just lit (`lampGain`). By day the sun whitens as it climbs; at
+    night it is the moon's, faint and blue; in the blue hours, when nothing
+    throws a shadow, there is none.
+  - *Materials* (`materials`; `iso/materials.ts`, pure). The classic ground
+    is a flat colour with marks on it, and smoothing it makes a smoother
+    flat colour. Here every kind of ground is painted at the view's own
+    density, 32 texels to the tile, repeating every four tiles, with a ramp
+    of its own and a height the light catches: `grass` (three greens,
+    blades, a blossom now and then), `cobbles`, `sand` (combed by the wind),
+    `flags` and `boards` (the Shrine's and a room's floor), `moss` and
+    `lane` (the Wildwood's lawn and paths). What stands has them too:
+    `shingles` on a roof, `siding` on a house's wall, `rockface` in a
+    cliff's face (with turf on its top), `bricks` and `blocks` in the
+    Shrine's walls, `panel` and `slab` indoors. The tile data's alpha says
+    which material a tile's ground is (`groundKindOf` in `tiles.ts`, which
+    follows `paintBase` case for case; a test holds the two together); a
+    roof or a wall carries its material in its quads' meta (picture + 8 ×
+    material). A px takes the material only where the classic art has that
+    ground's own colours (`fits` / `fitsBuilt` in the shaders), so a rug, a
+    door, a window, a sign and every neon line stay the classic art's.
+    Where two grounds meet the border wanders and frays a texel at a time
+    instead of stepping, and the lawn the classic art rings a lamp on the
+    square with is paving. Open water is one deep colour without the
+    classic grid. At k = 1 every scene px is exactly one texel (the ground
+    is read half a texel south of the grid: `texelAt` in `materials.ts` is
+    the same rule, tested), and the scene shows a row's texels in pairs, so
+    a material's slope is read across the scene's own px (`matSlope`) and a
+    mark that runs across the screen is painted through `pairU`; read any
+    other way, a line one texel wide comes out dotted. The labs keep the
+    ground their own painters give them.
+    `node scripts/zelda-lab/materials-sheet.mjs <outDir>` draws them all.
+  - *Roofs that rise* (`roofPitch`). A house's roof is one plane rising
+    from its eaves toward the back (kind 5 in the geometry), with a gable
+    over its east wall, so what is painted on it stays whole; the tile
+    heights know it, so its shadow is longer.
 - **Plants** (`flora.ts`). Trees, bushes, tall grass, flowers, reeds and
   tufts are painted at the hi-res size with normals of their own and stand as
   billboards where the classic tiles had them (a little off the grid), sway
@@ -257,8 +302,9 @@ classic picture. `/?view=<id>` asks for one.
   in layers that slide at different speeds: banded sky, stars, the striped
   sun, ridges, clouds, the sea.
 - **Values** are engine `iso` in `viewParams.ts`, all the studio's to turn:
-  smoothing, relief, roundness, side light, lamp shadows, light in the air,
-  the sun's direction and shadow length, shadow strength and colour, corner
+  smoothing, ground materials, roof pitch, relief, roundness, side light, lamp shadows, light in the air,
+  the sun's direction and shadow length, shadow strength and colour, the
+  sun's own light and its strength, corner
   shade, side shading, rim, haze, mist, sun shafts, sky colours, clouds,
   wind, standing plants, the modelled hero, things in the air, the land
   beyond the edge, the water's mirror, wet ground, 15-bit or
@@ -362,8 +408,8 @@ classic picture. `/?view=<id>` asks for one.
   `FRAMES=18` stops halfway through the turn, `PARAMS='{"bloom":0.5}'`
   sets the engine's values and `TAG=dim` names the pictures. The page keeps
   `window.__lab` (`{ r, s, ui, world, step }`) for a script that wants to go
-  on drawing. `scripts/zelda-lab/flora-sheet.mjs` and `backdrop-sheet.mjs`
-  render the plants and the backdrop alone.
+  on drawing. `scripts/zelda-lab/flora-sheet.mjs`, `materials-sheet.mjs` and `backdrop-sheet.mjs`
+  render the plants, the materials and the backdrop alone.
 
 **Day and night** (after the Sun Prism). Until the prism is home the sun
 hangs on the horizon and `GameState.daytime` is null. Taking it starts a
