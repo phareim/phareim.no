@@ -177,7 +177,10 @@ classic picture. `/?view=<id>` asks for one.
      shadows (marched through the tile heights, with a dithered edge), a warm
      rim, drifting cloud shadows; corner shade where a wall meets the floor;
      and a little of every lamp's light hangs in the air over the ground it
-     falls on (the classic view's glow, lying down).
+     falls on (the classic view's glow, lying down; what stands well above
+     the ground is out of it). Whoever stands with the sun or a lamp behind
+     them has a line of light down that side (the geometry pass marks a
+     card's outermost px).
   4. *Composite*: water (crests running across the screen, the dusk lying
      on it, what stands by it mirrored from the picture itself, lamps
      glittering on the crests, foam where it meets land), wet pavement and
@@ -191,7 +194,7 @@ classic picture. `/?view=<id>` asks for one.
      upscale, the glow, vignette, scanlines if a view asks for them, and the
      machine's own tricks: a door is a mosaic on the way out and in, death
      closes an iris on the hero, the Other Side waves down its scanlines.
-- **Its own picture, not the classic one turned** (2026-11-21). Three
+- **Its own picture, not the classic one turned** (2026-11-21). Four
   things the classic view does not have, each a value the studio can turn
   down to nothing:
   - *The sun's own light* (`sunLight`, `sunStrength`; `LIT_FS`). The classic
@@ -231,6 +234,19 @@ classic picture. `/?view=<id>` asks for one.
     mark that runs across the screen is painted through `pairU`; read any
     other way, a line one texel wide comes out dotted.
     `node scripts/zelda-lab/materials-sheet.mjs <outDir>` draws them all.
+  - *Standing things in the round* (`props`; `iso/props.ts`, pure). Lamp
+    posts, graves, pots, rocks, boulders and signposts are each built once
+    as a few solids (boxes, posts, balls) and drawn the way the view sees
+    the world, from the south-east and from above: a signboard runs away to
+    the right, a gravestone has a side, a lantern has a lid and four panes
+    that glow by themselves. They are pixel art by construction (flat steps
+    of a ramp from an artist's light, a line round the lower right only, a
+    step of shade under what stands in front) and carry a normal for every
+    pixel, so the lamps and the sun light them like the figure (picture 4 in
+    the geometry pass). `view.ts` stands one where the classic art has that
+    card (`stand`); a torch on the beach, a brazier and everything else are
+    still the classic card. `node scripts/zelda-lab/props-sheet.mjs <outDir>`
+    draws them all.
   - *Roofs that rise* (`roofPitch`). A house's roof is one plane rising
     from its eaves toward the back (kind 5 in the geometry), with a gable
     over its east wall, so what is painted on it stays whole; the tile
@@ -302,7 +318,7 @@ classic picture. `/?view=<id>` asks for one.
   in layers that slide at different speeds: banded sky, stars, the striped
   sun, ridges, clouds, the sea.
 - **Values** are engine `iso` in `viewParams.ts`, all the studio's to turn:
-  smoothing, ground materials, roof pitch, relief, roundness, side light, lamp shadows, light in the air,
+  smoothing, ground materials, standing things, roof pitch, relief, roundness, side light, lamp shadows, light in the air,
   the sun's direction and shadow length, shadow strength and colour, the
   sun's own light and its strength, corner
   shade, side shading, rim, haze, mist, sun shafts, sky colours, clouds,
@@ -408,8 +424,8 @@ classic picture. `/?view=<id>` asks for one.
   `FRAMES=18` stops halfway through the turn, `PARAMS='{"bloom":0.5}'`
   sets the engine's values and `TAG=dim` names the pictures. The page keeps
   `window.__lab` (`{ r, s, ui, world, step }`) for a script that wants to go
-  on drawing. `scripts/zelda-lab/flora-sheet.mjs`, `materials-sheet.mjs` and `backdrop-sheet.mjs`
-  render the plants, the materials and the backdrop alone.
+  on drawing. `scripts/zelda-lab/flora-sheet.mjs`, `materials-sheet.mjs`, `props-sheet.mjs` and `backdrop-sheet.mjs`
+  render the plants, the materials, the standing things and the backdrop alone.
 
 **Day and night** (after the Sun Prism). Until the prism is home the sun
 hangs on the horizon and `GameState.daytime` is null. Taking it starts a
