@@ -44,7 +44,7 @@ import { skyGrade, type DayLook } from '../daylight'
 import { BEYOND, beyondTile, massifHeight } from '../beyond'
 import { createLands, type Lands } from './lands'
 import { buildMaterials, materialId, type Material } from './materials'
-import { buildProps, type PropKind } from './props'
+import { buildProps, COUNTER_TOP, type PropKind } from './props'
 import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from './figure'
 
 type G = CanvasRenderingContext2D
@@ -459,14 +459,38 @@ export default function isoView(kit: Kit): View {
     quad(x, y, top, l, x, y, top, r, x, y, foot, r, x, y, foot, l, sp.x, sp.y, sp.x + sp.w, sp.y + sp.h, 7, 2, sway)
   }
 
+  /** The sign tiles an exit frames in neon (its frame is drawn for the classic sign, so that sign stays). */
+  const signCache = new Map<string, Set<number>>()
+  function signExits(mapId: string): Set<number> {
+    let set = signCache.get(mapId)
+    if (!set) {
+      set = new Set()
+      const info = mapInfo(world, mapId)
+      for (const mk of info.marks) if (mk.ent.t === 'exit' && mk.ent.look === 'sign') set.add(mk.y * info.w + mk.x)
+      signCache.set(mapId, set)
+    }
+    return set
+  }
+
+  /** The things standing this frame (kind, x, y, px each): their quads end the list, drawn with a depth of their own. */
+  const stood: Array<[PropKind, number, number, number]> = []
   /** A thing built for this view (`props.ts`), standing at a ground point: a pixel of it is a pixel of the scene. */
   function stand(kind: PropKind, x: number, y: number, px: number) {
-    const sp = propAtlas.sprites[kind]
-    const top = sp.ay / (T * DENSITY)
-    const foot = -(sp.h - sp.ay) / (T * DENSITY)
-    const l = -sp.ax * px
-    const r = (sp.w - sp.ax) * px
-    quad(x, y, top, l, x, y, top, r, x, y, foot, r, x, y, foot, l, sp.x, sp.y, sp.x + sp.w, sp.y + sp.h, 3, 4)
+    stood.push([kind, x, y, px])
+  }
+  function standAll(): { start: number; count: number } | null {
+    if (!stood.length) return null
+    const start = nv
+    for (const [kind, x, y, px] of stood) {
+      const sp = propAtlas.sprites[kind]
+      const top = sp.ay / (T * DENSITY)
+      const foot = -(sp.h - sp.ay) / (T * DENSITY)
+      const l = -sp.ax * px
+      const r = (sp.w - sp.ax) * px
+      quad(x, y, top, l, x, y, top, r, x, y, foot, r, x, y, foot, l, sp.x, sp.y, sp.x + sp.w, sp.y + sp.h, 3, 4)
+    }
+    stood.length = 0
+    return { start, count: nv - start }
   }
 
   /**
@@ -645,10 +669,20 @@ export default function isoView(kit: Kit): View {
     const bw = R.w * T
     const bh = R.h * T
 
+    /**
+     * The tiles a counter built for this view stands on (`props.ts`), and where its front edge runs: what the
+     * classic art puts on that tile's picture stands on its top, at the front, so a price under a ware hangs
+     * down the counter's face.
+     */
+    const tops = new Map<number, number>()
     /** A point of the classic picture (tiles), where it is in the world: on the ground, on a roof, on a wall's face, on a card. */
     const world3 = (x: number, y: number): [number, number, number] => {
       const tx = Math.floor(x)
       const ty = Math.floor(y)
+      const front = tops.get(ty * 4096 + tx)
+      // (A fifth of a tile toward the viewer, which leaves it where it is on the screen: a card faces the viewer,
+      // the counter's face runs east, and without it half of a price would stand inside the counter.)
+      if (front !== undefined) return [x + 0.2, front + 0.2, COUNTER_TOP / (T * DENSITY) + 0.2]
       const shp = inRoom(tx, ty) ? shapeAt(tx, ty) : FLAT
       if (shp.k === 'top') return [x, y + shp.f, shp.h / T + (shp === ROOF ? pitch * k * (roofSouth(tx, ty) + 1 - (y - ty)) : 0)]
       if (shp.k === 'face') return [x, ty + 1 + shp.d, shp.d + (ty + 1 - y)]
@@ -699,6 +733,7 @@ export default function isoView(kit: Kit): View {
 
     // --- what stands ---------------------------------------------------------------
     nv = 0
+    stood.length = 0
     const shading = par.shading as number
     const eastShade = (0.16 + 0.5 * shading) * k
     const southShade = (0.06 + 0.3 * shading) * k
@@ -783,6 +818,19 @@ export default function isoView(kit: Kit): View {
           continue
         }
       }
+      if (shp.k === 'flat' && !(solid && t === 'n' && def.look !== 'lab')) continue
+      // (Not where an exit stands on the counter's tile and draws all of it itself: the newsstand.)
+      if (solid && t === 'n' && def.look !== 'lab' && !(tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && exitTiles(world, m.id).has(ty * m.w + tx))) {
+        // A counter in the round, one part to the tile, in place of a strip of its picture stood up (or laid down).
+        const n = tileOf(tx, ty - 1) === 'n'
+        const s2 = tileOf(tx, ty + 1) === 'n'
+        const along = tileOf(tx - 1, ty) === 'n' || tileOf(tx + 1, ty) === 'n'
+        bare(sx, sy, T, T)
+        stand(!along && (n || s2) ? 'counterY' : n && s2 ? 'counterNS' : n ? 'counterN' : s2 ? 'counterS' : 'counter', tx + 0.5, ty + 0.5, px)
+        tops.set(ty * 4096 + tx, ty + 0.5 + (s2 || (!along && n) ? 0.5 : 9 / 32) + 0.02)
+        cards.push({ x: tx + 0.5, y: ty + 0.6, tall: 0.5, wide: 0.5, dark: 0.8 })
+        continue
+      }
       if (shp.k === 'flat') continue
       if (shp.k === 'top') {
         bare(sx, sy, T, T)
@@ -851,7 +899,7 @@ export default function isoView(kit: Kit): View {
         else if (t === 'o') prop = 'pot'
         else if (t === 'r') prop = 'rock'
         else if (t === 'R') prop = 'boulder'
-        else if (t === 'S' && outdoors) prop = 'sign'
+        else if (t === 'S' && outdoors && !signExits(m.id).has(ty * m.w + tx)) prop = 'sign'
         else if (t === 'I' && def.look !== 'lab') prop = outdoors ? 'pillarStone' : 'pillarShrine'
         else if (t === 'i' && kind === 'interior') prop = 'stool'
         else if (t === 't' && kind !== 'dungeon') {
@@ -963,6 +1011,7 @@ export default function isoView(kit: Kit): View {
     }
 
     atlasUsed = used
+    const deep = standAll()
     // --- the ground picture's last layers ------------------------------------------------
     if (rooms.length) {
       // Everything outside the hero's room stays dark, as in the classic view.
@@ -1232,7 +1281,7 @@ export default function isoView(kit: Kit): View {
       lights: lightVerts, lightCount: nl / 6,
       blobs: blobVerts, blobCount: nb / 6,
       // The fade itself is already on the effects layer (`flashFade` painted it there).
-      look, fade: 0, ghost,
+      look, fade: 0, ghost, deep,
       // A door is a mosaic on the way out and on the way in; the Other Side waves down its scanlines; death closes the iris.
       mosaic: s.warp && !reduced && k > 0.5 ? 1 + Math.round(fade * 7) * 2 : 1,
       wave: !reduced && moody ? 1.6 * k : 0,

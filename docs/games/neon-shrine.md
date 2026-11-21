@@ -235,7 +235,7 @@ classic picture. `/?view=<id>` asks for one.
     other way, a line one texel wide comes out dotted.
     `node scripts/zelda-lab/materials-sheet.mjs <outDir>` draws them all.
   - *Standing things in the round* (`props`; `iso/props.ts`, pure). Lamp
-    posts, graves, pots, rocks, boulders, signposts, pillars and bar stools are each built once
+    posts, graves, pots, rocks, boulders, signposts, pillars, bar stools and counters are each built once
     as a few solids (boxes, posts, balls) and drawn the way the view sees
     the world, from the south-east and from above: a signboard runs away to
     the right, a gravestone has a side, a lantern has a lid and four panes
@@ -245,7 +245,16 @@ classic picture. `/?view=<id>` asks for one.
     pixel, so the lamps and the sun light them like the figure (picture 4 in
     the geometry pass). `view.ts` stands one where the classic art has that
     card (`stand`); a torch on the beach, a brazier and everything else are
-    still the classic card. `node scripts/zelda-lab/props-sheet.mjs <outDir>`
+    still the classic card. A counter is one part to the tile, each running
+    to the tile's edge where the counter goes on, so a long one stands as
+    one piece; what the classic art puts on a counter's picture (a ware and
+    its price) stands on its top at the front edge (`tops`). So that a long
+    solid is not a card, every pixel says how far toward the viewer its
+    surface lies from the sprite's anchor (the colour picture's alpha,
+    `depthCode`), and these quads are drawn last with a program that writes
+    that depth (`GEOM_DEEP_FS`, `FrameIn.deep`): a counter stands in the
+    floor and behind whoever stands in front of it. Only they use that
+    program, because one that writes its depth cannot be culled early. `node scripts/zelda-lab/props-sheet.mjs <outDir>`
     draws them all.
   - *Roofs that rise* (`roofPitch`). A house's roof is one plane rising
     from its eaves toward the back (kind 5 in the geometry), with a gable

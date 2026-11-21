@@ -92,6 +92,8 @@ export interface FrameIn {
   fade: number
   /** The hero's own vertices, drawn once more where something stands in front of them. */
   ghost: { start: number; count: number } | null
+  /** The vertices of the things built for this view, which bring a depth for every pixel (they end the list). */
+  deep: { start: number; count: number } | null
   /** Mosaic block in hi-res px (1: none), the scanline wave's reach in px, the iris (device px: x, y, radius; a negative radius is open). */
   mosaic: number
   wave: number
@@ -166,6 +168,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
   const float = !!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float')
 
   const geom = program(gl, S.GEOM_VS, S.GEOM_FS, S.GEOM_ATTRIBS)
+  const geomDeep = program(gl, S.GEOM_VS, S.GEOM_DEEP_FS, S.GEOM_ATTRIBS)
   const ground = program(gl, S.GROUND_VS, S.GROUND_FS, ['aPos'])
   const lightP = program(gl, S.LIGHT_VS, S.LIGHT_FS, S.LIGHT_ATTRIBS)
   const blobP = program(gl, S.BLOB_VS, S.BLOB_FS, S.BLOB_ATTRIBS)
@@ -174,7 +177,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
   const brightP = program(gl, S.QUAD_VS, S.BRIGHT_FS, ['aPos'])
   const blurP = program(gl, S.QUAD_VS, S.BLUR_FS, ['aPos'])
   const finishP = program(gl, S.QUAD_VS, S.FINISH_FS, ['aPos'])
-  const programs = [geom, ground, lightP, blobP, litP, compP, brightP, blurP, finishP]
+  const programs = [geom, geomDeep, ground, lightP, blobP, litP, compP, brightP, blurP, finishP]
   let built: 'yes' | 'wait' | 'failed' = 'wait'
 
   // --- buffers ---------------------------------------------------------------
@@ -330,35 +333,46 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.drawArrays(g.TRIANGLE_STRIP, 0, 4)
 
     if (f.vertCount > 0) {
-      g.useProgram(geom.p)
-      camera(geom, cam)
-      g.uniform1f(geom.u('uTime'), f.time)
-      g.uniform3f(geom.u('uHero'), f.hero.x, f.hero.y, look.wind)
-      g.uniform1f(geom.u('uSoft'), look.soft)
-      g.uniform1f(geom.u('uBump'), look.bump)
-      g.uniform1f(geom.u('uRound'), look.round)
-      g.uniform1f(geom.u('uEmit'), look.emit)
-      // A billboard faces the viewer, tipped up a little so the ground's light reaches it.
-      const vn = Math.hypot(cam.dv[0], cam.dv[1], cam.dv[2] * 0.55) || 1
-      g.uniform3f(geom.u('uViewN'), cam.dv[0] / vn, cam.dv[1] / vn, (cam.dv[2] * 0.55) / vn)
-      const rn = Math.hypot(cam.inv[0], cam.inv[2]) || 1
-      g.uniform3f(geom.u('uRight'), cam.inv[0] / rn, cam.inv[2] / rn, 0)
-      bindTex(g, 0, objsT, geom.u('uObjs'))
-      bindTex(g, 1, atlasT, geom.u('uAtlas'))
-      bindTex(g, 2, floraT, geom.u('uFlora'))
-      bindTex(g, 3, floraNT, geom.u('uFloraN'))
-      bindTex(g, 4, figT, geom.u('uFig'))
-      bindTex(g, 5, figNT, geom.u('uFigN'))
-      bindTex(g, 6, matT, geom.u('uMats'))
-      bindTex(g, 7, propsT, geom.u('uProps'))
-      bindTex(g, 8, propsNT, geom.u('uPropsN'))
-      g.uniform1f(geom.u('uMaterials'), matT.w > 1 ? look.materials : 0)
+      const use = (p: Program) => {
+        g.useProgram(p.p)
+        camera(p, cam)
+        g.uniform1f(p.u('uTime'), f.time)
+        g.uniform3f(p.u('uHero'), f.hero.x, f.hero.y, look.wind)
+        g.uniform1f(p.u('uSoft'), look.soft)
+        g.uniform1f(p.u('uBump'), look.bump)
+        g.uniform1f(p.u('uRound'), look.round)
+        g.uniform1f(p.u('uEmit'), look.emit)
+        // A billboard faces the viewer, tipped up a little so the ground's light reaches it.
+        const vn = Math.hypot(cam.dv[0], cam.dv[1], cam.dv[2] * 0.55) || 1
+        g.uniform3f(p.u('uViewN'), cam.dv[0] / vn, cam.dv[1] / vn, (cam.dv[2] * 0.55) / vn)
+        const rn = Math.hypot(cam.inv[0], cam.inv[2]) || 1
+        g.uniform3f(p.u('uRight'), cam.inv[0] / rn, cam.inv[2] / rn, 0)
+        bindTex(g, 0, objsT, p.u('uObjs'))
+        bindTex(g, 1, atlasT, p.u('uAtlas'))
+        bindTex(g, 2, floraT, p.u('uFlora'))
+        bindTex(g, 3, floraNT, p.u('uFloraN'))
+        bindTex(g, 4, figT, p.u('uFig'))
+        bindTex(g, 5, figNT, p.u('uFigN'))
+        bindTex(g, 6, matT, p.u('uMats'))
+        bindTex(g, 7, propsT, p.u('uProps'))
+        bindTex(g, 8, propsNT, p.u('uPropsN'))
+        g.uniform1f(p.u('uMaterials'), matT.w > 1 ? look.materials : 0)
+        // One px of a thing toward the viewer along the ground, in depth: a px is 1/32 of a tile at k = 1.
+        g.uniform1f(p.u('uDeep'), ((cam.dv[0] + cam.dv[1] + cam.dv[2]) * cam.dInv) / 32)
+        g.uniform1f(p.u('uGhost'), 0)
+        g.uniform4f(p.u('uVeil'), f.veil[0], f.veil[1], f.veil[2], f.veil[3])
+        g.uniform1f(p.u('uSceneH'), cam.sh)
+      }
+      const deep = f.deep && f.deep.count > 0 ? f.deep : null
+      use(geom)
       g.bindVertexArray(geomB.vao)
       fill(geomB, f.verts, f.vertCount * VERT)
-      g.uniform1f(geom.u('uGhost'), 0)
-      g.uniform4f(geom.u('uVeil'), f.veil[0], f.veil[1], f.veil[2], f.veil[3])
-      g.uniform1f(geom.u('uSceneH'), cam.sh)
-      g.drawArrays(g.TRIANGLES, 0, f.vertCount)
+      g.drawArrays(g.TRIANGLES, 0, deep ? deep.start : f.vertCount)
+      if (deep) {
+        use(geomDeep)
+        g.drawArrays(g.TRIANGLES, deep.start, deep.count)
+        use(geom)
+      }
       if (f.ghost && f.ghost.count > 0) {
         g.depthFunc(g.GREATER)
         g.depthMask(false)

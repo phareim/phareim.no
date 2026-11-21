@@ -93,7 +93,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
         relief: num('Relief', 0.9, 0, 3, 0.05, 'How much the art’s own light and dark stands up for the lamps to catch.'),
         roundness: num('Roundness', 0.7, 0, 2, 0.05, 'How round people and things are to the light.'),
         figure: choice('The hero', 'classic', ['classic', 'modelled'], 'Classic: the four-way sprite of the classic view, smoothed. Modelled: the hero is a small figure built in the round and drawn pixel by pixel each frame, so it turns smoothly, walks with its whole body and swings a blade that sweeps a true arc.'),
-        props: toggle('Standing things', true, 'Lamp posts, graves, pots, rocks, boulders, signposts, pillars and stools built for this view as small solids, seen from where the view stands, in place of the classic art stood up as a card.'),
+        props: toggle('Standing things', true, 'Lamp posts, graves, pots, rocks, boulders, signposts, pillars, stools and counters built for this view as small solids, seen from where the view stands, in place of the classic art stood up as a card.'),
         plants: toggle('Standing plants', true, 'Trees with crowns, bushes, tall grass and flowers that stand and sway, in place of the classic tiles.'),
       }),
       ...group('Lamps', {

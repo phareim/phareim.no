@@ -195,7 +195,7 @@ void main() {
  * 4 the things built for this view (props.ts);
  * y also carries 8 × the material a roof or a wall is made of (materials.ts, 0: as painted).
  */
-export const GEOM_FS = HEAD + COMMON + ART + NEON + MATS + `
+const GEOM_BODY = COMMON + ART + NEON + MATS + `
 in vec2 vUV;
 in vec4 vMeta;
 in vec3 vWorld;
@@ -210,6 +210,7 @@ uniform sampler2D uFig;
 uniform sampler2D uFigN;
 uniform sampler2D uProps;
 uniform sampler2D uPropsN;
+uniform float uDeep;
 uniform float uSoft;
 uniform float uBump;
 uniform float uRound;
@@ -231,6 +232,9 @@ bool fitsBuilt(int m, vec3 c) {
   return c.b > c.r + 0.06 && c.r > c.g + 0.015 && l < 0.55 && c.b < 0.75;
 }
 void main() {
+#ifdef DEEP
+  gl_FragDepth = gl_FragCoord.z;
+#endif
   int kind = int(vMeta.x + 0.5);
   int code = int(vMeta.y + 0.5);
   int pic = code & 7;
@@ -242,7 +246,16 @@ void main() {
   else if (pic == 1) c = art(uAtlas, vUV, uSoft, grad, edge);
   else if (pic == 2) { c = px(uFlora, ivec2(floor(vUV))); grad = vec2(0.0); edge = vec2(0.0); }
   // A thing built for this view (props.ts), a pixel to the pixel like the figure.
-  else if (pic == 4) { c = px(uProps, ivec2(floor(vUV))); c.rgb *= c.a; grad = vec2(0.0); edge = vec2(0.0); }
+  else if (pic == 4) {
+    c = px(uProps, ivec2(floor(vUV)));
+    if (c.a <= 0.0) discard;
+#ifdef DEEP
+    // Its alpha says how far toward the viewer this pixel's surface lies from the card it is drawn on: with
+    // a depth of its own, a counter stands in the ground and behind whoever stands in front of it.
+    gl_FragDepth = gl_FragCoord.z - (c.a * 255.0 - 128.0) / 4.0 * uDeep;
+#endif
+    c.a = 1.0; grad = vec2(0.0); edge = vec2(0.0);
+  }
   else {
     // The hero's own picture (figure.ts), a pixel to the pixel; its colour comes without its alpha in it.
     c = px(uFig, ivec2(floor(vUV))); c.rgb *= c.a; grad = vec2(0.0); edge = vec2(0.0);
@@ -344,10 +357,11 @@ void main() {
     // (A classic sprite is two scene px to the texel: only the half of a texel at the edge is the edge.)
     vec2 f = pic == 4 ? vec2(0.0) : vUV - vec2(i);
     vec2 f2 = pic == 4 ? vec2(1.0) : f;
-    float aL = pic == 0 ? px(uObjs, i + ivec2(-1, 0)).a : pic == 1 ? px(uAtlas, i + ivec2(-1, 0)).a : px(uProps, i + ivec2(-1, 0)).a;
-    float aR = pic == 0 ? px(uObjs, i + ivec2(1, 0)).a : pic == 1 ? px(uAtlas, i + ivec2(1, 0)).a : px(uProps, i + ivec2(1, 0)).a;
-    float aU = pic == 0 ? px(uObjs, i + ivec2(0, -1)).a : pic == 1 ? px(uAtlas, i + ivec2(0, -1)).a : px(uProps, i + ivec2(0, -1)).a;
-    float aD = pic == 0 ? px(uObjs, i + ivec2(0, 1)).a : pic == 1 ? px(uAtlas, i + ivec2(0, 1)).a : px(uProps, i + ivec2(0, 1)).a;
+    // (A thing's alpha is its depth: any of it is a pixel.)
+    float aL = pic == 0 ? px(uObjs, i + ivec2(-1, 0)).a : pic == 1 ? px(uAtlas, i + ivec2(-1, 0)).a : step(0.001, px(uProps, i + ivec2(-1, 0)).a);
+    float aR = pic == 0 ? px(uObjs, i + ivec2(1, 0)).a : pic == 1 ? px(uAtlas, i + ivec2(1, 0)).a : step(0.001, px(uProps, i + ivec2(1, 0)).a);
+    float aU = pic == 0 ? px(uObjs, i + ivec2(0, -1)).a : pic == 1 ? px(uAtlas, i + ivec2(0, -1)).a : step(0.001, px(uProps, i + ivec2(0, -1)).a);
+    float aD = pic == 0 ? px(uObjs, i + ivec2(0, 1)).a : pic == 1 ? px(uAtlas, i + ivec2(0, 1)).a : step(0.001, px(uProps, i + ivec2(0, 1)).a);
     vec2 o = vec2(0.0);
     if (aL < 0.5 && f.x < 0.5) o.x -= 1.0;
     if (aR < 0.5 && f2.x >= 0.5) o.x += 1.0;
@@ -381,6 +395,13 @@ void main() {
   o2 = vec4(mat / 255.0, em, rimPx, 1.0);
 }
 `
+
+export const GEOM_FS = HEAD + GEOM_BODY
+/**
+ * The same, writing each pixel's own depth: for the things built for this view. (A program that writes its
+ * depth cannot be culled before it runs, so only they are drawn with it.)
+ */
+export const GEOM_DEEP_FS = HEAD + '#define DEEP 1\n' + GEOM_BODY
 
 export const GROUND_VS = HEAD + PROJECT + `
 in vec2 aPos;

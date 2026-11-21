@@ -1,6 +1,6 @@
 /**
  * The standing things of the 16-bit view: lamp posts, graves, pots, rocks,
- * boulders, signposts, pillars and stools. Pure: no canvas, no DOM.
+ * boulders, signposts, pillars, stools and counters. Pure: no canvas, no DOM.
  *
  * In the classic art these are sixteen px seen from the front, and turned
  * into the isometric view they stay cards of that art at twice the size.
@@ -27,20 +27,36 @@
  */
 
 export type PropKind = 'lampPink' | 'lampCyan' | 'grave' | 'pot' | 'rock' | 'boulder' | 'sign' | 'pillarStone' | 'pillarShrine' | 'stool'
-export const PROP_KINDS: readonly PropKind[] = ['lampPink', 'lampCyan', 'grave', 'pot', 'rock', 'boulder', 'sign', 'pillarStone', 'pillarShrine', 'stool']
+  | 'counter' | 'counterN' | 'counterS' | 'counterNS' | 'counterY'
+export const PROP_KINDS: readonly PropKind[] = [
+  'lampPink', 'lampCyan', 'grave', 'pot', 'rock', 'boulder', 'sign', 'pillarStone', 'pillarShrine', 'stool',
+  'counter', 'counterN', 'counterS', 'counterNS', 'counterY',
+]
+
+/** How high a counter's top lies, in scene px: what stands on a counter stands there. */
+export const COUNTER_TOP = 17
 
 /** A sprite's cell, in scene px. (ax, ay) is the point on the ground under the middle of the thing. */
-export const PROP = { w: 64, h: 88, ax: 32, ay: 70 } as const
+export const PROP = { w: 80, h: 88, ax: 40, ay: 70 } as const
 
 export interface PropSprite { x: number; y: number; w: number; h: number; ax: number; ay: number }
 export interface PropAtlas {
   w: number
   h: number
-  /** RGBA, straight alpha (255 or nothing). */
+  /**
+   * RGB, and in the alpha where the pixel is in depth: 0 nothing; else 128 + 4 × how many px nearer the
+   * viewer than the anchor the surface lies along the ground (`depthCode`), so the engine can give every
+   * pixel its own depth and a long thing stands in the world as a solid, not as a card.
+   */
   albedo: Uint8ClampedArray
   /** rgb = the surface normal as (right, up, toward the viewer) * 0.5 + 0.5; a = how much the pixel glows by itself. */
   normal: Uint8ClampedArray
   sprites: Record<PropKind, PropSprite>
+}
+
+/** The byte that says a surface lies `q` px nearer the viewer than its sprite's anchor (never 0: that is no pixel). */
+export function depthCode(q: number): number {
+  return Math.max(1, Math.min(255, Math.round(q * 4) + 128))
 }
 
 type Rgb = readonly [number, number, number]
@@ -71,6 +87,10 @@ const MATS = {
   neon: mat(1, '#ff2fa0', '#ff2fa0', '#ff2fa0', '#ff5fd0', '#ff5fd0'),
   velvet: mat(0, '#5a0f2c', '#8a1840', '#c42a5a', '#ff3b5c', '#ffb0c8'),
   chrome: mat(0, '#2a1f4a', '#5a5285', '#8f86b8', '#cfc6ff', '#fff4ff'),
+  board: mat(0, '#2a1426', '#3a1e2c', '#472536', '#6e3d4e', '#8e5566'),
+  lip: mat(0, '#2a1426', '#472536', '#6e3d4e', '#8e5566', '#b07486'),
+  front: mat(0, '#150c22', '#1f1430', '#2b1c40', '#3d2a58', '#4f3a70'),
+  seam: mat(0, '#150c22', '#150c22', '#1a1028', '#1a1028', '#1a1028'),
 } as const
 type MatName = keyof typeof MATS
 const MAT_NAMES = Object.keys(MATS) as MatName[]
@@ -167,8 +187,11 @@ class Bench {
     })
   }
 
-  /** The picture: colours picked in steps, the line round the lower right, shade under what stands in front. */
-  paint(albedo: Uint8ClampedArray, normal: Uint8ClampedArray, aw: number, ox: number, oy: number) {
+  /**
+   * The picture: colours picked in steps, the line round the lower right, shade under what stands in front.
+   * `lined`: false for a part of something longer, whose silhouette is not the thing's own.
+   */
+  paint(albedo: Uint8ClampedArray, normal: Uint8ClampedArray, aw: number, ox: number, oy: number, lined = true) {
     const tone = new Int8Array(N)
     const filled = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && this.m[y * W + x]! >= 0
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -183,7 +206,7 @@ class Bench {
         const left = x > 0 && this.m[i - 1]! >= 0 ? this.t[i - 1]! - this.t[i]! : 0
         if (up > 3.2 || left > 3.2) k = Math.max(1, k - 1)
         // The line round the silhouette, on the lower right only.
-        if (!filled(x + 1, y) || !filled(x, y + 1)) k = 0
+        if (lined && (!filled(x + 1, y) || !filled(x, y + 1))) k = 0
         else if (k === 4 && (!filled(x - 1, y) || !filled(x, y - 1))) k = 3
       }
       tone[i] = k
@@ -194,7 +217,9 @@ class Bench {
       const M = MATS[MAT_NAMES[this.m[i]!]!]
       const c = M.ramp[tone[i]!]!
       const o = ((oy + y) * aw + ox + x) * 4
-      albedo[o] = c[0]; albedo[o + 1] = c[1]; albedo[o + 2] = c[2]; albedo[o + 3] = 255
+      albedo[o] = c[0]; albedo[o + 1] = c[1]; albedo[o + 2] = c[2]
+      // A point (x, y, z) lies (x + y) / 2 px nearer than the anchor, which is its row on the screen plus its height.
+      albedo[o + 3] = depthCode(y + 0.5 - PROP.ay + this.t[i]!)
       const S2 = Math.SQRT1_2
       normal[o] = Math.round(((this.nx[i]! - this.ny[i]!) * S2 * 0.5 + 0.5) * 255)
       normal[o + 1] = Math.round((this.nz[i]! * 0.5 + 0.5) * 255)
@@ -300,6 +325,27 @@ function stool(b: Bench) {
   b.ball(0, 0, 11.2, 5.6, 5.6, 2.8, 'velvet')
 }
 
+/**
+ * A counter's part of one tile: a wooden top with a lit lip on a panelled front. It runs to the tile's edge
+ * wherever the counter goes on (east and west always, north and south as told), so the parts of a long
+ * counter stand side by side as one; `narrow` is a counter that runs north to south.
+ */
+function counter(b: Bench, north: boolean, south: boolean, narrow = false) {
+  const x0 = narrow ? -9 : -16
+  const x1 = narrow ? 9 : 16
+  const y0 = narrow || north ? -16 : -9
+  const y1 = narrow || south ? 16 : 9
+  const H = COUNTER_TOP
+  b.box(x0, y0, 0, x1, y1, H, (x, y, z, _nx, _ny, nz) => {
+    if (nz > 0.5) return x > x1 - 1.6 || y > y1 - 1.6 ? 'lip' : 'board'
+    if (z > H - 2.2) return 'lip'
+    if (z > H - 3.6 || z < 1.6) return 'seam'
+    // Panels along the front, a seam between them.
+    const a = _nx > 0.5 ? y : x
+    return Math.abs(((a % 16) + 16) % 16 - 8) > 7.2 ? 'seam' : 'front'
+  })
+}
+
 const BUILD: Record<PropKind, (b: Bench) => void> = {
   lampPink: b => lamp(b, 'glassPink'),
   lampCyan: b => lamp(b, 'glassCyan'),
@@ -311,6 +357,11 @@ const BUILD: Record<PropKind, (b: Bench) => void> = {
   pillarStone: b => pillar(b, 'stone'),
   pillarShrine: b => pillar(b, 'shrine'),
   stool,
+  counter: b => counter(b, false, false),
+  counterN: b => counter(b, true, false),
+  counterS: b => counter(b, false, true),
+  counterNS: b => counter(b, true, true),
+  counterY: b => counter(b, false, false, true),
 }
 
 let built: PropAtlas | null = null
@@ -325,7 +376,7 @@ export function buildProps(): PropAtlas {
   PROP_KINDS.forEach((kind, k) => {
     const b = new Bench()
     BUILD[kind](b)
-    b.paint(albedo, normal, w, k * W, 0)
+    b.paint(albedo, normal, w, k * W, 0, !kind.startsWith('counter'))
     sprites[kind] = { x: k * W, y: 0, w: W, h: H, ax: PROP.ax, ay: PROP.ay }
   })
   built = { w, h: H, albedo, normal, sprites }

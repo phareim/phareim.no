@@ -140,9 +140,10 @@ describe('the 16-bit view’s standing things', () => {
       for (const [x, y] of pixels(a, sp)) { n++; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y) }
       assert.ok(n > 60, `${kind} is ${n} pixels`)
       assert.ok(x0 >= 2 && y0 >= 2 && x1 < sp.w - 2 && y1 < sp.h - 2, `${kind} touches its cell’s edge`)
-      // It stands on the ground under its middle: its lowest pixels lie just under the anchor, and it is about as wide to either side.
-      assert.ok(y1 >= sp.ay && y1 <= sp.ay + 9, `${kind} ends ${y1 - sp.ay} px under its anchor`)
-      assert.ok(Math.abs((x0 + x1 + 1) / 2 - sp.ax) <= 2.5, `${kind} is off its middle`)
+      // It stands on the ground under its middle: its lowest pixels lie just under the anchor (a counter's part
+      // reaches its tile's near corner), and it is about as wide to either side.
+      assert.ok(y1 >= sp.ay && y1 <= sp.ay + (kind.startsWith('counter') ? 17 : 9), `${kind} ends ${y1 - sp.ay} px under its anchor`)
+      assert.ok(Math.abs((x0 + x1 + 1) / 2 - sp.ax) <= (kind === 'counterN' || kind === 'counterS' ? 4.5 : 2.5), `${kind} is off its middle`)
     }
   })
 
@@ -161,6 +162,20 @@ describe('the 16-bit view’s standing things', () => {
       }
       assert.equal(glow > 0, ['lampPink', 'lampCyan', 'pot', 'pillarStone', 'pillarShrine'].includes(kind), `${kind}: ${glow} glowing pixels`)
     }
+  })
+
+  it('say where every pixel is in depth', () => {
+    const a = P.buildProps()
+    assert.equal(P.depthCode(0), 128)
+    assert.equal(P.depthCode(-1000), 1, 'never 0: that is no pixel')
+    // A counter's part reaches from its tile's far edge to its near one: its depths span about a tile (32 px, 4 to the px).
+    const sp = a.sprites.counterNS
+    let lo = 255, hi = 0
+    for (const [x, y] of pixels(a, sp)) { const d = a.albedo[((sp.y + y) * a.w + sp.x + x) * 4 + 3]; lo = Math.min(lo, d); hi = Math.max(hi, d) }
+    assert.ok(hi - lo > 100 && hi - lo < 136, `a counter spans ${hi - lo} steps of depth`)
+    // A lamp post stands on a point: every pixel of it is near its anchor.
+    const lamp = a.sprites.lampPink
+    for (const [x, y] of pixels(a, lamp)) { const d = a.albedo[((lamp.y + y) * a.w + lamp.x + x) * 4 + 3]; assert.ok(Math.abs(d - 128) <= 36, `a lamp pixel lies ${(d - 128) / 4} px off its anchor`) }
   })
 
   it('are pixel art: a handful of flat colours each', () => {
