@@ -21,7 +21,7 @@
  *
  * What stands has materials too: shingles on a roof, boards on a house's
  * wall, rock in a cliff's face, bricks and dressed blocks in the Shrine,
- * panelling and plaster indoors. A roof or a wall's top is laid like the
+ * panelling and plaster indoors, steel in the labs. A roof or a wall's top is laid like the
  * ground; a face is painted with a running east or south along the wall and
  * b up it from the ground, and there too every scene px gets a texel.
  *
@@ -39,7 +39,7 @@ export const MAT_PER_TILE = 32
  * tile data is its place here plus one (0: the ground as the classic art
  * paints it).
  */
-export const MATERIALS = ['grass', 'cobbles', 'sand', 'flags', 'boards', 'moss', 'lane', 'shingles', 'siding', 'rockface', 'bricks', 'blocks', 'panel', 'slab'] as const
+export const MATERIALS = ['grass', 'cobbles', 'sand', 'flags', 'boards', 'moss', 'lane', 'shingles', 'siding', 'rockface', 'bricks', 'blocks', 'panel', 'slab', 'plates', 'steel'] as const
 export type Material = typeof MATERIALS[number]
 export const materialId = (m: Material | null): number => m ? MATERIALS.indexOf(m) + 1 : 0
 
@@ -447,6 +447,67 @@ function slab(seed: number): Sheet {
   return s
 }
 
+/** The labs' floor: steel plates a tile wide, brushed along their length, a tread pressed into one in four. */
+function plates(seed: number): Sheet {
+  const s = new Sheet()
+  const [seam, dark, mid, light, hi] = ramp('#10152a', '#181e34', '#1d243b', '#232c46', '#2f3a5c') as [Rgb, Rgb, Rgb, Rgb, Rgb]
+  const last = MAT_PER_TILE - 1
+  for (let v = 0; v < MAT; v++) for (let u = 0; u < MAT; u++) {
+    const lu = u % MAT_PER_TILE
+    const lv = v % MAT_PER_TILE
+    const tu = Math.floor(u / MAT_PER_TILE)
+    const tv = Math.floor(v / MAT_PER_TILE)
+    if (lu === last || lv === last) { s.set(u, v, seam, 0); continue }
+    let i = (tu + tv) % 2 ? 1 : 2
+    let z = 0.7
+    // Brushed: short streaks along the plate, a texel wide.
+    const streak = hash(Math.floor((u + hash(tu, v, seed) * 30) / (5 + Math.floor(hash(tu, v, seed + 1) * 8))), v, seed + 2)
+    if (streak > 0.86) i += 1
+    else if (streak < 0.1) i -= 1
+    if (lu === 0 || lv === 0) { i += 1; z = 0.5 }
+    else if (lu === last - 1 || lv === last - 1) { i -= 1; z = 0.45 }
+    else if (hash(tu, tv, seed + 3) > 0.74 && lu > 4 && lv > 4 && lu < last - 5 && lv < last - 5) {
+      // The tread: short raised bars, leaning one way and then the other.
+      const cu = (lu - 5) % 6
+      const cv = (lv - 5) % 6
+      const lean = (Math.floor((lu - 5) / 6) + Math.floor((lv - 5) / 6)) % 2
+      if (cv === 2 && cu >= 1 && cu <= 3 && lean === 0) { i += 1; z = 0.95 }
+      else if (cu === 2 && cv >= 1 && cv <= 3 && lean === 1) { i += 1; z = 0.95 }
+    }
+    i = Math.max(1, Math.min(4, i))
+    s.set(u, v, [seam, dark, mid, light, hi][i]!, z)
+  }
+  return s
+}
+
+/** The labs' walls (a along the wall, b up it): steel panels half a tile wide, a kick plate, a bolt in each corner. */
+function steel(seed: number): Sheet {
+  const s = new Sheet()
+  const [seam, dark, mid, light, hi] = ramp('#1a2240', '#2f3b62', '#3a4874', '#465688', '#6276ac') as [Rgb, Rgb, Rgb, Rgb, Rgb]
+  for (let b = 0; b < MAT; b++) for (let a = 0; a < MAT; a++) {
+    const la = a % 16
+    const lb = b % MAT_PER_TILE
+    const panel = Math.floor(a / 16)
+    if (la === 15) { s.set(a, b, seam, 0); continue }
+    let i = hash(panel, Math.floor(b / MAT_PER_TILE), seed) > 0.5 ? 2 : 3
+    let z = 0.8
+    // Brushed up and down.
+    const streak = hash(a, Math.floor((b + hash(a, panel, seed + 1) * 30) / (6 + Math.floor(hash(a, 1, seed + 2) * 9))), seed + 3)
+    if (streak > 0.86) i += 1
+    else if (streak < 0.12) i -= 1
+    if (la === 0) { i += 1; z = 0.6 }
+    else if (la === 14) { i -= 1; z = 0.55 }
+    // The kick plate along the floor, and the seam above it.
+    if (lb < 5) i -= 1
+    if (lb === 5) { i = 0; z = 0.2 }
+    if ((la === 2 || la === 12) && (lb === 8 || lb === 28)) { i = 4; z = 1 }
+    else if ((la === 3 || la === 13) && (lb === 7 || lb === 27)) { i = 0; z = 0.3 }
+    i = Math.max(0, Math.min(4, i))
+    s.set(a, b, i === 0 ? mixRgb(seam, dark, 0.4) : [seam, dark, mid, light, hi][i]!, z)
+  }
+  return s
+}
+
 // ---------------------------------------------------------------------------
 // The atlas
 // ---------------------------------------------------------------------------
@@ -471,6 +532,8 @@ const PAINT: Record<Material, () => Sheet> = {
   blocks: () => blocks(103),
   panel: () => boards(107, ramp('#21153a', '#30224c', '#3a2856', '#453162', '#5a437c'), true, true),
   slab: () => slab(109),
+  plates: () => plates(113),
+  steel: () => steel(127),
 }
 
 let built: Materials | null = null

@@ -312,6 +312,8 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.uniform1f(ground.u('uEmit'), look.emit)
     g.uniform1f(ground.u('uMaterials'), matT.w > 1 ? look.materials : 0)
     g.uniform1f(ground.u('uOutdoors'), f.outdoors ? 1 : 0)
+    g.uniform1f(ground.u('uTime'), f.time)
+    g.uniform1f(ground.u('uWind'), look.wind)
     bindTex(g, 0, flatT, ground.u('uFlat'))
     bindTex(g, 1, tilesT, ground.u('uTiles'))
     bindTex(g, 2, matT, ground.u('uMats'))

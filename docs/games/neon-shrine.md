@@ -213,7 +213,8 @@ classic picture. `/?view=<id>` asks for one.
     `lane` (the Wildwood's lawn and paths). What stands has them too:
     `shingles` on a roof, `siding` on a house's wall, `rockface` in a
     cliff's face (with turf on its top), `bricks` and `blocks` in the
-    Shrine's walls, `panel` and `slab` indoors. The tile data's alpha says
+    Shrine's walls, `panel` and `slab` indoors, `plates` and `steel` in
+    the labs. The tile data's alpha says
     which material a tile's ground is (`groundKindOf` in `tiles.ts`, which
     follows `paintBase` case for case; a test holds the two together); a
     roof or a wall carries its material in its quads' meta (picture + 8 ×
@@ -228,8 +229,7 @@ classic picture. `/?view=<id>` asks for one.
     the same rule, tested), and the scene shows a row's texels in pairs, so
     a material's slope is read across the scene's own px (`matSlope`) and a
     mark that runs across the screen is painted through `pairU`; read any
-    other way, a line one texel wide comes out dotted. The labs keep the
-    ground their own painters give them.
+    other way, a line one texel wide comes out dotted.
     `node scripts/zelda-lab/materials-sheet.mjs <outDir>` draws them all.
   - *Roofs that rise* (`roofPitch`). A house's roof is one plane rising
     from its eaves toward the back (kind 5 in the geometry), with a gable

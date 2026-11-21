@@ -281,7 +281,6 @@ export default function isoView(kit: Kit): View {
   function uploadTiles(kind: MapKind, look: string | undefined, green: boolean) {
     const wild = look === 'wild'
     const m = shapeMap!
-    // The labs keep the ground their own painters gave them.
     const own: Record<string, Material> = { grass: wild ? 'moss' : 'grass', path: wild ? 'lane' : 'cobbles', sand: 'sand', floor: 'flags', boards: 'boards' }
     const data = new Uint8Array(ew * eh * 4)
     for (let ey = 0; ey < eh; ey++) for (let ex = 0; ex < ew; ex++) {
@@ -295,7 +294,10 @@ export default function isoView(kit: Kit): View {
         if (fy < eh) { const o = (fy * ew + ex) * 4; data[o] = Math.max(data[o]!, Math.min(255, Math.round(((sh.h / T + rise) / 4) * 255))) }
       }
       if (t === '~') data[(ey * ew + ex) * 4 + 1] = 255
-      if (look !== 'lab') {
+      if (look === 'lab') {
+        // A lab's ground is its plates wherever it is not a wall, coolant or a shaft (`paintLabBase`).
+        data[(ey * ew + ex) * 4 + 3] = t === '#' || t === '%' || t === '^' || t === '~' || t === 'O' ? 0 : materialId('plates')
+      } else {
         const tx = ex - M
         const ty = ey - M
         const gk = groundKindOf(kind, t!, (dx, dy) => tileAt(m, kind, tx + dx, ty + dy))
@@ -683,7 +685,7 @@ export default function isoView(kit: Kit): View {
     // What stands in this view's own materials (`materials.ts`): a roof's shingles, a wall's boards, a cliff's
     // rock, the Shrine's bricks. The number rides with the picture's in a quad's meta (picture + 8 × material).
     const builtOf = (t: TileChar, top: boolean): number => {
-      if (def.look === 'lab') return 0
+      if (def.look === 'lab') return t === '#' || t === '%' || t === '^' ? 8 * materialId(top ? 'plates' : 'steel') : 0
       if (kind === 'overworld') {
         if (t === 'H' || t === 'M' || t === 'D') return 8 * materialId(top ? 'shingles' : 'siding')
         if (t === '#' || t === '%' || t === '^') return 8 * materialId(top ? (def.look === 'wild' ? 'moss' : 'grass') : 'rockface')

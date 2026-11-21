@@ -223,6 +223,8 @@ bool fitsBuilt(int m, vec3 c) {
   if (m == 1 || m == 6) return c.b > c.r + 0.05 && c.g > c.r + 0.03 && l < 0.78;
   if (m == 8) return c.r > c.g + 0.18 && c.b > c.g + 0.1 && c.r > c.b && c.r < 0.9 && l < 0.62;
   if (m == 12 || m == 14) return c.b > c.r + 0.05 && l < 0.22;
+  if (m == 15) return c.b > c.r + 0.04 && c.g >= c.r && l < 0.16;
+  if (m == 16) return c.b > c.r + 0.1 && c.g > c.r + 0.02 && l > 0.14 && l < 0.5 && c.b < 0.7;
   return c.b > c.r + 0.06 && c.r > c.g + 0.015 && l < 0.55 && c.b < 0.75;
 }
 void main() {
@@ -321,11 +323,35 @@ void main() {
       // On a face the texels stand in the scene's own columns: the slope is read along the wall and up it.
       vec2 sl = lies ? matSlope(built, ti) : vec2(matTexel(built, ti + ivec2(1, 0)).a, matTexel(built, ti + ivec2(0, 1)).a) - t0.a;
       // A wall's top that is turf lies a step darker than the lawn below it, so the levels read.
-      float tone = built == 1 || built == 6 ? 0.86 : 1.0;
+      float tone = built == 1 || built == 6 ? 0.86 : built == 15 ? 0.66 : 1.0;
       c.rgb = mix(c.rgb, t0.rgb * tone, uMaterials);
       vec3 Tb = lies ? Tv : -Tv;
       vec3 mn = normalize(N - sl.x * 1.6 * uBump * Tu - sl.y * 1.6 * uBump * Tb);
       n = normalize(mix(n, mn, uMaterials));
+    }
+  }
+  // The outermost scene px of a figure or a thing, and which way it faces: where the low sun or a lamp
+  // stands behind it, that px is light (the lit pass decides), the contour a 16-bit sprite has toward the
+  // light and the classic one has no room for.
+  float rimPx = 0.0;
+  if (kind == 3 && pic < 2) {
+    ivec2 i = ivec2(floor(vUV));
+    vec2 f = vUV - vec2(i);
+    float aL = pic == 0 ? px(uObjs, i + ivec2(-1, 0)).a : px(uAtlas, i + ivec2(-1, 0)).a;
+    float aR = pic == 0 ? px(uObjs, i + ivec2(1, 0)).a : px(uAtlas, i + ivec2(1, 0)).a;
+    float aU = pic == 0 ? px(uObjs, i + ivec2(0, -1)).a : px(uAtlas, i + ivec2(0, -1)).a;
+    float aD = pic == 0 ? px(uObjs, i + ivec2(0, 1)).a : px(uAtlas, i + ivec2(0, 1)).a;
+    vec2 o = vec2(0.0);
+    if (aL < 0.5 && f.x < 0.5) o.x -= 1.0;
+    if (aR < 0.5 && f.x >= 0.5) o.x += 1.0;
+    if (aU < 0.5 && f.y < 0.5) o.y -= 1.0;
+    if (aD < 0.5 && f.y >= 0.5) o.y += 1.0;
+    if (o != vec2(0.0)) {
+      // A card faces the viewer, so its upper edge is the side turned away: toward what stands behind it.
+      // (That is where the low sun stands, at the top of the picture.)
+      rimPx = 1.0;
+      vec2 back = -normalize(uViewN.xy);
+      n = normalize(vec3(o.x * Tu.xy - o.y * back, 0.2));
     }
   }
   // People wear neon too, but only signs and screens are lamps.
@@ -345,7 +371,7 @@ void main() {
   }
   o0 = vec4(c.rgb, 1.0);
   o1 = vec4(n * 0.5 + 0.5, clamp(vWorld.z / 4.0, 0.0, 1.0));
-  o2 = vec4(mat / 255.0, em, 0.0, 1.0);
+  o2 = vec4(mat / 255.0, em, rimPx, 1.0);
 }
 `
 
@@ -368,6 +394,8 @@ uniform float uSoft;
 uniform float uBump;
 uniform float uEmit;
 uniform float uOutdoors;
+uniform float uTime;
+uniform float uWind;
 uniform vec4 uRooms[2];
 uniform int uRoomCount;
 layout(location = 0) out vec4 o0;
@@ -381,6 +409,7 @@ bool fits(int m, vec3 c) {
   if (m == 3) return c.r > c.g + 0.03 && c.r > c.b - 0.04 && l > 0.25 && l < 0.8;
   if (m == 4) return c.b > c.r + 0.08 && abs(c.r - c.g) < 0.07 && l < 0.27;
   if (m == 5) return c.r > c.g + 0.05 && c.b > c.g + 0.02 && c.r < 0.46 && l < 0.4;
+  if (m == 15) return c.b > c.r + 0.06 && c.g > c.r + 0.005 && l < 0.22 && c.b < 0.36;
   return false;
 }
 /** The material of a ground px: its tile's, or the lawn where one grows in over a path or the sand. */
@@ -403,7 +432,7 @@ int materialOf(int m, vec3 c, vec2 w) {
   return 0;
 }
 /** How bright the classic art paints each material's ground. */
-float paintedLuma(int m) { return m == 1 ? 0.29 : m == 6 ? 0.23 : m == 2 || m == 7 ? 0.36 : m == 3 ? 0.54 : m == 4 ? 0.16 : 0.21; }
+float paintedLuma(int m) { return m == 1 ? 0.29 : m == 6 ? 0.23 : m == 2 || m == 7 ? 0.36 : m == 3 ? 0.54 : m == 4 ? 0.16 : m == 15 ? 0.15 : 0.21; }
 void main() {
   if (uRoomCount > 0) {
     bool inside = false;
@@ -458,6 +487,11 @@ void main() {
       ivec2 ti = ivec2(mod(tq, 128.0));
       vec4 t0 = matTexel(m, ti);
       vec2 sl = matSlope(m, ti);
+      if ((m == 1 || m == 6) && uWind > 0.0 && t0.a > 0.5) {
+        // The wind goes over the lawn in gusts: the blades it bends catch the light, one band after another.
+        float gust = sin(dot(vW, vec2(0.9, 0.55)) * 1.4 - uTime * 1.3 + vnoise(vW * 0.45 + 9.0) * 5.0);
+        t0.rgb *= 1.0 + 0.4 * smoothstep(0.55, 0.95, gust) * min(1.0, uWind);
+      }
       c.rgb = mix(c.rgb, t0.rgb * tone, uMaterials);
       vec3 mn = normalize(vec3(-sl.x * 1.6 * uBump, -sl.y * 1.6 * uBump, 1.0));
       n = normalize(mix(n, mn, uMaterials));
@@ -674,6 +708,15 @@ void main() {
   float shade = 0.0;
   float rim = 0.0;
   float direct = 0.0;
+  // A figure's contour toward the light (the geometry pass marked its outermost px).
+  vec3 contour = vec3(0.0);
+  bool edgePx = mat == 3 && g2.b > 0.5;
+  if (edgePx && uRim > 0.0) {
+    // Toward the lamps: whichever way most of their light comes from here.
+    vec2 from = l1.xy + l1.zw + l2.xy;
+    float fl = length(from);
+    if (fl > 0.02) contour += irr * smoothstep(0.25, 0.7, dot(n.xy, from / fl)) * 1.6 * uRim;
+  }
   if (uOutdoors > 0.5) {
     float sunny = clamp(dot(n, uSun) / max(uSun.z, 0.05), 0.0, 1.6);
     // Leaves let the light through: a crown is never as dark as a wall's shaded side.
@@ -694,6 +737,8 @@ void main() {
       lit *= 1.0 - cs * uClouds * 0.7;
     }
     direct = lit;
+    // Toward the sun: a warm line down the side of everyone who stands in it.
+    if (edgePx) contour += uSunColor * smoothstep(0.3, 0.65, dot(n, normalize(vec3(uSun.xy, 0.3)))) * (1.0 - inShadow) * 2.4 * uRim;
   } else {
     // Indoors the light is the lamps'; what faces away from the room is dimmer.
     shade = uShading * (1.0 - clamp(n.z + 0.75 * max(n.y, n.x), 0.0, 1.0)) * 0.35;
@@ -718,6 +763,7 @@ void main() {
   c += mix(g0.rgb, vec3(luma(g0.rgb)), 0.25) * uSunColor * direct * (1.0 - 0.45 * occ) * (1.0 - 0.6 * smoothstep(0.35, 1.1, luma(lamp)));
   // Light hangs in the air over the ground it falls on: the classic view's glow, lying down.
   c += (1.0 - exp(-irr * 1.2)) * 0.3 * uGlow * (mat >= 3 ? 0.6 : 1.0);
+  c += contour * (0.6 + 0.5 * max(g0.rgb, vec3(luma(g0.rgb))));
   float em = g2.g;
   c = mix(c, g0.rgb * 1.08, em);
   o0 = vec4(c, em);

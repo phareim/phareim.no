@@ -109,7 +109,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
         sunStrength: num('Sunlight strength', 0.9, 0, 1.5, 0.05, 'How much of the light outdoors is the sun’s own. 0 is one even light, as in the classic view.'),
         occlusion: num('Corner shade', 0.5, 0, 1, 0.05, 'Soft darkness where a wall meets the ground.'),
         shading: num('Side shading', 0.6, 0, 1, 0.05, 'How much the sides away from the sun darken, in dithered steps.'),
-        rim: num('Sun rim', 0.5, 0, 1, 0.05, 'A warm edge on what the low sun catches.'),
+        rim: num('Sun rim', 0.5, 0, 1, 0.05, 'A warm edge on what the low sun catches, and a line of light down the side of everyone who stands with the sun or a lamp behind them.'),
         rays: num('Sun shafts', 0.6, 0, 1, 0.05, 'The low sun coming through in slanting shafts.'),
         clouds: num('Cloud shadows', 0.3, 0, 1),
         cloudSpeed: num('Cloud speed', 1, 0, 4, 0.1),
