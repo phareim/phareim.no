@@ -1051,7 +1051,7 @@ function queueKata(
   items.push({
     x: e.x,
     y: e.y + 0.5,
-    box: { w: KATA_W, h: STALL_H, d: 16 },
+    box: { w: 60, h: STALL_H, d: 16, px: [2, 37] },
     draw: () => {
       g.fillStyle = 'rgba(8,4,20,0.45)'
       g.fillRect(left + 1, bottom - 1, KATA_W - 2, 2)
@@ -1411,7 +1411,7 @@ function lookTop(look: ExitLook): number {
 // Drawing
 // ---------------------------------------------------------------------------
 
-interface SortItem { y: number; draw: () => void; x: number; foot?: number; ay?: number; wall?: boolean; tile?: boolean; box?: { w: number; h: number; d: number } }
+interface SortItem { y: number; draw: () => void; x: number; foot?: number; ay?: number; wall?: boolean; tile?: boolean; box?: { w: number; h: number; d: number; px?: readonly [number, number] } }
 
 /**
  * Queue every visible exit's sprite into the y-sorted list and collect its
@@ -1510,7 +1510,7 @@ export function queueExits(
         items.push({
           x: e.x,
           y: e.y + 0.5,
-          box: { w: KIOSK_W, h: KIOSK_H, d: 14 },
+          box: { w: KIOSK_W, h: KIOSK_H, d: 14, px: [3, 22] },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
             g.fillRect(left + 1, bottom - 1, KIOSK_W - 2, 2)
@@ -1670,7 +1670,7 @@ export function queueExits(
         items.push({
           x: e.x,
           y: e.y + 0.5,
-          box: { w: STALL_W, h: STALL_H, d: 16 },
+          box: { w: STALL_W, h: STALL_H, d: 16, px: [2, 37] },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
             g.fillRect(left + 1, bottom - 1, STALL_W - 2, 2)

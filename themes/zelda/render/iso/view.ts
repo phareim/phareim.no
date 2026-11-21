@@ -998,8 +998,8 @@ export default function isoView(kit: Kit): View {
         const hw = it.box.w / 2 / T
         const hz = it.box.h / T
         const d = it.box.d / T
-        const pu = cellX + C.ax - it.box.w / 2 + 1
-        const pv = cellY + C.ay - Math.round(it.box.h / 2)
+        const pu = cellX + C.ax - it.box.w / 2 + (it.box.px ? it.box.px[0] : 1)
+        const pv = cellY + C.ay - (it.box.px ? it.box.h - it.box.px[1] : Math.round(it.box.h / 2))
         quad(it.x - hw, ay - d, hz, 0, it.x + hw, ay - d, hz, 0, it.x + hw, ay, hz, 0, it.x - hw, ay, hz, 0, pu, pv, pu + 1, pv + 1, 0, 1)
         quad(it.x + hw, ay - d, hz, 0, it.x + hw, ay, hz, 0, it.x + hw, ay, 0, 0, it.x + hw, ay - d, 0, 0, pu, pv, pu + 1, pv + 1, 2, 1, eastShade, 0, 1)
         cards.push({ x: it.x, y: ay - d / 2, tall: Math.min(1.4, hz * 0.7), wide: Math.min(0.9, hw), dark: 0.85 })
