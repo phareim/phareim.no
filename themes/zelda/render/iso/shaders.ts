@@ -840,6 +840,10 @@ void main() {
     // The dusk lies on the water: its horizon in the shallows, its top out where it is deep.
     vec3 skyc = mix(uSkyHorizon, uSkyTop, 0.35 + 0.65 * deep);
     vec3 wcol = c * (1.0 - 0.16 * trough * uWater);
+    // In the shallows the bed shows through: the water is lighter and greener there, in two steps of a dither.
+    float shoal = (1.0 - smoothstep(0.55, 0.92, wet)) * uWater;
+    shoal = floor(shoal * 3.0 + bayer(s) * 0.99) / 3.0;
+    wcol = mix(wcol, wcol * vec3(1.05, 1.75, 1.45) + vec3(0.0, 0.035, 0.03), shoal * 0.75);
     wcol = mix(wcol, wcol * 0.72 + skyc * 0.26, uWater * (0.35 + 0.45 * deep));
     // What stands by the water, upside down in it.
     if (uMirror > 0.0) {

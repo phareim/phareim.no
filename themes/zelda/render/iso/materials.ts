@@ -514,13 +514,13 @@ function steel(seed: number): Sheet {
 
 const PAINT: Record<Material, () => Sheet> = {
   // Greener than the classic lawn's teal: a low sun on blue-green is grey, on green it is gold.
-  grass: () => lawn({ ramp: ramp('#133b40', '#184c44', '#205e4a', '#34905e', '#7ddc8e'), blades: 20, bloom: [rgb('#ff8ae0'), rgb('#c93aa6')], blooms: 7, seed: 11 }),
+  grass: () => lawn({ ramp: ramp('#133b40', '#184c44', '#205e4a', '#2f8558', '#5fc480'), blades: 13, bloom: [rgb('#ff8ae0'), rgb('#c93aa6')], blooms: 7, seed: 11 }),
   cobbles: () => paving({ ramp: ramp('#352a4e', '#584a6e', '#685a7e', '#7a6c90', '#9c8eae'), across: 8, moss: null, seed: 23 }),
   sand: () => sand(37),
   flags: () => flags(41),
   boards: () => boards(53, ramp('#2a1628', '#40243a', '#4e2c45', '#5c3550', '#74465f')),
   // The Wildwood's floor: a deeper night, fewer blades, small lights of its own.
-  moss: () => lawn({ ramp: ramp('#0d2638', '#113244', '#16404c', '#22665c', '#4fb894'), blades: 16, bloom: [rgb('#8ffce0'), rgb('#3fd8b0')], blooms: 5, seed: 67 }),
+  moss: () => lawn({ ramp: ramp('#0d2638', '#113244', '#16404c', '#1f5a56', '#37947e'), blades: 8, bloom: [rgb('#8ffce0'), rgb('#3fd8b0')], blooms: 5, seed: 67 }),
   // Its paths: the same stones, older, with the wood growing into them.
   lane: () => paving({ ramp: ramp('#2a1f44', '#463760', '#52446e', '#62547e', '#80729a'), across: 8, moss: ramp('#16404c', '#22665c'), seed: 79 }),
   shingles: () => shingles(83),

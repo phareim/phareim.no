@@ -268,6 +268,17 @@ export default function isoView(kit: Kit): View {
     return sh
   }
 
+  /**
+   * A face outdoors with no top behind it (a wall one tile deep, the rock beside a gap): the classic art never
+   * drew what lies on it, so the view closes it with a cap and an east side of its own.
+   */
+  function loneFace(tx: number, ty: number, kind: MapKind): boolean {
+    if (kind !== 'overworld' || ty - 1 < -M) return false
+    if (shapeAt(tx, ty).k !== 'face') return false
+    const n = shapeAt(tx, ty - 1).k
+    return n !== 'top' && n !== 'face'
+  }
+
   /** How many roof tiles lie south of this one in its house: its eaves are that many tiles away. */
   function roofSouth(tx: number, ty: number): number {
     let n = 0
@@ -300,8 +311,16 @@ export default function isoView(kit: Kit): View {
       } else {
         const tx = ex - M
         const ty = ey - M
-        const gk = groundKindOf(kind, t!, (dx, dy) => tileAt(m, kind, tx + dx, ty + dy))
+        let gk = groundKindOf(kind, t!, (dx, dy) => tileAt(m, kind, tx + dx, ty + dy))
+        // The back row of a rock has no ground of its own: the ground behind it runs on under it (`draw`).
+        if (!gk && kind === 'overworld' && sh.k === 'top' && ey > 0 && shapes[(ey - 1) * ew + ex]!.k !== 'top') {
+          gk = groundKindOf(kind, outer[(ey - 1) * ew + ex]!, (dx, dy) => tileAt(m, kind, tx + dx, ty - 1 + dy))
+        }
         data[(ey * ew + ex) * 4 + 3] = gk ? materialId(own[gk]!) : 0
+      }
+      if (loneFace(ex - M, ey - M, kind)) {
+        const fy = ey + sh.d
+        if (fy < eh) { const o = (fy * ew + ex) * 4; data[o] = Math.max(data[o]!, Math.round(((sh.d + 1) / 4) * 255)) }
       }
       // Pavement after rain, a polished floor: neon shows in them (the composite pass).
       if (kind === 'overworld' ? t === ',' && !wild : t === '.' || t === ',' || t === 'f') data[(ey * ew + ex) * 4 + 2] = kind === 'overworld' ? 150 : kind === 'interior' ? 190 : 110
@@ -749,6 +768,9 @@ export default function isoView(kit: Kit): View {
       if (shp.k === 'flat') continue
       if (shp.k === 'top') {
         bare(sx, sy, T, T)
+        // A rock's back row has no ground of its own, and the mass stands a row south of it: the ground
+        // behind runs on under it, or the dusk would show through the land.
+        if (outdoors && sy >= T && shapeAt(tx, ty - 1).k !== 'top' && (t === '#' || t === '%' || t === '^')) fg.drawImage(ground, sx, sy - T, T, T, sx, sy, T, T)
         const fy = ty + shp.f
         const hz = shp.h / T
         const side = builtOf(t, false)
@@ -792,7 +814,15 @@ export default function isoView(kit: Kit): View {
       if (shp.k === 'face') {
         bare(sx, sy, T, T)
         const y = ty + 1 + shp.d
-        quad(tx, y, shp.d + 1, 0, tx + 1, y, shp.d + 1, 0, tx + 1, y, shp.d, 0, tx, y, shp.d, 0, sx, sy, sx + T, sy + T, 1, builtOf(t, false))
+        const side = builtOf(t, false)
+        quad(tx, y, shp.d + 1, 0, tx + 1, y, shp.d + 1, 0, tx + 1, y, shp.d, 0, tx, y, shp.d, 0, sx, sy, sx + T, sy + T, 1, side)
+        if (loneFace(tx, ty, kind)) {
+          // Closed on top with a plain patch of its own picture, and on its east end with the picture again.
+          const hz = shp.d + 1
+          quad(tx, y - 1, hz, 0, tx + 1, y - 1, hz, 0, tx + 1, y, hz, 0, tx, y, hz, 0, sx + 6, sy + 12, sx + 7, sy + 13, 0, side)
+          const e = shapeAt(tx + 1, ty).k
+          if (e === 'flat' || e === 'card') quad(tx + 1, y - 1, hz, 0, tx + 1, y, hz, 0, tx + 1, y, 0, 0, tx + 1, y - 1, 0, 0, sx, sy, sx + T, sy + T, 2, side, eastShade, 0, 1)
+        }
         continue
       }
       // A card: the tile's picture upright, with what reaches above it when nothing stands there.
