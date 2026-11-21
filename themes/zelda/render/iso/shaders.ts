@@ -403,6 +403,7 @@ uniform float uEmit;
 uniform float uOutdoors;
 uniform float uTime;
 uniform float uWind;
+uniform float uFray;
 uniform vec4 uRooms[2];
 uniform int uRoomCount;
 layout(location = 0) out vec4 o0;
@@ -467,7 +468,7 @@ void main() {
     vec2 tq = floor(vW * 32.0 + vec2(0.0, 0.5));
     int m = materialOf(tm, c.rgb, vW);
     vec2 at = uv;
-    if (m > 0 && uOutdoors > 0.5) {
+    if (m > 0 && uOutdoors > 0.5 && uFray > 0.5) {
       // Where two grounds meet, the classic art has a staircase. Here the border wanders and frays a
       // texel at a time: the px asks a little to one side what the ground is.
       vec2 tp = vec2(tq.x - mod(tq.x + tq.y, 2.0), tq.y);

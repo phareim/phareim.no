@@ -22,6 +22,8 @@ export interface Look {
   soft: number
   /** How much of the ground is this view's own materials (0: the classic ground). */
   materials: number
+  /** Borders between two grounds wander and fray (a few more lookups a px: off on a device that is short of them). */
+  fray: boolean
   bump: number
   round: number
   emit: number
@@ -318,6 +320,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.uniform1f(ground.u('uOutdoors'), f.outdoors ? 1 : 0)
     g.uniform1f(ground.u('uTime'), f.time)
     g.uniform1f(ground.u('uWind'), look.wind)
+    g.uniform1f(ground.u('uFray'), look.fray ? 1 : 0)
     bindTex(g, 0, flatT, ground.u('uFlat'))
     bindTex(g, 1, tilesT, ground.u('uTiles'))
     bindTex(g, 2, matT, ground.u('uMats'))

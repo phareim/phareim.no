@@ -68,7 +68,8 @@ const BIG = { w: 200, h: 160, ax: 100, ay: 132 }
 
 /**
  * How much the view spends: 2 everything, 1 without the costly extras (the
- * water's mirror, lamp shadows, corner shade), 0 also with larger pixels.
+ * water's mirror, lamp shadows, corner shade, the frayed borders between two
+ * grounds), 0 also with larger pixels.
  * A device that cannot keep up is stepped down while it plays and stays
  * there; `pinQuality` holds it still (the lab's software GPU is no judge).
  */
@@ -1176,6 +1177,7 @@ export default function isoView(kit: Kit): View {
     const look: Look = {
       soft: (par.smoothing as number) * Math.min(1, k * 2),
       materials: (par.materials as number) * Math.max(0, Math.min(1, k * 2 - 0.6)),
+      fray: quality >= 2,
       bump: (par.relief as number) * k,
       round: (par.roundness as number) * k,
       emit: k,

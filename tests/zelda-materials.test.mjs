@@ -34,7 +34,8 @@ describe('the 16-bit view’s materials', () => {
     assert.equal(M.materialId(null), 0)
     M.MATERIALS.forEach((name, i) => assert.equal(M.materialId(name), i + 1))
     // A quad's meta carries picture + 8 × material in one float, and the shader's atlas column is 128 px.
-    assert.ok(M.MATERIALS.length <= 31)
+    // And the atlas must fit the smallest texture a WebGL2 device promises (2048 px).
+    assert.ok(M.MATERIALS.length <= 16)
     assert.equal(M.MAT, 128, 'the shaders read the atlas in columns of 128')
     assert.equal(M.MAT_PER_TILE, 32, 'the shaders read 32 texels to the tile')
   })
