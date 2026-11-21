@@ -102,3 +102,64 @@ describe('what a tile’s ground is made of', () => {
     assert.equal(cases(body('groundKindOf')), cases(body('paintBase')))
   })
 })
+
+// The standing things built for the 16-bit view (render/iso/props.ts).
+describe('the 16-bit view’s standing things', () => {
+  let P
+  before(async () => {
+    const out = esbuild.buildSync({
+      stdin: { contents: `export * from './render/iso/props'`, resolveDir: root, loader: 'ts' },
+      bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
+    })
+    P = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
+  })
+
+  /** A sprite's filled pixels: [x, y] in its own cell. */
+  function* pixels(a, sp) {
+    for (let y = 0; y < sp.h; y++) for (let x = 0; x < sp.w; x++) if (a.albedo[((sp.y + y) * a.w + sp.x + x) * 4 + 3]) yield [x, y]
+  }
+
+  it('each stand in a cell of their own, clear of its edges, on their anchor', () => {
+    const a = P.buildProps()
+    assert.equal(a, P.buildProps(), 'built once')
+    assert.equal(a.w, P.PROP.w * P.PROP_KINDS.length)
+    for (const kind of P.PROP_KINDS) {
+      const sp = a.sprites[kind]
+      let n = 0
+      let x0 = sp.w, x1 = 0, y0 = sp.h, y1 = 0
+      for (const [x, y] of pixels(a, sp)) { n++; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y) }
+      assert.ok(n > 60, `${kind} is ${n} pixels`)
+      assert.ok(x0 >= 2 && y0 >= 2 && x1 < sp.w - 2 && y1 < sp.h - 2, `${kind} touches its cell’s edge`)
+      // It stands on the ground under its middle: its lowest pixels lie just under the anchor, and it is about as wide to either side.
+      assert.ok(y1 >= sp.ay && y1 <= sp.ay + 9, `${kind} ends ${y1 - sp.ay} px under its anchor`)
+      assert.ok(Math.abs((x0 + x1 + 1) / 2 - sp.ax) <= 2.5, `${kind} is off its middle`)
+    }
+  })
+
+  it('know which way every pixel faces, and only a lantern or a glaze glows', () => {
+    const a = P.buildProps()
+    for (const kind of P.PROP_KINDS) {
+      const sp = a.sprites[kind]
+      let glow = 0
+      for (const [x, y] of pixels(a, sp)) {
+        const o = ((sp.y + y) * a.w + sp.x + x) * 4
+        const n = [a.normal[o] / 127.5 - 1, a.normal[o + 1] / 127.5 - 1, a.normal[o + 2] / 127.5 - 1]
+        assert.ok(Math.abs(Math.hypot(...n) - 1) < 0.06, `${kind} has a normal of length ${Math.hypot(...n)}`)
+        // Nothing the viewer sees faces away from them.
+        assert.ok(n[2] > -0.75, `${kind} shows a back`)
+        if (a.normal[o + 3] > 0) glow++
+      }
+      assert.equal(glow > 0, kind === 'lampPink' || kind === 'lampCyan' || kind === 'pot', `${kind}: ${glow} glowing pixels`)
+    }
+  })
+
+  it('are pixel art: a handful of flat colours each', () => {
+    const a = P.buildProps()
+    for (const kind of P.PROP_KINDS) {
+      const sp = a.sprites[kind]
+      const colours = new Set()
+      for (const [x, y] of pixels(a, sp)) { const o = ((sp.y + y) * a.w + sp.x + x) * 4; colours.add((a.albedo[o] << 16) | (a.albedo[o + 1] << 8) | a.albedo[o + 2]) }
+      assert.ok(colours.size >= 3 && colours.size <= 16, `${kind} has ${colours.size} colours`)
+    }
+  })
+})

@@ -191,7 +191,8 @@ void main() {
  * Kinds: 0 lies flat (a wall's top), 1 faces south, 2 faces east,
  * 3 a billboard facing the viewer, 4 a thing on a south wall, 5 a roof that rises toward the north
  * (z = its pitch), 7 a plant.
- * Pictures: 0 the map's standing things, 1 the atlas of people and things, 2 the plants, 3 the hero's figure;
+ * Pictures: 0 the map's standing things, 1 the atlas of people and things, 2 the plants, 3 the hero's figure,
+ * 4 the things built for this view (props.ts);
  * y also carries 8 × the material a roof or a wall is made of (materials.ts, 0: as painted).
  */
 export const GEOM_FS = HEAD + COMMON + ART + NEON + MATS + `
@@ -207,6 +208,8 @@ uniform sampler2D uFlora;
 uniform sampler2D uFloraN;
 uniform sampler2D uFig;
 uniform sampler2D uFigN;
+uniform sampler2D uProps;
+uniform sampler2D uPropsN;
 uniform float uSoft;
 uniform float uBump;
 uniform float uRound;
@@ -238,6 +241,8 @@ void main() {
   if (pic == 0) c = art(uObjs, vUV, uSoft, grad, edge);
   else if (pic == 1) c = art(uAtlas, vUV, uSoft, grad, edge);
   else if (pic == 2) { c = px(uFlora, ivec2(floor(vUV))); grad = vec2(0.0); edge = vec2(0.0); }
+  // A thing built for this view (props.ts), a pixel to the pixel like the figure.
+  else if (pic == 4) { c = px(uProps, ivec2(floor(vUV))); c.rgb *= c.a; grad = vec2(0.0); edge = vec2(0.0); }
   else {
     // The hero's own picture (figure.ts), a pixel to the pixel; its colour comes without its alpha in it.
     c = px(uFig, ivec2(floor(vUV))); c.rgb *= c.a; grad = vec2(0.0); edge = vec2(0.0);
@@ -285,9 +290,9 @@ void main() {
     vec3 m = px(uFloraN, ivec2(floor(vUV))).rgb * 2.0 - 1.0;
     n = normalize(m.x * Tu + m.y * vec3(0, 0, 1) + m.z * N);
     mat = 4.0;
-  } else if (pic == 3) {
-    // The hero is modelled: every pixel knows which way it faces, and how much it glows by itself.
-    vec4 m = px(uFigN, ivec2(floor(vUV)));
+  } else if (pic >= 3) {
+    // The hero and the things are modelled: every pixel knows which way it faces, and how much it glows by itself.
+    vec4 m = pic == 3 ? px(uFigN, ivec2(floor(vUV))) : px(uPropsN, ivec2(floor(vUV)));
     vec3 q = m.rgb * 2.0 - 1.0;
     n = normalize(q.x * Tu + q.y * vec3(0, 0, 1) + q.z * N);
     glow = m.a;
@@ -334,18 +339,20 @@ void main() {
   // stands behind it, that px is light (the lit pass decides), the contour a 16-bit sprite has toward the
   // light and the classic one has no room for.
   float rimPx = 0.0;
-  if (kind == 3 && pic < 2) {
+  if (kind == 3 && (pic < 2 || pic == 4) && glow < 0.5) {
     ivec2 i = ivec2(floor(vUV));
-    vec2 f = vUV - vec2(i);
-    float aL = pic == 0 ? px(uObjs, i + ivec2(-1, 0)).a : px(uAtlas, i + ivec2(-1, 0)).a;
-    float aR = pic == 0 ? px(uObjs, i + ivec2(1, 0)).a : px(uAtlas, i + ivec2(1, 0)).a;
-    float aU = pic == 0 ? px(uObjs, i + ivec2(0, -1)).a : px(uAtlas, i + ivec2(0, -1)).a;
-    float aD = pic == 0 ? px(uObjs, i + ivec2(0, 1)).a : px(uAtlas, i + ivec2(0, 1)).a;
+    // (A classic sprite is two scene px to the texel: only the half of a texel at the edge is the edge.)
+    vec2 f = pic == 4 ? vec2(0.0) : vUV - vec2(i);
+    vec2 f2 = pic == 4 ? vec2(1.0) : f;
+    float aL = pic == 0 ? px(uObjs, i + ivec2(-1, 0)).a : pic == 1 ? px(uAtlas, i + ivec2(-1, 0)).a : px(uProps, i + ivec2(-1, 0)).a;
+    float aR = pic == 0 ? px(uObjs, i + ivec2(1, 0)).a : pic == 1 ? px(uAtlas, i + ivec2(1, 0)).a : px(uProps, i + ivec2(1, 0)).a;
+    float aU = pic == 0 ? px(uObjs, i + ivec2(0, -1)).a : pic == 1 ? px(uAtlas, i + ivec2(0, -1)).a : px(uProps, i + ivec2(0, -1)).a;
+    float aD = pic == 0 ? px(uObjs, i + ivec2(0, 1)).a : pic == 1 ? px(uAtlas, i + ivec2(0, 1)).a : px(uProps, i + ivec2(0, 1)).a;
     vec2 o = vec2(0.0);
     if (aL < 0.5 && f.x < 0.5) o.x -= 1.0;
-    if (aR < 0.5 && f.x >= 0.5) o.x += 1.0;
+    if (aR < 0.5 && f2.x >= 0.5) o.x += 1.0;
     if (aU < 0.5 && f.y < 0.5) o.y -= 1.0;
-    if (aD < 0.5 && f.y >= 0.5) o.y += 1.0;
+    if (aD < 0.5 && f2.y >= 0.5) o.y += 1.0;
     if (o != vec2(0.0)) {
       // A card faces the viewer, so its upper edge is the side turned away: toward what stands behind it.
       // (That is where the low sun stands, at the top of the picture.)
@@ -355,7 +362,7 @@ void main() {
     }
   }
   // People wear neon too, but only signs and screens are lamps.
-  float em = pic == 3 ? glow * uEmit : neon(c.rgb) * uEmit * (pic == 1 ? 0.55 : 1.0);
+  float em = pic >= 3 ? glow * uEmit : neon(c.rgb) * uEmit * (pic == 1 ? 0.55 : 1.0);
   if (uGhost > 0.5) {
     // The hero behind a wall or a crown: every other px of them, the 16-bit way to see through.
     if (mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y), 2.0) < 1.0) discard;
@@ -762,7 +769,8 @@ void main() {
   // (Where the lamps already flood the ground, the eye has less room for it.)
   c += mix(g0.rgb, vec3(luma(g0.rgb)), 0.25) * uSunColor * direct * (1.0 - 0.45 * occ) * (1.0 - 0.6 * smoothstep(0.35, 1.1, luma(lamp)));
   // Light hangs in the air over the ground it falls on: the classic view's glow, lying down.
-  c += (1.0 - exp(-irr * 1.2)) * 0.3 * uGlow * (mat >= 3 ? 0.6 : 1.0);
+  // (It is a pool over the ground: what stands well above it, a lantern, a crown, a roof, is out of it.)
+  c += (1.0 - exp(-irr * 1.2)) * 0.3 * uGlow * (mat >= 3 ? 0.6 : 1.0) * (1.0 - 0.85 * smoothstep(0.45, 1.2, z));
   c += contour * (0.6 + 0.5 * max(g0.rgb, vec3(luma(g0.rgb))));
   float em = g2.g;
   c = mix(c, g0.rgb * 1.08, em);

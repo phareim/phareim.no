@@ -123,6 +123,8 @@ export interface Engine {
   flora(albedo: HTMLCanvasElement, normal: HTMLCanvasElement): void
   /** The hero's figure (`figure.ts`), w × h px: its colours with a straight alpha, and its normals with its glow in their alpha. */
   figure(albedo: Uint8ClampedArray, normal: Uint8ClampedArray, w: number, h: number): void
+  /** The things built for this view (`props.ts`), in the figure's two pictures. */
+  props(albedo: Uint8ClampedArray, normal: Uint8ClampedArray, w: number, h: number): void
   /** Per tile: r = height of what stands there / 4, g = 1 for water, b = how wet the ground is, a = its material (`materials.ts`, 0: as painted). */
   tiles(data: Uint8Array, w: number, h: number): void
   /** The ground's materials side by side (`materials.ts`): colour, and height in the alpha. */
@@ -219,6 +221,8 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
   const skyT = texture(gl, 1, 1, { linear: false })
   const floraT = texture(gl, 1, 1)
   const matT = texture(gl, 1, 1)
+  const propsT = texture(gl, 1, 1)
+  const propsNT = texture(gl, 1, 1)
   const floraNT = texture(gl, 1, 1)
   const figT = texture(gl, 1, 1)
   const figNT = texture(gl, 1, 1)
@@ -343,6 +347,8 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
       bindTex(g, 4, figT, geom.u('uFig'))
       bindTex(g, 5, figNT, geom.u('uFigN'))
       bindTex(g, 6, matT, geom.u('uMats'))
+      bindTex(g, 7, propsT, geom.u('uProps'))
+      bindTex(g, 8, propsNT, geom.u('uPropsN'))
       g.uniform1f(geom.u('uMaterials'), matT.w > 1 ? look.materials : 0)
       g.bindVertexArray(geomB.vao)
       fill(geomB, f.verts, f.vertCount * VERT)
@@ -515,6 +521,22 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.bindVertexArray(null)
   }
 
+  /** A modelled picture and its normals, from typed arrays. */
+  function modelled(colour: Tex, normals: Tex, albedo: Uint8ClampedArray, normal: Uint8ClampedArray, w: number, h: number) {
+    for (const [t, data] of [[colour, albedo], [normals, normal]] as const) {
+      gl.bindTexture(gl.TEXTURE_2D, t.t)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+      // Colour and alpha as they are: the shader multiplies, and a normal's alpha is its glow.
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+      if (t.w !== w || t.h !== h) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
+        t.w = w
+        t.h = h
+      } else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data)
+    }
+  }
+
   return {
     canvas,
     directional,
@@ -524,20 +546,8 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     fx: c => upload(gl, fxT, c),
     sky: c => upload(gl, skyT, c),
     flora(albedo, normal) { upload(gl, floraT, albedo); upload(gl, floraNT, normal) },
-    figure(albedo, normal, w, h) {
-      for (const [t, data] of [[figT, albedo], [figNT, normal]] as const) {
-        gl.bindTexture(gl.TEXTURE_2D, t.t)
-        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
-        // Colour and alpha as they are: the shader multiplies, and a normal's alpha is its glow.
-        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
-        if (t.w !== w || t.h !== h) {
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
-          t.w = w
-          t.h = h
-        } else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data)
-      }
-    },
+    props(albedo, normal, w, h) { modelled(propsT, propsNT, albedo, normal, w, h) },
+    figure(albedo, normal, w, h) { modelled(figT, figNT, albedo, normal, w, h) },
     materials(data, w, h) {
       gl.bindTexture(gl.TEXTURE_2D, matT.t)
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)

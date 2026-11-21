@@ -44,6 +44,7 @@ import { skyGrade, type DayLook } from '../daylight'
 import { BEYOND, beyondTile, massifHeight } from '../beyond'
 import { createLands, type Lands } from './lands'
 import { buildMaterials, materialId, type Material } from './materials'
+import { buildProps, type PropKind } from './props'
 import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from './figure'
 
 type G = CanvasRenderingContext2D
@@ -112,7 +113,12 @@ function legacyStandIn(kit: Kit): View {
 export default function isoView(kit: Kit): View {
   let engine: Engine
   try { engine = createEngine() } catch { return legacyView(kit) }
-  const sendMaterials = () => { const mats = buildMaterials(); engine.materials(mats.data, mats.w, mats.h) }
+  const propAtlas = buildProps()
+  const sendMaterials = () => {
+    const mats = buildMaterials()
+    engine.materials(mats.data, mats.w, mats.h)
+    engine.props(propAtlas.albedo, propAtlas.normal, propAtlas.w, propAtlas.h)
+  }
   sendMaterials()
   let fallback: View | null = null
   let waiting: View | null = null
@@ -452,6 +458,16 @@ export default function isoView(kit: Kit): View {
     quad(x, y, top, l, x, y, top, r, x, y, foot, r, x, y, foot, l, sp.x, sp.y, sp.x + sp.w, sp.y + sp.h, 7, 2, sway)
   }
 
+  /** A thing built for this view (`props.ts`), standing at a ground point: a pixel of it is a pixel of the scene. */
+  function stand(kind: PropKind, x: number, y: number, px: number) {
+    const sp = propAtlas.sprites[kind]
+    const top = sp.ay / (T * DENSITY)
+    const foot = -(sp.h - sp.ay) / (T * DENSITY)
+    const l = -sp.ax * px
+    const r = (sp.w - sp.ax) * px
+    quad(x, y, top, l, x, y, top, r, x, y, foot, r, x, y, foot, l, sp.x, sp.y, sp.x + sp.w, sp.y + sp.h, 3, 4)
+  }
+
   /**
    * The hero's pose this frame, from what the game says they are doing. The body turns toward where they are
    * headed at a pace (a quarter turn in a tenth of a second; faster into a swing), so a change of direction
@@ -700,6 +716,7 @@ export default function isoView(kit: Kit): View {
     // Plants are real ones once the turn is under way: trees with crowns, bushes, grass that stands (`flora.ts`).
     const green = outdoors && !!flora && k > 0.4 && (par.plants as boolean)
     const px = zoom / DENSITY
+    const solid = k > 0.4 && !!par.props
     const tileOf = (x: number, y: number): TileChar => tileAt(m, kind, x, y)
     // What stands in this view's own materials (`materials.ts`): a roof's shingles, a wall's boards, a cliff's
     // rock, the Shrine's bricks. The number rides with the picture's in a quad's meta (picture + 8 × material).
@@ -825,8 +842,28 @@ export default function isoView(kit: Kit): View {
         }
         continue
       }
-      // A card: the tile's picture upright, with what reaches above it when nothing stands there.
       const up = shapeAt(tx, ty - 1).k === 'flat' ? UP : 0
+      if (solid) {
+        // The things this view builds itself, in the round, where the classic art has a card.
+        let prop: PropKind | null = null
+        if (t === 'G' && outdoors) prop = 'grave'
+        else if (t === 'o') prop = 'pot'
+        else if (t === 'r') prop = 'rock'
+        else if (t === 'R') prop = 'boulder'
+        else if (t === 'S' && outdoors) prop = 'sign'
+        else if (t === 't' && kind !== 'dungeon') {
+          // (A torch on the beach keeps its flame; the lamp's colour is the classic one's, as its light is.)
+          const sandy = [tileOf(tx + 1, ty), tileOf(tx - 1, ty), tileOf(tx, ty + 1), tileOf(tx, ty - 1)].filter(q => q === '-').length >= 2
+          if (!(outdoors && sandy)) prop = hash2(tx, ty, 11) < 0.5 ? 'lampPink' : 'lampCyan'
+        }
+        if (prop) {
+          bare(sx, sy - up, T, T + up)
+          stand(prop, tx + 0.5, ty + 0.62, px)
+          cards.push({ x: tx + 0.5, y: ty + 0.66, tall: prop === 'lampPink' || prop === 'lampCyan' ? 1.6 : prop === 'pot' || prop === 'rock' ? 0.6 : 0.8, wide: prop === 'boulder' ? 0.36 : prop === 'lampPink' || prop === 'lampCyan' ? 0.14 : 0.24 })
+          continue
+        }
+      }
+      // A card: the tile's picture upright, with what reaches above it when nothing stands there.
       bare(sx, sy - up, T, T + up)
       const fx0 = tx + 0.5
       const fy0 = ty + 1 - FOOT / T
