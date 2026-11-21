@@ -31,7 +31,7 @@ import { NEON_SKIN } from '../hud'
 import { HIRES_WINDOW_SKIN } from '../hud16'
 import { drawHookChain, fireflies } from '../wild'
 import { centreIn, groundRect, type Rect } from './project'
-import { FLAT, shapeOf, WALL_TOP, type Shape } from './shape'
+import { FLAT, ROOF, shapeOf, WALL_TOP, type Shape } from './shape'
 import { DENSITY, fitDepth, makeCam, toGround, toScene, type Cam } from './camera'
 import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engine'
 import { rgb } from './gl'
@@ -265,6 +265,15 @@ export default function isoView(kit: Kit): View {
     return sh
   }
 
+  /** How many roof tiles lie south of this one in its house: its eaves are that many tiles away. */
+  function roofSouth(tx: number, ty: number): number {
+    let n = 0
+    while (n < 12 && shapeAt(tx, ty + n + 1) === ROOF) n++
+    return n
+  }
+  /** How much a house's roof rises for every tile north of its eaves (`roofPitch`), as the tile data was last sent. */
+  let pitchSent = 0
+
   /** What the light and the shadows need to know of each tile: how tall the mass on it is, and whether it is water. */
   function uploadTiles(kind: MapKind, look: string | undefined, green: boolean) {
     const wild = look === 'wild'
@@ -278,7 +287,9 @@ export default function isoView(kit: Kit): View {
       // A wood of real trees is not a block: its trees throw their own soft shadows.
       if (sh.k === 'top' && !(green && t === 'T')) {
         const fy = ey + sh.f
-        if (fy < eh) { const o = (fy * ew + ex) * 4; data[o] = Math.max(data[o]!, Math.round((sh.h / T / 4) * 255)) }
+        // A roof stands higher the further it is from its eaves.
+        const rise = sh === ROOF && pitchSent > 0 ? pitchSent * (roofSouth(ex - M, ey - M) + 0.5) : 0
+        if (fy < eh) { const o = (fy * ew + ex) * 4; data[o] = Math.max(data[o]!, Math.min(255, Math.round(((sh.h / T + rise) / 4) * 255))) }
       }
       if (t === '~') data[(ey * ew + ex) * 4 + 1] = 255
       if (look !== 'lab') {
@@ -532,7 +543,8 @@ export default function isoView(kit: Kit): View {
     const key = `${m.id}:${m.version}:${outdoors && par.beyond ? BEYOND : 0}`
     if (key !== shapesKey || shapeMap !== m) { rebuildShapes(s, kind, outdoors && par.beyond ? BEYOND : 0); shapesKey = key; tilesKey = '' }
     const planted = outdoors && !!par.plants
-    if (tilesKey !== `${key}:${planted}`) { uploadTiles(kind, def.look, planted); tilesKey = `${key}:${planted}` }
+    const pitch = outdoors ? (par.roofPitch as number) : 0
+    if (tilesKey !== `${key}:${planted}:${pitch}`) { pitchSent = pitch; uploadTiles(kind, def.look, planted); tilesKey = `${key}:${planted}:${pitch}` }
     if (M && !lands) lands = createLands(kind, def.look, (x, y) => tileAt(m, kind, x, y), m.w, m.h, M)
     const fLook: FloraLook = def.look === 'wild' ? 'wild' : 'coast'
     if (outdoors && floraLook !== fLook) { flora = buildFlora(fLook); engine.flora(flora.albedo, flora.normal); floraLook = fLook }
@@ -597,7 +609,7 @@ export default function isoView(kit: Kit): View {
       const tx = Math.floor(x)
       const ty = Math.floor(y)
       const shp = inRoom(tx, ty) ? shapeAt(tx, ty) : FLAT
-      if (shp.k === 'top') return [x, y + shp.f, shp.h / T]
+      if (shp.k === 'top') return [x, y + shp.f, shp.h / T + (shp === ROOF ? pitch * k * (roofSouth(tx, ty) + 1 - (y - ty)) : 0)]
       if (shp.k === 'face') return [x, ty + 1 + shp.d, shp.d + (ty + 1 - y)]
       if (shp.k === 'card') return [tx + 0.5, ty + 1 - FOOT / T, Math.max(0, ty + 1 - y - FOOT / T)]
       return [x, y, 0]
@@ -734,8 +746,20 @@ export default function isoView(kit: Kit): View {
         bare(sx, sy, T, T)
         const fy = ty + shp.f
         const hz = shp.h / T
-        quad(tx, fy, hz, 0, tx + 1, fy, hz, 0, tx + 1, fy + 1, hz, 0, tx, fy + 1, hz, 0, sx, sy, sx + T, sy + T, 0, builtOf(t, true))
         const side = builtOf(t, false)
+        const slope = shp === ROOF ? pitch * k : 0
+        if (slope > 0) {
+          // A house's roof rises from its eaves toward the back: one plane, so what is painted on it stays whole.
+          const zS = hz + slope * roofSouth(tx, ty)
+          const zN = zS + slope
+          quad(tx, fy, zN, 0, tx + 1, fy, zN, 0, tx + 1, fy + 1, zS, 0, tx, fy + 1, zS, 0, sx, sy, sx + T, sy + T, 5, builtOf(t, true), slope)
+          if (shp.sides && !(shapeAt(tx + 1, ty).k === 'top' && inRoom(tx + 1, ty))) {
+            // The gable over the east wall: a plain patch of the wall's own picture, up to the roof.
+            const fr = faceRow(tx, ty, 1)
+            const gy = ((fr < 0 ? ty : fr) - R.y) * T
+            quad(tx + 1, fy, zN, 0, tx + 1, fy + 1, zS, 0, tx + 1, fy + 1, hz, 0, tx + 1, fy, hz, 0, sx + 1, gy + 13, sx + 3, gy + 15, 2, side, eastShade, 0, 0)
+          }
+        } else quad(tx, fy, hz, 0, tx + 1, fy, hz, 0, tx + 1, fy + 1, hz, 0, tx, fy + 1, hz, 0, sx, sy, sx + T, sy + T, 0, builtOf(t, true))
         // The rock beyond the edge is wooded on top, so it is a hillside and not a tabletop. (No sway: the
         // wind bends a plant from the ground up, and these do not stand on it.)
         if (green && t === '#' && (tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) && hash2(tx, ty, 24) > 0.42) {

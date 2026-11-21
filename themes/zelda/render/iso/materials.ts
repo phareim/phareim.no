@@ -12,8 +12,8 @@
  *
  * A material is painted for the turned view. On the ground a texel is
  * (u east, v south); at k = 1 the engine shows every texel as exactly one
- * scene px, at (u − v, ⌊(u + v) / 2⌋) (`GROUND_FS` reads them a quarter
- * texel off the grid, which is what makes that one to one). So what should
+ * scene px, at (u − v, ⌊(u + v) / 2⌋) (`GROUND_FS` reads them half a texel
+ * south of the grid, which is what makes that one to one). So what should
  * stand upright on the screen (a blade of grass) is stamped through `spot`,
  * which takes offsets in scene px, and what lies on the ground (a joint
  * between stones) is drawn along u and v and comes out as the 2:1 lines of
@@ -81,6 +81,13 @@ function noise(u: number, v: number, cell: number, salt: number): number {
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy
 }
 
+/**
+ * The turned view shows the texels of one scene row in pairs: (u, v) and (u − 1, v) lie side by side
+ * when u + v is odd. A mark one texel wide that runs across the screen is a dotted line; asked through
+ * this, both of a pair answer alike and it is a whole one.
+ */
+const pairU = (u: number, v: number) => ((u + v) & 1 ? u - 1 : u)
+
 /** One material on the bench: a colour and a height for every texel. */
 class Sheet {
   readonly r = new Uint8ClampedArray(MAT * MAT)
@@ -123,7 +130,7 @@ function lawn(L: Lawn): Sheet {
   const s = new Sheet()
   const [d, m, l, blade, tip] = L.ramp as [Rgb, Rgb, Rgb, Rgb, Rgb]
   // The body: soft patches, their borders broken up a texel at a time so no edge is a line.
-  const body = (u: number, v: number) => noise(u, v, 32, L.seed) * 0.55 + noise(u, v, 8, L.seed + 1) * 0.33 + hash(u, v, L.seed + 2) * 0.12
+  const body = (u: number, v: number) => noise(u, v, 32, L.seed) * 0.56 + noise(u, v, 8, L.seed + 1) * 0.36 + hash(pairU(u, v), v, L.seed + 2) * 0.08
   for (let v = 0; v < MAT; v++) for (let u = 0; u < MAT; u++) {
     const n = body(u, v)
     const i = n < 0.4 ? 0 : n < 0.6 ? 1 : 2
@@ -249,17 +256,20 @@ function paving(P: Paving): Sheet {
 function sand(seed: number): Sheet {
   const s = new Sheet()
   const [d, m, l, h] = ramp('#876652', '#a47f66', '#bd9877', '#d8b68e') as [Rgb, Rgb, Rgb, Rgb]
-  for (let v = 0; v < MAT; v++) for (let u = 0; u < MAT; u++) {
+  for (let v = 0; v < MAT; v++) for (let u0 = 0; u0 < MAT; u0++) {
+    const u = pairU(u0, v)
     // Drifts, and across them the ripples the wind left: they run across the screen, a lit crest over a shaded trough.
     const n = noise(u, v, 32, seed) * 0.6 + noise(u, v, 16, seed + 1) * 0.4
-    const along = u + v + (noise(u, v, 16, seed + 2) - 0.5) * 14
+    const row = Math.floor((u + v) / 2)
+    const along = row * 2 + (noise(u, v, 16, seed + 2) - 0.5) * 14
     const wave = Math.sin((along / 16) * Math.PI * 2)
+    const gate = noise(u, v, 8, seed + 3)
     let i = n < 0.4 ? 1 : 2
     let z = 0.5
-    if (wave > 0.8 && noise(u, v, 8, seed + 3) > 0.3) { i = 3; z = 0.9 }
-    else if (wave < -0.78 && noise(u, v, 8, seed + 3) > 0.4) { i = 0; z = 0.15 }
-    else if (hash(u, v, seed + 4) > 0.965) { i = hash(u, v, seed + 5) > 0.5 ? 3 : 0; z = i === 3 ? 0.8 : 0.3 }
-    s.set(u, v, [d, m, l, h][i]!, z)
+    if (wave > 0.82 && gate > 0.3) { i = 3; z = 0.9 }
+    else if (wave < -0.8 && gate > 0.4) { i = 0; z = 0.15 }
+    else if (hash(u, v, seed + 4) > 0.985) { i = hash(u, v, seed + 5) > 0.5 ? 3 : 0; z = i === 3 ? 0.8 : 0.3 }
+    s.set(u0, v, [d, m, l, h][i]!, z)
   }
   return s
 }

@@ -117,6 +117,27 @@ vec4 art(sampler2D t, vec2 uv, float soft, out vec2 grad, out vec2 edge) {
 }
 `
 
+/**
+ * The materials of the 16-bit view (materials.ts), side by side in one atlas, 128 texels each: colour, and
+ * in the alpha how high the texel stands.
+ */
+const MATS = `
+uniform sampler2D uMats;
+uniform float uMaterials;
+vec4 matTexel(int m, ivec2 t) { return texelFetch(uMats, ivec2((m - 1) * 128 + (t.x & 127), t.y & 127), 0); }
+/**
+ * The slope of a material's height on the ground at texel t (toward east, toward south). The turned view
+ * shows a scene row's texels in pairs, so the slope is read across the scene's own px (right, left, down,
+ * up of the pair): read along u and v, the two of a pair would disagree and every line would be dotted.
+ */
+vec2 matSlope(int m, ivec2 t) {
+  if (((t.x + t.y) & 1) != 0) t.x -= 1;
+  float dx = (matTexel(m, t + ivec2(1, 0)).a - matTexel(m, t + ivec2(0, 1)).a) * 0.5;
+  float dy = (matTexel(m, t + ivec2(1, 1)).a - matTexel(m, t + ivec2(-1, -1)).a) * 0.5;
+  return vec2(dx + 0.5 * dy, 0.5 * dy - dx);
+}
+`
+
 /** How much a colour is neon: bright and saturated. Neon shines by itself. */
 const NEON = `
 float neon(vec3 c) {
@@ -167,11 +188,13 @@ void main() {
 
 /**
  * aMeta: x = kind, y = which picture, z = shade (0 as painted .. 1 dark), w = how far down a side (0 top .. 1 foot).
- * Kinds: 0 lies flat (a roof, a wall's top), 1 faces south, 2 faces east,
- * 3 a billboard facing the viewer, 4 a thing on a south wall, 7 a plant.
- * Pictures: 0 the map's standing things, 1 the atlas of people and things, 2 the plants, 3 the hero's figure.
+ * Kinds: 0 lies flat (a wall's top), 1 faces south, 2 faces east,
+ * 3 a billboard facing the viewer, 4 a thing on a south wall, 5 a roof that rises toward the north
+ * (z = its pitch), 7 a plant.
+ * Pictures: 0 the map's standing things, 1 the atlas of people and things, 2 the plants, 3 the hero's figure;
+ * y also carries 8 × the material a roof or a wall is made of (materials.ts, 0: as painted).
  */
-export const GEOM_FS = HEAD + COMMON + ART + NEON + `
+export const GEOM_FS = HEAD + COMMON + ART + NEON + MATS + `
 in vec2 vUV;
 in vec4 vMeta;
 in vec3 vWorld;
@@ -184,8 +207,6 @@ uniform sampler2D uFlora;
 uniform sampler2D uFloraN;
 uniform sampler2D uFig;
 uniform sampler2D uFigN;
-uniform sampler2D uMats;
-uniform float uMaterials;
 uniform float uSoft;
 uniform float uBump;
 uniform float uRound;
@@ -249,7 +270,10 @@ void main() {
   vec3 N; vec3 Tu; vec3 Tv;
   float mat = 2.0;
   float glow = 0.0;
+  // (A roof that slopes carries its pitch where a side carries its shade: tiles up per tile north.)
+  bool lies = kind == 0 || kind == 5;
   if (kind == 0) { N = vec3(0, 0, 1); Tu = vec3(1, 0, 0); Tv = vec3(0, 1, 0); }
+  else if (kind == 5) { N = normalize(vec3(0.0, vMeta.z, 1.0)); Tu = vec3(1, 0, 0); Tv = normalize(vec3(0.0, 1.0, -vMeta.z)); }
   else if (kind == 1 || kind == 4) { N = vec3(0, 1, 0); Tu = vec3(1, 0, 0); Tv = vec3(0, 0, -1); }
   else if (kind == 2) { N = vec3(1, 0, 0); Tu = vec3(0, 1, 0); Tv = vec3(0, 0, -1); }
   else { N = uViewN; Tu = uRight; Tv = vec3(0, 0, -1); mat = 3.0; }
@@ -288,20 +312,19 @@ void main() {
       n -= uRound * (e.x * Tu + e.y * Tv);
     }
     n = normalize(n);
-    if (built > 0 && uMaterials > 0.0 && kind <= 2 && c.a > 0.999 && fitsBuilt(built, c.rgb)) {
+    if (built > 0 && uMaterials > 0.0 && (kind <= 2 || kind == 5) && c.a > 0.999 && fitsBuilt(built, c.rgb)) {
       // A roof, a wall, a cliff in this view's own material (materials.ts). A top is laid like the ground;
       // a face runs along the wall and up it. At k = 1 every scene px has a texel of its own either way.
-      vec2 tq = kind == 0 ? floor(vWorld.xy * 32.0 + vec2(-0.25, 0.25)) : floor(vec2((kind == 1 ? vWorld.x : vWorld.y) * 32.0, vWorld.z * 32.0));
+      vec2 tq = lies ? floor(vWorld.xy * 32.0 + vec2(0.0, 0.5)) : floor(vec2((kind == 1 ? vWorld.x : vWorld.y) * 32.0, vWorld.z * 32.0));
       ivec2 ti = ivec2(mod(tq, 128.0));
-      int col = (built - 1) * 128;
-      vec4 t0 = texelFetch(uMats, ivec2(col + ti.x, ti.y), 0);
-      float hx = texelFetch(uMats, ivec2(col + ((ti.x + 1) & 127), ti.y), 0).a;
-      float hy = texelFetch(uMats, ivec2(col + ti.x, (ti.y + 1) & 127), 0).a;
+      vec4 t0 = matTexel(built, ti);
+      // On a face the texels stand in the scene's own columns: the slope is read along the wall and up it.
+      vec2 sl = lies ? matSlope(built, ti) : vec2(matTexel(built, ti + ivec2(1, 0)).a, matTexel(built, ti + ivec2(0, 1)).a) - t0.a;
       // A wall's top that is turf lies a step darker than the lawn below it, so the levels read.
       float tone = built == 1 || built == 6 ? 0.86 : 1.0;
       c.rgb = mix(c.rgb, t0.rgb * tone, uMaterials);
-      vec3 Tb = kind == 0 ? Tv : -Tv;
-      vec3 mn = normalize(N - (hx - t0.a) * 1.5 * uBump * Tu - (hy - t0.a) * 1.5 * uBump * Tb);
+      vec3 Tb = lies ? Tv : -Tv;
+      vec3 mn = normalize(N - sl.x * 1.6 * uBump * Tu - sl.y * 1.6 * uBump * Tb);
       n = normalize(mix(n, mn, uMaterials));
     }
   }
@@ -314,7 +337,7 @@ void main() {
     em = 0.85;
   }
   // The sides nobody drew are the face again, darker toward the ground in dithered steps.
-  float shade = kind == 7 ? 0.0 : vMeta.z;
+  float shade = kind == 7 || kind == 5 ? 0.0 : vMeta.z;
   if (shade > 0.0) {
     float lv = vMeta.w * 4.0;
     float st = floor(lv) + step(bayer(gl_FragCoord.xy), fract(lv));
@@ -335,17 +358,15 @@ void main() {
 }
 `
 
-export const GROUND_FS = HEAD + COMMON + ART + NEON + `
+export const GROUND_FS = HEAD + COMMON + ART + NEON + MATS + `
 in vec2 vW;
 uniform sampler2D uFlat;
 uniform sampler2D uTiles;
-uniform sampler2D uMats;
 uniform vec2 uOrg;
 uniform vec4 uRect;
 uniform float uSoft;
 uniform float uBump;
 uniform float uEmit;
-uniform float uMaterials;
 uniform float uOutdoors;
 uniform vec4 uRooms[2];
 uniform int uRoomCount;
@@ -404,15 +425,17 @@ void main() {
   float mat = td.g > 0.5 ? 1.0 : 0.0;
   int tm = int(td.a * 255.0 + 0.5);
   if (uMaterials > 0.0 && tm > 0) {
-    // The ground in this view's own materials (materials.ts): 32 texels to the tile, read a quarter texel
-    // off the grid, which at k = 1 gives every scene px a texel of its own.
-    vec2 tq = floor(vW * 32.0 + vec2(-0.25, 0.25));
+    // The ground in this view's own materials (materials.ts): 32 texels to the tile, read half a texel
+    // south of the grid, which at k = 1 gives every scene px a texel of its own (and keeps every px a
+    // quarter texel clear of a texel's edge, so no rounding decides).
+    vec2 tq = floor(vW * 32.0 + vec2(0.0, 0.5));
     int m = materialOf(tm, c.rgb, vW);
     vec2 at = uv;
     if (m > 0 && uOutdoors > 0.5) {
       // Where two grounds meet, the classic art has a staircase. Here the border wanders and frays a
       // texel at a time: the px asks a little to one side what the ground is.
-      vec2 j = (vec2(vnoise(tq * 0.17 + 3.0), vnoise(tq * 0.17 + 41.0)) - 0.5) * 2.6 + (vec2(hash(tq), hash(tq + 17.0)) - 0.5) * 1.1;
+      vec2 tp = vec2(tq.x - mod(tq.x + tq.y, 2.0), tq.y);
+      vec2 j = (vec2(vnoise(tp * 0.17 + 3.0), vnoise(tp * 0.17 + 41.0)) - 0.5) * 2.6 + (vec2(hash(tp), hash(tp + 17.0)) - 0.5) * 1.1;
       vec2 uv2 = uv + j;
       vec4 c2 = px(uFlat, ivec2(floor(uv2)));
       vec2 w2 = uv2 / 16.0 + uRect.xy;
@@ -433,12 +456,10 @@ void main() {
       float tone = cnt > 0.0 ? sum / cnt : 1.0;
       tone = mix(1.0, tone, m == 3 ? 0.9 : 0.4);
       ivec2 ti = ivec2(mod(tq, 128.0));
-      int col = (m - 1) * 128;
-      vec4 t0 = texelFetch(uMats, ivec2(col + ti.x, ti.y), 0);
-      float hx = texelFetch(uMats, ivec2(col + ((ti.x + 1) & 127), ti.y), 0).a;
-      float hy = texelFetch(uMats, ivec2(col + ti.x, (ti.y + 1) & 127), 0).a;
+      vec4 t0 = matTexel(m, ti);
+      vec2 sl = matSlope(m, ti);
       c.rgb = mix(c.rgb, t0.rgb * tone, uMaterials);
-      vec3 mn = normalize(vec3((t0.a - hx) * 1.5 * uBump, (t0.a - hy) * 1.5 * uBump, 1.0));
+      vec3 mn = normalize(vec3(-sl.x * 1.6 * uBump, -sl.y * 1.6 * uBump, 1.0));
       n = normalize(mix(n, mn, uMaterials));
     }
   }

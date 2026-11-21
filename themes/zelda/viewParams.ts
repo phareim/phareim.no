@@ -89,6 +89,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
       ...group('The art', {
         smoothing: num('Art smoothing', 1, 0, 1, 0.05, 'How far the classic art is smoothed on its way up to two pixels a texel: stairs get their half-steps, shades of one material run together, black outlines take a colour. 0 leaves the pixels square.'),
         materials: num('Ground materials', 1, 0, 1, 0.05, 'The ground in materials of this view’s own, painted at its own density: a lawn in three greens with blades in it, cobbles with a lit shoulder, combed sand, flagstones with a bevel, floorboards with a grain. 0 is the classic ground, smoothed.'),
+        roofPitch: num('Roof pitch', 0.3, 0, 0.6, 0.05, 'How steeply a house’s roof rises from its eaves toward the back, in tiles up for every tile in. 0 is the flat lid the classic art implies.'),
         relief: num('Relief', 0.9, 0, 3, 0.05, 'How much the art’s own light and dark stands up for the lamps to catch.'),
         roundness: num('Roundness', 0.7, 0, 2, 0.05, 'How round people and things are to the light.'),
         figure: choice('The hero', 'classic', ['classic', 'modelled'], 'Classic: the four-way sprite of the classic view, smoothed. Modelled: the hero is a small figure built in the round and drawn pixel by pixel each frame, so it turns smoothly, walks with its whole body and swings a blade that sweeps a true arc.'),
