@@ -752,7 +752,9 @@ export default function isoView(kit: Kit): View {
     // Plants are real ones once the turn is under way: trees with crowns, bushes, grass that stands (`flora.ts`).
     const green = outdoors && !!flora && k > 0.4 && (par.plants as boolean)
     const px = zoom / DENSITY
-    const solid = k > 0.4 && !!par.props
+    // (The things are drawn as the finished view sees them, so they come in as the turn ends: turned halfway,
+    // the parts of a counter would stand as a staircase.)
+    const solid = k > 0.93 && !!par.props
     const tileOf = (x: number, y: number): TileChar => tileAt(m, kind, x, y)
     // What stands in this view's own materials (`materials.ts`): a roof's shingles, a wall's boards, a cliff's
     // rock, the Shrine's bricks. The number rides with the picture's in a quad's meta (picture + 8 × material).
