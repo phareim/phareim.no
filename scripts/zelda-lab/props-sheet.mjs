@@ -43,7 +43,7 @@ function png(w, h, px) {
 }
 
 const a = buildProps()
-const zoom = +(process.env.ZOOM || 4)
+const zoom = +(process.env.ZOOM || 3)
 const W = a.w * zoom
 const H = a.h * 2 * zoom
 const px = Buffer.alloc(W * H * 4)
@@ -56,9 +56,10 @@ const dot = (x, y, r, g, b) => {
 for (let y = 0; y < a.h * 2; y++) for (let x = 0; x < a.w; x++) {
   const lx = x % PROP.w
   const ly = y % a.h
+  const cy = ly % PROP.h
   // The lawn, and the tile the thing stands on: a 64 × 32 diamond round the anchor.
   const dx = Math.abs(lx + 0.5 - PROP.ax) / 32
-  const dy = Math.abs(ly + 0.5 - PROP.ay) / 16
+  const dy = Math.abs(cy + 0.5 - PROP.ay) / 16
   const onTile = dx + dy <= 1
   let c = y < a.h ? (onTile ? [34, 86, 82] : [24, 66, 70]) : [20, 14, 36]
   const o = (ly * a.w + x) * 4

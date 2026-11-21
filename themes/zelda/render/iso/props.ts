@@ -1,6 +1,7 @@
 /**
  * The standing things of the 16-bit view: lamp posts, graves, pots, rocks,
- * boulders, signposts, pillars, stools and counters. Pure: no canvas, no DOM.
+ * boulders, signposts, pillars, stools, counters, chests, the Shrine's
+ * crystal blocks and fences. Pure: no canvas, no DOM.
  *
  * In the classic art these are sixteen px seen from the front, and turned
  * into the isometric view they stay cards of that art at twice the size.
@@ -26,11 +27,17 @@
  * `scripts/zelda-lab/props-sheet.mjs` draws them all.
  */
 
+/** A fence's part of one tile, by where the fence goes on: 1 west, 2 east, 4 north, 8 south, added up. */
+export type FenceKind = `fence${number}`
 export type PropKind = 'lampPink' | 'lampCyan' | 'grave' | 'pot' | 'rock' | 'boulder' | 'sign' | 'pillarStone' | 'pillarShrine' | 'stool'
   | 'counter' | 'counterN' | 'counterS' | 'counterNS' | 'counterY'
+  | 'chest' | 'chestOpen' | 'bigChest' | 'bigChestOpen' | 'blockPink' | 'blockCyan'
+  | FenceKind
 export const PROP_KINDS: readonly PropKind[] = [
   'lampPink', 'lampCyan', 'grave', 'pot', 'rock', 'boulder', 'sign', 'pillarStone', 'pillarShrine', 'stool',
   'counter', 'counterN', 'counterS', 'counterNS', 'counterY',
+  'chest', 'chestOpen', 'bigChest', 'bigChestOpen', 'blockPink', 'blockCyan',
+  ...Array.from({ length: 16 }, (_, i): FenceKind => `fence${i}`),
 ]
 
 /** How high a counter's top lies, in scene px: what stands on a counter stands there. */
@@ -91,6 +98,11 @@ const MATS = {
   lip: mat(0, '#2a1426', '#472536', '#6e3d4e', '#8e5566', '#b07486'),
   front: mat(0, '#150c22', '#1f1430', '#2b1c40', '#3d2a58', '#4f3a70'),
   seam: mat(0, '#150c22', '#150c22', '#1a1028', '#1a1028', '#1a1028'),
+  chestWood: mat(0, '#24140c', '#3a2418', '#6a4432', '#8a5a44', '#a87458'),
+  chestViolet: mat(0, '#2c1260', '#54259e', '#7c3cd0', '#9a4ff0', '#ff8ae0'),
+  gold: mat(0.3, '#7a4e0c', '#c4861c', '#ffd23f', '#fff1b0', '#ffffff'),
+  blockPink: mat(0, '#3a0830', '#6a1050', '#8a1868', '#b01874', '#ff2fa0'),
+  blockCyan: mat(0, '#083846', '#0f5a70', '#147890', '#1a9fc4', '#2ff3ff'),
 } as const
 type MatName = keyof typeof MATS
 const MAT_NAMES = Object.keys(MATS) as MatName[]
@@ -112,6 +124,8 @@ class Bench {
   readonly nx = new Float32Array(N)
   readonly ny = new Float32Array(N)
   readonly nz = new Float32Array(N)
+  /** 1: the pixel lies on its tile's edge, where the thing goes on into the next tile: no line is drawn round it there. */
+  readonly open = new Uint8Array(N)
 
   /** A point of a solid at pixel i, `t` along the line of sight (larger is nearer). */
   private hit(i: number, t: number, x: number, y: number, z: number, nx: number, ny: number, nz: number, pick: Pick) {
@@ -119,6 +133,7 @@ class Bench {
     this.t[i] = t
     this.m[i] = MAT_NAMES.indexOf(typeof pick === 'string' ? pick : pick(x, y, z, nx, ny, nz))
     this.nx[i] = nx; this.ny[i] = ny; this.nz[i] = nz
+    this.open[i] = Math.abs(x) > 15.2 || Math.abs(y) > 15.2 ? 1 : 0
   }
 
   /** Every pixel's line of sight: it passes through (x0, y0, 0) and runs along (1, 1, 1) toward the viewer. */
@@ -206,7 +221,7 @@ class Bench {
         const left = x > 0 && this.m[i - 1]! >= 0 ? this.t[i - 1]! - this.t[i]! : 0
         if (up > 3.2 || left > 3.2) k = Math.max(1, k - 1)
         // The line round the silhouette, on the lower right only.
-        if (lined && (!filled(x + 1, y) || !filled(x, y + 1))) k = 0
+        if (lined && !this.open[i] && (!filled(x + 1, y) || !filled(x, y + 1))) k = 0
         else if (k === 4 && (!filled(x - 1, y) || !filled(x, y - 1))) k = 3
       }
       tone[i] = k
@@ -346,6 +361,54 @@ function counter(b: Bench, north: boolean, south: boolean, narrow = false) {
   })
 }
 
+/** A treasure chest: a wooden box strapped in gold with a lock on its face; open, its lid stands up at the back over a dark inside. */
+function chest(b: Bench, big: boolean, open: boolean) {
+  const w = big ? 11.5 : 8.5
+  const d = big ? 7.5 : 6
+  const h = big ? 12 : 9
+  const lid = big ? 6 : 4.5
+  const wood: MatName = big ? 'chestViolet' : 'chestWood'
+  const strapped = (top: number) => (x: number, y: number, z: number, nx: number, ny: number, nz: number): MatName => {
+    if (nz > 0.5) {
+      if (open && top === h) return Math.abs(x) < w - 1.6 && Math.abs(y) < d - 1.6 ? 'dark' : 'gold'
+      return Math.abs(x) > w - 2 || Math.abs(x) < 1.4 ? 'gold' : wood
+    }
+    // Along the face, from its middle.
+    const a = nx > 0.5 ? y : x
+    const half = nx > 0.5 ? d : w
+    if (z < 1.5 || z > top - 1.5 || Math.abs(a) > half - 2) return 'gold'
+    if (ny > 0.5 && top === h && Math.abs(a) < 2.2 && z > h - 5.5) return Math.abs(a) < 0.8 && z > h - 4.4 && z < h - 2.4 ? 'dark' : 'gold'
+    if (ny > 0.5 && top !== h && Math.abs(a) < 1.4) return 'gold'
+    return wood
+  }
+  b.box(-w, -d, 0, w, d, h, strapped(h))
+  if (open) b.box(-w, -d, h, w, -d + 2.2, h + d * 1.5, strapped(h + d * 1.5))
+  else b.box(-w, -d, h, w, d, h + lid, strapped(h + lid))
+}
+
+/** One of the Shrine's crystal blocks, risen: a cube whose top is all light. */
+function block(b: Bench, side: 'blockPink' | 'blockCyan', top: 'glassPink' | 'glassCyan') {
+  b.box(-14, -14, 0, 14, 14, 15, (x, y, z, _nx, _ny, nz) => {
+    if (nz > 0.5) return Math.abs(x) > 12.4 || Math.abs(y) > 12.4 ? side : x < -6 && y < -6 ? 'core' : top
+    return z > 13 ? top : side
+  })
+}
+
+/**
+ * A fence's part of one tile: a post in the middle and two rails out to every side the fence goes on
+ * (1 west, 2 east, 4 north, 8 south).
+ */
+function fence(b: Bench, sides: number) {
+  for (const z of [6, 12.4]) {
+    if (sides & 1) b.box(-16, -0.9, z, 0, 0.9, z + 2.4, 'wood')
+    if (sides & 2) b.box(0, -0.9, z, 16, 0.9, z + 2.4, 'wood')
+    if (sides & 4) b.box(-0.9, -16, z, 0.9, 0, z + 2.4, 'wood')
+    if (sides & 8) b.box(-0.9, 0, z, 0.9, 16, z + 2.4, 'wood')
+  }
+  b.post(0, 0, 0, 17.5, 2, 'wood')
+  b.post(0, 0, 17.5, 18.6, 2.6, 'wood')
+}
+
 const BUILD: Record<PropKind, (b: Bench) => void> = {
   lampPink: b => lamp(b, 'glassPink'),
   lampCyan: b => lamp(b, 'glassCyan'),
@@ -362,23 +425,36 @@ const BUILD: Record<PropKind, (b: Bench) => void> = {
   counterS: b => counter(b, false, true),
   counterNS: b => counter(b, true, true),
   counterY: b => counter(b, false, false, true),
+  chest: b => chest(b, false, false),
+  chestOpen: b => chest(b, false, true),
+  bigChest: b => chest(b, true, false),
+  bigChestOpen: b => chest(b, true, true),
+  blockPink: b => block(b, 'blockPink', 'glassPink'),
+  blockCyan: b => block(b, 'blockCyan', 'glassCyan'),
+  ...Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`fence${i}`, (b: Bench) => fence(b, i)])),
 }
 
 let built: PropAtlas | null = null
 
-/** Every thing side by side, a cell each. */
+/** Cells to a row of the atlas: it stays narrower than the smallest texture a WebGL2 device promises. */
+export const PROP_COLS = 8
+
+/** Every thing in a grid, a cell each. */
 export function buildProps(): PropAtlas {
   if (built) return built
-  const w = W * PROP_KINDS.length
-  const albedo = new Uint8ClampedArray(w * H * 4)
-  const normal = new Uint8ClampedArray(w * H * 4)
+  const w = W * PROP_COLS
+  const h = H * Math.ceil(PROP_KINDS.length / PROP_COLS)
+  const albedo = new Uint8ClampedArray(w * h * 4)
+  const normal = new Uint8ClampedArray(w * h * 4)
   const sprites = {} as Record<PropKind, PropSprite>
   PROP_KINDS.forEach((kind, k) => {
     const b = new Bench()
-    BUILD[kind](b)
-    b.paint(albedo, normal, w, k * W, 0, !kind.startsWith('counter'))
-    sprites[kind] = { x: k * W, y: 0, w: W, h: H, ax: PROP.ax, ay: PROP.ay }
+    BUILD[kind]!(b)
+    const x = (k % PROP_COLS) * W
+    const y = Math.floor(k / PROP_COLS) * H
+    b.paint(albedo, normal, w, x, y, !kind.startsWith('counter'))
+    sprites[kind] = { x, y, w: W, h: H, ax: PROP.ax, ay: PROP.ay }
   })
-  built = { w, h: H, albedo, normal, sprites }
+  built = { w, h, albedo, normal, sprites }
   return built
 }

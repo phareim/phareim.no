@@ -23,7 +23,7 @@
  */
 import type { GameState, MapKind, TileChar } from '../../types'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
-import { aimOf, mapInfo, raised, swingAngle } from '../../engine/index'
+import { aimOf, has, mapInfo, raised, swingAngle } from '../../engine/index'
 import { dirAngle } from '../../engine/util'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
@@ -771,7 +771,9 @@ export default function isoView(kit: Kit): View {
       if (!inRoom(tx, ty)) continue
       const shp = shapeAt(tx, ty)
       const t = tileAt(m, kind, tx, ty)
-      if (shp.k === 'flat' && !(green && (t === '.' || t === ';' || t === ':'))) continue
+      // (A counter or a fence that runs north lies flat as a card, and stands as a thing of this view's own.)
+      const ownThing = solid && ((t === 'n' && def.look !== 'lab') || (t === 'F' && outdoors))
+      if (shp.k === 'flat' && !ownThing && !(green && (t === '.' || t === ';' || t === ':'))) continue
       // The ground rectangle is the box round a diamond: about half of it is off the screen.
       const midX = cam.ox + (tx + 0.5) * cam.ex.x + (ty + 0.5) * cam.ey.x
       const midY = cam.oy + (tx + 0.5) * cam.ex.y + (ty + 0.5) * cam.ey.y
@@ -802,7 +804,7 @@ export default function isoView(kit: Kit): View {
           cards.push({ x: tx + 0.5, y: ty + 0.8, tall: 0.7 })
           continue
         }
-        if (shp.k === 'flat') {
+        if (shp.k === 'flat' && !ownThing) {
           if (t === ';') {
             // Tall grass stands: the hero wades through it.
             plant('tall', tx + 0.3 + h1 * 0.2, ty + 0.45 + h2 * 0.15, h3, 1, px)
@@ -818,7 +820,15 @@ export default function isoView(kit: Kit): View {
           continue
         }
       }
-      if (shp.k === 'flat' && !(solid && t === 'n' && def.look !== 'lab')) continue
+      if (shp.k === 'flat' && !ownThing) continue
+      if (solid && t === 'F' && outdoors) {
+        // A fence in the round: a post and rails out to wherever it goes on (a run to the north lay flat as a card).
+        const sides = (tileOf(tx - 1, ty) === 'F' ? 1 : 0) | (tileOf(tx + 1, ty) === 'F' ? 2 : 0) | (tileOf(tx, ty - 1) === 'F' ? 4 : 0) | (tileOf(tx, ty + 1) === 'F' ? 8 : 0)
+        bare(sx, sy, T, T)
+        stand(`fence${sides}`, tx + 0.5, ty + 0.5, px)
+        cards.push({ x: tx + 0.5, y: ty + 0.55, tall: 0.6, wide: 0.12 })
+        continue
+      }
       // (Not where an exit stands on the counter's tile and draws all of it itself: the newsstand.)
       if (solid && t === 'n' && def.look !== 'lab' && !(tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && exitTiles(world, m.id).has(ty * m.w + tx))) {
         // A counter in the round, one part to the tile, in place of a strip of its picture stood up (or laid down).
@@ -901,6 +911,13 @@ export default function isoView(kit: Kit): View {
         else if (t === 'R') prop = 'boulder'
         else if (t === 'S' && outdoors && !signExits(m.id).has(ty * m.w + tx)) prop = 'sign'
         else if (t === 'I' && def.look !== 'lab') prop = outdoors ? 'pillarStone' : 'pillarShrine'
+        else if (t === 'P') prop = 'blockPink'
+        else if (t === 'C') prop = 'blockCyan'
+        else if (t === '$') {
+          const ch = info.chests.get(ty * m.w + tx)
+          const open = ch ? has(s, `chest:${ch.id}`) : true
+          prop = ch?.big ? (open ? 'bigChestOpen' : 'bigChest') : open ? 'chestOpen' : 'chest'
+        }
         else if (t === 'i' && kind === 'interior') prop = 'stool'
         else if (t === 't' && kind !== 'dungeon') {
           // (A torch on the beach keeps its flame; the lamp's colour is the classic one's, as its light is.)
@@ -909,7 +926,7 @@ export default function isoView(kit: Kit): View {
         }
         if (prop) {
           bare(sx, sy - up, T, T + up)
-          stand(prop, tx + 0.5, ty + 0.62, px)
+          stand(prop, tx + 0.5, prop === 'blockPink' || prop === 'blockCyan' ? ty + 0.5 : ty + 0.62, px)
           cards.push({ x: tx + 0.5, y: ty + 0.66, tall: prop === 'lampPink' || prop === 'lampCyan' ? 1.6 : prop === 'pot' || prop === 'rock' || prop === 'stool' ? 0.6 : 0.8, wide: prop === 'boulder' ? 0.36 : prop === 'lampPink' || prop === 'lampCyan' ? 0.14 : 0.24 })
           continue
         }

@@ -132,18 +132,21 @@ describe('the 16-bit view’s standing things', () => {
   it('each stand in a cell of their own, clear of its edges, on their anchor', () => {
     const a = P.buildProps()
     assert.equal(a, P.buildProps(), 'built once')
-    assert.equal(a.w, P.PROP.w * P.PROP_KINDS.length)
+    assert.equal(a.w, P.PROP.w * P.PROP_COLS)
+    assert.ok(a.w <= 2048 && a.h <= 2048, 'the atlas fits the smallest texture a WebGL2 device promises')
     for (const kind of P.PROP_KINDS) {
       const sp = a.sprites[kind]
       let n = 0
       let x0 = sp.w, x1 = 0, y0 = sp.h, y1 = 0
       for (const [x, y] of pixels(a, sp)) { n++; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y) }
       assert.ok(n > 60, `${kind} is ${n} pixels`)
+      if (kind.startsWith('fence')) continue
       assert.ok(x0 >= 2 && y0 >= 2 && x1 < sp.w - 2 && y1 < sp.h - 2, `${kind} touches its cell’s edge`)
       // It stands on the ground under its middle: its lowest pixels lie just under the anchor (a counter's part
       // reaches its tile's near corner), and it is about as wide to either side.
-      assert.ok(y1 >= sp.ay && y1 <= sp.ay + (kind.startsWith('counter') ? 17 : 9), `${kind} ends ${y1 - sp.ay} px under its anchor`)
-      assert.ok(Math.abs((x0 + x1 + 1) / 2 - sp.ax) <= (kind === 'counterN' || kind === 'counterS' ? 4.5 : 2.5), `${kind} is off its middle`)
+      const wide = kind.startsWith('counter') || kind.startsWith('fence') || kind.startsWith('block')
+      assert.ok(y1 >= sp.ay && y1 <= sp.ay + (wide ? 17 : 9), `${kind} ends ${y1 - sp.ay} px under its anchor`)
+      if (!kind.startsWith('fence')) assert.ok(Math.abs((x0 + x1 + 1) / 2 - sp.ax) <= (kind === 'counterN' || kind === 'counterS' ? 4.5 : 2.5), `${kind} is off its middle`)
     }
   })
 
@@ -160,7 +163,8 @@ describe('the 16-bit view’s standing things', () => {
         assert.ok(n[2] > -0.75, `${kind} shows a back`)
         if (a.normal[o + 3] > 0) glow++
       }
-      assert.equal(glow > 0, ['lampPink', 'lampCyan', 'pot', 'pillarStone', 'pillarShrine'].includes(kind), `${kind}: ${glow} glowing pixels`)
+      const lit = ['lampPink', 'lampCyan', 'pot', 'pillarStone', 'pillarShrine', 'blockPink', 'blockCyan'].includes(kind) || /chest/i.test(kind)
+      assert.equal(glow > 0, lit, `${kind}: ${glow} glowing pixels`)
     }
   })
 

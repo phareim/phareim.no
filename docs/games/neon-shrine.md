@@ -235,7 +235,7 @@ classic picture. `/?view=<id>` asks for one.
     other way, a line one texel wide comes out dotted.
     `node scripts/zelda-lab/materials-sheet.mjs <outDir>` draws them all.
   - *Standing things in the round* (`props`; `iso/props.ts`, pure). Lamp
-    posts, graves, pots, rocks, boulders, signposts, pillars, bar stools and counters are each built once
+    posts, graves, pots, rocks, boulders, signposts, pillars, bar stools, counters, chests (shut and open), the Shrine's crystal blocks and fences are each built once
     as a few solids (boxes, posts, balls) and drawn the way the view sees
     the world, from the south-east and from above: a signboard runs away to
     the right, a gravestone has a side, a lantern has a lid and four panes
@@ -247,7 +247,9 @@ classic picture. `/?view=<id>` asks for one.
     card (`stand`); a torch on the beach, a brazier and everything else are
     still the classic card. A counter is one part to the tile, each running
     to the tile's edge where the counter goes on, so a long one stands as
-    one piece; what the classic art puts on a counter's picture (a ware and
+    one piece, and a fence is a post with rails out to wherever it goes on
+    (sixteen parts, `fence0`–`fence15`), so one that runs north stands
+    instead of lying on the ground as its card did; what the classic art puts on a counter's picture (a ware and
     its price) stands on its top at the front edge (`tops`). So that a long
     solid is not a card, every pixel says how far toward the viewer its
     surface lies from the sprite's anchor (the colour picture's alpha,
