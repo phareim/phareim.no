@@ -235,7 +235,7 @@ classic picture. `/?view=<id>` asks for one.
     other way, a line one texel wide comes out dotted.
     `node scripts/zelda-lab/materials-sheet.mjs <outDir>` draws them all.
   - *Standing things in the round* (`props`; `iso/props.ts`, pure). Lamp
-    posts, graves, pots, rocks, boulders and signposts are each built once
+    posts, graves, pots, rocks, boulders, signposts, pillars and bar stools are each built once
     as a few solids (boxes, posts, balls) and drawn the way the view sees
     the world, from the south-east and from above: a signboard runs away to
     the right, a gravestone has a side, a lantern has a lid and four panes

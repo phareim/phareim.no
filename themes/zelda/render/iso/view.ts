@@ -851,6 +851,8 @@ export default function isoView(kit: Kit): View {
         else if (t === 'r') prop = 'rock'
         else if (t === 'R') prop = 'boulder'
         else if (t === 'S' && outdoors) prop = 'sign'
+        else if (t === 'I' && def.look !== 'lab') prop = outdoors ? 'pillarStone' : 'pillarShrine'
+        else if (t === 'i' && kind === 'interior') prop = 'stool'
         else if (t === 't' && kind !== 'dungeon') {
           // (A torch on the beach keeps its flame; the lamp's colour is the classic one's, as its light is.)
           const sandy = [tileOf(tx + 1, ty), tileOf(tx - 1, ty), tileOf(tx, ty + 1), tileOf(tx, ty - 1)].filter(q => q === '-').length >= 2
@@ -859,7 +861,7 @@ export default function isoView(kit: Kit): View {
         if (prop) {
           bare(sx, sy - up, T, T + up)
           stand(prop, tx + 0.5, ty + 0.62, px)
-          cards.push({ x: tx + 0.5, y: ty + 0.66, tall: prop === 'lampPink' || prop === 'lampCyan' ? 1.6 : prop === 'pot' || prop === 'rock' ? 0.6 : 0.8, wide: prop === 'boulder' ? 0.36 : prop === 'lampPink' || prop === 'lampCyan' ? 0.14 : 0.24 })
+          cards.push({ x: tx + 0.5, y: ty + 0.66, tall: prop === 'lampPink' || prop === 'lampCyan' ? 1.6 : prop === 'pot' || prop === 'rock' || prop === 'stool' ? 0.6 : 0.8, wide: prop === 'boulder' ? 0.36 : prop === 'lampPink' || prop === 'lampCyan' ? 0.14 : 0.24 })
           continue
         }
       }

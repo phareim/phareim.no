@@ -1,6 +1,6 @@
 /**
  * The standing things of the 16-bit view: lamp posts, graves, pots, rocks,
- * boulders and signposts. Pure: no canvas, no DOM.
+ * boulders, signposts, pillars and stools. Pure: no canvas, no DOM.
  *
  * In the classic art these are sixteen px seen from the front, and turned
  * into the isometric view they stay cards of that art at twice the size.
@@ -26,8 +26,8 @@
  * `scripts/zelda-lab/props-sheet.mjs` draws them all.
  */
 
-export type PropKind = 'lampPink' | 'lampCyan' | 'grave' | 'pot' | 'rock' | 'boulder' | 'sign'
-export const PROP_KINDS: readonly PropKind[] = ['lampPink', 'lampCyan', 'grave', 'pot', 'rock', 'boulder', 'sign']
+export type PropKind = 'lampPink' | 'lampCyan' | 'grave' | 'pot' | 'rock' | 'boulder' | 'sign' | 'pillarStone' | 'pillarShrine' | 'stool'
+export const PROP_KINDS: readonly PropKind[] = ['lampPink', 'lampCyan', 'grave', 'pot', 'rock', 'boulder', 'sign', 'pillarStone', 'pillarShrine', 'stool']
 
 /** A sprite's cell, in scene px. (ax, ay) is the point on the ground under the middle of the thing. */
 export const PROP = { w: 64, h: 88, ax: 32, ay: 70 } as const
@@ -67,6 +67,10 @@ const MATS = {
   crack: mat(0, '#1c1438', '#1c1438', '#271c4a', '#271c4a', '#3a2c66'),
   wood: mat(0, '#2c1622', '#472536', '#6e3d4e', '#8e5566', '#b07486'),
   ink: mat(0, '#2c1622', '#2c1622', '#472536', '#472536', '#472536'),
+  shrine: mat(0, '#19143a', '#271f50', '#3a2f70', '#4a3d88', '#6456a8'),
+  neon: mat(1, '#ff2fa0', '#ff2fa0', '#ff2fa0', '#ff5fd0', '#ff5fd0'),
+  velvet: mat(0, '#5a0f2c', '#8a1840', '#c42a5a', '#ff3b5c', '#ffb0c8'),
+  chrome: mat(0, '#2a1f4a', '#5a5285', '#8f86b8', '#cfc6ff', '#fff4ff'),
 } as const
 type MatName = keyof typeof MATS
 const MAT_NAMES = Object.keys(MATS) as MatName[]
@@ -281,6 +285,21 @@ function sign(b: Bench) {
   b.box(-9.4, -1.3, 12.5, 9.4, 1.3, 25, face)
 }
 
+/** A pillar: a shaft on a foot under a slab, a band of neon round it. */
+function pillar(b: Bench, stone: 'stone' | 'shrine') {
+  b.box(-6.5, -6.5, 0, 6.5, 6.5, 2.5, stone)
+  b.box(-5, -5, 2.5, 5, 5, 25, (_x, _y, z, _nx, _ny, nz) => (nz < 0.5 && z > 14 && z < 16 ? 'neon' : stone))
+  b.box(-6.5, -6.5, 25, 6.5, 6.5, 28, stone)
+}
+
+/** A bar stool: a round seat in red velvet on a chrome leg. */
+function stool(b: Bench) {
+  b.post(0, 0, 0, 1.6, 4, 'chrome')
+  b.post(0, 0, 1.6, 10, 1.3, 'chrome')
+  b.post(0, 0, 10, 11.2, 5.6, 'chrome')
+  b.ball(0, 0, 11.2, 5.6, 5.6, 2.8, 'velvet')
+}
+
 const BUILD: Record<PropKind, (b: Bench) => void> = {
   lampPink: b => lamp(b, 'glassPink'),
   lampCyan: b => lamp(b, 'glassCyan'),
@@ -289,6 +308,9 @@ const BUILD: Record<PropKind, (b: Bench) => void> = {
   rock,
   boulder,
   sign,
+  pillarStone: b => pillar(b, 'stone'),
+  pillarShrine: b => pillar(b, 'shrine'),
+  stool,
 }
 
 let built: PropAtlas | null = null

@@ -105,6 +105,15 @@ describe('what a tile’s ground is made of', () => {
 
 // The standing things built for the 16-bit view (render/iso/props.ts).
 describe('the 16-bit view’s standing things', () => {
+  it('are named in view.ts as they are built', () => {
+    const view = readFileSync(resolve(root, 'render/iso/view.ts'), 'utf8')
+    const at = view.indexOf('let prop: PropKind | null = null')
+    assert.ok(at > 0)
+    for (const q of view.slice(at, view.indexOf('if (prop) {', at)).matchAll(/prop = (?:[^'\n]*\? )?'([a-zA-Z]+)'(?: : '([a-zA-Z]+)')?/g)) {
+      for (const name of [q[1], q[2]].filter(Boolean)) assert.ok(P.PROP_KINDS.includes(name), `view.ts stands a ${name}, which nobody builds`)
+    }
+  })
+
   let P
   before(async () => {
     const out = esbuild.buildSync({
@@ -149,7 +158,7 @@ describe('the 16-bit view’s standing things', () => {
         assert.ok(n[2] > -0.75, `${kind} shows a back`)
         if (a.normal[o + 3] > 0) glow++
       }
-      assert.equal(glow > 0, kind === 'lampPink' || kind === 'lampCyan' || kind === 'pot', `${kind}: ${glow} glowing pixels`)
+      assert.equal(glow > 0, ['lampPink', 'lampCyan', 'pot', 'pillarStone', 'pillarShrine'].includes(kind), `${kind}: ${glow} glowing pixels`)
     }
   })
 
