@@ -88,6 +88,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
       }),
       ...group('The art', {
         smoothing: num('Art smoothing', 1, 0, 1, 0.05, 'How far the classic art is smoothed on its way up to two pixels a texel: stairs get their half-steps, shades of one material run together, black outlines take a colour. 0 leaves the pixels square.'),
+        materials: num('Ground materials', 1, 0, 1, 0.05, 'The ground in materials of this view’s own, painted at its own density: a lawn in three greens with blades in it, cobbles with a lit shoulder, combed sand, flagstones with a bevel, floorboards with a grain. 0 is the classic ground, smoothed.'),
         relief: num('Relief', 0.9, 0, 3, 0.05, 'How much the art’s own light and dark stands up for the lamps to catch.'),
         roundness: num('Roundness', 0.7, 0, 2, 0.05, 'How round people and things are to the light.'),
         figure: choice('The hero', 'classic', ['classic', 'modelled'], 'Classic: the four-way sprite of the classic view, smoothed. Modelled: the hero is a small figure built in the round and drawn pixel by pixel each frame, so it turns smoothly, walks with its whole body and swings a blade that sweeps a true arc.'),
@@ -103,6 +104,8 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
         shadowLength: num('Shadow length', 1.5, 0, 4, 0.1, 'How far a thing one tile tall throws its shadow, in tiles.'),
         shadow: num('Shadow strength', 0.55, 0, 0.9),
         shadowColor: color('Shadow colour', '#140a3c'),
+        sunLight: color('Sunlight', '#ffba6a', 'The low sun’s own colour, laid on what faces it and stands in no shade. The classic view has one light for everything; here the sun is warm and the shade is the sky’s.'),
+        sunStrength: num('Sunlight strength', 0.9, 0, 1.5, 0.05, 'How much of the light outdoors is the sun’s own. 0 is one even light, as in the classic view.'),
         occlusion: num('Corner shade', 0.5, 0, 1, 0.05, 'Soft darkness where a wall meets the ground.'),
         shading: num('Side shading', 0.6, 0, 1, 0.05, 'How much the sides away from the sun darken, in dithered steps.'),
         rim: num('Sun rim', 0.5, 0, 1, 0.05, 'A warm edge on what the low sun catches.'),

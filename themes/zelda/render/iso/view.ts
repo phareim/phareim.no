@@ -23,7 +23,7 @@ import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH,
 import { aimOf, mapInfo, raised, swingAngle } from '../../engine/index'
 import { dirAngle } from '../../engine/util'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
-import { createTileLayer, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
+import { createTileLayer, drawLiveTiles, groundKindOf, hash2, updateTileLayer, type Light, type TileLayer } from '../tiles'
 import { drawDecals } from '../decals'
 import { exitTiles, nearExit } from '../exits'
 import { makeCanvas } from '../sheet'
@@ -40,6 +40,7 @@ import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
 import { skyGrade, type DayLook } from '../daylight'
 import { BEYOND, beyondTile, massifHeight } from '../beyond'
 import { createLands, type Lands } from './lands'
+import { buildMaterials, materialId, type Material } from './materials'
 import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from './figure'
 
 type G = CanvasRenderingContext2D
@@ -108,6 +109,8 @@ function legacyStandIn(kit: Kit): View {
 export default function isoView(kit: Kit): View {
   let engine: Engine
   try { engine = createEngine() } catch { return legacyView(kit) }
+  const sendMaterials = () => { const mats = buildMaterials(); engine.materials(mats.data, mats.w, mats.h) }
+  sendMaterials()
   let fallback: View | null = null
   let waiting: View | null = null
   /** When the view was made: its shaders may still be compiling for a moment after. */
@@ -263,7 +266,11 @@ export default function isoView(kit: Kit): View {
   }
 
   /** What the light and the shadows need to know of each tile: how tall the mass on it is, and whether it is water. */
-  function uploadTiles(kind: MapKind, wild: boolean, green: boolean) {
+  function uploadTiles(kind: MapKind, look: string | undefined, green: boolean) {
+    const wild = look === 'wild'
+    const m = shapeMap!
+    // The labs keep the ground their own painters gave them.
+    const own: Record<string, Material> = { grass: wild ? 'moss' : 'grass', path: wild ? 'lane' : 'cobbles', sand: 'sand', floor: 'flags', boards: 'boards' }
     const data = new Uint8Array(ew * eh * 4)
     for (let ey = 0; ey < eh; ey++) for (let ex = 0; ex < ew; ex++) {
       const sh = shapes[ey * ew + ex]!
@@ -274,6 +281,12 @@ export default function isoView(kit: Kit): View {
         if (fy < eh) { const o = (fy * ew + ex) * 4; data[o] = Math.max(data[o]!, Math.round((sh.h / T / 4) * 255)) }
       }
       if (t === '~') data[(ey * ew + ex) * 4 + 1] = 255
+      if (look !== 'lab') {
+        const tx = ex - M
+        const ty = ey - M
+        const gk = groundKindOf(kind, t!, (dx, dy) => tileAt(m, kind, tx + dx, ty + dy))
+        data[(ey * ew + ex) * 4 + 3] = gk ? materialId(own[gk]!) : 0
+      }
       // Pavement after rain, a polished floor: neon shows in them (the composite pass).
       if (kind === 'overworld' ? t === ',' && !wild : t === '.' || t === ',' || t === 'f') data[(ey * ew + ex) * 4 + 2] = kind === 'overworld' ? 150 : kind === 'interior' ? 190 : 110
     }
@@ -475,6 +488,7 @@ export default function isoView(kit: Kit): View {
       try {
         if (++revived > 3) throw new Error('context lost again')
         engine = createEngine()
+        sendMaterials()
         tilesKey = ''; floraLook = ''; backdropKey = ''; atlasUsed = ATLAS; settle = 90
       } catch { fallback = legacyView(kit); fallback.draw(s, ui, dt, k); return }
     }
@@ -518,7 +532,7 @@ export default function isoView(kit: Kit): View {
     const key = `${m.id}:${m.version}:${outdoors && par.beyond ? BEYOND : 0}`
     if (key !== shapesKey || shapeMap !== m) { rebuildShapes(s, kind, outdoors && par.beyond ? BEYOND : 0); shapesKey = key; tilesKey = '' }
     const planted = outdoors && !!par.plants
-    if (tilesKey !== `${key}:${planted}`) { uploadTiles(kind, def.look === 'wild', planted); tilesKey = `${key}:${planted}` }
+    if (tilesKey !== `${key}:${planted}`) { uploadTiles(kind, def.look, planted); tilesKey = `${key}:${planted}` }
     if (M && !lands) lands = createLands(kind, def.look, (x, y) => tileAt(m, kind, x, y), m.w, m.h, M)
     const fLook: FloraLook = def.look === 'wild' ? 'wild' : 'coast'
     if (outdoors && floraLook !== fLook) { flora = buildFlora(fLook); engine.flora(flora.albedo, flora.normal); floraLook = fLook }
@@ -651,6 +665,18 @@ export default function isoView(kit: Kit): View {
     const green = outdoors && !!flora && k > 0.4 && (par.plants as boolean)
     const px = zoom / DENSITY
     const tileOf = (x: number, y: number): TileChar => tileAt(m, kind, x, y)
+    // What stands in this view's own materials (`materials.ts`): a roof's shingles, a wall's boards, a cliff's
+    // rock, the Shrine's bricks. The number rides with the picture's in a quad's meta (picture + 8 × material).
+    const builtOf = (t: TileChar, top: boolean): number => {
+      if (def.look === 'lab') return 0
+      if (kind === 'overworld') {
+        if (t === 'H' || t === 'M' || t === 'D') return 8 * materialId(top ? 'shingles' : 'siding')
+        if (t === '#' || t === '%' || t === '^') return 8 * materialId(top ? (def.look === 'wild' ? 'moss' : 'grass') : 'rockface')
+        return 0
+      }
+      if (t !== '#' && t !== '%' && t !== '^') return 0
+      return 8 * materialId(kind === 'dungeon' ? (top ? 'blocks' : 'bricks') : (top ? 'slab' : 'panel'))
+    }
     // From the near corner to the far one, so what stands in front is drawn first and hides the rest early.
     for (let ty = R.y + R.h - 1; ty >= R.y; ty--) for (let tx = R.x + R.w - 1; tx >= R.x; tx--) {
       if (!inRoom(tx, ty)) continue
@@ -708,7 +734,8 @@ export default function isoView(kit: Kit): View {
         bare(sx, sy, T, T)
         const fy = ty + shp.f
         const hz = shp.h / T
-        quad(tx, fy, hz, 0, tx + 1, fy, hz, 0, tx + 1, fy + 1, hz, 0, tx, fy + 1, hz, 0, sx, sy, sx + T, sy + T, 0, 0)
+        quad(tx, fy, hz, 0, tx + 1, fy, hz, 0, tx + 1, fy + 1, hz, 0, tx, fy + 1, hz, 0, sx, sy, sx + T, sy + T, 0, builtOf(t, true))
+        const side = builtOf(t, false)
         // The rock beyond the edge is wooded on top, so it is a hillside and not a tabletop. (No sway: the
         // wind bends a plant from the ground up, and these do not stand on it.)
         if (green && t === '#' && (tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) && hash2(tx, ty, 24) > 0.42) {
@@ -723,12 +750,12 @@ export default function isoView(kit: Kit): View {
         for (let l = 0; l < levels; l++) {
           const r0 = 1 - (l + 1) / levels
           const r1 = 1 - l / levels
-          if (south && l >= step) quad(tx, fy + 1, l + 1, 0, tx + 1, fy + 1, l + 1, 0, tx + 1, fy + 1, l, 0, tx, fy + 1, l, 0, sx, sy, sx + T, sy + T, 1, 0, southShade, r0, r1)
+          if (south && l >= step) quad(tx, fy + 1, l + 1, 0, tx + 1, fy + 1, l + 1, 0, tx + 1, fy + 1, l, 0, tx, fy + 1, l, 0, sx, sy, sx + T, sy + T, 1, side, southShade, r0, r1)
           if (east) {
             // The east side runs from the back corner to the front one: the picture's left edge is the far end.
             const fr = faceRow(tx, ty, l)
             const ey = ((fr < 0 ? ty : fr) - R.y) * T
-            quad(tx + 1, fy, l + 1, 0, tx + 1, fy + 1, l + 1, 0, tx + 1, fy + 1, l, 0, tx + 1, fy, l, 0, sx, ey, sx + T, ey + T, 2, 0, eastShade, r0, r1)
+            quad(tx + 1, fy, l + 1, 0, tx + 1, fy + 1, l + 1, 0, tx + 1, fy + 1, l, 0, tx + 1, fy, l, 0, sx, ey, sx + T, ey + T, 2, side, eastShade, r0, r1)
           }
         }
         continue
@@ -736,7 +763,7 @@ export default function isoView(kit: Kit): View {
       if (shp.k === 'face') {
         bare(sx, sy, T, T)
         const y = ty + 1 + shp.d
-        quad(tx, y, shp.d + 1, 0, tx + 1, y, shp.d + 1, 0, tx + 1, y, shp.d, 0, tx, y, shp.d, 0, sx, sy, sx + T, sy + T, 1, 0)
+        quad(tx, y, shp.d + 1, 0, tx + 1, y, shp.d + 1, 0, tx + 1, y, shp.d, 0, tx, y, shp.d, 0, sx, sy, sx + T, sy + T, 1, builtOf(t, false))
         continue
       }
       // A card: the tile's picture upright, with what reaches above it when nothing stands there.
@@ -942,6 +969,22 @@ export default function isoView(kit: Kit): View {
     const fade = kit.flashFade(xg, s, ui, dt)
     xg.setTransform(1, 0, 0, 1, 0, 0)
 
+    // --- the sun ------------------------------------------------------------------------
+    const own = kit.params('iso', true)
+    const day = kit.day('iso')
+    // The sun's own light. By day it whitens as the sun climbs; at night it is the moon's, faint and blue;
+    // in the blue hours, when nothing throws a shadow, there is none.
+    const ownShadow = own.shadow as number
+    const direct = outdoors ? (ownShadow > 0 ? Math.min(1, (par.shadow as number) / ownShadow) : 1) : 0
+    const height = day ? day.sun : 0.12
+    const warm = rgb(par.sunLight as string)
+    const sunCol: [number, number, number] = height < -0.3 ? [0.5, 0.62, 1] : mix3(warm, [1, 0.97, 0.9], Math.max(0, Math.min(1, (height - 0.12) / 0.6)))
+    const sunS = (par.sunStrength as number) * direct * k * (height < -0.3 ? 0.4 : 1 - 0.35 * Math.max(0, Math.min(1, (height - 0.12) / 0.6)))
+    // What the sun does not reach is lit by the sky: cooler and dimmer than one light for everything.
+    const skyFill: [number, number, number] = [1 - 0.5 * sunS, 1 - 0.4 * sunS, 1 - 0.16 * sunS]
+    // And while the sun is up the lamps are only just lit: their pools are smaller things in a lit world.
+    const lampGain = outdoors ? 1 - 0.4 * Math.min(1, sunS) * (height < -0.3 ? 0 : 1) : 1
+
     // --- lamps -------------------------------------------------------------------------
     const amb = kit.ambient(s, ui, lights)
     const placed: Array<{ x: number; y: number; z: number; r: number; c: [number, number, number]; a: number }> = []
@@ -971,7 +1014,7 @@ export default function isoView(kit: Kit): View {
         const o = nl * LVERT
         lightVerts[o] = L.x + dx * L.r; lightVerts[o + 1] = L.y + dy * L.r
         lightVerts[o + 2] = L.x; lightVerts[o + 3] = L.y; lightVerts[o + 4] = L.z; lightVerts[o + 5] = L.r
-        lightVerts[o + 6] = L.c[0] * L.a; lightVerts[o + 7] = L.c[1] * L.a; lightVerts[o + 8] = L.c[2] * L.a
+        lightVerts[o + 6] = L.c[0] * L.a * lampGain; lightVerts[o + 7] = L.c[1] * L.a * lampGain; lightVerts[o + 8] = L.c[2] * L.a * lampGain
         nl++
       }
     }
@@ -1022,8 +1065,6 @@ export default function isoView(kit: Kit): View {
 
     // --- to the GPU -----------------------------------------------------------------------
     // The backdrop is painted in the view's own dusk; the hour moves its sun and stars and grades the rest.
-    const own = kit.params('iso', true)
-    const day = kit.day('iso')
     paintSky(outdoors ? (def.look === 'wild' ? 'wild' : 'coast') : 'void', sw, sh, own.skyTop as string, own.skyHorizon as string, c.x * DENSITY, reduced ? 0 : time, day)
     const grade = day ? skyGrade(own.skyTop as string, own.skyHorizon as string, par.skyTop as string, par.skyHorizon as string) : null
     engine.flat(flat)
@@ -1036,6 +1077,7 @@ export default function isoView(kit: Kit): View {
     const elev = Math.atan2(1, Math.max(0.05, par.shadowLength as number))
     const look: Look = {
       soft: (par.smoothing as number) * Math.min(1, k * 2),
+      materials: (par.materials as number) * Math.max(0, Math.min(1, k * 2 - 0.6)),
       bump: (par.relief as number) * k,
       round: (par.roundness as number) * k,
       emit: k,
@@ -1046,6 +1088,7 @@ export default function isoView(kit: Kit): View {
       shadowLen: reach,
       shadow: (par.shadow as number) * k,
       shadowTint: tint(par.shadowColor as string),
+      sunColor: [sunCol[0] * sunS, sunCol[1] * sunS, sunCol[2] * sunS],
       shading: shading * k,
       rim: (par.rim as number) * k,
       ao: quality < 2 ? 0 : (par.occlusion as number) * k,
@@ -1082,7 +1125,7 @@ export default function isoView(kit: Kit): View {
       // Under reduced motion the water, the mist and the shafts stand still.
       cam, R, mapX: -M, mapY: -M, mapW: ew, mapH: eh, inner: { x: 0, y: 0, w: m.w, h: m.h }, far: M ? k : 0, rooms, time: reduced ? 0 : time, outdoors,
       // By day the light is more than the art's own (the art is painted for the dusk).
-      ambient: rgb(amb).map(q => q * (1 + (kit.day('iso')?.exposure ?? 0) * k)) as [number, number, number],
+      ambient: rgb(amb).map((q, i) => q * (1 + (day?.exposure ?? 0) * k) * (outdoors ? skyFill[i]! : 1)) as [number, number, number],
       voidColor: rgb(outdoors ? '#0e2a3c' : '#07040f'),
       hero: { x: s.hero.x, y: s.hero.y },
       verts, vertCount: nv,
@@ -1126,6 +1169,8 @@ export default function isoView(kit: Kit): View {
     dispose() { engine.dispose() },
   }
 }
+
+const mix3 = (a: [number, number, number], b: [number, number, number], t: number): [number, number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
 
 /** The mist's colour: the haze, cooled toward the night. */
 function mistOf(haze: [number, number, number]): [number, number, number] {

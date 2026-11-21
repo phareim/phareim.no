@@ -20,6 +20,8 @@ export const BVERT = 5
 
 export interface Look {
   soft: number
+  /** How much of the ground is this view's own materials (0: the classic ground). */
+  materials: number
   bump: number
   round: number
   emit: number
@@ -32,6 +34,8 @@ export interface Look {
   shadowLen: number
   shadow: number
   shadowTint: [number, number, number]
+  /** The sun's own light on what faces it: its colour times its strength (black: one even light). */
+  sunColor: [number, number, number]
   shading: number
   rim: number
   ao: number
@@ -119,8 +123,10 @@ export interface Engine {
   flora(albedo: HTMLCanvasElement, normal: HTMLCanvasElement): void
   /** The hero's figure (`figure.ts`), w × h px: its colours with a straight alpha, and its normals with its glow in their alpha. */
   figure(albedo: Uint8ClampedArray, normal: Uint8ClampedArray, w: number, h: number): void
-  /** Per tile: r = height of what stands there / 4, g = 1 for water, b = how wet the ground is. */
+  /** Per tile: r = height of what stands there / 4, g = 1 for water, b = how wet the ground is, a = its material (`materials.ts`, 0: as painted). */
   tiles(data: Uint8Array, w: number, h: number): void
+  /** The ground's materials side by side (`materials.ts`): colour, and height in the alpha. */
+  materials(data: Uint8ClampedArray, w: number, h: number): void
   draw(f: FrameIn): void
   /**
    * Are the shaders built? 'wait' while the driver compiles them off the main thread; 'failed' when this GPU
@@ -212,6 +218,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
   const fxT = texture(gl, 1, 1)
   const skyT = texture(gl, 1, 1, { linear: false })
   const floraT = texture(gl, 1, 1)
+  const matT = texture(gl, 1, 1)
   const floraNT = texture(gl, 1, 1)
   const figT = texture(gl, 1, 1)
   const figNT = texture(gl, 1, 1)
@@ -303,8 +310,11 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.uniform1f(ground.u('uSoft'), look.soft)
     g.uniform1f(ground.u('uBump'), look.bump)
     g.uniform1f(ground.u('uEmit'), look.emit)
+    g.uniform1f(ground.u('uMaterials'), matT.w > 1 ? look.materials : 0)
+    g.uniform1f(ground.u('uOutdoors'), f.outdoors ? 1 : 0)
     bindTex(g, 0, flatT, ground.u('uFlat'))
     bindTex(g, 1, tilesT, ground.u('uTiles'))
+    bindTex(g, 2, matT, ground.u('uMats'))
     groundVerts.set([R.x, R.y, R.x + R.w, R.y, R.x, R.y + R.h, R.x + R.w, R.y + R.h])
     g.bindVertexArray(groundB.vao)
     fill(groundB, groundVerts, 8)
@@ -330,6 +340,8 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
       bindTex(g, 3, floraNT, geom.u('uFloraN'))
       bindTex(g, 4, figT, geom.u('uFig'))
       bindTex(g, 5, figNT, geom.u('uFigN'))
+      bindTex(g, 6, matT, geom.u('uMats'))
+      g.uniform1f(geom.u('uMaterials'), matT.w > 1 ? look.materials : 0)
       g.bindVertexArray(geomB.vao)
       fill(geomB, f.verts, f.vertCount * VERT)
       g.uniform1f(geom.u('uGhost'), 0)
@@ -407,6 +419,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.uniform1f(litP.u('uShadowLen'), look.shadowLen)
     g.uniform1f(litP.u('uShadow'), look.shadow)
     g.uniform3f(litP.u('uShadowTint'), look.shadowTint[0], look.shadowTint[1], look.shadowTint[2])
+    g.uniform3f(litP.u('uSunColor'), look.sunColor[0], look.sunColor[1], look.sunColor[2])
     g.uniform1f(litP.u('uShading'), look.shading)
     g.uniform1f(litP.u('uRim'), look.rim)
     g.uniform1f(litP.u('uAo'), look.ao)
@@ -522,6 +535,16 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
           t.h = h
         } else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data)
       }
+    },
+    materials(data, w, h) {
+      gl.bindTexture(gl.TEXTURE_2D, matT.t)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+      // The alpha is a height, not a cover: nothing is multiplied into the colour.
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
+      matT.w = w
+      matT.h = h
     },
     tiles(data, w, h) {
       for (const t of [tilesT, tilesLinT] as Tex[]) {
