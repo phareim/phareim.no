@@ -194,7 +194,7 @@ classic picture. `/?view=<id>` asks for one.
      upscale, the glow, vignette, scanlines if a view asks for them, and the
      machine's own tricks: a door is a mosaic on the way out and in, death
      closes an iris on the hero, the Other Side waves down its scanlines.
-- **Its own picture, not the classic one turned** (2026-11-21). Four
+- **Its own picture, not the classic one turned** (2026-11-21). Five
   things the classic view does not have, each a value the studio can turn
   down to nothing:
   - *The sun's own light* (`sunLight`, `sunStrength`; `LIT_FS`). The classic
@@ -258,6 +258,15 @@ classic picture. `/?view=<id>` asks for one.
     floor and behind whoever stands in front of it. Only they use that
     program, because one that writes its depth cannot be culled early. `node scripts/zelda-lab/props-sheet.mjs <outDir>`
     draws them all.
+  - *Cabinets and booths with a body.* An item whose drawing is the front
+    of a box says so (`Item.box` in `wild.ts`: the front's width and height
+    in the drawing, and how deep the body is; the arcade's cabinets, the
+    terminals, the login console, the newsstand and the stalls in
+    `exits.ts`). The classic view ignores it. This view stands the drawing
+    along the wall it faces, as it does a board on a wall, and closes a
+    body behind it on top and to the east with a plain patch of the
+    drawing's own edge, so a cabinet is a cabinet seen from the corner,
+    its screen running away to the right, and not a card.
   - *Roofs that rise* (`roofPitch`). A house's roof is one plane rising
     from its eaves toward the back (kind 5 in the geometry), with a gable
     over its east wall, so what is painted on it stays whole; the tile

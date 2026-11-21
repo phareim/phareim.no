@@ -1051,6 +1051,7 @@ function queueKata(
   items.push({
     x: e.x,
     y: e.y + 0.5,
+    box: { w: KATA_W, h: STALL_H, d: 16 },
     draw: () => {
       g.fillStyle = 'rgba(8,4,20,0.45)'
       g.fillRect(left + 1, bottom - 1, KATA_W - 2, 2)
@@ -1410,7 +1411,7 @@ function lookTop(look: ExitLook): number {
 // Drawing
 // ---------------------------------------------------------------------------
 
-interface SortItem { y: number; draw: () => void; x: number; foot?: number; ay?: number; wall?: boolean; tile?: boolean }
+interface SortItem { y: number; draw: () => void; x: number; foot?: number; ay?: number; wall?: boolean; tile?: boolean; box?: { w: number; h: number; d: number } }
 
 /**
  * Queue every visible exit's sprite into the y-sorted list and collect its
@@ -1438,6 +1439,7 @@ export function queueExits(
         items.push({
           x: e.x,
           y: e.y + 0.5,
+          box: { w: CAB_W, h: CAB_H, d: 11 },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
             g.fillRect(left + 1, bottom - 1, CAB_W - 2, 2)
@@ -1508,6 +1510,7 @@ export function queueExits(
         items.push({
           x: e.x,
           y: e.y + 0.5,
+          box: { w: KIOSK_W, h: KIOSK_H, d: 14 },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
             g.fillRect(left + 1, bottom - 1, KIOSK_W - 2, 2)
@@ -1530,6 +1533,7 @@ export function queueExits(
         items.push({
           x: e.x,
           y: e.y + 0.5,
+          box: { w: TERM_W, h: TERM_H, d: 9 },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.4)'
             g.fillRect(left + 1, bottom - 1, TERM_W - 2, 2)
@@ -1583,6 +1587,7 @@ export function queueExits(
         items.push({
           x: e.x,
           y: e.y + 0.5,
+          box: { w: CON_W, h: CON_H, d: 10 },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
             g.fillRect(left + 1, bottom - 1, CON_W - 2, 2)
@@ -1665,6 +1670,7 @@ export function queueExits(
         items.push({
           x: e.x,
           y: e.y + 0.5,
+          box: { w: STALL_W, h: STALL_H, d: 16 },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.45)'
             g.fillRect(left + 1, bottom - 1, STALL_W - 2, 2)

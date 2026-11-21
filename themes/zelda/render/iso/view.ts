@@ -989,6 +989,22 @@ export default function isoView(kit: Kit): View {
       const v1 = cellY + C.h
       const top = C.ay / T
       const foot = -(C.h - C.ay) / T
+      if (it.box && solid) {
+        // A cabinet, a booth: its drawing is its front, stood along the wall it faces, and behind it a body the
+        // classic art never drew, closed on top and to the east with a plain patch of the drawing's own edge.
+        const x0 = it.x - C.ax / T
+        const x1 = it.x + (C.w - C.ax) / T
+        quad(x0, ay, top, 0, x1, ay, top, 0, x1, ay, foot, 0, x0, ay, foot, 0, cellX, cellY, u1, v1, 4, 1)
+        const hw = it.box.w / 2 / T
+        const hz = it.box.h / T
+        const d = it.box.d / T
+        const pu = cellX + C.ax - it.box.w / 2 + 1
+        const pv = cellY + C.ay - Math.round(it.box.h / 2)
+        quad(it.x - hw, ay - d, hz, 0, it.x + hw, ay - d, hz, 0, it.x + hw, ay, hz, 0, it.x - hw, ay, hz, 0, pu, pv, pu + 1, pv + 1, 0, 1)
+        quad(it.x + hw, ay - d, hz, 0, it.x + hw, ay, hz, 0, it.x + hw, ay, 0, 0, it.x + hw, ay - d, 0, 0, pu, pv, pu + 1, pv + 1, 2, 1, eastShade, 0, 1)
+        cards.push({ x: it.x, y: ay - d / 2, tall: Math.min(1.4, hz * 0.7), wide: Math.min(0.9, hw), dark: 0.85 })
+        continue
+      }
       if (it.wall) {
         // On the wall behind it: one px to the right runs along the wall, one px up is up.
         const x0 = it.x - C.ax / T
