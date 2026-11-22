@@ -258,7 +258,9 @@ function syncDress() {
  * Each frame: the HTML changes dress when the canvas HUD does. That is at once when nothing turns, and halfway
  * through a turn (`k` past 0.5, as in iso/view.ts): on the way in while `k` rises, on the way out when it has fallen.
  */
-function stepDress(vs: { k: number; turning: boolean }) {
+function stepDress(vs: { k: number; turning: boolean; dark: boolean }) {
+  // (A visit's first dark moments: the dress guessed for the view on its way stays on.)
+  if (vs.dark) return
   // Where the canvas cannot show its fine HUD (a screen with one device px to the classic px), the HTML keeps the classic dress with it.
   const fine = !renderer || renderer.fineUnit() > 0
   const on = fine && (!vs.turning ? dressWanted : dress16.value ? vs.k > 0.5 : dressWanted && vs.k > 0.5 && vs.k > dressK)
@@ -335,15 +337,25 @@ const viewLabel = computed(() => (void viewRound.value, viewName(viewId.value)))
 let viewAsk = 0
 /** The view the renderer was last handed: where a failed switch falls back to. */
 let viewShown: ViewId = 'classic'
-/** The first frames wait for the view the visit starts in (the classic one, unless this browser chose another), so no other picture flashes by. */
+/**
+ * The first frames wait for the view the visit starts in (the 16-bit one, unless this browser chose another), so
+ * no other picture flashes by: the screen stays dark for `NIGHT_MS` from mounting, while the view's code is
+ * fetched, its shaders compile and its pictures are painted, and the view then comes up out of the dark. A device
+ * or a network that needs longer gets the classic picture meanwhile, and the view turns in from it when it is here.
+ */
 let viewHold = false
+const NIGHT_MS = 450
+let nightEnds = 0
 
 /**
- * Turn to a view, fetching its code the first time. `instant`: no turn (the first frame, a paused game, reduced motion).
+ * Turn to a view, fetching its code the first time. `instant`: no turn (a paused game, reduced motion).
  * `remember`: this is the visitor's own choice, kept for the next visit; the view a visit starts in is not one
  * (a browser that never chose keeps following the site's first view, and one bad fetch does not pin it to the classic one).
+ * `arriving`: it is the view the visit starts in (`renderer.arrive`).
+ * A view that is not ready when it is asked for (its shaders compile for a moment the first time) is waited for
+ * on the classic picture, and turns in when it is (`render/turn.ts`).
  */
-async function showView(id: ViewId, instant = false, remember = true) {
+async function showView(id: ViewId, instant = false, remember = true, arriving = false) {
   if (!renderer) return
   // A view is an engine with its own values (`views.ts`); one the round no longer holds is the classic one.
   const def = viewDef(id) ?? viewDef('classic')!
@@ -367,8 +379,9 @@ async function showView(id: ViewId, instant = false, remember = true) {
   }
   if (ask !== viewAsk) return
   renderer.setParams(def.engine, def.params)
-  // No turn where nothing would play it: the first frame, reduced motion, a paused game, an open panel.
-  renderer.setView(def.engine, instant || reducedMotion.value || paused.value || panel.value !== null)
+  // No turn where nothing would play it: reduced motion, a paused game, an open panel.
+  if (arriving) renderer.arrive(def.engine, Math.max(0, nightEnds - performance.now()), !reducedMotion.value)
+  else renderer.setView(def.engine, instant || reducedMotion.value || paused.value || panel.value !== null)
   viewShown = def.id
   pausedDrawn = false
   syncSound()
@@ -825,6 +838,8 @@ function frame(nowMs: number) {
   // backgrounded phone may still be running this loop (2026-09-30).
   if (document.hidden) return
   if (viewHold) return
+  // A visit's first dark moments: the view is on its way (`arrive`), and nothing steps until there is a picture.
+  if (renderer.viewState().dark) { renderer.draw(state, ui, 0); return }
   // A turn caught by a pause or a panel would hang half done (the world is drawn once, or five times a second): finish it.
   if ((paused.value || panel.value) && renderer.viewState().turning) { renderer.setView(viewDef(viewId.value)?.engine ?? 'classic', true); pausedDrawn = false }
   stepDress(renderer.viewState())
@@ -987,19 +1002,22 @@ onMounted(() => {
   // The home page owns every key: arrows walk the hero, Escape pauses.
   navigationLocked.value = true
   renderer = createRenderer(canvas.value, WORLD)
-  // The view the address asks for (?view=classic), the one this browser chose last, or the site's first: the classic one.
+  // The view the address asks for (?view=classic), the one this browser chose last, or the site's first: the 16-bit one.
   let lastView: string | null = null
   try { lastView = localStorage.getItem(VIEW_KEY) } catch { /* private mode */ }
   const firstView = startView(new URLSearchParams(location.search).get('view'), lastView)
-  // The dress of the view the visit starts in, before its first frame: nothing of the classic look flashes by either.
+  // The dress of the view the visit starts in, before its first frame: nothing of the other look flashes by either.
   dressWanted = wears16(firstView)
   dress16.value = dressWanted
+  // The first picture comes up out of the dark, whichever view draws it.
+  renderer.dawn()
   if (firstView !== 'classic') {
     viewHold = true
+    nightEnds = performance.now() + NIGHT_MS
     const release = () => { viewHold = false }
-    void showView(firstView, true, false).then(release, release)
+    void showView(firstView, false, false, true).then(release, release)
     // A slow network must not keep the page dark: after a moment the classic view plays until the code is here.
-    setTimeout(() => { release(); syncDress() }, 1500)
+    setTimeout(() => { if (viewHold) { release(); syncDress() } }, NIGHT_MS)
   }
   void loadHighScoreSign()
   audio = createZeldaAudio()

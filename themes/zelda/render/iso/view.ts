@@ -84,10 +84,13 @@ export function pinQuality(q: number | null): void { pinned = q }
  */
 function legacyView(kit: Kit): View {
   let v: View | null = null
+  let gone = false
   const classic = legacyStandIn(kit)
-  void import('./legacy').then(m => { v = m.default(kit) }, () => { /* offline: the classic picture stays */ })
+  void import('./legacy').then(m => { v = m.default(kit) }, () => { gone = true /* offline: the classic picture stays */ })
   return {
     draw(s, ui, dt, k) { (v ?? classic).draw(s, ui, dt, k) },
+    // (Until its code is here the renderer's own classic view draws, and this one turns in from it.)
+    ready: () => v !== null || gone,
     get turn() { return v ? v.turn : 0 },
   }
 }
@@ -126,19 +129,17 @@ export default function isoView(kit: Kit): View {
   /**
    * Paints the view's own pictures, the materials and the things. All of it at once is a pause one can feel
    * on a phone, and it falls when the visitor asks for the view, so it is done a few milliseconds a frame
-   * while the shaders compile anyway; `all` (the lab, which waits for nothing) does it in one go.
+   * while the shaders compile anyway (more of them while the screen is dark, `hurry`); `all` (the lab, which
+   * waits for nothing) does it in one go.
    */
-  function paint(all: boolean): boolean {
+  function paint(all: boolean, hurry: boolean): boolean {
     if (propAtlas) return true
     const t0 = performance.now()
-    while (!(stepMaterials() && stepProps())) if (!all && performance.now() - t0 > 8) return false
+    while (!(stepMaterials() && stepProps())) if (!all && performance.now() - t0 > (hurry ? 40 : 8)) return false
     sendMaterials()
     return true
   }
   let fallback: View | null = null
-  let waiting: View | null = null
-  /** When the view was made: its shaders may still be compiling for a moment after. */
-  const born = performance.now()
   /** Contexts made after a loss: a GPU that keeps losing them is left alone. */
   let revived = 0
 
@@ -580,8 +581,13 @@ export default function isoView(kit: Kit): View {
     return { yaw: yawShown, act, t, moving, blade }
   }
 
-  function draw(s: GameState, ui: FrameUI, dt: number, k: number) {
-    if (fallback) { fallback.draw(s, ui, dt, k); return }
+  /**
+   * Is everything here to draw with: a context, the shaders (the driver compiles them off the main thread), the
+   * view's own pictures? The renderer asks before every frame and draws the classic view while the answer is no
+   * (`View.ready`); each call paints a little more.
+   */
+  function ready(hurry: boolean): boolean {
+    if (fallback) return fallback.ready ? fallback.ready(hurry) : true
     if (engine.lost()) {
       // The browser took the context (a tab left in the background, a driver reset): make another, and send
       // everything the old one held again. A GPU that will not give one gets the canvas view.
@@ -591,22 +597,24 @@ export default function isoView(kit: Kit): View {
         engine = createEngine()
         if (propAtlas) sendMaterials()
         tilesKey = ''; floraLook = ''; backdropKey = ''; atlasUsed = ATLAS; settle = 90
-      } catch { fallback = legacyView(kit); fallback.draw(s, ui, dt, k); return }
+      } catch { fallback = legacyView(kit); return ready(hurry) }
     }
-    const painted = paint(pinned !== null)
+    const painted = paint(pinned !== null, hurry)
     const built = engine.ready(pinned !== null)
-    if (built === 'failed') { engine.dispose(); fallback = legacyView(kit); fallback.draw(s, ui, dt, k); return }
-    if (built === 'wait' || !painted) {
-      // The driver is still compiling the shaders, off the main thread, or the view's own pictures are not all
-      // painted. Night for a moment, so the classic picture does not flash by; if it takes long, the classic
-      // picture after all.
-      if (performance.now() - born > 1200) { waiting ??= legacyStandIn(kit); waiting.draw(s, ui, dt, 0); return }
+    if (built === 'failed') { engine.dispose(); fallback = legacyView(kit); return ready(hurry) }
+    return built === 'yes' && painted
+  }
+
+  function draw(s: GameState, ui: FrameUI, dt: number, k: number) {
+    if (!ready(false)) {
+      // (Whoever draws without asking first gets night.)
       const g0 = kit.screen()
       g0.g.setTransform(1, 0, 0, 1, 0, 0)
       g0.g.fillStyle = '#0b0616'
       g0.g.fillRect(0, 0, g0.W, g0.H)
       return
     }
+    if (fallback) { fallback.draw(s, ui, dt, k); return }
     govern(ui.paused)
     const scr = kit.screen()
     const { decalMaxW } = kit.size()
@@ -1379,6 +1387,7 @@ export default function isoView(kit: Kit): View {
 
   return {
     draw,
+    ready,
     // The controls turn with the picture: not while the classic one stands in for it.
     get turn() { return fallback ? fallback.turn : engine.ready() === 'yes' ? Math.PI / 4 : 0 },
     dispose() { engine.dispose() },
