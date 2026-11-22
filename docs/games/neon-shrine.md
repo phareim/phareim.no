@@ -61,22 +61,50 @@ each (`ENGINES`: numbers with bounds, colours, choices, toggles): `classic`
 (the picture described under "Look" in `themes/zelda/DESIGN.md`) and `iso`, an
 isometric one. `views.ts` holds the round: one
 built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT), and whatever the studio published (below). **A visit starts in the
-classic 8-bit view** (`DEFAULT_VIEW` in `views.ts`), and the other views
-are a choice on the pause screen. A view the visitor turns to is kept in localStorage
+isometric 16-bit view** (`DEFAULT_VIEW` in `views.ts`), and the turn switch
+in the corner turns to the other. A view the visitor turns to is kept in localStorage
 `zelda.view` and is where their next visit starts; the view a visit merely
 starts in is not written, so a browser that never chose follows the site's
 first view, and one failed fetch of a view's code does not pin it to the
 classic picture. `/?view=<id>` asks for one.
 
-- **Finding them** (2026-11-12). V turns to the next view, in play and on
-  the pause screen alike (the pause screen names the one that is on), and on
-  touch the pause buttons have VIEW beside RESUME, SOUND and TO TOWN. There
-  is no view button in the corner beside the world, and the page's first
-  hint names no view key (`tests/zelda-views.test.mjs` holds it to that).
-  In the world itself there is the **viewfinder** east of the fountain (exit
-  `view`, look `scope`, panel `view`, which opens nothing): A turns to the
-  next view. Outside the pause screen a turn brings up the **view strip** (`drawViewStrip` in `hud.ts`),
-  the whole round side by side for 2.6 s, the one in use lit.
+- **Finding them.** The **turn switch** (`render/turnSwitch.ts`, drawn into
+  a button of `Zelda.vue`) stands in the top-right corner, under the pause
+  chip on touch: `8 [ carriage ] 16`. A press turns to the next view, as V
+  does. The carriage carries one ground tile, drawn with the picture's own
+  `projection`: a square in the classic view, the 2:1 diamond in the turned
+  one. Where the carriage stands, the tile's shape and the seam between the
+  switch's two dresses are functions of the renderer's `k`, read once a
+  frame (`stepTurnSwitch`), so the switch turns with the world and a second
+  press in the middle of a turn takes both back in the same frame. When the
+  turn has seated, the view's name stands under the switch for a moment. A
+  view that is waited for shows as three dots counting toward its end; a
+  view whose code did not arrive as a bump and NO SIGNAL. For a browser that
+  has never chosen a view the carriage ticks toward the other end once, 1.2 s
+  after the first picture, and once more 6 s later. The switch steps away
+  (by class, never `v-if`) while the game is paused, a dialog or a panel is
+  open, or the hero is on the way out of a map, and takes a change made
+  meanwhile in silence. With three views or more the slot has a notch for
+  each and no numerals, and the name carries the view's place in the round.
+  - *Keys and focus.* A pointer press never leaves focus on the switch.
+    Reached by Tab, it owns Enter, Space and Tab only: `data-game-keys`
+    makes `input.ts` hand every other key back to the game and blur it, so
+    arrows walk and V turns at once. (Tab is the swap key once the hero has
+    an item; the switch is then reached by V and a screen reader's own
+    navigation.) Its name says which view is on and which a press gives, and
+    a live region says the view after every change.
+  - *What changes dress beside the canvas* (the pause chip, the pad icons,
+    the page's hint) fades out before the flip at k = 0.5 and in after it
+    (`--zelda-chrome-a`), as the canvas HUD cross-fades between its skins.
+  - V turns to the next view in play and on the pause screen alike (the
+    pause screen names the one that is on), and on touch the pause buttons
+    have VIEW beside RESUME, SOUND and TO TOWN. The page's first hint names
+    no view key. In the world itself there is the **viewfinder** east of the
+    fountain (exit `view`, look `scope`, panel `view`, which opens nothing):
+    A turns to the next view. The **view strip** (`drawViewStrip` in
+    `hud.ts`) is the studio's stage's only; the portal does not raise it.
+  - `node scripts/zelda-lab/turn-sheet.mjs <outDir>` draws every state of
+    the switch.
 - **Values** (`viewParams.ts`). `renderer.setParams(engine, values)` hands an
   engine a view's values; `kit.params(id)` reads them, `kit.finish(id)` is the
   part every engine has (scanlines, neon bloom, vignette; `present` takes it).
@@ -113,21 +141,35 @@ classic picture. `/?view=<id>` asks for one.
   (upscale, bloom, scanlines, vignette) and `hudLayer()` are the rest. The
   classic view is one way of putting them together, a `View` another: it gets
   the parts as a `Kit` and draws `draw(state, ui, dt, k)`.
-- **The turn** (`render/turn.ts`, pure). `k` runs from 0 to 1 over 0.6 s. A
-  view must look like the classic one as k nears 0, so the renderer cuts to
-  it there and lets it turn itself in; going back it turns out and the
-  classic view takes over. The isometric view's first frame has the classic
-  picture's geometry to the pixel (`camera.ts`; a test holds it) and its
-  effects at nothing; the light is near the classic one but not the same
-  (its glow lies on the ground instead of hanging on the screen), a small
-  step in brightness at the cut. Whatever the classic art never drew, like a
-  wall's side or a tree's crown, comes in with k. `View.turn` is how far the picture is rotated
+- **The turn** (`render/turn.ts`, pure; `TURN_S` and `HANDOFF` in
+  `renderer.ts`). A turn takes 0.7 s. Its first tenth is the **hand-off**:
+  nothing turns yet, the view draws at the classic geometry (`camera.ts`
+  has it to the pixel; a test holds it), and the classic picture is laid
+  over it, less each frame, because the two light the same scene
+  differently (the view's glow lies on the ground, the classic one hangs on
+  the screen). After that `k` runs from 0 to 1 and the view turns itself
+  in; going back it turns out, and the hand-off is the last tenth. The
+  `k` a view draws with, and the one `viewState()` reports, is 0 through
+  the hand-off. Nothing in a turn appears in one frame: plants grow out of
+  the ground while the classic tiles they replace sink (k 0.15 to 0.75),
+  the standing things do the same at the end (k 0.8 to 1, with what lies
+  on a counter going up with it), a cabinet's body grows back from its
+  front, the HUD's two skins cross-fade (k 0.3 to 0.7), the colours thin
+  from eight bits to five (k 0.2 to 0.8), and the smoothed half-steps of
+  the art come in over k 0.125 to 0.375.
+  **A view that cannot draw yet** (its code has just arrived, its shaders
+  compile, its pictures are being painted: `View.ready`) is waited for at
+  k = 0, on the classic picture, and turns in when it can
+  (`turn.step(dt, ready)`); there is no dark screen in the middle of a
+  switch. **A visit that starts in the 16-bit view** stays dark for at most
+  450 ms from mounting (`renderer.arrive`), and its first picture comes up
+  out of the dark over 320 ms (`dawn`); a device or a network that needs
+  longer gets the classic picture up first, and the view turns in from it. `View.turn` is how far the picture is rotated
   at k = 1; the shell turns the stick by the same angle (`turnMove`), so up
   on the stick is up on the screen in every view. A dialog gets the stick
   unturned: there a direction picks YES or NO by its sign. Reduced motion, a
   paused game and an open panel switch at once, and a pause in the middle of
-  a turn finishes it. A browser that left in another view holds its first
-  frames until that view's code is there (1.5 s at most).
+  a turn finishes it.
 - **The isometric view** (`render/iso/`, rebuilt 2026-11-12): the world
   turned 45° and tipped back, at **twice the pixel density** (two px for
   every px of the classic art, so a tile is 32 px on the ground), drawn by
@@ -445,7 +487,7 @@ classic picture. `/?view=<id>` asks for one.
   measured on a phone: the lab's GPU is software.
 - **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>
   [scenes]` renders the isometric view;
-  `FRAMES=18` stops halfway through the turn, `PARAMS='{"bloom":0.5}'`
+  `FRAMES=23` stops halfway through the turn (42 frames, the first four the hand-off), `PARAMS='{"bloom":0.5}'`
   sets the engine's values and `TAG=dim` names the pictures. The page keeps
   `window.__lab` (`{ r, s, ui, world, step }`) for a script that wants to go
   on drawing. `scripts/zelda-lab/flora-sheet.mjs`, `materials-sheet.mjs`, `props-sheet.mjs` and `backdrop-sheet.mjs`

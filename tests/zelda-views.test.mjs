@@ -28,6 +28,8 @@ async function load() {
         `export { WORLD } from './world/index'`,
         `export { TILE_INFO } from './world/tiles'`,
         `export { createTurn } from './render/turn'`,
+        `export { SW_W, SW_H, TICK_MS, REFUSE_MS, shortTag, switchLayout, carriageAt, seamAt, tickNudge, refuseNudge, chromeAlpha, captionFor, paintSwitch } from './render/turnSwitch'`,
+        `export { NEON_SKIN, HIRES_WINDOW_SKIN } from './render/hud'`,
         `export { massesOf, blobOf, shadeTint } from './render/shade'`,
         `export { createGame } from './engine/index'`,
         `export { enterMap } from './engine/game'`,
@@ -114,11 +116,28 @@ describe('the view registry', () => {
 
 describe('where the views are found', () => {
   const shell = readFileSync(resolve(root, 'Zelda.vue'), 'utf8')
-  it('keeps the button on the pause screen and V as the quick key: no view button beside the world', () => {
-    // The corner holds the pause chip alone, on touch; nothing there turns the view.
+  it('has the turn switch beside the world, the button on the pause screen and V as the quick key', () => {
+    // The touch corner holds the pause chip alone; the switch is a root of its own, so it is there beside a keyboard too.
     const corner = shell.slice(shell.indexOf('class="zelda-deck-top"'), shell.indexOf('class="zelda-deck"'))
     assert.match(corner, /togglePause/)
-    assert.doesNotMatch(corner, /cycleView/)
+    assert.doesNotMatch(corner, /cycleView|turnPress/)
+    const wrap = shell.slice(shell.indexOf('class="zelda-turn-wrap"') - 200, shell.indexOf('class="zelda-turn-said"'))
+    assert.match(wrap, /v-if="phase === 'play' && viewCount > 1"/, 'only where there is a view to turn to')
+    assert.doesNotMatch(wrap.split('class="zelda-turn-wrap"')[0], /touchUI/, 'not on touch alone')
+    // It steps away by class (never by v-if, which would pop) while something else has the screen.
+    const away = wrap.match(/'zelda-turn-wrap--away': ([^,}]+)/)[1]
+    for (const what of ['paused', 'panel', 'talking', 'leaving']) assert.match(away, new RegExp(what), `away while ${what}`)
+    assert.match(wrap, /class="zelda-turn"\s+data-game-keys/, 'a focused switch gives the game its keys back (input.ts)')
+    assert.match(wrap, /aria-keyshortcuts="V"/)
+    assert.match(wrap, /:aria-label="turnLabel"/)
+    // The press must reach input.ts too: a first touch there is what turns the touch deck on.
+    assert.match(wrap, /@pointerdown\.prevent="turnPress"/)
+    assert.doesNotMatch(wrap, /@pointerdown[^"]*\.stop/)
+    assert.match(wrap, /@click="turnClick"/, 'Enter, Space and a screen reader press it too')
+    assert.match(shell, /function turnPress[^]*?cycleView\(\)[^]*?blur\(\)/, 'a pointer press turns the view and keeps no focus')
+    // The switch names the view when it arrives: the portal raises no view strip (the studio's stage still has it).
+    assert.doesNotMatch(shell, /ui\.strip/)
+    assert.match(readFileSync(resolve(root, 'render/hud.ts'), 'utf8'), /export function drawViewStrip/)
     // The pause screen's own button.
     assert.match(shell, /class="zelda-pad zelda-pad-wide" @pointerdown\.prevent\.stop="cycleView"/)
     // V turns the view in play and on the pause screen alike: one line, outside the paused branch, and not while the reset is being asked about.
@@ -130,6 +149,107 @@ describe('where the views are found', () => {
   })
   it('does not name a view key in the page\'s first hint', () => {
     assert.doesNotMatch(readFileSync(resolve(site, 'themes/portal/Landing.vue'), 'utf8'), /ANOTHER VIEW/)
+  })
+})
+
+describe('the turn switch', () => {
+  const state = (more = {}) => ({
+    stops: [{ label: '8', skin: M.NEON_SKIN }, { label: '16', skin: M.HIRES_WINDOW_SKIN }],
+    a: 0, b: 1, e: 0, key: 'V', waiting: false, hover: false, down: false, nudge: 0, flash: -1, caption: '', captionLit: 0, time: 0, reduced: false, ...more,
+  })
+  it('reads a view\'s numeral from its tag', () => {
+    assert.equal(M.shortTag('8-BIT'), '8')
+    assert.equal(M.shortTag('16-BIT'), '16')
+    assert.equal(M.shortTag('NOIR'), '')
+    assert.equal(M.shortTag('128-BIT'), '')
+  })
+  it('stands the carriage where the turn is, flush at both ends, in both dresses', () => {
+    for (const skin of [M.NEON_SKIN, M.HIRES_WINDOW_SKIN]) {
+      const unit = (skin.density ?? 1) > 1 ? 0.5 : 1
+      const end = M.carriageAt(state({ e: 1 }), skin)
+      assert.equal(M.carriageAt(state({ e: 0 }), skin).pos, 0)
+      assert.equal(end.pos, end.travel)
+      let last = -1
+      for (let i = 0; i <= 40; i++) {
+        const c = M.carriageAt(state({ e: M.ease(i / 40) }), skin)
+        assert.ok(Math.abs(c.pos - M.ease(i / 40) * c.travel) <= unit / 2 + 1e-9, 'it is where the turn is, to the pixel')
+        assert.ok(c.pos >= last, 'and never steps back on the way')
+        last = c.pos
+      }
+    }
+  })
+  it('comes back from the middle of a turn without a jump', () => {
+    const up = M.carriageAt(state({ e: M.ease(0.4) }), M.NEON_SKIN).pos
+    const down = M.carriageAt(state({ e: M.ease(0.4 - 1 / 42) }), M.NEON_SKIN).pos
+    assert.ok(down <= up && up - down <= 1)
+  })
+  it('keeps the seam between its two dresses on the carriage (within its rim), and has none at rest', () => {
+    assert.equal(M.seamAt(state({ e: 0 })), null)
+    assert.equal(M.seamAt(state({ e: 1 })), null)
+    for (let i = 1; i < 40; i++) {
+      const st = state({ e: M.ease(i / 40) })
+      const seam = M.seamAt(st) / 2
+      const lo = Math.min(M.carriageAt(st, M.NEON_SKIN).left, M.carriageAt(st, M.HIRES_WINDOW_SKIN).left)
+      const hiA = M.carriageAt(st, M.NEON_SKIN)
+      const hiB = M.carriageAt(st, M.HIRES_WINDOW_SKIN)
+      const hi = Math.max(hiA.left + hiA.width, hiB.left + hiB.width)
+      assert.ok(seam >= lo - 4 && seam <= hi + 4, `at ${i}/40 the seam (${seam}) has left the carriage (${lo}..${hi})`)
+    }
+    // One dress at both stops: nothing to join.
+    assert.equal(M.seamAt(state({ e: 0.5, stops: [{ label: '8', skin: M.NEON_SKIN }, { label: '16', skin: M.NEON_SKIN }] })), null)
+  })
+  it('fits its canvas with two views and with eight, and is never too small for a thumb', () => {
+    for (let n = 2; n <= M.MAX_VIEWS; n++) {
+      const stops = Array.from({ length: n }, (_, i) => ({ label: n === 2 ? ['8', '16'][i] : '', skin: i ? M.HIRES_WINDOW_SKIN : M.NEON_SKIN }))
+      for (const key of ['V', null]) {
+        const lay = M.switchLayout({ stops, key })
+        assert.ok(lay.box.x >= 0 && lay.box.x + lay.box.w <= M.SW_W, `${n} views fit`)
+        assert.ok(lay.box.w * 2 >= 44, `${n} views: ${lay.box.w * 2} fine px wide`)
+      }
+    }
+  })
+  it('draws the ground tile as the picture has it: a square in the classic view, the 2:1 diamond in the turned one', () => {
+    // A context that only counts the tile's pixels (the colour the tile is filled with, cool).
+    const count = (skin, e) => {
+      const cells = new Set()
+      let fill = ''
+      const g = new Proxy({}, {
+        get: (_, name) => name === 'fillRect' ? (x, y, w, h) => { if (fill === skin.cool && w <= 1 && h <= 1) cells.add(`${x},${y}`) } : name === 'fillStyle' ? fill : () => g,
+        set: (_, name, v) => { if (name === 'fillStyle') fill = v; return true },
+      })
+      // (The engraved V is drawn in `dim`, the frame by the skin's panel: only the tile is unit pixels of `cool`.)
+      M.paintSwitch(g, { ...skin, panel: () => {} }, state({ e, key: null }))
+      const xs = [...cells].map(c => +c.split(',')[0])
+      const ys = [...cells].map(c => +c.split(',')[1])
+      return { n: cells.size, w: Math.max(...xs) - Math.min(...xs) + 1, h: Math.max(...ys) - Math.min(...ys) + 1 }
+    }
+    const square = count(M.NEON_SKIN, 0)
+    assert.equal(square.w, square.h)
+    assert.equal(square.n, square.w * square.h, 'a full square')
+    const diamond = count(M.NEON_SKIN, 1)
+    assert.equal(diamond.w, diamond.h * 2, 'two across to one down')
+    assert.ok(diamond.n < diamond.w * diamond.h, 'with its corners cut')
+  })
+  it('fades what changes dress beside the canvas out before the flip and in after it', () => {
+    assert.equal(M.chromeAlpha(0), 1)
+    assert.equal(M.chromeAlpha(1), 1)
+    assert.equal(M.chromeAlpha(0.5), 0)
+    assert.ok(Math.abs(M.chromeAlpha(0.4) - 0.5) < 1e-9)
+    assert.equal(M.chromeAlpha(0.2), 1)
+  })
+  it('ticks out and back, and bumps at a refusal, ending where it began', () => {
+    assert.equal(M.tickNudge(0), 0)
+    assert.equal(M.tickNudge(M.TICK_MS), 0)
+    assert.equal(M.tickNudge(150), 3)
+    assert.ok(M.tickNudge(60) > 0 && M.tickNudge(60) < 3)
+    assert.equal(M.refuseNudge(0), 0)
+    assert.equal(M.refuseNudge(M.REFUSE_MS), 0)
+    assert.equal(M.refuseNudge(80), 2)
+  })
+  it('names the view under it, with its place in a round of three or more when that fits', () => {
+    assert.equal(M.captionFor('ISOMETRIC', 1, 2, M.NEON_SKIN), 'ISOMETRIC')
+    assert.equal(M.captionFor('NOIR', 2, 3, M.NEON_SKIN), 'NOIR 3/3')
+    assert.equal(M.captionFor('ABCDEFGHIJKLMN', 2, 8, M.NEON_SKIN), 'ABCDEFGHIJKLMN')
   })
 })
 

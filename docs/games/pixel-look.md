@@ -95,7 +95,7 @@ Neon Shrine's shell is the one page that wears it
 - `.px-text`, `.px-box`, `.px-btn` in `pixel.css`: the dialog box for HTML panels — a one-pixel edge with notched corners drawn by four offset shadows, `--px-u` CSS px per pixel, `--px-edge` for the colour; no border-radius, no soft glows.
 - The radio (`components/RadioWidget.vue`) is a box in the theme's accent; on phones it shows ♪ instead of the station name. The home chip is a 9×8 pixel house. The Escape pills (`themes/base/EscHold.vue`) are boxes with a bar that fills in twelve cells; touch players see just PAUSED. The sound toggle is a `.px-btn` reading ♪ ON / ♪ OFF.
 - The 404 (`error.vue` + `components/LostScene.vue`): the path out of town ends at a signpost reading 404, on the pixel stage; the parked themes keep their own 404 blocks.
-- The portal's hint and ending panel, and Neon Shrine's touch pads, use the pixel font and hard edges.
+- The portal's hint and ending panel, and Neon Shrine's touch pads, use the pixel font and hard edges. Its turn switch (`themes/zelda/render/turnSwitch.ts`) is drawn on a canvas of its own in the HUD's pixels and letters, in both of the HUD's dresses.
 - Favicon and app icons (`scripts/make-favicon.py`): the dusk on a 16/32/36-pixel grid, scaled up nearest-neighbour.
 
 **Checking a look.** `node scripts/zelda-lab/games-shot.mjs <devUrl> <outDir>

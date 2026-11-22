@@ -78,6 +78,14 @@ interface Fx { kind: 'sprite' | 'spark' | 'leaf' | 'ring' | 'bit' | 'text'; x: n
 /** The dark a visit begins in (the page's own colour behind the canvas), and how long the first picture takes to come up out of it. */
 const NIGHT = '#0b0616'
 const DAWN_MS = 320
+/**
+ * A turn between views, in seconds, and the share of it at the classic end that is the hand-off: there nothing
+ * turns yet (or any more), and the classic picture and the view's own, which light the same scene differently,
+ * are faded one into the other. Without it the light of the whole picture changes in one frame, and on the way
+ * out that frame comes after everything has come to rest.
+ */
+const TURN_S = 0.7
+const HANDOFF = 0.1
 const AMBIENT = { overworld: '#8e82c4', dungeon: '#7d6fb4', interior: '#c8b4dc', dark: '#1d1433', caveDark: '#2a1e44' }
 
 export interface SafeInsets { top: number; right: number; bottom: number; left: number }
@@ -1067,9 +1075,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const to = wearable(skin)
     const old = from ? wearable(from.skin) : to
     const mix = old === to ? 1 : Math.max(0, Math.min(1, from!.mix))
-    // One skin a frame: the one being left on its way out, then this one on its way in.
-    if (mix < 0.5) hudPaint(s, ui, dt, cx, cy, heroY, old, 1 - mix * 2)
-    else hudPaint(s, ui, dt, cx, cy, heroY, to, mix * 2 - 1)
+    // Between two dresses both are painted, the one being left over the one coming in, so the HUD is never
+    // gone. (The second painting takes no time: its labels' fades have already moved this frame.)
+    if (old !== to && mix > 0 && mix < 1) { hudPaint(s, ui, dt, cx, cy, heroY, to, mix); hudPaint(s, ui, 0, cx, cy, heroY, old, 1 - mix) }
+    else hudPaint(s, ui, dt, cx, cy, heroY, mix < 0.5 ? old : to, 1)
 
     // Touch stick
     if (ui.stick) {
@@ -1454,7 +1463,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     hudSpace,
   }
   const views = new Map<string, View>()
-  const turn = createTurn(id => views.has(id))
+  const turn = createTurn(id => views.has(id), TURN_S)
+  /** The turn as a view draws it and the shell follows it: still at 0 through the hand-off. */
+  const turned = (raw: number) => Math.max(0, (raw - HANDOFF) / (1 - HANDOFF))
+  /** The classic picture as last drawn, kept to be laid over a view's during the hand-off. */
+  let handC: HTMLCanvasElement | null = null
   /** The start of a visit (`arrive`): the time night ends (0: no arrival under way), and whether the view turns in after it. */
   let nightEnds = 0
   let arriveTurns = false
@@ -1510,7 +1523,33 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const v = now.shown ? views.get(now.shown) : undefined
     drawing = v && isEngineId(now.shown) ? now.shown : 'classic'
     if (!v) { aim = a => a; span = null; drawClassic(s, ui, dt); dawn(); return }
-    try { v.draw(s, ui, dt, ease(now.k)); dawn() } catch (e) {
+    // The hand-off: the classic picture is drawn first and kept, the view draws at the same still geometry, and
+    // the classic one is laid over it, less of it each frame. (No time passes in the classic drawing: the view's
+    // is the frame.)
+    const over = now.k < HANDOFF ? 1 - now.k / HANDOFF : 0
+    if (over > 0) {
+      drawing = 'classic'
+      aim = a => a
+      span = null
+      drawClassic(s, ui, 0)
+      handC ??= document.createElement('canvas')
+      if (handC.width !== W || handC.height !== H) { handC.width = W; handC.height = H }
+      const hc = handC.getContext('2d')!
+      hc.globalCompositeOperation = 'copy'
+      hc.drawImage(canvas, 0, 0)
+      drawing = isEngineId(now.shown) ? now.shown : 'classic'
+    }
+    try {
+      v.draw(s, ui, dt, Math.max(1e-6, ease(turned(now.k))))
+      if (over > 0 && handC) {
+        screen.save()
+        screen.setTransform(1, 0, 0, 1, 0, 0)
+        screen.globalAlpha = over
+        screen.drawImage(handC, 0, 0)
+        screen.restore()
+      }
+      dawn()
+    } catch (e) {
       // A view that throws would throw again every frame, with the game running on unseen behind a still
       // picture. It is put away for this visit, and the classic view draws from here on.
       console.error(`view ${now.shown} failed; the classic view takes over`, e)
@@ -1535,7 +1574,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   function viewState() {
     const v = turn.shown ? views.get(turn.shown) : undefined
-    return { id: turn.id, k: turn.k, turn: v ? v.turn * ease(turn.k) : 0, turning: turn.turning, waiting: turn.waiting, dark: nightEnds > 0 }
+    const k = turned(turn.k)
+    return { id: turn.id, k, turn: v ? v.turn * ease(k) : 0, turning: turn.turning, waiting: turn.waiting, dark: nightEnds > 0 }
   }
 
   void cellIndex

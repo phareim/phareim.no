@@ -474,15 +474,18 @@ export default function isoView(kit: Kit): View {
    * one atlas px to the hi-res px, so every one of their pixels is a pixel.
    * `z`: how high the ground it stands on is (a tree on the rock beyond the edge).
    */
-  function plant(kind: FloraKind, x: number, y: number, pick: number, sway: number, px: number, z = 0) {
+  function plant(kind: FloraKind, x: number, y: number, pick: number, sway: number, px: number, z = 0, grow = 1) {
     const list = flora!.sprites[kind]
     if (!list || !list.length) return
     const sp = list[Math.min(list.length - 1, Math.floor(pick * list.length))]!
-    const top = z + sp.ay / (T * DENSITY)
+    // (Rising out of the ground: the top `grow` of the picture, its lower edge on the ground. Whole px, so every pixel stays a pixel.)
+    const up = Math.round(sp.h * grow)
+    if (up <= 0) return
     const foot = z - (sp.h - sp.ay) / (T * DENSITY)
+    const top = foot + up / (T * DENSITY)
     const l = -sp.ax * px
     const r = (sp.w - sp.ax) * px
-    quad(x, y, top, l, x, y, top, r, x, y, foot, r, x, y, foot, l, sp.x, sp.y, sp.x + sp.w, sp.y + sp.h, 7, 2, sway)
+    quad(x, y, top, l, x, y, top, r, x, y, foot, r, x, y, foot, l, sp.x, sp.y, sp.x + sp.w, sp.y + up, 7, 2, sway)
   }
 
   /** The sign tiles an exit frames in neon (its frame is drawn for the classic sign, so that sign stays). */
@@ -499,21 +502,25 @@ export default function isoView(kit: Kit): View {
   }
 
   /** The things standing this frame (kind, x, y, px each): their quads end the list, drawn with a depth of their own. */
-  const stood: Array<[PropKind, number, number, number]> = []
+  const stood: Array<[PropKind, number, number, number, number]> = []
   /** A thing built for this view (`props.ts`), standing at a ground point: a pixel of it is a pixel of the scene. */
-  function stand(kind: PropKind, x: number, y: number, px: number) {
-    stood.push([kind, x, y, px])
+  function stand(kind: PropKind, x: number, y: number, px: number, rise = 1) {
+    stood.push([kind, x, y, px, rise])
   }
   function standAll(): { start: number; count: number } | null {
     if (!stood.length) return null
     const start = nv
-    for (const [kind, x, y, px] of stood) {
+    for (const [kind, x, y, px, rise] of stood) {
       const sp = propAtlas!.sprites[kind]
-      const top = sp.ay / (T * DENSITY)
+      // (Rising out of the ground as the turn ends: so many rows of the picture from its first one down, the last
+      // of them on the ground. Whole rows, so every pixel stays a pixel.)
+      const up = Math.round((sp.h - sp.top) * rise)
+      if (up <= 0) continue
       const foot = -(sp.h - sp.ay) / (T * DENSITY)
+      const top = foot + up / (T * DENSITY)
       const l = -sp.ax * px
       const r = (sp.w - sp.ax) * px
-      quad(x, y, top, l, x, y, top, r, x, y, foot, r, x, y, foot, l, sp.x, sp.y, sp.x + sp.w, sp.y + sp.h, 3, 4)
+      quad(x, y, top, l, x, y, top, r, x, y, foot, r, x, y, foot, l, sp.x, sp.y + sp.top, sp.x + sp.w, sp.y + sp.top + up, 3, 4)
     }
     stood.length = 0
     return { start, count: nv - start }
@@ -710,6 +717,12 @@ export default function isoView(kit: Kit): View {
      * down the counter's face.
      */
     const tops = new Map<number, number>()
+    /**
+     * How far the things this view builds itself have come up (`props.ts`): they are drawn as the finished view
+     * sees them, so they rise out of the ground over the last part of the turn, while the classic pictures they
+     * stand in for sink into it. (Turned halfway, the parts of a counter would stand as a staircase.)
+     */
+    const rise = Math.max(0, Math.min(1, (k - 0.8) / 0.2))
     /** A point of the classic picture (tiles), where it is in the world: on the ground, on a roof, on a wall's face, on a card. */
     const world3 = (x: number, y: number): [number, number, number] => {
       const tx = Math.floor(x)
@@ -717,7 +730,18 @@ export default function isoView(kit: Kit): View {
       const front = tops.get(ty * 4096 + tx)
       // (A fifth of a tile toward the viewer, which leaves it where it is on the screen: a card faces the viewer,
       // the counter's face runs east, and without it half of a price would stand inside the counter.)
-      if (front !== undefined) return [x + 0.2, front + 0.2, COUNTER_TOP / (T * DENSITY) + 0.2]
+      if (front !== undefined && rise >= 1) return [x + 0.2, front + 0.2, COUNTER_TOP / (T * DENSITY) + 0.2]
+      if (front !== undefined) {
+        // What lies on a counter goes up with it, from where the classic picture has it.
+        const a = classic3(x, y)
+        const e = rise * rise * (3 - 2 * rise)
+        return [a[0] + (x + 0.2 - a[0]) * e, a[1] + (front + 0.2 - a[1]) * e, a[2] + (COUNTER_TOP / (T * DENSITY) + 0.2 - a[2]) * e]
+      }
+      return classic3(x, y)
+    }
+    const classic3 = (x: number, y: number): [number, number, number] => {
+      const tx = Math.floor(x)
+      const ty = Math.floor(y)
       const shp = inRoom(tx, ty) ? shapeAt(tx, ty) : FLAT
       if (shp.k === 'top') return [x, y + shp.f, shp.h / T + (shp === ROOF ? pitch * k * (roofSouth(tx, ty) + 1 - (y - ty)) : 0)]
       if (shp.k === 'face') return [x, ty + 1 + shp.d, shp.d + (ty + 1 - y)]
@@ -785,11 +809,12 @@ export default function isoView(kit: Kit): View {
       return -1
     }
     // Plants are real ones once the turn is under way: trees with crowns, bushes, grass that stands (`flora.ts`).
-    const green = outdoors && !!flora && k > 0.4 && (par.plants as boolean)
+    const grow = Math.max(0, Math.min(1, (k - 0.15) / 0.6))
+    const green = outdoors && !!flora && grow > 0 && (par.plants as boolean)
     const px = zoom / DENSITY
-    // (The things are drawn as the finished view sees them, so they come in as the turn ends: turned halfway,
-    // the parts of a counter would stand as a staircase.)
-    const solid = k > 0.93 && !!par.props
+    const solid = rise > 0 && !!par.props
+    /** How much of a classic stand-in still stands (it sinks as this view's own thing rises in its place). */
+    let sunk = 1
     const tileOf = (x: number, y: number): TileChar => tileAt(m, kind, x, y)
     // What stands in this view's own materials (`materials.ts`): a roof's shingles, a wall's boards, a cliff's
     // rock, the Shrine's bricks. The number rides with the picture's in a quad's meta (picture + 8 × material).
@@ -829,44 +854,42 @@ export default function isoView(kit: Kit): View {
           const lone = shp.k === 'card'
           const up = shapeAt(tx, ty - 1).k === 'flat' ? UP : 0
           // (The classic crown is a little wider than its tile: two px round it go too.)
-          bare(sx - 2, sy - Math.max(up, 2), T + 4, T + Math.max(up, 2) + 2)
           const fy = shp.k === 'top' ? ty + shp.f : ty
           const sand = tileOf(tx - 1, ty) === '-' || tileOf(tx + 1, ty) === '-' || tileOf(tx, ty + 1) === '-' || tileOf(tx, ty - 1) === '-'
-          plant(sand ? 'palm' : lone ? 'tree' : 'canopy', tx + 0.5 + (h1 - 0.5) * 0.4, fy + 0.62 + (h2 - 0.5) * 0.3, h3, 0.22, px)
+          plant(sand ? 'palm' : lone ? 'tree' : 'canopy', tx + 0.5 + (h1 - 0.5) * 0.4, fy + 0.62 + (h2 - 0.5) * 0.3, h3, 0.22, px, 0, grow)
           // A crown's shade is a wide soft pool, longer for a tree that stands alone.
-          cards.push({ x: tx + 0.5, y: fy + 0.7, tall: lone ? 1.5 : 1.1, wide: lone ? 0.5 : 0.8, dark: lone ? 0.85 : 0.7 })
-          continue
+          cards.push({ x: tx + 0.5, y: fy + 0.7, tall: (lone ? 1.5 : 1.1) * grow, wide: lone ? 0.5 : 0.8, dark: lone ? 0.85 : 0.7 })
+          if (grow >= 1) { bare(sx - 2, sy - Math.max(up, 2), T + 4, T + Math.max(up, 2) + 2); continue }
         }
         if (t === '*' && shp.k === 'card') {
-          bare(sx, sy, T, T)
-          plant('bush', tx + 0.5, ty + 0.78, h3, 0.3, px)
-          cards.push({ x: tx + 0.5, y: ty + 0.8, tall: 0.7 })
-          continue
+          plant('bush', tx + 0.5, ty + 0.78, h3, 0.3, px, 0, grow)
+          if (grow >= 1) { bare(sx, sy, T, T); cards.push({ x: tx + 0.5, y: ty + 0.8, tall: 0.7 }); continue }
         }
         if (shp.k === 'flat' && !ownThing) {
           if (t === ';') {
             // Tall grass stands: the hero wades through it.
-            plant('tall', tx + 0.3 + h1 * 0.2, ty + 0.45 + h2 * 0.15, h3, 1, px)
-            plant('tall', tx + 0.6 + h2 * 0.25, ty + 0.8 + h1 * 0.15, h1, 1, px)
+            plant('tall', tx + 0.3 + h1 * 0.2, ty + 0.45 + h2 * 0.15, h3, 1, px, 0, grow)
+            plant('tall', tx + 0.6 + h2 * 0.25, ty + 0.8 + h1 * 0.15, h1, 1, px, 0, grow)
           } else if (t === ':') {
             // The same flowers the tile's light shines from: pink or cyan.
             const kindF: FloraKind = hash2(tx, ty, 6) > 0.5 ? 'flowerPink' : 'flowerCyan'
-            plant(kindF, tx + 0.25 + h1 * 0.5, ty + 0.35 + h2 * 0.5, h3, 0.8, px)
-            if (h3 > 0.4) plant(kindF, tx + 0.2 + h2 * 0.6, ty + 0.5 + h3 * 0.4, h1, 0.8, px)
+            plant(kindF, tx + 0.25 + h1 * 0.5, ty + 0.35 + h2 * 0.5, h3, 0.8, px, 0, grow)
+            if (h3 > 0.4) plant(kindF, tx + 0.2 + h2 * 0.6, ty + 0.5 + h3 * 0.4, h1, 0.8, px, 0, grow)
           } else if (tileOf(tx + 1, ty) === '~' || tileOf(tx - 1, ty) === '~' || tileOf(tx, ty + 1) === '~' || tileOf(tx, ty - 1) === '~') {
-            if (h1 > 0.55) plant('reed', tx + 0.2 + h2 * 0.6, ty + 0.25 + h3 * 0.6, h3, 0.9, px)
-          } else if (h1 > 0.62) plant('tuft', tx + 0.15 + h2 * 0.7, ty + 0.2 + h3 * 0.7, h2, 1, px)
+            if (h1 > 0.55) plant('reed', tx + 0.2 + h2 * 0.6, ty + 0.25 + h3 * 0.6, h3, 0.9, px, 0, grow)
+          } else if (h1 > 0.62) plant('tuft', tx + 0.15 + h2 * 0.7, ty + 0.2 + h3 * 0.7, h2, 1, px, 0, grow)
           continue
         }
       }
       if (shp.k === 'flat' && !ownThing) continue
+      sunk = green && (t === 'T' || (t === '*' && shp.k === 'card')) ? 1 - grow : 1
       if (solid && t === 'F' && outdoors) {
         // A fence in the round: a post and rails out to wherever it goes on (a run to the north lay flat as a card).
         const sides = (tileOf(tx - 1, ty) === 'F' ? 1 : 0) | (tileOf(tx + 1, ty) === 'F' ? 2 : 0) | (tileOf(tx, ty - 1) === 'F' ? 4 : 0) | (tileOf(tx, ty + 1) === 'F' ? 8 : 0)
-        bare(sx, sy, T, T)
-        stand(`fence${sides}`, tx + 0.5, ty + 0.5, px)
-        cards.push({ x: tx + 0.5, y: ty + 0.55, tall: 0.6, wide: 0.12 })
-        continue
+        stand(`fence${sides}`, tx + 0.5, ty + 0.5, px, rise)
+        cards.push({ x: tx + 0.5, y: ty + 0.55, tall: 0.6 * rise, wide: 0.12 })
+        if (rise >= 1 || shp.k === 'flat') { bare(sx, sy, T, T); continue }
+        sunk = 1 - rise
       }
       // (Not where an exit stands on the counter's tile and draws all of it itself: the newsstand.)
       if (solid && t === 'n' && def.look !== 'lab' && !(tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && exitTiles(world, m.id).has(ty * m.w + tx))) {
@@ -874,11 +897,12 @@ export default function isoView(kit: Kit): View {
         const n = tileOf(tx, ty - 1) === 'n'
         const s2 = tileOf(tx, ty + 1) === 'n'
         const along = tileOf(tx - 1, ty) === 'n' || tileOf(tx + 1, ty) === 'n'
-        bare(sx, sy, T, T)
-        stand(!along && (n || s2) ? 'counterY' : n && s2 ? 'counterNS' : n ? 'counterN' : s2 ? 'counterS' : 'counter', tx + 0.5, ty + 0.5, px)
+        stand(!along && (n || s2) ? 'counterY' : n && s2 ? 'counterNS' : n ? 'counterN' : s2 ? 'counterS' : 'counter', tx + 0.5, ty + 0.5, px, rise)
         tops.set(ty * 4096 + tx, ty + 0.5 + (s2 || (!along && n) ? 0.5 : 9 / 32) + 0.02)
-        cards.push({ x: tx + 0.5, y: ty + 0.6, tall: 0.5, wide: 0.5, dark: 0.8 })
-        continue
+        cards.push({ x: tx + 0.5, y: ty + 0.6, tall: 0.5 * rise, wide: 0.5, dark: 0.8 })
+        // (A strip of the classic counter stood along x sinks as this one rises; one laid north is in the ground picture.)
+        if (rise >= 1 || shp.k !== 'face') { bare(sx, sy, T, T); continue }
+        sunk = 1 - rise
       }
       if (shp.k === 'flat') continue
       if (shp.k === 'top') {
@@ -887,7 +911,7 @@ export default function isoView(kit: Kit): View {
         // behind runs on under it, or the dusk would show through the land.
         if (outdoors && sy >= T && shapeAt(tx, ty - 1).k !== 'top' && (t === '#' || t === '%' || t === '^')) fg.drawImage(ground, sx, sy - T, T, T, sx, sy, T, T)
         const fy = ty + shp.f
-        const hz = shp.h / T
+        const hz = (shp.h / T) * sunk
         const side = builtOf(t, false)
         const slope = shp === ROOF ? pitch * k : 0
         if (slope > 0) {
@@ -905,9 +929,9 @@ export default function isoView(kit: Kit): View {
         // The rock beyond the edge is wooded on top, so it is a hillside and not a tabletop. (No sway: the
         // wind bends a plant from the ground up, and these do not stand on it.)
         if (green && t === '#' && (tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) && hash2(tx, ty, 24) > 0.42) {
-          plant(hash2(tx, ty, 25) > 0.6 ? 'tree' : 'canopy', tx + 0.5 + (hash2(tx, ty, 21) - 0.5) * 0.4, fy + 0.6 + (hash2(tx, ty, 22) - 0.5) * 0.3, hash2(tx, ty, 23), 0, px, hz)
+          plant(hash2(tx, ty, 25) > 0.6 ? 'tree' : 'canopy', tx + 0.5 + (hash2(tx, ty, 21) - 0.5) * 0.4, fy + 0.6 + (hash2(tx, ty, 22) - 0.5) * 0.3, hash2(tx, ty, 23), 0, px, hz, grow)
         }
-        const levels = Math.round(hz)
+        const levels = Math.round(shp.h / T)
         const below = shapeAt(tx, ty + 1)
         // (A step down in the rock beyond the edge shows its side too, from the lower step's top up.)
         const step = below.k === 'top' && below.h < shp.h ? Math.round(below.h / T) : -1
@@ -916,12 +940,12 @@ export default function isoView(kit: Kit): View {
         for (let l = 0; l < levels; l++) {
           const r0 = 1 - (l + 1) / levels
           const r1 = 1 - l / levels
-          if (south && l >= step) quad(tx, fy + 1, l + 1, 0, tx + 1, fy + 1, l + 1, 0, tx + 1, fy + 1, l, 0, tx, fy + 1, l, 0, sx, sy, sx + T, sy + T, 1, side, southShade, r0, r1)
+          if (south && l >= step) quad(tx, fy + 1, (l + 1) * sunk, 0, tx + 1, fy + 1, (l + 1) * sunk, 0, tx + 1, fy + 1, l * sunk, 0, tx, fy + 1, l * sunk, 0, sx, sy, sx + T, sy + T, 1, side, southShade, r0, r1)
           if (east) {
             // The east side runs from the back corner to the front one: the picture's left edge is the far end.
             const fr = faceRow(tx, ty, l)
             const ey = ((fr < 0 ? ty : fr) - R.y) * T
-            quad(tx + 1, fy, l + 1, 0, tx + 1, fy + 1, l + 1, 0, tx + 1, fy + 1, l, 0, tx + 1, fy, l, 0, sx, ey, sx + T, ey + T, 2, side, eastShade, r0, r1)
+            quad(tx + 1, fy, (l + 1) * sunk, 0, tx + 1, fy + 1, (l + 1) * sunk, 0, tx + 1, fy + 1, l * sunk, 0, tx + 1, fy, l * sunk, 0, sx, ey, sx + T, ey + T, 2, side, eastShade, r0, r1)
           }
         }
         continue
@@ -930,7 +954,7 @@ export default function isoView(kit: Kit): View {
         bare(sx, sy, T, T)
         const y = ty + 1 + shp.d
         const side = builtOf(t, false)
-        quad(tx, y, shp.d + 1, 0, tx + 1, y, shp.d + 1, 0, tx + 1, y, shp.d, 0, tx, y, shp.d, 0, sx, sy, sx + T, sy + T, 1, side)
+        quad(tx, y, shp.d + sunk, 0, tx + 1, y, shp.d + sunk, 0, tx + 1, y, shp.d, 0, tx, y, shp.d, 0, sx, sy, sx + T, sy + Math.round(T * sunk), 1, side)
         if (loneFace(tx, ty, kind)) {
           // Closed on top with a plain patch of its own picture, and on its east end with the picture again.
           const hz = shp.d + 1
@@ -964,21 +988,23 @@ export default function isoView(kit: Kit): View {
           if (!(outdoors && sandy)) prop = hash2(tx, ty, 11) < 0.5 ? 'lampPink' : 'lampCyan'
         }
         if (prop) {
-          bare(sx, sy - up, T, T + up)
-          stand(prop, tx + 0.5, prop === 'blockPink' || prop === 'blockCyan' ? ty + 0.5 : ty + 0.62, px)
-          cards.push({ x: tx + 0.5, y: ty + 0.66, tall: prop === 'lampPink' || prop === 'lampCyan' ? 1.6 : prop === 'pot' || prop === 'rock' || prop === 'stool' ? 0.6 : 0.8, wide: prop === 'boulder' ? 0.36 : prop === 'lampPink' || prop === 'lampCyan' ? 0.14 : 0.24 })
-          continue
+          stand(prop, tx + 0.5, prop === 'blockPink' || prop === 'blockCyan' ? ty + 0.5 : ty + 0.62, px, rise)
+          cards.push({ x: tx + 0.5, y: ty + 0.66, tall: (prop === 'lampPink' || prop === 'lampCyan' ? 1.6 : prop === 'pot' || prop === 'rock' || prop === 'stool' ? 0.6 : 0.8) * rise, wide: prop === 'boulder' ? 0.36 : prop === 'lampPink' || prop === 'lampCyan' ? 0.14 : 0.24 })
+          if (rise >= 1) { bare(sx, sy - up, T, T + up); continue }
+          sunk = 1 - rise
         }
       }
       // A card: the tile's picture upright, with what reaches above it when nothing stands there.
       bare(sx, sy - up, T, T + up)
       const fx0 = tx + 0.5
       const fy0 = ty + 1 - FOOT / T
-      const top = (T + up - FOOT) / T
+      const rows = Math.round((T + up) * sunk)
+      if (rows <= 0) continue
       const foot = -FOOT / T
+      const top = foot + rows / T
       const half = (T / 2) * zoom
-      quad(fx0, fy0, top, -half, fx0, fy0, top, half, fx0, fy0, foot, half, fx0, fy0, foot, -half, sx, sy - up, sx + T, sy + T, 3, 0)
-      cards.push({ x: fx0, y: fy0, tall: 0.9 + up / T })
+      quad(fx0, fy0, top, -half, fx0, fy0, top, half, fx0, fy0, foot, half, fx0, fy0, foot, -half, sx, sy - up, sx + T, sy - up + rows, 3, 0)
+      cards.push({ x: fx0, y: fy0, tall: (0.9 + up / T) * sunk })
     }
 
     // --- people and things, a cell each -------------------------------------------------
@@ -1027,7 +1053,7 @@ export default function isoView(kit: Kit): View {
       const v1 = cellY + C.h
       const top = C.ay / T
       const foot = -(C.h - C.ay) / T
-      if (it.box && solid) {
+      if (it.box && par.props) {
         // A cabinet, a booth: its drawing is its front, stood along the wall it faces, and behind it a body the
         // classic art never drew, closed on top and to the east with a plain patch of the drawing's own edge.
         const x0 = it.x - C.ax / T
@@ -1035,7 +1061,8 @@ export default function isoView(kit: Kit): View {
         quad(x0, ay, top, 0, x1, ay, top, 0, x1, ay, foot, 0, x0, ay, foot, 0, cellX, cellY, u1, v1, 4, 1)
         const hw = it.box.w / 2 / T
         const hz = it.box.h / T
-        const d = it.box.d / T
+        // (The body grows back from its front as the picture turns: at k = 0 the front stands where the classic drawing does.)
+        const d = (it.box.d / T) * Math.min(1, k * 1.5)
         const pu = cellX + C.ax - it.box.w / 2 + (it.box.px ? it.box.px[0] : 1)
         const pv = cellY + C.ay - (it.box.px ? it.box.h - it.box.px[1] : Math.round(it.box.h / 2))
         quad(it.x - hw, ay - d, hz, 0, it.x + hw, ay - d, hz, 0, it.x + hw, ay, hz, 0, it.x - hw, ay, hz, 0, pu, pv, pu + 1, pv + 1, 0, 1)
@@ -1331,7 +1358,8 @@ export default function isoView(kit: Kit): View {
       mist: outdoors ? (par.mist as number) * k * (def.look === 'wild' ? 1 : 0.3) : 0,
       mistColor: mistOf(rgb(par.hazeColor as string)),
       rays: outdoors && !reduced ? (par.rays as number) * k * (def.look === 'wild' ? 1 : 0.4) : 0,
-      colorBits: par.colors === '15-bit' && k > 0.5 ? 5 : 0,
+      // (The colours thin out over the turn, from eight bits a channel to five: no frame where the dither switches on.)
+      colorBits: par.colors === '15-bit' ? 8 - 3 * Math.max(0, Math.min(1, (k - 0.2) / 0.6)) : 0,
       bloom: f0.bloom + (f1.bloom - f0.bloom) * k,
       vignette: f0.vignette + (f1.vignette - f0.vignette) * k,
       scanlines: f0.scanlines + (f1.scanlines - f0.scanlines) * k,

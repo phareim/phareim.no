@@ -95,10 +95,11 @@ vec4 art(sampler2D t, vec2 uv, float soft, out vec2 grad, out vec2 edge) {
   bool u = f.y < 0.5;
   vec4 a = u ? B : H;
   vec4 b = l ? D : F;
-  if (soft > 0.5) {
+  if (soft > 0.25) {
+    // (The half-steps come in over a stretch of the turn, and not in one frame of it.)
     vec4 a2 = u ? H : B;
     vec4 b2 = l ? F : D;
-    if (same(a, b) && !same(a, b2) && !same(b, a2)) c = b;
+    if (same(a, b) && !same(a, b2) && !same(b, a2)) c = mix(c, b, clamp(soft * 2.0 - 0.5, 0.0, 1.0));
   }
   if (soft > 0.0 && c.a >= 0.5) {
     vec2 g = abs(f - 0.5);

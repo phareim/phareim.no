@@ -5,13 +5,45 @@
   <!-- Measures the notch and status-bar insets for the HUD (installed web app, landscape). -->
   <div ref="safeProbe" class="zelda-safe" aria-hidden="true" />
   <EscHold :class="{ px16: dress16 }" :is-active="() => phase === 'play' && !panel" :paused="paused" :show-paused="false" label="HOLD ESC FOR TOWN" @tap="escTap" @hold="toTown" />
+  <!-- The turn switch (`render/turnSwitch.ts`): 8 [ carriage ] 16, in the top-right corner (under the pause chip
+    on touch). A press turns the world to the next view, as V does, and the carriage rides the turn. It steps
+    away, by class and never by v-if, while something else has the screen: the pause screen (which has its own
+    VIEW button), a dialog (its box may lie across the corner), a panel, the dark of a way out. No `.stop` on
+    the press: a first touch must still reach input.ts, which is where the touch deck is turned on. -->
+  <div
+    v-if="phase === 'play' && viewCount > 1"
+    ref="turnWrap"
+    class="zelda-turn-wrap"
+    :class="{ px16: dress16, 'zelda-turn-wrap--touch': touchUI, 'zelda-turn-wrap--away': paused || !!panel || talking || leaving, 'zelda-turn-wrap--night': turnStage === 'night', 'zelda-turn-wrap--dawn': turnStage === 'dawn' }"
+  >
+    <button
+      ref="turnBtn"
+      type="button"
+      class="zelda-turn"
+      data-game-keys
+      :disabled="paused || !!panel || talking || leaving"
+      :aria-label="turnLabel"
+      aria-keyshortcuts="V"
+      :aria-busy="turnWaiting || undefined"
+      :title="touchUI ? undefined : 'View (V)'"
+      @pointerdown.prevent="turnPress"
+      @mousedown.prevent
+      @pointerup="turnRelease"
+      @pointercancel="turnRelease"
+      @click="turnClick"
+      @keydown="turnKey"
+      @contextmenu.prevent
+      @pointerenter="turnHover($event, true)"
+      @pointerleave="turnHover($event, false)"
+    ><canvas ref="turnCanvas" class="zelda-turn-canvas" aria-hidden="true" /></button>
+  </div>
+  <span class="zelda-turn-said" role="status" aria-live="polite">{{ turnSaid }}</span>
   <!-- Touch deck. The buttons float bottom-right over the world, which fills
     the whole screen, and step aside while a dialog box takes the bottom of
     the screen (any tap moves it on). The floating stick starts anywhere on
     the left 60 % that isn't a button. Pause sits apart, in the top-right
     corner, where no thumb rests; a keyboard has P and Escape. The views are
-    on the pause screen (V there, or its VIEW button): the world starts in
-    the classic 8-bit one, and the others are a choice, not a control. -->
+    on the turn switch under it, on V, and on the pause screen's VIEW button. -->
   <div v-if="touchUI && phase === 'play' && !panel && !paused && !talking" class="zelda-deck-top" :class="{ px16: dress16 }">
     <button class="zelda-chip" aria-label="Pause" @pointerdown.prevent.stop="togglePause" @contextmenu.prevent>II</button>
   </div>
@@ -114,9 +146,10 @@ import { createGame, HOURS, resumeAfterWin, setDaytime, setSession, stepGame, to
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
-import { turnMove } from './render/iso/project'
+import { ease, turnMove } from './render/iso/project'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
-import { HIRES_WINDOW_SKIN, STRIP_TIME } from './render/hud'
+import { HIRES_WINDOW_SKIN, NEON_SKIN, type HudSkin } from './render/hud'
+import { REFUSE_MS, SW_H, SW_W, TICK_MS, captionFor, chromeAlpha, drawTurnSwitch, refuseNudge, shortTag, switchLayout, tickNudge, type SwitchState } from './render/turnSwitch'
 import { resolveParams } from './viewParams'
 import { sprite } from './render/sheet'
 import { startLiveSprites } from './render/live'
@@ -360,6 +393,8 @@ async function showView(id: ViewId, instant = false, remember = true, arriving =
   // A view is an engine with its own values (`views.ts`); one the round no longer holds is the classic one.
   const def = viewDef(id) ?? viewDef('classic')!
   viewId.value = def.id
+  if (def.engine === 'classic') turnAt.a = def.id
+  else turnAt.b = def.id
   if (remember) try { localStorage.setItem(VIEW_KEY, def.id) } catch { /* private mode: this visit only */ }
   const ask = ++viewAsk
   const load = ENGINE_LOADERS[def.engine]
@@ -374,6 +409,7 @@ async function showView(id: ViewId, instant = false, remember = true, arriving =
       viewId.value = viewShown
       syncDress()
       if (remember) try { localStorage.setItem(VIEW_KEY, viewId.value) } catch { /* private mode */ }
+      turnRefuse()
       return
     }
   }
@@ -396,13 +432,11 @@ function syncSound() {
 
 function cycleView() {
   if (phase.value !== 'play') return
+  // (The visitor has found the views: the switch has nothing left to point out.)
+  sw.fresh = false
   audio?.sfx('menu')
-  const next = nextView(viewId.value)
-  void showView(next)
-  // The pause screen names the view itself; the viewfinder shows the whole round for a moment.
-  if (paused.value) return
-  const round = viewList()
-  ui.strip = { views: round.map(v => ({ name: v.name, tag: v.tag })), at: Math.max(0, round.findIndex(v => v.id === next)), t: 0 }
+  // (The pause screen names the view itself; in play the turn switch shows it, and names it when it arrives.)
+  void showView(nextView(viewId.value))
 }
 
 /** The studio published views (or took them back): the round changes, and the view on screen takes its new values at once. */
@@ -416,6 +450,189 @@ function applyLiveViews(live: LiveViews | null) {
   pausedDrawn = false
   syncSound()
   syncDress()
+}
+
+// ---- the turn switch -------------------------------------------------------------
+
+/**
+ * The instrument in the corner (`render/turnSwitch.ts`): a slot with the views' numerals at its ends and a
+ * carriage that carries one ground tile. Everything on it is a function of the renderer's own `k`, read once
+ * a frame after the dress: where the carriage stands, the tile's shape (a square, the 2:1 diamond), the seam
+ * between its two dresses. So it turns with the world, and a second press in the middle of a turn takes it
+ * back in the same frame as the world. It holds no motion of its own but two small ones: the tick that shows a
+ * first-time visitor it can move, and the bump of a refusal.
+ */
+const turnWrap = ref<HTMLElement | null>(null)
+const turnBtn = ref<HTMLButtonElement | null>(null)
+const turnCanvas = ref<HTMLCanvasElement | null>(null)
+const viewCount = computed(() => (void viewRound.value, viewList().length))
+/** The hero is on the way out of the map (a door, a cabinet): the canvas goes dark and hides its HUD. */
+const leaving = ref(false)
+/** A visit's first moments: nothing while the screen is dark, then up out of it with the first picture. */
+const turnStage = ref<'night' | 'dawn' | 'up'>('night')
+const turnWaiting = ref(false)
+/** What a screen reader is told when the view changes. */
+const turnSaid = ref('')
+const sayView = (id: ViewId) => {
+  const v = viewDef(id) ?? viewDef('classic')!
+  return `${v.name.charAt(0)}${v.name.slice(1).toLowerCase()} ${v.tag.toLowerCase()}`
+}
+const turnLabel = computed(() => (void viewRound.value, `View: ${sayView(viewId.value)}. Press for ${sayView(nextView(viewId.value))}.`))
+/** The stops the carriage runs between: the classic-engine view last asked for (k = 0) and the last of another engine (k = 1). */
+const turnAt = { a: 'classic' as ViewId, b: '' as ViewId }
+const DAWN_MS = 320
+const CAPTION_MS = 1800
+const sw = {
+  hover: false, down: false, downAt: -1e9, byPointer: false,
+  sig: '', chrome: 1, unit: '', width: '', firstAt: 0,
+  caption: '', captionAt: -1e9, captionHot: false, refuseAt: -1e9,
+  /** A browser that has never chosen a view: the carriage ticks once or twice, and no more. */
+  fresh: false, tickAt: -1e9, ticks: 0, tickDue: 0, sawWaiting: false,
+  /** The view at the last rest (null: no frame yet), and whether a turn has been seen since. */
+  rest: null as ViewId | null, sawTurn: false,
+  scratch: null as [HTMLCanvasElement, HTMLCanvasElement] | null,
+}
+
+function turnCaption(text: string, nowMs: number, hot = false) {
+  sw.caption = text
+  sw.captionAt = nowMs
+  sw.captionHot = hot
+}
+
+/** The view's code did not arrive: the carriage bumps toward it and falls back, and says so. */
+function turnRefuse() {
+  const now = performance.now()
+  sw.refuseAt = now
+  turnCaption('NO SIGNAL', now, true)
+  audio?.sfx('error')
+}
+
+/** Each frame, after the dress: the switch as the renderer's turn has it. Draws only when something changed. */
+function stepTurnSwitch(nowMs: number) {
+  if (!renderer) return
+  const vs = renderer.viewState()
+  if (vs.dark) { if (turnStage.value !== 'night') turnStage.value = 'night'; return }
+  if (turnStage.value === 'night') { turnStage.value = 'dawn'; sw.firstAt = nowMs; sw.tickDue = nowMs + 1200 }
+  else if (turnStage.value === 'dawn' && nowMs - sw.firstAt > DAWN_MS) turnStage.value = 'up'
+  const e = ease(vs.k)
+  const fine = renderer.fineUnit() > 0
+  // What changes dress beside the canvas fades out before the flip and in after it, as the canvas HUD does.
+  const chrome = fine && (dressWanted || dress16.value) && vs.turning && !vs.waiting ? Math.round(chromeAlpha(e) * 50) / 50 : 1
+  if (chrome !== sw.chrome) { sw.chrome = chrome; canvas.value?.parentElement?.style.setProperty('--zelda-chrome-a', String(chrome)) }
+  const cv = turnCanvas.value
+  const wrap = turnWrap.value
+  if (!cv || !wrap) return
+
+  const round = viewList()
+  const n = round.length
+  const skinOf = (id: ViewId): HudSkin => !wears16(id) ? NEON_SKIN : fine ? HIRES_WINDOW_SKIN : HIRES_WINDOW_SKIN.coarse?.() ?? NEON_SKIN
+  const stops = round.map(v => ({ label: n === 2 ? shortTag(v.tag) : '', skin: skinOf(v.id) }))
+  const stopOf = (id: ViewId, classic: boolean) => {
+    let i = round.findIndex(v => v.id === id)
+    if (i < 0) i = round.findIndex(v => (v.engine === 'classic') === classic)
+    return Math.max(0, i)
+  }
+  const a = stopOf(turnAt.a, true)
+  const b = stopOf(turnAt.b, false)
+  const waiting = vs.waiting || viewId.value !== viewShown
+  if (waiting !== turnWaiting.value) turnWaiting.value = waiting
+  if (waiting) sw.sawWaiting = true
+  const away = paused.value || panel.value !== null || talking.value || leaving.value
+  const reduced = reducedMotion.value
+  const here = Math.max(0, round.findIndex(v => v.id === viewId.value))
+
+  // Arriving: the caption names the view, once the turn has seated. A change made while the switch was away is taken in silence.
+  if (vs.turning && !vs.waiting) sw.sawTurn = true
+  if (!vs.turning && !waiting) {
+    if (sw.rest !== null && sw.rest !== viewId.value) {
+      turnSaid.value = `${sayView(viewId.value)} view`
+      if (!away) {
+        turnCaption(captionFor(viewName(viewId.value), here, n, skinOf(viewId.value)), nowMs)
+        if (sw.sawTurn) audio?.sfx('select')
+      }
+    }
+    sw.rest = viewId.value
+    sw.sawTurn = false
+  } else if (sw.rest === null) sw.rest = ''
+
+  // A first visit: the carriage leans toward the other end and comes back, with the view's name under it; once more a while later.
+  if (sw.fresh && sw.ticks < 2 && !sw.sawWaiting && !away && !vs.turning && !waiting && nowMs >= sw.tickDue && n === 2) {
+    sw.ticks++
+    sw.tickAt = nowMs
+    sw.tickDue = nowMs + 6000
+    if (sw.ticks === 1) turnCaption(captionFor(viewName(viewId.value), here, n, skinOf(viewId.value)), nowMs)
+  } else if (sw.fresh && away && sw.tickDue < nowMs + 600) sw.tickDue = nowMs + 600
+
+  const toward = (from: number, to: number) => Math.sign(to - from)
+  const atB = e >= 0.5
+  const ticking = !reduced && nowMs - sw.tickAt < TICK_MS
+  const nudge = ticking ? toward(atB ? b : a, atB ? a : b) * tickNudge(nowMs - sw.tickAt)
+    : !reduced && nowMs - sw.refuseAt < REFUSE_MS ? toward(a, b) * refuseNudge(nowMs - sw.refuseAt) : 0
+  const age = nowMs - sw.captionAt
+  const hold = sw.captionHot ? 1600 : CAPTION_MS
+  const lit = !sw.caption ? 0 : age < hold ? 3 : reduced ? 0 : age < hold + 150 ? 2 : age < hold + 300 ? 1 : 0
+  const st: SwitchState = {
+    stops, a, b, e,
+    key: touchUI.value ? null : 'V',
+    waiting,
+    hover: sw.hover,
+    down: sw.down || nowMs - sw.downAt < 90,
+    nudge,
+    flash: ticking ? (atB ? a : b) : -1,
+    caption: lit ? sw.caption : '',
+    captionLit: lit as 0 | 1 | 2 | 3,
+    captionHot: sw.captionHot,
+    time: nowMs / 1000,
+    reduced,
+  }
+
+  // One fine px of the instrument is a whole number of device px, and never under one CSS px.
+  const dpr = window.devicePixelRatio || 1
+  const uDev = Math.max(Math.round(renderer.fineUnit() * dpr), Math.ceil(dpr))
+  const unit = `${uDev / dpr}px`
+  if (unit !== sw.unit) { sw.unit = unit; wrap.style.setProperty('--zelda-turn-u', unit) }
+  const width = String(switchLayout(st).box.w * 2)
+  if (width !== sw.width) { sw.width = width; wrap.style.setProperty('--zelda-turn-w', width) }
+  const sig = [uDev, n, a, b, Math.round(e * 400), st.key, fine, round.map(v => +wears16(v.id)).join(''), waiting ? Math.floor(st.time * 6) : -1, +st.hover, +st.down, Math.round(nudge * 2), st.flash, st.caption, lit, +sw.captionHot, +reduced].join('|')
+  if (sig === sw.sig) return
+  sw.sig = sig
+  if (cv.width !== SW_W * 2 * uDev || cv.height !== SW_H * 2 * uDev) { cv.width = SW_W * 2 * uDev; cv.height = SW_H * 2 * uDev }
+  const g = cv.getContext('2d')!
+  g.setTransform(uDev, 0, 0, uDev, 0, 0)
+  sw.scratch ??= [document.createElement('canvas'), document.createElement('canvas')]
+  drawTurnSwitch(g, st, sw.scratch)
+}
+
+/**
+ * A press turns the view, as V does. The button never keeps the keyboard: a pointer press does not focus it, and
+ * when it has been reached by Tab it owns Enter, Space and Tab only (`data-game-keys` in input.ts gives every
+ * other key back to the game, and blurs it).
+ */
+function turnPress(e: PointerEvent) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return
+  sw.byPointer = true
+  sw.down = true
+  sw.downAt = performance.now()
+  try { turnBtn.value?.setPointerCapture(e.pointerId) } catch { /* the pointer is already gone */ }
+  cycleView()
+  turnBtn.value?.blur()
+}
+function turnRelease() {
+  sw.down = false
+  // The click that follows a press is its own echo; a release off the button has none.
+  setTimeout(() => { sw.byPointer = false }, 0)
+}
+/** Enter or Space on the focused button, or a screen reader's own press. */
+function turnClick() {
+  if (sw.byPointer) { sw.byPointer = false; return }
+  sw.downAt = performance.now()
+  cycleView()
+}
+function turnKey(e: KeyboardEvent) {
+  if (e.repeat && (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space')) e.preventDefault()
+}
+function turnHover(e: PointerEvent, on: boolean) {
+  sw.hover = on && e.pointerType === 'mouse'
 }
 
 /** Ending, pause-screen and pause keys; the game keys are input.ts's. */
@@ -557,6 +774,7 @@ function syncDeck() {
   if (state.inv.selected !== selected.value) selected.value = state.inv.selected
   const item = state.inv.bombBag || state.inv.disc || state.inv.hook
   if (item !== hasItem.value) hasItem.value = item
+  if (leaving.value !== (state.mode === 'exit')) leaving.value = state.mode === 'exit'
   if (talking.value !== (state.mode === 'dialog')) {
     talking.value = state.mode === 'dialog'
     // The floating A unmounts under the finger; its pointerup never comes.
@@ -844,6 +1062,7 @@ function frame(nowMs: number) {
   if ((paused.value || panel.value) && renderer.viewState().turning) { renderer.setView(viewDef(viewId.value)?.engine ?? 'classic', true); pausedDrawn = false }
   stepDress(renderer.viewState())
   syncUnit()
+  stepTurnSwitch(nowMs)
 
   ui.paused = paused.value
   ui.confirmReset = confirmReset.value
@@ -882,7 +1101,6 @@ function frame(nowMs: number) {
   renderer.onEvents(events)
   handleEvents(events)
   if (ui.banner) { ui.banner.t += dt; if (ui.banner.t > 2.2) ui.banner = null }
-  if (ui.strip) { ui.strip.t += dt; if (ui.strip.t > STRIP_TIME) ui.strip = null }
   syncDeck()
   if (state.hero.hp > 0 && state.hero.hp <= 2 && state.mode === 'play') {
     lowHpT -= dt
@@ -1011,6 +1229,8 @@ onMounted(() => {
   dress16.value = dressWanted
   // The first picture comes up out of the dark, whichever view draws it.
   renderer.dawn()
+  // A browser that has never chosen a view and has not walked here before: the turn switch ticks for it.
+  try { sw.fresh = lastView === null && !new URLSearchParams(location.search).get('view') && !sessionStorage.getItem(RETURN_KEY) } catch { sw.fresh = false }
   if (firstView !== 'classic') {
     viewHold = true
     nightEnds = performance.now() + NIGHT_MS
@@ -1058,6 +1278,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   alive = false
   canvas.value?.parentElement?.style.removeProperty('--px16-fine')
+  canvas.value?.parentElement?.style.removeProperty('--zelda-chrome-a')
   liveStop?.()
   liveStop = null
   cancelAnimationFrame(raf)
@@ -1136,9 +1357,96 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
+/*
+ * The turn switch: in the corner beside a keyboard, under the pause chip on touch (right edges in line). Its
+ * unit is one fine px of the canvas HUD (`--zelda-turn-u`, written with its width by `stepTurnSwitch`), so its
+ * pixels are the HUD's. The picture is a canvas inside a real button; it hangs out under the button (the
+ * caption's line) and to its left, where nothing is pressed.
+ */
+.zelda-turn-wrap {
+  --zelda-turn-u: 1px;
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: calc(14px + env(safe-area-inset-right, 0px));
+  z-index: 5;
+  transition: opacity 120ms steps(3), visibility 0s, top 160ms steps(4);
+}
+.zelda-turn-wrap--touch {
+  top: calc(14px + env(safe-area-inset-top, 0px) + max(44px, calc(28 * var(--px16-fine, 1px))) + 8px);
+}
+/* Away (pause, a dialog, a panel, a way out): it steps out, and is not there to be pressed or read. */
+.zelda-turn-wrap--away {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms steps(3), visibility 0s 120ms;
+}
+/* A visit's dark first moments, and the first picture coming up out of them (the renderer's dawn is the same curve). */
+.zelda-turn-wrap--night {
+  opacity: 0;
+  transition: none;
+}
+.zelda-turn-wrap--dawn {
+  transition: opacity 320ms cubic-bezier(0.5, 1, 0.89, 1);
+}
+.zelda-turn {
+  position: relative;
+  display: block;
+  width: calc(var(--zelda-turn-w, 102) * var(--zelda-turn-u));
+  height: max(44px, calc(40 * var(--zelda-turn-u)));
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.zelda-turn:focus { outline: none; }
+.zelda-turn:focus-visible {
+  outline: calc(2 * var(--zelda-turn-u)) solid #ffd23f;
+  outline-offset: calc(2 * var(--zelda-turn-u));
+  box-shadow: 0 0 0 calc(6 * var(--zelda-turn-u)) #0b0616;
+}
+/* A thumb's slop, left and down only: never toward the pause chip. */
+.zelda-turn-wrap--touch .zelda-turn::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 -8px -6px;
+}
+.zelda-turn-canvas {
+  position: absolute;
+  right: 0;
+  top: calc((100% - 40 * var(--zelda-turn-u)) / 2);
+  width: calc(176 * var(--zelda-turn-u));
+  height: calc(60 * var(--zelda-turn-u));
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+.zelda-turn-said {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* What changes dress beside the canvas goes out before the flip and comes back after it (`--zelda-chrome-a`, `stepTurnSwitch`). */
+.zelda-deck-top .zelda-chip { opacity: var(--zelda-chrome-a, 1); }
+.zelda-canvas ~ .portal-hint { filter: opacity(var(--zelda-chrome-a, 1)); }
+@media (prefers-reduced-motion: reduce) {
+  .zelda-turn-wrap,
+  .zelda-turn-wrap--away,
+  .zelda-turn-wrap--dawn { transition: none; }
+}
+
 .zelda-chip {
-  min-width: 48px;
-  min-height: 40px;
+  /* (One box in both dresses, so nothing beside it moves when the dress changes.) */
+  min-width: max(52px, calc(40 * var(--px16-fine, 1px)));
+  min-height: max(44px, calc(28 * var(--px16-fine, 1px)));
   border: 0;
   border-radius: 0;
   background: rgba(11, 6, 22, 0.88);
@@ -1219,7 +1527,7 @@ onBeforeUnmount(() => {
   width: 32px;
   height: 32px;
   image-rendering: pixelated;
-  opacity: 0.9;
+  opacity: calc(0.9 * var(--zelda-chrome-a, 1));
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -1308,7 +1616,11 @@ onBeforeUnmount(() => {
   box-shadow: var(--px16-inner);
 }
 /* The round pads keep their rings and their size; their pictures are the HUD's own, at twice the pixels: one CSS px each, two on A. */
-.px16 .zelda-pad-icon { opacity: 1; }
+.px16 .zelda-pad-icon { opacity: var(--zelda-chrome-a, 1); }
+.px16.zelda-turn-wrap .zelda-turn:focus-visible {
+  outline-color: var(--px16-prize);
+  box-shadow: 0 0 0 calc(6 * var(--zelda-turn-u)) var(--px16-shadow);
+}
 .px16 .zelda-pad-icon--big {
   width: 64px;
   height: 64px;
