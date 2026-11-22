@@ -269,8 +269,8 @@ classic picture. `/?view=<id>` asks for one.
     its screen running away to the right, and not a card.
   - *Roofs that rise* (`roofPitch`). A house's roof is one plane rising
     from its eaves toward the back (kind 5 in the geometry), with a gable
-    over its east wall, so what is painted on it stays whole; the tile
-    heights know it, so its shadow is longer.
+    over its east wall, so what is painted on it stays whole. The sun's
+    shadow of the house stays that of a flat roof.
 - **Plants** (`flora.ts`). Trees, bushes, tall grass, flowers, reeds and
   tufts are painted at the hi-res size with normals of their own and stand as
   billboards where the classic tiles had them (a little off the grid), sway
@@ -374,8 +374,12 @@ classic picture. `/?view=<id>` asks for one.
   larger px and a wide screen the smaller.
   Without float render targets the lamps light flat. A device that keeps
   missing frames is stepped down while it plays and stays there (`govern`
-  in `view.ts`: first the costly extras go, then the pixels get larger);
-  `pinQuality` holds it still for the lab.
+  in `view.ts`: first the costly extras go, then the pixels get larger and
+  the materials go too); `pinQuality` holds it still for the lab.
+  The materials and the standing things are painted a few milliseconds a
+  frame while the shaders compile (`paint` in `view.ts`, `stepMaterials`,
+  `stepProps`), so asking for the view does not stall the page; the lab
+  paints them in one go.
 - **The studio's stage** (`themes/stage/`, `/?theme=stage`, 2026-11-11). The
   world with nothing around it, for the studio's frame: `ViewStage.vue` runs
   the engine and the renderer on a fresh state and takes messages from

@@ -25,7 +25,7 @@
  * ground; a face is painted with a running east or south along the wall and
  * b up it from the ground, and there too every scene px gets a texel.
  *
- * `buildMaterials()` is seeded: the same pictures every time, built once.
+ * `buildMaterials()` is seeded: the same pictures every time, built once (`stepMaterials()` a sheet at a time).
  * `scripts/zelda-lab/materials-sheet.mjs` draws them as the view shows them.
  */
 
@@ -205,26 +205,34 @@ function paving(P: Paving): Sheet {
   const cell = MAT / n
   const sun = P.light ?? SUN
   // Every stone has a heart, a little off its place in the grid; a texel belongs to the nearest one.
-  const cx = (i: number, j: number) => (i + 0.5 + (hash(((i % n) + n) % n, ((j % n) + n) % n, P.seed) - 0.5) * 0.7) * cell
-  const cy = (i: number, j: number) => (j + 0.5 + (hash(((i % n) + n) % n, ((j % n) + n) % n, P.seed + 1) - 0.5) * 0.7) * cell
+  // (The hearts are worked out once, with a ring of the neighbours beyond the sheet's edge.)
+  const N = n + 2
+  const hx = new Float64Array(N * N)
+  const hy = new Float64Array(N * N)
+  for (let j = -1; j <= n; j++) for (let i = -1; i <= n; i++) {
+    const wi = ((i % n) + n) % n
+    const wj = ((j % n) + n) % n
+    hx[(j + 1) * N + i + 1] = (i + 0.5 + (hash(wi, wj, P.seed) - 0.5) * 0.7) * cell
+    hy[(j + 1) * N + i + 1] = (j + 0.5 + (hash(wi, wj, P.seed + 1) - 0.5) * 0.7) * cell
+  }
   for (let v = 0; v < MAT; v++) for (let u = 0; u < MAT; u++) {
     const gi = Math.floor(u / cell)
     const gj = Math.floor(v / cell)
-    let d1 = 1e9
-    let d2 = 1e9
+    let s1 = Infinity
+    let s2 = Infinity
     let bi = 0
     let bj = 0
     let bx = 0
     let by = 0
     for (let j = gj - 1; j <= gj + 1; j++) for (let i = gi - 1; i <= gi + 1; i++) {
-      const dx = u + 0.5 - cx(i, j)
-      const dy = v + 0.5 - cy(i, j)
-      // Squarer than round: stones cut to lie together.
-      const dd = Math.pow(Math.pow(Math.abs(dx), 2.6) + Math.pow(Math.abs(dy), 2.6), 1 / 2.6)
-      if (dd < d1) { d2 = d1; d1 = dd; bi = i; bj = j; bx = dx; by = dy }
-      else if (dd < d2) d2 = dd
+      const dx = u + 0.5 - hx[(j + 1) * N + i + 1]!
+      const dy = v + 0.5 - hy[(j + 1) * N + i + 1]!
+      // Squarer than round: stones cut to lie together. (The root is taken of the two nearest only.)
+      const ss = Math.pow(Math.abs(dx), 2.6) + Math.pow(Math.abs(dy), 2.6)
+      if (ss < s1) { s2 = s1; s1 = ss; bi = i; bj = j; bx = dx; by = dy }
+      else if (ss < s2) s2 = ss
     }
-    const edge = d2 - d1
+    const edge = Math.pow(s2, 1 / 2.6) - Math.pow(s1, 1 / 2.6)
     const wi = ((bi % n) + n) % n
     const wj = ((bj % n) + n) % n
     const mossy = P.moss && hash(wi, wj, P.seed + 5) > 0.72
@@ -537,23 +545,35 @@ const PAINT: Record<Material, () => Sheet> = {
 }
 
 let built: Materials | null = null
+let sheets = 0
+let wip: Uint8ClampedArray | null = null
+
+/**
+ * Paints the next material into the atlas, and says whether all of them are there now. A sheet is some
+ * milliseconds of work and all of them a noticeable pause, so a view that is on screen asks for one at a time.
+ */
+export function stepMaterials(): boolean {
+  if (built) return true
+  const w = MAT * MATERIALS.length
+  const data = wip ??= new Uint8ClampedArray(w * MAT * 4)
+  const k = sheets++
+  const s = PAINT[MATERIALS[k]!]()
+  for (let v = 0; v < MAT; v++) for (let u = 0; u < MAT; u++) {
+    const i = v * MAT + u
+    const o = (v * w + k * MAT + u) * 4
+    data[o] = s.r[i]!; data[o + 1] = s.g[i]!; data[o + 2] = s.b[i]!
+    data[o + 3] = Math.round(Math.max(0, Math.min(1, s.z[i]!)) * 255)
+  }
+  if (sheets < MATERIALS.length) return false
+  built = { data, w, h: MAT }
+  wip = null
+  return true
+}
 
 /** Every material side by side, MAT texels each. */
 export function buildMaterials(): Materials {
-  if (built) return built
-  const w = MAT * MATERIALS.length
-  const data = new Uint8ClampedArray(w * MAT * 4)
-  MATERIALS.forEach((name, k) => {
-    const s = PAINT[name]()
-    for (let v = 0; v < MAT; v++) for (let u = 0; u < MAT; u++) {
-      const i = v * MAT + u
-      const o = (v * w + k * MAT + u) * 4
-      data[o] = s.r[i]!; data[o + 1] = s.g[i]!; data[o + 2] = s.b[i]!
-      data[o + 3] = Math.round(Math.max(0, Math.min(1, s.z[i]!)) * 255)
-    }
-  })
-  built = { data, w, h: MAT }
-  return built
+  while (!stepMaterials()) { /* the next sheet */ }
+  return built!
 }
 
 /**

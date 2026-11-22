@@ -23,7 +23,7 @@
  * point (x east, y south, z up) lands at (x − y, (x + y) / 2 − z) from the
  * sprite's anchor, the point of ground under its middle.
  *
- * `buildProps()` is seeded and built once.
+ * `buildProps()` is seeded and built once (`stepProps()` a thing at a time).
  * `scripts/zelda-lab/props-sheet.mjs` draws them all.
  */
 
@@ -441,20 +441,29 @@ export const PROP_COLS = 8
 
 /** Every thing in a grid, a cell each. */
 export function buildProps(): PropAtlas {
-  if (built) return built
+  while (!stepProps()) { /* the next thing */ }
+  return built!
+}
+
+let cells = 0
+let wip: PropAtlas | null = null
+
+/** Builds the next thing into the atlas, and says whether all of them are there now (as `stepMaterials`). */
+export function stepProps(): boolean {
+  if (built) return true
   const w = W * PROP_COLS
   const h = H * Math.ceil(PROP_KINDS.length / PROP_COLS)
-  const albedo = new Uint8ClampedArray(w * h * 4)
-  const normal = new Uint8ClampedArray(w * h * 4)
-  const sprites = {} as Record<PropKind, PropSprite>
-  PROP_KINDS.forEach((kind, k) => {
-    const b = new Bench()
-    BUILD[kind]!(b)
-    const x = (k % PROP_COLS) * W
-    const y = Math.floor(k / PROP_COLS) * H
-    b.paint(albedo, normal, w, x, y, !kind.startsWith('counter'))
-    sprites[kind] = { x, y, w: W, h: H, ax: PROP.ax, ay: PROP.ay }
-  })
-  built = { w, h, albedo, normal, sprites }
-  return built
+  const a = wip ??= { w, h, albedo: new Uint8ClampedArray(w * h * 4), normal: new Uint8ClampedArray(w * h * 4), sprites: {} as Record<PropKind, PropSprite> }
+  const k = cells++
+  const kind = PROP_KINDS[k]!
+  const b = new Bench()
+  BUILD[kind]!(b)
+  const x = (k % PROP_COLS) * W
+  const y = Math.floor(k / PROP_COLS) * H
+  b.paint(a.albedo, a.normal, w, x, y, !kind.startsWith('counter'))
+  a.sprites[kind] = { x, y, w: W, h: H, ax: PROP.ax, ay: PROP.ay }
+  if (cells < PROP_KINDS.length) return false
+  built = a
+  wip = null
+  return true
 }

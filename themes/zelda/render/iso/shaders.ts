@@ -695,7 +695,7 @@ float heightAt(vec2 w) {
 }
 /** 1 where something stands between this point and the low sun. */
 float sunShadow(vec2 w, float z, float jit) {
-  float far = (2.05 - z) * uShadowLen;
+  float far = (2.0 - z) * uShadowLen;
   if (far <= 0.0 || uShadowLen <= 0.0) return 0.0;
   const int N = 22;
   float st = far / float(N);
@@ -792,7 +792,7 @@ void main() {
   c += mix(g0.rgb, vec3(luma(g0.rgb)), 0.25) * uSunColor * direct * (1.0 - 0.45 * occ) * (1.0 - 0.6 * smoothstep(0.35, 1.1, luma(lamp)));
   // Light hangs in the air over the ground it falls on: the classic view's glow, lying down.
   // (It is a pool over the ground: what stands well above it, a lantern, a crown, a roof, is out of it.)
-  c += (1.0 - exp(-irr * 1.2)) * 0.3 * uGlow * (mat >= 3 ? 0.6 : 1.0) * (1.0 - 0.85 * smoothstep(0.45, 1.2, z));
+  c += (1.0 - exp(-irr * 1.2)) * 0.3 * uGlow * (mat >= 3 ? 0.6 : 1.0) * (1.0 - 0.85 * uK * smoothstep(0.45, 1.2, z));
   c += contour * (0.6 + 0.5 * max(g0.rgb, vec3(luma(g0.rgb))));
   float em = g2.g;
   c = mix(c, g0.rgb * 1.08, em);

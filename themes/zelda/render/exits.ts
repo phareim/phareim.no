@@ -1533,7 +1533,7 @@ export function queueExits(
         items.push({
           x: e.x,
           y: e.y + 0.5,
-          box: { w: TERM_W, h: TERM_H, d: 9 },
+          box: { w: TERM_W, h: 11, d: 9, px: [1, 5] },
           draw: () => {
             g.fillStyle = 'rgba(8,4,20,0.4)'
             g.fillRect(left + 1, bottom - 1, TERM_W - 2, 2)

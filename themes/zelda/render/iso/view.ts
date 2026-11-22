@@ -43,8 +43,8 @@ import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
 import { skyGrade, type DayLook } from '../daylight'
 import { BEYOND, beyondTile, massifHeight } from '../beyond'
 import { createLands, type Lands } from './lands'
-import { buildMaterials, materialId, type Material } from './materials'
-import { buildProps, COUNTER_TOP, type PropKind } from './props'
+import { buildMaterials, materialId, stepMaterials, type Material } from './materials'
+import { buildProps, COUNTER_TOP, stepProps, type PropAtlas, type PropKind } from './props'
 import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from './figure'
 
 type G = CanvasRenderingContext2D
@@ -69,7 +69,8 @@ const BIG = { w: 200, h: 160, ax: 100, ay: 132 }
 /**
  * How much the view spends: 2 everything, 1 without the costly extras (the
  * water's mirror, lamp shadows, corner shade, the frayed borders between two
- * grounds), 0 also with larger pixels.
+ * grounds), 0 also with larger pixels and the ground and walls as the classic
+ * art painted them (the materials are ten lookups more for every pixel).
  * A device that cannot keep up is stepped down while it plays and stays
  * there; `pinQuality` holds it still (the lab's software GPU is no judge).
  */
@@ -114,13 +115,26 @@ function legacyStandIn(kit: Kit): View {
 export default function isoView(kit: Kit): View {
   let engine: Engine
   try { engine = createEngine() } catch { return legacyView(kit) }
-  const propAtlas = buildProps()
+  /** The things built for this view (`props.ts`), once they are painted. */
+  let propAtlas: PropAtlas | null = null
   const sendMaterials = () => {
     const mats = buildMaterials()
+    propAtlas = buildProps()
     engine.materials(mats.data, mats.w, mats.h)
     engine.props(propAtlas.albedo, propAtlas.normal, propAtlas.w, propAtlas.h)
   }
-  sendMaterials()
+  /**
+   * Paints the view's own pictures, the materials and the things. All of it at once is a pause one can feel
+   * on a phone, and it falls when the visitor asks for the view, so it is done a few milliseconds a frame
+   * while the shaders compile anyway; `all` (the lab, which waits for nothing) does it in one go.
+   */
+  function paint(all: boolean): boolean {
+    if (propAtlas) return true
+    const t0 = performance.now()
+    while (!(stepMaterials() && stepProps())) if (!all && performance.now() - t0 > 8) return false
+    sendMaterials()
+    return true
+  }
   let fallback: View | null = null
   let waiting: View | null = null
   /** When the view was made: its shaders may still be compiling for a moment after. */
@@ -165,6 +179,8 @@ export default function isoView(kit: Kit): View {
   const small: SceneItem[] = []
   const large: SceneItem[] = []
   const standing: number[] = []
+  /** Where the things with a body stand (x, y pairs): they carry lights like those who stand, and throw no blob. */
+  const bearers: number[] = []
   /** Small things in the air: the dust a step kicks up. World points (tiles), a height, a life. */
   const motes: Array<{ x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; life: number; color: string }> = []
   let stepT = 0
@@ -276,12 +292,21 @@ export default function isoView(kit: Kit): View {
   }
 
   /**
-   * A face outdoors with no top behind it (a wall one tile deep, the rock beside a gap): the classic art never
-   * drew what lies on it, so the view closes it with a cap and an east side of its own.
+   * A rock face outdoors with no top behind it (a wall one tile deep): the classic art never drew what lies
+   * on it, so the view closes it with a cap and an east side of its own. A fence or a counter along x is a
+   * face too, and no mass. Nor is a face between two rock tops: those stand a row further south, so it is the
+   * north wall of a gap in them, and a cap on it would hang over the ground in front.
    */
   function loneFace(tx: number, ty: number, kind: MapKind): boolean {
     if (kind !== 'overworld' || ty - 1 < -M) return false
     if (shapeAt(tx, ty).k !== 'face') return false
+    const rock = (x: number): boolean => {
+      if (x + M < 0 || x + M >= ew) return false
+      const q = outer[(ty + M) * ew + x + M]
+      return q === '#' || q === '%' || q === '^'
+    }
+    if (!rock(tx)) return false
+    if ((rock(tx - 1) && shapeAt(tx - 1, ty).k === 'top') || (rock(tx + 1) && shapeAt(tx + 1, ty).k === 'top')) return false
     const n = shapeAt(tx, ty - 1).k
     return n !== 'top' && n !== 'face'
   }
@@ -482,7 +507,7 @@ export default function isoView(kit: Kit): View {
     if (!stood.length) return null
     const start = nv
     for (const [kind, x, y, px] of stood) {
-      const sp = propAtlas.sprites[kind]
+      const sp = propAtlas!.sprites[kind]
       const top = sp.ay / (T * DENSITY)
       const foot = -(sp.h - sp.ay) / (T * DENSITY)
       const l = -sp.ax * px
@@ -564,15 +589,17 @@ export default function isoView(kit: Kit): View {
       try {
         if (++revived > 3) throw new Error('context lost again')
         engine = createEngine()
-        sendMaterials()
+        if (propAtlas) sendMaterials()
         tilesKey = ''; floraLook = ''; backdropKey = ''; atlasUsed = ATLAS; settle = 90
       } catch { fallback = legacyView(kit); fallback.draw(s, ui, dt, k); return }
     }
+    const painted = paint(pinned !== null)
     const built = engine.ready(pinned !== null)
     if (built === 'failed') { engine.dispose(); fallback = legacyView(kit); fallback.draw(s, ui, dt, k); return }
-    if (built === 'wait') {
-      // The driver is still compiling the shaders, off the main thread. Night for a moment, so the classic
-      // picture does not flash by; if it takes long, the classic picture after all.
+    if (built === 'wait' || !painted) {
+      // The driver is still compiling the shaders, off the main thread, or the view's own pictures are not all
+      // painted. Night for a moment, so the classic picture does not flash by; if it takes long, the classic
+      // picture after all.
       if (performance.now() - born > 1200) { waiting ??= legacyStandIn(kit); waiting.draw(s, ui, dt, 0); return }
       const g0 = kit.screen()
       g0.g.setTransform(1, 0, 0, 1, 0, 0)
@@ -762,6 +789,8 @@ export default function isoView(kit: Kit): View {
       if (def.look === 'lab') return t === '#' || t === '%' || t === '^' ? 8 * materialId(top ? 'plates' : 'steel') : 0
       if (kind === 'overworld') {
         if (t === 'H' || t === 'M' || t === 'D') return 8 * materialId(top ? 'shingles' : 'siding')
+        // (A cracked face keeps the classic picture: the rock's material would take every colour of the crack.)
+        if (t === '%' && !top) return 0
         if (t === '#' || t === '%' || t === '^') return 8 * materialId(top ? (def.look === 'wild' ? 'moss' : 'grass') : 'rockface')
         return 0
       }
@@ -858,7 +887,7 @@ export default function isoView(kit: Kit): View {
           const zS = hz + slope * roofSouth(tx, ty)
           const zN = zS + slope
           quad(tx, fy, zN, 0, tx + 1, fy, zN, 0, tx + 1, fy + 1, zS, 0, tx, fy + 1, zS, 0, sx, sy, sx + T, sy + T, 5, builtOf(t, true), slope)
-          if (shp.sides && !(shapeAt(tx + 1, ty).k === 'top' && inRoom(tx + 1, ty))) {
+          if (shp.sides && !(shapeAt(tx + 1, ty) === ROOF && inRoom(tx + 1, ty))) {
             // The gable over the east wall: a plain patch of the wall's own picture, up to the roof.
             const fr = faceRow(tx, ty, 1)
             const gy = ((fr < 0 ? ty : fr) - R.y) * T
@@ -966,6 +995,7 @@ export default function isoView(kit: Kit): View {
     }
     let used = 1
     standing.length = 0
+    bearers.length = 0
     let ghost: { start: number; count: number } | null = null
     for (let n = 0; n < small.length + large.length; n++) {
       const big = n >= small.length
@@ -1003,6 +1033,7 @@ export default function isoView(kit: Kit): View {
         quad(it.x - hw, ay - d, hz, 0, it.x + hw, ay - d, hz, 0, it.x + hw, ay, hz, 0, it.x - hw, ay, hz, 0, pu, pv, pu + 1, pv + 1, 0, 1)
         quad(it.x + hw, ay - d, hz, 0, it.x + hw, ay, hz, 0, it.x + hw, ay, 0, 0, it.x + hw, ay - d, 0, 0, pu, pv, pu + 1, pv + 1, 2, 1, eastShade, 0, 1)
         cards.push({ x: it.x, y: ay - d / 2, tall: Math.min(1.4, hz * 0.7), wide: Math.min(0.9, hw), dark: 0.85 })
+        bearers.push(it.x, ay)
         continue
       }
       if (it.wall) {
@@ -1177,9 +1208,9 @@ export default function isoView(kit: Kit): View {
         // The classic picture puts a carried light up the screen from its bearer's feet: a lantern in a hand,
         // a cabinet's screen, a fire's heart. Here that is height, over the feet it belongs to.
         let best = 2
-        for (let i = 0; i < standing.length; i += 2) {
-          const up = standing[i + 1]! - L.y
-          if (Math.abs(standing[i]! - L.x) < 0.4 && up > 0.05 && up < best) { best = up; p[0] = standing[i]!; p[1] = standing[i + 1]!; p[2] = up }
+        for (const feet of [standing, bearers]) for (let i = 0; i < feet.length; i += 2) {
+          const up = feet[i + 1]! - L.y
+          if (Math.abs(feet[i]! - L.x) < 0.4 && up > 0.05 && up < best) { best = up; p[0] = feet[i]!; p[1] = feet[i + 1]!; p[2] = up }
         }
       }
       placed.push({ x: p[0], y: p[1], z: p[2], r: L.r, c: rgb(L.color), a: Math.max(0, Math.min(1, L.a)) })
@@ -1260,7 +1291,7 @@ export default function isoView(kit: Kit): View {
     const elev = Math.atan2(1, Math.max(0.05, par.shadowLength as number))
     const look: Look = {
       soft: (par.smoothing as number) * Math.min(1, k * 2),
-      materials: (par.materials as number) * Math.max(0, Math.min(1, k * 2 - 0.6)),
+      materials: quality === 0 ? 0 : (par.materials as number) * Math.max(0, Math.min(1, k * 2 - 0.6)),
       fray: quality >= 2,
       bump: (par.relief as number) * k,
       round: (par.roundness as number) * k,
