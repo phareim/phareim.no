@@ -10,7 +10,7 @@ here; per-game detail lives in `docs/games/`.
 Per area:
 
 - `test:portal` — the town, every cabinet and link, the login console, the NEW LOOK stall, the newsstand, the coast road
-- `test:zelda` — Neon Shrine: exits, saves, a full run to the Sun Prism, the hero's look, audio (both chips), the Wildwood run, the views (the registry, the 16-bit view's camera, how tiles stand, the turn), the HUD skins
+- `test:zelda` — Neon Shrine: exits, saves, a full run to the Sun Prism, the hero's look, audio (both chips), the Wildwood run, the views (the registry, the 16-bit view's camera, how tiles stand, the turn, its materials and standing things), the HUD skins
 - `test:eschold` — the shared Escape tap/hold state machine
 - `test:tetris` — Russian Block Game gestures (tap, direction lock, drop, soft drop, hold)
 - `test:leaderboard` — Hall of Fame names and game list
@@ -129,7 +129,7 @@ Measured 2026-09-30 (4× CPU, 1.6 Mbps, 150 ms RTT, cold): 296 KB over the wire 
 
 The portal makes one more request after mount, to studio.phareim.no for the live art (`render/live.ts`): small, never awaited, and not in the 296 KB above.
 
-A visit starts in the classic view. A browser that turns to the 16-bit view adds to that number (not measured again over the wire; gzip sizes of the built files): the view's own chunk, fetched when the view is chosen (the GPU engine with its shaders, the plants, the backdrop, the modelled hero and the land beyond the edge, 51 KB), about 14 KB more in the world's chunks (the second sound chip, the hi-res HUD and its font, the HTML dress) and the second pixel font (2 KB). The view's chunk stays out of the entry (`tests/zelda-views.test.mjs`); a browser that never chooses the 16-bit view does not fetch it.
+A visit starts in the classic view. A browser that turns to the 16-bit view adds to that number (not measured again over the wire; gzip sizes of the built files): the view's own chunk, fetched when the view is chosen (the GPU engine with its shaders, the plants, the materials, the standing things, the backdrop, the modelled hero and the land beyond the edge, 62 KB), about 14 KB more in the world's chunks (the second sound chip, the hi-res HUD and its font, the HTML dress) and the second pixel font (2 KB). The view's chunk stays out of the entry (`tests/zelda-views.test.mjs`); a browser that never chooses the 16-bit view does not fetch it.
 
 ## Config, geo and auth
 

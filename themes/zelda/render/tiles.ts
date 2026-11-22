@@ -273,6 +273,34 @@ function paintBase(kind: MapKind, g: G, t: TileChar, px: number, py: number, tx:
   }
 }
 
+/** What a tile's ground is made of, as `paintBase` paints it: the 16-bit view lays its own materials by this (`iso/materials.ts`). */
+export type GroundKind = 'grass' | 'path' | 'sand' | 'floor' | 'boards' | null
+
+export function groundKindOf(kind: MapKind, t: TileChar, at: At): GroundKind {
+  const ground: GroundKind = kind === 'overworld' ? 'grass' : kind === 'dungeon' ? 'floor' : 'boards'
+  switch (t) {
+    case '~': case '=': case '#': case '%': case '^': case 'f': case 'O':
+      return null
+    case ',': case 'i':
+      if (t === 'i' && (kind !== 'interior' || (at(-1, 0) !== ',' && at(1, 0) !== ',' && at(-1, 0) !== 'i'))) return ground
+      return kind === 'overworld' ? 'path' : kind === 'interior' ? null : 'floor'
+    case '-':
+      return 'sand'
+    case '¤':
+      return kind === 'overworld' ? 'path' : ground
+    default: {
+      if (kind === 'overworld' && (t === 'D' || t === '>')) return 'path'
+      if (kind === 'overworld' && t !== '.' && t !== ':' && t !== ';') {
+        if (onSand(at)) return 'sand'
+        let n = 0
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) if (at(dx, dy) === ',') n++
+        if (n >= 2) return 'path'
+      }
+      return ground
+    }
+  }
+}
+
 /** A ravine in the open: rock walls falling away into the dark, a glint of neon far below. */
 function chasm(g: G, px: number, py: number, tx: number, ty: number, at: At) {
   // Depth: lighter near the rims.

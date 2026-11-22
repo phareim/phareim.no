@@ -122,6 +122,10 @@ switch (scene) {
   case 'r-sword': give(); run(20); break
   case 'r-rich': give(); s.inv.bits = 4321; run(20); break
   case 'r-arcade': place('arcade', 'door'); run(20); break
+  // The VIP room: a counter that turns a corner, the back bar, the velvet floor.
+  case 'r-vip': place('vip', 'door', 0, -3); run(20); break
+  // The fence round Horizon Lab, where it turns a corner.
+  case 'w-fence': wild(true); go('wildwood', 47.5, 25.5, 'up'); run(30); break
   case 'r-fighter': place('arcade', 'pizzarescue'); run(5); break
   case 'r-nova': place('arcade', 'nova'); run(5); break
   case 'r-horizon': place('arcade', 'horizon'); run(5); break
@@ -231,6 +235,8 @@ const SHOTS = [
   ['r-sword-app-390', 'r-sword', 390, 844, 3, 47],
   ['intro-app-390', 'intro', 390, 844, 3, 47],
   ['r-arcade-1280', 'r-arcade', 1280, 800, 1, 0],
+  ['r-vip-1280', 'r-vip', 1280, 800, 1, 0],
+  ['w-fence-1280', 'w-fence', 1280, 800, 1, 0],
   ['r-arcade-390', 'r-arcade', 390, 844, 3, 0],
   ['r-fighter-1280', 'r-fighter', 1280, 800, 1, 0],
   ['r-fighter-390', 'r-fighter', 390, 844, 3, 0],

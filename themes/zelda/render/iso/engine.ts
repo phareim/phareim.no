@@ -20,6 +20,10 @@ export const BVERT = 5
 
 export interface Look {
   soft: number
+  /** How much of the ground is this view's own materials (0: the classic ground). */
+  materials: number
+  /** Borders between two grounds wander and fray (a few more lookups a px: off on a device that is short of them). */
+  fray: boolean
   bump: number
   round: number
   emit: number
@@ -32,6 +36,8 @@ export interface Look {
   shadowLen: number
   shadow: number
   shadowTint: [number, number, number]
+  /** The sun's own light on what faces it: its colour times its strength (black: one even light). */
+  sunColor: [number, number, number]
   shading: number
   rim: number
   ao: number
@@ -86,6 +92,8 @@ export interface FrameIn {
   fade: number
   /** The hero's own vertices, drawn once more where something stands in front of them. */
   ghost: { start: number; count: number } | null
+  /** The vertices of the things built for this view, which bring a depth for every pixel (they end the list). */
+  deep: { start: number; count: number } | null
   /** Mosaic block in hi-res px (1: none), the scanline wave's reach in px, the iris (device px: x, y, radius; a negative radius is open). */
   mosaic: number
   wave: number
@@ -119,8 +127,12 @@ export interface Engine {
   flora(albedo: HTMLCanvasElement, normal: HTMLCanvasElement): void
   /** The hero's figure (`figure.ts`), w × h px: its colours with a straight alpha, and its normals with its glow in their alpha. */
   figure(albedo: Uint8ClampedArray, normal: Uint8ClampedArray, w: number, h: number): void
-  /** Per tile: r = height of what stands there / 4, g = 1 for water, b = how wet the ground is. */
+  /** The things built for this view (`props.ts`), in the figure's two pictures. */
+  props(albedo: Uint8ClampedArray, normal: Uint8ClampedArray, w: number, h: number): void
+  /** Per tile: r = height of what stands there / 4, g = 1 for water, b = how wet the ground is, a = its material (`materials.ts`, 0: as painted). */
   tiles(data: Uint8Array, w: number, h: number): void
+  /** The ground's materials side by side (`materials.ts`): colour, and height in the alpha. */
+  materials(data: Uint8ClampedArray, w: number, h: number): void
   draw(f: FrameIn): void
   /**
    * Are the shaders built? 'wait' while the driver compiles them off the main thread; 'failed' when this GPU
@@ -156,6 +168,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
   const float = !!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float')
 
   const geom = program(gl, S.GEOM_VS, S.GEOM_FS, S.GEOM_ATTRIBS)
+  const geomDeep = program(gl, S.GEOM_VS, S.GEOM_DEEP_FS, S.GEOM_ATTRIBS)
   const ground = program(gl, S.GROUND_VS, S.GROUND_FS, ['aPos'])
   const lightP = program(gl, S.LIGHT_VS, S.LIGHT_FS, S.LIGHT_ATTRIBS)
   const blobP = program(gl, S.BLOB_VS, S.BLOB_FS, S.BLOB_ATTRIBS)
@@ -164,7 +177,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
   const brightP = program(gl, S.QUAD_VS, S.BRIGHT_FS, ['aPos'])
   const blurP = program(gl, S.QUAD_VS, S.BLUR_FS, ['aPos'])
   const finishP = program(gl, S.QUAD_VS, S.FINISH_FS, ['aPos'])
-  const programs = [geom, ground, lightP, blobP, litP, compP, brightP, blurP, finishP]
+  const programs = [geom, geomDeep, ground, lightP, blobP, litP, compP, brightP, blurP, finishP]
   let built: 'yes' | 'wait' | 'failed' = 'wait'
 
   // --- buffers ---------------------------------------------------------------
@@ -212,6 +225,9 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
   const fxT = texture(gl, 1, 1)
   const skyT = texture(gl, 1, 1, { linear: false })
   const floraT = texture(gl, 1, 1)
+  const matT = texture(gl, 1, 1)
+  const propsT = texture(gl, 1, 1)
+  const propsNT = texture(gl, 1, 1)
   const floraNT = texture(gl, 1, 1)
   const figT = texture(gl, 1, 1)
   const figNT = texture(gl, 1, 1)
@@ -303,39 +319,60 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.uniform1f(ground.u('uSoft'), look.soft)
     g.uniform1f(ground.u('uBump'), look.bump)
     g.uniform1f(ground.u('uEmit'), look.emit)
+    g.uniform1f(ground.u('uMaterials'), matT.w > 1 ? look.materials : 0)
+    g.uniform1f(ground.u('uOutdoors'), f.outdoors ? 1 : 0)
+    g.uniform1f(ground.u('uTime'), f.time)
+    g.uniform1f(ground.u('uWind'), look.wind)
+    g.uniform1f(ground.u('uFray'), look.fray ? 1 : 0)
     bindTex(g, 0, flatT, ground.u('uFlat'))
     bindTex(g, 1, tilesT, ground.u('uTiles'))
+    bindTex(g, 2, matT, ground.u('uMats'))
     groundVerts.set([R.x, R.y, R.x + R.w, R.y, R.x, R.y + R.h, R.x + R.w, R.y + R.h])
     g.bindVertexArray(groundB.vao)
     fill(groundB, groundVerts, 8)
     g.drawArrays(g.TRIANGLE_STRIP, 0, 4)
 
     if (f.vertCount > 0) {
-      g.useProgram(geom.p)
-      camera(geom, cam)
-      g.uniform1f(geom.u('uTime'), f.time)
-      g.uniform3f(geom.u('uHero'), f.hero.x, f.hero.y, look.wind)
-      g.uniform1f(geom.u('uSoft'), look.soft)
-      g.uniform1f(geom.u('uBump'), look.bump)
-      g.uniform1f(geom.u('uRound'), look.round)
-      g.uniform1f(geom.u('uEmit'), look.emit)
-      // A billboard faces the viewer, tipped up a little so the ground's light reaches it.
-      const vn = Math.hypot(cam.dv[0], cam.dv[1], cam.dv[2] * 0.55) || 1
-      g.uniform3f(geom.u('uViewN'), cam.dv[0] / vn, cam.dv[1] / vn, (cam.dv[2] * 0.55) / vn)
-      const rn = Math.hypot(cam.inv[0], cam.inv[2]) || 1
-      g.uniform3f(geom.u('uRight'), cam.inv[0] / rn, cam.inv[2] / rn, 0)
-      bindTex(g, 0, objsT, geom.u('uObjs'))
-      bindTex(g, 1, atlasT, geom.u('uAtlas'))
-      bindTex(g, 2, floraT, geom.u('uFlora'))
-      bindTex(g, 3, floraNT, geom.u('uFloraN'))
-      bindTex(g, 4, figT, geom.u('uFig'))
-      bindTex(g, 5, figNT, geom.u('uFigN'))
+      const use = (p: Program) => {
+        g.useProgram(p.p)
+        camera(p, cam)
+        g.uniform1f(p.u('uTime'), f.time)
+        g.uniform3f(p.u('uHero'), f.hero.x, f.hero.y, look.wind)
+        g.uniform1f(p.u('uSoft'), look.soft)
+        g.uniform1f(p.u('uBump'), look.bump)
+        g.uniform1f(p.u('uRound'), look.round)
+        g.uniform1f(p.u('uEmit'), look.emit)
+        // A billboard faces the viewer, tipped up a little so the ground's light reaches it.
+        const vn = Math.hypot(cam.dv[0], cam.dv[1], cam.dv[2] * 0.55) || 1
+        g.uniform3f(p.u('uViewN'), cam.dv[0] / vn, cam.dv[1] / vn, (cam.dv[2] * 0.55) / vn)
+        const rn = Math.hypot(cam.inv[0], cam.inv[2]) || 1
+        g.uniform3f(p.u('uRight'), cam.inv[0] / rn, cam.inv[2] / rn, 0)
+        bindTex(g, 0, objsT, p.u('uObjs'))
+        bindTex(g, 1, atlasT, p.u('uAtlas'))
+        bindTex(g, 2, floraT, p.u('uFlora'))
+        bindTex(g, 3, floraNT, p.u('uFloraN'))
+        bindTex(g, 4, figT, p.u('uFig'))
+        bindTex(g, 5, figNT, p.u('uFigN'))
+        bindTex(g, 6, matT, p.u('uMats'))
+        bindTex(g, 7, propsT, p.u('uProps'))
+        bindTex(g, 8, propsNT, p.u('uPropsN'))
+        g.uniform1f(p.u('uMaterials'), matT.w > 1 ? look.materials : 0)
+        // One px of a thing toward the viewer along the ground, in depth: a px is 1/32 of a tile at k = 1.
+        g.uniform1f(p.u('uDeep'), ((cam.dv[0] + cam.dv[1] + cam.dv[2]) * cam.dInv) / 32)
+        g.uniform1f(p.u('uGhost'), 0)
+        g.uniform4f(p.u('uVeil'), f.veil[0], f.veil[1], f.veil[2], f.veil[3])
+        g.uniform1f(p.u('uSceneH'), cam.sh)
+      }
+      const deep = f.deep && f.deep.count > 0 ? f.deep : null
+      use(geom)
       g.bindVertexArray(geomB.vao)
       fill(geomB, f.verts, f.vertCount * VERT)
-      g.uniform1f(geom.u('uGhost'), 0)
-      g.uniform4f(geom.u('uVeil'), f.veil[0], f.veil[1], f.veil[2], f.veil[3])
-      g.uniform1f(geom.u('uSceneH'), cam.sh)
-      g.drawArrays(g.TRIANGLES, 0, f.vertCount)
+      g.drawArrays(g.TRIANGLES, 0, deep ? deep.start : f.vertCount)
+      if (deep) {
+        use(geomDeep)
+        g.drawArrays(g.TRIANGLES, deep.start, deep.count)
+        use(geom)
+      }
       if (f.ghost && f.ghost.count > 0) {
         g.depthFunc(g.GREATER)
         g.depthMask(false)
@@ -407,6 +444,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.uniform1f(litP.u('uShadowLen'), look.shadowLen)
     g.uniform1f(litP.u('uShadow'), look.shadow)
     g.uniform3f(litP.u('uShadowTint'), look.shadowTint[0], look.shadowTint[1], look.shadowTint[2])
+    g.uniform3f(litP.u('uSunColor'), look.sunColor[0], look.sunColor[1], look.sunColor[2])
     g.uniform1f(litP.u('uShading'), look.shading)
     g.uniform1f(litP.u('uRim'), look.rim)
     g.uniform1f(litP.u('uAo'), look.ao)
@@ -500,6 +538,22 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.bindVertexArray(null)
   }
 
+  /** A modelled picture and its normals, from typed arrays. */
+  function modelled(colour: Tex, normals: Tex, albedo: Uint8ClampedArray, normal: Uint8ClampedArray, w: number, h: number) {
+    for (const [t, data] of [[colour, albedo], [normals, normal]] as const) {
+      gl.bindTexture(gl.TEXTURE_2D, t.t)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+      // Colour and alpha as they are: the shader multiplies, and a normal's alpha is its glow.
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+      if (t.w !== w || t.h !== h) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
+        t.w = w
+        t.h = h
+      } else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data)
+    }
+  }
+
   return {
     canvas,
     directional,
@@ -509,19 +563,17 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     fx: c => upload(gl, fxT, c),
     sky: c => upload(gl, skyT, c),
     flora(albedo, normal) { upload(gl, floraT, albedo); upload(gl, floraNT, normal) },
-    figure(albedo, normal, w, h) {
-      for (const [t, data] of [[figT, albedo], [figNT, normal]] as const) {
-        gl.bindTexture(gl.TEXTURE_2D, t.t)
-        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
-        // Colour and alpha as they are: the shader multiplies, and a normal's alpha is its glow.
-        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
-        if (t.w !== w || t.h !== h) {
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
-          t.w = w
-          t.h = h
-        } else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data)
-      }
+    props(albedo, normal, w, h) { modelled(propsT, propsNT, albedo, normal, w, h) },
+    figure(albedo, normal, w, h) { modelled(figT, figNT, albedo, normal, w, h) },
+    materials(data, w, h) {
+      gl.bindTexture(gl.TEXTURE_2D, matT.t)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+      // The alpha is a height, not a cover: nothing is multiplied into the colour.
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
+      matT.w = w
+      matT.h = h
     },
     tiles(data, w, h) {
       for (const t of [tilesT, tilesLinT] as Tex[]) {

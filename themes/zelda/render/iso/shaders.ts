@@ -117,6 +117,27 @@ vec4 art(sampler2D t, vec2 uv, float soft, out vec2 grad, out vec2 edge) {
 }
 `
 
+/**
+ * The materials of the 16-bit view (materials.ts), side by side in one atlas, 128 texels each: colour, and
+ * in the alpha how high the texel stands.
+ */
+const MATS = `
+uniform sampler2D uMats;
+uniform float uMaterials;
+vec4 matTexel(int m, ivec2 t) { return texelFetch(uMats, ivec2((m - 1) * 128 + (t.x & 127), t.y & 127), 0); }
+/**
+ * The slope of a material's height on the ground at texel t (toward east, toward south). The turned view
+ * shows a scene row's texels in pairs, so the slope is read across the scene's own px (right, left, down,
+ * up of the pair): read along u and v, the two of a pair would disagree and every line would be dotted.
+ */
+vec2 matSlope(int m, ivec2 t) {
+  if (((t.x + t.y) & 1) != 0) t.x -= 1;
+  float dx = (matTexel(m, t + ivec2(1, 0)).a - matTexel(m, t + ivec2(0, 1)).a) * 0.5;
+  float dy = (matTexel(m, t + ivec2(1, 1)).a - matTexel(m, t + ivec2(-1, -1)).a) * 0.5;
+  return vec2(dx + 0.5 * dy, 0.5 * dy - dx);
+}
+`
+
 /** How much a colour is neon: bright and saturated. Neon shines by itself. */
 const NEON = `
 float neon(vec3 c) {
@@ -167,11 +188,14 @@ void main() {
 
 /**
  * aMeta: x = kind, y = which picture, z = shade (0 as painted .. 1 dark), w = how far down a side (0 top .. 1 foot).
- * Kinds: 0 lies flat (a roof, a wall's top), 1 faces south, 2 faces east,
- * 3 a billboard facing the viewer, 4 a thing on a south wall, 7 a plant.
- * Pictures: 0 the map's standing things, 1 the atlas of people and things, 2 the plants, 3 the hero's figure.
+ * Kinds: 0 lies flat (a wall's top), 1 faces south, 2 faces east,
+ * 3 a billboard facing the viewer, 4 a thing on a south wall, 5 a roof that rises toward the north
+ * (z = its pitch), 7 a plant.
+ * Pictures: 0 the map's standing things, 1 the atlas of people and things, 2 the plants, 3 the hero's figure,
+ * 4 the things built for this view (props.ts);
+ * y also carries 8 × the material a roof or a wall is made of (materials.ts, 0: as painted).
  */
-export const GEOM_FS = HEAD + COMMON + ART + NEON + `
+const GEOM_BODY = COMMON + ART + NEON + MATS + `
 in vec2 vUV;
 in vec4 vMeta;
 in vec3 vWorld;
@@ -184,6 +208,9 @@ uniform sampler2D uFlora;
 uniform sampler2D uFloraN;
 uniform sampler2D uFig;
 uniform sampler2D uFigN;
+uniform sampler2D uProps;
+uniform sampler2D uPropsN;
+uniform float uDeep;
 uniform float uSoft;
 uniform float uBump;
 uniform float uRound;
@@ -194,15 +221,41 @@ uniform float uGhost;
 layout(location = 0) out vec4 o0;
 layout(location = 1) out vec4 o1;
 layout(location = 2) out vec4 o2;
+/** Is this colour of the classic art the bare roof, wall or rock that material m replaces, and not a window, a door, a sign? */
+bool fitsBuilt(int m, vec3 c) {
+  float l = luma(c);
+  if (m == 1 || m == 6) return c.b > c.r + 0.05 && c.g > c.r + 0.03 && l < 0.78;
+  if (m == 8) return c.r > c.g + 0.18 && c.b > c.g + 0.1 && c.r > c.b && c.r < 0.9 && l < 0.62;
+  if (m == 12 || m == 14) return c.b > c.r + 0.05 && l < 0.22;
+  if (m == 15) return c.b > c.r + 0.04 && c.g >= c.r && l < 0.16;
+  if (m == 16) return c.b > c.r + 0.1 && c.g > c.r + 0.02 && l > 0.14 && l < 0.5 && c.b < 0.7;
+  return c.b > c.r + 0.06 && c.r > c.g + 0.015 && l < 0.55 && c.b < 0.75;
+}
 void main() {
+#ifdef DEEP
+  gl_FragDepth = gl_FragCoord.z;
+#endif
   int kind = int(vMeta.x + 0.5);
-  int pic = int(vMeta.y + 0.5);
+  int code = int(vMeta.y + 0.5);
+  int pic = code & 7;
+  int built = code >> 3;
   vec2 grad;
   vec2 edge;
   vec4 c;
   if (pic == 0) c = art(uObjs, vUV, uSoft, grad, edge);
   else if (pic == 1) c = art(uAtlas, vUV, uSoft, grad, edge);
   else if (pic == 2) { c = px(uFlora, ivec2(floor(vUV))); grad = vec2(0.0); edge = vec2(0.0); }
+  // A thing built for this view (props.ts), a pixel to the pixel like the figure.
+  else if (pic == 4) {
+    c = px(uProps, ivec2(floor(vUV)));
+    if (c.a <= 0.0) discard;
+#ifdef DEEP
+    // Its alpha says how far toward the viewer this pixel's surface lies from the card it is drawn on: with
+    // a depth of its own, a counter stands in the ground and behind whoever stands in front of it.
+    gl_FragDepth = gl_FragCoord.z - (c.a * 255.0 - 128.0) / 4.0 * uDeep;
+#endif
+    c.a = 1.0; grad = vec2(0.0); edge = vec2(0.0);
+  }
   else {
     // The hero's own picture (figure.ts), a pixel to the pixel; its colour comes without its alpha in it.
     c = px(uFig, ivec2(floor(vUV))); c.rgb *= c.a; grad = vec2(0.0); edge = vec2(0.0);
@@ -237,7 +290,10 @@ void main() {
   vec3 N; vec3 Tu; vec3 Tv;
   float mat = 2.0;
   float glow = 0.0;
+  // (A roof that slopes carries its pitch where a side carries its shade: tiles up per tile north.)
+  bool lies = kind == 0 || kind == 5;
   if (kind == 0) { N = vec3(0, 0, 1); Tu = vec3(1, 0, 0); Tv = vec3(0, 1, 0); }
+  else if (kind == 5) { N = normalize(vec3(0.0, vMeta.z, 1.0)); Tu = vec3(1, 0, 0); Tv = normalize(vec3(0.0, 1.0, -vMeta.z)); }
   else if (kind == 1 || kind == 4) { N = vec3(0, 1, 0); Tu = vec3(1, 0, 0); Tv = vec3(0, 0, -1); }
   else if (kind == 2) { N = vec3(1, 0, 0); Tu = vec3(0, 1, 0); Tv = vec3(0, 0, -1); }
   else { N = uViewN; Tu = uRight; Tv = vec3(0, 0, -1); mat = 3.0; }
@@ -247,9 +303,9 @@ void main() {
     vec3 m = px(uFloraN, ivec2(floor(vUV))).rgb * 2.0 - 1.0;
     n = normalize(m.x * Tu + m.y * vec3(0, 0, 1) + m.z * N);
     mat = 4.0;
-  } else if (pic == 3) {
-    // The hero is modelled: every pixel knows which way it faces, and how much it glows by itself.
-    vec4 m = px(uFigN, ivec2(floor(vUV)));
+  } else if (pic >= 3) {
+    // The hero and the things are modelled: every pixel knows which way it faces, and how much it glows by itself.
+    vec4 m = pic == 3 ? px(uFigN, ivec2(floor(vUV))) : px(uPropsN, ivec2(floor(vUV)));
     vec3 q = m.rgb * 2.0 - 1.0;
     n = normalize(q.x * Tu + q.y * vec3(0, 0, 1) + q.z * N);
     glow = m.a;
@@ -276,9 +332,51 @@ void main() {
       n -= uRound * (e.x * Tu + e.y * Tv);
     }
     n = normalize(n);
+    if (built > 0 && uMaterials > 0.0 && (kind <= 2 || kind == 5) && c.a > 0.999 && fitsBuilt(built, c.rgb)) {
+      // A roof, a wall, a cliff in this view's own material (materials.ts). A top is laid like the ground;
+      // a face runs along the wall and up it. At k = 1 every scene px has a texel of its own either way.
+      vec2 tq = lies ? floor(vWorld.xy * 32.0 + vec2(0.0, 0.5)) : floor(vec2((kind == 1 ? vWorld.x : vWorld.y) * 32.0, vWorld.z * 32.0));
+      ivec2 ti = ivec2(mod(tq, 128.0));
+      vec4 t0 = matTexel(built, ti);
+      // On a face the texels stand in the scene's own columns: the slope is read along the wall and up it.
+      vec2 sl = lies ? matSlope(built, ti) : vec2(matTexel(built, ti + ivec2(1, 0)).a, matTexel(built, ti + ivec2(0, 1)).a) - t0.a;
+      // A wall's top that is turf lies a step darker than the lawn below it, so the levels read.
+      float tone = built == 1 || built == 6 ? 0.86 : built == 15 ? 0.66 : 1.0;
+      c.rgb = mix(c.rgb, t0.rgb * tone, uMaterials);
+      vec3 Tb = lies ? Tv : -Tv;
+      vec3 mn = normalize(N - sl.x * 1.6 * uBump * Tu - sl.y * 1.6 * uBump * Tb);
+      n = normalize(mix(n, mn, uMaterials));
+    }
+  }
+  // The outermost scene px of a figure or a thing, and which way it faces: where the low sun or a lamp
+  // stands behind it, that px is light (the lit pass decides), the contour a 16-bit sprite has toward the
+  // light and the classic one has no room for.
+  float rimPx = 0.0;
+  if (kind == 3 && (pic < 2 || pic == 4) && glow < 0.5) {
+    ivec2 i = ivec2(floor(vUV));
+    // (A classic sprite is two scene px to the texel: only the half of a texel at the edge is the edge.)
+    vec2 f = pic == 4 ? vec2(0.0) : vUV - vec2(i);
+    vec2 f2 = pic == 4 ? vec2(1.0) : f;
+    // (A thing's alpha is its depth: any of it is a pixel.)
+    float aL = pic == 0 ? px(uObjs, i + ivec2(-1, 0)).a : pic == 1 ? px(uAtlas, i + ivec2(-1, 0)).a : step(0.001, px(uProps, i + ivec2(-1, 0)).a);
+    float aR = pic == 0 ? px(uObjs, i + ivec2(1, 0)).a : pic == 1 ? px(uAtlas, i + ivec2(1, 0)).a : step(0.001, px(uProps, i + ivec2(1, 0)).a);
+    float aU = pic == 0 ? px(uObjs, i + ivec2(0, -1)).a : pic == 1 ? px(uAtlas, i + ivec2(0, -1)).a : step(0.001, px(uProps, i + ivec2(0, -1)).a);
+    float aD = pic == 0 ? px(uObjs, i + ivec2(0, 1)).a : pic == 1 ? px(uAtlas, i + ivec2(0, 1)).a : step(0.001, px(uProps, i + ivec2(0, 1)).a);
+    vec2 o = vec2(0.0);
+    if (aL < 0.5 && f.x < 0.5) o.x -= 1.0;
+    if (aR < 0.5 && f2.x >= 0.5) o.x += 1.0;
+    if (aU < 0.5 && f.y < 0.5) o.y -= 1.0;
+    if (aD < 0.5 && f2.y >= 0.5) o.y += 1.0;
+    if (o != vec2(0.0)) {
+      // A card faces the viewer, so its upper edge is the side turned away: toward what stands behind it.
+      // (That is where the low sun stands, at the top of the picture.)
+      rimPx = 1.0;
+      vec2 back = -normalize(uViewN.xy);
+      n = normalize(vec3(o.x * Tu.xy - o.y * back, 0.2));
+    }
   }
   // People wear neon too, but only signs and screens are lamps.
-  float em = pic == 3 ? glow * uEmit : neon(c.rgb) * uEmit * (pic == 1 ? 0.55 : 1.0);
+  float em = pic >= 3 ? glow * uEmit : neon(c.rgb) * uEmit * (pic == 1 ? 0.55 : 1.0);
   if (uGhost > 0.5) {
     // The hero behind a wall or a crown: every other px of them, the 16-bit way to see through.
     if (mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y), 2.0) < 1.0) discard;
@@ -286,7 +384,7 @@ void main() {
     em = 0.85;
   }
   // The sides nobody drew are the face again, darker toward the ground in dithered steps.
-  float shade = kind == 7 ? 0.0 : vMeta.z;
+  float shade = kind == 7 || kind == 5 ? 0.0 : vMeta.z;
   if (shade > 0.0) {
     float lv = vMeta.w * 4.0;
     float st = floor(lv) + step(bayer(gl_FragCoord.xy), fract(lv));
@@ -294,9 +392,16 @@ void main() {
   }
   o0 = vec4(c.rgb, 1.0);
   o1 = vec4(n * 0.5 + 0.5, clamp(vWorld.z / 4.0, 0.0, 1.0));
-  o2 = vec4(mat / 255.0, em, 0.0, 1.0);
+  o2 = vec4(mat / 255.0, em, rimPx, 1.0);
 }
 `
+
+export const GEOM_FS = HEAD + GEOM_BODY
+/**
+ * The same, writing each pixel's own depth: for the things built for this view. (A program that writes its
+ * depth cannot be culled before it runs, so only they are drawn with it.)
+ */
+export const GEOM_DEEP_FS = HEAD + '#define DEEP 1\n' + GEOM_BODY
 
 export const GROUND_VS = HEAD + PROJECT + `
 in vec2 aPos;
@@ -307,7 +412,7 @@ void main() {
 }
 `
 
-export const GROUND_FS = HEAD + COMMON + ART + NEON + `
+export const GROUND_FS = HEAD + COMMON + ART + NEON + MATS + `
 in vec2 vW;
 uniform sampler2D uFlat;
 uniform sampler2D uTiles;
@@ -316,11 +421,47 @@ uniform vec4 uRect;
 uniform float uSoft;
 uniform float uBump;
 uniform float uEmit;
+uniform float uOutdoors;
+uniform float uTime;
+uniform float uWind;
+uniform float uFray;
 uniform vec4 uRooms[2];
 uniform int uRoomCount;
 layout(location = 0) out vec4 o0;
 layout(location = 1) out vec4 o1;
 layout(location = 2) out vec4 o2;
+/** Is this colour of the classic ground material m's own ground, and not something drawn on it? */
+bool fits(int m, vec3 c) {
+  float l = luma(c);
+  if (m == 1 || m == 6) return c.b > c.r + 0.05 && c.g > c.r + 0.03 && l < 0.78;
+  if (m == 2 || m == 7) return c.r > c.g + 0.06 && c.b > c.g + 0.05 && l > 0.2 && l < 0.75;
+  if (m == 3) return c.r > c.g + 0.03 && c.r > c.b - 0.04 && l > 0.25 && l < 0.8;
+  if (m == 4) return c.b > c.r + 0.08 && abs(c.r - c.g) < 0.07 && l < 0.27;
+  if (m == 5) return c.r > c.g + 0.05 && c.b > c.g + 0.02 && c.r < 0.46 && l < 0.4;
+  if (m == 15) return c.b > c.r + 0.06 && c.g > c.r + 0.005 && l < 0.22 && c.b < 0.36;
+  return false;
+}
+/** The material of a ground px: its tile's, or the lawn where one grows in over a path or the sand. */
+int tileMat(vec2 w) { return int(px(uTiles, ivec2(floor(w - uOrg))).a * 255.0 + 0.5); }
+/**
+ * The material of the ground px at w: its tile's, or the lawn where one grows in over a path or the sand.
+ * (The classic art also rings a lamp or a sign on the square with lawn; there the paving goes on.)
+ */
+int materialOf(int m, vec3 c, vec2 w) {
+  if (m == 0) return 0;
+  if (fits(m, c)) return m;
+  int lawn = m == 7 ? 6 : 1;
+  if ((m == 2 || m == 3 || m == 7) && fits(lawn, c)) {
+    for (int i = 0; i < 4; i++) {
+      vec2 o = i == 0 ? vec2(0.22, 0.0) : i == 1 ? vec2(-0.22, 0.0) : i == 2 ? vec2(0.0, 0.22) : vec2(0.0, -0.22);
+      if (tileMat(w + o) == lawn) return lawn;
+    }
+    return m;
+  }
+  return 0;
+}
+/** How bright the classic art paints each material's ground. */
+float paintedLuma(int m) { return m == 1 ? 0.29 : m == 6 ? 0.23 : m == 2 || m == 7 ? 0.36 : m == 3 ? 0.54 : m == 4 ? 0.16 : m == 15 ? 0.15 : 0.21; }
 void main() {
   if (uRoomCount > 0) {
     bool inside = false;
@@ -333,12 +474,64 @@ void main() {
   }
   vec2 grad;
   vec2 edge;
-  vec4 c = art(uFlat, (vW - uRect.xy) * 16.0, uSoft, grad, edge);
+  vec2 uv = (vW - uRect.xy) * 16.0;
+  vec4 c = art(uFlat, uv, uSoft, grad, edge);
   if (c.a < 0.5) discard;
   vec2 g = clamp(grad, -0.35, 0.35) * uBump;
   vec3 n = normalize(vec3(-g.x, -g.y, 1.0));
   vec4 td = px(uTiles, ivec2(floor(vW - uOrg)));
   float mat = td.g > 0.5 ? 1.0 : 0.0;
+  int tm = int(td.a * 255.0 + 0.5);
+  if (uMaterials > 0.0 && tm > 0) {
+    // The ground in this view's own materials (materials.ts): 32 texels to the tile, read half a texel
+    // south of the grid, which at k = 1 gives every scene px a texel of its own (and keeps every px a
+    // quarter texel clear of a texel's edge, so no rounding decides).
+    vec2 tq = floor(vW * 32.0 + vec2(0.0, 0.5));
+    int m = materialOf(tm, c.rgb, vW);
+    vec2 at = uv;
+    if (m > 0 && uOutdoors > 0.5 && uFray > 0.5) {
+      // Where two grounds meet, the classic art has a staircase. Here the border wanders and frays a
+      // texel at a time: the px asks a little to one side what the ground is.
+      vec2 tp = vec2(tq.x - mod(tq.x + tq.y, 2.0), tq.y);
+      vec2 j = (vec2(vnoise(tp * 0.17 + 3.0), vnoise(tp * 0.17 + 41.0)) - 0.5) * 2.6 + (vec2(hash(tp), hash(tp + 17.0)) - 0.5) * 1.1;
+      vec2 uv2 = uv + j;
+      vec4 c2 = px(uFlat, ivec2(floor(uv2)));
+      vec2 w2 = uv2 / 16.0 + uRect.xy;
+      int m2 = c2.a < 0.5 ? 0 : materialOf(tileMat(w2), c2.rgb, w2);
+      if (m2 > 0) { m = m2; at = uv2; }
+    }
+    if (m > 0) {
+      // The classic ground's own light and dark, from a little way round: wet sand by the water stays darker,
+      // a lawn keeps a breath of its patches; its marks (a blade, a pebble) are the material's now.
+      float ref = paintedLuma(m);
+      float sum = 0.0;
+      float cnt = 0.0;
+      for (int i = 0; i < 5; i++) {
+        vec2 o = i == 0 ? vec2(0.0) : i == 1 ? vec2(3.0, 0.0) : i == 2 ? vec2(-3.0, 0.0) : i == 3 ? vec2(0.0, 3.0) : vec2(0.0, -3.0);
+        vec4 q = px(uFlat, ivec2(floor(at + o)));
+        if (q.a >= 0.5 && fits(m, q.rgb)) { sum += clamp(luma(q.rgb) / ref, 0.55, 1.3); cnt += 1.0; }
+      }
+      float tone = cnt > 0.0 ? sum / cnt : 1.0;
+      tone = mix(1.0, tone, m == 3 ? 0.9 : 0.4);
+      ivec2 ti = ivec2(mod(tq, 128.0));
+      vec4 t0 = matTexel(m, ti);
+      vec2 sl = matSlope(m, ti);
+      if ((m == 1 || m == 6) && uWind > 0.0 && t0.a > 0.5) {
+        // The wind goes over the lawn in gusts: the blades it bends catch the light, one band after another.
+        float gust = sin(dot(vW, vec2(0.9, 0.55)) * 1.4 - uTime * 1.3 + vnoise(vW * 0.45 + 9.0) * 5.0);
+        t0.rgb *= 1.0 + 0.4 * smoothstep(0.55, 0.95, gust) * min(1.0, uWind);
+      }
+      c.rgb = mix(c.rgb, t0.rgb * tone, uMaterials);
+      vec3 mn = normalize(vec3(-sl.x * 1.6 * uBump, -sl.y * 1.6 * uBump, 1.0));
+      n = normalize(mix(n, mn, uMaterials));
+    }
+  }
+  if (uMaterials > 0.0 && mat > 0.5 && c.b > c.r + 0.15 && luma(c.rgb) < 0.27) {
+    // Open water is one deep colour here: the classic art's grid and marks go, the composite pass
+    // lays the swell, the sky and the mirror on it. Banks and foam stay as painted.
+    c.rgb = mix(c.rgb, vec3(0.058, 0.17, 0.41), uMaterials);
+    n = normalize(mix(n, vec3(0.0, 0.0, 1.0), uMaterials));
+  }
   o0 = vec4(c.rgb, 1.0);
   o1 = vec4(n * 0.5 + 0.5, 0.0);
   // How wet the ground is here: pavement after rain, a polished floor.
@@ -484,6 +677,7 @@ uniform vec3 uSun;
 uniform float uShadowLen;
 uniform float uShadow;
 uniform vec3 uShadowTint;
+uniform vec3 uSunColor;
 uniform float uShading;
 uniform float uRim;
 uniform float uAo;
@@ -501,7 +695,7 @@ float heightAt(vec2 w) {
 }
 /** 1 where something stands between this point and the low sun. */
 float sunShadow(vec2 w, float z, float jit) {
-  float far = (2.05 - z) * uShadowLen;
+  float far = (2.0 - z) * uShadowLen;
   if (far <= 0.0 || uShadowLen <= 0.0) return 0.0;
   const int N = 22;
   float st = far / float(N);
@@ -542,6 +736,16 @@ void main() {
   // The sky's light, the low sun and what is in its shade.
   float shade = 0.0;
   float rim = 0.0;
+  float direct = 0.0;
+  // A figure's contour toward the light (the geometry pass marked its outermost px).
+  vec3 contour = vec3(0.0);
+  bool edgePx = mat == 3 && g2.b > 0.5;
+  if (edgePx && uRim > 0.0) {
+    // Toward the lamps: whichever way most of their light comes from here.
+    vec2 from = l1.xy + l1.zw + l2.xy;
+    float fl = length(from);
+    if (fl > 0.02) contour += irr * smoothstep(0.25, 0.7, dot(n.xy, from / fl)) * 1.6 * uRim;
+  }
   if (uOutdoors > 0.5) {
     float sunny = clamp(dot(n, uSun) / max(uSun.z, 0.05), 0.0, 1.6);
     // Leaves let the light through: a crown is never as dark as a wall's shaded side.
@@ -559,7 +763,11 @@ void main() {
       float cl = vnoise(cw) * 0.6 + vnoise(cw * 2.3 + 7.0) * 0.4;
       float cs = smoothstep(0.56, 0.68, cl + (dith - 0.5) * 0.05);
       shade = max(shade, cs * uClouds * 0.55);
+      lit *= 1.0 - cs * uClouds * 0.7;
     }
+    direct = lit;
+    // Toward the sun: a warm line down the side of everyone who stands in it.
+    if (edgePx) contour += uSunColor * smoothstep(0.3, 0.65, dot(n, normalize(vec3(uSun.xy, 0.3)))) * (1.0 - inShadow) * 2.4 * uRim;
   } else {
     // Indoors the light is the lamps'; what faces away from the room is dimmer.
     shade = uShading * (1.0 - clamp(n.z + 0.75 * max(n.y, n.x), 0.0, 1.0)) * 0.35;
@@ -578,8 +786,14 @@ void main() {
   amb += vec3(1.0, 0.72, 0.5) * rim * uRim * 0.5;
   vec3 light = min(amb + lamp, vec3(mix(1.0, 1.35, uK)));
   vec3 c = g0.rgb * light;
+  // The sun's own light: warm on what faces it and stands in no shade, and a little of it comes back
+  // off any colour (a teal lawn in a low sun is gold on top), which one light for everything never does.
+  // (Where the lamps already flood the ground, the eye has less room for it.)
+  c += mix(g0.rgb, vec3(luma(g0.rgb)), 0.25) * uSunColor * direct * (1.0 - 0.45 * occ) * (1.0 - 0.6 * smoothstep(0.35, 1.1, luma(lamp)));
   // Light hangs in the air over the ground it falls on: the classic view's glow, lying down.
-  c += (1.0 - exp(-irr * 1.2)) * 0.3 * uGlow * (mat >= 3 ? 0.6 : 1.0);
+  // (It is a pool over the ground: what stands well above it, a lantern, a crown, a roof, is out of it.)
+  c += (1.0 - exp(-irr * 1.2)) * 0.3 * uGlow * (mat >= 3 ? 0.6 : 1.0) * (1.0 - 0.85 * uK * smoothstep(0.45, 1.2, z));
+  c += contour * (0.6 + 0.5 * max(g0.rgb, vec3(luma(g0.rgb))));
   float em = g2.g;
   c = mix(c, g0.rgb * 1.08, em);
   o0 = vec4(c, em);
@@ -656,6 +870,10 @@ void main() {
     // The dusk lies on the water: its horizon in the shallows, its top out where it is deep.
     vec3 skyc = mix(uSkyHorizon, uSkyTop, 0.35 + 0.65 * deep);
     vec3 wcol = c * (1.0 - 0.16 * trough * uWater);
+    // In the shallows the bed shows through: the water is lighter and greener there, in two steps of a dither.
+    float shoal = (1.0 - smoothstep(0.55, 0.92, wet)) * uWater;
+    shoal = floor(shoal * 3.0 + bayer(s) * 0.99) / 3.0;
+    wcol = mix(wcol, wcol * vec3(1.05, 1.75, 1.45) + vec3(0.0, 0.035, 0.03), shoal * 0.75);
     wcol = mix(wcol, wcol * 0.72 + skyc * 0.26, uWater * (0.35 + 0.45 * deep));
     // What stands by the water, upside down in it.
     if (uMirror > 0.0) {
