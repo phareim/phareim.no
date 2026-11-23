@@ -127,7 +127,7 @@ export interface Renderer {
    * up out of the dark (`dawn`: a picture that is drawn once and left would keep the dark over it), and how many
    * views have been put away for throwing (`failed`: when it grows, the classic view has taken over).
    */
-  viewState(): { id: string; k: number; turn: number; turning: boolean; waiting: boolean; dark: boolean; dawn: boolean; failed: number }
+  viewState(): { id: string; k: number; turn: number; turning: boolean; waiting: boolean; dark: boolean; dawn: boolean; failed: number; sight: View['sight'] }
   /** The page is done with the renderer: every view lets go of what it holds. */
   dispose(): void
   /**
@@ -158,6 +158,12 @@ export interface View {
   ready?(hurry: boolean, s?: GameState): boolean
   /** Let go of what the view holds outside the page's own memory (a GPU context). */
   dispose?(): void
+  /**
+   * What the picture shows of the ground when it is not the classic rectangle and not the turned diamond (the
+   * polygon view looks north to its horizon): tiles from the hero `behind` to the south and `ahead` to the north,
+   * `across` wide at the hero's row and `spread` tiles wider on each side for every tile north. None: as `turn` says.
+   */
+  sight?: { ahead: number; behind: number; across: number; spread: number } | null
 }
 export type ViewFactory = (kit: Kit) => View
 
@@ -1653,7 +1659,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   function viewState() {
     const v = turn.shown ? views.get(turn.shown) : undefined
     const k = turned(turn.k)
-    return { id: turn.id, k, turn: v ? v.turn * ease(k) : 0, turning: turn.turning, waiting: turn.waiting, dark: nightEnds !== 0, dawn: dawnAt >= 0, failed }
+    return { id: turn.id, k, turn: v ? v.turn * ease(k) : 0, turning: turn.turning, waiting: turn.waiting, dark: nightEnds !== 0, dawn: dawnAt >= 0, failed, sight: v && k > 0 ? v.sight ?? null : null }
   }
 
   void cellIndex

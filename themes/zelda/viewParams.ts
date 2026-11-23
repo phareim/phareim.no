@@ -4,11 +4,11 @@
  * them as sliders and swatches, and `scripts/export-sprites.mjs` writes them
  * into the base the studio reads, so the two never disagree about a bound.
  *
- * An engine is the code that draws (`classic`, `iso`); a view
- * (`views.ts`) is an engine with a name and its own values. Two views are
+ * An engine is the code that draws (`classic`, `iso`, `poly`); a view
+ * (`views.ts`) is an engine with a name and its own values. Three views are
  * built in, one per engine with the values below; the studio may publish more.
  */
-export type EngineId = 'classic' | 'iso'
+export type EngineId = 'classic' | 'iso' | 'poly'
 
 /** `group`: the heading the studio files a value under, where an engine has many. */
 export type ParamSpec =
@@ -137,10 +137,63 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
       ...group('Day and night', DAY_PARAMS(true)),
     },
   },
+  poly: {
+    title: 'Polygon',
+    blurb: 'The world as low polygons in perspective, seen from a crane behind and above the hero, with a horizon: drawn the way a 1996 console drew, with small unfiltered textures that swim, corners that snap to the pixels, light worked out at the corners, 15-bit colour with a dither, and a world that dissolves a short way off. The land rolls in faceted knolls, ponds are round and the shore wanders.',
+    params: {
+      ...group('The glass', {
+        ...FINISH(0, 0.5, 0.45),
+        colors: choice('Colours', '15-bit', ['15-bit', 'full'], 'The machine’s 32 768 colours with an ordered dither between them, or every colour the screen has.'),
+      }),
+      ...group('The machine', {
+        affine: num('Texture warp', 1, 0, 1, 0.05, 'How far textures run straight across the screen between a triangle’s corners instead of in perspective: 1 is the swimming textures of a 1996 console, 0 a later machine’s.'),
+        wobble: num('Vertex wobble', 1, 0, 1, 0.05, 'How far every corner is pulled onto the pixel grid: 1 makes the polygons shiver as they move, 0 holds them still.'),
+        fray: num('Frayed borders', 1, 0, 1, 0.05, 'How far the border between two grounds frays, a texel at a time.'),
+        sound: choice('Sound', '16-bit', ['16-bit', '8-bit'], 'The music through the 16-bit machine’s sampled instruments and echo (a 32-bit sound of its own is not built yet), or the classic chip.'),
+        windows: choice('Windows', '32-bit', ['32-bit', 'classic'], 'The dialog box and panels: windows of dark glass with a bright edge, or the neon boxes of the classic view.'),
+        props: toggle('Built things', true, 'Lamp posts, graves, pots, rocks, signs, fences, pillars, counters, chests and crystal blocks as small meshes, and trees as stacked cones; off, the classic art stood up as cards.'),
+      }),
+      ...group('The camera', {
+        pose: choice('Camera', 'crane', ['crane', 'shoulder'], 'Crane: behind and above the hero, looking north (the 32-bit look). Shoulder: low behind the hero, the horizon across the upper half (the 64-bit look’s camera). A change is eased into.'),
+        pitch: num('Crane pitch', 25.4, 10, 60, 0.2, 'How far the crane looks down, degrees.'),
+        dist: num('Crane distance', 13.5, 4, 24, 0.1, 'From the crane to the hero, tiles.'),
+        fov: num('Crane lens', 50, 30, 80, 1, 'The field of view, degrees (the vertical one on a wide screen, the horizontal one on a tall one).'),
+        focusY: num('Hero on screen', 0.7, 0.4, 0.85, 0.01, 'Where the hero stands, from the top of the screen (0) to the bottom (1).'),
+        roomPitch: num('Room pitch', 32, 15, 70, 1, 'Indoors the camera has a pose of its own, lower and nearer: how far it looks down, degrees.'),
+        roomDist: num('Room distance', 9, 4, 16, 0.1, 'Indoors: from the camera to the middle of the room, tiles.'),
+        roomFov: num('Room lens', 52, 30, 80, 1),
+        roomFocus: num('Room on screen', 0.5, 0.3, 0.75, 0.01, 'Indoors: where the middle of the room lands on the screen, from the top (0) to the bottom (1).'),
+      }),
+      ...group('The land', {
+        hills: num('Hills', 1.2, 0, 2, 0.05, 'How tall the knolls between the roads, houses and walls grow, tiles. 0 is the flat classic land.'),
+        shore: num('Round shores', 1, 0, 1, 0.05, 'How far the shoreline leaves the tile edge: round corners on ponds and pools, a coast that wanders. 0 is the classic square water.'),
+        far: num('Far hills', 5, 0, 8, 0.1, 'How high the land beyond the map rises toward the horizon, tiles.'),
+        roofPitch: num('Roof pitch', 0.45, 0, 1, 0.05, 'How steeply a house’s roof rises from its eaves toward the back, tiles up for every tile in.'),
+      }),
+      ...group('The light', {
+        sunAngle: num('Sun direction', 205, 0, 360, 5, 'Where the low sun stands, in degrees on the ground (0 east, 90 south, 180 west, 270 north). Shadows fall the other way.'),
+        shadowLength: num('Shadow length', 1.6, 0.2, 4, 0.1, 'How far a thing one tile tall throws its shadow, in tiles: the sun’s height.'),
+        shadow: num('Shadow strength', 0.7, 0, 0.9, 0.05, 'How dark the sun’s shadows and the blobs under what stands are. 0 turns them off.'),
+        sunLight: color('Sunlight', '#ffae62', 'The low sun’s own colour on what faces it.'),
+        sunStrength: num('Sunlight strength', 0.8, 0, 1.5, 0.05, 'How much of the light outdoors is the sun’s own.'),
+        lampGain: num('Lamp light', 1.25, 0, 3, 0.05, 'How strongly the lamps light the ground and what faces them.'),
+        sideLight: num('Side light', 0.8, 0, 1, 0.05, 'How much a lamp lights only what faces it.'),
+      }),
+      ...group('The distance', {
+        drawDistance: num('Draw distance', 42, 10, 80, 1, 'How far from the eye the world is drawn, tiles; it dissolves in dithered steps toward the end.'),
+        haze: color('Distance colour', '#26163f', 'The colour the land takes on before it dissolves.'),
+        beyond: toggle('Land beyond the edge', true, 'Outdoors the land goes on past the map’s edge, rising toward the horizon.'),
+        sky: toggle('Dusk sky', true, 'The dusk in bands, the striped sun on the horizon and the ridges behind the land.'),
+        skyTop: color('Sky, top', '#1a0f4a'),
+        skyHorizon: color('Sky, horizon', '#ff5f9e'),
+      }),
+      ...group('Day and night', DAY_PARAMS(true)),
+    },
+  },
 }
 
 export function isEngineId(v: unknown): v is EngineId {
-  return v === 'classic' || v === 'iso'
+  return v === 'classic' || v === 'iso' || v === 'poly'
 }
 
 const HEX = /^#[0-9a-f]{6}$/i

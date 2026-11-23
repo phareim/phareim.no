@@ -58,11 +58,11 @@ a room. The state, the engine and the world are the same; a view is only how
 a frame is drawn. A view is a drawing **engine** with a name and its own
 values. `viewParams.ts` (pure) lists the engines and what can be turned on
 each (`ENGINES`: numbers with bounds, colours, choices, toggles): `classic`
-(the picture described under "Look" in `themes/zelda/DESIGN.md`) and `iso`, an
-isometric one. `views.ts` holds the round: one
-built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT), and whatever the studio published (below). **A visit starts in the
+(the picture described under "Look" in `themes/zelda/DESIGN.md`), `iso`, an
+isometric one, and `poly`, a polygon one (below). `views.ts` holds the round: one
+built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT, POLYGON · 32-BIT), and whatever the studio published (below). **A visit starts in the
 isometric 16-bit view** (`DEFAULT_VIEW` in `views.ts`), and the turn switch
-in the corner turns to the other. A view the visitor turns to is kept in localStorage
+in the corner turns to the next (V goes classic → isometric → polygon → classic). A view the visitor turns to is kept in localStorage
 `zelda.view` and is where their next visit starts; the view a visit merely
 starts in is not written, so a browser that never chose follows the site's
 first view, and one failed fetch of a view's code does not pin it to the
@@ -536,6 +536,184 @@ classic picture. `/?view=<id>` asks for one.
   `window.__lab` (`{ r, s, ui, world, step }`) for a script that wants to go
   on drawing. `scripts/zelda-lab/flora-sheet.mjs`, `materials-sheet.mjs`, `props-sheet.mjs` and `backdrop-sheet.mjs`
   render the plants, the materials, the standing things and the backdrop alone.
+
+**The polygon view** (`render/poly/`, 2026-11-23). The third way of drawing the
+world, the 32-bit look: the world as low polygons in perspective, seen from a
+crane behind and above the hero, with a horizon, drawn the way a 1996 console
+drew. It is engine `poly` and the third built-in view (POLYGON · 32-BIT, after
+the isometric one; a visit still starts in the isometric one), so the corner
+switch has three stops, the polygon one in its glass dress; `/?view=poly`
+starts in it. It plays the 16-bit sound (a 32-bit sound of its own is not
+built: value `sound`) and wears windows of its own (`GLASS_SKIN` in `hud.ts`:
+dark glass the world shows through, a soft gradient, a thin bright edge, a hard
+drop shadow; value `windows`, cross-faded through the turn as the isometric
+view does); the shell's HTML keeps its classic dress. A 64-bit look is meant to
+be the same engine with other values (camera at the shoulder, smooth shading,
+filtered textures, fog).
+
+- **The machine** (`engine.ts`, raw WebGL2 on `iso/gl.ts`). The scene is drawn
+  at the classic scene's own size (`kit.size()`: one px to the classic px) into
+  a canvas of its own, laid on `kit.scene()` over the sky, and finished by the
+  renderer's own `present` (the whole-number upscale, bloom, scanlines,
+  vignette, flash and fade) and `hudLayer`. What makes it that machine is in
+  one program, each part a value: textures read texel by texel, no mipmaps;
+  texture coordinates run straight across the screen between a triangle's
+  corners (affine, `affine`: uv·w and w go down the pipe and are divided again;
+  people and things, which that machine drew as sprites, are read straight);
+  every corner pulled onto a whole px in the vertex shader (`wobble`); the
+  light worked out at the corners from one normal a triangle, so the facets
+  show; 15-bit colour with a 4 × 4 ordered dither (`colors`); and a short draw
+  distance (`drawDistance`): from 62 % of it the world hazes toward the
+  distance's colour and dissolves in five dithered steps, and below the
+  horizon that colour stands where it has gone. No anti-aliasing.
+- **The camera** (`camera.ts`, pure, tested). A rig between poses: the classic
+  picture is a matrix (`classicMatrix`: height straight up the screen, depth
+  the classic painters' sort), a pose is a perspective aimed at the focus from
+  `dist` tiles at `pitch` with a lens shift that puts the focus `focusY` down
+  the screen, so what stands upright stays upright. `poseMatrix` divides by the
+  focus's distance (w is 1 there, as everywhere in the classic picture) and
+  `rigMatrix` mixes the two element by element under the turn's ease, so the
+  turn needs no camera of its own. `CRANE` (pitch 25.4°, 13.5 tiles, lens 50°,
+  the hero 70 % down: the horizon about a fifth of the way down, so the
+  backdrop, laid by its horizon, has its striped sun whole over the ridges) looks north, so `View.turn`
+  is 0 and the controls are the classic ones. Indoors the camera has a pose of
+  its own (`roomPitch` 32°, `roomDist` 9): on a wide screen it stands back as
+  far as the room's width needs, so the whole width is in the picture, and
+  follows the hero in depth; on a tall one it follows sideways and comes as
+  near as the room's depth needs to fill the picture, the back wall's top at
+  the top edge. A room's north and side walls stand two tiles tall: the lowest
+  course is the tile's own picture (its letters, signs, screens, shelves,
+  doors), the one over it the map's plain wall material (`bricks`, `panel`,
+  `steel`), in two steps darker toward the top. The south wall is a kerb on
+  its own row. Outside the room everything is dark: a wall has no floor of its
+  own, an interior's room ends at its south wall (the last row that is mostly
+  wall and door), and what has gone wholly into the ground is not drawn. On a screen taller than wide the lens is the horizontal one, and
+  `fitPose` tips the camera down and a little nearer by as much as the screen is
+  tall, so a phone sees ground, not sky. The view holds a pose and eases toward
+  the one its values ask for (`mixPose`), so a change of values (the `pose`
+  choice: `crane` or `shoulder`) is a camera move, never a cut.
+- **The land** (`terrain.ts`, pure, tested; this view only, the rules stay on
+  the grid). One height function a map: a lattice of four points a tile, two
+  triangles a cell split from the north-west corner, built in slices
+  (`landWork`). Outdoors it is worked out fully only within three tiles of a
+  shore; elsewhere its points lie on a coarse lattice's triangles (two a tile),
+  and `step` says which, so the mesh draws coarse cells there without a crack.
+  Knolls of value noise grow between what must stand level (`levelOf`: walls,
+  houses, doors, water's own tiles, bridges, furniture, and a tile and a half
+  round houses, doors and an exit's tiles stand at exactly 0), never steeper
+  than `SLOPE_MAX` (a min-plus pass over the lattice). The shore is a signed
+  distance to the water tiles, averaged over a small disc (so a corner rounds
+  and a straight edge stays), set bending in slow curves of about three and
+  eight tiles near the line only (up to `SHORE_MAX`, 0.45 tiles off the tile
+  edge; at a corner the bends give way to the rounding), and every tile's
+  middle is forced to the side the rules say. The water is one
+  plane at `waterLevel` (−0.18 tiles) and the land falls under it at the banks:
+  the drawn shoreline is where they meet, by the z-buffer. Beyond the map the
+  land goes on (rock there is the far hills, not a wall) and rises toward the
+  horizon behind the map, less at its sides, never in front. Rooms and
+  dungeons are level and their water falls away inside its tiles. Past 45 % of
+  the draw distance the far land bends up toward the horizon (in the vertex
+  shader, quadratic in the distance from the eye; what is placed on the picture
+  bends with it), so the world meets the sky as a ridge wherever the eye
+  stands, and the distance fades into the sky's own lowest colour. `stand` is
+  `lift` but never under the water's surface: whatever is placed stands there
+  (the hook reels the hero over water). `lift` scales
+  every height by the turn's ease: the mesh (a uniform), people and things,
+  lamps, shots and sparks (`place`), `setSpan`, shadows and the HUD's idea of
+  where the hero is.
+- **The world as polygons** (`mesh.ts`, pure, tested). Built in stretches of
+  16 × 16 tiles outdoors and a room at a time indoors, kept on the GPU, built
+  again when the map, the crystal blocks or a chest change. The ground is the
+  lattice. What stands follows `iso/shape.ts` (`polyShape`: a room's wall with
+  floor to its west stands, since this camera looks at it): a wall's top a row
+  south of its picture with the sides nobody drew as the face picture again and
+  darker, its face upright, a card upright on its foot; a house's roof one plane
+  from the eaves rising toward the back (`roofPitch`, its rise a part of the
+  height only k = 1 has, so the classic end lies on the classic art) with an
+  end wall and a gable of boards at either end. Walls, faces and roofs take
+  their pictures from the classic painters' tile layers drawn round the camera
+  each frame (with the live tiles and the decals, so the neon lettering on a
+  roof is there). Trees are built in code: three stacked seven-sided cones on a
+  trunk, a faceted blob now and then, a palm by the sand, coloured from the
+  classic painter's two canopy moods. Lamp posts, graves, pots, rocks,
+  boulders, signs, pillars, stools, counters, chests, crystal blocks and fences
+  are the 16-bit view's recipes (`iso/props.ts` `BUILD`, its boxes, posts and
+  balls in its own dimensions) built as meshes, each face cut in cells so a
+  material can change across it. Bushes are cards. In a room the south rows
+  are cut down to a kerb (`roomCut`, by where a mass stands), so the south wall
+  never stands between the camera and the room, and what lies outside the
+  room is not drawn.
+- **The ground's texture.** The open ground is painted by kind (`groundKindOf`),
+  from the 16-bit view's materials at half their density: 16 texels a tile, a
+  texture repeating every four, so its texels are squares near the camera.
+  The kind of each tile is a small texture the shader reads; the border
+  between two kinds frays a texel at a time (`fray`); a water tile's ground is
+  its shore's kind, so land that rounds into it is lawn or sand, not water art.
+  Tiles without a kind of their own (a rug, a bridge, a pit, a plate) are the
+  classic art, and what the classic art lays on the ground (marks, mats, neon,
+  letter stones, the hook's chain) is laid over every tile, except where
+  something stands in its place.
+- **People and things** are upright cards of their classic drawing on their
+  feet at the land's height, sized by perspective, in an atlas of cells as in
+  the 16-bit view; a cabinet or a booth (`Item.box`) has a body behind its
+  front. Whatever may stand between the camera and the hero (a wall, a roof, a
+  tree, a thing) is stippled every other px in an oval round the hero.
+- **Light.** Per corner: the kit's ambient for the dusk, lifted to a floor in
+  rooms so a dark room is dim, not black; the sky's light by how a facet turns
+  (so a knoll's facets differ); outdoors the low sun's own colour by the
+  facet's normal, and its shadow: each corner marches toward the sun through
+  the tile masses (walls, houses with their roofs, woods) and the land itself,
+  hard. Lamps (the kit's `Light[]`, a lamp post's at its head) light the
+  corners round them in pools and walls and things by which side faces them.
+  A blob of shadow lies under whoever walks and whatever stands alone, the
+  ground under it darkened (multiplied), never lit away.
+- **Sky and water.** Outdoors the backdrop is the 16-bit view's
+  (`iso/backdrop.ts`, painted at the scene's size), laid so its horizon meets
+  the camera's. The water is deep indigo with crests that run and glints; at
+  the shore (read from the land's distance, uploaded as a small texture) foam,
+  and round a pool the town built (a small water most of whose shore is
+  paving) a neon rim instead, so the fountain's rim follows its rounded shore.
+- **Without WebGL2**, or when the context is lost (more than three times), or
+  when the shaders do not link, the classic picture draws on.
+- **The turn.** Through the hand-off the picture lies on the classic one:
+  the facet light, the knolls' crowns, a room's second course of wall, a roof's
+  pitch and what rises over a house's eaves are all light or height only k = 1
+  has. This view's own things come up out of the ground and the classic
+  stand-ins go down into it (moved, never squashed), staggered as the 16-bit
+  view staggers: crowns go down k 0.4–0.72, trees come up 0.42–0.85, the things'
+  cards go 0.62–0.86 while the things in the round come up 0.78–1. The land
+  swells as the camera tips, the sky comes down from the top edge with the
+  horizon, the water gives way from the classic picture's over k 0.1–0.5.
+- **The day** (after the Sun Prism, `kit.day('poly')`): the hour's sun (it
+  whitens as it climbs; at night the moon's faint blue), lamps only half lit
+  while the sun is up, the hour's exposure; the backdrop is painted in the
+  view's own dusk and the hour sinks its sun, dims its stars and grades the rest
+  (`skyGrade`), and the distance fades into the graded sky's lowest colour.
+- **What the screen shows.** The view says what it sees (`View.sight`): north
+  to the end of the draw distance, a trapezoid widening with the lens. The
+  shell hands it to the engine (`state.sight.ahead`, `spread`), and the woods'
+  foes walk in from beyond the dissolve (`engine/day.ts`).
+- **A slow device** is stepped down as the 16-bit view does it (`govern`):
+  first the bloom's own pass, 70 % of the draw distance and coarse cells
+  everywhere, then a picture of half the size; `pinQuality` holds it for the
+  lab. Like every view, it keeps its GL context until the page goes.
+- **Entering a map**: the land is built in slices of a few milliseconds
+  (`landWork`): while the view waits to be shown, over a door's fade toward the
+  map behind it, and kept per map. The mesh is built a stretch of 16 tiles at a
+  time within a budget of 7 ms a frame; a stretch that changed (a bush cut) is
+  drawn as it was until it is built again.
+- **Known rough edges**: figures are classic cards, not 3D; the 64-bit look is
+  not built (its camera is: `pose: shoulder`). Lamp light is per corner, so a
+  pool on a long wall is coarse. On a phone a room's camera comes near enough
+  that the room's depth fills the picture, so the room is seen closer than on a
+  monitor. Rooms' water corners are a hair short of the tile edge. Not measured
+  on a phone; the lab draws on the Mac's GPU.
+- **Looking at it.** `CHROME_BIN=<chrome> VIEW=poly node
+  scripts/zelda-lab/shot.mjs <outDir> [scenes]` (PNGs end in `-poly`;
+  `PARAMS` and `FRAMES` as for the isometric view);
+  `scripts/zelda-lab/poly-strip.mjs <outDir> walk|turn` writes eight frames of
+  the hero walking north-east across the square, or of the turn in.
+  `tests/zelda-poly.test.mjs` holds the camera, the land and the mesher.
 
 **Day and night** (after the Sun Prism). Until the prism is home the sun
 hangs on the horizon and `GameState.daytime` is null. Taking it starts a

@@ -742,7 +742,14 @@ export interface GameState {
    * shows a diamond of the ground). The woods' foes walk in from past it.
    * Never saved.
    */
-  sight?: { x: number; y: number; turned?: boolean }
+  sight?: {
+    x: number
+    y: number
+    turned?: boolean
+    /** The polygon view: it sees `ahead` tiles north of the hero, `y` south, `x` across at the hero's row and `spread` tiles wider each side for every tile north. */
+    ahead?: number
+    spread?: number
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -39,7 +39,7 @@ async function load() {
       loader: 'ts',
     },
     // The view modules themselves draw on a canvas: leave them out of the bundle.
-    bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error', external: ['./render/iso/view'],
+    bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error', external: ['./render/iso/view', './render/poly/view'],
   })
   return import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
 }
@@ -95,21 +95,21 @@ describe('the view registry', () => {
   it('keeps every view\'s code out of the page that loads first', () => {
     // Anything but a dynamic import() of a view, anywhere on the site, would put it in the entry:
     // a static import, a side-effect import or a re-export, in either kind of quote.
-    const skip = new Set(['node_modules', '.nuxt', '.output', 'dist', 'iso'])
+    const skip = new Set(['node_modules', '.nuxt', '.output', 'dist', 'iso', 'poly'])
     const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? (skip.has(e.name) ? [] : walk(resolve(dir, e.name))) : [resolve(dir, e.name)])
     const files = ['themes', 'components', 'composables', 'pages', 'plugins', 'server'].flatMap(d => walk(resolve(site, d))).concat(resolve(site, 'app.vue'))
-    const dynamic = { iso: 0 }
+    const dynamic = { iso: 0, poly: 0 }
     for (const f of files) {
       if (!/\.(ts|vue|mjs|js)$/.test(f)) continue
       const src = readFileSync(f, 'utf8')
       for (const line of src.split('\n')) {
-        const m = /(iso)\/view['"]/.exec(line)
+        const m = /(iso|poly)\/view['"]/.exec(line)
         if (!m || /^\s*(\/\/|\*)/.test(line)) continue
-        assert.match(line, /import\(\s*['"][^'"]*(iso)\/view['"]\s*\)/, `${f} brings the ${m[1]} view in statically: ${line.trim()}`)
+        assert.match(line, /import\(\s*['"][^'"]*(iso|poly)\/view['"]\s*\)/, `${f} brings the ${m[1]} view in statically: ${line.trim()}`)
         dynamic[m[1]]++
       }
     }
-    assert.deepEqual(dynamic, { iso: 1 }, 'the registry should hold the one dynamic import of each view')
+    assert.deepEqual(dynamic, { iso: 1, poly: 1 }, 'the registry should hold the one dynamic import of each view')
   })
 
 })
@@ -291,9 +291,9 @@ describe('the studio\'s views', () => {
     })
     assert.equal(M.parseViews({ lofi: { engine: 'classic', name: 'LOFI', tag: '4-BIT' } }).lofi.tag, '4-BIT')
     const round = M.mergeViews(live)
-    assert.deepEqual(round.map(v => v.id), ['classic', 'iso', 'noir'])
+    assert.deepEqual(round.map(v => v.id), ['classic', 'iso', 'poly', 'noir'])
     assert.deepEqual(round[0].params, { scanlines: 0 })
-    assert.deepEqual(round[2], { id: 'noir', name: 'NOIR', tag: 'ISOMETRIC', engine: 'iso', params: { colors: 'full', bloom: 0 } })
+    assert.deepEqual(round[3], { id: 'noir', name: 'NOIR', tag: 'ISOMETRIC', engine: 'iso', params: { colors: 'full', bloom: 0 } })
   })
   it('drops what the game cannot draw or spell', () => {
     const live = M.parseViews({
@@ -315,7 +315,7 @@ describe('the studio\'s views', () => {
       iso: { hidden: true },
       first: { engine: 'iso', name: 'FIRST', order: -1 },
     })
-    assert.deepEqual(M.mergeViews(live).map(v => v.id), ['first', 'classic'])
+    assert.deepEqual(M.mergeViews(live).map(v => v.id), ['first', 'classic', 'poly'])
   })
   it('never lets the round grow past what V can go round', () => {
     const many = {}
@@ -325,7 +325,8 @@ describe('the studio\'s views', () => {
   it('takes a published view into the round, and falls back to the first view when it is gone', () => {
     M.setLiveViews(M.parseViews({ noir: { engine: 'iso', name: 'NOIR' } }))
     assert.equal(M.startView('noir', null), 'noir')
-    assert.equal(M.nextView('iso'), 'noir')
+    assert.equal(M.nextView('iso'), 'poly')
+    assert.equal(M.nextView('poly'), 'noir')
     assert.equal(M.nextView('noir'), 'classic')
     assert.equal(M.viewName('noir'), 'NOIR')
     M.setLiveViews(null)
