@@ -27,7 +27,7 @@ async function load() {
         `export { ENGINES, resolveParams, paramDiff, cleanParam, isEngineId } from './viewParams'`,
         `export { WORLD } from './world/index'`,
         `export { TILE_INFO } from './world/tiles'`,
-        `export { createTurn, turnTime } from './render/turn'`,
+        `export { createTurn, turnTime, createTurnClock } from './render/turn'`,
         `export { SW_W, SW_H, TICK_MS, REFUSE_MS, shortTag, switchLayout, carriageAt, seamAt, tickNudge, refuseNudge, chromeAlpha, captionFor, paintSwitch } from './render/turnSwitch'`,
         `export { NEON_SKIN, HIRES_WINDOW_SKIN } from './render/hud'`,
         `export { massesOf, blobOf, shadeTint } from './render/shade'`,
@@ -766,7 +766,14 @@ describe('the turn between views', () => {
     for (let i = 0; i < 600 && t.turning; i++) { const r = t.step(M.turnTime(dt, t.k, H, S, held(i))); if (r.shown) ks.push(r.k) }
     return ks
   }
-  it('counts a steady frame whole: a turn at 60 or 30 frames a second takes its 0.7 s', () => {
+  /** The same with the renderer's clock (`turnDt`): every frame the turn had, as [k, the view drew]. */
+  const clocked = (t, dts) => {
+    const clock = M.createTurnClock(H, S)
+    const out = []
+    for (let i = 0; i < 600 && t.turning; i++) { const r = t.step(clock(typeof dts === 'function' ? dts(i) : dts, t)); out.push([r.k, r.shown !== '']) }
+    return out
+  }
+  it('counts a steady frame whole: a turn at 60 frames a second takes its 0.7 s, and below that a little longer', () => {
     const t = M.createTurn(id => id === 'iso', S)
     t.set('iso')
     assert.equal(frames(t, 1 / 60).length, 42)
@@ -777,6 +784,50 @@ describe('the turn between views', () => {
     }
     assert.equal(M.turnTime(1 / 30, 0.5, H, S), 1 / 30)
     assert.equal(M.turnTime(0.1, 0.5, H, S), 0.1, 'away from the hand-off a long frame is the time it took')
+    // The hand-off is four frames at any rate, so a slow device's turn is that much longer: 0.8 s at 30 frames a second.
+    for (const [dt, into, out] of [[1 / 60, 42, 42], [1 / 30, 24, 24], [1 / 20, 18, 20]]) {
+      const u = M.createTurn(id => id === 'iso', S)
+      u.set('iso')
+      assert.equal(clocked(u, dt).length, into, `in at ${dt.toFixed(3)} s a frame`)
+      u.set('classic')
+      assert.equal(clocked(u, dt).length, out, `out at ${dt.toFixed(3)} s a frame`)
+    }
+  })
+  it('slows for the hand-off only on the way to it', () => {
+    // Coming out of the hand-off a long frame is the time it took; heading for it, it is half a step.
+    assert.equal(M.turnTime(0.1, H + 0.05, H, S, false, false), 0.1)
+    assert.equal(M.turnTime(0.1, H + 0.05, H, S, false, true), 1 / 30)
+    assert.equal(M.turnTime(0.1, H / 2, H, S, false, false), 1 / 60, 'the hand-off itself is steady both ways')
+  })
+  it('does not let the press that began a turn move it: the first two frames are steady ones', () => {
+    // The first key of a visit starts the sound, a tenth of a second or more that lands in the second frame's dt.
+    const t = M.createTurn(id => id === 'iso', S)
+    t.set('iso', true)
+    t.step(0)
+    t.set('classic')
+    const ks = clocked(t, i => (i === 1 ? 0.1 : 1 / 60)).map(f => f[0])
+    assert.ok(Math.abs((1 - ks[0]) - (1 / 60) / S) < 1e-9)
+    assert.ok(Math.abs((ks[0] - ks[1]) - (1 / 60) / S) < 1e-9, `the second frame moved the turn ${(ks[0] - ks[1]).toFixed(3)}`)
+    // A long third frame is time the turn has had.
+    const u = M.createTurn(id => id === 'iso', S)
+    u.set('iso', true)
+    u.step(0)
+    u.set('classic')
+    const us = clocked(u, i => (i === 2 ? 0.1 : 1 / 60)).map(f => f[0])
+    assert.ok(us[1] - us[2] > 0.1)
+    // The count starts again with the next turn.
+    const clock = M.createTurnClock(H, S)
+    const v = M.createTurn(id => id === 'iso', S)
+    v.set('iso', true)
+    v.step(0)
+    for (let round = 0; round < 2; round++) {
+      v.set(round ? 'iso' : 'classic')
+      assert.equal(clock(0.1, v), 1 / 60)
+      v.step(1 / 60)
+      assert.equal(clock(0.1, v), 1 / 60)
+      while (v.turning) v.step(clock(1 / 60, v))
+      assert.equal(clock(0.1, v), 0.1, 'at rest a frame is the time it took')
+    }
   })
   it('never lets a long frame carry the turn over the hand-off, in or out', () => {
     for (const dt of [1 / 60, 1 / 30, 1 / 20, 0.1]) {

@@ -32,7 +32,7 @@ import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type
 import { drawPsiBlock } from './labTiles'
 import { drawHookChain, drawStaticMood, fireflies, queueLuna, queueProps, type Item } from './wild'
 import { ease } from './iso/project'
-import { createTurn, turnTime } from './turn'
+import { createTurn, createTurnClock } from './turn'
 import { createShade } from './shade'
 import { PAL } from './sprites'
 import { treeNow } from './tree'
@@ -123,10 +123,11 @@ export interface Renderer {
   /**
    * The view we are in or heading for, how far the turn has come (0 classic … 1), the angle the controls turn by
    * now (radians), whether a turn is in flight, whether it waits for a view that is not ready, whether the
-   * screen is kept dark for a view a visit starts in (`arrive`), and whether the first picture is still coming
-   * up out of the dark (`dawn`: a picture that is drawn once and left would keep the dark over it).
+   * screen is kept dark for a view a visit starts in (`arrive`), whether the first picture is still coming
+   * up out of the dark (`dawn`: a picture that is drawn once and left would keep the dark over it), and how many
+   * views have been put away for throwing (`failed`: when it grows, the classic view has taken over).
    */
-  viewState(): { id: string; k: number; turn: number; turning: boolean; waiting: boolean; dark: boolean; dawn: boolean }
+  viewState(): { id: string; k: number; turn: number; turning: boolean; waiting: boolean; dark: boolean; dawn: boolean; failed: number }
   /** The page is done with the renderer: every view lets go of what it holds. */
   dispose(): void
   /**
@@ -1517,19 +1518,33 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   function able(id: string, v: View, hurry: boolean): boolean {
     if (!v.ready) return true
     try { return v.ready(hurry, lastDrawn === id ? undefined : frameState ?? undefined) } catch (e) {
-      console.error(`view ${id} failed; the classic view takes over`, e)
-      try { v.dispose?.() } catch { /* it is going anyway */ }
-      views.delete(id)
+      putAway(id, v, e)
       return false
     }
   }
 
+  /** Views put away for throwing, counted: the shell watches the number (`viewState().failed`) and follows to the classic view. */
+  let failed = 0
+  /**
+   * A view threw. It would throw again every frame, with the game running on unseen behind a still picture: it
+   * is put away, and the classic view draws from here on. The turn stands on the classic picture too, unless
+   * the view was on its way out anyway (then the turn runs out as it was going).
+   */
+  function putAway(id: string, v: View, e: unknown) {
+    console.error(`view ${id} failed; the classic view takes over`, e)
+    try { v.dispose?.() } catch { /* it is going anyway */ }
+    views.delete(id)
+    lastDrawn = ''
+    if (turn.id === id) turn.set('classic', true)
+    failed++
+  }
+
   /** The turn's share of the frame's time (`turnTime`): a long frame near the hand-off is not counted whole. */
+  const clock = createTurnClock(HANDOFF, TURN_S)
   function turnDt(dt: number): number {
-    if (!turn.turning) return dt
     const held = warmed
-    warmed = false
-    return turnTime(dt, turn.k, HANDOFF, TURN_S, held)
+    if (turn.turning) warmed = false
+    return clock(dt, turn, held)
   }
 
   /** The classic picture under (or before) a view's: drawn the classic way, with no time passing in it. */
@@ -1601,13 +1616,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       }
       dawn()
     } catch (e) {
-      // A view that throws would throw again every frame, with the game running on unseen behind a still
-      // picture. It is put away for this visit, and the classic view draws from here on.
-      console.error(`view ${now.shown} failed; the classic view takes over`, e)
+      putAway(now.shown, v, e)
       drawing = 'classic'
-      try { v.dispose?.() } catch { /* it is going anyway */ }
-      views.delete(now.shown!)
-      lastDrawn = ''
       aim = a => a
       span = null
       drawClassic(s, ui, dt)
@@ -1641,7 +1651,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   function viewState() {
     const v = turn.shown ? views.get(turn.shown) : undefined
     const k = turned(turn.k)
-    return { id: turn.id, k, turn: v ? v.turn * ease(k) : 0, turning: turn.turning, waiting: turn.waiting, dark: nightEnds !== 0, dawn: dawnAt >= 0 }
+    return { id: turn.id, k, turn: v ? v.turn * ease(k) : 0, turning: turn.turning, waiting: turn.waiting, dark: nightEnds !== 0, dawn: dawnAt >= 0, failed }
   }
 
   void cellIndex

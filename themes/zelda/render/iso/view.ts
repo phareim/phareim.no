@@ -60,6 +60,12 @@ const UP = 10
 /** The rock beyond the map's edge, one to three tiles tall (`massifHeight`): a wall's top, further up. */
 const MASSIF: readonly Shape[] = [WALL_TOP, { ...WALL_TOP, h: 2 * TILE }, { ...WALL_TOP, h: 3 * TILE }]
 
+/**
+ * A strip that lies flat in the ground picture where the view stands a thing in the round (a fence run north, a
+ * counter laid north) is taken off the ground from its far end over this share of the thing's rise.
+ */
+const LAID_WIPE = 0.6
+
 /** The atlas of people and things: one cell each, small or big, in classic px. */
 const ATLAS = 1024
 const SMALL = { w: 64, h: 80, ax: 32, ay: 62 }
@@ -320,6 +326,13 @@ export default function isoView(kit: Kit): View {
   }
   /** How much a house's roof rises for every tile north of its eaves (`roofPitch`), as the tile data was last sent. */
   let pitchSent = 0
+  /** The map has a counter laid north: a strip of the ground picture, where every other counter is a face stood up. */
+  let hasLaid = false
+  /**
+   * Such a counter has not been taken off the ground yet (`LAID_WIPE`): its tile keeps the classic floor under
+   * it. The floor's material would paint the strip over long before the counter in the round is up.
+   */
+  let laidKeep = false
 
   /** What the light and the shadows need to know of each tile: how tall the mass on it is, and whether it is water. */
   function uploadTiles(kind: MapKind, look: string | undefined, green: boolean) {
@@ -349,6 +362,7 @@ export default function isoView(kit: Kit): View {
         if (!gk && kind === 'overworld' && sh.k === 'top' && ey > 0 && shapes[(ey - 1) * ew + ex]!.k !== 'top') {
           gk = groundKindOf(kind, outer[(ey - 1) * ew + ex]!, (dx, dy) => tileAt(m, kind, tx + dx, ty - 1 + dy))
         }
+        if (laidKeep && t === 'n' && sh.k !== 'face') gk = null
         data[(ey * ew + ex) * 4 + 3] = gk ? materialId(own[gk]!) : 0
       }
       if (loneFace(ex - M, ey - M, kind)) {
@@ -611,7 +625,9 @@ export default function isoView(kit: Kit): View {
     const built = engine.ready(pinned !== null)
     if (built === 'failed') { engine.dispose(); fallback = legacyView(kit); return ready(hurry, s) }
     // (The map's pictures after the view's own, and not in the call that finished those: a slice is a slice.)
-    const mapped = !s || ((had || pinned !== null) && prepare(s, pinned !== null, hurry))
+    // (In a visit's dark nothing is waited for but the view itself: its first frame is drawn under the dark, and
+    // may be as long as it likes. The map's pictures are still made here meanwhile, as far as the dark lasts.)
+    const mapped = !s || ((had || pinned !== null) && prepare(s, pinned !== null, hurry)) || (hurry && pinned === null)
     return painted && mapped && built === 'yes'
   }
 
@@ -628,7 +644,8 @@ export default function isoView(kit: Kit): View {
    * What the first frame on a map paints before it can draw: the map's two tile pictures and, outdoors, the
    * plants. Together they are a pause of a tenth of a second or more, and the first frame of a view that was
    * waited for is the first frame of its turn; so while the view is not on screen they are made here, a piece a
-   * call, as its own pictures are (`paint`). `draw` makes whatever is still missing: a map walked into.
+   * call, as its own pictures are (`paint`). `draw` makes whatever is still missing: a map walked into, or a
+   * visit's first frame, which is drawn under the dark and is not held back for them (`ready`).
    */
   function prepare(s: GameState, all: boolean, hurry: boolean): boolean {
     const m = s.map
@@ -673,10 +690,18 @@ export default function isoView(kit: Kit): View {
     const par = kit.params('iso')
     // Outdoors the land goes on past the map's edge.
     const key = `${m.id}:${m.version}:${outdoors && par.beyond ? BEYOND : 0}`
-    if (key !== shapesKey || shapeMap !== m) { rebuildShapes(s, kind, outdoors && par.beyond ? BEYOND : 0); shapesKey = key; tilesKey = '' }
+    if (key !== shapesKey || shapeMap !== m) {
+      rebuildShapes(s, kind, outdoors && par.beyond ? BEYOND : 0)
+      shapesKey = key
+      tilesKey = ''
+      hasLaid = !outdoors && def.look !== 'lab' && shapes.some((sh, i) => outer[i] === 'n' && sh.k !== 'face')
+    }
     const planted = outdoors && !!par.plants
     const pitch = outdoors ? (par.roofPitch as number) : 0
-    if (tilesKey !== `${key}:${planted}:${pitch}`) { pitchSent = pitch; uploadTiles(kind, def.look, planted); tilesKey = `${key}:${planted}:${pitch}` }
+    // (Until the wipe is done: the counter rises over the turn's last fifth, `rise` below.)
+    laidKeep = hasLaid && !!par.props && k < 0.8 + 0.2 * LAID_WIPE
+    const tKey = `${key}:${planted}:${pitch}:${laidKeep}`
+    if (tilesKey !== tKey) { pitchSent = pitch; uploadTiles(kind, def.look, planted); tilesKey = tKey }
     if (M && !lands) lands = createLands(kind, def.look, (x, y) => tileAt(m, kind, x, y), m.w, m.h, M)
     const fLook = floraOf(def.look)
     if (outdoors && floraLook !== fLook) { flora = buildFlora(fLook); engine.flora(flora.albedo, flora.normal); floraLook = fLook }
@@ -916,7 +941,7 @@ export default function isoView(kit: Kit): View {
         if (rise >= 1) { bare(sx, sy, T, T); continue }
         // (A run that lies flat is taken off the ground from its far end while the fence comes up: gone in one
         // frame, it would leave a few frames with no fence at all.)
-        if (shp.k === 'flat') { bare(sx, sy, T, Math.round(T * Math.min(1, rise / 0.6))); continue }
+        if (shp.k === 'flat') { bare(sx, sy, T, Math.round(T * Math.min(1, rise / LAID_WIPE))); continue }
         sunk = 1 - rise
       }
       // (Not where an exit stands on the counter's tile and draws all of it itself: the newsstand.)
@@ -931,7 +956,7 @@ export default function isoView(kit: Kit): View {
         // (A strip of the classic counter stood along x sinks as this one rises; one laid north is in the ground
         // picture, and is taken off it from the far end while this one comes up, as a fence's is.)
         if (rise >= 1) { bare(sx, sy, T, T); continue }
-        if (shp.k !== 'face') { bare(sx, sy, T, Math.round(T * Math.min(1, rise / 0.6))); continue }
+        if (shp.k !== 'face') { bare(sx, sy, T, Math.round(T * Math.min(1, rise / LAID_WIPE))); continue }
         sunk = 1 - rise
       }
       if (shp.k === 'flat') continue

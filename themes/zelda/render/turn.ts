@@ -71,14 +71,30 @@ export function createTurn(has: (id: string) => boolean, seconds = 0.6): Turn {
 
 /**
  * How much of a frame's time a turn takes, by where the turn is (`k`, raw). In the hand-off (the first `handoff`
- * of the turn) and in the stretch a long frame would cross to reach it, a frame is worth no more than a steady
- * one. A picture's first frame is a long one (its tiles are painted, its shadows cast, its shaders warm), and
- * the first frames of a turn are such frames; counted whole, one of them would carry the turn clean over the
- * hand-off, which would then be a cut. `held`: the last frame was made long on purpose (a picture painted
- * ahead), and is not time the turn has had. (0.1 s is the longest frame the shell hands over.)
+ * of the turn) and, on the way out, in the stretch a long frame would cross to reach it, a frame is worth no more
+ * than a steady one. A picture's first frame is a long one (its tiles are painted, its shadows cast, its shaders
+ * warm), and the first frames of a turn are such frames; counted whole, one of them would carry the turn clean
+ * over the hand-off, which would then be a cut. So the hand-off is four frames or more at any frame rate, and a
+ * turn below 60 frames a second is that much longer than its `seconds`. `held`: the last frame was made long on
+ * purpose (a picture painted ahead), and is not time the turn has had. `out`: the turn is heading for the
+ * hand-off, not coming from it. (0.1 s is the longest frame the shell hands over.)
  */
-export function turnTime(dt: number, k: number, handoff: number, seconds: number, held = false): number {
+export function turnTime(dt: number, k: number, handoff: number, seconds: number, held = false, out = true): number {
   if (held || k <= handoff) return Math.min(dt, 1 / 60)
-  if (k < handoff + 0.1 / seconds) return Math.min(dt, 1 / 30)
+  if (out && k < handoff + 0.1 / seconds) return Math.min(dt, 1 / 30)
   return dt
+}
+
+/**
+ * The turn's share of each frame's time, frame by frame (`turnTime`). A turn's first two frames are steady ones
+ * whatever the clock says: the press that began it may have done long work of its own (the first key of a visit
+ * starts the sound), and that time arrives in the second frame's dt. `held`: as `turnTime`'s.
+ */
+export function createTurnClock(handoff: number, seconds: number) {
+  let age = 0
+  return (dt: number, t: Pick<Turn, 'turning' | 'k' | 'id' | 'shown'>, held = false): number => {
+    if (!t.turning) { age = 0; return dt }
+    age++
+    return turnTime(dt, t.k, handoff, seconds, held || age <= 2, t.id !== t.shown)
+  }
 }

@@ -372,15 +372,40 @@ let viewAsk = 0
 let viewShown: ViewId = 'classic'
 /**
  * The first frames wait for the view the visit starts in (the 16-bit one, unless this browser chose another), so
- * no other picture flashes by: the screen stays dark for `NIGHT_MS` from mounting, while the view's code is
- * fetched, its shaders compile and its pictures are painted, and the view then comes up out of the dark. A device
- * or a network that needs longer gets the classic picture meanwhile, and the view turns in from it when it is here.
+ * no other picture flashes by: the screen stays dark for `NIGHT_MS` from the first frame the tab is looked at,
+ * while the view's code is fetched, its shaders compile and its pictures are painted, and the view then comes up
+ * out of the dark. A device or a network that needs longer gets the classic picture meanwhile, and the view turns
+ * in from it when it is here.
  */
 let viewHold = false
 const NIGHT_MS = 450
 /** When the night began: the first frame the tab was looked at (0: not yet), so a tab opened in the background has its night too. */
 let nightFrom = 0
 const nightLeft = () => nightFrom ? Math.max(0, NIGHT_MS - (performance.now() - nightFrom)) : NIGHT_MS
+/** How many views the renderer had put away for throwing when the shell last looked (`viewState().failed`). */
+let failedSeen = 0
+/** How often each engine's view has thrown this visit: after three times a press for it is refused, not tried again. */
+const engineFails = new Map<string, number>()
+const FAILS_MAX = 3
+
+/**
+ * The renderer put a view away (it threw) and draws the classic picture: the shell follows it there, as when a
+ * view's code did not arrive. What the visitor chose stays chosen; the next visit tries it again.
+ */
+function viewFailed() {
+  const def = viewDef(viewShown)
+  // (A view that was on its way out anyway: the turn runs out as it was going.)
+  if (!renderer || !def || renderer.hasView(def.engine)) return
+  engineFails.set(def.engine, (engineFails.get(def.engine) ?? 0) + 1)
+  viewAsk++
+  viewId.value = 'classic'
+  viewShown = 'classic'
+  turnAt.a = 'classic'
+  pausedDrawn = false
+  syncSound()
+  syncDress()
+  turnRefuse()
+}
 
 /**
  * Turn to a view, fetching its code the first time. `instant`: no turn (a paused game, reduced motion).
@@ -394,12 +419,11 @@ async function showView(id: ViewId, instant = false, remember = true, arriving =
   if (!renderer) return
   // A view is an engine with its own values (`views.ts`); one the round no longer holds is the classic one.
   const def = viewDef(id) ?? viewDef('classic')!
+  // (A view that keeps throwing is not made a fourth time.)
+  if ((engineFails.get(def.engine) ?? 0) >= FAILS_MAX) { turnRefuse(); return }
   viewId.value = def.id
   if (def.engine === 'classic') turnAt.a = def.id
   else turnAt.b = def.id
-  let before: string | null = null
-  try { before = localStorage.getItem(VIEW_KEY) } catch { /* private mode */ }
-  if (remember) try { localStorage.setItem(VIEW_KEY, def.id) } catch { /* private mode: this visit only */ }
   const ask = ++viewAsk
   const load = ENGINE_LOADERS[def.engine]
   if (load && !renderer.hasView(def.engine)) {
@@ -408,17 +432,17 @@ async function showView(id: ViewId, instant = false, remember = true, arriving =
       if (!alive || !renderer) return
       renderer.addView(def.engine, mod.default as ViewFactory)
     } catch {
-      // The code did not arrive (offline, a deploy in between): stay where we were. The next visit is told what it
-      // would have been told before the press: a choice that could not be shown is not a choice for the other view.
+      // The code did not arrive (offline, a deploy in between): stay where we were.
       if (ask !== viewAsk || !alive || !renderer) return
       viewId.value = viewShown
       syncDress()
-      if (remember) try { if (before === null) localStorage.removeItem(VIEW_KEY); else localStorage.setItem(VIEW_KEY, before) } catch { /* private mode */ }
       turnRefuse()
       return
     }
   }
   if (ask !== viewAsk) return
+  // Kept only now that it can be shown: a view whose code did not arrive is not a choice, however many presses asked for it.
+  if (remember) try { localStorage.setItem(VIEW_KEY, def.id) } catch { /* private mode: this visit only */ }
   renderer.setParams(def.engine, def.params)
   // No turn where nothing would play it: reduced motion, a paused game, an open panel.
   if (arriving) renderer.arrive(def.engine, nightLeft(), !reducedMotion.value)
@@ -549,7 +573,8 @@ function stepTurnSwitch(nowMs: number) {
   // (A view that is here but paints its map first is waited for over a frame or three: too short to say so.)
   const busy = waiting && nowMs - sw.waitFrom >= WAIT_SHOWN_MS
   if (busy !== turnWaiting.value) turnWaiting.value = busy
-  if (busy) sw.sawWaiting = true
+  // (Any wait counts as having seen the switch at work, shown or not: a view that then turns in needs no pointing out.)
+  if (waiting) sw.sawWaiting = true
   const away = paused.value || panel.value !== null || talking.value || leaving.value
   const reduced = reducedMotion.value
   const here = Math.max(0, round.findIndex(v => v.id === viewId.value))
@@ -1059,6 +1084,20 @@ function slowTick(nowMs: number) {
   return true
 }
 
+/** The shell's dress and switch were last stepped while a view was waited for. */
+let steppedWaiting = false
+
+/**
+ * Draw. A view that was waited for and took over in that draw without a turn (reduced motion, a pause, a panel)
+ * is on screen now: the dress and the switch follow in the same frame, not the next one.
+ */
+function drawFrame(nowMs: number, dt: number) {
+  if (!renderer) return
+  renderer.draw(state, ui, dt)
+  const vs = renderer.viewState()
+  if (steppedWaiting && !vs.waiting && !vs.turning) { steppedWaiting = false; stepDress(vs); stepTurnSwitch(nowMs) }
+}
+
 function frame(nowMs: number) {
   raf = requestAnimationFrame(frame)
   if (!renderer) return
@@ -1071,10 +1110,12 @@ function frame(nowMs: number) {
   if (!nightFrom) nightFrom = performance.now()
   // (A slow network must not keep the page dark: after the night the classic view plays until the code is here.)
   if (viewHold) { if (nightLeft() > 0) return; viewHold = false; syncDress() }
+  { const f = renderer.viewState().failed; if (f !== failedSeen) { failedSeen = f; viewFailed() } }
   // A visit's first dark moments: the view is on its way (`arrive`), and nothing steps until there is a picture.
   if (renderer.viewState().dark) { renderer.draw(state, ui, 0); return }
   // A turn caught by a pause or a panel would hang half done (the world is drawn once, or five times a second): finish it.
   if ((paused.value || panel.value) && renderer.viewState().turning) { renderer.setView(viewDef(viewId.value)?.engine ?? 'classic', true); pausedDrawn = false }
+  steppedWaiting = renderer.viewState().waiting
   stepDress(renderer.viewState())
   syncUnit()
   stepTurnSwitch(nowMs)
@@ -1090,17 +1131,17 @@ function frame(nowMs: number) {
 
   // The ending: the world stays put behind the page's panel. Nothing steps, so
   // it is redrawn at a fifth of the rate rather than 60 times a second.
-  if (phase.value === 'won') { if (slowTick(nowMs)) renderer.draw(state, ui, reducedMotion.value ? 0 : dt); return }
+  if (phase.value === 'won') { if (slowTick(nowMs)) drawFrame(nowMs, reducedMotion.value ? 0 : dt); return }
   // Paused: dt is 0, so the picture is already identical to last frame's. Draw
   // it once more in case the pause was what changed it, then leave the pixels
   // alone until something resumes.
   // (A first picture still coming up out of the dark is drawn until it is up.)
-  if (paused.value) { if (!pausedDrawn || renderer.viewState().dawn) { pausedDrawn = true; renderer.draw(state, ui, 0) } return }
+  if (paused.value) { if (!pausedDrawn || renderer.viewState().dawn) { pausedDrawn = true; drawFrame(nowMs, 0) } return }
   pausedDrawn = false
   // A panel is open: the world stands still but keeps glowing. A soft glow at
   // a fifth of the rate is the same glow.
-  if (panel.value) { if (slowTick(nowMs)) renderer.draw(state, ui, reducedMotion.value ? 0 : dt); return }
-  if (hitStopMs > 0) { hitStopMs -= dt * 1000; renderer.draw(state, ui, 0); return }
+  if (panel.value) { if (slowTick(nowMs)) drawFrame(nowMs, reducedMotion.value ? 0 : dt); return }
+  if (hitStopMs > 0) { hitStopMs -= dt * 1000; drawFrame(nowMs, 0); return }
   if (pendingPull && state.mode === 'play') applyPull(pendingPull.save)
 
   // The controls turn with the picture: up on the stick is up on the screen in every view.
@@ -1126,7 +1167,7 @@ function frame(nowMs: number) {
     stuckT += dt
     if (stuckT > (leavingUrl ? STUCK_URL_S : STUCK_S)) comeBack()
   }
-  renderer.draw(state, ui, dt)
+  drawFrame(nowMs, dt)
   if (state.mode === 'won') finishWon()
 }
 
