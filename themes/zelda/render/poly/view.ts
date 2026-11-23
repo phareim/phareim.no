@@ -35,7 +35,8 @@ import { skyGrade } from '../daylight'
 import { CRANE, SHOULDER, classicMatrix, fitPose, horizonY, mixPose, toGround, poseAxes, poseMatrix, rigMatrix, toScreen, type Mat4, type Pose } from './camera'
 import { landWork, stand, type Land, type LandLook } from './terrain'
 import { FLAG, MAT_SLOTS, Mesher, ROLE, STRIDE, TEX, Verts, massOf, type Field, type MatSlot } from './mesh'
-import { createEngine, rgb, type Engine, type Lamp, type PolyLook } from './engine'
+import { createEngine, rgb, type Engine, type PolyLook } from './engine'
+import { createLampKeeper } from './lamps'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -154,6 +155,8 @@ export default function polyView(kit: Kit): View {
   let glowG = glowC.getContext('2d')!
   let backdropKey = ''
   const signCache = new Map<string, Set<number>>()
+  /** The lamps, held steady from frame to frame (`lamps.ts`): the dither would make their flicker a crawl. */
+  const steadyLamps = createLampKeeper()
 
   function paint(all: boolean, hurry: boolean): boolean {
     if (matsSent) return true
@@ -834,17 +837,12 @@ export default function polyView(kit: Kit): View {
     const sunCol = night ? [0.5, 0.62, 1] as const : mix3(rgb(par.sunLight as string), [1, 0.97, 0.9], Math.max(0, Math.min(1, (height - 0.12) / 0.6)))
     const sunS = outdoors ? (par.sunStrength as number) * ek * (night ? 0.4 : 1 - 0.35 * Math.max(0, Math.min(1, (height - 0.12) / 0.6))) : 0
     const exposure = 1 + (day?.exposure ?? 0) * ek
-    const lamps: Lamp[] = []
     const gain = (par.lampGain as number) * (outdoors && !night ? 1 - 0.5 * Math.max(0, Math.min(1, (height - 0.1) / 0.4)) * ek : 1)
-    for (const L of lights) {
+    const lamps = steadyLamps(lights, dt, focus, gain, L => {
       // A lamp post carries its light at its head; anything else at about a hand's height.
       const tt = c.field.tile(Math.floor(L.x), Math.floor(L.y))
-      const z = (tt === 't' ? 1.35 : tt === 'M' || tt === 'H' ? 1.2 : 0.55) + groundAt(L.x, L.y)
-      const col = rgb(L.color)
-      const a = Math.max(0, Math.min(1, L.a)) * gain
-      lamps.push({ x: L.x, y: L.y, z, r: L.r * 1.15, c: [col[0] * a, col[1] * a, col[2] * a] })
-    }
-    lamps.sort((a, b) => Math.hypot(a.x - focus.x, a.y - focus.y) - Math.hypot(b.x - focus.x, b.y - focus.y))
+      return (tt === 't' ? 1.35 : tt === 'M' || tt === 'H' ? 1.2 : 0.55) + groundAt(L.x, L.y)
+    })
     const sunA = ((par.sunAngle as number) * Math.PI) / 180
     const elev = Math.atan2(1, Math.max(0.2, par.shadowLength as number))
 

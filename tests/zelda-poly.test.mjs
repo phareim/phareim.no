@@ -23,6 +23,7 @@ async function load() {
         `export { WORLD } from './world/index'`,
         `export { BEYOND, beyondTile } from './render/beyond'`,
         `export { mapInfo } from './engine/index'`,
+        `export { createLampKeeper, LAMP_CAP } from './render/poly/lamps'`,
       ].join('; '),
       resolveDir: root,
       loader: 'ts',
@@ -442,6 +443,85 @@ describe('the mesher', () => {
     // The east wall stands: this camera looks at it (the 16-bit view lays a wall with floor to its west down).
     assert.ok(top(p => p.x >= 9 && p.y > 2.5 && p.y < 5.5) >= 1 - 1e-6, 'the east wall is laid down')
     assert.equal(M.polyShape('#', 'dungeon', (dx, dy) => rows[3 + dy]?.[9 + dx] ?? '#', false, false).k, 'top')
+  })
+})
+
+describe('the lamps', () => {
+  // The lights the painters gather flicker with the clock; this view lights every corner with them and rounds the
+  // colour to 15 bits with a dither, so a lamp that changes from one frame to the next makes everything it lights
+  // crawl (the flashing of 2026-11-23). The lamps it lights with must not change by more than a small part of a
+  // 15-bit step (1/31) from one frame to the next, whatever the painters' lights do.
+  const STEP = 1 / 31
+  const strength = (lamps, x) => { const l = lamps.find(q => Math.abs(q.x - x) < 1e-9); return l ? l.c[0] : 0 }
+  const run = (lightsAt, frames, focusAt = () => ({ x: 0, y: 0 })) => {
+    const keep = M.createLampKeeper()
+    const out = []
+    for (let i = 0; i < frames; i++) out.push(keep(lightsAt(i / 60), 1 / 60, focusAt(i), 1, () => 0.5))
+    return out
+  }
+
+  it('a torch, a laser gate and a zapper flicker with the clock; the light they give does not', () => {
+    const lights = t => [
+      { x: 2.5, y: 3, r: 4.2, color: '#ffffff', a: 0.85 * (0.85 + 0.15 * Math.sin(t * 9 + 2.5 * 3.1 + 3)) },
+      { x: 6.5, y: 3, r: 2, color: '#ffffff', a: 0.75 + 0.25 * Math.sin(t * 12 + 6) },
+      { x: 9.5, y: 3, r: 2, color: '#ffffff', a: 0.5 + 0.3 * Math.sin(t * 15) },
+    ]
+    const frames = run(lights, 600)
+    for (const [x, mean] of [[2.5, 0.85 * 0.85], [6.5, 0.75], [9.5, 0.5]]) {
+      let raw = 0
+      let held = 0
+      for (let i = 61; i < frames.length; i++) {
+        raw = Math.max(raw, Math.abs(lights(i / 60).find(l => l.x === x).a - lights((i - 1) / 60).find(l => l.x === x).a))
+        held = Math.max(held, Math.abs(strength(frames[i], x) - strength(frames[i - 1], x)))
+      }
+      assert.ok(raw > 0.3 * STEP, `the painters' lamp at ${x} flickers (${raw})`)
+      assert.ok(held < 0.1 * STEP, `the lamp at ${x} changes by ${held} a frame: a dither step is ${STEP}`)
+      near(strength(frames.at(-1), x), mean, 0.05)
+    }
+  })
+
+  it('a lamp that walks keeps its strength, and one that stands still and steady is the same every frame', () => {
+    const frames = run(t => [
+      { x: 1 + t * 3, y: 2, r: 2, color: '#b6ff4a', a: 0.5 + 0.3 * Math.sin(t * 15) },
+      { x: 5, y: 5, r: 3, color: '#ffd23f', a: 0.8 },
+    ], 300)
+    for (let i = 61; i < frames.length; i++) {
+      const a = frames[i].find(l => l.y === 2).c[0]
+      const b = frames[i - 1].find(l => l.y === 2).c[0]
+      assert.ok(Math.abs(a - b) < 0.1 * STEP, `the walking lamp jumps by ${Math.abs(a - b)}`)
+      assert.equal(frames[i].find(l => l.y === 5).c[1], frames[i - 1].find(l => l.y === 5).c[1])
+    }
+  })
+
+  it('of more lamps than the engine lights, none comes or goes at full strength as the hero walks past them', () => {
+    const row = Array.from({ length: 40 }, (_, i) => ({ x: i + 0.5, y: 0, r: 3, color: '#ffffff', a: 0.8 }))
+    const frames = run(() => row, 800, i => ({ x: i * 0.05, y: 1 }))
+    let jump = 0
+    for (let i = 1; i < frames.length; i++) {
+      assert.ok(frames[i].length <= M.LAMP_CAP)
+      for (const l of row) jump = Math.max(jump, Math.abs(strength(frames[i], l.x) - strength(frames[i - 1], l.x)))
+    }
+    assert.ok(jump < 0.08, `a lamp's light jumps by ${jump} between two frames`)
+    // (And the nearest keep their whole light.)
+    near(strength(frames[400], 20.5), 0.8, 1e-9)
+  })
+
+  it('standing still, the lamps are the sixteen nearest at full strength (the look as it was)', () => {
+    const row = Array.from({ length: 40 }, (_, i) => ({ x: i * 0.7, y: (i * 7) % 5, r: 3, color: '#ffffff', a: 0.6 }))
+    const frames = run(() => row, 120, () => ({ x: 9, y: 2 }))
+    const want = [...row].sort((a, b) => Math.hypot(a.x - 9, a.y - 2) - Math.hypot(b.x - 9, b.y - 2)).slice(0, M.LAMP_CAP)
+    for (const f of [frames[0], frames.at(-1)]) {
+      assert.deepEqual(f.map(l => `${l.x},${l.y}`).sort(), want.map(l => `${l.x},${l.y}`).sort())
+      for (const l of f) near(l.c[0], 0.6, 1e-9)
+    }
+  })
+
+  it('holds everything while the clock stands (a pause)', () => {
+    const keep = M.createLampKeeper()
+    const L = [{ x: 1, y: 1, r: 2, color: '#ff8a3d', a: 0.9 }]
+    keep(L, 1 / 60, { x: 0, y: 0 }, 1, () => 0)
+    const a = keep([{ ...L[0], a: 0.2 }], 0, { x: 0, y: 0 }, 1, () => 0)
+    near(a[0].c[0], 0.9, 1e-9)
   })
 })
 

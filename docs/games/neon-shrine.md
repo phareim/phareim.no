@@ -665,6 +665,21 @@ filtered textures, fog).
   the tile masses (walls, houses with their roofs, woods) and the land itself,
   hard. Lamps (the kit's `Light[]`, a lamp post's at its head) light the
   corners round them in pools and walls and things by which side faces them.
+  The lamps are held steady (`lamps.ts`, pure, tested): the painters' lights
+  flicker with the clock (a lamp post's 0.85 + 0.15·sin 9t, a laser gate's,
+  a zapper's, a fire's), which the other views lay into a smooth light map as
+  a shimmer, but here the 15-bit dither rounds the lit colour, so a lamp that
+  changed by a per cent from one frame to the next made everything it lit
+  crawl, every frame (the flashing "from the trees and down" when the view
+  went live). Each lamp is matched to last frame's (its colour, where it
+  stands) and follows the painters' strength through two smoothing steps of
+  0.35 s, so a fast flicker is down to a few per cent of its swing and a slow
+  one (the flowers' breathing) mostly stays. The engine lights with the
+  sixteen nearest the focus; a lamp keeps its place while it fades out of
+  them and one that comes near enough fades in when a place is free (0.3 s
+  each way), so no lamp comes or goes at full strength as the hero walks; a
+  light that was not there last frame (a shot, a map's first frame) is there
+  at once. Standing still the sixteen are the nearest, at full strength.
   A blob of shadow lies under whoever walks and whatever stands alone, the
   ground under it darkened (multiplied), never lit away.
 - **Sky and water.** Outdoors the backdrop is the 16-bit view's
@@ -713,7 +728,17 @@ filtered textures, fog).
   `PARAMS` and `FRAMES` as for the isometric view);
   `scripts/zelda-lab/poly-strip.mjs <outDir> walk|turn` writes eight frames of
   the hero walking north-east across the square, or of the turn in.
-  `tests/zelda-poly.test.mjs` holds the camera, the land and the mesher.
+  `scripts/zelda-lab/walk-flicker.mjs <outDir> [cases] [--views …] [--check]`
+  reads back every frame of a walk or a stand (town square, coast road, lake,
+  Wildwood camp, shrine, a dungeon room, by the zappers; 1280 × 800 and
+  390 × 844 at dpr 3) and says how much of the picture changes from one frame
+  to the next; `--check` fails when the polygon view, standing still, changes
+  more than 1.5 % of it a frame (it was 3 to 5 % with the flickering lamps;
+  steady, 0.1 to 0.7 %, as the classic view) or draws a dark frame.
+  `page-flicker.mjs <baseUrl> <outDir>` does the same on a running site with
+  real keys (headless Chrome paces the page at about 12 frames a second).
+  `tests/zelda-poly.test.mjs` holds the camera, the land, the mesher and the
+  lamps (no lamp changes by more than a tenth of a 15-bit step a frame).
 
 **Day and night** (after the Sun Prism). Until the prism is home the sun
 hangs on the horizon and `GameState.daytime` is null. Taking it starts a
