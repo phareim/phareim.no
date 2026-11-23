@@ -306,10 +306,12 @@ export default function isoView(kit: Kit): View {
     const time = kit.time()
     const reduced = ui.reducedMotion
 
+    let laid = false
     if (!base || !objects || base.mapId !== m.id) {
       base = createTileLayer(world, m, 'base')
       objects = createTileLayer(world, m, 'objects')
       shapesKey = ''
+      laid = true
     } else {
       updateTileLayer(base, world, m)
       updateTileLayer(objects, world, m)
@@ -603,15 +605,20 @@ export default function isoView(kit: Kit): View {
     if (needsSouth) shaded(shadeSouth, southShade)
 
     // --- shadows on the ground -----------------------------------------------------
-    if (shadowA > 0.01 && reach > 0) {
+    if ((par.shadow as number) > 0 && reach > 0) {
       // By the hour the sun moves all the time: the shadows are cast again in steps of a tenth.
       const q = (v: number) => kit.day('iso') ? Math.round(v * 10) / 10 : v
       const sx = q(shadowV.x)
       const sy = q(shadowV.y)
       const sk = `${shapesKey}:${sx.toFixed(3)}:${sy.toFixed(3)}:${shadowColor}:${par.occlusion}`
-      if (sk !== shadowsKey || !shadows) { buildShadows(m, sx, sy, shadowColor, par.occlusion as number); shadowsKey = sk }
+      // Cast before they show: a turn in begins under the classic picture, where a long frame is no halt in the
+      // turn (`turnTime`), and casting a big map's shadows is one. Not in the frame the map's tiles were painted
+      // in, though: two long frames are a shorter halt than one of both.
+      if ((sk !== shadowsKey || !shadows) && (shadowA > 0.01 || !laid)) { buildShadows(m, sx, sy, shadowColor, par.occlusion as number); shadowsKey = sk }
+    }
+    if (shadowA > 0.01 && reach > 0 && shadows) {
       fg.globalAlpha = shadowA
-      fg.drawImage(shadows!, bx, by, bw, bh, 0, 0, bw, bh)
+      fg.drawImage(shadows, bx, by, bw, bh, 0, 0, bw, bh)
       // What moves, and what stands alone on its tile, throws its own: a long blot away from the sun.
       fg.fillStyle = shadowColor
       const ang = Math.atan2(shadowV.y, shadowV.x)

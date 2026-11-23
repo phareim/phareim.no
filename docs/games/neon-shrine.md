@@ -164,11 +164,13 @@ classic picture. `/?view=<id>` asks for one.
   hand-off** (`turnTime`): a picture's first frame is a long one, and the
   first frames of a turn are such frames, so in the hand-off and, on the
   way out, in the stretch a long frame would cross to reach it a frame
-  counts as a steady one at most. The hand-off is therefore four frames or
-  more at any frame rate, and a turn is longer where frames are (0.8 s at
+  counts as a steady one at most, and the last step before the hand-off
+  lands no deeper in it than a steady frame would. The hand-off is
+  therefore four frames or more at any frame rate, and a turn is longer where frames are (0.8 s at
   30 a second, about 1 s at 20). A turn's first two frames are steady ones
   too (`createTurnClock`): the press that began it may have done long work
-  of its own (the first key of a visit starts the sound). The classic
+  of its own (the first key of a visit starts the sound). A press in the
+  middle of a turn begins one as well, and gets its two steady frames. The classic
   picture a map has not had yet is painted in the second frame of the turn
   out, not at the hand-off.
   **A view that cannot draw yet** (its code has just arrived, its shaders
@@ -178,9 +180,14 @@ classic picture. `/?view=<id>` asks for one.
   switch. While it waits on the classic picture the view also paints what
   its first frame on this map needs (the map's two tile pictures, the
   plants: `prepare` in `iso/view.ts`), a piece a frame, so that frame is
-  not a halt in the turn. Without a turn (reduced motion, a pause, a panel)
-  it takes over in the frame it is ready, and the dress and the switch
-  follow in that same frame (`drawFrame`).
+  not a halt in the turn. (The canvas fallback, `iso/legacy.ts`, is never
+  waited for: it paints the map in its first frame and casts the map's
+  shadows in its second, both under the classic picture in the hand-off,
+  not in the frame the shadows first show.) Without a turn (reduced motion, a pause, a panel,
+  the ending) it takes over in the frame it is ready, and the dress and the
+  switch follow in that same frame (`drawFrame`); under a panel or the
+  ending, where the world is drawn five times a second, the picture is
+  drawn in that frame too.
   **A visit that starts in the 16-bit view** stays dark for at most
   450 ms from the first frame the tab is looked at (`renderer.arrive`), and
   its first picture comes up out of the dark over 320 ms (`dawn`); a device
@@ -191,7 +198,9 @@ classic picture. `/?view=<id>` asks for one.
   **A view that throws** (in `ready` or in `draw`) is put away and the
   classic view draws on; `viewState().failed` counts them, and the shell
   follows to the classic view with a bump and NO SIGNAL (`viewFailed`). A
-  later press makes the view again, three times at most in a visit. `View.turn` is how far the picture is rotated
+  later press makes the view again; once a view has failed three times
+  while it was the one shown, a press for it is refused for the rest of
+  the visit. `View.turn` is how far the picture is rotated
   at k = 1; the shell turns the stick by the same angle (`turnMove`), so up
   on the stick is up on the screen in every view. A dialog gets the stick
   unturned: there a direction picks YES or NO by its sign. Reduced motion, a

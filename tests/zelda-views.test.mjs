@@ -784,7 +784,7 @@ describe('the turn between views', () => {
     }
     assert.equal(M.turnTime(1 / 30, 0.5, H, S), 1 / 30)
     assert.equal(M.turnTime(0.1, 0.5, H, S), 0.1, 'away from the hand-off a long frame is the time it took')
-    // The hand-off is four frames at any rate, so a slow device's turn is that much longer: 0.8 s at 30 frames a second.
+    // The hand-off is four frames or more at any rate, so a slow device's turn is that much longer: 0.8 s at 30 frames a second.
     for (const [dt, into, out] of [[1 / 60, 42, 42], [1 / 30, 24, 24], [1 / 20, 18, 20]]) {
       const u = M.createTurn(id => id === 'iso', S)
       u.set('iso')
@@ -797,6 +797,8 @@ describe('the turn between views', () => {
     // Coming out of the hand-off a long frame is the time it took; heading for it, it is half a step.
     assert.equal(M.turnTime(0.1, H + 0.05, H, S, false, false), 0.1)
     assert.equal(M.turnTime(0.1, H + 0.05, H, S, false, true), 1 / 30)
+    // And its last step before the hand-off lands no deeper in it than a steady frame would have.
+    assert.ok(Math.abs(M.turnTime(0.1, H + 0.01, H, S, false, true) - (0.01 * S + 1 / 60)) < 1e-12)
     assert.equal(M.turnTime(0.1, H / 2, H, S, false, false), 1 / 60, 'the hand-off itself is steady both ways')
   })
   it('does not let the press that began a turn move it: the first two frames are steady ones', () => {
@@ -815,19 +817,61 @@ describe('the turn between views', () => {
     u.set('classic')
     const us = clocked(u, i => (i === 2 ? 0.1 : 1 / 60)).map(f => f[0])
     assert.ok(us[1] - us[2] > 0.1)
-    // The count starts again with the next turn.
+    // The count starts again with the next turn, and a frame made long on purpose is steady whatever its number.
     const clock = M.createTurnClock(H, S)
     const v = M.createTurn(id => id === 'iso', S)
     v.set('iso', true)
     v.step(0)
     for (let round = 0; round < 2; round++) {
-      v.set(round ? 'iso' : 'classic')
-      assert.equal(clock(0.1, v), 1 / 60)
+      v.set('classic')
+      assert.equal(clock(0.1, v), 1 / 60, `round ${round}: the first frame`)
       v.step(1 / 60)
-      assert.equal(clock(0.1, v), 1 / 60)
+      assert.equal(clock(0.1, v), 1 / 60, `round ${round}: the second frame`)
+      v.step(1 / 60)
+      assert.equal(clock(0.1, v, true), 1 / 60, `round ${round}: a held third frame`)
       while (v.turning) v.step(clock(1 / 60, v))
       assert.equal(clock(0.1, v), 0.1, 'at rest a frame is the time it took')
+      v.set('iso', true)
+      v.step(0)
+      assert.equal(clock(0.1, v), 0.1, 'at rest in the view too')
     }
+  })
+  it('counts a press in the middle of a turn, or right after one, as the start of a turn too', () => {
+    // A turn in, reversed half way: the two frames after the press are steady ones.
+    const clock = M.createTurnClock(H, S)
+    const t = M.createTurn(id => id === 'iso', S)
+    t.set('iso')
+    for (let i = 0; i < 30; i++) t.step(clock(1 / 60, t))
+    t.set('classic')
+    assert.equal(clock(0.1, t), 1 / 60, 'reversed: the first frame')
+    t.step(1 / 60)
+    assert.equal(clock(0.1, t), 1 / 60, 'reversed: the second frame')
+    t.step(1 / 60)
+    assert.equal(clock(0.1, t), 0.1, 'reversed: the third frame is the time it took')
+    // A press in the frame after a turn ended, with no frame at rest between.
+    const c2 = M.createTurnClock(H, S)
+    const u = M.createTurn(id => id === 'iso', S)
+    u.set('iso')
+    while (u.turning) u.step(c2(1 / 60, u))
+    u.set('classic')
+    assert.equal(c2(0.1, u), 1 / 60, 'back to back: the first frame')
+    u.step(1 / 60)
+    assert.equal(c2(0.1, u), 1 / 60, 'back to back: the second frame')
+    // A view waited for in the dark, and V in the frame after it came up: the clock saw that frame as a turning one.
+    let ready = false
+    const c3 = M.createTurnClock(H, S)
+    const w = M.createTurn(id => id === 'iso', S)
+    w.set('iso', true)
+    for (let i = 0; i < 5; i++) w.step(c3(1 / 60, w), ready)
+    ready = true
+    assert.ok(w.turning, 'a view that is waited for counts as turning')
+    w.step(c3(1 / 60, w), ready)
+    assert.equal(w.k, 1)
+    w.set('classic')
+    const k0 = w.k
+    w.step(c3(1 / 60, w), ready)
+    w.step(c3(0.1, w), ready)
+    assert.ok(Math.abs((k0 - w.k) - 2 * (1 / 60) / S) < 1e-9, `the press's long frame moved the turn ${(k0 - w.k).toFixed(4)}`)
   })
   it('never lets a long frame carry the turn over the hand-off, in or out', () => {
     for (const dt of [1 / 60, 1 / 30, 1 / 20, 0.1]) {
@@ -837,7 +881,26 @@ describe('the turn between views', () => {
       assert.ok(into.length >= 4, `in at ${dt.toFixed(3)} s a frame: ${into.length} frames of the hand-off`)
       t.set('classic')
       const out = frames(t, dt).filter(k => k < H)
-      assert.ok(out.length >= 2, `out at ${dt.toFixed(3)} s a frame: ${out.length} frames of the hand-off`)
+      assert.ok(out.length >= 4, `out at ${dt.toFixed(3)} s a frame: ${out.length} frames of the hand-off`)
+    }
+    // Frames of any length, one after the other (a device that stutters), with and without the frame the classic
+    // picture is painted in: four frames of the hand-off or more, both ways.
+    let seed = 12345
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648
+    for (let n = 0; n < 400; n++) {
+      const t = M.createTurn(id => id === 'iso', S)
+      t.set('iso')
+      const into = clocked(t, () => 1 / 60 + rnd() * (0.1 - 1 / 60)).filter(f => f[1] && f[0] < H)
+      assert.ok(into.length >= 4, `in, run ${n}: ${into.length} frames of the hand-off`)
+      t.set('classic')
+      const cold = n % 2 === 1
+      const clock = M.createTurnClock(H, S)
+      let hand = 0
+      for (let i = 0; i < 600 && t.turning; i++) {
+        const r = t.step(clock(1 / 60 + rnd() * (0.1 - 1 / 60), t, cold && i === 2))
+        if (r.shown && r.k < H) hand++
+      }
+      assert.ok(hand >= 4, `out${cold ? ', cold' : ''}, run ${n}: ${hand} frames of the hand-off`)
     }
     // The longest frame the shell hands over, from anywhere above the hand-off: it lands in it, not past it.
     for (let k = H + 0.001; k < 1; k += 0.007) {

@@ -401,6 +401,9 @@ function viewFailed() {
   viewId.value = 'classic'
   viewShown = 'classic'
   turnAt.a = 'classic'
+  // (The switch is told where it stands: the bump and NO SIGNAL are the news here, not an arrival at the classic view.)
+  sw.rest = 'classic'
+  turnSaid.value = `${sayView('classic')} view`
   pausedDrawn = false
   syncSound()
   syncDress()
@@ -444,13 +447,15 @@ async function showView(id: ViewId, instant = false, remember = true, arriving =
   // Kept only now that it can be shown: a view whose code did not arrive is not a choice, however many presses asked for it.
   if (remember) try { localStorage.setItem(VIEW_KEY, def.id) } catch { /* private mode: this visit only */ }
   renderer.setParams(def.engine, def.params)
-  // No turn where nothing would play it: reduced motion, a paused game, an open panel.
+  // No turn where nothing would play it: reduced motion, a paused game, an open panel, the ending.
   if (arriving) renderer.arrive(def.engine, nightLeft(), !reducedMotion.value)
-  else renderer.setView(def.engine, instant || reducedMotion.value || paused.value || panel.value !== null)
+  else renderer.setView(def.engine, instant || reducedMotion.value || paused.value || panel.value !== null || phase.value === 'won')
   viewShown = def.id
   pausedDrawn = false
   syncSound()
   syncDress()
+  // (Under a panel or the ending the world is drawn five times a second: the new picture comes with its dress, now.)
+  slowT = 0
 }
 
 /** The sound follows the picture: the isometric view plays on the 16-bit chip, unless its values ask for the 8-bit one (`flavorForView` in audio.ts). */
@@ -479,6 +484,7 @@ function applyLiveViews(live: LiveViews | null) {
   pausedDrawn = false
   syncSound()
   syncDress()
+  slowT = 0
 }
 
 // ---- the turn switch -------------------------------------------------------------
@@ -1089,13 +1095,14 @@ let steppedWaiting = false
 
 /**
  * Draw. A view that was waited for and took over in that draw without a turn (reduced motion, a pause, a panel)
- * is on screen now: the dress and the switch follow in the same frame, not the next one.
+ * is on screen now: the dress and the switch follow in the same frame, not the next one. (A view that threw in
+ * that draw was put away, which looks the same from here: that one is `viewFailed`'s, in the next frame.)
  */
 function drawFrame(nowMs: number, dt: number) {
   if (!renderer) return
   renderer.draw(state, ui, dt)
   const vs = renderer.viewState()
-  if (steppedWaiting && !vs.waiting && !vs.turning) { steppedWaiting = false; stepDress(vs); stepTurnSwitch(nowMs) }
+  if (steppedWaiting && !vs.waiting && !vs.turning && vs.failed === failedSeen) { steppedWaiting = false; stepDress(vs); stepTurnSwitch(nowMs) }
 }
 
 function frame(nowMs: number) {
@@ -1113,8 +1120,16 @@ function frame(nowMs: number) {
   { const f = renderer.viewState().failed; if (f !== failedSeen) { failedSeen = f; viewFailed() } }
   // A visit's first dark moments: the view is on its way (`arrive`), and nothing steps until there is a picture.
   if (renderer.viewState().dark) { renderer.draw(state, ui, 0); return }
-  // A turn caught by a pause or a panel would hang half done (the world is drawn once, or five times a second): finish it.
-  if ((paused.value || panel.value) && renderer.viewState().turning) { renderer.setView(viewDef(viewId.value)?.engine ?? 'classic', true); pausedDrawn = false }
+  // A turn caught by a pause, a panel or the ending would hang half done (the world is drawn once, or five times a
+  // second): finish it. The picture follows in this frame, not at the next slow tick, and a view that threw being
+  // asked is followed before the dress and the switch are stepped for it.
+  if ((paused.value || panel.value || phase.value === 'won') && renderer.viewState().turning) {
+    renderer.setView(viewDef(viewId.value)?.engine ?? 'classic', true)
+    pausedDrawn = false
+    if (!renderer.viewState().turning) slowT = 0
+    const f = renderer.viewState().failed
+    if (f !== failedSeen) { failedSeen = f; viewFailed() }
+  }
   steppedWaiting = renderer.viewState().waiting
   stepDress(renderer.viewState())
   syncUnit()

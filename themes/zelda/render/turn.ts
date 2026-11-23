@@ -81,19 +81,24 @@ export function createTurn(has: (id: string) => boolean, seconds = 0.6): Turn {
  */
 export function turnTime(dt: number, k: number, handoff: number, seconds: number, held = false, out = true): number {
   if (held || k <= handoff) return Math.min(dt, 1 / 60)
-  if (out && k < handoff + 0.1 / seconds) return Math.min(dt, 1 / 30)
+  // (And no step lands deeper in the hand-off than a steady frame would have.)
+  if (out && k < handoff + 0.1 / seconds) return Math.min(dt, 1 / 30, (k - handoff) * seconds + 1 / 60)
   return dt
 }
 
 /**
  * The turn's share of each frame's time, frame by frame (`turnTime`). A turn's first two frames are steady ones
  * whatever the clock says: the press that began it may have done long work of its own (the first key of a visit
- * starts the sound), and that time arrives in the second frame's dt. `held`: as `turnTime`'s.
+ * starts the sound), and that time arrives in the second frame's dt. A press in the middle of a turn, or in the
+ * frame after one ended, begins a turn too: the count starts again whenever the turn's aim changes. `held`: as
+ * `turnTime`'s.
  */
 export function createTurnClock(handoff: number, seconds: number) {
   let age = 0
+  let aim = ''
   return (dt: number, t: Pick<Turn, 'turning' | 'k' | 'id' | 'shown'>, held = false): number => {
-    if (!t.turning) { age = 0; return dt }
+    if (!t.turning) { age = 0; aim = ''; return dt }
+    if (t.id !== aim) { age = 0; aim = t.id }
     age++
     return turnTime(dt, t.k, handoff, seconds, held || age <= 2, t.id !== t.shown)
   }
