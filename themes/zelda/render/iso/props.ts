@@ -73,7 +73,8 @@ const rgb = (s: string): Rgb => { const v = parseInt(s.slice(1, 7), 16); return 
 interface Mat { ramp: Rgb[]; glow: number }
 const mat = (glow: number, ...c: string[]): Mat => ({ ramp: c.map(rgb), glow })
 
-const MATS = {
+/** The things' materials (shared with the polygon view, which builds the same things as meshes). */
+export const MATS = {
   pole: mat(0, '#120a20', '#1e1434', '#34285a', '#4e4080', '#7466a8'),
   glassPink: mat(1, '#ff2fa0', '#ff2fa0', '#ff5fd0', '#ff5fd0', '#ffb0ec'),
   glassCyan: mat(1, '#2ff3ff', '#2ff3ff', '#6ff6ff', '#6ff6ff', '#c4fbff'),
@@ -104,11 +105,18 @@ const MATS = {
   blockPink: mat(0, '#3a0830', '#6a1050', '#8a1868', '#b01874', '#ff2fa0'),
   blockCyan: mat(0, '#083846', '#0f5a70', '#147890', '#1a9fc4', '#2ff3ff'),
 } as const
-type MatName = keyof typeof MATS
+export type MatName = keyof typeof MATS
 const MAT_NAMES = Object.keys(MATS) as MatName[]
 
 /** Which material a point of a solid is: one, or a rule by where the point is and which way it faces. */
-type Pick = MatName | ((x: number, y: number, z: number, nx: number, ny: number, nz: number) => MatName)
+export type Pick = MatName | ((x: number, y: number, z: number, nx: number, ny: number, nz: number) => MatName)
+
+/** What a thing is built with: boxes, posts and balls, in scene px (32 to the tile) about the point of ground under its middle. */
+export interface Solids {
+  ball(cx: number, cy: number, cz: number, rx: number, ry: number, rz: number, pick: Pick): void
+  post(cx: number, cy: number, z0: number, z1: number, r: number, pick: Pick): void
+  box(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, pick: Pick): void
+}
 
 const W: number = PROP.w
 const H: number = PROP.h
@@ -256,7 +264,7 @@ function hash(x: number, y: number, salt = 0): number {
 // ---------------------------------------------------------------------------
 
 /** A lamp post: a foot, a thin pole, a lantern with four panes under a lid. */
-function lamp(b: Bench, glass: 'glassPink' | 'glassCyan') {
+function lamp(b: Solids, glass: 'glassPink' | 'glassCyan') {
   b.post(0, 0, 0, 2, 4.4, 'pole')
   b.post(0, 0, 2, 4, 3, 'pole')
   b.post(0, 0, 4, 34, 1.5, 'pole')
@@ -274,7 +282,7 @@ function lamp(b: Bench, glass: 'glassPink' | 'glassCyan') {
 }
 
 /** A gravestone: a slab on a plinth, its head rounded, a cross cut into its face, moss at its foot. */
-function grave(b: Bench) {
+function grave(b: Solids) {
   b.box(-8, -3.4, 0, 8, 3.4, 2.4, (x, _y, z, _nx, ny) => (ny > 0.5 && z < 1.6 && hash(x, 3, 7) > 0.45 ? 'moss' : 'stone'))
   const face = (x: number, _y: number, z: number, _nx: number, ny: number): MatName => {
     if (ny < 0.5) return 'stone'
@@ -287,21 +295,21 @@ function grave(b: Bench) {
 }
 
 /** A clay pot: a round belly with two bands of glaze, a neck, a rim round a dark mouth. */
-function pot(b: Bench) {
+function pot(b: Solids) {
   b.ball(0, 0, 8.2, 7.6, 7.6, 8.2, (_x, _y, z) => (z >= 9.6 && z < 11.6 ? 'bandCyan' : z >= 7.4 && z < 9.6 ? 'bandPink' : 'clay'))
   b.post(0, 0, 14.5, 17.5, 4.3, 'clay')
   b.post(0, 0, 17.5, 19.6, 5.8, (x, y, _z, _nx, _ny, nz) => (nz > 0.5 && Math.hypot(x, y) < 4 ? 'dark' : 'clay'))
 }
 
 /** A rock a hero can lift: three lumps grown together. */
-function rock(b: Bench) {
+function rock(b: Solids) {
   b.ball(0, 0, 5.4, 8, 7.2, 8, 'rock')
   b.ball(-3.6, 2.6, 3.4, 6, 5, 5, 'rock')
   b.ball(3.8, -1.2, 5.6, 5.2, 5.2, 6.4, 'rock')
 }
 
 /** A boulder only a blast moves: a great lump with two shoulders and a crack down its face. */
-function boulder(b: Bench) {
+function boulder(b: Solids) {
   const cracked = (x: number, y: number, z: number): MatName => {
     // Along the face the viewer sees, from its middle.
     const a = (x - y) * Math.SQRT1_2
@@ -314,7 +322,7 @@ function boulder(b: Bench) {
 }
 
 /** A signpost: a board on a post, two lines of writing on its face. */
-function sign(b: Bench) {
+function sign(b: Solids) {
   b.post(0, 0, 0, 13, 1.5, 'wood')
   const face = (x: number, _y: number, z: number, _nx: number, ny: number): MatName => {
     if (ny < 0.5) return 'wood'
@@ -326,14 +334,14 @@ function sign(b: Bench) {
 }
 
 /** A pillar: a shaft on a foot under a slab, a band of neon round it. */
-function pillar(b: Bench, stone: 'stone' | 'shrine') {
+function pillar(b: Solids, stone: 'stone' | 'shrine') {
   b.box(-6.5, -6.5, 0, 6.5, 6.5, 2.5, stone)
   b.box(-5, -5, 2.5, 5, 5, 25, (_x, _y, z, _nx, _ny, nz) => (nz < 0.5 && z > 14 && z < 16 ? 'neon' : stone))
   b.box(-6.5, -6.5, 25, 6.5, 6.5, 28, stone)
 }
 
 /** A bar stool: a round seat in red velvet on a chrome leg. */
-function stool(b: Bench) {
+function stool(b: Solids) {
   b.post(0, 0, 0, 1.6, 4, 'chrome')
   b.post(0, 0, 1.6, 10, 1.3, 'chrome')
   b.post(0, 0, 10, 11.2, 5.6, 'chrome')
@@ -345,7 +353,7 @@ function stool(b: Bench) {
  * wherever the counter goes on (east and west always, north and south as told), so the parts of a long
  * counter stand side by side as one; `narrow` is a counter that runs north to south.
  */
-function counter(b: Bench, north: boolean, south: boolean, narrow = false) {
+function counter(b: Solids, north: boolean, south: boolean, narrow = false) {
   const x0 = narrow ? -9 : -16
   const x1 = narrow ? 9 : 16
   const y0 = narrow || north ? -16 : -9
@@ -362,7 +370,7 @@ function counter(b: Bench, north: boolean, south: boolean, narrow = false) {
 }
 
 /** A treasure chest: a wooden box strapped in gold with a lock on its face; open, its lid stands up at the back over a dark inside. */
-function chest(b: Bench, big: boolean, open: boolean) {
+function chest(b: Solids, big: boolean, open: boolean) {
   const w = big ? 11.5 : 8.5
   const d = big ? 7.5 : 6
   const h = big ? 12 : 9
@@ -387,7 +395,7 @@ function chest(b: Bench, big: boolean, open: boolean) {
 }
 
 /** One of the Shrine's crystal blocks, risen: a cube whose top is all light. */
-function block(b: Bench, side: 'blockPink' | 'blockCyan', top: 'glassPink' | 'glassCyan') {
+function block(b: Solids, side: 'blockPink' | 'blockCyan', top: 'glassPink' | 'glassCyan') {
   b.box(-14, -14, 0, 14, 14, 15, (x, y, z, _nx, _ny, nz) => {
     if (nz > 0.5) return Math.abs(x) > 12.4 || Math.abs(y) > 12.4 ? side : x < -6 && y < -6 ? 'core' : top
     return z > 13 ? top : side
@@ -398,7 +406,7 @@ function block(b: Bench, side: 'blockPink' | 'blockCyan', top: 'glassPink' | 'gl
  * A fence's part of one tile: a post in the middle and two rails out to every side the fence goes on
  * (1 west, 2 east, 4 north, 8 south).
  */
-function fence(b: Bench, sides: number) {
+function fence(b: Solids, sides: number) {
   for (const z of [6, 12.4]) {
     if (sides & 1) b.box(-16, -0.9, z, 0, 0.9, z + 2.4, 'wood')
     if (sides & 2) b.box(0, -0.9, z, 16, 0.9, z + 2.4, 'wood')
@@ -409,7 +417,8 @@ function fence(b: Bench, sides: number) {
   b.post(0, 0, 17.5, 18.6, 2.6, 'wood')
 }
 
-const BUILD: Record<PropKind, (b: Bench) => void> = {
+/** How each thing is built (the polygon view builds the same things as meshes). */
+export const BUILD: Record<PropKind, (b: Solids) => void> = {
   lampPink: b => lamp(b, 'glassPink'),
   lampCyan: b => lamp(b, 'glassCyan'),
   grave,
@@ -431,7 +440,7 @@ const BUILD: Record<PropKind, (b: Bench) => void> = {
   bigChestOpen: b => chest(b, true, true),
   blockPink: b => block(b, 'blockPink', 'glassPink'),
   blockCyan: b => block(b, 'blockCyan', 'glassCyan'),
-  ...Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`fence${i}`, (b: Bench) => fence(b, i)])),
+  ...Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`fence${i}`, (b: Solids) => fence(b, i)])),
 }
 
 let built: PropAtlas | null = null

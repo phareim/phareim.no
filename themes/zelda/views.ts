@@ -3,7 +3,7 @@
  * only how the frame is drawn, so the player can change it in the middle of
  * a room. Pure: the loaders are the only thing that touches the bundle.
  *
- * A view is a drawing engine (`viewParams.ts`: classic, iso) with a
+ * A view is a drawing engine (`viewParams.ts`: classic, iso, poly) with a
  * name and its own values. Two are built in, one per engine; a visitor who
  * has not chosen starts in the isometric 16-bit one (`DEFAULT_VIEW`). The studio
  * (studio.phareim.no) may change a built-in view's values and publish more
@@ -40,6 +40,8 @@ export interface ViewInfo extends ViewDef {
 export const ENGINE_LOADERS: Record<EngineId, (() => Promise<{ default: unknown }>) | undefined> = {
   classic: undefined,
   iso: () => import('./render/iso/view'),
+  // (Not in the round yet: a studio view of this engine, or the lab, shows it.)
+  poly: () => import('./render/poly/view'),
 }
 
 export const VIEWS: readonly ViewInfo[] = [

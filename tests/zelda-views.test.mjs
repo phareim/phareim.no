@@ -39,7 +39,7 @@ async function load() {
       loader: 'ts',
     },
     // The view modules themselves draw on a canvas: leave them out of the bundle.
-    bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error', external: ['./render/iso/view'],
+    bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error', external: ['./render/iso/view', './render/poly/view'],
   })
   return import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
 }
@@ -86,7 +86,11 @@ describe('the view registry', () => {
     }
   })
   it('has one built-in view per engine, drawn with the engine\'s own values', () => {
-    assert.deepEqual(M.VIEWS.map(v => v.engine).sort(), Object.keys(M.ENGINES).sort())
+    // The polygon engine is not in the round yet (a third view changes the corner switch for every visitor): a
+    // studio view or the lab shows it.
+    const waiting = ['poly']
+    assert.deepEqual(M.VIEWS.map(v => v.engine).sort(), Object.keys(M.ENGINES).filter(e => !waiting.includes(e)).sort())
+    for (const e of waiting) assert.equal(typeof M.ENGINE_LOADERS[e], 'function', `${e} has no loader`)
     for (const v of M.VIEWS) {
       assert.equal(v.load, M.ENGINE_LOADERS[v.engine])
       assert.equal(v.params, undefined)
@@ -95,21 +99,21 @@ describe('the view registry', () => {
   it('keeps every view\'s code out of the page that loads first', () => {
     // Anything but a dynamic import() of a view, anywhere on the site, would put it in the entry:
     // a static import, a side-effect import or a re-export, in either kind of quote.
-    const skip = new Set(['node_modules', '.nuxt', '.output', 'dist', 'iso'])
+    const skip = new Set(['node_modules', '.nuxt', '.output', 'dist', 'iso', 'poly'])
     const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? (skip.has(e.name) ? [] : walk(resolve(dir, e.name))) : [resolve(dir, e.name)])
     const files = ['themes', 'components', 'composables', 'pages', 'plugins', 'server'].flatMap(d => walk(resolve(site, d))).concat(resolve(site, 'app.vue'))
-    const dynamic = { iso: 0 }
+    const dynamic = { iso: 0, poly: 0 }
     for (const f of files) {
       if (!/\.(ts|vue|mjs|js)$/.test(f)) continue
       const src = readFileSync(f, 'utf8')
       for (const line of src.split('\n')) {
-        const m = /(iso)\/view['"]/.exec(line)
+        const m = /(iso|poly)\/view['"]/.exec(line)
         if (!m || /^\s*(\/\/|\*)/.test(line)) continue
-        assert.match(line, /import\(\s*['"][^'"]*(iso)\/view['"]\s*\)/, `${f} brings the ${m[1]} view in statically: ${line.trim()}`)
+        assert.match(line, /import\(\s*['"][^'"]*(iso|poly)\/view['"]\s*\)/, `${f} brings the ${m[1]} view in statically: ${line.trim()}`)
         dynamic[m[1]]++
       }
     }
-    assert.deepEqual(dynamic, { iso: 1 }, 'the registry should hold the one dynamic import of each view')
+    assert.deepEqual(dynamic, { iso: 1, poly: 1 }, 'the registry should hold the one dynamic import of each view')
   })
 
 })

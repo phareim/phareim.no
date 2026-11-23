@@ -10,8 +10,10 @@
 // cabinets, board, kiosk, terminals, decals, the petter NPC); r-* are the
 // real town in the one world.
 //
-// VIEW=iso renders the isometric view (PNGs end in -iso); with FRAMES=<n>
-// (under 42) the shot stops n frames into the turn from the classic view.
+// VIEW=iso renders the isometric view (PNGs end in -iso), VIEW=poly the
+// polygon view (-poly); with FRAMES=<n> (under 42) the shot stops n frames
+// into the turn from the classic view. CHROME_BIN=<path> draws with another
+// browser (the Mac's Chrome, where the GPU draws) instead of chromium-browser.
 //
 // HERO_COLORS='<HeroColors JSON>' dresses the hero in Mini World's colours
 // (render/heroColors.ts); the PNGs then end in -dressed.
@@ -44,6 +46,7 @@ import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
+import polyView, { pinQuality as pinPoly } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/view.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
 const W = +q.get("w"), H = +q.get("h"), dpr = +(q.get("dpr") || 1), top = +(q.get("top") || 0)
@@ -66,6 +69,7 @@ if (q.get('look')) {
 }
 // VIEW=iso shows the isometric view; FRAMES below 36 stops in the middle of the turn into it.
 if (q.get('view') === 'iso') { r.addView('iso', isoView); r.setView('iso', q.get('frames') === null) }
+if (q.get('view') === 'poly') { pinPoly(true); r.addView('poly', polyView); r.setView('poly', q.get('frames') === null) }
 // PARAMS='{"bloom":0.5}' sets an engine's values (viewParams.ts).
 if (q.get('params')) r.setParams(q.get('view') || 'classic', JSON.parse(q.get('params')))
 r.resize(W, H, dpr, { top, right: 0, bottom: top ? 34 : 0, left: 0 })
@@ -166,7 +170,7 @@ function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.
 // Several frames so fades (exit labels) settle and the clock moves.
 for (let k = 0; k < +(q.get('frames') || 40); k++) r.draw(s, ui, 1 / 60)
 // For a lab page that wants to go on drawing (timing a view, filming a turn).
-window.__lab = { r, s, ui, world, step: (n = 1, i = inp({})) => run(n, i) }
+window.__lab = { r, s, ui, world, step: (n = 1, i = inp({})) => run(n, i), inp }
 document.title = 'ready'
 `
 const entryFile = join(out, '_entry.ts')
@@ -272,6 +276,10 @@ const SHOTS = [
   ['d-gemini-1280', 'd-gemini', 1280, 800, 1, 0],
   ['d-gate-1280', 'd-gate', 1280, 800, 1, 0],
   ['w-camp-390', 'w-camp', 390, 844, 3, 0],
+  // The polygon view's set (tmp/poly-lab): the same places at the size the other views are judged at.
+  ['shop-1280', 'shop', 1280, 800, 1, 0],
+  ['graves-1280', 'graves', 1280, 800, 1, 0],
+  ['lake-1280', 'lake', 1280, 800, 1, 0],
   ['d-room11-390', 'd-room11', 390, 844, 3, 0],
 ]
 const want = only ? new Set(only.split(',')) : null
@@ -282,8 +290,8 @@ for (const [name, scene, w, h, dpr, top] of SHOTS) {
   if (want && !want.has(name) && !want.has(scene)) continue
   const png = join(out, `${name}${tag}${process.env.HERO_COLORS ? '-dressed' : ''}${process.env.HERO_LOOK ? '-look' : ''}.png`)
   try {
-    execFileSync('chromium-browser', [
-      '--headless=new', '--no-sandbox', '--disable-gpu', '--enable-unsafe-swiftshader', '--hide-scrollbars',
+    execFileSync(process.env.CHROME_BIN || 'chromium-browser', [
+      '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--enable-unsafe-swiftshader', '--hide-scrollbars',
       `--force-device-scale-factor=${dpr}`, `--window-size=${w},${h}`,
       '--virtual-time-budget=3000', `--screenshot=${png}`,
       `file://${html}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}&top=${top}&touch=${w < 1000 ? 1 : 0}${hero}${view}`,

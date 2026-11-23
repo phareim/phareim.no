@@ -18,6 +18,7 @@ async function load() {
       contents: [
         `export * from './render/poly/camera'`,
         `export * from './render/poly/terrain'`,
+        `export { Mesher, Verts, roomCut, polyShape, KERB, STRIDE, AT, TEX } from './render/poly/mesh'`,
         `export { TILE } from './types'`,
         `export { WORLD } from './world/index'`,
         `export { BEYOND, beyondTile } from './render/beyond'`,
@@ -86,6 +87,16 @@ describe('the camera rig', () => {
     assert.ok(crane > 0.03 * VH && crane < 0.25 * VH, `the crane's horizon is at ${crane}`)
     assert.ok(shoulder > crane && shoulder < 0.5 * VH, `the shoulder's horizon is at ${shoulder}`)
     assert.equal(M.horizonY(M.classicMatrix(VW, VH, 0, 0), VW, VH), Infinity)
+  })
+  it('looks further down on a screen taller than wide, so a phone sees ground and not sky', () => {
+    const f = { x: 20, y: 30, z: 0 }
+    const [w, h] = [130, 282]
+    assert.deepEqual(M.fitPose(M.CRANE, VW, VH), M.CRANE)
+    const fitted = M.fitPose(M.CRANE, w, h)
+    assert.ok(fitted.pitch > M.CRANE.pitch)
+    const hy = M.horizonY(M.poseMatrix(fitted, w, h, f), w, h)
+    assert.ok(hy > 0.05 * h && hy < 0.3 * h, `the horizon on a phone is at ${hy / h} of the height`)
+    assert.ok(M.horizonY(M.poseMatrix(M.CRANE, w, h, f), w, h) > 0.35 * h, 'a phone shows no more sky than before: the test is moot')
   })
   it('keeps the controls as the classic view has them from the crane', () => {
     assert.equal(M.CRANE.yaw, 0)
@@ -328,6 +339,79 @@ describe('the land', () => {
         if (!wet && M.levelOf(t) === 0) near(land.height(x + 0.5, y + 0.5), 0)
       }
     }
+  })
+})
+
+// ------------------------------------------------------------------- mesher
+
+/** The mesher's field for a map of rows (indoors or out), on a land built from the same rows. */
+function fieldOf(rows, kind, land) {
+  const w = rows[0].length, h = rows.length
+  const tile = (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? (kind === 'overworld' ? '.' : '#') : rows[y][x])
+  return {
+    kind, w, h, tile, land,
+    own: () => false, raised: () => false, chest: () => 'chest', signExit: () => false, mood: () => 0, pool: () => false,
+    hash: (x, y, s) => ((Math.sin(x * 12.9898 + y * 78.233 + s) * 43758.5453) % 1 + 1) % 1,
+  }
+}
+/** Every vertex of a build, as objects. */
+function vertsOf(v) {
+  const out = []
+  for (let i = 0; i < v.n; i++) {
+    const o = i * M.STRIDE
+    const d = v.data
+    out.push({ x: d[o], y: d[o + 1], z: d[o + 2], g: d[o + 3], n: [d[o + 4], d[o + 5], d[o + 6]], tex: d[o + 9], zk: d[o + 16] })
+  }
+  return out
+}
+
+describe('the mesher', () => {
+  it('lays the ground on the land, two flat triangles to a cell', () => {
+    const land = M.buildLand(source(), LOOK)
+    const me = new M.Mesher(fieldOf(ROWS, 'overworld', land), { pitch: 0.4, room: null, sun: null, props: true })
+    const v = me.build({ x: 0, y: 0, w: 12, h: 12 }, new M.Verts())
+    const all = vertsOf(v)
+    const ground = all.filter(p => p.tex === M.TEX.GROUND)
+    assert.equal(ground.length, 12 * 12 * land.res * land.res * 6)
+    for (const p of ground) { assert.equal(p.z, 0); near(p.g, land.height(p.x, p.y), 1e-5) }
+    // One normal to a triangle, so the light shows its facets.
+    for (let i = 0; i < all.length; i += 3) for (let j = 1; j < 3; j++) assert.deepEqual(all[i + j].n, all[i].n)
+  })
+  it('stands a house with its roof rising toward the back, and nothing of the roof at the classic end', () => {
+    const land = M.buildLand(source(), { hills: 0, shore: 0, far: 0 })
+    const me = new M.Mesher(fieldOf(ROWS, 'overworld', land), { pitch: 0.4, room: null, sun: null, props: true })
+    const v = vertsOf(me.build({ x: 14, y: 1, w: 5, h: 6 }, new M.Verts()))
+    const roof = v.filter(p => p.zk > 0)
+    assert.ok(roof.length > 0, 'no roof rises')
+    // The pitch is the part only the finished view has: at k = 0 the roof lies at the eaves, where the classic art has it.
+    for (const p of roof) assert.ok(p.z <= 2 + 1e-9)
+  })
+  it('cuts a room\'s south wall down to a kerb, and keeps its other walls', () => {
+    const room = { x: 0, y: 0, w: 10, h: 8 }
+    assert.equal(M.roomCut(room, 7), M.KERB)
+    assert.equal(M.roomCut(room, 6), M.KERB)
+    assert.equal(M.roomCut(room, 5), 1)
+    assert.equal(M.roomCut(null, 7), 1)
+    const rows = [
+      '##########',
+      '##########',
+      '#........#',
+      '#........#',
+      '#........#',
+      '#........#',
+      '##########',
+      '##########',
+    ]
+    const land = M.buildLand({ w: 10, h: 8, kind: 'dungeon', at: (x, y) => rows[Math.floor(y)]?.[Math.floor(x)] ?? '#', beyond: 0, seed: 1 }, LOOK)
+    const me = new M.Mesher(fieldOf(rows, 'dungeon', land), { pitch: 0, room, sun: null, props: true })
+    const v = vertsOf(me.build(room, new M.Verts()))
+    const walls = v.filter(p => p.tex === M.TEX.OBJS)
+    const top = (f) => Math.max(...walls.filter(f).map(p => p.z))
+    assert.ok(top(p => p.y >= 6.5) <= M.KERB + 1e-6, 'the south wall stands taller than a kerb')
+    assert.ok(top(p => p.y <= 2.5) >= 1 - 1e-6, 'the north wall is cut down')
+    // The east wall stands: this camera looks at it (the 16-bit view lays a wall with floor to its west down).
+    assert.ok(top(p => p.x >= 9 && p.y > 2.5 && p.y < 5.5) >= 1 - 1e-6, 'the east wall is laid down')
+    assert.equal(M.polyShape('#', 'dungeon', (dx, dy) => rows[3 + dy]?.[9 + dx] ?? '#', false, false).k, 'top')
   })
 })
 
