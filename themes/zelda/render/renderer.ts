@@ -251,7 +251,11 @@ export interface Kit {
   setSpan(fn: ((x1: number, y1: number, x2: number, y2: number) => Vec) | null): void
   /** `into`: the colour a fade ends in (the classic night, or a view's own sheet). */
   flashFade(g: G, s: GameState, ui: FrameUI, dt: number, into?: string): number
-  present(fade: number, glows: (bg: G) => void, finish?: Finish): void
+  /**
+   * `picture`: the view's own finished picture, finer than the scene (any whole multiple, or a size that is a whole
+   * number of device px a px), laid where the scene would be instead of it.
+   */
+  present(fade: number, glows: (bg: G) => void, finish?: Finish, picture?: HTMLCanvasElement): void
   /**
    * The HUD in a skin (none: the classic neon one). `from`: the skin this one
    * is taking over from and how far it has (0–1), for a view that turns in
@@ -1027,7 +1031,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * The finished scene to the screen: whole-number upscale, the neon bloom
    * (`glows` adds the frame's lights to the bloom layer), scanlines, vignette.
    */
-  function present(fade: number, glows: (bg: G) => void, finish: Finish = finishOf('classic')) {
+  function present(fade: number, glows: (bg: G) => void, finish: Finish = finishOf('classic'), picture?: HTMLCanvasElement) {
     screen.setTransform(1, 0, 0, 1, 0, 0)
     screen.globalCompositeOperation = 'source-over'
     screen.fillStyle = '#0b0616'
@@ -1035,15 +1039,18 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const ox = Math.floor((W - vw * scale) / 2)
     const oy = Math.floor((H - vh * scale) / 2)
     screen.imageSmoothingEnabled = false
-    screen.drawImage(scene, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+    const src = picture ?? scene
+    const sw = picture ? picture.width : vw
+    const sh = picture ? picture.height : vh
+    screen.drawImage(src, 0, 0, sw, sh, ox, oy, vw * scale, vh * scale)
     const soft = Math.max(0, Math.min(1, finish.smooth ?? 0))
     if (soft > 0) {
       // Filtered on its way up, and smeared a little sideways, over the hard pixels.
       screen.imageSmoothingEnabled = true
       screen.globalAlpha = soft
-      screen.drawImage(scene, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+      screen.drawImage(src, 0, 0, sw, sh, ox, oy, vw * scale, vh * scale)
       screen.globalAlpha = soft * 0.4
-      screen.drawImage(scene, 0, 0, vw, vh, ox + Math.max(1, scale * 0.6), oy, vw * scale, vh * scale)
+      screen.drawImage(src, 0, 0, sw, sh, ox + Math.max(1, (0.6 * vw * scale) / sw), oy, vw * scale, vh * scale)
       screen.globalAlpha = 1
       screen.imageSmoothingEnabled = false
     }

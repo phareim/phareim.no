@@ -675,6 +675,56 @@ filtered textures, fog).
   paving) a neon rim instead, so the fountain's rim follows its rounded shore.
 - **Without WebGL2**, or when the context is lost (more than three times), or
   when the shaders do not link, the classic picture draws on.
+- **Resolution by generation** (2026-11-24). Each generation draws finer than
+  the one before: the classic picture one px to the classic px, the 16-bit view
+  two, the polygon view's own picture `density` px (POLYGON 4, THIRD PERSON
+  `screen`, the screen's own px). A picture px is always a whole number of
+  device px: `densityOf` takes the finest at or under the value, never under 2
+  (on a dpr-1 monitor both looks are at the screen's px; on a retina one the
+  32-bit look is at 4 and the 64-bit at 8; on a phone at dpr 3, 2.5 and 5). The
+  sky is painted at the scene's size and brought up; the polygons are drawn at
+  the density; `kit.present` takes the finished picture (its `picture`
+  argument), so the bloom, scanlines, vignette, flash, fade and HUD are still
+  the renderer's. The 32-bit machine keeps its grain at the finer picture: the
+  vertex snap, the dither and the stipple keep to a grid of `grain` classic px
+  (0.5). The 64-bit look draws through a 4× multisampled framebuffer
+  (`smoothEdges`), its textures filtered, the old sideways smear off. Both
+  dresses are fine (`hud32.ts`: `GLASS_FINE_SKIN`, `ROUND_FINE_SKIN` at density
+  2, the 16-bit view's lettering and icons), and the round dress has bigger,
+  softer hearts of its own. The governor steps the density down first.
+- **The painted textures** (2026-11-24). Sixteen textures painted for these
+  views (by Codex, from the 16-bit materials, in the whole colour range), one
+  per material of `iso/materials.ts`, 128 texels a side, 32 to the tile:
+  `public/zelda/poly/materials.webp` (86 KB, written by
+  `scripts/zelda-lab/poly-pack.mjs` from the painted page), fetched the first
+  time a polygon look wants it; the 16-bit materials draw until it is here, and
+  if it fails (value `textures`: `painted` or `materials`). The 32-bit look reads
+  them texel by texel, the 64-bit one filtered. Under the game's dusk some were
+  too loud or too dim and are tuned as they are decoded (`PAINTED_TUNE` in
+  `poly/view.ts`: a gain and a saturation a material): grass and the Wildwood's
+  moss and lanes lifted, the sand calmed, the cobbles kept rose-violet, the
+  interior panelling and the labs' plates calmed.
+- **The hero as a model** (2026-11-24, `poly/hero.ts`). The hero is a mesh made
+  from the drawn hero: 6,000 triangles in the 32-bit look, 20,000 in the 64-bit
+  one (`public/zelda/poly/hero-32.bin` 90 KB with `hero-32.webp` 58 KB,
+  `hero-64.bin` 283 KB with `hero-64.webp` 150 KB), fetched only when a polygon
+  look first needs the hero; the sprite card stands in until then and if it
+  fails (value `figure`: `model` or `classic`). The mesh has no rig: it is split
+  into stiff parts by where its vertices lie in its A-pose (the legs, the torso,
+  the arms, the head), with soft weights across each joint, and driven by the
+  16-bit view's modelled figure's own poses (`solvePose` in `iso/figure.ts`: the
+  walk of sixteen phases, lift, carry, push, hurt, get, use, fall, dead, the
+  swing). Its arms are turned so the hand reaches where that figure puts it and
+  its legs so the foot lands where it does; the body turns toward the heading
+  at a pace. It is skinned on the CPU into the engine's own vertices, so it is
+  lit, snapped, filtered and fogged like everything else, flat-faceted in the
+  32-bit look and smooth in the 64-bit one. The blade is a small mesh in the
+  right hand along the engine's swing angle. A look from the NEW LOOK stall that
+  changes only colours recolours the model's jacket, band, hair and trousers; a
+  look of another shape (hair, headwear, bottom) keeps the sprite card for now.
+  Everyone else is still a card. In the 64-bit look the cards face the camera
+  fully; whatever stands between the eye and the hero is cut through in a clean
+  window the hero's size, and what stands near the eye fades out.
 - **Two looks on one engine** (2026-11-23). The engine's values are its
   look, and the round has two of them: POLYGON (32-bit, the engine's own
   values) and THIRD PERSON (64-bit, `THIRD_PERSON` in `views.ts`), every trait
@@ -743,10 +793,13 @@ filtered textures, fog).
   map behind it, and kept per map. The mesh is built a stretch of 16 tiles at a
   time within a budget of 7 ms a frame; a stretch that changed (a bush cut) is
   drawn as it was until it is built again.
-- **Known rough edges**: figures are classic cards, not 3D (in the 64-bit look
-  paper figures in a soft world); neither look has a sound of its own; the
-  64-bit windows keep the classic hearts (the round skin's bigger hearts are not
-  drawn yet). Lamp light is per corner, so a
+- **Known rough edges**: everyone but the hero is a classic card (in the 64-bit
+  look paper figures facing the camera); a hero look of another shape is a card
+  too; neither look has a sound of its own. The hero model is skinned on the
+  CPU and sent to the GPU whole every frame (on the Mac about 6.5 ms of the
+  frame's main thread for the 64-bit mesh and 3 ms for the 32-bit one; a
+  stepped-down device gets the 6,000-triangle one). Where the hero stands with a house's wall a tile
+  ahead, the house still fills the top of the 64-bit picture. Lamp light is per corner, so a
   pool on a long wall is coarse. On a phone a room's camera comes near enough
   that the room's depth fills the picture, so the room is seen closer than on a
   monitor. Rooms' water corners are a hair short of the tile edge. Not measured
@@ -754,8 +807,10 @@ filtered textures, fog).
 - **Looking at it.** `CHROME_BIN=<chrome> VIEW=poly node
   scripts/zelda-lab/shot.mjs <outDir> [scenes]` (PNGs end in `-poly`;
   `PARAMS` and `FRAMES` as for the isometric view);
-  `scripts/zelda-lab/poly-strip.mjs <outDir> walk|turn` writes eight frames of
-  the hero walking north-east across the square, or of the turn in.
+  `scripts/zelda-lab/poly-strip.mjs <outDir> walk|turn|crane` writes eight frames of
+  the hero walking north-east across the square, or of the turn in (`VIEW=third`
+  for the 64-bit look). The lab reads the fetched art from `public/zelda/poly/`
+  and waits for it (`preloadArt`); `poly-pack.mjs <source>` writes that art.
   `tests/zelda-poly.test.mjs` holds the camera, the land and the mesher.
 
 **Day and night** (after the Sun Prism). Until the prism is home the sun

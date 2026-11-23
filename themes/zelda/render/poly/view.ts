@@ -18,22 +18,26 @@
  * Without WebGL2 the classic picture draws on.
  */
 import type { GameState, MapKind, TileChar } from '../../types'
-import { ARC_REACH, SCROLL_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
+import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
 import { aimOf, has, mapInfo, raised, swingAngle } from '../../engine/index'
-import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigureSprite } from '../iso/figure'
+import type { FigureAct, FigureBlade, FigurePose } from '../iso/figure'
+import { bladeMesh, loadHero, loadedHero, modelFits, poseOf, recolour, skinHero, type LoadedHero } from './hero'
+import type { HeroLook } from '../heroLook'
+import { dirAngle } from '../../engine/util'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { createTileLayer, drawLiveTiles, groundKindOf, hash2, noise, updateTileLayer, type Light, type TileLayer } from '../tiles'
 import { drawDecals } from '../decals'
 import { exitTiles, nearExit } from '../exits'
 import { makeCanvas } from '../sheet'
-import { GLASS_SKIN, NEON_SKIN, ROUND_SKIN } from '../hud'
+import { NEON_SKIN } from '../hud'
+import { GLASS_FINE_SKIN, ROUND_FINE_SKIN } from '../hud32'
 import { drawHookChain } from '../wild'
 import { BEYOND, beyondTile } from '../beyond'
 import { ease, type Rect } from '../iso/project'
 import { buildMaterials, MAT, MATERIALS, stepMaterials } from '../iso/materials'
 import { buildBackdrop, type Backdrop, type BackdropLook } from '../iso/backdrop'
 import { skyGrade } from '../daylight'
-import { CRANE, SHOULDER, classicMatrix, fitPose, horizonY, mixPose, toGround, poseAxes, poseMatrix, rigMatrix, toScreen, type Mat4, type Pose } from './camera'
+import { CRANE, SHOULDER, classicMatrix, densityOf, fitPose, horizonY, mixPose, toGround, poseAxes, poseMatrix, rigMatrix, toScreen, type Mat4, type Pose } from './camera'
 import { landWork, stand, type Land, type LandLook } from './terrain'
 import { FLAG, MAT_SLOTS, Mesher, ROLE, STRIDE, TEX, Verts, massOf, type Field, type MatSlot } from './mesh'
 import { createEngine, rgb, type Engine, type Lamp, type PolyLook } from './engine'
@@ -51,6 +55,61 @@ const CHUNK = 16
 const MATS_SIDE = 64
 
 let pinned: boolean | null = null
+/** Where the fetched art is (the texture page, the hero's model): the site's own, or the lab's files. */
+let assetBase = '/zelda/poly/'
+export function setAssetBase(url: string): void { assetBase = url.endsWith('/') ? url : url + '/' }
+
+/**
+ * The painted page under the game's dusk: a gain and a saturation for each material that was too loud or too dim
+ * for it (1, 1: as painted). In `MATERIALS` order.
+ */
+export const PAINTED_TUNE: Record<string, [number, number]> = {
+  // The lawns and the Wildwood's moss go murky under the dusk: lifted, and the moss's orange leaves calmed.
+  grass: [1.3, 1], moss: [1.4, 0.85], lane: [1.15, 0.9],
+  // The town's square stays rose-violet; the sand was a loud orange with dark troughs.
+  cobbles: [1.05, 1.05], sand: [0.92, 0.72],
+  flags: [1, 1], boards: [1, 1], shingles: [1, 1], siding: [1, 1], rockface: [1, 1], bricks: [1, 1], blocks: [1, 1], slab: [1, 1], steel: [1, 1],
+  // Indoors and in the labs: the red panelling and the iridescent plates are calmed.
+  panel: [0.9, 0.7], plates: [1.05, 0.7],
+}
+
+/** Waits for the fetched art (for the lab, which draws its frames in one go and cannot wait between them). */
+export async function preloadArt(): Promise<void> {
+  await Promise.all([loadHero(assetBase, '32'), loadHero(assetBase, '64')])
+  loadPainted()
+  for (let i = 0; i < 400 && paintedState === 'loading'; i++) await new Promise(r => setTimeout(r, 10))
+}
+
+/** The painted page, decoded and tuned: fetched once, when a polygon look first wants it. */
+let paintedPage: { data: Uint8Array; w: number; h: number } | null = null
+let paintedState: 'none' | 'loading' | 'failed' = 'none'
+function loadPainted(): void {
+  if (paintedPage || paintedState !== 'none') return
+  paintedState = 'loading'
+  const im = new Image()
+  im.onload = () => {
+    try {
+      const c = makeCanvas(im.width, im.height)
+      const g = c.getContext('2d')!
+      g.drawImage(im, 0, 0)
+      const d = g.getImageData(0, 0, im.width, im.height).data
+      const side = im.height
+      for (let k = 0; k < MATERIALS.length; k++) {
+        const [gain, sat] = PAINTED_TUNE[MATERIALS[k]!] ?? [1, 1]
+        if (gain === 1 && sat === 1) continue
+        for (let y = 0; y < side; y++) for (let x = k * side; x < (k + 1) * side; x++) {
+          const o = (y * im.width + x) * 4
+          const l = d[o]! * 0.3 + d[o + 1]! * 0.59 + d[o + 2]! * 0.11
+          for (let j = 0; j < 3; j++) d[o + j] = Math.max(0, Math.min(255, (l + (d[o + j]! - l) * sat) * gain))
+        }
+      }
+      paintedPage = { data: new Uint8Array(d.buffer), w: im.width, h: im.height }
+      paintedState = 'none'
+    } catch { paintedState = 'failed' }
+  }
+  im.onerror = () => { paintedState = 'failed' }
+  im.src = assetBase + 'materials.webp'
+}
 /**
  * How much the view spends: 2 everything; 1 without the bloom's own pass, a shorter draw distance and coarse cells
  * everywhere; 0 also a picture of half the size. A device that keeps missing frames is stepped down while it
@@ -84,7 +143,7 @@ function standIn(kit: Kit): View {
 const cssRgb = (c: string): [number, number, number] => c.startsWith('#') ? rgb(c) : c.slice(4, -1).split(',').map(v => +v / 255) as [number, number, number]
 
 /** The windows a look wears. */
-const skinOf = (w: unknown) => (w === '64-bit' ? ROUND_SKIN : w === '32-bit' ? GLASS_SKIN : NEON_SKIN)
+const skinOf = (w: unknown) => (w === '64-bit' ? ROUND_FINE_SKIN : w === '32-bit' ? GLASS_FINE_SKIN : NEON_SKIN)
 
 /** How far through a window of the turn (k from a to b), eased. */
 const mix3 = (a: readonly number[], b: readonly number[], t: number): [number, number, number] => [a[0]! + (b[0]! - a[0]!) * t, a[1]! + (b[1]! - a[1]!) * t, a[2]! + (b[2]! - a[2]!) * t]
@@ -135,6 +194,8 @@ export default function polyView(kit: Kit): View {
   let fallback: View | null = null
   let revived = 0
   let matsSent = false
+  /** The painted page is on the GPU (a new context needs it again). */
+  let paintedSent = false
   const world = kit.world
   let base: TileLayer | null = null
   let objects: TileLayer | null = null
@@ -155,6 +216,9 @@ export default function polyView(kit: Kit): View {
   let skyLow = '#26163f'
   /** The same, at the hour. */
   let dayLow = '#26163f'
+  /** The finished picture at its own density (`present` lays it where the scene would be). */
+  const hiC = makeCanvas(1, 1)
+  let hg = hiC.getContext('2d')!
   /** What shines by itself this frame, for the bloom. */
   const glowC = makeCanvas(1, 1)
   let glowG = glowC.getContext('2d')!
@@ -179,10 +243,14 @@ export default function polyView(kit: Kit): View {
         if (++revived > 3) throw new Error('context lost again')
         engine = createEngine()
         matsSent = false
+        paintedSent = false
         ctx = null
       } catch { fallback = standIn(kit); return true }
     }
     const built = engine.ready(pinned === true)
+    // (The lab waits for the painted page; the game draws the materials until it is here.)
+    if ((kit.params('poly') as Record<string, unknown>).textures === 'painted') loadPainted()
+    if (pinned === true && paintedState === 'loading') return false
     if (built === 'failed') { engine.dispose(); fallback = standIn(kit); return true }
     const painted = paint(pinned === true, hurry)
     let landed = true
@@ -409,7 +477,8 @@ export default function polyView(kit: Kit): View {
     me = new Mesher(c.field, { pitch, room, sun: null, props: !!par.props, coarse })
     if (outdoors) {
       const mass = massOf(c.field, me, field, pitch)
-      if (!room) c.mass = mass
+      // (For the camera: walls and houses, which it must not stand in; trees it may, and they are cut through.)
+      if (!room) c.mass = massOf(c.field, me, field, pitch, false)
       me = new Mesher(c.field, { pitch, room, props: !!par.props, coarse, sun: { dx: Math.cos(a), dy: Math.sin(a), rise: 1 / Math.max(0.2, par.shadowLength as number), mass } })
     }
     c.meshers.set(key, me)
@@ -594,6 +663,10 @@ export default function polyView(kit: Kit): View {
       c.stateKey = st
     }
     const ek = ease(k)
+    if (par.textures === 'painted') {
+      loadPainted()
+      if (paintedPage && !paintedSent) { engine.painted(paintedPage.data, paintedPage.w, paintedPage.h); paintedSent = true }
+    }
 
     // --- the camera ---------------------------------------------------------------------------------------
     const rooms: Rect[] = kind === 'dungeon' ? (s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]) : kind === 'interior' ? [interiorRoom(m)] : []
@@ -756,7 +829,13 @@ export default function polyView(kit: Kit): View {
     })
     kit.setSpan((x1, y1, x2, y2) => { const a = place(x1, y1); const b = place(x2, y2); return { x: b.x - a.x, y: b.y - a.y } })
     // (Value `figure`: the hero as the classic sprite, or the 16-bit view's modelled figure, which faces any way.)
-    const modelled = par.figure === 'modelled' && k > 0.5
+    // (Value `figure`: the hero as the model, once it is here and the look fits it, or the classic sprite card.)
+    // (A device the governor has stepped down gets the lighter mesh in the 64-bit look too.)
+    const which: '32' | '64' = shoulderK > 0.5 && quality === 2 ? '64' : '32'
+    const wears = kit.heroLook()
+    const model = par.figure === 'model' && k > 0.5 && !ui.attract && modelFits(wears) ? heroModel(which) : null
+    if (model) heroTexture(which, model, wears)
+    const modelled = !!model
     kit.setHeroBare(modelled)
     // Figures show the side the camera sees (a hero walking away shows their back); the stick turns with the camera.
     const yawShown = k >= 0.5 && !roomed ? cam.yaw : 0
@@ -810,16 +889,6 @@ export default function polyView(kit: Kit): View {
       ag.rect(cellX + 1, cellY + 1, C.w - 2, C.h - 2)
       ag.clip()
       ag.setTransform(1, 0, 0, 1, Math.round(cellX + C.ax - (it.x * T - bx)), Math.round(cellY + C.ay - (ay * T - by)))
-      if (it.hero && modelled) {
-        // The 16-bit view's modelled hero, turned as this camera sees them, at half its density (a classic px a px).
-        ag.restore()
-        drawFigure(ag, s, cellX + C.ax, cellY + C.ay, dt, ui.paused, yawShown)
-        ag.save()
-        ag.beginPath()
-        ag.rect(cellX + 1, cellY + 1, C.w - 2, C.h - 2)
-        ag.clip()
-        ag.setTransform(1, 0, 0, 1, Math.round(cellX + C.ax - (it.x * T - bx)), Math.round(cellY + C.ay - (ay * T - by)))
-      }
       it.draw()
       ag.restore()
       const u0 = cellX
@@ -858,7 +927,23 @@ export default function polyView(kit: Kit): View {
         y = ay + 0.12
       } else if (!it.hero || s.hero.act !== 'fall') standing.push([it.x, ay, 0.3])
       const g = groundAt(x, y)
-      quad(dyn, [[x + l * rx, y + l * ry, z0 + top, g, u0, v0], [x + r * rx, y + r * ry, z0 + top, g, u1, v0], [x + r * rx, y + r * ry, z0 + foot, g, u1, v1], [x + l * rx, y + l * ry, z0 + foot, g, u0, v1]], TEX.ATLAS, [1, 1, 1], figN, ROLE.STAY, it.hero || shoulderK < 0.5 ? 0 : FLAG.SEE)
+      // (The 64-bit look turns its paper figures to face the camera fully, tipped back with its pitch, so a camera that
+      // looks down does not squash them; the 32-bit one stands them upright.)
+      const tip = shoulderK > 0.5 ? Math.tan(cam.pitch) * shoulderK : 0
+      const ty = (h: number) => y - h * tip * Math.cos(cam.yaw)
+      const tx = (h: number) => h * tip * Math.sin(cam.yaw)
+      quad(dyn, [[x + l * rx + tx(top), ty(top) + l * ry, z0 + top, g, u0, v0], [x + r * rx + tx(top), ty(top) + r * ry, z0 + top, g, u1, v0], [x + r * rx + tx(foot), ty(foot) + r * ry, z0 + foot, g, u1, v1], [x + l * rx + tx(foot), ty(foot) + l * ry, z0 + foot, g, u0, v1]], TEX.ATLAS, [1, 1, 1], figN, ROLE.STAY, it.hero || shoulderK < 0.5 ? 0 : FLAG.SEE)
+      if (it.hero && model) {
+        // The hero as a model, on their feet at the land's height; hit, they blink as the sprite does.
+        const h = s.hero
+        const blink = h.act !== 'dead' && h.act !== 'fall' && h.act !== 'get' && h.invuln > 0 && Math.floor(time * 20) % 2 === 0
+        const fp = heroPose(s, time, ui.paused ? 0 : dt)
+        if (!blink) {
+          const P = poseOf(fp)
+          const hand = skinHero(dyn, model.mesh, P, { x: h.x, y: h.y + 0.05, g: groundAt(h.x, h.y), yaw: P.yaw, scale: 0.95 / (model.mesh.hi - model.mesh.lo) })
+          if (P.blade && fp.blade) bladeMesh(dyn, hand, P.ba, groundAt(h.x, h.y), fp.blade.reach * 0.62, fp.blade.kind === 'arc')
+        }
+      }
     }
     atlasUsed = used
 
@@ -985,6 +1070,7 @@ export default function polyView(kit: Kit): View {
     engine.base(baseC, bw, bh)
     engine.atlas(atlas, atlasUsed)
     const heroP = toScreen(M4, vw, vh, s.hero.x, s.hero.y, 0.5 + groundAt(s.hero.x, s.hero.y))
+    const heroTall = Math.abs(toScreen(M4, vw, vh, s.hero.x, s.hero.y, 1.2 + groundAt(s.hero.x, s.hero.y)).y - toScreen(M4, vw, vh, s.hero.x, s.hero.y, groundAt(s.hero.x, s.hero.y)).y)
     const heroDist = Math.hypot(s.hero.x - eye[0], s.hero.y - eye[1], 0.5 + groundAt(s.hero.x, s.hero.y) - eye[2])
     const roomRect = roomed ? (() => {
       const x0 = Math.min(...rooms.map(z => z.x)), y0 = Math.min(...rooms.map(z => z.y))
@@ -1007,9 +1093,17 @@ export default function polyView(kit: Kit): View {
       filter: (par.filter as number) * ek,
       fog: (par.fog as number) * ek,
       faces: shoulderK > 0.5,
+      painted: par.textures === 'painted' && paintedSent,
     }
-    const px = quality === 0 ? 0.5 : 1
+    // --- the picture's own density: each generation draws finer ----------------------------------------------
+    const scr = kit.screen()
+    const d = densityOf(par.density, scr.scale, quality)
+    const sw = Math.max(1, Math.round(vw * d))
+    const sh = Math.max(1, Math.round(vh * d))
+    const px = d
+    const cellPx = Math.max(1, Math.round(d * (par.grain as number)))
     engine.draw({
+      grid: cellPx, cell: cellPx, msaa: par.smoothEdges && k > 0.5 ? 4 : 0,
       m: M4, eye, lift: ek * ls, facet: ek, bend: [bendK, bendFrom],
       // Staggered as the 16-bit view staggers its parts: the classic crowns go down while the camera tips, the
       // trees come up out of the ground after them, and last the things in the round, while their cards go.
@@ -1024,19 +1118,30 @@ export default function polyView(kit: Kit): View {
       shore: [-c.M, -c.M, land.res],
       room: roomRect,
       // (In the picture's own px: half of them where the picture is drawn at half the size.)
-      hero: ui.attract || k < 0.5 ? null : [heroP.x * px, heroP.y * px, 22 * px / Math.max(0.3, heroP.w), heroDist],
+      // (The window round the hero is as tall as the hero is on the picture.)
+      hero: ui.attract || k < 0.5 ? null : [heroP.x * px, heroP.y * px, Math.max(22 / Math.max(0.3, heroP.w), heroTall * (shoulderK > 0.5 ? 0.85 : 0.6)) * px, heroDist],
       time: reduced ? 0 : time,
       look,
       chunks,
       dynamic: { data: dyn.data, count: dyn.n },
       blobs: { data: blobs.data, count: blobs.n },
-    }, quality === 0 ? Math.ceil(vw / 2) : vw, quality === 0 ? Math.ceil(vh / 2) : vh, quality === 2 ? glowG : undefined)
+    }, sw, sh, quality === 2 ? glowG : undefined)
     if (quality < 2) glowG.clearRect(0, 0, vw, vh)
-    g.drawImage(engine.canvas, 0, 0, vw, vh)
+    // The picture: the sky (painted at the scene's size) brought up to the picture's, the polygons over it.
+    if (hiC.width !== sw || hiC.height !== sh) { hiC.width = sw; hiC.height = sh; hg = hiC.getContext('2d')! }
+    hg.setTransform(1, 0, 0, 1, 0, 0)
+    hg.globalAlpha = 1
+    hg.globalCompositeOperation = 'source-over'
+    hg.imageSmoothingEnabled = (par.filter as number) > 0.5
+    hg.drawImage(kit.sceneCanvas(), 0, 0, vw, vh, 0, 0, sw, sh)
+    hg.imageSmoothingEnabled = false
+    hg.drawImage(engine.canvas, 0, 0)
+    // From here on the picture is drawn on in classic px, as the kit's painters count.
+    hg.setTransform(d, 0, 0, d, 0, 0)
     const halos = (par.halos as number) * ek * (quality === 2 ? 1 : 0.5)
     if (halos > 0) {
       // The 64-bit machine's lamps: soft halos added into the picture itself, fading with the fog.
-      g.globalCompositeOperation = 'lighter'
+      hg.globalCompositeOperation = 'lighter'
       for (const L of lights) {
         const d = Math.hypot(L.x - eye[0], L.y - eye[1])
         if (d > far1) continue
@@ -1044,41 +1149,41 @@ export default function polyView(kit: Kit): View {
         const p = place(L.x, L.y, tt === 't' ? 1.35 : 0.6)
         if (p.w <= 0.05 || p.x < -60 || p.y < -60 || p.x > vw + 60 || p.y > vh + 60) continue
         const r = Math.min(70, (L.r * T * 0.42) / p.w)
-        g.globalAlpha = Math.max(0, Math.min(1, L.a)) * 0.5 * Math.min(1, halos) * (1 - Math.max(0, (d - far0) / Math.max(1, far1 - far0)))
-        g.drawImage(kit.glow(L.color), p.x - r, p.y - r, r * 2, r * 2)
+        hg.globalAlpha = Math.max(0, Math.min(1, L.a)) * 0.5 * Math.min(1, halos) * (1 - Math.max(0, (d - far0) / Math.max(1, far1 - far0)))
+        hg.drawImage(kit.glow(L.color), p.x - r, p.y - r, r * 2, r * 2)
       }
-      g.globalAlpha = 1
-      g.globalCompositeOperation = 'source-over'
+      hg.globalAlpha = 1
+      hg.globalCompositeOperation = 'source-over'
     }
     const flare = (par.flare as number) * ek
     if (flare > 0 && sunAt && sunAt.a > 0) {
       // A simple lens flare from the sun, across the middle of the picture.
-      g.globalCompositeOperation = 'lighter'
+      hg.globalCompositeOperation = 'lighter'
       const mx = vw / 2 - sunAt.x
       const my = vh / 2 - sunAt.y
       const rings: Array<[number, number, string, number]> = [[0.28, 0.05, '#ff9ad8', 0.22], [0.55, 0.03, '#ffd23f', 0.18], [0.9, 0.08, '#8fe8ff', 0.12], [1.35, 0.045, '#ff5f9e', 0.16], [1.7, 0.1, '#b6a0ff', 0.08]]
       for (const [t, rr, col, a] of rings) {
         const r = Math.max(2, rr * vh)
-        const gr = g.createRadialGradient(sunAt.x + mx * t, sunAt.y + my * t, 0, sunAt.x + mx * t, sunAt.y + my * t, r)
+        const gr = hg.createRadialGradient(sunAt.x + mx * t, sunAt.y + my * t, 0, sunAt.x + mx * t, sunAt.y + my * t, r)
         gr.addColorStop(0, col)
         gr.addColorStop(1, 'rgba(0,0,0,0)')
-        g.globalAlpha = a * flare * sunAt.a
-        g.fillStyle = gr
-        g.fillRect(sunAt.x + mx * t - r, sunAt.y + my * t - r, r * 2, r * 2)
+        hg.globalAlpha = a * flare * sunAt.a
+        hg.fillStyle = gr
+        hg.fillRect(sunAt.x + mx * t - r, sunAt.y + my * t - r, r * 2, r * 2)
       }
-      g.globalAlpha = 1
-      g.globalCompositeOperation = 'source-over'
+      hg.globalAlpha = 1
+      hg.globalCompositeOperation = 'source-over'
     }
 
     // --- shots, sparks, the flash: on the finished picture, where the world has them -------------------------------
     const S1 = (x: number, y: number): Vec => { const p = place(x, y); return { x: p.x, y: p.y } }
-    kit.projectiles(g, s, S1, (dx, dy) => {
+    kit.projectiles(hg, s, S1, (dx, dy) => {
       const a = place(s.hero.x, s.hero.y)
       const b = place(s.hero.x + dx, s.hero.y + dy)
       return { x: b.x - a.x, y: b.y - a.y }
     })
-    kit.fx(g, s, dt, S1, ui.paused, 1 - 0.3 * ek)
-    const fade = kit.flashFade(g, s, ui, dt)
+    kit.fx(hg, s, dt, S1, ui.paused, 1 - 0.3 * ek)
+    const fade = kit.flashFade(hg, s, ui, dt)
     kit.present(fade, bloom => {
       bloom.globalCompositeOperation = 'lighter'
       // What shines by itself (neon, screens, lit letters, panes), from the picture's own pass.
@@ -1094,7 +1199,7 @@ export default function polyView(kit: Kit): View {
         bloom.drawImage(kit.glow(L.color), p.x - r, p.y - r, r * 2, r * 2)
       }
       bloom.globalAlpha = 1
-    }, finishOf(k))
+    }, finishOf(k), hiC)
 
     // What the picture shows of the ground, for the engine (the woods' foes walk in from past it): to the end of the
     // draw distance in the north, a trapezoid widening with the lens. Indoors and through most of the turn, the
@@ -1155,31 +1260,78 @@ export default function polyView(kit: Kit): View {
     return out
   }
 
-  /** The modelled hero: its picture, and the way its body faces (it turns, it does not snap). */
-  let fig: FigureSprite | null = null
-  let figCanvas: HTMLCanvasElement | null = null
-  let figYaw: number | null = null
-  function drawFigure(g: G, s: GameState, x: number, y: number, dt: number, paused: boolean, camYawNow: number) {
+  // --- the hero as a model ---------------------------------------------------------------------------------
+  /** The models as fetched (one a look), the look they are coloured for, and the way the body faces now. */
+  const heroes: Partial<Record<'32' | '64', LoadedHero | null>> = {}
+  let heroTexKey = ''
+  let bodyYaw: number | null = null
+  let bodyMap = ''
+  /** The model for this look, once it is here (null: the sprite card stands in). */
+  function heroModel(which: '32' | '64'): LoadedHero | null {
+    const done = loadedHero(which)
+    if (done !== undefined) return done
+    if (!(which in heroes)) { heroes[which] = null; void loadHero(assetBase, which).then(() => { heroTexKey = '' }) }
+    return null
+  }
+  /** The texture on the GPU for this model and look (recoloured where the look changes only colours). */
+  function heroTexture(which: '32' | '64', h: LoadedHero, look: HeroLook) {
+    const key = which + JSON.stringify(look)
+    if (key === heroTexKey) return
+    heroTexKey = key
+    const data = recolour(h.tex.data, look) ?? h.tex.data
+    engine.heroTexture(data, h.tex.width, h.tex.height)
+  }
+  /** The hero's pose this frame, from what the game says they are doing (as the 16-bit view's `heroPose`). */
+  function heroPose(s: GameState, time: number, dt: number): FigurePose {
     const h = s.hero
+    const arc = s.inv.arc
     const stride = ((h.walkT * 7) / 4) % 1
-    const act: FigureAct = h.act === 'walk' ? 'walk' : h.act === 'swing' ? 'swing' : h.act === 'push' ? 'push' : h.act === 'hurt' ? 'hurt' : h.act === 'lift' ? 'lift' : h.act === 'carry' ? 'carry' : h.act === 'get' ? 'get' : 'idle'
-    const t = act === 'walk' || act === 'carry' || act === 'push' ? stride : act === 'swing' && h.swing ? Math.min(1, h.swing.t / SWING_TIME) : Math.min(1, h.actT / 0.3)
-    const target = aimOf(h)
-    if (figYaw === null) figYaw = target
-    const d = Math.atan2(Math.sin(target - figYaw), Math.cos(target - figYaw))
-    const step = (paused ? 0 : dt) * 15
-    figYaw += Math.abs(d) <= step ? d : Math.sign(d) * step
-    // (The figure is drawn for the 16-bit view's camera, which looks north-west: turned by the difference.)
-    const blade: FigureBlade | undefined = h.swing ? { a: swingAngle(h.swing, Math.min(1, h.swing.t / SWING_TIME)) - camYawNow - Math.PI / 4, reach: s.inv.arc ? ARC_REACH : SWORD_REACH, trail: [], kind: s.inv.arc ? 'arc' : 'sword', charge: 0, flash: false } : undefined
-    fig = renderFigure({ yaw: figYaw - camYawNow - Math.PI / 4, act, t, moving: !!(h.vx || h.vy), blade }, kit.heroLook(), fig ?? undefined)
-    if (!figCanvas) figCanvas = makeCanvas(FIG.w, FIG.h)
-    const fg = figCanvas.getContext('2d')!
-    fg.putImageData(new ImageData(new Uint8ClampedArray(fig.albedo), FIG.w, FIG.h), 0, 0)
-    g.save()
-    g.setTransform(1, 0, 0, 1, 0, 0)
-    g.imageSmoothingEnabled = false
-    g.drawImage(figCanvas, Math.round(x - FIG.ax / 2), Math.round(y - FIG.ay / 2 + 3), FIG.w / 2, FIG.h / 2)
-    g.restore()
+    let act: FigureAct = 'idle'
+    let t = time
+    let moving = false
+    let target = aimOf(h)
+    let rate = 15
+    let blade: FigureBlade | undefined
+    if (h.act === 'dead') {
+      const d = s.dying ? s.dying.t : 0
+      act = 'dead'
+      t = d < 0.8 ? (d / 0.8) * 0.5 : Math.min(1, 0.5 + ((d - 0.8) / 0.6) * 0.5)
+    } else if (h.act === 'fall') { act = 'fall'; t = Math.min(1, h.actT / 0.54) }
+    else {
+      switch (h.act) {
+        case 'walk': act = 'walk'; t = stride; break
+        case 'swing': act = 'swing'; t = h.swing ? Math.min(1, h.swing.t / SWING_TIME) : 1; break
+        case 'throw': case 'use': case 'hook': act = 'use'; t = Math.min(1, h.actT / 0.2); break
+        case 'spin': act = 'spin'; t = h.spin ? Math.min(1, h.spin.t / SPIN_TIME) : 1; break
+        case 'lift': act = 'lift'; t = Math.min(1, h.actT / 0.18); break
+        case 'carry': act = 'carry'; t = stride; moving = !!(h.vx || h.vy); break
+        case 'push': act = 'push'; t = stride; break
+        case 'hurt': act = 'hurt'; t = Math.min(1, h.actT / 0.3); break
+        case 'get': act = 'get'; t = Math.min(1, h.actT / 0.3); break
+      }
+      const kind = arc ? 'arc' : 'sword'
+      if (h.swing) {
+        const p = Math.min(1, h.swing.t / SWING_TIME)
+        blade = { a: swingAngle(h.swing, p), reach: arc ? ARC_REACH : SWORD_REACH, trail: [], kind, charge: 0, flash: false }
+        target = h.swing.a ?? dirAngle(h.swing.dir)
+        rate = 40
+      } else if (h.spin) {
+        const p = Math.min(1, h.spin.t / SPIN_TIME)
+        const base = dirAngle(h.dir)
+        blade = { a: base + p * Math.PI * 2, reach: SPIN_REACH, trail: [], kind, charge: 0, flash: false }
+        bodyYaw = base
+        target = base
+      } else if (h.charge > 0.12 && s.inv.sword && !h.carry) {
+        blade = { a: target, reach: (arc ? ARC_REACH : SWORD_REACH) * 0.82, trail: [], kind, charge: Math.min(1, h.charge), flash: false }
+      }
+    }
+    if (bodyYaw === null || bodyMap !== s.map.id) bodyYaw = target
+    bodyMap = s.map.id
+    const d = Math.atan2(Math.sin(target - bodyYaw), Math.cos(target - bodyYaw))
+    const step = rate * dt
+    bodyYaw += Math.abs(d) <= step ? d : Math.sign(d) * step
+    // (The figure's yaw: 0 east, π/2 south, as the world's.)
+    return { yaw: bodyYaw, act, t, moving, blade }
   }
 
   /** Where the shoulder camera looks (`Pose.yaw`), and how long the hero has stood still. */
@@ -1209,43 +1361,56 @@ export default function polyView(kit: Kit): View {
       if (still > 0.9) camYaw = towardYaw(camYaw, facing, Math.min(0.1, dt) * 0.8)
     }
   }
-  /** How far the camera has been tipped up over what stands behind the hero, and pulled in, now (eased). */
+  /** How far the camera has been tipped up over the land behind the hero, and pulled in, now (eased). */
   let liftPitch = 0
   let pullIn = 0
   /**
-   * The camera kept out of what is solid, and the hero in its sight. The line from the eye to the hero's body must
-   * pass over the land and over every wall, house and wood behind them: the camera rises (tips further down) as far
-   * as that needs, at once, and eases back when the way is clear. Only where rising is not enough (a wall at the
-   * hero's back, taller than the rise can clear) is it pulled in as well.
+   * The camera kept out of what is solid. It rises (tips further down) as far as the land behind the hero needs for
+   * the line from the eye to the hero's chest to clear it, at once, and eases back when the way is clear. It is pulled
+   * in only where the eye itself would stand inside a wall, a house or a wood. Whatever else stands between the eye
+   * and the hero is cut through round the hero (`faces`, the engine's window), so the hero never shrinks to a speck
+   * nor fills the screen because of a tree.
    */
   function clear(p: Pose, focus: { x: number; y: number; z: number }, c: MapCtx, ls: number, dt: number, share: number): Pose {
     const mass = c.mass
-    const blocked = (q: Pose): number => {
+    const landOver = (q: Pose): number => {
       const { f } = poseAxes(q)
       let worst = -1
       for (let t = 0.6; t < q.dist + 0.3; t += 0.2) {
-        const x = focus.x - f[0] * t
-        const y = focus.y - f[1] * t
-        // (From the hero's chest to the eye.)
         const z = focus.z + 0.6 * (1 - t / q.dist) - f[2] * t
-        worst = Math.max(worst, c.land.height(x, y) * ls + 0.25 - z)
-        const m = mass ? mass(x, y) : 0
-        if (m > 0) worst = Math.max(worst, m + 0.2 - z)
+        worst = Math.max(worst, c.land.height(focus.x - f[0] * t, focus.y - f[1] * t) * ls + 0.25 - z)
       }
       return worst
     }
     let need = 0
-    const most = Math.max(0, 1.25 - p.pitch)
-    while (need < most && blocked({ ...p, pitch: p.pitch + need }) > 0) need += 0.05
-    if (need > liftPitch) liftPitch = need
-    else liftPitch += (need - liftPitch) * Math.min(1, dt * 2.5)
-    // Still blocked at the steepest: pulled in to just in front of what stands there.
-    let to = 0
-    const q = { ...p, pitch: p.pitch + liftPitch }
-    if (blocked(q) > 0) {
-      for (let d = q.dist - 0.25; d > 0.8; d -= 0.25) if (blocked({ ...q, dist: d }) <= 0) { to = q.dist - d; break }
-      if (!to) to = q.dist - 0.8
+    const most = Math.max(0, 1.1 - p.pitch)
+    while (need < most && landOver({ ...p, pitch: p.pitch + need }) > 0) need += 0.05
+    // A wall or a house close ahead of the hero: the camera looks down over the hero onto the ground before it, so
+    // the hero, not the wall, is the picture.
+    const { f: f0 } = poseAxes(p)
+    const fl = Math.hypot(f0[0], f0[1]) || 1
+    if (mass) {
+      for (let t = 0.6; t < 3.5; t += 0.25) {
+        const m = mass(focus.x + (f0[0] / fl) * t, focus.y + (f0[1] / fl) * t)
+        if (m > 0.5) { need = Math.max(need, 0.22 * (1 - (t - 0.6) / 2.9) * Math.min(1, m / 2)); break }
+      }
     }
+    const inside = (q: Pose, d: number): boolean => {
+      const { f } = poseAxes(q)
+      const x = focus.x - f[0] * d
+      const y = focus.y - f[1] * d
+      const z = focus.z - f[2] * d
+      const m = mass ? mass(x, y) : 0
+      return (m > 0 && m + 0.3 > z) || c.land.height(x, y) * ls + 0.2 > z
+    }
+    // A wall or a house at the camera's back: it climbs over it first (up to about 40° more), as a crane would.
+    for (let up = need; up < 0.75 && inside({ ...p, pitch: p.pitch + up }, p.dist); up += 0.05) need = up + 0.05
+    if (need > liftPitch) liftPitch += (need - liftPitch) * Math.min(1, dt * 6)
+    else liftPitch += (need - liftPitch) * Math.min(1, dt * 2.5)
+    const q = { ...p, pitch: p.pitch + liftPitch }
+    // Only where climbing is not enough is it pulled in, and never nearer than two tiles.
+    let to = 0
+    for (let d = q.dist; d > 2 && inside(q, d); d -= 0.25) to = q.dist - (d - 0.25)
     pullIn = to > pullIn ? to : pullIn + (to - pullIn) * Math.min(1, dt * 2)
     return { ...p, pitch: p.pitch + liftPitch * share, dist: p.dist - pullIn * share }
   }

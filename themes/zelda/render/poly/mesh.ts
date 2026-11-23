@@ -49,6 +49,8 @@ export const TEX = {
   BLOB: 5,
   /** The classic art's ground (uv: map px). */
   BASE: 6,
+  /** The hero model's own texture (uv: 0 … 1). */
+  HERO: 7,
   /** A material of the atlas, MAT + its place (uv: texels, repeating). */
   MAT: 10,
 } as const
@@ -717,14 +719,14 @@ class MeshSolids implements Solids {
  * How tall the mass over a ground point is, tiles, for the sun's shadows: a wall's top where it stands (a row
  * south of its picture), a house to its roof, a wood's crowns. A function of the field, built per tile once.
  */
-export function massOf(f: Field, mesher: Mesher, r: Rect, pitch: number): (x: number, y: number) => number {
+export function massOf(f: Field, mesher: Mesher, r: Rect, pitch: number, trees = true): (x: number, y: number) => number {
   const grid = new Float32Array(r.w * r.h)
   for (let ty = r.y; ty < r.y + r.h; ty++) for (let tx = r.x; tx < r.x + r.w; tx++) {
     const s = mesher.shape(tx, ty)
     const t = f.tile(tx, ty)
     let h = 0
     let fy = ty
-    if (t === 'T') { h = 1.6; fy = s.k === 'top' ? ty + s.f : ty }
+    if (t === 'T') { if (!trees) continue; h = 1.6; fy = s.k === 'top' ? ty + s.f : ty }
     else if (s.k === 'top') {
       fy = ty + s.f
       h = s.h / T

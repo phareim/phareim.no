@@ -19,6 +19,8 @@ async function load() {
         `export * from './render/poly/camera'`,
         `export * from './render/poly/terrain'`,
         `export { Mesher, Verts, roomCut, polyShape, KERB, STRIDE, AT, TEX } from './render/poly/mesh'`,
+        `export { rig, boneMatrices, JOINTS } from './render/poly/hero'`,
+        `export { solvePose } from './render/iso/figure'`,
         `export { TILE } from './types'`,
         `export { WORLD } from './world/index'`,
         `export { BEYOND, beyondTile } from './render/beyond'`,
@@ -442,6 +444,53 @@ describe('the mesher', () => {
     // The east wall stands: this camera looks at it (the 16-bit view lays a wall with floor to its west down).
     assert.ok(top(p => p.x >= 9 && p.y > 2.5 && p.y < 5.5) >= 1 - 1e-6, 'the east wall is laid down')
     assert.equal(M.polyShape('#', 'dungeon', (dx, dy) => rows[3 + dy]?.[9 + dx] ?? '#', false, false).k, 'top')
+  })
+})
+
+describe('resolution by generation', () => {
+  it('draws at a whole number of device px a picture px, as fine as asked, never under 2', () => {
+    for (const scale of [2, 3, 4, 5, 6, 8, 10]) for (const want of ['2', '3', '4', 'screen']) {
+      const d = M.densityOf(want, scale)
+      assert.ok(Number.isInteger(scale / d) || d === scale, `scale ${scale}, ${want}: ${d}`)
+      assert.ok(d >= Math.min(2, scale), `under 2 at scale ${scale}`)
+      if (want === 'screen') assert.equal(d, scale)
+      // (No finer than asked, unless the only whole steps of 2 or more are finer: then the coarsest of them.)
+      else assert.ok(d <= Math.max(+want + 0.5, scale / Math.max(1, Math.floor(scale / 2))), `finer than asked at scale ${scale}: ${d}`)
+    }
+    // A device that cannot keep up gets fewer px first.
+    assert.ok(M.densityOf('screen', 8, 0) < M.densityOf('screen', 8, 2))
+  })
+})
+
+describe('the hero model', () => {
+  /** A stick figure in the A-pose: a column of vertices up the middle and two arms out to the sides. */
+  function stick() {
+    const pts = []
+    for (let i = 0; i <= 20; i++) pts.push([0, -0.44 + i * 0.044, 0])
+    for (const side of [-1, 1]) for (let i = 0; i < 5; i++) pts.push([side * (0.2 + i * 0.025), -0.44 + 0.3 * 0.88, 0])
+    const n = pts.length
+    return { pos: Float32Array.from(pts.flat()), nrm: new Float32Array(n * 3), uv: new Float32Array(n * 2), idx: new Uint16Array(0), bone: new Uint8Array(n * 2), w: new Float32Array(n), lo: -0.44, hi: 0.44 }
+  }
+  it('is rigged by where its vertices lie: legs below the hip, the head above the neck, arms out at the sides', () => {
+    const m = stick()
+    M.rig(m)
+    const first = i => m.bone[i * 2]
+    assert.equal(first(0), 4, 'the soles are not a leg')
+    assert.equal(first(20), 1, 'the crown is not the head')
+    assert.equal(first(10), 0, 'the middle is not the torso')
+    for (let i = 21; i < 26; i++) assert.equal(first(i), 2, 'the left arm')
+    for (let i = 26; i < 31; i++) assert.equal(first(i), 3, 'the right arm')
+    for (let i = 0; i < m.w.length; i++) assert.ok(m.w[i] >= 0.5 && m.w[i] <= 1)
+  })
+  it('stands as it was made at rest, and moves its feet when it walks', () => {
+    const m = stick()
+    M.rig(m)
+    const rest = M.boneMatrices(m, M.solvePose({ yaw: 0, act: 'idle', t: 0 }))
+    // At rest the legs and the torso are where they were (the arms hang a little differently: the figure's hands are its own).
+    for (const b of [rest[0], rest[4], rest[5]]) { near(b[0], 1, 1e-6); near(b[5], 1, 1e-6); near(b[10], 1, 1e-6); near(b[3], 0, 1e-6); near(b[11], 0, 1e-6) }
+    const step = M.boneMatrices(m, M.solvePose({ yaw: 0, act: 'walk', t: 0.25 }))
+    // Mid-stride one leg swings forward and the other back: their rotations differ.
+    assert.ok(Math.abs(step[4][6] - step[5][6]) > 0.05, 'the legs do not swing')
   })
 })
 

@@ -52,6 +52,8 @@ export interface PolyLook {
   fog: number
   /** Walls' faces between the eye and the hero are seen through too (the camera may stand on any side). */
   faces?: boolean
+  /** The painted page, where it is here (else the materials). */
+  painted?: boolean
 }
 
 export interface Frame {
@@ -60,6 +62,11 @@ export interface Frame {
   bend: [number, number]
   /** How much a facet's turn counts in its light (the turn's ease). */
   facet: number
+  /** Picture px to one cell of the vertex snap's grid, and of the dither's and the stipple's (none: 1). */
+  grid?: number
+  cell?: number
+  /** Samples a px for smooth edges (the 64-bit look; 0: hard edges). */
+  msaa?: number
   /** The eye, world tiles (for the distance), and the land's lift and the turn's own-height multipliers (GROW, SINK, RISE, FALL). */
   eye: [number, number, number]
   lift: number
@@ -100,6 +107,8 @@ layout(location=9) in float aZk;
 layout(location=10) in vec3 aSNormal;
 uniform mat4 uM;
 uniform vec2 uView;
+/** The snap's grid: px of the picture to one cell (a classic px or half of it, however fine the picture). */
+uniform float uGrid;
 uniform vec3 uEye;
 uniform float uLift;
 uniform vec2 uBend;
@@ -138,7 +147,7 @@ void main() {
   // The machine had no fractions of a px: every corner lands on one.
   if (uSnap > 0.0 && c.w > 0.0) {
     vec2 px = (c.xy / c.w * 0.5 + 0.5) * uView;
-    px = mix(px, floor(px) + 0.5, uSnap);
+    px = mix(px, (floor(px / uGrid) + 0.5) * uGrid, uSnap);
     c.xy = (px / uView * 2.0 - 1.0) * c.w;
   }
   gl_Position = c;
@@ -187,6 +196,7 @@ uniform sampler2D uMats;
 uniform sampler2D uObjs;
 uniform sampler2D uBase;
 uniform sampler2D uAtlas;
+uniform sampler2D uHeroTex;
 uniform sampler2D uKind;
 uniform sampler2D uShore;
 uniform vec4 uRegion;
@@ -211,7 +221,10 @@ uniform int uFaces;
 uniform int uBlob;
 out vec4 o;
 
+uniform float uCell;
+/** The ordered dither, on its own grid (a classic px or half of it): fine pixels would make it vanish. */
 float bayer(vec2 p) {
+  p = floor(p / uCell);
   ivec2 q = ivec2(mod(p, 4.0));
   int i = q.x + q.y * 4;
   int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
@@ -229,19 +242,24 @@ vec4 kindAt(vec2 w) {
   if (k.x < 0 || k.y < 0 || k.x >= size.x || k.y >= size.y) return vec4(0.0);
   return texelFetch(uKind, k, 0);
 }
+uniform float uMatSide;
+uniform float uMatTile;
 vec3 matTexel(float idx, vec2 t) {
-  return texelFetch(uMats, ivec2(mod(t, 64.0)) + ivec2(int(idx) * 64, 0), 0).rgb;
+  return texelFetch(uMats, ivec2(mod(t, uMatSide)) + ivec2(int(idx) * int(uMatSide), 0), 0).rgb;
 }
 /** A material at texel coordinates t: texel by texel, or (the 64-bit machine) read at half its size and filtered between texels until it smears. */
 vec3 matAtT(float idx, vec2 t) {
+  // (t counts sixteen texels a tile; a page with more to the tile is read at its own.)
+  t *= uMatTile / 16.0;
   vec3 hard = matTexel(idx, floor(t));
   if (uFilter <= 0.001) return hard;
-  vec2 p = t * 0.5 - 0.5;
+  // A small page is read at half its size and smears (the 64-bit machine's tiny textures); a painted one is not tiny.
+  float k = uMatSide >= 128.0 ? 1.0 : 2.0;
+  vec2 p = t / k - 0.5;
   vec2 i = floor(p);
   vec2 f = p - i;
   vec2 o = vec2(1.0, 0.0);
-  // (Every other texel, so the small texture is the material at half its size.)
-  vec3 soft = mix(mix(matTexel(idx, i * 2.0), matTexel(idx, (i + o) * 2.0), f.x), mix(matTexel(idx, (i + o.yx) * 2.0), matTexel(idx, (i + 1.0) * 2.0), f.x), f.y);
+  vec3 soft = mix(mix(matTexel(idx, i * k), matTexel(idx, (i + o) * k), f.x), mix(matTexel(idx, (i + o.yx) * k), matTexel(idx, (i + 1.0) * k), f.x), f.y);
   return mix(hard, soft, uFilter);
 }
 vec3 matAt(float idx, vec2 w) { return matAtT(idx, w * 16.0); }
@@ -271,7 +289,7 @@ vec4 atlasAt(vec2 px) {
 }
 void main() {
   // (People and things are sprites: the machine drew those straight, not as warped polygons.)
-  vec2 uv = vTex == 3 ? vUv : mix(vUv, vUvw.xy / vUvw.z, uAffine);
+  vec2 uv = vTex == 3 || vTex == 7 ? vUv : mix(vUv, vUvw.xy / vUvw.z, uAffine);
   vec4 c = vec4(1.0);
   vec3 glow = vec3(0.0);
   /** What shines by itself in the classic art: bright, saturated colours (neon, screens, lit letters, crystals). */
@@ -302,6 +320,13 @@ void main() {
     c = pic(uBase, uv);
   } else if (vTex == 3) {
     c = atlasAt(uv);
+  } else if (vTex == 7) {
+    // The hero model: its texture texel by texel, or filtered (the 64-bit look). (The mesh's own uv, never warped.)
+    ivec2 hs = textureSize(uHeroTex, 0);
+    vec2 hp = vUv * vec2(hs);
+    vec4 hard = texelFetch(uHeroTex, clamp(ivec2(hp), ivec2(0), hs - 1), 0);
+    c = mix(hard, texture(uHeroTex, vUv), uFilter);
+    c.a = 1.0;
   } else if (vTex == 4) {
     // Water: deep indigo, crests that run, glints, and at the shore foam (or a pool's neon rim).
     vec2 q = floor(uv * 16.0) / 16.0;
@@ -358,12 +383,24 @@ void main() {
     // The 64-bit machine: thick fog in the hour's colour swallows the distance; beyond it nothing is drawn.
     if (vDist > uFar.y) discard;
     fogged = mix(fd * uHazeK, fd * fd * (3.0 - 2.0 * fd), uFog);
-    lit = mix(lit, uHaze, fogged);
+    // Toward the fog's colour, and then gone into what lies behind (the sky, the ridges): the fog is the picture's own.
+    lit = mix(lit, uHaze, fogged * 0.55);
+  }
+  // The 64-bit camera walks among things: what stands near the eye (a tree it stands in, a sign at the hero's back)
+  // fades away in a fine dither, gone at a tile and a half.
+  if (uFaces == 1 && ((vFlags & 1) != 0 || (vFlags & 4) != 0) && vDist < uHero.w - 0.6) {
+    vec2 q = floor(gl_FragCoord.xy);
+    ivec2 r = ivec2(mod(q, 4.0));
+    int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
+    // (From the eye to most of the way to the hero: what stands nearer the eye than the hero fades the more.)
+    if ((float(m[r.x + r.y * 4]) + 0.5) / 16.0 > (vDist - 1.2) / max(0.5, uHero.w - 1.8)) discard;
   }
   // What stands between the camera and the hero is seen through.
   if (((vFlags & 1) != 0 || ((vFlags & 4) != 0 && uFaces == 1)) && uHero.z > 0.0 && vDist < uHero.w - 0.5) {
     vec2 dd = (gl_FragCoord.xy - uHero.xy) / vec2(uHero.z * 0.7, uHero.z);
-    if (dot(dd, dd) < 1.0 && mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y), 2.0) < 1.0) discard;
+    vec2 sc = floor(gl_FragCoord.xy / uCell);
+    // (The 32-bit machine sees through in a stipple; the 64-bit one cuts a clean window, its edge by the picture's own alpha.)
+    if (dot(dd, dd) < 1.0 && (uFaces == 1 || mod(sc.x + sc.y, 2.0) < 1.0)) discard;
   }
   // 32 768 colours, the dither between them.
   if (uBits < 7.5) {
@@ -372,7 +409,8 @@ void main() {
   }
   // (The bloom's own pass: only what shines by itself.)
   if (uGlowOnly == 1) { o = vec4(clamp(max(neon, glow) * (1.0 - fogged), 0.0, 1.0), 1.0); return; }
-  o = vec4(clamp(lit, 0.0, 1.0), 1.0);
+  float alpha = uFog >= 0.5 ? 1.0 - fogged * fogged : 1.0;
+  o = vec4(clamp(lit, 0.0, 1.0) * alpha, alpha);
 }`
 
 export interface Engine {
@@ -383,6 +421,10 @@ export interface Engine {
   keep(data: Float32Array, count: number): { buf: WebGLBuffer; count: number }
   drop(c: { buf: WebGLBuffer }): void
   materials(data: Uint8Array, w: number, h: number): void
+  /** The painted page (128 texels a material, 32 a tile), drawn in place of the materials when a frame asks for it. */
+  painted(data: Uint8Array, w: number, h: number): void
+  /** The hero model's texture (RGBA, straight). */
+  heroTexture(data: Uint8Array | Uint8ClampedArray, w: number, h: number): void
   objs(c: HTMLCanvasElement, w: number, h: number): void
   base(c: HTMLCanvasElement, w: number, h: number): void
   atlas(c: HTMLCanvasElement, rows: number): void
@@ -400,12 +442,37 @@ export function createEngine(): Engine {
   const prog: Program = program(gl, VS, FS)
   const tex = {
     mats: texture(gl, 1, 1),
+    painted: texture(gl, 1, 1),
+    hero: texture(gl, 1, 1, { linear: true }),
     objs: texture(gl, 1, 1),
     base: texture(gl, 1, 1),
     atlas: texture(gl, 1, 1),
     kind: texture(gl, 1, 1),
     shore: texture(gl, 1, 1, { linear: true }),
   }
+  /** A multisampled framebuffer for smooth edges, made when first asked for and kept at the picture's size. */
+  const maxSamples = (gl.getParameter(gl.MAX_SAMPLES) as number) || 0
+  let msFb: WebGLFramebuffer | null = null
+  let msColor: WebGLRenderbuffer | null = null
+  let msDepth: WebGLRenderbuffer | null = null
+  let msKey = ''
+  function multisampled(w: number, h: number, samples: number): WebGLFramebuffer {
+    const key = `${w}x${h}x${samples}`
+    if (msFb && msKey === key) return msFb
+    const g = gl!
+    if (!msFb) { msFb = g.createFramebuffer(); msColor = g.createRenderbuffer(); msDepth = g.createRenderbuffer() }
+    g.bindRenderbuffer(g.RENDERBUFFER, msColor)
+    g.renderbufferStorageMultisample(g.RENDERBUFFER, samples, g.RGBA8, w, h)
+    g.bindRenderbuffer(g.RENDERBUFFER, msDepth)
+    g.renderbufferStorageMultisample(g.RENDERBUFFER, samples, g.DEPTH_COMPONENT24, w, h)
+    g.bindFramebuffer(g.FRAMEBUFFER, msFb)
+    g.framebufferRenderbuffer(g.FRAMEBUFFER, g.COLOR_ATTACHMENT0, g.RENDERBUFFER, msColor)
+    g.framebufferRenderbuffer(g.FRAMEBUFFER, g.DEPTH_ATTACHMENT, g.RENDERBUFFER, msDepth)
+    g.bindFramebuffer(g.FRAMEBUFFER, null)
+    msKey = key
+    return msFb!
+  }
+  let hasPainted = false
   const dyn = gl.createBuffer()!
   const blobBuf = gl.createBuffer()!
   const vao = gl.createVertexArray()!
@@ -441,6 +508,14 @@ export function createEngine(): Engine {
     },
     drop(c) { gl.deleteBuffer(c.buf) },
     materials(data, w, h) { raw(tex.mats, data, w, h) },
+    painted(data, w, h) { raw(tex.painted, data, w, h); hasPainted = true },
+    heroTexture(data, w, h) {
+      gl.bindTexture(gl.TEXTURE_2D, tex.hero.t)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
+      tex.hero.w = w; tex.hero.h = h
+    },
     objs(c, w, h) { uploadPart(gl, tex.objs, c, w, h) },
     base(c, w, h) { uploadPart(gl, tex.base, c, w, h) },
     atlas(c, rows) { uploadPart(gl, tex.atlas, c, c.width, rows) },
@@ -448,8 +523,18 @@ export function createEngine(): Engine {
     shoreField(data, w, h) { raw(tex.shore, data, w, h, true) },
     draw(f, vw, vh, glowTo) {
       if (canvas.width !== vw || canvas.height !== vh) { canvas.width = vw; canvas.height = vh }
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      const ms = Math.min(f.msaa ?? 0, maxSamples)
+      const fb = ms > 0 ? multisampled(vw, vh, ms) : null
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb)
       gl.viewport(0, 0, vw, vh)
+      /** The multisampled picture onto the canvas. */
+      const resolve = () => {
+        if (!fb) return
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fb)
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
+        gl.blitFramebuffer(0, 0, vw, vh, 0, 0, vw, vh, gl.COLOR_BUFFER_BIT, gl.NEAREST)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb)
+      }
       gl.clearColor(0, 0, 0, 0)
       gl.clearDepth(1)
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -463,6 +548,8 @@ export function createEngine(): Engine {
       const L = f.look
       gl.uniformMatrix4fv(u('uM'), false, new Float32Array(f.m))
       gl.uniform2f(u('uView'), vw, vh)
+      gl.uniform1f(u('uGrid'), Math.max(1, f.grid ?? 1))
+      gl.uniform1f(u('uCell'), Math.max(1, f.cell ?? 1))
       gl.uniform3f(u('uEye'), ...f.eye)
       gl.uniform1f(u('uLift'), f.lift)
       gl.uniform2f(u('uBend'), ...f.bend)
@@ -489,12 +576,16 @@ export function createEngine(): Engine {
       gl.uniform1i(u('uLampN'), n)
       gl.uniform4fv(u('uLampPos'), lp)
       gl.uniform3fv(u('uLampCol'), lc)
-      bindTex(gl, 0, tex.mats, u('uMats'))
+      const paintedNow = !!L.painted && hasPainted
+      bindTex(gl, 0, paintedNow ? tex.painted : tex.mats, u('uMats'))
+      gl.uniform1f(u('uMatSide'), paintedNow ? 128 : 64)
+      gl.uniform1f(u('uMatTile'), paintedNow ? 32 : 16)
       bindTex(gl, 1, tex.objs, u('uObjs'))
       bindTex(gl, 2, tex.base, u('uBase'))
       bindTex(gl, 3, tex.atlas, u('uAtlas'))
       bindTex(gl, 4, tex.kind, u('uKind'))
       bindTex(gl, 5, tex.shore, u('uShore'))
+      bindTex(gl, 6, tex.hero, u('uHeroTex'))
       gl.uniform4f(u('uRegion'), ...f.region)
       gl.uniform2f(u('uField'), ...f.field)
       gl.uniform3f(u('uShoreAt'), ...f.shore)
@@ -529,6 +620,7 @@ export function createEngine(): Engine {
         // First what shines by itself alone, for the bloom; then the picture.
         gl.uniform1i(u('uGlowOnly'), 1)
         solid()
+        resolve()
         glowTo.clearRect(0, 0, glowTo.canvas.width, glowTo.canvas.height)
         glowTo.drawImage(canvas, 0, 0, glowTo.canvas.width, glowTo.canvas.height)
         gl.uniform1i(u('uGlowOnly'), 0)
@@ -550,6 +642,8 @@ export function createEngine(): Engine {
         gl.depthMask(true)
         gl.disable(gl.BLEND)
       }
+      resolve()
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.bindVertexArray(null)
     },
     dispose() {

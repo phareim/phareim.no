@@ -45,7 +45,7 @@ export const CRANE: Pose = { yaw: 0, pitch: 25.4 * Math.PI / 180, dist: 13.5, fo
  * The 64-bit look's camera: behind the hero, a little over the shoulder, the horizon across the upper half. It
  * stands higher and further back than the sketch's, so foes beside the hero are in the picture. Its yaw follows the hero.
  */
-export const SHOULDER: Pose = { yaw: 0, pitch: 19 * Math.PI / 180, dist: 6.2, fov: 62 * Math.PI / 180, focusY: 0.72 }
+export const SHOULDER: Pose = { yaw: 0, pitch: 23 * Math.PI / 180, dist: 4.5, fov: 56 * Math.PI / 180, focusY: 0.68 }
 
 /**
  * A pose `t` of the way from `a` to `b` (0 … 1, not eased here). The yaw goes
@@ -212,4 +212,18 @@ export function horizonY(m: Mat4, vw: number, vh: number): number {
   if (w < 0) { dx = -dx; dy = -dy; w = -w }
   const yn = (m[1]! * dx + m[5]! * dy) / w
   return (1 - yn) / 2 * vh
+}
+
+/**
+ * Picture px to one classic px: the finest that is a whole number of the screen's px to one of the picture's and no
+ * finer than the value asks (`screen`: the screen's own), never under 2. A device that cannot keep up gets fewer.
+ */
+export function densityOf(want: unknown, scale: number, quality = 2): number {
+  const target = want === 'screen' ? Infinity : Number(want) || 4
+  let p = 1
+  while (scale / p > target + 0.5 && p < scale) p++
+  p += 2 - Math.max(0, Math.min(2, quality))
+  // (Never under 2: the coarsest whole step that is still 2 or more, or the screen's own px on a screen coarser than that.)
+  if (scale / p < 2) p = Math.max(1, Math.floor(scale / 2))
+  return scale / p
 }
