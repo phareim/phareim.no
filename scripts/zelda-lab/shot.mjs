@@ -69,7 +69,7 @@ if (q.get('look')) {
 }
 // VIEW=iso shows the isometric view; FRAMES below 36 stops in the middle of the turn into it.
 if (q.get('view') === 'iso') { r.addView('iso', isoView); r.setView('iso', q.get('frames') === null) }
-if (q.get('view') === 'poly') { pinPoly(true); r.addView('poly', polyView); r.setView('poly', q.get('frames') === null) }
+if (q.get('view') === 'poly') { pinPoly(q.get('pin') === '0' ? null : true); r.addView('poly', polyView); r.setView('poly', q.get('frames') === null) }
 // PARAMS='{"bloom":0.5}' sets an engine's values (viewParams.ts).
 if (q.get('params')) r.setParams(q.get('view') || 'classic', JSON.parse(q.get('params')))
 r.resize(W, H, dpr, { top, right: 0, bottom: top ? 34 : 0, left: 0 })
