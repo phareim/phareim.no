@@ -773,8 +773,14 @@ void main() {
     // Indoors the light is the lamps'; what faces away from the room is dimmer.
     shade = uShading * (1.0 - clamp(n.z + 0.75 * max(n.y, n.x), 0.0, 1.0)) * 0.35;
   }
-  // What walks throws a blob away from the nearest light.
-  if (mat < 3) shade = max(shade, texture(uBlob, luv).r * uShadow * 1.15);
+  // What walks throws a blob away from the nearest light. It stands in the sun's way too: the sun's own light
+  // (added below) does not reach the ground under it, or the blob would be lit out of sight.
+  if (mat < 3) {
+    float blob = min(1.0, texture(uBlob, luv).r * uShadow * 1.15);
+    shade = max(shade, blob);
+    // (On the ground only: the top of a stall is above the stall's own shadow.)
+    direct *= 1.0 - blob * (1.0 - smoothstep(0.15, 0.4, z));
+  }
   // Corner shade: darker where a wall meets the floor.
   float occ = 0.0;
   if (uAo > 0.0 && mat <= 2) {
