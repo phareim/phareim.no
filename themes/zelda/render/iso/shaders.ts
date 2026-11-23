@@ -631,7 +631,8 @@ in vec3 vLocal;
 out vec4 o0;
 void main() {
   float d = length(vLocal.xy);
-  float a = (1.0 - smoothstep(0.45, 1.0, d)) * vLocal.z;
+  // (A firm core and a short soft rim: the classic view's hard blob, at this view's size.)
+  float a = (1.0 - smoothstep(0.62, 0.92, d)) * vLocal.z;
   o0 = vec4(a, 0.0, 0.0, a);
 }
 `
@@ -775,11 +776,13 @@ void main() {
   }
   // What walks throws a blob away from the nearest light. It stands in the sun's way too: the sun's own light
   // (added below) does not reach the ground under it, or the blob would be lit out of sight.
+  float under = 0.0;
   if (mat < 3) {
     float blob = min(1.0, texture(uBlob, luv).r * uShadow * 1.15);
     shade = max(shade, blob);
     // (On the ground only: the top of a stall is above the stall's own shadow.)
-    direct *= 1.0 - blob * (1.0 - smoothstep(0.15, 0.4, z));
+    under = blob * (1.0 - smoothstep(0.15, 0.4, z));
+    direct *= 1.0 - under;
   }
   // Corner shade: darker where a wall meets the floor.
   float occ = 0.0;
@@ -791,7 +794,9 @@ void main() {
   shade = min(1.0, shade);
   vec3 amb = uAmbient * mix(vec3(1.0), uShadowTint, shade) * (1.0 - occ);
   amb += vec3(1.0, 0.72, 0.5) * rim * uRim * 0.5;
-  vec3 light = min(amb + lamp, vec3(mix(1.0, 1.35, uK)));
+  // A blob lies away from what lights its spot most, a lamp as often as the sun: it takes from the lamps' light
+  // too, or beside a lamp there would be no shadow to see.
+  vec3 light = min(amb + lamp * (1.0 - 0.55 * under), vec3(mix(1.0, 1.35, uK)));
   vec3 c = g0.rgb * light;
   // The sun's own light: warm on what faces it and stands in no shade, and a little of it comes back
   // off any colour (a teal lawn in a low sun is gold on top), which one light for everything never does.
