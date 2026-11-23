@@ -21,9 +21,18 @@
 // STILL_MAX of its picture changes from one frame to the next (the median over
 // the frames): on master of 2026-11-23, whose lamps flickered through the
 // dither, that was 3 to 4 % on the square, in the shrine and by the zappers;
-// steady, it is under 0.7 %, as the classic view's 0.1 to 0.8 %.
+// steady, it is under 0.7 %, as the classic view's 0.1 to 0.8 %. Standing still,
+// no single frame may change more than FLASH_MAX of the picture either.
 //
-//   CHROME_BIN=<chrome> node scripts/zelda-lab/walk-flicker.mjs tmp/flicker/check plaza-stand-1280,shrine-stand-1280,zapper-stand-1280,plaza-stand-390,plaza-up-1280 --views poly --check
+// The day-* cases play a save that has the Sun Prism home, the day running from
+// an hour (noon, dawn, night), with the view's quality and its geometry budget
+// left to the page's own rules (pin 0, whatever --pin says): the pinned lab
+// builds every stretch in one go and cannot show one missing. On master of
+// 2026-11-23 (df37d03) the view took every step of the hour's sun for a new map
+// and dropped its stretches, so the ground and all on it went missing several
+// times a second (frames with a third of the picture changed, standing still).
+//
+//   CHROME_BIN=<chrome> node scripts/zelda-lab/walk-flicker.mjs tmp/flicker/check plaza-stand-1280,shrine-stand-1280,zapper-stand-1280,plaza-stand-390,plaza-up-1280,day-noon-stand-1280,day-dawn-stand-1280,day-night-stand-1280,day-noon-stand-390,day-noon-up-1280 --views poly --check
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -48,8 +57,10 @@ const PARAMS = opt('params', '')
 const THRESHOLD = +opt('threshold', '6')
 /** The share of the picture that may change from one frame to the next with nobody moving (median of the frames). */
 const STILL_MAX = 0.015
+/** The share of the picture a single frame may change with nobody moving. */
+const FLASH_MAX = 0.1
 
-// [name, scene, w, h, dpr, setup (page JS run once before the walk), move]
+// [name, scene, w, h, dpr, setup (page JS run once before the walk), move, pin (none: --pin)]
 const UP = { x: 0, y: -1 }
 const DOWN = { x: 0, y: 1 }
 const RIGHT = { x: 1, y: 0 }
@@ -69,10 +80,13 @@ const BASE = [
   ['room-up', 'd-room11', `__lab.s.hero.y += 4`, UP],
   ['room-right', 'd-room11', `__lab.s.hero.x -= 3; __lab.s.hero.y += 2`, RIGHT],
   ['shrine-up', 'entry', ``, UP],
+  // The day running (the Sun Prism home), from an hour, on the square.
+  ...[['noon', 580], ['dawn', 430], ['night', 230]].map(([h, t]) => [`day-${h}-stand`, 'r-plaza', `__lab.s.inv.prism = true; __lab.s.daytime = ${t}; __lab.s.hero.x -= 5; __lab.s.hero.y += 8.5; __lab.s.hero.dir = 'up'`, STILL, '0']),
+  ['day-noon-up', 'r-plaza', `__lab.s.inv.prism = true; __lab.s.daytime = 580; __lab.s.hero.x -= 5; __lab.s.hero.y += 8.5; __lab.s.hero.dir = 'up'`, UP, '0'],
 ]
 const CASES = [
-  ...BASE.map(([n, sc, setup, mv]) => [`${n}-1280`, sc, 1280, 800, 1, setup, mv]),
-  ...BASE.map(([n, sc, setup, mv]) => [`${n}-390`, sc, 390, 844, 3, setup, mv]),
+  ...BASE.map(([n, sc, setup, mv, pin]) => [`${n}-1280`, sc, 1280, 800, 1, setup, mv, pin]),
+  ...BASE.map(([n, sc, setup, mv, pin]) => [`${n}-390`, sc, 390, 844, 3, setup, mv, pin]),
 ]
 const want = only ? new Set(only.split(',')) : null
 
@@ -147,16 +161,19 @@ window.__walk = (n, move, keep) => {
 const median = a => { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1] ?? 0 }
 const results = []
 let bad = false
-for (const [name, scene, w, h, dpr, setup, move] of CASES) {
+for (const [name, scene, w, h, dpr, setup, move, pin] of CASES) {
   if (want && !want.has(name)) continue
   for (const view of VIEWS) {
     const b = await launch({ width: w, height: h })
     const v = view === 'classic' ? '' : `&view=${view}`
-    await b.goto(`file://${join(out, '_shot.html')}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}&top=0&touch=0${v}&pin=${PIN}${PARAMS ? `&params=${encodeURIComponent(PARAMS)}` : ''}`)
+    await b.goto(`file://${join(out, '_shot.html')}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}&top=0&touch=0${v}&pin=${pin ?? PIN}${PARAMS ? `&params=${encodeURIComponent(PARAMS)}` : ''}`)
     for (let t = 0; t < 40 && (await b.eval('document.title')) !== 'ready'; t++) await b.sleep(250)
     const gpu = await b.eval(`(() => { const c = document.createElement('canvas').getContext('webgl2'); const e = c && c.getExtension('WEBGL_debug_renderer_info'); return e ? c.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'none' })()`)
-    // (A second after the set-up, standing: what moved with it, the lamps the view lights with among them, has settled.)
-    await b.eval(`${setup}; for (let k = 0; k < 60; k++) { __lab.step(1); __lab.r.draw(__lab.s, __lab.ui, 1 / 60) } 0`)
+    // (A second after the set-up, standing: what moved with it, the lamps the view lights with among them, has settled.
+    // With the day running, three: in play the hour has been running, and the view's lamps and its reading of how
+    // fast the light drifts have settled.)
+    const settle = name.startsWith('day-') ? 180 : 60
+    await b.eval(`${setup}; for (let k = 0; k < ${settle}; k++) { __lab.step(1); __lab.r.draw(__lab.s, __lab.ui, 1 / 60) } 0`)
     await b.eval(MEASURE)
     const r = await b.eval(`__walk(${FRAMES}, ${JSON.stringify(move)}, true)`)
     if (b.errors.length) console.error(`${name} ${view}: ${b.errors.slice(0, 3).join(' | ')}`)
@@ -178,7 +195,8 @@ for (const [name, scene, w, h, dpr, setup, move] of CASES) {
     r.pics.forEach((u, i) => writeFileSync(join(out, `${name}-${view}-${['a', 'b', 'c', 'diff'][i]}.png`), Buffer.from(u.split(',')[1], 'base64')))
     console.log(`${name.padEnd(17)} ${view.padEnd(7)} changed med ${row.changedMedian.toFixed(3)} max ${row.changedMax.toFixed(3)}  flip med ${row.flipMedian.toFixed(4)} max ${row.flipMax.toFixed(4)} @${row.worstAt}  luma ${row.lumaMedian} min ${row.lumaMin} dark ${dark.length} moved ${row.moved}`)
     const still = move.x === 0 && move.y === 0
-    if (CHECK && view === 'poly' && (dark.length || (still && row.changedMedian > STILL_MAX))) { bad = true; console.log(`FAIL ${name}: ${dark.length} dark frames, ${(row.changedMedian * 100).toFixed(1)} % of the picture changes a frame${still ? ' standing still' : ''}`) }
+    const flashes = still ? ch.filter(c => c > FLASH_MAX).length : 0
+    if (CHECK && view === 'poly' && (dark.length || (still && (row.changedMedian > STILL_MAX || flashes)))) { bad = true; console.log(`FAIL ${name}: ${dark.length} dark frames, ${(row.changedMedian * 100).toFixed(1)} % of the picture changes a frame${still ? ` standing still, ${flashes} frames change more than ${FLASH_MAX * 100} %` : ''}`) }
   }
 }
 writeFileSync(join(out, 'walk.json'), JSON.stringify(results, null, 1))

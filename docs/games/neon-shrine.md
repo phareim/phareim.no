@@ -673,8 +673,9 @@ filtered textures, fog).
   crawl, every frame (the flashing "from the trees and down" when the view
   went live). Each lamp is matched to last frame's (its colour, where it
   stands) and follows the painters' strength through two smoothing steps of
-  0.35 s, so a fast flicker is down to a few per cent of its swing and a slow
-  one (the flowers' breathing) mostly stays. The engine lights with the
+  3 s, so each lamp shines at about its own mean: a fast flicker keeps a few
+  hundredths of a per cent of its swing, the flowers' slow breathing under
+  3 % (at 0.35 s it still sparkled through the dither). The engine lights with the
   sixteen nearest the focus; a lamp keeps its place while it fades out of
   them and one that comes near enough fades in when a place is free (0.3 s
   each way), so no lamp comes or goes at full strength as the hero walks; a
@@ -704,6 +705,22 @@ filtered textures, fog).
   while the sun is up, the hour's exposure; the backdrop is painted in the
   view's own dusk and the hour sinks its sun, dims its stars and grades the rest
   (`skyGrade`), and the distance fades into the graded sky's lowest colour.
+  The sun's shadows are baked into the meshes (a corner is in the sun or not),
+  and the hour's sun turns a little every tenth of a second, so the view bakes
+  a sun of its own (`sun.ts`, pure, tested): it holds it until the hour's has
+  turned 4° from it or its shadows have grown or shrunk by a tenth, and then
+  takes the hour's, so the stretches are built again every few seconds (a few
+  a frame, the old ones drawn meanwhile, as when a chest opens). The map's own
+  key holds no sun. (Until 2026-11-24 it did: every step of the hour's sun was
+  a new map, every stretch was dropped, and for a player with the real sun the
+  ground and all on it went missing several times a second.) The light itself
+  follows the hour without steps; while it drifts (dawn, morning, evening;
+  not at noon, at night or in the stuck dusk), every 15-bit step it crosses
+  would turn a pixel of the dither over somewhere, a sparkle the classic view
+  does not have, so the view measures how fast its light drifts
+  (`createDriftMeter`) and lets up to half of the unrounded colour show through
+  the dither (`softness`, uniform `uSoft`): a turned pixel is then half a
+  15-bit step. When the light holds, the dither is whole.
 - **What the screen shows.** The view says what it sees (`View.sight`): north
   to the end of the draw distance, a trapezoid widening with the lens. The
   shell hands it to the engine (`state.sight.ahead`, `spread`), and the woods'
@@ -734,11 +751,21 @@ filtered textures, fog).
   390 × 844 at dpr 3) and says how much of the picture changes from one frame
   to the next; `--check` fails when the polygon view, standing still, changes
   more than 1.5 % of it a frame (it was 3 to 5 % with the flickering lamps;
-  steady, 0.1 to 0.7 %, as the classic view) or draws a dark frame.
+  steady, 0.1 to 0.7 %, as the classic view), when any single frame standing
+  still changes more than 10 %, or when it draws a dark frame. The `day-*`
+  cases play the square with the Sun Prism home and the day running from noon,
+  dawn and night, with the quality and the geometry budget left to the page's
+  rules (the pinned lab builds every stretch at once and cannot show one
+  missing).
   `page-flicker.mjs <baseUrl> <outDir>` does the same on a running site with
-  real keys (headless Chrome paces the page at about 12 frames a second).
+  real keys (headless Chrome paces the page at about 12 frames a second);
+  `SAVE=<file>` puts a save in the page's storage first (`zeldaSave`: one with
+  `inv.prism` true and the hour in `day` plays the day).
   `tests/zelda-poly.test.mjs` holds the camera, the land, the mesher and the
-  lamps (no lamp changes by more than a tenth of a 15-bit step a frame).
+  lamps (no lamp changes by more than a tenth of a 15-bit step a frame) and
+  the day (the baked sun changes now and then, never twice in a second, while
+  the hour's moves every tenth; the dither softens smoothly while the light
+  drifts and stays whole while it holds).
 
 **Day and night** (after the Sun Prism). Until the prism is home the sun
 hangs on the horizon and `GameState.daytime` is null. Taking it starts a
