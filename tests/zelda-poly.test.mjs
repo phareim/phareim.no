@@ -24,6 +24,8 @@ async function load() {
         `export { BEYOND, beyondTile } from './render/beyond'`,
         `export { mapInfo } from './engine/index'`,
         `export { createLampKeeper, LAMP_CAP } from './render/poly/lamps'`,
+        `export { createSunBaker, createDriftMeter, softness, SOFT_MAX, SUN_STEP } from './render/poly/sun'`,
+        `export { dayLook } from './render/daylight'`,
       ].join('; '),
       resolveDir: root,
       loader: 'ts',
@@ -522,6 +524,78 @@ describe('the lamps', () => {
     keep(L, 1 / 60, { x: 0, y: 0 }, 1, () => 0)
     const a = keep([{ ...L[0], a: 0.2 }], 0, { x: 0, y: 0 }, 1, () => 0)
     near(a[0].c[0], 0.9, 1e-9)
+  })
+})
+
+describe('the day', () => {
+  // After the Sun Prism the renderer hands the views the hour's sun, turned a little every tenth of a second. The
+  // polygon view took each of those for a new map and dropped every stretch of its geometry, so the ground and all
+  // on it went missing several times a second (the flashing of 2026-11-23 for a player who has the real sun). The
+  // sun it bakes into its meshes moves in steps, and the dither is softened while the light drifts.
+  const BASE = {
+    ambient: '#8e82c4', sunAngle: 205, shadowLength: 1.6, shadow: 0.7, skyTop: '#1a0f4a', skyHorizon: '#ff5f9e', haze: '#ff6fb0',
+    nightLight: '#3a3878', dawnLight: '#f0a4b0', noonLight: '#f4efe8', nightSky: '#070722', nightHorizon: '#2c2466',
+    dawnSky: '#2a2c78', dawnHorizon: '#ffa26b', noonSky: '#2a7fd4', noonHorizon: '#a8e4ff', noonBright: 0.55,
+  }
+  // As the renderer asks: the hour to a tenth of a second.
+  const hour = t => M.dayLook(Math.round(t * 10) / 10, BASE)
+
+  it('without a day the baked sun is the view\'s own, exactly, and stays', () => {
+    const bake = M.createSunBaker()
+    const d = M.dayLook(null, BASE)
+    const first = bake(d.sunAngle, d.shadowLength)
+    assert.equal(first.angle, 205)
+    assert.equal(first.length, 1.6)
+    for (let f = 0; f < 600; f++) assert.equal(bake(d.sunAngle, d.shadowLength).key, first.key)
+  })
+
+  it('while the day runs the baked sun changes now and then (never twice in a second), though the hour\'s sun moves every tenth', () => {
+    const bake = M.createSunBaker()
+    let raw = 0
+    let baked = 0
+    let last = null
+    let lastKey = null
+    let lastChange = -Infinity
+    for (let f = 0; f <= 720 * 60; f++) {
+      const t = f / 60
+      const d = hour(t)
+      if (last && d.sunAngle !== last.sunAngle) raw++
+      const k = bake(d.sunAngle, d.shadowLength)
+      if (lastKey !== null && k.key !== lastKey) {
+        baked++
+        // (The sun and the moon hand over in one jump, at 135 s and 330 s: one rebuild each.)
+        assert.ok(t - lastChange >= 1, `the baked sun changed twice within ${(t - lastChange).toFixed(2)} s at ${t.toFixed(1)} s`)
+        lastChange = t
+      }
+      // (And what is baked is never more than a step from the hour's sun.)
+      const off = Math.abs(((k.angle - d.sunAngle + 540) % 360) - 180)
+      assert.ok(off <= M.SUN_STEP + 1e-9, `the baked sun is ${off}° off at ${t.toFixed(1)} s`)
+      last = d
+      lastKey = k.key
+    }
+    assert.ok(raw > 5000, `the hour's sun moved only ${raw} times`)
+    assert.ok(baked < 200, `the baked sun changed ${baked} times in a day`)
+  })
+
+  it('the dither stays whole while the light holds, softens while it drifts, and softens smoothly', () => {
+    const lightOf = d => { const c = parseInt(d.ambient.slice(1), 16); return [(c >> 16 & 255) / 255 * (1 + d.exposure), (c >> 8 & 255) / 255 * (1 + d.exposure), (c & 255) / 255 * (1 + d.exposure)] }
+    const soft = (from, seconds, frozen = false) => {
+      const meter = M.createDriftMeter()
+      const out = []
+      for (let f = 0; f < seconds * 60; f++) out.push(M.softness(meter(lightOf(hour(frozen ? from : from + f / 60)), 1 / 60)))
+      return out
+    }
+    // The stuck dusk (no day) and a held hour: the whole dither.
+    const dusk = M.createDriftMeter()
+    for (let f = 0; f < 300; f++) assert.equal(M.softness(dusk(lightOf(M.dayLook(null, BASE)), 1 / 60)), 0)
+    assert.ok(Math.max(...soft(450, 5, true)) === 0)
+    // Dawn into morning, and the evening: softened, and smoothly (a change of 0.03 in the softening moves a pixel by
+    // at most a quarter of an 8-bit level).
+    for (const from of [445, 495, 655]) {
+      const s = soft(from, 8)
+      assert.ok(s.at(-1) > M.SOFT_MAX * 0.5, `the dither is not softened at ${from + 8} s (${s.at(-1)})`)
+      for (let i = 1; i < s.length; i++) assert.ok(Math.abs(s[i] - s[i - 1]) < 0.03, `the softening jumps by ${Math.abs(s[i] - s[i - 1])} at ${from + i / 60} s`)
+    }
   })
 })
 

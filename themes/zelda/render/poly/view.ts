@@ -37,6 +37,7 @@ import { landWork, stand, type Land, type LandLook } from './terrain'
 import { FLAG, MAT_SLOTS, Mesher, ROLE, STRIDE, TEX, Verts, massOf, type Field, type MatSlot } from './mesh'
 import { createEngine, rgb, type Engine, type PolyLook } from './engine'
 import { createLampKeeper } from './lamps'
+import { createDriftMeter, createSunBaker, softness, type BakedSun } from './sun'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -122,6 +123,8 @@ interface MapCtx {
   meshers: Map<string, Mesher>
   chunks: Map<string, Chunk>
   stateKey: string
+  /** The sun baked into the meshes (`sun.ts`): when it steps, the stretches are built again and the old ones drawn meanwhile. */
+  sunKey: number
 }
 
 export default function polyView(kit: Kit): View {
@@ -157,6 +160,8 @@ export default function polyView(kit: Kit): View {
   const signCache = new Map<string, Set<number>>()
   /** The lamps, held steady from frame to frame (`lamps.ts`): the dither would make their flicker a crawl. */
   const steadyLamps = createLampKeeper()
+  /** How fast the light drifts (`sun.ts`): the dither is softened while it moves, so the hour does not sparkle. */
+  const drift = createDriftMeter()
 
   function paint(all: boolean, hurry: boolean): boolean {
     if (matsSent) return true
@@ -310,7 +315,7 @@ export default function polyView(kit: Kit): View {
     const outdoors = kind === 'overworld'
     const M = outdoors && par.beyond ? BEYOND : 0
     const look = { hills: par.hills as number, shore: par.shore as number, far: par.far as number }
-    const key = `${m.version}|${m.id}:${M}:${look.hills}:${look.shore}:${look.far}:${par.roofPitch}:${par.props}:${par.sunAngle}:${par.shadowLength}`
+    const key = `${m.version}|${m.id}:${M}:${look.hills}:${look.shore}:${look.far}:${par.roofPitch}:${par.props}`
     if (ctx && ctx.key === key) return ctx
     // (The same map in the same look, changed: its stretches are kept and drawn until each is built again.)
     const keep = ctx && ctx.id === m.id && ctx.key.split('|')[1] === key.split('|')[1] ? ctx.chunks : null
@@ -387,7 +392,7 @@ export default function polyView(kit: Kit): View {
       mood: (x, y) => noise(x * T, y * T, 96, 7) > (wild ? 0.4 : 0.56) ? 1 : 0,
       hash: hash2,
     }
-    ctx = { id: m.id, key, kind, look: def.look, field, land, M, fw, fh, meshers: new Map(), chunks: keep ?? new Map(), stateKey: stateOf(s) }
+    ctx = { id: m.id, key, kind, look: def.look, field, land, M, fw, fh, meshers: new Map(), chunks: keep ?? new Map(), stateKey: stateOf(s), sunKey: baked.key }
     sendKinds(ctx)
     engine.shoreField(job.shore!, fw * land.res + 1, fh * land.res + 1)
     return ctx
@@ -399,18 +404,22 @@ export default function polyView(kit: Kit): View {
     let me = c.meshers.get(key)
     if (me) return me
     const outdoors = c.kind === 'overworld'
-    const a = ((par.sunAngle as number) * Math.PI) / 180
+    const a = (baked.angle * Math.PI) / 180
     const field = { x: -c.M, y: -c.M, w: c.fw, h: c.fh }
     const pitch = outdoors ? (par.roofPitch as number) : 0
     const coarse = quality < 2
     me = new Mesher(c.field, { pitch, room, sun: null, props: !!par.props, coarse })
     if (outdoors) {
       const mass = massOf(c.field, me, field, pitch)
-      me = new Mesher(c.field, { pitch, room, props: !!par.props, coarse, sun: { dx: Math.cos(a), dy: Math.sin(a), rise: 1 / Math.max(0.2, par.shadowLength as number), mass } })
+      me = new Mesher(c.field, { pitch, room, props: !!par.props, coarse, sun: { dx: Math.cos(a), dy: Math.sin(a), rise: 1 / Math.max(0.2, baked.length), mass } })
     }
     c.meshers.set(key, me)
     return me
   }
+
+  /** The sun baked into the meshes (`sun.ts`): the hour's, held until it has moved a step. */
+  const sunBaker = createSunBaker()
+  let baked: BakedSun = sunBaker(0, 1)
 
   /** Time left this frame for building stretches of geometry (ms), and when the frame began. */
   let budget = 0
@@ -572,12 +581,15 @@ export default function polyView(kit: Kit): View {
     if (!ctx || ctx.id !== m.id) { settle = Math.max(settle, 20); gapN = 0 }
     // A door leads to another map: its land is built over the fade.
     if (s.warp && s.warp.to && s.warp.to !== m.id && world.maps[s.warp.to]) landFor(s.warp.to, par, 6)
+    baked = sunBaker(par.sunAngle as number, par.shadowLength as number)
     const c = mapCtx(s, par)
     const st = stateOf(s)
-    if (st !== c.stateKey) {
+    const sk = baked.key
+    if (st !== c.stateKey || sk !== c.sunKey) {
       for (const ch of c.chunks.values()) ch.dirty = true
       c.meshers.clear()
       c.stateKey = st
+      c.sunKey = sk
     }
     const ek = ease(k)
 
@@ -843,6 +855,7 @@ export default function polyView(kit: Kit): View {
       const tt = c.field.tile(Math.floor(L.x), Math.floor(L.y))
       return (tt === 't' ? 1.35 : tt === 'M' || tt === 'H' ? 1.2 : 0.55) + groundAt(L.x, L.y)
     })
+    const driftRate = drift([...amb.map(q => q * exposure), sunCol[0] * sunS, sunCol[1] * sunS, sunCol[2] * sunS, gain * 0.5], ui.paused ? 0 : dt)
     const sunA = ((par.sunAngle as number) * Math.PI) / 180
     const elev = Math.atan2(1, Math.max(0.2, par.shadowLength as number))
 
@@ -936,6 +949,7 @@ export default function polyView(kit: Kit): View {
       haze: roomed ? rgb('#05030c') : outdoors && par.sky ? cssRgb(dayLow) : rgb(par.haze as string),
       hazeAmount: roomed ? 0.7 : 1,
       water: win(k, 0.1, 0.5),
+      soft: softness(driftRate),
     }
     const px = quality === 0 ? 0.5 : 1
     engine.draw({

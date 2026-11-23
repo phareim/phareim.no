@@ -44,6 +44,8 @@ export interface PolyLook {
   hazeAmount: number
   /** How far the water is this view's own (0: the classic picture's). */
   water: number
+  /** How much of the unrounded colour shows through the 15-bit dither, 0 … 1 (`sun.ts` `softness`: while the light drifts). */
+  soft: number
 }
 
 export interface Frame {
@@ -191,6 +193,7 @@ uniform vec4 uRoom;
 uniform int uRoomOn;
 uniform vec4 uHero;
 uniform float uBits;
+uniform float uSoft;
 uniform int uGlowOnly;
 uniform float uWater;
 uniform int uBlob;
@@ -309,7 +312,9 @@ void main() {
   // 32 768 colours, the dither between them.
   if (uBits < 7.5) {
     float lv = exp2(uBits) - 1.0;
-    lit = floor(clamp(lit, 0.0, 1.0) * lv + b) / lv;
+    vec3 c0 = clamp(lit, 0.0, 1.0);
+    // (While the light drifts, some of the unrounded colour shows through, so a pixel turning over is less than a step.)
+    lit = mix(floor(c0 * lv + b) / lv, c0, uSoft);
   }
   // (The bloom's own pass: only what shines by itself.)
   if (uGlowOnly == 1) { o = vec4(clamp(max(neon, glow), 0.0, 1.0), 1.0); return; }
@@ -447,6 +452,7 @@ export function createEngine(): Engine {
       // (gl_FragCoord runs up from the bottom.)
       gl.uniform4f(u('uHero'), ...(f.hero ? [f.hero[0], vh - f.hero[1], f.hero[2], f.hero[3]] as [number, number, number, number] : [0, 0, 0, 0] as [number, number, number, number]))
       gl.uniform1f(u('uBits'), L.bits)
+      gl.uniform1f(u('uSoft'), L.soft)
       gl.uniform1f(u('uWater'), L.water)
       if (f.dynamic.count) {
         gl.bindBuffer(gl.ARRAY_BUFFER, dyn)
