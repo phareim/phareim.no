@@ -1528,8 +1528,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   /**
    * A view threw. It would throw again every frame, with the game running on unseen behind a still picture: it
    * is put away, and the classic view draws from here on. The turn stands on the classic picture too, unless
-   * the view was on its way out anyway (one that throws drawing: the turn runs out as it was going; one that
-   * throws in `ready`: the turn ends there).
+   * the view was on its way out anyway: then the turn ends there, on the picture it was heading for.
    */
   function putAway(id: string, v: View, e: unknown) {
     console.error(`view ${id} failed; the classic view takes over`, e)
@@ -1537,6 +1536,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     views.delete(id)
     lastDrawn = ''
     if (turn.id === id) turn.set('classic', true)
+    // (On its way out: it is gone, as a view that cannot draw is, and the turn does not run on without it.)
+    else if (turn.shown === id) turn.step(0, false)
     failed++
   }
 

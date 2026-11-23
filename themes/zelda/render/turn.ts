@@ -71,8 +71,8 @@ export function createTurn(has: (id: string) => boolean, seconds = 0.6): Turn {
 
 /**
  * How much of a frame's time a turn takes, by where the turn is (`k`, raw). In the hand-off (the first `handoff`
- * of the turn) and, on the way out, in the stretch a long frame would cross to reach it, a frame is worth no more
- * than a steady one. A picture's first frame is a long one (its tiles are painted, its shadows cast, its shaders
+ * of the turn) a frame is worth no more than a steady one (1/60 s); on the way out, in the stretch a long frame
+ * would cross to reach it, no more than two (1/30 s). A picture's first frame is a long one (its tiles are painted, its shadows cast, its shaders
  * warm), and the first frames of a turn are such frames; counted whole, one of them would carry the turn clean
  * over the hand-off, which would then be a cut. So the hand-off is four frames or more at any frame rate, and a
  * turn below 60 frames a second is that much longer than its `seconds`. `held`: the last frame was made long on

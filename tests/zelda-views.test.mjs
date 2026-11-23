@@ -794,7 +794,7 @@ describe('the turn between views', () => {
     }
   })
   it('slows for the hand-off only on the way to it', () => {
-    // Coming out of the hand-off a long frame is the time it took; heading for it, it is half a step.
+    // Coming out of the hand-off a long frame is the time it took; heading for it, it is two steady frames at most.
     assert.equal(M.turnTime(0.1, H + 0.05, H, S, false, false), 0.1)
     assert.equal(M.turnTime(0.1, H + 0.05, H, S, false, true), 1 / 30)
     // And its last step before the hand-off lands no deeper in it than a steady frame would have.

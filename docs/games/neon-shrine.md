@@ -162,10 +162,11 @@ classic picture. `/?view=<id>` asks for one.
   from eight bits to five (k 0.2 to 0.8), and the smoothed half-steps of
   the art come in over k 0.125 to 0.375. **A long frame does not cut the
   hand-off** (`turnTime`): a picture's first frame is a long one, and the
-  first frames of a turn are such frames, so in the hand-off and, on the
-  way out, in the stretch a long frame would cross to reach it a frame
-  counts as a steady one at most, and the last step before the hand-off
-  lands no deeper in it than a steady frame would. The hand-off is
+  first frames of a turn are such frames, so in the hand-off a frame
+  counts as a steady one (1/60 s) at most and, on the way out, in the
+  stretch a long frame would cross to reach it, as two (1/30 s) at most,
+  and the last step before the hand-off lands no deeper in it than a
+  steady frame would. The hand-off is
   therefore four frames or more at any frame rate, and a turn is longer where frames are (0.8 s at
   30 a second, about 1 s at 20). A turn's first two frames are steady ones
   too (`createTurnClock`): the press that began it may have done long work
@@ -180,8 +181,9 @@ classic picture. `/?view=<id>` asks for one.
   switch. While it waits on the classic picture the view also paints what
   its first frame on this map needs (the map's two tile pictures, the
   plants: `prepare` in `iso/view.ts`), a piece a frame, so that frame is
-  not a halt in the turn. (The canvas fallback, `iso/legacy.ts`, is never
-  waited for: it paints the map in its first frame and casts the map's
+  not a halt in the turn. (The canvas fallback, `iso/legacy.ts`, is waited
+  for only until its code is here (`legacyView`), and paints nothing while
+  it waits: it paints the map in its first frame and casts the map's
   shadows in its second, both under the classic picture in the hand-off,
   not in the frame the shadows first show.) Without a turn (reduced motion, a pause, a panel,
   the ending) it takes over in the frame it is ready, and the dress and the
@@ -197,7 +199,9 @@ classic picture. `/?view=<id>` asks for one.
   dark and may be long, so the map's pictures are not waited for there.
   **A view that throws** (in `ready` or in `draw`) is put away and the
   classic view draws on; `viewState().failed` counts them, and the shell
-  follows to the classic view with a bump and NO SIGNAL (`viewFailed`). A
+  follows to the classic view in the same frame, with a bump and NO SIGNAL
+  (`viewFailed`); one that throws on its way out ends the turn there, and
+  that is no refusal. A
   later press makes the view again; once a view has failed three times
   while it was the one shown, a press for it is refused for the rest of
   the visit. `View.turn` is how far the picture is rotated

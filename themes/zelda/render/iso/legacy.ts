@@ -225,9 +225,13 @@ export default function isoView(kit: Kit): View {
     }
     cg.globalAlpha = 1
     cg.beginPath()
-    /** A segment from (x0, y0) to (x1, y1), swept by (dx, dy): the parallelogram it passes over (px). */
+    /**
+     * A segment from (x0, y0) to (x1, y1), swept by (dx, dy): the parallelogram it passes over (px). Left open:
+     * `fill` closes every subpath itself, and `closePath` costs by the length of the path so far (Chromium), which
+     * made the cast of a big map over 100 ms of closing paths.
+     */
     const sweep = (x0: number, y0: number, x1: number, y1: number, dx: number, dy: number) => {
-      cg.moveTo(x0, y0); cg.lineTo(x1, y1); cg.lineTo(x1 + dx, y1 + dy); cg.lineTo(x0 + dx, y0 + dy); cg.closePath()
+      cg.moveTo(x0, y0); cg.lineTo(x1, y1); cg.lineTo(x1 + dx, y1 + dy); cg.lineTo(x0 + dx, y0 + dy)
     }
     for (let ty = 0; ty < m.h; ty++) for (let tx = 0; tx < m.w; tx++) {
       const sh = shapes[ty * m.w + tx]!
@@ -612,8 +616,8 @@ export default function isoView(kit: Kit): View {
       const sy = q(shadowV.y)
       const sk = `${shapesKey}:${sx.toFixed(3)}:${sy.toFixed(3)}:${shadowColor}:${par.occlusion}`
       // Cast before they show: a turn in begins under the classic picture, where a long frame is no halt in the
-      // turn (`turnTime`), and casting a big map's shadows is one. Not in the frame the map's tiles were painted
-      // in, though: two long frames are a shorter halt than one of both.
+      // turn (`turnTime`), and a cast is a longer frame than most. Not in the frame the map's tiles were painted
+      // in, though: that one is long enough.
       if ((sk !== shadowsKey || !shadows) && (shadowA > 0.01 || !laid)) { buildShadows(m, sx, sy, shadowColor, par.occlusion as number); shadowsKey = sk }
     }
     if (shadowA > 0.01 && reach > 0 && shadows) {

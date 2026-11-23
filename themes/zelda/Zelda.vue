@@ -394,7 +394,7 @@ const FAILS_MAX = 3
  */
 function viewFailed() {
   const def = viewDef(viewShown)
-  // (A view that was on its way out anyway: the turn runs out as it was going.)
+  // (A view that was on its way out anyway: the turn ended there, on the classic picture, and that is no refusal.)
   if (!renderer || !def || renderer.hasView(def.engine)) return
   engineFails.set(def.engine, (engineFails.get(def.engine) ?? 0) + 1)
   viewAsk++
@@ -411,7 +411,7 @@ function viewFailed() {
 }
 
 /**
- * Turn to a view, fetching its code the first time. `instant`: no turn (a paused game, reduced motion).
+ * Turn to a view, fetching its code the first time. `instant`: no turn (a paused game, an open panel, the ending, reduced motion).
  * `remember`: this is the visitor's own choice, kept for the next visit; the view a visit starts in is not one
  * (a browser that never chose keeps following the site's first view, and one bad fetch does not pin it to the classic one).
  * `arriving`: it is the view the visit starts in (`renderer.arrive`).
@@ -600,6 +600,8 @@ function stepTurnSwitch(nowMs: number) {
   } else if (sw.rest === null) sw.rest = ''
 
   // A first visit: the carriage leans toward the other end and comes back, with the view's name under it; once more a while later.
+  // (Not over a refusal: NO SIGNAL is read first, 1.6 s lit and 0.3 s fading.)
+  if (sw.fresh && sw.captionHot) sw.tickDue = Math.max(sw.tickDue, sw.captionAt + 1900)
   if (sw.fresh && sw.ticks < 2 && !sw.sawWaiting && !away && !vs.turning && !waiting && nowMs >= sw.tickDue && n === 2) {
     sw.ticks++
     sw.tickAt = nowMs
@@ -1094,15 +1096,17 @@ function slowTick(nowMs: number) {
 let steppedWaiting = false
 
 /**
- * Draw. A view that was waited for and took over in that draw without a turn (reduced motion, a pause, a panel)
- * is on screen now: the dress and the switch follow in the same frame, not the next one. (A view that threw in
- * that draw was put away, which looks the same from here: that one is `viewFailed`'s, in the next frame.)
+ * Draw. A view that was waited for and took over in that draw without a turn (reduced motion, a pause, a panel,
+ * the ending) is on screen now: the dress and the switch follow in the same frame, not the next one. A view that
+ * threw in that draw was put away: the shell follows to the classic view in this frame too (`viewFailed`), so
+ * the dress and the switch that were stepped for it before the draw are never painted.
  */
 function drawFrame(nowMs: number, dt: number) {
   if (!renderer) return
   renderer.draw(state, ui, dt)
   const vs = renderer.viewState()
-  if (steppedWaiting && !vs.waiting && !vs.turning && vs.failed === failedSeen) { steppedWaiting = false; stepDress(vs); stepTurnSwitch(nowMs) }
+  if (vs.failed !== failedSeen) { failedSeen = vs.failed; viewFailed(); steppedWaiting = false; stepDress(vs); stepTurnSwitch(nowMs); return }
+  if (steppedWaiting && !vs.waiting && !vs.turning) { steppedWaiting = false; stepDress(vs); stepTurnSwitch(nowMs) }
 }
 
 function frame(nowMs: number) {
