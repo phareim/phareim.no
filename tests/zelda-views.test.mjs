@@ -27,7 +27,9 @@ async function load() {
         `export { ENGINES, resolveParams, paramDiff, cleanParam, isEngineId } from './viewParams'`,
         `export { WORLD } from './world/index'`,
         `export { TILE_INFO } from './world/tiles'`,
-        `export { createTurn } from './render/turn'`,
+        `export { createTurn, turnTime, createTurnClock } from './render/turn'`,
+        `export { SW_W, SW_H, TICK_MS, REFUSE_MS, shortTag, switchLayout, carriageAt, seamAt, tickNudge, refuseNudge, chromeAlpha, captionFor, paintSwitch } from './render/turnSwitch'`,
+        `export { NEON_SKIN, HIRES_WINDOW_SKIN } from './render/hud'`,
         `export { massesOf, blobOf, shadeTint } from './render/shade'`,
         `export { createGame } from './engine/index'`,
         `export { enterMap } from './engine/game'`,
@@ -66,10 +68,16 @@ describe('the view registry', () => {
     assert.equal(M.startView('classic', 'iso'), 'classic')
     assert.equal(M.startView(null, 'classic'), 'classic')
   })
-  it('starts a browser that has never chosen in the classic 8-bit view', () => {
-    assert.equal(M.DEFAULT_VIEW, 'classic')
+  it('starts a browser that has never chosen in the isometric 16-bit view', () => {
+    assert.equal(M.DEFAULT_VIEW, 'iso')
+    assert.equal(M.startView(null, null), 'iso')
+    assert.equal(M.startView('3d', 'hologram'), 'iso')
+  })
+  it('starts in the classic view when the studio has taken the first view out of the round', () => {
+    M.setLiveViews(M.parseViews({ iso: { hidden: true } }))
     assert.equal(M.startView(null, null), 'classic')
-    assert.equal(M.startView('3d', 'hologram'), 'classic')
+    assert.equal(M.startView(null, 'iso'), 'classic')
+    M.setLiveViews(null)
   })
   it('names every view for the pause screen in the pixel font', () => {
     for (const v of M.VIEWS) {
@@ -108,11 +116,28 @@ describe('the view registry', () => {
 
 describe('where the views are found', () => {
   const shell = readFileSync(resolve(root, 'Zelda.vue'), 'utf8')
-  it('keeps the button on the pause screen and V as the quick key: no view button beside the world', () => {
-    // The corner holds the pause chip alone, on touch; nothing there turns the view.
+  it('has the turn switch beside the world, the button on the pause screen and V as the quick key', () => {
+    // The touch corner holds the pause chip alone; the switch is a root of its own, so it is there beside a keyboard too.
     const corner = shell.slice(shell.indexOf('class="zelda-deck-top"'), shell.indexOf('class="zelda-deck"'))
     assert.match(corner, /togglePause/)
-    assert.doesNotMatch(corner, /cycleView/)
+    assert.doesNotMatch(corner, /cycleView|turnPress/)
+    const wrap = shell.slice(shell.indexOf('class="zelda-turn-wrap"') - 200, shell.indexOf('class="zelda-turn-said"'))
+    assert.match(wrap, /v-if="phase === 'play' && viewCount > 1"/, 'only where there is a view to turn to')
+    assert.doesNotMatch(wrap.split('class="zelda-turn-wrap"')[0], /touchUI/, 'not on touch alone')
+    // It steps away by class (never by v-if, which would pop) while something else has the screen.
+    const away = wrap.match(/'zelda-turn-wrap--away': ([^,}]+)/)[1]
+    for (const what of ['paused', 'panel', 'talking', 'leaving']) assert.match(away, new RegExp(what), `away while ${what}`)
+    assert.match(wrap, /class="zelda-turn"\s+data-game-keys/, 'a focused switch gives the game its keys back (input.ts)')
+    assert.match(wrap, /aria-keyshortcuts="V"/)
+    assert.match(wrap, /:aria-label="turnLabel"/)
+    // The press must reach input.ts too: a first touch there is what turns the touch deck on.
+    assert.match(wrap, /@pointerdown\.prevent="turnPress"/)
+    assert.doesNotMatch(wrap, /@pointerdown[^"]*\.stop/)
+    assert.match(wrap, /@click="turnClick"/, 'Enter, Space and a screen reader press it too')
+    assert.match(shell, /function turnPress[^]*?cycleView\(\)[^]*?blur\(\)/, 'a pointer press turns the view and keeps no focus')
+    // The switch names the view when it arrives: the portal raises no view strip (the studio's stage still has it).
+    assert.doesNotMatch(shell, /ui\.strip/)
+    assert.match(readFileSync(resolve(root, 'render/hud.ts'), 'utf8'), /export function drawViewStrip/)
     // The pause screen's own button.
     assert.match(shell, /class="zelda-pad zelda-pad-wide" @pointerdown\.prevent\.stop="cycleView"/)
     // V turns the view in play and on the pause screen alike: one line, outside the paused branch, and not while the reset is being asked about.
@@ -124,6 +149,107 @@ describe('where the views are found', () => {
   })
   it('does not name a view key in the page\'s first hint', () => {
     assert.doesNotMatch(readFileSync(resolve(site, 'themes/portal/Landing.vue'), 'utf8'), /ANOTHER VIEW/)
+  })
+})
+
+describe('the turn switch', () => {
+  const state = (more = {}) => ({
+    stops: [{ label: '8', skin: M.NEON_SKIN }, { label: '16', skin: M.HIRES_WINDOW_SKIN }],
+    a: 0, b: 1, e: 0, key: 'V', waiting: false, hover: false, down: false, nudge: 0, flash: -1, caption: '', captionLit: 0, time: 0, reduced: false, ...more,
+  })
+  it('reads a view\'s numeral from its tag', () => {
+    assert.equal(M.shortTag('8-BIT'), '8')
+    assert.equal(M.shortTag('16-BIT'), '16')
+    assert.equal(M.shortTag('NOIR'), '')
+    assert.equal(M.shortTag('128-BIT'), '')
+  })
+  it('stands the carriage where the turn is, flush at both ends, in both dresses', () => {
+    for (const skin of [M.NEON_SKIN, M.HIRES_WINDOW_SKIN]) {
+      const unit = (skin.density ?? 1) > 1 ? 0.5 : 1
+      const end = M.carriageAt(state({ e: 1 }), skin)
+      assert.equal(M.carriageAt(state({ e: 0 }), skin).pos, 0)
+      assert.equal(end.pos, end.travel)
+      let last = -1
+      for (let i = 0; i <= 40; i++) {
+        const c = M.carriageAt(state({ e: M.ease(i / 40) }), skin)
+        assert.ok(Math.abs(c.pos - M.ease(i / 40) * c.travel) <= unit / 2 + 1e-9, 'it is where the turn is, to the pixel')
+        assert.ok(c.pos >= last, 'and never steps back on the way')
+        last = c.pos
+      }
+    }
+  })
+  it('comes back from the middle of a turn without a jump', () => {
+    const up = M.carriageAt(state({ e: M.ease(0.4) }), M.NEON_SKIN).pos
+    const down = M.carriageAt(state({ e: M.ease(0.4 - 1 / 42) }), M.NEON_SKIN).pos
+    assert.ok(down <= up && up - down <= 1)
+  })
+  it('keeps the seam between its two dresses on the carriage (within its rim), and has none at rest', () => {
+    assert.equal(M.seamAt(state({ e: 0 })), null)
+    assert.equal(M.seamAt(state({ e: 1 })), null)
+    for (let i = 1; i < 40; i++) {
+      const st = state({ e: M.ease(i / 40) })
+      const seam = M.seamAt(st) / 2
+      const lo = Math.min(M.carriageAt(st, M.NEON_SKIN).left, M.carriageAt(st, M.HIRES_WINDOW_SKIN).left)
+      const hiA = M.carriageAt(st, M.NEON_SKIN)
+      const hiB = M.carriageAt(st, M.HIRES_WINDOW_SKIN)
+      const hi = Math.max(hiA.left + hiA.width, hiB.left + hiB.width)
+      assert.ok(seam >= lo - 4 && seam <= hi + 4, `at ${i}/40 the seam (${seam}) has left the carriage (${lo}..${hi})`)
+    }
+    // One dress at both stops: nothing to join.
+    assert.equal(M.seamAt(state({ e: 0.5, stops: [{ label: '8', skin: M.NEON_SKIN }, { label: '16', skin: M.NEON_SKIN }] })), null)
+  })
+  it('fits its canvas with two views and with eight, and is never too small for a thumb', () => {
+    for (let n = 2; n <= M.MAX_VIEWS; n++) {
+      const stops = Array.from({ length: n }, (_, i) => ({ label: n === 2 ? ['8', '16'][i] : '', skin: i ? M.HIRES_WINDOW_SKIN : M.NEON_SKIN }))
+      for (const key of ['V', null]) {
+        const lay = M.switchLayout({ stops, key })
+        assert.ok(lay.box.x >= 0 && lay.box.x + lay.box.w <= M.SW_W, `${n} views fit`)
+        assert.ok(lay.box.w * 2 >= 44, `${n} views: ${lay.box.w * 2} fine px wide`)
+      }
+    }
+  })
+  it('draws the ground tile as the picture has it: a square in the classic view, the 2:1 diamond in the turned one', () => {
+    // A context that only counts the tile's pixels (the colour the tile is filled with, cool).
+    const count = (skin, e) => {
+      const cells = new Set()
+      let fill = ''
+      const g = new Proxy({}, {
+        get: (_, name) => name === 'fillRect' ? (x, y, w, h) => { if (fill === skin.cool && w <= 1 && h <= 1) cells.add(`${x},${y}`) } : name === 'fillStyle' ? fill : () => g,
+        set: (_, name, v) => { if (name === 'fillStyle') fill = v; return true },
+      })
+      // (The engraved V is drawn in `dim`, the frame by the skin's panel: only the tile is unit pixels of `cool`.)
+      M.paintSwitch(g, { ...skin, panel: () => {} }, state({ e, key: null }))
+      const xs = [...cells].map(c => +c.split(',')[0])
+      const ys = [...cells].map(c => +c.split(',')[1])
+      return { n: cells.size, w: Math.max(...xs) - Math.min(...xs) + 1, h: Math.max(...ys) - Math.min(...ys) + 1 }
+    }
+    const square = count(M.NEON_SKIN, 0)
+    assert.equal(square.w, square.h)
+    assert.equal(square.n, square.w * square.h, 'a full square')
+    const diamond = count(M.NEON_SKIN, 1)
+    assert.equal(diamond.w, diamond.h * 2, 'two across to one down')
+    assert.ok(diamond.n < diamond.w * diamond.h, 'with its corners cut')
+  })
+  it('fades what changes dress beside the canvas out before the flip and in after it', () => {
+    assert.equal(M.chromeAlpha(0), 1)
+    assert.equal(M.chromeAlpha(1), 1)
+    assert.equal(M.chromeAlpha(0.5), 0)
+    assert.ok(Math.abs(M.chromeAlpha(0.4) - 0.5) < 1e-9)
+    assert.equal(M.chromeAlpha(0.2), 1)
+  })
+  it('ticks out and back, and bumps at a refusal, ending where it began', () => {
+    assert.equal(M.tickNudge(0), 0)
+    assert.equal(M.tickNudge(M.TICK_MS), 0)
+    assert.equal(M.tickNudge(150), 3)
+    assert.ok(M.tickNudge(60) > 0 && M.tickNudge(60) < 3)
+    assert.equal(M.refuseNudge(0), 0)
+    assert.equal(M.refuseNudge(M.REFUSE_MS), 0)
+    assert.equal(M.refuseNudge(80), 2)
+  })
+  it('names the view under it, with its place in a round of three or more when that fits', () => {
+    assert.equal(M.captionFor('ISOMETRIC', 1, 2, M.NEON_SKIN), 'ISOMETRIC')
+    assert.equal(M.captionFor('NOIR', 2, 3, M.NEON_SKIN), 'NOIR 3/3')
+    assert.equal(M.captionFor('ABCDEFGHIJKLMN', 2, 8, M.NEON_SKIN), 'ABCDEFGHIJKLMN')
   })
 })
 
@@ -582,11 +708,215 @@ describe('the turn between views', () => {
     assert.equal(t.turning, false)
     assert.equal(t.k, 1)
   })
+  it('waits on the classic picture for a view that cannot draw yet, then turns in from the start', () => {
+    const t = two()
+    t.set('iso')
+    for (let i = 0; i < 30; i++) assert.deepEqual(t.step(1 / 60, false), { shown: '', k: 0 })
+    assert.equal(t.id, 'iso')
+    assert.equal(t.turning, true)
+    assert.equal(t.waiting, true)
+    const first = t.step(1 / 60, true)
+    assert.equal(first.shown, 'iso')
+    assert.ok(first.k > 0 && first.k < 0.05, 'the turn starts at the classic picture, however long the wait was')
+    assert.equal(t.waiting, false)
+    assert.deepEqual(run(t, 0.7), { shown: 'iso', k: 1 })
+  })
+  it('arrives at once in a view that was waited for, when no turn was asked for', () => {
+    const t = two()
+    t.set('iso', true)
+    assert.deepEqual(t.step(1 / 60, false), { shown: '', k: 0 })
+    assert.equal(t.waiting, true)
+    assert.deepEqual(t.step(1 / 60, true), { shown: 'iso', k: 1 })
+    // Asked again with a turn while it waits: it turns in after all.
+    const u = two()
+    u.set('iso', true)
+    u.step(1 / 60, false)
+    u.set('iso')
+    assert.ok(u.step(1 / 60, true).k < 0.05)
+  })
+  it('falls back to the classic picture when the view on screen stops being ready, and comes back', () => {
+    const t = two()
+    t.set('iso', true)
+    assert.deepEqual(t.step(1 / 60), { shown: 'iso', k: 1 })
+    assert.deepEqual(t.step(1 / 60, false), { shown: '', k: 0 })
+    assert.equal(t.id, 'iso')
+    assert.deepEqual(t.step(1 / 60, true), { shown: 'iso', k: 1 })
+  })
+  it('lets go of a view that cannot draw when another is asked for', () => {
+    const t = two()
+    t.set('iso', true)
+    t.step(0)
+    t.set('classic')
+    assert.deepEqual(t.step(1 / 60, false), { shown: '', k: 0 })
+    assert.equal(t.turning, false)
+    assert.equal(t.waiting, false)
+  })
   it('treats a view it does not have as the classic one', () => {
     const t = two()
     t.set('hologram')
     assert.equal(t.id, 'classic')
     assert.deepEqual(t.step(1), { shown: '', k: 0 })
+  })
+  // The renderer's numbers (TURN_S, HANDOFF in renderer.ts).
+  const S = 0.7
+  const H = 0.1
+  /** A whole turn at a given frame length: the raw k of every frame the view drew. */
+  const frames = (t, dt, held = () => false) => {
+    const ks = []
+    for (let i = 0; i < 600 && t.turning; i++) { const r = t.step(M.turnTime(dt, t.k, H, S, held(i))); if (r.shown) ks.push(r.k) }
+    return ks
+  }
+  /** The same with the renderer's clock (`turnDt`): every frame the turn had, as [k, the view drew]. */
+  const clocked = (t, dts) => {
+    const clock = M.createTurnClock(H, S)
+    const out = []
+    for (let i = 0; i < 600 && t.turning; i++) { const r = t.step(clock(typeof dts === 'function' ? dts(i) : dts, t)); out.push([r.k, r.shown !== '']) }
+    return out
+  }
+  it('counts a steady frame whole: a turn at 60 frames a second takes its 0.7 s, and below that a little longer', () => {
+    const t = M.createTurn(id => id === 'iso', S)
+    t.set('iso')
+    assert.equal(frames(t, 1 / 60).length, 42)
+    t.set('classic')
+    assert.equal(frames(t, 1 / 60).length, 41, 'the last frame out is the classic picture alone')
+    for (const k of [0, 0.05, H, 0.2, 0.5, 1]) {
+      assert.equal(M.turnTime(1 / 60, k, H, S), 1 / 60)
+    }
+    assert.equal(M.turnTime(1 / 30, 0.5, H, S), 1 / 30)
+    assert.equal(M.turnTime(0.1, 0.5, H, S), 0.1, 'away from the hand-off a long frame is the time it took')
+    // The hand-off is four frames or more at any rate, so a slow device's turn is that much longer: 0.8 s at 30 frames a second.
+    for (const [dt, into, out] of [[1 / 60, 42, 42], [1 / 30, 24, 24], [1 / 20, 18, 20]]) {
+      const u = M.createTurn(id => id === 'iso', S)
+      u.set('iso')
+      assert.equal(clocked(u, dt).length, into, `in at ${dt.toFixed(3)} s a frame`)
+      u.set('classic')
+      assert.equal(clocked(u, dt).length, out, `out at ${dt.toFixed(3)} s a frame`)
+    }
+  })
+  it('slows for the hand-off only on the way to it', () => {
+    // Coming out of the hand-off a long frame is the time it took; heading for it, it is two steady frames at most.
+    assert.equal(M.turnTime(0.1, H + 0.05, H, S, false, false), 0.1)
+    assert.equal(M.turnTime(0.1, H + 0.05, H, S, false, true), 1 / 30)
+    // And its last step before the hand-off lands no deeper in it than a steady frame would have.
+    assert.ok(Math.abs(M.turnTime(0.1, H + 0.01, H, S, false, true) - (0.01 * S + 1 / 60)) < 1e-12)
+    assert.equal(M.turnTime(0.1, H / 2, H, S, false, false), 1 / 60, 'the hand-off itself is steady both ways')
+  })
+  it('does not let the press that began a turn move it: the first two frames are steady ones', () => {
+    // The first key of a visit starts the sound, a tenth of a second or more that lands in the second frame's dt.
+    const t = M.createTurn(id => id === 'iso', S)
+    t.set('iso', true)
+    t.step(0)
+    t.set('classic')
+    const ks = clocked(t, i => (i === 1 ? 0.1 : 1 / 60)).map(f => f[0])
+    assert.ok(Math.abs((1 - ks[0]) - (1 / 60) / S) < 1e-9)
+    assert.ok(Math.abs((ks[0] - ks[1]) - (1 / 60) / S) < 1e-9, `the second frame moved the turn ${(ks[0] - ks[1]).toFixed(3)}`)
+    // A long third frame is time the turn has had.
+    const u = M.createTurn(id => id === 'iso', S)
+    u.set('iso', true)
+    u.step(0)
+    u.set('classic')
+    const us = clocked(u, i => (i === 2 ? 0.1 : 1 / 60)).map(f => f[0])
+    assert.ok(us[1] - us[2] > 0.1)
+    // The count starts again with the next turn, and a frame made long on purpose is steady whatever its number.
+    const clock = M.createTurnClock(H, S)
+    const v = M.createTurn(id => id === 'iso', S)
+    v.set('iso', true)
+    v.step(0)
+    for (let round = 0; round < 2; round++) {
+      v.set('classic')
+      assert.equal(clock(0.1, v), 1 / 60, `round ${round}: the first frame`)
+      v.step(1 / 60)
+      assert.equal(clock(0.1, v), 1 / 60, `round ${round}: the second frame`)
+      v.step(1 / 60)
+      assert.equal(clock(0.1, v, true), 1 / 60, `round ${round}: a held third frame`)
+      while (v.turning) v.step(clock(1 / 60, v))
+      assert.equal(clock(0.1, v), 0.1, 'at rest a frame is the time it took')
+      v.set('iso', true)
+      v.step(0)
+      assert.equal(clock(0.1, v), 0.1, 'at rest in the view too')
+    }
+  })
+  it('counts a press in the middle of a turn, or right after one, as the start of a turn too', () => {
+    // A turn in, reversed half way: the two frames after the press are steady ones.
+    const clock = M.createTurnClock(H, S)
+    const t = M.createTurn(id => id === 'iso', S)
+    t.set('iso')
+    for (let i = 0; i < 30; i++) t.step(clock(1 / 60, t))
+    t.set('classic')
+    assert.equal(clock(0.1, t), 1 / 60, 'reversed: the first frame')
+    t.step(1 / 60)
+    assert.equal(clock(0.1, t), 1 / 60, 'reversed: the second frame')
+    t.step(1 / 60)
+    assert.equal(clock(0.1, t), 0.1, 'reversed: the third frame is the time it took')
+    // A press in the frame after a turn ended, with no frame at rest between.
+    const c2 = M.createTurnClock(H, S)
+    const u = M.createTurn(id => id === 'iso', S)
+    u.set('iso')
+    while (u.turning) u.step(c2(1 / 60, u))
+    u.set('classic')
+    assert.equal(c2(0.1, u), 1 / 60, 'back to back: the first frame')
+    u.step(1 / 60)
+    assert.equal(c2(0.1, u), 1 / 60, 'back to back: the second frame')
+    // A view waited for in the dark, and V in the frame after it came up: the clock saw that frame as a turning one.
+    let ready = false
+    const c3 = M.createTurnClock(H, S)
+    const w = M.createTurn(id => id === 'iso', S)
+    w.set('iso', true)
+    for (let i = 0; i < 5; i++) w.step(c3(1 / 60, w), ready)
+    ready = true
+    assert.ok(w.turning, 'a view that is waited for counts as turning')
+    w.step(c3(1 / 60, w), ready)
+    assert.equal(w.k, 1)
+    w.set('classic')
+    const k0 = w.k
+    w.step(c3(1 / 60, w), ready)
+    w.step(c3(0.1, w), ready)
+    assert.ok(Math.abs((k0 - w.k) - 2 * (1 / 60) / S) < 1e-9, `the press's long frame moved the turn ${(k0 - w.k).toFixed(4)}`)
+  })
+  it('never lets a long frame carry the turn over the hand-off, in or out', () => {
+    for (const dt of [1 / 60, 1 / 30, 1 / 20, 0.1]) {
+      const t = M.createTurn(id => id === 'iso', S)
+      t.set('iso')
+      const into = frames(t, dt).filter(k => k < H)
+      assert.ok(into.length >= 4, `in at ${dt.toFixed(3)} s a frame: ${into.length} frames of the hand-off`)
+      t.set('classic')
+      const out = frames(t, dt).filter(k => k < H)
+      assert.ok(out.length >= 4, `out at ${dt.toFixed(3)} s a frame: ${out.length} frames of the hand-off`)
+    }
+    // Frames of any length, one after the other (a device that stutters), with and without the frame the classic
+    // picture is painted in: four frames of the hand-off or more, both ways.
+    let seed = 12345
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648
+    for (let n = 0; n < 400; n++) {
+      const t = M.createTurn(id => id === 'iso', S)
+      t.set('iso')
+      const into = clocked(t, () => 1 / 60 + rnd() * (0.1 - 1 / 60)).filter(f => f[1] && f[0] < H)
+      assert.ok(into.length >= 4, `in, run ${n}: ${into.length} frames of the hand-off`)
+      t.set('classic')
+      const cold = n % 2 === 1
+      const clock = M.createTurnClock(H, S)
+      let hand = 0
+      for (let i = 0; i < 600 && t.turning; i++) {
+        const r = t.step(clock(1 / 60 + rnd() * (0.1 - 1 / 60), t, cold && i === 2))
+        if (r.shown && r.k < H) hand++
+      }
+      assert.ok(hand >= 4, `out${cold ? ', cold' : ''}, run ${n}: ${hand} frames of the hand-off`)
+    }
+    // The longest frame the shell hands over, from anywhere above the hand-off: it lands in it, not past it.
+    for (let k = H + 0.001; k < 1; k += 0.007) {
+      const left = k - M.turnTime(0.1, k, H, S) / S
+      assert.ok(left > 0, `a long frame at k ${k.toFixed(3)} ends the turn (${left.toFixed(3)})`)
+    }
+  })
+  it('does not count a frame that was made long on purpose', () => {
+    // The turn out paints the classic picture in its second frame: the third is a steady frame, whatever the clock says.
+    const t = M.createTurn(id => id === 'iso', S)
+    t.set('iso', true)
+    t.step(0)
+    t.set('classic')
+    const ks = frames(t, 0.1, i => i === 2).slice(0, 3)
+    assert.ok(ks[1] - ks[2] < 0.03, `after the painted frame the turn moves ${(ks[1] - ks[2]).toFixed(3)}`)
+    assert.ok(ks[0] - ks[1] > 0.1)
   })
 })
 

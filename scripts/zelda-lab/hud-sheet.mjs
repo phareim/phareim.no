@@ -14,7 +14,7 @@
 //   norsk    Æ Ø Å, the ellipsis and the long dashes
 //   errands  the pause screen with everything carried
 //   notch    a talk at the top on a screen with safe-area insets
-//   mix      the skin three quarters in from the neon one (at half strength)
+//   mix      the skin three quarters in from the neon one (both are painted, the neon one a quarter over it)
 //   studio   the full heart and the bit as the studio might redraw them
 // Screens:
 // 1280 (1280×800, dpr 1, scale 4), 390 (390×844, dpr 3, scale 5: odd, so the

@@ -60,6 +60,9 @@ export function isGameKey(code: string) {
 }
 
 /** Links, buttons and site chrome keep their own clicks and keys. */
+/** The keys a focused control with `data-game-keys` keeps for itself. */
+const OWN_KEYS = new Set(['Enter', 'NumpadEnter', 'Space', 'Tab', 'ShiftLeft', 'ShiftRight'])
+
 export function isInteractive(el: EventTarget | null) {
   return !!(el as HTMLElement | null)?.closest?.('a, button, .radio-widget')
 }
@@ -192,7 +195,15 @@ export function createInput(hooks: InputHooks): GameInput {
   }
 
   function onKeyDown(e: KeyboardEvent) {
-    if (isInteractive(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    // A control beside the world that was reached by Tab (`data-game-keys`: the turn switch) owns the keys
+    // that work it and no others: anything else lets go of it and is the game's, so nobody is left standing
+    // with a button under their fingers.
+    const own = (e.target as HTMLElement | null)?.closest?.('[data-game-keys]') as HTMLElement | null | undefined
+    if (own) {
+      if (OWN_KEYS.has(e.code)) return
+      own.blur()
+    } else if (isInteractive(e.target)) return
     if (hooks.onKey?.(e)) return
     if (hooks.idle()) return
     if (!isGameKey(e.code)) return

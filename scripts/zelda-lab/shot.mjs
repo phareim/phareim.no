@@ -11,7 +11,7 @@
 // real town in the one world.
 //
 // VIEW=iso renders the isometric view (PNGs end in -iso); with FRAMES=<n>
-// (under 36) the shot stops n frames into the turn from the classic view.
+// (under 42) the shot stops n frames into the turn from the classic view.
 //
 // HERO_COLORS='<HeroColors JSON>' dresses the hero in Mini World's colours
 // (render/heroColors.ts); the PNGs then end in -dressed.

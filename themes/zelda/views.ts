@@ -5,7 +5,7 @@
  *
  * A view is a drawing engine (`viewParams.ts`: classic, iso) with a
  * name and its own values. Two are built in, one per engine; a visitor who
- * has not chosen starts in the classic 8-bit one (`DEFAULT_VIEW`). The studio
+ * has not chosen starts in the isometric 16-bit one (`DEFAULT_VIEW`). The studio
  * (studio.phareim.no) may change a built-in view's values and publish more
  * views of its own; they arrive with the live file (`render/live.ts`) and
  * join the round on the V key, the view strip and `?view=<id>`.
@@ -138,12 +138,16 @@ export function viewName(id: ViewId): string {
   return viewDef(id)?.name ?? id.toUpperCase()
 }
 
-/** The view a visitor meets first: the classic 8-bit one. */
-export const DEFAULT_VIEW: ViewId = 'classic'
+/**
+ * The view a visitor meets first: the isometric 16-bit one. (The classic one is still the picture every other
+ * view turns from, and what draws until another view's code is here, or when a device cannot draw it.)
+ */
+export const DEFAULT_VIEW: ViewId = 'iso'
 
 /**
- * The view to start in: the address (`?view=iso`) wins over what this browser
- * used last, and a browser that has never chosen gets the classic view.
+ * The view to start in: the address (`?view=classic`) wins over what this browser
+ * used last, and a browser that has never chosen gets the site's first view (the
+ * classic one, should the studio have taken that view out of the round).
  */
 export function startView(query: unknown, stored: unknown): ViewId {
   if (isViewId(query)) return query

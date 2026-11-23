@@ -46,7 +46,7 @@ export const COUNTER_TOP = 17
 /** A sprite's cell, in scene px. (ax, ay) is the point on the ground under the middle of the thing. */
 export const PROP = { w: 80, h: 88, ax: 40, ay: 70 } as const
 
-export interface PropSprite { x: number; y: number; w: number; h: number; ax: number; ay: number }
+export interface PropSprite { x: number; y: number; w: number; h: number; ax: number; ay: number; /** The first row of the cell with anything drawn on it. */ top: number }
 export interface PropAtlas {
   w: number
   h: number
@@ -461,7 +461,10 @@ export function stepProps(): boolean {
   const x = (k % PROP_COLS) * W
   const y = Math.floor(k / PROP_COLS) * H
   b.paint(a.albedo, a.normal, w, x, y, !kind.startsWith('counter'))
-  a.sprites[kind] = { x, y, w: W, h: H, ax: PROP.ax, ay: PROP.ay }
+  // The first row with anything on it: a thing that rises out of the ground starts there (`view.ts`).
+  let top = 0
+  rows: for (; top < H; top++) for (let u = 0; u < W; u++) if (a.albedo[((y + top) * w + x + u) * 4 + 3]) break rows
+  a.sprites[kind] = { x, y, w: W, h: H, ax: PROP.ax, ay: PROP.ay, top }
   if (cells < PROP_KINDS.length) return false
   built = a
   wip = null

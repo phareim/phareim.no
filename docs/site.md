@@ -94,7 +94,7 @@ The URL picks the theme (`/?theme=<id>`, no cookie); Nuxt `useState` holds the n
 - `themes/base/` — DefaultLanding shell, SocialLink, EscHold (shared Escape tap/hold), fonts.css + fonts.ts (site fonts)
 - `themes/_template/` — starting point for a new theme
 - `themes/portal/` — the home theme on `/`: the page (hint, hidden link index, ending panel) around the world shell
-- `themes/zelda/` — the one world: engine, world data (town + Neon Shrine), renderer (the classic view a visit starts in and the 16-bit isometric one; `views.ts`), audio, and the shell `Zelda.vue`
+- `themes/zelda/` — the one world: engine, world data (town + Neon Shrine), renderer (the classic 8-bit view and the 16-bit isometric one a visit starts in; `views.ts`), audio, and the shell `Zelda.vue`
 - `themes/radio/` — engine.ts + catalog.ts: the widget's six game stations (the generative radio is radio.phareim.no, a link out from the beach)
 - `themes/battery/` — Night of the Dead Battery: engine/, content/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
 - `themes/galaga/` — Rex & Nova: Space Voyagers I (parked; the id stays `galaga`): engine/, story/, render/, audio.ts; Landing.vue loads Game.vue as its own chunk
@@ -129,7 +129,7 @@ Measured 2026-09-30 (4× CPU, 1.6 Mbps, 150 ms RTT, cold): 296 KB over the wire 
 
 The portal makes one more request after mount, to studio.phareim.no for the live art (`render/live.ts`): small, never awaited, and not in the 296 KB above.
 
-A visit starts in the classic view. A browser that turns to the 16-bit view adds to that number (not measured again over the wire; gzip sizes of the built files): the view's own chunk, fetched when the view is chosen (the GPU engine with its shaders, the plants, the materials, the standing things, the backdrop, the modelled hero and the land beyond the edge, 62 KB), about 14 KB more in the world's chunks (the second sound chip, the hi-res HUD and its font, the HTML dress) and the second pixel font (2 KB). The view's chunk stays out of the entry (`tests/zelda-views.test.mjs`); a browser that never chooses the 16-bit view does not fetch it.
+A visit starts in the 16-bit view, which adds to that number for every browser that has not chosen the classic one (not measured again over the wire; gzip sizes of the built files): the view's own chunk, fetched after mounting (the GPU engine with its shaders, the plants, the materials, the standing things, the backdrop, the modelled hero and the land beyond the edge, 62 KB), about 14 KB more in the world's chunks (the second sound chip, the hi-res HUD and its font, the HTML dress) and the second pixel font (2 KB). The view's chunk stays out of the entry (`tests/zelda-views.test.mjs`), so the classic picture can draw before it is here; a browser that chose the classic view does not fetch it until it turns.
 
 ## Config, geo and auth
 

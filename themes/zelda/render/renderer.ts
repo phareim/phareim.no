@@ -32,7 +32,7 @@ import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type
 import { drawPsiBlock } from './labTiles'
 import { drawHookChain, drawStaticMood, fireflies, queueLuna, queueProps, type Item } from './wild'
 import { ease } from './iso/project'
-import { createTurn } from './turn'
+import { createTurn, createTurnClock } from './turn'
 import { createShade } from './shade'
 import { PAL } from './sprites'
 import { treeNow } from './tree'
@@ -75,6 +75,17 @@ export type SceneItem = Item & { hero?: boolean }
 
 interface Fx { kind: 'sprite' | 'spark' | 'leaf' | 'ring' | 'bit' | 'text'; x: number; y: number; vx: number; vy: number; t: number; life: number; name?: string; frames?: number; color: string; size: number; text?: string }
 
+/** The dark a visit begins in (the page's own colour behind the canvas), and how long the first picture takes to come up out of it. */
+const NIGHT = '#0b0616'
+const DAWN_MS = 320
+/**
+ * A turn between views, in seconds, and the share of it at the classic end that is the hand-off: there nothing
+ * turns yet (or any more), and the classic picture and the view's own, which light the same scene differently,
+ * are faded one into the other. Without it the light of the whole picture changes in one frame, and on the way
+ * out that frame comes after everything has come to rest.
+ */
+const TURN_S = 0.7
+const HANDOFF = 0.1
 const AMBIENT = { overworld: '#8e82c4', dungeon: '#7d6fb4', interior: '#c8b4dc', dark: '#1d1433', caveDark: '#2a1e44' }
 
 export interface SafeInsets { top: number; right: number; bottom: number; left: number }
@@ -94,12 +105,29 @@ export interface Renderer {
   /** Add another engine for drawing the frame (`viewParams.ts` lists them). The classic one is built in. */
   addView(id: string, make: ViewFactory): void
   hasView(id: string): boolean
-  /** Turn to an engine ('classic' or an added one). `instant` skips the turn. */
+  /**
+   * Turn to an engine ('classic' or an added one). `instant` skips the turn. An engine that cannot draw yet (its
+   * shaders are compiling) is waited for on the classic picture, and comes in when it can (`turn.ts`).
+   */
   setView(id: string, instant?: boolean): void
+  /**
+   * The engine a visit starts in, before anything has been drawn. For `nightMs` the screen stays dark while the
+   * engine is not ready, and the picture then comes up out of the dark; if it takes longer, the classic picture
+   * comes up instead, and the engine turns in from it when it is here (`turnIn`), or takes over at once.
+   */
+  arrive(id: string, nightMs: number, turnIn: boolean): void
+  /** The next frame is a visit's first: it comes up out of the dark over a moment, whichever view draws it. */
+  dawn(): void
   /** The values an engine draws with from now on (`viewParams.ts`); what is left out is the engine's own. */
   setParams(id: EngineId, values?: ParamValues): void
-  /** The view we are in or heading for, how far the turn has come (0 classic … 1), the angle the controls turn by now (radians), and whether a turn is in flight. */
-  viewState(): { id: string; k: number; turn: number; turning: boolean }
+  /**
+   * The view we are in or heading for, how far the turn has come (0 classic … 1), the angle the controls turn by
+   * now (radians), whether a turn is in flight, whether it waits for a view that is not ready, whether the
+   * screen is kept dark for a view a visit starts in (`arrive`), whether the first picture is still coming
+   * up out of the dark (`dawn`: a picture that is drawn once and left would keep the dark over it), and how many
+   * views have been put away for throwing (`failed`: when it grows, the classic view has taken over).
+   */
+  viewState(): { id: string; k: number; turn: number; turning: boolean; waiting: boolean; dark: boolean; dawn: boolean; failed: number }
   /** The page is done with the renderer: every view lets go of what it holds. */
   dispose(): void
   /**
@@ -120,6 +148,14 @@ export interface Renderer {
 export interface View {
   draw(s: GameState, ui: FrameUI, dt: number, k: number): void
   turn: number
+  /**
+   * Can the view draw itself now? Asked every frame before `draw`; while it says no, the classic view draws and
+   * the turn waits. The view may do a slice of what it is waiting for in the call: a short one while a picture
+   * is on screen, a longer one when `hurry` says the screen is dark anyway. `s` is given while the view is not
+   * on screen: the game its first frame will show, so what that frame needs can be made ahead too. (None:
+   * always ready.)
+   */
+  ready?(hurry: boolean, s?: GameState): boolean
   /** Let go of what the view holds outside the page's own memory (a GPU context). */
   dispose?(): void
 }
@@ -1043,9 +1079,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const to = wearable(skin)
     const old = from ? wearable(from.skin) : to
     const mix = old === to ? 1 : Math.max(0, Math.min(1, from!.mix))
-    // One skin a frame: the one being left on its way out, then this one on its way in.
-    if (mix < 0.5) hudPaint(s, ui, dt, cx, cy, heroY, old, 1 - mix * 2)
-    else hudPaint(s, ui, dt, cx, cy, heroY, to, mix * 2 - 1)
+    // Between two dresses both are painted, the one being left over the one coming in, so the HUD is never
+    // gone. (The second painting takes no time: its labels' fades have already moved this frame.)
+    if (old !== to && mix > 0 && mix < 1) { hudPaint(s, ui, dt, cx, cy, heroY, to, mix); hudPaint(s, ui, 0, cx, cy, heroY, old, 1 - mix) }
+    else hudPaint(s, ui, dt, cx, cy, heroY, mix < 0.5 ? old : to, 1)
 
     // Touch stick
     if (ui.stick) {
@@ -1213,7 +1250,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     bloomDecals(bg, mapInfo(world, s.map.id).def.decals, cx, cy, vw, vh, { t: time, reduced: ui.reducedMotion, maxW: decalMaxW })
   }
 
-  function drawClassic(s: GameState, ui: FrameUI, dt: number) {
+  /** `still`: a second picture of a frame another view draws (the hand-off), in which nothing moves on. */
+  function drawClassic(s: GameState, ui: FrameUI, dt: number, still = false) {
     const g = sg
     const pic = classicWorld(s, ui)
     classicLight(s, ui, pic)
@@ -1221,7 +1259,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     g.drawImage(light, 0, 0)
     exposeDay(g)
     g.globalCompositeOperation = 'source-over'
-    classicGlows(g, s, ui, dt, pic)
+    classicGlows(g, s, ui, dt, pic, still)
     classicRooms(g, s, pic, '#05030c')
     const fade = flashFade(g, s, ui, dt)
     present(fade, bg => classicBloom(bg, s, ui, pic))
@@ -1430,35 +1468,192 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     hudSpace,
   }
   const views = new Map<string, View>()
-  const turn = createTurn(id => views.has(id))
+  const turn = createTurn(id => views.has(id), TURN_S)
+  /** The turn as a view draws it and the shell follows it: still at 0 through the hand-off. */
+  const turned = (raw: number) => Math.max(0, (raw - HANDOFF) / (1 - HANDOFF))
+  /** The classic picture as last drawn, kept to be laid over a view's during the hand-off. */
+  let handC: HTMLCanvasElement | null = null
+  /**
+   * The start of a visit (`arrive`): the time night ends (0: no arrival under way; -1: it is counted from the first
+   * frame drawn, `nightLeft` ms, so a tab opened in the background has its night when it is looked at), and
+   * whether the view turns in after it.
+   */
+  let nightEnds = 0
+  let nightLeft = 0
+  let arriveTurns = false
+  /** The first picture of a visit comes up out of the dark: when that began (0: not yet; -1: no such thing). */
+  let dawnAt = -1
+  /** The added view the last frame drew ('': the classic one alone). */
+  let lastDrawn = ''
+  /** The last frame painted the classic picture for the first time on this map: a long frame, not time passed. */
+  let warmed = false
+  /** A turn out has begun toward a classic picture this map has not had: it is painted in the turn's second frame. */
+  let cold = false
+
+  /** The screen as it is before a visit's first picture. */
+  function night() {
+    screen.setTransform(1, 0, 0, 1, 0, 0)
+    screen.fillStyle = NIGHT
+    screen.fillRect(0, 0, W, H)
+  }
+  /** Over the finished frame: the dark the first picture comes up out of. */
+  function dawn() {
+    if (dawnAt < 0) return
+    const t = performance.now()
+    if (!dawnAt) dawnAt = t
+    const a = 1 - (t - dawnAt) / DAWN_MS
+    if (a <= 0) { dawnAt = -1; return }
+    screen.save()
+    screen.setTransform(1, 0, 0, 1, 0, 0)
+    screen.globalAlpha = a * a
+    screen.fillStyle = NIGHT
+    screen.fillRect(0, 0, W, H)
+    screen.restore()
+  }
+
+  /**
+   * Can a view draw? Asked with the game while the view is not on screen, so it can make what its first frame
+   * needs (`View.ready`). A view that throws here is put away like one that throws drawing.
+   */
+  function able(id: string, v: View, hurry: boolean): boolean {
+    if (!v.ready) return true
+    try { return v.ready(hurry, lastDrawn === id ? undefined : frameState ?? undefined) } catch (e) {
+      putAway(id, v, e)
+      return false
+    }
+  }
+
+  /** Views put away for throwing, counted: the shell watches the number (`viewState().failed`) and follows to the classic view. */
+  let failed = 0
+  /**
+   * A view threw. It would throw again every frame, with the game running on unseen behind a still picture: it
+   * is put away, and the classic view draws from here on. The turn stands on the classic picture too, unless
+   * the view was on its way out anyway: then the turn ends there, on the picture it was heading for.
+   */
+  function putAway(id: string, v: View, e: unknown) {
+    console.error(`view ${id} failed; the classic view takes over`, e)
+    try { v.dispose?.() } catch { /* it is going anyway */ }
+    views.delete(id)
+    lastDrawn = ''
+    if (turn.id === id) turn.set('classic', true)
+    // (On its way out: it is gone, as a view that cannot draw is, and the turn does not run on without it.)
+    else if (turn.shown === id) turn.step(0, false)
+    failed++
+  }
+
+  /** The turn's share of the frame's time (`turnTime`): a long frame near the hand-off is not counted whole. */
+  const clock = createTurnClock(HANDOFF, TURN_S)
+  function turnDt(dt: number): number {
+    const held = warmed
+    if (turn.turning) warmed = false
+    return clock(dt, turn, held)
+  }
+
+  /** The classic picture under (or before) a view's: drawn the classic way, with no time passing in it. */
+  function classicUnder(s: GameState, ui: FrameUI, shown: string) {
+    drawing = 'classic'
+    aim = a => a
+    span = null
+    drawClassic(s, ui, 0, true)
+    drawing = isEngineId(shown) ? shown : 'classic'
+  }
 
   function draw(s: GameState, ui: FrameUI, dt: number) {
     frameState = s
     begin(s, ui, dt)
     // A view that draws the hero itself says so again each frame.
     heroBare = false
-    const now = turn.step(dt)
+    // Can the view on its way in (or on screen) draw? While it cannot, the turn waits on the classic picture.
+    const coming = turn.shown ? views.get(turn.shown) : undefined
+    let ready = true
+    if (coming) {
+      if (nightEnds < 0) nightEnds = performance.now() + nightLeft
+      const dark = nightEnds > 0 && performance.now() < nightEnds
+      ready = able(turn.shown, coming, dark)
+      if (!ready && dark && views.has(turn.shown)) {
+        // A visit's first moments: night, so the classic picture does not flash by on the way to this one.
+        turn.step(dt, false)
+        drawing = 'classic'
+        aim = a => a
+        span = null
+        lastDrawn = ''
+        night()
+        return
+      }
+      // It takes longer than a moment: the classic picture after all, and the view turns in from it when it is here.
+      if (!ready && nightEnds && arriveTurns) turn.set(turn.id, false)
+    }
+    nightEnds = 0
+    const now = turn.step(turnDt(dt), ready)
     const v = now.shown ? views.get(now.shown) : undefined
     drawing = v && isEngineId(now.shown) ? now.shown : 'classic'
-    if (!v) { aim = a => a; span = null; drawClassic(s, ui, dt); return }
-    try { v.draw(s, ui, dt, ease(now.k)) } catch (e) {
-      // A view that throws would throw again every frame, with the game running on unseen behind a still
-      // picture. It is put away for this visit, and the classic view draws from here on.
-      console.error(`view ${now.shown} failed; the classic view takes over`, e)
+    if (!v) { aim = a => a; span = null; lastDrawn = ''; drawClassic(s, ui, dt); dawn(); return }
+    // The hand-off: the classic picture is drawn first and kept, the view draws at the same still geometry, and
+    // the classic one is laid over it, less of it each frame. (No time passes in the classic drawing: the view's
+    // is the frame.)
+    const over = now.k < HANDOFF ? 1 - now.k / HANDOFF : 0
+    if (over > 0) {
+      classicUnder(s, ui, now.shown)
+      handC ??= document.createElement('canvas')
+      if (handC.width !== W || handC.height !== H) { handC.width = W; handC.height = H }
+      const hc = handC.getContext('2d')!
+      hc.globalCompositeOperation = 'copy'
+      hc.drawImage(canvas, 0, 0)
+    }
+    // On the way out to a classic picture this map has not had yet: it is painted at the start of the turn,
+    // where its long frame is a short wait on a picture that has hardly moved, and not a halt at the hand-off.
+    // (In the turn's second frame: the first one shows whatever answered the press.)
+    const unpainted = over === 0 && turn.id !== now.shown && (!layer || layer.mapId !== s.map.id)
+    if (unpainted && cold) { classicUnder(s, ui, now.shown); warmed = true }
+    cold = unpainted && !cold
+    try {
+      v.draw(s, ui, dt, Math.max(1e-6, ease(turned(now.k))))
+      lastDrawn = now.shown
+      if (over > 0 && handC) {
+        screen.save()
+        screen.setTransform(1, 0, 0, 1, 0, 0)
+        screen.globalAlpha = over
+        screen.drawImage(handC, 0, 0)
+        screen.restore()
+      }
+      dawn()
+    } catch (e) {
+      putAway(now.shown, v, e)
       drawing = 'classic'
-      try { v.dispose?.() } catch { /* it is going anyway */ }
-      views.delete(now.shown!)
       aim = a => a
       span = null
       drawClassic(s, ui, dt)
     }
   }
 
-  function setView(id: string, instant = false) { turn.set(id, instant) }
+  /**
+   * After a set: a view that cannot draw yet is waited for from this moment, not from the next frame drawn, so
+   * whoever reads the state in between (the shell's dress, its turn switch) is never told the view is in.
+   */
+  function settle() {
+    const v = turn.shown ? views.get(turn.shown) : undefined
+    if (v && !able(turn.shown, v, false)) turn.step(0, false)
+  }
+
+  function setView(id: string, instant = false) { turn.set(id, instant); settle() }
+
+  function arrive(id: string, nightMs: number, turnIn: boolean) {
+    if (nightMs > 0 && views.has(id)) {
+      turn.set(id, true)
+      nightLeft = nightMs
+      nightEnds = -1
+      arriveTurns = turnIn
+      return
+    }
+    // The classic picture is already up: the view turns in from it, or takes over at once.
+    turn.set(id, !turnIn)
+    settle()
+  }
 
   function viewState() {
     const v = turn.shown ? views.get(turn.shown) : undefined
-    return { id: turn.id, k: turn.k, turn: v ? v.turn * ease(turn.k) : 0, turning: turn.turning }
+    const k = turned(turn.k)
+    return { id: turn.id, k, turn: v ? v.turn * ease(k) : 0, turning: turn.turning, waiting: turn.waiting, dark: nightEnds !== 0, dawn: dawnAt >= 0, failed }
   }
 
   void cellIndex
@@ -1466,7 +1661,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     resize, draw, onEvents, viewTiles, setHeroColors, setHeroLook,
     addView(id, make) { views.set(id, make(kit)) },
     hasView: id => id === 'classic' || views.has(id),
-    setView, viewState,
+    setView, arrive, viewState,
+    dawn() { dawnAt = 0 },
     setParams(id, values) { params.set(id, resolveParams(id, values)) },
     dispose() {
       for (const v of views.values()) try { v.dispose?.() } catch { /* nothing to be done */ }
