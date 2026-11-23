@@ -85,12 +85,20 @@ describe('the view registry', () => {
       assert.match(v.tag, /^[A-Z0-9 -]+$/)
     }
   })
-  it('has one built-in view per engine, drawn with the engine\'s own values', () => {
-    assert.deepEqual(M.VIEWS.map(v => v.engine).sort(), Object.keys(M.ENGINES).sort())
+  it('has a built-in view for every engine; one drawn with the engine\'s own values, and a second look with values of its own', () => {
+    assert.deepEqual([...new Set(M.VIEWS.map(v => v.engine))].sort(), Object.keys(M.ENGINES).sort())
+    for (const engine of Object.keys(M.ENGINES)) {
+      // The first view of each engine is the engine as it is.
+      assert.equal(M.VIEWS.find(v => v.engine === engine).params, undefined, `${engine}'s first view has values`)
+    }
     for (const v of M.VIEWS) {
       assert.equal(v.load, M.ENGINE_LOADERS[v.engine])
-      assert.equal(v.params, undefined)
+      // A second look carries only values its engine knows, already as they are kept (what differs from the engine's own).
+      if (v.params) assert.deepEqual(v.params, M.paramDiff(v.engine, v.params), `${v.id} carries values its engine would drop`)
     }
+    // The polygon engine's two looks: the crane, and the camera at the shoulder.
+    assert.deepEqual(M.VIEWS.filter(v => v.engine === 'poly').map(v => v.id), ['poly', 'third'])
+    assert.equal(M.VIEWS.find(v => v.id === 'third').params.pose, 'shoulder')
   })
   it('keeps every view\'s code out of the page that loads first', () => {
     // Anything but a dynamic import() of a view, anywhere on the site, would put it in the entry:
@@ -291,9 +299,9 @@ describe('the studio\'s views', () => {
     })
     assert.equal(M.parseViews({ lofi: { engine: 'classic', name: 'LOFI', tag: '4-BIT' } }).lofi.tag, '4-BIT')
     const round = M.mergeViews(live)
-    assert.deepEqual(round.map(v => v.id), ['classic', 'iso', 'poly', 'noir'])
+    assert.deepEqual(round.map(v => v.id), ['classic', 'iso', 'poly', 'third', 'noir'])
     assert.deepEqual(round[0].params, { scanlines: 0 })
-    assert.deepEqual(round[3], { id: 'noir', name: 'NOIR', tag: 'ISOMETRIC', engine: 'iso', params: { colors: 'full', bloom: 0 } })
+    assert.deepEqual(round[4], { id: 'noir', name: 'NOIR', tag: 'ISOMETRIC', engine: 'iso', params: { colors: 'full', bloom: 0 } })
   })
   it('drops what the game cannot draw or spell', () => {
     const live = M.parseViews({
@@ -309,13 +317,20 @@ describe('the studio\'s views', () => {
     assert.deepEqual(M.parseViews('nope'), {})
     assert.deepEqual(M.parseViews(null), {})
   })
+  it('keeps a built-in view\'s own values under the studio\'s', () => {
+    const round = M.mergeViews(M.parseViews({ third: { params: { fog: 0.5 } } }))
+    const third = round.find(v => v.id === 'third')
+    assert.equal(third.params.fog, 0.5)
+    assert.equal(third.params.pose, 'shoulder')
+    assert.deepEqual(M.mergeViews(null).find(v => v.id === 'third').params, M.VIEWS.find(v => v.id === 'third').params)
+  })
   it('orders the round, hides a built-in view on request, and never the classic one', () => {
     const live = M.parseViews({
       classic: { hidden: true },
       iso: { hidden: true },
       first: { engine: 'iso', name: 'FIRST', order: -1 },
     })
-    assert.deepEqual(M.mergeViews(live).map(v => v.id), ['first', 'classic', 'poly'])
+    assert.deepEqual(M.mergeViews(live).map(v => v.id), ['first', 'classic', 'poly', 'third'])
   })
   it('never lets the round grow past what V can go round', () => {
     const many = {}
@@ -326,7 +341,8 @@ describe('the studio\'s views', () => {
     M.setLiveViews(M.parseViews({ noir: { engine: 'iso', name: 'NOIR' } }))
     assert.equal(M.startView('noir', null), 'noir')
     assert.equal(M.nextView('iso'), 'poly')
-    assert.equal(M.nextView('poly'), 'noir')
+    assert.equal(M.nextView('poly'), 'third')
+    assert.equal(M.nextView('third'), 'noir')
     assert.equal(M.nextView('noir'), 'classic')
     assert.equal(M.viewName('noir'), 'NOIR')
     M.setLiveViews(null)

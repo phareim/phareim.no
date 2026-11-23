@@ -11,7 +11,7 @@
 // real town in the one world.
 //
 // VIEW=iso renders the isometric view (PNGs end in -iso), VIEW=poly the
-// polygon view (-poly); with FRAMES=<n> (under 42) the shot stops n frames
+// polygon view (-poly), VIEW=third its 64-bit look (-third); with FRAMES=<n> (under 42) the shot stops n frames
 // into the turn from the classic view. CHROME_BIN=<path> draws with another
 // browser (the Mac's Chrome, where the GPU draws) instead of chromium-browser.
 //
@@ -47,6 +47,7 @@ import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
 import polyView, { pinQuality as pinPoly } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/view.ts'))}
+import { THIRD_PERSON } from ${JSON.stringify(join(repo, 'themes/zelda/views.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
 const W = +q.get("w"), H = +q.get("h"), dpr = +(q.get("dpr") || 1), top = +(q.get("top") || 0)
@@ -70,8 +71,10 @@ if (q.get('look')) {
 // VIEW=iso shows the isometric view; FRAMES below 36 stops in the middle of the turn into it.
 if (q.get('view') === 'iso') { r.addView('iso', isoView); r.setView('iso', q.get('frames') === null) }
 if (q.get('view') === 'poly') { pinPoly(true); r.addView('poly', polyView); r.setView('poly', q.get('frames') === null) }
-// PARAMS='{"bloom":0.5}' sets an engine's values (viewParams.ts).
-if (q.get('params')) r.setParams(q.get('view') || 'classic', JSON.parse(q.get('params')))
+// VIEW=third: the polygon engine's second look, the 64-bit one (the built-in view's own values).
+if (q.get('view') === 'third') { pinPoly(true); r.addView('poly', polyView); r.setParams('poly', THIRD_PERSON); r.setView('poly', q.get('frames') === null) }
+// PARAMS='{"bloom":0.5}' sets an engine's values (viewParams.ts); for VIEW=third over the look's own.
+if (q.get('params')) r.setParams(q.get('view') === 'third' ? 'poly' : q.get('view') || 'classic', { ...(q.get('view') === 'third' ? THIRD_PERSON : {}), ...JSON.parse(q.get('params')) })
 r.resize(W, H, dpr, { top, right: 0, bottom: top ? 34 : 0, left: 0 })
 const inp = (o) => ({ ...NO_INPUT, ...o })
 const run = (n, i = inp({})) => { for (let k = 0; k < n; k++) r.onEvents(stepGame(world, s, 1 / 60, i)) }
@@ -170,7 +173,7 @@ function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.
 // Several frames so fades (exit labels) settle and the clock moves.
 for (let k = 0; k < +(q.get('frames') || 40); k++) r.draw(s, ui, 1 / 60)
 // For a lab page that wants to go on drawing (timing a view, filming a turn).
-window.__lab = { r, s, ui, world, step: (n = 1, i = inp({})) => run(n, i), inp }
+window.__lab = { r, s, ui, world, step: (n = 1, i = inp({})) => run(n, i), inp, third: THIRD_PERSON }
 document.title = 'ready'
 `
 const entryFile = join(out, '_entry.ts')

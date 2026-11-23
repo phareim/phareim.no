@@ -174,6 +174,51 @@ export const GLASS_SKIN: HudSkin = {
   outline: '#05020e', veil: 'rgba(6,3,18,0.66)', slot: 'rgba(200,170,255,0.14)', off: '#3a2a60',
 }
 
+/**
+ * The 64-bit look's windows: round and soft. A rounded window of deep violet with a soft gradient and a soft
+ * drop shadow under it, a thin light edge; a small square panel (an item slot) is a round frame instead.
+ */
+function roundPanel(g: G, x: number, y: number, w: number, h: number, tone: 'hot' | 'cool' = 'hot') {
+  const slot = w <= 30 && h <= 30 && Math.abs(w - h) <= 6
+  const path = () => {
+    g.beginPath()
+    if (slot) g.arc(x + w / 2, y + h / 2, Math.max(w, h) / 2 + 1, 0, Math.PI * 2)
+    else {
+      const r = Math.min(6, h / 2, w / 2)
+      g.moveTo(x + r, y)
+      g.arcTo(x + w, y, x + w, y + h, r)
+      g.arcTo(x + w, y + h, x, y + h, r)
+      g.arcTo(x, y + h, x, y, r)
+      g.arcTo(x, y, x + w, y, r)
+      g.closePath()
+    }
+  }
+  g.save()
+  g.shadowColor = 'rgba(0,0,0,0.6)'
+  g.shadowBlur = 4
+  g.shadowOffsetY = 2
+  const grad = g.createLinearGradient(0, y, 0, y + h)
+  if (tone === 'hot') { grad.addColorStop(0, 'rgba(70,30,110,0.92)'); grad.addColorStop(1, 'rgba(28,10,52,0.94)') }
+  else { grad.addColorStop(0, 'rgba(20,70,110,0.92)'); grad.addColorStop(1, 'rgba(8,24,52,0.94)') }
+  g.fillStyle = grad
+  path()
+  g.fill()
+  g.restore()
+  g.save()
+  g.lineWidth = slot ? 1.5 : 1
+  g.strokeStyle = tone === 'hot' ? 'rgba(255,150,220,0.85)' : 'rgba(140,240,255,0.85)'
+  path()
+  g.stroke()
+  g.restore()
+}
+
+export const ROUND_SKIN: HudSkin = {
+  panel: roundPanel,
+  text: '#fff6ff', shadow: 'rgba(10,4,24,0.85)', dim: '#d2c4f4', faint: '#8a7ab8',
+  hot: '#ff9ae4', cool: '#8ff4ff', prize: '#ffe066', ok: '#c4ff70',
+  outline: '#140828', veil: 'rgba(12,6,30,0.6)', slot: 'rgba(210,180,255,0.16)', off: '#4a3a70',
+}
+
 /** The same windows for a view at twice the pixel density: finer bands, a real dialog font, hearts with a light on them (hud16.ts). */
 export { HIRES_WINDOW_SKIN } from './hud16'
 

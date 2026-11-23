@@ -60,9 +60,9 @@ values. `viewParams.ts` (pure) lists the engines and what can be turned on
 each (`ENGINES`: numbers with bounds, colours, choices, toggles): `classic`
 (the picture described under "Look" in `themes/zelda/DESIGN.md`), `iso`, an
 isometric one, and `poly`, a polygon one (below). `views.ts` holds the round: one
-built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT, POLYGON · 32-BIT), and whatever the studio published (below). **A visit starts in the
+built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT, POLYGON · 32-BIT) and a second look of the polygon engine with values of its own (THIRD PERSON · 64-BIT; a built-in view may carry values, and the studio's lie over them), and whatever the studio published (below). **A visit starts in the
 isometric 16-bit view** (`DEFAULT_VIEW` in `views.ts`), and the turn switch
-in the corner turns to the next (V goes classic → isometric → polygon → classic). A view the visitor turns to is kept in localStorage
+in the corner turns to the next (V goes classic → isometric → polygon → third person → classic). A view the visitor turns to is kept in localStorage
 `zelda.view` and is where their next visit starts; the view a visit merely
 starts in is not written, so a browser that never chose follows the site's
 first view, and one failed fetch of a view's code does not pin it to the
@@ -675,6 +675,47 @@ filtered textures, fog).
   paving) a neon rim instead, so the fountain's rim follows its rounded shore.
 - **Without WebGL2**, or when the context is lost (more than three times), or
   when the shaders do not link, the classic picture draws on.
+- **Two looks on one engine** (2026-11-23). The engine's values are its
+  look, and the round has two of them: POLYGON (32-bit, the engine's own
+  values) and THIRD PERSON (64-bit, `THIRD_PERSON` in `views.ts`), every trait
+  turned the other way:
+  - *the camera* at the hero's shoulder (`SHOULDER`: pitch 19°, 6.2 tiles,
+    lens 62°, the hero 72 % down, higher and further back than the concept
+    sketch so foes beside the hero are in the picture). Its yaw follows the
+    hero lazily: it swings in behind them while they walk, not while they walk
+    toward the camera, and drifts behind them after they have stood a moment.
+    It rises over whatever stands behind the hero (the land, a wall, a house, a
+    wood: the line from the eye to the hero's chest must clear them) and is
+    pulled in only where rising is not enough. Walls' faces between the eye and
+    the hero are stippled as well as tops and things. Indoors it stands lower and
+    nearer and follows the hero, still looking north (so a block goes where the
+    stick says and the south wall stays a kerb). `View.turn` is the camera's
+    nearest quarter turn, held while the hero walks, so up on the stick is away
+    from the camera and the keys walk along the world's grid; a dialog gets the
+    stick unturned. Figures with four ways show the side the camera sees
+    (`Kit.setFacing`; `facingDir` in `wild.ts`): a hero walking away shows
+    their back. (The 16-bit view's modelled figure, value `figure: 'modelled'`,
+    was tried; drawn for that view's camera, it shows three-quarters from
+    behind, so the sprite stays the default.)
+  - *the machine*: textures read at half size and filtered between texels
+    until they smear, figures too (`filter`), perspective-correct, steady
+    corners (`affine` and `wobble` at 0), normals shared at the corners so
+    knolls roll and trees are round (`smoothShade`), full colour stretched up
+    softly with a little sideways smear (`stretch`: `Finish.smooth` in
+    `renderer.ts`'s `present`), thick fog in the hour's colour over a short draw
+    distance (`fog`), soft halos round the lamps and a lens flare from the sun
+    (`halos`, `flare`), hillier land (`landScale` 1.5), round soft windows
+    (`ROUND_SKIN`: rounded panels with soft shadows, a round frame round an
+    item slot).
+  - *between them* there is no turn (the renderer turns only between engines):
+    when the engine's values change on screen the view eases from the old look
+    to the new over a second, the pose through `mixPose` (the crane sinks to the
+    shoulder, or climbs back), the numbers eased, the switches changed in the
+    middle under the move (`lookNow` in `view.ts`).
+  - *sight*: the shoulder reports a square the fog's radius round the hero, so
+    the woods' foes come out of the fog whichever way the camera turns.
+  - *sound*: the 16-bit flavour (`flavorForView`: the `poly` engine); no sound
+    of its own.
 - **The turn.** Through the hand-off the picture lies on the classic one:
   the facet light, the knolls' crowns, a room's second course of wall, a roof's
   pitch and what rises over a house's eaves are all light or height only k = 1
@@ -702,8 +743,10 @@ filtered textures, fog).
   map behind it, and kept per map. The mesh is built a stretch of 16 tiles at a
   time within a budget of 7 ms a frame; a stretch that changed (a bush cut) is
   drawn as it was until it is built again.
-- **Known rough edges**: figures are classic cards, not 3D; the 64-bit look is
-  not built (its camera is: `pose: shoulder`). Lamp light is per corner, so a
+- **Known rough edges**: figures are classic cards, not 3D (in the 64-bit look
+  paper figures in a soft world); neither look has a sound of its own; the
+  64-bit windows keep the classic hearts (the round skin's bigger hearts are not
+  drawn yet). Lamp light is per corner, so a
   pool on a long wall is coarse. On a phone a room's camera comes near enough
   that the room's depth fills the picture, so the room is seen closer than on a
   monitor. Rooms' water corners are a hair short of the tile edge. Not measured

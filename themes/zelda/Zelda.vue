@@ -148,7 +148,7 @@ import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
 import { ease, turnMove } from './render/iso/project'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
-import { GLASS_SKIN, HIRES_WINDOW_SKIN, NEON_SKIN, type HudSkin } from './render/hud'
+import { GLASS_SKIN, HIRES_WINDOW_SKIN, NEON_SKIN, ROUND_SKIN, type HudSkin } from './render/hud'
 import { REFUSE_MS, SW_H, SW_W, TICK_MS, captionFor, chromeAlpha, drawTurnSwitch, refuseNudge, shortTag, switchLayout, tickNudge, type SwitchState } from './render/turnSwitch'
 import { resolveParams } from './viewParams'
 import { sprite } from './render/sheet'
@@ -271,6 +271,11 @@ function wears16(id: ViewId): boolean {
 function wearsGlass(id: ViewId): boolean {
   const def = viewDef(id)
   return !!def && def.engine === 'poly' && resolveParams(def.engine, def.params).windows === '32-bit'
+}
+/** The view wears the 64-bit look's round windows (on its stop of the turn switch). */
+function wearsRound(id: ViewId): boolean {
+  const def = viewDef(id)
+  return !!def && def.engine === 'poly' && resolveParams(def.engine, def.params).windows === '64-bit'
 }
 /** The dress is on. The first paint guesses from the address alone (the server knows no more); mounting corrects it. */
 const dress16 = ref(wears16(startView(useRoute().query.view, null)))
@@ -569,7 +574,7 @@ function stepTurnSwitch(nowMs: number) {
 
   const round = viewList()
   const n = round.length
-  const skinOf = (id: ViewId): HudSkin => wearsGlass(id) ? GLASS_SKIN : !wears16(id) ? NEON_SKIN : fine ? HIRES_WINDOW_SKIN : HIRES_WINDOW_SKIN.coarse?.() ?? NEON_SKIN
+  const skinOf = (id: ViewId): HudSkin => wearsRound(id) ? ROUND_SKIN : wearsGlass(id) ? GLASS_SKIN : !wears16(id) ? NEON_SKIN : fine ? HIRES_WINDOW_SKIN : HIRES_WINDOW_SKIN.coarse?.() ?? NEON_SKIN
   const stops = round.map(v => ({ label: n === 2 ? shortTag(v.tag) : '', skin: skinOf(v.id) }))
   const stopOf = (id: ViewId, classic: boolean) => {
     let i = round.findIndex(v => v.id === id)

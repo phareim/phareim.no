@@ -4,7 +4,8 @@
  * a room. Pure: the loaders are the only thing that touches the bundle.
  *
  * A view is a drawing engine (`viewParams.ts`: classic, iso, poly) with a
- * name and its own values. Three are built in, one per engine; a visitor who
+ * name and its own values. Four are built in: one per engine, and a second look
+ * of the polygon engine (THIRD PERSON, values of its own); a visitor who
  * has not chosen starts in the isometric 16-bit one (`DEFAULT_VIEW`). The studio
  * (studio.phareim.no) may change a built-in view's values and publish more
  * views of its own; they arrive with the live file (`render/live.ts`) and
@@ -43,10 +44,23 @@ export const ENGINE_LOADERS: Record<EngineId, (() => Promise<{ default: unknown 
   poly: () => import('./render/poly/view'),
 }
 
+/**
+ * The 64-bit look on the polygon engine: every trait of the 32-bit one turned the other way. The camera at the
+ * hero's shoulder, textures filtered until they smear, steady corners, smooth shading, full colour stretched up
+ * softly, thick fog in the hour's colour, soft halos and a lens flare, rounder windows, hillier land.
+ */
+export const THIRD_PERSON: ParamValues = {
+  pose: 'shoulder', affine: 0, wobble: 0, filter: 1, smoothShade: 1, stretch: 1, colors: 'full', fray: 0,
+  fog: 1, drawDistance: 30, halos: 1, flare: 1, landScale: 1.5, windows: '64-bit',
+  bloom: 0.8, vignette: 0.35,
+}
+
 export const VIEWS: readonly ViewInfo[] = [
   { id: 'classic', name: 'CLASSIC', tag: '8-BIT', engine: 'classic' },
   { id: 'iso', name: 'ISOMETRIC', tag: '16-BIT', engine: 'iso', load: ENGINE_LOADERS.iso },
   { id: 'poly', name: 'POLYGON', tag: '32-BIT', engine: 'poly', load: ENGINE_LOADERS.poly },
+  // The same engine's second look: the camera at the hero's shoulder, everything soft (`THIRD_PERSON`).
+  { id: 'third', name: 'THIRD PERSON', tag: '64-BIT', engine: 'poly', load: ENGINE_LOADERS.poly, params: THIRD_PERSON },
 ]
 
 export const VIEW_KEY = 'zelda.view'
@@ -100,7 +114,8 @@ export function mergeViews(live: LiveViews | null | undefined): ViewDef[] {
   VIEWS.forEach((b, i) => {
     const l = live?.[b.id]
     if (l?.hidden) return
-    rows.push({ def: { id: b.id, name: l?.name ?? b.name, tag: l?.tag ?? b.tag, engine: b.engine, params: l?.params ?? {} }, order: l?.order ?? i * 10, i })
+    // (A built-in view's own values first, the studio's over them.)
+    rows.push({ def: { id: b.id, name: l?.name ?? b.name, tag: l?.tag ?? b.tag, engine: b.engine, params: { ...b.params, ...l?.params } }, order: l?.order ?? i * 10, i })
   })
   let i = VIEWS.length
   for (const [id, l] of Object.entries(live ?? {})) {

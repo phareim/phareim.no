@@ -30,7 +30,7 @@ import type { HeroLook } from './heroLook'
 import type { HeroColors } from '../../miniworld/types'
 import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
 import { drawPsiBlock } from './labTiles'
-import { drawHookChain, drawStaticMood, fireflies, queueLuna, queueProps, type Item } from './wild'
+import { drawHookChain, drawStaticMood, facingDir, fireflies, queueLuna, queueProps, setLunaFacing, type Item } from './wild'
 import { ease } from './iso/project'
 import { createTurn, createTurnClock } from './turn'
 import { createShade } from './shade'
@@ -168,7 +168,13 @@ export interface View {
 export type ViewFactory = (kit: Kit) => View
 
 /** What happens to the finished picture on its way to the screen; 1 is the classic amount of each. */
-export interface Finish { scanlines: number; bloom: number; vignette: number }
+export interface Finish {
+  scanlines: number
+  bloom: number
+  vignette: number
+  /** The picture stretched up softly instead of in hard pixels, with a little sideways smear (a 64-bit machine's video filter), 0–1. None: hard. */
+  smooth?: number
+}
 
 /** The top-down picture before the light falls on it, as `Kit.classic` paints it. */
 export interface Picture {
@@ -228,6 +234,12 @@ export interface Kit {
   staticMood(s: GameState): boolean
   /** How the view shows a world angle (blades swing by it); null: as it is. */
   setAim(fn: ((a: number) => number) | null): void
+  /**
+   * How far the view's camera is turned from looking north (radians, as `Pose.yaw`; 0: as the classic picture).
+   * Figures with four ways (the hero, foes, Luna) then show the side the camera sees: a hero walking away shows
+   * their back.
+   */
+  setFacing(yaw: number): void
   /**
    * A view that draws the hero's body and blade itself says so here: `queue`'s hero item then draws only
    * what the hero holds up (a pot, a found thing) and still adds the blade's light.
@@ -434,6 +446,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   // ---------------------------------------------------------------------------
 
   function dirKey(d: Dir): { key: string; flip: boolean } {
+    d = facingDir(d, facing)
     if (d === 'left') return { key: 'side', flip: true }
     if (d === 'right') return { key: 'side', flip: false }
     return { key: d, flip: false }
@@ -521,10 +534,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       case 'get': name = 'hero_get'; break
     }
     const blade = h.swing || (h.charge > 0.12 && s.inv.sword && !h.carry)
-    // Blade behind the body when facing up.
-    if (blade && h.dir === 'up') drawBlade(g, s, x, feet - 7, lights)
+    // Blade behind the body when facing up (on the screen: a turned camera may see another side).
+    const away = facingDir(h.dir, facing) === 'up'
+    if (blade && away) drawBlade(g, s, x, feet - 7, lights)
     if (!heroBare) put(g, name, x, feet, flip && h.act !== 'hurt' && h.act !== 'get')
-    if (blade && h.dir !== 'up') drawBlade(g, s, x, feet - 7, lights)
+    if (blade && !away) drawBlade(g, s, x, feet - 7, lights)
     if (h.carry || h.act === 'lift') {
       const lift = h.act === 'lift' ? Math.min(1, h.actT / 0.18) : 1
       const spr = sprite(h.carry === 'rock' ? 'rock' : 'pot')
@@ -541,6 +555,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let arc = false
   /** The view draws the hero's body and blade itself (`setHeroBare`). */
   let heroBare = false
+  /** How far the view's camera is turned from north (`Kit.setFacing`): figures show the side it sees. */
+  let facing = 0
   /** A world angle as the view shows it (the classic view: as it is). */
   let aim: (a: number) => number = a => a
   /** The scene step between two world points in a view that moves drawings (null: the classic view, where it is plain arithmetic). */
@@ -1020,6 +1036,17 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const oy = Math.floor((H - vh * scale) / 2)
     screen.imageSmoothingEnabled = false
     screen.drawImage(scene, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+    const soft = Math.max(0, Math.min(1, finish.smooth ?? 0))
+    if (soft > 0) {
+      // Filtered on its way up, and smeared a little sideways, over the hard pixels.
+      screen.imageSmoothingEnabled = true
+      screen.globalAlpha = soft
+      screen.drawImage(scene, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+      screen.globalAlpha = soft * 0.4
+      screen.drawImage(scene, 0, 0, vw, vh, ox + Math.max(1, scale * 0.6), oy, vw * scale, vh * scale)
+      screen.globalAlpha = 1
+      screen.imageSmoothingEnabled = false
+    }
     // Neon bloom: glows gathered at logical resolution, then one smooth
     // upscale added onto the screen (cheap on phones, soft on big screens).
     if (fade < 1 && finish.bloom > 0) {
@@ -1465,6 +1492,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     lakeSun: drawLakeSun,
     staticMood: s => staticMood(s, mapInfo(world, s.map.id)),
     setAim(fn) { aim = fn ?? (a => a) },
+    setFacing(yaw) { facing = yaw; setLunaFacing(yaw) },
     setHeroBare(on) { heroBare = on },
     heroLook: heroStyle,
     setSpan(fn) { span = fn },
@@ -1566,6 +1594,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   function draw(s: GameState, ui: FrameUI, dt: number) {
     frameState = s
+    // A view whose camera turns says so again each frame (`setFacing`); every other picture is the classic way round.
+    facing = 0
+    setLunaFacing(0)
     begin(s, ui, dt)
     // A view that draws the hero itself says so again each frame.
     heroBare = false

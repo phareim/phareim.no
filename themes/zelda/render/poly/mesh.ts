@@ -29,8 +29,9 @@ import type { Rect } from '../iso/project'
 import type { Land } from './terrain'
 
 /** Floats per vertex, and where each attribute lies in them. */
-export const STRIDE = 17
-export const AT = { pos: 0, ground: 3, normal: 4, uv: 7, tex: 9, color: 10, sun: 13, role: 14, flags: 15, zk: 16 } as const
+export const STRIDE = 20
+/** `snormal`: the normal shared at the corner (smooth shading, the 64-bit look); `normal` is the facet's own. */
+export const AT = { pos: 0, ground: 3, normal: 4, uv: 7, tex: 9, color: 10, sun: 13, role: 14, flags: 15, zk: 16, snormal: 17 } as const
 
 /** What a triangle's texel comes from. */
 export const TEX = {
@@ -55,7 +56,8 @@ export const TEX = {
 /** How a vertex's own height comes up over the turn: always there, the plants' growth, the things' rise, and the classic stand-ins that sink as those come up. */
 export const ROLE = { STAY: 0, GROW: 1, SINK: 2, RISE: 3, FALL: 4 } as const
 /** 1: may be seen through when it stands between the camera and the hero. 2: shines by itself. */
-export const FLAG = { SEE: 1, GLOW: 2 } as const
+/** 4: a wall's face, seen through only when the camera may stand anywhere (the 64-bit look). */
+export const FLAG = { SEE: 1, GLOW: 2, FACE: 4 } as const
 
 /** Materials the mesher names (`materials.ts`'s order: their place is MAT + index). */
 export const MAT_SLOTS = ['grass', 'cobbles', 'sand', 'flags', 'boards', 'moss', 'lane', 'shingles', 'siding', 'rockface', 'bricks', 'blocks', 'panel', 'slab', 'plates', 'steel'] as const
@@ -124,7 +126,7 @@ export class Verts {
 }
 
 /** One corner: world x, y, own height, ground height, uv, the part of its height only the finished view has. */
-interface P { x: number; y: number; z: number; g: number; u: number; v: number; zk?: number }
+interface P { x: number; y: number; z: number; g: number; u: number; v: number; zk?: number; /** The normal shared at this corner (none: the facet's own). */ sn?: readonly [number, number, number] }
 
 /** What a triangle is painted with, shared by its three corners. */
 interface Brush { tex: number; r: number; g: number; b: number; role: number; flags: number }
@@ -222,6 +224,8 @@ export class Mesher {
       d[o + 14] = B.role
       d[o + 15] = B.flags
       d[o + 16] = p.zk ?? 0
+      const sn = p.sn ?? n
+      d[o + 17] = sn[0]; d[o + 18] = sn[1]; d[o + 19] = sn[2]
       v.n++
     }
   }
@@ -260,7 +264,14 @@ export class Mesher {
     for (let j = 0; j < res; j++) for (let i = 0; i < res; i++) {
       const x0 = tx + i * s
       const y0 = ty + j * s
-      const p = (x: number, y: number): P => ({ x, y, z: 0, g: land.height(x, y), u: x, v: y })
+      // (The smooth normal: the land's slope round the corner, so a knoll rolls when the corners share it.)
+      const p = (x: number, y: number): P => {
+        const e = 0.25
+        const gx = (land.height(x + e, y) - land.height(x - e, y)) / (2 * e)
+        const gy = (land.height(x, y + e) - land.height(x, y - e)) / (2 * e)
+        const l = Math.hypot(gx, gy, 1)
+        return { x, y, z: 0, g: land.height(x, y), u: x, v: y, sn: [-gx / l, -gy / l, 1 / l] }
+      }
       const nw = p(x0, y0)
       const ne = p(x0 + s, y0)
       const sw = p(x0, y0 + s)
@@ -378,7 +389,7 @@ export class Mesher {
     const inMap = this.inMap(tx, ty)
     // (By where the mass stands: a top's footprint lies `f` rows south of its picture.)
     const cut = shp.k === 'top' ? roomCut(this.o.room, ty + shp.f) : shp.k === 'face' ? roomCut(this.o.room, ty) : 1
-    const flags = role === ROLE.STAY && (shp.k === 'top' || shp.k === 'card') ? FLAG.SEE : 0
+    const flags = role === ROLE.STAY && (shp.k === 'top' || shp.k === 'card') ? FLAG.SEE : shp.k === 'face' ? FLAG.FACE : 0
     /**
      * A room's walls (but the kerb) stand two tiles tall at the end of the turn: the face picture again over
      * itself, a course darker, so the room is a box one looks into. (The second course is height only the
@@ -589,12 +600,13 @@ export class Mesher {
 
   /** A cone of `n` sides from a ring at z0 to a point at z1, one colour a tier: the light makes its sides. */
   private cone(x: number, y: number, g: number, z0: number, z1: number, r: number, n: number, pal: readonly string[], tier: number, role: number, flags: number, twist: number) {
-    const tip: P = { x, y, z: z1, g, u: 0, v: 0 }
+    const tip: P = { x, y, z: z1, g, u: 0, v: 0, sn: [0, 0, 1] }
+    const side = Math.hypot(z1 - z0, r)
     this.set(TEX.COLOR, hex(pal[tier === 0 ? 2 : 3]!).map(q => q * (tier === 0 ? 1 : 0.85)) as [number, number, number], role, flags)
     for (let i = 0; i < n; i++) {
       const a0 = (i / n) * Math.PI * 2 + twist
       const a1 = ((i + 1) / n) * Math.PI * 2 + twist
-      const p = (a: number): P => ({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, z: z0, g, u: 0, v: 0 })
+      const p = (a: number): P => ({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, z: z0, g, u: 0, v: 0, sn: [Math.cos(a) * (z1 - z0) / side, Math.sin(a) * (z1 - z0) / side, r / side] })
       this.tri(tip, p(a0), p(a1))
     }
   }
@@ -606,7 +618,7 @@ export class Mesher {
     const pt = (i: number, j: number): P => {
       const a = (i / S) * Math.PI * 2 + twist * 3
       const b = -Math.PI / 2 + (j / R) * Math.PI
-      return { x: x + Math.cos(a) * Math.cos(b) * rxy, y: y + Math.sin(a) * Math.cos(b) * rxy, z: cz + Math.sin(b) * rz, g, u: 0, v: 0 }
+      return { x: x + Math.cos(a) * Math.cos(b) * rxy, y: y + Math.sin(a) * Math.cos(b) * rxy, z: cz + Math.sin(b) * rz, g, u: 0, v: 0, sn: [Math.cos(a) * Math.cos(b), Math.sin(a) * Math.cos(b), Math.sin(b)] }
     }
     for (let j = 0; j < R; j++) for (let i = 0; i < S; i++) {
       this.set(TEX.COLOR, hex(pal[Math.min(3, j === R - 1 ? 3 : 1 + ((i + j) % 2))]!), role, flags)

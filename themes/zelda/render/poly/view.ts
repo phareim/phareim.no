@@ -18,14 +18,15 @@
  * Without WebGL2 the classic picture draws on.
  */
 import type { GameState, MapKind, TileChar } from '../../types'
-import { SCROLL_TIME, TILE } from '../../types'
-import { has, mapInfo, raised } from '../../engine/index'
+import { ARC_REACH, SCROLL_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
+import { aimOf, has, mapInfo, raised, swingAngle } from '../../engine/index'
+import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigureSprite } from '../iso/figure'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
 import { createTileLayer, drawLiveTiles, groundKindOf, hash2, noise, updateTileLayer, type Light, type TileLayer } from '../tiles'
 import { drawDecals } from '../decals'
 import { exitTiles, nearExit } from '../exits'
 import { makeCanvas } from '../sheet'
-import { GLASS_SKIN, NEON_SKIN } from '../hud'
+import { GLASS_SKIN, NEON_SKIN, ROUND_SKIN } from '../hud'
 import { drawHookChain } from '../wild'
 import { BEYOND, beyondTile } from '../beyond'
 import { ease, type Rect } from '../iso/project'
@@ -82,6 +83,9 @@ function standIn(kit: Kit): View {
 /** A css colour, '#rrggbb' or 'rgb(r,g,b)', as 0..1. */
 const cssRgb = (c: string): [number, number, number] => c.startsWith('#') ? rgb(c) : c.slice(4, -1).split(',').map(v => +v / 255) as [number, number, number]
 
+/** The windows a look wears. */
+const skinOf = (w: unknown) => (w === '64-bit' ? ROUND_SKIN : w === '32-bit' ? GLASS_SKIN : NEON_SKIN)
+
 /** How far through a window of the turn (k from a to b), eased. */
 const mix3 = (a: readonly number[], b: readonly number[], t: number): [number, number, number] => [a[0]! + (b[0]! - a[0]!) * t, a[1]! + (b[1]! - a[1]!) * t, a[2]! + (b[2]! - a[2]!) * t]
 const win = (k: number, a: number, b: number) => ease(Math.max(0, Math.min(1, (k - a) / (b - a))))
@@ -120,6 +124,8 @@ interface MapCtx {
   /** The meshers: one for the open world, one per room indoors. */
   meshers: Map<string, Mesher>
   chunks: Map<string, Chunk>
+  /** What stands over each ground point outdoors (the open world's mesher's), for the camera to keep out of. */
+  mass?: (x: number, y: number) => number
   stateKey: string
 }
 
@@ -403,6 +409,7 @@ export default function polyView(kit: Kit): View {
     me = new Mesher(c.field, { pitch, room, sun: null, props: !!par.props, coarse })
     if (outdoors) {
       const mass = massOf(c.field, me, field, pitch)
+      if (!room) c.mass = mass
       me = new Mesher(c.field, { pitch, room, props: !!par.props, coarse, sun: { dx: Math.cos(a), dy: Math.sin(a), rise: 1 / Math.max(0.2, par.shadowLength as number), mass } })
     }
     c.meshers.set(key, me)
@@ -445,6 +452,12 @@ export default function polyView(kit: Kit): View {
       if (ctx) { ctx.meshers.clear(); for (const ch of ctx.chunks.values()) ch.dirty = true }
     }
   }
+  /** Where the backdrop's sun is on the picture this frame, and how much of it shows (none: no sky). */
+  let sunAt: { x: number; y: number; a: number } | null = null
+  /** How far the camera is turned, for the stick (`View.turn`: the negative of the pose's yaw). */
+  let turnNow = 0
+  /** The stick's turn as last taken, held while the hero walks. */
+  let latched = 0
   /** What the last frame showed of the ground (`View.sight`). */
   let sight: View['sight'] = null
   let budgetAt = 0
@@ -539,6 +552,7 @@ export default function polyView(kit: Kit): View {
       d[o + 9] = tex
       d[o + 10] = color[0]; d[o + 11] = color[1]; d[o + 12] = color[2]
       d[o + 13] = 1; d[o + 14] = role; d[o + 15] = flags; d[o + 16] = 0
+      d[o + 17] = n[0]; d[o + 18] = n[1]; d[o + 19] = n[2]
       v.n++
     }
   }
@@ -560,7 +574,10 @@ export default function polyView(kit: Kit): View {
     const time = kit.time()
     const reduced = ui.reducedMotion
     const { vw, vh, decalMaxW } = kit.size()
-    const par = kit.params('poly') as Record<string, unknown>
+    // The values as set (what the map's land and geometry are built by), and as drawn: eased from the old look to a
+    // new one over a second when they change on screen (one view of this engine to another has no turn of its own).
+    const raw = kit.params('poly') as Record<string, unknown>
+    const par = lookNow(raw, dt, reduced)
     if (!base || base.mapId !== m.id) base = createTileLayer(world, m, 'base'); else updateTileLayer(base, world, m)
     if (!objects || objects.mapId !== m.id) objects = createTileLayer(world, m, 'objects'); else updateTileLayer(objects, world, m)
     // The frame's budget for building geometry: more in a map's first frames, where the picture waits for it.
@@ -568,8 +585,8 @@ export default function polyView(kit: Kit): View {
     budget = !ctx || ctx.id !== m.id ? 40 : 7
     if (!ctx || ctx.id !== m.id) { settle = Math.max(settle, 20); gapN = 0 }
     // A door leads to another map: its land is built over the fade.
-    if (s.warp && s.warp.to && s.warp.to !== m.id && world.maps[s.warp.to]) landFor(s.warp.to, par, 6)
-    const c = mapCtx(s, par)
+    if (s.warp && s.warp.to && s.warp.to !== m.id && world.maps[s.warp.to]) landFor(s.warp.to, raw, 6)
+    const c = mapCtx(s, raw)
     const st = stateOf(s)
     if (st !== c.stateKey) {
       for (const ch of c.chunks.values()) ch.dirty = true
@@ -584,13 +601,23 @@ export default function polyView(kit: Kit): View {
     // A room on a wide screen is seen whole across: the camera stands back as far as its width needs.
     const roomFov = (par.roomFov as number) * Math.PI / 180
     const wideRoom = roomed && vw >= vh ? (Math.max(...rooms.map(z => z.w)) / 2 + 0.3) * (vh / 2 / Math.tan(roomFov / 2)) / (vw / 2) : 0
+    // Outdoors: the crane (32-bit), the shoulder (64-bit), or a pose between them while the look changes.
+    const shoulderK = ease(par.shoulder as number)
+    if (outdoors && shoulderK > 0 && !ui.cam) follow(s, dt, ui.paused)
+    else if (!outdoors) camYaw = 0
+    const crane: Pose = { yaw: CRANE.yaw, pitch: (par.pitch as number) * Math.PI / 180, dist: par.dist as number, fov: (par.fov as number) * Math.PI / 180, focusY: par.focusY as number }
+    const shoulder: Pose = { ...SHOULDER, yaw: camYaw }
+    const open = shoulderK <= 0 ? crane : shoulderK >= 1 ? shoulder : mixPose(crane, shoulder, shoulderK)
+    // Indoors the 64-bit look stands lower and nearer, behind the hero and following them; it still looks north, so
+    // the south wall stays a kerb and a block goes where the stick says.
+    const roomCrane: Pose = { yaw: 0, pitch: (par.roomPitch as number) * Math.PI / 180, dist: Math.max(par.roomDist as number, wideRoom), fov: roomFov, focusY: par.roomFocus as number }
+    const roomShoulder: Pose = { yaw: 0, pitch: 30 * Math.PI / 180, dist: 7.5, fov: 58 * Math.PI / 180, focusY: 0.66 }
     const want: Pose = fitPose(roomed
-      ? { yaw: 0, pitch: (par.roomPitch as number) * Math.PI / 180, dist: Math.max(par.roomDist as number, wideRoom), fov: roomFov, focusY: par.roomFocus as number }
-      : par.pose === 'shoulder' ? { ...SHOULDER }
-      : { yaw: CRANE.yaw, pitch: (par.pitch as number) * Math.PI / 180, dist: par.dist as number, fov: (par.fov as number) * Math.PI / 180, focusY: par.focusY as number }, vw, vh)
+      ? (shoulderK <= 0 ? roomCrane : shoulderK >= 1 ? roomShoulder : mixPose(roomCrane, roomShoulder, shoulderK))
+      : open, vw, vh)
     /** On a tall screen, where the room's depth fills the picture: its back wall's top at the top edge, its kerb at the foot. */
     let portraitY: number | null = null
-    if (roomed && vh > vw && !ui.cam) {
+    if (roomed && vh > vw && !ui.cam && shoulderK < 0.5) {
       const z = rooms[0]!
       const fit = (d: number): { y: number; foot: number } => {
         const p = { ...want, dist: d }
@@ -611,7 +638,7 @@ export default function polyView(kit: Kit): View {
         want.dist = d
       }
     }
-    if (!pose) pose = { ...want }
+    if (!pose || (shoulderK > 0 && !roomed)) pose = { ...want }
     // A change of values is eased into, never cut: the crane sinks to the shoulder and comes back up.
     pose = mixPose(pose, want, reduced ? 1 : 1 - Math.exp(-Math.min(0.1, dt) * 5))
     if (Math.abs(pose.dist - want.dist) < 1e-3 && Math.abs(pose.pitch - want.pitch) < 1e-4) pose = { ...want }
@@ -620,7 +647,9 @@ export default function polyView(kit: Kit): View {
     const cy = Math.round(cf.y * T - vh / 2)
     const land = c.land
     // Whatever is placed stands on the land, and never under the water's surface.
-    const groundAt = (x: number, y: number) => stand(land, x, y, k)
+    // (The 64-bit look's land is hillier: the same land, its heights scaled.)
+    const ls = par.landScale as number
+    const groundAt = (x: number, y: number) => stand(land, x, y, k) * ls
     let fx = ui.cam ? cf.x : s.hero.x
     let fy = ui.cam ? cf.y : s.hero.y
     if (roomed && !ui.cam) {
@@ -643,21 +672,27 @@ export default function polyView(kit: Kit): View {
         fx = a.x + (b.x - a.x) * e
         fy = a.y + (b.y - a.y) * e
       } else { fx = a.x; fy = a.y }
+      // (The 64-bit look follows the hero round the room.)
+      if (shoulderK > 0 && !s.scroll) { fx += (s.hero.x - fx) * shoulderK; fy += (s.hero.y - fy) * shoulderK }
     }
-    const focus = { x: fx, y: fy, z: roomed ? 0 : Math.max(land.height(fx, fy), land.waterLevel) }
+    const focus = { x: fx, y: fy, z: roomed ? 0 : Math.max(land.height(fx, fy), land.waterLevel) * ls * ek }
     // (On a tall screen the room's depth fills the picture, and nothing dark shows over its back wall.)
     if (portraitY !== null && !s.scroll) focus.y = portraitY
-    const posed = poseMatrix(pose, vw, vh, focus, 0.25, 120)
+    // The camera never goes into a wall, a house, a wood or a hill: it is pulled in toward the hero.
+    // (Only the shoulder: the crane stands high over everything, and draws as it always has.)
+    const cam = roomed || shoulderK <= 0 ? pose : clear(pose, focus, c, ls * ek, reduced ? 1 : dt, shoulderK)
+    const posed = poseMatrix(cam, vw, vh, focus, 0.25, 120)
     const classic = classicMatrix(vw, vh, cx, cy)
     const M4: Mat4 = rigMatrix(k, classic, posed)
-    const { f: fwd, r: right } = poseAxes(pose)
-    const eye: [number, number, number] = [focus.x - fwd[0] * pose.dist, focus.y - fwd[1] * pose.dist, focus.z - fwd[2] * pose.dist]
+    const { f: fwd, r: right } = poseAxes(cam)
+    const eye: [number, number, number] = [focus.x - fwd[0] * cam.dist, focus.y - fwd[1] * cam.dist, focus.z - fwd[2] * cam.dist]
     govern(ui.paused)
     const far1 = (par.drawDistance as number) * (quality < 2 ? 0.7 : 1)
-    const far0 = far1 * 0.62
+    // (The fog begins nearer than the dither: it thickens over most of the way out.)
+    const far0 = far1 * (0.62 - 0.42 * (par.fog as number))
     // The far land bends up toward the horizon (outdoors, at the end of the turn): what is placed on the picture bends with it.
     const bendFrom = far1 * 0.45
-    const bendK = outdoors && !roomed ? ek * 0.85 * Math.max(1, eye[2] - focus.z) / Math.max(1, (far1 - bendFrom) ** 2) : 0
+    const bendK = outdoors && !roomed ? ek * (1 - (par.fog as number)) * 0.85 * Math.max(1, eye[2] - focus.z) / Math.max(1, (far1 - bendFrom) ** 2) : 0
     const bendAt = (x: number, y: number) => { const d = Math.max(0, Math.hypot(x - eye[0], y - eye[1]) - bendFrom); return bendK * d * d }
     const place = (x: number, y: number, z = 0) => toScreen(M4, vw, vh, x, y, z + groundAt(x, y) + bendAt(x, y))
 
@@ -720,7 +755,19 @@ export default function polyView(kit: Kit): View {
       return Math.atan2(p1.y - p0.y, p1.x - p0.x)
     })
     kit.setSpan((x1, y1, x2, y2) => { const a = place(x1, y1); const b = place(x2, y2); return { x: b.x - a.x, y: b.y - a.y } })
-    kit.setHeroBare(false)
+    // (Value `figure`: the hero as the classic sprite, or the 16-bit view's modelled figure, which faces any way.)
+    const modelled = par.figure === 'modelled' && k > 0.5
+    kit.setHeroBare(modelled)
+    // Figures show the side the camera sees (a hero walking away shows their back); the stick turns with the camera.
+    const yawShown = k >= 0.5 && !roomed ? cam.yaw : 0
+    kit.setFacing(yawShown)
+    // The stick turns by the camera's nearest quarter (up is away from the camera within an eighth of a turn, and
+    // the keys walk along the world's grid, as the game's rules are laid out), and the turn is held while the hero
+    // walks: a key held while the camera swings in behind keeps its way.
+    const quarter = Math.round(cam.yaw / (Math.PI / 2)) * (Math.PI / 2)
+    if (roomed) latched = 0
+    else if (Math.hypot(s.hero.vx, s.hero.vy) < 0.2 || s.mode !== 'play') latched = -quarter
+    turnNow = latched + 0
     ag.setTransform(1, 0, 0, 1, 0, 0)
     ag.clearRect(0, 0, ATLAS, Math.max(atlasUsed, 1))
     const items = kit.queue(ag, s, ui, bx, by, bw, bh, lights, og)
@@ -763,6 +810,16 @@ export default function polyView(kit: Kit): View {
       ag.rect(cellX + 1, cellY + 1, C.w - 2, C.h - 2)
       ag.clip()
       ag.setTransform(1, 0, 0, 1, Math.round(cellX + C.ax - (it.x * T - bx)), Math.round(cellY + C.ay - (ay * T - by)))
+      if (it.hero && modelled) {
+        // The 16-bit view's modelled hero, turned as this camera sees them, at half its density (a classic px a px).
+        ag.restore()
+        drawFigure(ag, s, cellX + C.ax, cellY + C.ay, dt, ui.paused, yawShown)
+        ag.save()
+        ag.beginPath()
+        ag.rect(cellX + 1, cellY + 1, C.w - 2, C.h - 2)
+        ag.clip()
+        ag.setTransform(1, 0, 0, 1, Math.round(cellX + C.ax - (it.x * T - bx)), Math.round(cellY + C.ay - (ay * T - by)))
+      }
       it.draw()
       ag.restore()
       const u0 = cellX
@@ -801,7 +858,7 @@ export default function polyView(kit: Kit): View {
         y = ay + 0.12
       } else if (!it.hero || s.hero.act !== 'fall') standing.push([it.x, ay, 0.3])
       const g = groundAt(x, y)
-      quad(dyn, [[x + l * rx, y + l * ry, z0 + top, g, u0, v0], [x + r * rx, y + r * ry, z0 + top, g, u1, v0], [x + r * rx, y + r * ry, z0 + foot, g, u1, v1], [x + l * rx, y + l * ry, z0 + foot, g, u0, v1]], TEX.ATLAS, [1, 1, 1], figN)
+      quad(dyn, [[x + l * rx, y + l * ry, z0 + top, g, u0, v0], [x + r * rx, y + r * ry, z0 + top, g, u1, v0], [x + r * rx, y + r * ry, z0 + foot, g, u1, v1], [x + l * rx, y + l * ry, z0 + foot, g, u0, v1]], TEX.ATLAS, [1, 1, 1], figN, ROLE.STAY, it.hero || shoulderK < 0.5 ? 0 : FLAG.SEE)
     }
     atlasUsed = used
 
@@ -855,6 +912,7 @@ export default function polyView(kit: Kit): View {
     g.globalAlpha = 1
     g.imageSmoothingEnabled = false
     const hy = horizonY(M4, vw, vh)
+    sunAt = null
     const bdLook: BackdropLook = outdoors ? (def.look === 'wild' ? 'wild' : 'coast') : 'void'
     if (outdoors && par.sky) {
       // (Painted in the view's own dusk; the hour sinks its sun, dims its stars and grades the rest.)
@@ -885,6 +943,13 @@ export default function polyView(kit: Kit): View {
         if (alpha <= 0) continue
         g.globalAlpha = alpha
         if (L.role === 'sun' && sinkPx > 0) { g.save(); g.beginPath(); g.rect(0, 0, vw, Math.max(0, line)); g.clip() }
+        if (L.role === 'sun') {
+          // (Where the sun's disc is, for the lens flare: the backdrop's own sun, over its horizon to the right of the middle.)
+          const bh = backdrop!.horizon * vh
+          const r = Math.min(vw * 0.15, vh * 0.14, bh * 0.5)
+          const lx = L.repeatX ? 0 : Math.round((vw - L.canvas.width) / 2) - Math.round(focus.x * T * L.parallax * 0.5 + (reduced ? 0 : time) * L.drift * 0.5)
+          sunAt = { x: lx + L.canvas.width * (vh / vw > 1.3 ? 0.68 : 0.62), y: line - r * 0.4 + sinkPx, a: alpha * (line - r * 0.4 + sinkPx < line ? 1 : 0) }
+        }
         const at = Math.round(focus.x * T * L.parallax * 0.5 + (reduced ? 0 : time) * L.drift * 0.5)
         const y = Math.round(L.top * vh) + dy + (L.role === 'sun' ? sinkPx : 0)
         const cw = L.canvas.width
@@ -938,10 +1003,14 @@ export default function polyView(kit: Kit): View {
       haze: roomed ? rgb('#05030c') : outdoors && par.sky ? cssRgb(dayLow) : rgb(par.haze as string),
       hazeAmount: roomed ? 0.7 : 1,
       water: win(k, 0.1, 0.5),
+      smooth: (par.smoothShade as number) * ek,
+      filter: (par.filter as number) * ek,
+      fog: (par.fog as number) * ek,
+      faces: shoulderK > 0.5,
     }
     const px = quality === 0 ? 0.5 : 1
     engine.draw({
-      m: M4, eye, lift: ek, bend: [bendK, bendFrom],
+      m: M4, eye, lift: ek * ls, facet: ek, bend: [bendK, bendFrom],
       // Staggered as the 16-bit view staggers its parts: the classic crowns go down while the camera tips, the
       // trees come up out of the ground after them, and last the things in the round, while their cards go.
       roles: [win(k, 0.42, 0.85), 1 - win(k, 0.4, 0.72), win(k, 0.78, 1), 1 - win(k, 0.62, 0.86)],
@@ -964,6 +1033,42 @@ export default function polyView(kit: Kit): View {
     }, quality === 0 ? Math.ceil(vw / 2) : vw, quality === 0 ? Math.ceil(vh / 2) : vh, quality === 2 ? glowG : undefined)
     if (quality < 2) glowG.clearRect(0, 0, vw, vh)
     g.drawImage(engine.canvas, 0, 0, vw, vh)
+    const halos = (par.halos as number) * ek * (quality === 2 ? 1 : 0.5)
+    if (halos > 0) {
+      // The 64-bit machine's lamps: soft halos added into the picture itself, fading with the fog.
+      g.globalCompositeOperation = 'lighter'
+      for (const L of lights) {
+        const d = Math.hypot(L.x - eye[0], L.y - eye[1])
+        if (d > far1) continue
+        const tt = c.field.tile(Math.floor(L.x), Math.floor(L.y))
+        const p = place(L.x, L.y, tt === 't' ? 1.35 : 0.6)
+        if (p.w <= 0.05 || p.x < -60 || p.y < -60 || p.x > vw + 60 || p.y > vh + 60) continue
+        const r = Math.min(70, (L.r * T * 0.42) / p.w)
+        g.globalAlpha = Math.max(0, Math.min(1, L.a)) * 0.5 * Math.min(1, halos) * (1 - Math.max(0, (d - far0) / Math.max(1, far1 - far0)))
+        g.drawImage(kit.glow(L.color), p.x - r, p.y - r, r * 2, r * 2)
+      }
+      g.globalAlpha = 1
+      g.globalCompositeOperation = 'source-over'
+    }
+    const flare = (par.flare as number) * ek
+    if (flare > 0 && sunAt && sunAt.a > 0) {
+      // A simple lens flare from the sun, across the middle of the picture.
+      g.globalCompositeOperation = 'lighter'
+      const mx = vw / 2 - sunAt.x
+      const my = vh / 2 - sunAt.y
+      const rings: Array<[number, number, string, number]> = [[0.28, 0.05, '#ff9ad8', 0.22], [0.55, 0.03, '#ffd23f', 0.18], [0.9, 0.08, '#8fe8ff', 0.12], [1.35, 0.045, '#ff5f9e', 0.16], [1.7, 0.1, '#b6a0ff', 0.08]]
+      for (const [t, rr, col, a] of rings) {
+        const r = Math.max(2, rr * vh)
+        const gr = g.createRadialGradient(sunAt.x + mx * t, sunAt.y + my * t, 0, sunAt.x + mx * t, sunAt.y + my * t, r)
+        gr.addColorStop(0, col)
+        gr.addColorStop(1, 'rgba(0,0,0,0)')
+        g.globalAlpha = a * flare * sunAt.a
+        g.fillStyle = gr
+        g.fillRect(sunAt.x + mx * t - r, sunAt.y + my * t - r, r * 2, r * 2)
+      }
+      g.globalAlpha = 1
+      g.globalCompositeOperation = 'source-over'
+    }
 
     // --- shots, sparks, the flash: on the finished picture, where the world has them -------------------------------
     const S1 = (x: number, y: number): Vec => { const p = place(x, y); return { x: p.x, y: p.y } }
@@ -994,8 +1099,12 @@ export default function polyView(kit: Kit): View {
     // What the picture shows of the ground, for the engine (the woods' foes walk in from past it): to the end of the
     // draw distance in the north, a trapezoid widening with the lens. Indoors and through most of the turn, the
     // classic rectangle.
-    if (outdoors && k >= 0.5 && !ui.attract) {
-      const F = (vw >= vh ? vh : vw) / 2 / Math.tan(pose.fov / 2)
+    if (outdoors && k >= 0.5 && !ui.attract && shoulderK > 0.5) {
+      // The shoulder sees to its fog in every way the camera may turn: a square round the hero, the fog's radius out.
+      const R = far1 + 2
+      sight = { ahead: R, behind: R, across: 2 * R, spread: 0 }
+    } else if (outdoors && k >= 0.5 && !ui.attract) {
+      const F = (vw >= vh ? vh : vw) / 2 / Math.tan(cam.fov / 2)
       const spread = (vw / 2) / F
       const back = Math.max(1, eye[1] - s.hero.y)
       const foot = toGround(M4, vw, vh, vw / 2, vh)
@@ -1008,14 +1117,137 @@ export default function polyView(kit: Kit): View {
     const at = place(ref.x, ref.y)
     // The windows change dress in the middle of the turn: the classic ones fade out, the glass fades in.
     kit.hudLayer(s, ui, dt, Math.round(ref.x * T - at.x), Math.round(ref.y * T - at.y), place(s.hero.x, s.hero.y).y,
-      par.windows === '32-bit' ? GLASS_SKIN : NEON_SKIN, k < 1 && par.windows === '32-bit' ? { skin: NEON_SKIN, mix: (k - 0.3) / 0.4 } : undefined)
+      skinOf(par.windows), k < 1 && par.windows !== 'classic' ? { skin: NEON_SKIN, mix: (k - 0.3) / 0.4 } : undefined)
   }
 
   /** The finish turns with the picture: the classic view's own, to this view's. */
   function finishOf(k: number) {
     const a = kit.finish('classic')
     const b = kit.finish('poly')
-    return { scanlines: a.scanlines + (b.scanlines - a.scanlines) * k, bloom: a.bloom + (b.bloom - a.bloom) * k, vignette: a.vignette + (b.vignette - a.vignette) * k }
+    const p = shownLook ?? (kit.params('poly') as Record<string, unknown>)
+    return { scanlines: a.scanlines + (p.scanlines as number - a.scanlines) * k, bloom: a.bloom + (p.bloom as number - a.bloom) * k, vignette: a.vignette + (p.vignette as number - a.vignette) * k, smooth: (p.stretch as number) * k }
+  }
+
+  // --- the look's own ease, and the camera that follows ----------------------------------------------------------
+  /** The look last drawn (eased), the one it eases from, how far, and the values it eases toward (own, without the hour). */
+  let shownLook: Record<string, unknown> | null = null
+  let lookFrom: Record<string, unknown> | null = null
+  let lookT = 1
+  let lookKey = ''
+  /** The values to draw with now: `raw`, or a second's ease from the look shown before it changed. */
+  function lookNow(raw: Record<string, unknown>, dt: number, reduced: boolean): Record<string, unknown> {
+    const key = JSON.stringify(kit.params('poly', true))
+    const target: Record<string, unknown> = { ...raw, shoulder: raw.pose === 'shoulder' ? 1 : 0 }
+    if (key !== lookKey) {
+      if (lookKey && shownLook && !reduced) { lookFrom = shownLook; lookT = 0 }
+      lookKey = key
+    }
+    lookT = Math.min(1, lookT + Math.min(0.1, dt))
+    if (!lookFrom || lookT >= 1) { lookFrom = null; shownLook = target; return target }
+    const e = ease(lookT)
+    const out: Record<string, unknown> = {}
+    for (const [name, v] of Object.entries(target)) {
+      const a = lookFrom[name]
+      // Numbers are eased; a switch (the colours, the windows) changes in the middle, under the camera's move.
+      out[name] = typeof v === 'number' && typeof a === 'number' ? a + (v - a) * e : e < 0.5 && a !== undefined ? a : v
+    }
+    shownLook = out
+    return out
+  }
+
+  /** The modelled hero: its picture, and the way its body faces (it turns, it does not snap). */
+  let fig: FigureSprite | null = null
+  let figCanvas: HTMLCanvasElement | null = null
+  let figYaw: number | null = null
+  function drawFigure(g: G, s: GameState, x: number, y: number, dt: number, paused: boolean, camYawNow: number) {
+    const h = s.hero
+    const stride = ((h.walkT * 7) / 4) % 1
+    const act: FigureAct = h.act === 'walk' ? 'walk' : h.act === 'swing' ? 'swing' : h.act === 'push' ? 'push' : h.act === 'hurt' ? 'hurt' : h.act === 'lift' ? 'lift' : h.act === 'carry' ? 'carry' : h.act === 'get' ? 'get' : 'idle'
+    const t = act === 'walk' || act === 'carry' || act === 'push' ? stride : act === 'swing' && h.swing ? Math.min(1, h.swing.t / SWING_TIME) : Math.min(1, h.actT / 0.3)
+    const target = aimOf(h)
+    if (figYaw === null) figYaw = target
+    const d = Math.atan2(Math.sin(target - figYaw), Math.cos(target - figYaw))
+    const step = (paused ? 0 : dt) * 15
+    figYaw += Math.abs(d) <= step ? d : Math.sign(d) * step
+    // (The figure is drawn for the 16-bit view's camera, which looks north-west: turned by the difference.)
+    const blade: FigureBlade | undefined = h.swing ? { a: swingAngle(h.swing, Math.min(1, h.swing.t / SWING_TIME)) - camYawNow - Math.PI / 4, reach: s.inv.arc ? ARC_REACH : SWORD_REACH, trail: [], kind: s.inv.arc ? 'arc' : 'sword', charge: 0, flash: false } : undefined
+    fig = renderFigure({ yaw: figYaw - camYawNow - Math.PI / 4, act, t, moving: !!(h.vx || h.vy), blade }, kit.heroLook(), fig ?? undefined)
+    if (!figCanvas) figCanvas = makeCanvas(FIG.w, FIG.h)
+    const fg = figCanvas.getContext('2d')!
+    fg.putImageData(new ImageData(new Uint8ClampedArray(fig.albedo), FIG.w, FIG.h), 0, 0)
+    g.save()
+    g.setTransform(1, 0, 0, 1, 0, 0)
+    g.imageSmoothingEnabled = false
+    g.drawImage(figCanvas, Math.round(x - FIG.ax / 2), Math.round(y - FIG.ay / 2 + 3), FIG.w / 2, FIG.h / 2)
+    g.restore()
+  }
+
+  /** Where the shoulder camera looks (`Pose.yaw`), and how long the hero has stood still. */
+  let camYaw = 0
+  let still = 0
+  const towardYaw = (a: number, b: number, step: number) => {
+    const d = Math.atan2(Math.sin(b - a), Math.cos(b - a))
+    return a + Math.max(-step, Math.min(step, d))
+  }
+  /**
+   * The yaw follows the hero lazily: it swings in behind them while they walk, not while they walk toward the
+   * camera (they come toward us and the camera backs off), and drifts in behind them after they have stood a
+   * moment. No snap, no spin.
+   */
+  function follow(s: GameState, dt: number, paused: boolean) {
+    if (paused || s.mode !== 'play') return
+    const h = s.hero
+    const sp = Math.hypot(h.vx, h.vy)
+    if (sp > 0.2) {
+      still = 0
+      const head = Math.atan2(h.vx, -h.vy)
+      const toward = (h.vx * Math.sin(camYaw) - h.vy * Math.cos(camYaw)) / sp
+      if (toward > -0.35) camYaw = towardYaw(camYaw, head, Math.min(0.1, dt) * 1.5 * (0.35 + 0.65 * Math.min(1, 1 - toward)))
+    } else {
+      still += dt
+      const facing = { up: 0, right: Math.PI / 2, down: Math.PI, left: -Math.PI / 2 }[h.dir]
+      if (still > 0.9) camYaw = towardYaw(camYaw, facing, Math.min(0.1, dt) * 0.8)
+    }
+  }
+  /** How far the camera has been tipped up over what stands behind the hero, and pulled in, now (eased). */
+  let liftPitch = 0
+  let pullIn = 0
+  /**
+   * The camera kept out of what is solid, and the hero in its sight. The line from the eye to the hero's body must
+   * pass over the land and over every wall, house and wood behind them: the camera rises (tips further down) as far
+   * as that needs, at once, and eases back when the way is clear. Only where rising is not enough (a wall at the
+   * hero's back, taller than the rise can clear) is it pulled in as well.
+   */
+  function clear(p: Pose, focus: { x: number; y: number; z: number }, c: MapCtx, ls: number, dt: number, share: number): Pose {
+    const mass = c.mass
+    const blocked = (q: Pose): number => {
+      const { f } = poseAxes(q)
+      let worst = -1
+      for (let t = 0.6; t < q.dist + 0.3; t += 0.2) {
+        const x = focus.x - f[0] * t
+        const y = focus.y - f[1] * t
+        // (From the hero's chest to the eye.)
+        const z = focus.z + 0.6 * (1 - t / q.dist) - f[2] * t
+        worst = Math.max(worst, c.land.height(x, y) * ls + 0.25 - z)
+        const m = mass ? mass(x, y) : 0
+        if (m > 0) worst = Math.max(worst, m + 0.2 - z)
+      }
+      return worst
+    }
+    let need = 0
+    const most = Math.max(0, 1.25 - p.pitch)
+    while (need < most && blocked({ ...p, pitch: p.pitch + need }) > 0) need += 0.05
+    if (need > liftPitch) liftPitch = need
+    else liftPitch += (need - liftPitch) * Math.min(1, dt * 2.5)
+    // Still blocked at the steepest: pulled in to just in front of what stands there.
+    let to = 0
+    const q = { ...p, pitch: p.pitch + liftPitch }
+    if (blocked(q) > 0) {
+      for (let d = q.dist - 0.25; d > 0.8; d -= 0.25) if (blocked({ ...q, dist: d }) <= 0) { to = q.dist - d; break }
+      if (!to) to = q.dist - 0.8
+    }
+    pullIn = to > pullIn ? to : pullIn + (to - pullIn) * Math.min(1, dt * 2)
+    return { ...p, pitch: p.pitch + liftPitch * share, dist: p.dist - pullIn * share }
   }
 
   return {
@@ -1027,8 +1259,8 @@ export default function polyView(kit: Kit): View {
       }
     },
     ready,
-    // The crane looks north: the controls stay as in the classic picture.
-    turn: 0,
+    // The crane looks north; the shoulder turns, and the stick with it: up is away from the camera.
+    get turn() { return fallback ? 0 : turnNow },
     get sight() { return fallback ? null : sight },
     dispose() { engine.dispose() },
   }

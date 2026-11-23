@@ -44,12 +44,22 @@ export interface PolyLook {
   hazeAmount: number
   /** How far the water is this view's own (0: the classic picture's). */
   water: number
+  /** Normals shared at the corners (1) or one a facet (0). */
+  smooth: number
+  /** Textures filtered at half their size (1) or read texel by texel (0). */
+  filter: number
+  /** The distance swallowed by fog (1) or dissolved in dither (0). */
+  fog: number
+  /** Walls' faces between the eye and the hero are seen through too (the camera may stand on any side). */
+  faces?: boolean
 }
 
 export interface Frame {
   m: Mat4
   /** How the far land bends up toward the horizon: height added per tile² of distance beyond the second number. */
   bend: [number, number]
+  /** How much a facet's turn counts in its light (the turn's ease). */
+  facet: number
   /** The eye, world tiles (for the distance), and the land's lift and the turn's own-height multipliers (GROW, SINK, RISE, FALL). */
   eye: [number, number, number]
   lift: number
@@ -87,12 +97,14 @@ layout(location=6) in float aSun;
 layout(location=7) in float aRole;
 layout(location=8) in float aFlags;
 layout(location=9) in float aZk;
+layout(location=10) in vec3 aSNormal;
 uniform mat4 uM;
 uniform vec2 uView;
 uniform vec3 uEye;
 uniform float uLift;
 uniform vec2 uBend;
 uniform float uFacet;
+uniform float uSmooth;
 uniform vec4 uRoles;
 uniform float uSnap;
 uniform vec3 uAmbient;
@@ -140,7 +152,7 @@ void main() {
   vDist = length(p - uEye);
   vWorld = aPos.xy;
   // The light, at the corners.
-  vec3 n = normalize(aNormal);
+  vec3 n = normalize(mix(aNormal, aSNormal, uSmooth));
   // The sky lights from above and a little from the north-west, so every facet of a knoll takes its own share.
   float sky = mix(1.0, 0.12 + 1.08 * max(0.0, dot(n, normalize(vec3(-0.55, -0.2, 0.81)))), uFacet);
   float inSun = mix(1.0, aSun, uShadow);
@@ -193,6 +205,9 @@ uniform vec4 uHero;
 uniform float uBits;
 uniform int uGlowOnly;
 uniform float uWater;
+uniform float uFilter;
+uniform float uFog;
+uniform int uFaces;
 uniform int uBlob;
 out vec4 o;
 
@@ -214,9 +229,45 @@ vec4 kindAt(vec2 w) {
   if (k.x < 0 || k.y < 0 || k.x >= size.x || k.y >= size.y) return vec4(0.0);
   return texelFetch(uKind, k, 0);
 }
-vec3 matAt(float idx, vec2 w) {
-  vec2 t = mod(floor(w * 16.0), 64.0);
-  return texelFetch(uMats, ivec2(t) + ivec2(int(idx) * 64, 0), 0).rgb;
+vec3 matTexel(float idx, vec2 t) {
+  return texelFetch(uMats, ivec2(mod(t, 64.0)) + ivec2(int(idx) * 64, 0), 0).rgb;
+}
+/** A material at texel coordinates t: texel by texel, or (the 64-bit machine) read at half its size and filtered between texels until it smears. */
+vec3 matAtT(float idx, vec2 t) {
+  vec3 hard = matTexel(idx, floor(t));
+  if (uFilter <= 0.001) return hard;
+  vec2 p = t * 0.5 - 0.5;
+  vec2 i = floor(p);
+  vec2 f = p - i;
+  vec2 o = vec2(1.0, 0.0);
+  // (Every other texel, so the small texture is the material at half its size.)
+  vec3 soft = mix(mix(matTexel(idx, i * 2.0), matTexel(idx, (i + o) * 2.0), f.x), mix(matTexel(idx, (i + o.yx) * 2.0), matTexel(idx, (i + 1.0) * 2.0), f.x), f.y);
+  return mix(hard, soft, uFilter);
+}
+vec3 matAt(float idx, vec2 w) { return matAtT(idx, w * 16.0); }
+/** A classic picture at px: texel by texel, or filtered between texels. */
+vec4 pic(sampler2D s, vec2 px) {
+  vec4 hard = fetchPic(s, px);
+  if (uFilter <= 0.001) return hard;
+  vec2 p = px - 0.5;
+  vec2 i = floor(p) + 0.5;
+  vec2 f = fract(p);
+  vec4 soft = mix(mix(fetchPic(s, i), fetchPic(s, i + vec2(1.0, 0.0)), f.x), mix(fetchPic(s, i + vec2(0.0, 1.0)), fetchPic(s, i + 1.0), f.x), f.y);
+  return mix(hard, soft, uFilter);
+}
+vec4 atlasTexel(vec2 q) {
+  ivec2 size = textureSize(uAtlas, 0);
+  return texelFetch(uAtlas, clamp(ivec2(q), ivec2(0), size - 1), 0);
+}
+/** A figure's picture: texel by texel, or filtered (paper figures in a soft world). */
+vec4 atlasAt(vec2 px) {
+  vec4 hard = atlasTexel(floor(px));
+  if (uFilter <= 0.001) return hard;
+  vec2 p = px - 0.5;
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec4 soft = mix(mix(atlasTexel(i), atlasTexel(i + vec2(1.0, 0.0)), f.x), mix(atlasTexel(i + vec2(0.0, 1.0)), atlasTexel(i + 1.0), f.x), f.y);
+  return mix(hard, soft, uFilter);
 }
 void main() {
   // (People and things are sprites: the machine drew those straight, not as warped polygons.)
@@ -233,24 +284,24 @@ void main() {
     vec4 kj = kindAt(uv + j * 0.5 * uFray);
     float idx = k.r * 255.0;
     if (idx > 0.5 && kj.r * 255.0 > 0.5) idx = kj.r * 255.0;
-    vec4 base = fetchPic(uBase, uv * 16.0);
+    vec4 base = pic(uBase, uv * 16.0);
     vec3 col = base.a > 0.5 ? base.rgb : matAt(max(idx - 1.0, 0.0), uv);
     if (idx > 0.5) col = mix(col, matAt(idx - 1.0, uv), uMat);
     // What the classic art lays on the ground, unless something stands there in its place.
     float bare = k.g * 255.0;
     float fy = fract(uv.y) * 16.0;
     if (bare < 0.5 || (bare < 1.5 && fy < 6.0)) {
-      vec4 ob = fetchPic(uObjs, uv * 16.0);
+      vec4 ob = pic(uObjs, uv * 16.0);
       col = col * (1.0 - ob.a) + ob.rgb;
       if (ob.a > 0.5) { vec3 q = ob.rgb / ob.a; float h2 = max(q.r, max(q.g, q.b)); float l2 = min(q.r, min(q.g, q.b)); if (h2 > 0.6 && h2 - l2 > 0.5 * h2) neon = q; }
     }
     c = vec4(col, 1.0);
   } else if (vTex == 2) {
-    c = fetchPic(uObjs, uv);
+    c = pic(uObjs, uv);
   } else if (vTex == 6) {
-    c = fetchPic(uBase, uv);
+    c = pic(uBase, uv);
   } else if (vTex == 3) {
-    c = texelFetch(uAtlas, ivec2(floor(uv)), 0);
+    c = atlasAt(uv);
   } else if (vTex == 4) {
     // Water: deep indigo, crests that run, glints, and at the shore foam (or a pool's neon rim).
     vec2 q = floor(uv * 16.0) / 16.0;
@@ -276,8 +327,7 @@ void main() {
     o = vec4(vec3(vColor.r), 1.0);
     return;
   } else if (vTex >= 10) {
-    vec2 t = mod(floor(uv), 64.0);
-    c = vec4(texelFetch(uMats, ivec2(t) + ivec2((vTex - 10) * 64, 0), 0).rgb, 1.0);
+    c = vec4(matAtT(float(vTex - 10), uv), 1.0);
   }
   if (c.a < 0.5) discard;
   vec3 tex = c.rgb / max(c.a, 1e-3);
@@ -298,11 +348,20 @@ void main() {
   }
   // The distance: hazed, then gone in dithered steps.
   float fd = clamp((vDist - uFar.x) / max(uFar.y - uFar.x, 1e-3), 0.0, 1.0);
-  fd = floor(fd * 5.0) / 5.0;
-  if (fd > 0.0 && fd >= b) discard;
-  lit = mix(lit, uHaze, fd * uHazeK);
+  float fogged = 0.0;
+  if (uFog < 0.5) {
+    // The 32-bit machine: the distance dissolves in dithered steps.
+    fd = floor(fd * 5.0) / 5.0;
+    if (fd > 0.0 && fd >= b) discard;
+    lit = mix(lit, uHaze, fd * uHazeK);
+  } else {
+    // The 64-bit machine: thick fog in the hour's colour swallows the distance; beyond it nothing is drawn.
+    if (vDist > uFar.y) discard;
+    fogged = mix(fd * uHazeK, fd * fd * (3.0 - 2.0 * fd), uFog);
+    lit = mix(lit, uHaze, fogged);
+  }
   // What stands between the camera and the hero is seen through.
-  if ((vFlags & 1) != 0 && uHero.z > 0.0 && vDist < uHero.w - 0.5) {
+  if (((vFlags & 1) != 0 || ((vFlags & 4) != 0 && uFaces == 1)) && uHero.z > 0.0 && vDist < uHero.w - 0.5) {
     vec2 dd = (gl_FragCoord.xy - uHero.xy) / vec2(uHero.z * 0.7, uHero.z);
     if (dot(dd, dd) < 1.0 && mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y), 2.0) < 1.0) discard;
   }
@@ -312,7 +371,7 @@ void main() {
     lit = floor(clamp(lit, 0.0, 1.0) * lv + b) / lv;
   }
   // (The bloom's own pass: only what shines by itself.)
-  if (uGlowOnly == 1) { o = vec4(clamp(max(neon, glow), 0.0, 1.0), 1.0); return; }
+  if (uGlowOnly == 1) { o = vec4(clamp(max(neon, glow) * (1.0 - fogged), 0.0, 1.0), 1.0); return; }
   o = vec4(clamp(lit, 0.0, 1.0), 1.0);
 }`
 
@@ -367,7 +426,7 @@ export function createEngine(): Engine {
     const s = STRIDE * 4
     const attr = (loc: number, size: number, off: number) => { g.enableVertexAttribArray(loc); g.vertexAttribPointer(loc, size, g.FLOAT, false, s, off * 4) }
     attr(0, 3, AT.pos); attr(1, 1, AT.ground); attr(2, 3, AT.normal); attr(3, 2, AT.uv); attr(4, 1, AT.tex)
-    attr(5, 3, AT.color); attr(6, 1, AT.sun); attr(7, 1, AT.role); attr(8, 1, AT.flags); attr(9, 1, AT.zk)
+    attr(5, 3, AT.color); attr(6, 1, AT.sun); attr(7, 1, AT.role); attr(8, 1, AT.flags); attr(9, 1, AT.zk); attr(10, 3, AT.snormal)
   }
 
   return {
@@ -407,7 +466,11 @@ export function createEngine(): Engine {
       gl.uniform3f(u('uEye'), ...f.eye)
       gl.uniform1f(u('uLift'), f.lift)
       gl.uniform2f(u('uBend'), ...f.bend)
-      gl.uniform1f(u('uFacet'), f.lift)
+      gl.uniform1f(u('uFacet'), f.facet)
+      gl.uniform1f(u('uSmooth'), L.smooth)
+      gl.uniform1f(u('uFilter'), L.filter)
+      gl.uniform1f(u('uFog'), L.fog)
+      gl.uniform1i(u('uFaces'), L.faces ? 1 : 0)
       gl.uniform4f(u('uRoles'), ...f.roles)
       gl.uniform1f(u('uSnap'), L.snap)
       gl.uniform3f(u('uAmbient'), ...f.ambient)
