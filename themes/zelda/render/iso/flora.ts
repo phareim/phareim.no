@@ -1421,23 +1421,32 @@ function paint(L: Look, kind: FloraKind, v: number, seed: number): Cut {
  * (rgb = normal × 0.5 + 0.5; x right, y up, z toward the viewer). Alpha is 0
  * or 255, and every sprite has a clear pixel round it.
  */
-export function buildFlora(look: FloraLook): FloraAtlas {
-  const hit = cache.get(look)
-  if (hit) return hit
+/** A look being painted: the plants so far, and where the next one goes on the sheet. */
+interface Wip { cuts: Array<{ kind: FloraKind; c: Cut; x: number; y: number }>; x: number; y: number; rowH: number; at: number }
+const wips = new Map<FloraLook, Wip>()
+/** Every plant of a look, in the order they are painted and laid out. */
+const ORDER: Array<[FloraKind, number]> = COUNT.flatMap(([kind, n]) => Array.from({ length: n }, (_, v): [FloraKind, number] => [kind, v]))
+
+/**
+ * Paints the next plant of a look, and says whether the look is all there now (as `stepMaterials`): the whole
+ * look at once is a pause one can feel, so a view that is waited for paints it a plant a call.
+ */
+export function stepFlora(look: FloraLook): boolean {
+  if (cache.has(look)) return true
   const L = LOOKS[look]
   const salt = look === 'coast' ? 11 : look === 'wild' ? 23 : 37
-  const cuts: Array<{ kind: FloraKind; c: Cut; x: number; y: number }> = []
-  let x = 1
-  let y = 1
-  let rowH = 0
-  let k = 0
-  for (const [kind, n] of COUNT) for (let v = 0; v < n; v++) {
-    const c = paint(L, kind, v, salt * 1000 + ++k * 97)
-    if (x + c.w + 1 > ATLAS_W) { x = 1; y += rowH + 2; rowH = 0 }
-    cuts.push({ kind, c, x, y })
-    x += c.w + 2
-    rowH = Math.max(rowH, c.h)
+  let w = wips.get(look)
+  if (!w) wips.set(look, w = { cuts: [], x: 1, y: 1, rowH: 0, at: 0 })
+  if (w.at < ORDER.length) {
+    const [kind, v] = ORDER[w.at]!
+    const c = paint(L, kind, v, salt * 1000 + ++w.at * 97)
+    if (w.x + c.w + 1 > ATLAS_W) { w.x = 1; w.y += w.rowH + 2; w.rowH = 0 }
+    w.cuts.push({ kind, c, x: w.x, y: w.y })
+    w.x += c.w + 2
+    w.rowH = Math.max(w.rowH, c.h)
+    if (w.at < ORDER.length) return false
   }
+  const { cuts, y, rowH } = w
   let H = 128
   while (H < y + rowH + 1) H *= 2
   const albedo = makeCanvas(ATLAS_W, H)
@@ -1454,7 +1463,12 @@ export function buildFlora(look: FloraLook): FloraAtlas {
     ng.putImageData(n, sx, sy)
     sprites[kind].push({ x: sx, y: sy, w: c.w, h: c.h, ax: c.ax, ay: c.ay })
   }
-  const atlas: FloraAtlas = { albedo, normal, sprites }
-  cache.set(look, atlas)
-  return atlas
+  cache.set(look, { albedo, normal, sprites })
+  wips.delete(look)
+  return true
+}
+
+export function buildFlora(look: FloraLook): FloraAtlas {
+  while (!stepFlora(look)) { /* the next plant */ }
+  return cache.get(look)!
 }

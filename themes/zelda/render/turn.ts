@@ -68,3 +68,17 @@ export function createTurn(has: (id: string) => boolean, seconds = 0.6): Turn {
     get waiting() { return waiting },
   }
 }
+
+/**
+ * How much of a frame's time a turn takes, by where the turn is (`k`, raw). In the hand-off (the first `handoff`
+ * of the turn) and in the stretch a long frame would cross to reach it, a frame is worth no more than a steady
+ * one. A picture's first frame is a long one (its tiles are painted, its shadows cast, its shaders warm), and
+ * the first frames of a turn are such frames; counted whole, one of them would carry the turn clean over the
+ * hand-off, which would then be a cut. `held`: the last frame was made long on purpose (a picture painted
+ * ahead), and is not time the turn has had. (0.1 s is the longest frame the shell hands over.)
+ */
+export function turnTime(dt: number, k: number, handoff: number, seconds: number, held = false): number {
+  if (held || k <= handoff) return Math.min(dt, 1 / 60)
+  if (k < handoff + 0.1 / seconds) return Math.min(dt, 1 / 30)
+  return dt
+}

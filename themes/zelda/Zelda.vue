@@ -363,7 +363,7 @@ const input: GameInput = createInput({
 // ---- views ---------------------------------------------------------------------
 
 /** The way the world is shown (`views.ts`); the game underneath is the same. */
-const viewId = ref<ViewId>('classic')
+const viewId = ref<ViewId>(startView(useRoute().query.view, null))
 /** Counts the studio's changes to the round, so a renamed view shows its new name. */
 const viewRound = ref(0)
 const viewLabel = computed(() => (void viewRound.value, viewName(viewId.value)))
@@ -378,7 +378,9 @@ let viewShown: ViewId = 'classic'
  */
 let viewHold = false
 const NIGHT_MS = 450
-let nightEnds = 0
+/** When the night began: the first frame the tab was looked at (0: not yet), so a tab opened in the background has its night too. */
+let nightFrom = 0
+const nightLeft = () => nightFrom ? Math.max(0, NIGHT_MS - (performance.now() - nightFrom)) : NIGHT_MS
 
 /**
  * Turn to a view, fetching its code the first time. `instant`: no turn (a paused game, reduced motion).
@@ -395,6 +397,8 @@ async function showView(id: ViewId, instant = false, remember = true, arriving =
   viewId.value = def.id
   if (def.engine === 'classic') turnAt.a = def.id
   else turnAt.b = def.id
+  let before: string | null = null
+  try { before = localStorage.getItem(VIEW_KEY) } catch { /* private mode */ }
   if (remember) try { localStorage.setItem(VIEW_KEY, def.id) } catch { /* private mode: this visit only */ }
   const ask = ++viewAsk
   const load = ENGINE_LOADERS[def.engine]
@@ -404,11 +408,12 @@ async function showView(id: ViewId, instant = false, remember = true, arriving =
       if (!alive || !renderer) return
       renderer.addView(def.engine, mod.default as ViewFactory)
     } catch {
-      // The code did not arrive (offline, a deploy in between): stay where we were, and say so to the next visit too.
+      // The code did not arrive (offline, a deploy in between): stay where we were. The next visit is told what it
+      // would have been told before the press: a choice that could not be shown is not a choice for the other view.
       if (ask !== viewAsk || !alive || !renderer) return
       viewId.value = viewShown
       syncDress()
-      if (remember) try { localStorage.setItem(VIEW_KEY, viewId.value) } catch { /* private mode */ }
+      if (remember) try { if (before === null) localStorage.removeItem(VIEW_KEY); else localStorage.setItem(VIEW_KEY, before) } catch { /* private mode */ }
       turnRefuse()
       return
     }
@@ -416,7 +421,7 @@ async function showView(id: ViewId, instant = false, remember = true, arriving =
   if (ask !== viewAsk) return
   renderer.setParams(def.engine, def.params)
   // No turn where nothing would play it: reduced motion, a paused game, an open panel.
-  if (arriving) renderer.arrive(def.engine, Math.max(0, nightEnds - performance.now()), !reducedMotion.value)
+  if (arriving) renderer.arrive(def.engine, nightLeft(), !reducedMotion.value)
   else renderer.setView(def.engine, instant || reducedMotion.value || paused.value || panel.value !== null)
   viewShown = def.id
   pausedDrawn = false
@@ -482,6 +487,7 @@ const turnLabel = computed(() => (void viewRound.value, `View: ${sayView(viewId.
 const turnAt = { a: 'classic' as ViewId, b: '' as ViewId }
 const DAWN_MS = 320
 const CAPTION_MS = 1800
+const WAIT_SHOWN_MS = 150
 const sw = {
   hover: false, down: false, downAt: -1e9, byPointer: false,
   sig: '', chrome: 1, unit: '', width: '', firstAt: 0,
@@ -490,6 +496,8 @@ const sw = {
   fresh: false, tickAt: -1e9, ticks: 0, tickDue: 0, sawWaiting: false,
   /** The view at the last rest (null: no frame yet), and whether a turn has been seen since. */
   rest: null as ViewId | null, sawTurn: false,
+  /** The canvas last painted (the ending takes the switch away and brings a new one back), and when the wait began. */
+  el: null as HTMLCanvasElement | null, waitFrom: -1,
   scratch: null as [HTMLCanvasElement, HTMLCanvasElement] | null,
 }
 
@@ -522,6 +530,7 @@ function stepTurnSwitch(nowMs: number) {
   const cv = turnCanvas.value
   const wrap = turnWrap.value
   if (!cv || !wrap) return
+  if (sw.el !== cv) { sw.el = cv; sw.sig = ''; sw.unit = ''; sw.width = '' }
 
   const round = viewList()
   const n = round.length
@@ -535,8 +544,12 @@ function stepTurnSwitch(nowMs: number) {
   const a = stopOf(turnAt.a, true)
   const b = stopOf(turnAt.b, false)
   const waiting = vs.waiting || viewId.value !== viewShown
-  if (waiting !== turnWaiting.value) turnWaiting.value = waiting
-  if (waiting) sw.sawWaiting = true
+  if (!waiting) sw.waitFrom = -1
+  else if (sw.waitFrom < 0) sw.waitFrom = nowMs
+  // (A view that is here but paints its map first is waited for over a frame or three: too short to say so.)
+  const busy = waiting && nowMs - sw.waitFrom >= WAIT_SHOWN_MS
+  if (busy !== turnWaiting.value) turnWaiting.value = busy
+  if (busy) sw.sawWaiting = true
   const away = paused.value || panel.value !== null || talking.value || leaving.value
   const reduced = reducedMotion.value
   const here = Math.max(0, round.findIndex(v => v.id === viewId.value))
@@ -574,7 +587,7 @@ function stepTurnSwitch(nowMs: number) {
   const st: SwitchState = {
     stops, a, b, e,
     key: touchUI.value ? null : 'V',
-    waiting,
+    waiting: busy,
     hover: sw.hover,
     down: sw.down || nowMs - sw.downAt < 90,
     nudge,
@@ -593,7 +606,7 @@ function stepTurnSwitch(nowMs: number) {
   if (unit !== sw.unit) { sw.unit = unit; wrap.style.setProperty('--zelda-turn-u', unit) }
   const width = String(switchLayout(st).box.w * 2)
   if (width !== sw.width) { sw.width = width; wrap.style.setProperty('--zelda-turn-w', width) }
-  const sig = [uDev, n, a, b, Math.round(e * 400), st.key, fine, round.map(v => +wears16(v.id)).join(''), waiting ? Math.floor(st.time * 6) : -1, +st.hover, +st.down, Math.round(nudge * 2), st.flash, st.caption, lit, +sw.captionHot, +reduced].join('|')
+  const sig = [uDev, n, a, b, Math.round(e * 400), st.key, fine, round.map(v => +wears16(v.id)).join(''), busy ? Math.floor(st.time * 6) : -1, +st.hover, +st.down, Math.round(nudge * 2), st.flash, st.caption, lit, +sw.captionHot, +reduced].join('|')
   if (sig === sw.sig) return
   sw.sig = sig
   if (cv.width !== SW_W * 2 * uDev || cv.height !== SW_H * 2 * uDev) { cv.width = SW_W * 2 * uDev; cv.height = SW_H * 2 * uDev }
@@ -1055,7 +1068,9 @@ function frame(nowMs: number) {
   // Nothing is on screen to change while the tab is in the background, and a
   // backgrounded phone may still be running this loop (2026-09-30).
   if (document.hidden) return
-  if (viewHold) return
+  if (!nightFrom) nightFrom = performance.now()
+  // (A slow network must not keep the page dark: after the night the classic view plays until the code is here.)
+  if (viewHold) { if (nightLeft() > 0) return; viewHold = false; syncDress() }
   // A visit's first dark moments: the view is on its way (`arrive`), and nothing steps until there is a picture.
   if (renderer.viewState().dark) { renderer.draw(state, ui, 0); return }
   // A turn caught by a pause or a panel would hang half done (the world is drawn once, or five times a second): finish it.
@@ -1079,7 +1094,8 @@ function frame(nowMs: number) {
   // Paused: dt is 0, so the picture is already identical to last frame's. Draw
   // it once more in case the pause was what changed it, then leave the pixels
   // alone until something resumes.
-  if (paused.value) { if (!pausedDrawn) { pausedDrawn = true; renderer.draw(state, ui, 0) } return }
+  // (A first picture still coming up out of the dark is drawn until it is up.)
+  if (paused.value) { if (!pausedDrawn || renderer.viewState().dawn) { pausedDrawn = true; renderer.draw(state, ui, 0) } return }
   pausedDrawn = false
   // A panel is open: the world stands still but keeps glowing. A soft glow at
   // a fifth of the rate is the same glow.
@@ -1227,17 +1243,15 @@ onMounted(() => {
   // The dress of the view the visit starts in, before its first frame: nothing of the other look flashes by either.
   dressWanted = wears16(firstView)
   dress16.value = dressWanted
+  viewId.value = firstView
   // The first picture comes up out of the dark, whichever view draws it.
   renderer.dawn()
   // A browser that has never chosen a view and has not walked here before: the turn switch ticks for it.
   try { sw.fresh = lastView === null && !new URLSearchParams(location.search).get('view') && !sessionStorage.getItem(RETURN_KEY) } catch { sw.fresh = false }
   if (firstView !== 'classic') {
     viewHold = true
-    nightEnds = performance.now() + NIGHT_MS
     const release = () => { viewHold = false }
     void showView(firstView, false, false, true).then(release, release)
-    // A slow network must not keep the page dark: after a moment the classic view plays until the code is here.
-    setTimeout(() => { if (viewHold) { release(); syncDress() } }, NIGHT_MS)
   }
   void loadHighScoreSign()
   audio = createZeldaAudio()
@@ -1256,6 +1270,8 @@ onMounted(() => {
   // The session first (a signed-in visitor plays under the account's profile), then the profile's save.
   void checkSession().then(() => syncProfile())
   resize()
+  // (The page's hint may come up now: its dress and its unit are the real ones.)
+  canvas.value.parentElement?.style.setProperty('--zelda-hint-play', 'running')
   observer = new ResizeObserver(resize)
   observer.observe(canvas.value)
   window.addEventListener('resize', resize)
@@ -1279,6 +1295,7 @@ onBeforeUnmount(() => {
   alive = false
   canvas.value?.parentElement?.style.removeProperty('--px16-fine')
   canvas.value?.parentElement?.style.removeProperty('--zelda-chrome-a')
+  canvas.value?.parentElement?.style.removeProperty('--zelda-hint-play')
   liveStop?.()
   liveStop = null
   cancelAnimationFrame(raf)
@@ -1428,6 +1445,9 @@ onBeforeUnmount(() => {
 }
 .zelda-turn-said {
   position: absolute;
+  /* (At a place of its own: left where the page's flow puts it, it lies under the stage and makes it a px taller.) */
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
   overflow: hidden;
@@ -1436,7 +1456,12 @@ onBeforeUnmount(() => {
 }
 /* What changes dress beside the canvas goes out before the flip and comes back after it (`--zelda-chrome-a`, `stepTurnSwitch`). */
 .zelda-deck-top .zelda-chip { opacity: var(--zelda-chrome-a, 1); }
-.zelda-canvas ~ .portal-hint { filter: opacity(var(--zelda-chrome-a, 1)); }
+.zelda-canvas ~ .portal-hint {
+  filter: opacity(var(--zelda-chrome-a, 1));
+  /* The hint waits for the page to know its view and its unit (set at mount): before that it would come up in a
+     guessed dress at a guessed size, and change both in front of the visitor. */
+  animation-play-state: var(--zelda-hint-play, paused);
+}
 @media (prefers-reduced-motion: reduce) {
   .zelda-turn-wrap,
   .zelda-turn-wrap--away,

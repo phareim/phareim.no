@@ -38,7 +38,7 @@ import { FLAT, ROOF, shapeOf, WALL_TOP, type Shape } from './shape'
 import { DENSITY, fitDepth, makeCam, toGround, toScene, type Cam } from './camera'
 import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engine'
 import { rgb } from './gl'
-import { buildFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
+import { buildFlora, stepFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
 import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
 import { skyGrade, type DayLook } from '../daylight'
 import { BEYOND, beyondTile, massifHeight } from '../beyond'
@@ -590,11 +590,11 @@ export default function isoView(kit: Kit): View {
 
   /**
    * Is everything here to draw with: a context, the shaders (the driver compiles them off the main thread), the
-   * view's own pictures? The renderer asks before every frame and draws the classic view while the answer is no
-   * (`View.ready`); each call paints a little more.
+   * view's own pictures and, when the view is not on screen yet (`s`), the map's? The renderer asks before every
+   * frame and draws the classic view while the answer is no (`View.ready`); each call paints a little more.
    */
-  function ready(hurry: boolean): boolean {
-    if (fallback) return fallback.ready ? fallback.ready(hurry) : true
+  function ready(hurry: boolean, s?: GameState): boolean {
+    if (fallback) return fallback.ready ? fallback.ready(hurry, s) : true
     if (engine.lost()) {
       // The browser took the context (a tab left in the background, a driver reset): make another, and send
       // everything the old one held again. A GPU that will not give one gets the canvas view.
@@ -604,12 +604,47 @@ export default function isoView(kit: Kit): View {
         engine = createEngine()
         if (propAtlas) sendMaterials()
         tilesKey = ''; floraLook = ''; backdropKey = ''; atlasUsed = ATLAS; settle = 90
-      } catch { fallback = legacyView(kit); return ready(hurry) }
+      } catch { fallback = legacyView(kit); return ready(hurry, s) }
     }
+    const had = propAtlas !== null
     const painted = paint(pinned !== null, hurry)
     const built = engine.ready(pinned !== null)
-    if (built === 'failed') { engine.dispose(); fallback = legacyView(kit); return ready(hurry) }
-    return built === 'yes' && painted
+    if (built === 'failed') { engine.dispose(); fallback = legacyView(kit); return ready(hurry, s) }
+    // (The map's pictures after the view's own, and not in the call that finished those: a slice is a slice.)
+    const mapped = !s || ((had || pinned !== null) && prepare(s, pinned !== null, hurry))
+    return painted && mapped && built === 'yes'
+  }
+
+  /** A map's tile pictures are new: its shapes and the land beyond follow, and the long frame is not the GPU's. */
+  function fresh() {
+    shapesKey = ''
+    lands = null
+    settle = Math.max(settle, 20)
+    gapN = 0
+  }
+  const floraOf = (look: string | undefined): FloraLook => look === 'wild' ? 'wild' : 'coast'
+
+  /**
+   * What the first frame on a map paints before it can draw: the map's two tile pictures and, outdoors, the
+   * plants. Together they are a pause of a tenth of a second or more, and the first frame of a view that was
+   * waited for is the first frame of its turn; so while the view is not on screen they are made here, a piece a
+   * call, as its own pictures are (`paint`). `draw` makes whatever is still missing: a map walked into.
+   */
+  function prepare(s: GameState, all: boolean, hurry: boolean): boolean {
+    const m = s.map
+    const t0 = performance.now()
+    const late = () => !all && performance.now() - t0 > (hurry ? 40 : 8)
+    if (!base || base.mapId !== m.id) { base = createTileLayer(world, m, 'base'); fresh(); if (late()) return false }
+    if (!objects || objects.mapId !== m.id) { objects = createTileLayer(world, m, 'objects'); fresh(); if (late()) return false }
+    const def = mapInfo(world, m.id).def
+    const fLook = floraOf(def.look)
+    if (def.kind === 'overworld' && floraLook !== fLook) {
+      while (!stepFlora(fLook)) if (late()) return false
+      flora = buildFlora(fLook)
+      engine.flora(flora.albedo, flora.normal)
+      floraLook = fLook
+    }
+    return true
   }
 
   function draw(s: GameState, ui: FrameUI, dt: number, k: number) {
@@ -633,18 +668,8 @@ export default function isoView(kit: Kit): View {
     const reduced = ui.reducedMotion
     const outdoors = kind === 'overworld'
 
-    if (!base || !objects || base.mapId !== m.id) {
-      base = createTileLayer(world, m, 'base')
-      objects = createTileLayer(world, m, 'objects')
-      shapesKey = ''
-      lands = null
-      // Painting a map is a long frame or two that says nothing of the GPU.
-      settle = Math.max(settle, 20)
-      gapN = 0
-    } else {
-      updateTileLayer(base, world, m)
-      updateTileLayer(objects, world, m)
-    }
+    if (!base || base.mapId !== m.id) { base = createTileLayer(world, m, 'base'); fresh() } else updateTileLayer(base, world, m)
+    if (!objects || objects.mapId !== m.id) { objects = createTileLayer(world, m, 'objects'); fresh() } else updateTileLayer(objects, world, m)
     const par = kit.params('iso')
     // Outdoors the land goes on past the map's edge.
     const key = `${m.id}:${m.version}:${outdoors && par.beyond ? BEYOND : 0}`
@@ -653,7 +678,7 @@ export default function isoView(kit: Kit): View {
     const pitch = outdoors ? (par.roofPitch as number) : 0
     if (tilesKey !== `${key}:${planted}:${pitch}`) { pitchSent = pitch; uploadTiles(kind, def.look, planted); tilesKey = `${key}:${planted}:${pitch}` }
     if (M && !lands) lands = createLands(kind, def.look, (x, y) => tileAt(m, kind, x, y), m.w, m.h, M)
-    const fLook: FloraLook = def.look === 'wild' ? 'wild' : 'coast'
+    const fLook = floraOf(def.look)
     if (outdoors && floraLook !== fLook) { flora = buildFlora(fLook); engine.flora(flora.albedo, flora.normal); floraLook = fLook }
 
     // --- the scene's size: one hi-res px is a whole number of device px ----------------
@@ -888,7 +913,10 @@ export default function isoView(kit: Kit): View {
         const sides = (tileOf(tx - 1, ty) === 'F' ? 1 : 0) | (tileOf(tx + 1, ty) === 'F' ? 2 : 0) | (tileOf(tx, ty - 1) === 'F' ? 4 : 0) | (tileOf(tx, ty + 1) === 'F' ? 8 : 0)
         stand(`fence${sides}`, tx + 0.5, ty + 0.5, px, rise)
         cards.push({ x: tx + 0.5, y: ty + 0.55, tall: 0.6 * rise, wide: 0.12 })
-        if (rise >= 1 || shp.k === 'flat') { bare(sx, sy, T, T); continue }
+        if (rise >= 1) { bare(sx, sy, T, T); continue }
+        // (A run that lies flat is taken off the ground from its far end while the fence comes up: gone in one
+        // frame, it would leave a few frames with no fence at all.)
+        if (shp.k === 'flat') { bare(sx, sy, T, Math.round(T * Math.min(1, rise / 0.6))); continue }
         sunk = 1 - rise
       }
       // (Not where an exit stands on the counter's tile and draws all of it itself: the newsstand.)
@@ -900,8 +928,10 @@ export default function isoView(kit: Kit): View {
         stand(!along && (n || s2) ? 'counterY' : n && s2 ? 'counterNS' : n ? 'counterN' : s2 ? 'counterS' : 'counter', tx + 0.5, ty + 0.5, px, rise)
         tops.set(ty * 4096 + tx, ty + 0.5 + (s2 || (!along && n) ? 0.5 : 9 / 32) + 0.02)
         cards.push({ x: tx + 0.5, y: ty + 0.6, tall: 0.5 * rise, wide: 0.5, dark: 0.8 })
-        // (A strip of the classic counter stood along x sinks as this one rises; one laid north is in the ground picture.)
-        if (rise >= 1 || shp.k !== 'face') { bare(sx, sy, T, T); continue }
+        // (A strip of the classic counter stood along x sinks as this one rises; one laid north is in the ground
+        // picture, and is taken off it from the far end while this one comes up, as a fence's is.)
+        if (rise >= 1) { bare(sx, sy, T, T); continue }
+        if (shp.k !== 'face') { bare(sx, sy, T, Math.round(T * Math.min(1, rise / 0.6))); continue }
         sunk = 1 - rise
       }
       if (shp.k === 'flat') continue
@@ -912,6 +942,10 @@ export default function isoView(kit: Kit): View {
         if (outdoors && sy >= T && shapeAt(tx, ty - 1).k !== 'top' && (t === '#' || t === '%' || t === '^')) fg.drawImage(ground, sx, sy - T, T, T, sx, sy, T, T)
         const fy = ty + shp.f
         const hz = (shp.h / T) * sunk
+        // (A sinking crown closes as it reaches the ground: whole px off every edge.)
+        const inPx = sunk < 0.25 ? Math.round((1 - sunk / 0.25) * T / 2) : 0
+        if (inPx * 2 >= T) continue
+        const q = inPx / T
         const side = builtOf(t, false)
         const slope = shp === ROOF ? pitch * k : 0
         if (slope > 0) {
@@ -925,7 +959,7 @@ export default function isoView(kit: Kit): View {
             const gy = ((fr < 0 ? ty : fr) - R.y) * T
             quad(tx + 1, fy, zN, 0, tx + 1, fy + 1, zS, 0, tx + 1, fy + 1, hz, 0, tx + 1, fy, hz, 0, sx + 1, gy + 13, sx + 3, gy + 15, 2, side, eastShade, 0, 0)
           }
-        } else quad(tx, fy, hz, 0, tx + 1, fy, hz, 0, tx + 1, fy + 1, hz, 0, tx, fy + 1, hz, 0, sx, sy, sx + T, sy + T, 0, builtOf(t, true))
+        } else quad(tx + q, fy + q, hz, 0, tx + 1 - q, fy + q, hz, 0, tx + 1 - q, fy + 1 - q, hz, 0, tx + q, fy + 1 - q, hz, 0, sx + inPx, sy + inPx, sx + T - inPx, sy + T - inPx, 0, builtOf(t, true))
         // The rock beyond the edge is wooded on top, so it is a hillside and not a tabletop. (No sway: the
         // wind bends a plant from the ground up, and these do not stand on it.)
         if (green && t === '#' && (tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) && hash2(tx, ty, 24) > 0.42) {
@@ -940,12 +974,12 @@ export default function isoView(kit: Kit): View {
         for (let l = 0; l < levels; l++) {
           const r0 = 1 - (l + 1) / levels
           const r1 = 1 - l / levels
-          if (south && l >= step) quad(tx, fy + 1, (l + 1) * sunk, 0, tx + 1, fy + 1, (l + 1) * sunk, 0, tx + 1, fy + 1, l * sunk, 0, tx, fy + 1, l * sunk, 0, sx, sy, sx + T, sy + T, 1, side, southShade, r0, r1)
+          if (south && l >= step) quad(tx + q, fy + 1 - q, (l + 1) * sunk, 0, tx + 1 - q, fy + 1 - q, (l + 1) * sunk, 0, tx + 1 - q, fy + 1 - q, l * sunk, 0, tx + q, fy + 1 - q, l * sunk, 0, sx + inPx, sy, sx + T - inPx, sy + T, 1, side, southShade, r0, r1)
           if (east) {
             // The east side runs from the back corner to the front one: the picture's left edge is the far end.
             const fr = faceRow(tx, ty, l)
             const ey = ((fr < 0 ? ty : fr) - R.y) * T
-            quad(tx + 1, fy, (l + 1) * sunk, 0, tx + 1, fy + 1, (l + 1) * sunk, 0, tx + 1, fy + 1, l * sunk, 0, tx + 1, fy, l * sunk, 0, sx, ey, sx + T, ey + T, 2, side, eastShade, r0, r1)
+            quad(tx + 1 - q, fy + q, (l + 1) * sunk, 0, tx + 1 - q, fy + 1 - q, (l + 1) * sunk, 0, tx + 1 - q, fy + 1 - q, l * sunk, 0, tx + 1 - q, fy + q, l * sunk, 0, sx + inPx, ey, sx + T - inPx, ey + T, 2, side, eastShade, r0, r1)
           }
         }
         continue
@@ -1058,7 +1092,13 @@ export default function isoView(kit: Kit): View {
         // classic art never drew, closed on top and to the east with a plain patch of the drawing's own edge.
         const x0 = it.x - C.ax / T
         const x1 = it.x + (C.w - C.ax) / T
-        quad(x0, ay, top, 0, x1, ay, top, 0, x1, ay, foot, 0, x0, ay, foot, 0, cellX, cellY, u1, v1, 4, 1)
+        // (Early in the turn the front is a hair nearer than the wall plane it stands on: a counter's strip beside
+        // it stands on the same plane and would cut into its awning. In depth only: the offsets put it back where
+        // it was on the screen.)
+        const nb = 0.03 * (1 - k)
+        const fy = ay + nb
+        const nx = -nb * cam.ey.x
+        quad(x0, fy, top, nx, x1, fy, top, nx, x1, fy, foot, nx, x0, fy, foot, nx, cellX, cellY, u1, v1, 4, 1, 0, 0, 0, -nb * cam.ey.y)
         const hw = it.box.w / 2 / T
         const hz = it.box.h / T
         // (The body grows back from its front as the picture turns: at k = 0 the front stands where the classic drawing does.)

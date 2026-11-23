@@ -27,7 +27,7 @@ async function load() {
         `export { ENGINES, resolveParams, paramDiff, cleanParam, isEngineId } from './viewParams'`,
         `export { WORLD } from './world/index'`,
         `export { TILE_INFO } from './world/tiles'`,
-        `export { createTurn } from './render/turn'`,
+        `export { createTurn, turnTime } from './render/turn'`,
         `export { SW_W, SW_H, TICK_MS, REFUSE_MS, shortTag, switchLayout, carriageAt, seamAt, tickNudge, refuseNudge, chromeAlpha, captionFor, paintSwitch } from './render/turnSwitch'`,
         `export { NEON_SKIN, HIRES_WINDOW_SKIN } from './render/hud'`,
         `export { massesOf, blobOf, shadeTint } from './render/shade'`,
@@ -756,6 +756,53 @@ describe('the turn between views', () => {
     t.set('hologram')
     assert.equal(t.id, 'classic')
     assert.deepEqual(t.step(1), { shown: '', k: 0 })
+  })
+  // The renderer's numbers (TURN_S, HANDOFF in renderer.ts).
+  const S = 0.7
+  const H = 0.1
+  /** A whole turn at a given frame length: the raw k of every frame the view drew. */
+  const frames = (t, dt, held = () => false) => {
+    const ks = []
+    for (let i = 0; i < 600 && t.turning; i++) { const r = t.step(M.turnTime(dt, t.k, H, S, held(i))); if (r.shown) ks.push(r.k) }
+    return ks
+  }
+  it('counts a steady frame whole: a turn at 60 or 30 frames a second takes its 0.7 s', () => {
+    const t = M.createTurn(id => id === 'iso', S)
+    t.set('iso')
+    assert.equal(frames(t, 1 / 60).length, 42)
+    t.set('classic')
+    assert.equal(frames(t, 1 / 60).length, 41, 'the last frame out is the classic picture alone')
+    for (const k of [0, 0.05, H, 0.2, 0.5, 1]) {
+      assert.equal(M.turnTime(1 / 60, k, H, S), 1 / 60)
+    }
+    assert.equal(M.turnTime(1 / 30, 0.5, H, S), 1 / 30)
+    assert.equal(M.turnTime(0.1, 0.5, H, S), 0.1, 'away from the hand-off a long frame is the time it took')
+  })
+  it('never lets a long frame carry the turn over the hand-off, in or out', () => {
+    for (const dt of [1 / 60, 1 / 30, 1 / 20, 0.1]) {
+      const t = M.createTurn(id => id === 'iso', S)
+      t.set('iso')
+      const into = frames(t, dt).filter(k => k < H)
+      assert.ok(into.length >= 4, `in at ${dt.toFixed(3)} s a frame: ${into.length} frames of the hand-off`)
+      t.set('classic')
+      const out = frames(t, dt).filter(k => k < H)
+      assert.ok(out.length >= 2, `out at ${dt.toFixed(3)} s a frame: ${out.length} frames of the hand-off`)
+    }
+    // The longest frame the shell hands over, from anywhere above the hand-off: it lands in it, not past it.
+    for (let k = H + 0.001; k < 1; k += 0.007) {
+      const left = k - M.turnTime(0.1, k, H, S) / S
+      assert.ok(left > 0, `a long frame at k ${k.toFixed(3)} ends the turn (${left.toFixed(3)})`)
+    }
+  })
+  it('does not count a frame that was made long on purpose', () => {
+    // The turn out paints the classic picture in its second frame: the third is a steady frame, whatever the clock says.
+    const t = M.createTurn(id => id === 'iso', S)
+    t.set('iso', true)
+    t.step(0)
+    t.set('classic')
+    const ks = frames(t, 0.1, i => i === 2).slice(0, 3)
+    assert.ok(ks[1] - ks[2] < 0.03, `after the painted frame the turn moves ${(ks[1] - ks[2]).toFixed(3)}`)
+    assert.ok(ks[0] - ks[1] > 0.1)
   })
 })
 
