@@ -55,7 +55,8 @@ heavy_run npm ci --include=dev --no-audit --no-fund
 # One run of every tests/*.test.mjs, so a new test file joins the checks by itself. One pass also keeps small suites
 # from queuing for the heavy slot one at a time.
 heavy_run env -u pm_id NODE_ENV=test npm test
-heavy_run npm run typecheck
+# vue-tsc outgrows V8's default heap (~1 GB under heavy's 2 GB cap); give it room below the cap.
+heavy_run env NODE_OPTIONS=--max-old-space-size=1792 npm run typecheck
 heavy_run npm run build
 if [ "$automatic" = 1 ]; then
   fetch_branch
