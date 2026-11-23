@@ -155,7 +155,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
       }),
       ...group('The camera', {
         pose: choice('Camera', 'crane', ['crane', 'shoulder'], 'Crane: behind and above the hero, looking north (the 32-bit look). Shoulder: low behind the hero, the horizon across the upper half (the 64-bit look’s camera). A change is eased into.'),
-        pitch: num('Crane pitch', 28, 10, 60, 1, 'How far the crane looks down, degrees.'),
+        pitch: num('Crane pitch', 25.4, 10, 60, 0.2, 'How far the crane looks down, degrees.'),
         dist: num('Crane distance', 13.5, 4, 24, 0.1, 'From the crane to the hero, tiles.'),
         fov: num('Crane lens', 50, 30, 80, 1, 'The field of view, degrees (the vertical one on a wide screen, the horizontal one on a tall one).'),
         focusY: num('Hero on screen', 0.7, 0.4, 0.85, 0.01, 'Where the hero stands, from the top of the screen (0) to the bottom (1).'),

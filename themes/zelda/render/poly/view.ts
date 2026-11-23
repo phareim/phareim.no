@@ -254,6 +254,26 @@ export default function polyView(kit: Kit): View {
     return job
   }
 
+  /**
+   * An interior's room: the map down to its south wall (the last row that is mostly wall and door). What the map
+   * has south of that (a step outside its door) is outside the room, and dark.
+   */
+  const roomCache = new Map<string, Rect>()
+  function interiorRoom(m: GameState['map']): Rect {
+    let r = roomCache.get(m.id)
+    if (!r) {
+      let last = m.h - 1
+      for (let y = m.h - 1; y >= 0; y--) {
+        let n = 0
+        for (let x = 0; x < m.w; x++) { const t = m.tiles[y * m.w + x]; if (t === '#' || t === '%' || t === '^' || t === 'D' || t === 'L' || t === 'K' || t === 'X') n++ }
+        if (n >= m.w * 0.6) { last = y; break }
+      }
+      r = { x: 0, y: 0, w: m.w, h: last + 1 }
+      roomCache.set(m.id, r)
+    }
+    return r
+  }
+
   function signExits(mapId: string): Set<number> {
     let set = signCache.get(mapId)
     if (!set) {
@@ -559,7 +579,7 @@ export default function polyView(kit: Kit): View {
     const ek = ease(k)
 
     // --- the camera ---------------------------------------------------------------------------------------
-    const rooms: Rect[] = kind === 'dungeon' ? (s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]) : kind === 'interior' ? [{ x: 0, y: 0, w: m.w, h: m.h }] : []
+    const rooms: Rect[] = kind === 'dungeon' ? (s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]) : kind === 'interior' ? [interiorRoom(m)] : []
     const roomed = rooms.length > 0
     // A room on a wide screen is seen whole across: the camera stands back as far as its width needs.
     const roomFov = (par.roomFov as number) * Math.PI / 180

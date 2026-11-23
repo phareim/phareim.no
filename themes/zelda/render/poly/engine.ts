@@ -115,6 +115,8 @@ void main() {
   // Over the turn this view's own things come up out of the ground and the classic stand-ins go down into it
   // (moved, never squashed: what is under the ground is hidden by it). A role's share is how far it is up.
   float m = aRole < 0.5 ? 1.0 : aRole < 1.5 ? uRoles.x : aRole < 2.5 ? uRoles.y : aRole < 3.5 ? uRoles.z : uRoles.w;
+  // (Wholly in the ground, it is not drawn at all: where there is no floor over it, beyond a room's kerb, it would show.)
+  if (aRole > 0.5 && m <= 0.0001) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); return; }
   float deep = aRole < 0.5 ? 0.0 : aRole < 1.5 ? 3.2 : aRole < 2.5 ? 1.5 : aRole < 3.5 ? 1.7 : 1.5;
   vec3 p = vec3(aPos.xy, aPos.z - (1.0 - m) * deep + (aGround + aZk) * uLift);
   // The far land bends up toward the horizon, so the world meets the sky as a ridge, wherever the eye stands.

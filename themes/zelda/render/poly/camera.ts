@@ -38,8 +38,8 @@ export interface Pose {
   focusY: number
 }
 
-/** The 32-bit look's camera: a crane behind and above the hero, looking north, the horizon in the top eighth. */
-export const CRANE: Pose = { yaw: 0, pitch: 28 * Math.PI / 180, dist: 13.5, fov: 50 * Math.PI / 180, focusY: 0.7 }
+/** The 32-bit look's camera: a crane behind and above the hero, looking north, the horizon about a fifth of the way down (the sun whole over it). */
+export const CRANE: Pose = { yaw: 0, pitch: 25.4 * Math.PI / 180, dist: 13.5, fov: 50 * Math.PI / 180, focusY: 0.7 }
 
 /** The 64-bit look's camera: at the hero's shoulder, the horizon across the upper half. Its yaw follows the hero. */
 export const SHOULDER: Pose = { yaw: 0, pitch: 14 * Math.PI / 180, dist: 4.2, fov: 60 * Math.PI / 180, focusY: 0.66 }

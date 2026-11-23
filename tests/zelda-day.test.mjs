@@ -96,13 +96,16 @@ describe('the woods by the hour', () => {
     assert.ok(s.map.enemies.every(e => e.rank === undefined && !e.away))
   })
 
-  // What each screen shows: a small phone, a tall phone and a desktop, in the classic view and turned (the 16-bit view's diamond).
+  // What each screen shows: a small phone, a tall phone and a desktop, in the classic view and turned (the 16-bit view's
+  // diamond), and the polygon view's trapezoid north to its horizon (as it reports it on a desktop).
   const SIGHTS = [
     { x: 13, y: 11 }, { x: 13, y: 28 }, { x: 26, y: 16 },
     { x: 13, y: 28, turned: true }, { x: 26, y: 16, turned: true },
+    { x: 20, y: 4, ahead: 30, spread: 0.75 },
   ]
   /** On the screen as the player sees it (the camera on the hero, clamped in the classic view). */
   const visible = (s, v, x, y) => {
+    if (v.ahead !== undefined) { const north = s.hero.y - y; return north > -v.y && north < v.ahead && Math.abs(x - s.hero.x) < v.x / 2 + Math.max(0, north) * v.spread }
     if (v.turned) { const dx = x - s.hero.x; const dy = y - s.hero.y; return Math.abs(dx - dy) < v.x / 2 && Math.abs(dx + dy) < v.y }
     const cx = v.x >= s.map.w ? s.map.w / 2 : Math.max(v.x / 2, Math.min(s.map.w - v.x / 2, s.hero.x))
     const cy = v.y >= s.map.h ? s.map.h / 2 : Math.max(v.y / 2, Math.min(s.map.h - v.y / 2, s.hero.y))
@@ -110,7 +113,7 @@ describe('the woods by the hour', () => {
   }
 
   for (const v of SIGHTS) {
-    it(`walks foes in from past the screen as the evening comes, never out of thin air (${v.x}×${v.y}${v.turned ? ' turned' : ''})`, () => {
+    it(`walks foes in from past the screen as the evening comes, never out of thin air (${v.x}×${v.y}${v.turned ? ' turned' : v.ahead ? ' polygon' : ''})`, () => {
       let walked = 0
       let came = 0
       for (const [map, entry] of [['wildwood', 'camp'], ['wildwood', 'deep'], ['overworld', 'woods'], ['overworld', 'graves'], ['overworld', 'glade']]) {
@@ -136,6 +139,39 @@ describe('the woods by the hour', () => {
       assert.ok(walked > 0, `some walked in (${walked} of ${came})`)
     })
   }
+
+  it('counts the polygon view\'s sight as a trapezoid north of the hero: in it a foe walks in, past it a foe is home', () => {
+    // A short, narrow trapezoid, so that homes fall in it, beyond its far edge and beside its spread.
+    const v = { x: 12, y: 2, ahead: 10, spread: 0.6 }
+    const MARGIN = 1.5
+    const tally = { inside: 0, beyond: 0, beside: 0 }
+    for (const [map, entry] of [['wildwood', 'camp'], ['wildwood', 'deep'], ['overworld', 'woods'], ['overworld', 'glade']]) {
+      const s = won(map, entry)
+      s.sight = v
+      Z.setDaytime(Z.WORLD, s, Z.DAY.noon + 50)
+      const out = new Set(live(s).map(e => e.id))
+      for (let k = 0; k < 60 * 140; k++) {
+        s.hero.invuln = 10
+        s.hero.hp = s.hero.maxHp
+        Z.stepGame(Z.WORLD, s, 1 / 60, NO())
+        for (const e of live(s)) {
+          if (out.has(e.id)) continue
+          out.add(e.id)
+          const north = s.hero.y - e.home.y
+          const across = Math.abs(e.home.x - s.hero.x)
+          const inside = north > 0 && north < v.ahead && across < v.x / 2 + north * v.spread
+          const beyond = north > v.ahead + MARGIN + 0.5 && across < v.x / 2
+          const beside = north > 0 && north < v.ahead && across > v.x / 2 + north * v.spread + MARGIN + 0.5
+          if (inside && e.trek) tally.inside++
+          if (beyond) { tally.beyond++; assert.ok(!e.trek, `${e.id} walks in from a home beyond the far edge (${north.toFixed(1)} north)`) }
+          if (beside) { tally.beside++; assert.ok(!e.trek, `${e.id} walks in from a home beside the trapezoid (${across.toFixed(1)} across, ${north.toFixed(1)} north)`) }
+          if (e.trek) assert.ok(north > -v.y - MARGIN && north < v.ahead + MARGIN && across < v.x / 2 + Math.max(0, north) * v.spread + MARGIN, `${e.id} walks in from a home out of sight`)
+        }
+      }
+    }
+    assert.ok(tally.inside > 0, `a foe with its home in the trapezoid walked in (${JSON.stringify(tally)})`)
+    assert.ok(tally.beyond > 0 && tally.beside > 0, `homes beyond and beside it were tried (${JSON.stringify(tally)})`)
+  })
 
   it('lets them leave in the morning, out of sight, and brings them back fresh', () => {
     const s = won('wildwood', 'camp')

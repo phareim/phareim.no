@@ -573,15 +573,21 @@ filtered textures, fog).
   the screen, so what stands upright stays upright. `poseMatrix` divides by the
   focus's distance (w is 1 there, as everywhere in the classic picture) and
   `rigMatrix` mixes the two element by element under the turn's ease, so the
-  turn needs no camera of its own. `CRANE` (pitch 28°, 13.5 tiles, lens 50°,
-  the hero 70 % down: the horizon in the top eighth) looks north, so `View.turn`
+  turn needs no camera of its own. `CRANE` (pitch 25.4°, 13.5 tiles, lens 50°,
+  the hero 70 % down: the horizon about a fifth of the way down, so the
+  backdrop, laid by its horizon, has its striped sun whole over the ridges) looks north, so `View.turn`
   is 0 and the controls are the classic ones. Indoors the camera has a pose of
   its own (`roomPitch` 32°, `roomDist` 9): on a wide screen it stands back as
   far as the room's width needs, so the whole width is in the picture, and
   follows the hero in depth; on a tall one it follows sideways and comes as
   near as the room's depth needs to fill the picture, the back wall's top at
-  the top edge. A room's north and side walls stand two tiles tall (the face
-  picture again over itself, a course darker); the south wall is a kerb. On a screen taller than wide the lens is the horizontal one, and
+  the top edge. A room's north and side walls stand two tiles tall: the lowest
+  course is the tile's own picture (its letters, signs, screens, shelves,
+  doors), the one over it the map's plain wall material (`bricks`, `panel`,
+  `steel`), in two steps darker toward the top. The south wall is a kerb on
+  its own row. Outside the room everything is dark: a wall has no floor of its
+  own, an interior's room ends at its south wall (the last row that is mostly
+  wall and door), and what has gone wholly into the ground is not drawn. On a screen taller than wide the lens is the horizontal one, and
   `fitPose` tips the camera down and a little nearer by as much as the screen is
   tall, so a phone sees ground, not sky. The view holds a pose and eases toward
   the one its values ask for (`mixPose`), so a change of values (the `pose`

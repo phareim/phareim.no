@@ -250,6 +250,8 @@ export class Mesher {
   // --- the ground --------------------------------------------------------------------------------------------
 
   private ground(tx: number, ty: number) {
+    // (In a room a wall has no floor of its own: what its mass does not cover is outside the room, and dark.)
+    if (this.o.room && isWall(this.f.tile(tx, ty))) return
     const land = this.f.land
     // (Fine near the water, where the shore curves; coarse cells elsewhere draw the same surface.)
     const res = this.o.coarse ? Math.min(2, land.step(tx, ty)) : land.step(tx, ty)
@@ -386,14 +388,24 @@ export class Mesher {
     /** The second course over a quad (corners top-left, top-right, bottom-right, bottom-left): the same picture again over it, darker. */
     const course = (a: P, b: P, c: P, d: P, n: readonly [number, number, number], dark: number) => {
       if (!twice) return
+      void c
+      // Plain wall, never the tile's own picture again (a sign, a row of letters, a screen, a shelf, a door would
+      // stand twice): the map's wall material, in two steps darker toward the top.
       const B = this.brush
-      this.set(B.tex, [B.r * dark, B.g * dark, B.b * dark], B.role, B.flags)
+      const plain = matTex(this.f.look === 'lab' ? 'steel' : this.f.kind === 'dungeon' ? 'bricks' : 'panel')
       const h = a.z - d.z
-      this.quad({ ...a, zk: (a.zk ?? 0) + h }, { ...b, zk: (b.zk ?? 0) + h }, { ...b, u: c.u, v: c.v }, { ...a, u: d.u, v: d.v }, n)
+      const along = (p: P) => (n[0] !== 0 ? p.y : p.x) * 16
+      const at = (p: P, up: number): P => ({ ...p, zk: (p.zk ?? 0) + up, u: along(p), v: (1 - up / h) * 16 * h })
+      this.set(plain, [dark * 1.08, dark * 1.08, dark * 1.12], B.role, B.flags)
+      this.quad(at(a, h / 2), at(b, h / 2), at(b, 0), at(a, 0), n)
+      this.set(plain, [dark * 0.86, dark * 0.86, dark * 0.92], B.role, B.flags)
+      this.quad(at(a, h), at(b, h), at(b, h / 2), at(a, h / 2), n)
       this.set(B.tex, [B.r, B.g, B.b], B.role, B.flags)
     }
     if (shp.k === 'top') {
-      const fy = ty + shp.f
+      // (A kerb stands on its own row: a row further south, where the art's reading puts a wall's mass, is
+      // outside the room.)
+      const fy = ty + (cut < 1 ? 0 : shp.f)
       const hz = (shp.h / T) * cut
       const a = this.art(tx, ty)
       if (inMap) this.set(TEX.OBJS, [1, 1, 1], role, flags)
