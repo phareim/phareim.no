@@ -25,14 +25,15 @@ import { createTileLayer, drawLiveTiles, groundKindOf, hash2, noise, updateTileL
 import { drawDecals } from '../decals'
 import { exitTiles, nearExit } from '../exits'
 import { makeCanvas } from '../sheet'
-import { NEON_SKIN } from '../hud'
+import { GLASS_SKIN, NEON_SKIN } from '../hud'
 import { drawHookChain } from '../wild'
 import { BEYOND, beyondTile } from '../beyond'
 import { ease, type Rect } from '../iso/project'
 import { buildMaterials, MAT, MATERIALS, stepMaterials } from '../iso/materials'
 import { buildBackdrop, type Backdrop, type BackdropLook } from '../iso/backdrop'
-import { CRANE, SHOULDER, classicMatrix, fitPose, horizonY, mixPose, poseAxes, poseMatrix, rigMatrix, toScreen, type Mat4, type Pose } from './camera'
-import { buildLand, lift, type Land } from './terrain'
+import { skyGrade } from '../daylight'
+import { CRANE, SHOULDER, classicMatrix, fitPose, horizonY, mixPose, toGround, poseAxes, poseMatrix, rigMatrix, toScreen, type Mat4, type Pose } from './camera'
+import { landWork, stand, type Land, type LandLook } from './terrain'
 import { FLAG, MAT_SLOTS, Mesher, ROLE, STRIDE, TEX, Verts, massOf, type Field, type MatSlot } from './mesh'
 import { createEngine, rgb, type Engine, type Lamp, type PolyLook } from './engine'
 
@@ -49,6 +50,12 @@ const CHUNK = 16
 const MATS_SIDE = 64
 
 let pinned: boolean | null = null
+/**
+ * How much the view spends: 2 everything; 1 without the bloom's own pass, a shorter draw distance and coarse cells
+ * everywhere; 0 also a picture of half the size. A device that keeps missing frames is stepped down while it
+ * plays and stays there (as the 16-bit view's `govern`); `pinQuality` holds it at 2 for the lab.
+ */
+let quality = 2
 /** The lab paints everything in one go instead of a slice a frame. */
 export function pinQuality(on: boolean | null): void { pinned = on }
 
@@ -72,6 +79,13 @@ function standIn(kit: Kit): View {
   }
 }
 
+/** A css colour, '#rrggbb' or 'rgb(r,g,b)', as 0..1. */
+const cssRgb = (c: string): [number, number, number] => c.startsWith('#') ? rgb(c) : c.slice(4, -1).split(',').map(v => +v / 255) as [number, number, number]
+
+/** How far through a window of the turn (k from a to b), eased. */
+const mix3 = (a: readonly number[], b: readonly number[], t: number): [number, number, number] => [a[0]! + (b[0]! - a[0]!) * t, a[1]! + (b[1]! - a[1]!) * t, a[2]! + (b[2]! - a[2]!) * t]
+const win = (k: number, a: number, b: number) => ease(Math.max(0, Math.min(1, (k - a) / (b - a))))
+
 /** The materials, at this view's density: every other texel of the 16-bit view's (32 to the tile there). */
 function shrinkMaterials(): Uint8Array {
   const m = buildMaterials()
@@ -88,6 +102,9 @@ function shrinkMaterials(): Uint8Array {
   return out
 }
 
+/** A stretch of static geometry on the GPU, what stands alone in it (for blob shadows), and whether the map has changed under it. */
+interface Chunk { buf: WebGLBuffer; count: number; stands: number[]; dirty: boolean }
+
 /** Everything the view keeps of one map. */
 interface MapCtx {
   id: string
@@ -102,7 +119,7 @@ interface MapCtx {
   fh: number
   /** The meshers: one for the open world, one per room indoors. */
   meshers: Map<string, Mesher>
-  chunks: Map<string, { buf: WebGLBuffer; count: number; stands: number[] }>
+  chunks: Map<string, Chunk>
   stateKey: string
 }
 
@@ -128,6 +145,13 @@ export default function polyView(kit: Kit): View {
   const blobs = new Verts(512)
   const scratch = new Verts(1 << 15)
   let backdrop: Backdrop | null = null
+  /** The sky's lowest colour, where the distance dissolves into it. */
+  let skyLow = '#26163f'
+  /** The same, at the hour. */
+  let dayLow = '#26163f'
+  /** What shines by itself this frame, for the bloom. */
+  const glowC = makeCanvas(1, 1)
+  let glowG = glowC.getContext('2d')!
   let backdropKey = ''
   const signCache = new Map<string, Set<number>>()
 
@@ -155,11 +179,79 @@ export default function polyView(kit: Kit): View {
     const built = engine.ready(pinned === true)
     if (built === 'failed') { engine.dispose(); fallback = standIn(kit); return true }
     const painted = paint(pinned === true, hurry)
+    let landed = true
     if (s && painted) {
       if (!base || base.mapId !== s.map.id) base = createTileLayer(world, s.map, 'base')
       if (!objects || objects.mapId !== s.map.id) objects = createTileLayer(world, s.map, 'objects')
+      landed = !!landFor(s.map.id, kit.params('poly') as Record<string, unknown>, pinned === true ? Infinity : hurry ? 40 : 8)
     }
-    return painted && built === 'yes'
+    return painted && built === 'yes' && landed
+  }
+
+  /**
+   * The land of each map, built a slice at a time (`landWork`): while the view waits to be shown, over a door's
+   * fade toward the map being entered, and only as a last resort all at once in the frame that needs it. It is
+   * the map's own (its tiles as the world has them), so cutting a bush does not build it again.
+   */
+  interface LandJob { work: Generator<void, Land, void> | null; land: Land | null; shore: Uint8Array | null; row: number }
+  const lands = new Map<string, LandJob>()
+  function landKey(id: string, par: Record<string, unknown>): string {
+    const outdoors = mapInfo(world, id).def.kind === 'overworld'
+    return `${id}:${outdoors && par.beyond ? BEYOND : 0}:${par.hills}:${par.shore}:${par.far}`
+  }
+  function landLook(par: Record<string, unknown>): LandLook { return { hills: par.hills as number, shore: par.shore as number, far: par.far as number } }
+  /** Work on a map's land for `ms` (Infinity: to the end); the land once it and its shore picture are done. */
+  function landFor(id: string, par: Record<string, unknown>, ms: number): LandJob | null {
+    const key = landKey(id, par)
+    let job = lands.get(key)
+    if (!job) {
+      const info = mapInfo(world, id)
+      const kind = info.def.kind
+      const outdoors = kind === 'overworld'
+      const M = outdoors && par.beyond ? BEYOND : 0
+      const { w, h, base } = info
+      const own = exitTiles(world, id)
+      let seed = 0
+      for (let i = 0; i < id.length; i++) seed = (seed * 31 + id.charCodeAt(i)) | 0
+      const at = (x: number, y: number): TileChar => {
+        const tx = Math.floor(x)
+        const ty = Math.floor(y)
+        if (tx >= 0 && ty >= 0 && tx < w && ty < h) return base[ty * w + tx]!
+        if (!outdoors) return '#'
+        const t = beyondTile(base, w, h, tx, ty)
+        // Beyond the edge rock is the land's far hills, not a wall: it rises with them.
+        return t === '#' ? '.' : t
+      }
+      job = { work: landWork({ w, h, kind, at, level: (x, y) => own.has(y * w + x), beyond: M, seed }, landLook(par)), land: null, shore: null, row: 0 }
+      // (A few maps are kept: the one shown, the one a door leads to, the one just left.)
+      if (lands.size > 3) lands.delete(lands.keys().next().value!)
+      lands.set(key, job)
+    }
+    const t0 = performance.now()
+    while (job.work) {
+      const r = job.work.next()
+      if (r.done) { job.land = r.value; job.work = null; break }
+      if (performance.now() - t0 > ms) return null
+    }
+    if (!job.shore) {
+      // The drawn shore as a picture the water reads its foam from: the land's lattice, the distance in a byte.
+      const land = job.land!
+      const info = mapInfo(world, id)
+      const M = info.def.kind === 'overworld' && par.beyond ? BEYOND : 0
+      const res = land.res
+      const sw = (info.w + 2 * M) * res + 1
+      const sh = (info.h + 2 * M) * res + 1
+      const data = (job as LandJob & { data?: Uint8Array }).data ??= new Uint8Array(sw * sh)
+      for (; job.row < sh; job.row++) {
+        for (let i = 0; i < sw; i++) {
+          const v = land.shore(-M + i / res, -M + job.row / res)
+          data[job.row * sw + i] = Math.round(Math.max(0, Math.min(1, (v + 2) / 4)) * 255)
+        }
+        if (performance.now() - t0 > ms) { job.row++; return null }
+      }
+      job.shore = data
+    }
+    return job
   }
 
   function signExits(mapId: string): Set<number> {
@@ -195,9 +287,12 @@ export default function polyView(kit: Kit): View {
     const outdoors = kind === 'overworld'
     const M = outdoors && par.beyond ? BEYOND : 0
     const look = { hills: par.hills as number, shore: par.shore as number, far: par.far as number }
-    const key = `${m.id}:${m.version}:${M}:${look.hills}:${look.shore}:${look.far}:${par.roofPitch}:${par.props}:${par.sunAngle}:${par.shadowLength}`
+    const key = `${m.version}|${m.id}:${M}:${look.hills}:${look.shore}:${look.far}:${par.roofPitch}:${par.props}:${par.sunAngle}:${par.shadowLength}`
     if (ctx && ctx.key === key) return ctx
-    if (ctx) for (const c of ctx.chunks.values()) engine.drop(c)
+    // (The same map in the same look, changed: its stretches are kept and drawn until each is built again.)
+    const keep = ctx && ctx.id === m.id && ctx.key.split('|')[1] === key.split('|')[1] ? ctx.chunks : null
+    if (ctx && !keep) for (const c of ctx.chunks.values()) engine.drop(c)
+    if (keep) for (const c of keep.values()) c.dirty = true
     const own = exitTiles(world, m.id)
     const fw = m.w + 2 * M
     const fh = m.h + 2 * M
@@ -250,7 +345,10 @@ export default function polyView(kit: Kit): View {
         if (comp.length <= 80 && paved >= shore * 0.6) for (const p of comp) pools[p] = 1
       }
     }
-    const land = buildLand({ w: m.w, h: m.h, kind, at: (x, y) => tile(Math.floor(x), Math.floor(y)), level: (x, y) => own.has(y * m.w + x), beyond: M, seed }, look)
+    void seed
+    void look
+    const job = landFor(m.id, par, Infinity)!
+    const land = job.land!
     const field: Field = {
       kind, look: def.look, w: m.w, h: m.h, tile, land,
       own: (x, y) => inMap(x, y) && own.has(y * m.w + x),
@@ -266,9 +364,9 @@ export default function polyView(kit: Kit): View {
       mood: (x, y) => noise(x * T, y * T, 96, 7) > (wild ? 0.4 : 0.56) ? 1 : 0,
       hash: hash2,
     }
-    ctx = { id: m.id, key, kind, look: def.look, field, land, M, fw, fh, meshers: new Map(), chunks: new Map(), stateKey: stateOf(s) }
+    ctx = { id: m.id, key, kind, look: def.look, field, land, M, fw, fh, meshers: new Map(), chunks: keep ?? new Map(), stateKey: stateOf(s) }
     sendKinds(ctx)
-    sendShore(ctx)
+    engine.shoreField(job.shore!, fw * land.res + 1, fh * land.res + 1)
     return ctx
   }
 
@@ -281,24 +379,69 @@ export default function polyView(kit: Kit): View {
     const a = ((par.sunAngle as number) * Math.PI) / 180
     const field = { x: -c.M, y: -c.M, w: c.fw, h: c.fh }
     const pitch = outdoors ? (par.roofPitch as number) : 0
-    me = new Mesher(c.field, { pitch, room, sun: null, props: !!par.props })
+    const coarse = quality < 2
+    me = new Mesher(c.field, { pitch, room, sun: null, props: !!par.props, coarse })
     if (outdoors) {
       const mass = massOf(c.field, me, field, pitch)
-      me = new Mesher(c.field, { pitch, room, props: !!par.props, sun: { dx: Math.cos(a), dy: Math.sin(a), rise: 1 / Math.max(0.2, par.shadowLength as number), mass } })
+      me = new Mesher(c.field, { pitch, room, props: !!par.props, coarse, sun: { dx: Math.cos(a), dy: Math.sin(a), rise: 1 / Math.max(0.2, par.shadowLength as number), mass } })
     }
     c.meshers.set(key, me)
     return me
   }
 
-  /** A stretch of static geometry, built the first time it is wanted. */
-  function chunk(c: MapCtx, me: Mesher, key: string, r: Rect) {
-    let ch = c.chunks.get(key)
-    if (ch) return ch
+  /** Time left this frame for building stretches of geometry (ms), and when the frame began. */
+  let budget = 0
+  /** The gaps between the last frames that count, ms (`govern`). */
+  const gaps = new Float32Array(120)
+  let gapN = 0
+  let lastDraw = 0
+  /** Frames left out of the count: the first ones, and those after a map change (building a map is not a slow GPU). */
+  let settle = 90
+  let shownQuality = 2
+  /**
+   * Watch the time between frames and step down when the device keeps missing them, judged by a window's median
+   * (one hitch decides nothing; a gap of several frames is a hidden tab or a pause, and is not counted).
+   */
+  function govern(paused: boolean) {
+    const now = performance.now()
+    const gap = now - lastDraw
+    lastDraw = now
+    if (pinned === true) quality = 2
+    else if (!paused && gap > 0 && gap < 120) {
+      if (settle > 0) settle--
+      else {
+        gaps[gapN++] = gap
+        if (gapN >= gaps.length) {
+          gapN = 0
+          const median = Array.from(gaps).sort((a, b) => a - b)[gaps.length >> 1]!
+          if (quality === 2 && median > 24) quality = 1
+          else if (quality === 1 && median > 42) quality = 0
+        }
+      }
+    }
+    if (quality !== shownQuality) {
+      // The stretches are built again with coarse cells, a few a frame.
+      shownQuality = quality
+      if (ctx) { ctx.meshers.clear(); for (const ch of ctx.chunks.values()) ch.dirty = true }
+    }
+  }
+  /** What the last frame showed of the ground (`View.sight`). */
+  let sight: View['sight'] = null
+  let budgetAt = 0
+  /**
+   * A stretch of static geometry, built the first time it is wanted, within this frame's budget: a stretch that
+   * does not fit waits for the next frame (an old one of the same place is drawn meanwhile).
+   */
+  function chunk(c: MapCtx, me: Mesher, key: string, r: Rect): Chunk | null {
+    const ch = c.chunks.get(key)
+    if (ch && !ch.dirty) return ch
+    if (pinned !== true && performance.now() - budgetAt > budget) return ch ?? null
     me.build(r, scratch)
     const kept = engine.keep(scratch.data, scratch.n)
-    ch = { ...kept, stands: me.stands.filter((_, i) => me.stands[i - (i % 3) + 2]! > 0) }
-    c.chunks.set(key, ch)
-    return ch
+    if (ch) engine.drop(ch)
+    const next: Chunk = { ...kept, stands: me.stands.filter((_, i) => me.stands[i - (i % 3) + 2]! > 0), dirty: false }
+    c.chunks.set(key, next)
+    return next
   }
 
   /** Each tile's ground (a material, or the classic art) and whether what the classic art lays on it stands in the round instead. */
@@ -344,19 +487,6 @@ export default function polyView(kit: Kit): View {
       data[o + 1] = stands ? 1 : up ? 2 : 0
     }
     engine.kinds(data, c.fw, c.fh)
-  }
-
-  /** The drawn shore as a picture the water reads its foam from: the land's lattice, the distance in a byte. */
-  function sendShore(c: MapCtx) {
-    const res = c.land.res
-    const w = c.fw * res + 1
-    const h = c.fh * res + 1
-    const data = new Uint8Array(w * h)
-    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
-      const s = c.land.shore(-c.M + i / res, -c.M + j / res)
-      data[j * w + i] = Math.round(Math.max(0, Math.min(1, (s + 2) / 4)) * 255)
-    }
-    engine.shoreField(data, w, h)
   }
 
   /** Grow a top-down picture in steps, so walking does not reallocate it. */
@@ -413,11 +543,16 @@ export default function polyView(kit: Kit): View {
     const par = kit.params('poly') as Record<string, unknown>
     if (!base || base.mapId !== m.id) base = createTileLayer(world, m, 'base'); else updateTileLayer(base, world, m)
     if (!objects || objects.mapId !== m.id) objects = createTileLayer(world, m, 'objects'); else updateTileLayer(objects, world, m)
+    // The frame's budget for building geometry: more in a map's first frames, where the picture waits for it.
+    budgetAt = performance.now()
+    budget = !ctx || ctx.id !== m.id ? 40 : 7
+    if (!ctx || ctx.id !== m.id) { settle = Math.max(settle, 20); gapN = 0 }
+    // A door leads to another map: its land is built over the fade.
+    if (s.warp && s.warp.to && s.warp.to !== m.id && world.maps[s.warp.to]) landFor(s.warp.to, par, 6)
     const c = mapCtx(s, par)
     const st = stateOf(s)
     if (st !== c.stateKey) {
-      for (const ch of c.chunks.values()) engine.drop(ch)
-      c.chunks.clear()
+      for (const ch of c.chunks.values()) ch.dirty = true
       c.meshers.clear()
       c.stateKey = st
     }
@@ -426,10 +561,36 @@ export default function polyView(kit: Kit): View {
     // --- the camera ---------------------------------------------------------------------------------------
     const rooms: Rect[] = kind === 'dungeon' ? (s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]) : kind === 'interior' ? [{ x: 0, y: 0, w: m.w, h: m.h }] : []
     const roomed = rooms.length > 0
+    // A room on a wide screen is seen whole across: the camera stands back as far as its width needs.
+    const roomFov = (par.roomFov as number) * Math.PI / 180
+    const wideRoom = roomed && vw >= vh ? (Math.max(...rooms.map(z => z.w)) / 2 + 0.3) * (vh / 2 / Math.tan(roomFov / 2)) / (vw / 2) : 0
     const want: Pose = fitPose(roomed
-      ? { yaw: 0, pitch: (par.roomPitch as number) * Math.PI / 180, dist: par.roomDist as number, fov: (par.roomFov as number) * Math.PI / 180, focusY: par.roomFocus as number }
+      ? { yaw: 0, pitch: (par.roomPitch as number) * Math.PI / 180, dist: Math.max(par.roomDist as number, wideRoom), fov: roomFov, focusY: par.roomFocus as number }
       : par.pose === 'shoulder' ? { ...SHOULDER }
       : { yaw: CRANE.yaw, pitch: (par.pitch as number) * Math.PI / 180, dist: par.dist as number, fov: (par.fov as number) * Math.PI / 180, focusY: par.focusY as number }, vw, vh)
+    /** On a tall screen, where the room's depth fills the picture: its back wall's top at the top edge, its kerb at the foot. */
+    let portraitY: number | null = null
+    if (roomed && vh > vw && !ui.cam) {
+      const z = rooms[0]!
+      const fit = (d: number): { y: number; foot: number } => {
+        const p = { ...want, dist: d }
+        let y = z.y + z.h / 2
+        for (let i = 0; i < 6; i++) {
+          const m = poseMatrix(p, vw, vh, { x: z.x + z.w / 2, y, z: 0 })
+          const a = toScreen(m, vw, vh, z.x + z.w / 2, z.y + 1, 2 * ek).y
+          const b = toScreen(m, vw, vh, z.x + z.w / 2, z.y + 2, 2 * ek).y
+          y += a / Math.max(1, b - a)
+        }
+        const m = poseMatrix(p, vw, vh, { x: z.x + z.w / 2, y, z: 0 })
+        return { y, foot: toScreen(m, vw, vh, z.x + z.w / 2, z.y + z.h, 0).y }
+      }
+      for (let d = want.dist; d >= 3; d -= 0.25) {
+        const f = fit(d)
+        portraitY = f.y
+        if (f.foot >= vh - 2) { want.dist = d; break }
+        want.dist = d
+      }
+    }
     if (!pose) pose = { ...want }
     // A change of values is eased into, never cut: the crane sinks to the shoulder and comes back up.
     pose = mixPose(pose, want, reduced ? 1 : 1 - Math.exp(-Math.min(0.1, dt) * 5))
@@ -438,7 +599,8 @@ export default function polyView(kit: Kit): View {
     const cx = Math.round(cf.x * T - vw / 2)
     const cy = Math.round(cf.y * T - vh / 2)
     const land = c.land
-    const groundAt = (x: number, y: number) => lift(land, x, y, k)
+    // Whatever is placed stands on the land, and never under the water's surface.
+    const groundAt = (x: number, y: number) => stand(land, x, y, k)
     let fx = ui.cam ? cf.x : s.hero.x
     let fy = ui.cam ? cf.y : s.hero.y
     if (roomed && !ui.cam) {
@@ -446,7 +608,7 @@ export default function polyView(kit: Kit): View {
       const at = (z: Rect) => {
         const F = (vw >= vh ? vh : vw) / 2 / Math.tan(pose!.fov / 2)
         const half = Math.max(0, (vw / 2 / F) * pose!.dist - 0.5)
-        const x = z.w <= 2 * half ? z.x + z.w / 2 : Math.max(z.x + half, Math.min(z.x + z.w - half, s.hero.x))
+        const x = vw >= vh || z.w <= 2 * half ? z.x + z.w / 2 : Math.max(z.x + half, Math.min(z.x + z.w - half, s.hero.x))
         // In depth the same, the picture's reach on the floor being foreshortened by the pitch.
         const deep = Math.max(0, (vh / 2 / F) * pose!.dist / Math.max(0.3, Math.sin(pose!.pitch)) - 0.8)
         const mid = z.y + z.h * 0.5 + 0.6
@@ -462,15 +624,22 @@ export default function polyView(kit: Kit): View {
         fy = a.y + (b.y - a.y) * e
       } else { fx = a.x; fy = a.y }
     }
-    const focus = { x: fx, y: fy, z: roomed ? 0 : land.height(fx, fy) }
+    const focus = { x: fx, y: fy, z: roomed ? 0 : Math.max(land.height(fx, fy), land.waterLevel) }
+    // (On a tall screen the room's depth fills the picture, and nothing dark shows over its back wall.)
+    if (portraitY !== null && !s.scroll) focus.y = portraitY
     const posed = poseMatrix(pose, vw, vh, focus, 0.25, 120)
     const classic = classicMatrix(vw, vh, cx, cy)
     const M4: Mat4 = rigMatrix(k, classic, posed)
     const { f: fwd, r: right } = poseAxes(pose)
     const eye: [number, number, number] = [focus.x - fwd[0] * pose.dist, focus.y - fwd[1] * pose.dist, focus.z - fwd[2] * pose.dist]
-    const far1 = par.drawDistance as number
+    govern(ui.paused)
+    const far1 = (par.drawDistance as number) * (quality < 2 ? 0.7 : 1)
     const far0 = far1 * 0.62
-    const place = (x: number, y: number, z = 0) => toScreen(M4, vw, vh, x, y, z + groundAt(x, y))
+    // The far land bends up toward the horizon (outdoors, at the end of the turn): what is placed on the picture bends with it.
+    const bendFrom = far1 * 0.45
+    const bendK = outdoors && !roomed ? ek * 0.85 * Math.max(1, eye[2] - focus.z) / Math.max(1, (far1 - bendFrom) ** 2) : 0
+    const bendAt = (x: number, y: number) => { const d = Math.max(0, Math.hypot(x - eye[0], y - eye[1]) - bendFrom); return bendK * d * d }
+    const place = (x: number, y: number, z = 0) => toScreen(M4, vw, vh, x, y, z + groundAt(x, y) + bendAt(x, y))
 
     // --- the tiles in play --------------------------------------------------------------------------------
     // The classic picture's, and the pose's: the ground from the screen's foot out to the draw distance.
@@ -493,9 +662,10 @@ export default function polyView(kit: Kit): View {
     const R: Rect = { x: X0, y: Y0, w: Math.max(1, X1 - X0), h: Math.max(1, Y1 - Y0) }
 
     // --- the static geometry ---------------------------------------------------------------------------------
-    const chunks: Array<{ buf: WebGLBuffer; count: number; stands: number[] }> = []
+    const chunks: Chunk[] = []
+    const add = (ch: Chunk | null) => { if (ch) chunks.push(ch) }
     if (roomed) {
-      for (const z of rooms) chunks.push(chunk(c, mesherFor(c, z, par), `room:${z.x},${z.y}`, z))
+      for (const z of rooms) add(chunk(c, mesherFor(c, z, par), `room:${z.x},${z.y}`, z))
     } else {
       const me = mesherFor(c, null, par)
       for (let qy = Math.floor(R.y / CHUNK); qy * CHUNK < R.y + R.h; qy++) for (let qx = Math.floor(R.x / CHUNK); qx * CHUNK < R.x + R.w; qx++) {
@@ -503,7 +673,7 @@ export default function polyView(kit: Kit): View {
         const x0 = Math.max(r.x, -c.M), y0 = Math.max(r.y, -c.M)
         const x1 = Math.min(r.x + r.w, m.w + c.M), y1 = Math.min(r.y + r.h, m.h + c.M)
         if (x1 <= x0 || y1 <= y0) continue
-        chunks.push(chunk(c, me, `${qx},${qy}`, { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }))
+        add(chunk(c, me, `${qx},${qy}`, { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }))
       }
     }
 
@@ -618,7 +788,7 @@ export default function polyView(kit: Kit): View {
     // --- blob shadows: under whoever walks and whatever stands alone ------------------------------------------------
     const shadowK = (par.shadow as number) > 0 ? ek : 0
     if (shadowK > 0) {
-      const dark = 1 - 0.62 * (par.shadow as number) / 0.9
+      const dark = 1 - 0.62 * (par.shadow as number) / 0.9 * shadowK
       const blob = (x: number, y: number, rad: number) => {
         if (!inRoom(x, y)) return
         const g = groundAt(x, y)
@@ -637,8 +807,15 @@ export default function polyView(kit: Kit): View {
     // --- the light -------------------------------------------------------------------------------------------
     const amb = rgb(kit.ambient(s, ui, lights))
     const day = kit.day('poly')
+    // The hour (after the Sun Prism; none: the view's own dusk). By day the sun whitens as it climbs; at night it is
+    // the moon's, faint and blue; and while the sun is up the lamps are only just lit.
+    const height = day ? day.sun : 0.12
+    const night = height < -0.3
+    const sunCol = night ? [0.5, 0.62, 1] as const : mix3(rgb(par.sunLight as string), [1, 0.97, 0.9], Math.max(0, Math.min(1, (height - 0.12) / 0.6)))
+    const sunS = outdoors ? (par.sunStrength as number) * ek * (night ? 0.4 : 1 - 0.35 * Math.max(0, Math.min(1, (height - 0.12) / 0.6))) : 0
+    const exposure = 1 + (day?.exposure ?? 0) * ek
     const lamps: Lamp[] = []
-    const gain = par.lampGain as number
+    const gain = (par.lampGain as number) * (outdoors && !night ? 1 - 0.5 * Math.max(0, Math.min(1, (height - 0.1) / 0.4)) * ek : 1)
     for (const L of lights) {
       // A lamp post carries its light at its head; anything else at about a hand's height.
       const tt = c.field.tile(Math.floor(L.x), Math.floor(L.y))
@@ -650,9 +827,6 @@ export default function polyView(kit: Kit): View {
     lamps.sort((a, b) => Math.hypot(a.x - focus.x, a.y - focus.y) - Math.hypot(b.x - focus.x, b.y - focus.y))
     const sunA = ((par.sunAngle as number) * Math.PI) / 180
     const elev = Math.atan2(1, Math.max(0.2, par.shadowLength as number))
-    const sunCol = rgb(par.sunLight as string)
-    const sunS = outdoors ? (par.sunStrength as number) * ek * (day ? Math.max(0.2, Math.min(1.2, 0.6 + day.sun)) : 1) : 0
-    const exposure = 1 + (day?.exposure ?? 0) * ek
 
     // --- the sky ------------------------------------------------------------------------------------------------
     const g = kit.scene()
@@ -663,29 +837,65 @@ export default function polyView(kit: Kit): View {
     const hy = horizonY(M4, vw, vh)
     const bdLook: BackdropLook = outdoors ? (def.look === 'wild' ? 'wild' : 'coast') : 'void'
     if (outdoors && par.sky) {
-      const key = `${bdLook}:${vw}:${vh}:${par.skyTop}:${par.skyHorizon}`
-      if (key !== backdropKey) { backdrop = buildBackdrop(bdLook, vw, vh, { top: par.skyTop as string, horizon: par.skyHorizon as string }); backdropKey = key }
+      // (Painted in the view's own dusk; the hour sinks its sun, dims its stars and grades the rest.)
+      const own = kit.params('poly', true)
+      const key = `${bdLook}:${vw}:${vh}:${own.skyTop}:${own.skyHorizon}`
+      if (key !== backdropKey) {
+        backdrop = buildBackdrop(bdLook, vw, vh, { top: own.skyTop as string, horizon: own.skyHorizon as string })
+        backdropKey = key
+        // The sky's own lowest colour, just over its horizon at the left edge (clear of the sun): the distance fades into it.
+        const probe = makeCanvas(vw, vh)
+        const pg = probe.getContext('2d')!
+        for (const L of backdrop.layers) if (!L.emissive && L.role !== 'sun') pg.drawImage(L.canvas, 0, Math.round(L.top * vh))
+        const y = Math.max(0, Math.round(backdrop.horizon * vh) - 2)
+        const d = pg.getImageData(1, y, 1, 1).data
+        skyLow = d[3] ? `#${[d[0], d[1], d[2]].map(v => v!.toString(16).padStart(2, '0')).join('')}` : (par.haze as string)
+      }
       // The backdrop's own horizon on the camera's.
       const line = Number.isFinite(hy) ? hy : -vh
       const dy = Math.round(line - backdrop!.horizon * vh)
-      g.fillStyle = par.skyTop as string
+      g.fillStyle = own.skyTop as string
       g.fillRect(0, 0, vw, vh)
+      const sinkPx = day ? Math.round(Math.max(0, 0.12 - day.sun) * vh * 0.32) : 0
+      const sunAlpha = day ? Math.max(0, Math.min(1, 1 - (day.sun - 0.25) / 0.4)) : 1
+      const starAlpha = day ? Math.max(0, Math.min(1, day.stars)) : 1
       for (const L of backdrop!.layers) {
         if (L.blink && (time % L.blink) >= L.blink / 2) continue
+        const alpha = L.role === 'sun' ? sunAlpha : L.role === 'stars' ? starAlpha : 1
+        if (alpha <= 0) continue
+        g.globalAlpha = alpha
+        if (L.role === 'sun' && sinkPx > 0) { g.save(); g.beginPath(); g.rect(0, 0, vw, Math.max(0, line)); g.clip() }
         const at = Math.round(focus.x * T * L.parallax * 0.5 + (reduced ? 0 : time) * L.drift * 0.5)
-        const y = Math.round(L.top * vh) + dy
+        const y = Math.round(L.top * vh) + dy + (L.role === 'sun' ? sinkPx : 0)
         const cw = L.canvas.width
         if (!L.repeatX) g.drawImage(L.canvas, Math.round((vw - cw) / 2) - at, y)
         else for (let x = -(((at % cw) + cw) % cw); x < vw; x += cw) g.drawImage(L.canvas, x, y)
+        if (L.role === 'sun' && sinkPx > 0) g.restore()
+        g.globalAlpha = 1
       }
+      if (day) {
+        // The hour's sky: the dusk's colours carried to the hour's (`skyGrade`), as a multiply and an add.
+        const gr = skyGrade(own.skyTop as string, own.skyHorizon as string, par.skyTop as string, par.skyHorizon as string)
+        const css = (c: readonly number[]) => `rgb(${c.map(v => Math.round(Math.max(0, Math.min(1, v)) * 255)).join(',')})`
+        g.globalCompositeOperation = 'multiply'
+        g.fillStyle = css(gr.mul.map(v => Math.min(1, v)))
+        g.fillRect(0, 0, vw, vh)
+        g.globalCompositeOperation = 'lighter'
+        g.fillStyle = css(gr.add.map((v, i) => Math.max(0, v) + Math.max(0, gr.mul[i]! - 1) * 0.3))
+        g.fillRect(0, 0, vw, vh)
+        g.globalCompositeOperation = 'source-over'
+        const lo = rgb(skyLow)
+        dayLow = css(lo.map((v, i) => v * gr.mul[i]! + gr.add[i]!))
+      } else dayLow = skyLow
       // Under the horizon, where the land has dissolved, the distance's own colour: the land fades into it first.
-      if (Number.isFinite(hy) && hy < vh) { g.fillStyle = par.haze as string; g.fillRect(0, Math.max(0, Math.round(line + 1)), vw, vh) }
+      if (Number.isFinite(hy) && hy < vh) { g.fillStyle = dayLow; g.fillRect(0, Math.max(0, Math.round(line + 1)), vw, vh) }
     } else {
       g.fillStyle = outdoors ? '#0e2a3c' : '#05030c'
       g.fillRect(0, 0, vw, vh)
     }
 
     // --- to the GPU ---------------------------------------------------------------------------------------------
+    if (glowC.width !== vw || glowC.height !== vh) { glowC.width = vw; glowC.height = vh; glowG = glowC.getContext('2d')! }
     engine.objs(objsC, bw, bh)
     engine.base(baseC, bw, bh)
     engine.atlas(atlas, atlasUsed)
@@ -705,14 +915,18 @@ export default function polyView(kit: Kit): View {
       side: (par.sideLight as number) * ek,
       shadow: (par.shadow as number) * ek * (outdoors ? 1 : 0),
       far: k >= 1 ? [far0, far1] : [far0 / Math.max(1e-3, ek), far1 / Math.max(1e-3, ek)],
-      haze: rgb(roomed ? '#05030c' : par.haze as string),
-      hazeAmount: roomed ? 0.7 : 0.55,
+      haze: roomed ? rgb('#05030c') : outdoors && par.sky ? cssRgb(dayLow) : rgb(par.haze as string),
+      hazeAmount: roomed ? 0.7 : 1,
+      water: win(k, 0.1, 0.5),
     }
+    const px = quality === 0 ? 0.5 : 1
     engine.draw({
-      m: M4, eye, lift: ek,
-      roles: [Math.max(0, Math.min(1, (k - 0.15) / 0.6)), 1 - Math.max(0, Math.min(1, (k - 0.15) / 0.6)), Math.max(0, Math.min(1, (k - 0.8) / 0.2)), 1 - Math.max(0, Math.min(1, (k - 0.8) / 0.2))],
+      m: M4, eye, lift: ek, bend: [bendK, bendFrom],
+      // Staggered as the 16-bit view staggers its parts: the classic crowns go down while the camera tips, the
+      // trees come up out of the ground after them, and last the things in the round, while their cards go.
+      roles: [win(k, 0.42, 0.85), 1 - win(k, 0.4, 0.72), win(k, 0.78, 1), 1 - win(k, 0.62, 0.86)],
       // (A dark room is not black: the walls and the floor show dimly beyond the lamps' pools, as in the 16-bit view.)
-      ambient: amb.map((q, i) => Math.max(q * exposure * (outdoors ? 1 - 0.25 * sunS : 1), roomed ? [0.3, 0.26, 0.46][i]! * ek : 0)) as [number, number, number],
+      ambient: amb.map((q, i) => Math.max(q * exposure * (outdoors ? 1 - 0.25 * sunS : 1), roomed ? [0.44, 0.4, 0.62][i]! * ek : 0)) as [number, number, number],
       sunDir: [Math.cos(sunA) * Math.cos(elev), Math.sin(sunA) * Math.cos(elev), Math.sin(elev)],
       sunColor: [sunCol[0] * sunS, sunCol[1] * sunS, sunCol[2] * sunS],
       lamps,
@@ -720,14 +934,16 @@ export default function polyView(kit: Kit): View {
       field: [-c.M, -c.M],
       shore: [-c.M, -c.M, land.res],
       room: roomRect,
-      hero: ui.attract || k < 0.5 ? null : [heroP.x, heroP.y, 22 / Math.max(0.3, heroP.w), heroDist],
+      // (In the picture's own px: half of them where the picture is drawn at half the size.)
+      hero: ui.attract || k < 0.5 ? null : [heroP.x * px, heroP.y * px, 22 * px / Math.max(0.3, heroP.w), heroDist],
       time: reduced ? 0 : time,
       look,
       chunks,
       dynamic: { data: dyn.data, count: dyn.n },
       blobs: { data: blobs.data, count: blobs.n },
-    }, vw, vh)
-    g.drawImage(engine.canvas, 0, 0)
+    }, quality === 0 ? Math.ceil(vw / 2) : vw, quality === 0 ? Math.ceil(vh / 2) : vh, quality === 2 ? glowG : undefined)
+    if (quality < 2) glowG.clearRect(0, 0, vw, vh)
+    g.drawImage(engine.canvas, 0, 0, vw, vh)
 
     // --- shots, sparks, the flash: on the finished picture, where the world has them -------------------------------
     const S1 = (x: number, y: number): Vec => { const p = place(x, y); return { x: p.x, y: p.y } }
@@ -740,23 +956,39 @@ export default function polyView(kit: Kit): View {
     const fade = kit.flashFade(g, s, ui, dt)
     kit.present(fade, bloom => {
       bloom.globalCompositeOperation = 'lighter'
+      // What shines by itself (neon, screens, lit letters, panes), from the picture's own pass.
+      bloom.globalAlpha = 0.7 * ek
+      bloom.drawImage(glowC, 0, 0)
       for (const L of lights) {
         // (Not the lamps out in the distance: the land they stand on has dissolved.)
         if (Math.hypot(L.x - eye[0], L.y - eye[1]) > far0 && k >= 1) continue
         const p = place(L.x, L.y, 0.8)
         if (p.x < -40 || p.y < -40 || p.x > vw + 40 || p.y > vh + 40) continue
         const r = Math.min(48, L.r * T * 0.6 / Math.max(0.4, p.w))
-        bloom.globalAlpha = Math.max(0, Math.min(1, L.a)) * 0.38
+        bloom.globalAlpha = Math.max(0, Math.min(1, L.a)) * 0.22
         bloom.drawImage(kit.glow(L.color), p.x - r, p.y - r, r * 2, r * 2)
       }
       bloom.globalAlpha = 1
     }, finishOf(k))
 
+    // What the picture shows of the ground, for the engine (the woods' foes walk in from past it): to the end of the
+    // draw distance in the north, a trapezoid widening with the lens. Indoors and through most of the turn, the
+    // classic rectangle.
+    if (outdoors && k >= 0.5 && !ui.attract) {
+      const F = (vw >= vh ? vh : vw) / 2 / Math.tan(pose.fov / 2)
+      const spread = (vw / 2) / F
+      const back = Math.max(1, eye[1] - s.hero.y)
+      const foot = toGround(M4, vw, vh, vw / 2, vh)
+      sight = { ahead: Math.max(4, far1 - back), behind: Math.max(2, foot ? foot.y - s.hero.y : 4), across: 2 * back * spread + 2, spread }
+    } else sight = null
+
     // Labels and the dialog box by the exit at hand and the hero, wherever the picture put them.
     const near = nearExit(s)
     const ref = near ? { x: near.x, y: near.y } : { x: s.hero.x, y: s.hero.y }
     const at = place(ref.x, ref.y)
-    kit.hudLayer(s, ui, dt, Math.round(ref.x * T - at.x), Math.round(ref.y * T - at.y), place(s.hero.x, s.hero.y).y, NEON_SKIN)
+    // The windows change dress in the middle of the turn: the classic ones fade out, the glass fades in.
+    kit.hudLayer(s, ui, dt, Math.round(ref.x * T - at.x), Math.round(ref.y * T - at.y), place(s.hero.x, s.hero.y).y,
+      par.windows === '32-bit' ? GLASS_SKIN : NEON_SKIN, k < 1 && par.windows === '32-bit' ? { skin: NEON_SKIN, mix: (k - 0.3) / 0.4 } : undefined)
   }
 
   /** The finish turns with the picture: the classic view's own, to this view's. */
@@ -777,6 +1009,7 @@ export default function polyView(kit: Kit): View {
     ready,
     // The crane looks north: the controls stay as in the classic picture.
     turn: 0,
+    get sight() { return fallback ? null : sight },
     dispose() { engine.dispose() },
   }
 }

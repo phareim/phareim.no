@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Neon Shrine HUD lab: the HUD alone over a dusk backdrop, through the real
-// renderer's hudLayer(), in every state, at three screens, in three skins.
+// renderer's hudLayer(), in every state, at three screens, in four skins.
 // Snap Chromium: outDir must be a non-hidden path under $HOME.
 //
 //   node scripts/zelda-lab/hud-sheet.mjs <outDir> [skins] [states] [screens]
 //
-// Each filter is a comma list (or `all`): skins neon,window,hires; screens
+// Each filter is a comma list (or `all`): skins neon,window,hires,glass (the polygon view's); screens
 // 1280, 390, 667 (and 300, only when asked for); states
 //   play, dialog, name, top, ask, banner, pause, reset, strip, label
 //   low      two rows of hearts, the last half one blinking, a talk at the top
@@ -43,7 +43,7 @@ mkdirSync(out, { recursive: true })
 
 const entry = `
 import { createRenderer } from ${JSON.stringify(join(repo, 'themes/zelda/render/renderer.ts'))}
-import { NEON_SKIN, WINDOW_SKIN, HIRES_WINDOW_SKIN } from ${JSON.stringify(join(repo, 'themes/zelda/render/hud.ts'))}
+import { NEON_SKIN, WINDOW_SKIN, HIRES_WINDOW_SKIN, GLASS_SKIN } from ${JSON.stringify(join(repo, 'themes/zelda/render/hud.ts'))}
 import { createGame, stepGame } from ${JSON.stringify(join(repo, 'themes/zelda/engine/index.ts'))}
 import { WORLD } from ${JSON.stringify(join(repo, 'themes/zelda/world/index.ts'))}
 import { NO_INPUT, TILE } from ${JSON.stringify(join(repo, 'themes/zelda/types.ts'))}
@@ -54,7 +54,7 @@ const q = new URLSearchParams(location.hash.slice(1))
 const W = +q.get('w'), H = +q.get('h'), dpr = +(q.get('dpr') || 1)
 const state = q.get('state')
 const touch = q.get('touch') === '1'
-const skin = { neon: NEON_SKIN, window: WINDOW_SKIN, hires: HIRES_WINDOW_SKIN }[q.get('skin')]
+const skin = { neon: NEON_SKIN, window: WINDOW_SKIN, hires: HIRES_WINDOW_SKIN, glass: GLASS_SKIN }[q.get('skin')]
 const canvas = document.createElement('canvas')
 canvas.style.cssText = 'display:block;width:' + W + 'px;height:' + H + 'px'
 document.body.style.cssText = 'margin:0;background:#0b0616;overflow:hidden'
@@ -147,7 +147,7 @@ const html = join(out, '_hud.html')
 writeFileSync(html, `<!doctype html><meta charset="utf-8"><body><script src="${bundle}"></script>`)
 
 const SCREENS = { 1280: [1280, 800, 1], 390: [390, 844, 3], 667: [667, 375, 2], 300: [300, 220, 1] }
-const SKINS = ['neon', 'window', 'hires']
+const SKINS = ['neon', 'window', 'hires', 'glass']
 const STATES = ['play', 'dialog', 'name', 'top', 'ask', 'banner', 'pause', 'reset', 'strip', 'label', 'low', 'typing', 'heading', 'norsk', 'errands', 'notch', 'mix', 'studio']
 const extra = +(process.env.HUD_T || 0)
 const pick = (arg, all) => !arg || arg === 'all' ? all : arg.split(',').filter(a => all.includes(a))
@@ -157,8 +157,8 @@ for (const screen of pick(screenArg, Object.keys(SCREENS)).filter(k => k !== '30
     for (const state of pick(stateArg, STATES)) {
       const png = join(out, `${state}-${screen}-${skin}${extra ? `-t${extra}` : ''}.png`)
       try {
-        execFileSync('chromium-browser', [
-          '--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
+        execFileSync(process.env.CHROME_BIN || 'chromium-browser', [
+          '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--hide-scrollbars',
           `--force-device-scale-factor=${dpr}`, `--window-size=${w},${h}`,
           '--virtual-time-budget=3000', `--screenshot=${png}`,
           `file://${html}#state=${state}&skin=${skin}&w=${w}&h=${h}&dpr=${dpr}&touch=${w < 1000 ? 1 : 0}&t=${extra}`,

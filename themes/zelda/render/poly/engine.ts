@@ -42,10 +42,14 @@ export interface PolyLook {
   haze: [number, number, number]
   /** How much of that colour, at the edge. */
   hazeAmount: number
+  /** How far the water is this view's own (0: the classic picture's). */
+  water: number
 }
 
 export interface Frame {
   m: Mat4
+  /** How the far land bends up toward the horizon: height added per tile² of distance beyond the second number. */
+  bend: [number, number]
   /** The eye, world tiles (for the distance), and the land's lift and the turn's own-height multipliers (GROW, SINK, RISE, FALL). */
   eye: [number, number, number]
   lift: number
@@ -87,6 +91,8 @@ uniform mat4 uM;
 uniform vec2 uView;
 uniform vec3 uEye;
 uniform float uLift;
+uniform vec2 uBend;
+uniform float uFacet;
 uniform vec4 uRoles;
 uniform float uSnap;
 uniform vec3 uAmbient;
@@ -106,8 +112,14 @@ out vec2 vWorld;
 flat out int vTex;
 flat out int vFlags;
 void main() {
+  // Over the turn this view's own things come up out of the ground and the classic stand-ins go down into it
+  // (moved, never squashed: what is under the ground is hidden by it). A role's share is how far it is up.
   float m = aRole < 0.5 ? 1.0 : aRole < 1.5 ? uRoles.x : aRole < 2.5 ? uRoles.y : aRole < 3.5 ? uRoles.z : uRoles.w;
-  vec3 p = vec3(aPos.xy, aPos.z * m + (aGround + aZk) * uLift);
+  float deep = aRole < 0.5 ? 0.0 : aRole < 1.5 ? 3.2 : aRole < 2.5 ? 1.5 : aRole < 3.5 ? 1.7 : 1.5;
+  vec3 p = vec3(aPos.xy, aPos.z - (1.0 - m) * deep + (aGround + aZk) * uLift);
+  // The far land bends up toward the horizon, so the world meets the sky as a ridge, wherever the eye stands.
+  float hd = max(0.0, length(p.xy - uEye.xy) - uBend.y);
+  p.z += uBend.x * hd * hd;
   vec4 c = uM * vec4(p, 1.0);
   // The machine had no fractions of a px: every corner lands on one.
   if (uSnap > 0.0 && c.w > 0.0) {
@@ -128,7 +140,7 @@ void main() {
   // The light, at the corners.
   vec3 n = normalize(aNormal);
   // The sky lights from above and a little from the north-west, so every facet of a knoll takes its own share.
-  float sky = 0.12 + 1.08 * max(0.0, dot(n, normalize(vec3(-0.55, -0.2, 0.81))));
+  float sky = mix(1.0, 0.12 + 1.08 * max(0.0, dot(n, normalize(vec3(-0.55, -0.2, 0.81)))), uFacet);
   float inSun = mix(1.0, aSun, uShadow);
   vec3 L = uAmbient * sky * mix(1.0, 0.62 + 0.38 * aSun, uShadow);
   L += uSunCol * max(0.0, dot(n, uSunDir)) * inSun;
@@ -141,6 +153,8 @@ void main() {
     float face = mix(1.0, clamp(dot(n, d / max(dist, 1e-3)) * 1.3 + 0.25, 0.0, 1.0), uSide);
     L += uLampCol[i] * a * a * (3.0 - 2.0 * a) * face;
   }
+  // The crown of a knoll a shade lighter than its foot, so the land rolls even where the light is flat.
+  L *= 1.0 + 0.2 * clamp(aGround * uLift, 0.0, 1.5) * uFacet;
   vLight = L;
 }`
 
@@ -175,6 +189,8 @@ uniform vec4 uRoom;
 uniform int uRoomOn;
 uniform vec4 uHero;
 uniform float uBits;
+uniform int uGlowOnly;
+uniform float uWater;
 uniform int uBlob;
 out vec4 o;
 
@@ -205,6 +221,8 @@ void main() {
   vec2 uv = vTex == 3 ? vUv : mix(vUv, vUvw.xy / vUvw.z, uAffine);
   vec4 c = vec4(1.0);
   vec3 glow = vec3(0.0);
+  /** What shines by itself in the classic art: bright, saturated colours (neon, screens, lit letters, crystals). */
+  vec3 neon = vec3(0.0);
   if (vTex == 1) {
     // The ground: its material by kind, the border between two kinds frayed a texel at a time.
     vec2 tq = floor(uv * 16.0);
@@ -222,6 +240,7 @@ void main() {
     if (bare < 0.5 || (bare < 1.5 && fy < 6.0)) {
       vec4 ob = fetchPic(uObjs, uv * 16.0);
       col = col * (1.0 - ob.a) + ob.rgb;
+      if (ob.a > 0.5) { vec3 q = ob.rgb / ob.a; float h2 = max(q.r, max(q.g, q.b)); float l2 = min(q.r, min(q.g, q.b)); if (h2 > 0.6 && h2 - l2 > 0.5 * h2) neon = q; }
     }
     c = vec4(col, 1.0);
   } else if (vTex == 2) {
@@ -246,6 +265,8 @@ void main() {
       if (s > -0.07) glow = vec3(0.18, 0.95, 1.0);
       else if (s > -0.16 && b > 0.5) col = vec3(0.12, 0.45, 0.7);
     } else if (s > -0.06 + 0.04 * sin(q.x * 9.0 + t * 2.0) || (s > -0.14 && b > 0.62)) col = vec3(0.62, 0.84, 1.0);
+    // (Through the turn the classic picture's water gives way to this one's, not in one frame.)
+    if (uWater < 1.0) { vec4 ba = fetchPic(uBase, uv * 16.0); if (ba.a > 0.5) col = mix(ba.rgb / ba.a, col, uWater); }
     c = vec4(col, 1.0);
   } else if (vTex == 5) {
     float d = length(uv);
@@ -260,10 +281,12 @@ void main() {
   vec3 tex = c.rgb / max(c.a, 1e-3);
   vec3 lit = tex * (vTex == 4 ? vec3(1.0) : vColor) * (vTex == 4 ? 0.55 + 0.6 * vLight : vLight);
   if ((vFlags & 2) != 0) lit = max(lit, tex * vColor);
-  // Neon in the classic art shines by itself.
+  // Neon in the classic art shines by itself: the lamps do not light it, it is as bright as it was painted.
   float hi = max(tex.r, max(tex.g, tex.b));
   float lo = min(tex.r, min(tex.g, tex.b));
-  if (vTex != 1 && vTex != 4 && hi > 0.78 && hi - lo > 0.42) lit = max(lit, tex * 0.92);
+  if (vTex != 1 && vTex != 4 && hi > 0.6 && hi - lo > 0.5 * hi) neon = tex;
+  if ((vFlags & 2) != 0) neon = max(neon, tex * vColor);
+  lit = max(lit, neon);
   lit += glow;
   float b = bayer(gl_FragCoord.xy);
   // A room: what lies outside it is dark.
@@ -286,6 +309,8 @@ void main() {
     float lv = exp2(uBits) - 1.0;
     lit = floor(clamp(lit, 0.0, 1.0) * lv + b) / lv;
   }
+  // (The bloom's own pass: only what shines by itself.)
+  if (uGlowOnly == 1) { o = vec4(clamp(max(neon, glow), 0.0, 1.0), 1.0); return; }
   o = vec4(clamp(lit, 0.0, 1.0), 1.0);
 }`
 
@@ -302,7 +327,8 @@ export interface Engine {
   atlas(c: HTMLCanvasElement, rows: number): void
   kinds(data: Uint8Array, w: number, h: number): void
   shoreField(data: Uint8Array, w: number, h: number): void
-  draw(f: Frame, vw: number, vh: number): void
+  /** `glowTo`: a canvas that gets what shines by itself, for the bloom (a pass of its own before the picture). */
+  draw(f: Frame, vw: number, vh: number, glowTo?: CanvasRenderingContext2D): void
   dispose(): void
 }
 
@@ -359,7 +385,7 @@ export function createEngine(): Engine {
     atlas(c, rows) { uploadPart(gl, tex.atlas, c, c.width, rows) },
     kinds(data, w, h) { raw(tex.kind, data, w, h) },
     shoreField(data, w, h) { raw(tex.shore, data, w, h, true) },
-    draw(f, vw, vh) {
+    draw(f, vw, vh, glowTo) {
       if (canvas.width !== vw || canvas.height !== vh) { canvas.width = vw; canvas.height = vh }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.viewport(0, 0, vw, vh)
@@ -378,6 +404,8 @@ export function createEngine(): Engine {
       gl.uniform2f(u('uView'), vw, vh)
       gl.uniform3f(u('uEye'), ...f.eye)
       gl.uniform1f(u('uLift'), f.lift)
+      gl.uniform2f(u('uBend'), ...f.bend)
+      gl.uniform1f(u('uFacet'), f.lift)
       gl.uniform4f(u('uRoles'), ...f.roles)
       gl.uniform1f(u('uSnap'), L.snap)
       gl.uniform3f(u('uAmbient'), ...f.ambient)
@@ -417,16 +445,31 @@ export function createEngine(): Engine {
       // (gl_FragCoord runs up from the bottom.)
       gl.uniform4f(u('uHero'), ...(f.hero ? [f.hero[0], vh - f.hero[1], f.hero[2], f.hero[3]] as [number, number, number, number] : [0, 0, 0, 0] as [number, number, number, number]))
       gl.uniform1f(u('uBits'), L.bits)
-      for (const c of f.chunks) {
-        bindLayout(c.buf)
-        gl.drawArrays(gl.TRIANGLES, 0, c.count)
-      }
+      gl.uniform1f(u('uWater'), L.water)
       if (f.dynamic.count) {
         gl.bindBuffer(gl.ARRAY_BUFFER, dyn)
         gl.bufferData(gl.ARRAY_BUFFER, f.dynamic.data.subarray(0, f.dynamic.count * STRIDE), gl.STREAM_DRAW)
-        bindLayout(dyn)
-        gl.drawArrays(gl.TRIANGLES, 0, f.dynamic.count)
       }
+      const solid = () => {
+        for (const c of f.chunks) {
+          bindLayout(c.buf)
+          gl.drawArrays(gl.TRIANGLES, 0, c.count)
+        }
+        if (f.dynamic.count) {
+          bindLayout(dyn)
+          gl.drawArrays(gl.TRIANGLES, 0, f.dynamic.count)
+        }
+      }
+      if (glowTo) {
+        // First what shines by itself alone, for the bloom; then the picture.
+        gl.uniform1i(u('uGlowOnly'), 1)
+        solid()
+        glowTo.clearRect(0, 0, glowTo.canvas.width, glowTo.canvas.height)
+        glowTo.drawImage(canvas, 0, 0, glowTo.canvas.width, glowTo.canvas.height)
+        gl.uniform1i(u('uGlowOnly'), 0)
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+      }
+      solid()
       if (f.blobs.count) {
         // Shadows on the ground: the ground under them darkened, never lit away.
         gl.bindBuffer(gl.ARRAY_BUFFER, blobBuf)

@@ -103,6 +103,8 @@ export interface BuildOptions {
   sun: { dx: number; dy: number; rise: number; mass: (x: number, y: number) => number } | null
   /** Build the things this view makes itself (props, trees). Off: the classic cards. */
   props: boolean
+  /** Coarse cells everywhere (a device that cannot keep up): the shore's curves are cut in fewer facets. */
+  coarse?: boolean
 }
 
 /** A growing list of vertices. */
@@ -249,7 +251,8 @@ export class Mesher {
 
   private ground(tx: number, ty: number) {
     const land = this.f.land
-    const res = land.res
+    // (Fine near the water, where the shore curves; coarse cells elsewhere draw the same surface.)
+    const res = this.o.coarse ? Math.min(2, land.step(tx, ty)) : land.step(tx, ty)
     const s = 1 / res
     this.set(TEX.GROUND)
     for (let j = 0; j < res; j++) for (let i = 0; i < res; i++) {
@@ -374,13 +377,28 @@ export class Mesher {
     // (By where the mass stands: a top's footprint lies `f` rows south of its picture.)
     const cut = shp.k === 'top' ? roomCut(this.o.room, ty + shp.f) : shp.k === 'face' ? roomCut(this.o.room, ty) : 1
     const flags = role === ROLE.STAY && (shp.k === 'top' || shp.k === 'card') ? FLAG.SEE : 0
+    /**
+     * A room's walls (but the kerb) stand two tiles tall at the end of the turn: the face picture again over
+     * itself, a course darker, so the room is a box one looks into. (The second course is height only the
+     * finished view has: at the classic end the wall is the classic one.)
+     */
+    const twice = !!this.o.room && cut === 1 && role === ROLE.STAY && (isWall(t) || t === 'D' || t === 'L' || t === 'K' || t === 'X')
+    /** The second course over a quad (corners top-left, top-right, bottom-right, bottom-left): the same picture again over it, darker. */
+    const course = (a: P, b: P, c: P, d: P, n: readonly [number, number, number], dark: number) => {
+      if (!twice) return
+      const B = this.brush
+      this.set(B.tex, [B.r * dark, B.g * dark, B.b * dark], B.role, B.flags)
+      const h = a.z - d.z
+      this.quad({ ...a, zk: (a.zk ?? 0) + h }, { ...b, zk: (b.zk ?? 0) + h }, { ...b, u: c.u, v: c.v }, { ...a, u: d.u, v: d.v }, n)
+      this.set(B.tex, [B.r, B.g, B.b], B.role, B.flags)
+    }
     if (shp.k === 'top') {
       const fy = ty + shp.f
       const hz = (shp.h / T) * cut
       const a = this.art(tx, ty)
       if (inMap) this.set(TEX.OBJS, [1, 1, 1], role, flags)
       else this.set(TEX.GROUND, [1, 1, 1], role, flags)
-      const top = (x: number, y: number, u: number, v: number): P => ({ x, y, z: hz, g: g0, u: inMap ? u : x, v: inMap ? v : y })
+      const top = (x: number, y: number, u: number, v: number): P => ({ x, y, z: hz, g: g0, zk: twice ? hz : 0, u: inMap ? u : x, v: inMap ? v : y })
       this.quad(top(tx, fy, a.u0, a.v0), top(tx + 1, fy, a.u1, a.v0), top(tx + 1, fy + 1, a.u1, a.v1), top(tx, fy + 1, a.u0, a.v1), [0, 0, 1])
       if (!shp.sides) return
       // The sides nobody drew: the face picture of the column again, darker.
@@ -395,6 +413,7 @@ export class Mesher {
         side(0.85)
         const q = (x: number, z: number, u: number, v: number): P => ({ x, y: fy + 1, z, g: 0, u: inMap ? u : x * 16, v: inMap ? v : (1 - z) * 16 })
         this.quad(q(tx, hz, a.u0, fv), q(tx + 1, hz, a.u1, fv), q(tx + 1, 0, a.u1, fv + T), q(tx, 0, a.u0, fv + T), [0, 1, 0])
+        course(q(tx, hz, a.u0, fv), q(tx + 1, hz, a.u1, fv), q(tx + 1, 0, a.u1, fv + T), q(tx, 0, a.u0, fv + T), [0, 1, 0], 0.72)
       }
       for (const dir of [1, -1]) {
         const nx = tx + dir
@@ -404,6 +423,7 @@ export class Mesher {
         const x = dir > 0 ? tx + 1 : tx
         const q = (y: number, z: number, u: number, v: number): P => ({ x, y, z, g: 0, u: inMap ? u : y * 16, v: inMap ? v : (1 - z) * 16 })
         this.quad(q(fy, hz, a.u0, fv), q(fy + 1, hz, a.u1, fv), q(fy + 1, 0, a.u1, fv + T), q(fy, 0, a.u0, fv + T), [dir, 0, 0])
+        course(q(fy, hz, a.u0, fv), q(fy + 1, hz, a.u1, fv), q(fy + 1, 0, a.u1, fv + T), q(fy, 0, a.u0, fv + T), [dir, 0, 0], 0.72)
       }
       return
     }
@@ -417,6 +437,7 @@ export class Mesher {
       this.set(inMap ? TEX.OBJS : matTex('rockface'), [1, 1, 1], role, flags)
       const q = (x: number, z: number, u: number, v: number): P => ({ x, y, z, g: 0, u: inMap ? u : x * 16, v: inMap ? v : (1 - z) * 16 })
       this.quad(q(tx, z1, a.u0, a.v0), q(tx + 1, z1, a.u1, a.v0), q(tx + 1, z0, a.u1, v1), q(tx, z0, a.u0, v1), [0, 1, 0])
+      course(q(tx, z1, a.u0, a.v0), q(tx + 1, z1, a.u1, a.v0), q(tx + 1, z0, a.u1, v1), q(tx, z0, a.u0, v1), [0, 1, 0], 0.72)
       // A rock face outdoors with nothing on it (a wall one tile deep): a cap of its own picture, and its ends.
       const n = this.shape(tx, ty - 1).k
       if (f.kind === 'overworld' && isWall(t) && n !== 'top' && n !== 'face' && shp.d === 0) {
@@ -478,8 +499,10 @@ export class Mesher {
     this.set(matTex('shingles'), [0.45, 0.35, 0.5], ROLE.STAY, FLAG.SEE)
     const e = (x: number, z: number, k: number): P => ({ x, y: yf + over, z, g: 0, zk: k * rise, u: x * 16, v: z * 16 })
     this.quad(e(tx, 2, -over / slope), e(tx + 1, 2, -over / slope), e(tx + 1, 1.94, -over / slope), e(tx, 1.94, -over / slope), [0, 1, 0])
+    // (Only what rises over the eaves: below them the house's own back is never seen, and at the classic end of the
+    // turn a wall there would stand over whatever the art has behind the roof.)
     const b = (x: number, z: number, k: number): P => ({ x, y: yb, z, g: 0, zk: k * rise, u: x * 16, v: z * 16 })
-    this.quad(b(tx, 2, 1), b(tx + 1, 2, 1), b(tx + 1, 0, 0), b(tx, 0, 0), [0, -1, 0])
+    this.quad(b(tx, 2, 1), b(tx + 1, 2, 1), b(tx + 1, 2, 0), b(tx, 2, 0), [0, -1, 0])
     // The ends: a wall of boards to the eaves and a gable over it.
     for (const dir of [-1, 1]) {
       if (this.shape(tx + dir, ty) === ROOF) continue
@@ -535,14 +558,10 @@ export class Mesher {
       this.blob(x, y, g, 1.05 * scale, 0.62 * scale, 0.55 * scale, pal, ROLE.GROW, flags, h1)
       return
     }
-    // Stacked cones, each a little narrower and higher.
-    const tiers = lone ? 3 : 3
-    for (let i = 0; i < tiers; i++) {
-      const z0 = (0.38 + i * 0.42) * scale
-      const z1 = z0 + (0.85 - i * 0.12) * scale
-      const r = (0.62 - i * 0.15) * scale
-      this.cone(x, y, g, z0, z1, r, 7, pal, i, ROLE.GROW, flags, h1 * 6 + i)
-    }
+    // Two stacked cones of five sides: few, large facets, so a tree line reads as cones with a lit side and a
+    // shaded one even at the size of a phone.
+    this.cone(x, y, g, 0.34 * scale, 1.45 * scale, 0.74 * scale, 5, pal, 0, ROLE.GROW, flags, h1 * 6)
+    this.cone(x, y, g, 0.98 * scale, 2.05 * scale, 0.5 * scale, 5, pal, 1, ROLE.GROW, flags, h1 * 6 + 0.6)
   }
 
   /** An upright prism of `n` sides: a trunk, a post. `lean` tips its top east. */
@@ -556,19 +575,15 @@ export class Mesher {
     }
   }
 
-  /** A cone of `n` sides from a ring at z0 to a point at z1, its facets in two shades of the palette, and its rim a step darker. */
+  /** A cone of `n` sides from a ring at z0 to a point at z1, one colour a tier: the light makes its sides. */
   private cone(x: number, y: number, g: number, z0: number, z1: number, r: number, n: number, pal: readonly string[], tier: number, role: number, flags: number, twist: number) {
     const tip: P = { x, y, z: z1, g, u: 0, v: 0 }
+    this.set(TEX.COLOR, hex(pal[tier === 0 ? 2 : 3]!).map(q => q * (tier === 0 ? 1 : 0.85)) as [number, number, number], role, flags)
     for (let i = 0; i < n; i++) {
       const a0 = (i / n) * Math.PI * 2 + twist
       const a1 = ((i + 1) / n) * Math.PI * 2 + twist
-      const shade = pal[Math.min(3, 1 + ((i + tier) % 2) + (tier === 2 ? 1 : 0))]!
-      this.set(TEX.COLOR, hex(shade), role, flags)
-      // (A ring a little in from the rim gives the skirt a lip.)
-      const p = (a: number, rr: number, z: number): P => ({ x: x + Math.cos(a) * rr, y: y + Math.sin(a) * rr, z, g, u: 0, v: 0 })
-      this.tri(tip, p(a0, r * 0.82, z0 + (z1 - z0) * 0.12), p(a1, r * 0.82, z0 + (z1 - z0) * 0.12))
-      this.set(TEX.COLOR, hex(pal[Math.max(0, tier === 0 ? 0 : 1)]!), role, flags)
-      this.quad(p(a0, r * 0.82, z0 + (z1 - z0) * 0.12), p(a1, r * 0.82, z0 + (z1 - z0) * 0.12), p(a1, r, z0), p(a0, r, z0))
+      const p = (a: number): P => ({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, z: z0, g, u: 0, v: 0 })
+      this.tri(tip, p(a0), p(a1))
     }
   }
 

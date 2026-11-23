@@ -138,9 +138,11 @@ canopies with magenta rim light, violet stone with neon strips; cyan hero,
 pink danger, gold treasure. Sprites and the 5×7 pixel font are code
 (`render/sprites.ts`, `themes/base/pixel/font.ts`); terrain is painted procedurally
 (`render/tiles.ts`). This is the classic view. Other views draw the same
-state another way (an isometric 16-bit one, where a visit starts, with a sun of its own and its
-own materials for the ground, the walls and the roofs; the turn switch in the corner turns between them): `docs/games/neon-shrine.md`,
-"Views".
+state another way: an isometric 16-bit one, where a visit starts, with a sun of its own and its
+own materials for the ground, the walls and the roofs; and a polygon 32-bit one, the world as low polygons in
+perspective from a crane behind the hero, with a horizon, rolling land, round ponds and a short draw distance,
+drawn as a 1996 console drew (textures that swim, corners that snap to the pixels, 15-bit colour). The turn
+switch in the corner turns between the three: `docs/games/neon-shrine.md`, "Views".
 
 ## Sound (`audio.ts`)
 

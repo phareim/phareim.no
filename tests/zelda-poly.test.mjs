@@ -326,6 +326,34 @@ describe('the land', () => {
     const [x, y] = [10.3, 10.6]
     assert.ok(M.lift(land, x, y, 0.5) >= 0 && M.lift(land, x, y, 0.5) <= land.height(x, y) + 1e-9)
   })
+  it('stands what is placed on the land, and never under the water', () => {
+    const land = M.buildLand(source(), LOOK)
+    for (const [x, y] of samples(0.5)) {
+      assert.equal(M.stand(land, x, y, 0), 0)
+      const k = 1
+      if (land.height(x, y) >= land.waterLevel) near(M.stand(land, x, y, k), M.lift(land, x, y, k))
+      else near(M.stand(land, x, y, k), land.waterLevel)
+      assert.ok(M.stand(land, x, y, 0.5) >= M.lift(land, x, y, 0.5) - 1e-9)
+    }
+    // The middle of the pond: the surface, through the turn the same way as the land.
+    const mid = M.stand(land, 5, 4, 0.5)
+    assert.ok(mid < 0 && mid > land.waterLevel)
+  })
+  it('says where the drawn surface needs its fine lattice, and is the coarse one elsewhere', () => {
+    const land = M.buildLand(source(), LOOK)
+    assert.equal(land.step(4, 3), land.res, 'the pond is drawn coarse')
+    const coarse = land.step(20, 12)
+    assert.ok(coarse < land.res && land.res % coarse === 0)
+    // In a coarse tile every fine point lies on the coarse triangles: a mesh of coarse cells has no crack.
+    const s = 1 / coarse
+    for (const [cx, cy] of [[20, 12], [20.5, 12.5], [21, 10]]) {
+      if (land.step(Math.floor(cx), Math.floor(cy)) !== coarse) continue
+      const nw = land.height(cx, cy), ne = land.height(cx + s, cy), sw = land.height(cx, cy + s), se = land.height(cx + s, cy + s)
+      near(land.height(cx + s / 2, cy), (nw + ne) / 2, 1e-5)
+      near(land.height(cx, cy + s / 2), (nw + sw) / 2, 1e-5)
+      near(land.height(cx + s / 2, cy + s / 2), (nw + se) / 2, 1e-5)
+    }
+  })
   it('builds the real maps', () => {
     for (const id of ['overworld', 'wildwood']) {
       const m = M.mapInfo(M.WORLD, id)
@@ -372,7 +400,9 @@ describe('the mesher', () => {
     const v = me.build({ x: 0, y: 0, w: 12, h: 12 }, new M.Verts())
     const all = vertsOf(v)
     const ground = all.filter(p => p.tex === M.TEX.GROUND)
-    assert.equal(ground.length, 12 * 12 * land.res * land.res * 6)
+    let cells = 0
+    for (let y = 0; y < 12; y++) for (let x = 0; x < 12; x++) cells += land.step(x, y) ** 2
+    assert.equal(ground.length, cells * 6)
     for (const p of ground) { assert.equal(p.z, 0); near(p.g, land.height(p.x, p.y), 1e-5) }
     // One normal to a triangle, so the light shows its facets.
     for (let i = 0; i < all.length; i += 3) for (let j = 1; j < 3; j++) assert.deepEqual(all[i + j].n, all[i].n)

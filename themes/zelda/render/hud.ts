@@ -143,6 +143,37 @@ export const WINDOW_SKIN: HudSkin = {
   outline: '#0a0e30', veil: 'rgba(8,10,44,0.72)', slot: 'rgba(160,190,255,0.14)', off: '#2a3080',
 }
 
+/**
+ * The polygon view's windows (a 1996 console's): dark glass the world shows through, a soft gradient down it, a
+ * thin bright edge with a hotter top, and a hard drop shadow one pixel down and right.
+ */
+function glassPanel(g: G, x: number, y: number, w: number, h: number, tone: 'hot' | 'cool' = 'hot') {
+  g.fillStyle = 'rgba(0,0,0,0.55)'
+  g.fillRect(x + 2, y + h, w - 1, 2)
+  g.fillRect(x + w, y + 2, 2, h - 1)
+  const grad = g.createLinearGradient(0, y, 0, y + h)
+  if (tone === 'hot') { grad.addColorStop(0, 'rgba(46,22,88,0.84)'); grad.addColorStop(1, 'rgba(14,8,34,0.9)') }
+  else { grad.addColorStop(0, 'rgba(14,52,82,0.84)'); grad.addColorStop(1, 'rgba(6,16,34,0.9)') }
+  g.fillStyle = grad
+  g.fillRect(x, y, w, h)
+  // A sheen across the upper third, as glass catches the light.
+  g.fillStyle = 'rgba(255,255,255,0.06)'
+  g.fillRect(x + 1, y + 1, w - 2, Math.max(1, Math.round(h / 3)))
+  const edge = tone === 'hot' ? '#ff6fd0' : '#6ff6ff'
+  g.fillStyle = edge
+  g.fillRect(x, y, w, 1)
+  g.globalAlpha *= 0.55
+  g.fillRect(x, y + h - 1, w, 1); g.fillRect(x, y + 1, 1, h - 2); g.fillRect(x + w - 1, y + 1, 1, h - 2)
+  g.globalAlpha /= 0.55
+}
+
+export const GLASS_SKIN: HudSkin = {
+  panel: glassPanel,
+  text: '#f4f0ff', shadow: '#05020e', dim: '#c4b6ee', faint: '#7a6aa8',
+  hot: '#ff8ae0', cool: '#7ff4ff', prize: '#ffd23f', ok: '#b6ff4a',
+  outline: '#05020e', veil: 'rgba(6,3,18,0.66)', slot: 'rgba(200,170,255,0.14)', off: '#3a2a60',
+}
+
 /** The same windows for a view at twice the pixel density: finer bands, a real dialog font, hearts with a light on them (hud16.ts). */
 export { HIRES_WINDOW_SKIN } from './hud16'
 

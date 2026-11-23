@@ -825,7 +825,8 @@ export type AudioFlavor = '8-bit' | '16-bit'
 
 /** The flavour a view plays in: the isometric engine brings the 16-bit chip, unless its values say `sound: '8-bit'`. */
 export function flavorForView(engine: string, params?: Record<string, unknown> | null): AudioFlavor {
-  return engine === 'iso' && params?.sound !== '8-bit' ? '16-bit' : '8-bit'
+  // (The polygon view has no sound of its own yet: it plays the 16-bit one.)
+  return (engine === 'iso' || engine === 'poly') && params?.sound !== '8-bit' ? '16-bit' : '8-bit'
 }
 
 const partials = (n: number, amp: (k: number) => number): number[] => Array.from({ length: n }, (_, i) => amp(i + 1))

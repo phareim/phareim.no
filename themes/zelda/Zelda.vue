@@ -148,7 +148,7 @@ import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
 import { ease, turnMove } from './render/iso/project'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
-import { HIRES_WINDOW_SKIN, NEON_SKIN, type HudSkin } from './render/hud'
+import { GLASS_SKIN, HIRES_WINDOW_SKIN, NEON_SKIN, type HudSkin } from './render/hud'
 import { REFUSE_MS, SW_H, SW_W, TICK_MS, captionFor, chromeAlpha, drawTurnSwitch, refuseNudge, shortTag, switchLayout, tickNudge, type SwitchState } from './render/turnSwitch'
 import { resolveParams } from './viewParams'
 import { sprite } from './render/sheet'
@@ -266,6 +266,11 @@ const ui: FrameUI = {
 function wears16(id: ViewId): boolean {
   const def = viewDef(id) ?? viewDef('classic')!
   return def.engine === 'iso' && resolveParams(def.engine, def.params).windows === '16-bit'
+}
+/** The view wears the polygon view's glass windows (on its stop of the turn switch; the HTML keeps its classic dress). */
+function wearsGlass(id: ViewId): boolean {
+  const def = viewDef(id)
+  return !!def && def.engine === 'poly' && resolveParams(def.engine, def.params).windows === '32-bit'
 }
 /** The dress is on. The first paint guesses from the address alone (the server knows no more); mounting corrects it. */
 const dress16 = ref(wears16(startView(useRoute().query.view, null)))
@@ -564,7 +569,7 @@ function stepTurnSwitch(nowMs: number) {
 
   const round = viewList()
   const n = round.length
-  const skinOf = (id: ViewId): HudSkin => !wears16(id) ? NEON_SKIN : fine ? HIRES_WINDOW_SKIN : HIRES_WINDOW_SKIN.coarse?.() ?? NEON_SKIN
+  const skinOf = (id: ViewId): HudSkin => wearsGlass(id) ? GLASS_SKIN : !wears16(id) ? NEON_SKIN : fine ? HIRES_WINDOW_SKIN : HIRES_WINDOW_SKIN.coarse?.() ?? NEON_SKIN
   const stops = round.map(v => ({ label: n === 2 ? shortTag(v.tag) : '', skin: skinOf(v.id) }))
   const stopOf = (id: ViewId, classic: boolean) => {
     let i = round.findIndex(v => v.id === id)
@@ -1171,7 +1176,9 @@ function frame(nowMs: number) {
   if (!moved && (inp.move.x !== 0 || inp.move.y !== 0)) { moved = true; emit('moved') }
   // What the screen shows, so the woods' foes come and go past its edge (the turned view shows a diamond of the ground).
   const vt = renderer.viewTiles()
-  state.sight = { x: vt.w, y: vt.h, turned: turn !== 0 }
+  // (The polygon view says what it sees itself: to its horizon in the north.)
+  const seen = renderer.viewState().sight
+  state.sight = seen ? { x: seen.across, y: seen.behind, ahead: seen.ahead, spread: seen.spread } : { x: vt.w, y: vt.h, turned: turn !== 0 }
   const events = stepGame(WORLD, state, dt, inp)
   purse.step(state.inv, state.flags)
   renderer.onEvents(events)
