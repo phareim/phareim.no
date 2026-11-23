@@ -846,7 +846,8 @@ export default function isoView(kit: Kit): View {
     const shading = par.shading as number
     const eastShade = (0.16 + 0.5 * shading) * k
     const southShade = (0.06 + 0.3 * shading) * k
-    const cards: Array<{ x: number; y: number; tall: number; wide?: number; dark?: number }> = []
+    /** What throws a blob: where it stands, how tall, its half width, how dark; `deep`: a body's half depth (its width runs along x). */
+    const cards: Array<{ x: number; y: number; tall: number; wide?: number; dark?: number; deep?: number }> = []
     /** The row of the face tile with `d` face rows under it, in column tx below row ty; -1 if the art has none. */
     const faceRow = (tx: number, ty: number, d: number): number => {
       let y = ty + 1
@@ -1132,7 +1133,8 @@ export default function isoView(kit: Kit): View {
         const pv = cellY + C.ay - (it.box.px ? it.box.h - it.box.px[1] : Math.round(it.box.h / 2))
         quad(it.x - hw, ay - d, hz, 0, it.x + hw, ay - d, hz, 0, it.x + hw, ay, hz, 0, it.x - hw, ay, hz, 0, pu, pv, pu + 1, pv + 1, 0, 1)
         quad(it.x + hw, ay - d, hz, 0, it.x + hw, ay, hz, 0, it.x + hw, ay, 0, 0, it.x + hw, ay - d, 0, 0, pu, pv, pu + 1, pv + 1, 2, 1, eastShade, 0, 1)
-        cards.push({ x: it.x, y: ay - d / 2, tall: Math.min(1.4, hz * 0.7), wide: Math.min(0.9, hw), dark: 0.85 })
+        // (Its shadow is as wide as the side it turns to the light: a stall three tiles long throws a broad one south, a narrow one east.)
+        cards.push({ x: it.x, y: ay - d / 2, tall: Math.min(1.6, hz * 0.8), wide: hw, deep: d / 2, dark: 0.9 })
         bearers.push(it.x, ay)
         continue
       }
@@ -1338,7 +1340,7 @@ export default function isoView(kit: Kit): View {
     const sunDir = { x: Math.cos(sunA), y: Math.sin(sunA) }
     const reach = (par.shadowLength as number) * (outdoors ? 1 : 0.4)
     let nb = 0
-    const blob = (x: number, y: number, tall: number, wide: number, dark = 1) => {
+    const blob = (x: number, y: number, tall: number, wide: number, dark = 1, deep = -1) => {
       if ((nb + 6) * BVERT > blobVerts.length) { const next = new Float32Array(blobVerts.length * 2); next.set(blobVerts); blobVerts = next }
       let dx = outdoors ? sunDir.x * 0.5 : 0
       let dy = outdoors ? sunDir.y * 0.5 : 0
@@ -1359,8 +1361,9 @@ export default function isoView(kit: Kit): View {
       const ux = -dx / n
       const uy = -dy / n
       const len = tall * (0.25 + reach * 0.75 * co) * k
-      const hw = wide
-      const hl = len / 2 + wide
+      // A body (`deep`): the box's half extents across and along the way its shadow falls.
+      const hw = deep < 0 ? wide : Math.max(0.2, wide * Math.abs(uy) + deep * Math.abs(ux))
+      const hl = len / 2 + (deep < 0 ? wide : wide * Math.abs(ux) + deep * Math.abs(uy))
       const cx0 = x + ux * len * 0.5
       const cy0 = y + uy * len * 0.5
       const cs = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]] as const
@@ -1373,7 +1376,7 @@ export default function isoView(kit: Kit): View {
       }
     }
     if ((par.shadow as number) > 0) {
-      for (const cd of cards) blob(cd.x, cd.y, cd.tall, cd.wide ?? 0.22, cd.dark ?? 1)
+      for (const cd of cards) blob(cd.x, cd.y, cd.tall, cd.wide ?? 0.22, cd.dark ?? 1, cd.deep ?? -1)
       for (let i = 0; i < standing.length; i += 2) blob(standing[i]!, standing[i + 1]! - 0.1, 0.85, 0.26)
     }
 

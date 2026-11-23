@@ -248,9 +248,13 @@ classic picture. `/?view=<id>` asks for one.
      it): for each px of ground how much light of each colour arrives, and
      for each colour channel from which side. A lamp's light stops at walls
      and roofs (a march through the tile heights). Then *blob shadows*: what
-     walks, and what stands alone, throws a soft blob away from whatever
-     lights it most (the sun outdoors, the nearest lamps indoors), so a
-     shadow swings round as the hero passes a lamp.
+     walks, and what stands alone, throws a blob (a firm core, a short soft
+     rim) away from whatever lights it most (the sun outdoors, the nearest
+     lamps anywhere), so a shadow swings round as the hero passes a lamp. A
+     thing with a body (a stall, a cabinet) throws one as wide as the side
+     it turns to the light. On the ground it lies on, a blob takes the
+     sun's own light and over half of the lamps' as well as the sky's:
+     with less it is lit out of sight, as it was.
   3. *Lit*: the G-buffer shaded. A surface takes a lamp's light by how it
      faces it, per colour, so a figure between a pink and a cyan lamp has a
      pink side and a cyan side; on figures the light falls in steps, the way

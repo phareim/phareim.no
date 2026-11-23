@@ -104,7 +104,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
       ...group('The sun', {
         sunAngle: num('Sun direction', 205, 0, 360, 5, 'Where the low sun stands, in degrees on the ground (0 east, 90 south, 180 west). Shadows fall the other way.'),
         shadowLength: num('Shadow length', 1.5, 0, 4, 0.1, 'How far a thing one tile tall throws its shadow, in tiles.'),
-        shadow: num('Shadow strength', 0.55, 0, 0.9),
+        shadow: num('Shadow strength', 0.7, 0, 0.9),
         shadowColor: color('Shadow colour', '#140a3c'),
         sunLight: color('Sunlight', '#ffba6a', 'The low sun’s own colour, laid on what faces it and stands in no shade. The classic view has one light for everything; here the sun is warm and the shade is the sky’s.'),
         sunStrength: num('Sunlight strength', 0.9, 0, 1.5, 0.05, 'How much of the light outdoors is the sun’s own. 0 is one even light, as in the classic view.'),
