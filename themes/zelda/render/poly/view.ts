@@ -24,7 +24,7 @@
 import type { GameState, MapKind, MapState, TileChar } from '../../types'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
 import { aimOf, has, mapInfo, raised, swingAngle } from '../../engine/index'
-import { renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from '../iso/figure'
+import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from '../iso/figure'
 import { buildFlora, stepFlora, type FloraAtlas, type FloraKind, type FloraLook, type FloraSprite } from '../iso/flora'
 import { bladeMesh, heroVerts, leftHand, loadHero, loadedHero, modelFits, poseHero, poseOf, recolour, type LoadedHero } from './hero'
 import type { HeroLook } from '../heroLook'
@@ -228,21 +228,23 @@ export interface Spend {
   model: boolean
   /** The halos' share. */
   halos: number
+  /** The 16-bit hero's density in the 32-bit look: 2 twice as fine (part 15), 1 the 16-bit look's own. */
+  fig: number
 }
 /**
  * The governor's ladder, the same for both looks, each step giving up the next cheapest thing for the most time
  * saved: 0 everything; 1 the bloom's own pass, the 64-bit look's multisampling to 2x; 2 the 64-bit look's per-pixel
  * lamps and its 20,000-triangle hero (the 32-bit look's 6,000), half the halos; 3 a draw distance of 70 %, coarse
- * cells, no multisampling; 4 the picture's density one step down; 5 another step down, and the hero's card in place
- * of the model. (`govern`: when it steps.)
+ * cells, no multisampling; 4 the picture's density one step down; 5 another step down, the hero's card in place
+ * of the model, and the 16-bit hero at that look's own density instead of twice as fine. (`govern`: when it steps.)
  */
 export const LADDER: readonly Spend[] = [
-  { bloomPass: true, msaa: 4, perPixel: true, heroHi: true, far: 1, coarse: false, densityDrop: 0, model: true, halos: 1 },
-  { bloomPass: false, msaa: 2, perPixel: true, heroHi: true, far: 1, coarse: false, densityDrop: 0, model: true, halos: 1 },
-  { bloomPass: false, msaa: 2, perPixel: false, heroHi: false, far: 1, coarse: false, densityDrop: 0, model: true, halos: 0.5 },
-  { bloomPass: false, msaa: 0, perPixel: false, heroHi: false, far: 0.7, coarse: true, densityDrop: 0, model: true, halos: 0.5 },
-  { bloomPass: false, msaa: 0, perPixel: false, heroHi: false, far: 0.7, coarse: true, densityDrop: 1, model: true, halos: 0.5 },
-  { bloomPass: false, msaa: 0, perPixel: false, heroHi: false, far: 0.7, coarse: true, densityDrop: 2, model: false, halos: 0.5 },
+  { bloomPass: true, msaa: 4, perPixel: true, heroHi: true, far: 1, coarse: false, densityDrop: 0, model: true, halos: 1, fig: 2 },
+  { bloomPass: false, msaa: 2, perPixel: true, heroHi: true, far: 1, coarse: false, densityDrop: 0, model: true, halos: 1, fig: 2 },
+  { bloomPass: false, msaa: 2, perPixel: false, heroHi: false, far: 1, coarse: false, densityDrop: 0, model: true, halos: 0.5, fig: 2 },
+  { bloomPass: false, msaa: 0, perPixel: false, heroHi: false, far: 0.7, coarse: true, densityDrop: 0, model: true, halos: 0.5, fig: 2 },
+  { bloomPass: false, msaa: 0, perPixel: false, heroHi: false, far: 0.7, coarse: true, densityDrop: 1, model: true, halos: 0.5, fig: 2 },
+  { bloomPass: false, msaa: 0, perPixel: false, heroHi: false, far: 0.7, coarse: true, densityDrop: 2, model: false, halos: 0.5, fig: 1 },
 ]
 
 /** What the governor decided, and when (ms of `performance.now`), for the lab: [time, steps, median gap]. */
@@ -1355,10 +1357,11 @@ export default function polyView(kit: Kit): View {
       const pc = Math.max(0.2, cam.pitch)
       const upK = 1 / (S16 * Math.cos(pc)), downK = 1 / (S16 * Math.sin(pc))
       const nUp: [number, number, number] = [tbx * 0.8, tby * 0.8, 0.6]
-      const sprite16 = (tex: number, sp: { x: number; y: number; w: number; h: number; ax: number; ay: number }, x: number, y: number, sway: number, role: number, flags: number) => {
+      // (`fine`: the picture's px to one of the 16-bit look's: 2 for the hero drawn at twice the density, part 15.)
+      const sprite16 = (tex: number, sp: { x: number; y: number; w: number; h: number; ax: number; ay: number }, x: number, y: number, sway: number, role: number, flags: number, fine = 1) => {
         const g = groundAt(x, y)
-        const l = -sp.ax / S16, rr = (sp.w - sp.ax) / S16
-        const above = sp.ay * upK, below = (sp.h - sp.ay) * downK
+        const l = -sp.ax / S16 / fine, rr = (sp.w - sp.ax) / S16 / fine
+        const above = sp.ay * upK / fine, below = (sp.h - sp.ay) * downK / fine
         const lx = x + l * camR[0], ly = y + l * camR[1], rx2 = x + rr * camR[0], ry2 = y + rr * camR[1]
         const n0 = dyn.n
         quad(dyn, [[lx, ly, above, g, sp.x, sp.y], [rx2, ry2, above, g, sp.x + sp.w, sp.y], [rx2, ry2, 0, g, sp.x + sp.w, sp.y + sp.ay], [lx, ly, 0, g, sp.x, sp.y + sp.ay]], tex, [1, 1, 1], nUp, role, flags)
@@ -1372,9 +1375,14 @@ export default function polyView(kit: Kit): View {
       if (fig16) {
         const h = s.hero
         const blink = h.act !== 'dead' && h.act !== 'fall' && h.act !== 'get' && h.invuln > 0 && Math.floor(time * 20) % 2 === 0
-        fig = renderFigure(heroPose(s, time, ui.paused ? 0 : dt), kit.heroLook(), fig ?? undefined)
+        // The 16-bit hero at twice that look's density (part 15): four times the pixels, the same size, the same figure.
+        // (The governor's lowest step draws it at the 16-bit density: `spend.fig`.)
+        const den = spend.fig
+        fig = renderFigure(heroPose(s, time, ui.paused ? 0 : dt), kit.heroLook(), fig && fig.w === FIG.w * den ? fig : undefined, den)
         engine.figure(fig.albedo, fig.normal, fig.w, fig.h)
-        if (!blink) sprite16(TEX.FIG, { x: 0, y: 0, w: fig.w, h: fig.h, ax: fig.ax, ay: fig.ay }, h.x, h.y + 0.02, 0, ROLE.STAY, 0)
+        // (On the hero's foot point, 6 classic px south of their place, as the 16-bit view stands its figure (its card's
+        // foot), a hair behind what it holds up: in the direct turn the two pictures' heroes lie on each other. Part 15.)
+        if (!blink) sprite16(TEX.FIG, { x: 0, y: 0, w: fig.w, h: fig.h, ax: fig.ax, ay: fig.ay }, h.x - 0.02, h.y + 6 / T - 0.02, 0, ROLE.STAY, 0, den)
       }
       if (outdoors && par.plants === '16-bit' && k > 0) {
         const fl: FloraLook = def.look === 'wild' ? 'wild' : 'coast'

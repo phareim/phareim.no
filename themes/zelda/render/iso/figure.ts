@@ -16,6 +16,15 @@
  * lights the sprite from the normal picture in its own steps, so the colour
  * picture carries only a shaded underside and a lit streak.
  *
+ * It is drawn at a density (part 15): 1 the 16-bit look's px, for the
+ * 16-bit view, exactly as it always was; 2 twice as fine each way, four
+ * times the pixels at the same size, for the 32-bit look. At 2 every
+ * measure is in fine px, the body snaps to whole fine px, the eyes and the
+ * mouth have shapes of their own at the finer px (`FACE2`: an open eye a
+ * rounded dot with a glint where the light comes from), the outline is two
+ * fine px (the 16-bit hero's weight) and the dark line between parts one
+ * (finer) (`FINE_LINES`); the normal picture is drawn at the same density.
+ *
  * The camera is the scene's: it stands south-east of the figure, looking
  * north-west and 30° down. The model is measured in px across (a sphere of
  * radius 8 is a disc 16 px wide), so a tile of ground is 32·√2 units, which
@@ -23,8 +32,8 @@
  * px up the screen. The blade is laid by that projection exactly: its tip is
  * `reach` tiles from the body's middle, 14 px above the ground.
  *
- * `renderFigure(pose, look, out)` is pure and keeps no state between frames
- * but its scratch buffers and the look's colours.
+ * `renderFigure(pose, look, out, density)` is pure and keeps no state between
+ * frames but its scratch buffers (a bench a density) and the look's colours.
  * `scripts/zelda-lab/figure-sheet.mjs` draws contact sheets of it.
  */
 import { lookPalette, type HeroLook } from '../heroLook'
@@ -77,11 +86,17 @@ export interface FigureSprite {
 // The camera and the bench
 // ---------------------------------------------------------------------------
 
-const W: number = FIG.w
-const H: number = FIG.h
-const AX: number = FIG.ax
-const AY: number = FIG.ay
-const N = W * H
+/**
+ * The density the figure is drawn at: 1 the 16-bit look's px, 2 the 32-bit look's (twice as fine each way, four times
+ * the pixels, the same size: part 14's 32-bit look shows the 16-bit hero, part 15 draws it finer). Every measure in px
+ * is this many fine px; each density keeps a bench of its own. At 1 every number is as it always was.
+ */
+let D = 1
+let W: number = FIG.w
+let H: number = FIG.h
+let AX: number = FIG.ax
+let AY: number = FIG.ay
+let N = W * H
 const S2 = Math.SQRT1_2
 /** cos and sin of the camera's 30° tilt. */
 const CE = Math.cos(Math.PI / 6)
@@ -96,24 +111,45 @@ const TAU = Math.PI * 2
 const FAR = -1e9
 
 /** What every pixel is before it has a colour: depth toward the viewer, material, part, tone, normal. */
-const zb = new Float32Array(N).fill(FAR)
-const mt = new Uint8Array(N)
-const gp = new Uint8Array(N)
-const tn = new Uint8Array(N)
+let zb = new Float32Array(N).fill(FAR)
+let mt = new Uint8Array(N)
+let gp = new Uint8Array(N)
+let tn = new Uint8Array(N)
 /** 1: the tone was placed by hand and stays. */
-const fx = new Uint8Array(N)
-const nx = new Float32Array(N)
-const ny = new Float32Array(N)
-const nz = new Float32Array(N)
+let fx = new Uint8Array(N)
+let nx = new Float32Array(N)
+let ny = new Float32Array(N)
+let nz = new Float32Array(N)
 /** The outline pixels of a frame, found first and laid after. */
-const olAt = new Int32Array(N)
-const olFrom = new Int32Array(N)
+let olAt = new Int32Array(N)
+let olFrom = new Int32Array(N)
 
 /** The box the bench was drawn in last (x0, y0, x1, y1; exclusive). */
 let bx0 = W
 let by0 = H
 let bx1 = 0
 let by1 = 0
+
+/** A density's bench: its size, its buffers and where it was last drawn. */
+interface Bench {
+  W: number; H: number; AX: number; AY: number; N: number
+  zb: Float32Array<ArrayBuffer>; mt: Uint8Array<ArrayBuffer>; gp: Uint8Array<ArrayBuffer>; tn: Uint8Array<ArrayBuffer>; fx: Uint8Array<ArrayBuffer>
+  nx: Float32Array<ArrayBuffer>; ny: Float32Array<ArrayBuffer>; nz: Float32Array<ArrayBuffer>; olAt: Int32Array<ArrayBuffer>; olFrom: Int32Array<ArrayBuffer>
+  bx0: number; by0: number; bx1: number; by1: number
+}
+const benches = new Map<number, Bench>()
+/** Draw at density `d` from here: the bench in use is put away and `d`'s taken out (made the first time). */
+function useDensity(d: number) {
+  if (d === D) return
+  benches.set(D, { W, H, AX, AY, N, zb, mt, gp, tn, fx, nx, ny, nz, olAt, olFrom, bx0, by0, bx1, by1 })
+  let b = benches.get(d)
+  if (!b) {
+    const w = FIG.w * d, h = FIG.h * d, n = w * h
+    b = { W: w, H: h, AX: FIG.ax * d, AY: FIG.ay * d, N: n, zb: new Float32Array(n).fill(FAR), mt: new Uint8Array(n), gp: new Uint8Array(n), tn: new Uint8Array(n), fx: new Uint8Array(n), nx: new Float32Array(n), ny: new Float32Array(n), nz: new Float32Array(n), olAt: new Int32Array(n), olFrom: new Int32Array(n), bx0: w, by0: h, bx1: 0, by1: 0 }
+  }
+  D = d
+  ;({ W, H, AX, AY, N, zb, mt, gp, tn, fx, nx, ny, nz, olAt, olFrom, bx0, by0, bx1, by1 } = b)
+}
 
 // Materials. Each has four tones: 0 outline, 1 shade, 2 the colour, 3 light.
 const SKIN = 1
@@ -292,16 +328,17 @@ function setFrame(fr: Frame, yaw: number, pitch: number, roll: number, u: number
 
 /** The camera point of (forward, right, up) in a frame. */
 function pt(fr: Frame, f: number, r: number, z: number) {
-  pu = fr[9] + SC * (f * fr[0] + r * fr[3] + z * fr[6])
-  pv = fr[10] + SC * (f * fr[1] + r * fr[4] + z * fr[7])
-  pd = fr[11] + SC * (f * fr[2] + r * fr[5] + z * fr[8])
+  const k = SC * D
+  pu = fr[9] + k * (f * fr[0] + r * fr[3] + z * fr[6])
+  pv = fr[10] + k * (f * fr[1] + r * fr[4] + z * fr[7])
+  pd = fr[11] + k * (f * fr[2] + r * fr[5] + z * fr[8])
 }
 
 /** The camera point of a world point (model units from the ground under the body's middle). */
 function ground(x: number, y: number, z: number) {
-  pu = S2 * (x - y)
-  pv = CE * z - SE * S2 * (x + y)
-  pd = CE * S2 * (x + y) + SE * z
+  pu = D * (S2 * (x - y))
+  pv = D * (CE * z - SE * S2 * (x + y))
+  pd = D * (CE * S2 * (x + y) + SE * z)
 }
 
 // ---------------------------------------------------------------------------
@@ -340,9 +377,9 @@ function ell(fr: Frame, f: number, r: number, z: number, rf: number, rr: number,
   const a0 = fr[0], a1 = fr[1], a2 = fr[2]
   const b0 = fr[3], b1 = fr[4], b2 = fr[5]
   const c0 = fr[6], c1 = fr[7], c2 = fr[8]
-  const Rf = rf * SC
-  const Rr = rr * SC
-  const Rz = rz * SC
+  const Rf = rf * SC * D
+  const Rr = rr * SC * D
+  const Rz = rz * SC * D
   const hu = Math.sqrt(a0 * a0 * Rf * Rf + b0 * b0 * Rr * Rr + c0 * c0 * Rz * Rz)
   const hv = Math.sqrt(a1 * a1 * Rf * Rf + b1 * b1 * Rr * Rr + c1 * c1 * Rz * Rz)
   const x0 = Math.max(0, Math.floor(AX + cu - hu))
@@ -359,7 +396,7 @@ function ell(fr: Frame, f: number, r: number, z: number, rf: number, rr: number,
   const q22 = a1 * a1 * kf + b1 * b1 * kr + c1 * c1 * kz
   const q23 = a1 * a2 * kf + b1 * b2 * kr + c1 * c2 * kz
   const q33 = a2 * a2 * kf + b2 * b2 * kr + c2 * c2 * kz
-  const inv = 1 / SC
+  const inv = 1 / (SC * D)
   let hit = false
   for (let y = y0; y < y1; y++) {
     const dv = AY - (y + 0.5) - cv
@@ -412,7 +449,7 @@ function ell(fr: Frame, f: number, r: number, z: number, rf: number, rr: number,
 function cap(au: number, av: number, ad: number, bu: number, bv: number, bd: number, rad: number, matA: number, matB: number, split: number, grp: number) {
   au = Math.round(au); av = Math.round(av)
   bu = Math.round(bu); bv = Math.round(bv)
-  const R = rad * SC
+  const R = rad * SC * D
   const x0 = Math.max(0, Math.floor(AX + Math.min(au, bu) - R))
   const x1 = Math.min(W, Math.ceil(AX + Math.max(au, bu) + R))
   const y0 = Math.max(0, Math.floor(AY - Math.max(av, bv) - R))
@@ -492,6 +529,8 @@ function cap(au: number, av: number, ad: number, bu: number, bv: number, bd: num
  * of the middle it is `matCore`. Its tones are placed.
  */
 function bar(u0: number, v0: number, d0: number, u1: number, v1: number, d1: number, h0: number, h1: number, core: number, mat: number, matCore: number, t: number, tCore: number) {
+  // (Widths are in px of the 16-bit look: as many fine px at a finer density.)
+  h0 *= D; h1 *= D; core *= D
   const hm = Math.max(h0, h1)
   const x0 = Math.max(0, Math.floor(AX + Math.min(u0, u1) - hm))
   const x1 = Math.min(W, Math.ceil(AX + Math.max(u0, u1) + hm))
@@ -514,7 +553,7 @@ function bar(u0: number, v0: number, d0: number, u1: number, v1: number, d1: num
       const q = qx * qx + qy * qy
       const hw = h0 + (h1 - h0) * k
       if (q >= hw * hw) continue
-      const depth = d0 + (d1 - d0) * k + 0.6
+      const depth = d0 + (d1 - d0) * k + 0.6 * D
       const i = y * W + x
       if (depth <= zb[i]) continue
       const mid = q < core * core
@@ -867,17 +906,18 @@ function sword(b: FigureBlade) {
   const edge = hot ? EDGE_HOT : EDGE
   const core = 0.6 + 0.7 * clamp(b.charge, 0, 1)
   // Pommel and grip run through the fist.
-  bar(hu - ex * 3, hv - ey * 3, hd - ez * 3, hu + ex * 2, hv + ey * 2, hd + ez * 2, 1.1, 1.1, 0, GRIP, GRIP, 2, 2)
-  bar(hu - ex * 3.5, hv - ey * 3.5, hd - ez * 3.5, hu - ex * 3.5, hv - ey * 3.5, hd - ez * 3.5, 1.2, 1.2, 0, GUARD, GUARD, 2, 2)
+  const g3 = 3 * D, g2 = 2 * D, g35 = 3.5 * D
+  bar(hu - ex * g3, hv - ey * g3, hd - ez * g3, hu + ex * g2, hv + ey * g2, hd + ez * g2, 1.1, 1.1, 0, GRIP, GRIP, 2, 2)
+  bar(hu - ex * g35, hv - ey * g35, hd - ez * g35, hu - ex * g35, hv - ey * g35, hd - ez * g35, 1.2, 1.2, 0, GUARD, GUARD, 2, 2)
   // The guard lies across the blade on the ground plane.
   const gr = P.hr + 4.2
   ground(ca * gr - sa * 3.6, sa * gr + ca * 3.6, HAND_Z)
   const g0u = pu, g0v = pv, g0d = pd
   ground(ca * gr + sa * 3.6, sa * gr - ca * 3.6, HAND_Z)
-  bar(g0u, g0v, g0d + 0.3, pu, pv, pd + 0.3, 1.2, 1.2, 0, GUARD, GUARD, 2, 2)
+  bar(g0u, g0v, g0d + 0.3 * D, pu, pv, pd + 0.3 * D, 1.2, 1.2, 0, GUARD, GUARD, 2, 2)
   // The blade: three px of steel, drawn to a point over its last five.
-  const from = 3.5
-  const neck = Math.max(from, len - 5)
+  const from = 3.5 * D
+  const neck = Math.max(from, len - 5 * D)
   bar(hu + ex * from, hv + ey * from, hd + ez * from, hu + ex * neck, hv + ey * neck, hd + ez * neck, 1.55, 1.55, core, edge, STEEL, hot ? 3 : 2, 2)
   bar(hu + ex * neck, hv + ey * neck, hd + ez * neck, tu, tv, td, 1.55, 0.55, core, edge, STEEL, hot ? 3 : 2, 2)
 }
@@ -892,8 +932,17 @@ function sword(b: FigureBlade) {
  * it hangs over.
  */
 function over(a: number, b: number, dz: number): boolean {
-  return a !== b && dz > (a === G_HEAD ? 0 : 1)
+  return a !== b && dz > (a === G_HEAD ? 0 : D)
 }
+
+/**
+ * The outline's width and the dark line's where one part stands in front of another, in fine px. At the 16-bit
+ * look's density both are one px; at the 32-bit look's they are set by the sheet (part 15: `FINE_LINES`).
+ */
+let OL = 1
+let PL = 1
+/** At the 32-bit look's density: the outline two fine px (the 16-bit hero's weight), the line between parts one (finer). */
+export const FINE_LINES = { outline: 2, parts: 1 } as const
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
 
@@ -910,18 +959,23 @@ function put(o: FigureSprite, i: number, m: number, t: number) {
   o.normal[j + 3] = glow[m * 4 + t]
 }
 
-/** An eye or a mouth at a point of the head's frame, if that point of the face is in sight: w × h px, on skin only. */
-function mark(f: number, r: number, z: number, w: number, h: number, m: number, t: number) {
+/**
+ * An eye or a mouth at a point of the head's frame, if that point of the face is in sight: w × h px, on skin only. At a
+ * finer density the spot has a shape of its own (`shape`: rows of tones, '.' none), placed the same way.
+ */
+function mark(f: number, r: number, z: number, w: number, h: number, m: number, t: number, shape?: readonly string[]) {
   // How squarely this spot of the face looks at the viewer.
   const l = Math.hypot(f, r, z) || 1
   const facing = (f * fHead[2] + r * fHead[5] + z * fHead[8]) / l
   if (facing < 0.12) return
   pt(fHead, f, r, z)
-  if (facing < 0.2) w = Math.min(w, 1)
+  // (Seen edge on, the spot is a sliver: one px of the 16-bit look, D fine px, its middle columns.)
+  let c0 = 0
+  if (facing < 0.2 && w > D) { c0 = Math.floor((w - D) / 2); w = D }
   const y0 = Math.round(AY - pv - h / 2)
   // In profile the spot is on the face's very edge: it is drawn a px or two in, where an artist would put it.
   const inward = fHead[9] > pu ? 1 : -1
-  for (let k = 0; k < 3; k++) {
+  for (let k = 0; k < 1 + 2 * D; k++) {
     const x0 = Math.round(AX + pu - w / 2) + k * inward
     // A px of skin stays between the spot and the face's edge.
     const xe = inward > 0 ? x0 - 1 : x0 + w
@@ -931,9 +985,15 @@ function mark(f: number, r: number, z: number, w: number, h: number, m: number, 
       for (let x = x0; x < x0 + w; x++) {
         if (x < 0 || y < 0 || x >= W || y >= H) continue
         const i = y * W + x
-        if (mt[i] !== SKIN || gp[i] !== G_HEAD || Math.abs(zb[i] - pd) > 4) continue
+        if (mt[i] !== SKIN || gp[i] !== G_HEAD || Math.abs(zb[i] - pd) > 4 * D) continue
+        let tt = t
+        if (shape) {
+          const ch = shape[y - y0]?.[x - x0 + c0]
+          if (!ch || ch === '.') continue
+          tt = ch.charCodeAt(0) - 48
+        }
         mt[i] = m
-        tn[i] = t
+        tn[i] = tt
         fx[i] = 1
         done = true
       }
@@ -942,11 +1002,32 @@ function mark(f: number, r: number, z: number, w: number, h: number, m: number, 
   }
 }
 
+/**
+ * The face at the 32-bit look's density (part 15): the same eyes and mouth in the same places, drawn at the finer px an
+ * artist would give them. An open eye is the old 2 × 2 dot rounded off, with a glint where the light comes from; a
+ * closed one a line; a screwed-up one a light line; the open mouth an oval, the small one a short line.
+ */
+const FACE2 = {
+  open: ['.22.', '2322', '2222', '.22.'],
+  closed: ['2222'],
+  screwed: ['3..3', '.33.'],
+  mouthOpen: ['.00.', '0000', '.00.'],
+  mouthSmall: ['.222.'],
+} as const
+
 function face() {
   if (SC < 0.6) return
   const er = 3.3
   const ef = 8.4
   const ez = -0.5
+  if (D === 2) {
+    const eye = P.eyes === 0 ? FACE2.open : P.eyes === 1 ? FACE2.closed : FACE2.screwed
+    const dz = P.eyes === 1 ? -0.4 : 0
+    for (const r of [-er, er]) mark(ef, r, ez + dz, eye[0]!.length, eye.length, EYE, 2, eye)
+    if (P.mouth === 1) mark(8.6, 0, -3.9, 4, 3, MOUTH, 0, FACE2.mouthOpen)
+    else if (P.mouth === 2) mark(8.6, 0, -4, 5, 1, MOUTH, 2, FACE2.mouthSmall)
+    return
+  }
   if (P.eyes === 0) {
     mark(ef, -er, ez, 2, 2, EYE, 2)
     mark(ef, er, ez, 2, 2, EYE, 2)
@@ -996,12 +1077,12 @@ function trail(o: FigureSprite, b: FigureBlade) {
   const arc = b.kind === 'arc'
   let hit = false
   for (let y = y0; y < y1; y++) {
-    const v = AY - (y + 0.5)
+    const v = (AY - (y + 0.5)) / D
     // Back from the screen to the blade's plane: x + y and x − y of the ground point.
     const sum = (CE * HAND_Z - v) / (SE * S2)
-    const depth = CE * S2 * sum + SE * HAND_Z
+    const depth = D * (CE * S2 * sum + SE * HAND_Z)
     for (let x = x0; x < x1; x++) {
-      const dif = (x + 0.5 - AX) / S2
+      const dif = (x + 0.5 - AX) / D / S2
       const gx = (sum + dif) / 2
       const gy = (sum - dif) / 2
       const rr = gx * gx + gy * gy
@@ -1021,7 +1102,7 @@ function trail(o: FigureSprite, b: FigureBlade) {
       const j = i * 4
       if (mt[i] || o.albedo[j + 3]) {
         // Over the body the trail is laid as a dither of whole pixels, so the body is not thinned by it.
-        if (al / 255 * 16 <= BAYER[(y & 3) * 4 + (x & 3)] + 0.5) continue
+        if (al / 255 * 16 <= BAYER[((y / D | 0) & 3) * 4 + ((x / D | 0) & 3)] + 0.5) continue
       }
       const bright = rim > 0.72 && q < 0.4 ? 2 : rim > 0.3 || q < 0.12 ? 1 : 0
       const c = arc
@@ -1047,7 +1128,8 @@ function spark(o: FigureSprite, b: FigureBlade) {
   ground(Math.cos(b.a) * reach, Math.sin(b.a) * reach, HAND_Z)
   const cx = Math.floor(AX + pu)
   const cy = Math.floor(AY - pv)
-  for (let k = -4; k <= 4; k++) {
+  const reachK = 4 * D
+  for (let k = -reachK; k <= reachK; k++) {
     for (let e = 0; e < 2; e++) {
       const x = e ? cx : cx + k
       const y = e ? cy + k : cy
@@ -1055,7 +1137,7 @@ function spark(o: FigureSprite, b: FigureBlade) {
       const i = y * W + x
       if (pd + 1 < zb[i]) continue
       nx[i] = 0; ny[i] = 0; nz[i] = 1
-      put(o, i, SPARK, Math.abs(k) <= 1 ? 3 : Math.abs(k) <= 3 ? 2 : 1)
+      put(o, i, SPARK, Math.abs(k) <= D ? 3 : Math.abs(k) <= 3 * D ? 2 : 1)
       grow(x, y, x + 1, y + 1)
     }
   }
@@ -1065,8 +1147,8 @@ function finish(o: FigureSprite, pose: FigurePose) {
   const b = P.blade ? pose.blade : undefined
   if (bx0 < bx1) {
     // Room for the outline.
-    bx0 = Math.max(0, bx0 - 1); by0 = Math.max(0, by0 - 1)
-    bx1 = Math.min(W, bx1 + 1); by1 = Math.min(H, by1 + 1)
+    bx0 = Math.max(0, bx0 - OL); by0 = Math.max(0, by0 - OL)
+    bx1 = Math.min(W, bx1 + OL); by1 = Math.min(H, by1 + OL)
     const x0 = bx0, y0 = by0, x1 = bx1, y1 = by1
     // A pixel that sticks out alone is filed off.
     for (let y = y0; y < y1; y++) {
@@ -1089,10 +1171,17 @@ function finish(o: FigureSprite, pose: FigurePose) {
         if (!m) continue
         const z = zb[i]
         const g = gp[i]
-        const edge = (x > 0 && mt[i - 1] && over(gp[i - 1], g, zb[i - 1] - z))
+        let edge = (x > 0 && mt[i - 1] && over(gp[i - 1], g, zb[i - 1] - z))
           || (x < W - 1 && mt[i + 1] && over(gp[i + 1], g, zb[i + 1] - z))
           || (y > 0 && mt[i - W] && over(gp[i - W], g, zb[i - W] - z))
           || (y < H - 1 && mt[i + W] && over(gp[i + W], g, zb[i + W] - z))
+        // (A wider line between parts: the part in front looked for further off.)
+        for (let q = 2; !edge && q <= PL; q++) {
+          edge = (x >= q && !!mt[i - q] && over(gp[i - q], g, zb[i - q] - z))
+            || (x < W - q && !!mt[i + q] && over(gp[i + q], g, zb[i + q] - z))
+            || (y >= q && !!mt[i - q * W] && over(gp[i - q * W], g, zb[i - q * W] - z))
+            || (y < H - q && !!mt[i + q * W] && over(gp[i + q * W], g, zb[i + q * W] - z))
+        }
         if (edge) { tn[i] = 0; continue }
         if (fx[i]) continue
         const l = nx[i] * LX + ny[i] * LY + nz[i] * LZ
@@ -1153,6 +1242,31 @@ function finish(o: FigureSprite, pose: FigurePose) {
     }
     // The outline is as near as what it goes round, so a trail behind the figure stays behind its outline too.
     for (let k = 0; k < no; k++) zb[olAt[k]] = zb[olFrom[k]]
+    // A wider outline: rings round the first, each in the darkest tone of the part the ring inside it came from.
+    let from = 0
+    for (let ring = 2; ring <= OL; ring++) {
+      const start = no
+      for (let k = from; k < start; k++) fx[olAt[k]] = 3
+      for (let k = from; k < start; k++) {
+        const i0 = olAt[k]
+        const x = i0 % W, y = (i0 / W) | 0
+        for (const i of [x > 0 ? i0 - 1 : -1, x < W - 1 ? i0 + 1 : -1, y > 0 ? i0 - W : -1, y < H - 1 ? i0 + W : -1]) {
+          if (i < 0 || mt[i] || fx[i] === 3 || o.albedo[i * 4 + 3]) continue
+          fx[i] = 3
+          olAt[no] = i
+          olFrom[no++] = olFrom[k]
+        }
+      }
+      for (let k = start; k < no; k++) {
+        const i = olAt[k]
+        const j = olFrom[k]
+        nx[i] = nx[j]; ny[i] = ny[j]; nz[i] = nz[j]
+        const m = mt[j]
+        put(o, i, m === EYE || m === MOUTH ? SKIN : m, 0)
+        zb[i] = zb[j]
+      }
+      from = start
+    }
   }
   if (b) {
     if (b.trail.length) trail(o, b)
@@ -1174,8 +1288,17 @@ export function solvePose(pose: FigurePose): SolvedPose {
   return { ...P, scale: SC, hip: HIP }
 }
 
-export function renderFigure(pose: FigurePose, look: HeroLook, out?: FigureSprite): FigureSprite {
-  const o: FigureSprite = out ?? { w: W, h: H, ax: AX, ay: AY, albedo: new Uint8ClampedArray(N * 4), normal: new Uint8ClampedArray(N * 4), box: [0, 0, 0, 0] }
+/**
+ * (`lines`: the lab's override of the outline's and the part lines' widths, fine px.)
+ * `density`: 1 the 16-bit look's px (the 16-bit view), 2 twice as fine each way at the same size (the 32-bit look, part
+ * 15): every measure in fine px, the body snapped to whole fine px, the face drawn at the finer px (`FACE2`), the
+ * outline and the line between parts as `FINE_LINES` says. `out` must have been made at the same density.
+ */
+export function renderFigure(pose: FigurePose, look: HeroLook, out?: FigureSprite, density = 1, lines?: { outline: number; parts: number }): FigureSprite {
+  useDensity(density)
+  OL = lines?.outline ?? (density === 1 ? 1 : FINE_LINES.outline)
+  PL = lines?.parts ?? (density === 1 ? 1 : FINE_LINES.parts)
+  const o: FigureSprite = out && out.w === W ? out : { w: W, h: H, ax: AX, ay: AY, albedo: new Uint8ClampedArray(N * 4), normal: new Uint8ClampedArray(N * 4), box: [0, 0, 0, 0] }
   // The bench, where the last frame (of any sprite) stood on it.
   for (let y = by0; y < by1; y++) {
     const a = y * W + bx0

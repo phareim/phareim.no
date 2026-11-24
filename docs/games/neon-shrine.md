@@ -549,7 +549,13 @@ look is the 16-bit world's own art in the polygon engine's land and light:
     feet: what is above the foot upright, facing the camera, what is below it
     (the ground in front, the blade's sweep) lying on the ground toward the
     eye, so the picture lies as the 16-bit look drew it (value `figure`
-    `16-bit`). It is lit per pixel from its normal picture (sky, sun with its
+    `16-bit`). Since part 15 it is drawn at twice that look's density
+    (`renderFigure`'s `density` 2: four times the pixels at the same size,
+    the body snapped to whole fine px, the face drawn at the finer px, the
+    outline two fine px and the line between parts one), its card the same
+    size in the world, read texel by texel; the governor's lowest step draws
+    it at the 16-bit density (`Spend.fig`). It stands on the hero's foot
+    point, as the 16-bit view stands its figure. It is lit per pixel from its normal picture (sky, sun with its
     shadow, every lamp, the spill), never under 0.42 of its own colours, and
     sorts in the depth buffer against walls, trees and figures. The hero model
     (`hero.ts`, `public/zelda/poly/hero-*`) is no longer fetched;
