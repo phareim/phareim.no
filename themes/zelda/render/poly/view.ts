@@ -62,6 +62,66 @@ const BIG = { w: 200, h: 160, ax: 100, ay: 132 }
 const CHUNK = 8
 /** The 64-bit look's picture is capped this frame (PIXEL_CAP): stretched to the screen smooth all the way. */
 let capped = false
+/**
+ * Depth of field as a diorama has it: the picture sharp in a band round the hero's row and softer the further a row
+ * lies above it (further off) or below it (nearer the lens). Screen rows stand in for depth: from the crane's angle
+ * the two go together. The soft copy is the picture halved three times (each step averages its four px, so nothing
+ * shimmers) and stretched back up smooth, laid over the sharp one through a mask that is clear in the band. Plain
+ * canvas work, no `ctx.filter` (not on every browser). `amount` 0 leaves the picture alone.
+ */
+const dofC = typeof document === 'undefined' ? null : [0, 1, 2, 3].map(() => document.createElement('canvas'))
+export function tiltShift(g: CanvasRenderingContext2D, src: HTMLCanvasElement, focusY: number, amount: number, band: number): void {
+  if (!dofC || amount <= 0) return
+  const w = src.width, h = src.height
+  let from: HTMLCanvasElement = src
+  for (let i = 0; i < 3; i++) {
+    const c = dofC[i]!
+    const cw = Math.max(1, Math.ceil(w / 2 ** (i + 1))), ch = Math.max(1, Math.ceil(h / 2 ** (i + 1)))
+    if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch }
+    const cg = c.getContext('2d')!
+    cg.imageSmoothingEnabled = true
+    cg.imageSmoothingQuality = 'medium'
+    cg.clearRect(0, 0, cw, ch)
+    cg.drawImage(from, 0, 0, from.width, from.height, 0, 0, cw, ch)
+    from = c
+  }
+  const out = dofC[3]!
+  if (out.width !== w || out.height !== h) { out.width = w; out.height = h }
+  const og = out.getContext('2d')!
+  og.globalCompositeOperation = 'source-over'
+  og.imageSmoothingEnabled = true
+  og.imageSmoothingQuality = 'high'
+  og.clearRect(0, 0, w, h)
+  og.drawImage(from, 0, 0, from.width, from.height, 0, 0, w, h)
+  // The mask: clear in the band, the soft copy whole a ramp's length beyond it (the near side ramps in slower: what
+  // is close to the lens is blurred less than the distance).
+  const fy = Math.max(0, Math.min(1, focusY / h))
+  const half = band / 2
+  const farRamp = 0.28, nearRamp = 0.4
+  const stops: Array<[number, number]> = [
+    [0, Math.min(1, Math.max(0, (fy - half) / farRamp))],
+    [Math.max(0, fy - half - farRamp), 1], [Math.max(0, fy - half), 0],
+    [Math.min(1, fy + half), 0], [Math.min(1, fy + half + nearRamp), 1],
+    [1, Math.min(1, Math.max(0, (1 - fy - half) / nearRamp))],
+  ]
+  stops[0]![1] = stops[1]![0] <= 0 ? stops[0]![1] : 1
+  stops[5]![1] = stops[4]![0] >= 1 ? stops[5]![1] : 1
+  const gr = og.createLinearGradient(0, 0, 0, h)
+  let last = -1
+  for (const [t, a] of stops) { const at = Math.max(last, t); gr.addColorStop(at, `rgba(0,0,0,${Math.min(1, a * amount)})`); last = at }
+  og.globalCompositeOperation = 'destination-in'
+  og.fillStyle = gr
+  og.fillRect(0, 0, w, h)
+  og.globalCompositeOperation = 'source-over'
+  g.save()
+  g.setTransform(1, 0, 0, 1, 0, 0)
+  g.globalAlpha = 1
+  g.globalCompositeOperation = 'source-over'
+  g.imageSmoothingEnabled = false
+  g.drawImage(out, 0, 0)
+  g.restore()
+}
+
 /** How much of the sun's path of light shows on the water at its height: none high in the sky (its disc fades out of
  * the backdrop above 0.25), most as it nears the horizon, a third once it is under it; by the height, so it never steps. */
 export function glintSun(h: number): number {
@@ -1782,6 +1842,10 @@ export default function polyView(kit: Kit): View {
     hg.drawImage(kit.sceneCanvas(), 0, 0, vw, vh, 0, 0, sw, sh)
     hg.imageSmoothingEnabled = false
     hg.drawImage(engine.canvas, 0, 0)
+    // Depth of field round the hero's row (`tiltShift`): only once the turn has seated, and not on the slowest steps
+    // of the ladder, nor on the title screen's tour (no hero there to focus on).
+    const dof = ((par.dof as number) ?? 0) * ek
+    if (dof > 0.01 && !spend.coarse && !ui.attract) tiltShift(hg, hiC, heroP.y * px, dof, (par.dofBand as number) ?? 0.3)
     // From here on the picture is drawn on in classic px, as the kit's painters count.
     hg.setTransform(d, 0, 0, d, 0, 0)
     const flare = (par.flare as number) * ek

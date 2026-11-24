@@ -608,6 +608,31 @@ look is the 16-bit world's own art in the polygon engine's land and light:
     crane. Back the same way, reversed. Turns to and from the classic look are
     as they were: V goes classic → 16 → 32 → classic.
 
+**The 32-bit look as a lit diorama** (part 18, 2026-11-24). Petter found the
+16-bit look plainly better than the 32-bit one; the reasons, side by side at
+the same spot: the art is top-down pixel art and keeps its shape only where
+every texel is the same size; the 32-bit look's lamps and lifted albedo washed
+the square out (no darks, so the neon had nothing to glow against); it mixed
+four hands (painted textures, Scale4x figures, the 16-bit plants, flat-shaded
+meshes); it copied the 1996 machine's flaws on purpose; and it showed half the
+world. So the look now goes the way of pixel figures in a lit 3D world:
+  - *the machine's flaws are off* (`affine`, `wobble` and `fray` 0): textures
+    stay put, corners hold still, borders between grounds are clean;
+  - *calmer lamps* (`lampGain` 1.0 from 1.7, `lampAir` 0.15 from 0.35): the
+    dusk is dark again, the lamps lay pools, the signs glow;
+  - *one hand*: the 16-bit look's own materials (`textures`: `materials`), at
+    the same texel size as the figures and the signs; the painted page stays
+    for the 64-bit look (`THIRD_PERSON` names it);
+  - *depth of field round the hero* (`tiltShift` in `poly/view.ts`; values
+    `dof` 0.8 and `dofBand` 0.3): the picture is sharp in a band round the
+    hero's row and softer above it and below it, as a diorama is photographed.
+    Screen rows stand in for depth (from the crane the two go together); the
+    soft copy is the picture halved three times and stretched back smooth,
+    laid on through a gradient mask, with plain canvas calls (no `ctx.filter`).
+    Off on the ladder's coarse steps, on the title tour and in the 64-bit look;
+  - *a wider crane* (`zoom` 1.1 from 1.4): the plaza, its people and the woods
+    behind are in the picture, as in the 16-bit look.
+
 **The polygon view** (`render/poly/`, 2026-11-23). The third way of drawing the
 world, the 32-bit look: the world as low polygons in perspective, seen from a
 crane behind and above the hero, with a horizon, drawn the way a 1996 console
@@ -647,7 +672,7 @@ filtered textures, fog).
   turn needs no camera of its own. `CRANE` (part 14) looks the 16-bit look's
   way: it stands south-east of the hero looking north-west, 32° down, through a
   22° lens from far back, the hero a little below the middle; its distance is
-  set from the screen (`craneDist`, value `zoom` 1.4), so a tile is 1.4 times
+  set from the screen (`craneDist`, value `zoom` 1.1 since part 18), so a tile is 1.1 times
   the 16-bit look's at the same screen size (the 16-bit look's own px rounded
   as it rounds them). It sees no sky on a wide screen or an upright phone.
   `View.turn` is a quarter of π, as in the 16-bit look, so a press goes where
@@ -777,8 +802,8 @@ filtered textures, fog).
   `public/zelda/poly/materials.webp` (86 KB, written by
   `scripts/zelda-lab/poly-pack.mjs` from the painted page), fetched the first
   time a polygon look wants it; the 16-bit materials draw until it is here, and
-  if it fails (value `textures`: `painted` or `materials`). The 32-bit look reads
-  them texel by texel, the 64-bit one filtered. Under the game's dusk some were
+  if it fails (value `textures`: `painted` or `materials`). The 64-bit look reads
+  them filtered; the 32-bit look has drawn the 16-bit materials since part 18. Under the game's dusk some were
   too loud or too dim and are tuned as they are decoded (`PAINTED_TUNE` in
   `poly/view.ts`: a gain and a saturation a material): grass and the Wildwood's
   moss and lanes lifted, the sand calmed, the cobbles kept rose-violet, the

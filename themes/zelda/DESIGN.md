@@ -143,7 +143,8 @@ own materials for the ground, the walls and the roofs; and a polygon 32-bit one:
 16-bit world's own art (its hero, its trees) standing in the polygon engine's land and light (since part 16 the hero
 and every person and thing are the classic drawings, as in the 8- and 16-bit adventure, at four times the 16-bit
 view's pixels, made in the shader: Scale4x and the 16-bit view's blend), seen from the 16-bit
-look's angle but nearer and with real depth, the land flat beside roads and houses and low elsewhere, and reached
+look's angle but nearer and with real depth (since part 18 a lit diorama: the 16-bit materials, none of the 1996
+machine's flaws, calm lamps, and depth of field round the hero), the land flat beside roads and houses and low elsewhere, and reached
 from the 16-bit look by one continuous move that never shows the classic picture (the 64-bit look below is out of
 the round for now: `views.ts`); before that, the world as low polygons in
 perspective from a crane behind the hero, with a horizon, rolling land, round ponds and a short draw distance,
