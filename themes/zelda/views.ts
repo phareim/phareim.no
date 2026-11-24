@@ -50,7 +50,7 @@ export const ENGINE_LOADERS: Record<EngineId, (() => Promise<{ default: unknown 
  * softly, thick fog in the hour's colour, soft halos and a lens flare, rounder windows, hillier land.
  */
 export const THIRD_PERSON: ParamValues = {
-  pose: 'shoulder', figure: 'model', plants: 'built', density: 'screen', smoothEdges: true, affine: 0, wobble: 0, filter: 1, smoothShade: 1, colors: 'full', fray: 0,
+  pose: 'shoulder', figure: 'model', plants: 'built', fineFigures: 'plain', density: 'screen', smoothEdges: true, affine: 0, wobble: 0, filter: 1, smoothShade: 1, colors: 'full', fray: 0,
   // (The land rolls less than it did (and the ground is read half a level soft, `groundSoft`'s default): walking over the camp's knolls the
   // picture shimmered more than the 16-bit view's, part 6's meter.)
   fog: 1, drawDistance: 30, halos: 1, flare: 1, landScale: 1.05, windows: '64-bit',

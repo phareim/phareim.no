@@ -544,7 +544,27 @@ shoulder pose and the code stay, and one line brings it back), and the 32-bit
 look is the 16-bit world's own art in the polygon engine's land and light:
   - *the camera* looks as the 16-bit one does, nearer and with depth (`CRANE`
     above);
-  - *the hero* is the 16-bit figure (`iso/figure.ts` `renderFigure`, every
+  - *the hero and every figure* (part 16, Petter: «alle figurene kan få samme
+    32-bit-oppskalering»): the 16-bit look's hero is the classic four-way
+    sprite (its value `figure` is `classic`), and so is the 32-bit look's now
+    (value `figure` `classic`, the default). Every person and thing in the
+    32-bit look (the hero, people, Luna and the followers, foes, bosses,
+    animals, what is carried, pickups) is its classic picture at four fine px
+    a texel, four times the 16-bit view's pixels, made in the card shader as it
+    is read, never on the CPU (`fineAt` in `engine.ts`, value `fineFigures`):
+    Scale4x (Scale2x on Scale2x's picture: the stairs get quarter-steps, every
+    px one of the drawing's colours), then the 16-bit view's own blend of one
+    material's shades (`art` in `iso/shaders.ts`). The 16-bit view's smoothing
+    alone at four steps (`smooth`) is the runner-up, faithful but hardly finer.
+    The card stands as the 16-bit view stands it (half of its px a classic px
+    across, a px up the screen a px tall, what is below the foot lying toward
+    the eye), on the same foot point, facing the classic way round, so at the
+    16-bit end of the direct turn the two heroes are one drawing in one place;
+    its height and lie follow the camera from the 16-bit projection to the
+    crane. Before part 16 the cards were 16 classic px to a tile across, about
+    1.4 times too wide against the 16-bit look, and turned with the camera;
+  - *the modelled hero* (value `figure` `16-bit`, a choice for the studio) is
+    the 16-bit figure (`iso/figure.ts` `renderFigure`, every
     look and act and the blade), drawn each frame and stood up at the hero's
     feet: what is above the foot upright, facing the camera, what is below it
     (the ground in front, the blade's sweep) lying on the ground toward the

@@ -104,6 +104,16 @@ describe('the view registry', () => {
     // The polygon engine's round: the 32-bit look only (part 14). The 64-bit look's values are kept for its return.
     assert.deepEqual(M.VIEWS.filter(v => v.engine === 'poly').map(v => v.id), ['poly'])
     assert.equal(M.THIRD_PERSON.pose, 'shoulder')
+    // Part 16: the 32-bit hero is the hero of the 8- and 16-bit adventure (the classic sprite), and every figure is its
+    // classic drawing at four times the 16-bit view's pixels; the modelled hero stays a choice, and the kept 64-bit look
+    // keeps its model and its plain cards.
+    const poly = M.ENGINES.poly.params
+    assert.equal(poly.figure.value, 'classic')
+    assert.ok(poly.figure.options.includes('16-bit') && poly.figure.options.includes('model'))
+    assert.equal(poly.fineFigures.value, 'scale4x')
+    assert.equal(M.ENGINES.iso.params.figure.value, 'classic')
+    assert.equal(M.THIRD_PERSON.figure, 'model')
+    assert.equal(M.THIRD_PERSON.fineFigures, 'plain')
     assert.deepEqual(M.paramDiff('poly', M.THIRD_PERSON), M.THIRD_PERSON, 'the kept 64-bit look carries values its engine would drop')
   })
   it('keeps every view\'s code out of the page that loads first', () => {
