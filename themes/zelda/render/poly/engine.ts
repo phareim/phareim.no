@@ -44,6 +44,10 @@ export interface PolyLook {
   hazeAmount: number
   /** How far the water is this view's own (0: the classic picture's). */
   water: number
+  /** A path of light on the water under the sun (or the moon): its x and the horizon's y as shares of the picture
+   * (y from the top), its strength (0: none); and its colour. Part 12. */
+  glint?: [number, number, number]
+  glintCol?: [number, number, number]
   /** Normals shared at the corners (1) or one a facet (0). */
   smooth: number
   /** Textures filtered at half their size (1) or read texel by texel (0). */
@@ -131,7 +135,7 @@ float lampFall(vec4 P, vec3 p) {
     float R = -P.w;
     float south = p.y - P.y;
     if (south < -0.45) return 0.0;
-    float q = length(vec2(d.x / (R * 0.75), max(0.0, south) / (R * 1.5)));
+    float q = length(vec2(d.x / (R * 0.75), max(0.0, south) / (R * 2.4)));
     float a = clamp(1.0 - q, 0.0, 1.0);
     return a * a * (1.6 - 0.6 * clamp(abs(d.z) / 2.5, 0.0, 1.0));
   }
@@ -363,6 +367,9 @@ uniform vec4 uHero;
 uniform float uBits;
 uniform int uGlowOnly;
 uniform float uWater;
+/** The path of light on the water: x and the horizon's y (px, from the bottom), strength, the picture's width (px). */
+uniform vec4 uGlint;
+uniform vec3 uGlintCol;
 uniform float uFilter;
 /** The ground's and the walls' materials filtered between texels (0: texel by texel). */
 uniform float uMatFilter;
@@ -608,6 +615,18 @@ void main() {
       if (s > -0.07) glow = vec3(0.18, 0.95, 1.0);
       else if (s > -0.16 && b > 0.5) col = vec3(0.12, 0.45, 0.7);
     } else if (s > -0.06 + 0.04 * sin(q.x * 9.0 + t * 2.0) || (s > -0.14 && b > 0.62)) col = vec3(0.62, 0.84, 1.0);
+    // The sun's (or the moon's) path of light across the water: a column under it, widening toward the eye, made of
+    // the crests that catch it, moving with them (slow: a shimmer, not a crawl). It shines by itself (the bloom too).
+    if (uGlint.z > 0.0) {
+      float below = uGlint.y - gl_FragCoord.y;
+      if (below > 0.0) {
+        float w = uGlint.w * 0.012 + below * 0.22;
+        float dx = (gl_FragCoord.x - uGlint.x) / w;
+        float sp = sin(q.x * 13.0 + q.y * 3.1 - t * 0.9) * sin(q.y * 10.7 + t * 0.6 - q.x * 4.3);
+        float spark = smoothstep(0.15, 0.7, sp) * exp(-dx * dx);
+        glow = max(glow, uGlintCol * spark * uGlint.z);
+      }
+    }
     // (Through the turn the classic picture's water gives way to this one's, not in one frame.)
     if (uWater < 1.0) { vec4 ba = fetchPic(uBase, uv * 16.0); if (ba.a > 0.5) col = mix(ba.rgb / ba.a, col, uWater); }
     c = vec4(col, 1.0);
@@ -652,7 +671,17 @@ void main() {
   float lo = min(tex.r, min(tex.g, tex.b));
   if (vTex != 1 && vTex != 4 && hi > 0.6 && hi - lo > 0.5 * hi) neon = tex;
   if ((vFlags & 2) != 0) neon = max(neon, tex * vColor);
-  lit = max(lit, neon);
+  // (A self-lit thing keeps its own colour: the light round it may brighten it until its brightest part is full, never
+  // past that toward white; a flame stays orange and yellow under the fire's own strong light, and its glow, the bloom,
+  // is what is bright. Part 12.)
+  float nHi = max(neon.r, max(neon.g, neon.b));
+  if (nHi > 0.0) {
+    float lumL = dot(lit, vec3(0.3, 0.59, 0.11));
+    float lumN = max(dot(neon, vec3(0.3, 0.59, 0.11)), 1e-3);
+    lit = neon * clamp(lumL / lumN, 1.0, 1.0 / nHi);
+    // (What a sign beside it spills still colours it, a roof round its letters: its colour added, not multiplied.)
+    if (uSpillAt.w > 0.0) lit += texture(uSpill, (vPos.xy - uSpillAt.xy) * uSpillAt.z / vec2(textureSize(uSpill, 0))).rgb * uSpillAt.w;
+  }
   // The hero model's face and clothes read under every light: never darker than about half their own colours
   // (a painted figure's floor, as the sprites' outlines and the classic art carry their own light).
   if (vTex == 7) {
@@ -1038,6 +1067,8 @@ export function createEngine(): Engine {
       gl.uniform4f(u('uHero'), ...(f.hero ? [f.hero[0], vh - f.hero[1], f.hero[2], f.hero[3]] as [number, number, number, number] : [0, 0, 0, 0] as [number, number, number, number]))
       gl.uniform1f(u('uBits'), L.bits)
       gl.uniform1f(u('uWater'), L.water)
+      gl.uniform4f(u('uGlint'), (L.glint?.[0] ?? 0) * vw, vh - (L.glint?.[1] ?? 0) * vh, L.glint?.[2] ?? 0, vw)
+      gl.uniform3f(u('uGlintCol'), ...(L.glintCol ?? [0, 0, 0]))
       if (f.dynamic.count) {
         gl.bindBuffer(gl.ARRAY_BUFFER, dyn)
         gl.bufferData(gl.ARRAY_BUFFER, f.dynamic.data.subarray(0, f.dynamic.count * STRIDE), gl.STREAM_DRAW)

@@ -882,15 +882,21 @@ filtered textures, fog).
     does, so the hand-off meets the classic picture beside a strong lamp too.
     The day's exposure is added as the classic picture adds it in the 16-bit
     view's flat end (`expose`). Lamps show halos as additive billboards that
-    keep the picture's coverage (no dark disc over the sky). Figures' blob
+    keep the picture's coverage (no dark disc over the sky), in the lamp's
+    own hue (a strong light's halo does not add up to white). What shines by
+    itself (a flame, neon, a screen, a lantern's pane) keeps its own colour:
+    light round it brightens it only until its brightest part is full, and
+    its glow, the bloom, is what is bright (part 12). Figures' blob
     shadows fall away from what lights their spot most (the sun outdoors, the
     lamps in reach), as in the 16-bit view.
   - *light from what shines* (part 9): lit windows, neon signs and screens and
     a town's fountain spill their colour round them. A spill map per map
     (`sendSpill` in `view.ts`) is built once from the classic art's own bright
     pixels (saturated neon, the warm window yellow) and the fountain's paved
-    rim, blurred over about a tile and a half, and read like a lamp: per corner
-    in the 32-bit look, per pixel in the 64-bit one (`uSpill`). Its strength is
+    rim, blurred over about two tiles, and read like a lamp: per corner
+    in the 32-bit look, per pixel in the 64-bit one (`uSpill`). On what shines
+    by itself (a roof round its sign's letters) the spill's colour is added
+    on top (part 12). Its strength is
     the hour's lamp light, held smooth like the rest, so it comes up with the
     lamps at sunset and is all but gone at noon.
   - *pools of light* (part 11): every lamp lays a round pool of its colour,
@@ -899,14 +905,21 @@ filtered textures, fog).
     shared by the per-corner and per-pixel light). A light on a house's own
     tile is a window or a sign's letter: it shines from just before the wall's
     face (the painters put it a row behind it) and throws a patch longer than
-    wide out before the wall, brightest at its foot, and lights the wall round
-    it. A fire (the camp's bonfire, a tiki torch) reaches half again as far as
-    a lamp and burns brighter, and a Shrine room's torches further still
-    (`FIRE_FIT`, `TORCH_FIT` in `view.ts`). While the sun is up the lamps go
-    down to a fifth (`lampGain` 1.7 in the 32-bit look, 2.3 in the 64-bit one).
+    wide out before the wall (about two tiles), brightest at its foot, and
+    lights the wall round it. A fire (the camp's bonfire, a tiki torch) reaches half again as far as
+    a lamp and burns brighter. A room's torches shine from a little out into
+    the room and reach twice as far, so they light its floor, side walls and
+    whoever stands there; a room's other lights reach half again as far
+    (`FIRE_FIT`, `TORCH_FIT`, `INDOOR_FIT` in `view.ts`). While the sun is up
+    the lamps go down to a fifth (`lampGain` 1.7 in the 32-bit look, 2.3 in
+    the 64-bit one).
+  - *a path of light on the water* (part 12): under the backdrop's sun, a
+    column of crests that catch it, widening toward the eye and moving with
+    the waves, warm at sunset and pale blue at night (`glint`, `glintSun` in
+    `view.ts`; it shines by itself, so it blooms).
   - *what is drawn* (part 9, 10): a stretch of geometry (8 tiles a side) the
     camera cannot see (all its corners outside one side of the picture, or past
-    the draw distance) is not drawn; what is shaded is capped at 2.3 megapixels
+    the draw distance) is not drawn; what is shaded is capped at 2.9 megapixels
     (`PIXEL_CAP`; the 64-bit look stretched the rest of the way to the screen
     with a smooth filter, the 32-bit look in whole steps of the screen's own
     px), with 4x multisampling under it (`MSAA4_MAX`; a phone 2x); the translucent pass draws only the stretches near enough to
