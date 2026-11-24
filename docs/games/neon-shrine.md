@@ -615,7 +615,11 @@ filtered textures, fog).
   the draw distance the far land bends up toward the horizon (in the vertex
   shader, quadratic in the distance from the eye; what is placed on the picture
   bends with it), so the world meets the sky as a ridge wherever the eye
-  stands, and the distance fades into the sky's own lowest colour. `stand` is
+  stands, and the distance fades into the sky's own low colour (the sky
+  layer's lower third, averaged across the width: part 13; a sample at the
+  painting's left edge had taken the coast's dark lighthouse, and in the middle
+  of a turn on an upright phone, with the land's far edge still well under the
+  horizon, the haze showed as a dark band between sky and land). `stand` is
   `lift` but never under the water's surface: whatever is placed stands there
   (the hook reels the hero over water). `lift` scales
   every height by the turn's ease: the mesh (a uniform), people and things,
@@ -818,7 +822,7 @@ filtered textures, fog).
   whitens as it climbs; at night the moon's faint blue), lamps only half lit
   while the sun is up, the hour's exposure; the backdrop is painted in the
   view's own dusk and the hour sinks its sun, dims its stars and grades the rest
-  (`skyGrade`), and the distance fades into the graded sky's lowest colour.
+  (`skyGrade`), and the distance fades into the graded sky's low colour.
 - **What the screen shows.** The view says what it sees (`View.sight`): north
   to the end of the draw distance, a trapezoid widening with the lens. The
   shell hands it to the engine (`state.sight.ahead`, `spread`), and the woods'
@@ -931,8 +935,10 @@ filtered textures, fog).
   the one most seen, and fades while she covers the hero); a
   look's other hair style, bow or skirt is not modelled; neither look has a
   sound of its own. Where the hero stands with a house's wall a tile
-  ahead, the house still fills the top of the 64-bit picture. Seen from close behind, two faint
-  glints remain where the back of the hero's hair has its hole. In the 32-bit look lamp light is
+  ahead, the house still fills the top of the 64-bit picture. Seen from close behind, two dark
+  eye-shaped marks show just over the band: the model has two openings in the
+  back of its hair there, so deep their walls reach past the head's middle, and
+  their walls, facing away from the eye, are drawn as the inside (part 13). In the 32-bit look lamp light is
   per corner, so a pool on a long wall is coarse. The sky backdrop moves in whole pixels, so a
   settling camera steps its stripes a pixel at a time. On a phone a room's camera comes near enough
   that the room's depth fills the picture, so the room is seen closer than on a

@@ -1417,13 +1417,20 @@ export default function polyView(kit: Kit): View {
       if (key !== backdropKey) {
         backdrop = buildBackdrop(bdLook, vw, vh, { top: own.skyTop as string, horizon: own.skyHorizon as string })
         backdropKey = key
-        // The sky's own lowest colour, just over its horizon at the left edge (clear of the sun): the distance fades into it.
+        // The sky's own low colour, over its horizon: the distance fades into it. From the sky alone (its first layer),
+        // across the whole width: the coast's lighthouse and islands stand at the left edge, and a sample there
+        // made the haze their dark silhouette, which in the middle of a turn, with the land's far edge still well under
+        // the horizon, showed as a dark band between the sky and the land. (Part 13.)
         const probe = makeCanvas(vw, vh)
         const pg = probe.getContext('2d')!
-        for (const L of backdrop.layers) if (!L.emissive && L.role !== 'sun') pg.drawImage(L.canvas, 0, Math.round(L.top * vh))
-        const y = Math.max(0, Math.round(backdrop.horizon * vh) - 2)
-        const d = pg.getImageData(1, y, 1, 1).data
-        skyLow = d[3] ? `#${[d[0], d[1], d[2]].map(v => v!.toString(16).padStart(2, '0')).join('')}` : (par.haze as string)
+        const sky0 = backdrop.layers[0]!
+        pg.drawImage(sky0.canvas, 0, Math.round(sky0.top * vh))
+        // (Its lower third, averaged: the band just over the horizon is the sun's gold, too bright for a distance.)
+        const yH = Math.max(1, Math.round(backdrop.horizon * vh) - 2), y0 = Math.round(yH * 0.67)
+        const d = pg.getImageData(0, y0, vw, Math.max(1, yH - y0)).data
+        let sr = 0, sg = 0, sb = 0, sn = 0
+        for (let p = 0; p < d.length; p += 4) if (d[p + 3]! > 128) { sr += d[p]!; sg += d[p + 1]!; sb += d[p + 2]!; sn++ }
+        skyLow = sn ? `#${[sr / sn, sg / sn, sb / sn].map(v => Math.round(v).toString(16).padStart(2, '0')).join('')}` : (par.haze as string)
       }
       // The backdrop's own horizon on the camera's.
       const line = Number.isFinite(hy) ? hy : -vh
