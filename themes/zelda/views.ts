@@ -4,8 +4,8 @@
  * a room. Pure: the loaders are the only thing that touches the bundle.
  *
  * A view is a drawing engine (`viewParams.ts`: classic, iso, poly) with a
- * name and its own values. Four are built in: one per engine, and a second look
- * of the polygon engine (THIRD PERSON, values of its own); a visitor who
+ * name and its own values. Three are built in, one per engine (a second look of the polygon engine, THIRD
+ * PERSON, is kept but out of the round: `RETIRED_VIEWS`); a visitor who
  * has not chosen starts in the isometric 16-bit one (`DEFAULT_VIEW`). The studio
  * (studio.phareim.no) may change a built-in view's values and publish more
  * views of its own; they arrive with the live file (`render/live.ts`) and
@@ -50,7 +50,7 @@ export const ENGINE_LOADERS: Record<EngineId, (() => Promise<{ default: unknown 
  * softly, thick fog in the hour's colour, soft halos and a lens flare, rounder windows, hillier land.
  */
 export const THIRD_PERSON: ParamValues = {
-  pose: 'shoulder', density: 'screen', smoothEdges: true, affine: 0, wobble: 0, filter: 1, smoothShade: 1, colors: 'full', fray: 0,
+  pose: 'shoulder', figure: 'model', plants: 'built', density: 'screen', smoothEdges: true, affine: 0, wobble: 0, filter: 1, smoothShade: 1, colors: 'full', fray: 0,
   // (The land rolls less than it did (and the ground is read half a level soft, `groundSoft`'s default): walking over the camp's knolls the
   // picture shimmered more than the 16-bit view's, part 6's meter.)
   fog: 1, drawDistance: 30, halos: 1, flare: 1, landScale: 1.05, windows: '64-bit',
@@ -63,9 +63,15 @@ export const VIEWS: readonly ViewInfo[] = [
   { id: 'classic', name: 'CLASSIC', tag: '8-BIT', engine: 'classic' },
   { id: 'iso', name: 'ISOMETRIC', tag: '16-BIT', engine: 'iso', load: ENGINE_LOADERS.iso },
   { id: 'poly', name: 'POLYGON', tag: '32-BIT', engine: 'poly', load: ENGINE_LOADERS.poly },
-  // The same engine's second look: the camera at the hero's shoulder, everything soft (`THIRD_PERSON`).
-  { id: 'third', name: 'THIRD PERSON', tag: '64-BIT', engine: 'poly', load: ENGINE_LOADERS.poly, params: THIRD_PERSON },
+  // The 64-bit look (the same engine's second look: the camera at the hero's shoulder, everything soft) is out of the
+  // round for now (part 14): Petter chose to bring the 32-bit look toward the 16-bit one (its hero, its trees, its
+  // angle) first, and the shoulder camera's 20 000-polygon hero does not belong to that. `THIRD_PERSON`, the shoulder
+  // pose and the code that draws it stay; this line brings it back:
+  // { id: 'third', name: 'THIRD PERSON', tag: '64-BIT', engine: 'poly', load: ENGINE_LOADERS.poly, params: THIRD_PERSON },
 ]
+
+/** Views that were in the round once, and the view a browser or an address naming them gets now. */
+export const RETIRED_VIEWS: Readonly<Record<string, ViewId>> = { third: 'poly' }
 
 export const VIEW_KEY = 'zelda.view'
 /** The most views the round holds: the strip must fit a phone, and V must come back round. */
@@ -171,6 +177,9 @@ export const DEFAULT_VIEW: ViewId = 'iso'
  * classic one, should the studio have taken that view out of the round).
  */
 export function startView(query: unknown, stored: unknown): ViewId {
+  const now = (v: unknown) => typeof v === 'string' && Object.prototype.hasOwnProperty.call(RETIRED_VIEWS, v) && !isViewId(v) ? RETIRED_VIEWS[v] : v
+  query = now(query)
+  stored = now(stored)
   if (isViewId(query)) return query
   if (isViewId(stored)) return stored
   return isViewId(DEFAULT_VIEW) ? DEFAULT_VIEW : 'classic'

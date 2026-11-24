@@ -34,6 +34,7 @@ const SETUP = opt('setup', '')
 const KEEP = (opt('keep', '') || '-1--1').split('-').map(Number)
 const TAG = opt('tag', `${mode}-${SCENE}-${DAY}-${SIZE}${REDUCED ? '-reduced' : ''}`)
 const [W, H, DPR] = SIZE === '390' ? [390, 844, 3] : [1280, 800, 1]
+// (A frame drew the classic picture when the renderer's turn stands at 0 and no direct turn is under way: `classic` per row.)
 
 const V = ['8', '16', '32', '64']
 /** A step: the view to go to, and how many frames to record it for. */
@@ -46,9 +47,13 @@ const programs = {
   // The 64-bit camera turned away from north (the hero faces east, --setup), then the turn home: the picture comes back
   // to north as it goes down, and the controls with it (`turn` in each row: the renderer's `viewState().turn`).
   yaw: [['=64', 120], ['8', 100], ['64', 120], ['16', 100], ['64', 120], ['32', 100]],
+  // Part 14: the 16-bit and the 32-bit look turn straight into each other (no classic picture between them), both ways,
+  // and V in the middle of it; and the classic ↔ 16-bit turn beside it as the control.
+  direct: [['=16', 20], ['32', 100], ['16', 100], ['32', 30], ['16', 100]],
+  control: [['=8', 20], ['16', 100], ['8', 100]],
 }
 const program = programs[mode]
-if (!program) { console.error('modes: round, pairs, hard, yaw'); process.exit(2) }
+if (!program) { console.error('modes: round, pairs, hard, yaw, direct, control'); process.exit(2) }
 
 execFileSync('node', [join(here, 'shot.mjs'), out, '__none__'], { stdio: 'ignore' })
 const b = await launch({ width: W, height: H, dpr: DPR, mobile: SIZE === '390' })
@@ -89,7 +94,7 @@ const r = await b.eval(`(() => {
       }
       prev = d
       const vs = L.r.viewState()
-      rows.push({ i: n, step: s, to, luma: +(luma / N / 255).toFixed(4), changed: +(ch / N).toFixed(4), k: +vs.k.toFixed(3), id: vs.id, turn: +vs.turn.toFixed(3), ms: +ms.toFixed(1) })
+      rows.push({ i: n, step: s, to, luma: +(luma / N / 255).toFixed(4), changed: +(ch / N).toFixed(4), k: +vs.k.toFixed(3), id: vs.id, turn: +vs.turn.toFixed(3), ms: +ms.toFixed(1), classic: vs.k <= 0 })
       if (n >= ${KEEP[0]} && n <= ${KEEP[1]}) kept.push({ i: n, url: cv.toDataURL('image/png') })
       if (!instant && (f % Math.max(1, Math.floor(frames / 8)) === 0) && thumbs.filter(t => t.step === s).length < 8) { g2.drawImage(cv, 0, 0, c2.width, c2.height); thumbs.push({ step: s, i: n, url: c2.toDataURL('image/png') }) }
     }
@@ -110,9 +115,10 @@ for (let s = 0; s < program.length; s++) {
   const jump = Math.max(0, ...dl)
   const spikes = q.filter((x, i) => i > 0 && i < q.length - 1 && x.changed > 0.08 && x.changed > 3 * q[i - 1].changed && x.changed > 3 * q[i + 1].changed).map(x => x.i)
   const from = s > 0 ? program[s - 1][0].replace('=', '') : '?'
-  steps.push({ from, to, jump: +jump.toFixed(4), jumpOverMedian: +(jump / Math.max(1e-4, med(dl))).toFixed(1), spikes, lumaFrom: q[0].luma, lumaTo: q.at(-1).luma, frames: q.length, maxMs: Math.max(...q.map(x => x.ms)) })
+  const worst = q.slice(1).reduce((a, x) => x.changed > a.changed ? x : a, q[1] ?? q[0])
+  steps.push({ from, to, jump: +jump.toFixed(4), jumpOverMedian: +(jump / Math.max(1e-4, med(dl))).toFixed(1), spikes, lumaFrom: q[0].luma, lumaTo: q.at(-1).luma, frames: q.length, maxMs: Math.max(...q.map(x => x.ms)), classic: q.filter(x => x.classic).length, worstChanged: worst.changed, worstAt: worst.i })
 }
-for (const s of steps) console.log(`${s.from.padStart(2)} → ${s.to.padStart(2)}  light ${s.lumaFrom.toFixed(3)} → ${s.lumaTo.toFixed(3)}  largest step ${s.jump.toFixed(4)} (${s.jumpOverMedian}× median)  spikes ${s.spikes.length ? s.spikes.join(',') : 'none'}  max ${s.maxMs} ms`)
+for (const s of steps) console.log(`${s.from.padStart(2)} → ${s.to.padStart(2)}  light ${s.lumaFrom.toFixed(3)} → ${s.lumaTo.toFixed(3)}  largest step ${s.jump.toFixed(4)} (${s.jumpOverMedian}× median)  spikes ${s.spikes.length ? s.spikes.join(',') : 'none'}  worst change ${(s.worstChanged * 100).toFixed(1)} % at ${s.worstAt}  classic frames ${s.classic}  max ${s.maxMs} ms`)
 writeFileSync(join(out, `${TAG}.json`), JSON.stringify({ rows, steps, program }))
 r.kept.forEach(t => writeFileSync(join(out, `${TAG}-f${String(t.i).padStart(4, '0')}.png`), Buffer.from(t.url.split(',')[1], 'base64')))
 r.thumbs.forEach(t => writeFileSync(join(out, `${TAG}-s${String(t.step).padStart(2, '0')}-${String(t.i).padStart(4, '0')}.png`), Buffer.from(t.url.split(',')[1], 'base64')))

@@ -14,6 +14,10 @@
  *   triangle has one normal, so the facets show;
  * - 32 768 colours with an ordered dither between them (`bits`);
  * - the world ends a short way off, dissolving in dithered steps (`far`).
+ *
+ * Part 14: the 16-bit look's figure and plants are drawn here as cards too (`TEX.FIG`, `TEX.FLORA`), texel by texel
+ * as that look draws them and lit per pixel from their normal pictures (in the camera's frame, `camAxes`); a plant's
+ * top sways in the wind (`wind`). The far land no longer bends up toward the horizon (`bend` is kept, unread).
  */
 import { bindTex, program, programsReady, rgb, type GL, type Program, type Tex, texture, upload, uploadPart } from '../iso/gl'
 import { AT, HSTRIDE, STRIDE } from './mesh'
@@ -70,7 +74,7 @@ export interface PolyLook {
 
 export interface Frame {
   m: Mat4
-  /** How the far land bends up toward the horizon: height added per tile² of distance beyond the second number. */
+  /** No longer used (part 14: the far land does not bend up toward the horizon); kept so a frame keeps its shape. */
   bend: [number, number]
   /** How much a facet's turn counts in its light (the turn's ease). */
   facet: number
@@ -113,6 +117,10 @@ export interface Frame {
   spillAt?: [number, number, number, number]
   /** The hero's hair colour (0-1): what the inside of its head shows. */
   hairIn?: [number, number, number]
+  /** The camera's axes (right, up, toward the eye; world), for the 16-bit pictures' normals (`TEX.FIG`, `TEX.FLORA`). */
+  camAxes?: [number, number, number, number, number, number, number, number, number]
+  /** How much the wind moves the plants (0: still). */
+  wind?: number
   /** Lamps' halos (`TEX.HALO`), drawn last, added in. */
   halos?: { data: Float32Array; count: number }
   /**
@@ -182,7 +190,6 @@ uniform int uGlowOnlyV;
 uniform float uGrid;
 uniform vec3 uEye;
 uniform float uLift;
-uniform vec2 uBend;
 uniform float uFacet;
 uniform float uSmooth;
 uniform vec4 uRoles;
@@ -191,6 +198,10 @@ uniform vec3 uAmbient;
 uniform vec3 uSunDir;
 uniform vec3 uSunCol;
 uniform float uShadow;
+/** The camera's right (the 16-bit pictures' normals are in the camera's frame), the wind and the time (plants sway). */
+uniform vec3 uCamR;
+uniform float uWind;
+uniform float uTimeV;
 /** The sun's shadows, marched per corner through a heightfield of the land and what stands on it (no bake: the hour moves them smoothly). */
 uniform sampler2D uHeights;
 uniform vec4 uHeightAt;
@@ -222,6 +233,9 @@ out vec3 vLight;
 out vec3 vLamp;
 out vec3 vPos;
 out vec3 vN;
+/** The sun's share at this corner (its shadow) and the sky's: for a 16-bit picture lit per pixel. */
+out float vSunK;
+out float vSkyK;
 out vec3 vColor;
 out float vDist;
 out vec2 vWorld;
@@ -245,11 +259,17 @@ void main() {
   // (Wholly in the ground, it is not drawn at all: where there is no floor over it, beyond a room's kerb, it would show.)
   if (aRole > 0.5 && m <= 0.0001) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); return; }
   float deep = aRole < 0.5 ? 0.0 : aRole < 1.5 ? 3.2 : aRole < 2.5 ? 1.5 : aRole < 3.5 ? 1.7 : 1.5;
+  // A plant of the 16-bit look's (part 14): its top leans with the wind, as there (aSun carries how much).
+  if (int(aTex + 0.5) == 26 && aSun > 0.0 && inPos.z > 0.05) {
+    float ph = inPos.x * 1.7 + inPos.y * 2.3;
+    // (In whole px of its picture, as the 16-bit look moves it: a lean that slid a fraction of a px each frame moved
+    // the texels under it every frame, a shimmer over a whole wood standing still.)
+    float bendPx = (sin(uTimeV * 1.6 + ph) + 0.5 * sin(uTimeV * 3.1 + ph * 1.7)) * min(inPos.z, 1.2) * 2.2 * uWind * aSun;
+    inPos.xy += uCamR.xy * floor(bendPx + 0.5) / 45.25;
+  }
   vec3 p = vec3(inPos.xy, inPos.z - (1.0 - m) * deep + (inGround + aZk) * uLift);
-  // The far land bends up toward the horizon, so the world meets the sky as a ridge, wherever the eye stands.
-  float hd = max(0.0, length(p.xy - uEye.xy) - uBend.y);
-  // (Never up past the eye: a ridge under the sky, not a rim over it, as the camera comes down while the bend grows.)
-  p.z += min(uBend.x * hd * hd, max(0.0, uEye.z - 0.35 - p.z));
+  // (The far land no longer bends up toward the horizon (part 14): the ground runs out level and flattens there, as
+  // real ground does; uBend is kept in the frame's shape at 0.)
   vec4 c = uM * vec4(p, 1.0);
   // The machine had no fractions of a px: every corner lands on one.
   if (uSnap > 0.0 && c.w > 0.0) {
@@ -272,9 +292,11 @@ void main() {
   // The sky lights from above and a little from the north-west, so every facet of a knoll takes its own share.
   float sky = mix(1.0, 0.12 + 1.08 * max(0.0, dot(n, normalize(vec3(-0.55, -0.2, 0.81)))), uFacet);
   // (The bloom's own pass outputs only what shines by itself: no light worked out for it.)
-  if (uGlowOnlyV == 1) { vLight = vec3(0.0); vLamp = vec3(0.0); vPos = p; vN = n; return; }
+  if (uGlowOnlyV == 1) { vLight = vec3(0.0); vLamp = vec3(0.0); vPos = p; vN = n; vSunK = 1.0; vSkyK = 1.0; return; }
   float lit = uShadow > 0.0 ? sunAt(p + inN * 0.02) : 1.0;
   float inSun = mix(1.0, lit, uShadow);
+  vSunK = inSun;
+  vSkyK = mix(1.0, 0.62 + 0.38 * lit, uShadow);
   vec3 L = uAmbient * sky * mix(1.0, 0.62 + 0.38 * lit, uShadow);
   L += uSunCol * max(0.0, dot(n, uSunDir)) * inSun;
   // The lamps apart from the rest, so the 64-bit machine can light them per pixel (lampsAt in the fragment shader).
@@ -307,6 +329,19 @@ in vec3 vLight;
 in vec3 vLamp;
 in vec3 vPos;
 in vec3 vN;
+in float vSunK;
+in float vSkyK;
+/** The 16-bit look's figure and plants, and their normal pictures (part 14). */
+uniform sampler2D uFig;
+uniform sampler2D uFigN;
+uniform sampler2D uFlora;
+uniform sampler2D uFloraN;
+/** The camera's axes, for those normals; the sun (as in the vertex stage), for their light per pixel. */
+uniform vec3 uCamR;
+uniform vec3 uCamU;
+uniform vec3 uCamB;
+uniform vec3 uSunDir;
+uniform vec3 uSunCol;
 uniform int uLampNf;
 uniform vec4 uLampPosF[16];
 uniform vec3 uLampColF[16];
@@ -414,6 +449,9 @@ vec2 gFoot;
 vec2 gDx, gDy;
 /** The hero model seen from inside (through the hole at the back of its hair): drawn as the hair's dark, unlit. */
 bool gInside = false;
+/** A 16-bit picture lit per pixel from its normal picture, and that normal (world). */
+bool gSprite = false;
+vec3 gSpriteN = vec3(0.0, 0.0, 1.0);
 float gGs;
 /** The painted page as layers, one a material, each with its own repeat, mip maps and anisotropic filtering (when 1). */
 uniform highp sampler2DArray uMatArr;
@@ -648,6 +686,27 @@ void main() {
     float a = mix(hard, soft * soft * (3.0 - 2.0 * soft), uFilter);
     o = vec4(vec3(mix(1.0, vColor.r, a)), 1.0);
     return;
+  } else if (vTex == 9 || vTex == 26) {
+    // The 16-bit look's figure (9) or a plant (26), texel by texel as that look draws them; their normals are in the
+    // camera's frame (right, up, toward the eye). The figure's alpha is straight (its blade's trail is part-covered: an
+    // ordered dither); the plants' page came premultiplied.
+    bool fig = vTex == 9;
+    ivec2 tp = ivec2(floor(uv));
+    vec4 a = fig ? texelFetch(uFig, tp, 0) : texelFetch(uFlora, tp, 0);
+    vec4 nn = fig ? texelFetch(uFigN, tp, 0) : texelFetch(uFloraN, tp, 0);
+    if (fig) {
+      if (a.a < 0.02 || (a.a < 0.98 && a.a < bayer(gl_FragCoord.xy))) discard;
+      c = vec4(a.rgb, 1.0);
+      // (The normal picture's alpha is how much the pixel glows: the blade's edge, its trail, a charged spark.)
+      if (nn.a > 0.02) glow = a.rgb * nn.a;
+    } else {
+      if (a.a < 0.5) discard;
+      c = vec4(a.rgb / a.a, 1.0);
+      if (nn.a > 0.0) nn.rgb /= nn.a;
+    }
+    vec3 q = nn.rgb * 2.0 - 1.0;
+    gSpriteN = normalize(uCamR * q.x + uCamU * q.y + uCamB * q.z);
+    gSprite = true;
   } else if (vTex >= 10) {
     gGs = 1.0;
     c = vec4(matAtT(float(vTex - 10), uv, max(gFoot.x, gFoot.y)), 1.0);
@@ -659,6 +718,15 @@ void main() {
   // (Toward the turn's flat end the light stops at 1, as the classic picture's light map does, so the hand-off meets it
   // beside a strong lamp too; in the view itself it may run far over.)
   vec3 light = min(vLight + lamp, vec3(mix(1.0, 8.0, uFacet * uFacet)));
+  if (gSprite) {
+    // Lit per pixel from the normal picture, as the 16-bit engine lights it: the sky, the sun (with this corner's
+    // shadow) and every lamp by how the pixel faces it; so a figure warms under a lamp and in firelight and darkens at night.
+    vec3 n = gSpriteN;
+    float skyS = mix(1.0, 0.12 + 1.08 * max(0.0, dot(n, normalize(vec3(-0.55, -0.2, 0.81)))), uFacet);
+    vec3 spillS = uSpillAt.w > 0.0 ? texture(uSpill, (vPos.xy - uSpillAt.xy) * uSpillAt.z / vec2(textureSize(uSpill, 0))).rgb * 2.0 * uSpillAt.w : vec3(0.0);
+    lamp = lampsAt(vPos, n) + spillS;
+    light = min(uAmbient * skyS * vSkyK + uSunCol * max(0.0, dot(n, uSunDir)) * vSunK + lamp, vec3(mix(1.0, 8.0, uFacet * uFacet)));
+  }
   vec3 lit = tex * (vTex == 4 ? vec3(1.0) : vColor) * (vTex == 4 ? 0.55 + 0.6 * light : light);
   // A share of the lamps' light in the air over what they reach, as the classic picture's glow lies on its ground.
   // (Saturating, as that glow does: about the lamp's own light where it is faint, never a white-out beside a strong one.)
@@ -669,7 +737,8 @@ void main() {
   // Neon in the classic art shines by itself: the lamps do not light it, it is as bright as it was painted.
   float hi = max(tex.r, max(tex.g, tex.b));
   float lo = min(tex.r, min(tex.g, tex.b));
-  if (vTex != 1 && vTex != 4 && hi > 0.6 && hi - lo > 0.5 * hi) neon = tex;
+  // (Not the 16-bit pictures: they are lit from their normals, as that look lights them, and what glows says so.)
+  if (vTex != 1 && vTex != 4 && !gSprite && hi > 0.6 && hi - lo > 0.5 * hi) neon = tex;
   if ((vFlags & 2) != 0) neon = max(neon, tex * vColor);
   // (A self-lit thing keeps its own colour: the light round it may brighten it until its brightest part is full, never
   // past that toward white; a flame stays orange and yellow under the fire's own strong light, and its glow, the bloom,
@@ -682,6 +751,9 @@ void main() {
     // (What a sign beside it spills still colours it, a roof round its letters: its colour added, not multiplied.)
     if (uSpillAt.w > 0.0) lit += texture(uSpill, (vPos.xy - uSpillAt.xy) * uSpillAt.z / vec2(textureSize(uSpill, 0))).rgb * uSpillAt.w;
   }
+  // The 16-bit look's figure and plants keep their outline in the dark, as that look keeps them: never under 0.42 of their
+  // own colours (part 14).
+  if (gSprite) lit = max(lit, tex * 0.42);
   // The hero model's face and clothes read under every light: never darker than about half their own colours
   // (a painted figure's floor, as the sprites' outlines and the classic art carry their own light).
   if (vTex == 7) {
@@ -754,6 +826,10 @@ export interface Engine {
   objs(c: HTMLCanvasElement, w: number, h: number): void
   base(c: HTMLCanvasElement, w: number, h: number): void
   atlas(c: HTMLCanvasElement, rows: number): void
+  /** The 16-bit look's flora atlas and its normal picture (`iso/flora.ts`), for `TEX.FLORA` cards. Part 14. */
+  flora(albedo: HTMLCanvasElement, normal: HTMLCanvasElement): void
+  /** The 16-bit look's figure this frame (`iso/figure.ts`, straight alpha), for the `TEX.FIG` card. Part 14. */
+  figure(albedo: Uint8ClampedArray, normal: Uint8ClampedArray, w: number, h: number): void
   kinds(data: Uint8Array, w: number, h: number): void
   shoreField(data: Uint8Array, w: number, h: number): void
   /** `glowTo`: a canvas that gets what shines by itself, for the bloom (a pass of its own before the picture). */
@@ -787,6 +863,10 @@ export function createEngine(): Engine {
     atlas: texture(gl, 1, 1),
     kind: texture(gl, 1, 1),
     shore: texture(gl, 1, 1, { linear: true }),
+    fig: texture(gl, 1, 1),
+    figN: texture(gl, 1, 1),
+    flora: texture(gl, 1, 1),
+    floraN: texture(gl, 1, 1),
   }
   /** A multisampled framebuffer for smooth edges, made when first asked for and kept at the picture's size. */
   const maxSamples = (gl.getParameter(gl.MAX_SAMPLES) as number) || 0
@@ -947,6 +1027,18 @@ export function createEngine(): Engine {
     objs(c, w, h) { uploadPart(gl, tex.objs, c, w, h) },
     base(c, w, h) { uploadPart(gl, tex.base, c, w, h) },
     atlas(c, rows) { uploadPart(gl, tex.atlas, c, c.width, rows) },
+    flora(albedo, normal) { upload(gl, tex.flora, albedo); upload(gl, tex.floraN, normal) },
+    figure(albedo, normal, w, h) {
+      for (const [t, d] of [[tex.fig, albedo], [tex.figN, normal]] as const) {
+        gl.bindTexture(gl.TEXTURE_2D, t.t)
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+        // (Straight alpha, and the normal picture's alpha is a glow: nothing multiplied in.)
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+        if (t.w !== w || t.h !== h) { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, d); t.w = w; t.h = h }
+        else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, d)
+      }
+    },
     kinds(data, w, h) { raw(tex.kind, data, w, h) },
     shoreField(data, w, h) { raw(tex.shore, data, w, h, true) },
     draw(f, vw, vh, glowTo) {
@@ -991,7 +1083,6 @@ export function createEngine(): Engine {
       gl.uniform1f(u('uCell'), Math.max(1, f.cell ?? 1))
       gl.uniform3f(u('uEye'), ...f.eye)
       gl.uniform1f(u('uLift'), f.lift)
-      gl.uniform2f(u('uBend'), ...f.bend)
       gl.uniform1f(u('uFacet'), f.facet)
       gl.uniform1f(u('uSmooth'), L.smooth)
       gl.uniform1f(u('uFilter'), L.filter)
@@ -1047,6 +1138,16 @@ export function createEngine(): Engine {
       bindTex(gl, 6, tex.hero, u('uHeroTex'))
       bindTex(gl, 7, tex.heights, u('uHeights'))
       bindTex(gl, 10, tex.spill, u('uSpill'))
+      bindTex(gl, 11, tex.fig, u('uFig'))
+      bindTex(gl, 12, tex.figN, u('uFigN'))
+      bindTex(gl, 13, tex.flora, u('uFlora'))
+      bindTex(gl, 14, tex.floraN, u('uFloraN'))
+      const ca = f.camAxes ?? [1, 0, 0, 0, 0, 1, 0, -1, 0]
+      gl.uniform3f(u('uCamR'), ca[0], ca[1], ca[2])
+      gl.uniform3f(u('uCamU'), ca[3], ca[4], ca[5])
+      gl.uniform3f(u('uCamB'), ca[6], ca[7], ca[8])
+      gl.uniform1f(u('uWind'), f.wind ?? 0)
+      gl.uniform1f(u('uTimeV'), f.time)
       gl.uniform4f(u('uSpillAt'), ...(f.spillAt ?? [0, 0, 1, 0]))
       gl.uniform3f(u('uHairIn'), ...(f.hairIn ?? [0.094, 0.094, 0.345]))
       gl.uniform4f(u('uHeightAt'), ...(f.heightAt ?? [0, 0, 1, 0]))

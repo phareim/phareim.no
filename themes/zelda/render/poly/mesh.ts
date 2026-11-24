@@ -57,6 +57,10 @@ export const TEX = {
   HALO: 8,
   /** A material of the atlas, MAT + its place (uv: texels, repeating). */
   MAT: 10,
+  /** The 16-bit look's figure, drawn this frame (`iso/figure.ts`), lit from its normal picture (uv: its px). Part 14. */
+  FIG: 9,
+  /** A plant of the 16-bit look's flora atlas (`iso/flora.ts`), lit from its normal picture, swaying (uv: its px). Part 14. */
+  FLORA: 26,
 } as const
 
 /** How a vertex's own height comes up over the turn: always there, the plants' growth, the things' rise, and the classic stand-ins that sink as those come up. */
@@ -111,6 +115,8 @@ export interface BuildOptions {
   sun: { dx: number; dy: number; rise: number; mass: (x: number, y: number) => number } | null
   /** Build the things this view makes itself (props, trees). Off: the classic cards. */
   props: boolean
+  /** The trees are the 16-bit look's plants, stood up by the view as cards (part 14): none built here, the classic crowns still sink. */
+  flora?: boolean
   /** Coarse cells everywhere (a device that cannot keep up): the shore's curves are cut in fewer facets. */
   coarse?: boolean
 }
@@ -332,10 +338,12 @@ export class Mesher {
     const props = this.o.props
     // Trees are built, wherever they stand.
     if (t === 'T' && outdoors) {
-      this.tree(tx, ty, shp)
+      if (!this.o.flora) this.tree(tx, ty, shp)
       if (props) this.classic(tx, ty, shp, ROLE.SINK)
       return
     }
+    // (A bush is the 16-bit look's plant where the view stands those (part 14): the classic one goes down as it comes up.)
+    if (t === '*' && outdoors && this.o.flora && shp.k === 'card') { this.classic(tx, ty, shp, ROLE.SINK); return }
     if (props) {
       const prop = this.propOf(tx, ty, t, shp)
       if (prop) {

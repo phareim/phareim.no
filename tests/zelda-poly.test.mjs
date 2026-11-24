@@ -81,31 +81,40 @@ describe('the camera rig', () => {
   it('is a perspective: what is further away is smaller and deeper', () => {
     const f = { x: 20, y: 30, z: 0 }
     const m = M.poseMatrix(M.CRANE, VW, VH, f)
-    const span = (y) => M.toScreen(m, VW, VH, f.x + 1, y, 0).x - M.toScreen(m, VW, VH, f.x, y, 0).x
-    assert.ok(span(f.y - 6) < span(f.y) && span(f.y) < span(f.y + 2))
-    assert.ok(M.toScreen(m, VW, VH, f.x, f.y - 6, 0).depth > M.toScreen(m, VW, VH, f.x, f.y, 0).depth)
+    // (Along the crane's own heading, north-west, and a step across it.)
+    const { r, f: fw } = M.poseAxes(M.CRANE)
+    const at = (d) => ({ x: f.x + fw[0] * d, y: f.y + fw[1] * d })
+    const span = (d) => { const p = at(d); const a = M.toScreen(m, VW, VH, p.x, p.y, 0), b = M.toScreen(m, VW, VH, p.x + r[0], p.y + r[1], 0); return Math.hypot(b.x - a.x, b.y - a.y) }
+    assert.ok(span(6) < span(0) && span(0) < span(-2))
+    assert.ok(M.toScreen(m, VW, VH, at(6).x, at(6).y, 0).depth > M.toScreen(m, VW, VH, f.x, f.y, 0).depth)
     assert.ok(M.toScreen(m, VW, VH, f.x, f.y, 0).w > 0)
   })
-  it('shows a horizon: in the top quarter from the crane, lower from the shoulder, none in the classic picture', () => {
+  it('shows a horizon from the shoulder, none from the crane (it looks down as the 16-bit look does), none in the classic picture', () => {
     const f = { x: 20, y: 30, z: 0 }
     const crane = M.horizonY(M.poseMatrix(M.CRANE, VW, VH, f), VW, VH)
     const shoulder = M.horizonY(M.poseMatrix(M.SHOULDER, VW, VH, f), VW, VH)
-    assert.ok(crane > 0.03 * VH && crane < 0.25 * VH, `the crane's horizon is at ${crane}`)
-    assert.ok(shoulder > crane && shoulder < 0.5 * VH, `the shoulder's horizon is at ${shoulder}`)
+    assert.ok(crane < 0, `the crane's horizon is in the picture, at ${crane}`)
+    assert.ok(shoulder > 0 && shoulder < 0.5 * VH, `the shoulder's horizon is at ${shoulder}`)
     assert.equal(M.horizonY(M.classicMatrix(VW, VH, 0, 0), VW, VH), Infinity)
   })
-  it('looks further down on a screen taller than wide, so a phone sees ground and not sky', () => {
+  it('sees ground and not sky on a screen taller than wide: the crane as it is, the shoulder looking further down', () => {
     const f = { x: 20, y: 30, z: 0 }
     const [w, h] = [130, 282]
-    assert.deepEqual(M.fitPose(M.CRANE, VW, VH), M.CRANE)
-    const fitted = M.fitPose(M.CRANE, w, h)
-    assert.ok(fitted.pitch > M.CRANE.pitch)
-    const hy = M.horizonY(M.poseMatrix(fitted, w, h, f), w, h)
-    assert.ok(hy > 0.05 * h && hy < 0.3 * h, `the horizon on a phone is at ${hy / h} of the height`)
-    assert.ok(M.horizonY(M.poseMatrix(M.CRANE, w, h, f), w, h) > 0.35 * h, 'a phone shows no more sky than before: the test is moot')
+    assert.ok(M.horizonY(M.poseMatrix(M.CRANE, w, h, f), w, h) < 0, 'the crane shows sky on a phone')
+    assert.deepEqual(M.fitPose(M.SHOULDER, VW, VH), M.SHOULDER)
+    const fitted = M.fitPose(M.SHOULDER, w, h)
+    assert.ok(fitted.pitch > M.SHOULDER.pitch)
   })
-  it('keeps the controls as the classic view has them from the crane', () => {
-    assert.equal(M.CRANE.yaw, 0)
+  it('looks the 16-bit look\'s way from the crane: north-west, about 30° down, a long lens', () => {
+    near(M.CRANE.yaw, -Math.PI / 4, 1e-9)
+    assert.ok(M.CRANE.pitch >= 30 * Math.PI / 180 && M.CRANE.pitch <= 36 * Math.PI / 180)
+    assert.ok(M.CRANE.fov <= 30 * Math.PI / 180)
+    // A tile `zoom` times the 16-bit one: the distance is what makes its diamond that tall.
+    const d = M.craneDist(M.CRANE, VW, VH, 22.4)
+    const m = M.poseMatrix({ ...M.CRANE, dist: d }, VW, VH, { x: 20, y: 30, z: 0 })
+    const a = M.toScreen(m, VW, VH, 20, 30, 0), b = M.toScreen(m, VW, VH, 19.5, 29.5, 0), c = M.toScreen(m, VW, VH, 20.5, 30.5, 0)
+    near(c.y - b.y, 22.4, 1.5)
+    void a
   })
   it('finds the ground under a pixel, and none over the horizon', () => {
     const f = { x: 20, y: 30, z: 0 }
@@ -115,7 +124,8 @@ describe('the camera rig', () => {
       const g = M.toGround(m, VW, VH, p.x, p.y, z)
       near(g.x, x, 1e-3); near(g.y, y, 1e-3)
     }
-    assert.equal(M.toGround(m, VW, VH, VW / 2, 0, 0), null)
+    const sh = M.poseMatrix(M.SHOULDER, VW, VH, f)
+    assert.equal(M.toGround(sh, VW, VH, VW / 2, 0, 0), null)
     const c = M.classicMatrix(VW, VH, 37, 21)
     const g = M.toGround(c, VW, VH, 100, 60, 0)
     near(g.x, (100 + 37) / M.TILE, 1e-4); near(g.y, (60 + 21) / M.TILE, 1e-4)
@@ -303,7 +313,7 @@ describe('the land', () => {
     const land = M.buildLand(source(), { hills: 0, shore: 0, far: 0 })
     for (const [x, y] of samples(0.125, 0.031)) assert.equal(land.shore(x, y) < 0, tileAt(x, y) === '~', `the shore has left the tile edge at ${x}, ${y}`)
   })
-  it('goes on beyond the map without a step, and rises toward the horizon', () => {
+  it('goes on beyond the map without a step, level toward the horizon (part 14: it no longer rises)', () => {
     const land = M.buildLand(source(), LOOK)
     for (let y = 0.3; y < 14; y += 0.7) {
       assert.ok(Math.abs(land.height(-0.05, y) - land.height(0.05, y)) < 0.08, `a step at the west edge, y ${y}`)
@@ -311,7 +321,7 @@ describe('the land', () => {
     }
     let far = 0
     for (let x = 0.5; x < W; x += 1) far = Math.max(far, land.height(x, -5.5))
-    assert.ok(far > 1, `the land five tiles north of the map rises only to ${far}`)
+    assert.ok(far < 0.3, `the land five tiles north of the map rises to ${far}`)
     assert.ok(land.shore(W / 2, H + 4) < 0, 'the sea beyond the coast is land')
   })
   it('leaves rooms and dungeons level, their water on its tile edges', () => {

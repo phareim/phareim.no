@@ -139,7 +139,11 @@ pink danger, gold treasure. Sprites and the 5×7 pixel font are code
 (`render/sprites.ts`, `themes/base/pixel/font.ts`); terrain is painted procedurally
 (`render/tiles.ts`). This is the classic view. Other views draw the same
 state another way: an isometric 16-bit one, where a visit starts, with a sun of its own and its
-own materials for the ground, the walls and the roofs; and a polygon 32-bit one, the world as low polygons in
+own materials for the ground, the walls and the roofs; and a polygon 32-bit one: since part 14 (2026-11-24) the
+16-bit world's own art (its hero, its trees) standing in the polygon engine's land and light, seen from the 16-bit
+look's angle but nearer and with real depth, the land flat beside roads and houses and low elsewhere, and reached
+from the 16-bit look by one continuous move that never shows the classic picture (the 64-bit look below is out of
+the round for now: `views.ts`); before that, the world as low polygons in
 perspective from a crane behind the hero, with a horizon, rolling land, round ponds and a short draw distance,
 drawn much as a 1996 console drew (corners that snap to the pixels, 15-bit colour with a dither, figures texel by
 texel; its ground no longer swims: steadiness came first); and on the

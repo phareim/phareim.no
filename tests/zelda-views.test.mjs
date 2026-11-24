@@ -23,7 +23,7 @@ async function load() {
         `export { aimOf, swingAngle } from './engine/hero'`,
         `export { stepGame } from './engine/index'`,
         `export { NO_INPUT, SWORD_ARC } from './types'`,
-        `export { VIEWS, VIEW_KEY, DEFAULT_VIEW, MAX_VIEWS, ENGINE_LOADERS, isViewId, nextView, viewName, startView, parseViews, mergeViews, setLiveViews, viewList, viewDef } from './views'`,
+        `export { VIEWS, VIEW_KEY, DEFAULT_VIEW, MAX_VIEWS, ENGINE_LOADERS, THIRD_PERSON, RETIRED_VIEWS, isViewId, nextView, viewName, startView, parseViews, mergeViews, setLiveViews, viewList, viewDef } from './views'`,
         `export { ENGINES, resolveParams, paramDiff, cleanParam, isEngineId } from './viewParams'`,
         `export { WORLD } from './world/index'`,
         `export { TILE_INFO } from './world/tiles'`,
@@ -72,6 +72,11 @@ describe('the view registry', () => {
     assert.equal(M.DEFAULT_VIEW, 'iso')
     assert.equal(M.startView(null, null), 'iso')
     assert.equal(M.startView('3d', 'hologram'), 'iso')
+    // The 64-bit look is out of the round (part 14): a browser or an address that names it starts in the 32-bit one.
+    assert.equal(M.RETIRED_VIEWS.third, 'poly')
+    assert.equal(M.startView(null, 'third'), 'poly')
+    assert.equal(M.startView('third', 'iso'), 'poly')
+    assert.equal(M.isViewId('third'), false)
   })
   it('starts in the classic view when the studio has taken the first view out of the round', () => {
     M.setLiveViews(M.parseViews({ iso: { hidden: true } }))
@@ -96,9 +101,10 @@ describe('the view registry', () => {
       // A second look carries only values its engine knows, already as they are kept (what differs from the engine's own).
       if (v.params) assert.deepEqual(v.params, M.paramDiff(v.engine, v.params), `${v.id} carries values its engine would drop`)
     }
-    // The polygon engine's two looks: the crane, and the camera at the shoulder.
-    assert.deepEqual(M.VIEWS.filter(v => v.engine === 'poly').map(v => v.id), ['poly', 'third'])
-    assert.equal(M.VIEWS.find(v => v.id === 'third').params.pose, 'shoulder')
+    // The polygon engine's round: the 32-bit look only (part 14). The 64-bit look's values are kept for its return.
+    assert.deepEqual(M.VIEWS.filter(v => v.engine === 'poly').map(v => v.id), ['poly'])
+    assert.equal(M.THIRD_PERSON.pose, 'shoulder')
+    assert.deepEqual(M.paramDiff('poly', M.THIRD_PERSON), M.THIRD_PERSON, 'the kept 64-bit look carries values its engine would drop')
   })
   it('keeps every view\'s code out of the page that loads first', () => {
     // Anything but a dynamic import() of a view, anywhere on the site, would put it in the entry:
@@ -299,9 +305,9 @@ describe('the studio\'s views', () => {
     })
     assert.equal(M.parseViews({ lofi: { engine: 'classic', name: 'LOFI', tag: '4-BIT' } }).lofi.tag, '4-BIT')
     const round = M.mergeViews(live)
-    assert.deepEqual(round.map(v => v.id), ['classic', 'iso', 'poly', 'third', 'noir'])
+    assert.deepEqual(round.map(v => v.id), ['classic', 'iso', 'poly', 'noir'])
     assert.deepEqual(round[0].params, { scanlines: 0 })
-    assert.deepEqual(round[4], { id: 'noir', name: 'NOIR', tag: 'ISOMETRIC', engine: 'iso', params: { colors: 'full', bloom: 0 } })
+    assert.deepEqual(round[3], { id: 'noir', name: 'NOIR', tag: 'ISOMETRIC', engine: 'iso', params: { colors: 'full', bloom: 0 } })
   })
   it('drops what the game cannot draw or spell', () => {
     const live = M.parseViews({
@@ -318,11 +324,10 @@ describe('the studio\'s views', () => {
     assert.deepEqual(M.parseViews(null), {})
   })
   it('keeps a built-in view\'s own values under the studio\'s', () => {
-    const round = M.mergeViews(M.parseViews({ third: { params: { fog: 0.5 } } }))
-    const third = round.find(v => v.id === 'third')
-    assert.equal(third.params.fog, 0.5)
-    assert.equal(third.params.pose, 'shoulder')
-    assert.deepEqual(M.mergeViews(null).find(v => v.id === 'third').params, M.VIEWS.find(v => v.id === 'third').params)
+    const round = M.mergeViews(M.parseViews({ poly: { params: { fog: 0.5 } } }))
+    const poly = round.find(v => v.id === 'poly')
+    assert.equal(poly.params.fog, 0.5)
+    assert.deepEqual(M.mergeViews(null).find(v => v.id === 'poly').params, {})
   })
   it('orders the round, hides a built-in view on request, and never the classic one', () => {
     const live = M.parseViews({
@@ -330,7 +335,7 @@ describe('the studio\'s views', () => {
       iso: { hidden: true },
       first: { engine: 'iso', name: 'FIRST', order: -1 },
     })
-    assert.deepEqual(M.mergeViews(live).map(v => v.id), ['first', 'classic', 'poly', 'third'])
+    assert.deepEqual(M.mergeViews(live).map(v => v.id), ['first', 'classic', 'poly'])
   })
   it('never lets the round grow past what V can go round', () => {
     const many = {}
@@ -341,8 +346,7 @@ describe('the studio\'s views', () => {
     M.setLiveViews(M.parseViews({ noir: { engine: 'iso', name: 'NOIR' } }))
     assert.equal(M.startView('noir', null), 'noir')
     assert.equal(M.nextView('iso'), 'poly')
-    assert.equal(M.nextView('poly'), 'third')
-    assert.equal(M.nextView('third'), 'noir')
+    assert.equal(M.nextView('poly'), 'noir')
     assert.equal(M.nextView('noir'), 'classic')
     assert.equal(M.viewName('noir'), 'NOIR')
     M.setLiveViews(null)
@@ -667,6 +671,52 @@ describe('how tiles stand', () => {
 describe('the turn between views', () => {
   const two = () => M.createTurn(id => id === 'iso' || id === 'other', 0.6)
   const run = (t, seconds, dt = 1 / 60) => { let r; for (let i = 0; i < Math.round(seconds / dt); i++) r = t.step(dt); return r }
+  // Part 14: the 16-bit and the 32-bit look turn straight into each other, never through the classic picture.
+  const pair = () => M.createTurn(id => id === 'iso' || id === 'poly', 0.6, (a, b) => (a === 'iso' && b === 'poly') || (a === 'poly' && b === 'iso'))
+  it('turns straight from the 16-bit look to the 32-bit one and back: never the classic picture', () => {
+    const t = pair()
+    t.set('iso', true)
+    t.step(0)
+    t.set('poly')
+    assert.equal(t.id, 'poly')
+    assert.equal(t.turning, true)
+    let r = t.step(1 / 60)
+    assert.ok(r.via && r.via.from === 'iso' && r.via.to === 'poly' && r.via.j > 0 && r.via.j < 0.05)
+    // Every frame of it is one of the two looks (k 1), with how far across it is.
+    let last = 0
+    for (let i = 0; i < 40; i++) { r = t.step(1 / 60); assert.notEqual(r.shown, ''); assert.equal(r.k, 1); if (r.via) { assert.ok(r.via.j >= last); last = r.via.j } }
+    assert.deepEqual(r, { shown: 'poly', k: 1 })
+    assert.equal(t.turning, false)
+    t.set('iso')
+    r = t.step(1 / 60)
+    assert.ok(r.via && r.via.from === 'poly' && r.via.to === 'iso')
+    r = run(t, 0.7)
+    assert.deepEqual(r, { shown: 'iso', k: 1 })
+  })
+  it('turns round in the middle of a direct turn, from where it is', () => {
+    const t = pair()
+    t.set('iso', true); t.step(0)
+    t.set('poly')
+    run(t, 0.2)
+    const j = t.via.j
+    t.set('iso')
+    assert.ok(Math.abs(t.via.j - (1 - j)) < 1e-9 && t.via.to === 'iso')
+    assert.deepEqual(run(t, 0.7), { shown: 'iso', k: 1 })
+  })
+  it('waits on the view it comes from while the view it goes to cannot draw', () => {
+    const t = pair()
+    t.set('iso', true); t.step(0)
+    t.set('poly')
+    for (let i = 0; i < 30; i++) assert.equal(t.step(1 / 60, false).via.j, 0)
+    assert.ok(t.step(1 / 60, true).via.j > 0)
+  })
+  it('still goes through the classic picture between views that are not a pair (the 32-bit look to the classic one)', () => {
+    const t = pair()
+    t.set('poly', true); t.step(0)
+    t.set('classic')
+    assert.equal(t.via, null)
+    assert.deepEqual(run(t, 0.7), { shown: '', k: 0 })
+  })
   it('starts on the classic view and stays there', () => {
     const t = two()
     assert.deepEqual(t.step(1 / 60), { shown: '', k: 0 })

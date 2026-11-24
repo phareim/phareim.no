@@ -746,6 +746,8 @@ export default function isoView(kit: Kit): View {
       jitter.y = -Math.round((Math.random() - 0.5) * 4 * Math.min(1, s.shake * 4)) * DENSITY
     }
     const cam: Cam = makeCam(k, sw, sh, zoom0, c, jitter)
+    // (For the 32-bit look, which lies on this picture in the direct turn between the two: part 14.)
+    kit.setIsoCam({ ox: cam.ox, oy: cam.oy, ex: cam.ex, ey: cam.ey, zs: cam.zs, hs, offX, offY, dv: cam.dv, hx: s.hero.x, hy: s.hero.y })
     const P = cam.P
     /** A ground point (tiles) on the scene, in classic px (what the kit's painters count in). */
     const S1 = (x: number, y: number): Vec => { const p = toScene(cam, x, y); return { x: p.x / zoom, y: p.y / zoom } }
