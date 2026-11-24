@@ -6,7 +6,8 @@
  * A view is a drawing engine (`viewParams.ts`: classic, iso, poly) with a
  * name and its own values. Three are built in, one per engine (a second look of the polygon engine, THIRD
  * PERSON, is kept but out of the round: `RETIRED_VIEWS`); a visitor who
- * has not chosen starts in the isometric 16-bit one (`DEFAULT_VIEW`). The studio
+ * has not chosen starts in the isometric 16-bit one (`DEFAULT_VIEW`). A built-in view may be parked (`parked`: out of
+ * the round until the studio brings it back); the polygon view is, for now. The studio
  * (studio.phareim.no) may change a built-in view's values and publish more
  * views of its own; they arrive with the live file (`render/live.ts`) and
  * join the round on the V key, the view strip and `?view=<id>`.
@@ -38,6 +39,9 @@ export interface ViewDef {
 /** Kept for the registry's old shape: a built-in view and the module that draws it (none for the classic one). */
 export interface ViewInfo extends ViewDef {
   load?: () => Promise<{ default: unknown }>
+  /** Built in, but out of the round until the studio brings it back (`hidden: false`): a browser or an address that
+   * names it starts in the first view. */
+  parked?: boolean
 }
 
 /** The module that draws each engine; the classic one is always there. */
@@ -69,7 +73,9 @@ export const THIRD_PERSON: ParamValues = {
 export const VIEWS: readonly ViewInfo[] = [
   { id: 'classic', name: 'CLASSIC', tag: '', engine: 'classic' },
   { id: 'iso', name: 'ISOMETRIC', tag: '', engine: 'iso', load: ENGINE_LOADERS.iso },
-  { id: 'poly', name: 'POLYGON', tag: '', engine: 'poly', load: ENGINE_LOADERS.poly },
+  // Parked (2026-11-24): Petter took the polygon view out of the round while the isometric one is upgraded. Its code and
+  // values stay; the studio brings it back with `poly: { hidden: false }`, or delete `parked` here.
+  { id: 'poly', name: 'POLYGON', tag: '', engine: 'poly', load: ENGINE_LOADERS.poly, parked: true },
   // The 64-bit look (the same engine's second look: the camera at the hero's shoulder, everything soft) is out of the
   // round for now (part 14): Petter chose to bring the 32-bit look toward the 16-bit one (its hero, its trees, its
   // angle) first, and the shoulder camera's 20 000-polygon hero does not belong to that. `THIRD_PERSON`, the shoulder
@@ -97,7 +103,7 @@ export interface LiveView {
   params?: ParamValues
   /** Where it goes in the round (lowest first; built-in views are 0, 10 and 20). */
   order?: number
-  /** A built-in view taken out of the round (never the classic one). */
+  /** A built-in view taken out of the round (never the classic one), or (false) a parked one brought back into it. */
   hidden?: boolean
 }
 export type LiveViews = Record<string, LiveView>
@@ -120,6 +126,7 @@ export function parseViews(raw: unknown): LiveViews {
     if (typeof r.tag === 'string' && TAG.test(r.tag.trim())) view.tag = r.tag.trim()
     if (typeof r.order === 'number' && Number.isFinite(r.order)) view.order = r.order
     if (r.hidden === true && id !== 'classic') view.hidden = true
+    else if (r.hidden === false && builtin?.parked) view.hidden = false
     out[id] = view
   }
   return out
@@ -130,7 +137,7 @@ export function mergeViews(live: LiveViews | null | undefined): ViewDef[] {
   const rows: Array<{ def: ViewDef; order: number; i: number }> = []
   VIEWS.forEach((b, i) => {
     const l = live?.[b.id]
-    if (l?.hidden) return
+    if (l?.hidden ?? b.parked) return
     // (A built-in view's own values first, the studio's over them.)
     rows.push({ def: { id: b.id, name: l?.name ?? b.name, tag: l?.tag ?? b.tag, engine: b.engine, params: { ...b.params, ...l?.params } }, order: l?.order ?? i * 10, i })
   })

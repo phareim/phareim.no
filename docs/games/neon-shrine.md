@@ -608,6 +608,14 @@ look is the isometric world's own art in the polygon engine's land and light:
     crane. Back the same way, reversed. Turns to and from the classic look are
     as they were: V goes classic → 16 → 32 → classic.
 
+**The polygon view is parked** (2026-11-24). Petter took it out of the round
+while the isometric view is upgraded: `parked: true` on its line in `VIEWS`
+keeps it out of V, the switch and `?view=` (a browser or an address that
+names it, or `third`, starts in the first view), and its code and values
+stay. The studio brings it back without a deploy by publishing
+`views: { poly: { hidden: false } }`; `hidden: false` means nothing on a view
+that is not parked.
+
 **The polygon view as a lit diorama** (part 18, 2026-11-24). Petter found the
 isometric view plainly better than the polygon one; the reasons, side by side at
 the same spot: the art is top-down pixel art and keeps its shape only where

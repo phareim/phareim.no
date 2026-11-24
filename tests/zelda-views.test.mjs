@@ -57,9 +57,10 @@ describe('the view registry', () => {
   it('goes round every view and back', () => {
     let id = 'classic'
     const seen = []
-    for (let i = 0; i < M.VIEWS.length; i++) { seen.push(id); id = M.nextView(id) }
+    const shown = M.VIEWS.filter(v => !v.parked)
+    for (let i = 0; i < shown.length; i++) { seen.push(id); id = M.nextView(id) }
     assert.equal(id, 'classic')
-    assert.deepEqual(seen.sort(), M.VIEWS.map(v => v.id).sort())
+    assert.deepEqual(seen.sort(), shown.map(v => v.id).sort())
   })
   it('takes the address before the stored choice, and nonsense from neither', () => {
     assert.equal(M.startView('iso', 'classic'), 'iso')
@@ -72,11 +73,16 @@ describe('the view registry', () => {
     assert.equal(M.DEFAULT_VIEW, 'iso')
     assert.equal(M.startView(null, null), 'iso')
     assert.equal(M.startView('3d', 'hologram'), 'iso')
-    // The 64-bit look is out of the round (part 14): a browser or an address that names it starts in the 32-bit one.
+    // The 64-bit look is out of the round (part 14): a browser or an address that names it goes to the polygon view,
+    // and while that is parked (2026-11-24) to the first view.
     assert.equal(M.RETIRED_VIEWS.third, 'poly')
-    assert.equal(M.startView(null, 'third'), 'poly')
-    assert.equal(M.startView('third', 'iso'), 'poly')
+    assert.equal(M.startView(null, 'third'), 'iso')
+    assert.equal(M.startView('third', 'classic'), 'classic')
     assert.equal(M.isViewId('third'), false)
+    assert.equal(M.startView('poly', 'poly'), 'iso')
+    M.setLiveViews(M.parseViews({ poly: { hidden: false } }))
+    assert.equal(M.startView(null, 'third'), 'poly')
+    M.setLiveViews(null)
   })
   it('starts in the classic view when the studio has taken the first view out of the round', () => {
     M.setLiveViews(M.parseViews({ iso: { hidden: true } }))
@@ -316,9 +322,9 @@ describe('the studio\'s views', () => {
     })
     assert.equal(M.parseViews({ lofi: { engine: 'classic', name: 'LOFI', tag: '4-BIT' } }).lofi.tag, '4-BIT')
     const round = M.mergeViews(live)
-    assert.deepEqual(round.map(v => v.id), ['classic', 'iso', 'poly', 'noir'])
+    assert.deepEqual(round.map(v => v.id), ['classic', 'iso', 'noir'])
     assert.deepEqual(round[0].params, { scanlines: 0 })
-    assert.deepEqual(round[3], { id: 'noir', name: 'NOIR', tag: 'ISOMETRIC', engine: 'iso', params: { colors: '15-bit', bloom: 0 } })
+    assert.deepEqual(round[2], { id: 'noir', name: 'NOIR', tag: 'ISOMETRIC', engine: 'iso', params: { colors: '15-bit', bloom: 0 } })
   })
   it('drops what the game cannot draw or spell', () => {
     const live = M.parseViews({
@@ -335,10 +341,10 @@ describe('the studio\'s views', () => {
     assert.deepEqual(M.parseViews(null), {})
   })
   it('keeps a built-in view\'s own values under the studio\'s', () => {
-    const round = M.mergeViews(M.parseViews({ poly: { params: { fog: 0.5 } } }))
+    const round = M.mergeViews(M.parseViews({ poly: { hidden: false, params: { fog: 0.5 } } }))
     const poly = round.find(v => v.id === 'poly')
     assert.equal(poly.params.fog, 0.5)
-    assert.deepEqual(M.mergeViews(null).find(v => v.id === 'poly').params, {})
+    assert.deepEqual(M.mergeViews(M.parseViews({ poly: { hidden: false } })).find(v => v.id === 'poly').params, {})
   })
   it('orders the round, hides a built-in view on request, and never the classic one', () => {
     const live = M.parseViews({
@@ -346,7 +352,14 @@ describe('the studio\'s views', () => {
       iso: { hidden: true },
       first: { engine: 'iso', name: 'FIRST', order: -1 },
     })
-    assert.deepEqual(M.mergeViews(live).map(v => v.id), ['first', 'classic', 'poly'])
+    assert.deepEqual(M.mergeViews(live).map(v => v.id), ['first', 'classic'])
+  })
+  it('keeps a parked view out of the round until the studio brings it back', () => {
+    assert.deepEqual(M.VIEWS.filter(v => v.parked).map(v => v.id), ['poly'])
+    assert.deepEqual(M.mergeViews(null).map(v => v.id), ['classic', 'iso'])
+    assert.deepEqual(M.mergeViews(M.parseViews({ poly: { hidden: false } })).map(v => v.id), ['classic', 'iso', 'poly'])
+    // (Only a parked view can be asked back; `hidden: false` on any other says nothing.)
+    assert.equal(M.parseViews({ iso: { hidden: false } }).iso.hidden, undefined)
   })
   it('never lets the round grow past what V can go round', () => {
     const many = {}
@@ -356,13 +369,12 @@ describe('the studio\'s views', () => {
   it('takes a published view into the round, and falls back to the first view when it is gone', () => {
     M.setLiveViews(M.parseViews({ noir: { engine: 'iso', name: 'NOIR' } }))
     assert.equal(M.startView('noir', null), 'noir')
-    assert.equal(M.nextView('iso'), 'poly')
-    assert.equal(M.nextView('poly'), 'noir')
+    assert.equal(M.nextView('iso'), 'noir')
     assert.equal(M.nextView('noir'), 'classic')
     assert.equal(M.viewName('noir'), 'NOIR')
     M.setLiveViews(null)
     assert.equal(M.startView(null, 'noir'), M.DEFAULT_VIEW)
-    assert.equal(M.viewList().length, M.VIEWS.length)
+    assert.equal(M.viewList().length, M.VIEWS.filter(v => !v.parked).length)
   })
 })
 
