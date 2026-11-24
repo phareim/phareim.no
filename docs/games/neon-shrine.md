@@ -885,6 +885,21 @@ filtered textures, fog).
     keep the picture's coverage (no dark disc over the sky). Figures' blob
     shadows fall away from what lights their spot most (the sun outdoors, the
     lamps in reach), as in the 16-bit view.
+  - *light from what shines* (part 9): lit windows, neon signs and screens and
+    a town's fountain spill their colour round them. A spill map per map
+    (`sendSpill` in `view.ts`) is built once from the classic art's own bright
+    pixels (saturated neon, the warm window yellow) and the fountain's paved
+    rim, blurred over about a tile and a half, and read like a lamp: per corner
+    in the 32-bit look, per pixel in the 64-bit one (`uSpill`). Its strength is
+    the hour's lamp light, held smooth like the rest, so it comes up with the
+    lamps at sunset and is all but gone at noon. In the 64-bit look each lamp
+    also lays a bright pool under itself (a core added to its soft reach).
+  - *what is drawn* (part 9): a stretch of geometry the camera cannot see (all
+    its corners outside one side of the picture, or past the 64-bit look's fog)
+    is not drawn; the translucent pass draws only the stretches near enough to
+    the eye to fade, and decides a pixel's fade before its light; the bloom's
+    own pass is drawn at the glow canvas's size and works out no light at its
+    corners.
 - **Known rough edges**: everyone but the hero is a classic card (in the 64-bit
   look paper figures facing the camera; Luna, who follows behind the hero, is
   the one most seen, and fades while she covers the hero); a

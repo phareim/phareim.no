@@ -46,7 +46,7 @@ import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
-import polyView, { pinQuality as pinPoly, preloadArt, setAssetBase, governorTrace, timeGpu, gpuMs } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/view.ts'))}
+import polyView, { pinQuality as pinPoly, preloadArt, setAssetBase, governorTrace, timeGpu, gpuMs, profile as polyProfile, profileOn as polyProfileOn } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/view.ts'))}
 import { freezeLamps } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/lamps.ts'))}
 import { THIRD_PERSON } from ${JSON.stringify(join(repo, 'themes/zelda/views.ts'))}
 
@@ -81,6 +81,8 @@ window.__setAssetBase = setAssetBase
 window.__polyGov = governorTrace
 window.__timeGpu = timeGpu
 window.__gpuMs = gpuMs
+window.__polyProfile = polyProfile
+window.__polyProfileOn = polyProfileOn
 window.__freezeLamps = freezeLamps
 if (q.get('view') === 'poly') { pinPoly(q.get('pin') === '0' ? null : true); r.addView('poly', polyView); r.setView('poly', q.get('frames') === null) }
 // VIEW=third: the polygon engine's second look, the 64-bit one (the built-in view's own values).
@@ -130,6 +132,12 @@ switch (scene) {
   case 'p-exit': put('parcade', 7.5, 5.5, 'up'); s.mode = 'exit'; s.warp = { t: WARP_TIME, to: '', entry: '', swapped: false }; break
   case 'p-reduced': ui.reducedMotion = true; run(20); break
   case 'r-plaza': run(20); break
+  // Part 9's light stills, in the open square (r-plaza stays where the reference stills are pinned).
+  case 'r-square': go('overworld', 20.5, 17.5, 'up'); run(20); break
+  case 'r-lamp': go('overworld', 18.5, 12.6, 'up'); run(20); break
+  case 'r-wall': go('overworld', 14.5, 10.2, 'up'); run(20); break
+  case 'r-stall': go('overworld', 31.5, 16.5, 'up'); run(20); break
+  case 'r-fountain': go('overworld', 20.5, 16.2, 'up'); run(20); break
   // The NEW LOOK stall east of the fountain: at its counter, and walking up to it from the square.
   case 'r-look': s.hero.x = 31.5; s.hero.y = 14.5; s.hero.dir = 'up'; run(5); break
   case 'r-lookwalk': s.hero.x = 27.5; s.hero.y = 15.5; s.hero.dir = 'right'; run(8, inp({ move: { x: 1, y: 0 } })); break
@@ -237,6 +245,11 @@ const SHOTS = [
   ['p-reduced-1280', 'p-reduced', 1280, 800, 1, 0],
   ['shop-390', 'shop', 390, 844, 3, 0],
   ['r-plaza-1280', 'r-plaza', 1280, 800, 1, 0],
+  ['r-square-1280', 'r-square', 1280, 800, 1, 0],
+  ['r-lamp-1280', 'r-lamp', 1280, 800, 1, 0],
+  ['r-wall-1280', 'r-wall', 1280, 800, 1, 0],
+  ['r-stall-1280', 'r-stall', 1280, 800, 1, 0],
+  ['r-fountain-1280', 'r-fountain', 1280, 800, 1, 0],
   ['r-plaza-390', 'r-plaza', 390, 844, 3, 0],
   ['r-plaza-412', 'r-plaza', 412, 915, 2.625, 0],
   ['r-look-1280', 'r-look', 1280, 800, 1, 0],

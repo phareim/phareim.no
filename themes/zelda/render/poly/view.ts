@@ -17,7 +17,7 @@
  * values change (`mixPose`). One height lifts everything placed (`lift`).
  * Without WebGL2 the classic picture draws on.
  */
-import type { GameState, MapKind, TileChar } from '../../types'
+import type { GameState, MapKind, MapState, TileChar } from '../../types'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
 import { aimOf, has, mapInfo, raised, swingAngle } from '../../engine/index'
 import type { FigureAct, FigureBlade, FigurePose } from '../iso/figure'
@@ -279,6 +279,18 @@ let quality = 0
 export function pinQuality(on: boolean | null): void { pinned = on }
 /** A phone: a screen under 600 CSS px across its short side at a dpr over 2 (its picture is capped, its edges 2x). */
 export function smallScreen(W: number, H: number, dpr: number): boolean { return dpr > 2 && Math.min(W, H) / dpr < 600 }
+/** For the lab: the main thread's time by phase of the last frames (ms, summed; profileOn resets it). */
+let profOn = false
+let profLast = 0
+export const profile: { phases: Record<string, number>; frames: number; gpu: { passes: Record<string, number>; calls: number; verts: number; frames: number } | null } = { phases: {}, frames: 0, gpu: null }
+function mark(name: string) {
+  if (!profOn) return
+  const now = performance.now()
+  if (name === 'start') profile.frames++
+  else profile.phases[name] = (profile.phases[name] ?? 0) + now - profLast
+  profLast = now
+}
+export function profileOn(on: boolean): void { profOn = on; profile.phases = {}; profile.frames = 0 }
 /** For the lab: the GPU's time for the polygons of each frame (ms; the last one measured), when asked for. */
 let gpuTiming = false
 let gpuLast: number | null = null
@@ -658,6 +670,66 @@ export default function polyView(kit: Kit): View {
 
   /** The heightfield the sun's shadows are marched through on the GPU: two cells a tile, the land and what stands. */
   let heightAt: [number, number, number, number] = [0, 0, 1, 0]
+  /**
+   * What lit windows, neon signs and a town's fountain spill round them (part 9): from the map's own classic art, its
+   * bright saturated pixels (neon, screens, signs) and its warm window yellow, and the town water's paved rim, summed
+   * per half tile and blurred over about a tile and a half; once a map. Read like a lamp (per pixel in the 64-bit
+   * look), its strength the hour's lamp light (\`spillK\`).
+   */
+  let spillKey = ''
+  let spillAt: [number, number, number, number] = [0, 0, 1, 0]
+  function sendSpill(c: MapCtx, m: MapState) {
+    const key = `${m.id}:${c.M}`
+    if (key === spillKey) return
+    spillKey = key
+    const res = 2, w = c.fw * res, h = c.fh * res
+    const acc = new Float32Array(w * h * 3)
+    const at = (tx: number, ty: number) => (Math.floor((ty + c.M) * res) * w + Math.floor((tx + c.M) * res)) * 3
+    const STEP = 2
+    for (const layer of [base, objects]) {
+      if (!layer || layer.mapId !== m.id) continue
+      const cw = layer.canvas.width, ch = layer.canvas.height
+      const d = layer.canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, cw, ch).data
+      for (let y = 0; y < ch; y += STEP) for (let x = 0; x < cw; x += STEP) {
+        const o = (y * cw + x) * 4
+        if (d[o + 3]! < 128) continue
+        const r = d[o]!, g = d[o + 1]!, b = d[o + 2]!
+        const hi = Math.max(r, g, b), lo = Math.min(r, g, b)
+        const neon = hi > 170 && hi - lo > 0.55 * hi
+        const lamp = r > 200 && g > 150 && b < 130
+        if (!neon && !lamp) continue
+        const i = at(x / T, y / T)
+        if (i < 0 || i >= acc.length) continue
+        acc[i] += r / 255; acc[i + 1] += g / 255; acc[i + 2] += b / 255
+      }
+    }
+    // Each sample stands for STEP² px of a cell of (T / res)² px.
+    const per = (STEP * STEP) / ((T / res) * (T / res)) * 6.5
+    for (let i = 0; i < acc.length; i++) acc[i] *= per
+    // The town's fountain: water with paving beside it glows on its rim.
+    if (c.kind === 'overworld') for (let ty = 0; ty < m.h; ty++) for (let tx = 0; tx < m.w; tx++) {
+      if (m.tiles[ty * m.w + tx] !== '~') continue
+      const paved = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => m.tiles[(ty + dy!) * m.w + tx + dx!] === ',')
+      if (!paved) continue
+      for (const [ox, oy] of [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) { const i = at(tx + ox!, ty + oy!); acc[i] += 0.05; acc[i + 1] += 0.22; acc[i + 2] += 0.3 }
+    }
+    // Blurred over about a tile and a half: three box passes of a tile each way.
+    const tmp = new Float32Array(acc.length)
+    for (let pass = 0; pass < 3; pass++) for (const horiz of [true, false]) {
+      const src = acc, dst = tmp
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) for (let k = 0; k < 3; k++) {
+        let sum = 0, n = 0
+        for (let d = -res; d <= res; d++) { const xx = horiz ? x + d : x, yy = horiz ? y : y + d; if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue; sum += src[(yy * w + xx) * 3 + k]!; n++ }
+        dst[(y * w + x) * 3 + k] = sum / (2 * res + 1)
+      }
+      acc.set(dst)
+    }
+    const data = new Uint8Array(w * h * 3)
+    for (let i = 0; i < acc.length; i++) data[i] = Math.max(0, Math.min(255, Math.round(acc[i]! / 2 * 255)))
+    engine.spill(data, w, h)
+    spillAt = [-c.M, -c.M, res, 0]
+  }
+
   function sendHeights(c: MapCtx, mass: (x: number, y: number) => number) {
     const res = 2
     const w = c.fw * res, h = c.fh * res
@@ -810,6 +882,7 @@ export default function polyView(kit: Kit): View {
   }
 
   function draw(s: GameState, ui: FrameUI, dt: number, k: number) {
+    mark('start')
     if (!ready(false, s)) {
       const g0 = kit.screen()
       g0.g.setTransform(1, 0, 0, 1, 0, 0)
@@ -839,6 +912,7 @@ export default function polyView(kit: Kit): View {
     // A door leads to another map: its land is built over the fade.
     if (s.warp && s.warp.to && s.warp.to !== m.id && world.maps[s.warp.to]) landFor(s.warp.to, raw, 6)
     const c = mapCtx(s, raw)
+    sendSpill(c, m)
     const st = stateOf(s)
     if (st !== c.stateKey) {
       for (const ch of c.chunks.values()) ch.dirty = true
@@ -956,6 +1030,7 @@ export default function polyView(kit: Kit): View {
     const bendAt = (x: number, y: number, base = 0) => { const d = Math.max(0, Math.hypot(x - eye[0], y - eye[1]) - bendFrom); return Math.min(bendK * d * d, Math.max(0, eye[2] - 0.35 - base)) }
     const place = (x: number, y: number, z = 0) => { const base = z + groundAt(x, y); return toScreen(M4, vw, vh, x, y, base + bendAt(x, y, base)) }
 
+    mark('camera')
     // --- the tiles in play --------------------------------------------------------------------------------
     // The classic picture's, and the pose's: the ground from the screen's foot out to the draw distance.
     let X0 = Math.floor(cx / T) - 1
@@ -976,9 +1051,40 @@ export default function polyView(kit: Kit): View {
     X1 = Math.min(m.w + c.M, X1); Y1 = Math.min(m.h + c.M, Y1)
     const R: Rect = { x: X0, y: Y0, w: Math.max(1, X1 - X0), h: Math.max(1, Y1 - Y0) }
 
+    mark('tiles')
     // --- the static geometry ---------------------------------------------------------------------------------
     const chunks: Chunk[] = []
-    const add = (ch: Chunk | null) => { if (ch) chunks.push(ch) }
+    /** The stretches near enough to the eye that something on them may fade (the 64-bit look's translucent pass). */
+    const nearChunks: Chunk[] = []
+    const fogged = (par.fog as number) * ek >= 0.5
+    // (Part 9: a stretch the picture cannot see is not drawn: all its corners outside one side of the clip volume, or,
+    // in the fogged look, all of it beyond the fog's far edge. Built all the same, on its turn.)
+    const zTop = Math.max(eye[2], 6) + 4
+    const seen = (r: { x: number; y: number; w: number; h: number }): boolean => {
+      let l = 0, ri = 0, bo = 0, to = 0, be = 0
+      for (const x of [r.x, r.x + r.w]) for (const y of [r.y, r.y + r.h]) for (const z of [-2, zTop]) {
+        const cx = M4[0]! * x + M4[4]! * y + M4[8]! * z + M4[12]!
+        const cy = M4[1]! * x + M4[5]! * y + M4[9]! * z + M4[13]!
+        const cw = M4[3]! * x + M4[7]! * y + M4[11]! * z + M4[15]!
+        if (cx < -cw) l++; if (cx > cw) ri++; if (cy < -cw) bo++; if (cy > cw) to++; if (cw <= 0) be++
+      }
+      if (l === 8 || ri === 8 || bo === 8 || to === 8 || be === 8) return false
+      if (fogged) {
+        const dx = Math.max(r.x - eye[0], 0, eye[0] - (r.x + r.w)), dy = Math.max(r.y - eye[1], 0, eye[1] - (r.y + r.h))
+        if (Math.hypot(dx, dy) > far1 + 1) return false
+      }
+      return true
+    }
+    const nearOf = (r: { x: number; y: number; w: number; h: number }): boolean => {
+      const dx = Math.max(r.x - eye[0], 0, eye[0] - (r.x + r.w)), dy = Math.max(r.y - eye[1], 0, eye[1] - (r.y + r.h))
+      return Math.hypot(dx, dy) < Math.hypot(s.hero.x - eye[0], s.hero.y - eye[1]) + 1.5
+    }
+    const add = (ch: Chunk | null, r?: { x: number; y: number; w: number; h: number }) => {
+      if (!ch) return
+      if (r && !roomed && !seen(r)) return
+      chunks.push(ch)
+      if (!r || nearOf(r)) nearChunks.push(ch)
+    }
     if (roomed) {
       for (const z of rooms) add(chunk(c, mesherFor(c, z, par), `room:${z.x},${z.y}`, z))
     } else {
@@ -988,10 +1094,12 @@ export default function polyView(kit: Kit): View {
         const x0 = Math.max(r.x, -c.M), y0 = Math.max(r.y, -c.M)
         const x1 = Math.min(r.x + r.w, m.w + c.M), y1 = Math.min(r.y + r.h, m.h + c.M)
         if (x1 <= x0 || y1 <= y0) continue
-        add(chunk(c, me, `${qx},${qy}`, { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }))
+        const rr = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+        add(chunk(c, me, `${qx},${qy}`, rr), rr)
       }
     }
 
+    mark('geometry')
     // --- the classic pictures round the camera ------------------------------------------------------------------
     const bx = R.x * T
     const by = (R.y - 1) * T
@@ -1043,6 +1151,7 @@ export default function polyView(kit: Kit): View {
     const items = kit.queue(ag, s, ui, bx, by, bw, bh, lights, og)
     if (s.hook) drawHookChain(og, s, bx, by, lights)
 
+    mark('classic')
     // --- people and things: a cell each, stood up on their feet ------------------------------------------------
     dyn.clear()
     blobs.clear()
@@ -1175,6 +1284,7 @@ export default function polyView(kit: Kit): View {
     }
     atlasUsed = used
 
+    mark('figures')
     // --- the light -------------------------------------------------------------------------------------------
     const amb = rgb(kit.ambient(s, ui, lights))
     const day = kit.day('poly')
@@ -1239,6 +1349,7 @@ export default function polyView(kit: Kit): View {
     }
 
 
+    mark('light')
     // --- the sky ------------------------------------------------------------------------------------------------
     const g = kit.scene()
     g.setTransform(1, 0, 0, 1, 0, 0)
@@ -1326,6 +1437,7 @@ export default function polyView(kit: Kit): View {
       g.fillRect(0, 0, vw, vh)
     }
 
+    mark('sky')
     // --- to the GPU ---------------------------------------------------------------------------------------------
     if (glowC.width !== vw || glowC.height !== vh) { glowC.width = vw; glowC.height = vh; glowG = glowC.getContext('2d')! }
     engine.objs(objsC, bw, bh)
@@ -1394,7 +1506,9 @@ export default function polyView(kit: Kit): View {
     }
     const cellPx = Math.max(1, Math.round(d * (par.grain as number)))
     engine.timeGpu(gpuTiming)
+    engine.profile(profOn)
     if (gpuTiming) gpuLast = engine.gpuMs()
+    mark('upload')
     engine.draw({
       grid: cellPx, cell: cellPx, msaa: par.smoothEdges && k > 0.5 ? Math.min(spend.msaa, phone ? 2 : 4) : 0,
       m: M4, eye, lift: ek * ls, facet: ek, bend: [bendK, bendFrom],
@@ -1420,10 +1534,14 @@ export default function polyView(kit: Kit): View {
       time: reduced ? 0 : time,
       look,
       chunks,
+      nearChunks,
       dynamic: { data: dyn.data, count: dyn.n },
       blobs: { data: blobs.data, count: blobs.n },
       halos: { data: haloV.data, count: haloV.n },
       heroSkin,
+      hairIn: ((h: string) => { const v = parseInt(h.slice(1, 7), 16); return [((v >> 16) & 255) / 255 * 0.75, ((v >> 8) & 255) / 255 * 0.75, (v & 255) / 255 * 0.75] as [number, number, number] })(kit.heroLook().hairColor),
+      // (Its strength the hour's lamp light, and the day takes most of it away: at noon it is all but gone.)
+      spillAt: [spillAt[0], spillAt[1], spillAt[2], held('spill', [gain * (1 - 0.92 * Math.max(0, Math.min(1, (height - 0.05) / 0.4))) * (par.spill as number ?? 1), 0, 0], dt, m.id)[0]],
     }, sw, sh, spend.bloomPass ? glowG : undefined)
     if (!spend.bloomPass) glowG.clearRect(0, 0, vw, vh)
     // The picture: the sky (painted at the scene's size) brought up to the picture's, the polygons over it.
@@ -1457,6 +1575,8 @@ export default function polyView(kit: Kit): View {
       hg.globalCompositeOperation = 'source-over'
     }
 
+    if (profOn) profile.gpu = engine.profileOut()
+    mark('gl')
     // --- shots, sparks, the flash: on the finished picture, where the world has them -------------------------------
     const S1 = (x: number, y: number): Vec => { const p = place(x, y); return { x: p.x, y: p.y } }
     kit.projectiles(hg, s, S1, (dx, dy) => {
@@ -1506,8 +1626,10 @@ export default function polyView(kit: Kit): View {
     const ref = near ? { x: near.x, y: near.y } : { x: s.hero.x, y: s.hero.y }
     const at = place(ref.x, ref.y)
     // The windows change dress in the middle of the turn: the classic ones fade out, the glass fades in.
+    mark('present')
     kit.hudLayer(s, ui, dt, Math.round(ref.x * T - at.x), Math.round(ref.y * T - at.y), place(s.hero.x, s.hero.y).y,
       skinOf(par.windows), k < 1 && par.windows !== 'classic' ? { skin: NEON_SKIN, mix: (k - 0.3) / 0.4 } : undefined)
+    mark('hud')
   }
 
   /** The finish turns with the picture: the classic view's own, to this view's. */
