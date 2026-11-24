@@ -397,3 +397,69 @@ describe('speed', () => {
     assert.ok(spin < 6, `a spin with a full trail takes ${spin.toFixed(3)} ms`)
   })
 })
+
+// Part 15: the 32-bit look draws the same hero at twice the density (four times the pixels, the same size); the
+// 16-bit view keeps calling it at its own density, where it must be exactly the figure it was.
+describe('the figure at two densities', () => {
+  const cases = () => {
+    const shape = (hair, head, bottom) => M.parseHeroLook({ ...M.DRAWN_LOOK, hair, head, bottom })
+    const looks = [M.DRAWN_LOOK, M.GIRL_LOOK, shape('long', 'band', 'shorts'), shape('tail', 'bow', 'skirt'), shape('pigtails', 'band', 'dress')]
+    const bl = (a, kind = 'sword', charge = 0, flash = false) => ({ a, reach: 1.2, trail: [a - 0.3, a - 0.6], kind, charge, flash })
+    const poses = [
+      { yaw: Math.PI / 4, act: 'idle', t: 0 }, { yaw: 1.25 * Math.PI, act: 'idle', t: 1.7 }, { yaw: 0.3, act: 'walk', t: 0.31 },
+      { yaw: 2, act: 'swing', t: 0.5, blade: bl(2.2) }, { yaw: 4, act: 'spin', t: 0.6, blade: bl(1, 'arc') }, { yaw: 1, act: 'idle', t: 0, blade: bl(1, 'sword', 0.8, true) },
+      { yaw: 0.8, act: 'lift', t: 0.5 }, { yaw: -1, act: 'carry', t: 0.4, moving: true }, { yaw: 2.5, act: 'push', t: 0.2 },
+      { yaw: 0.2, act: 'hurt', t: 0.3 }, { yaw: 0, act: 'get', t: 0.5 }, { yaw: 1.4, act: 'use', t: 0.4 }, { yaw: 3, act: 'fall', t: 0.3 }, { yaw: 0.5, act: 'dead', t: 0.9 },
+    ]
+    return looks.flatMap(look => poses.map(pose => ({ look, pose })))
+  }
+  const fnv = (arrs) => { let h = 0x811c9dc5; for (const a of arrs) for (let i = 0; i < a.length; i++) { h ^= a[i]; h = Math.imul(h, 0x01000193) >>> 0 } return h.toString(16).padStart(8, '0') }
+  // What the figure drew at its own density before part 15 (from part 14's figure.ts, these 70 cases): the 16-bit view's
+  // hero must stay pixel for pixel what it was (and so the 16-bit stills of part3/ref/).
+  const BEFORE = ["d30d512d","6e615aa4","9d5b867d","885033f4","26f3afc8","5ddfc74f","ba7a2b6d","29d35727","496244eb","bbb84de7","82eb09ed","e8f302ba","1d51f113","9dfc289f","d5cef56c","deeb01fb","b460065b","bb74c5ae","e56fe733","62484a1d","027b72fe","1f083b1a","5fa6fc53","4bc359e0","c2e7a631","1efc8d9a","00fcc677","d54bd960","4c678b93","744beed8","ebbc0503","ad189a89","d3a3f408","860d3296","e59a67e5","80bf6ce9","5726de9b","62416e2b","a92ba7ff","46f23a61","2976ea7c","aa61a8d4","a1cb020e","a4d78657","dafa5c3f","5b04aaa4","6e921cf4","a4438b17","d4b9eb2b","a02d1837","0e31ab0b","15cf3f20","201a0747","2ab7bd03","574ba5a4","e3fb57ba","c69df4dd","aa6a99bd","4f8aa666","0a411246","23a44c09","07c94da9","9e47367c","db4489df","0eb360f0","94adeeaa","561b3f64","4466b131","8267780e","cce56c9b"]
+  it('is pixel for pixel the 16-bit figure it was at the 16-bit density', () => {
+    const got = cases().map(({ look, pose }) => { const sp = M.renderFigure(pose, look); return fnv([sp.albedo, sp.normal]) })
+    assert.deepEqual(got, BEFORE)
+  })
+  it('stays so after drawing at the finer density in between (each density has a bench of its own)', () => {
+    const c = cases()
+    for (const { look, pose } of c.slice(0, 10)) M.renderFigure(pose, look, undefined, 2)
+    const got = c.map(({ look, pose }) => { const sp = M.renderFigure(pose, look); return fnv([sp.albedo, sp.normal]) })
+    assert.deepEqual(got, BEFORE)
+  })
+  it('is twice as fine at density 2: the cell twice as large each way, the figure the same size and in the same place', () => {
+    const box = (sp) => { let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1; for (const [, x, y] of pixels(sp)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y) } return [x0, y0, x1 + 1, y1 + 1] }
+    for (const { look, pose } of cases()) {
+      if (pose.act === 'fall' || pose.act === 'dead') continue
+      const a = M.renderFigure(pose, look, undefined, 1), b = M.renderFigure(pose, look, undefined, 2)
+      assert.equal(b.w, 2 * a.w); assert.equal(b.h, 2 * a.h); assert.equal(b.ax, 2 * a.ax); assert.equal(b.ay, 2 * a.ay)
+      const ba = box(a), bb = box(b).map(v => v / 2)
+      for (let k = 0; k < 4; k++) assert.ok(Math.abs(ba[k] - bb[k]) <= 1.5, `${pose.act} ${look.hair}: ${ba} against ${bb}`)
+      // Four times the pixels, near enough (the outline, two fine px, is the 16-bit one's width).
+      const ratio = count(b) / count(a)
+      assert.ok(ratio > 3.4 && ratio < 4.6, `${pose.act}: ${ratio.toFixed(2)} times the pixels`)
+    }
+  })
+  it('draws the face at the finer px: the eyes are rounded dots with a glint, not blown-up squares', () => {
+    const sp = M.renderFigure({ yaw: Math.PI / 4, act: 'idle', t: 0 }, M.DRAWN_LOOK, undefined, 2)
+    let eye = 0
+    // (The dark eye px round the face's middle: two rounded dots of 12 fine px each.)
+    const midY = Math.round(sp.ay - 26 * 2)
+    for (let y = midY - 12; y < midY + 12; y++) for (let x = sp.ax - 16; x < sp.ax + 16; x++) {
+      const i = (y * sp.w + x) * 4
+      if (!sp.albedo[i + 3]) continue
+      const lum = sp.albedo[i] * 0.3 + sp.albedo[i + 1] * 0.59 + sp.albedo[i + 2] * 0.11
+      if (lum < 60) eye++
+    }
+    assert.ok(eye >= 16, `only ${eye} dark eye px round the face`)
+  })
+  it('keeps steady: the same pose twice is the same picture, at both densities', () => {
+    for (const d of [1, 2]) {
+      const p = { yaw: 0.7, act: 'walk', t: 0.44 }
+      const a = M.renderFigure(p, M.DRAWN_LOOK, undefined, d)
+      const keep = { albedo: Uint8ClampedArray.from(a.albedo), normal: Uint8ClampedArray.from(a.normal) }
+      M.renderFigure({ yaw: 2, act: 'swing', t: 0.3, blade: blade(2) }, M.GIRL_LOOK, a, d)
+      assert.ok(same(M.renderFigure(p, M.DRAWN_LOOK, a, d), keep))
+    }
+  })
+})
