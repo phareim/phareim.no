@@ -728,19 +728,27 @@ filtered textures, fog).
   eyes never show through the back of the head; `poly-pack.mjs` also mends the
   texels there. A rim of the sky's and the lamps' light round its edges keeps
   a dark jacket apart from dark ground, in both looks. The blade is a small mesh in the
-  right hand along the engine's swing angle. A look from the NEW LOOK stall that
-  changes only colours recolours the model's jacket, band, hair and trousers; a
-  look of another shape (hair, headwear, bottom) keeps the sprite card for now.
+  right hand along the engine's swing angle. Every look from the NEW LOOK stall
+  wears the model (part 7): its shirt, band, hair, trousers and skin recoloured
+  from the model's own painted colours (`MODEL_COLORS`, `recolour`); nothing on
+  the head is the band in the hair's colour, a dress the trousers in the shirt's;
+  another hair style, a bow or a skirt keep the model's own shape for now.
   Everyone else is still a card. In the 64-bit look the cards face the camera
-  fully; whatever stands between the eye and the hero is cut through in a clean
-  window the hero's size, and what stands near the eye fades out.
+  fully; whatever stands between the eye and the hero is seen through a
+  soft-edged window the hero's size, what stands near the eye fades out, and a
+  paper figure nearer than the hero fades over its last tile, all with real
+  transparency (an opaque pass leaves out what is partly faded, a second pass
+  blends it in, no depth written): the 64-bit look draws no dither anywhere, its
+  shore foam a soft band. What lies flat on the ground is never faded.
 - **Two looks on one engine** (2026-11-23). The engine's values are its
   look, and the round has two of them: POLYGON (32-bit, the engine's own
   values) and THIRD PERSON (64-bit, `THIRD_PERSON` in `views.ts`), every trait
   turned the other way:
   - *the camera* at the hero's shoulder (`SHOULDER`: pitch 17°, 5 tiles,
     lens 56°, the hero 74 % down: low enough that the sky and the sun are in
-    the picture over the land in the open). Its yaw follows the
+    the picture over the land in the open; the sky's painting reaches the top
+    edge at any pose and screen, its own top row drawn up where the camera
+    looks higher than it was painted). Its yaw follows the
     hero lazily: it swings in behind them while they walk, not while they walk
     toward the camera, and drifts behind them after they have stood a moment.
     It rises over whatever stands behind the hero (the land, a wall, a house, a
@@ -763,7 +771,9 @@ filtered textures, fog).
   - *the machine*: the ground and walls through the GPU's own trilinear,
     16× anisotropic filter (a layered copy of the painted page, `uMatArr`), half
     a level soft (`groundSoft`, in both looks: steadier walking), sharp near the
-    eye and steady far off; the paper figures filtered with a clean edge (each
+    eye and steady far off, and on a slope stretched by the slope's own
+    steepness so a bank seen head-on does not squeeze it into streaks; the
+    paper figures filtered with a clean edge (each
     texel smoothed over a pixel of the screen, mixed premultiplied, no dark
     fringe) and the hero's shadow a soft round pool (`filter`), perspective-correct, steady
     corners (`affine` and `wobble` at 0), normals shared at the corners so
@@ -872,8 +882,10 @@ filtered textures, fog).
     shadows fall away from what lights their spot most (the sun outdoors, the
     lamps in reach), as in the 16-bit view.
 - **Known rough edges**: everyone but the hero is a classic card (in the 64-bit
-  look paper figures facing the camera); a hero look of another shape is a card
-  too; neither look has a sound of its own. Where the hero stands with a house's wall a tile
+  look paper figures facing the camera; Luna, who follows behind the hero, is
+  the one most seen, and fades as she passes between the eye and the hero); a
+  look's other hair style, bow or skirt is not modelled; neither look has a
+  sound of its own. Where the hero stands with a house's wall a tile
   ahead, the house still fills the top of the 64-bit picture; the house's
   windows do not spill light on the ground. Seen from close behind, two faint
   glints remain where the back of the hero's hair has its hole. In the 32-bit look lamp light is

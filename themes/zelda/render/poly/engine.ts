@@ -324,6 +324,8 @@ uniform float uFilter;
 uniform float uMatFilter;
 uniform float uFog;
 uniform int uFaces;
+/** 0: the opaque pass; 1: the 64-bit look's translucent pass (what is partly faded, blended in, no depth written). */
+uniform int uTrans;
 uniform int uBlob;
 out vec4 o;
 
@@ -465,9 +467,17 @@ vec4 atlasAt(vec2 px) {
 void main() {
   // (People and things are sprites: the machine drew those straight, not as warped polygons.)
   vec2 uv = vTex == 3 || vTex == 7 ? vUv : mix(vUv, vUvw.xy / vUvw.z, uAffine);
-  gFoot = fwidth(uv);
-  gDx = dFdx(uv);
-  gDy = dFdy(uv);
+  // The land's materials on a slope (the soft look): projected straight down, a bank seen head-on squeezes them into
+  // long streaks across it; stretched along the slope by about its own steepness, they keep their size (the kinds
+  // are still looked up at the true uv).
+  vec2 muv = uv;
+  if (vTex == 1 && uFilter > 0.001) {
+    vec3 sn = normalize(vN);
+    muv = uv - sn.xy / max(sn.z, 0.35) * vPos.z * 0.5 * uFilter;
+  }
+  gFoot = fwidth(muv);
+  gDx = dFdx(muv);
+  gDy = dFdy(muv);
   vec4 c = vec4(1.0);
   vec3 glow = vec3(0.0);
   /** What shines by itself in the classic art: bright, saturated colours (neon, screens, lit letters, crystals). */
@@ -481,8 +491,8 @@ void main() {
     float idx = k.r * 255.0;
     if (idx > 0.5 && kj.r * 255.0 > 0.5) idx = kj.r * 255.0;
     vec4 base = pic(uBase, uv * 16.0);
-    vec3 col = base.a > 0.5 ? base.rgb : matAt(max(idx - 1.0, 0.0), uv);
-    if (idx > 0.5) col = mix(col, matAt(idx - 1.0, uv), uMat);
+    vec3 col = base.a > 0.5 ? base.rgb : matAt(max(idx - 1.0, 0.0), muv);
+    if (idx > 0.5) col = mix(col, matAt(idx - 1.0, muv), uMat);
     // What the classic art lays on the ground, unless something stands there in its place.
     float bare = k.g * 255.0;
     float fy = fract(uv.y) * 16.0;
@@ -520,7 +530,8 @@ void main() {
     if (hash(q * 7.0 + floor(t * 2.5)) > 0.992) glow = vec3(0.45, 0.95, 1.0);
     vec2 sp = (uv - uShoreAt.xy) * uShoreAt.z + 0.5;
     float s = texture(uShore, sp / vec2(textureSize(uShore, 0))).r * 4.0 - 2.0;
-    float b = bayer(gl_FragCoord.xy);
+    // (The 64-bit look's foam is a soft band, not a stipple: the dither's threshold becomes the band's middle.)
+    float b = mix(bayer(gl_FragCoord.xy), 0.5, step(0.5, uFilter));
     if (vColor.r > 0.5) {
       if (s > -0.07) glow = vec3(0.18, 0.95, 1.0);
       else if (s > -0.16 && b > 0.5) col = vec3(0.12, 0.45, 0.7);
@@ -610,28 +621,29 @@ void main() {
     lit = mix(lit, uHaze, max(fogged * 0.55, air));
   }
   // The 64-bit camera walks among things: what stands near the eye (a tree it stands in, a sign at the hero's back)
-  // fades away in a fine dither, gone at a tile and a half.
-  // (A paper figure nearer the eye than the hero goes in a short fine dither, over the last tile before the hero's
-  // distance: never at once as the camera settles, and never the long stipple that showed its enlarged texels.)
-  if (uFaces == 1 && vTex == 3 && (vFlags & 1) != 0 && vDist < uHero.w - 0.4) {
-    vec2 q = floor(gl_FragCoord.xy);
-    ivec2 r = ivec2(mod(q, 4.0));
-    int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
-    if ((float(m[r.x + r.y * 4]) + 0.5) / 16.0 > (vDist - (uHero.w - 1.4)) / 1.0) discard;
-  }
-  if (uFaces == 1 && ((vFlags & 1) != 0 || (vFlags & 4) != 0) && vDist < uHero.w - 0.6) {
-    vec2 q = floor(gl_FragCoord.xy);
-    ivec2 r = ivec2(mod(q, 4.0));
-    int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
-    // (From the eye to most of the way to the hero: what stands nearer the eye than the hero fades the more.)
-    if ((float(m[r.x + r.y * 4]) + 0.5) / 16.0 > (vDist - 1.2) / max(0.5, uHero.w - 1.8)) discard;
-  }
-  // What stands between the camera and the hero is seen through.
-  if (((vFlags & 1) != 0 || ((vFlags & 4) != 0 && uFaces == 1)) && uHero.z > 0.0 && vDist < uHero.w - 0.5) {
-    vec2 dd = (gl_FragCoord.xy - uHero.xy) / vec2(uHero.z * 0.7, uHero.z);
-    vec2 sc = floor(gl_FragCoord.xy / uCell);
-    // (The 32-bit machine sees through in a stipple; the 64-bit one cuts a clean window, its edge by the picture's own alpha.)
-    if (dot(dd, dd) < 1.0 && (uFaces == 1 || mod(sc.x + sc.y, 2.0) < 1.0)) discard;
+  // fades away, gone at a tile and a half; a paper figure nearer the eye than the hero fades over its last tile; and
+  // what stands between the eye and the hero is seen through in a soft-edged window. The 64-bit look does all three
+  // with real transparency (fade: the opaque pass leaves out what is partly faded, the translucent pass blends it
+  // in, uTrans); never a dither, never a card's rectangle. The 32-bit machine stipples, as it did.
+  float fade = 1.0;
+  // (What lies flat on the ground never stands between the eye and the hero: it is never faded or cut.)
+  bool see = ((vFlags & 1) != 0 || ((vFlags & 4) != 0 && uFaces == 1)) && (uFaces == 0 || abs(normalize(vN).z) < 0.95);
+  if (uFaces == 1) {
+    if (vTex == 3 && see) fade = min(fade, smoothstep(uHero.w - 0.9, uHero.w - 0.2, vDist));
+    if (see && vDist < uHero.w - 0.6) fade = min(fade, clamp((vDist - 1.2) / max(0.5, uHero.w - 1.8), 0.0, 1.0));
+    if (see && uHero.z > 0.0 && vDist < uHero.w - 0.5) {
+      vec2 dd = (gl_FragCoord.xy - uHero.xy) / vec2(uHero.z * 0.7, uHero.z);
+      fade = min(fade, smoothstep(0.65, 1.0, dot(dd, dd)));
+    }
+    if (uTrans == 0 && fade < 0.999) discard;
+    if (uTrans == 1 && (fade >= 0.999 || fade <= 0.002)) discard;
+  } else {
+    if (uTrans == 1) discard;
+    if (see && uHero.z > 0.0 && vDist < uHero.w - 0.5) {
+      vec2 dd = (gl_FragCoord.xy - uHero.xy) / vec2(uHero.z * 0.7, uHero.z);
+      vec2 sc = floor(gl_FragCoord.xy / uCell);
+      if (dot(dd, dd) < 1.0 && mod(sc.x + sc.y, 2.0) < 1.0) discard;
+    }
   }
   // 32 768 colours, the dither between them.
   if (uBits < 7.5) {
@@ -640,7 +652,7 @@ void main() {
   }
   // (The bloom's own pass: only what shines by itself.)
   if (uGlowOnly == 1) { o = vec4(clamp(max(neon, glow) * (1.0 - fogged), 0.0, 1.0), 1.0); return; }
-  float alpha = uFog >= 0.5 ? 1.0 - fogged * fogged : 1.0;
+  float alpha = (uFog >= 0.5 ? 1.0 - fogged * fogged : 1.0) * fade;
   o = vec4(clamp(lit, 0.0, 1.0) * alpha, alpha);
 }`
 
@@ -969,6 +981,7 @@ export function createEngine(): Engine {
       if (glowTo) {
         // First what shines by itself alone, for the bloom; then the picture.
         gl.uniform1i(u('uGlowOnly'), 1)
+        gl.uniform1i(u('uTrans'), 0)
         solid()
         resolve()
         glowTo.clearRect(0, 0, glowTo.canvas.width, glowTo.canvas.height)
@@ -976,7 +989,20 @@ export function createEngine(): Engine {
         gl.uniform1i(u('uGlowOnly'), 0)
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
       }
+      gl.uniform1i(u('uTrans'), 0)
       solid()
+      if (L.faces) {
+        // The 64-bit look's translucent pass: only what is partly faded (near the eye, the window round the hero),
+        // blended over what is drawn, writing no depth.
+        gl.uniform1i(u('uTrans'), 1)
+        gl.enable(gl.BLEND)
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+        gl.depthMask(false)
+        solid()
+        gl.depthMask(true)
+        gl.disable(gl.BLEND)
+        gl.uniform1i(u('uTrans'), 0)
+      }
       if (f.blobs.count) {
         // Shadows on the ground: the ground under them darkened, never lit away.
         gl.bindBuffer(gl.ARRAY_BUFFER, blobBuf)

@@ -424,34 +424,49 @@ export function bladeMesh(v: Verts, hand: [number, number, number], a: number, g
  * drawn hero's own colours.
  */
 export function recolour(data: Uint8ClampedArray, look: HeroLook): Uint8ClampedArray | null {
-  const pairs: Array<[string, string]> = [[DRAWN_LOOK.top, look.top], [DRAWN_LOOK.headColor, look.headColor], [DRAWN_LOOK.hairColor, look.hairColor], [DRAWN_LOOK.bottomColor, look.bottomColor]]
-  const live = pairs.filter(([a, b]) => a.toLowerCase() !== b.toLowerCase())
+  // A look of another shape wears the model too, as far as its colours go: nothing on the head is the band in the
+  // hair's colour (it reads as hair), a dress is the trousers in the shirt's colour; another hair style keeps the
+  // model's own hair, in the look's colour.
+  const head = look.head === 'none' ? look.hairColor : look.headColor
+  const bottom = look.bottom === 'dress' ? look.top : look.bottomColor
+  // Each part by the model's own painted colour (measured on both meshes' textures), to the look's, if it differs
+  // from the drawn hero's.
+  const parts: Array<[string, string, string]> = [
+    [MODEL_COLORS.top, DRAWN_LOOK.top, look.top], [MODEL_COLORS.band, DRAWN_LOOK.headColor, head],
+    [MODEL_COLORS.hair, DRAWN_LOOK.hairColor, look.hairColor], [MODEL_COLORS.bottom, DRAWN_LOOK.bottomColor, bottom],
+    [MODEL_COLORS.skin, DRAWN_LOOK.skin, look.skin],
+  ]
+  const live = parts.filter(([, drawn, want]) => drawn.toLowerCase() !== want.toLowerCase())
   if (!live.length) return null
   const rgb = (h: string) => { const v = parseInt(h.slice(1, 7), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255] }
-  const src = live.map(([a, b]) => ({ a: rgb(a), b: rgb(b) }))
+  const all = parts.map(([m]) => rgb(m))
   const out = new Uint8ClampedArray(data)
+  const lum = (c: number[]) => Math.max(1, c[0]! * 0.3 + c[1]! * 0.59 + c[2]! * 0.11)
   for (let o = 0; o < out.length; o += 4) {
-    const r = out[o]!, g = out[o + 1]!, b = out[o + 2]!
-    const l = Math.max(1, r * 0.3 + g * 0.59 + b * 0.11)
-    // By hue (the colour divided by its light), so the area's shades all count.
-    let best = -1, bd = 0.09
-    for (let k = 0; k < src.length; k++) {
-      const a = src[k]!.a
-      const la = Math.max(1, a[0]! * 0.3 + a[1]! * 0.59 + a[2]! * 0.11)
-      const d = Math.hypot(r / l - a[0]! / la, g / l - a[1]! / la, b / l - a[2]! / la) / 3
-      if (d < bd) { bd = d; best = k }
-    }
+    const c = [out[o]!, out[o + 1]!, out[o + 2]!]
+    // The nearest of all the model's parts (so hair is never taken for trousers), if near enough.
+    let best = -1, bd = 70
+    for (let k = 0; k < all.length; k++) { const d = Math.hypot(c[0]! - all[k]![0]!, c[1]! - all[k]![1]!, c[2]! - all[k]![2]!); if (d < bd) { bd = d; best = k } }
     if (best < 0) continue
-    const { a, b: to } = src[best]!
-    const k = l / Math.max(1, a[0]! * 0.3 + a[1]! * 0.59 + a[2]! * 0.11)
+    const [m, drawn, want] = parts[best]!
+    if (drawn.toLowerCase() === want.toLowerCase()) continue
+    const a = rgb(m), to = rgb(want)
+    // The texel's shade kept: its light against the part's own.
+    const k = lum(c) / lum(a)
     out[o] = to[0]! * k; out[o + 1] = to[1]! * k; out[o + 2] = to[2]! * k
   }
   return out
 }
 
-/** Whether a look can wear the model: the drawn hero's shape (another hair, headwear or bottom keeps the sprite). */
+/** The hero model's own painted colours (both meshes' textures, `poly-pack.mjs` writes them as the GLBs have them). */
+export const MODEL_COLORS = { hair: '#181858', band: '#e81878', skin: '#f8a888', top: '#18a8f8', bottom: '#082858' } as const
+
+/**
+ * Whether a look can wear the model: every look the NEW LOOK stall sells can (part 7), recoloured by `recolour`; its
+ * shape is the model's own (another hair style, a bow, a skirt are not modelled yet). Kept as the one place to say so.
+ */
 export function modelFits(look: HeroLook): boolean {
-  return look.hair === DRAWN_LOOK.hair && look.head === DRAWN_LOOK.head && look.bottom === DRAWN_LOOK.bottom
+  return !!look
 }
 
 /** The solved pose for this frame (re-exported for the view). */

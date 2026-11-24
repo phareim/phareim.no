@@ -76,7 +76,7 @@ export const ALBEDO: Record<string, number> = {
 export const PAINTED_TUNE: Record<string, [number, number]> = {
   grass: [1, 1], moss: [1, 0.85], lane: [1, 0.9],
   // The town's square stays rose-violet; the sand was a loud orange with dark troughs.
-  cobbles: [1, 1.05], sand: [0.8, 0.85],
+  cobbles: [1, 1.05], sand: [0.72, 0.6],
   flags: [1, 1], boards: [1, 1], shingles: [1, 1], siding: [1, 1], rockface: [1, 1], bricks: [1, 1], blocks: [1, 1], slab: [1, 1], steel: [1, 1],
   // Indoors and in the labs: the red panelling and the iridescent plates are calmed.
   panel: [1, 0.7], plates: [1, 0.7],
@@ -1273,6 +1273,13 @@ export default function polyView(kit: Kit): View {
         const cw = L.canvas.width
         if (!L.repeatX) g.drawImage(L.canvas, Math.round((vw - cw) / 2) - at, y)
         else for (let x = -(((at % cw) + cw) % cw); x < vw; x += cw) g.drawImage(L.canvas, x, y)
+        // (The sky itself, the first layer, reaches the top edge at any pose and any screen: where the camera looks
+        // further up than the painting goes, its own top row is drawn up to the edge, not a flat colour of another tone.)
+        if (L === backdrop!.layers[0] && y > 0) {
+          const ty = Math.ceil(y) + 1
+          if (!L.repeatX) g.drawImage(L.canvas, 0, 0, cw, 1, Math.round((vw - cw) / 2) - at, 0, cw, ty)
+          else for (let x = -(((at % cw) + cw) % cw); x < vw; x += cw) g.drawImage(L.canvas, 0, 0, cw, 1, x, 0, cw, ty)
+        }
         if (L.role === 'sun' && sinkPx > 0) g.restore()
         g.globalAlpha = 1
       }
