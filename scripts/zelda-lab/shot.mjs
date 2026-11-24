@@ -47,6 +47,7 @@ import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
 import polyView, { pinQuality as pinPoly, preloadArt, setAssetBase } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/view.ts'))}
+import { freezeLamps } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/lamps.ts'))}
 import { THIRD_PERSON } from ${JSON.stringify(join(repo, 'themes/zelda/views.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
@@ -61,6 +62,8 @@ pinQuality(q.get('quality') === null ? 2 : +q.get('quality'))
 const world = scene.startsWith('p-') ? LAB : WORLD
 // The polygon views' fetched art, from the repo's own files (Chrome runs with --allow-file-access-from-files).
 setAssetBase(${JSON.stringify('file://' + join(repo, 'public/zelda/poly/'))})
+// (late=1: the art is not there at first, as on a slow line; the page's __setAssetBase brings it back for the retry.)
+if (q.get('late') === '1') setAssetBase('file:///nonexistent/')
 const s = createGame(world, { seed: 7, at: ['start', 'intro', 'swing', 'pause', 'hutout'].includes(scene) ? { map: 'overworld', entry: 'hut' } : null })
 if (scene !== 'hutout') { s.dialog = null; s.mode = 'play'; s.hero.auto = null }
 const r = createRenderer(canvas, world)
@@ -74,9 +77,13 @@ if (q.get('look')) {
 if (q.get('view') === 'iso') { r.addView('iso', isoView); r.setView('iso', q.get('frames') === null) }
 // (A measuring page lets the polygon view's governor go free again.)
 window.__pinPoly = pinPoly
-if (q.get('view') === 'poly') { pinPoly(true); r.addView('poly', polyView); r.setView('poly', q.get('frames') === null) }
+window.__setAssetBase = setAssetBase
+window.__freezeLamps = freezeLamps
+if (q.get('view') === 'poly') { pinPoly(q.get('pin') === '0' ? null : true); r.addView('poly', polyView); r.setView('poly', q.get('frames') === null) }
 // VIEW=third: the polygon engine's second look, the 64-bit one (the built-in view's own values).
 if (q.get('view') === 'third') { pinPoly(true); r.addView('poly', polyView); r.setParams('poly', THIRD_PERSON); r.setView('poly', q.get('frames') === null) }
+// views=all (transit.mjs): every engine added, the classic one shown; the lab turns between them as the shell does.
+if (q.get('views') === 'all') { pinPoly(true); r.addView('iso', isoView); r.addView('poly', polyView) }
 // PARAMS='{"bloom":0.5}' sets an engine's values (viewParams.ts); for VIEW=third over the look's own.
 if (q.get('params')) r.setParams(q.get('view') === 'third' ? 'poly' : q.get('view') || 'classic', { ...(q.get('view') === 'third' ? THIRD_PERSON : {}), ...JSON.parse(q.get('params')) })
 r.resize(W, H, dpr, { top, right: 0, bottom: top ? 34 : 0, left: 0 })
@@ -176,7 +183,8 @@ function wild(luna = false) {
 function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.dir = dir; s.hero.auto = null; s.mode = 'play'; s.dialog = null }
 // Several frames so fades (exit labels) settle and the clock moves. (The polygon views' fetched art first.)
 ;(async () => {
-  if (q.get('view') === 'poly' || q.get('view') === 'third') await preloadArt()
+  // (cold=1: nothing fetched before the first frame, as on a first visit; the art arrives when the views ask for it.)
+  if ((q.get('view') === 'poly' || q.get('view') === 'third' || q.get('views') === 'all') && q.get('cold') !== '1') await preloadArt()
   for (let k = 0; k < +(q.get('frames') || 40); k++) r.draw(s, ui, 1 / 60)
   // For a lab page that wants to go on drawing (timing a view, filming a turn).
   window.__lab = { r, s, ui, world, step: (n = 1, i = inp({})) => run(n, i), inp, third: THIRD_PERSON }

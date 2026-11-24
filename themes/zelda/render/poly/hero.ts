@@ -276,13 +276,20 @@ export function skinHero(v: Verts, m: HeroMesh, P: SolvedPose, at: Placement): [
   }
   // The right hand: the lowest point of the right arm's vertices, roughly; from the rest pose's hand through its bone.
   const H = m.hi - m.lo
-  const hand: [number, number, number] = [0.31, m.lo + 0.3 * H, -0.02]
-  const b = bones[ARM_R]!
-  const hx = b[0]! * hand[0] + b[1]! * hand[1] + b[2]! * hand[2] + b[3]!
-  const hy = b[4]! * hand[0] + b[5]! * hand[1] + b[6]! * hand[2] + b[7]!
-  const hz = b[8]! * hand[0] + b[9]! * hand[1] + b[10]! * hand[2] + b[11]!
-  return [at.x + s * (hx * rx - hz * fx), at.y + s * (hx * ry - hz * fy), s * (hy - m.lo)]
+  const handOf = (bone: number, x: number): [number, number, number] => {
+    const hand: [number, number, number] = [x, m.lo + 0.3 * H, -0.02]
+    const b = bones[bone]!
+    const hx = b[0]! * hand[0] + b[1]! * hand[1] + b[2]! * hand[2] + b[3]!
+    const hy = b[4]! * hand[0] + b[5]! * hand[1] + b[6]! * hand[2] + b[7]!
+    const hz = b[8]! * hand[0] + b[9]! * hand[1] + b[10]! * hand[2] + b[11]!
+    return [at.x + s * (hx * rx - hz * fx), at.y + s * (hx * ry - hz * fy), s * (hy - m.lo)]
+  }
+  lastLeft = handOf(ARM_L, -0.31)
+  return handOf(ARM_R, 0.31)
 }
+/** The left hand of the last hero skinned (world, tiles): with the right one, where what is carried sits. */
+let lastLeft: [number, number, number] = [0, 0, 0]
+export function leftHand(): [number, number, number] { return lastLeft }
 
 /** A blade from the hand, along a world angle: a thin long box, its edge glowing. */
 export function bladeMesh(v: Verts, hand: [number, number, number], a: number, g: number, length: number, arc: boolean) {
@@ -359,6 +366,7 @@ export interface LoadedHero { mesh: HeroMesh; tex: ImageData }
 const loads = new Map<string, Promise<LoadedHero | null>>()
 /** What has arrived (or failed: null), readable at once. */
 const loaded = new Map<string, LoadedHero | null>()
+const retried = new Set<string>()
 export function loadedHero(which: '32' | '64'): LoadedHero | null | undefined { return loaded.get(which) }
 export function loadHero(base: string, which: '32' | '64'): Promise<LoadedHero | null> {
   let p = loads.get(which)
@@ -390,7 +398,12 @@ export function loadHero(base: string, which: '32' | '64'): Promise<LoadedHero |
     im.onerror = () => no(new Error('no texture'))
     im.src = `${base}hero-${which}.webp`
   })
-  p = Promise.all([bin, img]).then(([b, tex]) => ({ mesh: parseHero(b), tex }), () => null).then(h => { loaded.set(which, h); return h })
+  p = Promise.all([bin, img]).then(([b, tex]) => ({ mesh: parseHero(b), tex }), () => null).then(h => {
+    loaded.set(which, h)
+    // (A failed fetch is tried once more after a few seconds; the sprite stands in meanwhile, and for good after that.)
+    if (!h && !retried.has(which)) { retried.add(which); setTimeout(() => { loads.delete(which); loaded.delete(which) }, 5000) }
+    return h
+  })
   loads.set(which, p)
   return p
 }

@@ -139,7 +139,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
   },
   poly: {
     title: 'Polygon',
-    blurb: 'The world as low polygons in perspective, seen from a crane behind and above the hero, with a horizon: drawn the way a 1996 console drew, with small unfiltered textures that swim, corners that snap to the pixels, light worked out at the corners, 15-bit colour with a dither, and a world that dissolves a short way off. The land rolls in faceted knolls, ponds are round and the shore wanders.',
+    blurb: 'The world as low polygons in perspective, seen from a crane behind and above the hero, with a horizon: drawn much as a 1996 console drew, with corners that snap to the pixels, figures read texel by texel, light worked out at the corners, 15-bit colour with a dither, and a world that dissolves a short way off. The land rolls in faceted knolls, ponds are round and the shore wanders.',
     params: {
       ...group('The glass', {
         ...FINISH(0, 0.5, 0.45),
@@ -155,6 +155,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
         fray: num('Frayed borders', 1, 0, 1, 0.05, 'How far the border between two grounds frays, a texel at a time.'),
         figure: choice('The hero', 'model', ['model', 'classic'], 'Model: the hero as a model of many polygons (6 000 in the 32-bit look, 20 000 in the 64-bit one), moving by the 16-bit figure’s poses; fetched when first needed, the sprite standing in until then, and for a look of another shape. Classic: the four-way sprite as a card.'),
         filter: num('Texture filter', 0, 0, 1, 0.05, 'Textures read texel by texel (0, the 32-bit machine) or filtered at half their size until they smear (1, the 64-bit machine), people and things too.'),
+        groundFilter: num('Steady ground', 1, 0, 1, 0.05, 'The ground’s and the walls’ textures filtered between their texels (1), so they glide as the camera moves, or read texel by texel as the 32-bit machine did (0), where they swim and shimmer. People and things go by the texture filter.'),
         smoothShade: num('Smooth shading', 0, 0, 1, 0.05, 'One normal to a facet (0: the facets show) or normals shared at the corners (1: knolls roll and trees are round).'),
         stretch: num('Soft picture', 0, 0, 1, 0.05, 'The picture stretched up to the screen in hard pixels (0) or softly, with a little sideways smear, as a 64-bit machine’s video filter did (1).'),
         sound: choice('Sound', '16-bit', ['16-bit', '8-bit'], 'The music through the 16-bit machine’s sampled instruments and echo (a 32-bit sound of its own is not built yet), or the classic chip.'),
@@ -187,6 +188,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
         sunStrength: num('Sunlight strength', 0.8, 0, 1.5, 0.05, 'How much of the light outdoors is the sun’s own.'),
         halos: num('Lamp halos', 0, 0, 2, 0.05, 'Soft halos added round every lamp in the picture itself, as the 64-bit machine drew them.'),
         flare: num('Lens flare', 0, 0, 1, 0.05, 'Rings of light across the picture from the sun when it is in sight.'),
+        lampAir: num('Light in the air', 0.35, 0, 1, 0.05, 'A share of every lamp’s light added over what it reaches, as the classic picture’s glow lies on its ground: a lamp brightens a dark wall too.'),
         lampGain: num('Lamp light', 1.25, 0, 3, 0.05, 'How strongly the lamps light the ground and what faces them.'),
         sideLight: num('Side light', 0.8, 0, 1, 0.05, 'How much a lamp lights only what faces it.'),
       }),

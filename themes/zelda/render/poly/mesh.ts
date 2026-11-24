@@ -51,6 +51,8 @@ export const TEX = {
   BASE: 6,
   /** The hero model's own texture (uv: 0 … 1). */
   HERO: 7,
+  /** A lamp's halo: a soft disc added into the picture (uv: −1 … 1 across it; colour: the lamp's). */
+  HALO: 8,
   /** A material of the atlas, MAT + its place (uv: texels, repeating). */
   MAT: 10,
 } as const
@@ -550,6 +552,9 @@ export class Mesher {
     const x = tx + 0.5 + (h1 - 0.5) * 0.4
     const y = fy + 0.55 + (h2 - 0.5) * 0.3
     const g = f.land.height(x, y)
+    // (Each tree comes up a little after or before its neighbours, by its own hash in the role's fraction, so a wood does
+    // not break through the classic crowns all in one frame: the engine reads the fraction as a delay.)
+    const grow = ROLE.GROW + 0.45 * f.hash(tx, ty, 24)
     const lone = shp.k === 'card'
     const sand = [f.tile(tx - 1, ty), f.tile(tx + 1, ty), f.tile(tx, ty + 1), f.tile(tx, ty - 1)].includes('-')
     const wild = f.look === 'wild'
@@ -560,7 +565,7 @@ export class Mesher {
     if (lone) this.stands.push(x, y, 0.5)
     if (sand) {
       // A palm: a leaning trunk in segments and a star of fronds.
-      this.prism(x, y, g, 0, 1.5, 0.07, 0.05, 5, trunk, ROLE.GROW, flags, 0.18)
+      this.prism(x, y, g, 0, 1.5, 0.07, 0.05, 5, trunk, grow, flags, 0.18)
       const cx = x + 0.18
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2 + h3
@@ -570,23 +575,23 @@ export class Mesher {
         const midy = y + Math.sin(a) * 0.32
         const px = -Math.sin(a) * 0.14
         const py = Math.cos(a) * 0.1
-        this.set(TEX.COLOR, hex(i % 2 ? pal[2]! : pal[1]!), ROLE.GROW, flags)
+        this.set(TEX.COLOR, hex(i % 2 ? pal[2]! : pal[1]!), grow, flags)
         this.tri({ x: cx, y, z: 1.55, g, u: 0, v: 0 }, { x: midx + px, y: midy + py, z: 1.5, g, u: 0, v: 0 }, { x: tipx, y: tipy, z: 1.05, g, u: 0, v: 0 })
         this.tri({ x: cx, y, z: 1.55, g, u: 0, v: 0 }, { x: tipx, y: tipy, z: 1.05, g, u: 0, v: 0 }, { x: midx - px, y: midy - py, z: 1.5, g, u: 0, v: 0 })
       }
       return
     }
     const scale = (lone ? 0.95 : 1.1) * (0.85 + h3 * 0.3)
-    this.prism(x, y, g, 0, 0.5 * scale, 0.09 * scale, 0.08 * scale, 5, trunk, ROLE.GROW, flags)
+    this.prism(x, y, g, 0, 0.5 * scale, 0.09 * scale, 0.08 * scale, 5, trunk, grow, flags)
     if (h3 > 0.72 && !wild) {
       // A blob on a trunk: a broad crown, cut in facets.
-      this.blob(x, y, g, 1.05 * scale, 0.62 * scale, 0.55 * scale, pal, ROLE.GROW, flags, h1)
+      this.blob(x, y, g, 1.05 * scale, 0.62 * scale, 0.55 * scale, pal, grow, flags, h1)
       return
     }
     // Two stacked cones of five sides: few, large facets, so a tree line reads as cones with a lit side and a
     // shaded one even at the size of a phone.
-    this.cone(x, y, g, 0.34 * scale, 1.45 * scale, 0.74 * scale, 5, pal, 0, ROLE.GROW, flags, h1 * 6)
-    this.cone(x, y, g, 0.98 * scale, 2.05 * scale, 0.5 * scale, 5, pal, 1, ROLE.GROW, flags, h1 * 6 + 0.6)
+    this.cone(x, y, g, 0.34 * scale, 1.45 * scale, 0.74 * scale, 5, pal, 0, grow, flags, h1 * 6)
+    this.cone(x, y, g, 0.98 * scale, 2.05 * scale, 0.5 * scale, 5, pal, 1, grow, flags, h1 * 6 + 0.6)
   }
 
   /** An upright prism of `n` sides: a trunk, a post. `lean` tips its top east. */
@@ -641,6 +646,17 @@ export class Mesher {
     BUILD[kind](solids)
   }
 
+  /**
+   * A thing built into `v` at a point and a height over the ground there (`g` the ground, `lift` tiles over it, `size`
+   * its scale): what the hero model carries.
+   */
+  propAt(v: Verts, kind: PropKind, x: number, y: number, g: number, lift: number, size = 1) {
+    const was = this.v
+    this.v = v
+    BUILD[kind](new MeshSolids(this, x, y, g, lift, size))
+    this.v = was
+  }
+
   /** For `MeshSolids`: paint the next triangles in a material of the things. */
   paint(m: MatName, role: number) {
     const mat = MATS[m]
@@ -651,9 +667,10 @@ export class Mesher {
 
 /** The 16-bit view's boxes, posts and balls as small meshes, each face cut in cells so a material can change across it. */
 class MeshSolids implements Solids {
-  constructor(private m: Mesher, private x: number, private y: number, private g: number) {}
+  constructor(private m: Mesher, private x: number, private y: number, private g: number, private lift = 0, private size = 1) {}
   private p(px: number, py: number, pz: number): P {
-    return { x: this.x + px / 32, y: this.y + py / 32, z: pz / 32, g: this.g, u: 0, v: 0 }
+    const k = this.size / 32
+    return { x: this.x + px * k, y: this.y + py * k, z: this.lift + pz * k, g: this.g, u: 0, v: 0 }
   }
   private pick(pick: Pick, x: number, y: number, z: number, nx: number, ny: number, nz: number): MatName {
     return typeof pick === 'string' ? pick : pick(x, y, z, nx, ny, nz)

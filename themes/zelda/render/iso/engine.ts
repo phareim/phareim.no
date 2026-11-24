@@ -31,6 +31,8 @@ export interface Look {
   occlude: number
   /** How much of a lamp's light hangs in the air over the ground it lights. */
   glow: number
+  /** The day's exposure taken as the classic picture takes it, onto the lit picture past the light's cap (the turn's flat end). */
+  expose?: number
   /** Unit vector toward the sun: x, y on the ground, z up. */
   sun: [number, number, number]
   shadowLen: number
@@ -449,6 +451,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     g.uniform1f(litP.u('uRim'), look.rim)
     g.uniform1f(litP.u('uAo'), look.ao)
     g.uniform1f(litP.u('uGlow'), look.glow)
+    g.uniform1f(litP.u('uExpose'), look.expose ?? 0)
     g.uniform1f(litP.u('uOutdoors'), f.outdoors ? 1 : 0)
     g.uniform1f(litP.u('uK'), cam.k)
     g.uniform1f(litP.u('uTime'), f.time)

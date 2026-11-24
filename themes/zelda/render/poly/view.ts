@@ -21,7 +21,7 @@ import type { GameState, MapKind, TileChar } from '../../types'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
 import { aimOf, has, mapInfo, raised, swingAngle } from '../../engine/index'
 import type { FigureAct, FigureBlade, FigurePose } from '../iso/figure'
-import { bladeMesh, loadHero, loadedHero, modelFits, poseOf, recolour, skinHero, type LoadedHero } from './hero'
+import { bladeMesh, leftHand, loadHero, loadedHero, modelFits, poseOf, recolour, skinHero, type LoadedHero } from './hero'
 import type { HeroLook } from '../heroLook'
 import { dirAngle } from '../../engine/util'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
@@ -40,7 +40,8 @@ import { skyGrade } from '../daylight'
 import { CRANE, SHOULDER, classicMatrix, densityOf, fitPose, horizonY, mixPose, toGround, poseAxes, poseMatrix, rigMatrix, toScreen, type Mat4, type Pose } from './camera'
 import { landWork, stand, type Land, type LandLook } from './terrain'
 import { FLAG, MAT_SLOTS, Mesher, ROLE, STRIDE, TEX, Verts, massOf, type Field, type MatSlot } from './mesh'
-import { createEngine, rgb, type Engine, type Lamp, type PolyLook } from './engine'
+import { createEngine, rgb, type Engine, type PolyLook } from './engine'
+import { createLampKeeper } from './lamps'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -60,17 +61,83 @@ let assetBase = '/zelda/poly/'
 export function setAssetBase(url: string): void { assetBase = url.endsWith('/') ? url : url + '/' }
 
 /**
- * The painted page under the game's dusk: a gain and a saturation for each material that was too loud or too dim
- * for it (1, 1: as painted). In `MATERIALS` order.
+ * The light every view shares starts from the same surface: the classic art's. These are the mean light (0–1) of each
+ * material as the 16-bit view paints it (`iso/materials.ts`, which matches the classic ground), and the painted page,
+ * painted with baked, moody light 1.5 to 3 times darker, is brought to them material by material (`MATERIALS` order).
+ */
+export const ALBEDO: Record<string, number> = {
+  grass: 0.248, cobbles: 0.347, sand: 0.607, flags: 0.172, boards: 0.215, moss: 0.183, lane: 0.289, shingles: 0.284,
+  siding: 0.21, rockface: 0.256, bricks: 0.199, blocks: 0.119, panel: 0.197, slab: 0.133, plates: 0.132, steel: 0.295,
+}
+/**
+ * And then a little more or less than the classic albedo where the painting needs it, and a saturation: [gain on the
+ * albedo, saturation] (1, 1: the classic albedo, the painting's own colour).
  */
 export const PAINTED_TUNE: Record<string, [number, number]> = {
-  // The lawns and the Wildwood's moss go murky under the dusk: lifted, and the moss's orange leaves calmed.
-  grass: [1.3, 1], moss: [1.4, 0.85], lane: [1.15, 0.9],
+  grass: [1, 1], moss: [1, 0.85], lane: [1, 0.9],
   // The town's square stays rose-violet; the sand was a loud orange with dark troughs.
-  cobbles: [1.05, 1.05], sand: [0.92, 0.72],
+  cobbles: [1, 1.05], sand: [0.9, 0.72],
   flags: [1, 1], boards: [1, 1], shingles: [1, 1], siding: [1, 1], rockface: [1, 1], bricks: [1, 1], blocks: [1, 1], slab: [1, 1], steel: [1, 1],
   // Indoors and in the labs: the red panelling and the iridescent plates are calmed.
-  panel: [0.9, 0.7], plates: [1.05, 0.7],
+  panel: [1, 0.7], plates: [1, 0.7],
+}
+
+/**
+ * One material of the page brought to a mean light: each texel's light raised to the power that makes the mean come
+ * out at `target` (darks lift, highlights do not clip), its hue kept, its saturation scaled.
+ */
+export function toAlbedo(d: Uint8ClampedArray, w: number, side: number, k: number, target: number, sat: number): void {
+  const lum: number[] = []
+  for (let y = 0; y < side; y++) for (let x = k * side; x < (k + 1) * side; x++) {
+    const o = (y * w + x) * 4
+    lum.push(Math.max(1e-3, (d[o]! * 0.3 + d[o + 1]! * 0.59 + d[o + 2]! * 0.11) / 255))
+  }
+  const meanAt = (g: number) => lum.reduce((a, l) => a + l ** g, 0) / lum.length
+  let lo = 0.1, hi = 3
+  for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (meanAt(mid) > target) lo = mid; else hi = mid }
+  const g = (lo + hi) / 2
+  let i = 0
+  for (let y = 0; y < side; y++) for (let x = k * side; x < (k + 1) * side; x++, i++) {
+    const o = (y * w + x) * 4
+    const l = lum[i]!
+    const f = l ** g / l
+    const L = l ** g * 255
+    for (let j = 0; j < 3; j++) d[o + j] = Math.max(0, Math.min(255, L + (d[o + j]! * f - L) * sat))
+  }
+}
+
+/** How far the moon has taken over from the sun, by the sun's height: none above −0.2, wholly below −0.4. */
+export function nightShare(height: number): number {
+  const t = Math.max(0, Math.min(1, (-0.2 - height) / 0.2))
+  return t * t * (3 - 2 * t)
+}
+
+/** How long the hour's light takes to follow a step (s), and the step past which it jumps (a map's, a door's, a set's). */
+export const HOLD_TAU = 0.4
+export const HOLD_JUMP = 0.06
+/**
+ * A light value held smooth from frame to frame: the hour's light comes in steps of a tenth of a second, and each step,
+ * drawn as it comes, moves the dither's thresholds over everything it lights at once. Eased toward the new value with
+ * a time constant of `HOLD_TAU`; a change of more than `HOLD_JUMP` in any part (or no last value) is taken at once.
+ */
+export function holdLight(last: readonly number[] | null, v: readonly number[], dt: number): [number, number, number] {
+  const far = last ? Math.max(Math.abs(last[0]! - v[0]!), Math.abs(last[1]! - v[1]!), Math.abs(last[2]! - v[2]!)) : Infinity
+  if (!last || far > HOLD_JUMP) return [v[0]!, v[1]!, v[2]!]
+  const k = 1 - Math.exp(-Math.min(0.1, Math.max(0, dt)) / HOLD_TAU)
+  return [last[0]! + (v[0]! - last[0]!) * k, last[1]! + (v[1]! - last[1]!) * k, last[2]! + (v[2]! - last[2]!) * k]
+}
+
+/**
+ * One frame of the change between the two looks, at the eased share e (0: the old look, 1: the new): numbers are
+ * mixed; a switch (the colours, the windows, the pose) changes in the middle, under the camera's move.
+ */
+export function easeLook(from: Record<string, unknown>, to: Record<string, unknown>, e: number): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [name, v] of Object.entries(to)) {
+    const a = from[name]
+    out[name] = typeof v === 'number' && typeof a === 'number' ? a + (v - a) * e : e < 0.5 && a !== undefined ? a : v
+  }
+  return out
 }
 
 /** Waits for the fetched art (for the lab, which draws its frames in one go and cannot wait between them). */
@@ -80,9 +147,20 @@ export async function preloadArt(): Promise<void> {
   for (let i = 0; i < 400 && paintedState === 'loading'; i++) await new Promise(r => setTimeout(r, 10))
 }
 
+/**
+ * Each painted material's repeat, as texels to the tile over the page's 32 (`MATERIALS` order). The paintings differ
+ * in scale: a cobble should be about a quarter of a tile beside the hero, a plank, a brick and a shingle likewise.
+ */
+export const PAINTED_SCALE: Record<string, number> = {
+  grass: 1.25, cobbles: 1.6, sand: 1.2, flags: 1, boards: 2, moss: 1.3, lane: 1.3, shingles: 1.4,
+  siding: 1.3, rockface: 1.1, bricks: 1.6, blocks: 1.2, panel: 1.2, slab: 1, plates: 1, steel: 1.2,
+}
+const MAT_SCALE = Float32Array.from(MATERIALS.map(m => PAINTED_SCALE[m] ?? 1))
+
 /** The painted page, decoded and tuned: fetched once, when a polygon look first wants it. */
 let paintedPage: { data: Uint8Array; w: number; h: number } | null = null
 let paintedState: 'none' | 'loading' | 'failed' = 'none'
+let paintedRetried = false
 function loadPainted(): void {
   if (paintedPage || paintedState !== 'none') return
   paintedState = 'loading'
@@ -95,19 +173,19 @@ function loadPainted(): void {
       const d = g.getImageData(0, 0, im.width, im.height).data
       const side = im.height
       for (let k = 0; k < MATERIALS.length; k++) {
-        const [gain, sat] = PAINTED_TUNE[MATERIALS[k]!] ?? [1, 1]
-        if (gain === 1 && sat === 1) continue
-        for (let y = 0; y < side; y++) for (let x = k * side; x < (k + 1) * side; x++) {
-          const o = (y * im.width + x) * 4
-          const l = d[o]! * 0.3 + d[o + 1]! * 0.59 + d[o + 2]! * 0.11
-          for (let j = 0; j < 3; j++) d[o + j] = Math.max(0, Math.min(255, (l + (d[o + j]! - l) * sat) * gain))
-        }
+        const m = MATERIALS[k]!
+        const [gain, sat] = PAINTED_TUNE[m] ?? [1, 1]
+        toAlbedo(d, im.width, side, k, (ALBEDO[m] ?? 0.2) * gain, sat)
       }
       paintedPage = { data: new Uint8Array(d.buffer), w: im.width, h: im.height }
       paintedState = 'none'
     } catch { paintedState = 'failed' }
   }
-  im.onerror = () => { paintedState = 'failed' }
+  im.onerror = () => {
+    paintedState = 'failed'
+    // (Tried once more after a few seconds; the 16-bit materials draw meanwhile, and for good after that.)
+    if (!paintedRetried) { paintedRetried = true; setTimeout(() => { paintedState = 'none' }, 5000) }
+  }
   im.src = assetBase + 'materials.webp'
 }
 /**
@@ -144,6 +222,9 @@ const cssRgb = (c: string): [number, number, number] => c.startsWith('#') ? rgb(
 
 /** The windows a look wears. */
 const skinOf = (w: unknown) => (w === '64-bit' ? ROUND_FINE_SKIN : w === '32-bit' ? GLASS_FINE_SKIN : NEON_SKIN)
+
+/** How much of the lamps' light the classic picture lays on its ground, in the polygon view's terms (measured: `part5/k0`). */
+const AIR_CLASSIC = 0.6
 
 /** How far through a window of the turn (k from a to b), eased. */
 const mix3 = (a: readonly number[], b: readonly number[], t: number): [number, number, number] => [a[0]! + (b[0]! - a[0]!) * t, a[1]! + (b[1]! - a[1]!) * t, a[2]! + (b[2]! - a[2]!) * t]
@@ -210,6 +291,7 @@ export default function polyView(kit: Kit): View {
   let atlasUsed = ATLAS
   const dyn = new Verts(4096)
   const blobs = new Verts(512)
+  const haloV = new Verts(256)
   const scratch = new Verts(1 << 15)
   let backdrop: Backdrop | null = null
   /** The sky's lowest colour, where the distance dissolves into it. */
@@ -224,6 +306,8 @@ export default function polyView(kit: Kit): View {
   let glowG = glowC.getContext('2d')!
   let backdropKey = ''
   const signCache = new Map<string, Set<number>>()
+  /** The lamps, held steady from frame to frame (`lamps.ts`): the dither would make their flicker a crawl. */
+  const steadyLamps = createLampKeeper()
 
   function paint(all: boolean, hurry: boolean): boolean {
     if (matsSent) return true
@@ -381,7 +465,8 @@ export default function polyView(kit: Kit): View {
     const outdoors = kind === 'overworld'
     const M = outdoors && par.beyond ? BEYOND : 0
     const look = { hills: par.hills as number, shore: par.shore as number, far: par.far as number }
-    const key = `${m.version}|${m.id}:${M}:${look.hills}:${look.shore}:${look.far}:${par.roofPitch}:${par.props}:${par.sunAngle}:${par.shadowLength}`
+    // (Not the sun: its shadows are the GPU's, marched through the heightfield every frame, so the hour builds nothing.)
+    const key = `${m.version}|${m.id}:${M}:${look.hills}:${look.shore}:${look.far}:${par.roofPitch}:${par.props}`
     if (ctx && ctx.key === key) return ctx
     // (The same map in the same look, changed: its stretches are kept and drawn until each is built again.)
     const keep = ctx && ctx.id === m.id && ctx.key.split('|')[1] === key.split('|')[1] ? ctx.chunks : null
@@ -470,19 +555,32 @@ export default function polyView(kit: Kit): View {
     let me = c.meshers.get(key)
     if (me) return me
     const outdoors = c.kind === 'overworld'
-    const a = ((par.sunAngle as number) * Math.PI) / 180
     const field = { x: -c.M, y: -c.M, w: c.fw, h: c.fh }
     const pitch = outdoors ? (par.roofPitch as number) : 0
     const coarse = quality < 2
     me = new Mesher(c.field, { pitch, room, sun: null, props: !!par.props, coarse })
-    if (outdoors) {
-      const mass = massOf(c.field, me, field, pitch)
+    if (outdoors && !room) {
       // (For the camera: walls and houses, which it must not stand in; trees it may, and they are cut through.)
-      if (!room) c.mass = massOf(c.field, me, field, pitch, false)
-      me = new Mesher(c.field, { pitch, room, props: !!par.props, coarse, sun: { dx: Math.cos(a), dy: Math.sin(a), rise: 1 / Math.max(0.2, par.shadowLength as number), mass } })
+      c.mass = massOf(c.field, me, field, pitch, false)
+      sendHeights(c, massOf(c.field, me, field, pitch))
     }
     c.meshers.set(key, me)
     return me
+  }
+
+  /** The heightfield the sun's shadows are marched through on the GPU: two cells a tile, the land and what stands. */
+  let heightAt: [number, number, number, number] = [0, 0, 1, 0]
+  function sendHeights(c: MapCtx, mass: (x: number, y: number) => number) {
+    const res = 2
+    const w = c.fw * res, h = c.fh * res
+    const data = new Uint8Array(w * h * 2)
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const x = -c.M + (i + 0.5) / res, y = -c.M + (j + 0.5) / res
+      data[(j * w + i) * 2] = Math.max(0, Math.min(255, Math.round(c.land.height(x, y) * 32)))
+      data[(j * w + i) * 2 + 1] = Math.max(0, Math.min(255, Math.round(mass(x, y) * 32)))
+    }
+    engine.heights(data, w, h)
+    heightAt = [-c.M, -c.M, res, 1 / 32]
   }
 
   /** Time left this frame for building stretches of geometry (ms), and when the frame began. */
@@ -519,10 +617,24 @@ export default function polyView(kit: Kit): View {
       // The stretches are built again with coarse cells, a few a frame.
       shownQuality = quality
       if (ctx) { ctx.meshers.clear(); for (const ch of ctx.chunks.values()) ch.dirty = true }
+      // (Dissolved, not cut: the coarser picture comes in under the finer one over half a second.)
+      kit.crossFade(0.6)
     }
   }
   /** Where the backdrop's sun is on the picture this frame, and how much of it shows (none: no sky). */
   let sunAt: { x: number; y: number; a: number } | null = null
+  /** Light values held smooth from frame to frame (`held`): the last value of each, and the map it was for. */
+  const heldLight = new Map<string, { v: [number, number, number]; map: string }>()
+  /**
+   * A light value followed smoothly (0.4 s), so the hour's steps reach the picture spread over frames. A new map,
+   * a turn or a big change (a door, the view's own turn) takes the value at once.
+   */
+  function held(key: string, v: [number, number, number], dt: number, map: string): [number, number, number] {
+    const h = heldLight.get(key)
+    const next = holdLight(h && h.map === map ? h.v : null, v, dt)
+    heldLight.set(key, { v: next, map })
+    return [...next] as [number, number, number]
+  }
   /** How far the camera is turned, for the stick (`View.turn`: the negative of the pose's yaw). */
   let turnNow = 0
   /** The stick's turn as last taken, held while the hero walks. */
@@ -757,7 +869,7 @@ export default function polyView(kit: Kit): View {
     const posed = poseMatrix(cam, vw, vh, focus, 0.25, 120)
     const classic = classicMatrix(vw, vh, cx, cy)
     const M4: Mat4 = rigMatrix(k, classic, posed)
-    const { f: fwd, r: right } = poseAxes(cam)
+    const { f: fwd } = poseAxes(cam)
     const eye: [number, number, number] = [focus.x - fwd[0] * cam.dist, focus.y - fwd[1] * cam.dist, focus.z - fwd[2] * cam.dist]
     govern(ui.paused)
     const far1 = (par.drawDistance as number) * (quality < 2 ? 0.7 : 1)
@@ -766,8 +878,9 @@ export default function polyView(kit: Kit): View {
     // The far land bends up toward the horizon (outdoors, at the end of the turn): what is placed on the picture bends with it.
     const bendFrom = far1 * 0.45
     const bendK = outdoors && !roomed ? ek * (1 - (par.fog as number)) * 0.85 * Math.max(1, eye[2] - focus.z) / Math.max(1, (far1 - bendFrom) ** 2) : 0
-    const bendAt = (x: number, y: number) => { const d = Math.max(0, Math.hypot(x - eye[0], y - eye[1]) - bendFrom); return bendK * d * d }
-    const place = (x: number, y: number, z = 0) => toScreen(M4, vw, vh, x, y, z + groundAt(x, y) + bendAt(x, y))
+    // (As the engine bends it: never up past the eye.)
+    const bendAt = (x: number, y: number, base = 0) => { const d = Math.max(0, Math.hypot(x - eye[0], y - eye[1]) - bendFrom); return Math.min(bendK * d * d, Math.max(0, eye[2] - 0.35 - base)) }
+    const place = (x: number, y: number, z = 0) => { const base = z + groundAt(x, y); return toScreen(M4, vw, vh, x, y, base + bendAt(x, y, base)) }
 
     // --- the tiles in play --------------------------------------------------------------------------------
     // The classic picture's, and the pose's: the ground from the screen's foot out to the draw distance.
@@ -833,7 +946,11 @@ export default function polyView(kit: Kit): View {
     // (A device the governor has stepped down gets the lighter mesh in the 64-bit look too.)
     const which: '32' | '64' = shoulderK > 0.5 && quality === 2 ? '64' : '32'
     const wears = kit.heroLook()
-    const model = par.figure === 'model' && k > 0.5 && !ui.attract && modelFits(wears) ? heroModel(which) : null
+    const wantModel = par.figure === 'model' && k > 0.5 && !ui.attract && modelFits(wears)
+    const model = wantModel ? heroModel(which) : null
+    // (The model arriving while the card stands in for it: the card dissolves into it, not swapped in one frame.)
+    if (wantModel && !model) cardForModel = true
+    else if (model && cardForModel) { cardForModel = false; kit.crossFade(0.35) }
     if (model) heroTexture(which, model, wears)
     const modelled = !!model
     kit.setHeroBare(modelled)
@@ -870,8 +987,11 @@ export default function polyView(kit: Kit): View {
     const bigTop = Math.ceil(small.length / smallPerRow) * SMALL.h
     if (bigTop + Math.ceil(large.length / bigPerRow) * BIG.h > ATLAS) large.sort((a, b) => Math.hypot(a.x - s.hero.x, a.y - s.hero.y) - Math.hypot(b.x - s.hero.x, b.y - s.hero.y))
     let used = 1
-    const rx = right[0]
-    const ry = right[1]
+    // (The cards face the way the picture looks: through the turn that is the classic north mixed with the camera's own
+    // yaw as the matrices are mixed, or a camera turned away would leave them edge-on as the picture comes home.)
+    const yawCard = cam.yaw * (k >= 1 ? 1 : ease(Math.max(0, k)))
+    const rx = Math.cos(yawCard)
+    const ry = Math.sin(yawCard)
     const standing: Array<[number, number, number]> = []
     const figN: [number, number, number] = [0, 0.55, 0.83]
     for (let n = 0; n < small.length + large.length; n++) {
@@ -930,9 +1050,10 @@ export default function polyView(kit: Kit): View {
       // (The 64-bit look turns its paper figures to face the camera fully, tipped back with its pitch, so a camera that
       // looks down does not squash them; the 32-bit one stands them upright.)
       const tip = shoulderK > 0.5 ? Math.tan(cam.pitch) * shoulderK : 0
-      const ty = (h: number) => y - h * tip * Math.cos(cam.yaw)
-      const tx = (h: number) => h * tip * Math.sin(cam.yaw)
-      quad(dyn, [[x + l * rx + tx(top), ty(top) + l * ry, z0 + top, g, u0, v0], [x + r * rx + tx(top), ty(top) + r * ry, z0 + top, g, u1, v0], [x + r * rx + tx(foot), ty(foot) + r * ry, z0 + foot, g, u1, v1], [x + l * rx + tx(foot), ty(foot) + l * ry, z0 + foot, g, u0, v1]], TEX.ATLAS, [1, 1, 1], figN, ROLE.STAY, it.hero || shoulderK < 0.5 ? 0 : FLAG.SEE)
+      const ty = (h: number) => y - h * tip * Math.cos(yawCard)
+      const tx = (h: number) => h * tip * Math.sin(yawCard)
+      // (The model carries its pot in the round: the card would only hold the classic one over its head.)
+      if (!(it.hero && model && (s.hero.carry || s.hero.act === 'lift'))) quad(dyn, [[x + l * rx + tx(top), ty(top) + l * ry, z0 + top, g, u0, v0], [x + r * rx + tx(top), ty(top) + r * ry, z0 + top, g, u1, v0], [x + r * rx + tx(foot), ty(foot) + r * ry, z0 + foot, g, u1, v1], [x + l * rx + tx(foot), ty(foot) + l * ry, z0 + foot, g, u0, v1]], TEX.ATLAS, [1, 1, 1], figN, ROLE.STAY, it.hero || shoulderK < 0.5 ? 0 : FLAG.SEE)
       if (it.hero && model) {
         // The hero as a model, on their feet at the land's height; hit, they blink as the sprite does.
         const h = s.hero
@@ -942,29 +1063,16 @@ export default function polyView(kit: Kit): View {
           const P = poseOf(fp)
           const hand = skinHero(dyn, model.mesh, P, { x: h.x, y: h.y + 0.05, g: groundAt(h.x, h.y), yaw: P.yaw, scale: 0.95 / (model.mesh.hi - model.mesh.lo) })
           if (P.blade && fp.blade) bladeMesh(dyn, hand, P.ba, groundAt(h.x, h.y), fp.blade.reach * 0.62, fp.blade.kind === 'arc')
+          if (h.carry || h.act === 'lift') {
+            // What is carried sits on the model's hands, as a thing in the round at the model's scale.
+            const l = leftHand()
+            const mx = (hand[0] + l[0]) / 2, my = (hand[1] + l[1]) / 2, mz = (hand[2] + l[2]) / 2
+            mesherFor(c, null, par).propAt(dyn, h.carry === 'rock' ? 'rock' : 'pot', mx, my, groundAt(h.x, h.y), mz - 0.08, 0.8)
+          }
         }
       }
     }
     atlasUsed = used
-
-    // --- blob shadows: under whoever walks and whatever stands alone ------------------------------------------------
-    const shadowK = (par.shadow as number) > 0 ? ek : 0
-    if (shadowK > 0) {
-      const dark = 1 - 0.62 * (par.shadow as number) / 0.9 * shadowK
-      const blob = (x: number, y: number, rad: number) => {
-        if (!inRoom(x, y)) return
-        const g = groundAt(x, y)
-        const a = rad
-        const b = rad * 0.72
-        quad(blobs, [[x - a, y - b, 0.01, g, -1, -1], [x + a, y - b, 0.01, g, 1, -1], [x + a, y + b, 0.01, g, 1, 1], [x - a, y + b, 0.01, g, -1, 1]], TEX.BLOB, [dark, dark, dark], [0, 0, 1])
-      }
-      for (const [x, y, r] of standing) blob(x, y - 0.06, r)
-      for (const ch of chunks) for (let i = 0; i < ch.stands.length; i += 3) {
-        const x = ch.stands[i]!
-        const y = ch.stands[i + 1]!
-        if (Math.abs(x - focus.x) < 26 && y > eye[1] - far1 - 2) blob(x, y, ch.stands[i + 2]! * ease(Math.max(0, Math.min(1, (k - 0.6) / 0.4))))
-      }
-    }
 
     // --- the light -------------------------------------------------------------------------------------------
     const amb = rgb(kit.ambient(s, ui, lights))
@@ -973,22 +1081,62 @@ export default function polyView(kit: Kit): View {
     // the moon's, faint and blue; and while the sun is up the lamps are only just lit.
     const height = day ? day.sun : 0.12
     const night = height < -0.3
-    const sunCol = night ? [0.5, 0.62, 1] as const : mix3(rgb(par.sunLight as string), [1, 0.97, 0.9], Math.max(0, Math.min(1, (height - 0.12) / 0.6)))
-    const sunS = outdoors ? (par.sunStrength as number) * ek * (night ? 0.4 : 1 - 0.35 * Math.max(0, Math.min(1, (height - 0.12) / 0.6))) : 0
+    // (The moon takes over from the sun across a stretch of its sinking, not at a line: no step in the light.)
+    const moonK = nightShare(height)
+    const sunCol = mix3(mix3(rgb(par.sunLight as string), [1, 0.97, 0.9], Math.max(0, Math.min(1, (height - 0.12) / 0.6))), [0.5, 0.62, 1], moonK)
+    const sunS = outdoors ? (par.sunStrength as number) * ek * ((1 - moonK) * (1 - 0.35 * Math.max(0, Math.min(1, (height - 0.12) / 0.6))) + moonK * 0.4) : 0
     const exposure = 1 + (day?.exposure ?? 0) * ek
-    const lamps: Lamp[] = []
-    const gain = (par.lampGain as number) * (outdoors && !night ? 1 - 0.5 * Math.max(0, Math.min(1, (height - 0.1) / 0.4)) * ek : 1)
-    for (const L of lights) {
+    const gain = held('gain', [(par.lampGain as number) * (outdoors && !night ? 1 - 0.5 * Math.max(0, Math.min(1, (height - 0.1) / 0.4)) * ek : 1), 0, 0], dt, m.id)[0]
+    const lamps = steadyLamps(lights, dt, focus, gain, L => {
       // A lamp post carries its light at its head; anything else at about a hand's height.
       const tt = c.field.tile(Math.floor(L.x), Math.floor(L.y))
-      const z = (tt === 't' ? 1.35 : tt === 'M' || tt === 'H' ? 1.2 : 0.55) + groundAt(L.x, L.y)
-      const col = rgb(L.color)
-      const a = Math.max(0, Math.min(1, L.a)) * gain
-      lamps.push({ x: L.x, y: L.y, z, r: L.r * 1.15, c: [col[0] * a, col[1] * a, col[2] * a] })
+      return (tt === 't' ? 1.35 : tt === 'M' || tt === 'H' ? 1.2 : 0.55) + groundAt(L.x, L.y)
+    })
+    // (The sun's place, the shadows' length and the lamps' day dimming held smooth like the hour's light: `held`.)
+    const sunHeld = held('sunAt', [(par.sunAngle as number) * Math.PI / 180, Math.max(0.2, par.shadowLength as number), 0], dt, m.id)
+    const sunA = sunHeld[0]
+    const shadowLen = sunHeld[1]
+    const elev = Math.atan2(1, shadowLen)
+
+    // --- blob shadows: under whoever walks and whatever stands alone ------------------------------------------------
+    // Each falls away from what lights its spot most, as in the 16-bit view: the sun outdoors, and every lamp in reach by
+    // how near and how bright it is. Lit from all sides, a pool under the feet; from one, long, by the sun's length.
+    const shadowK = (par.shadow as number) > 0 ? ek : 0
+    if (shadowK > 0) {
+      const dark = 1 - 0.62 * (par.shadow as number) / 0.9 * shadowK
+      const reach = shadowLen * (outdoors ? 1 : 0.4)
+      const blob = (x: number, y: number, rad: number, tall: number) => {
+        if (!inRoom(x, y) || rad <= 0) return
+        const g = groundAt(x, y)
+        let dx = outdoors ? Math.cos(sunA) * 0.5 : 0
+        let dy = outdoors ? Math.sin(sunA) * 0.5 : 0
+        let sum = outdoors ? 0.5 : 0.15
+        for (const L of lamps) {
+          const lx = L.x - x, ly = L.y - y
+          const d = Math.hypot(lx, ly)
+          if (d >= L.r || d < 0.05) continue
+          const w = (1 - d / L.r) * (L.c[0] * 0.3 + L.c[1] * 0.59 + L.c[2] * 0.11)
+          dx += (lx / d) * w
+          dy += (ly / d) * w
+          sum += w
+        }
+        const n = Math.hypot(dx, dy)
+        const co = Math.min(1, n / sum)
+        const ux = n > 1e-4 ? -dx / n : 0, uy = n > 1e-4 ? -dy / n : 1
+        const len = tall * (0.25 + reach * 0.75 * co) * ek
+        const hl = len / 2 + rad, hw = rad * 0.72
+        const cx = x + ux * len * 0.5, cy = y + uy * len * 0.5
+        const at = (u: number, v: number): [number, number, number, number, number, number] => [cx + ux * hl * u - uy * hw * v, cy + uy * hl * u + ux * hw * v, 0.01, g, u, v]
+        quad(blobs, [at(-1, -1), at(1, -1), at(1, 1), at(-1, 1)], TEX.BLOB, [dark, dark, dark], [0, 0, 1])
+      }
+      for (const [x, y, r] of standing) blob(x, y - 0.06, r, 0.85)
+      for (const ch of chunks) for (let i = 0; i < ch.stands.length; i += 3) {
+        const x = ch.stands[i]!
+        const y = ch.stands[i + 1]!
+        if (Math.abs(x - focus.x) < 26 && y > eye[1] - far1 - 2) blob(x, y, ch.stands[i + 2]! * ease(Math.max(0, Math.min(1, (k - 0.6) / 0.4))), ch.stands[i + 2]! * 2.4)
+      }
     }
-    lamps.sort((a, b) => Math.hypot(a.x - focus.x, a.y - focus.y) - Math.hypot(b.x - focus.x, b.y - focus.y))
-    const sunA = ((par.sunAngle as number) * Math.PI) / 180
-    const elev = Math.atan2(1, Math.max(0.2, par.shadowLength as number))
+
 
     // --- the sky ------------------------------------------------------------------------------------------------
     const g = kit.scene()
@@ -1086,14 +1234,20 @@ export default function polyView(kit: Kit): View {
       side: (par.sideLight as number) * ek,
       shadow: (par.shadow as number) * ek * (outdoors ? 1 : 0),
       far: k >= 1 ? [far0, far1] : [far0 / Math.max(1e-3, ek), far1 / Math.max(1e-3, ek)],
-      haze: roomed ? rgb('#05030c') : outdoors && par.sky ? cssRgb(dayLow) : rgb(par.haze as string),
+      haze: held('haze', roomed ? rgb('#05030c') : outdoors && par.sky ? cssRgb(dayLow) : rgb(par.haze as string), dt, m.id),
       hazeAmount: roomed ? 0.7 : 1,
       water: win(k, 0.1, 0.5),
       smooth: (par.smoothShade as number) * ek,
       filter: (par.filter as number) * ek,
+      // (The ground glides, in the 32-bit look too: its texels read one by one shimmer as the camera moves.)
+      matFilter: Math.max(par.filter as number, (par.groundFilter as number) ?? 0) * ek,
       fog: (par.fog as number) * ek,
       faces: shoulderK > 0.5,
       painted: par.textures === 'painted' && paintedSent,
+      perPixel: (par.smoothShade as number) * ek,
+      // (At the classic end the lamps' light lies on the ground as the classic picture's pools do, which are wider and
+      // stronger: the hand-off then lies on the classic picture in light too. It settles to the look's own as k does.)
+      air: (par.lampAir as number) + (AIR_CLASSIC - (par.lampAir as number)) * (1 - ek),
     }
     // --- the picture's own density: each generation draws finer ----------------------------------------------
     const scr = kit.screen()
@@ -1101,17 +1255,37 @@ export default function polyView(kit: Kit): View {
     const sw = Math.max(1, Math.round(vw * d))
     const sh = Math.max(1, Math.round(vh * d))
     const px = d
+    // The 64-bit machine's lamps: a soft halo round each lamp's head, in the world (behind what stands in front of the
+    // lamp, never on a wall it stands behind), from the steady lamps, so it does not flicker either.
+    haloV.clear()
+    const haloK = (par.halos as number) * ek * (quality === 2 ? 1 : 0.5)
+    if (haloK > 0) {
+      for (const L of lamps) {
+        const dd = Math.hypot(L.x - eye[0], L.y - eye[1])
+        if (dd > far1) continue
+        const r = Math.min(1.4, 0.5 + L.r * 0.18)
+        const a = 0.42 * Math.min(1, haloK)
+        const col: [number, number, number] = [L.c[0] * a, L.c[1] * a, L.c[2] * a]
+        // (A little toward the eye, so the lamp's own lantern does not cut it.)
+        const cx = L.x + ((eye[0] - L.x) / Math.max(0.01, dd)) * 0.3, cy = L.y + ((eye[1] - L.y) / Math.max(0.01, dd)) * 0.3
+        quad(haloV, [[cx - r * rx, cy - r * ry, L.z + r, 0, -1, -1], [cx + r * rx, cy + r * ry, L.z + r, 0, 1, -1], [cx + r * rx, cy + r * ry, L.z - r, 0, 1, 1], [cx - r * rx, cy - r * ry, L.z - r, 0, -1, 1]], TEX.HALO, col, [0, 0, 1])
+      }
+    }
     const cellPx = Math.max(1, Math.round(d * (par.grain as number)))
     engine.draw({
       grid: cellPx, cell: cellPx, msaa: par.smoothEdges && k > 0.5 ? 4 : 0,
       m: M4, eye, lift: ek * ls, facet: ek, bend: [bendK, bendFrom],
+      matScale: MAT_SCALE,
+      heightAt: outdoors ? heightAt : [0, 0, 1, 0], sunRay: [Math.cos(sunA), Math.sin(sunA), 1 / shadowLen],
       // Staggered as the 16-bit view staggers its parts: the classic crowns go down while the camera tips, the
       // trees come up out of the ground after them, and last the things in the round, while their cards go.
       roles: [win(k, 0.42, 0.85), 1 - win(k, 0.4, 0.72), win(k, 0.78, 1), 1 - win(k, 0.62, 0.86)],
       // (A dark room is not black: the walls and the floor show dimly beyond the lamps' pools, as in the 16-bit view.)
-      ambient: amb.map((q, i) => Math.max(q * exposure * (outdoors ? 1 - 0.25 * sunS : 1), roomed ? [0.44, 0.4, 0.62][i]! * ek : 0)) as [number, number, number],
+      // (The hour's light comes in steps of a tenth of a second; held smooth here, or each step would move the dither's
+      // thresholds over everything it lights at once: the solved game's flicker.)
+      ambient: held('ambient', amb.map((q, i) => Math.max(q * exposure * (outdoors ? 1 - 0.25 * sunS : 1), roomed ? [0.44, 0.4, 0.62][i]! * ek : 0)) as [number, number, number], dt, m.id),
       sunDir: [Math.cos(sunA) * Math.cos(elev), Math.sin(sunA) * Math.cos(elev), Math.sin(elev)],
-      sunColor: [sunCol[0] * sunS, sunCol[1] * sunS, sunCol[2] * sunS],
+      sunColor: held('sun', [sunCol[0] * sunS, sunCol[1] * sunS, sunCol[2] * sunS], dt, m.id),
       lamps,
       region: [bx, by, bw, bh],
       field: [-c.M, -c.M],
@@ -1125,6 +1299,7 @@ export default function polyView(kit: Kit): View {
       chunks,
       dynamic: { data: dyn.data, count: dyn.n },
       blobs: { data: blobs.data, count: blobs.n },
+      halos: { data: haloV.data, count: haloV.n },
     }, sw, sh, quality === 2 ? glowG : undefined)
     if (quality < 2) glowG.clearRect(0, 0, vw, vh)
     // The picture: the sky (painted at the scene's size) brought up to the picture's, the polygons over it.
@@ -1138,23 +1313,6 @@ export default function polyView(kit: Kit): View {
     hg.drawImage(engine.canvas, 0, 0)
     // From here on the picture is drawn on in classic px, as the kit's painters count.
     hg.setTransform(d, 0, 0, d, 0, 0)
-    const halos = (par.halos as number) * ek * (quality === 2 ? 1 : 0.5)
-    if (halos > 0) {
-      // The 64-bit machine's lamps: soft halos added into the picture itself, fading with the fog.
-      hg.globalCompositeOperation = 'lighter'
-      for (const L of lights) {
-        const d = Math.hypot(L.x - eye[0], L.y - eye[1])
-        if (d > far1) continue
-        const tt = c.field.tile(Math.floor(L.x), Math.floor(L.y))
-        const p = place(L.x, L.y, tt === 't' ? 1.35 : 0.6)
-        if (p.w <= 0.05 || p.x < -60 || p.y < -60 || p.x > vw + 60 || p.y > vh + 60) continue
-        const r = Math.min(70, (L.r * T * 0.42) / p.w)
-        hg.globalAlpha = Math.max(0, Math.min(1, L.a)) * 0.5 * Math.min(1, halos) * (1 - Math.max(0, (d - far0) / Math.max(1, far1 - far0)))
-        hg.drawImage(kit.glow(L.color), p.x - r, p.y - r, r * 2, r * 2)
-      }
-      hg.globalAlpha = 1
-      hg.globalCompositeOperation = 'source-over'
-    }
     const flare = (par.flare as number) * ek
     if (flare > 0 && sunAt && sunAt.a > 0) {
       // A simple lens flare from the sun, across the middle of the picture.
@@ -1189,13 +1347,16 @@ export default function polyView(kit: Kit): View {
       // What shines by itself (neon, screens, lit letters, panes), from the picture's own pass.
       bloom.globalAlpha = 0.7 * ek
       bloom.drawImage(glowC, 0, 0)
+      // (Not the lamps out in the distance: they fade as the land they stand on dissolves, by the engine's own fog,
+      // which over the turn draws in from far away; never cut at once.)
+      const fog0 = far0 / Math.max(1e-3, ek), fog1 = far1 / Math.max(1e-3, ek)
       for (const L of lights) {
-        // (Not the lamps out in the distance: the land they stand on has dissolved.)
-        if (Math.hypot(L.x - eye[0], L.y - eye[1]) > far0 && k >= 1) continue
+        const seen = 1 - Math.max(0, Math.min(1, (Math.hypot(L.x - eye[0], L.y - eye[1]) - fog0) / Math.max(0.01, fog1 - fog0)))
+        if (seen <= 0) continue
         const p = place(L.x, L.y, 0.8)
         if (p.x < -40 || p.y < -40 || p.x > vw + 40 || p.y > vh + 40) continue
         const r = Math.min(48, L.r * T * 0.6 / Math.max(0.4, p.w))
-        bloom.globalAlpha = Math.max(0, Math.min(1, L.a)) * 0.22
+        bloom.globalAlpha = Math.max(0, Math.min(1, L.a)) * 0.22 * seen
         bloom.drawImage(kit.glow(L.color), p.x - r, p.y - r, r * 2, r * 2)
       }
       bloom.globalAlpha = 1
@@ -1245,24 +1406,22 @@ export default function polyView(kit: Kit): View {
     const target: Record<string, unknown> = { ...raw, shoulder: raw.pose === 'shoulder' ? 1 : 0 }
     if (key !== lookKey) {
       if (lookKey && shownLook && !reduced) { lookFrom = shownLook; lookT = 0 }
+      // Under reduced motion the camera does not move from one look to the other: the last picture of the old one
+      // dissolves into the new one instead (no cut: the eye is spared the move, not given a jump).
+      else if (lookKey && shownLook) kit.crossFade(0.4)
       lookKey = key
     }
     lookT = Math.min(1, lookT + Math.min(0.1, dt))
     if (!lookFrom || lookT >= 1) { lookFrom = null; shownLook = target; return target }
-    const e = ease(lookT)
-    const out: Record<string, unknown> = {}
-    for (const [name, v] of Object.entries(target)) {
-      const a = lookFrom[name]
-      // Numbers are eased; a switch (the colours, the windows) changes in the middle, under the camera's move.
-      out[name] = typeof v === 'number' && typeof a === 'number' ? a + (v - a) * e : e < 0.5 && a !== undefined ? a : v
-    }
+    const out = easeLook(lookFrom, target, ease(lookT))
     shownLook = out
     return out
   }
 
   // --- the hero as a model ---------------------------------------------------------------------------------
+  /** The sprite card stood in for a model that had not arrived. */
+  let cardForModel = false
   /** The models as fetched (one a look), the look they are coloured for, and the way the body faces now. */
-  const heroes: Partial<Record<'32' | '64', LoadedHero | null>> = {}
   let heroTexKey = ''
   let bodyYaw: number | null = null
   let bodyMap = ''
@@ -1270,7 +1429,8 @@ export default function polyView(kit: Kit): View {
   function heroModel(which: '32' | '64'): LoadedHero | null {
     const done = loadedHero(which)
     if (done !== undefined) return done
-    if (!(which in heroes)) { heroes[which] = null; void loadHero(assetBase, which).then(() => { heroTexKey = '' }) }
+    // (Asked again while nothing has arrived: the load is the same one, or a retry after a failure.)
+    void loadHero(assetBase, which).then(() => { heroTexKey = '' })
     return null
   }
   /** The texture on the GPU for this model and look (recoloured where the look changes only colours). */

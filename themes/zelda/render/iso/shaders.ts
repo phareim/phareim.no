@@ -674,6 +674,7 @@ uniform vec2 uOrg;
 uniform vec4 uRect;
 uniform vec2 uLScale;
 uniform vec3 uAmbient;
+uniform float uExpose;
 uniform float uDirectional;
 uniform vec3 uSun;
 uniform float uShadowLen;
@@ -797,7 +798,9 @@ void main() {
   // A blob lies away from what lights its spot most, a lamp as often as the sun: it takes from the lamps' light
   // too, or beside a lamp there would be no shadow to see.
   vec3 light = min(amb + lamp * (1.0 - 0.55 * under), vec3(mix(1.0, 1.35, uK)));
-  vec3 c = g0.rgb * light;
+  // (By day the classic picture adds itself onto its lit self, past any cap: so does this one, as far as k has not
+  // taken the day's exposure into the ambient.)
+  vec3 c = g0.rgb * light * (1.0 + uExpose);
   // The sun's own light: warm on what faces it and stands in no shade, and a little of it comes back
   // off any colour (a teal lawn in a low sun is gold on top), which one light for everything never does.
   // (Where the lamps already flood the ground, the eye has less room for it.)

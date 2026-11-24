@@ -48,12 +48,18 @@ export interface PolyLook {
   smooth: number
   /** Textures filtered at half their size (1) or read texel by texel (0). */
   filter: number
+  /** The ground's and the walls' materials filtered between texels (default: as `filter`). */
+  matFilter?: number
   /** The distance swallowed by fog (1) or dissolved in dither (0). */
   fog: number
   /** Walls' faces between the eye and the hero are seen through too (the camera may stand on any side). */
   faces?: boolean
   /** The painted page, where it is here (else the materials). */
   painted?: boolean
+  /** Lamps lit per pixel (1) or per corner (0). */
+  perPixel?: number
+  /** A share of the lamps' light added in the air over what they reach. */
+  air?: number
 }
 
 export interface Frame {
@@ -62,6 +68,11 @@ export interface Frame {
   bend: [number, number]
   /** How much a facet's turn counts in its light (the turn's ease). */
   facet: number
+  /** Each painted material's repeat (16, in `MATERIALS` order; 1: 32 texels a tile). */
+  matScale?: Float32Array
+  /** The heightfield's origin (tiles), cells a tile, and tiles a unit; the sun's way on the ground and its climb a tile. */
+  heightAt?: [number, number, number, number]
+  sunRay?: [number, number, number]
   /** Picture px to one cell of the vertex snap's grid, and of the dither's and the stipple's (none: 1). */
   grid?: number
   cell?: number
@@ -90,6 +101,8 @@ export interface Frame {
   chunks: Array<{ buf: WebGLBuffer; count: number }>
   dynamic: { data: Float32Array; count: number }
   blobs: { data: Float32Array; count: number }
+  /** Lamps' halos (`TEX.HALO`), drawn last, added in. */
+  halos?: { data: Float32Array; count: number }
 }
 
 const VS = `#version 300 es
@@ -120,6 +133,24 @@ uniform vec3 uAmbient;
 uniform vec3 uSunDir;
 uniform vec3 uSunCol;
 uniform float uShadow;
+/** The sun's shadows, marched per corner through a heightfield of the land and what stands on it (no bake: the hour moves them smoothly). */
+uniform sampler2D uHeights;
+uniform vec4 uHeightAt;
+uniform vec3 uSunRay;
+float sunAt(vec3 p) {
+  ivec2 size = textureSize(uHeights, 0);
+  for (int i = 1; i < 34; i++) {
+    float t = 0.15 + float(i) * 0.22;
+    vec2 q = p.xy + uSunRay.xy * t;
+    float ray = p.z + uSunRay.z * t;
+    if (ray > 6.0) return 1.0;
+    ivec2 c = ivec2(floor((q - uHeightAt.xy) * uHeightAt.z));
+    if (c.x < 0 || c.y < 0 || c.x >= size.x || c.y >= size.y) continue;
+    vec2 h = texelFetch(uHeights, c, 0).rg * uHeightAt.w;
+    if (max(h.x * uLift, h.y) > ray + 0.03) return 0.0;
+  }
+  return 1.0;
+}
 uniform int uLampN;
 uniform vec4 uLampPos[16];
 uniform vec3 uLampCol[16];
@@ -127,6 +158,9 @@ uniform float uSide;
 out vec3 vUvw;
 out vec2 vUv;
 out vec3 vLight;
+out vec3 vLamp;
+out vec3 vPos;
+out vec3 vN;
 out vec3 vColor;
 out float vDist;
 out vec2 vWorld;
@@ -136,13 +170,16 @@ void main() {
   // Over the turn this view's own things come up out of the ground and the classic stand-ins go down into it
   // (moved, never squashed: what is under the ground is hidden by it). A role's share is how far it is up.
   float m = aRole < 0.5 ? 1.0 : aRole < 1.5 ? uRoles.x : aRole < 2.5 ? uRoles.y : aRole < 3.5 ? uRoles.z : uRoles.w;
+  // (A tree's role carries its own delay as a fraction: a wood comes up over the turn tree by tree, never all at once.)
+  if (aRole > 0.5 && aRole < 1.5) { float dl = (aRole - 1.0) / 0.45; m = clamp(m * 1.7 - dl * 0.7, 0.0, 1.0); }
   // (Wholly in the ground, it is not drawn at all: where there is no floor over it, beyond a room's kerb, it would show.)
   if (aRole > 0.5 && m <= 0.0001) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); return; }
   float deep = aRole < 0.5 ? 0.0 : aRole < 1.5 ? 3.2 : aRole < 2.5 ? 1.5 : aRole < 3.5 ? 1.7 : 1.5;
   vec3 p = vec3(aPos.xy, aPos.z - (1.0 - m) * deep + (aGround + aZk) * uLift);
   // The far land bends up toward the horizon, so the world meets the sky as a ridge, wherever the eye stands.
   float hd = max(0.0, length(p.xy - uEye.xy) - uBend.y);
-  p.z += uBend.x * hd * hd;
+  // (Never up past the eye: a ridge under the sky, not a rim over it, as the camera comes down while the bend grows.)
+  p.z += min(uBend.x * hd * hd, max(0.0, uEye.z - 0.35 - p.z));
   vec4 c = uM * vec4(p, 1.0);
   // The machine had no fractions of a px: every corner lands on one.
   if (uSnap > 0.0 && c.w > 0.0) {
@@ -164,9 +201,12 @@ void main() {
   vec3 n = normalize(mix(aNormal, aSNormal, uSmooth));
   // The sky lights from above and a little from the north-west, so every facet of a knoll takes its own share.
   float sky = mix(1.0, 0.12 + 1.08 * max(0.0, dot(n, normalize(vec3(-0.55, -0.2, 0.81)))), uFacet);
-  float inSun = mix(1.0, aSun, uShadow);
-  vec3 L = uAmbient * sky * mix(1.0, 0.62 + 0.38 * aSun, uShadow);
+  float lit = uShadow > 0.0 ? sunAt(p + aNormal * 0.02) : 1.0;
+  float inSun = mix(1.0, lit, uShadow);
+  vec3 L = uAmbient * sky * mix(1.0, 0.62 + 0.38 * lit, uShadow);
   L += uSunCol * max(0.0, dot(n, uSunDir)) * inSun;
+  // The lamps apart from the rest, so the 64-bit machine can light them per pixel (lampsAt in the fragment shader).
+  vec3 lampL = vec3(0.0);
   for (int i = 0; i < 16; i++) {
     if (i >= uLampN) break;
     vec3 d = uLampPos[i].xyz - p;
@@ -174,11 +214,14 @@ void main() {
     float a = clamp(1.0 - dist / uLampPos[i].w, 0.0, 1.0);
     if (a <= 0.0) continue;
     float face = mix(1.0, clamp(dot(n, d / max(dist, 1e-3)) * 1.3 + 0.25, 0.0, 1.0), uSide);
-    L += uLampCol[i] * a * a * (3.0 - 2.0 * a) * face;
+    lampL += uLampCol[i] * a * a * (3.0 - 2.0 * a) * face;
   }
   // The crown of a knoll a shade lighter than its foot, so the land rolls even where the light is flat.
-  L *= 1.0 + 0.2 * clamp(aGround * uLift, 0.0, 1.5) * uFacet;
-  vLight = L;
+  float crown = 1.0 + 0.2 * clamp(aGround * uLift, 0.0, 1.5) * uFacet;
+  vLight = L * crown;
+  vLamp = lampL * crown;
+  vPos = p;
+  vN = n;
 }`
 
 const FS = `#version 300 es
@@ -187,6 +230,32 @@ precision highp int;
 in vec3 vUvw;
 in vec2 vUv;
 in vec3 vLight;
+in vec3 vLamp;
+in vec3 vPos;
+in vec3 vN;
+uniform int uLampNf;
+uniform vec4 uLampPosF[16];
+uniform vec3 uLampColF[16];
+uniform float uSideF;
+/** 0: the lamps' light as the corners worked it out; 1: per pixel (the 64-bit machine: smooth, no lattice). */
+uniform float uPerPixel;
+/** How much of a lamp's light hangs in the air over what it reaches, added on top (the classic picture's glow). */
+uniform float uAir;
+/** The turn's ease (as in the vertex stage): the light is capped as the classic light map is at its flat end. */
+uniform float uFacet;
+vec3 lampsAt(vec3 p, vec3 n) {
+  vec3 L = vec3(0.0);
+  for (int i = 0; i < 16; i++) {
+    if (i >= uLampNf) break;
+    vec3 d = uLampPosF[i].xyz - p;
+    float dist = length(d);
+    float a = clamp(1.0 - dist / uLampPosF[i].w, 0.0, 1.0);
+    if (a <= 0.0) continue;
+    float face = mix(1.0, clamp(dot(n, d / max(dist, 1e-3)) * 1.3 + 0.25, 0.0, 1.0), uSideF);
+    L += uLampColF[i] * a * a * (3.0 - 2.0 * a) * face;
+  }
+  return L;
+}
 in vec3 vColor;
 in float vDist;
 in vec2 vWorld;
@@ -216,6 +285,8 @@ uniform float uBits;
 uniform int uGlowOnly;
 uniform float uWater;
 uniform float uFilter;
+/** The ground's and the walls' materials filtered between texels (0: texel by texel). */
+uniform float uMatFilter;
 uniform float uFog;
 uniform int uFaces;
 uniform int uBlob;
@@ -243,26 +314,70 @@ vec4 kindAt(vec2 w) {
   return texelFetch(uKind, k, 0);
 }
 uniform float uMatSide;
+/** The plain material page, and how far a painted page that has just arrived has faded in over it (1: wholly). */
+uniform sampler2D uMatsLo;
+uniform float uPaintMix;
 uniform float uMatTile;
-vec3 matTexel(float idx, vec2 t) {
-  return texelFetch(uMats, ivec2(mod(t, uMatSide)) + ivec2(int(idx) * int(uMatSide), 0), 0).rgb;
+/** Each material's repeat: texels of the page to the tile, as a multiple of the page's own (the paintings differ in scale). */
+uniform float uMatScale[16];
+/** The footprint of a texel of this pixel (from the uv's screen derivatives, taken before any branch). */
+vec2 gFoot;
+/** The page being read: the bound one (painted, or the plain materials), or the plain one under a painted page's fade-in. */
+bool gLo;
+float gSide;
+float gTile;
+vec3 matTexel(float idx, vec2 t, int lod) {
+  int side = int(gSide) >> lod;
+  ivec2 q = ivec2(mod(floor(t / float(1 << lod)), float(side)));
+  ivec2 at = q + ivec2(int(idx) * side, 0);
+  return gLo ? texelFetch(uMatsLo, at, 0).rgb : texelFetch(uMats, at, lod).rgb;
 }
-/** A material at texel coordinates t: texel by texel, or (the 64-bit machine) read at half its size and filtered between texels until it smears. */
-vec3 matAtT(float idx, vec2 t) {
-  // (t counts sixteen texels a tile; a page with more to the tile is read at its own.)
-  t *= uMatTile / 16.0;
-  vec3 hard = matTexel(idx, floor(t));
-  if (uFilter <= 0.001) return hard;
-  // A small page is read at half its size and smears (the 64-bit machine's tiny textures); a painted one is not tiny.
-  float k = uMatSide >= 128.0 ? 1.0 : 2.0;
+/** A material read between texels at level lod, k texels of the top level to one of it. */
+vec3 matBilin(float idx, vec2 t, int lod, float k) {
   vec2 p = t / k - 0.5;
   vec2 i = floor(p);
   vec2 f = p - i;
   vec2 o = vec2(1.0, 0.0);
-  vec3 soft = mix(mix(matTexel(idx, i * k), matTexel(idx, (i + o) * k), f.x), mix(matTexel(idx, (i + o.yx) * k), matTexel(idx, (i + 1.0) * k), f.x), f.y);
-  return mix(hard, soft, uFilter);
+  return mix(mix(matTexel(idx, i * k, lod), matTexel(idx, (i + o) * k, lod), f.x), mix(matTexel(idx, (i + o.yx) * k, lod), matTexel(idx, (i + 1.0) * k, lod), f.x), f.y);
 }
-vec3 matAt(float idx, vec2 w) { return matAtT(idx, w * 16.0); }
+/**
+ * A material at texel coordinates t: texel by texel up close; seen small, from the page's smaller levels (box-filtered),
+ * so far ground and walls do not shimmer; in the 64-bit machine filtered between texels too.
+ */
+vec3 matAtPage(float idx, vec2 t, float foot) {
+  // (t counts sixteen texels a tile; a page with more to the tile is read at its own, and at the material's own repeat.)
+  float sc = gTile / 16.0 * (gLo ? 1.0 : uMatScale[int(idx)]);
+  t *= sc;
+  float fp = foot * sc;
+  // (Hard texels take the level whose texel is about the pixel; filtered ones a level softer, as a filtering machine's
+  // mip map would, and between levels by the fraction, so the look's easing never switches the ground's level at once.)
+  float lf = log2(max(fp, 1.0));
+  int lod = gSide >= 128.0 ? clamp(int(floor(lf + 0.25)), 0, 5) : 0;
+  vec3 hard = matTexel(idx, t, lod);
+  // (The ground and the walls may be filtered while the figures stay texel by texel: uMatFilter. How much softer
+  // the filtered read is goes by uFilter: the 64-bit machine's a level softer, the 32-bit look's half a level.)
+  if (uMatFilter <= 0.001) return hard;
+  // A small page is read at half its size and smears (the 64-bit machine's tiny textures); a painted one is not tiny.
+  vec3 soft;
+  if (gSide >= 128.0) {
+    float ls = clamp(lf + 0.25 + 1.25 * uFilter + 0.5 * uMatFilter * (1.0 - uFilter), 0.0, 5.0);
+    int l0 = int(floor(ls));
+    int l1 = min(l0 + 1, 5);
+    soft = mix(matBilin(idx, t, l0, float(1 << l0)), matBilin(idx, t, l1, float(1 << l1)), ls - float(l0));
+  } else soft = matBilin(idx, t, 0, 1.0 + uFilter);
+  return mix(hard, soft, uMatFilter);
+}
+/** A material: from the bound page, and while a painted page fades in over the plain one, from both. */
+vec3 matAtT(float idx, vec2 t, float foot) {
+  gLo = false; gSide = uMatSide; gTile = uMatTile;
+  vec3 c = matAtPage(idx, t, foot);
+  if (uPaintMix < 0.999) {
+    gLo = true; gSide = 64.0; gTile = 16.0;
+    c = mix(matAtPage(idx, t, foot), c, uPaintMix);
+  }
+  return c;
+}
+vec3 matAt(float idx, vec2 w) { return matAtT(idx, w * 16.0, max(gFoot.x, gFoot.y) * 16.0); }
 /** A classic picture at px: texel by texel, or filtered between texels. */
 vec4 pic(sampler2D s, vec2 px) {
   vec4 hard = fetchPic(s, px);
@@ -290,6 +405,7 @@ vec4 atlasAt(vec2 px) {
 void main() {
   // (People and things are sprites: the machine drew those straight, not as warped polygons.)
   vec2 uv = vTex == 3 || vTex == 7 ? vUv : mix(vUv, vUvw.xy / vUvw.z, uAffine);
+  gFoot = fwidth(uv);
   vec4 c = vec4(1.0);
   vec3 glow = vec3(0.0);
   /** What shines by itself in the classic art: bright, saturated colours (neon, screens, lit letters, crystals). */
@@ -346,17 +462,32 @@ void main() {
     // (Through the turn the classic picture's water gives way to this one's, not in one frame.)
     if (uWater < 1.0) { vec4 ba = fetchPic(uBase, uv * 16.0); if (ba.a > 0.5) col = mix(ba.rgb / ba.a, col, uWater); }
     c = vec4(col, 1.0);
+  } else if (vTex == 8) {
+    // A lamp's halo, behind what stands in front of the lamp, fading with the fog.
+    float d = length(vUv);
+    if (d > 1.0) discard;
+    float fd2 = clamp((vDist - uFar.x) / max(uFar.y - uFar.x, 1e-3), 0.0, 1.0);
+    float a = (1.0 - d) * (1.0 - d) * (1.0 - fd2);
+    o = vec4(vColor * a, 1.0);
+    return;
   } else if (vTex == 5) {
     float d = length(uv);
     if (d > 1.0 || (d > 0.72 && bayer(gl_FragCoord.xy) > 0.5)) discard;
     o = vec4(vec3(vColor.r), 1.0);
     return;
   } else if (vTex >= 10) {
-    c = vec4(matAtT(float(vTex - 10), uv), 1.0);
+    c = vec4(matAtT(float(vTex - 10), uv, max(gFoot.x, gFoot.y)), 1.0);
   }
   if (c.a < 0.5) discard;
   vec3 tex = c.rgb / max(c.a, 1e-3);
-  vec3 lit = tex * (vTex == 4 ? vec3(1.0) : vColor) * (vTex == 4 ? 0.55 + 0.6 * vLight : vLight);
+  vec3 lamp = uPerPixel > 0.001 ? mix(vLamp, lampsAt(vPos, normalize(vN)), uPerPixel) : vLamp;
+  // (Toward the turn's flat end the light stops at 1, as the classic picture's light map does, so the hand-off meets it
+  // beside a strong lamp too; in the view itself it may run far over.)
+  vec3 light = min(vLight + lamp, vec3(mix(1.0, 8.0, uFacet * uFacet)));
+  vec3 lit = tex * (vTex == 4 ? vec3(1.0) : vColor) * (vTex == 4 ? 0.55 + 0.6 * light : light);
+  // A share of the lamps' light in the air over what they reach, as the classic picture's glow lies on its ground.
+  // (Saturating, as that glow does: about the lamp's own light where it is faint, never a white-out beside a strong one.)
+  lit += (1.0 - exp(-lamp * 1.2)) / 1.2 * uAir;
   if ((vFlags & 2) != 0) lit = max(lit, tex * vColor);
   // Neon in the classic art shines by itself: the lamps do not light it, it is as bright as it was painted.
   float hi = max(tex.r, max(tex.g, tex.b));
@@ -364,6 +495,9 @@ void main() {
   if (vTex != 1 && vTex != 4 && hi > 0.6 && hi - lo > 0.5 * hi) neon = tex;
   if ((vFlags & 2) != 0) neon = max(neon, tex * vColor);
   lit = max(lit, neon);
+  // The hero model's face and clothes read under every light: never darker than about half their own colours
+  // (a painted figure's floor, as the sprites' outlines and the classic art carry their own light).
+  if (vTex == 7) lit = max(lit, tex * 0.5);
   lit += glow;
   float b = bayer(gl_FragCoord.xy);
   // A room: what lies outside it is dark.
@@ -423,6 +557,8 @@ export interface Engine {
   materials(data: Uint8Array, w: number, h: number): void
   /** The painted page (128 texels a material, 32 a tile), drawn in place of the materials when a frame asks for it. */
   painted(data: Uint8Array, w: number, h: number): void
+  /** The heightfield the sun's shadows are marched through: per cell, the land (R) and what stands on it (G), in 1/32 tiles. */
+  heights(data: Uint8Array, w: number, h: number): void
   /** The hero model's texture (RGBA, straight). */
   heroTexture(data: Uint8Array | Uint8ClampedArray, w: number, h: number): void
   objs(c: HTMLCanvasElement, w: number, h: number): void
@@ -435,6 +571,10 @@ export interface Engine {
   dispose(): void
 }
 
+const ONES = new Float32Array(16).fill(1)
+/** How long a painted page that arrives while the view is up takes to fade in over the plain one. */
+const PAINT_FADE_MS = 600
+
 export function createEngine(): Engine {
   const canvas = document.createElement('canvas')
   const gl = canvas.getContext('webgl2', { antialias: false, alpha: true, premultipliedAlpha: true, depth: true, preserveDrawingBuffer: false }) as GL | null
@@ -444,6 +584,7 @@ export function createEngine(): Engine {
     mats: texture(gl, 1, 1),
     painted: texture(gl, 1, 1),
     hero: texture(gl, 1, 1, { linear: true }),
+    heights: texture(gl, 1, 1),
     objs: texture(gl, 1, 1),
     base: texture(gl, 1, 1),
     atlas: texture(gl, 1, 1),
@@ -473,7 +614,11 @@ export function createEngine(): Engine {
     return msFb!
   }
   let hasPainted = false
+  /** A frame was drawn with the plain page, and when a painted one began to fade in over it. */
+  let plainShown = false
+  let paintFrom = -1
   const dyn = gl.createBuffer()!
+  const haloBuf = gl.createBuffer()!
   const blobBuf = gl.createBuffer()!
   const vao = gl.createVertexArray()!
 
@@ -508,7 +653,20 @@ export function createEngine(): Engine {
     },
     drop(c) { gl.deleteBuffer(c.buf) },
     materials(data, w, h) { raw(tex.mats, data, w, h) },
-    painted(data, w, h) { raw(tex.painted, data, w, h); hasPainted = true },
+    painted(data, w, h) {
+      raw(tex.painted, data, w, h)
+      // Its smaller levels, box-filtered (each material's 128 texels halve within itself, so none bleeds into the next).
+      gl.bindTexture(gl.TEXTURE_2D, tex.painted.t)
+      gl.generateMipmap(gl.TEXTURE_2D)
+      hasPainted = true
+    },
+    heights(data, w, h) {
+      gl.bindTexture(gl.TEXTURE_2D, tex.heights.t)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG8, w, h, 0, gl.RG, gl.UNSIGNED_BYTE, data)
+      tex.heights.w = w; tex.heights.h = h
+    },
     heroTexture(data, w, h) {
       gl.bindTexture(gl.TEXTURE_2D, tex.hero.t)
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -556,6 +714,7 @@ export function createEngine(): Engine {
       gl.uniform1f(u('uFacet'), f.facet)
       gl.uniform1f(u('uSmooth'), L.smooth)
       gl.uniform1f(u('uFilter'), L.filter)
+      gl.uniform1f(u('uMatFilter'), L.matFilter ?? L.filter)
       gl.uniform1f(u('uFog'), L.fog)
       gl.uniform1i(u('uFaces'), L.faces ? 1 : 0)
       gl.uniform4f(u('uRoles'), ...f.roles)
@@ -576,16 +735,33 @@ export function createEngine(): Engine {
       gl.uniform1i(u('uLampN'), n)
       gl.uniform4fv(u('uLampPos'), lp)
       gl.uniform3fv(u('uLampCol'), lc)
+      gl.uniform1i(u('uLampNf'), n)
+      gl.uniform4fv(u('uLampPosF'), lp)
+      gl.uniform3fv(u('uLampColF'), lc)
+      gl.uniform1f(u('uSideF'), L.side)
+      gl.uniform1f(u('uPerPixel'), L.perPixel ?? 0)
+      gl.uniform1f(u('uAir'), L.air ?? 0)
       const paintedNow = !!L.painted && hasPainted
+      // The painted page arriving while the plain one is on the screen fades in over it, never in one frame.
+      if (!paintedNow) plainShown = true
+      if (paintedNow && plainShown && paintFrom < 0) paintFrom = performance.now()
+      const paintMix = paintFrom < 0 ? 1 : Math.min(1, (performance.now() - paintFrom) / PAINT_FADE_MS)
+      if (paintMix >= 1 && paintFrom >= 0) { paintFrom = -1; plainShown = false }
+      gl.uniform1f(u('uPaintMix'), paintedNow ? paintMix : 1)
+      bindTex(gl, 8, tex.mats, u('uMatsLo'))
       bindTex(gl, 0, paintedNow ? tex.painted : tex.mats, u('uMats'))
       gl.uniform1f(u('uMatSide'), paintedNow ? 128 : 64)
       gl.uniform1f(u('uMatTile'), paintedNow ? 32 : 16)
+      gl.uniform1fv(u('uMatScale[0]'), paintedNow && f.matScale ? f.matScale : ONES)
       bindTex(gl, 1, tex.objs, u('uObjs'))
       bindTex(gl, 2, tex.base, u('uBase'))
       bindTex(gl, 3, tex.atlas, u('uAtlas'))
       bindTex(gl, 4, tex.kind, u('uKind'))
       bindTex(gl, 5, tex.shore, u('uShore'))
       bindTex(gl, 6, tex.hero, u('uHeroTex'))
+      bindTex(gl, 7, tex.heights, u('uHeights'))
+      gl.uniform4f(u('uHeightAt'), ...(f.heightAt ?? [0, 0, 1, 0]))
+      gl.uniform3f(u('uSunRay'), ...(f.sunRay ?? [1, 0, 1]))
       gl.uniform4f(u('uRegion'), ...f.region)
       gl.uniform2f(u('uField'), ...f.field)
       gl.uniform3f(u('uShoreAt'), ...f.shore)
@@ -639,6 +815,20 @@ export function createEngine(): Engine {
         gl.polygonOffset(-2, -4)
         gl.drawArrays(gl.TRIANGLES, 0, f.blobs.count)
         gl.disable(gl.POLYGON_OFFSET_FILL)
+        gl.depthMask(true)
+        gl.disable(gl.BLEND)
+      }
+      if (f.halos && f.halos.count) {
+        // Halos: added in, behind whatever stands in front of their lamp, writing no depth.
+        gl.bindBuffer(gl.ARRAY_BUFFER, haloBuf)
+        gl.bufferData(gl.ARRAY_BUFFER, f.halos.data.subarray(0, f.halos.count * STRIDE), gl.STREAM_DRAW)
+        bindLayout(haloBuf)
+        gl.enable(gl.BLEND)
+        // (Light added, coverage kept: over the sky, which is drawn under this picture where it is clear, a halo's
+        // alpha would lay a dark disc on it. Premultiplied, light with no alpha is a glow over whatever lies under.)
+        gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE)
+        gl.depthMask(false)
+        gl.drawArrays(gl.TRIANGLES, 0, f.halos.count)
         gl.depthMask(true)
         gl.disable(gl.BLEND)
       }

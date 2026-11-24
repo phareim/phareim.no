@@ -245,6 +245,11 @@ export interface Kit {
    * what the hero holds up (a pot, a found thing) and still adds the blade's light.
    */
   setHeroBare(on: boolean): void
+  /**
+   * The picture on the screen now, laid over the frames that follow and fading out over `seconds`: a dissolve, for
+   * a change a view makes without moving its camera (a look's change under reduced motion).
+   */
+  crossFade(seconds: number): void
   /** What the hero wears: the booth's look, a made figure's colours on the drawn shape, or the drawn hero. */
   heroLook(): HeroLook
   /** The scene step (px) from one world point to another, for a drawing that reaches from its own thing to a second one (the twins' tether, the king's shards); null: the classic step. */
@@ -1116,6 +1121,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * `from`: see `Kit.hudLayer`.
    */
   function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN, from?: { skin: HudSkin; mix: number }) {
+    // The dialog box keeps the side it opened on: a turn of the view under it (the camera tipping, the hero's row moving
+    // on the screen) never throws it from the bottom to the top in one frame.
+    if (s.dialog) {
+      if (dialogRow.of !== s.dialog) dialogRow = { of: s.dialog, y: heroY }
+      heroY = dialogRow.y
+    } else dialogRow = { of: null, y: 0 }
     const to = wearable(skin)
     const old = from ? wearable(from.skin) : to
     const mix = old === to ? 1 : Math.max(0, Math.min(1, from!.mix))
@@ -1135,6 +1146,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       screen.beginPath(); screen.arc(sx + ui.stick.dx * dpr, sy + ui.stick.dy * dpr, 16 * dpr, 0, Math.PI * 2); screen.fill()
     }
   }
+
+  /** The dialog the box's side was taken for, and the hero's row it was taken by. */
+  let dialogRow: { of: unknown; y: number } = { of: null, y: 0 }
 
   /** One skin's HUD, painted on its own grid and laid on the screen at `alpha`. */
   function hudPaint(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin, alpha: number) {
@@ -1501,6 +1515,16 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     setAim(fn) { aim = fn ?? (a => a) },
     setFacing(yaw) { facing = yaw; setLunaFacing(yaw) },
     setHeroBare(on) { heroBare = on },
+    crossFade(seconds) {
+      if (W < 2 || H < 2) return
+      xfadeC ??= document.createElement('canvas')
+      if (xfadeC.width !== W || xfadeC.height !== H) { xfadeC.width = W; xfadeC.height = H }
+      const xg = xfadeC.getContext('2d')!
+      xg.globalCompositeOperation = 'copy'
+      xg.drawImage(canvas, 0, 0)
+      xfadeA = 1
+      xfadeS = Math.max(0.05, seconds)
+    },
     heroLook: heroStyle,
     setSpan(fn) { span = fn },
     flashFade,
@@ -1514,6 +1538,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   const turned = (raw: number) => Math.max(0, (raw - HANDOFF) / (1 - HANDOFF))
   /** The classic picture as last drawn, kept to be laid over a view's during the hand-off. */
   let handC: HTMLCanvasElement | null = null
+  /** A dissolve a view asked for (`crossFade`): the old picture, how much of it is left, and over how long it goes. */
+  let xfadeC: HTMLCanvasElement | null = null
+  let xfadeA = 0
+  let xfadeS = 0.4
   /**
    * The start of a visit (`arrive`): the time night ends (0: no arrival under way; -1: it is counted from the first
    * frame drawn, `nightLeft` ms, so a tab opened in the background has its night when it is looked at), and
@@ -1659,6 +1687,16 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         screen.globalAlpha = over
         screen.drawImage(handC, 0, 0)
         screen.restore()
+      }
+      if (xfadeA > 0 && xfadeC) {
+        if (xfadeC.width === W && xfadeC.height === H) {
+          screen.save()
+          screen.setTransform(1, 0, 0, 1, 0, 0)
+          screen.globalAlpha = xfadeA * xfadeA * (3 - 2 * xfadeA)
+          screen.drawImage(xfadeC, 0, 0)
+          screen.restore()
+        }
+        xfadeA = Math.max(0, xfadeA - Math.min(0.1, dt) / xfadeS)
       }
       dawn()
     } catch (e) {

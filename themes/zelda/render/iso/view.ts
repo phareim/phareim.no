@@ -1294,12 +1294,15 @@ export default function isoView(kit: Kit): View {
     const direct = outdoors ? (ownShadow > 0 ? Math.min(1, (par.shadow as number) / ownShadow) : 1) : 0
     const height = day ? day.sun : 0.12
     const warm = rgb(par.sunLight as string)
-    const sunCol: [number, number, number] = height < -0.3 ? [0.5, 0.62, 1] : mix3(warm, [1, 0.97, 0.9], Math.max(0, Math.min(1, (height - 0.12) / 0.6)))
-    const sunS = (par.sunStrength as number) * direct * k * (height < -0.3 ? 0.4 : 1 - 0.35 * Math.max(0, Math.min(1, (height - 0.12) / 0.6)))
+    // (The moon takes over from the sun across a stretch of its sinking, not at a line: no step in the light.)
+    const moonT = Math.max(0, Math.min(1, (-0.2 - height) / 0.2))
+    const moonK = moonT * moonT * (3 - 2 * moonT)
+    const sunCol: [number, number, number] = mix3(mix3(warm, [1, 0.97, 0.9], Math.max(0, Math.min(1, (height - 0.12) / 0.6))), [0.5, 0.62, 1], moonK)
+    const sunS = (par.sunStrength as number) * direct * k * ((1 - moonK) * (1 - 0.35 * Math.max(0, Math.min(1, (height - 0.12) / 0.6))) + moonK * 0.4)
     // What the sun does not reach is lit by the sky: cooler and dimmer than one light for everything.
     const skyFill: [number, number, number] = [1 - 0.5 * sunS, 1 - 0.4 * sunS, 1 - 0.16 * sunS]
     // And while the sun is up the lamps are only just lit: their pools are smaller things in a lit world.
-    const lampGain = outdoors ? 1 - 0.4 * Math.min(1, sunS) * (height < -0.3 ? 0 : 1) : 1
+    const lampGain = outdoors ? 1 - 0.4 * Math.min(1, sunS) * (1 - moonK) : 1
 
     // --- lamps -------------------------------------------------------------------------
     const amb = kit.ambient(s, ui, lights)
@@ -1402,6 +1405,8 @@ export default function isoView(kit: Kit): View {
       directional: (par.sideLight as number) * k,
       occlude: quality < 2 ? 0 : (par.lightShadows as number) * k,
       glow: par.glow as number,
+      // (The rest of the day's exposure, as the classic picture takes it: the turn's flat end is as bright as the classic one.)
+      expose: (day?.exposure ?? 0) * (1 - k),
       sun: [sunDir.x * Math.cos(elev), sunDir.y * Math.cos(elev), Math.sin(elev)],
       shadowLen: reach,
       shadow: (par.shadow as number) * k,

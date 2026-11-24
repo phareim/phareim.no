@@ -141,12 +141,16 @@ pink danger, gold treasure. Sprites and the 5×7 pixel font are code
 state another way: an isometric 16-bit one, where a visit starts, with a sun of its own and its
 own materials for the ground, the walls and the roofs; and a polygon 32-bit one, the world as low polygons in
 perspective from a crane behind the hero, with a horizon, rolling land, round ponds and a short draw distance,
-drawn as a 1996 console drew (textures that swim, corners that snap to the pixels, 15-bit colour); and on the
+drawn much as a 1996 console drew (corners that snap to the pixels, 15-bit colour with a dither, figures texel by
+texel; its ground no longer swims: steadiness came first); and on the
 same engine a 64-bit one, THIRD PERSON, from behind the hero's shoulder, soft and fogged (filtered textures,
 smooth shading, smooth edges, thick fog in the hour's colour, lamp halos). Each generation draws finer than the one
 before (the 32-bit look at four px to the classic px, the 64-bit one at the screen's own), both wear textures
 painted for them in the whole colour range, and in both the hero is a model of many polygons (6,000 and 20,000)
-moving by the 16-bit figure's poses. The turn switch in the
+moving by the 16-bit figure's poses. Both are steady where the period machine was not: the lamps and the hour's
+light are held smooth so the dither never crawls, every change between the four views is a turn, an ease or a
+dissolve and never a cut, and the light is the classic picture's at the turn's flat end and the same in every view
+(the painted materials brought to the 16-bit view's mean light; the 64-bit look lit per pixel). The turn switch in the
 corner turns between the four: `docs/games/neon-shrine.md`, "Views".
 
 ## Sound (`audio.ts`)

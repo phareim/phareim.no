@@ -21,6 +21,8 @@ async function load() {
         `export { Mesher, Verts, roomCut, polyShape, KERB, STRIDE, AT, TEX } from './render/poly/mesh'`,
         `export { rig, boneMatrices, JOINTS } from './render/poly/hero'`,
         `export { solvePose } from './render/iso/figure'`,
+        `export { createLampKeeper, LAMP_CAP } from './render/poly/lamps'`,
+        `export { holdLight, HOLD_TAU, HOLD_JUMP, easeLook, toAlbedo, ALBEDO, PAINTED_TUNE } from './render/poly/view'`,
         `export { TILE } from './types'`,
         `export { WORLD } from './world/index'`,
         `export { BEYOND, beyondTile } from './render/beyond'`,
@@ -494,6 +496,86 @@ describe('the hero model', () => {
   })
 })
 
+describe('the lamps', () => {
+  // The lights the painters gather flicker with the clock; this view lights every corner with them and rounds the
+  // colour to 15 bits with a dither, so a lamp that changes from one frame to the next makes everything it lights
+  // crawl (the flashing of 2026-11-23). The lamps it lights with must not change by more than a small part of a
+  // 15-bit step (1/31) from one frame to the next, whatever the painters' lights do.
+  const STEP = 1 / 31
+  const strength = (lamps, x) => { const l = lamps.find(q => Math.abs(q.x - x) < 1e-9); return l ? l.c[0] : 0 }
+  const run = (lightsAt, frames, focusAt = () => ({ x: 0, y: 0 })) => {
+    const keep = M.createLampKeeper()
+    const out = []
+    for (let i = 0; i < frames; i++) out.push(keep(lightsAt(i / 60), 1 / 60, focusAt(i), 1, () => 0.5))
+    return out
+  }
+
+  it('a torch, a laser gate and a zapper flicker with the clock; the light they give does not', () => {
+    const lights = t => [
+      { x: 2.5, y: 3, r: 4.2, color: '#ffffff', a: 0.85 * (0.85 + 0.15 * Math.sin(t * 9 + 2.5 * 3.1 + 3)) },
+      { x: 6.5, y: 3, r: 2, color: '#ffffff', a: 0.75 + 0.25 * Math.sin(t * 12 + 6) },
+      { x: 9.5, y: 3, r: 2, color: '#ffffff', a: 0.5 + 0.3 * Math.sin(t * 15) },
+    ]
+    const frames = run(lights, 600)
+    for (const [x, mean] of [[2.5, 0.85 * 0.85], [6.5, 0.75], [9.5, 0.5]]) {
+      let raw = 0
+      let held = 0
+      for (let i = 61; i < frames.length; i++) {
+        raw = Math.max(raw, Math.abs(lights(i / 60).find(l => l.x === x).a - lights((i - 1) / 60).find(l => l.x === x).a))
+        held = Math.max(held, Math.abs(strength(frames[i], x) - strength(frames[i - 1], x)))
+      }
+      assert.ok(raw > 0.3 * STEP, `the painters' lamp at ${x} flickers (${raw})`)
+      assert.ok(held < 0.1 * STEP, `the lamp at ${x} changes by ${held} a frame: a dither step is ${STEP}`)
+      near(strength(frames.at(-1), x), mean, 0.05)
+    }
+  })
+
+  it('a lamp that walks keeps its strength, and one that stands still and steady is the same every frame', () => {
+    const frames = run(t => [
+      { x: 1 + t * 3, y: 2, r: 2, color: '#b6ff4a', a: 0.5 + 0.3 * Math.sin(t * 15) },
+      { x: 5, y: 5, r: 3, color: '#ffd23f', a: 0.8 },
+    ], 300)
+    for (let i = 61; i < frames.length; i++) {
+      const a = frames[i].find(l => l.y === 2).c[0]
+      const b = frames[i - 1].find(l => l.y === 2).c[0]
+      assert.ok(Math.abs(a - b) < 0.1 * STEP, `the walking lamp jumps by ${Math.abs(a - b)}`)
+      assert.equal(frames[i].find(l => l.y === 5).c[1], frames[i - 1].find(l => l.y === 5).c[1])
+    }
+  })
+
+  it('of more lamps than the engine lights, none comes or goes at full strength as the hero walks past them', () => {
+    const row = Array.from({ length: 40 }, (_, i) => ({ x: i + 0.5, y: 0, r: 3, color: '#ffffff', a: 0.8 }))
+    const frames = run(() => row, 800, i => ({ x: i * 0.05, y: 1 }))
+    let jump = 0
+    for (let i = 1; i < frames.length; i++) {
+      assert.ok(frames[i].length <= M.LAMP_CAP)
+      for (const l of row) jump = Math.max(jump, Math.abs(strength(frames[i], l.x) - strength(frames[i - 1], l.x)))
+    }
+    assert.ok(jump < 0.08, `a lamp's light jumps by ${jump} between two frames`)
+    // (And the nearest keep their whole light.)
+    near(strength(frames[400], 20.5), 0.8, 1e-9)
+  })
+
+  it('standing still, the lamps are the sixteen nearest at full strength (the look as it was)', () => {
+    const row = Array.from({ length: 40 }, (_, i) => ({ x: i * 0.7, y: (i * 7) % 5, r: 3, color: '#ffffff', a: 0.6 }))
+    const frames = run(() => row, 120, () => ({ x: 9, y: 2 }))
+    const want = [...row].sort((a, b) => Math.hypot(a.x - 9, a.y - 2) - Math.hypot(b.x - 9, b.y - 2)).slice(0, M.LAMP_CAP)
+    for (const f of [frames[0], frames.at(-1)]) {
+      assert.deepEqual(f.map(l => `${l.x},${l.y}`).sort(), want.map(l => `${l.x},${l.y}`).sort())
+      for (const l of f) near(l.c[0], 0.6, 1e-9)
+    }
+  })
+
+  it('holds everything while the clock stands (a pause)', () => {
+    const keep = M.createLampKeeper()
+    const L = [{ x: 1, y: 1, r: 2, color: '#ff8a3d', a: 0.9 }]
+    keep(L, 1 / 60, { x: 0, y: 0 }, 1, () => 0)
+    const a = keep([{ ...L[0], a: 0.2 }], 0, { x: 0, y: 0 }, 1, () => 0)
+    near(a[0].c[0], 0.9, 1e-9)
+  })
+})
+
+
 describe('the polygon view in the bundle', () => {
   it('is fetched on the turn to it: nothing imports it statically', () => {
     const view = join(root, 'render/poly/view.ts')
@@ -503,6 +585,103 @@ describe('the polygon view in the bundle', () => {
     for (const f of files) {
       const src = readFileSync(f, 'utf8')
       assert.ok(!/from\s+['"][^'"]*poly\/view['"]/.test(src), `${f} imports the polygon view statically`)
+    }
+  })
+})
+
+describe('the light held smooth', () => {
+  // The hour's light comes in steps of a tenth of a second; drawn as it comes, each step moves the dither over
+  // everything it lights at once (the solved game's flicker). The view holds each light value smooth.
+  it('follows a small step over frames, never at once, and settles on it', () => {
+    let v = [0.5, 0.4, 0.3]
+    const to = [0.52, 0.42, 0.31]
+    const seen = []
+    for (let i = 0; i < 240; i++) { v = M.holdLight(v, to, 1 / 60); seen.push(v[0]) }
+    // (No frame moves more than a part of the step: 1/60 s of a 0.4 s time constant is about 4 %.)
+    for (let i = 1; i < seen.length; i++) assert.ok(seen[i] - seen[i - 1] <= 0.02 * 0.05 + 1e-12, `frame ${i} moved ${seen[i] - seen[i - 1]}`)
+    near(seen[0], 0.5 + 0.02 * (1 - Math.exp(-1 / 60 / M.HOLD_TAU)), 1e-9)
+    near(seen.at(-1), 0.52, 1e-4)
+    // (Monotone: the held light never overshoots the hour's.)
+    for (let i = 1; i < seen.length; i++) assert.ok(seen[i] >= seen[i - 1] && seen[i] <= 0.52 + 1e-12)
+  })
+  it('takes a jump at once: a map, a door, a setting', () => {
+    const v = M.holdLight([0.5, 0.4, 0.3], [0.5 + M.HOLD_JUMP + 0.01, 0.4, 0.3], 1 / 60)
+    assert.deepEqual(v, [0.5 + M.HOLD_JUMP + 0.01, 0.4, 0.3])
+    assert.deepEqual(M.holdLight(null, [0.1, 0.2, 0.3], 1 / 60), [0.1, 0.2, 0.3])
+  })
+  it('does not run ahead on a long frame', () => {
+    // (A frame of a whole second counts as a tenth: a hitch does not jump the light.)
+    const a = M.holdLight([0, 0, 0], [0.05, 0, 0], 1)
+    near(a[0], 0.05 * (1 - Math.exp(-0.1 / M.HOLD_TAU)), 1e-9)
+  })
+})
+
+describe('the change between the two looks', () => {
+  const from = { filter: 0, fog: 0.3, drawDistance: 40, pose: 'crane', colors: '15-bit', smoothEdges: false }
+  const to = { filter: 1, fog: 1, drawDistance: 30, pose: 'shoulder', colors: 'full', smoothEdges: true }
+  it('mixes every number by the ease, and ends exactly on the new look', () => {
+    const half = M.easeLook(from, to, 0.25)
+    near(half.filter, 0.25); near(half.fog, 0.3 + 0.7 * 0.25); near(half.drawDistance, 37.5)
+    assert.deepEqual(M.easeLook(from, to, 1), to)
+    assert.deepEqual(M.easeLook(from, to, 0), from)
+  })
+  it('changes a switch once, in the middle, under the camera\'s move', () => {
+    for (const e of [0, 0.2, 0.49]) assert.equal(M.easeLook(from, to, e).pose, 'crane')
+    for (const e of [0.5, 0.8, 1]) assert.equal(M.easeLook(from, to, e).pose, 'shoulder')
+    assert.equal(M.easeLook(from, to, 0.3).smoothEdges, false)
+    assert.equal(M.easeLook(from, to, 0.7).colors, 'full')
+  })
+  it('is continuous: no number moves by more than its share of the ease between two frames', () => {
+    let last = M.easeLook(from, to, 0)
+    for (let i = 1; i <= 60; i++) {
+      const e = i / 60
+      const now = M.easeLook(from, to, e)
+      for (const k of ['filter', 'fog', 'drawDistance']) assert.ok(Math.abs(now[k] - last[k]) <= Math.abs(to[k] - from[k]) / 60 + 1e-9)
+      last = now
+    }
+  })
+})
+
+describe('the painted page\'s light', () => {
+  // A painted material is brought to the mean light of the 16-bit view's own (`ALBEDO`), so the ground is as bright in
+  // every view: a gamma per material, solved for the mean, the hue kept.
+  const page = (side, fill) => {
+    const d = new Uint8ClampedArray(side * side * 2 * 4)
+    for (let i = 0; i < side * side * 2; i++) { const [r, g, b] = fill(i % (side * 2), Math.floor(i / (side * 2))); d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = b; d[i * 4 + 3] = 255 }
+    return d
+  }
+  const meanOf = (d, side, k) => {
+    let sum = 0
+    for (let y = 0; y < side; y++) for (let x = k * side; x < (k + 1) * side; x++) { const o = (y * side * 2 + x) * 4; sum += (d[o] * 0.3 + d[o + 1] * 0.59 + d[o + 2] * 0.11) / 255 }
+    return sum / side / side
+  }
+  it('brings a dark painting to its target mean, and leaves the next material alone', () => {
+    const side = 16
+    const d = page(side, (x, y) => x < side ? [40 + (x * 7) % 50, 30 + (y * 5) % 40, 60 + ((x + y) * 3) % 60] : [200, 10, 10])
+    const before = meanOf(d, side, 1)
+    M.toAlbedo(d, side * 2, side, 0, M.ALBEDO.cobbles, 1)
+    near(meanOf(d, side, 0), M.ALBEDO.cobbles, 0.01)
+    near(meanOf(d, side, 1), before, 1e-9)
+  })
+  it('keeps each texel\'s hue, and the order of light and dark', () => {
+    const side = 8
+    const d = page(side, (x, y) => [20 + x * 9, 10 + y * 6, 70 + x * 4])
+    const hue = (r, g, b) => { const mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx === mn) return 0; const h = mx === r ? (g - b) / (mx - mn) : mx === g ? 2 + (b - r) / (mx - mn) : 4 + (r - g) / (mx - mn); return ((h * 60) + 360) % 360 }
+    const was = [], lum = []
+    for (let i = 0; i < side; i++) { const o = (i * side * 2 + i) * 4; was.push(hue(d[o], d[o + 1], d[o + 2])); lum.push(d[o] * 0.3 + d[o + 1] * 0.59 + d[o + 2] * 0.11) }
+    M.toAlbedo(d, side * 2, side, 0, 0.3, 1)
+    for (let i = 0; i < side; i++) {
+      const o = (i * side * 2 + i) * 4
+      assert.ok(Math.abs(hue(d[o], d[o + 1], d[o + 2]) - was[i]) < 6, `texel ${i}: hue ${was[i]} became ${hue(d[o], d[o + 1], d[o + 2])}`)
+      if (i) assert.ok(d[o] * 0.3 + d[o + 1] * 0.59 + d[o + 2] * 0.11 >= d[o - (side * 2 + 1) * 4] * 0.3 + d[o - (side * 2 + 1) * 4 + 1] * 0.59 + d[o - (side * 2 + 1) * 4 + 2] * 0.11 - 1)
+    }
+  })
+  it('has a mean light and a tuning for every material, inside the 16-bit view\'s range', () => {
+    const MATS = ['grass', 'cobbles', 'sand', 'flags', 'boards', 'moss', 'lane', 'shingles', 'siding', 'rockface', 'bricks', 'blocks', 'panel', 'slab', 'plates', 'steel']
+    for (const m of MATS) {
+      assert.ok(M.ALBEDO[m] > 0.08 && M.ALBEDO[m] < 0.7, `${m} ${M.ALBEDO[m]}`)
+      const [gain, sat] = M.PAINTED_TUNE[m]
+      assert.ok(gain > 0.5 && gain <= 1.2 && sat > 0.5 && sat <= 1.2, `${m} tune ${gain} ${sat}`)
     }
   })
 })
