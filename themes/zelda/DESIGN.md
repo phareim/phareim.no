@@ -140,8 +140,9 @@ pink danger, gold treasure. Sprites and the 5×7 pixel font are code
 (`render/tiles.ts`). This is the classic view. Other views draw the same
 state another way: an isometric 16-bit one, where a visit starts, with a sun of its own and its
 own materials for the ground, the walls and the roofs; and a polygon 32-bit one: since part 14 (2026-11-24) the
-16-bit world's own art (its hero, its trees) standing in the polygon engine's land and light (the hero drawn at
-twice the 16-bit look's density since part 15: the same figure, four times the pixels, the same size), seen from the 16-bit
+16-bit world's own art (its hero, its trees) standing in the polygon engine's land and light (since part 16 the hero
+and every person and thing are the classic drawings, as in the 8- and 16-bit adventure, at four times the 16-bit
+view's pixels, made in the shader: Scale4x and the 16-bit view's blend), seen from the 16-bit
 look's angle but nearer and with real depth, the land flat beside roads and houses and low elsewhere, and reached
 from the 16-bit look by one continuous move that never shows the classic picture (the 64-bit look below is out of
 the round for now: `views.ts`); before that, the world as low polygons in

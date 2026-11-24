@@ -3,9 +3,11 @@
  * crane south-east of the hero looking north-west as the 16-bit look does,
  * nearer and with depth, drawn the way a 1996 console drew it (`engine.ts`).
  * The 32-bit look; a 64-bit look is the same engine with other values
- * (`viewParams.ts`, engine `poly`; out of the round since part 14). Its hero
- * and its plants are the 16-bit look's own pictures stood up as cards and lit
- * from their normal pictures (`TEX.FIG`, `TEX.FLORA`), and it turns straight
+ * (`viewParams.ts`, engine `poly`; out of the round since part 14). Its people
+ * and things are the classic drawings at four fine px a texel (`fineAt` in
+ * the engine, part 16), stood up as the 16-bit view stands them; its plants
+ * are the 16-bit look's own, lit from their normal pictures (`TEX.FLORA`;
+ * the modelled hero, a choice, `TEX.FIG`), and it turns straight
  * into the 16-bit look and back (`Kit.pairIso`, `isoMatrix`).
  *
  * The game's own state, nothing else: each frame the classic painters draw
@@ -1198,7 +1200,9 @@ export default function polyView(kit: Kit): View {
     const fig16 = par.figure === '16-bit' && k > 0.5 && !ui.attract && !modelled
     kit.setHeroBare(modelled || fig16)
     // Figures show the side the camera sees (a hero walking away shows their back); the stick turns with the camera.
-    const yawShown = k >= 0.5 && (!roomed || shoulderK < 0.5) ? cam.yaw : 0
+    // (The crane shows each figure's four ways as the 16-bit view does, the classic way round: its people and things
+    // are that view's drawings (part 16). The shoulder camera shows the side it sees.)
+    const yawShown = k >= 0.5 && shoulderK >= 0.5 && !roomed ? cam.yaw : 0
     kit.setFacing(yawShown)
     // The stick turns by the camera's nearest quarter (up is away from the camera within an eighth of a turn, and
     // the keys walk along the world's grid, as the game's rules are laid out), and the turn is held while the hero
@@ -1249,6 +1253,36 @@ export default function polyView(kit: Kit): View {
     const ry = Math.sin(yawCard)
     const standing: Array<[number, number, number]> = []
     const figN: [number, number, number] = [0, 0.55, 0.83]
+    // --- the 16-bit look's pictures, stood up (part 14; the classic cards too, part 16) --------------------------------
+    // Drawn for a camera south-east of them looking north-west 30° down, which the crane now is: what is above the foot
+    // stands upright, facing the camera; what is below it lies on the ground toward the eye; each as large as makes the
+    // picture's px square on the screen (32·√2 of the 16-bit look's px to a tile across, `fine` of them to one of its px).
+    const S16 = 32 * Math.SQRT2
+    const { r: camR, f: camF } = poseAxes(cam)
+    const bl = Math.hypot(camF[0], camF[1]) || 1
+    const tbx = -camF[0] / bl, tby = -camF[1] / bl
+    const pc = Math.max(0.2, cam.pitch)
+    // (At the 16-bit end of the direct turn, where this view draws with the 16-bit projection, a picture stands as that
+    // view stands it: unforeshortened, a px up the screen 1/√2 of a px across, and what lies below the foot half of it;
+    // at the crane, as the crane sees it. Between the two, as the camera goes: part 16.)
+    const own = 1 - pairIso
+    const upK = 1 / (S16 * (Math.SQRT1_2 + (Math.cos(pc) - Math.SQRT1_2) * own)), downK = 1 / (S16 * (0.5 + (Math.sin(pc) - 0.5) * own))
+    const nUp: [number, number, number] = [tbx * 0.8, tby * 0.8, 0.6]
+    // (`fine`: the picture's px to one of the 16-bit look's: 2 for the hero drawn at twice the density, part 15.)
+    const sprite16 = (tex: number, sp: { x: number; y: number; w: number; h: number; ax: number; ay: number }, x: number, y: number, sway: number, role: number, flags: number, fine = 1, n: [number, number, number] = nUp) => {
+      const g = groundAt(x, y)
+      const l = -sp.ax / S16 / fine, rr = (sp.w - sp.ax) / S16 / fine
+      const above = sp.ay * upK / fine, below = (sp.h - sp.ay) * downK / fine
+      const lx = x + l * camR[0], ly = y + l * camR[1], rx2 = x + rr * camR[0], ry2 = y + rr * camR[1]
+      const n0 = dyn.n
+      quad(dyn, [[lx, ly, above, g, sp.x, sp.y], [rx2, ry2, above, g, sp.x + sp.w, sp.y], [rx2, ry2, 0, g, sp.x + sp.w, sp.y + sp.ay], [lx, ly, 0, g, sp.x, sp.y + sp.ay]], tex, [1, 1, 1], n, role, flags)
+      if (below > 0.01) {
+        const fx = tbx * below, fy = tby * below
+        quad(dyn, [[lx, ly, 0.012, g, sp.x, sp.y + sp.ay], [rx2, ry2, 0.012, g, sp.x + sp.w, sp.y + sp.ay], [rx2 + fx, ry2 + fy, 0.012, groundAt(rx2 + fx, ry2 + fy), sp.x + sp.w, sp.y + sp.h], [lx + fx, ly + fy, 0.012, groundAt(lx + fx, ly + fy), sp.x, sp.y + sp.h]], tex, [1, 1, 1], [0, 0, 1], role, flags)
+      }
+      // (How much the wind moves it rides in the vertex's sun slot, which the engine reads only for a plant.)
+      if (sway > 0) for (let i = n0; i < dyn.n; i++) dyn.data[i * STRIDE + 13] = sway
+    }
     for (let n = 0; n < small.length + large.length; n++) {
       const big = n >= small.length
       const it = big ? large[n - small.length]! : small[n]!
@@ -1321,6 +1355,13 @@ export default function polyView(kit: Kit): View {
         const smooth = (a: number, b: number, v: number) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t) }
         cover = smooth(0.03, 0.35, over) * (1 - smooth(heroBox[4] - 0.2, heroBox[4] + 0.35, fd)) * shoulderK
       }
+      // The crane: a person or a thing stands as the 16-bit view stands its card (half a 16-bit px a classic px), on its
+      // foot point, so at the 16-bit end of the direct turn it lies on that view's picture (part 16).
+      if (shoulderK < 0.5 && !it.wall && !it.tile && !(it.hero && model)) {
+        // (Lit as the classic cards always were: by a normal mostly up, a little toward the south.)
+        sprite16(TEX.ATLAS, { x: u0, y: v0, w: C.w, h: C.h, ax: C.ax, ay: C.ay }, x, y, 0, ROLE.STAY, 0, 0.5, figN)
+        continue
+      }
       if (!(it.hero && model && (s.hero.carry || s.hero.act === 'lift'))) quad(dyn, [[x + l * rx + tx(top), ty(top) + l * ry, z0 + top, g, u0, v0], [x + r * rx + tx(top), ty(top) + r * ry, z0 + top, g, u1, v0], [x + r * rx + tx(foot), ty(foot) + r * ry, z0 + foot, g, u1, v1], [x + l * rx + tx(foot), ty(foot) + l * ry, z0 + foot, g, u0, v1]], TEX.ATLAS, [1, 1, 1], figN, ROLE.STAY, it.hero || shoulderK < 0.5 ? 0 : FLAG.SEE + 32 * Math.round(cover * 31))
       if (it.hero && model) {
         // The hero as a model, on their feet at the land's height; hit, they blink as the sprite does.
@@ -1350,28 +1391,6 @@ export default function polyView(kit: Kit): View {
     // what is above the foot stands upright, facing the camera; what is below it (the ground in front, a blade's sweep)
     // lies on the ground toward the eye; each as large as makes the picture's px square on the screen.
     {
-      const S16 = 32 * Math.SQRT2
-      const { r: camR, f: camF } = poseAxes(cam)
-      const bl = Math.hypot(camF[0], camF[1]) || 1
-      const tbx = -camF[0] / bl, tby = -camF[1] / bl
-      const pc = Math.max(0.2, cam.pitch)
-      const upK = 1 / (S16 * Math.cos(pc)), downK = 1 / (S16 * Math.sin(pc))
-      const nUp: [number, number, number] = [tbx * 0.8, tby * 0.8, 0.6]
-      // (`fine`: the picture's px to one of the 16-bit look's: 2 for the hero drawn at twice the density, part 15.)
-      const sprite16 = (tex: number, sp: { x: number; y: number; w: number; h: number; ax: number; ay: number }, x: number, y: number, sway: number, role: number, flags: number, fine = 1) => {
-        const g = groundAt(x, y)
-        const l = -sp.ax / S16 / fine, rr = (sp.w - sp.ax) / S16 / fine
-        const above = sp.ay * upK / fine, below = (sp.h - sp.ay) * downK / fine
-        const lx = x + l * camR[0], ly = y + l * camR[1], rx2 = x + rr * camR[0], ry2 = y + rr * camR[1]
-        const n0 = dyn.n
-        quad(dyn, [[lx, ly, above, g, sp.x, sp.y], [rx2, ry2, above, g, sp.x + sp.w, sp.y], [rx2, ry2, 0, g, sp.x + sp.w, sp.y + sp.ay], [lx, ly, 0, g, sp.x, sp.y + sp.ay]], tex, [1, 1, 1], nUp, role, flags)
-        if (below > 0.01) {
-          const fx = tbx * below, fy = tby * below
-          quad(dyn, [[lx, ly, 0.012, g, sp.x, sp.y + sp.ay], [rx2, ry2, 0.012, g, sp.x + sp.w, sp.y + sp.ay], [rx2 + fx, ry2 + fy, 0.012, groundAt(rx2 + fx, ry2 + fy), sp.x + sp.w, sp.y + sp.h], [lx + fx, ly + fy, 0.012, groundAt(lx + fx, ly + fy), sp.x, sp.y + sp.h]], tex, [1, 1, 1], [0, 0, 1], role, flags)
-        }
-        // (How much the wind moves it rides in the vertex's sun slot, which the engine reads only for a plant.)
-        if (sway > 0) for (let i = n0; i < dyn.n; i++) dyn.data[i * STRIDE + 13] = sway
-      }
       if (fig16) {
         const h = s.hero
         const blink = h.act !== 'dead' && h.act !== 'fall' && h.act !== 'get' && h.invuln > 0 && Math.floor(time * 20) % 2 === 0
@@ -1645,6 +1664,7 @@ export default function polyView(kit: Kit): View {
       } : {}),
       smooth: (par.smoothShade as number) * ek,
       filter: (par.filter as number) * ek,
+      fine: par.fineFigures === 'scale4x' ? 2 : par.fineFigures === 'smooth' ? 1 : 0,
       // (The ground glides, in the 32-bit look too: its texels read one by one shimmer as the camera moves.)
       matFilter: Math.max(par.filter as number, (par.groundFilter as number) ?? 0) * ek,
       sharpBias: (par.groundSoft as number) ?? 0,

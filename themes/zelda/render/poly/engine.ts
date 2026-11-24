@@ -56,6 +56,8 @@ export interface PolyLook {
   smooth: number
   /** Textures filtered at half their size (1) or read texel by texel (0). */
   filter: number
+  /** The figures' classic pictures at four fine px a texel: 0 plain, 1 the 16-bit view's smoothing, 2 Scale4x and its blend (part 16). */
+  fine?: number
   /** The ground's and the walls' materials filtered between texels (default: as `filter`). */
   matFilter?: number
   /** The filtered ground this many mip levels softer than its pixels want (anisotropic read). */
@@ -406,6 +408,8 @@ uniform float uWater;
 uniform vec4 uGlint;
 uniform vec3 uGlintCol;
 uniform float uFilter;
+/** The figures' classic pictures at four fine px a texel (part 16): 0 plain, 1 the 16-bit view's smoothing, 2 Scale4x and that smoothing's blend. */
+uniform float uFine;
 /** The ground's and the walls' materials filtered between texels (0: texel by texel). */
 uniform float uMatFilter;
 uniform float uFog;
@@ -553,6 +557,53 @@ vec4 atlasAt(vec2 px) {
   vec4 soft = mix(mix(premul(atlasTexel(i)), premul(atlasTexel(i + vec2(1.0, 0.0))), f.x), mix(premul(atlasTexel(i + vec2(0.0, 1.0))), premul(atlasTexel(i + 1.0)), f.x), f.y);
   return mix(premul(hard), soft, uFilter);
 }
+/**
+ * A figure's classic picture at four fine px a texel (part 16), made here as it is read, never on the CPU: the 32-bit
+ * look's people and things at four times the 16-bit view's pixels. uFine 2: Scale4x (Scale2x on Scale2x's picture: the
+ * stairs get quarter-steps, every px stays one of the drawing's colours), then the 16-bit view's own blend of one
+ * material's shades (iso/shaders.ts art: each fine px drawn toward the texel beside it by how far it is from the
+ * texel's middle, where the two are close colours; an outline stays hard). uFine 1: the 16-bit view's smoothing alone,
+ * at four steps a texel. (Premultiplied, as the atlas holds it.)
+ */
+bool sameC(vec4 a, vec4 b) { vec4 d = abs(a - b); return max(max(d.r, d.g), max(d.b, d.a)) < 0.03; }
+float nearC(vec4 a, vec4 b) {
+  if (a.a < 0.5 || b.a < 0.5) return 0.0;
+  vec3 d = a.rgb - b.rgb;
+  return 1.0 - smoothstep(0.10, 0.30, sqrt(dot(d, d)));
+}
+vec4 s2At(ivec2 t, ivec2 q) {
+  vec4 E = atlasTexel(vec2(t));
+  vec4 B = atlasTexel(vec2(t + ivec2(0, -1))), D = atlasTexel(vec2(t + ivec2(-1, 0)));
+  vec4 F = atlasTexel(vec2(t + ivec2(1, 0))), H = atlasTexel(vec2(t + ivec2(0, 1)));
+  vec4 a = q.y == 1 ? H : B, b = q.x == 1 ? F : D, a2 = q.y == 1 ? B : H, b2 = q.x == 1 ? D : F;
+  return sameC(a, b) && !sameC(a, b2) && !sameC(b, a2) ? b : E;
+}
+vec4 s2x(ivec2 p2) { return s2At(p2 / 2, p2 - (p2 / 2) * 2); }
+vec4 fineAt(vec2 px) {
+  ivec2 f4 = ivec2(floor(px * 4.0));
+  ivec2 t = f4 / 4;
+  ivec2 sub = f4 - t * 4;
+  vec4 c;
+  if (uFine > 1.5) {
+    ivec2 p2 = f4 / 2;
+    ivec2 q = f4 - p2 * 2;
+    vec4 E = s2x(p2), B = s2x(p2 + ivec2(0, -1)), D = s2x(p2 + ivec2(-1, 0)), F = s2x(p2 + ivec2(1, 0)), H = s2x(p2 + ivec2(0, 1));
+    vec4 a = q.y == 1 ? H : B, b = q.x == 1 ? F : D, a2 = q.y == 1 ? B : H, b2 = q.x == 1 ? D : F;
+    c = sameC(a, b) && !sameC(a, b2) && !sameC(b, a2) ? b : E;
+  } else c = s2At(t, ivec2(sub.x >= 2 ? 1 : 0, sub.y >= 2 ? 1 : 0));
+  if (c.a >= 0.5) {
+    vec2 f = (vec2(sub) + 0.5) / 4.0;
+    vec4 bb = atlasTexel(vec2(t + ivec2(f.x < 0.5 ? -1 : 1, 0)));
+    vec4 aa = atlasTexel(vec2(t + ivec2(0, f.y < 0.5 ? -1 : 1)));
+    vec2 g = abs(f - 0.5);
+    vec4 base = vec4(c.rgb / c.a, 1.0);
+    vec3 col = base.rgb;
+    if (bb.a > 0.5) col = mix(col, bb.rgb / bb.a, g.x * nearC(base, vec4(bb.rgb / bb.a, 1.0)));
+    if (aa.a > 0.5) col = mix(col, aa.rgb / aa.a, g.y * nearC(base, vec4(aa.rgb / aa.a, 1.0)));
+    c = vec4(col * c.a, c.a);
+  }
+  return c;
+}
 void main() {
   // (People and things are sprites: the machine drew those straight, not as warped polygons.)
   vec2 uv = vTex == 3 || vTex == 7 ? vUv : mix(vUv, vUvw.xy / vUvw.z, uAffine);
@@ -624,7 +675,7 @@ void main() {
   } else if (vTex == 6) {
     c = pic(uBase, uv);
   } else if (vTex == 3) {
-    c = atlasAt(uv);
+    c = uFine > 0.5 && uFilter <= 0.001 ? fineAt(uv) : atlasAt(uv);
   } else if (vTex == 7) {
     // The hero model: its texture texel by texel, or filtered (the 64-bit look). (The mesh's own uv, never warped.)
     ivec2 hs = textureSize(uHeroTex, 0);
@@ -1086,6 +1137,7 @@ export function createEngine(): Engine {
       gl.uniform1f(u('uFacet'), f.facet)
       gl.uniform1f(u('uSmooth'), L.smooth)
       gl.uniform1f(u('uFilter'), L.filter)
+      gl.uniform1f(u('uFine'), L.fine ?? 0)
       gl.uniform1f(u('uMatFilter'), L.matFilter ?? L.filter)
       gl.uniform1f(u('uFog'), L.fog)
       gl.uniform1i(u('uFaces'), L.faces ? 1 : 0)
