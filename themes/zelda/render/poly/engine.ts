@@ -101,8 +101,14 @@ export interface Frame {
   time: number
   look: PolyLook
   chunks: Array<{ buf: WebGLBuffer; count: number }>
+  /** Of those, the ones near enough to the eye that something on them may fade (the translucent pass draws only these). */
+  nearChunks?: Array<{ buf: WebGLBuffer; count: number }>
   dynamic: { data: Float32Array; count: number }
   blobs: { data: Float32Array; count: number }
+  /** Where the spill map lies (field x, y, texels a tile) and how strong it is now (0: off). */
+  spillAt?: [number, number, number, number]
+  /** The hero's hair colour (0-1): what the inside of its head shows. */
+  hairIn?: [number, number, number]
   /** Lamps' halos (`TEX.HALO`), drawn last, added in. */
   halos?: { data: Float32Array; count: number }
   /**
@@ -143,6 +149,8 @@ vec3 skinned(vec3 v, float t) {
 }
 uniform mat4 uM;
 uniform vec2 uView;
+/** The bloom's own pass (as uGlowOnly in the fragment stage). */
+uniform int uGlowOnlyV;
 /** The snap's grid: px of the picture to one cell (a classic px or half of it, however fine the picture). */
 uniform float uGrid;
 uniform vec3 uEye;
@@ -174,6 +182,8 @@ float sunAt(vec3 p) {
   }
   return 1.0;
 }
+uniform sampler2D uSpill;
+uniform vec4 uSpillAt;
 uniform int uLampN;
 uniform vec4 uLampPos[16];
 uniform vec3 uLampCol[16];
@@ -233,6 +243,8 @@ void main() {
   vec3 n = normalize(mix(inN, inSN, uSmooth));
   // The sky lights from above and a little from the north-west, so every facet of a knoll takes its own share.
   float sky = mix(1.0, 0.12 + 1.08 * max(0.0, dot(n, normalize(vec3(-0.55, -0.2, 0.81)))), uFacet);
+  // (The bloom's own pass outputs only what shines by itself: no light worked out for it.)
+  if (uGlowOnlyV == 1) { vLight = vec3(0.0); vLamp = vec3(0.0); vPos = p; vN = n; return; }
   float lit = uShadow > 0.0 ? sunAt(p + inN * 0.02) : 1.0;
   float inSun = mix(1.0, lit, uShadow);
   vec3 L = uAmbient * sky * mix(1.0, 0.62 + 0.38 * lit, uShadow);
@@ -248,6 +260,8 @@ void main() {
     float face = mix(1.0, clamp(dot(n, d / max(dist, 1e-3)) * 1.3 + 0.25, 0.0, 1.0), uSide);
     lampL += uLampCol[i] * a * a * (3.0 - 2.0 * a) * face;
   }
+  // What windows, signs and the fountain spill round them: read like a lamp (per corner here; per pixel below).
+  if (uSpillAt.w > 0.0) lampL += textureLod(uSpill, (p.xy - uSpillAt.xy) * uSpillAt.z / vec2(textureSize(uSpill, 0)), 0.0).rgb * 2.0 * uSpillAt.w;
   // The crown of a knoll a shade lighter than its foot, so the land rolls even where the light is flat.
   float crown = 1.0 + 0.2 * clamp(inGround * uLift, 0.0, 1.5) * uFacet;
   vLight = L * crown;
@@ -269,6 +283,11 @@ uniform int uLampNf;
 uniform vec4 uLampPosF[16];
 uniform vec3 uLampColF[16];
 uniform float uSideF;
+/** The hero model's inside, seen through the hole at the back of its hair: the look's own hair colour. */
+uniform vec3 uHairIn;
+/** The spill map (as in the vertex stage), read per pixel in the 64-bit look. */
+uniform sampler2D uSpill;
+uniform vec4 uSpillAt;
 /** The eye and the hour's ambient light (as in the vertex stage): for the hero's rim. */
 uniform vec3 uEye;
 uniform vec3 uAmbient;
@@ -287,7 +306,9 @@ vec3 lampsAt(vec3 p, vec3 n) {
     float a = clamp(1.0 - dist / uLampPosF[i].w, 0.0, 1.0);
     if (a <= 0.0) continue;
     float face = mix(1.0, clamp(dot(n, d / max(dist, 1e-3)) * 1.3 + 0.25, 0.0, 1.0), uSideF);
-    L += uLampColF[i] * a * a * (3.0 - 2.0 * a) * face;
+    // (Per pixel, a pool: a bright core under the lamp as well as the soft reach, so its colour lies on the ground.)
+    float a2 = a * a;
+    L += uLampColF[i] * (a2 * (3.0 - 2.0 * a) + 1.1 * a2 * a2) * face;
   }
   return L;
 }
@@ -478,6 +499,34 @@ void main() {
   gFoot = fwidth(muv);
   gDx = dFdx(muv);
   gDy = dFdy(muv);
+  // (Part 9: whether this pixel fades is decided first, so the translucent pass and a dropped pixel cost no lighting.)
+  // The 64-bit camera walks among things: what stands near the eye (a tree it stands in, a sign at the hero's back)
+  // fades away, gone at a tile and a half; a paper figure nearer the eye than the hero fades over its last tile; and
+  // what stands between the eye and the hero is seen through in a soft-edged window. The 64-bit look does all three
+  // with real transparency (fade: the opaque pass leaves out what is partly faded, the translucent pass blends it
+  // in, uTrans); never a dither, never a card's rectangle. The 32-bit machine stipples, as it did.
+  float fade = 1.0;
+  // (What lies flat on the ground never stands between the eye and the hero: it is never faded or cut.)
+  bool see = ((vFlags & 1) != 0 || ((vFlags & 4) != 0 && uFaces == 1)) && (uFaces == 0 || abs(normalize(vN).z) < 0.95);
+  if (uFaces == 1) {
+    if (vTex == 3 && see) fade = min(fade, smoothstep(uHero.w - 0.9, uHero.w - 0.2, vDist));
+    // (A figure over the hero, by the amount the view worked out for it: bits 5-9 of its flags.)
+    if (vTex == 3) fade = min(fade, 1.0 - 0.9 * float((vFlags >> 5) & 31) / 31.0);
+    if (see && vDist < uHero.w - 0.6) fade = min(fade, clamp((vDist - 1.2) / max(0.5, uHero.w - 1.8), 0.0, 1.0));
+    if (see && uHero.z > 0.0 && vDist < uHero.w - 0.5) {
+      vec2 dd = (gl_FragCoord.xy - uHero.xy) / vec2(uHero.z * 0.7, uHero.z);
+      fade = min(fade, smoothstep(0.65, 1.0, dot(dd, dd)));
+    }
+    if (uTrans == 0 && fade < 0.999) discard;
+    if (uTrans == 1 && (fade >= 0.999 || fade <= 0.002)) discard;
+  } else {
+    if (uTrans == 1) discard;
+    if (see && uHero.z > 0.0 && vDist < uHero.w - 0.5) {
+      vec2 dd = (gl_FragCoord.xy - uHero.xy) / vec2(uHero.z * 0.7, uHero.z);
+      vec2 sc = floor(gl_FragCoord.xy / uCell);
+      if (dot(dd, dd) < 1.0 && mod(sc.x + sc.y, 2.0) < 1.0) discard;
+    }
+  }
   vec4 c = vec4(1.0);
   vec3 glow = vec3(0.0);
   /** What shines by itself in the classic art: bright, saturated colours (neon, screens, lit letters, crystals). */
@@ -518,7 +567,7 @@ void main() {
     // (Seen from inside, through the small hole at the back of the hair, the face's own texture would read as eyes on the
     // back of the head: the model's inside is the hair's dark.)
     gInside = dot(normalize(vN), normalize(uEye - vPos)) < 0.12;
-    if (gInside) c.rgb = vec3(0.094, 0.094, 0.345);
+    if (gInside) c.rgb = uHairIn;
   } else if (vTex == 4) {
     // Water: deep indigo, crests that run, glints, and at the shore foam (or a pool's neon rim).
     vec2 q = floor(uv * 16.0) / 16.0;
@@ -563,7 +612,8 @@ void main() {
   }
   if (c.a < 0.5) discard;
   vec3 tex = c.rgb / max(c.a, 1e-3);
-  vec3 lamp = uPerPixel > 0.001 ? mix(vLamp, lampsAt(vPos, normalize(vN)), uPerPixel) : vLamp;
+  vec3 spillF = uSpillAt.w > 0.0 && uPerPixel > 0.001 ? texture(uSpill, (vPos.xy - uSpillAt.xy) * uSpillAt.z / vec2(textureSize(uSpill, 0))).rgb * 2.0 * uSpillAt.w : vec3(0.0);
+  vec3 lamp = uPerPixel > 0.001 ? mix(vLamp, lampsAt(vPos, normalize(vN)) + spillF, uPerPixel) : vLamp;
   // (Toward the turn's flat end the light stops at 1, as the classic picture's light map does, so the hand-off meets it
   // beside a strong lamp too; in the view itself it may run far over.)
   vec3 light = min(vLight + lamp, vec3(mix(1.0, 8.0, uFacet * uFacet)));
@@ -620,33 +670,6 @@ void main() {
     float air = (1.0 - exp(-max(0.0, vDist - 4.0) / 12.0)) * 0.5 * (uFog - 0.5) * 2.0;
     lit = mix(lit, uHaze, max(fogged * 0.55, air));
   }
-  // The 64-bit camera walks among things: what stands near the eye (a tree it stands in, a sign at the hero's back)
-  // fades away, gone at a tile and a half; a paper figure nearer the eye than the hero fades over its last tile; and
-  // what stands between the eye and the hero is seen through in a soft-edged window. The 64-bit look does all three
-  // with real transparency (fade: the opaque pass leaves out what is partly faded, the translucent pass blends it
-  // in, uTrans); never a dither, never a card's rectangle. The 32-bit machine stipples, as it did.
-  float fade = 1.0;
-  // (What lies flat on the ground never stands between the eye and the hero: it is never faded or cut.)
-  bool see = ((vFlags & 1) != 0 || ((vFlags & 4) != 0 && uFaces == 1)) && (uFaces == 0 || abs(normalize(vN).z) < 0.95);
-  if (uFaces == 1) {
-    if (vTex == 3 && see) fade = min(fade, smoothstep(uHero.w - 0.9, uHero.w - 0.2, vDist));
-    // (A figure over the hero, by the amount the view worked out for it: bits 5-9 of its flags.)
-    if (vTex == 3) fade = min(fade, 1.0 - 0.9 * float((vFlags >> 5) & 31) / 31.0);
-    if (see && vDist < uHero.w - 0.6) fade = min(fade, clamp((vDist - 1.2) / max(0.5, uHero.w - 1.8), 0.0, 1.0));
-    if (see && uHero.z > 0.0 && vDist < uHero.w - 0.5) {
-      vec2 dd = (gl_FragCoord.xy - uHero.xy) / vec2(uHero.z * 0.7, uHero.z);
-      fade = min(fade, smoothstep(0.65, 1.0, dot(dd, dd)));
-    }
-    if (uTrans == 0 && fade < 0.999) discard;
-    if (uTrans == 1 && (fade >= 0.999 || fade <= 0.002)) discard;
-  } else {
-    if (uTrans == 1) discard;
-    if (see && uHero.z > 0.0 && vDist < uHero.w - 0.5) {
-      vec2 dd = (gl_FragCoord.xy - uHero.xy) / vec2(uHero.z * 0.7, uHero.z);
-      vec2 sc = floor(gl_FragCoord.xy / uCell);
-      if (dot(dd, dd) < 1.0 && mod(sc.x + sc.y, 2.0) < 1.0) discard;
-    }
-  }
   // 32 768 colours, the dither between them.
   if (uBits < 7.5) {
     float lv = exp2(uBits) - 1.0;
@@ -668,6 +691,8 @@ export interface Engine {
   materials(data: Uint8Array, w: number, h: number): void
   /** The painted page (128 texels a material, 32 a tile), drawn in place of the materials when a frame asks for it. */
   painted(data: Uint8Array, w: number, h: number): void
+  /** What lit windows, neon signs and a fountain spill round them (RGB, 2 texels a tile, x2 in the shader): read like a lamp. */
+  spill(data: Uint8Array, w: number, h: number): void
   /** The heightfield the sun's shadows are marched through: per cell, the land (R) and what stands on it (G), in 1/32 tiles. */
   heights(data: Uint8Array, w: number, h: number): void
   /** The hero model's texture (RGBA, straight). */
@@ -681,6 +706,9 @@ export interface Engine {
   shoreField(data: Uint8Array, w: number, h: number): void
   /** `glowTo`: a canvas that gets what shines by itself, for the bloom (a pass of its own before the picture). */
   draw(f: Frame, vw: number, vh: number, glowTo?: CanvasRenderingContext2D): void
+  /** For the lab: GPU time by pass and draw calls and vertices, summed since it was turned on (`profileOut`). */
+  profile(on: boolean): void
+  profileOut(): { passes: Record<string, number>; calls: number; verts: number; frames: number }
   /** For the lab: time the GPU's work of each frame (`EXT_disjoint_timer_query_webgl2`); the last result, ms (null: none yet). */
   timeGpu(on: boolean): void
   gpuMs(): number | null
@@ -701,6 +729,7 @@ export function createEngine(): Engine {
     painted: texture(gl, 1, 1),
     hero: texture(gl, 1, 1, { linear: true }),
     heights: texture(gl, 1, 1),
+    spill: texture(gl, 1, 1, { linear: true }),
     objs: texture(gl, 1, 1),
     base: texture(gl, 1, 1),
     atlas: texture(gl, 1, 1),
@@ -742,6 +771,26 @@ export function createEngine(): Engine {
   /** The lab's GPU timer (`timeGpu`). */
   const tq = gl.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null
   let timing = false
+  /** The lab's profile: one timer query a pass (in turn: queries cannot nest), read back when ready. */
+  const prof = { on: false, passes: {} as Record<string, number>, calls: 0, verts: 0, frames: 0, pending: [] as Array<{ q: WebGLQuery; name: string }>, open: false }
+  const passBegin = (name: string) => {
+    if (!prof.on || !tq) return
+    if (prof.open) gl.endQuery(tq.TIME_ELAPSED_EXT)
+    const q = gl.createQuery()!
+    gl.beginQuery(tq.TIME_ELAPSED_EXT, q)
+    prof.pending.push({ q, name })
+    prof.open = true
+  }
+  const passEnd = () => { if (prof.open && tq) { gl.endQuery(tq.TIME_ELAPSED_EXT); prof.open = false } }
+  const passRead = () => {
+    while (prof.pending.length && gl.getQueryParameter(prof.pending[0]!.q, gl.QUERY_RESULT_AVAILABLE)) {
+      const { q, name } = prof.pending.shift()!
+      if (tq && !gl.getParameter(tq.GPU_DISJOINT_EXT)) prof.passes[name] = (prof.passes[name] ?? 0) + gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6
+      gl.deleteQuery(q)
+    }
+  }
+  const da = gl.drawArrays.bind(gl)
+  gl.drawArrays = (mode: number, first: number, count: number) => { if (prof.on) { prof.calls++; prof.verts += count } da(mode, first, count) }
   const queries: WebGLQuery[] = []
   let lastGpu: number | null = null
   /** A frame was drawn with the plain page, and when a painted one began to fade in over it. */
@@ -778,6 +827,8 @@ export function createEngine(): Engine {
     ready: block => programsReady(gl, [prog], block),
     lost: () => gl.isContextLost(),
     timeGpu(on) { timing = on && !!tq },
+    profile(on) { if (on !== prof.on) { prof.on = on && !!tq; prof.passes = {}; prof.calls = 0; prof.verts = 0; prof.frames = 0 } },
+    profileOut: () => ({ passes: { ...prof.passes }, calls: prof.calls, verts: prof.verts, frames: prof.frames }),
     gpuMs: () => lastGpu,
     keep(data, count) {
       const buf = gl.createBuffer()!
@@ -809,6 +860,17 @@ export function createEngine(): Engine {
       hasArr = true
       hasPainted = true
     },
+    spill(data, w, h) {
+      gl.bindTexture(gl.TEXTURE_2D, tex.spill.t)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, w, h, 0, gl.RGB, gl.UNSIGNED_BYTE, data)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+      tex.spill.w = w; tex.spill.h = h
+    },
     heights(data, w, h) {
       gl.bindTexture(gl.TEXTURE_2D, tex.heights.t)
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -838,7 +900,8 @@ export function createEngine(): Engine {
     draw(f, vw, vh, glowTo) {
       // (The lab's GPU timer: the oldest query whose result is in, read; one begun for this frame.)
       let q: WebGLQuery | null = null
-      if (timing && tq) {
+      if (prof.on) { passRead(); prof.frames++; passBegin('setup') }
+      if (timing && tq && !prof.on) {
         while (queries.length && gl.getQueryParameter(queries[0]!, gl.QUERY_RESULT_AVAILABLE)) {
           const old = queries.shift()!
           if (!gl.getParameter(tq.GPU_DISJOINT_EXT)) lastGpu = gl.getQueryParameter(old, gl.QUERY_RESULT) / 1e6
@@ -931,6 +994,9 @@ export function createEngine(): Engine {
       bindTex(gl, 5, tex.shore, u('uShore'))
       bindTex(gl, 6, tex.hero, u('uHeroTex'))
       bindTex(gl, 7, tex.heights, u('uHeights'))
+      bindTex(gl, 10, tex.spill, u('uSpill'))
+      gl.uniform4f(u('uSpillAt'), ...(f.spillAt ?? [0, 0, 1, 0]))
+      gl.uniform3f(u('uHairIn'), ...(f.hairIn ?? [0.094, 0.094, 0.345]))
       gl.uniform4f(u('uHeightAt'), ...(f.heightAt ?? [0, 0, 1, 0]))
       gl.uniform3f(u('uSunRay'), ...(f.sunRay ?? [1, 0, 1]))
       gl.uniform4f(u('uRegion'), ...f.region)
@@ -953,8 +1019,8 @@ export function createEngine(): Engine {
         gl.bindBuffer(gl.ARRAY_BUFFER, dyn)
         gl.bufferData(gl.ARRAY_BUFFER, f.dynamic.data.subarray(0, f.dynamic.count * STRIDE), gl.STREAM_DRAW)
       }
-      const solid = () => {
-        for (const c of f.chunks) {
+      const solid = (trans = false) => {
+        for (const c of trans && f.nearChunks ? f.nearChunks : f.chunks) {
           bindLayout(c.buf)
           gl.drawArrays(gl.TRIANGLES, 0, c.count)
         }
@@ -964,7 +1030,8 @@ export function createEngine(): Engine {
         }
         const hs = f.heroSkin
         const hb = hs ? heroBufs.get(hs.key) : undefined
-        if (hs && hb) {
+        // (The hero never fades: not in the translucent pass.)
+        if (hs && hb && !trans) {
           // The hero: the mesh as uploaded, posed by its bones in the vertex shader.
           bindLayout(hb.buf, HSTRIDE)
           const st = HSTRIDE * 4
@@ -982,29 +1049,54 @@ export function createEngine(): Engine {
       }
       if (glowTo) {
         // First what shines by itself alone, for the bloom; then the picture.
+        passBegin('glow')
+        // (Part 9: drawn at the glow canvas's own size, in the corner of the picture, not at the picture's: the bloom
+        // only ever sees it that small. What works in screen px is scaled with it.)
+        const gw = Math.min(vw, glowTo.canvas.width), gh = Math.min(vh, glowTo.canvas.height)
+        const gs = gw / vw
+        gl.viewport(0, 0, gw, gh)
+        gl.uniform2f(u('uView'), gw, gh)
+        gl.uniform1f(u('uGrid'), Math.max(1, (f.grid ?? 1) * gs))
+        gl.uniform1f(u('uCell'), Math.max(1, (f.cell ?? 1) * gs))
+        gl.uniform4f(u('uHero'), ...(f.hero ? [f.hero[0] * gs, gh - f.hero[1] * gs, f.hero[2] * gs, f.hero[3]] as [number, number, number, number] : [0, 0, 0, 0] as [number, number, number, number]))
         gl.uniform1i(u('uGlowOnly'), 1)
+        gl.uniform1i(u('uGlowOnlyV'), 1)
         gl.uniform1i(u('uTrans'), 0)
         solid()
-        resolve()
+        if (fb) {
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fb)
+          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
+          gl.blitFramebuffer(0, 0, gw, gh, 0, 0, gw, gh, gl.COLOR_BUFFER_BIT, gl.NEAREST)
+          gl.bindFramebuffer(gl.FRAMEBUFFER, fb)
+        }
         glowTo.clearRect(0, 0, glowTo.canvas.width, glowTo.canvas.height)
-        glowTo.drawImage(canvas, 0, 0, glowTo.canvas.width, glowTo.canvas.height)
+        glowTo.drawImage(canvas, 0, canvas.height - gh, gw, gh, 0, 0, glowTo.canvas.width, glowTo.canvas.height)
         gl.uniform1i(u('uGlowOnly'), 0)
+        gl.uniform1i(u('uGlowOnlyV'), 0)
+        gl.viewport(0, 0, vw, vh)
+        gl.uniform2f(u('uView'), vw, vh)
+        gl.uniform1f(u('uGrid'), Math.max(1, f.grid ?? 1))
+        gl.uniform1f(u('uCell'), Math.max(1, f.cell ?? 1))
+        gl.uniform4f(u('uHero'), ...(f.hero ? [f.hero[0], vh - f.hero[1], f.hero[2], f.hero[3]] as [number, number, number, number] : [0, 0, 0, 0] as [number, number, number, number]))
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
       }
+      passBegin('solid')
       gl.uniform1i(u('uTrans'), 0)
       solid()
       if (L.faces) {
+        passBegin('trans')
         // The 64-bit look's translucent pass: only what is partly faded (near the eye, the window round the hero),
         // blended over what is drawn, writing no depth.
         gl.uniform1i(u('uTrans'), 1)
         gl.enable(gl.BLEND)
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
         gl.depthMask(false)
-        solid()
+        solid(true)
         gl.depthMask(true)
         gl.disable(gl.BLEND)
         gl.uniform1i(u('uTrans'), 0)
       }
+      passBegin('blobs+halos')
       if (f.blobs.count) {
         // Shadows on the ground: the ground under them darkened, never lit away.
         gl.bindBuffer(gl.ARRAY_BUFFER, blobBuf)
@@ -1034,7 +1126,9 @@ export function createEngine(): Engine {
         gl.depthMask(true)
         gl.disable(gl.BLEND)
       }
+      passBegin('resolve')
       resolve()
+      passEnd()
       if (q && tq) { gl.endQuery(tq.TIME_ELAPSED_EXT); queries.push(q) }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.bindVertexArray(null)
