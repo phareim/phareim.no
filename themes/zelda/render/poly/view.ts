@@ -1066,6 +1066,14 @@ export default function polyView(kit: Kit): View {
     // yaw as the matrices are mixed, or a camera turned away would leave them edge-on as the picture comes home.)
     const yawCard = cam.yaw * (k >= 1 ? 1 : ease(Math.max(0, k)))
     const rx = Math.cos(yawCard)
+    // The hero's box on the screen (x0, y0, x1, y1, px) and their distance from the eye: what a figure must not cover.
+    let heroBox: [number, number, number, number, number] | null = null
+    {
+      const hx = s.hero.x, hy = s.hero.y
+      const foot = place(hx, hy, 0), head = place(hx, hy, 1.0)
+      const tall = Math.abs(foot.y - head.y)
+      if (tall > 2 && foot.w > 0) heroBox = [foot.x - tall * 0.32, head.y, foot.x + tall * 0.32, foot.y, Math.hypot(hx - eye[0], hy - eye[1], groundAt(hx, hy) + 0.5 - eye[2])]
+    }
     const ry = Math.sin(yawCard)
     const standing: Array<[number, number, number]> = []
     const figN: [number, number, number] = [0, 0.55, 0.83]
@@ -1128,7 +1136,20 @@ export default function polyView(kit: Kit): View {
       const ty = (h: number) => y - h * tip * Math.cos(yawCard)
       const tx = (h: number) => h * tip * Math.sin(yawCard)
       // (The model carries its pot in the round: the card would only hold the classic one over its head.)
-      if (!(it.hero && model && (s.hero.carry || s.hero.act === 'lift'))) quad(dyn, [[x + l * rx + tx(top), ty(top) + l * ry, z0 + top, g, u0, v0], [x + r * rx + tx(top), ty(top) + r * ry, z0 + top, g, u1, v0], [x + r * rx + tx(foot), ty(foot) + r * ry, z0 + foot, g, u1, v1], [x + l * rx + tx(foot), ty(foot) + l * ry, z0 + foot, g, u0, v1]], TEX.ATLAS, [1, 1, 1], figN, ROLE.STAY, it.hero || shoulderK < 0.5 ? 0 : FLAG.SEE)
+      // (The 64-bit look: a figure that covers the hero on the screen, standing nearer the eye or at their heels (Luna),
+      // fades to nearly nothing, by how much of the hero it covers and how much nearer it stands, both smooth: no pop.
+      // The amount rides in the flags' bits 5-9, 32 steps.)
+      let cover = 0
+      if (!it.hero && shoulderK > 0.5 && heroBox) {
+        const pts = [place(x + l * rx + tx(top), ty(top) + l * ry, z0 + top), place(x + r * rx + tx(top), ty(top) + r * ry, z0 + top), place(x + r * rx + tx(foot), ty(foot) + r * ry, z0 + foot), place(x + l * rx + tx(foot), ty(foot) + l * ry, z0 + foot)]
+        const fx0 = Math.min(...pts.map(q => q.x)), fx1 = Math.max(...pts.map(q => q.x)), fy0 = Math.min(...pts.map(q => q.y)), fy1 = Math.max(...pts.map(q => q.y))
+        const ix = Math.max(0, Math.min(fx1, heroBox[2]) - Math.max(fx0, heroBox[0])), iy = Math.max(0, Math.min(fy1, heroBox[3]) - Math.max(fy0, heroBox[1]))
+        const over = (ix * iy) / Math.max(1, (heroBox[2] - heroBox[0]) * (heroBox[3] - heroBox[1]))
+        const fd = Math.hypot(x - eye[0], y - eye[1], z0 + g + 0.5 - eye[2])
+        const smooth = (a: number, b: number, v: number) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t) }
+        cover = smooth(0.03, 0.35, over) * (1 - smooth(heroBox[4] - 0.2, heroBox[4] + 0.35, fd)) * shoulderK
+      }
+      if (!(it.hero && model && (s.hero.carry || s.hero.act === 'lift'))) quad(dyn, [[x + l * rx + tx(top), ty(top) + l * ry, z0 + top, g, u0, v0], [x + r * rx + tx(top), ty(top) + r * ry, z0 + top, g, u1, v0], [x + r * rx + tx(foot), ty(foot) + r * ry, z0 + foot, g, u1, v1], [x + l * rx + tx(foot), ty(foot) + l * ry, z0 + foot, g, u0, v1]], TEX.ATLAS, [1, 1, 1], figN, ROLE.STAY, it.hero || shoulderK < 0.5 ? 0 : FLAG.SEE + 32 * Math.round(cover * 31))
       if (it.hero && model) {
         // The hero as a model, on their feet at the land's height; hit, they blink as the sprite does.
         const h = s.hero

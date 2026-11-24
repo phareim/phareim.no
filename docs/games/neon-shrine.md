@@ -739,7 +739,11 @@ filtered textures, fog).
   paper figure nearer than the hero fades over its last tile, all with real
   transparency (an opaque pass leaves out what is partly faded, a second pass
   blends it in, no depth written): the 64-bit look draws no dither anywhere, its
-  shore foam a soft band. What lies flat on the ground is never faded.
+  shore foam a soft band. What lies flat on the ground is never faded. A paper
+  figure that covers the hero on the screen while standing nearer the eye or at
+  their heels (Luna, a dancer just before them) fades to a tenth, as a whole, by
+  how much of the hero's box it covers and how much nearer it stands (worked out
+  per figure in `view.ts`, carried to the shader in its flags' bits 5–9).
 - **Two looks on one engine** (2026-11-23). The engine's values are its
   look, and the round has two of them: POLYGON (32-bit, the engine's own
   values) and THIRD PERSON (64-bit, `THIRD_PERSON` in `views.ts`), every trait
@@ -883,7 +887,7 @@ filtered textures, fog).
     lamps in reach), as in the 16-bit view.
 - **Known rough edges**: everyone but the hero is a classic card (in the 64-bit
   look paper figures facing the camera; Luna, who follows behind the hero, is
-  the one most seen, and fades as she passes between the eye and the hero); a
+  the one most seen, and fades while she covers the hero); a
   look's other hair style, bow or skirt is not modelled; neither look has a
   sound of its own. Where the hero stands with a house's wall a tile
   ahead, the house still fills the top of the 64-bit picture; the house's

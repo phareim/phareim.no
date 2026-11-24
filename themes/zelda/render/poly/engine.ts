@@ -630,6 +630,8 @@ void main() {
   bool see = ((vFlags & 1) != 0 || ((vFlags & 4) != 0 && uFaces == 1)) && (uFaces == 0 || abs(normalize(vN).z) < 0.95);
   if (uFaces == 1) {
     if (vTex == 3 && see) fade = min(fade, smoothstep(uHero.w - 0.9, uHero.w - 0.2, vDist));
+    // (A figure over the hero, by the amount the view worked out for it: bits 5-9 of its flags.)
+    if (vTex == 3) fade = min(fade, 1.0 - 0.9 * float((vFlags >> 5) & 31) / 31.0);
     if (see && vDist < uHero.w - 0.6) fade = min(fade, clamp((vDist - 1.2) / max(0.5, uHero.w - 1.8), 0.0, 1.0));
     if (see && uHero.z > 0.0 && vDist < uHero.w - 0.5) {
       vec2 dd = (gl_FragCoord.xy - uHero.xy) / vec2(uHero.z * 0.7, uHero.z);
