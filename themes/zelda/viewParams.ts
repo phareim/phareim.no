@@ -80,11 +80,11 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
   },
   iso: {
     title: 'Isometric',
-    blurb: 'The same world turned 45° at twice the pixels, the way a 16-bit machine dreamt: real depth, the ground, the walls and the roofs in materials of its own, a low sun with a warm light and long shadows, every lamp lighting what it can see from the side it is on, water that mirrors, neon that blooms, a dusk sky in bands behind it all.',
+    blurb: 'The same world turned 45° at twice the pixels, pixel art in its own right and bound to no machine: real depth, the ground, the walls and the roofs in materials of its own, a low sun with a warm light and long shadows, every lamp lighting what it can see from the side it is on, water that mirrors, neon that blooms, a dusk sky in bands behind it all.',
     params: {
       ...group('The glass', {
         ...FINISH(0, 0.9, 0.5),
-        colors: choice('Colours', '15-bit', ['15-bit', 'full'], 'The machine’s 32 768 colours with a dither between them, or every colour the screen has.'),
+        colors: choice('Colours', 'full', ['15-bit', 'full'], 'Every colour the screen has, or a 16-bit machine’s 32 768 with a dither between them.'),
       }),
       ...group('The art', {
         smoothing: num('Art smoothing', 1, 0, 1, 0.05, 'How far the classic art is smoothed on its way up to two pixels a texel: stairs get their half-steps, shades of one material run together, black outlines take a colour. 0 leaves the pixels square.'),

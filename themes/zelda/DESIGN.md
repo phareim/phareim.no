@@ -137,14 +137,25 @@ portrait phones. Palette: teal-indigo grass, rose paths, teal/violet
 canopies with magenta rim light, violet stone with neon strips; cyan hero,
 pink danger, gold treasure. Sprites and the 5×7 pixel font are code
 (`render/sprites.ts`, `themes/base/pixel/font.ts`); terrain is painted procedurally
-(`render/tiles.ts`). This is the classic view. Other views draw the same
-state another way: an isometric 16-bit one, where a visit starts, with a sun of its own and its
-own materials for the ground, the walls and the roofs; and a polygon 32-bit one: since part 14 (2026-11-24) the
-16-bit world's own art (its hero, its trees) standing in the polygon engine's land and light (since part 16 the hero
-and every person and thing are the classic drawings, as in the 8- and 16-bit adventure, at four times the 16-bit
-view's pixels, made in the shader: Scale4x and the 16-bit view's blend), seen from the 16-bit
+(`render/tiles.ts`). This is the classic view.
+
+**Art direction** (Petter, 2026-11-24). The views are named for their picture (CLASSIC, ISOMETRIC, POLYGON), not for a
+machine's bits. The isometric view is pixel art in its own right, bound to no period's limits: it draws in every colour
+the screen has (`colors: 'full'`; the 15-bit dither is a choice), its art may have more pixels and more colours than the
+classic sprites (its own ramps; the shared `PAL` stays as the classic and the other pixel games draw it), and where a
+thing is naturally a body (a van, a tent, a boss, the hero) it may be pixel art rotoscoped from a 3D model, as the
+standing things (`iso/props.ts`) and the modelled hero (`iso/figure.ts`) already are. What still waits for its
+isometric art (the figures, the cards drawn head-on, the furniture, the square fountain, the effects) is in the journal
+thread `neon-shrine-isometric-art`.
+
+Other views draw the same
+state another way: an isometric one, where a visit starts, with a sun of its own and its
+own materials for the ground, the walls and the roofs; and a polygon one: since part 14 (2026-11-24) the
+isometric world's own art (its hero, its trees) standing in the polygon engine's land and light (since part 16 the hero
+and every person and thing are the classic drawings, as in the classic and the isometric adventure, at four times the isometric
+view's pixels, made in the shader: Scale4x and the isometric view's blend), seen from the isometric
 look's angle but nearer and with real depth, the land flat beside roads and houses and low elsewhere, and reached
-from the 16-bit look by one continuous move that never shows the classic picture (the 64-bit look below is out of
+from the isometric look by one continuous move that never shows the classic picture (the 64-bit look below is out of
 the round for now: `views.ts`); before that, the world as low polygons in
 perspective from a crane behind the hero, with a horizon, rolling land, round ponds and a short draw distance,
 drawn much as a 1996 console drew (corners that snap to the pixels, 15-bit colour with a dither, figures texel by
@@ -153,10 +164,10 @@ same engine a 64-bit one, THIRD PERSON, from behind the hero's shoulder, soft an
 smooth shading, smooth edges, thick fog in the hour's colour, lamp halos). Each generation draws finer than the one
 before (the 32-bit look at four px to the classic px, the 64-bit one at the screen's own), both wear textures
 painted for them in the whole colour range, and in both the hero is a model of many polygons (6,000 and 20,000)
-moving by the 16-bit figure's poses. Both are steady where the period machine was not: the lamps and the hour's
+moving by the isometric figure's poses. Both are steady where the period machine was not: the lamps and the hour's
 light are held smooth so the dither never crawls, every change between the four views is a turn, an ease or a
 dissolve and never a cut, and the light is the classic picture's at the turn's flat end and the same in every view
-(the painted materials brought to the 16-bit view's mean light; the 64-bit look lit per pixel). The 64-bit look is
+(the painted materials brought to the isometric view's mean light; the 64-bit look lit per pixel). The 64-bit look is
 soft without being mush: its ground is filtered anisotropically (sharp near, steady far), its camera rides over the
 land so the hero's feet and the sky are in the picture, the distance steps back in the hour's colour, the hero carries a
 rim of light, and both looks run on a phone (the hero posed on the GPU, a stated ladder for slow devices). The turn switch in the

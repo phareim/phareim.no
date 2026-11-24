@@ -60,9 +60,9 @@ values. `viewParams.ts` (pure) lists the engines and what can be turned on
 each (`ENGINES`: numbers with bounds, colours, choices, toggles): `classic`
 (the picture described under "Look" in `themes/zelda/DESIGN.md`), `iso`, an
 isometric one, and `poly`, a polygon one (below). `views.ts` holds the round: one
-built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT, POLYGON · 32-BIT) and a second look of the polygon engine with values of its own (THIRD PERSON · 64-BIT; a built-in view may carry values, and the studio's lie over them), and whatever the studio published (below). **A visit starts in the
-isometric 16-bit view** (`DEFAULT_VIEW` in `views.ts`), and the turn switch
-in the corner turns to the next (V goes classic → isometric → polygon → third person → classic). A view the visitor turns to is kept in localStorage
+built-in view per engine (CLASSIC, ISOMETRIC, POLYGON: named for their picture, with no tag of bits under the name since 2026-11-24; the polygon engine's parked second look, THIRD PERSON, is out of the round, and a built-in view may carry values, and the studio's lie over them), and whatever the studio published (below). In the code and below, the polygon view's two looks are still called the 32-bit and the 64-bit look, and some values keep `16-bit` as a value name (`sound`, `windows`, the polygon engine's `figure` and `plants`): the studio's saved values use them. **A visit starts in the
+isometric view** (`DEFAULT_VIEW` in `views.ts`), and the turn switch
+in the corner turns to the next (V goes classic → isometric → polygon → classic). A view the visitor turns to is kept in localStorage
 `zelda.view` and is where their next visit starts; the view a visit merely
 starts in is not written, so a browser that never chose follows the site's
 first view, and one failed fetch of a view's code does not pin it to the
@@ -70,7 +70,7 @@ classic picture. `/?view=<id>` asks for one.
 
 - **Finding them.** The **turn switch** (`render/turnSwitch.ts`, drawn into
   a button of `Zelda.vue`) stands in the top-right corner, under the pause
-  chip on touch: `8 [ carriage ] 16`. A press turns to the next view, as V
+  chip on touch: `[ carriage ]`, with a notch for each view (a studio view whose tag is `N-BIT` puts its numeral at its end of a two-stop slot). A press turns to the next view, as V
   does. The carriage carries one ground tile, drawn with the picture's own
   `projection`: a square in the classic view, the 2:1 diamond in the turned
   one. Where the carriage stands, the tile's shape and the seam between the
@@ -190,7 +190,7 @@ classic picture. `/?view=<id>` asks for one.
   switch follow in that same frame (`drawFrame`); under a panel or the
   ending, where the world is drawn five times a second, the picture is
   drawn in that frame too.
-  **A visit that starts in the 16-bit view** stays dark for at most
+  **A visit that starts in the isometric view** stays dark for at most
   450 ms from the first frame the tab is looked at (`renderer.arrive`), and
   its first picture comes up out of the dark over 320 ms (`dawn`); a device
   or a network that needs longer gets the classic picture up first, and the
@@ -274,8 +274,8 @@ classic picture. `/?view=<id>` asks for one.
      haze in bands, low
      mist and shafts of the sun in the Wildwood, a mood's colour cast, the
      effects layer (shots, sparks, dust, leaves, the flash) at full
-     brightness, and the machine's colours: five bits a channel with an
-     ordered dither between them.
+     brightness, and every colour the screen has (value `colors`; `15-bit`
+     brings back five bits a channel with an ordered dither between them).
   5. *Bloom and the finish* at the screen's own resolution: the whole-number
      upscale, the glow, vignette, scanlines if a view asks for them, and the
      machine's own tricks: a door is a mosaic on the way out and in, death
@@ -482,7 +482,7 @@ classic picture. `/?view=<id>` asks for one.
   built-in views, the cap on the round and the scenes.
 - **HUD skins** (`HudSkin` in `hud.ts`). The layout is one; a view may dress
   it: `NEON_SKIN` (classic), `WINDOW_SKIN` (gradient windows at the classic
-  size), `HIRES_WINDOW_SKIN` (`hud16.ts`: the 16-bit view's, drawn at two px
+  size), `HIRES_WINDOW_SKIN` (`hud16.ts`: the isometric view's, drawn at two px
   to the classic px, with its own proportional font `base/pixel/font16.ts`,
   banded SNES windows with a bevel, redrawn hearts and icons, a name plate
   on the dialog box). `kit.hudLayer(..., skin)`;
@@ -537,58 +537,58 @@ classic picture. `/?view=<id>` asks for one.
   on drawing. `scripts/zelda-lab/flora-sheet.mjs`, `materials-sheet.mjs`, `props-sheet.mjs` and `backdrop-sheet.mjs`
   render the plants, the materials, the standing things and the backdrop alone.
 
-**The 32-bit look moves toward the 16-bit one** (part 14, 2026-11-24). Petter's
+**The 32-bit look moves toward the isometric one** (part 14, 2026-11-24). Petter's
 direction: the 64-bit look is out of the round (`views.ts`, `RETIRED_VIEWS`: a
 browser or an address that names `third` starts in `poly`; `THIRD_PERSON`, the
 shoulder pose and the code stay, and one line brings it back), and the 32-bit
-look is the 16-bit world's own art in the polygon engine's land and light:
-  - *the camera* looks as the 16-bit one does, nearer and with depth (`CRANE`
+look is the isometric world's own art in the polygon engine's land and light:
+  - *the camera* looks as the isometric one does, nearer and with depth (`CRANE`
     above);
   - *the hero and every figure* (part 16, Petter: «alle figurene kan få samme
-    32-bit-oppskalering»): the 16-bit look's hero is the classic four-way
+    32-bit-oppskalering»): the isometric look's hero is the classic four-way
     sprite (its value `figure` is `classic`), and so is the 32-bit look's now
     (value `figure` `classic`, the default). Every person and thing in the
     32-bit look (the hero, people, Luna and the followers, foes, bosses,
     animals, what is carried, pickups) is its classic picture at four fine px
-    a texel, four times the 16-bit view's pixels, made in the card shader as it
+    a texel, four times the isometric view's pixels, made in the card shader as it
     is read, never on the CPU (`fineAt` in `engine.ts`, value `fineFigures`):
     Scale4x (Scale2x on Scale2x's picture: the stairs get quarter-steps, every
-    px one of the drawing's colours), then the 16-bit view's own blend of one
-    material's shades (`art` in `iso/shaders.ts`). The 16-bit view's smoothing
+    px one of the drawing's colours), then the isometric view's own blend of one
+    material's shades (`art` in `iso/shaders.ts`). The isometric view's smoothing
     alone at four steps (`smooth`) is the runner-up, faithful but hardly finer.
-    The card stands as the 16-bit view stands it (half of its px a classic px
+    The card stands as the isometric view stands it (half of its px a classic px
     across, a px up the screen a px tall, what is below the foot lying toward
     the eye), on the same foot point, facing the classic way round, so at the
-    16-bit end of the direct turn the two heroes are one drawing in one place;
-    its height and lie follow the camera from the 16-bit projection to the
+    isometric end of the direct turn the two heroes are one drawing in one place;
+    its height and lie follow the camera from the isometric projection to the
     crane. Before part 16 the cards were 16 classic px to a tile across, about
-    1.4 times too wide against the 16-bit look, and turned with the camera;
+    1.4 times too wide against the isometric look, and turned with the camera;
   - *the modelled hero* (value `figure` `16-bit`, a choice for the studio) is
-    the 16-bit figure (`iso/figure.ts` `renderFigure`, every
+    the isometric figure (`iso/figure.ts` `renderFigure`, every
     look and act and the blade), drawn each frame and stood up at the hero's
     feet: what is above the foot upright, facing the camera, what is below it
     (the ground in front, the blade's sweep) lying on the ground toward the
-    eye, so the picture lies as the 16-bit look drew it (value `figure`
+    eye, so the picture lies as the isometric look drew it (value `figure`
     `16-bit`). Since part 15 it is drawn at twice that look's density
     (`renderFigure`'s `density` 2: four times the pixels at the same size,
     the body snapped to whole fine px, the face drawn at the finer px, the
     outline two fine px and the line between parts one), its card the same
     size in the world, read texel by texel; the governor's lowest step draws
-    it at the 16-bit density (`Spend.fig`). It stands on the hero's foot
-    point, as the 16-bit view stands its figure. It is lit per pixel from its normal picture (sky, sun with its
+    it at the isometric density (`Spend.fig`). It stands on the hero's foot
+    point, as the isometric view stands its figure. It is lit per pixel from its normal picture (sky, sun with its
     shadow, every lamp, the spill), never under 0.42 of its own colours, and
     sorts in the depth buffer against walls, trees and figures. The hero model
     (`hero.ts`, `public/zelda/poly/hero-*`) is no longer fetched;
-  - *the plants* are the 16-bit look's (`iso/flora.ts`): trees, a wood's
+  - *the plants* are the isometric look's (`iso/flora.ts`): trees, a wood's
     crowns, palms by the sand, bushes and tall grass, where that look plants
     them, by the same hashes, stood up the same way, swaying in the wind
     (`wind`) and lit from their normal pictures (value `plants` `16-bit`; the
     built cones are value `built`, the 64-bit look's). Woods hide what is
     behind them; the hero shows through a wood in front of them by the
     see-through stipple. The atlas is made a slice at a time while the view
-    waits, as the 16-bit view makes it. The tree on the beach by the coast
+    waits, as the isometric view makes it. The tree on the beach by the coast
     road (today's deploys in its crown, today's visitors in its fruit:
-    `render/tree.ts`) is painted the same way in both the 16-bit and the
+    `render/tree.ts`) is painted the same way in both the isometric and the
     32-bit look since part 17 (`floraWithVisitor`: a broad fruit tree, bare
     forking branches at stage 0 and a full crown at 4, one round lit fruit a
     visitor up to twelve at every stage, shining a little by themselves), laid
@@ -598,11 +598,11 @@ look is the 16-bit world's own art in the polygon engine's land and light:
     house, a door or whatever must be level (`FLAT_MARGIN` 3 in `terrain.ts`,
     rising over the next 2.5, `RISE_OVER`), and its knolls are half as tall
     (`landScale` 0.5);
-  - *the turn between the 16-bit and the 32-bit look* goes straight, never
+  - *the turn between the isometric and the 32-bit look* goes straight, never
     through the classic picture (`turn.ts`: a pair named direct, `via`). The
-    32-bit look draws first with the 16-bit view's own projection (that view
+    32-bit look draws first with the isometric view's own projection (that view
     says where its camera is each frame: `Kit.setIsoCam`; `isoMatrix` in
-    `camera.ts`), so its picture lies on the 16-bit one; the two are
+    `camera.ts`), so its picture lies on the isometric one; the two are
     cross-faded there over the first 30 % of the turn (both engines draw in
     those frames), and then the camera eases from that projection to the
     crane. Back the same way, reversed. Turns to and from the classic look are
@@ -644,13 +644,13 @@ filtered textures, fog).
   the screen, so what stands upright stays upright. `poseMatrix` divides by the
   focus's distance (w is 1 there, as everywhere in the classic picture) and
   `rigMatrix` mixes the two element by element under the turn's ease, so the
-  turn needs no camera of its own. `CRANE` (part 14) looks the 16-bit look's
+  turn needs no camera of its own. `CRANE` (part 14) looks the isometric look's
   way: it stands south-east of the hero looking north-west, 32° down, through a
   22° lens from far back, the hero a little below the middle; its distance is
   set from the screen (`craneDist`, value `zoom` 1.4), so a tile is 1.4 times
-  the 16-bit look's at the same screen size (the 16-bit look's own px rounded
+  the isometric look's at the same screen size (the isometric look's own px rounded
   as it rounds them). It sees no sky on a wide screen or an upright phone.
-  `View.turn` is a quarter of π, as in the 16-bit look, so a press goes where
+  `View.turn` is a quarter of π, as in the isometric look, so a press goes where
   it goes there. Indoors the camera has a pose of
   its own (`roomPitch` 32°, `roomDist` 9): on a wide screen it stands back as
   far as the room's width needs, so the whole width is in the picture, and
@@ -716,14 +716,14 @@ filtered textures, fog).
   trunk, a faceted blob now and then, a palm by the sand, coloured from the
   classic painter's two canopy moods. Lamp posts, graves, pots, rocks,
   boulders, signs, pillars, stools, counters, chests, crystal blocks and fences
-  are the 16-bit view's recipes (`iso/props.ts` `BUILD`, its boxes, posts and
+  are the isometric view's recipes (`iso/props.ts` `BUILD`, its boxes, posts and
   balls in its own dimensions) built as meshes, each face cut in cells so a
   material can change across it. Bushes are cards. In a room the south rows
   are cut down to a kerb (`roomCut`, by where a mass stands), so the south wall
   never stands between the camera and the room, and what lies outside the
   room is not drawn.
 - **The ground's texture.** The open ground is painted by kind (`groundKindOf`),
-  from the 16-bit view's materials at half their density: 16 texels a tile, a
+  from the isometric view's materials at half their density: 16 texels a tile, a
   texture repeating every four, so its texels are squares near the camera.
   The kind of each tile is a small texture the shader reads; the border
   between two kinds frays a texel at a time (`fray`); a water tile's ground is
@@ -734,7 +734,7 @@ filtered textures, fog).
   something stands in its place.
 - **People and things** are upright cards of their classic drawing on their
   feet at the land's height, sized by perspective, in an atlas of cells as in
-  the 16-bit view; a cabinet or a booth (`Item.box`) has a body behind its
+  the isometric view; a cabinet or a booth (`Item.box`) has a body behind its
   front. Whatever may stand between the camera and the hero (a wall, a roof, a
   tree, a thing) is stippled every other px in an oval round the hero.
 - **Light.** Per corner: the kit's ambient for the dusk, lifted to a floor in
@@ -746,7 +746,7 @@ filtered textures, fog).
   corners round them in pools and walls and things by which side faces them.
   A blob of shadow lies under whoever walks and whatever stands alone, the
   ground under it darkened (multiplied), never lit away.
-- **Sky and water.** Outdoors the backdrop is the 16-bit view's
+- **Sky and water.** Outdoors the backdrop is the isometric view's
   (`iso/backdrop.ts`, painted at the scene's size), laid so its horizon meets
   the camera's. The water is deep indigo with crests that run and glints; at
   the shore (read from the land's distance, uploaded as a small texture) foam,
@@ -755,7 +755,7 @@ filtered textures, fog).
 - **Without WebGL2**, or when the context is lost (more than three times), or
   when the shaders do not link, the classic picture draws on.
 - **Resolution by generation** (2026-11-24). Each generation draws finer than
-  the one before: the classic picture one px to the classic px, the 16-bit view
+  the one before: the classic picture one px to the classic px, the isometric view
   two, the polygon view's own picture `density` px (POLYGON 4, THIRD PERSON
   `screen`, the screen's own px). A picture px is always a whole number of
   device px: `densityOf` takes the finest at or under the value, never under 2
@@ -769,14 +769,14 @@ filtered textures, fog).
   (0.5). The 64-bit look draws through a 4× multisampled framebuffer
   (`smoothEdges`), its textures filtered, the old sideways smear off. Both
   dresses are fine (`hud32.ts`: `GLASS_FINE_SKIN`, `ROUND_FINE_SKIN` at density
-  2, the 16-bit view's lettering and icons), and the round dress has bigger,
+  2, the isometric view's lettering and icons), and the round dress has bigger,
   softer hearts of its own. The governor steps the density down first.
 - **The painted textures** (2026-11-24). Sixteen textures painted for these
-  views (by Codex, from the 16-bit materials, in the whole colour range), one
+  views (by Codex, from the isometric materials, in the whole colour range), one
   per material of `iso/materials.ts`, 128 texels a side, 32 to the tile:
   `public/zelda/poly/materials.webp` (86 KB, written by
   `scripts/zelda-lab/poly-pack.mjs` from the painted page), fetched the first
-  time a polygon look wants it; the 16-bit materials draw until it is here, and
+  time a polygon look wants it; the isometric materials draw until it is here, and
   if it fails (value `textures`: `painted` or `materials`). The 32-bit look reads
   them texel by texel, the 64-bit one filtered. Under the game's dusk some were
   too loud or too dim and are tuned as they are decoded (`PAINTED_TUNE` in
@@ -791,7 +791,7 @@ filtered textures, fog).
   fails (value `figure`: `model` or `classic`). The mesh has no rig: it is split
   into stiff parts by where its vertices lie in its A-pose (the legs, the torso,
   the arms, the head), with soft weights across each joint, and driven by the
-  16-bit view's modelled figure's own poses (`solvePose` in `iso/figure.ts`: the
+  isometric view's modelled figure's own poses (`solvePose` in `iso/figure.ts`: the
   walk of sixteen phases, lift, carry, push, hurt, get, use, fall, dead, the
   swing). Its arms are turned so the hand reaches where that figure puts it and
   its legs so the foot lands where it does; the body turns toward the heading
@@ -848,7 +848,7 @@ filtered textures, fog).
     from the camera and the keys walk along the world's grid; a dialog gets the
     stick unturned. Figures with four ways show the side the camera sees
     (`Kit.setFacing`; `facingDir` in `wild.ts`): a hero walking away shows
-    their back. (The 16-bit view's modelled figure, value `figure: 'modelled'`,
+    their back. (The isometric view's modelled figure, value `figure: 'modelled'`,
     was tried; drawn for that view's camera, it shows three-quarters from
     behind, so the sprite stays the default.)
   - *the machine*: the ground and walls through the GPU's own trilinear,
@@ -925,7 +925,7 @@ filtered textures, fog).
   numbers over consecutive frames (`scripts/zelda-lab/steady.mjs`: the share of
   pixels changed a frame and the temporal second difference, `shimmer`;
   `scripts/zelda-lab/transit.mjs`: every frame of the turns between the views,
-  mean light and change; the 16-bit view is the control). What keeps them still:
+  mean light and change; the isometric view is the control). What keeps them still:
   - *the lamps* go through a keeper (`lamps.ts`): the painters' flickering
     lights matched from frame to frame, smoothed twice (0.35 s), held in slots
     and faded in and out (0.3 s) rather than swapped, at most 16, chosen by
@@ -936,7 +936,7 @@ filtered textures, fog).
     once). The sun's shadows are marched on the GPU through a heightfield of the
     land and the masses (`uHeights`), not baked into the mesh, so the running
     hour rebuilds nothing. The moon takes over from the sun across a stretch of
-    its sinking (`nightShare`), not at a line, in this view and the 16-bit one.
+    its sinking (`nightShare`), not at a line, in this view and the isometric one.
   - *the textures'* smaller levels are mip maps of the painted page; the
     filtered look reads between two levels by the fraction, so the look's
     easing never switches the ground's level in one frame. The ground and the
@@ -952,7 +952,7 @@ filtered textures, fog).
     in over them in the shader (0.6 s). Lamps' glows on the bloom fade with the
     fog instead of being cut at its edge. The dialog box keeps the side it opened
     on through a turn.
-  - *the light*: the painted materials are brought to the 16-bit view's mean
+  - *the light*: the painted materials are brought to the isometric view's mean
     light per material (`toAlbedo`, a gamma solved for the mean, the hue kept;
     `ALBEDO`, `PAINTED_TUNE`). The 64-bit look lights per pixel (`lampsAt`;
     `smoothShade` eases it in). Light in the air over what a lamp reaches
@@ -967,7 +967,7 @@ filtered textures, fog).
     light round it brightens it only until its brightest part is full, and
     its glow, the bloom, is what is bright (part 12). Figures' blob
     shadows fall away from what lights their spot most (the sun outdoors, the
-    lamps in reach), as in the 16-bit view.
+    lamps in reach), as in the isometric view.
   - *light from what shines* (part 9): lit windows, neon signs and screens and
     a town's fountain spill their colour round them. A spill map per map
     (`sendSpill` in `view.ts`) is built once from the classic art's own bright
@@ -1054,7 +1054,7 @@ every outdoor map; interiors and dungeons keep their own light.
   shadows never swing round in sight. The light outdoors and the sky blend
   the view's dusk with its night, dawn and noon colours, the haze follows
   the horizon, and by day the lit picture is brightened past the art
-  (`noonBright`: the art is painted for the dusk). The 16-bit view keeps its
+  (`noonBright`: the art is painted for the dusk). The isometric view keeps its
   backdrop painted in the dusk and grades it in the shader (`skyGrade`), so
   no hour repaints it; its sun sinks under the horizon at nightfall, rises
   at dawn and fades out towards noon, and the stars go out by day. Fireflies

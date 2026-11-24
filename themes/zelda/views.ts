@@ -25,7 +25,10 @@ export interface ViewDef {
   id: ViewId
   /** Shown on the pause screen and the view strip, in the pixel font. */
   name: string
-  /** A word under the name on the view strip: what kind of picture it is. */
+  /**
+   * A word under the name on the view strip: what kind of picture it is. Empty for the built-in views, whose names
+   * say it (2026-11-24: the views are named for their picture, not for a machine's bits).
+   */
   tag: string
   engine: EngineId
   /** What differs from the engine's own values. */
@@ -60,14 +63,14 @@ export const THIRD_PERSON: ParamValues = {
 }
 
 export const VIEWS: readonly ViewInfo[] = [
-  { id: 'classic', name: 'CLASSIC', tag: '8-BIT', engine: 'classic' },
-  { id: 'iso', name: 'ISOMETRIC', tag: '16-BIT', engine: 'iso', load: ENGINE_LOADERS.iso },
-  { id: 'poly', name: 'POLYGON', tag: '32-BIT', engine: 'poly', load: ENGINE_LOADERS.poly },
+  { id: 'classic', name: 'CLASSIC', tag: '', engine: 'classic' },
+  { id: 'iso', name: 'ISOMETRIC', tag: '', engine: 'iso', load: ENGINE_LOADERS.iso },
+  { id: 'poly', name: 'POLYGON', tag: '', engine: 'poly', load: ENGINE_LOADERS.poly },
   // The 64-bit look (the same engine's second look: the camera at the hero's shoulder, everything soft) is out of the
   // round for now (part 14): Petter chose to bring the 32-bit look toward the 16-bit one (its hero, its trees, its
   // angle) first, and the shoulder camera's 20 000-polygon hero does not belong to that. `THIRD_PERSON`, the shoulder
   // pose and the code that draws it stay; this line brings it back:
-  // { id: 'third', name: 'THIRD PERSON', tag: '64-BIT', engine: 'poly', load: ENGINE_LOADERS.poly, params: THIRD_PERSON },
+  // { id: 'third', name: 'THIRD PERSON', tag: '', engine: 'poly', load: ENGINE_LOADERS.poly, params: THIRD_PERSON },
 ]
 
 /** Views that were in the round once, and the view a browser or an address naming them gets now. */

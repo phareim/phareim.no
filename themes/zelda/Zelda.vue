@@ -520,7 +520,7 @@ const turnWaiting = ref(false)
 const turnSaid = ref('')
 const sayView = (id: ViewId) => {
   const v = viewDef(id) ?? viewDef('classic')!
-  return `${v.name.charAt(0)}${v.name.slice(1).toLowerCase()} ${v.tag.toLowerCase()}`
+  return `${v.name.charAt(0)}${v.name.slice(1).toLowerCase()}${v.tag ? ` ${v.tag.toLowerCase()}` : ''}`
 }
 const turnLabel = computed(() => (void viewRound.value, `View: ${sayView(viewId.value)}. Press for ${sayView(nextView(viewId.value))}.`))
 /** The stops the carriage runs between: the classic-engine view last asked for (k = 0) and the last of another engine (k = 1). */

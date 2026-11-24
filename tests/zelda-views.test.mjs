@@ -87,7 +87,8 @@ describe('the view registry', () => {
   it('names every view for the pause screen in the pixel font', () => {
     for (const v of M.VIEWS) {
       assert.match(M.viewName(v.id), /^[A-Z0-9 ]+$/)
-      assert.match(v.tag, /^[A-Z0-9 -]+$/)
+      // Named for their picture, not a machine's bits: a built-in view's name says it all (2026-11-24).
+      assert.equal(v.tag, '')
     }
   })
   it('has a built-in view for every engine; one drawn with the engine\'s own values, and a second look with values of its own', () => {
@@ -295,7 +296,7 @@ describe('an engine\'s values', () => {
   it('clamps a number, refuses a colour that is not one, and keeps to the choices', () => {
     const p = M.resolveParams('iso', { bloom: 99, colors: 'vellum', shadowColor: 'red', skyHorizon: '#ABCDEF', plants: 'yes', nonsense: 1 })
     assert.equal(p.bloom, M.ENGINES.iso.params.bloom.max)
-    assert.equal(p.colors, '15-bit')
+    assert.equal(p.colors, 'full')
     assert.equal(p.shadowColor, M.ENGINES.iso.params.shadowColor.value)
     assert.equal(p.skyHorizon, '#abcdef')
     assert.equal(p.plants, true)
@@ -311,13 +312,13 @@ describe('the studio\'s views', () => {
   it('lays the studio\'s values on a built-in view and adds its own after them', () => {
     const live = M.parseViews({
       classic: { params: { scanlines: 0 } },
-      noir: { engine: 'iso', name: 'NOIR', params: { colors: 'full', bloom: 0 } },
+      noir: { engine: 'iso', name: 'NOIR', params: { colors: '15-bit', bloom: 0 } },
     })
     assert.equal(M.parseViews({ lofi: { engine: 'classic', name: 'LOFI', tag: '4-BIT' } }).lofi.tag, '4-BIT')
     const round = M.mergeViews(live)
     assert.deepEqual(round.map(v => v.id), ['classic', 'iso', 'poly', 'noir'])
     assert.deepEqual(round[0].params, { scanlines: 0 })
-    assert.deepEqual(round[3], { id: 'noir', name: 'NOIR', tag: 'ISOMETRIC', engine: 'iso', params: { colors: 'full', bloom: 0 } })
+    assert.deepEqual(round[3], { id: 'noir', name: 'NOIR', tag: 'ISOMETRIC', engine: 'iso', params: { colors: '15-bit', bloom: 0 } })
   })
   it('drops what the game cannot draw or spell', () => {
     const live = M.parseViews({
