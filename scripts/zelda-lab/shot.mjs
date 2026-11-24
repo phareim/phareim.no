@@ -46,7 +46,7 @@ import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
-import polyView, { pinQuality as pinPoly, preloadArt, setAssetBase } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/view.ts'))}
+import polyView, { pinQuality as pinPoly, preloadArt, setAssetBase, governorTrace, timeGpu, gpuMs } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/view.ts'))}
 import { freezeLamps } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/lamps.ts'))}
 import { THIRD_PERSON } from ${JSON.stringify(join(repo, 'themes/zelda/views.ts'))}
 
@@ -78,6 +78,9 @@ if (q.get('view') === 'iso') { r.addView('iso', isoView); r.setView('iso', q.get
 // (A measuring page lets the polygon view's governor go free again.)
 window.__pinPoly = pinPoly
 window.__setAssetBase = setAssetBase
+window.__polyGov = governorTrace
+window.__timeGpu = timeGpu
+window.__gpuMs = gpuMs
 window.__freezeLamps = freezeLamps
 if (q.get('view') === 'poly') { pinPoly(q.get('pin') === '0' ? null : true); r.addView('poly', polyView); r.setView('poly', q.get('frames') === null) }
 // VIEW=third: the polygon engine's second look, the 64-bit one (the built-in view's own values).

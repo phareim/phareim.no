@@ -21,7 +21,7 @@ import type { GameState, MapKind, TileChar } from '../../types'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
 import { aimOf, has, mapInfo, raised, swingAngle } from '../../engine/index'
 import type { FigureAct, FigureBlade, FigurePose } from '../iso/figure'
-import { bladeMesh, leftHand, loadHero, loadedHero, modelFits, poseOf, recolour, skinHero, type LoadedHero } from './hero'
+import { bladeMesh, heroVerts, leftHand, loadHero, loadedHero, modelFits, poseHero, poseOf, recolour, type LoadedHero } from './hero'
 import type { HeroLook } from '../heroLook'
 import { dirAngle } from '../../engine/util'
 import type { FrameUI, Kit, SceneItem, Vec, View } from '../renderer'
@@ -39,7 +39,7 @@ import { buildBackdrop, type Backdrop, type BackdropLook } from '../iso/backdrop
 import { skyGrade } from '../daylight'
 import { CRANE, SHOULDER, classicMatrix, densityOf, fitPose, horizonY, mixPose, toGround, poseAxes, poseMatrix, rigMatrix, toScreen, type Mat4, type Pose } from './camera'
 import { landWork, stand, type Land, type LandLook } from './terrain'
-import { FLAG, MAT_SLOTS, Mesher, ROLE, STRIDE, TEX, Verts, massOf, type Field, type MatSlot } from './mesh'
+import { FLAG, HSTRIDE, MAT_SLOTS, Mesher, ROLE, STRIDE, TEX, Verts, massOf, type Field, type MatSlot } from './mesh'
 import { createEngine, rgb, type Engine, type PolyLook } from './engine'
 import { createLampKeeper } from './lamps'
 
@@ -76,7 +76,7 @@ export const ALBEDO: Record<string, number> = {
 export const PAINTED_TUNE: Record<string, [number, number]> = {
   grass: [1, 1], moss: [1, 0.85], lane: [1, 0.9],
   // The town's square stays rose-violet; the sand was a loud orange with dark troughs.
-  cobbles: [1, 1.05], sand: [0.9, 0.72],
+  cobbles: [1, 1.05], sand: [0.8, 0.85],
   flags: [1, 1], boards: [1, 1], shingles: [1, 1], siding: [1, 1], rockface: [1, 1], bricks: [1, 1], blocks: [1, 1], slab: [1, 1], steel: [1, 1],
   // Indoors and in the labs: the red panelling and the iridescent plates are calmed.
   panel: [1, 0.7], plates: [1, 0.7],
@@ -188,14 +188,102 @@ function loadPainted(): void {
   }
   im.src = assetBase + 'materials.webp'
 }
+/** What the view spends at one step of the governor's ladder (`LADDER`). */
+export interface Spend {
+  /** The bloom's own pass (what shines by itself drawn alone first: the geometry twice). */
+  bloomPass: boolean
+  /** The 64-bit look's multisampling: samples at most. */
+  msaa: number
+  /** The 64-bit look's lamps per pixel (else at the corners, as the 32-bit look). */
+  perPixel: boolean
+  /** The 64-bit look's hero mesh of 20,000 triangles (else the 32-bit look's 6,000). */
+  heroHi: boolean
+  /** The draw distance's share. */
+  far: number
+  /** The stretches built of coarse cells (fewer corners, a coarser light lattice). */
+  coarse: boolean
+  /** Steps down from the look's own density. */
+  densityDrop: number
+  /** The hero as a model (else the sprite card). */
+  model: boolean
+  /** The halos' share. */
+  halos: number
+}
 /**
- * How much the view spends: 2 everything; 1 without the bloom's own pass, a shorter draw distance and coarse cells
- * everywhere; 0 also a picture of half the size. A device that keeps missing frames is stepped down while it
- * plays and stays there (as the 16-bit view's `govern`); `pinQuality` holds it at 2 for the lab.
+ * The governor's ladder, the same for both looks, each step giving up the next cheapest thing for the most time
+ * saved: 0 everything; 1 the bloom's own pass, the 64-bit look's multisampling to 2x; 2 the 64-bit look's per-pixel
+ * lamps and its 20,000-triangle hero (the 32-bit look's 6,000), half the halos; 3 a draw distance of 70 %, coarse
+ * cells, no multisampling; 4 the picture's density one step down; 5 another step down, and the hero's card in place
+ * of the model. (`govern`: when it steps.)
  */
-let quality = 2
+export const LADDER: readonly Spend[] = [
+  { bloomPass: true, msaa: 4, perPixel: true, heroHi: true, far: 1, coarse: false, densityDrop: 0, model: true, halos: 1 },
+  { bloomPass: false, msaa: 2, perPixel: true, heroHi: true, far: 1, coarse: false, densityDrop: 0, model: true, halos: 1 },
+  { bloomPass: false, msaa: 2, perPixel: false, heroHi: false, far: 1, coarse: false, densityDrop: 0, model: true, halos: 0.5 },
+  { bloomPass: false, msaa: 0, perPixel: false, heroHi: false, far: 0.7, coarse: true, densityDrop: 0, model: true, halos: 0.5 },
+  { bloomPass: false, msaa: 0, perPixel: false, heroHi: false, far: 0.7, coarse: true, densityDrop: 1, model: true, halos: 0.5 },
+  { bloomPass: false, msaa: 0, perPixel: false, heroHi: false, far: 0.7, coarse: true, densityDrop: 2, model: false, halos: 0.5 },
+]
+
+/** What the governor decided, and when (ms of `performance.now`), for the lab: [time, steps, median gap]. */
+export const governorTrace: Array<[number, number, number]> = []
+/**
+ * The governor as a pure machine. It watches the gaps between frames over a window of time (`windowMs`, at least
+ * `minFrames` of them) and steps down the ladder when their median is over `budget` (missed frames: on a 60 Hz
+ * screen a gap of two frames). After any step, and after `settle()` (a new map), it waits `settleMs` before judging
+ * again: the coarser stretches are being built. Back up a step only after `upMs` of frames well under the budget
+ * (median under half of it), and never to a step it has had to leave twice: it does not flap.
+ */
+export function createGovernor(o: { budget?: number; windowMs?: number; minFrames?: number; settleMs?: number; upMs?: number; top?: number } = {}) {
+  const budget = o.budget ?? 18.5, windowMs = o.windowMs ?? 750, minFrames = o.minFrames ?? 12, settleMs = o.settleMs ?? 1000, upMs = o.upMs ?? 8000, top = o.top ?? LADDER.length - 1
+  let steps = 0
+  let quietUntil = -Infinity
+  let win: number[] = []
+  let winFrom = -1
+  let goodSince = -1
+  const left = new Map<number, number>()
+  return {
+    get steps() { return steps },
+    settle(now: number) { quietUntil = Math.max(quietUntil, now + settleMs); win = []; winFrom = -1 },
+    /** One frame's gap (ms) at time `now`; returns the steps taken from the top of the ladder. */
+    tick(gap: number, now: number, paused = false): number {
+      // (A gap of several frames is a hidden tab or a pause, not a slow device: not counted.)
+      if (paused || !(gap > 0) || gap > 120 || now < quietUntil) return steps
+      if (winFrom < 0) winFrom = now
+      win.push(gap)
+      if (now - winFrom < windowMs || win.length < minFrames) return steps
+      const median = [...win].sort((a, b) => a - b)[win.length >> 1]!
+      win = []
+      winFrom = -1
+      if (median > budget && steps < top) {
+        left.set(steps, (left.get(steps) ?? 0) + 1)
+        steps++
+        goodSince = -1
+        quietUntil = now + settleMs
+        governorTrace.push([now, steps, median])
+      } else if (median < budget / 2 && steps > 0 && (left.get(steps - 1) ?? 0) < 2) {
+        if (goodSince < 0) goodSince = now
+        else if (now - goodSince >= upMs) {
+          steps--
+          goodSince = -1
+          quietUntil = now + settleMs
+          governorTrace.push([now, steps, median])
+        }
+      } else goodSince = -1
+      return steps
+    },
+  }
+}
+let quality = 0
 /** The lab paints everything in one go instead of a slice a frame. */
 export function pinQuality(on: boolean | null): void { pinned = on }
+/** A phone: a screen under 600 CSS px across its short side at a dpr over 2 (its picture is capped, its edges 2x). */
+export function smallScreen(W: number, H: number, dpr: number): boolean { return dpr > 2 && Math.min(W, H) / dpr < 600 }
+/** For the lab: the GPU's time for the polygons of each frame (ms; the last one measured), when asked for. */
+let gpuTiming = false
+let gpuLast: number | null = null
+export function timeGpu(on: boolean): void { gpuTiming = on }
+export function gpuMs(): number | null { return gpuLast }
 
 /** The classic picture, drawn from the kit's parts: what shows while the polygons cannot be drawn. */
 function standIn(kit: Kit): View {
@@ -557,7 +645,7 @@ export default function polyView(kit: Kit): View {
     const outdoors = c.kind === 'overworld'
     const field = { x: -c.M, y: -c.M, w: c.fw, h: c.fh }
     const pitch = outdoors ? (par.roofPitch as number) : 0
-    const coarse = quality < 2
+    const coarse = LADDER[quality]!.coarse
     me = new Mesher(c.field, { pitch, room, sun: null, props: !!par.props, coarse })
     if (outdoors && !room) {
       // (For the camera: walls and houses, which it must not stand in; trees it may, and they are cut through.)
@@ -585,38 +673,21 @@ export default function polyView(kit: Kit): View {
 
   /** Time left this frame for building stretches of geometry (ms), and when the frame began. */
   let budget = 0
-  /** The gaps between the last frames that count, ms (`govern`). */
-  const gaps = new Float32Array(120)
-  let gapN = 0
+  /** The governor (`createGovernor`): the gaps between frames decide the step on the ladder (`LADDER`). */
+  const governor = createGovernor()
   let lastDraw = 0
-  /** Frames left out of the count: the first ones, and those after a map change (building a map is not a slow GPU). */
-  let settle = 90
-  let shownQuality = 2
-  /**
-   * Watch the time between frames and step down when the device keeps missing them, judged by a window's median
-   * (one hitch decides nothing; a gap of several frames is a hidden tab or a pause, and is not counted).
-   */
+  let shownQuality = 0
+  /** Step down the ladder when the device keeps missing frames (`createGovernor`); `pinQuality` holds the top for the lab. */
   function govern(paused: boolean) {
     const now = performance.now()
-    const gap = now - lastDraw
+    const gap = lastDraw ? now - lastDraw : 0
     lastDraw = now
-    if (pinned === true) quality = 2
-    else if (!paused && gap > 0 && gap < 120) {
-      if (settle > 0) settle--
-      else {
-        gaps[gapN++] = gap
-        if (gapN >= gaps.length) {
-          gapN = 0
-          const median = Array.from(gaps).sort((a, b) => a - b)[gaps.length >> 1]!
-          if (quality === 2 && median > 24) quality = 1
-          else if (quality === 1 && median > 42) quality = 0
-        }
-      }
-    }
+    quality = pinned === true ? 0 : governor.tick(gap, now, paused)
     if (quality !== shownQuality) {
-      // The stretches are built again with coarse cells, a few a frame.
+      const wasCoarse = LADDER[shownQuality]!.coarse
       shownQuality = quality
-      if (ctx) { ctx.meshers.clear(); for (const ch of ctx.chunks.values()) ch.dirty = true }
+      // The stretches are built again with coarse cells, a few a frame (only when that changes).
+      if (ctx && LADDER[quality]!.coarse !== wasCoarse) { ctx.meshers.clear(); for (const ch of ctx.chunks.values()) ch.dirty = true }
       // (Dissolved, not cut: the coarser picture comes in under the finer one over half a second.)
       kit.crossFade(0.6)
     }
@@ -764,7 +835,7 @@ export default function polyView(kit: Kit): View {
     // The frame's budget for building geometry: more in a map's first frames, where the picture waits for it.
     budgetAt = performance.now()
     budget = !ctx || ctx.id !== m.id ? 40 : 7
-    if (!ctx || ctx.id !== m.id) { settle = Math.max(settle, 20); gapN = 0 }
+    if (!ctx || ctx.id !== m.id) governor.settle(performance.now())
     // A door leads to another map: its land is built over the fade.
     if (s.warp && s.warp.to && s.warp.to !== m.id && world.maps[s.warp.to]) landFor(s.warp.to, raw, 6)
     const c = mapCtx(s, raw)
@@ -866,13 +937,16 @@ export default function polyView(kit: Kit): View {
     // The camera never goes into a wall, a house, a wood or a hill: it is pulled in toward the hero.
     // (Only the shoulder: the crane stands high over everything, and draws as it always has.)
     const cam = roomed || shoulderK <= 0 ? pose : clear(pose, focus, c, ls * ek, reduced ? 1 : dt, shoulderK)
-    const posed = poseMatrix(cam, vw, vh, focus, 0.25, 120)
+    // (Over a slope the shoulder camera stands higher, eye and aim together: `eyeRise` in `clear`.)
+    const aim = { ...focus, z: focus.z + (roomed || shoulderK <= 0 ? 0 : 0.55 * eyeRise * shoulderK) }
+    const posed = poseMatrix(cam, vw, vh, aim, 0.25, 120)
     const classic = classicMatrix(vw, vh, cx, cy)
     const M4: Mat4 = rigMatrix(k, classic, posed)
     const { f: fwd } = poseAxes(cam)
-    const eye: [number, number, number] = [focus.x - fwd[0] * cam.dist, focus.y - fwd[1] * cam.dist, focus.z - fwd[2] * cam.dist]
+    const eye: [number, number, number] = [aim.x - fwd[0] * cam.dist, aim.y - fwd[1] * cam.dist, aim.z - fwd[2] * cam.dist]
     govern(ui.paused)
-    const far1 = (par.drawDistance as number) * (quality < 2 ? 0.7 : 1)
+    const spend = LADDER[quality]!
+    const far1 = (par.drawDistance as number) * spend.far
     // (The fog begins nearer than the dither: it thickens over most of the way out.)
     const far0 = far1 * (0.62 - 0.42 * (par.fog as number))
     // The far land bends up toward the horizon (outdoors, at the end of the turn): what is placed on the picture bends with it.
@@ -944,9 +1018,9 @@ export default function polyView(kit: Kit): View {
     // (Value `figure`: the hero as the classic sprite, or the 16-bit view's modelled figure, which faces any way.)
     // (Value `figure`: the hero as the model, once it is here and the look fits it, or the classic sprite card.)
     // (A device the governor has stepped down gets the lighter mesh in the 64-bit look too.)
-    const which: '32' | '64' = shoulderK > 0.5 && quality === 2 ? '64' : '32'
+    const which: '32' | '64' = shoulderK > 0.5 && spend.heroHi ? '64' : '32'
     const wears = kit.heroLook()
-    const wantModel = par.figure === 'model' && k > 0.5 && !ui.attract && modelFits(wears)
+    const wantModel = par.figure === 'model' && spend.model && k > 0.5 && !ui.attract && modelFits(wears)
     const model = wantModel ? heroModel(which) : null
     // (The model arriving while the card stands in for it: the card dissolves into it, not swapped in one frame.)
     if (wantModel && !model) cardForModel = true
@@ -972,6 +1046,7 @@ export default function polyView(kit: Kit): View {
     // --- people and things: a cell each, stood up on their feet ------------------------------------------------
     dyn.clear()
     blobs.clear()
+    let heroSkin: { key: string; bones: Float32Array; place: [number, number, number, number]; face: [number, number]; g: number } | null = null
     const small: SceneItem[] = []
     const large: SceneItem[] = []
     const inRoom = (x: number, y: number, pad = 0) => !roomed || rooms.some(z => x >= z.x - pad && x < z.x + z.w + pad && y >= z.y - pad && y < z.y + z.h + pad)
@@ -1061,7 +1136,12 @@ export default function polyView(kit: Kit): View {
         const fp = heroPose(s, time, ui.paused ? 0 : dt)
         if (!blink) {
           const P = poseOf(fp)
-          const hand = skinHero(dyn, model.mesh, P, { x: h.x, y: h.y + 0.05, g: groundAt(h.x, h.y), yaw: P.yaw, scale: 0.95 / (model.mesh.hi - model.mesh.lo) })
+          // (Skinned on the GPU: the mesh is sent once, the bones each frame.)
+          const verts = heroVerts(model.mesh)
+          engine.heroMesh(which, verts, verts.length / HSTRIDE)
+          const hf = poseHero(model.mesh, P, { x: h.x, y: h.y + 0.05, g: groundAt(h.x, h.y), yaw: P.yaw, scale: 0.95 / (model.mesh.hi - model.mesh.lo) })
+          heroSkin = { key: which, bones: hf.bones, place: hf.place, face: hf.face, g: groundAt(h.x, h.y) }
+          const hand = hf.right
           if (P.blade && fp.blade) bladeMesh(dyn, hand, P.ba, groundAt(h.x, h.y), fp.blade.reach * 0.62, fp.blade.kind === 'arc')
           if (h.carry || h.act === 'lift') {
             // What is carried sits on the model's hands, as a thing in the round at the model's scale.
@@ -1164,7 +1244,12 @@ export default function polyView(kit: Kit): View {
       }
       // The backdrop's own horizon on the camera's.
       const line = Number.isFinite(hy) ? hy : -vh
-      const dy = Math.round(line - backdrop!.horizon * vh)
+      // (The soft look moves its sky by fractions of a pixel, smoothed: from the shoulder the sky is a fifth of the
+      // picture, and a whole pixel's step of all of it at once was a frame of change of its own as the camera settled.)
+      const softSky = (par.filter as number) * ek > 0.5
+      const px1 = (v: number) => softSky ? v : Math.round(v)
+      g.imageSmoothingEnabled = softSky
+      const dy = px1(line - backdrop!.horizon * vh)
       g.fillStyle = own.skyTop as string
       g.fillRect(0, 0, vw, vh)
       const sinkPx = day ? Math.round(Math.max(0, 0.12 - day.sun) * vh * 0.32) : 0
@@ -1183,7 +1268,7 @@ export default function polyView(kit: Kit): View {
           const lx = L.repeatX ? 0 : Math.round((vw - L.canvas.width) / 2) - Math.round(focus.x * T * L.parallax * 0.5 + (reduced ? 0 : time) * L.drift * 0.5)
           sunAt = { x: lx + L.canvas.width * (vh / vw > 1.3 ? 0.68 : 0.62), y: line - r * 0.4 + sinkPx, a: alpha * (line - r * 0.4 + sinkPx < line ? 1 : 0) }
         }
-        const at = Math.round(focus.x * T * L.parallax * 0.5 + (reduced ? 0 : time) * L.drift * 0.5)
+        const at = px1(focus.x * T * L.parallax * 0.5 + (reduced ? 0 : time) * L.drift * 0.5)
         const y = Math.round(L.top * vh) + dy + (L.role === 'sun' ? sinkPx : 0)
         const cw = L.canvas.width
         if (!L.repeatX) g.drawImage(L.canvas, Math.round((vw - cw) / 2) - at, y)
@@ -1191,6 +1276,7 @@ export default function polyView(kit: Kit): View {
         if (L.role === 'sun' && sinkPx > 0) g.restore()
         g.globalAlpha = 1
       }
+      g.imageSmoothingEnabled = false
       if (day) {
         // The hour's sky: the dusk's colours carried to the hour's (`skyGrade`), as a multiply and an add.
         const gr = skyGrade(own.skyTop as string, own.skyHorizon as string, par.skyTop as string, par.skyHorizon as string)
@@ -1241,30 +1327,37 @@ export default function polyView(kit: Kit): View {
       filter: (par.filter as number) * ek,
       // (The ground glides, in the 32-bit look too: its texels read one by one shimmer as the camera moves.)
       matFilter: Math.max(par.filter as number, (par.groundFilter as number) ?? 0) * ek,
+      sharpBias: (par.groundSoft as number) ?? 0,
       fog: (par.fog as number) * ek,
       faces: shoulderK > 0.5,
       painted: par.textures === 'painted' && paintedSent,
-      perPixel: (par.smoothShade as number) * ek,
+      perPixel: spend.perPixel ? (par.smoothShade as number) * ek : 0,
       // (At the classic end the lamps' light lies on the ground as the classic picture's pools do, which are wider and
       // stronger: the hand-off then lies on the classic picture in light too. It settles to the look's own as k does.)
       air: (par.lampAir as number) + (AIR_CLASSIC - (par.lampAir as number)) * (1 - ek),
     }
     // --- the picture's own density: each generation draws finer ----------------------------------------------
     const scr = kit.screen()
-    const d = densityOf(par.density, scr.scale, quality)
+    // A phone (a small screen at a high dpr) gets at most two device px a CSS px, in whole steps of the screen's own:
+    // its GPU fills fewer px than a desktop's, and at that size the eye does not see the third (see `smallScreen`).
+    const phone = smallScreen(scr.W, scr.H, scr.dpr)
+    let d = densityOf(par.density, scr.scale, 2 - spend.densityDrop)
+    if (phone) { const cap = scr.scale * 2 / scr.dpr; if (d > cap + 1e-6) d = scr.scale / Math.ceil(scr.scale / cap - 1e-6) }
     const sw = Math.max(1, Math.round(vw * d))
     const sh = Math.max(1, Math.round(vh * d))
     const px = d
     // The 64-bit machine's lamps: a soft halo round each lamp's head, in the world (behind what stands in front of the
     // lamp, never on a wall it stands behind), from the steady lamps, so it does not flicker either.
     haloV.clear()
-    const haloK = (par.halos as number) * ek * (quality === 2 ? 1 : 0.5)
+    const haloK = (par.halos as number) * ek * spend.halos
     if (haloK > 0) {
       for (const L of lamps) {
         const dd = Math.hypot(L.x - eye[0], L.y - eye[1])
         if (dd > far1) continue
         const r = Math.min(1.4, 0.5 + L.r * 0.18)
-        const a = 0.42 * Math.min(1, haloK)
+        // (Gone near the eye: a lamp beside the camera would lay its halo over a third of the picture.)
+        const a = 0.42 * Math.min(1, haloK) * Math.max(0, Math.min(1, (dd - 2.5) / 2.5))
+        if (a <= 0) continue
         const col: [number, number, number] = [L.c[0] * a, L.c[1] * a, L.c[2] * a]
         // (A little toward the eye, so the lamp's own lantern does not cut it.)
         const cx = L.x + ((eye[0] - L.x) / Math.max(0.01, dd)) * 0.3, cy = L.y + ((eye[1] - L.y) / Math.max(0.01, dd)) * 0.3
@@ -1272,8 +1365,10 @@ export default function polyView(kit: Kit): View {
       }
     }
     const cellPx = Math.max(1, Math.round(d * (par.grain as number)))
+    engine.timeGpu(gpuTiming)
+    if (gpuTiming) gpuLast = engine.gpuMs()
     engine.draw({
-      grid: cellPx, cell: cellPx, msaa: par.smoothEdges && k > 0.5 ? 4 : 0,
+      grid: cellPx, cell: cellPx, msaa: par.smoothEdges && k > 0.5 ? Math.min(spend.msaa, phone ? 2 : 4) : 0,
       m: M4, eye, lift: ek * ls, facet: ek, bend: [bendK, bendFrom],
       matScale: MAT_SCALE,
       heightAt: outdoors ? heightAt : [0, 0, 1, 0], sunRay: [Math.cos(sunA), Math.sin(sunA), 1 / shadowLen],
@@ -1300,8 +1395,9 @@ export default function polyView(kit: Kit): View {
       dynamic: { data: dyn.data, count: dyn.n },
       blobs: { data: blobs.data, count: blobs.n },
       halos: { data: haloV.data, count: haloV.n },
-    }, sw, sh, quality === 2 ? glowG : undefined)
-    if (quality < 2) glowG.clearRect(0, 0, vw, vh)
+      heroSkin,
+    }, sw, sh, spend.bloomPass ? glowG : undefined)
+    if (!spend.bloomPass) glowG.clearRect(0, 0, vw, vh)
     // The picture: the sky (painted at the scene's size) brought up to the picture's, the polygons over it.
     if (hiC.width !== sw || hiC.height !== sh) { hiC.width = sw; hiC.height = sh; hg = hiC.getContext('2d')! }
     hg.setTransform(1, 0, 0, 1, 0, 0)
@@ -1523,6 +1619,11 @@ export default function polyView(kit: Kit): View {
   }
   /** How far the camera has been tipped up over the land behind the hero, and pulled in, now (eased). */
   let liftPitch = 0
+  /** How far the whole shoulder camera stands raised over a slope before it (tiles; `clear`). */
+  let eyeRise = 0
+  /** The shoulder camera's lift and its coming nearer for the hero's feet (`clear`), eased apart. */
+  let feetLift = 0
+  let feetNear = 0
   let pullIn = 0
   /**
    * The camera kept out of what is solid. It rises (tips further down) as far as the land behind the hero needs for
@@ -1533,18 +1634,49 @@ export default function polyView(kit: Kit): View {
    */
   function clear(p: Pose, focus: { x: number; y: number; z: number }, c: MapCtx, ls: number, dt: number, share: number): Pose {
     const mass = c.mass
-    const landOver = (q: Pose): number => {
+    // The land between the eye and what it must see: the hero's chest (all of `landOver`), and their feet and the ground
+    // two tiles before them (`feet`). On a slope the eye rides up until no hill hides them, as it climbs over a wall;
+    // for the feet only so far (a steeper look loses the horizon), and then it comes nearer behind the hero.
+    const landOver = (q: Pose, feet = true): number => {
       const { f } = poseAxes(q)
+      const ex = focus.x - f[0] * q.dist, ey = focus.y - f[1] * q.dist, ez = focus.z - f[2] * q.dist
+      const fl = Math.hypot(f[0], f[1]) || 1
+      const ax = focus.x + (f[0] / fl) * 2, ay = focus.y + (f[1] / fl) * 2
+      const targets: Array<[number, number, number]> = feet ? [[focus.x, focus.y, focus.z + 0.05], [ax, ay, c.land.height(ax, ay) * ls + 0.05]] : [[focus.x, focus.y, focus.z + 0.6]]
       let worst = -1
-      for (let t = 0.6; t < q.dist + 0.3; t += 0.2) {
-        const z = focus.z + 0.6 * (1 - t / q.dist) - f[2] * t
-        worst = Math.max(worst, c.land.height(focus.x - f[0] * t, focus.y - f[1] * t) * ls + 0.25 - z)
+      for (const [tx, ty, tz] of targets) {
+        const len = Math.hypot(ex - tx, ey - ty)
+        // (The feet: from a tile off, a hair over the land; the chest as before.)
+        for (let t = feet ? 1 : 0.6; t < len - 0.3; t += 0.2) {
+          const u = t / len
+          const z = tz + (ez - tz) * u
+          worst = Math.max(worst, c.land.height(tx + (ex - tx) * u, ty + (ey - ty) * u) * ls + (feet ? 0.1 : 0.25) - z)
+        }
       }
       return worst
     }
     let need = 0
     const most = Math.max(0, 1.1 - p.pitch)
-    while (need < most && landOver({ ...p, pitch: p.pitch + need }) > 0) need += 0.05
+    while (need < most && landOver({ ...p, pitch: p.pitch + need }, false) > 0) need += 0.05
+    // (The feet's own lift is held apart and eased slowly both ways: the knolls under a walking hero would bob the
+    // camera, and the whole picture would shimmer with it.)
+    let feetNeed = need
+    while (feetNeed < Math.min(most, 0.3) && landOver({ ...p, pitch: p.pitch + feetNeed }) > 0) feetNeed += 0.05
+    feetLift += (feetNeed - need - feetLift) * Math.min(1, dt * 1.2)
+    // (And the eye stands clear of the land right before it, or a slope fills the bottom of the picture: the whole camera
+    // rises, eye and aim together, so the look keeps its angle and the horizon (`eyeRise`).)
+    {
+      const { f } = poseAxes({ ...p, pitch: p.pitch + need })
+      const ez = focus.z - f[2] * p.dist
+      let rise = 0
+      for (let t = p.dist; t > p.dist - 1.5; t -= 0.25) rise = Math.max(rise, c.land.height(focus.x - f[0] * t, focus.y - f[1] * t) * ls + 1.4 - ez)
+      rise = Math.min(1.2, rise)
+      eyeRise += (rise - eyeRise) * Math.min(1, dt * (rise > eyeRise ? 6 : 2.5))
+    }
+    // (Still hidden: nearer, down to three tiles.)
+    let nearer = 0
+    while (p.dist - nearer > 3 && landOver({ ...p, pitch: p.pitch + feetNeed, dist: p.dist - nearer }) > 0) nearer += 0.25
+    feetNear += (nearer - feetNear) * Math.min(1, dt * 1.2)
     // A wall or a house close ahead of the hero: the camera looks down over the hero onto the ground before it, so
     // the hero, not the wall, is the picture.
     const { f: f0 } = poseAxes(p)
@@ -1552,7 +1684,7 @@ export default function polyView(kit: Kit): View {
     if (mass) {
       for (let t = 0.6; t < 3.5; t += 0.25) {
         const m = mass(focus.x + (f0[0] / fl) * t, focus.y + (f0[1] / fl) * t)
-        if (m > 0.5) { need = Math.max(need, 0.22 * (1 - (t - 0.6) / 2.9) * Math.min(1, m / 2)); break }
+        if (m > 0.5) { need = Math.max(need, 0.1 * (1 - (t - 0.6) / 2.9) * Math.min(1, m / 2)); break }
       }
     }
     const inside = (q: Pose, d: number): boolean => {
@@ -1570,9 +1702,11 @@ export default function polyView(kit: Kit): View {
     const q = { ...p, pitch: p.pitch + liftPitch }
     // Only where climbing is not enough is it pulled in, and never nearer than two tiles.
     let to = 0
-    for (let d = q.dist; d > 2 && inside(q, d); d -= 0.25) to = q.dist - (d - 0.25)
+    for (let d = q.dist; d > 2 && inside(q, d); d -= 0.25) to = Math.max(to, q.dist - (d - 0.25))
     pullIn = to > pullIn ? to : pullIn + (to - pullIn) * Math.min(1, dt * 2)
-    return { ...p, pitch: p.pitch + liftPitch * share, dist: p.dist - pullIn * share }
+    const inward = Math.max(pullIn, feetNear)
+    // (The eye a little higher than the aim: the rest of the rise as a tilt, so the hero stays in the picture.)
+    return { ...p, pitch: p.pitch + (liftPitch + feetLift + Math.atan2(0.45 * eyeRise, p.dist)) * share, dist: p.dist - inward * share }
   }
 
   return {

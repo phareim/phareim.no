@@ -5,6 +5,7 @@ import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { gunzipSync } from 'node:zlib'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -19,10 +20,11 @@ async function load() {
         `export * from './render/poly/camera'`,
         `export * from './render/poly/terrain'`,
         `export { Mesher, Verts, roomCut, polyShape, KERB, STRIDE, AT, TEX } from './render/poly/mesh'`,
-        `export { rig, boneMatrices, JOINTS } from './render/poly/hero'`,
+        `export { rig, boneMatrices, JOINTS, parseHero, heroVerts, poseHero, skinHero } from './render/poly/hero'`,
+        `export { HSTRIDE } from './render/poly/mesh'`,
         `export { solvePose } from './render/iso/figure'`,
         `export { createLampKeeper, LAMP_CAP } from './render/poly/lamps'`,
-        `export { holdLight, HOLD_TAU, HOLD_JUMP, easeLook, toAlbedo, ALBEDO, PAINTED_TUNE } from './render/poly/view'`,
+        `export { holdLight, HOLD_TAU, HOLD_JUMP, easeLook, toAlbedo, ALBEDO, PAINTED_TUNE, LADDER, createGovernor } from './render/poly/view'`,
         `export { TILE } from './types'`,
         `export { WORLD } from './world/index'`,
         `export { BEYOND, beyondTile } from './render/beyond'`,
@@ -494,6 +496,37 @@ describe('the hero model', () => {
     // Mid-stride one leg swings forward and the other back: their rotations differ.
     assert.ok(Math.abs(step[4][6] - step[5][6]) > 0.05, 'the legs do not swing')
   })
+  it('is skinned on the GPU exactly where the CPU skin puts it (the shader\'s sums, in JS), for the real meshes', () => {
+    // The vertex shader's skinning (engine.ts, skinned()): two bones by weight, then model to world by the facing.
+    const shaderSkin = (hf, d, o) => {
+      const B = hf.bones
+      const at = (b, x, y, z) => [0, 1, 2].map(r => B[b * 12 + r * 4] * x + B[b * 12 + r * 4 + 1] * y + B[b * 12 + r * 4 + 2] * z + B[b * 12 + r * 4 + 3])
+      const w = d[o + M.HSTRIDE - 1]
+      const a = at(d[o + M.HSTRIDE - 3], d[o], d[o + 1], d[o + 2]), b = at(d[o + M.HSTRIDE - 2], d[o], d[o + 1], d[o + 2])
+      const m = a.map((v, i) => w * v + (1 - w) * b[i])
+      const [fx, fy] = hf.face, rx = -fy, ry = fx
+      return [hf.place[0] + hf.place[2] * (m[0] * rx - m[2] * fx), hf.place[1] + hf.place[2] * (m[0] * ry - m[2] * fy), hf.place[2] * (m[1] - hf.place[3])]
+    }
+    for (const which of ['32', '64']) {
+      const buf = gunzipSync(readFileSync(join(root, '../../public/zelda/poly/hero-' + which + '.bin')))
+      const mesh = M.parseHero(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength))
+      const d = M.heroVerts(mesh)
+      assert.equal(d.length / M.HSTRIDE, mesh.idx.length)
+      for (const pose of [{ yaw: 0.3, act: 'idle', t: 0 }, { yaw: 2, act: 'walk', t: 0.4 }, { yaw: -1, act: 'attack', t: 0.1, blade: { reach: 1, kind: 'arc' } }]) {
+        const P = M.solvePose(pose)
+        const at = { x: 12.3, y: 7.9, g: 0.4, yaw: P.yaw, scale: 0.95 / (mesh.hi - mesh.lo) }
+        const hf = M.poseHero(mesh, P, at)
+        const v = { n: 0, data: new Float32Array(0), reserve(k) { if (this.data.length < (this.n + k) * 20) { const nd = new Float32Array((this.n + k) * 20); nd.set(this.data); this.data = nd } } }
+        M.skinHero(v, mesh, P, at)
+        let worst = 0
+        for (let c = 0; c < v.n; c += 7) {
+          const g = shaderSkin(hf, d, c * M.HSTRIDE)
+          for (let k = 0; k < 3; k++) worst = Math.max(worst, Math.abs(g[k] - v.data[c * 20 + k]))
+        }
+        assert.ok(worst < 1e-4, `${which} ${pose.act}: a corner is ${worst} tiles off`)
+      }
+    }
+  })
 })
 
 describe('the lamps', () => {
@@ -683,5 +716,55 @@ describe('the painted page\'s light', () => {
       const [gain, sat] = M.PAINTED_TUNE[m]
       assert.ok(gain > 0.5 && gain <= 1.2 && sat > 0.5 && sat <= 1.2, `${m} tune ${gain} ${sat}`)
     }
+  })
+})
+
+describe('the governor', () => {
+  // A device: the gap between its frames (ms) at each step of the ladder. Runs it for `ms` and returns each frame's step.
+  const run = (gapAt, ms, gov = M.createGovernor()) => {
+    const steps = []
+    let t = 0
+    while (t < ms) { const g = gapAt(gov.steps); t += g; steps.push([t, gov.tick(g, t)]) }
+    return { steps, gov }
+  }
+  it('gives up the cheapest things first, and never takes one back further down', () => {
+    const L = M.LADDER
+    assert.equal(L[0].bloomPass, true); assert.equal(L[0].msaa, 4); assert.equal(L[0].model, true)
+    for (let i = 1; i < L.length; i++) {
+      assert.ok(L[i].msaa <= L[i - 1].msaa && L[i].far <= L[i - 1].far && L[i].densityDrop >= L[i - 1].densityDrop && L[i].halos <= L[i - 1].halos)
+      for (const k of ['bloomPass', 'perPixel', 'heroHi', 'model']) assert.ok(!(L[i][k] && !L[i - 1][k]), `step ${i} takes back ${k}`)
+      assert.ok(!(L[i - 1].coarse && !L[i].coarse))
+      assert.notDeepEqual(L[i], L[i - 1], `step ${i} gives up nothing`)
+    }
+    assert.equal(L.at(-1).model, false, 'the last step does not give up the model')
+  })
+  it('acts on a slow device within a second, and goes on down within a few', () => {
+    const { steps } = run(() => 33, 6000)
+    const first = steps.find(([, s]) => s >= 1)
+    assert.ok(first && first[0] < 1000, `first step at ${first?.[0]} ms`)
+    const second = steps.find(([, s]) => s >= 2)
+    assert.ok(second && second[0] < 3000, `second step at ${second?.[0]} ms`)
+  })
+  it('stays where the device keeps up, and never flaps', () => {
+    // Slow at the top, comfortable one step down: it settles on step 1 and stays there for a minute.
+    const { steps } = run(s => (s === 0 ? 24 : 12), 60000)
+    const after = steps.filter(([t]) => t > 3000).map(([, s]) => s)
+    assert.ok(after.every(s => s === 1), 'it moved after settling')
+    // A device fast enough one step down to be tempted back up: it may try once, never more.
+    const tempt = run(s => (s === 0 ? 24 : 6), 120000)
+    let changes = 0
+    for (let i = 1; i < tempt.steps.length; i++) if (tempt.steps[i][1] !== tempt.steps[i - 1][1]) changes++
+    assert.ok(changes <= 3, `${changes} changes in two minutes`)
+    assert.equal(tempt.steps.at(-1)[1], 1)
+  })
+  it('does not count a hidden tab, a pause or a new map', () => {
+    const gov = M.createGovernor()
+    let t = 0
+    for (let i = 0; i < 100; i++) { t += 500; gov.tick(500, t) }
+    for (let i = 0; i < 100; i++) { t += 40; gov.tick(40, t, true) }
+    assert.equal(gov.steps, 0)
+    gov.settle(t)
+    for (let i = 0; i < 20; i++) { t += 40; gov.tick(40, t) }
+    assert.equal(gov.steps, 0, 'it judged while a map was being built')
   })
 })

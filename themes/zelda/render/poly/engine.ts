@@ -16,7 +16,7 @@
  * - the world ends a short way off, dissolving in dithered steps (`far`).
  */
 import { bindTex, program, programsReady, rgb, type GL, type Program, type Tex, texture, upload, uploadPart } from '../iso/gl'
-import { AT, STRIDE } from './mesh'
+import { AT, HSTRIDE, STRIDE } from './mesh'
 import type { Mat4 } from './camera'
 
 export interface Lamp { x: number; y: number; z: number; r: number; c: [number, number, number] }
@@ -50,6 +50,8 @@ export interface PolyLook {
   filter: number
   /** The ground's and the walls' materials filtered between texels (default: as `filter`). */
   matFilter?: number
+  /** The filtered ground this many mip levels softer than its pixels want (anisotropic read). */
+  sharpBias?: number
   /** The distance swallowed by fog (1) or dissolved in dither (0). */
   fog: number
   /** Walls' faces between the eye and the hero are seen through too (the camera may stand on any side). */
@@ -103,6 +105,11 @@ export interface Frame {
   blobs: { data: Float32Array; count: number }
   /** Lamps' halos (`TEX.HALO`), drawn last, added in. */
   halos?: { data: Float32Array; count: number }
+  /**
+   * The hero model, skinned on the GPU: which uploaded mesh (`heroMesh`), its six bones (3 x 4 rows each, 72 numbers),
+   * where it stands (x, y, tiles per metre, the mesh's lowest point), which way it faces (unit vector), the ground.
+   */
+  heroSkin?: { key: string; bones: Float32Array; place: [number, number, number, number]; face: [number, number]; g: number } | null
 }
 
 const VS = `#version 300 es
@@ -118,6 +125,22 @@ layout(location=7) in float aRole;
 layout(location=8) in float aFlags;
 layout(location=9) in float aZk;
 layout(location=10) in vec3 aSNormal;
+/** The hero model, skinned here (uSkin 1): its two bones and the first one's weight; the six bones as 3 x 4 rows; where
+ * it stands (x, y, tiles per metre, the mesh's lowest point), which way it faces, and the ground's height under it. */
+layout(location=11) in vec2 aBone;
+layout(location=12) in float aBoneW;
+uniform int uSkin;
+uniform vec4 uBones[18];
+uniform vec4 uPlace;
+uniform vec2 uFace;
+uniform float uSkinG;
+vec3 boneAt(int b, vec3 v, float t) { return vec3(dot(uBones[b].xyz, v) + uBones[b].w * t, dot(uBones[b + 1].xyz, v) + uBones[b + 1].w * t, dot(uBones[b + 2].xyz, v) + uBones[b + 2].w * t); }
+vec3 skinned(vec3 v, float t) {
+  vec3 m = aBoneW * boneAt(int(aBone.x + 0.5) * 3, v, t) + (1.0 - aBoneW) * boneAt(int(aBone.y + 0.5) * 3, v, t);
+  // Model (x right, y up, z back) to the world: the face (-z) along the body's heading, the right (+x) to its right.
+  vec2 f = uFace, r = vec2(-uFace.y, uFace.x);
+  return vec3(m.x * r - m.z * f, m.y);
+}
 uniform mat4 uM;
 uniform vec2 uView;
 /** The snap's grid: px of the picture to one cell (a classic px or half of it, however fine the picture). */
@@ -167,6 +190,15 @@ out vec2 vWorld;
 flat out int vTex;
 flat out int vFlags;
 void main() {
+  vec3 inPos = aPos, inN = aNormal, inSN = aSNormal;
+  float inGround = aGround;
+  if (uSkin == 1) {
+    vec3 w = skinned(aPos, 1.0);
+    inPos = vec3(uPlace.xy + uPlace.z * w.xy, uPlace.z * (w.z - uPlace.w));
+    inN = normalize(skinned(aNormal, 0.0));
+    inSN = normalize(skinned(aSNormal, 0.0));
+    inGround = uSkinG;
+  }
   // Over the turn this view's own things come up out of the ground and the classic stand-ins go down into it
   // (moved, never squashed: what is under the ground is hidden by it). A role's share is how far it is up.
   float m = aRole < 0.5 ? 1.0 : aRole < 1.5 ? uRoles.x : aRole < 2.5 ? uRoles.y : aRole < 3.5 ? uRoles.z : uRoles.w;
@@ -175,7 +207,7 @@ void main() {
   // (Wholly in the ground, it is not drawn at all: where there is no floor over it, beyond a room's kerb, it would show.)
   if (aRole > 0.5 && m <= 0.0001) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); return; }
   float deep = aRole < 0.5 ? 0.0 : aRole < 1.5 ? 3.2 : aRole < 2.5 ? 1.5 : aRole < 3.5 ? 1.7 : 1.5;
-  vec3 p = vec3(aPos.xy, aPos.z - (1.0 - m) * deep + (aGround + aZk) * uLift);
+  vec3 p = vec3(inPos.xy, inPos.z - (1.0 - m) * deep + (inGround + aZk) * uLift);
   // The far land bends up toward the horizon, so the world meets the sky as a ridge, wherever the eye stands.
   float hd = max(0.0, length(p.xy - uEye.xy) - uBend.y);
   // (Never up past the eye: a ridge under the sky, not a rim over it, as the camera comes down while the bend grows.)
@@ -196,12 +228,12 @@ void main() {
   vTex = int(aTex + 0.5);
   vFlags = int(aFlags + 0.5);
   vDist = length(p - uEye);
-  vWorld = aPos.xy;
+  vWorld = inPos.xy;
   // The light, at the corners.
-  vec3 n = normalize(mix(aNormal, aSNormal, uSmooth));
+  vec3 n = normalize(mix(inN, inSN, uSmooth));
   // The sky lights from above and a little from the north-west, so every facet of a knoll takes its own share.
   float sky = mix(1.0, 0.12 + 1.08 * max(0.0, dot(n, normalize(vec3(-0.55, -0.2, 0.81)))), uFacet);
-  float lit = uShadow > 0.0 ? sunAt(p + aNormal * 0.02) : 1.0;
+  float lit = uShadow > 0.0 ? sunAt(p + inN * 0.02) : 1.0;
   float inSun = mix(1.0, lit, uShadow);
   vec3 L = uAmbient * sky * mix(1.0, 0.62 + 0.38 * lit, uShadow);
   L += uSunCol * max(0.0, dot(n, uSunDir)) * inSun;
@@ -217,7 +249,7 @@ void main() {
     lampL += uLampCol[i] * a * a * (3.0 - 2.0 * a) * face;
   }
   // The crown of a knoll a shade lighter than its foot, so the land rolls even where the light is flat.
-  float crown = 1.0 + 0.2 * clamp(aGround * uLift, 0.0, 1.5) * uFacet;
+  float crown = 1.0 + 0.2 * clamp(inGround * uLift, 0.0, 1.5) * uFacet;
   vLight = L * crown;
   vLamp = lampL * crown;
   vPos = p;
@@ -237,6 +269,9 @@ uniform int uLampNf;
 uniform vec4 uLampPosF[16];
 uniform vec3 uLampColF[16];
 uniform float uSideF;
+/** The eye and the hour's ambient light (as in the vertex stage): for the hero's rim. */
+uniform vec3 uEye;
+uniform vec3 uAmbient;
 /** 0: the lamps' light as the corners worked it out; 1: per pixel (the 64-bit machine: smooth, no lattice). */
 uniform float uPerPixel;
 /** How much of a lamp's light hangs in the air over what it reaches, added on top (the classic picture's glow). */
@@ -322,6 +357,16 @@ uniform float uMatTile;
 uniform float uMatScale[16];
 /** The footprint of a texel of this pixel (from the uv's screen derivatives, taken before any branch). */
 vec2 gFoot;
+/** The uv's screen derivatives (taken before any branch), and how many material texels a unit of the uv read is. */
+vec2 gDx, gDy;
+/** The hero model seen from inside (through the hole at the back of its hair): drawn as the hair's dark, unlit. */
+bool gInside = false;
+float gGs;
+/** The painted page as layers, one a material, each with its own repeat, mip maps and anisotropic filtering (when 1). */
+uniform highp sampler2DArray uMatArr;
+uniform float uAniso;
+/** The 64-bit look's ground read this many mip levels softer than the pixel wants (the meter's steadiness). */
+uniform float uSharpBias;
 /** The page being read: the bound one (painted, or the plain materials), or the plain one under a painted page's fade-in. */
 bool gLo;
 float gSide;
@@ -365,6 +410,13 @@ vec3 matAtPage(float idx, vec2 t, float foot) {
     int l1 = min(l0 + 1, 5);
     soft = mix(matBilin(idx, t, l0, float(1 << l0)), matBilin(idx, t, l1, float(1 << l1)), ls - float(l0));
   } else soft = matBilin(idx, t, 0, 1.0 + uFilter);
+  // The painted page through the GPU's own filter: trilinear and anisotropic, so the ground is sharp near the eye and
+  // steady far off (16 samples along a slanting look instead of a softer level). The 32-bit look's steady ground half
+  // a level softer still; the 64-bit look's at the mip level the pixel wants.
+  if (!gLo && gSide >= 128.0 && uAniso > 0.5) {
+    float k = exp2(0.5 * uMatFilter * (1.0 - uFilter) + uSharpBias) * gGs * sc / gSide;
+    soft = textureGrad(uMatArr, vec3(t / gSide, idx), gDx * k, gDy * k).rgb;
+  }
   return mix(hard, soft, uMatFilter);
 }
 /** A material: from the bound page, and while a painted page fades in over the plain one, from both. */
@@ -377,7 +429,10 @@ vec3 matAtT(float idx, vec2 t, float foot) {
   }
   return c;
 }
-vec3 matAt(float idx, vec2 w) { return matAtT(idx, w * 16.0, max(gFoot.x, gFoot.y) * 16.0); }
+vec3 matAt(float idx, vec2 w) {
+  gGs = 16.0;
+  return matAtT(idx, w * 16.0, max(gFoot.x, gFoot.y) * 16.0);
+}
 /** A classic picture at px: texel by texel, or filtered between texels. */
 vec4 pic(sampler2D s, vec2 px) {
   vec4 hard = fetchPic(s, px);
@@ -393,19 +448,26 @@ vec4 atlasTexel(vec2 q) {
   return texelFetch(uAtlas, clamp(ivec2(q), ivec2(0), size - 1), 0);
 }
 /** A figure's picture: texel by texel, or filtered (paper figures in a soft world). */
+vec4 premul(vec4 c) { return vec4(c.rgb * c.a, c.a); }
 vec4 atlasAt(vec2 px) {
   vec4 hard = atlasTexel(floor(px));
   if (uFilter <= 0.001) return hard;
+  // The soft look's paper figures: each texel a clean square at any size, its edges smoothed over a pixel of the
+  // screen (not smeared over a texel); the colours mixed premultiplied, so no dark fringe from the clear texels round
+  // a figure, and the alpha test cuts a clean edge. (Returned premultiplied: the caller divides by alpha.)
+  vec2 fw = max(gFoot, vec2(1e-3));
   vec2 p = px - 0.5;
   vec2 i = floor(p);
-  vec2 f = fract(p);
-  vec4 soft = mix(mix(atlasTexel(i), atlasTexel(i + vec2(1.0, 0.0)), f.x), mix(atlasTexel(i + vec2(0.0, 1.0)), atlasTexel(i + 1.0), f.x), f.y);
-  return mix(hard, soft, uFilter);
+  vec2 f = clamp((fract(p) - 0.5) / min(fw, vec2(1.0)) + 0.5, 0.0, 1.0);
+  vec4 soft = mix(mix(premul(atlasTexel(i)), premul(atlasTexel(i + vec2(1.0, 0.0))), f.x), mix(premul(atlasTexel(i + vec2(0.0, 1.0))), premul(atlasTexel(i + 1.0)), f.x), f.y);
+  return mix(premul(hard), soft, uFilter);
 }
 void main() {
   // (People and things are sprites: the machine drew those straight, not as warped polygons.)
   vec2 uv = vTex == 3 || vTex == 7 ? vUv : mix(vUv, vUvw.xy / vUvw.z, uAffine);
   gFoot = fwidth(uv);
+  gDx = dFdx(uv);
+  gDy = dFdy(uv);
   vec4 c = vec4(1.0);
   vec3 glow = vec3(0.0);
   /** What shines by itself in the classic art: bright, saturated colours (neon, screens, lit letters, crystals). */
@@ -443,6 +505,10 @@ void main() {
     vec4 hard = texelFetch(uHeroTex, clamp(ivec2(hp), ivec2(0), hs - 1), 0);
     c = mix(hard, texture(uHeroTex, vUv), uFilter);
     c.a = 1.0;
+    // (Seen from inside, through the small hole at the back of the hair, the face's own texture would read as eyes on the
+    // back of the head: the model's inside is the hair's dark.)
+    gInside = dot(normalize(vN), normalize(uEye - vPos)) < 0.12;
+    if (gInside) c.rgb = vec3(0.094, 0.094, 0.345);
   } else if (vTex == 4) {
     // Water: deep indigo, crests that run, glints, and at the shore foam (or a pool's neon rim).
     vec2 q = floor(uv * 16.0) / 16.0;
@@ -471,11 +537,17 @@ void main() {
     o = vec4(vColor * a, 1.0);
     return;
   } else if (vTex == 5) {
+    // A shadow: the 32-bit machine's stippled ellipse, the 64-bit one's soft and round, darkest under the feet
+    // (mixed by the filter, so the change of look never switches it at once). Multiplied onto the ground.
     float d = length(uv);
-    if (d > 1.0 || (d > 0.72 && bayer(gl_FragCoord.xy) > 0.5)) discard;
-    o = vec4(vec3(vColor.r), 1.0);
+    if (d > 1.0) discard;
+    float hard = d > 0.72 && bayer(gl_FragCoord.xy) > 0.5 ? 0.0 : 1.0;
+    float soft = 1.0 - smoothstep(0.15, 1.0, d);
+    float a = mix(hard, soft * soft * (3.0 - 2.0 * soft), uFilter);
+    o = vec4(vec3(mix(1.0, vColor.r, a)), 1.0);
     return;
   } else if (vTex >= 10) {
+    gGs = 1.0;
     c = vec4(matAtT(float(vTex - 10), uv, max(gFoot.x, gFoot.y)), 1.0);
   }
   if (c.a < 0.5) discard;
@@ -487,7 +559,9 @@ void main() {
   vec3 lit = tex * (vTex == 4 ? vec3(1.0) : vColor) * (vTex == 4 ? 0.55 + 0.6 * light : light);
   // A share of the lamps' light in the air over what they reach, as the classic picture's glow lies on its ground.
   // (Saturating, as that glow does: about the lamp's own light where it is faint, never a white-out beside a strong one.)
-  lit += (1.0 - exp(-lamp * 1.2)) / 1.2 * uAir;
+  // (Not on the hero model: light added without its colours picks out whatever of it faces a lamp, the hollows of
+  // its hair as two white eyes on the back of its head.)
+  if (vTex != 7) lit += (1.0 - exp(-lamp * 1.2)) / 1.2 * uAir;
   if ((vFlags & 2) != 0) lit = max(lit, tex * vColor);
   // Neon in the classic art shines by itself: the lamps do not light it, it is as bright as it was painted.
   float hi = max(tex.r, max(tex.g, tex.b));
@@ -497,8 +571,20 @@ void main() {
   lit = max(lit, neon);
   // The hero model's face and clothes read under every light: never darker than about half their own colours
   // (a painted figure's floor, as the sprites' outlines and the classic art carry their own light).
-  if (vTex == 7) lit = max(lit, tex * 0.5);
+  if (vTex == 7) {
+    lit = max(lit, tex * 0.5);
+    // And a rim of light round it, from the sky and the lamps about it, so even a black jacket stands out from dark
+    // ground: strongest where the model turns away from the eye.
+    float rim = 1.0 - clamp(dot(normalize(vN), normalize(uEye - vPos)), 0.0, 1.0);
+    // (The back of the crown, flagged by the mesh (8): lit flat and without the rim, so its pockets read as hair.)
+    if ((vFlags & 8) != 0) { lit = tex * (uAmbient * 1.2 + 0.25); rim = 0.0; }
+    if (gInside) { lit = tex * (uAmbient * 0.8 + 0.1); rim = 0.0; }
+    lit += rim * rim * (uAmbient * 0.9 + lamp * 0.7 + 0.06);
+  }
   lit += glow;
+  // The soft look's shoulder: light over 0.75 rolls off toward white instead of clipping (pale sand by a bonfire).
+  vec3 over = max(lit - 0.75, 0.0);
+  lit = mix(lit, min(lit, vec3(0.75)) + 0.25 * (1.0 - exp(-over * 4.0)), uFilter);
   float b = bayer(gl_FragCoord.xy);
   // A room: what lies outside it is dark.
   if (uRoomOn == 1) {
@@ -518,10 +604,21 @@ void main() {
     if (vDist > uFar.y) discard;
     fogged = mix(fd * uHazeK, fd * fd * (3.0 - 2.0 * fd), uFog);
     // Toward the fog's colour, and then gone into what lies behind (the sky, the ridges): the fog is the picture's own.
-    lit = mix(lit, uHaze, fogged * 0.55);
+    // And the air between: from a few tiles off, each layer further away a little more in the hour's colour, so a wood
+    // steps back row by row instead of standing as one dark wall.
+    float air = (1.0 - exp(-max(0.0, vDist - 4.0) / 12.0)) * 0.5 * (uFog - 0.5) * 2.0;
+    lit = mix(lit, uHaze, max(fogged * 0.55, air));
   }
   // The 64-bit camera walks among things: what stands near the eye (a tree it stands in, a sign at the hero's back)
   // fades away in a fine dither, gone at a tile and a half.
+  // (A paper figure nearer the eye than the hero goes in a short fine dither, over the last tile before the hero's
+  // distance: never at once as the camera settles, and never the long stipple that showed its enlarged texels.)
+  if (uFaces == 1 && vTex == 3 && (vFlags & 1) != 0 && vDist < uHero.w - 0.4) {
+    vec2 q = floor(gl_FragCoord.xy);
+    ivec2 r = ivec2(mod(q, 4.0));
+    int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
+    if ((float(m[r.x + r.y * 4]) + 0.5) / 16.0 > (vDist - (uHero.w - 1.4)) / 1.0) discard;
+  }
   if (uFaces == 1 && ((vFlags & 1) != 0 || (vFlags & 4) != 0) && vDist < uHero.w - 0.6) {
     vec2 q = floor(gl_FragCoord.xy);
     ivec2 r = ivec2(mod(q, 4.0));
@@ -561,6 +658,8 @@ export interface Engine {
   heights(data: Uint8Array, w: number, h: number): void
   /** The hero model's texture (RGBA, straight). */
   heroTexture(data: Uint8Array | Uint8ClampedArray, w: number, h: number): void
+  /** A hero mesh, once (`HSTRIDE` floats a corner: the engine's own and two bones and a weight): kept under its key. */
+  heroMesh(key: string, data: Float32Array, count: number): void
   objs(c: HTMLCanvasElement, w: number, h: number): void
   base(c: HTMLCanvasElement, w: number, h: number): void
   atlas(c: HTMLCanvasElement, rows: number): void
@@ -568,6 +667,9 @@ export interface Engine {
   shoreField(data: Uint8Array, w: number, h: number): void
   /** `glowTo`: a canvas that gets what shines by itself, for the bloom (a pass of its own before the picture). */
   draw(f: Frame, vw: number, vh: number, glowTo?: CanvasRenderingContext2D): void
+  /** For the lab: time the GPU's work of each frame (`EXT_disjoint_timer_query_webgl2`); the last result, ms (null: none yet). */
+  timeGpu(on: boolean): void
+  gpuMs(): number | null
   dispose(): void
 }
 
@@ -614,10 +716,26 @@ export function createEngine(): Engine {
     return msFb!
   }
   let hasPainted = false
+  /** The painted page as layers (`painted`), for the GPU's anisotropic filter where the device has it. */
+  const matArr = gl.createTexture()!
+  // (A texel of nothing until the page is here: a sampler never points at an empty texture.)
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, matArr)
+  gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, 1, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4))
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+  const anisoExt = gl.getExtension('EXT_texture_filter_anisotropic') as { TEXTURE_MAX_ANISOTROPY_EXT: number; MAX_TEXTURE_MAX_ANISOTROPY_EXT: number } | null
+  let hasArr = false
+  /** The lab's GPU timer (`timeGpu`). */
+  const tq = gl.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null
+  let timing = false
+  const queries: WebGLQuery[] = []
+  let lastGpu: number | null = null
   /** A frame was drawn with the plain page, and when a painted one began to fade in over it. */
   let plainShown = false
   let paintFrom = -1
   const dyn = gl.createBuffer()!
+  /** The hero meshes as uploaded, by key: drawn skinned (`uSkin`), never sent again. */
+  const heroBufs = new Map<string, { buf: WebGLBuffer; count: number }>()
   const haloBuf = gl.createBuffer()!
   const blobBuf = gl.createBuffer()!
   const vao = gl.createVertexArray()!
@@ -632,10 +750,10 @@ export function createEngine(): Engine {
     t.h = h
   }
 
-  function bindLayout(buf: WebGLBuffer) {
+  function bindLayout(buf: WebGLBuffer, stride = STRIDE) {
     const g = gl!
     g.bindBuffer(g.ARRAY_BUFFER, buf)
-    const s = STRIDE * 4
+    const s = stride * 4
     const attr = (loc: number, size: number, off: number) => { g.enableVertexAttribArray(loc); g.vertexAttribPointer(loc, size, g.FLOAT, false, s, off * 4) }
     attr(0, 3, AT.pos); attr(1, 1, AT.ground); attr(2, 3, AT.normal); attr(3, 2, AT.uv); attr(4, 1, AT.tex)
     attr(5, 3, AT.color); attr(6, 1, AT.sun); attr(7, 1, AT.role); attr(8, 1, AT.flags); attr(9, 1, AT.zk); attr(10, 3, AT.snormal)
@@ -645,6 +763,8 @@ export function createEngine(): Engine {
     canvas,
     ready: block => programsReady(gl, [prog], block),
     lost: () => gl.isContextLost(),
+    timeGpu(on) { timing = on && !!tq },
+    gpuMs: () => lastGpu,
     keep(data, count) {
       const buf = gl.createBuffer()!
       gl.bindBuffer(gl.ARRAY_BUFFER, buf)
@@ -658,6 +778,21 @@ export function createEngine(): Engine {
       // Its smaller levels, box-filtered (each material's 128 texels halve within itself, so none bleeds into the next).
       gl.bindTexture(gl.TEXTURE_2D, tex.painted.t)
       gl.generateMipmap(gl.TEXTURE_2D)
+      // The same page as layers, a material a layer, for the GPU's own filter (`uMatArr`): repeat, trilinear, anisotropic.
+      const side = h, n = Math.floor(w / side)
+      const layered = new Uint8Array(side * side * n * 4)
+      for (let k = 0; k < n; k++) for (let y = 0; y < side; y++) layered.set(data.subarray((y * w + k * side) * 4, (y * w + k * side + side) * 4), ((k * side + y) * side) * 4)
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, matArr)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+      gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, side, side, n, 0, gl.RGBA, gl.UNSIGNED_BYTE, layered)
+      gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT)
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT)
+      if (anisoExt) gl.texParameterf(gl.TEXTURE_2D_ARRAY, anisoExt.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(16, gl.getParameter(anisoExt.MAX_TEXTURE_MAX_ANISOTROPY_EXT)))
+      hasArr = true
       hasPainted = true
     },
     heights(data, w, h) {
@@ -674,12 +809,29 @@ export function createEngine(): Engine {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data)
       tex.hero.w = w; tex.hero.h = h
     },
+    heroMesh(key, data, count) {
+      if (heroBufs.has(key)) return
+      const buf = gl.createBuffer()!
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+      gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, count * HSTRIDE), gl.STATIC_DRAW)
+      heroBufs.set(key, { buf, count })
+    },
     objs(c, w, h) { uploadPart(gl, tex.objs, c, w, h) },
     base(c, w, h) { uploadPart(gl, tex.base, c, w, h) },
     atlas(c, rows) { uploadPart(gl, tex.atlas, c, c.width, rows) },
     kinds(data, w, h) { raw(tex.kind, data, w, h) },
     shoreField(data, w, h) { raw(tex.shore, data, w, h, true) },
     draw(f, vw, vh, glowTo) {
+      // (The lab's GPU timer: the oldest query whose result is in, read; one begun for this frame.)
+      let q: WebGLQuery | null = null
+      if (timing && tq) {
+        while (queries.length && gl.getQueryParameter(queries[0]!, gl.QUERY_RESULT_AVAILABLE)) {
+          const old = queries.shift()!
+          if (!gl.getParameter(tq.GPU_DISJOINT_EXT)) lastGpu = gl.getQueryParameter(old, gl.QUERY_RESULT) / 1e6
+          gl.deleteQuery(old)
+        }
+        if (queries.length < 4) { q = gl.createQuery(); gl.beginQuery(tq.TIME_ELAPSED_EXT, q) }
+      }
       if (canvas.width !== vw || canvas.height !== vh) { canvas.width = vw; canvas.height = vh }
       const ms = Math.min(f.msaa ?? 0, maxSamples)
       const fb = ms > 0 ? multisampled(vw, vh, ms) : null
@@ -750,6 +902,11 @@ export function createEngine(): Engine {
       gl.uniform1f(u('uPaintMix'), paintedNow ? paintMix : 1)
       bindTex(gl, 8, tex.mats, u('uMatsLo'))
       bindTex(gl, 0, paintedNow ? tex.painted : tex.mats, u('uMats'))
+      gl.activeTexture(gl.TEXTURE9)
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, matArr)
+      gl.uniform1i(u('uMatArr'), 9)
+      gl.uniform1f(u('uAniso'), paintedNow && hasArr ? 1 : 0)
+      gl.uniform1f(u('uSharpBias'), L.sharpBias ?? 0)
       gl.uniform1f(u('uMatSide'), paintedNow ? 128 : 64)
       gl.uniform1f(u('uMatTile'), paintedNow ? 32 : 16)
       gl.uniform1fv(u('uMatScale[0]'), paintedNow && f.matScale ? f.matScale : ONES)
@@ -790,6 +947,23 @@ export function createEngine(): Engine {
         if (f.dynamic.count) {
           bindLayout(dyn)
           gl.drawArrays(gl.TRIANGLES, 0, f.dynamic.count)
+        }
+        const hs = f.heroSkin
+        const hb = hs ? heroBufs.get(hs.key) : undefined
+        if (hs && hb) {
+          // The hero: the mesh as uploaded, posed by its bones in the vertex shader.
+          bindLayout(hb.buf, HSTRIDE)
+          const st = HSTRIDE * 4
+          gl.enableVertexAttribArray(11); gl.vertexAttribPointer(11, 2, gl.FLOAT, false, st, STRIDE * 4)
+          gl.enableVertexAttribArray(12); gl.vertexAttribPointer(12, 1, gl.FLOAT, false, st, (STRIDE + 2) * 4)
+          gl.uniform1i(u('uSkin'), 1)
+          gl.uniform4fv(u('uBones[0]'), hs.bones)
+          gl.uniform4f(u('uPlace'), ...hs.place)
+          gl.uniform2f(u('uFace'), ...hs.face)
+          gl.uniform1f(u('uSkinG'), hs.g)
+          gl.drawArrays(gl.TRIANGLES, 0, hb.count)
+          gl.uniform1i(u('uSkin'), 0)
+          gl.disableVertexAttribArray(11); gl.disableVertexAttribArray(12)
         }
       }
       if (glowTo) {
@@ -833,6 +1007,7 @@ export function createEngine(): Engine {
         gl.disable(gl.BLEND)
       }
       resolve()
+      if (q && tq) { gl.endQuery(tq.TIME_ELAPSED_EXT); queries.push(q) }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.bindVertexArray(null)
     },

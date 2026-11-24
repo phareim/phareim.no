@@ -150,7 +150,10 @@ painted for them in the whole colour range, and in both the hero is a model of m
 moving by the 16-bit figure's poses. Both are steady where the period machine was not: the lamps and the hour's
 light are held smooth so the dither never crawls, every change between the four views is a turn, an ease or a
 dissolve and never a cut, and the light is the classic picture's at the turn's flat end and the same in every view
-(the painted materials brought to the 16-bit view's mean light; the 64-bit look lit per pixel). The turn switch in the
+(the painted materials brought to the 16-bit view's mean light; the 64-bit look lit per pixel). The 64-bit look is
+soft without being mush: its ground is filtered anisotropically (sharp near, steady far), its camera rides over the
+land so the hero's feet and the sky are in the picture, the distance steps back in the hour's colour, the hero carries a
+rim of light, and both looks run on a phone (the hero posed on the GPU, a stated ladder for slow devices). The turn switch in the
 corner turns between the four: `docs/games/neon-shrine.md`, "Views".
 
 ## Sound (`audio.ts`)

@@ -6,10 +6,11 @@
  * The mesh has no rig. It is split here into stiff parts by where its vertices lie in its A-pose (the legs, the
  * torso, the two arms, the head with its hair and band), with soft weights across each joint so nothing tears,
  * and the parts are driven by the poses the 16-bit view's modelled figure already has (`iso/figure.ts`
- * `solvePose`: the walk of sixteen phases, lift, carry, push, hurt, get, use, fall, dead, the swing). Skinned on
- * the CPU each frame into the engine's own vertices (`mesh.ts` `STRIDE`), so the lamps, the sun, the vertex snap,
- * the filter and the fog treat it like everything else. The blade is a small mesh in the hand along the engine's
- * own swing angle.
+ * `solvePose`: the walk of sixteen phases, lift, carry, push, hurt, get, use, fall, dead, the swing). The mesh is
+ * sent to the GPU once (`heroVerts`: the engine's own vertices with two bones and a weight) and skinned in the vertex
+ * shader by six bone matrices a frame (`poseHero`), so the lamps, the sun, the vertex snap, the filter and the fog
+ * treat it like everything else and the CPU does next to nothing for it. The blade is a small mesh in the hand along
+ * the engine's own swing angle. (`skinHero`, the same on the CPU, is kept for the tests.)
  *
  * Pure but for `loadHero`, which fetches.
  */
@@ -17,7 +18,7 @@ import type { FigurePose, SolvedPose } from '../iso/figure'
 import { solvePose } from '../iso/figure'
 import type { HeroLook } from '../heroLook'
 import { DRAWN_LOOK } from '../heroLook'
-import { FLAG, ROLE, STRIDE, TEX, type Verts } from './mesh'
+import { FLAG, HSTRIDE, ROLE, STRIDE, TEX, type Verts } from './mesh'
 
 export interface HeroMesh {
   /** Model space as the GLB has it: y up, the face toward −z, the hero's right toward +x; metres. */
@@ -287,6 +288,101 @@ export function skinHero(v: Verts, m: HeroMesh, P: SolvedPose, at: Placement): [
   lastLeft = handOf(ARM_L, -0.31)
   return handOf(ARM_R, 0.31)
 }
+/**
+ * The mesh as the GPU keeps it, in model space: every triangle's three corners in the engine's layout (`HSTRIDE`), the
+ * facet's normal turned to the side its corners' own normals are on, then each corner's two bones and the first one's
+ * weight. Built once a mesh.
+ */
+const builtVerts = new WeakMap<HeroMesh, Float32Array>()
+export function heroVerts(m: HeroMesh): Float32Array {
+  const had = builtVerts.get(m)
+  if (had) return had
+  const tris = m.idx.length / 3
+  const d = new Float32Array(tris * 3 * HSTRIDE)
+  const P = m.pos, N = m.nrm
+  // The smooth normals from the facets about each corner (by place, across the texture's seams), not the model's own:
+  // a few of those at the back of the head point the wrong way, and the light drew their facets as a pair of eyes.
+  const nv = P.length / 3
+  const key = (i: number) => `${Math.round(P[i * 3]! * 1e4)},${Math.round(P[i * 3 + 1]! * 1e4)},${Math.round(P[i * 3 + 2]! * 1e4)}`
+  const sums = new Map<string, [number, number, number]>()
+  for (let t = 0; t < tris; t++) {
+    const i0 = m.idx[t * 3]!, i1 = m.idx[t * 3 + 1]!, i2 = m.idx[t * 3 + 2]!
+    const ex = P[i1 * 3]! - P[i0 * 3]!, ey = P[i1 * 3 + 1]! - P[i0 * 3 + 1]!, ez = P[i1 * 3 + 2]! - P[i0 * 3 + 2]!
+    const gx = P[i2 * 3]! - P[i0 * 3]!, gy = P[i2 * 3 + 1]! - P[i0 * 3 + 1]!, gz = P[i2 * 3 + 2]! - P[i0 * 3 + 2]!
+    let nx = ey * gz - ez * gy, ny = ez * gx - ex * gz, nz = ex * gy - ey * gx
+    // (Turned outward: away from the model's middle at that height, which a closed figure's surface always faces.)
+    const cx = (P[i0 * 3]! + P[i1 * 3]! + P[i2 * 3]!) / 3, cz = (P[i0 * 3 + 2]! + P[i1 * 3 + 2]! + P[i2 * 3 + 2]!) / 3
+    if (nx * cx + nz * cz < 0 && Math.abs(nx * cx + nz * cz) > 1e-9) { nx = -nx; ny = -ny; nz = -nz }
+    for (const i of [i0, i1, i2]) { const k = key(i); const a = sums.get(k) ?? [0, 0, 0]; a[0] += nx; a[1] += ny; a[2] += nz; sums.set(k, a) }
+  }
+  // The back of the crown, above the band: modelled with two small pockets where the drawn hero's eyes were, which any
+  // light picks out as eyes on the back of the head. Flagged (8), its corners are lit flat in the shader.
+  let zs = 0, zn = 0
+  for (let i = 0; i < nv; i++) if (P[i * 3 + 1]! > m.lo + 0.6 * (m.hi - m.lo)) { zs += P[i * 3 + 2]!; zn++ }
+  const zc = zn ? zs / zn : 0
+  const crownBack = (i: number) => P[i * 3 + 1]! > m.lo + 0.79 * (m.hi - m.lo) && P[i * 3 + 2]! > zc - 0.02
+  const sn = new Float32Array(nv * 3)
+  for (let i = 0; i < nv; i++) {
+    const a = sums.get(key(i)) ?? [N[i * 3]!, N[i * 3 + 1]!, N[i * 3 + 2]!]
+    const l = Math.hypot(a[0], a[1], a[2]) || 1
+    sn[i * 3] = a[0] / l; sn[i * 3 + 1] = a[1] / l; sn[i * 3 + 2] = a[2] / l
+  }
+  for (let t = 0; t < tris; t++) {
+    const i0 = m.idx[t * 3]!, i1 = m.idx[t * 3 + 1]!, i2 = m.idx[t * 3 + 2]!
+    const ax = P[i0 * 3]!, ay = P[i0 * 3 + 1]!, az = P[i0 * 3 + 2]!
+    const ex = P[i1 * 3]! - ax, ey = P[i1 * 3 + 1]! - ay, ez = P[i1 * 3 + 2]! - az
+    const gx = P[i2 * 3]! - ax, gy = P[i2 * 3 + 1]! - ay, gz = P[i2 * 3 + 2]! - az
+    let nx = ey * gz - ez * gy, ny = ez * gx - ex * gz, nz = ex * gy - ey * gx
+    const l = Math.hypot(nx, ny, nz) || 1
+    nx /= l; ny /= l; nz /= l
+    if (nx * (sn[i0 * 3]! + sn[i1 * 3]! + sn[i2 * 3]!) + ny * (sn[i0 * 3 + 1]! + sn[i1 * 3 + 1]! + sn[i2 * 3 + 1]!) + nz * (sn[i0 * 3 + 2]! + sn[i1 * 3 + 2]! + sn[i2 * 3 + 2]!) < 0) { nx = -nx; ny = -ny; nz = -nz }
+    for (let c = 0; c < 3; c++) {
+      const i = c === 0 ? i0 : c === 1 ? i1 : i2
+      const o = (t * 3 + c) * HSTRIDE
+      d[o] = P[i * 3]!; d[o + 1] = P[i * 3 + 1]!; d[o + 2] = P[i * 3 + 2]!; d[o + 3] = 0
+      d[o + 4] = nx; d[o + 5] = ny; d[o + 6] = nz
+      d[o + 7] = m.uv[i * 2]!; d[o + 8] = m.uv[i * 2 + 1]!
+      d[o + 9] = TEX.HERO
+      d[o + 10] = 1; d[o + 11] = 1; d[o + 12] = 1
+      d[o + 13] = 1; d[o + 14] = ROLE.STAY; d[o + 15] = crownBack(i) ? 8 : 0; d[o + 16] = 0
+      d[o + 17] = sn[i * 3]!; d[o + 18] = sn[i * 3 + 1]!; d[o + 19] = sn[i * 3 + 2]!
+      d[o + STRIDE] = m.bone[i * 2]!; d[o + STRIDE + 1] = m.bone[i * 2 + 1]!; d[o + STRIDE + 2] = m.w[i]!
+    }
+  }
+  builtVerts.set(m, d)
+  return d
+}
+
+/** One frame of the hero for the GPU: the bones (72 numbers), where it stands, which way it faces, its two hands. */
+export interface HeroFrame {
+  bones: Float32Array
+  place: [number, number, number, number]
+  face: [number, number]
+  right: [number, number, number]
+  left: [number, number, number]
+}
+/** The pose and the place of a frame, as the vertex shader skins them (`skinned` in `engine.ts`). */
+export function poseHero(m: HeroMesh, P: SolvedPose, at: Placement): HeroFrame {
+  const bones = boneMatrices(m, P)
+  const flat = new Float32Array(72)
+  bones.forEach((b, i) => flat.set(b, i * 12))
+  const s = at.scale
+  const fx = Math.cos(at.yaw), fy = Math.sin(at.yaw)
+  const rx = -fy, ry = fx
+  const H = m.hi - m.lo
+  const handOf = (bone: number, x: number): [number, number, number] => {
+    const hand: [number, number, number] = [x, m.lo + 0.3 * H, -0.02]
+    const b = bones[bone]!
+    const hx = b[0]! * hand[0] + b[1]! * hand[1] + b[2]! * hand[2] + b[3]!
+    const hy = b[4]! * hand[0] + b[5]! * hand[1] + b[6]! * hand[2] + b[7]!
+    const hz = b[8]! * hand[0] + b[9]! * hand[1] + b[10]! * hand[2] + b[11]!
+    return [at.x + s * (hx * rx - hz * fx), at.y + s * (hx * ry - hz * fy), s * (hy - m.lo)]
+  }
+  const left = handOf(ARM_L, -0.31)
+  lastLeft = left
+  return { bones: flat, place: [at.x, at.y, s, m.lo], face: [fx, fy], right: handOf(ARM_R, 0.31), left }
+}
+
 /** The left hand of the last hero skinned (world, tiles): with the right one, where what is carried sits. */
 let lastLeft: [number, number, number] = [0, 0, 0]
 export function leftHand(): [number, number, number] { return lastLeft }

@@ -51,8 +51,12 @@ export const ENGINE_LOADERS: Record<EngineId, (() => Promise<{ default: unknown 
  */
 export const THIRD_PERSON: ParamValues = {
   pose: 'shoulder', density: 'screen', smoothEdges: true, affine: 0, wobble: 0, filter: 1, smoothShade: 1, colors: 'full', fray: 0,
-  fog: 1, drawDistance: 30, halos: 1, flare: 1, landScale: 1.5, windows: '64-bit',
+  // (The land rolls less than it did (and the ground is read half a level soft, `groundSoft`'s default): walking over the camp's knolls the
+  // picture shimmered more than the 16-bit view's, part 6's meter.)
+  fog: 1, drawDistance: 30, halos: 1, flare: 1, landScale: 1.05, windows: '64-bit',
   bloom: 0.8, vignette: 0.35,
+  // (Stronger lamps: their pools stand out on the cobbles from the shoulder, as the 32-bit crane sees them.)
+  lampGain: 1.6,
 }
 
 export const VIEWS: readonly ViewInfo[] = [

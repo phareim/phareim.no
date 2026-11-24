@@ -716,9 +716,18 @@ filtered textures, fog).
   walk of sixteen phases, lift, carry, push, hurt, get, use, fall, dead, the
   swing). Its arms are turned so the hand reaches where that figure puts it and
   its legs so the foot lands where it does; the body turns toward the heading
-  at a pace. It is skinned on the CPU into the engine's own vertices, so it is
+  at a pace. Its mesh is sent to the GPU once, in the engine's own vertex
+  layout with two bones and a weight a corner (`heroVerts`), and skinned in the
+  vertex shader by six bone matrices a frame (`poseHero`, `uBones`), so it is
   lit, snapped, filtered and fogged like everything else, flat-faceted in the
-  32-bit look and smooth in the 64-bit one. The blade is a small mesh in the
+  32-bit look and smooth in the 64-bit one, and the CPU does next to nothing
+  for it (part 6; it was skinned on the CPU, 3 to 6.5 ms a frame on the Mac).
+  Its smooth normals are made from its facets by place (a few of the model's
+  own pointed inward at the back of the head); seen from inside, through the
+  small hole at the back of its hair, it is the hair's dark, so the face's
+  eyes never show through the back of the head; `poly-pack.mjs` also mends the
+  texels there. A rim of the sky's and the lamps' light round its edges keeps
+  a dark jacket apart from dark ground, in both looks. The blade is a small mesh in the
   right hand along the engine's swing angle. A look from the NEW LOOK stall that
   changes only colours recolours the model's jacket, band, hair and trousers; a
   look of another shape (hair, headwear, bottom) keeps the sprite card for now.
@@ -729,14 +738,18 @@ filtered textures, fog).
   look, and the round has two of them: POLYGON (32-bit, the engine's own
   values) and THIRD PERSON (64-bit, `THIRD_PERSON` in `views.ts`), every trait
   turned the other way:
-  - *the camera* at the hero's shoulder (`SHOULDER`: pitch 19°, 6.2 tiles,
-    lens 62°, the hero 72 % down, higher and further back than the concept
-    sketch so foes beside the hero are in the picture). Its yaw follows the
+  - *the camera* at the hero's shoulder (`SHOULDER`: pitch 17°, 5 tiles,
+    lens 56°, the hero 74 % down: low enough that the sky and the sun are in
+    the picture over the land in the open). Its yaw follows the
     hero lazily: it swings in behind them while they walk, not while they walk
     toward the camera, and drifts behind them after they have stood a moment.
     It rises over whatever stands behind the hero (the land, a wall, a house, a
     wood: the line from the eye to the hero's chest must clear them) and is
-    pulled in only where rising is not enough. Walls' faces between the eye and
+    pulled in only where rising is not enough. On a slope it also sees the
+    hero's feet and two tiles of ground before them (tilting at most 0.3 rad
+    for them, then coming nearer, both eased slowly so walking over knolls does
+    not bob it), and the whole camera stands higher where the land rises right
+    before the eye, so a hill never fills the bottom of the picture. Walls' faces between the eye and
     the hero are stippled as well as tops and things. Indoors it stands lower and
     nearer and follows the hero, still looking north (so a block goes where the
     stick says and the south wall stays a kerb). `View.turn` is the camera's
@@ -747,14 +760,24 @@ filtered textures, fog).
     their back. (The 16-bit view's modelled figure, value `figure: 'modelled'`,
     was tried; drawn for that view's camera, it shows three-quarters from
     behind, so the sprite stays the default.)
-  - *the machine*: textures read at half size and filtered between texels
-    until they smear, figures too (`filter`), perspective-correct, steady
+  - *the machine*: the ground and walls through the GPU's own trilinear,
+    16× anisotropic filter (a layered copy of the painted page, `uMatArr`), half
+    a level soft (`groundSoft`, in both looks: steadier walking), sharp near the
+    eye and steady far off; the paper figures filtered with a clean edge (each
+    texel smoothed over a pixel of the screen, mixed premultiplied, no dark
+    fringe) and the hero's shadow a soft round pool (`filter`), perspective-correct, steady
     corners (`affine` and `wobble` at 0), normals shared at the corners so
     knolls roll and trees are round (`smoothShade`), full colour stretched up
     softly with a little sideways smear (`stretch`: `Finish.smooth` in
     `renderer.ts`'s `present`), thick fog in the hour's colour over a short draw
-    distance (`fog`), soft halos round the lamps and a lens flare from the sun
-    (`halos`, `flare`), hillier land (`landScale` 1.5), round soft windows
+    distance (`fog`) and before it the air itself, each layer of a wood further
+    off a little more in the hour's colour so it steps back row by row; light
+    over 0.75 rolling off toward white instead of clipping; stronger lamps
+    (`lampGain` 1.6) so their pools show from the shoulder; soft halos round the
+    lamps and a lens flare from the sun (`halos`, `flare`), land a little
+    hillier than the 32-bit look's (`landScale` 1.05: 1.5 shimmered walking
+    over the camp's knolls); paper figures nearer the eye than the hero not
+    drawn (dithered, their enlarged texels showed as squares); round soft windows
     (`ROUND_SKIN`: rounded panels with soft shadows, a round frame round an
     item slot).
   - *between them* there is no turn (the renderer turns only between engines):
@@ -786,10 +809,20 @@ filtered textures, fog).
   to the end of the draw distance, a trapezoid widening with the lens. The
   shell hands it to the engine (`state.sight.ahead`, `spread`), and the woods'
   foes walk in from beyond the dissolve (`engine/day.ts`).
-- **A slow device** is stepped down as the 16-bit view does it (`govern`):
-  first the bloom's own pass, 70 % of the draw distance and coarse cells
-  everywhere, then a picture of half the size; `pinQuality` holds it for the
-  lab. Like every view, it keeps its GL context until the page goes.
+- **A slow device** goes down a stated ladder (`LADDER` in `view.ts`), one
+  step at a time, the same for both looks: 1 the bloom's own pass and the
+  64-bit look's multisampling to 2×; 2 the 64-bit look's per-pixel lamps and
+  its 20,000-triangle hero (for the 6,000 one), half the halos; 3 a draw
+  distance of 70 %, coarse cells, no multisampling; 4 the picture's density a
+  step down; 5 another, and the hero's card for the model. The governor
+  (`createGovernor`) judges the median gap between frames over three quarters
+  of a second against 18.5 ms, steps, waits a second while the cheaper picture
+  is built, and steps back up only after eight seconds well under the budget,
+  never to a step it has left twice (no flapping); each step dissolves in.
+  `governorTrace` records what it did; `pinQuality` holds the top for the lab.
+  A phone (`smallScreen`: under 600 CSS px across at a dpr over 2) draws at
+  most two device px a CSS px and with 2× multisampling from the start. Like
+  every view, it keeps its GL context until the page goes.
 - **Entering a map**: the land is built in slices of a few milliseconds
   (`landWork`): while the view waits to be shown, over a door's fade toward the
   map behind it, and kept per map. The mesh is built a stretch of 16 tiles at a
@@ -840,16 +873,16 @@ filtered textures, fog).
     lamps in reach), as in the 16-bit view.
 - **Known rough edges**: everyone but the hero is a classic card (in the 64-bit
   look paper figures facing the camera); a hero look of another shape is a card
-  too; neither look has a sound of its own. The hero model is skinned on the
-  CPU and sent to the GPU whole every frame (on the Mac about 6.5 ms of the
-  frame's main thread for the 64-bit mesh and 3 ms for the 32-bit one; a
-  stepped-down device gets the 6,000-triangle one). Where the hero stands with a house's wall a tile
-  ahead, the house still fills the top of the 64-bit picture. In the 32-bit look lamp light is
+  too; neither look has a sound of its own. Where the hero stands with a house's wall a tile
+  ahead, the house still fills the top of the 64-bit picture; the house's
+  windows do not spill light on the ground. Seen from close behind, two faint
+  glints remain where the back of the hero's hair has its hole. In the 32-bit look lamp light is
   per corner, so a pool on a long wall is coarse. The sky backdrop moves in whole pixels, so a
   settling camera steps its stripes a pixel at a time. On a phone a room's camera comes near enough
   that the room's depth fills the picture, so the room is seen closer than on a
   monitor. Rooms' water corners are a hair short of the tile edge. Not measured
-  on a phone; the lab draws on the Mac's GPU.
+  on a real phone; the lab draws on the Mac's GPU, a phone's size with Chrome's
+  CPU throttled 4× and 6× (`scripts/zelda-lab/throttle.mjs`).
 - **Looking at it.** `CHROME_BIN=<chrome> VIEW=poly node
   scripts/zelda-lab/shot.mjs <outDir> [scenes]` (PNGs end in `-poly`;
   `PARAMS` and `FRAMES` as for the isometric view);

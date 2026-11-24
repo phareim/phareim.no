@@ -30,6 +30,8 @@ import type { Land } from './terrain'
 
 /** Floats per vertex, and where each attribute lies in them. */
 export const STRIDE = 20
+/** A hero mesh's corner (`hero.ts` `heroVerts`): the engine's own, then two bones and the first one's weight. */
+export const HSTRIDE = STRIDE + 3
 /** `snormal`: the normal shared at the corner (smooth shading, the 64-bit look); `normal` is the facet's own. */
 export const AT = { pos: 0, ground: 3, normal: 4, uv: 7, tex: 9, color: 10, sun: 13, role: 14, flags: 15, zk: 16, snormal: 17 } as const
 

@@ -45,7 +45,7 @@ export const CRANE: Pose = { yaw: 0, pitch: 25.4 * Math.PI / 180, dist: 13.5, fo
  * The 64-bit look's camera: behind the hero, a little over the shoulder, the horizon across the upper half. It
  * stands higher and further back than the sketch's, so foes beside the hero are in the picture. Its yaw follows the hero.
  */
-export const SHOULDER: Pose = { yaw: 0, pitch: 23 * Math.PI / 180, dist: 4.5, fov: 56 * Math.PI / 180, focusY: 0.68 }
+export const SHOULDER: Pose = { yaw: 0, pitch: 17 * Math.PI / 180, dist: 5, fov: 56 * Math.PI / 180, focusY: 0.74 }
 
 /**
  * A pose `t` of the way from `a` to `b` (0 … 1, not eased here). The yaw goes
