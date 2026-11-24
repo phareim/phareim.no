@@ -118,6 +118,29 @@ export interface Frame {
   heroSkin?: { key: string; bones: Float32Array; place: [number, number, number, number]; face: [number, number]; g: number } | null
 }
 
+/**
+ * How much of a lamp reaches p (part 11). A lamp (w > 0): a round pool, bright under it and gone a little past
+ * two thirds of its reach, so neighbouring pools stand apart and the dusk shows between them. A window (w < 0): its
+ * light falls out onto what lies before the wall (south of it), longer than wide, brightest at the wall, and nothing
+ * behind it.
+ */
+const LAMP_FALL = `
+float lampFall(vec4 P, vec3 p) {
+  vec3 d = P.xyz - p;
+  if (P.w < 0.0) {
+    float R = -P.w;
+    float south = p.y - P.y;
+    if (south < -0.45) return 0.0;
+    float q = length(vec2(d.x / (R * 0.75), max(0.0, south) / (R * 1.5)));
+    float a = clamp(1.0 - q, 0.0, 1.0);
+    return a * a * (1.6 - 0.6 * clamp(abs(d.z) / 2.5, 0.0, 1.0));
+  }
+  float R = P.w * 0.72;
+  float a = clamp(1.0 - length(d) / R, 0.0, 1.0);
+  float a2 = a * a;
+  return a2 * (3.0 - 2.0 * a) * 0.75 + a2 * a2 * 1.6;
+}
+`
 const VS = `#version 300 es
 precision highp float;
 layout(location=0) in vec3 aPos;
@@ -186,6 +209,7 @@ uniform sampler2D uSpill;
 uniform vec4 uSpillAt;
 uniform int uLampN;
 uniform vec4 uLampPos[16];
+${LAMP_FALL}
 uniform vec3 uLampCol[16];
 uniform float uSide;
 out vec3 vUvw;
@@ -253,12 +277,12 @@ void main() {
   vec3 lampL = vec3(0.0);
   for (int i = 0; i < 16; i++) {
     if (i >= uLampN) break;
+    float a = lampFall(uLampPos[i], p);
+    if (a <= 0.0) continue;
     vec3 d = uLampPos[i].xyz - p;
     float dist = length(d);
-    float a = clamp(1.0 - dist / uLampPos[i].w, 0.0, 1.0);
-    if (a <= 0.0) continue;
     float face = mix(1.0, clamp(dot(n, d / max(dist, 1e-3)) * 1.3 + 0.25, 0.0, 1.0), uSide);
-    lampL += uLampCol[i] * a * a * (3.0 - 2.0 * a) * face;
+    lampL += uLampCol[i] * a * face;
   }
   // What windows, signs and the fountain spill round them: read like a lamp (per corner here; per pixel below).
   if (uSpillAt.w > 0.0) lampL += textureLod(uSpill, (p.xy - uSpillAt.xy) * uSpillAt.z / vec2(textureSize(uSpill, 0)), 0.0).rgb * 2.0 * uSpillAt.w;
@@ -297,18 +321,17 @@ uniform float uPerPixel;
 uniform float uAir;
 /** The turn's ease (as in the vertex stage): the light is capped as the classic light map is at its flat end. */
 uniform float uFacet;
+${LAMP_FALL}
 vec3 lampsAt(vec3 p, vec3 n) {
   vec3 L = vec3(0.0);
   for (int i = 0; i < 16; i++) {
     if (i >= uLampNf) break;
+    float a = lampFall(uLampPosF[i], p);
+    if (a <= 0.0) continue;
     vec3 d = uLampPosF[i].xyz - p;
     float dist = length(d);
-    float a = clamp(1.0 - dist / uLampPosF[i].w, 0.0, 1.0);
-    if (a <= 0.0) continue;
     float face = mix(1.0, clamp(dot(n, d / max(dist, 1e-3)) * 1.3 + 0.25, 0.0, 1.0), uSideF);
-    // (Per pixel, a pool: a bright core under the lamp as well as the soft reach, so its colour lies on the ground.)
-    float a2 = a * a;
-    L += uLampColF[i] * (a2 * (3.0 - 2.0 * a) + 1.1 * a2 * a2) * face;
+    L += uLampColF[i] * a * face;
   }
   return L;
 }

@@ -787,7 +787,7 @@ filtered textures, fog).
     distance (`fog`) and before it the air itself, each layer of a wood further
     off a little more in the hour's colour so it steps back row by row; light
     over 0.75 rolling off toward white instead of clipping; stronger lamps
-    (`lampGain` 1.6) so their pools show from the shoulder; soft halos round the
+    (`lampGain` 2.3) so their pools show from the shoulder; soft halos round the
     lamps and a lens flare from the sun (`halos`, `flare`), land a little
     hillier than the 32-bit look's (`landScale` 1.05: 1.5 shimmered walking
     over the camp's knolls); paper figures nearer the eye than the hero not
@@ -892,8 +892,18 @@ filtered textures, fog).
     rim, blurred over about a tile and a half, and read like a lamp: per corner
     in the 32-bit look, per pixel in the 64-bit one (`uSpill`). Its strength is
     the hour's lamp light, held smooth like the rest, so it comes up with the
-    lamps at sunset and is all but gone at noon. In the 64-bit look each lamp
-    also lays a bright pool under itself (a core added to its soft reach).
+    lamps at sunset and is all but gone at noon.
+  - *pools of light* (part 11): every lamp lays a round pool of its colour,
+    bright under it and falling to nothing over about three tiles, so
+    neighbouring pools meet with dusk between them (`lampFall` in `engine.ts`,
+    shared by the per-corner and per-pixel light). A light on a house's own
+    tile is a window or a sign's letter: it shines from just before the wall's
+    face (the painters put it a row behind it) and throws a patch longer than
+    wide out before the wall, brightest at its foot, and lights the wall round
+    it. A fire (the camp's bonfire, a tiki torch) reaches half again as far as
+    a lamp and burns brighter, and a Shrine room's torches further still
+    (`FIRE_FIT`, `TORCH_FIT` in `view.ts`). While the sun is up the lamps go
+    down to a fifth (`lampGain` 1.7 in the 32-bit look, 2.3 in the 64-bit one).
   - *what is drawn* (part 9, 10): a stretch of geometry (8 tiles a side) the
     camera cannot see (all its corners outside one side of the picture, or past
     the draw distance) is not drawn; what is shaded is capped at 2.3 megapixels
@@ -908,8 +918,7 @@ filtered textures, fog).
   the one most seen, and fades while she covers the hero); a
   look's other hair style, bow or skirt is not modelled; neither look has a
   sound of its own. Where the hero stands with a house's wall a tile
-  ahead, the house still fills the top of the 64-bit picture; the house's
-  windows do not spill light on the ground. Seen from close behind, two faint
+  ahead, the house still fills the top of the 64-bit picture. Seen from close behind, two faint
   glints remain where the back of the hero's hair has its hole. In the 32-bit look lamp light is
   per corner, so a pool on a long wall is coarse. The sky backdrop moves in whole pixels, so a
   settling camera steps its stripes a pixel at a time. On a phone a room's camera comes near enough
