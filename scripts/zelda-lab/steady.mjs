@@ -35,6 +35,8 @@ const FRAMES = +opt('frames', '90')
 const DAY = opt('day', 'dusk')
 const FREEZE = flag('freeze')
 const PARAMS = opt('params', '')
+/** --tree <deploys>,<visitors>: the beach tree's counts (part 17). */
+const TREE = opt('tree', '')
 const SIZE = opt('size', '1280')
 const TAG = opt('tag', `${DAY}${FREEZE ? '-frozen' : ''}-${SIZE}`)
 
@@ -66,6 +68,8 @@ const CASES = {
   'lake-stand': ['lake', ``, [[90, STILL]]],
   // In a wood: the 16-bit look's trees in the wind (part 14).
   'grove-stand': ['w-grove', ``, [[90, STILL]]],
+  // By the beach tree on the coast road (part 17; --tree sets its counts).
+  'tree-stand': ['r-tree', ``, [[90, STILL]]],
 }
 const SIZES = { 1280: [1280, 800, 1], 390: [390, 844, 3] }
 const [W0, H0, DPR] = SIZES[SIZE]
@@ -140,7 +144,7 @@ for (const name of only.split(',')) {
   for (const view of VIEWS) {
     const b = await launch({ width: W0, height: H0, dpr: DPR, mobile: SIZE === '390' })
     const v = view === 'classic' ? '' : `&view=${view}`
-    await b.goto(`file://${join(out, '_shot.html')}#scene=${scene}&w=${W0}&h=${H0}&dpr=${DPR}&top=0&touch=0${v}${PARAMS ? `&params=${encodeURIComponent(PARAMS)}` : ''}`)
+    await b.goto(`file://${join(out, '_shot.html')}#scene=${scene}&w=${W0}&h=${H0}&dpr=${DPR}&top=0&touch=0${v}${PARAMS ? `&params=${encodeURIComponent(PARAMS)}` : ''}${TREE ? `&tree=${TREE}` : ''}`)
     for (let t = 0; t < 60 && (await b.eval('document.title')) !== 'ready'; t++) await b.sleep(250)
     const day = HOUR === null ? `__lab.s.daytime = null` : `__lab.s.inv.prism = true; __lab.s.daytime = ${HOUR}`
     // (Two seconds after the set-up, standing: the camera, the lamps and the land have settled.)

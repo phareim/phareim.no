@@ -77,7 +77,8 @@ export interface Vec { x: number; y: number }
  */
 export interface IsoCam { ox: number; oy: number; ex: Vec; ey: Vec; zs: number; hs: number; offX: number; offY: number; dv: [number, number, number]; /** The hero's place when it drew (tiles). */ hx: number; hy: number }
 /** A queued thing (see `Item`); `hero` marks the hero's own. */
-export type SceneItem = Item & { hero?: boolean }
+/** `tree`: the beach tree, which the 16- and 32-bit looks paint as their own (`iso/flora.ts` `floraWithVisitor`, part 17). */
+export type SceneItem = Item & { hero?: boolean; tree?: boolean }
 
 interface Fx { kind: 'sprite' | 'spark' | 'leaf' | 'ring' | 'bit' | 'text'; x: number; y: number; vx: number; vy: number; t: number; life: number; name?: string; frames?: number; color: string; size: number; text?: string }
 
@@ -907,6 +908,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         foot: 6 / T,
         y: n.y,
         big: n.look === 'tree',
+        ...(n.look === 'tree' ? { tree: true } : {}),
         draw: () => {
           const x = n.x * T - cx
           const y = n.y * T - cy + 6

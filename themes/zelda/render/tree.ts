@@ -5,6 +5,14 @@
  * fruit, one per visitor up to what the crown can hold). The portal sets
  * the counts (setTreeCounts); the renderer reads treeNow() each frame.
  * Pure apart from that one state, so tests/portal-tree.test.mjs can read it.
+ *
+ * The classic view draws the sprites here (16 × 32, its fruit 2 × 2 red
+ * squares). The 16- and 32-bit looks draw a tree painted as their wood's
+ * trees are (`iso/flora.ts` `floraWithVisitor`, part 17): a broad fruit
+ * tree, bare branches at stage 0 and a full crown at 4, its fruit round and
+ * lit, one per visitor up to `FRUIT_MAX` at every stage (`count`), shining a
+ * little by themselves so the count reads at night. That picture is made
+ * again only when the stage or the count changes.
  */
 
 const W = 16
@@ -104,8 +112,10 @@ export function fruitSpots(stage: number, count: number): Array<[number, number]
 
 export interface TreeLook {
   stage: number
-  /** Top-left corners of the fruit, in sprite pixels. */
+  /** Top-left corners of the fruit, in sprite pixels (the classic sprite: as many as its crown holds). */
   fruit: Array<[number, number]>
+  /** How many fruit the painted tree of the 16- and 32-bit looks shows: one per visitor today, up to `FRUIT_MAX` (part 17). */
+  count: number
 }
 
 /** The sprites the renderer draws, `tree_0` … `tree_4` (merged into the sprite map in sprites.ts). */
@@ -125,6 +135,6 @@ export function treeNow(): TreeLook {
   const stage = stageFor(counts.deploys)
   const count = Math.min(counts.visitors ?? 0, FRUIT_MAX)
   const key = `${stage}:${count}`
-  if (memo?.key !== key) memo = { key, look: { stage, fruit: fruitSpots(stage, count) } }
+  if (memo?.key !== key) memo = { key, look: { stage, fruit: fruitSpots(stage, count), count } }
   return memo.look
 }

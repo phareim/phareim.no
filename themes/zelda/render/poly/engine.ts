@@ -754,6 +754,11 @@ void main() {
       if (a.a < 0.5) discard;
       c = vec4(a.rgb / a.a, 1.0);
       if (nn.a > 0.0) nn.rgb /= nn.a;
+      // What is bright and saturated among the leaves shines by itself, as the 16-bit view lets it (its neon at 0.55):
+      // a flower, the beach tree's fruit (part 17).
+      float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b));
+      float nm = smoothstep(0.74, 0.96, mx) * smoothstep(0.30, 0.62, (mx - mn) / max(mx, 0.001));
+      if (nm > 0.0) glow = max(glow, c.rgb * nm * 0.55);
     }
     vec3 q = nn.rgb * 2.0 - 1.0;
     gSpriteN = normalize(uCamR * q.x + uCamU * q.y + uCamB * q.z);

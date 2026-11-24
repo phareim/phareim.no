@@ -49,8 +49,11 @@ import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/re
 import polyView, { pinQuality as pinPoly, preloadArt, setAssetBase, governorTrace, timeGpu, gpuMs, profile as polyProfile, profileOn as polyProfileOn } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/view.ts'))}
 import { freezeLamps } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/lamps.ts'))}
 import { THIRD_PERSON } from ${JSON.stringify(join(repo, 'themes/zelda/views.ts'))}
+import { setTreeCounts } from ${JSON.stringify(join(repo, 'themes/zelda/render/tree.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
+// TREE=<deploys>,<visitors> sets the beach tree's counts (its stage and its fruit; part 17).
+if (q.get('tree')) { const [d, v] = q.get('tree').split(',').map(Number); setTreeCounts({ deploys: d, visitors: v }) }
 const W = +q.get("w"), H = +q.get("h"), dpr = +(q.get("dpr") || 1), top = +(q.get("top") || 0)
 const scene = q.get('scene')
 const canvas = document.createElement('canvas')
@@ -147,6 +150,8 @@ switch (scene) {
   case 'r-kata': s.hero.x = 33.5; s.hero.y = 7.5; s.hero.dir = 'up'; run(5); break
   case 'r-road': s.hero.x = 39.5; s.hero.y = 26.5; s.hero.dir = 'right'; run(20); break
   case 'r-beach': s.hero.x = 29.5; s.hero.y = 28.5; s.hero.dir = 'down'; run(40); break
+  // By the beach tree on the coast road (part 17).
+  case 'r-tree': s.hero.x = 25.8; s.hero.y = 27.2; s.hero.dir = 'up'; run(40); break
   case 'r-jam': s.hero.x = 25.5; s.hero.y = 31.5; s.hero.dir = 'up'; run(40); break
   case 'r-sword': give(); run(20); break
   case 'r-rich': give(); s.inv.bits = 4321; run(20); break
@@ -264,6 +269,8 @@ const SHOTS = [
   ['r-road-390', 'r-road', 390, 844, 3, 0],
   ['r-beach-1280', 'r-beach', 1280, 800, 1, 0],
   ['r-beach-390', 'r-beach', 390, 844, 3, 0],
+  ['r-tree-1280', 'r-tree', 1280, 800, 1, 0],
+  ['r-tree-390', 'r-tree', 390, 844, 3, 0],
   ['r-jam-1280', 'r-jam', 1280, 800, 1, 0],
   ['r-sword-1280', 'r-sword', 1280, 800, 1, 0],
   ['r-sword-390', 'r-sword', 390, 844, 3, 0],
@@ -327,7 +334,7 @@ const SHOTS = [
 ]
 const want = only ? new Set(only.split(',')) : null
 const hero = (process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : '') + (process.env.HERO_LOOK ? `&look=${encodeURIComponent(process.env.HERO_LOOK)}` : '')
-const view = (process.env.VIEW ? `&view=${process.env.VIEW}` : '') + (process.env.FRAMES ? `&frames=${process.env.FRAMES}` : '') + (process.env.PARAMS ? `&params=${encodeURIComponent(process.env.PARAMS)}` : '')
+const view = (process.env.TREE ? `&tree=${process.env.TREE}` : '') + (process.env.VIEW ? `&view=${process.env.VIEW}` : '') + (process.env.FRAMES ? `&frames=${process.env.FRAMES}` : '') + (process.env.PARAMS ? `&params=${encodeURIComponent(process.env.PARAMS)}` : '')
 const tag = (process.env.VIEW ? `-${process.env.VIEW}` : '') + (process.env.FRAMES ? `-f${process.env.FRAMES}` : '') + (process.env.TAG ? `-${process.env.TAG}` : '')
 for (const [name, scene, w, h, dpr, top] of SHOTS) {
   if (want && !want.has(name) && !want.has(scene)) continue

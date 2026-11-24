@@ -27,7 +27,8 @@ import type { GameState, MapKind, MapState, TileChar } from '../../types'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
 import { aimOf, has, mapInfo, raised, swingAngle } from '../../engine/index'
 import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from '../iso/figure'
-import { buildFlora, stepFlora, type FloraAtlas, type FloraKind, type FloraLook, type FloraSprite } from '../iso/flora'
+import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook, type FloraSprite } from '../iso/flora'
+import { treeNow } from '../tree'
 import { bladeMesh, heroVerts, leftHand, loadHero, loadedHero, modelFits, poseHero, poseOf, recolour, type LoadedHero } from './hero'
 import type { HeroLook } from '../heroLook'
 import { dirAngle } from '../../engine/util'
@@ -1253,6 +1254,14 @@ export default function polyView(kit: Kit): View {
     const ry = Math.sin(yawCard)
     const standing: Array<[number, number, number]> = []
     const figN: [number, number, number] = [0, 0.55, 0.83]
+    // The beach tree, painted as the wood's trees are, for today's deploys and visitors: the plants' atlas with it is
+    // made again only when either changes (part 17).
+    const treePainted = outdoors && par.plants === '16-bit' && k > 0 && !!floraAt && floraLook === (def.look === 'wild' ? 'wild' : 'coast')
+    if (treePainted) {
+      const tl = treeNow()
+      const fv = floraWithVisitor(floraLook as FloraLook, tl.stage, tl.count)
+      if (fv !== floraAt) { floraAt = fv; engine.flora(fv.albedo, fv.normal) }
+    }
     // --- the 16-bit look's pictures, stood up (part 14; the classic cards too, part 16) --------------------------------
     // Drawn for a camera south-east of them looking north-west 30° down, which the crane now is: what is above the foot
     // stands upright, facing the camera; what is below it lies on the ground toward the eye; each as large as makes the
@@ -1357,6 +1366,11 @@ export default function polyView(kit: Kit): View {
       }
       // The crane: a person or a thing stands as the 16-bit view stands its card (half a 16-bit px a classic px), on its
       // foot point, so at the 16-bit end of the direct turn it lies on that view's picture (part 16).
+      if (it.tree && treePainted && floraAt?.sprites.visitor?.length) {
+        // The beach tree: a plant of the 16-bit look's, lit from its normal picture, swaying, its fruit shining a little.
+        sprite16(TEX.FLORA, floraAt.sprites.visitor[0]!, x, y, reduced ? 0 : 0.18, ROLE.GROW, FLAG.SEE)
+        continue
+      }
       if (shoulderK < 0.5 && !it.wall && !it.tile && !(it.hero && model)) {
         // (Lit as the classic cards always were: by a normal mostly up, a little toward the south.)
         sprite16(TEX.ATLAS, { x: u0, y: v0, w: C.w, h: C.h, ax: C.ax, ay: C.ay }, x, y, 0, ROLE.STAY, 0, 0.5, figN)

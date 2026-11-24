@@ -586,7 +586,14 @@ look is the 16-bit world's own art in the polygon engine's land and light:
     built cones are value `built`, the 64-bit look's). Woods hide what is
     behind them; the hero shows through a wood in front of them by the
     see-through stipple. The atlas is made a slice at a time while the view
-    waits, as the 16-bit view makes it;
+    waits, as the 16-bit view makes it. The tree on the beach by the coast
+    road (today's deploys in its crown, today's visitors in its fruit:
+    `render/tree.ts`) is painted the same way in both the 16-bit and the
+    32-bit look since part 17 (`floraWithVisitor`: a broad fruit tree, bare
+    forking branches at stage 0 and a full crown at 4, one round lit fruit a
+    visitor up to twelve at every stage, shining a little by themselves), laid
+    into the plants' atlas again only when the stage or the count changes;
+    the classic view keeps its sprite;
   - *the land* lies flat within three tiles of a road, a path, paving, a
     house, a door or whatever must be level (`FLAT_MARGIN` 3 in `terrain.ts`,
     rising over the next 2.5, `RISE_OVER`), and its knolls are half as tall

@@ -37,7 +37,7 @@ import { makeCanvas } from '../sheet'
 export interface FloraSprite { x: number; y: number; w: number; h: number; /** the point that stands on the ground, px from the rect's top-left */ ax: number; ay: number }
 export interface FloraAtlas { albedo: HTMLCanvasElement; normal: HTMLCanvasElement; sprites: Record<FloraKind, FloraSprite[]> }
 export type FloraLook = 'coast' | 'wild' | 'beach'
-export type FloraKind = 'tree' | 'canopy' | 'bush' | 'tall' | 'tuft' | 'flowerPink' | 'flowerCyan' | 'reed' | 'palm'
+export type FloraKind = 'tree' | 'canopy' | 'bush' | 'tall' | 'tuft' | 'flowerPink' | 'flowerCyan' | 'reed' | 'palm' | 'visitor'
 
 // ---------------------------------------------------------------------------
 // Colours
@@ -1413,6 +1413,7 @@ function paint(L: Look, kind: FloraKind, v: number, seed: number): Cut {
     case 'flowerCyan': return paintFlower(L, v, seed, CYAN)
     case 'reed': return paintReed(L, v, seed)
     case 'palm': return paintPalm(L, v, seed)
+    case 'visitor': return paintVisitor(L, v >> 4, v & 15)
   }
 }
 
@@ -1453,7 +1454,7 @@ export function stepFlora(look: FloraLook): boolean {
   const normal = makeCanvas(ATLAS_W, H)
   const ag = albedo.getContext('2d')!
   const ng = normal.getContext('2d')!
-  const sprites = { tree: [], canopy: [], bush: [], tall: [], tuft: [], flowerPink: [], flowerCyan: [], reed: [], palm: [] } as Record<FloraKind, FloraSprite[]>
+  const sprites = { tree: [], canopy: [], bush: [], tall: [], tuft: [], flowerPink: [], flowerCyan: [], reed: [], palm: [], visitor: [] } as Record<FloraKind, FloraSprite[]>
   for (const { kind, c, x: sx, y: sy } of cuts) {
     const a = ag.createImageData(c.w, c.h)
     a.data.set(c.rgba)
@@ -1471,4 +1472,173 @@ export function stepFlora(look: FloraLook): boolean {
 export function buildFlora(look: FloraLook): FloraAtlas {
   while (!stepFlora(look)) { /* the next plant */ }
   return cache.get(look)!
+}
+
+// ---------------------------------------------------------------------------
+// The tree on the beach (part 17): today's deploys in its crown, today's visitors in its fruit (`render/tree.ts`)
+// ---------------------------------------------------------------------------
+
+/** Its crown, full grown: a broad fruit tree, wider than the wood's lone trees and lower, so it reads as itself among them. */
+const VISITOR_CROWN: readonly BoughAt[] = [
+  [-9, -12, 13, 9], [10, -11, 12, 8.5], [-21, -2, 10, 7.5], [0, -3, 14.5, 9], [21, -1, 10.5, 7.5],
+  [-12, 8, 12.5, 7.5], [11, 9, 12.5, 7], [0, 13, 11, 6],
+]
+/** How big the crown is at each stage (0: bare branches, 4: full), against the full grown one. */
+const VISITOR_GROWTH = [0, 0.52, 0.7, 0.86, 1]
+/** The fruit: the classic tree's red (`r`), a round fruit lit on its upper west side, dark under its east side. */
+const FRUIT: Neon = { deep: rgb('#9c1a3c'), main: rgb('#ff3b5c'), light: rgb('#ff9a8e'), core: rgb('#fff0dc') }
+const FRUIT_ROWS = ['.lm.', 'lcmm', 'mmmd', '.dd.']
+/** The most fruit the tree shows (`render/tree.ts` `FRUIT_MAX`). */
+export const VISITOR_FRUIT_MAX = 12
+
+/** Is a fruit's 4 × 4 free of the edge and of fruit already placed, on what `ok` says it may hang on? */
+function fruitRoom(p: Plot, x: number, y: number, ok: (i: number) => boolean): boolean {
+  for (let oy = -1; oy <= 4; oy++) for (let ox = -1; ox <= 4; ox++) {
+    const xx = x + ox, yy = y + oy
+    if (xx < 1 || yy < 1 || xx >= p.w - 1 || yy >= p.h - 1) return false
+    const i = yy * p.w + xx
+    if (p.fix[i] >= 0) return false
+    if (ox >= 0 && ox < 4 && oy >= 0 && oy < 4 && !ok(i)) return false
+  }
+  return true
+}
+
+/**
+ * Where the fruit hang, in the order they come (so one more visitor adds a fruit and moves none): seeded spots on
+ * what `ok` says may carry fruit, never nearer each other than `gap` px (closer only if the crown is too small for
+ * twelve). Returns the top-left corners.
+ */
+function fruitOrder(p: Plot, cands: Array<[number, number]>, ok: (i: number) => boolean): Array<[number, number]> {
+  const R = seeded(4242)
+  const order = cands.map(c => ({ c, k: R() })).sort((a, b) => a.k - b.k).map(o => o.c)
+  for (const gap of [7, 6, 5, 4]) {
+    const got: Array<[number, number]> = []
+    for (const [x, y] of order) {
+      if (got.length >= VISITOR_FRUIT_MAX) break
+      if (got.some(([gx, gy]) => Math.max(Math.abs(gx - x), Math.abs(gy - y)) < gap)) continue
+      if (!fruitRoom(p, x, y, ok)) continue
+      got.push([x, y])
+    }
+    if (got.length >= VISITOR_FRUIT_MAX || gap === 4) return got
+  }
+  return []
+}
+
+/**
+ * The tree on the beach at a stage (0 bare … 4 full) with `fruit` fruit (0 … 12), painted as the wood's trees are
+ * (a trunk with a lean, roots and a fork; a crown of boughs lit from the upper west with a belly in shade; the
+ * seven-step ramp; the dark line round its shaded side; the low sun on its west edge) at the 16-bit density. A broad
+ * fruit tree on a characterful trunk, its crown growing stage by stage on the same trunk and the same boughs; bare,
+ * its branches fork up and out and the fruit hang under them. The fruit are placed pixel by pixel and shine by
+ * themselves a little (the engines' neon), so the count reads at night too.
+ */
+function paintVisitor(L: Look, stage: number, fruit: number): Cut {
+  const R = seeded(7777)
+  const W = 96
+  const H = 96
+  const p = plot(W, H, [L.leaf[0], L.bark])
+  const cx = 48
+  const foot = H - 4
+  const lean = 2.5
+  const bare = 21
+  const bottom = foot - bare
+  const grow = VISITOR_GROWTH[Math.max(0, Math.min(4, stage))]
+  const crownOn = grow > 0
+  // (The crown's jitter is drawn first, the same at every stage: the tree grows, it is not another tree.)
+  const c = crownForm(VISITOR_CROWN, R, cx + lean, bottom, Math.max(grow, 0.5), Math.max(grow, 0.5))
+  if (crownOn) underside(p, c.mass, bottom, 2.5 * grow)
+  const toes = trunk(p, cx, foot, bottom - 4, 5.6, 3.9, lean, 1, 15, crownOn ? bottom + bare * 0.4 : -99, L.barkTop, ROOTS[2], 3)
+  // Bare: the branches the crown grows on, forking up and out from the fork; their tips carry the fruit.
+  const tips: Array<[number, number]> = []
+  if (!crownOn) {
+    const xt = cx + lean, yt = bottom - 4
+    const arms: ReadonlyArray<readonly [number, number, number]> = [[-1.25, 25, 0.35], [-0.7, 27, -0.3], [-0.2, 22, 0.25], [0.3, 26, -0.25], [0.8, 27, 0.3], [1.3, 22, -0.35]]
+    arms.forEach(([a, len, kink], k) => {
+      const ang = -Math.PI / 2 + a
+      const mx = xt + Math.cos(ang) * len * 0.55, my = yt + Math.sin(ang) * len * 0.55
+      const ex = mx + Math.cos(ang + kink) * len * 0.5, ey = my + Math.sin(ang + kink) * len * 0.5
+      limb(p, xt, yt + 2, 1.9, mx, my, 1.3, 14.6 - k * 0.05, 1, { cap: 4, lift: -0.2 })
+      limb(p, mx, my, 1.3, ex, ey, 0.75, 14.5 - k * 0.05, 1, { cap: 4, lift: -0.2 })
+      // A twig off each, the other way.
+      const tx = mx + Math.cos(ang - kink * 2.2) * len * 0.32, ty = my + Math.sin(ang - kink * 2.2) * len * 0.32
+      limb(p, mx, my, 0.9, tx, ty, 0.6, 14.4 - k * 0.05, 1, { cap: 4, lift: -0.2 })
+      // (Where fruit may hang: the tips first, then along the branch and the twig.)
+      tips.push([ex, ey], [tx, ty])
+      for (const t of [0.5, 0.75, 0.25]) tips.push([mx + (ex - mx) * t, my + (ey - my) * t], [mx + (tx - mx) * t, my + (ty - my) * t])
+      tips.push([xt + (mx - xt) * 0.7, yt + 2 + (my - yt - 2) * 0.7])
+    })
+  } else {
+    crown(p, R, c, 3.3 / Math.sqrt(L.dense), 0, CROWN_SHADE)
+    plug(p, 0, bottom - 3)
+  }
+  ink(p, { outline: 'in', shadow: 3, gamma: 1.25, crease: 1.7, merge: [0] })
+  toeLights(p, toes, 1, L.barkTop + 1)
+  if (crownOn) {
+    leafMarks(p, R, c.mass, 0, 8, CROWN_SHADE)
+    leafTips(p, R, 0)
+    rimLight(p, L, 0, c.mass, 2)
+  }
+  // The fruit, in their fixed order: on the crown clear of its edge and of its lit top, or hanging under the branches.
+  if (fruit > 0) {
+    let spots: Array<[number, number]>
+    if (crownOn) {
+      const m = c.mass
+      const cands: Array<[number, number]> = []
+      for (let y = Math.floor(m.cy - m.ry * 0.55); y < m.cy + m.ry * 0.8; y++) for (let x = Math.floor(m.cx - m.rx); x < m.cx + m.rx; x++) cands.push([x, y])
+      spots = fruitOrder(p, cands, i => p.z[i] !== NONE && p.ramp[i] === 0)
+    } else {
+      // Hanging: the fruit's top just under a branch, in the open air (nothing of the tree under it but the stalk).
+      // (Only where the wood is within three px over its stalk: a fruit never floats.)
+      const wood = (x: number, y: number) => { for (let k = 1; k <= 3; k++) { const i = (y - k) * p.w + x + 1; if (y - k >= 0 && p.z[i] !== NONE) return true } return false }
+      const cands: Array<[number, number]> = tips.map(([x, y]): [number, number] => [Math.round(x) - 2, Math.round(y) + 2]).filter(([x, y]) => wood(x, y))
+      spots = fruitOrder(p, cands, () => true)
+    }
+    for (const [x, y] of spots.slice(0, Math.min(fruit, VISITOR_FRUIT_MAX))) {
+      if (!crownOn) {
+        // A stalk from the branch: a bark pixel or two over the fruit.
+        for (let k = 1; k <= 2; k++) { const i = (y - k) * p.w + x + 1; if (p.z[i] === NONE) put(p, x + 1, y - k, 16, 1, 0, 0.6, 0.8, ++p.parts, 3) }
+        for (let i = 0; i < p.w * p.h; i++) if (p.pin[i] === 3 && p.ramp[i] === 1) p.ix[i] = 2
+      }
+      stamp(p, x, y, FRUIT_ROWS, FRUIT, 60)
+      // A fruit sits among the leaves: a step of shade under it.
+      for (const [ox, oy] of [[1, 4], [2, 4]]) { const i = (y + oy) * p.w + x + ox; if (i < p.w * p.h && p.fix[i] < 0 && p.ix[i] > 1) p.ix[i]-- }
+    }
+  }
+  return cut(p, cx, foot)
+}
+
+/** The look's atlas with the beach tree at a stage and a fruit count laid in under it: built when either changes, never per frame. */
+let visitorCache: { key: string; atlas: FloraAtlas } | null = null
+export function floraWithVisitor(look: FloraLook, stage: number, fruit: number): FloraAtlas {
+  const st = Math.max(0, Math.min(4, Math.round(stage)))
+  const fr = Math.max(0, Math.min(VISITOR_FRUIT_MAX, Math.round(fruit)))
+  const key = `${look}:${st}:${fr}`
+  if (visitorCache?.key === key) return visitorCache.atlas
+  const base = buildFlora(look)
+  const c = paintVisitor(LOOKS[look], st, fr)
+  let used = 0
+  for (const list of Object.values(base.sprites)) for (const sp of list) used = Math.max(used, sp.y + sp.h)
+  const y0 = used + 2
+  let H = base.albedo.height
+  while (H < y0 + c.h + 1) H *= 2
+  const albedo = makeCanvas(ATLAS_W, H)
+  const normal = makeCanvas(ATLAS_W, H)
+  const ag = albedo.getContext('2d')!
+  const ng = normal.getContext('2d')!
+  ag.drawImage(base.albedo, 0, 0)
+  ng.drawImage(base.normal, 0, 0)
+  const a = ag.createImageData(c.w, c.h)
+  a.data.set(c.rgba)
+  ag.putImageData(a, 1, y0)
+  const n = ng.createImageData(c.w, c.h)
+  n.data.set(c.norm)
+  ng.putImageData(n, 1, y0)
+  const atlas: FloraAtlas = { albedo, normal, sprites: { ...base.sprites, visitor: [{ x: 1, y: y0, w: c.w, h: c.h, ax: c.ax, ay: c.ay }] } }
+  visitorCache = { key, atlas }
+  return atlas
+}
+
+/** The beach tree alone, for the lab and the tests: its picture (RGBA), where it stands, and its fruit's red pixels. */
+export function visitorPicture(look: FloraLook, stage: number, fruit: number): { w: number; h: number; ax: number; ay: number; rgba: Uint8ClampedArray; norm: Uint8ClampedArray } {
+  return paintVisitor(LOOKS[look], stage, fruit)
 }
