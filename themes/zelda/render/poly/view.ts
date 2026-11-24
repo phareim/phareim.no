@@ -54,10 +54,18 @@ const BIG = { w: 200, h: 160, ax: 100, ay: 132 }
 const CHUNK = 8
 /** The 64-bit look's picture is capped this frame (PIXEL_CAP): stretched to the screen smooth all the way. */
 let capped = false
-/** The most px the polygon views shade (part 10), and the most that gets 4x multisampling (on this Mac 4x on a capped
- * picture costs 9 ms a frame at most, within the budget; a phone takes 2x whatever its size). */
-export const PIXEL_CAP = 2.3e6
-export const MSAA4_MAX = 2.4e6
+/** How much of the sun's path of light shows on the water at its height: none high in the sky (its disc fades out of
+ * the backdrop above 0.25), most as it nears the horizon, a third once it is under it; by the height, so it never steps. */
+export function glintSun(h: number): number {
+  const high = Math.max(0, Math.min(1, 1 - (h - 0.25) / 0.4))
+  const up = Math.max(0, Math.min(1, (h - 0.02) / 0.12))
+  return high * (0.35 + 0.65 * up)
+}
+/** The most px the polygon views shade (part 10; 2.9 megapixels since part 12, for the hero's edges at 1920 @2), and
+ * the most that gets 4x multisampling (on this Mac 4x on a capped picture costs 10.4 ms a frame at most, within the
+ * budget's 11; a phone takes 2x whatever its size). */
+export const PIXEL_CAP = 2.9e6
+export const MSAA4_MAX = 3.0e6
 /** Texels a material has to its side here: 16 to the tile, so it repeats every four tiles. */
 const MATS_SIDE = 64
 
@@ -679,7 +687,7 @@ export default function polyView(kit: Kit): View {
   /**
    * What lit windows, neon signs and a town's fountain spill round them (part 9): from the map's own classic art, its
    * bright saturated pixels (neon, screens, signs) and its warm window yellow, and the town water's paved rim, summed
-   * per half tile and blurred over about a tile and a half; once a map. Read like a lamp (per pixel in the 64-bit
+   * per half tile and blurred over about two tiles; once a map. Read like a lamp (per pixel in the 64-bit
    * look), its strength the hour's lamp light (\`spillK\`).
    */
   let spillKey = ''
@@ -688,7 +696,9 @@ export default function polyView(kit: Kit): View {
   // torches make the room. Reach and strength against a lamp's (`steadyLamps` fit).
   const LAMP_FIT = [1, 1] as const
   const FIRE_FIT = [1.5, 1.4] as const
-  const TORCH_FIT = [1.4, 1.7] as const
+  const TORCH_FIT = [2.0, 1.4] as const
+  /** Indoors the small lights (screens, strips, a lab's panels) light the room they are in. */
+  const INDOOR_FIT = [1.5, 1.4] as const
   const isFire = (L: RawLight) => L.color === '#ff8a3d' && L.r >= 4
 
   function sendSpill(c: MapCtx, m: MapState) {
@@ -717,18 +727,18 @@ export default function polyView(kit: Kit): View {
       }
     }
     // Each sample stands for STEP² px of a cell of (T / res)² px.
-    const per = (STEP * STEP) / ((T / res) * (T / res)) * 6.5
+    const per = (STEP * STEP) / ((T / res) * (T / res)) * 9
     for (let i = 0; i < acc.length; i++) acc[i] *= per
     // The town's fountain: water with paving beside it glows on its rim.
     if (c.kind === 'overworld') for (let ty = 0; ty < m.h; ty++) for (let tx = 0; tx < m.w; tx++) {
       if (m.tiles[ty * m.w + tx] !== '~') continue
       const paved = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => m.tiles[(ty + dy!) * m.w + tx + dx!] === ',')
       if (!paved) continue
-      for (const [ox, oy] of [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) { const i = at(tx + ox!, ty + oy!); acc[i] += 0.05; acc[i + 1] += 0.22; acc[i + 2] += 0.3 }
+      for (const [ox, oy] of [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) { const i = at(tx + ox!, ty + oy!); acc[i] += 0.12; acc[i + 1] += 0.55; acc[i + 2] += 0.75 }
     }
-    // Blurred over about a tile and a half: three box passes of a tile each way.
+    // Blurred over about two tiles: four box passes of a tile each way.
     const tmp = new Float32Array(acc.length)
-    for (let pass = 0; pass < 3; pass++) for (const horiz of [true, false]) {
+    for (let pass = 0; pass < 4; pass++) for (const horiz of [true, false]) {
       const src = acc, dst = tmp
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) for (let k = 0; k < 3; k++) {
         let sum = 0, n = 0
@@ -779,6 +789,8 @@ export default function polyView(kit: Kit): View {
   }
   /** Where the backdrop's sun is on the picture this frame, and how much of it shows (none: no sky). */
   let sunAt: { x: number; y: number; a: number } | null = null
+  /** The backdrop's horizon on the picture this frame (px from the top; none: no sky). */
+  let skyLine: number | null = null
   /** Light values held smooth from frame to frame (`held`): the last value of each, and the map it was for. */
   const heldLight = new Map<string, { v: [number, number, number]; map: string }>()
   /**
@@ -1318,7 +1330,18 @@ export default function polyView(kit: Kit): View {
       const tt = c.field.tile(Math.floor(L.x), Math.floor(L.y))
       if (isFire(L)) return 0.9 + groundAt(L.x, L.y)
       return (tt === 't' ? 1.35 : tt === 'M' || tt === 'H' ? 1.2 : 0.55) + groundAt(L.x, L.y)
-    }, L => isFire(L) ? FIRE_FIT : !outdoors && c.field.tile(Math.floor(L.x), Math.floor(L.y)) === 't' ? TORCH_FIT : LAMP_FIT)
+    }, L => isFire(L) ? FIRE_FIT : outdoors ? LAMP_FIT : c.field.tile(Math.floor(L.x), Math.floor(L.y)) === 't' ? TORCH_FIT : INDOOR_FIT)
+    // Indoors a torch hangs on the wall: its light comes from a little out into the room, so the floor, the side walls and
+    // whoever stands there face it, not only the wall behind it. (Part 12.)
+    if (!outdoors && roomed) {
+      for (const L of lamps) {
+        if (c.field.tile(Math.floor(L.x), Math.floor(L.y)) !== 't') continue
+        const z = rooms.find(r => L.x >= r.x - 1 && L.x < r.x + r.w + 1 && L.y >= r.y - 1 && L.y < r.y + r.h + 1)
+        if (!z) continue
+        const ox = z.x + z.w / 2 - L.x, oy = z.y + z.h / 2 - L.y, od = Math.hypot(ox, oy)
+        if (od > 0.01) { L.x += (ox / od) * 0.9; L.y += (oy / od) * 0.9 }
+      }
+    }
     // A light that stands on a house's own tile is one of its windows (or a sign's letter): the painters put it on the
     // row behind the front wall, where the wall would turn its back on it. It shines from just before the wall's face,
     // and the engine throws it out before the wall, longer than wide, marked by a negative reach.
@@ -1385,6 +1408,7 @@ export default function polyView(kit: Kit): View {
     g.imageSmoothingEnabled = false
     const hy = horizonY(M4, vw, vh)
     sunAt = null
+    skyLine = null
     const bdLook: BackdropLook = outdoors ? (def.look === 'wild' ? 'wild' : 'coast') : 'void'
     if (outdoors && par.sky) {
       // (Painted in the view's own dusk; the hour sinks its sun, dims its stars and grades the rest.)
@@ -1403,6 +1427,7 @@ export default function polyView(kit: Kit): View {
       }
       // The backdrop's own horizon on the camera's.
       const line = Number.isFinite(hy) ? hy : -vh
+      skyLine = Number.isFinite(hy) ? hy : null
       // (The soft look moves its sky by fractions of a pixel, smoothed: from the shoulder the sky is a fifth of the
       // picture, and a whole pixel's step of all of it at once was a frame of change of its own as the camera settled.)
       const softSky = (par.filter as number) * ek > 0.5
@@ -1490,6 +1515,11 @@ export default function polyView(kit: Kit): View {
       haze: held('haze', roomed ? rgb('#05030c') : outdoors && par.sky ? cssRgb(dayLow) : rgb(par.haze as string), dt, m.id),
       hazeAmount: roomed ? 0.7 : 1,
       water: win(k, 0.1, 0.5),
+      // The path of light on the water under the backdrop's sun; at night the moon's, paler, in the same place.
+      ...(outdoors && sunAt && skyLine !== null ? {
+        glint: [sunAt.x / vw, skyLine / vh, ek * ((1 - moonK) * glintSun(height) * 0.9 + moonK * 0.75)] as [number, number, number],
+        glintCol: mix3([1, 0.72, 0.42], [0.62, 0.74, 1], moonK),
+      } : {}),
       smooth: (par.smoothShade as number) * ek,
       filter: (par.filter as number) * ek,
       // (The ground glides, in the 32-bit look too: its texels read one by one shimmer as the camera moves.)
@@ -1535,7 +1565,9 @@ export default function polyView(kit: Kit): View {
         // (Gone near the eye: a lamp beside the camera would lay its halo over a third of the picture.)
         const a = 0.42 * Math.min(1, haloK) * Math.max(0, Math.min(1, (dd - 2.5) / 2.5))
         if (a <= 0) continue
-        const col: [number, number, number] = [L.c[0] * a, L.c[1] * a, L.c[2] * a]
+        // (In the lamp's own hue: a strong light (a fire, at its gain) would otherwise add up to white over its own flame.)
+        const ha = a / Math.max(1, Math.max(L.c[0], L.c[1], L.c[2]) / 1.4)
+        const col: [number, number, number] = [L.c[0] * ha, L.c[1] * ha, L.c[2] * ha]
         // (A little toward the eye, so the lamp's own lantern does not cut it.)
         const cx = L.x + ((eye[0] - L.x) / Math.max(0.01, dd)) * 0.3, cy = L.y + ((eye[1] - L.y) / Math.max(0.01, dd)) * 0.3
         quad(haloV, [[cx - r * rx, cy - r * ry, L.z + r, 0, -1, -1], [cx + r * rx, cy + r * ry, L.z + r, 0, 1, -1], [cx + r * rx, cy + r * ry, L.z - r, 0, 1, 1], [cx - r * rx, cy - r * ry, L.z - r, 0, -1, 1]], TEX.HALO, col, [0, 0, 1])
@@ -1579,7 +1611,7 @@ export default function polyView(kit: Kit): View {
       heroSkin,
       hairIn: ((h: string) => { const v = parseInt(h.slice(1, 7), 16); return [((v >> 16) & 255) / 255 * 0.75, ((v >> 8) & 255) / 255 * 0.75, (v & 255) / 255 * 0.75] as [number, number, number] })(kit.heroLook().hairColor),
       // (Its strength the hour's lamp light, and the day takes most of it away: at noon it is all but gone.)
-      spillAt: [spillAt[0], spillAt[1], spillAt[2], held('spill', [gain * (1 - 0.92 * Math.max(0, Math.min(1, (height - 0.05) / 0.4))) * (par.spill as number ?? 1), 0, 0], dt, m.id)[0]],
+      spillAt: [spillAt[0], spillAt[1], spillAt[2], gain * (par.spill as number ?? 1) * held('spill', [1 - 0.92 * Math.max(0, Math.min(1, (height - 0.05) / 0.4)), 0, 0], dt, m.id)[0]],
     }, sw, sh, spend.bloomPass ? glowG : undefined)
     if (!spend.bloomPass) glowG.clearRect(0, 0, vw, vh)
     // The picture: the sky (painted at the scene's size) brought up to the picture's, the polygons over it.
