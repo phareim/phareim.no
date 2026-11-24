@@ -9,14 +9,22 @@
 // Prints, for standing and for walking: the median and largest share of the picture changed between two
 // consecutive frames (a channel by more than 6 of 255), frames whose mean light falls well under the rest, the
 // canvas sizes seen, and the gaps between frames. Writes the worst pair and their difference to <outDir>.
-import { mkdirSync, writeFileSync } from 'node:fs'
+//
+// SAVE=<file>: a save (the game's `zeldaSave` JSON, e.g. one with the Sun Prism home and the hour in `day`) is
+// put into the page's storage before it loads. TAG=<name> goes into the file names. Where the view keeps a
+// per-frame trace (`window.__polyTrace`, an array the page is given empty), each frame's last entry is kept
+// beside its change in <outDir>/page-<view>-<w><tag>.json.
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { launch } from './cdp.mjs'
 
 const [base, out, view = 'poly', W = '1280', H = '800', DPR = '1'] = process.argv.slice(2)
 if (!base || !out) { console.error('usage: page-flicker.mjs <baseUrl> <outDir> [view] [w] [h] [dpr]'); process.exit(2) }
 mkdirSync(out, { recursive: true })
+const TAG = process.env.TAG ? `-${process.env.TAG}` : ''
 const b = await launch({ width: +W, height: +H, dpr: +DPR, mobile: +W < 600 })
+const save = process.env.SAVE ? readFileSync(process.env.SAVE, 'utf8').trim() : null
+await b.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__polyTrace = [];${save ? ` try { localStorage.setItem('zeldaSave', ${JSON.stringify(save)}) } catch {}` : ''}` })
 await b.goto(`${base}/?view=${view}`)
 await b.sleep(6000)
 
@@ -44,7 +52,9 @@ window.__rec = (n) => new Promise(done => {
       ch /= W * H
       if (ch > worst.ch) worst = { ch, a: prev, b: d, W, H }
     }
-    st.push({ ch, luma, gap: now - last })
+    const tr = window.__polyTrace
+    st.push({ ch, luma, gap: now - last, tr: tr && tr.length ? tr[tr.length - 1] : null })
+    if (tr && tr.length > 4) tr.splice(0, tr.length - 2)
     last = now
     prev = d
     if (++i < n) requestAnimationFrame(tick)
@@ -70,6 +80,8 @@ window.__rec = (n) => new Promise(done => {
 })
 0`
 await b.eval(REC)
+// (A page that reloads under the recorder never answers: give up on it rather than wait for ever.)
+const rec = n => Promise.race([b.eval(`__rec(${n})`), b.sleep(180000).then(() => { throw new Error('the page did not answer in 3 minutes') })])
 const median = a => { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1] ?? 0 }
 const report = (name, r) => {
   const ch = r.st.slice(1).map(q => q.ch)
@@ -77,21 +89,21 @@ const report = (name, r) => {
   const dark = r.st.filter(q => q.luma < lm * 0.6).length
   const gaps = r.st.slice(1).map(q => q.gap)
   console.log(`${name.padEnd(8)} frames ${r.st.length} changed med ${median(ch).toFixed(4)} max ${Math.max(...ch).toFixed(4)}  luma ${lm.toFixed(3)} min ${Math.min(...r.st.map(q => q.luma)).toFixed(3)} dark ${dark}  sizes ${r.sizes.join(',')}  gap med ${median(gaps).toFixed(1)} max ${Math.max(...gaps).toFixed(1)} ms`)
-  r.pics.forEach((u, i) => writeFileSync(join(out, `${view}-${W}-${name}-${['a', 'b', 'diff'][i]}.png`), Buffer.from(u.split(',')[1], 'base64')))
+  r.pics.forEach((u, i) => writeFileSync(join(out, `${view}-${W}${TAG}-${name}-${['a', 'b', 'diff'][i]}.png`), Buffer.from(u.split(',')[1], 'base64')))
   return { name, changedMedian: median(ch), changedMax: Math.max(...ch), dark, sizes: r.sizes, perFrame: r.st }
 }
 const res = []
-res.push(report('stand', await b.eval(`__rec(90)`)))
+res.push(report('stand', await rec(90)))
 // Walking: the arrow held down while the frames are read.
 for (const key of ['ArrowDown', 'ArrowLeft']) {
   await b.keyDown(key)
   await b.sleep(200)
-  res.push(report(key === 'ArrowDown' ? 'walk-dn' : 'walk-lt', await b.eval(`__rec(90)`)))
+  res.push(report(key === 'ArrowDown' ? 'walk-dn' : 'walk-lt', await rec(90)))
   await b.keyUp(key)
 }
 // And standing again, after the walk (the governor has had its say by now).
-res.push(report('stand2', await b.eval(`__rec(60)`)))
-await b.shot(join(out, `${view}-${W}-page.png`))
-writeFileSync(join(out, `page-${view}-${W}.json`), JSON.stringify(res.map(r => ({ ...r, perFrame: r.perFrame.map(q => [+q.ch.toFixed(4), +q.luma.toFixed(3), +q.gap.toFixed(1)]) }))))
+res.push(report('stand2', await rec(60)))
+await b.shot(join(out, `${view}-${W}${TAG}-page.png`))
+writeFileSync(join(out, `page-${view}-${W}${TAG}.json`), JSON.stringify(res.map(r => ({ ...r, perFrame: r.perFrame.map(q => [+q.ch.toFixed(4), +q.luma.toFixed(3), +q.gap.toFixed(1), q.tr]) }))))
 if (b.errors.length) console.error(b.errors.slice(0, 5).join('\n'))
 await b.close()
