@@ -27,6 +27,7 @@ import type { GameState, MapKind, MapState, TileChar } from '../../types'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
 import { aimOf, has, mapInfo, raised, swingAngle } from '../../engine/index'
 import { FIG, renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from '../iso/figure'
+import { folkMix, folkRouter } from '../iso/folk'
 import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook, type FloraSprite } from '../iso/flora'
 import { treeNow } from '../tree'
 import { bladeMesh, heroVerts, leftHand, loadHero, loadedHero, modelFits, poseHero, poseOf, recolour, type LoadedHero } from './hero'
@@ -474,6 +475,17 @@ export default function polyView(kit: Kit): View {
   const ag = atlas.getContext('2d')!
   ag.imageSmoothingEnabled = false
   let atlasUsed = ATLAS
+  /**
+   * The figures in the isometric view's own art (`iso/folk.ts`, part 19): drawn by the classic painter's hand into
+   * a second atlas at twice the size, cell for cell with the first, over its top half (the small cells); the card
+   * shader reads them at four fine px a classic px (Scale2x of the twice-size art) where the classic atlas is clear.
+   */
+  const folkAtlas = makeCanvas(ATLAS * 2, ATLAS)
+  const fg2 = folkAtlas.getContext('2d')!
+  fg2.imageSmoothingEnabled = false
+  let folkUsed = 0
+  let folkSent = 0
+  const router = folkRouter(ag, fg2, 2)
   const dyn = new Verts(4096)
   const blobs = new Verts(512)
   const haloV = new Verts(256)
@@ -1276,6 +1288,10 @@ export default function polyView(kit: Kit): View {
     if (shoulderK < 0.5) turnNow = -cam.yaw
     ag.setTransform(1, 0, 0, 1, 0, 0)
     ag.clearRect(0, 0, ATLAS, Math.max(atlasUsed, 1))
+    if (folkUsed) { fg2.setTransform(1, 0, 0, 1, 0, 0); fg2.clearRect(0, 0, folkAtlas.width, folkUsed); folkUsed = 0 }
+    // (The crane only: it looks the isometric view's way, so a figure's drawn facings face as they do there. All
+    // through the direct turn with the isometric view, whose figures it lies on; through the middle of any other.)
+    const folk = par.figures !== 'classic' && shoulderK < 0.5 ? (pairIso > 0 ? 1 : folkMix(k)) : 0
     const items = kit.queue(ag, s, ui, bx, by, bw, bh, lights, og)
     if (s.hook) drawHookChain(og, s, bx, by, lights)
 
@@ -1367,7 +1383,9 @@ export default function polyView(kit: Kit): View {
       ag.rect(cellX + 1, cellY + 1, C.w - 2, C.h - 2)
       ag.clip()
       ag.setTransform(1, 0, 0, 1, Math.round(cellX + C.ax - (it.x * T - bx)), Math.round(cellY + C.ay - (ay * T - by)))
+      if (folk > 0 && cellY + C.h <= ATLAS / 2 && !it.hero) router.begin(cellX, cellY, C.w, C.h, folk)
       it.draw()
+      if (router.end()) folkUsed = Math.max(folkUsed, (cellY + C.h) * 2)
       ag.restore()
       const u0 = cellX
       const v0 = cellY
@@ -1710,6 +1728,8 @@ export default function polyView(kit: Kit): View {
     engine.objs(objsC, bw, bh)
     engine.base(baseC, bw, bh)
     engine.atlas(atlas, atlasUsed)
+    // (Sent while there is any, and once more when it has gone, so the last frame's figures leave the texture.)
+    if (folkUsed || folkSent) { engine.folk(folkAtlas, Math.max(folkUsed, folkSent)); folkSent = folkUsed }
     const heroP = toScreen(M4, vw, vh, s.hero.x, s.hero.y, 0.5 + groundAt(s.hero.x, s.hero.y))
     const heroTall = Math.abs(toScreen(M4, vw, vh, s.hero.x, s.hero.y, 1.2 + groundAt(s.hero.x, s.hero.y)).y - toScreen(M4, vw, vh, s.hero.x, s.hero.y, groundAt(s.hero.x, s.hero.y)).y)
     const heroDist = Math.hypot(s.hero.x - eye[0], s.hero.y - eye[1], 0.5 + groundAt(s.hero.x, s.hero.y) - eye[2])

@@ -23,7 +23,7 @@
 // (`pigtails/bow/dress`) or a HeroLook as JSON; the PNGs then end in -look.
 // hero-sheet.mjs draws every frame of a look without a browser.
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -50,6 +50,9 @@ import polyView, { pinQuality as pinPoly, preloadArt, setAssetBase, governorTrac
 import { freezeLamps } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/lamps.ts'))}
 import { THIRD_PERSON } from ${JSON.stringify(join(repo, 'themes/zelda/views.ts'))}
 import { setTreeCounts } from ${JSON.stringify(join(repo, 'themes/zelda/render/tree.ts'))}
+import { setSpriteOverrides } from ${JSON.stringify(join(repo, 'themes/zelda/render/sheet.ts'))}
+// LIVE=<pack.json> applies the studio's live sprites (render/live.ts) as the site does, before anything is drawn.
+${process.env.LIVE ? `setSpriteOverrides(${JSON.stringify(JSON.parse(readFileSync(process.env.LIVE, 'utf8')).sprites)})` : ''}
 
 const q = new URLSearchParams(location.hash.slice(1))
 // TREE=<deploys>,<visitors> sets the beach tree's counts (its stage and its fruit; part 17).
@@ -140,6 +143,37 @@ switch (scene) {
   case 'r-lamp': go('overworld', 18.5, 12.6, 'up'); run(20); break
   case 'r-wall': go('overworld', 14.5, 10.2, 'up'); run(20); break
   case 'r-stall': go('overworld', 31.5, 16.5, 'up'); run(20); break
+  // A blob and a spitter beside the hero (part 19: the figures in isometric pixel art). r-foehit: the blob mid-hit and
+  // the spitter hurt (both flashing white on the frame drawn), the spitter walking east.
+  // The pilot cast of part 19 in two rows on the square, the front row facing as drawn, the back row mirrored,
+  // a blob and spitters walking the four ways at the end of the rows: the figures side by side in the view's light.
+  case 'r-cast': {
+    go('overworld', 20.5, 19.5, 'up'); run(2)
+    const looks = ['keeper', 'vendor', 'kid', 'barmaid', 'guard', 'petter', 'robot', 'cat', 'hippie', 'smoker', 'guitar', 'sleeper', 'twirler']
+    s.map.npcs.length = 0
+    looks.forEach((look, i) => {
+      for (const row of [0, 1]) s.map.npcs.push({ id: 'cast' + i + row, look, x: 14.5 + i * 1.1, y: 16.2 + row * 1.6, dir: row ? 'left' : 'down', home: { x: 0, y: 0 }, wander: false, t: 0, vx: 0, vy: 0 })
+    })
+    const foes = s.map.enemies.filter(e => e.kind === 'spitter').slice(0, 4)
+    const b = s.map.enemies.find(e => e.kind === 'blob')
+    for (const e of s.map.enemies) if (e !== b && !foes.includes(e)) { e.x = -50; e.y = -50 }
+    if (b) { b.x = 13.2; b.y = 16.4 }
+    ;['down', 'right', 'up', 'left'].forEach((d, i) => { const e = foes[i]; if (e) { e.x = 13.2 + (i % 2) * 1.2; e.y = 17.8 + Math.floor(i / 2) * 1.3; e.dir = d; e.ai.tell = 0 } })
+    s.hero.x = 20.5; s.hero.y = 20.2
+    break
+  }
+  case 'r-foes': case 'r-foehit': {
+    give(); go('overworld', 20.5, 17.5, 'up'); run(2)
+    const hx = s.hero.x, hy = s.hero.y
+    const b = s.map.enemies.find(e => e.kind === 'blob'), sp = s.map.enemies.find(e => e.kind === 'spitter')
+    const sp2 = s.map.enemies.filter(e => e.kind === 'spitter')[1]
+    if (b) { b.x = hx - 1.6; b.y = hy + 0.4; b.ai.mode = 'wait'; b.ai.t = 9 }
+    if (sp) { sp.x = hx + 1.7; sp.y = hy + 0.2; sp.dir = 'right'; sp.ai.mode = 'walk'; sp.ai.t = 9; sp.ai.tell = 0 }
+    if (sp2) { sp2.x = hx + 0.2; sp2.y = hy - 1.6; sp2.dir = 'up'; sp2.ai.mode = 'walk'; sp2.ai.t = 9; sp2.ai.tell = 0 }
+    for (const e of s.map.enemies) if (e !== b && e !== sp && e !== sp2) { e.x = -50; e.y = -50 }
+    if (scene === 'r-foehit') { if (b) b.flash = 0.3; if (sp) { sp.flash = 0.3 } }
+    break
+  }
   case 'r-fountain': go('overworld', 20.5, 16.2, 'up'); run(20); break
   // The NEW LOOK stall east of the fountain: at its counter, and walking up to it from the square.
   case 'r-look': s.hero.x = 31.5; s.hero.y = 14.5; s.hero.dir = 'up'; run(5); break
@@ -191,6 +225,8 @@ switch (scene) {
   case 'd-gemini': wild(true); s.inv.arc = true; go('deep2', 23.5, 10.5, 'up'); run(140); break
   case 'd-gate': wild(true); s.inv.arc = true; s.flags.gemini = true; s.flags.gateShut = true; go('deep2', 23.5, 8.5, 'up'); run(20); break
 }
+// DAY=sun|noon|night|dawn: a solved save's running hour, as steady.mjs --day (without it the eternal dusk).
+if (q.get('day')) { s.inv.prism = true; s.daytime = { sun: 500, noon: 580, night: 230, dawn: 400 }[q.get('day')] }
 function wild(luna = false) {
   give(); s.inv.hook = true; s.hero.hp = s.hero.maxHp
   for (const f of ['intro', 'llama.met', 'mistral.met', 'deepseek.met', 'gemini.met', 'room11', 'mistral.told']) s.flags[f] = true
@@ -254,6 +290,9 @@ const SHOTS = [
   ['r-lamp-1280', 'r-lamp', 1280, 800, 1, 0],
   ['r-wall-1280', 'r-wall', 1280, 800, 1, 0],
   ['r-stall-1280', 'r-stall', 1280, 800, 1, 0],
+  ['r-foes-1280', 'r-foes', 1280, 800, 1, 0],
+  ['r-cast-1280', 'r-cast', 1280, 800, 1, 0],
+  ['r-foehit-1280', 'r-foehit', 1280, 800, 1, 0],
   ['r-fountain-1280', 'r-fountain', 1280, 800, 1, 0],
   ['r-plaza-390', 'r-plaza', 390, 844, 3, 0],
   ['r-plaza-412', 'r-plaza', 412, 915, 2.625, 0],
@@ -334,8 +373,8 @@ const SHOTS = [
 ]
 const want = only ? new Set(only.split(',')) : null
 const hero = (process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : '') + (process.env.HERO_LOOK ? `&look=${encodeURIComponent(process.env.HERO_LOOK)}` : '')
-const view = (process.env.TREE ? `&tree=${process.env.TREE}` : '') + (process.env.VIEW ? `&view=${process.env.VIEW}` : '') + (process.env.FRAMES ? `&frames=${process.env.FRAMES}` : '') + (process.env.PARAMS ? `&params=${encodeURIComponent(process.env.PARAMS)}` : '')
-const tag = (process.env.VIEW ? `-${process.env.VIEW}` : '') + (process.env.FRAMES ? `-f${process.env.FRAMES}` : '') + (process.env.TAG ? `-${process.env.TAG}` : '')
+const view = (process.env.DAY ? `&day=${process.env.DAY}` : '') + (process.env.TREE ? `&tree=${process.env.TREE}` : '') + (process.env.VIEW ? `&view=${process.env.VIEW}` : '') + (process.env.FRAMES ? `&frames=${process.env.FRAMES}` : '') + (process.env.PARAMS ? `&params=${encodeURIComponent(process.env.PARAMS)}` : '')
+const tag = (process.env.VIEW ? `-${process.env.VIEW}` : '') + (process.env.DAY ? `-${process.env.DAY}` : '') + (process.env.FRAMES ? `-f${process.env.FRAMES}` : '') + (process.env.TAG ? `-${process.env.TAG}` : '')
 for (const [name, scene, w, h, dpr, top] of SHOTS) {
   if (want && !want.has(name) && !want.has(scene)) continue
   const png = join(out, `${name}${tag}${process.env.HERO_COLORS ? '-dressed' : ''}${process.env.HERO_LOOK ? '-look' : ''}.png`)

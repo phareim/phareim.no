@@ -18,6 +18,19 @@ let heroRows: Record<string, string[]> | null = null
 let heroKey = ''
 /** Rows the studio (studio.phareim.no) drew instead of the registry's, by sprite name (render/live.ts). */
 let overrides: Record<string, readonly string[]> = {}
+/** Bumped whenever the studio's rows change, so whatever was made from rows can tell it is stale. */
+let revision = 0
+
+/**
+ * Which sprite a canvas is (its name, whether it is mirrored, and the colour of a silhouette). A view that draws
+ * people in art of its own (the isometric view's figures, `iso/folk.ts`) tells by this what the classic painter
+ * meant to draw, without the painter knowing.
+ */
+export interface SpriteTag { name: string; flip: boolean; color?: string }
+const tags = new WeakMap<object, SpriteTag>()
+export function spriteTag(c: unknown): SpriteTag | undefined {
+  return c && typeof c === 'object' ? tags.get(c) : undefined
+}
 
 /** Only `hero_*` canvases are rebuilt; everything else keeps its cache. */
 function dressHero(): void {
@@ -99,6 +112,7 @@ export function sprite(name: string, flip = false): Canvas {
     g.drawImage(src, 0, 0)
   }
   cache.set(key, c)
+  tags.set(c, { name, flip })
   return c
 }
 
@@ -131,6 +145,7 @@ export function silhouette(name: string, color: string, flip = false): Canvas {
   g.fillStyle = color
   g.fillRect(0, 0, c.width, c.height)
   tinted.set(key, c)
+  tags.set(c, { name, flip, color })
   return c
 }
 
@@ -212,8 +227,19 @@ export function setSpriteOverrides(next: Record<string, readonly string[]>): str
     if (overrides[name]?.join('\n') !== applied[name]?.join('\n')) touched.add(name)
   }
   overrides = applied
+  if (touched.size) revision++
   for (const m of [cache, tinted]) for (const k of [...m.keys()]) if (touched.has(k.split('|')[0]!)) m.delete(k)
   return Object.keys(applied)
+}
+
+/** The rows a sprite is drawn from now: the studio's when it has published some, else the registry's (not the hero's look). */
+export function spriteRows(name: string): readonly string[] | undefined {
+  return overrides[name] ?? SPRITES[name]?.rows
+}
+
+/** How many times the studio's rows have changed (see `revision`). */
+export function spriteRevision(): number {
+  return revision
 }
 
 export function hasSprite(name: string) {

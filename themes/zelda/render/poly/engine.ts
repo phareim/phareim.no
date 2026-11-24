@@ -385,6 +385,7 @@ uniform sampler2D uMats;
 uniform sampler2D uObjs;
 uniform sampler2D uBase;
 uniform sampler2D uAtlas;
+uniform sampler2D uFolk;
 uniform sampler2D uHeroTex;
 uniform sampler2D uKind;
 uniform sampler2D uShore;
@@ -579,6 +580,20 @@ vec4 s2At(ivec2 t, ivec2 q) {
   return sameC(a, b) && !sameC(a, b2) && !sameC(b, a2) ? b : E;
 }
 vec4 s2x(ivec2 p2) { return s2At(p2 / 2, p2 - (p2 / 2) * 2); }
+/**
+ * A figure in the isometric view's own art (iso/folk.ts, its atlas at twice the classic px), at four fine px a classic
+ * px: Scale2x of the drawing (uFine 2), or its texels doubled. Drawn as authored: no blend of shades.
+ */
+vec4 folkTexel(ivec2 p) { return texelFetch(uFolk, clamp(p, ivec2(0), textureSize(uFolk, 0) - 1), 0); }
+vec4 folkAt(vec2 px) {
+  ivec2 f4 = ivec2(floor(px * 4.0));
+  ivec2 t = f4 / 2;
+  if (uFine < 1.5) return folkTexel(t);
+  ivec2 q = f4 - t * 2;
+  vec4 E = folkTexel(t), B = folkTexel(t + ivec2(0, -1)), D = folkTexel(t + ivec2(-1, 0)), F = folkTexel(t + ivec2(1, 0)), H = folkTexel(t + ivec2(0, 1));
+  vec4 a = q.y == 1 ? H : B, b = q.x == 1 ? F : D, a2 = q.y == 1 ? B : H, b2 = q.x == 1 ? D : F;
+  return sameC(a, b) && !sameC(a, b2) && !sameC(b, a2) ? b : E;
+}
 vec4 fineAt(vec2 px) {
   ivec2 f4 = ivec2(floor(px * 4.0));
   ivec2 t = f4 / 4;
@@ -676,6 +691,8 @@ void main() {
     c = pic(uBase, uv);
   } else if (vTex == 3) {
     c = uFine > 0.5 && uFilter <= 0.001 ? fineAt(uv) : atlasAt(uv);
+    // Where the classic painter left the cell clear, a figure in the isometric view's own art may stand (part 19).
+    if (c.a < 0.5) { vec4 fc = folkAt(uv); if (fc.a >= 0.5) c = uFilter <= 0.001 ? fc : premul(fc); }
   } else if (vTex == 7) {
     // The hero model: its texture texel by texel, or filtered (the 64-bit look). (The mesh's own uv, never warped.)
     ivec2 hs = textureSize(uHeroTex, 0);
@@ -882,6 +899,8 @@ export interface Engine {
   objs(c: HTMLCanvasElement, w: number, h: number): void
   base(c: HTMLCanvasElement, w: number, h: number): void
   atlas(c: HTMLCanvasElement, rows: number): void
+  /** The figures in the isometric view's own art (`iso/folk.ts`): the atlas's cells at twice the size, its top `rows`. */
+  folk(c: HTMLCanvasElement, rows: number): void
   /** The 16-bit look's flora atlas and its normal picture (`iso/flora.ts`), for `TEX.FLORA` cards. Part 14. */
   flora(albedo: HTMLCanvasElement, normal: HTMLCanvasElement): void
   /** The 16-bit look's figure this frame (`iso/figure.ts`, straight alpha), for the `TEX.FIG` card. Part 14. */
@@ -917,6 +936,7 @@ export function createEngine(): Engine {
     objs: texture(gl, 1, 1),
     base: texture(gl, 1, 1),
     atlas: texture(gl, 1, 1),
+    folk: texture(gl, 1, 1),
     kind: texture(gl, 1, 1),
     shore: texture(gl, 1, 1, { linear: true }),
     fig: texture(gl, 1, 1),
@@ -1083,6 +1103,7 @@ export function createEngine(): Engine {
     objs(c, w, h) { uploadPart(gl, tex.objs, c, w, h) },
     base(c, w, h) { uploadPart(gl, tex.base, c, w, h) },
     atlas(c, rows) { uploadPart(gl, tex.atlas, c, c.width, rows) },
+    folk(c, rows) { uploadPart(gl, tex.folk, c, c.width, rows) },
     flora(albedo, normal) { upload(gl, tex.flora, albedo); upload(gl, tex.floraN, normal) },
     figure(albedo, normal, w, h) {
       for (const [t, d] of [[tex.fig, albedo], [tex.figN, normal]] as const) {
@@ -1190,6 +1211,7 @@ export function createEngine(): Engine {
       bindTex(gl, 1, tex.objs, u('uObjs'))
       bindTex(gl, 2, tex.base, u('uBase'))
       bindTex(gl, 3, tex.atlas, u('uAtlas'))
+      bindTex(gl, 15, tex.folk, u('uFolk'))
       bindTex(gl, 4, tex.kind, u('uKind'))
       bindTex(gl, 5, tex.shore, u('uShore'))
       bindTex(gl, 6, tex.hero, u('uHeroTex'))

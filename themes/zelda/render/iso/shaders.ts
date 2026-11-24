@@ -193,7 +193,7 @@ void main() {
  * 3 a billboard facing the viewer, 4 a thing on a south wall, 5 a roof that rises toward the north
  * (z = its pitch), 7 a plant.
  * Pictures: 0 the map's standing things, 1 the atlas of people and things, 2 the plants, 3 the hero's figure,
- * 4 the things built for this view (props.ts);
+ * 4 the things built for this view (props.ts), 5 the figures in this view's own art (folk.ts), a texel to the px;
  * y also carries 8 × the material a roof or a wall is made of (materials.ts, 0: as painted).
  */
 const GEOM_BODY = COMMON + ART + NEON + MATS + `
@@ -211,6 +211,7 @@ uniform sampler2D uFig;
 uniform sampler2D uFigN;
 uniform sampler2D uProps;
 uniform sampler2D uPropsN;
+uniform sampler2D uFolk;
 uniform float uDeep;
 uniform float uSoft;
 uniform float uBump;
@@ -246,6 +247,8 @@ void main() {
   if (pic == 0) c = art(uObjs, vUV, uSoft, grad, edge);
   else if (pic == 1) c = art(uAtlas, vUV, uSoft, grad, edge);
   else if (pic == 2) { c = px(uFlora, ivec2(floor(vUV))); grad = vec2(0.0); edge = vec2(0.0); }
+  // A figure in this view's own art (folk.ts): drawn as authored, a texel to the px, no smoothing on the way up.
+  else if (pic == 5) { c = px(uFolk, ivec2(floor(vUV))); grad = vec2(0.0); edge = vec2(0.0); }
   // A thing built for this view (props.ts), a pixel to the pixel like the figure.
   else if (pic == 4) {
     c = px(uProps, ivec2(floor(vUV)));
@@ -272,7 +275,10 @@ void main() {
   if (c.a < 0.999) {
     c.rgb /= max(c.a, 0.004);
     if (c.a < 0.7 && luma(c.rgb) < 0.12) discard;
-    if (c.a < bayer(gl_FragCoord.xy) * 0.9 + 0.05) discard;
+    // (A figure's own art keeps the other half of the pattern: in a turn's cross-fade it fills what the classic
+    // sprite leaves, so the two cross in a stipple and the figure is never seen through.)
+    float bd = pic == 5 ? 1.0 - bayer(gl_FragCoord.xy) : bayer(gl_FragCoord.xy);
+    if (c.a < bd * 0.9 + 0.05) discard;
   }
   if (kind == 3 && pic < 2 && uSoft > 0.0 && luma(c.rgb) < 0.11) {
     // The 8-bit outline is one black for everything. A 16-bit one takes the colour of what it goes
@@ -299,7 +305,18 @@ void main() {
   else if (kind == 2) { N = vec3(1, 0, 0); Tu = vec3(0, 1, 0); Tv = vec3(0, 0, -1); }
   else { N = uViewN; Tu = uRight; Tv = vec3(0, 0, -1); mat = 3.0; }
   vec3 n;
-  if (pic == 2) {
+  if (pic == 5) {
+    // Its outline says how round it is, as for a classic figure, read over twice the px: the whole figure
+    // swells toward the viewer, and its light falls in steps like any figure's (material 3).
+    ivec2 i = ivec2(floor(vUV));
+    vec2 far = vec2(0.0);
+    for (int r = 2; r <= 12; r += 2) {
+      float w = 0.42 - float(r) * 0.022;
+      far.x += w * (step(0.5, px(uFolk, i + ivec2(r, 0)).a) - step(0.5, px(uFolk, i - ivec2(r, 0)).a));
+      far.y += w * (step(0.5, px(uFolk, i + ivec2(0, r)).a) - step(0.5, px(uFolk, i - ivec2(0, r)).a));
+    }
+    n = normalize(N - uRound * (far.x * Tu + far.y * Tv));
+  } else if (pic == 2) {
     // A plant brings its own normals, in its own space: right, up, toward the viewer.
     vec3 m = px(uFloraN, ivec2(floor(vUV))).rgb * 2.0 - 1.0;
     n = normalize(m.x * Tu + m.y * vec3(0, 0, 1) + m.z * N);
@@ -353,16 +370,16 @@ void main() {
   // stands behind it, that px is light (the lit pass decides), the contour a 16-bit sprite has toward the
   // light and the classic one has no room for.
   float rimPx = 0.0;
-  if (kind == 3 && (pic < 2 || pic == 4) && glow < 0.5) {
+  if (kind == 3 && (pic < 2 || pic == 4 || pic == 5) && glow < 0.5) {
     ivec2 i = ivec2(floor(vUV));
     // (A classic sprite is two scene px to the texel: only the half of a texel at the edge is the edge.)
-    vec2 f = pic == 4 ? vec2(0.0) : vUV - vec2(i);
-    vec2 f2 = pic == 4 ? vec2(1.0) : f;
+    vec2 f = pic >= 4 ? vec2(0.0) : vUV - vec2(i);
+    vec2 f2 = pic >= 4 ? vec2(1.0) : f;
     // (A thing's alpha is its depth: any of it is a pixel.)
-    float aL = pic == 0 ? px(uObjs, i + ivec2(-1, 0)).a : pic == 1 ? px(uAtlas, i + ivec2(-1, 0)).a : step(0.001, px(uProps, i + ivec2(-1, 0)).a);
-    float aR = pic == 0 ? px(uObjs, i + ivec2(1, 0)).a : pic == 1 ? px(uAtlas, i + ivec2(1, 0)).a : step(0.001, px(uProps, i + ivec2(1, 0)).a);
-    float aU = pic == 0 ? px(uObjs, i + ivec2(0, -1)).a : pic == 1 ? px(uAtlas, i + ivec2(0, -1)).a : step(0.001, px(uProps, i + ivec2(0, -1)).a);
-    float aD = pic == 0 ? px(uObjs, i + ivec2(0, 1)).a : pic == 1 ? px(uAtlas, i + ivec2(0, 1)).a : step(0.001, px(uProps, i + ivec2(0, 1)).a);
+    float aL = pic == 0 ? px(uObjs, i + ivec2(-1, 0)).a : pic == 1 ? px(uAtlas, i + ivec2(-1, 0)).a : pic == 5 ? px(uFolk, i + ivec2(-1, 0)).a : step(0.001, px(uProps, i + ivec2(-1, 0)).a);
+    float aR = pic == 0 ? px(uObjs, i + ivec2(1, 0)).a : pic == 1 ? px(uAtlas, i + ivec2(1, 0)).a : pic == 5 ? px(uFolk, i + ivec2(1, 0)).a : step(0.001, px(uProps, i + ivec2(1, 0)).a);
+    float aU = pic == 0 ? px(uObjs, i + ivec2(0, -1)).a : pic == 1 ? px(uAtlas, i + ivec2(0, -1)).a : pic == 5 ? px(uFolk, i + ivec2(0, -1)).a : step(0.001, px(uProps, i + ivec2(0, -1)).a);
+    float aD = pic == 0 ? px(uObjs, i + ivec2(0, 1)).a : pic == 1 ? px(uAtlas, i + ivec2(0, 1)).a : pic == 5 ? px(uFolk, i + ivec2(0, 1)).a : step(0.001, px(uProps, i + ivec2(0, 1)).a);
     vec2 o = vec2(0.0);
     if (aL < 0.5 && f.x < 0.5) o.x -= 1.0;
     if (aR < 0.5 && f2.x >= 0.5) o.x += 1.0;
@@ -377,7 +394,7 @@ void main() {
     }
   }
   // People wear neon too, but only signs and screens are lamps.
-  float em = pic >= 3 ? glow * uEmit : neon(c.rgb) * uEmit * (pic == 1 ? 0.55 : 1.0);
+  float em = pic >= 3 && pic != 5 ? glow * uEmit : neon(c.rgb) * uEmit * (pic == 1 || pic == 5 ? 0.55 : 1.0);
   if (uGhost > 0.5) {
     // The hero behind a wall or a crown: every other px of them, the 16-bit way to see through.
     if (mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y), 2.0) < 1.0) discard;

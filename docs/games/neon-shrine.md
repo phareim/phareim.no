@@ -392,6 +392,70 @@ classic picture. `/?view=<id>` asks for one.
   lit, and beside the classic frames) without a browser;
   `tests/zelda-figure.test.mjs` holds it to its cell, its projection and its
   looks.
+- **The people** (`iso/folk.ts`, `iso/folkArt.ts`; part 19, 2026-11-24). The
+  townsfolk, the beach folk and the small foes are being redrawn for this view
+  as isometric pixel art: two px of theirs to the classic px (a 16 × 16 sprite
+  becomes about 26–33 × 30–35), chunky like the hero, an outline in each
+  part's darkest shade, at most 24 colours a figure in the dusk-neon family,
+  shaded by form only, never from a side. The pilot: `keeper`, `vendor`,
+  `kid`, `barmaid`, `guard`, `petter`, `robot`, `cat`, `blob`, `spitter`, and
+  the beach's `hippie`, `smoker`, `guitar`, `sleeper`, `twirler`. A family
+  carries one drawn three-quarter front (turned to the viewer's lower left)
+  and, for a foe that walks four ways, one three-quarter back (turned to the
+  upper left); mirroring gives the other two. The engine's four ways go
+  through the view's 45°: south is the front, east the front mirrored, north
+  the back mirrored, west the back. Townsfolk, whose classic sprite is one
+  front mirrored for `left`, keep their front and its mirror. Every other
+  frame is made from the drawing by pixel edits, never drawn again, and as
+  small as the classic frame's own change (two to six px): a blink for the
+  townsfolk and the cat (the vendor's two live frames are the same, so his are; the
+  robot's antenna light goes from yellow to cyan), a bob for the beach folk, a
+  step for the spitter, a squash for the blob, the other arm for the twirler.
+  A larger edit (the whole head a px lower) measured as shimmer beside a
+  standing figure; these do not (`steady.mjs` case `folk-still`).
+  - *How it gets in.* The classic painter still draws every person into the
+    atlas exactly as before; the view watches what it draws (`spriteTag` in
+    `sheet.ts` names a sprite's canvas) and draws a sprite that has art into a
+    second atlas at twice the size, cell for cell, with the same transform,
+    alpha and clip (`folkRouter`). So whatever the painter does carries over
+    by itself: the hurt flash is the art's own silhouette in white, a blink is
+    a frame not drawn, a translucent figure is the same alpha (dithered), a
+    hop is the same lift, and what is drawn round a figure (the smoker's
+    smoke, a foe's tell, stunned stars) stays classic, on the same card, a
+    hair in front. The art is picture 5 in the geometry pass: a texel to the
+    scene px, no Scale2x and no blend of shades, round from its outline (read
+    over twice the px), lit in steps like every figure (material 3), with the
+    rim where light is behind it. It stands on the same foot point at the same
+    size and throws the same blob.
+  - *The studio's newest edit wins.* Each family records the hash of every
+    classic sprite it was drawn from, as the game showed it with the live pack
+    applied (`src`; the cat, for one, is the studio's three frames). If the
+    rows the game draws now (`spriteRows`) differ, or the studio has added a
+    frame the family lacks (`frameCount`), the whole family is its classic
+    sprites again until it is redrawn: whole families, so an animation never
+    steps between two kinds of drawing (`tests/zelda-folk.test.mjs`).
+  - *The turn.* The figures go from classic to their art through the middle
+    of the turn (`folkMix`: from k 0.35 to 0.65), the two crossing in
+    complementary halves of the dither, about when the modelled hero takes
+    over. The direct turn on to the polygon view draws the same art there
+    (below), so nothing changes in that cross-fade.
+  - *Value* `figures`: `isometric` (the default) or `classic`, today's
+    picture pixel for pixel.
+  - *Format.* Palette letters, as the classic sprites are, in `folkArt.ts`,
+    which only the isometric view's chunk and the polygon view's import
+    (about 50 KB, 11 KB gzipped; the entry does not grow). How they were made
+    (Codex image generation over a guide sheet of the classic sprites, cut by
+    the green key at one pitch per sheet, cleaned and re-quantised by script)
+    is in the job's evidence on the Mac (`tmp/iso-figures/`).
+  - *What the studio would need* to edit them: a second kind of entry in the
+    pack (`folk`: a family's palette, frames as rows at twice the classic
+    size, anchors, the `src` hashes), exported by `export-sprites.mjs` beside
+    `SPRITES`; an editor showing a family's facings beside the classic frames
+    they stand for, its canvas at the larger size with a palette of its own
+    (24 colours, not `PAL`); on publish, the hashes of the classic rows as
+    they are then (so a later edit of the classic sprite marks the art stale,
+    as here); and `live.ts` handing the `folk` entry to `folk.ts` (a setter
+    beside `setSpriteOverrides`, with the same checks of size and run).
 - **Where a swing is aimed** (`aimOf` in `engine/hero.ts`, every view). The
   hero keeps the exact way the stick last pushed (`hero.aim`; on touch with
   the stick at rest, the way to the foe the blade turned to). A swing
@@ -428,7 +492,7 @@ classic picture. `/?view=<id>` asks for one.
   the sun's direction and shadow length, shadow strength and colour, the
   sun's own light and its strength, corner
   shade, side shading, rim, haze, mist, sun shafts, sky colours, clouds,
-  wind, standing plants, the modelled hero, things in the air, the land
+  wind, standing plants, the modelled hero, the people in their own art (`figures`), things in the air, the land
   beyond the edge, the water's mirror, wet ground, 15-bit or
   full colour, the sound (below), the windows, and the finish. Every effect
   scales with k, and at k = 0 the camera is the classic one, so the turn
@@ -519,9 +583,14 @@ classic picture. `/?view=<id>` asks for one.
   stay out of the entry (`tests/zelda-views.test.mjs` checks that nothing
   imports `iso/view` statically). A view of an engine that exists needs no code: the
   studio publishes it.
-- **Known rough edges of the isometric view** (2026-11-12): the art under
+- **Known rough edges of the isometric view** (2026-11-12; figures 2026-11-24): the art under
   it is still the 16 px art, treated on its way up, so everyone but the hero
-  is a classic figure with a 16-bit finish, not a redrawn one; the modelled
+  and the redrawn people (above) is a classic figure with a 16-bit finish (the
+  hero, the bosses, Luna, the other foes, the animals); the townsfolk turn to
+  no back, a figure the studio has changed since it was drawn is classic until
+  it is redrawn, and the pilot has been cleaned by script and only touched
+  by hand where something was lost (the robot's screen, the smoker's
+  cigarette); the modelled
   hero (off by default) stands out beside them, the studio's live sprites
   do not reach it, and its sword arm has no elbow and its tails no memory;
   dungeon rooms are wider
@@ -530,7 +599,10 @@ classic picture. `/?view=<id>` asks for one.
   eight world directions, so walking along a wall takes two keys. Not
   measured on a phone: the lab's GPU is software.
 - **Looking at it.** `VIEW=iso node scripts/zelda-lab/shot.mjs <outDir>
-  [scenes]` renders the isometric view;
+  [scenes]` renders the isometric view (`LIVE=<pack.json>` applies the
+  studio's live sprites first, as the site does; `DAY=sun` a solved save's
+  hour; `r-cast` stands the redrawn people in rows on the square, `r-foes`
+  and `r-foehit` a blob and spitters by the hero, mid-hit in the second);
   `FRAMES=23` stops halfway through the turn (42 frames, the first four the hand-off), `PARAMS='{"bloom":0.5}'`
   sets the engine's values and `TAG=dim` names the pictures. The page keeps
   `window.__lab` (`{ r, s, ui, world, step }`) for a script that wants to go
@@ -562,7 +634,14 @@ look is the isometric world's own art in the polygon engine's land and light:
     isometric end of the direct turn the two heroes are one drawing in one place;
     its height and lie follow the camera from the isometric projection to the
     crane. Before part 16 the cards were 16 classic px to a tile across, about
-    1.4 times too wide against the isometric look, and turned with the camera;
+    1.4 times too wide against the isometric look, and turned with the camera.
+    Since part 19 a person redrawn for the isometric view (`iso/folk.ts`, above)
+    is that art here too, in the crane's look, at the same four fine px a classic
+    px: Scale2x of the twice-size drawing, read in the card shader from a second
+    atlas where the classic painter left the cell clear (`folkAt` in
+    `engine.ts`); all through the direct turn with the isometric view, whose
+    figures it lies on, and through the middle of any other turn. Value
+    `figures` as in the isometric view;
   - *the modelled hero* (value `figure` `16-bit`, a choice for the studio) is
     the isometric figure (`iso/figure.ts` `renderFigure`, every
     look and act and the blade), drawn each frame and stood up at the hero's
@@ -1038,7 +1117,8 @@ filtered textures, fog).
     the eye to fade, and decides a pixel's fade before its light; the bloom's
     own pass is drawn at the glow canvas's size and works out no light at its
     corners.
-- **Known rough edges**: everyone but the hero is a classic card (in the 64-bit
+- **Known rough edges**: everyone but the hero and the people redrawn for the
+  isometric view (in the 32-bit look) is a classic card (in the 64-bit
   look paper figures facing the camera; Luna, who follows behind the hero, is
   the one most seen, and fades while she covers the hero); a
   look's other hair style, bow or skirt is not modelled; neither look has a

@@ -121,6 +121,8 @@ export interface Engine {
   objs(c: HTMLCanvasElement): void
   /** The frame's people and things, one cell each, in the canvas's top h rows. */
   atlas(c: HTMLCanvasElement, h: number): void
+  /** The figures in the view's own art (`folk.ts`), cell for cell with the atlas at twice its size, in the top h rows. */
+  folk(c: HTMLCanvasElement, h: number): void
   /** Shots, sparks and the flash, scene-sized. */
   fx(c: HTMLCanvasElement): void
   /** The backdrop behind the map's edge, scene-sized. */
@@ -224,6 +226,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
   const flatT = texture(gl, 1, 1)
   const objsT = texture(gl, 1, 1)
   const atlasT = texture(gl, 1, 1)
+  const folkT = texture(gl, 1, 1)
   const fxT = texture(gl, 1, 1)
   const skyT = texture(gl, 1, 1, { linear: false })
   const floraT = texture(gl, 1, 1)
@@ -358,6 +361,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
         bindTex(g, 6, matT, p.u('uMats'))
         bindTex(g, 7, propsT, p.u('uProps'))
         bindTex(g, 8, propsNT, p.u('uPropsN'))
+        bindTex(g, 9, folkT, p.u('uFolk'))
         g.uniform1f(p.u('uMaterials'), matT.w > 1 ? look.materials : 0)
         // One px of a thing toward the viewer along the ground, in depth: a px is 1/32 of a tile at k = 1.
         g.uniform1f(p.u('uDeep'), ((cam.dv[0] + cam.dv[1] + cam.dv[2]) * cam.dInv) / 32)
@@ -563,6 +567,7 @@ function build(canvas: HTMLCanvasElement, gl: GL): Engine {
     flat: c => upload(gl, flatT, c),
     objs: c => upload(gl, objsT, c),
     atlas: (c, h) => uploadPart(gl, atlasT, c, c.width, h),
+    folk: (c, h) => uploadPart(gl, folkT, c, c.width, h),
     fx: c => upload(gl, fxT, c),
     sky: c => upload(gl, skyT, c),
     flora(albedo, normal) { upload(gl, floraT, albedo); upload(gl, floraNT, normal) },

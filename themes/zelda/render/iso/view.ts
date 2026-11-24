@@ -38,6 +38,7 @@ import { FLAT, ROOF, shapeOf, WALL_TOP, type Shape } from './shape'
 import { DENSITY, fitDepth, makeCam, toGround, toScene, type Cam } from './camera'
 import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engine'
 import { rgb } from './gl'
+import { folkMix, folkRouter } from './folk'
 import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
 import { treeNow } from '../tree'
 import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
@@ -71,6 +72,12 @@ const LAID_WIPE = 0.6
 const ATLAS = 1024
 const SMALL = { w: 64, h: 80, ax: 32, ay: 62 }
 const BIG = { w: 200, h: 160, ax: 100, ay: 132 }
+/**
+ * The figures drawn in this view's own art (`folk.ts`) go into a second atlas at twice the size, cell for cell
+ * with the first: a classic px (x, y) of the first is (2x, 2y) here. It covers the first atlas's top half, where
+ * the small cells (people) are; a figure in a cell below it is drawn the classic way.
+ */
+const FOLK_ROWS = ATLAS / 2
 
 
 /**
@@ -174,6 +181,11 @@ export default function isoView(kit: Kit): View {
   const atlas = makeCanvas(ATLAS, ATLAS)
   const ag = atlas.getContext('2d')!
   ag.imageSmoothingEnabled = false
+  const folkAtlas = makeCanvas(ATLAS * DENSITY, FOLK_ROWS * DENSITY)
+  const hg = folkAtlas.getContext('2d')!
+  hg.imageSmoothingEnabled = false
+  let folkUsed = 0
+  const router = folkRouter(ag, hg, DENSITY)
   /** Shots, sparks, the flash: over the lit scene, in hi-res px. */
   const fx = makeCanvas(1, 1)
   const sky = makeCanvas(1, 1)
@@ -831,6 +843,10 @@ export default function isoView(kit: Kit): View {
     kit.setSpan((x1, y1, x2, y2) => ({ x: (x2 - x1) * P.ex.x + (y2 - y1) * P.ey.x, y: (x2 - x1) * P.ex.y + (y2 - y1) * P.ey.y }))
     ag.setTransform(1, 0, 0, 1, 0, 0)
     ag.clearRect(0, 0, ATLAS, Math.max(atlasUsed, 1))
+    if (folkUsed) { hg.setTransform(1, 0, 0, 1, 0, 0); hg.clearRect(0, 0, folkAtlas.width, folkUsed); folkUsed = 0 }
+    // The figures in this view's own art (`folk.ts`) take over from the classic sprites through the middle of the
+    // turn, crossing in a stipple, about when the modelled hero does.
+    const folk = par.figures !== 'classic' ? folkMix(k) : 0
     // The hero's body and blade are this view's own once the turn is under way (`figure.ts`); the classic
     // painter then draws only what the hero holds up.
     const modelled = k > 0.5 && par.figure === 'modelled'
@@ -1123,7 +1139,10 @@ export default function isoView(kit: Kit): View {
       ag.rect(cellX + 1, cellY + 1, C.w - 2, C.h - 2)
       ag.clip()
       ag.setTransform(1, 0, 0, 1, Math.round(cellX + C.ax - (it.x * T - bx)), Math.round(cellY + C.ay - (ay * T - by)))
+      if (folk > 0 && cellY + C.h <= FOLK_ROWS && !it.hero) router.begin(cellX, cellY, C.w, C.h, folk)
       it.draw()
+      const folkHit = router.end()
+      if (folkHit) folkUsed = Math.max(folkUsed, (cellY + C.h) * DENSITY)
       ag.restore()
       const u1 = cellX + C.w
       const v1 = cellY + C.h
@@ -1173,6 +1192,13 @@ export default function isoView(kit: Kit): View {
       const l = -C.ax * zoom
       const r = (C.w - C.ax) * zoom
       quad(fx0, fy0, z0 + top, l, fx0, fy0, z0 + top, r, fx0, fy0, z0 + foot, r, fx0, fy0, z0 + foot, l, cellX, cellY, u1, v1, 3, 1, 0, 0, 0, z0 > 0 ? 0.04 * cam.zs : 0)
+      if (folkHit) {
+        // The figure in its own art, on the same card, a hair behind what the painter drew round it (a puff of
+        // smoke, stars, a tell), at one texel to the scene px.
+        const gx = fx0 - 0.02
+        const gy = fy0 - 0.02
+        quad(gx, gy, z0 + top, l, gx, gy, z0 + top, r, gx, gy, z0 + foot, r, gx, gy, z0 + foot, l, cellX * DENSITY, cellY * DENSITY, u1 * DENSITY, v1 * DENSITY, 3, 5, 0, 0, 0, z0 > 0 ? 0.04 * cam.zs : 0)
+      }
       if (it.hero && modelled) {
         const h = s.hero
         // Hit, the hero blinks; in the classic picture too.
@@ -1406,6 +1432,7 @@ export default function isoView(kit: Kit): View {
     engine.flat(flat)
     engine.objs(objs)
     engine.atlas(atlas, atlasUsed)
+    if (folkUsed) engine.folk(folkAtlas, folkUsed)
     engine.fx(fx)
     // The finish turns with the picture too: the classic view's scanlines thin out as this one comes in.
     const f0 = kit.finish('classic')
