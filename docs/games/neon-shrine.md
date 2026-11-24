@@ -392,14 +392,25 @@ classic picture. `/?view=<id>` asks for one.
   lit, and beside the classic frames) without a browser;
   `tests/zelda-figure.test.mjs` holds it to its cell, its projection and its
   looks.
-- **The people** (`iso/folk.ts`, `iso/folkArt.ts`; part 19, 2026-11-24). The
-  townsfolk, the beach folk and the small foes are being redrawn for this view
+- **The people** (`iso/folk.ts`, `iso/folkArt.ts`; parts 19 and 20, 2026-11-24).
+  Everyone but the hero and the bosses is redrawn for this view
   as isometric pixel art: two px of theirs to the classic px (a 16 × 16 sprite
-  becomes about 26–33 × 30–35), chunky like the hero, an outline in each
-  part's darkest shade, at most 24 colours a figure in the dusk-neon family,
-  shaded by form only, never from a side. The pilot: `keeper`, `vendor`,
-  `kid`, `barmaid`, `guard`, `petter`, `robot`, `cat`, `blob`, `spitter`, and
-  the beach's `hippie`, `smoker`, `guitar`, `sleeper`, `twirler`. A family
+  becomes about 20–34 × 17–35, the 24 × 24 knight about 38 × 48), chunky like
+  the hero, an outline in each part's darkest shade, at most 24 colours a
+  figure in the dusk-neon family (near-identical dark shades merged into one),
+  shaded by form only, never from a side. The drawn families (32):
+  - *town:* `keeper`, `vendor`, `kid`, `barmaid`, `guard`, `petter`, `robot`,
+    `cat`, `ghost`;
+  - *beach:* `hippie`, `smoker`, `guitar`, `sleeper`, `twirler`;
+  - *Wildwood:* `luna` (her four-way walk, her two standing frames as a person
+    in the camp, `luna_psi`), `mossa`, `dusty`, `toby`, `max`, `owl`;
+  - *foes:* `blob`, `spitter`, `sentry`, `bat`, `dasher`, `zapper`, `skull`
+    (with `skull_jump`), `eye`, `blade` (in no room yet), `knight`, and the
+    labs' `hound` (four ways and `hound_open`) and `drone`.
+
+  Not drawn: the hero (the modelled figure stands for it) and the bosses (the
+  king, `mistral`, `deepseek`, `gemini`, `llama`, the troll), which stay
+  classic. A family
   carries one drawn three-quarter front (turned to the viewer's lower left)
   and, for a foe that walks four ways, one three-quarter back (turned to the
   upper left); mirroring gives the other two. The engine's four ways go
@@ -411,6 +422,25 @@ classic picture. `/?view=<id>` asks for one.
   townsfolk and the cat (the vendor's two live frames are the same, so his are; the
   robot's antenna light goes from yellow to cyan), a bob for the beach folk, a
   step for the spitter, a squash for the blob, the other arm for the twirler.
+  Part 20's: a blink (`mossa`, `dusty`, `toby`, `max`, the owl, the skull, Luna
+  standing; the keeper's eyes were set by hand on whole px for it), the
+  ghost's float (its pixels the same, its foot point two px lower or higher,
+  as the classic frames shift), a step each way for walking (Luna's three
+  walking frames, the sentry, the hound, the knight), the wings down for the
+  bat, the flame's or the sparks' top mirrored for the dasher and the zapper,
+  the rotors for the drone. The poses of their own are edits too: the
+  skull's jaw drops for its jump, a pink-ringed eye opens on the hound for
+  its tell, Luna shuts her eyes under a pink spark for her psi. They are
+  keyed `front_<pose>` (`front_jump`, `front_open`, `front_psi`); a sprite of
+  one picture (`eye`, `blade`) is its own family with `front_0`; Luna's
+  standing frames are `idle_0`, `idle_1`, apart from her walk.
+  The knight is a big foe, drawn in a big cell of the atlas: the figures'
+  atlas covers all of it (part 20; it covered the small cells only).
+  The townsfolk still have no back: the classic painter shows a person's front
+  or its mirror whichever way they face (`n.dir === 'left'` only), so there is
+  no turn away for the art to carry. The ghost is drawn opaque, as its classic
+  sprite is: there is no translucency to carry yet (were it given an alpha,
+  the router would carry it dithered, as any alpha).
   A larger edit (the whole head a px lower) measured as shimmer beside a
   standing figure; these do not (`steady.mjs` case `folk-still`).
   - *How it gets in.* The classic painter still draws every person into the
@@ -443,10 +473,12 @@ classic picture. `/?view=<id>` asks for one.
     picture pixel for pixel.
   - *Format.* Palette letters, as the classic sprites are, in `folkArt.ts`,
     which only the isometric view's chunk and the polygon view's import
-    (about 50 KB, 11 KB gzipped; the entry does not grow). How they were made
-    (Codex image generation over a guide sheet of the classic sprites, cut by
-    the green key at one pitch per sheet, cleaned and re-quantised by script)
-    is in the job's evidence on the Mac (`tmp/iso-figures/`).
+    (about 123 KB, 20 KB gzipped for the 32 families; the entry does not
+    grow). How they were made (Codex image generation over a guide sheet of
+    the classic sprites, cut by the green key at one pitch per sheet, cleaned
+    and re-quantised by script, a few eyes and lights set by hand) is in the
+    jobs' evidence on the Mac (`tmp/iso-figures/`, `tmp/iso-figures-20/`,
+    whose `tools/` is the whole pipeline for all 32).
   - *What the studio would need* to edit them: a second kind of entry in the
     pack (`folk`: a family's palette, frames as rows at twice the classic
     size, anchors, the `src` hashes), exported by `export-sprites.mjs` beside
@@ -584,13 +616,16 @@ classic picture. `/?view=<id>` asks for one.
   imports `iso/view` statically). A view of an engine that exists needs no code: the
   studio publishes it.
 - **Known rough edges of the isometric view** (2026-11-12; figures 2026-11-24): the art under
-  it is still the 16 px art, treated on its way up, so everyone but the hero
-  and the redrawn people (above) is a classic figure with a 16-bit finish (the
-  hero, the bosses, Luna, the other foes, the animals); the townsfolk turn to
+  it is still the 16 px art, treated on its way up, so the hero's sprite and
+  the bosses are classic figures with a 16-bit finish beside the redrawn
+  people (above); the townsfolk turn to
   no back, a figure the studio has changed since it was drawn is classic until
-  it is redrawn, and the pilot has been cleaned by script and only touched
+  it is redrawn, and the drawings have been cleaned by script and only touched
   by hand where something was lost (the robot's screen, the smoker's
-  cigarette); the modelled
+  cigarette, the keeper's, the ghost's and the skull's eyes); the
+  frames are generic edits (a blink, a step) where the classic ones do more
+  (the drone's rotors, the bat's flap are near enough; the skull walks on
+  two stubs the classic skull does not have); the modelled
   hero (off by default) stands out beside them, the studio's live sprites
   do not reach it, and its sword arm has no elbow and its tails no memory;
   dungeon rooms are wider

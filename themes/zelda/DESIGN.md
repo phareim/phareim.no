@@ -145,9 +145,9 @@ the screen has (`colors: 'full'`; the 15-bit dither is a choice), its art may ha
 classic sprites (its own ramps; the shared `PAL` stays as the classic and the other pixel games draw it), and where a
 thing is naturally a body (a van, a tent, a boss, the hero) it may be pixel art rotoscoped from a 3D model, as the
 standing things (`iso/props.ts`) and the modelled hero (`iso/figure.ts`) already are. Since part 19 the people
-are redrawn for it as isometric pixel art at its own density (`iso/folk.ts`: the townsfolk, the beach folk, the blob
-and the spitter so far; the studio's newer edit of a classic sprite wins until the art is redrawn). What still waits for its
-isometric art (the hero's sprite, the bosses and the other figures, the cards drawn head-on, the furniture, the square fountain, the effects) is in the journal
+are redrawn for it as isometric pixel art at its own density (`iso/folk.ts`: since part 20 everyone but the hero and
+the bosses; the studio's newer edit of a classic sprite wins until the art is redrawn). What still waits for its
+isometric art (the hero's sprite, the bosses, the cards drawn head-on, the furniture, the square fountain, the effects) is in the journal
 thread `neon-shrine-isometric-art`.
 
 Other views draw the same

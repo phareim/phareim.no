@@ -1,5 +1,5 @@
 /**
- * The isometric view's own people (part 19, 2026-11-24): figures redrawn as isometric pixel art at the view's
+ * The isometric view's own people (parts 19 and 20, 2026-11-24): figures redrawn as isometric pixel art at the view's
  * density, two px of theirs to one px of the classic sprite, in their own colours (3–5 shades a material, an
  * outline in each part's darkest shade), and drawn as authored: no Scale2x, no blend of shades on the way up.
  *
@@ -42,19 +42,26 @@ export function rowsHash(rows: readonly string[] | undefined): string {
   return h.toString(16).padStart(8, '0')
 }
 
-/** The family a classic sprite belongs to, when it has isometric art (its name must be one the art was drawn from). */
+/**
+ * The family a classic sprite belongs to, when it has isometric art (its name must be one the art was drawn from).
+ * A sprite of one picture (`eye`, `blade`) is a family of its own.
+ */
 export function familyOf(name: string, art: Record<string, FolkFamily> = FOLK_ART): string | null {
   const i = name.indexOf('_')
-  if (i < 0) return null
-  const fam = name.slice(0, i)
+  const fam = i < 0 ? name : name.slice(0, i)
   return art[fam]?.src[name] ? fam : null
 }
 
 /**
  * Which drawn frame stands for a classic sprite, and mirrored or not. `spitter_side_1` mirrored (walking west)
  * is the back as drawn, frame 1; `keeper_0` is the front, mirrored when the classic one is.
+ * - A family that walks four ways and also stands still in frames of its own (Luna: `luna_0`, `luna_1` as a
+ *   person in the camp, `luna_down_*` as she follows) keeps those as `idle_<n>` (`idle` says the family has them).
+ * - A pose of its own (`luna_psi`, `hound_open`, `skull_jump`) is a front frame by that name, `front_psi`;
+ *   a sprite of one picture (`eye`) is `front_0`.
  */
-export function facingOf(name: string, fam: string, flip: boolean): { key: string; flip: boolean } | null {
+export function facingOf(name: string, fam: string, flip: boolean, idle = false): { key: string; flip: boolean } | null {
+  if (name === fam) return { key: 'front_0', flip }
   const rest = name.slice(fam.length + 1)
   const four = /^(down|up|side)_(\d+)$/.exec(rest)
   if (four) {
@@ -63,7 +70,8 @@ export function facingOf(name: string, fam: string, flip: boolean): { key: strin
     if (four[1] === 'up') return { key: `back_${f}`, flip: true }
     return flip ? { key: `back_${f}`, flip: false } : { key: `front_${f}`, flip: true }
   }
-  if (/^\d+$/.test(rest)) return { key: `front_${rest}`, flip }
+  if (/^\d+$/.test(rest)) return { key: `${idle ? 'idle' : 'front'}_${rest}`, flip }
+  if (/^[a-z]+$/.test(rest)) return { key: `front_${rest}`, flip }
   return null
 }
 
@@ -135,7 +143,7 @@ export function folkPic(tag: SpriteTag): FolkPic | null {
   let ok = fresh.get(famId)
   if (ok === undefined) { ok = familyFresh(fam); fresh.set(famId, ok) }
   if (!ok) return null
-  const f = facingOf(tag.name, famId, tag.flip)
+  const f = facingOf(tag.name, famId, tag.flip, !!fam.frames.idle_0)
   if (!f) return null
   const key = `${famId}|${f.key}|${f.flip ? 'f' : ''}|${tag.color ?? ''}`
   let p = pics.get(key)

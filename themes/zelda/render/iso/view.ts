@@ -74,10 +74,10 @@ const SMALL = { w: 64, h: 80, ax: 32, ay: 62 }
 const BIG = { w: 200, h: 160, ax: 100, ay: 132 }
 /**
  * The figures drawn in this view's own art (`folk.ts`) go into a second atlas at twice the size, cell for cell
- * with the first: a classic px (x, y) of the first is (2x, 2y) here. It covers the first atlas's top half, where
- * the small cells (people) are; a figure in a cell below it is drawn the classic way.
+ * with the first: a classic px (x, y) of the first is (2x, 2y) here. It covers the whole first atlas (part 20: the
+ * knight is a big foe, in a big cell below the small ones); only the rows used are cleared and sent.
  */
-const FOLK_ROWS = ATLAS / 2
+const FOLK_ROWS = ATLAS
 
 
 /**

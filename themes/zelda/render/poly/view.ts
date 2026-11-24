@@ -477,10 +477,11 @@ export default function polyView(kit: Kit): View {
   let atlasUsed = ATLAS
   /**
    * The figures in the isometric view's own art (`iso/folk.ts`, part 19): drawn by the classic painter's hand into
-   * a second atlas at twice the size, cell for cell with the first, over its top half (the small cells); the card
-   * shader reads them at four fine px a classic px (Scale2x of the twice-size art) where the classic atlas is clear.
+   * a second atlas at twice the size, cell for cell with the first, over all of it (part 20: the knight's big cell
+   * too); the card shader reads them at four fine px a classic px (Scale2x of the twice-size art) where the classic
+   * atlas is clear.
    */
-  const folkAtlas = makeCanvas(ATLAS * 2, ATLAS)
+  const folkAtlas = makeCanvas(ATLAS * 2, ATLAS * 2)
   const fg2 = folkAtlas.getContext('2d')!
   fg2.imageSmoothingEnabled = false
   let folkUsed = 0
@@ -1383,7 +1384,7 @@ export default function polyView(kit: Kit): View {
       ag.rect(cellX + 1, cellY + 1, C.w - 2, C.h - 2)
       ag.clip()
       ag.setTransform(1, 0, 0, 1, Math.round(cellX + C.ax - (it.x * T - bx)), Math.round(cellY + C.ay - (ay * T - by)))
-      if (folk > 0 && cellY + C.h <= ATLAS / 2 && !it.hero) router.begin(cellX, cellY, C.w, C.h, folk)
+      if (folk > 0 && cellY + C.h <= ATLAS && !it.hero) router.begin(cellX, cellY, C.w, C.h, folk)
       it.draw()
       if (router.end()) folkUsed = Math.max(folkUsed, (cellY + C.h) * 2)
       ag.restore()

@@ -174,6 +174,50 @@ switch (scene) {
     if (scene === 'r-foehit') { if (b) b.flash = 0.3; if (sp) { sp.flash = 0.3 } }
     break
   }
+  // Part 20's foe groups beside the hero, the rest of each room's foes sent away; -hit: every one flashing white on
+  // the frame drawn. The town's (sentry, dasher, zapper, bat), the shrine's (skull, eye, knight, bat; the skull
+  // mid-hop), the labs' (hound, drone, the hound's tell). The ghost and the Wildwood's people in two rows on the
+  // square (f-cast), as r-cast does the pilot's.
+  case 'f-town': case 'f-townhit': case 'f-shrine': case 'f-shrinehit': case 'f-lab': case 'f-labhit': {
+    const grp = scene.replace('hit', '')
+    if (grp === 'f-town') { give(); go('overworld', 20.5, 17.5, 'up') }
+    else if (grp === 'f-shrine') { give(); place('shrine', 'start', 0, -2); s.hero.dir = 'up' }
+    else { wild(true); go('lab1', 23.5, 31.5, 'up') }
+    run(2)
+    // (The blade stands in no room of the world; the shrine's group borrows one so its drawing is seen.)
+    const kinds = { 'f-town': ['sentry', 'dasher', 'zapper', 'bat'], 'f-shrine': ['skull', 'eye', 'knight', 'bat', 'blade'], 'f-lab': ['hound', 'drone', 'hound', 'bat'] }[grp]
+    const spots = [[-1.7, 0.3, 'right'], [1.7, 0.2, 'down'], [-0.6, -1.9, 'up'], [1.3, -1.6, 'left'], [-2.2, -1.3, 'down']]
+    const hx = s.hero.x, hy = s.hero.y
+    const picked = []
+    kinds.forEach((k, i) => {
+      let e = s.map.enemies.find(o => o.kind === k && !picked.includes(o))
+      if (!e) {
+        e = { id: 'lab.' + k + i, kind: k, x: 0, y: 0, r: 0.4, hp: 2, maxHp: 2, dir: 'down', cell: 0, invuln: 0, stun: 0, knock: null, ai: { mode: 'idle', t: 9, tell: 0 }, home: { x: hx, y: hy }, dead: false, flash: 0 }
+        s.map.enemies.push(e)
+      }
+      e.dead = false; e.cell = s.zoneIndex
+      picked.push(e)
+      const [dx, dy, d] = spots[i]
+      e.x = hx + dx; e.y = hy + dy; e.dir = d; e.ai.t = 9; e.ai.tell = 0; e.stun = 0
+      if (k === 'skull') { e.ai.mode = 'hop'; e.ai.t = 0.17 }
+      if (k === 'hound' && i === 2) { e.ai.mode = 'tell' }
+      else if (k !== 'skull' && k !== 'bat' && k !== 'eye') e.ai.mode = 'walk'
+    })
+    for (const e of s.map.enemies) if (!picked.includes(e)) { e.x = -50; e.y = -50 }
+    if (scene.endsWith('hit')) for (const e of picked) e.flash = 0.3
+    break
+  }
+  case 'f-cast': {
+    go('overworld', 20.5, 19.5, 'up'); run(2)
+    const looks = ['ghost', 'luna', 'mossa', 'dusty', 'toby', 'max', 'owl']
+    s.map.npcs.length = 0
+    looks.forEach((look, i) => {
+      for (const row of [0, 1]) s.map.npcs.push({ id: 'cast' + i + row, look, x: 16.5 + i * 1.3, y: 16.2 + row * 1.6, dir: row ? 'left' : 'down', home: { x: 0, y: 0 }, wander: false, t: 0, vx: 0, vy: 0 })
+    })
+    for (const e of s.map.enemies) { e.x = -50; e.y = -50 }
+    s.hero.x = 20.5; s.hero.y = 20.2
+    break
+  }
   case 'r-fountain': go('overworld', 20.5, 16.2, 'up'); run(20); break
   // The NEW LOOK stall east of the fountain: at its counter, and walking up to it from the square.
   case 'r-look': s.hero.x = 31.5; s.hero.y = 14.5; s.hero.dir = 'up'; run(5); break
@@ -293,6 +337,13 @@ const SHOTS = [
   ['r-foes-1280', 'r-foes', 1280, 800, 1, 0],
   ['r-cast-1280', 'r-cast', 1280, 800, 1, 0],
   ['r-foehit-1280', 'r-foehit', 1280, 800, 1, 0],
+  ['f-cast-1280', 'f-cast', 1280, 800, 1, 0],
+  ['f-town-1280', 'f-town', 1280, 800, 1, 0],
+  ['f-townhit-1280', 'f-townhit', 1280, 800, 1, 0],
+  ['f-shrine-1280', 'f-shrine', 1280, 800, 1, 0],
+  ['f-shrinehit-1280', 'f-shrinehit', 1280, 800, 1, 0],
+  ['f-lab-1280', 'f-lab', 1280, 800, 1, 0],
+  ['f-labhit-1280', 'f-labhit', 1280, 800, 1, 0],
   ['r-fountain-1280', 'r-fountain', 1280, 800, 1, 0],
   ['r-plaza-390', 'r-plaza', 390, 844, 3, 0],
   ['r-plaza-412', 'r-plaza', 412, 915, 2.625, 0],
