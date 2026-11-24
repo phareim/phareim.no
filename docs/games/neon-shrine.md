@@ -537,6 +537,44 @@ classic picture. `/?view=<id>` asks for one.
   on drawing. `scripts/zelda-lab/flora-sheet.mjs`, `materials-sheet.mjs`, `props-sheet.mjs` and `backdrop-sheet.mjs`
   render the plants, the materials, the standing things and the backdrop alone.
 
+**The 32-bit look moves toward the 16-bit one** (part 14, 2026-11-24). Petter's
+direction: the 64-bit look is out of the round (`views.ts`, `RETIRED_VIEWS`: a
+browser or an address that names `third` starts in `poly`; `THIRD_PERSON`, the
+shoulder pose and the code stay, and one line brings it back), and the 32-bit
+look is the 16-bit world's own art in the polygon engine's land and light:
+  - *the camera* looks as the 16-bit one does, nearer and with depth (`CRANE`
+    above);
+  - *the hero* is the 16-bit figure (`iso/figure.ts` `renderFigure`, every
+    look and act and the blade), drawn each frame and stood up at the hero's
+    feet: what is above the foot upright, facing the camera, what is below it
+    (the ground in front, the blade's sweep) lying on the ground toward the
+    eye, so the picture lies as the 16-bit look drew it (value `figure`
+    `16-bit`). It is lit per pixel from its normal picture (sky, sun with its
+    shadow, every lamp, the spill), never under 0.42 of its own colours, and
+    sorts in the depth buffer against walls, trees and figures. The hero model
+    (`hero.ts`, `public/zelda/poly/hero-*`) is no longer fetched;
+  - *the plants* are the 16-bit look's (`iso/flora.ts`): trees, a wood's
+    crowns, palms by the sand, bushes and tall grass, where that look plants
+    them, by the same hashes, stood up the same way, swaying in the wind
+    (`wind`) and lit from their normal pictures (value `plants` `16-bit`; the
+    built cones are value `built`, the 64-bit look's). Woods hide what is
+    behind them; the hero shows through a wood in front of them by the
+    see-through stipple. The atlas is made a slice at a time while the view
+    waits, as the 16-bit view makes it;
+  - *the land* lies flat within three tiles of a road, a path, paving, a
+    house, a door or whatever must be level (`FLAT_MARGIN` 3 in `terrain.ts`,
+    rising over the next 2.5, `RISE_OVER`), and its knolls are half as tall
+    (`landScale` 0.5);
+  - *the turn between the 16-bit and the 32-bit look* goes straight, never
+    through the classic picture (`turn.ts`: a pair named direct, `via`). The
+    32-bit look draws first with the 16-bit view's own projection (that view
+    says where its camera is each frame: `Kit.setIsoCam`; `isoMatrix` in
+    `camera.ts`), so its picture lies on the 16-bit one; the two are
+    cross-faded there over the first 30 % of the turn (both engines draw in
+    those frames), and then the camera eases from that projection to the
+    crane. Back the same way, reversed. Turns to and from the classic look are
+    as they were: V goes classic → 16 → 32 → classic.
+
 **The polygon view** (`render/poly/`, 2026-11-23). The third way of drawing the
 world, the 32-bit look: the world as low polygons in perspective, seen from a
 crane behind and above the hero, with a horizon, drawn the way a 1996 console
@@ -573,10 +611,14 @@ filtered textures, fog).
   the screen, so what stands upright stays upright. `poseMatrix` divides by the
   focus's distance (w is 1 there, as everywhere in the classic picture) and
   `rigMatrix` mixes the two element by element under the turn's ease, so the
-  turn needs no camera of its own. `CRANE` (pitch 25.4°, 13.5 tiles, lens 50°,
-  the hero 70 % down: the horizon about a fifth of the way down, so the
-  backdrop, laid by its horizon, has its striped sun whole over the ridges) looks north, so `View.turn`
-  is 0 and the controls are the classic ones. Indoors the camera has a pose of
+  turn needs no camera of its own. `CRANE` (part 14) looks the 16-bit look's
+  way: it stands south-east of the hero looking north-west, 32° down, through a
+  22° lens from far back, the hero a little below the middle; its distance is
+  set from the screen (`craneDist`, value `zoom` 1.4), so a tile is 1.4 times
+  the 16-bit look's at the same screen size (the 16-bit look's own px rounded
+  as it rounds them). It sees no sky on a wide screen or an upright phone.
+  `View.turn` is a quarter of π, as in the 16-bit look, so a press goes where
+  it goes there. Indoors the camera has a pose of
   its own (`roomPitch` 32°, `roomDist` 9): on a wide screen it stands back as
   far as the room's width needs, so the whole width is in the picture, and
   follows the hero in depth; on a tall one it follows sideways and comes as
@@ -609,13 +651,13 @@ filtered textures, fog).
   middle is forced to the side the rules say. The water is one
   plane at `waterLevel` (−0.18 tiles) and the land falls under it at the banks:
   the drawn shoreline is where they meet, by the z-buffer. Beyond the map the
-  land goes on (rock there is the far hills, not a wall) and rises toward the
-  horizon behind the map, less at its sides, never in front. Rooms and
-  dungeons are level and their water falls away inside its tiles. Past 45 % of
-  the draw distance the far land bends up toward the horizon (in the vertex
-  shader, quadratic in the distance from the eye; what is placed on the picture
-  bends with it), so the world meets the sky as a ridge wherever the eye
-  stands, and the distance fades into the sky's own low colour (the sky
+  land goes on (rock there is the far hills, not a wall), level at the map's
+  edge height (its knolls die away within three tiles; part 14: it no longer
+  rises toward the horizon), into the hour's haze. Rooms and
+  dungeons are level and their water falls away inside its tiles. The far land
+  no longer bends up toward the horizon (part 14: Petter saw the ground bend up
+  in an arc); the ground runs out level, and the distance fades into the sky's
+  own low colour (the sky
   layer's lower third, averaged across the width: part 13; a sample at the
   painting's left edge had taken the coast's dark lighthouse, and in the middle
   of a turn on an upright phone, with the land's far edge still well under the

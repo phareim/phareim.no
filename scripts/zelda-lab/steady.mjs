@@ -64,6 +64,8 @@ const CASES = {
   'lab-walk': ['l-lobby', ``, [[90, UP]]],
   // By the water: the lake at the cave, facing it (its path of light, part 12).
   'lake-stand': ['lake', ``, [[90, STILL]]],
+  // In a wood: the 16-bit look's trees in the wind (part 14).
+  'grove-stand': ['w-grove', ``, [[90, STILL]]],
 }
 const SIZES = { 1280: [1280, 800, 1], 390: [390, 844, 3] }
 const [W0, H0, DPR] = SIZES[SIZE]

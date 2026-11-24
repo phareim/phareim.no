@@ -38,8 +38,21 @@ export interface Pose {
   focusY: number
 }
 
-/** The 32-bit look's camera: a crane behind and above the hero, looking north, the horizon about a fifth of the way down (the sun whole over it). */
-export const CRANE: Pose = { yaw: 0, pitch: 25.4 * Math.PI / 180, dist: 13.5, fov: 50 * Math.PI / 180, focusY: 0.7 }
+/**
+ * The 32-bit look's camera (part 14): the 16-bit look's own angle given depth. It stands south-east of the hero and
+ * looks north-west, a little steeper than the 16-bit look's 30° so the perspective reads the same, through a long lens
+ * from far back, so the lines meet gently. Its distance is set by the view from the screen (`craneDist`), so a tile is
+ * `zoom` times the 16-bit look's at the same size; `dist` here is only a fallback.
+ */
+export const CRANE: Pose = { yaw: -Math.PI / 4, pitch: 32 * Math.PI / 180, dist: 16, fov: 22 * Math.PI / 180, focusY: 0.55 }
+
+/**
+ * How far back a pose stands so that a tile at the focus is `tilePx` scene px tall on the screen (the height of its
+ * diamond seen along the diagonal: √2 tiles foreshortened by the pitch), as the 16-bit look's is 16 classic px.
+ */
+export function craneDist(pose: Pose, vw: number, vh: number, tilePx: number): number {
+  return Math.SQRT2 * Math.sin(pose.pitch) * focalPx(pose, vw, vh) / Math.max(1e-6, tilePx)
+}
 
 /**
  * The 64-bit look's camera: behind the hero, a little over the shoulder, the horizon across the upper half. It
@@ -87,6 +100,28 @@ export function classicMatrix(vw: number, vh: number, cx: number, cy: number): M
     0, -sy, dz, 0,
     0, sy, dz, 0,
     -2 * cx / vw - 1, 1 + 2 * cy / vh, -dz * yc, 1,
+  ]
+}
+
+/**
+ * The 16-bit look's picture as a matrix (part 14): world point (x, y, z) lands where the 16-bit view drew it this frame
+ * (its camera, `IsoCam`: an orthographic projection, south-east of the scene looking north-west 30° down, height
+ * unforeshortened), on this view's scene of `sw` × `sh` device px laid at (`sox`, `soy`) on the screen. The camera is
+ * moved with the hero since that picture was drawn (`hero`). w is 1 everywhere, as at the focus of a posed matrix, so
+ * `rigMatrix` mixes the two. Depth runs along the 16-bit camera's own line of sight.
+ */
+export function isoMatrix(c: { ox: number; oy: number; ex: Vec2; ey: Vec2; zs: number; hs: number; offX: number; offY: number; dv: readonly number[]; hx: number; hy: number }, hero: { x: number; y: number }, sw: number, sh: number, sox: number, soy: number, focus: { x: number; y: number; z: number }): Mat4 {
+  const D = 512
+  const dx = hero.x - c.hx, dy = hero.y - c.hy
+  const ox = c.ox - (dx * c.ex.x + dy * c.ey.x)
+  const oy = c.oy - (dx * c.ex.y + dy * c.ey.y)
+  const ax = 2 * c.hs / sw, ay = 2 * c.hs / sh
+  const d0 = c.dv[0]! * focus.x + c.dv[1]! * focus.y + c.dv[2]! * focus.z
+  return [
+    ax * c.ex.x, -ay * c.ex.y, -c.dv[0]! / D, 0,
+    ax * c.ey.x, -ay * c.ey.y, -c.dv[1]! / D, 0,
+    0, ay * c.zs, -c.dv[2]! / D, 0,
+    2 * (c.offX + c.hs * ox - sox) / sw - 1, 1 - 2 * (c.offY + c.hs * oy - soy) / sh, d0 / D, 1,
   ]
 }
 

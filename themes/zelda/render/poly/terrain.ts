@@ -108,6 +108,10 @@ export function levelOf(t: TileChar): number {
   }
 }
 
+/** How far from a road, a path, paving or a house the land lies flat, tiles (part 14), and over how far it then rises. */
+export const FLAT_MARGIN = 3
+export const RISE_OVER = 2.5
+
 /** The water's surface, tiles under the level ground. */
 const WATER_LEVEL = -0.18
 /** How steeply a bank falls into the water, tiles down per tile out. */
@@ -234,6 +238,34 @@ export function* landWork(src: LandSource, look: LandLook): Generator<void, Land
 
   // Tiles that must be level, and a tile and a half round houses, doors and whatever the source says must be level.
   const inMap = (x: number, y: number) => x >= 0 && y >= 0 && x < src.w && y < src.h
+  // How far each tile is from what is laid or built (a road, a path, a square's paving, a house, a door, whatever the
+  // source says must be level), tiles: within FLAT_MARGIN of it the land lies flat at its height, and it rises only
+  // beyond that, over RISE_OVER (part 14: the land climbed too early beside the roads). Two chamfer passes.
+  const laid = new Float32Array(tw * th).fill(1e6)
+  for (let j = 0; j < th; j++) for (let i = 0; i < tw; i++) {
+    const tx = tx0 + i, ty = ty0 + j, t = tiles[j * tw + i]
+    if (t === ',' || t === 'H' || t === 'D' || t === 'M' || (!!src.level && inMap(tx, ty) && src.level(tx, ty))) laid[j * tw + i] = 0
+  }
+  for (let j = 0; j < th; j++) for (let i = 0; i < tw; i++) {
+    const p = j * tw + i
+    let d = laid[p]!
+    if (i > 0) d = Math.min(d, laid[p - 1]! + 1)
+    if (j > 0) { d = Math.min(d, laid[p - tw]! + 1); if (i > 0) d = Math.min(d, laid[p - tw - 1]! + Math.SQRT2); if (i < tw - 1) d = Math.min(d, laid[p - tw + 1]! + Math.SQRT2) }
+    laid[p] = d
+  }
+  for (let j = th - 1; j >= 0; j--) for (let i = tw - 1; i >= 0; i--) {
+    const p = j * tw + i
+    let d = laid[p]!
+    if (i < tw - 1) d = Math.min(d, laid[p + 1]! + 1)
+    if (j < th - 1) { d = Math.min(d, laid[p + tw]! + 1); if (i < tw - 1) d = Math.min(d, laid[p + tw + 1]! + Math.SQRT2); if (i > 0) d = Math.min(d, laid[p + tw - 1]! + Math.SQRT2) }
+    laid[p] = d
+  }
+  /** How freely the land may rise at a point by its distance from what is laid or built: 0 within the margin. */
+  const laidK = (x: number, y: number): number => {
+    const d = laid[ti(Math.floor(x), Math.floor(y))]!
+    const t = Math.max(0, Math.min(1, (d - FLAT_MARGIN) / RISE_OVER))
+    return t * t * (3 - 2 * t)
+  }
   const flatTile = (x: number, y: number): boolean => {
     const t = tile(x, y)
     return (t !== '~' && levelOf(t) === 0) || (!!src.level && inMap(x, y) && src.level(x, y))
@@ -353,18 +385,16 @@ export function* landWork(src: LandSource, look: LandLook): Generator<void, Land
       if (hills > 0) {
         const nn = smooth(x, y, 4.5, seed + 7) * 0.7 + smooth(x, y, 2.2, seed + 13) * 0.3
         const knoll = Math.max(0, Math.min(1, (nn - 0.22) / 0.5))
-        h = hills * Math.pow(knoll, 1.2) * allowF[f]!
+        h = hills * Math.pow(knoll, 1.2) * allowF[f]! * laidK(x, y)
       }
-      // Beyond the map the land rises toward the horizon: behind the map most, at its sides less, never in front.
-      if (far > 0) {
+      // Beyond the map the land goes on at the map's edge height (its knolls die away within a few tiles), out to where
+      // it fades into the hour's haze: it no longer rises toward the horizon (part 14, Petter: «the ground bends
+      // upward in an arc»). (`far` is kept as a value, and no longer read.)
+      {
         const out = Math.max(-x, x - src.w, -y, y - src.h, 0)
-        if (out > 0) {
-          const north = -y > Math.max(-x, x - src.w, y - src.h) ? 1 : y > src.h ? 0 : 0.6
-          // (Further out it climbs in ridges, so the land meets the sky as a line of hills.)
-          const ridge = 0.65 + 0.35 * smooth(x, y, 3, seed + 29) + 0.35 * Math.max(0, smooth(x, y, 7, seed + 31) - 0.4)
-          h += far * north * Math.min(1, Math.max(0, (out - 0.5) / 12)) * ridge
-        }
+        if (out > 0) h *= Math.max(0, 1 - out / 3)
       }
+      void far
       // By the water the bank is the height: the slope from it is counted from there.
       Hc[p] = sv < 0.6 ? Math.min(h, Math.max(0, WATER_LEVEL + BANK * sv)) : h
     }

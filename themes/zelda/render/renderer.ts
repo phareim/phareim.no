@@ -70,6 +70,12 @@ export interface FrameUI {
 /** Puts a world point (tiles) on the scene (logical px). */
 export type Place = (x: number, y: number) => Vec
 export interface Vec { x: number; y: number }
+/**
+ * The 16-bit view's camera as it drew (`Kit.setIsoCam`): world (x, y, z) lands on its scene at (ox + x·ex.x + y·ey.x,
+ * oy + x·ex.y + y·ey.y − z·zs), scene px of `hs` device px, the scene's top-left at (offX, offY) device px; `dv` the
+ * way toward its viewer (unit, world), for depth.
+ */
+export interface IsoCam { ox: number; oy: number; ex: Vec; ey: Vec; zs: number; hs: number; offX: number; offY: number; dv: [number, number, number]; /** The hero's place when it drew (tiles). */ hx: number; hy: number }
 /** A queued thing (see `Item`); `hero` marks the hero's own. */
 export type SceneItem = Item & { hero?: boolean }
 
@@ -245,6 +251,15 @@ export interface Kit {
    * what the hero holds up (a pot, a found thing) and still adds the blade's light.
    */
   setHeroBare(on: boolean): void
+  /**
+   * The 16-bit view's camera this frame (`iso/camera.ts`: where world (0, 0, 0) lands, one tile east, south and up in
+   * its scene's px, its px in device px and the scene's offset on the screen), so the 32-bit look can lie on its
+   * picture in the direct turn between them (part 14). Null: not drawn this frame.
+   */
+  setIsoCam(cam: IsoCam | null): void
+  isoCam(): IsoCam | null
+  /** In the direct turn between the 16-bit and the 32-bit look: how much of the 16-bit camera the 32-bit look takes (1: all of it; 0: its own). */
+  pairIso(): number
   /**
    * The picture on the screen now, laid over the frames that follow and fading out over `seconds`: a dissolve, for
    * a change a view makes without moving its camera (a look's change under reduced motion).
@@ -1515,6 +1530,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     setAim(fn) { aim = fn ?? (a => a) },
     setFacing(yaw) { facing = yaw; setLunaFacing(yaw) },
     setHeroBare(on) { heroBare = on },
+    setIsoCam(cam) { isoCamNow = cam },
+    isoCam: () => isoCamNow,
+    pairIso: () => pairIsoNow,
     crossFade(seconds) {
       if (W < 2 || H < 2) return
       xfadeC ??= document.createElement('canvas')
@@ -1533,7 +1551,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     hudSpace,
   }
   const views = new Map<string, View>()
-  const turn = createTurn(id => views.has(id), TURN_S)
+  // The 16-bit and the 32-bit look turn straight into each other, not through the classic picture (part 14).
+  const turn = createTurn(id => views.has(id), TURN_S, (a, b) => (a === 'iso' && b === 'poly') || (a === 'poly' && b === 'iso'))
+  /** The 16-bit camera as last drawn, and how much of it the 32-bit look takes this frame (`Kit.pairIso`). */
+  let isoCamNow: IsoCam | null = null
+  let pairIsoNow = 0
+  /** The 16-bit picture in a direct turn, kept to be laid over the 32-bit one. */
+  let pairC: HTMLCanvasElement | null = null
   /** The turn as a view draws it and the shell follows it: still at 0 through the hand-off. */
   const turned = (raw: number) => Math.max(0, (raw - HANDOFF) / (1 - HANDOFF))
   /** The classic picture as last drawn, kept to be laid over a view's during the hand-off. */
@@ -1656,6 +1680,13 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       if (!ready && nightEnds && arriveTurns) turn.set(turn.id, false)
     }
     nightEnds = 0
+    if (turn.via) {
+      // A direct turn: wait (on the view it comes from) until the view it goes to can draw.
+      const to = views.get(turn.via.to)
+      const toReady = !!to && able(turn.via.to, to, false)
+      const step = turn.step(Math.min(dt, 1 / 30), toReady)
+      if (step.via && drawPair(s, ui, dt, step.via)) return
+    }
     const now = turn.step(turnDt(dt), ready)
     const v = now.shown ? views.get(now.shown) : undefined
     drawing = v && isEngineId(now.shown) ? now.shown : 'classic'
@@ -1709,6 +1740,54 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   }
 
   /**
+   * A frame of the direct turn between the 16-bit and the 32-bit look (part 14). At the 16-bit end the 32-bit look draws
+   * with the 16-bit look's own projection (`pairIso` 1), so its picture lies on the 16-bit one; the two are cross-faded
+   * there (the 16-bit picture laid over the 32-bit one, less of it each frame); then the 32-bit camera moves from that
+   * projection to its own pose, eased. Back the other way the same, reversed. No classic picture in it. False: one of
+   * them is not here (the frame is drawn the ordinary way).
+   */
+  function drawPair(s: GameState, ui: FrameUI, dt: number, via: { from: string; to: string; j: number }): boolean {
+    const iso = views.get('iso'), poly = views.get('poly')
+    if (!iso || !poly) return false
+    const toPoly = via.to === 'poly'
+    const j = via.j
+    const X = 0.3
+    const clamp = (v: number) => Math.max(0, Math.min(1, v))
+    // How much of the 16-bit picture lies over the 32-bit one, and how far the 32-bit camera has gone to its own pose.
+    const isoA = toPoly ? 1 - clamp(j / X) : clamp((j - (1 - X)) / X)
+    const camK = toPoly ? ease(clamp((j - X) / (1 - X))) : ease(clamp(1 - j / (1 - X)))
+    try {
+      if (isoA > 0) {
+        drawing = 'iso'
+        iso.draw(s, ui, dt, 1)
+        pairC ??= document.createElement('canvas')
+        if (pairC.width !== W || pairC.height !== H) { pairC.width = W; pairC.height = H }
+        const pg = pairC.getContext('2d')!
+        pg.globalCompositeOperation = 'copy'
+        pg.drawImage(canvas, 0, 0)
+      }
+      drawing = 'poly'
+      pairIsoNow = 1 - camK
+      poly.draw(s, ui, dt, 1)
+      pairIsoNow = 0
+      lastDrawn = via.to
+      if (isoA > 0 && pairC) {
+        screen.save()
+        screen.setTransform(1, 0, 0, 1, 0, 0)
+        screen.globalAlpha = isoA
+        screen.drawImage(pairC, 0, 0)
+        screen.restore()
+      }
+      dawn()
+      return true
+    } catch (e) {
+      pairIsoNow = 0
+      putAway('poly', poly, e)
+      return false
+    }
+  }
+
+  /**
    * After a set: a view that cannot draw yet is waited for from this moment, not from the next frame drawn, so
    * whoever reads the state in between (the shell's dress, its turn switch) is never told the view is in.
    */
@@ -1733,8 +1812,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   }
 
   function viewState() {
-    const v = turn.shown ? views.get(turn.shown) : undefined
-    const k = turned(turn.k)
+    const via = turn.via
+    const v = via ? views.get(via.to) : turn.shown ? views.get(turn.shown) : undefined
+    const k = via ? 1 : turned(turn.k)
     return { id: turn.id, k, turn: v ? v.turn * ease(k) : 0, turning: turn.turning, waiting: turn.waiting, dark: nightEnds !== 0, dawn: dawnAt >= 0, failed, sight: v && k > 0 ? v.sight ?? null : null }
   }
 

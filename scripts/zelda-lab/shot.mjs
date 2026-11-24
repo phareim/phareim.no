@@ -317,6 +317,10 @@ const SHOTS = [
   ['r-plaza-1280x2', 'r-plaza', 1280, 800, 2, 0],
   ['d-room11-1280x2', 'd-room11', 1280, 800, 2, 0],
   ['r-beach-1280x2', 'r-beach', 1280, 800, 2, 0],
+  // (Part 14: the 32-bit look's sheet, upright phone.)
+  ['r-square-390', 'r-square', 390, 844, 3, 0],
+  ['w-grove-390', 'w-grove', 390, 844, 3, 0],
+  ['entry-390', 'entry', 390, 844, 3, 0],
   ['graves-1280', 'graves', 1280, 800, 1, 0],
   ['lake-1280', 'lake', 1280, 800, 1, 0],
   ['d-room11-390', 'd-room11', 390, 844, 3, 0],

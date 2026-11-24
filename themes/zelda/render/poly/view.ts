@@ -1,8 +1,12 @@
 /**
  * The polygon view: the world as low polygons in perspective, seen from a
- * crane behind and above the hero, drawn the way a 1996 console drew it
- * (`engine.ts`). The 32-bit look; a 64-bit look is the same engine with
- * other values (`viewParams.ts`, engine `poly`).
+ * crane south-east of the hero looking north-west as the 16-bit look does,
+ * nearer and with depth, drawn the way a 1996 console drew it (`engine.ts`).
+ * The 32-bit look; a 64-bit look is the same engine with other values
+ * (`viewParams.ts`, engine `poly`; out of the round since part 14). Its hero
+ * and its plants are the 16-bit look's own pictures stood up as cards and lit
+ * from their normal pictures (`TEX.FIG`, `TEX.FLORA`), and it turns straight
+ * into the 16-bit look and back (`Kit.pairIso`, `isoMatrix`).
  *
  * The game's own state, nothing else: each frame the classic painters draw
  * the map round the camera into top-down pictures (the ground, and what
@@ -20,7 +24,8 @@
 import type { GameState, MapKind, MapState, TileChar } from '../../types'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
 import { aimOf, has, mapInfo, raised, swingAngle } from '../../engine/index'
-import type { FigureAct, FigureBlade, FigurePose } from '../iso/figure'
+import { renderFigure, type FigureAct, type FigureBlade, type FigurePose, type FigureSprite } from '../iso/figure'
+import { buildFlora, stepFlora, type FloraAtlas, type FloraKind, type FloraLook, type FloraSprite } from '../iso/flora'
 import { bladeMesh, heroVerts, leftHand, loadHero, loadedHero, modelFits, poseHero, poseOf, recolour, type LoadedHero } from './hero'
 import type { HeroLook } from '../heroLook'
 import { dirAngle } from '../../engine/util'
@@ -37,7 +42,7 @@ import { ease, type Rect } from '../iso/project'
 import { buildMaterials, MAT, MATERIALS, stepMaterials } from '../iso/materials'
 import { buildBackdrop, type Backdrop, type BackdropLook } from '../iso/backdrop'
 import { skyGrade } from '../daylight'
-import { CRANE, SHOULDER, classicMatrix, densityOf, fitPose, horizonY, mixPose, toGround, poseAxes, poseMatrix, rigMatrix, toScreen, type Mat4, type Pose } from './camera'
+import { CRANE, SHOULDER, classicMatrix, craneDist, isoMatrix, densityOf, fitPose, focalPx, horizonY, mixPose, toGround, poseAxes, poseMatrix, rigMatrix, toScreen, type Mat4, type Pose } from './camera'
 import { landWork, stand, type Land, type LandLook } from './terrain'
 import { FLAG, HSTRIDE, MAT_SLOTS, Mesher, ROLE, STRIDE, TEX, Verts, massOf, type Field, type MatSlot } from './mesh'
 import { createEngine, rgb, type Engine, type PolyLook } from './engine'
@@ -156,7 +161,8 @@ export function easeLook(from: Record<string, unknown>, to: Record<string, unkno
 
 /** Waits for the fetched art (for the lab, which draws its frames in one go and cannot wait between them). */
 export async function preloadArt(): Promise<void> {
-  await Promise.all([loadHero(assetBase, '32'), loadHero(assetBase, '64')])
+  // (The hero models are no longer waited for: the 32-bit look draws the 16-bit figure, and the 64-bit look that drew
+  // them is out of the round (part 14). A lab page that shows it fetches them when it first wants them.)
   loadPainted()
   for (let i = 0; i < 400 && paintedState === 'loading'; i++) await new Promise(r => setTimeout(r, 10))
 }
@@ -440,6 +446,7 @@ export default function polyView(kit: Kit): View {
       try {
         if (++revived > 3) throw new Error('context lost again')
         engine = createEngine()
+        floraLook = ''
         matsSent = false
         paintedSent = false
         ctx = null
@@ -456,6 +463,18 @@ export default function polyView(kit: Kit): View {
       if (!base || base.mapId !== s.map.id) base = createTileLayer(world, s.map, 'base')
       if (!objects || objects.mapId !== s.map.id) objects = createTileLayer(world, s.map, 'objects')
       landed = !!landFor(s.map.id, kit.params('poly') as Record<string, unknown>, pinned === true ? Infinity : hurry ? 40 : 8)
+      // The 16-bit look's plants, made a slice at a time as that look makes them, while this view waits (part 14).
+      const def = mapInfo(world, s.map.id).def
+      if (landed && def.kind === 'overworld' && (kit.params('poly') as Record<string, unknown>).plants === '16-bit') {
+        const fl: FloraLook = def.look === 'wild' ? 'wild' : 'coast'
+        if (floraLook !== fl) {
+          const t0 = performance.now(), budget = pinned === true ? Infinity : hurry ? 40 : 8
+          let done = false
+          while (!(done = stepFlora(fl)) && performance.now() - t0 < budget) { /* the next slice */ }
+          if (done) { floraAt = buildFlora(fl); engine.flora(floraAt.albedo, floraAt.normal); floraLook = fl }
+          landed = done
+        }
+      }
     }
     return painted && built === 'yes' && landed
   }
@@ -580,7 +599,7 @@ export default function polyView(kit: Kit): View {
     const M = outdoors && par.beyond ? BEYOND : 0
     const look = { hills: par.hills as number, shore: par.shore as number, far: par.far as number }
     // (Not the sun: its shadows are the GPU's, marched through the heightfield every frame, so the hour builds nothing.)
-    const key = `${m.version}|${m.id}:${M}:${look.hills}:${look.shore}:${look.far}:${par.roofPitch}:${par.props}`
+    const key = `${m.version}|${m.id}:${M}:${look.hills}:${look.shore}:${look.far}:${par.roofPitch}:${par.props}:${par.plants}`
     if (ctx && ctx.key === key) return ctx
     // (The same map in the same look, changed: its stretches are kept and drawn until each is built again.)
     const keep = ctx && ctx.id === m.id && ctx.key.split('|')[1] === key.split('|')[1] ? ctx.chunks : null
@@ -672,7 +691,7 @@ export default function polyView(kit: Kit): View {
     const field = { x: -c.M, y: -c.M, w: c.fw, h: c.fh }
     const pitch = outdoors ? (par.roofPitch as number) : 0
     const coarse = LADDER[quality]!.coarse
-    me = new Mesher(c.field, { pitch, room, sun: null, props: !!par.props, coarse })
+    me = new Mesher(c.field, { pitch, room, sun: null, props: !!par.props, coarse, flora: par.plants === '16-bit' })
     if (outdoors && !room) {
       // (For the camera: walls and houses, which it must not stand in; trees it may, and they are cut through.)
       c.mass = massOf(c.field, me, field, pitch, false)
@@ -805,6 +824,10 @@ export default function polyView(kit: Kit): View {
   }
   /** How far the camera is turned, for the stick (`View.turn`: the negative of the pose's yaw). */
   let turnNow = 0
+  /** The 16-bit look's plants (their atlas, for the look it was built for) and its figure this frame (part 14). */
+  let floraAt: FloraAtlas | null = null
+  let floraLook = ''
+  let fig: FigureSprite | null = null
   /** The stick's turn as last taken, held while the hero walks. */
   let latched = 0
   /** What the last frame showed of the ground (`View.sight`). */
@@ -953,46 +976,31 @@ export default function polyView(kit: Kit): View {
     // --- the camera ---------------------------------------------------------------------------------------
     const rooms: Rect[] = kind === 'dungeon' ? (s.scroll ? [s.scroll.from, s.scroll.to] : [s.zone]) : kind === 'interior' ? [interiorRoom(m)] : []
     const roomed = rooms.length > 0
-    // A room on a wide screen is seen whole across: the camera stands back as far as its width needs.
-    const roomFov = (par.roomFov as number) * Math.PI / 180
-    const wideRoom = roomed && vw >= vh ? (Math.max(...rooms.map(z => z.w)) / 2 + 0.3) * (vh / 2 / Math.tan(roomFov / 2)) / (vw / 2) : 0
     // Outdoors: the crane (32-bit), the shoulder (64-bit), or a pose between them while the look changes.
     const shoulderK = ease(par.shoulder as number)
     if (outdoors && shoulderK > 0 && !ui.cam) follow(s, dt, ui.paused)
     else if (!outdoors) camYaw = 0
-    const crane: Pose = { yaw: CRANE.yaw, pitch: (par.pitch as number) * Math.PI / 180, dist: par.dist as number, fov: (par.fov as number) * Math.PI / 180, focusY: par.focusY as number }
+    // The crane looks the 16-bit look's way (`CRANE`), and stands as far back as makes a tile `zoom` times the 16-bit
+    // look's on this screen: the 16-bit diamond is 16 classic px tall at two of that look's own px to a classic px,
+    // and its px is half the screen's scale, rounded as that look rounds it (`iso/view.ts`: up on a narrow screen,
+    // so there its tiles are already larger than the classic ones). Part 14.
+    const scrN = kit.screen()
+    const isoHalf = scrN.scale / 2
+    const isoPx = Math.max(1, Number.isInteger(isoHalf) ? isoHalf : scrN.W / scrN.dpr < 700 ? Math.ceil(isoHalf) : Math.floor(isoHalf))
+    const tilePx = 16 * (2 * isoPx / scrN.scale) * (vh / Math.max(1, scrN.H)) * scrN.scale * ((par.zoom as number) || 1.4)
+    const deg = (v: unknown) => (v as number) * Math.PI / 180
+    const craneAt = (p: Pose): Pose => ({ ...p, dist: craneDist(p, vw, vh, tilePx) })
+    const crane = craneAt({ yaw: CRANE.yaw, pitch: deg(par.pitch), dist: 0, fov: deg(par.fov), focusY: par.focusY as number })
     const shoulder: Pose = { ...SHOULDER, yaw: camYaw }
     const open = shoulderK <= 0 ? crane : shoulderK >= 1 ? shoulder : mixPose(crane, shoulder, shoulderK)
-    // Indoors the 64-bit look stands lower and nearer, behind the hero and following them; it still looks north, so
-    // the south wall stays a kerb and a block goes where the stick says.
-    const roomCrane: Pose = { yaw: 0, pitch: (par.roomPitch as number) * Math.PI / 180, dist: Math.max(par.roomDist as number, wideRoom), fov: roomFov, focusY: par.roomFocus as number }
+    // Indoors the crane keeps the same angle and zoom (the 16-bit look's room, nearer); the 64-bit look stands lower
+    // and nearer, behind the hero, looking north.
+    const roomCrane = craneAt({ yaw: CRANE.yaw, pitch: deg(par.roomPitch), dist: 0, fov: deg(par.roomFov), focusY: par.roomFocus as number })
     const roomShoulder: Pose = { yaw: 0, pitch: 30 * Math.PI / 180, dist: 7.5, fov: 58 * Math.PI / 180, focusY: 0.66 }
-    const want: Pose = fitPose(roomed
-      ? (shoulderK <= 0 ? roomCrane : shoulderK >= 1 ? roomShoulder : mixPose(roomCrane, roomShoulder, shoulderK))
-      : open, vw, vh)
-    /** On a tall screen, where the room's depth fills the picture: its back wall's top at the top edge, its kerb at the foot. */
-    let portraitY: number | null = null
-    if (roomed && vh > vw && !ui.cam && shoulderK < 0.5) {
-      const z = rooms[0]!
-      const fit = (d: number): { y: number; foot: number } => {
-        const p = { ...want, dist: d }
-        let y = z.y + z.h / 2
-        for (let i = 0; i < 6; i++) {
-          const m = poseMatrix(p, vw, vh, { x: z.x + z.w / 2, y, z: 0 })
-          const a = toScreen(m, vw, vh, z.x + z.w / 2, z.y + 1, 2 * ek).y
-          const b = toScreen(m, vw, vh, z.x + z.w / 2, z.y + 2, 2 * ek).y
-          y += a / Math.max(1, b - a)
-        }
-        const m = poseMatrix(p, vw, vh, { x: z.x + z.w / 2, y, z: 0 })
-        return { y, foot: toScreen(m, vw, vh, z.x + z.w / 2, z.y + z.h, 0).y }
-      }
-      for (let d = want.dist; d >= 3; d -= 0.25) {
-        const f = fit(d)
-        portraitY = f.y
-        if (f.foot >= vh - 2) { want.dist = d; break }
-        want.dist = d
-      }
-    }
+    const mixed = roomed ? (shoulderK <= 0 ? roomCrane : shoulderK >= 1 ? roomShoulder : mixPose(roomCrane, roomShoulder, shoulderK)) : open
+    // (A tall screen steepens and nears only the shoulder camera; the crane keeps the 16-bit look's angle on every screen.)
+    const want: Pose = shoulderK > 0 ? fitPose(mixed, vw, vh) : { ...mixed }
+    const portraitY: number | null = null
     if (!pose || (shoulderK > 0 && !roomed)) pose = { ...want }
     // A change of values is eased into, never cut: the crane sinks to the shoulder and comes back up.
     pose = mixPose(pose, want, reduced ? 1 : 1 - Math.exp(-Math.min(0.1, dt) * 5))
@@ -1008,16 +1016,22 @@ export default function polyView(kit: Kit): View {
     let fx = ui.cam ? cf.x : s.hero.x
     let fy = ui.cam ? cf.y : s.hero.y
     if (roomed && !ui.cam) {
-      // In a room the camera keeps to the room: across it with the hero as far as the room's walls allow, and its middle in depth.
+      // In a room the camera keeps to the room: along the picture's across and its depth (the crane looks along the
+      // diagonal), with the hero as far as the room's walls allow, or on the room's middle where it fits whole.
       const at = (z: Rect) => {
-        const F = (vw >= vh ? vh : vw) / 2 / Math.tan(pose!.fov / 2)
-        const half = Math.max(0, (vw / 2 / F) * pose!.dist - 0.5)
-        const x = vw >= vh || z.w <= 2 * half ? z.x + z.w / 2 : Math.max(z.x + half, Math.min(z.x + z.w - half, s.hero.x))
-        // In depth the same, the picture's reach on the floor being foreshortened by the pitch.
-        const deep = Math.max(0, (vh / 2 / F) * pose!.dist / Math.max(0.3, Math.sin(pose!.pitch)) - 0.8)
-        const mid = z.y + z.h * 0.5 + 0.6
-        const y = z.h <= 2 * deep ? mid : Math.max(z.y + deep, Math.min(z.y + z.h - deep + 1, s.hero.y))
-        return { x, y }
+        const tile = focalPx(pose!, vw, vh) / pose!.dist
+        const halfU = Math.max(0, vw / 2 / tile - 0.5)
+        const halfV = Math.max(0, vh / 2 / tile / Math.max(0.3, Math.sin(pose!.pitch)) - 0.8)
+        const c0 = Math.cos(pose!.yaw), s0 = Math.sin(pose!.yaw)
+        const U = (x: number, y: number) => x * c0 + y * s0
+        const V = (x: number, y: number) => x * s0 - y * c0
+        const cs = [[z.x, z.y], [z.x + z.w, z.y], [z.x, z.y + z.h], [z.x + z.w, z.y + z.h]] as const
+        const us = cs.map(([x, y]) => U(x, y)), vs = cs.map(([x, y]) => V(x, y))
+        // (The back walls stand up beyond the floor's far edge: a tile and a half of room for them.)
+        const fit = (v: number, lo: number, hi: number, half: number) => hi - lo <= 2 * half ? (lo + hi) / 2 : Math.max(lo + half, Math.min(hi - half, v))
+        const u = fit(U(s.hero.x, s.hero.y), Math.min(...us), Math.max(...us), halfU)
+        const v = fit(V(s.hero.x, s.hero.y), Math.min(...vs) - 0.3, Math.max(...vs) + 1.5, halfV)
+        return { x: u * c0 + v * s0, y: u * s0 - v * c0 }
       }
       const a = at(rooms[0]!)
       if (s.scroll) {
@@ -1040,20 +1054,30 @@ export default function polyView(kit: Kit): View {
     const aim = { ...focus, z: focus.z + (roomed || shoulderK <= 0 ? 0 : 0.55 * eyeRise * shoulderK) }
     const posed = poseMatrix(cam, vw, vh, aim, 0.25, 120)
     const classic = classicMatrix(vw, vh, cx, cy)
-    const M4: Mat4 = rigMatrix(k, classic, posed)
+    // In the direct turn from (or to) the 16-bit look, the camera starts (or ends) on that look's own picture: its
+    // projection, mixed into this pose as the turn goes on (part 14).
+    const pairIso = kit.pairIso()
+    const isoCam = pairIso > 0 ? kit.isoCam() : null
+    const M4: Mat4 = isoCam
+      ? rigMatrix(1 - pairIso, isoMatrix(isoCam, s.hero, vw * scrN.scale, vh * scrN.scale, scrN.ox, scrN.oy, aim), posed)
+      : rigMatrix(k, classic, posed)
     const { f: fwd } = poseAxes(cam)
     const eye: [number, number, number] = [aim.x - fwd[0] * cam.dist, aim.y - fwd[1] * cam.dist, aim.z - fwd[2] * cam.dist]
     govern(ui.paused)
     const spend = LADDER[quality]!
-    const far1 = (par.drawDistance as number) * spend.far
+    let far1 = (par.drawDistance as number) * spend.far
+    // (The crane on a tall screen looks far over the land: the draw distance reaches the top of its picture. Part 14.)
+    if (k > 0 && !roomed && shoulderK < 0.5) {
+      const top = toGround(posed, vw, vh, vw / 2, 0, focus.z)
+      far1 = Math.min(80, Math.max(far1, top ? Math.hypot(top.x - eye[0], top.y - eye[1]) + 6 : 80))
+    }
     // (The fog begins nearer than the dither: it thickens over most of the way out.)
     const far0 = far1 * (0.62 - 0.42 * (par.fog as number))
-    // The far land bends up toward the horizon (outdoors, at the end of the turn): what is placed on the picture bends with it.
+    // (The far land no longer bends up toward the horizon (part 14): the ground runs out level, and the sky meets it on a
+    // straight line. What is placed on the picture sits on the land as it is.)
     const bendFrom = far1 * 0.45
-    const bendK = outdoors && !roomed ? ek * (1 - (par.fog as number)) * 0.85 * Math.max(1, eye[2] - focus.z) / Math.max(1, (far1 - bendFrom) ** 2) : 0
-    // (As the engine bends it: never up past the eye.)
-    const bendAt = (x: number, y: number, base = 0) => { const d = Math.max(0, Math.hypot(x - eye[0], y - eye[1]) - bendFrom); return Math.min(bendK * d * d, Math.max(0, eye[2] - 0.35 - base)) }
-    const place = (x: number, y: number, z = 0) => { const base = z + groundAt(x, y); return toScreen(M4, vw, vh, x, y, base + bendAt(x, y, base)) }
+    const bendK = 0
+    const place = (x: number, y: number, z = 0) => toScreen(M4, vw, vh, x, y, z + groundAt(x, y))
 
     mark('camera')
     // --- the tiles in play --------------------------------------------------------------------------------
@@ -1063,10 +1087,17 @@ export default function polyView(kit: Kit): View {
     let X1 = Math.ceil((cx + vw) / T) + 1
     let Y1 = Math.ceil((cy + vh) / T) + 4
     if (k > 0) {
+      // The ground the camera can see: a wedge from the eye along its heading, as wide as the lens, out to the draw
+      // distance, and a margin for what stands at its edges (the crane looks along the diagonal: part 14).
       const reach = far1 + 2
-      const wide = reach * Math.tan(pose.fov / 2) * Math.max(1, vw / vh) + 3
-      X0 = Math.min(X0, Math.floor(eye[0] - wide)); X1 = Math.max(X1, Math.ceil(eye[0] + wide))
-      Y0 = Math.min(Y0, Math.floor(eye[1] - reach)); Y1 = Math.max(Y1, Math.ceil(eye[1] + 2))
+      const half = Math.atan(Math.tan(pose.fov / 2) * Math.max(1, vw / vh)) + 0.1
+      const pts: Array<[number, number]> = [[eye[0], eye[1]]]
+      for (const a of [-half, -half / 2, 0, half / 2, half]) {
+        const h = cam.yaw + a
+        pts.push([eye[0] + Math.sin(h) * reach, eye[1] - Math.cos(h) * reach])
+      }
+      X0 = Math.min(X0, Math.floor(Math.min(...pts.map(q => q[0])) - 3)); X1 = Math.max(X1, Math.ceil(Math.max(...pts.map(q => q[0])) + 3))
+      Y0 = Math.min(Y0, Math.floor(Math.min(...pts.map(q => q[1])) - 3)); Y1 = Math.max(Y1, Math.ceil(Math.max(...pts.map(q => q[1])) + 3))
     }
     if (roomed) {
       X0 = Math.min(...rooms.map(z => z.x)); Y0 = Math.min(...rooms.map(z => z.y))
@@ -1161,9 +1192,11 @@ export default function polyView(kit: Kit): View {
     else if (model && cardForModel) { cardForModel = false; kit.crossFade(0.35) }
     if (model) heroTexture(which, model, wears)
     const modelled = !!model
-    kit.setHeroBare(modelled)
+    // (Value `figure` '16-bit': the 16-bit look's own figure, drawn each frame and stood up as a card: part 14.)
+    const fig16 = par.figure === '16-bit' && k > 0.5 && !ui.attract && !modelled
+    kit.setHeroBare(modelled || fig16)
     // Figures show the side the camera sees (a hero walking away shows their back); the stick turns with the camera.
-    const yawShown = k >= 0.5 && !roomed ? cam.yaw : 0
+    const yawShown = k >= 0.5 && (!roomed || shoulderK < 0.5) ? cam.yaw : 0
     kit.setFacing(yawShown)
     // The stick turns by the camera's nearest quarter (up is away from the camera within an eighth of a turn, and
     // the keys walk along the world's grid, as the game's rules are laid out), and the turn is held while the hero
@@ -1172,6 +1205,8 @@ export default function polyView(kit: Kit): View {
     if (roomed) latched = 0
     else if (Math.hypot(s.hero.vx, s.hero.vy) < 0.2 || s.mode !== 'play') latched = -quarter
     turnNow = latched + 0
+    // (The crane looks the 16-bit look's way, and the stick turns as there: up walks north-west, a press goes where it goes there.)
+    if (shoulderK < 0.5) turnNow = -cam.yaw
     ag.setTransform(1, 0, 0, 1, 0, 0)
     ag.clearRect(0, 0, ATLAS, Math.max(atlasUsed, 1))
     const items = kit.queue(ag, s, ui, bx, by, bw, bh, lights, og)
@@ -1304,6 +1339,78 @@ export default function polyView(kit: Kit): View {
             const l = leftHand()
             const mx = (hand[0] + l[0]) / 2, my = (hand[1] + l[1]) / 2, mz = (hand[2] + l[2]) / 2
             mesherFor(c, null, par).propAt(dyn, h.carry === 'rock' ? 'rock' : 'pot', mx, my, groundAt(h.x, h.y), mz - 0.08, 0.8)
+          }
+        }
+      }
+    }
+    // --- the 16-bit look's figure and plants, stood up as cards (part 14) ------------------------------------------
+    // Their pictures were drawn for a camera south-east of them, looking north-west 30° down, which the crane now is:
+    // what is above the foot stands upright, facing the camera; what is below it (the ground in front, a blade's sweep)
+    // lies on the ground toward the eye; each as large as makes the picture's px square on the screen.
+    {
+      const S16 = 32 * Math.SQRT2
+      const { r: camR, f: camF } = poseAxes(cam)
+      const bl = Math.hypot(camF[0], camF[1]) || 1
+      const tbx = -camF[0] / bl, tby = -camF[1] / bl
+      const pc = Math.max(0.2, cam.pitch)
+      const upK = 1 / (S16 * Math.cos(pc)), downK = 1 / (S16 * Math.sin(pc))
+      const nUp: [number, number, number] = [tbx * 0.8, tby * 0.8, 0.6]
+      const sprite16 = (tex: number, sp: { x: number; y: number; w: number; h: number; ax: number; ay: number }, x: number, y: number, sway: number, role: number, flags: number) => {
+        const g = groundAt(x, y)
+        const l = -sp.ax / S16, rr = (sp.w - sp.ax) / S16
+        const above = sp.ay * upK, below = (sp.h - sp.ay) * downK
+        const lx = x + l * camR[0], ly = y + l * camR[1], rx2 = x + rr * camR[0], ry2 = y + rr * camR[1]
+        const n0 = dyn.n
+        quad(dyn, [[lx, ly, above, g, sp.x, sp.y], [rx2, ry2, above, g, sp.x + sp.w, sp.y], [rx2, ry2, 0, g, sp.x + sp.w, sp.y + sp.ay], [lx, ly, 0, g, sp.x, sp.y + sp.ay]], tex, [1, 1, 1], nUp, role, flags)
+        if (below > 0.01) {
+          const fx = tbx * below, fy = tby * below
+          quad(dyn, [[lx, ly, 0.012, g, sp.x, sp.y + sp.ay], [rx2, ry2, 0.012, g, sp.x + sp.w, sp.y + sp.ay], [rx2 + fx, ry2 + fy, 0.012, groundAt(rx2 + fx, ry2 + fy), sp.x + sp.w, sp.y + sp.h], [lx + fx, ly + fy, 0.012, groundAt(lx + fx, ly + fy), sp.x, sp.y + sp.h]], tex, [1, 1, 1], [0, 0, 1], role, flags)
+        }
+        // (How much the wind moves it rides in the vertex's sun slot, which the engine reads only for a plant.)
+        if (sway > 0) for (let i = n0; i < dyn.n; i++) dyn.data[i * STRIDE + 13] = sway
+      }
+      if (fig16) {
+        const h = s.hero
+        const blink = h.act !== 'dead' && h.act !== 'fall' && h.act !== 'get' && h.invuln > 0 && Math.floor(time * 20) % 2 === 0
+        fig = renderFigure(heroPose(s, time, ui.paused ? 0 : dt), kit.heroLook(), fig ?? undefined)
+        engine.figure(fig.albedo, fig.normal, fig.w, fig.h)
+        if (!blink) sprite16(TEX.FIG, { x: 0, y: 0, w: fig.w, h: fig.h, ax: fig.ax, ay: fig.ay }, h.x, h.y + 0.02, 0, ROLE.STAY, 0)
+      }
+      if (outdoors && par.plants === '16-bit' && k > 0) {
+        const fl: FloraLook = def.look === 'wild' ? 'wild' : 'coast'
+        if (floraLook !== fl) {
+          // (Built in steps in the 16-bit view; here at once, the first time a map of that look is drawn.)
+          while (!stepFlora(fl)) { /* the next step */ }
+          floraAt = buildFlora(fl)
+          engine.flora(floraAt.albedo, floraAt.normal)
+          floraLook = fl
+        }
+        const fa = floraAt!
+        const me0 = mesherFor(c, null, par)
+        const tl = (x: number, y: number) => c.field.tile(x, y)
+        const plant = (kind: FloraKind, x: number, y: number, pick: number, sway: number) => {
+          const list: FloraSprite[] | undefined = fa.sprites[kind]
+          if (!list || !list.length) return
+          if (Math.hypot(x - eye[0], y - eye[1]) > far1 + 1) return
+          const sp = list[Math.min(list.length - 1, Math.floor(pick * list.length))]!
+          sprite16(TEX.FLORA, sp, x, y, reduced ? 0 : sway, ROLE.GROW, FLAG.SEE)
+        }
+        // (Where the 16-bit view plants them, by the same hashes: a tree alone, a wood's crowns, a palm by the sand, a
+        // bush, and tall grass the hero wades through.)
+        for (let ty = R.y; ty < R.y + R.h; ty++) for (let tx = R.x; tx < R.x + R.w; tx++) {
+          const t = tl(tx, ty)
+          if (t !== 'T' && t !== '*' && t !== ';') continue
+          const h1 = hash2(tx, ty, 21), h2 = hash2(tx, ty, 22), h3 = hash2(tx, ty, 23)
+          const shp = me0.shape(tx, ty)
+          if (t === 'T') {
+            const fy = shp.k === 'top' ? ty + shp.f : ty
+            const sand = tl(tx - 1, ty) === '-' || tl(tx + 1, ty) === '-' || tl(tx, ty + 1) === '-' || tl(tx, ty - 1) === '-'
+            plant(sand ? 'palm' : shp.k === 'card' ? 'tree' : 'canopy', tx + 0.5 + (h1 - 0.5) * 0.4, fy + 0.62 + (h2 - 0.5) * 0.3, h3, 0.22)
+          } else if (t === '*') {
+            if (shp.k === 'card') plant('bush', tx + 0.5, ty + 0.78, h3, 0.3)
+          } else if (shp.k === 'flat') {
+            plant('tall', tx + 0.3 + h1 * 0.2, ty + 0.45 + h2 * 0.15, h3, 1)
+            plant('tall', tx + 0.6 + h2 * 0.25, ty + 0.8 + h1 * 0.15, h1, 1)
           }
         }
       }
@@ -1523,7 +1630,8 @@ export default function polyView(kit: Kit): View {
       hazeAmount: roomed ? 0.7 : 1,
       water: win(k, 0.1, 0.5),
       // The path of light on the water under the backdrop's sun; at night the moon's, paler, in the same place.
-      ...(outdoors && sunAt && skyLine !== null ? {
+      // (Only where the horizon is in the picture: the crane looking down over the land sees no sky, and no path.)
+      ...(outdoors && sunAt && skyLine !== null && skyLine > 0 ? {
         glint: [sunAt.x / vw, skyLine / vh, ek * ((1 - moonK) * glintSun(height) * 0.9 + moonK * 0.75)] as [number, number, number],
         glintCol: mix3([1, 0.72, 0.42], [0.62, 0.74, 1], moonK),
       } : {}),
@@ -1618,6 +1726,8 @@ export default function polyView(kit: Kit): View {
       heroSkin,
       hairIn: ((h: string) => { const v = parseInt(h.slice(1, 7), 16); return [((v >> 16) & 255) / 255 * 0.75, ((v >> 8) & 255) / 255 * 0.75, (v & 255) / 255 * 0.75] as [number, number, number] })(kit.heroLook().hairColor),
       // (Its strength the hour's lamp light, and the day takes most of it away: at noon it is all but gone.)
+      camAxes: (() => { const a = poseAxes(cam); return [a.r[0], a.r[1], a.r[2], a.u[0], a.u[1], a.u[2], -a.f[0], -a.f[1], -a.f[2]] as [number, number, number, number, number, number, number, number, number] })(),
+      wind: reduced ? 0 : (par.wind as number) ?? 1,
       spillAt: [spillAt[0], spillAt[1], spillAt[2], gain * (par.spill as number ?? 1) * held('spill', [1 - 0.92 * Math.max(0, Math.min(1, (height - 0.05) / 0.4)), 0, 0], dt, m.id)[0]],
     }, sw, sh, spend.bloomPass ? glowG : undefined)
     if (!spend.bloomPass) glowG.clearRect(0, 0, vw, vh)
