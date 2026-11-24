@@ -672,13 +672,8 @@ filtered textures, fog).
   turn needs no camera of its own. `CRANE` (part 14) looks the isometric look's
   way: it stands south-east of the hero looking north-west, 32° down, through a
   22° lens from far back, the hero a little below the middle; its distance is
-<<<<<<< HEAD
   set from the screen (`craneDist`, value `zoom` 1.1 since part 18), so a tile is 1.1 times
-  the 16-bit look's at the same screen size (the 16-bit look's own px rounded
-=======
-  set from the screen (`craneDist`, value `zoom` 1.4), so a tile is 1.4 times
   the isometric look's at the same screen size (the isometric look's own px rounded
->>>>>>> origin/master
   as it rounds them). It sees no sky on a wide screen or an upright phone.
   `View.turn` is a quarter of π, as in the isometric look, so a press goes where
   it goes there. Indoors the camera has a pose of
@@ -806,15 +801,9 @@ filtered textures, fog).
   per material of `iso/materials.ts`, 128 texels a side, 32 to the tile:
   `public/zelda/poly/materials.webp` (86 KB, written by
   `scripts/zelda-lab/poly-pack.mjs` from the painted page), fetched the first
-<<<<<<< HEAD
-  time a polygon look wants it; the 16-bit materials draw until it is here, and
-  if it fails (value `textures`: `painted` or `materials`). The 64-bit look reads
-  them filtered; the 32-bit look has drawn the 16-bit materials since part 18. Under the game's dusk some were
-=======
   time a polygon look wants it; the isometric materials draw until it is here, and
-  if it fails (value `textures`: `painted` or `materials`). The 32-bit look reads
-  them texel by texel, the 64-bit one filtered. Under the game's dusk some were
->>>>>>> origin/master
+  if it fails (value `textures`: `painted` or `materials`). The 64-bit look reads
+  them filtered; the polygon view has drawn the isometric materials since part 18. Under the game's dusk some were
   too loud or too dim and are tuned as they are decoded (`PAINTED_TUNE` in
   `poly/view.ts`: a gain and a saturation a material): grass and the Wildwood's
   moss and lanes lifted, the sand calmed, the cobbles kept rose-violet, the
