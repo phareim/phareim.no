@@ -30,7 +30,7 @@ import type { HeroLook } from './heroLook'
 import type { HeroColors } from '../../miniworld/types'
 import { createTileLayer, drawBlock, drawLiveTiles, hash2, updateTileLayer, type Light, type TileLayer } from './tiles'
 import { drawPsiBlock } from './labTiles'
-import { drawHookChain, drawStaticMood, fireflies, queueLuna, queueProps, type Item } from './wild'
+import { drawHookChain, drawStaticMood, facingDir, fireflies, queueLuna, queueProps, setLunaFacing, type Item } from './wild'
 import { ease } from './iso/project'
 import { createTurn, createTurnClock } from './turn'
 import { createShade } from './shade'
@@ -168,7 +168,13 @@ export interface View {
 export type ViewFactory = (kit: Kit) => View
 
 /** What happens to the finished picture on its way to the screen; 1 is the classic amount of each. */
-export interface Finish { scanlines: number; bloom: number; vignette: number }
+export interface Finish {
+  scanlines: number
+  bloom: number
+  vignette: number
+  /** The picture stretched up softly instead of in hard pixels, with a little sideways smear (a 64-bit machine's video filter), 0–1. None: hard. */
+  smooth?: number
+}
 
 /** The top-down picture before the light falls on it, as `Kit.classic` paints it. */
 export interface Picture {
@@ -229,17 +235,32 @@ export interface Kit {
   /** How the view shows a world angle (blades swing by it); null: as it is. */
   setAim(fn: ((a: number) => number) | null): void
   /**
+   * How far the view's camera is turned from looking north (radians, as `Pose.yaw`; 0: as the classic picture).
+   * Figures with four ways (the hero, foes, Luna) then show the side the camera sees: a hero walking away shows
+   * their back.
+   */
+  setFacing(yaw: number): void
+  /**
    * A view that draws the hero's body and blade itself says so here: `queue`'s hero item then draws only
    * what the hero holds up (a pot, a found thing) and still adds the blade's light.
    */
   setHeroBare(on: boolean): void
+  /**
+   * The picture on the screen now, laid over the frames that follow and fading out over `seconds`: a dissolve, for
+   * a change a view makes without moving its camera (a look's change under reduced motion).
+   */
+  crossFade(seconds: number): void
   /** What the hero wears: the booth's look, a made figure's colours on the drawn shape, or the drawn hero. */
   heroLook(): HeroLook
   /** The scene step (px) from one world point to another, for a drawing that reaches from its own thing to a second one (the twins' tether, the king's shards); null: the classic step. */
   setSpan(fn: ((x1: number, y1: number, x2: number, y2: number) => Vec) | null): void
   /** `into`: the colour a fade ends in (the classic night, or a view's own sheet). */
   flashFade(g: G, s: GameState, ui: FrameUI, dt: number, into?: string): number
-  present(fade: number, glows: (bg: G) => void, finish?: Finish): void
+  /**
+   * `picture`: the view's own finished picture, finer than the scene (any whole multiple, or a size that is a whole
+   * number of device px a px), laid where the scene would be instead of it.
+   */
+  present(fade: number, glows: (bg: G) => void, finish?: Finish, picture?: HTMLCanvasElement): void
   /**
    * The HUD in a skin (none: the classic neon one). `from`: the skin this one
    * is taking over from and how far it has (0–1), for a view that turns in
@@ -434,6 +455,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   // ---------------------------------------------------------------------------
 
   function dirKey(d: Dir): { key: string; flip: boolean } {
+    d = facingDir(d, facing)
     if (d === 'left') return { key: 'side', flip: true }
     if (d === 'right') return { key: 'side', flip: false }
     return { key: d, flip: false }
@@ -521,10 +543,11 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       case 'get': name = 'hero_get'; break
     }
     const blade = h.swing || (h.charge > 0.12 && s.inv.sword && !h.carry)
-    // Blade behind the body when facing up.
-    if (blade && h.dir === 'up') drawBlade(g, s, x, feet - 7, lights)
+    // Blade behind the body when facing up (on the screen: a turned camera may see another side).
+    const away = facingDir(h.dir, facing) === 'up'
+    if (blade && away) drawBlade(g, s, x, feet - 7, lights)
     if (!heroBare) put(g, name, x, feet, flip && h.act !== 'hurt' && h.act !== 'get')
-    if (blade && h.dir !== 'up') drawBlade(g, s, x, feet - 7, lights)
+    if (blade && !away) drawBlade(g, s, x, feet - 7, lights)
     if (h.carry || h.act === 'lift') {
       const lift = h.act === 'lift' ? Math.min(1, h.actT / 0.18) : 1
       const spr = sprite(h.carry === 'rock' ? 'rock' : 'pot')
@@ -541,6 +564,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let arc = false
   /** The view draws the hero's body and blade itself (`setHeroBare`). */
   let heroBare = false
+  /** How far the view's camera is turned from north (`Kit.setFacing`): figures show the side it sees. */
+  let facing = 0
   /** A world angle as the view shows it (the classic view: as it is). */
   let aim: (a: number) => number = a => a
   /** The scene step between two world points in a view that moves drawings (null: the classic view, where it is plain arithmetic). */
@@ -1011,7 +1036,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * The finished scene to the screen: whole-number upscale, the neon bloom
    * (`glows` adds the frame's lights to the bloom layer), scanlines, vignette.
    */
-  function present(fade: number, glows: (bg: G) => void, finish: Finish = finishOf('classic')) {
+  function present(fade: number, glows: (bg: G) => void, finish: Finish = finishOf('classic'), picture?: HTMLCanvasElement) {
     screen.setTransform(1, 0, 0, 1, 0, 0)
     screen.globalCompositeOperation = 'source-over'
     screen.fillStyle = '#0b0616'
@@ -1019,7 +1044,21 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const ox = Math.floor((W - vw * scale) / 2)
     const oy = Math.floor((H - vh * scale) / 2)
     screen.imageSmoothingEnabled = false
-    screen.drawImage(scene, 0, 0, vw, vh, ox, oy, vw * scale, vh * scale)
+    const src = picture ?? scene
+    const sw = picture ? picture.width : vw
+    const sh = picture ? picture.height : vh
+    screen.drawImage(src, 0, 0, sw, sh, ox, oy, vw * scale, vh * scale)
+    const soft = Math.max(0, Math.min(1, finish.smooth ?? 0))
+    if (soft > 0) {
+      // Filtered on its way up, and smeared a little sideways, over the hard pixels.
+      screen.imageSmoothingEnabled = true
+      screen.globalAlpha = soft
+      screen.drawImage(src, 0, 0, sw, sh, ox, oy, vw * scale, vh * scale)
+      screen.globalAlpha = soft * 0.4
+      screen.drawImage(src, 0, 0, sw, sh, ox + Math.max(1, (0.6 * vw * scale) / sw), oy, vw * scale, vh * scale)
+      screen.globalAlpha = 1
+      screen.imageSmoothingEnabled = false
+    }
     // Neon bloom: glows gathered at logical resolution, then one smooth
     // upscale added onto the screen (cheap on phones, soft on big screens).
     if (fade < 1 && finish.bloom > 0) {
@@ -1082,6 +1121,12 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
    * `from`: see `Kit.hudLayer`.
    */
   function hudLayer(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin = NEON_SKIN, from?: { skin: HudSkin; mix: number }) {
+    // The dialog box keeps the side it opened on: a turn of the view under it (the camera tipping, the hero's row moving
+    // on the screen) never throws it from the bottom to the top in one frame.
+    if (s.dialog) {
+      if (dialogRow.of !== s.dialog) dialogRow = { of: s.dialog, y: heroY }
+      heroY = dialogRow.y
+    } else dialogRow = { of: null, y: 0 }
     const to = wearable(skin)
     const old = from ? wearable(from.skin) : to
     const mix = old === to ? 1 : Math.max(0, Math.min(1, from!.mix))
@@ -1101,6 +1146,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       screen.beginPath(); screen.arc(sx + ui.stick.dx * dpr, sy + ui.stick.dy * dpr, 16 * dpr, 0, Math.PI * 2); screen.fill()
     }
   }
+
+  /** The dialog the box's side was taken for, and the hero's row it was taken by. */
+  let dialogRow: { of: unknown; y: number } = { of: null, y: 0 }
 
   /** One skin's HUD, painted on its own grid and laid on the screen at `alpha`. */
   function hudPaint(s: GameState, ui: FrameUI, dt: number, cx: number, cy: number, heroY: number, skin: HudSkin, alpha: number) {
@@ -1465,7 +1513,18 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     lakeSun: drawLakeSun,
     staticMood: s => staticMood(s, mapInfo(world, s.map.id)),
     setAim(fn) { aim = fn ?? (a => a) },
+    setFacing(yaw) { facing = yaw; setLunaFacing(yaw) },
     setHeroBare(on) { heroBare = on },
+    crossFade(seconds) {
+      if (W < 2 || H < 2) return
+      xfadeC ??= document.createElement('canvas')
+      if (xfadeC.width !== W || xfadeC.height !== H) { xfadeC.width = W; xfadeC.height = H }
+      const xg = xfadeC.getContext('2d')!
+      xg.globalCompositeOperation = 'copy'
+      xg.drawImage(canvas, 0, 0)
+      xfadeA = 1
+      xfadeS = Math.max(0.05, seconds)
+    },
     heroLook: heroStyle,
     setSpan(fn) { span = fn },
     flashFade,
@@ -1479,6 +1538,10 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   const turned = (raw: number) => Math.max(0, (raw - HANDOFF) / (1 - HANDOFF))
   /** The classic picture as last drawn, kept to be laid over a view's during the hand-off. */
   let handC: HTMLCanvasElement | null = null
+  /** A dissolve a view asked for (`crossFade`): the old picture, how much of it is left, and over how long it goes. */
+  let xfadeC: HTMLCanvasElement | null = null
+  let xfadeA = 0
+  let xfadeS = 0.4
   /**
    * The start of a visit (`arrive`): the time night ends (0: no arrival under way; -1: it is counted from the first
    * frame drawn, `nightLeft` ms, so a tab opened in the background has its night when it is looked at), and
@@ -1566,6 +1629,9 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
 
   function draw(s: GameState, ui: FrameUI, dt: number) {
     frameState = s
+    // A view whose camera turns says so again each frame (`setFacing`); every other picture is the classic way round.
+    facing = 0
+    setLunaFacing(0)
     begin(s, ui, dt)
     // A view that draws the hero itself says so again each frame.
     heroBare = false
@@ -1621,6 +1687,16 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
         screen.globalAlpha = over
         screen.drawImage(handC, 0, 0)
         screen.restore()
+      }
+      if (xfadeA > 0 && xfadeC) {
+        if (xfadeC.width === W && xfadeC.height === H) {
+          screen.save()
+          screen.setTransform(1, 0, 0, 1, 0, 0)
+          screen.globalAlpha = xfadeA * xfadeA * (3 - 2 * xfadeA)
+          screen.drawImage(xfadeC, 0, 0)
+          screen.restore()
+        }
+        xfadeA = Math.max(0, xfadeA - Math.min(0.1, dt) / xfadeS)
       }
       dawn()
     } catch (e) {

@@ -60,9 +60,9 @@ values. `viewParams.ts` (pure) lists the engines and what can be turned on
 each (`ENGINES`: numbers with bounds, colours, choices, toggles): `classic`
 (the picture described under "Look" in `themes/zelda/DESIGN.md`), `iso`, an
 isometric one, and `poly`, a polygon one (below). `views.ts` holds the round: one
-built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT, POLYGON · 32-BIT), and whatever the studio published (below). **A visit starts in the
+built-in view per engine (CLASSIC · 8-BIT, ISOMETRIC · 16-BIT, POLYGON · 32-BIT) and a second look of the polygon engine with values of its own (THIRD PERSON · 64-BIT; a built-in view may carry values, and the studio's lie over them), and whatever the studio published (below). **A visit starts in the
 isometric 16-bit view** (`DEFAULT_VIEW` in `views.ts`), and the turn switch
-in the corner turns to the next (V goes classic → isometric → polygon → classic). A view the visitor turns to is kept in localStorage
+in the corner turns to the next (V goes classic → isometric → polygon → third person → classic). A view the visitor turns to is kept in localStorage
 `zelda.view` and is where their next visit starts; the view a visit merely
 starts in is not written, so a browser that never chose follows the site's
 first view, and one failed fetch of a view's code does not pin it to the
@@ -665,22 +665,6 @@ filtered textures, fog).
   the tile masses (walls, houses with their roofs, woods) and the land itself,
   hard. Lamps (the kit's `Light[]`, a lamp post's at its head) light the
   corners round them in pools and walls and things by which side faces them.
-  The lamps are held steady (`lamps.ts`, pure, tested): the painters' lights
-  flicker with the clock (a lamp post's 0.85 + 0.15·sin 9t, a laser gate's,
-  a zapper's, a fire's), which the other views lay into a smooth light map as
-  a shimmer, but here the 15-bit dither rounds the lit colour, so a lamp that
-  changed by a per cent from one frame to the next made everything it lit
-  crawl, every frame (the flashing "from the trees and down" when the view
-  went live). Each lamp is matched to last frame's (its colour, where it
-  stands) and follows the painters' strength through two smoothing steps of
-  3 s, so each lamp shines at about its own mean: a fast flicker keeps a few
-  hundredths of a per cent of its swing, the flowers' slow breathing under
-  3 % (at 0.35 s it still sparkled through the dither). The engine lights with the
-  sixteen nearest the focus; a lamp keeps its place while it fades out of
-  them and one that comes near enough fades in when a place is free (0.3 s
-  each way), so no lamp comes or goes at full strength as the hero walks; a
-  light that was not there last frame (a shot, a map's first frame) is there
-  at once. Standing still the sixteen are the nearest, at full strength.
   A blob of shadow lies under whoever walks and whatever stands alone, the
   ground under it darkened (multiplied), never lit away.
 - **Sky and water.** Outdoors the backdrop is the 16-bit view's
@@ -691,13 +675,143 @@ filtered textures, fog).
   paving) a neon rim instead, so the fountain's rim follows its rounded shore.
 - **Without WebGL2**, or when the context is lost (more than three times), or
   when the shaders do not link, the classic picture draws on.
+- **Resolution by generation** (2026-11-24). Each generation draws finer than
+  the one before: the classic picture one px to the classic px, the 16-bit view
+  two, the polygon view's own picture `density` px (POLYGON 4, THIRD PERSON
+  `screen`, the screen's own px). A picture px is always a whole number of
+  device px: `densityOf` takes the finest at or under the value, never under 2
+  (on a dpr-1 monitor both looks are at the screen's px; on a retina one the
+  32-bit look is at 4 and the 64-bit at 8; on a phone at dpr 3, 2.5 and 5). The
+  sky is painted at the scene's size and brought up; the polygons are drawn at
+  the density; `kit.present` takes the finished picture (its `picture`
+  argument), so the bloom, scanlines, vignette, flash, fade and HUD are still
+  the renderer's. The 32-bit machine keeps its grain at the finer picture: the
+  vertex snap, the dither and the stipple keep to a grid of `grain` classic px
+  (0.5). The 64-bit look draws through a 4× multisampled framebuffer
+  (`smoothEdges`), its textures filtered, the old sideways smear off. Both
+  dresses are fine (`hud32.ts`: `GLASS_FINE_SKIN`, `ROUND_FINE_SKIN` at density
+  2, the 16-bit view's lettering and icons), and the round dress has bigger,
+  softer hearts of its own. The governor steps the density down first.
+- **The painted textures** (2026-11-24). Sixteen textures painted for these
+  views (by Codex, from the 16-bit materials, in the whole colour range), one
+  per material of `iso/materials.ts`, 128 texels a side, 32 to the tile:
+  `public/zelda/poly/materials.webp` (86 KB, written by
+  `scripts/zelda-lab/poly-pack.mjs` from the painted page), fetched the first
+  time a polygon look wants it; the 16-bit materials draw until it is here, and
+  if it fails (value `textures`: `painted` or `materials`). The 32-bit look reads
+  them texel by texel, the 64-bit one filtered. Under the game's dusk some were
+  too loud or too dim and are tuned as they are decoded (`PAINTED_TUNE` in
+  `poly/view.ts`: a gain and a saturation a material): grass and the Wildwood's
+  moss and lanes lifted, the sand calmed, the cobbles kept rose-violet, the
+  interior panelling and the labs' plates calmed.
+- **The hero as a model** (2026-11-24, `poly/hero.ts`). The hero is a mesh made
+  from the drawn hero: 6,000 triangles in the 32-bit look, 20,000 in the 64-bit
+  one (`public/zelda/poly/hero-32.bin` 90 KB with `hero-32.webp` 58 KB,
+  `hero-64.bin` 283 KB with `hero-64.webp` 150 KB), fetched only when a polygon
+  look first needs the hero; the sprite card stands in until then and if it
+  fails (value `figure`: `model` or `classic`). The mesh has no rig: it is split
+  into stiff parts by where its vertices lie in its A-pose (the legs, the torso,
+  the arms, the head), with soft weights across each joint, and driven by the
+  16-bit view's modelled figure's own poses (`solvePose` in `iso/figure.ts`: the
+  walk of sixteen phases, lift, carry, push, hurt, get, use, fall, dead, the
+  swing). Its arms are turned so the hand reaches where that figure puts it and
+  its legs so the foot lands where it does; the body turns toward the heading
+  at a pace. Its mesh is sent to the GPU once, in the engine's own vertex
+  layout with two bones and a weight a corner (`heroVerts`), and skinned in the
+  vertex shader by six bone matrices a frame (`poseHero`, `uBones`), so it is
+  lit, snapped, filtered and fogged like everything else, flat-faceted in the
+  32-bit look and smooth in the 64-bit one, and the CPU does next to nothing
+  for it (part 6; it was skinned on the CPU, 3 to 6.5 ms a frame on the Mac).
+  Its smooth normals are made from its facets by place (a few of the model's
+  own pointed inward at the back of the head); seen from inside, through the
+  small hole at the back of its hair, it is the hair's dark, so the face's
+  eyes never show through the back of the head; `poly-pack.mjs` also mends the
+  texels there. A rim of the sky's and the lamps' light round its edges keeps
+  a dark jacket apart from dark ground, in both looks. The blade is a small mesh in the
+  right hand along the engine's swing angle. Every look from the NEW LOOK stall
+  wears the model (part 7): its shirt, band, hair, trousers and skin recoloured
+  from the model's own painted colours (`MODEL_COLORS`, `recolour`); nothing on
+  the head is the band in the hair's colour, a dress the trousers in the shirt's;
+  another hair style, a bow or a skirt keep the model's own shape for now.
+  Everyone else is still a card. In the 64-bit look the cards face the camera
+  fully; whatever stands between the eye and the hero is seen through a
+  soft-edged window the hero's size, what stands near the eye fades out, and a
+  paper figure nearer than the hero fades over its last tile, all with real
+  transparency (an opaque pass leaves out what is partly faded, a second pass
+  blends it in, no depth written): the 64-bit look draws no dither anywhere, its
+  shore foam a soft band. What lies flat on the ground is never faded. A paper
+  figure that covers the hero on the screen while standing nearer the eye or at
+  their heels (Luna, a dancer just before them) fades to a tenth, as a whole, by
+  how much of the hero's box it covers and how much nearer it stands (worked out
+  per figure in `view.ts`, carried to the shader in its flags' bits 5–9).
+- **Two looks on one engine** (2026-11-23). The engine's values are its
+  look, and the round has two of them: POLYGON (32-bit, the engine's own
+  values) and THIRD PERSON (64-bit, `THIRD_PERSON` in `views.ts`), every trait
+  turned the other way:
+  - *the camera* at the hero's shoulder (`SHOULDER`: pitch 17°, 5 tiles,
+    lens 56°, the hero 74 % down: low enough that the sky and the sun are in
+    the picture over the land in the open; the sky's painting reaches the top
+    edge at any pose and screen, its own top row drawn up where the camera
+    looks higher than it was painted). Its yaw follows the
+    hero lazily: it swings in behind them while they walk, not while they walk
+    toward the camera, and drifts behind them after they have stood a moment.
+    It rises over whatever stands behind the hero (the land, a wall, a house, a
+    wood: the line from the eye to the hero's chest must clear them) and is
+    pulled in only where rising is not enough. On a slope it also sees the
+    hero's feet and two tiles of ground before them (tilting at most 0.3 rad
+    for them, then coming nearer, both eased slowly so walking over knolls does
+    not bob it), and the whole camera stands higher where the land rises right
+    before the eye, so a hill never fills the bottom of the picture. Walls' faces between the eye and
+    the hero are stippled as well as tops and things. Indoors it stands lower and
+    nearer and follows the hero, still looking north (so a block goes where the
+    stick says and the south wall stays a kerb). `View.turn` is the camera's
+    nearest quarter turn, held while the hero walks, so up on the stick is away
+    from the camera and the keys walk along the world's grid; a dialog gets the
+    stick unturned. Figures with four ways show the side the camera sees
+    (`Kit.setFacing`; `facingDir` in `wild.ts`): a hero walking away shows
+    their back. (The 16-bit view's modelled figure, value `figure: 'modelled'`,
+    was tried; drawn for that view's camera, it shows three-quarters from
+    behind, so the sprite stays the default.)
+  - *the machine*: the ground and walls through the GPU's own trilinear,
+    16× anisotropic filter (a layered copy of the painted page, `uMatArr`), half
+    a level soft (`groundSoft`, in both looks: steadier walking), sharp near the
+    eye and steady far off, and on a slope stretched by the slope's own
+    steepness so a bank seen head-on does not squeeze it into streaks; the
+    paper figures filtered with a clean edge (each
+    texel smoothed over a pixel of the screen, mixed premultiplied, no dark
+    fringe) and the hero's shadow a soft round pool (`filter`), perspective-correct, steady
+    corners (`affine` and `wobble` at 0), normals shared at the corners so
+    knolls roll and trees are round (`smoothShade`), full colour stretched up
+    softly with a little sideways smear (`stretch`: `Finish.smooth` in
+    `renderer.ts`'s `present`), thick fog in the hour's colour over a short draw
+    distance (`fog`) and before it the air itself, each layer of a wood further
+    off a little more in the hour's colour so it steps back row by row; light
+    over 0.75 rolling off toward white instead of clipping; stronger lamps
+    (`lampGain` 1.6) so their pools show from the shoulder; soft halos round the
+    lamps and a lens flare from the sun (`halos`, `flare`), land a little
+    hillier than the 32-bit look's (`landScale` 1.05: 1.5 shimmered walking
+    over the camp's knolls); paper figures nearer the eye than the hero not
+    drawn (dithered, their enlarged texels showed as squares); round soft windows
+    (`ROUND_SKIN`: rounded panels with soft shadows, a round frame round an
+    item slot).
+  - *between them* there is no turn (the renderer turns only between engines):
+    when the engine's values change on screen the view eases from the old look
+    to the new over a second, the pose through `mixPose` (the crane sinks to the
+    shoulder, or climbs back), the numbers eased, the switches changed in the
+    middle under the move (`lookNow` in `view.ts`).
+  - *sight*: the shoulder reports a square the fog's radius round the hero, so
+    the woods' foes come out of the fog whichever way the camera turns.
+  - *sound*: the 16-bit flavour (`flavorForView`: the `poly` engine); no sound
+    of its own.
 - **The turn.** Through the hand-off the picture lies on the classic one:
   the facet light, the knolls' crowns, a room's second course of wall, a roof's
   pitch and what rises over a house's eaves are all light or height only k = 1
   has. This view's own things come up out of the ground and the classic
   stand-ins go down into it (moved, never squashed), staggered as the 16-bit
   view staggers: crowns go down k 0.4–0.72, trees come up 0.42–0.85, the things'
-  cards go 0.62–0.86 while the things in the round come up 0.78–1. The land
+  cards go 0.62–0.86 while the things in the round come up 0.78–1 (each tree
+  a little before or after its neighbours, by a hash in its role's fraction, so
+  a wood never breaks through the classic crowns in one frame). The land
   swells as the camera tips, the sky comes down from the top edge with the
   horizon, the water gives way from the classic picture's over k 0.1–0.5.
 - **The day** (after the Sun Prism, `kit.day('poly')`): the hour's sun (it
@@ -705,67 +819,100 @@ filtered textures, fog).
   while the sun is up, the hour's exposure; the backdrop is painted in the
   view's own dusk and the hour sinks its sun, dims its stars and grades the rest
   (`skyGrade`), and the distance fades into the graded sky's lowest colour.
-  The sun's shadows are baked into the meshes (a corner is in the sun or not),
-  and the hour's sun turns a little every tenth of a second, so the view bakes
-  a sun of its own (`sun.ts`, pure, tested): it holds it until the hour's has
-  turned 4° from it or its shadows have grown or shrunk by a tenth, and then
-  takes the hour's, so the stretches are built again every few seconds (a few
-  a frame, the old ones drawn meanwhile, as when a chest opens). The map's own
-  key holds no sun. (Until 2026-11-24 it did: every step of the hour's sun was
-  a new map, every stretch was dropped, and for a player with the real sun the
-  ground and all on it went missing several times a second.) The light itself
-  follows the hour without steps; while it drifts (dawn, morning, evening;
-  not at noon, at night or in the stuck dusk), every 15-bit step it crosses
-  would turn a pixel of the dither over somewhere, a sparkle the classic view
-  does not have, so the view measures how fast its light drifts
-  (`createDriftMeter`) and lets up to half of the unrounded colour show through
-  the dither (`softness`, uniform `uSoft`): a turned pixel is then half a
-  15-bit step. When the light holds, the dither is whole.
 - **What the screen shows.** The view says what it sees (`View.sight`): north
   to the end of the draw distance, a trapezoid widening with the lens. The
   shell hands it to the engine (`state.sight.ahead`, `spread`), and the woods'
   foes walk in from beyond the dissolve (`engine/day.ts`).
-- **A slow device** is stepped down as the 16-bit view does it (`govern`):
-  first the bloom's own pass, 70 % of the draw distance and coarse cells
-  everywhere, then a picture of half the size; `pinQuality` holds it for the
-  lab. Like every view, it keeps its GL context until the page goes.
+- **A slow device** goes down a stated ladder (`LADDER` in `view.ts`), one
+  step at a time, the same for both looks: 1 the bloom's own pass and the
+  64-bit look's multisampling to 2×; 2 the 64-bit look's per-pixel lamps and
+  its 20,000-triangle hero (for the 6,000 one), half the halos; 3 a draw
+  distance of 70 %, coarse cells, no multisampling; 4 the picture's density a
+  step down; 5 another, and the hero's card for the model. The governor
+  (`createGovernor`) judges the median gap between frames over three quarters
+  of a second against 18.5 ms, steps, waits a second while the cheaper picture
+  is built, and steps back up only after eight seconds well under the budget,
+  never to a step it has left twice (no flapping); each step dissolves in.
+  `governorTrace` records what it did; `pinQuality` holds the top for the lab.
+  A phone (`smallScreen`: under 600 CSS px across at a dpr over 2) draws at
+  most two device px a CSS px and with 2× multisampling from the start. Like
+  every view, it keeps its GL context until the page goes.
 - **Entering a map**: the land is built in slices of a few milliseconds
   (`landWork`): while the view waits to be shown, over a door's fade toward the
   map behind it, and kept per map. The mesh is built a stretch of 16 tiles at a
   time within a budget of 7 ms a frame; a stretch that changed (a bush cut) is
   drawn as it was until it is built again.
-- **Known rough edges**: figures are classic cards, not 3D; the 64-bit look is
-  not built (its camera is: `pose: shoulder`). Lamp light is per corner, so a
-  pool on a long wall is coarse. On a phone a room's camera comes near enough
+- **Steady, seamless, lit** (2026-11-24). The polygon looks are judged by
+  numbers over consecutive frames (`scripts/zelda-lab/steady.mjs`: the share of
+  pixels changed a frame and the temporal second difference, `shimmer`;
+  `scripts/zelda-lab/transit.mjs`: every frame of the turns between the views,
+  mean light and change; the 16-bit view is the control). What keeps them still:
+  - *the lamps* go through a keeper (`lamps.ts`): the painters' flickering
+    lights matched from frame to frame, smoothed twice (0.35 s), held in slots
+    and faded in and out (0.3 s) rather than swapped, at most 16, chosen by
+    nearness; `freezeLamps` holds them for the meter.
+  - *the hour's light* comes in steps of a tenth of a second; each light value
+    (ambient, the sun's colour and place, the haze, the lamps' gain) is held
+    smooth (`holdLight`, 0.4 s; a jump over 0.06, a map or a door, is taken at
+    once). The sun's shadows are marched on the GPU through a heightfield of the
+    land and the masses (`uHeights`), not baked into the mesh, so the running
+    hour rebuilds nothing. The moon takes over from the sun across a stretch of
+    its sinking (`nightShare`), not at a line, in this view and the 16-bit one.
+  - *the textures'* smaller levels are mip maps of the painted page; the
+    filtered look reads between two levels by the fraction, so the look's
+    easing never switches the ground's level in one frame. The ground and the
+    walls glide in the 32-bit look too (`groundFilter`, 1: filtered half a level
+    softer; the 64-bit look a level and a half): read texel by texel, as the
+    period's machine read them, they swam and shimmered more than the 16-bit
+    view walking over the camp's grass, and steadiness wins over the period.
+    Figures and the classic art stay texel by texel in the 32-bit look.
+  - *changes without a move* dissolve (`Kit.crossFade`, the renderer lays the
+    last finished frame over the next ones): the look's change under reduced
+    motion, the governor's step down, the hero model arriving after its card.
+    A painted page that arrives while the plain materials are on screen fades
+    in over them in the shader (0.6 s). Lamps' glows on the bloom fade with the
+    fog instead of being cut at its edge. The dialog box keeps the side it opened
+    on through a turn.
+  - *the light*: the painted materials are brought to the 16-bit view's mean
+    light per material (`toAlbedo`, a gamma solved for the mean, the hue kept;
+    `ALBEDO`, `PAINTED_TUNE`). The 64-bit look lights per pixel (`lampsAt`;
+    `smoothShade` eases it in). Light in the air over what a lamp reaches
+    saturates as the classic glow does, and toward the turn's flat end it is
+    the classic share (0.6) and the light stops at 1 as the classic light map
+    does, so the hand-off meets the classic picture beside a strong lamp too.
+    The day's exposure is added as the classic picture adds it in the 16-bit
+    view's flat end (`expose`). Lamps show halos as additive billboards that
+    keep the picture's coverage (no dark disc over the sky). Figures' blob
+    shadows fall away from what lights their spot most (the sun outdoors, the
+    lamps in reach), as in the 16-bit view.
+- **Known rough edges**: everyone but the hero is a classic card (in the 64-bit
+  look paper figures facing the camera; Luna, who follows behind the hero, is
+  the one most seen, and fades while she covers the hero); a
+  look's other hair style, bow or skirt is not modelled; neither look has a
+  sound of its own. Where the hero stands with a house's wall a tile
+  ahead, the house still fills the top of the 64-bit picture; the house's
+  windows do not spill light on the ground. Seen from close behind, two faint
+  glints remain where the back of the hero's hair has its hole. In the 32-bit look lamp light is
+  per corner, so a pool on a long wall is coarse. The sky backdrop moves in whole pixels, so a
+  settling camera steps its stripes a pixel at a time. On a phone a room's camera comes near enough
   that the room's depth fills the picture, so the room is seen closer than on a
   monitor. Rooms' water corners are a hair short of the tile edge. Not measured
-  on a phone; the lab draws on the Mac's GPU.
+  on a real phone; the lab draws on the Mac's GPU, a phone's size with Chrome's
+  CPU throttled 4× and 6× (`scripts/zelda-lab/throttle.mjs`).
 - **Looking at it.** `CHROME_BIN=<chrome> VIEW=poly node
   scripts/zelda-lab/shot.mjs <outDir> [scenes]` (PNGs end in `-poly`;
   `PARAMS` and `FRAMES` as for the isometric view);
-  `scripts/zelda-lab/poly-strip.mjs <outDir> walk|turn` writes eight frames of
-  the hero walking north-east across the square, or of the turn in.
-  `scripts/zelda-lab/walk-flicker.mjs <outDir> [cases] [--views …] [--check]`
-  reads back every frame of a walk or a stand (town square, coast road, lake,
-  Wildwood camp, shrine, a dungeon room, by the zappers; 1280 × 800 and
-  390 × 844 at dpr 3) and says how much of the picture changes from one frame
-  to the next; `--check` fails when the polygon view, standing still, changes
-  more than 1.5 % of it a frame (it was 3 to 5 % with the flickering lamps;
-  steady, 0.1 to 0.7 %, as the classic view), when any single frame standing
-  still changes more than 10 %, or when it draws a dark frame. The `day-*`
-  cases play the square with the Sun Prism home and the day running from noon,
-  dawn and night, with the quality and the geometry budget left to the page's
-  rules (the pinned lab builds every stretch at once and cannot show one
-  missing).
-  `page-flicker.mjs <baseUrl> <outDir>` does the same on a running site with
-  real keys (headless Chrome paces the page at about 12 frames a second);
-  `SAVE=<file>` puts a save in the page's storage first (`zeldaSave`: one with
-  `inv.prism` true and the hour in `day` plays the day).
-  `tests/zelda-poly.test.mjs` holds the camera, the land, the mesher and the
-  lamps (no lamp changes by more than a tenth of a 15-bit step a frame) and
-  the day (the baked sun changes now and then, never twice in a second, while
-  the hour's moves every tenth; the dither softens smoothly while the light
-  drifts and stays whole while it holds).
+  `scripts/zelda-lab/poly-strip.mjs <outDir> walk|turn|crane` writes eight frames of
+  the hero walking north-east across the square, or of the turn in (`VIEW=third`
+  for the 64-bit look). The lab reads the fetched art from `public/zelda/poly/`
+  and waits for it (`preloadArt`); `poly-pack.mjs <source>` writes that art.
+  `scripts/zelda-lab/steady.mjs <outDir> <cases> [--views] [--day dusk|sun|noon|night|dawn]
+  [--freeze] [--size 1280|390]` measures steadiness; `scripts/zelda-lab/transit.mjs <outDir>
+  round|pairs|hard|yaw [--day] [--scene] [--reduced] [--keep a-b]` the turns between the views;
+  `walk-flicker.mjs` and `page-flicker.mjs` the walk's and the page's flicker. The lab page takes
+  `cold=1` (no art fetched before the first frame) and `late=1` (the art's address wrong until
+  `__setAssetBase` gives it back). `tests/zelda-poly.test.mjs` holds the camera, the land, the
+  mesher, the lamps' keeper, the held light, the looks' easing and the painted page's light.
 
 **Day and night** (after the Sun Prism). Until the prism is home the sun
 hangs on the horizon and `GameState.daytime` is null. Taking it starts a

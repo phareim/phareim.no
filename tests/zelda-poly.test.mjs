@@ -5,6 +5,7 @@ import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { gunzipSync } from 'node:zlib'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -19,13 +20,15 @@ async function load() {
         `export * from './render/poly/camera'`,
         `export * from './render/poly/terrain'`,
         `export { Mesher, Verts, roomCut, polyShape, KERB, STRIDE, AT, TEX } from './render/poly/mesh'`,
+        `export { rig, boneMatrices, JOINTS, parseHero, heroVerts, poseHero, skinHero } from './render/poly/hero'`,
+        `export { HSTRIDE } from './render/poly/mesh'`,
+        `export { solvePose } from './render/iso/figure'`,
+        `export { createLampKeeper, LAMP_CAP } from './render/poly/lamps'`,
+        `export { holdLight, HOLD_TAU, HOLD_JUMP, easeLook, toAlbedo, ALBEDO, PAINTED_TUNE, LADDER, createGovernor } from './render/poly/view'`,
         `export { TILE } from './types'`,
         `export { WORLD } from './world/index'`,
         `export { BEYOND, beyondTile } from './render/beyond'`,
         `export { mapInfo } from './engine/index'`,
-        `export { createLampKeeper, LAMP_CAP } from './render/poly/lamps'`,
-        `export { createSunBaker, createDriftMeter, softness, SOFT_MAX, SUN_STEP } from './render/poly/sun'`,
-        `export { dayLook } from './render/daylight'`,
       ].join('; '),
       resolveDir: root,
       loader: 'ts',
@@ -448,6 +451,84 @@ describe('the mesher', () => {
   })
 })
 
+describe('resolution by generation', () => {
+  it('draws at a whole number of device px a picture px, as fine as asked, never under 2', () => {
+    for (const scale of [2, 3, 4, 5, 6, 8, 10]) for (const want of ['2', '3', '4', 'screen']) {
+      const d = M.densityOf(want, scale)
+      assert.ok(Number.isInteger(scale / d) || d === scale, `scale ${scale}, ${want}: ${d}`)
+      assert.ok(d >= Math.min(2, scale), `under 2 at scale ${scale}`)
+      if (want === 'screen') assert.equal(d, scale)
+      // (No finer than asked, unless the only whole steps of 2 or more are finer: then the coarsest of them.)
+      else assert.ok(d <= Math.max(+want + 0.5, scale / Math.max(1, Math.floor(scale / 2))), `finer than asked at scale ${scale}: ${d}`)
+    }
+    // A device that cannot keep up gets fewer px first.
+    assert.ok(M.densityOf('screen', 8, 0) < M.densityOf('screen', 8, 2))
+  })
+})
+
+describe('the hero model', () => {
+  /** A stick figure in the A-pose: a column of vertices up the middle and two arms out to the sides. */
+  function stick() {
+    const pts = []
+    for (let i = 0; i <= 20; i++) pts.push([0, -0.44 + i * 0.044, 0])
+    for (const side of [-1, 1]) for (let i = 0; i < 5; i++) pts.push([side * (0.2 + i * 0.025), -0.44 + 0.3 * 0.88, 0])
+    const n = pts.length
+    return { pos: Float32Array.from(pts.flat()), nrm: new Float32Array(n * 3), uv: new Float32Array(n * 2), idx: new Uint16Array(0), bone: new Uint8Array(n * 2), w: new Float32Array(n), lo: -0.44, hi: 0.44 }
+  }
+  it('is rigged by where its vertices lie: legs below the hip, the head above the neck, arms out at the sides', () => {
+    const m = stick()
+    M.rig(m)
+    const first = i => m.bone[i * 2]
+    assert.equal(first(0), 4, 'the soles are not a leg')
+    assert.equal(first(20), 1, 'the crown is not the head')
+    assert.equal(first(10), 0, 'the middle is not the torso')
+    for (let i = 21; i < 26; i++) assert.equal(first(i), 2, 'the left arm')
+    for (let i = 26; i < 31; i++) assert.equal(first(i), 3, 'the right arm')
+    for (let i = 0; i < m.w.length; i++) assert.ok(m.w[i] >= 0.5 && m.w[i] <= 1)
+  })
+  it('stands as it was made at rest, and moves its feet when it walks', () => {
+    const m = stick()
+    M.rig(m)
+    const rest = M.boneMatrices(m, M.solvePose({ yaw: 0, act: 'idle', t: 0 }))
+    // At rest the legs and the torso are where they were (the arms hang a little differently: the figure's hands are its own).
+    for (const b of [rest[0], rest[4], rest[5]]) { near(b[0], 1, 1e-6); near(b[5], 1, 1e-6); near(b[10], 1, 1e-6); near(b[3], 0, 1e-6); near(b[11], 0, 1e-6) }
+    const step = M.boneMatrices(m, M.solvePose({ yaw: 0, act: 'walk', t: 0.25 }))
+    // Mid-stride one leg swings forward and the other back: their rotations differ.
+    assert.ok(Math.abs(step[4][6] - step[5][6]) > 0.05, 'the legs do not swing')
+  })
+  it('is skinned on the GPU exactly where the CPU skin puts it (the shader\'s sums, in JS), for the real meshes', () => {
+    // The vertex shader's skinning (engine.ts, skinned()): two bones by weight, then model to world by the facing.
+    const shaderSkin = (hf, d, o) => {
+      const B = hf.bones
+      const at = (b, x, y, z) => [0, 1, 2].map(r => B[b * 12 + r * 4] * x + B[b * 12 + r * 4 + 1] * y + B[b * 12 + r * 4 + 2] * z + B[b * 12 + r * 4 + 3])
+      const w = d[o + M.HSTRIDE - 1]
+      const a = at(d[o + M.HSTRIDE - 3], d[o], d[o + 1], d[o + 2]), b = at(d[o + M.HSTRIDE - 2], d[o], d[o + 1], d[o + 2])
+      const m = a.map((v, i) => w * v + (1 - w) * b[i])
+      const [fx, fy] = hf.face, rx = -fy, ry = fx
+      return [hf.place[0] + hf.place[2] * (m[0] * rx - m[2] * fx), hf.place[1] + hf.place[2] * (m[0] * ry - m[2] * fy), hf.place[2] * (m[1] - hf.place[3])]
+    }
+    for (const which of ['32', '64']) {
+      const buf = gunzipSync(readFileSync(join(root, '../../public/zelda/poly/hero-' + which + '.bin')))
+      const mesh = M.parseHero(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength))
+      const d = M.heroVerts(mesh)
+      assert.equal(d.length / M.HSTRIDE, mesh.idx.length)
+      for (const pose of [{ yaw: 0.3, act: 'idle', t: 0 }, { yaw: 2, act: 'walk', t: 0.4 }, { yaw: -1, act: 'attack', t: 0.1, blade: { reach: 1, kind: 'arc' } }]) {
+        const P = M.solvePose(pose)
+        const at = { x: 12.3, y: 7.9, g: 0.4, yaw: P.yaw, scale: 0.95 / (mesh.hi - mesh.lo) }
+        const hf = M.poseHero(mesh, P, at)
+        const v = { n: 0, data: new Float32Array(0), reserve(k) { if (this.data.length < (this.n + k) * 20) { const nd = new Float32Array((this.n + k) * 20); nd.set(this.data); this.data = nd } } }
+        M.skinHero(v, mesh, P, at)
+        let worst = 0
+        for (let c = 0; c < v.n; c += 7) {
+          const g = shaderSkin(hf, d, c * M.HSTRIDE)
+          for (let k = 0; k < 3; k++) worst = Math.max(worst, Math.abs(g[k] - v.data[c * 20 + k]))
+        }
+        assert.ok(worst < 1e-4, `${which} ${pose.act}: a corner is ${worst} tiles off`)
+      }
+    }
+  })
+})
+
 describe('the lamps', () => {
   // The lights the painters gather flicker with the clock; this view lights every corner with them and rounds the
   // colour to 15 bits with a dither, so a lamp that changes from one frame to the next makes everything it lights
@@ -527,77 +608,6 @@ describe('the lamps', () => {
   })
 })
 
-describe('the day', () => {
-  // After the Sun Prism the renderer hands the views the hour's sun, turned a little every tenth of a second. The
-  // polygon view took each of those for a new map and dropped every stretch of its geometry, so the ground and all
-  // on it went missing several times a second (the flashing of 2026-11-23 for a player who has the real sun). The
-  // sun it bakes into its meshes moves in steps, and the dither is softened while the light drifts.
-  const BASE = {
-    ambient: '#8e82c4', sunAngle: 205, shadowLength: 1.6, shadow: 0.7, skyTop: '#1a0f4a', skyHorizon: '#ff5f9e', haze: '#ff6fb0',
-    nightLight: '#3a3878', dawnLight: '#f0a4b0', noonLight: '#f4efe8', nightSky: '#070722', nightHorizon: '#2c2466',
-    dawnSky: '#2a2c78', dawnHorizon: '#ffa26b', noonSky: '#2a7fd4', noonHorizon: '#a8e4ff', noonBright: 0.55,
-  }
-  // As the renderer asks: the hour to a tenth of a second.
-  const hour = t => M.dayLook(Math.round(t * 10) / 10, BASE)
-
-  it('without a day the baked sun is the view\'s own, exactly, and stays', () => {
-    const bake = M.createSunBaker()
-    const d = M.dayLook(null, BASE)
-    const first = bake(d.sunAngle, d.shadowLength)
-    assert.equal(first.angle, 205)
-    assert.equal(first.length, 1.6)
-    for (let f = 0; f < 600; f++) assert.equal(bake(d.sunAngle, d.shadowLength).key, first.key)
-  })
-
-  it('while the day runs the baked sun changes now and then (never twice in a second), though the hour\'s sun moves every tenth', () => {
-    const bake = M.createSunBaker()
-    let raw = 0
-    let baked = 0
-    let last = null
-    let lastKey = null
-    let lastChange = -Infinity
-    for (let f = 0; f <= 720 * 60; f++) {
-      const t = f / 60
-      const d = hour(t)
-      if (last && d.sunAngle !== last.sunAngle) raw++
-      const k = bake(d.sunAngle, d.shadowLength)
-      if (lastKey !== null && k.key !== lastKey) {
-        baked++
-        // (The sun and the moon hand over in one jump, at 135 s and 330 s: one rebuild each.)
-        assert.ok(t - lastChange >= 1, `the baked sun changed twice within ${(t - lastChange).toFixed(2)} s at ${t.toFixed(1)} s`)
-        lastChange = t
-      }
-      // (And what is baked is never more than a step from the hour's sun.)
-      const off = Math.abs(((k.angle - d.sunAngle + 540) % 360) - 180)
-      assert.ok(off <= M.SUN_STEP + 1e-9, `the baked sun is ${off}° off at ${t.toFixed(1)} s`)
-      last = d
-      lastKey = k.key
-    }
-    assert.ok(raw > 5000, `the hour's sun moved only ${raw} times`)
-    assert.ok(baked < 200, `the baked sun changed ${baked} times in a day`)
-  })
-
-  it('the dither stays whole while the light holds, softens while it drifts, and softens smoothly', () => {
-    const lightOf = d => { const c = parseInt(d.ambient.slice(1), 16); return [(c >> 16 & 255) / 255 * (1 + d.exposure), (c >> 8 & 255) / 255 * (1 + d.exposure), (c & 255) / 255 * (1 + d.exposure)] }
-    const soft = (from, seconds, frozen = false) => {
-      const meter = M.createDriftMeter()
-      const out = []
-      for (let f = 0; f < seconds * 60; f++) out.push(M.softness(meter(lightOf(hour(frozen ? from : from + f / 60)), 1 / 60)))
-      return out
-    }
-    // The stuck dusk (no day) and a held hour: the whole dither.
-    const dusk = M.createDriftMeter()
-    for (let f = 0; f < 300; f++) assert.equal(M.softness(dusk(lightOf(M.dayLook(null, BASE)), 1 / 60)), 0)
-    assert.ok(Math.max(...soft(450, 5, true)) === 0)
-    // Dawn into morning, and the evening: softened, and smoothly (a change of 0.03 in the softening moves a pixel by
-    // at most a quarter of an 8-bit level).
-    for (const from of [445, 495, 655]) {
-      const s = soft(from, 8)
-      assert.ok(s.at(-1) > M.SOFT_MAX * 0.5, `the dither is not softened at ${from + 8} s (${s.at(-1)})`)
-      for (let i = 1; i < s.length; i++) assert.ok(Math.abs(s[i] - s[i - 1]) < 0.03, `the softening jumps by ${Math.abs(s[i] - s[i - 1])} at ${from + i / 60} s`)
-    }
-  })
-})
 
 describe('the polygon view in the bundle', () => {
   it('is fetched on the turn to it: nothing imports it statically', () => {
@@ -609,5 +619,152 @@ describe('the polygon view in the bundle', () => {
       const src = readFileSync(f, 'utf8')
       assert.ok(!/from\s+['"][^'"]*poly\/view['"]/.test(src), `${f} imports the polygon view statically`)
     }
+  })
+})
+
+describe('the light held smooth', () => {
+  // The hour's light comes in steps of a tenth of a second; drawn as it comes, each step moves the dither over
+  // everything it lights at once (the solved game's flicker). The view holds each light value smooth.
+  it('follows a small step over frames, never at once, and settles on it', () => {
+    let v = [0.5, 0.4, 0.3]
+    const to = [0.52, 0.42, 0.31]
+    const seen = []
+    for (let i = 0; i < 240; i++) { v = M.holdLight(v, to, 1 / 60); seen.push(v[0]) }
+    // (No frame moves more than a part of the step: 1/60 s of a 0.4 s time constant is about 4 %.)
+    for (let i = 1; i < seen.length; i++) assert.ok(seen[i] - seen[i - 1] <= 0.02 * 0.05 + 1e-12, `frame ${i} moved ${seen[i] - seen[i - 1]}`)
+    near(seen[0], 0.5 + 0.02 * (1 - Math.exp(-1 / 60 / M.HOLD_TAU)), 1e-9)
+    near(seen.at(-1), 0.52, 1e-4)
+    // (Monotone: the held light never overshoots the hour's.)
+    for (let i = 1; i < seen.length; i++) assert.ok(seen[i] >= seen[i - 1] && seen[i] <= 0.52 + 1e-12)
+  })
+  it('takes a jump at once: a map, a door, a setting', () => {
+    const v = M.holdLight([0.5, 0.4, 0.3], [0.5 + M.HOLD_JUMP + 0.01, 0.4, 0.3], 1 / 60)
+    assert.deepEqual(v, [0.5 + M.HOLD_JUMP + 0.01, 0.4, 0.3])
+    assert.deepEqual(M.holdLight(null, [0.1, 0.2, 0.3], 1 / 60), [0.1, 0.2, 0.3])
+  })
+  it('does not run ahead on a long frame', () => {
+    // (A frame of a whole second counts as a tenth: a hitch does not jump the light.)
+    const a = M.holdLight([0, 0, 0], [0.05, 0, 0], 1)
+    near(a[0], 0.05 * (1 - Math.exp(-0.1 / M.HOLD_TAU)), 1e-9)
+  })
+})
+
+describe('the change between the two looks', () => {
+  const from = { filter: 0, fog: 0.3, drawDistance: 40, pose: 'crane', colors: '15-bit', smoothEdges: false }
+  const to = { filter: 1, fog: 1, drawDistance: 30, pose: 'shoulder', colors: 'full', smoothEdges: true }
+  it('mixes every number by the ease, and ends exactly on the new look', () => {
+    const half = M.easeLook(from, to, 0.25)
+    near(half.filter, 0.25); near(half.fog, 0.3 + 0.7 * 0.25); near(half.drawDistance, 37.5)
+    assert.deepEqual(M.easeLook(from, to, 1), to)
+    assert.deepEqual(M.easeLook(from, to, 0), from)
+  })
+  it('changes a switch once, in the middle, under the camera\'s move', () => {
+    for (const e of [0, 0.2, 0.49]) assert.equal(M.easeLook(from, to, e).pose, 'crane')
+    for (const e of [0.5, 0.8, 1]) assert.equal(M.easeLook(from, to, e).pose, 'shoulder')
+    assert.equal(M.easeLook(from, to, 0.3).smoothEdges, false)
+    assert.equal(M.easeLook(from, to, 0.7).colors, 'full')
+  })
+  it('is continuous: no number moves by more than its share of the ease between two frames', () => {
+    let last = M.easeLook(from, to, 0)
+    for (let i = 1; i <= 60; i++) {
+      const e = i / 60
+      const now = M.easeLook(from, to, e)
+      for (const k of ['filter', 'fog', 'drawDistance']) assert.ok(Math.abs(now[k] - last[k]) <= Math.abs(to[k] - from[k]) / 60 + 1e-9)
+      last = now
+    }
+  })
+})
+
+describe('the painted page\'s light', () => {
+  // A painted material is brought to the mean light of the 16-bit view's own (`ALBEDO`), so the ground is as bright in
+  // every view: a gamma per material, solved for the mean, the hue kept.
+  const page = (side, fill) => {
+    const d = new Uint8ClampedArray(side * side * 2 * 4)
+    for (let i = 0; i < side * side * 2; i++) { const [r, g, b] = fill(i % (side * 2), Math.floor(i / (side * 2))); d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = b; d[i * 4 + 3] = 255 }
+    return d
+  }
+  const meanOf = (d, side, k) => {
+    let sum = 0
+    for (let y = 0; y < side; y++) for (let x = k * side; x < (k + 1) * side; x++) { const o = (y * side * 2 + x) * 4; sum += (d[o] * 0.3 + d[o + 1] * 0.59 + d[o + 2] * 0.11) / 255 }
+    return sum / side / side
+  }
+  it('brings a dark painting to its target mean, and leaves the next material alone', () => {
+    const side = 16
+    const d = page(side, (x, y) => x < side ? [40 + (x * 7) % 50, 30 + (y * 5) % 40, 60 + ((x + y) * 3) % 60] : [200, 10, 10])
+    const before = meanOf(d, side, 1)
+    M.toAlbedo(d, side * 2, side, 0, M.ALBEDO.cobbles, 1)
+    near(meanOf(d, side, 0), M.ALBEDO.cobbles, 0.01)
+    near(meanOf(d, side, 1), before, 1e-9)
+  })
+  it('keeps each texel\'s hue, and the order of light and dark', () => {
+    const side = 8
+    const d = page(side, (x, y) => [20 + x * 9, 10 + y * 6, 70 + x * 4])
+    const hue = (r, g, b) => { const mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx === mn) return 0; const h = mx === r ? (g - b) / (mx - mn) : mx === g ? 2 + (b - r) / (mx - mn) : 4 + (r - g) / (mx - mn); return ((h * 60) + 360) % 360 }
+    const was = [], lum = []
+    for (let i = 0; i < side; i++) { const o = (i * side * 2 + i) * 4; was.push(hue(d[o], d[o + 1], d[o + 2])); lum.push(d[o] * 0.3 + d[o + 1] * 0.59 + d[o + 2] * 0.11) }
+    M.toAlbedo(d, side * 2, side, 0, 0.3, 1)
+    for (let i = 0; i < side; i++) {
+      const o = (i * side * 2 + i) * 4
+      assert.ok(Math.abs(hue(d[o], d[o + 1], d[o + 2]) - was[i]) < 6, `texel ${i}: hue ${was[i]} became ${hue(d[o], d[o + 1], d[o + 2])}`)
+      if (i) assert.ok(d[o] * 0.3 + d[o + 1] * 0.59 + d[o + 2] * 0.11 >= d[o - (side * 2 + 1) * 4] * 0.3 + d[o - (side * 2 + 1) * 4 + 1] * 0.59 + d[o - (side * 2 + 1) * 4 + 2] * 0.11 - 1)
+    }
+  })
+  it('has a mean light and a tuning for every material, inside the 16-bit view\'s range', () => {
+    const MATS = ['grass', 'cobbles', 'sand', 'flags', 'boards', 'moss', 'lane', 'shingles', 'siding', 'rockface', 'bricks', 'blocks', 'panel', 'slab', 'plates', 'steel']
+    for (const m of MATS) {
+      assert.ok(M.ALBEDO[m] > 0.08 && M.ALBEDO[m] < 0.7, `${m} ${M.ALBEDO[m]}`)
+      const [gain, sat] = M.PAINTED_TUNE[m]
+      assert.ok(gain > 0.5 && gain <= 1.2 && sat > 0.5 && sat <= 1.2, `${m} tune ${gain} ${sat}`)
+    }
+  })
+})
+
+describe('the governor', () => {
+  // A device: the gap between its frames (ms) at each step of the ladder. Runs it for `ms` and returns each frame's step.
+  const run = (gapAt, ms, gov = M.createGovernor()) => {
+    const steps = []
+    let t = 0
+    while (t < ms) { const g = gapAt(gov.steps); t += g; steps.push([t, gov.tick(g, t)]) }
+    return { steps, gov }
+  }
+  it('gives up the cheapest things first, and never takes one back further down', () => {
+    const L = M.LADDER
+    assert.equal(L[0].bloomPass, true); assert.equal(L[0].msaa, 4); assert.equal(L[0].model, true)
+    for (let i = 1; i < L.length; i++) {
+      assert.ok(L[i].msaa <= L[i - 1].msaa && L[i].far <= L[i - 1].far && L[i].densityDrop >= L[i - 1].densityDrop && L[i].halos <= L[i - 1].halos)
+      for (const k of ['bloomPass', 'perPixel', 'heroHi', 'model']) assert.ok(!(L[i][k] && !L[i - 1][k]), `step ${i} takes back ${k}`)
+      assert.ok(!(L[i - 1].coarse && !L[i].coarse))
+      assert.notDeepEqual(L[i], L[i - 1], `step ${i} gives up nothing`)
+    }
+    assert.equal(L.at(-1).model, false, 'the last step does not give up the model')
+  })
+  it('acts on a slow device within a second, and goes on down within a few', () => {
+    const { steps } = run(() => 33, 6000)
+    const first = steps.find(([, s]) => s >= 1)
+    assert.ok(first && first[0] < 1000, `first step at ${first?.[0]} ms`)
+    const second = steps.find(([, s]) => s >= 2)
+    assert.ok(second && second[0] < 3000, `second step at ${second?.[0]} ms`)
+  })
+  it('stays where the device keeps up, and never flaps', () => {
+    // Slow at the top, comfortable one step down: it settles on step 1 and stays there for a minute.
+    const { steps } = run(s => (s === 0 ? 24 : 12), 60000)
+    const after = steps.filter(([t]) => t > 3000).map(([, s]) => s)
+    assert.ok(after.every(s => s === 1), 'it moved after settling')
+    // A device fast enough one step down to be tempted back up: it may try once, never more.
+    const tempt = run(s => (s === 0 ? 24 : 6), 120000)
+    let changes = 0
+    for (let i = 1; i < tempt.steps.length; i++) if (tempt.steps[i][1] !== tempt.steps[i - 1][1]) changes++
+    assert.ok(changes <= 3, `${changes} changes in two minutes`)
+    assert.equal(tempt.steps.at(-1)[1], 1)
+  })
+  it('does not count a hidden tab, a pause or a new map', () => {
+    const gov = M.createGovernor()
+    let t = 0
+    for (let i = 0; i < 100; i++) { t += 500; gov.tick(500, t) }
+    for (let i = 0; i < 100; i++) { t += 40; gov.tick(40, t, true) }
+    assert.equal(gov.steps, 0)
+    gov.settle(t)
+    for (let i = 0; i < 20; i++) { t += 40; gov.tick(40, t) }
+    assert.equal(gov.steps, 0, 'it judged while a map was being built')
   })
 })

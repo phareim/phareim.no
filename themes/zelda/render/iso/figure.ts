@@ -1162,6 +1162,18 @@ function finish(o: FigureSprite, pose: FigurePose) {
 }
 
 /** Render one frame. Reuses `out`'s arrays when given (clear only what the last frame touched). No DOM, no canvas: plain typed arrays. Deterministic. */
+/**
+ * The pose's joints as the figure is drawn from them (the polygon view drives its hero model by these): where the
+ * legs face, the torso's turn, lean and roll, the head's, the body's rise (px), the feet (forward and up, px), the
+ * hands in the torso's frame (forward, right, up from the hips, px), the figure lying over and its scale, and the
+ * blade. Pure; a copy.
+ */
+export type SolvedPose = Readonly<typeof P> & { scale: number; hip: number }
+export function solvePose(pose: FigurePose): SolvedPose {
+  solve(pose)
+  return { ...P, scale: SC, hip: HIP }
+}
+
 export function renderFigure(pose: FigurePose, look: HeroLook, out?: FigureSprite): FigureSprite {
   const o: FigureSprite = out ?? { w: W, h: H, ax: AX, ay: AY, albedo: new Uint8ClampedArray(N * 4), normal: new Uint8ClampedArray(N * 4), box: [0, 0, 0, 0] }
   // The bench, where the last frame (of any sprite) stood on it.

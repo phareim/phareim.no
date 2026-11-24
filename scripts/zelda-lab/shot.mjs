@@ -11,7 +11,7 @@
 // real town in the one world.
 //
 // VIEW=iso renders the isometric view (PNGs end in -iso), VIEW=poly the
-// polygon view (-poly); with FRAMES=<n> (under 42) the shot stops n frames
+// polygon view (-poly), VIEW=third its 64-bit look (-third); with FRAMES=<n> (under 42) the shot stops n frames
 // into the turn from the classic view. CHROME_BIN=<path> draws with another
 // browser (the Mac's Chrome, where the GPU draws) instead of chromium-browser.
 //
@@ -46,7 +46,9 @@ import { LAB } from ${JSON.stringify(join(repo, 'scripts/zelda-lab/fixture.ts'))
 import { parseHeroColors } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroColors.ts'))}
 import { DRAWN_LOOK, GIRL_LOOK, parseHeroLook } from ${JSON.stringify(join(repo, 'themes/zelda/render/heroLook.ts'))}
 import isoView, { pinQuality } from ${JSON.stringify(join(repo, 'themes/zelda/render/iso/view.ts'))}
-import polyView, { pinQuality as pinPoly } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/view.ts'))}
+import polyView, { pinQuality as pinPoly, preloadArt, setAssetBase, governorTrace, timeGpu, gpuMs } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/view.ts'))}
+import { freezeLamps } from ${JSON.stringify(join(repo, 'themes/zelda/render/poly/lamps.ts'))}
+import { THIRD_PERSON } from ${JSON.stringify(join(repo, 'themes/zelda/views.ts'))}
 
 const q = new URLSearchParams(location.hash.slice(1))
 const W = +q.get("w"), H = +q.get("h"), dpr = +(q.get("dpr") || 1), top = +(q.get("top") || 0)
@@ -58,6 +60,10 @@ document.body.appendChild(canvas)
 // The lab draws as fast as it can on a software GPU: the 16-bit view must not take that for a slow phone.
 pinQuality(q.get('quality') === null ? 2 : +q.get('quality'))
 const world = scene.startsWith('p-') ? LAB : WORLD
+// The polygon views' fetched art, from the repo's own files (Chrome runs with --allow-file-access-from-files).
+setAssetBase(${JSON.stringify('file://' + join(repo, 'public/zelda/poly/'))})
+// (late=1: the art is not there at first, as on a slow line; the page's __setAssetBase brings it back for the retry.)
+if (q.get('late') === '1') setAssetBase('file:///nonexistent/')
 const s = createGame(world, { seed: 7, at: ['start', 'intro', 'swing', 'pause', 'hutout'].includes(scene) ? { map: 'overworld', entry: 'hut' } : null })
 if (scene !== 'hutout') { s.dialog = null; s.mode = 'play'; s.hero.auto = null }
 const r = createRenderer(canvas, world)
@@ -69,9 +75,20 @@ if (q.get('look')) {
 }
 // VIEW=iso shows the isometric view; FRAMES below 36 stops in the middle of the turn into it.
 if (q.get('view') === 'iso') { r.addView('iso', isoView); r.setView('iso', q.get('frames') === null) }
+// (A measuring page lets the polygon view's governor go free again.)
+window.__pinPoly = pinPoly
+window.__setAssetBase = setAssetBase
+window.__polyGov = governorTrace
+window.__timeGpu = timeGpu
+window.__gpuMs = gpuMs
+window.__freezeLamps = freezeLamps
 if (q.get('view') === 'poly') { pinPoly(q.get('pin') === '0' ? null : true); r.addView('poly', polyView); r.setView('poly', q.get('frames') === null) }
-// PARAMS='{"bloom":0.5}' sets an engine's values (viewParams.ts).
-if (q.get('params')) r.setParams(q.get('view') || 'classic', JSON.parse(q.get('params')))
+// VIEW=third: the polygon engine's second look, the 64-bit one (the built-in view's own values).
+if (q.get('view') === 'third') { pinPoly(true); r.addView('poly', polyView); r.setParams('poly', THIRD_PERSON); r.setView('poly', q.get('frames') === null) }
+// views=all (transit.mjs): every engine added, the classic one shown; the lab turns between them as the shell does.
+if (q.get('views') === 'all') { pinPoly(true); r.addView('iso', isoView); r.addView('poly', polyView) }
+// PARAMS='{"bloom":0.5}' sets an engine's values (viewParams.ts); for VIEW=third over the look's own.
+if (q.get('params')) r.setParams(q.get('view') === 'third' ? 'poly' : q.get('view') || 'classic', { ...(q.get('view') === 'third' ? THIRD_PERSON : {}), ...JSON.parse(q.get('params')) })
 r.resize(W, H, dpr, { top, right: 0, bottom: top ? 34 : 0, left: 0 })
 const inp = (o) => ({ ...NO_INPUT, ...o })
 const run = (n, i = inp({})) => { for (let k = 0; k < n; k++) r.onEvents(stepGame(world, s, 1 / 60, i)) }
@@ -167,11 +184,15 @@ function wild(luna = false) {
   if (luna) s.flags.luna = true
 }
 function go(map, x, y, dir) { enterMap(world, s, map, '', ev, { x, y }); s.hero.dir = dir; s.hero.auto = null; s.mode = 'play'; s.dialog = null }
-// Several frames so fades (exit labels) settle and the clock moves.
-for (let k = 0; k < +(q.get('frames') || 40); k++) r.draw(s, ui, 1 / 60)
-// For a lab page that wants to go on drawing (timing a view, filming a turn).
-window.__lab = { r, s, ui, world, step: (n = 1, i = inp({})) => run(n, i), inp }
-document.title = 'ready'
+// Several frames so fades (exit labels) settle and the clock moves. (The polygon views' fetched art first.)
+;(async () => {
+  // (cold=1: nothing fetched before the first frame, as on a first visit; the art arrives when the views ask for it.)
+  if ((q.get('view') === 'poly' || q.get('view') === 'third' || q.get('views') === 'all') && q.get('cold') !== '1') await preloadArt()
+  for (let k = 0; k < +(q.get('frames') || 40); k++) r.draw(s, ui, 1 / 60)
+  // For a lab page that wants to go on drawing (timing a view, filming a turn).
+  window.__lab = { r, s, ui, world, step: (n = 1, i = inp({})) => run(n, i), inp, third: THIRD_PERSON }
+  document.title = 'ready'
+})()
 `
 const entryFile = join(out, '_entry.ts')
 writeFileSync(entryFile, entry)
@@ -278,6 +299,11 @@ const SHOTS = [
   ['w-camp-390', 'w-camp', 390, 844, 3, 0],
   // The polygon view's set (tmp/poly-lab): the same places at the size the other views are judged at.
   ['shop-1280', 'shop', 1280, 800, 1, 0],
+  ['shop-390', 'shop', 390, 844, 3, 0],
+  // A retina monitor: each generation of the polygon views draws finer there (scale 8).
+  ['r-plaza-1280x2', 'r-plaza', 1280, 800, 2, 0],
+  ['d-room11-1280x2', 'd-room11', 1280, 800, 2, 0],
+  ['r-beach-1280x2', 'r-beach', 1280, 800, 2, 0],
   ['graves-1280', 'graves', 1280, 800, 1, 0],
   ['lake-1280', 'lake', 1280, 800, 1, 0],
   ['d-room11-390', 'd-room11', 390, 844, 3, 0],
@@ -291,7 +317,7 @@ for (const [name, scene, w, h, dpr, top] of SHOTS) {
   const png = join(out, `${name}${tag}${process.env.HERO_COLORS ? '-dressed' : ''}${process.env.HERO_LOOK ? '-look' : ''}.png`)
   try {
     execFileSync(process.env.CHROME_BIN || 'chromium-browser', [
-      '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--enable-unsafe-swiftshader', '--hide-scrollbars',
+      '--headless=new', '--no-sandbox', ...(process.env.CHROME_BIN ? [] : ['--disable-gpu']), '--enable-unsafe-swiftshader', '--hide-scrollbars', '--allow-file-access-from-files',
       `--force-device-scale-factor=${dpr}`, `--window-size=${w},${h}`,
       '--virtual-time-budget=3000', `--screenshot=${png}`,
       `file://${html}#scene=${scene}&w=${w}&h=${h}&dpr=${dpr}&top=${top}&touch=${w < 1000 ? 1 : 0}${hero}${view}`,

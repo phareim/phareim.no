@@ -139,18 +139,28 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
   },
   poly: {
     title: 'Polygon',
-    blurb: 'The world as low polygons in perspective, seen from a crane behind and above the hero, with a horizon: drawn the way a 1996 console drew, with small unfiltered textures that swim, corners that snap to the pixels, light worked out at the corners, 15-bit colour with a dither, and a world that dissolves a short way off. The land rolls in faceted knolls, ponds are round and the shore wanders.',
+    blurb: 'The world as low polygons in perspective, seen from a crane behind and above the hero, with a horizon: drawn much as a 1996 console drew, with corners that snap to the pixels, figures read texel by texel, light worked out at the corners, 15-bit colour with a dither, and a world that dissolves a short way off. The land rolls in faceted knolls, ponds are round and the shore wanders.',
     params: {
       ...group('The glass', {
         ...FINISH(0, 0.5, 0.45),
         colors: choice('Colours', '15-bit', ['15-bit', 'full'], 'The machine’s 32 768 colours with an ordered dither between them, or every colour the screen has.'),
       }),
       ...group('The machine', {
+        density: choice('Picture density', '4', ['2', '3', '4', 'screen'], 'Pixels of the picture to one classic px: each generation draws finer (the 16-bit view has 2). Always a whole number of the screen’s own pixels to one of the picture’s, so the nearest that is, never under 2; `screen` is the screen’s own pixels. A device that cannot keep up steps it down first.'),
+        grain: num('Machine grain', 0.5, 0.25, 1, 0.25, 'How coarse the machine’s grid is, in classic px, whatever the picture’s density: the vertex snap, the dither and the see-through stipple keep to it, so they do not vanish when the pixels get small.'),
+        smoothEdges: toggle('Smooth edges', false, 'Edges smoothed by multisampling (the 64-bit machine), or hard (the 32-bit one).'),
+        textures: choice('Textures', 'painted', ['painted', 'materials'], 'Painted: textures of these views’ own in the whole colour range, 32 texels to the tile (fetched when first needed). Materials: the 16-bit view’s, at half their density, which also draw until the painted ones are here.'),
         affine: num('Texture warp', 1, 0, 1, 0.05, 'How far textures run straight across the screen between a triangle’s corners instead of in perspective: 1 is the swimming textures of a 1996 console, 0 a later machine’s.'),
         wobble: num('Vertex wobble', 1, 0, 1, 0.05, 'How far every corner is pulled onto the pixel grid: 1 makes the polygons shiver as they move, 0 holds them still.'),
         fray: num('Frayed borders', 1, 0, 1, 0.05, 'How far the border between two grounds frays, a texel at a time.'),
+        figure: choice('The hero', 'model', ['model', 'classic'], 'Model: the hero as a model of many polygons (6 000 in the 32-bit look, 20 000 in the 64-bit one), moving by the 16-bit figure’s poses; fetched when first needed, the sprite standing in until then, and for a look of another shape. Classic: the four-way sprite as a card.'),
+        filter: num('Texture filter', 0, 0, 1, 0.05, 'Textures read texel by texel (0, the 32-bit machine) or filtered at half their size until they smear (1, the 64-bit machine), people and things too.'),
+        groundSoft: num('Ground softness', 0.5, 0, 2, 0.05, 'The filtered ground read this many mip levels softer than the screen needs: sharp (0) or steadier as the camera moves.'),
+        groundFilter: num('Steady ground', 1, 0, 1, 0.05, 'The ground’s and the walls’ textures filtered between their texels (1), so they glide as the camera moves, or read texel by texel as the 32-bit machine did (0), where they swim and shimmer. People and things go by the texture filter.'),
+        smoothShade: num('Smooth shading', 0, 0, 1, 0.05, 'One normal to a facet (0: the facets show) or normals shared at the corners (1: knolls roll and trees are round).'),
+        stretch: num('Soft picture', 0, 0, 1, 0.05, 'The picture stretched up to the screen in hard pixels (0) or softly, with a little sideways smear, as a 64-bit machine’s video filter did (1).'),
         sound: choice('Sound', '16-bit', ['16-bit', '8-bit'], 'The music through the 16-bit machine’s sampled instruments and echo (a 32-bit sound of its own is not built yet), or the classic chip.'),
-        windows: choice('Windows', '32-bit', ['32-bit', 'classic'], 'The dialog box and panels: windows of dark glass with a bright edge, or the neon boxes of the classic view.'),
+        windows: choice('Windows', '32-bit', ['32-bit', '64-bit', 'classic'], 'The dialog box and panels: windows of dark glass with a bright edge (32-bit), round soft windows with soft shadows and round frames round the item slots (64-bit), or the neon boxes of the classic view.'),
         props: toggle('Built things', true, 'Lamp posts, graves, pots, rocks, signs, fences, pillars, counters, chests and crystal blocks as small meshes, and trees as stacked cones; off, the classic art stood up as cards.'),
       }),
       ...group('The camera', {
@@ -167,6 +177,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
       ...group('The land', {
         hills: num('Hills', 1.2, 0, 2, 0.05, 'How tall the knolls between the roads, houses and walls grow, tiles. 0 is the flat classic land.'),
         shore: num('Round shores', 1, 0, 1, 0.05, 'How far the shoreline leaves the tile edge: round corners on ponds and pools, a coast that wanders. 0 is the classic square water.'),
+        landScale: num('Hilliness', 1, 0.5, 2, 0.05, 'The land’s heights scaled: 1 the 32-bit knolls, 1.5 the 64-bit look’s rolling hills.'),
         far: num('Far hills', 5, 0, 8, 0.1, 'How high the land beyond the map rises toward the horizon, tiles.'),
         roofPitch: num('Roof pitch', 0.45, 0, 1, 0.05, 'How steeply a house’s roof rises from its eaves toward the back, tiles up for every tile in.'),
       }),
@@ -176,10 +187,14 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
         shadow: num('Shadow strength', 0.7, 0, 0.9, 0.05, 'How dark the sun’s shadows and the blobs under what stands are. 0 turns them off.'),
         sunLight: color('Sunlight', '#ffae62', 'The low sun’s own colour on what faces it.'),
         sunStrength: num('Sunlight strength', 0.8, 0, 1.5, 0.05, 'How much of the light outdoors is the sun’s own.'),
+        halos: num('Lamp halos', 0, 0, 2, 0.05, 'Soft halos added round every lamp in the picture itself, as the 64-bit machine drew them.'),
+        flare: num('Lens flare', 0, 0, 1, 0.05, 'Rings of light across the picture from the sun when it is in sight.'),
+        lampAir: num('Light in the air', 0.35, 0, 1, 0.05, 'A share of every lamp’s light added over what it reaches, as the classic picture’s glow lies on its ground: a lamp brightens a dark wall too.'),
         lampGain: num('Lamp light', 1.25, 0, 3, 0.05, 'How strongly the lamps light the ground and what faces them.'),
         sideLight: num('Side light', 0.8, 0, 1, 0.05, 'How much a lamp lights only what faces it.'),
       }),
       ...group('The distance', {
+        fog: num('Fog', 0, 0, 1, 0.05, 'The distance dissolves in dithered steps (0, the 32-bit machine) or is swallowed by thick fog in the hour’s colour (1, the 64-bit machine).'),
         drawDistance: num('Draw distance', 42, 10, 80, 1, 'How far from the eye the world is drawn, tiles; it dissolves in dithered steps toward the end.'),
         haze: color('Distance colour', '#26163f', 'The colour the land takes on before it dissolves.'),
         beyond: toggle('Land beyond the edge', true, 'Outdoors the land goes on past the map’s edge, rising toward the horizon.'),

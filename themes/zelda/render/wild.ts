@@ -188,7 +188,22 @@ function drawRift(g: G, p: Prop, x0: number, y0: number, tm: number, lights: Lig
 // Luna
 // ---------------------------------------------------------------------------
 
+/**
+ * The way a figure facing `d` in the world shows to a camera turned `yaw` from north (as the polygon view's
+ * `Pose.yaw`): the nearest of the four. 0 leaves it as it is.
+ */
+export function facingDir(d: Dir, yaw: number): Dir {
+  if (!yaw) return d
+  const a = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 }[d] - yaw
+  const q = ((Math.round(a / (Math.PI / 2)) % 4) + 4) % 4
+  return (['right', 'down', 'left', 'up'] as const)[q]!
+}
+let lunaFacing = 0
+/** The camera's turn for Luna's four ways (`Kit.setFacing`). */
+export function setLunaFacing(yaw: number): void { lunaFacing = yaw }
+
 function dirKey(d: Dir): { key: string; flip: boolean } {
+  d = facingDir(d, lunaFacing)
   if (d === 'left') return { key: 'side', flip: true }
   if (d === 'right') return { key: 'side', flip: false }
   return { key: d, flip: false }

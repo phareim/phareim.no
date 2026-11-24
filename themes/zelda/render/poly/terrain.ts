@@ -102,7 +102,8 @@ export function levelOf(t: TileChar): number {
     case 'o': return 0.5
     case '$': return 0.4
     case 'F': return 0.4
-    case ',': return 0.3
+    // (Paving, a lane, a road lies flat: hills are for the wild land.)
+    case ',': return 0.05
     default: return 0
   }
 }

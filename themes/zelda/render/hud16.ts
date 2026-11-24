@@ -360,6 +360,9 @@ function pointer(g: G, x: number, y: number, time: number) {
   g.drawImage(c, x - 1 + dx, y + 1, c.width / 2, c.height / 2)
 }
 
+/** The parts the polygon view's fine dresses share (`hud32.ts`): the lettering, the icons, the marks. */
+export const FINE_PARTS = { font: FONT, icon, more, pointer, pieces }
+
 /** The isometric view's windows at double density: `kit.hudLayer(…, HIRES_WINDOW_SKIN)`. */
 export const HIRES_WINDOW_SKIN: HudSkin = {
   panel,

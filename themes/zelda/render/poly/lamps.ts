@@ -7,10 +7,8 @@
  * 15-bit machine's with an ordered dither, so a lamp that changes by a per cent or two from one frame to the next
  * moves the dither's thresholds across everything it reaches: the lit world crawls, every frame. Here each lamp
  * keeps its strength from frame to frame (matched by colour and where it stands) and follows the painters' value
- * only slowly, through two smoothing steps of three seconds: each lamp shines at about its own mean, a flicker
- * of any speed down to a few per cent of its swing or less (the flowers' slow breathing too, which at 0.35 s
- * still sparkled through the dither), so standing still the picture changes no more from frame to frame than
- * the classic view's. A light that was not there last frame (a shot, a map's first frame) is there at once.
+ * only slowly, through two smoothing steps, so a fire still breathes but no frame differs from the last by more
+ * than the dither hides.
  *
  * The engine lights with sixteen lamps, the nearest the focus. A lamp holds its place among them while it fades
  * out (`LAMP_FADE`), and one that has come near enough takes a place once one is free and fades in: as the hero
@@ -23,8 +21,8 @@ export interface RawLight { x: number; y: number; r: number; color: string; a: n
 
 /** The lamps the engine lights with, at most (`engine.ts`, `uLampPos[16]`). */
 export const LAMP_CAP = 16
-/** Each of the two smoothing steps' time constant, s: a 2 Hz flicker keeps a few hundredths of a per cent of its swing, the flowers' 0.3 Hz breathing under 3 %. */
-export const LAMP_TAU = 3
+/** Each of the two smoothing steps' time constant, s: together about half a second, a fast flicker (1.5 to 2.5 Hz) down to a few per cent of its swing. */
+export const LAMP_TAU = 0.35
 /** How long a lamp takes to come into the sixteen or go out of them, s. */
 export const LAMP_FADE = 0.3
 /** How far a lamp may have moved since the last frame and still be the same one, tiles. */
@@ -43,6 +41,10 @@ function hex(c: string): [number, number, number] {
  * with, nearest the focus first, at most `LAMP_CAP`. `dt` is the frame's time (s; 0 holds everything as it
  * was); `gain` scales every lamp; `zOf` is the height a light stands at.
  */
+/** The lab's control: every lamp's strength held where it is (the meter's `--freeze`). */
+let frozen = false
+export function freezeLamps(on: boolean): void { frozen = on }
+
 export function createLampKeeper() {
   let held: Held[] = []
   return function steadyLamps(lights: readonly RawLight[], dt: number, focus: { x: number; y: number }, gain: number, zOf: (L: RawLight) => number): Lamp[] {
@@ -64,8 +66,8 @@ export function createLampKeeper() {
       }
       const was = best >= 0 ? held[best]! : null
       if (was) taken[best] = 1
-      const a1 = was ? was.a1 + (raw - was.a1) * k : raw
-      const a2 = was ? was.a2 + (a1 - was.a2) * k : raw
+      const a1 = was ? (frozen ? was.a1 : was.a1 + (raw - was.a1) * k) : raw
+      const a2 = was ? (frozen ? was.a2 : was.a2 + (a1 - was.a2) * k) : raw
       all.push({ L, h: { x: L.x, y: L.y, color: L.color, a1, a2, w: was?.w ?? 0, slot: was?.slot ?? false }, d: Math.hypot(L.x - focus.x, L.y - focus.y), fresh: !was })
     }
     all.sort((a, b) => a.d - b.d)

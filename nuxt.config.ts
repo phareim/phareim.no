@@ -35,7 +35,9 @@ export default defineNuxtConfig({
   // Nuxt 4 turns on noUncheckedIndexedAccess; the games index arrays freely,
   // so it stays off as under Nuxt 3 (2026-10-29).
   typescript: {
-    tsConfig: { compilerOptions: { allowImportingTsExtensions: true, noEmit: true, noUncheckedIndexedAccess: false } },
+    // (Not typechecked: poly-ref/, reference art and code handed in for the polygon views, untracked and not built; and
+    // tmp/, git-ignored scratch, where the lab writes the pages it bundles.)
+    tsConfig: { compilerOptions: { allowImportingTsExtensions: true, noEmit: true, noUncheckedIndexedAccess: false }, exclude: ['../poly-ref', '../tmp'] },
   },
 
   features: {

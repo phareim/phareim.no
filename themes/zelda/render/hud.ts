@@ -55,6 +55,9 @@ export interface HudSkin {
   pointer?(g: G, x: number, y: number, time: number): void
   /** The heart pieces found so far (0–4), at (x, y) after their label (none: four squares). */
   pieces?(g: G, x: number, y: number, have: number): void
+  /** The hearts drawn this much larger than their sprite (none: 1), and this far apart (none: 9 logical px). */
+  heartScale?: number
+  heartStep?: number
   /** A known speaker's name ("KEEPER: …") goes on a plate on the dialog box's edge instead of in front of the line. */
   plate?: boolean
   /** A dialog box at the top of the screen starts under the hearts and the counters instead of on them, when the hero leaves it the room. */
@@ -147,7 +150,7 @@ export const WINDOW_SKIN: HudSkin = {
  * The polygon view's windows (a 1996 console's): dark glass the world shows through, a soft gradient down it, a
  * thin bright edge with a hotter top, and a hard drop shadow one pixel down and right.
  */
-function glassPanel(g: G, x: number, y: number, w: number, h: number, tone: 'hot' | 'cool' = 'hot') {
+export function glassPanel(g: G, x: number, y: number, w: number, h: number, tone: 'hot' | 'cool' = 'hot', thin = 1) {
   g.fillStyle = 'rgba(0,0,0,0.55)'
   g.fillRect(x + 2, y + h, w - 1, 2)
   g.fillRect(x + w, y + 2, 2, h - 1)
@@ -161,9 +164,9 @@ function glassPanel(g: G, x: number, y: number, w: number, h: number, tone: 'hot
   g.fillRect(x + 1, y + 1, w - 2, Math.max(1, Math.round(h / 3)))
   const edge = tone === 'hot' ? '#ff6fd0' : '#6ff6ff'
   g.fillStyle = edge
-  g.fillRect(x, y, w, 1)
+  g.fillRect(x, y, w, thin)
   g.globalAlpha *= 0.55
-  g.fillRect(x, y + h - 1, w, 1); g.fillRect(x, y + 1, 1, h - 2); g.fillRect(x + w - 1, y + 1, 1, h - 2)
+  g.fillRect(x, y + h - thin, w, thin); g.fillRect(x, y + thin, thin, h - 2 * thin); g.fillRect(x + w - thin, y + thin, thin, h - 2 * thin)
   g.globalAlpha /= 0.55
 }
 
@@ -172,6 +175,51 @@ export const GLASS_SKIN: HudSkin = {
   text: '#f4f0ff', shadow: '#05020e', dim: '#c4b6ee', faint: '#7a6aa8',
   hot: '#ff8ae0', cool: '#7ff4ff', prize: '#ffd23f', ok: '#b6ff4a',
   outline: '#05020e', veil: 'rgba(6,3,18,0.66)', slot: 'rgba(200,170,255,0.14)', off: '#3a2a60',
+}
+
+/**
+ * The 64-bit look's windows: round and soft. A rounded window of deep violet with a soft gradient and a soft
+ * drop shadow under it, a thin light edge; a small square panel (an item slot) is a round frame instead.
+ */
+export function roundPanel(g: G, x: number, y: number, w: number, h: number, tone: 'hot' | 'cool' = 'hot', thin = 1) {
+  const slot = w <= 30 && h <= 30 && Math.abs(w - h) <= 6
+  const path = () => {
+    g.beginPath()
+    if (slot) g.arc(x + w / 2, y + h / 2, Math.max(w, h) / 2 + 1, 0, Math.PI * 2)
+    else {
+      const r = Math.min(6, h / 2, w / 2)
+      g.moveTo(x + r, y)
+      g.arcTo(x + w, y, x + w, y + h, r)
+      g.arcTo(x + w, y + h, x, y + h, r)
+      g.arcTo(x, y + h, x, y, r)
+      g.arcTo(x, y, x + w, y, r)
+      g.closePath()
+    }
+  }
+  g.save()
+  g.shadowColor = 'rgba(0,0,0,0.6)'
+  g.shadowBlur = 4
+  g.shadowOffsetY = 2
+  const grad = g.createLinearGradient(0, y, 0, y + h)
+  if (tone === 'hot') { grad.addColorStop(0, 'rgba(70,30,110,0.92)'); grad.addColorStop(1, 'rgba(28,10,52,0.94)') }
+  else { grad.addColorStop(0, 'rgba(20,70,110,0.92)'); grad.addColorStop(1, 'rgba(8,24,52,0.94)') }
+  g.fillStyle = grad
+  path()
+  g.fill()
+  g.restore()
+  g.save()
+  g.lineWidth = (slot ? 1.5 : 1) * thin
+  g.strokeStyle = tone === 'hot' ? 'rgba(255,150,220,0.85)' : 'rgba(140,240,255,0.85)'
+  path()
+  g.stroke()
+  g.restore()
+}
+
+export const ROUND_SKIN: HudSkin = {
+  panel: roundPanel,
+  text: '#fff6ff', shadow: 'rgba(10,4,24,0.85)', dim: '#d2c4f4', faint: '#8a7ab8',
+  hot: '#ff9ae4', cool: '#8ff4ff', prize: '#ffe066', ok: '#c4ff70',
+  outline: '#140828', veil: 'rgba(12,6,30,0.6)', slot: 'rgba(210,180,255,0.16)', off: '#4a3a70',
 }
 
 /** The same windows for a view at twice the pixel density: finer bands, a real dialog font, hearts with a light on them (hud16.ts). */
@@ -209,16 +257,19 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
   // Hearts (top-left), up to 10 per row.
   const hearts = Math.ceil(h.maxHp / 2)
   const low = h.hp <= 2
+  const step = skin.heartStep ?? 9
+  const hs = skin.heartScale ?? 1
   for (let i = 0; i < hearts; i++) {
     const hp = h.hp - i * 2
     const name = hp >= 2 ? 'hud_heart_full' : hp === 1 ? 'hud_heart_half' : 'hud_heart_empty'
-    const x = 4 + (i % 10) * 9
-    const y = 4 + Math.floor(i / 10) * 9 - (low && hp > 0 && Math.floor(time * 4) % 2 === 0 ? 1 : 0)
-    icon(g, skin, name, x, y)
+    const x = 4 + (i % 10) * step
+    const y = 4 + Math.floor(i / 10) * step - (low && hp > 0 && Math.floor(time * 4) % 2 === 0 ? 1 : 0)
+    if (hs === 1) icon(g, skin, name, x, y)
+    else { const spr = sprite(name); g.drawImage(skin.icon ? skin.icon(name) : spr, x, y, spr.width * hs, spr.height * hs) }
   }
   // Counters row under the hearts.
   let cx = 4
-  const cy = 4 + Math.ceil(hearts / 10) * 9 + 2
+  const cy = 4 + Math.ceil(hearts / 10) * step + 2 + Math.round(7 * (hs - 1))
   const counter = (name: string, n: number, digits: number, color = skin.text) => {
     icon(g, skin, name, cx, cy)
     const t = String(n).padStart(digits, '0')
@@ -234,7 +285,7 @@ export function drawHud(g: G, s: GameState, vw: number, time: number, touch: boo
   // B-item box right of the hearts (touch shows it on the B button instead;
   // its pause chip owns the top-right corner).
   if (!touch && inv.selected) {
-    const bx = Math.max(4 + Math.min(hearts, 10) * 9, cx) + 4
+    const bx = Math.max(4 + Math.min(hearts, 10) * step, cx) + 4
     skin.panel(g, bx, 3, 22, 22, 'cool')
     const item = inv.selected === 'disc' ? 'item_disc' : inv.selected === 'hook' ? 'item_hook' : 'item_bombbag'
     icon(g, skin, item, bx + 11 - sprite(item).width / 2, 6)
