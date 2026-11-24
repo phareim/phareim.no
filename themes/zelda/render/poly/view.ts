@@ -41,7 +41,7 @@ import { CRANE, SHOULDER, classicMatrix, densityOf, fitPose, horizonY, mixPose, 
 import { landWork, stand, type Land, type LandLook } from './terrain'
 import { FLAG, HSTRIDE, MAT_SLOTS, Mesher, ROLE, STRIDE, TEX, Verts, massOf, type Field, type MatSlot } from './mesh'
 import { createEngine, rgb, type Engine, type PolyLook } from './engine'
-import { createLampKeeper } from './lamps'
+import { createLampKeeper, type RawLight } from './lamps'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -684,6 +684,13 @@ export default function polyView(kit: Kit): View {
    */
   let spillKey = ''
   let spillAt: [number, number, number, number] = [0, 0, 1, 0]
+  // A fire (the camp's bonfire, a tiki torch, a blast) reaches further and burns brighter than a lamp; a Shrine room's
+  // torches make the room. Reach and strength against a lamp's (`steadyLamps` fit).
+  const LAMP_FIT = [1, 1] as const
+  const FIRE_FIT = [1.5, 1.4] as const
+  const TORCH_FIT = [1.4, 1.7] as const
+  const isFire = (L: RawLight) => L.color === '#ff8a3d' && L.r >= 4
+
   function sendSpill(c: MapCtx, m: MapState) {
     const key = `${m.id}:${c.M}`
     if (key === spillKey) return
@@ -1304,12 +1311,25 @@ export default function polyView(kit: Kit): View {
     const sunCol = mix3(mix3(rgb(par.sunLight as string), [1, 0.97, 0.9], Math.max(0, Math.min(1, (height - 0.12) / 0.6))), [0.5, 0.62, 1], moonK)
     const sunS = outdoors ? (par.sunStrength as number) * ek * ((1 - moonK) * (1 - 0.35 * Math.max(0, Math.min(1, (height - 0.12) / 0.6))) + moonK * 0.4) : 0
     const exposure = 1 + (day?.exposure ?? 0) * ek
-    const gain = held('gain', [(par.lampGain as number) * (outdoors && !night ? 1 - 0.5 * Math.max(0, Math.min(1, (height - 0.1) / 0.4)) * ek : 1), 0, 0], dt, m.id)[0]
+    // (The day's dimming held as a share, then the look's gain: a held value that lags by more than HOLD_JUMP resets.)
+    const gain = (par.lampGain as number) * held('gain', [outdoors && !night ? 1 - 0.8 * Math.max(0, Math.min(1, (height - 0.1) / 0.4)) * ek : 1, 0, 0], dt, m.id)[0]
     const lamps = steadyLamps(lights, dt, focus, gain, L => {
       // A lamp post carries its light at its head; anything else at about a hand's height.
       const tt = c.field.tile(Math.floor(L.x), Math.floor(L.y))
+      if (isFire(L)) return 0.9 + groundAt(L.x, L.y)
       return (tt === 't' ? 1.35 : tt === 'M' || tt === 'H' ? 1.2 : 0.55) + groundAt(L.x, L.y)
-    })
+    }, L => isFire(L) ? FIRE_FIT : !outdoors && c.field.tile(Math.floor(L.x), Math.floor(L.y)) === 't' ? TORCH_FIT : LAMP_FIT)
+    // A light that stands on a house's own tile is one of its windows (or a sign's letter): the painters put it on the
+    // row behind the front wall, where the wall would turn its back on it. It shines from just before the wall's face,
+    // and the engine throws it out before the wall, longer than wide, marked by a negative reach.
+    for (const L of lamps) {
+      const tx = Math.floor(L.x)
+      let ty = Math.floor(L.y)
+      if (c.field.tile(tx, ty) !== 'H') continue
+      for (let k = 0; k < 4 && c.field.tile(tx, ty + 1) === 'H'; k++) ty++
+      L.y = ty + 1.25
+      L.r = -L.r
+    }
     // (The sun's place, the shadows' length and the lamps' day dimming held smooth like the hour's light: `held`.)
     const sunHeld = held('sunAt', [(par.sunAngle as number) * Math.PI / 180, Math.max(0.2, par.shadowLength as number), 0], dt, m.id)
     const sunA = sunHeld[0]
@@ -1332,8 +1352,8 @@ export default function polyView(kit: Kit): View {
         for (const L of lamps) {
           const lx = L.x - x, ly = L.y - y
           const d = Math.hypot(lx, ly)
-          if (d >= L.r || d < 0.05) continue
-          const w = (1 - d / L.r) * (L.c[0] * 0.3 + L.c[1] * 0.59 + L.c[2] * 0.11)
+          if (d >= Math.abs(L.r) || d < 0.05) continue
+          const w = (1 - d / Math.abs(L.r)) * (L.c[0] * 0.3 + L.c[1] * 0.59 + L.c[2] * 0.11)
           dx += (lx / d) * w
           dy += (ly / d) * w
           sum += w
@@ -1510,6 +1530,7 @@ export default function polyView(kit: Kit): View {
       for (const L of lamps) {
         const dd = Math.hypot(L.x - eye[0], L.y - eye[1])
         if (dd > far1) continue
+        if (L.r < 0) continue
         const r = Math.min(1.4, 0.5 + L.r * 0.18)
         // (Gone near the eye: a lamp beside the camera would lay its halo over a third of the picture.)
         const a = 0.42 * Math.min(1, haloK) * Math.max(0, Math.min(1, (dd - 2.5) / 2.5))

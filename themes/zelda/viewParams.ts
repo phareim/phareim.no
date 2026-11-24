@@ -190,7 +190,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
         halos: num('Lamp halos', 0, 0, 2, 0.05, 'Soft halos added round every lamp in the picture itself, as the 64-bit machine drew them.'),
         flare: num('Lens flare', 0, 0, 1, 0.05, 'Rings of light across the picture from the sun when it is in sight.'),
         lampAir: num('Light in the air', 0.35, 0, 1, 0.05, 'A share of every lamp’s light added over what it reaches, as the classic picture’s glow lies on its ground: a lamp brightens a dark wall too.'),
-        lampGain: num('Lamp light', 1.25, 0, 3, 0.05, 'How strongly the lamps light the ground and what faces them.'),
+        lampGain: num('Lamp light', 1.7, 0, 3, 0.05, 'How strongly the lamps light the ground and what faces them.'),
         sideLight: num('Side light', 0.8, 0, 1, 0.05, 'How much a lamp lights only what faces it.'),
       }),
       ...group('The distance', {

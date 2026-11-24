@@ -28,6 +28,8 @@ export const LAMP_FADE = 0.3
 /** How far a lamp may have moved since the last frame and still be the same one, tiles. */
 const MATCH = 0.75
 
+const NO_FIT = [1, 1] as const
+
 interface Held { x: number; y: number; color: string; a1: number; a2: number; w: number; slot: boolean }
 
 /** A '#rrggbb' colour as 0 … 1. */
@@ -39,7 +41,8 @@ function hex(c: string): [number, number, number] {
 /**
  * Make a lamp keeper for one view: called once a frame with the frame's lights, it gives the lamps to light
  * with, nearest the focus first, at most `LAMP_CAP`. `dt` is the frame's time (s; 0 holds everything as it
- * was); `gain` scales every lamp; `zOf` is the height a light stands at.
+ * was); `gain` scales every lamp; `zOf` is the height a light stands at; `fit`, if given, a light's reach and
+ * strength against a lamp's (a fire reaches further and burns brighter than the painters' 0 … 1 can say).
  */
 /** The lab's control: every lamp's strength held where it is (the meter's `--freeze`). */
 let frozen = false
@@ -47,7 +50,7 @@ export function freezeLamps(on: boolean): void { frozen = on }
 
 export function createLampKeeper() {
   let held: Held[] = []
-  return function steadyLamps(lights: readonly RawLight[], dt: number, focus: { x: number; y: number }, gain: number, zOf: (L: RawLight) => number): Lamp[] {
+  return function steadyLamps(lights: readonly RawLight[], dt: number, focus: { x: number; y: number }, gain: number, zOf: (L: RawLight) => number, fit?: (L: RawLight) => readonly [number, number]): Lamp[] {
     const t = Math.max(0, Math.min(0.1, dt))
     const k = 1 - Math.exp(-t / LAMP_TAU)
     const step = t / LAMP_FADE
@@ -92,9 +95,10 @@ export function createLampKeeper() {
     const out: Lamp[] = []
     for (const e of all) {
       if (!e.h.slot || e.h.w <= 0) continue
-      const a = e.h.a2 * e.h.w * gain
+      const f = fit ? fit(e.L) : NO_FIT
+      const a = e.h.a2 * e.h.w * gain * f[1]
       const col = hex(e.L.color)
-      out.push({ x: e.L.x, y: e.L.y, z: zOf(e.L), r: e.L.r * 1.15, c: [col[0] * a, col[1] * a, col[2] * a] })
+      out.push({ x: e.L.x, y: e.L.y, z: zOf(e.L), r: e.L.r * 1.15 * f[0], c: [col[0] * a, col[1] * a, col[2] * a] })
     }
     return out
   }

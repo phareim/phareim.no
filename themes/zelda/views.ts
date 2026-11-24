@@ -56,7 +56,7 @@ export const THIRD_PERSON: ParamValues = {
   fog: 1, drawDistance: 30, halos: 1, flare: 1, landScale: 1.05, windows: '64-bit',
   bloom: 0.8, vignette: 0.35,
   // (Stronger lamps: their pools stand out on the cobbles from the shoulder, as the 32-bit crane sees them.)
-  lampGain: 1.6,
+  lampGain: 2.3,
 }
 
 export const VIEWS: readonly ViewInfo[] = [
