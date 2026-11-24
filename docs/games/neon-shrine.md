@@ -894,9 +894,12 @@ filtered textures, fog).
     the hour's lamp light, held smooth like the rest, so it comes up with the
     lamps at sunset and is all but gone at noon. In the 64-bit look each lamp
     also lays a bright pool under itself (a core added to its soft reach).
-  - *what is drawn* (part 9): a stretch of geometry the camera cannot see (all
-    its corners outside one side of the picture, or past the 64-bit look's fog)
-    is not drawn; the translucent pass draws only the stretches near enough to
+  - *what is drawn* (part 9, 10): a stretch of geometry (8 tiles a side) the
+    camera cannot see (all its corners outside one side of the picture, or past
+    the draw distance) is not drawn; what is shaded is capped at 2.3 megapixels
+    (`PIXEL_CAP`; the 64-bit look stretched the rest of the way to the screen
+    with a smooth filter, the 32-bit look in whole steps of the screen's own
+    px), with 4x multisampling under it (`MSAA4_MAX`; a phone 2x); the translucent pass draws only the stretches near enough to
     the eye to fade, and decides a pixel's fade before its light; the bloom's
     own pass is drawn at the glow canvas's size and works out no light at its
     corners.

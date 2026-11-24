@@ -50,6 +50,8 @@ const CASES = {
   // The 64-bit camera swinging in behind the hero: a walk east, then standing while it drifts round.
   'plaza-swing': ['r-plaza', PLAZA, [[30, RIGHT], [80, STILL]]],
   'camp-stand': ['w-camp', ``, [[90, STILL]]],
+  // Standing by a lamp on the square (part 10): its pool must neither pop nor crawl.
+  'lamp-stand': ['r-plaza', `__lab.s.hero.x = 18.5; __lab.s.hero.y = 12.6; __lab.s.hero.dir = 'up'`, [[90, STILL]]],
   'camp-walk': ['w-camp', ``, [[90, UP]]],
   'camp-east': ['w-camp', ``, [[90, RIGHT]]],
   'camp-west': ['w-camp', ``, [[90, LEFT]]],

@@ -51,7 +51,13 @@ const ATLAS = 1024
 const SMALL = { w: 64, h: 80, ax: 32, ay: 62 }
 const BIG = { w: 200, h: 160, ax: 100, ay: 132 }
 /** Tiles to a stretch of static geometry outdoors. */
-const CHUNK = 16
+const CHUNK = 8
+/** The 64-bit look's picture is capped this frame (PIXEL_CAP): stretched to the screen smooth all the way. */
+let capped = false
+/** The most px the polygon views shade (part 10), and the most that gets 4x multisampling (on this Mac 4x on a capped
+ * picture costs 9 ms a frame at most, within the budget; a phone takes 2x whatever its size). */
+export const PIXEL_CAP = 2.3e6
+export const MSAA4_MAX = 2.4e6
 /** Texels a material has to its side here: 16 to the tile, so it repeats every four tiles. */
 const MATS_SIDE = 64
 
@@ -1069,7 +1075,8 @@ export default function polyView(kit: Kit): View {
         if (cx < -cw) l++; if (cx > cw) ri++; if (cy < -cw) bo++; if (cy > cw) to++; if (cw <= 0) be++
       }
       if (l === 8 || ri === 8 || bo === 8 || to === 8 || be === 8) return false
-      if (fogged) {
+      // (Past the draw distance nothing is drawn in either look: the 64-bit fog swallows it, the 32-bit dissolve ends.)
+      {
         const dx = Math.max(r.x - eye[0], 0, eye[0] - (r.x + r.w)), dy = Math.max(r.y - eye[1], 0, eye[1] - (r.y + r.h))
         if (Math.hypot(dx, dy) > far1 + 1) return false
       }
@@ -1483,6 +1490,15 @@ export default function polyView(kit: Kit): View {
     const phone = smallScreen(scr.W, scr.H, scr.dpr)
     let d = densityOf(par.density, scr.scale, 2 - spend.densityDrop)
     if (phone) { const cap = scr.scale * 2 / scr.dpr; if (d > cap + 1e-6) d = scr.scale / Math.ceil(scr.scale / cap - 1e-6) }
+    // (Part 10: what is shaded is capped by pixels, not by density: the picture is at most PIXEL_CAP px (about
+    // 1920 x 1200), however big and fine the screen; above it the picture is stretched the rest of the way with a
+    // smooth filter. The 32-bit look keeps whole steps of the screen's own px, so its hard pixels stay square.)
+    capped = false
+    if (vw * vh * d * d > PIXEL_CAP) {
+      const want = Math.sqrt(PIXEL_CAP / (vw * vh))
+      capped = (par.filter as number) > 0.5
+      d = capped ? want : scr.scale / Math.ceil(scr.scale / want - 1e-6)
+    }
     const sw = Math.max(1, Math.round(vw * d))
     const sh = Math.max(1, Math.round(vh * d))
     const px = d
@@ -1510,7 +1526,8 @@ export default function polyView(kit: Kit): View {
     if (gpuTiming) gpuLast = engine.gpuMs()
     mark('upload')
     engine.draw({
-      grid: cellPx, cell: cellPx, msaa: par.smoothEdges && k > 0.5 ? Math.min(spend.msaa, phone ? 2 : 4) : 0,
+      // (4x multisampling on a picture up to MSAA4_MAX px, 2x above it and on a phone.)
+      grid: cellPx, cell: cellPx, msaa: par.smoothEdges && k > 0.5 ? Math.min(spend.msaa, phone || sw * sh > MSAA4_MAX ? 2 : 4) : 0,
       m: M4, eye, lift: ek * ls, facet: ek, bend: [bendK, bendFrom],
       matScale: MAT_SCALE,
       heightAt: outdoors ? heightAt : [0, 0, 1, 0], sunRay: [Math.cos(sunA), Math.sin(sunA), 1 / shadowLen],
@@ -1604,7 +1621,7 @@ export default function polyView(kit: Kit): View {
         bloom.drawImage(kit.glow(L.color), p.x - r, p.y - r, r * 2, r * 2)
       }
       bloom.globalAlpha = 1
-    }, finishOf(k), hiC)
+    }, capped ? { ...finishOf(k), smooth: 1 } : finishOf(k), hiC)
 
     // What the picture shows of the ground, for the engine (the woods' foes walk in from past it): to the end of the
     // draw distance in the north, a trapezoid widening with the lens. Indoors and through most of the turn, the
