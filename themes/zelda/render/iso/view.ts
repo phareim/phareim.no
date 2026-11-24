@@ -38,7 +38,8 @@ import { FLAT, ROOF, shapeOf, WALL_TOP, type Shape } from './shape'
 import { DENSITY, fitDepth, makeCam, toGround, toScene, type Cam } from './camera'
 import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engine'
 import { rgb } from './gl'
-import { buildFlora, stepFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
+import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
+import { treeNow } from '../tree'
 import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
 import { skyGrade, type DayLook } from '../daylight'
 import { BEYOND, beyondTile, massifHeight } from '../beyond'
@@ -705,6 +706,13 @@ export default function isoView(kit: Kit): View {
     if (M && !lands) lands = createLands(kind, def.look, (x, y) => tileAt(m, kind, x, y), m.w, m.h, M)
     const fLook = floraOf(def.look)
     if (outdoors && floraLook !== fLook) { flora = buildFlora(fLook); engine.flora(flora.albedo, flora.normal); floraLook = fLook }
+    // The beach tree, painted as the wood's trees are, for today's deploys and visitors: the atlas with it is made
+    // again only when either changes (part 17).
+    if (outdoors && flora && floraLook === fLook) {
+      const tl = treeNow()
+      const fv = floraWithVisitor(fLook, tl.stage, tl.count)
+      if (fv !== flora) { flora = fv; engine.flora(fv.albedo, fv.normal) }
+    }
 
     // --- the scene's size: one hi-res px is a whole number of device px ----------------
     // Half the classic px where that is a whole number of device px. Where it is not, a phone gets the larger
@@ -1103,6 +1111,12 @@ export default function isoView(kit: Kit): View {
       if (cellY + C.h > ATLAS) continue
       used = Math.max(used, cellY + C.h)
       const ay = (it.ay ?? it.y) + (it.foot ?? 0)
+      // The beach tree: the painted one, a plant like the wood's (once the turn has the plants up; part 17).
+      if (it.tree && green && flora?.sprites.visitor?.length) {
+        plant('visitor', it.x, ay, 0, 0.18, px, 0, grow)
+        cards.push({ x: it.x, y: ay + 0.1, tall: 1.5 * grow, wide: 0.6, dark: 0.85 })
+        if (grow >= 1) continue
+      }
       // The item draws itself the classic way; its anchor lands on the cell's.
       ag.save()
       ag.beginPath()

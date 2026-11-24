@@ -172,3 +172,37 @@ describe('where the tree stands', () => {
 
   it('keeps the world valid', () => assert.deepEqual(P.validateWorld(W), []))
 })
+
+// Part 17: the 16- and 32-bit looks paint the tree as their wood's trees are painted (iso/flora.ts). Its fruit, one
+// per visitor up to FRUIT_MAX at every stage (bare branches too), and its crown, by the deploys.
+describe('the painted tree of the 16- and 32-bit looks', () => {
+  let F
+  before(async () => { F = await bundle('themes/zelda/render/iso/flora.ts') })
+  // A fruit's glint: one pixel of its lightest colour each.
+  const fruitIn = p => { let k = 0; for (let i = 0; i < p.rgba.length; i += 4) if (p.rgba[i] === 0xff && p.rgba[i + 1] === 0xf0 && p.rgba[i + 2] === 0xdc) k++; return k }
+  const leafPx = p => { let k = 0; for (let i = 0; i < p.rgba.length; i += 4) if (p.rgba[i + 3] && p.rgba[i + 1] > p.rgba[i] + 20) k++; return k }
+  it('carries one fruit per visitor today, up to FRUIT_MAX, at every stage', () => {
+    assert.equal(F.VISITOR_FRUIT_MAX, T.FRUIT_MAX)
+    for (const [deploys, visitors] of [[0, 0], [0, 4], [1, 1], [4, 7], [7, 12], [12, 3], [12, 40], [null, 2], [3, null]]) {
+      T.setTreeCounts({ deploys, visitors })
+      const look = T.treeNow()
+      assert.equal(look.stage, T.stageFor(deploys))
+      assert.equal(look.count, Math.min(visitors ?? 0, T.FRUIT_MAX))
+      assert.equal(fruitIn(F.visitorPicture('coast', look.stage, look.count)), look.count, `deploys ${deploys}, visitors ${visitors}`)
+    }
+    T.setTreeCounts({ deploys: null, visitors: null })
+  })
+  it('grows its crown with the deploys: bare branches at 0, more leaves at every stage', () => {
+    const leaves = [0, 1, 2, 3, 4].map(st => leafPx(F.visitorPicture('coast', st, 0)))
+    assert.ok(leaves[0] < 20, `a bare tree with ${leaves[0]} leaf px`)
+    for (let st = 1; st < 5; st++) assert.ok(leaves[st] > leaves[st - 1], `stage ${st}: ${leaves[st]} leaf px, not more than ${leaves[st - 1]}`)
+  })
+  it('keeps every fruit where it hung when one more visitor comes', () => {
+    // (Where each glint is from the tree's foot: the picture is cut to the tree, so a new fruit may widen it.)
+    const at = p => { const out = []; for (let i = 0; i < p.rgba.length; i += 4) if (p.rgba[i] === 0xff && p.rgba[i + 1] === 0xf0 && p.rgba[i + 2] === 0xdc) out.push(`${(i / 4) % p.w - p.ax},${Math.floor(i / 4 / p.w) - p.ay}`); return out }
+    for (const st of [0, 2, 4]) for (let n = 1; n < 12; n++) {
+      const a = at(F.visitorPicture('coast', st, n)), b = at(F.visitorPicture('coast', st, n + 1))
+      for (const i of a) assert.ok(b.includes(i), `stage ${st}: a fruit moved going from ${n} to ${n + 1}`)
+    }
+  })
+})
