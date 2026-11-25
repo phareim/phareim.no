@@ -73,8 +73,6 @@ const UP = 10
 const LAMP_PROPS: Record<string, PropKind> = { '#ff4fb8': 'lampPink', '#3ff0ff': 'lampCyan', '#ffd23f': 'lampGold', '#ffb13f': 'lampAmber', '#c87ae0': 'lampViolet' }
 /** The life in the air of the frontier's maps without a realm look of their own (`air.ts` `realmLife`). */
 const FRONTIER_LIFE: readonly Life[] = ['birds', 'fish']
-/** What is a fire's light: it throws embers and smoke (the campfire's, a tiki torch's, a landmark's fire). */
-const FIRE = TONES.fire
 /** How far into its cycle a shooting star is, in seconds (`backdrop.ts` `streak`): it shows for the first `on` of them. */
 const streakOf = (k: { every: number; phase: number }, time: number) => (time + k.phase) % k.every
 /** Dithered fills for the visible beams, one per colour (a checker in the colour, hi-res px). */
@@ -478,8 +476,9 @@ export default function isoView(kit: Kit): View {
     const sinkPx = day ? Math.round(Math.max(0, 0.12 - day.sun) * h * 0.32) : 0
     const sunA = day ? Math.round(Math.max(0, Math.min(1, 1 - (day.sun - 0.25) / 0.4)) * 10) / 10 : 1
     const starA = day ? Math.round(Math.max(0, Math.min(1, day.stars)) * 10) / 10 : 1
-    // The northern lights breathe, slowly, brighter in the dark: in tenths, so the sky is laid again only on a step.
-    const auroraA = Math.round((0.55 + 0.45 * starA) * (0.72 + 0.28 * Math.sin(time * 0.35)) * 10) / 10
+    // The northern lights breathe, slowly, brighter in the dark: in tenths, so the sky is laid again only on a step
+    // (and only a sky that has them).
+    const auroraA = !layers.some(L => L.role === 'aurora') ? 1 : Math.round((0.55 + 0.45 * starA) * (0.72 + 0.28 * Math.sin(time * 0.35)) * 10) / 10
     const hourKey = `${sinkPx}:${sunA}:${starA}:${auroraA}`
     if (hourKey !== skyHour) { skyHour = hourKey; skyKey = '' }
     if (skyAt.length !== layers.length) skyAt = new Int32Array(layers.length).fill(-0x7fffffff)
@@ -1494,8 +1493,9 @@ export default function isoView(kit: Kit): View {
         const lz = z + (L.z ?? 0.6)
         const color = TONES[L.tone]
         if (L.anim === 'sweep') {
-          // A beam that turns (a lighthouse's, with its lens) or swings to and fro (a stage spotlight).
-          const ang = motion ? tm * (Math.PI * 2 * motion.fps) / motion.frames + lx : -0.9 + 0.85 * Math.sin(tm * 0.45 + lx)
+          // A beam that turns (a lighthouse's: where the lens frame drawn points it, frame i along the i-th quarter
+          // turn from +x, as `frontierArt/fjord.ts` `lighthouse` draws it) or swings to and fro (a stage spotlight).
+          const ang = motion ? (Math.PI * 2 * frame) / motion.frames : -0.9 + 0.85 * Math.sin(tm * 0.45 + lx)
           beams.push({ x: lx, y: ly, z: lz, ang, reach: L.r, color, a: L.a * rise })
           lights.push({ x: lx, y: ly, z: lz, r: 1.6, color, a: L.a * rise })
           for (let i = 1; i <= 5; i++) {
@@ -1507,7 +1507,7 @@ export default function isoView(kit: Kit): View {
         const f = L.anim === 'fire' ? 0.8 + 0.12 * Math.sin(tm * 13 + lx * 3) + 0.08 * Math.sin(tm * 7.3 + ly)
           : L.anim === 'pulse' ? 0.8 + 0.2 * Math.sin(tm * 1.3 + lx * 2 + ly)
           : L.anim === 'blink' ? (reduced || Math.floor(tm * 1.2 + lx) % 2 === 0 ? 1 : 0.1) : 1
-        lights.push({ x: lx, y: ly, z: lz, r: L.r, color, a: L.a * f * rise })
+        lights.push({ x: lx, y: ly, z: lz, r: L.r, color, a: L.a * f * rise, fire: L.anim === 'fire' && L.tone === 'fire' })
       }
     }
     // Boulders rolling (the puzzles'): in the round, turning as they go (their classic card stands down for them).
@@ -1671,30 +1671,34 @@ export default function isoView(kit: Kit): View {
           xg.fillRect(Math.round(p0.x) / zoom, Math.round(p0.y) / zoom, 3 / zoom, 2 / zoom)
         }
       }
-      // A fire throws embers that wink out as they climb, and a little smoke that goes higher.
+      // A fire throws embers that wink out as they climb, and a pale smoke that goes higher. Only a real fire's
+      // light (`Light.fire`), whatever its flicker; each keeps its own embers (hashed on where it burns).
       let fires = 0
       for (const L of lights) {
-        if (L.color !== FIRE || L.r < 2.4 || L.a < 0.4 || fires >= 10) continue
+        if (!L.fire || fires >= 10) continue
         fires++
         const at = L.z !== undefined ? [L.x, L.y, L.z] : world3(L.x, L.y)
         const base = L.z !== undefined ? L.z : at[2] * 0.5 + 0.2
+        const fx0 = Math.round(L.x * 4)
+        const fy0 = Math.round(L.y * 4)
+        const wind = (par.wind as number) || 0.3
         for (let j = 0; j < 6; j++) {
-          const ph = hash2(fires, j, 37)
+          const ph = hash2(fx0 + j * 7, fy0, 37)
           const life = (time * (0.75 + ph * 0.5) + ph * 5) % 1
-          const sway = Math.sin(time * 2.2 + ph * 12) * 0.2 * life + life * 0.25 * ((par.wind as number) || 0.3)
-          dot(at[0]! + (ph - 0.5) * 0.4 + sway, at[1]! + (hash2(fires, j, 38) - 0.5) * 0.3, base + life * 1.5, life < 0.4 ? 2 : 1, life < 0.3 ? '#fff1b0' : life < 0.65 ? '#ffd23f' : '#ff3b5c', (1 - life) * 0.95)
+          const sway = Math.sin(time * 2.2 + ph * 12) * 0.2 * life + life * 0.25 * wind
+          dot(at[0]! + (ph - 0.5) * 0.4 + sway, at[1]! + (hash2(fx0 + j * 7, fy0, 38) - 0.5) * 0.3, base + life * 1.5, (life < 0.4 ? 2 : 1) * zoom, life < 0.3 ? '#fff1b0' : life < 0.65 ? '#ffd23f' : '#ff3b5c', (1 - life) * 0.95)
         }
         for (let j = 0; j < 3; j++) {
-          const ph = hash2(fires, j, 39)
+          const ph = hash2(fx0 + j * 5, fy0, 39)
           const life = (time * 0.22 + ph * 3 + j / 3) % 1
-          dot(at[0]! + life * 0.6 * ((par.wind as number) || 0.3) + Math.sin(time * 0.8 + j) * 0.12, at[1]!, base + 0.5 + life * 2.4, life < 0.4 ? 2 : 3, '#4a3a5e', Math.sin(life * Math.PI) * 0.32)
+          dot(at[0]! + life * 0.6 * wind + Math.sin(time * 0.8 + j) * 0.12, at[1]!, base + 0.5 + life * 2.4, (life < 0.4 ? 2 : 3) * zoom, '#cfc6e8', Math.sin(life * Math.PI) * 0.45)
         }
       }
       // A spark or two climbs in every lamp's light.
       let li = 0
       for (const L of lights) {
         li++
-        if (L.r < 3.6 || L.a < 0.5 || L.color === FIRE) continue
+        if (L.r < 3.6 || L.a < 0.5 || L.fire) continue
         const at = L.z !== undefined ? [L.x, L.y, L.z] : world3(L.x, L.y)
         for (let j = 0; j < 2; j++) {
           const ph = hash2(li, j, 31)
@@ -1884,8 +1888,9 @@ export default function isoView(kit: Kit): View {
       wind: reduced ? 0 : (par.wind as number),
     }
     // On the frontier's dark grass a lamp's pool is lost in the multiplied light (it is capped); more of it hangs
-    // in the air there, where it reads on any ground: a campfire lights its clearing.
-    if (outdoors && def.realm) look.glow *= 1.6
+    // in the air there, where it reads on any ground: a campfire lights its clearing. Not at night, when the
+    // lamps are at full strength anyway and the air would burn out to a floodlight.
+    if (outdoors && def.realm) look.glow *= 1 + 0.6 * (1 - night)
     if (mood && outdoors) moodLook(look, mood, realm!, grade, s.hero.x, s.hero.y + 0.3)
     // Under the northern lights the snow takes their green, breathing with them (`backdrop.ts` `paintAurora`).
     const aurora = realm === 'snow' && outdoors && night > 0 ? 1 + night * (0.06 + (reduced ? 0 : 0.04 * Math.sin(time * 0.35))) : 0

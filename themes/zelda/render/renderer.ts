@@ -961,7 +961,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
       })
       if (n.look === 'bonfire') {
         const flick = ui.reducedMotion ? 1 : 0.8 + 0.2 * Math.sin(time * 7) * Math.sin(time * 2.3)
-        lights.push({ x: n.x, y: n.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.95 * flick }, { x: n.x, y: n.y - 0.6, r: 2, color: '#ffd23f', a: 0.8 * flick })
+        lights.push({ x: n.x, y: n.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.95 * flick, fire: true }, { x: n.x, y: n.y - 0.6, r: 2, color: '#ffd23f', a: 0.8 * flick })
       }
       if (n.look === 'smoker') lights.push({ x: n.x + (n.dir === 'left' ? -0.3 : 0.3), y: n.y - 0.3, r: 0.6, color: '#ff8a3d', a: 0.7 })
       if (n.look === 'barmaid') lights.push({ x: n.x, y: n.y - 0.6, r: 1.8, color: '#ffb070', a: 0.6 })
@@ -1002,7 +1002,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
     const h = s.hero
     // Out in a dark realm, and anywhere on the frontier at night, the hero's own light is more of a lantern.
     const realm = day ? realmLook(info.def.look) : null
-    const lantern = day ? Math.max(realm ? MOOD[realm].hero : 0, info.def.realm ? nightOf(day) : 0) : 0
+    const lantern = day ? Math.max(realm ? MOOD[realm].hero : 0, info.def.realm ? 0.6 * nightOf(day) : 0) : 0
     if (!ui.attract && h.x > -10) lights.push({ x: h.x, y: h.y - 0.2, r: dark ? 5.2 : 2.6 + 0.9 * lantern, color: dark ? '#b8a8e8' : '#8a7ab8', a: dark ? 1 : 0.35 + 0.2 * lantern })
     if (s.disc) lights.push({ x: s.disc.x, y: s.disc.y, r: 2.2, color: '#2ff3ff', a: 0.9 })
     for (const p of m.projectiles) {

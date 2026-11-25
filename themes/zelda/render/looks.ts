@@ -162,7 +162,7 @@ export interface Mood {
   /**
    * The lamps: how strong they shine against the coast's (a dark realm's pools must read on its art, a bright
    * one's must not burn it out), how much of their light hangs in the air against the rest of the frontier's
-   * (which has 1.6 times the coast's: `iso/view.ts`), and the two colours of the street lamps (`t`, classic hex,
+   * (which has up to 1.6 times the coast's, none of it extra at night: `iso/view.ts`), and the two colours of the street lamps (`t`, classic hex,
    * each one the lamp post's glass in the 16-bit view as well: `LAMP_PROPS` in `iso/view.ts`).
    */
   lamps: number
@@ -187,7 +187,7 @@ export const MOOD: Record<RealmLook, Mood> = {
     mist: 0.25, mistColor: '#8aa0e0', clear: 0, rays: 0.3,
     ambient: [0.92, 0.98, 1.12], sun: [0.85, 0.95, 1.15], shadowLength: 1.6, shadowColor: '#3a3aa8',
     particles: 'snow', colors: ['#ffffff', '#d6e2ff', '#b4c4ff'], count: 70, leaves: null,
-    lamps: 1.15, glow: 0.9, lamp: ['#ffb13f', '#ffd23f'], raysColor: '#c8d8ff', flies: null, life: ['lanterns', 'gulls', 'fish'], hero: 0.3,
+    lamps: 0.9, glow: 0.6, lamp: ['#ffb13f', '#ffd23f'], raysColor: '#c8d8ff', flies: null, life: ['lanterns', 'gulls', 'fish'], hero: 0.3,
   },
   // A warm haze over pastel dunes, quartz glinting.
   dune: {

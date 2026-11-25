@@ -996,9 +996,9 @@ void main() {
       c = mix(c, c * 0.62 + uMistColor, band * uMist * (mat >= 3 ? 0.14 : 0.42));
       // And the lamps light it: a halo of their colour hangs in the mist round each one, in the same steps.
       vec3 lampAir = texture(uL0, (w - uRect.xy) * uLScale).rgb;
-      // (Where the mist is thick: the Wildwood's, a realm's; the coast's breath of it carries none. Laid on as a
-      // screen, so pale fog takes the lamp's colour and is not burnt out to white.)
-      vec3 halo = min(lampAir, vec3(1.0)) * (0.15 + band) * smoothstep(0.25, 0.9, uMist) * (mat >= 3 ? 0.08 : 0.3);
+      // (Only in the mist itself, and only where it is thick: the Wildwood's, a realm's; the coast's breath of it
+      // carries none. Laid on as a screen, so pale fog takes the lamp's colour and is not burnt out to white.)
+      vec3 halo = min(lampAir, vec3(1.0)) * band * smoothstep(0.25, 0.9, uMist) * (mat >= 3 ? 0.1 : 0.35);
       c = 1.0 - (1.0 - c) * (1.0 - halo);
     }
     if (uRays > 0.0) {

@@ -94,8 +94,8 @@ export function queueProps(
       case 'campfire': {
         const f = Math.floor(tm * 8) % frameCount('prop_campfire', 3)
         items.push({ x: p.x, y: p.y, things: [{ id: `campfire_${f}`, dy: -0.4 }], draw: () => put(g, `prop_campfire_${f}`, x, y) })
-        // A wide orange pool, and the heart of it gold (as the bonfire's).
-        lights.push({ x: p.x, y: p.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.85 + 0.15 * Math.sin(tm * 13) }, { x: p.x, y: p.y - 0.5, r: 2.4, color: '#ffd23f', a: 0.75 + 0.1 * Math.sin(tm * 9 + 1) })
+        // A wide orange pool, and the heart of it a warmer amber (a gold one turns the grass round it lime).
+        lights.push({ x: p.x, y: p.y - 0.4, r: 5.5, color: '#ff8a3d', a: 0.85 + 0.15 * Math.sin(tm * 13), fire: true }, { x: p.x, y: p.y - 0.5, r: 2.4, color: '#ffb13f', a: 0.6 + 0.1 * Math.sin(tm * 9 + 1) })
         break
       }
       case 'mast': {

@@ -66,7 +66,7 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
       prop('fjord_lighthouse', 3.5, 3.5, { cover: { x: 2, y: 2, w: 3, h: 3 }, motion: cycle(4, 1), lights: [light('cream', 6.5, 0.8, { z: 2.6, anim: 'sweep' }), light('amber', 2.2, 0.6, { z: 0.5, dy: 1.8 })] }),
     ],
     'q.church': [
-      prop('fjord_church', 5.5, 3.05, { cover: { x: 3, y: 1, w: 5, h: 4 }, shadow: { tall: 2, wide: 1.15, deep: 1.1 }, lights: [light('gold', 3.5, 0.75, { z: 0.6, dy: 2.25 }), light('amber', 2, 0.5, { z: 2.4, dy: 0.2 })] }),
+      prop('fjord_church', 5.5, 3.05, { cover: { x: 3, y: 1, w: 5, h: 4 }, shadow: { tall: 2, wide: 1.15, deep: 1.1 }, lights: [light('gold', 2.2, 0.55, { z: 0.6, dy: 2.25 })] }),
     ],
   },
   stillsand: {

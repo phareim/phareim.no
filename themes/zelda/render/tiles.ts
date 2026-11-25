@@ -924,9 +924,10 @@ export function updateTileLayer(layer: TileLayer, world: World, m: MapState) {
 /**
  * A light, in world tiles: where, how far it reaches, its colour (one of a few fixed `#rrggbb` strings: the
  * classic view keeps a glow per colour), how strong (0–1). `z`: how high it hangs, when the one who pushes it
- * knows (a landmark's lantern); the isometric view honours it, the classic one has no height.
+ * knows (a landmark's lantern); the isometric view honours it, the classic one has no height. `fire`: a real
+ * fire's (a campfire, a torch, a bonfire, a hearth), which throws embers and smoke in the isometric view.
  */
-export interface Light { x: number; y: number; r: number; color: string; a: number; z?: number }
+export interface Light { x: number; y: number; r: number; color: string; a: number; z?: number; fire?: boolean }
 
 const LAMP_COLORS = ['#ff4fb8', '#3ff0ff', '#ffd23f']
 
@@ -941,6 +942,18 @@ export function chestStar(g: G, x: number, y: number, time: number, seed: number
   g.fillRect(Math.round(x), Math.round(y) - arm, 1, arm * 2 + 1)
   g.fillStyle = '#ffffff'
   g.fillRect(Math.round(x), Math.round(y), 1, 1)
+}
+
+/** Whether a tree tile has open ground beside it (the edge of a wood), so what lights it can be seen. */
+function openBeside(m: GameState['map'], tx: number, ty: number) {
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    const x = tx + dx
+    const y = ty + dy
+    if (x < 0 || y < 0 || x >= m.w || y >= m.h) continue
+    const n = m.tiles[y * m.w + x]!
+    if (n !== 'T' && n !== '~' && !isBuilding(n)) return true
+  }
+  return false
 }
 
 /**
@@ -961,6 +974,7 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
   const tm = reduced ? 0 : time
   const own = exitTiles(world, m.id)
   const cover = decalCover(info.def, m.w)
+  let pools = 0
   for (let ty = y0; ty <= y1; ty++) {
     for (let tx = x0; tx <= x1; tx++) {
       const t = m.tiles[ty * m.w + tx]!
@@ -990,7 +1004,7 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
             g.fillStyle = '#ff8a3d'; g.fillRect(px + 6 + (lean > 0 ? 1 : 0), py - 2 - tall, 3, 3 + tall)
             g.fillStyle = '#ffd23f'; g.fillRect(px + 7, py, 2, 2)
             g.fillStyle = '#fff1b0'; g.fillRect(px + 7 + lean, py - 3 - tall, 1, 2)
-            lights.push({ x: wx, y: wy - 0.5, r: 4.2, color: '#ff8a3d', a: 0.85 * flick })
+            lights.push({ x: wx, y: wy - 0.5, r: 4.2, color: '#ff8a3d', a: 0.85 * flick, fire: true })
             break
           }
           if (kind === 'dungeon') {
@@ -1032,14 +1046,16 @@ export function drawLiveTiles(g: G, world: World, s: GameState, cx: number, cy: 
               // In the suburb one window in four is a television: a cold light that jumps as the picture cuts.
               if (realm === 'suburb' && hash2(tx, ty, 19) < 0.25) {
                 const cut = reduced ? 0.5 : hash2(Math.floor(time * 4 + hash2(tx, ty, 21) * 7), tx, 23)
-                lights.push({ x: wx, y: wy + 0.4, r: 2 + 0.6 * night, color: '#7ce4ff', a: 0.45 + 0.3 * cut + 0.2 * night })
-              } else lights.push({ x: wx, y: wy + 0.4, r: 2.2 + 0.8 * night, color: '#ffb13f', a: 0.75 + 0.25 * night })
+                lights.push({ x: wx, y: wy + 0.4, r: 2 + 0.3 * night, color: '#7ce4ff', a: 0.45 + 0.3 * cut + 0.1 * night })
+              } else lights.push({ x: wx, y: wy + 0.4, r: 2.2 + 0.3 * night, color: '#ffb13f', a: 0.75 + 0.1 * night })
             }
           }
           break
         case 'T':
-          // Under the spore wood's caps the moss is lit in pools, teal and violet, by a cap here and there.
-          if (realm === 'spore' && hash2(tx, ty, 13) > 0.78) {
+          // At the spore wood's edge the moss is lit in pools, teal and violet, by a cap here and there (only
+          // where the wood meets open ground, where the pool can be seen; a score at most in view).
+          if (realm === 'spore' && pools < 20 && hash2(tx, ty, 13) > 0.8 && openBeside(m, tx, ty)) {
+            pools++
             const v = hash2(tx, ty, 14) > 0.75
             lights.push({ x: wx, y: wy - 0.2, r: 2.3, color: v ? '#c87ae0' : '#3ad0d8', a: 0.32 + (reduced ? 0 : 0.1 * Math.sin(time * 0.8 + tx * 1.3 + ty)) })
           }
