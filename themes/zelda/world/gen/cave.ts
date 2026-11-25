@@ -63,7 +63,7 @@ export function generateCave(ctx: CaveCtx): MapDef {
   const fy = Math.floor(far / cols) * RH + RH / 2
   g[fy - 2]![fx] = mark({ t: 'chest', id: `${ctx.id}.c0`, item: loot })
   const cells: Record<string, CellDef> = {}
-  const name = ctx.realm.cave?.name ?? `${ctx.realm.name}: CAVE`
+  const name = ctx.realm.cave?.name ?? `A CAVE IN ${ctx.realm.name}`
   for (let r = 0; r < n; r++) cells[`${r % cols},${Math.floor(r / cols)}`] = { name }
   return {
     id: ctx.id,

@@ -70,15 +70,25 @@ export interface RealmSpec {
   density: number
   pois: PoiSpec[]
   folk: FolkSpec[]
-  /** What the realm's signs and waystones say (the first line is the place). */
+  /**
+   * What a sign says where its place has no words of its own (`signs`): the first line is the
+   * heading, one of the others follows it. At least two lines on a realm with signs.
+   */
   lore: string[]
+  /** The first visit's few words of mood (a dialog over the banner); default the heading of `lore`. */
+  intro?: string[]
+  /**
+   * What the signs of a place (a stamp of `stamps.ts`, by name) say in this realm: alternatives, each the
+   * pages of one sign. A camp's sign gets a page of the roads out to other realms after it (`region.ts`).
+   */
+  signs?: Record<string, string[][]>
   /** Chest contents, by weight (a heart piece is placed by the frontier, not here). */
   loot: Array<[ItemId, number]>
   props?: Array<Prop['kind']>
   /** What this realm is about beyond the sword (docs: realm sketch → Mechanic hook). */
   special?: 'dig' | 'battle' | 'puzzles'
-  /** What its caves are called and who lives in them (default `<NAME>: CAVE`, bats and skulls). */
-  cave?: { name: string; foes: Array<[EnemyKind, number]> }
+  /** What its caves are called and who lives in them (default `A CAVE IN <NAME>`, bats and skulls). */
+  cave?: { name: string; foes?: Array<[EnemyKind, number]> }
 }
 
 /**
