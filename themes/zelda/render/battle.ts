@@ -31,7 +31,7 @@ const STATUS_TONE: Record<BattleStatus, 'prize' | 'ok' | 'cool' | 'hot'> = { stu
 const FEET = 0.45
 /** How tall a foe stands over its feet (tiles), for its pips. */
 function heightOf(look: string): number {
-  return look === 'knight' ? 2.45 : look === 'bat' || look === 'drone' ? 2 : look === 'blob' ? 1.4 : 1.75
+  return look === 'knight' ? 2.3 : look === 'bat' || look === 'drone' ? 1.85 : look === 'blob' ? 1.15 : 1.55
 }
 
 /**

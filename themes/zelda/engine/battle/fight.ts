@@ -192,7 +192,8 @@ function fight(c: Ctx, b: BattleState, dt: number, inp: Input) {
   if (b.phase !== 'fight') return
   // The head of the queue acts.
   b.queue = b.queue.filter(id => { const f = fighter(b, id); return !!f && !f.down && f.atb >= 1 })
-  const next = b.queue[0]
+  // (A dazed fighter keeps its place in the queue but cannot act until it comes to.)
+  const next = b.queue.find(id => !fighter(b, id)!.status.stun)
   if (!next) return
   const f = fighter(b, next)!
   if (f.side === 'party') openMenu(c, b, f)
