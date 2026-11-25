@@ -443,7 +443,7 @@ export interface MapDef {
    * flag `bigkey:<ring>`.
    */
   keyring?: string
-  /** The painter's palette: Project Horizon's labs, the deep Wildwood. */
+  /** The painter's palette: Project Horizon's labs, the deep Wildwood; the frontier's realms (`render/looks.ts`). */
   look?: 'lab' | 'wild' | 'snow' | 'dune' | 'spore' | 'fog' | 'quarry' | 'suburb'
   /** Crystal switches of every map in this group share one state (a flag), across rooms and floors. */
   crystal?: string

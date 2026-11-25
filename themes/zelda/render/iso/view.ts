@@ -48,7 +48,9 @@ import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
 import { skyGrade, type DayLook } from '../daylight'
 import { BEYOND, beyondTile, massifHeight } from '../beyond'
 import { createLands, type Lands } from './lands'
-import { buildMaterials, materialId, stepMaterials, type Material } from './materials'
+import { buildLookMaterials, buildMaterials, materialId, stepLookMaterials, stepMaterials, type Material } from './materials'
+import { CLASSIC, GROUND, lumaOf, MOOD, realmLook, type RealmLook } from '../looks'
+import { realmAir } from './air'
 import { buildProps, COUNTER_TOP, stepProps, type PropAtlas, type PropKind, type PropSprite } from './props'
 import { puzzlePropOf, rollKind } from './puzzleProps'
 import { puzzleInfo } from '../../engine/index'
@@ -140,8 +142,11 @@ export default function isoView(kit: Kit): View {
   try { engine = createEngine() } catch { return legacyView(kit) }
   /** The things built for this view (`props.ts`), once they are painted. */
   let propAtlas: PropAtlas | null = null
+  /** The realm look whose materials are on the GPU ('' the coast's). */
+  let matLook = ''
   const sendMaterials = () => {
     const mats = buildMaterials()
+    matLook = ''
     // (With the things drawn by hand packed under the built ones: part 23, `things.ts`.)
     propAtlas = withThings(buildProps())
     engine.materials(mats.data, mats.w, mats.h)
@@ -362,7 +367,10 @@ export default function isoView(kit: Kit): View {
   function uploadTiles(kind: MapKind, look: string | undefined, green: boolean) {
     const wild = look === 'wild'
     const m = shapeMap!
-    const own: Record<string, Material> = { grass: wild ? 'moss' : 'grass', path: wild ? 'lane' : 'cobbles', sand: 'sand', floor: 'flags', boards: 'boards' }
+    const realm = realmLook(look)
+    const own: Record<string, Material> = realm
+      ? { grass: GROUND[realm].grass, path: GROUND[realm].path, sand: GROUND[realm].sand, floor: 'flags', boards: 'boards' }
+      : { grass: wild ? 'moss' : 'grass', path: wild ? 'lane' : 'cobbles', sand: 'sand', floor: 'flags', boards: 'boards' }
     const data = new Uint8Array(ew * eh * 4)
     for (let ey = 0; ey < eh; ey++) for (let ex = 0; ex < ew; ex++) {
       const sh = shapes[ey * ew + ex]!
@@ -646,7 +654,7 @@ export default function isoView(kit: Kit): View {
         if (++revived > 3) throw new Error('context lost again')
         engine = createEngine()
         if (propAtlas) sendMaterials()
-        tilesKey = ''; floraLook = ''; backdropKey = ''; atlasUsed = ATLAS; settle = 90
+        tilesKey = ''; floraLook = ''; backdropKey = ''; atlasUsed = ATLAS; settle = 90; matLook = ''
       } catch { fallback = legacyView(kit); return ready(hurry, s) }
     }
     const had = propAtlas !== null
@@ -667,7 +675,26 @@ export default function isoView(kit: Kit): View {
     settle = Math.max(settle, 20)
     gapN = 0
   }
-  const floraOf = (look: string | undefined): FloraLook => look === 'wild' ? 'wild' : 'coast'
+  const floraOf = (look: string | undefined): FloraLook => realmLook(look) ?? (look === 'wild' ? 'wild' : 'coast')
+  /**
+   * A realm look's materials on the GPU, or the coast's back (`materials.ts`): painted a sheet a call while
+   * there is time (`late`), all at once when `late` is not given.
+   */
+  function lookMaterials(look: string | undefined, late?: () => boolean): boolean {
+    if (!propAtlas) return true
+    const want = realmLook(look) ?? ''
+    if (matLook === want) return true
+    if (want) {
+      if (late) while (!stepLookMaterials(want)) if (late()) return false
+      const mats = buildLookMaterials(want)
+      engine.materials(mats.data, mats.w, mats.h)
+    } else {
+      const mats = buildMaterials()
+      engine.materials(mats.data, mats.w, mats.h)
+    }
+    matLook = want
+    return true
+  }
 
   /**
    * What the first frame on a map paints before it can draw: the map's two tile pictures and, outdoors, the
@@ -690,6 +717,7 @@ export default function isoView(kit: Kit): View {
       engine.flora(flora.albedo, flora.normal)
       floraLook = fLook
     }
+    if (!lookMaterials(def.look, late)) return false
     return true
   }
 
@@ -734,6 +762,9 @@ export default function isoView(kit: Kit): View {
     if (M && !lands) lands = createLands(kind, def.look, (x, y) => tileAt(m, kind, x, y), m.w, m.h, M)
     const fLook = floraOf(def.look)
     if (outdoors && floraLook !== fLook) { flora = buildFlora(fLook); engine.flora(flora.albedo, flora.normal); floraLook = fLook }
+    lookMaterials(def.look)
+    const realm = realmLook(def.look)
+    const mood = realm ? MOOD[realm] : null
     // The beach tree, painted as the wood's trees are, for today's deploys and visitors: the atlas with it is made
     // again only when either changes (part 17).
     if (outdoors && flora && floraLook === fLook) {
@@ -923,7 +954,7 @@ export default function isoView(kit: Kit): View {
         if (t === 'H' || t === 'M' || t === 'D') return 8 * materialId(top ? 'shingles' : 'siding')
         // (A cracked face keeps the classic picture: the rock's material would take every colour of the crack.)
         if (t === '%' && !top) return 0
-        if (t === '#' || t === '%' || t === '^') return 8 * materialId(top ? (def.look === 'wild' ? 'moss' : 'grass') : 'rockface')
+        if (t === '#' || t === '%' || t === '^') return 8 * materialId(top ? (realm ? GROUND[realm].top : def.look === 'wild' ? 'moss' : 'grass') : 'rockface')
         return 0
       }
       if (t !== '#' && t !== '%' && t !== '^') return 0
@@ -1395,6 +1426,12 @@ export default function isoView(kit: Kit): View {
         xg.fillRect(Math.round(ax * 2) / 2, Math.round(ay * 2) / 2, i % 3 ? 0.5 : 1, 0.5)
       }
     }
+    // A realm's air (`air.ts`): snow falling, spores rising, dust on the wind; a few of the spores light what is near.
+    if (mood && outdoors && !ui.attract && k > 0.5) {
+      const n = lights.length
+      realmAir(xg, mood, vx, vy, Math.ceil(vw), Math.ceil(vh), reduced ? 0 : time, lights)
+      for (const L of lights.splice(n)) loose.push({ ...L, x: L.x * T - vx, y: L.y * T - vy })
+    }
     kit.projectiles(xg, s, S1, (dx, dy) => ({ x: dx * P.ex.x + dy * P.ey.x, y: dx * P.ex.y + dy * P.ey.y }))
     kit.fx(xg, s, dt, S1, ui.paused, 1 - 0.5 * k)
     // Dig & build: the tile a tool would work, outlined at its height (`dig.ts`).
@@ -1440,7 +1477,7 @@ export default function isoView(kit: Kit): View {
         }
       }
       // Leaves ride the wind across the coast and the woods.
-      if (outdoors) {
+      if (outdoors && !(mood && !mood.leaves)) {
         const wind = par.wind as number
         for (let i = 0; i < 9; i++) {
           const a = hash2(i, 5, 41)
@@ -1448,7 +1485,7 @@ export default function isoView(kit: Kit): View {
           const lx = ((a * 1.7 + time * (0.02 + b * 0.02) * (0.5 + wind)) % 1.2) - 0.1
           const ly = ((b * 1.3 + time * 0.011 + Math.sin(time * 0.9 + i) * 0.02) % 1.1) - 0.05
           xg.globalAlpha = 0.75
-          xg.fillStyle = def.look === 'wild' ? (i % 3 ? '#3fd8b0' : '#b98cff') : i % 3 ? '#ff8ae0' : '#56c9b8'
+          xg.fillStyle = mood?.leaves ? mood.leaves[i % 3 ? 0 : 1] : def.look === 'wild' ? (i % 3 ? '#3fd8b0' : '#b98cff') : i % 3 ? '#ff8ae0' : '#56c9b8'
           const wob = Math.sin(time * 3 + i * 2.1)
           xg.fillRect(Math.round(lx * sw) / zoom, Math.round(ly * sh + wob * 3) / zoom, (wob > 0 ? 2 : 1) / zoom, 1 / zoom)
         }
@@ -1472,7 +1509,8 @@ export default function isoView(kit: Kit): View {
     // (The moon takes over from the sun across a stretch of its sinking, not at a line: no step in the light.)
     const moonT = Math.max(0, Math.min(1, (-0.2 - height) / 0.2))
     const moonK = moonT * moonT * (3 - 2 * moonT)
-    const sunCol: [number, number, number] = mix3(mix3(warm, [1, 0.97, 0.9], Math.max(0, Math.min(1, (height - 0.12) / 0.6))), [0.5, 0.62, 1], moonK)
+    let sunCol: [number, number, number] = mix3(mix3(warm, [1, 0.97, 0.9], Math.max(0, Math.min(1, (height - 0.12) / 0.6))), [0.5, 0.62, 1], moonK)
+    if (mood) sunCol = [sunCol[0] * mood.sun[0], sunCol[1] * mood.sun[1], sunCol[2] * mood.sun[2]]
     const sunS = (par.sunStrength as number) * direct * k * ((1 - moonK) * (1 - 0.35 * Math.max(0, Math.min(1, (height - 0.12) / 0.6))) + moonK * 0.4)
     // What the sun does not reach is lit by the sky: cooler and dimmer than one light for everything.
     const skyFill: [number, number, number] = [1 - 0.5 * sunS, 1 - 0.4 * sunS, 1 - 0.16 * sunS]
@@ -1516,7 +1554,7 @@ export default function isoView(kit: Kit): View {
     // --- blob shadows: away from whatever lights the spot most ---------------------------
     const sunA = ((par.sunAngle as number) * Math.PI) / 180
     const sunDir = { x: Math.cos(sunA), y: Math.sin(sunA) }
-    const reach = (par.shadowLength as number) * (outdoors ? 1 : 0.4)
+    const reach = (par.shadowLength as number) * (outdoors ? 1 : 0.4) * (mood ? mood.shadowLength : 1)
     let nb = 0
     const blob = (x: number, y: number, tall: number, wide: number, dark = 1, deep = -1) => {
       if ((nb + 6) * BVERT > blobVerts.length) { const next = new Float32Array(blobVerts.length * 2); next.set(blobVerts); blobVerts = next }
@@ -1560,7 +1598,7 @@ export default function isoView(kit: Kit): View {
 
     // --- to the GPU -----------------------------------------------------------------------
     // The backdrop is painted in the view's own dusk; the hour moves its sun and stars and grades the rest.
-    paintSky(outdoors ? (def.look === 'wild' ? 'wild' : 'coast') : 'void', sw, sh, own.skyTop as string, own.skyHorizon as string, c.x * DENSITY, reduced ? 0 : time, day)
+    paintSky(outdoors ? (realm ?? (def.look === 'wild' ? 'wild' : 'coast')) : 'void', sw, sh, mood ? mood.sky[0] : own.skyTop as string, mood ? mood.sky[1] : own.skyHorizon as string, c.x * DENSITY, reduced ? 0 : time, day)
     const grade = day ? skyGrade(own.skyTop as string, own.skyHorizon as string, par.skyTop as string, par.skyHorizon as string) : null
     engine.flat(flat)
     engine.objs(objs)
@@ -1570,7 +1608,7 @@ export default function isoView(kit: Kit): View {
     // The finish turns with the picture too: the classic view's scanlines thin out as this one comes in.
     const f0 = kit.finish('classic')
     const f1 = kit.finish('iso')
-    const elev = Math.atan2(1, Math.max(0.05, par.shadowLength as number))
+    const elev = Math.atan2(1, Math.max(0.05, (par.shadowLength as number) * (mood ? mood.shadowLength : 1)))
     const look: Look = {
       soft: (par.smoothing as number) * Math.min(1, k * 2),
       materials: quality === 0 ? 0 : (par.materials as number) * Math.max(0, Math.min(1, k * 2 - 0.6)),
@@ -1614,6 +1652,7 @@ export default function isoView(kit: Kit): View {
       scanlines: f0.scanlines + (f1.scanlines - f0.scanlines) * k,
       wind: reduced ? 0 : (par.wind as number),
     }
+    if (mood && outdoors) moodLook(look, mood, realm!, grade, s.hero.x, s.hero.y + 0.3)
     const heroAt = toScene(cam, s.hero.x, s.hero.y + 6 / T)
     let iris: [number, number, number] = [0, 0, -1]
     if (s.dying && k > 0.5) {
@@ -1625,7 +1664,7 @@ export default function isoView(kit: Kit): View {
       // Under reduced motion the water, the mist and the shafts stand still.
       cam, R, mapX: -M, mapY: -M, mapW: ew, mapH: eh, inner: { x: 0, y: 0, w: m.w, h: m.h }, far: M ? k : 0, rooms, time: reduced ? 0 : time, outdoors,
       // By day the light is more than the art's own (the art is painted for the dusk).
-      ambient: rgb(amb).map((q, i) => q * (1 + (day?.exposure ?? 0) * k) * (outdoors ? skyFill[i]! : 1)) as [number, number, number],
+      ambient: rgb(amb).map((q, i) => q * (1 + (day?.exposure ?? 0) * k) * (outdoors ? skyFill[i]! * (mood ? 1 + (mood.ambient[i]! - 1) * k : 1) : 1)) as [number, number, number],
       voidColor: rgb(outdoors ? '#0e2a3c' : '#07040f'),
       hero: { x: s.hero.x, y: s.hero.y },
       verts, vertCount: nv,
@@ -1675,6 +1714,45 @@ export default function isoView(kit: Kit): View {
 
 const mix3 = (a: [number, number, number], b: [number, number, number], t: number): [number, number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
 
+/** Each realm look's classic ground brightness per material slot (the ground shader's `uRefs`), worked out once. */
+const realmRefs = new Map<RealmLook, Float32Array>()
+function refsOf(realm: RealmLook): Float32Array {
+  let r = realmRefs.get(realm)
+  if (!r) {
+    r = new Float32Array(8)
+    const pal = CLASSIC[realm]
+    const g = GROUND[realm]
+    const slot = (m: Material) => materialId(m)
+    if (pal.g0) r[slot(g.grass)] = lumaOf(pal.g0)
+    if (pal.path) r[slot(g.path)] = lumaOf(pal.path)
+    if (pal.sand) r[slot(g.sand)] = lumaOf(pal.sand)
+    realmRefs.set(realm, r)
+  }
+  return r
+}
+
+/**
+ * A realm's light and air over the hour's (`looks.ts` `MOOD`): its haze, mist and shafts, its shadows' colour,
+ * its water, the ground fog parting round the hero, and its sky in the water as the hour grades it.
+ */
+function moodLook(look: Look, mood: (typeof MOOD)[RealmLook], realm: RealmLook, grade: { mul: [number, number, number]; add: [number, number, number] } | null, hx: number, hy: number): void {
+  const graded = (hex: string): [number, number, number] => {
+    const c = rgb(hex)
+    return grade ? [c[0] * grade.mul[0] + grade.add[0], c[1] * grade.mul[1] + grade.add[1], c[2] * grade.mul[2] + grade.add[2]].map(v => Math.max(0, Math.min(1, v))) as [number, number, number] : c
+  }
+  look.haze *= mood.haze
+  look.hazeColor = mix3(look.hazeColor, graded(mood.hazeColor), mood.hazeMix)
+  // (The mist was taken at the coast's breath of it: 0.3 of the view's own.)
+  look.mist = (look.mist / 0.3) * mood.mist
+  look.mistColor = graded(mood.mistColor)
+  look.rays = (look.rays / 0.4) * mood.rays
+  look.shadowTint = tint(mood.shadowColor)
+  look.skyTop = graded(mood.sky[0])
+  look.skyHorizon = graded(mood.sky[1])
+  look.waterTint = rgb(mood.water)
+  look.refs = refsOf(realm)
+  if (mood.clear > 0) look.fog = [hx, hy, mood.clear, 0.16]
+}
 /** The mist's colour: the haze, cooled toward the night. */
 function mistOf(haze: [number, number, number]): [number, number, number] {
   return [haze[0] * 0.14 + 0.13, haze[1] * 0.14 + 0.2, haze[2] * 0.14 + 0.3]

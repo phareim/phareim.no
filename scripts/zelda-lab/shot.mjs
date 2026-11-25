@@ -65,7 +65,17 @@ document.body.style.cssText = 'margin:0;background:#0b0616;overflow:hidden'
 document.body.appendChild(canvas)
 // The lab draws as fast as it can on a software GPU: the 16-bit view must not take that for a slow phone.
 pinQuality(q.get('quality') === null ? 2 : +q.get('quality'))
-const world = scene.startsWith('p-') ? LAB : WORLD
+// look-<look>[-2] (render/looks.ts): a frontier region drawn in a realm's look, whatever its realm says (-2: another
+// region, by its north edge, where the land beyond and the sky show). The
+// region is a copy of a generated one under the id 'look-<look>:<region>', in a copy of the world.
+const forced = new Map()
+const lookWorld = { ...WORLD, generate: id => {
+  const m = /^look-([a-z]+):(.+)$/.exec(id)
+  if (!m) return WORLD.generate(id)
+  if (!forced.has(id)) { const base = WORLD.generate(m[2]); forced.set(id, base && { ...base, look: m[1] }) }
+  return forced.get(id)
+} }
+const world = scene.startsWith('p-') ? LAB : scene.startsWith('look-') ? lookWorld : WORLD
 // The polygon views' fetched art, from the repo's own files (Chrome runs with --allow-file-access-from-files).
 setAssetBase(${JSON.stringify('file://' + join(repo, 'public/zelda/poly/'))})
 // (late=1: the art is not there at first, as on a slow line; the page's __setAssetBase brings it back for the retry.)
@@ -144,6 +154,18 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'f-fogstage': give(); near('fr:1,6', 'q.act.director'); run(30); break
   case 'f-rerun': give(); near('fr:8,7', 'l.band'); run(30); break
   case 'f-cave': { give(); const id = ['fr:6,7', 'fr:5,7', 'fr:6,6', 'fr:5,6', 'fr:4,6', 'fr:6,5', 'fr:5,5', 'fr:4,5', 'fr:3,4'].find(i => WORLD.generate(i)?.entries.cave0); place(id + ':cave0', 'in'); run(30); break }
+  case 'look-snow': give(); place('look-snow:fr:4,6', 'camp', 0, -1); run(30); break
+  case 'look-snow-2': give(); place('look-snow:fr:4,4', 'camp'); s.hero.y = 3.5; run(30); break
+  case 'look-dune': give(); place('look-dune:fr:1,1', 'camp'); run(30); break
+  case 'look-dune-2': give(); place('look-dune:fr:4,4', 'camp'); s.hero.y = 3.5; run(30); break
+  case 'look-spore': give(); place('look-spore:fr:4,4', 'camp'); run(30); break
+  case 'look-spore-2': give(); place('look-spore:fr:3,4', 'camp'); s.hero.y = 3.5; run(30); break
+  case 'look-fog': give(); place('look-fog:fr:4,4', 'camp'); run(30); break
+  case 'look-fog-2': give(); place('look-fog:fr:4,6', 'camp', 0, -1); s.hero.y = 3.5; run(30); break
+  case 'look-quarry': give(); place('look-quarry:fr:1,1', 'camp'); run(30); break
+  case 'look-quarry-2': give(); place('look-quarry:fr:4,4', 'camp'); s.hero.y = 3.5; run(30); break
+  case 'look-suburb': give(); place('look-suburb:fr:4,6', 'camp', 0, -1); run(30); break
+  case 'look-suburb-2': give(); place('look-suburb:fr:4,4', 'camp'); s.hero.y = 3.5; run(30); break
   case 'intro': s.dialog = { lines: ['KEEPER: THE SUN HAS HUNG ON THE HORIZON FOR THREE NIGHTS. THE STATIC KING TOOK THE SUN PRISM INTO THE OLD NEON SHRINE.'], line: 0, chars: 80, who: 'keeper', after: null }; s.mode = 'dialog'; break
   case 'swing': give(); run(10); r.onEvents(stepGame(WORLD, s, 1/60, inp({ aPress: true, a: true }))); run(5, inp({ a: true })); break
   case 'market': give(); place('overworld', 'shop', 4, 4); run(20); break
@@ -572,6 +594,10 @@ const SHOTS = [
   ['f-sporelight', 'f-sporelight', 1280, 800, 1, 0],
   ['f-fogstage', 'f-fogstage', 1280, 800, 1, 0],
   ['f-rerun', 'f-rerun', 1280, 800, 1, 0],
+  ...['snow', 'dune', 'spore', 'fog', 'quarry', 'suburb'].flatMap(l => [
+    [`look-${l}`, `look-${l}`, 1280, 800, 1, 0], [`look-${l}-390`, `look-${l}`, 390, 844, 2, 0],
+    [`look-${l}-2`, `look-${l}-2`, 1280, 800, 1, 0],
+  ]),
 ]
 const want = only ? new Set(only.split(',')) : null
 const hero = (process.env.HERO_COLORS ? `&hero=${encodeURIComponent(process.env.HERO_COLORS)}` : '') + (process.env.HERO_LOOK ? `&look=${encodeURIComponent(process.env.HERO_LOOK)}` : '')

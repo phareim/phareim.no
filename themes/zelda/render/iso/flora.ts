@@ -33,10 +33,11 @@
  * on contact sheets.
  */
 import { makeCanvas } from '../sheet'
+import { REALM_LOOKS, type RealmLook } from '../looks'
 
 export interface FloraSprite { x: number; y: number; w: number; h: number; /** the point that stands on the ground, px from the rect's top-left */ ax: number; ay: number }
 export interface FloraAtlas { albedo: HTMLCanvasElement; normal: HTMLCanvasElement; sprites: Record<FloraKind, FloraSprite[]> }
-export type FloraLook = 'coast' | 'wild' | 'beach'
+export type FloraLook = 'coast' | 'wild' | 'beach' | RealmLook
 export type FloraKind = 'tree' | 'canopy' | 'bush' | 'tall' | 'tuft' | 'flowerPink' | 'flowerCyan' | 'reed' | 'palm' | 'visitor'
 
 // ---------------------------------------------------------------------------
@@ -103,11 +104,15 @@ interface Look {
   dense: number
   /** Light of its own among the leaves, for berries and on the small caps on the ground (the Wildwood), or none. */
   glow: Neon | null
+  /** The realms' trees (`../looks.ts`): a pine of tiers, or a giant cap on a pale stalk lit from under its rim (in `glow`). */
+  form?: 'pine' | 'cap'
+  /** Snow lying on what faces up, dark to light (five steps). */
+  frost?: Ramp
 }
 
 const WILD = dusk(blend(TEAL, MOON, 0.6), 0.9)
 
-const LOOKS: Record<FloraLook, Look> = {
+const LOOKS = {
   coast: {
     leaf: [TEAL, TEAL, TEAL, MOON],
     shrub: SHRUB, bark: BARK, grass: GRASS, frond: blend(TEAL, LIME, 0.5), stem: blend(BARK, HUSK, 0.25), husk: HUSK, barkTop: 4, stemTop: 4,
@@ -124,7 +129,60 @@ const LOOKS: Record<FloraLook, Look> = {
     shrub: blend(SHRUB, LIME, 0.6), bark: blend(BARK, HUSK, 0.6), grass: blend(GRASS, DUNE, 0.7), frond: LIME, stem: HUSK, husk: HUSK, barkTop: 4, stemTop: 5,
     rim: rgb('#c8527c'), hot: rgb('#ffb05a'), dense: 0.95, glow: null,
   },
+} as Record<FloraLook, Look>
+
+// The frontier's realms (`../looks.ts`): their own crowns, trunks and grass.
+const PINE = ramp('#0a1430', '#0f2040', '#152e52', '#1e4262', '#2a5a74', '#4a7c94', '#7aa4bc')
+const SNOW = ramp('#5a64a8', '#8a98d0', '#b4c2ea', '#d8e2f8', '#ffffff')
+const BLOSSOM = ramp('#24082a', '#420e40', '#681a5a', '#922a78', '#bc4494', '#e070b4', '#ff9ad4')
+const BONE = ramp('#2a1e34', '#44304a', '#62485e', '#846476', '#a8869a', '#ccaab8', '#ecd2dc')
+const CAP_CYAN = ramp('#0a0e30', '#121c50', '#1a3070', '#1e4c90', '#2a78b0', '#40b0d0', '#90f0f4')
+const CAP_VIOLET = ramp('#140a30', '#28124e', '#401c70', '#5e2a96', '#8040b8', '#b060dc', '#f0a8ff')
+const STALK = ramp('#1a1430', '#2e2648', '#463c64', '#625880', '#8274a0', '#a898c0', '#d0c4e4')
+const FERN = ramp('#0a1a24', '#0e2a30', '#143c3c', '#1e5448', '#2e7056', '#4a9468', '#7cc08a')
+const NEEDLE = ramp('#100a24', '#1a1238', '#281c50', '#3a286a', '#523a88', '#6e52a8', '#9a7ad0')
+const RUST = ramp('#160a0a', '#2a1210', '#441e18', '#642c20', '#88402a', '#ac5a38', '#d4844e')
+const OAK = ramp('#0c2020', '#10342c', '#164c34', '#22683c', '#348a44', '#5cb050', '#a0d870')
+const CHERRY = ramp('#2a0a24', '#4a1238', '#701e52', '#982e6c', '#c04888', '#e070a8', '#ffb0d4')
+
+const REALM_FLORA: Record<RealmLook, Look> = {
+  snow: {
+    leaf: [PINE, PINE, PINE, dusk(blend(PINE, MOON, 0.6), 0.95)], form: 'pine', frost: SNOW,
+    shrub: blend(SHRUB, MOON, 0.55), bark: BARK, grass: ramp('#2a3060', '#4a5890', '#7a8cc0', '#a4b4e0', '#c8d4f4', '#ffffff'),
+    frond: PINE, stem: BARK, husk: HUSK, barkTop: 4, stemTop: 4, rim: rgb('#8a7ae0'), hot: rgb('#c0d0ff'), dense: 1.15, glow: null,
+  },
+  dune: {
+    leaf: [BLOSSOM, BLOSSOM, BLOSSOM, BONE],
+    shrub: ramp('#2a1a2a', '#4a2c3e', '#6e4456', '#94606c', '#b88088', '#d8a4a4', '#f0c8bc'),
+    bark: ramp('#1e1018', '#3a2230', '#583848', '#7a5060', '#9e6c78', '#c4929a', '#e8bcbc'),
+    grass: ramp('#3a2030', '#6a4048', '#9a6a5a', '#c49870', '#e8c48c', '#fff0c0'),
+    frond: blend(TEAL, LIME, 0.65), stem: HUSK, husk: HUSK, barkTop: 5, stemTop: 5, rim: rgb('#ffd08a'), hot: rgb('#fff0b0'), dense: 0.85, glow: null,
+  },
+  spore: {
+    leaf: [CAP_CYAN, CAP_VIOLET, CAP_CYAN, CAP_VIOLET], form: 'cap',
+    shrub: ramp('#1a0a2a', '#341448', '#561e66', '#7a2e84', '#a044a0', '#cc6ac0', '#f0a0e0'),
+    bark: STALK, grass: ramp('#0a2030', '#0e3a44', '#16585a', '#227a70', '#3ab89a', '#b4fbe0'),
+    frond: CAP_CYAN, stem: STALK, husk: HUSK, barkTop: 5, stemTop: 5, rim: rgb('#ff5fd0'), hot: rgb('#ffb0f0'), dense: 0.5, glow: CYAN,
+  },
+  fog: {
+    leaf: [FERN, FERN, FERN, dusk(blend(MOON, VIOLET, 0.6), 0.95)],
+    shrub: blend(SHRUB, FERN, 0.5), bark: BARK, grass: ramp('#2a1a34', '#4a3050', '#6a4a6a', '#8c6888', '#b08ca8', '#e0c0d8'),
+    frond: FERN, stem: BARK, husk: HUSK, barkTop: 4, stemTop: 4, rim: rgb('#ff6fb0'), hot: rgb('#ffb0d0'), dense: 1.1, glow: null,
+  },
+  quarry: {
+    leaf: [NEEDLE, NEEDLE, NEEDLE, RUST], form: 'pine',
+    shrub: ramp('#141008', '#2a2014', '#423420', '#5e4a2c', '#7c6438', '#a08448', '#c8aa60'),
+    bark: RUST, grass: ramp('#2a1810', '#4a2c1a', '#7a4a28', '#a87038', '#d49a50', '#ffd890'),
+    frond: NEEDLE, stem: RUST, husk: HUSK, barkTop: 4, stemTop: 4, rim: rgb('#ff8a4a'), hot: rgb('#ffc070'), dense: 1.1, glow: null,
+  },
+  suburb: {
+    leaf: [OAK, OAK, OAK, CHERRY],
+    shrub: ramp('#10200c', '#1a3412', '#2a4c18', '#406a20', '#5e8c2c', '#88b43c', '#c0dc60'),
+    bark: BARK, grass: ramp('#0e2a1a', '#14482a', '#1e6a38', '#2e8c44', '#56b85a', '#b4f08c'),
+    frond: blend(TEAL, LIME, 0.65), stem: HUSK, husk: HUSK, barkTop: 4, stemTop: 4, rim: rgb('#ff7ab0'), hot: rgb('#ffd08a'), dense: 1, glow: null,
+  },
 }
+Object.assign(LOOKS, REALM_FLORA)
 
 // ---------------------------------------------------------------------------
 // A plant on the bench: what every pixel is before it has a colour
@@ -694,6 +752,44 @@ const TREES: ReadonlyArray<readonly BoughAt[]> = [
   [[0, -10, 13, 9], [-10, -1, 10, 7.5], [10, -2, 10.5, 7.5], [0, 6, 13, 7.5], [-8, 12, 8.5, 5.5], [8, 12, 8.5, 5.5]],
 ]
 
+/** The realms' pines: tiers, the lower ones wider and nearer the viewer. */
+const PINES: ReadonlyArray<readonly BoughAt[]> = [
+  [[0, -26, 3.5, 4], [0, -20, 6, 4.5], [-1, -13, 8.5, 5], [1, -6, 11, 6], [0, 2, 13.5, 6.5], [0, 10, 15, 6]],
+  [[0, -30, 3, 4], [0, -24, 5, 4.5], [0, -17, 7.5, 5], [0, -10, 9.5, 5.5], [0, -2, 11.5, 6], [0, 6, 13, 6], [0, 13, 14, 5]],
+  [[0, -20, 5, 4.5], [-1, -13, 9, 5.5], [1, -5, 12.5, 6], [0, 4, 16, 6.5], [0, 11, 17, 5.5]],
+  [[0, -16, 4, 4], [0, -10, 7.5, 5], [0, -2, 10.5, 6], [0, 6, 13, 6]],
+]
+/** The spore wood's giant caps: a dome, a taller one, a flat wide one, a small one. */
+const CAPS: ReadonlyArray<readonly BoughAt[]> = [
+  [[0, -5, 20, 6], [-12, -1, 11, 5], [12, -1, 11, 5], [0, 1, 19, 5.5]],
+  [[0, -7, 15, 7], [-8, -2, 9, 5], [8, -2, 9, 5], [0, 0, 14, 5]],
+  [[0, -4, 24, 5], [-15, 0, 12, 4.5], [15, 0, 12, 4.5], [0, 1, 22, 4.5]],
+  [[0, -6, 13, 6], [0, -1, 12, 5]],
+]
+/** A crown's boughs for a look: its own form, or the given ones. */
+const formOf = (L: Look, own: ReadonlyArray<readonly BoughAt[]>, v: number): readonly BoughAt[] => L.form === 'pine' ? PINES[v]! : L.form === 'cap' ? CAPS[v]! : own[v]!
+/** How much trunk a form shows under its crown, against a round crown's: a pine's tiers come low, a cap stands on a tall stalk. */
+const bareOf = (L: Look) => L.form === 'pine' ? 0.45 : L.form === 'cap' ? 1.35 : 1
+/** A form's trunk girth against a round crown's. */
+const girthOf = (L: Look) => L.form === 'cap' ? 1.45 : L.form === 'pine' ? 0.8 : 1
+
+/**
+ * The realms' finish on a crown (rampId 0): snow on what faces up (`frost`), a cap's rim lit from under it in
+ * its glow (`cap`, rows from `rim` down).
+ */
+function realmFinish(p: Plot, L: Look, rim: number, bottom: number): void {
+  for (let y = 0; y < p.h; y++) for (let x = 0; x < p.w; x++) {
+    const i = y * p.w + x
+    if (p.z[i] === NONE || p.ramp[i] !== 0 || p.fix[i] >= 0) continue
+    if (L.frost && p.ny[i] > 0.3 && p.ix[i] > 0) {
+      p.fix[i] = packed(L.frost[clamp(p.ix[i] - 2 + (p.ny[i] > 0.62 ? 1 : 0), 0, 4)]!)
+    } else if (L.form === 'cap' && L.glow && y >= rim && y < bottom) {
+      const t = (y - rim) / Math.max(1, bottom - rim)
+      p.fix[i] = packed(p.ix[i] === 0 ? L.glow.deep : t > 0.55 ? L.glow.light : t > 0.2 ? L.glow.main : L.glow.deep)
+    }
+  }
+}
+
 /** The crowns of the four forest trees, broader than they are tall: a full dome, twin heads, a wide flat one, a high dome. */
 const CANOPIES: ReadonlyArray<readonly BoughAt[]> = [
   [[-3, -19, 14, 9], [-17, -11, 12, 8.5], [14, -12, 13.5, 8.5], [0, -5, 15, 9], [-21, 1, 10.5, 7.5], [21, 0, 10.5, 7.5], [-9, 8, 14, 8.5], [10, 9, 14, 8], [-19, 15, 10, 6.5], [0, 18, 12, 6.5], [19, 16, 10.5, 6.5]],
@@ -1030,11 +1126,11 @@ function paintTree(L: Look, v: number, seed: number): Cut {
   const foot = H - 4
   const lean = [1.5, -2, 2.5, -1][v]
   // How much trunk shows under the crown: the broad tree stands on a long leg.
-  const bare = [19, 17, 25, 22][v]
+  const bare = Math.round([19, 17, 25, 22][v]! * bareOf(L))
   const bottom = foot - bare
-  const c = crownForm(TREES[v], R, cx + lean, bottom, 0.94)
+  const c = crownForm(formOf(L, TREES, v), R, cx + lean, bottom, 0.94)
   underside(p, c.mass, bottom, 2.5)
-  const toes = trunk(p, cx, foot, bottom - 4, [4.3, 3.4, 5, 3.8][v], [3.1, 2.5, 3.5, 2.8][v], lean, 1, 15, bottom + bare * 0.4, L.barkTop, ROOTS[v], 2.7)
+  const toes = trunk(p, cx, foot, bottom - 4, [4.3, 3.4, 5, 3.8][v]! * girthOf(L), [3.1, 2.5, 3.5, 2.8][v]! * girthOf(L), lean, 1, 15, bottom + bare * 0.4, L.barkTop, ROOTS[v], L.form === 'cap' ? 0.3 : 2.7)
   crown(p, R, c, 3.3 / Math.sqrt(L.dense), 0, CROWN_SHADE)
   plug(p, 0, bottom - 3)
   ink(p, { outline: 'in', shadow: 3, gamma: 1.25, crease: 1.7, merge: [0] })
@@ -1044,6 +1140,7 @@ function paintTree(L: Look, v: number, seed: number): Cut {
   rimLight(p, L, 0, c.mass, 2)
   if (v === 3 && !L.glow) huddles(p, R, c.mass, 6, PINK, CROSS, 6, [0.25, -0.45, 0.05])
   if (L.glow && v % 2 === 1) huddles(p, R, c.mass, 4, L.glow, GLOW, 3, [0.3, 0.25, 0.25])
+  if (L.frost || L.form === 'cap') realmFinish(p, L, Math.round(c.mass.cy + c.mass.ry * 0.35), bottom)
   return cut(p, cx, foot)
 }
 
@@ -1056,13 +1153,14 @@ function paintCanopy(L: Look, v: number, seed: number): Cut {
   const foot = H - 4
   const lean = [0, 1.5, -2, 1][v]
   // Forest trees stand shoulder to shoulder: broad heads on long trunks the row in front hides.
-  const bare = [26, 23, 32, 25][v]
+  const bare = Math.round([26, 23, 32, 25][v]! * bareOf(L))
   const bottom = foot - bare
   // The twin-headed one is the broadest and the lowest, so a row of them has no two alike.
-  const c = crownForm(CANOPIES[v], R, cx + lean, bottom, v === 1 ? 1 : 0.93, v === 1 ? 0.95 : 1)
+  const grow = L.form ? 1.25 : 1
+  const c = crownForm(formOf(L, CANOPIES, v), R, cx + lean, bottom, (v === 1 ? 1 : 0.93) * grow, (v === 1 ? 0.95 : 1) * grow)
   underside(p, c.mass, bottom, 3)
   // No two of them have the same girth, so a row of them is not a fence.
-  const toes = trunk(p, cx, foot, bottom - 5, [5.4, 4.5, 6.4, 5][v], [4.2, 3.5, 4.9, 3.8][v], lean, 1, 17, bottom + bare * 0.4, L.barkTop, ROOTS[(v + 2) % 4], 3.4)
+  const toes = trunk(p, cx, foot, bottom - 5, [5.4, 4.5, 6.4, 5][v]! * girthOf(L), [4.2, 3.5, 4.9, 3.8][v]! * girthOf(L), lean, 1, 17, bottom + bare * 0.4, L.barkTop, ROOTS[(v + 2) % 4], L.form === 'cap' ? 0.3 : 3.4)
   crown(p, R, c, 3.7 / Math.sqrt(L.dense), 0, CROWN_SHADE)
   plug(p, 0, bottom - 4)
   ink(p, { outline: 'in', shadow: 3, gamma: 1.25, crease: 1.7, merge: [0] })
@@ -1071,6 +1169,7 @@ function paintCanopy(L: Look, v: number, seed: number): Cut {
   leafTips(p, R, 0)
   rimLight(p, L, 0, c.mass, 2)
   if (L.glow && v % 2 === 0) huddles(p, R, c.mass, 5, L.glow, GLOW, 3, [0.3, 0.25, 0.25])
+  if (L.frost || L.form === 'cap') realmFinish(p, L, Math.round(c.mass.cy + c.mass.ry * 0.35), bottom)
   return cut(p, cx, foot)
 }
 
@@ -1092,6 +1191,7 @@ function paintBush(L: Look, v: number, seed: number): Cut {
   leafTips(p, R, 0)
   // Berries, as on the classic bush.
   berries(p, R, c.mass, [[2, 3], [3], [3, 2]][v], L.glow ?? PINK)
+  if (L.frost) realmFinish(p, { ...L, form: undefined }, foot, foot)
   return cut(p, cx, foot)
 }
 
@@ -1435,7 +1535,7 @@ const ORDER: Array<[FloraKind, number]> = COUNT.flatMap(([kind, n]) => Array.fro
 export function stepFlora(look: FloraLook): boolean {
   if (cache.has(look)) return true
   const L = LOOKS[look]
-  const salt = look === 'coast' ? 11 : look === 'wild' ? 23 : 37
+  const salt = look === 'coast' ? 11 : look === 'wild' ? 23 : look === 'beach' ? 37 : 41 + 6 * REALM_LOOKS.indexOf(look as RealmLook)
   let w = wips.get(look)
   if (!w) wips.set(look, w = { cuts: [], x: 1, y: 1, rowH: 0, at: 0 })
   if (w.at < ORDER.length) {

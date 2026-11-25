@@ -30,6 +30,8 @@
  */
 
 /** Texels a side: 32 to the tile, so a material repeats every four tiles. */
+import type { RealmLook } from '../looks'
+
 export const MAT = 128
 /** Texels to the tile. */
 export const MAT_PER_TILE = 32
@@ -124,6 +126,8 @@ interface Lawn {
   bloom: readonly [Rgb, Rgb] | null
   blooms: number
   seed: number
+  /** A mown lawn: bands this many texels wide, every other one a step lighter (0: none). */
+  stripes?: number
 }
 
 function lawn(L: Lawn): Sheet {
@@ -133,7 +137,8 @@ function lawn(L: Lawn): Sheet {
   const body = (u: number, v: number) => noise(u, v, 32, L.seed) * 0.56 + noise(u, v, 8, L.seed + 1) * 0.36 + hash(pairU(u, v), v, L.seed + 2) * 0.08
   for (let v = 0; v < MAT; v++) for (let u = 0; u < MAT; u++) {
     const n = body(u, v)
-    const i = n < 0.4 ? 0 : n < 0.6 ? 1 : 2
+    let i = n < 0.4 ? 0 : n < 0.6 ? 1 : 2
+    if (L.stripes && Math.floor(u / L.stripes) % 2) i = Math.min(2, i + 1)
     s.set(u, v, i === 0 ? d : i === 1 ? m : l, 0.25 + i * 0.12)
   }
   // Blades stand in it, more of them where the lawn is light: a dark foot, a body, a lit tip.
@@ -261,9 +266,9 @@ function paving(P: Paving): Sheet {
 // Sand
 // ---------------------------------------------------------------------------
 
-function sand(seed: number): Sheet {
+function sand(seed: number, colors: Rgb[] = ramp('#876652', '#a47f66', '#bd9877', '#d8b68e')): Sheet {
   const s = new Sheet()
-  const [d, m, l, h] = ramp('#876652', '#a47f66', '#bd9877', '#d8b68e') as [Rgb, Rgb, Rgb, Rgb]
+  const [d, m, l, h] = colors as [Rgb, Rgb, Rgb, Rgb]
   for (let v = 0; v < MAT; v++) for (let u0 = 0; u0 < MAT; u0++) {
     const u = pairU(u0, v)
     // Drifts, and across them the ripples the wind left: they run across the screen, a lit crest over a shaded trough.
@@ -374,9 +379,9 @@ function boards(seed: number, colors: Rgb[], upright = false, rail = false): She
 }
 
 /** Shingles: rows that run east, each lying over the row south of it, their butts catching the light. */
-function shingles(seed: number): Sheet {
+function shingles(seed: number, colors: Rgb[] = ramp('#421338', '#74265e', '#8a2f70', '#a03c82', '#c65a9c')): Sheet {
   const s = new Sheet()
-  const [gap, dark, mid, light, hi] = ramp('#421338', '#74265e', '#8a2f70', '#a03c82', '#c65a9c') as [Rgb, Rgb, Rgb, Rgb, Rgb]
+  const [gap, dark, mid, light, hi] = colors as [Rgb, Rgb, Rgb, Rgb, Rgb]
   const ROW = 8
   const WIDE = 8
   for (let v = 0; v < MAT; v++) for (let u = 0; u < MAT; u++) {
@@ -422,9 +427,9 @@ function bricks(seed: number): Sheet {
 }
 
 /** Dressed blocks on a wall's top: sixteen texels square, staggered, with a bevel. */
-function blocks(seed: number): Sheet {
+function blocks(seed: number, colors: Rgb[] = ramp('#110d26', '#191534', '#1f1a3e', '#27214c', '#352d62')): Sheet {
   const s = new Sheet()
-  const [joint, dark, mid, light, hi] = ramp('#110d26', '#191534', '#1f1a3e', '#27214c', '#352d62') as [Rgb, Rgb, Rgb, Rgb, Rgb]
+  const [joint, dark, mid, light, hi] = colors as [Rgb, Rgb, Rgb, Rgb, Rgb]
   for (let v = 0; v < MAT; v++) for (let u = 0; u < MAT; u++) {
     const row = Math.floor(v / 16)
     const lv = v % 16
@@ -557,17 +562,21 @@ export function stepMaterials(): boolean {
   const w = MAT * MATERIALS.length
   const data = wip ??= new Uint8ClampedArray(w * MAT * 4)
   const k = sheets++
-  const s = PAINT[MATERIALS[k]!]()
+  lay(data, w, k, PAINT[MATERIALS[k]!]())
+  if (sheets < MATERIALS.length) return false
+  built = { data, w, h: MAT }
+  wip = null
+  return true
+}
+
+/** A sheet into its column (k) of an atlas `w` texels wide. */
+function lay(data: Uint8ClampedArray, w: number, k: number, s: Sheet) {
   for (let v = 0; v < MAT; v++) for (let u = 0; u < MAT; u++) {
     const i = v * MAT + u
     const o = (v * w + k * MAT + u) * 4
     data[o] = s.r[i]!; data[o + 1] = s.g[i]!; data[o + 2] = s.b[i]!
     data[o + 3] = Math.round(Math.max(0, Math.min(1, s.z[i]!)) * 255)
   }
-  if (sheets < MATERIALS.length) return false
-  built = { data, w, h: MAT }
-  wip = null
-  return true
 }
 
 /** Every material side by side, MAT texels each. */
@@ -583,4 +592,124 @@ export function buildMaterials(): Materials {
 export function texelAt(x: number, y: number): { u: number; v: number } {
   const odd = ((x % 2) + 2) % 2
   return { u: wrap((x + 2 * y + odd) / 2), v: wrap((2 * y + odd - x) / 2) }
+}
+
+// ---------------------------------------------------------------------------
+// The realms' looks (`../looks.ts`): some slots painted again
+// ---------------------------------------------------------------------------
+
+/** Snow: drifts the wind combed (the sand's ripples), white on the crests and violet in the troughs, and glints. */
+function snow(seed: number): Sheet {
+  const s = dunes(seed, ramp('#9aa6dc', '#bccaf0', '#d0dcf6', '#f2f6ff'))
+  const white = rgb('#ffffff')
+  const ice = rgb('#9ff4ff')
+  for (let i = 0; i < 70; i++) {
+    const u = Math.floor(hash(i, 1, seed + 9) * MAT)
+    const v = Math.floor(hash(i, 2, seed + 9) * MAT)
+    s.set(u, v, hash(i, 3, seed + 9) > 0.7 ? ice : white, 1)
+  }
+  return s
+}
+
+/**
+ * Dune sand: long soft swells, a lit slope and a rose-violet shaded one, and on them ripples wider apart
+ * than the beach's, a pale crest over each.
+ */
+function dunes(seed: number, colors: Rgb[] = ramp('#d2a29c', '#f4c8a4', '#fcd8b4', '#fff0d4')): Sheet {
+  const s = new Sheet()
+  const [shade, body, light, crest] = colors as [Rgb, Rgb, Rgb, Rgb]
+  for (let v = 0; v < MAT; v++) for (let u0 = 0; u0 < MAT; u0++) {
+    const u = pairU(u0, v)
+    const n = noise(u, v, 64, seed) * 0.7 + noise(u, v, 32, seed + 1) * 0.3
+    const row = Math.floor((u + v) / 2)
+    const along = row * 2 + (noise(u, v, 32, seed + 2) - 0.5) * 22
+    const wave = Math.sin((along / 32) * Math.PI * 2)
+    let i = n < 0.38 ? 0 : n < 0.62 ? 1 : 2
+    let z = 0.5
+    if (wave > 0.9 && noise(u, v, 16, seed + 3) > 0.35) { i = Math.min(3, i + 1); z = 0.85 }
+    else if (wave < -0.88 && i > 0) { i -= 1; z = 0.25 }
+    s.set(u0, v, [shade, body, light, crest][i]!, z)
+  }
+  return s
+}
+
+/**
+ * The slots each realm look paints again, in place of the coast's (`GROUND` in `../looks.ts` says which ground
+ * lies in which slot). What a slot is called stays: a look's "cobbles" may be its hardpan.
+ */
+export const LOOK_SHEETS: Record<RealmLook, Partial<Record<Material, () => Sheet>>> = {
+  snow: {
+    grass: () => snow(131),
+    // Paths: stones in the violet shade with the snow lying in their joints.
+    cobbles: () => paving({ ramp: ramp('#5a4a7e', '#8a7aac', '#9a8abc', '#ac9ccc', '#cabce0'), across: 8, moss: ramp('#c8d6f4', '#e8f0ff'), seed: 137 }),
+    // The shore: gravel under a crust of old snow.
+    sand: () => dunes(139, ramp('#7a7098', '#968cb4', '#aaa2c6', '#c8c4e2')),
+    // Snow on the roofs, the walls red boards.
+    shingles: () => shingles(149, ramp('#5a64a0', '#a8b4e0', '#c4ceee', '#dce4fa', '#f4f8ff')),
+    siding: () => boards(151, ramp('#3a1020', '#6a1a2c', '#7e2234', '#922a3e', '#b04454'), true),
+  },
+  dune: {
+    // The hardpan between the dunes: rose clay cracked into big plates.
+    cobbles: () => paving({ ramp: ramp('#8a5a6e', '#b08494', '#bc90a0', '#c89cac', '#dcb4c0'), across: 4, moss: null, seed: 157 }),
+    sand: () => dunes(163),
+    lane: () => paving({ ramp: ramp('#5a4a7a', '#8a7aa8', '#9a8ab8', '#ac9cc8', '#c8bce0'), across: 8, moss: ramp('#c88a7c', '#e4a890'), seed: 167 }),
+    rockface: () => paving({ ramp: ramp('#3a2e5a', '#5e5088', '#6e6098', '#8070aa', '#a092c8'), across: 8, moss: null, light: { x: -0.45, y: 0.89 }, seed: 173 }),
+  },
+  spore: {
+    // Moss full of small lights.
+    moss: () => lawn({ ramp: ramp('#0e2a40', '#123a4e', '#1a4a58', '#22665e', '#3ab89a'), blades: 9, bloom: [rgb('#e0fff8'), rgb('#3ad0d8')], blooms: 10, seed: 179 }),
+    lane: () => paving({ ramp: ramp('#1e1638', '#3e2e62', '#4a3870', '#584682', '#7462a4'), across: 8, moss: ramp('#16404c', '#2a8a7a'), seed: 181 }),
+    sand: () => sand(191, ramp('#4a3a52', '#5e4a64', '#725a76', '#8a7090')),
+  },
+  fog: {
+    // The lowland under the fog: a pink-grey turf; the hilltops' green one.
+    cobbles: () => lawn({ ramp: ramp('#5e4660', '#6e5470', '#7e6280', '#9a7a98', '#c4a0bc'), blades: 9, bloom: [rgb('#ffd23f'), rgb('#ff8ac0')], blooms: 3, seed: 193 }),
+    grass: () => lawn({ ramp: ramp('#123a3a', '#184a42', '#22604c', '#348258', '#6ac47e'), blades: 12, bloom: [rgb('#ff8ae0'), rgb('#c93aa6')], blooms: 6, seed: 197 }),
+    lane: () => paving({ ramp: ramp('#3e2a3e', '#6a4a62', '#7a5670', '#8c6680', '#aa84a0'), across: 8, moss: ramp('#3a5a4a', '#4a7a5a'), seed: 199 }),
+  },
+  quarry: {
+    // The benches: dressed blocks in ochre and rust; rose topsoil; grey-violet gravel; rust blocks in the faces.
+    sand: () => blocks(211, ramp('#3e2a1c', '#94683e', '#a6764a', '#b88656', '#d4a46c')),
+    cobbles: () => lawn({ ramp: ramp('#4a2e3e', '#5a3a4a', '#6a4656', '#9a7a5a', '#c8a070'), blades: 5, bloom: null, blooms: 0, seed: 223 }),
+    lane: () => paving({ ramp: ramp('#2e2236', '#56465e', '#64546c', '#74647c', '#90809a'), across: 16, moss: null, seed: 227 }),
+    rockface: () => blocks(229, ramp('#2a1420', '#6e3a30', '#804634', '#94543a', '#b0704a')),
+  },
+  suburb: {
+    // A mown lawn in stripes, pink pavers, pastel siding under slate roofs.
+    grass: () => lawn({ ramp: ramp('#1a5a3a', '#22704a', '#2a8452', '#46a860', '#8ad884'), blades: 10, bloom: [rgb('#ff8ae0'), rgb('#ffffff')], blooms: 3, seed: 233, stripes: 16 }),
+    cobbles: () => paving({ ramp: ramp('#4a2a48', '#8a6082', '#9a6e90', '#ac80a2', '#c89cbc'), across: 8, moss: null, seed: 239 }),
+    siding: () => boards(241, ramp('#4a5a7a', '#7a9ab8', '#8aacc8', '#9abcd6', '#bcd8ec'), true),
+    shingles: () => shingles(251, ramp('#1e2440', '#3a4466', '#465276', '#546088', '#6e7ca4')),
+  },
+}
+
+const lookBuilt = new Map<RealmLook, Materials>()
+const lookWip = new Map<RealmLook, { data: Uint8ClampedArray; at: number }>()
+
+/**
+ * Paints the next of a realm look's own sheets into a copy of the atlas, and says whether that look's atlas is
+ * all there (the coast's first, as `stepMaterials`). The last few looks are kept.
+ */
+export function stepLookMaterials(look: RealmLook): boolean {
+  if (lookBuilt.has(look)) return true
+  if (!stepMaterials()) return false
+  const base = built!
+  let w = lookWip.get(look)
+  if (!w) lookWip.set(look, w = { data: base.data.slice(), at: 0 })
+  const list = Object.entries(LOOK_SHEETS[look]) as Array<[Material, () => Sheet]>
+  if (w.at < list.length) {
+    const [slot, paint] = list[w.at++]!
+    lay(w.data, base.w, MATERIALS.indexOf(slot), paint())
+    if (w.at < list.length) return false
+  }
+  lookBuilt.set(look, { data: w.data, w: base.w, h: base.h })
+  lookWip.delete(look)
+  if (lookBuilt.size > 3) lookBuilt.delete(lookBuilt.keys().next().value!)
+  return true
+}
+
+/** A realm look's atlas: the coast's materials with the look's own sheets in their slots. */
+export function buildLookMaterials(look: RealmLook): Materials {
+  while (!stepLookMaterials(look)) { /* the next sheet */ }
+  return lookBuilt.get(look)!
 }

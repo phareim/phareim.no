@@ -445,6 +445,9 @@ uniform float uWind;
 uniform float uFray;
 uniform vec4 uRooms[2];
 uniform int uRoomCount;
+/** A realm look's own (looks.ts): how bright its classic ground paints slots 1–7 (0: the coast's), and its open water. */
+uniform float uRefs[8];
+uniform vec3 uWaterTint;
 layout(location = 0) out vec4 o0;
 layout(location = 1) out vec4 o1;
 layout(location = 2) out vec4 o2;
@@ -479,7 +482,10 @@ int materialOf(int m, vec3 c, vec2 w) {
   return 0;
 }
 /** How bright the classic art paints each material's ground. */
-float paintedLuma(int m) { return m == 1 ? 0.29 : m == 6 ? 0.23 : m == 2 || m == 7 ? 0.36 : m == 3 ? 0.54 : m == 4 ? 0.16 : m == 15 ? 0.15 : 0.21; }
+float paintedLuma(int m) {
+  if (m < 8 && uRefs[m] > 0.0) return uRefs[m];
+  return m == 1 ? 0.29 : m == 6 ? 0.23 : m == 2 || m == 7 ? 0.36 : m == 3 ? 0.54 : m == 4 ? 0.16 : m == 15 ? 0.15 : 0.21;
+}
 void main() {
   if (uRoomCount > 0) {
     bool inside = false;
@@ -547,7 +553,7 @@ void main() {
   if (uMaterials > 0.0 && mat > 0.5 && c.b > c.r + 0.15 && luma(c.rgb) < 0.27) {
     // Open water is one deep colour here: the classic art's grid and marks go, the composite pass
     // lays the swell, the sky and the mirror on it. Banks and foam stay as painted.
-    c.rgb = mix(c.rgb, vec3(0.058, 0.17, 0.41), uMaterials);
+    c.rgb = mix(c.rgb, uWaterTint, uMaterials);
     n = normalize(mix(n, vec3(0.0, 0.0, 1.0), uMaterials));
   }
   o0 = vec4(c.rgb, 1.0);
@@ -862,6 +868,8 @@ uniform float uWater;
 uniform vec3 uCast;
 uniform float uMist;
 uniform vec3 uMistColor;
+/** A realm's ground fog (looks.ts): the hero on the ground (x, y), how far round them it parts (0: it does not), how much more of the ground it covers. */
+uniform vec4 uFog;
 uniform float uRays;
 uniform float uWet;
 out vec4 o0;
@@ -980,7 +988,8 @@ void main() {
       // Mist lies low over the ground and drifts: colour laid over colour, in dithered steps.
       vec2 mw = w * 0.17 + vec2(uTime * 0.03, uTime * 0.011);
       float m = vnoise(mw) * 0.62 + vnoise(mw * 2.7 + 5.0) * 0.38;
-      m = smoothstep(0.42, 0.78, m) * (1.0 - smoothstep(0.15, 1.5, z));
+      m = smoothstep(0.42 - uFog.w, 0.78 - uFog.w * 0.6, m) * (1.0 - smoothstep(0.15, 1.5, z));
+      if (uFog.z > 0.0) m *= smoothstep(uFog.z * 0.45, uFog.z, length(w - uFog.xy));
       float band = floor(m * 4.0 + bayer(s) * 0.99) / 4.0;
       // It lies on the ground: what stands in it (a figure, a clump of grass) keeps most of its colour.
       c = mix(c, c * 0.62 + uMistColor, band * uMist * (mat >= 3 ? 0.14 : 0.42));

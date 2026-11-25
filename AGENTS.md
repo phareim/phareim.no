@@ -82,6 +82,7 @@ The shell leaves the arrow keys to the games. In a game, an Escape tap pauses an
 | Neon Shrine (the portal's world) | `docs/games/neon-shrine.md` | `themes/zelda/` |
 | The frontier (Neon Shrine's generated world: realms, regions, caves, the Underglow, questlines) | `docs/worlds/README.md` (+ realm sketches, `quests.md`) | `themes/zelda/world/gen/` |
 | Field battles (Neon Shrine: turn-based fights in place on maps with `MapDef.battle`) | `docs/games/neon-shrine-battle.md` | `themes/zelda/engine/battle/`, `render/battle.ts`, `world/arena.ts` |
+| Neon Shrine's realm looks (snow, dune, spore, fog, quarry, suburb) | `docs/games/neon-shrine-looks.md` | `themes/zelda/render/looks.ts`, `render/iso/` |
 | The Wildwood (Neon Shrine's second act) | `docs/games/wildwood.md` | `themes/zelda/world/wildwood.ts`, `lab1.ts`, `lab2.ts` |
 | Neon Shrine dig & build (per map: `MapDef.dig`) | `docs/games/neon-shrine-dig.md` | `themes/zelda/engine/dig.ts`, `digGround.ts`, `render/dig.ts`, `render/iso/dig.ts`, `world/quarry.ts` |
 | Neon Shrine's physical puzzles (ice, beams, weights, boulders, sluices; kits for the generator) | `docs/games/neon-shrine-puzzles.md` | `themes/zelda/engine/puzzles/`, `world/puzzlelab.ts` |
