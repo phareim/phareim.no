@@ -96,7 +96,10 @@
       <button v-if="hasItem" class="zelda-pad zelda-pad-swap" aria-label="Swap item" @pointerdown.prevent.stop="cycle" @contextmenu.prevent>
         <img v-if="swapIcon" :src="swapIcon" alt="" class="zelda-pad-icon">
       </button>
-      <div class="zelda-deck-btns" :class="{ 'zelda-deck-btns--solo': !hasItem }">
+      <div class="zelda-deck-btns" :class="{ 'zelda-deck-btns--solo': !hasItem, 'zelda-deck-btns--roll': hasSword }">
+        <button v-if="hasSword" class="zelda-pad zelda-pad-roll" aria-label="Roll" @pointerdown.prevent.stop="pressRoll" @contextmenu.prevent>
+          <img v-if="rollIcon" :src="rollIcon" alt="" class="zelda-pad-icon">
+        </button>
         <button v-if="hasItem" class="zelda-pad zelda-pad-b" aria-label="Use item" @pointerdown.prevent.stop="pressB" @contextmenu.prevent>
           <img v-if="itemIcon" :src="itemIcon" alt="" class="zelda-pad-icon">
         </button>
@@ -269,6 +272,8 @@ const touchUI = ref(false)
 const padItem = ref('')
 /** The hero has a B item to use here (bombs, the disc, the hook, a dig tool on a dig map): B, SWAP and Tab have a job. */
 const hasItem = ref(false)
+/** The hero has the blade: the deck's roll pad is there (before it the town stays quiet). */
+const hasSword = ref(false)
 /** A dialog is open (the floating buttons hide so they don't sit on the text). */
 const talking = ref(false)
 const { navigationLocked, launch } = useTheme()
@@ -396,6 +401,9 @@ function iconUrl(name: string) {
 const itemIcon = computed(() => (padItem.value ? iconUrl(padItem.value) : ''))
 const swordIcon = ref('')
 const swapIcon = ref('')
+/** The roll pad's picture: the hero curled mid-roll (a classic frame; the skins have no icon for it). */
+const rollIcon = ref('')
+function rollIconUrl() { return import.meta.client ? sprite('hero_side_roll_1').toDataURL() : '' }
 watch(dress16, () => {
   swordIcon.value = iconUrl('item_sword')
   swapIcon.value = iconUrl('hud_swap')
@@ -852,6 +860,7 @@ function backsOut() {
 function pressA() { input.pressA() }
 function releaseA() { input.releaseA() }
 function pressB() { input.pressB() }
+function pressRoll() { input.pressRoll() }
 function cycle() { input.cycle() }
 
 // ---- where to start -------------------------------------------------------------
@@ -959,6 +968,10 @@ function syncDeck() {
   if (pad !== padItem.value) padItem.value = pad
   const item = useItems(state, WORLD).length > 0
   if (item !== hasItem.value) hasItem.value = item
+  if (state.inv.sword !== hasSword.value) {
+    hasSword.value = state.inv.sword
+    if (hasSword.value && !rollIcon.value) rollIcon.value = rollIconUrl()
+  }
   if (leaving.value !== (state.mode === 'exit')) leaving.value = state.mode === 'exit'
   if (talking.value !== (state.mode === 'dialog')) {
     talking.value = state.mode === 'dialog'
@@ -1189,7 +1202,7 @@ function keepExploring() {
 const BIG_FOES = new Set(['king', 'knight', 'llama', 'mistral', 'deepseek', 'gemini'])
 
 const SFX: Partial<Record<GameEvent['type'], SfxName>> = {
-  swing: 'sword', spin: 'spin', charged: 'charge', clank: 'clank', hurt: 'hurt', shock: 'shock',
+  spin: 'spin', roll: 'roll', charged: 'charge', clank: 'clank', hurt: 'hurt', shock: 'shock',
   cut: 'cut', shatter: 'shatter', lift: 'lift', throw: 'throw', unlock: 'unlock', gate: 'gate',
   choose: 'select', back: 'menu',
   plate: 'plate', crystal: 'crystal', push: 'push', bombPlace: 'bombPlace', boom: 'boom', disc: 'disc',
@@ -1206,7 +1219,9 @@ function handleEvents(events: GameEvent[]) {
     const name = SFX[e.type]
     if (name) a?.sfx(name)
     switch (e.type) {
-      case 'hit': a?.sfx(BIG_FOES.has(e.kind) ? 'bossHit' : e.killed ? 'kill' : 'hit'); break
+      // The chain's hits climb a step, and the finisher swings heavy; a heavy blow lands heavy, a critical one rings.
+      case 'swing': a?.sfx(e.n === 1 ? 'sword2' : e.n === 2 ? 'swordHeavy' : 'sword'); break
+      case 'hit': a?.sfx(BIG_FOES.has(e.kind) ? 'bossHit' : e.killed ? 'kill' : e.crit ? 'bossHit' : e.heavy ? 'hitHeavy' : 'hit'); break
       case 'join': a?.jingle('friend'); save = true; break
       case 'wait': save = true; break
       case 'lever': save = true; break
@@ -1335,6 +1350,8 @@ function frame(nowMs: number) {
   // A panel is open: the world stands still but keeps glowing. A soft glow at
   // a fifth of the rate is the same glow.
   if (panel.value) { if (slowTick(nowMs)) drawFrame(nowMs, reducedMotion.value ? 0 : dt); return }
+  // A hit's weight: the world holds still (struck foes shiver in it, `FrameUI.hitStop`).
+  ui.hitStop = hitStopMs > 0
   if (hitStopMs > 0) { hitStopMs -= dt * 1000; drawFrame(nowMs, 0); return }
   if (pendingPull && state.mode === 'play') applyPull(pendingPull.save)
 
@@ -1821,6 +1838,28 @@ onBeforeUnmount(() => {
   box-shadow: 4px 4px 0 #0b0616;
 }
 
+/* Roll: a small pad over B, clear of A; once the hero has the blade. */
+.zelda-pad-roll {
+  left: 8px;
+  top: 0;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 4px solid #b6ff4a;
+  color: #b6ff4a;
+  box-shadow: 4px 4px 0 #0b0616;
+}
+
+/* A and the roll alone, before the hero has an item: side by side. */
+.zelda-deck-btns--solo.zelda-deck-btns--roll {
+  width: 152px;
+}
+.zelda-deck-btns--solo .zelda-pad-roll {
+  top: auto;
+  left: 0;
+  bottom: 0;
+}
+
 /* Swap: the small third button, left of B. */
 .zelda-pad-swap {
   position: relative;
@@ -1880,6 +1919,10 @@ onBeforeUnmount(() => {
 @media (orientation: landscape) and (max-height: 500px) {
   .zelda-deck:not(.zelda-deck--paused) { padding-bottom: calc(4px + var(--app-safe-bottom, 0px)); }
   .zelda-deck-btns:not(.zelda-deck-btns--solo) { height: 104px; }
+  /* No room over B here: the roll goes left of it. */
+  .zelda-deck-btns--roll:not(.zelda-deck-btns--solo) { width: 232px; }
+  .zelda-deck-btns--roll:not(.zelda-deck-btns--solo) .zelda-pad-b { left: 64px; }
+  .zelda-deck-btns--roll:not(.zelda-deck-btns--solo) .zelda-pad-roll { top: auto; left: 0; bottom: 8px; }
 }
 
 /* Two wide buttons across a 375 px phone. */

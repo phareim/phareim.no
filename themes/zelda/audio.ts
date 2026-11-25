@@ -32,6 +32,8 @@ import { MUTE_KEY as RADIO_MUTE_KEY } from '../radio/catalog'
 
 export type SfxName =
   | 'sword' | 'spin' | 'charge' | 'hit' | 'kill' | 'clank' | 'hurt' | 'shock' | 'die' | 'cut'
+  // The blade's chain: the second hit a step higher, the finisher heavy; a heavy blow landing; the dodge roll
+  | 'sword2' | 'swordHeavy' | 'hitHeavy' | 'roll'
   | 'shatter' | 'lift' | 'throw' | 'coin' | 'heart' | 'key' | 'chest' | 'unlock' | 'door' | 'plate'
   | 'crystal' | 'push' | 'bombPlace' | 'boom' | 'disc' | 'discHit' | 'fall' | 'pellet' | 'laser'
   | 'reflect' | 'warp' | 'stairs' | 'text' | 'menu' | 'select' | 'error' | 'bossRoar' | 'bossHit'
@@ -2735,6 +2737,24 @@ function buildAudio(host: BaseAudioContext | null): ZeldaAudio & { tick(): void 
     sword() {
       nz({ dur: 0.13, vol: 0.4, f: 900, to: 3800, q: 1.6 })
       tone({ f: 620, to: 1100, dur: 0.07, vol: 0.07 })
+    },
+    sword2() {
+      nz({ dur: 0.12, vol: 0.4, f: 1035, to: 4370, q: 1.6 })
+      tone({ f: 713, to: 1265, dur: 0.07, vol: 0.07 })
+    },
+    swordHeavy() {
+      nz({ dur: 0.2, vol: 0.48, f: 600, to: 3200, q: 1.3 })
+      tone({ f: 520, to: 980, dur: 0.1, vol: 0.08 })
+      tone({ f: 110, to: 70, dur: 0.16, type: 'triangle', vol: 0.22 })
+    },
+    hitHeavy() {
+      nz({ dur: 0.14, vol: 0.55, type: 'lowpass', f: 1600 })
+      tone({ f: 180, to: 55, dur: 0.18, vol: 0.32 })
+      tone({ f: 90, to: 45, dur: 0.2, type: 'sine', vol: 0.3 })
+    },
+    roll() {
+      nz({ dur: 0.24, vol: 0.3, f: 380, to: 1300, q: 0.9 })
+      nz({ dur: 0.12, vol: 0.12, type: 'lowpass', f: 500, at: 0.12 })
     },
     spin() {
       nz({ dur: 0.38, vol: 0.45, f: 500, to: 4200, q: 2 })
