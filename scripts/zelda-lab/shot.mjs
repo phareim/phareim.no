@@ -101,6 +101,18 @@ function near(map, id, dy = 2) {
   const d = WORLD.generate(map)
   d.rows.forEach((row, y) => { const x = [...row].findIndex(ch => d.marks[ch]?.ent.id === id); if (x >= 0) { s.hero.x = x + 0.5; s.hero.y = y + dy + 0.5; s.hero.dir = 'up' } })
 }
+/** Stand by the first thing in a frontier map that pick takes and show one page of what it says (an NPC: its last, unconditioned branch). */
+function say(map, pick, page = 0) {
+  place(map, 'camp')
+  const d = WORLD.generate(map)
+  let ent = null
+  d.rows.forEach((row, y) => { const x = [...row].findIndex(ch => d.marks[ch] && pick(d.marks[ch].ent)); if (x >= 0 && !ent) { ent = d.marks[row[x]].ent; s.hero.x = x + 0.5; s.hero.y = y + 2.5; s.hero.dir = 'up' } })
+  s.map.enemies.length = 0
+  run(30)
+  const lines = ent.t === 'npc' ? ent.talk[ent.talk.length - 1].lines : ent.lines
+  s.dialog = { lines, line: page, chars: lines[page].length, who: ent.t === 'npc' ? ent.look : null, after: null }
+  s.mode = 'dialog'
+}
 function nearArt(map, id, dx, dy) {
   place(map, 'camp')
   const art = WORLD.generate(map).isoLandmarks.find(lm => lm.art === id)
@@ -171,6 +183,13 @@ switch (bossHit ? scene.slice(0, -4) : scene) {
   case 'f-fogstage': give(); near('fr:1,6', 'q.act.director'); run(30); break
   case 'f-rerun': give(); nearArt('fr:8,7', 'rerun_house_0', 2, 3); s.map.enemies.length = 0; run(30); break
   case 'f-cave': { give(); const id = ['fr:6,7', 'fr:5,7', 'fr:6,6', 'fr:5,6', 'fr:4,6', 'fr:6,5', 'fr:5,5', 'fr:4,5', 'fr:3,4'].find(i => WORLD.generate(i)?.entries.cave0); place(id + ':cave0', 'in'); run(30); break }
+  // The frontier's words in the box (the narrowest is the phone's): a quest-giver, a realm's folk, a camp's sign with
+  // its roads, the crossroads sign, a realm's first-visit words.
+  case 'f-say-gunn': give(); say('fr:2,3', e => e.id === 'q.gunn'); break
+  case 'f-say-folk': give(); say('fr:4,2', e => e.t === 'npc' && e.id.includes('.npc')); break
+  case 'f-say-roads': give(); say('fr:6,2', e => e.t === 'sign' && e.lines.length > 1, 1); break
+  case 'f-say-cross': give(); say('fr:6,7', e => e.t === 'sign' && e.lines[0].startsWith('CROSSROADS')); break
+  case 'f-say-intro': { give(); place('fr:4,1', 'camp'); run(30); const a = WORLD.generate('fr:4,1').areas[0]; s.dialog = { lines: a.intro.lines, line: 0, chars: a.intro.lines[0].length, who: null, after: null }; s.mode = 'dialog'; break }
   case 'look-snow': give(); place('look-snow:fr:4,6', 'camp', 0, -1); run(30); break
   case 'look-snow-2': give(); place('look-snow:fr:4,4', 'camp'); s.hero.y = 3.5; run(30); break
   case 'look-dune': give(); place('look-dune:fr:1,1', 'camp'); run(30); break
@@ -632,6 +651,7 @@ const SHOTS = [
   ['f-fogstage-390', 'f-fogstage', 390, 844, 2, 0],
   ['f-rerun', 'f-rerun', 1280, 800, 1, 0],
   ['f-rerun-390', 'f-rerun', 390, 844, 2, 0],
+  ...['gunn', 'folk', 'roads', 'cross', 'intro'].map(k => [`f-say-${k}-390`, `f-say-${k}`, 390, 844, 2, 0]),
   ...['snow', 'dune', 'spore', 'fog', 'quarry', 'suburb'].flatMap(l => [
     [`look-${l}`, `look-${l}`, 1280, 800, 1, 0], [`look-${l}-390`, `look-${l}`, 390, 844, 2, 0],
     [`look-${l}-2`, `look-${l}-2`, 1280, 800, 1, 0],

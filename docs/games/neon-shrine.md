@@ -28,7 +28,11 @@ bomb bag can be found first, and a bomb also cuts the town's thicket.
 say where to go and what is wrong, never how to win. No boss tactics, no
 "the item you just found works here", no secret spots. Boss cards are one
 line of character. Item pickups say what the item does, once. The rest is
-for the player to find out; the jokes stay.
+for the player to find out; the jokes stay. A page is one or more whole
+sentences, never a clause cut by the box; whoever talks opens with their name
+("GUNN: …", the name plate); a place has one name everywhere, the one on its
+banner. In the frontier a page is at most three rows of the narrowest box
+(180 px, touch key names), which `tests/zelda-frontier.test.mjs` checks.
 
 The 2026-09-16/21 version (two 15×11 rooms, Muse-built engine) was replaced
 wholesale on 2026-09-22; it is in git history up to `a110530`. The separate

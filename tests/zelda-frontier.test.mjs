@@ -22,7 +22,12 @@ before(async () => {
   P = walker(Z)
   const esbuild = createRequire(import.meta.url)('esbuild')
   const out = esbuild.buildSync({
-    stdin: { contents: `export { SITES, SITE_REALMS, DEEP_FOLK } from './quests'; export { REALMS } from './realms'`, resolveDir: join(dirname(fileURLToPath(import.meta.url)), '..', 'themes', 'zelda', 'world', 'gen'), loader: 'ts' },
+    stdin: {
+      contents: `export { SITES, SITE_REALMS, DEEP_FOLK } from './quests'; export { REALMS } from './realms'; export { DEMOS } from './demos';
+        export { wrapText } from '../../../base/pixel/font'; export { subst, TOUCH_KEYS } from '../../keys'; export { speakerOf } from '../../render/hud';
+        export { itemText } from '../../engine/combat'; export { QUARRY } from '../quarry'; export { ARENA } from '../arena'; export { PUZZLELAB } from '../puzzlelab'`,
+      resolveDir: join(dirname(fileURLToPath(import.meta.url)), '..', 'themes', 'zelda', 'world', 'gen'), loader: 'ts',
+    },
     bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
   })
   GEN = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
@@ -194,16 +199,91 @@ describe('the frontier', () => {
     }
   })
 
-  it('speaks in the pixel font: upper case, 30 letters a line at most', () => {
-    const lines = []
-    for (const r of Object.values(GEN.REALMS)) lines.push(...r.lore, ...r.folk.flatMap(f => f.says.flat()), r.name)
-    const talk = e => (e.t === 'npc' ? e.talk.flatMap(b => b.lines) : e.t === 'sign' ? e.lines : [])
-    for (const site of GEN.SITES) for (const mk of Object.values(site.marks ?? {})) lines.push(...talk(mk.ent))
-    for (const folk of Object.values(GEN.DEEP_FOLK)) for (const e of folk) lines.push(...talk(e))
-    for (const l of lines) {
-      assert.ok(l.length <= 30, `too long: ${l}`)
-      assert.match(l, /^[A-Z0-9 .,!?'":;\-()/#%&+=*]*$/, `not in the font: ${l}`)
+  const talkOf = e => (e.t === 'npc' ? e.talk.flatMap(b => b.lines) : e.t === 'sign' ? e.lines : [])
+  /** Every generated map of the frontier: regions, their caves, the layers of the deep. */
+  const generated = () => {
+    const out = []
+    for (const id of ids()) {
+      out.push(Z.WORLD.generate(id))
+      for (let n = 0; ; n++) { const c = Z.WORLD.generate(`${id}:cave${n}`); if (!c) break; out.push(c) }
+      for (let n = 1; n <= 6; n++) { const d = Z.WORLD.generate(`${id}:deep${n}`); if (d) out.push(d) }
     }
+    return out
+  }
+
+  it('speaks in the pixel font, a page at most three rows of the narrowest box, with the touch deck’s key names', () => {
+    const lines = []
+    for (const r of Object.values(GEN.REALMS)) {
+      lines.push(r.name, ...r.lore, ...(r.intro ?? []), ...r.folk.flatMap(f => f.says.flat()), ...Object.values(r.signs ?? {}).flat(2))
+      if (r.cave) lines.push(r.cave.name)
+    }
+    for (const site of GEN.SITES) for (const mk of Object.values(site.marks ?? {})) lines.push(...talkOf(mk.ent))
+    for (const folk of Object.values(GEN.DEEP_FOLK)) for (const e of folk) lines.push(...talkOf(e))
+    for (const d of GEN.DEMOS) lines.push(d.name, ...d.lines)
+    for (const m of [GEN.QUARRY, GEN.ARENA, GEN.PUZZLELAB]) {
+      lines.push(m.name, ...Object.values(m.cells ?? {}).map(c => c.name).filter(Boolean))
+      for (const mk of Object.values(m.marks)) lines.push(...talkOf(mk.ent))
+    }
+    // What the generator puts together: map and room names, first-visit words, signs (a camp's roads out), the deep.
+    for (const d of generated()) {
+      lines.push(d.name, ...Object.values(d.cells ?? {}).map(c => c.name).filter(Boolean), ...(d.areas ?? []).flatMap(a => a.intro?.lines ?? []))
+      for (const mk of Object.values(d.marks)) lines.push(...talkOf(mk.ent))
+    }
+    // The frontier's own pickups: the dig tools and the tonics.
+    for (const item of ['pickaxe', 'shovel', 'axe', 'hammer', 'tonic3']) lines.push(...GEN.itemText({ inv: { pieces: 1, shrooms: 0 } }, item))
+    // The narrowest view is 13 tiles across: a box of 180 px inside, 6 px a letter.
+    for (const l of new Set(lines)) {
+      const shown = GEN.subst(l, GEN.TOUCH_KEYS)
+      assert.match(shown, /^[A-Z0-9ÆØÅ .,!?'":;\-()/#%&+=*·\n]*$/, `not in the font: ${l}`)
+      assert.ok(GEN.wrapText(shown, 180).length <= 3, `more than three rows: ${l}`)
+    }
+  })
+
+  it('names who speaks: everyone of the frontier opens with a name the plate takes, and no stranger takes a hand-made character’s', () => {
+    const people = []
+    for (const site of GEN.SITES) for (const mk of Object.values(site.marks ?? {})) if (mk.ent.t === 'npc') people.push(mk.ent)
+    for (const folk of Object.values(GEN.DEEP_FOLK)) people.push(...folk)
+    for (const r of Object.values(GEN.REALMS)) for (const f of r.folk) for (const says of f.says) people.push({ id: `${r.id}:${f.look}`, look: f.look, talk: [{ lines: says }] })
+    // The hand-made game's own: their look's name upper-cased would be the plate.
+    const OWN = new Set(['KEEPER', 'MOSSA', 'MAX', 'TOBY', 'OWL', 'DUSTY', 'TROLL', 'LUNA', 'PETTER', 'BARTENDER'])
+    for (const p of people) {
+      for (const b of p.talk) {
+        const first = b.lines[0]
+        // Animals and the silent are told in brackets; anyone who talks says who they are first.
+        if (/^\(|^(MEOW|MRRP|MAA)\b/.test(first)) continue
+        const named = GEN.speakerOf(first, p.look)
+        assert.ok(named, `${p.id} opens without a name: ${first}`)
+        assert.ok(!OWN.has(named.name), `${p.id} speaks as ${named.name}`)
+        for (const l of b.lines.slice(1)) if (!l.startsWith('(')) assert.ok(GEN.speakerOf(l, p.look, first)?.name === named.name, `${p.id} changes voice: ${l}`)
+      }
+    }
+  })
+
+  it('points each camp’s sign down the roads that really lead out to other realms', () => {
+    const name = (rx, ry) => GEN.REALMS[Z.WORLD.generate(`fr:${rx},${ry}`)?.realm]?.name
+    let checked = 0
+    for (const id of ids()) {
+      const d = Z.WORLD.generate(id)
+      const [rx, ry] = id.slice(3).split(',').map(Number)
+      const want = new Set()
+      for (const [side, dx, dy] of [['NORTH', 0, -1], ['EAST', 1, 0], ['SOUTH', 0, 1], ['WEST', -1, 0]]) {
+        const there = d.edges[{ NORTH: 'n', EAST: 'e', SOUTH: 's', WEST: 'w' }[side]] && name(rx + dx, ry + dy)
+        if (there && there !== name(rx, ry)) want.add(`${side}:${there}`)
+      }
+      const roads = new Set()
+      for (const mk of Object.values(d.marks)) {
+        if (mk.ent.t !== 'sign') continue
+        for (const row of mk.ent.lines.join('\n').split('\n')) {
+          const m = /^((?:NORTH|EAST|SOUTH|WEST)(?:(?:, | AND )(?:NORTH|EAST|SOUTH|WEST))*): ([A-Z ]+)$/.exec(row)
+          if (m) for (const side of m[1].split(/, | AND /)) roads.add(`${side}:${m[2]}`)
+        }
+      }
+      // The Landing has a dock, no camp; the crossroads camp's own sign gives the far bearings too.
+      if (id === LANDING || id === 'fr:6,7') continue
+      assert.deepEqual([...roads].sort(), [...want].sort(), `${id}'s roads`)
+      checked += want.size
+    }
+    assert.ok(checked > 20)
   })
 
   it('talks the clean seed through, from the crossroads to the desert and back', () => {

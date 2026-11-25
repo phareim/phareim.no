@@ -2,8 +2,8 @@
  * The battle glade: a demo of field battles (`MapDef.battle`). Four foe
  * groups of rising strength stand in a walled glade; touching one starts
  * a turn-by-turn fight where everyone stands. A chest by the way in holds
- * three neon tonics. Not linked from the world yet (entry `start`, or
- * `?at=arena:start`-style starts in the lab); docs/games/neon-shrine-battle.md.
+ * three neon tonics. Down the stairs at `fr:7,2` in the Sporelight
+ * (`gen/demos.ts`); docs/games/neon-shrine-battle.md.
  */
 import type { MapDef } from '../types'
 
@@ -44,8 +44,8 @@ export const ARENA: MapDef = {
       ent: {
         t: 'sign',
         lines: [
-          'THE BATTLE GLADE. FOES HERE FIGHT IN TURNS: TOUCH ONE AND THE FIGHT STARTS WHERE YOU STAND.',
-          'WHEN YOUR GAUGE IS FULL, PICK A COMMAND. STRIKE ONE FIRST WITH YOUR BLADE TO MOVE FIRST. FLEE ALWAYS WORKS, BUT NOT FROM THE KNIGHT.',
+          'THE BATTLE GLADE. HERE EVERYONE WAITS THEIR TURN TO FIGHT. EVEN THE FOES.',
+          'THE KNIGHT IN THE NORTH-WEST CORNER HAS NEVER LOST A FIGHT. HE MENTIONS IT OFTEN.',
         ],
       },
     },

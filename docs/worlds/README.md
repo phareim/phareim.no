@@ -66,8 +66,8 @@ for those systems. See the [art checklist](../art/codex-tasks.md).
 |---|---|
 | `frontier.ts` | `FRONTIER`: seed, region size (64×44), the macro map (one char per region → a realm), the Landing, hand-written `sites`, the `gates`. `frontierMap(id)` makes a map on first ask and keeps it. Ids, one spelling each (`fr:06,8` and `cave00` are no map): `fr:<rx>,<ry>`, caves `fr:<rx>,<ry>:cave<n>`, the Underglow's layers `fr:<rx>,<ry>:deep<n>` |
 | `gates.ts` | The gates from the hand-made world (data only): id, region, the rim side and a preferred place along it, the hand-made map and entry it leads back to, the region-side sign. `gateWarp(id)` is the hand-made side's warp tile |
-| `realms.ts` | The realms as data (`RealmSpec`, `types.ts`): terrain mix, foes by weight, density, places, folk and what they say, lore, loot, allowed views, `special` (dig / battle / puzzles) |
-| `region.ts` | One region: noise in world coordinates → land; a rim with passes where a neighbour is (the pass offsets are a hash of the edge, so both sides cut the same gap); places (`stamps.ts`, sites); roads (cheapest paths joining passes and places); folk, chests, signs and foes on what the roads reach; then, with no more draws from the seed, a gate cut into the rim (`cutGate`) and the foes thinned |
+| `realms.ts` | The realms as data (`RealmSpec`, `types.ts`): terrain mix, foes by weight, density, places, folk and what they say, the first visit's words (`intro`), what each place's signs say (`signs`, by stamp; `lore` where a place has none), loot, allowed views, `special` (dig / battle / puzzles) |
+| `region.ts` | One region: noise in world coordinates → land; a rim with passes where a neighbour is (the pass offsets are a hash of the edge, so both sides cut the same gap); places (`stamps.ts`, sites); roads (cheapest paths joining passes and places); folk, chests, signs and foes on what the roads reach. Folk are drawn without putting back (nobody twice in a region before everyone has stood, nobody saying the same twice); a camp's sign adds the roads out to other realms ("NORTH: SETER FELL"), from the macro map; then, with no more draws from the seed, a gate cut into the rim (`cutGate`) and the foes thinned |
 | `stamps.ts` | The places: camp, house, hamlet, shrine, relic (a realm's heart piece), graves, cave, pond, market, ruin, grove, stones, the Landing's dock; per realm: lots, truck, whistle (Lumenby); seter, trollhump, mound, cairns (Seter Fell); stilts, boathouse, racks, lighthouse (Yule Fjord); island, ribs, oasis, warden, caravan (Stillsand); well (stairs to THE UNDER), clickers, shellyard, windmill (Sporelight); hilltown, ghostlight, flats, reeds (Fogstage); culdesac, lot, booth, hedgemaze, garagesale (Rerun) |
 | `cave.ts` | A cave: 2–3 × 2 rooms of 16×12 joined by a random spanning tree (`carveRooms`), the stairs up in the first, a chest in the furthest; a realm may name its caves and their foes (`RealmSpec.cave`) |
 | `descent.ts` | THE UNDERGLOW under Lumenby: six layers of 3×2 rooms (Echo Ledges, the Upside Grove, the Glass Sea, Broadcast, the Fossil Arcade, the Core), stairs up and down, a person of the deep on each, heart pieces on 2 and 4; the Core's Geyser goes home. Reached by the deep drift at `fr:0,3` |
@@ -128,7 +128,10 @@ Checks: `tests/zelda-frontier.test.mjs` (every region made and kept; both sides
 of every edge open at the same tiles; the world checks pass with every region
 and cave and layer of the deep in; the ferry; walking off an edge; every realm
 on the macro map; every site in its region and realm; every line in the pixel
-font; the clean seed talked through end to end) and `tests/zelda-gates.test.mjs`
+font, a page at most three rows of the narrowest box with the touch deck's key
+names; everyone who talks opens with a name, none of them a hand-made
+character's; every camp's roads true to the macro map; the clean seed talked
+through end to end) and `tests/zelda-gates.test.mjs`
 (every gate walked through both ways, saved at and reloaded, calm on arrival
 at both ends; each lock; no frontier tile reached without the blade, even with
 bombs and the hook; every gate reached on foot from the start; every realm but
@@ -140,7 +143,8 @@ one per realm: `f-lumenby`, `f-underglow`, `f-seterfell`, `f-yulefjord`,
 `f-stillsand`, `f-sporelight`, `f-fogstage`, `f-rerun`; the gates: `g-fell`,
 `g-spore`, `g-sand`, `g-lawns`, `g-quarry`, `g-fog` (the hand-made side),
 `g-in-fell`, `g-in-sand` (the region side), `g-map` and `g-map-390` (the MAP
-page on the coast).
+page on the coast); the words in the phone's box: `f-say-gunn-390`,
+`f-say-folk-390`, `f-say-roads-390` (a camp sign's roads out), `f-say-cross-390`, `f-say-intro-390`.
 
 ## The macro map
 
@@ -199,7 +203,11 @@ neighbour's tile is open ground.
 `battle-notes.md` and `dig-notes.md` are the designs for the two new systems;
 `SOURCES.md` lists the research; `quests.md` the five questlines across the
 realms. Every realm is in `realms.ts`: its land, folk, foes (today's kinds
-standing in for the sketches' new ones), places and lore. What the sketches ask
+standing in for the sketches' new ones), places and what is said there. The
+words follow the Dialogue rule of `docs/games/neon-shrine.md`: whole-sentence
+pages, a name before what anyone says (roles for the realm's folk, names for
+the questlines' people), bearings true to the macro map, one name per place,
+and nothing about the systems below until they exist. What the sketches ask
 of systems that do not exist yet:
 
 ## TODO: what the realms still need

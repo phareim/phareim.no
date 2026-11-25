@@ -25,6 +25,7 @@
 import type { Dir, EnemyKind, EntDef, ItemId, Mark, MapDef, Prop, Rect, Spot, TileChar } from '../../types'
 import { Rng, fbm, hash } from './rng'
 import { STAMPS, type Stamp } from './stamps'
+import { REALMS } from './realms'
 import { sceneryAt } from './frontierScenery'
 import type { FrontierSpec, RealmSpec, Site } from './types'
 import type { Gate } from './gates'
@@ -411,14 +412,25 @@ export function generateRegion(ctx: RegionCtx): MapDef {
     if (mk.ent.t === 'entry') { entries[mk.ent.id] = { x: (i % W) + 0.5, y: Math.floor(i / W) + 0.5, dir: mk.ent.dir ?? 'down' }; rows[Math.floor(i / W)]![i % W] = mk.tile ?? T.ground; continue }
     cell(i % W, Math.floor(i / W), markOf(mk.ent, mk.tile))
   }
+  // Folk are drawn without putting back (no one twice in a region until all have stood), and no one says the same
+  // twice; still two draws a person, so everything drawn after them (chests, foes, caches) stays where it was.
+  let folkLeft: number[] = []
+  const said = new Set<string>()
+  const placeOf = (x: number, y: number) => placed.find(p => x >= p.x && y >= p.y && x < p.x + p.stamp.rows[0]!.length && y < p.y + p.stamp.rows.length)
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const ch = rows[y]![x]!
     switch (ch) {
       case '1': {
-        const f = rng.pick(realm.folk)
+        if (!folkLeft.length) folkLeft = realm.folk.map((_, i) => i)
+        const k = folkLeft.splice(Math.floor(rng.next() * folkLeft.length), 1)[0]!
+        const f = realm.folk[k]!
         const id = `${ctx.id}.npc${folk++}`
-        const says = rng.pick(f.says)
-        cell(x, y, markOf({ t: 'npc', id, look: f.look, talk: [{ lines: says }], wander: f.wander }))
+        const n = f.says.length
+        const j0 = Math.floor(rng.next() * n)
+        let j = j0
+        for (let t = 0; t < n && said.has(`${k}:${j}`); t++) j = (j0 + t + 1) % n
+        said.add(`${k}:${j}`)
+        cell(x, y, markOf({ t: 'npc', id, look: f.look, talk: [{ lines: f.says[j]! }], wander: f.wander }))
         break
       }
       case '2': cell(x, y, markOf({ t: 'chest', id: `${ctx.id}.c${chests++}`, item: loot() })); break
@@ -432,7 +444,11 @@ export function generateRegion(ctx: RegionCtx): MapDef {
         entries[`cave${n}`] = { x: x + 0.5, y: y + 1.5, dir: 'down' }
         break
       }
-      case '6': cell(x, y, markOf({ t: 'sign', lines: signLines(realm, rng) })); break
+      case '6': {
+        const place = placeOf(x, y)?.name.split(':')[0] ?? ''
+        cell(x, y, markOf({ t: 'sign', lines: signLines(realm, place, rng.next(), place === 'camp' ? roadsOut(ctx) : []) }))
+        break
+      }
       case '8': cell(x, y, markOf({ t: 'warp', to: 'overworld', entry: 'ferry' }, '=')); break
       default: break
     }
@@ -468,7 +484,7 @@ export function generateRegion(ctx: RegionCtx): MapDef {
     entries,
     areas: [{
       x: 0, y: 0, w: W, h: H, name: realm.name, track: realm.track, entry: 'camp',
-      intro: { lines: [realm.lore[0]!], who: null, flag: `realm:${realm.id}` },
+      intro: { lines: realm.intro ?? [realm.lore[0]!], who: null, flag: `realm:${realm.id}` },
     }],
     edges: ctx.edges,
     realm: realm.id,
@@ -742,10 +758,45 @@ function digOf(def: MapDef, ctx: RegionCtx, rng: Rng, reach: Uint8Array, W: numb
   def.dig = { build: true, heights: heights.map(r => r.join('')), caches }
 }
 
-function signLines(realm: RealmSpec, rng: Rng): string[] {
+/**
+ * What a sign says: its place's own words in this realm (`RealmSpec.signs`), else the realm's heading and a line
+ * of its lore; `r` is the sign's one draw. A camp's sign adds the roads out to other realms.
+ */
+function signLines(realm: RealmSpec, place: string, r: number, roads: string[]): string[] {
+  const own = realm.signs?.[place]
+  if (own?.length) return [...own[Math.floor(r * own.length)]!, ...roads]
   const first = realm.lore[0]!
   const rest = realm.lore.slice(1)
-  return rest.length ? [first, rng.pick(rest)] : [first]
+  return [...(rest.length ? [first, rest[Math.floor(r * rest.length)]!] : [first]), ...roads]
+}
+
+const COMPASS = { n: 'NORTH', e: 'EAST', s: 'SOUTH', w: 'WEST' } as const
+const STEP = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] } as const
+
+/**
+ * The roads out of a region into other realms, as a sign's pages: a row a realm ("NORTH: SETER FELL",
+ * "EAST AND SOUTH: THE GREEN MILES"), as many as fit three rows of the narrowest box (30 letters a row).
+ */
+function roadsOut(ctx: RegionCtx): string[] {
+  const sides = new Map<string, string[]>()
+  for (const side of ['n', 'e', 's', 'w'] as const) {
+    if (!ctx.edges[side]) continue
+    const [dx, dy] = STEP[side]
+    const there = REALMS[ctx.F.realms[ctx.F.layout[ctx.ry + dy]?.[ctx.rx + dx] ?? ''] ?? '']
+    if (!there || there.id === ctx.realm.id) continue
+    sides.set(there.name, [...(sides.get(there.name) ?? []), COMPASS[side]])
+  }
+  const and = (w: string[]) => (w.length < 2 ? w[0]! : `${w.slice(0, -1).join(', ')} AND ${w[w.length - 1]}`)
+  const pages: string[][] = []
+  let rows = 3
+  for (const [name, ws] of sides) {
+    const road = `${and(ws)}: ${name}`
+    const need = Math.ceil(road.length / 30)
+    if (rows + need > 3) { pages.push([]); rows = 0 }
+    pages[pages.length - 1]!.push(road)
+    rows += need
+  }
+  return pages.map(p => p.join('\n'))
 }
 
 /** Tiles reachable on foot from a spot (bridges, paths, doors; not over water or walls). */
