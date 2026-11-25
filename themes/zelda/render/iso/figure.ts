@@ -43,6 +43,7 @@ import { mix } from '../heroColors'
 export const FIG = { w: 160, h: 96, ax: 80, ay: 66 } as const
 
 export type FigureAct = 'idle' | 'walk' | 'swing' | 'spin' | 'lift' | 'carry' | 'push' | 'hurt' | 'get' | 'use' | 'fall' | 'dead'
+  | 'backhand' | 'lunge' | 'roll'
 
 export interface FigureBlade {
   /** World angle the blade points along now (radians; 0 = east, π/2 = south). */
@@ -64,11 +65,14 @@ export interface FigurePose {
   /** idle: seconds (a slow breath); walk: stride phase 0..1, looping, two steps per cycle; carry: stride phase (see `moving`);
    *  push: stride phase too (the feet shuffle; 0 stands braced);
    *  swing: 0..1 through the swing; spin: 0..1 through the spin (the body turns a full circle, yaw is where it started);
-   *  lift/get/use/hurt/fall/dead: 0..1 through the act (dead: 0..0.5 is a spin and collapse, after that lying still). */
+   *  lift/get/use/hurt/fall/dead: 0..1 through the act (dead: 0..0.5 is a spin and collapse, after that lying still);
+   *  backhand: 0..1 through the chain's second swing (the other foot forward, the blade arm swept back across);
+   *  lunge: 0..1 through the finisher (a deep step, the body low, the blade arm all the way out, then the recovery);
+   *  roll: 0..1 through the dodge roll (tuck, a full turn forward over the head about the body's middle, a crouch). */
   t: number
   /** carry: walking (true) or standing. */
   moving?: boolean
-  /** Drawn in the hand for idle, walk, swing and spin; the other acts have their hands full and leave it out. */
+  /** Drawn in the hand for idle, walk, swing, backhand, lunge and spin; the other acts have their hands full and leave it out. */
   blade?: FigureBlade
 }
 
@@ -582,6 +586,8 @@ const P = {
   rise: 0,
   /** The whole figure tipped over on its left side, lifted off the ground and moved along it. */
   lie: 0, ox: 0, oy: 0, oz: 0,
+  /** The whole figure turned forward over its head (the roll), radians. */
+  pitch: 0,
   /** Feet: forward of the hips, and off the ground. */
   lf: 0, lz: 0, rf: 0, rz: 0,
   /** Hands, in the torso's frame (forward, right, up from the hips). */
@@ -604,7 +610,7 @@ const HIP = 9
 function rest(yaw: number) {
   P.yaw = yaw; P.twist = 0; P.turn = 0
   P.lean = 0; P.roll = 0; P.nod = 0
-  P.rise = 0; P.lie = 0; P.ox = 0; P.oy = 0; P.oz = 0
+  P.rise = 0; P.lie = 0; P.ox = 0; P.oy = 0; P.oz = 0; P.pitch = 0
   P.lf = 0; P.lz = 0; P.rf = 0; P.rz = 0
   P.lhf = REST_F; P.lhr = -REST_R; P.lhz = REST_Z
   P.rhf = REST_F; P.rhr = REST_R; P.rhz = REST_Z
@@ -689,6 +695,52 @@ function solve(pose: FigurePose) {
       P.bounce = 1 - 2 * clamp(t, 0, 1)
       if (b) hold(b.a, k)
       else { P.rhf = 9; P.rhr = 4; P.rhz = 6.5 }
+      break
+    }
+    case 'backhand': {
+      // The forehand's mirror: the other foot forward, the torso wound the other way, the free arm thrown back.
+      const k = Math.sin(clamp(t, 0, 1) * Math.PI)
+      P.lean = 0.08 + 0.12 * k
+      P.lf = 3.2; P.rf = -2.4
+      if (k > 0.5) P.rise = -1
+      P.fly = 0.75
+      P.bounce = 2 * clamp(t, 0, 1) - 1
+      if (b) { hold(b.a, k); P.lhf = -4.5 - 1.5 * k; P.lhr = -8.5; P.lhz = 5 + 2 * k }
+      else { P.twist = -0.45 * k; P.turn = 0.2 * k; P.rhf = 7; P.rhr = -6.5; P.rhz = 7.5; P.lhf = -4; P.lhz = 5 }
+      break
+    }
+    case 'lunge': {
+      // Out fast, held, then up again slowly: the step is deep and the body drops three px.
+      const k = clamp(t, 0, 1)
+      const e = k < 0.3 ? ease(k / 0.3) : 1 - 0.65 * ease((k - 0.3) / 0.7)
+      P.lean = 0.1 + 0.32 * e
+      P.rf = 1 + 6 * e; P.lf = -1 - 4.6 * e
+      P.rise = -Math.round(3 * e)
+      P.fly = 0.4 + 0.6 * e
+      P.bounce = 1 - 2 * k
+      if (b) { hold(b.a, e); P.hr = 12.5 + 2 * e; P.lhf = -4 - 2 * e; P.lhz = 4 + 2 * e }
+      else { P.rhf = 7 + 6 * e; P.rhr = 3; P.rhz = 6 + 1.5 * e; P.lhf = -3 - 2 * e; P.lhz = 4 }
+      break
+    }
+    case 'roll': {
+      // Tucked into a ball (knees up, hands on the shins), turned once forward about the ball's middle, up to a crouch.
+      const k = clamp(t, 0, 1)
+      const tuck = k < 0.15 ? ease(k / 0.15) : k > 0.85 ? 1 - 0.6 * ease((k - 0.85) / 0.15) : 1
+      const turn = ease((k - 0.12) / 0.76)
+      P.pitch = turn * TAU
+      const mid = 8
+      const sp = Math.sin(P.pitch)
+      P.ox = -Math.cos(P.yaw) * mid * sp
+      P.oy = -Math.sin(P.yaw) * mid * sp
+      P.oz = mid * (1 - Math.cos(P.pitch))
+      P.rise = -Math.round(4 * tuck)
+      P.lean = 0.7 * tuck
+      P.nod = 0.35 * tuck
+      P.lf = 2.5 * tuck; P.rf = 2.5 * tuck
+      P.lz = P.rz = 4 * tuck * (k > 0.1 && k < 0.9 ? 1 : 0.4)
+      handsUp(5.5, 5.5, 2.5, tuck)
+      P.fly = 0.3 + 0.9 * Math.abs(sp)
+      P.eyes = tuck > 0.5 ? 1 : 0
       break
     }
     case 'spin': {
@@ -826,11 +878,11 @@ function arm(side: number, hu: number, hv: number, hd: number, grp: number) {
 function build(look: HeroLook, b: FigureBlade | undefined) {
   // The legs stand in the root frame; the torso turns and leans on the hips; the head sits on the torso.
   ground(P.ox, P.oy, P.oz)
-  setFrame(fRoot, P.yaw, 0, -P.lie, pu, pv, pd)
+  setFrame(fRoot, P.yaw, P.pitch, -P.lie, pu, pv, pd)
   pt(fRoot, 0, 0, HIP + P.rise * PX)
-  setFrame(fTorso, P.yaw + P.twist, P.lean, P.roll - P.lie, pu, pv, pd)
+  setFrame(fTorso, P.yaw + P.twist, P.lean + P.pitch, P.roll - P.lie, pu, pv, pd)
   pt(fTorso, 0.4, 0, 16.6)
-  setFrame(fHead, P.yaw + P.twist + P.turn, P.lean * 0.5 + P.nod, P.roll * 0.5 - P.lie, pu, pv, pd)
+  setFrame(fHead, P.yaw + P.twist + P.turn, P.lean * 0.5 + P.nod + P.pitch, P.roll * 0.5 - P.lie, pu, pv, pd)
 
   leg(-1, P.lf, P.lz, look, G_LEG_L)
   leg(1, P.rf, P.rz, look, G_LEG_R)

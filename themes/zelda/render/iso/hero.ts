@@ -18,8 +18,13 @@
  *   (the standing front shrunk, as the classic does) and lying (it turned on its side, as the classic does).
  * - *Covered or not at all.* `heroArtCovers(shape)` says whether every part of a shape is drawn; a shape that is not
  *   is the classic hero, whole. So is a hero the studio has redrawn (`heroStudioEdited`).
+ * - *The fight's poses.* `ART_EXTRA_POSES` (the swing chain, the finisher, the roll, the run, the breath, the charge,
+ *   hurt from behind, the stagger: `heroPoses.ts`) are drawn front and back but never required: a body that is
+ *   missing, or a four-way pose the art has never heard of, falls back to the swing or the stand
+ *   (`extraFallback`). The roll's ball turns the head with it (`nr`: quarter turns about the neck point, lossless).
  */
 import { BLADE_ART, BLADE_PAL, HERO_ARMS, HERO_BASE, HERO_BODIES, HERO_DRAWN, HERO_FIXED, HERO_HEADS, HERO_LETTERS, HERO_MIX, HERO_OVERS, type HeroPart, type HeroRole } from './heroArt'
+import type { HeroPosePart } from './heroPoses'
 import { mix } from '../heroColors'
 import { DRAWN_LOOK, heroLookKey, type HeroLook } from '../heroLook'
 import type { HeroShape } from '../heroFrames'
@@ -30,6 +35,27 @@ export type ArtFacing = 'front' | 'back'
 export const ART_POSES = ['0', '1', '2', 'atk', 'carry_0', 'carry_1', 'push'] as const
 /** The poses drawn facing the viewer only (`fall_*` and `dead` are made from the standing front). */
 export const ART_FRONT_POSES = ['get', 'hurt'] as const
+/**
+ * The fight and movement poses (`heroPoses.ts`), drawn front and back like `ART_POSES` but not required: a shape that
+ * lacks one is still covered, and the missing pose falls back (`extraFallback`) to the swing or to standing. Each has
+ * its classic frames `hero_<down|up|side>_<pose>` (`heroFrames.ts`). `hurt` here is the four-way hurt (from behind
+ * too); `hero_hurt` stays the front one. The engine does not ask for them yet (they wait for the fight's rework).
+ */
+export const ART_EXTRA_POSES = [
+  'atk_wind', 'atk_back', 'atk_lunge', 'atk_land',
+  'roll_0', 'roll_1', 'roll_2', 'roll_3',
+  'run_0', 'run_1', 'run_2', 'run_3', 'run_4', 'run_5',
+  'idle_1', 'charge', 'hurt', 'stagger',
+] as const
+/**
+ * What a four-way pose without a body is drawn as: an extra pose a shape lacks, or one the engine names that has no
+ * art at all (a further hit frame): a swing as the swing, anything else standing. The required poses never fall back.
+ */
+export function extraFallback(pose: string): string {
+  return pose.startsWith('atk') || pose === 'charge' ? 'atk' : '0'
+}
+const REQUIRED = new Set<string>(ART_POSES)
+const REQUIRED_FRONT = new Set<string>(ART_FRONT_POSES)
 
 const ROLES: HeroRole[] = ['hair', 'skin', 'head', 'top', 'stripe', 'belt', 'bottom', 'shoes']
 const ROLE_KEY: Record<HeroRole, 'hairColor' | 'skin' | 'headColor' | 'top' | 'stripe' | 'belt' | 'bottomColor' | 'shoes'> = {
@@ -64,7 +90,7 @@ export function heroArtPalette(look: HeroLook): Record<string, string> {
 export interface HeroParts {
   heads: Record<string, HeroPart>
   overs: Record<string, HeroPart>
-  bodies: Record<string, HeroPart>
+  bodies: Record<string, HeroPosePart>
   arms: Record<string, HeroPart>
 }
 export const HERO_PARTS: HeroParts = { heads: HERO_HEADS, overs: HERO_OVERS, bodies: HERO_BODIES, arms: HERO_ARMS }
@@ -107,8 +133,10 @@ function lay(G: Grid, p: HeroPart, ox: number, oy: number, rows = p.rows) {
   }
 }
 
-/** The face as the pose has it: `hurt` squeezes the eyes shut and opens the mouth, `get` opens it in a shout. */
+/** The face as the pose has it: `hurt` (and `stagger`) squeezes the eyes shut and opens the mouth, `get` opens it in a shout. */
 function face(rows: readonly string[], pose: string): readonly string[] {
+  // Staggered, the face is hurt's.
+  if (pose === 'stagger') pose = 'hurt'
   if (pose !== 'hurt' && pose !== 'get') return rows
   const g = rows.map(r => r.split(''))
   const eyes: Array<[number, number]> = []
@@ -132,21 +160,45 @@ function face(rows: readonly string[], pose: string): readonly string[] {
   return g.map(r => r.join(''))
 }
 
-/** A drawn pose, facing front or back, in a shape (null: not drawn). */
+/** A part turned `q` quarter turns clockwise about its origin (screen y grows down); lossless, no px resampled. */
+function turned(p: HeroPart, q: number): HeroPart {
+  let x = p.x, y = p.y, rows = [...p.rows]
+  for (let i = 0; i < (((q % 4) + 4) % 4); i++) {
+    const h = rows.length
+    const w = rows[0]?.length ?? 0
+    const next: string[] = []
+    for (let c = 0; c < w; c++) { let r = ''; for (let k = h - 1; k >= 0; k--) r += rows[k]![c]!; next.push(r) }
+    // (u, v) → (−v, u): the top left (x, y) of a w×h part lands at (−(y + h − 1), x).
+    ;[x, y] = [-(y + h - 1), x]
+    rows = next
+  }
+  return { x, y, rows }
+}
+
+/** A drawn pose, facing front or back, in a shape (null: not drawn). An extra pose the shape lacks falls back. */
 function composed(pose: string, f: ArtFacing, s: HeroShape, P: HeroParts): ArtFrame | null {
-  const body = P.bodies[`${pose}/${f}/${kindOf(s)}`]
-  const head = P.heads[`${s.hair}/${s.head}/${f}`]
+  let body: HeroPosePart | undefined = P.bodies[`${pose}/${f}/${kindOf(s)}`]
+  if (!body && !REQUIRED.has(pose) && !(f === 'front' && REQUIRED_FRONT.has(pose))) {
+    pose = extraFallback(pose)
+    body = P.bodies[`${pose}/${f}/${kindOf(s)}`] ?? P.bodies[`0/${f}/${kindOf(s)}`]
+  }
+  let head = P.heads[`${s.hair}/${s.head}/${f}`]
   if (!body || !head) return null
-  const over = P.overs[`${s.hair}/${s.head}/${f}`]
-  const arms = P.arms[`${pose}/${f}`]
+  let over = P.overs[`${s.hair}/${s.head}/${f}`]
+  // Over the head: the arms of the pose (the roll's ball: its knees and hands, per bottom).
+  const arms = P.arms[`${pose}/${f}/${kindOf(s)}`] ?? P.arms[`${pose}/${f}`]
   const nx = body.nx ?? 0
   const ny = body.ny ?? 0
+  if (body.nr) {
+    head = turned({ ...head, rows: face(head.rows, pose) }, body.nr)
+    if (over) over = turned(over, body.nr)
+  }
   const parts: Array<[HeroPart, number, number]> = [[body, 0, 0], [head, nx, ny]]
   if (over) parts.push([over, nx, ny])
   if (arms) parts.push([arms, 0, 0])
   const G = grid(parts)
   lay(G, body, 0, 0)
-  lay(G, head, nx, ny, face(head.rows, pose))
+  lay(G, head, nx, ny, body.nr ? head.rows : face(head.rows, pose))
   if (over) lay(G, over, nx, ny)
   if (arms) lay(G, arms, 0, 0)
   return { rows: G.g.map(r => r.join('')), ax: -G.x0, ay: -G.y0 }
@@ -226,7 +278,7 @@ export function heroArtFor(name: string, flip: boolean, s: HeroShape, P: HeroPar
 
 /** Every frame name the art draws, for the lab and the tests. */
 export const HERO_ART_NAMES: readonly string[] = [
-  ...['down', 'up', 'side'].flatMap(d => ART_POSES.map(p => `hero_${d}_${p}`)),
+  ...['down', 'up', 'side'].flatMap(d => [...ART_POSES, ...ART_EXTRA_POSES].map(p => `hero_${d}_${p}`)),
   'hero_get', 'hero_hurt', 'hero_fall_0', 'hero_fall_1', 'hero_fall_2', 'hero_dead',
 ]
 

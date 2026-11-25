@@ -463,3 +463,63 @@ describe('the figure at two densities', () => {
     }
   })
 })
+
+// The fight's rework (docs/art/codex-tasks.md, H10): the backhand, the lunging finisher and the dodge roll, so the
+// modelled hero is not left behind. The engine does not ask for them yet.
+describe('the fight\'s acts', () => {
+  const NEW = ['backhand', 'lunge', 'roll']
+  const box = s => s.box
+  const headTop = s => s.box[1]
+
+  it('draw inside the cell at every yaw and moment, the same pixels for the same pose', () => {
+    for (const act of NEW) {
+      for (const yaw of YAWS) {
+        for (const t of [0, 0.15, 0.3, 0.5, 0.7, 0.9, 1]) {
+          const pose = { yaw, act, t, blade: act === 'roll' ? undefined : blade(yaw + 0.5) }
+          const s = M.renderFigure(pose, M.DRAWN_LOOK)
+          const [x0, y0, x1, y1] = box(s)
+          assert.ok(count(s) > 100, `${act} ${yaw} ${t}: ${count(s)} px`)
+          assert.ok(x0 > 0 && y0 > 0 && x1 < s.w && y1 < s.h, `${act} ${yaw} ${t}: box ${box(s)}`)
+          assert.ok(same(s, M.renderFigure(pose, M.DRAWN_LOOK)), `${act} ${yaw} ${t}: not the same twice`)
+        }
+      }
+    }
+  })
+
+  it('rolls once over the head: tucked low, upside down half way, up again at the end', () => {
+    const yaw = 0.7
+    const stand = M.renderFigure({ yaw, act: 'idle', t: 0 }, M.DRAWN_LOOK)
+    const at = t => M.renderFigure({ yaw, act: 'roll', t }, M.DRAWN_LOOK)
+    // Tucked, the figure is lower than standing.
+    assert.ok(headTop(at(0.15)) > headTop(stand) + 3, `tuck top ${headTop(at(0.15))} vs ${headTop(stand)}`)
+    // Every moment of the turn is a picture of its own.
+    const pics = [0.2, 0.35, 0.5, 0.65, 0.8].map(t => Buffer.from(at(t).albedo).toString('base64'))
+    assert.equal(new Set(pics).size, pics.length)
+    // Half way the hair is below the trousers: the figure is upside down (standing, it is far above them).
+    const HAIR = M.DRAWN_LOOK.hairColor.toLowerCase()
+    const LEGS = M.DRAWN_LOOK.bottomColor.toLowerCase()
+    const ys = (s, hex) => { const out = []; for (const [i, , y] of pixels(s)) if (hexOf(s, i) === hex) out.push(y); return out }
+    const meanY = (s, hex) => { const v = ys(s, hex); assert.ok(v.length, hex); return v.reduce((a, b) => a + b) / v.length }
+    assert.ok(meanY(stand, HAIR) < meanY(stand, LEGS) - 10)
+    const mid = at(0.5)
+    assert.ok(meanY(mid, HAIR) > meanY(mid, LEGS), `half way: hair at ${meanY(mid, HAIR)}, trousers at ${meanY(mid, LEGS)}`)
+    // At the end it crouches on its feet again.
+    const end = at(1)
+    assert.ok(meanY(end, HAIR) < meanY(end, LEGS) - 6)
+    assert.ok(end.box[3] >= stand.box[3] - 2, `the feet end at ${end.box[3]}`)
+  })
+
+  it('lunges lower and further than the forehand, and swings the backhand off the other foot', () => {
+    const yaw = Math.PI / 4
+    const b = blade(yaw)
+    const swing = M.renderFigure({ yaw, act: 'swing', t: 0.3, blade: b }, M.DRAWN_LOOK)
+    const lunge = M.renderFigure({ yaw, act: 'lunge', t: 0.3, blade: b }, M.DRAWN_LOOK)
+    const back = M.renderFigure({ yaw, act: 'backhand', t: 0.3, blade: b }, M.DRAWN_LOOK)
+    assert.ok(headTop(lunge) > headTop(swing), `lunge top ${headTop(lunge)} vs swing ${headTop(swing)}`)
+    assert.ok(!same(back, swing), 'the backhand is not the forehand')
+    // Both hold the blade (the roll's hands are full).
+    for (const s of [lunge, back]) assert.ok([...pixels(s)].some(([i]) => s.normal[i + 3] > 0), 'a blade')
+    const roll = M.renderFigure({ yaw, act: 'roll', t: 0.5, blade: b }, M.DRAWN_LOOK)
+    assert.ok(![...pixels(roll)].some(([i]) => roll.normal[i + 3] > 0), 'no blade in the roll')
+  })
+})

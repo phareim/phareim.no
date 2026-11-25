@@ -56,7 +56,11 @@ three on the arcade's HIGH SCORES sign (one Hall of Fame game at random,
 (`render/bladeAngles.ts`). The small foes have dedicated hurt frames in both
 atlases, with a separate back frame for the knight. Cyan and gold impact
 stars and fading slash marks are registered for the combat effects. Small
-animals appear around nearby water, flowers, trees and lights.
+animals appear around nearby water, flowers, trees and lights. The combo,
+roll, six-frame run, held charge and stagger have classic and isometric
+frames for the combat rework. The modelled figure also supports backhand,
+lunge and roll. Generate a contact sheet with
+`node scripts/zelda-lab/hero-poses.mjs sheet /tmp/hero-poses.png`.
 
 **Views** (2026-10-07; engines and values 2026-11-11). The game can
 be shown in more than one way, and the player can change it in the middle of

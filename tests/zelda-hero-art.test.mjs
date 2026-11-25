@@ -15,7 +15,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
 async function load() {
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export * from './render/iso/hero'; export * from './render/iso/heroArt'; export { DRAWN_LOOK, GIRL_LOOK, lookFromColors } from './render/heroLook'; export { heroFrames, HAIR_STYLES, HEADWEAR, BOTTOMS, DRAWN_SHAPE } from './render/heroFrames'; export { SPRITES } from './render/sprites'; export { setSpriteOverrides, setHeroLook, heroStudioEdited } from './render/sheet'`,
+      contents: `export * from './render/iso/hero'; export * from './render/iso/heroArt'; export * from './render/iso/heroPoses'; export { DRAWN_LOOK, GIRL_LOOK, lookFromColors } from './render/heroLook'; export { heroFrames, HAIR_STYLES, HEADWEAR, BOTTOMS, DRAWN_SHAPE } from './render/heroFrames'; export { SPRITES } from './render/sprites'; export { setSpriteOverrides, setHeroLook, heroStudioEdited } from './render/sheet'`,
       resolveDir: root,
       loader: 'ts',
     },
@@ -164,5 +164,84 @@ describe('the hero in isometric pixel art', () => {
     }
     assert.ok(M.BLADE_ART.sword2_v.join('').includes('v'))
     assert.ok(!M.BLADE_ART.sword_v.join('').includes('v'))
+  })
+})
+
+// The fight and movement poses (docs/art/codex-tasks.md, THE HERO IN A FIGHT): drawn as extra poses, never required,
+// each over classic frames of its own; built by scripts/zelda-lab/hero-poses.mjs into render/iso/heroPoses.ts.
+describe('the hero\'s fight and movement poses', () => {
+  const KINDS = ['trousers', 'shorts', 'skirt']
+  const rowsOf = (name, s = M.DRAWN_SHAPE, flip = false) => M.heroArtFor(name, flip, s).frame.rows.join('\n')
+
+  it('are drawn front and back in every bottom (hurt from behind: the front is the drawn one), apart from the required ones', () => {
+    assert.ok(M.ART_EXTRA_POSES.length >= 18)
+    for (const p of M.ART_EXTRA_POSES) {
+      assert.ok(!M.ART_POSES.includes(p), p)
+      for (const f of ['front', 'back']) for (const k of KINDS) {
+        const body = M.HERO_PARTS.bodies[`${p}/${f}/${k}`]
+        assert.ok(body, `${p}/${f}/${k}`)
+        assert.ok(Number.isInteger(body.nx) && Number.isInteger(body.ny), `${p}/${f}/${k}: neck point`)
+        for (const r of body.rows) for (const ch of r) assert.ok(ch === '.' || M.heroArtPalette(M.DRAWN_LOOK)[ch], `${p}/${f}/${k}: ${ch}`)
+      }
+    }
+    // The ball turns the head with it, a quarter and a half turn.
+    assert.equal(M.HERO_POSE_BODIES['roll_1/front/trousers'].nr, 3)
+    assert.equal(M.HERO_POSE_BODIES['roll_2/back/skirt'].nr, 2)
+  })
+
+  it('have classic frames down, up and side for every shape', () => {
+    for (const s of shapes()) {
+      const F = M.heroFrames(s)
+      for (const p of M.ART_EXTRA_POSES) for (const d of ['down', 'up', 'side']) assert.ok(F[`hero_${d}_${p}`], `${s.hair}/${s.head}/${s.bottom} hero_${d}_${p}`)
+    }
+  })
+
+  it('are frames of their own, iso and classic: no two the same, none the stand or the swing', () => {
+    const F = M.heroFrames(M.DRAWN_SHAPE)
+    for (const d of ['down', 'up', 'side']) {
+      const names = [...M.ART_EXTRA_POSES, '0', 'atk'].filter(p => !(d === 'down' && p === 'hurt')).map(p => `hero_${d}_${p}`)
+      const iso = names.map(n => `${rowsOf(n)}|${M.heroArtFor(n, false, M.DRAWN_SHAPE).flip}`)
+      const classic = names.map(n => F[n].join('\n'))
+      assert.equal(new Set(iso).size, names.length, `iso ${d}`)
+      assert.equal(new Set(classic).size, names.length, `classic ${d}`)
+    }
+    // The four-way hurt from the front is the drawn front hurt; from behind it is its own.
+    assert.deepEqual(F.hero_down_hurt, F.hero_hurt)
+    assert.equal(rowsOf('hero_down_hurt'), rowsOf('hero_hurt'))
+    assert.notEqual(rowsOf('hero_up_hurt'), rowsOf('hero_up_0'))
+  })
+
+  it('lift both feet off the ground in the run, in both views', () => {
+    const F = M.heroFrames(M.DRAWN_SHAPE)
+    for (const d of ['down', 'up', 'side']) {
+      const flying = [0, 1, 2, 3, 4, 5].filter(i => !/[^.]/.test(F[`hero_${d}_run_${i}`][15]))
+      assert.ok(flying.length >= 1, `classic ${d}: ${flying}`)
+    }
+    for (const f of ['front', 'back']) {
+      const flying = [0, 1, 2, 3, 4, 5].filter(i => M.HERO_POSE_BODIES[`run_${i}/${f}/trousers`].rows.length + M.HERO_POSE_BODIES[`run_${i}/${f}/trousers`].y < 0)
+      assert.ok(flying.length >= 1, `iso ${f}: ${flying}`)
+    }
+  })
+
+  it('never make a shape uncovered, and fall back to the swing or the stand where a body is missing', () => {
+    const P = M.HERO_PARTS
+    const bare = { ...P, bodies: Object.fromEntries(Object.entries(P.bodies).filter(([k]) => !M.ART_EXTRA_POSES.some(p => k.startsWith(`${p}/`)) || k.startsWith('hurt/front/'))) }
+    for (const s of shapes()) assert.equal(M.heroArtCovers(s, bare), M.heroArtCovers(s), `${s.hair}/${s.head}/${s.bottom}`)
+    const at = (name, parts) => M.heroArtFor(name, false, M.DRAWN_SHAPE, parts).frame.rows.join('\n')
+    assert.equal(at('hero_down_atk_wind', bare), at('hero_down_atk', P))
+    assert.equal(at('hero_up_charge', bare), at('hero_up_atk', P))
+    assert.equal(at('hero_side_run_3', bare), at('hero_side_0', P))
+    assert.equal(at('hero_up_hurt', bare), at('hero_up_0', P))
+    // A hit frame the engine may name one day, with no art at all.
+    assert.equal(at('hero_down_atk_hit', P), at('hero_down_atk', P))
+    assert.equal(at('hero_up_dodge', P), at('hero_up_0', P))
+    // The required poses never fall back: a shape missing one is the classic hero.
+    assert.equal(M.extraFallback('atk_lunge'), 'atk')
+    assert.equal(M.extraFallback('roll_2'), '0')
+  })
+
+  it('are what the lab builds (scripts/zelda-lab/hero-poses.mjs --check)', async () => {
+    const { execFileSync } = await import('node:child_process')
+    execFileSync(process.execPath, [resolve(root, '../../scripts/zelda-lab/hero-poses.mjs'), '--check'], { stdio: 'pipe' })
   })
 })

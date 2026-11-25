@@ -8,6 +8,9 @@
  * and bodies (`pose/facing/bottom`, from the foot point, with their neck point `nx`, `ny`). Edit the rows here (or
  * redraw and regenerate).
  */
+import { intermediateBlades } from '../bladeAngles'
+import { HERO_POSE_ARMS, HERO_POSE_BODIES, type HeroPosePart } from './heroPoses'
+
 export interface HeroPart { x: number; y: number; nx?: number; ny?: number; rows: readonly string[] }
 export type HeroRole = 'hair' | 'skin' | 'head' | 'top' | 'stripe' | 'belt' | 'bottom' | 'shoes'
 export const HERO_LETTERS: Record<HeroRole, string> = {'hair': 'abcde', 'skin': 'fghij', 'head': 'klmno', 'top': 'pqrst', 'stripe': 'uvwxy', 'belt': 'ABCDE', 'bottom': 'FGHIJ', 'shoes': 'KLMNO'}
@@ -597,7 +600,8 @@ export const HERO_OVERS: Record<string, HeroPart> = {
     '.............a.',
   ] },
 }
-export const HERO_BODIES: Record<string, HeroPart> = {
+export const HERO_BODIES: Record<string, HeroPosePart> = {
+  ...HERO_POSE_BODIES,
   '0/back/shorts': { x: -11, y: -16, nx: -5, ny: -16, rows: [
     '...ppppppppFppppp..',
     '..pssssrpppHqpppqp.',
@@ -1413,6 +1417,7 @@ export const HERO_BODIES: Record<string, HeroPart> = {
   ] },
 }
 export const HERO_ARMS: Record<string, HeroPart> = {
+  ...HERO_POSE_ARMS,
   '0/front': { x: -3, y: -17, rows: [
     'rqq........pp',
   ] },
@@ -1520,7 +1525,6 @@ export const HERO_ARMS: Record<string, HeroPart> = {
   ] },
 }
 /** The blades at the art's density (part 21): the classic `sword_*` (and the Arc Blade's `sword2_*`) redrawn twice the size, fixed colours. */
-import { intermediateBlades } from '../bladeAngles'
 
 export const BLADE_PAL: Record<string, string> = {'k': '#0b0616', 'w': '#fff4ff', 'c': '#2ff3ff', 'L': '#b8fbff', 'C': '#1a9fc4', 'D': '#0e5a7a', 'y': '#ffd23f', 'Q': '#fff0a8', 'Y': '#c4861c', 'O': '#7a4a10', 'n': '#6a4432', 'N': '#3e2418', 'v': '#9a4ff0', 'V': '#5a2496'}
 export const BLADE_ART: Record<string, readonly string[]> = {
