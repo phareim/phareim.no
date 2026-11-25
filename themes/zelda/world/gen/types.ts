@@ -4,7 +4,7 @@
  * mix, its foes, its folk and the places that stand in it. The design behind
  * each realm is `docs/worlds/realm-<id>.md`.
  */
-import type { EnemyKind, ItemId, MapDef, Mark, NpcLook, Prop, TrackId } from '../../types'
+import type { EnemyKind, ItemId, MapDef, Mark, NpcLook, Prop, TileChar, TrackId } from '../../types'
 
 /** The drawing engines a map may be shown in (`viewParams.ts` ENGINES). */
 export type ViewEngine = 'classic' | 'iso' | 'poly'
@@ -96,6 +96,8 @@ export interface Site {
   props?: Prop[]
   /** Where in the region (tiles), if it matters; otherwise wherever it fits. */
   at?: { x: number; y: number }
+  /** What its plain ground `.` becomes; default the realm's own ground (a puzzle keeps the floor its kit was solved on). */
+  ground?: TileChar
 }
 
 /** The frontier's shape: a grid of regions, each one map. */

@@ -331,6 +331,8 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   let decalMaxW = Infinity
   let layer: TileLayer | null = null
   let time = 0
+  /** The frame's reduced-motion setting (`begin`), for parts drawn without the frame's UI. */
+  let frameReduced = false
   let fx: Fx[] = []
   let flashT = 0
   let flashColor = '#ffffff'
@@ -851,6 +853,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   /** Advance the clock and fit the scale to the map. */
   function begin(s: GameState, ui: FrameUI, dt: number) {
     time += ui.paused ? 0 : dt
+    frameReduced = ui.reducedMotion
     if (layoutMap !== s.map.id) {
       layoutMap = s.map.id
       const want = scaleFor(s.map.id)
@@ -1000,7 +1003,7 @@ export function createRenderer(canvas: HTMLCanvasElement, world: World): Rendere
   /** What flies and glows, drawn after the light: shots and the disc. `place` puts a world point on the scene; `dirOf` turns a world direction into the scene's. */
   function projectiles(g: G, s: GameState, place: Place, dirOf: (vx: number, vy: number) => Vec = (vx, vy) => ({ x: vx, y: vy })) {
     const m = s.map
-    drawBeams(g, s, place, time, false)
+    drawBeams(g, s, place, time, frameReduced)
     for (const p of m.projectiles) {
       const at = place(p.x, p.y)
       const px = at.x

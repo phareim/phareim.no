@@ -7,7 +7,7 @@
  */
 import type { GameState, TileChar } from '../../types'
 import type { MapInfo } from '../map'
-import { floorUnder, puzzleInfo, sluiceFull } from './info'
+import { floorUnder, puzzleFlag, puzzleInfo, sluiceFull } from './info'
 
 export function loadPuzzleTiles(info: MapInfo, s: GameState, tiles: TileChar[]) {
   const p = puzzleInfo(info)
@@ -18,14 +18,12 @@ export function loadPuzzleTiles(info: MapInfo, s: GameState, tiles: TileChar[]) 
     for (const i of g.tiles) if (tiles[i] === 'ω' || tiles[i] === 'ψ') tiles[i] = full ? 'ω' : 'ψ'
   }
   for (const f of Object.keys(s.flags)) {
-    const q = f.split(':')
-    if (q[1] !== id) continue
-    if (q[0] === 'fill') tiles[Number(q[2])] = '.'
-    else if (q[0] === 'boulder') {
-      const home = Number(q[2])
-      const rest = Number(q[3])
-      if (tiles[home] === 'κ') tiles[home] = floorUnder(info, p, s.flags, home)
-      if (rest >= 0) tiles[rest] = 'κ'
+    const q = puzzleFlag(f, id)
+    if (!q) continue
+    if ('fill' in q) tiles[q.fill] = '.'
+    else {
+      if (tiles[q.home] === 'κ') tiles[q.home] = floorUnder(info, p, s.flags, q.home)
+      if (q.rest >= 0) tiles[q.rest] = 'κ'
     }
   }
 }

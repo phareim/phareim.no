@@ -231,6 +231,43 @@ describe('the frontier', () => {
     assert.ok(seen.dig && seen.battle && seen.puzzles)
   })
 
+  it('sets every puzzle site down solvable, on the floor its kit was made on (not the realm’s sand)', () => {
+    let sites = 0
+    const bad = []
+    for (const id of ids()) {
+      const d = Z.WORLD.generate(id)
+      const rows = d.rows.map(r => [...r])
+      for (const [ch, mk] of Object.entries(d.marks)) {
+        if (mk.ent.t !== 'chest' || !/\.pz\d\.prize$/.test(mk.ent.id)) continue
+        const cy = rows.findIndex(r => r.includes(ch))
+        const cx = rows[cy].indexOf(ch)
+        // The chest stands two tiles beside the way in, in the row under the site's wall (`puzzleSite`).
+        let found = null
+        for (const k of Z.puzzleKits) for (const door of [cx - 2, cx + 2]) {
+          const sx = door - (k.entry.x + 1)
+          const sy = cy - (k.h + 2)
+          if (found || sx < 0 || sy < 0 || sx + k.w + 2 > rows[0].length) continue
+          const walled = rows[sy].slice(sx, sx + k.w + 2).every(t => t === '#') && rows.slice(sy, sy + k.h + 2).every(r => r[sx] === '#' && r[sx + k.w + 1] === '#')
+          const crop = rows.slice(sy + 1, sy + 1 + k.h).map(r => r.slice(sx + 1, sx + 1 + k.w).join(''))
+          // Its own tiles where the kit has plain ones (its plain floor may have come out as the realm's ground).
+          const same = k.rows.every((kr, ky) => [...kr].every((t, kx) => {
+            const got = [...crop[ky]][kx]
+            return k.marks[t] ? d.marks[got]?.ent.t === k.marks[t].ent.t : got === t || (t === '.' && got === '-')
+          }))
+          if (walled && same) found = { k, crop }
+        }
+        assert.ok(found, `${mk.ent.id}: no kit fits around its chest`)
+        sites++
+        const r = Z.solveGrid({ rows: found.crop, marks: d.marks }, found.k.entry, mk.ent.appear, 200000)
+        if (!r.ok) bad.push(`${mk.ent.id} (${found.k.id}) cannot be solved (${r.states} states)`)
+        else if (r.moves.length < 2) bad.push(`${mk.ent.id} (${found.k.id}) is solved in ${r.moves.length} moves`)
+        if (found.crop.join('').includes('-')) bad.push(`${mk.ent.id}: sand inside the puzzle`)
+      }
+    }
+    assert.deepEqual(bad, [])
+    assert.ok(sites >= 10, `${sites} puzzle sites`)
+  })
+
   it('leads down into the three first maps and back up', () => {
     for (const [map, region] of [['quarry', 'fr:2,2'], ['arena', 'fr:7,2'], ['puzzlelab', 'fr:9,4']]) {
       const r = Z.WORLD.generate(region)

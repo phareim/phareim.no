@@ -3,6 +3,10 @@
 // scripted walk, and the older maps left alone.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync, readdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { load } from './zelda-load.mjs'
 
 let Z
@@ -210,6 +214,35 @@ describe('weights', () => {
     step(w, w.s, inp(), 2)
     assert.ok(w.s.map.plates.includes('scale'))
   })
+
+  it('an unmarked weighed plate is `w:<tile>`, and pressing it is an ordinary press', () => {
+    const w = room(['#####', '#.θ.#', '#.@.#', '#####'])
+    const ev = step(w, w.s, inp({ move: DIR.up }), 30)
+    assert.ok(w.s.map.plates.includes('w:7'))
+    assert.ok(ev.some(e => e.type === 'plate' && e.x === 2.5 && e.y === 1.5))
+  })
+})
+
+describe('beams on screen', () => {
+  const render = join(dirname(fileURLToPath(import.meta.url)), '..', 'themes', 'zelda', 'render')
+  it('the glow holds still with reduced motion, and every view passes the frame\'s setting on', async () => {
+    const esbuild = createRequire(import.meta.url)('esbuild')
+    const out = esbuild.buildSync({ stdin: { contents: `export { drawBeams } from './puzzleTiles'`, resolveDir: render, loader: 'ts' }, bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error' })
+    const { drawBeams } = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
+    const glow = (time, reduced) => {
+      const alphas = []
+      const g = { save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() { alphas.push(this.globalAlpha) } }
+      drawBeams(g, { map: { phys: { beams: [{ x0: 1, y0: 1, x1: 1, y1: 5 }] } } }, (x, y) => ({ x, y }), time, reduced)
+      return alphas[0]
+    }
+    assert.notEqual(glow(0.01, false), glow(0.06, false), 'it flickers')
+    for (const t of [0.01, 0.06, 1.3]) assert.equal(glow(t, true), 1)
+    // The call sites: none hard-codes the setting.
+    const files = readdirSync(render, { recursive: true }).filter(f => f.endsWith('.ts')).map(f => join(render, f))
+    const calls = files.flatMap(f => [...readFileSync(f, 'utf8').matchAll(/(?<!function )drawBeams\(([^)]*)\)/g)].map(m => [f, m[1].split(',').map(a => a.trim())]))
+    assert.ok(calls.length >= 1)
+    for (const [f, args] of calls) assert.ok(!['true', 'false'].includes(args[4]), `${f}: drawBeams(${args.join(', ')})`)
+  })
 })
 
 describe('rolling stones', () => {
@@ -245,6 +278,35 @@ describe('rolling stones', () => {
     assert.equal(again.map.tiles[20], 'κ')
     assert.equal(again.map.tiles[12], '.')
     assert.equal(again.map.tiles[19], '.', 'and the wall stays broken')
+  })
+
+  it('keeps a rolled stone and a filled pit on a map whose id has colons (the frontier\'s fr:<x>,<y>)', () => {
+    const q = quarry()
+    const id = 'fr:1,2'
+    const world = { maps: { [id]: { ...q.world.maps.t, id } }, start: { map: id, entry: 'start' } }
+    const s = Z.createGame(world, { seed: 3 })
+    const w = { world, s }
+    s.map.enemies[0].dead = true
+    put(s, 3, 4)
+    pressA(w, s, 'up')
+    step(w, s, inp(), 120)
+    assert.equal(tile(s, 9, 1), 'κ')
+    assert.ok(s.flags[`boulder:${id}:12:20`])
+    // A second stone kicked north into the pit fills it.
+    s.map.tiles[5 * 11 + 6] = 'κ'
+    put(s, 2, 5)
+    assert.ok(Z.startRoll(Z.ctx(world, s, []), 5 * 11 + 6, 0, -1))
+    step(w, s, inp(), 30)
+    assert.ok(s.flags[`fill:${id}:50`])
+    const again = Z.createGame(world, { save: Z.toSave(s) })
+    assert.equal(again.map.tiles[20], 'κ', 'the stone lies where it came to rest')
+    assert.equal(again.map.tiles[12], '.', 'not back at home')
+    assert.equal(again.map.tiles[50], '.', 'the pit stays filled')
+    // The lever's flag is still set: the stone at rest does not roll again, from home or from where it lies.
+    step({ world }, again, inp(), 60)
+    assert.equal(again.map.tiles[20], 'κ')
+    assert.equal(again.map.tiles[12], '.')
+    assert.ok(again.flags[`boulder:${id}:12:20`])
   })
 
   it('a bomb kicks a boulder rolling; into a pit it fills it; in its road the hero is thrown aside', () => {
@@ -553,6 +615,56 @@ describe('the Puzzle Lab', () => {
       const r = Z.solveGrid({ rows: cut(cx, cy), marks: def.marks }, start, goal, 200000)
       assert.ok(r.ok, `room ${cx},${cy}: ${r.states} states`)
     }
+  })
+
+  it('D: a bomb does not kick the stone the lever still holds', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 9, at: { map: 'puzzlelab', entry: 'start' } })
+    s.inv.sword = true
+    s.zoneIndex = 2
+    put(s, 41, 9)
+    s.hero.invuln = 99
+    // A bomb just west of the waiting stone (44,2) goes off.
+    s.map.bombs.push({ id: 999, x: 43.5, y: 2.5, t: Z.BOMB_FUSE - 1 / 120 })
+    step(Z.WORLD, s, inp(), 60)
+    assert.equal(tile(s, 44, 2), 'κ', 'the stone stays where the lever holds it')
+    assert.ok(!Object.keys(s.flags).some(f => f.startsWith('boulder:puzzlelab:')), 'no rolled stone saved')
+    // The lever then lets it go: the wall breaks and the pit to the west fills.
+    s.flags['lab.d.roll'] = true
+    step(Z.WORLD, s, inp(), 120)
+    assert.equal(tile(s, 36, 2), '.')
+    assert.equal(tile(s, 35, 2), '.')
+    assert.ok(s.flags['fill:puzzlelab:131'])
+  })
+
+  it('F: a stone that came to rest in the beam\'s road goes home when the hero comes back, and rolls again', () => {
+    const s = Z.createGame(Z.WORLD, { seed: 9, at: { map: 'puzzlelab', entry: 'start' } })
+    s.inv.sword = true
+    const g = Z.WORLD
+    s.zoneIndex = 0
+    put(s, 13, 4)
+    // The mirror pushed off the ice to (4,4), in the stone's road; then the lever.
+    s.map.tiles[5 * s.map.w + 10] = 'α'
+    s.map.tiles[4 * s.map.w + 4] = 'μ'
+    s.flags['lab.f.roll'] = true
+    step(g, s, inp(), 120)
+    assert.equal(tile(s, 4, 3), 'κ', 'the stone rests in the beam\'s row')
+    assert.ok(s.flags['boulder:puzzlelab:52:148'], 'and is saved there')
+    // Out into E and back: the room is not solved, so its mirror and its stone go home and the lever lets it go again.
+    walkTo(s, 17, 4)
+    assert.equal(s.zoneIndex, 1, 'in E')
+    walkTo(s, 13, 4)
+    assert.equal(s.zoneIndex, 0, 'in F')
+    step(g, s, inp(), 120)
+    assert.equal(tile(s, 4, 3), '.', 'the beam\'s road is open')
+    assert.equal(tile(s, 4, 10), 'κ', 'the stone rolled on to the wall')
+    assert.equal(tile(s, 10, 5), 'μ', 'the mirror is home')
+    assert.ok(s.flags['boulder:puzzlelab:52:484'])
+    assert.ok(!s.flags['boulder:puzzlelab:52:148'])
+    // The room plays as it was meant to: the mirror up the ice, turned, the receiver lit.
+    walkTo(s, 10, 6)
+    hold(g, s, 'up', 60)
+    pressA(g, s, 'up')
+    assert.ok(s.flags['lab.f.lit'], 'the receiver is lit')
   })
 })
 
