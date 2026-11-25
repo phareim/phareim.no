@@ -27,9 +27,11 @@ export type HudPlace = (x: number, y: number, z?: number) => { x: number; y: num
 const LINE = 9
 const STATUS_TONE: Record<BattleStatus, 'prize' | 'ok' | 'cool' | 'hot'> = { stun: 'prize', static: 'ok', slow: 'cool', break: 'hot' }
 
-/** How tall a foe stands (tiles), for its pips. */
+/** How far below a figure's position its feet are (tiles): every view stands its picture there. */
+const FEET = 0.45
+/** How tall a foe stands over its feet (tiles), for its pips. */
 function heightOf(look: string): number {
-  return look === 'knight' ? 2 : look === 'bat' || look === 'drone' ? 1.55 : look === 'blob' ? 0.95 : 1.3
+  return look === 'knight' ? 2.45 : look === 'bat' || look === 'drone' ? 2 : look === 'blob' ? 1.4 : 1.75
 }
 
 /**
@@ -39,6 +41,8 @@ function heightOf(look: string): number {
 export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: number, top: number, bottom: number, time: number, skin: HudSkin): BattleBox[] {
   const b = s.battle
   if (!b || (s.mode !== 'battle' && b.phase !== 'lost')) return []
+  // Points by a figure are measured from its feet.
+  const P: HudPlace = (x, y, z = 0) => place(x, y + FEET, z)
   const F = hudFont(skin)
   const boxes: BattleBox[] = []
   const view = b.phase === 'fight' ? menuView(s) : null
@@ -52,8 +56,8 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
     if (f.side !== 'foe' || f.down) continue
     const at = fighterAt(s, f)
     const look = FOES[f.foe!].look
-    const head = place(at.x, at.y, heightOf(look))
-    const feet = place(at.x, at.y)
+    const head = P(at.x, at.y, heightOf(look))
+    const feet = P(at.x, at.y)
     boxes.push({ x: head.x - 9, y: head.y - 2, w: 18, h: Math.max(14, feet.y - head.y + 6), pick: { target: f.id } })
     if (!live) continue
     const n = f.maxHp >= 60 ? 8 : 5
@@ -66,15 +70,15 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
     const sts = Object.keys(f.status) as BattleStatus[]
     sts.forEach((k, i) => rect(x0 + w + 2 + i * 3, y0, 2, 2, skin[STATUS_TONE[k]]))
     if (f.guard) rect(x0 - 4, y0, 2, 2, skin.cool)
-    if (covered.has(f.id)) { const d = place(at.x, at.y + 0.42); diamond(g, d.x, d.y, skin.hot, time) }
+    if (covered.has(f.id)) { const d = P(at.x, at.y); diamond(g, d.x, d.y, skin.hot, time) }
   }
 
   // --- the party: gauges, tech points, Luna's pips ------------------------------------
   for (const f of b.fighters) {
     if (f.side !== 'party') continue
     const at = fighterAt(s, f)
-    const feet = place(at.x, at.y + 0.42)
-    const head = place(at.x, at.y, 1.45)
+    const feet = P(at.x, at.y)
+    const head = P(at.x, at.y, 1.9)
     if (covered.has(f.id)) diamond(g, feet.x, feet.y - 2, skin.ok, time)
     boxes.push({ x: head.x - 9, y: head.y - 2, w: 18, h: Math.max(14, feet.y - head.y + 2), pick: { target: f.id } })
     if (!live) continue
@@ -98,7 +102,7 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
 
   // --- rising numbers and words -------------------------------------------------------
   for (const p of b.pops) {
-    const at = place(p.x, p.y, 1.1)
+    const at = P(p.x, p.y, 1.55)
     const rise = Math.min(1, p.t / 0.5)
     const y = at.y - 4 - (1 - (1 - rise) * (1 - rise)) * 10
     const color = p.tone === 'hit' ? skin.text : p.tone === 'hurt' ? skin.hot : p.tone === 'heal' ? skin.ok : skin.prize
@@ -111,7 +115,7 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
   if (view) {
     const me = b.fighters.find(f => f.id === view.who)!
     const at = fighterAt(s, me)
-    const head = place(at.x, at.y, 1.6)
+    const head = P(at.x, at.y, 2.05)
     // Whose turn: a small marker over the head.
     const bob = Math.round(Math.sin(time * 6) * 1)
     rect(head.x - 2, head.y - 5 + bob, 5, 1, skin.prize)
@@ -119,8 +123,8 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
     rect(head.x, head.y - 3 + bob, 1, 1, skin.prize)
     // The strip beside the member, on the side away from the foes.
     const foes = b.fighters.filter(f => f.side === 'foe' && !f.down)
-    const fx = foes.length ? foes.reduce((a, f) => a + place(f.home.x, f.home.y).x, 0) / foes.length : vw
-    const body = place(at.x, at.y, 0.7)
+    const fx = foes.length ? foes.reduce((a, f) => a + P(f.home.x, f.home.y).x, 0) / foes.length : vw
+    const body = P(at.x, at.y, 1.15)
     const tw = Math.max(...view.lines.map(l => F.width(l.label)))
     const extra = view.lines.some(l => l.cost || l.count !== undefined) ? 12 : 0
     const w = tw + 14 + extra
@@ -128,7 +132,7 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
     // Beside the member, away from the foes, never over another fighter: the first spot that covers nobody
     // (beside, then a little above or below, then the other side), else the one that covers least.
     const away = fx > body.x ? -1 : 1
-    const figures = b.fighters.filter(f => f !== me && !f.down).map(f => { const p = fighterAt(s, f); const hd = place(p.x, p.y, 1.5); const ft = place(p.x, p.y, 0); return { x: hd.x - 8, y: hd.y - 6, w: 16, h: ft.y - hd.y + 10 } })
+    const figures = b.fighters.filter(f => f !== me && !f.down).map(f => { const p = fighterAt(s, f); const hd = P(p.x, p.y, 1.95); const ft = P(p.x, p.y, 0); return { x: hd.x - 8, y: hd.y - 6, w: 16, h: ft.y - hd.y + 10 } })
     const clampX = (x: number) => Math.round(Math.max(2, Math.min(vw - 2 - w, x)))
     const clampY = (y: number) => Math.round(Math.max(top + 2, Math.min(vh - bottom - 2 - h, y)))
     let best = { x: 0, y: 0, cost: Infinity }
@@ -140,7 +144,7 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
         let cost = Math.abs(x - want.x) + Math.abs(y - want.y) + (side === away ? 0 : 6) + Math.abs(dy) * 0.2
         for (const r of figures) cost += overlap(x, y, w, h, r) * 4
         // (Never over the member itself.)
-        const self = { x: body.x - 8, y: head.y - 4, w: 16, h: place(at.x, at.y).y - head.y + 8 }
+        const self = { x: body.x - 8, y: head.y - 4, w: 16, h: P(at.x, at.y).y - head.y + 8 }
         cost += overlap(x, y, w, h, self) * 8
         if (cost < best.cost) best = { x, y, cost }
       }
@@ -169,7 +173,7 @@ export function drawBattle(g: G, s: GameState, place: HudPlace, vw: number, vh: 
       const t = b.fighters.find(f => f.id === view.target)
       if (t) {
         const ta = fighterAt(s, t)
-        const th = place(ta.x, ta.y, t.side === 'foe' ? heightOf(FOES[t.foe!].look) + 0.45 : 1.9)
+        const th = P(ta.x, ta.y, t.side === 'foe' ? heightOf(FOES[t.foe!].look) + 0.45 : 2.35)
         const by = Math.round(th.y - 6 + Math.abs(Math.sin(time * 7)) * -2)
         rect(th.x - 3, by, 7, 1, skin.hot)
         rect(th.x - 2, by + 1, 5, 1, skin.hot)

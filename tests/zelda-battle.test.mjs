@@ -61,6 +61,12 @@ describe('field battles', () => {
     engage(s)
     assert.equal(s.battle.group, 'arena.goo')
     assert.equal(foesOf(s).length, 2)
+    // After the prism the day's clock leaves the groups alone (no night twins that fight in real time).
+    const d = glade('arena.goo')
+    d.inv.prism = true
+    d.daytime = 230
+    Z.enterMap(Z.WORLD, d, 'arena', 'start', [])
+    assert.ok(d.map.enemies.every(e => e.group && e.rank === undefined))
     // A placed enemy on an ordinary map is still the action combat's.
     const o = Z.createGame(Z.WORLD, { seed: 4, at: { map: 'overworld', entry: 'hut' } })
     o.inv.sword = true
