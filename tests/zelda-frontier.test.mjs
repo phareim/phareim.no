@@ -432,6 +432,48 @@ describe('the frontier', () => {
     assert.equal(Z.solidTile(Z.WORLD, s.map, i % info.w, Math.floor(i / info.w), 'fly'), false)
   })
 
+  it('makes the neighbouring regions in idle time, one at a time, never while the game is busy', async () => {
+    const esbuild = createRequire(import.meta.url)('esbuild')
+    const out = esbuild.buildSync({
+      stdin: { contents: `export { neighbourPrefetch } from './prefetch'; export { WORLD } from './world/index'`, resolveDir: join(dirname(fileURLToPath(import.meta.url)), '..', 'themes', 'zelda'), loader: 'ts' },
+      bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
+    })
+    const P = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
+    const made = []
+    const world = { ...P.WORLD, generate: id => { made.push(id); return P.WORLD.generate(id) } }
+    const slices = []
+    const g = globalThis
+    const had = g.requestIdleCallback
+    g.requestIdleCallback = cb => slices.push(cb)
+    try {
+      let busy = true
+      const pre = P.neighbourPrefetch(world, () => busy)
+      pre.near('fr:6,6')
+      made.length = 0
+      const slice = (ms = 20) => slices.shift()?.({ timeRemaining: () => ms, didTimeout: false })
+      slice()
+      assert.deepEqual(made, [], 'nothing while busy')
+      busy = false
+      slice(1)
+      assert.deepEqual(made, [], 'nothing in a slice too short')
+      slice()
+      assert.equal(made.length, 1, 'one region a slice')
+      for (let k = 0; k < 10 && slices.length; k++) slice()
+      const want = Object.values(P.WORLD.generate('fr:6,6').edges).sort()
+      assert.deepEqual([...made].sort(), want)
+      // Moving on drops what was queued for the old region; a region made once is not made again.
+      pre.near('fr:6,5')
+      made.length = 0
+      for (let k = 0; k < 10 && slices.length; k++) slice()
+      assert.ok(made.length > 0 && made.every(id => !want.includes(id)), made.join(' '))
+      pre.stop()
+      assert.equal(slices.length, 0)
+    } finally {
+      if (had) g.requestIdleCallback = had
+      else delete g.requestIdleCallback
+    }
+  })
+
   it('keeps a completionist save well under the save API\'s limit', () => {
     // Every map there is: the authored ones, every region, its caves and the Underglow's layers.
     const maps = [...Object.keys(Z.WORLD.maps)]

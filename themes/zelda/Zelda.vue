@@ -194,6 +194,7 @@ import LookBooth from './LookBooth.vue'
 import { createGame, HOURS, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave, useItems } from './engine/index'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
+import { neighbourPrefetch } from './prefetch'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
 import { ease, turnMove } from './render/iso/project'
 import { ENGINE_LOADERS, VIEW_KEY, nextView, setLiveViews, startView, viewDef, viewList, viewName, type LiveViews, type ViewId } from './views'
@@ -282,6 +283,8 @@ let linkedUser = ''
 let renderer: Renderer | null = null
 let audio: ZeldaAudio | null = null
 let state: GameState = createGame(WORLD, { at: WORLD.start })
+/** The frontier's next regions, made in idle time so crossing an edge does not stall (never mid-warp or mid-fight). */
+const prefetch = neighbourPrefetch(WORLD, () => state.mode === 'warp' || state.mode === 'battle' || state.mode === 'scroll')
 let raf = 0
 let lastT = 0
 let hitStopMs = 0
@@ -879,6 +882,7 @@ function begin(save: SaveData | null, at: Spot, banner = false) {
   loadedSave = save
   pendingPull = null
   state = createGame(WORLD, { save, at, seed: Date.now() >>> 0, session: signedIn })
+  prefetch.near(state.map.id)
   // Before the prism only in development: out there it would empty the woods at noon for anyone.
   if (askedHour !== null && (import.meta.dev || state.inv.prism)) setDaytime(WORLD, state, askedHour)
   purse.adopt(state.inv, state.flags)
@@ -1225,6 +1229,7 @@ function handleEvents(events: GameEvent[]) {
       case 'unlock': case 'gate': save = true; break
       case 'enter':
         save = true
+        prefetch.near(state.map.id)
         ui.banner = { text: e.area, t: 0 }
         playTrack(e.track)
         break
@@ -1537,6 +1542,7 @@ onBeforeUnmount(() => {
   canvas.value?.parentElement?.style.removeProperty('--zelda-hint-play')
   liveStop?.()
   liveStop = null
+  prefetch.stop()
   cancelAnimationFrame(raf)
   observer?.disconnect()
   muteStop?.()
