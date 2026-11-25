@@ -26,19 +26,26 @@ drawn exactly as before.
 The frontier is darker than the town, so its light is turned up where the
 town's would be lost. A realm's lamps shine `MOOD.lamps` times the coast's
 (they never drop below 0.8 of full on a frontier map, so a campfire reads at
-dusk), more of their light hangs in the air (1.6 times on the frontier, then
-`MOOD.glow`), and the hero carries more of a lantern in the dark realms and
-everywhere on the frontier at night (`renderer.ts` `ambient`, both views).
-The windows burn brighter at night, and in the suburb one in four is a
-television (`drawLiveTiles`'s `night`, from `daylight.ts` `nightOf`).
+dusk), more of their light hangs in the air (on the frontier up to 1.6
+times, by day and at dusk but not at night, when it would burn the snow out
+to a floodlight; then `MOOD.glow`), and the hero carries more of a lantern in
+the dark realms and, a little, everywhere on the frontier at night
+(`renderer.ts` `ambient`, both views). The windows burn a little brighter at
+night, and in the suburb one in four is a television (`drawLiveTiles`'s
+`night`, from `daylight.ts` `nightOf`). Under the spore wood a cap lights the
+moss here and there at the wood's edge, where the pool can be seen (a score
+at most in view).
 
 In the isometric view landmarks carry lights (`IsoLandmark.lights`, set in
 `world/gen/frontierScenery.ts` and `descent.ts` by tone, never by hex): a
 lantern, a lit window, a giant cap's glow, a lit letter's spill (only while
-its flag holds), a red blink under the blimp. A `fire` flickers and throws
-embers and smoke (as campfires and tiki torches do), a `sweep` turns a beam
-round (the lighthouse) or swings it (a stage spotlight), with lights along
-it and a dithered wedge in the air. A light in front of a building stands
+its flag holds), a red blink under the blimp. A `fire` flickers; one in the
+`fire` tone (the seter hut's chimney) is a real fire and throws embers and
+pale smoke, as campfires, bonfires and tiki torches do (`Light.fire`, never
+a light's colour: a DJ booth's orange glow throws none). A `sweep` turns a
+beam round (the lighthouse's, pointing where the lens frame drawn points
+it) or swings it (a stage spotlight), with lights along it and a dithered
+wedge in the air. A light in front of a building stands
 just past its cover's south edge: inside, the classic house's mass hides it.
 Prints glow in the spore moss and darken the snow; a closed chest and what
 lies to be picked up glint (both views). The realm skies have shooting

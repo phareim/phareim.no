@@ -16,11 +16,14 @@ async function load() {
     stdin: {
       contents: `export { sceneryAt } from './world/gen/frontierScenery'
 export { TONES } from './render/tones'
-export { MOOD, REALM_LOOKS } from './render/looks'
+export { MOOD, REALM_LOOKS, realmLook } from './render/looks'
 export { nightOf } from './render/daylight'
 export { realmLife } from './render/iso/air'
 export { buildBackdrop } from './render/iso/backdrop'
-export { WORLD } from './world/index'`,
+export { WORLD } from './world/index'
+export { drawLiveTiles } from './render/tiles'
+export { createGame } from './engine/index'
+export { enterMap } from './engine/game'`,
       resolveDir: root, loader: 'ts',
     },
     bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
@@ -73,6 +76,42 @@ describe('the frontier’s light', () => {
       assert.ok(Array.isArray(m.life), look)
       assert.ok(m.hero >= 0 && m.hero <= 1, look)
     }
+  })
+
+  it('lets the giant caps light the moss only at the wood’s edge, a score at most in view', () => {
+    // (Whatever the tiles draw goes to a context that takes anything; the sprites to a stand-in canvas.)
+    const had = globalThis.document
+    const any = new Proxy({}, { get: (_, k) => k === 'canvas' ? { width: 16, height: 16 } : k === 'getImageData' || k === 'createImageData' ? () => ({ data: new Uint8ClampedArray(1024) }) : typeof k === 'string' && /^[a-z]/.test(k) && !/Style$|Alpha$|^font$|^line/.test(k) ? () => any : undefined, set: () => true })
+    globalThis.document = { createElement: () => ({ width: 16, height: 16, getContext: () => any }) }
+    try {
+      let seen = 0
+      let regions = 0
+      for (let y = 0; y < 10 && regions < 3; y++) for (let x = 0; x < 12 && regions < 3; x++) {
+        const id = `fr:${x},${y}`
+        let def = null
+        try { def = L.WORLD.generate(id) } catch { def = null }
+        if (!def || L.realmLook(def.look) !== 'spore') continue
+        regions++
+        const s = L.createGame(L.WORLD, { seed: 1 })
+        L.enterMap(L.WORLD, s, id, '', [], { x: 1.5, y: 1.5 })
+        const m = s.map
+        // Every window of the view across the map: no frame pushes more than a score of the caps' pools.
+        for (let cy = 0; cy + 20 <= m.h; cy += 10) for (let cx = 0; cx + 30 <= m.w; cx += 15) {
+          const lights = []
+          L.drawLiveTiles(any, L.WORLD, s, cx * 16, cy * 16, 30 * 16, 20 * 16, 1, lights, false)
+          const pools = lights.filter(l => l.r === 2.3 && (l.color === '#3ad0d8' || l.color === '#c87ae0'))
+          assert.ok(pools.length <= 20, `${id} at ${cx},${cy}: ${pools.length} cap pools`)
+          for (const p of pools) {
+            const tx = Math.floor(p.x)
+            const ty = Math.floor(p.y + 0.2)
+            const open = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const t = m.tiles[(ty + dy) * m.w + tx + dx]; return t !== undefined && t !== 'T' })
+            assert.ok(open, `${id}: a cap pool at ${tx},${ty} deep in the wood`)
+          }
+          seen += pools.length
+        }
+      }
+      assert.ok(seen > 0, 'no spore region lit by its caps')
+    } finally { globalThis.document = had }
   })
 
   it('reckons the night from the dusk (none) to the moon’s hours (all)', () => {
