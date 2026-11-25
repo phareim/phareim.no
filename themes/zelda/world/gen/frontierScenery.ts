@@ -17,7 +17,8 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
       prop('quarry_crate', 7.75, 5.5, at(7, 5)),
       prop('quarry_cart_empty', 1.25, 5.65, at(1, 5)),
     ],
-    // (The headframe's legs stand on the drift's rock; the shaft between them stays the way down.)
+    // (The headframe's legs stand either side of the shaft, solid even once a pickaxe takes the drift's rock under
+    // them; the shaft between them stays the way down.)
     'l.deepdrift': [prop('quarry_headframe', 4.5, 1.9, { shadow: { tall: 2.2, wide: 0.52 }, ...at(3, 1, 3) })],
     truck: [prop('quarry_cart_full', 2.55, 3, at(2, 2)), prop('quarry_crate', 3.65, 2.75, at(3, 2))],
     lots: [prop('quarry_ramp_n', 8.5, 4.5), prop('quarry_vein', 9.1, 5.25)],

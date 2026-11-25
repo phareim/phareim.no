@@ -154,7 +154,9 @@ const ROAD = new Set<TileChar>([',', '='])
 /**
  * The tiles the map's landmarks stand on (`IsoLandmark.solid`), less those that must stay open: the run of a road,
  * the rim (where the passes are), a tile anyone or anything is placed on, the ring round an entry, a warp, a door,
- * stairs or an exit, and the ground a battle group's foes stand on. Already solid tiles are left out.
+ * stairs or an exit, and the ground a battle group's foes stand on. Already solid tiles are left out. A landmark
+ * built over a way in (the headframe over its shaft) keeps the ground beside it: only the way in itself stays open.
+ * Last, a tile that would shut off open ground the entries reached without the scenery (a path's dead end) is let go.
  */
 function sceneryOf(info: MapInfo): Set<number> {
   const out = new Set<number>()
@@ -170,6 +172,7 @@ function sceneryOf(info: MapInfo): Set<number> {
   ]
   for (let i = 0; i < base.length; i++) if (base[i] === 'D' || base[i] === '>') keep.push({ x: i % w, y: Math.floor(i / w), w: 1, h: 1 })
   const near = (x: number, y: number, r: Rect, pad: number) => x >= r.x - pad && x < r.x + r.w + pad && y >= r.y - pad && y < r.y + r.h + pad
+  const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
   const road = (x: number, y: number) => {
     if (!ROAD.has(base[y * w + x]!)) return false
     let n = 0
@@ -180,16 +183,53 @@ function sceneryOf(info: MapInfo): Set<number> {
   for (const lm of lms) {
     const r = lm.solid
     if (!r) continue
+    const pad = keep.some(k => overlaps(r, k)) ? 0 : 1
     for (let y = r.y; y < r.y + r.h; y++) {
       for (let x = r.x; x < r.x + r.w; x++) {
         if (x < RIM || y < RIM || x >= w - RIM || y >= h - RIM) continue
         const i = y * w + x
         if (TILE_INFO[base[i]!].solid || marked.has(i) || road(x, y)) continue
-        if (keep.some(k => near(x, y, k, 1))) continue
+        if (keep.some(k => near(x, y, k, pad))) continue
         if (def.battle?.groups.some(g => Math.abs(g.x - (x + 0.5)) < 2.5 && Math.abs(g.y - (y + 0.5)) < 2.5)) continue
         out.add(i)
       }
     }
+  }
+  if (!out.size) return out
+  // What the entries reach over open ground, with the scenery and without; a pocket lost lets its scenery go.
+  const starts = Object.values(info.entries).map(e => Math.floor(e.y) * w + Math.floor(e.x)).filter(i => i >= 0 && i < w * h)
+  const reach = (shut: ReadonlySet<number>) => {
+    const seen = new Uint8Array(w * h)
+    const q: number[] = []
+    for (const i of starts) if (!seen[i]) { seen[i] = 1; q.push(i) }
+    while (q.length) {
+      const i = q.pop()!
+      const x = i % w
+      const y = (i - x) / w
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as const) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
+        const j = ny * w + nx
+        if (seen[j] || TILE_INFO[base[j]!].solid || shut.has(j)) continue
+        seen[j] = 1
+        q.push(j)
+      }
+    }
+    return seen
+  }
+  const open = reach(new Set())
+  for (let guard = 0; guard < 8; guard++) {
+    const now = reach(out)
+    let freed = false
+    for (let i = 0; i < w * h; i++) {
+      if (!open[i] || now[i] || out.has(i)) continue
+      const x = i % w
+      for (const j of [i - 1, i + 1, i - w, i + w]) {
+        if (j < 0 || j >= w * h || (j === i - 1 && x === 0) || (j === i + 1 && x === w - 1) || !out.has(j)) continue
+        out.delete(j)
+        freed = true
+      }
+    }
+    if (!freed) break
   }
   return out
 }

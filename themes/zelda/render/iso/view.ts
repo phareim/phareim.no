@@ -36,7 +36,8 @@ import { NEON_SKIN } from '../hud'
 import { HIRES_WINDOW_SKIN } from '../hud16'
 import { drawHookChain, fireflies } from '../wild'
 import { centreIn, groundRect, type Rect } from './project'
-import { FLAT, ROOF, shapeOf, WALL_TOP, type Shape } from './shape'
+import { CARD, FLAT, ROOF, shapeOf, WALL_TOP, type Shape } from './shape'
+import { standsIn } from '../standIns'
 import { DENSITY, fitDepth, makeCam, toGround, toScene, type Cam } from './camera'
 import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engine'
 import { rgb } from './gl'
@@ -155,6 +156,8 @@ export default function isoView(kit: Kit): View {
   let realmArt: string | undefined
   let coverDef: ReturnType<typeof mapInfo>['def'] | null = null
   const covered = new Set<number>()
+  /** Solid scenery whose art is on the GPU: its classic stand-in (`../standIns.ts`) stands down for it. */
+  const propped = new Set<number>()
   /** The realm look whose materials are on the GPU ('' the coast's). */
   let matLook = ''
   const sendProps = (realm?: string) => {
@@ -368,6 +371,8 @@ export default function isoView(kit: Kit): View {
       const ty = ey - M
       const inside = tx >= 0 && ty >= 0 && tx < m.w && ty < m.h
       let sh = shapeOf(outer[ey * ew + ex]!, kind, (dx, dy) => tileAt(m, kind, tx + dx, ty + dy), inside && own.has(ty * m.w + tx), true)
+      // Solid scenery's classic stand-in stands up as a card (when the realm's own art is drawn, it stands down).
+      if (inside && standsIn(m, ty * m.w + tx)) sh = CARD
       // The rock beyond the edge rises in steps the further out it lies.
       if (!inside && sh === WALL_TOP) sh = MASSIF[massifHeight(m.w, m.h, tx, ty + sh.f) - 1]!
       // Dig & build: ground above its level stands up as a column (`dig.ts`).
@@ -805,11 +810,15 @@ export default function isoView(kit: Kit): View {
     if (coverDef !== def) {
       coverDef = def
       covered.clear()
+      propped.clear()
       const sprites = propAtlas!.sprites
-      for (const { art, cover, motion } of def.isoLandmarks ?? []) {
-        if (!cover || !Object.prototype.hasOwnProperty.call(sprites, thingKey(motion && !motion.bob ? `${art}_0` : art))) continue
-        for (let y = cover.y; y < cover.y + cover.h; y++) {
+      for (const { art, cover, solid, motion } of def.isoLandmarks ?? []) {
+        if (!(cover || solid) || !Object.prototype.hasOwnProperty.call(sprites, thingKey(motion && !motion.bob ? `${art}_0` : art))) continue
+        if (cover) for (let y = cover.y; y < cover.y + cover.h; y++) {
           for (let x = cover.x; x < cover.x + cover.w; x++) covered.add(y * m.w + x)
+        }
+        if (solid) for (let y = solid.y; y < solid.y + solid.h; y++) {
+          for (let x = solid.x; x < solid.x + solid.w; x++) if (info.scenery.has(y * m.w + x)) propped.add(y * m.w + x)
         }
       }
     }
@@ -1077,7 +1086,7 @@ export default function isoView(kit: Kit): View {
     // From the near corner to the far one, so what stands in front is drawn first and hides the rest early.
     for (let ty = R.y + R.h - 1; ty >= R.y; ty--) for (let tx = R.x + R.w - 1; tx >= R.x; tx--) {
       if (!inRoom(tx, ty)) continue
-      if (drawn && k >= 1 && tx >= 0 && tx < m.w && covered.has(ty * m.w + tx)) {
+      if (drawn && k >= 1 && tx >= 0 && tx < m.w && (covered.has(ty * m.w + tx) || (propped.has(ty * m.w + tx) && standsIn(m, ty * m.w + tx)))) {
         bare((tx - R.x) * T, (ty - R.y) * T, T, T)
         continue
       }

@@ -19,6 +19,7 @@ import { isDigChar, paintDigTile, setDigPaint } from './dig'
 import { beyondTile } from './beyond'
 import { drawPuzzleLive, paintPuzzleBase, paintPuzzleObject } from './puzzleTiles'
 import { CLASSIC, realmLook } from './looks'
+import { standIns, standsIn, type StandIn } from './standIns'
 
 /** The Wildwood's deeper night: darker grass, more moonlit violet crowns. Set per paint. */
 let wild = false
@@ -666,6 +667,50 @@ function boulder(g: G, px: number, py: number) {
   r(g, OW.rockDD, px + 8, py + 3, 1, 4); r(g, OW.rockDD, px + 9, py + 7, 1, 3); r(g, OW.rockDD, px + 6, py + 9, 3, 1)
 }
 
+/** The classic picture of a solid piece of the frontier's scenery (`standIns.ts`), in the realm's palette. */
+function standIn(g: G, kind: StandIn, px: number, py: number) {
+  const ink = '#140a22'
+  switch (kind) {
+    case 'crate':
+      r(g, 'rgba(0,0,0,0.3)', px + 1, py + 13, 15, 3)
+      r(g, ink, px + 2, py + 3, 12, 12)
+      r(g, OW.woodL, px + 3, py + 4, 10, 3)
+      r(g, OW.wood, px + 3, py + 7, 10, 7)
+      r(g, OW.woodD, px + 3, py + 7, 10, 1)
+      r(g, OW.woodD, px + 3, py + 10, 10, 1)
+      r(g, OW.woodD, px + 5, py + 7, 1, 7)
+      r(g, OW.woodD, px + 10, py + 7, 1, 7)
+      break
+    case 'post':
+      r(g, 'rgba(0,0,0,0.3)', px + 4, py + 13, 9, 3)
+      r(g, ink, px + 7, py + 6, 3, 9)
+      r(g, OW.stoneL, px + 8, py + 7, 1, 7)
+      r(g, ink, px + 4, py + 1, 9, 6)
+      r(g, OW.roof, px + 5, py + 2, 7, 4)
+      r(g, OW.roofL, px + 5, py + 2, 7, 1)
+      break
+    case 'cap':
+      r(g, 'rgba(0,0,0,0.3)', px + 2, py + 13, 13, 3)
+      r(g, ink, px + 6, py + 8, 5, 7)
+      r(g, OW.sandL, px + 7, py + 8, 3, 6)
+      r(g, ink, px + 5, py + 2, 7, 1)
+      r(g, ink, px + 3, py + 3, 11, 6)
+      r(g, OW.roof, px + 6, py + 3, 5, 1)
+      r(g, OW.roof, px + 4, py + 4, 9, 4)
+      r(g, OW.roofD, px + 4, py + 7, 9, 1)
+      r(g, OW.roofL, px + 6, py + 4, 3, 1)
+      r(g, OW.tip, px + 10, py + 5, 1, 1)
+      break
+    case 'stone':
+      r(g, 'rgba(0,0,0,0.3)', px + 1, py + 12, 15, 4)
+      disc(g, ink, px + 8, py + 9, 6)
+      disc(g, OW.stoneD, px + 8, py + 9, 5)
+      disc(g, OW.stone, px + 7, py + 8, 4)
+      disc(g, OW.stoneL, px + 6, py + 6, 1)
+      break
+  }
+}
+
 /** A tiki torch on the beach: a bamboo pole with two bindings; the flame is live. */
 function tikiPost(g: G, px: number, py: number) {
   r(g, 'rgba(0,0,0,0.3)', px + 5, py + 13, 7, 3)
@@ -886,10 +931,14 @@ function paintRegion(world: World, m: MapState, g: G, x0: number, y0: number, x1
     if (look === 'lab' && paintLabBase(g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind))) continue
     paintBase(kind, g, t, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind))
   }
+  // The frontier's solid scenery, which only the isometric view has art for: a stand-in where it is in the way.
+  const props = m.scenery ? standIns(world, m.id) : null
   // Objects from one tile further out so overhangs reach in.
   if (pass !== 'base') for (let ty = Math.max(0, Y0 - 1); ty <= Math.min(m.h - 1, Y1 + 1); ty++) for (let tx = Math.max(0, X0 - 1); tx <= Math.min(m.w - 1, X1 + 1); tx++) {
     if (own.has(ty * m.w + tx)) continue
     paintObject(kind, g, m.tiles[ty * m.w + tx]!, tx * T, ty * T, tx, ty, atFor(m, tx, ty, kind), marquee, cover.has(ty * m.w + tx), look)
+    const prop = props?.get(ty * m.w + tx)
+    if (prop && standsIn(m, ty * m.w + tx)) standIn(g, prop, tx * T, ty * T)
   }
   g.restore()
   setDigPaint(null)

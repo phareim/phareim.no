@@ -22,12 +22,19 @@ until it is here. A visit to the town downloads none of them
 (`tests/zelda-size.test.mjs`).
 `frontierScenery.ts` anchors scenery to generated stamps and quest
 sites. A thing with a body (a cart, a crate, a churn, a big mushroom,
-sandbags, a wagon, a mailbox, a flamingo, an island) names the tiles it
-stands on (`solid`), and they are solid to walkers in every view
-(`MapInfo.scenery`, `engine/map.ts`). A tile stays open on the run of a road,
-at the rim, under anyone or anything placed, beside an entry, warp, door or
-exit, and where a battle group's foes stand. The Underglow places its
-landmarks by layer in `descent.ts`.
+sandbags, a wagon, a mailbox, a flamingo, an island, the headframe's legs)
+names the tiles it stands on (`solid`), and they are solid to walkers in
+every view (`MapInfo.scenery`, `engine/map.ts`). A tile stays open on the run
+of a road, at the rim, under anyone or anything placed, beside an entry,
+warp, door or exit (a thing built over one, like the headframe over its
+shaft, keeps only the way in itself open), and where a battle group's foes
+stand; a tile that would cut off ground the entries reach (a path's dead end)
+is let go. Where the realm's own art is not drawn (the classic view, the
+view without WebGL2, the isometric view while the realm's chunk is on its
+way or if it failed) a plain stand-in (a crate, a post, a mushroom, a stone;
+`render/standIns.ts`) stands on each solid tile, so nothing is in the way
+that cannot be seen (`tests/zelda-scenery.test.mjs`). The Underglow places
+its landmarks by layer in `descent.ts`.
 
 The frontier actors start with 16×16 classic sprites in `render/frontierSprites.ts`.
 Their isometric frames use the same sprite names and live-sprite hash checks

@@ -454,7 +454,7 @@ export interface MapDef {
   /** Letter stones: walking over them in this order sets `flag`. */
   codes?: Array<{ word: string; flag: string }>
   props?: Prop[]
-  /** Isometric scenery, in tile units. These decorations have no collision of their own. */
+  /** Isometric scenery, in tile units. Only those with a `solid` footprint are in anyone's way. */
   isoLandmarks?: IsoLandmark[]
   /**
    * Walking off this edge (where the hero stands on open ground) leads into
@@ -487,8 +487,9 @@ export interface IsoLandmark {
   cover?: Rect
   /**
    * The tiles it stands on, solid to whoever walks (`MapInfo.scenery`, engine/map.ts): a cart, a crate, a mailbox
-   * is in the way in every view. A tile on the run of a road, at the map's rim, under anyone or anything placed, or
-   * beside an entry, a warp, a door or an exit stays open.
+   * is in the way in every view, and where its art is not drawn a classic stand-in shows it (`render/standIns.ts`).
+   * A tile on the run of a road, at the map's rim, under anyone or anything placed, beside an entry, a warp, a door
+   * or an exit (unless the footprint spans that way in), or one that would cut off open ground stays open.
    */
   solid?: Rect
   /** Numbered art frames, or a one-pixel bob with the same artwork. */

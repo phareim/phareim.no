@@ -358,11 +358,37 @@ describe('the frontier', () => {
       const info = Z.mapInfo(Z.WORLD, id)
       const { w, h, base } = info
       const blocked = (i, scenery) => Z.TILE_INFO[base[i]].solid || (scenery && info.scenery.has(i))
-      /** On a dig map, rock standing above the ground (the deep drift's walls round the headframe). */
-      const dug = d.dig ? Z.createGame(Z.WORLD, { seed: 1, at: { map: id, entry: 'camp' } }).map : null
-      const raised = i => !!dug && Z.heightAt(dug, i % w, Math.floor(i / w)) > dug.dig.g
+      const m = Z.createGame(Z.WORLD, { seed: 1, at: { map: id, entry: 'camp' } }).map
+      /** On a dig map, rock standing above the ground. */
+      const raised = i => !!m.dig && Z.heightAt(m, i % w, Math.floor(i / w)) > m.dig.g
       for (const i of info.scenery) assert.ok(!Z.TILE_INFO[base[i]].solid, `${id}: ${i % w},${Math.floor(i / w)} was solid already`)
       solidTiles += info.scenery.size
+      // Whatever the hero could reach from the camp without the scenery, they still reach with it: walked tile to
+      // tile with the engine's own collision (`solidTile`) and, on a dig map, its heights (`digAbove`).
+      /** The tiles reached from the camp, with these tiles of scenery standing. */
+      const reach = scenery => {
+        const on = { ...m, scenery }
+        const seen = new Uint8Array(w * h)
+        const c = info.entries.camp
+        const q = [Math.floor(c.y) * w + Math.floor(c.x)]
+        seen[q[0]] = 1
+        while (q.length) {
+          const i = q.pop()
+          const x = i % w, y = (i - x) / w
+          const z = Z.heightAt(m, x, y)
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = x + dx, ny = y + dy
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
+            const j = ny * w + nx
+            if (seen[j] || Z.solidTile(Z.WORLD, on, nx, ny) || (m.dig && Z.digAbove(m, nx, ny, z))) continue
+            seen[j] = 1
+            q.push(j)
+          }
+        }
+        return seen
+      }
+      const before = reach(new Set())
+      const after = reach(info.scenery)
       for (const lm of d.isoLandmarks ?? []) {
         if (!BODIES.test(lm.art)) continue
         assert.ok(lm.solid, `${id}: ${lm.art} has no footprint`)
@@ -373,35 +399,21 @@ describe('the frontier', () => {
         for (let y = lm.solid.y; y < lm.solid.y + lm.solid.h; y++) for (let x = lm.solid.x; x < lm.solid.x + lm.solid.w; x++) tiles.push(y * w + x)
         // The footprint lies under the picture: the anchor within a tile of it.
         assert.ok(lm.x >= lm.solid.x - 0.5 && lm.x <= lm.solid.x + lm.solid.w + 0.5 && lm.y >= lm.solid.y && lm.y <= lm.solid.y + lm.solid.h + 1, `${id}: ${lm.art} footprint`)
-        // Open where it must be: the stairs, anyone placed, the ground a battle group's foes stand on.
+        // Open where it must be: the stairs, anyone placed, the ground a battle group's foes stand on, and a tile
+        // that would shut off ground the camp reaches (a path's dead end).
+        const seals = i => {
+          const more = reach(new Set([...info.scenery, i]))
+          return before.some((v, j) => v && !more[j] && j !== i && !info.scenery.has(j))
+        }
         const open = i => base[i] === '>' || info.marks.some(m => m.y * w + m.x === i)
           || (d.battle?.groups ?? []).some(g => Math.abs(g.x - (i % w + 0.5)) < 2.5 && Math.abs(g.y - (Math.floor(i / w) + 0.5)) < 2.5)
+          || seals(i)
         if (tiles.every(i => blocked(i, true) || raised(i) || open(i))) f.solid++
         if (tiles.some(i => info.scenery.has(i))) f.scenery = (f.scenery ?? 0) + 1
         found.set(name, f)
       }
-      // Whatever the hero could reach from the camp without the scenery, they still reach with it.
-      const reach = scenery => {
-        const seen = new Uint8Array(w * h)
-        const c = info.entries.camp
-        const q = [Math.floor(c.y) * w + Math.floor(c.x)]
-        seen[q[0]] = 1
-        while (q.length) {
-          const i = q.pop()
-          const x = i % w, y = (i - x) / w
-          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-            const nx = x + dx, ny = y + dy
-            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
-            const j = ny * w + nx
-            if (seen[j] || blocked(j, scenery)) continue
-            seen[j] = 1
-            q.push(j)
-          }
-        }
-        return seen
-      }
-      const before = reach(false)
-      const after = reach(true)
+      // No open ground is cut off: only the scenery's own tiles are lost.
+      for (let i = 0; i < w * h; i++) if (before[i] && !after[i]) assert.ok(info.scenery.has(i), `${id}: ${i % w},${Math.floor(i / w)} is shut off by scenery`)
       /** A spot is reached when its tile is, or (a chest, a sign, a solid exit) a tile beside it. */
       const reached = (seen, x, y) => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen[(y + dy) * w + x + dx])
       const spots = [
@@ -420,8 +432,8 @@ describe('the frontier', () => {
       const f = found.get(name)
       assert.ok(f && f.n > 0, `${name} is placed somewhere`)
       assert.equal(f.solid, f.n, `${name}: solid in ${f.solid} of ${f.n} places`)
-      // (Most stand on open ground, made solid for them; the headframe's legs are the drift's own rock.)
-      if (name !== 'quarry_headframe') assert.ok((f.scenery ?? 0) >= f.n * 0.75, `${name}: on scenery tiles in ${f.scenery} of ${f.n} places`)
+      // On open ground made solid for them (the headframe's legs too, though the drift's rock stands there now).
+      assert.ok((f.scenery ?? 0) >= f.n * 0.75, `${name}: on scenery tiles in ${f.scenery} of ${f.n} places`)
     }
     // A solid thing stops the hero: they walk up to the mailbox and no further.
     const id = ids().find(i => Z.mapInfo(Z.WORLD, i).scenery.size)
@@ -432,10 +444,10 @@ describe('the frontier', () => {
     assert.equal(Z.solidTile(Z.WORLD, s.map, i % info.w, Math.floor(i / info.w), 'fly'), false)
   })
 
-  it('makes the neighbouring regions in idle time, one at a time, never while the game is busy', async () => {
+  it('makes the neighbouring regions in idle time, one at a time, never while the game is busy or in a short slice', async () => {
     const esbuild = createRequire(import.meta.url)('esbuild')
     const out = esbuild.buildSync({
-      stdin: { contents: `export { neighbourPrefetch } from './prefetch'; export { WORLD } from './world/index'`, resolveDir: join(dirname(fileURLToPath(import.meta.url)), '..', 'themes', 'zelda'), loader: 'ts' },
+      stdin: { contents: `export { neighbourPrefetch, ROOM_MS } from './prefetch'; export { WORLD } from './world/index'`, resolveDir: join(dirname(fileURLToPath(import.meta.url)), '..', 'themes', 'zelda'), loader: 'ts' },
       bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
     })
     const P = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
@@ -447,17 +459,28 @@ describe('the frontier', () => {
     g.requestIdleCallback = cb => slices.push(cb)
     try {
       let busy = true
-      const pre = P.neighbourPrefetch(world, () => busy)
+      let calm = false
+      const pre = P.neighbourPrefetch(world, { busy: () => busy, calm: () => calm })
       pre.near('fr:6,6')
       made.length = 0
-      const slice = (ms = 20) => slices.shift()?.({ timeRemaining: () => ms, didTimeout: false })
+      const roomy = P.ROOM_MS + 5
+      const slice = (ms = roomy) => slices.shift()?.({ timeRemaining: () => ms, didTimeout: false })
       slice()
       assert.deepEqual(made, [], 'nothing while busy')
-      busy = false
-      slice(1)
-      assert.deepEqual(made, [], 'nothing in a slice too short')
+      calm = true
       slice()
-      assert.equal(made.length, 1, 'one region a slice')
+      assert.deepEqual(made, [], 'nothing while busy, calm or not')
+      busy = false
+      calm = false
+      // A frame's spare time while the game plays: never enough, however many such slices come.
+      for (let k = 0; k < 200; k++) slice(12)
+      assert.deepEqual(made, [], 'nothing in short slices')
+      slice()
+      assert.equal(made.length, 1, 'one region a long slice')
+      calm = true
+      slice(1)
+      assert.equal(made.length, 2, 'a calm game (paused, a panel, a dialog) makes one in any slice')
+      calm = false
       for (let k = 0; k < 10 && slices.length; k++) slice()
       const want = Object.values(P.WORLD.generate('fr:6,6').edges).sort()
       assert.deepEqual([...made].sort(), want)

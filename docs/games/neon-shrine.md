@@ -47,7 +47,11 @@ in dialog lines. `audio.ts` —
 music, jingles, SFX. `Zelda.vue` — the world shell (loop, input, touch
 deck, audio, saves, pause menu, exits, navigation lock), mounted by
 `themes/portal/Landing.vue`. `LookBooth.vue` — the NEW LOOK stall's mirror.
-`profileSync.ts` — the profile pull.
+`profileSync.ts` — the profile pull. `prefetch.ts` — makes the frontier
+regions next to the hero's before they are crossed into, one at a time and
+only when the game stands still (paused, a panel or a dialog open) or the
+browser has an idle slice long enough for a whole region; never during a
+warp, a fight or a scroll, so what is not ready is made at the warp as before.
 `progress.ts` — quest steps and the save merge. `hiscore.ts` — a real top
 three on the arcade's HIGH SCORES sign (one Hall of Fame game at random,
 `/api/leaderboard` without a player id; offline it keeps the KNG joke).

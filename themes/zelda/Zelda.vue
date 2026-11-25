@@ -283,8 +283,14 @@ let linkedUser = ''
 let renderer: Renderer | null = null
 let audio: ZeldaAudio | null = null
 let state: GameState = createGame(WORLD, { at: WORLD.start })
-/** The frontier's next regions, made in idle time so crossing an edge does not stall (never mid-warp or mid-fight). */
-const prefetch = neighbourPrefetch(WORLD, () => state.mode === 'warp' || state.mode === 'battle' || state.mode === 'scroll')
+/**
+ * The frontier's next regions, made when nothing is moving (paused, a panel or a dialog open, or a long idle
+ * slice) so crossing an edge does not stall; never mid-warp, mid-fight or mid-scroll, and never in a short slice.
+ */
+const prefetch = neighbourPrefetch(WORLD, {
+  busy: () => state.mode === 'warp' || state.mode === 'battle' || state.mode === 'scroll',
+  calm: () => paused.value || panel.value !== null || state.mode === 'dialog' || state.mode === 'get',
+})
 let raf = 0
 let lastT = 0
 let hitStopMs = 0

@@ -35,7 +35,8 @@ import { makeCanvas } from '../sheet'
 import { NEON_SKIN, WINDOW_SKIN } from '../hud'
 import { drawHookChain, drawStaticMood, fireflies } from '../wild'
 import { centreIn, groundRect, project, projection, type Rect } from './project'
-import { FLAT, shapeOf, type Shape } from './shape'
+import { CARD, FLAT, shapeOf, type Shape } from './shape'
+import { standsIn } from '../standIns'
 
 type G = CanvasRenderingContext2D
 const T = TILE
@@ -276,7 +277,8 @@ export default function isoView(kit: Kit): View {
     for (let ty = 0; ty < m.h; ty++) for (let tx = 0; tx < m.w; tx++) {
       const i = ty * m.w + tx
       const t = m.tiles[i]!
-      shapes[i] = shapeOf(t, kind, (dx, dy) => tileAt(m, kind, tx + dx, ty + dy), own.has(i), true)
+      // (The frontier's solid scenery stands as its classic stand-in, `../standIns.ts`.)
+      shapes[i] = standsIn(m, i) ? CARD : shapeOf(t, kind, (dx, dy) => tileAt(m, kind, tx + dx, ty + dy), own.has(i), true)
     }
     shapeMap = m
     glowTiles = new Set()
