@@ -1,3 +1,4 @@
+import { TONES } from '../tones'
 /**
  * The isometric view, rebuilt as a 16-bit machine would have dreamt it: the
  * same world turned 45° and tipped back, at twice the pixel density, with
@@ -1440,7 +1441,10 @@ export default function isoView(kit: Kit): View {
       const z = (lm.z ?? digLift(m, tx, ty)) + (motion?.bob ? frame / (T * DENSITY) : 0)
       stand(key, lm.x, lm.y, px, rise, z)
       if (lm.shadow) cards.push({ x: lm.x, y: lm.y, ...lm.shadow })
-      if (lm.light && (!lm.night || afterDusk)) lights.push({ x: lm.x, y: lm.y, ...lm.light })
+      if (lm.light && (!lm.night || afterDusk)) {
+        const { r, tone, a } = lm.light
+        lights.push({ x: lm.x, y: lm.y, r, color: TONES[tone], a })
+      }
     }
     // Boulders rolling (the puzzles'): in the round, turning as they go (their classic card stands down for them).
     if (drawn) for (const b of m.phys?.rolling ?? []) {

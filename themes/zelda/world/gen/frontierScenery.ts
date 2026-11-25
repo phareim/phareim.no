@@ -7,7 +7,7 @@ const cycle = (frames: number, fps: number) => ({ frames, fps })
 
 const CAMP: IsoLandmark[] = [
   prop('camp_board_cyan', 4.4, 1.05),
-  prop('camp_fire', 2.1, 2.48, { motion: cycle(4, 5), light: { r: 2.2, color: '#ff9868', a: 0.6 } }),
+  prop('camp_fire', 2.1, 2.48, { motion: cycle(4, 5), light: { r: 2.2, tone: 'gold', a: 0.6 } }),
   prop('camp_tripod', 2.1, 2.48),
   prop('camp_log', 1.66, 3.11),
   prop('camp_log', 2.64, 3.05),
@@ -48,7 +48,7 @@ const SCENERY: Record<string, Record<string, IsoLandmark[]>> = {
       prop('landing_bollard', 5.15, 5.58),
       prop('landing_crates', 3.7, 4.28),
       prop('landing_net_rack', 1.63, 4.15),
-      prop('landing_harbour_light', 6.55, 5.35, { light: { r: 2.6, color: '#61edff', a: 0.65 } }),
+      prop('landing_harbour_light', 6.55, 5.35, { light: { r: 2.6, tone: 'cyan', a: 0.65 } }),
       prop('camp_board_gold', 3.45, 2.08),
     ],
   },
@@ -186,9 +186,7 @@ export function sceneryAt(realm: string, stamp: string, x: number, y: number): I
   }))
 }
 
-const ROAD_TONES = [
-  ['pink', '#ff6dbb'], ['cyan', '#66efff'], ['violet', '#af84fa'], ['gold', '#ffca69'], ['rose', '#f493a9'],
-] as const
+const ROAD_TONES = ['pink', 'cyan', 'violet', 'gold', 'rose'] as const
 const ROAD_VERGE = new Set(['.', ':', ';', '-'])
 
 /** Sparse lamps on open verges. Read the completed layout without consuming its random stream. */
@@ -206,9 +204,9 @@ export function roadsideLights(rows: string[][], claimed: Uint8Array, seed: numb
       const ny = y + (across ? side : 0)
       if (claimed[ny * w + nx] || !ROAD_VERGE.has(rows[ny]![nx]!)) continue
       if (out.some(p => Math.abs(p.x - nx - 0.5) + Math.abs(p.y - ny - 0.5) < 5)) continue
-      const [tone, color] = ROAD_TONES[(chance >>> 8) % ROAD_TONES.length]!
+      const tone = ROAD_TONES[(chance >>> 8) % ROAD_TONES.length]!
       out.push(prop(`road_lantern_${tone}_off`, nx + 0.5, ny + 0.5, {
-        night: `road_lantern_${tone}_on`, light: { r: 2.15, color, a: 0.55 },
+        night: `road_lantern_${tone}_on`, light: { r: 2.15, tone, a: 0.55 },
       }))
       break
     }
