@@ -132,6 +132,17 @@ export type TileChar =
   // The VIP hall's door
   | 'q' // the bar's back shelf of bottles (solid, wall)
   | '¤' // velvet rope (solid, projectiles pass; gone while `GameState.session` is true)
+  // Dig & build (`engine/dig.ts`; only on maps with `MapDef.dig`, where heights do the blocking)
+  | 'а' // stone: a rock column's top, a placed stone block (the pickaxe digs it)
+  | 'б' // timber: a placed wooden block (the axe takes it)
+  | 'в' // turf: raised earth with grass on it (the shovel digs it)
+  | 'д' // dug earth: bare dirt, at any height
+  | 'е' // lumen ore: stone with a pink vein (the pickaxe digs it for lumen)
+  | 'ж' // ramp rising north
+  | 'з' // ramp rising south
+  | 'и' // ramp rising east
+  | 'й' // ramp rising west
+  | 'к' // a hole, one level below the ground
 
 // ---------------------------------------------------------------------------
 // Items
@@ -160,8 +171,34 @@ export type ItemId =
   | 'tube' // a vacuum tube for Dusty's radio
   | 'walkie' // Toby's lost walkie-talkie
   | 'hat' // the troll's hat
+  // Dig & build tools (`engine/dig.ts`): each unlocks one verb on a map with `MapDef.dig`
+  | 'pickaxe' // stone, ore, rocks, boulders
+  | 'shovel' // dig earth and sand, fill a hole
+  | 'axe' // fell trees and bushes, take wooden blocks and planks
+  | 'hammer' // build: blocks, ramps, planks over water, lamps
 
-export type UseItem = 'disc' | 'bombs' | 'hook'
+/** `dig`: the pickaxe, shovel or axe, whichever the tile in front asks for; `build`: the hammer. */
+export type UseItem = 'disc' | 'bombs' | 'hook' | 'dig' | 'build'
+
+/** Dig & build materials, carried in `Inventory.mats`. */
+export type DigMat = 'dirt' | 'stone' | 'wood' | 'lumen'
+/** What the hammer builds on open ground (`Inventory.build`). */
+export type DigKind = 'stone' | 'wood' | 'lamp'
+
+/**
+ * A map that can be dug and built on (`engine/dig.ts`; docs/games/neon-shrine-dig.md). Every tile gets a
+ * height 0–4: walking crosses equal heights, steps down freely and goes up only by a ramp.
+ */
+export interface DigDef {
+  /** Heights, a digit per tile in rows like `rows`; any other char (or no rows) is `ground`. */
+  heights?: string[]
+  /** The ground's level (default 1): one below it is a hole. */
+  ground?: number
+  /** False: the tools dig, the hammer builds nothing. */
+  build?: boolean
+  /** Hidden caches: digging tile (x, y) turns up `item`, once (flag `took:<id>`). */
+  caches?: Array<{ x: number; y: number; id: string; item: ItemId }>
+}
 
 // ---------------------------------------------------------------------------
 // Authored world
@@ -391,6 +428,8 @@ export interface MapDef {
   /** Letter stones: walking over them in this order sets `flag`. */
   codes?: Array<{ word: string; flag: string }>
   props?: Prop[]
+  /** Dig & build is on here (`engine/dig.ts`). */
+  dig?: DigDef
 }
 
 export interface AreaIntro {
@@ -582,7 +621,11 @@ export interface MapState {
   onGlyph: number
   /** MapDef.keyring, resolved. */
   ring: string
+  /** Dig & build (`MapDef.dig`): the height of every tile, the ground's level, the hero's standing level. */
+  dig?: DigState
 }
+
+export interface DigState { h: number[]; g: number; z: number }
 
 export type HeroAct =
   | 'idle' | 'walk' | 'swing' | 'spin' | 'lift' | 'carry' | 'throw' | 'push'
@@ -644,6 +687,10 @@ export interface Inventory {
   shrooms: number
   /** Small keys per dungeon other than the Shrine (whose keys are `keys`), by MapDef.keyring. */
   keyrings: Record<string, number>
+  /** Dig & build materials carried (absent: none). */
+  mats?: Partial<Record<DigMat, number>>
+  /** What the hammer builds on open ground. */
+  build?: DigKind
 }
 
 /** The grappling hook in flight. Positions in tiles. */
@@ -750,6 +797,8 @@ export interface GameState {
     ahead?: number
     spread?: number
   }
+  /** Dig & build edits per map id: tile index → tile char + height digit (`engine/dig.ts`). */
+  digEdits?: Record<string, Record<number, string>>
 }
 
 // ---------------------------------------------------------------------------
@@ -836,6 +885,7 @@ export type GameEvent =
   | { type: 'join' }
   | { type: 'wait' } // Luna sat down at her fort
   | { type: 'bark'; x: number; y: number }
+  | { type: 'dig'; x: number; y: number; verb: 'dig' | 'fill' | 'build' | 'take'; tile: TileChar; z: number }
 
 // ---------------------------------------------------------------------------
 // Save (localStorage.zeldaSave, mirrored to the player's profile)
@@ -855,4 +905,6 @@ export interface SaveData {
   savedAt?: number
   /** Seconds into the day, once the prism is home (`GameState.daytime`). */
   day?: number
+  /** Dig & build edits, per map id (`engine/dig.ts` encodeDig). */
+  dig?: Record<string, string>
 }

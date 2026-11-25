@@ -18,6 +18,7 @@ import { DAY_LENGTH, settleFoes, stepFoes } from './day'
 import { placeLuna, refreshNpcs, stepLuna } from './luna'
 import { stepHook } from './hook'
 import { dirVec } from './util'
+import { cleanDigInv, decodeDig, encodeDig, stepDig } from './dig'
 
 function freshInv(): Inventory {
   return {
@@ -69,6 +70,8 @@ export function createGame(
     luna: null,
     daytime: save?.inv.prism ? (typeof save.day === 'number' ? save.day : 0) : null,
   }
+  const edits = save ? decodeDig(save.dig) : undefined
+  if (edits) s.digEdits = edits
   if (save) for (const f of save.flags) s.flags[f] = true
   const ev: GameEvent[] = []
   enterMap(world, s, map, entry, ev)
@@ -221,6 +224,7 @@ function play(c: Ctx, dt: number, inp: Input) {
       s.daytime = (s.daytime + dt) % DAY_LENGTH
       stepFoes(c.w, s)
     }
+    if (s.map.dig) stepDig(c, dt)
     stepHero(c, inp, dt)
   }
   if (s.mode !== 'play') return
@@ -467,6 +471,7 @@ export function toSave(s: GameState): SaveData | null {
     rng: s.rng,
     elapsed: s.elapsed,
     ...(s.daytime !== null ? { day: Math.round(s.daytime * 10) / 10 } : {}),
+    ...(s.digEdits && encodeDig(s.digEdits) ? { dig: encodeDig(s.digEdits) } : {}),
   }
 }
 
@@ -496,7 +501,7 @@ export function parseSave(raw: unknown): SaveData | null {
   const OLD_KEYS = ['sword', 'bombBag', 'bombs', 'disc', 'bits', 'keys', 'bigKey', 'pieces', 'selected', 'prism']
   for (const k of Object.keys(base) as Array<keyof Inventory>) {
     const want = typeof base[k]
-    if (k === 'selected') { if (inv[k] !== null && inv[k] !== 'disc' && inv[k] !== 'bombs' && inv[k] !== 'hook') return null; continue }
+    if (k === 'selected') { if (inv[k] !== null && inv[k] !== 'disc' && inv[k] !== 'bombs' && inv[k] !== 'hook' && inv[k] !== 'dig' && inv[k] !== 'build') return null; continue }
     if (inv[k] === undefined && !OLD_KEYS.includes(k)) continue
     if (k === 'keyrings') { if (!inv[k] || typeof inv[k] !== 'object' || Array.isArray(inv[k])) return null; continue }
     if (typeof inv[k] !== want) return null
@@ -504,9 +509,10 @@ export function parseSave(raw: unknown): SaveData | null {
   const maxHp = Math.max(START_HP, Math.min(20, Math.round(r.maxHp as number)))
   return {
     v: SAVE_VERSION, map: r.map, entry: r.entry, hp: maxHp, maxHp,
-    inv: { ...base, ...(inv as unknown as Inventory), keyrings: cleanRings(inv.keyrings) }, flags: r.flags as string[], rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
+    inv: { ...base, ...(inv as unknown as Inventory), keyrings: cleanRings(inv.keyrings), ...cleanDigInv(inv) }, flags: r.flags as string[], rng: (r.rng as number) | 0, elapsed: Math.max(0, r.elapsed as number),
     ...(num(r.savedAt) && (r.savedAt as number) > 0 ? { savedAt: Math.floor(r.savedAt as number) } : {}),
     ...(num(r.day) && (r.day as number) >= 0 ? { day: (r.day as number) % DAY_LENGTH } : {}),
+    ...(decodeDig(r.dig) ? { dig: encodeDig(decodeDig(r.dig)) } : {}),
   }
 }
 

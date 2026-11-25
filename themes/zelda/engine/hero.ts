@@ -3,7 +3,7 @@
  * exit / lift / throw / sword), the charged spin, B items, block pushing,
  * doors, walking out of a door, and the tiles underfoot.
  */
-import type { Dir, ExitSpot, Input, TileChar } from '../types'
+import type { Dir, ExitSpot, Input, TileChar, UseItem } from '../types'
 import {
   ARC_REACH, BEAM_SPEED, CARRY_SPEED, CHARGE_SPEED, CHARGE_TIME, HERO_R, HERO_SPEED, LIFT_TIME, PSI_SPEED, PUSH_DELAY, SPIN_REACH,
   SPIN_TIME, SWING_COOLDOWN, SWING_TIME, SWORD_ARC, SWORD_REACH, TALK_REST, THROW_SPEED,
@@ -13,6 +13,7 @@ import { acquire, collectDrop, hitEnemy, hurtHero, rollDrop, type Ctx } from './
 import { breakShards, enemyActive } from './enemies'
 import { addKeys, circleBlocked, condMet, floodRun, hasBigKey, keyCount, has, lineClear, moveCircle, setFlag, setTile, tileAt, cellIndex } from './map'
 import { fireHook } from './hook'
+import { digCycle, digItems, digOutOfReach, isDigItem, useDigTool } from './dig'
 import { angleDiff, dirAngle, dirVec, nextId, toDir } from './util'
 
 const CORNER_ASSIST = 0.34
@@ -287,6 +288,8 @@ function interact(c: Ctx): boolean {
   const tx = Math.floor(fx)
   const ty = Math.floor(fy)
   const t = tileAt(s.map, tx, ty)
+  // On a dig map, what stands higher than the hero is out of reach (a chest on a ledge).
+  if (digOutOfReach(s, tx, ty)) return false
 
   // Luna, a step behind — she talks only when nothing is attacking (in a fight, A swings).
   const L = s.luna
@@ -682,10 +685,13 @@ function tryPush(c: Ctx, tx: number, ty: number, d: Dir) {
 
 export function cycleItem(c: Ctx) {
   const inv = c.s.inv
-  const owned: Array<'disc' | 'bombs' | 'hook'> = []
+  // With the hammer out, the cycle steps through what it builds first (`dig.ts`).
+  if (digCycle(c)) return
+  const owned: UseItem[] = []
   if (inv.hook) owned.push('hook')
   if (inv.disc) owned.push('disc')
   if (inv.bombBag) owned.push('bombs')
+  owned.push(...digItems(c.s, c.w))
   if (!owned.length) return
   const i = inv.selected ? owned.indexOf(inv.selected) : -1
   inv.selected = owned[(i + 1) % owned.length]!
@@ -719,6 +725,8 @@ function useItem(c: Ctx, inp: Input) {
     h.act = 'use'
     h.actT = 0
     c.ev.push({ type: 'disc' })
+  } else if (isDigItem(inv.selected)) {
+    useDigTool(c)
   } else if (s.inv.sword) c.ev.push({ type: 'error' }) // no buzz for a visitor who has nothing yet
 }
 

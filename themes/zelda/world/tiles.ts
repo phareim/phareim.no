@@ -76,6 +76,8 @@ export const TILE_INFO: Record<TileChar, TileInfo> = {
   '-': OPEN,
   q: S,
   '¤': LOW,
+  // Dig & build (`engine/dig.ts`): open to the tile table; a map's heights do the blocking.
+  а: OPEN, б: OPEN, в: OPEN, д: OPEN, е: OPEN, ж: OPEN, з: OPEN, и: OPEN, й: OPEN, к: OPEN,
 }
 
 export const TILE_CHARS = Object.keys(TILE_INFO) as TileChar[]

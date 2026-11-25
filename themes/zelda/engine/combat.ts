@@ -314,6 +314,10 @@ export function itemText(s: GameState, item: ItemId): string[] {
     case 'tube': return ['A VACUUM TUBE, STILL GOOD.', "SOMEBODY'S RADIO NEEDS ONE OF THESE."]
     case 'walkie': return ['A WALKIE-TALKIE. A STICKER ON THE BACK SAYS: PROPERTY OF TOBY. OVER.']
     case 'hat': return ['AN ENORMOUS GREEN FELT HAT. IT SMELLS OF MOSS AND BROWN CHEESE.']
+    case 'pickaxe': return ['YOU GOT THE PICKAXE!', 'WITH DIG SELECTED, {B} BREAKS STONE, ORE AND ROCKS IN FRONT OF YOU. YOU KEEP WHAT FALLS OUT.']
+    case 'shovel': return ['YOU GOT THE SHOVEL!', 'WITH DIG SELECTED, {B} DIGS EARTH AND SAND A LEVEL DOWN, OR FILLS A HOLE BELOW YOU WITH DIRT.']
+    case 'axe': return ['YOU GOT THE AXE!', 'WITH DIG SELECTED, {B} FELLS TREES AND BUSHES FOR WOOD.']
+    case 'hammer': return ['YOU GOT THE HAMMER!', '{B} BUILDS: A BLOCK, A RAMP UP A STEP, A PLANK OVER WATER. {CYCLE} PICKS STONE, WOOD OR A LAMP.', 'BUILT THINGS COME BACK WHOLE: HAMMER THEM AGAIN.']
   }
 }
 
@@ -343,6 +347,8 @@ export function grant(s: GameState, item: ItemId) {
     case 'bigBag': inv.bigBag = true; inv.bombBag = true; inv.bombs = 20; if (!inv.selected) inv.selected = 'bombs'; break
     case 'shroom': inv.shrooms = Math.min(3, inv.shrooms + 1); break
     case 'waffle': case 'tube': case 'walkie': case 'hat': break
+    case 'pickaxe': case 'shovel': case 'axe': inv.selected = 'dig'; break
+    case 'hammer': inv.selected = 'build'; break
   }
   setFlag(s, `item:${item}`)
 }
