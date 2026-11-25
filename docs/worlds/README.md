@@ -53,6 +53,11 @@ and cave in; the ferry; walking off an edge). Pictures:
 | FOGSTAGE | `realm-fogstage.md` | field battles |
 | RERUN ESTATES | `realm-rerun.md` | field battles, one street in three eras |
 
+`img/concept-<realm>.jpg` are mood targets per realm: gpt-image-2.5 (WaveSpeed
+`flare/edit`, ~$0.04 each) redrawing a real iso screenshot (`f-meadow`) as the
+realm, so camera and density match; prompts in `img/concept-prompts.json`. The
+art still to draw is in `docs/art/codex-tasks.md` (for Codex, on the Mac).
+
 `battle-notes.md` and `dig-notes.md` are the designs for the two new systems;
 `SOURCES.md` lists the research. The realms in `realms.ts` today: the Landing,
 the Green Miles (the plain between the realms), Lumenby; the others are being
