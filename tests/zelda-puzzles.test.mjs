@@ -247,6 +247,35 @@ describe('rolling stones', () => {
     assert.equal(again.map.tiles[19], '.', 'and the wall stays broken')
   })
 
+  it('keeps a rolled stone and a filled pit on a map whose id has colons (the frontier\'s fr:<x>,<y>)', () => {
+    const q = quarry()
+    const id = 'fr:1,2'
+    const world = { maps: { [id]: { ...q.world.maps.t, id } }, start: { map: id, entry: 'start' } }
+    const s = Z.createGame(world, { seed: 3 })
+    const w = { world, s }
+    s.map.enemies[0].dead = true
+    put(s, 3, 4)
+    pressA(w, s, 'up')
+    step(w, s, inp(), 120)
+    assert.equal(tile(s, 9, 1), 'κ')
+    assert.ok(s.flags[`boulder:${id}:12:20`])
+    // A second stone kicked north into the pit fills it.
+    s.map.tiles[5 * 11 + 6] = 'κ'
+    put(s, 2, 5)
+    assert.ok(Z.startRoll(Z.ctx(world, s, []), 5 * 11 + 6, 0, -1))
+    step(w, s, inp(), 30)
+    assert.ok(s.flags[`fill:${id}:50`])
+    const again = Z.createGame(world, { save: Z.toSave(s) })
+    assert.equal(again.map.tiles[20], 'κ', 'the stone lies where it came to rest')
+    assert.equal(again.map.tiles[12], '.', 'not back at home')
+    assert.equal(again.map.tiles[50], '.', 'the pit stays filled')
+    // The lever's flag is still set: the stone at rest does not roll again, from home or from where it lies.
+    step({ world }, again, inp(), 60)
+    assert.equal(again.map.tiles[20], 'κ')
+    assert.equal(again.map.tiles[12], '.')
+    assert.ok(again.flags[`boulder:${id}:12:20`])
+  })
+
   it('a bomb kicks a boulder rolling; into a pit it fills it; in its road the hero is thrown aside', () => {
     const w = quarry()
     w.s.map.tiles[5 * 11 + 6] = 'κ' // a second boulder below the pit (row 5 is the floor)

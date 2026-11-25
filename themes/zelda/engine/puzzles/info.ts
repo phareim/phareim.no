@@ -98,3 +98,19 @@ export function floorUnder(info: MapInfo, p: PuzzleInfo, flags: Record<string, t
   if (b === 'α' || b === 'θ' || b === 'η' || b === 'σ' || b === '_' || b === ',' || b === ':' || b === 'ψ') return b
   return '.'
 }
+
+/**
+ * A puzzle save flag of map `id`, read by its prefix: map ids may hold ':' themselves (the frontier's `fr:<x>,<y>`).
+ * `fill:<map>:<tile>` → { fill }, `boulder:<map>:<home>:<rest>` → { home, rest }; null for anything else.
+ */
+export function puzzleFlag(f: string, id: string): { fill: number } | { home: number; rest: number } | null {
+  if (f.startsWith(`fill:${id}:`)) {
+    const fill = Number(f.slice(id.length + 6))
+    return Number.isInteger(fill) ? { fill } : null
+  }
+  if (!f.startsWith(`boulder:${id}:`)) return null
+  const q = f.slice(id.length + 9).split(':')
+  const home = Number(q[0])
+  const rest = Number(q[1])
+  return q.length === 2 && Number.isInteger(home) && Number.isInteger(rest) ? { home, rest } : null
+}

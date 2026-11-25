@@ -22,7 +22,7 @@ import { STATS } from '../spawn'
 import { BIG, hitEnemy, hurtHero, killEnemy, type Ctx } from '../combat'
 import { cellIndex, circleBlocked, circleOnTile, condMet, has, moveCircle, setFlag, solidTile, tileAt } from '../map'
 import { dirVec, nextId, toDir } from '../util'
-import { floorUnder, puzzleInfo, sluiceFull, type PuzzleInfo } from './info'
+import { floorUnder, puzzleFlag, puzzleInfo, sluiceFull, type PuzzleInfo } from './info'
 
 export { puzzleInfo } from './info'
 
@@ -436,9 +436,12 @@ const ROLL_ONTO = new Set<TileChar>(['.', ',', '_', ':', '{', ';', 'x', 'Î±', 'Î
 
 /** Where boulder at tile `at` started out (its save flag says, else here). */
 function homeOf(c: Ctx, at: number): { home: number; key: string | null } {
-  const pre = `boulder:${c.s.map.id}:`
-  const key = Object.keys(c.s.flags).find(f => f.startsWith(pre) && f.endsWith(`:${at}`)) ?? null
-  return { home: key ? Number(key.split(':')[2]) : at, key }
+  const id = c.s.map.id
+  for (const key of Object.keys(c.s.flags)) {
+    const q = puzzleFlag(key, id)
+    if (q && 'rest' in q && q.rest === at) return { home: q.home, key }
+  }
+  return { home: at, key: null }
 }
 
 /** Set the boulder on tile `idx` rolling along (dx, dy). False if the way is shut. */
