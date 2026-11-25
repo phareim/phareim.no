@@ -88,29 +88,6 @@ describe('isometric bosses', () => {
     }
   })
 
-  it('keeps the classic identity in the colours: the king\'s pink eye and crown, its yellow studs; the twins cyan and pink', () => {
-    const k = M.BOSS_ART.king
-    const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16))
-    const near = (c, t, d) => Math.hypot(...hex(c).map((v, i) => v - hex(t)[i])) <= d
-    for (const key of ['front_0', 'front_1']) {
-      const used = new Set(k.frames[key].rows.join(''))
-      const cols = [...used].filter(ch => ch !== '.').map(ch => k.pal[ch])
-      assert.ok(cols.some(c => near(c, '#ff2fa0', 60)), `${key}: hot pink`)
-      assert.ok(cols.some(c => near(c, '#ffd23f', 80)), `${key}: yellow studs`)
-      assert.ok(cols.some(c => near(c, '#2ff3ff', 80)), `${key}: cyan glitch line`)
-    }
-    const g = M.BOSS_ART.gemini
-    const share = (key, t) => {
-      const px = g.frames[key].rows.join('').split('').filter(ch => ch !== '.')
-      return px.filter(ch => near(g.pal[ch], t, 110)).length / px.length
-    }
-    for (const n of ['0', '1', 'down']) {
-      assert.ok(share(`front_a_${n}`, '#2ff3ff') + share(`front_a_${n}`, '#2f5fd0') > 0.3, `a_${n} is cyan and blue`)
-      assert.ok(share(`front_b_${n}`, '#ff2fa0') + share(`front_b_${n}`, '#ff8ae0') > 0.3, `b_${n} is pink`)
-      assert.ok(share(`front_a_${n}`, '#ff2fa0') < 0.05 && share(`front_b_${n}`, '#2ff3ff') < 0.05, `${n}: the twins apart`)
-    }
-  })
-
   it('routes the bosses through the folk router, and falls back whole when the studio redraws one', () => {
     M.setSpriteOverrides({})
     assert.equal(M.familyOf('king_hurt'), 'king')

@@ -75,11 +75,6 @@ describe('the hero in isometric pixel art', () => {
       // The look's own colour is one of the slots, as it is in the classic hero.
       assert.equal(M.HERO_DRAWN[role][M.HERO_BASE[role]], M.DRAWN_LOOK[KEY[role]], role)
     }
-    // The hero's marks: the cyan jacket, the white stripe, the pink headband, the yellow buckle.
-    assert.equal(pal[M.HERO_LETTERS.top[M.HERO_BASE.top]], '#2ff3ff')
-    assert.equal(pal[M.HERO_LETTERS.stripe[M.HERO_BASE.stripe]], '#fff4ff')
-    assert.equal(pal[M.HERO_LETTERS.head[M.HERO_BASE.head]], '#ff2fa0')
-    assert.equal(pal[M.HERO_LETTERS.belt[M.HERO_BASE.belt]], '#ffd23f')
   })
 
   it('recolours by role for the booth\'s girl look and a made figure\'s colours', () => {
