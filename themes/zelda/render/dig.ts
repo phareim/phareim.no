@@ -165,6 +165,13 @@ export function drawDigCursor(g: G, world: World, s: GameState, cx: number, cy: 
 }
 
 /** The B item's icon for DIG or BUILD: the tool for the tile in front (or the first one found), or the hammer. */
+/** The icon of the B item out (the HUD's box, the touch B pad): for DIG, `digIcon`; '' with nothing out. */
+export function itemIconName(world: World, s: GameState): string {
+  const u = s.inv.selected
+  if (!u) return ''
+  return u === 'dig' || u === 'build' ? digIcon(world, s) : u === 'disc' ? 'item_disc' : u === 'hook' ? 'item_hook' : 'item_bombbag'
+}
+
 export function digIcon(world: World, s: GameState): string {
   if (s.inv.selected === 'build') return 'item_hammer'
   const p = s.map.dig ? digPlan(world, s) : null

@@ -142,7 +142,7 @@
 import EscHold from '../base/EscHold.vue'
 import AccountConsole from './AccountConsole.vue'
 import LookBooth from './LookBooth.vue'
-import { createGame, HOURS, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave } from './engine/index'
+import { createGame, HOURS, mapInfo, resumeAfterWin, setDaytime, setSession, stepGame, toSave, useItems } from './engine/index'
 import { fetchSession } from './account'
 import { WORLD, worldStartingAt } from './world/index'
 import { createRenderer, type FrameUI, type Renderer, type ViewFactory } from './render/renderer'
@@ -152,6 +152,7 @@ import { GLASS_SKIN, HIRES_WINDOW_SKIN, NEON_SKIN, ROUND_SKIN, type HudSkin } fr
 import { REFUSE_MS, SW_H, SW_W, TICK_MS, captionFor, chromeAlpha, drawTurnSwitch, refuseNudge, shortTag, switchLayout, tickNudge, type SwitchState } from './render/turnSwitch'
 import { resolveParams } from './viewParams'
 import { sprite } from './render/sheet'
+import { itemIconName } from './render/dig'
 import { startLiveSprites } from './render/live'
 import { KEYBOARD_KEYS, TOUCH_KEYS } from './keys'
 import { createZeldaAudio, flavorForView, type SfxName, type ZeldaAudio } from './audio'
@@ -166,7 +167,7 @@ import { HERO_LOOK_KEY, storeHeroLook, wornLook, type HeroLook } from './render/
 import { HERO_COLORS_KEY, type HeroColors } from '../miniworld/types'
 import { FIGUR_HERO_KEY } from '../figur/types'
 import { readWallet, addToWallet, onWalletChange } from '../../composables/useWallet'
-import type { ExitTarget, GameState, GameEvent, PanelId, SaveData, TrackId, UseItem, World } from './types'
+import type { ExitTarget, GameState, GameEvent, PanelId, SaveData, TrackId, World } from './types'
 
 /** The newsstand's reader stays out of the entry (what `/` costs): nobody pays for it before using the stand. */
 const NewsStand = defineAsyncComponent(() => import('./NewsStand.vue'))
@@ -208,8 +209,9 @@ let panelExit = ''
 let signedIn = false
 const phase = ref<Phase>('play')
 const touchUI = ref(false)
-const selected = ref<UseItem | null>(null)
-/** The hero owns bombs or the disc: B, SWAP and Tab have a job. */
+/** The B item's icon, as the HUD would draw it (for DIG: the tool the tile in front wants); '' with nothing out. */
+const padItem = ref('')
+/** The hero has a B item to use here (bombs, the disc, the hook, a dig tool on a dig map): B, SWAP and Tab have a job. */
 const hasItem = ref(false)
 /** A dialog is open (the floating buttons hide so they don't sit on the text). */
 const talking = ref(false)
@@ -345,11 +347,7 @@ function iconUrl(name: string) {
   if (!url) { url = (fine ? HIRES_WINDOW_SKIN.icon!(name) : sprite(name)).toDataURL(); iconCache.set(key, url) }
   return url
 }
-const itemIcon = computed(() => {
-  const s = selected.value
-  if (!s) return ''
-  return iconUrl(s === 'dig' ? 'item_pickaxe' : s === 'build' ? 'item_hammer' : s === 'disc' ? 'item_disc' : s === 'hook' ? 'item_hook' : 'item_bombbag')
-})
+const itemIcon = computed(() => (padItem.value ? iconUrl(padItem.value) : ''))
 const swordIcon = ref('')
 const swapIcon = ref('')
 watch(dress16, () => {
@@ -862,8 +860,9 @@ function dropSave(extra: { best?: number, won?: boolean } = {}) {
 }
 
 function syncDeck() {
-  if (state.inv.selected !== selected.value) selected.value = state.inv.selected
-  const item = state.inv.bombBag || state.inv.disc || state.inv.hook
+  const pad = itemIconName(WORLD, state)
+  if (pad !== padItem.value) padItem.value = pad
+  const item = useItems(state, WORLD).length > 0
   if (item !== hasItem.value) hasItem.value = item
   if (leaving.value !== (state.mode === 'exit')) leaving.value = state.mode === 'exit'
   if (talking.value !== (state.mode === 'dialog')) {

@@ -3,10 +3,21 @@
 // the caps, and old saves.
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
 import { load } from './zelda-load.mjs'
 
 let Z
-before(async () => { Z = await load() })
+/** The pictures' side of dig & build (`render/dig.ts`, `render/iso/dig.ts`): pure, bundled on their own. */
+let R
+before(async () => {
+  Z = await load()
+  const out = createRequire(import.meta.url)('esbuild').buildSync({
+    stdin: { contents: `export { itemIconName } from './render/dig'; export { rampSlope, rampSides } from './render/iso/dig'`, resolveDir: new URL('../themes/zelda', import.meta.url).pathname, loader: 'ts' },
+    bundle: true, format: 'esm', write: false, platform: 'neutral', logLevel: 'error',
+  })
+  R = await import('data:text/javascript;base64,' + Buffer.from(out.outputFiles[0].text).toString('base64'))
+})
 
 const inp = (o = {}) => ({ move: { x: 0, y: 0 }, a: false, aPress: false, bPress: false, cycle: false, autoFace: false, ...o })
 const step = (s, i = inp(), dt = 1 / 60) => Z.stepGame(Z.WORLD, s, dt, i)
@@ -418,6 +429,26 @@ describe('Neon Shrine dig & build', () => {
     s.inv.selected = 'dig'
     const save = { ...Z.toSave(s), map: 'overworld', entry: 'hut' }
     assert.equal(Z.createGame(Z.WORLD, { save: Z.parseSave(save) }).inv.selected, 'hook')
+  })
+
+  it('gives a touch player B and SWAP with only a dig tool, and the pad the tool in hand', () => {
+    // Only the shovel (the quarry's first find): there is a B item to use, and its icon is the shovel.
+    const s = quarry(['shovel'])
+    s.inv.selected = 'dig'
+    assert.deepEqual(Z.useItems(s, Z.WORLD), ['dig'])
+    stand(s, 18, 12, 'up')
+    assert.equal(R.itemIconName(Z.WORLD, s), 'item_shovel')
+    s.flags['item:hammer'] = true
+    s.inv.selected = 'build'
+    assert.equal(R.itemIconName(Z.WORLD, s), 'item_hammer')
+    s.inv.selected = null
+    assert.equal(R.itemIconName(Z.WORLD, s), '')
+    // The deck asks the same list and the same icon (Zelda.vue: syncDeck).
+    const shell = readFileSync(new URL('../themes/zelda/Zelda.vue', import.meta.url), 'utf8')
+    const sync = shell.slice(shell.indexOf('function syncDeck()'), shell.indexOf('function syncDeck()') + 600)
+    assert.match(sync, /useItems\(state, WORLD\)\.length/)
+    assert.match(sync, /itemIconName\(WORLD, state\)/)
+    assert.doesNotMatch(shell, /'item_pickaxe'/)
   })
 
   it('reads old saves, and saves with the tools out', () => {
