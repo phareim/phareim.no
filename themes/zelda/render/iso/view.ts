@@ -23,7 +23,7 @@
  * Without WebGL2 the canvas view this one replaced draws instead
  * (`legacy.ts`).
  */
-import type { GameState, MapKind, TileChar } from '../../types'
+import type { GameState, MapDef, MapKind, TileChar } from '../../types'
 import { ARC_REACH, SCROLL_TIME, SPIN_REACH, SPIN_TIME, SWING_TIME, SWORD_REACH, TILE } from '../../types'
 import { aimOf, battleFocus, has, mapInfo, raised, swingAngle } from '../../engine/index'
 import { dirAngle } from '../../engine/util'
@@ -42,7 +42,8 @@ import { BVERT, createEngine, LVERT, VERT, type Engine, type Look } from './engi
 import { rgb } from './gl'
 import { folkMix, folkRouter } from './folk'
 import { furnitureAt, hasThing, LANDMARKS, thingKey, withThings } from './things'
-import { REALM_THING_ART } from './frontierArt'
+import { hasRealmArt, realmArt as realmKit, warmRealmArt } from './frontierArt'
+import { FRONTIER_PREFIX, realmAt } from '../../world/gen/frontier'
 import { buildFlora, floraWithVisitor, stepFlora, type FloraAtlas, type FloraKind, type FloraLook } from './flora'
 import { treeNow } from '../tree'
 import { buildBackdrop, type Backdrop, type BackdropLook } from './backdrop'
@@ -150,8 +151,10 @@ export default function isoView(kit: Kit): View {
   let matLook = ''
   const sendProps = (realm?: string) => {
     realmArt = realm
-    propAtlas = withThings(buildProps(), realm ? REALM_THING_ART[realm] : undefined)
+    propAtlas = withThings(buildProps(), realm ? realmKit(realm) : undefined)
     engine.props(propAtlas.albedo, propAtlas.normal, propAtlas.w, propAtlas.h)
+    // (The landmarks that cover classic scenery are counted again with the kit that is on the GPU now.)
+    coverDef = null
   }
   const sendMaterials = () => {
     const mats = buildMaterials()
@@ -160,9 +163,28 @@ export default function isoView(kit: Kit): View {
     engine.materials(mats.data, mats.w, mats.h)
     sendProps(realmArt)
   }
-  const prepareProps = (realm: string | undefined) => {
-    const want = realm && REALM_THING_ART[realm] ? realm : undefined
-    if (want !== realmArt) sendProps(want)
+  /** The map whose neighbours' kits were asked for last. */
+  let warmedFor: MapDef | null = null
+  /**
+   * Puts the map's realm kit on the GPU once its chunk is here (`frontierArt/index.ts`); until then the atlas
+   * has none, and the realm's landmarks are left out (the classic scenery under them stays). False while it is
+   * still on its way. The kits of the regions beyond the map's edges are fetched meanwhile, so walking on into
+   * one finds its kit here.
+   */
+  const prepareProps = (def: MapDef): boolean => {
+    const want = hasRealmArt(def.realm) ? def.realm : undefined
+    const kit = want ? realmKit(want) : undefined
+    const have = kit ? want : undefined
+    if (have !== realmArt) sendProps(have)
+    if (warmedFor !== def) {
+      warmedFor = def
+      for (const to of Object.values(def.edges ?? {})) {
+        const m = to?.startsWith(FRONTIER_PREFIX) ? /^fr:(\d+),(\d+)$/.exec(to) : null
+        if (m) warmRealmArt(realmAt(Number(m[1]), Number(m[2]))?.id)
+      }
+      if (def.entries?.deep) warmRealmArt('underglow')
+    }
+    return !want || !!kit
   }
   /**
    * Paints the view's own pictures, the materials and the things. All of it at once is a pause one can feel
@@ -722,7 +744,8 @@ export default function isoView(kit: Kit): View {
     if (!base || base.mapId !== m.id) { base = createTileLayer(world, m, 'base'); fresh(); if (late()) return false }
     if (!objects || objects.mapId !== m.id) { objects = createTileLayer(world, m, 'objects'); fresh(); if (late()) return false }
     const def = mapInfo(world, m.id).def
-    prepareProps(def.realm)
+    // (The lab, which waits for everything, waits for the realm's kit too; a visit draws on without it.)
+    if (!prepareProps(def) && all) return false
     const fLook = floraOf(def.look)
     if (def.kind === 'overworld' && floraLook !== fLook) {
       while (!stepFlora(fLook)) if (late()) return false
@@ -750,7 +773,7 @@ export default function isoView(kit: Kit): View {
     const m = s.map
     const info = mapInfo(world, m.id)
     const def = info.def
-    prepareProps(def.realm)
+    prepareProps(def)
     if (coverDef !== def) {
       coverDef = def
       covered.clear()

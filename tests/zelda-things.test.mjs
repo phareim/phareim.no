@@ -14,7 +14,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../themes/zelda')
 async function load() {
   const out = esbuild.buildSync({
     stdin: {
-      contents: `export * from './render/iso/things'; export { THING_ART } from './render/iso/thingArt'; export { rowsHash } from './render/iso/folk'; export { buildProps, depthCode } from './render/iso/props'; export { spriteRows } from './render/sheet'; export { REALM_THING_ART } from './render/iso/frontierArt'; export { FRONTIER } from './world/gen/frontier'; export { WORLD } from './world'`,
+      contents: `export * from './render/iso/things'; export { THING_ART } from './render/iso/thingArt'; export { rowsHash } from './render/iso/folk'; export { buildProps, depthCode } from './render/iso/props'; export { spriteRows } from './render/sheet'; export { REALM_ART_LOADERS, loadRealmArt, realmArt, hasRealmArt } from './render/iso/frontierArt'; export { FRONTIER } from './world/gen/frontier'; export { WORLD } from './world'`,
       resolveDir: root,
       loader: 'ts',
     },
@@ -24,7 +24,12 @@ async function load() {
 }
 
 let M
-before(async () => { M = await load() })
+/** Every realm's kit, each loaded from its own chunk (`frontierArt/index.ts`) as the view does. */
+let REALM_THING_ART
+before(async () => {
+  M = await load()
+  REALM_THING_ART = Object.fromEntries(await Promise.all(Object.keys(M.REALM_ART_LOADERS).map(async r => [r, await M.loadRealmArt(r)])))
+})
 
 // Every thing drawn, and the animations that must keep all their frames.
 const THINGS = ['van', 'tent', 'fort', 'bike', 'mast', 'mast_on', 'tank_0', 'tank_1', 'campfire_0', 'campfire_1', 'campfire_2',
@@ -100,7 +105,7 @@ describe('things drawn by hand', () => {
   it('packs each frontier kit separately and supplies every generated landmark frame', () => {
     const props = M.buildProps()
     const base = M.withThings(props)
-    for (const [realm, art] of Object.entries(M.REALM_THING_ART)) {
+    for (const [realm, art] of Object.entries(REALM_THING_ART)) {
       const atlas = M.withThings(props, art)
       assert.ok(atlas.h <= 2048, `${realm} atlas: ${atlas.h}px tall`)
       for (const [id, t] of Object.entries(art)) {
@@ -120,7 +125,7 @@ describe('things drawn by hand', () => {
           ? Array.from({ length: lm.motion.frames }, (_, i) => `${lm.art}_${i}`)
           : [lm.art]
         if (lm.lit) names.push(lm.lit.art)
-        for (const name of names) assert.ok(M.REALM_THING_ART[def.realm]?.[name], `${id}: ${name}`)
+        for (const name of names) assert.ok(REALM_THING_ART[def.realm]?.[name], `${id}: ${name}`)
       }
     }
     assert.equal(M.withThings(props), base)
